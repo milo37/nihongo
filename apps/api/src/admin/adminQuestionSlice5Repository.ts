@@ -39,7 +39,6 @@ import {
   type TargetManifest,
   type OperationContext,
   type BegunOperationRow,
-  type OccurredAtRow,
   type AuthorityProbeRow,
   type AdminAuthorityClassificationRow,
   CREATE_CHANGED_FIELDS,
@@ -47,8 +46,15 @@ import {
   toIso,
   uniqueSorted,
   rawDatabaseIdentity,
-  finishOperation
+  finishOperation,
+  adminAuditContentDigest,
+  assertReviewRequestAuthor,
+  type AdminAuditDigestFields
 } from './adminRepositoryCommon.js'
+import {
+  armAdminOperation,
+  type ArmableOperation
+} from './adminOperationArm.js'
 import {
   AdminQuestionCommandRepositoryError,
   type AdminCommandAuthority
@@ -284,7 +290,7 @@ const beginOperation = async (
     readonly command: string
     readonly referencedUserIds: readonly string[]
   }
-): Promise<BegunOperationRow> => {
+): Promise<ArmableOperation> => {
   const rows = await transaction.$queryRawUnsafe<BegunOperationRow[]>(
     `SELECT * FROM "phase7_begin_admin_operation"(
        $1::"AdminAuditCommand", $2, $3, $4::"AdminAuditEnvironment", $5::uuid[]
@@ -301,27 +307,22 @@ const beginOperation = async (
       'Phase 7 operation actor did not match the request actor.'
     )
   }
-  return operation
+  return {
+    ...operation,
+    command: input.command,
+    referencedUserIds: input.referencedUserIds
+  }
 }
 
 const armOperation = async (
   transaction: Prisma.TransactionClient,
-  operation: BegunOperationRow,
+  operation: ArmableOperation,
   manifest: TargetManifest
-): Promise<OperationContext> => {
-  const rows = await transaction.$queryRawUnsafe<OccurredAtRow[]>(
-    `SELECT "phase7_arm_admin_operation"($1, $2::jsonb) AS "occurredAt"`,
-    operation.operationId,
-    JSON.stringify(manifest)
-  )
-  const occurredAt = rows[0]?.occurredAt
-  if (!(occurredAt instanceof Date) || !Number.isFinite(occurredAt.getTime())) {
-    throw repositoryInvariantFailure(
-      'Phase 7 operation timestamp is unavailable.'
-    )
-  }
-  return { ...operation, occurredAt }
-}
+): Promise<OperationContext> => ({
+  actorUserId: operation.actorUserId,
+  operationId: operation.operationId,
+  occurredAt: await armAdminOperation(transaction, operation, manifest)
+})
 
 type AuditMetadata =
   | { readonly kind: 'NONE_V1' }
@@ -377,11 +378,7 @@ const insertAudit = async (
      ) VALUES (
        $1::"AdminAuditCommand", $2::"AdminAuditTargetType", $3, 'ACCOUNT',
        $4, $4, 'ADMIN', 'ACTIVE_ADMIN', $5::text, $6::text, $7, $8,
-       $9::jsonb, $10::jsonb,
-       "phase7_admin_audit_content_digest"(
-         $11, $1::"AdminAuditCommand", $2::"AdminAuditTargetType", $3,
-       $5::text, $6::text, $7, $8, $9::jsonb, $10::jsonb
-       ), $11, $12, $13::"AdminAuditEnvironment", $14
+       $9::jsonb, $10::jsonb, $15, $11, $12, $13::"AdminAuditEnvironment", $14
      ) RETURNING "contentDigest"`,
     input.command,
     input.targetType,
@@ -396,7 +393,22 @@ const insertAudit = async (
     input.operationId,
     input.requestId,
     input.environment,
-    input.occurredAt
+    input.occurredAt,
+    adminAuditContentDigest({
+      operationId: input.operationId,
+      command: input.command as AdminAuditDigestFields['command'],
+      targetType: input.targetType,
+      targetId: input.targetId,
+      beforeState: input.beforeState as AdminAuditDigestFields['beforeState'],
+      afterState: input.afterState as AdminAuditDigestFields['afterState'],
+      beforeRowVersion: input.beforeRowVersion,
+      afterRowVersion: input.afterRowVersion,
+      changedFields:
+        input.changedFields as AdminAuditDigestFields['changedFields'],
+      metadata: (input.metadata ?? {
+        kind: 'NONE_V1'
+      }) as AdminAuditDigestFields['metadata']
+    })
   )
   const contentDigest = rows[0]?.contentDigest
   if (
@@ -424,6 +436,7 @@ const insertReview = async (
     readonly versionId: string
   }
 ): Promise<void> => {
+  await assertReviewRequestAuthor(transaction, input.versionId, input.actorId)
   await transaction.$executeRawUnsafe(
     `INSERT INTO "ContentReview" (
        "questionId", "questionVersionId", "action", "fromState", "toState",

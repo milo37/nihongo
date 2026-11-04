@@ -5,7 +5,13 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { Client } from 'pg'
 import { buildAllQuestionSeeds } from '../../prisma/seedQuestionCatalog.js'
 import type { QuestionAggregateSeed } from '../../prisma/seed-data/buildQuestionSeed.js'
+import {
+  armAdminOperation,
+  type ArmableOperation
+} from '../admin/adminOperationArm.js'
+import { AdminRuleViolation } from '../admin/adminRepositoryCommon.js'
 import { parseApiEnvironment } from '../config/env.js'
+import type { Prisma } from '../generated/prisma/client.js'
 import { adminFreshContextSchema } from '../auth/ssoAdminFreshRepository.js'
 import { createRoleDatabaseRuntime } from './database.js'
 import {
@@ -20,8 +26,6 @@ import {
 import { attestRuntimeRoles } from './runtimeRoleAttestation.js'
 
 const EXPECTED_RECENT_MIGRATIONS = [
-  '20261028160000_study_contract_v2_default',
-  '20261028170000_study_v1_retirement_authority',
   '20261030100000_guest_expired_draft_retention',
   '20261104090000_unified_reports_import_results',
   '20261104120000_user_report_erasure_redaction',
@@ -30,7 +34,9 @@ const EXPECTED_RECENT_MIGRATIONS = [
   '20261106090000_single_operator_review',
   '20261107090000_drop_study_review_triggers',
   '20261108090000_admin_member_console_to_api',
-  '20261109090000_guest_cleanup_to_api'
+  '20261109090000_guest_cleanup_to_api',
+  '20261110090000_cms_rules_to_api',
+  '20261110100000_admin_audit_to_api'
 ] as const
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',
@@ -240,13 +246,44 @@ const beginAdminOperation = async (
   )
   const operation = begun.rows[0]
   if (!operation) throw new Error('Phase 7 operation was not created.')
-  const armed = await databaseClient.query<{ occurredAt: Date }>(
-    `SELECT "phase7_arm_admin_operation"($1, $2::jsonb) AS "occurredAt"`,
-    [operation.operationId, JSON.stringify(input.targetManifest)]
+  // The arm step runs in the API since #504 P4 (adminOperationArm.ts).
+  const occurredAt = await armInTest(
+    databaseClient,
+    {
+      ...operation,
+      command: input.command,
+      referencedUserIds: input.referencedUserIds
+    },
+    input.targetManifest
   )
-  const occurredAt = armed.rows[0]?.occurredAt
-  if (!occurredAt) throw new Error('Phase 7 operation was not armed.')
   return { ...operation, occurredAt }
+}
+
+/** Runs the API arm step on a raw pg connection inside its transaction. */
+const pgTransaction = (databaseClient: Client): Prisma.TransactionClient =>
+  ({
+    $queryRawUnsafe: async (sql: string, ...values: unknown[]) =>
+      (await databaseClient.query(sql, values)).rows
+  }) as unknown as Prisma.TransactionClient
+
+/** Arms through the API and exposes a rule violation's SQLSTATE as `code`. */
+const armInTest = async (
+  databaseClient: Client,
+  operation: ArmableOperation,
+  manifest: AdminTargetManifest
+): Promise<Date> => {
+  try {
+    return await armAdminOperation(
+      pgTransaction(databaseClient),
+      operation,
+      manifest
+    )
+  } catch (error: unknown) {
+    if (error instanceof AdminRuleViolation) {
+      throw Object.assign(error, { code: error.sqlState })
+    }
+    throw error
+  }
 }
 
 const insertCredentialUser = async (input: {
@@ -442,14 +479,14 @@ afterAll(async () => {
 })
 
 describe('Persistence foundation', () => {
-  it('61 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
+  it('63 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
     const ledger = await client.query<{ migrationName: string }>(
       `SELECT migration_name AS "migrationName"
        FROM "_prisma_migrations"
        WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
        ORDER BY started_at`
     )
-    expect(ledger.rows).toHaveLength(61)
+    expect(ledger.rows).toHaveLength(63)
     expect(
       ledger.rows.slice(-11).map(({ migrationName }) => migrationName)
     ).toEqual(EXPECTED_RECENT_MIGRATIONS)
@@ -517,23 +554,7 @@ describe('Persistence foundation', () => {
              AND procedure_record.proargtypes = '2950'::oidvector`
         )
       ).rows
-    ).toEqual([
-      {
-        aclEntryCount: 1,
-        appCanExecute: false,
-        argumentCount: 1,
-        argumentTypes: '2950',
-        config: [`search_path=pg_catalog, ${schema}, pg_temp`],
-        identityArguments: 'operation_id uuid',
-        isSecurityDefiner: true,
-        nonOwnerAclCount: 0,
-        objectId: expect.stringMatching(/^[1-9][0-9]*$/u),
-        ownerCanExecute: true,
-        ownerName: 'nihongo_phase7_owner',
-        publicCanExecute: false,
-        resultType: 'void'
-      }
-    ])
+    ).toEqual([])
     await client.query('BEGIN')
     try {
       await client.query(`SET LOCAL ROLE "nihongo_app"`)
@@ -545,7 +566,7 @@ describe('Persistence foundation', () => {
              WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`
           )
         ).rows
-      ).toEqual([{ migrationCount: 61 }])
+      ).toEqual([{ migrationCount: 63 }])
     } finally {
       await client.query('ROLLBACK')
     }
@@ -957,7 +978,6 @@ describe('Persistence foundation', () => {
           'AuthSessionRotationFence',
           'ContentReview',
           'Phase7DatabaseCapability',
-          'Phase7OperationDelta',
           'Phase7OperationIntent',
           'Phase7TrustedExecution',
           'QuestionReport',
@@ -972,7 +992,6 @@ describe('Persistence foundation', () => {
       'AuthSessionRotationFence',
       'ContentReview',
       'Phase7DatabaseCapability',
-      'Phase7OperationDelta',
       'Phase7OperationIntent',
       'Phase7TrustedExecution',
       'QuestionReport',
@@ -1055,7 +1074,6 @@ describe('Persistence foundation', () => {
       [
         [
           'phase7_activate_v1_issuer',
-          'phase7_arm_admin_operation',
           'phase7_begin_admin_operation',
           'phase7_change_password',
           'phase7_change_password_v1',
@@ -1065,7 +1083,6 @@ describe('Persistence foundation', () => {
           'phase7_confirm_v1_session_issuance',
           'phase7_consume_password_reset',
           'phase7_create_question_report',
-          'phase7_current_operation_id',
           'phase7_erase_user',
           'phase7_finish_admin_operation',
           'phase7_request_password_reset',
@@ -1086,7 +1103,6 @@ describe('Persistence foundation', () => {
           'phase7_resolve_v1_principal',
           'phase7_sign_up_credential',
           'phase7_owned_sign_out',
-          'phase7_operation_references_user',
           'phase7_trusted_erasure_environment',
           'phase7_trusted_execution_active',
           'phase7_trusted_execution_remember',
@@ -1096,7 +1112,7 @@ describe('Persistence foundation', () => {
         ]
       ]
     )
-    expect(publicExecute.rows).toHaveLength(39)
+    expect(publicExecute.rows).toHaveLength(36)
     expect(
       publicExecute.rows.filter(
         ({ ownerName, publicCanExecute }) =>
@@ -1410,7 +1426,6 @@ describe('Persistence foundation', () => {
 
   it('hard delete, published mutation, incomplete content commit을 raw SQL에서도 거부한다', async () => {
     const seed = buildAllQuestionSeeds()[0]
-    const spoofedSystemQuestionId = randomUUID()
     if (!seed) throw new Error('Canonical Phase 6 seed fixture is unavailable.')
 
     await expectFailedTransaction(async () => {
@@ -1423,29 +1438,7 @@ describe('Persistence foundation', () => {
         seed.questionId
       ])
     }, '23514')
-    await expectFailedTransaction(async () => {
-      await client.query(
-        `UPDATE "QuestionVersion"
-           SET "questionText" = 'published mutation', "rowVersion" = "rowVersion" + 1
-           WHERE "id" = $1`,
-        [seed.versionId]
-      )
-    }, '42501')
     await expectFailedTransaction(insertIncompleteSystemQuestion, '23514')
-    await expectFailedTransaction(async () => {
-      await client.query(`SET LOCAL ROLE "nihongo_app"`)
-      await client.query(
-        `INSERT INTO "Question" (
-          "id", "createdByLabelSnapshot", "createdAt", "updatedAt"
-        ) VALUES ($1, 'SYSTEM_SEED', clock_timestamp(), clock_timestamp())`,
-        [spoofedSystemQuestionId]
-      )
-    }, '42501')
-    await expect(
-      client.query(`SELECT 1 FROM "Question" WHERE "id" = $1`, [
-        spoofedSystemQuestionId
-      ])
-    ).resolves.toMatchObject({ rowCount: 0, rows: [] })
   })
 
   it(
@@ -1986,13 +1979,6 @@ describe('Persistence foundation', () => {
       clearPublishedAt: true,
       retirementKind: 'PUBLISHED_RETIREMENT'
     })
-    await expectFailedTransaction(async () => {
-      await client.query(
-        `UPDATE "Question" SET "rowVersion" = "rowVersion" + 1,
-           "updatedAt" = clock_timestamp() WHERE "id" = $1`,
-        [seed.questionId]
-      )
-    }, '42501')
     for (const actorId of [authorId, reviewerId]) {
       await withExecutionRole('nihongo_erasure_worker', () =>
         client.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [actorId])
@@ -2430,7 +2416,6 @@ describe('Persistence foundation', () => {
         (
           await client.query<{
             auditCount: number
-            deltaCount: number
             intentCount: number
             label: string
             normalizedName: string
@@ -2442,8 +2427,6 @@ describe('Persistence foundation', () => {
                  AS "versionTagCount",
                (SELECT COUNT(*)::int FROM "Phase7OperationIntent"
                 WHERE "operationId" = ANY($2::uuid[])) AS "intentCount",
-               (SELECT COUNT(*)::int FROM "Phase7OperationDelta"
-                WHERE "operationId" = ANY($2::uuid[])) AS "deltaCount",
                (SELECT COUNT(*)::int FROM "AdminAuditLog"
                 WHERE "operationId" = ANY($2::uuid[])) AS "auditCount"
              FROM "Tag" AS tag WHERE tag."id" = $3`,
@@ -2457,7 +2440,6 @@ describe('Persistence foundation', () => {
       ).toEqual([
         {
           auditCount: 0,
-          deltaCount: 0,
           intentCount: 0,
           label: tagC.label,
           normalizedName: tagC.normalizedName,
@@ -2536,35 +2518,13 @@ describe('Persistence foundation', () => {
         [firstFixture.versionId, updateOperationRow.occurredAt]
       )
       await client.query('RESET ROLE')
-      const updateDelta = await client.query<{
-        afterRowVersion: number
-        afterState: string
-        beforeRowVersion: number
-        beforeState: string
-        changedFields: string[]
-      }>(
-        `SELECT delta."fromState" AS "beforeState",
-           delta."toState" AS "afterState",
-           delta."beforeRowVersion", delta."afterRowVersion",
-           "phase7_question_version_changed_fields"(
-             delta."beforeSnapshot", delta."afterSnapshot"
-           ) AS "changedFields"
-         FROM "Phase7OperationDelta" AS delta
-         WHERE delta."operationId" = $1
-           AND delta."entityType" = 'QUESTION_VERSION'
-           AND delta."targetId" = $2`,
-        [updateOperationRow.operationId, firstFixture.versionId]
-      )
-      const updateDeltaRow = updateDelta.rows[0]
-      expect(updateDeltaRow).toMatchObject({
+      // P4 removed the DB delta capture; these are the values the update writes.
+      const updateDeltaRow = {
         afterRowVersion: 2,
         afterState: 'DRAFT',
         beforeRowVersion: 1,
         beforeState: 'DRAFT',
         changedFields: ['TAGS']
-      })
-      if (!updateDeltaRow) {
-        throw new Error('Tag update delta is unavailable.')
       }
       await client.query(`SET LOCAL ROLE "nihongo_app"`)
       const updateChangedFields = JSON.stringify(updateDeltaRow.changedFields)
@@ -2657,196 +2617,8 @@ describe('Persistence foundation', () => {
     if (!firstFixture) {
       throw new Error('Tag manifest mismatch fixture is unavailable.')
     }
-    const nonManifestTagRequestId = randomUUID()
-    let nonManifestTagOperationId = ''
-    await expectFailedTransaction(async () => {
-      await client.query(`SET LOCAL ROLE "nihongo_app"`)
-      const operation = await beginAdminOperation(client, {
-        command: 'QUESTION_VERSION_UPDATE',
-        referencedUserIds: [firstActorId],
-        requestId: nonManifestTagRequestId,
-        sessionToken: firstSessionToken,
-        targetManifest: {
-          questions: [
-            { id: firstFixture.questionId, rowVersion: 1, state: 'ACTIVE' }
-          ],
-          reports: [],
-          tags: [tagB.id, tagC.id].toSorted(),
-          versions: [
-            { id: firstFixture.versionId, rowVersion: 2, state: 'DRAFT' }
-          ]
-        }
-      })
-      nonManifestTagOperationId = operation.operationId
-      await insertVersionTag(client, firstFixture.versionId, tagA)
-      await client.query(`SELECT "phase7_finish_admin_operation"($1)`, [
-        operation.operationId
-      ])
-    }, '23514')
-    expect(nonManifestTagOperationId).not.toBe('')
-    expect(
-      (
-        await client.query<{
-          auditCount: number
-          extraTagCount: number
-          intentCount: number
-          rowVersion: number
-        }>(
-          `SELECT version."rowVersion",
-             (SELECT COUNT(*)::int FROM "QuestionVersionTag"
-              WHERE "questionVersionId" = $1 AND "tagId" = $2)
-                AS "extraTagCount",
-             (SELECT COUNT(*)::int FROM "AdminAuditLog"
-              WHERE "operationId" = $3) AS "auditCount",
-             (SELECT COUNT(*)::int FROM "Phase7OperationIntent"
-              WHERE "operationId" = $3) AS "intentCount"
-           FROM "QuestionVersion" AS version WHERE version."id" = $1`,
-          [firstFixture.versionId, tagA.id, nonManifestTagOperationId]
-        )
-      ).rows
-    ).toEqual([
-      { auditCount: 0, extraTagCount: 0, intentCount: 0, rowVersion: 2 }
-    ])
-
-    const unusedManifestTagRequestId = randomUUID()
-    const unusedManifestTagMutation = `unused-manifest-${randomUUID()}`
-    let unusedManifestTagOperationId = ''
-    await expectFailedTransaction(async () => {
-      await client.query(`SET LOCAL ROLE "nihongo_app"`)
-      const operation = await beginAdminOperation(client, {
-        command: 'QUESTION_VERSION_UPDATE',
-        referencedUserIds: [firstActorId],
-        requestId: unusedManifestTagRequestId,
-        sessionToken: firstSessionToken,
-        targetManifest: {
-          questions: [
-            { id: firstFixture.questionId, rowVersion: 1, state: 'ACTIVE' }
-          ],
-          reports: [],
-          tags: [tagA.id, tagB.id, tagC.id].toSorted(),
-          versions: [
-            { id: firstFixture.versionId, rowVersion: 2, state: 'DRAFT' }
-          ]
-        }
-      })
-      unusedManifestTagOperationId = operation.operationId
-      await client.query(
-        `UPDATE "QuestionVersion"
-         SET "explanationKo" = COALESCE("explanationKo", '') || $3,
-             "rowVersion" = 3, "updatedAt" = $2
-         WHERE "id" = $1`,
-        [
-          firstFixture.versionId,
-          operation.occurredAt,
-          unusedManifestTagMutation
-        ]
-      )
-      await client.query('RESET ROLE')
-      const delta = await client.query<{
-        afterRowVersion: number
-        afterState: string
-        beforeRowVersion: number
-        beforeState: string
-        changedFields: string[]
-      }>(
-        `SELECT delta."fromState" AS "beforeState",
-           delta."toState" AS "afterState",
-           delta."beforeRowVersion", delta."afterRowVersion",
-           "phase7_question_version_changed_fields"(
-             delta."beforeSnapshot", delta."afterSnapshot"
-           ) AS "changedFields"
-         FROM "Phase7OperationDelta" AS delta
-         WHERE delta."operationId" = $1
-           AND delta."entityType" = 'QUESTION_VERSION'
-           AND delta."targetId" = $2`,
-        [operation.operationId, firstFixture.versionId]
-      )
-      const deltaRow = delta.rows[0]
-      if (!deltaRow) {
-        throw new Error('Tag mismatch delta is unavailable.')
-      }
-      await client.query(`SET LOCAL ROLE "nihongo_app"`)
-      expect(deltaRow).toMatchObject({
-        afterRowVersion: 3,
-        afterState: 'DRAFT',
-        beforeRowVersion: 2,
-        beforeState: 'DRAFT',
-        changedFields: ['EXPLANATION_KO']
-      })
-      const changedFields = JSON.stringify(deltaRow.changedFields)
-      await client.query(
-        `INSERT INTO "AdminAuditLog" (
-          "command", "targetType", "targetId", "actorKind",
-          "actorUserId", "actorId", "actorRole", "actorLabel",
-          "beforeState", "afterState", "beforeRowVersion",
-          "afterRowVersion", "changedFields", "metadata", "contentDigest",
-          "operationId", "requestId", "environment", "occurredAt"
-        ) VALUES (
-          'QUESTION_VERSION_UPDATE', 'QUESTION_VERSION', $1, 'ACCOUNT',
-          $2, $2, 'ADMIN', 'ACTIVE_ADMIN', $3::TEXT, $4::TEXT, $5, $6,
-          $7::jsonb,
-          '{"kind":"NONE_V1"}'::jsonb,
-          "phase7_admin_audit_content_digest"(
-            $8, 'QUESTION_VERSION_UPDATE', 'QUESTION_VERSION', $1,
-            $3::TEXT, $4::TEXT, $5, $6, $7::jsonb,
-            '{"kind":"NONE_V1"}'::jsonb
-          ), $8, $9, 'TEST', $10
-        )`,
-        [
-          firstFixture.versionId,
-          operation.actorUserId,
-          deltaRow.beforeState,
-          deltaRow.afterState,
-          deltaRow.beforeRowVersion,
-          deltaRow.afterRowVersion,
-          changedFields,
-          operation.operationId,
-          unusedManifestTagRequestId,
-          operation.occurredAt
-        ]
-      )
-      await client.query(`SELECT "phase7_finish_admin_operation"($1)`, [
-        operation.operationId
-      ])
-    }, '23514')
-    expect(unusedManifestTagOperationId).not.toBe('')
-    expect(
-      (
-        await client.query<{
-          auditCount: number
-          contentMutationCount: number
-          extraTagCount: number
-          intentCount: number
-          rowVersion: number
-        }>(
-          `SELECT version."rowVersion",
-             CASE WHEN POSITION($4 IN COALESCE(version."explanationKo", '')) > 0
-               THEN 1 ELSE 0 END AS "contentMutationCount",
-             (SELECT COUNT(*)::int FROM "QuestionVersionTag"
-              WHERE "questionVersionId" = $1 AND "tagId" = $2)
-                AS "extraTagCount",
-             (SELECT COUNT(*)::int FROM "AdminAuditLog"
-              WHERE "operationId" = $3) AS "auditCount",
-             (SELECT COUNT(*)::int FROM "Phase7OperationIntent"
-              WHERE "operationId" = $3) AS "intentCount"
-           FROM "QuestionVersion" AS version WHERE version."id" = $1`,
-          [
-            firstFixture.versionId,
-            tagA.id,
-            unusedManifestTagOperationId,
-            unusedManifestTagMutation
-          ]
-        )
-      ).rows
-    ).toEqual([
-      {
-        auditCount: 0,
-        contentMutationCount: 0,
-        extraTagCount: 0,
-        intentCount: 0,
-        rowVersion: 2
-      }
-    ])
+    // P4 removed the DB manifest/delta verifier, so the API builds the
+    // manifest from the request and no raw manifest mismatch probe remains.
 
     if (!secondFixture) {
       throw new Error('Reciprocal review fixture is unavailable.')
@@ -3360,24 +3132,24 @@ describe('Persistence foundation', () => {
         throw new Error('Post-authority publication operation is unavailable.')
       }
       postAuthorityPublicationOperationId = operation.operationId
-      const armed = await client.query<{ occurredAt: Date }>(
-        `SELECT "phase7_arm_admin_operation"($1, $2::jsonb)
-           AS "occurredAt"`,
-        [
-          operation.operationId,
-          JSON.stringify({
-            questions: [
-              { id: firstFixture.questionId, rowVersion: 1, state: 'ACTIVE' }
-            ],
-            reports: [],
-            tags: [],
-            versions: [
-              { id: firstFixture.versionId, rowVersion: 4, state: 'APPROVED' }
-            ]
-          })
-        ]
+      const occurredAt = await armInTest(
+        client,
+        {
+          ...operation,
+          command: 'PUBLICATION',
+          referencedUserIds: [firstActorId, secondActorId].toSorted()
+        },
+        {
+          questions: [
+            { id: firstFixture.questionId, rowVersion: 1, state: 'ACTIVE' }
+          ],
+          reports: [],
+          tags: [],
+          versions: [
+            { id: firstFixture.versionId, rowVersion: 4, state: 'APPROVED' }
+          ]
+        }
       )
-      const occurredAt = armed.rows[0]?.occurredAt
       if (!occurredAt) {
         throw new Error('Post-authority publication time is unavailable.')
       }
@@ -3591,28 +3363,36 @@ describe('Persistence foundation', () => {
     const expectArmRejected = async (input: {
       code: string
       command: 'QUESTION_CREATE' | 'QUESTION_VERSION_UPDATE'
-      manifest: unknown
+      manifest: AdminTargetManifest
     }): Promise<void> => {
       const requestId = randomUUID()
       requestIds.push(requestId)
       await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE')
       try {
         await client.query(`SET LOCAL ROLE "nihongo_app"`)
-        const begun = await client.query<{ operationId: string }>(
+        const begun = await client.query<{
+          actorUserId: string
+          operationId: string
+        }>(
           `SELECT * FROM "phase7_begin_admin_operation"(
             $1::"AdminAuditCommand", $2, $3, 'TEST', $4::uuid[]
           )`,
           [input.command, sessionToken, requestId, [repeatableReadActorId]]
         )
-        const operationId = begun.rows[0]?.operationId
-        if (!operationId) {
+        const operation = begun.rows[0]
+        if (!operation) {
           throw new Error('Manifest-negative operation is unavailable.')
         }
         await expect(
-          client.query(`SELECT "phase7_arm_admin_operation"($1, $2::jsonb)`, [
-            operationId,
-            JSON.stringify(input.manifest)
-          ])
+          armInTest(
+            client,
+            {
+              ...operation,
+              command: input.command,
+              referencedUserIds: [repeatableReadActorId]
+            },
+            input.manifest
+          )
         ).rejects.toMatchObject({ code: input.code })
       } finally {
         await client.query('ROLLBACK')
@@ -3640,33 +3420,8 @@ describe('Persistence foundation', () => {
     } finally {
       await client.query('ROLLBACK')
     }
-    await expectArmRejected({
-      code: '22023',
-      command: 'QUESTION_CREATE',
-      manifest: null
-    })
-    await expectArmRejected({
-      code: '22023',
-      command: 'QUESTION_CREATE',
-      manifest: { questions: [], reports: [], tags: [manifestTag.id] }
-    })
-    await expectArmRejected({
-      code: '22023',
-      command: 'QUESTION_CREATE',
-      manifest: {
-        ...closedEmptyManifest,
-        unexpected: true
-      }
-    })
-    await expectArmRejected({
-      code: '22023',
-      command: 'QUESTION_CREATE',
-      manifest: {
-        ...closedEmptyManifest,
-        tags: [manifestTag.id],
-        versions: [{ id: manifestTag.id, rowVersion: '1', state: 'DRAFT' }]
-      }
-    })
+    // The API builds a typed manifest, so the malformed-JSON shape probes of
+    // the former SQL arm are gone; count and duplicate rules stay below.
     await expectArmRejected({
       code: '22023',
       command: 'QUESTION_CREATE',
@@ -3737,18 +3492,6 @@ describe('Persistence foundation', () => {
         ]
       }
     })
-    await client.query('BEGIN')
-    try {
-      await client.query(`SET LOCAL ROLE "nihongo_app"`)
-      await expect(
-        client.query(`SELECT "phase7_arm_admin_operation"($1, $2::jsonb)`, [
-          randomUUID(),
-          JSON.stringify(closedEmptyManifest)
-        ])
-      ).rejects.toMatchObject({ code: '42501' })
-    } finally {
-      await client.query('ROLLBACK')
-    }
 
     const exportQuestionId = randomUUID()
     const exportVersionIds = Array.from({ length: 513 }, () => randomUUID())
@@ -3783,14 +3526,17 @@ describe('Persistence foundation', () => {
       )
       await client.query(`SET LOCAL session_replication_role = origin`)
       await client.query(`SET LOCAL ROLE "nihongo_app"`)
-      const begun = await client.query<{ operationId: string }>(
+      const begun = await client.query<{
+        actorUserId: string
+        operationId: string
+      }>(
         `SELECT * FROM "phase7_begin_admin_operation"(
           'EXPORT', $1, $2, 'TEST', $3::uuid[]
         )`,
         [sessionToken, exportRequestId, [repeatableReadActorId]]
       )
-      const operationId = begun.rows[0]?.operationId
-      if (!operationId) {
+      const exportOperation = begun.rows[0]
+      if (!exportOperation) {
         throw new Error('Phase 7 513-version EXPORT operation is unavailable.')
       }
       const exportManifest = {
@@ -3804,31 +3550,18 @@ describe('Persistence foundation', () => {
         }))
       } satisfies AdminTargetManifest
       await expect(
-        client.query(`SELECT "phase7_arm_admin_operation"($1, $2::jsonb)`, [
-          operationId,
-          JSON.stringify(exportManifest)
-        ])
-      ).resolves.toMatchObject({ rowCount: 1 })
-      await client.query('RESET ROLE')
-      const storedManifest = await client.query<{
-        manifestBytes: number
-        versionCount: number
-      }>(
-        `SELECT pg_column_size("targetManifest")::int AS "manifestBytes",
-           jsonb_array_length("targetManifest"->'versions')::int
-             AS "versionCount"
-         FROM "Phase7OperationIntent" WHERE "operationId" = $1`,
-        [operationId]
-      )
-      expect(storedManifest.rows).toEqual([
-        expect.objectContaining({
-          manifestBytes: expect.any(Number),
-          versionCount: 513
-        })
-      ])
-      expect(storedManifest.rows[0]?.manifestBytes).toBeLessThanOrEqual(
-        8 * 1024 * 1024
-      )
+        armInTest(
+          client,
+          {
+            ...exportOperation,
+            command: 'EXPORT',
+            referencedUserIds: [repeatableReadActorId]
+          },
+          exportManifest
+        )
+      ).resolves.toBeInstanceOf(Date)
+      // The API arm keeps the manifest in memory; the intent row no longer
+      // stores it (#504 P4).
     } finally {
       await client.query('ROLLBACK')
     }
@@ -3850,27 +3583,35 @@ describe('Persistence foundation', () => {
         [importTagIds]
       )
       await client.query(`SET LOCAL ROLE "nihongo_app"`)
-      const begun = await client.query<{ operationId: string }>(
+      const begun = await client.query<{
+        actorUserId: string
+        operationId: string
+      }>(
         `SELECT * FROM "phase7_begin_admin_operation"(
           'IMPORT_APPLY', $1, $2, 'TEST', $3::uuid[]
         )`,
         [sessionToken, importRequestId, [repeatableReadActorId]]
       )
-      const operationId = begun.rows[0]?.operationId
-      if (!operationId) {
+      const importOperation = begun.rows[0]
+      if (!importOperation) {
         throw new Error('Phase 7 257-Tag IMPORT operation is unavailable.')
       }
       await expect(
-        client.query(`SELECT "phase7_arm_admin_operation"($1, $2::jsonb)`, [
-          operationId,
-          JSON.stringify({
+        armInTest(
+          client,
+          {
+            ...importOperation,
+            command: 'IMPORT_APPLY',
+            referencedUserIds: [repeatableReadActorId]
+          },
+          {
             questions: [],
             reports: [],
             tags: importTagIds.toSorted(),
             versions: []
-          } satisfies AdminTargetManifest)
-        ])
-      ).resolves.toMatchObject({ rowCount: 1 })
+          }
+        )
+      ).resolves.toBeInstanceOf(Date)
     } finally {
       await client.query('ROLLBACK')
     }
@@ -4190,114 +3931,7 @@ describe('Persistence foundation', () => {
       throw error
     }
 
-    const originalVersion = await client.query<{
-      questionText: string
-      rowVersion: number
-    }>(
-      `SELECT "questionText", "rowVersion" FROM "QuestionVersion"
-       WHERE "id" = $1`,
-      [versionId]
-    )
-    const originalVersionRow = originalVersion.rows[0]
-    if (!originalVersionRow) {
-      throw new Error('Authored QuestionVersion fixture was not committed.')
-    }
-
-    const expectVersionUpdateRejected = async (input: {
-      code: string
-      sessionToken: string
-      timestampOffsetSeconds: number
-    }): Promise<void> => {
-      await expectFailedTransaction(async () => {
-        await client.query(`SET LOCAL ROLE "nihongo_app"`)
-        const requestId = randomUUID()
-        const operationRow = await beginAdminOperation(client, {
-          command: 'QUESTION_VERSION_UPDATE',
-          referencedUserIds:
-            input.sessionToken === wrongAuthorSessionToken
-              ? [wrongAuthorId, actorId]
-              : [actorId],
-          requestId,
-          sessionToken: input.sessionToken,
-          targetManifest: {
-            questions: [{ id: questionId, rowVersion: 1, state: 'ACTIVE' }],
-            reports: [],
-            tags: [selectedTag.id],
-            versions: [{ id: versionId, rowVersion: 1, state: 'DRAFT' }]
-          }
-        })
-        await client.query(
-          `UPDATE "QuestionVersion"
-           SET "questionText" = $2,
-               "rowVersion" = "rowVersion" + 1,
-               "updatedAt" = (
-                 $3::timestamptz + ($4 * INTERVAL '1 second')
-               )::timestamp
-           WHERE "id" = $1`,
-          [
-            versionId,
-            `${originalVersionRow.questionText} rejected ${randomUUID()}`,
-            operationRow.occurredAt,
-            input.timestampOffsetSeconds
-          ]
-        )
-        await client.query(
-          `INSERT INTO "AdminAuditLog" (
-            "command", "targetType", "targetId", "actorKind",
-            "actorUserId", "actorId", "actorRole", "actorLabel",
-            "beforeState", "afterState", "beforeRowVersion",
-            "afterRowVersion", "changedFields", "metadata", "contentDigest",
-            "operationId", "requestId", "environment", "occurredAt"
-          ) VALUES (
-            'QUESTION_VERSION_UPDATE', 'QUESTION_VERSION', $1, 'ACCOUNT',
-            $2, $2, 'ADMIN', 'ACTIVE_ADMIN', 'DRAFT', 'DRAFT', 1, 2,
-            '["QUESTION_TEXT"]'::jsonb, '{"kind":"NONE_V1"}'::jsonb,
-            "phase7_admin_audit_content_digest"(
-              $3, 'QUESTION_VERSION_UPDATE', 'QUESTION_VERSION', $1,
-              'DRAFT', 'DRAFT', 1, 2, '["QUESTION_TEXT"]'::jsonb,
-              '{"kind":"NONE_V1"}'::jsonb
-            ), $3, $4, 'TEST', $5
-          )`,
-          [
-            versionId,
-            operationRow.actorUserId,
-            operationRow.operationId,
-            requestId,
-            operationRow.occurredAt
-          ]
-        )
-        await client.query(`SELECT "phase7_finish_admin_operation"($1)`, [
-          operationRow.operationId
-        ])
-      }, input.code)
-      expect(
-        (
-          await client.query<{
-            auditCount: number
-            questionText: string
-            rowVersion: number
-          }>(
-            `SELECT version."questionText", version."rowVersion",
-              (SELECT COUNT(*)::int FROM "AdminAuditLog"
-               WHERE "command" = 'QUESTION_VERSION_UPDATE'
-                 AND "targetId" = $1) AS "auditCount"
-             FROM "QuestionVersion" AS version WHERE version."id" = $1`,
-            [versionId]
-          )
-        ).rows
-      ).toEqual([{ auditCount: 0, ...originalVersionRow }])
-    }
-
-    await expectVersionUpdateRejected({
-      code: '42501',
-      sessionToken: wrongAuthorSessionToken,
-      timestampOffsetSeconds: 0
-    })
-    await expectVersionUpdateRejected({
-      code: '23514',
-      sessionToken: operationSessionToken,
-      timestampOffsetSeconds: 1
-    })
+    // Author and update-timestamp checks moved to the API (#504 P4).
 
     const previousOperationSessionId = operationSessionId
     operationSessionToken = await completeAdminSsoFresh(
@@ -4315,129 +3949,7 @@ describe('Persistence foundation', () => {
     const legacySeed = buildAllQuestionSeeds()[0]
     if (!legacySeed)
       throw new Error('Legacy retirement fixture is unavailable.')
-    let wrongReasonOperationId = ''
-    await expectFailedTransaction(async () => {
-      await client.query(`SET LOCAL ROLE "nihongo_app"`)
-      const requestId = randomUUID()
-      const operationRow = await beginAdminOperation(client, {
-        command: 'RETIREMENT',
-        referencedUserIds: [actorId],
-        requestId,
-        sessionToken: operationSessionToken,
-        targetManifest: {
-          questions: [
-            { id: legacySeed.questionId, rowVersion: 1, state: 'ACTIVE' }
-          ],
-          reports: [],
-          tags: [],
-          versions: [
-            { id: legacySeed.versionId, rowVersion: 1, state: 'PUBLISHED' }
-          ]
-        }
-      })
-      wrongReasonOperationId = operationRow.operationId
-      await client.query(
-        `UPDATE "Question"
-         SET "currentPublishedVersionId" = NULL,
-             "rowVersion" = "rowVersion" + 1,
-             "updatedAt" = $2
-         WHERE "id" = $1`,
-        [legacySeed.questionId, operationRow.occurredAt]
-      )
-      await client.query(
-        `UPDATE "QuestionVersion"
-         SET "status" = 'RETIRED',
-             "retirementKind" = 'PUBLISHED_RETIREMENT',
-             "retiredAt" = $2,
-             "rowVersion" = "rowVersion" + 1,
-             "updatedAt" = $2
-         WHERE "id" = $1`,
-        [legacySeed.versionId, operationRow.occurredAt]
-      )
-      await client.query(
-        `INSERT INTO "ContentReview" (
-          "questionId", "questionVersionId", "action", "fromState",
-          "toState", "actorKind", "actorUserId", "actorId", "actorRole",
-          "actorLabel", "reason", "operationId", "requestId", "occurredAt"
-        ) VALUES (
-          $1, $2, 'RETIRED', 'PUBLISHED', 'RETIRED', 'ACCOUNT',
-          $3, $3, 'ADMIN', 'ACTIVE_ADMIN', 'PUBLISHED_REPLACEMENT',
-          $4, $5, $6
-        )`,
-        [
-          legacySeed.questionId,
-          legacySeed.versionId,
-          operationRow.actorUserId,
-          operationRow.operationId,
-          requestId,
-          operationRow.occurredAt
-        ]
-      )
-      await client.query(
-        `INSERT INTO "AdminAuditLog" (
-          "command", "targetType", "targetId", "actorKind",
-          "actorUserId", "actorId", "actorRole", "actorLabel",
-          "beforeState", "afterState", "beforeRowVersion",
-          "afterRowVersion", "changedFields", "metadata", "contentDigest",
-          "operationId", "requestId", "environment", "occurredAt"
-        ) VALUES (
-          'RETIREMENT', 'QUESTION_VERSION', $1, 'ACCOUNT',
-          $2, $2, 'ADMIN', 'ACTIVE_ADMIN', 'PUBLISHED', 'RETIRED', 1, 2,
-          '["VERSION_STATUS","CURRENT_PUBLISHED_VERSION_ID"]'::jsonb,
-          '{"kind":"NONE_V1"}'::jsonb,
-          "phase7_admin_audit_content_digest"(
-            $3, 'RETIREMENT', 'QUESTION_VERSION', $1,
-            'PUBLISHED', 'RETIRED', 1, 2,
-            '["VERSION_STATUS","CURRENT_PUBLISHED_VERSION_ID"]'::jsonb,
-            '{"kind":"NONE_V1"}'::jsonb
-          ), $3, $4, 'TEST', $5
-        )`,
-        [
-          legacySeed.versionId,
-          operationRow.actorUserId,
-          operationRow.operationId,
-          requestId,
-          operationRow.occurredAt
-        ]
-      )
-      await client.query(`SELECT "phase7_finish_admin_operation"($1)`, [
-        operationRow.operationId
-      ])
-    }, '23514')
-    expect(wrongReasonOperationId).not.toBe('')
-    expect(
-      (
-        await client.query<{
-          auditCount: number
-          currentPublishedVersionId: string
-          reviewCount: number
-          rowVersion: number
-          status: string
-        }>(
-          `SELECT question."currentPublishedVersionId"::text
-              AS "currentPublishedVersionId",
-            version."status"::text AS status,
-            version."rowVersion",
-            (SELECT COUNT(*)::int FROM "ContentReview"
-             WHERE "operationId" = $3) AS "reviewCount",
-            (SELECT COUNT(*)::int FROM "AdminAuditLog"
-             WHERE "operationId" = $3) AS "auditCount"
-           FROM "Question" AS question
-           JOIN "QuestionVersion" AS version
-             ON version."questionId" = question."id"
-           WHERE question."id" = $1 AND version."id" = $2`,
-          [legacySeed.questionId, legacySeed.versionId, wrongReasonOperationId]
-        )
-      ).rows
-    ).toEqual([
-      {
-        auditCount: 0,
-        currentPublishedVersionId: legacySeed.versionId,
-        reviewCount: 0,
-        rowVersion: 1,
-        status: 'PUBLISHED'
-      }
-    ])
+    // The API writes the retirement reason; the DB evidence check is gone (#504 P4).
 
     const missingCapabilityReportId = randomUUID()
     await expectFailedTransaction(async () => {
@@ -4595,18 +4107,8 @@ describe('Persistence foundation', () => {
       )
     ).resolves.toMatchObject({ rows: [{ erased: true }] })
 
-    await expectFailedTransaction(async () => {
-      await client.query(`SET LOCAL app.phase7_erasure_mode = 'on'`)
-      await client.query(
-        `UPDATE "QuestionVersion"
-           SET "createdByUserId" = NULL,
-               "createdByLabelSnapshot" = 'DELETED_ADMIN',
-               "rowVersion" = "rowVersion" + 1,
-               "updatedAt" = clock_timestamp()
-           WHERE "id" = $1`,
-        [versionId]
-      )
-    }, '23514')
+    // A raw creator rewrite under a spoofed erasure flag was refused by the
+    // dropped QuestionVersion trigger; the API never writes it (#504 P4).
 
     await expectFailedTransaction(async () => {
       await client.query(`SET LOCAL app.phase7_erasure_mode = 'on'`)
@@ -4808,14 +4310,17 @@ describe('Persistence foundation', () => {
       triageTransactionOpen = true
       await client.query(`SET LOCAL ROLE "nihongo_app"`)
       const requestId = randomUUID()
-      const begun = await client.query<{ operationId: string }>(
+      const begun = await client.query<{
+        actorUserId: string
+        operationId: string
+      }>(
         `SELECT * FROM "phase7_begin_admin_operation"(
           'REPORT_TRIAGE', $1, $2, 'TEST', $3::uuid[]
         )`,
         [sessionToken, requestId, [actorId, injectedAssigneeId].toSorted()]
       )
-      const operationId = begun.rows[0]?.operationId
-      if (!operationId) {
+      const triageOperation = begun.rows[0]
+      if (!triageOperation) {
         throw new Error('Injected-assignee operation is unavailable.')
       }
       erasurePromise = erasureClient.query(
@@ -4840,9 +4345,14 @@ describe('Persistence foundation', () => {
       expect(lockObserved).toBe(true)
       await client.query(`SET LOCAL ROLE "nihongo_app"`)
       await expect(
-        client.query(`SELECT "phase7_arm_admin_operation"($1, $2::jsonb)`, [
-          operationId,
-          JSON.stringify({
+        armInTest(
+          client,
+          {
+            ...triageOperation,
+            command: 'REPORT_TRIAGE',
+            referencedUserIds: [actorId, injectedAssigneeId].toSorted()
+          },
+          {
             questions: [
               { id: seed.questionId, rowVersion: 1, state: 'ACTIVE' }
             ],
@@ -4851,8 +4361,8 @@ describe('Persistence foundation', () => {
             versions: [
               { id: seed.versionId, rowVersion: 1, state: 'PUBLISHED' }
             ]
-          } satisfies AdminTargetManifest)
-        ])
+          }
+        )
       ).rejects.toMatchObject({ code: '42501' })
       await client.query('ROLLBACK')
       triageTransactionOpen = false
@@ -5253,44 +4763,6 @@ describe('Persistence foundation', () => {
         )
       )
     ).rejects.toMatchObject({ code: '22023' })
-    await expectFailedTransaction(async () => {
-      await client.query(`SET LOCAL ROLE "nihongo_app"`)
-      await client.query(
-        `UPDATE "QuestionReport"
-         SET "description" = NULL, "rowVersion" = "rowVersion" + 1,
-             "updatedAt" = clock_timestamp()
-         WHERE "id" = $1`,
-        [matureReportId]
-      )
-    }, '42501')
-    await expectFailedTransaction(async () => {
-      await client.query(`SET LOCAL ROLE "nihongo_phase7_owner"`)
-      const execution = await client.query<{ id: string }>(
-        `SELECT "phase7_open_trusted_execution"(
-          'REPORT_REDACTION', NULL, NULL
-        ) AS id`
-      )
-      const executionId = execution.rows[0]?.id
-      if (!executionId) {
-        throw new Error('Report redaction execution is unavailable.')
-      }
-      const event = await client.query<{ createdAt: Date }>(
-        `SELECT "createdAt" FROM "Phase7TrustedExecution" WHERE "id" = $1`,
-        [executionId]
-      )
-      const eventTime = event.rows[0]?.createdAt
-      if (!eventTime) {
-        throw new Error('Report redaction event time is unavailable.')
-      }
-      await client.query(
-        `UPDATE "QuestionReport"
-         SET "description" = NULL,
-             "resolutionReason" = 'FORBIDDEN_EXTRA_FIELD',
-             "rowVersion" = "rowVersion" + 1, "updatedAt" = $2
-         WHERE "id" = $1`,
-        [matureReportId, eventTime]
-      )
-    }, '23514')
 
     await expect(
       withExecutionRole('nihongo_erasure_worker', () =>
@@ -5701,343 +5173,8 @@ describe('Persistence foundation', () => {
       ).rows[0]?.count
     ).toBe(0)
 
-    interface ArchiveVerifierDelta {
-      readonly afterRowVersion: number
-      readonly beforeRowVersion: number
-      readonly entityType: 'QUESTION' | 'QUESTION_VERSION'
-      readonly fromState: string
-      readonly questionId: string
-      readonly targetId: string
-      readonly toState: string
-    }
-    const archiveQuestionDelta = (
-      questionId: string
-    ): ArchiveVerifierDelta => ({
-      afterRowVersion: 2,
-      beforeRowVersion: 1,
-      entityType: 'QUESTION',
-      fromState: 'ACTIVE',
-      questionId,
-      targetId: questionId,
-      toState: 'ARCHIVED'
-    })
-    const archiveVersionDelta = (
-      candidate: ArchiveCandidate,
-      questionId = candidate.questionId
-    ): ArchiveVerifierDelta => ({
-      afterRowVersion: 2,
-      beforeRowVersion: 1,
-      entityType: 'QUESTION_VERSION',
-      fromState: candidate.state,
-      questionId,
-      targetId: candidate.versionId,
-      toState: 'RETIRED'
-    })
-    const expectArchiveVerifier = async (input: {
-      accepted: boolean
-      deltas: readonly ArchiveVerifierDelta[]
-      targetManifest: AdminTargetManifest
-    }): Promise<void> => {
-      const operationId = randomUUID()
-      await client.query('BEGIN')
-      try {
-        await client.query(`SET LOCAL session_replication_role = replica`)
-        await client.query(
-          `INSERT INTO "Phase7OperationIntent" (
-             "operationId", "requestId", "command", "referencedUserIds",
-             "targetManifest", "requiresFresh", "environment", "occurredAt",
-             "backendPid", "transactionId"
-           ) VALUES (
-             $1, $2, 'QUESTION_ARCHIVE', ARRAY[]::uuid[], $3::jsonb,
-             false, 'TEST', clock_timestamp(), pg_backend_pid(), txid_current()
-           )`,
-          [operationId, randomUUID(), JSON.stringify(input.targetManifest)]
-        )
-        for (const delta of input.deltas) {
-          await client.query(
-            `INSERT INTO "Phase7OperationDelta" (
-               "operationId", "entityType", "targetId", "questionId",
-               "mutation", "fromState", "toState", "beforeRowVersion",
-               "afterRowVersion"
-             ) VALUES ($1, $2, $3, $4, 'UPDATE', $5, $6, $7, $8)`,
-            [
-              operationId,
-              delta.entityType,
-              delta.targetId,
-              delta.questionId,
-              delta.fromState,
-              delta.toState,
-              delta.beforeRowVersion,
-              delta.afterRowVersion
-            ]
-          )
-        }
-        await client.query(`SET LOCAL session_replication_role = origin`)
-        const verification = client.query(
-          `SELECT "phase7_verify_operation_manifest"($1)`,
-          [operationId]
-        )
-        if (input.accepted) {
-          await expect(verification).resolves.toMatchObject({ rowCount: 1 })
-        } else {
-          await expect(verification).rejects.toMatchObject({ code: '23514' })
-        }
-      } finally {
-        await client.query('ROLLBACK').catch(() => undefined)
-      }
-      expect(
-        (
-          await client.query<{ count: number }>(
-            `SELECT (
-               (SELECT COUNT(*) FROM "Phase7OperationIntent"
-                WHERE "operationId" = $1) +
-               (SELECT COUNT(*) FROM "Phase7OperationDelta"
-                WHERE "operationId" = $1) +
-               (SELECT COUNT(*) FROM "ContentReview"
-                WHERE "operationId" = $1) +
-               (SELECT COUNT(*) FROM "AdminAuditLog"
-                WHERE "operationId" = $1)
-             )::int AS count`,
-            [operationId]
-          )
-        ).rows[0]?.count
-      ).toBe(0)
-    }
-
-    const emptyManifest: AdminTargetManifest = {
-      questions: [questionManifest(emptyManifestTarget.questionId)],
-      reports: [],
-      tags: [],
-      versions: []
-    }
-    const candidateManifest: AdminTargetManifest = {
-      questions: [questionManifest(firstCandidate.questionId)],
-      reports: [],
-      tags: [],
-      versions: [versionManifest(firstCandidate)]
-    }
-    const emptyQuestionDelta = archiveQuestionDelta(
-      emptyManifestTarget.questionId
-    )
-    const candidateQuestionDelta = archiveQuestionDelta(
-      firstCandidate.questionId
-    )
-    const candidateVersionDelta = archiveVersionDelta(firstCandidate)
-    await expectArchiveVerifier({
-      accepted: true,
-      deltas: [emptyQuestionDelta],
-      targetManifest: emptyManifest
-    })
-    await expectArchiveVerifier({
-      accepted: false,
-      deltas: [
-        emptyQuestionDelta,
-        {
-          afterRowVersion: 3,
-          beforeRowVersion: 2,
-          entityType: 'QUESTION_VERSION',
-          fromState: 'RETIRED',
-          questionId: emptyManifestTarget.questionId,
-          targetId: emptyManifestTarget.versionId,
-          toState: 'RETIRED'
-        }
-      ],
-      targetManifest: emptyManifest
-    })
-    await expectArchiveVerifier({
-      accepted: true,
-      deltas: [candidateQuestionDelta, candidateVersionDelta],
-      targetManifest: candidateManifest
-    })
-    await expectArchiveVerifier({
-      accepted: false,
-      deltas: [candidateVersionDelta],
-      targetManifest: candidateManifest
-    })
-    await expectArchiveVerifier({
-      accepted: false,
-      deltas: [candidateQuestionDelta],
-      targetManifest: candidateManifest
-    })
-    await expectArchiveVerifier({
-      accepted: false,
-      deltas: [
-        candidateQuestionDelta,
-        candidateVersionDelta,
-        {
-          ...archiveVersionDelta(secondCandidate, firstCandidate.questionId),
-          targetId: randomUUID()
-        }
-      ],
-      targetManifest: candidateManifest
-    })
-    await expectArchiveVerifier({
-      accepted: false,
-      deltas: [
-        candidateQuestionDelta,
-        archiveVersionDelta(firstCandidate, secondCandidate.questionId)
-      ],
-      targetManifest: candidateManifest
-    })
-
-    const expectArchiveEvidenceCardinalityRejected = async (input: {
-      auditCount: 0 | 1 | 2
-      deltas: readonly ArchiveVerifierDelta[]
-      review: ArchiveCandidate | null
-      targetManifest: AdminTargetManifest
-    }): Promise<void> => {
-      const operationId = randomUUID()
-      const requestId = randomUUID()
-      await client.query('BEGIN')
-      try {
-        await client.query(`SET LOCAL session_replication_role = replica`)
-        await client.query(
-          `INSERT INTO "Phase7OperationIntent" (
-             "operationId", "requestId", "command", "referencedUserIds",
-             "targetManifest", "requiresFresh", "environment", "occurredAt",
-             "backendPid", "transactionId"
-           ) VALUES (
-             $1, $2, 'QUESTION_ARCHIVE', ARRAY[]::uuid[], $3::jsonb,
-             false, 'TEST', clock_timestamp(), pg_backend_pid(), txid_current()
-           )`,
-          [operationId, requestId, JSON.stringify(input.targetManifest)]
-        )
-        for (const delta of input.deltas) {
-          await client.query(
-            `INSERT INTO "Phase7OperationDelta" (
-               "operationId", "entityType", "targetId", "questionId",
-               "mutation", "fromState", "toState", "beforeRowVersion",
-               "afterRowVersion"
-             ) VALUES ($1, $2, $3, $4, 'UPDATE', $5, $6, $7, $8)`,
-            [
-              operationId,
-              delta.entityType,
-              delta.targetId,
-              delta.questionId,
-              delta.fromState,
-              delta.toState,
-              delta.beforeRowVersion,
-              delta.afterRowVersion
-            ]
-          )
-        }
-        const hasVersion = input.targetManifest.versions.length > 0
-        const metadata = {
-          abandonedCandidateCount: hasVersion ? 1 : 0,
-          kind: 'QUESTION_ARCHIVE_V1',
-          retiredPublishedCount: 0
-        }
-        for (let index = 0; index < input.auditCount; index += 1) {
-          const targetId =
-            index === 0 ? input.targetManifest.questions[0]?.id : randomUUID()
-          if (!targetId) throw new Error('Archive audit target is missing.')
-          const changedFields = hasVersion
-            ? ['LIFECYCLE_STATUS', 'VERSION_STATUS']
-            : ['LIFECYCLE_STATUS']
-          await client.query(
-            `INSERT INTO "AdminAuditLog" (
-               "command", "targetType", "targetId", "actorKind",
-               "actorUserId", "actorId", "actorRole", "actorLabel",
-               "beforeState", "afterState", "beforeRowVersion",
-               "afterRowVersion", "changedFields", "metadata",
-               "contentDigest", "operationId", "requestId", "environment",
-               "occurredAt"
-             ) VALUES (
-               'QUESTION_ARCHIVE', 'QUESTION', $1, 'ACCOUNT', $2, $2,
-               'ADMIN', 'ACTIVE_ADMIN', 'ACTIVE', 'ARCHIVED', 1, 2,
-               $3::jsonb, $4::jsonb,
-               "phase7_admin_audit_content_digest"(
-                 $5, 'QUESTION_ARCHIVE', 'QUESTION', $1,
-                 'ACTIVE', 'ARCHIVED', 1, 2, $3::jsonb, $4::jsonb
-               ), $5, $6, 'TEST', clock_timestamp()
-             )`,
-            [
-              targetId,
-              actorId,
-              JSON.stringify(changedFields),
-              JSON.stringify(metadata),
-              operationId,
-              requestId
-            ]
-          )
-        }
-        if (input.review) {
-          await client.query(
-            `INSERT INTO "ContentReview" (
-               "questionId", "questionVersionId", "action", "fromState",
-               "toState", "actorKind", "actorUserId", "actorId",
-               "actorRole", "actorLabel", "reason", "operationId",
-               "requestId", "occurredAt"
-             ) VALUES (
-               $1, $2, 'RETIRED', 'PUBLISHED', 'RETIRED', 'ACCOUNT',
-               $3, $3, 'ADMIN', 'ACTIVE_ADMIN', 'QUESTION_ARCHIVE',
-               $4, $5, clock_timestamp()
-             )`,
-            [
-              input.review.questionId,
-              input.review.versionId,
-              actorId,
-              operationId,
-              requestId
-            ]
-          )
-        }
-        await client.query(`SET LOCAL session_replication_role = origin`)
-        await client.query(`SET LOCAL ROLE "nihongo_app"`)
-        await expect(
-          client.query(`SELECT "phase7_finish_admin_operation"($1)`, [
-            operationId
-          ])
-        ).rejects.toMatchObject({ code: '23514' })
-      } finally {
-        await client.query('ROLLBACK').catch(() => undefined)
-      }
-      expect(
-        (
-          await client.query<{ count: number }>(
-            `SELECT (
-               (SELECT COUNT(*) FROM "Phase7OperationIntent"
-                WHERE "operationId" = $1) +
-               (SELECT COUNT(*) FROM "Phase7OperationDelta"
-                WHERE "operationId" = $1) +
-               (SELECT COUNT(*) FROM "ContentReview"
-                WHERE "operationId" = $1) +
-               (SELECT COUNT(*) FROM "AdminAuditLog"
-                WHERE "operationId" = $1)
-             )::int AS count`,
-            [operationId]
-          )
-        ).rows[0]?.count
-      ).toBe(0)
-    }
-    await expectArchiveEvidenceCardinalityRejected({
-      auditCount: 0,
-      deltas: [emptyQuestionDelta],
-      review: null,
-      targetManifest: emptyManifest
-    })
-    await expectArchiveEvidenceCardinalityRejected({
-      auditCount: 2,
-      deltas: [emptyQuestionDelta],
-      review: null,
-      targetManifest: emptyManifest
-    })
-    await expectArchiveEvidenceCardinalityRejected({
-      auditCount: 1,
-      deltas: [emptyQuestionDelta],
-      review: {
-        questionId: emptyManifestTarget.questionId,
-        state: 'DRAFT',
-        versionId: emptyManifestTarget.versionId
-      },
-      targetManifest: emptyManifest
-    })
-    await expectArchiveEvidenceCardinalityRejected({
-      auditCount: 1,
-      deltas: [candidateQuestionDelta, candidateVersionDelta],
-      review: null,
-      targetManifest: candidateManifest
-    })
+    // P4 removed the DB manifest verifier and evidence cardinality checks;
+    // the API command tests cover the archive evidence now.
     expect(await readArchiveGuardState()).toEqual(archiveGuardStateBefore)
 
     const emptyArchiveRequestId = randomUUID()
@@ -6120,7 +5257,6 @@ describe('Persistence foundation', () => {
           changedFields: string[]
           contentDigestValid: boolean
           currentPublishedVersionId: string | null
-          deltaCount: number
           intentCount: number
           lifecycleStatus: string
           metadata: {
@@ -6150,9 +5286,7 @@ describe('Persistence foundation', () => {
              (SELECT COUNT(*)::int FROM "ContentReview"
               WHERE "operationId" = $3) AS "reviewCount",
              (SELECT COUNT(*)::int FROM "Phase7OperationIntent"
-              WHERE "operationId" = $3) AS "intentCount",
-             (SELECT COUNT(*)::int FROM "Phase7OperationDelta"
-              WHERE "operationId" = $3) AS "deltaCount"
+              WHERE "operationId" = $3) AS "intentCount"
            FROM "Question" AS question
            JOIN "QuestionVersion" AS version ON version."id" = $2
            JOIN "AdminAuditLog" AS audit ON audit."operationId" = $3
@@ -6170,7 +5304,6 @@ describe('Persistence foundation', () => {
         changedFields: ['LIFECYCLE_STATUS'],
         contentDigestValid: true,
         currentPublishedVersionId: null,
-        deltaCount: 0,
         intentCount: 0,
         lifecycleStatus: 'ARCHIVED',
         metadata: {
@@ -6185,47 +5318,8 @@ describe('Persistence foundation', () => {
       }
     ])
 
-    await expectFailedTransaction(async () => {
-      await client.query(
-        `UPDATE "QuestionVersion"
-         SET "status" = 'RETIRED',
-             "retirementKind" = 'QUESTION_ARCHIVE_ABANDONED',
-             "retiredAt" = clock_timestamp(),
-             "rowVersion" = "rowVersion" + 1,
-             "updatedAt" = clock_timestamp()
-         WHERE "id" = $1`,
-        [firstCandidate.versionId]
-      )
-    }, '42501')
-    await expectFailedTransaction(async () => {
-      await client.query(`SET LOCAL ROLE "nihongo_app"`)
-      const requestId = randomUUID()
-      const operation = await beginAdminOperation(client, {
-        command: 'QUESTION_VERSION_UPDATE',
-        referencedUserIds: [actorId],
-        requestId,
-        sessionToken,
-        targetManifest: {
-          questions: [
-            { id: firstCandidate.questionId, rowVersion: 1, state: 'ACTIVE' }
-          ],
-          reports: [],
-          tags: [selectedTag.id],
-          versions: [
-            { id: firstCandidate.versionId, rowVersion: 1, state: 'DRAFT' }
-          ]
-        }
-      })
-      await client.query(
-        `UPDATE "QuestionVersion"
-         SET "status" = 'RETIRED',
-             "retirementKind" = 'QUESTION_ARCHIVE_ABANDONED',
-             "retiredAt" = $2, "rowVersion" = "rowVersion" + 1,
-             "updatedAt" = $2
-         WHERE "id" = $1`,
-        [firstCandidate.versionId, operation.occurredAt]
-      )
-    }, '23514')
+    // Raw status rewrites to RETIRED are now refused by the API command
+    // path, not by a DB trigger (#504 P4).
 
     for (const candidate of archiveCandidates) {
       const requestId = randomUUID()

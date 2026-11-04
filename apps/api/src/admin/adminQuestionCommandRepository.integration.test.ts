@@ -25,6 +25,7 @@ import {
   createAdminQuestionVersionRequestSchema,
   createQuestionDuplicateIdentityKey,
   exportAdminQuestionsRequestSchema,
+  listAdminAuditLogQuerySchema,
   listAdminQuestionReportsQuerySchema,
   listQuestionVersionReviewsResponseSchema,
   publishQuestionVersionRequestSchema,
@@ -1420,6 +1421,179 @@ describe('ADMIN command TEST database integration', () => {
         .map(({ action }) => action)
         .sort()
     ).toEqual(['APPROVAL_WITHDRAWN', 'APPROVED', 'APPROVED'])
+  })
+
+  it('keeps the former CMS trigger rules and audits every command in the API (#504 P4)', async () => {
+    if (!commandService) throw new Error('Command service is unavailable.')
+    const own = () => authority(authorId, authorToken)
+    const other = () => authority(reviewerId, reviewerToken)
+    // Former publish content rules: the API request schema rejects a version
+    // with three options, a reading question without a passage, no tags, or
+    // a correct option that is not one of its own options.
+    const valid = createContent(`p4-publish-${randomUUID()}`)
+    for (const [invalid, field] of [
+      [{ ...valid, options: valid.options.slice(0, 3) }, 'options'],
+      [
+        {
+          ...valid,
+          subject: 'READING',
+          questionType: 'SHORT_READING',
+          passage: null
+        },
+        'passage'
+      ],
+      [{ ...valid, tagNames: [] }, 'tagNames'],
+      [{ ...valid, correctOptionKey: 'z' }, 'correctOptionKey']
+    ] as const) {
+      const parsed = createAdminQuestionRequestSchema.safeParse(invalid)
+      expect(parsed.success).toBe(false)
+      expect(parsed.error?.issues.map(({ path }) => path[0])).toContain(field)
+    }
+    const created = await createDraftQuestion(`p4-rules-${randomUUID()}`)
+    const versionId = created.questionVersionId
+    if (!versionId) throw new Error('Created version ID is unavailable.')
+    const draftRowVersion = created.versionRowVersion!
+    const untouched = await readVersionWriteCounts(versionId)
+
+    // Former finish check: only the locked live author updates content.
+    await expect(
+      commandService.updateVersion(
+        other(),
+        versionId,
+        await loadUpdateRequest({
+          expectedRowVersion: draftRowVersion,
+          questionText: `p4 타인 수정 ${randomUUID()}`,
+          versionId
+        })
+      )
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' })
+    // Former evidence trigger: a review request comes from the author.
+    await expect(
+      commandService.requestReview(
+        other(),
+        versionId,
+        requestContentReviewRequestSchema.parse({
+          expectedRowVersion: draftRowVersion
+        })
+      )
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' })
+    // Former arm/status-transition rule: a DRAFT cannot be approved.
+    await expect(
+      commandService.approveVersion(
+        other(),
+        versionId,
+        approveQuestionVersionRequestSchema.parse({
+          expectedRowVersion: draftRowVersion
+        })
+      )
+    ).rejects.toMatchObject({ code: 'INVALID_STATE_TRANSITION' })
+    // Former arm target check: a stale rowVersion conflicts.
+    await expect(
+      commandService.requestReview(
+        own(),
+        versionId,
+        requestContentReviewRequestSchema.parse({
+          expectedRowVersion: draftRowVersion + 1
+        })
+      )
+    ).rejects.toMatchObject({ code: 'VERSION_CONFLICT' })
+    expect(await readVersionWriteCounts(versionId)).toEqual(untouched)
+
+    const reviewed = await commandService.requestReview(
+      own(),
+      versionId,
+      requestContentReviewRequestSchema.parse({
+        expectedRowVersion: draftRowVersion
+      })
+    )
+    expect(reviewed.versionStatus).toBe('IN_REVIEW')
+    // Former QuestionVersion trigger: reviewed content is immutable.
+    const inReview = await readVersionWriteCounts(versionId)
+    await expect(
+      commandService.updateVersion(
+        own(),
+        versionId,
+        await loadUpdateRequest({
+          expectedRowVersion: reviewed.versionRowVersion!,
+          questionText: `p4 검수 중 수정 ${randomUUID()}`,
+          versionId
+        })
+      )
+    ).rejects.toMatchObject({ code: 'QUESTION_VERSION_IMMUTABLE' })
+    expect(await readVersionWriteCounts(versionId)).toEqual(inReview)
+
+    const approved = await commandService.approveVersion(
+      own(),
+      versionId,
+      approveQuestionVersionRequestSchema.parse({
+        expectedRowVersion: reviewed.versionRowVersion
+      })
+    )
+    const published = await commandService.publishVersion(
+      own(),
+      versionId,
+      publishQuestionVersionRequestSchema.parse({
+        expectedRowVersion: approved.versionRowVersion,
+        expectedQuestionRowVersion: approved.questionRowVersion
+      })
+    )
+    expect(published.versionStatus).toBe('PUBLISHED')
+    const archived = await commandService.archiveQuestion(
+      own(),
+      created.questionId,
+      archiveAdminQuestionRequestSchema.parse({
+        expectedQuestionRowVersion: published.questionRowVersion,
+        expectedOpenCandidateVersionId: null,
+        expectedOpenCandidateRowVersion: null
+      })
+    )
+    expect(archived.lifecycleStatus).toBe('ARCHIVED')
+    // Former arm rule: commands on an ARCHIVED question are rejected.
+    await expect(
+      commandService.createVersion(
+        own(),
+        created.questionId,
+        createAdminQuestionVersionRequestSchema.parse({
+          ...createContent(`p4-archived-${randomUUID()}`),
+          expectedQuestionRowVersion: archived.questionRowVersion
+        })
+      )
+    ).rejects.toMatchObject({ code: 'INVALID_STATE_TRANSITION' })
+
+    // Every successful command left its audit row in the same transaction,
+    // and the read API re-verifies each API-computed contentDigest.
+    const auditService = createAdminQuestionService(
+      createPrismaAdminQuestionRepository(applicationRuntime!.client)
+    )
+    const audited = await Promise.all(
+      [versionId, created.questionId].map((targetId) =>
+        auditService.listAuditLog(
+          listAdminAuditLogQuerySchema.parse({ targetId, limit: 20 })
+        )
+      )
+    )
+    const commands = new Set(
+      audited.flatMap(({ items }) => items.map(({ command }) => command))
+    )
+    for (const command of [
+      'QUESTION_CREATE',
+      'REVIEW_REQUEST',
+      'APPROVAL',
+      'PUBLICATION',
+      'QUESTION_ARCHIVE'
+    ]) {
+      expect(commands).toContain(command)
+    }
+    const operations = await adminClient.query<{ count: number }>(
+      `SELECT COUNT(*)::int AS count FROM "AdminAuditLog" AS audit
+        WHERE audit."targetId" IN ($1, $2)
+          AND NOT EXISTS (
+            SELECT 1 FROM "Phase7OperationIntent" AS intent
+             WHERE intent."operationId" = audit."operationId"
+          )`,
+      [versionId, created.questionId]
+    )
+    expect(operations.rows[0]?.count).toBeGreaterThanOrEqual(5)
   })
 
   it('executes publication, retirement and all archive shapes atomically', async () => {

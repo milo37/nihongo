@@ -37,7 +37,7 @@ test('recovery policy is closed and cross-linked to the environment registry', (
   assert.throws(() => verifyRecoveryContract(missingField), /registry fields/u)
 })
 
-test('migration profiles separate exact physical 61 TEST entries from the exact v1 runtime 27', () => {
+test('migration profiles separate exact physical 63 TEST entries from the exact v1 runtime 27', () => {
   const { releaseManifest } = createRecoveryFixtures()
 
   assert.deepEqual(releaseManifest.migrations.entries[37], {
@@ -115,6 +115,32 @@ test('migration profiles separate exact physical 61 TEST entries from the exact 
   historical60.migrations.entries = historical60.migrations.entries.slice(0, 60)
   assert.throws(
     () => deriveMigrationProfile(historical60, 'technical-current-test'),
+    /count mismatch/u
+  )
+  assert.deepEqual(releaseManifest.migrations.entries[61], {
+    name: '20261110090000_cms_rules_to_api',
+    sha256: '97fd8b1a45ee987410d4909b8ae3f3a3b053d07ea1f4fecd0d39c0d4f58c1d8b'
+  })
+  assert.deepEqual(releaseManifest.migrations.entries[62], {
+    name: '20261110100000_admin_audit_to_api',
+    sha256: '2af5e1b565e20ee5fb5d6cd1e798112b6753f7a1a1f7c0981c9909352b5a9b90'
+  })
+  const historical61 = structuredClone(releaseManifest)
+  historical61.migrations.count = 61
+  historical61.migrations.digestSha256 =
+    '5dd1426b9b218d351aa9ff7f0e7700d5a98a3930015f80ad5a048592c97b365b'
+  historical61.migrations.entries = historical61.migrations.entries.slice(0, 61)
+  assert.throws(
+    () => deriveMigrationProfile(historical61, 'technical-current-test'),
+    /count mismatch/u
+  )
+  const historical62 = structuredClone(releaseManifest)
+  historical62.migrations.count = 62
+  historical62.migrations.digestSha256 =
+    '8b6344b8ea9b0e70156d55ad0adbbb00cd5c9dcb499284f69d221ddd5239dcaf'
+  historical62.migrations.entries = historical62.migrations.entries.slice(0, 62)
+  assert.throws(
+    () => deriveMigrationProfile(historical62, 'technical-current-test'),
     /count mismatch/u
   )
   const historical59 = structuredClone(releaseManifest)
@@ -201,9 +227,9 @@ test('migration profiles separate exact physical 61 TEST entries from the exact 
   assert.deepEqual(
     deriveMigrationProfile(releaseManifest, 'technical-current-test'),
     {
-      count: 61,
+      count: 63,
       digestSha256:
-        '5dd1426b9b218d351aa9ff7f0e7700d5a98a3930015f80ad5a048592c97b365b',
+        'c4ea76ba29a90169872d0a8e26412d1134d2e834f06609faba2bcafad7c9619f',
       name: 'technical-current-test'
     }
   )
@@ -546,12 +572,12 @@ test('technical recovery rejects stale and unexpected migration inventories', ()
       inventoryDrift.migrations.entries.pop()
     } else if (change === 'add') {
       inventoryDrift.migrations.entries.push({
-        name: '20261109100001_unreviewed_migration',
+        name: '20261110100001_unreviewed_migration',
         sha256: 'a'.repeat(64)
       })
     } else if (change === 'rename') {
       inventoryDrift.migrations.entries.at(-1).name =
-        '20261109100001_unreviewed_migration'
+        '20261110100001_unreviewed_migration'
     } else if (change === 'rewrite-batch7') {
       inventoryDrift.migrations.entries.find(
         ({ name }) => name === batch7Tags

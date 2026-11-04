@@ -361,41 +361,22 @@ model AuthSessionRotationFence {
 // migration drift control but intentionally excluded from Prisma Client so
 // application code cannot treat their rows as a public persistence API.
 model Phase7OperationIntent {
-  operationId                 String                 @id @db.Uuid
-  requestId                   String                 @db.Uuid
+  operationId                 String                @id @db.Uuid
+  requestId                   String                @db.Uuid
   command                     AdminAuditCommand
-  actorUserId                 String?                @db.Uuid
-  actorSessionId              String?                @db.Uuid
-  actorFamilyId               String?                @db.Uuid
+  actorUserId                 String?               @db.Uuid
+  actorSessionId              String?               @db.Uuid
+  actorFamilyId               String?               @db.Uuid
   capturedAuthorityGeneration Int?
-  referencedUserIds           String[]               @db.Uuid
-  targetManifest              Json?                  @db.JsonB
-  requiresFresh               Boolean                @default(false)
+  referencedUserIds           String[]              @db.Uuid
+  targetManifest              Json?                 @db.JsonB
+  requiresFresh               Boolean               @default(false)
   environment                 AdminAuditEnvironment
-  occurredAt                  DateTime?              @db.Timestamptz(3)
+  occurredAt                  DateTime?             @db.Timestamptz(3)
   backendPid                  Int
   transactionId               BigInt
-  deltas                      Phase7OperationDelta[]
 
   @@unique([backendPid, transactionId], map: "Phase7OperationIntent_backend_transaction_key")
-  @@ignore
-}
-
-model Phase7OperationDelta {
-  operationId      String                @db.Uuid
-  entityType       String
-  targetId         String                @db.Uuid
-  questionId       String?               @db.Uuid
-  mutation         String
-  fromState        String?
-  toState          String?
-  beforeRowVersion Int?
-  afterRowVersion  Int?
-  beforeSnapshot   Json?                 @db.JsonB
-  afterSnapshot    Json?                 @db.JsonB
-  intent           Phase7OperationIntent @relation(fields: [operationId], references: [operationId], onDelete: Cascade, onUpdate: NoAction)
-
-  @@id([operationId, entityType, targetId])
   @@ignore
 }
 
