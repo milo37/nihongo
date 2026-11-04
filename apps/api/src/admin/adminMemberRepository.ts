@@ -288,10 +288,22 @@ export const createPrismaAdminMemberRepository = (
         })
         return 'OK' as const
       })
-    ).then((outcome) => {
-      if (!OUTCOMES.has(outcome)) {
-        throw new Error('Unexpected member restriction outcome.')
+    ).then(
+      (outcome) => {
+        if (!OUTCOMES.has(outcome)) {
+          throw new Error('Unexpected member restriction outcome.')
+        }
+        return outcome
+      },
+      (error: unknown) => {
+        // The member was erased while the command ran.
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          (error.code === 'P2003' || error.code === 'P2025')
+        ) {
+          return 'NOT_FOUND' as const
+        }
+        throw error
       }
-      return outcome
-    })
+    )
 })

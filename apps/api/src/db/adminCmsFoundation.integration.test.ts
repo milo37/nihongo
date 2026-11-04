@@ -8561,6 +8561,7 @@ describe('Persistence foundation', () => {
     let applicationSuperuser = false
     let applicationHasDirectUserEmailAcl = false
     let applicationGroupHasUserNameAcl = false
+    let applicationGroupHasUserRoleUpdateAcl = false
     let applicationHasExtraMembership = false
     let applicationHasDirectQuestionAcl = false
     let applicationConnectRestored = true
@@ -8850,6 +8851,20 @@ describe('Persistence foundation', () => {
       applicationGroupHasUserNameAcl = false
 
       await client.query(
+        `GRANT UPDATE ("role") ON TABLE ${quoteIdentifier(schema)}."User"
+         TO "nihongo_app"`
+      )
+      applicationGroupHasUserRoleUpdateAcl = true
+      await expect(attestRuntimeRoles(endpoints)).rejects.toThrow(
+        'Runtime DB role attestation failed.'
+      )
+      await client.query(
+        `REVOKE UPDATE ("role") ON TABLE ${quoteIdentifier(schema)}."User"
+         FROM "nihongo_app"`
+      )
+      applicationGroupHasUserRoleUpdateAcl = false
+
+      await client.query(
         `CREATE SCHEMA ${quoteIdentifier(wrongSchema)}
          AUTHORIZATION "nihongo_phase7_owner"`
       )
@@ -8979,6 +8994,14 @@ describe('Persistence foundation', () => {
           .query(
             `REVOKE ALL PRIVILEGES ON TABLE ${quoteIdentifier(schema)}."Question"
              FROM ${quoteIdentifier(applicationLogin)}`
+          )
+          .catch(() => undefined)
+      }
+      if (applicationGroupHasUserRoleUpdateAcl) {
+        await client
+          .query(
+            `REVOKE UPDATE ("role") ON TABLE ${quoteIdentifier(schema)}."User"
+             FROM "nihongo_app"`
           )
           .catch(() => undefined)
       }
