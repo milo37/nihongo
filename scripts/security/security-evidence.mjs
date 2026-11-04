@@ -52,7 +52,7 @@ const PLAYWRIGHT_BROWSER_PERFORMANCE_BUDGETS = {
 }
 const PLAYWRIGHT_EXPECTED_TEST_COUNTS = {
   'admin-dashboard-mock': 1,
-  'admin-dashboard-real': 3,
+  'admin-dashboard-real': 4,
   'accessibility-mock': 3,
   'accessibility-real': 4,
   'journey-mock': 5,

@@ -210,6 +210,8 @@ const createCurrentAcceptanceAttachments = (mode, index) => {
     ]
   if (mode === 'real' && index === 1)
     return [createRequestLedgerAttachment('admin-cms-real-request-ledger')]
+  // The real admin member list check attaches no evidence.
+  if (mode === 'real' && index === 2) return []
   return [
     createRequestLedgerAttachment(`dashboard-${mode}-request-ledger`),
     createPerformanceAttachment(mode)
@@ -472,7 +474,7 @@ test('all six safe suites retain exact current counts and approved attachments',
   const labels = []
   for (const mode of ['real', 'mock']) {
     for (const [phase, count] of [
-      [8, mode === 'real' ? 3 : 1],
+      [8, mode === 'real' ? 4 : 1],
       [9, mode === 'real' ? 4 : 3],
       [10, 5]
     ]) {
@@ -521,7 +523,7 @@ test('Phase 8 reporter retains exact ledger and performance evidence', async () 
     label: 'admin-dashboard-real'
   })
   reporter.onBegin()
-  for (let index = 0; index < 3; index += 1) {
+  for (let index = 0; index < 4; index += 1) {
     reporter.onTestEnd(
       {
         location: { file: `/private/spec-${index}.ts`, line: index + 1 },
@@ -541,7 +543,7 @@ test('Phase 8 reporter retains exact ledger and performance evidence', async () 
     await readFile(path.join(directory, 'admin-dashboard-real.json'), 'utf8')
   )
   assert.equal(value.schemaVersion, 2)
-  assert.equal(value.tests.length, 3)
+  assert.equal(value.tests.length, 4)
   assert.deepEqual(
     value.requestLedgers.map(({ label }) => label),
     [
@@ -832,7 +834,7 @@ test('current Phase 8 summaries reject missing, duplicate, forged and obsolete e
       outputDirectory: directory,
       label
     })
-    const count = mode === 'real' ? 3 : 1
+    const count = mode === 'real' ? 4 : 1
     reporter.onBegin()
     for (let index = 0; index < count; index += 1) {
       reporter.onTestEnd(
@@ -1280,7 +1282,7 @@ test('real-only browser evidence requires all three exact phases', async () => {
   const labels = ['admin-dashboard-real', 'accessibility-real', 'journey-real']
   try {
     for (const [phase, count] of [
-      [8, 3],
+      [8, 4],
       [9, 4],
       [10, 5]
     ]) {
