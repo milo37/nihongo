@@ -11,6 +11,7 @@ export const completeQuestionReviewOperationId =
 export const holdQuestionReviewOperationId = 'admin.holdQuestionReview' as const
 export const publishQuestionVersionBatchOperationId =
   'admin.publishQuestionVersionBatch' as const
+/** @deprecated No endpoint; delete drafts via archiveAdminQuestion (JLP-691). */
 export const deleteQuestionDraftOperationId =
   'admin.deleteQuestionDraft' as const
 
@@ -174,15 +175,19 @@ export const publishQuestionVersionBatchResponseSchema = z
 /**
  * POST /admin/question-versions/:versionId/draft-deletion.
  * Only a never published draft with usageCount 0 can be deleted.
+ * @deprecated Never implemented. Drafts are removed with archiveAdminQuestion,
+ * which retires open versions; removal is a #504 candidate (JLP-691).
  */
 export const deleteQuestionDraftRequestSchema = z
   .object({ expectedRowVersion: rowVersionSchema })
   .strict()
 
+/** @deprecated No endpoint; delete drafts via archiveAdminQuestion (JLP-691). */
 export const deleteQuestionDraftResponseSchema = z
   .object({ questionVersionId: opaqueIdSchema, deleted: z.literal(true) })
   .strict()
 
+/** @deprecated No endpoint; delete drafts via archiveAdminQuestion (JLP-691). */
 export const deleteQuestionDraftErrorSchema = createApiFailureSchema(
   z.enum([
     'AUTHENTICATION_REQUIRED',
@@ -220,9 +225,11 @@ export type PublishQuestionVersionBatchRequest = z.input<
 export type PublishQuestionVersionBatchResponse = z.output<
   typeof publishQuestionVersionBatchResponseSchema
 >
+/** @deprecated No endpoint; delete drafts via archiveAdminQuestion (JLP-691). */
 export type DeleteQuestionDraftRequest = z.input<
   typeof deleteQuestionDraftRequestSchema
 >
+/** @deprecated No endpoint; delete drafts via archiveAdminQuestion (JLP-691). */
 export type DeleteQuestionDraftResponse = z.output<
   typeof deleteQuestionDraftResponseSchema
 >
