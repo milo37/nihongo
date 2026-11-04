@@ -26,6 +26,7 @@ import {
   createQuestionDuplicateIdentityKey,
   exportAdminQuestionsRequestSchema,
   listAdminQuestionReportsQuerySchema,
+  listQuestionVersionReviewsResponseSchema,
   publishQuestionVersionRequestSchema,
   requestContentReviewBatchRequestSchema,
   requestContentReviewRequestSchema,
@@ -75,6 +76,8 @@ import {
   type AdminQuestionPublicationCommandService,
   type AdminQuestionSlice5CommandService
 } from './adminQuestionCommandService.js'
+import { createPrismaAdminQuestionRepository } from './adminQuestionRepository.js'
+import { createAdminQuestionService } from './adminQuestionService.js'
 import { createPrismaAdminQuestionSlice5Repository } from './adminQuestionSlice5Repository.js'
 import { createPrismaQuestionReportRepository } from './questionReportRepository.js'
 import {
@@ -1403,6 +1406,20 @@ describe('ADMIN command TEST database integration', () => {
       })
     )
     expect(published.versionStatus).toBe('PUBLISHED')
+
+    const history = listQuestionVersionReviewsResponseSchema.parse(
+      await createAdminQuestionService(
+        createPrismaAdminQuestionRepository(applicationRuntime!.client)
+      ).listReviews(versionId, { limit: 20 })
+    )
+    expect(
+      history.items
+        .filter(({ action }) =>
+          ['APPROVED', 'APPROVAL_WITHDRAWN'].includes(action)
+        )
+        .map(({ action }) => action)
+        .sort()
+    ).toEqual(['APPROVAL_WITHDRAWN', 'APPROVED', 'APPROVED'])
   })
 
   it('executes publication, retirement and all archive shapes atomically', async () => {
