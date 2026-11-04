@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { finishAdminOperation } from './adminOperationAuthority.js'
 import {
   createAdminAuditContentDigestPreimage,
   type AdminAuditLogItem
@@ -252,8 +253,5 @@ export const finishOperation = async (
   transaction: Prisma.TransactionClient,
   operationId: string
 ): Promise<void> => {
-  await transaction.$executeRawUnsafe(
-    `SELECT "phase7_finish_admin_operation"($1)`,
-    operationId
-  )
+  await finishAdminOperation(transaction, operationId)
 }

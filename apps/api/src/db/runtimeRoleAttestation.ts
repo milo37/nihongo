@@ -183,13 +183,25 @@ const ATTESTATION_QUERY = `
            current_user,
            sensitive_relation.oid,
            sensitive_column.attnum,
-           -- #504 P2: the member console may only read these User columns.
-           CASE WHEN current_user = 'nihongo_app'
-             AND sensitive_relation.relname = 'User'
-             AND sensitive_column.attname = ANY(ARRAY[
-               'id', 'email', 'role', 'accountStatus', 'deletedAt', 'createdAt'
-             ]::name[])
-           THEN 'INSERT,UPDATE,REFERENCES'
+           -- #504 P2: the member console reads six User columns. #504 P7 PR2:
+           -- the admin operation reads its authority columns and needs one
+           -- UPDATE column per table only to take FOR UPDATE row locks.
+           CASE WHEN current_user <> 'nihongo_app' THEN 'SELECT,INSERT,UPDATE,REFERENCES'
+           WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
+               ('User', 'authorityGeneration'),
+               ('Session', 'authorizationState'),
+               ('AuthSessionFamily', 'status')
+             ) THEN 'INSERT,REFERENCES'
+           WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
+               ('User', 'id'), ('User', 'email'), ('User', 'role'),
+               ('User', 'accountStatus'), ('User', 'deletedAt'),
+               ('User', 'createdAt'),
+               ('Session', 'id'), ('Session', 'userId'),
+               ('Session', 'sessionFamilyId'), ('Session', 'issuerProtocolVersion'),
+               ('Session', 'authorityGeneration'), ('Session', 'expiresAt'),
+               ('Session', 'createdAt'),
+               ('AuthSessionFamily', 'id'), ('AuthSessionFamily', 'userId')
+             ) THEN 'INSERT,UPDATE,REFERENCES'
            ELSE 'SELECT,INSERT,UPDATE,REFERENCES' END
          )) AS "groupSensitiveColumnAclCount",
       (SELECT count(*)::int

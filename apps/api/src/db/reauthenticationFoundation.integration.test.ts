@@ -1,7 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { Client, type QueryResult } from 'pg'
+import {
+  beginAdminOperation,
+  finishAdminOperation
+} from '../admin/adminOperationAuthority.js'
 import { parseApiEnvironment } from '../config/env.js'
+import type { Prisma } from '../generated/prisma/client.js'
 import {
   createPostgresStartupOptions,
   getPostgresSchema
@@ -34,18 +39,6 @@ interface FinalizedSessionRow {
 const routineManifest = [
   ['phase7_abort_reauthentication', 'intent_id_value uuid', false, true],
   ['phase7_active_authorization_session', 'raw_token text', false, false],
-  [
-    'phase7_begin_admin_operation',
-    'command_value "AdminAuditCommand", raw_session_token text, request_id uuid, environment_value "AdminAuditEnvironment", referenced_user_ids uuid[]',
-    true,
-    false
-  ],
-  [
-    'phase7_begin_admin_operation_pre_reauthentication',
-    'command_value "AdminAuditCommand", raw_session_token text, request_id uuid, environment_value "AdminAuditEnvironment", referenced_user_ids uuid[]',
-    false,
-    false
-  ],
   [
     'phase7_change_user_authority',
     'raw_actor_token text, target_user_id uuid, expected_target_generation integer, new_role "UserRole", new_status "UserAccountStatus", environment_value "AdminAuditEnvironment"',
@@ -421,6 +414,23 @@ afterAll(async () => {
   await adminClient.end()
 })
 
+const asTransaction = (client: Client): Prisma.TransactionClient =>
+  ({
+    $queryRawUnsafe: async (sql: string, ...values: unknown[]) =>
+      (await client.query(sql, values)).rows,
+    $executeRawUnsafe: async (sql: string, ...values: unknown[]) =>
+      (await client.query(sql, values)).rowCount ?? 0
+  }) as unknown as Prisma.TransactionClient
+
+const sqlStateOf = async (action: () => Promise<unknown>) => {
+  try {
+    await action()
+    return 'ok'
+  } catch (error: unknown) {
+    return (error as { code?: unknown }).code
+  }
+}
+
 describe('Reauthentication DB foundation', () => {
   it('canonical flow는 PENDING을 non-authoritative로 유지하고 exact fence/audit 뒤에만 활성화한다', async () => {
     await withinRollback(async () => {
@@ -556,14 +566,23 @@ describe('Reauthentication DB foundation', () => {
         )
       )
       expect(issuance.rows).toEqual([{ confirmed: false }])
-      await expectRoleFailure(
-        'nihongo_app',
-        `SELECT * FROM "phase7_begin_admin_operation"(
-          'QUESTION_CREATE', $1, $2, 'TEST', ARRAY[$3]::uuid[]
-        )`,
-        [newToken, randomUUID(), actorId],
-        '42501'
+      // #504 P7 PR2: the API admin operation refuses the PENDING session.
+      await adminClient.query('SAVEPOINT phase7_pending_admin_operation')
+      await adminClient.query('SET LOCAL ROLE "nihongo_app"')
+      expect(
+        await sqlStateOf(() =>
+          beginAdminOperation(asTransaction(adminClient), {
+            auditEnvironment: 'TEST',
+            command: 'REVIEW_REQUEST',
+            rawSessionToken: newToken,
+            referencedUserIds: [actorId]
+          })
+        )
+      ).toBe('42501')
+      await adminClient.query(
+        'ROLLBACK TO SAVEPOINT phase7_pending_admin_operation'
       )
+      await adminClient.query('RESET ROLE')
       await expectRoleFailure(
         'nihongo_auth_gateway',
         `SELECT "phase7_change_user_authority"(
@@ -1041,8 +1060,10 @@ describe('Reauthentication DB foundation', () => {
             )) AS "sensitiveColumnAclCount"`
     )
     // #504 P2: nihongo_app reads six User columns for the member console.
+    // #504 P7 PR2: plus the admin operation authority columns (User 1,
+    // Session 8, AuthSessionFamily 3), never Session.token.
     expect(catalog.rows).toEqual([
-      { sensitiveColumnAclCount: 6, sensitiveTableAclCount: 0 }
+      { sensitiveColumnAclCount: 18, sensitiveTableAclCount: 0 }
     ])
   })
 
@@ -1241,14 +1262,178 @@ describe('Reauthentication DB foundation', () => {
         .filter((row) => row.app && !row.gateway && !row.erasure)
         .map((row) => row.name)
     ).toEqual([
-      'phase7_begin_admin_operation',
       'phase7_classify_admin_authority',
       'phase7_create_question_report',
       'phase7_finish_admin_operation',
+      'phase7_require_database_capability',
       'phase7_resolve_v1_principal',
       'phase7_sso_admin_session_is_fresh'
     ])
     expect(rows.filter((row) => row.gateway).length).toBe(34)
     expect(rows.filter((row) => row.erasure).length).toBe(8)
+  })
+
+  const createCommittedAdmin = async () => {
+    const userId = randomUUID()
+    const sessionId = randomUUID()
+    const token = `phase7-admin-operation-${randomUUID()}`
+    // The deferred credential totality check needs User and Account together.
+    await adminClient.query('BEGIN')
+    try {
+      await insertCredentialUser(userId, 'ADMIN')
+      await adminClient.query('COMMIT')
+    } catch (error: unknown) {
+      await adminClient.query('ROLLBACK')
+      throw error
+    }
+    await issueSession(userId, sessionId, token)
+    return { sessionId, token, userId }
+  }
+
+  it('#504 P7 PR2: nihongo_app은 Session.token을 읽을 수 없고 잠금용 UPDATE 열 3개를 직접 바꾸면 guard 트리거가 막는다', async () => {
+    const admin = await createCommittedAdmin()
+    await withinRollback(async () => {
+      await expectRoleFailure(
+        'nihongo_app',
+        'SELECT "token" FROM "Session" WHERE "id" = $1',
+        [admin.sessionId],
+        '42501'
+      )
+      await expectRoleFailure(
+        'nihongo_app',
+        'SELECT * FROM "Session" WHERE "id" = $1',
+        [admin.sessionId],
+        '42501'
+      )
+      await expectRoleFailure(
+        'nihongo_app',
+        `UPDATE "User" SET "authorityGeneration" = "authorityGeneration" + 1
+         WHERE "id" = $1`,
+        [admin.userId],
+        '42501'
+      )
+      await expectRoleFailure(
+        'nihongo_app',
+        `UPDATE "Session" SET "authorizationState" = 'ACTIVE'
+         WHERE "id" = $1`,
+        [admin.sessionId],
+        '42501'
+      )
+      await expectRoleFailure(
+        'nihongo_app',
+        `UPDATE "AuthSessionFamily" SET "status" = 'ACTIVE'
+         WHERE "userId" = $1`,
+        [admin.userId],
+        '42501'
+      )
+    })
+  })
+
+  it('#504 P7 PR2: API 관리자 실행은 권한 회수가 먼저면 거절하고, 실행 중 회수는 잠금으로 commit 뒤에 선형화한다', async () => {
+    const revokeFirst = await createCommittedAdmin()
+    const revokeLater = await createCommittedAdmin()
+    const bumpGeneration = async (client: Client, userId: string) => {
+      await client.query('BEGIN')
+      await client.query('SET LOCAL session_replication_role = replica')
+      await client.query(
+        `UPDATE "User" SET "authorityGeneration" = "authorityGeneration" + 1
+         WHERE "id" = $1`,
+        [userId]
+      )
+      await client.query('COMMIT')
+    }
+    const begin = (admin: { token: string; userId: string }) =>
+      beginAdminOperation(asTransaction(appClient), {
+        auditEnvironment: 'TEST',
+        command: 'REVIEW_REQUEST',
+        rawSessionToken: admin.token,
+        referencedUserIds: [admin.userId]
+      })
+
+    // Revoked before the operation: begin fails with the same SQLSTATE.
+    await bumpGeneration(adminClient, revokeFirst.userId)
+    await appClient.query('BEGIN ISOLATION LEVEL READ COMMITTED')
+    try {
+      expect(await sqlStateOf(() => begin(revokeFirst))).toBe('42501')
+    } finally {
+      await appClient.query('ROLLBACK')
+    }
+
+    // Revoked while the operation holds its locks: the revocation waits for
+    // the admin commit, so the operation commits with the authority it checked.
+    const observer = new Client({
+      connectionString: adminUrl.toString(),
+      options: createPostgresStartupOptions(schema)
+    })
+    await observer.connect()
+    try {
+      await appClient.query('BEGIN ISOLATION LEVEL READ COMMITTED')
+      const operation = await begin(revokeLater)
+      expect(operation.actorUserId).toBe(revokeLater.userId)
+      const revokerPid = (
+        await adminClient.query<{ pid: number }>(
+          'SELECT pg_backend_pid() AS pid'
+        )
+      ).rows[0]!.pid
+      const revocation = bumpGeneration(adminClient, revokeLater.userId)
+      let waited = false
+      for (let attempt = 0; attempt < 200 && !waited; attempt += 1) {
+        const activity = await observer.query<{ waitEventType: string | null }>(
+          `SELECT wait_event_type AS "waitEventType"
+           FROM pg_stat_activity WHERE pid = $1`,
+          [revokerPid]
+        )
+        waited = activity.rows[0]?.waitEventType === 'Lock'
+        if (!waited) await new Promise((resolve) => setTimeout(resolve, 10))
+      }
+      expect(waited).toBe(true)
+      await finishAdminOperation(
+        asTransaction(appClient),
+        operation.operationId
+      )
+      await appClient.query('COMMIT')
+      await revocation
+    } finally {
+      await appClient.query('ROLLBACK').catch(() => undefined)
+      await observer.end()
+    }
+
+    // After the revocation commits, the next operation is refused.
+    await appClient.query('BEGIN ISOLATION LEVEL READ COMMITTED')
+    try {
+      expect(await sqlStateOf(() => begin(revokeLater))).toBe('42501')
+    } finally {
+      await appClient.query('ROLLBACK')
+    }
+  })
+
+  it('#504 P7 PR2: finish는 같은 트랜잭션에서 begin한 operation만 받고 아니면 42501로 거절한다', async () => {
+    const admin = await createCommittedAdmin()
+    await appClient.query('BEGIN ISOLATION LEVEL READ COMMITTED')
+    let operationId = ''
+    try {
+      operationId = (
+        await beginAdminOperation(asTransaction(appClient), {
+          auditEnvironment: 'TEST',
+          command: 'REVIEW_REQUEST',
+          rawSessionToken: admin.token,
+          referencedUserIds: [admin.userId]
+        })
+      ).operationId
+    } finally {
+      await appClient.query('ROLLBACK')
+    }
+    for (const candidate of [operationId, randomUUID()]) {
+      await appClient.query('BEGIN ISOLATION LEVEL READ COMMITTED')
+      try {
+        expect(
+          await sqlStateOf(() =>
+            finishAdminOperation(asTransaction(appClient), candidate)
+          )
+        ).toBe('42501')
+      } finally {
+        await appClient.query('ROLLBACK')
+      }
+    }
   })
 })

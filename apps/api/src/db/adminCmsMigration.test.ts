@@ -133,7 +133,7 @@ describe('Phase 7 Slice 1 admin-CMS migrations', () => {
   it('기존58 migration의 역사 prefix checksum을 보존하고 migration59를 pin한다', () => {
     const manifest = loadExpectedMigrationManifest(migrationsDirectory)
 
-    expect(manifest).toHaveLength(66)
+    expect(manifest).toHaveLength(67)
     expect(manifest.slice(0, 27).map(({ name }) => name)).toEqual(
       approvedBeforeAdminCmsMigrationNames
     )
@@ -424,8 +424,16 @@ describe('Phase 7 Slice 1 admin-CMS migrations', () => {
     expect(digest(manifest.slice(0, 65))).toBe(
       '8c9e7821338db7ac499fac7ae4d5efd475babc7b141b93bbec80654a7c64d71c'
     )
-    expect(digest(manifest)).toBe(
+    expect(manifest[66]).toEqual({
+      name: '20261113090000_admin_operation_to_api',
+      checksum:
+        'b6fa895ed7f6341ba12341a65cb7acc1099f14d111b16f921ee2687595f05259'
+    })
+    expect(digest(manifest.slice(0, 66))).toBe(
       '3d2a2bc45a6a9556ac1eb273f6e0c5f90e2bb158e6f1d12f52939c53d59bb23c'
+    )
+    expect(digest(manifest)).toBe(
+      '97a17f9613955e3464f05935fe62f6b1d6be94418afb5b890eb3e9bff24e9a86'
     )
   })
 
