@@ -545,11 +545,11 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
     const archivePath = `/api/v1/admin/questions/${questionId}/archive`
     const openArchive = async (): Promise<void> => {
       await winner
-        .getByRole('button', { name: `${questionId} 문제 보관`, exact: true })
+        .getByRole('button', { name: `${questionId} 초안 삭제`, exact: true })
         .click()
       await expect(
         winner.getByRole('dialog', {
-          name: '문제를 보관하시겠습니까?',
+          name: '초안을 삭제하시겠습니까?',
           exact: true
         })
       ).toBeVisible()
@@ -558,7 +558,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
     const stale = waitForResponse(winner, 'POST', archivePath)
     await winner
       .getByRole('dialog')
-      .getByRole('button', { name: '문제 보관', exact: true })
+      .getByRole('button', { name: '초안 삭제', exact: true })
       .click()
     const staleResponse = await stale
     expect(
@@ -685,7 +685,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
       const archiveResponse = waitForResponse(winner, 'POST', archivePath)
       await winner
         .getByRole('dialog')
-        .getByRole('button', { name: '문제 보관', exact: true })
+        .getByRole('button', { name: '초안 삭제', exact: true })
         .click()
       const archivedResponse = await archiveResponse
       expect(
@@ -703,7 +703,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
       })
       await expect(
         winner.getByRole('button', {
-          name: `${questionId} 문제 보관`,
+          name: `${questionId} 초안 삭제`,
           exact: true
         })
       ).toHaveCount(0)

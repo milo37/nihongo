@@ -77,13 +77,18 @@ export const hasPublicationHistory = (
   currentPublishedVersionId: string | null,
   versions: ReadonlyArray<{
     readonly versionNumber: number
+    readonly versionStatus: string
+    readonly retirementKind: string | null
     readonly publishedAt?: string | null
   }>
 ): boolean =>
   currentPublishedVersionId !== null ||
   versions.some(
-    ({ versionNumber, publishedAt }) =>
-      versionNumber > 1 || (publishedAt ?? null) !== null
+    (version) =>
+      version.versionNumber > 1 ||
+      version.versionStatus === 'PUBLISHED' ||
+      version.retirementKind === 'PUBLISHED_RETIREMENT' ||
+      (version.publishedAt ?? null) !== null
   )
 export const editableVersion = (
   detail: AdminQuestionDetail,

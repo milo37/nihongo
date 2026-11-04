@@ -216,18 +216,50 @@ it('rejects a valid selected-version preview belonging to another question', asy
   endpoint.mockRestore()
 })
 describe('publication history', () => {
+  const version = (
+    overrides: Partial<{
+      versionNumber: number
+      versionStatus: string
+      retirementKind: string | null
+      publishedAt: string | null
+    }> = {}
+  ) => ({
+    versionNumber: 1,
+    versionStatus: 'DRAFT',
+    retirementKind: null,
+    publishedAt: null,
+    ...overrides
+  })
   it('treats only a never-published first version as a draft', () => {
-    expect(
-      hasPublicationHistory(null, [{ versionNumber: 1, publishedAt: null }])
-    ).toBe(false)
-    expect(hasPublicationHistory(null, [{ versionNumber: 2 }])).toBe(true)
+    expect(hasPublicationHistory(null, [version()])).toBe(false)
     expect(
       hasPublicationHistory(null, [
-        { versionNumber: 1, publishedAt: '2026-11-01T00:00:00.000Z' }
+        version({
+          versionStatus: 'RETIRED',
+          retirementKind: 'QUESTION_ARCHIVE_ABANDONED'
+        })
+      ])
+    ).toBe(false)
+    expect(hasPublicationHistory(null, [version({ versionNumber: 2 })])).toBe(
+      true
+    )
+    expect(
+      hasPublicationHistory(null, [
+        version({ publishedAt: '2026-11-01T00:00:00.000Z' })
       ])
     ).toBe(true)
     expect(
       hasPublicationHistory('20000000-0000-4000-8000-000000000001', [])
+    ).toBe(true)
+  })
+  it('counts a first version retired after publication (list summaries have no publishedAt)', () => {
+    expect(
+      hasPublicationHistory(null, [
+        version({
+          versionStatus: 'RETIRED',
+          retirementKind: 'PUBLISHED_RETIREMENT'
+        })
+      ])
     ).toBe(true)
   })
 })

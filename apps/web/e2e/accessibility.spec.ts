@@ -2850,19 +2850,19 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
   await expect(page).toHaveURL((url) => url.pathname + url.search === returnTo)
   await settlePage(page)
   const archiveTrigger = fixtureRow.getByRole('button', {
-    name: `${fixture.questionId} 문제 보관`,
+    name: `${fixture.questionId} 문제 공개 중단·보관`,
     exact: true
   })
   await focusByTab(page, archiveTrigger)
   await page.keyboard.press('Enter')
   const commandDialog = page.getByRole('dialog', {
-    name: '문제를 보관하시겠습니까?',
+    name: '이 문제를 공개 중단하고 보관하시겠습니까?',
     exact: true
   })
   await expect(commandDialog).toBeVisible()
   await expect(
     commandDialog.getByRole('heading', {
-      name: '문제를 보관하시겠습니까?',
+      name: '이 문제를 공개 중단하고 보관하시겠습니까?',
       exact: true
     })
   ).toBeFocused()
@@ -2870,7 +2870,7 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
     `${fixture.questionId} 문제를 활성 목록에서 보관합니다. 기존 학습 결과는 유지됩니다.`
   )
   await expect(
-    commandDialog.getByRole('button', { name: '문제 보관', exact: true })
+    commandDialog.getByRole('button', { name: '공개 중단·보관', exact: true })
   ).toBeEnabled()
   await page.keyboard.press('Escape')
   await expect(commandDialog).toBeHidden()
