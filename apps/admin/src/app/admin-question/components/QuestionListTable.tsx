@@ -2,11 +2,16 @@ import { Badge } from '@nihongo/browser/common/components/Badge'
 import { Pagination } from '@nihongo/browser/common/components/Pagination'
 import { useAppStore } from '@nihongo/browser/store/index'
 import { Link, useLocation } from 'react-router'
+import { useEffect, useRef } from 'react'
 import type { ReactElement } from 'react'
 import type { ListAdminQuestionResponse } from '@api/admin-question/listAdminQuestion/schema'
 import type { AdminQuestionSort } from '@app/admin-question/hooks/useQuestionListSearch'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import { hasPublicationHistory } from '@app/admin-question/detail/questionWorkflow'
+import {
+  isBatchPublishable,
+  type QuestionBatchPublish
+} from '@app/admin-question/hooks/useQuestionBatchPublish'
 
 export type AdminQuestionSummary = ListAdminQuestionResponse['items'][number]
 
@@ -20,6 +25,39 @@ type QuestionListTableProps = {
   totalPages: number
   onPageChange: (page: number) => void
   onArchive: (question: AdminQuestionSummary) => void
+  batch: QuestionBatchPublish
+}
+
+// The select column stays pinned while the table scrolls sideways.
+const selectCellClassName = 'sticky left-0 z-10 w-14 bg-white p-0'
+const checkboxLabelClassName =
+  'flex size-11 cursor-pointer items-center justify-center'
+const checkboxClassName = 'size-4 accent-brand'
+
+const PageCheckbox = ({
+  batch,
+  label
+}: {
+  readonly batch: QuestionBatchPublish
+  readonly label: string
+}): ReactElement | null => {
+  const input = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (input.current) input.current.indeterminate = batch.pageState === 'some'
+  }, [batch.pageState])
+  if (batch.pageState === 'empty') return null
+  return (
+    <label className={checkboxLabelClassName}>
+      <input
+        ref={input}
+        type="checkbox"
+        className={checkboxClassName}
+        aria-label={label}
+        checked={batch.pageState === 'all'}
+        onChange={batch.togglePage}
+      />
+    </label>
+  )
 }
 
 export const QuestionListTable = ({
@@ -28,7 +66,8 @@ export const QuestionListTable = ({
   page,
   totalPages,
   onPageChange,
-  onArchive
+  onArchive,
+  batch
 }: QuestionListTableProps): ReactElement => {
   const { t, formatAdminDateTime } = useAdminPresentation()
   const location = useLocation()
@@ -64,6 +103,12 @@ export const QuestionListTable = ({
           </caption>
           <thead className="bg-slate-50 text-slate-700">
             <tr>
+              <th className={`${selectCellClassName} bg-slate-50`} scope="col">
+                <PageCheckbox
+                  batch={batch}
+                  label={t('questionList.batch.selectPage')}
+                />
+              </th>
               <th className="px-4 py-3 font-semibold" scope="col">
                 {t('questionList.columns.id')}
               </th>
@@ -114,6 +159,21 @@ export const QuestionListTable = ({
                 key={question.questionId}
                 className="align-top hover:bg-slate-50/80"
               >
+                <td className={selectCellClassName}>
+                  {isBatchPublishable(question) ? (
+                    <label className={checkboxLabelClassName}>
+                      <input
+                        type="checkbox"
+                        className={checkboxClassName}
+                        aria-label={t('questionList.batch.selectRow', {
+                          questionId: question.questionId
+                        })}
+                        checked={batch.isSelected(question.questionId)}
+                        onChange={() => batch.toggle(question.questionId)}
+                      />
+                    </label>
+                  ) : null}
+                </td>
                 <th
                   className="max-w-40 px-4 py-4 font-mono text-xs font-semibold text-ink"
                   scope="row"

@@ -3,10 +3,13 @@ import { useEffect } from 'react'
 import { Link, useLocation } from 'react-router'
 import type { ReactElement } from 'react'
 import { ArchiveQuestionDialog } from '@app/admin-question/components/ArchiveQuestionDialog'
+import { BatchPublishDialog } from '@app/admin-question/components/BatchPublishDialog'
+import { QuestionBatchBar } from '@app/admin-question/components/QuestionBatchBar'
 import { QuestionListFilters } from '@app/admin-question/components/QuestionListFilters'
 import { QuestionListTable } from '@app/admin-question/components/QuestionListTable'
 import { useListAdminQuestions } from '@app/admin-question/hooks/useListAdminQuestions'
 import { useQuestionArchive } from '@app/admin-question/hooks/useQuestionArchive'
+import { useQuestionBatchPublish } from '@app/admin-question/hooks/useQuestionBatchPublish'
 import { useQuestionListSearch } from '@app/admin-question/hooks/useQuestionListSearch'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
@@ -42,6 +45,7 @@ export const AdminQuestionPage = (): ReactElement => {
     pageSize: 20
   })
   const archive = useQuestionArchive(questionList.refetch)
+  const batch = useQuestionBatchPublish(questionList.data?.items ?? [])
 
   const totalPages = questionList.data
     ? Math.max(
@@ -118,6 +122,8 @@ export const AdminQuestionPage = (): ReactElement => {
         onReset={filters.resetFilters}
       />
 
+      <QuestionBatchBar batch={batch} />
+
       {questionList.isPending ? (
         <LoadingState message={t('questionList.loading')} />
       ) : null}
@@ -176,10 +182,12 @@ export const AdminQuestionPage = (): ReactElement => {
           totalPages={totalPages}
           onPageChange={(nextPage) => setFilter('page', String(nextPage))}
           onArchive={archive.open}
+          batch={batch}
         />
       ) : null}
 
       <ArchiveQuestionDialog archive={archive} />
+      <BatchPublishDialog batch={batch} />
     </section>
   )
 }
