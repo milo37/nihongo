@@ -62,6 +62,8 @@ import { createQuestionReportRateLimiter } from '../admin/questionReportRateLimi
 import { createPrismaQuestionReportRepository } from '../admin/questionReportRepository.js'
 import { createQuestionReportService } from '../admin/questionReportService.js'
 import { createQuestionImportResultReader } from '../admin/questionImportResultStore.js'
+import { createPrismaAdminMemberRepository } from '../admin/adminMemberRepository.js'
+import { createAdminMemberService } from '../admin/adminMemberService.js'
 import { createPrismaUserReportRepository } from '../report/userReportRepository.js'
 import { createUserReportService } from '../report/userReportService.js'
 import { runPhase7ReauthenticationStartupMaintenance } from '../auth/reauthenticationStartupMaintenance.js'
@@ -1594,6 +1596,9 @@ const createSsoBrowserApiFixture = async (
               },
               importResultReader: createQuestionImportResultReader(
                 database.client
+              ),
+              members: createAdminMemberService(
+                createPrismaAdminMemberRepository(database.client)
               ),
               rateLimiter: adminReadRateLimiter,
               reader: adminQuestionReader

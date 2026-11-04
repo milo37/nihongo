@@ -147,14 +147,14 @@ export const assertSlice2ConformanceManifest = (): void => {
       'Slice 2 route order/set이 canonical expectation과 다릅니다.'
     )
   }
-  if (deferredOperationManifest.length !== 20) {
-    throw new Error('Slice 2에서 deferred operation은 정확히 20개여야 합니다.')
+  if (deferredOperationManifest.length !== 21) {
+    throw new Error('Slice 2에서 deferred operation은 정확히 21개여야 합니다.')
   }
-  if (operationSchemaManifest.length !== 28) {
-    throw new Error('Schema conformance는 28 operations를 모두 덮어야 합니다.')
+  if (operationSchemaManifest.length !== 29) {
+    throw new Error('Schema conformance는 29 operations를 모두 덮어야 합니다.')
   }
   if (
-    operationErrorConformanceManifest.length !== 28 ||
+    operationErrorConformanceManifest.length !== 29 ||
     operationErrorConformanceManifest.some(
       (entry) =>
         entry.errorSurface !== phase7ErrorSurfaceByOperation[entry.operation] ||

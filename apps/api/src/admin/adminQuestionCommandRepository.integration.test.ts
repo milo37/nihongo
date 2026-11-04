@@ -1287,6 +1287,77 @@ describe('ADMIN command TEST database integration', () => {
     ).toMatchObject({ rows: beforeDuplicate.rows })
   }, 60_000)
 
+  it('publishes a batch item by item and reports per-item outcomes (#491)', async () => {
+    if (!commandService) throw new Error('Command service is unavailable.')
+
+    const first = await prepareApprovedQuestion(`batch-a-${randomUUID()}`)
+    const second = await prepareApprovedQuestion(`batch-b-${randomUUID()}`)
+    const missingId = randomUUID()
+    const batchAuthority = authority(authorId, authorToken)
+
+    const response = await commandService.publishVersionBatch(batchAuthority, {
+      items: [
+        {
+          questionVersionId: first.versionId,
+          expectedRowVersion: first.versionRowVersion
+        },
+        {
+          questionVersionId: second.versionId,
+          expectedRowVersion: second.versionRowVersion + 1
+        },
+        { questionVersionId: missingId, expectedRowVersion: 1 }
+      ]
+    })
+
+    expect(response.publishedCount).toBe(1)
+    expect(response.items).toEqual([
+      {
+        questionVersionId: first.versionId,
+        result: 'PUBLISHED',
+        rowVersion: first.versionRowVersion + 1
+      },
+      {
+        questionVersionId: second.versionId,
+        result: 'VERSION_CONFLICT',
+        rowVersion: null
+      },
+      { questionVersionId: missingId, result: 'NOT_FOUND', rowVersion: null }
+    ])
+    const statuses = await adminClient.query<{ id: string; status: string }>(
+      `SELECT "id", "status"::text AS "status" FROM "QuestionVersion"
+         WHERE "id" = ANY($1::uuid[]) ORDER BY "id"`,
+      [[first.versionId, second.versionId]]
+    )
+    expect(
+      Object.fromEntries(statuses.rows.map((row) => [row.id, row.status]))
+    ).toEqual({
+      [first.versionId]: 'PUBLISHED',
+      [second.versionId]: 'APPROVED'
+    })
+
+    const again = await commandService.publishVersionBatch(
+      authority(authorId, authorToken),
+      {
+        items: [
+          {
+            questionVersionId: first.versionId,
+            expectedRowVersion: first.versionRowVersion + 1
+          }
+        ]
+      }
+    )
+    expect(again).toEqual({
+      publishedCount: 0,
+      items: [
+        {
+          questionVersionId: first.versionId,
+          result: 'NOT_REVIEWED',
+          rowVersion: null
+        }
+      ]
+    })
+  })
+
   it('executes publication, retirement and all archive shapes atomically', async () => {
     if (!commandService) throw new Error('Command service is unavailable.')
 
