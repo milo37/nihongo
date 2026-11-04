@@ -34,7 +34,7 @@ const settings = {
   stateInvalidMessage: '문제 신고 제한 상태를 확인할 수 없습니다.',
   rateLimitedMessage:
     '문제 신고 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.',
-  phase7Disposition: 'NO_TX'
+  adminDisposition: 'NO_TX'
 } as const
 
 export const createQuestionReportRateLimiter = ({

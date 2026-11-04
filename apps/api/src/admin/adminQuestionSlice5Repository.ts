@@ -7,8 +7,8 @@ import {
   createAdminImportMappingDigest,
   createAdminImportValidationDigest,
   createQuestionDuplicateIdentityKey,
-  isApplicablePhase7ContentType,
-  normalizePhase7TagKey,
+  isApplicableQuestionContentType,
+  normalizeContentTagKey,
   type AdminImportApplyItem,
   type AdminImportApplyResponse,
   type AdminImportItem,
@@ -483,7 +483,7 @@ const loadApplicableTags = async (
   items: readonly AdminImportItem[]
 ): Promise<TagApplicabilityRow[]> => {
   const normalizedNames = uniqueSorted(
-    items.flatMap((item) => item.content.tagNames.map(normalizePhase7TagKey))
+    items.flatMap((item) => item.content.tagNames.map(normalizeContentTagKey))
   )
   if (normalizedNames.length === 0) return []
   return client.$queryRawUnsafe<TagApplicabilityRow[]>(
@@ -544,7 +544,7 @@ const eligibleImportFingerprints = (
         !duplicateOptionText &&
         correctKeyMatchCount === 1 &&
         passageIsValid &&
-        isApplicablePhase7ContentType(
+        isApplicableQuestionContentType(
           item.content.level,
           item.content.subject,
           item.content.questionType
@@ -641,7 +641,7 @@ const collectImportValidation = async (
 
     const tagKeys = new Set<string>()
     item.content.tagNames.forEach((tagName, tagIndex) => {
-      const normalizedName = normalizePhase7TagKey(tagName)
+      const normalizedName = normalizeContentTagKey(tagName)
       if (tagKeys.has(normalizedName)) {
         pushIssue(issues, {
           itemIndex,
@@ -676,7 +676,7 @@ const collectImportValidation = async (
         message: '문제 분류에 맞는 passage 구성이 필요합니다.'
       })
     }
-    const contentIsValid = isApplicablePhase7ContentType(
+    const contentIsValid = isApplicableQuestionContentType(
       item.content.level,
       item.content.subject,
       item.content.questionType
@@ -1917,7 +1917,7 @@ export const createPrismaAdminQuestionSlice5Repository = ({
           const tagsByItem = request.items.map((item) =>
             item.content.tagNames.map((name) => {
               const tag = tagByApplicability.get(
-                applicabilityKey(normalizePhase7TagKey(name), item.content)
+                applicabilityKey(normalizeContentTagKey(name), item.content)
               )
               if (!tag) {
                 throw repositoryFailure(

@@ -89,7 +89,7 @@ const invalidRequest = (message: string): ApplicationError =>
     code: 'INVALID_REQUEST',
     message,
     retryable: false,
-    phase7Disposition: 'NO_TX'
+    adminDisposition: 'NO_TX'
   })
 
 const requestTooLarge = (): ApplicationError =>
@@ -97,7 +97,7 @@ const requestTooLarge = (): ApplicationError =>
     code: 'REQUEST_TOO_LARGE',
     message: '요청 본문이 허용된 크기를 초과했습니다.',
     retryable: false,
-    phase7Disposition: 'NO_TX'
+    adminDisposition: 'NO_TX'
   })
 
 const getOperation = (
@@ -113,7 +113,7 @@ const getOperation = (
       code: 'RESOURCE_NOT_FOUND',
       message: '요청한 경로를 찾을 수 없습니다.',
       retryable: false,
-      phase7Disposition: 'NO_TX'
+      adminDisposition: 'NO_TX'
     })
   }
   return operation
@@ -170,7 +170,7 @@ export const assertTrustedOrigin = (
     code: 'UNTRUSTED_ORIGIN',
     message: '신뢰할 수 있는 요청 출처가 필요합니다.',
     retryable: false,
-    phase7Disposition: 'NO_TX'
+    adminDisposition: 'NO_TX'
   })
 }
 
@@ -216,7 +216,7 @@ export const createAdminCommandGuard = ({
         message: '관리자 세션을 확인할 수 없습니다.',
         retryable: true,
         retryAfterSeconds: 5,
-        phase7Disposition: 'NO_TX',
+        adminDisposition: 'NO_TX',
         cause: error
       })
     }
@@ -234,7 +234,7 @@ export const createAdminCommandGuard = ({
           code: 'ADMIN_REQUIRED',
           message: '관리자 권한이 필요합니다.',
           retryable: false,
-          phase7Disposition: 'NO_TX'
+          adminDisposition: 'NO_TX'
         })
       }
       throw new ApplicationError({
@@ -245,7 +245,7 @@ export const createAdminCommandGuard = ({
           ? '로그인 세션이 만료됐습니다.'
           : '관리자 기능을 사용하려면 로그인이 필요합니다.',
         retryable: false,
-        phase7Disposition: 'NO_TX'
+        adminDisposition: 'NO_TX'
       })
     }
     if (resolution.user.role !== 'ADMIN') {
@@ -253,7 +253,7 @@ export const createAdminCommandGuard = ({
         code: 'ADMIN_REQUIRED',
         message: '관리자 권한이 필요합니다.',
         retryable: false,
-        phase7Disposition: 'NO_TX'
+        adminDisposition: 'NO_TX'
       })
     }
 
@@ -262,7 +262,7 @@ export const createAdminCommandGuard = ({
     } catch (error: unknown) {
       if (
         error instanceof ApplicationError &&
-        error.phase7Disposition !== undefined
+        error.adminDisposition !== undefined
       ) {
         throw error
       }
@@ -271,7 +271,7 @@ export const createAdminCommandGuard = ({
         message: '관리자 명령 기능을 사용할 수 없습니다.',
         retryable: true,
         retryAfterSeconds: 5,
-        phase7Disposition: 'NO_TX',
+        adminDisposition: 'NO_TX',
         cause: error
       })
     }
@@ -282,7 +282,7 @@ export const createAdminCommandGuard = ({
         message:
           '민감한 관리자 작업을 위해 연결된 SSO 계정으로 다시 인증해 주세요.',
         retryable: false,
-        phase7Disposition: 'NO_TX'
+        adminDisposition: 'NO_TX'
       })
     }
 
@@ -306,7 +306,7 @@ export const createAdminCommandGuard = ({
         code: 'INTERNAL_SERVER_ERROR',
         message: '관리자 명령 정책을 확인할 수 없습니다.',
         retryable: true,
-        phase7Disposition: 'NO_TX'
+        adminDisposition: 'NO_TX'
       })
     }
     await rateLimiter.consume({

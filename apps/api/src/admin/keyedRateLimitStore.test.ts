@@ -59,13 +59,13 @@ describe('consumeRateLimitKeys', () => {
         client: clientReturning([row('k-actor', 3), row('k-ip', 1)]) as never,
         keys,
         policy,
-        settings: { ...settings, phase7Disposition: 'NO_TX' }
+        settings: { ...settings, adminDisposition: 'NO_TX' }
       })
     ).rejects.toMatchObject({
       code: 'RATE_LIMITED',
       message: 'limited',
       retryAfterSeconds: 30,
-      phase7Disposition: 'NO_TX'
+      adminDisposition: 'NO_TX'
     })
   })
 

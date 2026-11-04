@@ -34,7 +34,7 @@ const assertCommittedResponse = <Response>(
       code: 'INTERNAL_SERVER_ERROR',
       message: '문제 신고 응답 무결성을 확인할 수 없습니다.',
       retryable: false,
-      phase7Disposition: 'COMMIT_CONFIRMED',
+      adminDisposition: 'COMMIT_CONFIRMED',
       cause: error
     })
   }
@@ -69,7 +69,7 @@ export const createQuestionReportRoutes = ({
           message: '문제 신고 요청이 올바르지 않습니다.',
           fieldErrors: toFieldErrors(error),
           retryable: false,
-          phase7Disposition: 'NO_TX'
+          adminDisposition: 'NO_TX'
         })
       }
     })()

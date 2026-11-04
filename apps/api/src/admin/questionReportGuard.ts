@@ -49,7 +49,7 @@ export const createQuestionReportGuard = ({
           message: '로그인 세션을 확인할 수 없습니다.',
           retryable: true,
           retryAfterSeconds: 5,
-          phase7Disposition: 'NO_TX',
+          adminDisposition: 'NO_TX',
           cause: error
         })
       }
@@ -71,7 +71,7 @@ export const createQuestionReportGuard = ({
             ? '로그인 세션이 만료됐습니다.'
             : '문제를 신고하려면 로그인이 필요합니다.',
           retryable: false,
-          phase7Disposition: 'NO_TX'
+          adminDisposition: 'NO_TX'
         })
       }
 

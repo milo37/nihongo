@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import {
   createAdminImportValidationDigest,
   createQuestionDuplicateIdentityKey,
-  normalizePhase7TagKey
+  normalizeContentTagKey
 } from '@nihongo/contracts/admin/content-operations'
 import { originalQuestionSeeds } from '../../prisma/seed-data/questions/index.js'
 import {
@@ -27,12 +27,12 @@ const tupleKey = (t: {
   questionType: string
 }) => [t.normalizedName, t.level, t.subject, t.questionType].join('\0')
 const baseNames = new Set(
-  originalQuestionSeeds.flatMap((q) => q.tags.map(normalizePhase7TagKey))
+  originalQuestionSeeds.flatMap((q) => q.tags.map(normalizeContentTagKey))
 )
 const baseTuples = new Set(
   originalQuestionSeeds.flatMap((q) =>
     q.tags.map((label) =>
-      tupleKey({ ...q, normalizedName: normalizePhase7TagKey(label) })
+      tupleKey({ ...q, normalizedName: normalizeContentTagKey(label) })
     )
   )
 )

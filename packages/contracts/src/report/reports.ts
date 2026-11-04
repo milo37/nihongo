@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { isoDateTimeSchema } from '../common/date.js'
 import { createApiFailureSchema } from '../common/error.js'
 import { opaqueIdSchema } from '../common/id.js'
-import { createPhase7TextSchema } from '../common/content-validation.js'
+import { createContentTextSchema } from '../common/content-validation.js'
 import { createPageResponseSchema } from '../common/pagination.js'
 
 export const createReportOperationId = 'report.createReport' as const
@@ -13,7 +13,7 @@ export const reportKindSchema = z.enum(['QUESTION', 'APP_ERROR'])
 /** RECEIVED → ANSWERED (replied and closed) | CLOSED (closed without reply). */
 export const reportStatusSchema = z.enum(['RECEIVED', 'ANSWERED', 'CLOSED'])
 
-export const reportTextSchema = createPhase7TextSchema({
+export const reportTextSchema = createContentTextSchema({
   maxScalars: 1000,
   multiline: true
 })
@@ -21,7 +21,7 @@ export const reportTextSchema = createPhase7TextSchema({
 export const createReportRequestSchema = z
   .object({
     kind: reportKindSchema,
-    location: createPhase7TextSchema({ maxScalars: 200 }),
+    location: createContentTextSchema({ maxScalars: 200 }),
     questionId: opaqueIdSchema.optional(),
     questionVersionId: opaqueIdSchema.optional(),
     description: reportTextSchema

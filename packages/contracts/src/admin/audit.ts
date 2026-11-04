@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { isoDateTimeSchema } from '../common/date.js'
 import { createApiFailureSchema } from '../common/error.js'
 import { opaqueIdSchema } from '../common/id.js'
-import { phase7OccurredAtCursorSchema } from '../common/content-cursor.js'
+import { contentOccurredAtCursorSchema } from '../common/content-cursor.js'
 
 /**
  * Reduced admin activity log for GET /admin/audit-log. Rows are kept one year.
@@ -22,7 +22,7 @@ export const adminActivityResultSchema = z.enum(['SUCCESS', 'FAILURE'])
 
 export const listAdminActivityQuerySchema = z
   .object({
-    cursor: phase7OccurredAtCursorSchema.optional(),
+    cursor: contentOccurredAtCursorSchema.optional(),
     limit: z.coerce.number().int().min(1).max(50).default(20)
   })
   .strict()
@@ -40,7 +40,7 @@ export const adminActivityItemSchema = z
 export const listAdminActivityResponseSchema = z
   .object({
     items: z.array(adminActivityItemSchema).max(50),
-    nextCursor: phase7OccurredAtCursorSchema.nullable()
+    nextCursor: contentOccurredAtCursorSchema.nullable()
   })
   .strict()
 

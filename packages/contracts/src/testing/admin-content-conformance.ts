@@ -1,6 +1,6 @@
 import {
   assertErrorPolicyManifest,
-  phase7ErrorSurfaceByOperation,
+  contentErrorSurfaceByOperation,
   type ErrorSurface,
   type AdminExecutionDisposition
 } from '../admin/content-error-policy.js'
@@ -112,7 +112,7 @@ export interface OperationErrorConformanceEntry extends OperationManifestEntry {
 
 export const operationErrorConformanceManifest: readonly OperationErrorConformanceEntry[] =
   operationManifest.map((entry) => {
-    const errorSurface = phase7ErrorSurfaceByOperation[entry.operation]
+    const errorSurface = contentErrorSurfaceByOperation[entry.operation]
     return {
       ...entry,
       errorSurface,
@@ -157,7 +157,8 @@ export const assertSlice2ConformanceManifest = (): void => {
     operationErrorConformanceManifest.length !== 29 ||
     operationErrorConformanceManifest.some(
       (entry) =>
-        entry.errorSurface !== phase7ErrorSurfaceByOperation[entry.operation] ||
+        entry.errorSurface !==
+          contentErrorSurfaceByOperation[entry.operation] ||
         entry.deterministic4xxRetryable !== false ||
         entry.rateLimitedRetryable !== true ||
         entry.rateLimitedRetryAfterRequired !== true
