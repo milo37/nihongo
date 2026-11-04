@@ -743,37 +743,35 @@ describe('Review-center data foundation', () => {
     const response = toVersionedStudySessionPayload(target)
     const completedAt = new Date(targetStartedAt.getTime() + 1_000)
 
-    await database.client.$transaction(
-      async (transaction) => {
-        const record = await transaction.idempotencyRecord.create({
-          data: {
-            id: randomUUID(),
-            principalType: 'USER',
-            userId,
-            guestPrincipalId: null,
-            operation: 'STUDY_TARGETED_REVIEW_CREATE',
-            idempotencyKey: randomUUID(),
-            studySessionId: target.id,
-            requestHash: 'd'.repeat(64),
-            contractVersion: 2,
-            state: 'PROCESSING',
-            createdAt: targetStartedAt
-          },
-          select: { id: true }
-        })
-        await transaction.idempotencyRecord.update({
-          where: { id: record.id },
-          data: {
-            state: 'SUCCEEDED',
-            responseStatus: 201,
-            responseBody: response as Prisma.InputJsonValue,
-            completedAt,
-            expiresAt: new Date(completedAt.getTime() + 7 * DAY_MS)
-          }
-        })
-        return record.id
-      }
-    )
+    await database.client.$transaction(async (transaction) => {
+      const record = await transaction.idempotencyRecord.create({
+        data: {
+          id: randomUUID(),
+          principalType: 'USER',
+          userId,
+          guestPrincipalId: null,
+          operation: 'STUDY_TARGETED_REVIEW_CREATE',
+          idempotencyKey: randomUUID(),
+          studySessionId: target.id,
+          requestHash: 'd'.repeat(64),
+          contractVersion: 2,
+          state: 'PROCESSING',
+          createdAt: targetStartedAt
+        },
+        select: { id: true }
+      })
+      await transaction.idempotencyRecord.update({
+        where: { id: record.id },
+        data: {
+          state: 'SUCCEEDED',
+          responseStatus: 201,
+          responseBody: response as Prisma.InputJsonValue,
+          completedAt,
+          expiresAt: new Date(completedAt.getTime() + 7 * DAY_MS)
+        }
+      })
+      return record.id
+    })
 
     expect(
       await database.client.wrongNote.findUniqueOrThrow({
