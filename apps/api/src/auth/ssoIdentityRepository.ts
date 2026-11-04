@@ -1,6 +1,11 @@
 import { randomBytes, randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import type { PrismaClient } from '../generated/prisma/client.js'
+import {
+  issueOwnedSession,
+  signOutOwnedSession,
+  type OwnedSessionClient
+} from './ownedSessionAuthority.js'
 import type { SsoVerifiedIdentity } from './ssoProtocol.js'
 
 const mappingSchema = z.discriminatedUnion('outcome', [
@@ -23,15 +28,6 @@ const mappingSchema = z.discriminatedUnion('outcome', [
     })
     .strict()
 ])
-const issuedSchema = z
-  .object({
-    id: z.uuid(),
-    familyId: z.uuid(),
-    createdAt: z.date(),
-    expiresAt: z.date(),
-    authorityGeneration: z.number().int().positive()
-  })
-  .strict()
 const identitySchema = z
   .object({
     provider: z.enum(['apple', 'google']),
@@ -58,7 +54,7 @@ export interface SsoIdentityPort {
 }
 
 export const createSsoIdentityRepository = (
-  client: Pick<PrismaClient, '$queryRawUnsafe'>
+  client: Pick<PrismaClient, '$queryRawUnsafe'> & OwnedSessionClient
 ): SsoIdentityPort => ({
   signIn: async (untrustedIdentity, metadata) => {
     const identity = identitySchema.parse(untrustedIdentity)
@@ -77,29 +73,23 @@ export const createSsoIdentityRepository = (
     const token = randomBytes(32).toString('base64url')
     const compensate = async (): Promise<void> => {
       try {
-        await client.$queryRawUnsafe(
-          'SELECT "phase7_owned_sign_out"($1)',
-          token
-        )
+        await signOutOwnedSession(client, token)
       } catch {
         /* Never deliver an unconfirmed cookie. */
       }
     }
     try {
-      const issued = await client.$queryRawUnsafe<unknown[]>(
-        'SELECT * FROM "phase7_issue_v1_session"($1, $2, $3::"UserRole", $4::"UserAccountStatus", $5, $6, $7, $8, true)',
-        authority.userId,
-        authority.authorityGeneration,
-        authority.role,
-        authority.accountStatus,
+      const session = await issueOwnedSession(client, {
+        userId: authority.userId,
+        authorityGeneration: authority.authorityGeneration,
+        role: authority.role,
+        accountStatus: authority.accountStatus,
         sessionId,
         token,
-        metadata.ipAddress,
-        metadata.userAgent.slice(0, 512)
-      )
-      if (issued.length !== 1)
-        throw new Error('SSO session issuance unavailable.')
-      const session = issuedSchema.parse(issued[0])
+        ipAddress: metadata.ipAddress,
+        userAgent: metadata.userAgent.slice(0, 512),
+        remember: true
+      })
       if (
         session.id !== sessionId ||
         session.authorityGeneration !== authority.authorityGeneration ||

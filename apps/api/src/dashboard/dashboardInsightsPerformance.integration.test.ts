@@ -4,6 +4,7 @@ import { performance } from 'node:perf_hooks'
 import { getDashboardInsightsResponseSchema } from '@nihongo/contracts/dashboard/get-dashboard-insights'
 import { Hono } from 'hono'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { issueOwnedSession } from '../auth/ownedSessionAuthority.js'
 import type { PrincipalService } from '../auth/principalService.js'
 import { parseApiEnvironment } from '../config/env.js'
 import {
@@ -218,20 +219,17 @@ const createAuthenticatedUser = async (): Promise<
     `
   })
 
-  const issued = await authGatewayDatabase.client.$queryRawUnsafe<
-    Array<{ familyId: string }>
-  >(
-    `SELECT * FROM "phase7_issue_v1_session"(
-      $1, 1, 'USER', 'ACTIVE', $2, $3,
-      '127.0.0.1', 'phase8-dashboard-performance', false
-    )`,
+  await issueOwnedSession(database.client, {
     userId,
+    authorityGeneration: 1,
+    role: 'USER',
+    accountStatus: 'ACTIVE',
     sessionId,
-    sessionToken
-  )
-  if (issued.length !== 1 || !issued[0]) {
-    throw new Error('Performance Session was not issued.')
-  }
+    token: sessionToken,
+    ipAddress: '127.0.0.1',
+    userAgent: 'phase8-dashboard-performance',
+    remember: false
+  })
   return { kind: 'PHASE7', sessionToken, userId }
 }
 

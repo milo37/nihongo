@@ -200,7 +200,7 @@ describe('dashboard insights authentication authority', () => {
       expect(harness.transact).toHaveBeenCalledOnce()
       expect(harness.readOnly).toHaveBeenCalledOnce()
       const statement = harness.query.mock.calls[0]?.[0] as Prisma.Sql
-      expect(statement.text).toContain('phase7_resolve_v1_principal')
+      expect(statement.text).toContain('JOIN "Session" AS session')
       expect(statement.values.includes(sessionProof.token)).toBe(true)
       expect(statement.values.includes(userId)).toBe(true)
     }
@@ -234,7 +234,7 @@ describe('dashboard insights authentication authority', () => {
     ).toBe(true)
     expect(harness.query).toHaveBeenCalledOnce()
     const statement = harness.query.mock.calls[0]?.[0] as Prisma.Sql
-    expect(statement.text).toContain('phase7_resolve_v1_principal')
+    expect(statement.text).toContain('JOIN "Session" AS session')
   })
 
   it('denies a guest before entering the repository', async () => {
@@ -253,7 +253,7 @@ describe('dashboard insights authentication authority', () => {
     expect(response.status).toBe(200)
     getDashboardInsightsResponseSchema.parse(await response.json())
     const statement = harness.query.mock.calls[0]?.[0] as Prisma.Sql
-    expect(statement.text).not.toContain('phase7_resolve_v1_principal')
+    expect(statement.text).not.toContain('JOIN "Session" AS session')
     expect(statement.text).toContain('"User"')
   })
 })

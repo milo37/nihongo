@@ -1,6 +1,9 @@
 import { z } from 'zod'
 import type { ApiEnvironment } from '../config/env.js'
-import type { PrismaClient } from '../generated/prisma/client.js'
+import {
+  signOutOwnedSession,
+  type OwnedSessionClient
+} from './ownedSessionAuthority.js'
 import type { AuthEmailDispatcher } from './emailDispatcher.js'
 import {
   createExpiredSessionCookies,
@@ -49,7 +52,7 @@ export const createPhase7AuthFacade = ({
   client,
   environment
 }: {
-  client: Pick<PrismaClient, '$queryRawUnsafe'>
+  client: OwnedSessionClient
   emailDispatcher: AuthEmailDispatcher
   environment: ApiEnvironment
 }): AuthFacade => {
@@ -66,13 +69,7 @@ export const createPhase7AuthFacade = ({
         isProduction,
         secret: environment.BETTER_AUTH_SECRET
       })
-      if (credential.token) {
-        const rows = await client.$queryRawUnsafe<
-          Array<{ signedOut: boolean }>
-        >('SELECT "phase7_owned_sign_out"($1) AS "signedOut"', credential.token)
-        if (rows.length !== 1 || rows[0]?.signedOut !== true)
-          return unavailable()
-      }
+      if (credential.token) await signOutOwnedSession(client, credential.token)
       return success(createExpiredSessionCookies(isProduction))
     }
   }

@@ -6,6 +6,7 @@ import type {
 } from '../generated/prisma/client.js'
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 import { createCurrentReviewCandidatePredicate } from '../review/currentReviewCandidateQuery.js'
+import { v1PrincipalSql } from '../auth/ownedSessionAuthority.js'
 
 export interface DashboardInsightsClockRecord {
   readonly futureAnswerCount: bigint
@@ -152,7 +153,7 @@ export const createDashboardInsightsClockQuery = (
     principal.kind === 'PHASE7'
       ? Prisma.sql`
           SELECT resolved."userId", resolved."targetLevel"
-          FROM "phase7_resolve_v1_principal"(${principal.sessionToken})
+          FROM (${v1PrincipalSql(principal.sessionToken)})
             AS resolved
           WHERE resolved."userId" = ${principal.userId}::uuid
         `

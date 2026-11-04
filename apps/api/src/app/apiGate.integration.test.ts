@@ -89,7 +89,7 @@ const ssoOwner: Parameters<typeof createSsoSessionFixture>[0]['owner'] = {
 const createSsoSession = async () =>
   await createSsoSessionFixture({
     owner: ssoOwner,
-    gateway: authGatewayRuntime.client,
+    gateway: applicationRuntime!.client,
     secret: environment.BETTER_AUTH_SECRET,
     role: 'USER'
   })
@@ -222,7 +222,7 @@ const exercisePostIssuerAuthorityDrift = async ({
       const activity = await adminClient.query<{ count: number }>(
         `SELECT COUNT(*)::int AS count FROM pg_stat_activity
          WHERE datname = current_database()
-           AND usename = 'nihongo_test_auth_gateway_login'
+           AND usename = 'nihongo_test_app_login'
            AND wait_event_type = 'Lock'`
       )
       if ((activity.rows[0]?.count ?? 0) > 0) {
@@ -331,7 +331,7 @@ beforeAll(async () => {
   )
 
   const ownedAuthFacade = createOwnedAuthFacade({
-    client: authGatewayRuntime.client,
+    client: applicationRuntime!.client,
     emailDispatcher,
     environment
   })
@@ -371,7 +371,7 @@ beforeAll(async () => {
           },
           store: createSsoTransactionStore(authGatewayRuntime.client),
           identities: createSsoIdentityRepository(
-            new Proxy(authGatewayRuntime.client, {
+            new Proxy(applicationRuntime.client, {
               get(target, key) {
                 if (key === '$queryRawUnsafe')
                   return async (sql: string, ...values: unknown[]) => {
@@ -397,7 +397,7 @@ beforeAll(async () => {
       principalService: createOwnedPrincipalService({
         client: applicationRuntime.client,
         isProduction: false,
-        refreshClient: authGatewayRuntime.client,
+        refreshClient: applicationRuntime!.client,
         secret: environment.BETTER_AUTH_SECRET
       })
     },

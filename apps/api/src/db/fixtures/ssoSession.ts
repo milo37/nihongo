@@ -63,7 +63,7 @@ export const createSsoSessionFixture = async ({
       ...values: unknown[]
     ) => Promise<T>
   }
-  gateway: Pick<PrismaClient, '$queryRawUnsafe'>
+  gateway: PrismaClient
   secret: string
   role?: 'USER' | 'ADMIN'
   existingUser?: { id: string; email: string; name: string }

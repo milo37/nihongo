@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { ownedSessionSql } from './fixtures/ownedSessionSql.js'
 import { Client, type QueryResult } from 'pg'
 import {
   beginAdminOperation,
@@ -90,7 +91,6 @@ const routineManifest = [
     false,
     false
   ],
-  ['phase7_owned_sign_out', 'raw_token text', false, true],
   [
     'phase7_prepare_reauthentication',
     'raw_old_token text, expected_actor_id uuid, request_id_value uuid, environment_value "AdminAuditEnvironment", intent_id_value uuid',
@@ -110,14 +110,6 @@ const routineManifest = [
     false,
     false
   ],
-  ['phase7_refresh_current_remembered_session', 'raw_token text', false, true],
-  [
-    'phase7_refresh_remembered_session',
-    'raw_token text, captured_generation_value integer, captured_role_value "UserRole", captured_status_value "UserAccountStatus"',
-    false,
-    true
-  ],
-  ['phase7_resolve_v1_principal', 'raw_token text', true, false],
   ['phase7_rotation_fence_token_digest', 'raw_token text', false, false],
   [
     'phase7_stage_reauthentication_session',
@@ -275,8 +267,9 @@ const issueSession = async (
   sessionId: string,
   token: string
 ): Promise<string> => {
-  const issued = await withExecutionRole('nihongo_auth_gateway', () =>
-    adminClient.query<{ familyId: string }>(
+  const issued = await withExecutionRole('nihongo_app', () =>
+    ownedSessionSql(
+      adminClient,
       `SELECT * FROM "phase7_issue_v1_session"(
         $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
         '127.0.0.1', 'phase7-reauth-integration', false
@@ -493,13 +486,12 @@ describe('Reauthentication DB foundation', () => {
         }
       ])
 
-      const pendingSignOut = await withExecutionRole(
-        'nihongo_auth_gateway',
-        () =>
-          adminClient.query<{ signedOut: boolean }>(
-            `SELECT "phase7_owned_sign_out"($1) AS "signedOut"`,
-            [newToken]
-          )
+      const pendingSignOut = await withExecutionRole('nihongo_app', () =>
+        ownedSessionSql(
+          adminClient,
+          `SELECT "phase7_owned_sign_out"($1) AS "signedOut"`,
+          [newToken]
+        )
       )
       expect(pendingSignOut.rows).toEqual([{ signedOut: true }])
       expect(
@@ -545,13 +537,16 @@ describe('Reauthentication DB foundation', () => {
       )
 
       const appPrincipal = await withExecutionRole('nihongo_app', () =>
-        adminClient.query(`SELECT * FROM "phase7_resolve_v1_principal"($1)`, [
-          newToken
-        ])
+        ownedSessionSql(
+          adminClient,
+          `SELECT * FROM "phase7_resolve_v1_principal"($1)`,
+          [newToken]
+        )
       )
       expect(appPrincipal.rows).toEqual([])
-      const refresh = await withExecutionRole('nihongo_auth_gateway', () =>
-        adminClient.query(
+      const refresh = await withExecutionRole('nihongo_app', () =>
+        ownedSessionSql(
+          adminClient,
           `SELECT * FROM "phase7_refresh_current_remembered_session"($1)`,
           [newToken]
         )
@@ -713,10 +708,20 @@ describe('Reauthentication DB foundation', () => {
         ).rows
       ).toEqual([{ count: 1 }])
 
+      // #504 P7 PR3a: nihongo_app may lock a rotation fence for sign-out but
+      // never change it.
+      await expectRoleFailure(
+        'nihongo_app',
+        `UPDATE "AuthSessionRotationFence" SET "expiresAt" = clock_timestamp()
+         WHERE "userId" = $1`,
+        [actorId],
+        '23514'
+      )
       const delayedOldCookieLogout = await withExecutionRole(
-        'nihongo_auth_gateway',
+        'nihongo_app',
         () =>
-          adminClient.query<{ signedOut: boolean }>(
+          ownedSessionSql(
+            adminClient,
             `SELECT "phase7_owned_sign_out"($1) AS "signedOut"`,
             [oldToken]
           )
@@ -766,8 +771,8 @@ describe('Reauthentication DB foundation', () => {
       }
 
       const loggedOut = await createAdminSession('logout')
-      await withExecutionRole('nihongo_auth_gateway', () =>
-        adminClient.query(`SELECT "phase7_owned_sign_out"($1)`, [
+      await withExecutionRole('nihongo_app', () =>
+        ownedSessionSql(adminClient, `SELECT "phase7_owned_sign_out"($1)`, [
           loggedOut.token
         ])
       )
@@ -1001,7 +1006,10 @@ describe('Reauthentication DB foundation', () => {
 
     for (const client of [appClient, gatewayClient]) {
       for (const statement of [
-        `SELECT "token" FROM "Session" LIMIT 1`,
+        // #504 P7 PR3a: nihongo_app reads Session.token; the metadata stays closed.
+        client === appClient
+          ? `SELECT "ipAddress" FROM "Session" LIMIT 1`
+          : `SELECT "token" FROM "Session" LIMIT 1`,
         `SELECT * FROM "AuthSessionRotationFence" LIMIT 1`,
         `SELECT * FROM "Phase7ReauthenticationIntent" LIMIT 1`,
         `SELECT * FROM "Phase7AuthorityRevocationEvidence" LIMIT 1`,
@@ -1061,9 +1069,11 @@ describe('Reauthentication DB foundation', () => {
     )
     // #504 P2: nihongo_app reads six User columns for the member console.
     // #504 P7 PR2: plus the admin operation authority columns (User 1,
-    // Session 8, AuthSessionFamily 3), never Session.token.
+    // Session 8, AuthSessionFamily 3). #504 P7 PR3a: owned Session issuance
+    // adds User 2, Session 4 (token and updatedAt read, ipAddress and
+    // userAgent insert only) and AuthSessionRotationFence 5, and Session DELETE.
     expect(catalog.rows).toEqual([
-      { sensitiveColumnAclCount: 18, sensitiveTableAclCount: 0 }
+      { sensitiveColumnAclCount: 29, sensitiveTableAclCount: 1 }
     ])
   })
 
@@ -1266,10 +1276,9 @@ describe('Reauthentication DB foundation', () => {
       'phase7_create_question_report',
       'phase7_finish_admin_operation',
       'phase7_require_database_capability',
-      'phase7_resolve_v1_principal',
       'phase7_sso_admin_session_is_fresh'
     ])
-    expect(rows.filter((row) => row.gateway).length).toBe(34)
+    expect(rows.filter((row) => row.gateway).length).toBe(30)
     expect(rows.filter((row) => row.erasure).length).toBe(8)
   })
 
@@ -1290,12 +1299,13 @@ describe('Reauthentication DB foundation', () => {
     return { sessionId, token, userId }
   }
 
-  it('#504 P7 PR2: nihongo_app은 Session.token을 읽을 수 없고 잠금용 UPDATE 열 3개를 직접 바꾸면 guard 트리거가 막는다', async () => {
+  it('#504 P7 PR2·PR3a: nihongo_app은 허용 열만 읽고 잠금용 UPDATE 열을 직접 바꾸면 guard 트리거가 막는다', async () => {
     const admin = await createCommittedAdmin()
     await withinRollback(async () => {
+      // PR3a reads Session.token to find the Session; the network metadata stays closed.
       await expectRoleFailure(
         'nihongo_app',
-        'SELECT "token" FROM "Session" WHERE "id" = $1',
+        'SELECT "ipAddress", "userAgent" FROM "Session" WHERE "id" = $1',
         [admin.sessionId],
         '42501'
       )
@@ -1319,14 +1329,133 @@ describe('Reauthentication DB foundation', () => {
         [admin.sessionId],
         '42501'
       )
+      // PR3a lets nihongo_app revoke a family, so a no-op ACTIVE write now
+      // reaches the ACTIVE to REVOKED rule.
       await expectRoleFailure(
         'nihongo_app',
         `UPDATE "AuthSessionFamily" SET "status" = 'ACTIVE'
          WHERE "userId" = $1`,
         [admin.userId],
-        '42501'
+        '23514'
       )
     })
+  })
+
+  it('#504 P7 PR3a: Session·family 트리거는 nihongo_app 직접 쓰기를 발급·갱신·로그아웃 조건일 때만 허용한다', async () => {
+    const admin = await createCommittedAdmin()
+    const family = (
+      await adminClient.query<{ id: string }>(
+        `SELECT "sessionFamilyId" AS id FROM "Session" WHERE "id" = $1`,
+        [admin.sessionId]
+      )
+    ).rows[0]!.id
+    const insertSession = (
+      overrides: { generation?: number; issuer?: string; state?: string } = {}
+    ) =>
+      [
+        `INSERT INTO "Session" (
+         "id", "expiresAt", "token", "createdAt", "updatedAt", "userId",
+         "sessionFamilyId", "authorityGeneration", "issuerProtocolVersion"
+       ) VALUES (
+         $1, clock_timestamp() + INTERVAL '1 day', $2, clock_timestamp(),
+         clock_timestamp(), $3, $4, $5, $6::"AuthSessionIssuerProtocolVersion"
+       )`,
+        [
+          randomUUID(),
+          `phase7-pr3a-${randomUUID()}`,
+          admin.userId,
+          family,
+          overrides.generation ?? 1,
+          overrides.issuer ?? 'PHASE7_V1'
+        ]
+      ] as const
+    await withinRollback(async () => {
+      // Issuance: a LEGACY Session stays refused. A V1 Session always takes
+      // the User's current generation and the server clock, whatever the
+      // writer sent; the API checks the captured generation under its lock.
+      await expectRoleFailure(
+        'nihongo_app',
+        ...insertSession({ issuer: 'LEGACY' }),
+        '42501'
+      )
+      const [normalizedSql, normalizedValues] = insertSession({ generation: 2 })
+      await adminClient.query('SET LOCAL ROLE "nihongo_app"')
+      await adminClient.query(normalizedSql, [...normalizedValues])
+      await adminClient.query('RESET ROLE')
+      expect(
+        (
+          await adminClient.query<{ generation: number; oneDay: boolean }>(
+            `SELECT "authorityGeneration" AS generation,
+               "expiresAt" = "createdAt" + INTERVAL '1 day' AS "oneDay"
+             FROM "Session" WHERE "id" = $1`,
+            [normalizedValues[0]]
+          )
+        ).rows
+      ).toEqual([{ generation: 1, oneDay: true }])
+      // A family for a missing User is refused before its foreign key.
+      await expectRoleFailure(
+        'nihongo_app',
+        'INSERT INTO "AuthSessionFamily" ("userId") VALUES ($1)',
+        [randomUUID()],
+        '42501'
+      )
+      // Refresh: a 1 day Session never extends.
+      await expectRoleFailure(
+        'nihongo_app',
+        `UPDATE "Session" SET "expiresAt" = "expiresAt" WHERE "id" = $1`,
+        [admin.sessionId],
+        '42501'
+      )
+      // Sign-out: a Session of an ACTIVE family cannot be deleted.
+      await expectRoleFailure(
+        'nihongo_app',
+        'DELETE FROM "Session" WHERE "id" = $1',
+        [admin.sessionId],
+        '42501'
+      )
+      // Families are never deleted.
+      await expectRoleFailure(
+        'nihongo_app',
+        'DELETE FROM "AuthSessionFamily" WHERE "id" = $1',
+        [family],
+        '42501'
+      )
+      // After a revoke, the family takes no new Session.
+      await adminClient.query('SET LOCAL ROLE "nihongo_app"')
+      await adminClient.query(
+        `UPDATE "AuthSessionFamily" SET "status" = 'REVOKED' WHERE "id" = $1`,
+        [family]
+      )
+      await adminClient.query('RESET ROLE')
+      await expectRoleFailure('nihongo_app', ...insertSession(), '42501')
+    })
+  })
+
+  it('#504 P7 PR3a: 세션 발급이 중간에 실패하면 family와 Session이 함께 rollback된다', async () => {
+    const admin = await createCommittedAdmin()
+    const familiesOf = async () =>
+      (
+        await adminClient.query<{ count: number }>(
+          `SELECT COUNT(*)::int AS count FROM "AuthSessionFamily"
+           WHERE "userId" = $1`,
+          [admin.userId]
+        )
+      ).rows[0]?.count
+    const before = await familiesOf()
+    // The family insert succeeds; the Session insert then fails on the
+    // existing Session id, so the whole issuance rolls back.
+    await expect(
+      issueSession(admin.userId, admin.sessionId, `phase7-pr3a-${randomUUID()}`)
+    ).rejects.toMatchObject({ code: '23505' })
+    expect(await familiesOf()).toBe(before)
+    expect(
+      (
+        await adminClient.query<{ count: number }>(
+          `SELECT COUNT(*)::int AS count FROM "Session" WHERE "userId" = $1`,
+          [admin.userId]
+        )
+      ).rows[0]?.count
+    ).toBe(1)
   })
 
   it('#504 P7 PR2: API 관리자 실행은 권한 회수가 먼저면 거절하고, 실행 중 회수는 잠금으로 commit 뒤에 선형화한다', async () => {

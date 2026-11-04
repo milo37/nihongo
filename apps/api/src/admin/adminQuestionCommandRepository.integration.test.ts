@@ -44,6 +44,10 @@ import {
   type UpdateQuestionVersionRequest
 } from '@nihongo/contracts/admin/content-operations'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import {
+  issueOwnedSession,
+  signOutOwnedSession
+} from '../auth/ownedSessionAuthority.js'
 import { Client } from 'pg'
 import { createSsoAdminFreshRepository } from '../auth/ssoAdminFreshRepository.js'
 import { createSsoSessionFixture } from '../db/fixtures/ssoSession.js'
@@ -225,24 +229,20 @@ const issueSession = async (
   token: string,
   role: 'ADMIN' | 'USER' = 'ADMIN'
 ): Promise<void> => {
-  if (!authGatewayRuntime) {
-    throw new Error('Auth gateway runtime is unavailable.')
+  if (!applicationRuntime) {
+    throw new Error('Application runtime is unavailable.')
   }
-  const rows = await authGatewayRuntime.client.$queryRawUnsafe<
-    Array<{ id: string }>
-  >(
-    `SELECT * FROM "phase7_issue_v1_session"(
-       $1, 1, $4::"UserRole", 'ACTIVE', $2, $3,
-       '127.0.0.1', 'phase7-command-integration', false
-     )`,
+  await issueOwnedSession(applicationRuntime.client, {
     userId,
-    randomUUID(),
+    authorityGeneration: 1,
+    role,
+    accountStatus: 'ACTIVE',
+    sessionId: randomUUID(),
     token,
-    role
-  )
-  if (rows.length !== 1) {
-    throw new Error('Command integration session was not issued.')
-  }
+    ipAddress: '127.0.0.1',
+    userAgent: 'phase7-command-integration',
+    remember: false
+  })
 }
 
 const issueFreshAdminSession = async (userId: string): Promise<string> => {
@@ -261,7 +261,7 @@ const issueFreshAdminSession = async (userId: string): Promise<string> => {
       $queryRawUnsafe: async <T = unknown>(sql: string, ...values: unknown[]) =>
         (await adminClient.query(sql, values)).rows as T
     },
-    gateway: authGatewayRuntime.client,
+    gateway: applicationRuntime!.client,
     role: 'ADMIN',
     existingUser: user,
     secret: 'phase7-command-test-session-secret-with-32-characters'
@@ -3430,7 +3430,7 @@ describe('ADMIN command TEST database integration', () => {
       throw new Error('Slice 5 drift test services are unavailable.')
     }
     const driftCommandService = commandService
-    const driftAuthGatewayRuntime = authGatewayRuntime
+    const driftApplicationClient = applicationRuntime!.client
     const driftErasureWorkerClient = erasureWorkerClient
     const reportAuditCountBefore = await adminClient.query<{ count: number }>(
       `SELECT COUNT(*)::int AS "count"
@@ -3545,10 +3545,7 @@ describe('ADMIN command TEST database integration', () => {
           )
           if (!signedOut) {
             signedOut = true
-            await driftAuthGatewayRuntime.client.$queryRawUnsafe(
-              'SELECT "phase7_owned_sign_out"($1)',
-              driftToken
-            )
+            await signOutOwnedSession(driftApplicationClient, driftToken)
           }
           return state
         }
@@ -3838,13 +3835,10 @@ describe('ADMIN command TEST database integration', () => {
 
     const revokedToken = `phase7-command-revoked-${randomUUID()}`
     await issueSession(authorId, revokedToken)
-    if (!authGatewayRuntime) {
-      throw new Error('Auth gateway runtime is unavailable.')
+    if (!applicationRuntime) {
+      throw new Error('Application runtime is unavailable.')
     }
-    await authGatewayRuntime.client.$queryRawUnsafe(
-      'SELECT "phase7_owned_sign_out"($1)',
-      revokedToken
-    )
+    await signOutOwnedSession(applicationRuntime.client, revokedToken)
     await expect(
       commandService.createQuestion(
         authority(authorId, revokedToken),
