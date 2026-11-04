@@ -269,7 +269,8 @@ test('README documents both mutually exclusive local workflows', async () => {
     /NODE_ENV=test TEST_MIGRATIONS_PATH=\S+ pnpm run db:migrate:deploy/u
   )
   assert.match(readme, /ADMIN_CMS_MODE=technical pnpm run db:seed:test/u)
-  assert.match(readme, /psql -h 127\.0\.0\.1 --username/u)
+  assert.match(readme, /psql -h 127\.0\.0\.1 -p "\$\{PHASE7_POSTGRES_PORT:-55433\}"/u)
+  assert.match(readme, /--file=infra\/postgres\/init\/local-database-activate\.psql/u)
   assert.match(readme, /pnpm run test:api-regression/u)
   assert.match(readme, /wrapper login이 하나라도 이미 존재하면 안전하게 중단/u)
   assert.match(readme, /production provisioning의\s+대체물이 아닙니다/u)

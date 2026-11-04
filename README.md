@@ -82,13 +82,16 @@ NODE_ENV=test pnpm run db:migrate:deploy
 DEVELOPMENT의 `db:migrate:dev:deploy`는 prefix 경로를 받지 않으므로, 새 볼륨의 DEVELOPMENT 적용 절차는 아직 검증되지 않았습니다.
 
 activation에는 `phase7_environment=TEST` 또는 `phase7_environment=DEVELOPMENT`를 사용하며 명시적 후속 승인 전에는 실행 금지입니다.
-capability 등록이 server 주소를 확인하므로 container 안에서도 `-h 127.0.0.1`(TCP)로 접속해야 합니다.
-activation은 one-way이며 두 번째 실행은 issuer 단계에서 거부됩니다.
+capability는 접속한 server 주소·port를 기록하고 API startup이 같은 값을 확인하므로, activation은 API와 같은 경로(host에서 `-h 127.0.0.1 -p 55433`)로 실행합니다.
+container 안 접속(socket 또는 container의 127.0.0.1)은 다른 주소가 기록되어 API startup이 42501로 실패합니다.
+host에 PostgreSQL 18 client(`psql`)가 필요합니다. activation은 one-way이며 두 번째 실행은 issuer 단계에서 거부됩니다.
 
 ```bash
-# 아래 one-way local write는 명시적 후속 승인 후에만 실행합니다.
-docker compose --project-name nihongo-phase7-local --profile phase7-local exec -T postgres-phase7 sh -eu -c \
-  'PGPASSWORD="$PHASE7_TEST_MIGRATION_PASSWORD" PGOPTIONS="-c role=nihongo_phase7_migration" psql -h 127.0.0.1 --username nihongo_test_phase7_migration_login --dbname nihongo_test --set=phase7_environment=TEST --file=/docker-entrypoint-initdb.d/local-database-activate.psql'
+# 아래 one-way local write는 명시적 후속 승인 후에만 실행합니다(저장소 루트, 루트 .env 사용).
+set -a; . ./.env; set +a
+PGPASSWORD="$PHASE7_TEST_MIGRATION_PASSWORD" PGOPTIONS="-c role=nihongo_phase7_migration" \
+  psql -h 127.0.0.1 -p "${PHASE7_POSTGRES_PORT:-55433}" --username nihongo_test_phase7_migration_login \
+  --dbname nihongo_test --set=phase7_environment=TEST --file=infra/postgres/init/local-database-activate.psql
 ```
 
 기술 startup은 activation 전에는 의도적으로 실패합니다.
