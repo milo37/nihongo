@@ -52,7 +52,7 @@ const PLAYWRIGHT_BROWSER_PERFORMANCE_BUDGETS = {
 }
 const PLAYWRIGHT_EXPECTED_TEST_COUNTS = {
   'admin-dashboard-mock': 1,
-  'admin-dashboard-real': 3,
+  'admin-dashboard-real': 4,
   'accessibility-mock': 3,
   'accessibility-real': 4,
   'journey-mock': 5,
@@ -303,19 +303,9 @@ const assertDependencyEvidence = (value) => {
   value.findings.forEach(assertDependencyFinding)
 }
 
-const dashboardLabelPrefix = (policy) => {
-  if (policy !== 'current' && policy !== 'legacy') {
-    throw new Error('SECURITY_EVIDENCE_ARGUMENTS_INVALID')
-  }
-  return policy === 'legacy' ? 'phase8-dashboard' : 'dashboard'
-}
+const dashboardPrefix = 'dashboard'
 
-export const assertPlaywrightRequestLedger = (
-  ledger,
-  summaryLabel,
-  dashboardLabelPolicy = 'current'
-) => {
-  const dashboardPrefix = dashboardLabelPrefix(dashboardLabelPolicy)
+export const assertPlaywrightRequestLedger = (ledger, summaryLabel) => {
   if (
     !exactKeys(ledger, ['label', 'entries']) ||
     typeof ledger.label !== 'string' ||
@@ -666,10 +656,8 @@ const calculateTimingStatistics = (samples) => {
 
 export const assertPlaywrightPerformanceMeasurement = (
   measurement,
-  summaryLabel,
-  dashboardLabelPolicy = 'current'
+  summaryLabel
 ) => {
-  const dashboardPrefix = dashboardLabelPrefix(dashboardLabelPolicy)
   if (
     !exactKeys(measurement, [
       'label',
@@ -747,8 +735,7 @@ export const assertPlaywrightPerformanceMeasurement = (
   }
 }
 
-const assertPlaywrightEvidence = (value, dashboardLabelPolicy) => {
-  const dashboardPrefix = dashboardLabelPrefix(dashboardLabelPolicy)
+const assertPlaywrightEvidence = (value) => {
   if (
     !exactKeys(value, [
       'schemaVersion',
@@ -851,14 +838,10 @@ const assertPlaywrightEvidence = (value, dashboardLabelPolicy) => {
     ? [`${dashboardPrefix}-${mode}-performance`]
     : []
   value.requestLedgers.forEach((ledger) =>
-    assertPlaywrightRequestLedger(ledger, value.label, dashboardLabelPolicy)
+    assertPlaywrightRequestLedger(ledger, value.label)
   )
   value.performanceMeasurements.forEach((measurement) =>
-    assertPlaywrightPerformanceMeasurement(
-      measurement,
-      value.label,
-      dashboardLabelPolicy
-    )
+    assertPlaywrightPerformanceMeasurement(measurement, value.label)
   )
   if (
     JSON.stringify(
@@ -872,7 +855,7 @@ const assertPlaywrightEvidence = (value, dashboardLabelPolicy) => {
   }
 }
 
-const assertKnownEvidenceSchema = (value, dashboardLabelPolicy) => {
+const assertKnownEvidenceSchema = (value) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('SECURITY_EVIDENCE_SCHEMA_INVALID')
   }
@@ -881,7 +864,7 @@ const assertKnownEvidenceSchema = (value, dashboardLabelPolicy) => {
   } else if (value.kind === 'nihongo.dependency-audit') {
     assertDependencyEvidence(value)
   } else if (value.kind === 'nihongo.playwright-safe-summary') {
-    assertPlaywrightEvidence(value, dashboardLabelPolicy)
+    assertPlaywrightEvidence(value)
   } else {
     throw new Error('SECURITY_EVIDENCE_SCHEMA_UNKNOWN')
   }
@@ -891,10 +874,8 @@ export const verifyArtifactDirectory = async ({
   directory,
   profile,
   additionalSecrets = [],
-  requiredLabels = [],
-  dashboardLabelPolicy = 'current'
+  requiredLabels = []
 }) => {
-  dashboardLabelPrefix(dashboardLabelPolicy)
   const entries = await readdir(directory, { withFileTypes: true })
   const inputEntries = entries.filter(
     (entry) => entry.name !== 'artifact-manifest.json'
@@ -930,7 +911,7 @@ export const verifyArtifactDirectory = async ({
     } catch {
       throw new Error('SECURITY_EVIDENCE_JSON_INVALID')
     }
-    assertKnownEvidenceSchema(value, dashboardLabelPolicy)
+    assertKnownEvidenceSchema(value)
     assertEvidenceValueSafe({ value, additionalSecrets })
     if (value.kind === 'nihongo.playwright-safe-summary') {
       if (entry.name !== `${value.label}.json`) {
@@ -1029,8 +1010,6 @@ if (isDirectExecution) {
           directory: path.resolve(directory),
           profile,
           requiredLabels,
-          dashboardLabelPolicy:
-            options.get('dashboard-label-policy') ?? 'current',
           additionalSecrets: collectSensitiveEnvironmentValues(process.env)
         })
         process.stdout.write(

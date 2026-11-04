@@ -12,21 +12,24 @@ import {
   getStudyResultParamsSchema,
   getStudyResultResponseSchema
 } from '@nihongo/contracts/study/get-study-result'
-import { getConnInfo } from '@hono/node-server/conninfo'
-import { getCookie, setCookie } from 'hono/cookie'
-import { Hono, type Context } from 'hono'
+import { setCookie } from 'hono/cookie'
+import { Hono } from 'hono'
 import { z, type ZodError } from 'zod'
-import { createClientIpAuthority } from '../auth/clientIp.js'
 import type { GuestPrincipalService } from '../auth/guestPrincipalService.js'
 import type { PrincipalService } from '../auth/principalService.js'
 import type { ApiEnvironment } from '../config/env.js'
 import { ApplicationError } from '../errors/applicationError.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
+import { createClientIpMiddleware } from '../middleware/clientIp.js'
 import { readBoundedJsonObject } from '../middleware/boundedJson.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
-import type { ExistingStudyOwner } from '../study/studySessionRepository.js'
 import type { StudySubmissionService } from '../study/studySubmissionService.js'
 import { GUEST_COOKIE_NAME } from './principal.js'
+import { toFieldErrors } from './routeSupport.js'
+import {
+  resolveExistingStudyOwner,
+  resolvePracticeContractVersion
+} from './studyRouteSupport.js'
 
 interface StudySubmissionRouteDependencies {
   environment: ApiEnvironment
@@ -38,60 +41,6 @@ interface StudySubmissionRouteDependencies {
 }
 
 type StudySubmissionRouteEnvironment = { Variables: ApiVariables }
-
-const resolvePracticeContractVersion = (
-  value: string | undefined,
-  practiceContractV2Enabled: boolean
-): 1 | 2 => {
-  if (value === undefined || value === '2') {
-    if (!practiceContractV2Enabled) {
-      throw new ApplicationError({
-        code: 'INVALID_REQUEST',
-        message: '이 배포 세대에서는 practice contract 2를 사용할 수 없습니다.',
-        retryable: false
-      })
-    }
-    return 2
-  }
-  throw new ApplicationError({
-    code: 'INVALID_REQUEST',
-    message: 'X-Nihongo-Practice-Contract header 값이 올바르지 않습니다.',
-    fieldErrors: {
-      'x-nihongo-practice-contract': ['header 값은 2만 허용합니다.']
-    },
-    retryable: false
-  })
-}
-
-const toFieldErrors = (error: ZodError): Record<string, string[]> => {
-  const errors: Record<string, string[]> = {}
-  for (const issue of error.issues) {
-    const path = issue.path.length > 0 ? issue.path.join('.') : 'request'
-    errors[path] = [...(errors[path] ?? []), issue.message]
-  }
-  return errors
-}
-
-const appendAuthHeaders = (
-  context: Context<StudySubmissionRouteEnvironment>,
-  resolution: Awaited<ReturnType<PrincipalService['resolveAuthenticatedUser']>>,
-  environment: ApiEnvironment
-): void => {
-  for (const cookie of resolution.headers.getSetCookie?.() ?? []) {
-    context.header('Set-Cookie', cookie, { append: true })
-  }
-  if (resolution.clearSessionCookie) {
-    const attributes = `Path=/; HttpOnly; SameSite=Lax; Max-Age=0${environment.NODE_ENV === 'production' ? '; Secure' : ''}`
-    context.header('Set-Cookie', `nihongo.session_token=; ${attributes}`, {
-      append: true
-    })
-    context.header(
-      'Set-Cookie',
-      `__Secure-nihongo.session_token=; ${attributes}`,
-      { append: true }
-    )
-  }
-}
 
 const bodyValidationError = (error: ZodError): ApplicationError => {
   const isDuplicate = error.issues.some(
@@ -130,26 +79,13 @@ export const createStudySubmissionRoutes = ({
   studySubmissionService
 }: StudySubmissionRouteDependencies): Hono<StudySubmissionRouteEnvironment> => {
   const routes = new Hono<StudySubmissionRouteEnvironment>()
-  const clientIpAuthority = createClientIpAuthority(
-    environment.AUTH_TRUSTED_PROXY_CIDRS
+  routes.use(
+    '*',
+    createClientIpMiddleware(environment.AUTH_TRUSTED_PROXY_CIDRS)
   )
-  const resolveClientIp = (
-    context: Context<StudySubmissionRouteEnvironment>
-  ): string => {
-    let peerAddress: string | undefined
-    try {
-      peerAddress = getConnInfo(context).remote.address
-    } catch {
-      peerAddress = undefined
-    }
-    return clientIpAuthority.resolve(
-      peerAddress,
-      context.req.header('X-Forwarded-For') ?? null
-    )
-  }
 
   routes.post('/:sessionId/submission', async (context) => {
-    const clientIp = resolveClientIp(context)
+    const clientIp = context.get('clientIp')
     await rateLimiter.consume({
       clientIp,
       operation: 'study-mutation-ip',
@@ -216,38 +152,14 @@ export const createStudySubmissionRoutes = ({
       throw error
     }
 
-    const resolution = await principalService.resolveAuthenticatedUser(
-      context.req.raw.headers
-    )
-    appendAuthHeaders(context, resolution, environment)
-
-    let owner: ExistingStudyOwner
-    let rawGuestCookie: string | undefined
-    if (resolution.user) {
-      owner = { kind: 'USER', userId: resolution.user.id }
-    } else {
-      rawGuestCookie = getCookie(context, GUEST_COOKIE_NAME)
-      const inspected = guestPrincipalService.inspectCookie(rawGuestCookie)
-      if (inspected.kind === 'ABSENT') {
-        throw new ApplicationError({
-          code: 'AUTHENTICATION_REQUIRED',
-          message: '학습 세션을 제출하려면 인증 정보가 필요합니다.',
-          retryable: false
-        })
-      }
-      if (inspected.kind === 'INVALID') {
-        throw new ApplicationError({
-          code: 'GUEST_SESSION_EXPIRED',
-          message: '게스트 세션이 만료됐습니다.',
-          retryable: false
-        })
-      }
-      owner = {
-        kind: 'GUEST',
-        guestPrincipalId: inspected.id,
-        tokenDigest: inspected.tokenDigest
-      }
-    }
+    const { owner, rawGuestCookie } = await resolveExistingStudyOwner({
+      authenticationRequiredMessage:
+        '학습 세션을 제출하려면 인증 정보가 필요합니다.',
+      context,
+      environment,
+      guestPrincipalService,
+      principalService
+    })
 
     await rateLimiter.consume({
       clientIp,
@@ -313,7 +225,7 @@ export const createStudySubmissionRoutes = ({
 
   routes.get('/:sessionId/result', async (context) => {
     await rateLimiter.consume({
-      clientIp: resolveClientIp(context),
+      clientIp: context.get('clientIp'),
       operation: 'study-result-read',
       windowMs: 60_000,
       max: 120
@@ -336,38 +248,14 @@ export const createStudySubmissionRoutes = ({
       throw error
     }
 
-    const resolution = await principalService.resolveAuthenticatedUser(
-      context.req.raw.headers
-    )
-    appendAuthHeaders(context, resolution, environment)
-
-    let owner: ExistingStudyOwner
-    if (resolution.user) {
-      owner = { kind: 'USER', userId: resolution.user.id }
-    } else {
-      const inspected = guestPrincipalService.inspectCookie(
-        getCookie(context, GUEST_COOKIE_NAME)
-      )
-      if (inspected.kind === 'ABSENT') {
-        throw new ApplicationError({
-          code: 'AUTHENTICATION_REQUIRED',
-          message: '학습 결과를 조회하려면 인증 정보가 필요합니다.',
-          retryable: false
-        })
-      }
-      if (inspected.kind === 'INVALID') {
-        throw new ApplicationError({
-          code: 'GUEST_SESSION_EXPIRED',
-          message: '게스트 세션이 만료됐습니다.',
-          retryable: false
-        })
-      }
-      owner = {
-        kind: 'GUEST',
-        guestPrincipalId: inspected.id,
-        tokenDigest: inspected.tokenDigest
-      }
-    }
+    const { owner } = await resolveExistingStudyOwner({
+      authenticationRequiredMessage:
+        '학습 결과를 조회하려면 인증 정보가 필요합니다.',
+      context,
+      environment,
+      guestPrincipalService,
+      principalService
+    })
 
     const response = getStudyResultResponseSchema.parse(
       await studySubmissionService.getResult(params.sessionId, owner)

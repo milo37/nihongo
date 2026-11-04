@@ -19,6 +19,26 @@
       "types": "./dist/admin/content-operations.d.ts",
       "import": "./dist/admin/content-operations.js"
     },
+    "./admin/members": {
+      "types": "./dist/admin/members.d.ts",
+      "import": "./dist/admin/members.js"
+    },
+    "./admin/review": {
+      "types": "./dist/admin/review.d.ts",
+      "import": "./dist/admin/review.js"
+    },
+    "./admin/reports": {
+      "types": "./dist/admin/reports.d.ts",
+      "import": "./dist/admin/reports.js"
+    },
+    "./admin/audit": {
+      "types": "./dist/admin/audit.d.ts",
+      "import": "./dist/admin/audit.js"
+    },
+    "./report/reports": {
+      "types": "./dist/report/reports.d.ts",
+      "import": "./dist/report/reports.js"
+    },
     "./bookmark/bookmark": {
       "types": "./dist/bookmark/bookmark.d.ts",
       "import": "./dist/bookmark/bookmark.js"
@@ -182,10 +202,6 @@
     "./testing/practice-flow-conformance": {
       "types": "./dist/testing/practice-flow-conformance.d.ts",
       "import": "./dist/testing/practice-flow-conformance.js"
-    },
-    "./testing/phase7-admin-conformance": {
-      "types": "./dist/testing/admin-content-conformance.d.ts",
-      "import": "./dist/testing/admin-content-conformance.js"
     },
     "./testing/admin-content-conformance": {
       "types": "./dist/testing/admin-content-conformance.d.ts",

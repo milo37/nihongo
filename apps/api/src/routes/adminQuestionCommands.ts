@@ -1,3 +1,9 @@
+import {
+  publishQuestionVersionBatchRequestSchema,
+  publishQuestionVersionBatchResponseSchema,
+  type PublishQuestionVersionBatchRequest,
+  type PublishQuestionVersionBatchResponse
+} from '@nihongo/contracts/admin/review'
 import { createHash } from 'node:crypto'
 import {
   adminImportApplyResponseSchema,
@@ -66,7 +72,7 @@ import {
   type ContentOperation
 } from '@nihongo/contracts/admin/content-operations'
 import { Hono, type MiddlewareHandler } from 'hono'
-import { z, type ZodError, type ZodType } from 'zod'
+import { z, type ZodType } from 'zod'
 import type {
   AdminQuestionCommandService,
   AdminQuestionPublicationCommandService,
@@ -77,17 +83,9 @@ import { ApplicationError } from '../errors/applicationError.js'
 import { readStrictJsonBody } from '../http/strictJsonBody.js'
 import { parseStrictRawQuery } from '../http/rawQuery.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
+import { toFieldErrors } from './routeSupport.js'
 
 type AdminRouteEnvironment = { Variables: ApiVariables }
-
-const toFieldErrors = (error: ZodError): Record<string, string[]> => {
-  const fieldErrors: Record<string, string[]> = {}
-  for (const issue of error.issues) {
-    const path = issue.path.length > 0 ? issue.path.join('.') : 'request'
-    fieldErrors[path] = [...(fieldErrors[path] ?? []), issue.message]
-  }
-  return fieldErrors
-}
 
 const parsePath = <Output>(parse: () => Output, message: string): Output => {
   try {
@@ -99,7 +97,7 @@ const parsePath = <Output>(parse: () => Output, message: string): Output => {
       message,
       fieldErrors: toFieldErrors(error),
       retryable: false,
-      phase7Disposition: 'NO_TX'
+      adminDisposition: 'NO_TX'
     })
   }
 }
@@ -121,7 +119,7 @@ const parseBody = async <Schema extends ZodType>(
     message,
     fieldErrors: toFieldErrors(parsed.error),
     retryable: false,
-    phase7Disposition: 'NO_TX'
+    adminDisposition: 'NO_TX'
   })
 }
 
@@ -139,7 +137,7 @@ const assertEmptyQuery = (requestTarget: string): void => {
       message: error.message,
       retryable: error.retryable,
       ...(error.fieldErrors ? { fieldErrors: error.fieldErrors } : {}),
-      phase7Disposition: 'NO_TX',
+      adminDisposition: 'NO_TX',
       cause: error
     })
   }
@@ -155,10 +153,27 @@ const assertCommittedResponse = <Response>(
       code: 'INTERNAL_SERVER_ERROR',
       message: '관리자 명령 응답 무결성을 확인할 수 없습니다.',
       retryable: false,
-      phase7Disposition: 'COMMIT_CONFIRMED',
+      adminDisposition: 'COMMIT_CONFIRMED',
       cause: error
     })
   }
+}
+
+const assertBatchCorrelated = (
+  request: PublishQuestionVersionBatchRequest,
+  raw: unknown
+): PublishQuestionVersionBatchResponse => {
+  const parsed = publishQuestionVersionBatchResponseSchema.parse(raw)
+  if (
+    parsed.items.length !== request.items.length ||
+    parsed.items.some(
+      (item, index) =>
+        item.questionVersionId !== request.items[index]!.questionVersionId
+    )
+  ) {
+    throw new Error('Batch publication items are not correlated.')
+  }
+  return parsed
 }
 
 const noStore = (context: {
@@ -180,7 +195,7 @@ const assertCommittedAsync = async <Response>(
       code: 'INTERNAL_SERVER_ERROR',
       message: '관리자 명령 응답 무결성을 확인할 수 없습니다.',
       retryable: false,
-      phase7Disposition: 'COMMIT_CONFIRMED',
+      adminDisposition: 'COMMIT_CONFIRMED',
       cause: error
     })
   }
@@ -196,7 +211,7 @@ const assertNoTransactionAsync = async <Response>(
       code: 'INTERNAL_SERVER_ERROR',
       message: '관리자 명령 응답 무결성을 확인할 수 없습니다.',
       retryable: false,
-      phase7Disposition: 'NO_TX',
+      adminDisposition: 'NO_TX',
       cause: error
     })
   }
@@ -530,6 +545,32 @@ export const createAdminQuestionCommandRoutes = ({
     noStore(context)
     return context.json(response)
   })
+
+  routes.post(
+    '/question-versions/publication-batch',
+    guard,
+    async (context) => {
+      assertEmptyQuery(context.get('rawRequestTarget'))
+      const request = publishQuestionVersionBatchRequestSchema.parse(
+        await parseBody(
+          context.req.raw,
+          'publishQuestionVersionBatch',
+          publishQuestionVersionBatchRequestSchema,
+          '일괄 공개 요청이 올바르지 않습니다.'
+        )
+      )
+      const raw = await commandService.publishVersionBatch(
+        authority(context),
+        request
+      )
+      // Items commit one by one, so any mismatch here is after commit.
+      const response = publishQuestionVersionBatchResponseSchema.parse(
+        assertCommittedResponse(() => assertBatchCorrelated(request, raw))
+      )
+      noStore(context)
+      return context.json(response)
+    }
+  )
 
   if (slice5CommandService) {
     routes.post(

@@ -27,7 +27,7 @@ const requestWithChunks = (chunks: readonly Uint8Array[]): Request =>
 const failure = (code: string) => ({
   code,
   retryable: false,
-  phase7Disposition: 'NO_TX'
+  adminDisposition: 'NO_TX'
 })
 
 afterEach(() => vi.useRealTimers())

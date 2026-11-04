@@ -23,8 +23,8 @@
     "technical-current-test": {
       "environments": ["TEST"],
       "selection": "all-release-manifest-entries",
-      "expectedCount": 53,
-      "expectedDigestSha256": "39d9c2053323d8a180e53af80e81dd26a00ef6c041040dc7ccea8e99932e9c08",
+      "expectedCount": 58,
+      "expectedDigestSha256": "13da74f7dd883ce43d36f9f532dbc41652a84c0eb4b8f812607f1ca622be578c",
       "externalRecoveryClaimAllowed": false
     },
     "v1-runtime-pre-phase7": {

@@ -48,7 +48,11 @@ const applied: AdminImportApplyResponse = {
   ],
   occurredAt: '2026-10-01T00:00:00Z'
 }
-const body = { ...request, validationDigest: digest }
+const body = {
+  ...request,
+  importId: '00000000-0000-4000-8000-0000000000aa',
+  validationDigest: digest
+}
 let client: QueryClient
 const wrapper = ({ children }: { children: ReactNode }) => (
   <QueryClientProvider client={client}>{children}</QueryClientProvider>

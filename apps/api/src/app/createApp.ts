@@ -4,10 +4,10 @@ import {
   type ApiFailure
 } from '@nihongo/contracts/common/error'
 import {
-  buildPhase7OperationFailureResponse,
-  phase7ErrorSurfaceByOperation,
+  buildContentOperationFailureResponse,
+  contentErrorSurfaceByOperation,
   type ContentOperation,
-  type Phase7OperationFailureResponse
+  type ContentOperationFailureResponse
 } from '@nihongo/contracts/admin/content-operations'
 import { Hono, type ErrorHandler } from 'hono'
 import { getConnInfo } from '@hono/node-server/conninfo'
@@ -75,6 +75,20 @@ import { createAdminQuestionCommandRoutes } from '../routes/adminQuestionCommand
 import { createAdminQuestionReportRoutes } from '../routes/adminQuestionReports.js'
 import { createQuestionReportRoutes } from '../routes/questionReports.js'
 import {
+  createAdminUserReportRoutes,
+  createUserReportRoutes
+} from '../routes/userReports.js'
+import {
+  type AccountRestrictionReader,
+  unrestrictedAccountReader
+} from '../account/accountRestriction.js'
+import type { UserReportService } from '../report/userReportService.js'
+import { createAdminConsoleCommandGuard } from '../admin/adminConsoleCommandGuard.js'
+import type { AdminMemberService } from '../admin/adminMemberService.js'
+import { createAdminMemberRoutes } from '../routes/adminMembers.js'
+import { createAdminImportResultRoutes } from '../routes/adminImportResults.js'
+import type { AdminImportApplyResponse } from '@nihongo/contracts/admin/content-operations'
+import {
   getCanonicalPhase7ActiveOperation,
   isCanonicalPhase7ApprovalCommandRequest,
   isCanonicalPhase7PublicationCommandRequest,
@@ -83,7 +97,9 @@ import {
   isCanonicalPhase7Slice5AdminReadRequest,
   isCanonicalPhase7Slice3ACommandRequest,
   isCanonicalPhase7Slice2ReadRequest,
-  isPhase7ExcludedRequest
+  isPhase7ExcludedRequest,
+  isCanonicalAdminConsoleCommandRequest,
+  isCanonicalAdminConsoleReadRequest
 } from './protectedRouteExclusion.js'
 import { installStaticWeb } from './staticWeb.js'
 
@@ -121,6 +137,8 @@ const isPracticeCorsPath = (pathname: string): boolean =>
   TARGETED_REVIEW_PATH_PATTERN.test(pathname)
 
 interface CreateApiAppDependencies {
+  /** #484 restriction lookup; required in production when learner routes are wired. */
+  accountRestrictionReader?: AccountRestrictionReader
   assertPracticeRuntimeAuthority?: () => void | Promise<void>
   checkReadiness: () => Promise<void>
   logger: StructuredLogger
@@ -154,12 +172,22 @@ interface CreateApiAppDependencies {
       rateLimiter: AdminCommandRateLimiter
       service: AdminReauthenticationService
     }
+    importResultReader?: (
+      importId: string
+    ) => Promise<AdminImportApplyResponse | null>
+    /** Operations console member list and restriction (JLP-691). */
+    members?: AdminMemberService
     rateLimiter: AdminReadRateLimiter
     reader: AdminQuestionReader
   }
   questionReports?: {
     rateLimiter: QuestionReportRateLimiter
     service: QuestionReportService
+  }
+  /** Unified learner reports (#484); shares the learner report rate limit. */
+  userReports?: {
+    rateLimiter: QuestionReportRateLimiter
+    service: UserReportService
   }
   study?: {
     draftService?: StudyDraftService
@@ -236,7 +264,7 @@ const buildCanonicalOperationFailure = ({
   failure: ApiFailure
   operation: ContentOperation
 }): {
-  response: Phase7OperationFailureResponse
+  response: ContentOperationFailureResponse
   contractViolation: boolean
 } => {
   const retryAfterSeconds =
@@ -246,14 +274,14 @@ const buildCanonicalOperationFailure = ({
         : retryAfterSecondsByCode[failure.code]
       : undefined
   const disposition =
-    error instanceof ApplicationError && error.phase7Disposition
-      ? error.phase7Disposition
-      : phase7ErrorSurfaceByOperation[operation] === 'GET_READ'
+    error instanceof ApplicationError && error.adminDisposition
+      ? error.adminDisposition
+      : contentErrorSurfaceByOperation[operation] === 'GET_READ'
         ? 'NO_TX'
         : 'COMMIT_UNKNOWN'
   try {
     return {
-      response: buildPhase7OperationFailureResponse({
+      response: buildContentOperationFailureResponse({
         operation,
         failure: {
           code: failure.code,
@@ -264,8 +292,8 @@ const buildCanonicalOperationFailure = ({
           requestId: failure.requestId
         },
         disposition,
-        ...(error instanceof ApplicationError && error.phase7InternalReason
-          ? { internalReason: error.phase7InternalReason }
+        ...(error instanceof ApplicationError && error.adminInternalReason
+          ? { internalReason: error.adminInternalReason }
           : {}),
         ...(retryAfterSeconds === undefined ? {} : { retryAfterSeconds })
       }),
@@ -273,7 +301,7 @@ const buildCanonicalOperationFailure = ({
     }
   } catch {
     return {
-      response: buildPhase7OperationFailureResponse({
+      response: buildContentOperationFailureResponse({
         operation,
         failure: {
           code: 'INTERNAL_SERVER_ERROR',
@@ -281,7 +309,7 @@ const buildCanonicalOperationFailure = ({
           requestId: failure.requestId
         },
         disposition:
-          phase7ErrorSurfaceByOperation[operation] === 'GET_READ'
+          contentErrorSurfaceByOperation[operation] === 'GET_READ'
             ? 'NO_TX'
             : disposition
       }),
@@ -382,6 +410,7 @@ export const createApiErrorHandler =
   }
 
 export const createApiApp = ({
+  accountRestrictionReader: configuredAccountRestrictionReader,
   admin,
   auth,
   assertPracticeRuntimeAuthority,
@@ -391,6 +420,7 @@ export const createApiApp = ({
   questionReader,
   questionReadSecurity,
   questionReports,
+  userReports,
   releaseId = '0000000000000000000000000000000000000000',
   study,
   webAssetsDirectory,
@@ -398,6 +428,19 @@ export const createApiApp = ({
   enableTestRoutes = false
 }: CreateApiAppDependencies): Hono<{ Variables: ApiVariables }> => {
   const app = new Hono<{ Variables: ApiVariables }>()
+  if (
+    configuredAccountRestrictionReader === undefined &&
+    auth?.environment.NODE_ENV === 'production' &&
+    (study !== undefined ||
+      learning?.targetedReviewService !== undefined ||
+      userReports !== undefined)
+  ) {
+    throw new Error(
+      'Production learner routes require an account restriction reader.'
+    )
+  }
+  const accountRestrictionReader =
+    configuredAccountRestrictionReader ?? unrestrictedAccountReader
 
   const technicalAdminEnabled =
     admin !== undefined &&
@@ -444,6 +487,14 @@ export const createApiApp = ({
         method: context.req.method,
         requestTarget
       }) ||
+        isCanonicalAdminConsoleReadRequest({
+          method: context.req.method,
+          requestTarget
+        }) ||
+        isCanonicalAdminConsoleCommandRequest({
+          method: context.req.method,
+          requestTarget
+        }) ||
         (admin?.commands !== undefined &&
           (isCanonicalPhase7Slice3ACommandRequest({
             method: context.req.method,
@@ -568,6 +619,22 @@ export const createApiApp = ({
           : technicalBaseCors(context, next)
       })
     }
+    if (userReports) {
+      app.route(
+        '/api/v1/reports',
+        createUserReportRoutes({
+          accountRestrictionReader,
+          createGuard: createQuestionReportGuard({
+            environment: auth.environment,
+            principalService: auth.principalService,
+            rateLimiter: userReports.rateLimiter
+          }),
+          environment: auth.environment,
+          principalService: auth.principalService,
+          service: userReports.service
+        })
+      )
+    }
     if (learnerReports) {
       app.route(
         '/api/v1/question-reports',
@@ -598,6 +665,58 @@ export const createApiApp = ({
           reader: admin.reader
         })
       )
+      if (admin.importResultReader) {
+        app.route(
+          '/api/v1/admin',
+          createAdminImportResultRoutes({
+            guard: createAdminReadGuard({
+              assertCapability: admin.assertCapability,
+              environment: auth.environment,
+              principalService: auth.principalService,
+              rateLimiter: admin.rateLimiter
+            }),
+            readResult: admin.importResultReader
+          })
+        )
+      }
+      if (admin.members) {
+        const readGuard = createAdminReadGuard({
+          assertCapability: admin.assertCapability,
+          environment: auth.environment,
+          principalService: auth.principalService,
+          rateLimiter: admin.rateLimiter
+        })
+        app.route(
+          '/api/v1/admin',
+          createAdminMemberRoutes({
+            commandGuard: createAdminConsoleCommandGuard({
+              environment: auth.environment,
+              readGuard
+            }),
+            readGuard,
+            service: admin.members
+          })
+        )
+      }
+      if (userReports) {
+        const readGuard = createAdminReadGuard({
+          assertCapability: admin.assertCapability,
+          environment: auth.environment,
+          principalService: auth.principalService,
+          rateLimiter: admin.rateLimiter
+        })
+        app.route(
+          '/api/v1/admin',
+          createAdminUserReportRoutes({
+            commandGuard: createAdminConsoleCommandGuard({
+              environment: auth.environment,
+              readGuard
+            }),
+            readGuard,
+            service: userReports.service
+          })
+        )
+      }
       if (admin.reports) {
         app.route(
           '/api/v1/admin',
@@ -661,6 +780,7 @@ export const createApiApp = ({
       app.route(
         '/api/v1/study-sessions',
         createStudySessionRoutes({
+          accountRestrictionReader,
           environment: auth.environment,
           guestPrincipalService: auth.guestPrincipalService,
           principalService: auth.principalService,
@@ -686,6 +806,7 @@ export const createApiApp = ({
         app.route(
           '/api/v1/study-sessions',
           createStudyResultRetryRoutes({
+            accountRestrictionReader,
             environment: auth.environment,
             guestPrincipalService: auth.guestPrincipalService,
             principalService: auth.principalService,
@@ -755,6 +876,7 @@ export const createApiApp = ({
         app.route(
           '/api/v1/wrong-notes',
           createTargetedReviewSessionRoutes({
+            accountRestrictionReader,
             environment: auth.environment,
             principalService: auth.principalService,
             rateLimiter: learning.rateLimiter,

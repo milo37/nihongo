@@ -6,7 +6,10 @@ export interface ApiVariables {
   requestId: string
   requestStartedAt: number
   adminActorId: string
+  /** Set by the admin read guard: sign-in is within the fresh window. */
+  adminSessionFresh: boolean
   adminClientIp: string
+  clientIp: string
   adminSessionToken: string
   reporterActorId: string
   reporterSessionToken: string

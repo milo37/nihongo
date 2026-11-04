@@ -19,7 +19,7 @@ import {
 } from '@nihongo/contracts/admin/content-operations'
 import { appDocumentNavigation } from '@nihongo/browser/libs/appNavigation'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
-import * as listApi from '@nihongo/browser/api/admin-question/listAdminQuestion/index'
+import * as listApi from '@api/admin-question/listAdminQuestion/index'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { ToastProvider } from '@nihongo/browser/common/components/Toast'
@@ -279,14 +279,19 @@ it.each(['GUEST', 'USER'] as const)(
       .spyOn(appDocumentNavigation, 'replace')
       .mockImplementation(() => undefined)
     renderRoute()
-    await waitFor(() =>
-      expect(replace).toHaveBeenCalledWith(
-        role === 'GUEST'
-          ? '/login?redirect=%2Fadmin%2Faudit-log'
-          : '/forbidden',
-        undefined
+    if (role === 'GUEST') {
+      await waitFor(() =>
+        expect(replace).toHaveBeenCalledWith(
+          '/login?redirect=%2Fadmin%2Faudit-log',
+          undefined
+        )
       )
-    )
+    } else {
+      expect(
+        await screen.findByRole('heading', { name: '요청한 페이지가 없습니다' })
+      ).toBeVisible()
+      expect(replace).not.toHaveBeenCalled()
+    }
     expect(read).not.toHaveBeenCalled()
     expect(
       screen.queryByRole('heading', { name: '관리자 감사 기록' })
@@ -353,16 +358,16 @@ it('connects existing question navigation to audit and preserves filters on Back
   )
   const { router } = renderRoute('/admin/questions?level=N3&page=1')
   await screen.findByRole('heading', { level: 1, name: '문제 관리' })
-  const nav = screen.getByRole('navigation', { name: '현재 위치' })
-  const auditLink = within(nav).getByRole('link', { name: '감사 기록' })
+  const nav = screen.getByRole('navigation', { name: '관리자 메뉴' })
+  const auditLink = within(nav).getByRole('link', { name: '감사 이력' })
   expect(auditLink).toHaveAttribute('href', '/admin/audit-log')
   auditLink.focus()
   await user.keyboard('{Enter}')
   await screen.findByRole('heading', { level: 1, name: '관리자 감사 기록' })
   expect(
-    within(screen.getByRole('navigation', { name: '현재 위치' })).getByRole(
+    within(screen.getByRole('navigation', { name: '관리자 메뉴' })).getByRole(
       'link',
-      { name: '감사 기록' }
+      { name: '감사 이력' }
     )
   ).toHaveAttribute('aria-current', 'page')
   await act(async () => router.navigate(-1))
@@ -394,8 +399,8 @@ it('focus lifecycle: reconnect growth after More does not steal focus from navig
     expect(within(auditList()).getAllByRole('listitem')).toHaveLength(2)
   )
   expect(within(auditList()).getAllByRole('listitem')[1]).toHaveFocus()
-  const navigation = screen.getByRole('navigation', { name: '현재 위치' })
-  const questions = within(navigation).getByRole('link', { name: '문제 관리' })
+  const navigation = screen.getByRole('navigation', { name: '관리자 메뉴' })
+  const questions = within(navigation).getByRole('link', { name: '문제' })
   questions.focus()
   expect(questions).toHaveFocus()
   await act(async () => {

@@ -1,4 +1,6 @@
 import { koAdminFormResources } from './ko-admin-form'
+import { koAdminQuestionListResources } from './ko-admin-question'
+import { koAdminReportResources } from './ko-admin-report'
 
 const questionTypeLabels = {
   KANJI_READING: '한자 읽기',
@@ -47,6 +49,8 @@ export const koResources = {
       login: '로그인'
     },
     state: {
+      accountRestricted:
+        '임시로 이용이 제한된 계정입니다. 새 학습과 신고는 제한이 풀린 뒤 이용할 수 있습니다.',
       requestFailed: '요청을 완료하지 못했습니다'
     },
     required: '(필수)',
@@ -1480,8 +1484,103 @@ export const koResources = {
   },
   admin: {
     name: '관리자',
+    grid: {
+      columns: '표시할 열',
+      pageSize: '쪽당 행 수',
+      pageStatus: '{{page}} / {{pageCount}}쪽 · 전체 {{total}}건',
+      previous: '이전',
+      next: '다음'
+    },
+    nav: {
+      brand: '하루마루 관리',
+      questions: '문제',
+      import: '가져오기',
+      members: '가입자',
+      reports: '버그 리포트',
+      auditLog: '감사 이력'
+    },
+    members: {
+      title: '가입자',
+      description:
+        '가입자의 학습 현황과 이용 상태를 확인하고 필요하면 이용을 제한합니다. 이메일은 가려서 보여 줍니다.',
+      gridLabel: '가입자 목록',
+      loading: '가입자 정보를 불러오는 중입니다.',
+      loadError: '가입자 목록을 불러오지 못했습니다',
+      empty: '아직 가입자가 없습니다.',
+      noMatch: '이 이메일로 가입한 사람이 없습니다.',
+      never: '학습 기록 없음',
+      openDetail: '상세',
+      search: {
+        label: '이메일로 찾기',
+        hint: '전체 이메일 주소를 정확히 입력해 주세요.',
+        submit: '찾기',
+        clear: '검색 해제',
+        invalid: '올바른 이메일 주소를 입력해 주세요.'
+      },
+      columns: {
+        memberId: '회원 ID',
+        email: '이메일',
+        joinedAt: '가입일',
+        lastStudiedAt: '최근 학습',
+        solvedCount: '푼 문제',
+        reportCount: '제보',
+        status: '상태',
+        actions: '상세/조치'
+      },
+      status: { ACTIVE: '이용 중', RESTRICTED: '이용 제한' },
+      detail: {
+        title: '가입자 상세',
+        back: '가입자 목록으로',
+        loadError: '가입자 정보를 불러오지 못했습니다',
+        restrictedAt: '제한 시각',
+        restrictTitle: '이용 제한',
+        restrictHint:
+          '제한하면 새 학습·복습 시작과 새 제보를 할 수 없습니다. 로그인과 기록 조회는 계속 됩니다.',
+        reason: '제한 사유',
+        reasonHint: '{{max}}자 이내로 적어 주세요. 감사 이력에 남습니다.',
+        reasonRequired: '제한 사유를 1~{{max}}자로 적어 주세요.',
+        restrict: '이용 제한',
+        restricting: '제한하는 중…',
+        restricted: '이용을 제한했습니다.',
+        releaseTitle: '제한 해제',
+        releaseHint: '해제하면 바로 다시 학습과 제보를 할 수 있습니다.',
+        release: '제한 해제',
+        releasing: '해제하는 중…',
+        released: '이용 제한을 해제했습니다.',
+        fresh: {
+          required:
+            '보안을 위해 관리자 본인 확인이 필요합니다. 새 탭에서 본인 확인을 마친 뒤 여기서 확인 완료를 눌러 주세요. 입력한 내용은 그대로 있고, ‘{{command}}’ 작업은 아직 적용되지 않았습니다.',
+          openNewTab: '새 탭에서 본인 확인',
+          confirm: '확인 완료',
+          confirmed:
+            '본인 확인을 마쳤습니다. ‘{{command}}’ 버튼을 다시 눌러 적용해 주세요.',
+          failed: '본인 확인이 끝나지 않아 적용하지 않았습니다.'
+        },
+        confirm: {
+          title: '이용을 제한할까요?',
+          description: '아래 가입자에게 바로 적용됩니다.',
+          preserved: '학습 기록과 보낸 제보는 지워지지 않습니다.',
+          cancel: '취소',
+          apply: '제한 적용'
+        },
+        reload: '최신 정보 다시 불러오기'
+      }
+    },
+    idleLock: {
+      title: '15분 동안 사용하지 않아 잠갔습니다',
+      description: '입력한 내용은 그대로 있습니다.',
+      recheck: '다시 확인',
+      checking: '확인 중…',
+      failed: '본인 확인이 끝나지 않았습니다. 다시 시도해 주세요.',
+      expired:
+        '로그인이 끝났습니다. 입력한 내용은 이 화면에 그대로 있습니다. 새 탭에서 다시 로그인한 뒤 이 화면으로 돌아와 다시 확인을 눌러 주세요.',
+      signInNewTab: '새 탭에서 로그인'
+    },
     common: {
       breadcrumbLabel: '현재 위치',
+      menuLabel: '관리자 메뉴',
+      wideScreenRecommended:
+        '이 작업은 넓은 화면에서 하는 것을 권장합니다. 휴대폰에서도 계속할 수 있습니다.',
       questions: '문제 관리',
       questionDetail: '문제 상세',
       newQuestion: '새 문제',
@@ -1540,7 +1639,8 @@ export const koResources = {
         UPDATED_DESC: '최근 수정순',
         CREATED_DESC: '최근 생성순',
         LEVEL_ASC: '급수순',
-        REPORT_COUNT_DESC: '신고 많은 순'
+        REPORT_COUNT_DESC: '신고 많은 순',
+        CREATED_ASC: '오래된 순'
       },
       reportSort: {
         UPDATED_DESC: '최근 수정순',
@@ -1707,7 +1807,8 @@ export const koResources = {
       invalidState: '현재 상태에서는 이 작업을 실행할 수 없습니다.',
       separationOfDuties:
         '작성과 검수 역할을 분리해야 하므로 이 작업을 실행할 수 없습니다.',
-      duplicateQuestionContent: '같은 내용의 문제가 이미 있습니다.',
+      duplicateQuestionContent:
+        '보관된 문제를 포함해 같은 내용의 문제가 이미 있습니다. 문구를 바꿔 다시 저장해 주세요.',
       untrustedOrigin: '허용되지 않은 요청 출처입니다.',
       rateLimited: '요청이 너무 많습니다.',
       server: '서버에서 관리자 요청을 처리하지 못했습니다.',
@@ -1750,91 +1851,7 @@ export const koResources = {
         REPORT_RESOLUTION: '신고 최종 처리는 민감한 관리자 작업입니다.'
       }
     },
-    questionList: {
-      eyebrow: 'ADMIN QUESTION CMS · TECHNICAL MODE',
-      title: '문제 관리',
-      description:
-        'TEST/DEVELOPMENT용 버전·검수 워크플로입니다. 실제 사람 검수나 운영 공개를 의미하지 않습니다.',
-      searchLabel: '문제 문장 앞부분 검색',
-      searchPlaceholder: '검색어 입력',
-      level: '급수',
-      allLevels: '전체 급수',
-      questionType: '문제 유형',
-      allQuestionTypes: '전체 문제 유형',
-      difficulty: '난이도',
-      allDifficulties: '전체 난이도',
-      lifecycle: '문제 수명주기',
-      allLifecycles: '전체 수명주기',
-      subject: '과목',
-      allSubjects: '전체 과목',
-      tagKey: '태그 key',
-      tagPlaceholder: '등록된 태그 검색 key',
-      authorActorId: '작성자 actor ID',
-      reviewerActorId: '검수자 actor ID',
-      createdFrom: '생성 시작 시각',
-      createdTo: '생성 종료 시각',
-      updatedFrom: '수정 시작 시각',
-      updatedTo: '수정 종료 시각',
-      versionStatus: '버전 상태',
-      allStatuses: '전체 상태',
-      sort: '정렬',
-      applySearch: '검색 적용',
-      resetFilters: '필터 초기화',
-      invalidQuery:
-        'URL 검색 조건이 허용 범위를 벗어났습니다. 조건을 수정하거나 초기화해 주세요.',
-      selectionSummary:
-        '{{selectedCount}}개 선택됨 · 내보내기는 모든 상태에서 최대 100개, 일괄 검수는 활성 초안·수정 요청만 최대 20개입니다. 현재 검수 요청 가능 {{reviewableCount}}개',
-      requestReview: '선택 항목 검수 요청',
-      requesting: '요청 중…',
-      export: '민감 자료 내보내기',
-      validating: '검증 중…',
-      batchComplete: '{{formattedCount}}개 문제를 모두 검수 요청했습니다.',
-      exportStarted: '{{formattedCount}}개 문제 내보내기를 시작했습니다.',
-      conflictRefreshFailed:
-        '최신 목록을 확인하지 못했습니다. 선택 상태는 유지됩니다. 네트워크를 확인한 뒤 다시 시도해 주세요.',
-      conflictRefreshed:
-        '최신 문제 상태를 반영했습니다. 선택 내용을 확인한 뒤 검수 요청을 다시 실행해 주세요.',
-      conflictTitle: '다른 작업에서 문제 버전이 변경됐습니다',
-      actionFailedTitle: '작업을 완료하지 못했습니다',
-      retryConflict: '최신 문제 목록 불러오기',
-      cachedError:
-        '최신 목록을 확인하지 못했습니다. 현재 목록과 선택 상태는 그대로 유지됩니다.',
-      retryList: '목록 다시 확인',
-      loading: '관리자 문제를 불러오는 중입니다…',
-      loadErrorTitle: '문제 목록을 불러오지 못했습니다',
-      emptyTitle: '표시할 문제가 없습니다',
-      emptyDescription: '검색 조건을 바꾸거나 새 문제를 만들어 주세요.',
-      tableHelp: '표가 화면보다 넓으면 가로로 스크롤할 수 있습니다.',
-      tableRefreshing: ' 최신 목록을 확인 중입니다.',
-      tableCaption:
-        '관리자 문제 목록. 선택, 문제, 분류, 버전 상태, 풀이·정답률, 신고, 생성일, 수정일, 상세 열로 구성됩니다.',
-      tableScrollLabel: '관리자 문제 목록 가로 스크롤 영역',
-      columns: {
-        select: '선택',
-        question: '문제',
-        classification: '분류',
-        status: '상태',
-        attempts: '풀이·정답률',
-        reports: '신고',
-        createdAt: '생성일',
-        updatedAt: '수정일',
-        details: '상세'
-      },
-      sortLabels: {
-        level: '분류, 급수 오름차순으로 정렬',
-        levelActive: '분류, 급수 오름차순 정렬됨',
-        reports: '신고, 많은 순으로 정렬',
-        reportsActive: '신고, 많은 순 정렬됨',
-        created: '생성일, 최근순으로 정렬',
-        createdActive: '생성일, 최근순 정렬됨',
-        updated: '수정일, 최근순으로 정렬',
-        updatedActive: '수정일, 최근순 정렬됨'
-      },
-      selectQuestion: '{{question}} 선택',
-      answerStats: '{{formattedCount}}회 · 정답률 {{rate}}',
-      noAccuracy: '{{formattedCount}}회 · 정답률 없음',
-      reportCount: '{{formattedCount}}건'
-    },
+    questionList: koAdminQuestionListResources,
     create: {
       page: koAdminFormResources.createPage,
       eyebrow: 'CREATE DRAFT',
@@ -1968,9 +1985,9 @@ export const koResources = {
       commandDialogTitle: '{{command}} 확인',
       commandDialogFallbackTitle: '작업 확인',
       commandDialogDescription:
-        '현재 rowVersion을 기준으로 실행하며 충돌 시 자동 재시도하지 않습니다.',
+        '다른 관리자가 먼저 바꿨다면 실행하지 않고 알려 드립니다.',
       cancel: '취소',
-      execute: '명시적으로 실행',
+      execute: '실행',
       requiredReason: '사유',
       optionalReviewNote: '검수 메모 (선택)',
       noteLimit: '메모는 {{formattedCount}}자 이하여야 합니다.',
@@ -1998,7 +2015,15 @@ export const koResources = {
       apply: '동일 검증 결과 원자 적용',
       applied: '{{formattedCount}}개 초안을 원자적으로 만들었습니다.',
       error: '가져오기 요청을 처리하지 못했습니다.',
-      issueLabel: '{{code}} · 항목 {{item}} · {{field}}'
+      issueLabel: '{{code}} · 항목 {{item}} · {{field}}',
+      recovery: {
+        checking:
+          '적용 응답을 받지 못해 같은 가져오기 ID로 적용 결과를 확인하고 있습니다.',
+        notApplied:
+          '이 가져오기는 적용되지 않았습니다. 다시 적용해도 초안이 중복으로 만들어지지 않습니다.',
+        failed:
+          '적용 결과를 확인하지 못했습니다. 다시 적용하면 같은 가져오기 ID로 처리되어 초안이 중복으로 만들어지지 않습니다.'
+      }
     },
     audit: {
       eyebrow: 'ADMIN AUDIT',
@@ -2022,14 +2047,20 @@ export const koResources = {
       trigger: '문제 신고',
       title: '문제 신고',
       description: '신고 내용은 관리자만 확인하며 HTML로 해석하지 않습니다.',
-      reason: '신고 사유',
       details: '설명',
       descriptionRequired: '신고 설명을 입력해 주세요.',
       cancel: '취소',
       submit: '신고 접수',
       submitted: '문제 신고를 접수했습니다.',
       error: '문제 신고를 접수하지 못했습니다.',
-      offline: '오프라인입니다. 작성한 설명은 유지됩니다.'
+      offline: '오프라인입니다. 작성한 설명은 유지됩니다.',
+      appErrorTrigger: '앱 오류 제보',
+      errorScreenTrigger: '오류 제보',
+      appErrorTitle: '앱 오류 제보',
+      appErrorDescription:
+        '어떤 화면에서 무엇을 하다가 문제가 생겼는지 적어 주세요. 제보 내용은 관리자만 확인합니다.',
+      appErrorSubmitted: '앱 오류 제보를 접수했습니다.',
+      appErrorError: '앱 오류 제보를 접수하지 못했습니다.'
     },
     reportList: {
       eyebrow: 'QUESTION REPORTS · TECHNICAL MODE',
@@ -2117,7 +2148,8 @@ export const koResources = {
       mutationError: '신고 상태를 변경하지 못했습니다.',
       retryConflict: '최신 신고 상태 불러오기',
       conflictTitle: '다른 작업에서 신고 상태가 변경됐습니다'
-    }
+    },
+    userReport: koAdminReportResources
   },
   errors: {
     forbidden: {

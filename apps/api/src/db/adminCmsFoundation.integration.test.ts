@@ -20,17 +20,17 @@ import {
 import { attestRuntimeRoles } from './runtimeRoleAttestation.js'
 
 const EXPECTED_RECENT_MIGRATIONS = [
-  '20261019103000_sso_admin_fresh',
-  '20261019110000_sso_admin_fresh_erasure_ownership',
-  '20261019113000_sso_admin_fresh_column_qualification',
-  '20261020230000_sso_account_lifecycle',
-  '20261020233000_sso_first_admin_bootstrap',
   '20261028090000_sso_account_erasure_worker_queue',
   '20261028120000_sso_account_erasure_claim_lease',
   '20261028150000_sso_provider_cleanup_fencing',
   '20261028160000_study_contract_v2_default',
   '20261028170000_study_v1_retirement_authority',
-  '20261030100000_guest_expired_draft_retention'
+  '20261030100000_guest_expired_draft_retention',
+  '20261104090000_unified_reports_import_results',
+  '20261104120000_user_report_erasure_redaction',
+  '20261104150000_user_account_restriction',
+  '20261105090000_admin_member_console',
+  '20261106090000_single_operator_review'
 ] as const
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',
@@ -442,14 +442,14 @@ afterAll(async () => {
 })
 
 describe('Persistence foundation', () => {
-  it('53 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
+  it('58 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
     const ledger = await client.query<{ migrationName: string }>(
       `SELECT migration_name AS "migrationName"
        FROM "_prisma_migrations"
        WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
        ORDER BY started_at`
     )
-    expect(ledger.rows).toHaveLength(53)
+    expect(ledger.rows).toHaveLength(58)
     expect(
       ledger.rows.slice(-11).map(({ migrationName }) => migrationName)
     ).toEqual(EXPECTED_RECENT_MIGRATIONS)
@@ -545,7 +545,7 @@ describe('Persistence foundation', () => {
              WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`
           )
         ).rows
-      ).toEqual([{ migrationCount: 53 }])
+      ).toEqual([{ migrationCount: 58 }])
     } finally {
       await client.query('ROLLBACK')
     }

@@ -17,21 +17,20 @@ import {
   cancelStudySessionBodySchema,
   cancelStudySessionParamsSchema
 } from '@nihongo/contracts/study/cancel-study-session'
-import { getConnInfo } from '@hono/node-server/conninfo'
-import { getCookie } from 'hono/cookie'
 import { Hono, type Context } from 'hono'
 import { z, type ZodError } from 'zod'
-import { createClientIpAuthority } from '../auth/clientIp.js'
 import type { GuestPrincipalService } from '../auth/guestPrincipalService.js'
 import type { PrincipalService } from '../auth/principalService.js'
 import type { ApiEnvironment } from '../config/env.js'
 import { ApplicationError } from '../errors/applicationError.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
+import { createClientIpMiddleware } from '../middleware/clientIp.js'
 import { readBoundedJsonObject } from '../middleware/boundedJson.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
 import type { ExistingStudyOwner } from '../study/studySessionRepository.js'
 import type { StudyDraftService } from '../study/studyDraftService.js'
-import { GUEST_COOKIE_NAME } from './principal.js'
+import { toFieldErrors } from './routeSupport.js'
+import { resolveExistingStudyOwner } from './studyRouteSupport.js'
 
 interface StudyDraftRouteDependencies {
   environment: ApiEnvironment
@@ -42,15 +41,6 @@ interface StudyDraftRouteDependencies {
 }
 
 type StudyDraftRouteEnvironment = { Variables: ApiVariables }
-
-const toFieldErrors = (error: ZodError): Record<string, string[]> => {
-  const errors: Record<string, string[]> = {}
-  for (const issue of error.issues) {
-    const path = issue.path.length > 0 ? issue.path.join('.') : 'request'
-    errors[path] = [...(errors[path] ?? []), issue.message]
-  }
-  return errors
-}
 
 const invalidRequest = (
   message: string,
@@ -81,63 +71,22 @@ const validationError = (message: string, error: ZodError): ApplicationError =>
     retryable: false
   })
 
-const appendAuthHeaders = (
-  context: Context<StudyDraftRouteEnvironment>,
-  resolution: Awaited<ReturnType<PrincipalService['resolveAuthenticatedUser']>>,
-  environment: ApiEnvironment
-): void => {
-  for (const cookie of resolution.headers.getSetCookie?.() ?? []) {
-    context.header('Set-Cookie', cookie, { append: true })
-  }
-  if (resolution.clearSessionCookie) {
-    const attributes = `Path=/; HttpOnly; SameSite=Lax; Max-Age=0${environment.NODE_ENV === 'production' ? '; Secure' : ''}`
-    context.header('Set-Cookie', `nihongo.session_token=; ${attributes}`, {
-      append: true
-    })
-    context.header(
-      'Set-Cookie',
-      `__Secure-nihongo.session_token=; ${attributes}`,
-      { append: true }
-    )
-  }
-}
-
 const resolveOwner = async (
   context: Context<StudyDraftRouteEnvironment>,
   environment: ApiEnvironment,
   guestPrincipalService: GuestPrincipalService,
   principalService: PrincipalService
-): Promise<ExistingStudyOwner> => {
-  const resolution = await principalService.resolveAuthenticatedUser(
-    context.req.raw.headers
-  )
-  appendAuthHeaders(context, resolution, environment)
-  if (resolution.user) {
-    return { kind: 'USER', userId: resolution.user.id }
-  }
-  const inspected = guestPrincipalService.inspectCookie(
-    getCookie(context, GUEST_COOKIE_NAME)
-  )
-  if (inspected.kind === 'ABSENT') {
-    throw new ApplicationError({
-      code: 'AUTHENTICATION_REQUIRED',
-      message: '학습 초안을 사용하려면 인증 정보가 필요합니다.',
-      retryable: false
+): Promise<ExistingStudyOwner> =>
+  (
+    await resolveExistingStudyOwner({
+      authenticationRequiredMessage:
+        '학습 초안을 사용하려면 인증 정보가 필요합니다.',
+      context,
+      environment,
+      guestPrincipalService,
+      principalService
     })
-  }
-  if (inspected.kind === 'INVALID') {
-    throw new ApplicationError({
-      code: 'GUEST_SESSION_EXPIRED',
-      message: '게스트 세션이 만료됐습니다.',
-      retryable: false
-    })
-  }
-  return {
-    kind: 'GUEST',
-    guestPrincipalId: inspected.id,
-    tokenDigest: inspected.tokenDigest
-  }
-}
+  ).owner
 
 const parseRequiredPracticeHeader = (value: string | undefined): void => {
   try {
@@ -173,27 +122,14 @@ export const createStudyDraftRoutes = ({
   studyDraftService
 }: StudyDraftRouteDependencies): Hono<StudyDraftRouteEnvironment> => {
   const routes = new Hono<StudyDraftRouteEnvironment>()
-  const clientIpAuthority = createClientIpAuthority(
-    environment.AUTH_TRUSTED_PROXY_CIDRS
+  routes.use(
+    '*',
+    createClientIpMiddleware(environment.AUTH_TRUSTED_PROXY_CIDRS)
   )
-  const resolveClientIp = (
-    context: Context<StudyDraftRouteEnvironment>
-  ): string => {
-    let peerAddress: string | undefined
-    try {
-      peerAddress = getConnInfo(context).remote.address
-    } catch {
-      peerAddress = undefined
-    }
-    return clientIpAuthority.resolve(
-      peerAddress,
-      context.req.header('X-Forwarded-For') ?? null
-    )
-  }
 
   routes.get('/', async (context) => {
     await rateLimiter.consume({
-      clientIp: resolveClientIp(context),
+      clientIp: context.get('clientIp'),
       operation: 'study-read',
       windowMs: 60_000,
       max: 120
@@ -231,7 +167,7 @@ export const createStudyDraftRoutes = ({
 
   routes.get('/:sessionId/draft-answers', async (context) => {
     await rateLimiter.consume({
-      clientIp: resolveClientIp(context),
+      clientIp: context.get('clientIp'),
       operation: 'study-read',
       windowMs: 60_000,
       max: 120
@@ -265,7 +201,7 @@ export const createStudyDraftRoutes = ({
   })
 
   routes.put('/:sessionId/draft-answers', async (context) => {
-    const clientIp = resolveClientIp(context)
+    const clientIp = context.get('clientIp')
     await rateLimiter.consume({
       clientIp,
       operation: 'study-mutation-ip',
@@ -346,7 +282,7 @@ export const createStudyDraftRoutes = ({
   })
 
   routes.post('/:sessionId/cancellation', async (context) => {
-    const clientIp = resolveClientIp(context)
+    const clientIp = context.get('clientIp')
     await rateLimiter.consume({
       clientIp,
       operation: 'study-mutation-ip',

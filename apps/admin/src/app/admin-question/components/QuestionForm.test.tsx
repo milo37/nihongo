@@ -8,18 +8,19 @@ import {
 } from '@nihongo/browser/provider/I18nProvider'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import { appI18n } from '@nihongo/browser/i18n/config'
+import { useState } from 'react'
 import type { ReactElement } from 'react'
-import type { CreateAdminQuestionRequest } from '@nihongo/browser/api/admin-question/createAdminQuestion/schema'
+import type { CreateAdminQuestionRequest } from '@api/admin-question/createAdminQuestion/schema'
 import type {
   PreviewQuestionVersionResponse,
   UpdateQuestionVersionRequest
 } from '@nihongo/contracts/admin/content-operations'
 import { preview as initialQuestion } from '@app/admin-question/test/questionFixture'
+import { QuestionForm } from '@app/admin-question/components/QuestionForm'
 import {
-  QuestionForm,
   questionFormSchema,
   type QuestionFormValues
-} from '@app/admin-question/components/QuestionForm'
+} from '@app/admin-question/components/questionFormSchema'
 
 const validFormValues: QuestionFormValues = {
   level: 'N3',
@@ -106,7 +107,7 @@ describe('questionFormSchema', () => {
       options: validFormValues.options.slice(0, 3)
     })
 
-    expect(messages).toContain('보기는 정확히 4개여야 합니다.')
+    expect(messages).toContain('editor.form.validation.optionCount')
   })
 
   it('빈 보기와 중복 보기를 거부한다', () => {
@@ -125,9 +126,9 @@ describe('questionFormSchema', () => {
       }))
     })
 
-    expect(blankMessages).toContain('보기 내용을 입력해 주세요.')
+    expect(blankMessages).toContain('editor.form.validation.option')
     expect(duplicateMessages).toContain(
-      '동일한 보기를 중복해서 입력할 수 없습니다.'
+      'editor.form.validation.optionDuplicate'
     )
   })
 
@@ -137,7 +138,7 @@ describe('questionFormSchema', () => {
       correctOptionId: ''
     })
 
-    expect(messages).toContain('정답은 보기 중 정확히 하나를 선택해 주세요.')
+    expect(messages).toContain('editor.form.validation.correct')
   })
 
   it('독해 문제에 지문을 요구한다', () => {
@@ -148,7 +149,61 @@ describe('questionFormSchema', () => {
       passage: '   '
     })
 
-    expect(messages).toContain('독해 문제는 지문을 입력해 주세요.')
+    expect(messages).toContain('editor.form.validation.passage')
+  })
+
+  it('지문을 쓸 수 없는 유형의 지문은 계약 원문 대신 안내 키로 알린다', () => {
+    const messages = getIssueMessages({
+      ...validFormValues,
+      passage: '本文'
+    })
+
+    expect(messages).toContain('editor.form.validation.passageNotAllowed')
+    expect(messages).not.toContain('passage applicability가 유효하지 않습니다.')
+  })
+
+  it('허용되지 않는 급수·과목·유형 조합을 안내 키로 알린다', () => {
+    const messages = getIssueMessages({
+      ...validFormValues,
+      subject: 'VOCABULARY'
+    })
+
+    expect(messages).toContain('editor.form.validation.combination')
+    expect(messages.some((message) => message.includes('questionType'))).toBe(
+      false
+    )
+  })
+})
+
+describe('QuestionForm server error', () => {
+  it('제출 실패 오류가 나타나면 오류 영역으로 포커스를 옮긴다', async () => {
+    const user = userEvent.setup()
+    const Host = (): ReactElement => {
+      const [serverError, setServerError] = useState<string>()
+      return (
+        <>
+          <button type="button" onClick={() => setServerError('저장 실패')}>
+            실패 알림
+          </button>
+          <QuestionForm
+            isSubmitting={false}
+            submitLabel="문제 등록"
+            submittingLabel="등록 중…"
+            serverError={serverError}
+            onSubmit={async () => undefined}
+          />
+        </>
+      )
+    }
+    const router = createMemoryRouter([{ path: '/', element: <Host /> }])
+    render(
+      <I18nProvider>
+        <RouterProvider router={router} />
+      </I18nProvider>
+    )
+    await user.click(await screen.findByRole('button', { name: '실패 알림' }))
+    expect(screen.getByRole('alert')).toHaveTextContent('저장 실패')
+    expect(screen.getByRole('alert')).toHaveFocus()
   })
 })
 

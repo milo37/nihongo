@@ -5,6 +5,7 @@ import { dashboardRoutes } from '@app/dashboard/router'
 import { ForbiddenPage } from '@nihongo/browser/app/forbidden/page'
 import { homeRoutes } from '@app/home/router'
 import { Layout } from '@app/layout'
+import { AppErrorReportButton } from '@app/question-report/components/AppErrorReportDialog'
 import { loginRoutes } from '@app/login/router'
 import { NotFoundPage } from '@nihongo/browser/app/not-found/page'
 import { RouteErrorPage } from '@nihongo/browser/app/not-found/route-error'
@@ -33,7 +34,7 @@ export const appRoutes: RouteObject[] = [
         <Layout />
       </ProtectedRouteProvider>
     ),
-    errorElement: <RouteErrorPage />,
+    errorElement: <RouteErrorPage action={<AppErrorReportButton />} />,
     children: [
       ...homeRoutes,
       ...loginRoutes,

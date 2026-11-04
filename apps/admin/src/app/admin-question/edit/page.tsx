@@ -1,6 +1,5 @@
-import { safeSsoReturnPath } from '@nihongo/contracts/auth/sign-in-social'
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import type { ReactElement } from 'react'
 import { isNotFoundApiError } from '@nihongo/browser/util/apiError'
 import {
@@ -17,18 +16,16 @@ import { useUpdateAdminQuestion } from '@app/admin-question/hooks/useUpdateAdmin
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import { useToast } from '@nihongo/browser/common/components/Toast'
+import { QuestionPageHeader } from '@app/admin-question/components/QuestionPageHeader'
+import { useQuestionListReturnPath } from '@app/admin-question/navigation/useQuestionListReturnPath'
+import { getAdminErrorKey } from '@app/admin/presentation/adminPresentation'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 
 export const EditAdminQuestionPage = (): ReactElement => {
-  const { t } = useAdminPresentation()
+  const { t, presentError } = useAdminPresentation()
   const { questionId = '' } = useParams()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const safeReturn = safeSsoReturnPath(searchParams.get('returnTo'))
-  const returnPath =
-    safeReturn.split('?')[0] === '/admin/questions'
-      ? safeReturn.slice('/admin'.length)
-      : '/questions'
+  const returnPath = useQuestionListReturnPath()
   const query = useGetAdminQuestion(questionId)
   const [working, setWorking] = useState<{
     data: NonNullable<typeof query.data>
@@ -96,7 +93,7 @@ export const EditAdminQuestionPage = (): ReactElement => {
       })
       navigate(returnPath, { replace: true })
     } catch {
-      // 전역 API 에러 프로바이더와 폼의 인라인 오류가 안내합니다.
+      // The global API error provider and inline form errors explain the failure.
     }
   }
 
@@ -151,42 +148,19 @@ export const EditAdminQuestionPage = (): ReactElement => {
 
   return (
     <section className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
-      <nav aria-label={t('common.breadcrumbLabel')}>
-        <ol className="flex flex-wrap items-center gap-2 text-sm text-muted">
-          <li>
-            <Link
-              className="rounded-md font-semibold text-brand underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-              to={returnPath}
-            >
-              {t('common.questions')}
-            </Link>
-          </li>
-          <li aria-hidden="true">/</li>
-          <li className="max-w-64 truncate" aria-current="page">
-            {t('editor.page.breadcrumb', {
-              questionId: question.data.question.questionId
-            })}
-          </li>
-        </ol>
-      </nav>
-
-      <header className="mb-8 mt-6 border-b border-line pb-8">
-        <p className="text-sm font-bold tracking-[0.14em] text-brand">
-          EDIT QUESTION
-        </p>
-        <h1
-          ref={headingRef}
-          className="mt-2 rounded-sm text-balance text-3xl font-black tracking-tight sm:text-4xl"
-          tabIndex={-1}
-        >
-          {t(canEdit ? 'editor.page.title' : 'editor.page.details')}
-        </h1>
-        <p className="mt-4 max-w-3xl text-pretty leading-7 text-muted">
-          {t('editor.page.description', {
-            questionId: question.data.question.questionId
-          })}
-        </p>
-      </header>
+      <QuestionPageHeader
+        returnPath={returnPath}
+        currentLabel={t('editor.page.breadcrumb', {
+          questionId: question.data.question.questionId
+        })}
+        currentClassName="max-w-64 truncate"
+        eyebrow="EDIT QUESTION"
+        title={t(canEdit ? 'editor.page.title' : 'editor.page.details')}
+        description={t('editor.page.description', {
+          questionId: question.data.question.questionId
+        })}
+        headingRef={headingRef}
+      />
 
       {!canEdit ? (
         <p role="status" className="mb-5 text-sm text-muted">
@@ -216,7 +190,9 @@ export const EditAdminQuestionPage = (): ReactElement => {
               ? t('editor.page.immutable')
               : commandError?.code === 'FORBIDDEN'
                 ? t('editor.page.forbidden')
-                : (commandError?.serverMessage ?? t('editor.page.saveError'))
+                : getAdminErrorKey(commandError) === 'errors.generic'
+                  ? t('editor.page.saveError')
+                  : presentError(commandError)
             : undefined
         }
         onSubmit={handleUpdateQuestion}

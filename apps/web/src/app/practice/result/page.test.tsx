@@ -455,6 +455,28 @@ describe('approved general result navigation', () => {
     fixture.client.clear()
   })
 
+  it('이용이 제한된 계정이 오답 다시 풀기를 누르면 결과 화면에 남아 제한 안내로 초점을 옮긴다', async () => {
+    const fixture = await createFixture({ mixed: false })
+    const restricted = mockDatabase.getCurrentUser()
+    if (!restricted) throw new Error('Signed-in fixture required')
+    mockDatabase.setAccountRestricted(restricted.id, true)
+    const { router, view } = fixture.mount()
+    const user = userEvent.setup()
+    await user.click(
+      await screen.findByRole('button', { name: '오답만 다시 풀기' })
+    )
+    const notice = await screen.findByText(
+      '임시로 이용이 제한된 계정입니다. 새 학습과 신고는 제한이 풀린 뒤 이용할 수 있습니다.'
+    )
+    await waitFor(() => expect(notice).toHaveFocus())
+    expect(router.state.location.pathname).toMatch(/^\/practice\/result\//u)
+    expect(
+      screen.queryByText('오답 재출제 세션을 만들지 못했습니다.')
+    ).toBeNull()
+    view.unmount()
+    fixture.client.clear()
+  })
+
   it('background 결과 갱신 실패에서도 선택 해설을 유지하고 결과 기반 동작을 잠근다', async () => {
     const fixture = await createFixture()
     const second = fixture.result.items[1]

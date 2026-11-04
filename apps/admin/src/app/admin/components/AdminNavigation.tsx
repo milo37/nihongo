@@ -1,35 +1,50 @@
-import { NavLink } from 'react-router'
+import { Link, useLocation } from 'react-router'
+import { Icon } from '@nihongo/browser/common/components/Icon'
+import type { IconName } from '@nihongo/browser/common/components/Icon'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import type { ReactElement } from 'react'
 
-type AdminNavigationProps = {
-  readonly questionListTo?: string
-}
+const importPath = '/questions/import'
 
-export const AdminNavigation = ({
-  questionListTo = '/questions'
-}: AdminNavigationProps): ReactElement => {
+const isCurrent = (pathname: string, to: string): boolean =>
+  to === '/questions'
+    ? (pathname === to || pathname.startsWith(`${to}/`)) &&
+      !pathname.startsWith(importPath)
+    : pathname === to || pathname.startsWith(`${to}/`)
+
+const items: readonly { to: string; key: string; icon: IconName }[] = [
+  { to: '/questions', key: 'nav.questions', icon: 'book-open' },
+  { to: importPath, key: 'nav.import', icon: 'upload' },
+  { to: '/members', key: 'nav.members', icon: 'user-round' },
+  { to: '/reports', key: 'nav.reports', icon: 'circle-alert' },
+  { to: '/audit-log', key: 'nav.auditLog', icon: 'history' }
+]
+
+export const AdminNavigation = (): ReactElement => {
   const { t } = useAdminPresentation()
+  const { pathname } = useLocation()
   return (
-    <nav
-      className="mb-6 flex flex-wrap gap-3 text-sm"
-      aria-label={t('common.breadcrumbLabel')}
-    >
-      {[
-        { to: questionListTo, label: t('common.questions') },
-        { to: '/reports', label: t('common.reports') },
-        { to: '/audit-log', label: t('common.auditLog') }
-      ].map(({ to, label }) => (
-        <NavLink
-          key={to}
-          to={to}
-          className={({ isActive }) =>
-            `inline-flex min-h-11 items-center rounded-sm px-2 font-semibold underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${isActive ? 'text-brand' : 'text-muted'}`
-          }
-        >
-          {label}
-        </NavLink>
-      ))}
+    <nav aria-label={t('common.menuLabel')}>
+      <p className="mb-2 px-3 text-sm font-black lg:mb-4 lg:text-base">
+        {t('nav.brand')}
+      </p>
+      <ul className="flex flex-wrap gap-1 lg:flex-col">
+        {items.map(({ to, key, icon }) => {
+          const current = isCurrent(pathname, to)
+          return (
+            <li key={to} className="shrink-0">
+              <Link
+                to={to}
+                aria-current={current ? 'page' : undefined}
+                className={`flex min-h-11 items-center gap-2 whitespace-nowrap rounded-sm px-3 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${current ? 'bg-brand-soft text-brand' : 'text-muted hover:text-brand'}`}
+              >
+                <Icon name={icon} className="size-4 shrink-0" />
+                {t(key)}
+              </Link>
+            </li>
+          )
+        })}
+      </ul>
     </nav>
   )
 }

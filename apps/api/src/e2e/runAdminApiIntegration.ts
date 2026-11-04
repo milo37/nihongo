@@ -807,6 +807,10 @@ export const registerCapabilityAndActivate = async (
     abortSignal?.throwIfAborted()
     // Lifecycle's existing SSO fixture owns the one-way activation in connect().
     if (issuerActivationOwner === 'runner') {
+      // Settle the fresh ledger's statistics first: an autovacuum ANALYZE of
+      // _prisma_migrations can otherwise deadlock with the activation's REVOKE
+      // and DROP POLICY on that table (CI run 41787459400).
+      await migrationClient.query(`ANALYZE "_prisma_migrations"`)
       await migrationClient.query(`SELECT "phase7_activate_v1_issuer"('TEST')`)
     }
     abortSignal?.throwIfAborted()
@@ -1101,7 +1105,7 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
   process.stdout.write(
     JSON.stringify({
       event: 'phase7.api.sso_first_admin_bootstrap.migrations_verified',
-      canonicalCount: 53,
+      canonicalCount: 58,
       checksumMatch: true,
       reentry: true
     }) + '\n'

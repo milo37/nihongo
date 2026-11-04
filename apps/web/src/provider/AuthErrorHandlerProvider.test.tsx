@@ -305,6 +305,27 @@ describe('AuthErrorHandlerProvider', () => {
     expect(useAppStore.getState().currentUser?.id).toBe(currentUser.id)
   })
 
+  it('이용 제한 403은 forbidden으로 보내지 않고 현재 화면과 로그인을 유지한다', async () => {
+    const currentUser = mockDatabase.loginAs('USER')
+    useAppStore.getState().setCurrentUser(currentUser)
+    const { router } = renderProvider('/practice?mode=RANDOM')
+
+    act(() => {
+      emitApiError(
+        Object.assign(new Error('Account restricted'), {
+          code: 'ACCOUNT_RESTRICTED',
+          isForbiddenError: true,
+          status: 403
+        })
+      )
+    })
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/practice')
+    )
+    expect(useAppStore.getState().currentUser?.id).toBe(currentUser.id)
+  })
+
   it('unmount 시 online과 offline listener를 정리한다', () => {
     const addEventListener = vi.spyOn(window, 'addEventListener')
     const removeEventListener = vi.spyOn(window, 'removeEventListener')

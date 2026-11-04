@@ -1,5 +1,4 @@
-import { safeSsoReturnPath } from '@nihongo/contracts/auth/sign-in-social'
-import { Link, useNavigate, useSearchParams } from 'react-router'
+import { useNavigate } from 'react-router'
 import type { ReactElement } from 'react'
 import {
   createAdminQuestionRequestSchema,
@@ -9,17 +8,15 @@ import {
 import { QuestionForm } from '@app/admin-question/components/QuestionForm'
 import { useCreateAdminQuestion } from '@app/admin-question/hooks/useCreateAdminQuestion'
 import { useToast } from '@nihongo/browser/common/components/Toast'
+import { QuestionPageHeader } from '@app/admin-question/components/QuestionPageHeader'
+import { useQuestionListReturnPath } from '@app/admin-question/navigation/useQuestionListReturnPath'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
+import { getAdminErrorKey } from '@app/admin/presentation/adminPresentation'
 
 export const CreateAdminQuestionPage = (): ReactElement => {
-  const { t } = useAdminPresentation()
+  const { t, presentError } = useAdminPresentation()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const safeReturn = safeSsoReturnPath(searchParams.get('returnTo'))
-  const returnPath =
-    safeReturn.split('?')[0] === '/admin/questions'
-      ? safeReturn.slice('/admin'.length)
-      : '/questions'
+  const returnPath = useQuestionListReturnPath()
   const createQuestion = useCreateAdminQuestion()
   const { addToast } = useToast()
 
@@ -40,38 +37,19 @@ export const CreateAdminQuestionPage = (): ReactElement => {
         { replace: true }
       )
     } catch {
-      // 전역 API 에러 프로바이더와 폼의 인라인 오류가 안내합니다.
+      // The global API error provider and inline form errors explain the failure.
     }
   }
 
   return (
     <section className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
-      <nav aria-label={t('common.breadcrumbLabel')}>
-        <ol className="flex flex-wrap items-center gap-2 text-sm text-muted">
-          <li>
-            <Link
-              className="rounded-md font-semibold text-brand underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-              to={returnPath}
-            >
-              {t('common.questions')}
-            </Link>
-          </li>
-          <li aria-hidden="true">/</li>
-          <li aria-current="page">{t('create.page.title')}</li>
-        </ol>
-      </nav>
-
-      <header className="mb-8 mt-6 border-b border-line pb-8">
-        <p className="text-sm font-bold tracking-[0.14em] text-brand">
-          CREATE QUESTION
-        </p>
-        <h1 className="mt-2 text-balance text-3xl font-black tracking-tight sm:text-4xl">
-          {t('create.page.title')}
-        </h1>
-        <p className="mt-4 max-w-3xl text-pretty leading-7 text-muted">
-          {t('create.page.description')}
-        </p>
-      </header>
+      <QuestionPageHeader
+        returnPath={returnPath}
+        currentLabel={t('create.page.title')}
+        eyebrow="CREATE QUESTION"
+        title={t('create.page.title')}
+        description={t('create.page.description')}
+      />
 
       <QuestionForm
         cancelHref={returnPath}
@@ -79,7 +57,12 @@ export const CreateAdminQuestionPage = (): ReactElement => {
         submitLabel={t('create.page.submit')}
         submittingLabel={t('create.page.submitting')}
         serverError={
-          createQuestion.isError ? t('create.page.error') : undefined
+          !createQuestion.isError
+            ? undefined
+            : getAdminErrorKey(createQuestion.error) ===
+                'errors.duplicateQuestionContent'
+              ? presentError(createQuestion.error)
+              : t('create.page.error')
         }
         onSubmit={handleCreateQuestion}
       />

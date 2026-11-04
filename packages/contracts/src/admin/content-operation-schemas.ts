@@ -58,6 +58,7 @@ import {
   reauthenticateAdminErrorSchema,
   reauthenticateAdminRequestSchema,
   reauthenticateAdminResponseSchema,
+  publishQuestionVersionBatchErrorSchema,
   requestContentReviewBatchErrorSchema,
   requestContentReviewBatchRequestSchema,
   requestContentReviewBatchResponseSchema,
@@ -123,6 +124,10 @@ import {
   type AdminOperation,
   type OperationManifestEntry
 } from './content-manifest.js'
+import {
+  publishQuestionVersionBatchRequestSchema,
+  publishQuestionVersionBatchResponseSchema
+} from './review.js'
 
 export const emptyParamsSchema = z.object({}).strict()
 export const emptyQuerySchema = z.object({}).strict()
@@ -272,6 +277,13 @@ export const operationSchemas = {
     success: requestContentReviewBatchResponseSchema,
     error: requestContentReviewBatchErrorSchema
   },
+  publishQuestionVersionBatch: {
+    params: noParams,
+    query: noQuery,
+    body: publishQuestionVersionBatchRequestSchema,
+    success: publishQuestionVersionBatchResponseSchema,
+    error: publishQuestionVersionBatchErrorSchema
+  },
   validateQuestionImport: {
     params: noParams,
     query: noQuery,
@@ -367,7 +379,7 @@ export interface BuildOperationFailureResponseInput {
   readonly retryAfterSeconds?: number | undefined
 }
 
-export interface Phase7OperationFailureResponse {
+export interface ContentOperationFailureResponse {
   readonly status: (typeof errorStatusByCode)[StableErrorCode]
   readonly body: ApiFailure
   readonly headers: Readonly<Record<string, string>>
@@ -378,13 +390,13 @@ const parseRetryAfterSeconds = (value: number): number =>
 
 const RETRY_AFTER_SECONDS_PATTERN = /^[1-9][0-9]*$/u
 
-export const buildPhase7OperationFailureResponse = ({
+export const buildContentOperationFailureResponse = ({
   disposition,
   failure,
   internalReason,
   operation,
   retryAfterSeconds
-}: BuildOperationFailureResponseInput): Phase7OperationFailureResponse => {
+}: BuildOperationFailureResponseInput): ContentOperationFailureResponse => {
   const code = stableErrorCodeSchema.parse(failure.code)
   const status = errorStatusByCode[code]
   if (status === 429 && retryAfterSeconds === undefined) {
@@ -426,7 +438,7 @@ export const buildPhase7OperationFailureResponse = ({
 
 export interface AssertOperationFailureResponseInput {
   readonly operation: AdminOperation
-  readonly response: Phase7OperationFailureResponse
+  readonly response: ContentOperationFailureResponse
   readonly disposition: AdminExecutionDisposition
   readonly internalReason?: AdminInternalFailureReason | undefined
 }
@@ -436,7 +448,7 @@ export const assertOperationFailureResponse = ({
   internalReason,
   operation,
   response
-}: AssertOperationFailureResponseInput): Phase7OperationFailureResponse => {
+}: AssertOperationFailureResponseInput): ContentOperationFailureResponse => {
   const body = apiFailureSchema.parse(
     operationSchemas[operation].error.parse(response.body)
   )
@@ -487,11 +499,11 @@ export const assertOperationSchemaManifest = (): void => {
   const schemaOperations = Object.keys(operationSchemas)
   if (JSON.stringify(manifestOperations) !== JSON.stringify(schemaOperations)) {
     throw new Error(
-      'Phase 7 operation schema manifest는 canonical 28-operation 순서와 같아야 합니다.'
+      'Phase 7 operation schema manifest는 canonical 29-operation 순서와 같아야 합니다.'
     )
   }
   if (
-    operationSchemaManifest.length !== 28 ||
+    operationSchemaManifest.length !== 29 ||
     operationSchemaManifest.some(
       (entry) => entry.schemas !== operationSchemas[entry.operation]
     )

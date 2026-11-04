@@ -21,19 +21,19 @@ import {
   createQuestionReportErrorSchema,
   decodeAdminQuestionVersionCursor,
   decodeOccurredAtCursor,
-  decodePhase7OccurredAtCursor,
+  decodeContentOccurredAtCursor,
   diffQuestionVersionResponseSchema,
   encodeAdminQuestionVersionCursor,
   encodeOccurredAtCursor,
-  encodePhase7OccurredAtCursor,
+  encodeContentOccurredAtCursor,
   getAdminQuestionReportErrorCodeSchema,
   listAdminQuestionReportsErrorCodeSchema,
   listAdminQuestionsQuerySchema,
-  normalizePhase7OptionComparison,
-  normalizePhase7TagKey,
+  normalizeContentOptionComparison,
+  normalizeContentTagKey,
   occurredAtCursorSchema,
-  phase7OccurredAtCursorSchema,
-  phase7QuestionSearchSchema,
+  contentOccurredAtCursorSchema,
+  contentQuestionSearchSchema,
   previewQuestionVersionResponseSchema,
   questionReportDetailSchema,
   resolveAdminQuestionReportErrorCodeSchema,
@@ -126,14 +126,14 @@ const createDigestPort = (): {
 
 describe('Phase 7 common and read contracts', () => {
   it('normalizes only tag ASCII case while question q remains NFC case-sensitive', () => {
-    expect(normalizePhase7TagKey('  Ä  A  ')).toBe('Ä a')
-    expect(phase7QuestionSearchSchema.parse('  Ａbc  ')).toBe('Ａbc')
+    expect(normalizeContentTagKey('  Ä  A  ')).toBe('Ä a')
+    expect(contentQuestionSearchSchema.parse('  Ａbc  ')).toBe('Ａbc')
   })
 
   it('matches Phase 6 Unicode White_Space option comparison without treating FEFF as whitespace', () => {
-    expect(normalizePhase7OptionComparison('\u3000です\u00a0')).toBe('です')
-    expect(normalizePhase7OptionComparison('で\t\nす')).toBe('で す')
-    expect(normalizePhase7OptionComparison('\ufeffです\ufeff')).toBe(
+    expect(normalizeContentOptionComparison('\u3000です\u00a0')).toBe('です')
+    expect(normalizeContentOptionComparison('で\t\nす')).toBe('で す')
+    expect(normalizeContentOptionComparison('\ufeffです\ufeff')).toBe(
       '\ufeffです\ufeff'
     )
     const parsed = adminImportItemSchema.parse({
@@ -148,7 +148,7 @@ describe('Phase 7 common and read contracts', () => {
     expect(parsed.content.options[1]?.text).toBe('\ufeffです\ufeff')
     expect(
       parsed.content.options.map(({ text }) =>
-        normalizePhase7OptionComparison(text)
+        normalizeContentOptionComparison(text)
       )
     ).toEqual(['です', '\ufeffです\ufeff', 'でした', 'ません'])
   })
@@ -188,7 +188,8 @@ describe('Phase 7 common and read contracts', () => {
       updatedAt: iso,
       answerCount: 0,
       correctRateBasisPoints: null,
-      openReportCount: 0
+      openReportCount: 0,
+      reviewStage: 'AUTO_VALIDATED'
     }
     expect(() =>
       assertListAdminQuestionsForRequest(
@@ -238,11 +239,11 @@ describe('Phase 7 common and read contracts', () => {
       'eyJ2IjoxLCJvY2N1cnJlZEF0IjoiMjAyNi0wOC0yOVQwMDowMDowMC4wMDBaIiwiaWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDkifQ'
     const value = { occurredAt: iso, id: IDS.audit }
 
-    expect(encodeOccurredAtCursor).toBe(encodePhase7OccurredAtCursor)
-    expect(decodeOccurredAtCursor).toBe(decodePhase7OccurredAtCursor)
-    expect(occurredAtCursorSchema).toBe(phase7OccurredAtCursorSchema)
-    expect(encodeOccurredAtCursor.name).toBe('encodePhase7OccurredAtCursor')
-    expect(decodeOccurredAtCursor.name).toBe('decodePhase7OccurredAtCursor')
+    expect(encodeOccurredAtCursor).toBe(encodeContentOccurredAtCursor)
+    expect(decodeOccurredAtCursor).toBe(decodeContentOccurredAtCursor)
+    expect(occurredAtCursorSchema).toBe(contentOccurredAtCursorSchema)
+    expect(encodeOccurredAtCursor.name).toBe('encodeContentOccurredAtCursor')
+    expect(decodeOccurredAtCursor.name).toBe('decodeContentOccurredAtCursor')
     expect(encodeOccurredAtCursor(value)).toBe(token)
     expect(decodeOccurredAtCursor(token)).toEqual({ v: 1, ...value })
     expect(occurredAtCursorSchema.parse(token)).toBe(token)
@@ -269,7 +270,9 @@ describe('Phase 7 common and read contracts', () => {
       publishedAt: iso,
       retiredAt: '2026-08-29T01:00:00.000Z',
       createdAt: iso,
-      updatedAt: '2026-08-29T01:00:00.000Z'
+      updatedAt: '2026-08-29T01:00:00.000Z',
+      reviewStage: 'RETIRED',
+      autoValidation: { passed: true, issues: [] }
     }
     expect(adminQuestionVersionSummarySchema.parse(version)).toMatchObject(
       version
@@ -511,7 +514,11 @@ describe('Phase 7 future import and report contracts', () => {
     }
     const assertion = await assertAdminImportApplyForRequest(
       port,
-      { validationDigest: 'a'.repeat(64), items: [importItem] },
+      {
+        importId: '00000000-0000-4000-8000-000000000001',
+        validationDigest: 'a'.repeat(64),
+        items: [importItem]
+      },
       {
         createdCount: 1,
         items: [
@@ -611,6 +618,7 @@ describe('Phase 7 future import and report contracts', () => {
     expect(createQuestionReportErrorCodeSchema.options).toEqual([
       'AUTHENTICATION_REQUIRED',
       'AUTH_SESSION_EXPIRED',
+      'ACCOUNT_RESTRICTED',
       'INVALID_JSON',
       'INVALID_REQUEST',
       'REQUEST_TOO_LARGE',

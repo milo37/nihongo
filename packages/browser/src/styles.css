@@ -211,7 +211,8 @@
   z-index: var(--z-dropdown);
 }
 
-.app-account-menu > a {
+.app-account-menu > a,
+.app-account-menu > button {
   display: flex;
   align-items: center;
   min-height: 44px;
@@ -220,7 +221,13 @@
   overflow-wrap: anywhere;
 }
 
-.app-account-menu > a:hover {
+.app-account-menu > button {
+  width: 100%;
+  text-align: left;
+}
+
+.app-account-menu > a:hover,
+.app-account-menu > button:hover {
   background: rgb(var(--color-hover-surface));
 }
 
@@ -646,7 +653,7 @@
       var(--mobile-navigation-height) + env(safe-area-inset-bottom) + 1rem
     );
   }
-  .app-shell:not(.app-shell-focus) {
+  .app-shell:not(.app-shell-focus, .app-shell-no-rail) {
     padding-bottom: calc(
       var(--mobile-navigation-height) + env(safe-area-inset-bottom)
     );
@@ -1540,6 +1547,18 @@
 }
 
 .learning-note > header h1:lang(ja) {
+  word-break: normal;
+  line-break: strict;
+}
+
+/* Field error copy: keep Korean words intact, still wrap long tokens;
+   Japanese retains natural strict line breaks. */
+.field-error {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.field-error:lang(ja) {
   word-break: normal;
   line-break: strict;
 }
@@ -2459,6 +2478,28 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
 }
 .app-shell-focus .app-shell-body {
   margin-left: 0;
+}
+/* Admin keeps its own menu: no learner rail column, brand moves to the header. */
+.app-shell-no-rail .app-shell-body {
+  margin-left: 0;
+}
+.app-shell-no-rail .app-shell-body > main {
+  width: 100%;
+  max-width: none;
+}
+/* The admin menu carries the brand, so the header logo stays hidden. */
+.app-shell-no-rail .app-mobile-brand {
+  display: none;
+}
+/* Align footer text with the max-w-6xl admin pages beside the 232px menu. */
+@media (min-width: 1024px) {
+  .app-shell-no-rail .app-shell-body > .information-footer {
+    box-sizing: border-box;
+    width: min(1152px, calc(100% - 232px));
+    max-width: none;
+    margin-inline: calc(232px + max(0px, (100% - 1384px) / 2)) 0;
+    padding-inline: 24px;
+  }
 }
 .app-shell-focus .app-shell-body > main {
   width: 100%;

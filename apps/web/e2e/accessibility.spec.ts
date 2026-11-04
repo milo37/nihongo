@@ -6,7 +6,7 @@ import {
   isSsoAuthorizationURLForProvider,
   signInSocialResponseSchema
 } from '@nihongo/contracts/auth/sign-in-social'
-import { createQuestionReportResponseSchema } from '@nihongo/contracts/admin/content-operations'
+import { createReportResponseSchema } from '@nihongo/contracts/report/reports'
 import { createBookmarkResponseSchema } from '@nihongo/contracts/bookmark/create-bookmark'
 import { listBookmarksResponseSchema } from '@nihongo/contracts/bookmark/list-bookmarks'
 import { getDashboardInsightsResponseSchema } from '@nihongo/contracts/dashboard/get-dashboard-insights'
@@ -1709,17 +1709,19 @@ const createReportFixture = async (page: Page) => {
   if (!target)
     throw new Error('Accessibility report question fixture is missing.')
 
-  const response = await requestBrowserJson(page, '/api/v1/question-reports', {
-    description: 'Accessibility route audit fixture',
+  const response = await requestBrowserJson(page, '/api/v1/reports', {
+    kind: 'QUESTION',
+    location: 'result#1',
+    questionId: target.question.id,
     questionVersionId: target.question.questionVersionId,
-    reason: 'OTHER'
+    description: 'Accessibility route audit fixture'
   })
   expect(response.status).toBe(201)
 
   return {
     questionId: target.question.id,
     questionText: target.question.questionText,
-    report: createQuestionReportResponseSchema.parse(
+    report: createReportResponseSchema.parse(
       JSON.parse(response.bodyText) as unknown
     )
   }
@@ -2655,7 +2657,7 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
   const questionEditPath = `${questionPath}/edit`
   const questionDetailPath =
     questionPath + '?returnTo=' + encodeURIComponent('/admin/questions')
-  const reportDetailPath = `/admin/reports/${fixture.report.id}`
+  const reportDetailPath = `/admin/reports/${fixture.report.reportId}`
   await page.setViewportSize({ height: 900, width: 1280 })
   await scanRoutes(page, testInfo, [
     { label: 'admin-question-list', path: '/admin/questions' },
@@ -2848,19 +2850,19 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
   await expect(page).toHaveURL((url) => url.pathname + url.search === returnTo)
   await settlePage(page)
   const archiveTrigger = fixtureRow.getByRole('button', {
-    name: `${fixture.questionId} 문제 보관`,
+    name: `${fixture.questionId} 문제 공개 중단·보관`,
     exact: true
   })
   await focusByTab(page, archiveTrigger)
   await page.keyboard.press('Enter')
   const commandDialog = page.getByRole('dialog', {
-    name: '문제를 보관하시겠습니까?',
+    name: '이 문제를 공개 중단하고 보관하시겠습니까?',
     exact: true
   })
   await expect(commandDialog).toBeVisible()
   await expect(
     commandDialog.getByRole('heading', {
-      name: '문제를 보관하시겠습니까?',
+      name: '이 문제를 공개 중단하고 보관하시겠습니까?',
       exact: true
     })
   ).toBeFocused()
@@ -2868,7 +2870,7 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
     `${fixture.questionId} 문제를 활성 목록에서 보관합니다. 기존 학습 결과는 유지됩니다.`
   )
   await expect(
-    commandDialog.getByRole('button', { name: '문제 보관', exact: true })
+    commandDialog.getByRole('button', { name: '공개 중단·보관', exact: true })
   ).toBeEnabled()
   await page.keyboard.press('Escape')
   await expect(commandDialog).toBeHidden()
@@ -2930,19 +2932,17 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
   )
   expect(adminSubmissionResponse?.headers.practiceContract).toBe('2')
 
-  const reportExchange = getApiExchanges(
-    transport,
-    'POST',
-    '/api/v1/question-reports'
-  )
+  const reportExchange = getApiExchanges(transport, 'POST', '/api/v1/reports')
   expect(reportExchange.requests).toHaveLength(1)
   expect(reportExchange.responses).toHaveLength(1)
   expect(reportExchange.requests[0]?.payload).toEqual({
-    description: 'Accessibility route audit fixture',
+    kind: 'QUESTION',
+    location: 'result#1',
+    questionId: expect.any(String),
     questionVersionId: expect.any(String),
-    reason: 'OTHER'
+    description: 'Accessibility route audit fixture'
   })
-  createQuestionReportResponseSchema.parse(reportExchange.responses[0]?.payload)
+  createReportResponseSchema.parse(reportExchange.responses[0]?.payload)
   await attachAndAssertTransportEvidence(
     transport,
     testInfo,

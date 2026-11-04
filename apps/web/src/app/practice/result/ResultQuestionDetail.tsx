@@ -76,6 +76,7 @@ export const ResultQuestionDetail = ({
               <QuestionReportDialog
                 questionId={item.question.id}
                 questionVersionId={item.question.questionVersionId}
+                ordinal={ordinal}
               />
             ) : null}
           </div>

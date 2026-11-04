@@ -174,6 +174,11 @@ const SLICE_5_ADMIN_COMMAND_PATHS = [
   },
   {
     method: 'POST',
+    operation: 'publishQuestionVersionBatch',
+    pattern: /^\/api\/v1\/admin\/question-versions\/publication-batch$/u
+  },
+  {
+    method: 'POST',
     operation: 'validateQuestionImport',
     pattern: /^\/api\/v1\/admin\/questions\/import-validation$/u
   },
@@ -210,6 +215,52 @@ const SLICE_5_LEARNER_REPORT_PATHS = [
     method: 'POST',
     operation: 'createQuestionReport',
     pattern: /^\/api\/v1\/question-reports$/u
+  }
+] as const
+
+// Operations console endpoints (#484) stay outside the frozen content
+// operation manifest and are gated by this list.
+const ADMIN_CONSOLE_READ_PATHS = [
+  { method: 'GET', pattern: /^\/api\/v1\/admin\/activity-log$/u },
+  { method: 'GET', pattern: /^\/api\/v1\/admin\/reports$/u },
+  {
+    method: 'GET',
+    pattern: new RegExp(
+      `^/api/v1/admin/reports/${CANONICAL_UUID_PATTERN}$`,
+      'u'
+    )
+  },
+  {
+    method: 'GET',
+    pattern: new RegExp(
+      `^/api/v1/admin/question-imports/${CANONICAL_UUID_PATTERN}$`,
+      'u'
+    )
+  },
+  { method: 'GET', pattern: /^\/api\/v1\/admin\/members$/u },
+  {
+    method: 'GET',
+    pattern: new RegExp(
+      `^/api/v1/admin/members/${CANONICAL_UUID_PATTERN}$`,
+      'u'
+    )
+  }
+] as const
+
+const ADMIN_CONSOLE_COMMAND_PATHS = [
+  {
+    method: 'POST',
+    pattern: new RegExp(
+      `^/api/v1/admin/reports/${CANONICAL_UUID_PATTERN}/(?:reply-and-close|note|close)$`,
+      'u'
+    )
+  },
+  {
+    method: 'POST',
+    pattern: new RegExp(
+      `^/api/v1/admin/members/${CANONICAL_UUID_PATTERN}/(?:restriction|restriction-release)$`,
+      'u'
+    )
   }
 ] as const
 
@@ -437,6 +488,16 @@ const isCanonicalRequestForPaths = (
     ({ method, pattern }) => method === input.method && pattern.test(pathname)
   )
 }
+
+export const isCanonicalAdminConsoleReadRequest = (input: {
+  method: string
+  requestTarget: string
+}): boolean => isCanonicalRequestForPaths(input, ADMIN_CONSOLE_READ_PATHS)
+
+export const isCanonicalAdminConsoleCommandRequest = (input: {
+  method: string
+  requestTarget: string
+}): boolean => isCanonicalRequestForPaths(input, ADMIN_CONSOLE_COMMAND_PATHS)
 
 export const isCanonicalPhase7Slice3ACommandRequest = (input: {
   method: string

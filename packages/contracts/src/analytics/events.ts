@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { questionReportReasonSchema } from '../admin/content-future.js'
 import { isoDateTimeSchema } from '../common/date.js'
+import { reportKindSchema } from '../report/reports.js'
 import {
   jlptLevelSchema,
   questionSubjectSchema,
@@ -131,8 +131,9 @@ export const analyticsEventSchema = z.discriminatedUnion('event', [
   z
     .object({
       ...envelope,
-      event: z.literal('question_reported'),
-      payload: z.object({ reason: questionReportReasonSchema }).strict()
+      /** Unified learner report (POST /api/v1/reports); no report text. */
+      event: z.literal('report_submitted'),
+      payload: z.object({ kind: reportKindSchema }).strict()
     })
     .strict()
 ])

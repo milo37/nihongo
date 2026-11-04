@@ -25,6 +25,7 @@
     "review:reconcile": "pnpm run db:generate && tsx src/review/reviewReconciliationCommand.ts",
     "study:cleanup-expired-guests": "pnpm run db:generate && tsx src/study/studySessionCleanupCommand.ts",
     "study:cleanup-expired-drafts": "pnpm run db:generate && tsx src/study/studyDraftCleanupCommand.ts",
+    "report:redact-expired-descriptions": "pnpm run db:generate && tsx src/report/userReportRetentionCommand.ts",
     "db:generate": "prisma generate",
     "db:validate": "prisma validate",
     "db:migrate:dev": "prisma migrate dev --config prisma.dev.config.ts",

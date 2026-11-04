@@ -5,7 +5,10 @@ import {
   queryOptions,
   infiniteQueryOptions
 } from '@tanstack/react-query'
-import { requestContentOperation } from '@nihongo/browser/api/content-operations/requestContentOperation'
+import {
+  requestContentOperation,
+  type ContentOperationBody
+} from '@nihongo/browser/api/content-operations/requestContentOperation'
 import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
 export const questionWorkflowQueries = {
   allKey: serverStateQueryKeys.adminQuestion.all,
@@ -170,5 +173,19 @@ export const questionWorkflowMutations = {
             return requestContentOperation(request)
         }
       }
+    }),
+  publishBatch: () =>
+    mutationOptions({
+      mutationKey: [
+        ...questionWorkflowQueries.allKey(),
+        'publish-question-version-batch'
+      ],
+      mutationFn: (body: ContentOperationBody<'publishQuestionVersionBatch'>) =>
+        requestContentOperation({
+          operation: 'publishQuestionVersionBatch',
+          params: {},
+          query: {},
+          body
+        })
     })
 }

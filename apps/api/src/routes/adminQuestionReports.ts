@@ -9,26 +9,18 @@ import {
   listAdminQuestionReportsResponseSchema
 } from '@nihongo/contracts/admin/content-operations'
 import { Hono, type MiddlewareHandler } from 'hono'
-import { z, type ZodError } from 'zod'
+import { z } from 'zod'
 import type { QuestionReportService } from '../admin/questionReportService.js'
 import { ApplicationError } from '../errors/applicationError.js'
 import { parseStrictRawQuery } from '../http/rawQuery.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
+import { toFieldErrors } from './routeSupport.js'
 
 type AdminRouteEnvironment = { Variables: ApiVariables }
 
 const sha256Port = {
   digestUtf8: async (value: string): Promise<string> =>
     createHash('sha256').update(value, 'utf8').digest('hex')
-}
-
-const toFieldErrors = (error: ZodError): Record<string, string[]> => {
-  const fieldErrors: Record<string, string[]> = {}
-  for (const issue of error.issues) {
-    const path = issue.path.length > 0 ? issue.path.join('.') : 'request'
-    fieldErrors[path] = [...(fieldErrors[path] ?? []), issue.message]
-  }
-  return fieldErrors
 }
 
 export const createAdminQuestionReportRoutes = ({
@@ -69,7 +61,7 @@ export const createAdminQuestionReportRoutes = ({
           message: '문제 신고 ID 형식이 올바르지 않습니다.',
           fieldErrors: toFieldErrors(error),
           retryable: false,
-          phase7Disposition: 'NO_TX'
+          adminDisposition: 'NO_TX'
         })
       }
     })()
@@ -91,7 +83,7 @@ export const createAdminQuestionReportRoutes = ({
         code: 'INTERNAL_SERVER_ERROR',
         message: '문제 신고 상세 응답 무결성을 확인할 수 없습니다.',
         retryable: false,
-        phase7Disposition: 'NO_TX',
+        adminDisposition: 'NO_TX',
         cause: error
       })
     }

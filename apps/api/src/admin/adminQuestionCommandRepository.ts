@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import {
   createQuestionDuplicateIdentityKey,
   type ArchiveAdminQuestionRequest,
-  normalizePhase7TagKey,
+  normalizeContentTagKey,
   type AdminQuestionMutationResult,
   type ApproveQuestionVersionRequest,
   type CreateAdminQuestionRequest,
@@ -18,8 +18,22 @@ import {
 } from '@nihongo/contracts/admin/content-operations'
 import type { StableErrorCode } from '@nihongo/contracts/common/error'
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
+import {
+  type AuditEnvironment,
+  type TargetManifest,
+  type OperationContext,
+  type BegunOperationRow,
+  type OccurredAtRow,
+  type AuthorityProbeRow,
+  type AdminAuthorityClassificationRow,
+  CREATE_CHANGED_FIELDS,
+  AUTHORITY_FAILURE_MESSAGES,
+  toIso,
+  uniqueSorted,
+  rawDatabaseIdentity,
+  finishOperation
+} from './adminRepositoryCommon.js'
 
-type AuditEnvironment = 'TEST' | 'DEVELOPMENT'
 type ContentOperation =
   | 'createAdminQuestion'
   | 'createAdminQuestionVersion'
@@ -157,57 +171,6 @@ interface VersionTagRow extends TagRow {
   assignmentId: string
 }
 
-interface BegunOperationRow {
-  actorUserId: string
-  operationId: string
-}
-
-interface OccurredAtRow {
-  occurredAt: Date
-}
-
-interface AuthorityProbeRow {
-  isFresh: boolean | null
-  principalRole: 'USER' | 'ADMIN' | null
-  principalUserId: string | null
-}
-
-interface AdminAuthorityClassificationRow {
-  outcome: 'ADMIN_REQUIRED' | 'AUTH_SESSION_EXPIRED'
-}
-
-interface OperationContext extends BegunOperationRow {
-  occurredAt: Date
-}
-
-interface TargetManifestItem {
-  id: string
-  rowVersion: number
-  state: string
-}
-
-interface TargetManifest {
-  questions: TargetManifestItem[]
-  versions: TargetManifestItem[]
-  reports: TargetManifestItem[]
-  tags: string[]
-}
-
-const CREATE_CHANGED_FIELDS = [
-  'LIFECYCLE_STATUS',
-  'LEVEL',
-  'SUBJECT',
-  'QUESTION_TYPE',
-  'DIFFICULTY',
-  'PASSAGE',
-  'QUESTION_TEXT',
-  'EXPLANATION_KO',
-  'EXPLANATION_JA',
-  'OPTIONS',
-  'CORRECT_OPTION',
-  'TAGS'
-] as const
-
 const UPDATE_CHANGED_FIELD_ORDER = [
   'LEVEL',
   'SUBJECT',
@@ -235,69 +198,6 @@ const FRESH_OPERATIONS = new Set<AdminQuestionDomainOperation>([
   'retireQuestionVersion',
   'archiveAdminQuestion'
 ])
-const AUTHORITY_FAILURE_MESSAGES = new Set([
-  'Phase 7 operation requires an existing Session.',
-  'Phase 7 operation Session family is unavailable.',
-  'Phase 7 operation Session is unavailable.',
-  'Phase 7 operation authority is stale or insufficient.',
-  'Phase 7 authority expired before commit.',
-  'A referenced Phase 7 User is unavailable.',
-  'Phase 7 referenced User set is not exact for its targets.'
-])
-
-const rawDatabaseIdentity = (
-  error: unknown
-): { sqlState: string; message: string } | undefined => {
-  if (
-    !(error instanceof Prisma.PrismaClientKnownRequestError) ||
-    error.code !== 'P2010' ||
-    typeof error.meta !== 'object' ||
-    error.meta === null
-  ) {
-    return undefined
-  }
-  const meta = error.meta as Record<string, unknown>
-  const identities: Array<{ sqlState: string; message: string }> = []
-  if (typeof meta.code === 'string' && typeof meta.message === 'string') {
-    identities.push({ sqlState: meta.code, message: meta.message })
-  }
-  const driver = meta.driverAdapterError
-  if (typeof driver === 'object' && driver !== null) {
-    const cause = (driver as Record<string, unknown>).cause
-    if (typeof cause === 'object' && cause !== null) {
-      const record = cause as Record<string, unknown>
-      if (
-        typeof record.originalCode === 'string' &&
-        typeof record.originalMessage === 'string'
-      ) {
-        identities.push({
-          sqlState: record.originalCode,
-          message: record.originalMessage
-        })
-      }
-    }
-  }
-  const [first, ...rest] = identities
-  if (
-    !first ||
-    rest.some(
-      (identity) =>
-        identity.sqlState !== first.sqlState ||
-        identity.message !== first.message
-    )
-  ) {
-    return undefined
-  }
-  return {
-    sqlState: first.sqlState,
-    message:
-      first.message
-        .split('\n', 1)[0]
-        ?.replace(/^ERROR:\s*/u, '')
-        .trim() ?? ''
-  }
-}
-
 const rawSqlState = (error: unknown): string | undefined => {
   if (
     !(error instanceof Prisma.PrismaClientKnownRequestError) ||
@@ -724,9 +624,6 @@ const classifyAuthorityFailure = async (
   })
 }
 
-const uniqueSorted = (values: readonly (string | null)[]): string[] =>
-  [...new Set(values.filter((value): value is string => value !== null))].sort()
-
 const toAuthorSnapshot = (
   version: Pick<
     LifecycleVersionTargetRow,
@@ -760,8 +657,6 @@ const toLatestApproverSnapshot = (
         label: target.latestApproverLabel
       }
     : null
-
-const toIso = (value: Date): string => value.toISOString()
 
 const toResult = (input: {
   questionId: string
@@ -849,16 +744,6 @@ const beginAndArm = async (
 ): Promise<OperationContext> => {
   const operation = await beginOperation(transaction, input)
   return armOperation(transaction, operation, input.targetManifest)
-}
-
-const finishOperation = async (
-  transaction: Prisma.TransactionClient,
-  operationId: string
-): Promise<void> => {
-  await transaction.$executeRawUnsafe(
-    `SELECT "phase7_finish_admin_operation"($1)`,
-    operationId
-  )
 }
 
 const insertAudit = async (
@@ -976,7 +861,7 @@ const resolveTags = async (
     'level' | 'subject' | 'questionType' | 'tagNames'
   >
 ): Promise<TagRow[]> => {
-  const normalizedNames = content.tagNames.map(normalizePhase7TagKey)
+  const normalizedNames = content.tagNames.map(normalizeContentTagKey)
   const rows = await client.$queryRawUnsafe<TagRow[]>(
     `SELECT tag."id", tag."label", tag."normalizedName"
      FROM "Tag" AS tag
@@ -1312,6 +1197,8 @@ interface TransitionConfig {
   fromStates: readonly QuestionVersionStatus[]
   toState: 'IN_REVIEW' | 'CHANGES_REQUESTED' | 'APPROVED'
   authorOnly: boolean
+  /** JLP-704: a single operator may decide on their own version. */
+  selfDecisionAllowed: boolean
 }
 
 const transitionConfigByOperation: Readonly<
@@ -1322,28 +1209,32 @@ const transitionConfigByOperation: Readonly<
     command: 'REVIEW_REQUEST',
     fromStates: ['DRAFT', 'CHANGES_REQUESTED'],
     toState: 'IN_REVIEW',
-    authorOnly: true
+    authorOnly: true,
+    selfDecisionAllowed: false
   },
   requestQuestionChanges: {
     action: 'CHANGES_REQUESTED',
     command: 'CHANGE_REQUEST',
     fromStates: ['IN_REVIEW'],
     toState: 'CHANGES_REQUESTED',
-    authorOnly: false
+    authorOnly: false,
+    selfDecisionAllowed: false
   },
   approveQuestionVersion: {
     action: 'APPROVED',
     command: 'APPROVAL',
     fromStates: ['IN_REVIEW'],
     toState: 'APPROVED',
-    authorOnly: false
+    authorOnly: false,
+    selfDecisionAllowed: true
   },
   withdrawQuestionApproval: {
     action: 'APPROVAL_WITHDRAWN',
     command: 'APPROVAL_WITHDRAWAL',
     fromStates: ['APPROVED'],
     toState: 'CHANGES_REQUESTED',
-    authorOnly: false
+    authorOnly: false,
+    selfDecisionAllowed: true
   }
 }
 
@@ -1392,6 +1283,11 @@ export interface AdminQuestionPublicationCommandRepository {
     questionId: string,
     request: ArchiveAdminQuestionRequest
   ) => Promise<AdminQuestionMutationResult>
+  /** Current question row version for a batch item; null if the version is missing. */
+  readPublicationTarget: (versionId: string) => Promise<{
+    readonly questionRowVersion: number
+    readonly versionStatus: string
+  } | null>
 }
 
 export type AdminQuestionPreparedCommandRepository =
@@ -1897,6 +1793,7 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
         }
         if (
           !config.authorOnly &&
+          !config.selfDecisionAllowed &&
           candidate.versionCreatedByUserId === authority.actorId
         ) {
           throw repositoryFailure(
@@ -2165,12 +2062,6 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
               throw repositoryFailure(
                 'INVALID_STATE_TRANSITION',
                 '게시 대상에는 작성자와 최신 승인 증거가 필요합니다.'
-              )
-            }
-            if (author.actorId === latestApprover.actorId) {
-              throw repositoryFailure(
-                'SEPARATION_OF_DUTIES_VIOLATION',
-                '작성자와 최신 승인자는 서로 달라야 합니다.'
               )
             }
             if (
@@ -2691,11 +2582,27 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
       }
     }
 
+  const readPublicationTarget: AdminQuestionPublicationCommandRepository['readPublicationTarget'] =
+    async (versionId) => {
+      try {
+        const target = await loadVersionTarget(client, versionId)
+        return target
+          ? {
+              questionRowVersion: target.questionRowVersion,
+              versionStatus: target.versionStatus
+            }
+          : null
+      } catch (error: unknown) {
+        throw mapPreflightError(error)
+      }
+    }
+
   return {
     ...activeRepository,
     publishVersion,
     retireVersion,
-    archiveQuestion
+    archiveQuestion,
+    readPublicationTarget
   }
 }
 

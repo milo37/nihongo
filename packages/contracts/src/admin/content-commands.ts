@@ -4,8 +4,8 @@ import { isoDateTimeSchema } from '../common/date.js'
 import { opaqueIdSchema } from '../common/id.js'
 import {
   canonicalizeJson,
-  createPhase7TextSchema,
-  normalizePhase7OptionComparison,
+  createContentTextSchema,
+  normalizeContentOptionComparison,
   positiveSafeIntegerSchema,
   questionLifecycleStatusSchema,
   questionVersionStatusSchema,
@@ -20,8 +20,8 @@ import {
   adminQuestionContentInputSchema,
   adminQuestionContentStructureInputSchema
 } from './content-future.js'
-import { isApplicablePhase7ContentType } from './content-read.js'
-import { createPhase7OperationErrorSchema } from './content-error-policy.js'
+import { isApplicableQuestionContentType } from './content-read.js'
+import { createContentOperationErrorSchema } from './content-error-policy.js'
 
 const addIssue = (
   context: z.core.$RefinementCtx,
@@ -78,7 +78,7 @@ const adminQuestionUpdateContentStructureInputSchema = z
           .object({
             id: opaqueIdSchema,
             ordinal: z.number().int().min(1).max(4),
-            text: createPhase7TextSchema({
+            text: createContentTextSchema({
               maxScalars: 500,
               multiline: true
             })
@@ -162,11 +162,11 @@ export const updateQuestionVersionRequestSchema =
     expectedRowVersion: positiveSafeIntegerSchema
   })
 
-const reviewCommentSchema = createPhase7TextSchema({
+const reviewCommentSchema = createContentTextSchema({
   maxScalars: 1000,
   multiline: true
 })
-const reviewReasonSchema = createPhase7TextSchema({
+const reviewReasonSchema = createContentTextSchema({
   maxScalars: 100,
   multiline: true
 })
@@ -669,7 +669,7 @@ export const adminQuestionExportOptionSchema = z
   .object({
     id: opaqueIdSchema,
     ordinal: z.number().int().min(1).max(4),
-    text: createPhase7TextSchema({ maxScalars: 500, multiline: true })
+    text: createContentTextSchema({ maxScalars: 500, multiline: true })
   })
   .strict()
 
@@ -805,7 +805,7 @@ export const assertAdminQuestionExportDocumentSemantics = (
           ? content.passage !== null
           : content.questionType === 'TEXT_GRAMMAR' || content.passage === null
       if (
-        !isApplicablePhase7ContentType(
+        !isApplicableQuestionContentType(
           content.level,
           content.subject,
           content.questionType
@@ -828,7 +828,7 @@ export const assertAdminQuestionExportDocumentSemantics = (
             'export QuestionOption ID는 document-global unique여야 합니다.'
           )
         }
-        const normalizedText = normalizePhase7OptionComparison(option.text)
+        const normalizedText = normalizeContentOptionComparison(option.text)
         if (normalizedOptionTexts.has(normalizedText)) {
           throw new Error('export option text는 normalized unique여야 합니다.')
         }
@@ -989,7 +989,7 @@ export const createAdminQuestionErrorCodeSchema = z.enum([
   'INTERNAL_SERVER_ERROR',
   'SERVICE_UNAVAILABLE'
 ])
-export const createAdminQuestionErrorSchema = createPhase7OperationErrorSchema(
+export const createAdminQuestionErrorSchema = createContentOperationErrorSchema(
   'createAdminQuestion',
   createAdminQuestionErrorCodeSchema
 )
@@ -1013,7 +1013,7 @@ export const createAdminQuestionVersionErrorCodeSchema = z.enum([
   'SERVICE_UNAVAILABLE'
 ])
 export const createAdminQuestionVersionErrorSchema =
-  createPhase7OperationErrorSchema(
+  createContentOperationErrorSchema(
     'createAdminQuestionVersion',
     createAdminQuestionVersionErrorCodeSchema
   )
@@ -1039,7 +1039,7 @@ export const updateQuestionVersionErrorCodeSchema = z.enum([
   'SERVICE_UNAVAILABLE'
 ])
 export const updateQuestionVersionErrorSchema =
-  createPhase7OperationErrorSchema(
+  createContentOperationErrorSchema(
     'updateQuestionVersion',
     updateQuestionVersionErrorCodeSchema
   )
@@ -1062,10 +1062,11 @@ export const archiveAdminQuestionErrorCodeSchema = z.enum([
   'INTERNAL_SERVER_ERROR',
   'SERVICE_UNAVAILABLE'
 ])
-export const archiveAdminQuestionErrorSchema = createPhase7OperationErrorSchema(
-  'archiveAdminQuestion',
-  archiveAdminQuestionErrorCodeSchema
-)
+export const archiveAdminQuestionErrorSchema =
+  createContentOperationErrorSchema(
+    'archiveAdminQuestion',
+    archiveAdminQuestionErrorCodeSchema
+  )
 
 export const requestContentReviewErrorCodeSchema = z.enum([
   'AUTHENTICATION_REQUIRED',
@@ -1085,10 +1086,11 @@ export const requestContentReviewErrorCodeSchema = z.enum([
   'INTERNAL_SERVER_ERROR',
   'SERVICE_UNAVAILABLE'
 ])
-export const requestContentReviewErrorSchema = createPhase7OperationErrorSchema(
-  'requestContentReview',
-  requestContentReviewErrorCodeSchema
-)
+export const requestContentReviewErrorSchema =
+  createContentOperationErrorSchema(
+    'requestContentReview',
+    requestContentReviewErrorCodeSchema
+  )
 
 export const requestQuestionChangesErrorCodeSchema = z.enum([
   'AUTHENTICATION_REQUIRED',
@@ -1109,7 +1111,7 @@ export const requestQuestionChangesErrorCodeSchema = z.enum([
   'SERVICE_UNAVAILABLE'
 ])
 export const requestQuestionChangesErrorSchema =
-  createPhase7OperationErrorSchema(
+  createContentOperationErrorSchema(
     'requestQuestionChanges',
     requestQuestionChangesErrorCodeSchema
   )
@@ -1134,7 +1136,7 @@ export const approveQuestionVersionErrorCodeSchema = z.enum([
   'SERVICE_UNAVAILABLE'
 ])
 export const approveQuestionVersionErrorSchema =
-  createPhase7OperationErrorSchema(
+  createContentOperationErrorSchema(
     'approveQuestionVersion',
     approveQuestionVersionErrorCodeSchema
   )
@@ -1159,7 +1161,7 @@ export const withdrawQuestionApprovalErrorCodeSchema = z.enum([
   'SERVICE_UNAVAILABLE'
 ])
 export const withdrawQuestionApprovalErrorSchema =
-  createPhase7OperationErrorSchema(
+  createContentOperationErrorSchema(
     'withdrawQuestionApproval',
     withdrawQuestionApprovalErrorCodeSchema
   )
@@ -1185,7 +1187,7 @@ export const publishQuestionVersionErrorCodeSchema = z.enum([
   'SERVICE_UNAVAILABLE'
 ])
 export const publishQuestionVersionErrorSchema =
-  createPhase7OperationErrorSchema(
+  createContentOperationErrorSchema(
     'publishQuestionVersion',
     publishQuestionVersionErrorCodeSchema
   )
@@ -1209,9 +1211,31 @@ export const retireQuestionVersionErrorCodeSchema = z.enum([
   'SERVICE_UNAVAILABLE'
 ])
 export const retireQuestionVersionErrorSchema =
-  createPhase7OperationErrorSchema(
+  createContentOperationErrorSchema(
     'retireQuestionVersion',
     retireQuestionVersionErrorCodeSchema
+  )
+
+/** Request-wide failures only; item outcomes are in the 200 response. */
+export const publishQuestionVersionBatchErrorCodeSchema = z.enum([
+  'AUTHENTICATION_REQUIRED',
+  'AUTH_SESSION_EXPIRED',
+  'ADMIN_REQUIRED',
+  'FRESH_ASSURANCE_REQUIRED',
+  'FORBIDDEN',
+  'INVALID_JSON',
+  'INVALID_REQUEST',
+  'REQUEST_TOO_LARGE',
+  'VALIDATION_ERROR',
+  'UNTRUSTED_ORIGIN',
+  'RATE_LIMITED',
+  'INTERNAL_SERVER_ERROR',
+  'SERVICE_UNAVAILABLE'
+])
+export const publishQuestionVersionBatchErrorSchema =
+  createContentOperationErrorSchema(
+    'publishQuestionVersionBatch',
+    publishQuestionVersionBatchErrorCodeSchema
   )
 
 export const requestContentReviewBatchErrorCodeSchema = z.enum([
@@ -1233,7 +1257,7 @@ export const requestContentReviewBatchErrorCodeSchema = z.enum([
   'SERVICE_UNAVAILABLE'
 ])
 export const requestContentReviewBatchErrorSchema =
-  createPhase7OperationErrorSchema(
+  createContentOperationErrorSchema(
     'requestContentReviewBatch',
     requestContentReviewBatchErrorCodeSchema
   )
@@ -1253,10 +1277,11 @@ export const exportAdminQuestionsErrorCodeSchema = z.enum([
   'INTERNAL_SERVER_ERROR',
   'SERVICE_UNAVAILABLE'
 ])
-export const exportAdminQuestionsErrorSchema = createPhase7OperationErrorSchema(
-  'exportAdminQuestions',
-  exportAdminQuestionsErrorCodeSchema
-)
+export const exportAdminQuestionsErrorSchema =
+  createContentOperationErrorSchema(
+    'exportAdminQuestions',
+    exportAdminQuestionsErrorCodeSchema
+  )
 
 export const reauthenticateAdminErrorCodeSchema = z.enum([
   'AUTHENTICATION_REQUIRED',
@@ -1272,7 +1297,7 @@ export const reauthenticateAdminErrorCodeSchema = z.enum([
   'INTERNAL_SERVER_ERROR',
   'SERVICE_UNAVAILABLE'
 ])
-export const reauthenticateAdminErrorSchema = createPhase7OperationErrorSchema(
+export const reauthenticateAdminErrorSchema = createContentOperationErrorSchema(
   'reauthenticateAdmin',
   reauthenticateAdminErrorCodeSchema
 )

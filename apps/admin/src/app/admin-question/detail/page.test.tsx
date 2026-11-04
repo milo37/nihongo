@@ -1,4 +1,4 @@
-import * as listApi from '@nihongo/browser/api/admin-question/listAdminQuestion/index'
+import * as listApi from '@api/admin-question/listAdminQuestion/index'
 import { question } from '@app/admin-question/test/questionFixture'
 import type { MockInstance } from 'vitest'
 import {
@@ -790,7 +790,14 @@ it.each(['GUEST', 'USER'])(
       .spyOn(appDocumentNavigation, 'replace')
       .mockImplementation(() => undefined)
     route()
-    await waitFor(() => expect(replace).toHaveBeenCalled())
+    if (role === 'GUEST') {
+      await waitFor(() => expect(replace).toHaveBeenCalled())
+    } else {
+      expect(
+        await screen.findByRole('heading', { name: '요청한 페이지가 없습니다' })
+      ).toBeVisible()
+      expect(replace).not.toHaveBeenCalled()
+    }
     expect(endpoint).not.toHaveBeenCalled()
   }
 )
@@ -937,10 +944,17 @@ it('keeps an open command on its viewed CAS until explicit refresh after a passi
 it('regression: pins ARCHIVE to the open candidate rowVersion even when an older published version is selected', async () => {
   route('?version=' + oldVersionId)
   const archive = await screen.findByRole('button', {
-    name: t('enums.commands.ARCHIVE')
+    name: t('questionList.archive')
   })
   await waitFor(() => expect(archive).toBeEnabled())
-  const dialog = await open(t('enums.commands.ARCHIVE'))
+  const dialog = await open(t('questionList.archive'))
+  // A question with a published past explains archive like the list does.
+  expect(
+    within(dialog).getByText(t('questionList.archiveDialog.body'))
+  ).toBeVisible()
+  expect(
+    within(dialog).getByText(t('questionList.archiveDialog.duplicateNote'))
+  ).toBeVisible()
   snapshot = {
     ...snapshot,
     versions: {
@@ -993,10 +1007,10 @@ it.each([false, true])(
       .mockImplementation(() => undefined)
     const first = route('?version=' + oldVersionId)
     const archive = await screen.findByRole('button', {
-      name: t('enums.commands.ARCHIVE')
+      name: t('questionList.archive')
     })
     await waitFor(() => expect(archive).toBeEnabled())
-    const dialog = await open(t('enums.commands.ARCHIVE'))
+    const dialog = await open(t('questionList.archive'))
     await execute(dialog)
     const fresh = await within(dialog).findByRole('button', {
       name: t('reportDetail.fresh')
@@ -1041,7 +1055,7 @@ it.each([false, true])(
       expect(
         screen.getByRole('dialog', {
           name: t('questionDetail.commandDialogTitle', {
-            command: t('enums.commands.ARCHIVE')
+            command: t('questionList.archive')
           })
         })
       ).toBeVisible()

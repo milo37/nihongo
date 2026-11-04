@@ -16,16 +16,20 @@ import {
   accountActorSnapshotSchema,
   adminActorSnapshotSchema,
   compareUnicodeScalars,
-  createPhase7TextSchema,
-  isWellFormedPhase7Text,
+  createContentTextSchema,
+  isWellFormedContentText,
   nonNegativeSafeIntegerSchema,
-  normalizePhase7TagKey,
+  normalizeContentTagKey,
   positiveSafeIntegerSchema,
   questionLifecycleStatusSchema,
   questionVersionStatusSchema,
   retirementKindSchema,
   safeActorSnapshotSchema
 } from '../common/content-validation.js'
+import {
+  autoValidationResultSchema,
+  questionReviewStageSchema
+} from './review.js'
 
 const addIssue = (
   context: z.core.$RefinementCtx,
@@ -38,6 +42,7 @@ const addIssue = (
 export const adminQuestionSortSchema = z.enum([
   'UPDATED_DESC',
   'CREATED_DESC',
+  'CREATED_ASC',
   'LEVEL_ASC',
   'REPORT_COUNT_DESC'
 ])
@@ -45,16 +50,16 @@ export const adminQuestionSortSchema = z.enum([
 export const adminTagSummarySchema = z
   .object({
     id: opaqueIdSchema,
-    label: createPhase7TextSchema({ maxScalars: 100 }),
+    label: createContentTextSchema({ maxScalars: 100 }),
     normalizedName: z
       .string()
       .min(1)
       .refine(
         (value) =>
           [...value].length <= 100 &&
-          isWellFormedPhase7Text(value) &&
+          isWellFormedContentText(value) &&
           !value.includes('\n') &&
-          normalizePhase7TagKey(value) === value,
+          normalizeContentTagKey(value) === value,
         {
           message:
             'normalizedName은 canonical normalizeTagKey v1 값이어야 합니다.'
@@ -63,7 +68,7 @@ export const adminTagSummarySchema = z
   })
   .strict()
   .superRefine((value, context) => {
-    if (normalizePhase7TagKey(value.label) !== value.normalizedName) {
+    if (normalizeContentTagKey(value.label) !== value.normalizedName) {
       addIssue(
         context,
         ['normalizedName'],
@@ -149,7 +154,7 @@ export const adminQuestionSummarySchema = z
     subject: questionSubjectSchema,
     questionType: questionTypeSchema,
     difficulty: questionDifficultySchema,
-    questionTextPreview: createPhase7TextSchema({ maxScalars: 160 }),
+    questionTextPreview: createContentTextSchema({ maxScalars: 160 }),
     tags: adminTagListSchema,
     author: accountActorSnapshotSchema.nullable(),
     latestReviewer: accountActorSnapshotSchema.nullable(),
@@ -157,7 +162,8 @@ export const adminQuestionSummarySchema = z
     updatedAt: isoDateTimeSchema,
     answerCount: nonNegativeSafeIntegerSchema,
     correctRateBasisPoints: z.number().int().min(0).max(10_000).nullable(),
-    openReportCount: nonNegativeSafeIntegerSchema
+    openReportCount: nonNegativeSafeIntegerSchema,
+    reviewStage: questionReviewStageSchema
   })
   .strict()
   .superRefine((question, context) => {
@@ -227,14 +233,16 @@ export const adminQuestionVersionSummarySchema = z
     subject: questionSubjectSchema,
     questionType: questionTypeSchema,
     difficulty: questionDifficultySchema,
-    questionTextPreview: createPhase7TextSchema({ maxScalars: 160 }),
+    questionTextPreview: createContentTextSchema({ maxScalars: 160 }),
     tags: adminTagListSchema,
     author: accountActorSnapshotSchema.nullable(),
     latestReviewer: accountActorSnapshotSchema.nullable(),
     publishedAt: isoDateTimeSchema.nullable(),
     retiredAt: isoDateTimeSchema.nullable(),
     createdAt: isoDateTimeSchema,
-    updatedAt: isoDateTimeSchema
+    updatedAt: isoDateTimeSchema,
+    reviewStage: questionReviewStageSchema,
+    autoValidation: autoValidationResultSchema
   })
   .strict()
   .superRefine((version, context) => {
@@ -300,11 +308,11 @@ export const adminContentReviewActionSchema = z.enum([
   'AUTHOR_ERASURE_ABANDONED'
 ])
 
-const reviewReasonSchema = createPhase7TextSchema({
+const reviewReasonSchema = createContentTextSchema({
   maxScalars: 100,
   multiline: true
 })
-const reviewCommentSchema = createPhase7TextSchema({
+const reviewCommentSchema = createContentTextSchema({
   maxScalars: 1000,
   multiline: true
 })
@@ -380,7 +388,7 @@ export const adminContentReviewItemSchema = z
         }
         break
       case 'APPROVED':
-        requireAdminPair()
+        requireAdminPair(false)
         if (
           review.fromState !== 'IN_REVIEW' ||
           review.toState !== 'APPROVED' ||
@@ -394,7 +402,7 @@ export const adminContentReviewItemSchema = z
         }
         break
       case 'APPROVAL_WITHDRAWN':
-        requireAdminPair()
+        requireAdminPair(false)
         if (
           review.fromState !== 'APPROVED' ||
           review.toState !== 'CHANGES_REQUESTED' ||
@@ -528,7 +536,9 @@ export const adminQuestionDetailSchema = z
         currentPublishedVersionId: opaqueIdSchema.nullable(),
         openCandidateVersionId: opaqueIdSchema.nullable(),
         createdAt: isoDateTimeSchema,
-        updatedAt: isoDateTimeSchema
+        updatedAt: isoDateTimeSchema,
+        /** Submitted study answers; > 0 means retire/archive instead of delete. */
+        usageCount: nonNegativeSafeIntegerSchema
       })
       .strict(),
     versions: adminQuestionVersionConnectionSchema.extend({

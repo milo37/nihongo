@@ -110,8 +110,9 @@ const fixture = (overrides: Record<string, string> = {}) => {
         role: 'ADMIN',
         targetLevel: null,
         sessionId: uuid,
-        createdAt: new Date('2026-10-19T00:00:00Z'),
-        expiresAt: new Date('2026-10-26T00:00:00Z'),
+        // Recent sign-in: inside the 8 hour ADMIN session limit.
+        createdAt: new Date(Date.now() - 60_000),
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60_000),
         isFresh: sql.includes('phase7_sso_admin_session_is_fresh')
           ? fresh && elapsed < 300_000
           : true

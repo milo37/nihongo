@@ -329,11 +329,11 @@ it('renders the populated canonical list and shows fresh SSO without expiring th
   renderPage()
   await screen.findByRole('region', { name: '관리자 문제 목록' })
   await user.click(
-    screen.getByRole('button', { name: question.questionId + ' 문제 보관' })
+    screen.getByRole('button', { name: question.questionId + ' 초안 삭제' })
   )
   await user.click(
     within(screen.getByRole('dialog')).getByRole('button', {
-      name: '문제 보관'
+      name: '초안 삭제'
     })
   )
   const link = await screen.findByRole('link', { name: '관리자 재인증' })
@@ -349,7 +349,7 @@ it('renders the populated canonical list and shows fresh SSO without expiring th
   expect(calls.filter(({ method }) => method === 'post')).toHaveLength(1)
   expect(
     within(screen.getByRole('dialog')).getByRole('button', {
-      name: '문제 보관'
+      name: '초안 삭제'
     })
   ).toBeDisabled()
 })
@@ -494,6 +494,11 @@ it('labels a draft and an existing published copy separately and normalizes unsu
     '/admin/questions?level=N3&sort=STATUS&page=2'
   )
   await screen.findByRole('region', { name: '관리자 문제 목록' })
+  // The contract caps the search query at 100 characters.
+  expect(screen.getByRole('textbox', { name: '문제 검색' })).toHaveAttribute(
+    'maxLength',
+    '100'
+  )
   expect(screen.getByText(/초안 · 활성 · 공개본 있음/)).toBeVisible()
   expect(
     screen.getByText('상태순 정렬은 지원하지 않아 최근 수정순으로 표시합니다.')
@@ -504,4 +509,127 @@ it('labels a draft and an existing published copy separately and normalizes unsu
       'option'
     )
   ).toHaveLength(2)
+})
+it('shows the archive failure from the error code, not the server message', async () => {
+  responder = (url) =>
+    url.endsWith('/archive')
+      ? failure('INVALID_STATE_TRANSITION', 409)
+      : { status: 200, data: envelope }
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByRole('region', { name: '관리자 문제 목록' })
+  await user.click(
+    screen.getByRole('button', { name: question.questionId + ' 초안 삭제' })
+  )
+  const dialog = screen.getByRole('dialog')
+  await user.click(within(dialog).getByRole('button', { name: '초안 삭제' }))
+  expect(
+    await within(dialog).findByText(
+      '현재 상태에서는 이 작업을 실행할 수 없습니다.'
+    )
+  ).toBeVisible()
+  expect(within(dialog).queryByText('요청을 확인해 주세요.')).toBeNull()
+})
+it('falls back to the archive copy for an unknown error code', async () => {
+  responder = (url) =>
+    url.endsWith('/archive')
+      ? failure('SOMETHING_NEW', 500)
+      : { status: 200, data: envelope }
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByRole('region', { name: '관리자 문제 목록' })
+  await user.click(
+    screen.getByRole('button', { name: question.questionId + ' 초안 삭제' })
+  )
+  const dialog = screen.getByRole('dialog')
+  await user.click(within(dialog).getByRole('button', { name: '초안 삭제' }))
+  expect(
+    await within(dialog).findByText(
+      '초안을 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+    )
+  ).toBeVisible()
+  expect(within(dialog).queryByText('요청을 확인해 주세요.')).toBeNull()
+})
+it('shows the edit save failure from the error code, not the server message', async () => {
+  const normal = responder
+  responder = (url, method) =>
+    method === 'patch'
+      ? failure('INVALID_STATE_TRANSITION', 409)
+      : normal(url, method)
+  const user = userEvent.setup()
+  renderPage('edit')
+  const field = await screen.findByRole('textbox', { name: '문제 문장' })
+  await user.type(field, ' 로컬 입력')
+  await user.click(screen.getByRole('button', { name: '변경사항 저장' }))
+  expect(
+    await screen.findByText('현재 상태에서는 이 작업을 실행할 수 없습니다.')
+  ).toBeVisible()
+  expect(screen.queryByText('요청을 확인해 주세요.')).toBeNull()
+})
+it('explains a duplicate-content 409 on create, including archived questions', async () => {
+  responder = (url, method) =>
+    method === 'post'
+      ? failure('DUPLICATE_QUESTION_CONTENT', 409)
+      : { status: 200, data: envelope }
+  const user = userEvent.setup()
+  renderPage('create')
+  await user.type(
+    screen.getByRole('textbox', { name: '문제 문장' }),
+    preview.question.questionText
+  )
+  for (const option of preview.question.options)
+    await user.type(
+      screen.getByRole('textbox', { name: `${option.label}번 보기` }),
+      option.text
+    )
+  await user.click(screen.getByRole('radio', { name: '1번 보기' }))
+  await user.type(
+    screen.getByRole('textbox', { name: '한국어 해설' }),
+    preview.adminAnswer.explanationKo
+  )
+  await user.type(screen.getByRole('textbox', { name: '태그' }), '문법')
+  await user.click(screen.getByRole('button', { name: '초안 등록' }))
+  expect(
+    await screen.findByText(
+      '보관된 문제를 포함해 같은 내용의 문제가 이미 있습니다. 문구를 바꿔 다시 저장해 주세요.'
+    )
+  ).toBeVisible()
+  expect(screen.queryByText('요청을 확인해 주세요.')).toBeNull()
+})
+it('labels a never-published draft as draft deletion and explains content reuse', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByRole('region', { name: '관리자 문제 목록' })
+  await user.click(
+    screen.getByRole('button', { name: question.questionId + ' 초안 삭제' })
+  )
+  expect(
+    within(screen.getByRole('dialog')).getByText(
+      `${question.questionId} 초안을 목록에서 지우고 보관합니다. 같은 내용으로 새 문제를 만들 수 없습니다.`
+    )
+  ).toBeVisible()
+})
+it('labels a question with a published past as stop publishing and archive', async () => {
+  responder = () => ({
+    status: 200,
+    data: {
+      ...envelope,
+      items: [
+        { ...question, currentPublishedVersionId: question.selectedVersionId }
+      ]
+    }
+  })
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByRole('region', { name: '관리자 문제 목록' })
+  await user.click(
+    screen.getByRole('button', {
+      name: question.questionId + ' 문제 공개 중단·보관'
+    })
+  )
+  const dialog = screen.getByRole('dialog')
+  expect(
+    within(dialog).getByRole('button', { name: '공개 중단·보관' })
+  ).toBeVisible()
+  expect(within(dialog).queryByText(/완전히 삭제/)).toBeNull()
 })

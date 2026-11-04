@@ -106,6 +106,11 @@ const withContentOperationFixture = (run) => {
       })
     }
     const sourceRoot = path.join(root, 'packages/browser/src')
+    fs.cpSync(
+      path.join(repository, 'apps/admin/src/api/admin-question'),
+      path.join(sourceRoot, 'api/admin-question'),
+      { recursive: true }
+    )
     const files = []
     const add = (
       name,
@@ -138,6 +143,7 @@ const withContentOperationFixture = (run) => {
             skipLibCheck: true,
             paths: {
               '@nihongo/browser/*': ['packages/browser/src/*'],
+              '@api/*': ['packages/browser/src/api/*'],
               '@nihongo/contracts/admin/phase7': [
                 `packages/contracts/${contractDirectory}/admin/content-operations`
               ],

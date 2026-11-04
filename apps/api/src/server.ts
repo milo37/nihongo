@@ -2,6 +2,7 @@ import 'dotenv/config'
 import type { Server } from 'node:http'
 import { fileURLToPath } from 'node:url'
 import { serve } from '@hono/node-server'
+import { createPrismaAccountRestrictionReader } from './account/accountRestriction.js'
 import { createApiApp } from './app/createApp.js'
 import { createAuthGateway } from './auth/authGateway.js'
 import { createAuthRuntime } from './auth/createAuth.js'
@@ -55,6 +56,11 @@ import { createWrongNoteTargetedReviewService } from './wrong-note/wrongNoteTarg
 import { createAdminReadRateLimiter } from './admin/adminReadRateLimiter.js'
 import { createPrismaAdminQuestionRepository } from './admin/adminQuestionRepository.js'
 import { createAdminQuestionService } from './admin/adminQuestionService.js'
+import { createQuestionImportResultReader } from './admin/questionImportResultStore.js'
+import { createPrismaUserReportRepository } from './report/userReportRepository.js'
+import { createUserReportService } from './report/userReportService.js'
+import { createPrismaAdminMemberRepository } from './admin/adminMemberRepository.js'
+import { createAdminMemberService } from './admin/adminMemberService.js'
 import { createAdminCommandRateLimiter } from './admin/adminCommandRateLimiter.js'
 import { createPrismaAdminQuestionCommandRepository } from './admin/adminQuestionCommandRepository.js'
 import { createPrismaAdminQuestionSlice5Repository } from './admin/adminQuestionSlice5Repository.js'
@@ -269,7 +275,13 @@ const questionReportService = questionReportRateLimiter
       repository: createPrismaQuestionReportRepository(database.client)
     })
   : undefined
+const userReportService = questionReportRateLimiter
+  ? createUserReportService(createPrismaUserReportRepository(database.client))
+  : undefined
 const app = createApiApp({
+  accountRestrictionReader: createPrismaAccountRestrictionReader(
+    database.client
+  ),
   ...(adminQuestionReader &&
   adminReadRateLimiter &&
   adminQuestionCommandService &&
@@ -293,8 +305,20 @@ const app = createApiApp({
             rateLimiter: questionReportRateLimiter,
             service: questionReportService
           },
+          importResultReader: createQuestionImportResultReader(database.client),
+          members: createAdminMemberService(
+            createPrismaAdminMemberRepository(database.client)
+          ),
           rateLimiter: adminReadRateLimiter,
           reader: adminQuestionReader
+        }
+      }
+    : {}),
+  ...(questionReportRateLimiter && userReportService
+    ? {
+        userReports: {
+          rateLimiter: questionReportRateLimiter,
+          service: userReportService
         }
       }
     : {}),

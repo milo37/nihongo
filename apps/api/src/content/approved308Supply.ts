@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import {
   adminQuestionContentInputSchema,
-  normalizePhase7TagKey,
+  normalizeContentTagKey,
   validateQuestionImportRequestSchema
 } from '@nihongo/contracts/admin/content-operations'
 import {
@@ -134,7 +134,7 @@ export const createApproved308TagRequirements = () => {
     importItem: { content }
   } of readApproved308Supply().items) {
     for (const label of content.tagNames) {
-      const normalizedName = normalizePhase7TagKey(label)
+      const normalizedName = normalizeContentTagKey(label)
       const key = [
         normalizedName,
         content.level,

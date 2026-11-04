@@ -551,6 +551,12 @@ const registerDatabaseCapabilityAndActivate = async (
        )`,
       [target.databaseName, target.serverAddress, target.serverPort]
     )
+    // Settle the fresh ledger's statistics first: an autovacuum ANALYZE of
+    // _prisma_migrations can otherwise deadlock with the activation's REVOKE
+    // and DROP POLICY on that table (CI run 41787459400).
+    await migrationClient.query(
+      `ANALYZE ${context.quotedSchemaName}."_prisma_migrations"`
+    )
     await migrationClient.query(`SELECT "phase7_activate_v1_issuer"('TEST')`)
   } finally {
     await migrationClient.end()

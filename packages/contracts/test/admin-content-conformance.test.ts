@@ -3,16 +3,15 @@ import { describe, expect, it } from 'vitest'
 import * as contentOperations from '@nihongo/contracts/admin/content-operations'
 import * as legacyOperations from '@nihongo/contracts/admin/phase7'
 import * as contentConformance from '@nihongo/contracts/testing/admin-content-conformance'
-import * as legacyConformance from '@nihongo/contracts/testing/phase7-admin-conformance'
 
 import {
   assertOperationFailureResponse,
   assertErrorPolicyManifest,
   assertOperationManifest,
   assertOperationSchemaManifest,
-  buildPhase7OperationFailureResponse,
+  buildContentOperationFailureResponse,
   computeRetryability,
-  phase7ErrorSurfaceByOperation,
+  contentErrorSurfaceByOperation,
   dormantAfterSlice3AOperationManifest,
   dormantAfterSlice3RA1OperationManifest,
   dormantAfterSlice3RA2OperationManifest,
@@ -76,8 +75,8 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     expect(contentOperations.ContentJsonParseError).toBe(
       legacyOperations.ContentJsonParseError
     )
-    expect(contentConformance.assertSlice2ConformanceManifest).toBe(
-      legacyConformance.assertSlice2ConformanceManifest
+    expect(typeof contentConformance.assertSlice2ConformanceManifest).toBe(
+      'function'
     )
 
     try {
@@ -92,9 +91,9 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     }
   })
 
-  it('closes exactly 28 operations with exactly eight active GET reads', () => {
+  it('closes exactly 29 operations with exactly eight active GET reads', () => {
     expect(() => assertOperationManifest()).not.toThrow()
-    expect(operationManifest).toHaveLength(28)
+    expect(operationManifest).toHaveLength(29)
     expect(slice2ReadOperationManifest).toHaveLength(8)
     expect(
       slice2ReadOperationManifest.every((entry) => entry.method === 'GET')
@@ -190,7 +189,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
         .map((entry) => entry.operation)
     )
     expect(activeThroughSlice3AOperationManifest).toHaveLength(13)
-    expect(dormantAfterSlice3AOperationManifest).toHaveLength(15)
+    expect(dormantAfterSlice3AOperationManifest).toHaveLength(16)
     expect(
       dormantAfterSlice3AOperationManifest.map((entry) => entry.operation)
     ).toEqual(
@@ -203,7 +202,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     )
 
     expect(activeThroughSlice3RA1OperationManifest).toHaveLength(14)
-    expect(dormantAfterSlice3RA1OperationManifest).toHaveLength(14)
+    expect(dormantAfterSlice3RA1OperationManifest).toHaveLength(15)
     expect(
       activeThroughSlice3RA1OperationManifest.map((entry) => entry.operation)
     ).toEqual(
@@ -227,7 +226,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     )
 
     expect(activeThroughSlice3RA2OperationManifest).toHaveLength(16)
-    expect(dormantAfterSlice3RA2OperationManifest).toHaveLength(12)
+    expect(dormantAfterSlice3RA2OperationManifest).toHaveLength(13)
     expect(
       activeThroughSlice3RA2OperationManifest.map((entry) => entry.operation)
     ).toEqual(
@@ -278,7 +277,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
       ]
     ])
     expect(activeThroughSlice4OperationManifest).toHaveLength(19)
-    expect(dormantAfterSlice4OperationManifest).toHaveLength(9)
+    expect(dormantAfterSlice4OperationManifest).toHaveLength(10)
     expect(
       activeThroughSlice4OperationManifest.map((entry) => entry.operation)
     ).toEqual(
@@ -307,6 +306,14 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
         'admin.requestContentReviewBatch',
         'POST',
         '/api/v1/admin/question-versions/review-request-batch',
+        200,
+        true
+      ],
+      [
+        'publishQuestionVersionBatch',
+        'admin.publishQuestionVersionBatch',
+        'POST',
+        '/api/v1/admin/question-versions/publication-batch',
         200,
         true
       ],
@@ -375,7 +382,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
         true
       ]
     ])
-    expect(activeThroughSlice5OperationManifest).toHaveLength(28)
+    expect(activeThroughSlice5OperationManifest).toHaveLength(29)
     expect(dormantAfterSlice5OperationManifest).toHaveLength(0)
     expect(
       activeThroughSlice5OperationManifest.map((entry) => entry.operation)
@@ -402,6 +409,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     expect(slice4CacheInvalidationTargets).toHaveLength(14)
     expect(Object.keys(slice4CacheInvalidationContractByOperation)).toEqual([
       'publishQuestionVersion',
+      'publishQuestionVersionBatch',
       'retireQuestionVersion',
       'archiveAdminQuestion'
     ])
@@ -437,7 +445,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     expect(Object.keys(operationSchemas)).toEqual(
       operationManifest.map((entry) => entry.operation)
     )
-    expect(operationSchemaManifest).toHaveLength(28)
+    expect(operationSchemaManifest).toHaveLength(29)
     operationSchemaManifest.forEach((entry) => {
       expect(entry.schemas).toBe(operationSchemas[entry.operation])
       expect(
@@ -452,12 +460,12 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     })
   })
 
-  it('fixes the canonical Slice 2 route order and 20 deferred operations', () => {
+  it('fixes the canonical Slice 2 route order and 21 deferred operations', () => {
     expect(() => assertSlice2ConformanceManifest()).not.toThrow()
     expect(
       slice2ReadConformanceManifest.map((entry) => entry.operation)
     ).toEqual(slice2ExpectedOperations)
-    expect(deferredOperationManifest).toHaveLength(20)
+    expect(deferredOperationManifest).toHaveLength(21)
     expect(
       slice2ReadConformanceManifest.every(
         (entry) =>
@@ -470,7 +478,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
 
   it('classifies every operation into the exact retryability surface matrix', () => {
     expect(() => assertErrorPolicyManifest()).not.toThrow()
-    expect(operationErrorConformanceManifest).toHaveLength(28)
+    expect(operationErrorConformanceManifest).toHaveLength(29)
     expect(
       operationErrorConformanceManifest.reduce<Record<string, number>>(
         (counts, entry) => ({
@@ -481,7 +489,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
       )
     ).toEqual({
       GET_READ: 10,
-      KEYLESS_MUTATION: 14,
+      KEYLESS_MUTATION: 15,
       VALIDATION_WRITE_ZERO: 1,
       APPLY_IMPORT: 1,
       EXPORT: 1,
@@ -489,7 +497,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     })
     operationErrorConformanceManifest.forEach((entry) => {
       expect(entry.errorSurface).toBe(
-        phase7ErrorSurfaceByOperation[entry.operation]
+        contentErrorSurfaceByOperation[entry.operation]
       )
       expect(entry.deterministic4xxRetryable).toBe(false)
       expect(entry.rateLimitedRetryable).toBe(true)
@@ -497,7 +505,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     })
   })
 
-  it('enforces wire retryability for all 28 named operation error schemas', () => {
+  it('enforces wire retryability for all 29 named operation error schemas', () => {
     operationErrorConformanceManifest.forEach((entry) => {
       const schema = operationSchemas[entry.operation].error
       expect(
@@ -615,7 +623,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
   })
 
   it('builds and asserts canonical status/body/header transport', () => {
-    const deterministic = buildPhase7OperationFailureResponse({
+    const deterministic = buildContentOperationFailureResponse({
       operation: 'listAdminQuestions',
       failure: {
         code: 'ADMIN_REQUIRED',
@@ -646,7 +654,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     ).not.toThrow()
 
     expect(() =>
-      buildPhase7OperationFailureResponse({
+      buildContentOperationFailureResponse({
         operation: 'listAdminQuestions',
         failure: {
           code: 'RATE_LIMITED',
@@ -656,7 +664,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
         disposition: 'NO_TX'
       })
     ).toThrow()
-    const limited = buildPhase7OperationFailureResponse({
+    const limited = buildContentOperationFailureResponse({
       operation: 'listAdminQuestions',
       failure: {
         code: 'RATE_LIMITED',
@@ -670,7 +678,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     expect(limited.body.retryable).toBe(true)
     expect(limited.headers['Retry-After']).toBe('7')
 
-    const commitUnknown = buildPhase7OperationFailureResponse({
+    const commitUnknown = buildContentOperationFailureResponse({
       operation: 'createAdminQuestion',
       failure: {
         code: 'SERVICE_UNAVAILABLE',
@@ -684,7 +692,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
     expect(commitUnknown.body.retryable).toBe(false)
     expect(commitUnknown.headers['Retry-After']).toBe('3')
 
-    const reauthentication = buildPhase7OperationFailureResponse({
+    const reauthentication = buildContentOperationFailureResponse({
       operation: 'reauthenticateAdmin',
       failure: {
         code: 'INTERNAL_SERVER_ERROR',
@@ -697,7 +705,7 @@ describe('Phase 7 operation and Slice 2 conformance manifests', () => {
   })
 
   it('rejects tampered status, no-store, request ID, and Retry-After transport', () => {
-    const limited = buildPhase7OperationFailureResponse({
+    const limited = buildContentOperationFailureResponse({
       operation: 'listAdminQuestions',
       failure: {
         code: 'RATE_LIMITED',

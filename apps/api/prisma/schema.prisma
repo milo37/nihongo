@@ -255,30 +255,30 @@ enum IdempotencyState {
 }
 
 model User {
-  id                          String                       @id @default(uuid()) @db.Uuid
-  name                        String                       @db.VarChar(80)
-  email                       String                       @unique
-  emailVerified               Boolean                      @default(false)
+  id                          String                        @id @default(uuid()) @db.Uuid
+  name                        String                        @db.VarChar(80)
+  email                       String                        @unique
+  emailVerified               Boolean                       @default(false)
   image                       String?
-  role                        UserRole                     @default(USER)
+  role                        UserRole                      @default(USER)
   targetLevel                 JlptLevel?
-  accountStatus               UserAccountStatus            @default(ACTIVE)
-  authorityGeneration         Int                          @default(dbgenerated("1"))
-  deletedAt                   DateTime?                    @db.Timestamptz(3)
-  createdAt                   DateTime                     @default(now()) @db.Timestamptz(3)
-  updatedAt                   DateTime                     @updatedAt @db.Timestamptz(3)
+  accountStatus               UserAccountStatus             @default(ACTIVE)
+  authorityGeneration         Int                           @default(dbgenerated("1"))
+  deletedAt                   DateTime?                     @db.Timestamptz(3)
+  createdAt                   DateTime                      @default(now()) @db.Timestamptz(3)
+  updatedAt                   DateTime                      @updatedAt @db.Timestamptz(3)
   sessions                    Session[]
   sessionFamilies             AuthSessionFamily[]
   sessionRotationFences       AuthSessionRotationFence[]
   accounts                    Account[]
-  resetVerifications          Verification[]               @relation("PasswordResetUser")
-  createdQuestions            Question[]                   @relation("QuestionCreator")
-  createdQuestionVersions     QuestionVersion[]            @relation("QuestionVersionCreator")
-  contentReviewActors         ContentReview[]              @relation("ContentReviewActor")
-  contentReviewCounterparts   ContentReview[]              @relation("ContentReviewCounterpart")
-  adminAuditActors            AdminAuditLog[]              @relation("AdminAuditActor")
-  submittedQuestionReports    QuestionReport[]             @relation("QuestionReportReporter")
-  assignedQuestionReports     QuestionReport[]             @relation("QuestionReportAssignee")
+  resetVerifications          Verification[]                @relation("PasswordResetUser")
+  createdQuestions            Question[]                    @relation("QuestionCreator")
+  createdQuestionVersions     QuestionVersion[]             @relation("QuestionVersionCreator")
+  contentReviewActors         ContentReview[]               @relation("ContentReviewActor")
+  contentReviewCounterparts   ContentReview[]               @relation("ContentReviewCounterpart")
+  adminAuditActors            AdminAuditLog[]               @relation("AdminAuditActor")
+  submittedQuestionReports    QuestionReport[]              @relation("QuestionReportReporter")
+  assignedQuestionReports     QuestionReport[]              @relation("QuestionReportAssignee")
   studySessions               StudySession[]
   wrongNotes                  WrongNote[]
   bookmarks                   Bookmark[]
@@ -288,6 +288,10 @@ model User {
   ssoAccountFreshProofs       SsoAccountFreshProof[]
   ssoAccountErasureRequest    SsoAccountErasureRequest?
   idempotencyRecords          IdempotencyRecord[]
+  userReports                 UserReport[]
+  accountRestriction          UserAccountRestriction?
+  restrictionEvents           UserAccountRestrictionEvent[] @relation("RestrictionEventMember")
+  restrictionEventActions     UserAccountRestrictionEvent[] @relation("RestrictionEventActor")
 
   @@index([role, accountStatus])
 }
@@ -691,6 +695,7 @@ model QuestionVersion {
   contentReviews             ContentReview[]
   targetQuestionReports      QuestionReport[]       @relation("QuestionReportTargetVersion")
   remediationQuestionReports QuestionReport[]       @relation("QuestionReportRemediationVersion")
+  userReports                UserReport[]           @relation("UserReportTargetVersion")
 
   @@unique([questionId, versionNumber])
   @@unique([questionId, id])
@@ -1122,4 +1127,58 @@ model SsoAccountErasureRequest {
   user             User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([appStatus, createdAt])
+}
+
+model UserReport {
+  id                String           @id @default(dbgenerated("public.gen_random_uuid()")) @db.Uuid
+  kind              String           @db.VarChar(16)
+  status            String           @default("RECEIVED") @db.VarChar(16)
+  location          String           @db.VarChar(200)
+  questionId        String?          @db.Uuid
+  questionVersionId String?          @db.Uuid
+  description       String
+  reporterUserId    String?          @db.Uuid
+  reporterReply     String?
+  repliedAt         DateTime?        @db.Timestamptz(3)
+  internalNote      String?
+  closedAt          DateTime?        @db.Timestamptz(3)
+  rowVersion        Int              @default(1)
+  createdAt         DateTime         @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  updatedAt         DateTime         @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  reporterUser      User?            @relation(fields: [reporterUserId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  questionVersion   QuestionVersion? @relation("UserReportTargetVersion", fields: [questionId, questionVersionId], references: [questionId, id], onDelete: Restrict, onUpdate: NoAction, map: "UserReport_question_version_fkey")
+
+  @@index([reporterUserId, createdAt(sort: Desc), id(sort: Desc)], map: "UserReport_reporter_idx")
+}
+
+model QuestionImportResult {
+  importId      String   @id @db.Uuid
+  actorUserId   String   @db.Uuid
+  requestDigest String   @db.VarChar(64)
+  response      Json     @db.JsonB
+  createdAt     DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+
+  @@index([createdAt])
+}
+
+model UserAccountRestriction {
+  userId       String   @id @db.Uuid
+  reason       String
+  restrictedAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// Written only by admin_set_member_restriction (JLP-691); no app table grants.
+model UserAccountRestrictionEvent {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @db.Uuid
+  action      String
+  actorUserId String?  @db.Uuid
+  reason      String?
+  createdAt   DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  user        User     @relation("RestrictionEventMember", fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  actor       User?    @relation("RestrictionEventActor", fields: [actorUserId], references: [id], onUpdate: NoAction)
+
+  @@index([userId, createdAt])
+  @@index([actorUserId])
 }

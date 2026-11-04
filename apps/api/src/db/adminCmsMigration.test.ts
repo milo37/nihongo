@@ -130,10 +130,10 @@ const approvedInitialAdminCmsChecksums = [
 ] as const
 
 describe('Phase 7 Slice 1 admin-CMS migrations', () => {
-  it('기존52 migration의 역사 prefix checksum을 보존하고 migration53을 pin한다', () => {
+  it('기존57 migration의 역사 prefix checksum을 보존하고 migration58을 pin한다', () => {
     const manifest = loadExpectedMigrationManifest(migrationsDirectory)
 
-    expect(manifest).toHaveLength(53)
+    expect(manifest).toHaveLength(58)
     expect(manifest.slice(0, 27).map(({ name }) => name)).toEqual(
       approvedBeforeAdminCmsMigrationNames
     )
@@ -323,8 +323,48 @@ describe('Phase 7 Slice 1 admin-CMS migrations', () => {
       checksum:
         '5708fd94835c6ce970049b1830d44dca2e10e9c089f54383aa67219218fb81f7'
     })
-    expect(digest(manifest)).toBe(
+    expect(digest(manifest.slice(0, 53))).toBe(
       '39d9c2053323d8a180e53af80e81dd26a00ef6c041040dc7ccea8e99932e9c08'
+    )
+    expect(manifest[53]).toEqual({
+      name: '20261104090000_unified_reports_import_results',
+      checksum:
+        'aee02806b846d61c64d35e0c873475e25880e82bd72029853fa23ff7742f8042'
+    })
+    expect(digest(manifest.slice(0, 54))).toBe(
+      'b414f707991f136b4719a9a825144a222a7e09592430430916c2d8fb1ab3a05c'
+    )
+    expect(manifest[54]).toEqual({
+      name: '20261104120000_user_report_erasure_redaction',
+      checksum:
+        '99bdb0fecdcfe27d13850bb106af9fbcbb88c2a8cd79d7d6ae355f1db530efa8'
+    })
+    expect(digest(manifest.slice(0, 55))).toBe(
+      '4ced7adc2cb49210ad05dd09ec77238d5d3f784a27a5fc2182702de3531595b2'
+    )
+    expect(manifest[55]).toEqual({
+      name: '20261104150000_user_account_restriction',
+      checksum:
+        '26762221ae1b1ad9636138825453e4664c46e03128db394fbe77ec13ba1532cc'
+    })
+    expect(digest(manifest.slice(0, 56))).toBe(
+      '6682d553434a2836173cc114cdbc664b0cdfc9b9c1e8580397d74c0a930aaa02'
+    )
+    expect(manifest[56]).toEqual({
+      name: '20261105090000_admin_member_console',
+      checksum:
+        'a109890b8c812fa5b74c159b2f99f15c955ee6735ac8d1126b597881eb562de9'
+    })
+    expect(digest(manifest.slice(0, 57))).toBe(
+      '64f4e4765c22cfbb06a9dcc36ab8f3ec707bd18741614c7327fcc6c7472aedb0'
+    )
+    expect(manifest[57]).toEqual({
+      name: '20261106090000_single_operator_review',
+      checksum:
+        'f569efc31c2638a23c2870ded6a8140aabb7be90aff57a2f02d740392f6fc6d1'
+    })
+    expect(digest(manifest)).toBe(
+      '13da74f7dd883ce43d36f9f532dbc41652a84c0eb4b8f812607f1ca622be578c'
     )
   })
 

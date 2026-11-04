@@ -8,8 +8,12 @@ import {
   createTargetedReviewSessionResponseSchema
 } from '@nihongo/contracts/wrong-note/create-targeted-review-session'
 import { getConnInfo } from '@hono/node-server/conninfo'
-import { Hono, type Context } from 'hono'
-import { z, type ZodError } from 'zod'
+import { Hono } from 'hono'
+import { z } from 'zod'
+import {
+  assertAccountNotRestricted,
+  type AccountRestrictionReader
+} from '../account/accountRestriction.js'
 import { createClientIpAuthority } from '../auth/clientIp.js'
 import type { PrincipalService } from '../auth/principalService.js'
 import type { ApiEnvironment } from '../config/env.js'
@@ -18,8 +22,10 @@ import type { ApplicationRateLimiter } from '../middleware/applicationRateLimite
 import { readBoundedJsonObject } from '../middleware/boundedJson.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
 import type { WrongNoteTargetedReviewService } from '../wrong-note/wrongNoteTargetedReviewService.js'
+import { appendAuthHeaders, toFieldErrors } from './routeSupport.js'
 
 interface TargetedReviewSessionRouteDependencies {
+  accountRestrictionReader: AccountRestrictionReader
   readonly environment: ApiEnvironment
   readonly principalService: PrincipalService
   readonly rateLimiter: ApplicationRateLimiter
@@ -27,15 +33,6 @@ interface TargetedReviewSessionRouteDependencies {
 }
 
 type TargetedReviewSessionRouteEnvironment = { Variables: ApiVariables }
-
-const toFieldErrors = (error: ZodError): Record<string, string[]> => {
-  const fieldErrors: Record<string, string[]> = {}
-  for (const issue of error.issues) {
-    const path = issue.path.length > 0 ? issue.path.join('.') : 'request'
-    fieldErrors[path] = [...(fieldErrors[path] ?? []), issue.message]
-  }
-  return fieldErrors
-}
 
 const toRawQuery = (url: string): Record<string, string | string[]> => {
   const searchParams = new URL(url).searchParams
@@ -50,30 +47,8 @@ const toRawQuery = (url: string): Record<string, string | string[]> => {
   return query
 }
 
-const appendAuthHeaders = (
-  context: Context<TargetedReviewSessionRouteEnvironment>,
-  resolution: Awaited<ReturnType<PrincipalService['resolveAuthenticatedUser']>>,
-  environment: ApiEnvironment
-): void => {
-  for (const cookie of resolution.headers.getSetCookie?.() ?? []) {
-    context.header('Set-Cookie', cookie, { append: true })
-  }
-  if (resolution.clearSessionCookie) {
-    const attributes = `Path=/; HttpOnly; SameSite=Lax; Max-Age=0${
-      environment.NODE_ENV === 'production' ? '; Secure' : ''
-    }`
-    context.header('Set-Cookie', `nihongo.session_token=; ${attributes}`, {
-      append: true
-    })
-    context.header(
-      'Set-Cookie',
-      `__Secure-nihongo.session_token=; ${attributes}`,
-      { append: true }
-    )
-  }
-}
-
 export const createTargetedReviewSessionRoutes = ({
+  accountRestrictionReader,
   environment,
   principalService,
   rateLimiter,
@@ -190,6 +165,11 @@ export const createTargetedReviewSessionRoutes = ({
         retryable: false
       })
     }
+
+    await assertAccountNotRestricted(
+      accountRestrictionReader,
+      resolution.user.id
+    )
 
     const created = await targetedReviewService.createTargetedReviewSession(
       resolution.user.id,

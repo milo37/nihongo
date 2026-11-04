@@ -11,7 +11,7 @@ const requestTooLarge = (): ApplicationError =>
     code: 'REQUEST_TOO_LARGE',
     message: '요청 본문이 허용된 크기를 초과했습니다.',
     retryable: false,
-    phase7Disposition: 'NO_TX'
+    adminDisposition: 'NO_TX'
   })
 
 const invalidJson = (): ApplicationError =>
@@ -19,7 +19,7 @@ const invalidJson = (): ApplicationError =>
     code: 'INVALID_JSON',
     message: 'JSON 요청 본문이 올바르지 않습니다.',
     retryable: false,
-    phase7Disposition: 'NO_TX'
+    adminDisposition: 'NO_TX'
   })
 
 export const readStrictJsonBody = async (
@@ -85,7 +85,7 @@ export const readStrictJsonBody = async (
         code: 'VALIDATION_ERROR',
         message: 'JSON 요청 본문의 중첩 깊이가 너무 큽니다.',
         retryable: false,
-        phase7Disposition: 'NO_TX'
+        adminDisposition: 'NO_TX'
       })
     }
     throw invalidJson()

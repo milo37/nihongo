@@ -59,11 +59,20 @@ const removedAuthPaths = [
   '/api/auth/verify-email',
   '/api/auth/change-password'
 ] as const
+const ADMIN_SESSION_MS = 8 * 60 * 60_000
 const toAuthenticatedUser = (user: User) => ({
   id: user.id,
   name: user.name,
   role: user.role === 'ADMIN' ? ('ADMIN' as const) : ('USER' as const),
-  targetLevel: user.targetLevel
+  targetLevel: user.targetLevel,
+  ...(user.role === 'ADMIN'
+    ? {
+        adminSessionExpiresAt: new Date(
+          Date.now() + ADMIN_SESSION_MS
+        ).toISOString(),
+        adminFreshUntil: null
+      }
+    : {})
 })
 
 const createCurrentPrincipalResponse = () => {

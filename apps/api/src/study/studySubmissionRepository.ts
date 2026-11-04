@@ -1,4 +1,4 @@
-import { randomInt, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import { submitStudySessionResponseSchema } from '@nihongo/contracts/study/submit-study-session'
 import type { StudyResult } from '@nihongo/contracts/study/study-result'
 import {
@@ -34,11 +34,13 @@ import {
   type ReviewedQuestionRecord,
   type StudyResultRecord
 } from './studySubmissionMapper.js'
+import {
+  createSerializableRetryJitterMs,
+  getSerializableRetryDelayMs,
+  SERIALIZABLE_MAX_ATTEMPTS
+} from './serializableRetryPolicy.js'
 
 const UNAVAILABLE_PRISMA_CODES = new Set(['P1001', 'P1002', 'P2024'])
-const MAX_TRANSACTION_ATTEMPTS = 3
-const RETRY_BASE_DELAY_MS = 5
-const RETRY_JITTER_MAX_MS = 5
 const GUEST_RENEWAL_MS = 7 * 24 * 60 * 60 * 1_000
 const IDEMPOTENCY_RETENTION_MS = 24 * 60 * 60 * 1_000
 
@@ -1291,7 +1293,7 @@ export const createPrismaStudySubmissionRepository = (
 ): StudySubmissionRepository => {
   const retryDelay = options.delay ?? delay
   const jitterMilliseconds =
-    options.jitterMilliseconds ?? (() => randomInt(0, RETRY_JITTER_MAX_MS + 1))
+    options.jitterMilliseconds ?? createSerializableRetryJitterMs
 
   const withRepositoryErrors = async <Result>(
     operation: () => Promise<Result>
@@ -1355,7 +1357,7 @@ export const createPrismaStudySubmissionRepository = (
         }
         for (
           let attempt = 1;
-          attempt <= MAX_TRANSACTION_ATTEMPTS;
+          attempt <= SERIALIZABLE_MAX_ATTEMPTS;
           attempt += 1
         ) {
           try {
@@ -1374,10 +1376,10 @@ export const createPrismaStudySubmissionRepository = (
               (error instanceof FreshTransactionRetry ||
                 isSerializableConflict(error) ||
                 isFreshWrongNoteConflict(error)) &&
-              attempt < MAX_TRANSACTION_ATTEMPTS
+              attempt < SERIALIZABLE_MAX_ATTEMPTS
             ) {
               await retryDelay(
-                attempt * RETRY_BASE_DELAY_MS + jitterMilliseconds()
+                getSerializableRetryDelayMs(attempt, jitterMilliseconds())
               )
               continue
             }

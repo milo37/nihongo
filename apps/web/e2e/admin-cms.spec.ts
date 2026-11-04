@@ -2,6 +2,7 @@ import process from 'node:process'
 import { expect, test } from '@playwright/test'
 import type { BrowserContext, Page, Response, Route } from '@playwright/test'
 import { z } from 'zod'
+import { apiFailureSchema } from '@nihongo/contracts/common/error'
 import { getCurrentPrincipalResponseSchema } from '@nihongo/contracts/auth/get-current-principal'
 import { adminFreshSsoRequestSchema } from '@nihongo/contracts/auth/admin-fresh-sso'
 import {
@@ -9,11 +10,15 @@ import {
   signInSocialResponseSchema
 } from '@nihongo/contracts/auth/sign-in-social'
 import {
+  adminImportApplyResponseSchema,
+  adminImportValidationResponseSchema,
+  applyQuestionImportRequestSchema,
   archiveAdminQuestionErrorSchema,
   archiveAdminQuestionRequestSchema,
   archiveAdminQuestionResponseSchema,
   createAdminQuestionRequestSchema,
   createAdminQuestionResponseSchema,
+  getAdminImportResultResponseSchema,
   getAdminQuestionResponseSchema,
   listAdminQuestionsErrorSchema,
   listAdminQuestionsResponseSchema,
@@ -22,6 +27,7 @@ import {
   updateQuestionVersionRequestSchema,
   updateQuestionVersionResponseSchema
 } from '@nihongo/contracts/admin/content-operations'
+import { listAdminMembersResponseSchema } from '@nihongo/contracts/admin/members'
 import {
   assertAndAttachLedger,
   ledgerEntriesFor,
@@ -281,10 +287,8 @@ test('guest and USER contexts cannot read or mutate administrator content', asyn
         throw new Error('A direct administrator document response is required.')
       expect(deniedDocument.request().isNavigationRequest()).toBe(true)
       expect(
-        listAdminQuestionsErrorSchema.parse(
-          await canonicalJson(deniedDocument, actor ? 403 : 401)
-        ).code
-      ).toBe(actor ? 'ADMIN_REQUIRED' : 'AUTHENTICATION_REQUIRED')
+        apiFailureSchema.parse(await canonicalJson(deniedDocument, 404)).code
+      ).toBe('RESOURCE_NOT_FOUND')
       await expect(page).toHaveURL(
         (url) =>
           url.origin === publicOrigin && url.pathname === '/admin/questions'
@@ -541,11 +545,11 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
     const archivePath = `/api/v1/admin/questions/${questionId}/archive`
     const openArchive = async (): Promise<void> => {
       await winner
-        .getByRole('button', { name: `${questionId} 문제 보관`, exact: true })
+        .getByRole('button', { name: `${questionId} 초안 삭제`, exact: true })
         .click()
       await expect(
         winner.getByRole('dialog', {
-          name: '문제를 보관하시겠습니까?',
+          name: '초안을 삭제하시겠습니까?',
           exact: true
         })
       ).toBeVisible()
@@ -554,7 +558,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
     const stale = waitForResponse(winner, 'POST', archivePath)
     await winner
       .getByRole('dialog')
-      .getByRole('button', { name: '문제 보관', exact: true })
+      .getByRole('button', { name: '초안 삭제', exact: true })
       .click()
     const staleResponse = await stale
     expect(
@@ -681,7 +685,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
       const archiveResponse = waitForResponse(winner, 'POST', archivePath)
       await winner
         .getByRole('dialog')
-        .getByRole('button', { name: '문제 보관', exact: true })
+        .getByRole('button', { name: '초안 삭제', exact: true })
         .click()
       const archivedResponse = await archiveResponse
       expect(
@@ -699,7 +703,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
       })
       await expect(
         winner.getByRole('button', {
-          name: `${questionId} 문제 보관`,
+          name: `${questionId} 초안 삭제`,
           exact: true
         })
       ).toHaveCount(0)
@@ -756,11 +760,112 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
         testInfo,
         'admin-cms-real-request-ledger'
       )
+      // A stored apply result stays readable by importId (unknown-outcome recovery).
+      await winner.goto('/admin/questions/import')
+      await winner.locator('input[type="file"]').setInputFiles({
+        name: 'import.json',
+        mimeType: 'application/json',
+        buffer: Buffer.from(
+          JSON.stringify({
+            items: [
+              {
+                clientItemId: 'e2e-import-1',
+                content: {
+                  ...createInput,
+                  questionText: '駅（　）友だちを待ちます。'
+                }
+              }
+            ]
+          })
+        )
+      })
+      const validationResponse = waitForResponse(
+        winner,
+        'POST',
+        '/api/v1/admin/questions/import-validation'
+      )
+      await winner
+        .getByRole('button', { name: '쓰기 없이 검증', exact: true })
+        .click()
+      expect(
+        adminImportValidationResponseSchema.parse(
+          await canonicalJson(await validationResponse, 200)
+        ).valid
+      ).toBe(true)
+      const applyResponse = waitForResponse(
+        winner,
+        'POST',
+        '/api/v1/admin/questions/import-application'
+      )
+      await winner
+        .getByRole('button', { name: '동일 검증 결과 원자 적용', exact: true })
+        .click()
+      const appliedResponse = await applyResponse
+      const { importId } = applyQuestionImportRequestSchema.parse(
+        appliedResponse.request().postDataJSON() as unknown
+      )
+      const applied = adminImportApplyResponseSchema.parse(
+        await canonicalJson(appliedResponse, 201)
+      )
+      const stored = await browserJson(
+        winner,
+        `/api/v1/admin/question-imports/${encodeURIComponent(importId)}`
+      )
+      expect(stored.status).toBe(200)
+      expect(getAdminImportResultResponseSchema.parse(stored.body)).toEqual(
+        applied
+      )
     } finally {
       context.off('response', observeReturn)
       await context.unroute(providerPattern)
     }
   } finally {
     await peer.close()
+  }
+})
+
+test('administrator member list renders the real masked member page', async ({
+  browser
+}) => {
+  const { reviewer } = readFixture()
+  const context = await browser.newContext({
+    baseURL: publicOrigin,
+    locale: 'ko-KR'
+  })
+  const ledger = trackRequestLedger(context)
+  try {
+    const page = await context.newPage()
+    await login(page, reviewer, ledger)
+    const listed = waitForResponse(page, 'GET', '/api/v1/admin/members')
+    await page.goto('/admin/members')
+    const members = listAdminMembersResponseSchema.parse(
+      await canonicalJson(await listed, 200)
+    )
+    expect(members).toMatchObject({ page: 1, pageSize: 25 })
+    expect(members.items.length).toBeGreaterThan(0)
+    expect(members.total).toBeGreaterThanOrEqual(members.items.length)
+    await expect(
+      page.getByRole('heading', { level: 1, name: '가입자', exact: true })
+    ).toBeVisible()
+    const grid = page.getByRole('region', { name: '가입자 목록', exact: true })
+    const rows = grid.locator('tbody tr')
+    await expect(rows).toHaveCount(members.items.length)
+    // Masked emails can repeat across members, so check each row in server order by its member ID.
+    for (const [index, member] of members.items.entries()) {
+      const row = rows.nth(index)
+      await expect(
+        row.getByRole('link', { name: member.memberId, exact: true })
+      ).toBeVisible()
+      await expect(
+        row.getByRole('cell', { name: member.maskedEmail, exact: true })
+      ).toBeVisible()
+    }
+    // Fixture addresses are phase7-<actor>-<suffix>@example.test; only masked text may render.
+    await expect(grid.getByText(/phase7-[a-z]+-.+@example\.test/)).toHaveCount(
+      0
+    )
+    await waitForLedgerToQuiesce(ledger)
+  } finally {
+    await context.close()
   }
 })

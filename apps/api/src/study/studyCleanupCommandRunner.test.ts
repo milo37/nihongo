@@ -40,4 +40,19 @@ describe('study cleanup command runner', () => {
     expect(await runAndWait()).toBe('{"event":"test.cleanup_failed"}\n')
     expect(settings.cleanup).not.toHaveBeenCalled()
   })
+
+  it('rejects a dry-run value other than true or false', async () => {
+    vi.stubEnv('TEST_CLEANUP_CONFIRM', 'DELETE_TEST_ROWS')
+    vi.stubEnv('TEST_CLEANUP_DRY_RUN', 'yes')
+    const stderr = vi.spyOn(process.stderr, 'write').mockReturnValue(true)
+    runStudyCleanupCommand({
+      ...settings,
+      dryRunVariable: 'TEST_CLEANUP_DRY_RUN'
+    })
+    await vi.waitFor(() => expect(stderr).toHaveBeenCalled())
+    expect(String(stderr.mock.calls[0]?.[0])).toBe(
+      '{"event":"test.cleanup_failed"}\n'
+    )
+    expect(settings.cleanup).not.toHaveBeenCalled()
+  })
 })

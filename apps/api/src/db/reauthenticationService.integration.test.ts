@@ -945,6 +945,7 @@ const createTestHonoApp = ({
   service: ReturnType<typeof createService>
 }) => {
   const reader: AdminQuestionReader = {
+    listActivity: async () => Promise.reject(new Error('not used')),
     diffVersion: async () => Promise.reject(new Error('not used')),
     getQuestion: async () => Promise.reject(new Error('not used')),
     listAuditLog: async () => Promise.reject(new Error('not used')),
@@ -1195,11 +1196,12 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
     const app = createTestHonoApp({ commandService, service: createService() })
 
     const beforeSelfApproval = await readA2Evidence(target.versionId)
+    // JLP-704 allows self-approval; a self change request is still rejected.
     const selfApproval = await requestA2Command({
       app,
-      body: { expectedRowVersion: 2, comment: '작성자 자체 승인 거부' },
+      body: { expectedRowVersion: 2, reason: '작성자 자체 변경 요청 거부' },
       fixture: author,
-      pathname: approvalPath
+      pathname: `/api/v1/admin/question-versions/${target.versionId}/change-request`
     })
     expect(selfApproval.response.status).toBe(409)
     expect(
@@ -1322,27 +1324,6 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
     })
     expect(approvalReview?.operationId).toBe(approvalAudit?.operationId)
     expect(await readA2IntentCount([approvalRequestId])).toBe(0)
-
-    const beforeSelfWithdrawal = await readA2Evidence(target.versionId)
-    const selfWithdrawal = await requestA2Command({
-      app,
-      body: {
-        expectedRowVersion: 3,
-        reason: '작성자 자체 승인 철회 거부'
-      },
-      fixture: author,
-      pathname: withdrawalPath
-    })
-    expect(selfWithdrawal.response.status).toBe(409)
-    expect(
-      apiFailureSchema.parse(await selfWithdrawal.response.json())
-    ).toMatchObject({
-      code: 'SEPARATION_OF_DUTIES_VIOLATION',
-      requestId: selfWithdrawal.requestId,
-      retryable: false
-    })
-    expect(await readA2Evidence(target.versionId)).toEqual(beforeSelfWithdrawal)
-    expect(await readA2IntentCount([selfWithdrawal.requestId])).toBe(0)
 
     const withdrawalRequestIds = [randomUUID(), randomUUID()] as const
     const withdrawalResponses = await Promise.all(

@@ -50,7 +50,7 @@ describe('privacy-safe analytics event contract', () => {
         payload: { source: 'WRONG_NOTE', questionCount: 5 }
       },
       { event: 'bookmark_created', payload: { surface: 'RESULT' } },
-      { event: 'question_reported', payload: { reason: 'ANSWER_ERROR' } }
+      { event: 'report_submitted', payload: { kind: 'APP_ERROR' } }
     ]
 
     expect(
@@ -70,8 +70,14 @@ describe('privacy-safe analytics event contract', () => {
     },
     {
       ...envelope,
+      // Retired in favour of report_submitted (#491); clients no longer send it.
       event: 'question_reported',
-      payload: { reason: 'OTHER', reportText: 'private report' }
+      payload: { reason: 'ANSWER_ERROR' }
+    },
+    {
+      ...envelope,
+      event: 'report_submitted',
+      payload: { kind: 'QUESTION', description: 'private report' }
     },
     {
       ...envelope,

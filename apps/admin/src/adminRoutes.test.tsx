@@ -13,7 +13,7 @@ import { appDocumentNavigation } from '@nihongo/browser/libs/appNavigation'
 import { useAppStore } from '@nihongo/browser/store/index'
 import { invalidateCanonicalAuthTransitions } from '@nihongo/browser/app/login/authSession'
 import * as authApi from '@nihongo/browser/api/auth/getCurrentUser/index'
-import * as listApi from '@nihongo/browser/api/admin-question/listAdminQuestion/index'
+import * as listApi from '@api/admin-question/listAdminQuestion/index'
 import { adminRoutes } from '@/router'
 import { question, actorId } from '@app/admin-question/test/questionFixture'
 
@@ -76,9 +76,10 @@ it('USER is rejected before an admin list request', async () => {
     .spyOn(appDocumentNavigation, 'replace')
     .mockImplementation(() => undefined)
   renderRoutes()
-  await waitFor(() =>
-    expect(replace).toHaveBeenCalledWith('/forbidden', undefined)
-  )
+  expect(
+    await screen.findByRole('heading', { name: '요청한 페이지가 없습니다' })
+  ).toBeVisible()
+  expect(replace).not.toHaveBeenCalled()
   expect(list).not.toHaveBeenCalled()
 })
 it('ADMIN loads the existing table at the /admin basename with the local create/edit paths', async () => {
@@ -95,6 +96,13 @@ it('ADMIN loads the existing table at the /admin basename with the local create/
   ).toBeVisible()
   const region = await screen.findByRole('region', { name: '관리자 문제 목록' })
   expect(region).toHaveAttribute('tabindex', '0')
+  expect(screen.getByRole('navigation', { name: '관리자 메뉴' })).toBeVisible()
+  expect(
+    screen.queryByRole('navigation', { name: '주요 메뉴' })
+  ).not.toBeInTheDocument()
+  expect(
+    screen.queryByRole('navigation', { name: '모바일 주요 메뉴' })
+  ).not.toBeInTheDocument()
   expect(
     within(region).getByRole('table', { name: /JLPT 관리자 문제 목록/ })
   ).toBeInTheDocument()

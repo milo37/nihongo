@@ -7,7 +7,7 @@ import {
   listQuestionsResponseSchema
 } from '@nihongo/contracts/question/list-questions'
 import { getConnInfo } from '@hono/node-server/conninfo'
-import { z, type ZodError } from 'zod'
+import { z } from 'zod'
 import { Hono, type Context } from 'hono'
 import { createClientIpAuthority } from '../auth/clientIp.js'
 import type { ApiEnvironment } from '../config/env.js'
@@ -15,6 +15,7 @@ import { ApplicationError } from '../errors/applicationError.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
 import type { QuestionReader } from '../question/questionService.js'
+import { toFieldErrors } from './routeSupport.js'
 
 type QuestionRouteEnvironment = { Variables: ApiVariables }
 type QuestionReadOperation = 'question-list-read' | 'question-detail-read'
@@ -31,17 +32,6 @@ interface QuestionRouteDependencies {
 
 const QUESTION_READ_MAX = 120
 const QUESTION_READ_WINDOW_MILLISECONDS = 60_000
-
-const toFieldErrors = (error: ZodError): Record<string, string[]> => {
-  const fieldErrors: Record<string, string[]> = {}
-
-  for (const issue of error.issues) {
-    const path = issue.path.length > 0 ? issue.path.join('.') : 'request'
-    fieldErrors[path] = [...(fieldErrors[path] ?? []), issue.message]
-  }
-
-  return fieldErrors
-}
 
 export const createQuestionRoutes = ({
   questionReader,

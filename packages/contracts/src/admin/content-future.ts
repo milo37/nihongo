@@ -10,22 +10,22 @@ import {
 import { opaqueIdSchema } from '../common/id.js'
 import {
   accountActorSnapshotSchema,
-  assertPhase7DateRange,
+  assertContentDateRange,
   canonicalizeJson,
   compareUnicodeScalars,
-  createPhase7TextSchema,
-  normalizePhase7OptionComparison,
-  isWellFormedPhase7Text,
-  normalizePhase7Text,
-  normalizePhase7TagKey,
+  createContentTextSchema,
+  normalizeContentOptionComparison,
+  isWellFormedContentText,
+  normalizeContentText,
+  normalizeContentTagKey,
   positiveSafeIntegerSchema,
   sha256DomainSeparated,
   sha256HexSchema,
   type CanonicalJsonValue,
   type Sha256TextPort
 } from '../common/content-validation.js'
-import { isApplicablePhase7ContentType } from './content-read.js'
-import { createPhase7OperationErrorSchema } from './content-error-policy.js'
+import { isApplicableQuestionContentType } from './content-read.js'
+import { createContentOperationErrorSchema } from './content-error-policy.js'
 
 const addIssue = (
   context: z.core.$RefinementCtx,
@@ -55,7 +55,7 @@ const exactKeySchema = (maximum: number) =>
     .refine(
       (value) =>
         [...value].length <= maximum &&
-        isWellFormedPhase7Text(value) &&
+        isWellFormedContentText(value) &&
         !value.includes('\n'),
       { message: `1..${maximum} well-formed Unicode scalar key여야 합니다.` }
     )
@@ -66,22 +66,25 @@ export const adminQuestionContentStructureInputSchema = z
     subject: questionSubjectSchema,
     questionType: questionTypeSchema,
     difficulty: questionDifficultySchema,
-    questionText: createPhase7TextSchema({ maxScalars: 2000, multiline: true }),
-    passage: createPhase7TextSchema({
+    questionText: createContentTextSchema({
+      maxScalars: 2000,
+      multiline: true
+    }),
+    passage: createContentTextSchema({
       maxScalars: 10_000,
       multiline: true
     }).nullable(),
-    explanationKo: createPhase7TextSchema({
+    explanationKo: createContentTextSchema({
       maxScalars: 5000,
       multiline: true
     }),
     explanationJa: z.union([
-      createPhase7TextSchema({ maxScalars: 5000, multiline: true }),
+      createContentTextSchema({ maxScalars: 5000, multiline: true }),
       z.literal('').transform(() => null),
       z.null()
     ]),
     tagNames: z
-      .array(createPhase7TextSchema({ maxScalars: 100 }))
+      .array(createContentTextSchema({ maxScalars: 100 }))
       .min(1)
       .max(12),
     options: z
@@ -89,7 +92,7 @@ export const adminQuestionContentStructureInputSchema = z
         z
           .object({
             clientOptionKey: exactKeySchema(32),
-            text: createPhase7TextSchema({ maxScalars: 500, multiline: true })
+            text: createContentTextSchema({ maxScalars: 500, multiline: true })
           })
           .strict()
       )
@@ -110,7 +113,7 @@ export const adminQuestionContentInputSchema =
           'option key는 고유해야 합니다.'
         )
       }
-      const normalizedText = normalizePhase7OptionComparison(option.text)
+      const normalizedText = normalizeContentOptionComparison(option.text)
       if (texts.has(normalizedText)) {
         addIssue(
           context,
@@ -130,7 +133,7 @@ export const adminQuestionContentInputSchema =
     }
     const tags = new Set<string>()
     content.tagNames.forEach((tagName, index) => {
-      const normalized = normalizePhase7TagKey(tagName)
+      const normalized = normalizeContentTagKey(tagName)
       if (tags.has(normalized)) {
         addIssue(
           context,
@@ -141,7 +144,7 @@ export const adminQuestionContentInputSchema =
       tags.add(normalized)
     })
     if (
-      !isApplicablePhase7ContentType(
+      !isApplicableQuestionContentType(
         content.level,
         content.subject,
         content.questionType
@@ -183,6 +186,8 @@ export const validateQuestionImportRequestSchema = z
   .strict()
 export const applyQuestionImportRequestSchema = z
   .object({
+    /** Client generated. Same id + same body replays the stored result. */
+    importId: opaqueIdSchema,
     validationDigest: sha256HexSchema,
     items: adminImportItemsSchema
   })
@@ -266,7 +271,7 @@ export const normalizeAdminImportItems = (
       explanationKo: item.content.explanationKo,
       explanationJa: item.content.explanationJa,
       tagNames: [...item.content.tagNames]
-        .map((name) => normalizePhase7Text(name))
+        .map((name) => normalizeContentText(name))
         .sort(compareUnicodeScalars),
       options: item.content.options.map((option) => ({
         clientOptionKey: option.clientOptionKey,
@@ -446,7 +451,7 @@ export const validateQuestionImportErrorCodeSchema = z.enum([
   'SERVICE_UNAVAILABLE'
 ])
 export const validateQuestionImportErrorSchema =
-  createPhase7OperationErrorSchema(
+  createContentOperationErrorSchema(
     'validateQuestionImport',
     validateQuestionImportErrorCodeSchema
   )
@@ -466,7 +471,7 @@ export const applyQuestionImportErrorCodeSchema = z.enum([
   'INTERNAL_SERVER_ERROR',
   'SERVICE_UNAVAILABLE'
 ])
-export const applyQuestionImportErrorSchema = createPhase7OperationErrorSchema(
+export const applyQuestionImportErrorSchema = createContentOperationErrorSchema(
   'applyQuestionImport',
   applyQuestionImportErrorCodeSchema
 )
@@ -493,7 +498,7 @@ export const questionReportResolutionOutcomeSchema = z.enum([
 const reportResolutionSchema = z
   .object({
     outcome: questionReportResolutionOutcomeSchema,
-    reason: createPhase7TextSchema({ maxScalars: 1000, multiline: true }),
+    reason: createContentTextSchema({ maxScalars: 1000, multiline: true }),
     remediationVersionId: opaqueIdSchema.nullable(),
     resolvedAt: isoDateTimeSchema
   })
@@ -584,7 +589,7 @@ export const questionReportSummarySchema = z
 export const questionReportDetailSchema = z
   .object({
     ...reportBaseFields,
-    description: createPhase7TextSchema({
+    description: createContentTextSchema({
       maxScalars: 2000,
       multiline: true
     }).nullable(),
@@ -613,7 +618,7 @@ export const createQuestionReportRequestSchema = z
   .object({
     questionVersionId: opaqueIdSchema,
     reason: questionReportReasonSchema,
-    description: createPhase7TextSchema({ maxScalars: 2000, multiline: true })
+    description: createContentTextSchema({ maxScalars: 2000, multiline: true })
   })
   .strict()
 export const createQuestionReportResponseSchema =
@@ -645,8 +650,8 @@ export const listAdminQuestionReportsQuerySchema = z
   .strict()
   .superRefine((query, context) => {
     try {
-      assertPhase7DateRange(query.createdFrom, query.createdTo)
-      assertPhase7DateRange(query.updatedFrom, query.updatedTo)
+      assertContentDateRange(query.createdFrom, query.createdTo)
+      assertContentDateRange(query.updatedFrom, query.updatedTo)
     } catch (error) {
       addIssue(
         context,
@@ -684,7 +689,7 @@ export const resolveAdminQuestionReportRequestSchema = z.discriminatedUnion(
       .object({
         expectedRowVersion: positiveSafeIntegerSchema,
         outcome: z.literal('RESOLVED'),
-        reason: createPhase7TextSchema({ maxScalars: 1000, multiline: true }),
+        reason: createContentTextSchema({ maxScalars: 1000, multiline: true }),
         remediationVersionId: opaqueIdSchema.nullable().optional()
       })
       .strict(),
@@ -692,7 +697,7 @@ export const resolveAdminQuestionReportRequestSchema = z.discriminatedUnion(
       .object({
         expectedRowVersion: positiveSafeIntegerSchema,
         outcome: z.literal('DISMISSED'),
-        reason: createPhase7TextSchema({ maxScalars: 1000, multiline: true }),
+        reason: createContentTextSchema({ maxScalars: 1000, multiline: true }),
         remediationVersionId: z.null().optional()
       })
       .strict()
@@ -839,7 +844,7 @@ export const createQuestionReportDescriptionDigest = async (
   sha256DomainSeparated(
     port,
     'nihongo-question-report-description-v1',
-    normalizePhase7Text(description)
+    normalizeContentText(description)
   )
 
 export const assertQuestionReportDescriptionDigest = async (
@@ -902,18 +907,19 @@ export const getAdminQuestionReportErrorCodeSchema = z.enum([
   'SERVICE_UNAVAILABLE'
 ])
 export const listAdminQuestionReportsErrorSchema =
-  createPhase7OperationErrorSchema(
+  createContentOperationErrorSchema(
     'listAdminQuestionReports',
     listAdminQuestionReportsErrorCodeSchema
   )
 export const getAdminQuestionReportErrorSchema =
-  createPhase7OperationErrorSchema(
+  createContentOperationErrorSchema(
     'getAdminQuestionReport',
     getAdminQuestionReportErrorCodeSchema
   )
 export const createQuestionReportErrorCodeSchema = z.enum([
   'AUTHENTICATION_REQUIRED',
   'AUTH_SESSION_EXPIRED',
+  'ACCOUNT_RESTRICTED',
   'INVALID_JSON',
   'INVALID_REQUEST',
   'REQUEST_TOO_LARGE',
@@ -925,10 +931,11 @@ export const createQuestionReportErrorCodeSchema = z.enum([
   'INTERNAL_SERVER_ERROR',
   'SERVICE_UNAVAILABLE'
 ])
-export const createQuestionReportErrorSchema = createPhase7OperationErrorSchema(
-  'createQuestionReport',
-  createQuestionReportErrorCodeSchema
-)
+export const createQuestionReportErrorSchema =
+  createContentOperationErrorSchema(
+    'createQuestionReport',
+    createQuestionReportErrorCodeSchema
+  )
 export const triageAdminQuestionReportErrorCodeSchema = z.enum([
   'AUTHENTICATION_REQUIRED',
   'AUTH_SESSION_EXPIRED',
@@ -947,7 +954,7 @@ export const triageAdminQuestionReportErrorCodeSchema = z.enum([
   'SERVICE_UNAVAILABLE'
 ])
 export const triageAdminQuestionReportErrorSchema =
-  createPhase7OperationErrorSchema(
+  createContentOperationErrorSchema(
     'triageAdminQuestionReport',
     triageAdminQuestionReportErrorCodeSchema
   )
@@ -970,7 +977,7 @@ export const resolveAdminQuestionReportErrorCodeSchema = z.enum([
   'SERVICE_UNAVAILABLE'
 ])
 export const resolveAdminQuestionReportErrorSchema =
-  createPhase7OperationErrorSchema(
+  createContentOperationErrorSchema(
     'resolveAdminQuestionReport',
     resolveAdminQuestionReportErrorCodeSchema
   )
@@ -1062,3 +1069,13 @@ export type TriageAdminQuestionReportError = z.output<
 export type ResolveAdminQuestionReportError = z.output<
   typeof resolveAdminQuestionReportErrorSchema
 >
+
+export const getAdminImportResultOperationId =
+  'admin.getAdminImportResult' as const
+
+/** GET /admin/question-imports/:importId recovers a lost apply response. */
+export const getAdminImportResultParamsSchema = z
+  .object({ importId: opaqueIdSchema })
+  .strict()
+
+export const getAdminImportResultResponseSchema = adminImportApplyResponseSchema

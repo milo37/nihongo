@@ -3,8 +3,103 @@ import type { koResources } from './ko'
 
 export const jaAdminResources = {
   name: '管理者',
+  grid: {
+    columns: '表示する列',
+    pageSize: '1ページの行数',
+    pageStatus: '{{page}} / {{pageCount}}ページ · 全{{total}}件',
+    previous: '前へ',
+    next: '次へ'
+  },
+  nav: {
+    brand: '하루마루 管理',
+    questions: '問題',
+    import: 'インポート',
+    members: '会員',
+    reports: 'バグレポート',
+    auditLog: '監査履歴'
+  },
+  members: {
+    title: '会員',
+    description:
+      '会員の学習状況と利用状態を確認し、必要に応じて利用を制限します。メールアドレスは一部を隠して表示します。',
+    gridLabel: '会員一覧',
+    loading: '会員情報を読み込んでいます。',
+    loadError: '会員一覧を読み込めませんでした',
+    empty: 'まだ会員がいません。',
+    noMatch: 'このメールアドレスで登録した会員はいません。',
+    never: '学習記録なし',
+    openDetail: '詳細',
+    search: {
+      label: 'メールアドレスで検索',
+      hint: 'メールアドレス全体を正確に入力してください。',
+      submit: '検索',
+      clear: '検索を解除',
+      invalid: '正しいメールアドレスを入力してください。'
+    },
+    columns: {
+      memberId: '会員ID',
+      email: 'メールアドレス',
+      joinedAt: '登録日',
+      lastStudiedAt: '最近の学習',
+      solvedCount: '解いた問題',
+      reportCount: '報告',
+      status: '状態',
+      actions: '詳細・対応'
+    },
+    status: { ACTIVE: '利用中', RESTRICTED: '利用制限' },
+    detail: {
+      title: '会員詳細',
+      back: '会員一覧へ',
+      loadError: '会員情報を読み込めませんでした',
+      restrictedAt: '制限日時',
+      restrictTitle: '利用制限',
+      restrictHint:
+        '制限すると新しい学習・復習の開始と新しい報告ができなくなります。ログインと記録の閲覧は引き続き使えます。',
+      reason: '制限理由',
+      reasonHint: '{{max}}文字以内で入力してください。監査履歴に残ります。',
+      reasonRequired: '制限理由を1〜{{max}}文字で入力してください。',
+      restrict: '利用を制限',
+      restricting: '制限しています…',
+      restricted: '利用を制限しました。',
+      releaseTitle: '制限解除',
+      releaseHint: '解除するとすぐに学習と報告ができるようになります。',
+      release: '制限を解除',
+      releasing: '解除しています…',
+      released: '利用制限を解除しました。',
+      fresh: {
+        required:
+          'セキュリティのため管理者の本人確認が必要です。新しいタブで本人確認を済ませてから、ここで確認完了を押してください。入力内容はそのまま残り、「{{command}}」はまだ適用されていません。',
+        openNewTab: '新しいタブで本人確認',
+        confirm: '確認完了',
+        confirmed:
+          '本人確認が完了しました。もう一度「{{command}}」を押して適用してください。',
+        failed: '本人確認が完了しなかったため、適用していません。'
+      },
+      confirm: {
+        title: '利用を制限しますか？',
+        description: '次の会員にすぐ適用されます。',
+        preserved: '学習記録と送信済みの報告は削除されません。',
+        cancel: 'キャンセル',
+        apply: '制限を適用'
+      },
+      reload: '最新情報を再読み込み'
+    }
+  },
+  idleLock: {
+    title: '15分間使用がなかったためロックしました',
+    description: '入力した内容はそのまま残っています。',
+    recheck: 'もう一度確認',
+    checking: '確認中…',
+    failed: '本人確認が完了しませんでした。もう一度お試しください。',
+    expired:
+      'ログインが終了しました。入力した内容はこの画面にそのまま残っています。新しいタブでもう一度ログインしてから、この画面に戻って「もう一度確認」を押してください。',
+    signInNewTab: '新しいタブでログイン'
+  },
   common: {
     breadcrumbLabel: '現在位置',
+    menuLabel: '管理メニュー',
+    wideScreenRecommended:
+      'この作業は広い画面で行うことをおすすめします。スマートフォンでも続けられます。',
     questions: '問題管理',
     questionDetail: '問題詳細',
     newQuestion: '新しい問題',
@@ -76,7 +171,8 @@ export const jaAdminResources = {
       UPDATED_DESC: '更新が新しい順',
       CREATED_DESC: '作成が新しい順',
       LEVEL_ASC: 'レベル順',
-      REPORT_COUNT_DESC: '報告が多い順'
+      REPORT_COUNT_DESC: '報告が多い順',
+      CREATED_ASC: '古い順'
     },
     reportSort: {
       UPDATED_DESC: '更新が新しい順',
@@ -108,7 +204,7 @@ export const jaAdminResources = {
       PUBLISH: '公開',
       REQUEST_REVIEW: 'レビュー依頼',
       RETIRE: '公開終了',
-      WITHDRAW: '承認を取り消す'
+      WITHDRAW: '承認取り消し'
     },
     reviewActions: {
       REQUESTED: 'レビュー依頼',
@@ -245,7 +341,8 @@ export const jaAdminResources = {
     invalidState: '現在の状態ではこの操作を実行できません。',
     separationOfDuties:
       '作成とレビューの役割を分離する必要があるため、この操作を実行できません。',
-    duplicateQuestionContent: '同じ内容の問題がすでに存在します。',
+    duplicateQuestionContent:
+      'アーカイブした問題を含め、同じ内容の問題がすでに存在します。文言を変えてもう一度保存してください。',
     untrustedOrigin: '許可されていないリクエスト元です。',
     rateLimited: 'リクエストが多すぎます。',
     server: 'サーバーで管理者リクエストを処理できませんでした。',
@@ -288,89 +385,143 @@ export const jaAdminResources = {
     }
   },
   questionList: {
-    eyebrow: 'ADMIN QUESTION CMS · TECHNICAL MODE',
+    eyebrow: 'ADMIN QUESTION CMS',
     title: '問題管理',
     description:
-      'TEST/DEVELOPMENT向けのバージョン・レビューワークフローです。実際の人によるレビューや本番公開を意味しません。',
-    searchLabel: '問題文の先頭一致検索',
-    searchPlaceholder: '検索語を入力',
-    level: 'レベル',
+      '有効な問題の代表バージョンを管理します。作成中・レビュー中のバージョンがあれば優先して表示し、公開版の有無は別に表示します。一覧には正解と解説を表示しません。',
+    newQuestion: '新しい問題を登録',
+    unsupportedSort:
+      'ステータス順の並べ替えには対応していないため、更新が新しい順で表示します。',
+    searchLabel: '問題を検索',
+    searchPlaceholder: '問題文の書き出しを入力してください…',
+    search: '検索',
+    filtersLegend: '問題一覧の絞り込みと並べ替え',
     allLevels: 'すべてのレベル',
-    questionType: '問題形式',
-    allQuestionTypes: 'すべての問題形式',
-    difficulty: '難易度',
-    allDifficulties: 'すべての難易度',
-    lifecycle: '問題ライフサイクル',
-    allLifecycles: 'すべてのライフサイクル',
-    subject: '科目',
     allSubjects: 'すべての科目',
-    tagKey: 'タグキー',
-    tagPlaceholder: '登録済みタグの検索キー',
-    authorActorId: '作成者actor ID',
-    reviewerActorId: 'レビュー担当actor ID',
-    createdFrom: '作成日時の開始',
-    createdTo: '作成日時の終了',
-    updatedFrom: '更新日時の開始',
-    updatedTo: '更新日時の終了',
-    versionStatus: 'バージョン状態',
-    allStatuses: 'すべての状態',
-    sort: '並び順',
-    applySearch: '検索条件を適用',
-    resetFilters: 'フィルターをリセット',
-    invalidQuery:
-      'URLの検索条件が許容範囲外です。条件を修正するかリセットしてください。',
-    selectionSummary:
-      '{{selectedCount}}件選択中 · エクスポートは全状態から最大100件、一括レビューは有効な下書き・修正依頼のみ最大20件です。現在レビュー依頼可能: {{reviewableCount}}件',
-    requestReview: '選択項目をレビュー依頼',
-    requesting: '依頼しています…',
-    export: '機密データをエクスポート',
-    validating: '検証しています…',
-    batchComplete: '{{formattedCount}}件の問題をすべてレビュー依頼しました。',
-    exportStarted: '{{formattedCount}}件の問題のエクスポートを開始しました。',
-    conflictRefreshFailed:
-      '最新一覧を確認できませんでした。選択状態は保持されます。ネットワークを確認してもう一度お試しください。',
-    conflictRefreshed:
-      '問題の最新状態を反映しました。選択内容を確認してレビュー依頼をもう一度実行してください。',
-    conflictTitle: '別の操作で問題バージョンが変更されました',
-    actionFailedTitle: '操作を完了できませんでした',
-    retryConflict: '問題一覧の最新版を読み込む',
-    cachedError:
-      '最新一覧を確認できませんでした。現在の一覧と選択状態は保持されます。',
-    retryList: '一覧を再確認',
-    loading: '管理者用の問題を読み込んでいます…',
+    allStatuses: 'すべての表示バージョンのステータス',
+    allDifficulties: 'すべての難易度',
+    sort: '並べ替え',
+    total: '全{{formattedCount}}問',
+    totalPending: '問題数を確認しています…',
+    resetFilters: '絞り込みをリセット',
+    loading: '管理者用の問題一覧を読み込んでいます…',
     loadErrorTitle: '問題一覧を読み込めませんでした',
+    loadErrorDescription:
+      'ネットワークの状態を確認してから、もう一度お試しください。',
+    movingPage: '有効な問題一覧のページに移動しています。',
+    noMatchTitle: '検索条件に合う問題はありません',
+    noMatchDescription:
+      '検索語や絞り込みを変更して、もう一度確認してください。',
+    noQuestionsTitle: '登録された問題はありません',
+    noQuestionsDescription:
+      '最初のオリジナル問題を登録して、問題バンクを作りましょう。',
+    firstQuestion: '最初の問題を登録',
     emptyTitle: '表示する問題がありません',
-    emptyDescription: '検索条件を変更するか、新しい問題を作成してください。',
-    tableHelp: '表が画面より広い場合は横方向にスクロールできます。',
-    tableRefreshing: ' 最新一覧を確認しています。',
-    tableCaption:
-      '管理者用問題一覧。選択、問題、分類、バージョン状態、解答・正答率、報告、作成日時、更新日時、詳細の列があります。',
-    tableScrollLabel: '管理者用問題一覧の横スクロール領域',
+    tableHelp:
+      '表を左右にスクロールすると、すべての列と管理ボタンを確認できます。',
+    tableLabel: '管理者用の問題一覧',
+    tableCaption: 'JLPT管理者用の問題一覧。編集とアーカイブの操作を含みます。',
     columns: {
-      select: '選択',
-      question: '問題',
-      classification: '分類',
-      status: '状態',
-      attempts: '解答・正答率',
-      reports: '報告',
-      createdAt: '作成日時',
-      updatedAt: '更新日時',
-      details: '詳細'
+      id: 'ID',
+      level: 'レベル',
+      subject: '科目',
+      questionType: '形式',
+      question: '問題文',
+      difficulty: '難易度',
+      status: 'ステータス',
+      tags: 'タグ',
+      updatedAt: '更新日',
+      actions: '管理'
     },
-    sortLabels: {
-      level: '分類をレベル昇順で並べ替え',
-      levelActive: '分類はレベル昇順です',
-      reports: '報告数が多い順で並べ替え',
-      reportsActive: '報告数が多い順です',
-      created: '作成日時が新しい順で並べ替え',
-      createdActive: '作成日時が新しい順です',
-      updated: '更新日時が新しい順で並べ替え',
-      updatedActive: '更新日時が新しい順です'
+    lifecycle: { ACTIVE: '有効', ARCHIVED: 'アーカイブ' },
+    published: '公開版あり',
+    unpublished: '公開版なし',
+    noDate: '日付情報なし',
+    edit: '編集',
+    details: '詳細',
+    rowActionLabel: '問題{{questionId}}の{{action}}',
+    archive: '公開終了・アーカイブ',
+    archiveLabel: '問題{{questionId}}を公開終了・アーカイブ',
+    batch: {
+      selectColumn: '公開の選択',
+      selectRow: '問題{{questionId}}を選択',
+      selectPage: 'このページの承認済みの問題をすべて選択',
+      selected: '{{count}}問を選択中',
+      clear: '選択を解除',
+      publish: '選択した問題を公開',
+      scopeNote: 'ページやフィルターを変えると、選択は解除されます。',
+      dialog: {
+        title: '{{count}}問を公開しますか？',
+        description:
+          '承認済みのバージョンがすぐに学習者に出題されます。公開中のバージョンがある場合は、このバージョンに切り替わります。',
+        more: 'ほか{{rest}}問',
+        body: '1問ずつ公開するため、途中で一部だけ公開される場合があります。結果は問題ごとに表示します。',
+        cancel: 'キャンセル',
+        confirm: '{{count}}問を公開',
+        confirming: '公開中…',
+        notPublished: '公開していません。'
+      },
+      result: {
+        allPublished: '{{published}}問を公開しました',
+        partial: '{{published}}問を公開し、{{failed}}問は公開できませんでした',
+        close: '閉じる',
+        VERSION_CONFLICT: {
+          label: '変更の競合',
+          reason:
+            '別の変更が先に保存されました。一覧で最新の状態を確認してから、もう一度選択してください。'
+        },
+        NOT_REVIEWED: {
+          label: '未承認',
+          reason: '承認済みではないため、公開していません。'
+        },
+        NOT_FOUND: {
+          label: '見つかりません',
+          reason:
+            '問題が見つかりません。すでにアーカイブされた可能性があります。'
+        },
+        FAILED: {
+          label: '公開失敗',
+          reason:
+            '公開中に問題が発生しました。もう一度試す前に、一覧で状態を確認してください。'
+        }
+      }
     },
-    selectQuestion: '{{question}}を選択',
-    answerStats: '{{formattedCount}}回 · 正答率{{rate}}',
-    noAccuracy: '{{formattedCount}}回 · 正答率なし',
-    reportCount: '{{formattedCount}}件'
+    draftDelete: '下書きを削除',
+    draftDeleteLabel: '下書き{{questionId}}を削除',
+    draftDialog: {
+      title: '下書きを削除しますか？',
+      description:
+        '下書き{{questionId}}を一覧から外してアーカイブします。同じ内容で新しい問題を作成することはできません。',
+      confirm: '下書きを削除',
+      confirming: '削除中…',
+      failed:
+        '下書きを削除できませんでした。しばらくしてから、もう一度お試しください。',
+      successTitle: '下書きを削除しました',
+      successDescription: '下書き{{questionId}}を一覧から外しました。'
+    },
+    archiveDialog: {
+      title: 'この問題を公開終了してアーカイブしますか？',
+      description:
+        '問題{{questionId}}を有効な一覧からアーカイブします。これまでの学習結果は残ります。',
+      body: '有効な一覧と新しい出題対象から外し、現在の公開版と作業中の候補の利用を終了します。これまでの学習記録は削除しません。',
+      duplicateNote:
+        'アーカイブした問題（下書きを含む）と同じ内容では、新しい問題を作成できません。',
+      cancel: 'キャンセル',
+      confirm: '公開終了・アーカイブ',
+      confirming: 'アーカイブ中…',
+      reauthenticate: '管理者の再認証',
+      refresh: '最新の状態を確認',
+      refreshFailed:
+        '最新の状態を確認できませんでした。アーカイブは実行していません。',
+      freshRequired:
+        '管理者の再認証が必要です。再認証後、一覧で確認してからアーカイブしてください。',
+      conflict:
+        '別の変更が先に保存されました。最新の状態を確認してから、もう一度アーカイブしてください。',
+      failed:
+        '問題をアーカイブできませんでした。しばらくしてから、もう一度お試しください。',
+      successTitle: '問題をアーカイブしました',
+      successDescription: '問題{{questionId}}を有効な一覧から外しました。'
+    }
   },
   create: {
     page: {
@@ -468,6 +619,10 @@ export const jaAdminResources = {
         question: '問題文を入力してください。',
         questionLength: '正規化後のUnicode文字を1〜2000個で入力してください。',
         passage: '読解問題には本文を入力してください。',
+        passageNotAllowed:
+          'この問題タイプには本文を使えません。本文を空にしてください。',
+        combination:
+          '選択した級・科目・問題タイプの組み合わせは登録できません。',
         option: '選択肢の内容を入力してください。',
         optionCount: '選択肢は4つ必要です。',
         optionDuplicate: '同じ選択肢を重複して入力できません。',
@@ -597,9 +752,9 @@ export const jaAdminResources = {
     commandDialogTitle: '{{command}}の確認',
     commandDialogFallbackTitle: '操作の確認',
     commandDialogDescription:
-      '現在のrowVersionを基準に実行し、競合時には自動再試行しません。',
+      'ほかの管理者が先に変更していた場合は、実行せずにお知らせします。',
     cancel: 'キャンセル',
-    execute: '明示的に実行',
+    execute: '実行',
     requiredReason: '理由',
     optionalReviewNote: 'レビューメモ（任意）',
     noteLimit: 'メモは{{formattedCount}}文字以下にしてください。',
@@ -627,7 +782,15 @@ export const jaAdminResources = {
     apply: '同じ検証結果を一括適用',
     applied: '{{formattedCount}}件の下書きを一括作成しました。',
     error: 'インポート要求を処理できませんでした。',
-    issueLabel: '{{code}} · 項目{{item}} · {{field}}'
+    issueLabel: '{{code}} · 項目{{item}} · {{field}}',
+    recovery: {
+      checking:
+        '適用の応答を受け取れなかったため、同じインポートIDで適用結果を確認しています。',
+      notApplied:
+        'このインポートは適用されていません。再度適用しても下書きが重複して作成されることはありません。',
+      failed:
+        '適用結果を確認できませんでした。再度適用すると同じインポートIDで処理され、下書きが重複して作成されることはありません。'
+    }
   },
   audit: {
     eyebrow: 'ADMIN AUDIT',
@@ -651,14 +814,20 @@ export const jaAdminResources = {
     trigger: '問題を報告',
     title: '問題を報告',
     description: '報告内容は管理者のみが確認し、HTMLとして解釈されません。',
-    reason: '報告理由',
     details: '説明',
     descriptionRequired: '報告の説明を入力してください。',
     cancel: 'キャンセル',
     submit: '報告を送信',
     submitted: '問題の報告を受け付けました。',
     error: '問題の報告を受け付けられませんでした。',
-    offline: 'オフラインです。入力した説明は保持されます。'
+    offline: 'オフラインです。入力した説明は保持されます。',
+    appErrorTrigger: 'アプリの不具合を報告',
+    errorScreenTrigger: '不具合を報告',
+    appErrorTitle: 'アプリの不具合を報告',
+    appErrorDescription:
+      'どの画面で何をしていたときに問題が起きたかを入力してください。報告内容は管理者のみが確認します。',
+    appErrorSubmitted: 'アプリの不具合報告を受け付けました。',
+    appErrorError: 'アプリの不具合報告を受け付けられませんでした。'
   },
   reportList: {
     eyebrow: 'QUESTION REPORTS · TECHNICAL MODE',
@@ -746,5 +915,82 @@ export const jaAdminResources = {
     mutationError: '報告状態を変更できませんでした。',
     retryConflict: '報告の最新状態を読み込む',
     conflictTitle: '別の操作で報告状態が変更されました'
+  },
+  userReport: {
+    list: {
+      title: 'バグレポート',
+      description:
+        '学習者から届いた問題の報告とアプリの不具合報告です。受付済みを先に、新しい順で表示します。',
+      invalidQuery: 'URLの検索条件が許可範囲外です。既定の条件を使用します。',
+      status: '処理状態',
+      allStatuses: 'すべての状態',
+      kind: '種類',
+      allKinds: 'すべての種類',
+      pageSize: '1ページの件数',
+      apply: 'フィルターを適用',
+      reset: 'フィルターをリセット',
+      loading: '報告を読み込んでいます…',
+      refreshing: '報告一覧を更新しています…',
+      error: '報告一覧を読み込めませんでした。',
+      cachedError:
+        '最新の報告一覧を確認できませんでした。現在の一覧はそのまま残ります。',
+      retry: '報告一覧を再確認',
+      emptyTitle: '処理する報告はありません。',
+      emptyDescription: '現在の条件に合う報告はありません。',
+      total: '報告 {{formattedCount}}件',
+      location: '発生場所',
+      createdAt: '受付日時',
+      details: '詳細を見る',
+      previous: '前のページ',
+      next: '次のページ',
+      first: '最初のページへ'
+    },
+    detail: {
+      back: 'バグレポート一覧',
+      loading: '報告を読み込んでいます…',
+      error: '報告を読み込めませんでした。',
+      retry: '再読み込み',
+      content: '報告内容',
+      location: '発生場所',
+      target: '対象の問題',
+      reporter: '報告者',
+      deletedReporter: '退会した会員',
+      noteTitle: '内部メモ · 報告者には表示されません',
+      process: '処理',
+      reply: '報告者への返信',
+      replyVisible: '報告者が「自分の報告」で確認します',
+      note: '内部メモ',
+      noteHint: '報告者には表示されません。',
+      notePlaceholder: '任意入力',
+      replyAndClose: '返信して完了',
+      saveNote: 'メモのみ保存',
+      close: '返信せずに完了',
+      noNotification: 'アプリ通知・メールは送信しません。',
+      replyRequired: '報告者への返信を入力してください。',
+      sentReply: '送信した返信',
+      repliedAt: '返信日時',
+      closedAt: '完了日時',
+      closedNotice: '完了した報告はこれ以上処理できません。',
+      repliedClosed: '返信を送信して完了しました。',
+      noteSaved: '内部メモを保存しました。',
+      closed: '返信せずに完了しました。',
+      conflict:
+        '他の管理者が先にこの報告を変更しました。最新の内容を読み込んだので、確認してからもう一度処理してください。',
+      link: '関連',
+      newVersion: '対象の問題の新しいバージョンを作成',
+      noteReplaced:
+        'メモ欄を他の管理者が保存した最新のメモに置き換えました。自分のメモは下に別途残しています。',
+      myDraft: '自分のメモ',
+      restoreDraft: '自分のメモを戻す'
+    },
+    statuses: {
+      RECEIVED: '受付済み',
+      ANSWERED: '返信済み',
+      CLOSED: '完了'
+    },
+    kinds: {
+      QUESTION: '問題の報告',
+      APP_ERROR: 'アプリの不具合'
+    }
   }
 } as const satisfies LocaleCatalog<typeof koResources.admin>

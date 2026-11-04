@@ -20,6 +20,10 @@ import type {
   QuestionReportMutationResult,
   WithdrawQuestionApprovalRequest
 } from '@nihongo/contracts/admin/content-operations'
+import type {
+  PublishQuestionVersionBatchRequest,
+  PublishQuestionVersionBatchResponse
+} from '@nihongo/contracts/admin/review'
 import { ApplicationError } from '../errors/applicationError.js'
 import {
   AdminQuestionCommandRepositoryError,
@@ -86,6 +90,11 @@ export interface AdminQuestionPublicationCommandService {
     questionId: string,
     request: ArchiveAdminQuestionRequest
   ) => Promise<AdminQuestionMutationResult>
+  /** Publishes each item in its own transaction; the batch is not atomic. */
+  publishVersionBatch: (
+    authority: AdminCommandAuthority,
+    request: PublishQuestionVersionBatchRequest
+  ) => Promise<PublishQuestionVersionBatchResponse>
 }
 
 export interface AdminQuestionSlice5CommandService {
@@ -127,10 +136,10 @@ const execute = async <Result>(
         code: error.code,
         message: error.message,
         retryable: false,
-        phase7Disposition: error.disposition,
+        adminDisposition: error.disposition,
         ...(error.fieldErrors ? { fieldErrors: error.fieldErrors } : {}),
         ...(error.internalReason
-          ? { phase7InternalReason: error.internalReason }
+          ? { adminInternalReason: error.internalReason }
           : {}),
         ...(error.retryAfterSeconds
           ? { retryAfterSeconds: error.retryAfterSeconds }
@@ -189,6 +198,73 @@ export const createAdminQuestionCommandService = (
     )
 })
 
+const BATCH_ITEM_RESULTS = {
+  RESOURCE_NOT_FOUND: 'NOT_FOUND',
+  VERSION_CONFLICT: 'VERSION_CONFLICT',
+  INVALID_STATE_TRANSITION: 'NOT_REVIEWED'
+} as const satisfies Partial<
+  Record<
+    AdminQuestionCommandRepositoryError['code'],
+    PublishQuestionVersionBatchResponse['items'][number]['result']
+  >
+>
+
+const isBatchItemFailure = (
+  code: AdminQuestionCommandRepositoryError['code']
+): code is keyof typeof BATCH_ITEM_RESULTS => code in BATCH_ITEM_RESULTS
+
+/**
+ * Item outcomes become results. Other failures throw while nothing is
+ * published yet, so an error response never hides a committed item; after the
+ * first publish they become FAILED and the batch continues.
+ */
+const publishBatchItem = async (
+  repository: AdminQuestionPublicationCommandRepository,
+  authority: AdminCommandAuthority,
+  questionVersionId: string,
+  expectedRowVersion: number,
+  anyPublished: boolean
+): Promise<PublishQuestionVersionBatchResponse['items'][number]> => {
+  try {
+    const target = await repository.readPublicationTarget(questionVersionId)
+    if (!target) {
+      return { questionVersionId, result: 'NOT_FOUND', rowVersion: null }
+    }
+    // Only APPROVED versions can be published; the DB rejects the rest late.
+    if (target.versionStatus !== 'APPROVED') {
+      return { questionVersionId, result: 'NOT_REVIEWED', rowVersion: null }
+    }
+    const published = await repository.publishVersion(
+      authority,
+      questionVersionId,
+      {
+        expectedRowVersion,
+        expectedQuestionRowVersion: target.questionRowVersion
+      }
+    )
+    return {
+      questionVersionId,
+      result: 'PUBLISHED',
+      rowVersion: published.versionRowVersion
+    }
+  } catch (error: unknown) {
+    if (
+      error instanceof AdminQuestionCommandRepositoryError &&
+      isBatchItemFailure(error.code)
+    ) {
+      return {
+        questionVersionId,
+        result: BATCH_ITEM_RESULTS[error.code],
+        rowVersion: null
+      }
+    }
+    if (!anyPublished) {
+      throw error
+    }
+    return { questionVersionId, result: 'FAILED', rowVersion: null }
+  }
+}
+
 export const createAdminQuestionPublicationCommandService = (
   repository: AdminQuestionPublicationCommandRepository
 ): AdminQuestionPublicationCommandService => ({
@@ -197,7 +273,27 @@ export const createAdminQuestionPublicationCommandService = (
   retireVersion: (authority, versionId, request) =>
     execute(() => repository.retireVersion(authority, versionId, request)),
   archiveQuestion: (authority, questionId, request) =>
-    execute(() => repository.archiveQuestion(authority, questionId, request))
+    execute(() => repository.archiveQuestion(authority, questionId, request)),
+  publishVersionBatch: (authority, request) =>
+    execute(async () => {
+      const items: PublishQuestionVersionBatchResponse['items'][number][] = []
+      for (const { questionVersionId, expectedRowVersion } of request.items) {
+        items.push(
+          await publishBatchItem(
+            repository,
+            authority,
+            questionVersionId,
+            expectedRowVersion,
+            items.some(({ result }) => result === 'PUBLISHED')
+          )
+        )
+      }
+      return {
+        publishedCount: items.filter(({ result }) => result === 'PUBLISHED')
+          .length,
+        items
+      }
+    })
 })
 
 export const createAdminQuestionSlice5CommandService = (

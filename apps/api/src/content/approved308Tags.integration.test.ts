@@ -11,7 +11,7 @@ import {
   it
 } from 'vitest'
 import { originalQuestionSeeds } from '../../prisma/seed-data/questions/index.js'
-import { normalizePhase7TagKey } from '@nihongo/contracts/admin/content-operations'
+import { normalizeContentTagKey } from '@nihongo/contracts/admin/content-operations'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import { createPrismaAdminQuestionSlice5Repository } from '../admin/adminQuestionSlice5Repository.js'
 import { parseApiEnvironment } from '../config/env.js'
@@ -454,7 +454,7 @@ describe('Approved308 closed current38 successor registration', () => {
     const base = new Set(
       originalQuestionSeeds.flatMap((q) =>
         q.tags.map((t) =>
-          [normalizePhase7TagKey(t), q.level, q.subject, q.questionType].join(
+          [normalizeContentTagKey(t), q.level, q.subject, q.questionType].join(
             '\0'
           )
         )

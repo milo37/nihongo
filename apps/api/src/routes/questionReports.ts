@@ -5,24 +5,16 @@ import {
   emptyQuerySchema
 } from '@nihongo/contracts/admin/content-operations'
 import { Hono, type MiddlewareHandler } from 'hono'
-import { z, type ZodError } from 'zod'
+import { z } from 'zod'
 import type { QuestionReportService } from '../admin/questionReportService.js'
 import { getOperationBodySizeLimit } from '../admin/adminCommandGuard.js'
 import { ApplicationError } from '../errors/applicationError.js'
 import { readStrictJsonBody } from '../http/strictJsonBody.js'
 import { parseStrictRawQuery } from '../http/rawQuery.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
+import { toFieldErrors } from './routeSupport.js'
 
 type ReportRouteEnvironment = { Variables: ApiVariables }
-
-const toFieldErrors = (error: ZodError): Record<string, string[]> => {
-  const fieldErrors: Record<string, string[]> = {}
-  for (const issue of error.issues) {
-    const path = issue.path.length > 0 ? issue.path.join('.') : 'request'
-    fieldErrors[path] = [...(fieldErrors[path] ?? []), issue.message]
-  }
-  return fieldErrors
-}
 
 const assertCommittedResponse = <Response>(
   assertion: () => Response
@@ -34,7 +26,7 @@ const assertCommittedResponse = <Response>(
       code: 'INTERNAL_SERVER_ERROR',
       message: '문제 신고 응답 무결성을 확인할 수 없습니다.',
       retryable: false,
-      phase7Disposition: 'COMMIT_CONFIRMED',
+      adminDisposition: 'COMMIT_CONFIRMED',
       cause: error
     })
   }
@@ -69,7 +61,7 @@ export const createQuestionReportRoutes = ({
           message: '문제 신고 요청이 올바르지 않습니다.',
           fieldErrors: toFieldErrors(error),
           retryable: false,
-          phase7Disposition: 'NO_TX'
+          adminDisposition: 'NO_TX'
         })
       }
     })()

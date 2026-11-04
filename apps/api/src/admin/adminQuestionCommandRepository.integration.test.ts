@@ -18,6 +18,7 @@ import {
   assertTriageAdminQuestionReportResponse,
   assertUpdateQuestionVersionResponse,
   approveQuestionVersionRequestSchema,
+  withdrawQuestionApprovalRequestSchema,
   archiveAdminQuestionRequestSchema,
   createQuestionReportRequestSchema,
   createAdminQuestionRequestSchema,
@@ -25,6 +26,7 @@ import {
   createQuestionDuplicateIdentityKey,
   exportAdminQuestionsRequestSchema,
   listAdminQuestionReportsQuerySchema,
+  listQuestionVersionReviewsResponseSchema,
   publishQuestionVersionRequestSchema,
   requestContentReviewBatchRequestSchema,
   requestContentReviewRequestSchema,
@@ -74,6 +76,8 @@ import {
   type AdminQuestionPublicationCommandService,
   type AdminQuestionSlice5CommandService
 } from './adminQuestionCommandService.js'
+import { createPrismaAdminQuestionRepository } from './adminQuestionRepository.js'
+import { createAdminQuestionService } from './adminQuestionService.js'
 import { createPrismaAdminQuestionSlice5Repository } from './adminQuestionSlice5Repository.js'
 import { createPrismaQuestionReportRepository } from './questionReportRepository.js'
 import {
@@ -297,12 +301,12 @@ const describeFailure = (value: unknown, depth = 0): string => {
   const details = value as Error & {
     readonly code?: unknown
     readonly disposition?: unknown
-    readonly phase7Disposition?: unknown
+    readonly adminDisposition?: unknown
   }
   const code = typeof details.code === 'string' ? `:${details.code}` : ''
   const dispositionValue =
-    typeof details.phase7Disposition === 'string'
-      ? details.phase7Disposition
+    typeof details.adminDisposition === 'string'
+      ? details.adminDisposition
       : typeof details.disposition === 'string'
         ? details.disposition
         : ''
@@ -1095,7 +1099,7 @@ describe('ADMIN command TEST database integration', () => {
       )
     ).rejects.toMatchObject({
       code: 'SEPARATION_OF_DUTIES_VIOLATION',
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
     expect(await readVersionWriteCounts(createdVersionId)).toEqual(
       beforeSelfDecision
@@ -1269,7 +1273,7 @@ describe('ADMIN command TEST database integration', () => {
       )
     ).rejects.toMatchObject({
       code: 'DUPLICATE_QUESTION_CONTENT',
-      phase7Disposition: 'NO_TX'
+      adminDisposition: 'NO_TX'
     })
     expect(
       await adminClient.query<{
@@ -1286,6 +1290,137 @@ describe('ADMIN command TEST database integration', () => {
       )
     ).toMatchObject({ rows: beforeDuplicate.rows })
   }, 60_000)
+
+  it('publishes a batch item by item and reports per-item outcomes (#491)', async () => {
+    if (!commandService) throw new Error('Command service is unavailable.')
+
+    const first = await prepareApprovedQuestion(`batch-a-${randomUUID()}`)
+    const second = await prepareApprovedQuestion(`batch-b-${randomUUID()}`)
+    const missingId = randomUUID()
+    const batchAuthority = authority(authorId, authorToken)
+
+    const response = await commandService.publishVersionBatch(batchAuthority, {
+      items: [
+        {
+          questionVersionId: first.versionId,
+          expectedRowVersion: first.versionRowVersion
+        },
+        {
+          questionVersionId: second.versionId,
+          expectedRowVersion: second.versionRowVersion + 1
+        },
+        { questionVersionId: missingId, expectedRowVersion: 1 }
+      ]
+    })
+
+    expect(response.publishedCount).toBe(1)
+    expect(response.items).toEqual([
+      {
+        questionVersionId: first.versionId,
+        result: 'PUBLISHED',
+        rowVersion: first.versionRowVersion + 1
+      },
+      {
+        questionVersionId: second.versionId,
+        result: 'VERSION_CONFLICT',
+        rowVersion: null
+      },
+      { questionVersionId: missingId, result: 'NOT_FOUND', rowVersion: null }
+    ])
+    const statuses = await adminClient.query<{ id: string; status: string }>(
+      `SELECT "id", "status"::text AS "status" FROM "QuestionVersion"
+         WHERE "id" = ANY($1::uuid[]) ORDER BY "id"`,
+      [[first.versionId, second.versionId]]
+    )
+    expect(
+      Object.fromEntries(statuses.rows.map((row) => [row.id, row.status]))
+    ).toEqual({
+      [first.versionId]: 'PUBLISHED',
+      [second.versionId]: 'APPROVED'
+    })
+
+    const again = await commandService.publishVersionBatch(
+      authority(authorId, authorToken),
+      {
+        items: [
+          {
+            questionVersionId: first.versionId,
+            expectedRowVersion: first.versionRowVersion + 1
+          }
+        ]
+      }
+    )
+    expect(again).toEqual({
+      publishedCount: 0,
+      items: [
+        {
+          questionVersionId: first.versionId,
+          result: 'NOT_REVIEWED',
+          rowVersion: null
+        }
+      ]
+    })
+  })
+
+  it('lets a single operator approve, withdraw and publish their own version (JLP-704)', async () => {
+    if (!commandService) throw new Error('Command service is unavailable.')
+    const own = authority(authorId, authorToken)
+    const created = await createDraftQuestion(`self-${randomUUID()}`)
+    const versionId = created.questionVersionId
+    if (!versionId) throw new Error('Created version ID is unavailable.')
+    const review = async (expectedRowVersion: number) =>
+      commandService!.requestReview(
+        own,
+        versionId,
+        requestContentReviewRequestSchema.parse({ expectedRowVersion })
+      )
+    const approve = async (expectedRowVersion: number) =>
+      commandService!.approveVersion(
+        own,
+        versionId,
+        approveQuestionVersionRequestSchema.parse({ expectedRowVersion })
+      )
+
+    const firstReview = await review(created.versionRowVersion!)
+    const firstApproval = await approve(firstReview.versionRowVersion!)
+    expect(firstApproval.versionStatus).toBe('APPROVED')
+
+    const withdrawn = await commandService.withdrawApproval(
+      own,
+      versionId,
+      withdrawQuestionApprovalRequestSchema.parse({
+        expectedRowVersion: firstApproval.versionRowVersion,
+        reason: '본인 승인 철회'
+      })
+    )
+    expect(withdrawn.versionStatus).toBe('CHANGES_REQUESTED')
+
+    const secondReview = await review(withdrawn.versionRowVersion!)
+    const secondApproval = await approve(secondReview.versionRowVersion!)
+    const published = await commandService.publishVersion(
+      own,
+      versionId,
+      publishQuestionVersionRequestSchema.parse({
+        expectedRowVersion: secondApproval.versionRowVersion,
+        expectedQuestionRowVersion: secondApproval.questionRowVersion
+      })
+    )
+    expect(published.versionStatus).toBe('PUBLISHED')
+
+    const history = listQuestionVersionReviewsResponseSchema.parse(
+      await createAdminQuestionService(
+        createPrismaAdminQuestionRepository(applicationRuntime!.client)
+      ).listReviews(versionId, { limit: 20 })
+    )
+    expect(
+      history.items
+        .filter(({ action }) =>
+          ['APPROVED', 'APPROVAL_WITHDRAWN'].includes(action)
+        )
+        .map(({ action }) => action)
+        .sort()
+    ).toEqual(['APPROVAL_WITHDRAWN', 'APPROVED', 'APPROVED'])
+  })
 
   it('executes publication, retirement and all archive shapes atomically', async () => {
     if (!commandService) throw new Error('Command service is unavailable.')
@@ -1339,7 +1474,7 @@ describe('ADMIN command TEST database integration', () => {
     expect(publishLoser.reason).toBeInstanceOf(ApplicationError)
     expect(publishLoser.reason).toMatchObject({
       code: 'VERSION_CONFLICT',
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
     expect(
       await readCommandEvidence(
@@ -1591,7 +1726,7 @@ describe('ADMIN command TEST database integration', () => {
     expect(archiveBothLoser.reason).toBeInstanceOf(ApplicationError)
     expect(archiveBothLoser.reason).toMatchObject({
       code: 'VERSION_CONFLICT',
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
     expect(
       await readCommandEvidence(
@@ -1847,7 +1982,7 @@ describe('ADMIN command TEST database integration', () => {
     expect(retirementLoser.reason).toBeInstanceOf(ApplicationError)
     expect(retirementLoser.reason).toMatchObject({
       code: 'VERSION_CONFLICT',
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
     expect(
       await readCommandEvidence(
@@ -2146,7 +2281,7 @@ describe('ADMIN command TEST database integration', () => {
       )
     ).rejects.toMatchObject({
       code: 'RESOURCE_NOT_FOUND',
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
     const rollbackState = await adminClient.query<{
       auditCount: number
@@ -2213,7 +2348,7 @@ describe('ADMIN command TEST database integration', () => {
       )
     ).rejects.toMatchObject({
       code: 'INVALID_STATE_TRANSITION',
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
     expect(await readCommandEvidence(stateFirstAuthority.requestId)).toEqual({
       audit: [],
@@ -2240,7 +2375,7 @@ describe('ADMIN command TEST database integration', () => {
       )
     ).rejects.toMatchObject({
       code: 'VERSION_CONFLICT',
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
     expect(await readCommandEvidence(staleFirstAuthority.requestId)).toEqual({
       audit: [],
@@ -2268,6 +2403,7 @@ describe('ADMIN command TEST database integration', () => {
     })
 
     const applyRequest = applyQuestionImportRequestSchema.parse({
+      importId: randomUUID(),
       items: validationRequest.items,
       validationDigest: validation.validationDigest
     })
@@ -2283,6 +2419,35 @@ describe('ADMIN command TEST database integration', () => {
       appliedRaw.mappingDigest
     )
     expect(applied.response.createdCount).toBe(2)
+    // Same importId, actor and body replays the stored response (#491).
+    const replayed = await slice5CommandService.applyImport(
+      applyAuthority,
+      applyRequest
+    )
+    expect(replayed).toEqual(appliedRaw)
+    const storedResult = await adminClient.query<{ actorUserId: string }>(
+      `SELECT "actorUserId" FROM "QuestionImportResult" WHERE "importId" = $1`,
+      [applyRequest.importId]
+    )
+    expect(storedResult.rows).toEqual([{ actorUserId: authorId }])
+    const otherValidationRequest = validateQuestionImportRequestSchema.parse({
+      items: [createImportItem(randomUUID())]
+    })
+    const otherValidation = await assertAdminImportValidationForRequest(
+      sha256Port,
+      otherValidationRequest,
+      await slice5CommandService.validateImport(otherValidationRequest)
+    )
+    await expect(
+      slice5CommandService.applyImport(
+        applyAuthority,
+        applyQuestionImportRequestSchema.parse({
+          importId: applyRequest.importId,
+          items: otherValidationRequest.items,
+          validationDigest: otherValidation.validationDigest
+        })
+      )
+    ).rejects.toMatchObject({ code: 'IMPORT_IDENTITY_CONFLICT' })
     const applyEvidence = await adminClient.query<{
       command: string
       contentDigestValid: boolean
@@ -2390,6 +2555,7 @@ describe('ADMIN command TEST database integration', () => {
       await slice5CommandService.validateImport(concurrentRequest)
     )
     const concurrentApplyRequest = applyQuestionImportRequestSchema.parse({
+      importId: randomUUID(),
       items: concurrentRequest.items,
       validationDigest: concurrentValidation.validationDigest
     })
@@ -2433,10 +2599,10 @@ describe('ADMIN command TEST database integration', () => {
         authority(authorId, authorToken),
         concurrentApplyRequest
       ),
-      concurrentServices[1]!.applyImport(
-        authority(reviewerId, reviewerToken),
-        concurrentApplyRequest
-      )
+      concurrentServices[1]!.applyImport(authority(reviewerId, reviewerToken), {
+        ...concurrentApplyRequest,
+        importId: randomUUID()
+      })
     ])
     expect(
       concurrentOutcomes.filter(({ status }) => status === 'fulfilled')
@@ -2449,9 +2615,9 @@ describe('ADMIN command TEST database integration', () => {
     }
     expect(concurrentLoser.reason).toMatchObject({
       code: 'SERVICE_UNAVAILABLE',
-      phase7InternalReason: 'CONTENT_DUPLICATE_CONCURRENT_RACE',
+      adminInternalReason: 'CONTENT_DUPLICATE_CONCURRENT_RACE',
       retryable: false,
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
     const afterConcurrent = await readGlobalWriteCounts()
     expect(afterConcurrent).toEqual({
@@ -2473,6 +2639,7 @@ describe('ADMIN command TEST database integration', () => {
       await slice5CommandService.validateImport(faultValidationRequest)
     )
     const faultApplyRequest = applyQuestionImportRequestSchema.parse({
+      importId: randomUUID(),
       items: faultValidationRequest.items,
       validationDigest: faultValidation.validationDigest
     })
@@ -2503,7 +2670,7 @@ describe('ADMIN command TEST database integration', () => {
       ).rejects.toMatchObject({
         code: 'SERVICE_UNAVAILABLE',
         retryable: false,
-        phase7Disposition: 'DEFINITE_ROLLBACK'
+        adminDisposition: 'DEFINITE_ROLLBACK'
       })
       expect(await readGlobalWriteCounts()).toEqual(beforeFault)
     } finally {
@@ -2607,7 +2774,7 @@ describe('ADMIN command TEST database integration', () => {
     expect(reportCreateLoser.reason).toMatchObject({
       code: 'QUESTION_REPORT_DUPLICATE',
       retryable: false,
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
     await expect(
       questionReportService.createReport(
@@ -2732,7 +2899,7 @@ describe('ADMIN command TEST database integration', () => {
     )
     expect(loser.reason).toMatchObject({
       code: 'VERSION_CONFLICT',
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
     expect(await readCommandEvidence(loserAuthority.requestId)).toEqual({
       audit: [],
@@ -2859,7 +3026,7 @@ describe('ADMIN command TEST database integration', () => {
         )
       ).rejects.toMatchObject({
         code: 'RESOURCE_NOT_FOUND',
-        phase7Disposition: 'DEFINITE_ROLLBACK'
+        adminDisposition: 'DEFINITE_ROLLBACK'
       })
       expect(await readCommandEvidence(resolveAuthority.requestId)).toEqual({
         audit: [],
@@ -2975,7 +3142,7 @@ describe('ADMIN command TEST database integration', () => {
       )
     ).rejects.toMatchObject({
       code: 'RESOURCE_NOT_FOUND',
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
     expect(
       await readCommandEvidence(olderResolutionAuthority.requestId)
@@ -3162,7 +3329,7 @@ describe('ADMIN command TEST database integration', () => {
     ).rejects.toMatchObject({
       code: 'RESOURCE_NOT_FOUND',
       retryable: false,
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
 
     const authorityTarget = await prepareApprovedQuestion(
@@ -3221,7 +3388,7 @@ describe('ADMIN command TEST database integration', () => {
     ).rejects.toMatchObject({
       code: 'AUTH_SESSION_EXPIRED',
       retryable: false,
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
 
     await insertCredentialUser(revocationLearnerId, 'USER')
@@ -3276,7 +3443,7 @@ describe('ADMIN command TEST database integration', () => {
     ).rejects.toMatchObject({
       code: 'AUTH_SESSION_EXPIRED',
       retryable: false,
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
 
     await insertCredentialUser(erasureLearnerId, 'USER')
@@ -3324,7 +3491,7 @@ describe('ADMIN command TEST database integration', () => {
     ).rejects.toMatchObject({
       code: 'AUTH_SESSION_EXPIRED',
       retryable: false,
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
 
     const wrongNoteTarget = await prepareApprovedQuestion(
@@ -3434,7 +3601,7 @@ describe('ADMIN command TEST database integration', () => {
     ).rejects.toMatchObject({
       code: 'RESOURCE_NOT_FOUND',
       retryable: false,
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
     const reportCounts = await adminClient.query<{
       authorityCount: number
@@ -3485,7 +3652,7 @@ describe('ADMIN command TEST database integration', () => {
       )
     ).rejects.toMatchObject({
       code: 'AUTH_SESSION_EXPIRED',
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
 
     const revokedToken = `phase7-command-revoked-${randomUUID()}`
@@ -3504,7 +3671,7 @@ describe('ADMIN command TEST database integration', () => {
       )
     ).rejects.toMatchObject({
       code: 'AUTH_SESSION_EXPIRED',
-      phase7Disposition: 'DEFINITE_ROLLBACK'
+      adminDisposition: 'DEFINITE_ROLLBACK'
     })
 
     expect(await readGlobalWriteCounts()).toEqual(before)

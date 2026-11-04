@@ -693,7 +693,7 @@ describe('protected admin artifact and API composition', () => {
     { role: null, status: 401, code: 'AUTHENTICATION_REQUIRED' },
     { role: 'USER' as const, status: 403, code: 'ADMIN_REQUIRED' }
   ])(
-    'denies $role direct HTML, assets, fallback and API access without private bytes',
+    'hides $role direct HTML, assets and fallback as 404 and keeps API code',
     async ({ role, status, code }) => {
       const f = fixture({ role })
       for (const path of [
@@ -703,12 +703,13 @@ describe('protected admin artifact and API composition', () => {
         '/api/v1/admin/questions'
       ]) {
         const response = await f.app.request(path)
-        expect(response.status).toBe(status)
+        const isApi = path.startsWith('/api/')
+        expect(response.status).toBe(isApi ? status : 404)
         expect(response.headers.get('Cache-Control')).toBe('private, no-store')
         const body = await response.text()
         expect(body).not.toContain('ADMIN_HTML_ONLY')
         expect(body).not.toContain('ADMIN_ASSET_ONLY')
-        expect(JSON.parse(body).code).toBe(code)
+        expect(JSON.parse(body).code).toBe(isApi ? code : 'RESOURCE_NOT_FOUND')
       }
       expect(f.capability).not.toHaveBeenCalled()
       expect(f.readLimit).not.toHaveBeenCalled()
@@ -808,7 +809,7 @@ describe('protected admin artifact and API composition', () => {
         Range: 'bytes=0-4'
       }
     })
-    expect(denied.status).toBe(401)
+    expect(denied.status).toBe(404)
     expect(denied.headers.get('Cache-Control')).toBe('private, no-store')
     expect(denied.headers.get('Set-Cookie')).toContain('Max-Age=0')
     expect(await denied.text()).not.toContain('ADMIN_ASSET_ONLY')
