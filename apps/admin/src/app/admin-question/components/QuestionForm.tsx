@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm, useWatch } from 'react-hook-form'
 import { Link, useBlocker } from 'react-router'
@@ -116,6 +116,12 @@ export const QuestionForm = ({
     }
   }
 
+  // On mobile the alert sits above the fold; move focus (and the view) to it.
+  const serverErrorRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (serverError) serverErrorRef.current?.focus()
+  }, [serverError])
+
   const submitForm = handleSubmit(async (values) => {
     if (readOnly) return
     const content = toCreateContent(values)
@@ -149,7 +155,9 @@ export const QuestionForm = ({
       >
         {serverError ? (
           <div
-            className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"
+            ref={serverErrorRef}
+            tabIndex={-1}
+            className="scroll-mt-24 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"
             role="alert"
           >
             {serverError}

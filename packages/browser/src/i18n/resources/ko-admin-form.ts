@@ -84,6 +84,9 @@ export const koAdminFormResources = {
       question: '질문을 입력해 주세요.',
       questionLength: '정규화 후 Unicode 문자 1~2000개로 입력해 주세요.',
       passage: '독해 문제는 지문을 입력해 주세요.',
+      passageNotAllowed:
+        '이 문제 유형에는 지문을 쓸 수 없습니다. 지문을 비워 주세요.',
+      combination: '선택한 급수·과목·문제 유형 조합은 등록할 수 없습니다.',
       option: '보기 내용을 입력해 주세요.',
       optionCount: '보기는 정확히 4개여야 합니다.',
       optionDuplicate: '동일한 보기를 중복해서 입력할 수 없습니다.',
