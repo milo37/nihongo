@@ -106,7 +106,7 @@ describe('questionFormSchema', () => {
       options: validFormValues.options.slice(0, 3)
     })
 
-    expect(messages).toContain('보기는 정확히 4개여야 합니다.')
+    expect(messages).toContain('editor.form.validation.optionCount')
   })
 
   it('빈 보기와 중복 보기를 거부한다', () => {
@@ -125,9 +125,9 @@ describe('questionFormSchema', () => {
       }))
     })
 
-    expect(blankMessages).toContain('보기 내용을 입력해 주세요.')
+    expect(blankMessages).toContain('editor.form.validation.option')
     expect(duplicateMessages).toContain(
-      '동일한 보기를 중복해서 입력할 수 없습니다.'
+      'editor.form.validation.optionDuplicate'
     )
   })
 
@@ -137,7 +137,7 @@ describe('questionFormSchema', () => {
       correctOptionId: ''
     })
 
-    expect(messages).toContain('정답은 보기 중 정확히 하나를 선택해 주세요.')
+    expect(messages).toContain('editor.form.validation.correct')
   })
 
   it('독해 문제에 지문을 요구한다', () => {
@@ -148,7 +148,7 @@ describe('questionFormSchema', () => {
       passage: '   '
     })
 
-    expect(messages).toContain('독해 문제는 지문을 입력해 주세요.')
+    expect(messages).toContain('editor.form.validation.passage')
   })
 })
 

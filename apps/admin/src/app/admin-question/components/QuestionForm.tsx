@@ -33,67 +33,47 @@ import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentati
 const TAG_SEPARATOR_REGEX = /[,，\n]/
 const OPTION_LABEL_SET: ReadonlySet<string> = new Set(OPTION_LABELS)
 
-const localValidationKeys = new Map<string, string>([
-  ['급수를 선택해 주세요.', 'editor.form.validation.level'],
-  ['과목을 선택해 주세요.', 'editor.form.validation.subject'],
-  ['문제 유형을 선택해 주세요.', 'editor.form.validation.questionType'],
-  ['난이도를 선택해 주세요.', 'editor.form.validation.difficulty'],
-  ['질문을 입력해 주세요.', 'editor.form.validation.question'],
-  [
-    'editor.form.validation.questionLength',
-    'editor.form.validation.questionLength'
-  ],
-  ['독해 문제는 지문을 입력해 주세요.', 'editor.form.validation.passage'],
-  ['보기 내용을 입력해 주세요.', 'editor.form.validation.option'],
-  ['보기는 정확히 4개여야 합니다.', 'editor.form.validation.optionCount'],
-  [
-    '동일한 보기를 중복해서 입력할 수 없습니다.',
-    'editor.form.validation.optionDuplicate'
-  ],
-  [
-    '정답은 보기 중 정확히 하나를 선택해 주세요.',
-    'editor.form.validation.correct'
-  ],
-  ['한국어 해설을 입력해 주세요.', 'editor.form.validation.explanationKo'],
-  ['태그를 1개 이상 입력해 주세요.', 'editor.form.validation.tags']
-])
+const VALIDATION_KEY_PREFIX = 'editor.form.validation.'
 
 const formOptionSchema = z
   .object({
     id: z.string().optional(),
     label: z.enum(OPTION_LABELS),
-    text: z.string().trim().min(1, '보기 내용을 입력해 주세요.')
+    text: z.string().trim().min(1, 'editor.form.validation.option')
   })
   .strict()
 
 export const questionFormSchema = z
   .object({
-    level: z.enum(LEVELS, { error: '급수를 선택해 주세요.' }),
-    subject: z.enum(SUBJECTS, { error: '과목을 선택해 주세요.' }),
+    level: z.enum(LEVELS, { error: 'editor.form.validation.level' }),
+    subject: z.enum(SUBJECTS, { error: 'editor.form.validation.subject' }),
     questionType: z.enum(QUESTION_TYPES, {
-      error: '문제 유형을 선택해 주세요.'
+      error: 'editor.form.validation.questionType'
     }),
     passage: z.string(),
-    questionText: z.string().trim().min(1, '질문을 입력해 주세요.'),
+    questionText: z.string().trim().min(1, 'editor.form.validation.question'),
     options: z
       .array(formOptionSchema)
-      .length(4, '보기는 정확히 4개여야 합니다.'),
+      .length(4, 'editor.form.validation.optionCount'),
     correctOptionId: z
       .string()
       .refine(
         (value) => OPTION_LABEL_SET.has(value),
-        '정답은 보기 중 정확히 하나를 선택해 주세요.'
+        'editor.form.validation.correct'
       ),
-    explanationKo: z.string().trim().min(1, '한국어 해설을 입력해 주세요.'),
+    explanationKo: z
+      .string()
+      .trim()
+      .min(1, 'editor.form.validation.explanationKo'),
     explanationJa: z.string(),
     difficulty: z.enum(QUESTION_DIFFICULTIES, {
-      error: '난이도를 선택해 주세요.'
+      error: 'editor.form.validation.difficulty'
     }),
     tagsText: z.string().refine((value) => {
       return value
         .split(TAG_SEPARATOR_REGEX)
         .some((tag) => tag.trim().length > 0)
-    }, '태그를 1개 이상 입력해 주세요.')
+    }, 'editor.form.validation.tags')
   })
   .strict()
   .superRefine((value, context) => {
@@ -101,7 +81,7 @@ export const questionFormSchema = z
       context.addIssue({
         code: 'custom',
         path: ['passage'],
-        message: '독해 문제는 지문을 입력해 주세요.'
+        message: 'editor.form.validation.passage'
       })
     }
 
@@ -149,7 +129,7 @@ export const questionFormSchema = z
       context.addIssue({
         code: 'custom',
         path: ['options', 'root'],
-        message: '동일한 보기를 중복해서 입력할 수 없습니다.'
+        message: 'editor.form.validation.optionDuplicate'
       })
     }
   })
@@ -274,8 +254,7 @@ export const QuestionForm = ({
   const { t } = useAdminPresentation()
   const localError = (message: string | undefined): string | undefined => {
     if (!message) return message
-    const key = localValidationKeys.get(message)
-    return key ? t(key) : message
+    return message.startsWith(VALIDATION_KEY_PREFIX) ? t(message) : message
   }
   const [revision] = useState(expectedRowVersion)
   const [defaultValues] = useState(() => createDefaultValues(initialQuestion))

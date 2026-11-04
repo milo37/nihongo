@@ -510,3 +510,59 @@ it('labels a draft and an existing published copy separately and normalizes unsu
     )
   ).toHaveLength(2)
 })
+it('shows the archive failure from the error code, not the server message', async () => {
+  responder = (url) =>
+    url.endsWith('/archive')
+      ? failure('INVALID_STATE_TRANSITION', 409)
+      : { status: 200, data: envelope }
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByRole('region', { name: '관리자 문제 목록' })
+  await user.click(
+    screen.getByRole('button', { name: question.questionId + ' 문제 보관' })
+  )
+  const dialog = screen.getByRole('dialog')
+  await user.click(within(dialog).getByRole('button', { name: '문제 보관' }))
+  expect(
+    await within(dialog).findByText(
+      '현재 상태에서는 이 작업을 실행할 수 없습니다.'
+    )
+  ).toBeVisible()
+  expect(within(dialog).queryByText('요청을 확인해 주세요.')).toBeNull()
+})
+it('falls back to the archive copy for an unknown error code', async () => {
+  responder = (url) =>
+    url.endsWith('/archive')
+      ? failure('SOMETHING_NEW', 500)
+      : { status: 200, data: envelope }
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByRole('region', { name: '관리자 문제 목록' })
+  await user.click(
+    screen.getByRole('button', { name: question.questionId + ' 문제 보관' })
+  )
+  const dialog = screen.getByRole('dialog')
+  await user.click(within(dialog).getByRole('button', { name: '문제 보관' }))
+  expect(
+    await within(dialog).findByText(
+      '문제를 보관하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+    )
+  ).toBeVisible()
+  expect(within(dialog).queryByText('요청을 확인해 주세요.')).toBeNull()
+})
+it('shows the edit save failure from the error code, not the server message', async () => {
+  const normal = responder
+  responder = (url, method) =>
+    method === 'patch'
+      ? failure('INVALID_STATE_TRANSITION', 409)
+      : normal(url, method)
+  const user = userEvent.setup()
+  renderPage('edit')
+  const field = await screen.findByRole('textbox', { name: '문제 문장' })
+  await user.type(field, ' 로컬 입력')
+  await user.click(screen.getByRole('button', { name: '변경사항 저장' }))
+  expect(
+    await screen.findByText('현재 상태에서는 이 작업을 실행할 수 없습니다.')
+  ).toBeVisible()
+  expect(screen.queryByText('요청을 확인해 주세요.')).toBeNull()
+})

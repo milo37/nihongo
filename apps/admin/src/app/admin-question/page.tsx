@@ -1,4 +1,7 @@
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
+import { getAdminErrorKey } from '@app/admin/presentation/adminPresentation'
+import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
+import { useUiLocale } from '@nihongo/browser/provider/I18nProvider'
 import {
   questionVersionStatusSchema,
   type QuestionVersionStatus
@@ -35,61 +38,15 @@ import { useToast } from '@nihongo/browser/common/components/Toast'
 type AdminQuestionSummary = ListAdminQuestionResponse['items'][number]
 type AdminQuestionSort = 'UPDATED_DESC' | 'LEVEL_ASC'
 
+const SORTS: readonly AdminQuestionSort[] = ['UPDATED_DESC', 'LEVEL_ASC']
+
 const LEVEL_SET: ReadonlySet<string> = new Set(LEVELS)
 const SUBJECT_SET: ReadonlySet<string> = new Set(SUBJECTS)
 const STATUS_SET: ReadonlySet<string> = new Set(
   questionVersionStatusSchema.options
 )
 const DIFFICULTY_SET: ReadonlySet<string> = new Set(QUESTION_DIFFICULTIES)
-const SORT_SET: ReadonlySet<string> = new Set(['UPDATED_DESC', 'LEVEL_ASC'])
-
-const subjectLabels = {
-  VOCABULARY: '문자·어휘',
-  GRAMMAR: '문법',
-  READING: '독해'
-} as const
-
-const questionTypeLabels = {
-  KANJI_READING: '한자 읽기',
-  ORTHOGRAPHY: '표기',
-  CONTEXT_VOCABULARY: '문맥 어휘',
-  PARAPHRASE: '바꿔 말하기',
-  WORD_USAGE: '단어 용법',
-  GRAMMAR_SELECT: '문법 선택',
-  SENTENCE_ORDER: '문장 배열',
-  TEXT_GRAMMAR: '지문 문법',
-  SHORT_READING: '단문 독해',
-  MEDIUM_READING: '중문 독해',
-  LONG_READING: '장문 독해',
-  INFO_RETRIEVAL: '정보 검색'
-} as const
-
-const difficultyLabels = {
-  EASY: '쉬움',
-  NORMAL: '보통',
-  HARD: '어려움'
-} as const
-
-const statusLabels = {
-  DRAFT: '초안',
-  PUBLISHED: '공개',
-  IN_REVIEW: '검토 중',
-  CHANGES_REQUESTED: '수정 요청',
-  APPROVED: '검토 승인·미공개',
-  RETIRED: '사용 종료'
-} as const
-
-const sortLabels: Record<AdminQuestionSort, string> = {
-  UPDATED_DESC: '최근 수정순',
-  LEVEL_ASC: '급수순'
-}
-
-const dateFormatter = new Intl.DateTimeFormat('ko-KR', {
-  dateStyle: 'medium',
-  timeStyle: 'short'
-})
-
-const numberFormatter = new Intl.NumberFormat('ko-KR')
+const SORT_SET: ReadonlySet<string> = new Set(SORTS)
 
 const isJlptLevel = (value: string | null): value is JlptLevel => {
   return value !== null && LEVEL_SET.has(value)
@@ -122,18 +79,13 @@ const parsePositiveInteger = (value: string | null): number => {
   return Number.isInteger(parsedValue) && parsedValue > 0 ? parsedValue : 1
 }
 
-const formatUpdatedAt = (value: string): string => {
-  const date = new Date(value)
-
-  if (Number.isNaN(date.getTime())) {
-    return '날짜 정보 없음'
-  }
-
-  return dateFormatter.format(date)
-}
-
 export const AdminQuestionPage = (): ReactElement => {
-  const { t } = useAdminPresentation()
+  const { t, formatAdminDateTime, presentError } = useAdminPresentation()
+  const { locale } = useUiLocale()
+  const formatUpdatedAt = (value: string): string =>
+    Number.isNaN(new Date(value).getTime())
+      ? t('questionList.noDate')
+      : formatAdminDateTime(value)
   const [searchParams, setSearchParams] = useSearchParams()
   const location = useLocation()
   const actorId = useAppStore((state) => state.currentUser?.id)
@@ -248,13 +200,15 @@ export const AdminQuestionPage = (): ReactElement => {
         }
       })
       addToast({
-        title: '문제를 보관했습니다',
-        description: `${questionToDelete.questionId} 문제가 활성 목록에서 제외되었습니다.`,
+        title: t('questionList.archiveDialog.successTitle'),
+        description: t('questionList.archiveDialog.successDescription', {
+          questionId: questionToDelete.questionId
+        }),
         variant: 'success'
       })
       setQuestionToDelete(null)
     } catch {
-      // 전역 API 에러 프로바이더가 오류 유형에 맞는 안내를 표시합니다.
+      // The dialog shows the error-code message below.
     }
   }
 
@@ -289,15 +243,13 @@ export const AdminQuestionPage = (): ReactElement => {
       <div className="flex flex-col gap-6 border-b border-line pb-8 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-3xl">
           <p className="text-sm font-bold tracking-[0.14em] text-brand">
-            ADMIN QUESTION CMS
+            {t('questionList.eyebrow')}
           </p>
           <h1 className="mt-2 text-balance text-3xl font-black tracking-tight sm:text-4xl">
-            문제 관리
+            {t('questionList.title')}
           </h1>
           <p className="mt-4 text-pretty leading-7 text-muted">
-            활성 문제의 대표 버전을 관리합니다. 작성·검토 중인 버전이 있으면
-            먼저 표시하며, 공개본 유무는 별도로 표시합니다. 목록에는 정답과
-            해설을 노출하지 않습니다.
+            {t('questionList.description')}
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-3">
@@ -311,14 +263,14 @@ export const AdminQuestionPage = (): ReactElement => {
             className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-lg bg-brand px-5 py-3 font-semibold text-white shadow-sm hover:bg-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
             to={`/questions/new?returnTo=${encodeURIComponent('/admin/questions' + location.search)}`}
           >
-            새 문제 등록
+            {t('questionList.newQuestion')}
           </Link>
         </div>
       </div>
 
       {unsupportedSort ? (
         <p role="status" className="mt-5 text-sm text-muted">
-          상태순 정렬은 지원하지 않아 최근 수정순으로 표시합니다.
+          {t('questionList.unsupportedSort')}
         </p>
       ) : null}
       <div className="mt-8 rounded-2xl border border-line bg-white p-4 shadow-sm sm:p-6">
@@ -331,31 +283,31 @@ export const AdminQuestionPage = (): ReactElement => {
           <div className="min-w-0 flex-1">
             <Input
               name="search"
-              label="문제 검색"
+              label={t('questionList.searchLabel')}
               defaultValue={search}
-              placeholder="질문이 시작하는 내용을 입력하세요…"
+              placeholder={t('questionList.searchPlaceholder')}
               autoComplete="off"
               // Contract q cap (phase7QuestionSearchSchema maxScalars 100).
               maxLength={100}
             />
           </div>
           <Button className="sm:mb-0" type="submit">
-            검색
+            {t('questionList.search')}
           </Button>
         </form>
 
         <fieldset className="mt-5 border-t border-line pt-5">
-          <legend className="sr-only">문제 목록 필터와 정렬</legend>
+          <legend className="sr-only">{t('questionList.filtersLegend')}</legend>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <Select
               name="level"
-              label="급수"
+              label={t('questionList.columns.level')}
               value={level ?? ''}
               onChange={(event) =>
                 setFilter('level', event.currentTarget.value)
               }
             >
-              <option value="">전체 급수</option>
+              <option value="">{t('questionList.allLevels')}</option>
               {LEVELS.map((value) => (
                 <option key={value} value={value}>
                   {value}
@@ -364,58 +316,58 @@ export const AdminQuestionPage = (): ReactElement => {
             </Select>
             <Select
               name="subject"
-              label="과목"
+              label={t('questionList.columns.subject')}
               value={subject ?? ''}
               onChange={(event) =>
                 setFilter('subject', event.currentTarget.value)
               }
             >
-              <option value="">전체 과목</option>
+              <option value="">{t('questionList.allSubjects')}</option>
               {SUBJECTS.map((value) => (
                 <option key={value} value={value}>
-                  {subjectLabels[value]}
+                  {t(`enums.subjects.${value}`)}
                 </option>
               ))}
             </Select>
             <Select
               name="status"
-              label="상태"
+              label={t('questionList.columns.status')}
               value={status ?? ''}
               onChange={(event) =>
                 setFilter('status', event.currentTarget.value)
               }
             >
-              <option value="">모든 표시 버전 상태</option>
+              <option value="">{t('questionList.allStatuses')}</option>
               {questionVersionStatusSchema.options.map((value) => (
                 <option key={value} value={value}>
-                  {statusLabels[value]}
+                  {t(`enums.versionStatuses.${value}`)}
                 </option>
               ))}
             </Select>
             <Select
               name="difficulty"
-              label="난이도"
+              label={t('questionList.columns.difficulty')}
               value={difficulty ?? ''}
               onChange={(event) =>
                 setFilter('difficulty', event.currentTarget.value)
               }
             >
-              <option value="">전체 난이도</option>
+              <option value="">{t('questionList.allDifficulties')}</option>
               {QUESTION_DIFFICULTIES.map((value) => (
                 <option key={value} value={value}>
-                  {difficultyLabels[value]}
+                  {t(`enums.difficulties.${value}`)}
                 </option>
               ))}
             </Select>
             <Select
               name="sort"
-              label="정렬"
+              label={t('questionList.sort')}
               value={sort}
               onChange={(event) => setFilter('sort', event.currentTarget.value)}
             >
-              {Object.entries(sortLabels).map(([value, label]) => (
+              {SORTS.map((value) => (
                 <option key={value} value={value}>
-                  {label}
+                  {t(`enums.questionSort.${value}`)}
                 </option>
               ))}
             </Select>
@@ -425,8 +377,10 @@ export const AdminQuestionPage = (): ReactElement => {
         <div className="mt-5 flex min-h-11 flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
           <p className="text-sm text-muted" aria-live="polite">
             {questionList.data
-              ? `총 ${numberFormatter.format(questionList.data.total)}개 문제`
-              : '문제 수를 확인하는 중입니다…'}
+              ? t('questionList.total', {
+                  formattedCount: formatNumber(questionList.data.total, locale)
+                })
+              : t('questionList.totalPending')}
           </p>
           {hasActiveFilters ? (
             <button
@@ -434,28 +388,28 @@ export const AdminQuestionPage = (): ReactElement => {
               type="button"
               onClick={() => setSearchParams({})}
             >
-              필터 초기화
+              {t('questionList.resetFilters')}
             </button>
           ) : null}
         </div>
       </div>
 
       {questionList.isPending ? (
-        <LoadingState message="관리자 문제 목록을 불러오고 있습니다…" />
+        <LoadingState message={t('questionList.loading')} />
       ) : null}
 
       {questionList.isError ? (
         <div className="mt-8">
           <ErrorState
-            title="문제 목록을 불러오지 못했습니다"
-            description="네트워크 상태를 확인한 뒤 다시 시도해 주세요."
+            title={t('questionList.loadErrorTitle')}
+            description={t('questionList.loadErrorDescription')}
             onRetry={() => void questionList.refetch()}
           />
         </div>
       ) : null}
 
       {isOutOfRangePage ? (
-        <LoadingState message="유효한 문제 목록 페이지로 이동하고 있습니다." />
+        <LoadingState message={t('questionList.movingPage')} />
       ) : null}
 
       {questionList.data &&
@@ -465,25 +419,25 @@ export const AdminQuestionPage = (): ReactElement => {
           className="mt-8 rounded-2xl border border-line bg-white"
           title={
             hasActiveFilters
-              ? '검색 조건에 맞는 문제가 없습니다'
-              : '등록된 문제가 없습니다'
+              ? t('questionList.noMatchTitle')
+              : t('questionList.noQuestionsTitle')
           }
           description={
             hasActiveFilters
-              ? '검색어나 필터를 변경하여 다시 확인해 주세요.'
-              : '첫 자체 제작 문제를 등록하여 문제 은행을 구성해 보세요.'
+              ? t('questionList.noMatchDescription')
+              : t('questionList.noQuestionsDescription')
           }
           action={
             hasActiveFilters ? (
               <Button variant="outline" onClick={() => setSearchParams({})}>
-                필터 초기화
+                {t('questionList.resetFilters')}
               </Button>
             ) : (
               <Link
                 className="inline-flex min-h-11 items-center justify-center rounded-lg bg-brand px-4 py-2.5 font-semibold text-white hover:bg-emerald-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                 to={`/questions/new?returnTo=${encodeURIComponent('/admin/questions' + location.search)}`}
               >
-                첫 문제 등록
+                {t('questionList.firstQuestion')}
               </Link>
             )
           }
@@ -496,52 +450,52 @@ export const AdminQuestionPage = (): ReactElement => {
             className="mt-8 text-sm text-muted lg:sr-only"
             id="admin-question-table-help"
           >
-            표를 좌우로 스크롤하면 모든 열과 관리 버튼을 확인할 수 있습니다.
+            {t('questionList.tableHelp')}
           </p>
           <div
             className="mt-2 overflow-x-auto rounded-2xl border border-line bg-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
             role="region"
-            aria-label="관리자 문제 목록"
+            aria-label={t('questionList.tableLabel')}
             aria-describedby="admin-question-table-help"
             tabIndex={0}
           >
             <table className="w-full min-w-[76rem] border-collapse text-left text-sm">
               <caption className="sr-only">
-                JLPT 관리자 문제 목록. 수정 및 보관 작업을 포함합니다.
+                {t('questionList.tableCaption')}
               </caption>
               <thead className="bg-slate-50 text-slate-700">
                 <tr>
                   <th className="px-4 py-3 font-semibold" scope="col">
-                    ID
+                    {t('questionList.columns.id')}
                   </th>
                   <th
                     className="px-4 py-3 font-semibold"
                     scope="col"
                     aria-sort={sort === 'LEVEL_ASC' ? 'ascending' : undefined}
                   >
-                    급수
+                    {t('questionList.columns.level')}
                   </th>
                   <th className="px-4 py-3 font-semibold" scope="col">
-                    과목
+                    {t('questionList.columns.subject')}
                   </th>
                   <th className="px-4 py-3 font-semibold" scope="col">
-                    유형
+                    {t('questionList.columns.questionType')}
                   </th>
                   <th className="w-[22rem] px-4 py-3 font-semibold" scope="col">
-                    질문
+                    {t('questionList.columns.question')}
                   </th>
                   <th className="px-4 py-3 font-semibold" scope="col">
-                    난이도
+                    {t('questionList.columns.difficulty')}
                   </th>
                   <th
                     className="px-4 py-3 font-semibold"
                     scope="col"
                     aria-sort={undefined}
                   >
-                    상태
+                    {t('questionList.columns.status')}
                   </th>
                   <th className="w-48 px-4 py-3 font-semibold" scope="col">
-                    태그
+                    {t('questionList.columns.tags')}
                   </th>
                   <th
                     className="px-4 py-3 font-semibold"
@@ -550,13 +504,13 @@ export const AdminQuestionPage = (): ReactElement => {
                       sort === 'UPDATED_DESC' ? 'descending' : undefined
                     }
                   >
-                    수정일
+                    {t('questionList.columns.updatedAt')}
                   </th>
                   <th
                     className="px-4 py-3 text-right font-semibold"
                     scope="col"
                   >
-                    관리
+                    {t('questionList.columns.actions')}
                   </th>
                 </tr>
               </thead>
@@ -580,10 +534,10 @@ export const AdminQuestionPage = (): ReactElement => {
                     </th>
                     <td className="px-4 py-4 font-bold">{question.level}</td>
                     <td className="px-4 py-4">
-                      {subjectLabels[question.subject]}
+                      {t(`enums.subjects.${question.subject}`)}
                     </td>
                     <td className="px-4 py-4">
-                      {questionTypeLabels[question.questionType]}
+                      {t(`enums.questionTypes.${question.questionType}`)}
                     </td>
                     <td className="px-4 py-4">
                       <span className="line-clamp-2 leading-6">
@@ -591,7 +545,7 @@ export const AdminQuestionPage = (): ReactElement => {
                       </span>
                     </td>
                     <td className="px-4 py-4">
-                      {difficultyLabels[question.difficulty]}
+                      {t(`enums.difficulties.${question.difficulty}`)}
                     </td>
                     <td className="px-4 py-4">
                       <Badge
@@ -601,14 +555,16 @@ export const AdminQuestionPage = (): ReactElement => {
                             : 'neutral'
                         }
                       >
-                        {statusLabels[question.versionStatus]} ·{' '}
-                        {question.lifecycleStatus === 'ACTIVE'
-                          ? '활성'
-                          : '보관'}{' '}
+                        {t(`enums.versionStatuses.${question.versionStatus}`)} ·{' '}
+                        {t(
+                          `questionList.lifecycle.${question.lifecycleStatus}`
+                        )}{' '}
                         ·{' '}
-                        {question.currentPublishedVersionId
-                          ? '공개본 있음'
-                          : '공개본 없음'}
+                        {t(
+                          question.currentPublishedVersionId
+                            ? 'questionList.published'
+                            : 'questionList.unpublished'
+                        )}
                       </Badge>
                     </td>
                     <td className="px-4 py-4">
@@ -626,17 +582,30 @@ export const AdminQuestionPage = (): ReactElement => {
                         <Link
                           className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line bg-white px-3 font-semibold text-ink hover:border-slate-400 hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                           to={`/questions/${question.questionId}${canEdit(question) ? '/edit' : ''}?returnTo=${encodeURIComponent('/admin/questions' + location.search)}`}
-                          aria-label={`${question.questionId} 문제 ${canEdit(question) ? '수정' : '상세'}`}
+                          aria-label={t('questionList.rowActionLabel', {
+                            questionId: question.questionId,
+                            action: t(
+                              canEdit(question)
+                                ? 'questionList.edit'
+                                : 'questionList.details'
+                            )
+                          })}
                         >
-                          {canEdit(question) ? '수정' : '상세'}
+                          {t(
+                            canEdit(question)
+                              ? 'questionList.edit'
+                              : 'questionList.details'
+                          )}
                         </Link>
                         <button
                           className="min-h-11 rounded-lg border border-red-200 bg-white px-3 font-semibold text-red-700 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
                           type="button"
-                          aria-label={`${question.questionId} 문제 보관`}
+                          aria-label={t('questionList.archiveLabel', {
+                            questionId: question.questionId
+                          })}
                           onClick={() => openDeleteDialog(question)}
                         >
-                          보관
+                          {t('questionList.archive')}
                         </button>
                       </div>
                     </td>
@@ -657,10 +626,12 @@ export const AdminQuestionPage = (): ReactElement => {
 
       <Dialog
         open={questionToDelete !== null}
-        title="문제를 보관하시겠습니까?"
+        title={t('questionList.archiveDialog.title')}
         description={
           questionToDelete
-            ? `${questionToDelete.questionId} 문제를 활성 목록에서 보관합니다. 기존 학습 결과는 유지됩니다.`
+            ? t('questionList.archiveDialog.description', {
+                questionId: questionToDelete.questionId
+              })
             : undefined
         }
         footer={
@@ -670,16 +641,16 @@ export const AdminQuestionPage = (): ReactElement => {
               disabled={deleteQuestion.isPending}
               onClick={() => setQuestionToDelete(null)}
             >
-              취소
+              {t('questionList.archiveDialog.cancel')}
             </Button>
             <Button
               variant="danger"
               isLoading={deleteQuestion.isPending}
               disabled={needsFresh || archiveConflict}
-              loadingLabel="보관 중…"
+              loadingLabel={t('questionList.archiveDialog.confirming')}
               onClick={() => void handleDeleteQuestion()}
             >
-              문제 보관
+              {t('questionList.archiveDialog.confirm')}
             </Button>
           </>
         }
@@ -690,15 +661,14 @@ export const AdminQuestionPage = (): ReactElement => {
         }}
       >
         <p className="leading-7 text-muted">
-          활성 목록과 새 출제 대상에서 제외하고 현재 공개본과 열린 후보의 사용을
-          종료합니다. 기존 학습 기록은 삭제하지 않습니다.
+          {t('questionList.archiveDialog.body')}
         </p>
         {needsFresh ? (
           <AppLink
             to={`/login?redirect=${encodeURIComponent('/admin/questions' + location.search)}`}
             className="mt-4 inline-flex min-h-11 items-center font-semibold underline"
           >
-            관리자 재인증
+            {t('questionList.archiveDialog.reauthenticate')}
           </AppLink>
         ) : null}
         {archiveConflict ? (
@@ -719,22 +689,21 @@ export const AdminQuestionPage = (): ReactElement => {
               })
             }}
           >
-            최신 상태 확인
+            {t('questionList.archiveDialog.refresh')}
           </Button>
         ) : null}
         {archiveRefreshFailed ? (
-          <p role="alert">
-            최신 상태를 확인하지 못했습니다. 보관은 실행하지 않았습니다.
-          </p>
+          <p role="alert">{t('questionList.archiveDialog.refreshFailed')}</p>
         ) : null}
         {deleteQuestion.isError ? (
           <p className="mt-4 text-sm font-semibold text-red-700" role="alert">
             {needsFresh
-              ? '관리자 재인증이 필요합니다. 재인증 후 목록에서 다시 확인해 보관해 주세요.'
+              ? t('questionList.archiveDialog.freshRequired')
               : archiveConflict
-                ? '다른 변경이 먼저 저장되었습니다. 최신 상태를 확인한 뒤 다시 보관해 주세요.'
-                : (archiveError?.serverMessage ??
-                  '문제를 보관하지 못했습니다. 잠시 후 다시 시도해 주세요.')}
+                ? t('questionList.archiveDialog.conflict')
+                : getAdminErrorKey(deleteQuestion.error) === 'errors.generic'
+                  ? t('questionList.archiveDialog.failed')
+                  : presentError(deleteQuestion.error)}
           </p>
         ) : null}
       </Dialog>

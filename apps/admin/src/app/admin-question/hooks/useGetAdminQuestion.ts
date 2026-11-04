@@ -40,7 +40,7 @@ export const useGetAdminQuestion = (questionId: string) => {
         staleTime: 0
       })
       const selected = selectedVersion(fresh)
-      if (!selected) throw new Error('현재 버전 정보를 확인할 수 없습니다.')
+      if (!selected) throw new Error('Current question version is missing.')
       const freshPreview = await client.fetchQuery({
         ...adminQuestionQueries.preview(
           questionId,
