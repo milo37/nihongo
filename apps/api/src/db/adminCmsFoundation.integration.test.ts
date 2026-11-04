@@ -20,7 +20,6 @@ import {
 import { attestRuntimeRoles } from './runtimeRoleAttestation.js'
 
 const EXPECTED_RECENT_MIGRATIONS = [
-  '20261020230000_sso_account_lifecycle',
   '20261020233000_sso_first_admin_bootstrap',
   '20261028090000_sso_account_erasure_worker_queue',
   '20261028120000_sso_account_erasure_claim_lease',
@@ -30,7 +29,8 @@ const EXPECTED_RECENT_MIGRATIONS = [
   '20261030100000_guest_expired_draft_retention',
   '20261104090000_unified_reports_import_results',
   '20261104120000_user_report_erasure_redaction',
-  '20261104150000_user_account_restriction'
+  '20261104150000_user_account_restriction',
+  '20261105090000_admin_member_console'
 ] as const
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',
@@ -442,14 +442,14 @@ afterAll(async () => {
 })
 
 describe('Persistence foundation', () => {
-  it('56 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
+  it('57 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
     const ledger = await client.query<{ migrationName: string }>(
       `SELECT migration_name AS "migrationName"
        FROM "_prisma_migrations"
        WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
        ORDER BY started_at`
     )
-    expect(ledger.rows).toHaveLength(56)
+    expect(ledger.rows).toHaveLength(57)
     expect(
       ledger.rows.slice(-11).map(({ migrationName }) => migrationName)
     ).toEqual(EXPECTED_RECENT_MIGRATIONS)
@@ -545,7 +545,7 @@ describe('Persistence foundation', () => {
              WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`
           )
         ).rows
-      ).toEqual([{ migrationCount: 56 }])
+      ).toEqual([{ migrationCount: 57 }])
     } finally {
       await client.query('ROLLBACK')
     }
