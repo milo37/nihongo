@@ -13,7 +13,7 @@ import { appDocumentNavigation } from '@nihongo/browser/libs/appNavigation'
 import { useAppStore } from '@nihongo/browser/store/index'
 import { invalidateCanonicalAuthTransitions } from '@nihongo/browser/app/login/authSession'
 import * as authApi from '@nihongo/browser/api/auth/getCurrentUser/index'
-import * as listApi from '@nihongo/browser/api/admin-question/listAdminQuestion/index'
+import * as listApi from '@api/admin-question/listAdminQuestion/index'
 import { adminRoutes } from '@/router'
 import { question, actorId } from '@app/admin-question/test/questionFixture'
 

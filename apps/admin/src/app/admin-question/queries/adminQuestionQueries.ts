@@ -1,14 +1,14 @@
 import { createResponseValidationError } from '@nihongo/browser/api/config'
 import { mutationOptions, queryOptions } from '@tanstack/react-query'
-import { createAdminQuestion } from '@nihongo/browser/api/admin-question/createAdminQuestion/index'
-import { deleteAdminQuestion } from '@nihongo/browser/api/admin-question/deleteAdminQuestion/index'
-import { getAdminQuestion } from '@nihongo/browser/api/admin-question/getAdminQuestion/index'
-import { listAdminQuestion } from '@nihongo/browser/api/admin-question/listAdminQuestion/index'
-import { previewQuestionVersion } from '@nihongo/browser/api/admin-question/previewQuestionVersion/index'
-import type { ListAdminQuestionRequest } from '@nihongo/browser/api/admin-question/listAdminQuestion/schema'
-import type { DeleteAdminQuestionRequest } from '@nihongo/browser/api/admin-question/deleteAdminQuestion/schema'
-import { updateAdminQuestion } from '@nihongo/browser/api/admin-question/updateAdminQuestion/index'
-import type { UpdateAdminQuestionRequest } from '@nihongo/browser/api/admin-question/updateAdminQuestion/schema'
+import { createAdminQuestion } from '@api/admin-question/createAdminQuestion/index'
+import { deleteAdminQuestion } from '@api/admin-question/deleteAdminQuestion/index'
+import { getAdminQuestion } from '@api/admin-question/getAdminQuestion/index'
+import { listAdminQuestion } from '@api/admin-question/listAdminQuestion/index'
+import { previewQuestionVersion } from '@api/admin-question/previewQuestionVersion/index'
+import type { ListAdminQuestionRequest } from '@api/admin-question/listAdminQuestion/schema'
+import type { DeleteAdminQuestionRequest } from '@api/admin-question/deleteAdminQuestion/schema'
+import { updateAdminQuestion } from '@api/admin-question/updateAdminQuestion/index'
+import type { UpdateAdminQuestionRequest } from '@api/admin-question/updateAdminQuestion/schema'
 export interface UpdateAdminQuestionVariables {
   questionId: string
   versionId: string
