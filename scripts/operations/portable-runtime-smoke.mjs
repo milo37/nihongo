@@ -293,7 +293,6 @@ export const createRuntimeEnvironment = ({
   databaseHost,
   databaseName,
   databasePassword,
-  gatewayPassword,
   schemaName,
   releaseId
 }) => {
@@ -301,9 +300,7 @@ export const createRuntimeEnvironment = ({
     !schemaPattern.test(schemaName) ||
     !/^[a-z_][a-z0-9_]*_test$/u.test(databaseName) ||
     !/^[a-z0-9-]+$/u.test(databaseHost) ||
-    !/^[a-f0-9]{48}$/u.test(databasePassword) ||
-    !/^[a-f0-9]{48}$/u.test(gatewayPassword) ||
-    databasePassword === gatewayPassword
+    !/^[a-f0-9]{48}$/u.test(databasePassword)
   ) {
     throw new Error('Isolated owned-auth TEST database inputs are invalid.')
   }
@@ -311,7 +308,7 @@ export const createRuntimeEnvironment = ({
     `postgresql://${login}:${password}@${databaseHost}:5432/${databaseName}?schema=${schemaName}&sslmode=verify-full`
   return {
     ADMIN_CMS_MODE: 'disabled',
-    AUTH_GATEWAY_DATABASE_URL: databaseUrl(gatewayLogin, gatewayPassword),
+    AUTH_RUNTIME: 'owned',
     AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32,::1/128',
     BETTER_AUTH_SECRET: randomBytes(32).toString('hex'),
     BETTER_AUTH_URL: 'https://smoke.invalid',
@@ -608,14 +605,14 @@ import { createSsoIdentityRepository } from '/app/api/dist/auth/ssoIdentityRepos
 import { createOwnedSessionCookie } from '/app/api/dist/auth/sessionCookie.js';
 import { readFileSync } from 'node:fs';
 const { suffix } = JSON.parse(readFileSync(0, 'utf8'));
-const url = new URL(process.env.AUTH_GATEWAY_DATABASE_URL);
+const url = new URL(process.env.DATABASE_URL);
 if (process.env.NODE_ENV !== 'production' || process.env.DEPLOYMENT_ENVIRONMENT !== 'TEST' ||
     !/^[a-f0-9]{12}$/.test(suffix) || !url.pathname.endsWith('_test') ||
     !/^phase7_[a-f0-9]{32}_test$/.test(url.searchParams.get('schema')))
   throw new Error('Controlled TEST session target is invalid.');
-const gateway = createRoleDatabaseRuntime(url.toString(), 'nihongo_auth_gateway');
+const runtime = createRoleDatabaseRuntime(url.toString(), 'nihongo_app');
 try {
-  const session = await createSsoIdentityRepository(gateway.client).signIn({
+  const session = await createSsoIdentityRepository(runtime.client).signIn({
     provider: 'google', accountId: 'phase11-' + suffix,
     email: 'phase11-' + suffix + '@example.test', name: 'Phase 11 smoke'
   }, { ipAddress: '127.0.0.1', userAgent: 'Phase11 controlled TEST fixture' });
@@ -623,7 +620,7 @@ try {
   const cookie = createOwnedSessionCookie({ token: session.token, secret: process.env.BETTER_AUTH_SECRET,
     isProduction: true, rememberMe: true, now: session.createdAt, expiresAt: session.expiresAt });
   process.stdout.write(JSON.stringify({ cookie, kind: 'controlled-test-session', provider: 'google' }));
-} finally { await gateway.disconnect(); }
+} finally { await runtime.disconnect(); }
 `
 
 export const readSafeRuntimeFailureDiagnostics = (
@@ -1395,7 +1392,6 @@ export const runPortableRuntimeSmoke = async ({
   const databaseAdminUser = 'nihongo_runtime_smoke_migration'
   const databaseAdminPassword = randomBytes(24).toString('hex')
   const runtimePassword = randomBytes(24).toString('hex')
-  const gatewayPassword = randomBytes(24).toString('hex')
   const migrationPassword = randomBytes(24).toString('hex')
   const schemaName = `phase7_${randomUUID().replaceAll('-', '')}_test`
   const migrationNames = selectCurrentMigrationNames(
@@ -1468,8 +1464,7 @@ export const runPortableRuntimeSmoke = async ({
     await waitForPostgres(databaseContainer, databaseAdminUser, databaseName)
     provisionRuntimeIdentity(database, schemaName, {
       [migrationLogin]: migrationPassword,
-      [applicationLogin]: runtimePassword,
-      [gatewayLogin]: gatewayPassword
+      [applicationLogin]: runtimePassword
     })
     const migrationDatabase = {
       ...database,
@@ -1513,13 +1508,10 @@ export const runPortableRuntimeSmoke = async ({
       databaseHost: databaseContainer,
       databaseName,
       databasePassword: runtimePassword,
-      gatewayPassword,
       schemaName,
       releaseId: exactReleaseId
     })
     const runtimeSensitiveValues = [
-      runtimeEnvironment.AUTH_GATEWAY_DATABASE_URL,
-      gatewayPassword,
       migrationPassword,
       runtimeEnvironment.BETTER_AUTH_SECRET,
       runtimeEnvironment.DATABASE_URL,

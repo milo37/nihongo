@@ -68,17 +68,29 @@ API 모드는 `apps/web/.env`의 `VITE_API_MODE=mock|real`로 선택합니다.
 이 로컬 구성은 production provisioning의 대체물이 아닙니다.
 
 **지속형 기술 runtime: 55433, 별도 project·volume**
-TEST·DEVELOPMENT의 API 환경에서 `ADMIN_CMS_MODE=technical`과 해당 wrapper 연결 URL을 설정한 뒤 각각 실행합니다.
+API는 `DATABASE_URL` 하나(`nihongo_{test,development}_app_login` → `nihongo_app`)로 모든 facade를 실행하고, `AUTH_RUNTIME`은 기본 `owned`입니다(`legacy`는 TEST 전용, production은 `owned`만).
+migration은 `PHASE7_MIGRATION_DATABASE_URL` wrapper로만 실행합니다.
+새 볼륨에서는 content migration이 seed된 bootstrap을 요구하므로, `20261009092000_phase7_n4_n2_revision2_digest_fix`까지 37개 migration과 `migration_lock.toml`을 복사한 디렉터리(절대 경로)로 먼저 적용하고 seed한 뒤 나머지를 적용합니다.
 
 ```bash
 docker compose --project-name nihongo-phase7-local --profile phase7-local up -d --wait postgres-phase7
-NODE_ENV=test pnpm run db:migrate:test
+NODE_ENV=test TEST_MIGRATIONS_PATH=/absolute/path/to/bootstrap-prefix pnpm run db:migrate:deploy
 ADMIN_CMS_MODE=technical pnpm run db:seed:test
-pnpm run db:migrate:dev:deploy
-ADMIN_CMS_MODE=technical pnpm run db:seed:dev
+NODE_ENV=test pnpm run db:migrate:deploy
 ```
 
+DEVELOPMENT의 `db:migrate:dev:deploy`는 prefix 경로를 받지 않으므로, 새 볼륨의 DEVELOPMENT 적용 절차는 아직 검증되지 않았습니다.
+
 activation에는 `phase7_environment=TEST` 또는 `phase7_environment=DEVELOPMENT`를 사용하며 명시적 후속 승인 전에는 실행 금지입니다.
+capability 등록이 server 주소를 확인하므로 container 안에서도 `-h 127.0.0.1`(TCP)로 접속해야 합니다.
+activation은 one-way이며 두 번째 실행은 issuer 단계에서 거부됩니다.
+
+```bash
+# 아래 one-way local write는 명시적 후속 승인 후에만 실행합니다.
+docker compose --project-name nihongo-phase7-local --profile phase7-local exec -T postgres-phase7 sh -eu -c \
+  'PGPASSWORD="$PHASE7_TEST_MIGRATION_PASSWORD" PGOPTIONS="-c role=nihongo_phase7_migration" psql -h 127.0.0.1 --username nihongo_test_phase7_migration_login --dbname nihongo_test --set=phase7_environment=TEST --file=/docker-entrypoint-initdb.d/local-database-activate.psql'
+```
+
 기술 startup은 activation 전에는 의도적으로 실패합니다.
 승인된 activation 뒤 TEST는 `DOTENV_CONFIG_PATH=.env.test ADMIN_CMS_MODE=technical pnpm run dev:api`, DEVELOPMENT는 `ADMIN_CMS_MODE=technical pnpm run dev:api`로 시작합니다.
 

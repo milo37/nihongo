@@ -371,7 +371,6 @@ test('portable runtime environment is production-shaped without migration creden
     databaseHost: 'database',
     databaseName: 'nihongo_smoke_test',
     databasePassword: 'a'.repeat(48),
-    gatewayPassword: 'b'.repeat(48),
     schemaName: `phase7_${'c'.repeat(32)}_test`,
     releaseId
   })
@@ -417,18 +416,11 @@ test('portable runtime environment is production-shaped without migration creden
   assert.equal(environment.RELEASE_ID, releaseId)
   assert.match(environment.DATABASE_URL, /sslmode=verify-full$/u)
   const app = new URL(environment.DATABASE_URL)
-  const gateway = new URL(environment.AUTH_GATEWAY_DATABASE_URL)
   assert.equal(app.username, 'nihongo_test_app_login')
-  assert.equal(gateway.username, 'nihongo_test_auth_gateway_login')
-  assert.equal(
-    app.searchParams.get('schema'),
-    gateway.searchParams.get('schema')
-  )
-  assert.notEqual(app.password, gateway.password)
-  for (const url of [app, gateway]) {
-    assert.deepEqual([...url.searchParams.keys()].sort(), ['schema', 'sslmode'])
-    assert.equal(url.searchParams.get('sslmode'), 'verify-full')
-  }
+  assert.deepEqual([...app.searchParams.keys()].sort(), ['schema', 'sslmode'])
+  assert.equal(app.searchParams.get('sslmode'), 'verify-full')
+  assert.equal(environment.AUTH_RUNTIME, 'owned')
+  assert.equal('AUTH_GATEWAY_DATABASE_URL' in environment, false)
   assert.equal('AUTH_EMAIL_DELIVERY_MODE' in environment, false)
   assert.equal('PHASE7_MIGRATION_DATABASE_URL' in environment, false)
   assert.equal('PRODUCTION_DATABASE_URL' in environment, false)
@@ -787,7 +779,7 @@ test('TEST preparation programs keep canonical seed/owned issuance boundaries an
     env: {
       NODE_ENV: 'production',
       DEPLOYMENT_ENVIRONMENT: 'PRODUCTION',
-      AUTH_GATEWAY_DATABASE_URL: `postgresql://test@127.0.0.1/nihongo_test?schema=phase7_${'a'.repeat(32)}_test`
+      DATABASE_URL: `postgresql://test@127.0.0.1/nihongo_test?schema=phase7_${'a'.repeat(32)}_test`
     }
   }
   let touched = false
