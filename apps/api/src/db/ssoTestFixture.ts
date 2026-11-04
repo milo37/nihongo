@@ -1,8 +1,11 @@
 import { randomBytes, randomUUID } from 'node:crypto'
 import { Client } from 'pg'
-import type { QueryResultRow } from 'pg'
+import type { QueryResult, QueryResultRow } from 'pg'
 import { expect } from 'vitest'
-import { ownedSessionSql } from './fixtures/ownedSessionSql.js'
+import {
+  isOwnedSessionSql,
+  ownedSessionSql
+} from './fixtures/ownedSessionSql.js'
 import { parseApiEnvironment } from '../config/env.js'
 import { assertSafeAdminCmsDatabase } from './databaseTargetGuard.js'
 import {
@@ -63,14 +66,27 @@ export const createSsoDbHarness = () => {
   const gatewayA = connection(gatewayUrl, 'nihongo_auth_gateway')
   const gatewayB = connection(gatewayUrl, 'nihongo_auth_gateway')
   const app = connection(environment.DATABASE_URL, 'nihongo_app')
+  // #504 P7 PR3a/PR3b-1: the API runs Session and ADMIN_FRESH writes as
+  // nihongo_app; concurrency probes need two such connections.
+  const appA = connection(environment.DATABASE_URL, 'nihongo_app')
+  const appB = connection(environment.DATABASE_URL, 'nihongo_app')
   const roleQuery = async <Row extends QueryResultRow = QueryResultRow>(
     role: TestRole,
     sql: string,
     values: readonly unknown[] = []
   ) => {
-    await owner.query(`SET ROLE "${role}"`)
+    // #504 P7 PR3a/PR3b-1: calls to the dropped Session functions run the API
+    // implementation. Gateway facade callers are nihongo_app since PR1.
+    const bridged = isOwnedSessionSql(sql)
+    const executionRole =
+      bridged && role === 'nihongo_auth_gateway' ? 'nihongo_app' : role
+    await owner.query(`SET ROLE "${executionRole}"`)
     try {
-      const result = await owner.query<Row>(sql, [...values])
+      const result = bridged
+        ? ((await ownedSessionSql<Row>(owner, sql, [
+            ...values
+          ])) as unknown as QueryResult<Row>)
+        : await owner.query<Row>(sql, [...values])
       await owner.query('RESET ROLE')
       return result
     } catch (error: unknown) {
@@ -353,6 +369,8 @@ export const createSsoDbHarness = () => {
     createOwnerPeer: () => connection(adminUrl),
     gatewayA,
     gatewayB,
+    appA,
+    appB,
     app,
     schema,
     environment,
@@ -374,6 +392,8 @@ export const createSsoDbHarness = () => {
       await owner.connect()
       await gatewayA.connect()
       await gatewayB.connect()
+      await appA.connect()
+      await appB.connect()
       await app.connect()
       const endpoint = (
         await owner.query<{ name: string; address: string; port: number }>(
@@ -410,6 +430,8 @@ export const createSsoDbHarness = () => {
         owner.end(),
         gatewayA.end(),
         gatewayB.end(),
+        appA.end(),
+        appB.end(),
         app.end()
       ])
     }

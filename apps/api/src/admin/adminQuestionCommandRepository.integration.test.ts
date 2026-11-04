@@ -266,7 +266,7 @@ const issueFreshAdminSession = async (userId: string): Promise<string> => {
     existingUser: user,
     secret: 'phase7-command-test-session-secret-with-32-characters'
   })
-  const fresh = createSsoAdminFreshRepository(authGatewayRuntime.client)
+  const fresh = createSsoAdminFreshRepository(applicationRuntime!.client)
   const context = await fresh.prepare(session.token, session.identity.provider)
   const proof = createHash('sha256').update(randomUUID()).digest('hex')
   if (

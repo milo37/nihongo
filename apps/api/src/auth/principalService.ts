@@ -1,3 +1,4 @@
+import { adminSessionFreshSql } from './adminFreshAuthority.js'
 import {
   authenticatedUserSchema,
   type AuthenticatedUser
@@ -245,7 +246,7 @@ export const createPhase7PrincipalService = ({
 
       const rows = await client.$queryRawUnsafe<PrincipalDatabaseRow[]>(
         `SELECT principal.*,
-           "phase7_sso_admin_session_is_fresh"($1) AS "isFresh"
+           ${adminSessionFreshSql('$1')} AS "isFresh"
          FROM (${v1PrincipalQuery('$1')}) AS principal`,
         credential.token
       )

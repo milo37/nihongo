@@ -10,42 +10,65 @@ const context = {
   provider: 'google' as const,
   accountId: 'linked-subject'
 }
+// The repository runs the API implementation (#504 P7 PR3b-1); its SQL is
+// covered by the database integration tests. Each call is recorded by name.
+const authority = vi.hoisted(() => ({
+  calls: [] as Array<{ name: string; args: unknown[] }>,
+  answer: (_name: string, _args: unknown[]): Promise<unknown> =>
+    Promise.resolve(undefined)
+}))
+vi.mock('./adminFreshAuthority.js', () => {
+  const recorded =
+    (name: string) =>
+    (_client: unknown, ...args: unknown[]) => {
+      authority.calls.push({ name, args })
+      return authority.answer(name, args)
+    }
+  return {
+    abortReauthentication: recorded('abortReauthentication'),
+    cancelAdminFreshProof: recorded('cancelAdminFreshProof'),
+    completeAdminFresh: recorded('completeAdminFresh'),
+    consumeAdminFreshTransaction: recorded('consumeAdminFreshTransaction'),
+    createAdminFreshTransaction: recorded('createAdminFreshTransaction'),
+    prepareAdminFresh: recorded('prepareAdminFresh'),
+    reconcileAdminFresh: recorded('reconcileAdminFresh'),
+    stageAdminFreshProof: recorded('stageAdminFreshProof')
+  }
+})
 const fixture = (
   mode: 'success' | 'lost-response' | 'rollback' | 'unknown' = 'success'
 ) => {
   let completed: unknown[] = []
-  const query = vi.fn(
-    async (sql: string, ...values: unknown[]): Promise<unknown> => {
-      if (sql.includes('prepare_sso')) return [{ context }]
-      if (sql.includes('complete_sso')) {
-        if (mode === 'rollback') throw new Error('statement rolled back')
-        completed = [
-          {
-            id: values[2],
-            familyId: userId,
-            userId,
-            authorityGeneration: 7,
-            createdAt: new Date('2026-10-19T00:00:00Z'),
-            expiresAt: new Date('2026-10-20T00:00:00Z'),
-            callbackURL: '/login'
-          }
-        ]
-        if (mode === 'lost-response' || mode === 'unknown')
-          throw new Error('response lost after commit')
-        return completed
-      }
-      if (sql.includes('reconcile_sso')) {
-        if (mode === 'unknown') throw new Error('reconciliation unavailable')
-        return mode === 'lost-response' ? completed : []
-      }
-      return [{ created: true }]
+  authority.calls = []
+  authority.answer = async (name, args) => {
+    if (name === 'prepareAdminFresh') return context
+    if (name === 'completeAdminFresh') {
+      if (mode === 'rollback') throw new Error('statement rolled back')
+      const input = args[0] as { newSessionId: string }
+      completed = [
+        {
+          id: input.newSessionId,
+          familyId: userId,
+          userId,
+          authorityGeneration: 7,
+          createdAt: new Date('2026-10-19T00:00:00Z'),
+          expiresAt: new Date('2026-10-20T00:00:00Z'),
+          callbackURL: '/login'
+        }
+      ]
+      if (mode === 'lost-response' || mode === 'unknown')
+        throw new Error('response lost after commit')
+      return completed
     }
-  )
+    if (name === 'reconcileAdminFresh') {
+      if (mode === 'unknown') throw new Error('reconciliation unavailable')
+      return mode === 'lost-response' ? completed : []
+    }
+    return true
+  }
   return {
-    port: createSsoAdminFreshRepository({
-      $queryRawUnsafe: query
-    } as unknown as Pick<PrismaClient, '$queryRawUnsafe'>),
-    query
+    port: createSsoAdminFreshRepository({} as unknown as PrismaClient),
+    calls: () => authority.calls.map(({ name }) => name)
   }
 }
 describe('ADMIN_FRESH atomic rotation and outcome recovery', () => {
@@ -57,11 +80,11 @@ describe('ADMIN_FRESH atomic rotation and outcome recovery', () => {
       { ipAddress: '127.0.0.1', userAgent: 'test' }
     )
     expect(result?.userId).toBe(userId)
-    expect(f.query).toHaveBeenCalledOnce()
-    expect(f.query.mock.calls[0]?.slice(1, 3)).toEqual([
-      'a'.repeat(64),
-      'exact-old-private-token'
-    ])
+    expect(f.calls()).toEqual(['completeAdminFresh'])
+    expect(authority.calls[0]?.args[0]).toMatchObject({
+      proofDigest: 'a'.repeat(64),
+      rawOldToken: 'exact-old-private-token'
+    })
   })
   it('reconciles a committed rotation before returning a cookie token after response loss', async () => {
     const f = fixture('lost-response')
@@ -70,10 +93,7 @@ describe('ADMIN_FRESH atomic rotation and outcome recovery', () => {
       userAgent: 'test'
     })
     expect(result?.token).toMatch(/^[A-Za-z0-9_-]{43}$/u)
-    expect(f.query.mock.calls[1]?.[0]).toContain('reconcile_sso')
-    expect(f.query.mock.calls.some(([sql]) => sql.includes('cancel'))).toBe(
-      false
-    )
+    expect(f.calls()).toEqual(['completeAdminFresh', 'reconcileAdminFresh'])
   })
   it('compensates only a non-finalized proof after a definite rollback; never restores the old session', async () => {
     const f = fixture('rollback')
@@ -83,12 +103,10 @@ describe('ADMIN_FRESH atomic rotation and outcome recovery', () => {
         userAgent: 'test'
       })
     ).rejects.toThrow('rotation unavailable')
-    expect(
-      f.query.mock.calls.map(([sql]) => sql.match(/phase7_\w+/u)?.[0])
-    ).toEqual([
-      'phase7_complete_sso_admin_fresh',
-      'phase7_reconcile_sso_admin_fresh',
-      'phase7_cancel_sso_admin_fresh_proof'
+    expect(f.calls()).toEqual([
+      'completeAdminFresh',
+      'reconcileAdminFresh',
+      'cancelAdminFreshProof'
     ])
   })
   it('keeps unresolved commit outcome distinct and does not delete a finalized session', async () => {
@@ -99,11 +117,7 @@ describe('ADMIN_FRESH atomic rotation and outcome recovery', () => {
         userAgent: 'test'
       })
     ).rejects.toThrow('commit outcome is unknown')
-    expect(
-      f.query.mock.calls.some(
-        ([sql]) => sql.includes('cancel') || sql.includes('sign_out')
-      )
-    ).toBe(false)
+    expect(f.calls()).toEqual(['completeAdminFresh', 'reconcileAdminFresh'])
   })
   it('rejects other provider/sub before attempting proof staging', async () => {
     const f = fixture()
@@ -133,6 +147,6 @@ describe('ADMIN_FRESH atomic rotation and outcome recovery', () => {
         '/login'
       )
     ).toBe(false)
-    expect(f.query).not.toHaveBeenCalled()
+    expect(f.calls()).toEqual([])
   })
 })

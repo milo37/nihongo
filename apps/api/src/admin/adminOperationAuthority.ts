@@ -1,3 +1,4 @@
+import { adminSessionFreshSql } from '../auth/adminFreshAuthority.js'
 import { randomUUID } from 'node:crypto'
 import type { Prisma } from '../generated/prisma/client.js'
 import type { BegunOperationRow } from './adminRepositoryCommon.js'
@@ -168,7 +169,7 @@ const hasAuthority = async (
   if (rows.length !== 1) return false
   if (!operation.requiresFresh) return true
   const fresh = await transaction.$queryRawUnsafe<Array<{ fresh: boolean }>>(
-    `SELECT "phase7_sso_admin_session_is_fresh"($1) AS fresh`,
+    `SELECT ${adminSessionFreshSql('$1')} AS fresh`,
     operation.rawSessionToken
   )
   return fresh[0]?.fresh === true

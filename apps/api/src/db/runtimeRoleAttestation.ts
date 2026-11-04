@@ -183,41 +183,78 @@ const ATTESTATION_QUERY = `
            current_user,
            sensitive_relation.oid,
            sensitive_column.attnum,
-           -- #504 P2: the member console reads six User columns. #504 P7 PR2:
-           -- the admin operation reads its authority columns and needs one
-           -- UPDATE column per table only to take FOR UPDATE row locks. #504
-           -- P7 PR3a: owned Session issuance, refresh, sign-out and principal
-           -- resolution write and read these columns; Account stays closed.
+           -- #504 P2 (member console), P7 PR2 (admin operation locks), PR3a
+           -- (owned Session issuance) and PR3b-1 (ADMIN_FRESH re-authentication)
+           -- grant nihongo_app exactly these columns; every other privilege on
+           -- them and every other sensitive column stays closed.
            CASE WHEN current_user <> 'nihongo_app' THEN 'SELECT,INSERT,UPDATE,REFERENCES'
            WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
-               ('Session', 'expiresAt'), ('Session', 'updatedAt')
-             ) THEN 'REFERENCES'
-           WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
-               ('User', 'authorityGeneration'),
-               ('Session', 'authorizationState'),
-               ('AuthSessionFamily', 'status')
+               ('AuthSessionFamily', 'status'),
+               ('Phase7ReauthenticationIntent', 'finalizedAt'),
+               ('Phase7ReauthenticationIntent', 'stagedSessionId'),
+               ('Phase7ReauthenticationIntent', 'stagedTokenDigest'),
+               ('User', 'authorityGeneration')
              ) THEN 'INSERT,REFERENCES'
            WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
-               ('Session', 'id'), ('Session', 'token'), ('Session', 'userId'),
-               ('Session', 'sessionFamilyId'), ('Session', 'issuerProtocolVersion'),
-               ('Session', 'authorityGeneration'), ('Session', 'createdAt'),
-               ('AuthSessionFamily', 'id'), ('AuthSessionFamily', 'userId')
-             ) THEN 'UPDATE,REFERENCES'
+               ('Account', 'accountId'),
+               ('Account', 'providerId'),
+               ('Account', 'userId'),
+               ('AuthSessionRotationFence', 'id'),
+               ('Phase7AuthorityRevocationEvidence', 'expiresAt'),
+               ('Phase7AuthorityRevocationEvidence', 'tokenDigest'),
+               ('User', 'accountStatus'),
+               ('User', 'createdAt'),
+               ('User', 'deletedAt'),
+               ('User', 'email'),
+               ('User', 'emailVerified'),
+               ('User', 'id'),
+               ('User', 'name'),
+               ('User', 'role'),
+               ('User', 'targetLevel')
+             ) THEN 'INSERT,UPDATE,REFERENCES'
            WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
-               ('Session', 'ipAddress'), ('Session', 'userAgent')
+               ('AuthSessionRotationFence', 'expiresAt'),
+               ('Phase7ReauthenticationIntent', 'state'),
+               ('Session', 'authorizationState'),
+               ('Session', 'expiresAt'),
+               ('Session', 'updatedAt')
+             ) THEN 'REFERENCES'
+           WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
+               ('Phase7ReauthenticationIntent', 'createdAt'),
+               ('Session', 'ipAddress'),
+               ('Session', 'userAgent')
              ) THEN 'SELECT,UPDATE,REFERENCES'
            WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
-               ('AuthSessionRotationFence', 'expiresAt')
-             ) THEN 'SELECT,INSERT,REFERENCES'
-           WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
-               ('User', 'id'), ('User', 'email'), ('User', 'role'),
-               ('User', 'accountStatus'), ('User', 'deletedAt'),
-               ('User', 'createdAt'), ('User', 'name'), ('User', 'targetLevel'),
-               ('AuthSessionRotationFence', 'id'),
-               ('AuthSessionRotationFence', 'userId'),
+               ('AuthSessionFamily', 'id'),
+               ('AuthSessionFamily', 'userId'),
+               ('AuthSessionRotationFence', 'oldFamilyId'),
+               ('AuthSessionRotationFence', 'oldSessionId'),
                ('AuthSessionRotationFence', 'oldTokenDigest'),
-               ('AuthSessionRotationFence', 'replacementFamilyId')
-             ) THEN 'INSERT,UPDATE,REFERENCES'
+               ('AuthSessionRotationFence', 'operationId'),
+               ('AuthSessionRotationFence', 'replacementFamilyId'),
+               ('AuthSessionRotationFence', 'replacementSessionId'),
+               ('AuthSessionRotationFence', 'userId'),
+               ('Phase7ReauthenticationIntent', 'capturedAccountStatus'),
+               ('Phase7ReauthenticationIntent', 'capturedAuthorityGeneration'),
+               ('Phase7ReauthenticationIntent', 'capturedRole'),
+               ('Phase7ReauthenticationIntent', 'environment'),
+               ('Phase7ReauthenticationIntent', 'expiresAt'),
+               ('Phase7ReauthenticationIntent', 'id'),
+               ('Phase7ReauthenticationIntent', 'oldFenceTokenDigest'),
+               ('Phase7ReauthenticationIntent', 'oldSessionId'),
+               ('Phase7ReauthenticationIntent', 'oldTokenDigest'),
+               ('Phase7ReauthenticationIntent', 'operationId'),
+               ('Phase7ReauthenticationIntent', 'requestId'),
+               ('Phase7ReauthenticationIntent', 'sessionFamilyId'),
+               ('Phase7ReauthenticationIntent', 'userId'),
+               ('Session', 'authorityGeneration'),
+               ('Session', 'createdAt'),
+               ('Session', 'id'),
+               ('Session', 'issuerProtocolVersion'),
+               ('Session', 'sessionFamilyId'),
+               ('Session', 'token'),
+               ('Session', 'userId')
+             ) THEN 'UPDATE,REFERENCES'
            ELSE 'SELECT,INSERT,UPDATE,REFERENCES' END
          )) AS "groupSensitiveColumnAclCount",
       (SELECT count(*)::int
@@ -234,9 +271,13 @@ const ATTESTATION_QUERY = `
          AND has_table_privilege(
            current_user,
            sensitive_relation.oid,
-           -- #504 P7 PR3a: API sign-out deletes the Sessions of a revoked family.
+           -- #504 P7 PR3a/PR3b-1: DELETE is a table privilege; triggers limit
+           -- which of these rows nihongo_app may delete.
            CASE WHEN current_user = 'nihongo_app'
-             AND sensitive_relation.relname = 'Session'
+             AND sensitive_relation.relname IN (
+               'Session', 'Phase7ReauthenticationIntent',
+               'Phase7AuthorityRevocationEvidence'
+             )
            THEN 'SELECT,INSERT,UPDATE,TRUNCATE,REFERENCES,TRIGGER'
            ELSE 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER' END
          )) AS "groupSensitiveTableAclCount"

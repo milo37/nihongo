@@ -452,3 +452,92 @@ export const refreshRememberedSession = async (
     return [{ ...row!, refreshed: true }]
   })
 }
+
+/**
+ * phase7_confirm_v1_session_issuance: after the issuance committed, the new
+ * Session still holds the captured authority under User, family and Session
+ * locks. Returns false instead of raising, as the SQL function did.
+ */
+export const confirmOwnedSession = async (
+  client: OwnedSessionClient,
+  input: {
+    readonly token: string
+    readonly sessionId: string
+    readonly userId: string
+    readonly authorityGeneration: number
+    readonly role: 'USER' | 'ADMIN'
+    readonly accountStatus: 'ACTIVE'
+  }
+): Promise<boolean> => {
+  if (
+    input.token === '' ||
+    input.authorityGeneration <= 0 ||
+    input.accountStatus !== 'ACTIVE'
+  )
+    return false
+  return client.$transaction(async (transaction) => {
+    await requireRuntimeReady(transaction)
+    const sessions = await transaction.$queryRawUnsafe<
+      Array<{ familyId: string }>
+    >(
+      `SELECT "sessionFamilyId" AS "familyId" FROM "Session"
+       WHERE "id" = $1::uuid AND "userId" = $2::uuid AND "token" = $3`,
+      input.sessionId,
+      input.userId,
+      input.token
+    )
+    const familyId = sessions[0]?.familyId
+    if (!familyId) return false
+    const locks = [
+      [`SELECT 1 FROM "User" WHERE "id" = $1::uuid FOR UPDATE`, input.userId],
+      [
+        `SELECT 1 FROM "AuthSessionFamily"
+         WHERE "id" = $1::uuid AND "userId" = $2::uuid FOR UPDATE`,
+        familyId,
+        input.userId
+      ],
+      [
+        `SELECT 1 FROM "Session"
+         WHERE "id" = $1::uuid AND "userId" = $2::uuid
+           AND "sessionFamilyId" = $3::uuid FOR UPDATE`,
+        input.sessionId,
+        input.userId,
+        familyId
+      ]
+    ] as const
+    for (const [sql, ...values] of locks)
+      if (
+        (await transaction.$queryRawUnsafe<unknown[]>(sql, ...values))
+          .length !== 1
+      )
+        return false
+    const confirmed = await transaction.$queryRawUnsafe<unknown[]>(
+      `SELECT 1
+       FROM "User" AS target_user
+       JOIN "AuthSessionFamily" AS family
+         ON family."userId" = target_user."id" AND family."id" = $2::uuid
+       JOIN "Session" AS session
+         ON session."userId" = target_user."id"
+        AND session."sessionFamilyId" = family."id"
+        AND session."id" = $3::uuid
+       WHERE target_user."id" = $1::uuid
+         AND target_user."authorityGeneration" = $4::integer
+         AND target_user."role" = $5::"UserRole"
+         AND target_user."accountStatus" = 'ACTIVE'
+         AND family."status" = 'ACTIVE'
+         AND session."token" = $6
+         AND session."authorizationState" = 'ACTIVE'
+         AND session."issuerProtocolVersion" = 'PHASE7_V1'
+         AND session."authorityGeneration" = $4::integer
+         AND session."expiresAt" > clock_timestamp()
+         AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()`,
+      input.userId,
+      familyId,
+      input.sessionId,
+      input.authorityGeneration,
+      input.role,
+      input.token
+    )
+    return confirmed.length === 1
+  })
+}
