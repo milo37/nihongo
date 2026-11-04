@@ -213,7 +213,6 @@ const run = async (): Promise<PerformanceRunResult> => {
   abortSignal.throwIfAborted()
   const environment: NodeJS.ProcessEnv = {
     ...harness.sharedEnvironment,
-    AUTH_GATEWAY_DATABASE_URL: harness.authGatewayDatabaseUrl,
     DATABASE_URL: harness.applicationDatabaseUrl,
     PHASE7_ADMIN_DATABASE_URL: harness.adminDatabaseUrl,
     PERFORMANCE_COMMIT: commit,

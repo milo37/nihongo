@@ -13,10 +13,7 @@ import { createOwnedAuthReadiness } from '../auth/ownedAuthReadiness.js'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
 import { runPhase7ReauthenticationStartupMaintenance } from '../auth/reauthenticationStartupMaintenance.js'
 import { parseApiEnvironment } from '../config/env.js'
-import {
-  createDatabaseRuntime,
-  createRoleDatabaseRuntime
-} from '../db/database.js'
+import { createDatabaseRuntime } from '../db/database.js'
 import {
   assertSafeAdminCmsDatabase,
   assertSafeTestDatabase
@@ -228,28 +225,14 @@ export const parseBrowserEnvironment = (source: NodeJS.ProcessEnv) => {
     environment.DATABASE_URL,
     source.PRODUCTION_DATABASE_URL
   )
-  const gateway = assertTestTarget(
-    environment.AUTH_GATEWAY_DATABASE_URL!,
-    source.PRODUCTION_DATABASE_URL
-  )
-  if (
-    decodeURIComponent(app.username) !== 'nihongo_test_app_login' ||
-    decodeURIComponent(gateway.username) !==
-      'nihongo_test_auth_gateway_login' ||
-    !sameTarget(app, gateway)
-  )
+  if (decodeURIComponent(app.username) !== 'nihongo_test_app_login')
     throw new Error('BROWSER_TEST_CANONICAL_TEST_DATABASE_ROLES_REQUIRED')
-  for (const databaseUrl of [
-    environment.DATABASE_URL,
-    environment.AUTH_GATEWAY_DATABASE_URL
-  ]) {
-    assertSafeAdminCmsDatabase({
-      adminCmsMode: 'technical',
-      nodeEnvironment: 'test',
-      databaseUrl,
-      productionDatabaseUrl: source.PRODUCTION_DATABASE_URL
-    })
-  }
+  assertSafeAdminCmsDatabase({
+    adminCmsMode: 'technical',
+    nodeEnvironment: 'test',
+    databaseUrl: environment.DATABASE_URL,
+    productionDatabaseUrl: source.PRODUCTION_DATABASE_URL
+  })
   for (const origin of [
     environment.BETTER_AUTH_URL,
     ...environment.TRUSTED_ORIGINS
@@ -395,16 +378,11 @@ export const createBrowserApi = async ({
     migrationProfile: 'current',
     startupRole: 'nihongo_app'
   })
-  const gateway = createRoleDatabaseRuntime(
-    environment.AUTH_GATEWAY_DATABASE_URL!,
-    'nihongo_auth_gateway'
-  )
+  // #504 P7 PR1: every auth facade runs on the nihongo_app runtime.
+  const gateway = database
   let closing: Promise<void> | undefined
   const disconnect = (): Promise<void> =>
-    (closing ??= Promise.allSettled([
-      database.disconnect(),
-      gateway.disconnect()
-    ]).then((results) => {
+    (closing ??= Promise.allSettled([database.disconnect()]).then((results) => {
       if (results.some((result) => result.status === 'rejected'))
         throw new Error('BROWSER_TEST_DATABASE_DISCONNECT_FAILED')
     }))
@@ -415,9 +393,7 @@ export const createBrowserApi = async ({
       checkDatabaseReadiness: createOwnedAuthReadiness({
         checkDatabaseReadiness: database.checkReadiness,
         applicationClient: database.client,
-        gatewayClient: gateway.client,
-        applicationUrl: environment.DATABASE_URL,
-        gatewayUrl: environment.AUTH_GATEWAY_DATABASE_URL!
+        applicationUrl: environment.DATABASE_URL
       })
     })
     const rateLimiter = createApplicationRateLimiter({

@@ -38,7 +38,7 @@ export const apiIntegrationManifest = [
     order: 2,
     databaseState: 'phase7-current-capability-active-canonical-65',
     connectionRole: 'application',
-    requiredEnvironment: ['AUTH_GATEWAY_DATABASE_URL'],
+    requiredEnvironment: ['PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL'],
     seedPolicy: 'canonical-once',
     isolation: 'dedicated Phase 7 API schema'
   },
@@ -72,7 +72,7 @@ export const apiIntegrationManifest = [
     databaseState: 'canonical43-sso-current-capability-active-canonical-65',
     connectionRole: 'owner',
     requiredEnvironment: [
-      'AUTH_GATEWAY_DATABASE_URL',
+      'PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL',
       'PHASE7_ADMIN_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
@@ -89,7 +89,7 @@ export const apiIntegrationManifest = [
     connectionRole: 'owner',
     requiredEnvironment: [
       'DATABASE_URL',
-      'AUTH_GATEWAY_DATABASE_URL',
+      'PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL',
       'PHASE7_ADMIN_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
@@ -114,7 +114,7 @@ export const apiIntegrationManifest = [
     order: 2,
     databaseState: 'phase7-current-capability-active-canonical-65',
     connectionRole: 'owner',
-    requiredEnvironment: ['AUTH_GATEWAY_DATABASE_URL'],
+    requiredEnvironment: ['PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL'],
     seedPolicy: 'canonical-once',
     isolation: 'dedicated Phase 7 DB schema and canonical roles'
   },
@@ -125,7 +125,7 @@ export const apiIntegrationManifest = [
     order: 3,
     databaseState: 'phase7-current-capability-active-canonical-65',
     connectionRole: 'owner',
-    requiredEnvironment: ['AUTH_GATEWAY_DATABASE_URL'],
+    requiredEnvironment: ['PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL'],
     seedPolicy: 'canonical-once',
     isolation: 'dedicated Phase 7 DB schema and canonical roles'
   },
@@ -399,7 +399,7 @@ export const apiIntegrationManifest = [
       'DATABASE_URL',
       'API_INTEGRATION_FIXTURE_DATABASE_URL',
       'TEST_API_ERASURE_DATABASE_URL',
-      'AUTH_GATEWAY_DATABASE_URL'
+      'PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once' as const,
     isolation: 'dedicated Phase 10 schema; owner only for fixture setup'
@@ -428,7 +428,7 @@ export const apiIntegrationManifest = [
             'DATABASE_URL',
             'API_INTEGRATION_FIXTURE_DATABASE_URL',
             'TEST_API_ERASURE_DATABASE_URL',
-            'AUTH_GATEWAY_DATABASE_URL'
+            'PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL'
           ]
         : [
             'DATABASE_URL',
@@ -461,7 +461,7 @@ export const apiIntegrationManifest = [
       'API_INTEGRATION_APPLICATION_DATABASE_URL',
       'API_INTEGRATION_FIXTURE_DATABASE_URL',
       'PHASE7_MIGRATION_DATABASE_URL',
-      'AUTH_GATEWAY_DATABASE_URL'
+      'PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL'
     ],
     seedPolicy: 'none',
     isolation: 'suite-owned migration directory and schema'

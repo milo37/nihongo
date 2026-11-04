@@ -24,7 +24,8 @@ const adminDatabaseUrl = process.env.PHASE7_ADMIN_DATABASE_URL
 if (!adminDatabaseUrl) {
   throw new Error('Integration requires the Phase 7 admin test URL.')
 }
-const authGatewayDatabaseUrl = environment.AUTH_GATEWAY_DATABASE_URL
+const authGatewayDatabaseUrl =
+  process.env.PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL
 if (!authGatewayDatabaseUrl) {
   throw new Error('Integration requires the auth-gateway test URL.')
 }

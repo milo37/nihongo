@@ -57,7 +57,9 @@ beforeEach(() => {
   db.options.length = 0
   const environment = createSsoTestEnvironment({
     DATABASE_URL: url('nihongo_test_app_login'),
-    AUTH_GATEWAY_DATABASE_URL: url('nihongo_test_auth_gateway_login'),
+    PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: url(
+      'nihongo_test_auth_gateway_login'
+    ),
     PHASE7_ADMIN_DATABASE_URL: url('fixture_owner')
   })
   for (const [name, value] of Object.entries(environment))

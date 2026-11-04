@@ -97,7 +97,7 @@ const requireEnvironmentValue = (name: string): string => {
 const adminDatabaseUrl = requireEnvironmentValue('TEST_API_ADMIN_DATABASE_URL')
 const applicationDatabaseUrl = requireEnvironmentValue('DATABASE_URL')
 const authGatewayDatabaseUrl = requireEnvironmentValue(
-  'AUTH_GATEWAY_DATABASE_URL'
+  'PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL'
 )
 const erasureWorkerDatabaseUrl = requireEnvironmentValue(
   'TEST_API_ERASURE_DATABASE_URL'

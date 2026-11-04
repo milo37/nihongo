@@ -35,7 +35,7 @@ export const createSsoDbHarness = () => {
   })
   const schema = getPostgresSchema(environment.DATABASE_URL)
   const adminUrl = process.env.PHASE7_ADMIN_DATABASE_URL
-  const gatewayUrl = environment.AUTH_GATEWAY_DATABASE_URL
+  const gatewayUrl = process.env.PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL
   if (
     environment.NODE_ENV !== 'test' ||
     !schema?.match(/^phase7_[a-z0-9_]+_test$/u) ||

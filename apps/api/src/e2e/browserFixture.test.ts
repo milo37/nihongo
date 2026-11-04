@@ -79,7 +79,7 @@ const options = (cms: 'disabled' | 'technical' = 'technical') => {
       DEPLOYMENT_ENVIRONMENT: 'TEST',
       ADMIN_CMS_MODE: cms,
       DATABASE_URL: databaseUrl,
-      AUTH_GATEWAY_DATABASE_URL: authGatewayDatabaseUrl,
+      PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: authGatewayDatabaseUrl,
       BETTER_AUTH_URL: 'http://127.0.0.1:4100',
       TRUSTED_ORIGINS: 'http://127.0.0.1:4200',
       BETTER_AUTH_SECRET: 'a'.repeat(32),
@@ -333,7 +333,7 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
     await created.database.disconnect()
     await created.database.disconnect()
     expect(f.disconnect).toHaveBeenCalledOnce()
-    expect(f.gatewayDisconnect).toHaveBeenCalledOnce()
+    expect(f.gatewayDisconnect).not.toHaveBeenCalled()
     expect(f.end).toHaveBeenCalledOnce()
   })
 
@@ -481,7 +481,7 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
     expect(f.query).not.toHaveBeenCalled()
     await created.disconnect()
     expect(f.disconnect).toHaveBeenCalledOnce()
-    expect(f.gatewayDisconnect).toHaveBeenCalledOnce()
+    expect(f.gatewayDisconnect).not.toHaveBeenCalled()
   })
 
   it.each(['/api/v1/dashboard', '/api/v1/dashboard/insights'])(

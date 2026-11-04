@@ -1438,7 +1438,7 @@ const run = async (): Promise<void> => {
   const sharedEnvironment: NodeJS.ProcessEnv = {
     ...process.env,
     ADMIN_CMS_MODE: 'technical',
-    AUTH_GATEWAY_DATABASE_URL: authGatewayDatabaseUrl.toString(),
+    PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: authGatewayDatabaseUrl.toString(),
     DATABASE_URL: applicationDatabaseUrl.toString(),
     NODE_ENV: 'test',
     PHASE7_ADMIN_DATABASE_URL: targetDatabaseUrl.toString(),

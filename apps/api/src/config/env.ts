@@ -11,6 +11,7 @@ const deploymentEnvironmentSchema = z.enum([
   'PRODUCTION'
 ])
 const adminCmsModeSchema = z.enum(['disabled', 'technical'])
+const authRuntimeSchema = z.enum(['owned', 'legacy'])
 const emailDeliveryModeSchema = z.enum(['test-sink', 'webhook'])
 const secretSchema = z.string().min(32)
 const postgresSchemaPattern = /^[a-z_][a-z0-9_]*$/
@@ -187,7 +188,7 @@ const apiEnvironmentSchema = z
     HOST: z.string().min(1),
     PORT: z.coerce.number().int().min(1).max(65_535),
     DATABASE_URL: postgresUrlSchema,
-    AUTH_GATEWAY_DATABASE_URL: postgresUrlSchema.optional(),
+    AUTH_RUNTIME: authRuntimeSchema,
     TRUSTED_ORIGINS: originListSchema,
     LOG_LEVEL: logLevelSchema,
     BETTER_AUTH_SECRET: secretSchema,
@@ -219,12 +220,12 @@ const apiEnvironmentSchema = z
     }
     if (
       (environment.APPLE_CLIENT_ID || environment.GOOGLE_CLIENT_ID) &&
-      !environment.AUTH_GATEWAY_DATABASE_URL
+      environment.AUTH_RUNTIME !== 'owned'
     ) {
       context.addIssue({
         code: 'custom',
-        path: ['AUTH_GATEWAY_DATABASE_URL'],
-        message: 'SSO requires its dedicated auth gateway database authority.'
+        path: ['AUTH_RUNTIME'],
+        message: 'SSO requires the owned auth runtime.'
       })
     }
     if (environment.APPLE_CLIENT_ID) {
@@ -290,23 +291,18 @@ const apiEnvironmentSchema = z
 
     if (
       environment.ADMIN_CMS_MODE === 'technical' &&
-      !environment.AUTH_GATEWAY_DATABASE_URL
+      environment.AUTH_RUNTIME !== 'owned'
     ) {
       context.addIssue({
         code: 'custom',
-        path: ['AUTH_GATEWAY_DATABASE_URL'],
-        message:
-          'technical admin CMS mode는 분리된 auth gateway DB URL이 필요합니다.'
+        path: ['AUTH_RUNTIME'],
+        message: 'technical admin CMS mode는 owned auth runtime이 필요합니다.'
       })
     }
 
-    if (
-      environment.ADMIN_CMS_MODE === 'technical' ||
-      environment.AUTH_GATEWAY_DATABASE_URL
-    ) {
+    if (environment.ADMIN_CMS_MODE === 'technical') {
       for (const [field, roleSuffix] of [
-        ['DATABASE_URL', 'app_login'],
-        ['AUTH_GATEWAY_DATABASE_URL', 'auth_gateway_login']
+        ['DATABASE_URL', 'app_login']
       ] as const) {
         const value = environment[field]
         if (value && !hasSingleSafePostgresSchema(value)) {
@@ -369,20 +365,12 @@ const apiEnvironmentSchema = z
       })
     }
 
-    if (environment.AUTH_GATEWAY_DATABASE_URL) {
-      const tls =
-        toUrlOrNull(environment.AUTH_GATEWAY_DATABASE_URL)?.searchParams.getAll(
-          'sslmode'
-        ) ?? []
-      if (
-        tls.length !== 1 ||
-        !['require', 'verify-ca', 'verify-full'].includes(tls[0] ?? '')
-      )
-        context.addIssue({
-          code: 'custom',
-          path: ['AUTH_GATEWAY_DATABASE_URL'],
-          message: 'Production SSO gateway PostgreSQL requires TLS.'
-        })
+    if (environment.AUTH_RUNTIME !== 'owned') {
+      context.addIssue({
+        code: 'custom',
+        path: ['AUTH_RUNTIME'],
+        message: 'production은 owned auth runtime만 허용합니다.'
+      })
     }
     for (const origin of environment.TRUSTED_ORIGINS) {
       if (new URL(origin).protocol !== 'https:') {
@@ -482,7 +470,7 @@ export const parseApiEnvironment = (
     HOST: source.HOST ?? (canUseDevelopmentDefaults ? '127.0.0.1' : undefined),
     PORT: source.PORT ?? (canUseDevelopmentDefaults ? '3001' : undefined),
     DATABASE_URL: source.DATABASE_URL,
-    AUTH_GATEWAY_DATABASE_URL: source.AUTH_GATEWAY_DATABASE_URL,
+    AUTH_RUNTIME: source.AUTH_RUNTIME ?? 'owned',
     TRUSTED_ORIGINS:
       source.TRUSTED_ORIGINS ??
       (canUseDevelopmentDefaults ? 'http://localhost:5173' : undefined),

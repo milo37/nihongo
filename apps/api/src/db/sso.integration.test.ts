@@ -65,7 +65,7 @@ const unchangedSession = {
 }
 
 describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
-  it('deploy and re-entry leave exactly65 completed names/checksums preserving the old64 prefix', async () => {
+  it('deploy and re-entry leave exactly66 completed names/checksums preserving the old65 prefix', async () => {
     const expected = loadExpectedMigrationManifest(
       fileURLToPath(new URL('../../prisma/migrations/', import.meta.url))
     )
@@ -76,7 +76,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     }>(
       `SELECT migration_name AS name,checksum,finished_at IS NOT NULL AND rolled_back_at IS NULL AS complete FROM "_prisma_migrations" WHERE rolled_back_at IS NULL ORDER BY migration_name`
     )
-    expect(expected).toHaveLength(65)
+    expect(expected).toHaveLength(66)
     expect(
       actual.rows.map(({ name, checksum }) => ({ name, checksum }))
     ).toEqual(expected)
@@ -190,11 +190,16 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         name: '20261111090000_drop_dead_reauthentication',
         checksum:
           '38112f77708f18f8c1653baf305fb1925585e67f142c8601e0b2667d404ac154'
+      },
+      {
+        name: '20261112090000_merge_runtime_roles',
+        checksum:
+          '3b07241f98ba2f8f8087ece67d522d8b542a1b10e408191e402fd477f8a019f7'
       }
     ])
     // Existing runner executes canonical deploy then db:migrate:deploy re-entry
     // before this suite. One completed row per name proves no duplicate apply.
-    expect(new Set(actual.rows.map((row) => row.name)).size).toBe(65)
+    expect(new Set(actual.rows.map((row) => row.name)).size).toBe(66)
   })
 
   it('new private objects have exact owner, search_path and least-privilege ACLs', async () => {
@@ -286,7 +291,10 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       }).toEqual({
         owner: 'nihongo_phase7_owner',
         definer: true,
-        app: row.name === 'phase7_sso_admin_session_is_fresh',
+        // #504 P7 PR1: nihongo_app also executes every gateway facade.
+        app:
+          row.name === 'phase7_sso_admin_session_is_fresh' ||
+          gatewayFunctions.includes(row.name),
         gateway: gatewayFunctions.includes(row.name),
         erasure: false,
         publicGrant: false
@@ -303,12 +311,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       ] as const) {
         await h.rejects(role, 'SELECT * FROM "SsoAdminFreshProof"', [], '42501')
       }
-      await h.rejects(
-        'nihongo_app',
-        'SELECT "phase7_prepare_sso_admin_fresh"($1,$2)',
-        ['missing', 'google'],
-        '42501'
-      )
+      // #504 P7 PR1: nihongo_app may run gateway facades; the erasure
+      // worker below still may not.
       await h.rejects(
         'nihongo_erasure_worker',
         'SELECT "phase7_prepare_sso_admin_fresh"($1,$2)',

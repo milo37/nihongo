@@ -11,10 +11,7 @@ import type { SsoProvider } from '../auth/ssoProtocol.js'
 import { createPrismaBookmarkRepository } from '../bookmark/bookmarkRepository.js'
 import { createBookmarkService } from '../bookmark/bookmarkService.js'
 import type { ApiEnvironment } from '../config/env.js'
-import {
-  createDatabaseRuntime,
-  createRoleDatabaseRuntime
-} from '../db/database.js'
+import { createDatabaseRuntime } from '../db/database.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { createPracticeRuntimeGate } from '../lifecycle/practiceRuntimeGate.js'
 import { createApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
@@ -646,7 +643,6 @@ const createSsoBrowserApiFixture = async (
     environment.ADMIN_CMS_MODE !== (cms ? 'technical' : 'disabled') ||
     (cms && adminDatabaseUrl === undefined) ||
     environment.DATABASE_URL !== databaseUrl ||
-    environment.AUTH_GATEWAY_DATABASE_URL !== authGatewayDatabaseUrl ||
     environment.GOOGLE_CLIENT_ID !== undefined ||
     environment.GOOGLE_CLIENT_SECRET !== undefined ||
     environment.APPLE_CLIENT_ID !== undefined ||
@@ -1413,17 +1409,12 @@ const createSsoBrowserApiFixture = async (
         }
       })
     }
-    const gateway = createRoleDatabaseRuntime(
-      authGatewayDatabaseUrl,
-      'nihongo_auth_gateway'
-    )
-    disconnectors.push(gateway.disconnect)
+    // #504 P7 PR1: every auth facade runs on the nihongo_app runtime.
+    const gateway = database
     const checkDatabaseReadiness = createOwnedAuthReadiness({
       checkDatabaseReadiness: database.checkReadiness,
       applicationClient: database.client,
-      gatewayClient: gateway.client,
-      applicationUrl: databaseUrl,
-      gatewayUrl: authGatewayDatabaseUrl
+      applicationUrl: databaseUrl
     })
     const practice = createPracticeRuntimeGate({
       runtime: 'v1-v2',

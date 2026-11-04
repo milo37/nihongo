@@ -26,7 +26,6 @@ import {
 import { attestRuntimeRoles } from './runtimeRoleAttestation.js'
 
 const EXPECTED_RECENT_MIGRATIONS = [
-  '20261104120000_user_report_erasure_redaction',
   '20261104150000_user_account_restriction',
   '20261105090000_admin_member_console',
   '20261106090000_single_operator_review',
@@ -36,7 +35,8 @@ const EXPECTED_RECENT_MIGRATIONS = [
   '20261110090000_cms_rules_to_api',
   '20261110100000_admin_audit_to_api',
   '20261110110000_drop_retired_credential_auth',
-  '20261111090000_drop_dead_reauthentication'
+  '20261111090000_drop_dead_reauthentication',
+  '20261112090000_merge_runtime_roles'
 ] as const
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',
@@ -479,14 +479,14 @@ afterAll(async () => {
 })
 
 describe('Persistence foundation', () => {
-  it('65 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
+  it('66 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
     const ledger = await client.query<{ migrationName: string }>(
       `SELECT migration_name AS "migrationName"
        FROM "_prisma_migrations"
        WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
        ORDER BY started_at`
     )
-    expect(ledger.rows).toHaveLength(65)
+    expect(ledger.rows).toHaveLength(66)
     expect(
       ledger.rows.slice(-11).map(({ migrationName }) => migrationName)
     ).toEqual(EXPECTED_RECENT_MIGRATIONS)
@@ -566,7 +566,7 @@ describe('Persistence foundation', () => {
              WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`
           )
         ).rows
-      ).toEqual([{ migrationCount: 65 }])
+      ).toEqual([{ migrationCount: 66 }])
     } finally {
       await client.query('ROLLBACK')
     }
@@ -3691,8 +3691,9 @@ describe('Persistence foundation', () => {
         [appSpoofFamilyId, actorId]
       )
     }, '42501')
+    // #504 P7 PR1: nihongo_app may run gateway facades; another role may not.
     await expectFailedTransaction(async () => {
-      await client.query(`SET LOCAL ROLE "nihongo_app"`)
+      await client.query(`SET LOCAL ROLE "nihongo_erasure_worker"`)
       await client.query(
         `SELECT * FROM "phase7_issue_v1_session"(
           $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
@@ -4737,8 +4738,9 @@ describe('Persistence foundation', () => {
       throw new Error('Report redaction snapshots are unavailable.')
     }
 
+    // #504 P7 PR1: nihongo_app may run erasure facades; another role may not.
     await expect(
-      withExecutionRole('nihongo_app', () =>
+      withExecutionRole('nihongo_auth_gateway', () =>
         client.query(
           `SELECT "phase7_redact_expired_report_descriptions"(100, 'TEST')`
         )
@@ -6722,8 +6724,9 @@ describe('Persistence foundation', () => {
         )
       ).resolves.toMatchObject({ rows: [{ confirmed: false }] })
     }
+    // #504 P7 PR1: nihongo_app may run gateway facades; another role may not.
     await expect(
-      withExecutionRole('nihongo_app', () =>
+      withExecutionRole('nihongo_erasure_worker', () =>
         client.query(
           `SELECT "phase7_confirm_v1_session_issuance"(
             $1, $2, $3, 1, 'USER', 'ACTIVE'
@@ -7004,7 +7007,7 @@ describe('Persistence foundation', () => {
       return `"${value}"`
     }
     const applicationUrl = environment.DATABASE_URL
-    const authGatewayUrl = environment.AUTH_GATEWAY_DATABASE_URL
+    const authGatewayUrl = process.env.PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL
     if (!authGatewayUrl) {
       throw new Error('Auth gateway wrapper URL is required.')
     }
@@ -7087,11 +7090,6 @@ describe('Persistence foundation', () => {
           client: applicationRuntime.client,
           connectionString: applicationUrl,
           expectedRole: 'nihongo_app' as const
-        },
-        authGateway: {
-          client: authGatewayRuntime.client,
-          connectionString: authGatewayUrl,
-          expectedRole: 'nihongo_auth_gateway' as const
         }
       }
       await expect(attestRuntimeRoles(endpoints)).resolves.toBeUndefined()
@@ -7185,11 +7183,6 @@ describe('Persistence foundation', () => {
                   client: replicaApplicationRuntime.client,
                   connectionString: applicationUrl,
                   expectedRole: 'nihongo_app'
-                },
-                authGateway: {
-                  client: replicaAuthGatewayRuntime.client,
-                  connectionString: authGatewayUrl,
-                  expectedRole: 'nihongo_auth_gateway'
                 }
               })
             } catch {
@@ -7233,15 +7226,7 @@ describe('Persistence foundation', () => {
           SET session_replication_role = replica`,
         settingKind: 'application-role'
       })
-      await assertReplicaStartupFailsClosed({
-        resetSetting: `ALTER ROLE ${quoteIdentifier(authGatewayLogin)}
-          IN DATABASE ${quoteIdentifier(configuredDatabaseName)}
-          RESET session_replication_role`,
-        setSetting: `ALTER ROLE ${quoteIdentifier(authGatewayLogin)}
-          IN DATABASE ${quoteIdentifier(configuredDatabaseName)}
-          SET session_replication_role = replica`,
-        settingKind: 'auth-gateway-database-role'
-      })
+      // #504 P7 PR1: the auth gateway login is no longer a runtime endpoint.
 
       await client.query(
         `GRANT CONNECT ON DATABASE ${quoteIdentifier(configuredDatabaseName)}
@@ -7383,16 +7368,8 @@ describe('Persistence foundation', () => {
         wrongSchemaApplicationUrl,
         'nihongo_app'
       )
-      await expect(
-        attestRuntimeRoles({
-          application: {
-            client: wrongSchemaRuntime.client,
-            connectionString: wrongSchemaApplicationUrl,
-            expectedRole: 'nihongo_app'
-          },
-          authGateway: endpoints.authGateway
-        })
-      ).rejects.toThrow('Runtime DB endpoints do not share one safe target.')
+      // #504 P7 PR1: the API attests one nihongo_app endpoint, so there is no
+      // second endpoint whose schema could disagree.
 
       await client.query(
         `CREATE DATABASE ${quoteIdentifier(ownedDatabase)}
@@ -7464,11 +7441,6 @@ describe('Persistence foundation', () => {
             client: ownedDatabaseApplicationRuntime.client,
             connectionString: ownedDatabaseApplicationUrl,
             expectedRole: 'nihongo_app'
-          },
-          authGateway: {
-            client: ownedDatabaseAuthGatewayRuntime.client,
-            connectionString: ownedDatabaseAuthGatewayUrl,
-            expectedRole: 'nihongo_auth_gateway'
           }
         })
       ).rejects.toThrow('Runtime DB role attestation failed.')

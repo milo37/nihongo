@@ -326,7 +326,7 @@ beforeAll(async () => {
     startupRole: 'nihongo_app'
   })
   authGatewayRuntime = createRoleDatabaseRuntime(
-    environment.AUTH_GATEWAY_DATABASE_URL!,
+    process.env.PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL!,
     'nihongo_auth_gateway'
   )
 
@@ -478,11 +478,6 @@ describe('Technical API gate', () => {
           client: applicationRuntime.client,
           connectionString: environment.DATABASE_URL,
           expectedRole: 'nihongo_app'
-        },
-        authGateway: {
-          client: authGatewayRuntime.client,
-          connectionString: environment.AUTH_GATEWAY_DATABASE_URL!,
-          expectedRole: 'nihongo_auth_gateway'
         }
       })
     ).resolves.toBeUndefined()
