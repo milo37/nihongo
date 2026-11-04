@@ -27,6 +27,7 @@ import {
   updateQuestionVersionRequestSchema,
   updateQuestionVersionResponseSchema
 } from '@nihongo/contracts/admin/content-operations'
+import { listAdminMembersResponseSchema } from '@nihongo/contracts/admin/members'
 import {
   assertAndAttachLedger,
   ledgerEntriesFor,
@@ -820,5 +821,51 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
     }
   } finally {
     await peer.close()
+  }
+})
+
+test('administrator member list renders the real masked member page', async ({
+  browser
+}) => {
+  const { reviewer } = readFixture()
+  const context = await browser.newContext({
+    baseURL: publicOrigin,
+    locale: 'ko-KR'
+  })
+  const ledger = trackRequestLedger(context)
+  try {
+    const page = await context.newPage()
+    await login(page, reviewer, ledger)
+    const listed = waitForResponse(page, 'GET', '/api/v1/admin/members')
+    await page.goto('/admin/members')
+    const members = listAdminMembersResponseSchema.parse(
+      await canonicalJson(await listed, 200)
+    )
+    expect(members).toMatchObject({ page: 1, pageSize: 25 })
+    expect(members.items.length).toBeGreaterThan(0)
+    expect(members.total).toBeGreaterThanOrEqual(members.items.length)
+    await expect(
+      page.getByRole('heading', { level: 1, name: '가입자', exact: true })
+    ).toBeVisible()
+    const grid = page.getByRole('region', { name: '가입자 목록', exact: true })
+    const rows = grid.locator('tbody tr')
+    await expect(rows).toHaveCount(members.items.length)
+    // Masked emails can repeat across members, so check each row in server order by its member ID.
+    for (const [index, member] of members.items.entries()) {
+      const row = rows.nth(index)
+      await expect(
+        row.getByRole('link', { name: member.memberId, exact: true })
+      ).toBeVisible()
+      await expect(
+        row.getByRole('cell', { name: member.maskedEmail, exact: true })
+      ).toBeVisible()
+    }
+    // Fixture addresses are phase7-<actor>-<suffix>@example.test; only masked text may render.
+    await expect(grid.getByText(/phase7-[a-z]+-.+@example\.test/)).toHaveCount(
+      0
+    )
+    await waitForLedgerToQuiesce(ledger)
+  } finally {
+    await context.close()
   }
 })
