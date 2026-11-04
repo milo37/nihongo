@@ -28,11 +28,12 @@ role.
 - Migrations: the current Phase7 migration preflight accepts only the TEST and
   DEVELOPMENT migration wrappers. A production migration principal and its
   approval are not defined.
-- Roles: a production erasure-worker login that is a member of
-  `nihongo_erasure_worker` only, with CONNECT on the production database only.
+- Roles: the production application login (`nihongo_app` only), with CONNECT
+  on the production database only. Since #504 P7 PR1 the erasure command runs
+  as `nihongo_app`; the old `nihongo_erasure_worker` role is removed in PR5.
 - Capability: `Phase7DatabaseCapability` registered as `PRODUCTION` for the
   exact database, address and port by the migration principal.
-- Target proof: `ERASURE_WORKER_DATABASE_URL` and `PRODUCTION_DATABASE_URL`
+- Target proof: `DATABASE_URL` and `PRODUCTION_DATABASE_URL`
   name the same host, port, database and schema.
 - Provider tokens: SSO sign-in stores no provider tokens today. Google revoke
   needs a token and Apple revoke needs a refresh token plus the client secret,

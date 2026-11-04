@@ -36,7 +36,7 @@ export const parseSsoAccountErasureCommandInput = (
     })
     .strict()
     .parse({
-      databaseUrl: source.ERASURE_WORKER_DATABASE_URL,
+      databaseUrl: source.DATABASE_URL,
       productionDatabaseUrl: source.PRODUCTION_DATABASE_URL,
       environment: source.ACCOUNT_ERASURE_ENVIRONMENT,
       batchSize: source.ACCOUNT_ERASURE_BATCH_SIZE,
@@ -67,10 +67,7 @@ export const runSsoAccountErasureCommand = async (
     const input = parseSsoAccountErasureCommandInput(source)
     if (input.environment === 'PRODUCTION' && revoke === undefined)
       throw new Error('Production provider revoke capability is absent.')
-    const database = createRoleDatabaseRuntime(
-      input.databaseUrl,
-      'nihongo_erasure_worker'
-    )
+    const database = createRoleDatabaseRuntime(input.databaseUrl, 'nihongo_app')
     let providers: SsoProviderRevokeRunResult
     let result: SsoAccountErasureRunResult
     try {

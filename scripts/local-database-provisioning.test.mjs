@@ -234,11 +234,7 @@ test('dotenv examples keep technical and runner targets separate', async () => {
     assert.equal(rootEnvironment.get(secretName), '')
   }
 
-  for (const field of [
-    'DATABASE_URL',
-    'PHASE7_MIGRATION_DATABASE_URL',
-    'AUTH_GATEWAY_DATABASE_URL'
-  ]) {
+  for (const field of ['DATABASE_URL', 'PHASE7_MIGRATION_DATABASE_URL']) {
     assert.equal(new URL(developmentEnvironment.get(field)).port, '55433')
     assert.equal(new URL(testEnvironment.get(field)).port, '55433')
   }
@@ -268,9 +264,19 @@ test('README documents both mutually exclusive local workflows', async () => {
   )
 
   assert.match(readme, /--profile phase7-local up -d --wait postgres-phase7/u)
-  assert.match(readme, /NODE_ENV=test pnpm run db:migrate:test/u)
+  assert.match(
+    readme,
+    /NODE_ENV=test TEST_MIGRATIONS_PATH=\S+ pnpm run db:migrate:deploy/u
+  )
   assert.match(readme, /ADMIN_CMS_MODE=technical pnpm run db:seed:test/u)
-  assert.match(readme, /ADMIN_CMS_MODE=technical pnpm run db:seed:dev/u)
+  assert.match(
+    readme,
+    /psql -h 127\.0\.0\.1 -p "\$\{PHASE7_POSTGRES_PORT:-55433\}"/u
+  )
+  assert.match(
+    readme,
+    /--file=infra\/postgres\/init\/local-database-activate\.psql/u
+  )
   assert.match(readme, /pnpm run test:api-regression/u)
   assert.match(readme, /wrapper login이 하나라도 이미 존재하면 안전하게 중단/u)
   assert.match(readme, /production provisioning의\s+대체물이 아닙니다/u)

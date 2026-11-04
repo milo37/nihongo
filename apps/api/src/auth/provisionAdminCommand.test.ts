@@ -410,8 +410,6 @@ describe('ADMIN learner access and CMS role boundaries', () => {
     ADMIN_CMS_MODE: 'technical',
     DATABASE_URL:
       'postgresql://nihongo_test_app_login:placeholder@localhost/nihongo_test?schema=public',
-    AUTH_GATEWAY_DATABASE_URL:
-      'postgresql://nihongo_test_auth_gateway_login:placeholder@localhost/nihongo_test?schema=public',
     TRUSTED_ORIGINS: origin,
     BETTER_AUTH_SECRET: 'a'.repeat(32),
     GUEST_COOKIE_SECRET: 'b'.repeat(32),

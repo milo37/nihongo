@@ -232,7 +232,7 @@ const createIsolatedMigrationSchema =
     )
     const authGatewayDatabaseUrl = withSchema(
       isCurrentSourceIntegration
-        ? requireEnvironmentValue('AUTH_GATEWAY_DATABASE_URL')
+        ? requireEnvironmentValue('PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL')
         : environment!.DATABASE_URL,
       schemaName
     )

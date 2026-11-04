@@ -59,7 +59,8 @@ const password = 'Phase7-real-reauthentication-2026!'
 const environment = parseApiEnvironment(process.env)
 const schema = getPostgresSchema(environment.DATABASE_URL)
 const adminDatabaseUrl = process.env.PHASE7_ADMIN_DATABASE_URL
-const authGatewayDatabaseUrl = environment.AUTH_GATEWAY_DATABASE_URL
+const authGatewayDatabaseUrl =
+  process.env.PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL
 if (!schema || !adminDatabaseUrl || !authGatewayDatabaseUrl) {
   throw new Error('Phase 7 reauthentication service DB URLs are required.')
 }

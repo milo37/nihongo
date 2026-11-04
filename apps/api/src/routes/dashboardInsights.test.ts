@@ -98,13 +98,7 @@ const createEnvironment = (
     DATABASE_URL: databaseUrl(
       ownedAuth ? 'nihongo_test_app_login' : 'nihongo_test_legacy_app_login'
     ),
-    ...(ownedAuth
-      ? {
-          AUTH_GATEWAY_DATABASE_URL: databaseUrl(
-            'nihongo_test_auth_gateway_login'
-          )
-        }
-      : {}),
+    AUTH_RUNTIME: ownedAuth ? 'owned' : 'legacy',
     AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32,::1/128',
     BETTER_AUTH_SECRET: 'a'.repeat(48),
     GUEST_COOKIE_SECRET: 'b'.repeat(48),

@@ -147,7 +147,8 @@ assertSafeAdminCmsDatabase({
 
 const schema = getPostgresSchema(environment.DATABASE_URL)
 const adminDatabaseUrl = process.env.PHASE7_ADMIN_DATABASE_URL
-const authGatewayDatabaseUrl = process.env.AUTH_GATEWAY_DATABASE_URL
+const authGatewayDatabaseUrl =
+  process.env.PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL
 if (!schema || !adminDatabaseUrl || !authGatewayDatabaseUrl) {
   throw new Error('Reauthentication DB test URLs are required.')
 }
@@ -1105,7 +1106,8 @@ describe('Reauthentication DB foundation', () => {
     ] of routineManifest) {
       const row = catalog.rows.find((candidate) => candidate.name === name)
       expect(row).toMatchObject({
-        appCanExecute,
+        // #504 P7 PR1: nihongo_app also executes every gateway facade.
+        appCanExecute: appCanExecute || gatewayCanExecute,
         erasureCanExecute: false,
         gatewayCanExecute,
         identityArguments,
@@ -1152,5 +1154,101 @@ describe('Reauthentication DB foundation', () => {
     )
     // The legacy password reauthentication function was dropped in #504 P6b-1.
     expect(legacy.rows).toEqual([])
+  })
+
+  it('#504 P7 PR1: require_caller_role는 gateway·erasure_worker 요구에만 nihongo_app을 더 허용한다', async () => {
+    const outcome = async (
+      caller: 'nihongo_app' | 'nihongo_auth_gateway' | 'nihongo_erasure_worker',
+      required: string
+    ) => {
+      await adminClient.query('SAVEPOINT phase7_caller_role_probe')
+      try {
+        await adminClient.query(`SET LOCAL ROLE "${caller}"`)
+        await adminClient.query('SELECT "phase7_require_caller_role"($1)', [
+          required
+        ])
+        return 'allowed'
+      } catch (error: unknown) {
+        return (error as { code?: unknown }).code
+      } finally {
+        await adminClient.query(
+          'ROLLBACK TO SAVEPOINT phase7_caller_role_probe'
+        )
+        await adminClient.query('RELEASE SAVEPOINT phase7_caller_role_probe')
+      }
+    }
+    await withinRollback(async () => {
+      // Callers reach the check through facades; grant it directly only inside
+      // this rolled-back transaction so the probe can call it.
+      await adminClient.query(
+        `GRANT EXECUTE ON FUNCTION "phase7_require_caller_role"(TEXT)
+         TO "nihongo_app", "nihongo_auth_gateway", "nihongo_erasure_worker"`
+      )
+      const cases = [
+        ['nihongo_app', 'nihongo_app', 'allowed'],
+        ['nihongo_app', 'nihongo_auth_gateway', 'allowed'],
+        ['nihongo_app', 'nihongo_erasure_worker', 'allowed'],
+        ['nihongo_app', 'nihongo_phase7_migration', '42501'],
+        ['nihongo_auth_gateway', 'nihongo_auth_gateway', 'allowed'],
+        ['nihongo_auth_gateway', 'nihongo_app', '42501'],
+        ['nihongo_auth_gateway', 'nihongo_erasure_worker', '42501'],
+        ['nihongo_erasure_worker', 'nihongo_erasure_worker', 'allowed'],
+        ['nihongo_erasure_worker', 'nihongo_app', '42501'],
+        ['nihongo_erasure_worker', 'nihongo_auth_gateway', '42501']
+      ] as const
+      for (const [caller, required, expected] of cases) {
+        expect(
+          await outcome(caller, required),
+          `${caller} -> ${required}`
+        ).toBe(expected)
+      }
+    })
+  })
+
+  it('#504 P7 PR1: nihongo_app EXECUTE는 기존 app facade와 gateway·erasure_worker facade의 합집합이다', async () => {
+    const rows = (
+      await adminClient.query<{
+        app: boolean
+        erasure: boolean
+        gateway: boolean
+        name: string
+      }>(
+        `SELECT procedure_record.proname AS name,
+           has_function_privilege('nihongo_app', procedure_record.oid, 'EXECUTE') AS app,
+           has_function_privilege('nihongo_auth_gateway', procedure_record.oid, 'EXECUTE') AS gateway,
+           has_function_privilege('nihongo_erasure_worker', procedure_record.oid, 'EXECUTE') AS erasure
+         FROM pg_proc AS procedure_record
+         JOIN pg_namespace AS namespace_record
+           ON namespace_record.oid = procedure_record.pronamespace
+         WHERE namespace_record.nspname = current_schema()
+           AND NOT EXISTS (
+             SELECT 1
+             FROM aclexplode(COALESCE(
+               procedure_record.proacl,
+               acldefault('f', procedure_record.proowner)
+             )) AS permission
+             WHERE permission.grantee = 0
+               AND permission.privilege_type = 'EXECUTE'
+           )
+         ORDER BY procedure_record.proname`
+      )
+    ).rows
+    expect(
+      rows.filter((row) => (row.gateway || row.erasure) && !row.app)
+    ).toEqual([])
+    expect(
+      rows
+        .filter((row) => row.app && !row.gateway && !row.erasure)
+        .map((row) => row.name)
+    ).toEqual([
+      'phase7_begin_admin_operation',
+      'phase7_classify_admin_authority',
+      'phase7_create_question_report',
+      'phase7_finish_admin_operation',
+      'phase7_resolve_v1_principal',
+      'phase7_sso_admin_session_is_fresh'
+    ])
+    expect(rows.filter((row) => row.gateway).length).toBe(34)
+    expect(rows.filter((row) => row.erasure).length).toBe(8)
   })
 })

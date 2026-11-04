@@ -17,10 +17,7 @@ import { LOCAL_RELEASE_ID, parseApiEnvironment } from './config/env.js'
 import { createAuthRuntimePlan } from './config/authRuntimePlan.js'
 import { createFilePracticeCompatibilityAuthority } from './config/practiceCompatibilityAuthority.js'
 import { parsePracticeRuntimeEnvironment } from './config/practiceRuntimeEnvironment.js'
-import {
-  createDatabaseRuntime,
-  createRoleDatabaseRuntime
-} from './db/database.js'
+import { createDatabaseRuntime } from './db/database.js'
 import { assertSafeAdminCmsDatabase } from './db/databaseTargetGuard.js'
 import { createOwnedAuthReadiness } from './auth/ownedAuthReadiness.js'
 import { stopServerGracefully } from './lifecycle/gracefulShutdown.js'
@@ -107,45 +104,24 @@ const compatibilityAuthority =
 const technicalMode = environment.ADMIN_CMS_MODE === 'technical'
 const ownedAuth = authRuntimePlan.ownedAuth
 const runtimeMigrationProfile = authRuntimePlan.migrationProfile
-const authGatewayDatabaseUrl = environment.AUTH_GATEWAY_DATABASE_URL
-if (technicalMode && !authGatewayDatabaseUrl) {
-  throw new Error('Technical auth gateway DB URL is unavailable.')
-}
-if (technicalMode) {
-  assertSafeAdminCmsDatabase({
-    adminCmsMode: environment.ADMIN_CMS_MODE,
-    nodeEnvironment: environment.NODE_ENV,
-    databaseUrl: authGatewayDatabaseUrl,
-    productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
-  })
-}
 const database = createDatabaseRuntime(
   environment.DATABASE_URL,
   ownedAuth
     ? { migrationProfile: runtimeMigrationProfile, startupRole: 'nihongo_app' }
     : { migrationProfile: runtimeMigrationProfile }
 )
-const authGatewayDatabase = ownedAuth
-  ? createRoleDatabaseRuntime(authGatewayDatabaseUrl!, 'nihongo_auth_gateway')
-  : undefined
-const checkDatabaseReadiness =
-  ownedAuth && authGatewayDatabase && authGatewayDatabaseUrl
-    ? createOwnedAuthReadiness({
-        checkDatabaseReadiness: database.checkReadiness,
-        applicationClient: database.client,
-        gatewayClient: authGatewayDatabase.client,
-        applicationUrl: environment.DATABASE_URL,
-        gatewayUrl: authGatewayDatabaseUrl
-      })
-    : async (): Promise<void> => {
-        await database.checkReadiness()
-        await database.client.$queryRawUnsafe('SELECT 1 FROM "User" LIMIT 0')
-      }
+const checkDatabaseReadiness = ownedAuth
+  ? createOwnedAuthReadiness({
+      checkDatabaseReadiness: database.checkReadiness,
+      applicationClient: database.client,
+      applicationUrl: environment.DATABASE_URL
+    })
+  : async (): Promise<void> => {
+      await database.checkReadiness()
+      await database.client.$queryRawUnsafe('SELECT 1 FROM "User" LIMIT 0')
+    }
 const disconnectDatabases = async (): Promise<void> => {
-  await Promise.all([
-    database.disconnect(),
-    authGatewayDatabase?.disconnect() ?? Promise.resolve()
-  ])
+  await database.disconnect()
 }
 const practiceRuntimeGate = createPracticeRuntimeGate({
   runtime: practiceEnvironment.runtime,
@@ -160,15 +136,14 @@ const applicationRateLimiter = createApplicationRateLimiter({
 const auth = ownedAuth
   ? undefined
   : createAuthRuntime({ client: database.client, environment })
-const ssoAuthentication =
-  ownedAuth && authGatewayDatabase
-    ? createSsoAuthentication({
-        environment,
-        applicationClient: database.client,
-        gatewayClient: authGatewayDatabase.client,
-        rateLimiter: applicationRateLimiter
-      })
-    : undefined
+const ssoAuthentication = ownedAuth
+  ? createSsoAuthentication({
+      environment,
+      applicationClient: database.client,
+      gatewayClient: database.client,
+      rateLimiter: applicationRateLimiter
+    })
+  : undefined
 const guestPrincipalService = createGuestPrincipalService({
   client: database.client,
   secret: environment.GUEST_COOKIE_SECRET
@@ -376,10 +351,8 @@ const app = createApiApp({
 
 const checkStartupReadiness = async (): Promise<void> => {
   await practiceRuntimeGate.checkReadiness()
-  if (ownedAuth && authGatewayDatabase) {
-    await runPhase7ReauthenticationStartupMaintenance(
-      authGatewayDatabase.client
-    )
+  if (ownedAuth) {
+    await runPhase7ReauthenticationStartupMaintenance(database.client)
   }
 }
 
@@ -395,17 +368,16 @@ const server = await startApiListener({
 })
 server.headersTimeout = 10_000
 server.requestTimeout = 15_000
-const reauthenticationMaintenance =
-  ownedAuth && authGatewayDatabase
-    ? startReauthenticationMaintenance({
-        client: authGatewayDatabase.client,
-        onFailure: () => {
-          logger.error('auth.reauthentication.maintenance_failed', {
-            errorCode: 'MAINTENANCE_FAILED'
-          })
-        }
-      })
-    : undefined
+const reauthenticationMaintenance = ownedAuth
+  ? startReauthenticationMaintenance({
+      client: database.client,
+      onFailure: () => {
+        logger.error('auth.reauthentication.maintenance_failed', {
+          errorCode: 'MAINTENANCE_FAILED'
+        })
+      }
+    })
+  : undefined
 
 logger.info('api.started')
 

@@ -380,54 +380,29 @@ const assertEndpoint = (
 
 export const assertRuntimeRoleEvidence = (
   application: RuntimeRoleEvidence,
-  authGateway: RuntimeRoleEvidence,
-  endpoints: {
-    application: Omit<RuntimeRoleEndpoint, 'client'>
-    authGateway: Omit<RuntimeRoleEndpoint, 'client'>
-  }
+  endpoints: { application: Omit<RuntimeRoleEndpoint, 'client'> }
 ): void => {
   assertEndpoint(application, endpoints.application)
-  assertEndpoint(authGateway, endpoints.authGateway)
-
-  const sameTarget =
-    application.serverAddress !== null &&
-    application.serverPort !== null &&
-    application.currentDatabase === authGateway.currentDatabase &&
-    application.currentSchema === authGateway.currentSchema &&
-    application.serverAddress === authGateway.serverAddress &&
-    application.serverPort === authGateway.serverPort &&
-    application.sessionUser !== authGateway.sessionUser
-
-  if (!sameTarget) {
-    throw new Error('Runtime DB endpoints do not share one safe target.')
-  }
 }
 
+/** The API runs every database facade as nihongo_app (#504 P7 PR1). */
 export const attestRuntimeRoles = async ({
-  application,
-  authGateway
+  application
 }: {
   application: RuntimeRoleEndpoint
-  authGateway: RuntimeRoleEndpoint
 }): Promise<void> => {
-  const [applicationRows, authGatewayRows] = await Promise.all([
-    application.client.$queryRawUnsafe<RuntimeRoleEvidence[]>(
+  const applicationRows =
+    await application.client.$queryRawUnsafe<RuntimeRoleEvidence[]>(
       ATTESTATION_QUERY
-    ),
-    authGateway.client.$queryRawUnsafe<RuntimeRoleEvidence[]>(ATTESTATION_QUERY)
-  ])
-  if (applicationRows.length !== 1 || authGatewayRows.length !== 1) {
+    )
+  if (applicationRows.length !== 1) {
     throw new Error('Runtime DB role evidence is unavailable.')
   }
 
-  assertRuntimeRoleEvidence(applicationRows[0]!, authGatewayRows[0]!, {
+  assertRuntimeRoleEvidence(applicationRows[0]!, {
     application: {
       connectionString: application.connectionString,
       expectedRole: application.expectedRole
-    },
-    authGateway: {
-      connectionString: authGateway.connectionString,
-      expectedRole: authGateway.expectedRole
     }
   })
 }

@@ -32,8 +32,6 @@ const input = {
   LOG_LEVEL: 'error',
   DATABASE_URL:
     'postgresql://nihongo_test_app_login:placeholder@localhost/nihongo_test?schema=public&sslmode=require',
-  AUTH_GATEWAY_DATABASE_URL:
-    'postgresql://nihongo_test_auth_gateway_login:placeholder@localhost/nihongo_test?schema=public&sslmode=require',
   TRUSTED_ORIGINS: 'https://app.example.test',
   BETTER_AUTH_URL: 'https://app.example.test',
   BETTER_AUTH_SECRET: 'test-auth-placeholder-only-1234567890',
@@ -190,7 +188,6 @@ describe('production-shaped SSO composition with CMS disabled (fake DB ports)', 
       ownedAuth: true,
       migrationProfile: 'current',
       applicationRole: 'nihongo_app',
-      gatewayRole: 'nihongo_auth_gateway',
       cmsEnabled: false
     })
     const response = await f.auth.gateway.handle(
@@ -356,7 +353,7 @@ describe('production-shaped SSO composition with CMS disabled (fake DB ports)', 
       })
     ).rejects.toMatchObject({ code: 'RESOURCE_NOT_FOUND' })
   })
-  it('retains role attestation, both runtime-ready checks and current DB readiness with CMS disabled', async () => {
+  it('retains role attestation, the runtime-ready check and current DB readiness with CMS disabled', async () => {
     const f = fixture()
     const checkReadiness = vi.fn(async () => undefined)
     const query = vi.fn(async () => [])
@@ -364,14 +361,12 @@ describe('production-shaped SSO composition with CMS disabled (fake DB ports)', 
     await createOwnedAuthReadiness({
       checkDatabaseReadiness: checkReadiness,
       applicationClient: { $queryRawUnsafe: query } as never,
-      gatewayClient: { $queryRawUnsafe: query } as never,
       applicationUrl: f.environment.DATABASE_URL,
-      gatewayUrl: f.environment.AUTH_GATEWAY_DATABASE_URL!,
       attest
     })()
     expect(checkReadiness).toHaveBeenCalledOnce()
     expect(attest).toHaveBeenCalledOnce()
-    expect(query).toHaveBeenCalledTimes(2)
+    expect(query).toHaveBeenCalledTimes(1)
     expect(attest.mock.calls[0]).toBeDefined()
   })
   it('keeps technical CMS reads available without any legacy reauthentication service and legacy admin404 touches nothing', async () => {
@@ -438,23 +433,15 @@ describe('production-shaped SSO composition with CMS disabled (fake DB ports)', 
       mail.mockRestore()
     }
   })
-  it('rejects missing/wrong gateway authority and unsafe production TLS without weakening CMS mode', () => {
+  it('rejects the legacy auth runtime and unsafe production TLS without weakening CMS mode', () => {
+    expect(parseApiEnvironment(input).AUTH_RUNTIME).toBe('owned')
     expect(() =>
-      parseApiEnvironment({ ...input, AUTH_GATEWAY_DATABASE_URL: undefined })
-    ).toThrow()
-    expect(() =>
-      parseApiEnvironment({
-        ...input,
-        AUTH_GATEWAY_DATABASE_URL: input.DATABASE_URL
-      })
-    ).toThrow()
+      parseApiEnvironment({ ...input, AUTH_RUNTIME: 'legacy' })
+    ).toThrow(/AUTH_RUNTIME/u)
     expect(() =>
       parseApiEnvironment({
         ...input,
-        AUTH_GATEWAY_DATABASE_URL: input.AUTH_GATEWAY_DATABASE_URL.replace(
-          '&sslmode=require',
-          ''
-        )
+        DATABASE_URL: input.DATABASE_URL.replace('&sslmode=require', '')
       })
     ).toThrow()
     expect(() =>

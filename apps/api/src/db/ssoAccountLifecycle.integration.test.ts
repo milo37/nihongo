@@ -288,9 +288,10 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
   })
   it('one-shot worker completes requests idempotently, retries partial failure and waits for provider cleanup', async () => {
     await h.rollback(async () => {
+      // #504 P7 PR1: the one-shot worker runs as nihongo_app.
       const worker = createSsoAccountErasureWorker({
         $queryRawUnsafe: async (sql: string, ...args: unknown[]) =>
-          (await h.roleQuery('nihongo_erasure_worker', sql, args)).rows
+          (await h.roleQuery('nihongo_app', sql, args)).rows
       } as unknown as Pick<PrismaClient, '$queryRawUnsafe'>)
       const request = async () => {
         const f = await h.fixture('google', 'USER')
@@ -320,7 +321,8 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
           failedIds: mine(r.failedIds)
         }
       }
-      for (const role of ['nihongo_auth_gateway', 'nihongo_app'] as const)
+      // #504 P7 PR1: nihongo_app runs the worker; the gateway still may not.
+      for (const role of ['nihongo_auth_gateway'] as const)
         await h.rejects(
           role,
           'SELECT "phase7_list_sso_account_erasures"(10,\'TEST\')',
@@ -440,9 +442,10 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
          VALUES ($1,$2,'[{"provider":"google","status":"PENDING"}]',clock_timestamp()+interval '1 day','2000-01-01')`,
         [id, digest()]
       )
+      // #504 P7 PR1: the one-shot worker runs as nihongo_app.
       const worker = createSsoAccountErasureWorker({
         $queryRawUnsafe: async (sql: string, ...args: unknown[]) =>
-          (await h.roleQuery('nihongo_erasure_worker', sql, args)).rows
+          (await h.roleQuery('nihongo_app', sql, args)).rows
       } as unknown as Pick<PrismaClient, '$queryRawUnsafe'>)
       const claim = async () =>
         (await worker.claimProviderCleanups(100, 300, 'TEST')).find(
@@ -539,7 +542,8 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         "SELECT \"phase7_record_sso_provider_cleanup\"($1,'google','COMPLETED','TEST')"
       ])
         await h.rejects('nihongo_erasure_worker', sql, [id], '42501')
-      for (const role of ['nihongo_app', 'nihongo_auth_gateway'] as const) {
+      // #504 P7 PR1: nihongo_app runs the worker; the gateway still may not.
+      for (const role of ['nihongo_auth_gateway'] as const) {
         await h.rejects(
           role,
           "SELECT \"phase7_begin_sso_provider_cleanup\"($1,'google',$2,'TEST')",

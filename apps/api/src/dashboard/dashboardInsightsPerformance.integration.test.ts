@@ -98,7 +98,8 @@ const LEVELS = [
 
 const environment = parseApiEnvironment(process.env)
 const adminDatabaseUrl = process.env.PHASE7_ADMIN_DATABASE_URL
-const authGatewayDatabaseUrl = environment.AUTH_GATEWAY_DATABASE_URL
+const authGatewayDatabaseUrl =
+  process.env.PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL
 if (!adminDatabaseUrl || !authGatewayDatabaseUrl) {
   throw new Error('Performance integration DB URLs are required.')
 }

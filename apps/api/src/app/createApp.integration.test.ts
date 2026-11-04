@@ -47,8 +47,6 @@ const technicalAuthEnvironment = parseApiEnvironment({
   ADMIN_CMS_MODE: 'technical',
   DATABASE_URL:
     'postgresql://nihongo_test_app_login:password@127.0.0.1:55432/nihongo_test?schema=public',
-  AUTH_GATEWAY_DATABASE_URL:
-    'postgresql://nihongo_test_auth_gateway_login:password@127.0.0.1:55432/nihongo_test?schema=public',
   TRUSTED_ORIGINS: 'http://localhost:5173',
   BETTER_AUTH_SECRET: 'a'.repeat(32),
   GUEST_COOKIE_SECRET: 'b'.repeat(32),

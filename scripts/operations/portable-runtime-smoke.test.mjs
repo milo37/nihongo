@@ -371,7 +371,6 @@ test('portable runtime environment is production-shaped without migration creden
     databaseHost: 'database',
     databaseName: 'nihongo_smoke_test',
     databasePassword: 'a'.repeat(48),
-    gatewayPassword: 'b'.repeat(48),
     schemaName: `phase7_${'c'.repeat(32)}_test`,
     releaseId
   })
@@ -417,18 +416,11 @@ test('portable runtime environment is production-shaped without migration creden
   assert.equal(environment.RELEASE_ID, releaseId)
   assert.match(environment.DATABASE_URL, /sslmode=verify-full$/u)
   const app = new URL(environment.DATABASE_URL)
-  const gateway = new URL(environment.AUTH_GATEWAY_DATABASE_URL)
   assert.equal(app.username, 'nihongo_test_app_login')
-  assert.equal(gateway.username, 'nihongo_test_auth_gateway_login')
-  assert.equal(
-    app.searchParams.get('schema'),
-    gateway.searchParams.get('schema')
-  )
-  assert.notEqual(app.password, gateway.password)
-  for (const url of [app, gateway]) {
-    assert.deepEqual([...url.searchParams.keys()].sort(), ['schema', 'sslmode'])
-    assert.equal(url.searchParams.get('sslmode'), 'verify-full')
-  }
+  assert.deepEqual([...app.searchParams.keys()].sort(), ['schema', 'sslmode'])
+  assert.equal(app.searchParams.get('sslmode'), 'verify-full')
+  assert.equal(environment.AUTH_RUNTIME, 'owned')
+  assert.equal('AUTH_GATEWAY_DATABASE_URL' in environment, false)
   assert.equal('AUTH_EMAIL_DELIVERY_MODE' in environment, false)
   assert.equal('PHASE7_MIGRATION_DATABASE_URL' in environment, false)
   assert.equal('PRODUCTION_DATABASE_URL' in environment, false)
@@ -459,12 +451,12 @@ test('PostgreSQL readiness probes only the final TCP listener', () => {
   )
 })
 
-test('portable runtime requires the pinned current65 inventory and rejects count/checksum drift', () => {
+test('portable runtime requires the pinned current66 inventory and rejects count/checksum drift', () => {
   const source = fileURLToPath(
     new URL('../../apps/api/prisma/migrations/', import.meta.url)
   )
   const names = selectCurrentMigrationNames(source)
-  assert.equal(names.length, 65)
+  assert.equal(names.length, 66)
   assert.equal(names[36], '20261009092000_phase7_n4_n2_revision2_digest_fix')
   assert.equal(names[49], '20261028150000_sso_provider_cleanup_fencing')
   assert.equal(names[50], '20261028160000_study_contract_v2_default')
@@ -475,25 +467,25 @@ test('portable runtime requires the pinned current65 inventory and rejects count
   assert.equal(names[55], '20261104150000_user_account_restriction')
   assert.equal(names[56], '20261105090000_admin_member_console')
   assert.equal(names[57], '20261106090000_single_operator_review')
-  assert.equal(names.at(-1), '20261111090000_drop_dead_reauthentication')
+  assert.equal(names.at(-1), '20261112090000_merge_runtime_roles')
   const directory = mkdtempSync(join(tmpdir(), 'nihongo-p11-migrations-'))
   try {
     cpSync(source, directory, { recursive: true })
     rmSync(join(directory, names.at(-1)), { recursive: true })
     assert.throws(
       () => selectCurrentMigrationNames(directory),
-      /current-65 migration inventory/u
+      /current-66 migration inventory/u
     )
     cpSync(source, directory, { recursive: true })
     writeFileSync(join(directory, names[0], 'migration.sql'), 'changed')
     assert.throws(
       () => selectCurrentMigrationNames(directory),
-      /current-65 migration inventory/u
+      /current-66 migration inventory/u
     )
     rmSync(join(directory, names[0]), { recursive: true })
     assert.throws(
       () => selectCurrentMigrationNames(directory),
-      /current-65 migration inventory/u
+      /current-66 migration inventory/u
     )
   } finally {
     rmSync(directory, { force: true, recursive: true })
@@ -787,7 +779,7 @@ test('TEST preparation programs keep canonical seed/owned issuance boundaries an
     env: {
       NODE_ENV: 'production',
       DEPLOYMENT_ENVIRONMENT: 'PRODUCTION',
-      AUTH_GATEWAY_DATABASE_URL: `postgresql://test@127.0.0.1/nihongo_test?schema=phase7_${'a'.repeat(32)}_test`
+      DATABASE_URL: `postgresql://test@127.0.0.1/nihongo_test?schema=phase7_${'a'.repeat(32)}_test`
     }
   }
   let touched = false
@@ -890,7 +882,7 @@ test('portable runtime smoke evidence is closed and bound to TEST', () => {
     profile: 'isolated-production-mode',
     releaseId,
     imageId: `sha256:${'a'.repeat(64)}`,
-    migrationCount: 65,
+    migrationCount: 66,
     databaseAccess: {
       migrationLedger: 'read-only',
       migrationAndRuntimeIdentitiesSeparated: true,

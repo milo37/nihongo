@@ -80,7 +80,7 @@ describe('SSO bootstrap migration history', () => {
       migration_name: name,
       checksum
     }))
-    expect(expected).toHaveLength(65)
+    expect(expected).toHaveLength(66)
     expect(() =>
       assertSsoBootstrapMigrationHistory(expected, applied)
     ).not.toThrow()
@@ -89,18 +89,18 @@ describe('SSO bootstrap migration history', () => {
         expected.slice(0, 50),
         applied.slice(0, 50)
       )
-    ).toThrow(/canonical65/u)
+    ).toThrow(/canonical66/u)
     expect(() =>
       assertSsoBootstrapMigrationHistory(expected, applied.slice(0, 51))
-    ).toThrow(/canonical65/u)
+    ).toThrow(/canonical66/u)
     expect(() =>
       assertSsoBootstrapMigrationHistory(expected, [...applied].reverse())
-    ).toThrow(/canonical65/u)
+    ).toThrow(/canonical66/u)
     const alteredLedger = structuredClone(applied)
     alteredLedger[0]!.checksum = '0'.repeat(64)
     expect(() =>
       assertSsoBootstrapMigrationHistory(expected, alteredLedger)
-    ).toThrow(/canonical65/u)
+    ).toThrow(/canonical66/u)
     const alteredSource = structuredClone(expected)
     alteredSource[0]!.checksum = '0'.repeat(64)
     const matchingAlteredLedger = alteredSource.map(({ name, checksum }) => ({
@@ -109,7 +109,7 @@ describe('SSO bootstrap migration history', () => {
     }))
     expect(() =>
       assertSsoBootstrapMigrationHistory(alteredSource, matchingAlteredLedger)
-    ).toThrow(/canonical65/u)
+    ).toThrow(/canonical66/u)
   })
 })
 
@@ -235,7 +235,9 @@ describe('SSO deterministic TEST environment', () => {
     `postgresql://${role}:synthetic@127.0.0.1:5432/nihongo_test?schema=${schema}`
   const wrappers = {
     DATABASE_URL: database('nihongo_test_app_login'),
-    AUTH_GATEWAY_DATABASE_URL: database('nihongo_test_auth_gateway_login'),
+    PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: database(
+      'nihongo_test_auth_gateway_login'
+    ),
     PHASE7_ADMIN_DATABASE_URL: database('nihongo_test_phase7_migration_login'),
     PHASE7_MIGRATION_DATABASE_URL: database(
       'nihongo_test_phase7_migration_login'
@@ -370,8 +372,8 @@ describe('SSO deterministic TEST environment', () => {
         expect(childEnvironment).toBe(environment)
         expect(parseApiEnvironment(childEnvironment).NODE_ENV).toBe('test')
         expect(childEnvironment.DATABASE_URL).toBe(wrappers.DATABASE_URL)
-        expect(childEnvironment.AUTH_GATEWAY_DATABASE_URL).toBe(
-          wrappers.AUTH_GATEWAY_DATABASE_URL
+        expect(childEnvironment.PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL).toBe(
+          wrappers.PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL
         )
         rawPath = args
           .find((arg) => arg.startsWith('--outputFile='))!
@@ -565,7 +567,7 @@ describe('Opt-in foundation execution', () => {
         .spyOn(process.stdout, 'write')
         .mockImplementation(() => true)
       const environment = {
-        AUTH_GATEWAY_DATABASE_URL: 'private-gateway',
+        PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: 'private-gateway',
         PHASE7_ADMIN_DATABASE_URL: 'private-admin',
         PHASE7_MIGRATION_DATABASE_URL: 'private-migration',
         PHASE7_LEGACY_DATABASE_URL: 'private-legacy',
@@ -940,7 +942,7 @@ describe('Bounded SSO first failed assertion', () => {
           preserveSanitizedReport: true,
           onCollectionDiagnostic,
           environment: {
-            AUTH_GATEWAY_DATABASE_URL: 'private-gateway',
+            PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: 'private-gateway',
             PHASE7_ADMIN_DATABASE_URL: 'private-admin',
             PHASE7_MIGRATION_DATABASE_URL: 'private-migration',
             PHASE7_LEGACY_DATABASE_URL: 'private-legacy',
@@ -1000,7 +1002,7 @@ describe.each([
     DB_INTEGRATION_SINGLE_TEST: ssoTestFile,
     DB_INTEGRATION_PRESERVE_REPORT: '1',
     PHASE7_ADMIN_DATABASE_URL: 'synthetic-admin',
-    AUTH_GATEWAY_DATABASE_URL: 'synthetic-auth',
+    PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: 'synthetic-auth',
     PHASE7_LEGACY_DATABASE_URL: 'synthetic-legacy',
     TEST_DEVELOPMENT_APP_DATABASE_URL: 'synthetic-development',
     PRISMA_TEST_DATABASE_URL: 'synthetic-test'
@@ -1282,7 +1284,7 @@ describe('fixed account lifecycle TEST slice', () => {
     const clean = {
       DATABASE_URL:
         'postgresql://nihongo_test_app_login:synthetic@127.0.0.1:5432/nihongo_test?schema=phase7_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_test',
-      AUTH_GATEWAY_DATABASE_URL:
+      PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL:
         'postgresql://nihongo_test_auth_gateway_login:synthetic@127.0.0.1:5432/nihongo_test?schema=phase7_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_test',
       NODE_ENV: 'test',
       ADMIN_CMS_MODE: 'technical'
@@ -1333,7 +1335,7 @@ describe('fixed account lifecycle TEST slice', () => {
       testFile: ssoAccountLifecycleTestFile,
       environment: {
         DATABASE_URL: 'synthetic',
-        AUTH_GATEWAY_DATABASE_URL: 'synthetic',
+        PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: 'synthetic',
         PHASE7_ADMIN_DATABASE_URL: 'synthetic'
       },
       runCommand: async (_command, args) => {

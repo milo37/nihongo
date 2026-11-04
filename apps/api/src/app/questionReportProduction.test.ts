@@ -25,8 +25,6 @@ const environment = parseApiEnvironment({
   LOG_LEVEL: 'error',
   DATABASE_URL:
     'postgresql://nihongo_test_app_login:placeholder@localhost/nihongo_test?schema=public&sslmode=require',
-  AUTH_GATEWAY_DATABASE_URL:
-    'postgresql://nihongo_test_auth_gateway_login:placeholder@localhost/nihongo_test?schema=public&sslmode=require',
   TRUSTED_ORIGINS: origin,
   BETTER_AUTH_URL: origin,
   BETTER_AUTH_SECRET: 'test-auth-placeholder-only-1234567890',

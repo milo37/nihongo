@@ -899,7 +899,7 @@ export const prepareIsolatedDatabase = async ({
   const sharedEnvironment: NodeJS.ProcessEnv = {
     ...process.env,
     ADMIN_CMS_MODE: 'technical',
-    AUTH_GATEWAY_DATABASE_URL: authGatewayDatabaseUrl.toString(),
+    PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: authGatewayDatabaseUrl.toString(),
     DATABASE_URL: applicationDatabaseUrl.toString(),
     TEST_API_ERASURE_DATABASE_URL: erasureWorkerDatabaseUrl.toString(),
     GUEST_CLEANUP_DATABASE_URL: applicationDatabaseUrl.toString(),
@@ -1103,7 +1103,7 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
   process.stdout.write(
     JSON.stringify({
       event: 'phase7.api.sso_first_admin_bootstrap.migrations_verified',
-      canonicalCount: 65,
+      canonicalCount: 66,
       checksumMatch: true,
       reentry: true
     }) + '\n'
@@ -1292,7 +1292,6 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
       HOST: host,
       PORT: String(port),
       DATABASE_URL: harness.applicationDatabaseUrl,
-      AUTH_GATEWAY_DATABASE_URL: harness.authGatewayDatabaseUrl,
       TRUSTED_ORIGINS: webOrigin,
       BETTER_AUTH_URL: apiOrigin,
       BETTER_AUTH_SECRET: 'a'.repeat(32),

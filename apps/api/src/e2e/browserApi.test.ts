@@ -55,7 +55,6 @@ const source = (): NodeJS.ProcessEnv => ({
   BETTER_AUTH_URL: 'http://127.0.0.1:58101',
   TRUSTED_ORIGINS: 'http://127.0.0.1:58102',
   DATABASE_URL: url('nihongo_test_app_login'),
-  AUTH_GATEWAY_DATABASE_URL: url('nihongo_test_auth_gateway_login'),
   PRODUCTION_DATABASE_URL:
     'postgresql://production:unused@production.example.invalid/production',
   BETTER_AUTH_SECRET: 'a'.repeat(32),
@@ -147,7 +146,7 @@ describe('Isolated TEST SSO bootstrap', () => {
     expect(serve).not.toHaveBeenCalled()
     await Promise.all([fixture.disconnect(), fixture.disconnect()])
     expect(runtime.app.disconnect).toHaveBeenCalledTimes(1)
-    expect(runtime.gateway.disconnect).toHaveBeenCalledTimes(1)
+    expect(runtime.gateway.disconnect).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -160,12 +159,6 @@ describe('Isolated TEST SSO bootstrap', () => {
     { TRUSTED_ORIGINS: 'https://outside.example.test' },
     { BETTER_AUTH_URL: 'http://127.0.0.1:58103' },
     { DATABASE_URL: url('nihongo_test_auth_gateway_login') },
-    {
-      AUTH_GATEWAY_DATABASE_URL: url('nihongo_test_auth_gateway_login').replace(
-        'nihongo_phase9_test',
-        'another_test'
-      )
-    },
     { DATABASE_URL: url('nihongo_test_app_login') + '&schema=other' },
     {
       DATABASE_URL:
