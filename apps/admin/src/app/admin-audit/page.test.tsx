@@ -19,7 +19,7 @@ import {
 } from '@nihongo/contracts/admin/content-operations'
 import { appDocumentNavigation } from '@nihongo/browser/libs/appNavigation'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
-import * as listApi from '@nihongo/browser/api/admin-question/listAdminQuestion/index'
+import * as listApi from '@api/admin-question/listAdminQuestion/index'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { ToastProvider } from '@nihongo/browser/common/components/Toast'

@@ -1214,6 +1214,28 @@ export const retireQuestionVersionErrorSchema =
     retireQuestionVersionErrorCodeSchema
   )
 
+/** Request-wide failures only; item outcomes are in the 200 response. */
+export const publishQuestionVersionBatchErrorCodeSchema = z.enum([
+  'AUTHENTICATION_REQUIRED',
+  'AUTH_SESSION_EXPIRED',
+  'ADMIN_REQUIRED',
+  'FRESH_ASSURANCE_REQUIRED',
+  'FORBIDDEN',
+  'INVALID_JSON',
+  'INVALID_REQUEST',
+  'REQUEST_TOO_LARGE',
+  'VALIDATION_ERROR',
+  'UNTRUSTED_ORIGIN',
+  'RATE_LIMITED',
+  'INTERNAL_SERVER_ERROR',
+  'SERVICE_UNAVAILABLE'
+])
+export const publishQuestionVersionBatchErrorSchema =
+  createPhase7OperationErrorSchema(
+    'publishQuestionVersionBatch',
+    publishQuestionVersionBatchErrorCodeSchema
+  )
+
 export const requestContentReviewBatchErrorCodeSchema = z.enum([
   'AUTHENTICATION_REQUIRED',
   'AUTH_SESSION_EXPIRED',

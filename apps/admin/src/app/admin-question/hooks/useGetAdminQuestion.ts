@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import type { GetAdminQuestionResponse } from '@nihongo/browser/api/admin-question/getAdminQuestion/schema'
+import type { GetAdminQuestionResponse } from '@api/admin-question/getAdminQuestion/schema'
 import { adminQuestionQueries } from '@app/admin-question/queries/adminQuestionQueries'
 const selectedVersion = (detail: GetAdminQuestionResponse | undefined) => {
   const id =

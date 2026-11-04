@@ -1,3 +1,9 @@
+import {
+  publishQuestionVersionBatchRequestSchema,
+  publishQuestionVersionBatchResponseSchema,
+  type PublishQuestionVersionBatchRequest,
+  type PublishQuestionVersionBatchResponse
+} from '@nihongo/contracts/admin/review'
 import { createHash } from 'node:crypto'
 import {
   adminImportApplyResponseSchema,
@@ -159,6 +165,23 @@ const assertCommittedResponse = <Response>(
       cause: error
     })
   }
+}
+
+const assertBatchCorrelated = (
+  request: PublishQuestionVersionBatchRequest,
+  raw: unknown
+): PublishQuestionVersionBatchResponse => {
+  const parsed = publishQuestionVersionBatchResponseSchema.parse(raw)
+  if (
+    parsed.items.length !== request.items.length ||
+    parsed.items.some(
+      (item, index) =>
+        item.questionVersionId !== request.items[index]!.questionVersionId
+    )
+  ) {
+    throw new Error('Batch publication items are not correlated.')
+  }
+  return parsed
 }
 
 const noStore = (context: {
@@ -530,6 +553,32 @@ export const createAdminQuestionCommandRoutes = ({
     noStore(context)
     return context.json(response)
   })
+
+  routes.post(
+    '/question-versions/publication-batch',
+    guard,
+    async (context) => {
+      assertEmptyQuery(context.get('rawRequestTarget'))
+      const request = publishQuestionVersionBatchRequestSchema.parse(
+        await parseBody(
+          context.req.raw,
+          'publishQuestionVersionBatch',
+          publishQuestionVersionBatchRequestSchema,
+          '일괄 공개 요청이 올바르지 않습니다.'
+        )
+      )
+      const raw = await commandService.publishVersionBatch(
+        authority(context),
+        request
+      )
+      // Items commit one by one, so any mismatch here is after commit.
+      const response = publishQuestionVersionBatchResponseSchema.parse(
+        assertCommittedResponse(() => assertBatchCorrelated(request, raw))
+      )
+      noStore(context)
+      return context.json(response)
+    }
+  )
 
   if (slice5CommandService) {
     routes.post(
