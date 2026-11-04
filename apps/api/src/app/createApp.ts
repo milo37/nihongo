@@ -84,6 +84,8 @@ import {
 } from '../account/accountRestriction.js'
 import type { UserReportService } from '../report/userReportService.js'
 import { createAdminConsoleCommandGuard } from '../admin/adminConsoleCommandGuard.js'
+import type { AdminMemberService } from '../admin/adminMemberService.js'
+import { createAdminMemberRoutes } from '../routes/adminMembers.js'
 import { createAdminImportResultRoutes } from '../routes/adminImportResults.js'
 import type { AdminImportApplyResponse } from '@nihongo/contracts/admin/content-operations'
 import {
@@ -173,6 +175,8 @@ interface CreateApiAppDependencies {
     importResultReader?: (
       importId: string
     ) => Promise<AdminImportApplyResponse | null>
+    /** Operations console member list and restriction (JLP-691). */
+    members?: AdminMemberService
     rateLimiter: AdminReadRateLimiter
     reader: AdminQuestionReader
   }
@@ -672,6 +676,25 @@ export const createApiApp = ({
               rateLimiter: admin.rateLimiter
             }),
             readResult: admin.importResultReader
+          })
+        )
+      }
+      if (admin.members) {
+        const readGuard = createAdminReadGuard({
+          assertCapability: admin.assertCapability,
+          environment: auth.environment,
+          principalService: auth.principalService,
+          rateLimiter: admin.rateLimiter
+        })
+        app.route(
+          '/api/v1/admin',
+          createAdminMemberRoutes({
+            commandGuard: createAdminConsoleCommandGuard({
+              environment: auth.environment,
+              readGuard
+            }),
+            readGuard,
+            service: admin.members
           })
         )
       }
