@@ -1197,6 +1197,8 @@ interface TransitionConfig {
   fromStates: readonly QuestionVersionStatus[]
   toState: 'IN_REVIEW' | 'CHANGES_REQUESTED' | 'APPROVED'
   authorOnly: boolean
+  /** JLP-704: a single operator may decide on their own version. */
+  selfDecisionAllowed: boolean
 }
 
 const transitionConfigByOperation: Readonly<
@@ -1207,28 +1209,32 @@ const transitionConfigByOperation: Readonly<
     command: 'REVIEW_REQUEST',
     fromStates: ['DRAFT', 'CHANGES_REQUESTED'],
     toState: 'IN_REVIEW',
-    authorOnly: true
+    authorOnly: true,
+    selfDecisionAllowed: false
   },
   requestQuestionChanges: {
     action: 'CHANGES_REQUESTED',
     command: 'CHANGE_REQUEST',
     fromStates: ['IN_REVIEW'],
     toState: 'CHANGES_REQUESTED',
-    authorOnly: false
+    authorOnly: false,
+    selfDecisionAllowed: false
   },
   approveQuestionVersion: {
     action: 'APPROVED',
     command: 'APPROVAL',
     fromStates: ['IN_REVIEW'],
     toState: 'APPROVED',
-    authorOnly: false
+    authorOnly: false,
+    selfDecisionAllowed: true
   },
   withdrawQuestionApproval: {
     action: 'APPROVAL_WITHDRAWN',
     command: 'APPROVAL_WITHDRAWAL',
     fromStates: ['APPROVED'],
     toState: 'CHANGES_REQUESTED',
-    authorOnly: false
+    authorOnly: false,
+    selfDecisionAllowed: true
   }
 }
 
@@ -1787,6 +1793,7 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
         }
         if (
           !config.authorOnly &&
+          !config.selfDecisionAllowed &&
           candidate.versionCreatedByUserId === authority.actorId
         ) {
           throw repositoryFailure(
@@ -2055,12 +2062,6 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
               throw repositoryFailure(
                 'INVALID_STATE_TRANSITION',
                 '게시 대상에는 작성자와 최신 승인 증거가 필요합니다.'
-              )
-            }
-            if (author.actorId === latestApprover.actorId) {
-              throw repositoryFailure(
-                'SEPARATION_OF_DUTIES_VIOLATION',
-                '작성자와 최신 승인자는 서로 달라야 합니다.'
               )
             }
             if (
