@@ -274,11 +274,13 @@ export const createPhase7PrincipalService = ({
           }
           adminAuthorityFailure = outcome
         }
+        // An unresolved token may be one that a re-authentication just rotated.
+        // Clearing the cookie here would erase the replacement session cookie.
         return {
           ...(adminAuthorityFailure === undefined
             ? {}
             : { adminAuthorityFailure }),
-          clearSessionCookie: true,
+          clearSessionCookie: false,
           headers: new Headers(),
           user: null
         }

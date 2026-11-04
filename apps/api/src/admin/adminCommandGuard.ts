@@ -237,11 +237,14 @@ export const createAdminCommandGuard = ({
           adminDisposition: 'NO_TX'
         })
       }
+      const sessionExpired =
+        resolution.adminAuthorityFailure === 'AUTH_SESSION_EXPIRED' ||
+        resolution.clearSessionCookie
       throw new ApplicationError({
-        code: resolution.clearSessionCookie
+        code: sessionExpired
           ? 'AUTH_SESSION_EXPIRED'
           : 'AUTHENTICATION_REQUIRED',
-        message: resolution.clearSessionCookie
+        message: sessionExpired
           ? '로그인 세션이 만료됐습니다.'
           : '관리자 기능을 사용하려면 로그인이 필요합니다.',
         retryable: false,

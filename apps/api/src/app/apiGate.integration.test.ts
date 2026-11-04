@@ -766,7 +766,7 @@ describe('Technical API gate', () => {
     }
   }, 30_000)
 
-  it('SSO principal is valid and stale authority clears cookies with write0', async () => {
+  it('SSO principal is valid and stale authority resolves to GUEST without clearing cookies with write0', async () => {
     const session = await createSsoSession()
     const principal = await app.request('/api/v1/me', {
       headers: { Cookie: session.cookie }
@@ -783,7 +783,8 @@ describe('Technical API gate', () => {
     })
     expect(stale.status).toBe(200)
     expect(await stale.json()).toEqual({ kind: 'GUEST' })
-    expectExpiredSessionCookies(stale)
+    // An unresolved token may have just been rotated; keep the cookie.
+    expect(stale.headers.getSetCookie()).toEqual([])
     expect(await readWriteCounts()).toEqual(before)
   })
 

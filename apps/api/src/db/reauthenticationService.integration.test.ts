@@ -1256,12 +1256,21 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
       requestId: revokedOldCookieApproval.requestId,
       retryable: false
     })
-    const revokedOldCookieClears =
-      revokedOldCookieApproval.response.headers.getSetCookie()
-    expect(revokedOldCookieClears).toHaveLength(2)
-    expect(
-      revokedOldCookieClears.every((cookie) => cookie.includes('Max-Age=0'))
-    ).toBe(true)
+    // The rotated cookie's 401 must not clear the replacement cookie.
+    expect(revokedOldCookieApproval.response.headers.getSetCookie()).toEqual([])
+    for (const pathname of ['/api/v1/admin/questions', '/api/v1/me']) {
+      const revokedOldCookieRead = await app.request(
+        `http://localhost:3001${pathname}`,
+        { headers: new Headers(reviewer.headers) }
+      )
+      expect(revokedOldCookieRead.status).toBe(
+        pathname === '/api/v1/me' ? 200 : 401
+      )
+      if (pathname === '/api/v1/me') {
+        expect(await revokedOldCookieRead.json()).toEqual({ kind: 'GUEST' })
+      }
+      expect(revokedOldCookieRead.headers.getSetCookie()).toEqual([])
+    }
     expect(await readA2Evidence(target.versionId)).toEqual(beforeSelfApproval)
     expect(await readA2IntentCount([revokedOldCookieApproval.requestId])).toBe(
       0
@@ -2000,12 +2009,7 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
       requestId: logoutTarget.requestId,
       retryable: false
     })
-    expect(logoutResponse.headers.getSetCookie()).toHaveLength(2)
-    expect(
-      logoutResponse.headers
-        .getSetCookie()
-        .every((cookie) => cookie.includes('Max-Age=0'))
-    ).toBe(true)
+    expect(logoutResponse.headers.getSetCookie()).toEqual([])
 
     const roleTarget = await createFixture()
     const operator = await createFixture()
@@ -2024,12 +2028,7 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
       requestId: roleTarget.requestId,
       retryable: false
     })
-    expect(roleResponse.headers.getSetCookie()).toHaveLength(2)
-    expect(
-      roleResponse.headers
-        .getSetCookie()
-        .every((cookie) => cookie.includes('Max-Age=0'))
-    ).toBe(true)
+    expect(roleResponse.headers.getSetCookie()).toEqual([])
 
     const classifierTarget = await createFixture()
     await gatewayClientA.query(`SELECT "phase7_owned_sign_out"($1)`, [
