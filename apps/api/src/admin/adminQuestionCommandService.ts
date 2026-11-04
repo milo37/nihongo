@@ -201,8 +201,7 @@ export const createAdminQuestionCommandService = (
 const BATCH_ITEM_RESULTS = {
   RESOURCE_NOT_FOUND: 'NOT_FOUND',
   VERSION_CONFLICT: 'VERSION_CONFLICT',
-  INVALID_STATE_TRANSITION: 'NOT_REVIEWED',
-  SEPARATION_OF_DUTIES_VIOLATION: 'SEPARATION_OF_DUTIES_VIOLATION'
+  INVALID_STATE_TRANSITION: 'NOT_REVIEWED'
 } as const satisfies Partial<
   Record<
     AdminQuestionCommandRepositoryError['code'],
