@@ -21,7 +21,7 @@ import {
 } from '@app/admin-question/test/workflowFixture'
 import { questionWorkflowQueries } from '@app/admin-question/queries/questionWorkflowQueries'
 describe('question workflow permission and CAS snapshot', () => {
-  it('preserves author editing and separation of duties', () => {
+  it('preserves author editing and lets one operator review their own version', () => {
     expect(editableVersion(initial, newer, actorId)).toBe(true)
     expect(editableVersion(initial, newer, reviewerId)).toBe(false)
     expect(allowedCommands(initial, newer, actorId, newer)).toEqual([
@@ -30,7 +30,8 @@ describe('question workflow permission and CAS snapshot', () => {
     ])
     const inReview = { ...newer, versionStatus: 'IN_REVIEW' as const }
     expect(allowedCommands(initial, inReview, actorId, inReview)).toEqual([
-      'ARCHIVE'
+      'ARCHIVE',
+      'APPROVE'
     ])
     expect(allowedCommands(initial, inReview, reviewerId, inReview)).toEqual([
       'ARCHIVE',
@@ -47,6 +48,13 @@ describe('question workflow permission and CAS snapshot', () => {
       'WITHDRAW',
       'PUBLISH'
     ])
+    const selfApproved = {
+      ...approved,
+      latestReviewer: newer.author
+    }
+    expect(
+      allowedCommands(initial, selfApproved, actorId, selfApproved)
+    ).toEqual(['ARCHIVE', 'WITHDRAW', 'PUBLISH'])
     expect(
       allowedCommands(
         {
