@@ -566,3 +566,46 @@ it('shows the edit save failure from the error code, not the server message', as
   ).toBeVisible()
   expect(screen.queryByText('요청을 확인해 주세요.')).toBeNull()
 })
+it('explains a duplicate-content 409 on create, including archived questions', async () => {
+  responder = (url, method) =>
+    method === 'post'
+      ? failure('DUPLICATE_QUESTION_CONTENT', 409)
+      : { status: 200, data: envelope }
+  const user = userEvent.setup()
+  renderPage('create')
+  await user.type(
+    screen.getByRole('textbox', { name: '문제 문장' }),
+    preview.question.questionText
+  )
+  for (const option of preview.question.options)
+    await user.type(
+      screen.getByRole('textbox', { name: `${option.label}번 보기` }),
+      option.text
+    )
+  await user.click(screen.getByRole('radio', { name: '1번 보기' }))
+  await user.type(
+    screen.getByRole('textbox', { name: '한국어 해설' }),
+    preview.adminAnswer.explanationKo
+  )
+  await user.type(screen.getByRole('textbox', { name: '태그' }), '문법')
+  await user.click(screen.getByRole('button', { name: '초안 등록' }))
+  expect(
+    await screen.findByText(
+      '보관된 문제를 포함해 같은 내용의 문제가 이미 있습니다. 문구를 바꿔 다시 저장해 주세요.'
+    )
+  ).toBeVisible()
+  expect(screen.queryByText('요청을 확인해 주세요.')).toBeNull()
+})
+it('tells the admin that archived content cannot be reused before archiving', async () => {
+  const user = userEvent.setup()
+  renderPage()
+  await screen.findByRole('region', { name: '관리자 문제 목록' })
+  await user.click(
+    screen.getByRole('button', { name: question.questionId + ' 문제 보관' })
+  )
+  expect(
+    within(screen.getByRole('dialog')).getByText(
+      '보관한 문제(초안 포함)와 같은 내용으로는 새 문제를 만들 수 없습니다.'
+    )
+  ).toBeVisible()
+})

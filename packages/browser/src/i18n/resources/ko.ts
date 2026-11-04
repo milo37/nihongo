@@ -1807,7 +1807,8 @@ export const koResources = {
       invalidState: '현재 상태에서는 이 작업을 실행할 수 없습니다.',
       separationOfDuties:
         '작성과 검수 역할을 분리해야 하므로 이 작업을 실행할 수 없습니다.',
-      duplicateQuestionContent: '같은 내용의 문제가 이미 있습니다.',
+      duplicateQuestionContent:
+        '보관된 문제를 포함해 같은 내용의 문제가 이미 있습니다. 문구를 바꿔 다시 저장해 주세요.',
       untrustedOrigin: '허용되지 않은 요청 출처입니다.',
       rateLimited: '요청이 너무 많습니다.',
       server: '서버에서 관리자 요청을 처리하지 못했습니다.',
