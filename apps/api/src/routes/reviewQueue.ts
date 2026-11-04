@@ -3,8 +3,8 @@ import {
   listReviewQueueResponseSchema
 } from '@nihongo/contracts/wrong-note/list-review-queue'
 import { getConnInfo } from '@hono/node-server/conninfo'
-import { Hono, type Context } from 'hono'
-import { z, type ZodError } from 'zod'
+import { Hono } from 'hono'
+import { z } from 'zod'
 import { createClientIpAuthority } from '../auth/clientIp.js'
 import type { PrincipalService } from '../auth/principalService.js'
 import type { ApiEnvironment } from '../config/env.js'
@@ -12,6 +12,7 @@ import { ApplicationError } from '../errors/applicationError.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
 import type { WrongNoteReviewQueueService } from '../wrong-note/wrongNoteReviewQueueService.js'
+import { appendAuthHeaders, toFieldErrors } from './routeSupport.js'
 
 interface ReviewQueueRouteDependencies {
   readonly environment: ApiEnvironment
@@ -21,15 +22,6 @@ interface ReviewQueueRouteDependencies {
 }
 
 type ReviewQueueRouteEnvironment = { Variables: ApiVariables }
-
-const toFieldErrors = (error: ZodError): Record<string, string[]> => {
-  const fieldErrors: Record<string, string[]> = {}
-  for (const issue of error.issues) {
-    const path = issue.path.length > 0 ? issue.path.join('.') : 'request'
-    fieldErrors[path] = [...(fieldErrors[path] ?? []), issue.message]
-  }
-  return fieldErrors
-}
 
 const toRawQuery = (url: string): Record<string, string | string[]> => {
   const searchParams = new URL(url).searchParams
@@ -42,29 +34,6 @@ const toRawQuery = (url: string): Record<string, string | string[]> => {
     query[parsedKey] = values.length === 1 ? (values[0] ?? '') : values
   }
   return query
-}
-
-const appendAuthHeaders = (
-  context: Context<ReviewQueueRouteEnvironment>,
-  resolution: Awaited<ReturnType<PrincipalService['resolveAuthenticatedUser']>>,
-  environment: ApiEnvironment
-): void => {
-  for (const cookie of resolution.headers.getSetCookie?.() ?? []) {
-    context.header('Set-Cookie', cookie, { append: true })
-  }
-  if (resolution.clearSessionCookie) {
-    const attributes = `Path=/; HttpOnly; SameSite=Lax; Max-Age=0${
-      environment.NODE_ENV === 'production' ? '; Secure' : ''
-    }`
-    context.header('Set-Cookie', `nihongo.session_token=; ${attributes}`, {
-      append: true
-    })
-    context.header(
-      'Set-Cookie',
-      `__Secure-nihongo.session_token=; ${attributes}`,
-      { append: true }
-    )
-  }
 }
 
 export const createReviewQueueRoutes = ({

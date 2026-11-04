@@ -1,10 +1,11 @@
 import { getCurrentPrincipalResponseSchema } from '@nihongo/contracts/auth/get-current-principal'
 import { deleteCookie, getCookie } from 'hono/cookie'
-import { Hono, type Context } from 'hono'
+import { Hono } from 'hono'
 import type { ApiEnvironment } from '../config/env.js'
 import type { GuestPrincipalService } from '../auth/guestPrincipalService.js'
 import type { PrincipalService } from '../auth/principalService.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
+import { appendAuthHeaders } from './routeSupport.js'
 
 export const GUEST_COOKIE_NAME = 'nihongo.guest_principal'
 
@@ -14,29 +15,6 @@ interface PrincipalRouteDependencies {
   environment: ApiEnvironment
   guestPrincipalService: GuestPrincipalService
   principalService: PrincipalService
-}
-
-const appendAuthHeaders = (
-  context: Context<PrincipalRouteEnvironment>,
-  resolution: Awaited<ReturnType<PrincipalService['resolveAuthenticatedUser']>>,
-  environment: ApiEnvironment
-): void => {
-  for (const cookie of resolution.headers.getSetCookie?.() ?? []) {
-    context.header('Set-Cookie', cookie, { append: true })
-  }
-  if (resolution.clearSessionCookie) {
-    const attributes = `Path=/; HttpOnly; SameSite=Lax; Max-Age=0${
-      environment.NODE_ENV === 'production' ? '; Secure' : ''
-    }`
-    context.header('Set-Cookie', `nihongo.session_token=; ${attributes}`, {
-      append: true
-    })
-    context.header(
-      'Set-Cookie',
-      `__Secure-nihongo.session_token=; ${attributes}`,
-      { append: true }
-    )
-  }
 }
 
 export const createPrincipalRoutes = ({
