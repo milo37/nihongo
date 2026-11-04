@@ -388,7 +388,7 @@ export const adminContentReviewItemSchema = z
         }
         break
       case 'APPROVED':
-        requireAdminPair()
+        requireAdminPair(false)
         if (
           review.fromState !== 'IN_REVIEW' ||
           review.toState !== 'APPROVED' ||
@@ -402,7 +402,7 @@ export const adminContentReviewItemSchema = z
         }
         break
       case 'APPROVAL_WITHDRAWN':
-        requireAdminPair()
+        requireAdminPair(false)
         if (
           review.fromState !== 'APPROVED' ||
           review.toState !== 'CHANGES_REQUESTED' ||

@@ -1,6 +1,12 @@
 import { createHash } from 'node:crypto'
 import { expect } from '@playwright/test'
-import type { BrowserContext, Request, TestInfo } from '@playwright/test'
+import type {
+  BrowserContext,
+  Frame,
+  Page,
+  Request,
+  TestInfo
+} from '@playwright/test'
 
 export interface RequestLedgerEntry {
   readonly bodyDigest: string | null
@@ -44,6 +50,15 @@ const normalizeApiPath = (request: Request): string =>
     ':id'
   )
 
+// Service-worker-initiated requests have no frame; Playwright throws for them.
+const frameOf = (request: Request): Frame | null => {
+  try {
+    return request.frame()
+  } catch {
+    return null
+  }
+}
+
 const digest = (value: string | null): string | null =>
   value === null
     ? null
@@ -52,7 +67,45 @@ const digest = (value: string | null): string | null =>
 export const trackRequestLedger = (context: BrowserContext): RequestLedger => {
   const entries: RequestLedgerEntry[] = []
   const entryByRequest = new WeakMap<Request, RequestLedgerEntry>()
+  const openRequests = new Map<Request, RequestLedgerEntry>()
+  const documentStartByFrame = new WeakMap<Frame, number>()
   let sequence = 0
+
+  const settle = (request: Request, entry: RequestLedgerEntry): void => {
+    openRequests.delete(request)
+    entry.finishSequence = ++sequence
+  }
+  // A document that is replaced or detached aborts its open fetches, but
+  // Playwright does not always emit requestfailed for them. Record them as the
+  // same network failure Playwright reports when it does.
+  const abortOpenRequests = (
+    frame: Frame,
+    startedBefore = Number.POSITIVE_INFINITY
+  ): void => {
+    for (const [request, entry] of openRequests) {
+      if (
+        entry.startSequence < startedBefore &&
+        !request.isNavigationRequest() &&
+        frameOf(request) === frame
+      ) {
+        settle(request, entry)
+        if (entry.status !== null) continue
+        entry.status = 'NETWORK_ERROR'
+        entry.provenance = 'network-failure'
+      }
+    }
+  }
+  const watchPage = (page: Page): void => {
+    // Fires only for a new document, never for same-document history changes.
+    page.on('domcontentloaded', () => {
+      const frame = page.mainFrame()
+      const documentStart = documentStartByFrame.get(frame)
+      if (documentStart !== undefined) abortOpenRequests(frame, documentStart)
+    })
+    page.on('framedetached', (frame) => abortOpenRequests(frame))
+  }
+  context.pages().forEach(watchPage)
+  context.on('page', watchPage)
 
   context.on('request', (request) => {
     const path = normalizeApiPath(request)
@@ -71,9 +124,16 @@ export const trackRequestLedger = (context: BrowserContext): RequestLedger => {
     }
     entries.push(entry)
     entryByRequest.set(request, entry)
+    openRequests.set(request, entry)
   })
   context.on('response', (response) => {
-    const entry = entryByRequest.get(response.request())
+    const request = response.request()
+    if (request.isNavigationRequest()) {
+      const frame = frameOf(request)
+      // The next document cannot start a request before its own response.
+      if (frame) documentStartByFrame.set(frame, sequence + 1)
+    }
+    const entry = entryByRequest.get(request)
     if (!entry) return
     entry.status = response.status()
     entry.provenance = response.headers()['x-nihongo-test-fault']
@@ -85,12 +145,12 @@ export const trackRequestLedger = (context: BrowserContext): RequestLedger => {
   context.on('requestfinished', (request) => {
     const entry = entryByRequest.get(request)
     if (!entry) return
-    entry.finishSequence = ++sequence
+    settle(request, entry)
   })
   context.on('requestfailed', (request) => {
     const entry = entryByRequest.get(request)
     if (!entry) return
-    entry.finishSequence = ++sequence
+    settle(request, entry)
     entry.status = 'NETWORK_ERROR'
     entry.provenance = 'network-failure'
   })
