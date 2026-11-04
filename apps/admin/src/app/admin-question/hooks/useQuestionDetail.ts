@@ -16,6 +16,7 @@ import {
   editableVersion,
   questionErrorCode,
   questionFieldErrors,
+  hasPublicationHistory,
   type QuestionCommand
 } from '@app/admin-question/detail/questionWorkflow'
 import {
@@ -56,6 +57,14 @@ export const useQuestionDetail = ({
       : (freshContext?.versionId ?? null)
   const workflow = useQuestionWorkflow(questionId, requested)
   const { detail, history, selected, preview, versions } = workflow
+  const draftOnly = !hasPublicationHistory(
+    detail.data?.question.currentPublishedVersionId ?? null,
+    versions
+  )
+  const commandLabel = (command: QuestionCommand): string =>
+    command === 'ARCHIVE'
+      ? t(draftOnly ? 'questionList.draftDelete' : 'questionList.archive')
+      : t(`enums.commands.${command}`)
   const returnTo = safeQuestionReturn(
     searchParams.get('returnTo') ?? freshContext?.returnTo
   )
@@ -94,9 +103,7 @@ export const useQuestionDetail = ({
         request.operation === 'updateQuestionVersion'
           ? t('questionDetail.saveComplete')
           : t('questionDetail.commandComplete', {
-              command: pending
-                ? t(`enums.commands.${pending}`)
-                : t('common.details')
+              command: pending ? commandLabel(pending) : t('common.details')
             })
       )
       if (
@@ -399,6 +406,8 @@ export const useQuestionDetail = ({
   return {
     t,
     presentError,
+    commandLabel,
+    draftOnly,
     searchParams,
     setSearchParams,
     workflow,

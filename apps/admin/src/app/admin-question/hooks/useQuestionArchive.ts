@@ -1,7 +1,10 @@
 import { useState } from 'react'
 import { useToast } from '@nihongo/browser/common/components/Toast'
 import { useDeleteAdminQuestion } from '@app/admin-question/hooks/useDeleteAdminQuestion'
-import type { AdminQuestionSummary } from '@app/admin-question/components/QuestionListTable'
+import {
+  isDraftOnly,
+  type AdminQuestionSummary
+} from '@app/admin-question/components/QuestionListTable'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 
 type RefetchList = () => Promise<{
@@ -42,9 +45,12 @@ export const useQuestionArchive = (refetchList: RefetchList) => {
             : null
         }
       })
+      const copy = isDraftOnly(question)
+        ? 'questionList.draftDialog'
+        : 'questionList.archiveDialog'
       addToast({
-        title: t('questionList.archiveDialog.successTitle'),
-        description: t('questionList.archiveDialog.successDescription', {
+        title: t(`${copy}.successTitle`),
+        description: t(`${copy}.successDescription`, {
           questionId: question.questionId
         }),
         variant: 'success'

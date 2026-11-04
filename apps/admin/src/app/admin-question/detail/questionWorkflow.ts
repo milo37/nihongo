@@ -68,6 +68,23 @@ export const editorInput = (
   correctOptionId: preview.adminAnswer.correctOptionId,
   expectedRowVersion: rowVersion
 })
+/**
+ * A question never published is a draft to delete; one with a published past
+ * stops publication and is archived. A second version only exists after a
+ * publication, so versionNumber > 1 also counts as a published past.
+ */
+export const hasPublicationHistory = (
+  currentPublishedVersionId: string | null,
+  versions: ReadonlyArray<{
+    readonly versionNumber: number
+    readonly publishedAt?: string | null
+  }>
+): boolean =>
+  currentPublishedVersionId !== null ||
+  versions.some(
+    ({ versionNumber, publishedAt }) =>
+      versionNumber > 1 || (publishedAt ?? null) !== null
+  )
 export const editableVersion = (
   detail: AdminQuestionDetail,
   version: AdminQuestionVersionSummary,

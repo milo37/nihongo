@@ -2,6 +2,7 @@ import * as api from '@nihongo/browser/api/content-operations/requestContentOper
 import { describe, it, expect, vi } from 'vitest'
 import {
   allowedCommands,
+  hasPublicationHistory,
   buildQuestionCommand,
   editableVersion,
   editorInput
@@ -213,4 +214,20 @@ it('rejects a valid selected-version preview belonging to another question', asy
     status: 422
   })
   endpoint.mockRestore()
+})
+describe('publication history', () => {
+  it('treats only a never-published first version as a draft', () => {
+    expect(
+      hasPublicationHistory(null, [{ versionNumber: 1, publishedAt: null }])
+    ).toBe(false)
+    expect(hasPublicationHistory(null, [{ versionNumber: 2 }])).toBe(true)
+    expect(
+      hasPublicationHistory(null, [
+        { versionNumber: 1, publishedAt: '2026-11-01T00:00:00.000Z' }
+      ])
+    ).toBe(true)
+    expect(
+      hasPublicationHistory('20000000-0000-4000-8000-000000000001', [])
+    ).toBe(true)
+  })
 })

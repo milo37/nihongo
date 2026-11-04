@@ -14,6 +14,8 @@ export const QuestionCommandDialog = ({
   const {
     t,
     presentError,
+    commandLabel,
+    draftOnly,
     workflow,
     detail,
     selected,
@@ -47,7 +49,7 @@ export const QuestionCommandDialog = ({
         title={
           pending
             ? t('questionDetail.commandDialogTitle', {
-                command: t(`enums.commands.${pending}`)
+                command: commandLabel(pending)
               })
             : t('questionDetail.commandDialogFallbackTitle')
         }
@@ -121,6 +123,13 @@ export const QuestionCommandDialog = ({
           </>
         }
       >
+        {pending === 'ARCHIVE' && draftOnly && detail.data ? (
+          <p className="mb-4">
+            {t('questionList.draftDialog.description', {
+              questionId: detail.data.question.questionId
+            })}
+          </p>
+        ) : null}
         <p className="mb-4">{t('questionDetail.commandWarning')}</p>
         {showNote ? (
           <Textarea

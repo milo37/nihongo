@@ -6,8 +6,12 @@ import type { ReactElement } from 'react'
 import type { ListAdminQuestionResponse } from '@api/admin-question/listAdminQuestion/schema'
 import type { AdminQuestionSort } from '@app/admin-question/hooks/useQuestionListSearch'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
+import { hasPublicationHistory } from '@app/admin-question/detail/questionWorkflow'
 
 export type AdminQuestionSummary = ListAdminQuestionResponse['items'][number]
+
+export const isDraftOnly = (question: AdminQuestionSummary): boolean =>
+  !hasPublicationHistory(question.currentPublishedVersionId, [question])
 
 type QuestionListTableProps = {
   items: AdminQuestionSummary[]
@@ -187,12 +191,19 @@ export const QuestionListTable = ({
                     <button
                       className="min-h-11 rounded-lg border border-red-200 bg-white px-3 font-semibold text-red-700 hover:bg-red-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
                       type="button"
-                      aria-label={t('questionList.archiveLabel', {
-                        questionId: question.questionId
-                      })}
+                      aria-label={t(
+                        isDraftOnly(question)
+                          ? 'questionList.draftDeleteLabel'
+                          : 'questionList.archiveLabel',
+                        { questionId: question.questionId }
+                      )}
                       onClick={() => onArchive(question)}
                     >
-                      {t('questionList.archive')}
+                      {t(
+                        isDraftOnly(question)
+                          ? 'questionList.draftDelete'
+                          : 'questionList.archive'
+                      )}
                     </button>
                   </div>
                 </td>

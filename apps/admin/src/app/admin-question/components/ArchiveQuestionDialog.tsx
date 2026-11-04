@@ -6,6 +6,7 @@ import type { ReactElement } from 'react'
 import type { useQuestionArchive } from '@app/admin-question/hooks/useQuestionArchive'
 import { getAdminErrorKey } from '@app/admin/presentation/adminPresentation'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
+import { isDraftOnly } from '@app/admin-question/components/QuestionListTable'
 
 type ArchiveQuestionDialogProps = {
   archive: ReturnType<typeof useQuestionArchive>
@@ -17,13 +18,15 @@ export const ArchiveQuestionDialog = ({
   const { t, presentError } = useAdminPresentation()
   const location = useLocation()
   const { question, needsFresh, conflict } = archive
+  const draft = question !== null && isDraftOnly(question)
+  const copy = draft ? 'questionList.draftDialog' : 'questionList.archiveDialog'
   return (
     <Dialog
       open={question !== null}
-      title={t('questionList.archiveDialog.title')}
+      title={t(`${copy}.title`)}
       description={
         question
-          ? t('questionList.archiveDialog.description', {
+          ? t(`${copy}.description`, {
               questionId: question.questionId
             })
           : undefined
@@ -41,10 +44,10 @@ export const ArchiveQuestionDialog = ({
             variant="danger"
             isLoading={archive.isPending}
             disabled={needsFresh || conflict}
-            loadingLabel={t('questionList.archiveDialog.confirming')}
+            loadingLabel={t(`${copy}.confirming`)}
             onClick={() => void archive.archive()}
           >
-            {t('questionList.archiveDialog.confirm')}
+            {t(`${copy}.confirm`)}
           </Button>
         </>
       }
@@ -54,12 +57,16 @@ export const ArchiveQuestionDialog = ({
         }
       }}
     >
-      <p className="leading-7 text-muted">
-        {t('questionList.archiveDialog.body')}
-      </p>
-      <p className="mt-2 leading-7 text-muted">
-        {t('questionList.archiveDialog.duplicateNote')}
-      </p>
+      {draft ? null : (
+        <>
+          <p className="leading-7 text-muted">
+            {t('questionList.archiveDialog.body')}
+          </p>
+          <p className="mt-2 leading-7 text-muted">
+            {t('questionList.archiveDialog.duplicateNote')}
+          </p>
+        </>
+      )}
       {needsFresh ? (
         <AppLink
           to={`/login?redirect=${encodeURIComponent('/admin/questions' + location.search)}`}
@@ -83,7 +90,7 @@ export const ArchiveQuestionDialog = ({
             : conflict
               ? t('questionList.archiveDialog.conflict')
               : getAdminErrorKey(archive.error) === 'errors.generic'
-                ? t('questionList.archiveDialog.failed')
+                ? t(`${copy}.failed`)
                 : presentError(archive.error)}
         </p>
       ) : null}
