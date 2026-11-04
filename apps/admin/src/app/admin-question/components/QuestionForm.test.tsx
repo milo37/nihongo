@@ -15,11 +15,11 @@ import type {
   UpdateQuestionVersionRequest
 } from '@nihongo/contracts/admin/content-operations'
 import { preview as initialQuestion } from '@app/admin-question/test/questionFixture'
+import { QuestionForm } from '@app/admin-question/components/QuestionForm'
 import {
-  QuestionForm,
   questionFormSchema,
   type QuestionFormValues
-} from '@app/admin-question/components/QuestionForm'
+} from '@app/admin-question/components/questionFormSchema'
 
 const validFormValues: QuestionFormValues = {
   level: 'N3',
