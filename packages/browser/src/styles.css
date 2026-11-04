@@ -1551,6 +1551,18 @@
   line-break: strict;
 }
 
+/* Field error copy: keep Korean words intact, still wrap long tokens;
+   Japanese retains natural strict line breaks. */
+.field-error {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.field-error:lang(ja) {
+  word-break: normal;
+  line-break: strict;
+}
+
 /* Browser zoom can reduce a 320px physical screen to a 160px CSS viewport.
    Reflow only below the ordinary mobile baseline; never clip the document. */
 @media (max-width: 319px) {
