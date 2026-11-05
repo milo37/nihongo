@@ -78,7 +78,7 @@ EC2와 백업 버킷은 CloudFront나 IAM으로만 접근됩니다. WAF는 IP별
 
 ## 남는 위험
 
-- **origin 평문 구간:** `origin_domain_name`이 비어 있는 동안 CloudFront→EC2는 HTTP라서 쿠키·Authorization·OAuth code가 공개망을 평문으로 지납니다. 비밀 헤더도 같은 구간을 지나므로, 경로상 도청자가 있으면 헤더 보호도 완전하지 않습니다. 실사용자가 없는 STAGING에서만 감수하고, 도메인을 산 뒤 origin TLS를 켭니다.
+- **origin 평문 구간:** `origin_domain_name`이 비어 있는 동안 CloudFront→EC2는 HTTP라서 쿠키·Authorization·OAuth code가 공개망을 평문으로 지납니다. 비밀 헤더도 같은 구간을 지나므로, 경로상 도청자가 있으면 헤더 보호도 완전하지 않습니다. **도메인/origin TLS 결정(사용자) 전에는 apply하지 않습니다.** 사용자가 2안(도메인 미룸)을 고르면 STAGING에서만 평문을 감수하고, 도메인을 산 뒤 origin TLS를 켭니다. PRODUCTION은 `origin_domain_name` 없이는 validation에서 거부됩니다.
 - **비밀 헤더 값이 Terraform state에 남습니다**(위 비밀값 절).
 - 헤더를 바꾸려면 `terraform apply -replace=random_password.origin_verify` 후 호스트에서 `render-env.sh`와 `docker compose up -d proxy`를 실행합니다. 둘 사이에는 잠깐 403이 납니다.
 

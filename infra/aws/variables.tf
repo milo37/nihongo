@@ -63,6 +63,11 @@ variable "origin_domain_name" {
   description = "Origin hostname with a public certificate (for example origin.harumaru.net). Empty = HTTP origin on 3001 (no TLS on the CloudFront to EC2 hop)."
   type        = string
   default     = ""
+
+  validation {
+    condition     = var.deployment_environment != "PRODUCTION" || var.origin_domain_name != ""
+    error_message = "PRODUCTION requires origin_domain_name: the CloudFront to EC2 hop must use TLS."
+  }
 }
 
 variable "caddy_image" {
