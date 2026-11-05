@@ -16,12 +16,12 @@ describe('safe collection diagnostics', () => {
       'ENVIRONMENT_INVALID'
     ],
     ['EnvironmentValidationError token=secret', 'setup', 'ENVIRONMENT_INVALID'],
+    ['Admin integration database URL is required.', 'setup', 'WRAPPER_MISSING'],
     [
-      'Phase 7 admin integration database URL is required.',
+      'Admin and runtime schemas must match exactly.',
       'setup',
-      'WRAPPER_MISSING'
+      'SCHEMA_MISMATCH'
     ],
-    ['Phase 7 schemas must match exactly.', 'setup', 'SCHEMA_MISMATCH'],
     ['secret unknown', 'unknown', 'UNKNOWN_REDACTED']
   ])('classifies %s without retaining raw data', (message, stage, code) => {
     const output = classifyCollectionDiagnostic(message)

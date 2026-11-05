@@ -29,7 +29,7 @@ import {
 const guestCleanupShard = process.argv.includes('--shard=current-guest-cleanup')
 const SCHEMA_PATTERN = guestCleanupShard
   ? /^jlp534_[a-f0-9]{32}_test$/
-  : /^phase7_[a-f0-9]{32}_test$/
+  : /^nihongo_[a-f0-9]{32}_test$/
 const IDENTIFIER_PATTERN = /^[a-z_][a-z0-9_]{0,62}$/
 const GROUP_ROLES = [
   'nihongo_owner',
@@ -96,7 +96,7 @@ if (apiIntegrationCase === 'sso-browser-google') {
 
 const syntheticProductionDatabaseUrl = new URL(baseDatabaseUrl)
 syntheticProductionDatabaseUrl.pathname =
-  '/nihongo_phase7_api_production_guard_sentinel'
+  '/nihongo_api_production_guard_sentinel'
 syntheticProductionDatabaseUrl.search = ''
 
 assertSafeTestDatabase({
@@ -117,9 +117,9 @@ if (
 ) {
   throw new Error('Guest cleanup requires its dedicated test database.')
 }
-const schemaName = `${guestCleanupShard ? 'jlp534' : 'phase7'}_${randomUUID().replaceAll('-', '')}_test`
+const schemaName = `${guestCleanupShard ? 'jlp534' : 'nihongo'}_${randomUUID().replaceAll('-', '')}_test`
 if (!SCHEMA_PATTERN.test(schemaName)) {
-  throw new Error('Generated Phase 7 API schema is unsafe.')
+  throw new Error('Generated API schema is unsafe.')
 }
 
 const adminDatabaseUrl = new URL(baseDatabaseUrl)
@@ -155,14 +155,14 @@ const applicationDatabaseUrl = buildWrapperDatabaseUrl(TEST_APPLICATION_LOGIN)
 
 const quoteIdentifier = (value: string): string => {
   if (!IDENTIFIER_PATTERN.test(value)) {
-    throw new Error('Refusing to quote an unsafe Phase 7 API identifier.')
+    throw new Error('Refusing to quote an unsafe API identifier.')
   }
   return `"${value}"`
 }
 
 const quoteSchema = (value: string): string => {
   if (!SCHEMA_PATTERN.test(value)) {
-    throw new Error('Refusing to quote an unsafe Phase 7 API schema.')
+    throw new Error('Refusing to quote an unsafe API schema.')
   }
   return `"${value}"`
 }
@@ -193,8 +193,7 @@ interface PgcryptoSnapshot {
 export interface IsolatedDatabaseHarness {
   readonly adminDatabaseUrl: string
   readonly applicationDatabaseUrl: string
-  readonly authGatewayDatabaseUrl: string
-  readonly erasureWorkerDatabaseUrl: string
+  readonly appFixtureDatabaseUrl: string
   readonly migrationDatabaseUrl: string
   readonly schemaName: string
   readonly sharedEnvironment: NodeJS.ProcessEnv
@@ -379,12 +378,12 @@ const restorePgcrypto = async (): Promise<void> => {
 const acquireProvisioningLock = async (): Promise<void> => {
   const result = await adminClient.query<{ acquired: boolean }>(
     `SELECT pg_try_advisory_lock(hashtextextended(
-       'phase7-db-integration-global-role-provisioning', 0
+       'db-integration-global-role-provisioning', 0
      )) AS acquired`
   )
   provisioningLockAcquired = result.rows[0]?.acquired === true
   if (!provisioningLockAcquired) {
-    throw new Error('Another Phase 7 database gate is active.')
+    throw new Error('Another database gate is active.')
   }
 }
 
@@ -686,7 +685,7 @@ const cleanup = (): Promise<void> => {
       try {
         await adminClient.query(
           `SELECT pg_advisory_unlock(hashtextextended(
-             'phase7-db-integration-global-role-provisioning', 0
+             'db-integration-global-role-provisioning', 0
            ))`
         )
         provisioningLockAcquired = false
@@ -810,10 +809,8 @@ export const prepareIsolatedDatabase = async ({
   const sharedEnvironment: NodeJS.ProcessEnv = {
     ...process.env,
     ADMIN_CMS_MODE: 'technical',
-    // #504 P8-1: one runtime role; these names go in P8-2.
-    PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: applicationDatabaseUrl.toString(),
+    TEST_APP_FIXTURE_DATABASE_URL: applicationDatabaseUrl.toString(),
     DATABASE_URL: applicationDatabaseUrl.toString(),
-    TEST_API_ERASURE_DATABASE_URL: applicationDatabaseUrl.toString(),
     GUEST_CLEANUP_DATABASE_URL: applicationDatabaseUrl.toString(),
     GUEST_CLEANUP_FIXTURE_DATABASE_URL: targetDatabaseUrl.toString(),
     GUEST_CLEANUP_TEST_ISOLATED: guestCleanupShard ? 'yes' : undefined,
@@ -863,8 +860,7 @@ export const prepareIsolatedDatabase = async ({
   return {
     adminDatabaseUrl: targetDatabaseUrl.toString(),
     applicationDatabaseUrl: applicationDatabaseUrl.toString(),
-    authGatewayDatabaseUrl: applicationDatabaseUrl.toString(),
-    erasureWorkerDatabaseUrl: applicationDatabaseUrl.toString(),
+    appFixtureDatabaseUrl: applicationDatabaseUrl.toString(),
     migrationDatabaseUrl: migrationDatabaseUrl.toString(),
     schemaName,
     sharedEnvironment
@@ -873,18 +869,18 @@ export const prepareIsolatedDatabase = async ({
 
 const run = async (): Promise<void> => {
   const { sharedEnvironment } = await prepareIsolatedDatabase()
-  const apiEntries = getApiIntegrationEntriesByOwner('phase7-api')
+  const apiEntries = getApiIntegrationEntriesByOwner('api')
   const [repositoryEntry, apiGateEntry, commandRepositoryEntry] = apiEntries
   if (
     apiEntries.length !== 3 ||
     !apiGateEntry ||
     !repositoryEntry ||
     !commandRepositoryEntry ||
-    apiGateEntry.shard !== 'phase7-api-post-seed' ||
+    apiGateEntry.shard !== 'api-post-seed' ||
     apiGateEntry.seedPolicy !== 'canonical-once' ||
-    repositoryEntry.shard !== 'phase7-api-pre-seed' ||
+    repositoryEntry.shard !== 'api-pre-seed' ||
     repositoryEntry.seedPolicy !== 'none' ||
-    commandRepositoryEntry.shard !== 'phase7-api-post-seed' ||
+    commandRepositoryEntry.shard !== 'api-post-seed' ||
     commandRepositoryEntry.seedPolicy !== 'canonical-once'
   ) {
     throw new Error('API integration manifest is incomplete.')
@@ -964,7 +960,7 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
   assertSsoBootstrapMigrationHistory(expectedMigrations, applied.rows)
   process.stdout.write(
     JSON.stringify({
-      event: 'phase7.api.sso_first_admin_bootstrap.migrations_verified',
+      event: 'api.sso_first_admin_bootstrap.migrations_verified',
       canonicalCount: 1,
       checksumMatch: true,
       reentry: true
@@ -996,7 +992,7 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
     throw new Error('SSO account lifecycle exact6/orphan verification failed.')
   process.stdout.write(
     JSON.stringify({
-      event: 'phase7.api.sso_account_lifecycle.tests_verified',
+      event: 'api.sso_account_lifecycle.tests_verified',
       selected: 6,
       passed: count,
       orphanCount: 0
@@ -1163,7 +1159,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
     controller.signal.throwIfAborted()
     fixture = await createSsoBrowserApiTestFixture({
       databaseUrl: harness.applicationDatabaseUrl,
-      authGatewayDatabaseUrl: harness.authGatewayDatabaseUrl,
+      appFixtureDatabaseUrl: harness.appFixtureDatabaseUrl,
       adminDatabaseUrl: harness.adminDatabaseUrl,
       environment,
       isolateSignIns: true
@@ -1267,8 +1263,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
               expiryPhase = 'FIRST_401_CONFIRMED'
               process.stdout.write(
                 `${JSON.stringify({
-                  event:
-                    'phase7.api.sso_browser.session_expiry.first_protected',
+                  event: 'api.sso_browser.session_expiry.first_protected',
                   kind: 'BOOKMARK_LIST',
                   firstProtectedIngressAfterArm: true,
                   countBeforeFirst401: protectedIngressCountBeforeFirst401,
@@ -1324,7 +1319,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
               }
               process.stdout.write(
                 `${JSON.stringify({
-                  event: 'phase7.api.sso_browser.session_expiry.reconciled',
+                  event: 'api.sso_browser.session_expiry.reconciled',
                   ...finalReceipt
                 })}\n`
               )
@@ -1363,7 +1358,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
                 try {
                   process.stdout.write(
                     `${JSON.stringify({
-                      event: 'phase7.api.sso_browser.session_expiry.armed',
+                      event: 'api.sso_browser.session_expiry.armed',
                       armed: true,
                       expired: true,
                       sessionCount: 1
@@ -1382,7 +1377,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
         try {
           process.stdout.write(
             `${JSON.stringify({
-              event: 'phase7.api.sso_browser.start.entered',
+              event: 'api.sso_browser.start.entered',
               method: 'POST',
               path: '/api/auth/sign-in/social'
             })}\n`
@@ -1397,7 +1392,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
           try {
             process.stdout.write(
               `${JSON.stringify({
-                event: 'phase7.api.sso_browser.start.fetch_failed',
+                event: 'api.sso_browser.start.fetch_failed',
                 method: 'POST',
                 path: '/api/auth/sign-in/social'
               })}\n`
@@ -1421,8 +1416,8 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
           process.stdout.write(
             `${JSON.stringify({
               event: statusClass
-                ? 'phase7.api.sso_browser.start.completed'
-                : 'phase7.api.sso_browser.start.status_failed',
+                ? 'api.sso_browser.start.completed'
+                : 'api.sso_browser.start.status_failed',
               method: 'POST',
               path: '/api/auth/sign-in/social',
               ...(statusClass ? { statusClass } : {})
@@ -1470,7 +1465,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
       throw new Error('SSO browser listener did not bind the owned endpoint.')
     }
     process.stdout.write(
-      `${JSON.stringify({ event: 'phase7.api.sso_browser.ready', apiOrigin })}\n`
+      `${JSON.stringify({ event: 'api.sso_browser.ready', apiOrigin })}\n`
     )
     await stopped
     if (firstFailure) throw firstFailure
@@ -1497,7 +1492,7 @@ const isDirectExecution =
 if (isDirectExecution && apiIntegrationCase === 'sso-browser-google') {
   void runSsoBrowserGoogle().catch(() => {
     process.stderr.write(
-      `${JSON.stringify({ event: 'phase7.api.sso_browser.failed' })}\n`
+      `${JSON.stringify({ event: 'api.sso_browser.failed' })}\n`
     )
     process.exitCode = 1
   })
@@ -1519,7 +1514,7 @@ if (isDirectExecution && apiIntegrationCase === 'sso-browser-google') {
       await cleanup()
       process.stdout.write(
         `${JSON.stringify({
-          event: 'phase7.api.integration.passed',
+          event: 'api.integration.passed',
           schemaRemoved: true
         })}\n`
       )
@@ -1530,7 +1525,7 @@ if (isDirectExecution && apiIntegrationCase === 'sso-browser-google') {
       } catch (cleanupError: unknown) {
         process.stderr.write(
           `${JSON.stringify({
-            event: 'phase7.api.integration.cleanup_failed',
+            event: 'api.integration.cleanup_failed',
             errorName:
               cleanupError instanceof Error
                 ? cleanupError.name
@@ -1541,7 +1536,7 @@ if (isDirectExecution && apiIntegrationCase === 'sso-browser-google') {
       }
       process.stderr.write(
         `${JSON.stringify({
-          event: 'phase7.api.integration.failed',
+          event: 'api.integration.failed',
           errorName: error instanceof Error ? error.name : 'UnknownError',
           message: error instanceof Error ? error.message : 'Unknown failure',
           schemaName

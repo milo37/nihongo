@@ -13,7 +13,7 @@ export interface KeyedRateLimitSettings {
   readonly storeUnavailableMessage: string
   readonly stateInvalidMessage: string
   readonly rateLimitedMessage: string
-  /** Phase 7 command paths mark failures as before any transaction. */
+  /** command paths mark failures as before any transaction. */
   readonly adminDisposition?: 'NO_TX'
   /** Which store errors become SERVICE_UNAVAILABLE; others are rethrown. */
   readonly isStoreError?: (error: unknown) => boolean

@@ -450,7 +450,7 @@ export const runReal = async (): Promise<void> => {
   const created = await createSsoAdminBrowserApiFixture(
     {
       databaseUrl: harness.applicationDatabaseUrl,
-      authGatewayDatabaseUrl: harness.authGatewayDatabaseUrl,
+      appFixtureDatabaseUrl: harness.appFixtureDatabaseUrl,
       adminDatabaseUrl: harness.adminDatabaseUrl,
       environment: parseApiEnvironment(apiEnvironment)
     },

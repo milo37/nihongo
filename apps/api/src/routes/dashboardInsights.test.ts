@@ -87,7 +87,7 @@ const createEnvironment = (
   const databaseUrl = (login: string): string =>
     'postgresql://' +
     login +
-    ':unit-only@127.0.0.1:5432/nihongo_test?schema=phase7_' +
+    ':unit-only@127.0.0.1:5432/nihongo_test?schema=nihongo_' +
     'a'.repeat(32) +
     '_test&sslmode=verify-full'
   return parseApiEnvironment({
@@ -143,7 +143,7 @@ const createHarness = ({
       clearSessionCookie: false,
       headers: new Headers(),
       ...(authenticated && hasSessionProof
-        ? { phase7Session: sessionProof }
+        ? { ownedSessionProof: sessionProof }
         : {}),
       user: authenticated ? user : null
     }))

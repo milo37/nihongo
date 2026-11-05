@@ -2,7 +2,7 @@ import { getConnInfo } from '@hono/node-server/conninfo'
 import type { ContentOperation } from '@nihongo/contracts/admin/content-operations'
 import type { Context } from 'hono'
 import { createMiddleware } from 'hono/factory'
-import { getCanonicalPhase7Slice3Operation } from '../app/protectedRouteExclusion.js'
+import { getCanonicalSlice3Operation } from '../app/protectedRouteExclusion.js'
 import { createClientIpAuthority } from '../auth/clientIp.js'
 import type { PrincipalService } from '../auth/principalService.js'
 import type { ApiEnvironment } from '../config/env.js'
@@ -102,7 +102,7 @@ const requestTooLarge = (): ApplicationError =>
 
 const getOperation = (
   context: Context<AdminRouteEnvironment>,
-  operationResolver: typeof getCanonicalPhase7Slice3Operation
+  operationResolver: typeof getCanonicalSlice3Operation
 ): ContentOperation => {
   const operation = operationResolver({
     method: context.req.method,
@@ -181,13 +181,13 @@ export const getOperationBodySizeLimit = (
 export const createAdminCommandGuard = ({
   assertCapability,
   environment,
-  operationResolver = getCanonicalPhase7Slice3Operation,
+  operationResolver = getCanonicalSlice3Operation,
   principalService,
   rateLimiter
 }: {
   assertCapability: () => void | Promise<void>
   environment: ApiEnvironment
-  operationResolver?: typeof getCanonicalPhase7Slice3Operation
+  operationResolver?: typeof getCanonicalSlice3Operation
   principalService: PrincipalService
   rateLimiter: AdminCommandRateLimiter
 }) => {
@@ -220,7 +220,7 @@ export const createAdminCommandGuard = ({
         cause: error
       })
     }
-    if (!resolution.user || !resolution.phase7Session) {
+    if (!resolution.user || !resolution.ownedSessionProof) {
       if (resolution.clearSessionCookie) {
         try {
           assertTrustedOrigin(context, environment)
@@ -279,7 +279,10 @@ export const createAdminCommandGuard = ({
       })
     }
 
-    if (freshOperations.has(operation) && !resolution.phase7Session.isFresh) {
+    if (
+      freshOperations.has(operation) &&
+      !resolution.ownedSessionProof.isFresh
+    ) {
       throw new ApplicationError({
         code: 'FRESH_ASSURANCE_REQUIRED',
         message:
@@ -320,7 +323,7 @@ export const createAdminCommandGuard = ({
 
     context.set('adminActorId', resolution.user.id)
     context.set('adminClientIp', clientIp)
-    context.set('adminSessionToken', resolution.phase7Session.token)
+    context.set('adminSessionToken', resolution.ownedSessionProof.token)
     await next()
   })
 }

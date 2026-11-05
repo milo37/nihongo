@@ -32,7 +32,7 @@ export const createPostgresStartupOptions = (
   startupRole?: string
 ): string => {
   if (startupRole && !APPROVED_POSTGRES_STARTUP_ROLES.has(startupRole)) {
-    throw new Error('PostgreSQL startup role is not an approved Phase 7 role.')
+    throw new Error('PostgreSQL startup role is not an approved role.')
   }
 
   return [

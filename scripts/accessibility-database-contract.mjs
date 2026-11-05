@@ -6,7 +6,7 @@ const requireFromApi = createRequire(
 )
 const { Client } = requireFromApi('pg')
 
-const SAFE_SCHEMA_PATTERN = /^phase7_[a-f0-9]{32}_test$/u
+const SAFE_SCHEMA_PATTERN = /^nihongo_[a-f0-9]{32}_test$/u
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u
 
 export const accessibilityDatabaseTables = [

@@ -371,7 +371,7 @@ test('portable runtime environment is production-shaped without migration creden
     databaseHost: 'database',
     databaseName: 'nihongo_smoke_test',
     databasePassword: 'a'.repeat(48),
-    schemaName: `phase7_${'c'.repeat(32)}_test`,
+    schemaName: `nihongo_${'c'.repeat(32)}_test`,
     releaseId
   })
 
@@ -640,7 +640,7 @@ test('controlled TEST probe binds the exact actor, Google persistence, question 
       databaseName: 'nihongo_smoke_test'
     },
     runtimeContainer: 'owned-runtime',
-    schemaName: `phase7_${'a'.repeat(32)}_test`,
+    schemaName: `nihongo_${'a'.repeat(32)}_test`,
     origin: 'http://127.0.0.1:4567',
     suffix: '012345abcdef',
     fixture,
@@ -769,7 +769,7 @@ test('TEST preparation programs keep canonical seed/owned issuance boundaries an
     env: {
       NODE_ENV: 'production',
       DEPLOYMENT_ENVIRONMENT: 'PRODUCTION',
-      DATABASE_URL: `postgresql://test@127.0.0.1/nihongo_test?schema=phase7_${'a'.repeat(32)}_test`
+      DATABASE_URL: `postgresql://test@127.0.0.1/nihongo_test?schema=nihongo_${'a'.repeat(32)}_test`
     }
   }
   let touched = false
@@ -1111,7 +1111,7 @@ test('canonical seed child preserves native failure with safe stage and code onl
         encoding: 'utf8',
         input: JSON.stringify({
           databaseUrl:
-            'postgresql://test:private-token@127.0.0.1:1/nihongo_test?schema=phase7_' +
+            'postgresql://test:private-token@127.0.0.1:1/nihongo_test?schema=nihongo_' +
             'a'.repeat(32) +
             '_test',
           runtimeDatabaseUrl: sentinel
@@ -1200,9 +1200,9 @@ test('canonical seed child receives its owned public certificate before Node sta
     canonicalSeedProgram
   )
   const migration =
-    'postgresql://migration@127.0.0.1:5432/nihongo_test?schema=phase7_test&sslmode=verify-full'
+    'postgresql://migration@127.0.0.1:5432/nihongo_test?schema=nihongo_test&sslmode=verify-full'
   const application =
-    'postgresql://application@127.0.0.1:5432/nihongo_test?schema=phase7_test&sslmode=verify-full'
+    'postgresql://application@127.0.0.1:5432/nihongo_test?schema=nihongo_test&sslmode=verify-full'
   assert.deepEqual(
     seed(migration, application, '/owned-test-cert/server.crt'),
     { status: 0 }

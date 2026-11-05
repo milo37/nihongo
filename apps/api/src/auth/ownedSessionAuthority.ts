@@ -4,9 +4,9 @@ import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
  * Owned V1 Session issuance, refresh, sign-out and principal resolution in the
  * API (#504 P7 PR3a).
  *
- * These replace phase7_issue_v1_session, phase7_refresh_current_remembered_session
- * (with phase7_refresh_remembered_session), phase7_owned_sign_out and
- * phase7_resolve_v1_principal step for step: the same lock order (User, then
+ * These replace issue_v1_session, refresh_current_remembered_session
+ * (with refresh_remembered_session), owned_sign_out and
+ * resolve_v1_principal step for step: the same lock order (User, then
  * the Session, FOR UPDATE), the same authority conditions and a re-check
  * before commit. #504 P7 PR4b-1: a Session has no family or rotation fence; a
  * sign-out ends the Session of its token. Session_validate_authority_write
@@ -370,7 +370,7 @@ export const refreshRememberedSession = async (
 }
 
 /**
- * phase7_confirm_v1_session_issuance: after the issuance committed, the new
+ * confirm_v1_session_issuance: after the issuance committed, the new
  * Session still holds the captured authority under User and Session locks. Returns false instead of raising, as the SQL function did.
  */
 export const confirmOwnedSession = async (

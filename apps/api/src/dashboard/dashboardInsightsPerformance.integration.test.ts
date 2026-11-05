@@ -99,9 +99,8 @@ const LEVELS = [
 
 const environment = parseApiEnvironment(process.env)
 const adminDatabaseUrl = process.env.ADMIN_DATABASE_URL
-const authGatewayDatabaseUrl =
-  process.env.PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL
-if (!adminDatabaseUrl || !authGatewayDatabaseUrl) {
+const appFixtureDatabaseUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
+if (!adminDatabaseUrl || !appFixtureDatabaseUrl) {
   throw new Error('Performance integration DB URLs are required.')
 }
 assertSafeTestDatabase({
@@ -116,7 +115,7 @@ const database = createRoleDatabaseRuntime(
 )
 const adminDatabase = createDatabaseRuntime(adminDatabaseUrl)
 const authGatewayDatabase = createRoleDatabaseRuntime(
-  authGatewayDatabaseUrl,
+  appFixtureDatabaseUrl,
   'nihongo_app'
 )
 const sessionRepository = createPrismaStudySessionRepository(database.client)
@@ -763,7 +762,7 @@ describe.sequential('Dashboard insights performance gate', () => {
         return {
           clearSessionCookie: false,
           headers: new Headers(),
-          phase7Session: {
+          ownedSessionProof: {
             createdAt: new Date(observedAt.getTime() - 60_000),
             expiresAt: new Date(observedAt.getTime() + DAY_MILLISECONDS),
             id: randomUUID(),

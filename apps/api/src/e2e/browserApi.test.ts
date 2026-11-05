@@ -42,7 +42,7 @@ vi.mock('pg', async (importOriginal) => ({
   }
 }))
 
-const schema = `phase7_${'a'.repeat(32)}_test`
+const schema = `nihongo_${'a'.repeat(32)}_test`
 const url = (login: string) =>
   `postgresql://${login}:unused@127.0.0.1:5432/nihongo_phase9_test?schema=${schema}`
 const source = (): NodeJS.ProcessEnv => ({
@@ -211,7 +211,7 @@ describe('Isolated TEST SSO bootstrap', () => {
       '',
       'unknown',
       'test-google-author-extra',
-      'PHASE7-TEST-GOOGLE-AUTHOR',
+      'TEST-GOOGLE-AUTHOR',
       '__proto__'
     ]) {
       expect(await provider.exchange({ ...input, code })).toBeNull()

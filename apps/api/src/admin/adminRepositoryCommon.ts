@@ -6,7 +6,7 @@ import {
 } from '@nihongo/contracts/admin/content-operations'
 import { Prisma } from '../generated/prisma/client.js'
 
-/** Helpers and row shapes shared by the Phase 7 admin repositories (#497). */
+/** Helpers and row shapes shared by the admin repositories (#497). */
 
 export type AuditEnvironment = 'TEST' | 'DEVELOPMENT'
 
@@ -64,13 +64,13 @@ export const CREATE_CHANGED_FIELDS = [
 ] as const
 
 export const AUTHORITY_FAILURE_MESSAGES = new Set([
-  'Phase 7 operation requires an existing Session.',
-  'Phase 7 operation Session family is unavailable.',
-  'Phase 7 operation Session is unavailable.',
-  'Phase 7 operation authority is stale or insufficient.',
-  'Phase 7 authority expired before commit.',
-  'A referenced Phase 7 User is unavailable.',
-  'Phase 7 referenced User set is not exact for its targets.'
+  'Operation requires an existing Session.',
+  'Operation Session family is unavailable.',
+  'Operation Session is unavailable.',
+  'Operation authority is stale or insufficient.',
+  'Authority expired before commit.',
+  'A referenced User is unavailable.',
+  'Referenced User set is not exact for its targets.'
 ])
 
 export const toIso = (value: Date): string => value.toISOString()
@@ -117,7 +117,7 @@ export const adminAuditContentDigest = (
 /**
  * QuestionVersion content updates are made by the locked live author only
  * (former finish-time check). The actor itself was locked and checked as an
- * active ADMIN by phase7_begin_admin_operation.
+ * active ADMIN by begin_admin_operation.
  */
 export const assertVersionAuthor = async (
   transaction: Prisma.TransactionClient,

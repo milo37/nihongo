@@ -89,15 +89,15 @@ import { createAdminMemberRoutes } from '../routes/adminMembers.js'
 import { createAdminImportResultRoutes } from '../routes/adminImportResults.js'
 import type { AdminImportApplyResponse } from '@nihongo/contracts/admin/content-operations'
 import {
-  getCanonicalPhase7ActiveOperation,
-  isCanonicalPhase7ApprovalCommandRequest,
-  isCanonicalPhase7PublicationCommandRequest,
-  isCanonicalPhase7LearnerReportRequest,
-  isCanonicalPhase7Slice5AdminCommandRequest,
-  isCanonicalPhase7Slice5AdminReadRequest,
-  isCanonicalPhase7Slice3ACommandRequest,
-  isCanonicalPhase7Slice2ReadRequest,
-  isPhase7ExcludedRequest,
+  getCanonicalActiveOperation,
+  isCanonicalApprovalCommandRequest,
+  isCanonicalPublicationCommandRequest,
+  isCanonicalLearnerReportRequest,
+  isCanonicalSlice5AdminCommandRequest,
+  isCanonicalSlice5AdminReadRequest,
+  isCanonicalSlice3ACommandRequest,
+  isCanonicalSlice2ReadRequest,
+  isProtectedRouteExcluded,
   isCanonicalAdminConsoleCommandRequest,
   isCanonicalAdminConsoleReadRequest
 } from './protectedRouteExclusion.js'
@@ -322,17 +322,17 @@ export const createApiErrorHandler =
   ({
     authEnvironment,
     logger,
-    phase7OperationResolver = getCanonicalPhase7ActiveOperation
+    operationResolver = getCanonicalActiveOperation
   }: {
     authEnvironment?: ApiEnvironment
     logger: StructuredLogger
-    phase7OperationResolver?: typeof getCanonicalPhase7ActiveOperation
+    operationResolver?: typeof getCanonicalActiveOperation
   }): ErrorHandler<{ Variables: ApiVariables }> =>
   (error, context) => {
     const requestId = context.get('requestId')
     let failure = toFailure(error, requestId)
     let status = errorStatusByCode[failure.code]
-    const operation = phase7OperationResolver({
+    const operation = operationResolver({
       method: context.req.method,
       requestTarget: context.get('rawRequestTarget')
     })
@@ -353,7 +353,7 @@ export const createApiErrorHandler =
       durationMs: toBoundedDurationMs(context.get('requestStartedAt')),
       errorCode:
         operationFailure?.contractViolation === true
-          ? 'PHASE7_CONTRACT_VIOLATION'
+          ? 'OPERATION_CONTRACT_VIOLATION'
           : failure.code
     })
     if (operationFailure === null) {
@@ -463,8 +463,8 @@ export const createApiApp = ({
     )
     context.set('rawRequestTarget', requestTarget)
     const isExcludedRequest =
-      isPhase7ExcludedRequest(requestTarget) ||
-      isPhase7ExcludedRequest(context.req.path)
+      isProtectedRouteExcluded(requestTarget) ||
+      isProtectedRouteExcluded(context.req.path)
     if (!isExcludedRequest) {
       await next()
       return
@@ -472,7 +472,7 @@ export const createApiApp = ({
 
     if (
       learnerReports !== undefined &&
-      isCanonicalPhase7LearnerReportRequest({
+      isCanonicalLearnerReportRequest({
         method: context.req.method,
         requestTarget
       })
@@ -483,7 +483,7 @@ export const createApiApp = ({
 
     if (
       technicalAdminEnabled &&
-      (isCanonicalPhase7Slice2ReadRequest({
+      (isCanonicalSlice2ReadRequest({
         method: context.req.method,
         requestTarget
       }) ||
@@ -496,25 +496,25 @@ export const createApiApp = ({
           requestTarget
         }) ||
         (admin?.commands !== undefined &&
-          (isCanonicalPhase7Slice3ACommandRequest({
+          (isCanonicalSlice3ACommandRequest({
             method: context.req.method,
             requestTarget
           }) ||
-            isCanonicalPhase7ApprovalCommandRequest({
+            isCanonicalApprovalCommandRequest({
               method: context.req.method,
               requestTarget
             }) ||
-            isCanonicalPhase7PublicationCommandRequest({
+            isCanonicalPublicationCommandRequest({
               method: context.req.method,
               requestTarget
             }))) ||
         (admin?.commands?.slice5Service !== undefined &&
-          isCanonicalPhase7Slice5AdminCommandRequest({
+          isCanonicalSlice5AdminCommandRequest({
             method: context.req.method,
             requestTarget
           })) ||
         (admin?.reports !== undefined &&
-          isCanonicalPhase7Slice5AdminReadRequest({
+          isCanonicalSlice5AdminReadRequest({
             method: context.req.method,
             requestTarget
           })))
@@ -751,7 +751,7 @@ export const createApiApp = ({
     }
     if (assertPracticeRuntimeAuthority) {
       app.use('/api/v1/*', async (context, next) => {
-        if (isPhase7ExcludedRequest(context.get('rawRequestTarget'))) {
+        if (isProtectedRouteExcluded(context.get('rawRequestTarget'))) {
           await next()
           return
         }

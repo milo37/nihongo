@@ -6,7 +6,7 @@ export type FoundationStage =
   | 'CAPABILITY_REGISTER'
   | 'RESET_ROLE'
 export interface FoundationDiagnostic {
-  readonly event: 'phase7.foundation.initialization'
+  readonly event: 'foundation.initialization'
   readonly stage: FoundationStage
   readonly state: 'BEGIN' | 'COMPLETE' | 'FAILED'
   readonly code?:
@@ -49,7 +49,7 @@ export const runFoundationStage = async <Result>(
   ) => {
     try {
       report({
-        event: 'phase7.foundation.initialization',
+        event: 'foundation.initialization',
         stage,
         state,
         ...(code ? { code } : {})

@@ -2,7 +2,7 @@
  * Registers the database capability row as the migration role (#504 P8-1).
  *
  * The baseline has no registration function: this is the statement
- * phase7_register_database_capability ran, with the same target checks. The
+ * register_database_capability ran, with the same target checks. The
  * row is accepted only for the database it runs on, at its own server
  * address and port, with a TEST or DEVELOPMENT environment that matches the
  * database name. The runtime check require_database_capability compares the

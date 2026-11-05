@@ -3,14 +3,14 @@ import type { QueryResultRow } from 'pg'
 /**
  * Test-only SQL audit digest (#504 P7 PR5b).
  *
- * phase7_admin_audit_content_digest with its JCS helpers moved out of the
+ * admin_audit_content_digest with its JCS helpers moved out of the
  * schema: no database code calls it since the API computes the audit digest.
  * Tests still check the API digest against this independent SQL canonical
- * form, unchanged from 20260827101000_phase7_admin_cms_foundation, created in
- * the connection's pg_temp and called as pg_temp."phase7_admin_audit_content_digest".
+ * form, unchanged from 20260827101000_admin_cms_foundation, created in
+ * the connection's pg_temp and called as pg_temp."admin_audit_content_digest".
  */
 const AUDIT_DIGEST_SQL = `
-CREATE OR REPLACE FUNCTION pg_temp."phase7_jcs_string_array"(value JSONB)
+CREATE OR REPLACE FUNCTION pg_temp."jcs_string_array"(value JSONB)
 RETURNS TEXT
 LANGUAGE SQL
 IMMUTABLE
@@ -21,7 +21,7 @@ AS $function$
   FROM jsonb_array_elements_text(value) WITH ORDINALITY AS element(item, ordinal);
 $function$;
 
-CREATE OR REPLACE FUNCTION pg_temp."phase7_jcs_audit_metadata"(value JSONB)
+CREATE OR REPLACE FUNCTION pg_temp."jcs_audit_metadata"(value JSONB)
 RETURNS TEXT
 LANGUAGE plpgsql
 IMMUTABLE
@@ -67,7 +67,7 @@ BEGIN
 END;
 $function$;
 
-CREATE OR REPLACE FUNCTION pg_temp."phase7_admin_audit_content_digest"(
+CREATE OR REPLACE FUNCTION pg_temp."admin_audit_content_digest"(
   operation_id UUID,
   command_value "AdminAuditCommand",
   target_type_value "AdminAuditTargetType",
@@ -89,9 +89,9 @@ AS $function$
     || ',"afterState":' || COALESCE(to_jsonb(after_state_value)::TEXT, 'null')
     || ',"beforeRowVersion":' || COALESCE(before_row_version_value::TEXT, 'null')
     || ',"beforeState":' || COALESCE(to_jsonb(before_state_value)::TEXT, 'null')
-    || ',"changedFields":' || pg_temp."phase7_jcs_string_array"(changed_fields_value)
+    || ',"changedFields":' || pg_temp."jcs_string_array"(changed_fields_value)
     || ',"command":' || to_jsonb(command_value::TEXT)::TEXT
-    || ',"metadata":' || pg_temp."phase7_jcs_audit_metadata"(metadata_value)
+    || ',"metadata":' || pg_temp."jcs_audit_metadata"(metadata_value)
     || ',"operationId":' || to_jsonb(operation_id::TEXT)::TEXT
     || ',"targetId":' || to_jsonb(target_id_value::TEXT)::TEXT
     || ',"targetType":' || to_jsonb(target_type_value::TEXT)::TEXT || '}',

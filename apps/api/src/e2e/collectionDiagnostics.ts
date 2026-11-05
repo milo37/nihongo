@@ -48,7 +48,7 @@ export const classifyCollectionDiagnostic = (
     return { stage: 'import', name: 'Error', code: 'EXPORT_MISMATCH' }
   }
   if (
-    /(?:Phase 7 )?(?:[Aa]dmin integration|[Ll]egacy compatibility|[Dd]evelopment app wrapper) database URL is required/u.test(
+    /(?:[Aa]dmin integration|[Ll]egacy compatibility|[Dd]evelopment app wrapper) database URL is required/u.test(
       text
     )
   ) {

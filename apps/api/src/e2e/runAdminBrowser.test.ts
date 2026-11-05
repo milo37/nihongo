@@ -249,8 +249,8 @@ describe('admin and dashboard real origin and Mock selection', () => {
     vi.clearAllMocks()
     ports.assets.mockImplementation(async (prefix: string) =>
       prefix.includes('-admin-')
-        ? '/tmp/phase7-browser-admin-unit'
-        : '/tmp/phase7-browser-web-unit'
+        ? '/tmp/browser-admin-unit'
+        : '/tmp/browser-web-unit'
     )
     ports.removeAssets.mockResolvedValue(undefined)
     buildRetireCountAtInstall = 0
@@ -310,7 +310,7 @@ describe('admin and dashboard real origin and Mock selection', () => {
     })
     ports.prepare.mockResolvedValue({
       applicationDatabaseUrl: 'test-application',
-      authGatewayDatabaseUrl: 'test-gateway',
+      appFixtureDatabaseUrl: 'test-gateway',
       adminDatabaseUrl: 'test-owner',
       sharedEnvironment: { DEPLOYMENT_ENVIRONMENT: 'TEST' }
     })
@@ -405,7 +405,7 @@ describe('admin and dashboard real origin and Mock selection', () => {
           'vite',
           'build',
           '--outDir',
-          `/tmp/phase7-browser-${artifact}-unit`,
+          `/tmp/browser-${artifact}-unit`,
           '--emptyOutDir'
         ])
         expect(builds[index]?.[2].env).toMatchObject({
@@ -418,8 +418,8 @@ describe('admin and dashboard real origin and Mock selection', () => {
       expect(ports.staticWeb).toHaveBeenCalledWith({
         app: expect.anything(),
         releaseId: '0'.repeat(40),
-        webAssetsDirectory: '/tmp/phase7-browser-web-unit',
-        adminAssetsDirectory: '/tmp/phase7-browser-admin-unit',
+        webAssetsDirectory: '/tmp/browser-web-unit',
+        adminAssetsDirectory: '/tmp/browser-admin-unit',
         adminGuard
       })
       const playwright = calls.find(([, args]) => args.includes('playwright'))
@@ -448,8 +448,8 @@ describe('admin and dashboard real origin and Mock selection', () => {
       ])
       expect(disconnect).toHaveBeenCalledOnce()
       expect(ports.removeAssets.mock.calls).toEqual([
-        ['/tmp/phase7-browser-web-unit', { recursive: true, force: true }],
-        ['/tmp/phase7-browser-admin-unit', { recursive: true, force: true }]
+        ['/tmp/browser-web-unit', { recursive: true, force: true }],
+        ['/tmp/browser-admin-unit', { recursive: true, force: true }]
       ])
     }
   )
@@ -498,8 +498,8 @@ describe('admin and dashboard real origin and Mock selection', () => {
     ).toBe(false)
     await runner.cleanup()
     expect(ports.removeAssets.mock.calls).toEqual([
-      ['/tmp/phase7-browser-web-unit', { recursive: true, force: true }],
-      ['/tmp/phase7-browser-admin-unit', { recursive: true, force: true }]
+      ['/tmp/browser-web-unit', { recursive: true, force: true }],
+      ['/tmp/browser-admin-unit', { recursive: true, force: true }]
     ])
     expect(disconnect).toHaveBeenCalledOnce()
     expect(ports.cleanupHarness).toHaveBeenCalledOnce()
@@ -511,14 +511,14 @@ describe('admin and dashboard real origin and Mock selection', () => {
       vi.resetModules()
       const failure = new Error(`${artifact} removal failed`)
       ports.removeAssets.mockImplementation(async (directory: string) => {
-        if (directory === `/tmp/phase7-browser-${artifact}-unit`) throw failure
+        if (directory === `/tmp/browser-${artifact}-unit`) throw failure
       })
       const runner = await import('./runAdminBrowser.js')
       await runner.runReal()
       await expect(runner.cleanup()).rejects.toBe(failure)
       expect(ports.removeAssets.mock.calls).toEqual([
-        ['/tmp/phase7-browser-web-unit', { recursive: true, force: true }],
-        ['/tmp/phase7-browser-admin-unit', { recursive: true, force: true }]
+        ['/tmp/browser-web-unit', { recursive: true, force: true }],
+        ['/tmp/browser-admin-unit', { recursive: true, force: true }]
       ])
       expect(shutdown).toEqual([
         'children',

@@ -11,7 +11,7 @@ import { createGoogleSsoProvider } from '../auth/ssoGoogleProvider.js'
 import type { SsoProvider } from '../auth/ssoProtocol.js'
 import { createOwnedAuthReadiness } from '../auth/ownedAuthReadiness.js'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
-import { runPhase7ReauthenticationStartupMaintenance } from '../auth/reauthenticationStartupMaintenance.js'
+import { runReauthenticationStartupMaintenance } from '../auth/reauthenticationStartupMaintenance.js'
 import { parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime } from '../db/database.js'
 import {
@@ -176,7 +176,7 @@ const assertTestTarget = (
   if (
     target.hash ||
     target.searchParams.getAll('schema').length !== 1 ||
-    !/^phase7_[a-f0-9]{32}_test$/u.test(getPostgresSchema(url) ?? '') ||
+    !/^nihongo_[a-f0-9]{32}_test$/u.test(getPostgresSchema(url) ?? '') ||
     [...target.searchParams.keys()].some(
       (key) => key !== 'schema' && key !== 'sslmode'
     )
@@ -533,7 +533,7 @@ export const createBrowserApi = async ({
       disconnect,
       checkReadiness: async () => {
         await practice.checkReadiness()
-        await runPhase7ReauthenticationStartupMaintenance(gateway.client)
+        await runReauthenticationStartupMaintenance(gateway.client)
       }
     }
   } catch (error: unknown) {

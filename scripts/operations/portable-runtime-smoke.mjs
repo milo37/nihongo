@@ -33,7 +33,7 @@ const currentMigrationDigest =
   '00ff3d7fdf21e2da171ea07c5e649337d57b6486b993c64b15a8f002b6ed982e'
 const migrationLogin = 'nihongo_test_migration_login'
 const applicationLogin = 'nihongo_test_app_login'
-const schemaPattern = /^phase7_[0-9a-f]{32}_test$/u
+const schemaPattern = /^nihongo_[0-9a-f]{32}_test$/u
 const sha256Pattern = /^[0-9a-f]{64}$/u
 const imageIdPattern = /^sha256:[0-9a-f]{64}$/u
 const uuidPattern =
@@ -532,7 +532,7 @@ try {
   assertSafeMigrationDatabase({ nodeEnvironment: 'test', migrationDatabaseUrl: migrationUrl.toString(),
     runtimeDatabaseUrl, productionDatabaseUrl: productionSentinel.toString() });
   const schema = getPostgresSchema(databaseUrl);
-  if (new URL(databaseUrl).hostname !== '127.0.0.1' || !/^phase7_[a-f0-9]{32}_test$/.test(schema))
+  if (new URL(databaseUrl).hostname !== '127.0.0.1' || !/^nihongo_[a-f0-9]{32}_test$/.test(schema))
     throw new Error('Controlled TEST seed target is invalid.');
   phase = 'client-setup';
   client = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl,
@@ -599,7 +599,7 @@ const { suffix } = JSON.parse(readFileSync(0, 'utf8'));
 const url = new URL(process.env.DATABASE_URL);
 if (process.env.NODE_ENV !== 'production' || process.env.DEPLOYMENT_ENVIRONMENT !== 'TEST' ||
     !/^[a-f0-9]{12}$/.test(suffix) || !url.pathname.endsWith('_test') ||
-    !/^phase7_[a-f0-9]{32}_test$/.test(url.searchParams.get('schema')))
+    !/^nihongo_[a-f0-9]{32}_test$/.test(url.searchParams.get('schema')))
   throw new Error('Controlled TEST session target is invalid.');
 const runtime = createRoleDatabaseRuntime(url.toString(), 'nihongo_app');
 try {
@@ -1383,7 +1383,7 @@ export const runPortableRuntimeSmoke = async ({
   const databaseAdminPassword = randomBytes(24).toString('hex')
   const runtimePassword = randomBytes(24).toString('hex')
   const migrationPassword = randomBytes(24).toString('hex')
-  const schemaName = `phase7_${randomUUID().replaceAll('-', '')}_test`
+  const schemaName = `nihongo_${randomUUID().replaceAll('-', '')}_test`
   const migrationNames = selectCurrentMigrationNames(
     resolve(repositoryRoot, 'apps/api/prisma/migrations')
   )

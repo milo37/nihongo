@@ -23,11 +23,10 @@ const DAY_MILLISECONDS = 86_400_000
 const environment = parseApiEnvironment(process.env)
 const adminDatabaseUrl = process.env.ADMIN_DATABASE_URL
 if (!adminDatabaseUrl) {
-  throw new Error('Integration requires the Phase 7 admin test URL.')
+  throw new Error('Integration requires the admin test URL.')
 }
-const authGatewayDatabaseUrl =
-  process.env.PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL
-if (!authGatewayDatabaseUrl) {
+const appFixtureDatabaseUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
+if (!appFixtureDatabaseUrl) {
   throw new Error('Integration requires the auth-gateway test URL.')
 }
 assertSafeTestDatabase({
@@ -42,7 +41,7 @@ const database = createRoleDatabaseRuntime(
 )
 const adminDatabase = createDatabaseRuntime(adminDatabaseUrl)
 const authGatewayDatabase = createRoleDatabaseRuntime(
-  authGatewayDatabaseUrl,
+  appFixtureDatabaseUrl,
   'nihongo_app'
 )
 const sessionRepository = createPrismaStudySessionRepository(database.client)

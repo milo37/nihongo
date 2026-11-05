@@ -3,7 +3,7 @@ import { eraseUserForTest } from '../../auth/accountErasureAuthority.js'
 
 /**
  * #504 P7 PR4a: test cleanup erases a User with the API implementation of the
- * dropped phase7_erase_user, as nihongo_app.
+ * dropped erase_user, as nihongo_app.
  */
 export const eraseTestUser = async (
   client: Pick<PrismaClient, '$transaction'>,

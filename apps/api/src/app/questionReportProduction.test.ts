@@ -47,7 +47,7 @@ const fixture = ({
       ? {
           clearSessionCookie: false,
           headers: new Headers(),
-          phase7Session: {
+          ownedSessionProof: {
             id: userId,
             token: 'session-token',
             createdAt: new Date('2026-10-27T00:00:00Z'),

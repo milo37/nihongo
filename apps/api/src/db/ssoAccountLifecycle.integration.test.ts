@@ -35,39 +35,39 @@ const deletionPendingUser = async (): Promise<string> => {
 }
 const verifyFresh = async (f: SsoFixture) => {
   const context = await gateway(
-    'SELECT "phase7_prepare_sso_account_fresh"($1,$2) AS result',
+    'SELECT "prepare_sso_account_fresh"($1,$2) AS result',
     [f.token, f.provider]
   )
   expect(context).toBeTruthy()
   const proof = digest()
   expect(
     await gateway(
-      'SELECT "phase7_stage_sso_account_fresh_proof"($1::jsonb,$2,$3,$4,$5) AS result',
+      'SELECT "stage_sso_account_fresh_proof"($1::jsonb,$2,$3,$4,$5) AS result',
       [JSON.stringify(context), f.provider, f.subject, proof, '/login']
     )
   ).toBe(true)
   expect(
-    await gateway(
-      'SELECT "phase7_complete_sso_account_fresh"($1,$2) AS result',
-      [proof, f.token]
-    )
+    await gateway('SELECT "complete_sso_account_fresh"($1,$2) AS result', [
+      proof,
+      f.token
+    ])
   ).toBe('/login')
   return proof
 }
 const link = async (f: SsoFixture, proof: string, subject: string) => {
   const context = await gateway(
-    'SELECT "phase7_prepare_sso_account_link"($1,\'apple\',$2) AS result',
+    'SELECT "prepare_sso_account_link"($1,\'apple\',$2) AS result',
     [f.token, proof]
   )
   expect(context).toBeTruthy()
   const staged = digest()
   expect(
     await gateway(
-      "SELECT \"phase7_stage_sso_account_fresh_proof\"($1::jsonb,'apple',$2,$3,'/login') AS result",
+      "SELECT \"stage_sso_account_fresh_proof\"($1::jsonb,'apple',$2,$3,'/login') AS result",
       [JSON.stringify(context), subject, staged]
     )
   ).toBe(true)
-  return gateway('SELECT "phase7_complete_sso_account_link"($1,$2) AS result', [
+  return gateway('SELECT "complete_sso_account_link"($1,$2) AS result', [
     staged,
     f.token
   ])
@@ -91,7 +91,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       expect(owner).toEqual({ role: 'USER', authorityGeneration: 1 })
       expect(
         await gateway(
-          "SELECT \"phase7_unlink_sso_account\"($1,'google',ARRAY['apple','google'],$2) AS result",
+          "SELECT \"unlink_sso_account\"($1,'google',ARRAY['apple','google'],$2) AS result",
           [f.token, null]
         )
       ).toEqual({ unlinked: true, sessionRevoked: true })
@@ -111,7 +111,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       const remaining = await h.fixture('google', 'USER')
       expect(
         await gateway(
-          "SELECT \"phase7_unlink_sso_account\"($1,'google',ARRAY['apple','google'],NULL) AS result",
+          "SELECT \"unlink_sso_account\"($1,'google',ARRAY['apple','google'],NULL) AS result",
           [remaining.token]
         )
       ).toEqual({ code: 'SSO_LAST_SIGN_IN_METHOD' })
@@ -187,12 +187,12 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
     const outcomes = await Promise.all([
       bridgedQuery<{ result: { unlinked?: boolean; code?: string } }>(
         h.appA,
-        "SELECT \"phase7_unlink_sso_account\"($1,'google',ARRAY['apple','google'],NULL) AS result",
+        "SELECT \"unlink_sso_account\"($1,'google',ARRAY['apple','google'],NULL) AS result",
         [f.token]
       ),
       bridgedQuery<{ result: { unlinked?: boolean; code?: string } }>(
         h.appB,
-        "SELECT \"phase7_unlink_sso_account\"($1,'apple',ARRAY['apple','google'],NULL) AS result",
+        "SELECT \"unlink_sso_account\"($1,'apple',ARRAY['apple','google'],NULL) AS result",
         [f.token]
       )
     ])
@@ -220,14 +220,14 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       const receipt = digest()
       expect(
         await gateway(
-          'SELECT "phase7_request_sso_account_erasure"($1,NULL,$2) AS result',
+          'SELECT "request_sso_account_erasure"($1,NULL,$2) AS result',
           [f.token, receipt]
         )
       ).toEqual({ code: 'SSO_FRESH_REQUIRED' })
       const proof = await verifyFresh(f)
       expect(
         await gateway(
-          'SELECT "phase7_request_sso_account_erasure"($1,$2,$3) AS result',
+          'SELECT "request_sso_account_erasure"($1,$2,$3) AS result',
           [f.token, proof, receipt]
         )
       ).toEqual({
@@ -252,16 +252,15 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         (
           await h.roleQuery<{ ok: boolean }>(
             'nihongo_app',
-            'SELECT "phase7_complete_sso_account_erasure"($1,\'TEST\') AS ok',
+            'SELECT "complete_sso_account_erasure"($1,\'TEST\') AS ok',
             [job.id]
           )
         ).rows[0]?.ok
       ).toBe(false)
       expect(
-        await gateway(
-          'SELECT "phase7_sso_account_erasure_status"($1) AS result',
-          [receipt]
-        )
+        await gateway('SELECT "sso_account_erasure_status"($1) AS result', [
+          receipt
+        ])
       ).toEqual({
         appStatus: 'DELETION_PENDING',
         providerCleanup: [{ provider: 'google', status: 'PENDING' }]
@@ -279,7 +278,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
           result: Array<{ id: string; leaseToken: string }>
         }>(
           'nihongo_app',
-          'SELECT "phase7_claim_sso_provider_cleanups"(100,300,\'TEST\') AS result'
+          'SELECT "claim_sso_provider_cleanups"(100,300,\'TEST\') AS result'
         )
       ).rows[0]!.result
       const leaseToken = claims.find((claim) => claim.id === job.id)!.leaseToken
@@ -287,7 +286,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         (
           await h.roleQuery<{ ok: boolean }>(
             'nihongo_app',
-            "SELECT \"phase7_begin_sso_provider_cleanup\"($1,'google',$2,'TEST') AS ok",
+            "SELECT \"begin_sso_provider_cleanup\"($1,'google',$2,'TEST') AS ok",
             [job.id, leaseToken]
           )
         ).rows[0]?.ok
@@ -296,7 +295,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         (
           await h.roleQuery<{ ok: boolean }>(
             'nihongo_app',
-            "SELECT \"phase7_record_sso_provider_cleanup\"($1,'google',$2,$3,'TEST') AS ok",
+            "SELECT \"record_sso_provider_cleanup\"($1,'google',$2,$3,'TEST') AS ok",
             [job.id, status, leaseToken]
           )
         ).rows[0]?.ok
@@ -305,16 +304,15 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         (
           await h.roleQuery<{ ok: boolean }>(
             'nihongo_app',
-            'SELECT "phase7_complete_sso_account_erasure"($1,\'TEST\') AS ok',
+            'SELECT "complete_sso_account_erasure"($1,\'TEST\') AS ok',
             [job.id]
           )
         ).rows[0]?.ok
       ).toBe(false)
       expect(
-        await gateway(
-          'SELECT "phase7_sso_account_erasure_status"($1) AS result',
-          [receipt]
-        )
+        await gateway('SELECT "sso_account_erasure_status"($1) AS result', [
+          receipt
+        ])
       ).toEqual({
         appStatus: 'DELETION_PENDING',
         providerCleanup: [{ provider: 'google', status: 'FAILED' }]
@@ -324,16 +322,15 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         (
           await h.roleQuery<{ ok: boolean }>(
             'nihongo_app',
-            'SELECT "phase7_complete_sso_account_erasure"($1,\'TEST\') AS ok',
+            'SELECT "complete_sso_account_erasure"($1,\'TEST\') AS ok',
             [job.id]
           )
         ).rows[0]?.ok
       ).toBe(true)
       expect(
-        await gateway(
-          'SELECT "phase7_sso_account_erasure_status"($1) AS result',
-          [receipt]
-        )
+        await gateway('SELECT "sso_account_erasure_status"($1) AS result', [
+          receipt
+        ])
       ).toEqual({
         appStatus: 'DELETED',
         providerCleanup: [{ provider: 'google', status: 'COMPLETED' }]
@@ -357,7 +354,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         const f = await h.fixture('google', 'USER')
         const receipt = digest()
         await gateway(
-          'SELECT "phase7_request_sso_account_erasure"($1,$2,$3) AS result',
+          'SELECT "request_sso_account_erasure"($1,$2,$3) AS result',
           [f.token, await verifyFresh(f), receipt]
         )
         const { id } = (
@@ -588,8 +585,8 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       ).toBe(false)
       // #504 P7 PR5a dropped the pre-fencing recorders.
       for (const sql of [
-        "SELECT \"phase7_record_sso_provider_cleanup\"($1,'google','COMPLETED')",
-        "SELECT \"phase7_record_sso_provider_cleanup\"($1,'google','COMPLETED','TEST')"
+        "SELECT \"record_sso_provider_cleanup\"($1,'google','COMPLETED')",
+        "SELECT \"record_sso_provider_cleanup\"($1,'google','COMPLETED','TEST')"
       ])
         await h.rejects('nihongo_app', sql, [id], '42883')
       await h.owner.query(
@@ -644,7 +641,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         peers.map((peer) =>
           bridgedQuery<{ result: Array<{ id: string; leaseToken: string }> }>(
             peer,
-            'SELECT "phase7_claim_sso_provider_cleanups"(1,300,\'TEST\') AS result'
+            'SELECT "claim_sso_provider_cleanups"(1,300,\'TEST\') AS result'
           )
         )
       )
@@ -657,7 +654,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         peers.map((peer) =>
           bridgedQuery<{ ok: boolean }>(
             peer,
-            "SELECT \"phase7_begin_sso_provider_cleanup\"($1,'google',$2,'TEST') AS ok",
+            "SELECT \"begin_sso_provider_cleanup\"($1,'google',$2,'TEST') AS ok",
             [id, token]
           )
         )
@@ -678,7 +675,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         )
         const pending = bridgedQuery<{ ok: boolean }>(
           peer,
-          "SELECT \"phase7_record_sso_provider_cleanup\"($1,'google','COMPLETED',$2,'TEST') AS ok",
+          "SELECT \"record_sso_provider_cleanup\"($1,'google','COMPLETED',$2,'TEST') AS ok",
           [id, token]
         )
         // Observe an actual independent-session lock wait before expiring the lease.
@@ -705,7 +702,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       }
       const retried = await bridgedQuery<{ result: Array<{ id: string }> }>(
         peer,
-        'SELECT "phase7_claim_sso_provider_cleanups"(100,300,\'TEST\') AS result'
+        'SELECT "claim_sso_provider_cleanups"(100,300,\'TEST\') AS result'
       )
       expect(retried.rows[0]!.result.some((claim) => claim.id === id)).toBe(
         false

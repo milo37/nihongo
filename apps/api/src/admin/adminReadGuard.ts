@@ -131,7 +131,10 @@ export const createAdminReadGuard = ({
     }
 
     context.set('adminActorId', resolution.user.id)
-    context.set('adminSessionFresh', resolution.phase7Session?.isFresh === true)
+    context.set(
+      'adminSessionFresh',
+      resolution.ownedSessionProof?.isFresh === true
+    )
     await next()
   })
 }
