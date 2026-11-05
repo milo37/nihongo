@@ -1,5 +1,5 @@
 {
   "schemaVersion": 1,
-  "kind": "PHASE6_SLICE1_FOUNDATION_SOURCE_MANIFEST_V1",
-  "foundationSourceManifestSha256": "05c69f8d07d8b9d62eb811d2d3a491abd1c4adc0505669ff9809cc8637b8b9bb"
+  "kind": "FOUNDATION_SOURCE_MANIFEST_V1",
+  "foundationSourceManifestSha256": "e8e1b39c229e666c4e04463c961ec528324b56a4c9cc57fef086a2a971cb4d16"
 }
