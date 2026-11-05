@@ -319,18 +319,43 @@ describe('detail page error semantics', () => {
     expect(sessionRequestCount).toBe(2)
   })
 
-  it('결과의 한 요청이 retryable이면 다른 요청의 404보다 재시도를 우선한다', async () => {
+  // A well-formed id, so requests pass the client id check and reach MSW.
+  const mixedSessionId = '11111111-1111-4111-8111-111111111111'
+  const notFound = () =>
+    HttpResponse.json(
+      { code: 'RESOURCE_NOT_FOUND', message: 'not found' },
+      { status: 404 }
+    )
+  const mockMixedSession = (resultResponse: () => Response) => {
+    const requests = { result: 0, session: 0 }
     mockServer.use(
-      http.get('*/api/v1/study-sessions/mixed/result', () =>
-        HttpResponse.json({ message: 'server error' }, { status: 500 })
-      ),
-      http.get('*/api/v1/study-sessions/mixed', () =>
-        HttpResponse.json({ message: 'not found' }, { status: 404 })
+      http.get(`*/api/v1/study-sessions/${mixedSessionId}/result`, () => {
+        requests.result += 1
+        return resultResponse()
+      }),
+      http.get(`*/api/v1/study-sessions/${mixedSessionId}`, () => {
+        requests.session += 1
+        return notFound()
+      })
+    )
+    return requests
+  }
+
+  it('결과의 한 요청이 retryable이면 다른 요청의 404보다 재시도를 우선한다', async () => {
+    const requests = mockMixedSession(() =>
+      HttpResponse.json(
+        {
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'server error',
+          requestId: crypto.randomUUID(),
+          retryable: true
+        },
+        { status: 500 }
       )
     )
 
     await renderPage(
-      '/practice/result/mixed',
+      `/practice/result/${mixedSessionId}`,
       '/practice/result/:sessionId',
       <PracticeResultPage />
     )
@@ -345,5 +370,27 @@ describe('detail page error semantics', () => {
         name: '학습 결과를 찾을 수 없습니다'
       })
     ).not.toBeInTheDocument()
+    expect(requests.result).toBeGreaterThan(0)
+    expect(requests.session).toBeGreaterThan(0)
+  })
+
+  it('결과와 세션이 모두 404이면 찾을 수 없음 화면을 보여 준다', async () => {
+    // Negative control for the test above: the same overrides without the
+    // retryable failure must reach the not-found screen.
+    const requests = mockMixedSession(notFound)
+
+    await renderPage(
+      `/practice/result/${mixedSessionId}`,
+      '/practice/result/:sessionId',
+      <PracticeResultPage />
+    )
+
+    expect(
+      await screen.findByRole('heading', {
+        name: '학습 결과를 찾을 수 없습니다'
+      })
+    ).toBeInTheDocument()
+    expect(requests.result).toBeGreaterThan(0)
+    expect(requests.session).toBeGreaterThan(0)
   })
 })
