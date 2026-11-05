@@ -153,7 +153,7 @@ const hasAuthority = async (
        AND actor."accountStatus" = 'ACTIVE'
        AND ($3::integer IS NULL OR actor."authorityGeneration" = $3::integer)
        AND session."authorizationState" = 'ACTIVE'
-       AND session."issuerProtocolVersion" = 'PHASE7_V1'
+       AND session."issuerProtocolVersion" = 'OWNED_V1'
        AND session."authorityGeneration" = actor."authorityGeneration"
        AND session."expiresAt" > clock_timestamp()
        AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()

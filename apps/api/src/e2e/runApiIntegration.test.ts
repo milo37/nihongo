@@ -51,7 +51,7 @@ vi.mock('./apiIntegrationManifest.js', () => ({
   getApiIntegrationEntriesByOwner: () => [
     {
       path: 'src/question/questionCatalog.integration.test.ts',
-      executionOwner: 'phase10',
+      executionOwner: 'shard',
       shard: ports.databaseShard ? 'db-preparation' : 'process-only',
       order: 1,
       databaseState: ports.databaseShard ? 'test-current' : 'none',
@@ -98,7 +98,7 @@ const signalParent = (signal: (typeof signals)[number]): void => {
 beforeEach(() => {
   vi.resetModules()
   vi.clearAllMocks()
-  taskTemp = mkdtempSync(join(tmpdir(), 'nihongo-phase10-preparation-'))
+  taskTemp = mkdtempSync(join(tmpdir(), 'nihongo-test-preparation-'))
   vi.stubEnv('RUNNER_TEMP', taskTemp)
   vi.stubEnv('GITHUB_RUN_ID', undefined)
   ports.databaseShard = false
@@ -141,7 +141,7 @@ beforeEach(() => {
           child.stdout.emit(
             'data',
             JSON.stringify({
-              event: 'phase10.api_integration.shard.passed',
+              event: 'api_integration.shard.passed',
               shard: 'process-only',
               executedFileCount: 1,
               passedTestCount: 1,
@@ -210,7 +210,7 @@ describe('Parent common preparation ownership without a database', () => {
       true
     )
     expect(process.stderr.write).toHaveBeenCalledWith(
-      expect.stringContaining('phase10.api_integration.failed')
+      expect.stringContaining('api_integration.failed')
     )
   })
 
@@ -230,7 +230,7 @@ describe('Parent common preparation ownership without a database', () => {
     await start()
     await vi.waitFor(() =>
       expect(process.stdout.write).toHaveBeenCalledWith(
-        expect.stringContaining('phase10.api_integration.current.passed')
+        expect.stringContaining('api_integration.current.passed')
       )
     )
     expect(ports.spawn.mock.calls.map(([, args]) => args)).toEqual([
@@ -300,7 +300,7 @@ describe('Partial database preparation cleanup without a database', () => {
       )
       if (cleanupFails)
         expect(process.stderr.write).toHaveBeenCalledWith(
-          expect.stringContaining('phase10.api_integration.cleanup_failed')
+          expect.stringContaining('api_integration.cleanup_failed')
         )
     }
   )
@@ -310,7 +310,7 @@ describe('Partial database preparation cleanup without a database', () => {
     await import('./runApiIntegration.js')
     await vi.waitFor(() =>
       expect(process.stdout.write).toHaveBeenCalledWith(
-        expect.stringContaining('phase10.api_integration.shard.passed')
+        expect.stringContaining('api_integration.shard.passed')
       )
     )
     expect(ports.prepareDatabase).not.toHaveBeenCalled()

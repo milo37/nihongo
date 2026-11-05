@@ -26,7 +26,7 @@ afterEach(async () => {
 describe('Performance failure finalizer', () => {
   it('force-exits a subprocess with a referenced handle after deleting evidence', async () => {
     const directory = await mkdtemp(
-      path.join(os.tmpdir(), 'nihongo-phase10-hung-cleanup-process-')
+      path.join(os.tmpdir(), 'nihongo-test-hung-cleanup-process-')
     )
     temporaryDirectories.push(directory)
     const evidenceFile = path.join(directory, 'database-api.json')
@@ -73,7 +73,7 @@ describe('Performance failure finalizer', () => {
         {
           cleanupTimedOut: true,
           evidenceRemoved: true,
-          event: 'phase10.hung_cleanup_probe.failed'
+          event: 'hung_cleanup_probe.failed'
         }
       ])
       expect(Date.now() - startedAt).toBeLessThan(2_000)
@@ -92,7 +92,7 @@ describe('Performance failure finalizer', () => {
 
   it('removes written evidence exactly once on signal finalization', async () => {
     const directory = await mkdtemp(
-      path.join(os.tmpdir(), 'nihongo-phase10-signal-finalizer-')
+      path.join(os.tmpdir(), 'nihongo-test-signal-finalizer-')
     )
     temporaryDirectories.push(directory)
     const evidenceFile = path.join(directory, 'database-api.json')
@@ -118,7 +118,7 @@ describe('Performance failure finalizer', () => {
 
   it('bounds a hung cleanup and still removes failure evidence', async () => {
     const directory = await mkdtemp(
-      path.join(os.tmpdir(), 'nihongo-phase10-hung-finalizer-')
+      path.join(os.tmpdir(), 'nihongo-test-hung-finalizer-')
     )
     temporaryDirectories.push(directory)
     const evidenceFile = path.join(directory, 'database-api.json')

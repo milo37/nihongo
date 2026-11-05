@@ -88,7 +88,7 @@ export const accountSessionContext = async (
     `SELECT u."id" AS "userId", s."id" AS "sessionId", u."role"::text AS role,
        u."authorityGeneration", s."token"
      FROM "Session" s JOIN "User" u ON u."id" = s."userId"
-     WHERE s."token" = $1 AND s."issuerProtocolVersion" = 'PHASE7_V1'
+     WHERE s."token" = $1 AND s."issuerProtocolVersion" = 'OWNED_V1'
        AND s."authorizationState" = 'ACTIVE'
        AND s."authorityGeneration" = u."authorityGeneration"
        AND u."accountStatus" = 'ACTIVE' AND u."deletedAt" IS NULL
@@ -138,7 +138,7 @@ export const accountFreshProofIsValid = async (
        AND target_user."authorityGeneration" =
          (proof."context"->>'authorityGeneration')::integer
        AND proof."context"->>'provider' IN ('apple', 'google')
-       AND session."issuerProtocolVersion" = 'PHASE7_V1'
+       AND session."issuerProtocolVersion" = 'OWNED_V1'
        AND session."authorizationState" = 'ACTIVE'
        AND session."authorityGeneration" = target_user."authorityGeneration"
        AND target_user."accountStatus" = 'ACTIVE'
@@ -182,7 +182,7 @@ const contextIsValid = async (
        AND u."authorityGeneration" = (c.v->>'authorityGeneration')::integer
        AND ($2::text IS NULL OR s."token" = $2)
        AND c.v->>'provider' IN ('apple', 'google')
-       AND s."issuerProtocolVersion" = 'PHASE7_V1'
+       AND s."issuerProtocolVersion" = 'OWNED_V1'
        AND s."authorizationState" = 'ACTIVE'
        AND s."authorityGeneration" = u."authorityGeneration"
        AND u."accountStatus" = 'ACTIVE' AND u."deletedAt" IS NULL

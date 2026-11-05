@@ -395,8 +395,8 @@ const apiEnvironmentSchema = z
 
 type ParsedApiEnvironment = z.output<typeof apiEnvironmentSchema>
 
-// Directly constructed test/application dependency fixtures from the pre-Phase
-// 7 surface remain valid; absence is the same fail-closed value as the parser's
+// Directly constructed test/application dependency fixtures from before the
+// admin CMS remain valid; absence is the same fail-closed value as the parser's
 // explicit `disabled` default.
 export type ApiEnvironment = Omit<
   ParsedApiEnvironment,

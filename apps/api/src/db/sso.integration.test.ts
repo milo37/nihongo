@@ -90,9 +90,10 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     }>(
       `SELECT migration_name AS name,checksum,finished_at IS NOT NULL AND rolled_back_at IS NULL AS complete FROM "_prisma_migrations" WHERE rolled_back_at IS NULL ORDER BY migration_name`
     )
-    // #504 P8-1: one baseline replaces the 76 migrations.
+    // #504 P8: the baseline and the phase name removal.
     expect(expected.map(({ name }) => name)).toEqual([
-      '20261105090000_baseline'
+      '20261105090000_baseline',
+      '20261106090000_remove_phase_names'
     ])
     expect(
       actual.rows.map(({ name, checksum }) => ({ name, checksum }))
@@ -331,7 +332,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
           accountStatus: 'ACTIVE',
           authorityGeneration: 1,
           userGeneration: 1,
-          issuerProtocolVersion: 'PHASE7_V1',
+          issuerProtocolVersion: 'OWNED_V1',
           authorizationState: 'ACTIVE',
           createdAt: signedIn.createdAt,
           expiresAt: signedIn.expiresAt

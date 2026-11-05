@@ -1253,7 +1253,10 @@ const reportPostSeedDiagnostic = (diagnostic: PostSeedDiagnostic): void => {
   )
 }
 
-const migrationDiagnosticNames = ['20261105090000_baseline'] as const
+const migrationDiagnosticNames = [
+  '20261105090000_baseline',
+  '20261106090000_remove_phase_names'
+] as const
 
 const sanitizeMigrationDatabaseError = (error: unknown) => {
   const ownText = (key: string, limit: number): string | undefined => {
@@ -1590,7 +1593,7 @@ const run = async (): Promise<void> => {
   )
   await assertTestDatabaseDefaultDriftRejected(
     `ALTER TABLE ${quoteSchema(schemaName)}."Session"
-       ALTER COLUMN "issuerProtocolVersion" SET DEFAULT 'PHASE7_V1'`
+       ALTER COLUMN "issuerProtocolVersion" SET DEFAULT 'OWNED_V1'`
   )
   await assertTestDatabaseDefaultDriftRejected(
     `ALTER TABLE ${quoteSchema(schemaName)}."Session"

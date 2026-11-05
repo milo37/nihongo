@@ -116,9 +116,9 @@ const createCredentials = (
 ): BrowserCredentials => {
   const suffix = schemaName.slice('nihongo_'.length, 'nihongo_'.length + 12)
   return {
-    email: `phase7-${actor}-${suffix}@example.test`,
+    email: `test-${actor}-${suffix}@example.test`,
     name,
-    password: `Phase7-${actor}-${randomBytes(12).toString('base64url')}!9a`,
+    password: `Test-${actor}-${randomBytes(12).toString('base64url')}!9a`,
     userId: randomUUID()
   }
 }
@@ -211,13 +211,9 @@ export const createBrowserFixture = async (
     insightsLearner: createCredentials(
       schemaName,
       'insights',
-      'Phase 8 인사이트 학습자'
+      '인사이트 학습자'
     ),
-    journeyLearner: createCredentials(
-      schemaName,
-      'journey',
-      'Phase 10 통합 학습자'
-    ),
+    journeyLearner: createCredentials(schemaName, 'journey', '통합 학습자'),
     learner: createCredentials(schemaName, 'learner', '학습자'),
     reviewer: createCredentials(schemaName, 'reviewer', '검수 관리자')
   }
@@ -306,7 +302,7 @@ const createBrowserFixtureDatabase = (
             `UPDATE "Session"
                SET "createdAt" = clock_timestamp() - INTERVAL '6 minutes'
                WHERE "userId" = $1::uuid
-                 AND "issuerProtocolVersion" = 'PHASE7_V1'
+                 AND "issuerProtocolVersion" = 'OWNED_V1'
                  AND "authorizationState" = 'ACTIVE'`,
             [userId]
           )
@@ -741,8 +737,8 @@ const createSsoBrowserApiFixture = async (
       })
       identities.set(callbackCode, {
         provider: 'google',
-        accountId: `phase7-${actor}-${userId}`,
-        email: `phase7-${userId}@example.test`,
+        accountId: `test-${actor}-${userId}`,
+        email: `test-${userId}@example.test`,
         name
       })
     }
@@ -1002,7 +998,7 @@ const createSsoBrowserApiFixture = async (
             WHERE target.id = $1::uuid AND target.role = 'USER'
               AND target."accountStatus" = 'ACTIVE'
               AND session."authorityGeneration" = target."authorityGeneration"
-              AND session."issuerProtocolVersion" = 'PHASE7_V1'
+              AND session."issuerProtocolVersion" = 'OWNED_V1'
               AND session."authorizationState" = 'ACTIVE'
               AND session."expiresAt" > clock_timestamp()
               AND session."expiresAt" > session."createdAt" + INTERVAL '1 day'
@@ -1250,7 +1246,7 @@ const createSsoBrowserApiFixture = async (
               JOIN "User" target ON target.id = session."userId"
               WHERE session.id = $5::uuid AND session."userId" = $6::uuid AND session.token = $7
                 AND session.id <> $2::uuid
-                AND session."issuerProtocolVersion" = 'PHASE7_V1' AND session."authorizationState" = 'ACTIVE'
+                AND session."issuerProtocolVersion" = 'OWNED_V1' AND session."authorizationState" = 'ACTIVE'
                 AND session."authorityGeneration" = target."authorityGeneration"
                 AND target.role = 'USER' AND target."accountStatus" = 'ACTIVE' AND target."deletedAt" IS NULL
                 AND session."createdAt" >= $3::timestamptz AND session."expiresAt" > clock_timestamp()

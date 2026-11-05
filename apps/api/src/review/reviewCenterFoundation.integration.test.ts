@@ -190,14 +190,14 @@ const createUser = async (): Promise<string> => {
       data: {
         id: userId,
         name: 'Review foundation user',
-        email: `phase5-review-foundation-${randomUUID()}@example.test`,
+        email: `test-review-foundation-${randomUUID()}@example.test`,
         emailVerified: true
       }
     })
     await fixture.account.create({
       data: {
         accountId: userId,
-        password: 'phase10-fixture-password-hash',
+        password: 'test-fixture-password-hash',
         providerId: 'credential',
         userId
       }

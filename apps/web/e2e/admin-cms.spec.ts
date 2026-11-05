@@ -860,10 +860,8 @@ test('administrator member list renders the real masked member page', async ({
         row.getByRole('cell', { name: member.maskedEmail, exact: true })
       ).toBeVisible()
     }
-    // Fixture addresses are phase7-<actor>-<suffix>@example.test; only masked text may render.
-    await expect(grid.getByText(/phase7-[a-z]+-.+@example\.test/)).toHaveCount(
-      0
-    )
+    // Fixture addresses are test-<actor>-<suffix>@example.test; only masked text may render.
+    await expect(grid.getByText(/test-[a-z]+-.+@example\.test/)).toHaveCount(0)
     await waitForLedgerToQuiesce(ledger)
   } finally {
     await context.close()

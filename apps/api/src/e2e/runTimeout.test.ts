@@ -38,7 +38,7 @@ const readPidsWhenReady = async (
       await delay(20)
     }
   }
-  throw new Error('Timed out waiting for Phase 10 timeout test PIDs.')
+  throw new Error('Timed out waiting for timeout test PIDs.')
 }
 
 const isProcessRunning = (pid: number): boolean => {
@@ -95,7 +95,7 @@ describe('Runner timeout', () => {
     'fails within the bound and cleans a hung descendant process group',
     async () => {
       const directory = await mkdtemp(
-        path.join(os.tmpdir(), 'nihongo-phase10-run-timeout-')
+        path.join(os.tmpdir(), 'nihongo-test-run-timeout-')
       )
       temporaryDirectories.push(directory)
       const pidFile = path.join(directory, 'pids.json')
@@ -116,7 +116,7 @@ describe('Runner timeout', () => {
           stdio: 'ignore'
         }
       )
-      const ownedProcess = { child, label: 'hung Phase 10 command' }
+      const ownedProcess = { child, label: 'hung command' }
       ownedProcesses.push(ownedProcess)
       const { leaderPid, nestedPid } = await readPidsWhenReady(pidFile)
       const abortController = new globalThis.AbortController()

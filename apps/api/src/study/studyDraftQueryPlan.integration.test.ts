@@ -119,7 +119,7 @@ const createUser = async (kind: string): Promise<{ readonly id: string }> => {
     await fixture.account.create({
       data: {
         accountId: userId,
-        password: 'phase10-fixture-password-hash',
+        password: 'test-fixture-password-hash',
         providerId: 'credential',
         userId
       }

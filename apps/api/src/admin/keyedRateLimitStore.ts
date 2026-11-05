@@ -38,9 +38,9 @@ export const createRateLimitKey = ({
   readonly value: string
 }): string => {
   const digest = createHmac('sha256', keySecret)
-    .update(`phase7:${group}:${dimension}:${value}`, 'utf8')
+    .update(`keyed:${group}:${dimension}:${value}`, 'utf8')
     .digest('hex')
-  return `application:phase7:${group}:${dimension}:${digest}`
+  return `application:keyed:${group}:${dimension}:${digest}`
 }
 
 /** Counts every key once and rejects when any key exceeds the policy. */

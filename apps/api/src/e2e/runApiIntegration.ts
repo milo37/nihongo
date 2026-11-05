@@ -116,7 +116,7 @@ const readShardResult = (output: string): ShardResult => {
         typeof value === 'object' &&
         value !== null &&
         'event' in value &&
-        value.event === 'phase10.api_integration.shard.passed'
+        value.event === 'api_integration.shard.passed'
     )
   const [result] = candidates
   if (!result || candidates.length !== 1) {
@@ -257,11 +257,11 @@ const getShardSeedRuns = (
 
 const runShard = async (shard: string): Promise<ShardResult> => {
   await validateApiIntegrationManifest()
-  const entries = getApiIntegrationEntriesByOwner('phase10').filter(
+  const entries = getApiIntegrationEntriesByOwner('shard').filter(
     (entry) => entry.shard === shard
   )
   if (entries.length === 0) {
-    throw new Error(`Unknown Phase 10 integration shard: ${shard}.`)
+    throw new Error(`Unknown integration shard: ${shard}.`)
   }
   const { databaseState, isolation } = assertUniformShardMetadata(entries)
   const seedRuns = getShardSeedRuns(entries)
@@ -332,7 +332,7 @@ const runAllShards = async (
   readonly selectedShards?: readonly string[]
 }> => {
   await validateApiIntegrationManifest()
-  const allEntries = getApiIntegrationEntriesByOwner('phase10')
+  const allEntries = getApiIntegrationEntriesByOwner('shard')
   const shards = selectApiIntegrationShards(
     [...new Set(allEntries.map(({ shard }) => shard))],
     requestedShards
@@ -381,7 +381,7 @@ const execute = async (): Promise<void> => {
     await cleanup()
     process.stdout.write(
       `${JSON.stringify({
-        event: 'phase10.api_integration.shard.passed',
+        event: 'api_integration.shard.passed',
         ...result,
         schemaRemoved: result.schemaName !== null
       })}\n`
@@ -393,7 +393,7 @@ const execute = async (): Promise<void> => {
   await cleanup()
   process.stdout.write(
     `${JSON.stringify({
-      event: 'phase10.api_integration.current.passed',
+      event: 'api_integration.current.passed',
       ...result
     })}\n`
   )
@@ -413,7 +413,7 @@ void execute().catch(async (error: unknown) => {
   } catch (cleanupError: unknown) {
     process.stderr.write(
       `${JSON.stringify({
-        event: 'phase10.api_integration.cleanup_failed',
+        event: 'api_integration.cleanup_failed',
         errorName:
           cleanupError instanceof Error ? cleanupError.name : 'UnknownError'
       })}\n`
@@ -421,7 +421,7 @@ void execute().catch(async (error: unknown) => {
   }
   process.stderr.write(
     `${JSON.stringify({
-      event: 'phase10.api_integration.failed',
+      event: 'api_integration.failed',
       errorName: error instanceof Error ? error.name : 'UnknownError',
       message: error instanceof Error ? error.message : 'Unknown failure'
     })}\n`

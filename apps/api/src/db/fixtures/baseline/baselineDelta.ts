@@ -198,3 +198,122 @@ export const withoutLegacyBranchSources = (
   triggers: sorted(catalog.triggers),
   schemaAcl: catalog.schemaAcl
 })
+
+/**
+ * The forward migration 20261106090000_remove_phase_names (#504 P8-2): the
+ * functions it replaces and the only strings their bodies may change.
+ */
+export const FORWARD_FUNCTIONS = [
+  'limit_operation_intent_delete',
+  'classify_admin_authority',
+  'consume_sso_transaction_v2',
+  'create_sso_transaction_v2',
+  'record_authority_revocation',
+  'require_caller_role',
+  'require_database_capability',
+  'require_runtime_ready',
+  'resolve_sso_identity',
+  'protect_evidence_history',
+  'reject_unfinished_operation',
+  'validate_session_write'
+] as const
+
+export const FORWARD_SOURCE_REPLACEMENTS: ReadonlyArray<
+  readonly [string, string]
+> = [
+  [
+    "'Phase 7 operation intent belongs to another transaction.'",
+    "'Operation intent belongs to another transaction.'"
+  ],
+  [
+    "'Phase 7 operation was not verified and consumed.'",
+    "'Operation was not verified and consumed.'"
+  ],
+  ["'Phase 7 evidence is append-only.'", "'Evidence is append-only.'"],
+  [
+    "'Phase 7 evidence delete is forbidden.'",
+    "'Evidence delete is forbidden.'"
+  ],
+  [
+    "'Caller role % is not a Phase 7 runtime role.'",
+    "'Caller role % is not a runtime role.'"
+  ],
+  [
+    "'Phase 7 runtime requires session_replication_role=origin.'",
+    "'Runtime requires session_replication_role=origin.'"
+  ],
+  [
+    "'Phase 7 database capability is absent or stale.'",
+    "'Database capability is absent or stale.'"
+  ],
+  [
+    "'Phase 7 facades require session_replication_role=origin.'",
+    "'Facades require session_replication_role=origin.'"
+  ],
+  [
+    "'PHASE7_V1 Session requires the owned issuer.'",
+    "'OWNED_V1 Session requires the owned issuer.'"
+  ],
+  ["'PHASE7_V1'", "'OWNED_V1'"],
+  [
+    `PERFORM "require_caller_role"('nihongo_auth_gateway');`,
+    `PERFORM "require_caller_role"('nihongo_app');`
+  ],
+  [
+    `  IF effective_caller IS DISTINCT FROM required_role
+    AND NOT (
+      effective_caller = 'nihongo_app'
+      AND required_role IN ('nihongo_auth_gateway', 'nihongo_erasure_worker')
+    ) THEN`,
+    '  IF effective_caller IS DISTINCT FROM required_role THEN'
+  ]
+]
+
+const forwardFunctions = new Set<string>(FORWARD_FUNCTIONS)
+
+/**
+ * Undoes the forward migration's catalog changes the baseline comparison
+ * cannot see: the renamed enum label and the replaced function bodies (checked
+ * exactly by forwardFunctionSources against the baseline file).
+ */
+export const withoutForwardChanges = (
+  catalog: SchemaCatalog
+): SchemaCatalog => ({
+  ...catalog,
+  types: catalog.types.map((row) =>
+    Array.isArray(row.labels)
+      ? {
+          ...row,
+          labels: row.labels.map((label) =>
+            label === 'OWNED_V1' ? 'PHASE7_V1' : label
+          )
+        }
+      : row
+  ),
+  functions: catalog.functions.map((row) =>
+    forwardFunctions.has(String(row.name))
+      ? { ...row, source: '(replaced by the forward migration)' }
+      : row
+  )
+})
+
+/** Each replaced body: the baseline body with exactly the forward strings. */
+export const forwardFunctionSources = (
+  baselineSql: string
+): Record<string, string> =>
+  Object.fromEntries(
+    FORWARD_FUNCTIONS.map((name) => {
+      const match = new RegExp(
+        `^CREATE FUNCTION ${name}\\([^\\n]*\\n(?:[^\\n]*\\n)*?    AS \\$([a-z_]*)\\$\\n([\\s\\S]*?)\\$\\1\\$;$`,
+        'mu'
+      ).exec(baselineSql)
+      if (!match?.[2]) throw new Error(`Baseline function ${name} is absent.`)
+      return [
+        name,
+        FORWARD_SOURCE_REPLACEMENTS.reduce(
+          (source, [from, to]) => source.replaceAll(from, to),
+          `\n${match[2]}`
+        )
+      ]
+    })
+  )

@@ -489,7 +489,7 @@ export const dormantAfterSlice5OperationManifest = operationManifest.filter(
 
 export const assertOperationManifest = (): void => {
   if (operationManifest.length !== 29) {
-    throw new Error('Phase 7 operation manifest는 정확히 29개여야 합니다.')
+    throw new Error('operation manifest는 정확히 29개여야 합니다.')
   }
   if (slice2ReadOperationManifest.length !== 8) {
     throw new Error('Route manifest는 정확히 8개여야 합니다.')
@@ -519,7 +519,7 @@ export const assertOperationManifest = (): void => {
     operationManifest.map((entry) => entry.operationId)
   )
   if (operations.size !== 29 || operationIds.size !== 29) {
-    throw new Error('Phase 7 operation/operationId는 각각 고유해야 합니다.')
+    throw new Error('operation/operationId는 각각 고유해야 합니다.')
   }
   if (slice2ReadOperationManifest.some((entry) => entry.method !== 'GET')) {
     throw new Error('Slice 2 manifest에는 GET read만 등록할 수 있습니다.')

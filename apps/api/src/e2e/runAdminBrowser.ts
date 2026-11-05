@@ -332,15 +332,15 @@ export const createBrowserPlaywrightEnvironment = (
 
 export const selectBrowserSpecs = (
   browserMode: BrowserMode,
-  phase8: boolean
+  dashboardAcceptance: boolean
 ): string[] => {
   const specs = [
     ...(browserMode === 'real' ? ['apps/web/e2e/admin-cms.spec.ts'] : []),
-    ...(phase8 ? ['apps/web/e2e/dashboard.spec.ts'] : [])
+    ...(dashboardAcceptance ? ['apps/web/e2e/dashboard.spec.ts'] : [])
   ]
   if (specs.length === 0)
     throw new Error(
-      'Administrator UI requires real mode; Mock coverage starts with the Phase 8 dashboard.'
+      'Administrator UI requires real mode; Mock coverage starts with the dashboard.'
     )
   return specs
 }

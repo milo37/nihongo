@@ -176,7 +176,7 @@ describe('practice compatibility pre-listen fence', () => {
       await transaction.account.create({
         data: {
           accountId: userId,
-          password: 'phase10-fixture-password-hash',
+          password: 'test-fixture-password-hash',
           providerId: 'credential',
           userId
         }

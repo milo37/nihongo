@@ -457,7 +457,10 @@ test('portable runtime requires the pinned baseline inventory and rejects count/
   )
   const names = selectCurrentMigrationNames(source)
   // #504 P8-1: one baseline replaces the 76 migrations.
-  assert.deepEqual(names, ['20261105090000_baseline'])
+  assert.deepEqual(names, [
+    '20261105090000_baseline',
+    '20261106090000_remove_phase_names'
+  ])
   const directory = mkdtempSync(join(tmpdir(), 'nihongo-p11-migrations-'))
   try {
     cpSync(source, directory, { recursive: true })
@@ -872,7 +875,7 @@ test('portable runtime smoke evidence is closed and bound to TEST', () => {
     profile: 'isolated-production-mode',
     releaseId,
     imageId: `sha256:${'a'.repeat(64)}`,
-    migrationCount: 1,
+    migrationCount: 2,
     databaseAccess: {
       migrationLedger: 'read-only',
       migrationAndRuntimeIdentitiesSeparated: true,

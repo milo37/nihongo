@@ -378,9 +378,9 @@ describe('admin and dashboard real origin and Mock selection', () => {
 
   it.each(['0', '1'])(
     'serves production static assets and API on one public origin (dashboard=%s)',
-    async (phase8) => {
+    async (dashboardAcceptance) => {
       vi.resetModules()
-      vi.stubEnv('DASHBOARD_BROWSER_ACCEPTANCE', phase8)
+      vi.stubEnv('DASHBOARD_BROWSER_ACCEPTANCE', dashboardAcceptance)
       const runner = await import('./runAdminBrowser.js')
       await runner.runReal()
       const calls = ports.spawn.mock.calls
@@ -429,7 +429,9 @@ describe('admin and dashboard real origin and Mock selection', () => {
         ADMIN_BROWSER_MODE: 'real'
       })
       expect(playwright?.[1]).toContain(adminSpec)
-      expect(playwright?.[1].includes(dashboardSpec)).toBe(phase8 === '1')
+      expect(playwright?.[1].includes(dashboardSpec)).toBe(
+        dashboardAcceptance === '1'
+      )
       expect(ports.prepare).toHaveBeenCalledWith({
         seedRuns: 2,
         artifactsPrepared: false

@@ -1,4 +1,4 @@
-export type ApiIntegrationOwner = 'api' | 'db' | 'phase10'
+export type ApiIntegrationOwner = 'api' | 'db' | 'shard'
 
 export interface ApiIntegrationManifestEntry {
   readonly path: `src/${string}.integration.test.ts`
@@ -15,7 +15,7 @@ export interface ApiIntegrationManifestEntry {
 export const apiIntegrationManifest = [
   {
     path: 'src/study/studyGuestCleanupWorker.integration.test.ts',
-    executionOwner: 'phase10',
+    executionOwner: 'shard',
     shard: 'current-guest-cleanup',
     order: 24,
     databaseState: 'current-canonical-65',
@@ -153,7 +153,7 @@ export const apiIntegrationManifest = [
   },
   {
     path: 'src/app/createApp.integration.test.ts',
-    executionOwner: 'phase10',
+    executionOwner: 'shard',
     shard: 'pure',
     order: 1,
     databaseState: 'none',
@@ -164,18 +164,18 @@ export const apiIntegrationManifest = [
   },
   {
     path: 'src/db/database.integration.test.ts',
-    executionOwner: 'phase10',
+    executionOwner: 'shard',
     shard: 'current-zero-facts',
     order: 2,
     databaseState: 'current-canonical-65-zero-learner-facts',
     connectionRole: 'application',
     requiredEnvironment: ['DATABASE_URL'],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 10 schema before learner writes'
+    isolation: 'dedicated schema before learner writes'
   },
   {
     path: 'src/db/practiceCompatibilityFence.integration.test.ts',
-    executionOwner: 'phase10',
+    executionOwner: 'shard',
     shard: 'current-zero-facts',
     order: 3,
     databaseState: 'current-canonical-65-zero-learner-facts',
@@ -186,11 +186,11 @@ export const apiIntegrationManifest = [
       'TEST_APP_FIXTURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 10 schema before learner writes'
+    isolation: 'dedicated schema before learner writes'
   },
   {
     path: 'src/question/questionCatalog.integration.test.ts',
-    executionOwner: 'phase10',
+    executionOwner: 'shard',
     shard: 'catalog-baseline',
     order: 4,
     databaseState: 'current-canonical-65',
@@ -205,7 +205,7 @@ export const apiIntegrationManifest = [
   },
   {
     path: 'src/db/studySubmissionIntegrity.integration.test.ts',
-    executionOwner: 'phase10',
+    executionOwner: 'shard',
     shard: 'current-app-role',
     order: 5,
     databaseState: 'current-canonical-65',
@@ -216,11 +216,11 @@ export const apiIntegrationManifest = [
       'TEST_APP_FIXTURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 10 schema'
+    isolation: 'dedicated schema'
   },
   {
     path: 'src/report/userReport.integration.test.ts',
-    executionOwner: 'phase10',
+    executionOwner: 'shard',
     shard: 'current-app-role',
     order: 25,
     databaseState: 'current-canonical-65',
@@ -231,11 +231,11 @@ export const apiIntegrationManifest = [
       'TEST_APP_FIXTURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 10 schema'
+    isolation: 'dedicated schema'
   },
   {
     path: 'src/account/accountRestriction.integration.test.ts',
-    executionOwner: 'phase10',
+    executionOwner: 'shard',
     shard: 'current-app-role',
     order: 26,
     databaseState: 'current-canonical-65',
@@ -246,11 +246,11 @@ export const apiIntegrationManifest = [
       'TEST_APP_FIXTURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 10 schema'
+    isolation: 'dedicated schema'
   },
   {
     path: 'src/report/userReportRetention.integration.test.ts',
-    executionOwner: 'phase10',
+    executionOwner: 'shard',
     shard: 'current-app-role',
     order: 27,
     databaseState: 'current-canonical-65',
@@ -261,11 +261,11 @@ export const apiIntegrationManifest = [
       'TEST_APP_FIXTURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 10 schema'
+    isolation: 'dedicated schema'
   },
   {
     path: 'src/admin/adminMember.integration.test.ts',
-    executionOwner: 'phase10',
+    executionOwner: 'shard',
     shard: 'current-app-role',
     order: 28,
     databaseState: 'current-canonical-65',
@@ -276,11 +276,11 @@ export const apiIntegrationManifest = [
       'TEST_APP_FIXTURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 10 schema'
+    isolation: 'dedicated schema'
   },
   {
     path: 'src/study/studySessionCleanup.integration.test.ts',
-    executionOwner: 'phase10',
+    executionOwner: 'shard',
     shard: 'current-app-role',
     order: 6,
     databaseState: 'current-canonical-65',
@@ -291,7 +291,7 @@ export const apiIntegrationManifest = [
       'TEST_APP_FIXTURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 10 schema'
+    isolation: 'dedicated schema'
   },
   ...[
     'study/studyDraft.integration.test.ts',
@@ -301,7 +301,7 @@ export const apiIntegrationManifest = [
     'study/studySessionMigration.integration.test.ts'
   ].map((relativePath, index) => ({
     path: `src/${relativePath}` as `src/${string}.integration.test.ts`,
-    executionOwner: 'phase10' as const,
+    executionOwner: 'shard' as const,
     shard: 'current-app-role-with-owner-fixtures',
     order: 7 + index,
     databaseState: 'current-canonical-65',
@@ -312,7 +312,7 @@ export const apiIntegrationManifest = [
       'TEST_APP_FIXTURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once' as const,
-    isolation: 'dedicated Phase 10 schema; owner only for fixture setup'
+    isolation: 'dedicated schema; owner only for fixture setup'
   })),
   ...[
     'auth/auth.integration.test.ts',
@@ -326,7 +326,7 @@ export const apiIntegrationManifest = [
     'wrong-note/wrongNoteReviewCenter.integration.test.ts'
   ].map((relativePath, index) => ({
     path: `src/${relativePath}` as `src/${string}.integration.test.ts`,
-    executionOwner: 'phase10' as const,
+    executionOwner: 'shard' as const,
     shard: 'current-rebased-service',
     order: 12 + index,
     databaseState: 'current-canonical-65',
@@ -345,7 +345,7 @@ export const apiIntegrationManifest = [
             'TEST_APP_FIXTURE_DATABASE_URL'
           ],
     seedPolicy: 'canonical-once' as const,
-    isolation: 'disposable fixture aggregate in dedicated Phase 10 schema'
+    isolation: 'disposable fixture aggregate in dedicated schema'
   }))
 ] satisfies readonly ApiIntegrationManifestEntry[]
 

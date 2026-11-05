@@ -91,7 +91,7 @@ export interface DatabaseApiPerformanceEvidence {
     readonly sessionCount: number
     readonly tagFactCount: number
   }
-  readonly kind: 'nihongo.phase10.database-api-performance'
+  readonly kind: 'nihongo.database-api-performance'
   readonly metadata: {
     readonly command: 'pnpm run test:database-performance'
     readonly commit: string
@@ -319,7 +319,7 @@ export const assertDatabaseApiPerformanceEvidence: (
   const evidence = value as Record<string, unknown>
   if (
     evidence.schemaVersion !== 1 ||
-    evidence.kind !== 'nihongo.phase10.database-api-performance' ||
+    evidence.kind !== 'nihongo.database-api-performance' ||
     evidence.status !== 'passed' ||
     !exactKeys(evidence.metadata, [
       'command',

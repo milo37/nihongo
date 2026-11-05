@@ -117,7 +117,7 @@ const createFixtureUser = async (name: string): Promise<string> => {
     await transaction.account.create({
       data: {
         accountId: userId,
-        password: 'phase10-fixture-password-hash',
+        password: 'test-fixture-password-hash',
         providerId: 'credential',
         userId
       }
@@ -651,7 +651,7 @@ describe('guest cleanup worker boundary', () => {
         `application:study-submit:${digest}`,
         (now - 604_860_000n - 5_000n).toString(),
         recentId,
-        `application:phase7:REPORT_VERSION:VERSION:${digest}`,
+        `application:keyed:REPORT_VERSION:VERSION:${digest}`,
         (now - 604_860_000n).toString(),
         unknownId,
         `unknown:${digest}`,

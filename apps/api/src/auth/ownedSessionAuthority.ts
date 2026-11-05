@@ -49,7 +49,7 @@ export const v1PrincipalQuery = (tokenParameter: string): string => `
     ON runtime.ready AND session."token" = ${tokenParameter}
   JOIN "User" AS target_user ON target_user."id" = session."userId"
   WHERE ${tokenParameter} <> ''
-    AND session."issuerProtocolVersion" = 'PHASE7_V1'
+    AND session."issuerProtocolVersion" = 'OWNED_V1'
     AND session."authorizationState" = 'ACTIVE'
     AND session."authorityGeneration" = target_user."authorityGeneration"
     AND target_user."accountStatus" = 'ACTIVE'
@@ -136,7 +136,7 @@ export const issueOwnedSession = async (
          $1::uuid, clock_timestamp() + CASE WHEN $2::boolean
            THEN INTERVAL '7 days' ELSE INTERVAL '1 day' END, $3,
          clock_timestamp(), clock_timestamp(), $4, $5, $6::uuid,
-         $7::integer, 'PHASE7_V1'
+         $7::integer, 'OWNED_V1'
        )
        RETURNING "id", "createdAt", "expiresAt", "authorityGeneration"`,
       input.sessionId,
@@ -161,7 +161,7 @@ export const issueOwnedSession = async (
          AND locked_user."role" = $4::"UserRole"
          AND locked_user."accountStatus" = 'ACTIVE'
          AND session."token" = $5
-         AND session."issuerProtocolVersion" = 'PHASE7_V1'
+         AND session."issuerProtocolVersion" = 'OWNED_V1'
          AND session."authorityGeneration" = $3::integer
          AND session."expiresAt" > clock_timestamp()
          AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()
@@ -242,7 +242,7 @@ export interface RememberedSessionRefresh {
 }
 
 const ACTIVE_SESSION_CONDITIONS = `
-      session."issuerProtocolVersion" = 'PHASE7_V1'
+      session."issuerProtocolVersion" = 'OWNED_V1'
   AND session."authorizationState" = 'ACTIVE'
   AND session."authorityGeneration" = target_user."authorityGeneration"
   AND target_user."accountStatus" = 'ACTIVE'
@@ -420,7 +420,7 @@ export const confirmOwnedSession = async (
          AND target_user."accountStatus" = 'ACTIVE'
          AND session."token" = $5
          AND session."authorizationState" = 'ACTIVE'
-         AND session."issuerProtocolVersion" = 'PHASE7_V1'
+         AND session."issuerProtocolVersion" = 'OWNED_V1'
          AND session."authorityGeneration" = $3::integer
          AND session."expiresAt" > clock_timestamp()
          AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()`,

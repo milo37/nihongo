@@ -82,7 +82,7 @@ export const adminSessionFreshSql = (tokenParameter: string): string => `
      AND account."accountId" = proof."context"->>'accountId'
     WHERE session."token" = ${tokenParameter}
       AND session."authorizationState" = 'ACTIVE'
-      AND session."issuerProtocolVersion" = 'PHASE7_V1'
+      AND session."issuerProtocolVersion" = 'OWNED_V1'
       AND actor."role" = 'ADMIN' AND actor."accountStatus" = 'ACTIVE'
       AND actor."authorityGeneration" =
         (proof."context"->>'authorityGeneration')::INTEGER
@@ -119,7 +119,7 @@ const contextIsValid = async (
        AND actor."authorityGeneration" = intent."capturedAuthorityGeneration"
        AND actor."role" = 'ADMIN' AND actor."accountStatus" = 'ACTIVE'
        AND session."authorizationState" = 'ACTIVE'
-       AND session."issuerProtocolVersion" = 'PHASE7_V1'
+       AND session."issuerProtocolVersion" = 'OWNED_V1'
        AND session."authorityGeneration" = intent."capturedAuthorityGeneration"
        AND session."expiresAt" > clock_timestamp()
        AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()`,
@@ -192,7 +192,7 @@ export const prepareReauthentication = async (
      FROM "Session" AS session
      JOIN "User" AS target_user ON target_user."id" = session."userId"
      WHERE session."token" = $1 AND session."userId" = $2::uuid
-       AND session."issuerProtocolVersion" = 'PHASE7_V1'
+       AND session."issuerProtocolVersion" = 'OWNED_V1'
        AND session."authorizationState" = 'ACTIVE'
        AND session."authorityGeneration" = target_user."authorityGeneration"
        AND target_user."role" = 'ADMIN'
@@ -364,7 +364,7 @@ export const prepareAdminFresh = async (
        WHERE session."token" = $1 AND actor."id" = $2::uuid
          AND actor."role" = 'ADMIN' AND actor."accountStatus" = 'ACTIVE'
          AND session."authorizationState" = 'ACTIVE'
-         AND session."issuerProtocolVersion" = 'PHASE7_V1'
+         AND session."issuerProtocolVersion" = 'OWNED_V1'
          AND session."authorityGeneration" = actor."authorityGeneration"
          AND session."expiresAt" > clock_timestamp()
          AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()
@@ -574,7 +574,7 @@ const replacementHoldsAuthority = async (
          AND target_user."role" = 'ADMIN'
          AND target_user."accountStatus" = 'ACTIVE'
          AND session."token" = $4
-         AND session."issuerProtocolVersion" = 'PHASE7_V1'
+         AND session."issuerProtocolVersion" = 'OWNED_V1'
          AND session."authorizationState" = 'ACTIVE'
          AND session."authorityGeneration" = $3::integer
          AND session."expiresAt" > clock_timestamp()
@@ -649,7 +649,7 @@ export const stageReauthentication = async (
        AND target_user."authorityGeneration" = $3::integer
        AND target_user."role" = 'ADMIN'
        AND target_user."accountStatus" = 'ACTIVE'
-       AND old_session."issuerProtocolVersion" = 'PHASE7_V1'
+       AND old_session."issuerProtocolVersion" = 'OWNED_V1'
        AND old_session."authorizationState" = 'ACTIVE'
        AND old_session."authorityGeneration" = $3::integer
        AND old_session."expiresAt" > clock_timestamp()
@@ -682,7 +682,7 @@ export const stageReauthentication = async (
      ) VALUES (
        $1::uuid, $2::timestamptz, $3, clock_timestamp(), clock_timestamp(),
        left(COALESCE($4, ''), 512), left(COALESCE($5, ''), 512), $6::uuid,
-       $7::integer, 'PHASE7_V1', 'PENDING_REAUTH'
+       $7::integer, 'OWNED_V1', 'PENDING_REAUTH'
      )
      RETURNING "id", "expiresAt", "createdAt", "updatedAt", "userId"`,
     input.sessionId,
@@ -806,9 +806,9 @@ export const finalizeReauthentication = async (
        ON pending."id" = $3::uuid AND pending."userId" = $1::uuid
       AND pending."token" = $7
       AND pending."authorizationState" = 'PENDING_REAUTH'
-      AND pending."issuerProtocolVersion" = 'PHASE7_V1'
+      AND pending."issuerProtocolVersion" = 'OWNED_V1'
      WHERE old_session."id" = $2::uuid AND old_session."userId" = $1::uuid
-       AND old_session."issuerProtocolVersion" = 'PHASE7_V1'
+       AND old_session."issuerProtocolVersion" = 'OWNED_V1'
        AND old_session."authorizationState" = 'ACTIVE'`,
     intent.userId,
     intent.oldSessionId,
@@ -845,7 +845,7 @@ export const finalizeReauthentication = async (
   const deleted = await transaction.$executeRawUnsafe(
     `DELETE FROM "Session"
      WHERE "id" = $1::uuid AND "userId" = $2::uuid
-       AND "issuerProtocolVersion" = 'PHASE7_V1'
+       AND "issuerProtocolVersion" = 'OWNED_V1'
        AND "authorizationState" = 'ACTIVE' AND "token" = $3
        AND "authorityGeneration" = $4::integer`,
     intent.oldSessionId,
@@ -1056,7 +1056,7 @@ const confirmIssuedSession = async (
          AND target_user."accountStatus" = 'ACTIVE'
          AND session."token" = $4
          AND session."authorizationState" = 'ACTIVE'
-         AND session."issuerProtocolVersion" = 'PHASE7_V1'
+         AND session."issuerProtocolVersion" = 'OWNED_V1'
          AND session."authorityGeneration" = $3::integer
          AND session."expiresAt" > clock_timestamp()
          AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()`,
@@ -1141,7 +1141,7 @@ export const reconcileReauthentication = async (
      WHERE intent."id" = $1::uuid
        AND intent."state" = 'FINALIZED'
        AND session."token" = $2
-       AND session."issuerProtocolVersion" = 'PHASE7_V1'
+       AND session."issuerProtocolVersion" = 'OWNED_V1'
        AND session."authorizationState" = 'ACTIVE'
        AND session."authorityGeneration" = intent."capturedAuthorityGeneration"
        AND target_user."authorityGeneration" = intent."capturedAuthorityGeneration"

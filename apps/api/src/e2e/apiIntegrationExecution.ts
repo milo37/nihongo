@@ -19,10 +19,10 @@ export const assertSsoBootstrapMigrationHistory = (
     )
     .digest('hex')
   if (
-    expected.length !== 1 ||
-    expected.at(-1)?.name !== '20261105090000_baseline' ||
+    expected.length !== 2 ||
+    expected.at(-1)?.name !== '20261106090000_remove_phase_names' ||
     orderedDigest !==
-      '35bdd0a04791cca4d232d9ec4c7f46ae559704685850748efb871cae7871a9c2' ||
+      '03cc31e0c77830259edfaec8e8db7b4b1ea0cbffe273ecba556b0fefd248637d' ||
     applied.length !== expected.length ||
     applied.some(
       (row, index) =>
@@ -30,9 +30,7 @@ export const assertSsoBootstrapMigrationHistory = (
         row.checksum !== expected[index]?.checksum
     )
   ) {
-    throw new Error(
-      'First Google ADMIN bootstrap baseline migration history mismatch.'
-    )
+    throw new Error('First Google ADMIN bootstrap migration history mismatch.')
   }
 }
 
@@ -648,7 +646,7 @@ export const runApiIntegrationManifestVitestFile = async ({
   assertApiIntegrationRequiredEnvironment({ environment, testFile })
   const outputFile = path.join(
     os.tmpdir(),
-    `nihongo-phase10-vitest-${randomUUID()}.json`
+    `nihongo-test-vitest-${randomUUID()}.json`
   )
   try {
     try {

@@ -215,7 +215,7 @@ const createUser = async (label: string): Promise<string> => {
     await fixtureClient.account.create({
       data: {
         accountId: userId,
-        password: 'phase10-fixture-password-hash',
+        password: 'test-fixture-password-hash',
         providerId: 'credential',
         userId
       }
@@ -968,8 +968,8 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
               "id", "label", "normalizedName", "createdAt", "updatedAt"
             ) VALUES (
               ${forbiddenTagId}::uuid,
-              'phase10-forbidden-tag',
-              ${`phase10-forbidden-${randomUUID()}`},
+              'test-forbidden-tag',
+              ${`test-forbidden-${randomUUID()}`},
               ${dueAt},
               ${dueAt}
             )
@@ -1052,7 +1052,7 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
               data: {
                 id: currentTagId,
                 label: currentTag,
-                normalizedName: `phase5-current-${randomUUID()}`
+                normalizedName: `test-current-${randomUUID()}`
               }
             })
             await transaction.questionVersionTag.create({
