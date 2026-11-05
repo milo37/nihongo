@@ -33,7 +33,7 @@
 | `registry.tf`             | ECR(태그 불변, push 시 스캔, 최근 10개 보존)                                                                        |
 | `backup.tf`               | 백업 버킷(공개 차단, SSE, TLS 강제, 30일 수명주기)                                                                  |
 | `monitoring.tf`           | SNS 메일, 경보 7개(상태 검사+자동 복구, CPU, CPU 크레딧, 메모리, 디스크, CloudFront 5xx, 백업 누락), 로그 그룹 14일 |
-| `cost.tf`                 | Budgets 50/80/100% 실제와 100% 예측 알림, 100% 초과 시 EC2 정지 Budget Action, Cost Anomaly Detection               |
+| `cost.tf`                 | 월 5,000엔(세포함)을 USD로 환산한 Budgets, 50/80/100% 실제·100% 예측 알림, 100% 초과 시 EC2 정지, Cost Anomaly      |
 | `github.tf`               | GitHub Actions OIDC 역할(`main`만, ECR push와 배포 문서 실행만)                                                     |
 | `operations.tf`           | 배포 SSM 문서, #57 계정 삭제 SSM 문서, 삭제 예약(**DISABLED**)                                                      |
 | `files/`, `templates/`    | 호스트 compose, Caddyfile, 배포·환경·백업·삭제 스크립트, cloud-init                                                 |
@@ -68,7 +68,20 @@ aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUT
 
 ## 비용 방어
 
-EC2와 백업 버킷은 CloudFront나 IAM으로만 접근됩니다. WAF는 IP별 5분 `waf_rate_limit_per_5min`회로 제한합니다. 예산을 100% 넘으면 EC2가 정지되고(데이터는 EBS에 남음), 이상 비용이 5달러 이상이면 메일이 옵니다. 견적은 [COST.md](COST.md)에 있습니다.
+EC2와 백업 버킷은 CloudFront나 IAM으로만 접근됩니다. WAF는 IP별 5분 `waf_rate_limit_per_5min`회로 제한합니다. 이상 비용이 5달러 이상이면 메일이 옵니다. 견적은 [COST.md](COST.md)에 있습니다.
+
+- 월 예산은 소비세 포함 `monthly_budget_jpy = 5000`엔입니다(사용자 확정 2026-11-05). Budgets는 USD만 받으므로 `한도 USD = 5000 ÷ (1 + 0.10) ÷ 158.38 = $28.69`로 환산합니다. 세율(`budget_consumption_tax_rate`)과 환율(`budget_jpy_per_usd`, 2026-11-05 기준)은 변수 기본값이고, 예산은 세전 비용과 비교합니다(`include_tax = false`).
+- 알림: 실제 50%(2,500엔)·80%(4,000엔)·100%와 100% 예측. 실제 100%를 넘으면 Budget Action이 EC2를 정지합니다(데이터는 EBS에 남음).
+- CloudFront Free 정액 요금제에 못 들어가면 WAF 요금(약 1,620엔, 세포함)이 더해져 예산을 넘습니다. COST.md를 보세요.
+
+## DNS (Cloudflare, Route 53 없음)
+
+도메인 harumaru.net은 AWS 밖(Cloudflare 등)에서 삽니다. 구매 시점은 아직 정하지 않았고, **그 전에는 apply하지 않습니다**(남는 위험 절). Route 53 hosted zone은 만들지 않습니다. 산 뒤 할 일:
+
+1. us-east-1 ACM에서 `harumaru.net` 인증서를 DNS 검증으로 요청하고, ACM이 주는 검증 CNAME을 Cloudflare DNS에 넣습니다. 발급되면 ARN을 `acm_certificate_arn`에, `harumaru.net`을 `domain_name`에 넣습니다.
+2. Cloudflare에 `harumaru.net` → `<id>.cloudfront.net` CNAME을 만듭니다(apex는 Cloudflare CNAME flattening). **프록시는 끕니다(DNS only, 회색 구름).** 켜면 Cloudflare가 CloudFront 앞에 한 겹 더 서서 TLS·캐시·클라이언트 IP가 꼬입니다.
+3. origin TLS: Cloudflare에 `origin.harumaru.net` A 레코드 → EIP(`output`의 공인 IP)를 DNS only로 만들고 `origin_domain_name = "origin.harumaru.net"`을 설정합니다. 인증서는 공인 CA여야 하므로 Cloudflare Origin CA 인증서는 쓸 수 없습니다(CloudFront가 믿지 않음). Let's Encrypt DNS-01(Cloudflare API 토큰) 등으로 받아 SSM `ORIGIN_TLS_CERT_B64`·`ORIGIN_TLS_KEY_B64`에 넣습니다. 발급·갱신 방식은 그때 정합니다.
+4. 도메인을 붙이면 `BETTER_AUTH_URL`·`TRUSTED_ORIGINS`가 `https://harumaru.net`으로 바뀌므로, Google OAuth 클라이언트의 redirect URI도 새 `google_oauth_redirect_uri`로 바꿉니다.
 
 ## 검증
 

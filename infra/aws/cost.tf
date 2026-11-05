@@ -1,9 +1,13 @@
 resource "aws_budgets_budget" "monthly" {
   name         = "${local.name}-monthly"
   budget_type  = "COST"
-  limit_amount = tostring(var.monthly_budget_usd)
+  limit_amount = tostring(local.monthly_budget_usd)
   limit_unit   = "USD"
   time_unit    = "MONTHLY"
+
+  cost_types {
+    include_tax = false
+  }
 
   dynamic "notification" {
     for_each = [50, 80, 100]

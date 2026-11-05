@@ -1,8 +1,10 @@
 # Copy to terraform.tfvars (ignored by git). No secret values belong here.
 deployment_environment = "PRODUCTION"
 alert_email            = "owner@example.com"
-monthly_budget_usd     = 30
+# monthly_budget_jpy   = 5000 (default; tax included, converted to USD in main.tf)
 
-# Later, after buying the domain and issuing a us-east-1 ACM certificate:
+# PRODUCTION needs origin_domain_name (validation). After buying the domain
+# (Cloudflare DNS, see README) and issuing a us-east-1 ACM certificate:
+# origin_domain_name  = "origin.harumaru.net"
 # domain_name         = "harumaru.net"
 # acm_certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/..."

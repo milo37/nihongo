@@ -87,9 +87,26 @@ variable "alert_email" {
   type        = string
 }
 
-variable "monthly_budget_usd" {
-  description = "Monthly cost limit. AWS Budgets bills in USD; the owner gives the limit in JPY and it is converted."
+# AWS Budgets only takes USD. The owner sets the limit in JPY including
+# consumption tax, so: limit_usd = monthly_budget_jpy / (1 + tax) / jpy_per_usd.
+# The budget compares tax-exclusive cost (include_tax = false), because tax is
+# only added when the invoice is issued. Update jpy_per_usd when the yen moves.
+variable "monthly_budget_jpy" {
+  description = "Monthly limit in JPY, consumption tax included (owner decision 2026-11-05)."
   type        = number
+  default     = 5000
+}
+
+variable "budget_jpy_per_usd" {
+  description = "Exchange-rate assumption for the USD budget (open.er-api.com, 2026-11-05)."
+  type        = number
+  default     = 158.38
+}
+
+variable "budget_consumption_tax_rate" {
+  description = "Japanese consumption tax assumed on the AWS Japan invoice."
+  type        = number
+  default     = 0.10
 }
 
 variable "budget_stop_ec2_enabled" {
