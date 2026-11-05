@@ -57,7 +57,7 @@ assertSafeAdminCmsDatabase({
 })
 
 const schema = getPostgresSchema(environment.DATABASE_URL)
-const adminDatabaseUrl = process.env.PHASE7_ADMIN_DATABASE_URL
+const adminDatabaseUrl = process.env.ADMIN_DATABASE_URL
 const authGatewayDatabaseUrl =
   process.env.PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL
 if (!schema || !adminDatabaseUrl || !authGatewayDatabaseUrl) {

@@ -21,7 +21,7 @@ import { createDashboardInsightsService } from './dashboardInsightsService.js'
 const DAY_MILLISECONDS = 86_400_000
 
 const environment = parseApiEnvironment(process.env)
-const adminDatabaseUrl = process.env.PHASE7_ADMIN_DATABASE_URL
+const adminDatabaseUrl = process.env.ADMIN_DATABASE_URL
 if (!adminDatabaseUrl) {
   throw new Error('Integration requires the Phase 7 admin test URL.')
 }
@@ -50,7 +50,7 @@ const submissionRepository = createPrismaStudySubmissionRepository(
   database.client
 )
 const insightsService = createDashboardInsightsService(
-  createPrismaDashboardInsightsRepository(database.client, 'PHASE7')
+  createPrismaDashboardInsightsRepository(database.client)
 )
 
 interface SubmittedFixture {
@@ -286,7 +286,6 @@ describe.sequential('Dashboard insights PostgreSQL projection', () => {
     const before = await readOwnedBusinessSnapshot(ownerUserId)
     const response = getDashboardInsightsResponseSchema.parse(
       await insightsService.getDashboardInsights({
-        kind: 'PHASE7',
         sessionToken: ownerSessionToken,
         userId: ownerUserId
       })
@@ -383,7 +382,6 @@ describe.sequential('Dashboard insights PostgreSQL projection', () => {
     ).toEqual(rawTags)
 
     const foreign = await insightsService.getDashboardInsights({
-      kind: 'PHASE7',
       sessionToken: foreignSessionToken,
       userId: foreignUserId
     })
@@ -401,7 +399,6 @@ describe.sequential('Dashboard insights PostgreSQL projection', () => {
       }
     })
     const before = await insightsService.getDashboardInsights({
-      kind: 'PHASE7',
       sessionToken: ownerSessionToken,
       userId: ownerUserId
     })
@@ -421,7 +418,6 @@ describe.sequential('Dashboard insights PostgreSQL projection', () => {
         })
       })
       const archived = await insightsService.getDashboardInsights({
-        kind: 'PHASE7',
         sessionToken: ownerSessionToken,
         userId: ownerUserId
       })

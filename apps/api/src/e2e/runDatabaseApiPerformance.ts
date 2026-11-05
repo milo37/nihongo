@@ -214,7 +214,7 @@ const run = async (): Promise<PerformanceRunResult> => {
   const environment: NodeJS.ProcessEnv = {
     ...harness.sharedEnvironment,
     DATABASE_URL: harness.applicationDatabaseUrl,
-    PHASE7_ADMIN_DATABASE_URL: harness.adminDatabaseUrl,
+    ADMIN_DATABASE_URL: harness.adminDatabaseUrl,
     PERFORMANCE_COMMIT: commit,
     PERFORMANCE_EVIDENCE_DIR: evidenceDirectory,
     PERFORMANCE_PNPM_VERSION: pnpmVersion,

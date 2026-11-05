@@ -419,10 +419,10 @@ test('portable runtime environment is production-shaped without migration creden
   assert.equal(app.username, 'nihongo_test_app_login')
   assert.deepEqual([...app.searchParams.keys()].sort(), ['schema', 'sslmode'])
   assert.equal(app.searchParams.get('sslmode'), 'verify-full')
-  assert.equal(environment.AUTH_RUNTIME, 'owned')
+  assert.equal('AUTH_RUNTIME' in environment, false)
   assert.equal('AUTH_GATEWAY_DATABASE_URL' in environment, false)
   assert.equal('AUTH_EMAIL_DELIVERY_MODE' in environment, false)
-  assert.equal('PHASE7_MIGRATION_DATABASE_URL' in environment, false)
+  assert.equal('MIGRATION_DATABASE_URL' in environment, false)
   assert.equal('PRODUCTION_DATABASE_URL' in environment, false)
   assert.notEqual(
     environment.BETTER_AUTH_SECRET,

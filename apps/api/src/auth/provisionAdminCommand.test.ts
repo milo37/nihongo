@@ -71,7 +71,7 @@ const validInput = (mode = 'test'): NodeJS.ProcessEnv => {
     ADMIN_PROVISION_USER_ID: userId,
     ADMIN_PROVISION_GOOGLE_SUBJECT: 'opaque-google-subject',
     ADMIN_PROVISION_EXPECTED_GENERATION: '7',
-    PHASE7_MIGRATION_DATABASE_URL: migration.href,
+    MIGRATION_DATABASE_URL: migration.href,
     DATABASE_URL:
       'postgresql://nihongo_app:unit-only@127.0.0.1:5432/' +
       database +
@@ -82,9 +82,9 @@ const validInput = (mode = 'test'): NodeJS.ProcessEnv => {
   }
 }
 const changeUrl = (source: NodeJS.ProcessEnv, change: (url: URL) => void) => {
-  const url = new URL(source.PHASE7_MIGRATION_DATABASE_URL!)
+  const url = new URL(source.MIGRATION_DATABASE_URL!)
   change(url)
-  return { ...source, PHASE7_MIGRATION_DATABASE_URL: url.href }
+  return { ...source, MIGRATION_DATABASE_URL: url.href }
 }
 let stdout: MockInstance<typeof process.stdout.write>
 let stderr: MockInstance<typeof process.stderr.write>

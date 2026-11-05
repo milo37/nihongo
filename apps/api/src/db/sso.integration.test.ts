@@ -1443,7 +1443,7 @@ describe('JLP-527 first Google ADMIN operator bootstrap', () => {
   const bootstrapSql =
     'SELECT "bootstrap_first_google_admin"($1::uuid,$2::text,$3::integer,$4::text,$5::"AdminAuditEnvironment") AS generation'
   const operatorClient = () => {
-    const migrationUrl = process.env.PHASE7_MIGRATION_DATABASE_URL
+    const migrationUrl = process.env.MIGRATION_DATABASE_URL
     assertSafeMigrationDatabase({
       nodeEnvironment: h.environment.NODE_ENV,
       migrationDatabaseUrl: migrationUrl,

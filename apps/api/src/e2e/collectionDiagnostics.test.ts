@@ -60,8 +60,8 @@ describe('safe collection diagnostics', () => {
         testFile: 'src/db/adminCmsFoundation.integration.test.ts',
         environment: {
           DATABASE_URL: 'fixture',
-          PHASE7_ADMIN_DATABASE_URL: 'fixture',
-          PHASE7_MIGRATION_DATABASE_URL: 'fixture',
+          ADMIN_DATABASE_URL: 'fixture',
+          MIGRATION_DATABASE_URL: 'fixture',
           PRISMA_TEST_DATABASE_URL: 'fixture',
           NODE_ENV: 'test',
           ADMIN_CMS_MODE: 'technical'
@@ -97,8 +97,8 @@ describe('safe collection diagnostics', () => {
         testFile: 'src/db/adminCmsFoundation.integration.test.ts',
         environment: {
           DATABASE_URL: 'fixture',
-          PHASE7_ADMIN_DATABASE_URL: 'fixture',
-          PHASE7_MIGRATION_DATABASE_URL: 'fixture'
+          ADMIN_DATABASE_URL: 'fixture',
+          MIGRATION_DATABASE_URL: 'fixture'
         },
         onCollectionDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
         runCommand: async (_command, args) => {
@@ -133,8 +133,8 @@ describe('safe collection diagnostics', () => {
         testFile: 'src/db/adminCmsFoundation.integration.test.ts',
         environment: {
           DATABASE_URL: 'fixture',
-          PHASE7_ADMIN_DATABASE_URL: 'fixture',
-          PHASE7_MIGRATION_DATABASE_URL: 'fixture'
+          ADMIN_DATABASE_URL: 'fixture',
+          MIGRATION_DATABASE_URL: 'fixture'
         },
         onCollectionDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
         runCommand: async () => {

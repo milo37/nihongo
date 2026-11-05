@@ -30,7 +30,7 @@ const inputSchema = z.object({
     .regex(/^[1-9][0-9]{0,9}$/u)
     .transform(Number)
     .pipe(z.number().int().min(1).max(2147483646)),
-  PHASE7_MIGRATION_DATABASE_URL: z.string().min(1),
+  MIGRATION_DATABASE_URL: z.string().min(1),
   DATABASE_URL: z.string().min(1),
   PRODUCTION_DATABASE_URL: z.string().min(1),
   DEPLOYMENT_ENV: z.enum(['LOCAL', 'TEST', 'DEVELOPMENT']).optional()
@@ -52,13 +52,13 @@ export const runProvisionAdminCommand = async (
     }
     assertSafeMigrationDatabase({
       nodeEnvironment: input.NODE_ENV,
-      migrationDatabaseUrl: input.PHASE7_MIGRATION_DATABASE_URL,
+      migrationDatabaseUrl: input.MIGRATION_DATABASE_URL,
       runtimeDatabaseUrl: input.DATABASE_URL,
       productionDatabaseUrl: input.PRODUCTION_DATABASE_URL
     })
-    const schema = getPostgresSchema(input.PHASE7_MIGRATION_DATABASE_URL)
+    const schema = getPostgresSchema(input.MIGRATION_DATABASE_URL)
     if (!schema) throw new Error('ADMIN_PROVISION_SCHEMA_INVALID')
-    const url = new URL(input.PHASE7_MIGRATION_DATABASE_URL)
+    const url = new URL(input.MIGRATION_DATABASE_URL)
     // pg query parameters can override the URL identity validated above.
     const allowedParameters = new Set([
       'schema',

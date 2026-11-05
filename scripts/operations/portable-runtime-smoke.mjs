@@ -305,7 +305,6 @@ export const createRuntimeEnvironment = ({
     `postgresql://${login}:${password}@${databaseHost}:5432/${databaseName}?schema=${schemaName}&sslmode=verify-full`
   return {
     ADMIN_CMS_MODE: 'disabled',
-    AUTH_RUNTIME: 'owned',
     AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32,::1/128',
     BETTER_AUTH_SECRET: randomBytes(32).toString('hex'),
     BETTER_AUTH_URL: 'https://smoke.invalid',

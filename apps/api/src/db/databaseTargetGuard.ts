@@ -299,7 +299,7 @@ export const assertSafeMigrationDatabase = ({
   productionDatabaseUrl
 }: MigrationDatabaseGuardInput): void => {
   if (!migrationDatabaseUrl) {
-    throw new Error('PHASE7_MIGRATION_DATABASE_URL is required.')
+    throw new Error('MIGRATION_DATABASE_URL is required.')
   }
   if (!runtimeDatabaseUrl) {
     throw new Error('Migration requires the runtime DATABASE_URL.')

@@ -192,7 +192,6 @@ describe('production-shaped SSO composition with CMS disabled (fake DB ports)', 
   it('selects current roles/profile and provides public login/callback/Phase7 sign-out/rate limit', async () => {
     const f = fixture()
     expect(createAuthRuntimePlan(f.environment)).toMatchObject({
-      ownedAuth: true,
       migrationProfile: 'current',
       applicationRole: 'nihongo_app',
       cmsEnabled: false
@@ -438,11 +437,7 @@ describe('production-shaped SSO composition with CMS disabled (fake DB ports)', 
       mail.mockRestore()
     }
   })
-  it('rejects the legacy auth runtime and unsafe production TLS without weakening CMS mode', () => {
-    expect(parseApiEnvironment(input).AUTH_RUNTIME).toBe('owned')
-    expect(() =>
-      parseApiEnvironment({ ...input, AUTH_RUNTIME: 'legacy' })
-    ).toThrow(/AUTH_RUNTIME/u)
+  it('rejects unsafe production TLS without weakening CMS mode', () => {
     expect(() =>
       parseApiEnvironment({
         ...input,
