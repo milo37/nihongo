@@ -24,6 +24,71 @@ import { ReviewCompletion } from '@app/practice/result/ReviewCompletion'
 import { readReviewReturnContext } from '@app/wrong-note/reviewReturnContext'
 import { AppErrorReportButton } from '@app/question-report/components/AppErrorReportDialog'
 
+type ResultController = ReturnType<typeof usePracticeResultController>
+type ResultItem = NonNullable<ResultController['selectedItem']>
+
+/** Question navigation beside the selected question's detail and actions. */
+const SelectedResultItem = ({
+  result,
+  items,
+  item,
+  session
+}: {
+  result: ResultController
+  items: readonly ResultItem[]
+  item: ResultItem
+  session: NonNullable<ResultController['sessionQuery']['data']>['session']
+}): ReactElement => {
+  const { t } = useTranslation('result')
+  const { bookmark, createRetrySession } = result
+  const isGuest = result.role === 'GUEST'
+  const retryLoadingLabel = result.isRetrySourceRefreshing
+    ? t('retry.checking')
+    : createRetrySession.isPaused
+      ? t('retry.waitingConnection')
+      : t('retry.creating')
+  return (
+    <div className="study-result-layout">
+      <ResultQuestionNavigation
+        items={items}
+        selectedQuestionId={item.question.id}
+        onSelect={result.selectQuestion}
+      />
+      <ResultQuestionDetail
+        key={item.question.id}
+        item={item}
+        ordinal={result.selectedIndex + 1}
+        canManage={!isGuest}
+        isBookmarked={result.selectedIsBookmarked}
+        bookmarkDisabled={
+          bookmark.isUnavailable || result.isResultSourceUnavailable
+        }
+        isResultSourceUnavailable={result.isResultSourceUnavailable}
+        bookmarkMessage={
+          bookmark.message?.questionId === item.question.id
+            ? t(`bookmark.${bookmark.message.code}`)
+            : null
+        }
+        onToggleBookmark={result.toggleSelectedBookmark}
+        actions={
+          <ResultActions
+            incorrectCount={result.incorrectItems.length}
+            isGuest={isGuest}
+            isRetryDisabled={result.isResultSourceUnavailable}
+            isRetryLoading={
+              createRetrySession.isPending || result.isRetrySourceRefreshing
+            }
+            onRetry={result.handleRetryIncorrect}
+            retryLoadingLabel={retryLoadingLabel}
+            session={session}
+            showRetry={result.canShowRetryButton}
+          />
+        }
+      />
+    </div>
+  )
+}
+
 const PracticeResultPageContent = (): ReactElement => {
   const { t } = useTranslation('result')
   const { sessionId = '' } = useParams()
@@ -154,51 +219,12 @@ const PracticeResultPageContent = (): ReactElement => {
           </h2>
           <ResultBookmarkNotices bookmark={bookmark} isGuest={isGuest} />
           {selectedItem ? (
-            <div className="study-result-layout">
-              <ResultQuestionNavigation
-                items={studyResult.items}
-                selectedQuestionId={selectedItem.question.id}
-                onSelect={result.selectQuestion}
-              />
-              <ResultQuestionDetail
-                key={selectedItem.question.id}
-                item={selectedItem}
-                ordinal={result.selectedIndex + 1}
-                canManage={!isGuest}
-                isBookmarked={result.selectedIsBookmarked}
-                bookmarkDisabled={
-                  bookmark.isUnavailable || result.isResultSourceUnavailable
-                }
-                isResultSourceUnavailable={result.isResultSourceUnavailable}
-                bookmarkMessage={
-                  bookmark.message?.questionId === selectedItem.question.id
-                    ? t(`bookmark.${bookmark.message.code}`)
-                    : null
-                }
-                onToggleBookmark={result.toggleSelectedBookmark}
-                actions={
-                  <ResultActions
-                    incorrectCount={result.incorrectItems.length}
-                    isGuest={isGuest}
-                    isRetryDisabled={result.isResultSourceUnavailable}
-                    isRetryLoading={
-                      createRetrySession.isPending ||
-                      result.isRetrySourceRefreshing
-                    }
-                    onRetry={result.handleRetryIncorrect}
-                    retryLoadingLabel={
-                      result.isRetrySourceRefreshing
-                        ? t('retry.checking')
-                        : createRetrySession.isPaused
-                          ? t('retry.waitingConnection')
-                          : t('retry.creating')
-                    }
-                    session={session}
-                    showRetry={result.canShowRetryButton}
-                  />
-                }
-              />
-            </div>
+            <SelectedResultItem
+              result={result}
+              items={studyResult.items}
+              item={selectedItem}
+              session={session}
+            />
           ) : (
             <EmptyState
               title={t('navigation.emptyTitle')}
