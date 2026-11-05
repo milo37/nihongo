@@ -31,11 +31,11 @@ import {
   type AdminQuestionCommandRepository,
   type AdminQuestionPublicationCommandRepository
 } from './adminQuestionCommandRepository.js'
-import type { AdminQuestionSlice5Repository } from './adminQuestionSlice5Repository.js'
+import type { AdminQuestionWorkflowRepository } from './adminQuestionWorkflowRepository.js'
 import type {
   AdminImportApplyRepositoryResult,
   AdminQuestionExportRepositoryResult
-} from './adminQuestionSlice5Repository.js'
+} from './adminQuestionWorkflowRepository.js'
 
 export interface AdminQuestionCommandService {
   createQuestion: (
@@ -97,7 +97,7 @@ export interface AdminQuestionPublicationCommandService {
   ) => Promise<PublishQuestionVersionBatchResponse>
 }
 
-export interface AdminQuestionSlice5CommandService {
+export interface AdminQuestionWorkflowCommandService {
   requestReviewBatch: (
     authority: AdminCommandAuthority,
     request: RequestContentReviewBatchRequest
@@ -296,9 +296,9 @@ export const createAdminQuestionPublicationCommandService = (
     })
 })
 
-export const createAdminQuestionSlice5CommandService = (
-  repository: AdminQuestionSlice5Repository
-): AdminQuestionSlice5CommandService => ({
+export const createAdminQuestionWorkflowCommandService = (
+  repository: AdminQuestionWorkflowRepository
+): AdminQuestionWorkflowCommandService => ({
   requestReviewBatch: (authority, request) =>
     execute(() => repository.requestReviewBatch(authority, request)),
   validateImport: (request) =>
