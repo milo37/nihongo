@@ -7,6 +7,7 @@ import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import { useAdminAuditLog } from '@app/admin-audit/hooks/useAdminAuditLog'
+import { PageContainer } from '@nihongo/browser/common/components/PageContainer'
 
 export const AdminAuditLogPage = (): ReactElement => {
   const { t, formatAdminDateTime, presentError } = useAdminPresentation()
@@ -37,7 +38,7 @@ export const AdminAuditLogPage = (): ReactElement => {
   }
 
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+    <PageContainer width="6xl">
       <header className="border-b border-line pb-8">
         <h1
           ref={headingRef}
@@ -190,6 +191,6 @@ export const AdminAuditLogPage = (): ReactElement => {
           {t(audit.isFetchingNextPage ? 'audit.moreLoading' : 'audit.more')}
         </Button>
       ) : null}
-    </section>
+    </PageContainer>
   )
 }

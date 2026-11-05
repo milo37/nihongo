@@ -9,6 +9,7 @@ import { QuestionDetailBody } from '@app/admin-question/components/QuestionDetai
 import { QuestionDetailHeader } from '@app/admin-question/components/QuestionDetailHeader'
 import { UnsavedChangesDialog } from '@app/admin-question/components/UnsavedChangesDialog'
 import { useQuestionDetail } from '@app/admin-question/hooks/useQuestionDetail'
+import { PageContainer } from '@nihongo/browser/common/components/PageContainer'
 
 export const AdminQuestionDetailPage = (): ReactElement => {
   const { questionId = '' } = useParams()
@@ -36,11 +37,11 @@ const QuestionDetail = ({
 }): ReactElement => {
   const state = useQuestionDetail({ questionId, actorId, epoch })
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+    <PageContainer width="6xl">
       <QuestionDetailHeader state={state} />
       <QuestionDetailBody state={state} />
       <QuestionCommandDialog state={state} />
       <UnsavedChangesDialog state={state} />
-    </section>
+    </PageContainer>
   )
 }
