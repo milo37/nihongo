@@ -19,10 +19,10 @@ export const assertSsoBootstrapMigrationHistory = (
     )
     .digest('hex')
   if (
-    expected.length !== 74 ||
-    expected.at(-1)?.name !== '20261120090000_trusted_execution_users' ||
+    expected.length !== 75 ||
+    expected.at(-1)?.name !== '20261121090000_account_sso_to_api' ||
     orderedDigest !==
-      'dae49bac840c2ef07ed4cfa9a11889899879dcc15339f301f4b97aa5753cbf7a' ||
+      '2e3b5558655ec2efcf614692128dd2d29cfedeab12aca7d583bfa0f049fe8212' ||
     applied.length !== expected.length ||
     applied.some(
       (row, index) =>
@@ -31,7 +31,7 @@ export const assertSsoBootstrapMigrationHistory = (
     )
   ) {
     throw new Error(
-      'First Google ADMIN bootstrap canonical74 migration history mismatch.'
+      'First Google ADMIN bootstrap canonical75 migration history mismatch.'
     )
   }
 }
@@ -603,9 +603,12 @@ export const assertApiIntegrationVitestFileResult = ({
   }
   if (
     expectedPath === ssoAccountLifecycleDbTestFile &&
-    result.numTotalTests !== 6
+    result.numTotalTests !== 7
   ) {
-    throw new Error('SSO account lifecycle requires exactly six passing tests.')
+    // #504 P7 PR5a adds the API link and unlink trigger case.
+    throw new Error(
+      'SSO account lifecycle requires exactly seven passing tests.'
+    )
   }
   const resultPaths = (result.testResults ?? [])
     .map(({ name }) => (name ? normalizeResultPath(name) : ''))

@@ -80,7 +80,7 @@ const apiTransaction = (client: Client): Prisma.TransactionClient =>
   }) as unknown as Prisma.TransactionClient
 
 describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
-  it('deploy and re-entry leave exactly74 completed names/checksums preserving the old73 prefix', async () => {
+  it('deploy and re-entry leave exactly75 completed names/checksums preserving the old74 prefix', async () => {
     const expected = loadExpectedMigrationManifest(
       fileURLToPath(new URL('../../prisma/migrations/', import.meta.url))
     )
@@ -91,7 +91,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     }>(
       `SELECT migration_name AS name,checksum,finished_at IS NOT NULL AND rolled_back_at IS NULL AS complete FROM "_prisma_migrations" WHERE rolled_back_at IS NULL ORDER BY migration_name`
     )
-    expect(expected).toHaveLength(74)
+    expect(expected).toHaveLength(75)
     expect(
       actual.rows.map(({ name, checksum }) => ({ name, checksum }))
     ).toEqual(expected)
@@ -250,11 +250,16 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         name: '20261120090000_trusted_execution_users',
         checksum:
           'a69b06f4a75ee500102956d28d004f69b31e6d6f83f989f472f0e25af23ace19'
+      },
+      {
+        name: '20261121090000_account_sso_to_api',
+        checksum:
+          '1409e3c370fd38349bcd6f13b3d7e91bfa7d832be3374431062825ebf6fa2503'
       }
     ])
     // Existing runner executes canonical deploy then db:migrate:deploy re-entry
     // before this suite. One completed row per name proves no duplicate apply.
-    expect(new Set(actual.rows.map((row) => row.name)).size).toBe(74)
+    expect(new Set(actual.rows.map((row) => row.name)).size).toBe(75)
   })
 
   it('new private objects have exact owner, search_path and least-privilege ACLs', async () => {

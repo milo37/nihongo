@@ -41,7 +41,8 @@ const EXPECTED_RECENT_MIGRATIONS = [
   '20261117090000_session_family_removal',
   '20261118090000_erasure_request_to_api',
   '20261119090000_operation_finish_enforcement',
-  '20261120090000_trusted_execution_users'
+  '20261120090000_trusted_execution_users',
+  '20261121090000_account_sso_to_api'
 ] as const
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',
@@ -520,16 +521,16 @@ afterAll(async () => {
 })
 
 describe('Persistence foundation', () => {
-  it('74 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
+  it('75 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
     const ledger = await client.query<{ migrationName: string }>(
       `SELECT migration_name AS "migrationName"
        FROM "_prisma_migrations"
        WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
        ORDER BY started_at`
     )
-    expect(ledger.rows).toHaveLength(74)
+    expect(ledger.rows).toHaveLength(75)
     expect(
-      ledger.rows.slice(-11).map(({ migrationName }) => migrationName)
+      ledger.rows.slice(-12).map(({ migrationName }) => migrationName)
     ).toEqual(EXPECTED_RECENT_MIGRATIONS)
     expect(
       (
@@ -607,7 +608,7 @@ describe('Persistence foundation', () => {
              WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`
           )
         ).rows
-      ).toEqual([{ migrationCount: 74 }])
+      ).toEqual([{ migrationCount: 75 }])
     } finally {
       await client.query('ROLLBACK')
     }
@@ -1109,7 +1110,6 @@ describe('Persistence foundation', () => {
       [
         [
           'phase7_activate_v1_issuer',
-          'phase7_change_user_authority',
           'phase7_close_trusted_execution',
           'phase7_open_trusted_execution',
           'phase7_register_database_capability',
@@ -1122,7 +1122,7 @@ describe('Persistence foundation', () => {
         ]
       ]
     )
-    expect(publicExecute.rows).toHaveLength(11)
+    expect(publicExecute.rows).toHaveLength(10)
     expect(
       publicExecute.rows.filter(
         ({ ownerName, publicCanExecute }) =>
@@ -3047,7 +3047,8 @@ describe('Persistence foundation', () => {
     let authorityChange: Promise<unknown> | undefined
     await authorityClient.connect()
     try {
-      await authorityClient.query(`SET ROLE "nihongo_auth_gateway"`)
+      // #504 P7 PR5a: the TEST-only authority change runs as nihongo_app.
+      await authorityClient.query(`SET ROLE "nihongo_app"`)
       const authorityBackend = await authorityClient.query<{ pid: number }>(
         `SELECT pg_backend_pid() AS pid`
       )
@@ -3074,7 +3075,8 @@ describe('Persistence foundation', () => {
           ]
         }
       })
-      authorityChange = authorityClient.query(
+      authorityChange = bridgedQuery(
+        authorityClient,
         `SELECT "phase7_change_user_authority"(
           $1, $2, 1, 'USER', 'ACTIVE', 'TEST'
         ) AS "newGeneration"`,
