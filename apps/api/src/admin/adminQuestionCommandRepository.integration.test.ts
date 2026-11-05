@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
+import { installAuditDigestSql } from '../db/fixtures/auditDigestSql.js'
 import {
   applyQuestionImportRequestSchema,
   assertAdminImportApplyForRequest,
@@ -695,7 +696,7 @@ const readCommandEvidence = async (requestId: string) => {
     `SELECT audit."command", audit."operationId",
        audit."changedFields" AS "changedFields",
        audit."metadata" AS metadata,
-       audit."contentDigest" = "phase7_admin_audit_content_digest"(
+       audit."contentDigest" = pg_temp."phase7_admin_audit_content_digest"(
          audit."operationId", audit."command", audit."targetType",
          audit."targetId", audit."beforeState", audit."afterState",
          audit."beforeRowVersion", audit."afterRowVersion",
@@ -950,6 +951,8 @@ const cleanupFixtures = async (): Promise<void> => {
 
 beforeAll(async () => {
   await adminClient.connect()
+  // #504 P7 PR5b: the SQL audit digest is a test fixture now.
+  await installAuditDigestSql(adminClient)
   adminConnected = true
   applicationRuntime = createDatabaseRuntime(applicationDatabaseUrl, {
     migrationProfile: 'current',
@@ -2625,7 +2628,7 @@ describe('ADMIN command TEST database integration', () => {
       operationId: string
     }>(
       `SELECT audit."command", audit."operationId",
-         audit."contentDigest" = "phase7_admin_audit_content_digest"(
+         audit."contentDigest" = pg_temp."phase7_admin_audit_content_digest"(
            audit."operationId", audit."command", audit."targetType",
            audit."targetId", audit."beforeState", audit."afterState",
            audit."beforeRowVersion", audit."afterRowVersion",
@@ -2694,7 +2697,7 @@ describe('ADMIN command TEST database integration', () => {
       }
     }>(
       `SELECT audit."command", audit."metadata" AS metadata,
-         audit."contentDigest" = "phase7_admin_audit_content_digest"(
+         audit."contentDigest" = pg_temp."phase7_admin_audit_content_digest"(
            audit."operationId", audit."command", audit."targetType",
            audit."targetId", audit."beforeState", audit."afterState",
            audit."beforeRowVersion", audit."afterRowVersion",
@@ -3082,7 +3085,7 @@ describe('ADMIN command TEST database integration', () => {
       contentDigestValid: boolean
     }>(
       `SELECT audit."command",
-         audit."contentDigest" = "phase7_admin_audit_content_digest"(
+         audit."contentDigest" = pg_temp."phase7_admin_audit_content_digest"(
            audit."operationId", audit."command", audit."targetType",
            audit."targetId", audit."beforeState", audit."afterState",
            audit."beforeRowVersion", audit."afterRowVersion",

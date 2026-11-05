@@ -235,10 +235,23 @@ const ERASURE_WORKER_FUNCTIONS = [
  * The role a bridged call runs as: since PR1 nihongo_app runs the gateway and
  * erasure worker facades. Any other caller keeps its role and is refused.
  */
+// #504 P7 PR5b: the SQL sign-in facades nihongo_app runs since PR1; the
+// former gateway role holds no EXECUTE on them.
+const SQL_SIGN_IN_FACADES = [
+  'phase7_create_sso_transaction_v2',
+  'phase7_consume_sso_transaction_v2',
+  'phase7_resolve_sso_identity'
+]
+
 export const bridgedRole = <Role extends string>(
   sql: string,
   role: Role
 ): Role | 'nihongo_app' => {
+  if (
+    role === 'nihongo_auth_gateway' &&
+    SQL_SIGN_IN_FACADES.some((name) => sql.includes(`"${name}"(`))
+  )
+    return 'nihongo_app'
   if (!isOwnedSessionSql(sql)) return role
   const worker = ERASURE_WORKER_FUNCTIONS.some((name) =>
     sql.includes(`"${name}"(`)
