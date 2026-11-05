@@ -43,8 +43,9 @@ describe('Reauthentication migration', () => {
       '@unique @default(dbgenerated("public.gen_random_uuid()")) @db.Uuid'
     )
     expect(model).toContain('@@index([state, expiresAt, id])')
-    expect(model).toContain('@@index([userId, sessionFamilyId, state])')
-    expect(model).toContain('oldFenceTokenDigest')
+    // #504 P7 PR4b-1 dropped the family and fence columns with their index.
+    expect(model).not.toContain('sessionFamilyId')
+    expect(model).not.toContain('oldFenceTokenDigest')
     expect(model).not.toContain('@@index([oldSessionId, state])')
     expect(migrationSql).toContain(
       'CREATE UNIQUE INDEX "Phase7ReauthenticationIntent_live_old_session_key"'

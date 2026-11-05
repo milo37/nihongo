@@ -375,6 +375,75 @@ const issueSessionBeforeOneTimeSignOut = async (
   }
 }
 
+// #504 P7 PR4b-1: a Session of the family model right before its removal.
+// The SQL issuer is gone by then, so the owner writes the rows directly.
+const issueFamilySessionBeforeFamilyRemoval = async (
+  context: IsolatedUpgradeSchema,
+  userId: string
+): Promise<string> => {
+  const sessionId = randomUUID()
+  const familyId = randomUUID()
+  await context.adminClient.query('BEGIN')
+  try {
+    await context.adminClient.query(
+      `SET LOCAL search_path TO ${quoteIdentifier(context.schemaName)}`
+    )
+    await context.adminClient.query(
+      'SET LOCAL session_replication_role = replica'
+    )
+    await context.adminClient.query(
+      `INSERT INTO "AuthSessionFamily" ("id", "userId") VALUES ($1, $2)`,
+      [familyId, userId]
+    )
+    await context.adminClient.query(
+      `INSERT INTO "Session" (
+         "id", "expiresAt", "token", "createdAt", "updatedAt", "userId",
+         "sessionFamilyId", "authorityGeneration", "issuerProtocolVersion"
+       ) SELECT $1, clock_timestamp() + INTERVAL '1 day', $2,
+         clock_timestamp(), clock_timestamp(), $3, $4,
+         "authorityGeneration", 'PHASE7_V1'
+       FROM "User" WHERE "id" = $3`,
+      [sessionId, `phase7-family-removal-${randomUUID()}`, userId, familyId]
+    )
+    await context.adminClient.query('COMMIT')
+  } catch (error: unknown) {
+    await context.adminClient.query('ROLLBACK')
+    throw error
+  }
+  return sessionId
+}
+
+const expectFamilyRemovalSignOut = async (
+  context: IsolatedUpgradeSchema,
+  sessionId: string
+): Promise<void> => {
+  const schema = quoteIdentifier(context.schemaName)
+  expect(
+    (
+      await context.adminClient.query<{
+        familyTable: string | null
+        fenceTable: string | null
+        sessions: number
+        signedOut: number
+      }>(
+        `SELECT
+           (SELECT COUNT(*)::int FROM ${schema}."Session") AS sessions,
+           (SELECT COUNT(*)::int FROM ${schema}."Session" WHERE "id" = $1)
+             AS "signedOut",
+           to_regclass($2)::text AS "familyTable",
+           to_regclass($3)::text AS "fenceTable"`,
+        [
+          sessionId,
+          `${schema}."AuthSessionFamily"`,
+          `${schema}."AuthSessionRotationFence"`
+        ]
+      )
+    ).rows
+  ).toEqual([
+    { familyTable: null, fenceTable: null, sessions: 0, signedOut: 0 }
+  ])
+}
+
 const expectOneTimeSignOut = async (
   context: IsolatedUpgradeSchema,
   before: { cookieHeader: string; userId: string }
@@ -1618,7 +1687,7 @@ const bootstrapFreshCanonicalCatalog = async (
 }
 
 describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
-  it('canonical non-super migration wrapper로 prefix37→canonical65→current70를 deploy하고 ledger를 finalize한다', async () => {
+  it('canonical non-super migration wrapper로 prefix37→canonical65→current71를 deploy하고 ledger를 finalize한다', async () => {
     const context = await createIsolatedUpgradeSchema()
     const legacyConnectInitiallyGranted =
       (
@@ -1646,7 +1715,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       const prefix = repositoryMigrationNames.filter(
         (name) => name <= lastBootstrapMigration
       )
-      expect(repositoryMigrationNames).toHaveLength(70)
+      expect(repositoryMigrationNames).toHaveLength(71)
       expect(prefix).toHaveLength(37)
       expect(prefix.at(-1)).toBe(lastBootstrapMigration)
       for (const migrationName of prefix) {
@@ -1663,7 +1732,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       ).not.toThrow()
       await bootstrapFreshCanonicalCatalog(context)
       const remainder = repositoryMigrationNames.slice(37)
-      expect(remainder).toHaveLength(33)
+      expect(remainder).toHaveLength(34)
       expect(remainder[0]).toBe(
         '20261009120000_phase7_approved_n4_reading_batch7_tags'
       )
@@ -1679,13 +1748,31 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       await deploy(context)
       const signedInBeforeOneTimeSignOut =
         await issueSessionBeforeOneTimeSignOut(context)
-      for (const migrationName of remainder.slice(signOutIndex)) {
+      // #504 P7 PR4b-1: stop again before the family removal, which signs
+      // every Session out once more.
+      const familyRemovalIndex = remainder.indexOf(
+        '20261117090000_session_family_removal'
+      )
+      expect(familyRemovalIndex).toBeGreaterThan(signOutIndex)
+      for (const migrationName of remainder.slice(
+        signOutIndex,
+        familyRemovalIndex
+      )) {
         copyMigration(migrationName, context.migrationsPath)
       }
       await deploy(context)
       await expectOneTimeSignOut(context, signedInBeforeOneTimeSignOut)
+      const familySessionId = await issueFamilySessionBeforeFamilyRemoval(
+        context,
+        signedInBeforeOneTimeSignOut.userId
+      )
+      for (const migrationName of remainder.slice(familyRemovalIndex)) {
+        copyMigration(migrationName, context.migrationsPath)
+      }
+      await deploy(context)
+      await expectFamilyRemovalSignOut(context, familySessionId)
       const ledger = await readLedger(context)
-      expect(ledger).toHaveLength(70)
+      expect(ledger).toHaveLength(71)
       expect(ledger.map(({ migrationName }) => migrationName)).toEqual(
         repositoryMigrationNames
       )
@@ -1723,7 +1810,8 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
         '20261113090000_admin_operation_to_api',
         '20261114090000_session_issuance_to_api',
         '20261115090000_admin_fresh_to_api',
-        '20261116090000_erasure_to_api'
+        '20261116090000_erasure_to_api',
+        '20261117090000_session_family_removal'
       ])
       expect(
         ledger.every(
@@ -1745,7 +1833,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
           ledger
         )
       ).not.toThrow()
-      await verifyCanonicalMigrationLedgerAccess(context, 70)
+      await verifyCanonicalMigrationLedgerAccess(context, 71)
       expect(
         (
           await context.adminClient.query<{

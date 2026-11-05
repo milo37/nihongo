@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   issueOwnedSession,
   refreshRememberedSession,
-  rotationFenceTokenDigest,
   signOutOwnedSession,
   type OwnedSessionClient
 } from './ownedSessionAuthority.js'
@@ -69,16 +68,11 @@ describe('owned Session authority keeps the raw token out of SQL text and errors
     expectTokenOnlyBound(statements)
   })
 
-  it('sign-out binds the token and its fence digest, never the token text', async () => {
+  it('sign-out binds the token, never the token text', async () => {
     const { client, statements } = fakeClient(() => [])
     await expect(signOutOwnedSession(client, token)).resolves.toBe(true)
     expectTokenOnlyBound(statements)
     expect(statements.some(({ values }) => values.includes(token))).toBe(true)
-    expect(
-      statements.some(({ values }) =>
-        values.includes(rotationFenceTokenDigest(token))
-      )
-    ).toBe(true)
   })
 
   it('refresh binds the token', async () => {

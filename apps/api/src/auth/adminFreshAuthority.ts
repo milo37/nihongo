@@ -1,7 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import type { Prisma, PrismaClient } from '../generated/prisma/client.js'
 import { adminAuditContentDigest } from '../admin/adminRepositoryCommon.js'
-import { rotationFenceTokenDigest } from './ownedSessionAuthority.js'
 
 /**
  * SSO ADMIN_FRESH re-authentication in the API (#504 P7 PR3b-1).
@@ -12,10 +11,10 @@ import { rotationFenceTokenDigest } from './ownedSessionAuthority.js'
  * phase7_stage_reauthentication_session, phase7_finalize_reauthentication and
  * phase7_confirm_v1_session_issuance), the cancel, abort, reconcile and cleanup
  * functions, and phase7_sso_admin_session_is_fresh, step for step: the same
- * lock order (User, then the Session family, then the Sessions in id order,
- * then the intent), the same conditions and the same SQLSTATE on failure. The
- * Session family and rotation fence model stays; the Session, fence and
- * delete-limit triggers validate every row the API writes.
+ * lock order (User, then the Sessions in id order, then the intent), the same
+ * conditions and the same SQLSTATE on failure. #504 P7 PR4b-1: there is no
+ * Session family or rotation fence; the replacement Session ends the old one.
+ * The Session and delete-limit triggers validate every row the API writes.
  */
 
 export type AdminFreshClient = Pick<
@@ -79,8 +78,6 @@ export const adminSessionFreshSql = (tokenParameter: string): string => `
     JOIN "User" AS actor
       ON actor."id" = session."userId"
      AND actor."id" = (proof."context"->>'userId')::UUID
-    JOIN "AuthSessionFamily" AS family
-      ON family."id" = session."sessionFamilyId" AND family."userId" = actor."id"
     JOIN "Account" AS account
       ON account."userId" = actor."id"
      AND account."providerId" = proof."context"->>'provider'
@@ -92,7 +89,6 @@ export const adminSessionFreshSql = (tokenParameter: string): string => `
       AND actor."authorityGeneration" =
         (proof."context"->>'authorityGeneration')::INTEGER
       AND session."authorityGeneration" = actor."authorityGeneration"
-      AND family."status" = 'ACTIVE'
       AND proof."expiresAt" > clock_timestamp()
       AND proof."completedAt" + INTERVAL '5 minutes' > clock_timestamp()
       AND session."createdAt" + INTERVAL '5 minutes' > clock_timestamp()
@@ -111,12 +107,9 @@ const contextIsValid = async (
     `SELECT intent."oldTokenDigest", session."token"
      FROM "Phase7ReauthenticationIntent" AS intent
      JOIN "User" AS actor ON actor."id" = intent."userId"
-     JOIN "AuthSessionFamily" AS family
-       ON family."id" = intent."sessionFamilyId" AND family."userId" = actor."id"
      JOIN "Session" AS session
        ON session."id" = intent."oldSessionId"
       AND session."userId" = actor."id"
-      AND session."sessionFamilyId" = family."id"
      JOIN "Account" AS account
        ON account."userId" = actor."id"
       AND account."providerId" = $5 AND account."accountId" = $6
@@ -127,7 +120,6 @@ const contextIsValid = async (
        AND intent."capturedAuthorityGeneration" = $4::integer
        AND actor."authorityGeneration" = intent."capturedAuthorityGeneration"
        AND actor."role" = 'ADMIN' AND actor."accountStatus" = 'ACTIVE'
-       AND family."status" = 'ACTIVE'
        AND session."authorizationState" = 'ACTIVE'
        AND session."issuerProtocolVersion" = 'PHASE7_V1'
        AND session."authorityGeneration" = intent."capturedAuthorityGeneration"
@@ -162,7 +154,6 @@ export interface PreparedReauthentication {
   requestId: string
   email: string
   expiresAt: Date
-  familyId: string
   sessionId: string
   generation: number
 }
@@ -192,19 +183,15 @@ export const prepareReauthentication = async (
   const targets = await transaction.$queryRawUnsafe<
     Array<{
       email: string
-      familyId: string
       generation: number
       sessionId: string
       userId: string
     }>
   >(
-    `SELECT session."userId", session."sessionFamilyId" AS "familyId",
+    `SELECT session."userId",
        session."id" AS "sessionId", target_user."authorityGeneration" AS generation,
        target_user."email"
      FROM "Session" AS session
-     JOIN "AuthSessionFamily" AS family
-       ON family."id" = session."sessionFamilyId"
-      AND family."userId" = session."userId"
      JOIN "User" AS target_user ON target_user."id" = session."userId"
      WHERE session."token" = $1 AND session."userId" = $2::uuid
        AND session."issuerProtocolVersion" = 'PHASE7_V1'
@@ -213,7 +200,6 @@ export const prepareReauthentication = async (
        AND target_user."role" = 'ADMIN'
        AND target_user."accountStatus" = 'ACTIVE'
        AND target_user."emailVerified"
-       AND family."status" = 'ACTIVE'
        AND session."expiresAt" > clock_timestamp()
        AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()`,
     input.rawOldToken,
@@ -224,12 +210,6 @@ export const prepareReauthentication = async (
   await transaction.$queryRawUnsafe(
     `SELECT 1 FROM "User" WHERE "id" = $1::uuid FOR UPDATE`,
     target.userId
-  )
-  await transaction.$queryRawUnsafe(
-    `SELECT 1 FROM "AuthSessionFamily"
-     WHERE "userId" = $1::uuid AND "id" = $2::uuid FOR UPDATE`,
-    target.userId,
-    target.familyId
   )
   const staleIntents = await transaction.$queryRawUnsafe<
     Array<{ id: string; stagedSessionId: string | null }>
@@ -268,11 +248,9 @@ export const prepareReauthentication = async (
       await transaction.$executeRawUnsafe(
         `DELETE FROM "Session"
          WHERE "id" = $1::uuid AND "userId" = $2::uuid
-           AND "sessionFamilyId" = $3::uuid
            AND "authorizationState" = 'PENDING_REAUTH'`,
         expired.stagedSessionId,
-        target.userId,
-        target.familyId
+        target.userId
       )
       const removed = await transaction.$executeRawUnsafe(
         `DELETE FROM "Phase7ReauthenticationIntent"
@@ -304,9 +282,6 @@ export const prepareReauthentication = async (
   const stillActive = await transaction.$queryRawUnsafe<unknown[]>(
     `SELECT 1
      FROM "Session" AS session
-     JOIN "AuthSessionFamily" AS family
-       ON family."id" = session."sessionFamilyId"
-      AND family."userId" = session."userId"
      JOIN "User" AS target_user ON target_user."id" = session."userId"
      WHERE session."id" = $1::uuid AND session."token" = $2
        AND session."authorizationState" = 'ACTIVE'
@@ -314,7 +289,6 @@ export const prepareReauthentication = async (
        AND target_user."authorityGeneration" = $3::integer
        AND target_user."role" = 'ADMIN'
        AND target_user."accountStatus" = 'ACTIVE'
-       AND family."status" = 'ACTIVE'
        AND session."expiresAt" > clock_timestamp()
        AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()`,
     target.sessionId,
@@ -328,14 +302,13 @@ export const prepareReauthentication = async (
   >(
     `INSERT INTO "Phase7ReauthenticationIntent" (
        "id", "operationId", "requestId", "userId", "oldSessionId",
-       "oldTokenDigest", "oldFenceTokenDigest", "sessionFamilyId",
-       "capturedAuthorityGeneration", "capturedRole",
+       "oldTokenDigest", "capturedAuthorityGeneration", "capturedRole",
        "capturedAccountStatus", "state", "environment", "createdAt",
        "expiresAt"
      ) VALUES (
-       $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6, $7, $8::uuid,
-       $9::integer, 'ADMIN', 'ACTIVE', 'PREPARED',
-       $10::"AdminAuditEnvironment", clock_timestamp(),
+       $1::uuid, $2::uuid, $3::uuid, $4::uuid, $5::uuid, $6,
+       $7::integer, 'ADMIN', 'ACTIVE', 'PREPARED',
+       $8::"AdminAuditEnvironment", clock_timestamp(),
        clock_timestamp() + INTERVAL '2 minutes'
      )
      RETURNING "expiresAt"`,
@@ -345,8 +318,6 @@ export const prepareReauthentication = async (
     target.userId,
     target.sessionId,
     reauthenticationTokenDigest(input.rawOldToken),
-    rotationFenceTokenDigest(input.rawOldToken),
-    target.familyId,
     target.generation,
     input.environment
   )
@@ -356,7 +327,6 @@ export const prepareReauthentication = async (
     requestId: input.requestId,
     email: target.email,
     expiresAt: inserted[0]!.expiresAt,
-    familyId: target.familyId,
     sessionId: target.sessionId,
     generation: target.generation
   }
@@ -391,8 +361,6 @@ export const prepareAdminFresh = async (
          actor."authorityGeneration" AS generation, account."accountId"
        FROM "Session" AS session
        JOIN "User" AS actor ON actor."id" = session."userId"
-       JOIN "AuthSessionFamily" AS family
-         ON family."id" = session."sessionFamilyId" AND family."userId" = actor."id"
        JOIN "Account" AS account
          ON account."userId" = actor."id" AND account."providerId" = $3
        WHERE session."token" = $1 AND actor."id" = $2::uuid
@@ -400,7 +368,6 @@ export const prepareAdminFresh = async (
          AND session."authorizationState" = 'ACTIVE'
          AND session."issuerProtocolVersion" = 'PHASE7_V1'
          AND session."authorityGeneration" = actor."authorityGeneration"
-         AND family."status" = 'ACTIVE'
          AND session."expiresAt" > clock_timestamp()
          AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()
          AND (SELECT count(*) FROM "Account"
@@ -557,8 +524,6 @@ interface IntentRow {
   readonly userId: string
   readonly oldSessionId: string
   readonly oldTokenDigest: string
-  readonly oldFenceTokenDigest: string
-  readonly sessionFamilyId: string
   readonly capturedAuthorityGeneration: number
   readonly capturedRole: string
   readonly capturedAccountStatus: string
@@ -570,8 +535,7 @@ interface IntentRow {
 }
 
 const INTENT_COLUMNS = `"id", "operationId", "requestId", "userId",
-  "oldSessionId", "oldTokenDigest", "oldFenceTokenDigest", "sessionFamilyId",
-  "capturedAuthorityGeneration", "capturedRole"::TEXT AS "capturedRole",
+  "oldSessionId", "oldTokenDigest", "capturedAuthorityGeneration", "capturedRole"::TEXT AS "capturedRole",
   "capturedAccountStatus"::TEXT AS "capturedAccountStatus",
   "state"::TEXT AS "state", "stagedSessionId", "stagedTokenDigest",
   "environment"::TEXT AS "environment", "expiresAt"`
@@ -594,7 +558,7 @@ const REAUTHENTICATION_METADATA = {
   rotation: 'OLD_REVOKED_NEW_ISSUED'
 } as const
 
-// The rotated Session still holds ADMIN authority in its ACTIVE family.
+// The rotated Session still holds ADMIN authority.
 const replacementHoldsAuthority = async (
   transaction: Transaction,
   intent: IntentRow,
@@ -605,24 +569,19 @@ const replacementHoldsAuthority = async (
     await transaction.$queryRawUnsafe<unknown[]>(
       `SELECT 1
        FROM "User" AS target_user
-       JOIN "AuthSessionFamily" AS family
-         ON family."userId" = target_user."id" AND family."id" = $2::uuid
        JOIN "Session" AS session
-         ON session."id" = $3::uuid AND session."userId" = target_user."id"
-        AND session."sessionFamilyId" = family."id"
+         ON session."id" = $2::uuid AND session."userId" = target_user."id"
        WHERE target_user."id" = $1::uuid
-         AND target_user."authorityGeneration" = $4::integer
+         AND target_user."authorityGeneration" = $3::integer
          AND target_user."role" = 'ADMIN'
          AND target_user."accountStatus" = 'ACTIVE'
-         AND family."status" = 'ACTIVE'
-         AND session."token" = $5
+         AND session."token" = $4
          AND session."issuerProtocolVersion" = 'PHASE7_V1'
          AND session."authorizationState" = 'ACTIVE'
-         AND session."authorityGeneration" = $4::integer
+         AND session."authorityGeneration" = $3::integer
          AND session."expiresAt" > clock_timestamp()
          AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()`,
       intent.userId,
-      intent.sessionFamilyId,
       sessionId,
       intent.capturedAuthorityGeneration,
       rawNewToken
@@ -631,7 +590,6 @@ const replacementHoldsAuthority = async (
 
 export interface AdminFreshRotation {
   id: string
-  familyId: string
   createdAt: Date
   expiresAt: Date
   authorityGeneration: number
@@ -675,41 +633,30 @@ export const stageReauthentication = async (
     `SELECT 1 FROM "User" WHERE "id" = $1::uuid FOR UPDATE`,
     first.userId
   )
-  await transaction.$queryRawUnsafe(
-    `SELECT 1 FROM "AuthSessionFamily"
-     WHERE "userId" = $1::uuid AND "id" = $2::uuid FOR UPDATE`,
-    first.userId,
-    first.sessionFamilyId
-  )
   const intent = await readIntent(transaction, input.intentId, true)
   if (!intent) return null
   const qualifies = await transaction.$queryRawUnsafe<
     Array<{ ready: boolean; token: string }>
   >(
     `SELECT old_session."token",
-       $5::timestamptz > clock_timestamp()
-         AND $6::timestamptz >= clock_timestamp() + INTERVAL '23 hours 55 minutes'
-         AND $6::timestamptz <= clock_timestamp() + INTERVAL '24 hours 5 minutes'
+       $4::timestamptz > clock_timestamp()
+         AND $5::timestamptz >= clock_timestamp() + INTERVAL '23 hours 55 minutes'
+         AND $5::timestamptz <= clock_timestamp() + INTERVAL '24 hours 5 minutes'
          AS ready
      FROM "User" AS target_user
-     JOIN "AuthSessionFamily" AS family
-       ON family."userId" = target_user."id" AND family."id" = $2::uuid
      JOIN "Session" AS old_session
-       ON old_session."id" = $3::uuid
+       ON old_session."id" = $2::uuid
       AND old_session."userId" = target_user."id"
-      AND old_session."sessionFamilyId" = family."id"
      WHERE target_user."id" = $1::uuid
-       AND target_user."authorityGeneration" = $4::integer
+       AND target_user."authorityGeneration" = $3::integer
        AND target_user."role" = 'ADMIN'
        AND target_user."accountStatus" = 'ACTIVE'
-       AND family."status" = 'ACTIVE'
        AND old_session."issuerProtocolVersion" = 'PHASE7_V1'
        AND old_session."authorizationState" = 'ACTIVE'
-       AND old_session."authorityGeneration" = $4::integer
+       AND old_session."authorityGeneration" = $3::integer
        AND old_session."expiresAt" > clock_timestamp()
        AND old_session."createdAt" + INTERVAL '30 days' > clock_timestamp()`,
     intent.userId,
-    intent.sessionFamilyId,
     intent.oldSessionId,
     intent.capturedAuthorityGeneration,
     intent.expiresAt,
@@ -732,12 +679,12 @@ export const stageReauthentication = async (
   >(
     `INSERT INTO "Session" (
        "id", "expiresAt", "token", "createdAt", "updatedAt", "ipAddress",
-       "userAgent", "userId", "sessionFamilyId", "authorityGeneration",
-       "issuerProtocolVersion", "authorizationState"
+       "userAgent", "userId", "authorityGeneration", "issuerProtocolVersion",
+       "authorizationState"
      ) VALUES (
        $1::uuid, $2::timestamptz, $3, clock_timestamp(), clock_timestamp(),
        left(COALESCE($4, ''), 512), left(COALESCE($5, ''), 512), $6::uuid,
-       $7::uuid, $8::integer, 'PHASE7_V1', 'PENDING_REAUTH'
+       $7::integer, 'PHASE7_V1', 'PENDING_REAUTH'
      )
      RETURNING "id", "expiresAt", "createdAt", "updatedAt", "userId"`,
     input.sessionId,
@@ -746,7 +693,6 @@ export const stageReauthentication = async (
     input.ipAddress,
     input.userAgent,
     intent.userId,
-    intent.sessionFamilyId,
     intent.capturedAuthorityGeneration
   )
   const updated = await transaction.$executeRawUnsafe(
@@ -769,7 +715,6 @@ export const stageReauthentication = async (
 
 export interface FinalizedReauthentication {
   id: string
-  familyId: string
   createdAt: Date
   expiresAt: Date
   authorityGeneration: number
@@ -777,8 +722,7 @@ export interface FinalizedReauthentication {
 
 /**
  * phase7_finalize_reauthentication inside the caller's transaction: activate
- * the staged Session, revoke the old one, write the rotation fence and the
- * REAUTHENTICATION audit row, and re-check authority before and after the
+ * the staged Session, delete the old one, write the REAUTHENTICATION audit row, and re-check authority before and after the
  * intent becomes FINALIZED. Every failure raises.
  */
 export const finalizeReauthentication = async (
@@ -806,12 +750,6 @@ export const finalizeReauthentication = async (
   await transaction.$queryRawUnsafe(
     `SELECT 1 FROM "User" WHERE "id" = $1::uuid FOR UPDATE`,
     first.userId
-  )
-  await transaction.$queryRawUnsafe(
-    `SELECT 1 FROM "AuthSessionFamily"
-     WHERE "userId" = $1::uuid AND "id" = $2::uuid FOR UPDATE`,
-    first.userId,
-    first.sessionFamilyId
   )
   await transaction.$queryRawUnsafe(
     `SELECT 1 FROM "Session"
@@ -854,34 +792,28 @@ export const finalizeReauthentication = async (
        CASE WHEN old_session."createdAt" + INTERVAL '5 minutes' > clock_timestamp()
          THEN 'SESSION_FRESH' ELSE 'SESSION_STALE' END AS "beforeState",
        pending."expiresAt" - pending."createdAt" = INTERVAL '1 day'
-         AND pending."authorityGeneration" = $5::integer
+         AND pending."authorityGeneration" = $4::integer
          AND old_session."expiresAt" > clock_timestamp()
          AND old_session."createdAt" + INTERVAL '30 days' > clock_timestamp()
          AND pending."expiresAt" > clock_timestamp()
          AND EXISTS (
            SELECT 1 FROM "User" AS target_user
-           JOIN "AuthSessionFamily" AS family
-             ON family."userId" = target_user."id" AND family."id" = $3::uuid
            WHERE target_user."id" = $1::uuid
-             AND target_user."authorityGeneration" = $5::integer
-             AND target_user."role" = $6::"UserRole"
-             AND target_user."accountStatus" = $7::"UserAccountStatus"
-             AND family."status" = 'ACTIVE'
+             AND target_user."authorityGeneration" = $4::integer
+             AND target_user."role" = $5::"UserRole"
+             AND target_user."accountStatus" = $6::"UserAccountStatus"
          ) AS ready
      FROM "Session" AS old_session
      JOIN "Session" AS pending
-       ON pending."id" = $4::uuid AND pending."userId" = $1::uuid
-      AND pending."sessionFamilyId" = $3::uuid
-      AND pending."token" = $8
+       ON pending."id" = $3::uuid AND pending."userId" = $1::uuid
+      AND pending."token" = $7
       AND pending."authorizationState" = 'PENDING_REAUTH'
       AND pending."issuerProtocolVersion" = 'PHASE7_V1'
      WHERE old_session."id" = $2::uuid AND old_session."userId" = $1::uuid
-       AND old_session."sessionFamilyId" = $3::uuid
        AND old_session."issuerProtocolVersion" = 'PHASE7_V1'
        AND old_session."authorizationState" = 'ACTIVE'`,
     intent.userId,
     intent.oldSessionId,
-    intent.sessionFamilyId,
     intent.stagedSessionId,
     intent.capturedAuthorityGeneration,
     intent.capturedRole,
@@ -915,13 +847,11 @@ export const finalizeReauthentication = async (
   const deleted = await transaction.$executeRawUnsafe(
     `DELETE FROM "Session"
      WHERE "id" = $1::uuid AND "userId" = $2::uuid
-       AND "sessionFamilyId" = $3::uuid
        AND "issuerProtocolVersion" = 'PHASE7_V1'
-       AND "authorizationState" = 'ACTIVE' AND "token" = $4
-       AND "authorityGeneration" = $5::integer`,
+       AND "authorizationState" = 'ACTIVE' AND "token" = $3
+       AND "authorityGeneration" = $4::integer`,
     intent.oldSessionId,
     intent.userId,
-    intent.sessionFamilyId,
     pair.token,
     intent.capturedAuthorityGeneration
   )
@@ -931,23 +861,6 @@ export const finalizeReauthentication = async (
       '40001',
       'Reauthentication old Session exact CAS failed.'
     )
-  await transaction.$executeRawUnsafe(
-    `INSERT INTO "AuthSessionRotationFence" (
-       "oldSessionId", "oldTokenDigest", "userId", "oldFamilyId",
-       "replacementFamilyId", "replacementSessionId", "operationId",
-       "expiresAt"
-     ) VALUES (
-       $1::uuid, $2, $3::uuid, $4::uuid, $4::uuid, $5::uuid, $6::uuid,
-       $7::timestamptz
-     )`,
-    intent.oldSessionId,
-    intent.oldFenceTokenDigest,
-    intent.userId,
-    intent.sessionFamilyId,
-    intent.stagedSessionId,
-    intent.operationId,
-    activatedSession.expiresAt
-  )
   await transaction.$executeRawUnsafe(
     `INSERT INTO "AdminAuditLog" (
        "command", "targetType", "targetId", "actorKind", "actorUserId",
@@ -1009,7 +922,6 @@ export const finalizeReauthentication = async (
     )
   return {
     id: intent.stagedSessionId,
-    familyId: intent.sessionFamilyId,
     createdAt: activatedSession.createdAt,
     expiresAt: activatedSession.expiresAt,
     authorityGeneration: intent.capturedAuthorityGeneration
@@ -1140,14 +1052,10 @@ const confirmIssuedSession = async (
        FROM "User" AS target_user
        JOIN "Session" AS session
          ON session."userId" = target_user."id" AND session."id" = $2::uuid
-       JOIN "AuthSessionFamily" AS family
-         ON family."userId" = target_user."id"
-        AND family."id" = session."sessionFamilyId"
        WHERE target_user."id" = $1::uuid
          AND target_user."authorityGeneration" = $3::integer
          AND target_user."role" = 'ADMIN'
          AND target_user."accountStatus" = 'ACTIVE'
-         AND family."status" = 'ACTIVE'
          AND session."token" = $4
          AND session."authorizationState" = 'ACTIVE'
          AND session."issuerProtocolVersion" = 'PHASE7_V1'
@@ -1184,7 +1092,7 @@ export interface ReconciledReauthentication extends FinalizedReauthentication {
 
 /**
  * phase7_reconcile_reauthentication: the exact FINALIZED rotation of an intent,
- * with its fence and audit row, while the replacement still holds authority.
+ * with its audit row, while the replacement still holds authority.
  */
 export const reconcileReauthentication = async (
   client: Pick<PrismaClient, '$queryRawUnsafe'>,
@@ -1202,8 +1110,7 @@ export const reconcileReauthentication = async (
       }
     >
   >(
-    `SELECT intent."state"::TEXT AS state, session."id",
-       session."sessionFamilyId" AS "familyId", session."createdAt",
+    `SELECT intent."state"::TEXT AS state, session."id", session."createdAt",
        session."expiresAt", session."authorityGeneration",
        intent."operationId", intent."stagedTokenDigest",
        audit."beforeState" AS "auditBeforeState",
@@ -1212,20 +1119,7 @@ export const reconcileReauthentication = async (
      JOIN "Session" AS session
        ON session."id" = intent."stagedSessionId"
       AND session."userId" = intent."userId"
-      AND session."sessionFamilyId" = intent."sessionFamilyId"
-     JOIN "AuthSessionFamily" AS family
-       ON family."id" = session."sessionFamilyId"
-      AND family."userId" = session."userId"
      JOIN "User" AS target_user ON target_user."id" = session."userId"
-     JOIN "AuthSessionRotationFence" AS fence
-       ON fence."operationId" = intent."operationId"
-      AND fence."replacementSessionId" = session."id"
-      AND fence."oldSessionId" = intent."oldSessionId"
-      AND fence."oldTokenDigest" = intent."oldFenceTokenDigest"
-      AND fence."userId" = intent."userId"
-      AND fence."oldFamilyId" = intent."sessionFamilyId"
-      AND fence."replacementFamilyId" = intent."sessionFamilyId"
-      AND fence."expiresAt" = session."expiresAt"
      JOIN "AdminAuditLog" AS audit
        ON audit."operationId" = intent."operationId"
       AND audit."command" = 'REAUTHENTICATION'
@@ -1255,7 +1149,6 @@ export const reconcileReauthentication = async (
        AND target_user."authorityGeneration" = intent."capturedAuthorityGeneration"
        AND target_user."role" = 'ADMIN'
        AND target_user."accountStatus" = 'ACTIVE'
-       AND family."status" = 'ACTIVE'
        AND session."expiresAt" > clock_timestamp()
        AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()
      LIMIT 1`,
@@ -1269,16 +1162,13 @@ export const reconcileReauthentication = async (
         row.auditDigest ===
           reauthenticationAuditDigest(row.operationId, row.auditBeforeState)
     )
-    .map(
-      ({ state, id, familyId, createdAt, expiresAt, authorityGeneration }) => ({
-        state,
-        id,
-        familyId,
-        createdAt,
-        expiresAt,
-        authorityGeneration
-      })
-    )
+    .map(({ state, id, createdAt, expiresAt, authorityGeneration }) => ({
+      state,
+      id,
+      createdAt,
+      expiresAt,
+      authorityGeneration
+    }))
 }
 
 /**
@@ -1339,12 +1229,6 @@ export const abortReauthentication = async (
       `SELECT 1 FROM "User" WHERE "id" = $1::uuid FOR UPDATE`,
       first.userId
     )
-    await transaction.$queryRawUnsafe(
-      `SELECT 1 FROM "AuthSessionFamily"
-       WHERE "userId" = $1::uuid AND "id" = $2::uuid FOR UPDATE`,
-      first.userId,
-      first.sessionFamilyId
-    )
     if (first.stagedSessionId)
       await transaction.$queryRawUnsafe(
         `SELECT 1 FROM "Session" WHERE "id" = $1::uuid FOR UPDATE`,
@@ -1357,11 +1241,9 @@ export const abortReauthentication = async (
       await transaction.$executeRawUnsafe(
         `DELETE FROM "Session"
          WHERE "id" = $1::uuid AND "userId" = $2::uuid
-           AND "sessionFamilyId" = $3::uuid
            AND "authorizationState" = 'PENDING_REAUTH'`,
         intent.stagedSessionId,
-        intent.userId,
-        intent.sessionFamilyId
+        intent.userId
       )
     const removed = await transaction.$executeRawUnsafe(
       `DELETE FROM "Phase7ReauthenticationIntent"
@@ -1441,15 +1323,14 @@ export const cleanupReauthentication = async (
     const candidates = await transaction.$queryRawUnsafe<
       Array<{
         id: string
-        sessionFamilyId: string
         stagedSessionId: string | null
         userId: string
       }>
     >(
-      `SELECT "id", "userId", "sessionFamilyId", "stagedSessionId"
+      `SELECT "id", "userId", "stagedSessionId"
        FROM "Phase7ReauthenticationIntent"
        WHERE ${CLEANUP_CANDIDATE.replaceAll('$2', '$1')}
-       ORDER BY "userId", "sessionFamilyId", "id" LIMIT $2`,
+       ORDER BY "userId", "id" LIMIT $2`,
       checkedAt,
       maximumRows
     )
@@ -1468,15 +1349,6 @@ export const cleanupReauthentication = async (
       intentIds
     )
     await transaction.$queryRawUnsafe(
-      `SELECT 1 FROM "AuthSessionFamily"
-       WHERE ("userId", "id") IN (
-         SELECT "userId", "sessionFamilyId" FROM "Phase7ReauthenticationIntent"
-         WHERE "id" = ANY($1::uuid[])
-       )
-       ORDER BY "userId", "id" FOR UPDATE`,
-      intentIds
-    )
-    await transaction.$queryRawUnsafe(
       `SELECT 1 FROM "Session" WHERE "id" = ANY($1::uuid[])
        ORDER BY "userId", "id" FOR UPDATE`,
       sessionIds
@@ -1484,7 +1356,7 @@ export const cleanupReauthentication = async (
     await transaction.$queryRawUnsafe(
       `SELECT 1 FROM "Phase7ReauthenticationIntent"
        WHERE "id" = ANY($1::uuid[])
-       ORDER BY "userId", "sessionFamilyId", "id" FOR UPDATE`,
+       ORDER BY "userId", "id" FOR UPDATE`,
       intentIds
     )
     const pendingSessionsDeleted = await transaction.$executeRawUnsafe(
@@ -1497,7 +1369,6 @@ export const cleanupReauthentication = async (
              AND intent."finalizedAt" <= $2::timestamptz - INTERVAL '15 minutes'))
          AND session."id" = intent."stagedSessionId"
          AND session."userId" = intent."userId"
-         AND session."sessionFamilyId" = intent."sessionFamilyId"
          AND session."authorizationState" = 'PENDING_REAUTH'`,
       intentIds,
       checkedAt

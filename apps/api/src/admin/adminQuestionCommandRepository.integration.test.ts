@@ -934,10 +934,6 @@ const cleanupFixtures = async (): Promise<void> => {
       [actorIds]
     )
     await adminClient.query(
-      `DELETE FROM "AuthSessionFamily" WHERE "userId" = ANY($1::uuid[])`,
-      [actorIds]
-    )
-    await adminClient.query(
       `DELETE FROM "Account" WHERE "userId" = ANY($1::uuid[])`,
       [actorIds]
     )

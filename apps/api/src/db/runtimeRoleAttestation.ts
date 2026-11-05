@@ -172,8 +172,7 @@ const ATTESTATION_QUERY = `
          ON sensitive_column.attrelid = sensitive_relation.oid
        WHERE sensitive_namespace.nspname = current_schema()
          AND sensitive_relation.relname = ANY(ARRAY[
-           'User', 'Account', 'Session', 'AuthSessionFamily',
-           'AuthSessionRotationFence',
+           'User', 'Account', 'Session',
            'Phase7ReauthenticationIntent',
            'Phase7AuthorityRevocationEvidence'
          ]::name[])
@@ -189,7 +188,6 @@ const ATTESTATION_QUERY = `
            -- them and every other sensitive column stays closed.
            CASE WHEN current_user <> 'nihongo_app' THEN 'SELECT,INSERT,UPDATE,REFERENCES'
            WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
-               ('AuthSessionFamily', 'status'),
                ('Phase7ReauthenticationIntent', 'finalizedAt'),
                ('Phase7ReauthenticationIntent', 'stagedSessionId'),
                ('Phase7ReauthenticationIntent', 'stagedTokenDigest'),
@@ -200,7 +198,6 @@ const ATTESTATION_QUERY = `
                ('Account', 'id'),
                ('Account', 'providerId'),
                ('Account', 'userId'),
-               ('AuthSessionRotationFence', 'id'),
                ('Phase7AuthorityRevocationEvidence', 'expiresAt'),
                ('Phase7AuthorityRevocationEvidence', 'tokenDigest'),
                ('User', 'accountStatus'),
@@ -214,7 +211,6 @@ const ATTESTATION_QUERY = `
                ('User', 'targetLevel')
              ) THEN 'INSERT,UPDATE,REFERENCES'
            WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
-               ('AuthSessionRotationFence', 'expiresAt'),
                ('Phase7ReauthenticationIntent', 'state'),
                ('Session', 'authorizationState'),
                ('Session', 'expiresAt'),
@@ -230,33 +226,21 @@ const ATTESTATION_QUERY = `
                ('Session', 'userAgent')
              ) THEN 'SELECT,UPDATE,REFERENCES'
            WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
-               ('AuthSessionFamily', 'id'),
-               ('AuthSessionFamily', 'userId'),
-               ('AuthSessionRotationFence', 'oldFamilyId'),
-               ('AuthSessionRotationFence', 'oldSessionId'),
-               ('AuthSessionRotationFence', 'oldTokenDigest'),
-               ('AuthSessionRotationFence', 'operationId'),
-               ('AuthSessionRotationFence', 'replacementFamilyId'),
-               ('AuthSessionRotationFence', 'replacementSessionId'),
-               ('AuthSessionRotationFence', 'userId'),
                ('Phase7ReauthenticationIntent', 'capturedAccountStatus'),
                ('Phase7ReauthenticationIntent', 'capturedAuthorityGeneration'),
                ('Phase7ReauthenticationIntent', 'capturedRole'),
                ('Phase7ReauthenticationIntent', 'environment'),
                ('Phase7ReauthenticationIntent', 'expiresAt'),
                ('Phase7ReauthenticationIntent', 'id'),
-               ('Phase7ReauthenticationIntent', 'oldFenceTokenDigest'),
                ('Phase7ReauthenticationIntent', 'oldSessionId'),
                ('Phase7ReauthenticationIntent', 'oldTokenDigest'),
                ('Phase7ReauthenticationIntent', 'operationId'),
                ('Phase7ReauthenticationIntent', 'requestId'),
-               ('Phase7ReauthenticationIntent', 'sessionFamilyId'),
                ('Phase7ReauthenticationIntent', 'userId'),
                ('Session', 'authorityGeneration'),
                ('Session', 'createdAt'),
                ('Session', 'id'),
                ('Session', 'issuerProtocolVersion'),
-               ('Session', 'sessionFamilyId'),
                ('Session', 'token'),
                ('Session', 'userId')
              ) THEN 'UPDATE,REFERENCES'
@@ -268,8 +252,7 @@ const ATTESTATION_QUERY = `
          ON sensitive_namespace.oid = sensitive_relation.relnamespace
        WHERE sensitive_namespace.nspname = current_schema()
          AND sensitive_relation.relname = ANY(ARRAY[
-           'User', 'Account', 'Session', 'AuthSessionFamily',
-           'AuthSessionRotationFence',
+           'User', 'Account', 'Session',
            'Phase7ReauthenticationIntent',
            'Phase7AuthorityRevocationEvidence'
          ]::name[])
@@ -280,8 +263,7 @@ const ATTESTATION_QUERY = `
            -- limit which of these rows nihongo_app may delete.
            CASE WHEN current_user = 'nihongo_app'
              AND sensitive_relation.relname IN (
-               'User', 'Session', 'AuthSessionFamily',
-               'AuthSessionRotationFence', 'Phase7ReauthenticationIntent',
+               'User', 'Session', 'Phase7ReauthenticationIntent',
                'Phase7AuthorityRevocationEvidence'
              )
            THEN 'SELECT,INSERT,UPDATE,TRUNCATE,REFERENCES,TRIGGER'
