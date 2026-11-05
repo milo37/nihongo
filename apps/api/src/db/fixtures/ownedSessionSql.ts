@@ -18,6 +18,7 @@ import {
   stageReauthentication,
   type AdminFreshContextValue
 } from '../../auth/adminFreshAuthority.js'
+import { createQuestionReportInTransaction } from '../../admin/questionReportAuthority.js'
 import {
   completeSsoAccountErasure,
   eraseUserForTest,
@@ -173,7 +174,8 @@ const BRIDGED_FUNCTIONS = [
   'phase7_list_sso_account_erasures',
   'phase7_sso_account_erasure_status',
   'phase7_redact_expired_report_descriptions',
-  'phase7_request_sso_account_erasure'
+  'phase7_request_sso_account_erasure',
+  'phase7_create_question_report'
 ] as const
 
 /** client.query, except that calls to the dropped functions use the bridge. */
@@ -578,6 +580,29 @@ export const ownedSessionSql = async <
       async (input) => [
         await ssoAccountErasureStatus(owned, input.receiptDigest as string)
       ]
+    ],
+    // #504 P7 PR4c-2: QuestionReport creation.
+    [
+      'phase7_create_question_report',
+      [
+        ['rawSessionToken', 'text'],
+        ['reportId', 'uuid'],
+        ['questionId', 'uuid'],
+        ['questionVersionId', 'uuid'],
+        ['reason', 'text'],
+        ['description', 'text']
+      ],
+      async (input) =>
+        owned.$transaction((transaction) =>
+          createQuestionReportInTransaction(transaction, {
+            rawSessionToken: input.rawSessionToken as string,
+            reportId: input.reportId as string,
+            questionId: input.questionId as string,
+            questionVersionId: input.questionVersionId as string,
+            reason: input.reason as string,
+            description: input.description as string
+          })
+        )
     ],
     // #504 P7 PR4b-2: the SSO account erasure request.
     [

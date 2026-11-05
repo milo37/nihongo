@@ -1461,7 +1461,9 @@ describe('V1 retirement trusted boundary', () => {
         await tx.$executeRaw`SET LOCAL ROLE "nihongo_phase7_migration"`
         await tx.$queryRaw`SELECT * FROM "phase7_retire_v1_sessions"(ARRAY[${legacy.sessionId}::uuid])`
       })
-    ).rejects.toThrow('23505')
+      // #504 P7 PR4c-2: retirement no longer opens trusted execution, so the
+      // forged context is never consumed and the commit is refused.
+    ).rejects.toThrow('Trusted execution was not consumed.')
     expect(
       await database.client.studySession.findUnique({
         where: { id: legacy.sessionId }

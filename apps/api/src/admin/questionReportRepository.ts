@@ -12,6 +12,7 @@ import type { StableErrorCode } from '@nihongo/contracts/common/error'
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 import { rawDatabaseIdentity } from './adminRepositoryCommon.js'
 import { v1PrincipalQuery } from '../auth/ownedSessionAuthority.js'
+import { createQuestionReportInTransaction } from './questionReportAuthority.js'
 
 export interface QuestionReportCreateAuthority {
   readonly actorId: string
@@ -317,19 +318,14 @@ export const createPrismaQuestionReportRepository = (
     try {
       return await client.$transaction(
         async (transaction) => {
-          const created = await transaction.$queryRawUnsafe<
-            Array<{ id: string; rowVersion: number }>
-          >(
-            `SELECT * FROM "phase7_create_question_report"(
-               $1, $2, $3, $4, $5::"QuestionReportReason", $6
-             )`,
-            authority.rawSessionToken,
+          const created = await createQuestionReportInTransaction(transaction, {
+            rawSessionToken: authority.rawSessionToken,
             reportId,
             questionId,
-            request.questionVersionId,
-            request.reason,
-            request.description
-          )
+            questionVersionId: request.questionVersionId,
+            reason: request.reason,
+            description: request.description
+          })
           if (
             created.length !== 1 ||
             created[0]?.id !== reportId ||
