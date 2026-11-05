@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react'
+import { submitStudyAnswers } from '@/test/studySubmission'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
-import { createStudySessionV1 } from '@api/study/createStudySessionV1'
-import { submitStudySessionV1 } from '@api/study/submitStudySessionV1'
+import { createStudySessionV2 } from '@api/study/createStudySessionV2'
 import { getWrongNoteMemo } from '@api/wrong-note/getWrongNoteMemo'
 import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
 import { commitCanonicalAuth } from '@nihongo/browser/app/login/authSession'
@@ -16,7 +16,7 @@ import { mockServer } from '@/test/server'
 
 const renderMemoAction = async () => {
   mockDatabase.loginAs('USER')
-  const created = await createStudySessionV1({
+  const { data: created } = await createStudySessionV2({
     level: 'N5',
     subject: 'VOCABULARY',
     mode: 'RANDOM',
@@ -25,19 +25,16 @@ const renderMemoAction = async () => {
   const question = toCanonicalStudySessionView(created).questions[0]
   if (!question?.sessionQuestionId)
     throw new Error('Canonical question fixture required')
-  await submitStudySessionV1(
+  await submitStudyAnswers(
     created.session.id,
-    {
-      answers: [
-        {
-          studySessionQuestionId: question.sessionQuestionId,
-          selectedOptionId: null,
-          elapsedSec: 0
-        }
-      ],
-      durationSec: 0
-    },
-    crypto.randomUUID()
+    [
+      {
+        studySessionQuestionId: question.sessionQuestionId,
+        selectedOptionId: null,
+        elapsedSec: 0
+      }
+    ],
+    0
   )
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } }

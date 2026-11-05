@@ -6,7 +6,6 @@ import { dashboardV1Handlers } from '@mocks/handlers/dashboardV1Handlers'
 import { questionHandlers } from '@mocks/handlers/questionHandlers'
 import { reportHandlers } from '@mocks/handlers/reportHandlers'
 import { reviewCenterHandlers } from '@mocks/handlers/reviewCenterHandlers'
-import { studyHandlers } from '@mocks/handlers/studyHandlers'
 import { studyDraftV2Handlers } from '@mocks/handlers/studyDraftV2Handlers'
 import { studyResultRetryHandlers } from '@mocks/handlers/studyResultRetryHandlers'
 import { studySessionV1Handlers } from '@mocks/handlers/studySessionV1Handlers'
@@ -24,7 +23,6 @@ export const handlers = [
   ...wrongNoteV1Handlers,
   ...dashboardInsightsV1Handlers,
   ...dashboardV1Handlers,
-  ...studyHandlers,
   ...wrongNoteHandlers,
   ...bookmarkHandlers,
   ...dashboardHandlers
