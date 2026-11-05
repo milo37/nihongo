@@ -53,6 +53,7 @@ interface RuntimeRoleEndpoint {
   client: Pick<PrismaClient, '$queryRawUnsafe'>
   connectionString: string
   expectedRole: RuntimeRole
+  deploymentEnvironment?: string | undefined
 }
 
 const ATTESTATION_QUERY = `
@@ -376,14 +377,20 @@ const arraysEqual = (
   left.length === right.length &&
   left.every((value, index) => value === right[index])
 
-const expectedWrapperRole = (database: string): string | null => {
-  const environmentPrefix = database.endsWith('_test')
-    ? 'nihongo_test'
-    : database.endsWith('_dev')
-      ? 'nihongo_development'
-      : database === PRODUCTION_DATABASE_NAME
+const expectedWrapperRole = (
+  database: string,
+  deploymentEnvironment: string | undefined
+): string | null => {
+  const environmentPrefix =
+    deploymentEnvironment === 'PRODUCTION'
+      ? database === PRODUCTION_DATABASE_NAME
         ? PRODUCTION_LOGIN_PREFIX
         : null
+      : database.endsWith('_test')
+        ? 'nihongo_test'
+        : database.endsWith('_dev')
+          ? 'nihongo_development'
+          : null
   if (!environmentPrefix) return null
   const roleSuffix = 'app_login'
   return `${environmentPrefix}_${roleSuffix}`
@@ -396,7 +403,10 @@ const assertEndpoint = (
   const configuredLogin = getConfiguredLoginRole(endpoint.connectionString)
   const configuredDatabase = getConfiguredDatabase(endpoint.connectionString)
   const configuredSchema = getPostgresSchema(endpoint.connectionString)
-  const requiredLogin = expectedWrapperRole(configuredDatabase)
+  const requiredLogin = expectedWrapperRole(
+    configuredDatabase,
+    endpoint.deploymentEnvironment
+  )
   const isExact =
     requiredLogin !== null &&
     configuredLogin === requiredLogin &&
@@ -469,7 +479,8 @@ export const attestRuntimeRoles = async ({
   assertRuntimeRoleEvidence(applicationRows[0]!, {
     application: {
       connectionString: application.connectionString,
-      expectedRole: application.expectedRole
+      expectedRole: application.expectedRole,
+      deploymentEnvironment: application.deploymentEnvironment
     }
   })
 }

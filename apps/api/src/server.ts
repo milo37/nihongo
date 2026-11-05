@@ -97,7 +97,8 @@ const database = createDatabaseRuntime(environment.DATABASE_URL, {
 const checkDatabaseReadiness = createOwnedAuthReadiness({
   checkDatabaseReadiness: database.checkReadiness,
   applicationClient: database.client,
-  applicationUrl: environment.DATABASE_URL
+  applicationUrl: environment.DATABASE_URL,
+  deploymentEnvironment: environment.DEPLOYMENT_ENVIRONMENT
 })
 const disconnectDatabases = async (): Promise<void> => {
   await database.disconnect()

@@ -1,6 +1,7 @@
 import { isIP } from 'node:net'
 import { z } from 'zod'
 import {
+  hasProductionSslMode,
   PRODUCTION_DATABASE_NAME,
   PRODUCTION_LOGIN_PREFIX
 } from '../db/databaseTargetGuard.js'
@@ -31,7 +32,8 @@ const toUrlOrNull = (value: string): URL | null => {
 
 const databaseLoginContract = (
   value: string,
-  roleSuffix: 'app_login'
+  roleSuffix: 'app_login',
+  deploymentEnvironment: z.output<typeof deploymentEnvironmentSchema>
 ): { configured: string; expected: string | null } | null => {
   const url = toUrlOrNull(value)
   if (!url) return null
@@ -43,13 +45,18 @@ const databaseLoginContract = (
   } catch {
     return null
   }
-  const prefix = database.endsWith('_test')
-    ? 'nihongo_test'
-    : database.endsWith('_dev')
-      ? 'nihongo_development'
-      : database === PRODUCTION_DATABASE_NAME
+  // The PRODUCTION deployment only accepts its own database; no other
+  // deployment (including production-shaped TEST smoke) may use it.
+  const prefix =
+    deploymentEnvironment === 'PRODUCTION'
+      ? database === PRODUCTION_DATABASE_NAME
         ? PRODUCTION_LOGIN_PREFIX
         : null
+      : database.endsWith('_test')
+        ? 'nihongo_test'
+        : database.endsWith('_dev')
+          ? 'nihongo_development'
+          : null
   const expected = prefix ? `${prefix}_${roleSuffix}` : null
   return { configured, expected }
 }
@@ -283,7 +290,11 @@ const apiEnvironmentSchema = z
         })
       }
       if (value) {
-        const login = databaseLoginContract(value, roleSuffix)
+        const login = databaseLoginContract(
+          value,
+          roleSuffix,
+          environment.DEPLOYMENT_ENVIRONMENT
+        )
         if (
           login === null ||
           login.expected === null ||
@@ -320,13 +331,7 @@ const apiEnvironmentSchema = z
 
     const databaseUrl = toUrlOrNull(environment.DATABASE_URL)
     if (!databaseUrl) return
-    const sslModes = databaseUrl.searchParams.getAll('sslmode')
-    const sslMode = sslModes[0]?.toLowerCase()
-
-    if (
-      sslModes.length !== 1 ||
-      !['require', 'verify-ca', 'verify-full'].includes(sslMode ?? '')
-    ) {
+    if (!hasProductionSslMode(databaseUrl)) {
       context.addIssue({
         code: 'custom',
         path: ['DATABASE_URL'],

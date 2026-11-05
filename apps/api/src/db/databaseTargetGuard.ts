@@ -33,6 +33,16 @@ interface DatabaseIdentity {
 /** Production database and login names shared with the infra provisioning. */
 export const PRODUCTION_DATABASE_NAME = 'nihongo'
 export const PRODUCTION_LOGIN_PREFIX = 'nihongo_production'
+/** TLS is mandatory in production; a verifying mode is also accepted. */
+export const hasProductionSslMode = (url: URL): boolean => {
+  const modes = url.searchParams.getAll('sslmode')
+  return (
+    modes.length === 1 &&
+    ['require', 'verify-ca', 'verify-full'].includes(
+      modes[0]?.toLowerCase() ?? ''
+    )
+  )
+}
 
 const POSTGRES_SCHEMA_PATTERN = /^[a-z_][a-z0-9_]*$/
 const MIGRATION_STARTUP_OPTIONS = '-c role=nihongo_migration'
@@ -273,7 +283,7 @@ export const assertSafeMigrationDatabase = ({
     const production = parseDatabaseUrl(productionDatabaseUrl)
     if (
       migrationIdentity.databaseName !== PRODUCTION_DATABASE_NAME ||
-      migration.searchParams.getAll('sslmode').join() !== 'require' ||
+      !hasProductionSslMode(migration) ||
       !isSameDatabase(migrationIdentity, getIdentity(production)) ||
       getExactSchema(migration) !== getExactSchema(production)
     ) {

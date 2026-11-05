@@ -38,6 +38,16 @@ describe('production migration target (B1)', () => {
     expect(migration({})).not.toThrow()
   })
 
+  it('accepts a verifying sslmode, the same TLS rule as the runtime', () => {
+    expect(
+      migration({
+        migrationDatabaseUrl: change(migrationUrl, (url) => {
+          url.searchParams.set('sslmode', 'verify-full')
+        })
+      })
+    ).not.toThrow()
+  })
+
   it.each<[string, Parameters<typeof migration>[0]]>([
     [
       'a test migration login',
@@ -135,25 +145,26 @@ describe('production migration target (B1)', () => {
 
 describe('production runtime login contract (B2)', () => {
   const origin = 'https://app.example.test'
+  const productionInput = (databaseUrl: string) => ({
+    NODE_ENV: 'production',
+    DEPLOYMENT_ENVIRONMENT: 'PRODUCTION',
+    RELEASE_ID: 'a'.repeat(40),
+    HOST: '127.0.0.1',
+    PORT: '3001',
+    LOG_LEVEL: 'error',
+    DATABASE_URL: databaseUrl,
+    TRUSTED_ORIGINS: origin,
+    BETTER_AUTH_URL: origin,
+    BETTER_AUTH_SECRET: 'test-auth-placeholder-only-1234567890',
+    GUEST_COOKIE_SECRET: 'test-guest-placeholder-only-1234567890',
+    AUTH_EMAIL_FROM: 'placeholder@example.test',
+    AUTH_EMAIL_DELIVERY_MODE: 'webhook',
+    AUTH_EMAIL_WEBHOOK_URL: 'https://mail.example.test',
+    AUTH_EMAIL_WEBHOOK_SECRET: 'test-webhook-placeholder-only-1234567890',
+    AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32'
+  })
   const production = (databaseUrl: string) => () =>
-    parseApiEnvironment({
-      NODE_ENV: 'production',
-      DEPLOYMENT_ENVIRONMENT: 'PRODUCTION',
-      RELEASE_ID: 'a'.repeat(40),
-      HOST: '127.0.0.1',
-      PORT: '3001',
-      LOG_LEVEL: 'error',
-      DATABASE_URL: databaseUrl,
-      TRUSTED_ORIGINS: origin,
-      BETTER_AUTH_URL: origin,
-      BETTER_AUTH_SECRET: 'test-auth-placeholder-only-1234567890',
-      GUEST_COOKIE_SECRET: 'test-guest-placeholder-only-1234567890',
-      AUTH_EMAIL_FROM: 'placeholder@example.test',
-      AUTH_EMAIL_DELIVERY_MODE: 'webhook',
-      AUTH_EMAIL_WEBHOOK_URL: 'https://mail.example.test',
-      AUTH_EMAIL_WEBHOOK_SECRET: 'test-webhook-placeholder-only-1234567890',
-      AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32'
-    })
+    parseApiEnvironment(productionInput(databaseUrl))
 
   it('accepts the production app login on nihongo', () => {
     expect(production(runtimeUrl)).not.toThrow()
@@ -189,9 +200,53 @@ describe('production runtime login contract (B2)', () => {
       change(runtimeUrl, (url) => {
         url.searchParams.delete('schema')
       })
+    ],
+    [
+      'the test database and login',
+      change(runtimeUrl, (url) => {
+        url.username = 'nihongo_test_app_login'
+        url.pathname = '/nihongo_test'
+      })
+    ],
+    [
+      'the development database and login',
+      change(runtimeUrl, (url) => {
+        url.username = 'nihongo_development_app_login'
+        url.pathname = '/nihongo_dev'
+      })
     ]
   ])('rejects %s', (_label, databaseUrl) => {
     expect(production(databaseUrl)).toThrow()
+  })
+
+  it('keeps the production-shaped TEST smoke on its test database and login', () => {
+    const smoke = (databaseUrl: string) => () =>
+      parseApiEnvironment({
+        ...productionInput(databaseUrl),
+        DEPLOYMENT_ENVIRONMENT: 'TEST'
+      })
+    expect(
+      smoke(
+        'postgresql://nihongo_test_app_login:unit-only@postgres:5432/nihongo_runtime_smoke_test?schema=public&sslmode=verify-full'
+      )
+    ).not.toThrow()
+    expect(smoke(runtimeUrl)).toThrow('DATABASE_URL')
+  })
+
+  it('keeps the production login out of a test runtime', () => {
+    const localOrigin = 'http://127.0.0.1:5173'
+    expect(() =>
+      parseApiEnvironment({
+        NODE_ENV: 'test',
+        DEPLOYMENT_ENVIRONMENT: 'TEST',
+        DATABASE_URL: runtimeUrl,
+        PRODUCTION_DATABASE_URL: runtimeUrl,
+        TRUSTED_ORIGINS: localOrigin,
+        BETTER_AUTH_URL: localOrigin,
+        BETTER_AUTH_SECRET: 'test-auth-placeholder-only-1234567890',
+        GUEST_COOKIE_SECRET: 'test-guest-placeholder-only-1234567890'
+      })
+    ).toThrow('DATABASE_URL')
   })
 })
 
@@ -240,7 +295,11 @@ describe('production runtime role attestation (B2)', () => {
     timeZone: 'UTC',
     ...change
   })
-  const attest = (row: RuntimeRoleEvidence, connectionString = runtimeUrl) =>
+  const attest = (
+    row: RuntimeRoleEvidence,
+    connectionString = runtimeUrl,
+    deploymentEnvironment = 'PRODUCTION'
+  ) =>
     attestRuntimeRoles({
       application: {
         client: {
@@ -249,7 +308,8 @@ describe('production runtime role attestation (B2)', () => {
           ]) as unknown as PrismaClient['$queryRawUnsafe']
         },
         connectionString,
-        expectedRole: 'nihongo_app'
+        expectedRole: 'nihongo_app',
+        deploymentEnvironment
       }
     })
 
@@ -272,6 +332,27 @@ describe('production runtime role attestation (B2)', () => {
         })
       )
     ).rejects.toThrow('Runtime DB role attestation failed.')
+  })
+
+  it('rejects the test database and login in the PRODUCTION deployment', async () => {
+    await expect(
+      attest(
+        evidence({
+          currentDatabase: 'nihongo_test',
+          sessionUser: 'nihongo_test_app_login'
+        }),
+        change(runtimeUrl, (url) => {
+          url.username = 'nihongo_test_app_login'
+          url.pathname = '/nihongo_test'
+        })
+      )
+    ).rejects.toThrow('Runtime DB role attestation failed.')
+  })
+
+  it('rejects the production database outside the PRODUCTION deployment', async () => {
+    await expect(attest(evidence(), runtimeUrl, 'TEST')).rejects.toThrow(
+      'Runtime DB role attestation failed.'
+    )
   })
 
   it('rejects production without the expected wrapper CONNECT grants', async () => {
