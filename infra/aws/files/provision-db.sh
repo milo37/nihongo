@@ -7,17 +7,30 @@
 set -euo pipefail
 cd /opt/harumaru
 
-set -a
-# shellcheck source=/dev/null
-source /run/harumaru/provision.env
-set +a
-
 fail() {
   echo "provision-db refused: $1" >&2
   exit 1
 }
 
 names=(PROD_MIGRATION_LOGIN_PASSWORD PROD_APP_LOGIN_PASSWORD PROD_GUEST_CLEANUP_LOGIN_PASSWORD)
+
+# SSM values are data: read KEY=VALUE lines literally, never `source` them, so a
+# value such as $(...) or `...` is not run by the shell. Only the listed keys load.
+load_env() {
+  local file="$1" line key value
+  shift
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" ]] && continue
+    key="${line%%=*}"
+    value="${line#*=}"
+    [[ "$line" == *=* && " $* " == *" $key "* ]] || fail "unexpected line in $file"
+    printf -v "$key" '%s' "$value"
+    export "${key?}"
+  done < "$file"
+}
+
+load_env /run/harumaru/provision.env "${names[@]}"
+
 seen=()
 for name in "${names[@]}"; do
   value="${!name:-}"
@@ -34,22 +47,22 @@ done
 
 # The connection URLs the API and the migration use must name the same wrappers
 # and passwords, or the first connection after this script would fail.
-python3 - /run/harumaru/api.env /run/harumaru/migrate.env <<'CHECK_PY' || fail 'DATABASE_URL / MIGRATION_DATABASE_URL do not match the wrapper logins.'
+python3 - <<'CHECK_PY' || fail 'DATABASE_URL / MIGRATION_DATABASE_URL do not match the wrapper logins.'
 import os, sys
 from urllib.parse import unquote, urlsplit
 
-values = {}
-for path in sys.argv[1:]:
+def read_env(path):
     with open(path) as handle:
-        for line in handle:
-            key, _, value = line.rstrip("\n").partition("=")
-            values[key] = value
-expected = {
-    "DATABASE_URL": ("nihongo_production_app_login", "PROD_APP_LOGIN_PASSWORD"),
-    "MIGRATION_DATABASE_URL": ("nihongo_production_migration_login", "PROD_MIGRATION_LOGIN_PASSWORD"),
-}
-for key, (login, secret) in expected.items():
-    url = urlsplit(values.get(key, ""))
+        return dict(line.rstrip("\n").partition("=")[::2] for line in handle if "=" in line)
+
+# Each URL from the file whose container uses it (migrate.env holds the runtime
+# URL without its password, for the migration guard only).
+expected = [
+    ("/run/harumaru/api.env", "DATABASE_URL", "nihongo_production_app_login", "PROD_APP_LOGIN_PASSWORD"),
+    ("/run/harumaru/migrate.env", "MIGRATION_DATABASE_URL", "nihongo_production_migration_login", "PROD_MIGRATION_LOGIN_PASSWORD"),
+]
+for path, key, login, secret in expected:
+    url = urlsplit(read_env(path).get(key, ""))
     if unquote(url.username or "") != login or unquote(url.password or "") != os.environ[secret]:
         sys.exit(1)
     if url.path != "/nihongo":
@@ -162,9 +175,10 @@ BEGIN
   FROM pg_catalog.pg_auth_members AS membership
   JOIN pg_catalog.pg_roles AS member_role ON member_role.oid = membership.member
   JOIN pg_catalog.pg_roles AS granted_role ON granted_role.oid = membership.roleid
+  -- Wrappers are leaves: no role may be granted a wrapper (QA #626 note 2).
   WHERE (
     member_role.rolname = ANY (group_names || wrapper_names)
-    OR granted_role.rolname = ANY (group_names)
+    OR granted_role.rolname = ANY (group_names || wrapper_names)
   )
     AND NOT EXISTS (
       SELECT 1
