@@ -1,9 +1,9 @@
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
 import type { ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
+import { TextLink } from '@nihongo/browser/common/components/TextLink'
 
 type ResultSetupLinkErrorProps = {
   autoFocus: boolean
@@ -23,14 +23,7 @@ export const ResultSetupLinkError = ({
       headingLevel={1}
       title={title}
       description={description}
-      action={
-        <Link
-          className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
-          to="/practice"
-        >
-          {t('newPractice')}
-        </Link>
-      }
+      action={<TextLink to="/practice">{t('newPractice')}</TextLink>}
     />
   )
 }
