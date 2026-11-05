@@ -56,18 +56,6 @@ const routineManifest = [
     false
   ],
   ['phase7_classify_admin_authority', 'raw_token text', true, false],
-  [
-    'phase7_create_question_report',
-    'raw_session_token text, report_id uuid, question_id_value uuid, question_version_id_value uuid, reason_value "QuestionReportReason", description_value text',
-    true,
-    false
-  ],
-  [
-    'phase7_create_question_report_pre_reauthentication',
-    'raw_session_token text, report_id uuid, question_id_value uuid, question_version_id_value uuid, reason_value "QuestionReportReason", description_value text',
-    false,
-    false
-  ],
   ['phase7_reauthentication_token_digest', 'raw_token text', false, false],
   [
     'phase7_record_authority_revocation',
@@ -169,7 +157,7 @@ const withinRollback = async (action: () => Promise<void>): Promise<void> => {
 
 let savepointSequence = 0
 const expectRoleFailure = async (
-  role: 'nihongo_app' | 'nihongo_auth_gateway',
+  role: 'nihongo_app' | 'nihongo_auth_gateway' | 'nihongo_phase7_migration',
   statement: string,
   values: readonly unknown[],
   expectedCode: string
@@ -1218,7 +1206,6 @@ describe('Reauthentication DB foundation', () => {
         .map((row) => row.name)
     ).toEqual([
       'phase7_classify_admin_authority',
-      'phase7_create_question_report',
       'phase7_require_database_capability',
       'phase7_user_erasure_confirmed'
     ])
@@ -1822,6 +1809,148 @@ describe('Reauthentication DB foundation', () => {
     } finally {
       await appClient.query('ROLLBACK')
     }
+  })
+
+  it('#504 P7 PR4c-2: 첫 관리자 변경은 ACTIVE ADMIN이 없을 때 migration 운영자의 USER→ADMIN만 허용한다', async () => {
+    await withinRollback(async () => {
+      // Close every other ACTIVE ADMIN for this check only.
+      await adminClient.query('SET LOCAL session_replication_role = replica')
+      try {
+        await adminClient.query(
+          `UPDATE "User" SET "accountStatus" = 'DELETION_PENDING'
+           WHERE "role" = 'ADMIN' AND "accountStatus" = 'ACTIVE'`
+        )
+      } finally {
+        await adminClient.query('SET LOCAL session_replication_role = origin')
+      }
+      const firstId = randomUUID()
+      const secondId = randomUUID()
+      await insertCredentialUser(firstId, 'USER')
+      await insertCredentialUser(secondId, 'USER')
+      // Owner-rights writers, like phase7_bootstrap_first_google_admin, so the
+      // User trigger sees the calling role. They roll back with the test.
+      await adminClient.query('SET LOCAL ROLE "nihongo_phase7_owner"')
+      for (const [name, statement] of [
+        ['promote', `UPDATE "User" SET "role" = 'ADMIN' WHERE "id" = target`],
+        [
+          'promote_named',
+          `UPDATE "User" SET "role" = 'ADMIN', "name" = 'changed' WHERE "id" = target`
+        ],
+        ['demote', `UPDATE "User" SET "role" = 'USER' WHERE "id" = target`]
+      ] as const)
+        await adminClient.query(
+          `CREATE FUNCTION "phase7_pr4c2_${name}"(target UUID) RETURNS VOID
+           LANGUAGE sql SECURITY DEFINER SET search_path FROM CURRENT
+           AS $body$ ${statement} $body$`
+        )
+      await adminClient.query('RESET ROLE')
+      const call = (name: string, id: string) =>
+        [`SELECT "phase7_pr4c2_${name}"($1)`, [id]] as const
+      // Not the migration operator.
+      await expectRoleFailure(
+        'nihongo_app',
+        ...call('promote', firstId),
+        '42501'
+      )
+      // The operator may not change another column with the role.
+      await expectRoleFailure(
+        'nihongo_phase7_migration',
+        ...call('promote_named', firstId),
+        '42501'
+      )
+      // The first ADMIN is accepted once.
+      await adminClient.query('SET LOCAL ROLE "nihongo_phase7_migration"')
+      {
+        const [promoteSql, promoteValues] = call('promote', firstId)
+        await adminClient.query(promoteSql, [...promoteValues])
+      }
+      await adminClient.query('RESET ROLE')
+      expect(
+        (
+          await adminClient.query<{ generation: number; role: string }>(
+            `SELECT "role"::text AS role, "authorityGeneration" AS generation
+             FROM "User" WHERE "id" = $1`,
+            [firstId]
+          )
+        ).rows
+      ).toEqual([{ generation: 2, role: 'ADMIN' }])
+      // An ACTIVE ADMIN now exists: no second first admin, no demotion.
+      await expectRoleFailure(
+        'nihongo_phase7_migration',
+        ...call('promote', secondId),
+        '42501'
+      )
+      await expectRoleFailure(
+        'nihongo_phase7_migration',
+        ...call('demote', firstId),
+        '42501'
+      )
+    })
+  })
+
+  it('#504 P7 PR4c-2: QuestionReport 직접 insert는 nihongo_app만, 서버 소유 열은 트리거가 채운다', async () => {
+    await withinRollback(async () => {
+      const userId = randomUUID()
+      await insertCredentialUser(userId, 'USER')
+      const target = (
+        await adminClient.query<{ questionId: string; versionId: string }>(
+          `SELECT "id" AS "questionId", "currentPublishedVersionId" AS "versionId"
+           FROM "Question"
+           WHERE "lifecycleStatus" = 'ACTIVE'
+             AND "currentPublishedVersionId" IS NOT NULL
+           ORDER BY "id" LIMIT 1`
+        )
+      ).rows[0]
+      if (!target) throw new Error('Published report target is unavailable.')
+      const insertReport = (id: string) =>
+        [
+          `INSERT INTO "QuestionReport" (
+             "id", "questionId", "questionVersionId", "reason", "description",
+             "reporterUserId"
+           ) VALUES ($1, $2, $3, 'ANSWER_ERROR', 'server owned columns', $4)`,
+          [id, target.questionId, target.versionId, userId]
+        ] as const
+      await expectRoleFailure(
+        'nihongo_auth_gateway',
+        ...insertReport(randomUUID()),
+        '42501'
+      )
+      const reportId = randomUUID()
+      await adminClient.query('SET LOCAL ROLE "nihongo_app"')
+      {
+        const [reportSql, reportValues] = insertReport(reportId)
+        await adminClient.query(reportSql, [...reportValues])
+      }
+      await adminClient.query('RESET ROLE')
+      expect(
+        (
+          await adminClient.query<{
+            actor: boolean
+            digest: boolean
+            label: string
+            rowVersion: number
+            status: string
+          }>(
+            `SELECT "status"::text AS status, "rowVersion",
+               "reporterLabel"::text AS label,
+               "reporterActorId" = "reporterUserId" AS actor,
+               "descriptionDigest" =
+                 "phase7_question_report_description_digest"("description")
+                 AS digest
+             FROM "QuestionReport" WHERE "id" = $1`,
+            [reportId]
+          )
+        ).rows
+      ).toEqual([
+        {
+          actor: true,
+          digest: true,
+          label: 'ACTIVE_USER',
+          rowVersion: 1,
+          status: 'OPEN'
+        }
+      ])
+    })
   })
 
   it('#504 P7 PR4c-1: finish 없이 commit하면 23514이고 intent는 자기 transaction 것만 지우며 backend·transaction 열은 쓸 수 없다', async () => {
