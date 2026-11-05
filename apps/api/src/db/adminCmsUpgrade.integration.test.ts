@@ -9,7 +9,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { Client } from 'pg'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { QuestionAggregateSeed } from '../../prisma/seed-data/buildQuestionSeed.js'
 import { createAdminReauthenticationService } from '../admin/adminReauthenticationService.js'
 import type { AdminQuestionReader } from '../admin/adminQuestionService.js'
@@ -72,6 +72,49 @@ const adminDatabaseUrl = process.env.PHASE7_ADMIN_DATABASE_URL
 if (!adminDatabaseUrl) {
   throw new Error('Phase 7 upgrade admin database URL is required.')
 }
+// The historical31 exercises run the current API on the historical schema,
+// which still has the SQL Session functions and not the #504 P7 PR3a grants;
+// while they run, Session reads go through those SQL functions.
+const sessionAuthority = vi.hoisted(() => ({ historical: false }))
+vi.mock('../auth/ownedSessionAuthority.js', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../auth/ownedSessionAuthority.js')>()
+  const { Prisma } = await import('../generated/prisma/client.js')
+  return {
+    ...actual,
+    v1PrincipalQuery: (tokenParameter: string) =>
+      sessionAuthority.historical
+        ? `SELECT * FROM "phase7_resolve_v1_principal"(${tokenParameter})`
+        : actual.v1PrincipalQuery(tokenParameter),
+    v1PrincipalSql: (rawToken: string) =>
+      sessionAuthority.historical
+        ? Prisma.sql`SELECT * FROM "phase7_resolve_v1_principal"(${rawToken})`
+        : actual.v1PrincipalSql(rawToken),
+    refreshRememberedSession: async (
+      client: Parameters<typeof actual.refreshRememberedSession>[0],
+      rawToken: string
+    ) =>
+      sessionAuthority.historical
+        ? client.$queryRawUnsafe<
+            Awaited<ReturnType<typeof actual.refreshRememberedSession>>
+          >(
+            'SELECT * FROM "phase7_refresh_current_remembered_session"($1)',
+            rawToken
+          )
+        : actual.refreshRememberedSession(client, rawToken)
+  }
+})
+const withHistoricalSessionAuthority = async <Result>(
+  action: () => Promise<Result>
+): Promise<Result> => {
+  sessionAuthority.historical = true
+  try {
+    return await action()
+  } finally {
+    sessionAuthority.historical = false
+  }
+}
+
 const migrationDatabaseUrl = process.env.PHASE7_MIGRATION_DATABASE_URL
 if (!migrationDatabaseUrl) {
   throw new Error('Phase 7 migration wrapper database URL is required.')
@@ -209,6 +252,158 @@ const exerciseUpgradedDashboardInsights = async (
       applicationRuntime.disconnect(),
       authGatewayRuntime.disconnect()
     ])
+  }
+}
+
+// #504 P7 PR3a: a Session issued by the SQL issuer before migration 68 is
+// signed out by that migration, and its cookie no longer authenticates.
+const issueSessionBeforeOneTimeSignOut = async (
+  context: IsolatedUpgradeSchema
+): Promise<{ cookieHeader: string; userId: string }> => {
+  const migrationUrl = new URL(context.databaseUrl)
+  migrationUrl.searchParams.delete('schema')
+  migrationUrl.searchParams.delete('options')
+  const migrationClient = new Client({
+    connectionString: migrationUrl.toString(),
+    options:
+      `-c search_path=${context.schemaName} -c TimeZone=UTC ` +
+      `-c role=${MIGRATION_ROLE}`
+  })
+  await migrationClient.connect()
+  const gatewayRuntime = createRoleDatabaseRuntime(
+    withUpgradeSchema(authGatewayDatabaseUrl, context.schemaName),
+    'nihongo_auth_gateway'
+  )
+  try {
+    const target = (
+      await context.adminClient.query<{
+        databaseName: string
+        serverAddress: string
+        serverPort: number
+      }>(
+        `SELECT current_database() AS "databaseName",
+           inet_server_addr()::text AS "serverAddress",
+           inet_server_port() AS "serverPort"`
+      )
+    ).rows[0]
+    if (!target) throw new Error('Upgrade DB endpoint is unavailable.')
+    await migrationClient.query(
+      `SELECT "phase7_register_database_capability"($1, $2::inet, $3, 'TEST')`,
+      [target.databaseName, target.serverAddress, target.serverPort]
+    )
+    await migrationClient.query(`ANALYZE "_prisma_migrations"`)
+    await migrationClient.query(`SELECT "phase7_activate_v1_issuer"('TEST')`)
+    const userId = randomUUID()
+    const token = `phase7-one-time-sign-out-${randomUUID()}`
+    await context.adminClient.query('BEGIN')
+    try {
+      await context.adminClient.query(
+        `SET LOCAL search_path TO ${quoteIdentifier(context.schemaName)}`
+      )
+      await context.adminClient.query(
+        `INSERT INTO "User" (
+           "id", "name", "email", "emailVerified", "role",
+           "accountStatus", "createdAt", "updatedAt"
+         ) VALUES (
+           $1, 'Phase 7 one-time sign-out', $2, true, 'ADMIN',
+           'ACTIVE', clock_timestamp(), clock_timestamp()
+         )`,
+        [userId, `phase7-one-time-sign-out-${randomUUID()}@example.test`]
+      )
+      await context.adminClient.query(
+        `INSERT INTO "Account" (
+           "id", "accountId", "providerId", "userId", "password",
+           "createdAt", "updatedAt"
+         ) VALUES (
+           $1, $2::uuid::text, 'credential', $2, $3,
+           clock_timestamp(), clock_timestamp()
+         )`,
+        [randomUUID(), userId, await hashPassword(`${randomUUID()}-A1!`)]
+      )
+      await context.adminClient.query('COMMIT')
+    } catch (error: unknown) {
+      await context.adminClient.query('ROLLBACK')
+      throw error
+    }
+    const authority = (
+      await context.adminClient.query<{ generation: number; role: string }>(
+        `SELECT "authorityGeneration" AS generation, "role"::text AS role
+         FROM ${quoteIdentifier(context.schemaName)}."User" WHERE "id" = $1`,
+        [userId]
+      )
+    ).rows[0]
+    if (!authority) throw new Error('Pre-migration User is unavailable.')
+    const issued = await gatewayRuntime.client.$queryRawUnsafe<
+      Array<{ expiresAt: Date }>
+    >(
+      `SELECT * FROM "phase7_issue_v1_session"(
+        $1, $4, $5::"UserRole", 'ACTIVE', $2, $3,
+        '127.0.0.1', 'phase7-one-time-sign-out', false
+      )`,
+      userId,
+      randomUUID(),
+      token,
+      authority.generation,
+      authority.role
+    )
+    const session = issued[0]
+    if (!session) throw new Error('Pre-migration Session was not issued.')
+    const cookieHeader = createSessionCookie({
+      expiresAt: session.expiresAt,
+      isProduction: false,
+      rememberMe: false,
+      secret: environment.BETTER_AUTH_SECRET,
+      token
+    }).split(';')[0]
+    if (!cookieHeader) throw new Error('Pre-migration cookie is unavailable.')
+    return { cookieHeader, userId }
+  } finally {
+    await gatewayRuntime.disconnect()
+    await migrationClient.end()
+  }
+}
+
+const expectOneTimeSignOut = async (
+  context: IsolatedUpgradeSchema,
+  before: { cookieHeader: string; userId: string }
+): Promise<void> => {
+  expect(
+    (
+      await context.adminClient.query<{
+        activeFamilies: number
+        sessions: number
+        trustedExecutions: number
+      }>(
+        `SELECT
+           (SELECT COUNT(*)::int FROM ${quoteIdentifier(context.schemaName)}."Session") AS sessions,
+           (SELECT COUNT(*)::int FROM ${quoteIdentifier(context.schemaName)}."AuthSessionFamily"
+            WHERE "status" = 'ACTIVE') AS "activeFamilies",
+           (SELECT COUNT(*)::int FROM ${quoteIdentifier(context.schemaName)}."Phase7TrustedExecution")
+             AS "trustedExecutions"`
+      )
+    ).rows
+  ).toEqual([{ activeFamilies: 0, sessions: 0, trustedExecutions: 0 }])
+  const applicationRuntime = createRoleDatabaseRuntime(
+    withUpgradeSchema(environment.DATABASE_URL, context.schemaName),
+    'nihongo_app'
+  )
+  try {
+    const principalService = createOwnedPrincipalService({
+      client: applicationRuntime.client,
+      isProduction: false,
+      refreshClient: applicationRuntime.client,
+      secret: environment.BETTER_AUTH_SECRET
+    })
+    const resolution = await principalService.resolveAuthenticatedUser(
+      new Headers({ Cookie: before.cookieHeader }),
+      { classifyAdminAuthorityLoss: true }
+    )
+    expect(resolution.user).toBeNull()
+    // The admin API answers this as an expired Session (401
+    // AUTH_SESSION_EXPIRED), as it does after any sign-out.
+    expect(resolution.adminAuthorityFailure).toBe('AUTH_SESSION_EXPIRED')
+  } finally {
+    await applicationRuntime.disconnect()
   }
 }
 
@@ -1411,7 +1606,7 @@ const bootstrapFreshCanonicalCatalog = async (
 }
 
 describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
-  it('canonical non-super migration wrapper로 prefix37→canonical65→current67를 deploy하고 ledger를 finalize한다', async () => {
+  it('canonical non-super migration wrapper로 prefix37→canonical65→current68를 deploy하고 ledger를 finalize한다', async () => {
     const context = await createIsolatedUpgradeSchema()
     const legacyConnectInitiallyGranted =
       (
@@ -1439,7 +1634,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       const prefix = repositoryMigrationNames.filter(
         (name) => name <= lastBootstrapMigration
       )
-      expect(repositoryMigrationNames).toHaveLength(67)
+      expect(repositoryMigrationNames).toHaveLength(68)
       expect(prefix).toHaveLength(37)
       expect(prefix.at(-1)).toBe(lastBootstrapMigration)
       for (const migrationName of prefix) {
@@ -1456,16 +1651,21 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       ).not.toThrow()
       await bootstrapFreshCanonicalCatalog(context)
       const remainder = repositoryMigrationNames.slice(37)
-      expect(remainder).toHaveLength(30)
+      expect(remainder).toHaveLength(31)
       expect(remainder[0]).toBe(
         '20261009120000_phase7_approved_n4_reading_batch7_tags'
       )
-      for (const migrationName of remainder) {
+      for (const migrationName of remainder.slice(0, -1)) {
         copyMigration(migrationName, context.migrationsPath)
       }
       await deploy(context)
+      const signedInBeforeOneTimeSignOut =
+        await issueSessionBeforeOneTimeSignOut(context)
+      copyMigration(remainder.at(-1)!, context.migrationsPath)
+      await deploy(context)
+      await expectOneTimeSignOut(context, signedInBeforeOneTimeSignOut)
       const ledger = await readLedger(context)
-      expect(ledger).toHaveLength(67)
+      expect(ledger).toHaveLength(68)
       expect(ledger.map(({ migrationName }) => migrationName)).toEqual(
         repositoryMigrationNames
       )
@@ -1500,7 +1700,8 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
         '20261110110000_drop_retired_credential_auth',
         '20261111090000_drop_dead_reauthentication',
         '20261112090000_merge_runtime_roles',
-        '20261113090000_admin_operation_to_api'
+        '20261113090000_admin_operation_to_api',
+        '20261114090000_session_issuance_to_api'
       ])
       expect(
         ledger.every(
@@ -1522,7 +1723,7 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
           ledger
         )
       ).not.toThrow()
-      await verifyCanonicalMigrationLedgerAccess(context, 67)
+      await verifyCanonicalMigrationLedgerAccess(context, 68)
       expect(
         (
           await context.adminClient.query<{
@@ -3005,11 +3206,15 @@ describe('Phase 7 Slice 1 Phase 6 forward upgrade', () => {
       ])
       await phase6Legacy.client.end()
       phase6Legacy = undefined
-      await exerciseUpgradedRetiredPasswordBoundary(
-        context,
-        connectedSequentialMigrationClient
+      await withHistoricalSessionAuthority(() =>
+        exerciseUpgradedRetiredPasswordBoundary(
+          context,
+          connectedSequentialMigrationClient
+        )
       )
-      await exerciseUpgradedDashboardInsights(context)
+      await withHistoricalSessionAuthority(() =>
+        exerciseUpgradedDashboardInsights(context)
+      )
     } finally {
       await sequentialMigrationClient?.end().catch(() => undefined)
       await phase6Legacy?.client.end().catch(() => undefined)

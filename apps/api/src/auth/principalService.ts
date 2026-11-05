@@ -5,6 +5,11 @@ import {
 import { z } from 'zod'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import { createSessionCookie, readSessionToken } from './sessionCookie.js'
+import {
+  refreshRememberedSession,
+  v1PrincipalQuery,
+  type OwnedSessionClient
+} from './ownedSessionAuthority.js'
 
 const ABSOLUTE_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1_000
 export const ADMIN_SESSION_ABSOLUTE_TTL_MS = 8 * 60 * 60 * 1_000
@@ -194,13 +199,6 @@ interface PrincipalDatabaseRow {
   isFresh: boolean
 }
 
-interface RememberedSessionRefreshRow {
-  id: string
-  updatedAt: Date
-  expiresAt: Date
-  refreshed: boolean
-}
-
 interface AdminAuthorityFailureRow {
   outcome: 'ADMIN_REQUIRED' | 'AUTH_SESSION_EXPIRED'
 }
@@ -215,7 +213,7 @@ export const createPhase7PrincipalService = ({
   client: Pick<PrismaClient, '$queryRawUnsafe'>
   isProduction: boolean
   now?: () => Date
-  refreshClient: Pick<PrismaClient, '$queryRawUnsafe'>
+  refreshClient: OwnedSessionClient
   secret: string
 }): PrincipalService => {
   const resolveAuthenticatedUser: PrincipalService['resolveAuthenticatedUser'] =
@@ -236,10 +234,7 @@ export const createPhase7PrincipalService = ({
       const refreshRows =
         options.refreshRememberedSession === false
           ? []
-          : await refreshClient.$queryRawUnsafe<RememberedSessionRefreshRow[]>(
-              'SELECT * FROM "phase7_refresh_current_remembered_session"($1)',
-              credential.token
-            )
+          : await refreshRememberedSession(refreshClient, credential.token)
       if (refreshRows.length > 1) {
         return {
           clearSessionCookie: true,
@@ -251,7 +246,7 @@ export const createPhase7PrincipalService = ({
       const rows = await client.$queryRawUnsafe<PrincipalDatabaseRow[]>(
         `SELECT principal.*,
            "phase7_sso_admin_session_is_fresh"($1) AS "isFresh"
-         FROM "phase7_resolve_v1_principal"($1) AS principal`,
+         FROM (${v1PrincipalQuery('$1')}) AS principal`,
         credential.token
       )
       if (rows.length !== 1) {

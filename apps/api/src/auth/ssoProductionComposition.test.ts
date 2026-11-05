@@ -20,6 +20,24 @@ import type { PrismaClient } from '../generated/prisma/client.js'
 import type { AdminQuestionReader } from '../admin/adminQuestionService.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
 import type { SsoProvider, SsoTransaction } from './ssoProtocol.js'
+import { signOutOwnedSession } from './ownedSessionAuthority.js'
+
+// Session writes run in a Prisma transaction; their SQL is covered by the
+// database integration tests.
+vi.mock('./ownedSessionAuthority.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./ownedSessionAuthority.js')>()),
+  issueOwnedSession: vi.fn(
+    async (_client: unknown, input: { sessionId: string }) => ({
+      id: input.sessionId,
+      familyId: '11111111-1111-4111-8111-111111111111',
+      createdAt: new Date('2026-10-19T00:00:00Z'),
+      expiresAt: new Date('2026-10-26T00:00:00Z'),
+      authorityGeneration: 1
+    })
+  ),
+  refreshRememberedSession: vi.fn(async () => []),
+  signOutOwnedSession: vi.fn(async () => true)
+}))
 
 const uuid = '11111111-1111-4111-8111-111111111111'
 const input = {
@@ -84,19 +102,7 @@ const fixture = (overrides: Record<string, string> = {}) => {
             }
           }
         ]
-      if (sql.includes('issue_v1_session'))
-        return [
-          {
-            id: args[4],
-            familyId: uuid,
-            createdAt: new Date('2026-10-19T00:00:00Z'),
-            expiresAt: new Date('2026-10-26T00:00:00Z'),
-            authorityGeneration: 1
-          }
-        ]
       if (sql.includes('confirm_v1_session')) return [{ confirmed: true }]
-      if (sql.includes('owned_sign_out')) return [{ signedOut: true }]
-      if (sql.includes('refresh_current')) return []
       return []
     }
   )
@@ -118,7 +124,7 @@ const fixture = (overrides: Record<string, string> = {}) => {
     ]
   )
   const client = (query: unknown) =>
-    ({ $queryRawUnsafe: query }) as Pick<PrismaClient, '$queryRawUnsafe'>
+    ({ $queryRawUnsafe: query }) as unknown as PrismaClient
   const provider: SsoProvider = {
     authorizationURL: async ({ state, nonce, codeVerifier }) => {
       const url = new URL('https://accounts.google.com/o/oauth2/v2/auth')
@@ -228,9 +234,7 @@ describe('production-shaped SSO composition with CMS disabled (fake DB ports)', 
       })
     )
     expect(logout.status).toBe(200)
-    expect(
-      f.gatewayQuery.mock.calls.some(([sql]) => sql.includes('owned_sign_out'))
-    ).toBe(true)
+    expect(vi.mocked(signOutOwnedSession)).toHaveBeenCalled()
     expect(f.rateLimiter.consume).toHaveBeenCalled()
     expect(
       f.gatewayQuery.mock.calls.some(([sql]) =>

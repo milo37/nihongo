@@ -185,22 +185,38 @@ const ATTESTATION_QUERY = `
            sensitive_column.attnum,
            -- #504 P2: the member console reads six User columns. #504 P7 PR2:
            -- the admin operation reads its authority columns and needs one
-           -- UPDATE column per table only to take FOR UPDATE row locks.
+           -- UPDATE column per table only to take FOR UPDATE row locks. #504
+           -- P7 PR3a: owned Session issuance, refresh, sign-out and principal
+           -- resolution write and read these columns; Account stays closed.
            CASE WHEN current_user <> 'nihongo_app' THEN 'SELECT,INSERT,UPDATE,REFERENCES'
+           WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
+               ('Session', 'expiresAt'), ('Session', 'updatedAt')
+             ) THEN 'REFERENCES'
            WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
                ('User', 'authorityGeneration'),
                ('Session', 'authorizationState'),
                ('AuthSessionFamily', 'status')
              ) THEN 'INSERT,REFERENCES'
            WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
+               ('Session', 'id'), ('Session', 'token'), ('Session', 'userId'),
+               ('Session', 'sessionFamilyId'), ('Session', 'issuerProtocolVersion'),
+               ('Session', 'authorityGeneration'), ('Session', 'createdAt'),
+               ('AuthSessionFamily', 'id'), ('AuthSessionFamily', 'userId')
+             ) THEN 'UPDATE,REFERENCES'
+           WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
+               ('Session', 'ipAddress'), ('Session', 'userAgent')
+             ) THEN 'SELECT,UPDATE,REFERENCES'
+           WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
+               ('AuthSessionRotationFence', 'expiresAt')
+             ) THEN 'SELECT,INSERT,REFERENCES'
+           WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
                ('User', 'id'), ('User', 'email'), ('User', 'role'),
                ('User', 'accountStatus'), ('User', 'deletedAt'),
-               ('User', 'createdAt'),
-               ('Session', 'id'), ('Session', 'userId'),
-               ('Session', 'sessionFamilyId'), ('Session', 'issuerProtocolVersion'),
-               ('Session', 'authorityGeneration'), ('Session', 'expiresAt'),
-               ('Session', 'createdAt'),
-               ('AuthSessionFamily', 'id'), ('AuthSessionFamily', 'userId')
+               ('User', 'createdAt'), ('User', 'name'), ('User', 'targetLevel'),
+               ('AuthSessionRotationFence', 'id'),
+               ('AuthSessionRotationFence', 'userId'),
+               ('AuthSessionRotationFence', 'oldTokenDigest'),
+               ('AuthSessionRotationFence', 'replacementFamilyId')
              ) THEN 'INSERT,UPDATE,REFERENCES'
            ELSE 'SELECT,INSERT,UPDATE,REFERENCES' END
          )) AS "groupSensitiveColumnAclCount",
@@ -218,7 +234,11 @@ const ATTESTATION_QUERY = `
          AND has_table_privilege(
            current_user,
            sensitive_relation.oid,
-           'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'
+           -- #504 P7 PR3a: API sign-out deletes the Sessions of a revoked family.
+           CASE WHEN current_user = 'nihongo_app'
+             AND sensitive_relation.relname = 'Session'
+           THEN 'SELECT,INSERT,UPDATE,TRUNCATE,REFERENCES,TRIGGER'
+           ELSE 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER' END
          )) AS "groupSensitiveTableAclCount"
   ) AS group_acl
   CROSS JOIN LATERAL (

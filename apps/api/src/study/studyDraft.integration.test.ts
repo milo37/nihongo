@@ -121,7 +121,7 @@ const principalService = isCurrentSourceIntegration
   ? createOwnedPrincipalService({
       client: database.client,
       isProduction: false,
-      refreshClient: authGatewayDatabase!.client,
+      refreshClient: database.client,
       secret: environment.BETTER_AUTH_SECRET
     })
   : createPrincipalService({
@@ -149,7 +149,7 @@ const app = createApiApp({
       ? createAuthGateway({
           environment,
           ownedAuthFacade: createOwnedAuthFacade({
-            client: authGatewayDatabase!.client,
+            client: database.client,
             emailDispatcher,
             environment
           }),

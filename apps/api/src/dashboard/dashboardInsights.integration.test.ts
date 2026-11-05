@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { getDashboardInsightsResponseSchema } from '@nihongo/contracts/dashboard/get-dashboard-insights'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { issueOwnedSession } from '../auth/ownedSessionAuthority.js'
 import { parseApiEnvironment } from '../config/env.js'
 import {
   createDatabaseRuntime,
@@ -86,22 +87,17 @@ const createUser = async (
   })
   const sessionToken = `phase8-insights-${label}-${randomUUID()}`
   const sessionId = randomUUID()
-  const issued = await authGatewayDatabase.client.$queryRawUnsafe<
-    Array<{ familyId: string }>
-  >(
-    `SELECT * FROM "phase7_issue_v1_session"(
-      $1, $2, $3::"UserRole", 'ACTIVE', $4, $5,
-      '127.0.0.1', 'phase8-dashboard-insights', false
-    )`,
+  await issueOwnedSession(database.client, {
     userId,
-    1,
-    'USER',
+    authorityGeneration: 1,
+    role: 'USER',
+    accountStatus: 'ACTIVE',
     sessionId,
-    sessionToken
-  )
-  if (issued.length !== 1 || !issued[0]) {
-    throw new Error('Integration session was not issued.')
-  }
+    token: sessionToken,
+    ipAddress: '127.0.0.1',
+    userAgent: 'phase8-dashboard-insights',
+    remember: false
+  })
   return { sessionToken, userId }
 }
 

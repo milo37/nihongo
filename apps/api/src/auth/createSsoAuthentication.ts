@@ -20,6 +20,10 @@ import {
   createExpiredSessionCookies,
   readSessionToken
 } from './sessionCookie.js'
+import {
+  signOutOwnedSession,
+  type OwnedSessionClient
+} from './ownedSessionAuthority.js'
 import type { AuthFacade } from './authFacade.js'
 
 /** Source-only composition: no mail/password adapter or CMS enablement. */
@@ -32,7 +36,7 @@ export const createSsoAuthentication = ({
 }: {
   environment: ApiEnvironment
   applicationClient: Pick<PrismaClient, '$queryRawUnsafe'>
-  gatewayClient: Pick<PrismaClient, '$queryRawUnsafe'>
+  gatewayClient: OwnedSessionClient
   rateLimiter: ApplicationRateLimiter
   providers?: Partial<Record<SsoProviderId, SsoProvider>>
 }) => {
@@ -75,11 +79,7 @@ export const createSsoAuthentication = ({
       }).token
       if (token) {
         try {
-          const rows = await gatewayClient.$queryRawUnsafe<
-            Array<{ signedOut: boolean }>
-          >('SELECT "phase7_owned_sign_out"($1) AS "signedOut"', token)
-          if (rows.length !== 1 || rows[0]?.signedOut !== true)
-            return Response.json({ code: 'SSO_UNAVAILABLE' }, { status: 503 })
+          await signOutOwnedSession(gatewayClient, token)
         } catch {
           return Response.json({ code: 'SSO_UNAVAILABLE' }, { status: 503 })
         }

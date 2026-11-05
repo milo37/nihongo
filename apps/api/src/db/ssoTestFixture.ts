@@ -2,6 +2,7 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import { Client } from 'pg'
 import type { QueryResultRow } from 'pg'
 import { expect } from 'vitest'
+import { ownedSessionSql } from './fixtures/ownedSessionSql.js'
 import { parseApiEnvironment } from '../config/env.js'
 import { assertSafeAdminCmsDatabase } from './databaseTargetGuard.js'
 import {
@@ -83,6 +84,15 @@ export const createSsoDbHarness = () => {
       throw error
     }
   }
+  // Issues an owned V1 Session through the API implementation as nihongo_app.
+  const issueSession = async (sql: string, values: unknown[]) => {
+    await owner.query('SET ROLE "nihongo_app"')
+    try {
+      return await ownedSessionSql<{ familyId: string }>(owner, sql, values)
+    } finally {
+      await owner.query('RESET ROLE').catch(() => undefined)
+    }
+  }
   const rollback = async (action: () => Promise<void>) => {
     await owner.query('BEGIN')
     try {
@@ -141,8 +151,7 @@ export const createSsoDbHarness = () => {
       `INSERT INTO "Account" ("id","accountId","providerId","userId","createdAt","updatedAt") VALUES ($1,$2,$3,$4,clock_timestamp(),clock_timestamp())`,
       [randomUUID(), subject, provider, userId]
     )
-    const result = await roleQuery<{ familyId: string }>(
-      'nihongo_auth_gateway',
+    const result = await issueSession(
       `SELECT * FROM "phase7_issue_v1_session"($1,1,$2::"UserRole",'ACTIVE',$3,$4,'127.0.0.1','sso-db-fixture',false)`,
       [userId, role, sessionId, token]
     )
@@ -348,6 +357,7 @@ export const createSsoDbHarness = () => {
     schema,
     environment,
     roleQuery,
+    issueSession,
     rollback,
     rejects,
     fixtureMutation,

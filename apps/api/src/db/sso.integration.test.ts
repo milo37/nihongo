@@ -2,6 +2,7 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { pgOwnedSessionClient } from './fixtures/ownedSessionSql.js'
 import { Client } from 'pg'
 import { assertSafeMigrationDatabase } from './databaseTargetGuard.js'
 import { createPostgresStartupOptions } from './databaseOptions.js'
@@ -78,7 +79,7 @@ const apiTransaction = (client: Client): Prisma.TransactionClient =>
   }) as unknown as Prisma.TransactionClient
 
 describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
-  it('deploy and re-entry leave exactly67 completed names/checksums preserving the old66 prefix', async () => {
+  it('deploy and re-entry leave exactly68 completed names/checksums preserving the old67 prefix', async () => {
     const expected = loadExpectedMigrationManifest(
       fileURLToPath(new URL('../../prisma/migrations/', import.meta.url))
     )
@@ -89,7 +90,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     }>(
       `SELECT migration_name AS name,checksum,finished_at IS NOT NULL AND rolled_back_at IS NULL AS complete FROM "_prisma_migrations" WHERE rolled_back_at IS NULL ORDER BY migration_name`
     )
-    expect(expected).toHaveLength(67)
+    expect(expected).toHaveLength(68)
     expect(
       actual.rows.map(({ name, checksum }) => ({ name, checksum }))
     ).toEqual(expected)
@@ -213,11 +214,16 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         name: '20261113090000_admin_operation_to_api',
         checksum:
           'b6fa895ed7f6341ba12341a65cb7acc1099f14d111b16f921ee2687595f05259'
+      },
+      {
+        name: '20261114090000_session_issuance_to_api',
+        checksum:
+          '943912fc8ba9cd4a45c7b3b8d5a162b1cf30ddd915bbb1d46ba37587f27ec98b'
       }
     ])
     // Existing runner executes canonical deploy then db:migrate:deploy re-entry
     // before this suite. One completed row per name proves no duplicate apply.
-    expect(new Set(actual.rows.map((row) => row.name)).size).toBe(67)
+    expect(new Set(actual.rows.map((row) => row.name)).size).toBe(68)
   })
 
   it('new private objects have exact owner, search_path and least-privilege ACLs', async () => {
@@ -443,9 +449,25 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       ).rows
       const gatewayQuery = async (sql: string, ...values: unknown[]) =>
         (await h.roleQuery('nihongo_auth_gateway', sql, values)).rows
+      // The SSO login runs the API issuance as nihongo_app, as the runtime
+      // does; the identity mapping keeps its gateway-role call.
+      const appSession = pgOwnedSessionClient({
+        query: async (sql, values) => {
+          await h.owner.query('SET ROLE "nihongo_app"')
+          try {
+            return await h.owner.query(sql, values)
+          } finally {
+            await h.owner.query('RESET ROLE').catch(() => undefined)
+          }
+        }
+      })
       const repository = createSsoIdentityRepository({
-        $queryRawUnsafe: gatewayQuery
-      } as unknown as Pick<PrismaClient, '$queryRawUnsafe'>)
+        ...appSession,
+        $queryRawUnsafe: async (sql: string, ...values: unknown[]) =>
+          sql.includes('resolve_sso_identity')
+            ? gatewayQuery(sql, ...values)
+            : appSession.$queryRawUnsafe(sql, ...values)
+      } as unknown as PrismaClient)
       const newAuthorizations = new Set<string>()
       const tokens = new Set<string>()
       for (const attempt of [1, 2]) {
@@ -686,8 +708,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         ).toBeNull()
       const { proof } = await staged(f)
       const other = h.completeValues(f, proof)
-      await h.roleQuery(
-        'nihongo_auth_gateway',
+      await h.issueSession(
         `SELECT * FROM "phase7_issue_v1_session"($1,1,'ADMIN','ACTIVE',$2,$3,'127.0.0.1','second-session',false)`,
         [f.userId, randomUUID(), other.token]
       )
