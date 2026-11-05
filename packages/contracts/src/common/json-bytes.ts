@@ -1,4 +1,4 @@
-export type JsonFailureKind = 'INVALID_JSON' | 'MAX_DEPTH_EXCEEDED'
+type JsonFailureKind = 'INVALID_JSON' | 'MAX_DEPTH_EXCEEDED'
 
 interface FatalTextDecoder {
   decode(input?: Uint8Array): string

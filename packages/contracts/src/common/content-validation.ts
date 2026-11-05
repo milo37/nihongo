@@ -49,7 +49,7 @@ export const retirementKindSchema = z.enum([
   'QUESTION_ARCHIVE_ABANDONED'
 ])
 
-export const accountActorLabelSchema = z.enum([
+const accountActorLabelSchema = z.enum([
   'ACTIVE_USER',
   'DELETED_USER',
   'ACTIVE_ADMIN',
@@ -83,7 +83,7 @@ export const adminActorSnapshotSchema = accountActorSnapshotSchema.refine(
   { path: ['role'], message: 'ADMIN actor여야 합니다.' }
 )
 
-export const systemActorSnapshotSchema = z
+const systemActorSnapshotSchema = z
   .object({
     kind: z.literal('SYSTEM'),
     actorId: z.null(),
@@ -115,7 +115,7 @@ export const compareUnicodeScalars = (left: string, right: string): number => {
   return leftScalars.length - rightScalars.length
 }
 
-export interface TextOptions {
+interface TextOptions {
   readonly minScalars?: number
   readonly maxScalars: number
   readonly multiline?: boolean
@@ -167,7 +167,7 @@ export const normalizeContentTagKey = (value: string): string =>
     .replace(UNICODE_WHITESPACE_RUN_PATTERN, ' ')
     .replace(/[A-Z]/gu, (character) => character.toLowerCase())
 
-export const normalizeQuestionDuplicateText = (value: string): string =>
+const normalizeQuestionDuplicateText = (value: string): string =>
   value
     .normalize('NFKC')
     .replace(LEADING_UNICODE_WHITESPACE_PATTERN, '')
@@ -175,7 +175,7 @@ export const normalizeQuestionDuplicateText = (value: string): string =>
     .replace(UNICODE_WHITESPACE_RUN_PATTERN, ' ')
     .replace(/[A-Z]/gu, (character) => character.toLowerCase())
 
-export interface QuestionDuplicateIdentityMaterial {
+interface QuestionDuplicateIdentityMaterial {
   readonly correctOptionText: string
   readonly optionTexts: readonly string[]
   readonly passage: string | null
@@ -288,7 +288,6 @@ export const sha256DomainSeparated = async (
 ): Promise<string> => sha256Text(port, `${domain}\u0000${payload}`)
 
 export type AccountActorSnapshot = z.output<typeof accountActorSnapshotSchema>
-export type AdminActorSnapshot = z.output<typeof adminActorSnapshotSchema>
 export type SafeActorSnapshot = z.output<typeof safeActorSnapshotSchema>
 export type QuestionLifecycleStatus = z.output<
   typeof questionLifecycleStatusSchema

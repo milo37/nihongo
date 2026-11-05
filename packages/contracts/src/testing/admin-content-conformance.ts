@@ -27,7 +27,7 @@ export const slice2ExpectedOperations = [
   'listAdminAuditLog'
 ] as const
 
-export const slice2ExpectedRoutes = [
+const slice2ExpectedRoutes = [
   'GET /api/v1/admin/questions',
   'GET /api/v1/admin/questions/:questionId',
   'GET /api/v1/admin/tags',
@@ -38,7 +38,7 @@ export const slice2ExpectedRoutes = [
   'GET /api/v1/admin/audit-log'
 ] as const
 
-export interface Slice2ReadConformanceEntry extends OperationManifestEntry {
+interface Slice2ReadConformanceEntry extends OperationManifestEntry {
   readonly cacheControl: 'private, no-store'
   readonly requestIdHeader: 'X-Request-Id'
   readonly rateLimitGroup: 'ADMIN_READ'
@@ -100,7 +100,7 @@ const transientRetryabilityBySurface: Readonly<
   REAUTHENTICATION: neverRetryableTransient
 }
 
-export interface OperationErrorConformanceEntry extends OperationManifestEntry {
+interface OperationErrorConformanceEntry extends OperationManifestEntry {
   readonly operation: AdminOperation
   readonly errorSurface: ErrorSurface
   readonly deterministic4xxRetryable: false
@@ -179,5 +179,3 @@ export const assertSlice2ConformanceManifest = (): void => {
     )
   }
 }
-
-export type Slice2ExpectedOperation = (typeof slice2ExpectedOperations)[number]

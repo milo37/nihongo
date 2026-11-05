@@ -8,7 +8,7 @@ import type { SchemaCatalog } from '../schemaCatalog.js'
  */
 
 /** The legacy issuer, V1 activation/retirement and approved tag commands. */
-export const EXCLUDED_FUNCTIONS = [
+const EXCLUDED_FUNCTIONS = [
   'phase7_activate_v1_issuer',
   'phase7_retire_v1_sessions',
   'phase7_revoke_legacy_database_connect',
@@ -41,7 +41,7 @@ export const EXCLUDED_FUNCTIONS = [
   'validate_current_published_version'
 ] as const
 
-export const EXCLUDED_TABLES = [
+const EXCLUDED_TABLES = [
   'AuthIssuerActivation',
   'Phase7Approved308TagRegistration',
   'Phase7ApprovedReadingTagRegistration',
@@ -51,7 +51,7 @@ export const EXCLUDED_TABLES = [
 ] as const
 
 /** Roles the baseline grants nothing: the former runtime and legacy logins. */
-export const REMOVED_ROLES = [
+const REMOVED_ROLES = [
   'nihongo_auth_gateway',
   'nihongo_erasure_worker',
   'nihongo_test_legacy_app_login',
@@ -63,7 +63,7 @@ export const REMOVED_ROLES = [
  * V1 activation branches are gone, and require_runtime_ready accepts
  * nihongo_app only.
  */
-export const LEGACY_BRANCH_FUNCTIONS = [
+const LEGACY_BRANCH_FUNCTIONS = [
   'phase7_require_runtime_ready',
   'phase7_bootstrap_first_google_admin',
   'protect_phase7_account',
@@ -73,7 +73,7 @@ export const LEGACY_BRANCH_FUNCTIONS = [
 ] as const
 
 /** Only the phase7 token of an identifier goes (the name map of #504 P8-1). */
-export const renameBaselineIdentifier = (value: string): string =>
+const renameBaselineIdentifier = (value: string): string =>
   value
     .replace(/Phase7(?=[A-Z])/gu, '')
     .replace(/_phase7_/gu, '_')
@@ -203,7 +203,7 @@ export const withoutLegacyBranchSources = (
  * The forward migration 20261106090000_remove_phase_names (#504 P8-2): the
  * functions it replaces and the only strings their bodies may change.
  */
-export const FORWARD_FUNCTIONS = [
+const FORWARD_FUNCTIONS = [
   'limit_operation_intent_delete',
   'classify_admin_authority',
   'consume_sso_transaction_v2',
@@ -218,9 +218,7 @@ export const FORWARD_FUNCTIONS = [
   'validate_session_write'
 ] as const
 
-export const FORWARD_SOURCE_REPLACEMENTS: ReadonlyArray<
-  readonly [string, string]
-> = [
+const FORWARD_SOURCE_REPLACEMENTS: ReadonlyArray<readonly [string, string]> = [
   [
     "'Phase 7 operation intent belongs to another transaction.'",
     "'Operation intent belongs to another transaction.'"

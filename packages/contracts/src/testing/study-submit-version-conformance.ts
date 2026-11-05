@@ -1,10 +1,10 @@
-export interface StudySubmitConformanceAnswer {
+interface StudySubmitConformanceAnswer {
   readonly studySessionQuestionId: string
   readonly selectedOptionId: string | null
   readonly elapsedSec: number
 }
 
-export interface StudySubmitVersionConformanceFixture {
+interface StudySubmitVersionConformanceFixture {
   readonly sessionId: string
   readonly orderedSessionQuestionIds: readonly string[]
   readonly answers: readonly StudySubmitConformanceAnswer[]

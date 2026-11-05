@@ -12,7 +12,7 @@ export interface UserMemoReadRecord {
   readonly updatedAt: Date
 }
 
-export type OwnedUserMemoResult =
+type OwnedUserMemoResult =
   | { readonly found: false }
   | {
       readonly found: true
@@ -24,20 +24,20 @@ export interface ReviewEventHistoryRecord
   readonly occurredAt: Date
 }
 
-export type OwnedReviewEventHistoryResult =
+type OwnedReviewEventHistoryResult =
   | { readonly found: false }
   | {
       readonly found: true
       readonly items: readonly ReviewEventHistoryRecord[]
     }
 
-export interface UpdateOwnedUserMemoInput {
+interface UpdateOwnedUserMemoInput {
   readonly memo: string | null
   readonly questionId: string
   readonly userId: string
 }
 
-export interface ListOwnedReviewEventsInput {
+interface ListOwnedReviewEventsInput {
   readonly cursor: ReviewEventCursorV1 | null
   readonly limit: number
   readonly questionId: string

@@ -1,5 +1,5 @@
-export type HttpMethod = 'GET' | 'PATCH' | 'POST'
-export type ResponseBodyKind = 'JSON' | 'ATTACHMENT'
+type HttpMethod = 'GET' | 'PATCH' | 'POST'
+type ResponseBodyKind = 'JSON' | 'ATTACHMENT'
 
 export interface OperationManifestEntry {
   readonly operation: string
@@ -535,4 +535,3 @@ export const assertOperationManifest = (): void => {
 }
 
 export type AdminOperation = (typeof operationManifest)[number]['operation']
-export type OperationId = (typeof operationManifest)[number]['operationId']

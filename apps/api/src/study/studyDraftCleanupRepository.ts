@@ -2,7 +2,7 @@ import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 
 const STUDY_DRAFT_EXPIRY_GRACE_MS = 7 * 24 * 60 * 60 * 1_000
 
-export interface StudyDraftCleanupInput {
+interface StudyDraftCleanupInput {
   readonly batchSize: number
   readonly now: Date
 }
@@ -22,7 +22,7 @@ export interface StudyDraftCleanupResult {
   readonly idempotencyOperationMetrics: readonly IdempotencyOperationMetric[]
 }
 
-export interface IdempotencyOperationMetric {
+interface IdempotencyOperationMetric {
   readonly activeRecordCount: number
   readonly expiredRecordCount: number
   readonly oldestActiveAgeSeconds: number | null

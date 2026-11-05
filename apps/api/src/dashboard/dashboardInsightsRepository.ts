@@ -8,13 +8,13 @@ import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 import { createCurrentReviewCandidatePredicate } from '../review/currentReviewCandidateQuery.js'
 import { v1PrincipalSql } from '../auth/ownedSessionAuthority.js'
 
-export interface DashboardInsightsClockRecord {
+interface DashboardInsightsClockRecord {
   readonly futureAnswerCount: bigint
   readonly observedAt: Date
   readonly targetLevel: JlptLevel | null
 }
 
-export type DashboardInsightsNonTagRowKind =
+type DashboardInsightsNonTagRowKind =
   | 'OVERALL'
   | 'LEVEL'
   | 'SUBJECT'
@@ -35,7 +35,7 @@ export interface DashboardInsightsNonTagRecord {
   readonly subject: QuestionSubject | null
 }
 
-export type DashboardInsightsTagRowKind = 'TAG' | 'TAG_WEAKNESS'
+type DashboardInsightsTagRowKind = 'TAG' | 'TAG_WEAKNESS'
 
 export interface DashboardInsightsTagRecord {
   readonly attemptedCount: bigint
@@ -51,7 +51,7 @@ export interface DashboardInsightsTagRecord {
   readonly tagLabel: string
 }
 
-export type DashboardInsightsReviewRowKind =
+type DashboardInsightsReviewRowKind =
   | 'COUNTS'
   | 'DUE_GROUP'
   | 'REPEATED_CANDIDATE'
@@ -72,7 +72,7 @@ export interface DashboardInsightsReviewRecord {
   readonly wrongCount: number | null
 }
 
-export interface DashboardInsightsTargetRecord {
+interface DashboardInsightsTargetRecord {
   readonly catalogCount: bigint
   readonly lastStudiedAt: Date | null
   readonly level: JlptLevel

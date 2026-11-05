@@ -22,6 +22,4 @@ export const deleteBookmarkErrorCodeSchema = z.enum([
 export const deleteBookmarkErrorSchema = createApiFailureSchema(
   deleteBookmarkErrorCodeSchema
 )
-
-export type DeleteBookmarkParams = z.input<typeof deleteBookmarkParamsSchema>
 export type DeleteBookmarkError = z.output<typeof deleteBookmarkErrorSchema>

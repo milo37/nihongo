@@ -71,12 +71,9 @@ export interface CreateStudySessionInput {
   subject: 'VOCABULARY' | 'GRAMMAR' | 'READING'
 }
 
-export type CreateRandomStudySessionInput = Omit<
-  CreateStudySessionInput,
-  'mode'
->
+type CreateRandomStudySessionInput = Omit<CreateStudySessionInput, 'mode'>
 
-export interface StudySessionQuestionRecord {
+interface StudySessionQuestionRecord {
   ordinal: number
   question: PublishedQuestionDetailRecord
   sessionQuestionId: string
@@ -139,7 +136,7 @@ export class StudySessionRepositoryUnavailableError extends Error {
   }
 }
 
-export class StudySessionRepositoryIntegrityError extends Error {
+class StudySessionRepositoryIntegrityError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'StudySessionRepositoryIntegrityError'

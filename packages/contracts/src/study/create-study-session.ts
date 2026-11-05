@@ -24,7 +24,7 @@ export const createStudySessionBodySchema = z
   })
   .strict()
 
-export const reviewSelectionFilterSchema = z
+const reviewSelectionFilterSchema = z
   .object({
     questionType: questionTypeSchema.optional(),
     tag: wrongNoteTagLabelSchema.optional()
@@ -71,7 +71,7 @@ export const createStudySessionV2ResponseSchema =
     }
   )
 
-export const createStudySessionErrorCodeSchema = z.enum([
+const createStudySessionErrorCodeSchema = z.enum([
   'INVALID_JSON',
   'INVALID_REQUEST',
   'INVALID_CSRF',
@@ -100,15 +100,6 @@ export type ParsedCreateStudySessionV2Body = z.output<
   typeof createStudySessionV2BodySchema
 >
 export type ReviewSelectionFilter = z.output<typeof reviewSelectionFilterSchema>
-export type CreateStudySessionHeaders = z.input<
-  typeof createStudySessionHeadersSchema
->
-export type CreateStudySessionV2Headers = z.input<
-  typeof createStudySessionV2HeadersSchema
->
-export type ParsedCreateStudySessionBody = z.output<
-  typeof createStudySessionBodySchema
->
 export type CreateStudySessionResponse = z.output<
   typeof createStudySessionResponseSchema
 >

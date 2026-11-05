@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'silent'
 
-export type OperationalLogEvent =
+type OperationalLogEvent =
   | 'api.started'
   | 'api.shutdown.started'
   | 'api.shutdown.completed'
@@ -12,11 +12,11 @@ export type OperationalLogEvent =
   | 'auth.email.delivery_failed'
   | 'auth.reauthentication.maintenance_failed'
 
-export interface LogContext {
+interface LogContext {
   readonly [key: string]: unknown
 }
 
-export interface OperationalLogMetadata {
+interface OperationalLogMetadata {
   readonly deploymentEnvironment:
     | 'LOCAL'
     | 'TEST'

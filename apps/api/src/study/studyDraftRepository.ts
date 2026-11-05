@@ -59,7 +59,7 @@ interface ReservationRow {
   id: string
 }
 
-export interface SaveStudyDraftAtomicInput {
+interface SaveStudyDraftAtomicInput {
   readonly body: ParsedSaveStudyDraftAnswersBody
   readonly idempotencyKey: string
   readonly observedAt: Date
@@ -67,12 +67,12 @@ export interface SaveStudyDraftAtomicInput {
   readonly sessionId: string
 }
 
-export interface SaveStudyDraftAtomicResult {
+interface SaveStudyDraftAtomicResult {
   readonly replayed: boolean
   readonly response: StudyDraftSnapshot
 }
 
-export type CancelOwnedStudySessionOutcome =
+type CancelOwnedStudySessionOutcome =
   | { readonly kind: 'CANCELLED' }
   | { readonly kind: 'NOT_EDITABLE' }
   | { readonly kind: 'NOT_FOUND' }

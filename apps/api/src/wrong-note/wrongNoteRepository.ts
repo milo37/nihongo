@@ -4,12 +4,12 @@ import type {
 } from '@nihongo/contracts/wrong-note/list-wrong-notes'
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 
-export interface HistoricalQuestionTagRecord {
+interface HistoricalQuestionTagRecord {
   readonly id: string
   readonly label: string
 }
 
-export interface HistoricalQuestionOptionRecord {
+interface HistoricalQuestionOptionRecord {
   readonly id: string
   readonly label: string
   readonly text: string
@@ -62,11 +62,11 @@ export interface WrongNoteDetailRecord
   readonly question: HistoricalReviewedQuestionRecord
 }
 
-export interface ListOwnedWrongNotesInput extends ParsedListWrongNotesQuery {
+interface ListOwnedWrongNotesInput extends ParsedListWrongNotesQuery {
   readonly userId: string
 }
 
-export interface ListOwnedWrongNotesResult {
+interface ListOwnedWrongNotesResult {
   readonly availableTagLabels: readonly string[]
   readonly items: readonly WrongNoteReadRecord[]
   readonly total: number

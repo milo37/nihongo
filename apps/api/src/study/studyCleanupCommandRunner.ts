@@ -7,7 +7,7 @@ import {
 } from '../db/databaseTargetGuard.js'
 
 /** Settings that differ between the batch cleanup commands. */
-export interface StudyCleanupCommandSettings<Result> {
+interface StudyCleanupCommandSettings<Result> {
   batchSizeVariable: string
   confirmationVariable: string
   confirmation: string

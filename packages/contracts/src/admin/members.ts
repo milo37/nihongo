@@ -1,6 +1,5 @@
 import { z } from 'zod'
 import { isoDateTimeSchema } from '../common/date.js'
-import { createApiFailureSchema } from '../common/error.js'
 import { opaqueIdSchema } from '../common/id.js'
 import {
   createContentTextSchema,
@@ -9,14 +8,7 @@ import {
 } from '../common/content-validation.js'
 import { createPageResponseSchema } from '../common/pagination.js'
 
-export const listAdminMembersOperationId = 'admin.listAdminMembers' as const
-export const getAdminMemberOperationId = 'admin.getAdminMember' as const
-export const restrictAdminMemberOperationId =
-  'admin.restrictAdminMember' as const
-export const releaseAdminMemberRestrictionOperationId =
-  'admin.releaseAdminMemberRestriction' as const
-
-export const adminMemberStatusSchema = z.enum(['ACTIVE', 'RESTRICTED'])
+const adminMemberStatusSchema = z.enum(['ACTIVE', 'RESTRICTED'])
 
 export const adminMemberSortSchema = z.enum([
   'joinedAt',
@@ -26,7 +18,7 @@ export const adminMemberSortSchema = z.enum([
   'status'
 ])
 
-export const adminMemberPageSizeSchema = z.union([
+const adminMemberPageSizeSchema = z.union([
   z.literal(25),
   z.literal(50),
   z.literal(100)
@@ -55,7 +47,7 @@ export const listAdminMembersQuerySchema = z
   .strict()
 
 /** Raw email is never part of the response. */
-export const adminMemberSummarySchema = z
+const adminMemberSummarySchema = z
   .object({
     memberId: opaqueIdSchema,
     maskedEmail: z.string().min(1).max(320),
@@ -112,37 +104,6 @@ export const restrictAdminMemberResponseSchema = adminMemberDetailSchema
 export const releaseAdminMemberRestrictionResponseSchema =
   adminMemberDetailSchema
 
-const adminReadErrorCodes = [
-  'AUTHENTICATION_REQUIRED',
-  'AUTH_SESSION_EXPIRED',
-  'ADMIN_REQUIRED',
-  'VALIDATION_ERROR',
-  'RATE_LIMITED',
-  'INTERNAL_SERVER_ERROR',
-  'SERVICE_UNAVAILABLE'
-] as const
-
-export const listAdminMembersErrorSchema = createApiFailureSchema(
-  z.enum(adminReadErrorCodes)
-)
-export const getAdminMemberErrorSchema = createApiFailureSchema(
-  z.enum([...adminReadErrorCodes, 'RESOURCE_NOT_FOUND'])
-)
-
-/** Restriction commands require a fresh (5 minute) admin sign-in. */
-export const adminMemberRestrictionErrorCodeSchema = z.enum([
-  ...adminReadErrorCodes,
-  'FRESH_ASSURANCE_REQUIRED',
-  'INVALID_CSRF',
-  'UNTRUSTED_ORIGIN',
-  'RESOURCE_NOT_FOUND',
-  'VERSION_CONFLICT',
-  'INVALID_STATE_TRANSITION'
-])
-export const adminMemberRestrictionErrorSchema = createApiFailureSchema(
-  adminMemberRestrictionErrorCodeSchema
-)
-
 export type AdminMemberStatus = z.output<typeof adminMemberStatusSchema>
 export type AdminMemberSort = z.output<typeof adminMemberSortSchema>
 export type ListAdminMembersQuery = z.input<typeof listAdminMembersQuerySchema>
@@ -159,7 +120,4 @@ export type RestrictAdminMemberRequest = z.input<
 >
 export type ReleaseAdminMemberRestrictionRequest = z.input<
   typeof releaseAdminMemberRestrictionRequestSchema
->
-export type AdminMemberRestrictionError = z.output<
-  typeof adminMemberRestrictionErrorSchema
 >

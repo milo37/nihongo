@@ -22,7 +22,7 @@ const createTrustedProxyList = (entries: readonly string[]): BlockList => {
   return blockList
 }
 
-export interface ClientIpAuthority {
+interface ClientIpAuthority {
   apply: (request: Request, peerAddress?: string) => Request
   resolve: (
     peerAddress: string | undefined,

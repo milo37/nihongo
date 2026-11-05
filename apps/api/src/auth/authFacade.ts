@@ -12,7 +12,7 @@ import {
 
 const emptySchema = z.object({}).strict()
 
-export interface OwnedAuthFacade {
+interface OwnedAuthFacade {
   handle: (
     request: Request,
     pathname: string,

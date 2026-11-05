@@ -12,8 +12,6 @@ import {
 
 export const approved308InventorySha256 =
   'adbbaf21660607b509a4a95fe68604bbdbe28ee897a053c1f0889141f1057a81'
-export const approved308TagMigration = '20261010071000_approved308_tags'
-export const approved308TagCommand = 'SELECT "apply_approved308_tags"()'
 
 const sha256 = (text: string) =>
   createHash('sha256').update(text, 'utf8').digest('hex')

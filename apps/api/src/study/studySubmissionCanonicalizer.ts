@@ -5,20 +5,19 @@ import {
 } from '@nihongo/domain/submission/canonicalize-study-submission'
 import type { SubmittedStudyAnswer } from '@nihongo/domain/grading/grade-study-submission'
 
-export interface SubmissionQuestionOrder {
+interface SubmissionQuestionOrder {
   readonly ordinal: number
   readonly studySessionQuestionId: string
 }
 
-export interface TolerantStudySubmissionInput {
+interface TolerantStudySubmissionInput {
   readonly answers: readonly SubmittedStudyAnswer[]
   readonly durationSec: number
   readonly orderedSessionQuestions: readonly SubmissionQuestionOrder[]
   readonly sessionId: string
 }
 
-export interface TolerantStudySubmissionV2Input
-  extends TolerantStudySubmissionInput {
+interface TolerantStudySubmissionV2Input extends TolerantStudySubmissionInput {
   readonly expectedDraftRevision: number
 }
 

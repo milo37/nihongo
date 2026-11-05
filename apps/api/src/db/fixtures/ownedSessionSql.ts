@@ -67,7 +67,7 @@ interface PgQueryable {
 }
 
 /** Failure injection points for tests that simulate a lost response. */
-export interface PgOwnedSessionHooks {
+interface PgOwnedSessionHooks {
   /** Called before every statement; may throw to simulate a transport loss. */
   readonly beforeQuery?: (sql: string) => void
   /** Called after a top-level COMMIT with that transaction's statements. */

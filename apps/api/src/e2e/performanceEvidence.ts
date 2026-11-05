@@ -44,7 +44,7 @@ interface StatementEvidence {
   readonly transactionPerSample: number
 }
 
-export interface TimingMeasurement {
+interface TimingMeasurement {
   readonly budget: TimingBudget
   readonly measuredCount: number
   readonly metric: string
@@ -53,7 +53,7 @@ export interface TimingMeasurement {
   readonly warmupCount: number
 }
 
-export interface DatabaseApiPerformanceEvidence {
+interface DatabaseApiPerformanceEvidence {
   readonly api: TimingMeasurement & {
     readonly cacheControl: 'private, no-store'
     readonly noStoreCount: number
@@ -299,7 +299,7 @@ const assertStatementEvidence = (
   }
 }
 
-export const assertDatabaseApiPerformanceEvidence: (
+const assertDatabaseApiPerformanceEvidence: (
   value: unknown
 ) => asserts value is DatabaseApiPerformanceEvidence = (value) => {
   if (

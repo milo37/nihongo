@@ -1,11 +1,7 @@
 import { z } from 'zod'
 import { isoDateTimeSchema } from '../common/date.js'
 import { jlptLevelSchema, persistedUserRoleSchema } from '../common/enum.js'
-import { createApiFailureSchema } from '../common/error.js'
 import { opaqueIdSchema } from '../common/id.js'
-
-export const getCurrentPrincipalOperationId =
-  'auth.getCurrentPrincipal' as const
 
 export const authenticatedUserSchema = z
   .object({
@@ -52,15 +48,4 @@ export const getCurrentPrincipalErrorCodeSchema = z.enum([
   'SERVICE_UNAVAILABLE'
 ])
 
-export const getCurrentPrincipalErrorSchema = createApiFailureSchema(
-  getCurrentPrincipalErrorCodeSchema
-)
-
 export type AuthenticatedUser = z.output<typeof authenticatedUserSchema>
-export type CurrentPrincipal = z.output<typeof currentPrincipalSchema>
-export type GetCurrentPrincipalResponse = z.output<
-  typeof getCurrentPrincipalResponseSchema
->
-export type GetCurrentPrincipalError = z.output<
-  typeof getCurrentPrincipalErrorSchema
->

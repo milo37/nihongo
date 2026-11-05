@@ -32,16 +32,3 @@ export const getStudyDraftAnswersErrorCodeSchema = z.enum([
 export const getStudyDraftAnswersErrorSchema = createApiFailureSchema(
   getStudyDraftAnswersErrorCodeSchema
 )
-
-export type GetStudyDraftAnswersParams = z.input<
-  typeof getStudyDraftAnswersParamsSchema
->
-export type GetStudyDraftAnswersHeaders = z.input<
-  typeof getStudyDraftAnswersHeadersSchema
->
-export type GetStudyDraftAnswersResponse = z.output<
-  typeof getStudyDraftAnswersResponseSchema
->
-export type GetStudyDraftAnswersError = z.output<
-  typeof getStudyDraftAnswersErrorSchema
->

@@ -1,4 +1,4 @@
-export interface ContentBundleReleaseHashInputV1 {
+interface ContentBundleReleaseHashInputV1 {
   readonly schemaVersion: 1
   readonly artifactKind: 'CONTENT_BUNDLE_V1'
   readonly releaseKey: string
@@ -18,31 +18,7 @@ export interface ContentBundleReleaseHashInputV1 {
   readonly policyOwnerSignatureSha256: string
 }
 
-export interface LegacySeedReleaseHashInputV1 {
-  readonly schemaVersion: 1
-  readonly artifactKind: 'LEGACY_SEED_MANIFEST_V1'
-  readonly releaseKey: 'legacy-system-seed-v1'
-  readonly releaseRevision: 1
-  readonly bundleSha256: string
-  readonly certificateSha256: null
-  readonly duplicateReviewPlanSha256: null
-  readonly reviewEvidenceSha256: null
-  readonly authorSignatureSha256: null
-  readonly reviewerSignatureSha256: null
-  readonly approvalReceiptSha256: null
-  readonly approvalOwnerSignatureSha256: null
-  readonly policyActivationRevision: null
-  readonly policyActivationSha256: null
-  readonly policyActivationOwnerSignatureSha256: null
-  readonly policySnapshotSha256: string
-  readonly policyOwnerSignatureSha256: string
-}
-
-export type ReleaseHashInputV1 =
-  | ContentBundleReleaseHashInputV1
-  | LegacySeedReleaseHashInputV1
-
-export interface LegacySeedItemHashInputV1 {
+interface LegacySeedItemHashInputV1 {
   readonly kind: 'LEGACY_SEED_ITEM_V1'
   readonly contentKey: string
   readonly semanticContentSha256: string
@@ -74,43 +50,6 @@ export const createContentBundleReleaseHashInput = (
   policySnapshotSha256: values.policySnapshotSha256,
   policyOwnerSignatureSha256: values.policyOwnerSignatureSha256
 })
-
-export const createLegacySeedReleaseHashInput = (
-  values: Pick<
-    LegacySeedReleaseHashInputV1,
-    'bundleSha256' | 'policyOwnerSignatureSha256' | 'policySnapshotSha256'
-  >
-): LegacySeedReleaseHashInputV1 => ({
-  schemaVersion: 1,
-  artifactKind: 'LEGACY_SEED_MANIFEST_V1',
-  releaseKey: 'legacy-system-seed-v1',
-  releaseRevision: 1,
-  bundleSha256: values.bundleSha256,
-  certificateSha256: null,
-  duplicateReviewPlanSha256: null,
-  reviewEvidenceSha256: null,
-  authorSignatureSha256: null,
-  reviewerSignatureSha256: null,
-  approvalReceiptSha256: null,
-  approvalOwnerSignatureSha256: null,
-  policyActivationRevision: null,
-  policyActivationSha256: null,
-  policyActivationOwnerSignatureSha256: null,
-  policySnapshotSha256: values.policySnapshotSha256,
-  policyOwnerSignatureSha256: values.policyOwnerSignatureSha256
-})
-
-export const normalizeReleaseHashInput = (
-  input: ReleaseHashInputV1
-): ReleaseHashInputV1 => {
-  if (input.artifactKind === 'CONTENT_BUNDLE_V1') {
-    return createContentBundleReleaseHashInput(input)
-  }
-  if (input.artifactKind === 'LEGACY_SEED_MANIFEST_V1') {
-    return createLegacySeedReleaseHashInput(input)
-  }
-  throw new Error('RELEASE_ARTIFACT_KIND_INVALID')
-}
 
 export const createLegacySeedItemHashInput = (values: {
   readonly contentKey: string

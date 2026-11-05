@@ -69,7 +69,7 @@ export const userMemoInputSchema = z
   })
   .transform(normalizeUserMemoText)
 
-export const userMemoTextSchema = z.string().superRefine((value, context) => {
+const userMemoTextSchema = z.string().superRefine((value, context) => {
   if (containsPostgresTextNullByte(value)) {
     context.addIssue({
       code: 'custom',

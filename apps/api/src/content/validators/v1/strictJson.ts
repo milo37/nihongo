@@ -3,7 +3,7 @@ import {
   isWellFormedUnicode
 } from '@nihongo/domain/content/validators/v1/unicode'
 
-export type StrictJsonErrorCode =
+type StrictJsonErrorCode =
   | 'DUPLICATE_KEY'
   | 'INVALID_JSON'
   | 'INVALID_NUMBER'

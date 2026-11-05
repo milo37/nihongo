@@ -3,15 +3,13 @@ import { createApiFailureSchema } from '../common/error.js'
 import { opaqueIdSchema } from '../common/id.js'
 import { studyResultSchema } from './study-result.js'
 
-export const getStudyResultOperationId = 'study.getStudyResult' as const
-
 export const getStudyResultParamsSchema = z
   .object({ sessionId: opaqueIdSchema })
   .strict()
 
 export const getStudyResultResponseSchema = studyResultSchema
 
-export const getStudyResultErrorCodeSchema = z.enum([
+const getStudyResultErrorCodeSchema = z.enum([
   'INVALID_ID',
   'AUTHENTICATION_REQUIRED',
   'AUTH_SESSION_EXPIRED',

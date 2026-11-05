@@ -21,7 +21,7 @@ export class DashboardMapperIntegrityError extends Error {
   }
 }
 
-export const toSafeDashboardCount = (value: bigint, field: string): number => {
+const toSafeDashboardCount = (value: bigint, field: string): number => {
   const converted = Number(value)
   if (
     value < 0n ||
@@ -35,7 +35,7 @@ export const toSafeDashboardCount = (value: bigint, field: string): number => {
   return converted
 }
 
-export const calculateDashboardRate = (
+const calculateDashboardRate = (
   correctCount: bigint,
   answeredCount: bigint
 ): number => {
