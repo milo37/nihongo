@@ -91,7 +91,7 @@ provisioning은 guest cleanup login의 CONNECT까지 줍니다. migrate·seed �
 capability 등록(activation)에는 `--set=environment=TEST` 또는 `--set=environment=DEVELOPMENT`를 사용하며 명시적 후속 승인 전에는 실행 금지입니다.
 이 단계는 `DatabaseCapability`에 접속한 server 주소·port를 기록하고 API startup이 같은 값을 확인하므로, API와 같은 경로(host에서 `-h 127.0.0.1 -p 55433`)로 실행합니다.
 container 안 접속(socket 또는 container의 127.0.0.1)은 다른 주소가 기록되어 API startup이 42501로 실패합니다.
-host에 PostgreSQL 18 client(`psql`)가 필요합니다. 한 DB에 한 번만 실행합니다(두 번째 실행은 capability 중복으로 거부됩니다).
+host에 PostgreSQL 18 client(`psql`)가 필요합니다. 다시 실행하면 같은 행을 현재 접속 주소로 갱신합니다(API의 capability 등록과 같은 SQL).
 
 ```bash
 # 아래 one-way local write는 명시적 후속 승인 후에만 실행합니다(저장소 루트, 루트 .env 사용).

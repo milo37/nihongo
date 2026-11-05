@@ -4,12 +4,34 @@
 -- an init suffix. The README runbook invokes it once per database after migrate
 -- and seed, using the migration wrapper over the same host path as the API, so
 -- the recorded server address and port match what the API runtime check sees.
+-- The INSERT mirrors DATABASE_CAPABILITY_SQL in apps/api/src/db/databaseCapability.ts.
 BEGIN;
 SET LOCAL search_path = public, pg_catalog;
-INSERT INTO "DatabaseCapability" (
-  "id", "databaseName", "serverAddress", "serverPort", "environment"
-) VALUES (
-  1, current_database(), inet_server_addr(), inet_server_port(),
-  :'environment'::"AdminAuditEnvironment"
-);
+SET LOCAL app.capability_environment = :'environment';
+DO $register_capability$
+DECLARE
+  environment_value TEXT := current_setting('app.capability_environment');
+  written INTEGER;
+BEGIN
+  INSERT INTO "DatabaseCapability" (
+    "id", "databaseName", "serverAddress", "serverPort", "environment",
+    "registeredAt"
+  )
+  SELECT 1, current_database(), inet_server_addr(), inet_server_port(),
+    environment_value::"AdminAuditEnvironment", clock_timestamp()
+  WHERE inet_server_addr() IS NOT NULL
+    AND ((environment_value = 'TEST' AND current_database() ~ '_test$')
+      OR (environment_value = 'DEVELOPMENT' AND current_database() ~ '_dev$'))
+  ON CONFLICT ("id") DO UPDATE SET
+    "databaseName" = EXCLUDED."databaseName",
+    "serverAddress" = EXCLUDED."serverAddress",
+    "serverPort" = EXCLUDED."serverPort",
+    "environment" = EXCLUDED."environment",
+    "registeredAt" = EXCLUDED."registeredAt";
+  GET DIAGNOSTICS written = ROW_COUNT;
+  IF written <> 1 THEN
+    RAISE EXCEPTION 'Database capability does not match the safe local target.';
+  END IF;
+END;
+$register_capability$;
 COMMIT;
