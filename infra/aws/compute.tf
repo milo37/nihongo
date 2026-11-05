@@ -1,15 +1,15 @@
 resource "aws_security_group" "host" {
   name        = "${local.name}-host"
-  description = "API port from CloudFront origin-facing addresses only; no SSH (use SSM)."
+  description = "Origin proxy port from CloudFront origin-facing addresses only; no SSH (use SSM)."
   vpc_id      = data.aws_vpc.default.id
 }
 
 resource "aws_vpc_security_group_ingress_rule" "api_from_cloudfront" {
   security_group_id = aws_security_group.host.id
-  description       = "CloudFront to API"
+  description       = "CloudFront to the origin proxy"
   ip_protocol       = "tcp"
-  from_port         = 3001
-  to_port           = 3001
+  from_port         = local.origin_port
+  to_port           = local.origin_port
   prefix_list_id    = data.aws_ec2_managed_prefix_list.cloudfront_origin.id
 }
 
@@ -113,16 +113,25 @@ resource "aws_instance" "host" {
 
   # gzip keeps the rendered cloud-init (scripts + CloudFront CIDR list) under the 16 KB limit.
   user_data_base64 = base64gzip(templatefile("${path.module}/templates/cloud-init.yaml.tftpl", {
-    region            = var.region
-    environment       = var.deployment_environment
-    param_path        = local.param_path
-    data_volume_id    = replace(aws_ebs_volume.data.id, "-", "")
-    compose_version   = var.compose_version
-    compose_sha256    = var.compose_sha256
-    log_group         = aws_cloudwatch_log_group.api.name
-    ecr_repository    = aws_ecr_repository.api.repository_url
-    backup_bucket     = aws_s3_bucket.backup.bucket
-    compose_yaml      = base64encode(templatefile("${path.module}/files/compose.yaml.tftpl", { postgres_image = var.postgres_image }))
+    region          = var.region
+    environment     = var.deployment_environment
+    param_path      = local.param_path
+    data_volume_id  = replace(aws_ebs_volume.data.id, "-", "")
+    compose_version = var.compose_version
+    compose_sha256  = var.compose_sha256
+    log_group       = aws_cloudwatch_log_group.api.name
+    ecr_repository  = aws_ecr_repository.api.repository_url
+    backup_bucket   = aws_s3_bucket.backup.bucket
+    compose_yaml = base64encode(templatefile("${path.module}/files/compose.yaml.tftpl", {
+      postgres_image = var.postgres_image
+      caddy_image    = var.caddy_image
+      origin_port    = local.origin_port
+      origin_tls     = local.origin_tls
+      proxy_subnet   = local.proxy_subnet
+    }))
+    caddyfile = base64encode(templatefile("${path.module}/files/Caddyfile.tftpl", {
+      origin_domain = var.origin_domain_name
+    }))
     deploy_sh         = filebase64("${path.module}/files/deploy.sh")
     render_env_sh     = filebase64("${path.module}/files/render-env.sh")
     backup_sh         = filebase64("${path.module}/files/backup.sh")
@@ -137,7 +146,7 @@ resource "aws_instance" "host" {
       "ADMIN_CMS_MODE=disabled",
       "TRUSTED_ORIGINS=${local.public_origin}",
       "BETTER_AUTH_URL=${local.public_origin}",
-      "AUTH_TRUSTED_PROXY_CIDRS=${join(",", concat(data.aws_ip_ranges.cloudfront.cidr_blocks, data.aws_ip_ranges.cloudfront.ipv6_cidr_blocks))}",
+      "AUTH_TRUSTED_PROXY_CIDRS=${local.proxy_subnet}",
       "",
     ]))
   }))

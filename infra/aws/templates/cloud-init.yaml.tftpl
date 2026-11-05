@@ -21,6 +21,10 @@ write_files:
     permissions: '0644'
     encoding: b64
     content: ${compose_yaml}
+  - path: /opt/harumaru/Caddyfile
+    permissions: '0644'
+    encoding: b64
+    content: ${caddyfile}
   - path: /opt/harumaru/bin/render-env.sh
     permissions: '0750'
     encoding: b64

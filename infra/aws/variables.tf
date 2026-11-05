@@ -59,6 +59,18 @@ variable "acm_certificate_arn" {
   }
 }
 
+variable "origin_domain_name" {
+  description = "Origin hostname with a public certificate (for example origin.harumaru.net). Empty = HTTP origin on 3001 (no TLS on the CloudFront to EC2 hop)."
+  type        = string
+  default     = ""
+}
+
+variable "caddy_image" {
+  description = "Origin proxy that checks the CloudFront secret header."
+  type        = string
+  default     = "caddy:2.11.8-alpine@sha256:f6228111e5fafa1a5238258d0858e103f10599b8d1659a146e7726681a002bb9"
+}
+
 variable "waf_rate_limit_per_5min" {
   description = "Requests per client IP per 5 minutes before WAF blocks."
   type        = number

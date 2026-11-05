@@ -9,7 +9,32 @@ x-logging: &logging
     awslogs-group: $${LOG_GROUP}
     tag: '{{.Name}}'
 
+networks:
+  # The API trusts only this subnet as a proxy (AUTH_TRUSTED_PROXY_CIDRS).
+  edge:
+    ipam:
+      config:
+        - subnet: ${proxy_subnet}
+  db:
+    internal: true
+
 services:
+  proxy:
+    image: ${caddy_image}
+    restart: unless-stopped
+    env_file: /run/harumaru/proxy.env
+    ports:
+      - '${origin_port}:${origin_port}'
+    volumes:
+      - /opt/harumaru/Caddyfile:/etc/caddy/Caddyfile:ro
+%{ if origin_tls ~}
+      - /run/harumaru/origin-tls:/run/origin-tls:ro
+%{ endif ~}
+    networks: [edge]
+    depends_on:
+      - api
+    logging: *logging
+
   postgres:
     image: ${postgres_image}
     restart: unless-stopped
@@ -29,6 +54,7 @@ services:
     volumes:
       - /var/lib/harumaru/postgres:/var/lib/postgresql
       - /var/lib/harumaru/certs:/certs:ro
+    networks: [db]
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres -d nihongo']
       interval: 10s
@@ -36,6 +62,7 @@ services:
       retries: 10
     logging: *logging
 
+  # Not published on the host: only the proxy reaches it.
   api:
     image: $${API_IMAGE}
     restart: unless-stopped
@@ -44,8 +71,7 @@ services:
       - /run/harumaru/api.env
     environment:
       RELEASE_ID: $${RELEASE_ID}
-    ports:
-      - '3001:3001'
+    networks: [edge, db]
     depends_on:
       postgres:
         condition: service_healthy

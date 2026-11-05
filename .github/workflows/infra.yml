@@ -1,0 +1,72 @@
+name: Infrastructure
+
+on:
+  pull_request:
+    paths:
+      - 'infra/aws/**'
+      - '.github/workflows/infra.yml'
+  push:
+    branches: [dev, main]
+    paths:
+      - 'infra/aws/**'
+      - '.github/workflows/infra.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infra-${{ github.ref }}
+  cancel-in-progress: true
+
+# Static checks only: no AWS credentials, no plan or apply.
+env:
+  TERRAFORM_VERSION: 1.17.1
+  TERRAFORM_SHA256: 4638628058e71a55212b1c563712eac03b902128f40740f3dc8174df12135061
+  TFLINT_VERSION: 0.65.0
+  TFLINT_SHA256: d4c545ed2e29d6338604b586f34f544f380f70f243aa72f7b484713835eaec61
+
+jobs:
+  terraform:
+    name: Terraform static checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: infra/aws
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Install pinned terraform and tflint
+        working-directory: ${{ runner.temp }}
+        run: |
+          curl -fsSLo terraform.zip "https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip"
+          echo "${TERRAFORM_SHA256}  terraform.zip" | sha256sum -c -
+          curl -fsSLo tflint.zip "https://github.com/terraform-linters/tflint/releases/download/v${TFLINT_VERSION}/tflint_linux_amd64.zip"
+          echo "${TFLINT_SHA256}  tflint.zip" | sha256sum -c -
+          mkdir -p bin
+          unzip -q terraform.zip -d bin
+          unzip -q tflint.zip -d bin
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - name: terraform fmt
+        run: terraform fmt -check -recursive -diff
+
+      - name: terraform validate
+        run: |
+          terraform init -backend=false -input=false -lockfile=readonly
+          terraform validate
+
+      - name: tflint
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          tflint --init
+          tflint --format compact
+
+      # Renders cloud-init and the host compose file for both origin modes and
+      # parses the YAML, so template mistakes fail here instead of at boot.
+      - name: Render host templates
+        run: bash scripts/render-check.sh

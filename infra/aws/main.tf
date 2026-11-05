@@ -1,6 +1,10 @@
 locals {
-  name          = "${var.project}-${lower(var.deployment_environment)}"
-  param_path    = "/${var.project}/${lower(var.deployment_environment)}"
+  name        = "${var.project}-${lower(var.deployment_environment)}"
+  param_path  = "/${var.project}/${lower(var.deployment_environment)}"
+  origin_tls  = var.origin_domain_name != ""
+  origin_port = local.origin_tls ? 443 : 3001
+  # Fixed compose subnet: the API trusts only the origin proxy as its peer.
+  proxy_subnet  = "172.30.0.0/24"
   public_origin = var.domain_name != "" ? "https://${var.domain_name}" : "https://${aws_cloudfront_distribution.site.domain_name}"
 
   tags = {
@@ -19,6 +23,7 @@ locals {
     "GUEST_COOKIE_SECRET",
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_SECRET",
+    "PRODUCTION_DATABASE_URL",
   ]
 }
 
@@ -54,10 +59,4 @@ data "aws_ssm_parameter" "al2023_arm64" {
 
 data "aws_ec2_managed_prefix_list" "cloudfront_origin" {
   name = "com.amazonaws.global.cloudfront.origin-facing"
-}
-
-# Client IP trust: the API only sees CloudFront as its TCP peer.
-data "aws_ip_ranges" "cloudfront" {
-  services = ["cloudfront"]
-  regions  = ["global"]
 }

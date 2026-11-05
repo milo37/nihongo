@@ -17,6 +17,21 @@ data "aws_cloudfront_origin_request_policy" "all_viewer" {
   name = "Managed-AllViewer"
 }
 
+# Only this distribution knows the value, so another account's distribution
+# pointed at the EIP gets 403 from the origin proxy and cannot bypass our WAF.
+# The value is in Terraform state (CloudFront config needs it), which is why
+# state stays on the operator's machine or in an encrypted, private backend.
+resource "random_password" "origin_verify" {
+  length  = 48
+  special = false
+}
+
+resource "aws_ssm_parameter" "origin_verify" {
+  name  = "${local.param_path}/ORIGIN_VERIFY_SECRET"
+  type  = "SecureString"
+  value = random_password.origin_verify.result
+}
+
 resource "aws_cloudfront_distribution" "site" {
   enabled         = true
   is_ipv6_enabled = true
@@ -27,12 +42,19 @@ resource "aws_cloudfront_distribution" "site" {
 
   origin {
     origin_id   = "api"
-    domain_name = aws_eip.host.public_dns
+    domain_name = local.origin_tls ? var.origin_domain_name : aws_eip.host.public_dns
 
+    custom_header {
+      name  = "X-Origin-Verify"
+      value = random_password.origin_verify.result
+    }
+
+    # Without origin_domain_name this hop is plain HTTP (no public certificate
+    # exists for the EC2 DNS name); setting it switches to HTTPS on 443.
     custom_origin_config {
       http_port              = 3001
       https_port             = 443
-      origin_protocol_policy = "http-only"
+      origin_protocol_policy = local.origin_tls ? "https-only" : "http-only"
       origin_ssl_protocols   = ["TLSv1.2"]
       origin_read_timeout    = 30
     }

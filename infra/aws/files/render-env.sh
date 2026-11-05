@@ -15,7 +15,7 @@ params = {p["Name"].rsplit("/", 1)[1]: p["Value"] for p in json.load(sys.stdin)[
 for key, value in params.items():
     if "\n" in value or "\r" in value:
         sys.exit(f"parameter {key} contains a newline")
-required = ["POSTGRES_PASSWORD", "DATABASE_URL", "BETTER_AUTH_SECRET", "GUEST_COOKIE_SECRET"]
+required = ["POSTGRES_PASSWORD", "DATABASE_URL", "BETTER_AUTH_SECRET", "GUEST_COOKIE_SECRET", "ORIGIN_VERIFY_SECRET"]
 missing = [k for k in required if k not in params]
 if missing:
     sys.exit("missing SSM parameters: " + ", ".join(missing))
@@ -23,10 +23,20 @@ groups = {
     "postgres.env": ["POSTGRES_PASSWORD"],
     "migrate.env": ["MIGRATION_DATABASE_URL"],
     "api.env": ["DATABASE_URL", "BETTER_AUTH_SECRET", "GUEST_COOKIE_SECRET", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
+    "proxy.env": ["ORIGIN_VERIFY_SECRET"],
+    # Account erasure only (#57); never part of the API runtime environment.
+    "erase.env": ["PRODUCTION_DATABASE_URL"],
 }
 for file, keys in groups.items():
     with open(f"/run/harumaru/{file}", "w") as out:
         for key in keys:
             if key in params:
                 out.write(f"{key}={params[key]}\n")
+# Origin TLS (only with origin_domain_name): PEM files stored base64 in SSM.
+import base64, os
+if "ORIGIN_TLS_CERT_B64" in params and "ORIGIN_TLS_KEY_B64" in params:
+    os.makedirs("/run/harumaru/origin-tls", mode=0o700, exist_ok=True)
+    for name, key in (("origin.crt", "ORIGIN_TLS_CERT_B64"), ("origin.key", "ORIGIN_TLS_KEY_B64")):
+        with open(f"/run/harumaru/origin-tls/{name}", "wb") as out:
+            out.write(base64.b64decode(params[key], validate=True))
 '

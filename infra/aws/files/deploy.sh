@@ -15,10 +15,12 @@ write_compose_env() {
     "$ECR_REPOSITORY" "$1" "$1" "$AWS_REGION" "$LOG_GROUP" > .env
 }
 
+# Checked inside the API container: port 3001 is not published on the host.
 healthy() {
   for _ in $(seq 1 30); do
-    if [[ "$(curl -fsS -o /dev/null -D - http://127.0.0.1:3001/health/ready 2>/dev/null \
-      | tr -d '\r' | awk -F': ' 'tolower($1)=="x-release-id"{print $2}')" == "$1" ]]; then
+    if docker compose exec -T api node -e \
+      "fetch('http://127.0.0.1:3001/health/ready').then((r)=>process.exit(r.status===200&&r.headers.get('x-release-id')===process.argv[1]?0:1),()=>process.exit(1))" \
+      "$1" >/dev/null 2>&1; then
       return 0
     fi
     sleep 2
@@ -45,7 +47,7 @@ if [[ ! -x /opt/harumaru/bin/migrate.sh ]]; then
 fi
 /opt/harumaru/bin/migrate.sh "$ECR_REPOSITORY:$release"
 
-docker compose up -d api
+docker compose up -d api proxy
 if healthy "$release"; then
   echo "$release" > current-release
   echo "deployed $release"
@@ -56,7 +58,7 @@ echo "health check failed for $release" >&2
 if [[ -n "$previous" ]]; then
   # Migrations are forward-only, so the previous image must accept the new schema.
   write_compose_env "$previous"
-  docker compose up -d api
+  docker compose up -d api proxy
   healthy "$previous" && echo "rolled back to $previous" >&2
 fi
 exit 1
