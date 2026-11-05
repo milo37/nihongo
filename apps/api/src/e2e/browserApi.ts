@@ -23,7 +23,6 @@ import {
   getPostgresSchema
 } from '../db/databaseOptions.js'
 import { createSsoIdentityFixture } from '../db/fixtures/ssoSession.js'
-import { createPracticeRuntimeGate } from '../lifecycle/practiceRuntimeGate.js'
 import { startApiListener } from '../lifecycle/startApiListener.js'
 import { stopServerGracefully } from '../lifecycle/gracefulShutdown.js'
 import { createJsonLogger, type LogLevel } from '../observability/logger.js'
@@ -57,11 +56,11 @@ import { createPrismaAdminQuestionRepository } from '../admin/adminQuestionRepos
 import { createAdminQuestionService } from '../admin/adminQuestionService.js'
 import { createAdminCommandRateLimiter } from '../admin/adminCommandRateLimiter.js'
 import { createPrismaAdminQuestionCommandRepository } from '../admin/adminQuestionCommandRepository.js'
-import { createPrismaAdminQuestionSlice5Repository } from '../admin/adminQuestionSlice5Repository.js'
+import { createPrismaAdminQuestionWorkflowRepository } from '../admin/adminQuestionWorkflowRepository.js'
 import {
   createAdminQuestionCommandService,
   createAdminQuestionPublicationCommandService,
-  createAdminQuestionSlice5CommandService
+  createAdminQuestionWorkflowCommandService
 } from '../admin/adminQuestionCommandService.js'
 import { createQuestionReportRateLimiter } from '../admin/questionReportRateLimiter.js'
 import { createPrismaQuestionReportRepository } from '../admin/questionReportRepository.js'
@@ -210,7 +209,6 @@ export const parseBrowserEnvironment = (source: NodeJS.ProcessEnv) => {
     source.NODE_ENV !== 'test' ||
     source.DEPLOYMENT_ENVIRONMENT !== 'TEST' ||
     source.ADMIN_CMS_MODE !== 'technical' ||
-    source.PRACTICE_CONTRACT_RUNTIME !== 'v1-v2' ||
     [
       'GOOGLE_CLIENT_ID',
       'GOOGLE_CLIENT_SECRET',
@@ -384,14 +382,10 @@ export const createBrowserApi = async ({
         throw new Error('BROWSER_TEST_DATABASE_DISCONNECT_FAILED')
     }))
   try {
-    const practice = createPracticeRuntimeGate({
-      runtime: 'v1-v2',
-      checkV1Compatibility: database.checkV1Compatibility,
-      checkDatabaseReadiness: createOwnedAuthReadiness({
-        checkDatabaseReadiness: database.checkReadiness,
-        applicationClient: database.client,
-        applicationUrl: environment.DATABASE_URL
-      })
+    const checkReadiness = createOwnedAuthReadiness({
+      checkDatabaseReadiness: database.checkReadiness,
+      applicationClient: database.client,
+      applicationUrl: environment.DATABASE_URL
     })
     const rateLimiter = createApplicationRateLimiter({
       client: database.client,
@@ -408,14 +402,14 @@ export const createBrowserApi = async ({
       auditEnvironment: 'TEST',
       client: database.client
     })
-    const slice5Repository = createPrismaAdminQuestionSlice5Repository({
+    const workflowRepository = createPrismaAdminQuestionWorkflowRepository({
       auditEnvironment: 'TEST',
       client: database.client
     })
     const commandService = {
       ...createAdminQuestionCommandService(commandRepository),
       ...createAdminQuestionPublicationCommandService(commandRepository),
-      ...createAdminQuestionSlice5CommandService(slice5Repository)
+      ...createAdminQuestionWorkflowCommandService(workflowRepository)
     }
     const reportLimiter = createQuestionReportRateLimiter({
       client: database.client,
@@ -439,8 +433,7 @@ export const createBrowserApi = async ({
           secret: environment.GUEST_COOKIE_SECRET
         })
       },
-      assertPracticeRuntimeAuthority: practice.assertRequestAuthority,
-      checkReadiness: practice.checkReadiness,
+      checkReadiness,
       logger: createJsonLogger(
         parseBrowserApiLogLevel(source.BROWSER_API_LOG_LEVEL)
       ),
@@ -455,7 +448,6 @@ export const createBrowserApi = async ({
         draftService: createStudyDraftService(
           createPrismaStudyDraftRepository(database.client)
         ),
-        practiceContractV2Enabled: practice.practiceContractV2Enabled,
         rateLimiter,
         retryService: createStudyResultRetryService(
           createPrismaStudyResultRetryRepository(database.client)
@@ -480,7 +472,7 @@ export const createBrowserApi = async ({
           createPrismaDashboardRepository(database.client)
         ),
         rateLimiter,
-        reviewCenterEnabled: practice.practiceContractV2Enabled,
+        reviewCenterEnabled: true,
         reviewCenterService: createWrongNoteReviewCenterService(
           createPrismaWrongNoteReviewCenterRepository(database.client)
         ),
@@ -506,7 +498,7 @@ export const createBrowserApi = async ({
             keySecret: environment.GUEST_COOKIE_SECRET
           }),
           service: commandService,
-          slice5Service: commandService
+          workflowService: commandService
         },
         reports: {
           rateLimiter: reportLimiter,
@@ -532,7 +524,7 @@ export const createBrowserApi = async ({
       app,
       disconnect,
       checkReadiness: async () => {
-        await practice.checkReadiness()
+        await checkReadiness()
         await runReauthenticationStartupMaintenance(gateway.client)
       }
     }

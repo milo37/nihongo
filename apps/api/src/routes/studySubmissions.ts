@@ -1,9 +1,6 @@
 import {
   duplicateAnswerValidationMarker,
-  submitStudySessionBodySchema,
-  submitStudySessionHeadersSchema,
   submitStudySessionParamsSchema,
-  submitStudySessionResponseSchema,
   submitStudySessionV2BodySchema,
   submitStudySessionV2HeadersSchema,
   submitStudySessionV2ResponseSchema
@@ -28,14 +25,13 @@ import { GUEST_COOKIE_NAME } from './principal.js'
 import { toFieldErrors } from './routeSupport.js'
 import {
   resolveExistingStudyOwner,
-  resolvePracticeContractVersion
+  assertPracticeContractHeader
 } from './studyRouteSupport.js'
 
 interface StudySubmissionRouteDependencies {
   environment: ApiEnvironment
   guestPrincipalService: GuestPrincipalService
   principalService: PrincipalService
-  practiceContractV2Enabled: boolean
   rateLimiter: ApplicationRateLimiter
   studySubmissionService: StudySubmissionService
 }
@@ -74,7 +70,6 @@ export const createStudySubmissionRoutes = ({
   environment,
   guestPrincipalService,
   principalService,
-  practiceContractV2Enabled,
   rateLimiter,
   studySubmissionService
 }: StudySubmissionRouteDependencies): Hono<StudySubmissionRouteEnvironment> => {
@@ -93,9 +88,8 @@ export const createStudySubmissionRoutes = ({
       max: 120
     })
 
-    const practiceContractVersion = resolvePracticeContractVersion(
-      context.req.header('X-Nihongo-Practice-Contract'),
-      practiceContractV2Enabled
+    assertPracticeContractHeader(
+      context.req.header('X-Nihongo-Practice-Contract')
     )
 
     let params
@@ -117,16 +111,11 @@ export const createStudySubmissionRoutes = ({
 
     let headers
     try {
-      headers =
-        practiceContractVersion === 2
-          ? submitStudySessionV2HeadersSchema.parse({
-              'idempotency-key': context.req.header('Idempotency-Key'),
-              'x-nihongo-practice-contract':
-                context.req.header('X-Nihongo-Practice-Contract') ?? '2'
-            })
-          : submitStudySessionHeadersSchema.parse({
-              'idempotency-key': context.req.header('Idempotency-Key')
-            })
+      headers = submitStudySessionV2HeadersSchema.parse({
+        'idempotency-key': context.req.header('Idempotency-Key'),
+        'x-nihongo-practice-contract':
+          context.req.header('X-Nihongo-Practice-Contract') ?? '2'
+      })
     } catch (error: unknown) {
       if (error instanceof z.ZodError) {
         throw new ApplicationError({
@@ -141,10 +130,7 @@ export const createStudySubmissionRoutes = ({
     let input
     try {
       const rawBody = await readBoundedJsonObject(context.req.raw)
-      input =
-        practiceContractVersion === 2
-          ? submitStudySessionV2BodySchema.parse(rawBody)
-          : submitStudySessionBodySchema.parse(rawBody)
+      input = submitStudySessionV2BodySchema.parse(rawBody)
     } catch (error: unknown) {
       if (error instanceof z.ZodError) {
         throw bodyValidationError(error)
@@ -172,21 +158,12 @@ export const createStudySubmissionRoutes = ({
       max: 20
     })
 
-    const submitted =
-      practiceContractVersion === 2
-        ? await studySubmissionService.submit(
-            params.sessionId,
-            headers['idempotency-key'],
-            input,
-            owner,
-            2
-          )
-        : await studySubmissionService.submit(
-            params.sessionId,
-            headers['idempotency-key'],
-            input,
-            owner
-          )
+    const submitted = await studySubmissionService.submit(
+      params.sessionId,
+      headers['idempotency-key'],
+      input,
+      owner
+    )
     if (submitted.replayed) {
       context.header('Idempotency-Replayed', 'true')
     }
@@ -209,17 +186,10 @@ export const createStudySubmissionRoutes = ({
       })
     }
     context.header('Cache-Control', 'private, no-store')
-    context.header(
-      'X-Nihongo-Practice-Contract',
-      String(practiceContractVersion)
+    context.header('X-Nihongo-Practice-Contract', '2')
+    const response = submitStudySessionV2ResponseSchema.parse(
+      submitted.response
     )
-    if (practiceContractVersion === 2) {
-      const response = submitStudySessionV2ResponseSchema.parse(
-        submitted.response
-      )
-      return context.json(response, 201)
-    }
-    const response = submitStudySessionResponseSchema.parse(submitted.response)
     return context.json(response, 201)
   })
 

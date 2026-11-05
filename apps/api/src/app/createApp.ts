@@ -64,7 +64,7 @@ import type { AdminCommandRateLimiter } from '../admin/adminCommandRateLimiter.j
 import type {
   AdminQuestionCommandService,
   AdminQuestionPublicationCommandService,
-  AdminQuestionSlice5CommandService
+  AdminQuestionWorkflowCommandService
 } from '../admin/adminQuestionCommandService.js'
 import { createQuestionReportGuard } from '../admin/questionReportGuard.js'
 import type { QuestionReportRateLimiter } from '../admin/questionReportRateLimiter.js'
@@ -93,8 +93,8 @@ import {
   isCanonicalApprovalCommandRequest,
   isCanonicalPublicationCommandRequest,
   isCanonicalLearnerReportRequest,
-  isCanonicalSlice5AdminCommandRequest,
-  isCanonicalSlice5AdminReadRequest,
+  isCanonicalWorkflowAdminCommandRequest,
+  isCanonicalWorkflowAdminReadRequest,
   isCanonicalSlice3ACommandRequest,
   isCanonicalSlice2ReadRequest,
   isProtectedRouteExcluded,
@@ -139,7 +139,6 @@ const isPracticeCorsPath = (pathname: string): boolean =>
 interface CreateApiAppDependencies {
   /** #484 restriction lookup; required in production when learner routes are wired. */
   accountRestrictionReader?: AccountRestrictionReader
-  assertPracticeRuntimeAuthority?: () => void | Promise<void>
   checkReadiness: () => Promise<void>
   logger: StructuredLogger
   questionReader: QuestionReader
@@ -162,7 +161,7 @@ interface CreateApiAppDependencies {
       rateLimiter: AdminCommandRateLimiter
       service: AdminQuestionCommandService &
         AdminQuestionPublicationCommandService
-      slice5Service?: AdminQuestionSlice5CommandService
+      workflowService?: AdminQuestionWorkflowCommandService
     }
     reports?: {
       rateLimiter: QuestionReportRateLimiter
@@ -191,7 +190,6 @@ interface CreateApiAppDependencies {
   }
   study?: {
     draftService?: StudyDraftService
-    practiceContractV2Enabled: boolean
     rateLimiter: ApplicationRateLimiter
     retryService?: StudyResultRetryService
     service: StudySessionService
@@ -413,7 +411,6 @@ export const createApiApp = ({
   accountRestrictionReader: configuredAccountRestrictionReader,
   admin,
   auth,
-  assertPracticeRuntimeAuthority,
   checkReadiness,
   logger,
   learning,
@@ -508,13 +505,13 @@ export const createApiApp = ({
               method: context.req.method,
               requestTarget
             }))) ||
-        (admin?.commands?.slice5Service !== undefined &&
-          isCanonicalSlice5AdminCommandRequest({
+        (admin?.commands?.workflowService !== undefined &&
+          isCanonicalWorkflowAdminCommandRequest({
             method: context.req.method,
             requestTarget
           })) ||
         (admin?.reports !== undefined &&
-          isCanonicalSlice5AdminReadRequest({
+          isCanonicalWorkflowAdminReadRequest({
             method: context.req.method,
             requestTarget
           })))
@@ -742,30 +739,12 @@ export const createApiApp = ({
               principalService: auth.principalService,
               rateLimiter: admin.commands.rateLimiter
             }),
-            ...(admin.commands.slice5Service
-              ? { slice5CommandService: admin.commands.slice5Service }
+            ...(admin.commands.workflowService
+              ? { workflowCommandService: admin.commands.workflowService }
               : {})
           })
         )
       }
-    }
-    if (assertPracticeRuntimeAuthority) {
-      app.use('/api/v1/*', async (context, next) => {
-        if (isProtectedRouteExcluded(context.get('rawRequestTarget'))) {
-          await next()
-          return
-        }
-        try {
-          await assertPracticeRuntimeAuthority()
-        } catch {
-          throw new ApplicationError({
-            code: 'SERVICE_UNAVAILABLE',
-            message: '학습 API 배포 세대 권한을 확인할 수 없습니다.',
-            retryable: true
-          })
-        }
-        await next()
-      })
     }
     app.use('/api/v1/*', createWriteSecurity(auth.environment))
     app.route(
@@ -784,7 +763,6 @@ export const createApiApp = ({
           environment: auth.environment,
           guestPrincipalService: auth.guestPrincipalService,
           principalService: auth.principalService,
-          practiceContractV2Enabled: study.practiceContractV2Enabled,
           rateLimiter: study.rateLimiter,
           studySessionService: study.service
         })
@@ -796,13 +774,12 @@ export const createApiApp = ({
             environment: auth.environment,
             guestPrincipalService: auth.guestPrincipalService,
             principalService: auth.principalService,
-            practiceContractV2Enabled: study.practiceContractV2Enabled,
             rateLimiter: study.rateLimiter,
             studySubmissionService: study.submissionService
           })
         )
       }
-      if (study.practiceContractV2Enabled && study.retryService) {
+      if (study.retryService) {
         app.route(
           '/api/v1/study-sessions',
           createStudyResultRetryRoutes({
@@ -815,7 +792,7 @@ export const createApiApp = ({
           })
         )
       }
-      if (study.practiceContractV2Enabled && study.draftService) {
+      if (study.draftService) {
         app.route(
           '/api/v1/study-sessions',
           createStudyDraftRoutes({
@@ -829,7 +806,7 @@ export const createApiApp = ({
       }
     }
     if (learning) {
-      if (study?.practiceContractV2Enabled && learning.bookmarkService) {
+      if (study && learning.bookmarkService) {
         app.route(
           '/api/v1/bookmarks',
           createBookmarkRoutes({
@@ -847,15 +824,14 @@ export const createApiApp = ({
           principalService: auth.principalService,
           rateLimiter: learning.rateLimiter,
           reviewCenterEnabled:
-            learning.reviewCenterEnabled &&
-            study?.practiceContractV2Enabled === true,
+            learning.reviewCenterEnabled && study !== undefined,
           reviewCenterService: learning.reviewCenterService,
           wrongNoteService: learning.wrongNoteService
         })
       )
       if (
         learning.reviewCenterEnabled &&
-        study?.practiceContractV2Enabled === true &&
+        study !== undefined &&
         learning.reviewQueueService
       ) {
         app.route(
@@ -870,7 +846,7 @@ export const createApiApp = ({
       }
       if (
         learning.reviewCenterEnabled &&
-        study?.practiceContractV2Enabled === true &&
+        study !== undefined &&
         learning.targetedReviewService
       ) {
         app.route(

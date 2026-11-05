@@ -174,21 +174,6 @@ export const apiIntegrationManifest = [
     isolation: 'dedicated schema before learner writes'
   },
   {
-    path: 'src/db/practiceCompatibilityFence.integration.test.ts',
-    executionOwner: 'shard',
-    shard: 'current-zero-facts',
-    order: 3,
-    databaseState: 'current-canonical-65-zero-learner-facts',
-    connectionRole: 'application',
-    requiredEnvironment: [
-      'DATABASE_URL',
-      'API_INTEGRATION_FIXTURE_DATABASE_URL',
-      'TEST_APP_FIXTURE_DATABASE_URL'
-    ],
-    seedPolicy: 'canonical-once',
-    isolation: 'dedicated schema before learner writes'
-  },
-  {
     path: 'src/question/questionCatalog.integration.test.ts',
     executionOwner: 'shard',
     shard: 'catalog-baseline',

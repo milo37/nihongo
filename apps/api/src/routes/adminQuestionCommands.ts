@@ -76,7 +76,7 @@ import { z, type ZodType } from 'zod'
 import type {
   AdminQuestionCommandService,
   AdminQuestionPublicationCommandService,
-  AdminQuestionSlice5CommandService
+  AdminQuestionWorkflowCommandService
 } from '../admin/adminQuestionCommandService.js'
 import { getOperationBodySizeLimit } from '../admin/adminCommandGuard.js'
 import { ApplicationError } from '../errors/applicationError.js'
@@ -232,12 +232,12 @@ const authority = (context: {
 export const createAdminQuestionCommandRoutes = ({
   commandService,
   guard,
-  slice5CommandService
+  workflowCommandService
 }: {
   commandService: AdminQuestionCommandService &
     AdminQuestionPublicationCommandService
   guard: MiddlewareHandler<AdminRouteEnvironment>
-  slice5CommandService?: AdminQuestionSlice5CommandService
+  workflowCommandService?: AdminQuestionWorkflowCommandService
 }): Hono<AdminRouteEnvironment> => {
   const routes = new Hono<AdminRouteEnvironment>()
 
@@ -572,7 +572,7 @@ export const createAdminQuestionCommandRoutes = ({
     }
   )
 
-  if (slice5CommandService) {
+  if (workflowCommandService) {
     routes.post(
       '/question-versions/review-request-batch',
       guard,
@@ -586,7 +586,7 @@ export const createAdminQuestionCommandRoutes = ({
             '일괄 콘텐츠 검수 요청이 올바르지 않습니다.'
           )
         )
-        const raw = await slice5CommandService.requestReviewBatch(
+        const raw = await workflowCommandService.requestReviewBatch(
           authority(context),
           request
         )
@@ -610,7 +610,7 @@ export const createAdminQuestionCommandRoutes = ({
           '문제 import 검증 요청이 올바르지 않습니다.'
         )
       )
-      const raw = await slice5CommandService.validateImport(request)
+      const raw = await workflowCommandService.validateImport(request)
       const response = adminImportValidationResponseSchema.parse(
         await assertNoTransactionAsync(() =>
           assertAdminImportValidationForRequest(sha256Port, request, raw)
@@ -630,7 +630,7 @@ export const createAdminQuestionCommandRoutes = ({
           '문제 import 적용 요청이 올바르지 않습니다.'
         )
       )
-      const raw = await slice5CommandService.applyImport(
+      const raw = await workflowCommandService.applyImport(
         authority(context),
         request
       )
@@ -657,7 +657,7 @@ export const createAdminQuestionCommandRoutes = ({
           '관리자 문제 내보내기 요청이 올바르지 않습니다.'
         )
       )
-      const raw = await slice5CommandService.exportQuestions(
+      const raw = await workflowCommandService.exportQuestions(
         authority(context),
         request
       )
@@ -704,7 +704,7 @@ export const createAdminQuestionCommandRoutes = ({
           triageAdminQuestionReportRequestSchema,
           '문제 신고 triage 요청이 올바르지 않습니다.'
         )
-        const raw = await slice5CommandService.triageReport(
+        const raw = await workflowCommandService.triageReport(
           authority(context),
           params.reportId,
           request
@@ -737,7 +737,7 @@ export const createAdminQuestionCommandRoutes = ({
           resolveAdminQuestionReportRequestSchema,
           '문제 신고 종결 요청이 올바르지 않습니다.'
         )
-        const raw = await slice5CommandService.resolveReport(
+        const raw = await workflowCommandService.resolveReport(
           authority(context),
           params.reportId,
           request

@@ -535,7 +535,6 @@ describe('ADMIN learner access and CMS role boundaries', () => {
       createStudySessionRoutes({
         ...common,
         guestPrincipalService,
-        practiceContractV2Enabled: true,
         studySessionService: { create, get: unexpected }
       })
     )
@@ -557,7 +556,6 @@ describe('ADMIN learner access and CMS role boundaries', () => {
       createStudySubmissionRoutes({
         ...common,
         guestPrincipalService,
-        practiceContractV2Enabled: true,
         studySubmissionService: { submit, getResult: unexpected }
       })
     )
@@ -659,7 +657,7 @@ describe('ADMIN learner access and CMS role boundaries', () => {
     )
     expect(created.status).toBe(201)
     expect(await created.json()).toEqual(session)
-    expect(h.create).toHaveBeenCalledWith(createBody, owner, 2)
+    expect(h.create).toHaveBeenCalledWith(createBody, owner)
     const saved = await h.request('PUT', base + '/draft-answers', saveBody)
     expect(saved.status).toBe(200)
     expect(await saved.json()).toEqual(draft)
@@ -676,8 +674,7 @@ describe('ADMIN learner access and CMS role boundaries', () => {
       session.session.id,
       key,
       submitBody,
-      owner,
-      2
+      owner
     )
     const reviewed = await h.request('GET', '/api/v1/review-queue')
     expect(reviewed.status).toBe(200)

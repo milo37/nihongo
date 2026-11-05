@@ -496,7 +496,7 @@ export const isCanonicalPublicationCommandRequest = (input: {
 }): boolean =>
   isCanonicalRequestForPaths(input, SLICE_4_PUBLICATION_COMMAND_PATHS)
 
-export const isCanonicalSlice5AdminReadRequest = (input: {
+export const isCanonicalWorkflowAdminReadRequest = (input: {
   method: string
   requestTarget: string
 }): boolean => {
@@ -509,7 +509,7 @@ export const isCanonicalSlice5AdminReadRequest = (input: {
   )
 }
 
-export const isCanonicalSlice5AdminCommandRequest = (input: {
+export const isCanonicalWorkflowAdminCommandRequest = (input: {
   method: string
   requestTarget: string
 }): boolean => isCanonicalRequestForPaths(input, SLICE_5_ADMIN_COMMAND_PATHS)

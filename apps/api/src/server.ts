@@ -12,8 +12,6 @@ import {
 import { createGuestPrincipalService } from './auth/guestPrincipalService.js'
 import { LOCAL_RELEASE_ID, parseApiEnvironment } from './config/env.js'
 import { createAuthRuntimePlan } from './config/authRuntimePlan.js'
-import { createFilePracticeCompatibilityAuthority } from './config/practiceCompatibilityAuthority.js'
-import { parsePracticeRuntimeEnvironment } from './config/practiceRuntimeEnvironment.js'
 import { createDatabaseRuntime } from './db/database.js'
 import { assertSafeAdminCmsDatabase } from './db/databaseTargetGuard.js'
 import { createOwnedAuthReadiness } from './auth/ownedAuthReadiness.js'
@@ -38,7 +36,6 @@ import { createDashboardInsightsService } from './dashboard/dashboardInsightsSer
 import { createPrismaStudyDraftRepository } from './study/studyDraftRepository.js'
 import { createStudyDraftService } from './study/studyDraftService.js'
 import { startApiListener } from './lifecycle/startApiListener.js'
-import { createPracticeRuntimeGate } from './lifecycle/practiceRuntimeGate.js'
 import { createPrismaBookmarkRepository } from './bookmark/bookmarkRepository.js'
 import { createBookmarkService } from './bookmark/bookmarkService.js'
 import { createPrismaStudyResultRetryRepository } from './study/studyResultRetryRepository.js'
@@ -57,11 +54,11 @@ import { createPrismaAdminMemberRepository } from './admin/adminMemberRepository
 import { createAdminMemberService } from './admin/adminMemberService.js'
 import { createAdminCommandRateLimiter } from './admin/adminCommandRateLimiter.js'
 import { createPrismaAdminQuestionCommandRepository } from './admin/adminQuestionCommandRepository.js'
-import { createPrismaAdminQuestionSlice5Repository } from './admin/adminQuestionSlice5Repository.js'
+import { createPrismaAdminQuestionWorkflowRepository } from './admin/adminQuestionWorkflowRepository.js'
 import {
   createAdminQuestionCommandService,
   createAdminQuestionPublicationCommandService,
-  createAdminQuestionSlice5CommandService
+  createAdminQuestionWorkflowCommandService
 } from './admin/adminQuestionCommandService.js'
 import { createQuestionReportRateLimiter } from './admin/questionReportRateLimiter.js'
 import { createPrismaQuestionReportRepository } from './admin/questionReportRepository.js'
@@ -82,22 +79,12 @@ if (authRuntimePlan.cmsEnabled)
     databaseUrl: environment.DATABASE_URL,
     productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
   })
-const practiceEnvironment = parsePracticeRuntimeEnvironment(
-  process.env,
-  environment.NODE_ENV
-)
 const logger = createJsonLogger(environment.LOG_LEVEL, undefined, {
   deploymentEnvironment:
     environment.DEPLOYMENT_ENVIRONMENT ??
     (environment.NODE_ENV === 'test' ? 'TEST' : 'LOCAL'),
   releaseId: environment.RELEASE_ID ?? LOCAL_RELEASE_ID
 })
-const compatibilityAuthority =
-  practiceEnvironment.runtime === 'v1-compatible'
-    ? createFilePracticeCompatibilityAuthority(
-        practiceEnvironment.authorityFile ?? ''
-      )
-    : undefined
 const technicalMode = environment.ADMIN_CMS_MODE === 'technical'
 const runtimeMigrationProfile = authRuntimePlan.migrationProfile
 const database = createDatabaseRuntime(environment.DATABASE_URL, {
@@ -112,12 +99,6 @@ const checkDatabaseReadiness = createOwnedAuthReadiness({
 const disconnectDatabases = async (): Promise<void> => {
   await database.disconnect()
 }
-const practiceRuntimeGate = createPracticeRuntimeGate({
-  runtime: practiceEnvironment.runtime,
-  ...(compatibilityAuthority ? { authority: compatibilityAuthority } : {}),
-  checkDatabaseReadiness,
-  checkV1Compatibility: database.checkV1Compatibility
-})
 const applicationRateLimiter = createApplicationRateLimiter({
   client: database.client,
   keySecret: environment.GUEST_COOKIE_SECRET
@@ -191,22 +172,22 @@ const adminQuestionCommandRepository = technicalMode
       client: database.client
     })
   : undefined
-const adminQuestionSlice5Repository = technicalMode
-  ? createPrismaAdminQuestionSlice5Repository({
+const adminQuestionWorkflowRepository = technicalMode
+  ? createPrismaAdminQuestionWorkflowRepository({
       auditEnvironment:
         environment.NODE_ENV === 'test' ? 'TEST' : 'DEVELOPMENT',
       client: database.client
     })
   : undefined
 const adminQuestionCommandService =
-  adminQuestionCommandRepository && adminQuestionSlice5Repository
+  adminQuestionCommandRepository && adminQuestionWorkflowRepository
     ? {
         ...createAdminQuestionCommandService(adminQuestionCommandRepository),
         ...createAdminQuestionPublicationCommandService(
           adminQuestionCommandRepository
         ),
-        ...createAdminQuestionSlice5CommandService(
-          adminQuestionSlice5Repository
+        ...createAdminQuestionWorkflowCommandService(
+          adminQuestionWorkflowRepository
         )
       }
     : undefined
@@ -238,7 +219,7 @@ const app = createApiApp({
   adminCommandRateLimiter &&
   questionReportRateLimiter &&
   questionReportService &&
-  adminQuestionSlice5Repository
+  adminQuestionWorkflowRepository
     ? {
         admin: {
           assertCapability: async () => {
@@ -249,7 +230,7 @@ const app = createApiApp({
           commands: {
             rateLimiter: adminCommandRateLimiter,
             service: adminQuestionCommandService,
-            slice5Service: adminQuestionCommandService
+            workflowService: adminQuestionCommandService
           },
           reports: {
             rateLimiter: questionReportRateLimiter,
@@ -280,7 +261,6 @@ const app = createApiApp({
         }
       }
     : {}),
-  assertPracticeRuntimeAuthority: practiceRuntimeGate.assertRequestAuthority,
   releaseId: environment.RELEASE_ID ?? LOCAL_RELEASE_ID,
   ...(environment.NODE_ENV === 'production'
     ? {
@@ -294,14 +274,14 @@ const app = createApiApp({
     guestPrincipalService,
     principalService
   },
-  checkReadiness: practiceRuntimeGate.checkReadiness,
+  checkReadiness: checkDatabaseReadiness,
   logger,
   learning: {
     bookmarkService,
     dashboardInsightsService,
     dashboardService,
     rateLimiter: applicationRateLimiter,
-    reviewCenterEnabled: practiceRuntimeGate.practiceContractV2Enabled,
+    reviewCenterEnabled: true,
     reviewCenterService: wrongNoteReviewCenterService,
     reviewQueueService: wrongNoteReviewQueueService,
     targetedReviewService: wrongNoteTargetedReviewService,
@@ -314,7 +294,6 @@ const app = createApiApp({
   },
   study: {
     draftService: studyDraftService,
-    practiceContractV2Enabled: practiceRuntimeGate.practiceContractV2Enabled,
     rateLimiter: applicationRateLimiter,
     retryService: studyResultRetryService,
     service: studySessionService,
@@ -323,7 +302,7 @@ const app = createApiApp({
 })
 
 const checkStartupReadiness = async (): Promise<void> => {
-  await practiceRuntimeGate.checkReadiness()
+  await checkDatabaseReadiness()
   await runReauthenticationStartupMaintenance(database.client)
 }
 

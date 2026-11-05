@@ -495,8 +495,7 @@ describe('guest cleanup worker boundary', () => {
         durationSec: 0,
         expectedDraftRevision: 0
       },
-      owner,
-      2
+      owner
     )
     const retryKey = randomUUID()
     const retryService = createStudyResultRetryService(

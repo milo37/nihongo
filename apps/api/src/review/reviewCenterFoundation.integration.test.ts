@@ -11,7 +11,6 @@ import {
   getPostgresSchema
 } from '../db/databaseOptions.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
-import { PracticeCompatibilityFenceError } from '../db/practiceCompatibilityFence.js'
 import { Prisma } from '../generated/prisma/client.js'
 import { toVersionedStudySessionPayload } from '../study/studySessionMapper.js'
 import { createPrismaStudySessionRepository } from '../study/studySessionRepository.js'
@@ -381,7 +380,6 @@ describe('Review-center data foundation', () => {
     const wrongNote = await createWrongNote(userId)
     const memoId = randomUUID()
 
-    await expect(database.checkV1Compatibility()).resolves.toBeUndefined()
     await database.client.userMemo.create({
       data: {
         id: memoId,
@@ -391,9 +389,6 @@ describe('Review-center data foundation', () => {
         updatedAt: NOW
       }
     })
-    await expect(database.checkV1Compatibility()).rejects.toBeInstanceOf(
-      PracticeCompatibilityFenceError
-    )
 
     await expect(
       database.client.userMemo.create({
@@ -529,7 +524,6 @@ describe('Review-center data foundation', () => {
     }
 
     await database.client.userMemo.delete({ where: { id: memoId } })
-    await expect(database.checkV1Compatibility()).resolves.toBeUndefined()
     await database.client.userMemo.create({
       data: {
         id: memoId,

@@ -151,7 +151,6 @@ const app = createApiApp({
     createPrismaQuestionRepository(database.client)
   ),
   study: {
-    practiceContractV2Enabled: true,
     rateLimiter: noOpRateLimiter,
     service: createStudySessionService(repository)
   }
