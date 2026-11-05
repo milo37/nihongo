@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Outlet, useHref, useLocation, useNavigationType } from 'react-router'
 import { AppLink as Link } from './AppLink'
 import { getAppPath } from '../../libs/appNavigation'
-import type { ReactElement, ReactNode } from 'react'
+import type { ReactElement, ReactNode, RefObject } from 'react'
 import { AppShell } from './AppShell'
 import { SideNavigation } from './SideNavigation'
 import { Icon } from './Icon'
@@ -54,6 +54,168 @@ const focusHashTarget = (hash: string): boolean => {
   return true
 }
 
+type NavigationItem = {
+  to: string
+  label: 'learningStart' | 'wrongNotes' | 'bookmarks'
+  icon: 'house' | 'rotate-ccw' | 'bookmark'
+  active: boolean
+}
+
+const AppBrand = ({
+  className,
+  onClick
+}: {
+  className: string
+  onClick: () => void
+}): ReactElement => {
+  const { t } = useTranslation('common')
+  return (
+    <Link className={className} to="/" onClick={onClick}>
+      <img
+        className="app-brand-lockup"
+        src="/brand/harumaru-lockup.svg"
+        width={770}
+        height={210}
+        alt={t('appName')}
+      />
+    </Link>
+  )
+}
+
+const RouteAnnouncer = ({
+  announcement
+}: {
+  announcement: { pathname: string; locale: UiLocale } | null
+}): ReactElement => {
+  const { t } = useTranslation('navigation')
+  const { locale } = useUiLocale()
+  return (
+    <>
+      <a
+        className="sr-only z-skip-link rounded-lg bg-surface px-4 py-3 font-semibold focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:inline-flex focus:min-h-11 focus:min-w-11 focus:items-center"
+        href="#main-content"
+      >
+        {t('skipToContent')}
+      </a>
+      <p className="sr-only" aria-live="polite" aria-atomic="true">
+        {announcement && announcement.locale === locale
+          ? t('routeChanged', {
+              route: t(getRouteLabelKey(announcement.pathname))
+            })
+          : ''}
+      </p>
+    </>
+  )
+}
+
+const MobileNavigation = ({
+  items,
+  onNavigate
+}: {
+  items: readonly NavigationItem[]
+  onNavigate: () => void
+}): ReactElement => {
+  const { t } = useTranslation('navigation')
+  return (
+    <nav
+      id="mobile-navigation"
+      className="app-mobile-navigation"
+      aria-label={t('mobilePrimary')}
+    >
+      {items.map((item) => (
+        <Link
+          key={item.to}
+          to={item.to}
+          className="app-nav-link"
+          aria-current={item.active ? 'page' : undefined}
+          onClick={onNavigate}
+        >
+          <Icon className="app-nav-icon" name={item.icon} />
+          <span>{t(item.label)}</span>
+        </Link>
+      ))}
+    </nav>
+  )
+}
+
+type AccountMenuProps = {
+  buttonRef: RefObject<HTMLButtonElement | null>
+  action: AppLayoutProps['accountMenuAction']
+  onClose: () => void
+}
+
+const AccountMenu = ({
+  buttonRef,
+  action,
+  onClose
+}: AccountMenuProps): ReactElement => {
+  const { t } = useTranslation('navigation')
+  const { role, user } = useAuth()
+  const isOpen = useAppStore((state) => state.isMobileMenuOpen)
+  const toggle = useAppStore((state) => state.toggleMobileMenu)
+  const setOpen = useAppStore((state) => state.setMobileMenuOpen)
+  return (
+    <div className="app-account">
+      <div className="app-desktop-locale">
+        <LocaleSwitcher />
+      </div>
+      <div
+        className="app-account-control"
+        onBlur={(event) => {
+          if (
+            isOpen &&
+            event.relatedTarget &&
+            !event.currentTarget.contains(event.relatedTarget)
+          ) {
+            setOpen(false)
+          }
+        }}
+      >
+        <IconButton
+          id="account-menu-button"
+          ref={buttonRef}
+          variant="ghost"
+          label={t('account')}
+          icon={<Icon name="user-round" />}
+          aria-expanded={isOpen}
+          aria-controls="account-navigation"
+          onClick={toggle}
+        />
+        {isOpen ? (
+          <nav
+            id="account-navigation"
+            className="app-account-menu"
+            aria-label={t('account')}
+          >
+            <Link to="/login" onClick={onClose}>
+              {user ? user.name : t('login')}
+            </Link>
+            {role !== 'GUEST' ? (
+              <Link to="/dashboard?view=learning" onClick={onClose}>
+                {t('learningStart')}
+              </Link>
+            ) : null}
+            {role !== 'GUEST' && action ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose()
+                  action.onSelect()
+                }}
+              >
+                {action.label}
+              </button>
+            ) : null}
+            <div className="app-mobile-locale">
+              <LocaleSwitcher />
+            </div>
+          </nav>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
 type AppLayoutProps = PracticeNavigationContext & {
   children?: ReactNode
   robots: 'index,follow' | 'noindex,follow'
@@ -72,7 +234,7 @@ export const AppLayout = ({
   const { t: commonT } = useTranslation('common')
   const { t: navigationT } = useTranslation('navigation')
   const { locale } = useUiLocale()
-  const { isReady, role, user } = useAuth()
+  const { isReady } = useAuth()
   const routeLocation = useLocation()
   const basename = useHref('/')
   const location = {
@@ -99,7 +261,6 @@ export const AppLayout = ({
     locale: UiLocale
   } | null>(null)
   const isMobileMenuOpen = useAppStore((state) => state.isMobileMenuOpen)
-  const toggleMobileMenu = useAppStore((state) => state.toggleMobileMenu)
   const setMobileMenuOpen = useAppStore((state) => state.setMobileMenuOpen)
 
   useDocumentMetadata({ robots })
@@ -202,7 +363,7 @@ export const AppLayout = ({
     location.pathname.startsWith('/practice/session/') && !isReviewSurface
   const isLearningActive =
     (isLearningEntry || isPracticeSurface) && !isReviewSurface
-  const navigationItems = [
+  const navigationItems: readonly NavigationItem[] = [
     {
       to: '/practice',
       label: 'learningStart',
@@ -221,76 +382,40 @@ export const AppLayout = ({
       icon: 'bookmark',
       active: location.pathname.startsWith('/bookmarks')
     }
-  ] as const
-
-  const renderMobileNavigation = (): ReactElement => (
-    <nav
-      id="mobile-navigation"
-      className="app-mobile-navigation"
-      aria-label={navigationT('mobilePrimary')}
-    >
-      {navigationItems.map((item) => (
-        <Link
-          key={item.to}
-          to={item.to}
-          className="app-nav-link"
-          aria-current={item.active ? 'page' : undefined}
-          onClick={closeMenu}
-        >
-          <Icon className="app-nav-icon" name={item.icon} />
-          <span>{navigationT(item.label)}</span>
-        </Link>
-      ))}
-    </nav>
-  )
+  ]
+  const showNavigation = learnerNavigation && !isFocusSession
+  const shellClassName = isFocusSession
+    ? 'app-shell-focus'
+    : learnerNavigation
+      ? undefined
+      : 'app-shell-no-rail'
+  const surface = isReviewSurface
+    ? 'review'
+    : isLearningActive
+      ? 'learning'
+      : 'general'
+  const content =
+    children !== undefined ? (
+      children
+    ) : isReady ? (
+      <Outlet
+        context={{ reviewReturnContext } satisfies PracticeNavigationContext}
+      />
+    ) : (
+      <LoadingState message={commonT('loading.auth')} />
+    )
 
   return (
     <AppShell
-      className={
-        isFocusSession
-          ? 'app-shell-focus'
-          : learnerNavigation
-            ? undefined
-            : 'app-shell-no-rail'
-      }
-      surface={
-        isReviewSurface ? 'review' : isLearningActive ? 'learning' : 'general'
-      }
-      beforeMain={
-        <>
-          <a
-            className="sr-only z-skip-link rounded-lg bg-surface px-4 py-3 font-semibold focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:inline-flex focus:min-h-11 focus:min-w-11 focus:items-center"
-            href="#main-content"
-          >
-            {navigationT('skipToContent')}
-          </a>
-          <p className="sr-only" aria-live="polite" aria-atomic="true">
-            {routeAnnouncement && routeAnnouncement.locale === locale
-              ? navigationT('routeChanged', {
-                  route: navigationT(
-                    getRouteLabelKey(routeAnnouncement.pathname)
-                  )
-                })
-              : ''}
-          </p>
-        </>
-      }
+      className={shellClassName}
+      surface={surface}
+      beforeMain={<RouteAnnouncer announcement={routeAnnouncement} />}
       sidebar={
-        learnerNavigation && !isFocusSession ? (
+        showNavigation ? (
           <SideNavigation
             id="primary-navigation"
             label={navigationT('primary')}
-            brand={
-              <Link className="app-brand" to="/" onClick={closeMenu}>
-                <img
-                  className="app-brand-lockup"
-                  src="/brand/harumaru-lockup.svg"
-                  width={770}
-                  height={210}
-                  alt={commonT('appName')}
-                />
-              </Link>
-            }
+            brand={<AppBrand className="app-brand" onClick={closeMenu} />}
             items={navigationItems.map((item) => ({
               ...item,
               label: navigationT(item.label)
@@ -303,85 +428,25 @@ export const AppLayout = ({
         !isFocusSession ? (
           <header className="app-shell-header">
             <div className="app-shell-header-inner">
-              <Link
+              <AppBrand
                 className="app-brand app-mobile-brand"
-                to="/"
                 onClick={closeMenu}
-              >
-                <img
-                  className="app-brand-lockup"
-                  src="/brand/harumaru-lockup.svg"
-                  width={770}
-                  height={210}
-                  alt={commonT('appName')}
-                />
-              </Link>
+              />
 
-              <div className="app-account">
-                <div className="app-desktop-locale">
-                  <LocaleSwitcher />
-                </div>
-                <div
-                  className="app-account-control"
-                  onBlur={(event) => {
-                    if (
-                      isMobileMenuOpen &&
-                      event.relatedTarget &&
-                      !event.currentTarget.contains(event.relatedTarget)
-                    ) {
-                      setMobileMenuOpen(false)
-                    }
-                  }}
-                >
-                  <IconButton
-                    id="account-menu-button"
-                    ref={mobileMenuButtonRef}
-                    variant="ghost"
-                    label={navigationT('account')}
-                    icon={<Icon name="user-round" />}
-                    aria-expanded={isMobileMenuOpen}
-                    aria-controls="account-navigation"
-                    onClick={toggleMobileMenu}
-                  />
-                  {isMobileMenuOpen ? (
-                    <nav
-                      id="account-navigation"
-                      className="app-account-menu"
-                      aria-label={navigationT('account')}
-                    >
-                      <Link to="/login" onClick={closeMenu}>
-                        {user ? user.name : navigationT('login')}
-                      </Link>
-                      {role !== 'GUEST' ? (
-                        <Link to="/dashboard?view=learning" onClick={closeMenu}>
-                          {navigationT('learningStart')}
-                        </Link>
-                      ) : null}
-                      {role !== 'GUEST' && accountMenuAction ? (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            closeMenu()
-                            accountMenuAction.onSelect()
-                          }}
-                        >
-                          {accountMenuAction.label}
-                        </button>
-                      ) : null}
-                      <div className="app-mobile-locale">
-                        <LocaleSwitcher />
-                      </div>
-                    </nav>
-                  ) : null}
-                </div>
-              </div>
+              <AccountMenu
+                buttonRef={mobileMenuButtonRef}
+                action={accountMenuAction}
+                onClose={closeMenu}
+              />
             </div>
           </header>
         ) : null
       }
       footer={!isFocusSession ? <InformationFooter density="compact" /> : null}
       bottomNavigation={
-        learnerNavigation && !isFocusSession ? renderMobileNavigation() : null
+        showNavigation ? (
+          <MobileNavigation items={navigationItems} onNavigate={closeMenu} />
+        ) : null
       }
       mainProps={{
         ref: mainRef,
@@ -392,17 +457,7 @@ export const AppLayout = ({
       }}
     >
       <Suspense fallback={<LoadingState message={commonT('loading.page')} />}>
-        {children !== undefined ? (
-          children
-        ) : isReady ? (
-          <Outlet
-            context={
-              { reviewReturnContext } satisfies PracticeNavigationContext
-            }
-          />
-        ) : (
-          <LoadingState message={commonT('loading.auth')} />
-        )}
+        {content}
       </Suspense>
     </AppShell>
   )
