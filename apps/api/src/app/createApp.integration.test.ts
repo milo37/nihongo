@@ -107,7 +107,11 @@ describe('Hono operational boundary', () => {
   it.each([
     {
       pathname: '/api/v1/questions',
-      expectedHeaders: ['Content-Type']
+      expectedHeaders: [
+        'Content-Type',
+        'Idempotency-Key',
+        'X-Nihongo-Practice-Contract'
+      ]
     },
     {
       pathname: '/api/v1/study-sessions',
@@ -127,7 +131,7 @@ describe('Hono operational boundary', () => {
       ]
     }
   ])(
-    'technical CORS $pathname의 method와 request header를 최소 권한으로 고정한다',
+    'technical CORS $pathname의 method와 request header를 하나의 개발용 CORS 정책으로 고정한다',
     async ({ expectedHeaders, pathname }) => {
       const { logger } = createTestLogger()
       const app = createApiApp({
