@@ -318,18 +318,18 @@ model AuthIssuerActivation {
 // application code cannot treat their rows as a public persistence API.
 model Phase7OperationIntent {
   operationId                 String                @id @db.Uuid
-  requestId                   String                @db.Uuid
+  requestId                   String?               @db.Uuid
   command                     AdminAuditCommand
   actorUserId                 String?               @db.Uuid
   actorSessionId              String?               @db.Uuid
   capturedAuthorityGeneration Int?
-  referencedUserIds           String[]              @db.Uuid
+  referencedUserIds           String[]              @default([]) @db.Uuid
   targetManifest              Json?                 @db.JsonB
   requiresFresh               Boolean               @default(false)
   environment                 AdminAuditEnvironment
   occurredAt                  DateTime?             @db.Timestamptz(3)
-  backendPid                  Int
-  transactionId               BigInt
+  backendPid                  Int                   @default(dbgenerated("pg_backend_pid()"))
+  transactionId               BigInt                @default(dbgenerated("txid_current()"))
 
   @@unique([backendPid, transactionId], map: "Phase7OperationIntent_backend_transaction_key")
   @@ignore

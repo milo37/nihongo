@@ -68,13 +68,6 @@ const routineManifest = [
     false,
     false
   ],
-  ['phase7_finish_admin_operation', 'operation_id uuid', true, false],
-  [
-    'phase7_finish_admin_operation_pre_reauthentication',
-    'operation_id uuid',
-    false,
-    false
-  ],
   ['phase7_reauthentication_token_digest', 'raw_token text', false, false],
   [
     'phase7_record_authority_revocation',
@@ -1226,7 +1219,6 @@ describe('Reauthentication DB foundation', () => {
     ).toEqual([
       'phase7_classify_admin_authority',
       'phase7_create_question_report',
-      'phase7_finish_admin_operation',
       'phase7_require_database_capability',
       'phase7_user_erasure_confirmed'
     ])
@@ -1830,6 +1822,61 @@ describe('Reauthentication DB foundation', () => {
     } finally {
       await appClient.query('ROLLBACK')
     }
+  })
+
+  it('#504 P7 PR4c-1: finish 없이 commit하면 23514이고 intent는 자기 transaction 것만 지우며 backend·transaction 열은 쓸 수 없다', async () => {
+    const admin = await createCommittedAdmin()
+    // A command that begins but never finishes cannot commit.
+    await appClient.query('BEGIN ISOLATION LEVEL READ COMMITTED')
+    let committed: unknown = 'not-run'
+    try {
+      await beginAdminOperation(asTransaction(appClient), {
+        auditEnvironment: 'TEST',
+        command: 'REVIEW_REQUEST',
+        rawSessionToken: admin.token,
+        referencedUserIds: [admin.userId]
+      })
+      committed = await sqlStateOf(() => appClient.query('COMMIT'))
+    } finally {
+      await appClient.query('ROLLBACK').catch(() => undefined)
+    }
+    expect(committed).toBe('23514')
+    expect(
+      (
+        await adminClient.query<{ count: number }>(
+          `SELECT COUNT(*)::int AS count FROM "Phase7OperationIntent"`
+        )
+      ).rows
+    ).toEqual([{ count: 0 }])
+    await withinRollback(async () => {
+      // An intent of another backend and transaction stays.
+      const foreignId = randomUUID()
+      await adminClient.query(
+        `INSERT INTO "Phase7OperationIntent" (
+           "operationId", "command", "environment", "backendPid", "transactionId"
+         ) VALUES ($1, 'REVIEW_REQUEST', 'TEST', 0, 0)`,
+        [foreignId]
+      )
+      await expectRoleFailure(
+        'nihongo_app',
+        'DELETE FROM "Phase7OperationIntent" WHERE "operationId" = $1',
+        [foreignId],
+        '42501'
+      )
+      // The API names only operationId, command and environment.
+      await expectRoleFailure(
+        'nihongo_app',
+        `INSERT INTO "Phase7OperationIntent" (
+           "operationId", "command", "environment", "backendPid", "transactionId"
+         ) VALUES ($1, 'REVIEW_REQUEST', 'TEST', 0, 0)`,
+        [randomUUID()],
+        '42501'
+      )
+      await adminClient.query(
+        `DELETE FROM "Phase7OperationIntent" WHERE "operationId" = $1`,
+        [foreignId]
+      )
+    })
   })
 
   it('#504 P7 PR2: finish는 같은 트랜잭션에서 begin한 operation만 받고 아니면 42501로 거절한다', async () => {
