@@ -35,6 +35,7 @@ import { createPrismaWrongNoteReviewQueueRepository } from './wrongNoteReviewQue
 import { createWrongNoteReviewQueueService } from './wrongNoteReviewQueueService.js'
 import { createPrismaWrongNoteTargetedReviewRepository } from './wrongNoteTargetedReviewRepository.js'
 import { createWrongNoteTargetedReviewService } from './wrongNoteTargetedReviewService.js'
+import { eraseTestUser } from '../db/fixtures/accountErasure.js'
 
 const DAY_MILLISECONDS = 24 * 60 * 60 * 1_000
 const SUBMITTED_AT = new Date('2026-08-22T00:00:00.000Z')
@@ -226,9 +227,7 @@ const createUser = async (label: string): Promise<string> => {
 
 const eraseUser = async (userId: string): Promise<void> => {
   if (erasureWorkerClient) {
-    await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
-      userId
-    ])
+    await eraseTestUser(database.client, userId)
   } else {
     await fixtureDatabase.client.user.delete({ where: { id: userId } })
   }

@@ -16,12 +16,14 @@ The one-shot `auth:erase-deletion-pending:compiled` runs two phases with the
    cleanup pending. A failed or unknown remote outcome retains the marker, so
    lease expiry cannot authorize a duplicate call. A missing subject stays
    pending without setting a marker.
-2. App erasure: `phase7_complete_sso_account_erasure` deletes app data only
-   after every provider cleanup is `COMPLETED`.
+2. App erasure: `completeSsoAccountErasure` (`apps/api/src/auth/accountErasureAuthority.ts`,
+   one API transaction) deletes app data only after every provider cleanup is
+   `COMPLETED`. The database accepts the User delete and its tombstone writes
+   only for such a confirmed request (`phase7_user_erasure_confirmed`).
 
-Direct `phase7_erase_user` is TEST-only. Every other environment must use the
-provider-first queue; the unchecked eraser is not executable by any runtime
-role.
+Direct erasure (`eraseUserForTest`) is TEST-only: the database accepts its
+marker only in a TEST database with a TEST capability. Every other environment
+must use the provider-first queue.
 
 ## Required before any PRODUCTION run
 

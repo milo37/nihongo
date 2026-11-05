@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { canonicalDuplicateIdentity } from '@nihongo/domain/content/validators/v1/duplicates'
 import type { PersistedQuestionSemanticV1 } from '@nihongo/domain/content/validators/v1/types'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { ownedSessionSql } from './fixtures/ownedSessionSql.js'
+import { bridgedQuery, ownedSessionSql } from './fixtures/ownedSessionSql.js'
 import { Client } from 'pg'
 import { buildAllQuestionSeeds } from '../../prisma/seedQuestionCatalog.js'
 import type { QuestionAggregateSeed } from '../../prisma/seed-data/buildQuestionSeed.js'
@@ -31,7 +31,6 @@ import {
 import { attestRuntimeRoles } from './runtimeRoleAttestation.js'
 
 const EXPECTED_RECENT_MIGRATIONS = [
-  '20261107090000_drop_study_review_triggers',
   '20261108090000_admin_member_console_to_api',
   '20261109090000_guest_cleanup_to_api',
   '20261110090000_cms_rules_to_api',
@@ -41,7 +40,8 @@ const EXPECTED_RECENT_MIGRATIONS = [
   '20261112090000_merge_runtime_roles',
   '20261113090000_admin_operation_to_api',
   '20261114090000_session_issuance_to_api',
-  '20261115090000_admin_fresh_to_api'
+  '20261115090000_admin_fresh_to_api',
+  '20261116090000_erasure_to_api'
 ] as const
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',
@@ -520,14 +520,14 @@ afterAll(async () => {
 })
 
 describe('Persistence foundation', () => {
-  it('69 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
+  it('70 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
     const ledger = await client.query<{ migrationName: string }>(
       `SELECT migration_name AS "migrationName"
        FROM "_prisma_migrations"
        WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
        ORDER BY started_at`
     )
-    expect(ledger.rows).toHaveLength(69)
+    expect(ledger.rows).toHaveLength(70)
     expect(
       ledger.rows.slice(-11).map(({ migrationName }) => migrationName)
     ).toEqual(EXPECTED_RECENT_MIGRATIONS)
@@ -607,7 +607,7 @@ describe('Persistence foundation', () => {
              WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`
           )
         ).rows
-      ).toEqual([{ migrationCount: 69 }])
+      ).toEqual([{ migrationCount: 70 }])
     } finally {
       await client.query('ROLLBACK')
     }
@@ -1063,7 +1063,7 @@ describe('Persistence foundation', () => {
           'QuestionVersion_protect_delete',
           'Question_protect_history_delete',
           'QuestionReport_deferred_remediation',
-          'User_anonymize_question_creator_before_delete'
+          'User_limit_erasure_delete'
         ]
       ]
     )
@@ -1075,7 +1075,7 @@ describe('Persistence foundation', () => {
       'QuestionVersion_deferred_question_aggregate',
       'QuestionVersion_protect_delete',
       'Question_protect_history_delete',
-      'User_anonymize_question_creator_before_delete'
+      'User_limit_erasure_delete'
     ])
     expect(triggers.rows.every(({ enabled }) => enabled === 'O')).toBe(true)
     expect(
@@ -1119,23 +1119,21 @@ describe('Persistence foundation', () => {
           'phase7_cleanup_expired_auth_state',
           'phase7_close_trusted_execution',
           'phase7_create_question_report',
-          'phase7_erase_user',
           'phase7_finish_admin_operation',
           'phase7_open_trusted_execution',
-          'phase7_redact_expired_report_descriptions',
           'phase7_register_database_capability',
           'phase7_require_runtime_ready',
           'phase7_require_database_capability',
           'phase7_require_caller_role',
-          'phase7_trusted_erasure_environment',
           'phase7_trusted_execution_active',
           'phase7_trusted_execution_remember',
           'phase7_trusted_execution_target',
+          'phase7_user_erasure_confirmed',
           'validate_phase7_question_report_remediation'
         ]
       ]
     )
-    expect(publicExecute.rows).toHaveLength(18)
+    expect(publicExecute.rows).toHaveLength(16)
     expect(
       publicExecute.rows.filter(
         ({ ownerName, publicCanExecute }) =>
@@ -1999,8 +1997,10 @@ describe('Persistence foundation', () => {
       retirementKind: 'PUBLISHED_RETIREMENT'
     })
     for (const actorId of [authorId, reviewerId]) {
-      await withExecutionRole('nihongo_erasure_worker', () =>
-        client.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [actorId])
+      await withExecutionRole('nihongo_app', () =>
+        bridgedQuery(client, `SELECT "phase7_erase_user"($1, 'TEST')`, [
+          actorId
+        ])
       )
     }
   }, 60_000)
@@ -3281,8 +3281,10 @@ describe('Persistence foundation', () => {
     ])
 
     for (const actorId of [firstActorId, secondActorId]) {
-      await withExecutionRole('nihongo_erasure_worker', () =>
-        client.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [actorId])
+      await withExecutionRole('nihongo_app', () =>
+        bridgedQuery(client, `SELECT "phase7_erase_user"($1, 'TEST')`, [
+          actorId
+        ])
       )
     }
   }, 90_000)
@@ -3625,10 +3627,12 @@ describe('Persistence foundation', () => {
       ).rows
     ).toEqual([{ auditCount: 0, intentCount: 0 }])
     await expect(
-      withExecutionRole('nihongo_erasure_worker', () =>
-        client.query(`SELECT "phase7_erase_user"($1, 'TEST') AS erased`, [
-          repeatableReadActorId
-        ])
+      withExecutionRole('nihongo_app', () =>
+        bridgedQuery(
+          client,
+          `SELECT "phase7_erase_user"($1, 'TEST') AS erased`,
+          [repeatableReadActorId]
+        )
       )
     ).resolves.toMatchObject({ rows: [{ erased: true }] })
   })
@@ -4094,10 +4098,12 @@ describe('Persistence foundation', () => {
     ).toEqual([{ reportCount: 0, trustedExecutionCount: 0 }])
 
     await expect(
-      withExecutionRole('nihongo_erasure_worker', () =>
-        client.query(`SELECT "phase7_erase_user"($1, 'TEST') AS erased`, [
-          wrongAuthorId
-        ])
+      withExecutionRole('nihongo_app', () =>
+        bridgedQuery(
+          client,
+          `SELECT "phase7_erase_user"($1, 'TEST') AS erased`,
+          [wrongAuthorId]
+        )
       )
     ).resolves.toMatchObject({ rows: [{ erased: true }] })
 
@@ -4108,12 +4114,16 @@ describe('Persistence foundation', () => {
       await client.query(`SET LOCAL app.phase7_erasure_mode = 'on'`)
       await client.query('DELETE FROM "User" WHERE "id" = $1', [actorId])
     }, '42501')
+    // #504 P7 PR4a: a role other than nihongo_app cannot write the erasure
+    // tombstones; the evidence trigger refuses the first one.
     await expect(
-      client.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [actorId])
-    ).rejects.toMatchObject({ code: '42501' })
+      bridgedQuery(client, `SELECT "phase7_erase_user"($1, 'TEST')`, [actorId])
+    ).rejects.toMatchObject({ code: '23514' })
     await expectFailedTransaction(async () => {
       await client.query(`SET LOCAL ROLE "nihongo_auth_gateway"`)
-      await client.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [actorId])
+      await bridgedQuery(client, `SELECT "phase7_erase_user"($1, 'TEST')`, [
+        actorId
+      ])
     }, '42501')
     await expectFailedTransaction(async () => {
       await client.query(
@@ -4145,10 +4155,12 @@ describe('Persistence foundation', () => {
       { operationIntentCount: 0, trustedExecutionCount: 0, userCount: 1 }
     ])
     await expect(
-      withExecutionRole('nihongo_erasure_worker', () =>
-        client.query(`SELECT "phase7_erase_user"($1, 'TEST') AS erased`, [
-          actorId
-        ])
+      withExecutionRole('nihongo_app', () =>
+        bridgedQuery(
+          client,
+          `SELECT "phase7_erase_user"($1, 'TEST') AS erased`,
+          [actorId]
+        )
       )
     ).resolves.toMatchObject({ rows: [{ erased: true }] })
     const erased = await client.query<{
@@ -4299,7 +4311,7 @@ describe('Persistence foundation', () => {
       if (!erasureBackendPid) {
         throw new Error('Report erasure backend is unavailable.')
       }
-      await erasureClient.query(`SET ROLE "nihongo_erasure_worker"`)
+      await erasureClient.query(`SET ROLE "nihongo_app"`)
 
       await client.query('BEGIN')
       triageTransactionOpen = true
@@ -4315,7 +4327,8 @@ describe('Persistence foundation', () => {
       if (!triageOperation) {
         throw new Error('Injected-assignee operation is unavailable.')
       }
-      erasurePromise = erasureClient.query(
+      erasurePromise = bridgedQuery(
+        erasureClient,
         `SELECT "phase7_erase_user"($1, 'TEST') AS erased`,
         [injectedAssigneeId]
       )
@@ -4560,8 +4573,8 @@ describe('Persistence foundation', () => {
         status: 'RESOLVED'
       }
     ])
-    await withExecutionRole('nihongo_erasure_worker', () =>
-      client.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [actorId])
+    await withExecutionRole('nihongo_app', () =>
+      bridgedQuery(client, `SELECT "phase7_erase_user"($1, 'TEST')`, [actorId])
     )
   }, 60_000)
 
@@ -4741,22 +4754,25 @@ describe('Persistence foundation', () => {
     // #504 P7 PR1: nihongo_app may run erasure facades; another role may not.
     await expect(
       withExecutionRole('nihongo_auth_gateway', () =>
-        client.query(
+        bridgedQuery(
+          client,
           `SELECT "phase7_redact_expired_report_descriptions"(100, 'TEST')`
         )
       )
     ).rejects.toMatchObject({ code: '42501' })
     await expect(
-      withExecutionRole('nihongo_erasure_worker', () =>
-        client.query(
+      withExecutionRole('nihongo_app', () =>
+        bridgedQuery(
+          client,
           `SELECT "phase7_redact_expired_report_descriptions"(0, 'TEST')`
         )
       )
     ).rejects.toMatchObject({ code: '22023' })
 
     await expect(
-      withExecutionRole('nihongo_erasure_worker', () =>
-        client.query<{ redacted: number }>(
+      withExecutionRole('nihongo_app', () =>
+        bridgedQuery(
+          client,
           `SELECT "phase7_redact_expired_report_descriptions"(
             100, 'TEST'
           ) AS redacted`
@@ -4764,8 +4780,9 @@ describe('Persistence foundation', () => {
       )
     ).resolves.toMatchObject({ rows: [{ redacted: 1 }] })
     await expect(
-      withExecutionRole('nihongo_erasure_worker', () =>
-        client.query<{ redacted: number }>(
+      withExecutionRole('nihongo_app', () =>
+        bridgedQuery(
+          client,
           `SELECT "phase7_redact_expired_report_descriptions"(
             100, 'TEST'
           ) AS redacted`
@@ -4820,8 +4837,8 @@ describe('Persistence foundation', () => {
       ...openBefore,
       trustedExecutionCount: 0
     })
-    await withExecutionRole('nihongo_erasure_worker', () =>
-      client.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [actorId])
+    await withExecutionRole('nihongo_app', () =>
+      bridgedQuery(client, `SELECT "phase7_erase_user"($1, 'TEST')`, [actorId])
     )
   }, 60_000)
 
@@ -5677,8 +5694,8 @@ describe('Persistence foundation', () => {
         winnerIntentCount: 0
       }
     ])
-    await withExecutionRole('nihongo_erasure_worker', () =>
-      client.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [actorId])
+    await withExecutionRole('nihongo_app', () =>
+      bridgedQuery(client, `SELECT "phase7_erase_user"($1, 'TEST')`, [actorId])
     )
   }, 60_000)
 
@@ -6013,10 +6030,12 @@ describe('Persistence foundation', () => {
     ])
     for (const actorId of [firstActorId, secondActorId]) {
       await expect(
-        withExecutionRole('nihongo_erasure_worker', () =>
-          client.query(`SELECT "phase7_erase_user"($1, 'TEST') AS erased`, [
-            actorId
-          ])
+        withExecutionRole('nihongo_app', () =>
+          bridgedQuery(
+            client,
+            `SELECT "phase7_erase_user"($1, 'TEST') AS erased`,
+            [actorId]
+          )
         )
       ).resolves.toMatchObject({ rows: [{ erased: true }] })
     }
@@ -6167,10 +6186,12 @@ describe('Persistence foundation', () => {
       }
     ])
     await expect(
-      withExecutionRole('nihongo_erasure_worker', () =>
-        client.query(`SELECT "phase7_erase_user"($1, 'TEST') AS erased`, [
-          userId
-        ])
+      withExecutionRole('nihongo_app', () =>
+        bridgedQuery(
+          client,
+          `SELECT "phase7_erase_user"($1, 'TEST') AS erased`,
+          [userId]
+        )
       )
     ).resolves.toMatchObject({ rows: [{ erased: true }] })
   })
@@ -6949,38 +6970,48 @@ describe('Persistence foundation', () => {
     ).toEqual([{ count: 0 }])
 
     await expect(
-      withExecutionRole('nihongo_erasure_worker', () =>
-        client.query(`SELECT "phase7_erase_user"($1, 'TEST') AS erased`, [
-          userId
-        ])
+      withExecutionRole('nihongo_app', () =>
+        bridgedQuery(
+          client,
+          `SELECT "phase7_erase_user"($1, 'TEST') AS erased`,
+          [userId]
+        )
       )
     ).resolves.toMatchObject({ rows: [{ erased: true }] })
     await expect(
-      withExecutionRole('nihongo_erasure_worker', () =>
-        client.query(`SELECT "phase7_erase_user"($1, 'TEST') AS erased`, [
-          mismatchUserId
-        ])
+      withExecutionRole('nihongo_app', () =>
+        bridgedQuery(
+          client,
+          `SELECT "phase7_erase_user"($1, 'TEST') AS erased`,
+          [mismatchUserId]
+        )
       )
     ).resolves.toMatchObject({ rows: [{ erased: true }] })
     await expect(
-      withExecutionRole('nihongo_erasure_worker', () =>
-        client.query(`SELECT "phase7_erase_user"($1, 'TEST') AS erased`, [
-          reauthUserId
-        ])
+      withExecutionRole('nihongo_app', () =>
+        bridgedQuery(
+          client,
+          `SELECT "phase7_erase_user"($1, 'TEST') AS erased`,
+          [reauthUserId]
+        )
       )
     ).resolves.toMatchObject({ rows: [{ erased: true }] })
     await expect(
-      withExecutionRole('nihongo_erasure_worker', () =>
-        client.query(`SELECT "phase7_erase_user"($1, 'TEST') AS erased`, [
-          signupUserId
-        ])
+      withExecutionRole('nihongo_app', () =>
+        bridgedQuery(
+          client,
+          `SELECT "phase7_erase_user"($1, 'TEST') AS erased`,
+          [signupUserId]
+        )
       )
     ).resolves.toMatchObject({ rows: [{ erased: true }] })
     await expect(
-      withExecutionRole('nihongo_erasure_worker', () =>
-        client.query(`SELECT "phase7_erase_user"($1, 'TEST') AS erased`, [
-          legacyCompatibilityUserId
-        ])
+      withExecutionRole('nihongo_app', () =>
+        bridgedQuery(
+          client,
+          `SELECT "phase7_erase_user"($1, 'TEST') AS erased`,
+          [legacyCompatibilityUserId]
+        )
       )
     ).resolves.toMatchObject({ rows: [{ erased: true }] })
   }

@@ -47,6 +47,7 @@ import {
   IdempotencyKeyReusedError
 } from './studySubmissionRepository.js'
 import { createStudySubmissionService } from './studySubmissionService.js'
+import { eraseTestUser } from '../db/fixtures/accountErasure.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({
@@ -396,10 +397,7 @@ afterAll(async () => {
   if (createdUserIds.size > 0) {
     if (erasureWorkerClient) {
       for (const userId of createdUserIds) {
-        await erasureWorkerClient.query(
-          `SELECT "phase7_erase_user"($1, 'TEST')`,
-          [userId]
-        )
+        await eraseTestUser(database.client, userId)
       }
     } else {
       await database.client.user.deleteMany({

@@ -11,6 +11,7 @@ import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { createPrismaAccountRestrictionReader } from '../account/accountRestriction.js'
 import { createPrismaAdminMemberRepository } from './adminMemberRepository.js'
 import { createAdminMemberService } from './adminMemberService.js'
+import { eraseTestUser } from '../db/fixtures/accountErasure.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({
@@ -105,9 +106,7 @@ const createUser = async (
 
 const eraseUser = async (userId: string): Promise<void> => {
   if (erasureWorkerClient) {
-    await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
-      userId
-    ])
+    await eraseTestUser(database.client, userId)
   } else {
     await client.query('DELETE FROM "User" WHERE "id" = $1', [userId])
   }
