@@ -1,16 +1,19 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
-import { userMemoMaximumCodePoints } from '@nihongo/contracts/wrong-note/user-memo'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
-import { classNames } from '@nihongo/browser/common/components/classNames'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
+import { formatDateTime } from '@nihongo/browser/libs/localeFormatters'
 import {
-  formatDateTime,
-  formatNumber
-} from '@nihongo/browser/libs/localeFormatters'
+  measureMemoDraft,
+  WrongNoteMemoEditor
+} from '@app/wrong-note/components/WrongNoteMemoEditor'
+import {
+  WrongNoteMemoNotice,
+  type MemoNotice
+} from '@app/wrong-note/components/WrongNoteMemoNotice'
 import { useGetWrongNoteMemo } from '@app/wrong-note/hooks/useGetWrongNoteMemo'
 import { useOnlineStatus } from '@app/wrong-note/hooks/useOnlineStatus'
 import {
@@ -21,14 +24,6 @@ import {
 type WrongNoteMemoSectionProps = {
   questionId: string
 }
-
-type MemoNotice =
-  | 'saved'
-  | 'deleted'
-  | 'saveError'
-  | 'saveOffline'
-  | 'deleteError'
-  | null
 
 type FocusTarget = 'textarea' | 'trigger' | 'notice' | null
 
@@ -45,21 +40,6 @@ const penIcon = (
   >
     <path d="M12 20h9" />
     <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
-  </svg>
-)
-
-const checkIcon = (
-  <svg
-    aria-hidden="true"
-    className="size-4 shrink-0"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2.4"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M20 6 9 17l-5-5" />
   </svg>
 )
 
@@ -80,8 +60,6 @@ export const WrongNoteMemoSection = ({
   const noticeRef = useRef<HTMLParagraphElement>(null)
   const pendingFocusRef = useRef<FocusTarget>(null)
   const headingId = useId()
-  const textareaId = useId()
-  const countId = useId()
 
   useEffect(() => {
     const focusTarget = pendingFocusRef.current
@@ -96,13 +74,13 @@ export const WrongNoteMemoSection = ({
   })
 
   const memo = memoQuery.data ?? null
-  const normalizedDraft = draft.trim()
-  const draftLength = [...normalizedDraft].length
-  const excess = draftLength - userMemoMaximumCodePoints
-  const isOver = excess > 0
+  const {
+    normalized: normalizedDraft,
+    length: draftLength,
+    isOver
+  } = measureMemoDraft(draft)
   const isSaving = updateMemo.isPending && updateMemo.variables?.memo !== null
   const isDeleting = updateMemo.isPending && updateMemo.variables?.memo === null
-  const count = (value: number): string => formatNumber(value, locale)
 
   const startEditing = (): void => {
     setDraft(memo?.text ?? '')
@@ -170,26 +148,9 @@ export const WrongNoteMemoSection = ({
     </h2>
   )
 
-  const noticeMessage =
-    notice === 'saved' ? (
-      <p
-        ref={noticeRef}
-        className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-success"
-        role="status"
-        tabIndex={-1}
-      >
-        {checkIcon}
-        {t('memo.saved')}
-      </p>
-    ) : notice === 'deleted' ? (
-      <p className="mt-2 text-sm font-semibold text-success" role="status">
-        {t('memo.deleted')}
-      </p>
-    ) : notice ? (
-      <p className="mt-2 text-sm font-semibold text-danger" role="alert">
-        {t(`memo.${notice}`)}
-      </p>
-    ) : null
+  const noticeMessage = (
+    <WrongNoteMemoNotice notice={notice} noticeRef={noticeRef} />
+  )
 
   const offlineMessage = !isOnline ? (
     <p className="mt-2 text-sm font-semibold text-warning" role="status">
@@ -226,70 +187,18 @@ export const WrongNoteMemoSection = ({
     )
   } else if (isEditing) {
     body = (
-      <>
-        <label className="sr-only" htmlFor={textareaId}>
-          {t('memo.label')}
-        </label>
-        <textarea
-          ref={textareaRef}
-          id={textareaId}
-          name="memo"
-          className={classNames(
-            'min-h-30 w-full resize-y rounded-control border bg-surface px-3 py-2.5 text-base leading-relaxed text-ink',
-            'focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand',
-            isOver ? 'border-danger' : 'border-line-strong'
-          )}
-          value={draft}
-          aria-invalid={isOver || undefined}
-          aria-describedby={countId}
-          readOnly={updateMemo.isPending}
-          onChange={(event) => setDraft(event.target.value)}
-        />
-        {noticeMessage}
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-          <span
-            id={countId}
-            className={classNames(
-              'text-xs tabular-nums',
-              isOver ? 'font-bold text-danger' : 'text-muted'
-            )}
-          >
-            {draftLength === 0 && memo
-              ? t('memo.clearHint')
-              : isOver
-                ? t('memo.over', {
-                    current: count(draftLength),
-                    maximum: count(userMemoMaximumCodePoints),
-                    excess: count(excess)
-                  })
-                : t('memo.count', {
-                    current: count(draftLength),
-                    maximum: count(userMemoMaximumCodePoints)
-                  })}
-          </span>
-          <div className="flex w-full gap-2 sm:w-auto">
-            <Button
-              className="flex-1 sm:flex-none"
-              variant="ghost"
-              disabled={updateMemo.isPending}
-              onClick={cancelEditing}
-            >
-              {t('memo.cancel')}
-            </Button>
-            <Button
-              className="flex-1 sm:flex-none"
-              disabled={isOver || draftLength === 0}
-              isLoading={isSaving}
-              loadingLabel={t('memo.saving')}
-              onClick={save}
-            >
-              {notice === 'saveError' || notice === 'saveOffline'
-                ? t('memo.retrySave')
-                : t('memo.save')}
-            </Button>
-          </div>
-        </div>
-      </>
+      <WrongNoteMemoEditor
+        draft={draft}
+        hasMemo={memo !== null}
+        isPending={updateMemo.isPending}
+        isSaving={isSaving}
+        isRetry={notice === 'saveError' || notice === 'saveOffline'}
+        notice={noticeMessage}
+        textareaRef={textareaRef}
+        onDraftChange={setDraft}
+        onCancel={cancelEditing}
+        onSave={save}
+      />
     )
   } else if (memo) {
     body = (

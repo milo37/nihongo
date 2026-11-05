@@ -98,7 +98,7 @@ import {
   writeMockStorageWithMirror
 } from '@mocks/repository/mockMutationCoordinator'
 import { addDaysToIso, toDateKey } from '@util/date'
-import { toPracticeQuestion } from '@mocks/logic/question'
+import { toPracticeQuestion } from '@util/question'
 import {
   createSeededRandom,
   seededShuffle,
@@ -112,12 +112,12 @@ import {
   selectWeaknessStudyCandidates,
   selectWrongNoteStudyCandidates
 } from '@mocks/adapters/studyCandidateSelection'
-import { calculateStudyResult } from '@mocks/logic/study'
+import { calculateStudyResult } from '@util/study'
 import {
   createWrongNoteFromIncorrectAnswer,
   updateWrongNoteAfterCorrectReview,
   updateWrongNoteAfterIncorrectAnswer
-} from '@mocks/logic/wrongNote'
+} from '@util/wrongNote'
 
 const RECENT_SESSION_LIMIT = 5
 const REPEATED_WRONG_LIMIT = 5
