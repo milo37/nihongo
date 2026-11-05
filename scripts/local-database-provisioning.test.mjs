@@ -63,8 +63,10 @@ const removedSecretNames = [
   'DEVELOPMENT_LEGACY_APP_PASSWORD'
 ]
 
-const baselineMigrationPath =
-  'apps/api/prisma/migrations/20261105090000_baseline/migration.sql'
+const migrationPaths = [
+  'apps/api/prisma/migrations/20261105090000_baseline/migration.sql',
+  'apps/api/prisma/migrations/20261106090000_remove_phase_names/migration.sql'
+]
 
 const readRepositoryFile = async (relativePath) =>
   await readFile(path.join(repositoryRoot, relativePath), 'utf8')
@@ -116,7 +118,9 @@ test('fresh init matches the canonical local database role graph', async () => {
   const init = await readRepositoryFile(
     'infra/postgres/init/02-provision-local-database.sh'
   )
-  const baselineMigration = await readRepositoryFile(baselineMigrationPath)
+  const migrations = (
+    await Promise.all(migrationPaths.map(readRepositoryFile))
+  ).join('\n')
   const createdRoles = [...init.matchAll(/^CREATE ROLE "([^"]+)"/gmu)].map(
     (match) => match[1]
   )
@@ -142,7 +146,7 @@ test('fresh init matches the canonical local database role graph', async () => {
           'NOREPLICATION NOBYPASSRLS;'
       )
     )
-    assert.match(baselineMigration, new RegExp(role))
+    assert.match(migrations, new RegExp(role))
   }
   for (const role of removedRoles) {
     assert.equal(init.includes(role), false, role)

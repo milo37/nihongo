@@ -848,10 +848,8 @@ const checkEndpoint = (
       (statement) =>
         ts.isImportDeclaration(statement) &&
         ts.isStringLiteral(statement.moduleSpecifier) &&
-        [
-          '@nihongo/contracts/admin/phase7',
+        statement.moduleSpecifier.text ===
           '@nihongo/contracts/admin/content-operations'
-        ].includes(statement.moduleSpecifier.text)
     )
     const contractModule =
       contractImport &&

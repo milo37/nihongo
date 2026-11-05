@@ -1281,7 +1281,7 @@ const expectedBrowserCalls = (mode) => [
       '../../scripts/runBrowser.ts',
       mode
     ],
-    phase8: null
+    dashboardAcceptance: null
   }
 ]
 
@@ -1299,7 +1299,7 @@ appendFileSync(
   process.env.BROWSER_STUB_LOG,
   JSON.stringify({
     args,
-    phase8: process.env.DASHBOARD_BROWSER_ACCEPTANCE ?? null
+    dashboardAcceptance: process.env.DASHBOARD_BROWSER_ACCEPTANCE ?? null
   }) + '\\n'
 )
 if (
@@ -1595,7 +1595,7 @@ test('API integration uses shared job preparation and seed avoids regeneration',
 
 const assertAdminPlaywrightSelection = async (source, mode) => {
   const selectSpecs = runInNewContext(
-    `(browserMode, phase8) => {${extractArrowBody(
+    `(browserMode, dashboardAcceptance) => {${extractArrowBody(
       source,
       'export const selectBrowserSpecs = ('
     )}}`
@@ -1621,9 +1621,9 @@ const assertAdminPlaywrightSelection = async (source, mode) => {
         JSON.parse(JSON.stringify({ command, args, environment }))
       )
     },
-    (browserMode, phase8) => {
-      selectionCalls.push([browserMode, phase8])
-      return selectSpecs(browserMode, phase8)
+    (browserMode, dashboardAcceptance) => {
+      selectionCalls.push([browserMode, dashboardAcceptance])
+      return selectSpecs(browserMode, dashboardAcceptance)
     },
     (browserMode, webOrigin, extraEnvironment) => ({
       browserMode,

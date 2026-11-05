@@ -142,9 +142,6 @@ const withContentOperationFixture = (run) => {
             paths: {
               '@nihongo/browser/*': ['packages/browser/src/*'],
               '@api/*': ['packages/browser/src/api/*'],
-              '@nihongo/contracts/admin/phase7': [
-                `packages/contracts/${contractDirectory}/admin/content-operations`
-              ],
               '@nihongo/contracts/admin/content-operations': [
                 `packages/contracts/${contractDirectory}/admin/content-operations`
               ],
@@ -211,7 +208,7 @@ describe('canonical admin endpoint validation', () => {
       assert.deepEqual(check('dist'), [])
     }))
 
-  it('accepts the legacy import and rejects forged manifest or schema aliases', () =>
+  it('accepts aliased import names and rejects forged manifest or schema aliases', () =>
     withContentOperationFixture(({ root, add, check }) => {
       const helperPath = path.join(
         root,
@@ -226,10 +223,6 @@ describe('canonical admin endpoint validation', () => {
       const legacy = helper
         .replaceAll('contentOperationManifest', 'operationManifest')
         .replaceAll('contentOperationSchemas', 'operationSchemas')
-        .replace(
-          '@nihongo/contracts/admin/content-operations',
-          '@nihongo/contracts/admin/phase7'
-        )
       fs.writeFileSync(helperPath, legacy)
       assert.deepEqual(check('src'), [])
       assert.deepEqual(check('dist'), [])
@@ -380,12 +373,12 @@ describe('canonical admin endpoint validation', () => {
       add(
         'getWrongRequestFixture',
         `${contentOperationImport}export const endpoint = () => ${contentOperationReturn}`,
-        "export { getAdminQuestionParamsSchema as wrongRequestSchema, listAdminQuestionsResponseSchema as correctResponseSchema } from '@nihongo/contracts/admin/phase7'"
+        "export { getAdminQuestionParamsSchema as wrongRequestSchema, listAdminQuestionsResponseSchema as correctResponseSchema } from '@nihongo/contracts/admin/content-operations'"
       )
       add(
         'getWrongResponseFixture',
         `${contentOperationImport}export const endpoint = () => ${contentOperationReturn}`,
-        "export { listAdminQuestionsQuerySchema as correctRequestSchema, getAdminQuestionResponseSchema as wrongResponseSchema } from '@nihongo/contracts/admin/phase7'"
+        "export { listAdminQuestionsQuerySchema as correctRequestSchema, getAdminQuestionResponseSchema as wrongResponseSchema } from '@nihongo/contracts/admin/content-operations'"
       )
       const diagnostics = check()
       for (const name of [

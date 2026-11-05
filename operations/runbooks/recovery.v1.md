@@ -12,9 +12,10 @@ digest, source target fingerprint, three separated database identity
 fingerprints, backup evidence, deployment approver, incident owner, and a
 maintenance or generation lease. Never infer an environment from a hostname.
 
-`current` is the only migration profile (#504 P8-1). It selects the single
-baseline migration `20261105090000_baseline`
-(file SHA256 `881fbe0e3e57ca5da60687bf1ec749ae8d77acee0c1777295606179460e3fb3e`), with ordered inventory digest
+`current` is the only migration profile (#504). It selects the baseline
+migration `20261105090000_baseline`
+(file SHA256 `881fbe0e3e57ca5da60687bf1ec749ae8d77acee0c1777295606179460e3fb3e`) followed by the forward
+migration `20261106090000_remove_phase_names`, with ordered inventory digest
 `03cc31e0c77830259edfaec8e8db7b4b1ea0cbffe273ecba556b0fefd248637d`, for TEST, STAGING and PRODUCTION. The baseline replaced the 76
 migrations up to `20261122090000_trusted_execution_drop`; a database migrated
 before it is recreated, not upgraded, and no earlier inventory is a recovery
