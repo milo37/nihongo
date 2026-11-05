@@ -14,17 +14,18 @@ import {
   type ExistingStudyOwner
 } from './studySessionRepository.js'
 import { toVersionedStudySessionPayload } from './studySessionMapper.js'
-
-const MAX_TRANSACTION_ATTEMPTS = 3
-const RETRY_BASE_DELAY_MS = 5
-const RETRY_JITTER_MAX_MS = 5
+import {
+  MAX_TRANSACTION_ATTEMPTS,
+  RETRY_BASE_DELAY_MS,
+  RETRY_JITTER_MAX_MS,
+  delay,
+  isDatabaseUnavailableError,
+  type ReservationRow,
+  isSerializableConflict as isPrismaSerializableConflict
+} from './studyRepositorySupport.js'
 const RETRY_SESSION_TTL_MS = 24 * 60 * 60 * 1_000
 const RETRY_IDEMPOTENCY_RETENTION_MS = 7 * 24 * 60 * 60 * 1_000
 const RETRY_COMMAND_VERSION = 'study-result-retry-v1'
-const UNAVAILABLE_PRISMA_CODES = new Set(['P1001', 'P1002', 'P2024'])
-
-const delay = async (milliseconds: number): Promise<void> =>
-  await new Promise((resolve) => setTimeout(resolve, milliseconds))
 
 interface CreateResultRetryAtomicInput {
   readonly idempotencyKey: string
@@ -67,10 +68,6 @@ interface RetryCandidateRow {
   questionLifecycleStatus: 'ACTIVE' | 'ARCHIVED' | null
   questionVersionId: string
   questionVersionStatus: 'DRAFT' | 'PUBLISHED' | 'RETIRED' | null
-}
-
-interface ReservationRow {
-  id: string
 }
 
 interface LockedRetryCandidateRow {
@@ -140,27 +137,9 @@ const ownerWhere = (owner: ExistingStudyOwner) =>
         guestPrincipalId: owner.guestPrincipalId
       }
 
-const isDatabaseUnavailableError = (error: unknown): boolean =>
-  error instanceof Prisma.PrismaClientInitializationError ||
-  (error instanceof Prisma.PrismaClientKnownRequestError &&
-    UNAVAILABLE_PRISMA_CODES.has(error.code))
-
-const isSerializableConflict = (error: unknown): boolean => {
-  if (error instanceof FreshRetryTransactionError) {
-    return true
-  }
-  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
-    return false
-  }
-  const sqlState = error.meta?.code
-  return (
-    error.code === 'P2034' ||
-    (error.code === 'P2010' &&
-      (sqlState === '40001' ||
-        sqlState === '40P01' ||
-        /Code: [`'](?:40001|40P01)[`']/u.test(error.message)))
-  )
-}
+const isSerializableConflict = (error: unknown): boolean =>
+  error instanceof FreshRetryTransactionError ||
+  isPrismaSerializableConflict(error)
 
 const assertGuestProof = async (
   transaction: Prisma.TransactionClient,

@@ -23,11 +23,14 @@ import {
   createCurrentReviewCandidatePredicate,
   reviewQueueStatusOrder
 } from '../review/currentReviewCandidateQuery.js'
-
-const UNAVAILABLE_PRISMA_CODES = new Set(['P1001', 'P1002', 'P2024'])
-const MAX_TRANSACTION_ATTEMPTS = 3
-const RETRY_BASE_DELAY_MS = 5
-const RETRY_JITTER_MAX_MS = 5
+import {
+  MAX_TRANSACTION_ATTEMPTS,
+  RETRY_BASE_DELAY_MS,
+  RETRY_JITTER_MAX_MS,
+  delay,
+  isDatabaseUnavailableError,
+  isSerializableConflict as isPrismaSerializableConflict
+} from './studyRepositorySupport.js'
 
 interface StudySessionRepositoryOptions {
   afterOwnedSessionLocked?: () => Promise<void>
@@ -41,9 +44,6 @@ interface StudySessionRepositoryOptions {
   jitterMilliseconds?: () => number
   random?: () => number
 }
-
-const delay = async (milliseconds: number): Promise<void> =>
-  await new Promise((resolve) => setTimeout(resolve, milliseconds))
 
 export type ExistingStudyOwner =
   | { kind: 'USER'; userId: string }
@@ -143,11 +143,6 @@ class StudySessionRepositoryIntegrityError extends Error {
   }
 }
 
-const isDatabaseUnavailableError = (error: unknown): boolean =>
-  error instanceof Prisma.PrismaClientInitializationError ||
-  (error instanceof Prisma.PrismaClientKnownRequestError &&
-    UNAVAILABLE_PRISMA_CODES.has(error.code))
-
 class StudySelectionChangedError extends Error {
   constructor(message: string) {
     super(message)
@@ -155,22 +150,9 @@ class StudySelectionChangedError extends Error {
   }
 }
 
-const isSerializableConflict = (error: unknown): boolean => {
-  if (error instanceof StudySelectionChangedError) {
-    return true
-  }
-  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
-    return false
-  }
-  const sqlState = error.meta?.code
-  return (
-    error.code === 'P2034' ||
-    (error.code === 'P2010' &&
-      (sqlState === '40001' ||
-        sqlState === '40P01' ||
-        /Code: [`'](?:40001|40P01)[`']/u.test(error.message)))
-  )
-}
+const isSerializableConflict = (error: unknown): boolean =>
+  error instanceof StudySelectionChangedError ||
+  isPrismaSerializableConflict(error)
 
 const executeRepositoryOperation = async <Result>(
   operation: () => Promise<Result>
