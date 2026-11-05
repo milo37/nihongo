@@ -16,6 +16,11 @@ import { ssoProviderIdSchema } from '@nihongo/contracts/auth/sign-in-social'
 import type { SsoProviderId } from '@nihongo/contracts/auth/sign-in-social'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import type { SsoTransaction, SsoVerifiedIdentity } from './ssoProtocol.js'
+import {
+  completeSsoAccountErasure,
+  listSsoAccountErasures,
+  ssoAccountErasureStatus
+} from './accountErasureAuthority.js'
 
 const digest = z.string().regex(/^[0-9a-f]{64}$/u)
 export const ssoAccountContextSchema = z
@@ -225,10 +230,7 @@ export const createSsoAccountRepository = (
           )
         ),
     erasureStatus: async (receipt) => {
-      const raw = await result(
-        'SELECT "phase7_sso_account_erasure_status"($1) AS result',
-        receipt
-      )
+      const raw = await ssoAccountErasureStatus(client, receipt)
       return raw === null ? null : ssoAccountDeletionSchema.parse(raw)
     }
   }
@@ -274,19 +276,22 @@ export type SsoProviderCleanupClaim = z.output<
 >[number]
 /** Internal erasure-worker port only. No provider calls or credentials. */
 export const createSsoAccountErasureWorker = (
-  client: Pick<PrismaClient, '$queryRawUnsafe'>
+  client: Pick<
+    PrismaClient,
+    '$queryRawUnsafe' | '$executeRawUnsafe' | '$transaction'
+  >
 ) => ({
   list: async (
     batchSize: number,
     environment: SsoAccountErasureEnvironment
   ) => {
-    const rows = await client.$queryRawUnsafe<Array<{ result: unknown }>>(
-      'SELECT "phase7_list_sso_account_erasures"($1::integer,$2::"AdminAuditEnvironment") AS result',
+    const result = await listSsoAccountErasures(
+      client,
       z.number().int().min(1).max(100).parse(batchSize),
       ssoAccountErasureEnvironmentSchema.parse(environment)
     )
-    if (rows.length !== 1) throw new Error('SSO erasure queue unavailable.')
-    return erasureQueueSchema.parse(rows[0]?.result)
+    if (result === undefined) throw new Error('SSO erasure queue unavailable.')
+    return erasureQueueSchema.parse(result)
   },
   claimProviderCleanups: async (
     batchSize: number,
@@ -306,12 +311,11 @@ export const createSsoAccountErasureWorker = (
     requestId: string,
     environment: SsoAccountErasureEnvironment
   ): Promise<boolean> => {
-    const rows = await client.$queryRawUnsafe<Array<{ completed: boolean }>>(
-      'SELECT "phase7_complete_sso_account_erasure"($1::uuid,$2::"AdminAuditEnvironment") AS completed',
-      z.uuid().parse(requestId),
-      ssoAccountErasureEnvironmentSchema.parse(environment)
+    const id = z.uuid().parse(requestId)
+    const parsed = ssoAccountErasureEnvironmentSchema.parse(environment)
+    return client.$transaction((transaction) =>
+      completeSsoAccountErasure(transaction, id, parsed)
     )
-    return rows.length === 1 && rows[0]?.completed === true
   },
   beginProviderCleanup: async (
     requestId: string,

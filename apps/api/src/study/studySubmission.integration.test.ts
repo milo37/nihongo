@@ -21,6 +21,7 @@ import {
 import { createPrismaStudyDraftRepository } from './studyDraftRepository.js'
 import { createPrismaStudySubmissionRepository } from './studySubmissionRepository.js'
 import { createStudySubmissionService } from './studySubmissionService.js'
+import { eraseTestUser } from '../db/fixtures/accountErasure.js'
 
 const DAY_MS = 24 * 60 * 60 * 1_000
 
@@ -198,9 +199,7 @@ const createUser = async (): Promise<string> => {
 
 const eraseUser = async (userId: string): Promise<void> => {
   if (erasureWorkerClient) {
-    await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
-      userId
-    ])
+    await eraseTestUser(database.client, userId)
   } else {
     await fixtureDatabase.client.user.delete({ where: { id: userId } })
   }

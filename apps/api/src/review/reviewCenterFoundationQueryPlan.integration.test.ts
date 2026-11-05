@@ -32,6 +32,7 @@ import {
   createReviewReconciliationNoteBatchQuery,
   createPrismaReviewReconciliationRepository
 } from './reviewReconciliationRepository.js'
+import { eraseTestUser } from '../db/fixtures/accountErasure.js'
 
 interface ExplainRow {
   'QUERY PLAN': unknown
@@ -140,9 +141,7 @@ const createdUserIds = new Set<string>()
 
 const eraseUser = async (userId: string): Promise<void> => {
   if (erasureWorkerClient) {
-    await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
-      userId
-    ])
+    await eraseTestUser(database.client, userId)
   } else {
     await fixtureDatabase.client.user.delete({ where: { id: userId } })
   }

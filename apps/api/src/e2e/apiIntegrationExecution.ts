@@ -19,10 +19,10 @@ export const assertSsoBootstrapMigrationHistory = (
     )
     .digest('hex')
   if (
-    expected.length !== 69 ||
-    expected.at(-1)?.name !== '20261115090000_admin_fresh_to_api' ||
+    expected.length !== 70 ||
+    expected.at(-1)?.name !== '20261116090000_erasure_to_api' ||
     orderedDigest !==
-      'db6f7ae76b061ccf68856d127340bf9f651de0876cd6b8a15a29b3fad95fc8fb' ||
+      'ce289ac07f0a9fd995f9e6e5a6e0303ba9f6819b19d6f60e00d09f4ef2a2634d' ||
     applied.length !== expected.length ||
     applied.some(
       (row, index) =>
@@ -31,7 +31,7 @@ export const assertSsoBootstrapMigrationHistory = (
     )
   ) {
     throw new Error(
-      'First Google ADMIN bootstrap canonical69 migration history mismatch.'
+      'First Google ADMIN bootstrap canonical70 migration history mismatch.'
     )
   }
 }

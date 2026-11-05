@@ -89,6 +89,7 @@ import {
   createQuestionReportService,
   type QuestionReportService
 } from './questionReportService.js'
+import { eraseTestUser } from '../db/fixtures/accountErasure.js'
 
 const requireEnvironmentValue = (name: string): string => {
   const value = process.env[name]
@@ -3431,7 +3432,6 @@ describe('ADMIN command TEST database integration', () => {
     }
     const driftCommandService = commandService
     const driftApplicationClient = applicationRuntime!.client
-    const driftErasureWorkerClient = erasureWorkerClient
     const reportAuditCountBefore = await adminClient.query<{ count: number }>(
       `SELECT COUNT(*)::int AS "count"
        FROM "AdminAuditLog"
@@ -3652,10 +3652,7 @@ describe('ADMIN command TEST database integration', () => {
           )
           if (!erased) {
             erased = true
-            await driftErasureWorkerClient.query(
-              `SELECT "phase7_erase_user"($1, 'TEST')`,
-              [erasureLearnerId]
-            )
+            await eraseTestUser(applicationRuntime!.client, erasureLearnerId)
           }
           return state
         }

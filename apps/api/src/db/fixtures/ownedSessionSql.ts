@@ -19,6 +19,14 @@ import {
   type AdminFreshContextValue
 } from '../../auth/adminFreshAuthority.js'
 import {
+  completeSsoAccountErasure,
+  eraseUserForTest,
+  listSsoAccountErasures,
+  redactExpiredReportDescriptions,
+  ssoAccountErasureStatus,
+  type ErasureEnvironment
+} from '../../auth/accountErasureAuthority.js'
+import {
   confirmOwnedSession,
   issueOwnedSession,
   refreshRememberedSession,
@@ -158,7 +166,12 @@ const BRIDGED_FUNCTIONS = [
   'phase7_stage_sso_admin_fresh_proof',
   'phase7_complete_sso_admin_fresh',
   'phase7_reconcile_sso_admin_fresh',
-  'phase7_cancel_sso_admin_fresh_proof'
+  'phase7_cancel_sso_admin_fresh_proof',
+  'phase7_erase_user',
+  'phase7_complete_sso_account_erasure',
+  'phase7_list_sso_account_erasures',
+  'phase7_sso_account_erasure_status',
+  'phase7_redact_expired_report_descriptions'
 ] as const
 
 /** client.query, except that calls to the dropped functions use the bridge. */
@@ -174,6 +187,30 @@ export const bridgedQuery = async <Row extends QueryResultRow = QueryResultRow>(
 /** True when the SQL calls one of the dropped functions this bridge runs. */
 export const isOwnedSessionSql = (sql: string): boolean =>
   BRIDGED_FUNCTIONS.some((name) => sql.includes(`"${name}"(`))
+
+const ERASURE_WORKER_FUNCTIONS = [
+  'phase7_erase_user',
+  'phase7_complete_sso_account_erasure',
+  'phase7_list_sso_account_erasures',
+  'phase7_redact_expired_report_descriptions'
+]
+
+/**
+ * The role a bridged call runs as: since PR1 nihongo_app runs the gateway and
+ * erasure worker facades. Any other caller keeps its role and is refused.
+ */
+export const bridgedRole = <Role extends string>(
+  sql: string,
+  role: Role
+): Role | 'nihongo_app' => {
+  if (!isOwnedSessionSql(sql)) return role
+  const worker = ERASURE_WORKER_FUNCTIONS.some((name) =>
+    sql.includes(`"${name}"(`)
+  )
+  return role === (worker ? 'nihongo_erasure_worker' : 'nihongo_auth_gateway')
+    ? 'nihongo_app'
+    : role
+}
 
 export const ownedSessionSql = async <
   Row extends QueryResultRow = QueryResultRow
@@ -484,6 +521,76 @@ export const ownedSessionSql = async <
       [['proofDigest', 'text']],
       async (input) => [
         await cancelAdminFreshProof(owned, input.proofDigest as string)
+      ]
+    ],
+    // #504 P7 PR4a: account erasure and report redaction.
+    [
+      'phase7_erase_user',
+      [
+        ['userId', 'uuid'],
+        ['environment', 'text']
+      ],
+      async (input) => [
+        await owned.$transaction((transaction) =>
+          eraseUserForTest(
+            transaction,
+            input.userId as string,
+            input.environment as ErasureEnvironment
+          )
+        )
+      ]
+    ],
+    [
+      'phase7_complete_sso_account_erasure',
+      [
+        ['requestId', 'uuid'],
+        ['environment', 'text']
+      ],
+      async (input) => [
+        await owned.$transaction((transaction) =>
+          completeSsoAccountErasure(
+            transaction,
+            input.requestId as string,
+            input.environment as ErasureEnvironment
+          )
+        )
+      ]
+    ],
+    [
+      'phase7_list_sso_account_erasures',
+      [
+        ['batchLimit', 'integer'],
+        ['environment', 'text']
+      ],
+      async (input) => [
+        await listSsoAccountErasures(
+          owned as never,
+          input.batchLimit as number,
+          input.environment as ErasureEnvironment
+        )
+      ]
+    ],
+    [
+      'phase7_sso_account_erasure_status',
+      [['receiptDigest', 'text']],
+      async (input) => [
+        await ssoAccountErasureStatus(owned, input.receiptDigest as string)
+      ]
+    ],
+    [
+      'phase7_redact_expired_report_descriptions',
+      [
+        ['batchLimit', 'integer'],
+        ['environment', 'text']
+      ],
+      async (input) => [
+        await owned.$transaction((transaction) =>
+          redactExpiredReportDescriptions(
+            transaction,
+            input.batchLimit as number,
+            input.environment as ErasureEnvironment
+          )
+        )
       ]
     ]
   ]

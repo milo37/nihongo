@@ -8,6 +8,7 @@ import {
   getPostgresSchema
 } from '../db/databaseOptions.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
+import { eraseTestUser } from '../db/fixtures/accountErasure.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({
@@ -87,9 +88,7 @@ const eraseUser = async (userId: string): Promise<void> => {
     await fixtureDatabase.client.user.delete({ where: { id: userId } })
     return
   }
-  await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
-    userId
-  ])
+  await eraseTestUser(database.client, userId)
 }
 
 const getPinnedQuestions = async (count: number) => {

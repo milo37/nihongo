@@ -20,6 +20,20 @@ const context = {
 } as const
 const client = (query: unknown) =>
   ({ $queryRawUnsafe: query }) as Pick<PrismaClient, '$queryRawUnsafe'>
+// #504 P7 PR4a: complete and list run in the API with Prisma raw SQL.
+const workerClient = (query: unknown, execute = vi.fn(async () => 0)) => {
+  const value = {
+    $queryRawUnsafe: query,
+    $executeRawUnsafe: execute,
+    $transaction: vi.fn(async (operation: (tx: unknown) => unknown) =>
+      operation(value)
+    )
+  }
+  return value as unknown as Pick<
+    PrismaClient,
+    '$queryRawUnsafe' | '$executeRawUnsafe' | '$transaction'
+  > & { $transaction: ReturnType<typeof vi.fn> }
+}
 describe('SSO account repository boundaries', () => {
   it('strict contexts bind role, generation, session and purpose', () => {
     expect(ssoAccountContextSchema.parse(context)).toEqual(context)
@@ -121,13 +135,19 @@ describe('SSO account repository boundaries', () => {
     }
   })
   it('worker physical erasure and provider cleanup remain separate calls', async () => {
-    const query = vi.fn(async () => [{ completed: true }]),
-      worker = createSsoAccountErasureWorker(client(query))
+    const query = vi.fn(async (sql: string) =>
+        sql.includes('"SsoAccountErasureRequest"')
+          ? [{ userId: null, appStatus: 'DELETED', ready: true }]
+          : [{ completed: true }]
+      ),
+      prisma = workerClient(query),
+      worker = createSsoAccountErasureWorker(prisma)
+    // An already DELETED request with completed providers reports true.
     expect(await worker.complete(user, 'TEST')).toBe(true)
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1)
     expect(query).toHaveBeenCalledWith(
-      'SELECT "phase7_complete_sso_account_erasure"($1::uuid,$2::"AdminAuditEnvironment") AS completed',
-      user,
-      'TEST'
+      expect.stringContaining('FROM "SsoAccountErasureRequest" AS r'),
+      user
     )
     expect(
       await worker.recordProviderCleanup(
@@ -150,7 +170,7 @@ describe('SSO account repository boundaries', () => {
   })
   it('requires a UUID lease token before dispatch or record SQL', async () => {
     const query = vi.fn(async () => [{ started: true }])
-    const worker = createSsoAccountErasureWorker(client(query))
+    const worker = createSsoAccountErasureWorker(workerClient(query))
     expect(
       await worker.beginProviderCleanup(user, 'google', session, 'TEST')
     ).toBe(true)
@@ -171,7 +191,7 @@ describe('SSO account repository boundaries', () => {
   })
   it('rejects a claim without a fencing token', async () => {
     const query = vi.fn(async () => [{ result: [{ id: user, providers: [] }] }])
-    const worker = createSsoAccountErasureWorker(client(query))
+    const worker = createSsoAccountErasureWorker(workerClient(query))
     await expect(worker.claimProviderCleanups(1, 300, 'TEST')).rejects.toThrow()
   })
   it('worker queue uses the fixed worker definer and rejects leaked fields', async () => {
@@ -183,12 +203,11 @@ describe('SSO account repository boundaries', () => {
       }
     ]
     const query = vi.fn(async () => [{ result: queue }]),
-      worker = createSsoAccountErasureWorker(client(query))
+      worker = createSsoAccountErasureWorker(workerClient(query))
     expect(await worker.list(20, 'PRODUCTION')).toEqual(queue)
     expect(query).toHaveBeenCalledWith(
-      'SELECT "phase7_list_sso_account_erasures"($1::integer,$2::"AdminAuditEnvironment") AS result',
-      20,
-      'PRODUCTION'
+      expect.stringContaining('FROM "SsoAccountErasureRequest" AS r'),
+      20
     )
     await expect(worker.list(101, 'TEST')).rejects.toThrow()
     query.mockResolvedValueOnce([
@@ -206,7 +225,7 @@ describe('SSO account repository boundaries', () => {
       }
     ]
     const query = vi.fn(async () => [{ result: claims }]),
-      worker = createSsoAccountErasureWorker(client(query))
+      worker = createSsoAccountErasureWorker(workerClient(query))
     expect(await worker.claimProviderCleanups(20, 300, 'TEST')).toEqual(claims)
     expect(query).toHaveBeenCalledWith(
       'SELECT "phase7_claim_sso_provider_cleanups"($1::integer,$2::integer,$3::"AdminAuditEnvironment") AS result',
@@ -246,7 +265,7 @@ describe('SSO account repository boundaries', () => {
           ]
         }
       ]),
-      worker = createSsoAccountErasureWorker(client(query))
+      worker = createSsoAccountErasureWorker(workerClient(query))
     await expect(worker.list(20, 'TEST')).rejects.toThrow()
   })
   it('batch completes app erasure, retries failures and never completes without provider cleanup', async () => {

@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import type { PrismaClient } from '../generated/prisma/client.js'
 import {
   createSsoAccountErasureWorker,
   runSsoAccountErasureBatch
@@ -289,10 +288,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
   it('one-shot worker completes requests idempotently, retries partial failure and waits for provider cleanup', async () => {
     await h.rollback(async () => {
       // #504 P7 PR1: the one-shot worker runs as nihongo_app.
-      const worker = createSsoAccountErasureWorker({
-        $queryRawUnsafe: async (sql: string, ...args: unknown[]) =>
-          (await h.roleQuery('nihongo_app', sql, args)).rows
-      } as unknown as Pick<PrismaClient, '$queryRawUnsafe'>)
+      const worker = createSsoAccountErasureWorker(h.appClient)
       const request = async () => {
         const f = await h.fixture('google', 'USER')
         const receipt = digest()
@@ -443,10 +439,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         [id, digest()]
       )
       // #504 P7 PR1: the one-shot worker runs as nihongo_app.
-      const worker = createSsoAccountErasureWorker({
-        $queryRawUnsafe: async (sql: string, ...args: unknown[]) =>
-          (await h.roleQuery('nihongo_app', sql, args)).rows
-      } as unknown as Pick<PrismaClient, '$queryRawUnsafe'>)
+      const worker = createSsoAccountErasureWorker(h.appClient)
       const claim = async () =>
         (await worker.claimProviderCleanups(100, 300, 'TEST')).find(
           (row) => row.id === id

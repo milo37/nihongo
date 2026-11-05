@@ -184,8 +184,8 @@ const ATTESTATION_QUERY = `
            sensitive_relation.oid,
            sensitive_column.attnum,
            -- #504 P2 (member console), P7 PR2 (admin operation locks), PR3a
-           -- (owned Session issuance) and PR3b-1 (ADMIN_FRESH re-authentication)
-           -- grant nihongo_app exactly these columns; every other privilege on
+           -- (owned Session issuance), PR3b-1 (ADMIN_FRESH re-authentication)
+           -- and PR4a (account erasure) grant nihongo_app exactly these columns; every other privilege on
            -- them and every other sensitive column stays closed.
            CASE WHEN current_user <> 'nihongo_app' THEN 'SELECT,INSERT,UPDATE,REFERENCES'
            WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
@@ -197,6 +197,7 @@ const ATTESTATION_QUERY = `
              ) THEN 'INSERT,REFERENCES'
            WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
                ('Account', 'accountId'),
+               ('Account', 'id'),
                ('Account', 'providerId'),
                ('Account', 'userId'),
                ('AuthSessionRotationFence', 'id'),
@@ -219,6 +220,10 @@ const ATTESTATION_QUERY = `
                ('Session', 'expiresAt'),
                ('Session', 'updatedAt')
              ) THEN 'REFERENCES'
+           -- PR4a: UPDATE on an insert-only column only to lock erasure rows.
+           WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
+               ('Account', 'createdAt')
+             ) THEN 'SELECT,INSERT,REFERENCES'
            WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
                ('Phase7ReauthenticationIntent', 'createdAt'),
                ('Session', 'ipAddress'),
@@ -271,11 +276,12 @@ const ATTESTATION_QUERY = `
          AND has_table_privilege(
            current_user,
            sensitive_relation.oid,
-           -- #504 P7 PR3a/PR3b-1: DELETE is a table privilege; triggers limit
-           -- which of these rows nihongo_app may delete.
+           -- #504 P7 PR3a/PR3b-1/PR4a: DELETE is a table privilege; triggers
+           -- limit which of these rows nihongo_app may delete.
            CASE WHEN current_user = 'nihongo_app'
              AND sensitive_relation.relname IN (
-               'Session', 'Phase7ReauthenticationIntent',
+               'User', 'Session', 'AuthSessionFamily',
+               'AuthSessionRotationFence', 'Phase7ReauthenticationIntent',
                'Phase7AuthorityRevocationEvidence'
              )
            THEN 'SELECT,INSERT,UPDATE,TRUNCATE,REFERENCES,TRIGGER'
