@@ -1,7 +1,11 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { ownedSessionSql } from './fixtures/ownedSessionSql.js'
-import { Client, type QueryResult } from 'pg'
+import {
+  bridgedQuery,
+  isOwnedSessionSql,
+  ownedSessionSql
+} from './fixtures/ownedSessionSql.js'
+import { Client } from 'pg'
 import {
   beginAdminOperation,
   finishAdminOperation
@@ -38,7 +42,6 @@ interface FinalizedSessionRow {
 }
 
 const routineManifest = [
-  ['phase7_abort_reauthentication', 'intent_id_value uuid', false, true],
   ['phase7_active_authorization_session', 'raw_token text', false, false],
   [
     'phase7_change_user_authority',
@@ -53,19 +56,6 @@ const routineManifest = [
     false
   ],
   ['phase7_classify_admin_authority', 'raw_token text', true, false],
-  ['phase7_cleanup_reauthentication', 'maximum_rows integer', false, true],
-  [
-    'phase7_confirm_v1_session_issuance',
-    'raw_token text, expected_session_id uuid, expected_user_id uuid, captured_generation_value integer, captured_role_value "UserRole", captured_status_value "UserAccountStatus"',
-    false,
-    true
-  ],
-  [
-    'phase7_confirm_v1_session_issuance_pre_reauthentication',
-    'raw_token text, expected_session_id uuid, expected_user_id uuid, captured_generation_value integer, captured_role_value "UserRole", captured_status_value "UserAccountStatus"',
-    false,
-    false
-  ],
   [
     'phase7_create_question_report',
     'raw_session_token text, report_id uuid, question_id_value uuid, question_version_id_value uuid, reason_value "QuestionReportReason", description_value text',
@@ -78,12 +68,6 @@ const routineManifest = [
     false,
     false
   ],
-  [
-    'phase7_finalize_reauthentication',
-    'intent_id_value uuid, raw_new_token text',
-    false,
-    true
-  ],
   ['phase7_finish_admin_operation', 'operation_id uuid', true, false],
   [
     'phase7_finish_admin_operation_pre_reauthentication',
@@ -91,31 +75,12 @@ const routineManifest = [
     false,
     false
   ],
-  [
-    'phase7_prepare_reauthentication',
-    'raw_old_token text, expected_actor_id uuid, request_id_value uuid, environment_value "AdminAuditEnvironment", intent_id_value uuid',
-    false,
-    true
-  ],
   ['phase7_reauthentication_token_digest', 'raw_token text', false, false],
-  [
-    'phase7_reconcile_reauthentication',
-    'intent_id_value uuid, raw_new_token text',
-    false,
-    true
-  ],
   [
     'phase7_record_authority_revocation',
     'target_user_id uuid, reason_value "Phase7AuthorityRevocationReason"',
     false,
     false
-  ],
-  ['phase7_rotation_fence_token_digest', 'raw_token text', false, false],
-  [
-    'phase7_stage_reauthentication_session',
-    'intent_id_value uuid, session_id_value uuid, raw_new_token text, user_id_value uuid, expires_at_value timestamp with time zone, ip_address_value text, user_agent_value text',
-    false,
-    true
   ],
   ['protect_phase7_account', '', false, false],
   ['validate_phase7_session_write', '', false, false],
@@ -221,8 +186,13 @@ const expectRoleFailure = async (
   await adminClient.query(`SAVEPOINT ${savepoint}`)
   let actualCode: unknown
   try {
-    await adminClient.query(`SET LOCAL ROLE "${role}"`)
-    await adminClient.query(statement, [...values])
+    // #504 P7 PR3b-1: calls to the dropped functions run the API steps; the
+    // gateway facade caller is nihongo_app since PR1.
+    const bridged = isOwnedSessionSql(statement)
+    await adminClient.query(
+      `SET LOCAL ROLE "${bridged && role === 'nihongo_auth_gateway' ? 'nihongo_app' : role}"`
+    )
+    await bridgedQuery(adminClient, statement, [...values])
   } catch (error: unknown) {
     actualCode = (error as { code?: unknown }).code
   } finally {
@@ -288,8 +258,9 @@ const prepare = async (
   requestId = randomUUID(),
   intentId = randomUUID()
 ): Promise<PreparedIntentRow> => {
-  const prepared = await withExecutionRole('nihongo_auth_gateway', () =>
-    adminClient.query<PreparedIntentRow>(
+  const prepared = await withExecutionRole('nihongo_app', () =>
+    ownedSessionSql<PreparedIntentRow>(
+      adminClient,
       `SELECT * FROM "phase7_prepare_reauthentication"(
         $1, $2, $3, 'TEST', $4
       )`,
@@ -308,9 +279,10 @@ const stage = async (
   sessionId: string,
   token: string,
   userId: string
-): Promise<QueryResult<{ id: string }>> =>
-  await withExecutionRole('nihongo_auth_gateway', () =>
-    adminClient.query<{ id: string }>(
+): Promise<{ rows: Array<{ id: string }>; rowCount: number }> =>
+  await withExecutionRole('nihongo_app', () =>
+    ownedSessionSql<{ id: string }>(
+      adminClient,
       `SELECT * FROM "phase7_stage_reauthentication_session"(
         $1, $2, $3, $4, clock_timestamp() + INTERVAL '1 day',
         '127.0.0.1', 'phase7-reauth-integration'
@@ -323,8 +295,9 @@ const finalize = async (
   intentId: string,
   token: string
 ): Promise<FinalizedSessionRow> => {
-  const finalized = await withExecutionRole('nihongo_auth_gateway', () =>
-    adminClient.query<FinalizedSessionRow>(
+  const finalized = await withExecutionRole('nihongo_app', () =>
+    ownedSessionSql<FinalizedSessionRow>(
+      adminClient,
       `SELECT * FROM "phase7_finalize_reauthentication"($1, $2)`,
       [intentId, token]
     )
@@ -504,13 +477,12 @@ describe('Reauthentication DB foundation', () => {
         ).rows
       ).toEqual([{ count: 2 }])
 
-      const pendingReconciliation = await withExecutionRole(
-        'nihongo_auth_gateway',
-        () =>
-          adminClient.query(
-            `SELECT * FROM "phase7_reconcile_reauthentication"($1, $2)`,
-            [prepared.intentId, newToken]
-          )
+      const pendingReconciliation = await withExecutionRole('nihongo_app', () =>
+        ownedSessionSql(
+          adminClient,
+          `SELECT * FROM "phase7_reconcile_reauthentication"($1, $2)`,
+          [prepared.intentId, newToken]
+        )
       )
       expect(pendingReconciliation.rows).toEqual([])
 
@@ -552,8 +524,9 @@ describe('Reauthentication DB foundation', () => {
         )
       )
       expect(refresh.rows).toEqual([])
-      const issuance = await withExecutionRole('nihongo_auth_gateway', () =>
-        adminClient.query<{ confirmed: boolean }>(
+      const issuance = await withExecutionRole('nihongo_app', () =>
+        ownedSessionSql(
+          adminClient,
           `SELECT "phase7_confirm_v1_session_issuance"(
             $1, $2, $3, 1, 'ADMIN', 'ACTIVE'
           ) AS confirmed`,
@@ -679,8 +652,9 @@ describe('Reauthentication DB foundation', () => {
         }
       ])
 
-      const reconciled = await withExecutionRole('nihongo_auth_gateway', () =>
-        adminClient.query(
+      const reconciled = await withExecutionRole('nihongo_app', () =>
+        ownedSessionSql(
+          adminClient,
           `SELECT * FROM "phase7_reconcile_reauthentication"($1, $2)`,
           [prepared.intentId, newToken]
         )
@@ -692,8 +666,9 @@ describe('Reauthentication DB foundation', () => {
         state: 'FINALIZED'
       })
 
-      await withExecutionRole('nihongo_auth_gateway', () =>
-        adminClient.query(
+      await withExecutionRole('nihongo_app', () =>
+        ownedSessionSql(
+          adminClient,
           `SELECT * FROM "phase7_cleanup_reauthentication"(100)`
         )
       )
@@ -920,8 +895,9 @@ describe('Reauthentication DB foundation', () => {
           trustedCount: 0
         }
       ])
-      const aborted = await withExecutionRole('nihongo_auth_gateway', () =>
-        adminClient.query<{ aborted: boolean }>(
+      const aborted = await withExecutionRole('nihongo_app', () =>
+        ownedSessionSql(
+          adminClient,
           `SELECT "phase7_abort_reauthentication"($1) AS aborted`,
           [recovered.intentId]
         )
@@ -938,12 +914,11 @@ describe('Reauthentication DB foundation', () => {
         [cleanupTarget.prepared.intentId]
       )
       await adminClient.query(`SET LOCAL session_replication_role = origin`)
-      const cleanup = await withExecutionRole('nihongo_auth_gateway', () =>
-        adminClient.query<{
-          evidenceDeleted: number
-          intentsDeleted: number
-          pendingSessionsDeleted: number
-        }>(`SELECT * FROM "phase7_cleanup_reauthentication"(100)`)
+      const cleanup = await withExecutionRole('nihongo_app', () =>
+        ownedSessionSql(
+          adminClient,
+          `SELECT * FROM "phase7_cleanup_reauthentication"(100)`
+        )
       )
       expect(cleanup.rows[0]).toMatchObject({
         intentsDeleted: expect.any(Number),
@@ -1072,8 +1047,11 @@ describe('Reauthentication DB foundation', () => {
     // Session 8, AuthSessionFamily 3). #504 P7 PR3a: owned Session issuance
     // adds User 2, Session 4 (token and updatedAt read, ipAddress and
     // userAgent insert only) and AuthSessionRotationFence 5, and Session DELETE.
+    // #504 P7 PR3b-1: ADMIN_FRESH re-authentication adds User 1, Account 3,
+    // AuthSessionRotationFence 4, Phase7ReauthenticationIntent 18 and
+    // Phase7AuthorityRevocationEvidence 2, and DELETE on the last two.
     expect(catalog.rows).toEqual([
-      { sensitiveColumnAclCount: 29, sensitiveTableAclCount: 1 }
+      { sensitiveColumnAclCount: 57, sensitiveTableAclCount: 3 }
     ])
   })
 
@@ -1275,10 +1253,9 @@ describe('Reauthentication DB foundation', () => {
       'phase7_classify_admin_authority',
       'phase7_create_question_report',
       'phase7_finish_admin_operation',
-      'phase7_require_database_capability',
-      'phase7_sso_admin_session_is_fresh'
+      'phase7_require_database_capability'
     ])
-    expect(rows.filter((row) => row.gateway).length).toBe(30)
+    expect(rows.filter((row) => row.gateway).length).toBe(16)
     expect(rows.filter((row) => row.erasure).length).toBe(8)
   })
 
@@ -1428,6 +1405,160 @@ describe('Reauthentication DB foundation', () => {
       )
       await adminClient.query('RESET ROLE')
       await expectRoleFailure('nihongo_app', ...insertSession(), '42501')
+    })
+  })
+
+  it('#504 P7 PR3b-1: 재인증 세션 쓰기와 삭제 제한 트리거는 그 조건 밖의 nihongo_app 쓰기를 거절한다', async () => {
+    await withinRollback(async () => {
+      const staged = await createStagedFixture()
+      const intentId = staged.prepared.intentId
+      // PENDING_REAUTH only for a live PREPARED intent: this one is STAGED.
+      await expectRoleFailure(
+        'nihongo_app',
+        `INSERT INTO "Session" (
+           "id", "expiresAt", "token", "createdAt", "updatedAt", "userId",
+           "sessionFamilyId", "authorityGeneration", "issuerProtocolVersion",
+           "authorizationState"
+         ) VALUES (
+           $1, clock_timestamp() + INTERVAL '1 day', $2, clock_timestamp(),
+           clock_timestamp(), $3, $4, 1, 'PHASE7_V1', 'PENDING_REAUTH'
+         )`,
+        [
+          randomUUID(),
+          `phase7-pr3b1-${randomUUID()}`,
+          staged.userId,
+          staged.familyId
+        ],
+        '42501'
+      )
+      // PENDING to ACTIVE only for the staged Session of a live STAGED
+      // intent: this one has expired.
+      await adminClient.query(
+        `UPDATE "Phase7ReauthenticationIntent"
+         SET "createdAt" = clock_timestamp() - INTERVAL '3 minutes',
+             "expiresAt" = clock_timestamp() - INTERVAL '1 second'
+         WHERE "id" = $1`,
+        [intentId]
+      )
+      await expectRoleFailure(
+        'nihongo_app',
+        `UPDATE "Session" SET "authorizationState" = 'ACTIVE' WHERE "id" = $1`,
+        [staged.newSessionId],
+        '42501'
+      )
+      // The rotation fence needs the matching STAGED intent.
+      await expectRoleFailure(
+        'nihongo_app',
+        `INSERT INTO "AuthSessionRotationFence" (
+           "oldSessionId", "oldTokenDigest", "userId", "oldFamilyId",
+           "replacementFamilyId", "replacementSessionId", "operationId",
+           "expiresAt"
+         ) VALUES ($1, $2, $3, $4, $4, $5, $6, clock_timestamp() + INTERVAL '1 day')`,
+        [
+          staged.oldSessionId,
+          rotationFenceDigest(staged.oldToken),
+          staged.userId,
+          staged.familyId,
+          staged.newSessionId,
+          staged.prepared.operationId
+        ],
+        '42501'
+      )
+      // Delete limits: a recently FINALIZED intent, a completed live proof and
+      // unexpired revocation evidence stay.
+      await adminClient.query(
+        `UPDATE "Phase7ReauthenticationIntent"
+         SET "state" = 'FINALIZED', "finalizedAt" = clock_timestamp()
+         WHERE "id" = $1`,
+        [intentId]
+      )
+      await expectRoleFailure(
+        'nihongo_app',
+        'DELETE FROM "Phase7ReauthenticationIntent" WHERE "id" = $1',
+        [intentId],
+        '42501'
+      )
+      const proofDigest = 'b'.repeat(64)
+      await adminClient.query(
+        `INSERT INTO "SsoAdminFreshProof" (
+           "userId", "proofDigest", "context", "callbackURL", "createdAt",
+           "expiresAt", "completedSessionId", "completedAt"
+         ) VALUES (
+           $1::uuid, $2, jsonb_build_object('userId', $1::uuid), '/login',
+           clock_timestamp(),
+           clock_timestamp() + INTERVAL '5 minutes', $3, clock_timestamp()
+         )`,
+        [staged.userId, proofDigest, staged.newSessionId]
+      )
+      await expectRoleFailure(
+        'nihongo_app',
+        'DELETE FROM "SsoAdminFreshProof" WHERE "proofDigest" = $1',
+        [proofDigest],
+        '42501'
+      )
+      const evidenceDigest = 'c'.repeat(64)
+      await adminClient.query(
+        `INSERT INTO "Phase7AuthorityRevocationEvidence" (
+           "tokenDigest", "sessionId", "familyId", "reason", "expiresAt"
+         ) VALUES ($1, $2, $3, 'SESSION_INVALIDATED',
+           clock_timestamp() + INTERVAL '10 minutes')`,
+        [evidenceDigest, staged.oldSessionId, staged.familyId]
+      )
+      await expectRoleFailure(
+        'nihongo_app',
+        `DELETE FROM "Phase7AuthorityRevocationEvidence"
+         WHERE "tokenDigest" = $1`,
+        [evidenceDigest],
+        '42501'
+      )
+      // SsoAdminFreshTransaction rows are one-time: consume is itself a
+      // delete, so only roles without the grant are refused.
+      await expectRoleFailure(
+        'nihongo_auth_gateway',
+        'DELETE FROM "SsoAdminFreshTransaction"',
+        [],
+        '42501'
+      )
+    })
+  })
+
+  it('#504 P7 PR3b-1: finalize는 intent의 staged token digest가 token과 다르면 42501로 거절한다', async () => {
+    await withinRollback(async () => {
+      const staged = await createStagedFixture()
+      const intentId = staged.prepared.intentId
+      const recorded = await adminClient.query<{ digest: string }>(
+        `SELECT "stagedTokenDigest" AS digest
+         FROM "Phase7ReauthenticationIntent" WHERE "id" = $1`,
+        [intentId]
+      )
+      const digest = recorded.rows[0]?.digest
+      if (!digest) throw new Error('Staged token digest is unavailable.')
+      // The Session row still matches the token, so only the intent digest
+      // comparison can refuse this finalize.
+      await adminClient.query(
+        `UPDATE "Phase7ReauthenticationIntent"
+         SET "stagedTokenDigest" = $2 WHERE "id" = $1`,
+        [intentId, 'd'.repeat(64)]
+      )
+      await expectRoleFailure(
+        'nihongo_app',
+        `SELECT * FROM "phase7_finalize_reauthentication"($1, $2)`,
+        [intentId, staged.newToken],
+        '42501'
+      )
+      const pending = await adminClient.query<{ state: string }>(
+        `SELECT "authorizationState"::text AS state FROM "Session"
+         WHERE "id" = $1`,
+        [staged.newSessionId]
+      )
+      expect(pending.rows).toEqual([{ state: 'PENDING_REAUTH' }])
+      await adminClient.query(
+        `UPDATE "Phase7ReauthenticationIntent"
+         SET "stagedTokenDigest" = $2 WHERE "id" = $1`,
+        [intentId, digest]
+      )
+      const finalized = await finalize(intentId, staged.newToken)
+      expect(finalized).toMatchObject({ authorityGeneration: 1 })
     })
   })
 

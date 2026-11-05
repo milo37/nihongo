@@ -85,13 +85,15 @@ const applicationRuntime = createRoleDatabaseRuntime(
   environment.DATABASE_URL,
   'nihongo_app'
 )
-const gatewayUrl = new URL(authGatewayDatabaseUrl)
+// #504 P7 PR3b-1: re-authentication and authority races run as the runtime
+// role nihongo_app, which also executes the gateway facades since PR1.
+const gatewayUrl = new URL(environment.DATABASE_URL)
 gatewayUrl.searchParams.delete('schema')
 gatewayUrl.searchParams.delete('options')
 const createGatewayClient = (): Client =>
   new Client({
     connectionString: gatewayUrl.toString(),
-    options: createPostgresStartupOptions(schema, 'nihongo_auth_gateway')
+    options: createPostgresStartupOptions(schema, 'nihongo_app')
   })
 const gatewayClientA = createGatewayClient()
 const gatewayClientB = createGatewayClient()
@@ -209,7 +211,7 @@ const createFixture = async (
 const completeSsoFresh = async (
   fixture: Awaited<ReturnType<typeof createFixture>>
 ) => {
-  const port = createSsoAdminFreshRepository(gatewayRuntime.client)
+  const port = createSsoAdminFreshRepository(applicationRuntime.client)
   const context = await port.prepare(fixture.token, 'google')
   if (!context) throw new Error('SSO fresh fixture preparation failed.')
   expect(context.userId).toBe(fixture.userId)
@@ -720,14 +722,16 @@ const prepareAndStage = async (
   const requestId = randomUUID()
   const newSessionId = randomUUID()
   const newToken = `phase7-real-new-${randomUUID()}`
-  const prepared = await gatewayClientA.query<{ intentId: string }>(
+  const prepared = await ownedSessionSql(
+    gatewayClientA,
     `SELECT * FROM "phase7_prepare_reauthentication"(
       $1, $2, $3, 'TEST', $4
     )`,
     [fixture.token, fixture.userId, requestId, intentId]
   )
   expect(prepared.rows).toEqual([expect.objectContaining({ intentId })])
-  const staged = await gatewayClientA.query<{ id: string }>(
+  const staged = await ownedSessionSql(
+    gatewayClientA,
     `SELECT * FROM "phase7_stage_reauthentication_session"(
       $1, $2, $3, $4, clock_timestamp() + INTERVAL '1 day',
       '127.0.0.1', 'phase7-concurrency'
@@ -754,8 +758,11 @@ const spawnStagedCrashWorker = async (
       '127.0.0.1', 'phase7-crash-worker'
     )`
   )
+  // #504 P7 PR3b-1: the worker runs the API prepare and stage steps as
+  // nihongo_app through the test bridge.
   const script = `
     import pg from 'pg'
+    import { ownedSessionSql } from './src/db/fixtures/ownedSessionSql.ts'
     const { Client } = pg
     process.on('SIGTERM', () => {})
     const url = new URL(process.env.PHASE7_CRASH_DATABASE_URL)
@@ -764,10 +771,11 @@ const spawnStagedCrashWorker = async (
     const client = new Client({
       connectionString: url.toString(),
       options: '-c search_path=' + process.env.PHASE7_CRASH_SCHEMA +
-        ' -c TimeZone=UTC -c role=nihongo_auth_gateway'
+        ' -c TimeZone=UTC -c role=nihongo_app'
     })
     await client.connect()
-    await client.query(
+    await ownedSessionSql(
+      client,
       ${prepareSql},
       [
         process.env.PHASE7_CRASH_OLD_TOKEN,
@@ -776,7 +784,8 @@ const spawnStagedCrashWorker = async (
         process.env.PHASE7_CRASH_INTENT_ID
       ]
     )
-    await client.query(
+    await ownedSessionSql(
+      client,
       ${stageSql},
       [
         process.env.PHASE7_CRASH_INTENT_ID,
@@ -788,22 +797,26 @@ const spawnStagedCrashWorker = async (
     process.stdout.write(JSON.stringify({ event: 'staged' }) + '\\n')
     setInterval(() => {}, 1_000)
   `
-  const child = spawn(process.execPath, ['--input-type=module', '-e', script], {
-    cwd: process.cwd(),
-    detached: true,
-    env: {
-      ...process.env,
-      PHASE7_CRASH_DATABASE_URL: authGatewayDatabaseUrl,
-      PHASE7_CRASH_INTENT_ID: intentId,
-      PHASE7_CRASH_NEW_TOKEN: newToken,
-      PHASE7_CRASH_OLD_TOKEN: fixture.token,
-      PHASE7_CRASH_REQUEST_ID: requestId,
-      PHASE7_CRASH_SCHEMA: schema,
-      PHASE7_CRASH_SESSION_ID: newSessionId,
-      PHASE7_CRASH_USER_ID: fixture.userId
-    },
-    stdio: ['ignore', 'pipe', 'pipe']
-  })
+  const child = spawn(
+    process.execPath,
+    ['--import', 'tsx', '--input-type=module', '-e', script],
+    {
+      cwd: process.cwd(),
+      detached: true,
+      env: {
+        ...process.env,
+        PHASE7_CRASH_DATABASE_URL: environment.DATABASE_URL,
+        PHASE7_CRASH_INTENT_ID: intentId,
+        PHASE7_CRASH_NEW_TOKEN: newToken,
+        PHASE7_CRASH_OLD_TOKEN: fixture.token,
+        PHASE7_CRASH_REQUEST_ID: requestId,
+        PHASE7_CRASH_SCHEMA: schema,
+        PHASE7_CRASH_SESSION_ID: newSessionId,
+        PHASE7_CRASH_USER_ID: fixture.userId
+      },
+      stdio: ['ignore', 'pipe', 'pipe']
+    }
+  )
   try {
     await new Promise<void>((resolve, reject) => {
       let stdout = ''
@@ -853,7 +866,7 @@ const runStartupMaintenanceWorker = async (): Promise<void> => {
     import { runPhase7ReauthenticationStartupMaintenance } from './src/auth/reauthenticationStartupMaintenance.ts'
     const databaseUrl = process.env.PHASE7_RESTART_DATABASE_URL
     if (!databaseUrl) throw new Error('Missing restart database URL.')
-    const runtime = createRoleDatabaseRuntime(databaseUrl, 'nihongo_auth_gateway')
+    const runtime = createRoleDatabaseRuntime(databaseUrl, 'nihongo_app')
     try {
       await runPhase7ReauthenticationStartupMaintenance(runtime.client)
       process.stdout.write(JSON.stringify({ event: 'startup-maintenance-complete' }) + '\\n')
@@ -869,7 +882,7 @@ const runStartupMaintenanceWorker = async (): Promise<void> => {
       detached: true,
       env: {
         ...process.env,
-        PHASE7_RESTART_DATABASE_URL: authGatewayDatabaseUrl
+        PHASE7_RESTART_DATABASE_URL: environment.DATABASE_URL
       },
       stdio: ['ignore', 'pipe', 'pipe']
     }
@@ -2060,7 +2073,8 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
     const logoutTarget = await createFixture()
     const logoutStage = await prepareAndStage(logoutTarget)
     const [logoutFinalize, logout] = await Promise.allSettled([
-      gatewayClientA.query(
+      ownedSessionSql(
+        gatewayClientA,
         `SELECT * FROM "phase7_finalize_reauthentication"($1, $2)`,
         [logoutStage.intentId, logoutStage.newToken]
       ),
@@ -2100,7 +2114,8 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
     const authorityStage = await prepareAndStage(authorityTarget)
     const operator = await createFixture()
     const [authorityFinalize, authorityChange] = await Promise.allSettled([
-      gatewayClientA.query(
+      ownedSessionSql(
+        gatewayClientA,
         `SELECT * FROM "phase7_finalize_reauthentication"($1, $2)`,
         [authorityStage.intentId, authorityStage.newToken]
       ),
