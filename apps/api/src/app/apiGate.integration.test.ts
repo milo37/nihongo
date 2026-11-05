@@ -41,7 +41,7 @@ const environment = parseApiEnvironment(process.env)
 const adminDatabaseUrl = requireEnvironmentValue('TEST_API_ADMIN_DATABASE_URL')
 const productionDatabaseUrl = requireEnvironmentValue('PRODUCTION_DATABASE_URL')
 const schemaName = new URL(adminDatabaseUrl).searchParams.get('schema')
-if (!schemaName || !/^phase7_[a-f0-9]{32}_test$/u.test(schemaName)) {
+if (!schemaName || !/^nihongo_[a-f0-9]{32}_test$/u.test(schemaName)) {
   throw new Error('API gate received an unsafe schema.')
 }
 
@@ -76,7 +76,7 @@ const postAuth = async (
       'Content-Type': 'application/json',
       Origin: environment.TRUSTED_ORIGINS[0]!,
       'Sec-Fetch-Site': 'same-origin',
-      'User-Agent': 'phase7-api-gate',
+      'User-Agent': 'api-gate',
       ...(cookie ? { Cookie: cookie } : {})
     },
     body: JSON.stringify(body)
@@ -175,7 +175,7 @@ const exercisePostIssuerAuthorityDrift = async ({
   userId: string
 }): Promise<Response> => {
   const driftClient = createAdminConnection()
-  const barrierKey = 'phase7-api-post-issuer-barrier'
+  const barrierKey = 'api-post-issuer-barrier'
   let advisoryLockHeld = false
   let driftConnected = false
   let driftTransactionOpen = false
@@ -183,7 +183,7 @@ const exercisePostIssuerAuthorityDrift = async ({
   let signIn: Promise<Response> | undefined
 
   await adminClient.query(
-    `CREATE FUNCTION "phase7_api_wait_after_session_insert"()
+    `CREATE FUNCTION "api_wait_after_session_insert"()
      RETURNS trigger LANGUAGE plpgsql
      SET search_path FROM CURRENT
      AS $function$
@@ -196,13 +196,13 @@ const exercisePostIssuerAuthorityDrift = async ({
      $function$`
   )
   await adminClient.query(
-    `REVOKE ALL ON FUNCTION "phase7_api_wait_after_session_insert"()
+    `REVOKE ALL ON FUNCTION "api_wait_after_session_insert"()
      FROM PUBLIC`
   )
   await adminClient.query(
-    `CREATE TRIGGER "phase7_api_wait_after_session_insert_trigger"
+    `CREATE TRIGGER "api_wait_after_session_insert_trigger"
      AFTER INSERT ON "Session" FOR EACH ROW
-     EXECUTE FUNCTION "phase7_api_wait_after_session_insert"()`
+     EXECUTE FUNCTION "api_wait_after_session_insert"()`
   )
 
   try {
@@ -301,11 +301,11 @@ const exercisePostIssuerAuthorityDrift = async ({
     await adminClient
       .query(
         `DROP TRIGGER IF EXISTS
-           "phase7_api_wait_after_session_insert_trigger" ON "Session"`
+           "api_wait_after_session_insert_trigger" ON "Session"`
       )
       .catch(() => undefined)
     await adminClient
-      .query(`DROP FUNCTION IF EXISTS "phase7_api_wait_after_session_insert"()`)
+      .query(`DROP FUNCTION IF EXISTS "api_wait_after_session_insert"()`)
       .catch(() => undefined)
   }
 }
@@ -323,7 +323,7 @@ beforeAll(async () => {
     startupRole: 'nihongo_app'
   })
   authGatewayRuntime = createRoleDatabaseRuntime(
-    process.env.PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL!,
+    process.env.TEST_APP_FIXTURE_DATABASE_URL!,
     'nihongo_app'
   )
 

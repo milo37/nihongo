@@ -63,7 +63,7 @@ import { createPrismaAdminMemberRepository } from '../admin/adminMemberRepositor
 import { createAdminMemberService } from '../admin/adminMemberService.js'
 import { createPrismaUserReportRepository } from '../report/userReportRepository.js'
 import { createUserReportService } from '../report/userReportService.js'
-import { runPhase7ReauthenticationStartupMaintenance } from '../auth/reauthenticationStartupMaintenance.js'
+import { runReauthenticationStartupMaintenance } from '../auth/reauthenticationStartupMaintenance.js'
 
 export interface BrowserCredentials {
   readonly email: string
@@ -114,7 +114,7 @@ const createCredentials = (
   actor: 'author' | 'insights' | 'journey' | 'learner' | 'reviewer',
   name: string
 ): BrowserCredentials => {
-  const suffix = schemaName.slice('phase7_'.length, 'phase7_'.length + 12)
+  const suffix = schemaName.slice('nihongo_'.length, 'nihongo_'.length + 12)
   return {
     email: `phase7-${actor}-${suffix}@example.test`,
     name,
@@ -125,7 +125,7 @@ const createCredentials = (
 
 const createFixtureClient = (databaseUrl: string): Client => {
   const schemaName = getPostgresSchema(databaseUrl)
-  if (!schemaName || !/^phase7_[a-f0-9]{32}_test$/u.test(schemaName)) {
+  if (!schemaName || !/^nihongo_[a-f0-9]{32}_test$/u.test(schemaName)) {
     throw new Error('Browser fixture schema is unsafe.')
   }
   const connectionUrl = new URL(databaseUrl)
@@ -207,7 +207,7 @@ export const createBrowserFixture = async (
   await client.connect()
 
   const fixture: BrowserFixture = {
-    author: createCredentials(schemaName, 'author', 'Phase 7 작성 관리자'),
+    author: createCredentials(schemaName, 'author', '작성 관리자'),
     insightsLearner: createCredentials(
       schemaName,
       'insights',
@@ -218,8 +218,8 @@ export const createBrowserFixture = async (
       'journey',
       'Phase 10 통합 학습자'
     ),
-    learner: createCredentials(schemaName, 'learner', 'Phase 7 학습자'),
-    reviewer: createCredentials(schemaName, 'reviewer', 'Phase 7 검수 관리자')
+    learner: createCredentials(schemaName, 'learner', '학습자'),
+    reviewer: createCredentials(schemaName, 'reviewer', '검수 관리자')
   }
 
   try {
@@ -598,7 +598,7 @@ const createBrowserFixtureDatabase = (
 
 interface SsoBrowserFixtureOptions {
   databaseUrl: string
-  authGatewayDatabaseUrl: string
+  appFixtureDatabaseUrl: string
   environment: ApiEnvironment
   /** Private TEST owner URL; never delivered to a browser. */
   adminDatabaseUrl?: string
@@ -617,7 +617,7 @@ export interface SsoBrowserActor {
 const createSsoBrowserApiFixture = async (
   {
     databaseUrl,
-    authGatewayDatabaseUrl,
+    appFixtureDatabaseUrl,
     environment,
     adminDatabaseUrl,
     isolateSignIns = false
@@ -640,12 +640,11 @@ const createSsoBrowserApiFixture = async (
     )
 
   const applicationTarget = new URL(databaseUrl)
-  const gatewayTarget = new URL(authGatewayDatabaseUrl)
+  const gatewayTarget = new URL(appFixtureDatabaseUrl)
   const schema = getPostgresSchema(databaseUrl)
   for (const [value, login] of [
     [databaseUrl, 'nihongo_test_app_login'],
-    // #504 P8-1: one runtime login; this URL name goes in P8-2.
-    [authGatewayDatabaseUrl, 'nihongo_test_app_login']
+    [appFixtureDatabaseUrl, 'nihongo_test_app_login']
   ] as const) {
     assertSafeTestDatabase({ nodeEnvironment: 'test', databaseUrl: value })
     const target = new URL(value)
@@ -656,7 +655,7 @@ const createSsoBrowserApiFixture = async (
         (key) => key !== 'schema' && key !== 'sslmode'
       ) ||
       !schema ||
-      !/^phase7_[a-f0-9]{32}_test$/u.test(schema) ||
+      !/^nihongo_[a-f0-9]{32}_test$/u.test(schema) ||
       getPostgresSchema(value) !== schema
     )
       throw new Error(
@@ -1403,24 +1402,24 @@ const createSsoBrowserApiFixture = async (
               if (
                 !ownedSession &&
                 resolution.user?.role === 'USER' &&
-                resolution.phase7Session
+                resolution.ownedSessionProof
               ) {
                 ownedSession = Object.freeze({
-                  id: resolution.phase7Session.id,
+                  id: resolution.ownedSessionProof.id,
                   userId: resolution.user.id,
-                  token: resolution.phase7Session.token
+                  token: resolution.ownedSessionProof.token
                 })
               } else if (
                 expiryCheckpoint &&
                 !login2Session &&
                 resolution.user &&
-                resolution.phase7Session &&
-                resolution.phase7Session.id !== ownedSession?.id
+                resolution.ownedSessionProof &&
+                resolution.ownedSessionProof.id !== ownedSession?.id
               ) {
                 login2Session = Object.freeze({
-                  id: resolution.phase7Session.id,
+                  id: resolution.ownedSessionProof.id,
                   userId: resolution.user.id,
-                  token: resolution.phase7Session.token
+                  token: resolution.ownedSessionProof.token
                 })
               }
               return resolution
@@ -1617,8 +1616,7 @@ const createSsoBrowserApiFixture = async (
         : undefined,
       checkReadiness: async () => {
         await practice.checkReadiness()
-        if (cms)
-          await runPhase7ReauthenticationStartupMaintenance(gateway.client)
+        if (cms) await runReauthenticationStartupMaintenance(gateway.client)
       },
       fixture,
       expectedIdentity,
@@ -1646,7 +1644,7 @@ export const createSsoAdminBrowserApiFixture = async (
     lifecycleProfile !== 'full-lifecycle' &&
     lifecycleProfile !== 'admin-a1-a8'
   )
-    throw new Error('Unknown Phase 7 SSO admin lifecycle profile.')
+    throw new Error('Unknown SSO admin lifecycle profile.')
   const created = await createSsoBrowserApiFixture(options, true)
   const database = createBrowserFixtureDatabase(
     options.adminDatabaseUrl,

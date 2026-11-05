@@ -103,7 +103,7 @@ export const createDashboardInsightsRoutes = ({
       })
     }
 
-    if (!resolution.phase7Session) {
+    if (!resolution.ownedSessionProof) {
       appendExpiredSessionCookies(context, environment)
       throw new ApplicationError({
         code: 'AUTH_SESSION_EXPIRED',
@@ -112,7 +112,7 @@ export const createDashboardInsightsRoutes = ({
       })
     }
     const principal = {
-      sessionToken: resolution.phase7Session.token,
+      sessionToken: resolution.ownedSessionProof.token,
       userId: resolution.user.id
     }
     let response: unknown

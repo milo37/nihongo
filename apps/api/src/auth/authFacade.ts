@@ -48,7 +48,7 @@ const unavailable = (): Response =>
 
 // Only sign-out reaches this facade: the gateway answers 404 for the retired
 // email/password routes (isAllowedOperation in authGateway.ts).
-export const createPhase7AuthFacade = ({
+export const createAuthFacade = ({
   client,
   environment
 }: {
@@ -87,4 +87,4 @@ export const createPhase7AuthFacade = ({
   }
 }
 
-export { createPhase7AuthFacade as createOwnedAuthFacade }
+export { createAuthFacade as createOwnedAuthFacade }

@@ -102,14 +102,11 @@ const requireEnvironmentValue = (name: string): string => {
 
 const adminDatabaseUrl = requireEnvironmentValue('TEST_API_ADMIN_DATABASE_URL')
 const applicationDatabaseUrl = requireEnvironmentValue('DATABASE_URL')
-const authGatewayDatabaseUrl = requireEnvironmentValue(
-  'PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL'
-)
-const erasureWorkerDatabaseUrl = requireEnvironmentValue(
-  'TEST_API_ERASURE_DATABASE_URL'
+const appFixtureDatabaseUrl = requireEnvironmentValue(
+  'TEST_APP_FIXTURE_DATABASE_URL'
 )
 const schemaName = new URL(adminDatabaseUrl).searchParams.get('schema')
-if (!schemaName || !/^phase7_[a-f0-9]{32}_test$/u.test(schemaName)) {
+if (!schemaName || !/^nihongo_[a-f0-9]{32}_test$/u.test(schemaName)) {
   throw new Error('Admin command integration received an unsafe schema.')
 }
 
@@ -127,13 +124,13 @@ const actorIds = [
 ]
 let authorToken = ''
 let reviewerToken = ''
-const learnerToken = `phase7-command-learner-${randomUUID()}`
+const learnerToken = `test-command-learner-${randomUUID()}`
 const adminClient = new Client({
   connectionString: adminDatabaseUrl,
   options: createPostgresStartupOptions(schemaName)
 })
 const erasureWorkerClient = new Client({
-  connectionString: erasureWorkerDatabaseUrl,
+  connectionString: appFixtureDatabaseUrl,
   options: createPostgresStartupOptions(schemaName)
 })
 
@@ -166,7 +163,7 @@ const insertCredentialUser = async (
          $1, 'Command integration', $2, true, $4::"UserRole",
          'ACTIVE', $3, $3
        )`,
-      [id, `phase7-command-${randomUUID()}@example.test`, now, role]
+      [id, `test-command-${randomUUID()}@example.test`, now, role]
     )
     await adminClient.query(
       `INSERT INTO "Account" (
@@ -218,7 +215,7 @@ const loadCanonicalContentFixture = async (): Promise<void> => {
   )
   const fixture = result.rows[0]
   if (!fixture) {
-    throw new Error('Canonical Phase 7 seed fixture is unavailable.')
+    throw new Error('Canonical seed fixture is unavailable.')
   }
   baseQuestionId = fixture.questionId
   baseQuestionRowVersion = fixture.rowVersion
@@ -242,7 +239,7 @@ const issueSession = async (
     sessionId: randomUUID(),
     token,
     ipAddress: '127.0.0.1',
-    userAgent: 'phase7-command-integration',
+    userAgent: 'test-command-integration',
     remember: false
   })
 }
@@ -266,7 +263,7 @@ const issueFreshAdminSession = async (userId: string): Promise<string> => {
     gateway: applicationRuntime!.client,
     role: 'ADMIN',
     existingUser: user,
-    secret: 'phase7-command-test-session-secret-with-32-characters'
+    secret: 'test-command-test-session-secret-with-32-characters'
   })
   const fresh = createSsoAdminFreshRepository(applicationRuntime!.client)
   const context = await fresh.prepare(session.token, session.identity.provider)
@@ -279,7 +276,7 @@ const issueFreshAdminSession = async (userId: string): Promise<string> => {
   }
   const confirmed = await fresh.complete(proof, session.token, {
     ipAddress: '127.0.0.1',
-    userAgent: 'phase7-command-integration'
+    userAgent: 'test-command-integration'
   })
   if (!confirmed || confirmed.userId !== userId) {
     throw new Error('Command ADMIN SSO proof was not confirmed.')
@@ -696,7 +693,7 @@ const readCommandEvidence = async (requestId: string) => {
     `SELECT audit."command", audit."operationId",
        audit."changedFields" AS "changedFields",
        audit."metadata" AS metadata,
-       audit."contentDigest" = pg_temp."phase7_admin_audit_content_digest"(
+       audit."contentDigest" = pg_temp."admin_audit_content_digest"(
          audit."operationId", audit."command", audit."targetType",
          audit."targetId", audit."beforeState", audit."afterState",
          audit."beforeRowVersion", audit."afterRowVersion",
@@ -959,7 +956,7 @@ beforeAll(async () => {
     startupRole: 'nihongo_app'
   })
   authGatewayRuntime = createRoleDatabaseRuntime(
-    authGatewayDatabaseUrl,
+    appFixtureDatabaseUrl,
     'nihongo_app'
   )
   await erasureWorkerClient.connect()
@@ -2628,7 +2625,7 @@ describe('ADMIN command TEST database integration', () => {
       operationId: string
     }>(
       `SELECT audit."command", audit."operationId",
-         audit."contentDigest" = pg_temp."phase7_admin_audit_content_digest"(
+         audit."contentDigest" = pg_temp."admin_audit_content_digest"(
            audit."operationId", audit."command", audit."targetType",
            audit."targetId", audit."beforeState", audit."afterState",
            audit."beforeRowVersion", audit."afterRowVersion",
@@ -2697,7 +2694,7 @@ describe('ADMIN command TEST database integration', () => {
       }
     }>(
       `SELECT audit."command", audit."metadata" AS metadata,
-         audit."contentDigest" = pg_temp."phase7_admin_audit_content_digest"(
+         audit."contentDigest" = pg_temp."admin_audit_content_digest"(
            audit."operationId", audit."command", audit."targetType",
            audit."targetId", audit."beforeState", audit."afterState",
            audit."beforeRowVersion", audit."afterRowVersion",
@@ -2819,7 +2816,7 @@ describe('ADMIN command TEST database integration', () => {
     })
     const beforeFault = await readGlobalWriteCounts()
     await adminClient.query(
-      `CREATE FUNCTION "phase7_test_fail_slice5_import"()
+      `CREATE FUNCTION "test_fail_slice5_import"()
        RETURNS TRIGGER LANGUAGE plpgsql AS $function$
        BEGIN
          IF position('SLICE5_FAULT_INJECTION_SECOND' IN NEW."questionText") > 0
@@ -2833,7 +2830,7 @@ describe('ADMIN command TEST database integration', () => {
     await adminClient.query(
       `CREATE TRIGGER "QuestionVersion_slice5_import_fault"
        BEFORE INSERT ON "QuestionVersion"
-       FOR EACH ROW EXECUTE FUNCTION "phase7_test_fail_slice5_import"()`
+       FOR EACH ROW EXECUTE FUNCTION "test_fail_slice5_import"()`
     )
     try {
       await expect(
@@ -2853,7 +2850,7 @@ describe('ADMIN command TEST database integration', () => {
          ON "QuestionVersion"`
       )
       await adminClient.query(
-        `DROP FUNCTION IF EXISTS "phase7_test_fail_slice5_import"()`
+        `DROP FUNCTION IF EXISTS "test_fail_slice5_import"()`
       )
     }
   }, 120_000)
@@ -3085,7 +3082,7 @@ describe('ADMIN command TEST database integration', () => {
       contentDigestValid: boolean
     }>(
       `SELECT audit."command",
-         audit."contentDigest" = pg_temp."phase7_admin_audit_content_digest"(
+         audit."contentDigest" = pg_temp."admin_audit_content_digest"(
            audit."operationId", audit."command", audit."targetType",
            audit."targetId", audit."beforeState", audit."afterState",
            audit."beforeRowVersion", audit."afterRowVersion",
@@ -3517,7 +3514,7 @@ describe('ADMIN command TEST database integration', () => {
       authorityTarget.versionId,
       authorityPublishRequest
     )
-    const driftToken = `phase7-report-drift-${randomUUID()}`
+    const driftToken = `test-report-drift-${randomUUID()}`
     await issueSession(learnerId, driftToken, 'USER')
     const authorityCreateRequest = createQuestionReportRequestSchema.parse({
       questionVersionId: authorityTarget.versionId,
@@ -3562,7 +3559,7 @@ describe('ADMIN command TEST database integration', () => {
     })
 
     await insertCredentialUser(revocationLearnerId, 'USER')
-    const revocationToken = `phase7-report-revocation-${randomUUID()}`
+    const revocationToken = `test-report-revocation-${randomUUID()}`
     await issueSession(revocationLearnerId, revocationToken, 'USER')
     const revocationCreateRequest = createQuestionReportRequestSchema.parse({
       questionVersionId: authorityTarget.versionId,
@@ -3624,7 +3621,7 @@ describe('ADMIN command TEST database integration', () => {
     })
 
     await insertCredentialUser(erasureLearnerId, 'USER')
-    const erasureToken = `phase7-report-erasure-${randomUUID()}`
+    const erasureToken = `test-report-erasure-${randomUUID()}`
     await issueSession(erasureLearnerId, erasureToken, 'USER')
     const erasureCreateRequest = createQuestionReportRequestSchema.parse({
       questionVersionId: authorityTarget.versionId,
@@ -3817,7 +3814,7 @@ describe('ADMIN command TEST database integration', () => {
   it('classifies unknown and revoked tokens through the app-role resolver with write 0', async () => {
     if (!commandService) throw new Error('Command service is unavailable.')
     const before = await readGlobalWriteCounts()
-    const unknownToken = `phase7-command-unknown-${randomUUID()}`
+    const unknownToken = `test-command-unknown-${randomUUID()}`
 
     await expect(
       commandService.createQuestion(
@@ -3829,7 +3826,7 @@ describe('ADMIN command TEST database integration', () => {
       adminDisposition: 'DEFINITE_ROLLBACK'
     })
 
-    const revokedToken = `phase7-command-revoked-${randomUUID()}`
+    const revokedToken = `test-command-revoked-${randomUUID()}`
     await issueSession(authorId, revokedToken)
     if (!applicationRuntime) {
       throw new Error('Application runtime is unavailable.')

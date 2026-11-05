@@ -24,17 +24,22 @@ import { eraseTestUser } from '../db/fixtures/accountErasure.js'
 const fixtureUrl = process.env.GUEST_CLEANUP_FIXTURE_DATABASE_URL
 const workerUrl = process.env.GUEST_CLEANUP_DATABASE_URL
 const applicationUrl = process.env.RUNTIME_DATABASE_URL
-const erasureUrl = process.env.TEST_API_ERASURE_DATABASE_URL
+const appFixtureUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
 if (
   !fixtureUrl ||
   !workerUrl ||
   !applicationUrl ||
-  !erasureUrl ||
+  !appFixtureUrl ||
   process.env.GUEST_CLEANUP_TEST_ISOLATED !== 'yes'
 ) {
   throw new Error('Guest cleanup requires an explicitly isolated test target.')
 }
-for (const databaseUrl of [fixtureUrl, workerUrl, applicationUrl, erasureUrl]) {
+for (const databaseUrl of [
+  fixtureUrl,
+  workerUrl,
+  applicationUrl,
+  appFixtureUrl
+]) {
   assertSafeTestDatabase({
     nodeEnvironment: process.env.NODE_ENV,
     databaseUrl,
@@ -60,7 +65,7 @@ const identity = (url: string) => {
 if (
   identity(fixtureUrl) !== identity(workerUrl) ||
   identity(fixtureUrl) !== identity(applicationUrl) ||
-  identity(fixtureUrl) !== identity(erasureUrl)
+  identity(fixtureUrl) !== identity(appFixtureUrl)
 ) {
   throw new Error('Guest cleanup test connections do not share one target.')
 }
@@ -72,10 +77,9 @@ const fixture = new Client({
 const worker = createRoleDatabaseRuntime(workerUrl, 'nihongo_app')
 const application = createRoleDatabaseRuntime(applicationUrl, 'nihongo_app')
 const erasure = new Client({
-  connectionString: erasureUrl,
+  connectionString: appFixtureUrl,
   options: createPostgresStartupOptions(
-    getPostgresSchema(erasureUrl),
-    // #504 P8-1: one runtime role; the erasure names go in P8-2.
+    getPostgresSchema(appFixtureUrl),
     'nihongo_app'
   )
 })

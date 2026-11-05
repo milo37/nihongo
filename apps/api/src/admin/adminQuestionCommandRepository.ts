@@ -268,8 +268,8 @@ const mapTransactionError = (
   const sqlState = rawSqlState(error)
   if (sqlState === '40001' || sqlState === '40P01') {
     if (
-      identity?.message === 'Phase 7 Question target changed before arm.' ||
-      identity?.message === 'Phase 7 QuestionVersion target changed before arm.'
+      identity?.message === 'Question target changed before arm.' ||
+      identity?.message === 'QuestionVersion target changed before arm.'
     ) {
       return new AdminQuestionCommandRepositoryError({
         code: 'VERSION_CONFLICT',
@@ -367,7 +367,7 @@ const mapTransactionError = (
   }
   if (
     identity?.sqlState === '42501' &&
-    identity.message === 'Phase 7 authority expired before commit.'
+    identity.message === 'Authority expired before commit.'
   ) {
     return new AdminQuestionCommandRepositoryError({
       code: FRESH_OPERATIONS.has(operation)
@@ -717,7 +717,7 @@ const beginOperation = async (
     referencedUserIds: input.referencedUserIds
   })
   if (!operation || operation.actorUserId !== input.authority.actorId) {
-    throw new Error('Phase 7 operation actor did not match the request actor.')
+    throw new Error('Operation actor did not match the request actor.')
   }
   return {
     ...operation,

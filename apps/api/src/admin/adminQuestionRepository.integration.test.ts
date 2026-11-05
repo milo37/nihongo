@@ -40,11 +40,11 @@ const requireEnvironmentValue = (name: string): string => {
 
 const adminDatabaseUrl = requireEnvironmentValue('TEST_API_ADMIN_DATABASE_URL')
 const applicationDatabaseUrl = requireEnvironmentValue('DATABASE_URL')
-const authGatewayDatabaseUrl = requireEnvironmentValue(
-  'PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL'
+const appFixtureDatabaseUrl = requireEnvironmentValue(
+  'TEST_APP_FIXTURE_DATABASE_URL'
 )
 const schemaName = new URL(adminDatabaseUrl).searchParams.get('schema')
-if (!schemaName || !/^phase7_[a-f0-9]{32}_test$/u.test(schemaName)) {
+if (!schemaName || !/^nihongo_[a-f0-9]{32}_test$/u.test(schemaName)) {
   throw new Error('Admin read integration received an unsafe schema.')
 }
 
@@ -652,7 +652,7 @@ const apiEnvironment = parseApiEnvironment({
   NODE_ENV: 'test',
   ADMIN_CMS_MODE: 'technical',
   DATABASE_URL: applicationDatabaseUrl,
-  PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: authGatewayDatabaseUrl,
+  TEST_APP_FIXTURE_DATABASE_URL: appFixtureDatabaseUrl,
   TRUSTED_ORIGINS: 'http://localhost:5173',
   BETTER_AUTH_SECRET: 'a'.repeat(32),
   GUEST_COOKIE_SECRET: 'b'.repeat(32),

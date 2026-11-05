@@ -3,7 +3,7 @@ import { Prisma } from '../generated/prisma/client.js'
 /**
  * Expired guest data removal (JLP-534, #504 P3). Runs inside one transaction
  * as the application role; the SQL mirrors the former
- * `phase7_guest_cleanup_batch` function.
+ * `guest_cleanup_batch` function.
  */
 export interface GuestCleanupBatchResult {
   deletedCount: number

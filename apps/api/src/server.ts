@@ -6,7 +6,7 @@ import { createPrismaAccountRestrictionReader } from './account/accountRestricti
 import { createApiApp } from './app/createApp.js'
 import { createSsoAuthentication } from './auth/createSsoAuthentication.js'
 import {
-  runPhase7ReauthenticationStartupMaintenance,
+  runReauthenticationStartupMaintenance,
   startReauthenticationMaintenance
 } from './auth/reauthenticationStartupMaintenance.js'
 import { createGuestPrincipalService } from './auth/guestPrincipalService.js'
@@ -324,7 +324,7 @@ const app = createApiApp({
 
 const checkStartupReadiness = async (): Promise<void> => {
   await practiceRuntimeGate.checkReadiness()
-  await runPhase7ReauthenticationStartupMaintenance(database.client)
+  await runReauthenticationStartupMaintenance(database.client)
 }
 
 const server = await startApiListener({

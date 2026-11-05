@@ -35,7 +35,7 @@ const questionReader: QuestionReader = {
 const authEnvironment = parseApiEnvironment({
   NODE_ENV: 'test',
   DATABASE_URL:
-    'postgresql://nihongo_test_legacy_app_login:password@127.0.0.1:55432/nihongo_test',
+    'postgresql://nihongo_test_app_login:password@127.0.0.1:55432/nihongo_test',
   TRUSTED_ORIGINS: 'http://localhost:5173',
   BETTER_AUTH_SECRET: 'a'.repeat(32),
   GUEST_COOKIE_SECRET: 'b'.repeat(32),
@@ -173,7 +173,7 @@ describe('Hono operational boundary', () => {
   )
 
   it.each(['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'])(
-    'Phase 7 prefix를 %s에서도 CORS·practice authority 전에 generic 404로 닫는다',
+    'Prefix를 %s에서도 CORS·practice authority 전에 generic 404로 닫는다',
     async (method) => {
       const { logger } = createTestLogger()
       const assertPracticeRuntimeAuthority = vi.fn()
@@ -208,7 +208,7 @@ describe('Hono operational boundary', () => {
     }
   )
 
-  it('Phase 7 decoded prefix alias도 조기 차단한다', async () => {
+  it('Decoded prefix alias도 조기 차단한다', async () => {
     const { logger } = createTestLogger()
     const assertPracticeRuntimeAuthority = vi.fn()
     const app = createApiApp({
@@ -247,7 +247,7 @@ describe('Hono operational boundary', () => {
       rawTarget: String.raw`http:/\localhost:3001\api\v1\admin\questions`
     }
   ])(
-    'absolute-form backslash Phase 7 alias $rawTarget를 조기 차단한다',
+    'absolute-form backslash alias $rawTarget를 조기 차단한다',
     async ({ canonicalUrl, rawTarget }) => {
       const { logger } = createTestLogger()
       const assertPracticeRuntimeAuthority = vi.fn()
@@ -298,41 +298,38 @@ describe('Hono operational boundary', () => {
     '/api/v1/%252561dmin/questions',
     '/api/v1/%61dmin/%ZZ',
     '/api/v1/%71uestion-reports/%ZZ'
-  ])(
-    'adapter가 보존한 raw Phase 7 alias %s를 조기 차단한다',
-    async (rawUrl) => {
-      const { logger } = createTestLogger()
-      const assertPracticeRuntimeAuthority = vi.fn()
-      const listQuestions = vi.fn().mockResolvedValue({
-        items: [],
-        page: 1,
-        pageSize: 20,
-        total: 0
-      })
-      const app = createApiApp({
-        auth: {
-          environment: authEnvironment,
-          gateway: { handle: vi.fn() },
-          guestPrincipalService,
-          principalService
-        },
-        assertPracticeRuntimeAuthority,
-        checkReadiness: vi.fn().mockResolvedValue(undefined),
-        logger,
-        questionReader: { ...questionReader, listQuestions }
-      })
+  ])('adapter가 보존한 raw alias %s를 조기 차단한다', async (rawUrl) => {
+    const { logger } = createTestLogger()
+    const assertPracticeRuntimeAuthority = vi.fn()
+    const listQuestions = vi.fn().mockResolvedValue({
+      items: [],
+      page: 1,
+      pageSize: 20,
+      total: 0
+    })
+    const app = createApiApp({
+      auth: {
+        environment: authEnvironment,
+        gateway: { handle: vi.fn() },
+        guestPrincipalService,
+        principalService
+      },
+      assertPracticeRuntimeAuthority,
+      checkReadiness: vi.fn().mockResolvedValue(undefined),
+      logger,
+      questionReader: { ...questionReader, listQuestions }
+    })
 
-      const response = await app.fetch(
-        new Request('http://localhost:3001/api/v1/questions'),
-        { incoming: { url: rawUrl } } as never
-      )
+    const response = await app.fetch(
+      new Request('http://localhost:3001/api/v1/questions'),
+      { incoming: { url: rawUrl } } as never
+    )
 
-      expect(response.status).toBe(404)
-      expect(response.headers.get('Access-Control-Allow-Origin')).toBeNull()
-      expect(assertPracticeRuntimeAuthority).not.toHaveBeenCalled()
-      expect(listQuestions).not.toHaveBeenCalled()
-    }
-  )
+    expect(response.status).toBe(404)
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBeNull()
+    expect(assertPracticeRuntimeAuthority).not.toHaveBeenCalled()
+    expect(listQuestions).not.toHaveBeenCalled()
+  })
 
   it.each([
     {
@@ -361,7 +358,7 @@ describe('Hono operational boundary', () => {
       rawTarget: String.raw`http:/\localhost:3001\api\v1\admin\..\..\..\health\ready`
     }
   ])(
-    'health로 정규화된 raw Phase 7 alias $rawTarget도 health handler 전에 닫는다',
+    'health로 정규화된 raw alias $rawTarget도 health handler 전에 닫는다',
     async ({ canonicalUrl, rawTarget }) => {
       const { logger } = createTestLogger()
       const checkReadiness = vi.fn().mockResolvedValue(undefined)
@@ -623,7 +620,7 @@ describe('protected admin artifact and API composition', () => {
         user,
         ...(user
           ? {
-              phase7Session: {
+              ownedSessionProof: {
                 id: '22222222-2222-4222-8222-222222222222',
                 token: 'test-session-only',
                 createdAt: new Date(0),

@@ -3,7 +3,7 @@ import type { Prisma } from '../generated/prisma/client.js'
 /**
  * QuestionReport creation in the API transaction (#504 P7 PR4c-2).
  *
- * This keeps phase7_create_question_report (with its _pre_reauthentication
+ * This keeps create_question_report (with its _pre_reauthentication
  * body) step for step: the same Session checks, the same lock order (User,
  * Session, then Question, QuestionVersion, the reporter's study pins and wrong
  * notes FOR SHARE), the same entitlement rule, the same re-check before commit

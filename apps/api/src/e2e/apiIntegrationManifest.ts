@@ -1,4 +1,4 @@
-export type ApiIntegrationOwner = 'phase7-api' | 'phase7-db' | 'phase10'
+export type ApiIntegrationOwner = 'api' | 'db' | 'phase10'
 
 export interface ApiIntegrationManifestEntry {
   readonly path: `src/${string}.integration.test.ts`
@@ -18,13 +18,13 @@ export const apiIntegrationManifest = [
     executionOwner: 'phase10',
     shard: 'current-guest-cleanup',
     order: 24,
-    databaseState: 'phase7-current-canonical-65',
+    databaseState: 'current-canonical-65',
     connectionRole: 'application',
     requiredEnvironment: [
       'GUEST_CLEANUP_DATABASE_URL',
       'GUEST_CLEANUP_FIXTURE_DATABASE_URL',
       'RUNTIME_DATABASE_URL',
-      'TEST_API_ERASURE_DATABASE_URL',
+      'TEST_APP_FIXTURE_DATABASE_URL',
       'GUEST_CLEANUP_TEST_ISOLATED'
     ],
     seedPolicy: 'canonical-once',
@@ -33,63 +33,63 @@ export const apiIntegrationManifest = [
   },
   {
     path: 'src/app/apiGate.integration.test.ts',
-    executionOwner: 'phase7-api',
-    shard: 'phase7-api-post-seed',
+    executionOwner: 'api',
+    shard: 'api-post-seed',
     order: 2,
-    databaseState: 'phase7-current-capability-active-canonical-65',
+    databaseState: 'current-capability-active-canonical-65',
     connectionRole: 'application',
-    requiredEnvironment: ['PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL'],
+    requiredEnvironment: ['TEST_APP_FIXTURE_DATABASE_URL'],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 7 API schema'
+    isolation: 'dedicated API schema'
   },
   {
     path: 'src/admin/adminQuestionRepository.integration.test.ts',
-    executionOwner: 'phase7-api',
-    shard: 'phase7-api-pre-seed',
+    executionOwner: 'api',
+    shard: 'api-pre-seed',
     order: 1,
-    databaseState: 'phase7-prefix37-capability-active-empty',
+    databaseState: 'prefix37-capability-active-empty',
     connectionRole: 'application',
     requiredEnvironment: ['TEST_API_ADMIN_DATABASE_URL'],
     seedPolicy: 'none',
-    isolation: 'dedicated Phase 7 API schema'
+    isolation: 'dedicated API schema'
   },
   {
     path: 'src/admin/adminQuestionCommandRepository.integration.test.ts',
-    executionOwner: 'phase7-api',
-    shard: 'phase7-api-post-seed',
+    executionOwner: 'api',
+    shard: 'api-post-seed',
     order: 3,
-    databaseState: 'phase7-current-capability-active-canonical-65',
+    databaseState: 'current-capability-active-canonical-65',
     connectionRole: 'application',
     requiredEnvironment: ['TEST_API_ADMIN_DATABASE_URL'],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 7 API schema'
+    isolation: 'dedicated API schema'
   },
   {
     path: 'src/db/sso.integration.test.ts',
-    executionOwner: 'phase7-db',
-    shard: 'phase7-db-sso',
+    executionOwner: 'db',
+    shard: 'db-sso',
     order: 12,
     databaseState: 'canonical43-sso-current-capability-active-canonical-65',
     connectionRole: 'owner',
     requiredEnvironment: [
-      'PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL',
+      'TEST_APP_FIXTURE_DATABASE_URL',
       'ADMIN_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
     isolation:
-      'existing runner-owned disposable Phase 7 schema; SQL-only provider proofs; no external OAuth'
+      'existing runner-owned disposable schema; SQL-only provider proofs; no external OAuth'
   },
   {
     path: 'src/db/ssoAccountLifecycle.integration.test.ts',
-    executionOwner: 'phase7-db',
-    shard: 'phase7-db-sso-account-lifecycle',
+    executionOwner: 'db',
+    shard: 'db-sso-account-lifecycle',
     order: 13,
     databaseState:
       'canonical46-account-lifecycle-current-capability-active-canonical-65',
     connectionRole: 'owner',
     requiredEnvironment: [
       'DATABASE_URL',
-      'PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL',
+      'TEST_APP_FIXTURE_DATABASE_URL',
       'ADMIN_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
@@ -98,58 +98,58 @@ export const apiIntegrationManifest = [
   },
   {
     path: 'src/db/adminCmsFoundation.integration.test.ts',
-    executionOwner: 'phase7-db',
-    shard: 'phase7-db-current',
+    executionOwner: 'db',
+    shard: 'db-current',
     order: 1,
-    databaseState: 'phase7-current-capability-active-canonical-65',
+    databaseState: 'current-capability-active-canonical-65',
     connectionRole: 'owner',
     requiredEnvironment: ['MIGRATION_DATABASE_URL'],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 7 DB schema and canonical roles'
+    isolation: 'dedicated DB schema and canonical roles'
   },
   {
     path: 'src/db/reauthenticationFoundation.integration.test.ts',
-    executionOwner: 'phase7-db',
-    shard: 'phase7-db-current',
+    executionOwner: 'db',
+    shard: 'db-current',
     order: 2,
-    databaseState: 'phase7-current-capability-active-canonical-65',
+    databaseState: 'current-capability-active-canonical-65',
     connectionRole: 'owner',
-    requiredEnvironment: ['PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL'],
+    requiredEnvironment: ['TEST_APP_FIXTURE_DATABASE_URL'],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 7 DB schema and canonical roles'
+    isolation: 'dedicated DB schema and canonical roles'
   },
   {
     path: 'src/db/reauthenticationService.integration.test.ts',
-    executionOwner: 'phase7-db',
-    shard: 'phase7-db-current',
+    executionOwner: 'db',
+    shard: 'db-current',
     order: 3,
-    databaseState: 'phase7-current-capability-active-canonical-65',
+    databaseState: 'current-capability-active-canonical-65',
     connectionRole: 'owner',
-    requiredEnvironment: ['PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL'],
+    requiredEnvironment: ['TEST_APP_FIXTURE_DATABASE_URL'],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 7 DB schema and canonical roles'
+    isolation: 'dedicated DB schema and canonical roles'
   },
   {
     path: 'src/dashboard/dashboardInsights.integration.test.ts',
-    executionOwner: 'phase7-db',
-    shard: 'phase7-db-current',
+    executionOwner: 'db',
+    shard: 'db-current',
     order: 4,
-    databaseState: 'phase7-current-capability-active-canonical-65',
+    databaseState: 'current-capability-active-canonical-65',
     connectionRole: 'application',
     requiredEnvironment: ['DATABASE_URL'],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 7 DB schema and canonical roles'
+    isolation: 'dedicated DB schema and canonical roles'
   },
   {
     path: 'src/dashboard/dashboardInsightsPerformance.integration.test.ts',
-    executionOwner: 'phase7-db',
-    shard: 'phase7-db-current',
+    executionOwner: 'db',
+    shard: 'db-current',
     order: 5,
-    databaseState: 'phase7-current-capability-active-canonical-65',
+    databaseState: 'current-capability-active-canonical-65',
     connectionRole: 'application',
     requiredEnvironment: ['DATABASE_URL'],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 7 DB schema and canonical roles'
+    isolation: 'dedicated DB schema and canonical roles'
   },
   {
     path: 'src/app/createApp.integration.test.ts',
@@ -167,7 +167,7 @@ export const apiIntegrationManifest = [
     executionOwner: 'phase10',
     shard: 'current-zero-facts',
     order: 2,
-    databaseState: 'phase7-current-canonical-65-zero-learner-facts',
+    databaseState: 'current-canonical-65-zero-learner-facts',
     connectionRole: 'application',
     requiredEnvironment: ['DATABASE_URL'],
     seedPolicy: 'canonical-once',
@@ -178,12 +178,12 @@ export const apiIntegrationManifest = [
     executionOwner: 'phase10',
     shard: 'current-zero-facts',
     order: 3,
-    databaseState: 'phase7-current-canonical-65-zero-learner-facts',
+    databaseState: 'current-canonical-65-zero-learner-facts',
     connectionRole: 'application',
     requiredEnvironment: [
       'DATABASE_URL',
       'API_INTEGRATION_FIXTURE_DATABASE_URL',
-      'TEST_API_ERASURE_DATABASE_URL'
+      'TEST_APP_FIXTURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
     isolation: 'dedicated Phase 10 schema before learner writes'
@@ -193,7 +193,7 @@ export const apiIntegrationManifest = [
     executionOwner: 'phase10',
     shard: 'catalog-baseline',
     order: 4,
-    databaseState: 'phase7-current-canonical-65',
+    databaseState: 'current-canonical-65',
     connectionRole: 'application',
     requiredEnvironment: [
       'DATABASE_URL',
@@ -208,12 +208,12 @@ export const apiIntegrationManifest = [
     executionOwner: 'phase10',
     shard: 'current-app-role',
     order: 5,
-    databaseState: 'phase7-current-canonical-65',
+    databaseState: 'current-canonical-65',
     connectionRole: 'application',
     requiredEnvironment: [
       'DATABASE_URL',
       'API_INTEGRATION_FIXTURE_DATABASE_URL',
-      'TEST_API_ERASURE_DATABASE_URL'
+      'TEST_APP_FIXTURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
     isolation: 'dedicated Phase 10 schema'
@@ -223,12 +223,12 @@ export const apiIntegrationManifest = [
     executionOwner: 'phase10',
     shard: 'current-app-role',
     order: 25,
-    databaseState: 'phase7-current-canonical-65',
+    databaseState: 'current-canonical-65',
     connectionRole: 'application',
     requiredEnvironment: [
       'DATABASE_URL',
       'API_INTEGRATION_FIXTURE_DATABASE_URL',
-      'TEST_API_ERASURE_DATABASE_URL'
+      'TEST_APP_FIXTURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
     isolation: 'dedicated Phase 10 schema'
@@ -238,12 +238,12 @@ export const apiIntegrationManifest = [
     executionOwner: 'phase10',
     shard: 'current-app-role',
     order: 26,
-    databaseState: 'phase7-current-canonical-65',
+    databaseState: 'current-canonical-65',
     connectionRole: 'application',
     requiredEnvironment: [
       'DATABASE_URL',
       'API_INTEGRATION_FIXTURE_DATABASE_URL',
-      'TEST_API_ERASURE_DATABASE_URL'
+      'TEST_APP_FIXTURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
     isolation: 'dedicated Phase 10 schema'
@@ -253,12 +253,12 @@ export const apiIntegrationManifest = [
     executionOwner: 'phase10',
     shard: 'current-app-role',
     order: 27,
-    databaseState: 'phase7-current-canonical-65',
+    databaseState: 'current-canonical-65',
     connectionRole: 'application',
     requiredEnvironment: [
       'DATABASE_URL',
       'API_INTEGRATION_FIXTURE_DATABASE_URL',
-      'TEST_API_ERASURE_DATABASE_URL'
+      'TEST_APP_FIXTURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
     isolation: 'dedicated Phase 10 schema'
@@ -268,12 +268,12 @@ export const apiIntegrationManifest = [
     executionOwner: 'phase10',
     shard: 'current-app-role',
     order: 28,
-    databaseState: 'phase7-current-canonical-65',
+    databaseState: 'current-canonical-65',
     connectionRole: 'application',
     requiredEnvironment: [
       'DATABASE_URL',
       'API_INTEGRATION_FIXTURE_DATABASE_URL',
-      'TEST_API_ERASURE_DATABASE_URL'
+      'TEST_APP_FIXTURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
     isolation: 'dedicated Phase 10 schema'
@@ -283,12 +283,12 @@ export const apiIntegrationManifest = [
     executionOwner: 'phase10',
     shard: 'current-app-role',
     order: 6,
-    databaseState: 'phase7-current-canonical-65',
+    databaseState: 'current-canonical-65',
     connectionRole: 'application',
     requiredEnvironment: [
       'DATABASE_URL',
       'API_INTEGRATION_FIXTURE_DATABASE_URL',
-      'TEST_API_ERASURE_DATABASE_URL'
+      'TEST_APP_FIXTURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
     isolation: 'dedicated Phase 10 schema'
@@ -304,13 +304,12 @@ export const apiIntegrationManifest = [
     executionOwner: 'phase10' as const,
     shard: 'current-app-role-with-owner-fixtures',
     order: 7 + index,
-    databaseState: 'phase7-current-canonical-65',
+    databaseState: 'current-canonical-65',
     connectionRole: 'application' as const,
     requiredEnvironment: [
       'DATABASE_URL',
       'API_INTEGRATION_FIXTURE_DATABASE_URL',
-      'TEST_API_ERASURE_DATABASE_URL',
-      'PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL'
+      'TEST_APP_FIXTURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once' as const,
     isolation: 'dedicated Phase 10 schema; owner only for fixture setup'
@@ -330,7 +329,7 @@ export const apiIntegrationManifest = [
     executionOwner: 'phase10' as const,
     shard: 'current-rebased-service',
     order: 12 + index,
-    databaseState: 'phase7-current-canonical-65',
+    databaseState: 'current-canonical-65',
     connectionRole: 'application' as const,
     requiredEnvironment:
       relativePath === 'auth/auth.integration.test.ts' ||
@@ -338,13 +337,12 @@ export const apiIntegrationManifest = [
         ? [
             'DATABASE_URL',
             'API_INTEGRATION_FIXTURE_DATABASE_URL',
-            'TEST_API_ERASURE_DATABASE_URL',
-            'PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL'
+            'TEST_APP_FIXTURE_DATABASE_URL'
           ]
         : [
             'DATABASE_URL',
             'API_INTEGRATION_FIXTURE_DATABASE_URL',
-            'TEST_API_ERASURE_DATABASE_URL'
+            'TEST_APP_FIXTURE_DATABASE_URL'
           ],
     seedPolicy: 'canonical-once' as const,
     isolation: 'disposable fixture aggregate in dedicated Phase 10 schema'

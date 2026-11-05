@@ -18,7 +18,7 @@ vi.mock('pg', () => ({
     query = db.query
   }
 }))
-const schema = 'phase7_fixture_unit_test'
+const schema = 'nihongo_unit_fixture_test'
 const url = (user: string) =>
   `postgresql://${user}:unused@127.0.0.1:5432/nihongo_fixture_unit_test?schema=${schema}`
 const calls = (name: string) =>
@@ -47,7 +47,7 @@ beforeEach(() => {
   db.options.length = 0
   const environment = createSsoTestEnvironment({
     DATABASE_URL: url('nihongo_test_app_login'),
-    PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: url('nihongo_test_app_login'),
+    TEST_APP_FIXTURE_DATABASE_URL: url('nihongo_test_app_login'),
     ADMIN_DATABASE_URL: url('fixture_owner')
   })
   for (const [name, value] of Object.entries(environment))
@@ -134,10 +134,10 @@ describe('SSO TEST fixture capability registration', () => {
   it('preserves the isolated schema boundary before any connection', () => {
     vi.stubEnv(
       'ADMIN_DATABASE_URL',
-      url('fixture_owner').replace(schema, 'phase7_other_test')
+      url('fixture_owner').replace(schema, 'nihongo_unit_other_test')
     )
     expect(() => createSsoDbHarness()).toThrow(
-      'SSO integration requires the existing isolated Phase 7 TEST harness.'
+      'SSO integration requires the existing isolated TEST harness.'
     )
     expect(db.connect).toHaveBeenCalledTimes(0)
   })

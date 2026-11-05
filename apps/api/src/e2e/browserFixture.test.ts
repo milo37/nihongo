@@ -53,7 +53,7 @@ vi.mock('../admin/adminReadGuard.js', async (importOriginal) => {
   return { ...actual, createAdminReadGuard: vi.fn(actual.createAdminReadGuard) }
 })
 vi.mock('../auth/reauthenticationStartupMaintenance.js', () => ({
-  runPhase7ReauthenticationStartupMaintenance: f.maintenance
+  runReauthenticationStartupMaintenance: f.maintenance
 }))
 vi.mock('../auth/createSsoAuthentication.js', async (importOriginal) => {
   const actual =
@@ -64,23 +64,22 @@ vi.mock('../auth/createSsoAuthentication.js', async (importOriginal) => {
   }
 })
 
-const schema = `phase7_${'a'.repeat(32)}_test`
+const schema = `nihongo_${'a'.repeat(32)}_test`
 const url = (login: string) =>
   `postgresql://${login}:test-only@127.0.0.1:5432/nihongo_test?schema=${schema}`
 const options = (cms: 'disabled' | 'technical' = 'technical') => {
   const databaseUrl = url('nihongo_test_app_login')
-  // #504 P8-1: one runtime login; this URL name goes in P8-2.
-  const authGatewayDatabaseUrl = url('nihongo_test_app_login')
+  const appFixtureDatabaseUrl = url('nihongo_test_app_login')
   return {
     databaseUrl,
-    authGatewayDatabaseUrl,
+    appFixtureDatabaseUrl,
     adminDatabaseUrl: url('fixture_owner'),
     environment: parseApiEnvironment({
       NODE_ENV: 'test',
       DEPLOYMENT_ENVIRONMENT: 'TEST',
       ADMIN_CMS_MODE: cms,
       DATABASE_URL: databaseUrl,
-      PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: authGatewayDatabaseUrl,
+      TEST_APP_FIXTURE_DATABASE_URL: appFixtureDatabaseUrl,
       BETTER_AUTH_URL: 'http://127.0.0.1:4100',
       TRUSTED_ORIGINS: 'http://127.0.0.1:4200',
       BETTER_AUTH_SECRET: 'a'.repeat(32),
@@ -130,7 +129,7 @@ const guardedAdminFixture = async (role: 'USER' | 'ADMIN' | null) => {
               role,
               targetLevel: null
             },
-      phase7Session: {
+      ownedSessionProof: {
         id: '22222222-2222-4222-8222-222222222222',
         token: 'guard-unit-session-only',
         createdAt: new Date(0),
@@ -144,7 +143,7 @@ const guardedAdminFixture = async (role: 'USER' | 'ADMIN' | null) => {
   return { created, resolve, served }
 }
 
-describe('Phase7/8 production admin static guard handoff', () => {
+describe('production admin static guard handoff', () => {
   it('shares production guard dependencies with the existing CMS API guards', async () => {
     const input = options()
     const created = await createSsoAdminBrowserApiFixture(input)
@@ -259,7 +258,7 @@ describe('Phase7/8 production admin static guard handoff', () => {
   })
 })
 
-describe('Phase7/8 Google CMS browser TEST handoff', () => {
+describe('Google CMS browser TEST handoff', () => {
   it('prepares distinct linked actors without passwords, promotion or manual session issuance', async () => {
     const created = await createSsoAdminBrowserApiFixture(options())
     const actors = Object.values(created.fixture)
@@ -1007,7 +1006,7 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
   it('rejects an unknown profile before creating or seeding any database client', async () => {
     await expect(
       createSsoAdminBrowserApiFixture(options(), 'unknown' as never)
-    ).rejects.toThrow('Unknown Phase 7 SSO admin lifecycle profile')
+    ).rejects.toThrow('Unknown SSO admin lifecycle profile')
     expect(f.connect).not.toHaveBeenCalled()
     expect(f.ownerQuery).not.toHaveBeenCalled()
   })

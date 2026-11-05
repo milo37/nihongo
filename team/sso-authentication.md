@@ -4,7 +4,7 @@
 
 ## 이번 체크포인트와 남은 구현
 
-현재 소스는 public Apple/Google SSO의 DB/profile/principal/gateway/readiness/rate 선택을 CMS 모드와 분리합니다. 별도 auth-gateway DB authority가 설정되면 CMS가 disabled인 production-shaped 조합에서도 current profile·app/gateway 역할·PHASE7 principal/sign-out·SSO가 선택됩니다. CMS 자체는 기존 technical 안전모드·권한/DB/capability 제한을 그대로 사용합니다.
+현재 소스는 public Apple/Google SSO의 DB/profile/principal/gateway/readiness/rate 선택을 CMS 모드와 분리합니다. CMS가 disabled인 production-shaped 조합에서도 current profile·`nihongo_app` 역할·owned principal/sign-out·SSO가 선택됩니다(#504 P8: auth-gateway 역할과 legacy 인증 runtime 제거). CMS 자체는 기존 technical 안전모드·권한/DB/capability 제한을 그대로 사용합니다.
 
 로컬 fake-port 검증에서 production-shaped 조합과 별도 ADMIN_FRESH가 통과한 뒤 legacy 관리자 password route를 삭제하고 password service를 404/NO_TX 호환 stub으로 퇴역했습니다. 공개 password request 계약은 z.never이며 server는 mail dispatcher·password reauth adapter를 주입하지 않습니다. mail 환경 입력은 시작의 필수조건이 아닙니다. 기존 migration/audit·fixture 소스의 비밀 없는 타입/결과 및 명시적 과거 helper는 이력 호환이며 현재 공개 경로가 아닙니다.
 

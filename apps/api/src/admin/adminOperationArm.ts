@@ -5,10 +5,10 @@ import {
 } from './adminRepositoryCommon.js'
 
 /**
- * API port of the former `phase7_arm_admin_operation` SQL function (#504 P4).
+ * API port of the former `arm_admin_operation` SQL function (#504 P4).
  * It locks every manifest target in canonical id order, re-checks its expected
  * rowVersion/state and the command rules, and verifies that the Users locked by
- * `phase7_begin_admin_operation` are exactly the live Users of those targets.
+ * `begin_admin_operation` are exactly the live Users of those targets.
  * Violations keep the SQL state and message of the SQL function so the
  * repository error mapping (and every response code) stays the same.
  */
@@ -94,10 +94,7 @@ const assertManifestShape = (
     !distinct(manifest.reports.map((item) => item.id)) ||
     !distinct(manifest.tags)
   ) {
-    throw violation(
-      '22023',
-      'Phase 7 target manifest is duplicate or out of bounds.'
-    )
+    throw violation('22023', 'Target manifest is duplicate or out of bounds.')
   }
   const invalid = (message: string): never => {
     throw violation('22023', message)
@@ -154,10 +151,7 @@ const assertManifestShape = (
         invalid('REPORT_RESOLUTION target manifest is invalid.')
       return
     default:
-      throw violation(
-        '42501',
-        'This Phase 7 command cannot use the admin arm facade.'
-      )
+      throw violation('42501', 'This command cannot use the admin arm facade.')
   }
 }
 
@@ -206,7 +200,7 @@ export const armAdminOperation = async (
       row.rowVersion !== target.rowVersion ||
       row.lifecycleStatus !== target.state
     ) {
-      throw violation('40001', 'Phase 7 Question target changed before arm.')
+      throw violation('40001', 'Question target changed before arm.')
     }
     questions.push(row)
     if (row.createdByUserId) derivedUserIds.push(row.createdByUserId)
@@ -230,10 +224,7 @@ export const armAdminOperation = async (
       row.status !== target.state ||
       !questionIds.has(row.questionId)
     ) {
-      throw violation(
-        '40001',
-        'Phase 7 QuestionVersion target changed before arm.'
-      )
+      throw violation('40001', 'QuestionVersion target changed before arm.')
     }
     versions.push(row)
     if (row.createdByUserId) derivedUserIds.push(row.createdByUserId)
@@ -270,10 +261,7 @@ export const armAdminOperation = async (
       !questionIds.has(row.questionId) ||
       !versionIds.has(row.questionVersionId)
     ) {
-      throw violation(
-        '40001',
-        'Phase 7 QuestionReport target changed before arm.'
-      )
+      throw violation('40001', 'QuestionReport target changed before arm.')
     }
     if (row.reporterUserId) derivedUserIds.push(row.reporterUserId)
     if (row.assigneeUserId) derivedUserIds.push(row.assigneeUserId)
@@ -429,14 +417,14 @@ export const armAdminOperation = async (
       [...manifest.tags]
     )
     if (tags.length !== manifest.tags.length) {
-      throw violation('40001', 'Phase 7 Tag target changed before arm.')
+      throw violation('40001', 'Tag target changed before arm.')
     }
   }
 
   if (!sameSet(derivedUserIds, operation.referencedUserIds)) {
     throw violation(
       '42501',
-      'Phase 7 referenced User set is not exact for its targets.'
+      'Referenced User set is not exact for its targets.'
     )
   }
 
@@ -447,7 +435,7 @@ export const armAdminOperation = async (
   )
   const occurredAt = clock[0]?.occurredAt
   if (!(occurredAt instanceof Date) || !Number.isFinite(occurredAt.getTime())) {
-    throw new Error('Phase 7 operation timestamp is unavailable.')
+    throw new Error('Operation timestamp is unavailable.')
   }
   return occurredAt
 }

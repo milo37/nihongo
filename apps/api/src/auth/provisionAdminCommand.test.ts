@@ -56,7 +56,7 @@ const userId = '11111111-1111-4111-8111-111111111111'
 const validInput = (mode = 'test'): NodeJS.ProcessEnv => {
   const test = mode === 'test'
   const database = test ? 'nihongo_test' : 'nihongo_dev'
-  const schema = test ? 'phase7_bootstrap_test' : 'phase7_bootstrap_dev'
+  const schema = test ? 'nihongo_bootstrap_test' : 'nihongo_bootstrap_dev'
   const migration = new URL('postgresql://127.0.0.1:5432/' + database)
   migration.username = test
     ? 'nihongo_test_migration_login'
@@ -126,7 +126,7 @@ describe('first Google admin operator CLI', () => {
         query_timeout: 15000,
         statement_timeout: 10000,
         options:
-          '-c search_path=phase7_bootstrap_' +
+          '-c search_path=nihongo_bootstrap_' +
           (mode === 'test' ? 'test' : 'dev') +
           ' -c TimeZone=UTC -c role=nihongo_migration'
       })
@@ -146,7 +146,7 @@ describe('first Google admin operator CLI', () => {
             userId,
             'opaque-google-subject',
             7,
-            'phase7_bootstrap_' + (mode === 'test' ? 'test' : 'dev'),
+            'nihongo_bootstrap_' + (mode === 'test' ? 'test' : 'dev'),
             mode === 'test' ? 'TEST' : 'DEVELOPMENT'
           ]
         ],
@@ -308,7 +308,7 @@ describe('first Google admin operator CLI', () => {
       'duplicate schema',
       () =>
         changeUrl(validInput(), (url) => {
-          url.searchParams.append('schema', 'phase7_bootstrap_test')
+          url.searchParams.append('schema', 'nihongo_bootstrap_test')
         })
     ],
     [
@@ -472,7 +472,7 @@ describe('ADMIN learner access and CMS role boundaries', () => {
         user,
         ...(user
           ? {
-              phase7Session: {
+              ownedSessionProof: {
                 id: key,
                 token: 'fixture-session-token',
                 createdAt: new Date('2026-08-17T01:00:00.000Z'),
