@@ -27,6 +27,9 @@ until the baseline migration hands it to `nihongo_owner`.
 - `PROD_MIGRATION_LOGIN_PASSWORD`, `PROD_APP_LOGIN_PASSWORD`,
   `PROD_GUEST_CLEANUP_LOGIN_PASSWORD`: distinct, at least 24 characters,
   `A-Za-z0-9._~-` only.
+- Host scripts read these values as `KEY=VALUE` data with an allow-list of
+  keys and never `source` them, so `$(...)` or backticks in a value are not
+  run (`infra/aws/scripts/host-scripts-check.sh` in CI).
 - `DATABASE_URL` must use `nihongo_production_app_login` and its password;
   `MIGRATION_DATABASE_URL` must use `nihongo_production_migration_login`, its
   password and `options=-c role=nihongo_migration`. Both name database
@@ -35,13 +38,17 @@ until the baseline migration hands it to `nihongo_owner`.
 
 ## Deploy order (`infra/aws/files/deploy.sh`)
 
-1. `render-env.sh` writes `api.env`, `migrate.env` (migration, runtime and
-   production URLs for the migration guard) and `provision.env` (the three
-   wrapper passwords) to tmpfs.
+1. `render-env.sh` writes `api.env`, `migrate.env` and `provision.env` (the
+   three wrapper passwords) to tmpfs. `migrate.env` holds the migration URL
+   with its password plus the runtime and production URLs **without**
+   passwords: the migration guard compares only host, port, database, schema
+   and login. If the backend guard ever needs more, it must stay
+   password-free.
 2. Pull `ECR:<SHA>` and `ECR:<SHA>-migrate`, start `postgres`.
 3. `provision-db.sh`: as the bootstrap superuser inside the container, create
    missing roles, re-apply the wrapper passwords (rotation takes effect here),
-   grants and database ACLs, then attest the exact graph. Any drift stops the
+   grants and database ACLs, then attest the exact graph (including that no role
+   is a member of a wrapper login). Any drift stops the
    deploy. Passwords reach psql on stdin and the statement is kept out of the
    server log on error.
 4. `migrate.sh`: `backup.sh pre-migrate <SHA>` uploads a `pg_dump` to
