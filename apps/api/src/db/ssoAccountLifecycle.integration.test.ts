@@ -715,4 +715,52 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       )
     }
   })
+  it('#57: 다른 runtime 역할은 삭제 queue와 User 삭제가 거부되고, nihongo_app도 완료 상태만 바꾸거나 확인 없는 User를 지울 수 없다', async () => {
+    await h.rollback(async () => {
+      const userId = await deletionPendingUser()
+      const id = randomUUID()
+      await h.owner.query(
+        `INSERT INTO "SsoAccountErasureRequest" (id,"userId","receiptDigest","providerCleanup","receiptExpiresAt")
+         VALUES ($1,$3,$2,'[{"provider":"google","status":"PENDING"}]',clock_timestamp()+interval '1 day')`,
+        [id, digest(), userId]
+      )
+      for (const role of [
+        'nihongo_guest_cleanup_worker',
+        'nihongo_migration'
+      ] as const) {
+        await h.rejects(
+          role,
+          'SELECT id FROM "SsoAccountErasureRequest" WHERE id=$1',
+          [id],
+          '42501'
+        )
+        await h.rejects(
+          role,
+          'DELETE FROM "User" WHERE id=$1',
+          [userId],
+          '42501'
+        )
+      }
+      await h.rejects(
+        'nihongo_app',
+        `UPDATE "SsoAccountErasureRequest" SET "appStatus"='DELETED',"completedAt"=clock_timestamp() WHERE id=$1`,
+        [id],
+        '42501'
+      )
+      await h.rejects(
+        'nihongo_app',
+        'DELETE FROM "User" WHERE id=$1',
+        [userId],
+        '42501'
+      )
+      expect(
+        (
+          await h.owner.query(
+            'SELECT (SELECT count(*)::int FROM "User" WHERE id=$1) AS users,(SELECT "appStatus"::text FROM "SsoAccountErasureRequest" WHERE id=$2) AS status',
+            [userId, id]
+          )
+        ).rows
+      ).toEqual([{ users: 1, status: 'DELETION_PENDING' }])
+    })
+  })
 })

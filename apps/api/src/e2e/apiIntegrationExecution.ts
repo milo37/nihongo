@@ -593,11 +593,12 @@ export const assertApiIntegrationVitestFileResult = ({
   }
   if (
     expectedPath === ssoAccountLifecycleDbTestFile &&
-    result.numTotalTests !== 7
+    result.numTotalTests !== 8
   ) {
-    // #504 P7 PR5a adds the API link and unlink trigger case.
+    // #504 P7 PR5a adds the API link and unlink trigger case; #57 the
+    // erasure role refusal case.
     throw new Error(
-      'SSO account lifecycle requires exactly seven passing tests.'
+      'SSO account lifecycle requires exactly eight passing tests.'
     )
   }
   const resultPaths = (result.testResults ?? [])
