@@ -1398,7 +1398,9 @@ export const runPortableRuntimeSmoke = async ({
     repositoryRoot,
     'apps/api/prisma/migrations'
   )
-  const certificateDirectory = mkdtempSync(join(tmpdir(), 'nihongo-smoke-cert-'))
+  const certificateDirectory = mkdtempSync(
+    join(tmpdir(), 'nihongo-smoke-cert-')
+  )
   let cleanupError
   let operationError
 
