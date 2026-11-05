@@ -271,10 +271,9 @@ export const prepareBrowserActors = async ({
   )
   if (
     !sameTarget(ownerTarget, new URL(environment.DATABASE_URL)) ||
-    [
-      'nihongo_test_app_login',
-      'nihongo_test_migration_login'
-    ].includes(decodeURIComponent(ownerTarget.username)) ||
+    ['nihongo_test_app_login', 'nihongo_test_migration_login'].includes(
+      decodeURIComponent(ownerTarget.username)
+    ) ||
     !ownerTarget.username
   )
     throw new Error('BROWSER_TEST_SEPARATE_TEST_OWNER_REQUIRED')

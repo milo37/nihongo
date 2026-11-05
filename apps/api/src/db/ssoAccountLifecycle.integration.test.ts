@@ -16,8 +16,8 @@ afterAll(async () => {
   if (h) await h.close()
 })
 const gateway = async (sql: string, args: readonly unknown[] = []) =>
-  (await h.roleQuery<{ result: unknown }>('nihongo_app', sql, args))
-    .rows[0]?.result
+  (await h.roleQuery<{ result: unknown }>('nihongo_app', sql, args)).rows[0]
+    ?.result
 // #504 P7 PR5a: a provider cleanup claim needs the request's User
 // DELETION_PENDING; tests set it outside the User trigger.
 const deletionPendingUser = async (): Promise<string> => {

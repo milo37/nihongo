@@ -230,11 +230,7 @@ export const createSsoDbHarness = () => {
   })
   const rotate = async (f: SsoFixture, proof: string) => {
     const next = completeValues(f, proof)
-    const result = await roleQuery(
-      'nihongo_app',
-      completeSql,
-      next.values
-    )
+    const result = await roleQuery('nihongo_app', completeSql, next.values)
     expect(result.rows).toHaveLength(1)
     expect(result.rows[0]).toMatchObject({
       id: next.id,

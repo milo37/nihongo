@@ -51,7 +51,8 @@ export const accessibilityDatabaseTables = [
   'UserReport',
   'Verification',
   'WrongNote',
-  '_prisma_migrations']
+  '_prisma_migrations'
+]
 
 export const accessibilityExpectedTableDeltas = {
   Account: 0,

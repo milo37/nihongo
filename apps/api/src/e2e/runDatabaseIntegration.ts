@@ -7,9 +7,7 @@ import { runSeedExecution } from './seedExecution.js'
 import { prepareBrowserArtifacts } from './browserArtifactPreparation.js'
 import { randomUUID } from 'node:crypto'
 import { spawn, type ChildProcess } from 'node:child_process'
-import {
-  readFileSync
-} from 'node:fs'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import dotenv from 'dotenv'
@@ -129,10 +127,7 @@ const buildWrapperDatabaseUrl = (role: string): URL => {
 }
 
 const migrationDatabaseUrl = buildWrapperDatabaseUrl(TEST_MIGRATION_LOGIN)
-migrationDatabaseUrl.searchParams.set(
-  'options',
-  '-c role=nihongo_migration'
-)
+migrationDatabaseUrl.searchParams.set('options', '-c role=nihongo_migration')
 const applicationDatabaseUrl = buildWrapperDatabaseUrl(TEST_APPLICATION_LOGIN)
 const developmentApplicationDatabaseUrl = buildWrapperDatabaseUrl(
   DEVELOPMENT_APPLICATION_LOGIN
@@ -863,12 +858,7 @@ const attestTestDatabaseAcl = async (): Promise<void> => {
          AND acl_entry.privilege_type = 'CONNECT'
          AND NOT acl_entry.is_grantable
      ) AS "wrapperConnectAclCount"`,
-    [
-      [
-        TEST_MIGRATION_LOGIN,
-        TEST_APPLICATION_LOGIN
-      ]
-    ]
+    [[TEST_MIGRATION_LOGIN, TEST_APPLICATION_LOGIN]]
   )
   const row = result.rows[0]
   if (

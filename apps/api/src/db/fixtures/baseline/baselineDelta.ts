@@ -90,10 +90,7 @@ const removedAcl = new RegExp(
 
 const transformAcl = (value: unknown): unknown =>
   typeof value === 'string'
-    ? renameBaselineIdentifier(value.replace(removedAcl, '')).replace(
-        '{,',
-        '{'
-      )
+    ? renameBaselineIdentifier(value.replace(removedAcl, '')).replace('{,', '{')
     : value
 
 const transformValue = (key: string, value: unknown): unknown => {
@@ -106,9 +103,7 @@ const transformValue = (key: string, value: unknown): unknown => {
   return value
 }
 
-const transformRow = (
-  row: Record<string, unknown>
-): Record<string, unknown> =>
+const transformRow = (row: Record<string, unknown>): Record<string, unknown> =>
   Object.fromEntries(
     Object.entries(row).map(([key, value]) => [key, transformValue(key, value)])
   )
@@ -150,9 +145,10 @@ export const expectedBaselineCatalog = (
       (row) =>
         !excludedTables.has(String(row.table)) &&
         ![...excludedFunctions].some((name) =>
-          new RegExp(`EXECUTE FUNCTION (?:\\$SCHEMA\\.)?"?${name}"?\\(`, 'u').test(
-            String(row.definition)
-          )
+          new RegExp(
+            `EXECUTE FUNCTION (?:\\$SCHEMA\\.)?"?${name}"?\\(`,
+            'u'
+          ).test(String(row.definition))
         )
     )
     .map(transformRow),

@@ -46,9 +46,7 @@ const raise = async (
 const requireRuntimeReady = async (
   client: Pick<PrismaClient, '$queryRawUnsafe'>
 ): Promise<void> => {
-  await client.$queryRawUnsafe(
-    `SELECT "require_runtime_ready"() AS ready`
-  )
+  await client.$queryRawUnsafe(`SELECT "require_runtime_ready"() AS ready`)
 }
 
 /** The intent token digest, as reauthentication_token_digest computed it. */

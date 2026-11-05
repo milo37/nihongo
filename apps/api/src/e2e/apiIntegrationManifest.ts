@@ -348,7 +348,7 @@ export const apiIntegrationManifest = [
           ],
     seedPolicy: 'canonical-once' as const,
     isolation: 'disposable fixture aggregate in dedicated Phase 10 schema'
-  })),
+  }))
 ] satisfies readonly ApiIntegrationManifestEntry[]
 
 export const getApiIntegrationEntriesByOwner = (

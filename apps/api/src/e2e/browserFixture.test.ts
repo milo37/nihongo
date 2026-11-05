@@ -189,9 +189,7 @@ describe('Phase7/8 production admin static guard handoff', () => {
       expect(f.query).toHaveBeenCalledTimes(role === 'ADMIN' ? 1 : 0)
       expect(f.adminReadConsume).toHaveBeenCalledTimes(role === 'ADMIN' ? 1 : 0)
       if (role === 'ADMIN') {
-        expect(f.query).toHaveBeenCalledWith(
-          'SELECT "require_runtime_ready"()'
-        )
+        expect(f.query).toHaveBeenCalledWith('SELECT "require_runtime_ready"()')
         expect(f.adminReadConsume).toHaveBeenCalledWith({
           actorId: created.fixture.author.userId,
           clientIp: expect.any(String)
