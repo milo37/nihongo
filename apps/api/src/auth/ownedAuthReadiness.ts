@@ -22,7 +22,5 @@ export const createOwnedAuthReadiness =
         expectedRole: 'nihongo_app'
       }
     })
-    await applicationClient.$queryRawUnsafe(
-      'SELECT "phase7_require_runtime_ready"()'
-    )
+    await applicationClient.$queryRawUnsafe('SELECT "require_runtime_ready"()')
   }

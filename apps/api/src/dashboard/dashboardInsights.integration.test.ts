@@ -43,7 +43,7 @@ const database = createRoleDatabaseRuntime(
 const adminDatabase = createDatabaseRuntime(adminDatabaseUrl)
 const authGatewayDatabase = createRoleDatabaseRuntime(
   authGatewayDatabaseUrl,
-  'nihongo_auth_gateway'
+  'nihongo_app'
 )
 const sessionRepository = createPrismaStudySessionRepository(database.client)
 const submissionRepository = createPrismaStudySubmissionRepository(

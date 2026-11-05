@@ -110,7 +110,7 @@ const versionSummarySelect = {
 } satisfies Prisma.QuestionVersionSelect
 
 const createBookmarkReadSelect = (
-  migrationProfile?: MigrationCompatibilityProfile
+  _migrationProfile?: MigrationCompatibilityProfile
 ) =>
   ({
     id: true,
@@ -121,19 +121,13 @@ const createBookmarkReadSelect = (
         lifecycleStatus: true,
         currentPublishedVersion: { select: versionSummarySelect },
         versions: {
-          where:
-            migrationProfile === 'pre-phase7'
-              ? { status: { in: ['PUBLISHED', 'RETIRED'] } }
-              : {
-                  publishedAt: { not: null },
-                  OR: [
-                    { status: 'PUBLISHED' },
-                    {
-                      status: 'RETIRED',
-                      retirementKind: 'PUBLISHED_RETIREMENT'
-                    }
-                  ]
-                },
+          where: {
+            publishedAt: { not: null },
+            OR: [
+              { status: 'PUBLISHED' },
+              { status: 'RETIRED', retirementKind: 'PUBLISHED_RETIREMENT' }
+            ]
+          },
           orderBy: [{ versionNumber: 'desc' }, { id: 'asc' }],
           take: 1,
           select: versionSummarySelect

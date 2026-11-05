@@ -38,7 +38,7 @@ export const createQuestionReportInTransaction = async (
     readonly description: string
   }
 ): Promise<Array<{ id: string; rowVersion: number }>> => {
-  // phase7_active_authorization_session
+  // active_authorization_session
   const active = await transaction.$queryRawUnsafe<unknown[]>(
     `SELECT 1 FROM "Session"
      WHERE "token" = $1 AND "authorizationState" = 'ACTIVE'`,
@@ -46,7 +46,7 @@ export const createQuestionReportInTransaction = async (
   )
   if (active.length === 0) await raise(transaction, '42501', STALE)
   await transaction.$executeRawUnsafe(
-    `SELECT "phase7_require_database_capability"(NULL)`
+    `SELECT "require_database_capability"(NULL)`
   )
   const sessions = await transaction.$queryRawUnsafe<
     Array<{ sessionId: string; userId: string }>

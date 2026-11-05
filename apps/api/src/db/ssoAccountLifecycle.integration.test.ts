@@ -16,8 +16,8 @@ afterAll(async () => {
   if (h) await h.close()
 })
 const gateway = async (sql: string, args: readonly unknown[] = []) =>
-  (await h.roleQuery<{ result: unknown }>('nihongo_auth_gateway', sql, args))
-    .rows[0]?.result
+  (await h.roleQuery<{ result: unknown }>('nihongo_app', sql, args)).rows[0]
+    ?.result
 // #504 P7 PR5a: a provider cleanup claim needs the request's User
 // DELETION_PENDING; tests set it outside the User trigger.
 const deletionPendingUser = async (): Promise<string> => {
@@ -144,7 +144,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
           await h.owner.query(
             `SELECT (SELECT "authorityGeneration" FROM "User" WHERE id=$1) AS generation,
                (SELECT count(*)::int FROM "Session" WHERE "userId"=$1) AS sessions,
-               (SELECT count(*)::int FROM "Phase7AuthorityRevocationEvidence"
+               (SELECT count(*)::int FROM "AuthorityRevocationEvidence"
                 WHERE "sessionId"=$2 AND reason='SESSION_INVALIDATED') AS evidence`,
             [f.userId, f.sessionId]
           )
@@ -248,16 +248,10 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
           [receipt]
         )
       ).rows[0]!
-      await h.rejects(
-        'nihongo_auth_gateway',
-        'SELECT "phase7_complete_sso_account_erasure"($1,\'TEST\')',
-        [job.id],
-        '42501'
-      )
       expect(
         (
           await h.roleQuery<{ ok: boolean }>(
-            'nihongo_erasure_worker',
+            'nihongo_app',
             'SELECT "phase7_complete_sso_account_erasure"($1,\'TEST\') AS ok',
             [job.id]
           )
@@ -284,7 +278,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         await h.roleQuery<{
           result: Array<{ id: string; leaseToken: string }>
         }>(
-          'nihongo_erasure_worker',
+          'nihongo_app',
           'SELECT "phase7_claim_sso_provider_cleanups"(100,300,\'TEST\') AS result'
         )
       ).rows[0]!.result
@@ -292,7 +286,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       expect(
         (
           await h.roleQuery<{ ok: boolean }>(
-            'nihongo_erasure_worker',
+            'nihongo_app',
             "SELECT \"phase7_begin_sso_provider_cleanup\"($1,'google',$2,'TEST') AS ok",
             [job.id, leaseToken]
           )
@@ -301,7 +295,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       const recordCleanup = async (status: 'COMPLETED' | 'FAILED') =>
         (
           await h.roleQuery<{ ok: boolean }>(
-            'nihongo_erasure_worker',
+            'nihongo_app',
             "SELECT \"phase7_record_sso_provider_cleanup\"($1,'google',$2,$3,'TEST') AS ok",
             [job.id, status, leaseToken]
           )
@@ -310,7 +304,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       expect(
         (
           await h.roleQuery<{ ok: boolean }>(
-            'nihongo_erasure_worker',
+            'nihongo_app',
             'SELECT "phase7_complete_sso_account_erasure"($1,\'TEST\') AS ok',
             [job.id]
           )
@@ -329,7 +323,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       expect(
         (
           await h.roleQuery<{ ok: boolean }>(
-            'nihongo_erasure_worker',
+            'nihongo_app',
             'SELECT "phase7_complete_sso_account_erasure"($1,\'TEST\') AS ok',
             [job.id]
           )
@@ -387,14 +381,6 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
           failedIds: mine(r.failedIds)
         }
       }
-      // #504 P7 PR1: nihongo_app runs the worker; the gateway still may not.
-      for (const role of ['nihongo_auth_gateway'] as const)
-        await h.rejects(
-          role,
-          'SELECT "phase7_list_sso_account_erasures"(10,\'TEST\')',
-          [],
-          '42501'
-        )
       const users = async (ids: string[]) =>
         (
           await h.owner.query<{ id: string; sessions: number }>(
@@ -442,7 +428,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         failedIds: []
       })
       await h.owner.query(
-        'SET CONSTRAINTS "Phase7OperationIntent_must_finish" DEFERRED'
+        'SET CONSTRAINTS "OperationIntent_must_finish" DEFERRED'
       )
       expect(await users([a.userId])).toEqual([])
       expect(await users([b.userId])).toEqual([{ id: b.userId, sessions: 0 }])
@@ -605,22 +591,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         "SELECT \"phase7_record_sso_provider_cleanup\"($1,'google','COMPLETED')",
         "SELECT \"phase7_record_sso_provider_cleanup\"($1,'google','COMPLETED','TEST')"
       ])
-        await h.rejects('nihongo_erasure_worker', sql, [id], '42883')
-      // #504 P7 PR1: nihongo_app runs the worker; the gateway still may not.
-      for (const role of ['nihongo_auth_gateway'] as const) {
-        await h.rejects(
-          role,
-          "SELECT \"phase7_begin_sso_provider_cleanup\"($1,'google',$2,'TEST')",
-          [id, second.leaseToken],
-          '42501'
-        )
-        await h.rejects(
-          role,
-          "SELECT \"phase7_record_sso_provider_cleanup\"($1,'google','COMPLETED',$2,'TEST')",
-          [id, second.leaseToken],
-          '42501'
-        )
-      }
+        await h.rejects('nihongo_app', sql, [id], '42883')
       await h.owner.query(
         'UPDATE "SsoAccountErasureRequest" SET "leaseExpiresAt"=clock_timestamp()-interval \'1 second\' WHERE id=$1',
         [id]

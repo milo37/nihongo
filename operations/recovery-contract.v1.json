@@ -20,19 +20,11 @@
     "governance.incidentOwner"
   ],
   "migrationProfiles": {
-    "technical-current-test": {
-      "environments": ["TEST"],
+    "current": {
+      "environments": ["TEST", "STAGING", "PRODUCTION"],
       "selection": "all-release-manifest-entries",
-      "expectedCount": 76,
-      "expectedDigestSha256": "261e26617bce101ef82ae2e9a871272f68be9afc05ca1e6b08c5eef7c014bfa1",
-      "externalRecoveryClaimAllowed": false
-    },
-    "v1-runtime-pre-phase7": {
-      "environments": ["STAGING", "PRODUCTION"],
-      "selection": "entries-before-boundary",
-      "boundaryMigration": "20260827100000_phase7_admin_cms_enums",
-      "expectedCount": 27,
-      "expectedDigestSha256": "6870a93dd141b7a6c226de7aeed315d48ce313828c82bb92f91bf8a8861ed2ea",
+      "expectedCount": 1,
+      "expectedDigestSha256": "35bdd0a04791cca4d232d9ec4c7f46ae559704685850748efb871cae7871a9c2",
       "externalRecoveryClaimAllowed": false
     }
   },

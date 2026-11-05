@@ -17,7 +17,6 @@ const isolated: GuestCleanupRoleEvidence = {
   sessionCanCreateRoles: false,
   sessionCanCreateDatabases: false,
   sessionHasApplicationRole: true,
-  sessionHasErasureRole: false,
   workerCanCreateInSchema: false,
   sessionCanCreateInSchema: false
 }
@@ -36,7 +35,7 @@ describe('guest cleanup role', () => {
     await expect(verifyStudyGuestCleanupRole(client)).rejects.toThrow()
     query.mockResolvedValue([isolated])
     await expect(verifyStudyGuestCleanupRole(client)).resolves.toBeUndefined()
-    query.mockResolvedValue([{ ...isolated, sessionHasErasureRole: true }])
+    query.mockResolvedValue([{ ...isolated, sessionHasApplicationRole: false }])
     await expect(verifyStudyGuestCleanupRole(client)).rejects.toThrow()
   })
 
@@ -51,7 +50,6 @@ describe('guest cleanup role', () => {
     { sessionCanCreateRoles: true },
     { sessionCanCreateDatabases: true },
     { sessionHasApplicationRole: false },
-    { sessionHasErasureRole: true },
     { workerCanCreateInSchema: true },
     { sessionCanCreateInSchema: true }
   ])('refuses an unsafe role: %o', (change) => {

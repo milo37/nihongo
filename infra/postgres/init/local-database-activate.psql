@@ -1,31 +1,37 @@
 \set ON_ERROR_STOP on
 
 -- This file is never run by docker-entrypoint-initdb.d because `.psql` is not
--- an init suffix. The explicit README runbook invokes it only after migrate and
--- seed, using the canonical migration wrapper and startup role.
+-- an init suffix. The README runbook invokes it once per database after migrate
+-- and seed, using the migration wrapper over the same host path as the API, so
+-- the recorded server address and port match what the API runtime check sees.
+-- The INSERT mirrors DATABASE_CAPABILITY_SQL in apps/api/src/db/databaseCapability.ts.
 BEGIN;
 SET LOCAL search_path = public, pg_catalog;
-SELECT "phase7_register_database_capability"(
-  current_database(),
-  inet_server_addr(),
-  inet_server_port(),
-  :'phase7_environment'::"AdminAuditEnvironment"
-);
-SELECT "phase7_activate_v1_issuer"(
-  :'phase7_environment'::"AdminAuditEnvironment"
-);
--- Delay guest CONNECT until the immutable prefix ACL check and migration 53 finish.
-DO $guest_cleanup_connect$
+SET LOCAL app.capability_environment = :'environment';
+DO $register_capability$
+DECLARE
+  environment_value TEXT := current_setting('app.capability_environment');
+  written INTEGER;
 BEGIN
-  IF current_database() NOT IN ('nihongo_test', 'nihongo_dev')
-    OR NOT EXISTS (SELECT 1 FROM "_prisma_migrations"
-      WHERE "migration_name" = '20261030100000_guest_expired_draft_retention'
-        AND "finished_at" IS NOT NULL AND "rolled_back_at" IS NULL) THEN
-    RAISE EXCEPTION 'Guest cleanup activation requires the migrated local target.';
+  INSERT INTO "DatabaseCapability" (
+    "id", "databaseName", "serverAddress", "serverPort", "environment",
+    "registeredAt"
+  )
+  SELECT 1, current_database(), inet_server_addr(), inet_server_port(),
+    environment_value::"AdminAuditEnvironment", clock_timestamp()
+  WHERE inet_server_addr() IS NOT NULL
+    AND ((environment_value = 'TEST' AND current_database() ~ '_test$')
+      OR (environment_value = 'DEVELOPMENT' AND current_database() ~ '_dev$'))
+  ON CONFLICT ("id") DO UPDATE SET
+    "databaseName" = EXCLUDED."databaseName",
+    "serverAddress" = EXCLUDED."serverAddress",
+    "serverPort" = EXCLUDED."serverPort",
+    "environment" = EXCLUDED."environment",
+    "registeredAt" = EXCLUDED."registeredAt";
+  GET DIAGNOSTICS written = ROW_COUNT;
+  IF written <> 1 THEN
+    RAISE EXCEPTION 'Database capability does not match the safe local target.';
   END IF;
-  EXECUTE format('GRANT CONNECT ON DATABASE %I TO %I', current_database(),
-    CASE current_database() WHEN 'nihongo_test' THEN 'nihongo_test_guest_cleanup_worker_login'
-      ELSE 'nihongo_development_guest_cleanup_worker_login' END);
 END;
-$guest_cleanup_connect$;
+$register_capability$;
 COMMIT;

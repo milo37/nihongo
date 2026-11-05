@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import { registerDatabaseCapability } from './databaseCapability.js'
 import { installAuditDigestSql } from './fixtures/auditDigestSql.js'
 import { randomBytes, randomUUID } from 'node:crypto'
 import {
@@ -80,7 +81,7 @@ const adminClient = createAdminClient()
 const adminControlClient = createAdminClient()
 const gatewayRuntime = createRoleDatabaseRuntime(
   authGatewayDatabaseUrl,
-  'nihongo_auth_gateway'
+  'nihongo_app'
 )
 const applicationRuntime = createRoleDatabaseRuntime(
   environment.DATABASE_URL,
@@ -100,7 +101,7 @@ const gatewayClientA = createGatewayClient()
 const gatewayClientB = createGatewayClient()
 
 const withRole = async <Result>(
-  role: 'nihongo_app' | 'nihongo_auth_gateway' | 'nihongo_phase7_migration',
+  role: 'nihongo_app' | 'nihongo_auth_gateway' | 'nihongo_migration',
   action: () => Promise<Result>
 ): Promise<Result> => {
   await adminClient.query(`SET ROLE "${role}"`)
@@ -636,7 +637,7 @@ const readA2IntentCount = async (
 ): Promise<number> =>
   (
     await adminClient.query<{ count: number }>(
-      `SELECT COUNT(*)::int AS count FROM "Phase7OperationIntent"
+      `SELECT COUNT(*)::int AS count FROM "OperationIntent"
        WHERE "requestId" = ANY($1::uuid[])`,
       [requestIds]
     )
@@ -1051,7 +1052,7 @@ const readWriteSnapshot = async () =>
     }>(
       `SELECT
          (SELECT COUNT(*)::int FROM "Session") AS "sessionCount",
-         (SELECT COUNT(*)::int FROM "Phase7ReauthenticationIntent")
+         (SELECT COUNT(*)::int FROM "ReauthenticationIntent")
            AS "intentCount",
          (SELECT COUNT(*)::int FROM "AdminAuditLog") AS "auditCount",
          (SELECT COUNT(*)::int FROM "RateLimit") AS "rateLimitCount",
@@ -1065,24 +1066,9 @@ beforeAll(async () => {
   // #504 P7 PR5b: the SQL audit digest is a test fixture now.
   await installAuditDigestSql(adminClient)
   await Promise.all([gatewayClientA.connect(), gatewayClientB.connect()])
-  const endpoint = await adminClient.query<{
-    databaseName: string
-    serverAddress: string
-    serverPort: number
-  }>(
-    `SELECT current_database() AS "databaseName",
-       inet_server_addr()::text AS "serverAddress",
-       inet_server_port() AS "serverPort"`
-  )
-  const target = endpoint.rows[0]
-  if (!target) throw new Error('Phase 7 DB endpoint is unavailable.')
-  await withRole('nihongo_phase7_migration', () =>
-    adminClient.query(
-      `SELECT "phase7_register_database_capability"(
-        $1, $2::inet, $3, 'TEST'
-      )`,
-      [target.databaseName, target.serverAddress, target.serverPort]
-    )
+  // #504 P8-1: the baseline starts with V1 issuance active.
+  await withRole('nihongo_migration', () =>
+    registerDatabaseCapability(adminClient, 'TEST')
   )
 })
 
@@ -1146,19 +1132,19 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
          (SELECT COUNT(*)::int FROM "Session" WHERE "id" = $1)
            AS "oldSessionCount",
          (SELECT COUNT(*)::int
-          FROM "Phase7ReauthenticationIntent" AS intent
+          FROM "ReauthenticationIntent" AS intent
           JOIN "Session" AS session ON session."id" = intent."stagedSessionId"
           WHERE intent."id" = $2
             AND intent."state" = 'FINALIZED'
             AND session."authorizationState" = 'ACTIVE')
            AS "replacementCount",
-         (SELECT "state"::text FROM "Phase7ReauthenticationIntent"
+         (SELECT "state"::text FROM "ReauthenticationIntent"
           WHERE "id" = $2) AS "intentState",
          (SELECT COUNT(*)::int FROM "AdminAuditLog"
-          WHERE "requestId" = (SELECT "requestId" FROM "Phase7ReauthenticationIntent" WHERE "id" = $2) AND "command" = 'REAUTHENTICATION')
+          WHERE "requestId" = (SELECT "requestId" FROM "ReauthenticationIntent" WHERE "id" = $2) AND "command" = 'REAUTHENTICATION')
            AS "auditCount",
          (SELECT "beforeState" FROM "AdminAuditLog"
-          WHERE "requestId" = (SELECT "requestId" FROM "Phase7ReauthenticationIntent" WHERE "id" = $2) AND "command" = 'REAUTHENTICATION')
+          WHERE "requestId" = (SELECT "requestId" FROM "ReauthenticationIntent" WHERE "id" = $2) AND "command" = 'REAUTHENTICATION')
            AS "auditBeforeState"`,
       [fixture.sessionId, completed.context.intentId]
     )
@@ -1940,7 +1926,7 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
          (SELECT COUNT(*)::int FROM "Session"
           WHERE "id" = $1 AND "authorizationState" = 'ACTIVE')
            AS "oldActiveCount",
-         (SELECT COUNT(*)::int FROM "Phase7ReauthenticationIntent"
+         (SELECT COUNT(*)::int FROM "ReauthenticationIntent"
           WHERE "requestId" = $2) AS "intentCount",
          (SELECT COUNT(*)::int FROM "AdminAuditLog"
           WHERE "requestId" = $2 AND "command" = 'REAUTHENTICATION')
@@ -2024,7 +2010,7 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
       query: string,
       ...values: unknown[]
     ): Promise<QueryResult> => {
-      if (query.includes('phase7_classify_admin_authority')) {
+      if (query.includes('classify_admin_authority')) {
         throw new Error('injected classifier failure')
       }
       return await applicationRuntime.client.$queryRawUnsafe<QueryResult>(
@@ -2165,7 +2151,7 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
     await adminClient.query(`SET session_replication_role = replica`)
     try {
       await adminClient.query(
-        `UPDATE "Phase7ReauthenticationIntent"
+        `UPDATE "ReauthenticationIntent"
          SET "createdAt" = clock_timestamp() - INTERVAL '4 minutes',
              "expiresAt" = clock_timestamp() - INTERVAL '1 minute'
          WHERE "id" = $1`,
@@ -2184,7 +2170,7 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
           pendingCount: number
         }>(
           `SELECT
-             (SELECT COUNT(*)::int FROM "Phase7ReauthenticationIntent"
+             (SELECT COUNT(*)::int FROM "ReauthenticationIntent"
               WHERE "id" = $1) AS "intentCount",
              (SELECT COUNT(*)::int FROM "Session"
               WHERE "id" = $2 AND "authorizationState" = 'PENDING_REAUTH')

@@ -14,8 +14,8 @@ import { v1PrincipalQuery } from '../auth/ownedSessionAuthority.js'
  * same authority
  * conditions and the same SQLSTATE and message on failure. Failures are raised
  * inside PostgreSQL so the existing error mapping sees the same database error.
- * #504 P7 PR4c-1: begin records a Phase7OperationIntent row in its transaction
- * and finish deletes it; the deferred Phase7OperationIntent_must_finish
+ * #504 P7 PR4c-1: begin records a OperationIntent row in its transaction
+ * and finish deletes it; the deferred OperationIntent_must_finish
  * trigger refuses a commit that still holds the row, so a command that skips
  * finish cannot commit.
  */
@@ -195,7 +195,7 @@ export const beginAdminOperation = async (
   await assertIsolation(transaction, input.command)
   // The check returns void, which Prisma cannot read as a column.
   await transaction.$executeRawUnsafe(
-    `SELECT "phase7_require_database_capability"($1::"AdminAuditEnvironment")`,
+    `SELECT "require_database_capability"($1::"AdminAuditEnvironment")`,
     input.auditEnvironment
   )
 
@@ -267,7 +267,7 @@ export const beginAdminOperation = async (
   const operationId = randomUUID()
   // The database fills the backend and transaction of this row itself.
   await transaction.$executeRawUnsafe(
-    `INSERT INTO "Phase7OperationIntent" ("operationId", "command", "environment")
+    `INSERT INTO "OperationIntent" ("operationId", "command", "environment")
      VALUES ($1::uuid, $2::"AdminAuditCommand", $3::"AdminAuditEnvironment")`,
     operationId,
     input.command,
@@ -305,13 +305,13 @@ export const finishAdminOperation = async (
     ).join(', ')} IMMEDIATE`
   )
   const consumed = await transaction.$executeRawUnsafe(
-    `DELETE FROM "Phase7OperationIntent" WHERE "operationId" = $1::uuid`,
+    `DELETE FROM "OperationIntent" WHERE "operationId" = $1::uuid`,
     operationId
   )
   if (consumed !== 1)
     await raise(transaction, '42501', 'Trusted Phase 7 operation is absent.')
   await transaction.$executeRawUnsafe(
-    `SET CONSTRAINTS "Phase7OperationIntent_must_finish" IMMEDIATE`
+    `SET CONSTRAINTS "OperationIntent_must_finish" IMMEDIATE`
   )
   if (!(await hasAuthority(transaction, operation)))
     await raise(

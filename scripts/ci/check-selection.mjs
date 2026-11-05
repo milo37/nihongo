@@ -352,17 +352,9 @@ export const readSelection = (env = process.env, git = execFileSync) => {
 // API integration shards split across CI matrix jobs, balanced by measured run time.
 // api-shard-partition.mjs asserts in CI that together they run every shard exactly once.
 export const apiIntegrationShardGroups = Object.freeze({
-  'api-1': [
-    'pure',
-    'current-zero-facts',
-    'migration-submission-history',
-    'migration-ledger-last'
-  ],
-  'api-2': [
-    'current-app-role-with-owner-fixtures',
-    'current-rebased-service',
-    'migration-question-catalog'
-  ],
+  // #504 P8-1: the migration-history shards went with the 76 migrations.
+  'api-1': ['pure', 'current-zero-facts'],
+  'api-2': ['current-app-role-with-owner-fixtures', 'current-rebased-service'],
   'api-3': ['catalog-baseline', 'current-app-role', 'current-guest-cleanup']
 })
 

@@ -75,7 +75,8 @@ const erasure = new Client({
   connectionString: erasureUrl,
   options: createPostgresStartupOptions(
     getPostgresSchema(erasureUrl),
-    'nihongo_erasure_worker'
+    // #504 P8-1: one runtime role; the erasure names go in P8-2.
+    'nihongo_app'
   )
 })
 const fixtureDatabase = createDatabaseRuntime(fixtureUrl)

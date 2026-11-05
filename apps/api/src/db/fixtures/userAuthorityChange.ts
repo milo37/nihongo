@@ -16,7 +16,7 @@ import type { Prisma, PrismaClient } from '../../generated/prisma/client.js'
 
 type Transaction = Prisma.TransactionClient
 
-const TEST_AUTHORITY_SETTING = 'nihongo.phase7_test_authority_change'
+const TEST_AUTHORITY_SETTING = 'nihongo.test_authority_change'
 
 const raise = async (
   transaction: Transaction,
@@ -84,11 +84,11 @@ export const changeUserAuthorityForTest = async (
       )
     // phase7_change_user_authority_pre_reauthentication
     await transaction.$executeRawUnsafe(
-      `SELECT "phase7_require_database_capability"($1::"AdminAuditEnvironment")`,
+      `SELECT "require_database_capability"($1::"AdminAuditEnvironment")`,
       input.environment
     )
     await transaction.$queryRawUnsafe(
-      `SELECT "phase7_require_runtime_ready"() AS ready`
+      `SELECT "require_runtime_ready"() AS ready`
     )
     const actor = (
       await transaction.$queryRawUnsafe<

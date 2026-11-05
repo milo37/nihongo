@@ -64,38 +64,48 @@ API 모드는 `apps/web/.env`의 `VITE_API_MODE=mock|real`로 선택합니다.
 ## 실제 API·DB 로컬 실행
 
 루트·API의 `.env.example`과 API의 `.env.test.example`을 각각 `.env`·`.env.test`로 복사합니다.
-루트의 `POSTGRES_PASSWORD`·`PHASE7_*_PASSWORD`는 서로 다른 24자 이상 URL-safe 값으로 설정하고 API 연결 URL에 대응시킵니다.
+루트의 `POSTGRES_PASSWORD`와 `PHASE7_*_PASSWORD` 6개는 서로 다른 24자 이상 URL-safe 값으로 설정하고 API 연결 URL에 대응시킵니다.
 이 로컬 구성은 production provisioning의 대체물이 아닙니다.
 
 **지속형 기술 runtime: 55433, 별도 project·volume**
-API는 `DATABASE_URL` 하나(`nihongo_{test,development}_app_login` → `nihongo_app`)로 모든 facade를 실행하고, `AUTH_RUNTIME`은 기본 `owned`입니다(`legacy`는 TEST 전용, production은 `owned`만).
-migration은 `PHASE7_MIGRATION_DATABASE_URL` wrapper로만 실행합니다.
-새 볼륨에서는 content migration이 seed된 bootstrap을 요구하므로, `20261009092000_phase7_n4_n2_revision2_digest_fix`까지 37개 migration과 `migration_lock.toml`을 복사한 디렉터리(절대 경로)로 먼저 적용하고 seed한 뒤 나머지를 적용합니다.
+API는 `DATABASE_URL` 하나(`nihongo_{test,development}_app_login` → `nihongo_app`)로 실행하고, migration은 `PHASE7_MIGRATION_DATABASE_URL`(`nihongo_{test,development}_migration_login` → `nihongo_migration`)로만 실행합니다.
+provisioning은 `nihongo_owner`·`nihongo_migration`·`nihongo_app`·`nihongo_guest_cleanup_worker`와 TEST·DEVELOPMENT login 6개를 만들고, `public` schema와 DB 소유자를 `nihongo_migration`으로 둡니다(baseline이 schema를 `nihongo_owner`로 넘김).
+migration은 `20261105090000_baseline` 하나입니다.
+
+**DEVELOPMENT DB 재생성(데이터 보존 없음)**
+baseline 이전 볼륨은 역할 이름과 migration 이력이 달라 그대로 쓸 수 없습니다. 볼륨을 지우고 새로 만듭니다.
+아래 `down -v`는 이 project의 볼륨 데이터를 영구 삭제합니다.
 
 ```bash
+docker compose --project-name nihongo-phase7-local --profile phase7-local down -v
 docker compose --project-name nihongo-phase7-local --profile phase7-local up -d --wait postgres-phase7
-NODE_ENV=test TEST_MIGRATIONS_PATH=/absolute/path/to/bootstrap-prefix pnpm run db:migrate:deploy
-ADMIN_CMS_MODE=technical pnpm run db:seed:test
 NODE_ENV=test pnpm run db:migrate:deploy
+ADMIN_CMS_MODE=technical pnpm run db:seed:test
+pnpm run db:migrate:deploy
+ADMIN_CMS_MODE=technical pnpm run db:seed:dev
 ```
 
-DEVELOPMENT의 `db:migrate:dev:deploy`는 prefix 경로를 받지 않으므로, 새 볼륨의 DEVELOPMENT 적용 절차는 아직 검증되지 않았습니다.
+`up`은 새 볼륨에서만 provisioning을 실행하고, healthcheck는 provisioning 검증이 끝난 뒤에만 통과합니다.
 
-activation에는 `phase7_environment=TEST` 또는 `phase7_environment=DEVELOPMENT`를 사용하며 명시적 후속 승인 전에는 실행 금지입니다.
-capability는 접속한 server 주소·port를 기록하고 API startup이 같은 값을 확인하므로, activation은 API와 같은 경로(host에서 `-h 127.0.0.1 -p 55433`)로 실행합니다.
+provisioning은 guest cleanup login의 CONNECT까지 줍니다. migrate·seed 뒤 남는 단계는 DB capability 등록 하나입니다.
+capability 등록(activation)에는 `--set=environment=TEST` 또는 `--set=environment=DEVELOPMENT`를 사용하며 명시적 후속 승인 전에는 실행 금지입니다.
+이 단계는 `DatabaseCapability`에 접속한 server 주소·port를 기록하고 API startup이 같은 값을 확인하므로, API와 같은 경로(host에서 `-h 127.0.0.1 -p 55433`)로 실행합니다.
 container 안 접속(socket 또는 container의 127.0.0.1)은 다른 주소가 기록되어 API startup이 42501로 실패합니다.
-host에 PostgreSQL 18 client(`psql`)가 필요합니다. activation은 one-way이며 두 번째 실행은 issuer 단계에서 거부됩니다.
+host에 PostgreSQL 18 client(`psql`)가 필요합니다. 다시 실행하면 같은 행을 현재 접속 주소로 갱신합니다(API의 capability 등록과 같은 SQL).
 
 ```bash
 # 아래 one-way local write는 명시적 후속 승인 후에만 실행합니다(저장소 루트, 루트 .env 사용).
 set -a; . ./.env; set +a
-PGPASSWORD="$PHASE7_TEST_MIGRATION_PASSWORD" PGOPTIONS="-c role=nihongo_phase7_migration" \
-  psql -h 127.0.0.1 -p "${PHASE7_POSTGRES_PORT:-55433}" --username nihongo_test_phase7_migration_login \
-  --dbname nihongo_test --set=phase7_environment=TEST --file=infra/postgres/init/local-database-activate.psql
+PGPASSWORD="$PHASE7_TEST_MIGRATION_PASSWORD" PGOPTIONS="-c role=nihongo_migration" \
+  psql -h 127.0.0.1 -p "${PHASE7_POSTGRES_PORT:-55433}" --username nihongo_test_migration_login \
+  --dbname nihongo_test --set=environment=TEST --file=infra/postgres/init/local-database-activate.psql
+PGPASSWORD="$PHASE7_DEVELOPMENT_MIGRATION_PASSWORD" PGOPTIONS="-c role=nihongo_migration" \
+  psql -h 127.0.0.1 -p "${PHASE7_POSTGRES_PORT:-55433}" --username nihongo_development_migration_login \
+  --dbname nihongo_dev --set=environment=DEVELOPMENT --file=infra/postgres/init/local-database-activate.psql
 ```
 
 기술 startup은 activation 전에는 의도적으로 실패합니다.
-승인된 activation 뒤 TEST는 `DOTENV_CONFIG_PATH=.env.test ADMIN_CMS_MODE=technical pnpm run dev:api`, DEVELOPMENT는 `ADMIN_CMS_MODE=technical pnpm run dev:api`로 시작합니다.
+승인된 activation 뒤 TEST는 `DOTENV_CONFIG_PATH=.env.test ADMIN_CMS_MODE=technical pnpm run dev:api`, DEVELOPMENT는 `ADMIN_CMS_MODE=technical pnpm run dev:api`로 시작하고 `curl http://127.0.0.1:3001/health/ready`가 `{"status":"ready"}`인지 확인합니다.
 
 **임시 통합 runner: 55432, 위 runtime과 volume 공유 금지**
 API `.env.test`의 `DB_INTEGRATION_DATABASE_URL`·`API_INTEGRATION_DATABASE_URL`은 기본 55432 연결을 유지합니다.

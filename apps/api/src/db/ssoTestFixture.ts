@@ -1,4 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto'
+import { registerDatabaseCapability } from './databaseCapability.js'
 import { installAuditDigestSql } from './fixtures/auditDigestSql.js'
 import { Client } from 'pg'
 import type { QueryResult, QueryResultRow } from 'pg'
@@ -20,11 +21,7 @@ import { adminFreshContextSchema } from '../auth/ssoAdminFreshRepository.js'
 import type { AdminFreshContext } from '../auth/ssoAdminFreshRepository.js'
 
 export const digest = () => randomBytes(32).toString('hex')
-export type TestRole =
-  | 'nihongo_app'
-  | 'nihongo_auth_gateway'
-  | 'nihongo_phase7_migration'
-  | 'nihongo_erasure_worker'
+export type TestRole = 'nihongo_app' | 'nihongo_migration'
 export interface SsoFixture {
   userId: string
   sessionId: string
@@ -66,8 +63,9 @@ export const createSsoDbHarness = () => {
     })
   }
   const owner = connection(adminUrl)
-  const gatewayA = connection(gatewayUrl, 'nihongo_auth_gateway')
-  const gatewayB = connection(gatewayUrl, 'nihongo_auth_gateway')
+  // #504 P8-1: one runtime role; the gateway names go in P8-2.
+  const gatewayA = connection(gatewayUrl, 'nihongo_app')
+  const gatewayB = connection(gatewayUrl, 'nihongo_app')
   const app = connection(environment.DATABASE_URL, 'nihongo_app')
   // #504 P7 PR3a/PR3b-1: the API runs Session and ADMIN_FRESH writes as
   // nihongo_app; concurrency probes need two such connections.
@@ -199,7 +197,7 @@ export const createSsoDbHarness = () => {
   }
   const prepare = async (f: SsoFixture): Promise<AdminFreshContext> => {
     const rows = await roleQuery<{ context: unknown }>(
-      'nihongo_auth_gateway',
+      'nihongo_app',
       'SELECT "phase7_prepare_sso_admin_fresh"($1,$2) AS context',
       [f.token, f.provider]
     )
@@ -212,7 +210,7 @@ export const createSsoDbHarness = () => {
     subject = context.accountId
   ) => {
     const rows = await roleQuery<{ accepted: boolean }>(
-      'nihongo_auth_gateway',
+      'nihongo_app',
       'SELECT "phase7_stage_sso_admin_fresh_proof"($1::jsonb,$2,$3,$4,$5) AS accepted',
       [JSON.stringify(context), provider, subject, proof, '/login']
     )
@@ -232,11 +230,7 @@ export const createSsoDbHarness = () => {
   })
   const rotate = async (f: SsoFixture, proof: string) => {
     const next = completeValues(f, proof)
-    const result = await roleQuery(
-      'nihongo_auth_gateway',
-      completeSql,
-      next.values
-    )
+    const result = await roleQuery('nihongo_app', completeSql, next.values)
     expect(result.rows).toHaveLength(1)
     expect(result.rows[0]).toMatchObject({
       id: next.id,
@@ -254,7 +248,7 @@ export const createSsoDbHarness = () => {
     (SELECT count(*)::int FROM "Session" WHERE "userId"=$2 AND "authorizationState"='ACTIVE') AS "activeSessions",
     (SELECT count(*)::int FROM "Session" WHERE "userId"=$2 AND "authorizationState"='PENDING_REAUTH') AS "pendingSessions",
     (SELECT count(*)::int FROM "AdminAuditLog" WHERE "actorId"=$2 AND command='REAUTHENTICATION') AS audits,
-    (SELECT count(*)::int FROM "Phase7ReauthenticationIntent" WHERE "userId"=$2 AND state='FINALIZED') AS finalized`,
+    (SELECT count(*)::int FROM "ReauthenticationIntent" WHERE "userId"=$2 AND state='FINALIZED') AS finalized`,
         [f.sessionId, f.userId]
       )
     ).rows[0]
@@ -418,34 +412,12 @@ export const createSsoDbHarness = () => {
       await appA.connect()
       await appB.connect()
       await app.connect()
-      const endpoint = (
-        await owner.query<{ name: string; address: string; port: number }>(
-          `SELECT current_database() AS name,inet_server_addr()::text AS address,inet_server_port() AS port`
-        )
-      ).rows[0]
-      if (!endpoint) throw new Error('DB endpoint identity is unavailable.')
-      await roleQuery(
-        'nihongo_phase7_migration',
-        `SELECT "phase7_register_database_capability"($1,$2::inet,$3,'TEST')`,
-        [endpoint.name, endpoint.address, endpoint.port]
-      )
-      const activation = await owner.query<{
-        id: number
-        legacyIssuerDisabled: boolean
-      }>(`SELECT "id", "legacyIssuerDisabled" FROM "AuthIssuerActivation"`)
-      const issuer = activation.rows[0]
-      if (
-        activation.rows.length !== 1 ||
-        issuer?.id !== 1 ||
-        typeof issuer.legacyIssuerDisabled !== 'boolean'
-      ) {
-        throw new Error('Issuer activation singleton is invalid.')
-      }
-      if (!issuer.legacyIssuerDisabled) {
-        await roleQuery(
-          'nihongo_phase7_migration',
-          `SELECT "phase7_activate_v1_issuer"('TEST')`
-        )
+      // #504 P8-1: the baseline starts with V1 issuance active.
+      await owner.query('SET ROLE "nihongo_migration"')
+      try {
+        await registerDatabaseCapability(owner, 'TEST')
+      } finally {
+        await owner.query('RESET ROLE')
       }
     },
     close: async () => {

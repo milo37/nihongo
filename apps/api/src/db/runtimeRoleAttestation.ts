@@ -1,7 +1,7 @@
 import type { PrismaClient } from '../generated/prisma/client.js'
 import { getPostgresSchema } from './databaseOptions.js'
 
-type RuntimeRole = 'nihongo_app' | 'nihongo_auth_gateway'
+type RuntimeRole = 'nihongo_app'
 
 interface RuntimeRoleEvidence {
   currentDatabase: string
@@ -173,8 +173,8 @@ const ATTESTATION_QUERY = `
        WHERE sensitive_namespace.nspname = current_schema()
          AND sensitive_relation.relname = ANY(ARRAY[
            'User', 'Account', 'Session',
-           'Phase7ReauthenticationIntent',
-           'Phase7AuthorityRevocationEvidence'
+           'ReauthenticationIntent',
+           'AuthorityRevocationEvidence'
          ]::name[])
          AND sensitive_column.attnum > 0
          AND NOT sensitive_column.attisdropped
@@ -190,15 +190,15 @@ const ATTESTATION_QUERY = `
            -- them and every other sensitive column stays closed.
            CASE WHEN current_user <> 'nihongo_app' THEN 'SELECT,INSERT,UPDATE,REFERENCES'
            WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
-               ('Phase7ReauthenticationIntent', 'finalizedAt'),
-               ('Phase7ReauthenticationIntent', 'stagedSessionId'),
-               ('Phase7ReauthenticationIntent', 'stagedTokenDigest'),
+               ('ReauthenticationIntent', 'finalizedAt'),
+               ('ReauthenticationIntent', 'stagedSessionId'),
+               ('ReauthenticationIntent', 'stagedTokenDigest'),
                ('User', 'accountStatus'),
                ('User', 'authorityGeneration')
              ) THEN 'INSERT,REFERENCES'
            WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
-               ('Phase7AuthorityRevocationEvidence', 'expiresAt'),
-               ('Phase7AuthorityRevocationEvidence', 'tokenDigest'),
+               ('AuthorityRevocationEvidence', 'expiresAt'),
+               ('AuthorityRevocationEvidence', 'tokenDigest'),
                ('User', 'createdAt'),
                ('User', 'deletedAt'),
                ('User', 'email'),
@@ -209,7 +209,7 @@ const ATTESTATION_QUERY = `
                ('User', 'targetLevel')
              ) THEN 'INSERT,UPDATE,REFERENCES'
            WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
-               ('Phase7ReauthenticationIntent', 'state'),
+               ('ReauthenticationIntent', 'state'),
                ('Session', 'authorizationState'),
                ('Session', 'expiresAt'),
                ('Session', 'updatedAt')
@@ -221,7 +221,7 @@ const ATTESTATION_QUERY = `
              ) THEN 'SELECT,REFERENCES'
            WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
                ('Account', 'updatedAt'),
-               ('Phase7ReauthenticationIntent', 'createdAt'),
+               ('ReauthenticationIntent', 'createdAt'),
                ('Session', 'ipAddress'),
                ('Session', 'userAgent')
              ) THEN 'SELECT,UPDATE,REFERENCES'
@@ -230,17 +230,17 @@ const ATTESTATION_QUERY = `
                ('Account', 'id'),
                ('Account', 'providerId'),
                ('Account', 'userId'),
-               ('Phase7ReauthenticationIntent', 'capturedAccountStatus'),
-               ('Phase7ReauthenticationIntent', 'capturedAuthorityGeneration'),
-               ('Phase7ReauthenticationIntent', 'capturedRole'),
-               ('Phase7ReauthenticationIntent', 'environment'),
-               ('Phase7ReauthenticationIntent', 'expiresAt'),
-               ('Phase7ReauthenticationIntent', 'id'),
-               ('Phase7ReauthenticationIntent', 'oldSessionId'),
-               ('Phase7ReauthenticationIntent', 'oldTokenDigest'),
-               ('Phase7ReauthenticationIntent', 'operationId'),
-               ('Phase7ReauthenticationIntent', 'requestId'),
-               ('Phase7ReauthenticationIntent', 'userId'),
+               ('ReauthenticationIntent', 'capturedAccountStatus'),
+               ('ReauthenticationIntent', 'capturedAuthorityGeneration'),
+               ('ReauthenticationIntent', 'capturedRole'),
+               ('ReauthenticationIntent', 'environment'),
+               ('ReauthenticationIntent', 'expiresAt'),
+               ('ReauthenticationIntent', 'id'),
+               ('ReauthenticationIntent', 'oldSessionId'),
+               ('ReauthenticationIntent', 'oldTokenDigest'),
+               ('ReauthenticationIntent', 'operationId'),
+               ('ReauthenticationIntent', 'requestId'),
+               ('ReauthenticationIntent', 'userId'),
                ('Session', 'authorityGeneration'),
                ('Session', 'createdAt'),
                ('Session', 'id'),
@@ -257,8 +257,8 @@ const ATTESTATION_QUERY = `
        WHERE sensitive_namespace.nspname = current_schema()
          AND sensitive_relation.relname = ANY(ARRAY[
            'User', 'Account', 'Session',
-           'Phase7ReauthenticationIntent',
-           'Phase7AuthorityRevocationEvidence'
+           'ReauthenticationIntent',
+           'AuthorityRevocationEvidence'
          ]::name[])
          AND has_table_privilege(
            current_user,
@@ -267,8 +267,8 @@ const ATTESTATION_QUERY = `
            -- triggers limit which of these rows nihongo_app may delete.
            CASE WHEN current_user = 'nihongo_app'
              AND sensitive_relation.relname IN (
-               'User', 'Account', 'Session', 'Phase7ReauthenticationIntent',
-               'Phase7AuthorityRevocationEvidence'
+               'User', 'Account', 'Session', 'ReauthenticationIntent',
+               'AuthorityRevocationEvidence'
              )
            THEN 'SELECT,INSERT,UPDATE,TRUNCATE,REFERENCES,TRIGGER'
            ELSE 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER' END
@@ -279,17 +279,11 @@ const ATTESTATION_QUERY = `
       count(*) FILTER (
         WHERE acl_role.rolname = ANY (ARRAY[
           CASE WHEN current_database() ~ '_test$'
-            THEN 'nihongo_test_phase7_migration_login'
-            ELSE 'nihongo_development_phase7_migration_login' END,
+            THEN 'nihongo_test_migration_login'
+            ELSE 'nihongo_development_migration_login' END,
           CASE WHEN current_database() ~ '_test$'
             THEN 'nihongo_test_app_login'
-            ELSE 'nihongo_development_app_login' END,
-          CASE WHEN current_database() ~ '_test$'
-            THEN 'nihongo_test_auth_gateway_login'
-            ELSE 'nihongo_development_auth_gateway_login' END,
-          CASE WHEN current_database() ~ '_test$'
-            THEN 'nihongo_test_erasure_worker_login'
-            ELSE 'nihongo_development_erasure_worker_login' END
+            ELSE 'nihongo_development_app_login' END
         ]::name[])
           AND entry.privilege_type = 'CONNECT'
           AND NOT entry.is_grantable
@@ -302,17 +296,11 @@ const ATTESTATION_QUERY = `
             AND NOT (
               acl_role.rolname = ANY (ARRAY[
                 CASE WHEN current_database() ~ '_test$'
-                  THEN 'nihongo_test_phase7_migration_login'
-                  ELSE 'nihongo_development_phase7_migration_login' END,
+                  THEN 'nihongo_test_migration_login'
+                  ELSE 'nihongo_development_migration_login' END,
                 CASE WHEN current_database() ~ '_test$'
                   THEN 'nihongo_test_app_login'
                   ELSE 'nihongo_development_app_login' END,
-                CASE WHEN current_database() ~ '_test$'
-                  THEN 'nihongo_test_auth_gateway_login'
-                  ELSE 'nihongo_development_auth_gateway_login' END,
-                CASE WHEN current_database() ~ '_test$'
-                  THEN 'nihongo_test_erasure_worker_login'
-                  ELSE 'nihongo_development_erasure_worker_login' END,
                 CASE WHEN current_database() ~ '_test$'
                   THEN 'nihongo_test_guest_cleanup_worker_login'
                   ELSE 'nihongo_development_guest_cleanup_worker_login' END
@@ -369,18 +357,14 @@ const arraysEqual = (
   left.length === right.length &&
   left.every((value, index) => value === right[index])
 
-const expectedWrapperRole = (
-  database: string,
-  runtimeRole: RuntimeRole
-): string | null => {
+const expectedWrapperRole = (database: string): string | null => {
   const environmentPrefix = database.endsWith('_test')
     ? 'nihongo_test'
     : database.endsWith('_dev')
       ? 'nihongo_development'
       : null
   if (!environmentPrefix) return null
-  const roleSuffix =
-    runtimeRole === 'nihongo_app' ? 'app_login' : 'auth_gateway_login'
+  const roleSuffix = 'app_login'
   return `${environmentPrefix}_${roleSuffix}`
 }
 
@@ -391,10 +375,7 @@ const assertEndpoint = (
   const configuredLogin = getConfiguredLoginRole(endpoint.connectionString)
   const configuredDatabase = getConfiguredDatabase(endpoint.connectionString)
   const configuredSchema = getPostgresSchema(endpoint.connectionString)
-  const requiredLogin = expectedWrapperRole(
-    configuredDatabase,
-    endpoint.expectedRole
-  )
+  const requiredLogin = expectedWrapperRole(configuredDatabase)
   const isExact =
     requiredLogin !== null &&
     configuredLogin === requiredLogin &&
@@ -417,7 +398,7 @@ const assertEndpoint = (
     !evidence.sessionUserMembershipAdminOption &&
     !evidence.sessionUserMembershipInheritOption &&
     evidence.sessionUserMembershipSetOption &&
-    evidence.currentDatabaseExpectedWrapperConnectAclCount === 4 &&
+    evidence.currentDatabaseExpectedWrapperConnectAclCount === 2 &&
     evidence.currentDatabaseUnexpectedAclCount === 0 &&
     evidence.sessionUserCurrentDatabaseConnectAclCount === 1 &&
     evidence.sessionUserColumnAclCount === 0 &&
@@ -432,8 +413,8 @@ const assertEndpoint = (
     !evidence.groupInherit &&
     evidence.groupSensitiveColumnAclCount === 0 &&
     evidence.groupSensitiveTableAclCount === 0 &&
-    evidence.databaseOwner === 'nihongo_phase7_migration' &&
-    evidence.schemaOwner === 'nihongo_phase7_owner' &&
+    evidence.databaseOwner === 'nihongo_migration' &&
+    evidence.schemaOwner === 'nihongo_owner' &&
     evidence.sessionReplicationRole === 'origin' &&
     arraysEqual(evidence.directGrants, [endpoint.expectedRole]) &&
     evidence.groupDirectGrants.length === 0

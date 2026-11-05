@@ -10,9 +10,7 @@ export const createAuthRuntimePlan = (environment: ApiEnvironment) => {
     throw new Error('SSO database authority is unavailable.')
   return {
     ownedAuth,
-    migrationProfile: ownedAuth
-      ? ('current' as const)
-      : ('pre-phase7' as const),
+    migrationProfile: 'current' as const,
     ...(ownedAuth ? { applicationRole: 'nihongo_app' as const } : {}),
     cmsEnabled: environment.ADMIN_CMS_MODE === 'technical'
   }

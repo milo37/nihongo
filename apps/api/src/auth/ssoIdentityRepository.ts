@@ -60,7 +60,7 @@ export const createSsoIdentityRepository = (
   signIn: async (untrustedIdentity, metadata) => {
     const identity = identitySchema.parse(untrustedIdentity)
     const rows = await client.$queryRawUnsafe<Array<{ result: unknown }>>(
-      'SELECT "phase7_resolve_sso_identity"($1, $2, $3, $4) AS result',
+      'SELECT "resolve_sso_identity"($1, $2, $3, $4) AS result',
       identity.provider,
       identity.accountId,
       identity.email.toLowerCase(),

@@ -59,11 +59,11 @@ const validInput = (mode = 'test'): NodeJS.ProcessEnv => {
   const schema = test ? 'phase7_bootstrap_test' : 'phase7_bootstrap_dev'
   const migration = new URL('postgresql://127.0.0.1:5432/' + database)
   migration.username = test
-    ? 'nihongo_test_phase7_migration_login'
-    : 'nihongo_development_phase7_migration_login'
+    ? 'nihongo_test_migration_login'
+    : 'nihongo_development_migration_login'
   migration.password = 'unit-only'
   migration.searchParams.set('schema', schema)
-  migration.searchParams.set('options', '-c role=nihongo_phase7_migration')
+  migration.searchParams.set('options', '-c role=nihongo_migration')
   return {
     NODE_ENV: mode,
     DEPLOYMENT_ENV: test ? 'TEST' : 'DEVELOPMENT',
@@ -128,7 +128,7 @@ describe('first Google admin operator CLI', () => {
         options:
           '-c search_path=phase7_bootstrap_' +
           (mode === 'test' ? 'test' : 'dev') +
-          ' -c TimeZone=UTC -c role=nihongo_phase7_migration'
+          ' -c TimeZone=UTC -c role=nihongo_migration'
       })
       const connection = new URL(
         (options as { connectionString: string }).connectionString
@@ -140,7 +140,7 @@ describe('first Google admin operator CLI', () => {
         ["SET LOCAL lock_timeout = '5s'"],
         [
           expect.stringContaining(
-            '"phase7_bootstrap_first_google_admin"($1::uuid,$2::text,$3::integer,$4::text,$5::"AdminAuditEnvironment")'
+            '"bootstrap_first_google_admin"($1::uuid,$2::text,$3::integer,$4::text,$5::"AdminAuditEnvironment")'
           ),
           [
             userId,
@@ -294,14 +294,14 @@ describe('first Google admin operator CLI', () => {
       'wrong startup role',
       () =>
         changeUrl(validInput(), (url) => {
-          url.searchParams.set('options', '-c role=nihongo_phase7_owner')
+          url.searchParams.set('options', '-c role=nihongo_owner')
         })
     ],
     [
       'duplicate startup option',
       () =>
         changeUrl(validInput(), (url) => {
-          url.searchParams.append('options', '-c role=nihongo_phase7_migration')
+          url.searchParams.append('options', '-c role=nihongo_migration')
         })
     ],
     [

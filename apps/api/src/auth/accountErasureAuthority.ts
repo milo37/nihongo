@@ -18,7 +18,7 @@ import {
  * and message on failure. Failures are raised inside PostgreSQL so the existing
  * error mapping sees the same database error. The database allows the
  * nihongo_app writes only for a User whose erasure is confirmed
- * (phase7_user_erasure_confirmed).
+ * (user_erasure_confirmed).
  */
 
 type Transaction = Prisma.TransactionClient
@@ -26,7 +26,7 @@ type Queryable = Pick<PrismaClient, '$queryRawUnsafe' | '$executeRawUnsafe'>
 export type ErasureEnvironment = 'TEST' | 'DEVELOPMENT' | 'PRODUCTION'
 
 /** Marks the TEST-only direct erasure of one User in this transaction. */
-const TEST_ERASURE_SETTING = 'nihongo.phase7_test_erasure_user'
+const TEST_ERASURE_SETTING = 'nihongo.test_erasure_user'
 
 const OPEN_VERSION_STATUSES = `('DRAFT','IN_REVIEW','CHANGES_REQUESTED','APPROVED')`
 
@@ -47,7 +47,7 @@ const requireCapability = async (
 ): Promise<void> => {
   // The check returns void, which Prisma cannot read as a column.
   await client.$executeRawUnsafe(
-    `SELECT "phase7_require_database_capability"($1::"AdminAuditEnvironment")`,
+    `SELECT "require_database_capability"($1::"AdminAuditEnvironment")`,
     environment
   )
 }
@@ -65,19 +65,8 @@ const requireTargetDatabase = async (
   if (rows[0]?.matches !== true) await raise(client, '42501', message)
 }
 
-// Activation is one-way false to true (protect_phase7_auth_issuer_activation),
-// so a read without a lock gives the same answer as the old FOR SHARE.
-const requireActivation = async (
-  client: Queryable,
-  message: string
-): Promise<void> => {
-  const rows = await client.$queryRawUnsafe<Array<{ active: boolean }>>(
-    `SELECT "legacyIssuerDisabled" AS active FROM "AuthIssuerActivation"
-     WHERE "id" = 1`
-  )
-  if (rows[0]?.active !== true) await raise(client, '42501', message)
-}
-
+// #504 P8-1: the baseline starts with V1 issuance active; the activation
+// checks the SQL made are gone.
 const subjectActorDigest = (userId: string): string =>
   createHash('sha256')
     .update(
@@ -380,10 +369,6 @@ const eraseConfirmedUser = async (
     environment,
     'Erasure environment does not match the approved DB target.'
   )
-  await requireActivation(
-    transaction,
-    'Erasure requires completed V1 issuer activation.'
-  )
   const target = await transaction.$queryRawUnsafe<unknown[]>(
     `SELECT 1 FROM "User" WHERE "id" = $1::uuid FOR UPDATE`,
     userId
@@ -419,7 +404,7 @@ export const eraseUserForTest = async (
       'Direct erasure is TEST-only; use the provider-first erasure queue.'
     )
   // The database accepts this marker only in a TEST database with a TEST
-  // capability (phase7_user_erasure_confirmed).
+  // capability (user_erasure_confirmed).
   await transaction.$queryRawUnsafe(
     `SELECT set_config('${TEST_ERASURE_SETTING}', $1::uuid::text, true)`,
     userId
@@ -527,9 +512,7 @@ export const ssoAccountErasureStatus = async (
   client: Pick<PrismaClient, '$queryRawUnsafe'>,
   receiptDigest: string
 ): Promise<unknown> => {
-  await client.$queryRawUnsafe(
-    `SELECT "phase7_require_runtime_ready"() AS ready`
-  )
+  await client.$queryRawUnsafe(`SELECT "require_runtime_ready"() AS ready`)
   const rows = await client.$queryRawUnsafe<Array<{ result: unknown }>>(
     `SELECT jsonb_build_object(
          'appStatus', r."appStatus", 'providerCleanup', r."providerCleanup"
@@ -558,10 +541,6 @@ export const redactExpiredReportDescriptions = async (
     transaction,
     environment,
     'Report redaction environment does not match the DB target.'
-  )
-  await requireActivation(
-    transaction,
-    'Report redaction requires completed V1 activation.'
   )
   return transaction.$executeRawUnsafe(
     `WITH event AS (SELECT clock_timestamp()::timestamptz(3) AS at),
@@ -611,7 +590,7 @@ export const requestSsoAccountErasure = async (
 ): Promise<SsoAccountErasureRequestResult> =>
   client.$transaction(async (transaction) => {
     await transaction.$queryRawUnsafe(
-      `SELECT "phase7_require_runtime_ready"() AS ready`
+      `SELECT "require_runtime_ready"() AS ready`
     )
     const first = await accountSessionContext(transaction, rawToken)
     if (!first) return { code: 'AUTHENTICATION_REQUIRED' }

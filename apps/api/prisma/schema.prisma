@@ -128,13 +128,13 @@ enum AuthSessionAuthorizationState {
   PENDING_REAUTH
 }
 
-enum Phase7ReauthenticationIntentState {
+enum ReauthenticationIntentState {
   PREPARED
   STAGED
   FINALIZED
 }
 
-enum Phase7AuthorityRevocationReason {
+enum AuthorityRevocationReason {
   ADMIN_AUTHORITY_LOST
   SESSION_INVALIDATED
 }
@@ -307,16 +307,10 @@ model Session {
   @@index([expiresAt])
 }
 
-model AuthIssuerActivation {
-  id                   Int      @id @default(1) @db.SmallInt
-  legacyIssuerDisabled Boolean  @default(false)
-  updatedAt            DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
-}
-
 // Transaction-local Phase 7 authority/evidence state. These tables are part of
 // migration drift control but intentionally excluded from Prisma Client so
 // application code cannot treat their rows as a public persistence API.
-model Phase7OperationIntent {
+model OperationIntent {
   operationId                 String                @id @db.Uuid
   requestId                   String?               @db.Uuid
   command                     AdminAuditCommand
@@ -331,11 +325,11 @@ model Phase7OperationIntent {
   backendPid                  Int                   @default(dbgenerated("pg_backend_pid()"))
   transactionId               BigInt                @default(dbgenerated("txid_current()"))
 
-  @@unique([backendPid, transactionId], map: "Phase7OperationIntent_backend_transaction_key")
+  @@unique([backendPid, transactionId], map: "OperationIntent_backend_transaction_key")
   @@ignore
 }
 
-model Phase7DatabaseCapability {
+model DatabaseCapability {
   id            Int                   @id @default(1) @db.SmallInt
   databaseName  String
   serverAddress String                @db.Inet
@@ -346,34 +340,34 @@ model Phase7DatabaseCapability {
   @@ignore
 }
 
-model Phase7ReauthenticationIntent {
-  id                          String                            @id @default(dbgenerated("public.gen_random_uuid()")) @db.Uuid
-  operationId                 String                            @unique @default(dbgenerated("public.gen_random_uuid()")) @db.Uuid
-  requestId                   String                            @db.Uuid
-  userId                      String                            @db.Uuid
-  oldSessionId                String                            @db.Uuid
-  oldTokenDigest              String                            @db.VarChar(64)
+model ReauthenticationIntent {
+  id                          String                      @id @default(dbgenerated("public.gen_random_uuid()")) @db.Uuid
+  operationId                 String                      @unique @default(dbgenerated("public.gen_random_uuid()")) @db.Uuid
+  requestId                   String                      @db.Uuid
+  userId                      String                      @db.Uuid
+  oldSessionId                String                      @db.Uuid
+  oldTokenDigest              String                      @db.VarChar(64)
   capturedAuthorityGeneration Int
   capturedRole                UserRole
   capturedAccountStatus       UserAccountStatus
-  state                       Phase7ReauthenticationIntentState @default(PREPARED)
-  stagedSessionId             String?                           @unique @db.Uuid
-  stagedTokenDigest           String?                           @unique @db.VarChar(64)
+  state                       ReauthenticationIntentState @default(PREPARED)
+  stagedSessionId             String?                     @unique @db.Uuid
+  stagedTokenDigest           String?                     @unique @db.VarChar(64)
   environment                 AdminAuditEnvironment
-  createdAt                   DateTime                          @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
-  expiresAt                   DateTime                          @db.Timestamptz(3)
-  finalizedAt                 DateTime?                         @db.Timestamptz(3)
+  createdAt                   DateTime                    @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  expiresAt                   DateTime                    @db.Timestamptz(3)
+  finalizedAt                 DateTime?                   @db.Timestamptz(3)
 
   @@index([state, expiresAt, id])
   @@ignore
 }
 
-model Phase7AuthorityRevocationEvidence {
-  tokenDigest String                          @id @db.VarChar(64)
-  sessionId   String                          @db.Uuid
-  reason      Phase7AuthorityRevocationReason
-  createdAt   DateTime                        @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
-  expiresAt   DateTime                        @db.Timestamptz(3)
+model AuthorityRevocationEvidence {
+  tokenDigest String                    @id @db.VarChar(64)
+  sessionId   String                    @db.Uuid
+  reason      AuthorityRevocationReason
+  createdAt   DateTime                  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  expiresAt   DateTime                  @db.Timestamptz(3)
 
   @@index([expiresAt, tokenDigest])
   @@ignore
@@ -966,41 +960,6 @@ model SsoAdminFreshProof {
 }
 
 // Migration-owned registration evidence is represented for drift checks only.
-model Phase7ApprovedReadingTagRegistration {
-  batch     String   @id
-  appliedAt DateTime @default(now()) @db.Timestamptz(6)
-
-  @@ignore
-}
-
-model Phase7ApprovedN3ReadingTagRegistration {
-  batch     String   @id
-  appliedAt DateTime @default(now()) @db.Timestamptz(6)
-
-  @@ignore
-}
-
-model Phase7ApprovedN4N2ReadingTagRegistration {
-  batch     String   @id
-  appliedAt DateTime @default(now()) @db.Timestamptz(6)
-
-  @@ignore
-}
-
-model Phase7ApprovedN4ReadingBatch7TagRegistration {
-  batch     String   @id
-  appliedAt DateTime @default(now()) @db.Timestamptz(6)
-
-  @@ignore
-}
-
-model Phase7Approved308TagRegistration {
-  batch     String   @id
-  appliedAt DateTime @default(now()) @db.Timestamptz(6)
-
-  @@ignore
-}
-
 model SsoAccountFreshTransaction {
   stateDigest   String   @id @db.VarChar(64)
   bindingDigest String   @db.VarChar(64)

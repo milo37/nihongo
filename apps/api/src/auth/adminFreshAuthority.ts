@@ -46,12 +46,10 @@ const raise = async (
 const requireRuntimeReady = async (
   client: Pick<PrismaClient, '$queryRawUnsafe'>
 ): Promise<void> => {
-  await client.$queryRawUnsafe(
-    `SELECT "phase7_require_runtime_ready"() AS ready`
-  )
+  await client.$queryRawUnsafe(`SELECT "require_runtime_ready"() AS ready`)
 }
 
-/** The intent token digest, as phase7_reauthentication_token_digest computed it. */
+/** The intent token digest, as reauthentication_token_digest computed it. */
 export const reauthenticationTokenDigest = (rawToken: string): string =>
   createHash('sha256')
     .update(
@@ -105,7 +103,7 @@ const contextIsValid = async (
     Array<{ oldTokenDigest: string; token: string }>
   >(
     `SELECT intent."oldTokenDigest", session."token"
-     FROM "Phase7ReauthenticationIntent" AS intent
+     FROM "ReauthenticationIntent" AS intent
      JOIN "User" AS actor ON actor."id" = intent."userId"
      JOIN "Session" AS session
        ON session."id" = intent."oldSessionId"
@@ -142,7 +140,7 @@ const intentExpiry = async (
   intentId: string
 ): Promise<Date | null> => {
   const rows = await transaction.$queryRawUnsafe<Array<{ expiresAt: Date }>>(
-    `SELECT "expiresAt" FROM "Phase7ReauthenticationIntent" WHERE "id" = $1::uuid`,
+    `SELECT "expiresAt" FROM "ReauthenticationIntent" WHERE "id" = $1::uuid`,
     intentId
   )
   return rows[0]?.expiresAt ?? null
@@ -175,7 +173,7 @@ export const prepareReauthentication = async (
   }
 ): Promise<PreparedReauthentication | null> => {
   await transaction.$executeRawUnsafe(
-    `SELECT "phase7_require_database_capability"($1::"AdminAuditEnvironment")`,
+    `SELECT "require_database_capability"($1::"AdminAuditEnvironment")`,
     input.environment
   )
   await requireRuntimeReady(transaction)
@@ -214,7 +212,7 @@ export const prepareReauthentication = async (
   const staleIntents = await transaction.$queryRawUnsafe<
     Array<{ id: string; stagedSessionId: string | null }>
   >(
-    `SELECT "id", "stagedSessionId" FROM "Phase7ReauthenticationIntent"
+    `SELECT "id", "stagedSessionId" FROM "ReauthenticationIntent"
      WHERE "oldSessionId" = $1::uuid AND "state" IN ('PREPARED', 'STAGED')
        AND "expiresAt" <= clock_timestamp()
      ORDER BY "id" LIMIT 1`,
@@ -235,7 +233,7 @@ export const prepareReauthentication = async (
     const locked = await transaction.$queryRawUnsafe<
       Array<{ id: string; stagedSessionId: string | null }>
     >(
-      `SELECT "id", "stagedSessionId" FROM "Phase7ReauthenticationIntent"
+      `SELECT "id", "stagedSessionId" FROM "ReauthenticationIntent"
        WHERE "id" = $1::uuid AND "oldSessionId" = $2::uuid
          AND "state" IN ('PREPARED', 'STAGED')
          AND "expiresAt" <= clock_timestamp()
@@ -253,7 +251,7 @@ export const prepareReauthentication = async (
         target.userId
       )
       const removed = await transaction.$executeRawUnsafe(
-        `DELETE FROM "Phase7ReauthenticationIntent"
+        `DELETE FROM "ReauthenticationIntent"
          WHERE "id" = $1::uuid AND "oldSessionId" = $2::uuid
            AND "state" IN ('PREPARED', 'STAGED')
            AND "expiresAt" <= clock_timestamp()`,
@@ -269,7 +267,7 @@ export const prepareReauthentication = async (
     }
   }
   const live = await transaction.$queryRawUnsafe<unknown[]>(
-    `SELECT 1 FROM "Phase7ReauthenticationIntent"
+    `SELECT 1 FROM "ReauthenticationIntent"
      WHERE "oldSessionId" = $1::uuid AND "state" IN ('PREPARED', 'STAGED')`,
     target.sessionId
   )
@@ -300,7 +298,7 @@ export const prepareReauthentication = async (
   const inserted = await transaction.$queryRawUnsafe<
     Array<{ expiresAt: Date }>
   >(
-    `INSERT INTO "Phase7ReauthenticationIntent" (
+    `INSERT INTO "ReauthenticationIntent" (
        "id", "operationId", "requestId", "userId", "oldSessionId",
        "oldTokenDigest", "capturedAuthorityGeneration", "capturedRole",
        "capturedAccountStatus", "state", "environment", "createdAt",
@@ -382,7 +380,7 @@ export const prepareAdminFresh = async (
       Array<{ environment: string }>
     >(
       `SELECT "environment"::TEXT AS environment
-       FROM "Phase7DatabaseCapability" WHERE "id" = 1`
+       FROM "DatabaseCapability" WHERE "id" = 1`
     )
     const environment = environments[0]?.environment
     if (!environment) return null
@@ -547,7 +545,7 @@ const readIntent = async (
 ): Promise<IntentRow | undefined> =>
   (
     await transaction.$queryRawUnsafe<IntentRow[]>(
-      `SELECT ${INTENT_COLUMNS} FROM "Phase7ReauthenticationIntent"
+      `SELECT ${INTENT_COLUMNS} FROM "ReauthenticationIntent"
        WHERE "id" = $1::uuid${lock ? ' FOR UPDATE' : ''}`,
       intentId
     )
@@ -623,7 +621,7 @@ export const stageReauthentication = async (
   }
 ): Promise<StagedReauthenticationSession | null> => {
   await transaction.$executeRawUnsafe(
-    `SELECT "phase7_require_database_capability"(NULL)`
+    `SELECT "require_database_capability"(NULL)`
   )
   await requireRuntimeReady(transaction)
   if (input.rawNewToken === '') return null
@@ -696,7 +694,7 @@ export const stageReauthentication = async (
     intent.capturedAuthorityGeneration
   )
   const updated = await transaction.$executeRawUnsafe(
-    `UPDATE "Phase7ReauthenticationIntent"
+    `UPDATE "ReauthenticationIntent"
      SET "state" = 'STAGED', "stagedSessionId" = $2::uuid,
          "stagedTokenDigest" = $3
      WHERE "id" = $1::uuid AND "state" = 'PREPARED'`,
@@ -731,7 +729,7 @@ export const finalizeReauthentication = async (
   rawNewToken: string
 ): Promise<FinalizedReauthentication> => {
   await transaction.$executeRawUnsafe(
-    `SELECT "phase7_require_database_capability"(NULL)`
+    `SELECT "require_database_capability"(NULL)`
   )
   await requireRuntimeReady(transaction)
   if (rawNewToken === '')
@@ -896,7 +894,7 @@ export const finalizeReauthentication = async (
       'Reauthentication authority expired before commit.'
     )
   const finalized = await transaction.$executeRawUnsafe(
-    `UPDATE "Phase7ReauthenticationIntent"
+    `UPDATE "ReauthenticationIntent"
      SET "state" = 'FINALIZED', "finalizedAt" = clock_timestamp()
      WHERE "id" = $1::uuid AND "state" = 'STAGED'`,
     intent.id
@@ -1115,7 +1113,7 @@ export const reconcileReauthentication = async (
        intent."operationId", intent."stagedTokenDigest",
        audit."beforeState" AS "auditBeforeState",
        audit."contentDigest" AS "auditDigest"
-     FROM "Phase7ReauthenticationIntent" AS intent
+     FROM "ReauthenticationIntent" AS intent
      JOIN "Session" AS session
        ON session."id" = intent."stagedSessionId"
       AND session."userId" = intent."userId"
@@ -1246,7 +1244,7 @@ export const abortReauthentication = async (
         intent.userId
       )
     const removed = await transaction.$executeRawUnsafe(
-      `DELETE FROM "Phase7ReauthenticationIntent"
+      `DELETE FROM "ReauthenticationIntent"
        WHERE "id" = $1::uuid AND "state" <> 'FINALIZED'`,
       intent.id
     )
@@ -1303,7 +1301,7 @@ export const cleanupReauthentication = async (
 ): Promise<ReauthenticationCleanup> =>
   client.$transaction(async (transaction) => {
     await transaction.$executeRawUnsafe(
-      `SELECT "phase7_require_database_capability"(NULL)`
+      `SELECT "require_database_capability"(NULL)`
     )
     if (
       !Number.isSafeInteger(maximumRows) ||
@@ -1328,7 +1326,7 @@ export const cleanupReauthentication = async (
       }>
     >(
       `SELECT "id", "userId", "stagedSessionId"
-       FROM "Phase7ReauthenticationIntent"
+       FROM "ReauthenticationIntent"
        WHERE ${CLEANUP_CANDIDATE.replaceAll('$2', '$1')}
        ORDER BY "userId", "id" LIMIT $2`,
       checkedAt,
@@ -1342,7 +1340,7 @@ export const cleanupReauthentication = async (
     await transaction.$queryRawUnsafe(
       `SELECT 1 FROM "User"
        WHERE "id" IN (
-         SELECT "userId" FROM "Phase7ReauthenticationIntent"
+         SELECT "userId" FROM "ReauthenticationIntent"
          WHERE "id" = ANY($1::uuid[])
        )
        ORDER BY "id" FOR UPDATE`,
@@ -1354,14 +1352,14 @@ export const cleanupReauthentication = async (
       sessionIds
     )
     await transaction.$queryRawUnsafe(
-      `SELECT 1 FROM "Phase7ReauthenticationIntent"
+      `SELECT 1 FROM "ReauthenticationIntent"
        WHERE "id" = ANY($1::uuid[])
        ORDER BY "userId", "id" FOR UPDATE`,
       intentIds
     )
     const pendingSessionsDeleted = await transaction.$executeRawUnsafe(
       `DELETE FROM "Session" AS session
-       USING "Phase7ReauthenticationIntent" AS intent
+       USING "ReauthenticationIntent" AS intent
        WHERE intent."id" = ANY($1::uuid[])
          AND ((intent."state" IN ('PREPARED', 'STAGED')
              AND intent."expiresAt" <= $2::timestamptz)
@@ -1374,15 +1372,15 @@ export const cleanupReauthentication = async (
       checkedAt
     )
     const intentsDeleted = await transaction.$executeRawUnsafe(
-      `DELETE FROM "Phase7ReauthenticationIntent"
+      `DELETE FROM "ReauthenticationIntent"
        WHERE "id" = ANY($1::uuid[]) AND ${CLEANUP_CANDIDATE}`,
       intentIds,
       checkedAt
     )
     const evidenceDeleted = await transaction.$executeRawUnsafe(
-      `DELETE FROM "Phase7AuthorityRevocationEvidence"
+      `DELETE FROM "AuthorityRevocationEvidence"
        WHERE "tokenDigest" IN (
-         SELECT "tokenDigest" FROM "Phase7AuthorityRevocationEvidence"
+         SELECT "tokenDigest" FROM "AuthorityRevocationEvidence"
          WHERE "expiresAt" <= $1::timestamptz
          ORDER BY "tokenDigest" LIMIT $2
        )`,

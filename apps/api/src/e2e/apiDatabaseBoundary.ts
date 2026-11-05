@@ -1,9 +1,7 @@
 const TEST_DATABASE_GROUP_ROLES = new Set([
-  'nihongo_phase7_owner',
-  'nihongo_phase7_migration',
-  'nihongo_app',
-  'nihongo_auth_gateway',
-  'nihongo_erasure_worker'
+  'nihongo_owner',
+  'nihongo_migration',
+  'nihongo_app'
 ])
 
 export interface ApiBootstrapIdentity {

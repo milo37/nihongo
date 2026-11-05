@@ -268,7 +268,7 @@ const app = createApiApp({
         admin: {
           assertCapability: async () => {
             await database.client.$queryRawUnsafe(
-              'SELECT "phase7_require_runtime_ready"()'
+              'SELECT "require_runtime_ready"()'
             )
           },
           commands: {
