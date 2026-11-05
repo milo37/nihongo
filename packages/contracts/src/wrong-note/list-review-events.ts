@@ -21,7 +21,7 @@ const rawReviewEventCursorTokenSchema = z
   .max(reviewEventCursorMaximumLength)
   .regex(/^[A-Za-z0-9_-]+$/, 'cursor는 padding 없는 base64url이어야 합니다.')
 
-export const reviewEventCursorV1Schema = z
+const reviewEventCursorV1Schema = z
   .object({
     v: z.literal(1),
     occurredAt: isoDateTimeSchema,
@@ -466,9 +466,6 @@ export type ReviewEventCursorV1 = z.output<typeof reviewEventCursorV1Schema>
 export type ReviewEventHistoryItem = z.output<
   typeof reviewEventHistoryItemSchema
 >
-export type ListReviewEventsParams = z.input<
-  typeof listReviewEventsParamsSchema
->
 export type ListReviewEventsQuery = z.input<typeof listReviewEventsQuerySchema>
 export type ParsedListReviewEventsQuery = z.output<
   typeof listReviewEventsQuerySchema
@@ -476,4 +473,3 @@ export type ParsedListReviewEventsQuery = z.output<
 export type ListReviewEventsResponse = z.output<
   typeof listReviewEventsResponseSchema
 >
-export type ListReviewEventsError = z.output<typeof listReviewEventsErrorSchema>

@@ -57,11 +57,11 @@ export const ssoAccountContextSchema = z
       : v.freshProofDigest !== undefined
   )
 export type SsoAccountContext = z.output<typeof ssoAccountContextSchema>
-export interface SsoAccountTransaction
+interface SsoAccountTransaction
   extends Omit<SsoTransaction, 'stateDigest' | 'bindingDigest'> {
   context: SsoAccountContext
 }
-export type AccountResult<T> = T | { code: SsoAccountErrorCode }
+type AccountResult<T> = T | { code: SsoAccountErrorCode }
 export interface SsoAccountPort {
   prepare: (
     token: string,
@@ -239,9 +239,6 @@ const providerCleanupClaimSchema = z
       .strict()
   )
   .max(100)
-export type SsoProviderCleanupClaim = z.output<
-  typeof providerCleanupClaimSchema
->[number]
 /** Internal erasure-worker port only. No provider calls or credentials. */
 export const createSsoAccountErasureWorker = (
   client: Pick<

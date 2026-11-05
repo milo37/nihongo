@@ -36,7 +36,7 @@ export interface CanonicalizeStudySubmissionInput {
   readonly durationSec: number
 }
 
-export interface CanonicalizeStudySubmissionV2Input
+interface CanonicalizeStudySubmissionV2Input
   extends CanonicalizeStudySubmissionInput {
   readonly expectedDraftRevision: number
 }

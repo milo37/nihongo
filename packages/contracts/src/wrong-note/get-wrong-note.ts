@@ -8,14 +8,14 @@ import {
   wrongNoteTagLabelSchema
 } from './list-wrong-notes.js'
 
-export const historicalWrongNoteQuestionTagSchema = z
+const historicalWrongNoteQuestionTagSchema = z
   .object({
     id: opaqueIdSchema,
     label: wrongNoteTagLabelSchema
   })
   .strict()
 
-export const historicalReviewedQuestionSchema = z
+const historicalReviewedQuestionSchema = z
   .object({
     id: reviewedQuestionSchema.shape.id,
     questionVersionId: reviewedQuestionSchema.shape.questionVersionId,
@@ -98,8 +98,6 @@ export const historicalReviewedQuestionSchema = z
     }
   })
 
-export const getWrongNoteOperationId = 'wrongNote.getWrongNote' as const
-
 export const getWrongNoteParamsSchema = z
   .object({ questionId: opaqueIdSchema })
   .strict()
@@ -151,7 +149,7 @@ export const getWrongNoteResponseSchema = z
     }
   })
 
-export const getWrongNoteErrorCodeSchema = z.enum([
+const getWrongNoteErrorCodeSchema = z.enum([
   'AUTHENTICATION_REQUIRED',
   'AUTH_SESSION_EXPIRED',
   'INVALID_ID',
@@ -167,6 +165,5 @@ export const getWrongNoteErrorSchema = createApiFailureSchema(
 )
 
 export type GetWrongNoteParams = z.input<typeof getWrongNoteParamsSchema>
-export type GetWrongNoteQuery = z.input<typeof getWrongNoteQuerySchema>
 export type GetWrongNoteResponse = z.output<typeof getWrongNoteResponseSchema>
 export type GetWrongNoteError = z.output<typeof getWrongNoteErrorSchema>

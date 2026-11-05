@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { safeAdminFreshReturnPath } from './admin-fresh-sso.js'
 import { ssoProviderIdSchema } from './sign-in-social.js'
 
-export const accountSsoPurposeSchema = z.enum(['ACCOUNT_FRESH', 'ACCOUNT_LINK'])
+const accountSsoPurposeSchema = z.enum(['ACCOUNT_FRESH', 'ACCOUNT_LINK'])
 export const accountSsoRequestSchema = z
   .object({
     purpose: accountSsoPurposeSchema,
@@ -71,7 +71,7 @@ export const unlinkSsoAccountResponseSchema = z
   .object({ unlinked: z.literal(true), sessionRevoked: z.literal(true) })
   .strict()
 export const deleteSsoAccountRequestSchema = z.object({}).strict()
-export const ssoProviderCleanupSchema = z
+const ssoProviderCleanupSchema = z
   .object({
     provider: ssoProviderIdSchema,
     // PENDING includes not attempted; it is never proof of provider revocation.
@@ -116,5 +116,3 @@ export type UnlinkSsoAccountRequest = z.input<
 export type DeleteSsoAccountRequest = z.input<
   typeof deleteSsoAccountRequestSchema
 >
-export type AccountFreshOutcome = z.output<typeof accountFreshOutcomeSchema>
-export type AccountLinkOutcome = z.output<typeof accountLinkOutcomeSchema>

@@ -52,7 +52,7 @@ interface StudySubmissionRepositoryOptions {
   jitterMilliseconds?: () => number
 }
 
-export interface OwnedStudySubmissionPreload {
+interface OwnedStudySubmissionPreload {
   readonly expiresAt: Date
   readonly orderedSessionQuestions: readonly {
     readonly ordinal: number
@@ -64,7 +64,7 @@ export interface OwnedStudySubmissionPreload {
   readonly status: StudySessionStatus
 }
 
-export interface SubmitStudySessionAtomicInput {
+interface SubmitStudySessionAtomicInput {
   readonly answers: readonly SubmittedStudyAnswer[]
   readonly durationSec: number
   readonly expectedDraftRevision?: number | null
@@ -76,13 +76,13 @@ export interface SubmitStudySessionAtomicInput {
   readonly sessionId: string
 }
 
-export interface SubmitStudySessionAtomicResult {
+interface SubmitStudySessionAtomicResult {
   readonly guestProofExpiresAt: Date | null
   readonly replayed: boolean
   readonly response: StudyResult
 }
 
-export type FindOwnedStudyResultOutcome =
+type FindOwnedStudyResultOutcome =
   | { readonly kind: 'NOT_FOUND' }
   | { readonly kind: 'NOT_READY' }
   | { readonly kind: 'READY'; readonly response: StudyResult }
@@ -166,7 +166,7 @@ export class StudySubmissionRepositoryIntegrityError extends Error {
   }
 }
 
-export class FreshTransactionRetry extends Error {
+class FreshTransactionRetry extends Error {
   constructor() {
     super('A fresh Serializable snapshot is required.')
     this.name = 'FreshTransactionRetry'

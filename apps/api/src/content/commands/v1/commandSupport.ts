@@ -31,7 +31,7 @@ import { parseStrictJsonBytes } from '../../validators/v1/strictJson.js'
 export const MAX_ANALYSIS_INPUT_BYTES = 2 * 1024 * 1024
 export const MAX_ANALYSIS_OUTPUT_BYTES = 128 * 1024
 export const MAX_REPORTED_CANDIDATES = 100
-export const CONTENT_ANALYSIS_COMMANDS = [
+const CONTENT_ANALYSIS_COMMANDS = [
   'check',
   'validate',
   'coverage',
@@ -56,7 +56,7 @@ export interface AnalysisItem {
   readonly content: PersistedQuestionSemanticV1
 }
 
-export interface AnalysisInput {
+interface AnalysisInput {
   readonly scope: 'CURRENT_APPROVED_SOURCES' | 'BUNDLE_ONLY'
   readonly inputSha256: string
   readonly items: readonly AnalysisItem[]

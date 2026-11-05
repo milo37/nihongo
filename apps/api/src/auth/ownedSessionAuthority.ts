@@ -234,7 +234,7 @@ export const signOutOwnedSession = async (
     return true as const
   })
 
-export interface RememberedSessionRefresh {
+interface RememberedSessionRefresh {
   id: string
   updatedAt: Date
   expiresAt: Date

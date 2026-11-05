@@ -115,19 +115,6 @@ const refineDateRanges = (
   })
 }
 
-export const listAdminQuestionsOperationId = 'admin.listAdminQuestions' as const
-export const getAdminQuestionOperationId = 'admin.getAdminQuestion' as const
-export const listAdminTagsOperationId = 'admin.listAdminTags' as const
-export const previewQuestionVersionOperationId =
-  'admin.previewQuestionVersion' as const
-export const diffQuestionVersionOperationId =
-  'admin.diffQuestionVersion' as const
-export const listAdminQuestionVersionsOperationId =
-  'admin.listAdminQuestionVersions' as const
-export const listQuestionVersionReviewsOperationId =
-  'admin.listQuestionVersionReviews' as const
-export const listAdminAuditLogOperationId = 'admin.listAdminAuditLog' as const
-
 export const listAdminQuestionsQuerySchema = z
   .object({
     q: contentQuestionSearchSchema.optional(),
@@ -309,7 +296,7 @@ export const diffQuestionVersionQuerySchema = z
   .object({ baseVersionId: opaqueIdSchema })
   .strict()
 
-export const scalarDiffFieldSchema = z.enum([
+const scalarDiffFieldSchema = z.enum([
   'LEVEL',
   'SUBJECT',
   'QUESTION_TYPE',
@@ -319,12 +306,12 @@ export const scalarDiffFieldSchema = z.enum([
   'EXPLANATION_KO',
   'EXPLANATION_JA'
 ])
-export const diffFieldSchema = z.enum([
+const diffFieldSchema = z.enum([
   ...scalarDiffFieldSchema.options,
   'OPTIONS',
   'TAGS'
 ])
-export const contentDiffFieldOrder = [...diffFieldSchema.options] as const
+const contentDiffFieldOrder = [...diffFieldSchema.options] as const
 
 const createCanonicalDiffTextSchema = (maximum: number) =>
   z
@@ -569,7 +556,7 @@ export const listQuestionVersionReviewsErrorSchema =
     listQuestionVersionReviewsErrorCodeSchema
   )
 
-export const adminAuditTargetTypeSchema = z.enum([
+const adminAuditTargetTypeSchema = z.enum([
   'QUESTION',
   'QUESTION_VERSION',
   'QUESTION_REPORT',
@@ -584,13 +571,13 @@ export const adminAuditEnvironmentSchema = z.enum([
   'DEVELOPMENT',
   'PRODUCTION'
 ])
-export const adminAuditStateSchema = z.union([
+const adminAuditStateSchema = z.union([
   questionLifecycleStatusSchema,
   questionVersionStatusSchema,
   z.enum(['OPEN', 'TRIAGED', 'RESOLVED', 'DISMISSED']),
   z.enum(['SESSION_STALE', 'SESSION_FRESH'])
 ])
-export const adminAuditChangedFieldSchema = z.enum([
+const adminAuditChangedFieldSchema = z.enum([
   'LIFECYCLE_STATUS',
   'VERSION_STATUS',
   'CURRENT_PUBLISHED_VERSION_ID',
@@ -613,11 +600,11 @@ export const adminAuditChangedFieldSchema = z.enum([
   'EXPORT_SELECTION',
   'AUTHOR_TOMBSTONE'
 ])
-export const adminAuditChangedFieldOrder = [
+const adminAuditChangedFieldOrder = [
   ...adminAuditChangedFieldSchema.options
 ] as const
 
-export const adminAuditMetadataSchema = z.discriminatedUnion('kind', [
+const adminAuditMetadataSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('NONE_V1') }).strict(),
   z
     .object({
@@ -1000,7 +987,7 @@ export const adminAuditLogItemSchema = z
     }
   })
 
-export const adminAuditLogConnectionSchema = z
+const adminAuditLogConnectionSchema = z
   .object({
     items: z.array(adminAuditLogItemSchema).max(100),
     nextCursor: occurredAtCursorSchema.nullable()
@@ -1468,24 +1455,11 @@ export type ListAdminQuestionsQuery = z.output<
 export type ListAdminQuestionsResponse = z.output<
   typeof listAdminQuestionsResponseSchema
 >
-export type GetAdminQuestionParams = z.output<
-  typeof getAdminQuestionParamsSchema
->
-export type GetAdminQuestionQuery = z.output<typeof getAdminQuestionQuerySchema>
 export type GetAdminQuestionResponse = AdminQuestionDetail
 export type ListAdminTagsQuery = z.output<typeof listAdminTagsQuerySchema>
 export type ListAdminTagsResponse = z.output<typeof listAdminTagsResponseSchema>
-export type PreviewQuestionVersionParams = z.output<
-  typeof previewQuestionVersionParamsSchema
->
-export type PreviewQuestionVersionQuery = z.output<
-  typeof previewQuestionVersionQuerySchema
->
 export type PreviewQuestionVersionResponse = z.output<
   typeof previewQuestionVersionResponseSchema
->
-export type DiffQuestionVersionParams = z.output<
-  typeof diffQuestionVersionParamsSchema
 >
 export type DiffQuestionVersionQuery = z.output<
   typeof diffQuestionVersionQuerySchema
@@ -1493,17 +1467,11 @@ export type DiffQuestionVersionQuery = z.output<
 export type DiffQuestionVersionResponse = z.output<
   typeof diffQuestionVersionResponseSchema
 >
-export type ListAdminQuestionVersionsParams = z.output<
-  typeof listAdminQuestionVersionsParamsSchema
->
 export type ListAdminQuestionVersionsQuery = z.output<
   typeof listAdminQuestionVersionsQuerySchema
 >
 export type ListAdminQuestionVersionsResponse = z.output<
   typeof listAdminQuestionVersionsResponseSchema
->
-export type ListQuestionVersionReviewsParams = z.output<
-  typeof listQuestionVersionReviewsParamsSchema
 >
 export type ListQuestionVersionReviewsQuery = z.output<
   typeof listQuestionVersionReviewsQuerySchema
@@ -1518,7 +1486,6 @@ export type ListAdminAuditLogResponse = z.output<
   typeof listAdminAuditLogResponseSchema
 >
 export type AdminAuditLogItem = z.output<typeof adminAuditLogItemSchema>
-export type AdminQuestionVersionDiff = DiffQuestionVersionResponse
 
 export type { AdminContentReviewItem, AdminQuestionVersionSummary }
 export {

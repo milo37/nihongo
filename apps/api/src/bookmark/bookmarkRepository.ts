@@ -11,14 +11,14 @@ export interface BookmarkReadRecord {
   readonly questionId: string
 }
 
-export interface CreateOwnedBookmarkInput {
+interface CreateOwnedBookmarkInput {
   readonly createdAt: Date
   readonly id: string
   readonly questionId: string
   readonly userId: string
 }
 
-export interface ListOwnedBookmarksInput extends ParsedListBookmarksQuery {
+interface ListOwnedBookmarksInput extends ParsedListBookmarksQuery {
   readonly userId: string
 }
 

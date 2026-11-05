@@ -1,6 +1,6 @@
 import type { AdminReauthenticationResult } from '@nihongo/contracts/admin/content-operations'
 import { ApplicationError } from '../errors/applicationError.js'
-export interface AdminReauthenticationInput {
+interface AdminReauthenticationInput {
   readonly actorId: string
   readonly headers: Headers
   readonly password: string
@@ -8,7 +8,7 @@ export interface AdminReauthenticationInput {
   readonly requestId: string
 }
 
-export interface AdminReauthenticationOutput {
+interface AdminReauthenticationOutput {
   readonly response: AdminReauthenticationResult
   readonly setCookies: readonly string[]
 }

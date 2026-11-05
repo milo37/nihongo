@@ -53,9 +53,9 @@ const decodeQueryComponent = (value: string): string => {
   )
 }
 
-export type RawQueryRecord = Record<string, readonly string[]>
+type RawQueryRecord = Record<string, readonly string[]>
 
-export const parseRawQueryRecord = (requestTarget: string): RawQueryRecord => {
+const parseRawQueryRecord = (requestTarget: string): RawQueryRecord => {
   const queryStart = requestTarget.indexOf('?')
   const record = Object.create(null) as Record<string, string[]>
   if (queryStart < 0) {

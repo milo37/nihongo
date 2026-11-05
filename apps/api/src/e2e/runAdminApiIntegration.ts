@@ -190,7 +190,7 @@ interface PgcryptoSnapshot {
   readonly version: string | null
 }
 
-export interface IsolatedDatabaseHarness {
+interface IsolatedDatabaseHarness {
   readonly adminDatabaseUrl: string
   readonly applicationDatabaseUrl: string
   readonly appFixtureDatabaseUrl: string

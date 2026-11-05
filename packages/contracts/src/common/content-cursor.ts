@@ -7,7 +7,7 @@ import { positiveSafeIntegerSchema } from './content-validation.js'
 const BASE64URL_ALPHABET =
   'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_'
 
-export const cursorMaximumLength = 256 as const
+const cursorMaximumLength = 256 as const
 
 const rawCursorSchema = z
   .string()
@@ -15,7 +15,7 @@ const rawCursorSchema = z
   .max(cursorMaximumLength)
   .regex(/^[A-Za-z0-9_-]+$/u, 'padding 없는 base64url이어야 합니다.')
 
-export const versionCursorValueSchema = z
+const versionCursorValueSchema = z
   .object({
     v: z.literal(1),
     versionNumber: positiveSafeIntegerSchema,
@@ -23,7 +23,7 @@ export const versionCursorValueSchema = z
   })
   .strict()
 
-export const occurredAtCursorValueSchema = z
+const occurredAtCursorValueSchema = z
   .object({
     v: z.literal(1),
     occurredAt: isoDateTimeSchema,
@@ -197,9 +197,6 @@ export const contentOccurredAtCursorSchema = rawCursorSchema.superRefine(
     }
   }
 )
-
-export type VersionCursorValue = z.output<typeof versionCursorValueSchema>
-export type OccurredAtCursorValue = z.output<typeof occurredAtCursorValueSchema>
 
 export {
   encodeContentOccurredAtCursor as encodeOccurredAtCursor,

@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-export interface ExpectedMigration {
+interface ExpectedMigration {
   name: string
   checksum: string
 }

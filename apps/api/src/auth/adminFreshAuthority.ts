@@ -146,7 +146,7 @@ const intentExpiry = async (
   return rows[0]?.expiresAt ?? null
 }
 
-export interface PreparedReauthentication {
+interface PreparedReauthentication {
   intentId: string
   operationId: string
   requestId: string
@@ -586,7 +586,7 @@ const replacementHoldsAuthority = async (
     )
   ).length === 1
 
-export interface AdminFreshRotation {
+interface AdminFreshRotation {
   id: string
   createdAt: Date
   expiresAt: Date
@@ -595,7 +595,7 @@ export interface AdminFreshRotation {
   callbackURL: string
 }
 
-export interface StagedReauthenticationSession {
+interface StagedReauthenticationSession {
   id: string
   expiresAt: Date
   createdAt: Date
@@ -711,7 +711,7 @@ export const stageReauthentication = async (
   return staged[0] ?? null
 }
 
-export interface FinalizedReauthentication {
+interface FinalizedReauthentication {
   id: string
   createdAt: Date
   expiresAt: Date
@@ -1084,7 +1084,7 @@ const reauthenticationAuditDigest = (
     metadata: REAUTHENTICATION_METADATA
   } as unknown as Parameters<typeof adminAuditContentDigest>[0])
 
-export interface ReconciledReauthentication extends FinalizedReauthentication {
+interface ReconciledReauthentication extends FinalizedReauthentication {
   state: string
 }
 
@@ -1282,7 +1282,7 @@ export const cancelAdminFreshProof = async (
   return true
 }
 
-export interface ReauthenticationCleanup {
+interface ReauthenticationCleanup {
   pendingSessionsDeleted: number
   intentsDeleted: number
   evidenceDeleted: number

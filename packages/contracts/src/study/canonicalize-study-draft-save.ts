@@ -5,13 +5,13 @@ export interface OrderedDraftQuestion {
   readonly studySessionQuestionId: string
 }
 
-export interface StudyDraftSaveAnswer {
+interface StudyDraftSaveAnswer {
   readonly studySessionQuestionId: string
   readonly selectedOptionId: string | null
   readonly elapsedSec: number
 }
 
-export interface StudyDraftSaveInput {
+interface StudyDraftSaveInput {
   readonly expectedRevision: number
   readonly currentOrdinal: number
   readonly answers: readonly StudyDraftSaveAnswer[]

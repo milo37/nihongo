@@ -63,7 +63,7 @@ const lockUser = async (
   )
 }
 
-export interface AccountSessionContext {
+interface AccountSessionContext {
   readonly userId: string
   readonly sessionId: string
   readonly role: string
@@ -218,7 +218,7 @@ const contextIsValid = async (
   return false
 }
 
-export type AccountContextValue = AccountSessionContext & {
+type AccountContextValue = AccountSessionContext & {
   readonly purpose: 'ACCOUNT_FRESH' | 'ACCOUNT_LINK'
   readonly provider: string
   readonly accountId: string | null

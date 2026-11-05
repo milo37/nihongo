@@ -4,7 +4,7 @@ const TEST_DATABASE_GROUP_ROLES = new Set([
   'nihongo_app'
 ])
 
-export interface ApiBootstrapIdentity {
+interface ApiBootstrapIdentity {
   readonly canCreateDatabase: boolean
   readonly canCreateRole: boolean
   readonly canSetOwner: boolean
@@ -13,7 +13,7 @@ export interface ApiBootstrapIdentity {
   readonly sessionUser: string
 }
 
-export interface ApiDatabaseSnapshotIdentity {
+interface ApiDatabaseSnapshotIdentity {
   readonly acl: ReadonlyArray<{ readonly grantor: string }>
   readonly ownerName: string
 }

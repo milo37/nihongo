@@ -52,7 +52,7 @@ export const FOUNDATION_INPUT_PATHS_V1 = [
   'content/taxonomy/tags.v1.json'
 ] as const
 
-export const FOUNDATION_SOURCE_PATHS_V1 = [
+const FOUNDATION_SOURCE_PATHS_V1 = [
   'apps/api/prisma/contentArtifactCheck.ts',
   'apps/api/prisma/contentFoundationCheck.ts',
   'apps/api/prisma/legacySeedProjection.ts',
@@ -101,7 +101,7 @@ interface FoundationCoverageGapV1 {
   readonly questionType: PersistedQuestionSemanticV1['questionType']
 }
 
-export interface FoundationCatalogDiagnosticsV1 {
+interface FoundationCatalogDiagnosticsV1 {
   readonly coverage: {
     readonly applicableCellCount: number
     readonly zeroApplicableCellCount: number
@@ -120,7 +120,7 @@ export interface FoundationCatalogDiagnosticsV1 {
   readonly taxonomyTagCount: number
 }
 
-export interface ContentFoundationCheckResultV1 {
+interface ContentFoundationCheckResultV1 {
   readonly schemaVersion: 1
   readonly command: 'content:foundation-check'
   readonly status: 'PASS'
@@ -174,7 +174,7 @@ const cellKey = ({
 const sha256Json = (value: unknown): string =>
   createHash('sha256').update(JSON.stringify(value)).digest('hex')
 
-export const createApiPublicProjection = (seeds = buildAllQuestionSeeds()) =>
+const createApiPublicProjection = (seeds = buildAllQuestionSeeds()) =>
   seeds.map((question) => ({
     id: question.legacyId,
     level: question.level,
@@ -196,7 +196,7 @@ export const calculateApiPublicProjectionSha256 = (
   seeds = buildAllQuestionSeeds()
 ): string => sha256Json(createApiPublicProjection(seeds))
 
-export const assertFoundationContributorState = (
+const assertFoundationContributorState = (
   registry: ContributorsRegistryV1
 ): void => {
   if (registry.contributors.length !== 0) {
@@ -335,7 +335,7 @@ export const inspectFoundationCatalog = (
   }
 }
 
-export const calculateFoundationSourceManifestSha256 = async (
+const calculateFoundationSourceManifestSha256 = async (
   repositoryRoot: string
 ): Promise<string> => {
   const files = await Promise.all(

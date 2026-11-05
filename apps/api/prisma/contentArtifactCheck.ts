@@ -8,7 +8,7 @@ import {
 } from '../src/content/validators/v1/legacySchemas.js'
 import { projectCanonicalLegacySeedArtifacts } from './legacySeedProjection.js'
 
-export interface CanonicalLegacyArtifactCheckResultV1 {
+interface CanonicalLegacyArtifactCheckResultV1 {
   readonly schemaVersion: 1
   readonly command: 'content:check-legacy-projection'
   readonly status: 'PASS'

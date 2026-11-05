@@ -7,8 +7,6 @@ import {
 } from './study-session.js'
 import { practiceContractV2HeadersSchema } from './practice-contract.js'
 
-export const getStudySessionOperationId = 'study.getStudySession' as const
-
 export const getStudySessionParamsSchema = z
   .object({ sessionId: opaqueIdSchema })
   .strict()
@@ -38,18 +36,7 @@ export const getStudySessionErrorCodeSchema = z.enum([
 export const getStudySessionErrorSchema = createApiFailureSchema(
   getStudySessionErrorCodeSchema
 )
-
-export type GetStudySessionParams = z.input<typeof getStudySessionParamsSchema>
-export type GetStudySessionHeaders = z.input<
-  typeof getStudySessionHeadersSchema
->
-export type GetStudySessionV2Headers = z.input<
-  typeof getStudySessionV2HeadersSchema
->
 export type GetStudySessionResponse = z.output<
   typeof getStudySessionResponseSchema
 >
 export type GetStudySessionError = z.output<typeof getStudySessionErrorSchema>
-export type GetStudySessionV2Response = z.output<
-  typeof getStudySessionV2ResponseSchema
->

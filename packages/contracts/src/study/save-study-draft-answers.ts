@@ -60,22 +60,6 @@ export const saveStudyDraftAnswersErrorCodeSchema = z.enum([
 export const saveStudyDraftAnswersErrorSchema = createApiFailureSchema(
   saveStudyDraftAnswersErrorCodeSchema
 )
-
-export type SaveStudyDraftAnswersParams = z.input<
-  typeof saveStudyDraftAnswersParamsSchema
->
-export type SaveStudyDraftAnswersHeaders = z.input<
-  typeof saveStudyDraftAnswersHeadersSchema
->
-export type SaveStudyDraftAnswersBody = z.input<
-  typeof saveStudyDraftAnswersBodySchema
->
 export type ParsedSaveStudyDraftAnswersBody = z.output<
   typeof saveStudyDraftAnswersBodySchema
->
-export type SaveStudyDraftAnswersResponse = z.output<
-  typeof saveStudyDraftAnswersResponseSchema
->
-export type SaveStudyDraftAnswersError = z.output<
-  typeof saveStudyDraftAnswersErrorSchema
 >

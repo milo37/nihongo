@@ -44,15 +44,15 @@ export const hasUnicodeEdgeWhitespace = (value: string): boolean =>
   (UNICODE_WHITESPACE.test(value[0] ?? '') ||
     UNICODE_WHITESPACE.test(value.at(-1) ?? ''))
 
-export const collapseUnicodeWhitespace = (value: string): string =>
+const collapseUnicodeWhitespace = (value: string): string =>
   value.replace(UNICODE_WHITESPACE_RUN, ' ')
 
-export const trimUnicodeWhitespace = (value: string): string =>
+const trimUnicodeWhitespace = (value: string): string =>
   value
     .replace(LEADING_UNICODE_WHITESPACE, '')
     .replace(TRAILING_UNICODE_WHITESPACE, '')
 
-export const asciiLowercase = (value: string): string =>
+const asciiLowercase = (value: string): string =>
   value.replace(/[A-Z]/g, (character) => character.toLowerCase())
 
 export const normalizeTagKey = (value: string): string =>

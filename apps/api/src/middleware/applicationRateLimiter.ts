@@ -2,7 +2,7 @@ import { createHmac, randomUUID } from 'node:crypto'
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 import { ApplicationError } from '../errors/applicationError.js'
 
-export interface ApplicationRateLimitInput {
+interface ApplicationRateLimitInput {
   clientIp: string
   max: number
   operation: string

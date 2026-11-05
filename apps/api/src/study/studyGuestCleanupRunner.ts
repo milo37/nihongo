@@ -4,14 +4,14 @@ export interface GuestCleanupBatchResult {
   hasMore: boolean
 }
 
-export interface GuestCleanupRunnerInput {
+interface GuestCleanupRunnerInput {
   batchSize: number
   dryRun: boolean
   maxBatches: number
   maxDurationMs: number
 }
 
-export interface GuestCleanupRunnerPorts {
+interface GuestCleanupRunnerPorts {
   now: () => number
   preview: (timeoutMs: number) => Promise<{
     eligibleCount: number
@@ -23,7 +23,7 @@ export interface GuestCleanupRunnerPorts {
   }) => Promise<GuestCleanupBatchResult>
 }
 
-export interface GuestCleanupRunResult {
+interface GuestCleanupRunResult {
   batches: number
   deletedCount: number
   eligibleCount: number | null

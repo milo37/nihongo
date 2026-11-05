@@ -3,7 +3,7 @@ import { lstat, open, realpath, type FileHandle } from 'node:fs/promises'
 import path from 'node:path'
 import { parseStrictJsonBytes } from './strictJson.js'
 
-export type ArtifactReadErrorCode =
+type ArtifactReadErrorCode =
   | 'ARTIFACT_CHANGED'
   | 'ARTIFACT_NOT_REGULAR'
   | 'ARTIFACT_OUTSIDE_ROOT'
@@ -115,7 +115,7 @@ const assertPathIdentitiesUnchanged = async (
   }
 }
 
-export interface ReadArtifactInput {
+interface ReadArtifactInput {
   readonly repositoryRoot: string
   readonly filePath: string
   readonly maximumBytes: number
@@ -213,76 +213,3 @@ export const readArtifactBytes = async (
 export const readArtifactJson = async (
   input: ReadArtifactInput
 ): Promise<unknown> => parseStrictJsonBytes(await readArtifactBytes(input))
-
-export interface ReadPrivateArtifactInput {
-  readonly repositoryRoot: string
-  readonly filePath: string
-  readonly maximumBytes: number
-}
-
-export const readPrivateArtifactBytes = async ({
-  repositoryRoot,
-  filePath,
-  maximumBytes
-}: ReadPrivateArtifactInput): Promise<Buffer> => {
-  if (!path.isAbsolute(filePath)) {
-    throw new ArtifactReadError(
-      'ARTIFACT_PATH_INVALID',
-      'private artifact path는 absolute여야 합니다.'
-    )
-  }
-  const lexicalParent = path.dirname(path.normalize(filePath))
-  const canonicalParent = await realpath(lexicalParent)
-  if (canonicalParent !== lexicalParent) {
-    throw new ArtifactReadError(
-      'ARTIFACT_SYMLINK',
-      'private artifact parent alias/symlink를 허용하지 않습니다.'
-    )
-  }
-  const canonicalRepositoryRoot = await realpath(repositoryRoot)
-  if (isInside(canonicalRepositoryRoot, filePath)) {
-    throw new ArtifactReadError(
-      'ARTIFACT_PATH_INVALID',
-      'review evidence는 repository 밖에 있어야 합니다.'
-    )
-  }
-  const parentMetadata = await lstat(canonicalParent, { bigint: true })
-  const fileMetadata = await lstat(filePath, { bigint: true })
-  if (
-    !parentMetadata.isDirectory() ||
-    parentMetadata.isSymbolicLink() ||
-    (parentMetadata.mode & 0o777n) !== 0o700n ||
-    !fileMetadata.isFile() ||
-    fileMetadata.isSymbolicLink() ||
-    (fileMetadata.mode & 0o777n) !== 0o600n
-  ) {
-    throw new ArtifactReadError(
-      'ARTIFACT_UNSAFE_MODE',
-      'private artifact는 real 0700 parent와 exact 0600 file이 필요합니다.'
-    )
-  }
-  const value = await readArtifactBytes({
-    repositoryRoot: canonicalParent,
-    filePath: path.basename(filePath),
-    maximumBytes
-  })
-  const [parentAfter, fileAfter] = await Promise.all([
-    lstat(canonicalParent, { bigint: true }),
-    lstat(filePath, { bigint: true })
-  ])
-  if (
-    !sameIdentity(parentMetadata, parentAfter) ||
-    !sameIdentity(fileMetadata, fileAfter)
-  ) {
-    throw new ArtifactReadError(
-      'ARTIFACT_CHANGED',
-      'private artifact identity가 검사 도중 달라졌습니다.'
-    )
-  }
-  return Buffer.from(value)
-}
-
-export const readPrivateArtifactJson = async (
-  input: ReadPrivateArtifactInput
-): Promise<unknown> =>
-  parseStrictJsonBytes(await readPrivateArtifactBytes(input))

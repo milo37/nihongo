@@ -1,6 +1,6 @@
 const DEFAULT_SHUTDOWN_TIMEOUT_MS = 10_000
 
-export interface ClosableServer {
+interface ClosableServer {
   close: (callback?: (error?: Error) => void) => unknown
   closeAllConnections?: () => void
 }

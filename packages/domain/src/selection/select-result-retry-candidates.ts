@@ -13,7 +13,7 @@ export interface ResultRetryCandidate {
   readonly questionVersionId: string
 }
 
-export interface ResultRetrySelection {
+interface ResultRetrySelection {
   readonly candidates: readonly ResultRetryCandidate[]
   readonly requestedCount: number
 }
