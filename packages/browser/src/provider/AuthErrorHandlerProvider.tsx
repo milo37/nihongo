@@ -189,7 +189,7 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
         return
       }
 
-      // A valid ADMIN can receive object-level FORBIDDEN from a Phase 7
+      // A valid ADMIN can receive object-level FORBIDDEN from an admin
       // command. Keep the owning screen and its draft mounted so that the
       // command surface can render the error locally.
       if (error.isForbiddenError && error.code === 'FORBIDDEN') {

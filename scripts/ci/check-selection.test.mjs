@@ -116,6 +116,10 @@ test('agent tooling and PR templates select no checks', () => {
     '.claude/hooks/check-gh-format.mjs',
     '.claude/settings.json',
     '.claude/skills/graph',
+    '.codex/agents/frontend-engineer.toml',
+    '.codex/config.toml',
+    '.cursor/rules/03-api-guidelines.mdc',
+    '.agents/skills/graph/agents/openai.yaml',
     '.github/pull_request_template.md',
     '.github/ISSUE_TEMPLATE/1-task.yml'
   ])
@@ -130,6 +134,12 @@ test('unclassified and unsafe paths fail closed', () => {
     () => classifyChangedFiles(['unknown-area/file.json']),
     /CI_CLASSIFICATION_UNCLASSIFIED_PATH/u
   )
+  for (const file of ['.codexrc.toml', 'tools/.cursor/rules.mdc']) {
+    assert.throws(
+      () => classifyChangedFiles([file]),
+      /CI_CLASSIFICATION_UNCLASSIFIED_PATH/u
+    )
+  }
   assert.throws(
     () => classifyChangedFiles(['apps/web/../api/package.json']),
     /CI_CLASSIFICATION_INVALID_PATH/u

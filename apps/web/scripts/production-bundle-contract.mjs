@@ -96,8 +96,8 @@ export const forbiddenMockMarkers = Object.freeze([
   'setupWorker'
 ])
 
-const MANIFEST_RELATIVE_PATH = '.vite/phase10-manifest.json'
-const SSR_MANIFEST_RELATIVE_PATH = '.vite/phase10-ssr-manifest.json'
+const MANIFEST_RELATIVE_PATH = '.vite/manifest.json'
+const SSR_MANIFEST_RELATIVE_PATH = '.vite/ssr-manifest.json'
 const SHA256_PATTERN = /^[0-9a-f]{64}$/u
 const GIT_COMMIT_PATTERN = /^[0-9a-f]{40}$/u
 const FORBIDDEN_MODULE_PATTERNS = [
@@ -998,7 +998,7 @@ const assertArtifactEvidence = (value, artifact) => {
       'versions'
     ]) ||
     value.metadata.command !==
-      'pnpm exec vite build --manifest .vite/phase10-manifest.json --ssrManifest .vite/phase10-ssr-manifest.json --outDir <temporary-out-dir> --emptyOutDir' ||
+      'pnpm exec vite build --manifest .vite/manifest.json --ssrManifest .vite/ssr-manifest.json --outDir <temporary-out-dir> --emptyOutDir' ||
     !GIT_COMMIT_PATTERN.test(value.metadata.commit) ||
     typeof value.metadata.generatedAt !== 'string' ||
     !Number.isFinite(Date.parse(value.metadata.generatedAt)) ||
@@ -1405,7 +1405,7 @@ export const splitBundleCommand =
   'pnpm --filter @nihongo/web run build && pnpm --filter @nihongo/admin run build'
 
 const singleBuildCommand =
-  'pnpm exec vite build --manifest .vite/phase10-manifest.json --ssrManifest .vite/phase10-ssr-manifest.json --outDir <temporary-out-dir> --emptyOutDir'
+  'pnpm exec vite build --manifest .vite/manifest.json --ssrManifest .vite/ssr-manifest.json --outDir <temporary-out-dir> --emptyOutDir'
 const splitArtifacts = ['web', 'admin']
 
 const combineArtifactEvidence = (artifacts) => {
