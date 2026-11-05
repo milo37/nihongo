@@ -21,7 +21,10 @@ import { adminFreshContextSchema } from '../auth/ssoAdminFreshRepository.js'
 import type { AdminFreshContext } from '../auth/ssoAdminFreshRepository.js'
 
 export const digest = () => randomBytes(32).toString('hex')
-export type TestRole = 'nihongo_app' | 'nihongo_migration'
+export type TestRole =
+  | 'nihongo_app'
+  | 'nihongo_guest_cleanup_worker'
+  | 'nihongo_migration'
 export interface SsoFixture {
   userId: string
   sessionId: string
