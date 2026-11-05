@@ -49,21 +49,21 @@ const removedRoles = [
 ]
 
 const secretNames = [
-  'PHASE7_TEST_MIGRATION_PASSWORD',
-  'PHASE7_TEST_APP_PASSWORD',
-  'PHASE7_TEST_GUEST_CLEANUP_WORKER_PASSWORD',
-  'PHASE7_DEVELOPMENT_MIGRATION_PASSWORD',
-  'PHASE7_DEVELOPMENT_APP_PASSWORD',
-  'PHASE7_DEVELOPMENT_GUEST_CLEANUP_WORKER_PASSWORD'
+  'TEST_MIGRATION_PASSWORD',
+  'TEST_APP_PASSWORD',
+  'TEST_GUEST_CLEANUP_WORKER_PASSWORD',
+  'DEVELOPMENT_MIGRATION_PASSWORD',
+  'DEVELOPMENT_APP_PASSWORD',
+  'DEVELOPMENT_GUEST_CLEANUP_WORKER_PASSWORD'
 ]
 
 const removedSecretNames = [
-  'PHASE7_TEST_AUTH_GATEWAY_PASSWORD',
-  'PHASE7_TEST_ERASURE_WORKER_PASSWORD',
-  'PHASE7_TEST_LEGACY_APP_PASSWORD',
-  'PHASE7_DEVELOPMENT_AUTH_GATEWAY_PASSWORD',
-  'PHASE7_DEVELOPMENT_ERASURE_WORKER_PASSWORD',
-  'PHASE7_DEVELOPMENT_LEGACY_APP_PASSWORD'
+  'TEST_AUTH_GATEWAY_PASSWORD',
+  'TEST_ERASURE_WORKER_PASSWORD',
+  'TEST_LEGACY_APP_PASSWORD',
+  'DEVELOPMENT_AUTH_GATEWAY_PASSWORD',
+  'DEVELOPMENT_ERASURE_WORKER_PASSWORD',
+  'DEVELOPMENT_LEGACY_APP_PASSWORD'
 ]
 
 const baselineMigrationPath =
@@ -96,14 +96,15 @@ test('Compose isolates persistent local roles from disposable runners', async ()
   )
   assert.equal(createTestDatabase.trim(), 'CREATE DATABASE nihongo_test;')
 
-  assert.match(compose, /postgres:\n[\s\S]*PHASE7_LOCAL_PROVISIONING: '0'/u)
+  assert.match(compose, /postgres:\n[\s\S]*LOCAL_DATABASE_PROVISIONING: '0'/u)
   assert.match(
     compose,
-    /postgres-phase7:\n[\s\S]*profiles: \['phase7-local'\][\s\S]*PHASE7_LOCAL_PROVISIONING: '1'/u
+    /postgres-local:\n[\s\S]*profiles: \['local-db'\][\s\S]*LOCAL_DATABASE_PROVISIONING: '1'/u
   )
-  assert.match(compose, /127\.0\.0\.1:\$\{PHASE7_POSTGRES_PORT:-55433\}:5432/u)
-  assert.match(compose, /nihongo-phase7-postgres-data:\/var\/lib\/postgresql/u)
-  assert.match(compose, /\.phase7-local-provisioned/u)
+  assert.match(compose, /127\.0\.0\.1:\$\{LOCAL_POSTGRES_PORT:-55433\}:5432/u)
+  assert.match(compose, /nihongo-local-postgres-data:\/var\/lib\/postgresql/u)
+  assert.match(compose, /\.nihongo-local-provisioned/u)
+  assert.doesNotMatch(compose, /phase7/iu)
 
   for (const secretName of secretNames) {
     const interpolation = '${' + secretName + ':-}'
@@ -125,7 +126,7 @@ test('fresh init matches the canonical local database role graph', async () => {
   const expectedRoles = [...groupRoles, ...wrapperRoles.map(({ name }) => name)]
 
   assert.deepEqual(createdRoles.sort(), expectedRoles.sort())
-  assert.match(init, /PHASE7_LOCAL_PROVISIONING:-0.*!= '1'/u)
+  assert.match(init, /LOCAL_DATABASE_PROVISIONING:-0.*!= '1'/u)
   assert.match(init, /POSTGRES_DB must be the canonical nihongo_dev/u)
   assert.match(init, /bootstrap and wrapper secrets must all be distinct/u)
   assert.match(init, /\$role_attestation\$/u)
@@ -203,7 +204,7 @@ test('fresh init owns and attests both canonical local databases', async () => {
   )
   assert.match(init, /\$local_attestation\$/u)
   assert.match(init, /unexpected_acl_count <> 0 OR missing_acl_count <> 0/u)
-  assert.match(init, /touch "\$PGDATA\/\.phase7-local-provisioned"/u)
+  assert.match(init, /touch "\$PGDATA\/\.nihongo-local-provisioned"/u)
 })
 
 test('dotenv examples keep technical and runner targets separate', async () => {
@@ -217,15 +218,16 @@ test('dotenv examples keep technical and runner targets separate', async () => {
     await readRepositoryFile('apps/api/.env.test.example')
   )
 
-  assert.equal(rootEnvironment.get('PHASE7_POSTGRES_PORT'), '55433')
+  assert.equal(rootEnvironment.get('LOCAL_POSTGRES_PORT'), '55433')
   for (const secretName of secretNames) {
     assert.equal(rootEnvironment.get(secretName), '')
   }
   for (const secretName of removedSecretNames) {
     assert.equal(rootEnvironment.has(secretName), false)
   }
+  assert.equal(rootEnvironment.has('AUTH_RUNTIME'), false)
 
-  for (const field of ['DATABASE_URL', 'PHASE7_MIGRATION_DATABASE_URL']) {
+  for (const field of ['DATABASE_URL', 'MIGRATION_DATABASE_URL']) {
     assert.equal(new URL(developmentEnvironment.get(field)).port, '55433')
     assert.equal(new URL(testEnvironment.get(field)).port, '55433')
   }
@@ -254,14 +256,14 @@ test('README documents both mutually exclusive local workflows', async () => {
     'infra/postgres/init/local-database-activate.psql'
   )
 
-  assert.match(readme, /--profile phase7-local up -d --wait postgres-phase7/u)
-  assert.match(readme, /--profile phase7-local down -v/u)
+  assert.match(readme, /--profile local-db up -d --wait postgres-local/u)
+  assert.match(readme, /--profile local-db down -v/u)
   assert.match(readme, /NODE_ENV=test pnpm run db:migrate:deploy/u)
   assert.doesNotMatch(readme, /TEST_MIGRATIONS_PATH/u)
   assert.match(readme, /ADMIN_CMS_MODE=technical pnpm run db:seed:test/u)
   assert.match(
     readme,
-    /psql -h 127\.0\.0\.1 -p "\$\{PHASE7_POSTGRES_PORT:-55433\}"/u
+    /psql -h 127\.0\.0\.1 -p "\$\{LOCAL_POSTGRES_PORT:-55433\}"/u
   )
   assert.match(
     readme,

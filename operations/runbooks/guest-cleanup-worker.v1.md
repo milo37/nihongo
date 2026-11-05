@@ -9,8 +9,8 @@ permission has been provisioned or verified by this document.
    NOINHERIT, NOSUPERUSER, NOCREATEDB, NOCREATEROLE, NOREPLICATION and
    NOBYPASSRLS, plus separate TEST and DEVELOPMENT logins with only this
    membership (ADMIN FALSE, INHERIT FALSE, SET TRUE), from the
-   `PHASE7_TEST_GUEST_CLEANUP_WORKER_PASSWORD` and
-   `PHASE7_DEVELOPMENT_GUEST_CLEANUP_WORKER_PASSWORD` inputs. It is
+   `TEST_GUEST_CLEANUP_WORKER_PASSWORD` and
+   `DEVELOPMENT_GUEST_CLEANUP_WORKER_PASSWORD` inputs. It is
    fresh-volume bootstrap, not an existing-volume upgrade.
 2. Apply the single `20261105090000_baseline` migration with the
    `nihongo_{test,development}_migration_login` wrapper (role
