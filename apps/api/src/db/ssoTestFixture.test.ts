@@ -144,7 +144,7 @@ describe('SSO TEST fixture capability registration', () => {
   it('requires production-target mismatch proof before connecting', () => {
     vi.stubEnv('PRODUCTION_DATABASE_URL', undefined)
     expect(() => createSsoDbHarness()).toThrow(
-      'Technical admin CMS mode requires PRODUCTION_DATABASE_URL mismatch proof.'
+      'Admin CMS runtime requires PRODUCTION_DATABASE_URL mismatch proof.'
     )
     expect(db.connect).toHaveBeenCalledTimes(0)
   })

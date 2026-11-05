@@ -5,6 +5,7 @@ import { Button } from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'
 import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
 import type { RefObject } from 'react'
+import { TextLink } from '@nihongo/browser/common/components/TextLink'
 
 type BookmarkListNoticesProps = {
   isCachedOffline: boolean
@@ -76,12 +77,7 @@ export const BookmarkEmptyPage = ({
       }
       action={
         isFirstPage ? (
-          <Link
-            className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
-            to="/practice"
-          >
-            {t('empty.start')}
-          </Link>
+          <TextLink to="/practice">{t('empty.start')}</TextLink>
         ) : isNavigationLocked ? (
           <Button disabled>{t('empty.previousPage')}</Button>
         ) : (

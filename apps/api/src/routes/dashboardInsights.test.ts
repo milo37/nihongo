@@ -77,7 +77,6 @@ const snapshot: DashboardInsightsSnapshotRecord = {
 }
 
 const createEnvironment = (
-  cms: 'disabled' | 'technical',
   nodeEnvironment: 'test' | 'production' = 'test'
 ): ApiEnvironment => {
   const origin =
@@ -93,7 +92,6 @@ const createEnvironment = (
   return parseApiEnvironment({
     NODE_ENV: nodeEnvironment,
     DEPLOYMENT_ENVIRONMENT: 'TEST',
-    ADMIN_CMS_MODE: cms,
     DATABASE_URL: databaseUrl('nihongo_test_app_login'),
     AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32,::1/128',
     BETTER_AUTH_SECRET: 'a'.repeat(48),
@@ -108,19 +106,17 @@ const createEnvironment = (
 }
 
 const createHarness = ({
-  cms = 'disabled',
   nodeEnvironment = 'test',
   authenticated = true,
   hasSessionProof = true,
   databasePrincipalPresent = true
 }: {
-  cms?: 'disabled' | 'technical'
   nodeEnvironment?: 'test' | 'production'
   authenticated?: boolean
   hasSessionProof?: boolean
   databasePrincipalPresent?: boolean
 } = {}) => {
-  const environment = createEnvironment(cms, nodeEnvironment)
+  const environment = createEnvironment(nodeEnvironment)
   const query = vi
     .fn<(...args: unknown[]) => Promise<unknown[]>>()
     .mockResolvedValueOnce(databasePrincipalPresent ? [snapshot.clock] : [])
@@ -170,14 +166,10 @@ const createHarness = ({
 }
 
 describe('dashboard insights authentication authority', () => {
-  it.each([
-    ['test', 'disabled'],
-    ['production', 'disabled'],
-    ['test', 'technical']
-  ] as const)(
-    'uses owned session authority for %s with CMS %s',
-    async (nodeEnvironment, cms) => {
-      const harness = createHarness({ nodeEnvironment, cms })
+  it.each(['test', 'production'] as const)(
+    'uses owned session authority for %s',
+    async (nodeEnvironment) => {
+      const harness = createHarness({ nodeEnvironment })
       const response = await harness.app.request('/api/v1/dashboard/insights')
       expect(response.status).toBe(200)
       expect(response.headers.get('cache-control')).toBe('private, no-store')
@@ -196,10 +188,10 @@ describe('dashboard insights authentication authority', () => {
     }
   )
 
-  it.each(['disabled', 'technical'] as const)(
-    'rejects an owned USER without session proof when CMS is %s',
-    async (cms) => {
-      const harness = createHarness({ cms, hasSessionProof: false })
+  it.each(['test'] as const)(
+    'rejects an owned USER without session proof in %s',
+    async (nodeEnvironment) => {
+      const harness = createHarness({ nodeEnvironment, hasSessionProof: false })
       const response = await harness.app.request('/api/v1/dashboard/insights')
       expect(response.status).toBe(401)
       expect(await response.json()).toMatchObject({

@@ -622,7 +622,6 @@ const createSsoBrowserApiFixture = async (
   if (
     environment.NODE_ENV !== 'test' ||
     environment.DEPLOYMENT_ENVIRONMENT !== 'TEST' ||
-    environment.ADMIN_CMS_MODE !== (cms ? 'technical' : 'disabled') ||
     (cms && adminDatabaseUrl === undefined) ||
     environment.DATABASE_URL !== databaseUrl ||
     environment.GOOGLE_CLIENT_ID !== undefined ||

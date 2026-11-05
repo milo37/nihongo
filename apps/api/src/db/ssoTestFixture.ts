@@ -35,7 +35,6 @@ export interface SsoFixture {
 export const createSsoDbHarness = () => {
   const environment = parseApiEnvironment(process.env)
   assertSafeAdminCmsDatabase({
-    adminCmsMode: environment.ADMIN_CMS_MODE,
     nodeEnvironment: environment.NODE_ENV,
     databaseUrl: environment.DATABASE_URL,
     productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL

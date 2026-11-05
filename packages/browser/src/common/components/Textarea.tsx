@@ -2,6 +2,7 @@ import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ComponentPropsWithRef, ReactElement } from 'react'
 import { classNames } from './classNames'
+import { FieldError } from './FieldError'
 
 type TextareaProps = Omit<ComponentPropsWithRef<'textarea'>, 'name'> & {
   name: string
@@ -70,15 +71,7 @@ export const Textarea = ({
           {hint}
         </p>
       ) : null}
-      {error ? (
-        <p
-          className="field-error text-sm font-medium text-danger"
-          id={errorId}
-          role="alert"
-        >
-          {error}
-        </p>
-      ) : null}
+      {error ? <FieldError id={errorId}>{error}</FieldError> : null}
     </div>
   )
 }

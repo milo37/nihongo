@@ -411,7 +411,6 @@ test('portable runtime environment is production-shaped without migration creden
   assert.equal(validation.stdout, '')
   assert.equal(validation.stderr, '')
   assert.equal(environment.DEPLOYMENT_ENVIRONMENT, 'TEST')
-  assert.equal(environment.ADMIN_CMS_MODE, 'disabled')
   assert.equal(environment.RELEASE_ID, releaseId)
   assert.match(environment.DATABASE_URL, /sslmode=verify-full$/u)
   const app = new URL(environment.DATABASE_URL)
