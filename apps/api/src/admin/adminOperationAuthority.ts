@@ -14,6 +14,10 @@ import { v1PrincipalQuery } from '../auth/ownedSessionAuthority.js'
  * same authority
  * conditions and the same SQLSTATE and message on failure. Failures are raised
  * inside PostgreSQL so the existing error mapping sees the same database error.
+ * #504 P7 PR4c-1: begin records a Phase7OperationIntent row in its transaction
+ * and finish deletes it; the deferred Phase7OperationIntent_must_finish
+ * trigger refuses a commit that still holds the row, so a command that skips
+ * finish cannot commit.
  */
 
 type AuditEnvironment = 'TEST' | 'DEVELOPMENT'
@@ -261,6 +265,14 @@ export const beginAdminOperation = async (
     return raise(transaction, '42501', STALE_AUTHORITY)
 
   const operationId = randomUUID()
+  // The database fills the backend and transaction of this row itself.
+  await transaction.$executeRawUnsafe(
+    `INSERT INTO "Phase7OperationIntent" ("operationId", "command", "environment")
+     VALUES ($1::uuid, $2::"AdminAuditCommand", $3::"AdminAuditEnvironment")`,
+    operationId,
+    input.command,
+    input.auditEnvironment
+  )
   const now = Date.now()
   pruneCapturedOperations(now)
   capturedOperations.set(operationId, {
@@ -291,6 +303,15 @@ export const finishAdminOperation = async (
     `SET CONSTRAINTS ${DEFERRED_CONTENT_CONSTRAINTS.map(
       (name) => `"${name}"`
     ).join(', ')} IMMEDIATE`
+  )
+  const consumed = await transaction.$executeRawUnsafe(
+    `DELETE FROM "Phase7OperationIntent" WHERE "operationId" = $1::uuid`,
+    operationId
+  )
+  if (consumed !== 1)
+    await raise(transaction, '42501', 'Trusted Phase 7 operation is absent.')
+  await transaction.$executeRawUnsafe(
+    `SET CONSTRAINTS "Phase7OperationIntent_must_finish" IMMEDIATE`
   )
   if (!(await hasAuthority(transaction, operation)))
     await raise(
