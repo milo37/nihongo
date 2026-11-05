@@ -107,13 +107,27 @@ for (const command of [
   'review-check'
 ]) {
   test(`excluded ${command} is refused even without installed dependencies`, () => {
-    assert.equal(
-      packageScripts[`content:${command}`],
-      `node scripts/content/run-retained-validator.mjs ${command}`
-    )
+    assert.equal(packageScripts[`content:${command}`], undefined)
     failure(run(fixtureWrapper, [command]), 'CONTENT_COMMAND_UNKNOWN')
   })
 }
+
+test('every root script that runs the wrapper names a supported command', () => {
+  const wrapped = Object.entries(packageScripts).filter(([, script]) =>
+    script.startsWith('node scripts/content/run-retained-validator.mjs ')
+  )
+  assert.deepEqual(wrapped.map(([name]) => name).toSorted(), [
+    'content:check',
+    'content:coverage',
+    'content:duplicates',
+    'content:validate'
+  ])
+  for (const [name, script] of wrapped)
+    assert.equal(
+      script,
+      `node scripts/content/run-retained-validator.mjs ${name.slice('content:'.length)}`
+    )
+})
 
 test('missing and unknown commands fail before loading the analysis runtime', () => {
   failure(run(fixtureWrapper, []), 'CONTENT_COMMAND_UNKNOWN')
