@@ -1,7 +1,4 @@
-import type {
-  StudySessionPayload,
-  VersionedStudySessionPayload
-} from '@nihongo/contracts/study/study-session'
+import type { VersionedStudySessionPayload } from '@nihongo/contracts/study/study-session'
 import {
   getQuestionContractIdentity,
   getQuestionVersionFingerprint,
@@ -13,10 +10,10 @@ import { toPracticeQuestion } from '@util/question'
 
 const STUDY_SESSION_TTL_MS = 24 * 60 * 60 * 1_000
 
-export const toContractStudySessionPayload = (
+const toContractStudySessionPayload = (
   record: MockStudySessionSnapshotRecord,
-  now = new Date()
-): StudySessionPayload => {
+  now: Date
+) => {
   const startedAtMs = Date.parse(record.session.startedAt)
   const expiresAt = new Date(startedAtMs + STUDY_SESSION_TTL_MS)
   const status =
