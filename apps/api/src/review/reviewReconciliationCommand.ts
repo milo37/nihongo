@@ -18,12 +18,10 @@ const run = async (): Promise<void> => {
     nodeEnvironment: environment.NODE_ENV,
     productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
   })
-  const database = createDatabaseRuntime(
-    environment.DATABASE_URL,
-    environment.ADMIN_CMS_MODE === 'technical'
-      ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
-      : {}
-  )
+  const database = createDatabaseRuntime(environment.DATABASE_URL, {
+    migrationProfile: 'current',
+    startupRole: 'nihongo_app'
+  })
 
   try {
     await database.checkReadiness()

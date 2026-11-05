@@ -8,7 +8,7 @@ import { Prisma } from '../generated/prisma/client.js'
 
 /** Helpers and row shapes shared by the admin repositories (#497). */
 
-export type AuditEnvironment = 'TEST' | 'DEVELOPMENT'
+export type AuditEnvironment = 'TEST' | 'DEVELOPMENT' | 'PRODUCTION'
 
 interface TargetManifestItem {
   readonly id: string

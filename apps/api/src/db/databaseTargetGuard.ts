@@ -11,10 +11,6 @@ interface DatabaseGuardInput {
   productionDatabaseUrl?: string | undefined
 }
 
-interface AdminCmsDatabaseGuardInput extends DatabaseGuardInput {
-  adminCmsMode?: 'disabled' | 'technical' | undefined
-}
-
 interface MigrationDatabaseGuardInput {
   nodeEnvironment: string | undefined
   migrationDatabaseUrl: string | undefined
@@ -86,39 +82,6 @@ const getExactSchema = (url: URL): string => {
   }
 
   return schema
-}
-
-const assertDisabledRuntimeLogin = (
-  target: DatabaseIdentity,
-  nodeEnvironment: string | undefined
-): void => {
-  if (nodeEnvironment === 'production') {
-    return
-  }
-  if (nodeEnvironment !== 'test' && nodeEnvironment !== 'development') {
-    throw new Error('Disabled admin CMS runtime requires a known NODE_ENV.')
-  }
-  const expectedEnvironment = target.databaseName.endsWith('_test')
-    ? 'test'
-    : target.databaseName.endsWith('_dev')
-      ? 'development'
-      : null
-  if (expectedEnvironment === null) {
-    throw new Error(
-      'Disabled admin CMS runtime requires an environment-suffixed DB.'
-    )
-  }
-  if (nodeEnvironment !== expectedEnvironment) {
-    throw new Error('Disabled admin CMS DB does not match NODE_ENV.')
-  }
-  // #504 P8-1: the CMS-disabled runtime is the same nihongo_app runtime.
-  const expectedLogin =
-    expectedEnvironment === 'test'
-      ? 'nihongo_test_app_login'
-      : 'nihongo_development_app_login'
-  if (target.loginName !== expectedLogin) {
-    throw new Error('Disabled admin CMS runtime requires its exact app login.')
-  }
 }
 
 const isSameDatabase = (
@@ -234,38 +197,18 @@ export const assertSafeDevelopmentDatabase = ({
 }
 
 export const assertSafeAdminCmsDatabase = ({
-  adminCmsMode,
   nodeEnvironment,
   databaseUrl,
   productionDatabaseUrl
-}: AdminCmsDatabaseGuardInput): void => {
-  if (adminCmsMode === 'disabled' && databaseUrl) {
-    if (nodeEnvironment === 'test') {
-      assertSafeTestDatabase({
-        nodeEnvironment,
-        databaseUrl,
-        productionDatabaseUrl
-      })
-    } else if (nodeEnvironment === 'development') {
-      assertSafeDevelopmentDatabase({
-        nodeEnvironment,
-        databaseUrl,
-        productionDatabaseUrl
-      })
-    }
-    assertDisabledRuntimeLogin(
-      getIdentity(parseDatabaseUrl(databaseUrl)),
-      nodeEnvironment
-    )
-  }
-
-  if (adminCmsMode !== 'technical') {
+}: DatabaseGuardInput): void => {
+  // Production serves the CMS from its own database by design.
+  if (nodeEnvironment === 'production') {
     return
   }
 
   if (!productionDatabaseUrl) {
     throw new Error(
-      'Technical admin CMS mode requires PRODUCTION_DATABASE_URL mismatch proof.'
+      'Admin CMS runtime requires PRODUCTION_DATABASE_URL mismatch proof.'
     )
   }
 
@@ -275,21 +218,15 @@ export const assertSafeAdminCmsDatabase = ({
       databaseUrl,
       productionDatabaseUrl
     })
-    return
-  }
-
-  if (nodeEnvironment === 'development') {
+  } else if (nodeEnvironment === 'development') {
     assertSafeDevelopmentDatabase({
       nodeEnvironment,
       databaseUrl,
       productionDatabaseUrl
     })
-    return
+  } else {
+    throw new Error('Admin CMS runtime requires NODE_ENV=test or development.')
   }
-
-  throw new Error(
-    'Technical admin CMS mode requires NODE_ENV=test or development.'
-  )
 }
 
 export const assertSafeMigrationDatabase = ({

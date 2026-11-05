@@ -69,7 +69,6 @@ const ssoTestProfile = {
   NODE_ENV: 'test',
   DEPLOYMENT_ENVIRONMENT: 'TEST',
   RELEASE_ID: '0'.repeat(40),
-  ADMIN_CMS_MODE: 'technical',
   HOST: '127.0.0.1',
   PORT: '3001',
   LOG_LEVEL: 'silent',

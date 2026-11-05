@@ -21,7 +21,6 @@ import type {
 
 const environment = {
   NODE_ENV: 'production',
-  ADMIN_CMS_MODE: 'disabled',
   BETTER_AUTH_URL: 'https://app.example.test',
   TRUSTED_ORIGINS: ['https://app.example.test'],
   BETTER_AUTH_SECRET: 'test-auth-placeholder-only-1234567890',

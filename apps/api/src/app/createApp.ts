@@ -103,38 +103,21 @@ import {
 } from './protectedRouteExclusion.js'
 import { installStaticWeb } from './staticWeb.js'
 
-const TECHNICAL_CORS_METHODS = [
-  'DELETE',
-  'GET',
-  'OPTIONS',
-  'PATCH',
-  'POST',
-  'PUT'
-]
-const TECHNICAL_CORS_BASE_HEADERS = ['Content-Type']
-const TECHNICAL_CORS_PRACTICE_HEADERS = [
-  ...TECHNICAL_CORS_BASE_HEADERS,
+// Development/test only: production serves the web apps from the same origin.
+const CORS_METHODS = ['DELETE', 'GET', 'OPTIONS', 'PATCH', 'POST', 'PUT']
+const CORS_ALLOW_HEADERS = [
+  'Content-Type',
   'Idempotency-Key',
   'X-Nihongo-Practice-Contract'
 ]
-const LEGACY_CORS_EXPOSE_HEADERS = [
+const CORS_EXPOSE_HEADERS = [
+  'Content-Disposition',
   'Idempotency-Replayed',
   'Location',
   'Retry-After',
   'X-Request-Id',
   'X-Nihongo-Practice-Contract'
 ]
-const TECHNICAL_CORS_EXPOSE_HEADERS = [
-  'Content-Disposition',
-  ...LEGACY_CORS_EXPOSE_HEADERS
-]
-const TARGETED_REVIEW_PATH_PATTERN =
-  /^\/api\/v1\/wrong-notes\/[^/]+\/review-session\/?$/u
-
-const isPracticeCorsPath = (pathname: string): boolean =>
-  pathname === '/api/v1/study-sessions' ||
-  pathname.startsWith('/api/v1/study-sessions/') ||
-  TARGETED_REVIEW_PATH_PATTERN.test(pathname)
 
 interface CreateApiAppDependencies {
   /** #484 restriction lookup; required in production when learner routes are wired. */
@@ -439,15 +422,11 @@ export const createApiApp = ({
   const accountRestrictionReader =
     configuredAccountRestrictionReader ?? unrestrictedAccountReader
 
-  const technicalAdminEnabled =
-    admin !== undefined &&
-    auth?.environment.ADMIN_CMS_MODE === 'technical' &&
-    auth.environment.NODE_ENV !== 'production'
-  // Learner reports stay available when the technical CMS is disabled.
+  const adminEnabled = admin !== undefined && auth !== undefined
   const learnerReports =
     auth === undefined
       ? undefined
-      : (questionReports ?? (technicalAdminEnabled ? admin.reports : undefined))
+      : (questionReports ?? (adminEnabled ? admin.reports : undefined))
 
   app.use('*', requestContext)
   app.use('*', secureHeaders())
@@ -479,7 +458,7 @@ export const createApiApp = ({
     }
 
     if (
-      technicalAdminEnabled &&
+      adminEnabled &&
       (isCanonicalSlice2ReadRequest({
         method: context.req.method,
         requestTarget
@@ -580,41 +559,20 @@ export const createApiApp = ({
       }
     })
     if (auth.environment.NODE_ENV !== 'production') {
-      const corsOptions = {
-        origin: (origin: string) =>
-          auth.environment.TRUSTED_ORIGINS.includes(origin)
-            ? origin
-            : undefined,
-        credentials: true,
-        maxAge: 600
-      }
-      const legacyCors = cors({
-        ...corsOptions,
-        allowHeaders: TECHNICAL_CORS_PRACTICE_HEADERS,
-        allowMethods: ['DELETE', 'GET', 'OPTIONS', 'POST', 'PUT'],
-        exposeHeaders: LEGACY_CORS_EXPOSE_HEADERS
-      })
-      const technicalBaseCors = cors({
-        ...corsOptions,
-        allowHeaders: TECHNICAL_CORS_BASE_HEADERS,
-        allowMethods: TECHNICAL_CORS_METHODS,
-        exposeHeaders: TECHNICAL_CORS_EXPOSE_HEADERS
-      })
-      const technicalPracticeCors = cors({
-        ...corsOptions,
-        allowHeaders: TECHNICAL_CORS_PRACTICE_HEADERS,
-        allowMethods: TECHNICAL_CORS_METHODS,
-        exposeHeaders: TECHNICAL_CORS_EXPOSE_HEADERS
-      })
-
-      app.use('/api/v1/*', (context, next) => {
-        if (auth.environment.ADMIN_CMS_MODE !== 'technical') {
-          return legacyCors(context, next)
-        }
-        return isPracticeCorsPath(context.req.path)
-          ? technicalPracticeCors(context, next)
-          : technicalBaseCors(context, next)
-      })
+      app.use(
+        '/api/v1/*',
+        cors({
+          origin: (origin: string) =>
+            auth.environment.TRUSTED_ORIGINS.includes(origin)
+              ? origin
+              : undefined,
+          credentials: true,
+          maxAge: 600,
+          allowHeaders: CORS_ALLOW_HEADERS,
+          allowMethods: CORS_METHODS,
+          exposeHeaders: CORS_EXPOSE_HEADERS
+        })
+      )
     }
     if (userReports) {
       app.route(
@@ -645,11 +603,7 @@ export const createApiApp = ({
         })
       )
     }
-    if (
-      admin &&
-      auth.environment.ADMIN_CMS_MODE === 'technical' &&
-      auth.environment.NODE_ENV !== 'production'
-    ) {
+    if (admin) {
       app.route(
         '/api/v1/admin',
         createAdminQuestionRoutes({
@@ -903,7 +857,7 @@ export const createApiApp = ({
       releaseId,
       webAssetsDirectory,
       ...(adminAssetsDirectory ? { adminAssetsDirectory } : {}),
-      ...(adminAssetsDirectory && technicalAdminEnabled && admin && auth
+      ...(adminAssetsDirectory && adminEnabled && admin && auth
         ? {
             adminGuard: createAdminReadGuard({
               assertCapability: admin.assertCapability,

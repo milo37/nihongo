@@ -81,9 +81,9 @@ project·volume 이름이 `nihongo-local`·`nihongo-local-postgres-data`로 바�
 docker compose --project-name nihongo-local --profile local-db down -v
 docker compose --project-name nihongo-local --profile local-db up -d --wait postgres-local
 NODE_ENV=test pnpm run db:migrate:deploy
-ADMIN_CMS_MODE=technical pnpm run db:seed:test
+pnpm run db:seed:test
 pnpm run db:migrate:deploy
-ADMIN_CMS_MODE=technical pnpm run db:seed:dev
+pnpm run db:seed:dev
 ```
 
 `up`은 새 볼륨에서만 provisioning을 실행하고, healthcheck는 provisioning 검증이 끝난 뒤에만 통과합니다.
@@ -106,7 +106,7 @@ PGPASSWORD="$DEVELOPMENT_MIGRATION_PASSWORD" PGOPTIONS="-c role=nihongo_migratio
 ```
 
 기술 startup은 activation 전에는 의도적으로 실패합니다.
-승인된 activation 뒤 TEST는 `DOTENV_CONFIG_PATH=.env.test ADMIN_CMS_MODE=technical pnpm run dev:api`, DEVELOPMENT는 `ADMIN_CMS_MODE=technical pnpm run dev:api`로 시작하고 `curl http://127.0.0.1:3001/health/ready`가 `{"status":"ready"}`인지 확인합니다.
+승인된 activation 뒤 TEST는 `DOTENV_CONFIG_PATH=.env.test pnpm run dev:api`, DEVELOPMENT는 `pnpm run dev:api`로 시작하고 `curl http://127.0.0.1:3001/health/ready`가 `{"status":"ready"}`인지 확인합니다.
 
 **임시 통합 runner: 55432, 위 runtime과 volume 공유 금지**
 API `.env.test`의 `DB_INTEGRATION_DATABASE_URL`·`API_INTEGRATION_DATABASE_URL`은 기본 55432 연결을 유지합니다.

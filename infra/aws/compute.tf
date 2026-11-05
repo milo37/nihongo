@@ -143,7 +143,6 @@ resource "aws_instance" "host" {
       "HOST=0.0.0.0",
       "PORT=3001",
       "LOG_LEVEL=info",
-      "ADMIN_CMS_MODE=disabled",
       "TRUSTED_ORIGINS=${local.public_origin}",
       "BETTER_AUTH_URL=${local.public_origin}",
       "AUTH_TRUSTED_PROXY_CIDRS=${local.proxy_subnet}",
