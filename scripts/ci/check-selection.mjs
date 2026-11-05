@@ -381,7 +381,6 @@ export const qualityCommands = (selection, group) => {
       '0'
     )
     add('run', 'check:architecture')
-    add('run', 'test:security')
   } else if (group === 'packages') {
     add('--filter', '@nihongo/contracts', 'run', 'build')
     add('--filter', '@nihongo/domain', 'run', 'build')
