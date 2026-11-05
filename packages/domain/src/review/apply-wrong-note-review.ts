@@ -2,7 +2,7 @@ export const WRONG_NOTE_ALGORITHM_VERSION = 1 as const
 
 export type WrongNoteReviewStatus = 'NEW' | 'REVIEWING' | 'AGAIN' | 'SOLVED'
 
-export type WrongNoteReviewErrorCode =
+type WrongNoteReviewErrorCode =
   | 'INVALID_PREVIOUS_STATE'
   | 'INVALID_OCCURRED_AT'
   | 'NON_MONOTONIC_OCCURRED_AT'
@@ -27,13 +27,13 @@ export interface WrongNoteReviewState {
   readonly lastReviewedAt: Date | null
 }
 
-export interface WrongNoteReviewScheduleDecision {
+interface WrongNoteReviewScheduleDecision {
   readonly nextReviewAt: Date
   readonly intervalDays: number
   readonly algorithmVersion: typeof WRONG_NOTE_ALGORITHM_VERSION
 }
 
-export interface WrongNoteReviewEventDecision {
+interface WrongNoteReviewEventDecision {
   readonly isCorrect: boolean
   readonly previousStatus: WrongNoteReviewStatus | null
   readonly nextStatus: WrongNoteReviewStatus
@@ -51,13 +51,13 @@ export interface WrongNoteReviewDecision {
   readonly event: WrongNoteReviewEventDecision
 }
 
-export interface ApplyWrongNoteReviewInput {
+interface ApplyWrongNoteReviewInput {
   readonly previous: WrongNoteReviewState | null
   readonly isCorrect: boolean
   readonly occurredAt: Date
 }
 
-export interface ReviewEventEvidence {
+interface ReviewEventEvidence {
   readonly studyAnswerId: string | null
 }
 

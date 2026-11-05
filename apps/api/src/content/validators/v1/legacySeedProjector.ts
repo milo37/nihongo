@@ -27,7 +27,7 @@ import {
 } from './legacySchemas.js'
 import { sha256Schema } from './schemaHelpers.js'
 
-export interface LegacyQuestionSeedLike {
+interface LegacyQuestionSeedLike {
   readonly legacyId: string
   readonly questionId: string
   readonly level: ContentLevel
@@ -61,7 +61,7 @@ export interface LegacySeedProjectionV1 {
   >
 }
 
-export const projectLegacyPersistedSemantic = (
+const projectLegacyPersistedSemantic = (
   seed: LegacyQuestionSeedLike
 ): PersistedQuestionSemanticV1 => {
   const options = seed.options.toSorted(

@@ -14,7 +14,7 @@ import {
   type StudyResultRetryRepository
 } from './studyResultRetryRepository.js'
 
-export interface CreateResultRetryServiceResult {
+interface CreateResultRetryServiceResult {
   readonly replayed: boolean
   readonly response: VersionedStudySessionPayload
 }

@@ -9,12 +9,10 @@ import {
   normalizeTagKey
 } from './unicode.js'
 import type {
-  ContentBundleItemV1,
   ContentLevel,
   ContentQuestionType,
   ContentSubject,
-  OriginalQuestionContentV1,
-  PersistedQuestionSemanticV1
+  OriginalQuestionContentV1
 } from './types.js'
 
 const QUESTION_TYPES_BY_SUBJECT: Readonly<
@@ -41,7 +39,7 @@ const READING_TYPES_BY_LEVEL: Readonly<
   N1: ['MEDIUM_READING', 'LONG_READING', 'INFO_RETRIEVAL']
 }
 
-export type ContentValidationRuleCode =
+type ContentValidationRuleCode =
   | 'CONTENT_CONTROL_CHARACTER'
   | 'CONTENT_EDGE_WHITESPACE'
   | 'CONTENT_LENGTH'
@@ -54,12 +52,12 @@ export type ContentValidationRuleCode =
   | 'CONTENT_TYPE_MATRIX'
   | 'CONTENT_UNICODE'
 
-export interface ContentValidationIssue {
+interface ContentValidationIssue {
   readonly ruleCode: ContentValidationRuleCode
   readonly field: string
 }
 
-export const isQuestionTypeAllowedForSubject = (
+const isQuestionTypeAllowedForSubject = (
   subject: ContentSubject,
   questionType: ContentQuestionType
 ): boolean => QUESTION_TYPES_BY_SUBJECT[subject].includes(questionType)
@@ -189,54 +187,3 @@ export const validateOriginalQuestionContent = (
       : compareUnicodeScalars(left.ruleCode, right.ruleCode)
   })
 }
-
-export const toPersistedQuestionSemantic = (
-  content: OriginalQuestionContentV1
-): PersistedQuestionSemanticV1 => ({
-  level: content.level,
-  subject: content.subject,
-  questionType: content.questionType,
-  difficulty: content.difficulty,
-  passage: content.passage,
-  questionText: content.questionText,
-  options: content.options,
-  correctOptionKey: content.correctOptionKey,
-  explanationKo: content.explanationKo,
-  explanationJa: content.explanationJa,
-  tagKeys: content.tagKeys.toSorted(compareUnicodeScalars)
-})
-
-export const toContentItemHashInput = (item: ContentBundleItemV1) => ({
-  contentKey: item.contentKey,
-  intent: item.intent,
-  content: item.content,
-  provenance: item.provenance
-})
-
-export const normalizePersistedQuestionSemanticForHash = (
-  semantic: PersistedQuestionSemanticV1
-): PersistedQuestionSemanticV1 => ({
-  ...semantic,
-  tagKeys: semantic.tagKeys.toSorted(compareUnicodeScalars)
-})
-
-export const normalizeContentBundleItemForHash = (
-  item: ContentBundleItemV1
-): ContentBundleItemV1 => ({
-  ...item,
-  content: {
-    ...item.content,
-    tagKeys: item.content.tagKeys.toSorted(compareUnicodeScalars)
-  }
-})
-
-export const normalizeContentBundleForHash = (
-  bundle: import('./types.js').ContentBundleV1
-): import('./types.js').ContentBundleV1 => ({
-  ...bundle,
-  items: bundle.items
-    .map(normalizeContentBundleItemForHash)
-    .toSorted((left, right) =>
-      compareUnicodeScalars(left.contentKey, right.contentKey)
-    )
-})

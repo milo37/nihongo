@@ -20,7 +20,7 @@ const practiceCompatibilityAuthoritySchema = z
   })
   .strict()
 
-export type PracticeCompatibilityAuthority = z.output<
+type PracticeCompatibilityAuthority = z.output<
   typeof practiceCompatibilityAuthoritySchema
 >
 
@@ -29,14 +29,14 @@ export interface PracticeCompatibilityAuthorityHandle {
   assertValid: () => void
 }
 
-export class PracticeCompatibilityAuthorityError extends Error {
+class PracticeCompatibilityAuthorityError extends Error {
   constructor() {
     super('Practice compatibility authority validation failed.')
     this.name = 'PracticeCompatibilityAuthorityError'
   }
 }
 
-export const parsePracticeCompatibilityAuthority = (
+const parsePracticeCompatibilityAuthority = (
   value: unknown
 ): PracticeCompatibilityAuthority => {
   const parsed = practiceCompatibilityAuthoritySchema.safeParse(value)
@@ -46,7 +46,7 @@ export const parsePracticeCompatibilityAuthority = (
   return parsed.data
 }
 
-export const loadPracticeCompatibilityAuthority = (
+const loadPracticeCompatibilityAuthority = (
   authorityFile: string
 ): PracticeCompatibilityAuthority => {
   let descriptor: number | undefined

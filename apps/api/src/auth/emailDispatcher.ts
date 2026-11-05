@@ -10,7 +10,7 @@ export interface AuthEmailDispatcher {
   enqueue: (message: AuthEmailMessage) => void
 }
 
-export type AuthEmailDeliveryFailureReason =
+type AuthEmailDeliveryFailureReason =
   | 'ABORTED'
   | 'DELIVERY_FAILED'
   | 'QUEUE_FULL'

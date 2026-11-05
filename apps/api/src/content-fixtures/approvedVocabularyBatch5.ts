@@ -1,8 +1,3 @@
-import {
-  adminQuestionContentInputSchema,
-  validateQuestionImportRequestSchema
-} from '@nihongo/contracts/admin/content-operations'
-
 // JLP-259 internal QA; registration and release remain unverified.
 export const approvedVocabularyBatch5 = {
   items: [
@@ -125,28 +120,3 @@ export const approvedVocabularyBatch5 = {
   registered: 0,
   externalEducatorReview: false
 } as const
-
-// clientItemId is a logical content ID. Import returns newly allocated database IDs.
-// Keep that returned mapping for subsequent review/publish and frontend parity.
-export const createApprovedVocabularyBatch5Import = () =>
-  validateQuestionImportRequestSchema.parse({
-    items: approvedVocabularyBatch5.items.map(({ registration }) => ({
-      clientItemId: registration.id,
-      content: adminQuestionContentInputSchema.parse({
-        level: registration.level,
-        subject: registration.subject,
-        questionType: registration.questionType,
-        difficulty: registration.difficulty,
-        questionText: registration.questionText,
-        passage: registration.passage,
-        explanationKo: registration.explanationKo,
-        explanationJa: registration.explanationJa,
-        tagNames: registration.tags,
-        options: registration.options.map((text, index) => ({
-          clientOptionKey: `option-${index + 1}`,
-          text
-        })),
-        correctOptionKey: `option-${registration.correctIndex + 1}`
-      })
-    }))
-  })

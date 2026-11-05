@@ -32,14 +32,11 @@ const { URL, URLSearchParams } = globalThis as unknown as {
 
 export const ssoProviderIdSchema = z.enum(['apple', 'google'])
 export type SsoProviderId = z.output<typeof ssoProviderIdSchema>
-
-export const signInSocialOperationId = 'auth.signInSocial' as const
 export const ssoCallbackOutcomeSchema = z.enum([
   'CANCELLED',
   'FAILED',
   'INVALID_CALLBACK'
 ])
-export const signInSocialErrorCodeSchema = z.literal('SSO_UNAVAILABLE')
 
 const FILTER_KEYS = new Set([
   'level',
@@ -181,7 +178,7 @@ export const safeSsoReturnPath = (value: unknown): string => {
   return url.pathname + url.search
 }
 
-export const isSsoAuthorizationURL = (value: string): boolean => {
+const isSsoAuthorizationURL = (value: string): boolean => {
   try {
     const url = new URL(value)
     if (
@@ -243,9 +240,5 @@ export const signInSocialResponseSchema = z
   .strict()
 
 export type SignInSocialRequest = z.input<typeof signInSocialRequestSchema>
-export type ParsedSignInSocialRequest = z.output<
-  typeof signInSocialRequestSchema
->
 export type SignInSocialResponse = z.output<typeof signInSocialResponseSchema>
 export type SsoCallbackOutcome = z.output<typeof ssoCallbackOutcomeSchema>
-export type SignInSocialErrorCode = z.output<typeof signInSocialErrorCodeSchema>

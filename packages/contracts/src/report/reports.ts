@@ -5,9 +5,6 @@ import { opaqueIdSchema } from '../common/id.js'
 import { createContentTextSchema } from '../common/content-validation.js'
 import { createPageResponseSchema } from '../common/pagination.js'
 
-export const createReportOperationId = 'report.createReport' as const
-export const listMyReportsOperationId = 'report.listMyReports' as const
-
 export const reportKindSchema = z.enum(['QUESTION', 'APP_ERROR'])
 
 /** RECEIVED → ANSWERED (replied and closed) | CLOSED (closed without reply). */
@@ -103,11 +100,8 @@ export const listMyReportsErrorSchema = createApiFailureSchema(
     'SERVICE_UNAVAILABLE'
   ])
 )
-
-export type ReportKind = z.output<typeof reportKindSchema>
 export type ReportStatus = z.output<typeof reportStatusSchema>
 export type CreateReportRequest = z.input<typeof createReportRequestSchema>
 export type CreateReportResponse = z.output<typeof createReportResponseSchema>
-export type ListMyReportsQuery = z.input<typeof listMyReportsQuerySchema>
 export type MyReport = z.output<typeof myReportSchema>
 export type ListMyReportsResponse = z.output<typeof listMyReportsResponseSchema>

@@ -94,12 +94,6 @@ export type QuestionType = z.output<typeof questionTypeSchema>
 export type QuestionDifficulty = z.output<typeof questionDifficultySchema>
 export type StudyMode = z.output<typeof studyModeSchema>
 export type StudySessionStatus = z.output<typeof studySessionStatusSchema>
-export type PracticeContractVersion = z.output<
-  typeof practiceContractVersionSchema
->
-export type StudyResumeAvailability = z.output<
-  typeof studyResumeAvailabilitySchema
->
 export type StudySessionFallbackReason = z.output<
   typeof studySessionFallbackReasonSchema
 >
@@ -109,5 +103,3 @@ export type ReviewQueueView = z.output<typeof reviewQueueViewSchema>
 export type ReviewQueueSort = z.output<typeof reviewQueueSortSchema>
 export type ReviewEventSource = z.output<typeof reviewEventSourceSchema>
 export type ReviewAvailability = z.output<typeof reviewAvailabilitySchema>
-export type BookmarkAvailability = z.output<typeof bookmarkAvailabilitySchema>
-export type PersistedUserRole = z.output<typeof persistedUserRoleSchema>

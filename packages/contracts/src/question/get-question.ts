@@ -47,15 +47,13 @@ export const comparePublicQuestionTags = (
   return compareUnicodeScalarValues(left.id, right.id)
 }
 
-export const getQuestionOperationId = 'question.getQuestion' as const
-
 export const getQuestionParamsSchema = z
   .object({
     questionId: opaqueIdSchema
   })
   .strict()
 
-export const publicQuestionOptionSchema = z
+const publicQuestionOptionSchema = z
   .object({
     id: opaqueIdSchema,
     label: z.enum(['1', '2', '3', '4']),
@@ -148,7 +146,7 @@ export const publicPracticeQuestionSchema = z
 
 export const getQuestionResponseSchema = publicPracticeQuestionSchema
 
-export const getQuestionErrorCodeSchema = z.enum([
+const getQuestionErrorCodeSchema = z.enum([
   'INVALID_ID',
   'RESOURCE_NOT_FOUND',
   'RATE_LIMITED',
@@ -159,7 +157,5 @@ export const getQuestionErrorCodeSchema = z.enum([
 export const getQuestionErrorSchema = createApiFailureSchema(
   getQuestionErrorCodeSchema
 )
-
-export type GetQuestionParams = z.input<typeof getQuestionParamsSchema>
 export type GetQuestionResponse = z.output<typeof getQuestionResponseSchema>
 export type GetQuestionError = z.output<typeof getQuestionErrorSchema>

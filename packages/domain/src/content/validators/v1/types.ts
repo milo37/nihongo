@@ -36,7 +36,7 @@ export const TAG_FAMILIES = [
 ] as const
 export type TagFamily = (typeof TAG_FAMILIES)[number]
 
-export interface ContentOptionV1 {
+interface ContentOptionV1 {
   readonly key: ContentOptionKey
   readonly text: string
 }
@@ -82,7 +82,7 @@ export interface PersistedQuestionSemanticV1 {
   readonly tagKeys: readonly string[]
 }
 
-export interface OriginalContentProvenanceV1 {
+interface OriginalContentProvenanceV1 {
   readonly sourceType: 'ORIGINAL'
   readonly authorRef: string
   readonly creationMethod: 'HUMAN'
@@ -91,7 +91,7 @@ export interface OriginalContentProvenanceV1 {
   readonly sourceNote: string
 }
 
-export type ContentBundleIntentV1 =
+type ContentBundleIntentV1 =
   | {
       readonly kind: 'CREATE'
       readonly expectedCurrentVersionNumber: null
@@ -133,7 +133,7 @@ export interface ContentBundleV1 {
   readonly items: readonly ContentBundleItemV1[]
 }
 
-export interface TagTaxonomyItemV1 {
+interface TagTaxonomyItemV1 {
   readonly key: string
   readonly labelKo: string
   readonly family: TagFamily
@@ -152,7 +152,7 @@ export interface TagTaxonomyV1 {
   readonly tags: readonly TagTaxonomyItemV1[]
 }
 
-export interface BundleCoverageCellV1 {
+interface BundleCoverageCellV1 {
   readonly level: ContentLevel
   readonly subject: ContentSubject
   readonly questionType: ContentQuestionType

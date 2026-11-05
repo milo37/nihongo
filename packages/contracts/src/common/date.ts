@@ -31,6 +31,3 @@ export const calendarDateSchema = z
   .string()
   .regex(CALENDAR_DATE_PATTERN)
   .refine(isCalendarDate, '유효한 달력 날짜여야 합니다.')
-
-export type IsoDateTime = z.output<typeof isoDateTimeSchema>
-export type CalendarDate = z.output<typeof calendarDateSchema>

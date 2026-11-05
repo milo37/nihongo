@@ -9,7 +9,7 @@ export interface RateLimitPolicy {
 }
 
 /** Per limiter settings; the SQL and window math are shared (#497). */
-export interface KeyedRateLimitSettings {
+interface KeyedRateLimitSettings {
   readonly storeUnavailableMessage: string
   readonly stateInvalidMessage: string
   readonly rateLimitedMessage: string

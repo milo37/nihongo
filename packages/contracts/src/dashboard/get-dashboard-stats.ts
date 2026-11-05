@@ -48,9 +48,6 @@ const parseCalendarDate = (value: string): Date =>
 const formatCalendarDate = (value: Date): string =>
   value.toISOString().slice(0, 10)
 
-export const getDashboardStatsOperationId =
-  'dashboard.getDashboardStats' as const
-
 export const getDashboardStatsQuerySchema = z
   .object({
     from: calendarDateSchema.optional(),
@@ -115,7 +112,7 @@ export const dashboardSubjectStatSchema = z
     }
   })
 
-export const dashboardRecentStudySessionSchema = z
+const dashboardRecentStudySessionSchema = z
   .object({
     id: opaqueIdSchema,
     level: jlptLevelSchema,
@@ -143,14 +140,14 @@ export const dashboardRecentStudySessionSchema = z
     }
   })
 
-export const dashboardDailyStudyCountSchema = z
+const dashboardDailyStudyCountSchema = z
   .object({
     date: calendarDateSchema,
     count: safeCountSchema
   })
   .strict()
 
-export const dashboardRepeatedWrongQuestionSchema = z
+const dashboardRepeatedWrongQuestionSchema = z
   .object({
     questionId: opaqueIdSchema,
     questionPreview: wrongNoteQuestionPreviewSchema,
@@ -291,7 +288,7 @@ export const getDashboardStatsResponseSchema = z
     }
   })
 
-export const getDashboardStatsErrorCodeSchema = z.enum([
+const getDashboardStatsErrorCodeSchema = z.enum([
   'AUTHENTICATION_REQUIRED',
   'AUTH_SESSION_EXPIRED',
   'VALIDATION_ERROR',
@@ -313,9 +310,6 @@ export type ParsedGetDashboardStatsQuery = z.output<
 export type DashboardSubjectStat = z.output<typeof dashboardSubjectStatSchema>
 export type DashboardRecentStudySession = z.output<
   typeof dashboardRecentStudySessionSchema
->
-export type DashboardDailyStudyCount = z.output<
-  typeof dashboardDailyStudyCountSchema
 >
 export type DashboardRepeatedWrongQuestion = z.output<
   typeof dashboardRepeatedWrongQuestionSchema

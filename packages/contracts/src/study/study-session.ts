@@ -11,7 +11,7 @@ import {
 import { opaqueIdSchema } from '../common/id.js'
 import { publicPracticeQuestionSchema } from '../question/get-question.js'
 
-export const studySessionSummarySchema = z
+const studySessionSummarySchema = z
   .object({
     id: opaqueIdSchema,
     level: jlptLevelSchema,
@@ -29,7 +29,7 @@ export const studySessionSummarySchema = z
   })
   .strict()
 
-export const studySessionQuestionSchema = z
+const studySessionQuestionSchema = z
   .object({
     sessionQuestionId: opaqueIdSchema,
     ordinal: z.number().int().positive(),
@@ -37,10 +37,9 @@ export const studySessionQuestionSchema = z
   })
   .strict()
 
-export const versionedStudySessionSummarySchema =
-  studySessionSummarySchema.extend({
-    practiceContractVersion: practiceContractVersionSchema
-  })
+const versionedStudySessionSummarySchema = studySessionSummarySchema.extend({
+  practiceContractVersion: practiceContractVersionSchema
+})
 
 type StudySessionPayloadCandidate = {
   session: z.output<typeof studySessionSummarySchema>

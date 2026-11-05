@@ -424,7 +424,7 @@ const assertEndpoint = (
   }
 }
 
-export const assertRuntimeRoleEvidence = (
+const assertRuntimeRoleEvidence = (
   application: RuntimeRoleEvidence,
   endpoints: { application: Omit<RuntimeRoleEndpoint, 'client'> }
 ): void => {

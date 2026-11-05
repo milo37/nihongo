@@ -30,12 +30,6 @@ export const getWrongNoteMemoErrorCodeSchema = z.enum([
 export const getWrongNoteMemoErrorSchema = createApiFailureSchema(
   getWrongNoteMemoErrorCodeSchema
 )
-
-export type GetWrongNoteMemoParams = z.input<
-  typeof getWrongNoteMemoParamsSchema
->
-export type GetWrongNoteMemoQuery = z.input<typeof getWrongNoteMemoQuerySchema>
 export type GetWrongNoteMemoResponse = z.output<
   typeof getWrongNoteMemoResponseSchema
 >
-export type GetWrongNoteMemoError = z.output<typeof getWrongNoteMemoErrorSchema>

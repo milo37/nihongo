@@ -25,7 +25,7 @@ export interface ReviewQueueRecord
   readonly nextReviewAt: Date
 }
 
-export interface ListOwnedReviewQueueResult {
+interface ListOwnedReviewQueueResult {
   readonly availableTags: readonly string[]
   readonly counts: ReviewQueueCounts
   readonly items: readonly ReviewQueueRecord[]
@@ -33,7 +33,7 @@ export interface ListOwnedReviewQueueResult {
   readonly total: number
 }
 
-export interface ListOwnedReviewQueueInput extends ParsedListReviewQueueQuery {
+interface ListOwnedReviewQueueInput extends ParsedListReviewQueueQuery {
   readonly observedAt?: Date
   readonly userId: string
 }

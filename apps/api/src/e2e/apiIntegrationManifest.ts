@@ -1,4 +1,4 @@
-export type ApiIntegrationOwner = 'api' | 'db' | 'shard'
+type ApiIntegrationOwner = 'api' | 'db' | 'shard'
 
 export interface ApiIntegrationManifestEntry {
   readonly path: `src/${string}.integration.test.ts`

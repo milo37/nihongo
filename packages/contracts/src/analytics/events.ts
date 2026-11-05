@@ -8,7 +8,7 @@ import {
 } from '../common/enum.js'
 import { requestIdSchema } from '../common/id.js'
 
-export const analyticsEnvironmentSchema = z.enum([
+const analyticsEnvironmentSchema = z.enum([
   'LOCAL',
   'TEST',
   'DEVELOPMENT',
@@ -16,7 +16,7 @@ export const analyticsEnvironmentSchema = z.enum([
   'PRODUCTION'
 ])
 
-export const analyticsReleaseIdSchema = z.string().regex(/^[0-9a-f]{40}$/u)
+const analyticsReleaseIdSchema = z.string().regex(/^[0-9a-f]{40}$/u)
 
 const questionCountSchema = z.number().int().min(1).max(20)
 const answerOrdinalSchema = z.number().int().min(1).max(20)

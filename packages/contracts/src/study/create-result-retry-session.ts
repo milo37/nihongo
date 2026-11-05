@@ -49,19 +49,6 @@ export const createResultRetrySessionErrorCodeSchema = z.enum([
 export const createResultRetrySessionErrorSchema = createApiFailureSchema(
   createResultRetrySessionErrorCodeSchema
 )
-
-export type CreateResultRetrySessionParams = z.input<
-  typeof createResultRetrySessionParamsSchema
->
-export type CreateResultRetrySessionHeaders = z.input<
-  typeof createResultRetrySessionHeadersSchema
->
-export type CreateResultRetrySessionBody = z.input<
-  typeof createResultRetrySessionBodySchema
->
-export type CreateResultRetrySessionResponse = z.output<
-  typeof createResultRetrySessionResponseSchema
->
 export type CreateResultRetrySessionError = z.output<
   typeof createResultRetrySessionErrorSchema
 >

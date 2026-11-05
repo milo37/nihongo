@@ -11,7 +11,7 @@ import { saveStudyDraftAnswersOperationId } from '../study/save-study-draft-answ
 import type { StudyDraftSnapshot } from '../study/study-draft.js'
 import type { VersionedStudySessionPayload } from '../study/study-session.js'
 
-export const preSubmitForbiddenKeys = [
+const preSubmitForbiddenKeys = [
   'correctOptionId',
   'isCorrect',
   'explanationKo',

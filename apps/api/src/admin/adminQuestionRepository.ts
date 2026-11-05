@@ -8,16 +8,14 @@ export type AdminAccountActorRecord = {
   label: 'ACTIVE_USER' | 'DELETED_USER' | 'ACTIVE_ADMIN' | 'DELETED_ADMIN'
 }
 
-export type AdminSystemActorRecord = {
+type AdminSystemActorRecord = {
   kind: 'SYSTEM'
   actorId: null
   role: 'SYSTEM'
   label: 'ACCOUNT_ERASURE'
 }
 
-export type AdminSafeActorRecord =
-  | AdminAccountActorRecord
-  | AdminSystemActorRecord
+type AdminSafeActorRecord = AdminAccountActorRecord | AdminSystemActorRecord
 
 export interface AdminTagRecord {
   id: string
@@ -25,7 +23,7 @@ export interface AdminTagRecord {
   normalizedName: string
 }
 
-export interface AdminOptionRecord {
+interface AdminOptionRecord {
   id: string
   label: string
   ordinal: number
@@ -98,7 +96,7 @@ export interface AdminQuestionListRecord {
   openReportCount: number
 }
 
-export interface ListAdminQuestionRecordsInput {
+interface ListAdminQuestionRecordsInput {
   q?: string
   level?: AdminVersionSummaryRecord['level']
   subject?: AdminVersionSummaryRecord['subject']
@@ -143,7 +141,7 @@ export type AdminAuditCommand =
   | 'REAUTHENTICATION'
   | 'AUTHOR_ERASURE_ABANDON'
 
-export interface AdminQuestionDetailRecord {
+interface AdminQuestionDetailRecord {
   questionId: string
   lifecycleStatus: 'ACTIVE' | 'ARCHIVED'
   rowVersion: number
@@ -162,7 +160,7 @@ export interface AdminQuestionDetailRecord {
   }
 }
 
-export interface AdminReviewRecord {
+interface AdminReviewRecord {
   id: string
   questionId: string
   questionVersionId: string
@@ -215,12 +213,12 @@ export interface AdminAuditRecord {
   occurredAt: Date
 }
 
-export interface OccurredAtCursorInput {
+interface OccurredAtCursorInput {
   occurredAt: Date
   id: string
 }
 
-export interface ListAdminAuditRecordsInput {
+interface ListAdminAuditRecordsInput {
   command?: AdminAuditCommand
   commands?: readonly AdminAuditCommand[]
   targetType?: AdminAuditTargetType

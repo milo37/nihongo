@@ -18,7 +18,7 @@ const inputSchema = z
   })
   .strict()
 
-export interface ReviewReconciliationService {
+interface ReviewReconciliationService {
   reconcile: (input?: {
     batchSize?: number
   }) => Promise<ReviewReconciliationResult>

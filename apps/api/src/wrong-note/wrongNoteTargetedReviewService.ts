@@ -9,7 +9,7 @@ import {
   type WrongNoteTargetedReviewRepository
 } from './wrongNoteTargetedReviewRepository.js'
 
-export interface CreateTargetedReviewServiceResult {
+interface CreateTargetedReviewServiceResult {
   readonly replayed: boolean
   readonly response: CreateTargetedReviewSessionResponse
 }

@@ -78,7 +78,7 @@ const duplicateRaceOperations = new Set<AdminOperation>([
   'applyQuestionImport'
 ])
 
-export interface RetryabilityInput {
+interface RetryabilityInput {
   readonly operation: AdminOperation
   readonly code: StableErrorCode
   readonly disposition: AdminExecutionDisposition

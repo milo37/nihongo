@@ -33,7 +33,7 @@ export interface WeaknessStudyCandidate extends StudyCandidatePin {
   readonly lastAnsweredAt: Date
 }
 
-export type StudySelectionErrorCode =
+type StudySelectionErrorCode =
   | 'DUPLICATE_CANDIDATE'
   | 'INVALID_CANDIDATE'
   | 'INVALID_RANDOM_VALUE'

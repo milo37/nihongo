@@ -1,6 +1,6 @@
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 
-export interface StudySessionCleanupBatchInput {
+interface StudySessionCleanupBatchInput {
   batchSize: number
   now: Date
 }
