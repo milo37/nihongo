@@ -31,7 +31,6 @@ import {
 import { attestRuntimeRoles } from './runtimeRoleAttestation.js'
 
 const EXPECTED_RECENT_MIGRATIONS = [
-  '20261110100000_admin_audit_to_api',
   '20261110110000_drop_retired_credential_auth',
   '20261111090000_drop_dead_reauthentication',
   '20261112090000_merge_runtime_roles',
@@ -41,7 +40,8 @@ const EXPECTED_RECENT_MIGRATIONS = [
   '20261116090000_erasure_to_api',
   '20261117090000_session_family_removal',
   '20261118090000_erasure_request_to_api',
-  '20261119090000_operation_finish_enforcement'
+  '20261119090000_operation_finish_enforcement',
+  '20261120090000_trusted_execution_users'
 ] as const
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',
@@ -520,14 +520,14 @@ afterAll(async () => {
 })
 
 describe('Persistence foundation', () => {
-  it('73 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
+  it('74 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
     const ledger = await client.query<{ migrationName: string }>(
       `SELECT migration_name AS "migrationName"
        FROM "_prisma_migrations"
        WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
        ORDER BY started_at`
     )
-    expect(ledger.rows).toHaveLength(73)
+    expect(ledger.rows).toHaveLength(74)
     expect(
       ledger.rows.slice(-11).map(({ migrationName }) => migrationName)
     ).toEqual(EXPECTED_RECENT_MIGRATIONS)
@@ -607,7 +607,7 @@ describe('Persistence foundation', () => {
              WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`
           )
         ).rows
-      ).toEqual([{ migrationCount: 73 }])
+      ).toEqual([{ migrationCount: 74 }])
     } finally {
       await client.query('ROLLBACK')
     }
@@ -1111,20 +1111,18 @@ describe('Persistence foundation', () => {
           'phase7_activate_v1_issuer',
           'phase7_change_user_authority',
           'phase7_close_trusted_execution',
-          'phase7_create_question_report',
           'phase7_open_trusted_execution',
           'phase7_register_database_capability',
           'phase7_require_runtime_ready',
           'phase7_require_database_capability',
           'phase7_require_caller_role',
           'phase7_trusted_execution_active',
-          'phase7_trusted_execution_target',
           'phase7_user_erasure_confirmed',
           'validate_phase7_question_report_remediation'
         ]
       ]
     )
-    expect(publicExecute.rows).toHaveLength(13)
+    expect(publicExecute.rows).toHaveLength(11)
     expect(
       publicExecute.rows.filter(
         ({ ownerName, publicCanExecute }) =>
@@ -3913,7 +3911,8 @@ describe('Persistence foundation', () => {
       await client.query(`DELETE FROM "Phase7DatabaseCapability"`)
       await client.query(`RESET ROLE`)
       await client.query(`SET LOCAL ROLE "nihongo_app"`)
-      await client.query(
+      await bridgedQuery(
+        client,
         `SELECT * FROM "phase7_create_question_report"(
           $1, $2, $3, $4, 'TYPO_OR_GRAMMAR', $5
         )`,
@@ -3939,7 +3938,8 @@ describe('Persistence foundation', () => {
     const reportId = randomUUID()
     await expect(
       withExecutionRole('nihongo_app', () =>
-        client.query(
+        bridgedQuery(
+          client,
           `SELECT * FROM "phase7_create_question_report"(
             $1, $2, $3, $4, 'TYPO_OR_GRAMMAR', $5
           )`,
@@ -4002,7 +4002,8 @@ describe('Persistence foundation', () => {
         wrongAuthorId
       ])
       await delayedClient.query(`SET ROLE "nihongo_app"`)
-      delayedReportPromise = delayedClient.query(
+      delayedReportPromise = bridgedQuery(
+        delayedClient,
         `SELECT * FROM "phase7_create_question_report"(
           $1, $2, $3, $4, 'TYPO_OR_GRAMMAR', $5
         )`,
@@ -4237,7 +4238,8 @@ describe('Persistence foundation', () => {
       )
     )
     await withExecutionRole('nihongo_app', () =>
-      client.query(
+      bridgedQuery(
+        client,
         `SELECT * FROM "phase7_create_question_report"(
           $1, $2, $3, $4, 'ANSWER_ERROR', $5
         )`,
@@ -4628,7 +4630,8 @@ describe('Persistence foundation', () => {
       [openReportId, 'TYPO_OR_GRAMMAR', 'Open report description']
     ] as const) {
       await withExecutionRole('nihongo_app', () =>
-        client.query(
+        bridgedQuery(
+          client,
           `SELECT * FROM "phase7_create_question_report"(
             $1, $2, $3, $4, $5, $6
           )`,

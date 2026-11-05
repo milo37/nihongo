@@ -138,15 +138,19 @@ The historical physical72 inventory added `20261118090000_erasure_request_to_api
 (file SHA256 `4383f83197d2bed3169e7e50b3a95389a0ac992f2fb93c0a0b969efc2fde5a80`),
 with ordered inventory digest
 `4c0a5bddac422aa7d09f11c99257478d5e5dc625e119791a67b21e912d3b7f52`.
-The current physical73 inventory adds `20261119090000_operation_finish_enforcement`
+The historical physical73 inventory added `20261119090000_operation_finish_enforcement`
 (file SHA256 `2c2b735d91c9c69b441909a7c18fbdb7f3146bc46c9e39d697075dacf7c00891`),
 with ordered inventory digest
 `fb35ad480ab266e0e5c448c87b6e9f81ca9c417a893e2bbccae8a880190881ab`.
-Historical physical50, physical52, physical53, physical55, physical56, physical57, physical58, physical59, physical60, physical61, physical62, physical63, physical64, physical65, physical66, physical67, physical68, physical69, physical70, physical71 and physical72 are rejected as the current technical profile.
+The current physical74 inventory adds `20261120090000_trusted_execution_users`
+(file SHA256 `f6d7a7aaa70a2c189998362e5a9b303352c6728f33a9b854391fd90960aee75c`),
+with ordered inventory digest
+`da1d55d65ff6655e1152fc94a44792fbdb80cc9f459d236fd3431fd079844e25`.
+Historical physical50, physical52, physical53, physical55, physical56, physical57, physical58, physical59, physical60, physical61, physical62, physical63, physical64, physical65, physical66, physical67, physical68, physical69, physical70, physical71, physical72 and physical73 are rejected as the current technical profile.
 A historical catalog-excluded 38-entry inventory has file digest
 `0169f4d0491d4e33f917df842cdeb26920edc2e7f02f8b0d41159cd132320f3b`;
 it is neither this technical recovery profile nor a runtime profile.
-No current physical73, historical72, historical71, historical70, historical69, historical68, historical67, historical66, historical65, historical64, historical63, historical62, historical61, historical60, historical59, historical58, historical57, historical56, historical55, historical53, historical52, historical50, historical49, historical48, historical47, historical39 or catalog-excluded38
+No current physical74, historical73, historical72, historical71, historical70, historical69, historical68, historical67, historical66, historical65, historical64, historical63, historical62, historical61, historical60, historical59, historical58, historical57, historical56, historical55, historical53, historical52, historical50, historical49, historical48, historical47, historical39 or catalog-excluded38
 recovery DB drill is verified here.
 
 The previous physical 38 source freeze used digest
