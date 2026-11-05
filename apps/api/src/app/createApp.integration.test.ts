@@ -173,10 +173,9 @@ describe('Hono operational boundary', () => {
   )
 
   it.each(['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'])(
-    'Prefix를 %s에서도 CORS·practice authority 전에 generic 404로 닫는다',
+    'Prefix를 %s에서도 CORS 전에 generic 404로 닫는다',
     async (method) => {
       const { logger } = createTestLogger()
-      const assertPracticeRuntimeAuthority = vi.fn()
       const gateway: AuthGateway = { handle: vi.fn() }
       const app = createApiApp({
         auth: {
@@ -185,7 +184,6 @@ describe('Hono operational boundary', () => {
           guestPrincipalService,
           principalService
         },
-        assertPracticeRuntimeAuthority,
         checkReadiness: vi.fn().mockResolvedValue(undefined),
         logger,
         questionReader
@@ -198,7 +196,6 @@ describe('Hono operational boundary', () => {
       expect(response.status).toBe(404)
       expect(response.headers.get('Access-Control-Allow-Origin')).toBeNull()
       expect(response.headers.get('Cache-Control')).toBe('private, no-store')
-      expect(assertPracticeRuntimeAuthority).not.toHaveBeenCalled()
       expect(gateway.handle).not.toHaveBeenCalled()
 
       if (method !== 'HEAD') {
@@ -210,7 +207,6 @@ describe('Hono operational boundary', () => {
 
   it('Decoded prefix alias도 조기 차단한다', async () => {
     const { logger } = createTestLogger()
-    const assertPracticeRuntimeAuthority = vi.fn()
     const app = createApiApp({
       auth: {
         environment: authEnvironment,
@@ -218,7 +214,6 @@ describe('Hono operational boundary', () => {
         guestPrincipalService,
         principalService
       },
-      assertPracticeRuntimeAuthority,
       checkReadiness: vi.fn().mockResolvedValue(undefined),
       logger,
       questionReader
@@ -229,7 +224,6 @@ describe('Hono operational boundary', () => {
 
     expect(response.status).toBe(404)
     expect(response.headers.get('Access-Control-Allow-Origin')).toBeNull()
-    expect(assertPracticeRuntimeAuthority).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -250,7 +244,6 @@ describe('Hono operational boundary', () => {
     'absolute-form backslash alias $rawTarget를 조기 차단한다',
     async ({ canonicalUrl, rawTarget }) => {
       const { logger } = createTestLogger()
-      const assertPracticeRuntimeAuthority = vi.fn()
       const checkReadiness = vi.fn().mockResolvedValue(undefined)
       const gateway: AuthGateway = { handle: vi.fn() }
       const listQuestions = vi.fn().mockResolvedValue({
@@ -266,7 +259,6 @@ describe('Hono operational boundary', () => {
           guestPrincipalService,
           principalService
         },
-        assertPracticeRuntimeAuthority,
         checkReadiness,
         logger,
         questionReader: { ...questionReader, listQuestions }
@@ -286,7 +278,6 @@ describe('Hono operational boundary', () => {
         'RESOURCE_NOT_FOUND'
       )
       expect(checkReadiness).not.toHaveBeenCalled()
-      expect(assertPracticeRuntimeAuthority).not.toHaveBeenCalled()
       expect(gateway.handle).not.toHaveBeenCalled()
       expect(listQuestions).not.toHaveBeenCalled()
     }
@@ -300,7 +291,6 @@ describe('Hono operational boundary', () => {
     '/api/v1/%71uestion-reports/%ZZ'
   ])('adapter가 보존한 raw alias %s를 조기 차단한다', async (rawUrl) => {
     const { logger } = createTestLogger()
-    const assertPracticeRuntimeAuthority = vi.fn()
     const listQuestions = vi.fn().mockResolvedValue({
       items: [],
       page: 1,
@@ -314,7 +304,6 @@ describe('Hono operational boundary', () => {
         guestPrincipalService,
         principalService
       },
-      assertPracticeRuntimeAuthority,
       checkReadiness: vi.fn().mockResolvedValue(undefined),
       logger,
       questionReader: { ...questionReader, listQuestions }
@@ -327,7 +316,6 @@ describe('Hono operational boundary', () => {
 
     expect(response.status).toBe(404)
     expect(response.headers.get('Access-Control-Allow-Origin')).toBeNull()
-    expect(assertPracticeRuntimeAuthority).not.toHaveBeenCalled()
     expect(listQuestions).not.toHaveBeenCalled()
   })
 
@@ -498,40 +486,6 @@ describe('Hono operational boundary', () => {
     expect(payload.code).toBe('INTERNAL_SERVER_ERROR')
     expect(payload.message).not.toContain('sensitive')
     expect(lines.some((line) => line.includes(payload.requestId))).toBe(true)
-  })
-
-  it('compatibility authority가 유효하지 않으면 API 요청을 503으로 닫는다', async () => {
-    const { logger } = createTestLogger()
-    const gatedQuestionReader: QuestionReader = {
-      ...questionReader,
-      listQuestions: vi.fn().mockResolvedValue({
-        items: [],
-        page: 1,
-        pageSize: 20,
-        total: 0
-      })
-    }
-    const app = createApiApp({
-      auth: {
-        environment: authEnvironment,
-        gateway: { handle: vi.fn() },
-        guestPrincipalService,
-        principalService
-      },
-      assertPracticeRuntimeAuthority: vi.fn(() => {
-        throw new Error('revoked generation')
-      }),
-      checkReadiness: vi.fn().mockResolvedValue(undefined),
-      logger,
-      questionReader: gatedQuestionReader
-    })
-    const response = await app.request('/api/v1/questions')
-    const failure = apiFailureSchema.parse(await response.json())
-
-    expect(response.status).toBe(503)
-    expect(failure.code).toBe('SERVICE_UNAVAILABLE')
-    expect(failure.message).not.toContain('revoked')
-    expect(gatedQuestionReader.listQuestions).not.toHaveBeenCalled()
   })
 
   it('인증 게이트웨이의 예상 밖 오류에도 trusted-origin CORS를 보존한다', async () => {

@@ -169,7 +169,6 @@ const app = createApiApp({
   ),
   study: {
     draftService: createStudyDraftService(studyDraftRepository),
-    practiceContractV2Enabled: true,
     rateLimiter: noOpRateLimiter,
     service: createStudySessionService(studySessionRepository),
     submissionService: createStudySubmissionService(studySubmissionRepository)
@@ -1176,8 +1175,7 @@ describe('StudyDraft PostgreSQL integration', () => {
           durationSec: 0,
           expectedDraftRevision: 0
         },
-        owner,
-        2
+        owner
       )
     ).rejects.toMatchObject({ code: 'STUDY_SESSION_NOT_EDITABLE' })
     await assertExpired(submitSession.id)
@@ -1246,7 +1244,7 @@ describe('StudyDraft PostgreSQL integration', () => {
     await createStudySubmissionService(
       studySubmissionRepository,
       () => new Date(now.getTime() - 25 * 60 * 60 * 1_000)
-    ).submit(submitSession.id, submitKey, submitBody, owner, 2)
+    ).submit(submitSession.id, submitKey, submitBody, owner)
     const submitRecord =
       await database.client.idempotencyRecord.findFirstOrThrow({
         where: { studySessionId: submitSession.id, operation: 'STUDY_SUBMIT' },
@@ -1260,13 +1258,13 @@ describe('StudyDraft PostgreSQL integration', () => {
       createStudySubmissionService(
         studySubmissionRepository,
         () => new Date(submitExpiresAt.getTime() - 1)
-      ).submit(submitSession.id, submitKey, submitBody, owner, 2)
+      ).submit(submitSession.id, submitKey, submitBody, owner)
     ).resolves.toMatchObject({ replayed: true })
     await expect(
       createStudySubmissionService(
         studySubmissionRepository,
         () => submitExpiresAt
-      ).submit(submitSession.id, submitKey, submitBody, owner, 2)
+      ).submit(submitSession.id, submitKey, submitBody, owner)
     ).rejects.toMatchObject({ code: 'SESSION_ALREADY_SUBMITTED' })
   })
 
@@ -1390,8 +1388,7 @@ describe('StudyDraft PostgreSQL integration', () => {
         durationSec: 0,
         expectedDraftRevision: 0
       },
-      owner,
-      2
+      owner
     )
     await submitBarrier.entered
     const cancelAfterSubmit = studyDraftRepository.cancelOwned(
@@ -1426,8 +1423,7 @@ describe('StudyDraft PostgreSQL integration', () => {
         durationSec: 0,
         expectedDraftRevision: 0
       },
-      owner,
-      2
+      owner
     )
     cancelBeforeSubmitBarrier.release()
     await expect(cancelBeforeSubmit).resolves.toEqual({ kind: 'CANCELLED' })
@@ -1460,8 +1456,7 @@ describe('StudyDraft PostgreSQL integration', () => {
         durationSec: 0,
         expectedDraftRevision: 0
       },
-      owner,
-      2
+      owner
     )
     saveBeforeSubmitBarrier.release()
     await expect(saveBeforeSubmit).resolves.toMatchObject({ replayed: false })
@@ -1485,8 +1480,7 @@ describe('StudyDraft PostgreSQL integration', () => {
         durationSec: 0,
         expectedDraftRevision: 0
       },
-      owner,
-      2
+      owner
     )
     await submitBeforeSaveBarrier.entered
     const saveAfterSubmit = studyDraftRepository.saveAtomic({

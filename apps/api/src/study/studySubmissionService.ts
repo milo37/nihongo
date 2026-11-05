@@ -47,8 +47,7 @@ export interface StudySubmissionService {
     sessionId: string,
     idempotencyKey: string,
     input: ParsedSubmitStudySessionBody | ParsedSubmitStudySessionV2Body,
-    owner: ExistingStudyOwner,
-    practiceContractVersion?: 1 | 2
+    owner: ExistingStudyOwner
   ) => Promise<SubmitStudySessionServiceResult>
 }
 
@@ -184,21 +183,8 @@ export const createStudySubmissionService = (
   repository: StudySubmissionRepository,
   now: () => Date = () => new Date()
 ): StudySubmissionService => ({
-  submit: (
-    sessionId,
-    idempotencyKey,
-    input,
-    owner,
-    requestedContractVersion = 2
-  ) =>
+  submit: (sessionId, idempotencyKey, input, owner) =>
     withRepositoryErrors(sessionId, async () => {
-      if (requestedContractVersion !== 2) {
-        throw new ApplicationError({
-          code: 'PRACTICE_CONTRACT_VERSION_MISMATCH',
-          message: '이전 학습 세션은 더 이상 지원하지 않습니다.',
-          retryable: false
-        })
-      }
       const observedAt = now()
       const preload = await repository.preloadOwned(
         sessionId,
@@ -222,7 +208,7 @@ export const createStudySubmissionService = (
       const expectedDraftRevision =
         'expectedDraftRevision' in input ? input.expectedDraftRevision : null
       const requestHash =
-        requestedContractVersion === 2 && expectedDraftRevision !== null
+        expectedDraftRevision !== null
           ? createTolerantSubmissionV2Hash(preload, {
               answers: input.answers,
               durationSec: input.durationSec,
@@ -237,7 +223,7 @@ export const createStudySubmissionService = (
         answers: input.answers,
         durationSec: input.durationSec,
         expectedDraftRevision,
-        practiceContractVersion: requestedContractVersion,
+        practiceContractVersion: 2,
         observedAt
       })
     }),

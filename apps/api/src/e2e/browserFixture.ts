@@ -13,7 +13,6 @@ import { createBookmarkService } from '../bookmark/bookmarkService.js'
 import type { ApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime } from '../db/database.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
-import { createPracticeRuntimeGate } from '../lifecycle/practiceRuntimeGate.js'
 import { createApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createJsonLogger } from '../observability/logger.js'
 import { createPrismaQuestionRepository } from '../question/questionRepository.js'
@@ -1367,11 +1366,6 @@ const createSsoBrowserApiFixture = async (
       applicationClient: database.client,
       applicationUrl: databaseUrl
     })
-    const practice = createPracticeRuntimeGate({
-      runtime: 'v1-v2',
-      checkDatabaseReadiness,
-      checkV1Compatibility: database.checkV1Compatibility
-    })
     const rateLimiter = createApplicationRateLimiter({
       client: database.client,
       keySecret: environment.GUEST_COOKIE_SECRET
@@ -1560,7 +1554,7 @@ const createSsoBrowserApiFixture = async (
         dashboardInsightsService,
         dashboardService,
         rateLimiter,
-        reviewCenterEnabled: practice.practiceContractV2Enabled,
+        reviewCenterEnabled: true,
         reviewCenterService: wrongNoteReviewCenterService,
         reviewQueueService: wrongNoteReviewQueueService,
         targetedReviewService: wrongNoteTargetedReviewService,
@@ -1575,8 +1569,7 @@ const createSsoBrowserApiFixture = async (
           secret: environment.GUEST_COOKIE_SECRET
         })
       },
-      assertPracticeRuntimeAuthority: practice.assertRequestAuthority,
-      checkReadiness: practice.checkReadiness,
+      checkReadiness: checkDatabaseReadiness,
       logger: createJsonLogger('silent'),
       ...(environment.RELEASE_ID === undefined
         ? {}
@@ -1591,7 +1584,6 @@ const createSsoBrowserApiFixture = async (
         draftService: createStudyDraftService(
           createPrismaStudyDraftRepository(database.client)
         ),
-        practiceContractV2Enabled: practice.practiceContractV2Enabled,
         retryService: studyResultRetryService,
         submissionService: studySubmissionService,
         rateLimiter,
@@ -1611,7 +1603,7 @@ const createSsoBrowserApiFixture = async (
           })
         : undefined,
       checkReadiness: async () => {
-        await practice.checkReadiness()
+        await checkDatabaseReadiness()
         if (cms) await runReauthenticationStartupMaintenance(gateway.client)
       },
       fixture,

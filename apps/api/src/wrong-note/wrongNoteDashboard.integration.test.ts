@@ -287,8 +287,7 @@ const submitRandomSession = async (
       durationSec: 10,
       expectedDraftRevision: saved.response.revision
     },
-    owner,
-    2
+    owner
   )
 
   const fixture = {
@@ -340,8 +339,7 @@ const submitWrongNoteSession = async (
       durationSec: 0,
       expectedDraftRevision: 0
     },
-    owner,
-    2
+    owner
   )
   const fixture = {
     correct: false,
