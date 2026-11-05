@@ -5,8 +5,11 @@ resource "aws_budgets_budget" "monthly" {
   limit_unit   = "USD"
   time_unit    = "MONTHLY"
 
+  # Gross usage before credits: with credits (Free plan, promotions) the net
+  # cost stays 0 and the alerts and the EC2 stop would never fire.
   cost_types {
-    include_tax = false
+    include_tax    = false
+    include_credit = false
   }
 
   dynamic "notification" {
