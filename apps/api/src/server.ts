@@ -10,11 +10,7 @@ import {
   startReauthenticationMaintenance
 } from './auth/reauthenticationStartupMaintenance.js'
 import { createGuestPrincipalService } from './auth/guestPrincipalService.js'
-import {
-  isAdminCmsEnabled,
-  LOCAL_RELEASE_ID,
-  parseApiEnvironment
-} from './config/env.js'
+import { LOCAL_RELEASE_ID, parseApiEnvironment } from './config/env.js'
 import { createAuthRuntimePlan } from './config/authRuntimePlan.js'
 import { createDatabaseRuntime } from './db/database.js'
 import { assertSafeAdminCmsDatabase } from './db/databaseTargetGuard.js'
@@ -75,20 +71,24 @@ const packagedWebAssetsDirectory = fileURLToPath(
 const packagedAdminAssetsDirectory = fileURLToPath(
   new URL('../../admin/', import.meta.url)
 )
-const authRuntimePlan = createAuthRuntimePlan(environment)
-if (authRuntimePlan.cmsEnabled)
-  assertSafeAdminCmsDatabase({
-    nodeEnvironment: environment.NODE_ENV,
-    databaseUrl: environment.DATABASE_URL,
-    productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
-  })
+const authRuntimePlan = createAuthRuntimePlan()
+assertSafeAdminCmsDatabase({
+  nodeEnvironment: environment.NODE_ENV,
+  databaseUrl: environment.DATABASE_URL,
+  productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
+})
 const logger = createJsonLogger(environment.LOG_LEVEL, undefined, {
   deploymentEnvironment:
     environment.DEPLOYMENT_ENVIRONMENT ??
     (environment.NODE_ENV === 'test' ? 'TEST' : 'LOCAL'),
   releaseId: environment.RELEASE_ID ?? LOCAL_RELEASE_ID
 })
-const technicalMode = isAdminCmsEnabled(environment)
+const auditEnvironment =
+  environment.NODE_ENV === 'production'
+    ? 'PRODUCTION'
+    : environment.NODE_ENV === 'test'
+      ? 'TEST'
+      : 'DEVELOPMENT'
 const runtimeMigrationProfile = authRuntimePlan.migrationProfile
 const database = createDatabaseRuntime(environment.DATABASE_URL, {
   migrationProfile: runtimeMigrationProfile,
@@ -157,50 +157,34 @@ const bookmarkService = createBookmarkService(
     migrationProfile: runtimeMigrationProfile
   })
 )
-const adminQuestionReader = technicalMode
-  ? createAdminQuestionService(
-      createPrismaAdminQuestionRepository(database.client)
-    )
-  : undefined
-const adminReadRateLimiter = technicalMode
-  ? createAdminReadRateLimiter({
-      client: database.client,
-      keySecret: environment.GUEST_COOKIE_SECRET
-    })
-  : undefined
-const adminQuestionCommandRepository = technicalMode
-  ? createPrismaAdminQuestionCommandRepository({
-      auditEnvironment:
-        environment.NODE_ENV === 'test' ? 'TEST' : 'DEVELOPMENT',
-      client: database.client
-    })
-  : undefined
-const adminQuestionWorkflowRepository = technicalMode
-  ? createPrismaAdminQuestionWorkflowRepository({
-      auditEnvironment:
-        environment.NODE_ENV === 'test' ? 'TEST' : 'DEVELOPMENT',
-      client: database.client
-    })
-  : undefined
-const adminQuestionCommandService =
-  adminQuestionCommandRepository && adminQuestionWorkflowRepository
-    ? {
-        ...createAdminQuestionCommandService(adminQuestionCommandRepository),
-        ...createAdminQuestionPublicationCommandService(
-          adminQuestionCommandRepository
-        ),
-        ...createAdminQuestionWorkflowCommandService(
-          adminQuestionWorkflowRepository
-        )
-      }
-    : undefined
-const adminCommandRateLimiter = technicalMode
-  ? createAdminCommandRateLimiter({
-      client: database.client,
-      keySecret: environment.GUEST_COOKIE_SECRET
-    })
-  : undefined
-// Learner reports need owned sessions, not the technical CMS.
+const adminQuestionReader = createAdminQuestionService(
+  createPrismaAdminQuestionRepository(database.client)
+)
+const adminReadRateLimiter = createAdminReadRateLimiter({
+  client: database.client,
+  keySecret: environment.GUEST_COOKIE_SECRET
+})
+const adminQuestionCommandRepository =
+  createPrismaAdminQuestionCommandRepository({
+    auditEnvironment,
+    client: database.client
+  })
+const adminQuestionWorkflowRepository =
+  createPrismaAdminQuestionWorkflowRepository({
+    auditEnvironment,
+    client: database.client
+  })
+const adminQuestionCommandService = {
+  ...createAdminQuestionCommandService(adminQuestionCommandRepository),
+  ...createAdminQuestionPublicationCommandService(
+    adminQuestionCommandRepository
+  ),
+  ...createAdminQuestionWorkflowCommandService(adminQuestionWorkflowRepository)
+}
+const adminCommandRateLimiter = createAdminCommandRateLimiter({
+  client: database.client,
+  keySecret: environment.GUEST_COOKIE_SECRET
+})
 const questionReportRateLimiter = createQuestionReportRateLimiter({
   client: database.client,
   keySecret: environment.GUEST_COOKIE_SECRET
@@ -216,38 +200,26 @@ const app = createApiApp({
   accountRestrictionReader: createPrismaAccountRestrictionReader(
     database.client
   ),
-  ...(adminQuestionReader &&
-  adminReadRateLimiter &&
-  adminQuestionCommandService &&
-  adminCommandRateLimiter &&
-  questionReportRateLimiter &&
-  questionReportService &&
-  adminQuestionWorkflowRepository
-    ? {
-        admin: {
-          assertCapability: async () => {
-            await database.client.$queryRawUnsafe(
-              'SELECT "require_runtime_ready"()'
-            )
-          },
-          commands: {
-            rateLimiter: adminCommandRateLimiter,
-            service: adminQuestionCommandService,
-            workflowService: adminQuestionCommandService
-          },
-          reports: {
-            rateLimiter: questionReportRateLimiter,
-            service: questionReportService
-          },
-          importResultReader: createQuestionImportResultReader(database.client),
-          members: createAdminMemberService(
-            createPrismaAdminMemberRepository(database.client)
-          ),
-          rateLimiter: adminReadRateLimiter,
-          reader: adminQuestionReader
-        }
-      }
-    : {}),
+  admin: {
+    assertCapability: async () => {
+      await database.client.$queryRawUnsafe('SELECT "require_runtime_ready"()')
+    },
+    commands: {
+      rateLimiter: adminCommandRateLimiter,
+      service: adminQuestionCommandService,
+      workflowService: adminQuestionCommandService
+    },
+    reports: {
+      rateLimiter: questionReportRateLimiter,
+      service: questionReportService
+    },
+    importResultReader: createQuestionImportResultReader(database.client),
+    members: createAdminMemberService(
+      createPrismaAdminMemberRepository(database.client)
+    ),
+    rateLimiter: adminReadRateLimiter,
+    reader: adminQuestionReader
+  },
   ...(questionReportRateLimiter && userReportService
     ? {
         userReports: {

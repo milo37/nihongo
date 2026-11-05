@@ -1,5 +1,5 @@
 import 'dotenv/config'
-import { isAdminCmsEnabled, parseApiEnvironment } from '../config/env.js'
+import { parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime } from '../db/database.js'
 import { parseReviewReconciliationCommandInput } from './reviewReconciliationCommandConfig.js'
 import {
@@ -18,12 +18,10 @@ const run = async (): Promise<void> => {
     nodeEnvironment: environment.NODE_ENV,
     productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
   })
-  const database = createDatabaseRuntime(
-    environment.DATABASE_URL,
-    isAdminCmsEnabled(environment)
-      ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
-      : {}
-  )
+  const database = createDatabaseRuntime(environment.DATABASE_URL, {
+    migrationProfile: 'current',
+    startupRole: 'nihongo_app'
+  })
 
   try {
     await database.checkReadiness()

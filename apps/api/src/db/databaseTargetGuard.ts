@@ -1,5 +1,3 @@
-import { isAdminCmsEnabled } from '../config/env.js'
-
 const ALLOWED_DEVELOPMENT_HOSTS = new Set([
   '127.0.0.1',
   '[::1]',
@@ -203,7 +201,8 @@ export const assertSafeAdminCmsDatabase = ({
   databaseUrl,
   productionDatabaseUrl
 }: DatabaseGuardInput): void => {
-  if (!isAdminCmsEnabled({ NODE_ENV: nodeEnvironment })) {
+  // Production serves the CMS from its own database by design.
+  if (nodeEnvironment === 'production') {
     return
   }
 

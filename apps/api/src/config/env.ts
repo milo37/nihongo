@@ -177,14 +177,6 @@ const exactOriginSchema = z.url().transform((value, context) => {
   return url.origin
 })
 
-/**
- * The one switch for the admin CMS routes, its DB guard and the seed path.
- * Production keeps the CMS off until its activation is decided (#603 O2).
- */
-export const isAdminCmsEnabled = (environment: {
-  readonly NODE_ENV: string | undefined
-}): boolean => environment.NODE_ENV !== 'production'
-
 const apiEnvironmentSchema = z
   .object({
     NODE_ENV: runtimeEnvironmentSchema,
@@ -272,7 +264,8 @@ const apiEnvironmentSchema = z
       })
     }
 
-    if (isAdminCmsEnabled(environment)) {
+    // Local test/dev runtimes must use their own wrapper login and schema.
+    if (environment.NODE_ENV !== 'production') {
       for (const [field, roleSuffix] of [
         ['DATABASE_URL', 'app_login']
       ] as const) {

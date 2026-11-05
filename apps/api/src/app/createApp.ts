@@ -28,7 +28,7 @@ import {
 import { createHealthRoutes } from '../routes/health.js'
 import { createQuestionRoutes } from '../routes/questions.js'
 import { AuthGatewayError, type AuthGateway } from '../auth/authGateway.js'
-import { isAdminCmsEnabled, type ApiEnvironment } from '../config/env.js'
+import type { ApiEnvironment } from '../config/env.js'
 import type { GuestPrincipalService } from '../auth/guestPrincipalService.js'
 import type { PrincipalService } from '../auth/principalService.js'
 import { createWriteSecurity } from '../middleware/writeSecurity.js'
@@ -422,15 +422,11 @@ export const createApiApp = ({
   const accountRestrictionReader =
     configuredAccountRestrictionReader ?? unrestrictedAccountReader
 
-  const technicalAdminEnabled =
-    admin !== undefined &&
-    auth !== undefined &&
-    isAdminCmsEnabled(auth.environment)
-  // Learner reports stay available when the technical CMS is disabled.
+  const adminEnabled = admin !== undefined && auth !== undefined
   const learnerReports =
     auth === undefined
       ? undefined
-      : (questionReports ?? (technicalAdminEnabled ? admin.reports : undefined))
+      : (questionReports ?? (adminEnabled ? admin.reports : undefined))
 
   app.use('*', requestContext)
   app.use('*', secureHeaders())
@@ -462,7 +458,7 @@ export const createApiApp = ({
     }
 
     if (
-      technicalAdminEnabled &&
+      adminEnabled &&
       (isCanonicalSlice2ReadRequest({
         method: context.req.method,
         requestTarget
@@ -607,7 +603,7 @@ export const createApiApp = ({
         })
       )
     }
-    if (admin && isAdminCmsEnabled(auth.environment)) {
+    if (admin) {
       app.route(
         '/api/v1/admin',
         createAdminQuestionRoutes({
@@ -861,7 +857,7 @@ export const createApiApp = ({
       releaseId,
       webAssetsDirectory,
       ...(adminAssetsDirectory ? { adminAssetsDirectory } : {}),
-      ...(adminAssetsDirectory && technicalAdminEnabled && admin && auth
+      ...(adminAssetsDirectory && adminEnabled && admin && auth
         ? {
             adminGuard: createAdminReadGuard({
               assertCapability: admin.assertCapability,

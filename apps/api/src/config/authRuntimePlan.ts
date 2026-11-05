@@ -1,8 +1,4 @@
-import { isAdminCmsEnabled, type ApiEnvironment } from './env.js'
-
-/** Authentication authority is independent of whether CMS routes are enabled. */
-export const createAuthRuntimePlan = (environment: ApiEnvironment) => ({
+export const createAuthRuntimePlan = () => ({
   migrationProfile: 'current' as const,
-  applicationRole: 'nihongo_app' as const,
-  cmsEnabled: isAdminCmsEnabled(environment)
+  applicationRole: 'nihongo_app' as const
 })

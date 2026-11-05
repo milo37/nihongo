@@ -1,4 +1,3 @@
-import { isAdminCmsEnabled } from '../src/config/env.js'
 import {
   getLastSeedStage,
   writeSeedDiagnostic,
@@ -6,11 +5,7 @@ import {
 } from './seedDiagnostics.js'
 import dotenv from 'dotenv'
 import { PrismaPg } from '@prisma/adapter-pg'
-import {
-  assertSafeDevelopmentDatabase,
-  assertSafeMigrationDatabase,
-  assertSafeTestDatabase
-} from '../src/db/databaseTargetGuard.js'
+import { assertSafeMigrationDatabase } from '../src/db/databaseTargetGuard.js'
 import { PrismaClient } from '../src/generated/prisma/client.js'
 import {
   createPostgresStartupOptions,
@@ -37,35 +32,13 @@ try {
     quiet: true
   })
 
-  const isTechnicalAdminCms = isAdminCmsEnabled({
-    NODE_ENV: process.env.NODE_ENV
+  const databaseUrl = process.env.MIGRATION_DATABASE_URL
+  assertSafeMigrationDatabase({
+    nodeEnvironment: process.env.NODE_ENV,
+    migrationDatabaseUrl: databaseUrl,
+    runtimeDatabaseUrl: process.env.DATABASE_URL,
+    productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
   })
-  const databaseUrl = isTechnicalAdminCms
-    ? process.env.MIGRATION_DATABASE_URL
-    : target === 'test'
-      ? (process.env.PRISMA_TEST_DATABASE_URL ?? process.env.DATABASE_URL)
-      : process.env.DATABASE_URL
-
-  if (isTechnicalAdminCms) {
-    assertSafeMigrationDatabase({
-      nodeEnvironment: process.env.NODE_ENV,
-      migrationDatabaseUrl: databaseUrl,
-      runtimeDatabaseUrl: process.env.DATABASE_URL,
-      productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
-    })
-  } else if (target === 'test') {
-    assertSafeTestDatabase({
-      nodeEnvironment: process.env.NODE_ENV,
-      databaseUrl,
-      productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
-    })
-  } else {
-    assertSafeDevelopmentDatabase({
-      nodeEnvironment: process.env.NODE_ENV,
-      databaseUrl,
-      productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
-    })
-  }
 
   if (!databaseUrl) {
     throw new Error('DATABASE_URL is required.')
@@ -73,106 +46,91 @@ try {
 
   mark('TARGET_READY')
   const connectionUrl = new URL(databaseUrl)
-  if (isTechnicalAdminCms) {
-    connectionUrl.searchParams.delete('options')
-  }
+  connectionUrl.searchParams.delete('options')
   const adapterConnectionString = connectionUrl.toString()
   const schema = getPostgresSchema(adapterConnectionString)
   const adapter = new PrismaPg(
     {
       connectionString: adapterConnectionString,
-      options: createPostgresStartupOptions(
-        schema,
-        isTechnicalAdminCms ? 'nihongo_migration' : undefined
-      )
+      options: createPostgresStartupOptions(schema, 'nihongo_migration')
     },
     schema ? { schema } : {}
   )
   const client = new PrismaClient({ adapter })
 
   try {
-    if (isTechnicalAdminCms) {
-      const expectedSessionUser =
-        target === 'test'
-          ? 'nihongo_test_migration_login'
-          : 'nihongo_development_migration_login'
-      const roleEvidence = await client.$queryRawUnsafe<
-        Array<{ currentRole: string; sessionUser: string }>
-      >(
-        `SELECT current_user AS "currentRole",
-              session_user AS "sessionUser"`
-      )
+    const expectedSessionUser =
+      target === 'test'
+        ? 'nihongo_test_migration_login'
+        : 'nihongo_development_migration_login'
+    const roleEvidence = await client.$queryRawUnsafe<
+      Array<{ currentRole: string; sessionUser: string }>
+    >(
+      `SELECT current_user AS "currentRole",
+            session_user AS "sessionUser"`
+    )
 
-      if (
-        roleEvidence.length !== 1 ||
-        roleEvidence[0]?.sessionUser !== expectedSessionUser ||
-        roleEvidence[0]?.currentRole !== 'nihongo_migration'
-      ) {
-        throw new Error('Seed migration role attestation failed.')
-      }
+    if (
+      roleEvidence.length !== 1 ||
+      roleEvidence[0]?.sessionUser !== expectedSessionUser ||
+      roleEvidence[0]?.currentRole !== 'nihongo_migration'
+    ) {
+      throw new Error('Seed migration role attestation failed.')
     }
 
     mark('ROLE_READY')
-    const result = isTechnicalAdminCms
-      ? await client.$transaction(
-          async (transaction) => {
-            await transaction.$executeRawUnsafe('SET LOCAL ROLE nihongo_owner')
-            const ownerEvidence = await transaction.$queryRawUnsafe<
-              Array<{ currentRole: string; sessionUser: string }>
-            >(
-              `SELECT current_user AS "currentRole",
+    const result = await client.$transaction(
+      async (transaction) => {
+        await transaction.$executeRawUnsafe('SET LOCAL ROLE nihongo_owner')
+        const ownerEvidence = await transaction.$queryRawUnsafe<
+          Array<{ currentRole: string; sessionUser: string }>
+        >(
+          `SELECT current_user AS "currentRole",
                     session_user AS "sessionUser"`
-            )
-            const expectedSessionUser =
-              target === 'test'
-                ? 'nihongo_test_migration_login'
-                : 'nihongo_development_migration_login'
-            if (
-              ownerEvidence.length !== 1 ||
-              ownerEvidence[0]?.sessionUser !== expectedSessionUser ||
-              ownerEvidence[0]?.currentRole !== 'nihongo_owner'
-            ) {
-              throw new Error('Seed owner role attestation failed.')
-            }
-
-            mark('OWNER_READY')
-            // The signed seed helper owns its inner transaction shape.
-            // This facade makes that inner callback reuse the one explicit outer
-            // transaction, so SET LOCAL authority cannot escape its boundary.
-            const scopedSeedClient = new Proxy(transaction, {
-              get(targetClient, property, receiver) {
-                if (property === '$transaction') {
-                  return async (
-                    callback: (
-                      innerTransaction: typeof transaction
-                    ) => Promise<unknown>
-                  ): Promise<unknown> => await callback(transaction)
-                }
-                return Reflect.get(targetClient, property, receiver)
-              }
-            }) as unknown as PrismaClient
-
-            return await seedQuestionCatalog(scopedSeedClient)
-          },
-          {
-            isolationLevel: 'Serializable',
-            maxWait: 10_000,
-            timeout: 60_000
-          }
         )
-      : await seedQuestionCatalog(client)
+        if (
+          ownerEvidence.length !== 1 ||
+          ownerEvidence[0]?.sessionUser !== expectedSessionUser ||
+          ownerEvidence[0]?.currentRole !== 'nihongo_owner'
+        ) {
+          throw new Error('Seed owner role attestation failed.')
+        }
+
+        mark('OWNER_READY')
+        // The signed seed helper owns its inner transaction shape.
+        // This facade makes that inner callback reuse the one explicit outer
+        // transaction, so SET LOCAL authority cannot escape its boundary.
+        const scopedSeedClient = new Proxy(transaction, {
+          get(targetClient, property, receiver) {
+            if (property === '$transaction') {
+              return async (
+                callback: (
+                  innerTransaction: typeof transaction
+                ) => Promise<unknown>
+              ): Promise<unknown> => await callback(transaction)
+            }
+            return Reflect.get(targetClient, property, receiver)
+          }
+        }) as unknown as PrismaClient
+
+        return await seedQuestionCatalog(scopedSeedClient)
+      },
+      {
+        isolationLevel: 'Serializable',
+        maxWait: 10_000,
+        timeout: 60_000
+      }
+    )
 
     mark('TRANSACTION_DONE')
-    if (isTechnicalAdminCms) {
-      const restoredRole = await client.$queryRawUnsafe<
-        Array<{ currentRole: string }>
-      >(`SELECT current_user AS "currentRole"`)
-      if (
-        restoredRole.length !== 1 ||
-        restoredRole[0]?.currentRole !== 'nihongo_migration'
-      ) {
-        throw new Error('Seed role boundary did not close.')
-      }
+    const restoredRole = await client.$queryRawUnsafe<
+      Array<{ currentRole: string }>
+    >(`SELECT current_user AS "currentRole"`)
+    if (
+      restoredRole.length !== 1 ||
+      restoredRole[0]?.currentRole !== 'nihongo_migration'
+    ) {
+      throw new Error('Seed role boundary did not close.')
     }
     process.stdout.write(
       `Question catalog seed completed: ${result.insertedCount} inserted, ${result.verifiedCount} verified.\n`

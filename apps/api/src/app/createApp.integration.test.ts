@@ -691,24 +691,54 @@ describe('protected admin artifact and API composition', () => {
     expect(f.listQuestions).toHaveBeenCalledOnce()
   })
 
-  it('keeps production admin HTML/assets and API closed', async () => {
-    const f = fixture({ production: true })
-    for (const path of [
-      '/admin',
-      '/admin/questions/123/edit',
-      '/admin/assets/admin.js',
-      '/api/v1/admin/questions'
-    ]) {
-      const response = await f.app.request(path)
-      expect(response.status).toBe(404)
-      expect(response.headers.get('Cache-Control')).toBe('private, no-store')
-      const body = await response.text()
-      expect(body).not.toContain('ADMIN_')
-      expect(body).not.toContain('LEARNER_ONLY')
+  it.each([
+    { role: null, status: 401, code: 'AUTHENTICATION_REQUIRED' },
+    { role: 'USER' as const, status: 403, code: 'ADMIN_REQUIRED' }
+  ])(
+    'production rejects $role on the admin API and hides admin HTML',
+    async ({ role, status, code }) => {
+      const f = fixture({ role, production: true })
+      const html = await f.app.request('/admin')
+      expect(html.status).toBe(404)
+      expect(await html.text()).not.toContain('ADMIN_HTML_ONLY')
+      const read = await f.app.request('/api/v1/admin/questions')
+      expect(read.status).toBe(status)
+      expect(apiFailureSchema.parse(await read.json()).code).toBe(code)
+      expect(f.listQuestions).not.toHaveBeenCalled()
     }
-    expect(f.resolve).not.toHaveBeenCalled()
-    expect(f.capability).not.toHaveBeenCalled()
-    expect(f.readLimit).not.toHaveBeenCalled()
+  )
+
+  it('production serves admin to a current ADMIN through the same guards', async () => {
+    const f = fixture({ production: true })
+    const html = await f.app.request('/admin')
+    expect(html.status).toBe(200)
+    expect(await html.text()).toContain('ADMIN_HTML_ONLY')
+    const read = await f.app.request('/api/v1/admin/questions')
+    expect(read.status).toBe(200)
+    expect(f.capability).toHaveBeenCalledTimes(2)
+    expect(f.readLimit).toHaveBeenCalledTimes(2)
+    expect(f.listQuestions).toHaveBeenCalledOnce()
+  })
+
+  it('production rejects an admin command without fresh SSO', async () => {
+    const f = fixture({ fresh: false, production: true })
+    const response = await f.app.request(
+      '/api/v1/admin/question-versions/33333333-3333-4333-8333-333333333333/approval',
+      {
+        method: 'POST',
+        headers: {
+          Origin: 'http://localhost:5173',
+          'Content-Type': 'application/json'
+        },
+        body: '{}'
+      }
+    )
+    expect(response.status).toBe(401)
+    expect(apiFailureSchema.parse(await response.json()).code).toBe(
+      'FRESH_ASSURANCE_REQUIRED'
+    )
+    expect(f.commandLimit).not.toHaveBeenCalled()
+    expect(f.approve).not.toHaveBeenCalled()
   })
 
   it('rechecks a revoked session on a conditional asset request instead of using cached ADMIN bytes', async () => {

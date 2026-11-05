@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { isAdminCmsEnabled, parseApiEnvironment } from '../config/env.js'
+import { parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime, type DatabaseRuntime } from '../db/database.js'
 import {
   assertSafeDevelopmentDatabase,
@@ -64,12 +64,10 @@ const run = async <Result>(
       'Production cleanup requires a separately approved exact-target runbook.'
     )
 
-  const database = createDatabaseRuntime(
-    environment.DATABASE_URL,
-    isAdminCmsEnabled(environment)
-      ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
-      : {}
-  )
+  const database = createDatabaseRuntime(environment.DATABASE_URL, {
+    migrationProfile: 'current',
+    startupRole: 'nihongo_app'
+  })
   let result: Result
   try {
     await database.checkReadiness()
