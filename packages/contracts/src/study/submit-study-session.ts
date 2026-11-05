@@ -10,10 +10,6 @@ export const submitStudySessionParamsSchema = z
   .object({ sessionId: opaqueIdSchema })
   .strict()
 
-export const submitStudySessionHeadersSchema = z
-  .object({ 'idempotency-key': opaqueIdSchema })
-  .strict()
-
 export const submitStudySessionV2HeadersSchema =
   idempotentPracticeContractV2HeadersSchema
 
@@ -52,9 +48,6 @@ const refineUniqueStudyAnswers = (
   })
 }
 
-export const submitStudySessionBodySchema =
-  submitStudySessionBodyObjectSchema.superRefine(refineUniqueStudyAnswers)
-
 export const submitStudySessionV2BodySchema = submitStudySessionBodyObjectSchema
   .extend({
     expectedDraftRevision: z
@@ -65,10 +58,9 @@ export const submitStudySessionV2BodySchema = submitStudySessionBodyObjectSchema
   })
   .superRefine(refineUniqueStudyAnswers)
 
-export const submitStudySessionResponseSchema = studyResultSchema
 export const submitStudySessionV2ResponseSchema = studyResultSchema
 
-export const submitStudySessionErrorCodeSchema = z.enum([
+const submitStudySessionErrorCodeSchema = z.enum([
   'INVALID_JSON',
   'INVALID_REQUEST',
   'IDEMPOTENCY_KEY_REQUIRED',
@@ -92,10 +84,6 @@ export const submitStudySessionErrorCodeSchema = z.enum([
   'SERVICE_UNAVAILABLE'
 ])
 
-export const submitStudySessionErrorSchema = createApiFailureSchema(
-  submitStudySessionErrorCodeSchema
-)
-
 export const submitStudySessionV2ErrorCodeSchema = z.enum([
   ...submitStudySessionErrorCodeSchema.options,
   'DRAFT_VERSION_CONFLICT',
@@ -105,23 +93,8 @@ export const submitStudySessionV2ErrorCodeSchema = z.enum([
 export const submitStudySessionV2ErrorSchema = createApiFailureSchema(
   submitStudySessionV2ErrorCodeSchema
 )
-export type SubmitStudySessionHeaders = z.input<
-  typeof submitStudySessionHeadersSchema
->
-export type SubmitStudySessionBody = z.input<
-  typeof submitStudySessionBodySchema
->
-export type ParsedSubmitStudySessionBody = z.output<
-  typeof submitStudySessionBodySchema
->
 export type ParsedSubmitStudySessionV2Body = z.output<
   typeof submitStudySessionV2BodySchema
->
-export type SubmitStudySessionResponse = z.output<
-  typeof submitStudySessionResponseSchema
->
-export type SubmitStudySessionError = z.output<
-  typeof submitStudySessionErrorSchema
 >
 export type SubmitStudySessionV2Response = z.output<
   typeof submitStudySessionV2ResponseSchema
