@@ -37,6 +37,34 @@ RUN cp -R apps/web/dist /release/web
 RUN cp -R apps/admin/dist /release/admin
 RUN node scripts/operations/release-manifest.mjs --mode create-oci-component --workspace /workspace --release-id "$RELEASE_ID" --api-directory /release/api --web-directory /release/web --admin-directory /release/admin --output /release/release-manifest.json
 
+# Production migrations (`docker build --target migrate`, pushed as <sha>-migrate).
+# Prisma CLI is a devDependency, so it never reaches the runtime image. BuildKit
+# skips these two stages when the default (runtime) target is built.
+FROM builder AS migrate-deps
+RUN pnpm --filter @nihongo/api deploy --legacy /release/migrate
+
+FROM node:22.23.0-alpine@sha256:ab07539e0988b63558ff621f5fbe1077054c39d9809112974fb79993949d41cd AS migrate
+
+ARG RELEASE_ID
+LABEL org.opencontainers.image.title="하루마루 migrate"
+LABEL org.opencontainers.image.revision=$RELEASE_ID
+
+ENV NODE_ENV=production
+ENV RELEASE_ID=$RELEASE_ID
+WORKDIR /migrate
+
+COPY --from=migrate-deps /release/migrate/node_modules /migrate/node_modules
+# The deploy output keeps only package.json "files"; take the rest from the source tree.
+COPY --from=migrate-deps /release/migrate/package.json /migrate/package.json
+COPY --from=builder /workspace/apps/api/prisma.migrate.config.ts /migrate/prisma.migrate.config.ts
+COPY --from=builder /workspace/apps/api/prisma/schema.prisma /migrate/prisma/schema.prisma
+COPY --from=builder /workspace/apps/api/prisma/migrations /migrate/prisma/migrations
+COPY --from=builder /workspace/apps/api/src/db/databaseTargetGuard.ts /migrate/src/db/databaseTargetGuard.ts
+
+USER node
+ENTRYPOINT ["node", "node_modules/prisma/build/index.js"]
+CMD ["migrate", "deploy", "--config", "prisma.migrate.config.ts"]
+
 FROM node:22.23.0-alpine@sha256:ab07539e0988b63558ff621f5fbe1077054c39d9809112974fb79993949d41cd AS runtime
 
 ARG RELEASE_ID

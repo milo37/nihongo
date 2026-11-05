@@ -111,7 +111,7 @@ resource "aws_instance" "host" {
     encrypted   = true
   }
 
-  # gzip keeps the rendered cloud-init (scripts + CloudFront CIDR list) under the 16 KB limit.
+  # gzip keeps the rendered cloud-init (host scripts as plain text) under the 16 KB limit.
   user_data_base64 = base64gzip(templatefile("${path.module}/templates/cloud-init.yaml.tftpl", {
     region          = var.region
     environment     = var.deployment_environment
@@ -132,10 +132,12 @@ resource "aws_instance" "host" {
     caddyfile = base64encode(templatefile("${path.module}/files/Caddyfile.tftpl", {
       origin_domain = var.origin_domain_name
     }))
-    deploy_sh         = filebase64("${path.module}/files/deploy.sh")
-    render_env_sh     = filebase64("${path.module}/files/render-env.sh")
-    backup_sh         = filebase64("${path.module}/files/backup.sh")
-    erase_sh          = filebase64("${path.module}/files/erase-deletion-pending.sh")
+    deploy_sh         = file("${path.module}/files/deploy.sh")
+    provision_db_sh   = file("${path.module}/files/provision-db.sh")
+    migrate_sh        = file("${path.module}/files/migrate.sh")
+    render_env_sh     = file("${path.module}/files/render-env.sh")
+    backup_sh         = file("${path.module}/files/backup.sh")
+    erase_sh          = file("${path.module}/files/erase-deletion-pending.sh")
     cloudwatch_config = base64encode(file("${path.module}/files/cloudwatch-agent.json"))
     public_env = base64encode(join("\n", [
       "NODE_ENV=production",

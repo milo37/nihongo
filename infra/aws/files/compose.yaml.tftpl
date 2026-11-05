@@ -1,5 +1,6 @@
 # Host copy at /opt/harumaru/compose.yaml. deploy.sh writes .env (API_IMAGE,
-# RELEASE_ID, AWS_REGION, LOG_GROUP) next to it; secrets come from /run/harumaru.
+# MIGRATE_IMAGE, RELEASE_ID, AWS_REGION, LOG_GROUP) next to it; secrets come from
+# /run/harumaru.
 name: harumaru
 
 x-logging: &logging
@@ -75,4 +76,20 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    logging: *logging
+
+  # One-shot `prisma migrate deploy` (bin/migrate.sh). The profile keeps it out of
+  # `docker compose up`; it reaches only the internal db network.
+  migrate:
+    image: $${MIGRATE_IMAGE}
+    profiles: [migrate]
+    restart: 'no'
+    env_file: /run/harumaru/migrate.env
+    networks: [db]
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
     logging: *logging

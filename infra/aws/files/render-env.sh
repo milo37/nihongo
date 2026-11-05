@@ -15,13 +15,20 @@ params = {p["Name"].rsplit("/", 1)[1]: p["Value"] for p in json.load(sys.stdin)[
 for key, value in params.items():
     if "\n" in value or "\r" in value:
         sys.exit(f"parameter {key} contains a newline")
-required = ["POSTGRES_PASSWORD", "DATABASE_URL", "BETTER_AUTH_SECRET", "GUEST_COOKIE_SECRET", "ORIGIN_VERIFY_SECRET"]
+required = [
+    "POSTGRES_PASSWORD", "DATABASE_URL", "MIGRATION_DATABASE_URL", "PRODUCTION_DATABASE_URL",
+    "BETTER_AUTH_SECRET", "GUEST_COOKIE_SECRET", "ORIGIN_VERIFY_SECRET",
+    "PROD_MIGRATION_LOGIN_PASSWORD", "PROD_APP_LOGIN_PASSWORD", "PROD_GUEST_CLEANUP_LOGIN_PASSWORD",
+]
 missing = [k for k in required if k not in params]
 if missing:
     sys.exit("missing SSM parameters: " + ", ".join(missing))
 groups = {
     "postgres.env": ["POSTGRES_PASSWORD"],
-    "migrate.env": ["MIGRATION_DATABASE_URL"],
+    # The migration guard compares the target with the runtime and production URLs.
+    "migrate.env": ["MIGRATION_DATABASE_URL", "DATABASE_URL", "PRODUCTION_DATABASE_URL"],
+    # Wrapper login passwords for provision-db.sh only.
+    "provision.env": ["PROD_MIGRATION_LOGIN_PASSWORD", "PROD_APP_LOGIN_PASSWORD", "PROD_GUEST_CLEANUP_LOGIN_PASSWORD"],
     "api.env": ["DATABASE_URL", "BETTER_AUTH_SECRET", "GUEST_COOKIE_SECRET", "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET"],
     "proxy.env": ["ORIGIN_VERIFY_SECRET"],
     # Account erasure only (#57); never part of the API runtime environment.

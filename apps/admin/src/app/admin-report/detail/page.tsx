@@ -61,6 +61,78 @@ export const AdminReportDetailPage = (): ReactElement => {
   )
 }
 
+/** Title from the first description line, kind, time, reporter, status. */
+const ReportDetailHeader = ({
+  report,
+  heading
+}: {
+  report: AdminReportDetail
+  heading: RefObject<HTMLHeadingElement | null>
+}): ReactElement => {
+  const { t, formatAdminDateTime } = useAdminPresentation()
+  const title = report.description.split('\n')[0]?.slice(0, 80) ?? ''
+  return (
+    <header className="mt-4 flex flex-wrap items-start justify-between gap-4">
+      <div className="min-w-0">
+        <h1
+          ref={heading}
+          tabIndex={-1}
+          className="break-words rounded-sm text-balance text-3xl font-black sm:text-4xl"
+        >
+          {title}
+        </h1>
+        <p className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted">
+          <Badge>{t(`userReport.kinds.${report.kind}`)}</Badge>
+          <span>{formatAdminDateTime(report.createdAt)}</span>
+          <span>
+            {t('userReport.detail.reporter')}:{' '}
+            {report.reporterMemberId
+              ? `${report.reporterMemberId.slice(0, 8)}…`
+              : t('userReport.detail.deletedReporter')}
+          </span>
+        </p>
+      </div>
+      <ReportStatusBadge status={report.status} />
+    </header>
+  )
+}
+
+/** Full description, location and the linked question. */
+const ReportContentCard = ({
+  report
+}: {
+  report: AdminReportDetail
+}): ReactElement => {
+  const { t } = useAdminPresentation()
+  return (
+    <section className={cardClass} aria-labelledby="report-content">
+      <h2 id="report-content" className="text-lg font-bold">
+        {t('userReport.detail.content')}
+      </h2>
+      <p className="mt-3 whitespace-pre-wrap break-words">
+        {report.description}
+      </p>
+      <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-[8rem_1fr]">
+        <dt className="text-muted">{t('userReport.detail.location')}</dt>
+        <dd className="break-all">{report.location}</dd>
+        {report.questionId ? (
+          <>
+            <dt className="text-muted">{t('userReport.detail.target')}</dt>
+            <dd>
+              <Link
+                to={`/questions/${report.questionId}`}
+                className="inline-flex min-h-11 items-center break-all font-semibold text-brand underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+              >
+                {report.questionId}
+              </Link>
+            </dd>
+          </>
+        ) : null}
+      </dl>
+    </section>
+  )
+}
+
 const ReportDetail = ({
   report,
   heading,
@@ -71,61 +143,13 @@ const ReportDetail = ({
   onConflict: () => void
 }): ReactElement => {
   const { t, formatAdminDateTime } = useAdminPresentation()
-  const title = report.description.split('\n')[0]?.slice(0, 80) ?? ''
 
   return (
     <>
-      <header className="mt-4 flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <h1
-            ref={heading}
-            tabIndex={-1}
-            className="break-words rounded-sm text-balance text-3xl font-black sm:text-4xl"
-          >
-            {title}
-          </h1>
-          <p className="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted">
-            <Badge>{t(`userReport.kinds.${report.kind}`)}</Badge>
-            <span>{formatAdminDateTime(report.createdAt)}</span>
-            <span>
-              {t('userReport.detail.reporter')}:{' '}
-              {report.reporterMemberId
-                ? `${report.reporterMemberId.slice(0, 8)}…`
-                : t('userReport.detail.deletedReporter')}
-            </span>
-          </p>
-        </div>
-        <ReportStatusBadge status={report.status} />
-      </header>
+      <ReportDetailHeader report={report} heading={heading} />
       <div className="mt-8 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="grid min-w-0 content-start gap-4">
-          <section className={cardClass} aria-labelledby="report-content">
-            <h2 id="report-content" className="text-lg font-bold">
-              {t('userReport.detail.content')}
-            </h2>
-            <p className="mt-3 whitespace-pre-wrap break-words">
-              {report.description}
-            </p>
-            <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-[8rem_1fr]">
-              <dt className="text-muted">{t('userReport.detail.location')}</dt>
-              <dd className="break-all">{report.location}</dd>
-              {report.questionId ? (
-                <>
-                  <dt className="text-muted">
-                    {t('userReport.detail.target')}
-                  </dt>
-                  <dd>
-                    <Link
-                      to={`/questions/${report.questionId}`}
-                      className="inline-flex min-h-11 items-center break-all font-semibold text-brand underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
-                    >
-                      {report.questionId}
-                    </Link>
-                  </dd>
-                </>
-              ) : null}
-            </dl>
-          </section>
+          <ReportContentCard report={report} />
           {report.internalNote ? (
             <section className="rounded-xl border border-dashed border-line bg-surface-sunken p-4 text-sm">
               <h2 className="font-semibold text-muted">

@@ -1,5 +1,6 @@
 #!/bin/bash
-# deploy.sh <full git SHA>: migrate, restart the API, verify, roll back on failure.
+# deploy.sh <full git SHA>: provision DB roles, migrate, restart the API, verify,
+# roll back on failure.
 set -euo pipefail
 release="${1:-}"
 [[ "$release" =~ ^[0-9a-f]{40}$ ]] || { echo "release must be a full git SHA" >&2; exit 2; }
@@ -11,8 +12,8 @@ exec 9>/run/harumaru/deploy.lock
 flock -n 9 || { echo "another deploy is running" >&2; exit 1; }
 
 write_compose_env() {
-  printf 'API_IMAGE=%s:%s\nRELEASE_ID=%s\nAWS_REGION=%s\nLOG_GROUP=%s\n' \
-    "$ECR_REPOSITORY" "$1" "$1" "$AWS_REGION" "$LOG_GROUP" > .env
+  printf 'API_IMAGE=%s:%s\nMIGRATE_IMAGE=%s:%s-migrate\nRELEASE_ID=%s\nAWS_REGION=%s\nLOG_GROUP=%s\n' \
+    "$ECR_REPOSITORY" "$1" "$ECR_REPOSITORY" "$1" "$1" "$AWS_REGION" "$LOG_GROUP" > .env
 }
 
 # Checked inside the API container: port 3001 is not published on the host.
@@ -32,24 +33,27 @@ healthy() {
 aws ecr get-login-password --region "$AWS_REGION" \
   | docker login --username AWS --password-stdin "${ECR_REPOSITORY%%/*}"
 docker pull "$ECR_REPOSITORY:$release"
+docker pull "$ECR_REPOSITORY:$release-migrate"
 
 previous="$(cat current-release 2>/dev/null || true)"
 write_compose_env "$release"
 docker compose up -d --wait postgres
 
-# Migrations run before the new API starts. The runtime image has no Prisma CLI
-# and no production migration principal is defined yet (backend-owned), so the
-# deploy refuses until migrate.sh is supplied.
-if [[ ! -x /opt/harumaru/bin/migrate.sh ]]; then
-  echo "refusing: /opt/harumaru/bin/migrate.sh is not defined (production migration step is backend-owned)" >&2
-  [[ -n "$previous" ]] && write_compose_env "$previous"
+# Roles first (idempotent, attested), then migrations, both before the new API
+# starts. If either fails, .env points back at the running release so a reboot
+# restarts what is live.
+if ! /opt/harumaru/bin/provision-db.sh || ! /opt/harumaru/bin/migrate.sh "$release"; then
+  echo "refusing: database provisioning or migration failed for $release" >&2
+  if [[ -n "$previous" ]]; then write_compose_env "$previous"; fi
   exit 1
 fi
-/opt/harumaru/bin/migrate.sh "$ECR_REPOSITORY:$release"
 
 docker compose up -d api proxy
 if healthy "$release"; then
   echo "$release" > current-release
+  # Migrate images (~200 MB each) are needed only while migrating; ECR keeps them.
+  docker image ls --format '{{.Repository}}:{{.Tag}}' "$ECR_REPOSITORY" \
+    | grep -e '-migrate$' | xargs -r docker image rm >/dev/null || true
   echo "deployed $release"
   exit 0
 fi
