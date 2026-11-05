@@ -490,7 +490,7 @@ const applyCurrentMigrations = (
       VALUES ('${randomUUID()}', '${checksum}', now(), '${name}', now(), 1);`
     )
   }
-  if (names.includes('20261030100000_guest_expired_draft_retention')) {
+  if (names.includes('20261105090000_baseline')) {
     databaseCommand(
       database,
       `GRANT CONNECT ON DATABASE "${database.databaseName}" TO "nihongo_test_guest_cleanup_worker_login";`
@@ -1466,14 +1466,22 @@ export const runPortableRuntimeSmoke = async ({
     applyCurrentMigrations(
       migrationDatabase,
       migrationsDirectory,
-      migrationNames.slice(0, 37),
+      migrationNames,
       true
     )
+    // The baseline has no registration function; this is the API's
+    // DATABASE_CAPABILITY_SQL (apps/api/src/db/databaseCapability.ts) for TEST.
     databaseCommand(
       migrationDatabase,
-      `SELECT "register_database_capability"(
-      current_database(), inet_server_addr(), inet_server_port(), 'TEST');
-      SELECT "activate_v1_issuer"('TEST');`
+      `INSERT INTO "DatabaseCapability" (
+      "id", "databaseName", "serverAddress", "serverPort", "environment",
+      "registeredAt")
+      SELECT 1, current_database(), inet_server_addr(), inet_server_port(),
+      'TEST'::"AdminAuditEnvironment", clock_timestamp()
+      WHERE inet_server_addr() IS NOT NULL AND current_database() ~ '_test$';
+      DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM "DatabaseCapability") THEN
+      RAISE EXCEPTION 'Database capability does not match the safe target.';
+      END IF; END $$;`
     )
     const databasePortOutput = run('docker', [
       'port',
@@ -1487,11 +1495,6 @@ export const runPortableRuntimeSmoke = async ({
       `postgresql://${migrationLogin}:${migrationPassword}@127.0.0.1:${databasePort}/${databaseName}?schema=${schemaName}&sslmode=verify-full`,
       `postgresql://${applicationLogin}:${runtimePassword}@127.0.0.1:${databasePort}/${databaseName}?schema=${schemaName}&sslmode=verify-full`,
       join(certificateDirectory, 'server.crt')
-    )
-    applyCurrentMigrations(
-      migrationDatabase,
-      migrationsDirectory,
-      migrationNames.slice(37)
     )
     const migrationCount = migrationNames.length
 
