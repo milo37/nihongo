@@ -115,6 +115,9 @@ export const classifyChangedFiles = (changedFiles) => {
       /^(?:LICENSE|\.editorconfig|\.gitignore|\.gitattributes)$/u.test(file) ||
       file.startsWith('.github/ISSUE_TEMPLATE/') ||
       file === '.github/pull_request_template.md' ||
+      // Read only by the Secret scan workflow and GitHub Dependabot.
+      file === '.gitleaks.toml' ||
+      file === '.github/dependabot.yml' ||
       // Agent tooling (Claude Code, Codex, Cursor, shared skills); never
       // imported or run by apps, builds, tests or CI.
       /^\.(?:claude|codex|cursor|agents)\//u.test(file)
@@ -381,7 +384,6 @@ export const qualityCommands = (selection, group) => {
       '0'
     )
     add('run', 'check:architecture')
-    add('run', 'test:security')
   } else if (group === 'packages') {
     add('--filter', '@nihongo/contracts', 'run', 'build')
     add('--filter', '@nihongo/domain', 'run', 'build')

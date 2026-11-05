@@ -110,7 +110,7 @@ test('migration changes select operations inventory tests and the portable smoke
   )
 })
 
-test('agent tooling and PR templates select no checks', () => {
+test('agent tooling, PR templates and scanner config select no checks', () => {
   const selection = classifyChangedFiles([
     '.claude/agents/devops-engineer.md',
     '.claude/hooks/check-gh-format.mjs',
@@ -121,7 +121,9 @@ test('agent tooling and PR templates select no checks', () => {
     '.cursor/rules/03-api-guidelines.mdc',
     '.agents/skills/graph/agents/openai.yaml',
     '.github/pull_request_template.md',
-    '.github/ISSUE_TEMPLATE/1-task.yml'
+    '.github/ISSUE_TEMPLATE/1-task.yml',
+    '.github/dependabot.yml',
+    '.gitleaks.toml'
   ])
   assert.equal(selection.code, false)
   assert.equal(selection.browser, false)
