@@ -150,7 +150,7 @@ const EXPECTED_RUNTIME = {
 const foundationSourceManifestSchema = z
   .object({
     schemaVersion: z.literal(1),
-    kind: z.literal('PHASE6_SLICE1_FOUNDATION_SOURCE_MANIFEST_V1'),
+    kind: z.literal('FOUNDATION_SOURCE_MANIFEST_V1'),
     foundationSourceManifestSha256: z.string().regex(/^[0-9a-f]{64}$/)
   })
   .strict()

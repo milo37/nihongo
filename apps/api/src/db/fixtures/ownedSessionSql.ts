@@ -166,45 +166,45 @@ const evaluate = async (
 }
 
 const BRIDGED_FUNCTIONS = [
-  'phase7_issue_v1_session',
-  'phase7_owned_sign_out',
-  'phase7_refresh_current_remembered_session',
-  'phase7_resolve_v1_principal',
-  'phase7_prepare_reauthentication',
-  'phase7_stage_reauthentication_session',
-  'phase7_finalize_reauthentication',
-  'phase7_reconcile_reauthentication',
-  'phase7_abort_reauthentication',
-  'phase7_cleanup_reauthentication',
-  'phase7_confirm_v1_session_issuance',
-  'phase7_sso_admin_session_is_fresh',
-  'phase7_prepare_sso_admin_fresh',
-  'phase7_create_sso_admin_fresh_transaction',
-  'phase7_consume_sso_admin_fresh_transaction',
-  'phase7_stage_sso_admin_fresh_proof',
-  'phase7_complete_sso_admin_fresh',
-  'phase7_reconcile_sso_admin_fresh',
-  'phase7_cancel_sso_admin_fresh_proof',
-  'phase7_erase_user',
-  'phase7_complete_sso_account_erasure',
-  'phase7_list_sso_account_erasures',
-  'phase7_sso_account_erasure_status',
-  'phase7_redact_expired_report_descriptions',
-  'phase7_request_sso_account_erasure',
-  'phase7_create_question_report',
-  'phase7_prepare_sso_account_fresh',
-  'phase7_prepare_sso_account_link',
-  'phase7_create_sso_account_fresh_transaction',
-  'phase7_consume_sso_account_fresh_transaction',
-  'phase7_stage_sso_account_fresh_proof',
-  'phase7_complete_sso_account_fresh',
-  'phase7_complete_sso_account_link',
-  'phase7_sso_account_capabilities',
-  'phase7_unlink_sso_account',
-  'phase7_claim_sso_provider_cleanups',
-  'phase7_begin_sso_provider_cleanup',
-  'phase7_record_sso_provider_cleanup',
-  'phase7_change_user_authority'
+  'issue_v1_session',
+  'owned_sign_out',
+  'refresh_current_remembered_session',
+  'resolve_v1_principal',
+  'prepare_reauthentication',
+  'stage_reauthentication_session',
+  'finalize_reauthentication',
+  'reconcile_reauthentication',
+  'abort_reauthentication',
+  'cleanup_reauthentication',
+  'confirm_v1_session_issuance',
+  'sso_admin_session_is_fresh',
+  'prepare_sso_admin_fresh',
+  'create_sso_admin_fresh_transaction',
+  'consume_sso_admin_fresh_transaction',
+  'stage_sso_admin_fresh_proof',
+  'complete_sso_admin_fresh',
+  'reconcile_sso_admin_fresh',
+  'cancel_sso_admin_fresh_proof',
+  'erase_user',
+  'complete_sso_account_erasure',
+  'list_sso_account_erasures',
+  'sso_account_erasure_status',
+  'redact_expired_report_descriptions',
+  'request_sso_account_erasure',
+  'create_question_report',
+  'prepare_sso_account_fresh',
+  'prepare_sso_account_link',
+  'create_sso_account_fresh_transaction',
+  'consume_sso_account_fresh_transaction',
+  'stage_sso_account_fresh_proof',
+  'complete_sso_account_fresh',
+  'complete_sso_account_link',
+  'sso_account_capabilities',
+  'unlink_sso_account',
+  'claim_sso_provider_cleanups',
+  'begin_sso_provider_cleanup',
+  'record_sso_provider_cleanup',
+  'change_user_authority'
 ] as const
 
 /** client.query, except that calls to the dropped functions use the bridge. */
@@ -239,7 +239,7 @@ export const ownedSessionSql = async <
     rows: rows as Row[],
     rowCount: rows.length
   })
-  const issue = call(sql, 'phase7_issue_v1_session')
+  const issue = call(sql, 'issue_v1_session')
   if (issue) {
     const parts = splitArguments(issue[1] ?? '')
     if (parts.length !== 9)
@@ -268,7 +268,7 @@ export const ownedSessionSql = async <
     ).rows[0] as Parameters<typeof issueOwnedSession>[1]
     return answer([await issueOwnedSession(owned, input)])
   }
-  const signOut = call(sql, 'phase7_owned_sign_out')
+  const signOut = call(sql, 'owned_sign_out')
   if (signOut) {
     const token = (
       await client.query<{ token: string }>(
@@ -278,14 +278,14 @@ export const ownedSessionSql = async <
     ).rows[0]?.token
     return answer([
       {
-        [signOut[2] ?? 'phase7_owned_sign_out']: await signOutOwnedSession(
+        [signOut[2] ?? 'owned_sign_out']: await signOutOwnedSession(
           owned,
           token ?? ''
         )
       }
     ])
   }
-  const refresh = call(sql, 'phase7_refresh_current_remembered_session')
+  const refresh = call(sql, 'refresh_current_remembered_session')
   if (refresh) {
     const token = (
       await client.query<{ token: string }>(
@@ -299,7 +299,7 @@ export const ownedSessionSql = async <
       )
     )
   }
-  const principal = call(sql, 'phase7_resolve_v1_principal')
+  const principal = call(sql, 'resolve_v1_principal')
   if (principal) {
     const token = (
       await client.query<{ token: string }>(
@@ -324,7 +324,7 @@ export const ownedSessionSql = async <
     ]
   > = [
     [
-      'phase7_prepare_reauthentication',
+      'prepare_reauthentication',
       [
         ['rawOldToken', 'text'],
         ['expectedActorId', 'uuid'],
@@ -350,7 +350,7 @@ export const ownedSessionSql = async <
       }
     ],
     [
-      'phase7_stage_reauthentication_session',
+      'stage_reauthentication_session',
       [
         ['intentId', 'uuid'],
         ['sessionId', 'uuid'],
@@ -377,7 +377,7 @@ export const ownedSessionSql = async <
       }
     ],
     [
-      'phase7_finalize_reauthentication',
+      'finalize_reauthentication',
       [
         ['intentId', 'uuid'],
         ['rawNewToken', 'text']
@@ -393,7 +393,7 @@ export const ownedSessionSql = async <
       ]
     ],
     [
-      'phase7_reconcile_reauthentication',
+      'reconcile_reauthentication',
       [
         ['intentId', 'uuid'],
         ['rawNewToken', 'text']
@@ -406,21 +406,21 @@ export const ownedSessionSql = async <
         )
     ],
     [
-      'phase7_abort_reauthentication',
+      'abort_reauthentication',
       [['intentId', 'uuid']],
       async (input) => [
         await abortReauthentication(owned, input.intentId as string)
       ]
     ],
     [
-      'phase7_cleanup_reauthentication',
+      'cleanup_reauthentication',
       [['maximumRows', 'integer']],
       async (input) => [
         await cleanupReauthentication(owned, input.maximumRows as number)
       ]
     ],
     [
-      'phase7_confirm_v1_session_issuance',
+      'confirm_v1_session_issuance',
       [
         ['token', 'text'],
         ['sessionId', 'uuid'],
@@ -432,7 +432,7 @@ export const ownedSessionSql = async <
       async (input) => [await confirmOwnedSession(owned, input as never)]
     ],
     [
-      'phase7_sso_admin_session_is_fresh',
+      'sso_admin_session_is_fresh',
       [['token', 'text']],
       async (input) => [
         (
@@ -444,7 +444,7 @@ export const ownedSessionSql = async <
       ]
     ],
     [
-      'phase7_prepare_sso_admin_fresh',
+      'prepare_sso_admin_fresh',
       [
         ['token', 'text'],
         ['provider', 'text']
@@ -458,7 +458,7 @@ export const ownedSessionSql = async <
       ]
     ],
     [
-      'phase7_create_sso_admin_fresh_transaction',
+      'create_sso_admin_fresh_transaction',
       [
         ['provider', 'text'],
         ['stateDigest', 'text'],
@@ -473,7 +473,7 @@ export const ownedSessionSql = async <
       ]
     ],
     [
-      'phase7_consume_sso_admin_fresh_transaction',
+      'consume_sso_admin_fresh_transaction',
       [
         ['provider', 'text'],
         ['stateDigest', 'text'],
@@ -488,7 +488,7 @@ export const ownedSessionSql = async <
         )
     ],
     [
-      'phase7_stage_sso_admin_fresh_proof',
+      'stage_sso_admin_fresh_proof',
       [
         ['context', 'jsonb'],
         ['provider', 'text'],
@@ -507,7 +507,7 @@ export const ownedSessionSql = async <
       ]
     ],
     [
-      'phase7_complete_sso_admin_fresh',
+      'complete_sso_admin_fresh',
       [
         ['proofDigest', 'text'],
         ['rawOldToken', 'text'],
@@ -519,7 +519,7 @@ export const ownedSessionSql = async <
       async (input) => completeAdminFresh(owned, input as never)
     ],
     [
-      'phase7_reconcile_sso_admin_fresh',
+      'reconcile_sso_admin_fresh',
       [
         ['proofDigest', 'text'],
         ['rawNewToken', 'text']
@@ -532,7 +532,7 @@ export const ownedSessionSql = async <
         )
     ],
     [
-      'phase7_cancel_sso_admin_fresh_proof',
+      'cancel_sso_admin_fresh_proof',
       [['proofDigest', 'text']],
       async (input) => [
         await cancelAdminFreshProof(owned, input.proofDigest as string)
@@ -540,7 +540,7 @@ export const ownedSessionSql = async <
     ],
     // #504 P7 PR4a: account erasure and report redaction.
     [
-      'phase7_erase_user',
+      'erase_user',
       [
         ['userId', 'uuid'],
         ['environment', 'text']
@@ -556,7 +556,7 @@ export const ownedSessionSql = async <
       ]
     ],
     [
-      'phase7_complete_sso_account_erasure',
+      'complete_sso_account_erasure',
       [
         ['requestId', 'uuid'],
         ['environment', 'text']
@@ -572,7 +572,7 @@ export const ownedSessionSql = async <
       ]
     ],
     [
-      'phase7_list_sso_account_erasures',
+      'list_sso_account_erasures',
       [
         ['batchLimit', 'integer'],
         ['environment', 'text']
@@ -586,7 +586,7 @@ export const ownedSessionSql = async <
       ]
     ],
     [
-      'phase7_sso_account_erasure_status',
+      'sso_account_erasure_status',
       [['receiptDigest', 'text']],
       async (input) => [
         await ssoAccountErasureStatus(owned, input.receiptDigest as string)
@@ -594,7 +594,7 @@ export const ownedSessionSql = async <
     ],
     // #504 P7 PR4c-2: QuestionReport creation.
     [
-      'phase7_create_question_report',
+      'create_question_report',
       [
         ['rawSessionToken', 'text'],
         ['reportId', 'uuid'],
@@ -617,7 +617,7 @@ export const ownedSessionSql = async <
     ],
     // #504 P7 PR4b-2: the SSO account erasure request.
     [
-      'phase7_request_sso_account_erasure',
+      'request_sso_account_erasure',
       [
         ['rawToken', 'text'],
         ['proofDigest', 'text'],
@@ -633,7 +633,7 @@ export const ownedSessionSql = async <
       ]
     ],
     [
-      'phase7_redact_expired_report_descriptions',
+      'redact_expired_report_descriptions',
       [
         ['batchLimit', 'integer'],
         ['environment', 'text']
@@ -658,7 +658,7 @@ export const ownedSessionSql = async <
     value as ProviderCleanupEnvironment
   reauthentication.push(
     [
-      'phase7_prepare_sso_account_fresh',
+      'prepare_sso_account_fresh',
       [
         ['rawToken', 'text'],
         ['provider', 'text']
@@ -672,7 +672,7 @@ export const ownedSessionSql = async <
       ]
     ],
     [
-      'phase7_prepare_sso_account_link',
+      'prepare_sso_account_link',
       [
         ['rawToken', 'text'],
         ['provider', 'text'],
@@ -688,7 +688,7 @@ export const ownedSessionSql = async <
       ]
     ],
     [
-      'phase7_create_sso_account_fresh_transaction',
+      'create_sso_account_fresh_transaction',
       [
         ['provider', 'text'],
         ['stateDigest', 'text'],
@@ -711,7 +711,7 @@ export const ownedSessionSql = async <
       ]
     ],
     [
-      'phase7_consume_sso_account_fresh_transaction',
+      'consume_sso_account_fresh_transaction',
       [
         ['provider', 'text'],
         ['stateDigest', 'text'],
@@ -727,7 +727,7 @@ export const ownedSessionSql = async <
         })
     ],
     [
-      'phase7_stage_sso_account_fresh_proof',
+      'stage_sso_account_fresh_proof',
       [
         ['context', 'jsonb'],
         ['provider', 'text'],
@@ -746,7 +746,7 @@ export const ownedSessionSql = async <
       ]
     ],
     [
-      'phase7_complete_sso_account_fresh',
+      'complete_sso_account_fresh',
       [
         ['proofDigest', 'text'],
         ['rawToken', 'text']
@@ -760,7 +760,7 @@ export const ownedSessionSql = async <
       ]
     ],
     [
-      'phase7_complete_sso_account_link',
+      'complete_sso_account_link',
       [
         ['proofDigest', 'text'],
         ['rawToken', 'text']
@@ -774,7 +774,7 @@ export const ownedSessionSql = async <
       ]
     ],
     [
-      'phase7_sso_account_capabilities',
+      'sso_account_capabilities',
       [
         ['rawToken', 'text'],
         ['available', 'text[]'],
@@ -790,7 +790,7 @@ export const ownedSessionSql = async <
       ]
     ],
     [
-      'phase7_unlink_sso_account',
+      'unlink_sso_account',
       [
         ['rawToken', 'text'],
         ['provider', 'text'],
@@ -808,7 +808,7 @@ export const ownedSessionSql = async <
       ]
     ],
     [
-      'phase7_claim_sso_provider_cleanups',
+      'claim_sso_provider_cleanups',
       [
         ['batchLimit', 'integer'],
         ['leaseSeconds', 'integer'],
@@ -824,7 +824,7 @@ export const ownedSessionSql = async <
       ]
     ],
     [
-      'phase7_begin_sso_provider_cleanup',
+      'begin_sso_provider_cleanup',
       [
         ['requestId', 'uuid'],
         ['provider', 'text'],
@@ -841,7 +841,7 @@ export const ownedSessionSql = async <
       ]
     ],
     [
-      'phase7_record_sso_provider_cleanup',
+      'record_sso_provider_cleanup',
       [
         ['requestId', 'uuid'],
         ['provider', 'text'],
@@ -860,7 +860,7 @@ export const ownedSessionSql = async <
       ]
     ],
     [
-      'phase7_change_user_authority',
+      'change_user_authority',
       [
         ['rawActorToken', 'text'],
         ['targetUserId', 'uuid'],

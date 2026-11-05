@@ -3,7 +3,7 @@ import type { Prisma, PrismaClient } from '../../generated/prisma/client.js'
 /**
  * TEST-only User authority change (#504 P7 PR5a).
  *
- * phase7_change_user_authority (with its _pre_reauthentication body) had no
+ * change_user_authority (with its _pre_reauthentication body) had no
  * product caller; database tests use it to take authority away mid-flow. This
  * keeps it step for step: the same actor checks, the same lock order (both
  * Users, then the target's Verification and Account rows, then both Users'
@@ -46,7 +46,7 @@ const actorHoldsFreshAdmin = async (
        WHERE actor."id" = $1::uuid
          AND actor."role" = 'ADMIN' AND actor."accountStatus" = 'ACTIVE'
          AND session."token" = $3
-         AND session."issuerProtocolVersion" = 'PHASE7_V1'
+         AND session."issuerProtocolVersion" = 'OWNED_V1'
          AND session."authorityGeneration" = actor."authorityGeneration"
          AND session."expiresAt" > checked.at
          AND session."createdAt" + INTERVAL '30 days' > checked.at
@@ -70,7 +70,7 @@ export const changeUserAuthorityForTest = async (
   }
 ): Promise<number> =>
   client.$transaction(async (transaction) => {
-    // phase7_change_user_authority
+    // change_user_authority
     const active = await transaction.$queryRawUnsafe<unknown[]>(
       `SELECT 1 FROM "Session"
        WHERE "token" = $1 AND "authorizationState" = 'ACTIVE'`,
@@ -82,7 +82,7 @@ export const changeUserAuthorityForTest = async (
         '42501',
         'Authority-change actor is stale or not fresh.'
       )
-    // phase7_change_user_authority_pre_reauthentication
+    // change_user_authority_pre_reauthentication
     await transaction.$executeRawUnsafe(
       `SELECT "require_database_capability"($1::"AdminAuditEnvironment")`,
       input.environment

@@ -42,9 +42,9 @@ vi.mock('pg', async (importOriginal) => ({
   }
 }))
 
-const schema = `phase7_${'a'.repeat(32)}_test`
+const schema = `nihongo_${'a'.repeat(32)}_test`
 const url = (login: string) =>
-  `postgresql://${login}:unused@127.0.0.1:5432/nihongo_phase9_test?schema=${schema}`
+  `postgresql://${login}:unused@127.0.0.1:5432/nihongo_fixture_test?schema=${schema}`
 const source = (): NodeJS.ProcessEnv => ({
   NODE_ENV: 'test',
   DEPLOYMENT_ENVIRONMENT: 'TEST',
@@ -60,7 +60,7 @@ const source = (): NodeJS.ProcessEnv => ({
   BETTER_AUTH_SECRET: 'a'.repeat(32),
   GUEST_COOKIE_SECRET: 'b'.repeat(32)
 })
-const ownerUrl = url('phase9_test_owner')
+const ownerUrl = url('fixture_test_owner')
 const makeIdentities = () =>
   Object.fromEntries(
     [
@@ -211,7 +211,7 @@ describe('Isolated TEST SSO bootstrap', () => {
       '',
       'unknown',
       'test-google-author-extra',
-      'PHASE7-TEST-GOOGLE-AUTHOR',
+      'TEST-GOOGLE-AUTHOR',
       '__proto__'
     ]) {
       expect(await provider.exchange({ ...input, code })).toBeNull()
@@ -309,7 +309,7 @@ describe('Isolated TEST SSO bootstrap', () => {
 
   it.each([
     url('nihongo_test_app_login'),
-    ownerUrl.replace('nihongo_phase9_test', 'another_test')
+    ownerUrl.replace('nihongo_fixture_test', 'another_test')
   ])(
     'rejects a runtime or foreign owner before connecting',
     async (adminDatabaseUrl) => {

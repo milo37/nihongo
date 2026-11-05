@@ -64,21 +64,22 @@ API 모드는 `apps/web/.env`의 `VITE_API_MODE=mock|real`로 선택합니다.
 ## 실제 API·DB 로컬 실행
 
 루트·API의 `.env.example`과 API의 `.env.test.example`을 각각 `.env`·`.env.test`로 복사합니다.
-루트의 `POSTGRES_PASSWORD`와 `PHASE7_*_PASSWORD` 6개는 서로 다른 24자 이상 URL-safe 값으로 설정하고 API 연결 URL에 대응시킵니다.
+루트의 `POSTGRES_PASSWORD`와 `{TEST,DEVELOPMENT}_*_PASSWORD` 6개는 서로 다른 24자 이상 URL-safe 값으로 설정하고 API 연결 URL에 대응시킵니다.
 이 로컬 구성은 production provisioning의 대체물이 아닙니다.
 
 **지속형 기술 runtime: 55433, 별도 project·volume**
-API는 `DATABASE_URL` 하나(`nihongo_{test,development}_app_login` → `nihongo_app`)로 실행하고, migration은 `PHASE7_MIGRATION_DATABASE_URL`(`nihongo_{test,development}_migration_login` → `nihongo_migration`)로만 실행합니다.
+API는 `DATABASE_URL` 하나(`nihongo_{test,development}_app_login` → `nihongo_app`)로 실행하고, migration은 `MIGRATION_DATABASE_URL`(`nihongo_{test,development}_migration_login` → `nihongo_migration`)로만 실행합니다.
 provisioning은 `nihongo_owner`·`nihongo_migration`·`nihongo_app`·`nihongo_guest_cleanup_worker`와 TEST·DEVELOPMENT login 6개를 만들고, `public` schema와 DB 소유자를 `nihongo_migration`으로 둡니다(baseline이 schema를 `nihongo_owner`로 넘김).
-migration은 `20261105090000_baseline` 하나입니다.
+migration은 `20261105090000_baseline`과 forward migration `20261106090000_remove_phase_names` 두 개입니다.
 
 **DEVELOPMENT DB 재생성(데이터 보존 없음)**
 baseline 이전 볼륨은 역할 이름과 migration 이력이 달라 그대로 쓸 수 없습니다. 볼륨을 지우고 새로 만듭니다.
+project·volume 이름이 `nihongo-local`·`nihongo-local-postgres-data`로 바뀌어 이전 이름의 로컬 데이터는 보이지 않습니다. 아래 절차로 새로 만듭니다.
 아래 `down -v`는 이 project의 볼륨 데이터를 영구 삭제합니다.
 
 ```bash
-docker compose --project-name nihongo-phase7-local --profile phase7-local down -v
-docker compose --project-name nihongo-phase7-local --profile phase7-local up -d --wait postgres-phase7
+docker compose --project-name nihongo-local --profile local-db down -v
+docker compose --project-name nihongo-local --profile local-db up -d --wait postgres-local
 NODE_ENV=test pnpm run db:migrate:deploy
 ADMIN_CMS_MODE=technical pnpm run db:seed:test
 pnpm run db:migrate:deploy
@@ -96,11 +97,11 @@ host에 PostgreSQL 18 client(`psql`)가 필요합니다. 다시 실행하면 같
 ```bash
 # 아래 one-way local write는 명시적 후속 승인 후에만 실행합니다(저장소 루트, 루트 .env 사용).
 set -a; . ./.env; set +a
-PGPASSWORD="$PHASE7_TEST_MIGRATION_PASSWORD" PGOPTIONS="-c role=nihongo_migration" \
-  psql -h 127.0.0.1 -p "${PHASE7_POSTGRES_PORT:-55433}" --username nihongo_test_migration_login \
+PGPASSWORD="$TEST_MIGRATION_PASSWORD" PGOPTIONS="-c role=nihongo_migration" \
+  psql -h 127.0.0.1 -p "${LOCAL_POSTGRES_PORT:-55433}" --username nihongo_test_migration_login \
   --dbname nihongo_test --set=environment=TEST --file=infra/postgres/init/local-database-activate.psql
-PGPASSWORD="$PHASE7_DEVELOPMENT_MIGRATION_PASSWORD" PGOPTIONS="-c role=nihongo_migration" \
-  psql -h 127.0.0.1 -p "${PHASE7_POSTGRES_PORT:-55433}" --username nihongo_development_migration_login \
+PGPASSWORD="$DEVELOPMENT_MIGRATION_PASSWORD" PGOPTIONS="-c role=nihongo_migration" \
+  psql -h 127.0.0.1 -p "${LOCAL_POSTGRES_PORT:-55433}" --username nihongo_development_migration_login \
   --dbname nihongo_dev --set=environment=DEVELOPMENT --file=infra/postgres/init/local-database-activate.psql
 ```
 

@@ -78,7 +78,6 @@ const snapshot: DashboardInsightsSnapshotRecord = {
 
 const createEnvironment = (
   cms: 'disabled' | 'technical',
-  ownedAuth: boolean,
   nodeEnvironment: 'test' | 'production' = 'test'
 ): ApiEnvironment => {
   const origin =
@@ -88,17 +87,14 @@ const createEnvironment = (
   const databaseUrl = (login: string): string =>
     'postgresql://' +
     login +
-    ':unit-only@127.0.0.1:5432/nihongo_test?schema=phase7_' +
+    ':unit-only@127.0.0.1:5432/nihongo_test?schema=nihongo_' +
     'a'.repeat(32) +
     '_test&sslmode=verify-full'
   return parseApiEnvironment({
     NODE_ENV: nodeEnvironment,
     DEPLOYMENT_ENVIRONMENT: 'TEST',
     ADMIN_CMS_MODE: cms,
-    DATABASE_URL: databaseUrl(
-      ownedAuth ? 'nihongo_test_app_login' : 'nihongo_test_legacy_app_login'
-    ),
-    AUTH_RUNTIME: ownedAuth ? 'owned' : 'legacy',
+    DATABASE_URL: databaseUrl('nihongo_test_app_login'),
     AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32,::1/128',
     BETTER_AUTH_SECRET: 'a'.repeat(48),
     GUEST_COOKIE_SECRET: 'b'.repeat(48),
@@ -114,20 +110,18 @@ const createEnvironment = (
 
 const createHarness = ({
   cms = 'disabled',
-  ownedAuth = true,
   nodeEnvironment = 'test',
   authenticated = true,
   hasSessionProof = true,
   databasePrincipalPresent = true
 }: {
   cms?: 'disabled' | 'technical'
-  ownedAuth?: boolean
   nodeEnvironment?: 'test' | 'production'
   authenticated?: boolean
   hasSessionProof?: boolean
   databasePrincipalPresent?: boolean
 } = {}) => {
-  const environment = createEnvironment(cms, ownedAuth, nodeEnvironment)
+  const environment = createEnvironment(cms, nodeEnvironment)
   const query = vi
     .fn<(...args: unknown[]) => Promise<unknown[]>>()
     .mockResolvedValueOnce(databasePrincipalPresent ? [snapshot.clock] : [])
@@ -142,17 +136,14 @@ const createHarness = ({
       operation(transaction)
   )
   const client = { $transaction: transact } as unknown as PrismaClient
-  const repository = createPrismaDashboardInsightsRepository(
-    client,
-    ownedAuth ? 'PHASE7' : 'LEGACY'
-  )
+  const repository = createPrismaDashboardInsightsRepository(client)
   const principalService = {
     getAuthenticatedUser: async () => (authenticated ? user : null),
     resolveAuthenticatedUser: vi.fn(async () => ({
       clearSessionCookie: false,
       headers: new Headers(),
       ...(authenticated && hasSessionProof
-        ? { phase7Session: sessionProof }
+        ? { ownedSessionProof: sessionProof }
         : {}),
       user: authenticated ? user : null
     }))

@@ -19,7 +19,7 @@ const REQUEST_LEDGER_ATTACHMENT =
   /^(?:admin-(?:cms-real-request-ledger|(?:guest|user)-denial)|(?:admin-lifecycle|dashboard|guest-auth|user-journey|resilience)-(?:real|mock)-request-ledger|journey-(?:real|mock)-(?:ko|ja)-handoff)$/u
 const PERFORMANCE_ATTACHMENT = /^dashboard-(?:real|mock)-performance$/u
 const LEGACY_DASHBOARD_ATTACHMENT =
-  /^phase8-dashboard-(?:real|mock)-(?:request-ledger|performance)$/u
+  /^[a-z]+[0-9]+-dashboard-(?:real|mock)-(?:request-ledger|performance)$/u
 
 const normalizeStatus = (status) =>
   VALID_STATUS.has(status) ? status : 'failed'

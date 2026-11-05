@@ -28,12 +28,12 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const postgresImage =
   'postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15'
 // #504 P8-1: one baseline replaces the 76 migrations.
-const currentMigrationCount = 1
+const currentMigrationCount = 2
 const currentMigrationDigest =
-  '00ff3d7fdf21e2da171ea07c5e649337d57b6486b993c64b15a8f002b6ed982e'
+  '29c1107f557ef6001e742daba50f7358d63fa2c99ef29998879d73b66a8ae9aa'
 const migrationLogin = 'nihongo_test_migration_login'
 const applicationLogin = 'nihongo_test_app_login'
-const schemaPattern = /^phase7_[0-9a-f]{32}_test$/u
+const schemaPattern = /^nihongo_[0-9a-f]{32}_test$/u
 const sha256Pattern = /^[0-9a-f]{64}$/u
 const imageIdPattern = /^sha256:[0-9a-f]{64}$/u
 const uuidPattern =
@@ -215,7 +215,7 @@ export const selectCurrentMigrationNames = (migrationsDirectory) => {
     manifest.length !== currentMigrationCount ||
     createHash('sha256').update(JSON.stringify(manifest)).digest('hex') !==
       currentMigrationDigest ||
-    manifest.at(-1)?.name !== '20261105090000_baseline'
+    manifest.at(-1)?.name !== '20261106090000_remove_phase_names'
   ) {
     throw new Error('Repository baseline migration inventory is invalid.')
   }
@@ -305,7 +305,6 @@ export const createRuntimeEnvironment = ({
     `postgresql://${login}:${password}@${databaseHost}:5432/${databaseName}?schema=${schemaName}&sslmode=verify-full`
   return {
     ADMIN_CMS_MODE: 'disabled',
-    AUTH_RUNTIME: 'owned',
     AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32,::1/128',
     BETTER_AUTH_SECRET: randomBytes(32).toString('hex'),
     BETTER_AUTH_URL: 'https://smoke.invalid',
@@ -528,12 +527,12 @@ try {
   const migrationUrl = new URL(databaseUrl);
   migrationUrl.searchParams.set('options', '-c role=nihongo_migration');
   const productionSentinel = new URL(databaseUrl);
-  productionSentinel.pathname = '/nihongo_phase11_production_guard_sentinel';
+  productionSentinel.pathname = '/nihongo_smoke_production_guard_sentinel';
   productionSentinel.search = '';
   assertSafeMigrationDatabase({ nodeEnvironment: 'test', migrationDatabaseUrl: migrationUrl.toString(),
     runtimeDatabaseUrl, productionDatabaseUrl: productionSentinel.toString() });
   const schema = getPostgresSchema(databaseUrl);
-  if (new URL(databaseUrl).hostname !== '127.0.0.1' || !/^phase7_[a-f0-9]{32}_test$/.test(schema))
+  if (new URL(databaseUrl).hostname !== '127.0.0.1' || !/^nihongo_[a-f0-9]{32}_test$/.test(schema))
     throw new Error('Controlled TEST seed target is invalid.');
   phase = 'client-setup';
   client = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl,
@@ -600,14 +599,14 @@ const { suffix } = JSON.parse(readFileSync(0, 'utf8'));
 const url = new URL(process.env.DATABASE_URL);
 if (process.env.NODE_ENV !== 'production' || process.env.DEPLOYMENT_ENVIRONMENT !== 'TEST' ||
     !/^[a-f0-9]{12}$/.test(suffix) || !url.pathname.endsWith('_test') ||
-    !/^phase7_[a-f0-9]{32}_test$/.test(url.searchParams.get('schema')))
+    !/^nihongo_[a-f0-9]{32}_test$/.test(url.searchParams.get('schema')))
   throw new Error('Controlled TEST session target is invalid.');
 const runtime = createRoleDatabaseRuntime(url.toString(), 'nihongo_app');
 try {
   const session = await createSsoIdentityRepository(runtime.client).signIn({
-    provider: 'google', accountId: 'phase11-' + suffix,
-    email: 'phase11-' + suffix + '@example.test', name: 'Phase 11 smoke'
-  }, { ipAddress: '127.0.0.1', userAgent: 'Phase11 controlled TEST fixture' });
+    provider: 'google', accountId: 'smoke-' + suffix,
+    email: 'smoke-' + suffix + '@example.test', name: 'Portable smoke'
+  }, { ipAddress: '127.0.0.1', userAgent: 'Portable smoke controlled TEST fixture' });
   if (session.kind !== 'SESSION_CONFIRMED') throw new Error('Controlled TEST session was not confirmed.');
   const cookie = createOwnedSessionCookie({ token: session.token, secret: process.env.BETTER_AUTH_SECRET,
     isProduction: true, rememberMe: true, now: session.createdAt, expiresAt: session.expiresAt });
@@ -752,7 +751,7 @@ export const validateStatefulPrincipal = (principal) => {
   if (
     typeof principal.user.id !== 'string' ||
     !uuidPattern.test(principal.user.id) ||
-    principal.user.name !== 'Phase 11 smoke' ||
+    principal.user.name !== 'Portable smoke' ||
     principal.user.role !== 'USER' ||
     principal.user.targetLevel !== 'N5'
   ) {
@@ -998,12 +997,12 @@ export const runStatefulAuthCompatibilityProbe = async ({
     {
       input: `SET search_path TO "${schemaName}";
         UPDATE "User" SET "targetLevel" = 'N5' WHERE "id" IN
-          (SELECT "userId" FROM "Account" WHERE "providerId" = 'google' AND "accountId" = 'phase11-${suffix}');
+          (SELECT "userId" FROM "Account" WHERE "providerId" = 'google' AND "accountId" = 'smoke-${suffix}');
         SELECT u."id" FROM "User" u JOIN "Account" a ON a."userId" = u."id"
         JOIN "Session" s ON s."userId" = u."id"
-        WHERE a."providerId" = 'google' AND a."accountId" = 'phase11-${suffix}' AND a."password" IS NULL
+        WHERE a."providerId" = 'google' AND a."accountId" = 'smoke-${suffix}' AND a."password" IS NULL
           AND u."accountStatus" = 'ACTIVE' AND u."targetLevel" = 'N5' AND u."role" = 'USER'
-          AND s."issuerProtocolVersion" = 'PHASE7_V1' AND s."authorizationState" = 'ACTIVE'
+          AND s."issuerProtocolVersion" = 'OWNED_V1' AND s."authorizationState" = 'ACTIVE'
           AND s."authorityGeneration" = u."authorityGeneration" AND s."expiresAt" > clock_timestamp()
           AND (SELECT count(*) FROM "User") = 1
           AND (SELECT count(*) FROM "Account") = 1 AND (SELECT count(*) FROM "Session") = 1;`,
@@ -1376,15 +1375,15 @@ export const runPortableRuntimeSmoke = async ({
     throw new Error('Expected runtime image identity is invalid.')
   }
   const suffix = randomUUID().replaceAll('-', '').slice(0, 12)
-  const networkName = `nihongo-p11-${suffix}`
-  const databaseContainer = `nihongo-p11-db-${suffix}`
-  const runtimeContainer = `nihongo-p11-app-${suffix}`
+  const networkName = `nihongo-smoke-${suffix}`
+  const databaseContainer = `nihongo-smoke-db-${suffix}`
+  const runtimeContainer = `nihongo-smoke-app-${suffix}`
   const databaseName = 'nihongo_runtime_smoke_test'
   const databaseAdminUser = 'nihongo_runtime_smoke_migration'
   const databaseAdminPassword = randomBytes(24).toString('hex')
   const runtimePassword = randomBytes(24).toString('hex')
   const migrationPassword = randomBytes(24).toString('hex')
-  const schemaName = `phase7_${randomUUID().replaceAll('-', '')}_test`
+  const schemaName = `nihongo_${randomUUID().replaceAll('-', '')}_test`
   const migrationNames = selectCurrentMigrationNames(
     resolve(repositoryRoot, 'apps/api/prisma/migrations')
   )
@@ -1399,7 +1398,9 @@ export const runPortableRuntimeSmoke = async ({
     repositoryRoot,
     'apps/api/prisma/migrations'
   )
-  const certificateDirectory = mkdtempSync(join(tmpdir(), 'nihongo-p11-cert-'))
+  const certificateDirectory = mkdtempSync(
+    join(tmpdir(), 'nihongo-smoke-cert-')
+  )
   let cleanupError
   let operationError
 

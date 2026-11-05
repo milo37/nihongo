@@ -7,9 +7,7 @@ import {
 } from './apiIntegrationShardSelection.js'
 
 const manifestShards = [
-  ...new Set(
-    getApiIntegrationEntriesByOwner('phase10').map(({ shard }) => shard)
-  )
+  ...new Set(getApiIntegrationEntriesByOwner('shard').map(({ shard }) => shard))
 ]
 
 describe('API integration shard selection', () => {

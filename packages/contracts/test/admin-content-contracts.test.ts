@@ -124,13 +124,13 @@ const createDigestPort = (): {
   }
 }
 
-describe('Phase 7 common and read contracts', () => {
+describe('common and read contracts', () => {
   it('normalizes only tag ASCII case while question q remains NFC case-sensitive', () => {
     expect(normalizeContentTagKey('  Ä  A  ')).toBe('Ä a')
     expect(contentQuestionSearchSchema.parse('  Ａbc  ')).toBe('Ａbc')
   })
 
-  it('matches Phase 6 Unicode White_Space option comparison without treating FEFF as whitespace', () => {
+  it('matches Unicode White_Space option comparison without treating FEFF as whitespace', () => {
     expect(normalizeContentOptionComparison('\u3000です\u00a0')).toBe('です')
     expect(normalizeContentOptionComparison('で\t\nす')).toBe('で す')
     expect(normalizeContentOptionComparison('\ufeffです\ufeff')).toBe(
@@ -424,7 +424,7 @@ describe('Phase 7 common and read contracts', () => {
   })
 })
 
-describe('Phase 7 future import and report contracts', () => {
+describe('future import and report contracts', () => {
   it.each(['clientItemId', 'clientOptionKey', 'correctOptionKey'] as const)(
     'rejects an unpaired surrogate in import %s before digest generation',
     async (field) => {

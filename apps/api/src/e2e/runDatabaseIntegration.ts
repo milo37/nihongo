@@ -28,7 +28,7 @@ import {
   selectDbIntegrationFiles
 } from './apiIntegrationExecution.js'
 
-const SCHEMA_PATTERN = /^phase7_[a-f0-9]{32}_test$/
+const SCHEMA_PATTERN = /^nihongo_[a-f0-9]{32}_test$/
 const DATABASE_IDENTIFIER_PATTERN = /^[a-z_][a-z0-9_]{0,62}$/
 const TEST_DATABASE_GROUP_ROLES = [
   'nihongo_owner',
@@ -79,7 +79,7 @@ if (!baseDatabaseUrl) {
 
 const syntheticProductionDatabaseUrl = new URL(baseDatabaseUrl)
 syntheticProductionDatabaseUrl.pathname =
-  '/nihongo_phase7_production_guard_sentinel'
+  '/nihongo_test_production_guard_sentinel'
 syntheticProductionDatabaseUrl.searchParams.delete('schema')
 
 assertSafeTestDatabase({
@@ -94,9 +94,9 @@ assertSafeAdminCmsDatabase({
   productionDatabaseUrl: syntheticProductionDatabaseUrl.toString()
 })
 
-const schemaName = `phase7_${randomUUID().replaceAll('-', '')}_test`
+const schemaName = `nihongo_${randomUUID().replaceAll('-', '')}_test`
 if (!SCHEMA_PATTERN.test(schemaName)) {
-  throw new Error('Generated Phase 7 integration schema is unsafe.')
+  throw new Error('Generated integration schema is unsafe.')
 }
 
 const adminDatabaseUrl = new URL(baseDatabaseUrl)
@@ -135,14 +135,14 @@ const developmentApplicationDatabaseUrl = buildWrapperDatabaseUrl(
 
 const quoteSchema = (value: string): string => {
   if (!SCHEMA_PATTERN.test(value)) {
-    throw new Error('Refusing to quote an unexpected Phase 7 schema name.')
+    throw new Error('Refusing to quote an unexpected schema name.')
   }
   return `"${value}"`
 }
 
 const quoteIdentifier = (value: string): string => {
   if (!DATABASE_IDENTIFIER_PATTERN.test(value)) {
-    throw new Error('Refusing to quote an unsafe Phase 7 identifier.')
+    throw new Error('Refusing to quote an unsafe identifier.')
   }
   return `"${value}"`
 }
@@ -247,7 +247,7 @@ const runCommand = async (
     ): void => {
       if (output !== 'redacted') return
       process.stdout.write(
-        `${JSON.stringify({ event: 'phase7.db.integration.migration_command', script, state, exitCode })}\n`
+        `${JSON.stringify({ event: 'db.integration.migration_command', script, state, exitCode })}\n`
       )
     }
     reportCommand('BEGIN', null)
@@ -370,7 +370,7 @@ const runCommandExpectFailure = async (
           if (code !== 0) {
             process.stdout.write(
               `${JSON.stringify({
-                event: 'phase7.db.integration.expected_command_rejection',
+                event: 'db.integration.expected_command_rejection',
                 command: formatCommand(command, args),
                 signal,
                 stderrTail: stderr.trim().slice(-512)
@@ -398,7 +398,7 @@ const assertExpectedPrismaRepresentationDiff = (value: string): void => {
   }
   process.stdout.write(
     `${JSON.stringify({
-      event: 'phase7.db.integration.prisma_representation_diff_allowlisted',
+      event: 'db.integration.prisma_representation_diff_allowlisted',
       enumDefaults: ['ACTIVE', 'LEGACY'],
       indexName: 'QuestionVersion_questionText_prefix_idx'
     })}\n`
@@ -720,12 +720,12 @@ const assertPgcryptoStateRestored = async (): Promise<void> => {
 const acquireGlobalRoleProvisioningLock = async (): Promise<void> => {
   const lock = await adminClient.query<{ acquired: boolean }>(
     `SELECT pg_try_advisory_lock(hashtextextended(
-       'phase7-db-integration-global-role-provisioning', 0
+       'db-integration-global-role-provisioning', 0
      )) AS acquired`
   )
   globalRoleProvisioningLockAcquired = lock.rows[0]?.acquired === true
   if (!globalRoleProvisioningLockAcquired) {
-    throw new Error('Another Phase 7 DB integration role run is active.')
+    throw new Error('Another DB integration role run is active.')
   }
 }
 
@@ -906,7 +906,7 @@ const verifyTransactionalDatabaseRestoreFixtures = async (): Promise<void> => {
   await assertDatabaseStateRestored()
   process.stdout.write(
     `${JSON.stringify({
-      event: 'phase7.db.integration.database_acl_roundtrip_verified',
+      event: 'db.integration.database_acl_roundtrip_verified',
       rawAclEntryCount: databaseStateSnapshot.rawAcl?.length ?? null
     })}\n`
   )
@@ -1153,7 +1153,7 @@ const cleanup = (): Promise<void> => {
           await verifySchemaAbsent()
           process.stdout.write(
             `${JSON.stringify({
-              event: 'phase7.db.integration.schema_removed',
+              event: 'db.integration.schema_removed',
               schemaName
             })}\n`
           )
@@ -1213,7 +1213,7 @@ const cleanup = (): Promise<void> => {
         try {
           await adminClient.query(
             `SELECT pg_advisory_unlock(hashtextextended(
-               'phase7-db-integration-global-role-provisioning', 0
+               'db-integration-global-role-provisioning', 0
              ))`
           )
           globalRoleProvisioningLockAcquired = false
@@ -1247,13 +1247,16 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
 const reportPostSeedDiagnostic = (diagnostic: PostSeedDiagnostic): void => {
   process.stdout.write(
     JSON.stringify({
-      event: 'phase7.db.integration.post_seed',
+      event: 'db.integration.post_seed',
       ...diagnostic
     }) + '\n'
   )
 }
 
-const migrationDiagnosticNames = ['20261105090000_baseline'] as const
+const migrationDiagnosticNames = [
+  '20261105090000_baseline',
+  '20261106090000_remove_phase_names'
+] as const
 
 const sanitizeMigrationDatabaseError = (error: unknown) => {
   const ownText = (key: string, limit: number): string | undefined => {
@@ -1278,12 +1281,12 @@ const sanitizeMigrationDatabaseError = (error: unknown) => {
     'Malformed verified SSO identity.',
     'SSO staging rejected.',
     'SSO rotation confirmation rejected.',
-    'Phase 7 operation authority is stale or insufficient.'
+    'Operation authority is stale or insufficient.'
   ]
   const where = ownText('where', 2048)
     ?.split('\n')
     .find((frame) =>
-      /^PL\/pgSQL function (?:inline_code_block|(?:phase7_[a-z0-9_]+|validate_phase7_[a-z0-9_]+)\([a-z0-9_, ]*\)) line [1-9][0-9]{0,5} at (?:RAISE|SQL statement|EXECUTE|assignment|PERFORM|RETURN|IF)$/u.test(
+      /^PL\/pgSQL function (?:inline_code_block|(?:[a-z0-9_]+|validate_[a-z0-9_]+)\([a-z0-9_, ]*\)) line [1-9][0-9]{0,5} at (?:RAISE|SQL statement|EXECUTE|assignment|PERFORM|RETURN|IF)$/u.test(
         frame
       )
     )
@@ -1304,7 +1307,7 @@ const reportMigrationFailure = (
   if (!migrationDiagnosticNames.some((name) => name === migrationName)) return
   process.stderr.write(
     `${JSON.stringify({
-      event: 'phase7.db.integration.migration_failure',
+      event: 'db.integration.migration_failure',
       diagnosticSource: 'BOUNDED_REPLAY',
       migrationName,
       replayOutcome,
@@ -1315,7 +1318,7 @@ const reportMigrationFailure = (
 
 const run = async (): Promise<void> => {
   const selectedTestFiles = selectDbIntegrationFiles(
-    getApiIntegrationPathsByOwner('phase7-db'),
+    getApiIntegrationPathsByOwner('db'),
     process.env
   )
   const preserveSanitizedReport =
@@ -1348,7 +1351,7 @@ const run = async (): Promise<void> => {
   schemaCreated = true
   process.stdout.write(
     `${JSON.stringify({
-      event: 'phase7.db.integration.schema_created',
+      event: 'db.integration.schema_created',
       schemaName
     })}\n`
   )
@@ -1356,14 +1359,13 @@ const run = async (): Promise<void> => {
   const sharedEnvironment: NodeJS.ProcessEnv = {
     ...process.env,
     ADMIN_CMS_MODE: 'technical',
-    // #504 P8-1: one runtime login; this env name goes in P8-2.
-    PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: applicationDatabaseUrl.toString(),
+    TEST_APP_FIXTURE_DATABASE_URL: applicationDatabaseUrl.toString(),
     DATABASE_URL: applicationDatabaseUrl.toString(),
     NODE_ENV: 'test',
-    PHASE7_ADMIN_DATABASE_URL: targetDatabaseUrl.toString(),
+    ADMIN_DATABASE_URL: targetDatabaseUrl.toString(),
     TEST_DEVELOPMENT_APP_DATABASE_URL:
       developmentApplicationDatabaseUrl.toString(),
-    PHASE7_MIGRATION_DATABASE_URL: migrationDatabaseUrl.toString(),
+    MIGRATION_DATABASE_URL: migrationDatabaseUrl.toString(),
     TEST_MIGRATIONS_PATH: undefined,
     PRODUCTION_DATABASE_URL: syntheticProductionDatabaseUrl.toString()
   }
@@ -1372,7 +1374,7 @@ const run = async (): Promise<void> => {
     ...sharedEnvironment,
     // vitest.integration.config.ts intentionally maps this value to
     // DATABASE_URL. Integration imports therefore exercise the exact app
-    // wrapper while PHASE7_ADMIN_DATABASE_URL remains the DDL/test harness URL.
+    // wrapper while ADMIN_DATABASE_URL remains the DDL/test harness URL.
     PRISMA_TEST_DATABASE_URL: applicationDatabaseUrl.toString()
   }
   const driftEnvironment: NodeJS.ProcessEnv = {
@@ -1496,10 +1498,10 @@ const run = async (): Promise<void> => {
     'prisma/seed.ts'
   ] as const
   const withoutMigrationUrl: NodeJS.ProcessEnv = { ...seedEnvironment }
-  delete withoutMigrationUrl.PHASE7_MIGRATION_DATABASE_URL
+  delete withoutMigrationUrl.MIGRATION_DATABASE_URL
   const appUrlAsMigration: NodeJS.ProcessEnv = {
     ...seedEnvironment,
-    PHASE7_MIGRATION_DATABASE_URL: applicationDatabaseUrl.toString()
+    MIGRATION_DATABASE_URL: applicationDatabaseUrl.toString()
   }
   const duplicateOptionsUrl = new URL(migrationDatabaseUrl)
   duplicateOptionsUrl.searchParams.append(
@@ -1508,7 +1510,7 @@ const run = async (): Promise<void> => {
   )
   const duplicateMigrationOptions: NodeJS.ProcessEnv = {
     ...seedEnvironment,
-    PHASE7_MIGRATION_DATABASE_URL: duplicateOptionsUrl.toString()
+    MIGRATION_DATABASE_URL: duplicateOptionsUrl.toString()
   }
 
   await assertSeedWriteCount('0')
@@ -1521,14 +1523,14 @@ const run = async (): Promise<void> => {
     await assertSeedWriteCount('0')
   }
 
-  const seedFailureFunction = 'phase7_seed_forced_failure'
-  const seedFailureTrigger = 'phase7_seed_forced_failure_trigger'
+  const seedFailureFunction = 'seed_forced_failure'
+  const seedFailureTrigger = 'seed_forced_failure_trigger'
   await adminClient.query(
     `CREATE FUNCTION ${quoteSchema(schemaName)}.${quoteIdentifier(seedFailureFunction)}()
      RETURNS trigger LANGUAGE plpgsql
      AS $function$
      BEGIN
-       RAISE EXCEPTION 'forced Phase 7 seed rollback';
+       RAISE EXCEPTION 'forced seed rollback';
      END;
      $function$`
   )
@@ -1557,7 +1559,7 @@ const run = async (): Promise<void> => {
     (phase, state) => {
       process.stdout.write(
         JSON.stringify({
-          event: 'phase7.db.integration.seed_phase',
+          event: 'db.integration.seed_phase',
           phase,
           state
         }) + '\n'
@@ -1573,7 +1575,7 @@ const run = async (): Promise<void> => {
     (phase, state) => {
       process.stdout.write(
         JSON.stringify({
-          event: 'phase7.db.integration.seed_phase',
+          event: 'db.integration.seed_phase',
           phase,
           state
         }) + '\n'
@@ -1591,7 +1593,7 @@ const run = async (): Promise<void> => {
   )
   await assertTestDatabaseDefaultDriftRejected(
     `ALTER TABLE ${quoteSchema(schemaName)}."Session"
-       ALTER COLUMN "issuerProtocolVersion" SET DEFAULT 'PHASE7_V1'`
+       ALTER COLUMN "issuerProtocolVersion" SET DEFAULT 'OWNED_V1'`
   )
   await assertTestDatabaseDefaultDriftRejected(
     `ALTER TABLE ${quoteSchema(schemaName)}."Session"
@@ -1600,7 +1602,7 @@ const run = async (): Promise<void> => {
   await assertTestDatabaseDefaults()
   process.stdout.write(
     `${JSON.stringify({
-      event: 'phase7.db.integration.database_defaults_attested',
+      event: 'db.integration.database_defaults_attested',
       defaultCount: EXPECTED_TEST_DATABASE_DEFAULTS.length,
       driftRejections: 2
     })}\n`
@@ -1663,7 +1665,7 @@ const run = async (): Promise<void> => {
     (phase, state) => {
       process.stdout.write(
         JSON.stringify({
-          event: 'phase7.db.integration.seed_phase',
+          event: 'db.integration.seed_phase',
           phase,
           state
         }) + '\n'
@@ -1706,7 +1708,7 @@ void run()
     } catch (cleanupError: unknown) {
       process.stderr.write(
         `${JSON.stringify({
-          event: 'phase7.db.integration.cleanup_failed',
+          event: 'db.integration.cleanup_failed',
           errorCode: getPostSeedErrorCode(cleanupError),
           schemaName
         })}\n`
@@ -1714,7 +1716,7 @@ void run()
     }
     process.stderr.write(
       `${JSON.stringify({
-        event: 'phase7.db.integration.failed',
+        event: 'db.integration.failed',
         errorCode: getPostSeedErrorCode(error),
         schemaName
       })}\n`

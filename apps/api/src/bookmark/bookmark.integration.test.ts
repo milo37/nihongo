@@ -24,14 +24,14 @@ assertSafeTestDatabase({
 const isCurrentSourceIntegration =
   process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
 const fixtureDatabaseUrl = process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
-const erasureWorkerDatabaseUrl = process.env.TEST_API_ERASURE_DATABASE_URL
+const appFixtureDatabaseUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
 if (
   isCurrentSourceIntegration &&
-  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
+  (!fixtureDatabaseUrl || !appFixtureDatabaseUrl)
 ) {
   throw new Error('Bookmark tests require fixture and erasure databases.')
 }
-for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
+for (const databaseUrl of [fixtureDatabaseUrl, appFixtureDatabaseUrl]) {
   if (databaseUrl) {
     assertSafeTestDatabase({
       nodeEnvironment: environment.NODE_ENV,
@@ -50,11 +50,11 @@ const database = createDatabaseRuntime(
 const fixtureDatabase = fixtureDatabaseUrl
   ? createDatabaseRuntime(fixtureDatabaseUrl)
   : database
-const erasureWorkerClient = erasureWorkerDatabaseUrl
+const erasureWorkerClient = appFixtureDatabaseUrl
   ? new Client({
-      connectionString: erasureWorkerDatabaseUrl,
+      connectionString: appFixtureDatabaseUrl,
       options: createPostgresStartupOptions(
-        getPostgresSchema(erasureWorkerDatabaseUrl)
+        getPostgresSchema(appFixtureDatabaseUrl)
       )
     })
   : undefined
@@ -93,7 +93,7 @@ const createUser = async (label: string): Promise<string> => {
     await fixture.account.create({
       data: {
         accountId: userId,
-        password: 'phase10-fixture-password-hash',
+        password: 'test-fixture-password-hash',
         providerId: 'credential',
         userId
       }

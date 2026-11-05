@@ -5,13 +5,13 @@ import { reauthenticationTokenDigest } from './adminFreshAuthority.js'
  * SSO account fresh, link, unlink and provider cleanup in the API transaction
  * (#504 P7 PR5a).
  *
- * This keeps phase7_prepare_sso_account_fresh/_link,
- * phase7_create/consume_sso_account_fresh_transaction,
- * phase7_stage_sso_account_fresh_proof, phase7_complete_sso_account_fresh/_link,
- * phase7_sso_account_capabilities, phase7_unlink_sso_account and
- * phase7_claim/begin/record_sso_provider_cleanup(s), with their helpers
- * phase7_sso_account_session, phase7_sso_account_context_valid and
- * phase7_sso_account_proof_valid, step for step: the same checks, the same
+ * This keeps prepare_sso_account_fresh/_link,
+ * create/consume_sso_account_fresh_transaction,
+ * stage_sso_account_fresh_proof, complete_sso_account_fresh/_link,
+ * sso_account_capabilities, unlink_sso_account and
+ * claim/begin/record_sso_provider_cleanup(s), with their helpers
+ * sso_account_session, sso_account_context_valid and
+ * sso_account_proof_valid, step for step: the same checks, the same
  * lock order and the same answer. Each call is one transaction, as each SQL
  * function was one statement.
  */
@@ -71,7 +71,7 @@ export interface AccountSessionContext {
   readonly tokenDigest: string
 }
 
-/** phase7_sso_account_session: the active V1 Session of a raw token. */
+/** sso_account_session: the active V1 Session of a raw token. */
 export const accountSessionContext = async (
   transaction: Transaction,
   rawToken: string
@@ -88,7 +88,7 @@ export const accountSessionContext = async (
     `SELECT u."id" AS "userId", s."id" AS "sessionId", u."role"::text AS role,
        u."authorityGeneration", s."token"
      FROM "Session" s JOIN "User" u ON u."id" = s."userId"
-     WHERE s."token" = $1 AND s."issuerProtocolVersion" = 'PHASE7_V1'
+     WHERE s."token" = $1 AND s."issuerProtocolVersion" = 'OWNED_V1'
        AND s."authorizationState" = 'ACTIVE'
        AND s."authorityGeneration" = u."authorityGeneration"
        AND u."accountStatus" = 'ACTIVE' AND u."deletedAt" IS NULL
@@ -108,9 +108,9 @@ export const accountSessionContext = async (
 }
 
 /**
- * phase7_sso_account_proof_valid: an ACCOUNT_FRESH proof verified in the last
+ * sso_account_proof_valid: an ACCOUNT_FRESH proof verified in the last
  * 5 minutes, unexpired, and bound to this Session, its User authority and a
- * still linked provider account (phase7_sso_account_context_valid).
+ * still linked provider account (sso_account_context_valid).
  */
 export const accountFreshProofIsValid = async (
   transaction: Transaction,
@@ -138,7 +138,7 @@ export const accountFreshProofIsValid = async (
        AND target_user."authorityGeneration" =
          (proof."context"->>'authorityGeneration')::integer
        AND proof."context"->>'provider' IN ('apple', 'google')
-       AND session."issuerProtocolVersion" = 'PHASE7_V1'
+       AND session."issuerProtocolVersion" = 'OWNED_V1'
        AND session."authorizationState" = 'ACTIVE'
        AND session."authorityGeneration" = target_user."authorityGeneration"
        AND target_user."accountStatus" = 'ACTIVE'
@@ -160,7 +160,7 @@ export const accountFreshProofIsValid = async (
 }
 
 /**
- * phase7_sso_account_context_valid: the captured Session still holds the
+ * sso_account_context_valid: the captured Session still holds the
  * context's authority; an ACCOUNT_FRESH context's provider account is still
  * linked and an ACCOUNT_LINK context's fresh proof is still valid.
  */
@@ -182,7 +182,7 @@ const contextIsValid = async (
        AND u."authorityGeneration" = (c.v->>'authorityGeneration')::integer
        AND ($2::text IS NULL OR s."token" = $2)
        AND c.v->>'provider' IN ('apple', 'google')
-       AND s."issuerProtocolVersion" = 'PHASE7_V1'
+       AND s."issuerProtocolVersion" = 'OWNED_V1'
        AND s."authorizationState" = 'ACTIVE'
        AND s."authorityGeneration" = u."authorityGeneration"
        AND u."accountStatus" = 'ACTIVE' AND u."deletedAt" IS NULL
@@ -225,7 +225,7 @@ export type AccountContextValue = AccountSessionContext & {
   readonly freshProofDigest?: string
 }
 
-/** phase7_prepare_sso_account_fresh */
+/** prepare_sso_account_fresh */
 export const prepareAccountFresh = async (
   client: Client,
   rawToken: string,
@@ -252,7 +252,7 @@ export const prepareAccountFresh = async (
     return { ...context, purpose: 'ACCOUNT_FRESH', provider, accountId }
   })
 
-/** phase7_prepare_sso_account_link */
+/** prepare_sso_account_link */
 export const prepareAccountLink = async (
   client: Client,
   rawToken: string,
@@ -286,7 +286,7 @@ export const prepareAccountLink = async (
     }
   })
 
-/** phase7_create_sso_account_fresh_transaction */
+/** create_sso_account_fresh_transaction */
 export const createAccountFreshTransaction = async (
   client: Client,
   input: {
@@ -347,7 +347,7 @@ export const createAccountFreshTransaction = async (
     return true
   })
 
-/** phase7_consume_sso_account_fresh_transaction: one-time use. */
+/** consume_sso_account_fresh_transaction: one-time use. */
 export const consumeAccountFreshTransaction = async (
   client: Client,
   input: {
@@ -374,7 +374,7 @@ export const consumeAccountFreshTransaction = async (
     )
   })
 
-/** phase7_stage_sso_account_fresh_proof */
+/** stage_sso_account_fresh_proof */
 export const stageAccountFreshProof = async (
   client: Client,
   input: {
@@ -454,7 +454,7 @@ const readFreshProof = async (
     )
   )[0]
 
-/** phase7_complete_sso_account_fresh */
+/** complete_sso_account_fresh */
 export const completeAccountFresh = async (
   client: Client,
   proofDigest: string,
@@ -485,7 +485,7 @@ export const completeAccountFresh = async (
     return proof.callbackURL
   })
 
-/** phase7_complete_sso_account_link */
+/** complete_sso_account_link */
 export const completeAccountLink = async (
   client: Client,
   proofDigest: string,
@@ -547,7 +547,7 @@ export const completeAccountLink = async (
     return proof.callbackURL
   })
 
-/** phase7_sso_account_capabilities */
+/** sso_account_capabilities */
 export const accountCapabilities = async (
   client: Client,
   rawToken: string,
@@ -627,7 +627,7 @@ export const accountCapabilities = async (
   })
 
 /**
- * phase7_unlink_sso_account. The Account delete trigger steps the User
+ * unlink_sso_account. The Account delete trigger steps the User
  * authority generation; the User trigger then records the revocation and
  * deletes every Session, as the SQL did itself.
  */
@@ -696,7 +696,7 @@ export const unlinkAccount = async (
   })
 
 /**
- * phase7_claim_sso_provider_cleanups. A claim also requires the request's
+ * claim_sso_provider_cleanups. A claim also requires the request's
  * User to be DELETION_PENDING (#504 P7 PR5a, QA memo).
  */
 export const claimProviderCleanups = async (
@@ -797,7 +797,7 @@ const leaseHeld = (
   request.leaseToken === leaseToken &&
   request.leaseLive === true
 
-/** phase7_begin_sso_provider_cleanup */
+/** begin_sso_provider_cleanup */
 export const beginProviderCleanup = async (
   client: Client,
   input: {
@@ -833,7 +833,7 @@ export const beginProviderCleanup = async (
     return updated === 1
   })
 
-/** phase7_record_sso_provider_cleanup */
+/** record_sso_provider_cleanup */
 export const recordProviderCleanup = async (
   client: Client,
   input: {

@@ -19,10 +19,10 @@ export const assertSsoBootstrapMigrationHistory = (
     )
     .digest('hex')
   if (
-    expected.length !== 1 ||
-    expected.at(-1)?.name !== '20261105090000_baseline' ||
+    expected.length !== 2 ||
+    expected.at(-1)?.name !== '20261106090000_remove_phase_names' ||
     orderedDigest !==
-      '35bdd0a04791cca4d232d9ec4c7f46ae559704685850748efb871cae7871a9c2' ||
+      '03cc31e0c77830259edfaec8e8db7b4b1ea0cbffe273ecba556b0fefd248637d' ||
     applied.length !== expected.length ||
     applied.some(
       (row, index) =>
@@ -30,9 +30,7 @@ export const assertSsoBootstrapMigrationHistory = (
         row.checksum !== expected[index]?.checksum
     )
   ) {
-    throw new Error(
-      'First Google ADMIN bootstrap baseline migration history mismatch.'
-    )
+    throw new Error('First Google ADMIN bootstrap migration history mismatch.')
   }
 }
 
@@ -158,7 +156,7 @@ const sanitizeCollectionError = (value: string) => {
       'module'
     ],
     [
-      /(?:Phase 7 )?(?:[Aa]dmin integration|[Ll]egacy compatibility|[Dd]evelopment app wrapper) database URL is required/u,
+      /(?:[Aa]dmin integration|[Ll]egacy compatibility|[Dd]evelopment app wrapper) database URL is required/u,
       'CONFIG_WRAPPER_MISSING',
       'config'
     ],
@@ -173,11 +171,7 @@ const sanitizeCollectionError = (value: string) => {
       'SETUP_ENDPOINT_UNAVAILABLE',
       'setup'
     ],
-    [
-      /Phase 7 operation was not created/u,
-      'SETUP_OPERATION_UNAVAILABLE',
-      'setup'
-    ]
+    [/operation was not created/u, 'SETUP_OPERATION_UNAVAILABLE', 'setup']
   ]
   const rule = rules.find(([pattern]) => pattern.test(text))
   return {
@@ -423,8 +417,7 @@ export const sanitizeDbIntegrationVitestReport = (
     pending: safeCount(result.numPendingTests),
     todo: safeCount(result.numTodoTests),
     dependenciesPresent: {
-      adminWrapper: Boolean(environment.PHASE7_ADMIN_DATABASE_URL?.trim()),
-      legacyWrapper: Boolean(environment.PHASE7_LEGACY_DATABASE_URL?.trim()),
+      adminWrapper: Boolean(environment.ADMIN_DATABASE_URL?.trim()),
       developmentWrapper: Boolean(
         environment.TEST_DEVELOPMENT_APP_DATABASE_URL?.trim()
       )
@@ -645,18 +638,15 @@ export const runApiIntegrationManifestVitestFile = async ({
     throw new Error('Report preservation requires a fixed allowlisted file.')
   }
   if (preserveSanitizedReport && testFile !== ssoAccountLifecycleDbTestFile) {
-    for (const name of [
-      'PHASE7_LEGACY_DATABASE_URL',
-      'TEST_DEVELOPMENT_APP_DATABASE_URL'
-    ]) {
-      if (!environment[name]?.trim())
-        throw new Error(`Wrapper environment missing: ${name}.`)
-    }
+    if (!environment.TEST_DEVELOPMENT_APP_DATABASE_URL?.trim())
+      throw new Error(
+        'Wrapper environment missing: TEST_DEVELOPMENT_APP_DATABASE_URL.'
+      )
   }
   assertApiIntegrationRequiredEnvironment({ environment, testFile })
   const outputFile = path.join(
     os.tmpdir(),
-    `nihongo-phase10-vitest-${randomUUID()}.json`
+    `nihongo-test-vitest-${randomUUID()}.json`
   )
   try {
     try {
@@ -759,7 +749,7 @@ export const runApiIntegrationManifestVitestFile = async ({
         }
         const reportFile = path.join(
           os.tmpdir(),
-          `nihongo-phase7-sanitized-${randomUUID()}.json`
+          `nihongo-sanitized-${randomUUID()}.json`
         )
         await writeFile(
           reportFile,
@@ -769,7 +759,7 @@ export const runApiIntegrationManifestVitestFile = async ({
           { mode: 0o600, flag: 'wx' }
         )
         process.stdout.write(
-          `${JSON.stringify({ event: 'phase7.db.sanitized_report', reportFile })}\n`
+          `${JSON.stringify({ event: 'db.sanitized_report', reportFile })}\n`
         )
       }
     } finally {

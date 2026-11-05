@@ -19,7 +19,7 @@ export interface AppliedMigration {
 const DEFAULT_MIGRATIONS_DIRECTORY = fileURLToPath(
   new URL('../../prisma/migrations/', import.meta.url)
 )
-// #504 P8-1: one profile since the baseline; the legacy pre-Phase 7 schema
+// #504 P8-1: one profile since the baseline; the legacy pre-baseline schema
 // is gone.
 export type MigrationCompatibilityProfile = 'current'
 

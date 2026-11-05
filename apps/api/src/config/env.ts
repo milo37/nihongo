@@ -11,8 +11,6 @@ const deploymentEnvironmentSchema = z.enum([
   'PRODUCTION'
 ])
 const adminCmsModeSchema = z.enum(['disabled', 'technical'])
-// #504 P8-1: the legacy issuer is not in the baseline; owned is the only value.
-const authRuntimeSchema = z.enum(['owned'])
 const emailDeliveryModeSchema = z.enum(['test-sink', 'webhook'])
 const secretSchema = z.string().min(32)
 const postgresSchemaPattern = /^[a-z_][a-z0-9_]*$/
@@ -189,7 +187,6 @@ const apiEnvironmentSchema = z
     HOST: z.string().min(1),
     PORT: z.coerce.number().int().min(1).max(65_535),
     DATABASE_URL: postgresUrlSchema,
-    AUTH_RUNTIME: authRuntimeSchema,
     TRUSTED_ORIGINS: originListSchema,
     LOG_LEVEL: logLevelSchema,
     BETTER_AUTH_SECRET: secretSchema,
@@ -218,16 +215,6 @@ const apiEnvironmentSchema = z
           message: 'SSO client ID and secret must be configured together.'
         })
       }
-    }
-    if (
-      (environment.APPLE_CLIENT_ID || environment.GOOGLE_CLIENT_ID) &&
-      environment.AUTH_RUNTIME !== 'owned'
-    ) {
-      context.addIssue({
-        code: 'custom',
-        path: ['AUTH_RUNTIME'],
-        message: 'SSO requires the owned auth runtime.'
-      })
     }
     if (environment.APPLE_CLIENT_ID) {
       const callback = new URL(environment.BETTER_AUTH_URL)
@@ -287,17 +274,6 @@ const apiEnvironmentSchema = z
         code: 'custom',
         path: ['ADMIN_CMS_MODE'],
         message: 'technical admin CMS mode는 test/development에서만 허용됩니다.'
-      })
-    }
-
-    if (
-      environment.ADMIN_CMS_MODE === 'technical' &&
-      environment.AUTH_RUNTIME !== 'owned'
-    ) {
-      context.addIssue({
-        code: 'custom',
-        path: ['AUTH_RUNTIME'],
-        message: 'technical admin CMS mode는 owned auth runtime이 필요합니다.'
       })
     }
 
@@ -366,13 +342,6 @@ const apiEnvironmentSchema = z
       })
     }
 
-    if (environment.AUTH_RUNTIME !== 'owned') {
-      context.addIssue({
-        code: 'custom',
-        path: ['AUTH_RUNTIME'],
-        message: 'production은 owned auth runtime만 허용합니다.'
-      })
-    }
     for (const origin of environment.TRUSTED_ORIGINS) {
       if (new URL(origin).protocol !== 'https:') {
         context.addIssue({
@@ -426,8 +395,8 @@ const apiEnvironmentSchema = z
 
 type ParsedApiEnvironment = z.output<typeof apiEnvironmentSchema>
 
-// Directly constructed test/application dependency fixtures from the pre-Phase
-// 7 surface remain valid; absence is the same fail-closed value as the parser's
+// Directly constructed test/application dependency fixtures from before the
+// admin CMS remain valid; absence is the same fail-closed value as the parser's
 // explicit `disabled` default.
 export type ApiEnvironment = Omit<
   ParsedApiEnvironment,
@@ -471,7 +440,6 @@ export const parseApiEnvironment = (
     HOST: source.HOST ?? (canUseDevelopmentDefaults ? '127.0.0.1' : undefined),
     PORT: source.PORT ?? (canUseDevelopmentDefaults ? '3001' : undefined),
     DATABASE_URL: source.DATABASE_URL,
-    AUTH_RUNTIME: source.AUTH_RUNTIME ?? 'owned',
     TRUSTED_ORIGINS:
       source.TRUSTED_ORIGINS ??
       (canUseDevelopmentDefaults ? 'http://localhost:5173' : undefined),

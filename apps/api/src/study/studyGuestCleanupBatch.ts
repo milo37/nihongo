@@ -3,7 +3,7 @@ import { Prisma } from '../generated/prisma/client.js'
 /**
  * Expired guest data removal (JLP-534, #504 P3). Runs inside one transaction
  * as the application role; the SQL mirrors the former
- * `phase7_guest_cleanup_batch` function.
+ * `guest_cleanup_batch` function.
  */
 export interface GuestCleanupBatchResult {
   deletedCount: number
@@ -52,11 +52,10 @@ const RATE_POLICIES: readonly (readonly [string, number])[] = [
     ] as const
   ).flatMap(([scope, windowMs]) =>
     ['ACTOR', 'IP'].map(
-      (subject) =>
-        [`application:phase7:${scope}:${subject}:`, windowMs] as const
+      (subject) => [`application:keyed:${scope}:${subject}:`, windowMs] as const
     )
   ),
-  ['application:phase7:REPORT_VERSION:VERSION:', 3_600_000]
+  ['application:keyed:REPORT_VERSION:VERSION:', 3_600_000]
 ]
 
 /** Window of a known rate key, or NULL for keys cleanup must not touch. */

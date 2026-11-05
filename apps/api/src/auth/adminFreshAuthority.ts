@@ -5,12 +5,12 @@ import { adminAuditContentDigest } from '../admin/adminRepositoryCommon.js'
 /**
  * SSO ADMIN_FRESH re-authentication in the API (#504 P7 PR3b-1).
  *
- * These replace phase7_prepare_sso_admin_fresh (with
- * phase7_prepare_reauthentication), the SSO fresh transaction and proof
- * functions, phase7_complete_sso_admin_fresh (with
- * phase7_stage_reauthentication_session, phase7_finalize_reauthentication and
- * phase7_confirm_v1_session_issuance), the cancel, abort, reconcile and cleanup
- * functions, and phase7_sso_admin_session_is_fresh, step for step: the same
+ * These replace prepare_sso_admin_fresh (with
+ * prepare_reauthentication), the SSO fresh transaction and proof
+ * functions, complete_sso_admin_fresh (with
+ * stage_reauthentication_session, finalize_reauthentication and
+ * confirm_v1_session_issuance), the cancel, abort, reconcile and cleanup
+ * functions, and sso_admin_session_is_fresh, step for step: the same
  * lock order (User, then the Sessions in id order, then the intent), the same
  * conditions and the same SQLSTATE on failure. #504 P7 PR4b-1: there is no
  * Session family or rotation fence; the replacement Session ends the old one.
@@ -82,7 +82,7 @@ export const adminSessionFreshSql = (tokenParameter: string): string => `
      AND account."accountId" = proof."context"->>'accountId'
     WHERE session."token" = ${tokenParameter}
       AND session."authorizationState" = 'ACTIVE'
-      AND session."issuerProtocolVersion" = 'PHASE7_V1'
+      AND session."issuerProtocolVersion" = 'OWNED_V1'
       AND actor."role" = 'ADMIN' AND actor."accountStatus" = 'ACTIVE'
       AND actor."authorityGeneration" =
         (proof."context"->>'authorityGeneration')::INTEGER
@@ -93,7 +93,7 @@ export const adminSessionFreshSql = (tokenParameter: string): string => `
       AND session."expiresAt" > clock_timestamp()
   )`
 
-// phase7_sso_fresh_context_valid: the PREPARED intent still owns the exact
+// sso_fresh_context_valid: the PREPARED intent still owns the exact
 // active old Session and linked provider account named by the context.
 const contextIsValid = async (
   transaction: Transaction,
@@ -119,7 +119,7 @@ const contextIsValid = async (
        AND actor."authorityGeneration" = intent."capturedAuthorityGeneration"
        AND actor."role" = 'ADMIN' AND actor."accountStatus" = 'ACTIVE'
        AND session."authorizationState" = 'ACTIVE'
-       AND session."issuerProtocolVersion" = 'PHASE7_V1'
+       AND session."issuerProtocolVersion" = 'OWNED_V1'
        AND session."authorityGeneration" = intent."capturedAuthorityGeneration"
        AND session."expiresAt" > clock_timestamp()
        AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()`,
@@ -157,7 +157,7 @@ export interface PreparedReauthentication {
 }
 
 /**
- * phase7_prepare_reauthentication inside the caller's transaction: a PREPARED
+ * prepare_reauthentication inside the caller's transaction: a PREPARED
  * intent for the exact active ADMIN Session of the raw token, after removing
  * one expired unfinished intent of that Session. Returns null when the Session
  * does not qualify; raises 40001 when a live intent already owns it.
@@ -192,7 +192,7 @@ export const prepareReauthentication = async (
      FROM "Session" AS session
      JOIN "User" AS target_user ON target_user."id" = session."userId"
      WHERE session."token" = $1 AND session."userId" = $2::uuid
-       AND session."issuerProtocolVersion" = 'PHASE7_V1'
+       AND session."issuerProtocolVersion" = 'OWNED_V1'
        AND session."authorizationState" = 'ACTIVE'
        AND session."authorityGeneration" = target_user."authorityGeneration"
        AND target_user."role" = 'ADMIN'
@@ -330,7 +330,7 @@ export const prepareReauthentication = async (
   }
 }
 
-/** phase7_prepare_sso_admin_fresh. */
+/** prepare_sso_admin_fresh. */
 export const prepareAdminFresh = async (
   client: AdminFreshClient,
   rawToken: string,
@@ -364,7 +364,7 @@ export const prepareAdminFresh = async (
        WHERE session."token" = $1 AND actor."id" = $2::uuid
          AND actor."role" = 'ADMIN' AND actor."accountStatus" = 'ACTIVE'
          AND session."authorizationState" = 'ACTIVE'
-         AND session."issuerProtocolVersion" = 'PHASE7_V1'
+         AND session."issuerProtocolVersion" = 'OWNED_V1'
          AND session."authorityGeneration" = actor."authorityGeneration"
          AND session."expiresAt" > clock_timestamp()
          AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()
@@ -403,7 +403,7 @@ export const prepareAdminFresh = async (
   })
 }
 
-/** phase7_create_sso_admin_fresh_transaction. */
+/** create_sso_admin_fresh_transaction. */
 export const createAdminFreshTransaction = async (
   client: AdminFreshClient,
   input: {
@@ -452,7 +452,7 @@ export const createAdminFreshTransaction = async (
     return true
   })
 
-/** phase7_consume_sso_admin_fresh_transaction: the one-time state row. */
+/** consume_sso_admin_fresh_transaction: the one-time state row. */
 export const consumeAdminFreshTransaction = async (
   client: AdminFreshClient,
   provider: string,
@@ -473,7 +473,7 @@ export const consumeAdminFreshTransaction = async (
   )
 }
 
-/** phase7_stage_sso_admin_fresh_proof. */
+/** stage_sso_admin_fresh_proof. */
 export const stageAdminFreshProof = async (
   client: AdminFreshClient,
   input: {
@@ -574,7 +574,7 @@ const replacementHoldsAuthority = async (
          AND target_user."role" = 'ADMIN'
          AND target_user."accountStatus" = 'ACTIVE'
          AND session."token" = $4
-         AND session."issuerProtocolVersion" = 'PHASE7_V1'
+         AND session."issuerProtocolVersion" = 'OWNED_V1'
          AND session."authorizationState" = 'ACTIVE'
          AND session."authorityGeneration" = $3::integer
          AND session."expiresAt" > clock_timestamp()
@@ -604,7 +604,7 @@ export interface StagedReauthenticationSession {
 }
 
 /**
- * phase7_stage_reauthentication_session inside the caller's transaction: the
+ * stage_reauthentication_session inside the caller's transaction: the
  * PENDING_REAUTH replacement of a PREPARED intent. Returns null when the
  * intent or its old Session no longer qualifies.
  */
@@ -649,7 +649,7 @@ export const stageReauthentication = async (
        AND target_user."authorityGeneration" = $3::integer
        AND target_user."role" = 'ADMIN'
        AND target_user."accountStatus" = 'ACTIVE'
-       AND old_session."issuerProtocolVersion" = 'PHASE7_V1'
+       AND old_session."issuerProtocolVersion" = 'OWNED_V1'
        AND old_session."authorizationState" = 'ACTIVE'
        AND old_session."authorityGeneration" = $3::integer
        AND old_session."expiresAt" > clock_timestamp()
@@ -682,7 +682,7 @@ export const stageReauthentication = async (
      ) VALUES (
        $1::uuid, $2::timestamptz, $3, clock_timestamp(), clock_timestamp(),
        left(COALESCE($4, ''), 512), left(COALESCE($5, ''), 512), $6::uuid,
-       $7::integer, 'PHASE7_V1', 'PENDING_REAUTH'
+       $7::integer, 'OWNED_V1', 'PENDING_REAUTH'
      )
      RETURNING "id", "expiresAt", "createdAt", "updatedAt", "userId"`,
     input.sessionId,
@@ -719,7 +719,7 @@ export interface FinalizedReauthentication {
 }
 
 /**
- * phase7_finalize_reauthentication inside the caller's transaction: activate
+ * finalize_reauthentication inside the caller's transaction: activate
  * the staged Session, delete the old one, write the REAUTHENTICATION audit row, and re-check authority before and after the
  * intent becomes FINALIZED. Every failure raises.
  */
@@ -806,9 +806,9 @@ export const finalizeReauthentication = async (
        ON pending."id" = $3::uuid AND pending."userId" = $1::uuid
       AND pending."token" = $7
       AND pending."authorizationState" = 'PENDING_REAUTH'
-      AND pending."issuerProtocolVersion" = 'PHASE7_V1'
+      AND pending."issuerProtocolVersion" = 'OWNED_V1'
      WHERE old_session."id" = $2::uuid AND old_session."userId" = $1::uuid
-       AND old_session."issuerProtocolVersion" = 'PHASE7_V1'
+       AND old_session."issuerProtocolVersion" = 'OWNED_V1'
        AND old_session."authorizationState" = 'ACTIVE'`,
     intent.userId,
     intent.oldSessionId,
@@ -845,7 +845,7 @@ export const finalizeReauthentication = async (
   const deleted = await transaction.$executeRawUnsafe(
     `DELETE FROM "Session"
      WHERE "id" = $1::uuid AND "userId" = $2::uuid
-       AND "issuerProtocolVersion" = 'PHASE7_V1'
+       AND "issuerProtocolVersion" = 'OWNED_V1'
        AND "authorizationState" = 'ACTIVE' AND "token" = $3
        AND "authorityGeneration" = $4::integer`,
     intent.oldSessionId,
@@ -927,7 +927,7 @@ export const finalizeReauthentication = async (
 }
 
 /**
- * phase7_complete_sso_admin_fresh: stage, finalize and confirm the rotation of
+ * complete_sso_admin_fresh: stage, finalize and confirm the rotation of
  * a staged proof, and mark the proof complete, all in one transaction.
  */
 export const completeAdminFresh = async (
@@ -1033,7 +1033,7 @@ export const completeAdminFresh = async (
     ]
   })
 
-// phase7_confirm_v1_session_issuance for an ADMIN replacement, in the same
+// confirm_v1_session_issuance for an ADMIN replacement, in the same
 // transaction: the active Session keeps the captured authority.
 const confirmIssuedSession = async (
   transaction: Transaction,
@@ -1056,7 +1056,7 @@ const confirmIssuedSession = async (
          AND target_user."accountStatus" = 'ACTIVE'
          AND session."token" = $4
          AND session."authorizationState" = 'ACTIVE'
-         AND session."issuerProtocolVersion" = 'PHASE7_V1'
+         AND session."issuerProtocolVersion" = 'OWNED_V1'
          AND session."authorityGeneration" = $3::integer
          AND session."expiresAt" > clock_timestamp()
          AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()`,
@@ -1089,7 +1089,7 @@ export interface ReconciledReauthentication extends FinalizedReauthentication {
 }
 
 /**
- * phase7_reconcile_reauthentication: the exact FINALIZED rotation of an intent,
+ * reconcile_reauthentication: the exact FINALIZED rotation of an intent,
  * with its audit row, while the replacement still holds authority.
  */
 export const reconcileReauthentication = async (
@@ -1141,7 +1141,7 @@ export const reconcileReauthentication = async (
      WHERE intent."id" = $1::uuid
        AND intent."state" = 'FINALIZED'
        AND session."token" = $2
-       AND session."issuerProtocolVersion" = 'PHASE7_V1'
+       AND session."issuerProtocolVersion" = 'OWNED_V1'
        AND session."authorizationState" = 'ACTIVE'
        AND session."authorityGeneration" = intent."capturedAuthorityGeneration"
        AND target_user."authorityGeneration" = intent."capturedAuthorityGeneration"
@@ -1170,7 +1170,7 @@ export const reconcileReauthentication = async (
 }
 
 /**
- * phase7_reconcile_sso_admin_fresh: the proof's rotation committed, so a lost
+ * reconcile_sso_admin_fresh: the proof's rotation committed, so a lost
  * commit response is not a failure.
  */
 export const reconcileAdminFresh = async (
@@ -1213,7 +1213,7 @@ export const reconcileAdminFresh = async (
     }))
 }
 
-/** phase7_abort_reauthentication: drop an unfinished intent and its staged Session. */
+/** abort_reauthentication: drop an unfinished intent and its staged Session. */
 export const abortReauthentication = async (
   client: AdminFreshClient,
   intentId: string
@@ -1257,7 +1257,7 @@ export const abortReauthentication = async (
     return true
   })
 
-/** phase7_cancel_sso_admin_fresh_proof. */
+/** cancel_sso_admin_fresh_proof. */
 export const cancelAdminFreshProof = async (
   client: AdminFreshClient,
   proofDigest: string
@@ -1294,7 +1294,7 @@ const CLEANUP_CANDIDATE = `(
       AND "finalizedAt" <= $2::timestamptz - INTERVAL '15 minutes')
   )`
 
-/** phase7_cleanup_reauthentication: one bounded batch. */
+/** cleanup_reauthentication: one bounded batch. */
 export const cleanupReauthentication = async (
   client: AdminFreshClient,
   maximumRows: number

@@ -37,12 +37,12 @@ test('recovery policy is closed and cross-linked to the environment registry', (
   assert.throws(() => verifyRecoveryContract(missingField), /registry fields/u)
 })
 
-// #504 P8-1: one baseline migration serves every environment.
-test('the current migration profile is exactly the baseline for every environment', () => {
+// #504 P8: the baseline and its forward migration serve every environment.
+test('the current migration profile is exactly the repository migrations for every environment', () => {
   const { contract, releaseManifest } = createRecoveryFixtures()
   assert.deepEqual(
     releaseManifest.migrations.entries.map(({ name }) => name),
-    ['20261105090000_baseline']
+    ['20261105090000_baseline', '20261106090000_remove_phase_names']
   )
   assert.deepEqual(contract.migrationProfiles.current.environments, [
     'TEST',
@@ -50,11 +50,11 @@ test('the current migration profile is exactly the baseline for every environmen
     'PRODUCTION'
   ])
   assert.deepEqual(deriveMigrationProfile(releaseManifest, 'current'), {
-    count: 1,
+    count: 2,
     digestSha256: contract.migrationProfiles.current.expectedDigestSha256,
     name: 'current'
   })
-  for (const retired of ['technical-current-test', 'v1-runtime-pre-phase7'])
+  for (const retired of ['technical-current-test', 'v1-runtime-legacy'])
     assert.throws(
       () => deriveMigrationProfile(releaseManifest, retired),
       /Unsupported recovery migration profile/u

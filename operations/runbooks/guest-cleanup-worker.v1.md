@@ -9,10 +9,11 @@ permission has been provisioned or verified by this document.
    NOINHERIT, NOSUPERUSER, NOCREATEDB, NOCREATEROLE, NOREPLICATION and
    NOBYPASSRLS, plus separate TEST and DEVELOPMENT logins with only this
    membership (ADMIN FALSE, INHERIT FALSE, SET TRUE), from the
-   `PHASE7_TEST_GUEST_CLEANUP_WORKER_PASSWORD` and
-   `PHASE7_DEVELOPMENT_GUEST_CLEANUP_WORKER_PASSWORD` inputs. It is
+   `TEST_GUEST_CLEANUP_WORKER_PASSWORD` and
+   `DEVELOPMENT_GUEST_CLEANUP_WORKER_PASSWORD` inputs. It is
    fresh-volume bootstrap, not an existing-volume upgrade.
-2. Apply the single `20261105090000_baseline` migration with the
+2. Apply the `20261105090000_baseline` and `20261106090000_remove_phase_names`
+   migrations with the
    `nihongo_{test,development}_migration_login` wrapper (role
    `nihongo_migration`).
 3. Persistent local provisioning grants the guest login CONNECT on its own
@@ -25,7 +26,7 @@ permission has been provisioned or verified by this document.
 Use a disposable PostgreSQL cluster whose base database is
 `nihongo_jlp534_test`. Supply the existing safe TEST environment and bootstrap
 `API_INTEGRATION_DATABASE_URL` (or `DATABASE_URL`) through the authorized
-environment, without printing credentials. The Phase10 runner creates and
+environment, without printing credentials. The API integration runner creates and
 removes a `jlp534_<random>_test` schema for the guest shard and supplies the
 fixture, guest and application URLs with `GUEST_CLEANUP_TEST_ISOLATED=yes`.
 The manifest runner rejects missing environment, zero tests and skipped tests.

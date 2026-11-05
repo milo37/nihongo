@@ -9,11 +9,11 @@ import {
 /**
  * Account erasure in the API transaction (#504 P7 PR4a).
  *
- * This keeps phase7_erase_user(_unchecked), the User delete trigger
- * anonymize_question_creator_on_user_delete, phase7_complete_sso_account_erasure,
- * phase7_list_sso_account_erasures, phase7_sso_account_erasure_status,
- * phase7_redact_expired_report_descriptions and (#504 P7 PR4b-2)
- * phase7_request_sso_account_erasure step for step: the same checks, the
+ * This keeps erase_user(_unchecked), the User delete trigger
+ * anonymize_question_creator_on_user_delete, complete_sso_account_erasure,
+ * list_sso_account_erasures, sso_account_erasure_status,
+ * redact_expired_report_descriptions and (#504 P7 PR4b-2)
+ * request_sso_account_erasure step for step: the same checks, the
  * same lock order, the same tombstones and audit rows, and the same SQLSTATE
  * and message on failure. Failures are raised inside PostgreSQL so the existing
  * error mapping sees the same database error. The database allows the
@@ -355,7 +355,7 @@ const LOCK_STATEMENTS = [
 ]
 
 /**
- * phase7_erase_user_unchecked: erases one User whose erasure the database
+ * erase_user_unchecked: erases one User whose erasure the database
  * confirms. Returns false when the User does not exist.
  */
 const eraseConfirmedUser = async (
@@ -391,7 +391,7 @@ const eraseConfirmedUser = async (
   return true
 }
 
-/** phase7_erase_user: the TEST-only direct erasure of one User. */
+/** erase_user: the TEST-only direct erasure of one User. */
 export const eraseUserForTest = async (
   transaction: Transaction,
   userId: string,
@@ -419,7 +419,7 @@ const ALL_PROVIDERS_COMPLETED = `jsonb_array_length(r."providerCleanup") > 0
   )`
 
 /**
- * phase7_complete_sso_account_erasure: erases the User of a request whose
+ * complete_sso_account_erasure: erases the User of a request whose
  * provider cleanup has completed. Returns true once the request is DELETED.
  */
 export const completeSsoAccountErasure = async (
@@ -476,7 +476,7 @@ export const completeSsoAccountErasure = async (
   return true
 }
 
-/** phase7_list_sso_account_erasures: the erasure worker queue. */
+/** list_sso_account_erasures: the erasure worker queue. */
 export const listSsoAccountErasures = async (
   client: Queryable,
   batchLimit: number,
@@ -507,7 +507,7 @@ export const listSsoAccountErasures = async (
   return rows[0]?.result
 }
 
-/** phase7_sso_account_erasure_status: the receipt status, or null. */
+/** sso_account_erasure_status: the receipt status, or null. */
 export const ssoAccountErasureStatus = async (
   client: Pick<PrismaClient, '$queryRawUnsafe'>,
   receiptDigest: string
@@ -524,7 +524,7 @@ export const ssoAccountErasureStatus = async (
   return rows[0]?.result ?? null
 }
 
-/** phase7_redact_expired_report_descriptions: returns the redacted count. */
+/** redact_expired_report_descriptions: returns the redacted count. */
 export const redactExpiredReportDescriptions = async (
   transaction: Transaction,
   batchLimit: number,
@@ -578,7 +578,7 @@ export type SsoAccountErasureRequestResult =
     }
 
 /**
- * phase7_request_sso_account_erasure: records the provider-first erasure
+ * request_sso_account_erasure: records the provider-first erasure
  * request and sets the User DELETION_PENDING, which revokes every Session.
  * The database fills the provider cleanup list and receipt expiry itself.
  */

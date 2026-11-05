@@ -3,7 +3,7 @@ import type { Prisma } from '../generated/prisma/client.js'
 /**
  * QuestionReport creation in the API transaction (#504 P7 PR4c-2).
  *
- * This keeps phase7_create_question_report (with its _pre_reauthentication
+ * This keeps create_question_report (with its _pre_reauthentication
  * body) step for step: the same Session checks, the same lock order (User,
  * Session, then Question, QuestionVersion, the reporter's study pins and wrong
  * notes FOR SHARE), the same entitlement rule, the same re-check before commit
@@ -83,7 +83,7 @@ export const createQuestionReportInTransaction = async (
      WHERE target_session."token" = $1
        AND target_session."id" = $2::uuid
        AND target_user."accountStatus" = 'ACTIVE'
-       AND target_session."issuerProtocolVersion" = 'PHASE7_V1'
+       AND target_session."issuerProtocolVersion" = 'OWNED_V1'
        AND target_session."authorityGeneration" = target_user."authorityGeneration"
        AND target_session."expiresAt" > clock_timestamp()
        AND target_session."createdAt" + INTERVAL '30 days' > clock_timestamp()`,
@@ -196,7 +196,7 @@ export const createQuestionReportInTransaction = async (
        AND target_user."accountStatus" = 'ACTIVE'
        AND target_user."authorityGeneration" = $4::integer
        AND target_session."token" = $5
-       AND target_session."issuerProtocolVersion" = 'PHASE7_V1'
+       AND target_session."issuerProtocolVersion" = 'OWNED_V1'
        AND target_session."authorityGeneration" = $4::integer
        AND target_session."expiresAt" > clock_timestamp()
        AND target_session."createdAt" + INTERVAL '30 days' > clock_timestamp()`,

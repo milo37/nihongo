@@ -979,7 +979,7 @@ describe('question catalog PostgreSQL integration', () => {
     ).rejects.toThrow()
   })
 
-  it('direct lifecycle mutation은 Phase 7 admin command 경계를 우회하지 못한다', async () => {
+  it('direct lifecycle mutation은 admin command 경계를 우회하지 못한다', async () => {
     const seed = buildAllQuestionSeeds()[0]
     if (!seed) {
       throw new Error('Question seed fixture가 필요합니다.')

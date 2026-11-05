@@ -38,17 +38,17 @@ export const createSsoDbHarness = () => {
     productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
   })
   const schema = getPostgresSchema(environment.DATABASE_URL)
-  const adminUrl = process.env.PHASE7_ADMIN_DATABASE_URL
-  const gatewayUrl = process.env.PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL
+  const adminUrl = process.env.ADMIN_DATABASE_URL
+  const gatewayUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
   if (
     environment.NODE_ENV !== 'test' ||
-    !schema?.match(/^phase7_[a-z0-9_]+_test$/u) ||
+    !schema?.match(/^nihongo_[a-z0-9_]+_test$/u) ||
     !adminUrl ||
     !gatewayUrl ||
     [adminUrl, gatewayUrl].some((url) => getPostgresSchema(url) !== schema)
   )
     throw new Error(
-      'SSO integration requires the existing isolated Phase 7 TEST harness.'
+      'SSO integration requires the existing isolated TEST harness.'
     )
   const connection = (value: string, role?: TestRole) => {
     const url = new URL(value)
@@ -63,7 +63,6 @@ export const createSsoDbHarness = () => {
     })
   }
   const owner = connection(adminUrl)
-  // #504 P8-1: one runtime role; the gateway names go in P8-2.
   const gatewayA = connection(gatewayUrl, 'nihongo_app')
   const gatewayB = connection(gatewayUrl, 'nihongo_app')
   const app = connection(environment.DATABASE_URL, 'nihongo_app')
@@ -188,7 +187,7 @@ export const createSsoDbHarness = () => {
       [randomUUID(), subject, provider, userId]
     )
     const result = await issueSession(
-      `SELECT * FROM "phase7_issue_v1_session"($1,1,$2::"UserRole",'ACTIVE',$3,$4,'127.0.0.1','sso-db-fixture',false)`,
+      `SELECT * FROM "issue_v1_session"($1,1,$2::"UserRole",'ACTIVE',$3,$4,'127.0.0.1','sso-db-fixture',false)`,
       [userId, role, sessionId, token]
     )
     if (result.rows[0]?.id !== sessionId)
@@ -198,7 +197,7 @@ export const createSsoDbHarness = () => {
   const prepare = async (f: SsoFixture): Promise<AdminFreshContext> => {
     const rows = await roleQuery<{ context: unknown }>(
       'nihongo_app',
-      'SELECT "phase7_prepare_sso_admin_fresh"($1,$2) AS context',
+      'SELECT "prepare_sso_admin_fresh"($1,$2) AS context',
       [f.token, f.provider]
     )
     return adminFreshContextSchema.parse(rows.rows[0]?.context)
@@ -211,13 +210,13 @@ export const createSsoDbHarness = () => {
   ) => {
     const rows = await roleQuery<{ accepted: boolean }>(
       'nihongo_app',
-      'SELECT "phase7_stage_sso_admin_fresh_proof"($1::jsonb,$2,$3,$4,$5) AS accepted',
+      'SELECT "stage_sso_admin_fresh_proof"($1::jsonb,$2,$3,$4,$5) AS accepted',
       [JSON.stringify(context), provider, subject, proof, '/login']
     )
     return { proof, accepted: rows.rows[0]?.accepted }
   }
   const completeSql =
-    'SELECT * FROM "phase7_complete_sso_admin_fresh"($1,$2,$3,$4,$5,$6)'
+    'SELECT * FROM "complete_sso_admin_fresh"($1,$2,$3,$4,$5,$6)'
   const completeValues = (
     f: SsoFixture,
     proof: string,

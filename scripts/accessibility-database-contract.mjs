@@ -6,7 +6,7 @@ const requireFromApi = createRequire(
 )
 const { Client } = requireFromApi('pg')
 
-const SAFE_SCHEMA_PATTERN = /^phase7_[a-f0-9]{32}_test$/u
+const SAFE_SCHEMA_PATTERN = /^nihongo_[a-f0-9]{32}_test$/u
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u
 
 export const accessibilityDatabaseTables = [
@@ -104,11 +104,11 @@ export const accessibilityExpectedRateLimitCategories = {
   'application:bookmark-write': 1,
   'application:dashboard-insights-read': 2,
   'application:dashboard-read': 1,
-  'application:phase7:ADMIN_READ:ACTOR': 1,
-  'application:phase7:ADMIN_READ:IP': 1,
-  'application:phase7:REPORT_ACTOR:ACTOR': 1,
-  'application:phase7:REPORT_ACTOR:IP': 1,
-  'application:phase7:REPORT_VERSION:VERSION': 0,
+  'application:keyed:ADMIN_READ:ACTOR': 1,
+  'application:keyed:ADMIN_READ:IP': 1,
+  'application:keyed:REPORT_ACTOR:ACTOR': 1,
+  'application:keyed:REPORT_ACTOR:IP': 1,
+  'application:keyed:REPORT_VERSION:VERSION': 0,
   'application:study-cancel': 0,
   'application:study-create': 2,
   'application:study-draft-save': 1,
@@ -575,7 +575,7 @@ const assertIdentityContract = (facts, fixture) => {
       'ACTIVE',
       'auth authorization state'
     )
-    assertEqual(session.issuerProtocolVersion, 'PHASE7_V1', 'auth issuer')
+    assertEqual(session.issuerProtocolVersion, 'OWNED_V1', 'auth issuer')
   }
 
   assertEqual(facts.studySessions.length, 3, 'study session identity count')

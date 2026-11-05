@@ -98,10 +98,9 @@ const LEVELS = [
 ] as const satisfies readonly JlptLevel[]
 
 const environment = parseApiEnvironment(process.env)
-const adminDatabaseUrl = process.env.PHASE7_ADMIN_DATABASE_URL
-const authGatewayDatabaseUrl =
-  process.env.PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL
-if (!adminDatabaseUrl || !authGatewayDatabaseUrl) {
+const adminDatabaseUrl = process.env.ADMIN_DATABASE_URL
+const appFixtureDatabaseUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
+if (!adminDatabaseUrl || !appFixtureDatabaseUrl) {
   throw new Error('Performance integration DB URLs are required.')
 }
 assertSafeTestDatabase({
@@ -116,7 +115,7 @@ const database = createRoleDatabaseRuntime(
 )
 const adminDatabase = createDatabaseRuntime(adminDatabaseUrl)
 const authGatewayDatabase = createRoleDatabaseRuntime(
-  authGatewayDatabaseUrl,
+  appFixtureDatabaseUrl,
   'nihongo_app'
 )
 const sessionRepository = createPrismaStudySessionRepository(database.client)
@@ -188,50 +187,49 @@ const createMeasuredClient = (metrics: StatementMetrics[]): PrismaClient =>
     }
   }) as unknown as PrismaClient
 
-const createAuthenticatedUser = async (): Promise<
-  Extract<DashboardInsightsPrincipal, { readonly kind: 'PHASE7' }>
-> => {
-  const userId = randomUUID()
-  const accountId = randomUUID()
-  const sessionId = randomUUID()
-  const sessionToken = `phase8-performance-${randomUUID()}`
-  const now = new Date()
+const createAuthenticatedUser =
+  async (): Promise<DashboardInsightsPrincipal> => {
+    const userId = randomUUID()
+    const accountId = randomUUID()
+    const sessionId = randomUUID()
+    const sessionToken = `test-performance-${randomUUID()}`
+    const now = new Date()
 
-  await adminDatabase.client.$transaction(async (transaction) => {
-    await transaction.$executeRaw`
+    await adminDatabase.client.$transaction(async (transaction) => {
+      await transaction.$executeRaw`
       INSERT INTO "User" (
         "id", "name", "email", "emailVerified", "role", "targetLevel",
         "accountStatus", "createdAt", "updatedAt"
       ) VALUES (
         ${userId}::uuid, 'Performance',
-        ${`phase8-performance-${randomUUID()}@example.test`}, true,
+        ${`test-performance-${randomUUID()}@example.test`}, true,
         'USER', 'N5', 'ACTIVE', ${now}, ${now}
       )
     `
-    await transaction.$executeRaw`
+      await transaction.$executeRaw`
       INSERT INTO "Account" (
         "id", "accountId", "providerId", "userId", "password",
         "createdAt", "updatedAt"
       ) VALUES (
         ${accountId}, ${userId}, 'credential', ${userId}::uuid,
-        'phase8-performance-password-hash', ${now}, ${now}
+        'test-performance-password-hash', ${now}, ${now}
       )
     `
-  })
+    })
 
-  await issueOwnedSession(database.client, {
-    userId,
-    authorityGeneration: 1,
-    role: 'USER',
-    accountStatus: 'ACTIVE',
-    sessionId,
-    token: sessionToken,
-    ipAddress: '127.0.0.1',
-    userAgent: 'phase8-dashboard-performance',
-    remember: false
-  })
-  return { kind: 'PHASE7', sessionToken, userId }
-}
+    await issueOwnedSession(database.client, {
+      userId,
+      authorityGeneration: 1,
+      role: 'USER',
+      accountStatus: 'ACTIVE',
+      sessionId,
+      token: sessionToken,
+      ipAddress: '127.0.0.1',
+      userAgent: 'test-dashboard-performance',
+      remember: false
+    })
+    return { sessionToken, userId }
+  }
 
 const populateLearningHistory = async (
   principal: DashboardInsightsPrincipal
@@ -700,10 +698,7 @@ describe.sequential('Dashboard insights performance gate', () => {
 
     const metrics: StatementMetrics[] = []
     const service = createDashboardInsightsService(
-      createPrismaDashboardInsightsRepository(
-        createMeasuredClient(metrics),
-        'PHASE7'
-      )
+      createPrismaDashboardInsightsRepository(createMeasuredClient(metrics))
     )
     const before = await readBusinessState(principal.userId)
     const warmResponse = getDashboardInsightsResponseSchema.parse(
@@ -747,10 +742,7 @@ describe.sequential('Dashboard insights performance gate', () => {
 
     const apiMetrics: StatementMetrics[] = []
     const apiService = createDashboardInsightsService(
-      createPrismaDashboardInsightsRepository(
-        createMeasuredClient(apiMetrics),
-        'PHASE7'
-      )
+      createPrismaDashboardInsightsRepository(createMeasuredClient(apiMetrics))
     )
     let noStoreCount = 0
     let principalResolutionCount = 0
@@ -770,7 +762,7 @@ describe.sequential('Dashboard insights performance gate', () => {
         return {
           clearSessionCookie: false,
           headers: new Headers(),
-          phase7Session: {
+          ownedSessionProof: {
             createdAt: new Date(observedAt.getTime() - 60_000),
             expiresAt: new Date(observedAt.getTime() + DAY_MILLISECONDS),
             id: randomUUID(),
@@ -899,7 +891,7 @@ describe.sequential('Dashboard insights performance gate', () => {
             sessionCount: population.sessionCount,
             tagFactCount: population.tagFactCount
           },
-          kind: 'nihongo.phase10.database-api-performance',
+          kind: 'nihongo.database-api-performance',
           metadata: {
             command: 'pnpm run test:database-performance',
             commit,
@@ -918,7 +910,7 @@ describe.sequential('Dashboard insights performance gate', () => {
     }
     process.stdout.write(
       `${JSON.stringify({
-        event: 'phase8.dashboard_insights.performance',
+        event: 'dashboard_insights.performance',
         apiP95Milliseconds: apiTiming.statisticsMs.p95,
         databaseP95Milliseconds: databaseTiming.statisticsMs.p95,
         populatedAnswerCount,

@@ -7,8 +7,8 @@ import { v1PrincipalQuery } from '../auth/ownedSessionAuthority.js'
 /**
  * Admin operation authority in the API transaction (#504 P7 PR2).
  *
- * This keeps the retired phase7_begin_admin_operation and the commit re-check
- * of phase7_finish_admin_operation step for step: the same isolation per
+ * This keeps the retired begin_admin_operation and the commit re-check
+ * of finish_admin_operation step for step: the same isolation per
  * command, the same lock order (referenced Users by id, then the actor
  * Session, all FOR UPDATE; #504 P7 PR4b-1 removed the Session family), the
  * same authority
@@ -41,7 +41,7 @@ const SERIALIZABLE_COMMANDS = new Set([
   'IMPORT_APPLY'
 ])
 
-const STALE_AUTHORITY = 'Phase 7 operation authority is stale or insufficient.'
+const STALE_AUTHORITY = 'Operation authority is stale or insufficient.'
 
 // Every deferred verifier the SQL finish flushed before its last authority check.
 const DEFERRED_CONTENT_CONSTRAINTS = [
@@ -116,20 +116,20 @@ const assertIsolation = async (
       await raise(
         transaction,
         '25001',
-        'Phase 7 content mutation requires SERIALIZABLE isolation.'
+        'Content mutation requires SERIALIZABLE isolation.'
       )
   } else if (command === 'EXPORT') {
     if (isolation !== 'repeatable read')
       await raise(
         transaction,
         '25001',
-        'Phase 7 export requires REPEATABLE READ isolation.'
+        'Export requires REPEATABLE READ isolation.'
       )
   } else if (isolation !== 'read committed') {
     await raise(
       transaction,
       '25001',
-      'Phase 7 admin operation requires READ COMMITTED isolation.'
+      'Admin operation requires READ COMMITTED isolation.'
     )
   }
 }
@@ -153,7 +153,7 @@ const hasAuthority = async (
        AND actor."accountStatus" = 'ACTIVE'
        AND ($3::integer IS NULL OR actor."authorityGeneration" = $3::integer)
        AND session."authorizationState" = 'ACTIVE'
-       AND session."issuerProtocolVersion" = 'PHASE7_V1'
+       AND session."issuerProtocolVersion" = 'OWNED_V1'
        AND session."authorityGeneration" = actor."authorityGeneration"
        AND session."expiresAt" > clock_timestamp()
        AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()
@@ -204,7 +204,7 @@ export const beginAdminOperation = async (
     referenced.length < 1 ||
     (input.command !== 'EXPORT' && referenced.length > 512)
   )
-    await raise(transaction, '22023', 'Phase 7 referenced User set is invalid.')
+    await raise(transaction, '22023', 'Referenced User set is invalid.')
   const canonicalUserIds = [...new Set(referenced)].toSorted()
   if (
     canonicalUserIds.length !== referenced.length ||
@@ -213,7 +213,7 @@ export const beginAdminOperation = async (
     await raise(
       transaction,
       '22023',
-      'Phase 7 referenced User set must be unique and include the actor.'
+      'Referenced User set must be unique and include the actor.'
     )
 
   // Lock every referenced User in canonical id order before the actor Session
@@ -224,11 +224,7 @@ export const beginAdminOperation = async (
     canonicalUserIds
   )
   if (lockedUsers.length !== canonicalUserIds.length)
-    await raise(
-      transaction,
-      '42501',
-      'A referenced Phase 7 User is unavailable.'
-    )
+    await raise(transaction, '42501', 'A referenced User is unavailable.')
 
   const session = await transaction.$queryRawUnsafe<unknown[]>(
     `SELECT 1 FROM "Session"
@@ -238,11 +234,7 @@ export const beginAdminOperation = async (
     actor.userId
   )
   if (session.length !== 1)
-    await raise(
-      transaction,
-      '42501',
-      'Phase 7 operation Session is unavailable.'
-    )
+    await raise(transaction, '42501', 'Operation Session is unavailable.')
 
   const requiresFresh = FRESH_COMMANDS.has(input.command)
   const authority = {
@@ -284,7 +276,7 @@ export const beginAdminOperation = async (
   return { operationId, actorUserId: actor.userId }
 }
 
-/** The commit-time re-check that phase7_finish_admin_operation performed. */
+/** The commit-time re-check that finish_admin_operation performed. */
 export const finishAdminOperation = async (
   transaction: Prisma.TransactionClient,
   operationId: string
@@ -295,7 +287,7 @@ export const finishAdminOperation = async (
     !operation ||
     operation.transactionId !== (await currentTransactionId(transaction))
   )
-    return raise(transaction, '42501', 'Trusted Phase 7 operation is absent.')
+    return raise(transaction, '42501', 'Trusted operation is absent.')
 
   // Flush the deferred content verifiers so the authority re-check below is
   // the final validation step of the command.
@@ -309,14 +301,10 @@ export const finishAdminOperation = async (
     operationId
   )
   if (consumed !== 1)
-    await raise(transaction, '42501', 'Trusted Phase 7 operation is absent.')
+    await raise(transaction, '42501', 'Trusted operation is absent.')
   await transaction.$executeRawUnsafe(
     `SET CONSTRAINTS "OperationIntent_must_finish" IMMEDIATE`
   )
   if (!(await hasAuthority(transaction, operation)))
-    await raise(
-      transaction,
-      '42501',
-      'Phase 7 authority expired before commit.'
-    )
+    await raise(transaction, '42501', 'Authority expired before commit.')
 }

@@ -50,7 +50,7 @@ const fresh = async (token: string) =>
   (
     await h.roleQuery<{ fresh: boolean }>(
       'nihongo_app',
-      'SELECT "phase7_sso_admin_session_is_fresh"($1) AS fresh',
+      'SELECT "sso_admin_session_is_fresh"($1) AS fresh',
       [token]
     )
   ).rows[0]?.fresh
@@ -90,9 +90,10 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     }>(
       `SELECT migration_name AS name,checksum,finished_at IS NOT NULL AND rolled_back_at IS NULL AS complete FROM "_prisma_migrations" WHERE rolled_back_at IS NULL ORDER BY migration_name`
     )
-    // #504 P8-1: one baseline replaces the 76 migrations.
+    // #504 P8: the baseline and the phase name removal.
     expect(expected.map(({ name }) => name)).toEqual([
-      '20261105090000_baseline'
+      '20261105090000_baseline',
+      '20261106090000_remove_phase_names'
     ])
     expect(
       actual.rows.map(({ name, checksum }) => ({ name, checksum }))
@@ -331,7 +332,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
           accountStatus: 'ACTIVE',
           authorityGeneration: 1,
           userGeneration: 1,
-          issuerProtocolVersion: 'PHASE7_V1',
+          issuerProtocolVersion: 'OWNED_V1',
           authorizationState: 'ACTIVE',
           createdAt: signedIn.createdAt,
           expiresAt: signedIn.expiresAt
@@ -389,7 +390,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         try {
           process.stdout.write(
             `${JSON.stringify({
-              event: 'phase7.db.integration.post_seed',
+              event: 'db.integration.post_seed',
               stage: `SSO6_${sso6Stage}_${state}`
             })}\n`
           )
@@ -468,7 +469,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
               metadata: unknown
               verified: boolean
             }>(
-              `SELECT command::text,"afterState","changedFields",metadata,"contentDigest"=pg_temp."phase7_admin_audit_content_digest"("operationId",command,"targetType","targetId","beforeState","afterState","beforeRowVersion","afterRowVersion","changedFields",metadata) AS verified FROM "AdminAuditLog" WHERE "actorId"=$1 AND command='REAUTHENTICATION'`,
+              `SELECT command::text,"afterState","changedFields",metadata,"contentDigest"=pg_temp."admin_audit_content_digest"("operationId",command,"targetType","targetId","beforeState","afterState","beforeRowVersion","afterRowVersion","changedFields",metadata) AS verified FROM "AdminAuditLog" WHERE "actorId"=$1 AND command='REAUTHENTICATION'`,
               [f.userId]
             )
             expect(audit.rows).toEqual([
@@ -528,7 +529,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
           (
             await h.roleQuery<{ value: unknown }>(
               'nihongo_app',
-              'SELECT "phase7_prepare_sso_admin_fresh"($1,$2) AS value',
+              'SELECT "prepare_sso_admin_fresh"($1,$2) AS value',
               [token, provider]
             )
           ).rows[0]?.value
@@ -536,7 +537,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       const { proof } = await staged(f)
       const other = h.completeValues(f, proof)
       await h.issueSession(
-        `SELECT * FROM "phase7_issue_v1_session"($1,1,'ADMIN','ACTIVE',$2,$3,'127.0.0.1','second-session',false)`,
+        `SELECT * FROM "issue_v1_session"($1,1,'ADMIN','ACTIVE',$2,$3,'127.0.0.1','second-session',false)`,
         [f.userId, randomUUID(), other.token]
       )
       const result = await h.roleQuery('nihongo_app', h.completeSql, [
@@ -631,7 +632,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         binding = digest()
       const created = await h.roleQuery<{ ok: boolean }>(
         'nihongo_app',
-        'SELECT "phase7_create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb) AS ok',
+        'SELECT "create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb) AS ok',
         [
           f.provider,
           state,
@@ -651,7 +652,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       const consume = (b: string) =>
         h.roleQuery(
           'nihongo_app',
-          'SELECT * FROM "phase7_consume_sso_admin_fresh_transaction"($1,$2,$3)',
+          'SELECT * FROM "consume_sso_admin_fresh_transaction"($1,$2,$3)',
           [f.provider, state, b]
         )
       expect((await consume(digest())).rowCount).toBe(0)
@@ -724,7 +725,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       // #504 P7 PR2: the API admin operation replaces the SQL begin and the
       // deferred SSO fresh constraint; its commit re-check sees the expiry.
       const asApp = async <Result>(action: () => Promise<Result>) => {
-        await h.owner.query('SAVEPOINT phase7_api_admin_operation')
+        await h.owner.query('SAVEPOINT api_admin_operation')
         await h.owner.query('SET LOCAL ROLE "nihongo_app"')
         try {
           return { ok: true as const, value: await action() }
@@ -734,9 +735,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
             code: (error as { code?: unknown }).code
           }
         } finally {
-          await h.owner.query(
-            'ROLLBACK TO SAVEPOINT phase7_api_admin_operation'
-          )
+          await h.owner.query('ROLLBACK TO SAVEPOINT api_admin_operation')
         }
       }
       const begin = (token: string) =>
@@ -775,7 +774,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       binding = digest()
     await h.roleQuery(
       'nihongo_app',
-      'SELECT "phase7_create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb)',
+      'SELECT "create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb)',
       [
         f.provider,
         state,
@@ -790,7 +789,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       [h.appA, h.appB].map((client) =>
         bridgedQuery(
           client,
-          'SELECT * FROM "phase7_consume_sso_admin_fresh_transaction"($1,$2,$3)',
+          'SELECT * FROM "consume_sso_admin_fresh_transaction"($1,$2,$3)',
           [f.provider, state, binding]
         )
       )
@@ -864,7 +863,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         (
           await h.roleQuery<{ cancelled: boolean }>(
             'nihongo_app',
-            'SELECT "phase7_cancel_sso_admin_fresh_proof"($1) AS cancelled',
+            'SELECT "cancel_sso_admin_fresh_proof"($1) AS cancelled',
             [proof]
           )
         ).rows[0]?.cancelled
@@ -918,7 +917,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         (
           await h.roleQuery<{ ok: boolean }>(
             'nihongo_app',
-            'SELECT "phase7_cancel_sso_admin_fresh_proof"($1) AS ok',
+            'SELECT "cancel_sso_admin_fresh_proof"($1) AS ok',
             [proof]
           )
         ).rows[0]?.ok
@@ -927,7 +926,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         (
           await h.roleQuery<{ ok: boolean }>(
             'nihongo_app',
-            'SELECT "phase7_cancel_sso_admin_fresh_proof"($1) AS ok',
+            'SELECT "cancel_sso_admin_fresh_proof"($1) AS ok',
             [proof]
           )
         ).rows[0]?.ok
@@ -961,7 +960,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         (
           await h.roleQuery<{ erased: boolean }>(
             'nihongo_app',
-            'SELECT "phase7_erase_user"($1,\'TEST\') AS erased',
+            'SELECT "erase_user"($1,\'TEST\') AS erased',
             [f.userId]
           )
         ).rows[0]?.erased
@@ -1037,14 +1036,14 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         (
           await h.roleQuery(
             'nihongo_app',
-            'SELECT * FROM "phase7_consume_sso_admin_fresh_transaction"($1,$2,$3)',
+            'SELECT * FROM "consume_sso_admin_fresh_transaction"($1,$2,$3)',
             [f.provider, state, binding]
           )
         ).rowCount
       ).toBe(0)
       await h.roleQuery(
         'nihongo_app',
-        'SELECT "phase7_create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb)',
+        'SELECT "create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb)',
         [
           f.provider,
           state,
@@ -1059,7 +1058,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         (
           await h.roleQuery(
             'nihongo_app',
-            'SELECT * FROM "phase7_consume_sso_admin_fresh_transaction"($1,$2,$3)',
+            'SELECT * FROM "consume_sso_admin_fresh_transaction"($1,$2,$3)',
             [f.provider, state, binding]
           )
         ).rowCount
@@ -1209,7 +1208,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         binding = digest()
       const created = await h.roleQuery<{ created: boolean }>(
         'nihongo_app',
-        'SELECT "phase7_create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb) AS created',
+        'SELECT "create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb) AS created',
         [
           f.provider,
           state,
@@ -1233,7 +1232,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         (
           await h.roleQuery<{ erased: boolean }>(
             'nihongo_app',
-            'SELECT "phase7_erase_user"($1,\'TEST\') AS erased',
+            'SELECT "erase_user"($1,\'TEST\') AS erased',
             [f.userId]
           )
         ).rows[0]?.erased
@@ -1250,7 +1249,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         (
           await h.roleQuery(
             'nihongo_app',
-            'SELECT * FROM "phase7_consume_sso_admin_fresh_transaction"($1,$2,$3)',
+            'SELECT * FROM "consume_sso_admin_fresh_transaction"($1,$2,$3)',
             [f.provider, state, binding]
           )
         ).rowCount
@@ -1335,7 +1334,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         binding = digest()
       await h.roleQuery(
         'nihongo_app',
-        'SELECT "phase7_create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb)',
+        'SELECT "create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb)',
         [
           other.provider,
           state,
@@ -1360,7 +1359,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         (
           await h.roleQuery<{ erased: boolean }>(
             'nihongo_app',
-            'SELECT "phase7_erase_user"($1,\'TEST\') AS erased',
+            'SELECT "erase_user"($1,\'TEST\') AS erased',
             [target.userId]
           )
         ).rows[0]?.erased
@@ -1403,7 +1402,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     const outcomes = await Promise.allSettled([
       bridgedQuery<{ ok: boolean }>(
         h.appA,
-        'SELECT "phase7_create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb) AS ok',
+        'SELECT "create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb) AS ok',
         [
           f.provider,
           state,
@@ -1416,7 +1415,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       ),
       h.roleQuery<{ erased: boolean }>(
         'nihongo_app',
-        'SELECT "phase7_erase_user"($1,\'TEST\') AS erased',
+        'SELECT "erase_user"($1,\'TEST\') AS erased',
         [f.userId]
       )
     ])
@@ -1443,7 +1442,7 @@ describe('JLP-527 first Google ADMIN operator bootstrap', () => {
   const bootstrapSql =
     'SELECT "bootstrap_first_google_admin"($1::uuid,$2::text,$3::integer,$4::text,$5::"AdminAuditEnvironment") AS generation'
   const operatorClient = () => {
-    const migrationUrl = process.env.PHASE7_MIGRATION_DATABASE_URL
+    const migrationUrl = process.env.MIGRATION_DATABASE_URL
     assertSafeMigrationDatabase({
       nodeEnvironment: h.environment.NODE_ENV,
       migrationDatabaseUrl: migrationUrl,
@@ -1504,11 +1503,9 @@ describe('JLP-527 first Google ADMIN operator bootstrap', () => {
     const values = (f: SsoFixture) => [f.userId, f.subject, 1, h.schema, 'TEST']
     const erase = async (f: SsoFixture) => {
       if (erased.has(f.userId)) return
-      await h.roleQuery(
-        'nihongo_app',
-        'SELECT "phase7_erase_user"($1,\'TEST\')',
-        [f.userId]
-      )
+      await h.roleQuery('nihongo_app', 'SELECT "erase_user"($1,\'TEST\')', [
+        f.userId
+      ])
       erased.add(f.userId)
     }
     try {

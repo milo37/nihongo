@@ -6,7 +6,7 @@ set -Eeuo pipefail
 # The default service sets the gate to 0 so its cluster remains available to the
 # integration runner, which owns temporary wrappers.
 
-if [[ "${PHASE7_LOCAL_PROVISIONING:-0}" != '1' ]]; then
+if [[ "${LOCAL_DATABASE_PROVISIONING:-0}" != '1' ]]; then
   echo 'Local role provisioning disabled for this PostgreSQL volume.'
   exit 0
 fi
@@ -33,12 +33,12 @@ esac
 
 secret_names=(
   POSTGRES_PASSWORD
-  PHASE7_TEST_MIGRATION_PASSWORD
-  PHASE7_TEST_APP_PASSWORD
-  PHASE7_TEST_GUEST_CLEANUP_WORKER_PASSWORD
-  PHASE7_DEVELOPMENT_MIGRATION_PASSWORD
-  PHASE7_DEVELOPMENT_APP_PASSWORD
-  PHASE7_DEVELOPMENT_GUEST_CLEANUP_WORKER_PASSWORD
+  TEST_MIGRATION_PASSWORD
+  TEST_APP_PASSWORD
+  TEST_GUEST_CLEANUP_WORKER_PASSWORD
+  DEVELOPMENT_MIGRATION_PASSWORD
+  DEVELOPMENT_APP_PASSWORD
+  DEVELOPMENT_GUEST_CLEANUP_WORKER_PASSWORD
 )
 secret_values=()
 
@@ -64,12 +64,12 @@ done
 psql --set=ON_ERROR_STOP=1 \
   --username "$POSTGRES_USER" \
   --dbname postgres \
-  --set=test_migration_password="$PHASE7_TEST_MIGRATION_PASSWORD" \
-  --set=test_app_password="$PHASE7_TEST_APP_PASSWORD" \
-  --set=test_guest_cleanup_worker_password="$PHASE7_TEST_GUEST_CLEANUP_WORKER_PASSWORD" \
-  --set=development_migration_password="$PHASE7_DEVELOPMENT_MIGRATION_PASSWORD" \
-  --set=development_app_password="$PHASE7_DEVELOPMENT_APP_PASSWORD" \
-  --set=development_guest_cleanup_worker_password="$PHASE7_DEVELOPMENT_GUEST_CLEANUP_WORKER_PASSWORD" <<'ROLES_SQL'
+  --set=test_migration_password="$TEST_MIGRATION_PASSWORD" \
+  --set=test_app_password="$TEST_APP_PASSWORD" \
+  --set=test_guest_cleanup_worker_password="$TEST_GUEST_CLEANUP_WORKER_PASSWORD" \
+  --set=development_migration_password="$DEVELOPMENT_MIGRATION_PASSWORD" \
+  --set=development_app_password="$DEVELOPMENT_APP_PASSWORD" \
+  --set=development_guest_cleanup_worker_password="$DEVELOPMENT_GUEST_CLEANUP_WORKER_PASSWORD" <<'ROLES_SQL'
 BEGIN;
 
 CREATE ROLE "nihongo_owner"
@@ -349,5 +349,5 @@ $local_attestation$;
 ATTEST_SQL
 done
 
-touch "$PGDATA/.phase7-local-provisioned"
+touch "$PGDATA/.nihongo-local-provisioned"
 echo 'Local TEST/DEVELOPMENT role and database provisioning attested.'

@@ -8,7 +8,7 @@ dotenv.config({
   quiet: true
 })
 
-const databaseUrl = process.env.PHASE7_MIGRATION_DATABASE_URL
+const databaseUrl = process.env.MIGRATION_DATABASE_URL
 
 assertSafeMigrationDatabase({
   nodeEnvironment: process.env.NODE_ENV,
@@ -18,7 +18,7 @@ assertSafeMigrationDatabase({
 })
 
 if (!databaseUrl) {
-  throw new Error('PHASE7_MIGRATION_DATABASE_URL is required.')
+  throw new Error('MIGRATION_DATABASE_URL is required.')
 }
 
 export default defineConfig({

@@ -21,13 +21,12 @@ import { createDashboardInsightsService } from './dashboardInsightsService.js'
 const DAY_MILLISECONDS = 86_400_000
 
 const environment = parseApiEnvironment(process.env)
-const adminDatabaseUrl = process.env.PHASE7_ADMIN_DATABASE_URL
+const adminDatabaseUrl = process.env.ADMIN_DATABASE_URL
 if (!adminDatabaseUrl) {
-  throw new Error('Integration requires the Phase 7 admin test URL.')
+  throw new Error('Integration requires the admin test URL.')
 }
-const authGatewayDatabaseUrl =
-  process.env.PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL
-if (!authGatewayDatabaseUrl) {
+const appFixtureDatabaseUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
+if (!appFixtureDatabaseUrl) {
   throw new Error('Integration requires the auth-gateway test URL.')
 }
 assertSafeTestDatabase({
@@ -42,7 +41,7 @@ const database = createRoleDatabaseRuntime(
 )
 const adminDatabase = createDatabaseRuntime(adminDatabaseUrl)
 const authGatewayDatabase = createRoleDatabaseRuntime(
-  authGatewayDatabaseUrl,
+  appFixtureDatabaseUrl,
   'nihongo_app'
 )
 const sessionRepository = createPrismaStudySessionRepository(database.client)
@@ -50,7 +49,7 @@ const submissionRepository = createPrismaStudySubmissionRepository(
   database.client
 )
 const insightsService = createDashboardInsightsService(
-  createPrismaDashboardInsightsRepository(database.client, 'PHASE7')
+  createPrismaDashboardInsightsRepository(database.client)
 )
 
 interface SubmittedFixture {
@@ -70,8 +69,8 @@ const createUser = async (
         "id", "name", "email", "emailVerified", "role", "targetLevel",
         "accountStatus", "createdAt", "updatedAt"
       ) VALUES (
-        ${userId}::uuid, ${`Phase 8 ${label}`},
-        ${`phase8-${label}-${randomUUID()}@example.test`}, true, 'USER', 'N5',
+        ${userId}::uuid, ${`${label}`},
+        ${`test-${label}-${randomUUID()}@example.test`}, true, 'USER', 'N5',
         'ACTIVE', ${now}, ${now}
       )
     `
@@ -81,11 +80,11 @@ const createUser = async (
         "createdAt", "updatedAt"
       ) VALUES (
         ${accountId}, ${userId}, 'credential', ${userId}::uuid,
-        'phase8-integration-password-hash', ${now}, ${now}
+        'test-integration-password-hash', ${now}, ${now}
       )
     `
   })
-  const sessionToken = `phase8-insights-${label}-${randomUUID()}`
+  const sessionToken = `test-insights-${label}-${randomUUID()}`
   const sessionId = randomUUID()
   await issueOwnedSession(database.client, {
     userId,
@@ -95,7 +94,7 @@ const createUser = async (
     sessionId,
     token: sessionToken,
     ipAddress: '127.0.0.1',
-    userAgent: 'phase8-dashboard-insights',
+    userAgent: 'test-dashboard-insights',
     remember: false
   })
   return { sessionToken, userId }
@@ -286,7 +285,6 @@ describe.sequential('Dashboard insights PostgreSQL projection', () => {
     const before = await readOwnedBusinessSnapshot(ownerUserId)
     const response = getDashboardInsightsResponseSchema.parse(
       await insightsService.getDashboardInsights({
-        kind: 'PHASE7',
         sessionToken: ownerSessionToken,
         userId: ownerUserId
       })
@@ -383,7 +381,6 @@ describe.sequential('Dashboard insights PostgreSQL projection', () => {
     ).toEqual(rawTags)
 
     const foreign = await insightsService.getDashboardInsights({
-      kind: 'PHASE7',
       sessionToken: foreignSessionToken,
       userId: foreignUserId
     })
@@ -401,7 +398,6 @@ describe.sequential('Dashboard insights PostgreSQL projection', () => {
       }
     })
     const before = await insightsService.getDashboardInsights({
-      kind: 'PHASE7',
       sessionToken: ownerSessionToken,
       userId: ownerUserId
     })
@@ -421,7 +417,6 @@ describe.sequential('Dashboard insights PostgreSQL projection', () => {
         })
       })
       const archived = await insightsService.getDashboardInsights({
-        kind: 'PHASE7',
         sessionToken: ownerSessionToken,
         userId: ownerUserId
       })

@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs'
 import { createHash, randomUUID } from 'node:crypto'
 import {
   expectedBaselineCatalog,
+  forwardFunctionSources,
+  withoutForwardChanges,
   withoutLegacyBranchSources
 } from './fixtures/baseline/baselineDelta.js'
 import {
@@ -42,7 +44,10 @@ import {
 import { attestRuntimeRoles } from './runtimeRoleAttestation.js'
 
 // #504 P8-1: one baseline replaces the 76 migrations.
-const EXPECTED_MIGRATIONS = ['20261105090000_baseline'] as const
+const EXPECTED_MIGRATIONS = [
+  '20261105090000_baseline',
+  '20261106090000_remove_phase_names'
+] as const
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',
   'LEVEL',
@@ -69,7 +74,7 @@ assertSafeAdminCmsDatabase({
 })
 
 const schema = getPostgresSchema(environment.DATABASE_URL)
-const adminDatabaseUrl = process.env.PHASE7_ADMIN_DATABASE_URL
+const adminDatabaseUrl = process.env.ADMIN_DATABASE_URL
 if (!adminDatabaseUrl) {
   throw new Error('Admin integration database URL is required.')
 }
@@ -186,7 +191,7 @@ const withExecutionRole = async <Result>(
   diagnoseInitialization = false
 ): Promise<Result> => {
   if (!ALLOWED_EXECUTION_ROLES.includes(role)) {
-    throw new Error(`Unexpected Phase 7 execution role: ${role}`)
+    throw new Error(`Unexpected execution role: ${role}`)
   }
   const observe = <Value>(
     stage: FoundationStage,
@@ -262,7 +267,7 @@ const beginAdminOperation = async (
     input.referencedUserIds
   ])
   const operation = begun.rows[0]
-  if (!operation) throw new Error('Phase 7 operation was not created.')
+  if (!operation) throw new Error('Operation was not created.')
   // The arm step runs in the API since #504 P4 (adminOperationArm.ts).
   const occurredAt = await armInTest(
     databaseClient,
@@ -315,7 +320,7 @@ const insertCredentialUser = async (input: {
         "id", "name", "email", "emailVerified", "role",
         "accountStatus", "createdAt", "updatedAt"
       ) VALUES ($1, 'DB integration', $2, true, $3, 'ACTIVE', $4, $4)`,
-      [input.id, `phase7-${randomUUID()}@example.test`, input.role, now]
+      [input.id, `test-${randomUUID()}@example.test`, input.role, now]
     )
     await client.query(
       `INSERT INTO "Account" (
@@ -339,7 +344,7 @@ const insertGoogleFixtureAccount = async (userId: string): Promise<void> => {
     `INSERT INTO "Account" (
       "id", "accountId", "providerId", "userId", "createdAt", "updatedAt"
     ) VALUES ($1, $2, 'google', $3, clock_timestamp(), clock_timestamp())`,
-    [randomUUID(), `phase7-foundation-${randomUUID()}`, userId]
+    [randomUUID(), `test-foundation-${randomUUID()}`, userId]
   )
 }
 
@@ -347,11 +352,11 @@ const completeAdminSsoFresh = async (
   userId: string,
   oldToken: string
 ): Promise<string> => {
-  const token = `phase7-foundation-fresh-${randomUUID()}`
+  const token = `test-foundation-fresh-${randomUUID()}`
   await withExecutionRole('nihongo_app', async () => {
     const prepared = await ownedSessionSql(
       client,
-      `SELECT "phase7_prepare_sso_admin_fresh"($1, 'google') AS context`,
+      `SELECT "prepare_sso_admin_fresh"($1, 'google') AS context`,
       [oldToken]
     )
     const context = adminFreshContextSchema.parse(prepared.rows[0]?.context)
@@ -359,7 +364,7 @@ const completeAdminSsoFresh = async (
     const proof = createHash('sha256').update(randomUUID()).digest('hex')
     const staged = await ownedSessionSql(
       client,
-      `SELECT "phase7_stage_sso_admin_fresh_proof"(
+      `SELECT "stage_sso_admin_fresh_proof"(
         $1::jsonb, 'google', $2, $3, '/admin/questions'
       ) AS accepted`,
       [JSON.stringify(context), context.accountId, proof]
@@ -368,15 +373,8 @@ const completeAdminSsoFresh = async (
     const sessionId = randomUUID()
     const completed = await ownedSessionSql(
       client,
-      `SELECT * FROM "phase7_complete_sso_admin_fresh"($1, $2, $3, $4, $5, $6)`,
-      [
-        proof,
-        oldToken,
-        sessionId,
-        token,
-        '127.0.0.1',
-        'phase7-foundation-fresh'
-      ]
+      `SELECT * FROM "complete_sso_admin_fresh"($1, $2, $3, $4, $5, $6)`,
+      [proof, oldToken, sessionId, token, '127.0.0.1', 'test-foundation-fresh']
     )
     expect(completed.rowCount).toBe(1)
     expect(completed.rows[0]).toMatchObject({ id: sessionId, userId })
@@ -384,7 +382,7 @@ const completeAdminSsoFresh = async (
   await withExecutionRole('nihongo_app', async () => {
     const fresh = await ownedSessionSql(
       client,
-      `SELECT "phase7_sso_admin_session_is_fresh"($1) AS fresh`,
+      `SELECT "sso_admin_session_is_fresh"($1) AS fresh`,
       [token]
     )
     expect(fresh.rows).toEqual([{ fresh: true }])
@@ -494,8 +492,39 @@ describe('Persistence foundation', () => {
       )
     ) as SchemaCatalog
     const actual = await readSchemaCatalog(client, schema)
-    expect(withoutLegacyBranchSources(actual)).toEqual(
-      withoutLegacyBranchSources(expectedBaselineCatalog(snapshot))
+    expect(withoutLegacyBranchSources(withoutForwardChanges(actual))).toEqual(
+      withoutLegacyBranchSources(
+        withoutForwardChanges(expectedBaselineCatalog(snapshot))
+      )
+    )
+  })
+  // #504 P8-2: the forward migration renames one enum label and changes only
+  // the listed strings of the replaced function bodies.
+  it('phase 이름 제거 migration은 enum label 하나와 지정 문자열만 바꾼다', async () => {
+    if (!schema) throw new Error('Integration schema is unavailable.')
+    const baselineSql = readFileSync(
+      new URL(
+        '../../prisma/migrations/20261105090000_baseline/migration.sql',
+        import.meta.url
+      ),
+      'utf8'
+    )
+    const expected = forwardFunctionSources(baselineSql)
+    const actual = await readSchemaCatalog(client, schema)
+    expect(
+      Object.fromEntries(
+        actual.functions
+          .filter(({ name }) => String(name) in expected)
+          .map(({ name, source }) => [String(name), source])
+      )
+    ).toEqual(expected)
+    expect(
+      actual.types.find(
+        ({ name }) => name === 'AuthSessionIssuerProtocolVersion'
+      )?.labels
+    ).toEqual(['LEGACY', 'OWNED_V1'])
+    expect(JSON.stringify(actual)).not.toMatch(
+      /phase ?7|nihongo_auth_gateway/iu
     )
   })
   it('baseline fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
@@ -568,7 +597,7 @@ describe('Persistence foundation', () => {
              ON owner_role.oid = procedure_record.proowner
            WHERE namespace_record.nspname = current_schema()
              AND procedure_record.proname =
-               'phase7_verify_operation_manifest'
+               'verify_operation_manifest'
              AND procedure_record.proargtypes = '2950'::oidvector`
         )
       ).rows
@@ -584,7 +613,7 @@ describe('Persistence foundation', () => {
              WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`
           )
         ).rows
-      ).toEqual([{ migrationCount: 1 }])
+      ).toEqual([{ migrationCount: EXPECTED_MIGRATIONS.length }])
     } finally {
       await client.query('ROLLBACK')
     }
@@ -917,7 +946,7 @@ describe('Persistence foundation', () => {
     await expectFailedTransaction(async () => {
       await client.query(`SET LOCAL ROLE "nihongo_app"`)
       await client.query(
-        `CREATE FUNCTION "phase7_app_spoof_function"()
+        `CREATE FUNCTION "app_spoof_function"()
          RETURNS INTEGER LANGUAGE SQL AS $body$ SELECT 1 $body$`
       )
     }, '42501')
@@ -929,7 +958,7 @@ describe('Persistence foundation', () => {
            JOIN pg_namespace AS namespace
              ON namespace.oid = procedure_record.pronamespace
            WHERE namespace.nspname = current_schema()
-             AND procedure_record.proname = 'phase7_app_spoof_function'`
+             AND procedure_record.proname = 'app_spoof_function'`
         )
       ).rows
     ).toEqual([{ functionCount: 0 }])
@@ -1276,7 +1305,7 @@ describe('Persistence foundation', () => {
 
   it('hard delete, published mutation, incomplete content commit을 raw SQL에서도 거부한다', async () => {
     const seed = buildAllQuestionSeeds()[0]
-    if (!seed) throw new Error('Canonical Phase 6 seed fixture is unavailable.')
+    if (!seed) throw new Error('Canonical seed fixture is unavailable.')
 
     await expectFailedTransaction(async () => {
       await client.query('DELETE FROM "QuestionVersion" WHERE "id" = $1', [
@@ -1302,8 +1331,8 @@ describe('Persistence foundation', () => {
     const reviewerId = randomUUID()
     const authorSessionId = randomUUID()
     const reviewerSessionId = randomUUID()
-    let authorSessionToken = `phase7-seed-v2-author-${randomUUID()}`
-    let reviewerSessionToken = `phase7-seed-v2-reviewer-${randomUUID()}`
+    let authorSessionToken = `test-seed-v2-author-${randomUUID()}`
+    let reviewerSessionToken = `test-seed-v2-reviewer-${randomUUID()}`
     const versionId = randomUUID()
     const optionIds = Array.from({ length: 4 }, () => randomUUID())
     if (!optionIds[0]) {
@@ -1316,9 +1345,9 @@ describe('Persistence foundation', () => {
     await withExecutionRole('nihongo_app', () =>
       ownedSessionSql(
         client,
-        `SELECT * FROM "phase7_issue_v1_session"(
+        `SELECT * FROM "issue_v1_session"(
           $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
-          '127.0.0.1', 'phase7-seed-v2-author', false
+          '127.0.0.1', 'test-seed-v2-author', false
         )`,
         [authorId, authorSessionId, authorSessionToken]
       )
@@ -1326,9 +1355,9 @@ describe('Persistence foundation', () => {
     await withExecutionRole('nihongo_app', () =>
       ownedSessionSql(
         client,
-        `SELECT * FROM "phase7_issue_v1_session"(
+        `SELECT * FROM "issue_v1_session"(
           $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
-          '127.0.0.1', 'phase7-seed-v2-reviewer', false
+          '127.0.0.1', 'test-seed-v2-reviewer', false
         )`,
         [reviewerId, reviewerSessionId, reviewerSessionToken]
       )
@@ -1360,7 +1389,7 @@ describe('Persistence foundation', () => {
           $3, $3, 'ADMIN', 'ACTIVE_ADMIN', $4::TEXT, $5::TEXT, $6, $7,
           $8::jsonb,
           '{"kind":"NONE_V1"}'::jsonb,
-          pg_temp."phase7_admin_audit_content_digest"(
+          pg_temp."admin_audit_content_digest"(
             $9, $1::"AdminAuditCommand", 'QUESTION_VERSION', $2,
             $4::TEXT, $5::TEXT, $6, $7, $8::jsonb,
             '{"kind":"NONE_V1"}'::jsonb
@@ -1817,9 +1846,7 @@ describe('Persistence foundation', () => {
     })
     for (const actorId of [authorId, reviewerId]) {
       await withExecutionRole('nihongo_app', () =>
-        bridgedQuery(client, `SELECT "phase7_erase_user"($1, 'TEST')`, [
-          actorId
-        ])
+        bridgedQuery(client, `SELECT "erase_user"($1, 'TEST')`, [actorId])
       )
     }
   }, 60_000)
@@ -1829,8 +1856,8 @@ describe('Persistence foundation', () => {
     const secondActorId = randomUUID()
     const firstSessionId = randomUUID()
     const secondSessionId = randomUUID()
-    let firstSessionToken = `phase7-tag-first-${randomUUID()}`
-    let secondSessionToken = `phase7-tag-second-${randomUUID()}`
+    let firstSessionToken = `test-tag-first-${randomUUID()}`
+    let secondSessionToken = `test-tag-second-${randomUUID()}`
     await insertCredentialUser({ id: firstActorId, role: 'ADMIN' })
     await insertCredentialUser({ id: secondActorId, role: 'ADMIN' })
     await insertGoogleFixtureAccount(firstActorId)
@@ -1838,9 +1865,9 @@ describe('Persistence foundation', () => {
     await withExecutionRole('nihongo_app', () =>
       ownedSessionSql(
         client,
-        `SELECT * FROM "phase7_issue_v1_session"(
+        `SELECT * FROM "issue_v1_session"(
           $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
-          '127.0.0.1', 'phase7-tag-first', false
+          '127.0.0.1', 'test-tag-first', false
         )`,
         [firstActorId, firstSessionId, firstSessionToken]
       )
@@ -1848,9 +1875,9 @@ describe('Persistence foundation', () => {
     await withExecutionRole('nihongo_app', () =>
       ownedSessionSql(
         client,
-        `SELECT * FROM "phase7_issue_v1_session"(
+        `SELECT * FROM "issue_v1_session"(
           $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
-          '127.0.0.1', 'phase7-tag-second', false
+          '127.0.0.1', 'test-tag-second', false
         )`,
         [secondActorId, secondSessionId, secondSessionToken]
       )
@@ -1997,7 +2024,7 @@ describe('Persistence foundation', () => {
           'QUESTION_CREATE', 'QUESTION', $1, 'ACCOUNT', $2, $2, 'ADMIN',
           'ACTIVE_ADMIN', NULL, 'ACTIVE', NULL, 1, $3::jsonb,
           '{"kind":"NONE_V1"}'::jsonb,
-          pg_temp."phase7_admin_audit_content_digest"(
+          pg_temp."admin_audit_content_digest"(
             $4, 'QUESTION_CREATE', 'QUESTION', $1, NULL, 'ACTIVE',
             NULL, 1, $3::jsonb, '{"kind":"NONE_V1"}'::jsonb
           ), $4, $5, 'TEST', $6
@@ -2379,7 +2406,7 @@ describe('Persistence foundation', () => {
           $2, $2, 'ADMIN', 'ACTIVE_ADMIN', $3::TEXT, $4::TEXT, $5, $6,
           $7::jsonb,
           '{"kind":"NONE_V1"}'::jsonb,
-          pg_temp."phase7_admin_audit_content_digest"(
+          pg_temp."admin_audit_content_digest"(
             $8, 'QUESTION_VERSION_UPDATE', 'QUESTION_VERSION', $1,
             $3::TEXT, $4::TEXT, $5, $6, $7::jsonb,
             '{"kind":"NONE_V1"}'::jsonb
@@ -2533,7 +2560,7 @@ describe('Persistence foundation', () => {
           $3, $3, 'ADMIN', 'ACTIVE_ADMIN', $4::TEXT, $5::TEXT, $6, $7,
           $8::jsonb,
           '{"kind":"NONE_V1"}'::jsonb,
-          pg_temp."phase7_admin_audit_content_digest"(
+          pg_temp."admin_audit_content_digest"(
             $9, $1::"AdminAuditCommand", 'QUESTION_VERSION', $2,
             $4::TEXT, $5::TEXT, $6, $7, $8::jsonb,
             '{"kind":"NONE_V1"}'::jsonb
@@ -2834,7 +2861,7 @@ describe('Persistence foundation', () => {
           'QUESTION_ARCHIVE', 'QUESTION', $1, 'ACCOUNT', $2, $2,
           'ADMIN', 'ACTIVE_ADMIN', 'ACTIVE', 'ARCHIVED', 1, 2,
           '["LIFECYCLE_STATUS","VERSION_STATUS"]'::jsonb, $3::jsonb,
-          pg_temp."phase7_admin_audit_content_digest"(
+          pg_temp."admin_audit_content_digest"(
             $4, 'QUESTION_ARCHIVE', 'QUESTION', $1,
             'ACTIVE', 'ARCHIVED', 1, 2,
             '["LIFECYCLE_STATUS","VERSION_STATUS"]'::jsonb, $3::jsonb
@@ -2856,13 +2883,13 @@ describe('Persistence foundation', () => {
       throw error
     }
 
-    let freshFirstSessionToken = `phase7-tag-authority-${randomUUID()}`
+    let freshFirstSessionToken = `test-tag-authority-${randomUUID()}`
     await withExecutionRole('nihongo_app', () =>
       ownedSessionSql(
         client,
-        `SELECT * FROM "phase7_issue_v1_session"(
+        `SELECT * FROM "issue_v1_session"(
           $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
-          '127.0.0.1', 'phase7-tag-authority', false
+          '127.0.0.1', 'test-tag-authority', false
         )`,
         [firstActorId, randomUUID(), freshFirstSessionToken]
       )
@@ -2909,7 +2936,7 @@ describe('Persistence foundation', () => {
       })
       authorityChange = bridgedQuery(
         authorityClient,
-        `SELECT "phase7_change_user_authority"(
+        `SELECT "change_user_authority"(
           $1, $2, 1, 'USER', 'ACTIVE', 'TEST'
         ) AS "newGeneration"`,
         [freshFirstSessionToken, secondActorId]
@@ -3029,7 +3056,7 @@ describe('Persistence foundation', () => {
           'ADMIN', 'ACTIVE_ADMIN', 'APPROVED', 'PUBLISHED', 4, 5,
           '["VERSION_STATUS","CURRENT_PUBLISHED_VERSION_ID"]'::jsonb,
           '{"kind":"NONE_V1"}'::jsonb,
-          pg_temp."phase7_admin_audit_content_digest"(
+          pg_temp."admin_audit_content_digest"(
             $3, 'PUBLICATION', 'QUESTION_VERSION', $1,
             'APPROVED', 'PUBLISHED', 4, 5,
             '["VERSION_STATUS","CURRENT_PUBLISHED_VERSION_ID"]'::jsonb,
@@ -3105,16 +3132,14 @@ describe('Persistence foundation', () => {
 
     for (const actorId of [firstActorId, secondActorId]) {
       await withExecutionRole('nihongo_app', () =>
-        bridgedQuery(client, `SELECT "phase7_erase_user"($1, 'TEST')`, [
-          actorId
-        ])
+        bridgedQuery(client, `SELECT "erase_user"($1, 'TEST')`, [actorId])
       )
     }
   }, 90_000)
 
   it('admin command별 isolation matrix와 실패 write 0을 고정한다', async () => {
     const sessionId = randomUUID()
-    let sessionToken = `phase7-repeatable-read-${randomUUID()}`
+    let sessionToken = `test-repeatable-read-${randomUUID()}`
     const requestIds: string[] = []
     await insertCredentialUser({ id: repeatableReadActorId, role: 'ADMIN' })
     await insertGoogleFixtureAccount(repeatableReadActorId)
@@ -3122,9 +3147,9 @@ describe('Persistence foundation', () => {
       withExecutionRole('nihongo_app', () =>
         ownedSessionSql(
           client,
-          `SELECT * FROM "phase7_issue_v1_session"(
+          `SELECT * FROM "issue_v1_session"(
             $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
-            '127.0.0.1', 'phase7-repeatable-read', false
+            '127.0.0.1', 'test-repeatable-read', false
           )`,
           [repeatableReadActorId, sessionId, sessionToken]
         )
@@ -3344,7 +3369,7 @@ describe('Persistence foundation', () => {
         )
         SELECT fixture.id, $1, fixture.ordinality::int,
           'RETIRED', 'N5', 'VOCABULARY', 'KANJI_READING',
-          'Phase 7 513-version EXPORT ' || fixture.ordinality,
+          '513-version EXPORT ' || fixture.ordinality,
           '00000000-0000-0000-0000-000000000000'::uuid,
           '513-version export manifest fixture', 'EASY', repeat('0', 64),
           'SYSTEM_SEED', 'QUESTION_ARCHIVE_ABANDONED', clock_timestamp(),
@@ -3362,7 +3387,7 @@ describe('Persistence foundation', () => {
       ])
       const exportOperation = begun.rows[0]
       if (!exportOperation) {
-        throw new Error('Phase 7 513-version EXPORT operation is unavailable.')
+        throw new Error('513-version EXPORT operation is unavailable.')
       }
       const exportManifest = {
         questions: [{ id: exportQuestionId, rowVersion: 1, state: 'ACTIVE' }],
@@ -3402,7 +3427,7 @@ describe('Persistence foundation', () => {
         )
         SELECT fixture.id,
           'Import Tag ' || fixture.ordinality,
-          'phase7-import-' || replace(fixture.id::text, '-', ''),
+          'test-import-' || replace(fixture.id::text, '-', ''),
           clock_timestamp(), clock_timestamp()
         FROM unnest($1::uuid[]) WITH ORDINALITY AS fixture(id, ordinality)`,
         [importTagIds]
@@ -3416,7 +3441,7 @@ describe('Persistence foundation', () => {
       ])
       const importOperation = begun.rows[0]
       if (!importOperation) {
-        throw new Error('Phase 7 257-Tag IMPORT operation is unavailable.')
+        throw new Error('257-Tag IMPORT operation is unavailable.')
       }
       await expect(
         armInTest(
@@ -3451,11 +3476,9 @@ describe('Persistence foundation', () => {
     ).toEqual([{ auditCount: 0, intentCount: 0 }])
     await expect(
       withExecutionRole('nihongo_app', () =>
-        bridgedQuery(
-          client,
-          `SELECT "phase7_erase_user"($1, 'TEST') AS erased`,
-          [repeatableReadActorId]
-        )
+        bridgedQuery(client, `SELECT "erase_user"($1, 'TEST') AS erased`, [
+          repeatableReadActorId
+        ])
       )
     ).resolves.toMatchObject({ rows: [{ erased: true }] })
   })
@@ -3466,30 +3489,30 @@ describe('Persistence foundation', () => {
     const versionId = randomUUID()
     const optionIds = Array.from({ length: 4 }, () => randomUUID())
     const sessionId = randomUUID()
-    const sessionToken = `phase7-session-${randomUUID()}`
+    const sessionToken = `test-session-${randomUUID()}`
     let operationSessionId: string = randomUUID()
-    let operationSessionToken = `phase7-operation-${randomUUID()}`
+    let operationSessionToken = `test-operation-${randomUUID()}`
     const wrongAuthorId = randomUUID()
     const wrongAuthorSessionId = randomUUID()
-    const wrongAuthorSessionToken = `phase7-wrong-author-${randomUUID()}`
+    const wrongAuthorSessionToken = `test-wrong-author-${randomUUID()}`
     const spoofSessionId = randomUUID()
-    const spoofSessionToken = `phase7-spoof-${randomUUID()}`
+    const spoofSessionToken = `test-spoof-${randomUUID()}`
     const wrongRoleSessionId = randomUUID()
-    const wrongRoleSessionToken = `phase7-wrong-role-${randomUUID()}`
+    const wrongRoleSessionToken = `test-wrong-role-${randomUUID()}`
     await insertCredentialUser({ id: actorId, role: 'ADMIN' })
     await insertGoogleFixtureAccount(actorId)
     await insertCredentialUser({ id: wrongAuthorId, role: 'ADMIN' })
 
     await expectFailedTransaction(async () => {
-      await client.query(`SET LOCAL app.phase7_auth_issue = 'on'`)
-      await client.query(`SET LOCAL app.phase7_auth_remember = 'true'`)
+      await client.query(`SET LOCAL app.auth_issue = 'on'`)
+      await client.query(`SET LOCAL app.auth_remember = 'true'`)
       await client.query(
         `INSERT INTO "Session" (
             "id", "expiresAt", "token", "createdAt", "updatedAt",
             "userId", "authorityGeneration", "issuerProtocolVersion"
           ) VALUES (
             $1, clock_timestamp() + INTERVAL '1 day', $2,
-            clock_timestamp(), clock_timestamp(), $3, 1, 'PHASE7_V1'
+            clock_timestamp(), clock_timestamp(), $3, 1, 'OWNED_V1'
           )`,
         [spoofSessionId, spoofSessionToken, actorId]
       )
@@ -3503,7 +3526,7 @@ describe('Persistence foundation', () => {
           `SELECT
             (SELECT COUNT(*)::int FROM "Session"
               WHERE "id" = $1 OR "token" = $2) AS "sessionCount",
-            0 /* #504 P7 PR5b dropped Phase7TrustedExecution */
+            0 /* #504 P7 PR5b dropped TrustedExecution */
               AS "trustedExecutionCount"`,
           [spoofSessionId, spoofSessionToken]
         )
@@ -3522,10 +3545,10 @@ describe('Persistence foundation', () => {
     const issued = await withExecutionRole('nihongo_app', () =>
       ownedSessionSql(
         client,
-        `SELECT * FROM "phase7_issue_v1_session"(
+        `SELECT * FROM "issue_v1_session"(
           $1, 1, 'ADMIN', 'ACTIVE', $2, $3, $4, $5, true
         )`,
-        [actorId, sessionId, sessionToken, '127.0.0.1', 'phase7-integration']
+        [actorId, sessionId, sessionToken, '127.0.0.1', 'test-integration']
       )
     )
     expect(issued.rows).toHaveLength(1)
@@ -3538,11 +3561,9 @@ describe('Persistence foundation', () => {
     ).toBe(7 * 24 * 60 * 60 * 1_000)
     await expect(
       withExecutionRole('nihongo_app', () =>
-        ownedSessionSql(
-          client,
-          `SELECT "phase7_owned_sign_out"($1) AS signed_out`,
-          [sessionToken]
-        )
+        ownedSessionSql(client, `SELECT "owned_sign_out"($1) AS signed_out`, [
+          sessionToken
+        ])
       )
     ).resolves.toMatchObject({ rows: [{ signed_out: true }] })
 
@@ -3554,9 +3575,9 @@ describe('Persistence foundation', () => {
     const operationSession = await withExecutionRole('nihongo_app', () =>
       ownedSessionSql(
         client,
-        `SELECT * FROM "phase7_issue_v1_session"(
+        `SELECT * FROM "issue_v1_session"(
             $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
-            '127.0.0.1', 'phase7-operation', false
+            '127.0.0.1', 'test-operation', false
           )`,
         [actorId, operationSessionId, operationSessionToken]
       )
@@ -3568,9 +3589,9 @@ describe('Persistence foundation', () => {
       withExecutionRole('nihongo_app', () =>
         ownedSessionSql(
           client,
-          `SELECT * FROM "phase7_issue_v1_session"(
+          `SELECT * FROM "issue_v1_session"(
             $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
-            '127.0.0.1', 'phase7-wrong-author', false
+            '127.0.0.1', 'test-wrong-author', false
           )`,
           [wrongAuthorId, wrongAuthorSessionId, wrongAuthorSessionToken]
         )
@@ -3685,7 +3706,7 @@ describe('Persistence foundation', () => {
           'QUESTION_CREATE', 'QUESTION', $1, 'ACCOUNT', $2, $2, 'ADMIN',
           'ACTIVE_ADMIN', NULL, 'ACTIVE', NULL, 1, $3::jsonb,
           '{"kind":"NONE_V1"}'::jsonb,
-          pg_temp."phase7_admin_audit_content_digest"(
+          pg_temp."admin_audit_content_digest"(
             $4, 'QUESTION_CREATE', 'QUESTION', $1, NULL, 'ACTIVE',
             NULL, 1, $3::jsonb, '{"kind":"NONE_V1"}'::jsonb
           ), $4, $5,
@@ -3735,7 +3756,7 @@ describe('Persistence foundation', () => {
       await client.query(`SET LOCAL ROLE "nihongo_app"`)
       await bridgedQuery(
         client,
-        `SELECT * FROM "phase7_create_question_report"(
+        `SELECT * FROM "create_question_report"(
           $1, $2, $3, $4, 'TYPO_OR_GRAMMAR', $5
         )`,
         [
@@ -3762,7 +3783,7 @@ describe('Persistence foundation', () => {
       withExecutionRole('nihongo_app', () =>
         bridgedQuery(
           client,
-          `SELECT * FROM "phase7_create_question_report"(
+          `SELECT * FROM "create_question_report"(
             $1, $2, $3, $4, 'TYPO_OR_GRAMMAR', $5
           )`,
           [
@@ -3777,15 +3798,15 @@ describe('Persistence foundation', () => {
     ).resolves.toMatchObject({ rows: [{ id: reportId, rowVersion: 1 }] })
 
     const delayedReportSessionId = randomUUID()
-    const delayedReportSessionToken = `phase7-delayed-report-${randomUUID()}`
+    const delayedReportSessionToken = `test-delayed-report-${randomUUID()}`
     const delayedReportId = randomUUID()
     await expect(
       withExecutionRole('nihongo_app', () =>
         ownedSessionSql(
           client,
-          `SELECT * FROM "phase7_issue_v1_session"(
+          `SELECT * FROM "issue_v1_session"(
             $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
-            '127.0.0.1', 'phase7-delayed-report', false
+            '127.0.0.1', 'test-delayed-report', false
           )`,
           [wrongAuthorId, delayedReportSessionId, delayedReportSessionToken]
         )
@@ -3827,7 +3848,7 @@ describe('Persistence foundation', () => {
       await delayedClient.query(`SET ROLE "nihongo_app"`)
       delayedReportPromise = bridgedQuery(
         delayedClient,
-        `SELECT * FROM "phase7_create_question_report"(
+        `SELECT * FROM "create_question_report"(
           $1, $2, $3, $4, 'TYPO_OR_GRAMMAR', $5
         )`,
         [
@@ -3873,7 +3894,7 @@ describe('Persistence foundation', () => {
           `SELECT
             (SELECT COUNT(*)::int FROM "QuestionReport" WHERE "id" = $1)
               AS "reportCount",
-            0 /* #504 P7 PR5b dropped Phase7TrustedExecution */
+            0 /* #504 P7 PR5b dropped TrustedExecution */
               AS "trustedExecutionCount"`,
           [delayedReportId]
         )
@@ -3882,11 +3903,9 @@ describe('Persistence foundation', () => {
 
     await expect(
       withExecutionRole('nihongo_app', () =>
-        bridgedQuery(
-          client,
-          `SELECT "phase7_erase_user"($1, 'TEST') AS erased`,
-          [wrongAuthorId]
-        )
+        bridgedQuery(client, `SELECT "erase_user"($1, 'TEST') AS erased`, [
+          wrongAuthorId
+        ])
       )
     ).resolves.toMatchObject({ rows: [{ erased: true }] })
 
@@ -3894,13 +3913,13 @@ describe('Persistence foundation', () => {
     // dropped QuestionVersion trigger; the API never writes it (#504 P4).
 
     await expectFailedTransaction(async () => {
-      await client.query(`SET LOCAL app.phase7_erasure_mode = 'on'`)
+      await client.query(`SET LOCAL app.erasure_mode = 'on'`)
       await client.query('DELETE FROM "User" WHERE "id" = $1', [actorId])
     }, '42501')
     // #504 P7 PR4a: a role other than nihongo_app cannot write the erasure
     // tombstones; the evidence trigger refuses the first one.
     await expect(
-      bridgedQuery(client, `SELECT "phase7_erase_user"($1, 'TEST')`, [actorId])
+      bridgedQuery(client, `SELECT "erase_user"($1, 'TEST')`, [actorId])
     ).rejects.toMatchObject({ code: '23514' })
     expect(
       (
@@ -3914,7 +3933,7 @@ describe('Persistence foundation', () => {
               AS "userCount",
             (SELECT COUNT(*)::int FROM "OperationIntent")
               AS "operationIntentCount",
-            0 /* #504 P7 PR5b dropped Phase7TrustedExecution */
+            0 /* #504 P7 PR5b dropped TrustedExecution */
               AS "trustedExecutionCount"`,
           [actorId]
         )
@@ -3924,11 +3943,9 @@ describe('Persistence foundation', () => {
     ])
     await expect(
       withExecutionRole('nihongo_app', () =>
-        bridgedQuery(
-          client,
-          `SELECT "phase7_erase_user"($1, 'TEST') AS erased`,
-          [actorId]
-        )
+        bridgedQuery(client, `SELECT "erase_user"($1, 'TEST') AS erased`, [
+          actorId
+        ])
       )
     ).resolves.toMatchObject({ rows: [{ erased: true }] })
     const erased = await client.query<{
@@ -3958,7 +3975,7 @@ describe('Persistence foundation', () => {
         (SELECT COUNT(*)::int FROM "User" WHERE "id" = $1) AS "userCount",
         (SELECT COUNT(*)::int FROM "OperationIntent")
           AS "operationIntentCount",
-        0 /* #504 P7 PR5b dropped Phase7TrustedExecution */
+        0 /* #504 P7 PR5b dropped TrustedExecution */
           AS "trustedExecutionCount",
         (SELECT COUNT(*)::int FROM "ContentReview"
           WHERE "questionVersionId" = $3
@@ -4028,7 +4045,7 @@ describe('Persistence foundation', () => {
     const actorId = randomUUID()
     const injectedAssigneeId = randomUUID()
     const sessionId = randomUUID()
-    let sessionToken = `phase7-report-triage-${randomUUID()}`
+    let sessionToken = `test-report-triage-${randomUUID()}`
     const reportId = randomUUID()
     const seed = buildAllQuestionSeeds()[0]
     if (!seed) throw new Error('Report triage target is unavailable.')
@@ -4038,9 +4055,9 @@ describe('Persistence foundation', () => {
     await withExecutionRole('nihongo_app', () =>
       ownedSessionSql(
         client,
-        `SELECT * FROM "phase7_issue_v1_session"(
+        `SELECT * FROM "issue_v1_session"(
           $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
-          '127.0.0.1', 'phase7-report-triage', false
+          '127.0.0.1', 'test-report-triage', false
         )`,
         [actorId, sessionId, sessionToken]
       )
@@ -4048,7 +4065,7 @@ describe('Persistence foundation', () => {
     await withExecutionRole('nihongo_app', () =>
       bridgedQuery(
         client,
-        `SELECT * FROM "phase7_create_question_report"(
+        `SELECT * FROM "create_question_report"(
           $1, $2, $3, $4, 'ANSWER_ERROR', $5
         )`,
         [
@@ -4094,7 +4111,7 @@ describe('Persistence foundation', () => {
       }
       erasurePromise = bridgedQuery(
         erasureClient,
-        `SELECT "phase7_erase_user"($1, 'TEST') AS erased`,
+        `SELECT "erase_user"($1, 'TEST') AS erased`,
         [injectedAssigneeId]
       )
       void erasurePromise.catch(() => undefined)
@@ -4202,7 +4219,7 @@ describe('Persistence foundation', () => {
           $2, $2, 'ADMIN', 'ACTIVE_ADMIN', 'OPEN', 'TRIAGED', 1, 2,
           '["ASSIGNEE","REPORT_STATUS"]'::jsonb,
           '{"kind":"NONE_V1"}'::jsonb,
-          pg_temp."phase7_admin_audit_content_digest"(
+          pg_temp."admin_audit_content_digest"(
             $3, 'REPORT_TRIAGE', 'QUESTION_REPORT', $1,
             'OPEN', 'TRIAGED', 1, 2,
             '["ASSIGNEE","REPORT_STATUS"]'::jsonb,
@@ -4285,7 +4302,7 @@ describe('Persistence foundation', () => {
           $2, $2, 'ADMIN', 'ACTIVE_ADMIN', 'TRIAGED', 'RESOLVED', 2, 3,
           '["RESOLUTION","REPORT_STATUS"]'::jsonb,
           '{"kind":"NONE_V1"}'::jsonb,
-          pg_temp."phase7_admin_audit_content_digest"(
+          pg_temp."admin_audit_content_digest"(
             $3, 'REPORT_RESOLUTION', 'QUESTION_REPORT', $1,
             'TRIAGED', 'RESOLVED', 2, 3,
             '["RESOLUTION","REPORT_STATUS"]'::jsonb,
@@ -4339,14 +4356,14 @@ describe('Persistence foundation', () => {
       }
     ])
     await withExecutionRole('nihongo_app', () =>
-      bridgedQuery(client, `SELECT "phase7_erase_user"($1, 'TEST')`, [actorId])
+      bridgedQuery(client, `SELECT "erase_user"($1, 'TEST')`, [actorId])
     )
   }, 60_000)
 
   it('180일 경과 terminal report description만 bounded worker facade로 redaction한다', async () => {
     const actorId = randomUUID()
     const sessionId = randomUUID()
-    const sessionToken = `phase7-report-redaction-${randomUUID()}`
+    const sessionToken = `test-report-redaction-${randomUUID()}`
     const matureReportId = randomUUID()
     const prematureReportId = randomUUID()
     const openReportId = randomUUID()
@@ -4425,9 +4442,9 @@ describe('Persistence foundation', () => {
     await withExecutionRole('nihongo_app', () =>
       ownedSessionSql(
         client,
-        `SELECT * FROM "phase7_issue_v1_session"(
+        `SELECT * FROM "issue_v1_session"(
           $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
-          '127.0.0.1', 'phase7-report-redaction', false
+          '127.0.0.1', 'test-report-redaction', false
         )`,
         [actorId, sessionId, sessionToken]
       )
@@ -4440,7 +4457,7 @@ describe('Persistence foundation', () => {
       await withExecutionRole('nihongo_app', () =>
         bridgedQuery(
           client,
-          `SELECT * FROM "phase7_create_question_report"(
+          `SELECT * FROM "create_question_report"(
             $1, $2, $3, $4, $5, $6
           )`,
           [
@@ -4521,7 +4538,7 @@ describe('Persistence foundation', () => {
       withExecutionRole('nihongo_app', () =>
         bridgedQuery(
           client,
-          `SELECT "phase7_redact_expired_report_descriptions"(0, 'TEST')`
+          `SELECT "redact_expired_report_descriptions"(0, 'TEST')`
         )
       )
     ).rejects.toMatchObject({ code: '22023' })
@@ -4530,7 +4547,7 @@ describe('Persistence foundation', () => {
       withExecutionRole('nihongo_app', () =>
         bridgedQuery(
           client,
-          `SELECT "phase7_redact_expired_report_descriptions"(
+          `SELECT "redact_expired_report_descriptions"(
             100, 'TEST'
           ) AS redacted`
         )
@@ -4540,7 +4557,7 @@ describe('Persistence foundation', () => {
       withExecutionRole('nihongo_app', () =>
         bridgedQuery(
           client,
-          `SELECT "phase7_redact_expired_report_descriptions"(
+          `SELECT "redact_expired_report_descriptions"(
             100, 'TEST'
           ) AS redacted`
         )
@@ -4565,7 +4582,7 @@ describe('Persistence foundation', () => {
          report."resolutionOutcome"::text, report."resolutionReason",
          report."remediationVersionId"::text, report."resolvedAt",
          report."rowVersion", report."updatedAt",
-         0 /* #504 P7 PR5b dropped Phase7TrustedExecution */
+         0 /* #504 P7 PR5b dropped TrustedExecution */
            AS "trustedExecutionCount"
        FROM "QuestionReport" AS report
        WHERE report."id" = ANY($1::uuid[]) ORDER BY report."id"`,
@@ -4595,14 +4612,14 @@ describe('Persistence foundation', () => {
       trustedExecutionCount: 0
     })
     await withExecutionRole('nihongo_app', () =>
-      bridgedQuery(client, `SELECT "phase7_erase_user"($1, 'TEST')`, [actorId])
+      bridgedQuery(client, `SELECT "erase_user"($1, 'TEST')`, [actorId])
     )
   }, 60_000)
 
   it('QUESTION_ARCHIVE는 모든 open candidate 상태를 exact abandonment evidence로 종료한다', async () => {
     const actorId = randomUUID()
     const sessionId = randomUUID()
-    let sessionToken = `phase7-archive-${randomUUID()}`
+    let sessionToken = `test-archive-${randomUUID()}`
     const tag = await client.query<{
       id: string
       label: string
@@ -4624,9 +4641,9 @@ describe('Persistence foundation', () => {
     await withExecutionRole('nihongo_app', () =>
       ownedSessionSql(
         client,
-        `SELECT * FROM "phase7_issue_v1_session"(
+        `SELECT * FROM "issue_v1_session"(
           $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
-          '127.0.0.1', 'phase7-archive', false
+          '127.0.0.1', 'test-archive', false
         )`,
         [actorId, sessionId, sessionToken]
       )
@@ -4741,7 +4758,7 @@ describe('Persistence foundation', () => {
             'QUESTION_CREATE', 'QUESTION', $1, 'ACCOUNT', $2, $2,
             'ADMIN', 'ACTIVE_ADMIN', NULL, 'ACTIVE', NULL, 1, $3::jsonb,
             '{"kind":"NONE_V1"}'::jsonb,
-            pg_temp."phase7_admin_audit_content_digest"(
+            pg_temp."admin_audit_content_digest"(
               $4, 'QUESTION_CREATE', 'QUESTION', $1, NULL, 'ACTIVE',
               NULL, 1, $3::jsonb, '{"kind":"NONE_V1"}'::jsonb
             ), $4, $5, 'TEST', $6
@@ -4987,7 +5004,7 @@ describe('Persistence foundation', () => {
           'QUESTION_ARCHIVE', 'QUESTION', $1, 'ACCOUNT', $2, $2,
           'ADMIN', 'ACTIVE_ADMIN', 'ACTIVE', 'ARCHIVED', 1, 2,
           '["LIFECYCLE_STATUS"]'::jsonb, $3::jsonb,
-          pg_temp."phase7_admin_audit_content_digest"(
+          pg_temp."admin_audit_content_digest"(
             $4, 'QUESTION_ARCHIVE', 'QUESTION', $1,
             'ACTIVE', 'ARCHIVED', 1, 2,
             '["LIFECYCLE_STATUS"]'::jsonb, $3::jsonb
@@ -5036,7 +5053,7 @@ describe('Persistence foundation', () => {
              version."status"::text AS "versionStatus",
              version."rowVersion" AS "versionRowVersion",
              audit."changedFields", audit."metadata",
-             audit."contentDigest" = pg_temp."phase7_admin_audit_content_digest"(
+             audit."contentDigest" = pg_temp."admin_audit_content_digest"(
                audit."operationId", audit."command", audit."targetType",
                audit."targetId", audit."beforeState", audit."afterState",
                audit."beforeRowVersion", audit."afterRowVersion",
@@ -5156,7 +5173,7 @@ describe('Persistence foundation', () => {
             'QUESTION_ARCHIVE', 'QUESTION', $1, 'ACCOUNT', $2, $2,
             'ADMIN', 'ACTIVE_ADMIN', 'ACTIVE', 'ARCHIVED', 1, 2,
             '["LIFECYCLE_STATUS","VERSION_STATUS"]'::jsonb, $3::jsonb,
-            pg_temp."phase7_admin_audit_content_digest"(
+            pg_temp."admin_audit_content_digest"(
               $4, 'QUESTION_ARCHIVE', 'QUESTION', $1,
               'ACTIVE', 'ARCHIVED', 1, 2,
               '["LIFECYCLE_STATUS","VERSION_STATUS"]'::jsonb, $3::jsonb
@@ -5291,7 +5308,7 @@ describe('Persistence foundation', () => {
              'QUESTION_ARCHIVE', 'QUESTION', $1, 'ACCOUNT', $2, $2,
              'ADMIN', 'ACTIVE_ADMIN', 'ACTIVE', 'ARCHIVED', 1, 2,
              '["LIFECYCLE_STATUS","VERSION_STATUS"]'::jsonb, $3::jsonb,
-             pg_temp."phase7_admin_audit_content_digest"(
+             pg_temp."admin_audit_content_digest"(
                $4, 'QUESTION_ARCHIVE', 'QUESTION', $1,
                'ACTIVE', 'ARCHIVED', 1, 2,
                '["LIFECYCLE_STATUS","VERSION_STATUS"]'::jsonb, $3::jsonb
@@ -5392,7 +5409,7 @@ describe('Persistence foundation', () => {
              review."reason" AS "reviewReason",
              audit."changedFields" AS "auditChangedFields",
              audit."metadata" AS "auditMetadata",
-             audit."contentDigest" = pg_temp."phase7_admin_audit_content_digest"(
+             audit."contentDigest" = pg_temp."admin_audit_content_digest"(
                audit."operationId", audit."command", audit."targetType",
                audit."targetId", audit."beforeState", audit."afterState",
                audit."beforeRowVersion", audit."afterRowVersion",
@@ -5453,7 +5470,7 @@ describe('Persistence foundation', () => {
       }
     ])
     await withExecutionRole('nihongo_app', () =>
-      bridgedQuery(client, `SELECT "phase7_erase_user"($1, 'TEST')`, [actorId])
+      bridgedQuery(client, `SELECT "erase_user"($1, 'TEST')`, [actorId])
     )
   }, 60_000)
 
@@ -5462,17 +5479,17 @@ describe('Persistence foundation', () => {
     const secondActorId = randomUUID()
     const firstSessionId = randomUUID()
     const secondSessionId = randomUUID()
-    const firstSessionToken = `phase7-duplicate-first-${randomUUID()}`
-    const secondSessionToken = `phase7-duplicate-second-${randomUUID()}`
+    const firstSessionToken = `test-duplicate-first-${randomUUID()}`
+    const secondSessionToken = `test-duplicate-second-${randomUUID()}`
     await insertCredentialUser({ id: firstActorId, role: 'ADMIN' })
     await insertCredentialUser({ id: secondActorId, role: 'ADMIN' })
     await expect(
       withExecutionRole('nihongo_app', () =>
         ownedSessionSql(
           client,
-          `SELECT * FROM "phase7_issue_v1_session"(
+          `SELECT * FROM "issue_v1_session"(
             $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
-            '127.0.0.1', 'phase7-duplicate-first', false
+            '127.0.0.1', 'test-duplicate-first', false
           )`,
           [firstActorId, firstSessionId, firstSessionToken]
         )
@@ -5482,9 +5499,9 @@ describe('Persistence foundation', () => {
       withExecutionRole('nihongo_app', () =>
         ownedSessionSql(
           client,
-          `SELECT * FROM "phase7_issue_v1_session"(
+          `SELECT * FROM "issue_v1_session"(
             $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
-            '127.0.0.1', 'phase7-duplicate-second', false
+            '127.0.0.1', 'test-duplicate-second', false
           )`,
           [secondActorId, secondSessionId, secondSessionToken]
         )
@@ -5613,7 +5630,7 @@ describe('Persistence foundation', () => {
           'QUESTION_CREATE', 'QUESTION', $1, 'ACCOUNT', $2, $2, 'ADMIN',
           'ACTIVE_ADMIN', NULL, 'ACTIVE', NULL, 1, $3::jsonb,
           '{"kind":"NONE_V1"}'::jsonb,
-          pg_temp."phase7_admin_audit_content_digest"(
+          pg_temp."admin_audit_content_digest"(
             $4, 'QUESTION_CREATE', 'QUESTION', $1, NULL, 'ACTIVE',
             NULL, 1, $3::jsonb, '{"kind":"NONE_V1"}'::jsonb
           ), $4, $5, 'TEST', $6
@@ -5769,7 +5786,7 @@ describe('Persistence foundation', () => {
              WHERE "operationId" IN ($3, $4)) AS "auditCount",
             (SELECT COUNT(*)::int FROM "OperationIntent")
               AS "operationIntentCount",
-            0 /* #504 P7 PR5b dropped Phase7TrustedExecution */
+            0 /* #504 P7 PR5b dropped TrustedExecution */
               AS "trustedExecutionCount"`,
           [
             firstQuestionId,
@@ -5790,11 +5807,9 @@ describe('Persistence foundation', () => {
     for (const actorId of [firstActorId, secondActorId]) {
       await expect(
         withExecutionRole('nihongo_app', () =>
-          bridgedQuery(
-            client,
-            `SELECT "phase7_erase_user"($1, 'TEST') AS erased`,
-            [actorId]
-          )
+          bridgedQuery(client, `SELECT "erase_user"($1, 'TEST') AS erased`, [
+            actorId
+          ])
         )
       ).resolves.toMatchObject({ rows: [{ erased: true }] })
     }
@@ -5806,21 +5821,20 @@ describe('Persistence foundation', () => {
     }
     const suffix = randomUUID().replaceAll('-', '').slice(0, 20)
     const applicationLogin = 'nihongo_test_app_login'
-    // #504 P8-1: one runtime login; the gateway names go in P8-2.
     const authGatewayLogin = 'nihongo_test_app_login'
     const developmentApplicationLogin = 'nihongo_development_app_login'
-    const extraRole = `phase7_extra_${suffix}`
-    const wrongSchema = `phase7_wrong_${suffix}_test`
-    const ownedDatabase = `phase7_owned_${suffix}_test`
+    const extraRole = `extra_${suffix}`
+    const wrongSchema = `wrong_${suffix}_test`
+    const ownedDatabase = `owned_${suffix}_test`
     const identifierPattern = /^[a-z][a-z0-9_]{0,62}$/
     const quoteIdentifier = (value: string): string => {
       if (!identifierPattern.test(value)) {
-        throw new Error('Unsafe Phase 7 runtime attestation identifier.')
+        throw new Error('Unsafe runtime attestation identifier.')
       }
       return `"${value}"`
     }
     const applicationUrl = environment.DATABASE_URL
-    const authGatewayUrl = process.env.PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL
+    const authGatewayUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
     if (!authGatewayUrl) {
       throw new Error('Auth gateway wrapper URL is required.')
     }
@@ -5849,7 +5863,7 @@ describe('Persistence foundation', () => {
         !identifierPattern.test(databaseName) ||
         !identifierPattern.test(schemaName)
       ) {
-        throw new Error('Unsafe Phase 7 runtime attestation URL target.')
+        throw new Error('Unsafe runtime attestation URL target.')
       }
       const url = new URL(source)
       url.pathname = `/${databaseName}`

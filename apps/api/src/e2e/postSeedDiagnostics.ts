@@ -39,7 +39,7 @@ export const runPostSeedDiagnostic = async <T>(
   const approvedFile =
     operation === 'FILE' &&
     file !== undefined &&
-    getApiIntegrationPathsByOwner('phase7-db').some((path) => path === file)
+    getApiIntegrationPathsByOwner('db').some((path) => path === file)
       ? file
       : undefined
   const emit = (state: PostSeedState, error?: unknown): void => {

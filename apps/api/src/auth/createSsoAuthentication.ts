@@ -2,7 +2,6 @@ import { createSsoAccountRepository } from './ssoAccountRepository.js'
 import { createSsoAccountRuntime } from './ssoAccountRuntime.js'
 import type { SsoProviderId } from '@nihongo/contracts/auth/sign-in-social'
 import type { ApiEnvironment } from '../config/env.js'
-import { createAuthRuntimePlan } from '../config/authRuntimePlan.js'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createAuthGateway } from './authGateway.js'
@@ -40,8 +39,6 @@ export const createSsoAuthentication = ({
   rateLimiter: ApplicationRateLimiter
   providers?: Partial<Record<SsoProviderId, SsoProvider>>
 }) => {
-  if (!createAuthRuntimePlan(environment).ownedAuth)
-    throw new Error('SSO requires its dedicated database authority.')
   const principalService = createOwnedPrincipalService({
     client: applicationClient,
     refreshClient: gatewayClient,

@@ -13,7 +13,7 @@ export interface KeyedRateLimitSettings {
   readonly storeUnavailableMessage: string
   readonly stateInvalidMessage: string
   readonly rateLimitedMessage: string
-  /** Phase 7 command paths mark failures as before any transaction. */
+  /** command paths mark failures as before any transaction. */
   readonly adminDisposition?: 'NO_TX'
   /** Which store errors become SERVICE_UNAVAILABLE; others are rethrown. */
   readonly isStoreError?: (error: unknown) => boolean
@@ -38,9 +38,9 @@ export const createRateLimitKey = ({
   readonly value: string
 }): string => {
   const digest = createHmac('sha256', keySecret)
-    .update(`phase7:${group}:${dimension}:${value}`, 'utf8')
+    .update(`keyed:${group}:${dimension}:${value}`, 'utf8')
     .digest('hex')
-  return `application:phase7:${group}:${dimension}:${digest}`
+  return `application:keyed:${group}:${dimension}:${digest}`
 }
 
 /** Counts every key once and rejects when any key exceeds the policy. */

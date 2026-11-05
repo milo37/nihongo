@@ -16,7 +16,7 @@ const DEFAULT_MAINTENANCE_INTERVAL_MS = 60_000
 const isCount = (value: unknown): value is number =>
   Number.isSafeInteger(value) && Number(value) >= 0
 
-export const runPhase7ReauthenticationStartupMaintenance = async (
+export const runReauthenticationStartupMaintenance = async (
   client: AdminFreshClient
 ): Promise<void> => {
   for (let batch = 0; batch < MAXIMUM_CLEANUP_BATCHES; batch += 1) {
@@ -61,7 +61,7 @@ export const startReauthenticationMaintenance = ({
   let inFlight: Promise<void> | undefined
   const run = (): void => {
     if (stopped || inFlight) return
-    const task = runPhase7ReauthenticationStartupMaintenance(client)
+    const task = runReauthenticationStartupMaintenance(client)
       .catch((error: unknown) => {
         try {
           onFailure(error)

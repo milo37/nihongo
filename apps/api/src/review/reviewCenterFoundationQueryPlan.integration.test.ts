@@ -97,14 +97,14 @@ assertSafeTestDatabase({
 const isCurrentSourceIntegration =
   process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
 const fixtureDatabaseUrl = process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
-const erasureWorkerDatabaseUrl = process.env.TEST_API_ERASURE_DATABASE_URL
+const appFixtureDatabaseUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
 if (
   isCurrentSourceIntegration &&
-  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
+  (!fixtureDatabaseUrl || !appFixtureDatabaseUrl)
 ) {
   throw new Error('Review query plans require fixture and erasure databases.')
 }
-for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
+for (const databaseUrl of [fixtureDatabaseUrl, appFixtureDatabaseUrl]) {
   if (databaseUrl) {
     assertSafeTestDatabase({
       nodeEnvironment: environment.NODE_ENV,
@@ -127,11 +127,11 @@ const fixtureDatabase = fixtureDatabaseUrl
       statementTimeoutMs: FIXTURE_STATEMENT_TIMEOUT_MS
     })
   : database
-const erasureWorkerClient = erasureWorkerDatabaseUrl
+const erasureWorkerClient = appFixtureDatabaseUrl
   ? new Client({
-      connectionString: erasureWorkerDatabaseUrl,
+      connectionString: appFixtureDatabaseUrl,
       options: createPostgresStartupOptions(
-        getPostgresSchema(erasureWorkerDatabaseUrl)
+        getPostgresSchema(appFixtureDatabaseUrl)
       )
     })
   : undefined
@@ -442,14 +442,14 @@ const createPlanFixture = async (): Promise<ReviewCenterPlanFixture> => {
       data: userIds.map((id, index) => ({
         id,
         name: `Query-plan user ${index}`,
-        email: `phase5-query-plan-${id}@example.test`,
+        email: `test-query-plan-${id}@example.test`,
         emailVerified: true
       }))
     })
     await fixture.account.createMany({
       data: userIds.map((userId) => ({
         accountId: userId,
-        password: 'phase10-fixture-password-hash',
+        password: 'test-fixture-password-hash',
         providerId: 'credential',
         userId
       }))
@@ -474,7 +474,7 @@ const createPlanFixture = async (): Promise<ReviewCenterPlanFixture> => {
     throw new Error('Review queue query-plan fixture tag가 필요합니다.')
   }
   if (!isCurrentSourceIntegration) {
-    const tagPrefix = `phase5-plan-${randomUUID()}`
+    const tagPrefix = `test-plan-${randomUUID()}`
     const draftVersionId = randomUUID()
     createdDraftVersionIds.add(draftVersionId)
     createdTagPrefixes.add(tagPrefix)
@@ -936,13 +936,13 @@ describe('Review-center populated query plans', () => {
           `)
         if (!isCurrentSourceIntegration) {
           await transaction.$executeRaw`
-            CREATE TEMP TABLE "phase5_targeted_plan_catalog" (
+            CREATE TEMP TABLE "targeted_plan_catalog" (
               "questionId" UUID PRIMARY KEY,
               "questionVersionId" UUID UNIQUE NOT NULL
             ) ON COMMIT DROP
           `
           await transaction.$executeRaw`
-            INSERT INTO "phase5_targeted_plan_catalog" (
+            INSERT INTO "targeted_plan_catalog" (
               "questionId", "questionVersionId"
             )
             SELECT gen_random_uuid(), gen_random_uuid()
@@ -955,7 +955,7 @@ describe('Review-center populated query plans', () => {
             )
             SELECT
               "questionId", 'ACTIVE', 'SYSTEM_SEED', ${PLAN_NOW}, ${PLAN_NOW}
-            FROM "phase5_targeted_plan_catalog"
+            FROM "targeted_plan_catalog"
           `
           await transaction.$executeRaw`
             INSERT INTO "QuestionVersion" (
@@ -968,7 +968,7 @@ describe('Review-center populated query plans', () => {
               'VOCABULARY', 'KANJI_READING', 'targeted plan decoy',
               '실행 계획 전용 설명입니다.', 'EASY', 'SYSTEM_SEED',
               ${PLAN_NOW}, ${PLAN_NOW}
-            FROM "phase5_targeted_plan_catalog"
+            FROM "targeted_plan_catalog"
           `
           await transaction.$executeRaw`ANALYZE "Question"`
           await transaction.$executeRaw`ANALYZE "QuestionVersion"`

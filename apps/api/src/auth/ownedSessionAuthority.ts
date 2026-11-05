@@ -4,9 +4,9 @@ import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
  * Owned V1 Session issuance, refresh, sign-out and principal resolution in the
  * API (#504 P7 PR3a).
  *
- * These replace phase7_issue_v1_session, phase7_refresh_current_remembered_session
- * (with phase7_refresh_remembered_session), phase7_owned_sign_out and
- * phase7_resolve_v1_principal step for step: the same lock order (User, then
+ * These replace issue_v1_session, refresh_current_remembered_session
+ * (with refresh_remembered_session), owned_sign_out and
+ * resolve_v1_principal step for step: the same lock order (User, then
  * the Session, FOR UPDATE), the same authority conditions and a re-check
  * before commit. #504 P7 PR4b-1: a Session has no family or rotation fence; a
  * sign-out ends the Session of its token. Session_validate_authority_write
@@ -49,7 +49,7 @@ export const v1PrincipalQuery = (tokenParameter: string): string => `
     ON runtime.ready AND session."token" = ${tokenParameter}
   JOIN "User" AS target_user ON target_user."id" = session."userId"
   WHERE ${tokenParameter} <> ''
-    AND session."issuerProtocolVersion" = 'PHASE7_V1'
+    AND session."issuerProtocolVersion" = 'OWNED_V1'
     AND session."authorizationState" = 'ACTIVE'
     AND session."authorityGeneration" = target_user."authorityGeneration"
     AND target_user."accountStatus" = 'ACTIVE'
@@ -136,7 +136,7 @@ export const issueOwnedSession = async (
          $1::uuid, clock_timestamp() + CASE WHEN $2::boolean
            THEN INTERVAL '7 days' ELSE INTERVAL '1 day' END, $3,
          clock_timestamp(), clock_timestamp(), $4, $5, $6::uuid,
-         $7::integer, 'PHASE7_V1'
+         $7::integer, 'OWNED_V1'
        )
        RETURNING "id", "createdAt", "expiresAt", "authorityGeneration"`,
       input.sessionId,
@@ -161,7 +161,7 @@ export const issueOwnedSession = async (
          AND locked_user."role" = $4::"UserRole"
          AND locked_user."accountStatus" = 'ACTIVE'
          AND session."token" = $5
-         AND session."issuerProtocolVersion" = 'PHASE7_V1'
+         AND session."issuerProtocolVersion" = 'OWNED_V1'
          AND session."authorityGeneration" = $3::integer
          AND session."expiresAt" > clock_timestamp()
          AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()
@@ -242,7 +242,7 @@ export interface RememberedSessionRefresh {
 }
 
 const ACTIVE_SESSION_CONDITIONS = `
-      session."issuerProtocolVersion" = 'PHASE7_V1'
+      session."issuerProtocolVersion" = 'OWNED_V1'
   AND session."authorizationState" = 'ACTIVE'
   AND session."authorityGeneration" = target_user."authorityGeneration"
   AND target_user."accountStatus" = 'ACTIVE'
@@ -370,7 +370,7 @@ export const refreshRememberedSession = async (
 }
 
 /**
- * phase7_confirm_v1_session_issuance: after the issuance committed, the new
+ * confirm_v1_session_issuance: after the issuance committed, the new
  * Session still holds the captured authority under User and Session locks. Returns false instead of raising, as the SQL function did.
  */
 export const confirmOwnedSession = async (
@@ -420,7 +420,7 @@ export const confirmOwnedSession = async (
          AND target_user."accountStatus" = 'ACTIVE'
          AND session."token" = $5
          AND session."authorizationState" = 'ACTIVE'
-         AND session."issuerProtocolVersion" = 'PHASE7_V1'
+         AND session."issuerProtocolVersion" = 'OWNED_V1'
          AND session."authorityGeneration" = $3::integer
          AND session."expiresAt" > clock_timestamp()
          AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()`,

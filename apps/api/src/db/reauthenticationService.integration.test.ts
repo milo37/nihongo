@@ -59,14 +59,13 @@ import {
 } from './databaseOptions.js'
 import { stopOwnedProcesses } from '../e2e/ownedProcessGroup.js'
 
-const password = 'Phase7-real-reauthentication-2026!'
+const password = 'Test-real-reauthentication-2026!'
 const environment = parseApiEnvironment(process.env)
 const schema = getPostgresSchema(environment.DATABASE_URL)
-const adminDatabaseUrl = process.env.PHASE7_ADMIN_DATABASE_URL
-const authGatewayDatabaseUrl =
-  process.env.PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL
-if (!schema || !adminDatabaseUrl || !authGatewayDatabaseUrl) {
-  throw new Error('Phase 7 reauthentication service DB URLs are required.')
+const adminDatabaseUrl = process.env.ADMIN_DATABASE_URL
+const appFixtureDatabaseUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
+if (!schema || !adminDatabaseUrl || !appFixtureDatabaseUrl) {
+  throw new Error('Reauthentication service DB URLs are required.')
 }
 
 const adminUrl = new URL(adminDatabaseUrl)
@@ -80,7 +79,7 @@ const createAdminClient = (): Client =>
 const adminClient = createAdminClient()
 const adminControlClient = createAdminClient()
 const gatewayRuntime = createRoleDatabaseRuntime(
-  authGatewayDatabaseUrl,
+  appFixtureDatabaseUrl,
   'nihongo_app'
 )
 const applicationRuntime = createRoleDatabaseRuntime(
@@ -126,7 +125,7 @@ const insertFixtureAdmin = async (
          "id", "name", "email", "emailVerified", "role",
          "accountStatus", "createdAt", "updatedAt"
        ) VALUES (
-         $1, 'Phase 7 real reauthentication', $2, true, 'ADMIN',
+         $1, 'Real reauthentication', $2, true, 'ADMIN',
          'ACTIVE', clock_timestamp(), clock_timestamp()
        )`,
       [userId, email]
@@ -161,15 +160,15 @@ const issueSession = async (
   const result = await withRole('nihongo_app', () =>
     ownedSessionSql<{ expiresAt: Date }>(
       adminClient,
-      `SELECT * FROM "phase7_issue_v1_session"(
+      `SELECT * FROM "issue_v1_session"(
         $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
-        '127.0.0.1', 'phase7-real-reauthentication', false
+        '127.0.0.1', 'test-real-reauthentication', false
       )`,
       [userId, sessionId, token]
     )
   )
   const row = result.rows[0]
-  if (!row) throw new Error('Phase 7 real Session was not issued.')
+  if (!row) throw new Error('Real Session was not issued.')
   return row
 }
 
@@ -180,8 +179,8 @@ const createFixture = async (
   const sessionId: string = randomUUID()
   const accountId = randomUUID()
   const requestId = randomUUID()
-  const token = `phase7-real-old-${randomUUID()}`
-  const email = `phase7-real-${randomUUID()}@example.test`
+  const token = `test-real-old-${randomUUID()}`
+  const email = `test-real-${randomUUID()}@example.test`
   const passwordHash = await hashPassword(password)
   await insertFixtureAdmin(userId, accountId, email, passwordHash, provider)
   const session = await issueSession(userId, sessionId, token)
@@ -196,7 +195,7 @@ const createFixture = async (
     Cookie: cookie.split(';')[0]!,
     Origin: environment.TRUSTED_ORIGINS[0]!,
     'X-Request-Id': requestId,
-    'User-Agent': 'phase7-real-reauthentication'
+    'User-Agent': 'test-real-reauthentication'
   })
   return {
     email,
@@ -224,7 +223,7 @@ const completeSsoFresh = async (
         provider: 'google',
         accountId: context.accountId,
         email: fixture.email,
-        name: 'Phase 7 SSO fresh fixture'
+        name: 'SSO fresh fixture'
       },
       ssoTransactionDigest(rawProof),
       '/admin/questions'
@@ -362,7 +361,7 @@ const moveSessionNearFreshCutoffForTesting = async (
       [rawSessionToken, millisecondsUntilCutoff]
     )
     if (result.rows[0]?.preservesLifetime !== true) {
-      throw new Error('Phase 7 A2 Session lifetime was not preserved.')
+      throw new Error('A2 Session lifetime was not preserved.')
     }
     await adminControlClient.query('COMMIT')
     return result.rowCount
@@ -381,7 +380,7 @@ const loadActiveSessionToken = async (userId: string): Promise<string> => {
   )
   const row = result.rows[0]
   if (!row || result.rows.length !== 1) {
-    throw new Error('Phase 7 active replacement Session is unavailable.')
+    throw new Error('Active replacement Session is unavailable.')
   }
   return row.token
 }
@@ -401,7 +400,7 @@ const waitForBlockedContentReviewInsert = async (
     if (result.rows.length === 1) return
     await new Promise((resolve) => setTimeout(resolve, 25))
   }
-  throw new Error('Phase 7 A2 command did not reach its post-write block.')
+  throw new Error('A2 command did not reach its post-write block.')
 }
 
 const waitForSessionFreshCutoff = async (
@@ -417,7 +416,7 @@ const waitForSessionFreshCutoff = async (
     if (result.rows[0]?.reached === true) return
     await new Promise((resolve) => setTimeout(resolve, 25))
   }
-  throw new Error('Phase 7 A2 Session did not reach the fresh cutoff.')
+  throw new Error('A2 Session did not reach the fresh cutoff.')
 }
 
 type TestAdminQuestionCommandService = AdminQuestionCommandService &
@@ -504,15 +503,15 @@ const loadA2Content = async (
      LIMIT 1`
   )
   const tag = result.rows[0]
-  if (!tag) throw new Error('Phase 7 A2 tag fixture is unavailable.')
+  if (!tag) throw new Error('A2 tag fixture is unavailable.')
   return createAdminQuestionRequestSchema.parse({
     level: tag.level,
     subject: tag.subject,
     questionType: tag.questionType,
     difficulty: 'NORMAL',
-    questionText: `Phase 7 A2 실제 승인 문제 ${suffix}`,
+    questionText: `A2 실제 승인 문제 ${suffix}`,
     passage: null,
-    explanationKo: `Phase 7 A2 실제 승인 해설 ${suffix}`,
+    explanationKo: `A2 실제 승인 해설 ${suffix}`,
     explanationJa: null,
     tagNames: [tag.label],
     options: [
@@ -540,7 +539,7 @@ const prepareA2InReviewVersion = async (input: {
   )
   const versionId = created.questionVersionId
   if (!versionId || created.versionRowVersion === null) {
-    throw new Error('Phase 7 A2 created version is unavailable.')
+    throw new Error('A2 created version is unavailable.')
   }
   const reviewRequest = requestContentReviewRequestSchema.parse({
     expectedRowVersion: created.versionRowVersion,
@@ -556,7 +555,7 @@ const prepareA2InReviewVersion = async (input: {
     reviewRequest
   )
   if (inReview.versionRowVersion === null) {
-    throw new Error('Phase 7 A2 in-review rowVersion is unavailable.')
+    throw new Error('A2 in-review rowVersion is unavailable.')
   }
   return {
     questionId: created.questionId,
@@ -614,7 +613,7 @@ const readA2Evidence = async (versionId: string) => {
     `SELECT "command"::text AS command, "beforeState", "afterState",
        "beforeRowVersion", "afterRowVersion", "changedFields",
        "metadata", "operationId", "requestId",
-       "contentDigest" = pg_temp."phase7_admin_audit_content_digest"(
+       "contentDigest" = pg_temp."admin_audit_content_digest"(
          "operationId", "command", "targetType", "targetId",
          "beforeState", "afterState", "beforeRowVersion",
          "afterRowVersion", "changedFields", "metadata"
@@ -696,7 +695,7 @@ const readSlice4State = async (questionId: string, versionId: string) => {
     `SELECT "command"::text AS command, "targetId", "beforeState",
        "afterState", "beforeRowVersion", "afterRowVersion", "changedFields",
        "metadata", "requestId",
-       "contentDigest" = pg_temp."phase7_admin_audit_content_digest"(
+       "contentDigest" = pg_temp."admin_audit_content_digest"(
          "operationId", "command", "targetType", "targetId",
          "beforeState", "afterState", "beforeRowVersion",
          "afterRowVersion", "changedFields", "metadata"
@@ -720,10 +719,10 @@ const prepareAndStage = async (
   const intentId = randomUUID()
   const requestId = randomUUID()
   const newSessionId = randomUUID()
-  const newToken = `phase7-real-new-${randomUUID()}`
+  const newToken = `test-real-new-${randomUUID()}`
   const prepared = await ownedSessionSql(
     gatewayClientA,
-    `SELECT * FROM "phase7_prepare_reauthentication"(
+    `SELECT * FROM "prepare_reauthentication"(
       $1, $2, $3, 'TEST', $4
     )`,
     [fixture.token, fixture.userId, requestId, intentId]
@@ -731,9 +730,9 @@ const prepareAndStage = async (
   expect(prepared.rows).toEqual([expect.objectContaining({ intentId })])
   const staged = await ownedSessionSql(
     gatewayClientA,
-    `SELECT * FROM "phase7_stage_reauthentication_session"(
+    `SELECT * FROM "stage_reauthentication_session"(
       $1, $2, $3, $4, clock_timestamp() + INTERVAL '1 day',
-      '127.0.0.1', 'phase7-concurrency'
+      '127.0.0.1', 'test-concurrency'
     )`,
     [intentId, newSessionId, newToken, fixture.userId]
   )
@@ -747,14 +746,14 @@ const spawnStagedCrashWorker = async (
   const intentId = randomUUID()
   const requestId = randomUUID()
   const newSessionId = randomUUID()
-  const newToken = `phase7-crash-new-${randomUUID()}`
+  const newToken = `test-crash-new-${randomUUID()}`
   const prepareSql = JSON.stringify(
-    `SELECT * FROM "phase7_prepare_reauthentication"($1, $2, $3, 'TEST', $4)`
+    `SELECT * FROM "prepare_reauthentication"($1, $2, $3, 'TEST', $4)`
   )
   const stageSql = JSON.stringify(
-    `SELECT * FROM "phase7_stage_reauthentication_session"(
+    `SELECT * FROM "stage_reauthentication_session"(
       $1, $2, $3, $4, clock_timestamp() + INTERVAL '1 day',
-      '127.0.0.1', 'phase7-crash-worker'
+      '127.0.0.1', 'test-crash-worker'
     )`
   )
   // #504 P7 PR3b-1: the worker runs the API prepare and stage steps as
@@ -764,12 +763,12 @@ const spawnStagedCrashWorker = async (
     import { ownedSessionSql } from './src/db/fixtures/ownedSessionSql.ts'
     const { Client } = pg
     process.on('SIGTERM', () => {})
-    const url = new URL(process.env.PHASE7_CRASH_DATABASE_URL)
+    const url = new URL(process.env.CRASH_DATABASE_URL)
     url.searchParams.delete('schema')
     url.searchParams.delete('options')
     const client = new Client({
       connectionString: url.toString(),
-      options: '-c search_path=' + process.env.PHASE7_CRASH_SCHEMA +
+      options: '-c search_path=' + process.env.CRASH_SCHEMA +
         ' -c TimeZone=UTC -c role=nihongo_app'
     })
     await client.connect()
@@ -777,20 +776,20 @@ const spawnStagedCrashWorker = async (
       client,
       ${prepareSql},
       [
-        process.env.PHASE7_CRASH_OLD_TOKEN,
-        process.env.PHASE7_CRASH_USER_ID,
-        process.env.PHASE7_CRASH_REQUEST_ID,
-        process.env.PHASE7_CRASH_INTENT_ID
+        process.env.CRASH_OLD_TOKEN,
+        process.env.CRASH_USER_ID,
+        process.env.CRASH_REQUEST_ID,
+        process.env.CRASH_INTENT_ID
       ]
     )
     await ownedSessionSql(
       client,
       ${stageSql},
       [
-        process.env.PHASE7_CRASH_INTENT_ID,
-        process.env.PHASE7_CRASH_SESSION_ID,
-        process.env.PHASE7_CRASH_NEW_TOKEN,
-        process.env.PHASE7_CRASH_USER_ID
+        process.env.CRASH_INTENT_ID,
+        process.env.CRASH_SESSION_ID,
+        process.env.CRASH_NEW_TOKEN,
+        process.env.CRASH_USER_ID
       ]
     )
     process.stdout.write(JSON.stringify({ event: 'staged' }) + '\\n')
@@ -804,14 +803,14 @@ const spawnStagedCrashWorker = async (
       detached: true,
       env: {
         ...process.env,
-        PHASE7_CRASH_DATABASE_URL: environment.DATABASE_URL,
-        PHASE7_CRASH_INTENT_ID: intentId,
-        PHASE7_CRASH_NEW_TOKEN: newToken,
-        PHASE7_CRASH_OLD_TOKEN: fixture.token,
-        PHASE7_CRASH_REQUEST_ID: requestId,
-        PHASE7_CRASH_SCHEMA: schema,
-        PHASE7_CRASH_SESSION_ID: newSessionId,
-        PHASE7_CRASH_USER_ID: fixture.userId
+        CRASH_DATABASE_URL: environment.DATABASE_URL,
+        CRASH_INTENT_ID: intentId,
+        CRASH_NEW_TOKEN: newToken,
+        CRASH_OLD_TOKEN: fixture.token,
+        CRASH_REQUEST_ID: requestId,
+        CRASH_SCHEMA: schema,
+        CRASH_SESSION_ID: newSessionId,
+        CRASH_USER_ID: fixture.userId
       },
       stdio: ['ignore', 'pipe', 'pipe']
     }
@@ -850,7 +849,7 @@ const spawnStagedCrashWorker = async (
       })
     })
   } catch (error: unknown) {
-    await stopOwnedProcesses([{ child, label: 'phase7-crash-worker' }], {
+    await stopOwnedProcesses([{ child, label: 'test-crash-worker' }], {
       forceKillTimeoutMs: 2_000,
       gracefulTimeoutMs: 50
     }).catch(() => undefined)
@@ -862,12 +861,12 @@ const spawnStagedCrashWorker = async (
 const runStartupMaintenanceWorker = async (): Promise<void> => {
   const script = `
     import { createRoleDatabaseRuntime } from './src/db/database.ts'
-    import { runPhase7ReauthenticationStartupMaintenance } from './src/auth/reauthenticationStartupMaintenance.ts'
-    const databaseUrl = process.env.PHASE7_RESTART_DATABASE_URL
+    import { runReauthenticationStartupMaintenance } from './src/auth/reauthenticationStartupMaintenance.ts'
+    const databaseUrl = process.env.RESTART_DATABASE_URL
     if (!databaseUrl) throw new Error('Missing restart database URL.')
     const runtime = createRoleDatabaseRuntime(databaseUrl, 'nihongo_app')
     try {
-      await runPhase7ReauthenticationStartupMaintenance(runtime.client)
+      await runReauthenticationStartupMaintenance(runtime.client)
       process.stdout.write(JSON.stringify({ event: 'startup-maintenance-complete' }) + '\\n')
     } finally {
       await runtime.disconnect()
@@ -881,7 +880,7 @@ const runStartupMaintenanceWorker = async (): Promise<void> => {
       detached: true,
       env: {
         ...process.env,
-        PHASE7_RESTART_DATABASE_URL: environment.DATABASE_URL
+        RESTART_DATABASE_URL: environment.DATABASE_URL
       },
       stdio: ['ignore', 'pipe', 'pipe']
     }
@@ -923,7 +922,7 @@ const runStartupMaintenanceWorker = async (): Promise<void> => {
     })
   } catch (error: unknown) {
     await stopOwnedProcesses(
-      [{ child, label: 'phase7-startup-maintenance-worker' }],
+      [{ child, label: 'test-startup-maintenance-worker' }],
       { forceKillTimeoutMs: 2_000, gracefulTimeoutMs: 250 }
     ).catch(() => undefined)
     throw error
@@ -1056,7 +1055,7 @@ const readWriteSnapshot = async () =>
            AS "intentCount",
          (SELECT COUNT(*)::int FROM "AdminAuditLog") AS "auditCount",
          (SELECT COUNT(*)::int FROM "RateLimit") AS "rateLimitCount",
-         0 /* #504 P7 PR5b dropped Phase7TrustedExecution */
+         0 /* #504 P7 PR5b dropped TrustedExecution */
            AS "trustedExecutionCount"`
     )
   ).rows[0]
@@ -1081,7 +1080,7 @@ afterAll(async () => {
   await Promise.all([adminClient.end(), adminControlClient.end()])
 })
 
-describe('Phase 7 SSO fresh and retired password boundary with real SQL invariants', () => {
+describe('SSO fresh and retired password boundary with real SQL invariants', () => {
   it('retired password 재인증 POST는404/no-cookie/no-auth-write로 종료한다', async () => {
     const fixture = await createFixture('google')
     const app = createTestHonoApp({ service: createService() })
@@ -1452,7 +1451,7 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
       )
       const blockingBackendPid = blockingBackend.rows[0]?.pid
       if (blockingBackendPid === undefined) {
-        throw new Error('Phase 7 A2 blocker backend pid is unavailable.')
+        throw new Error('A2 blocker backend pid is unavailable.')
       }
       expect(
         await moveSessionNearFreshCutoffForTesting(replacementRawToken, 1_000)
@@ -1473,7 +1472,7 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
       throw error
     }
     if (!lateFreshApprovalPromise) {
-      throw new Error('Phase 7 A2 late-fresh request was not started.')
+      throw new Error('A2 late-fresh request was not started.')
     }
     const lateFreshApproval = await lateFreshApprovalPromise
     expect(lateFreshApproval.response.status).toBe(401)
@@ -1822,7 +1821,7 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
     try {
       await bridgedQuery(
         gatewayClientA,
-        `SELECT "phase7_change_user_authority"(
+        `SELECT "change_user_authority"(
           $1, $2, 1, 'USER', 'ACTIVE', 'TEST'
         )`,
         [authorityOperator.token, roleLossReviewer.userId]
@@ -1988,7 +1987,7 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
     const operator = await createFixture()
     await bridgedQuery(
       gatewayClientA,
-      `SELECT "phase7_change_user_authority"(
+      `SELECT "change_user_authority"(
         $1, $2, 1, 'USER', 'ACTIVE', 'TEST'
       )`,
       [operator.token, roleTarget.userId]
@@ -2048,7 +2047,7 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
     const [logoutFinalize, logout] = await Promise.allSettled([
       ownedSessionSql(
         gatewayClientA,
-        `SELECT * FROM "phase7_finalize_reauthentication"($1, $2)`,
+        `SELECT * FROM "finalize_reauthentication"($1, $2)`,
         [logoutStage.intentId, logoutStage.newToken]
       ),
       signOutOwnedSession(applicationRuntime.client, logoutTarget.token).then(
@@ -2094,12 +2093,12 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
     const [authorityFinalize, authorityChange] = await Promise.allSettled([
       ownedSessionSql(
         gatewayClientA,
-        `SELECT * FROM "phase7_finalize_reauthentication"($1, $2)`,
+        `SELECT * FROM "finalize_reauthentication"($1, $2)`,
         [authorityStage.intentId, authorityStage.newToken]
       ),
       bridgedQuery(
         gatewayClientB,
-        `SELECT "phase7_change_user_authority"(
+        `SELECT "change_user_authority"(
           $1, $2, 1, 'USER', 'ACTIVE', 'TEST'
         ) AS generation`,
         [operator.token, authorityTarget.userId]
@@ -2138,7 +2137,7 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
     const staged = await spawnStagedCrashWorker(fixture)
     let forceKillCount = 0
     await stopOwnedProcesses(
-      [{ child: staged.child, label: 'phase7-reauthentication-crash-worker' }],
+      [{ child: staged.child, label: 'test-reauthentication-crash-worker' }],
       {
         forceKillTimeoutMs: 1_000,
         gracefulTimeoutMs: 50,

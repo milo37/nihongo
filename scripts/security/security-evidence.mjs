@@ -7,9 +7,8 @@ const SHA256_PATTERN = /^[0-9a-f]{64}$/u
 const SAFE_LABEL_PATTERN =
   /^(?:admin-dashboard|accessibility|journey)-(?:real|mock)$/u
 const SAFE_LEDGER_LABEL_PATTERN =
-  /^(?:admin-(?:cms-real-request-ledger|(?:guest|user)-denial)|(?:admin-lifecycle|(?:phase8-)?dashboard|guest-auth|user-journey|resilience)-(?:real|mock)-request-ledger|journey-(?:real|mock)-(?:ko|ja)-handoff)$/u
-const SAFE_PERFORMANCE_LABEL_PATTERN =
-  /^(?:phase8-)?dashboard-(?:real|mock)-performance$/u
+  /^(?:admin-(?:cms-real-request-ledger|(?:guest|user)-denial)|(?:admin-lifecycle|dashboard|guest-auth|user-journey|resilience)-(?:real|mock)-request-ledger|journey-(?:real|mock)-(?:ko|ja)-handoff)$/u
+const SAFE_PERFORMANCE_LABEL_PATTERN = /^dashboard-(?:real|mock)-performance$/u
 // Admin authority ledgers come only from the admin-only or admin-dashboard real run.
 const ADMIN_AUTHORITY_LEDGER_LABELS = new Set([
   'admin-cms-real-request-ledger',
@@ -78,7 +77,7 @@ const ADMIN_LIFECYCLE_LEDGER_CONTRACT = [
   ['PATCH', '/api/v1/admin/question-versions/:id', null]
 ]
 const SENSITIVE_ENVIRONMENT_KEY =
-  /(?:_SECRET|_PASSWORD|_TOKEN|DATABASE_URL|COOKIE|AUTHORIZATION|PHASE\d+_BROWSER_FIXTURE)/iu
+  /(?:_SECRET|_PASSWORD|_TOKEN|DATABASE_URL|COOKIE|AUTHORIZATION|_BROWSER_FIXTURE)/iu
 const STRONG_SENSITIVE_PATTERNS = [
   /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/u,
   /\bAKIA[0-9A-Z]{16}\b/u,
@@ -146,7 +145,7 @@ export const collectSensitiveEnvironmentValues = (environment) => {
       continue
     }
     if (rawValue.length >= 8) values.add(rawValue)
-    if (/PHASE\d+_BROWSER_FIXTURE/iu.test(key)) {
+    if (/_BROWSER_FIXTURE$/iu.test(key)) {
       try {
         collectNestedStrings(JSON.parse(rawValue), values)
       } catch {
@@ -310,7 +309,7 @@ export const assertPlaywrightRequestLedger = (ledger, summaryLabel) => {
     !exactKeys(ledger, ['label', 'entries']) ||
     typeof ledger.label !== 'string' ||
     !SAFE_LEDGER_LABEL_PATTERN.test(ledger.label) ||
-    (/^(?:phase8-)?dashboard-/u.test(ledger.label) &&
+    (/^dashboard-/u.test(ledger.label) &&
       ledger.label !==
         `${dashboardPrefix}-${summaryLabel.split('-').at(-1)}-request-ledger`) ||
     (ADMIN_AUTHORITY_LEDGER_LABELS.has(ledger.label)

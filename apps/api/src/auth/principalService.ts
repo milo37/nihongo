@@ -92,21 +92,19 @@ export interface PrincipalService {
     adminAuthorityFailure?: 'ADMIN_REQUIRED' | 'AUTH_SESSION_EXPIRED'
     clearSessionCookie: boolean
     headers: Headers
-    phase7Session?: AdminSessionProof
+    ownedSessionProof?: AdminSessionProof
     user: AuthenticatedUser | null
   }>
   getAuthenticatedUser: (headers: Headers) => Promise<AuthenticatedUser | null>
 }
 
-export interface Phase7AdminSessionProof {
+export interface AdminSessionProof {
   readonly id: string
   readonly token: string
   readonly createdAt: Date
   readonly expiresAt: Date
   readonly isFresh: boolean
 }
-
-export type AdminSessionProof = Phase7AdminSessionProof
 
 export const createPrincipalService = ({
   authApi,
@@ -204,7 +202,7 @@ interface AdminAuthorityFailureRow {
   outcome: 'ADMIN_REQUIRED' | 'AUTH_SESSION_EXPIRED'
 }
 
-export const createPhase7PrincipalService = ({
+export const createOwnedPrincipalService = ({
   client,
   isProduction,
   now = () => new Date(),
@@ -263,7 +261,7 @@ export const createPhase7PrincipalService = ({
             authorityRows.length !== 1 ||
             (outcome !== 'ADMIN_REQUIRED' && outcome !== 'AUTH_SESSION_EXPIRED')
           ) {
-            throw new Error('Phase 7 ADMIN authority classification failed.')
+            throw new Error('ADMIN authority classification failed.')
           }
           adminAuthorityFailure = outcome
         }
@@ -315,7 +313,7 @@ export const createPhase7PrincipalService = ({
       return {
         clearSessionCookie: false,
         headers: responseHeaders,
-        phase7Session: {
+        ownedSessionProof: {
           id: row.sessionId,
           token: credential.token,
           createdAt: row.createdAt,
@@ -341,5 +339,3 @@ export const createPhase7PrincipalService = ({
       (await resolveAuthenticatedUser(headers)).user
   }
 }
-
-export { createPhase7PrincipalService as createOwnedPrincipalService }

@@ -120,7 +120,7 @@ enum QuestionReportResolutionOutcome {
 
 enum AuthSessionIssuerProtocolVersion {
   LEGACY
-  PHASE7_V1
+  OWNED_V1
 }
 
 enum AuthSessionAuthorizationState {
@@ -307,7 +307,7 @@ model Session {
   @@index([expiresAt])
 }
 
-// Transaction-local Phase 7 authority/evidence state. These tables are part of
+// Transaction-local authority/evidence state. These tables are part of
 // migration drift control but intentionally excluded from Prisma Client so
 // application code cannot treat their rows as a public persistence API.
 model OperationIntent {
@@ -617,7 +617,7 @@ model QuestionVersion {
   @@index([questionId, versionNumber(sort: Desc), id(sort: Desc)])
   @@index([contentFingerprint])
   // The migration-owned index also fixes COLLATE "C"; Prisma cannot model a
-  // per-index-key collation, so the Phase 7 drift gate verifies pg_get_indexdef.
+  // per-index-key collation, so the drift gate verifies pg_get_indexdef.
   @@index([questionText(ops: raw("text_pattern_ops"))], map: "QuestionVersion_questionText_prefix_idx")
   @@index([createdByUserId])
 }

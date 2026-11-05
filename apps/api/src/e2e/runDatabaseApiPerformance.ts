@@ -153,7 +153,7 @@ const completeFailure = (error: unknown): Promise<never> => {
         value: {
           errorName:
             cleanupError instanceof Error ? cleanupError.name : 'UnknownError',
-          event: 'phase10.database_api_performance.cleanup_failed'
+          event: 'database_api_performance.cleanup_failed'
         }
       })
     )
@@ -162,7 +162,7 @@ const completeFailure = (error: unknown): Promise<never> => {
       value: {
         cleanupErrorCount: cleanupErrors.length,
         errorName: error instanceof Error ? error.name : 'UnknownError',
-        event: 'phase10.database_api_performance.failed',
+        event: 'database_api_performance.failed',
         message: error instanceof Error ? error.message : 'Unknown failure'
       }
     })
@@ -188,7 +188,7 @@ const run = async (): Promise<PerformanceRunResult> => {
   abortSignal.throwIfAborted()
   const evidenceDirectory = path.resolve(
     process.env.PERFORMANCE_EVIDENCE_DIR ??
-      path.join(repositoryRoot, 'test-results/phase10-evidence/performance')
+      path.join(repositoryRoot, 'test-results/api-evidence/performance')
   )
   const evidenceFile = path.join(evidenceDirectory, 'database-api.json')
   performanceEvidenceFile = evidenceFile
@@ -214,7 +214,7 @@ const run = async (): Promise<PerformanceRunResult> => {
   const environment: NodeJS.ProcessEnv = {
     ...harness.sharedEnvironment,
     DATABASE_URL: harness.applicationDatabaseUrl,
-    PHASE7_ADMIN_DATABASE_URL: harness.adminDatabaseUrl,
+    ADMIN_DATABASE_URL: harness.adminDatabaseUrl,
     PERFORMANCE_COMMIT: commit,
     PERFORMANCE_EVIDENCE_DIR: evidenceDirectory,
     PERFORMANCE_PNPM_VERSION: pnpmVersion,
@@ -299,7 +299,7 @@ void runWithOperationTimeout({
           destination: 'stdout',
           value: {
             ...result,
-            event: 'phase10.database_api_performance.passed',
+            event: 'database_api_performance.passed',
             schemaRemoved: true
           }
         }

@@ -43,7 +43,7 @@ exitPerformanceProcess({
           (error) => error instanceof CleanupTimeoutError
         ),
         evidenceRemoved,
-        event: 'phase10.hung_cleanup_probe.failed'
+        event: 'hung_cleanup_probe.failed'
       }
     }
   ]

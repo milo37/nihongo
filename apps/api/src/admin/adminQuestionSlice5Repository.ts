@@ -301,7 +301,7 @@ const beginOperation = async (
   })
   if (!operation || operation.actorUserId !== input.authority.actorId) {
     throw repositoryInvariantFailure(
-      'Phase 7 operation actor did not match the request actor.'
+      'Operation actor did not match the request actor.'
     )
   }
   return {
@@ -1431,11 +1431,9 @@ const mapTransactionError = (
         'triageAdminQuestionReport',
         'resolveAdminQuestionReport'
       ].includes(operation) &&
-      (identity?.message === 'Phase 7 Question target changed before arm.' ||
-        identity?.message ===
-          'Phase 7 QuestionVersion target changed before arm.' ||
-        identity?.message ===
-          'Phase 7 QuestionReport target changed before arm.')
+      (identity?.message === 'Question target changed before arm.' ||
+        identity?.message === 'QuestionVersion target changed before arm.' ||
+        identity?.message === 'QuestionReport target changed before arm.')
     ) {
       return new AdminQuestionCommandRepositoryError({
         code: 'VERSION_CONFLICT',
@@ -1495,7 +1493,7 @@ const mapTransactionError = (
   }
   if (
     identity?.sqlState === '42501' &&
-    identity.message === 'Phase 7 authority expired before commit.'
+    identity.message === 'Authority expired before commit.'
   ) {
     return new AdminQuestionCommandRepositoryError({
       code: FRESH_OPERATIONS.has(operation)
