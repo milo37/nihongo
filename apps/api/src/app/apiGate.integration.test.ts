@@ -366,7 +366,8 @@ beforeAll(async () => {
               exchange: async () => verifiedProviderIdentity
             }
           },
-          store: createSsoTransactionStore(authGatewayRuntime.client),
+          // #504 P7 PR5b: the SSO store runs on nihongo_app, as server.ts does.
+          store: createSsoTransactionStore(applicationRuntime.client),
           identities: createSsoIdentityRepository(
             new Proxy(applicationRuntime.client, {
               get(target, key) {
@@ -479,15 +480,16 @@ describe('Technical API gate', () => {
       })
     ).resolves.toBeUndefined()
     await expect(
-      Promise.all([
-        applicationRuntime.client.$queryRawUnsafe(
-          'SELECT "phase7_require_runtime_ready"()'
-        ),
-        authGatewayRuntime.client.$queryRawUnsafe(
-          'SELECT "phase7_require_runtime_ready"()'
-        )
-      ])
-    ).resolves.toHaveLength(2)
+      applicationRuntime.client.$queryRawUnsafe(
+        'SELECT "phase7_require_runtime_ready"()'
+      )
+    ).resolves.toHaveLength(1)
+    // #504 P7 PR5b: the former gateway role holds no EXECUTE.
+    await expect(
+      authGatewayRuntime.client.$queryRawUnsafe(
+        'SELECT "phase7_require_runtime_ready"()'
+      )
+    ).rejects.toThrow(/permission denied for function/u)
   })
 
   it('Prefix를 CORS/auth/practice/DB보다 먼저 제외한다', async () => {

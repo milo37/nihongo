@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import { installAuditDigestSql } from './fixtures/auditDigestSql.js'
 import { randomBytes, randomUUID } from 'node:crypto'
 import {
   adminQuestionMutationResultSchema,
@@ -612,7 +613,7 @@ const readA2Evidence = async (versionId: string) => {
     `SELECT "command"::text AS command, "beforeState", "afterState",
        "beforeRowVersion", "afterRowVersion", "changedFields",
        "metadata", "operationId", "requestId",
-       "contentDigest" = "phase7_admin_audit_content_digest"(
+       "contentDigest" = pg_temp."phase7_admin_audit_content_digest"(
          "operationId", "command", "targetType", "targetId",
          "beforeState", "afterState", "beforeRowVersion",
          "afterRowVersion", "changedFields", "metadata"
@@ -694,7 +695,7 @@ const readSlice4State = async (questionId: string, versionId: string) => {
     `SELECT "command"::text AS command, "targetId", "beforeState",
        "afterState", "beforeRowVersion", "afterRowVersion", "changedFields",
        "metadata", "requestId",
-       "contentDigest" = "phase7_admin_audit_content_digest"(
+       "contentDigest" = pg_temp."phase7_admin_audit_content_digest"(
          "operationId", "command", "targetType", "targetId",
          "beforeState", "afterState", "beforeRowVersion",
          "afterRowVersion", "changedFields", "metadata"
@@ -1054,13 +1055,15 @@ const readWriteSnapshot = async () =>
            AS "intentCount",
          (SELECT COUNT(*)::int FROM "AdminAuditLog") AS "auditCount",
          (SELECT COUNT(*)::int FROM "RateLimit") AS "rateLimitCount",
-         (SELECT COUNT(*)::int FROM "Phase7TrustedExecution")
+         0 /* #504 P7 PR5b dropped Phase7TrustedExecution */
            AS "trustedExecutionCount"`
     )
   ).rows[0]
 
 beforeAll(async () => {
   await Promise.all([adminClient.connect(), adminControlClient.connect()])
+  // #504 P7 PR5b: the SQL audit digest is a test fixture now.
+  await installAuditDigestSql(adminClient)
   await Promise.all([gatewayClientA.connect(), gatewayClientB.connect()])
   const endpoint = await adminClient.query<{
     databaseName: string

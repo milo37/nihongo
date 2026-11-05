@@ -580,7 +580,7 @@ describe('Reauthentication DB foundation', () => {
              AS "auditCount",
            (SELECT COUNT(*)::int FROM "Phase7OperationIntent")
              AS "operationCount",
-           (SELECT COUNT(*)::int FROM "Phase7TrustedExecution")
+           0 /* #504 P7 PR5b dropped Phase7TrustedExecution */
              AS "trustedCount"`,
         [oldSessionId, newSessionId, prepared.intentId, prepared.operationId]
       )
@@ -739,7 +739,7 @@ describe('Reauthentication DB foundation', () => {
                 FROM "Phase7AuthorityRevocationEvidence")
                  AS "evidenceCount",
                (SELECT COUNT(*)::int FROM "AdminAuditLog") AS "auditCount",
-               (SELECT COUNT(*)::int FROM "Phase7TrustedExecution")
+               0 /* #504 P7 PR5b dropped Phase7TrustedExecution */
                  AS "trustedExecutionCount"`
           )
         ).rows[0]
@@ -821,7 +821,7 @@ describe('Reauthentication DB foundation', () => {
            (SELECT COUNT(*)::int FROM "Phase7ReauthenticationIntent"
             WHERE "id" = $4 AND "state" = 'PREPARED')
              AS "freshIntentCount",
-           (SELECT COUNT(*)::int FROM "Phase7TrustedExecution")
+           0 /* #504 P7 PR5b dropped Phase7TrustedExecution */
              AS "trustedCount"`,
         [
           first.oldSessionId,
@@ -1198,7 +1198,12 @@ describe('Reauthentication DB foundation', () => {
         .map((row) => row.name)
     ).toEqual([
       'phase7_classify_admin_authority',
+      // #504 P7 PR5b: the former gateway role holds no EXECUTE.
+      'phase7_consume_sso_transaction_v2',
+      'phase7_create_sso_transaction_v2',
       'phase7_require_database_capability',
+      'phase7_require_runtime_ready',
+      'phase7_resolve_sso_identity',
       'phase7_user_erasure_confirmed'
     ])
     // #504 P7 PR4a: the erasure worker queue, direct erasure, report redaction
@@ -1206,7 +1211,8 @@ describe('Reauthentication DB foundation', () => {
     // #504 P7 PR4b-2 dropped phase7_request_sso_account_erasure.
     // #504 P7 PR5a moved SSO account fresh, link, unlink and provider cleanup
     // to the API and dropped phase7_change_user_authority.
-    expect(rows.filter((row) => row.gateway).length).toBe(4)
+    // #504 P7 PR5b revoked the rest from the former gateway role.
+    expect(rows.filter((row) => row.gateway).length).toBe(0)
     // #504 P7 PR4b-1 dropped phase7_cleanup_expired_auth_state.
     expect(rows.filter((row) => row.erasure).length).toBe(0)
   })

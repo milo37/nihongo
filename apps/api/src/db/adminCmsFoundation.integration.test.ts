@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
+import { installAuditDigestSql } from './fixtures/auditDigestSql.js'
 import { canonicalDuplicateIdentity } from '@nihongo/domain/content/validators/v1/duplicates'
 import type { PersistedQuestionSemanticV1 } from '@nihongo/domain/content/validators/v1/types'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -42,7 +43,8 @@ const EXPECTED_RECENT_MIGRATIONS = [
   '20261118090000_erasure_request_to_api',
   '20261119090000_operation_finish_enforcement',
   '20261120090000_trusted_execution_users',
-  '20261121090000_account_sso_to_api'
+  '20261121090000_account_sso_to_api',
+  '20261122090000_trusted_execution_drop'
 ] as const
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',
@@ -488,6 +490,8 @@ const insertIncompleteSystemQuestion = async (): Promise<void> => {
 
 beforeAll(async () => {
   await observeInitialization('ADMIN_CONNECT', () => client.connect())
+  // #504 P7 PR5b: the SQL audit digest is a test fixture now.
+  await installAuditDigestSql(client)
   await observeInitialization('LEGACY_CONNECT', () => legacyClient.connect())
   const endpoint = await observeInitialization('ENDPOINT_QUERY', () =>
     client.query<{
@@ -521,16 +525,16 @@ afterAll(async () => {
 })
 
 describe('Persistence foundation', () => {
-  it('75 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
+  it('76 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
     const ledger = await client.query<{ migrationName: string }>(
       `SELECT migration_name AS "migrationName"
        FROM "_prisma_migrations"
        WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
        ORDER BY started_at`
     )
-    expect(ledger.rows).toHaveLength(75)
+    expect(ledger.rows).toHaveLength(76)
     expect(
-      ledger.rows.slice(-12).map(({ migrationName }) => migrationName)
+      ledger.rows.slice(-13).map(({ migrationName }) => migrationName)
     ).toEqual(EXPECTED_RECENT_MIGRATIONS)
     expect(
       (
@@ -608,7 +612,7 @@ describe('Persistence foundation', () => {
              WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`
           )
         ).rows
-      ).toEqual([{ migrationCount: 75 }])
+      ).toEqual([{ migrationCount: 76 }])
     } finally {
       await client.query('ROLLBACK')
     }
@@ -1019,7 +1023,6 @@ describe('Persistence foundation', () => {
           'ContentReview',
           'Phase7DatabaseCapability',
           'Phase7OperationIntent',
-          'Phase7TrustedExecution',
           'QuestionReport',
           'TagApplicability'
         ]
@@ -1031,7 +1034,6 @@ describe('Persistence foundation', () => {
       'ContentReview',
       'Phase7DatabaseCapability',
       'Phase7OperationIntent',
-      'Phase7TrustedExecution',
       'QuestionReport',
       'TagApplicability'
     ])
@@ -1110,19 +1112,16 @@ describe('Persistence foundation', () => {
       [
         [
           'phase7_activate_v1_issuer',
-          'phase7_close_trusted_execution',
-          'phase7_open_trusted_execution',
           'phase7_register_database_capability',
           'phase7_require_runtime_ready',
           'phase7_require_database_capability',
           'phase7_require_caller_role',
-          'phase7_trusted_execution_active',
           'phase7_user_erasure_confirmed',
           'validate_phase7_question_report_remediation'
         ]
       ]
     )
-    expect(publicExecute.rows).toHaveLength(10)
+    expect(publicExecute.rows).toHaveLength(7)
     expect(
       publicExecute.rows.filter(
         ({ ownerName, publicCanExecute }) =>
@@ -1206,7 +1205,7 @@ describe('Persistence foundation', () => {
        ) AS "canConnect",
        (SELECT "legacyIssuerDisabled" FROM "AuthIssuerActivation" WHERE "id" = 1)
          AS "legacyIssuerDisabled",
-       (SELECT COUNT(*)::int FROM "Phase7TrustedExecution")
+       0 /* #504 P7 PR5b dropped Phase7TrustedExecution */
          AS "trustedExecutionCount"`
     )
     await expectFailedTransaction(async () => {
@@ -1224,7 +1223,7 @@ describe('Persistence foundation', () => {
            ) AS "canConnect",
            (SELECT "legacyIssuerDisabled" FROM "AuthIssuerActivation" WHERE "id" = 1)
              AS "legacyIssuerDisabled",
-           (SELECT COUNT(*)::int FROM "Phase7TrustedExecution")
+           0 /* #504 P7 PR5b dropped Phase7TrustedExecution */
              AS "trustedExecutionCount"`
         )
       ).rows
@@ -1530,7 +1529,7 @@ describe('Persistence foundation', () => {
           $3, $3, 'ADMIN', 'ACTIVE_ADMIN', $4::TEXT, $5::TEXT, $6, $7,
           $8::jsonb,
           '{"kind":"NONE_V1"}'::jsonb,
-          "phase7_admin_audit_content_digest"(
+          pg_temp."phase7_admin_audit_content_digest"(
             $9, $1::"AdminAuditCommand", 'QUESTION_VERSION', $2,
             $4::TEXT, $5::TEXT, $6, $7, $8::jsonb,
             '{"kind":"NONE_V1"}'::jsonb
@@ -2167,7 +2166,7 @@ describe('Persistence foundation', () => {
           'QUESTION_CREATE', 'QUESTION', $1, 'ACCOUNT', $2, $2, 'ADMIN',
           'ACTIVE_ADMIN', NULL, 'ACTIVE', NULL, 1, $3::jsonb,
           '{"kind":"NONE_V1"}'::jsonb,
-          "phase7_admin_audit_content_digest"(
+          pg_temp."phase7_admin_audit_content_digest"(
             $4, 'QUESTION_CREATE', 'QUESTION', $1, NULL, 'ACTIVE',
             NULL, 1, $3::jsonb, '{"kind":"NONE_V1"}'::jsonb
           ), $4, $5, 'TEST', $6
@@ -2197,6 +2196,7 @@ describe('Persistence foundation', () => {
     let firstFixture: OperationFixture | undefined
     let secondFixture: OperationFixture | undefined
     await concurrentClient.connect()
+    await installAuditDigestSql(concurrentClient)
     try {
       const concurrentBackend = await concurrentClient.query<{ pid: number }>(
         `SELECT pg_backend_pid() AS pid`
@@ -2548,7 +2548,7 @@ describe('Persistence foundation', () => {
           $2, $2, 'ADMIN', 'ACTIVE_ADMIN', $3::TEXT, $4::TEXT, $5, $6,
           $7::jsonb,
           '{"kind":"NONE_V1"}'::jsonb,
-          "phase7_admin_audit_content_digest"(
+          pg_temp."phase7_admin_audit_content_digest"(
             $8, 'QUESTION_VERSION_UPDATE', 'QUESTION_VERSION', $1,
             $3::TEXT, $4::TEXT, $5, $6, $7::jsonb,
             '{"kind":"NONE_V1"}'::jsonb
@@ -2702,7 +2702,7 @@ describe('Persistence foundation', () => {
           $3, $3, 'ADMIN', 'ACTIVE_ADMIN', $4::TEXT, $5::TEXT, $6, $7,
           $8::jsonb,
           '{"kind":"NONE_V1"}'::jsonb,
-          "phase7_admin_audit_content_digest"(
+          pg_temp."phase7_admin_audit_content_digest"(
             $9, $1::"AdminAuditCommand", 'QUESTION_VERSION', $2,
             $4::TEXT, $5::TEXT, $6, $7, $8::jsonb,
             '{"kind":"NONE_V1"}'::jsonb
@@ -2794,6 +2794,7 @@ describe('Persistence foundation', () => {
     let reciprocalApprovalOpen = false
     let reciprocalBegin: ReturnType<typeof beginAdminOperation> | undefined
     await reciprocalClient.connect()
+    await installAuditDigestSql(reciprocalClient)
     try {
       const reciprocalBackend = await reciprocalClient.query<{ pid: number }>(
         `SELECT pg_backend_pid() AS pid`
@@ -3002,7 +3003,7 @@ describe('Persistence foundation', () => {
           'QUESTION_ARCHIVE', 'QUESTION', $1, 'ACCOUNT', $2, $2,
           'ADMIN', 'ACTIVE_ADMIN', 'ACTIVE', 'ARCHIVED', 1, 2,
           '["LIFECYCLE_STATUS","VERSION_STATUS"]'::jsonb, $3::jsonb,
-          "phase7_admin_audit_content_digest"(
+          pg_temp."phase7_admin_audit_content_digest"(
             $4, 'QUESTION_ARCHIVE', 'QUESTION', $1,
             'ACTIVE', 'ARCHIVED', 1, 2,
             '["LIFECYCLE_STATUS","VERSION_STATUS"]'::jsonb, $3::jsonb
@@ -3197,7 +3198,7 @@ describe('Persistence foundation', () => {
           'ADMIN', 'ACTIVE_ADMIN', 'APPROVED', 'PUBLISHED', 4, 5,
           '["VERSION_STATUS","CURRENT_PUBLISHED_VERSION_ID"]'::jsonb,
           '{"kind":"NONE_V1"}'::jsonb,
-          "phase7_admin_audit_content_digest"(
+          pg_temp."phase7_admin_audit_content_digest"(
             $3, 'PUBLICATION', 'QUESTION_VERSION', $1,
             'APPROVED', 'PUBLISHED', 4, 5,
             '["VERSION_STATUS","CURRENT_PUBLISHED_VERSION_ID"]'::jsonb,
@@ -3671,7 +3672,7 @@ describe('Persistence foundation', () => {
           `SELECT
             (SELECT COUNT(*)::int FROM "Session"
               WHERE "id" = $1 OR "token" = $2) AS "sessionCount",
-            (SELECT COUNT(*)::int FROM "Phase7TrustedExecution")
+            0 /* #504 P7 PR5b dropped Phase7TrustedExecution */
               AS "trustedExecutionCount"`,
           [spoofSessionId, spoofSessionToken]
         )
@@ -3865,7 +3866,7 @@ describe('Persistence foundation', () => {
           'QUESTION_CREATE', 'QUESTION', $1, 'ACCOUNT', $2, $2, 'ADMIN',
           'ACTIVE_ADMIN', NULL, 'ACTIVE', NULL, 1, $3::jsonb,
           '{"kind":"NONE_V1"}'::jsonb,
-          "phase7_admin_audit_content_digest"(
+          pg_temp."phase7_admin_audit_content_digest"(
             $4, 'QUESTION_CREATE', 'QUESTION', $1, NULL, 'ACTIVE',
             NULL, 1, $3::jsonb, '{"kind":"NONE_V1"}'::jsonb
           ), $4, $5,
@@ -3990,6 +3991,7 @@ describe('Persistence foundation', () => {
     let delayedTransactionOpen = false
     let delayedReportPromise: Promise<unknown> | undefined
     await delayedClient.connect()
+    await installAuditDigestSql(delayedClient)
     try {
       const delayedBackend = await delayedClient.query<{ pid: number }>(
         `SELECT pg_backend_pid() AS pid`
@@ -4052,7 +4054,7 @@ describe('Persistence foundation', () => {
           `SELECT
             (SELECT COUNT(*)::int FROM "QuestionReport" WHERE "id" = $1)
               AS "reportCount",
-            (SELECT COUNT(*)::int FROM "Phase7TrustedExecution")
+            0 /* #504 P7 PR5b dropped Phase7TrustedExecution */
               AS "trustedExecutionCount"`,
           [delayedReportId]
         )
@@ -4087,15 +4089,6 @@ describe('Persistence foundation', () => {
         actorId
       ])
     }, '42501')
-    await expectFailedTransaction(async () => {
-      await client.query(
-        `SELECT "phase7_open_trusted_execution"('ERASURE', $1, NULL)`,
-        [actorId]
-      )
-      await client.query(`SELECT "phase7_close_trusted_execution"($1)`, [
-        randomUUID()
-      ])
-    }, '42501')
     expect(
       (
         await client.query<{
@@ -4108,7 +4101,7 @@ describe('Persistence foundation', () => {
               AS "userCount",
             (SELECT COUNT(*)::int FROM "Phase7OperationIntent")
               AS "operationIntentCount",
-            (SELECT COUNT(*)::int FROM "Phase7TrustedExecution")
+            0 /* #504 P7 PR5b dropped Phase7TrustedExecution */
               AS "trustedExecutionCount"`,
           [actorId]
         )
@@ -4152,7 +4145,7 @@ describe('Persistence foundation', () => {
         (SELECT COUNT(*)::int FROM "User" WHERE "id" = $1) AS "userCount",
         (SELECT COUNT(*)::int FROM "Phase7OperationIntent")
           AS "operationIntentCount",
-        (SELECT COUNT(*)::int FROM "Phase7TrustedExecution")
+        0 /* #504 P7 PR5b dropped Phase7TrustedExecution */
           AS "trustedExecutionCount",
         (SELECT COUNT(*)::int FROM "ContentReview"
           WHERE "questionVersionId" = $3
@@ -4396,7 +4389,7 @@ describe('Persistence foundation', () => {
           $2, $2, 'ADMIN', 'ACTIVE_ADMIN', 'OPEN', 'TRIAGED', 1, 2,
           '["ASSIGNEE","REPORT_STATUS"]'::jsonb,
           '{"kind":"NONE_V1"}'::jsonb,
-          "phase7_admin_audit_content_digest"(
+          pg_temp."phase7_admin_audit_content_digest"(
             $3, 'REPORT_TRIAGE', 'QUESTION_REPORT', $1,
             'OPEN', 'TRIAGED', 1, 2,
             '["ASSIGNEE","REPORT_STATUS"]'::jsonb,
@@ -4479,7 +4472,7 @@ describe('Persistence foundation', () => {
           $2, $2, 'ADMIN', 'ACTIVE_ADMIN', 'TRIAGED', 'RESOLVED', 2, 3,
           '["RESOLUTION","REPORT_STATUS"]'::jsonb,
           '{"kind":"NONE_V1"}'::jsonb,
-          "phase7_admin_audit_content_digest"(
+          pg_temp."phase7_admin_audit_content_digest"(
             $3, 'REPORT_RESOLUTION', 'QUESTION_REPORT', $1,
             'TRIAGED', 'RESOLVED', 2, 3,
             '["RESOLUTION","REPORT_STATUS"]'::jsonb,
@@ -4768,7 +4761,7 @@ describe('Persistence foundation', () => {
          report."resolutionOutcome"::text, report."resolutionReason",
          report."remediationVersionId"::text, report."resolvedAt",
          report."rowVersion", report."updatedAt",
-         (SELECT COUNT(*)::int FROM "Phase7TrustedExecution")
+         0 /* #504 P7 PR5b dropped Phase7TrustedExecution */
            AS "trustedExecutionCount"
        FROM "QuestionReport" AS report
        WHERE report."id" = ANY($1::uuid[]) ORDER BY report."id"`,
@@ -4944,7 +4937,7 @@ describe('Persistence foundation', () => {
             'QUESTION_CREATE', 'QUESTION', $1, 'ACCOUNT', $2, $2,
             'ADMIN', 'ACTIVE_ADMIN', NULL, 'ACTIVE', NULL, 1, $3::jsonb,
             '{"kind":"NONE_V1"}'::jsonb,
-            "phase7_admin_audit_content_digest"(
+            pg_temp."phase7_admin_audit_content_digest"(
               $4, 'QUESTION_CREATE', 'QUESTION', $1, NULL, 'ACTIVE',
               NULL, 1, $3::jsonb, '{"kind":"NONE_V1"}'::jsonb
             ), $4, $5, 'TEST', $6
@@ -5190,7 +5183,7 @@ describe('Persistence foundation', () => {
           'QUESTION_ARCHIVE', 'QUESTION', $1, 'ACCOUNT', $2, $2,
           'ADMIN', 'ACTIVE_ADMIN', 'ACTIVE', 'ARCHIVED', 1, 2,
           '["LIFECYCLE_STATUS"]'::jsonb, $3::jsonb,
-          "phase7_admin_audit_content_digest"(
+          pg_temp."phase7_admin_audit_content_digest"(
             $4, 'QUESTION_ARCHIVE', 'QUESTION', $1,
             'ACTIVE', 'ARCHIVED', 1, 2,
             '["LIFECYCLE_STATUS"]'::jsonb, $3::jsonb
@@ -5239,7 +5232,7 @@ describe('Persistence foundation', () => {
              version."status"::text AS "versionStatus",
              version."rowVersion" AS "versionRowVersion",
              audit."changedFields", audit."metadata",
-             audit."contentDigest" = "phase7_admin_audit_content_digest"(
+             audit."contentDigest" = pg_temp."phase7_admin_audit_content_digest"(
                audit."operationId", audit."command", audit."targetType",
                audit."targetId", audit."beforeState", audit."afterState",
                audit."beforeRowVersion", audit."afterRowVersion",
@@ -5359,7 +5352,7 @@ describe('Persistence foundation', () => {
             'QUESTION_ARCHIVE', 'QUESTION', $1, 'ACCOUNT', $2, $2,
             'ADMIN', 'ACTIVE_ADMIN', 'ACTIVE', 'ARCHIVED', 1, 2,
             '["LIFECYCLE_STATUS","VERSION_STATUS"]'::jsonb, $3::jsonb,
-            "phase7_admin_audit_content_digest"(
+            pg_temp."phase7_admin_audit_content_digest"(
               $4, 'QUESTION_ARCHIVE', 'QUESTION', $1,
               'ACTIVE', 'ARCHIVED', 1, 2,
               '["LIFECYCLE_STATUS","VERSION_STATUS"]'::jsonb, $3::jsonb
@@ -5494,7 +5487,7 @@ describe('Persistence foundation', () => {
              'QUESTION_ARCHIVE', 'QUESTION', $1, 'ACCOUNT', $2, $2,
              'ADMIN', 'ACTIVE_ADMIN', 'ACTIVE', 'ARCHIVED', 1, 2,
              '["LIFECYCLE_STATUS","VERSION_STATUS"]'::jsonb, $3::jsonb,
-             "phase7_admin_audit_content_digest"(
+             pg_temp."phase7_admin_audit_content_digest"(
                $4, 'QUESTION_ARCHIVE', 'QUESTION', $1,
                'ACTIVE', 'ARCHIVED', 1, 2,
                '["LIFECYCLE_STATUS","VERSION_STATUS"]'::jsonb, $3::jsonb
@@ -5523,6 +5516,7 @@ describe('Persistence foundation', () => {
       await Promise.all(
         concurrentClients.map((databaseClient) => databaseClient.connect())
       )
+      await Promise.all(concurrentClients.map(installAuditDigestSql))
       concurrentOutcomes = await Promise.allSettled(
         concurrentClients.map((databaseClient, index) =>
           archiveConcurrentCandidate(
@@ -5594,7 +5588,7 @@ describe('Persistence foundation', () => {
              review."reason" AS "reviewReason",
              audit."changedFields" AS "auditChangedFields",
              audit."metadata" AS "auditMetadata",
-             audit."contentDigest" = "phase7_admin_audit_content_digest"(
+             audit."contentDigest" = pg_temp."phase7_admin_audit_content_digest"(
                audit."operationId", audit."command", audit."targetType",
                audit."targetId", audit."beforeState", audit."afterState",
                audit."beforeRowVersion", audit."afterRowVersion",
@@ -5815,7 +5809,7 @@ describe('Persistence foundation', () => {
           'QUESTION_CREATE', 'QUESTION', $1, 'ACCOUNT', $2, $2, 'ADMIN',
           'ACTIVE_ADMIN', NULL, 'ACTIVE', NULL, 1, $3::jsonb,
           '{"kind":"NONE_V1"}'::jsonb,
-          "phase7_admin_audit_content_digest"(
+          pg_temp."phase7_admin_audit_content_digest"(
             $4, 'QUESTION_CREATE', 'QUESTION', $1, NULL, 'ACTIVE',
             NULL, 1, $3::jsonb, '{"kind":"NONE_V1"}'::jsonb
           ), $4, $5, 'TEST', $6
@@ -5851,6 +5845,7 @@ describe('Persistence foundation', () => {
     let firstOperationId = ''
     let secondOperationId: string | null = null
     await duplicateClient.connect()
+    await installAuditDigestSql(duplicateClient)
     try {
       const duplicateBackend = await duplicateClient.query<{ pid: number }>(
         `SELECT pg_backend_pid() AS pid`
@@ -5970,7 +5965,7 @@ describe('Persistence foundation', () => {
              WHERE "operationId" IN ($3, $4)) AS "auditCount",
             (SELECT COUNT(*)::int FROM "Phase7OperationIntent")
               AS "operationIntentCount",
-            (SELECT COUNT(*)::int FROM "Phase7TrustedExecution")
+            0 /* #504 P7 PR5b dropped Phase7TrustedExecution */
               AS "trustedExecutionCount"`,
           [
             firstQuestionId,
@@ -6799,15 +6794,16 @@ describe('Persistence foundation', () => {
       }
       await expect(attestRuntimeRoles(endpoints)).resolves.toBeUndefined()
       await expect(
-        Promise.all([
-          applicationRuntime.client.$queryRawUnsafe(
-            `SELECT "phase7_require_runtime_ready"()`
-          ),
-          authGatewayRuntime.client.$queryRawUnsafe(
-            `SELECT "phase7_require_runtime_ready"()`
-          )
-        ])
-      ).resolves.toHaveLength(2)
+        applicationRuntime.client.$queryRawUnsafe(
+          `SELECT "phase7_require_runtime_ready"()`
+        )
+      ).resolves.toHaveLength(1)
+      // #504 P7 PR5b: the former gateway role holds no EXECUTE.
+      await expect(
+        authGatewayRuntime.client.$queryRawUnsafe(
+          `SELECT "phase7_require_runtime_ready"()`
+        )
+      ).rejects.toThrow(/permission denied for function/u)
 
       const workerLogin = 'nihongo_test_guest_cleanup_worker_login'
       const developmentWorkerLogin =

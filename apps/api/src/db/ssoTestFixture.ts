@@ -1,4 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto'
+import { installAuditDigestSql } from './fixtures/auditDigestSql.js'
 import { Client } from 'pg'
 import type { QueryResult, QueryResultRow } from 'pg'
 import { expect } from 'vitest'
@@ -410,6 +411,8 @@ export const createSsoDbHarness = () => {
     learningFixture,
     connect: async () => {
       await owner.connect()
+      // #504 P7 PR5b: the SQL audit digest is a test fixture now.
+      await installAuditDigestSql(owner)
       await gatewayA.connect()
       await gatewayB.connect()
       await appA.connect()

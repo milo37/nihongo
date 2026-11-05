@@ -335,20 +335,6 @@ model Phase7OperationIntent {
   @@ignore
 }
 
-model Phase7TrustedExecution {
-  id              String                 @id @default(dbgenerated("public.gen_random_uuid()")) @db.Uuid
-  kind            String
-  targetUserId    String?                @db.Uuid
-  rememberSession Boolean?
-  environment     AdminAuditEnvironment?
-  backendPid      Int
-  transactionId   BigInt
-  createdAt       DateTime               @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
-
-  @@unique([backendPid, transactionId, kind], map: "Phase7TrustedExecution_context_key")
-  @@ignore
-}
-
 model Phase7DatabaseCapability {
   id            Int                   @id @default(1) @db.SmallInt
   databaseName  String

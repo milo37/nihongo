@@ -253,9 +253,9 @@ export const verifyRecoveryContract = (
   assertExactArray(technical.environments, ['TEST'], 'Technical environments')
   if (
     technical.selection !== 'all-release-manifest-entries' ||
-    technical.expectedCount !== 75 ||
+    technical.expectedCount !== 76 ||
     technical.expectedDigestSha256 !==
-      '2e3b5558655ec2efcf614692128dd2d29cfedeab12aca7d583bfa0f049fe8212' ||
+      '261e26617bce101ef82ae2e9a871272f68be9afc05ca1e6b08c5eef7c014bfa1' ||
     technical.externalRecoveryClaimAllowed !== false
   ) {
     throw new Error('Technical migration profile is invalid.')
@@ -356,7 +356,7 @@ export const deriveMigrationProfile = (releaseManifest, profileName) => {
   let entries
   if (profileName === 'technical-current-test') {
     entries = manifest.migrations.entries
-    if (entries.length !== 75) {
+    if (entries.length !== 76) {
       throw new Error('Technical migration profile count mismatch.')
     }
   } else {
@@ -375,7 +375,7 @@ export const deriveMigrationProfile = (releaseManifest, profileName) => {
   }
   const expectedDigest =
     profileName === 'technical-current-test'
-      ? '2e3b5558655ec2efcf614692128dd2d29cfedeab12aca7d583bfa0f049fe8212'
+      ? '261e26617bce101ef82ae2e9a871272f68be9afc05ca1e6b08c5eef7c014bfa1'
       : '6870a93dd141b7a6c226de7aeed315d48ce313828c82bb92f91bf8a8861ed2ea'
   if (profile.digestSha256 !== expectedDigest) {
     throw new Error('Recovery migration profile inventory mismatch.')

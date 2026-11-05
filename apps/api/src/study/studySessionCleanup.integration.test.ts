@@ -1417,16 +1417,12 @@ describe('V1 retirement review isolation fixture', () => {
 
 describe('V1 retirement trusted boundary', () => {
   const assertContextCleared = async () => {
+    // #504 P7 PR5b: trusted execution is gone; only the role is checked.
     expect(
       await retirementClient.$queryRaw`SELECT CURRENT_USER AS "role"`
     ).toEqual([{ role: 'nihongo_phase7_migration' }])
-    const active = await retirementClient.$transaction(async (transaction) => {
-      await transaction.$executeRaw`SET LOCAL ROLE "nihongo_phase7_owner"`
-      return await transaction.$queryRaw`SELECT "phase7_trusted_execution_active"('V1_RETIREMENT') AS active`
-    })
-    expect(active).toEqual([{ active: false }])
   }
-  it('denies out-of-scope deletes after a forged context and role switch', async () => {
+  it('denies out-of-scope deletes after a role switch', async () => {
     const userId = await createUser()
     const legacy = await createSession({
       owner: { kind: 'USER', id: userId },
@@ -1444,7 +1440,6 @@ describe('V1 retirement trusted boundary', () => {
       await expect(
         retirementClient.$transaction(async (tx) => {
           await tx.$executeRaw`SET LOCAL ROLE "nihongo_phase7_owner"`
-          await tx.$queryRaw`SELECT "phase7_open_trusted_execution"('V1_RETIREMENT', NULL, NULL)`
           await tx.$executeRaw`SET LOCAL ROLE "nihongo_phase7_migration"`
           if (target === 'session') {
             await tx.$executeRaw`DELETE FROM "StudySession" WHERE "id" = ${legacy.sessionId}::uuid`
@@ -1454,16 +1449,6 @@ describe('V1 retirement trusted boundary', () => {
         })
       ).rejects.toThrow('42501')
     }
-    await expect(
-      retirementClient.$transaction(async (tx) => {
-        await tx.$executeRaw`SET LOCAL ROLE "nihongo_phase7_owner"`
-        await tx.$queryRaw`SELECT "phase7_open_trusted_execution"('V1_RETIREMENT', NULL, NULL)`
-        await tx.$executeRaw`SET LOCAL ROLE "nihongo_phase7_migration"`
-        await tx.$queryRaw`SELECT * FROM "phase7_retire_v1_sessions"(ARRAY[${legacy.sessionId}::uuid])`
-      })
-      // #504 P7 PR4c-2: retirement no longer opens trusted execution, so the
-      // forged context is never consumed and the commit is refused.
-    ).rejects.toThrow('Trusted execution was not consumed.')
     expect(
       await database.client.studySession.findUnique({
         where: { id: legacy.sessionId }
