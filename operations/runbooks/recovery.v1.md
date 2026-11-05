@@ -143,9 +143,9 @@ The historical physical73 inventory added `20261119090000_operation_finish_enfor
 with ordered inventory digest
 `fb35ad480ab266e0e5c448c87b6e9f81ca9c417a893e2bbccae8a880190881ab`.
 The current physical74 inventory adds `20261120090000_trusted_execution_users`
-(file SHA256 `f6d7a7aaa70a2c189998362e5a9b303352c6728f33a9b854391fd90960aee75c`),
+(file SHA256 `a69b06f4a75ee500102956d28d004f69b31e6d6f83f989f472f0e25af23ace19`),
 with ordered inventory digest
-`da1d55d65ff6655e1152fc94a44792fbdb80cc9f459d236fd3431fd079844e25`.
+`dae49bac840c2ef07ed4cfa9a11889899879dcc15339f301f4b97aa5753cbf7a`.
 Historical physical50, physical52, physical53, physical55, physical56, physical57, physical58, physical59, physical60, physical61, physical62, physical63, physical64, physical65, physical66, physical67, physical68, physical69, physical70, physical71, physical72 and physical73 are rejected as the current technical profile.
 A historical catalog-excluded 38-entry inventory has file digest
 `0169f4d0491d4e33f917df842cdeb26920edc2e7f02f8b0d41159cd132320f3b`;

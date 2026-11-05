@@ -275,7 +275,7 @@ test('migration profiles separate exact physical 74 TEST entries from the exact 
   )
   assert.deepEqual(releaseManifest.migrations.entries[73], {
     name: '20261120090000_trusted_execution_users',
-    sha256: 'f6d7a7aaa70a2c189998362e5a9b303352c6728f33a9b854391fd90960aee75c'
+    sha256: 'a69b06f4a75ee500102956d28d004f69b31e6d6f83f989f472f0e25af23ace19'
   })
   const historical73 = structuredClone(releaseManifest)
   historical73.migrations.count = 73
@@ -372,7 +372,7 @@ test('migration profiles separate exact physical 74 TEST entries from the exact 
     {
       count: 74,
       digestSha256:
-        'da1d55d65ff6655e1152fc94a44792fbdb80cc9f459d236fd3431fd079844e25',
+        'dae49bac840c2ef07ed4cfa9a11889899879dcc15339f301f4b97aa5753cbf7a',
       name: 'technical-current-test'
     }
   )

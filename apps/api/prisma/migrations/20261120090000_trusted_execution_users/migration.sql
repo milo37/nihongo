@@ -55,16 +55,17 @@ GRANT INSERT (
 CREATE OR REPLACE FUNCTION "validate_phase7_question_report_insert"()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-SECURITY DEFINER
 SET search_path FROM CURRENT
 AS $function$
 DECLARE
-  reporter "User"%ROWTYPE;
+  -- nihongo_app reads only these User columns (column grants).
+  reporter RECORD;
 BEGIN
   -- #504 P7 PR4c-2: the API creates reports as nihongo_app after its Session
   -- checks; the server owns the state, digest, row version, times and the
-  -- reporter snapshot. No other writer remains.
-  IF COALESCE(NULLIF(current_setting('role', true), 'none'), session_user) <> 'nihongo_app' THEN
+  -- reporter snapshot. No other writer remains. The trigger runs with the
+  -- caller's rights (no SECURITY DEFINER).
+  IF current_user <> 'nihongo_app' THEN
     RAISE EXCEPTION 'QuestionReport insert requires owned reporter authority.'
       USING ERRCODE = '42501';
   END IF;
@@ -90,7 +91,8 @@ BEGIN
       USING ERRCODE = '23514';
   END IF;
 
-  SELECT * INTO reporter FROM "User" WHERE "id" = NEW."reporterUserId" FOR SHARE;
+  SELECT "id", "role", "accountStatus" INTO reporter
+  FROM "User" WHERE "id" = NEW."reporterUserId" FOR SHARE;
   IF reporter."id" IS NULL OR reporter."id" <> NEW."reporterActorId"
     OR reporter."role" <> NEW."reporterRole"
     OR reporter."accountStatus" <> 'ACTIVE'

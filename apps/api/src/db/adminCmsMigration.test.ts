@@ -483,13 +483,13 @@ describe('Phase 7 Slice 1 admin-CMS migrations', () => {
     expect(manifest[73]).toEqual({
       name: '20261120090000_trusted_execution_users',
       checksum:
-        'f6d7a7aaa70a2c189998362e5a9b303352c6728f33a9b854391fd90960aee75c'
+        'a69b06f4a75ee500102956d28d004f69b31e6d6f83f989f472f0e25af23ace19'
     })
     expect(digest(manifest.slice(0, 73))).toBe(
       'fb35ad480ab266e0e5c448c87b6e9f81ca9c417a893e2bbccae8a880190881ab'
     )
     expect(digest(manifest)).toBe(
-      'da1d55d65ff6655e1152fc94a44792fbdb80cc9f459d236fd3431fd079844e25'
+      'dae49bac840c2ef07ed4cfa9a11889899879dcc15339f301f4b97aa5753cbf7a'
     )
   })
 

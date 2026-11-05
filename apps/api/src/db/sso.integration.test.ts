@@ -249,7 +249,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       {
         name: '20261120090000_trusted_execution_users',
         checksum:
-          'f6d7a7aaa70a2c189998362e5a9b303352c6728f33a9b854391fd90960aee75c'
+          'a69b06f4a75ee500102956d28d004f69b31e6d6f83f989f472f0e25af23ace19'
       }
     ])
     // Existing runner executes canonical deploy then db:migrate:deploy re-entry

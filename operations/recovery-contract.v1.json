@@ -24,7 +24,7 @@
       "environments": ["TEST"],
       "selection": "all-release-manifest-entries",
       "expectedCount": 74,
-      "expectedDigestSha256": "da1d55d65ff6655e1152fc94a44792fbdb80cc9f459d236fd3431fd079844e25",
+      "expectedDigestSha256": "dae49bac840c2ef07ed4cfa9a11889899879dcc15339f301f4b97aa5753cbf7a",
       "externalRecoveryClaimAllowed": false
     },
     "v1-runtime-pre-phase7": {
