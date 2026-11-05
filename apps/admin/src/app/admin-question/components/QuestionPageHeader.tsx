@@ -2,6 +2,7 @@ import { Link } from 'react-router'
 import type { ReactElement, RefObject } from 'react'
 import { WideScreenNotice } from '@app/admin/components/WideScreenNotice'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
+import { Eyebrow } from '@nihongo/browser/common/components/Eyebrow'
 
 type QuestionPageHeaderProps = {
   returnPath: string
@@ -44,9 +45,7 @@ export const QuestionPageHeader = ({
       </nav>
 
       <header className="mb-8 mt-6 border-b border-line pb-8">
-        <p className="text-sm font-bold tracking-[0.14em] text-brand">
-          {eyebrow}
-        </p>
+        <Eyebrow>{eyebrow}</Eyebrow>
         <h1
           ref={headingRef}
           className={

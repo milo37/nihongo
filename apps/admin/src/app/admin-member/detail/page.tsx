@@ -9,6 +9,7 @@ import { MemberActions } from '@app/admin-member/components/MemberActions'
 import { MemberIdText } from '@app/admin-member/components/MemberIdText'
 import { MemberStatusBadge } from '@app/admin-member/components/MemberStatusBadge'
 import { useAdminMemberDetail } from '@app/admin-member/hooks/useAdminMembers'
+import { PageContainer } from '@nihongo/browser/common/components/PageContainer'
 
 export const AdminMemberDetailPage = (): ReactElement => {
   const { memberId = '' } = useParams()
@@ -18,7 +19,7 @@ export const AdminMemberDetailPage = (): ReactElement => {
   const [focusActions, setFocusActions] = useState(false)
 
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+    <PageContainer width="6xl">
       <nav aria-label={t('common.breadcrumbLabel')}>
         <Link
           to="/members"
@@ -113,6 +114,6 @@ export const AdminMemberDetailPage = (): ReactElement => {
           />
         </>
       )}
-    </section>
+    </PageContainer>
   )
 }

@@ -11,6 +11,8 @@ import { captureAuthTransitionEpoch } from '@nihongo/browser/libs/authTransition
 import { WideScreenNotice } from '@app/admin/components/WideScreenNotice'
 import { useQuestionImport } from '@app/admin-import/hooks/useQuestionImport'
 import { useUiLocale } from '@nihongo/browser/provider/I18nProvider'
+import { PageContainer } from '@nihongo/browser/common/components/PageContainer'
+import { Eyebrow } from '@nihongo/browser/common/components/Eyebrow'
 
 export const AdminQuestionImportPage = (): ReactElement => {
   const { user, role } = useAuth()
@@ -55,7 +57,7 @@ const ImportPage = ({
   } = useQuestionImport({ actorId, epoch })
   const { locale } = useUiLocale()
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+    <PageContainer width="6xl">
       <nav aria-label={t('common.breadcrumbLabel')}>
         <Link
           className="inline-flex min-h-11 items-center rounded-sm font-semibold text-brand underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
@@ -69,9 +71,7 @@ const ImportPage = ({
         <span aria-current="page">{t('common.import')}</span>
       </nav>
       <header className="my-6">
-        <p className="text-sm font-bold tracking-[0.14em] text-brand">
-          {t('import.eyebrow')}
-        </p>
+        <Eyebrow>{t('import.eyebrow')}</Eyebrow>
         <h1
           ref={heading}
           tabIndex={-1}
@@ -248,6 +248,6 @@ const ImportPage = ({
           })}
         </p>
       ) : null}
-    </section>
+    </PageContainer>
   )
 }

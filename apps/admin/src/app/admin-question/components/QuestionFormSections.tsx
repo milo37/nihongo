@@ -18,6 +18,9 @@ import { Textarea } from '@nihongo/browser/common/components/Textarea'
 import type { QuestionFormValues } from '@app/admin-question/components/questionFormSchema'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 
+const sectionCardClassName =
+  'rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-7'
+
 export type QuestionFormFields = {
   register: UseFormRegister<QuestionFormValues>
   errors: FieldErrors<QuestionFormValues>
@@ -37,7 +40,7 @@ export const QuestionClassificationSection = ({
   const { register, errors, localError } = fields
   return (
     <section
-      className="rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-7"
+      className={sectionCardClassName}
       aria-labelledby="question-basic-information"
     >
       <div className="border-b border-line pb-5">
@@ -113,7 +116,7 @@ export const QuestionContentSection = ({
     fields
   return (
     <section
-      className="rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-7"
+      className={sectionCardClassName}
       aria-labelledby="question-content"
     >
       <div className="border-b border-line pb-5">
@@ -216,7 +219,7 @@ export const QuestionExplanationSection = ({
   const { register, errors, localError } = fields
   return (
     <section
-      className="rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-7"
+      className={sectionCardClassName}
       aria-labelledby="question-explanation"
     >
       <div className="border-b border-line pb-5">
