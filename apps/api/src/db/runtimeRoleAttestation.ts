@@ -184,13 +184,14 @@ const ATTESTATION_QUERY = `
            sensitive_column.attnum,
            -- #504 P2 (member console), P7 PR2 (admin operation locks), PR3a
            -- (owned Session issuance), PR3b-1 (ADMIN_FRESH re-authentication)
-           -- and PR4a (account erasure) grant nihongo_app exactly these columns; every other privilege on
+           -- PR4a (account erasure) and PR4b-2 (erasure request) grant nihongo_app exactly these columns; every other privilege on
            -- them and every other sensitive column stays closed.
            CASE WHEN current_user <> 'nihongo_app' THEN 'SELECT,INSERT,UPDATE,REFERENCES'
            WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
                ('Phase7ReauthenticationIntent', 'finalizedAt'),
                ('Phase7ReauthenticationIntent', 'stagedSessionId'),
                ('Phase7ReauthenticationIntent', 'stagedTokenDigest'),
+               ('User', 'accountStatus'),
                ('User', 'authorityGeneration')
              ) THEN 'INSERT,REFERENCES'
            WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
@@ -200,7 +201,6 @@ const ATTESTATION_QUERY = `
                ('Account', 'userId'),
                ('Phase7AuthorityRevocationEvidence', 'expiresAt'),
                ('Phase7AuthorityRevocationEvidence', 'tokenDigest'),
-               ('User', 'accountStatus'),
                ('User', 'createdAt'),
                ('User', 'deletedAt'),
                ('User', 'email'),
