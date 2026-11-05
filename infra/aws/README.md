@@ -73,6 +73,17 @@ EC2와 백업 버킷은 CloudFront나 IAM으로만 접근됩니다. WAF는 IP별
 - 월 예산은 소비세 포함 `monthly_budget_jpy = 5000`엔입니다(사용자 확정 2026-11-05). Budgets는 USD만 받으므로 `한도 USD = 5000 ÷ (1 + 0.10) ÷ 158.38 = $28.69`로 환산합니다. 세율(`budget_consumption_tax_rate`)과 환율(`budget_jpy_per_usd`, 2026-11-05 기준)은 변수 기본값이고, 예산은 세전 비용과 비교합니다(`include_tax = false`).
 - 알림: 실제 50%(2,500엔)·80%(4,000엔)·100%와 100% 예측. 실제 100%를 넘으면 Budget Action이 EC2를 정지합니다(데이터는 EBS에 남음).
 - CloudFront Free 정액 요금제에 못 들어가면 WAF 요금(약 1,620엔, 세포함)이 더해져 예산을 넘습니다. COST.md를 보세요.
+- 예산은 크레딧을 빼기 전 사용액으로 판정합니다(`include_credit = false`). 크레딧이 남아 있는 동안에도 실제 사용량이 보이게 하려는 것입니다.
+
+## AWS Free plan 동안 운용 (사용자 결정 2026-11-05, JLP-716)
+
+계정은 일반 가입(서울)의 Free plan입니다. 공개 직전에 유료 플랜으로 바꾸고, 그때까지는 크레딧으로 STAGING만 시험 배포합니다.
+
+- Free plan 계정은 CloudFront 정액 요금제에 가입할 수 없습니다. 그래서 CloudFront는 종량제와 WAF로 돌고(코드 변경 없음), 비용은 크레딧에서 빠집니다. 월 약 $31, 세전 약 4,940엔입니다(COST.md).
+- 이 사용액은 예산 한도 $28.69보다 많습니다. 그래서 `budget_stop_ec2_enabled = true`인 채로 두면 매달 말 무렵 Budget Action이 EC2를 정지합니다. Free plan은 현금 청구가 없으므로, 이 기간의 tfvars 값은 apply 때 정합니다.
+- Free plan은 가입 6개월 뒤나 크레딧이 떨어지면 계정이 닫힙니다(90일 안에 전환하지 않으면 데이터 삭제). 크레딧 잔액은 Billing 콘솔에서 확인합니다.
+- 사람 로그인은 MFA를 건 IAM 관리 사용자 1명이고, 루트는 쓰지 않습니다. IAM Identity Center는 AWS Organizations가 필요하고, Organizations에 들어가면 계정이 자동으로 유료 전환되므로 지금은 쓰지 않습니다. 배포는 원래대로 GitHub OIDC 역할입니다.
+- 유료 전환 시점은 공개 직전입니다. 전환한 뒤 아래 'apply 뒤 수동 단계' 2번(정액 요금제 가입)을 하고, 필요하면 Identity Center로 옮깁니다. 남은 크레딧은 이어집니다.
 
 ## DNS (Cloudflare, Route 53 없음)
 
@@ -98,6 +109,6 @@ EC2와 백업 버킷은 CloudFront나 IAM으로만 접근됩니다. WAF는 IP별
 ## apply 뒤 수동 단계
 
 1. SNS·Budgets·Cost Anomaly 메일 구독 확인
-2. CloudFront 콘솔에서 배포를 **Free 정액 요금제**에 가입(Terraform 미지원). 계정이 AWS Free Tier(무료 플랜) 상태면 가입할 수 없습니다.
+2. CloudFront 콘솔에서 배포를 **Free 정액 요금제**에 가입(Terraform 미지원). 계정이 AWS Free plan이면 가입할 수 없으므로 유료 전환 뒤에 합니다.
 3. 비밀값 SSM 등록 → Google OAuth 클라이언트에 `output google_oauth_redirect_uri` 등록 → 첫 배포
 4. 백업 복구 연습(#40): 최신 dump를 새 컨테이너에 `pg_restore`
