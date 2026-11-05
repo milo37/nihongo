@@ -34,6 +34,7 @@ import { createQuestionService } from '../question/questionService.js'
 import { GUEST_COOKIE_NAME } from '../routes/principal.js'
 import { createPrismaStudySessionRepository } from './studySessionRepository.js'
 import { createStudySessionService } from './studySessionService.js'
+import { eraseTestUser } from '../db/fixtures/accountErasure.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({
@@ -284,9 +285,7 @@ const createFixtureUser = async (label: string): Promise<string> => {
 
 const eraseUser = async (userId: string): Promise<void> => {
   if (erasureWorkerClient) {
-    await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
-      userId
-    ])
+    await eraseTestUser(database.client, userId)
   } else {
     await fixtureDatabase.client.user.delete({ where: { id: userId } })
   }

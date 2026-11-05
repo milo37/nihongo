@@ -22,6 +22,7 @@ import { createPrismaStudySubmissionRepository } from './studySubmissionReposito
 import { createStudySubmissionService } from './studySubmissionService.js'
 import { createPrismaWrongNoteTargetedReviewRepository } from '../wrong-note/wrongNoteTargetedReviewRepository.js'
 import { createWrongNoteTargetedReviewService } from '../wrong-note/wrongNoteTargetedReviewService.js'
+import { eraseTestUser } from '../db/fixtures/accountErasure.js'
 
 const HOUR_MS = 60 * 60 * 1_000
 const DAY_MS = 24 * HOUR_MS
@@ -343,10 +344,7 @@ const cleanupOwnedFixtures = async () => {
   if (createdUserIds.size > 0) {
     if (erasureWorkerClient) {
       for (const userId of createdUserIds) {
-        await erasureWorkerClient.query(
-          `SELECT "phase7_erase_user"($1, 'TEST')`,
-          [userId]
-        )
+        await eraseTestUser(database.client, userId)
       }
     } else {
       await fixtureDatabase.client.user.deleteMany({

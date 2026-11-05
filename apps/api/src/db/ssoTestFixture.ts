@@ -3,9 +3,12 @@ import { Client } from 'pg'
 import type { QueryResult, QueryResultRow } from 'pg'
 import { expect } from 'vitest'
 import {
+  bridgedRole,
   isOwnedSessionSql,
-  ownedSessionSql
+  ownedSessionSql,
+  pgOwnedSessionClient
 } from './fixtures/ownedSessionSql.js'
+import type { PrismaClient } from '../generated/prisma/client.js'
 import { parseApiEnvironment } from '../config/env.js'
 import { assertSafeAdminCmsDatabase } from './databaseTargetGuard.js'
 import {
@@ -78,8 +81,7 @@ export const createSsoDbHarness = () => {
     // #504 P7 PR3a/PR3b-1: calls to the dropped Session functions run the API
     // implementation. Gateway facade callers are nihongo_app since PR1.
     const bridged = isOwnedSessionSql(sql)
-    const executionRole =
-      bridged && role === 'nihongo_auth_gateway' ? 'nihongo_app' : role
+    const executionRole = bridgedRole(sql, role)
     await owner.query(`SET ROLE "${executionRole}"`)
     try {
       const result = bridged
@@ -118,6 +120,26 @@ export const createSsoDbHarness = () => {
     }
   }
   let sequence = 0
+  // #504 P7 PR4a: a Prisma-shaped nihongo_app client for the erasure worker.
+  const appClient = {
+    $queryRawUnsafe: async (sql: string, ...args: unknown[]) =>
+      (await roleQuery('nihongo_app', sql, args)).rows,
+    $executeRawUnsafe: async (sql: string, ...args: unknown[]) =>
+      (await roleQuery('nihongo_app', sql, args)).rowCount ?? 0,
+    $transaction: async (operation: (transaction: never) => unknown) => {
+      await owner.query('SET ROLE "nihongo_app"')
+      try {
+        return await pgOwnedSessionClient(owner).$transaction(
+          operation as never
+        )
+      } finally {
+        await owner.query('RESET ROLE')
+      }
+    }
+  } as unknown as Pick<
+    PrismaClient,
+    '$queryRawUnsafe' | '$executeRawUnsafe' | '$transaction'
+  >
   const rejects = async (
     role: TestRole,
     sql: string,
@@ -375,6 +397,7 @@ export const createSsoDbHarness = () => {
     schema,
     environment,
     roleQuery,
+    appClient,
     issueSession,
     rollback,
     rejects,

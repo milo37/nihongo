@@ -1050,8 +1050,10 @@ describe('Reauthentication DB foundation', () => {
     // #504 P7 PR3b-1: ADMIN_FRESH re-authentication adds User 1, Account 3,
     // AuthSessionRotationFence 4, Phase7ReauthenticationIntent 18 and
     // Phase7AuthorityRevocationEvidence 2, and DELETE on the last two.
+    // #504 P7 PR4a: account erasure adds Account 2 (id read, createdAt lock
+    // only) and DELETE on User, AuthSessionFamily and AuthSessionRotationFence.
     expect(catalog.rows).toEqual([
-      { sensitiveColumnAclCount: 57, sensitiveTableAclCount: 3 }
+      { sensitiveColumnAclCount: 59, sensitiveTableAclCount: 6 }
     ])
   })
 
@@ -1253,10 +1255,13 @@ describe('Reauthentication DB foundation', () => {
       'phase7_classify_admin_authority',
       'phase7_create_question_report',
       'phase7_finish_admin_operation',
-      'phase7_require_database_capability'
+      'phase7_require_database_capability',
+      'phase7_user_erasure_confirmed'
     ])
-    expect(rows.filter((row) => row.gateway).length).toBe(16)
-    expect(rows.filter((row) => row.erasure).length).toBe(8)
+    // #504 P7 PR4a: the erasure worker queue, direct erasure, report redaction
+    // and the receipt status moved to the API.
+    expect(rows.filter((row) => row.gateway).length).toBe(15)
+    expect(rows.filter((row) => row.erasure).length).toBe(4)
   })
 
   const createCommittedAdmin = async () => {
@@ -1390,12 +1395,12 @@ describe('Reauthentication DB foundation', () => {
         [admin.sessionId],
         '42501'
       )
-      // Families are never deleted.
+      // Families are deleted only for a confirmed erasure (#504 P7 PR4a).
       await expectRoleFailure(
         'nihongo_app',
         'DELETE FROM "AuthSessionFamily" WHERE "id" = $1',
         [family],
-        '42501'
+        '23514'
       )
       // After a revoke, the family takes no new Session.
       await adminClient.query('SET LOCAL ROLE "nihongo_app"')
@@ -1559,6 +1564,93 @@ describe('Reauthentication DB foundation', () => {
       )
       const finalized = await finalize(intentId, staged.newToken)
       expect(finalized).toMatchObject({ authorityGeneration: 1 })
+    })
+  })
+
+  it('#504 P7 PR4a: User 삭제와 erasure 정리 쓰기는 확정된 erasure의 nihongo_app만 허용한다', async () => {
+    await withinRollback(async () => {
+      const userId = randomUUID()
+      const otherUserId = randomUUID()
+      await insertCredentialUser(userId, 'ADMIN')
+      await insertCredentialUser(otherUserId, 'USER')
+      const familyId = await issueSession(
+        userId,
+        randomUUID(),
+        `phase7-pr4a-${randomUUID()}`
+      )
+      const deleteUser = 'DELETE FROM "User" WHERE "id" = $1'
+      // No confirmed erasure: the User, its family and its request stay.
+      await expectRoleFailure('nihongo_app', deleteUser, [userId], '42501')
+      await expectRoleFailure(
+        'nihongo_app',
+        'DELETE FROM "AuthSessionFamily" WHERE "id" = $1',
+        [familyId],
+        '23514'
+      )
+      const receipt = 'e'.repeat(64)
+      await adminClient.query(
+        `INSERT INTO "SsoAccountErasureRequest" (
+           "userId", "receiptDigest", "providerCleanup", "receiptExpiresAt"
+         ) VALUES (
+           $1, $2, '[{"provider":"google","status":"COMPLETED"}]',
+           clock_timestamp() + INTERVAL '1 day'
+         )`,
+        [userId, receipt]
+      )
+      await expectRoleFailure(
+        'nihongo_app',
+        `UPDATE "SsoAccountErasureRequest"
+         SET "appStatus" = 'DELETED', "completedAt" = clock_timestamp()
+         WHERE "receiptDigest" = $1`,
+        [receipt],
+        '42501'
+      )
+      // The lock-only Account column never changes.
+      await expectRoleFailure(
+        'nihongo_app',
+        `UPDATE "Account" SET "createdAt" = clock_timestamp()
+         WHERE "userId" = $1`,
+        [userId],
+        '23514'
+      )
+      // The TEST marker confirms only the User it names.
+      await adminClient.query(
+        `SELECT set_config('nihongo.phase7_test_erasure_user', $1, true)`,
+        [otherUserId]
+      )
+      await expectRoleFailure('nihongo_app', deleteUser, [userId], '42501')
+      await adminClient.query(
+        `SELECT set_config('nihongo.phase7_test_erasure_user', $1, true)`,
+        [userId]
+      )
+      await expectRoleFailure(
+        'nihongo_auth_gateway',
+        deleteUser,
+        [userId],
+        '42501'
+      )
+      // Confirmed, but the Session is not cleaned up first.
+      await expectRoleFailure('nihongo_app', deleteUser, [userId], '23514')
+      const erased = await withExecutionRole('nihongo_app', () =>
+        bridgedQuery<{ erased: boolean }>(
+          adminClient,
+          `SELECT "phase7_erase_user"($1, 'TEST') AS erased`,
+          [userId]
+        )
+      )
+      expect(erased.rows).toEqual([{ erased: true }])
+      const remaining = await adminClient.query(
+        `SELECT
+           (SELECT count(*)::int FROM "User" WHERE "id" = $1) AS users,
+           (SELECT count(*)::int FROM "Account" WHERE "userId" = $1) AS accounts,
+           (SELECT count(*)::int FROM "Session" WHERE "userId" = $1) AS sessions,
+           (SELECT count(*)::int FROM "AuthSessionFamily" WHERE "userId" = $1)
+             AS families`,
+        [userId]
+      )
+      expect(remaining.rows).toEqual([
+        { users: 0, accounts: 0, sessions: 0, families: 0 }
+      ])
     })
   })
 

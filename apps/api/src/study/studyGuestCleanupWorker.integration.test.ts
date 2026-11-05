@@ -19,6 +19,7 @@ import { createStudyResultRetryService } from './studyResultRetryService.js'
 import { createPrismaStudySessionRepository } from './studySessionRepository.js'
 import { createPrismaStudySubmissionRepository } from './studySubmissionRepository.js'
 import { createStudySubmissionService } from './studySubmissionService.js'
+import { eraseTestUser } from '../db/fixtures/accountErasure.js'
 
 const fixtureUrl = process.env.GUEST_CLEANUP_FIXTURE_DATABASE_URL
 const workerUrl = process.env.GUEST_CLEANUP_DATABASE_URL
@@ -133,8 +134,7 @@ afterAll(async () => {
       'DELETE FROM "RateLimit" WHERE "id" = ANY($1::uuid[])',
       [ids]
     )
-  for (const userId of userIds)
-    await erasure.query('SELECT "phase7_erase_user"($1, \'TEST\')', [userId])
+  for (const userId of userIds) await eraseTestUser(application.client, userId)
   if (guestIds.length > 0)
     await fixtureDatabase.client.guestPrincipal.deleteMany({
       where: { id: { in: guestIds } }

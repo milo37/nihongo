@@ -8,6 +8,7 @@ import {
   getPostgresSchema
 } from './databaseOptions.js'
 import { assertSafeTestDatabase } from './databaseTargetGuard.js'
+import { eraseTestUser } from './fixtures/accountErasure.js'
 
 const DAY_MS = 24 * 60 * 60 * 1_000
 const HOUR_MS = 60 * 60 * 1_000
@@ -128,9 +129,7 @@ const createUser = async (label: string): Promise<string> => {
 
 const eraseUser = async (userId: string): Promise<void> => {
   if (erasureWorkerClient) {
-    await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
-      userId
-    ])
+    await eraseTestUser(database.client, userId)
   } else {
     await client.query('DELETE FROM "User" WHERE "id" = $1', [userId])
   }

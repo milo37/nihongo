@@ -13,6 +13,7 @@ import {
 } from './databaseOptions.js'
 import { assertSafeTestDatabase } from './databaseTargetGuard.js'
 import { PracticeCompatibilityFenceError } from './practiceCompatibilityFence.js'
+import { eraseTestUser } from './fixtures/accountErasure.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({
@@ -91,10 +92,7 @@ afterEach(async () => {
   if (userIds.size > 0) {
     if (erasureWorkerClient) {
       for (const userId of userIds) {
-        await erasureWorkerClient.query(
-          `SELECT "phase7_erase_user"($1, 'TEST')`,
-          [userId]
-        )
+        await eraseTestUser(database.client, userId)
       }
     } else {
       await fixtureDatabase.client.user.deleteMany({
