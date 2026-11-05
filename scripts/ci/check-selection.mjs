@@ -115,6 +115,9 @@ export const classifyChangedFiles = (changedFiles) => {
       /^(?:LICENSE|\.editorconfig|\.gitignore|\.gitattributes)$/u.test(file) ||
       file.startsWith('.github/ISSUE_TEMPLATE/') ||
       file === '.github/pull_request_template.md' ||
+      // Read only by the Secret scan workflow and GitHub Dependabot.
+      file === '.gitleaks.toml' ||
+      file === '.github/dependabot.yml' ||
       // Agent tooling (Claude Code, Codex, Cursor, shared skills); never
       // imported or run by apps, builds, tests or CI.
       /^\.(?:claude|codex|cursor|agents)\//u.test(file)
