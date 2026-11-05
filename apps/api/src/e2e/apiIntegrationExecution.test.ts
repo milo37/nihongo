@@ -80,7 +80,7 @@ describe('SSO bootstrap migration history', () => {
       migration_name: name,
       checksum
     }))
-    expect(expected).toHaveLength(70)
+    expect(expected).toHaveLength(71)
     expect(() =>
       assertSsoBootstrapMigrationHistory(expected, applied)
     ).not.toThrow()
@@ -89,18 +89,18 @@ describe('SSO bootstrap migration history', () => {
         expected.slice(0, 50),
         applied.slice(0, 50)
       )
-    ).toThrow(/canonical70/u)
+    ).toThrow(/canonical71/u)
     expect(() =>
       assertSsoBootstrapMigrationHistory(expected, applied.slice(0, 51))
-    ).toThrow(/canonical70/u)
+    ).toThrow(/canonical71/u)
     expect(() =>
       assertSsoBootstrapMigrationHistory(expected, [...applied].reverse())
-    ).toThrow(/canonical70/u)
+    ).toThrow(/canonical71/u)
     const alteredLedger = structuredClone(applied)
     alteredLedger[0]!.checksum = '0'.repeat(64)
     expect(() =>
       assertSsoBootstrapMigrationHistory(expected, alteredLedger)
-    ).toThrow(/canonical70/u)
+    ).toThrow(/canonical71/u)
     const alteredSource = structuredClone(expected)
     alteredSource[0]!.checksum = '0'.repeat(64)
     const matchingAlteredLedger = alteredSource.map(({ name, checksum }) => ({
@@ -109,7 +109,7 @@ describe('SSO bootstrap migration history', () => {
     }))
     expect(() =>
       assertSsoBootstrapMigrationHistory(alteredSource, matchingAlteredLedger)
-    ).toThrow(/canonical70/u)
+    ).toThrow(/canonical71/u)
   })
 })
 

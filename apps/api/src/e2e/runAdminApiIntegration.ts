@@ -1103,7 +1103,7 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
   process.stdout.write(
     JSON.stringify({
       event: 'phase7.api.sso_first_admin_bootstrap.migrations_verified',
-      canonicalCount: 70,
+      canonicalCount: 71,
       checksumMatch: true,
       reentry: true
     }) + '\n'
@@ -1333,20 +1333,18 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
     }
     const expectedReconciliation = {
       baselineOwnedUserAccountCaptured: true,
-      baselineOwnedSessionFamilyCaptured: true,
+      baselineOwnedSessionCaptured: true,
       saveAnswerABeforeBookmarkB: true,
       saveBookmarkUserDelta: 0,
       saveBookmarkAccountDelta: 0,
       saveBookmarkBookmarkDelta: 0,
       ownedSessionExpiryArmedOnce: 1,
       oldL0Expired: true,
-      oldF0Active: true,
       login2SameInternalUserU: true,
       login2UserDeltaFromSaveBookmark: 0,
       login2AccountDeltaFromSaveBookmark: 0,
       login2BookmarkDeltaFromSaveBookmark: 0,
       login2SessionDeltaFromSaveBookmark: 1,
-      login2FamilyDeltaFromSaveBookmark: 1,
       samePracticeRetained: true,
       answerARetained: true,
       bookmarkBRetained: true
@@ -1429,8 +1427,8 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
               const finalReceipt = {
                 baselineOwnedUserAccountCaptured:
                   receipt.baselineOwnedUserAccountCaptured,
-                baselineOwnedSessionFamilyCaptured:
-                  receipt.baselineOwnedSessionFamilyCaptured,
+                baselineOwnedSessionCaptured:
+                  receipt.baselineOwnedSessionCaptured,
                 saveAnswerABeforeBookmarkB: receipt.saveAnswerABeforeBookmarkB,
                 saveBookmarkUserDelta: receipt.saveBookmarkUserDelta,
                 saveBookmarkAccountDelta: receipt.saveBookmarkAccountDelta,
@@ -1438,7 +1436,6 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
                 ownedSessionExpiryArmedOnce:
                   receipt.ownedSessionExpiryArmedOnce,
                 oldL0Expired: receipt.oldL0Expired,
-                oldF0Active: receipt.oldF0Active,
                 login2SameInternalUserU: receipt.login2SameInternalUserU,
                 login2UserDeltaFromSaveBookmark:
                   receipt.login2UserDeltaFromSaveBookmark,
@@ -1448,15 +1445,13 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
                   receipt.login2BookmarkDeltaFromSaveBookmark,
                 login2SessionDeltaFromSaveBookmark:
                   receipt.login2SessionDeltaFromSaveBookmark,
-                login2FamilyDeltaFromSaveBookmark:
-                  receipt.login2FamilyDeltaFromSaveBookmark,
                 samePracticeRetained: receipt.samePracticeRetained,
                 answerARetained: receipt.answerARetained,
                 bookmarkBRetained: receipt.bookmarkBRetained
               }
               if (
                 firstFailure ||
-                Object.keys(receipt).length !== 18 ||
+                Object.keys(receipt).length !== 16 ||
                 Object.entries(expectedReconciliation).some(
                   ([key, expected]) =>
                     finalReceipt[key as keyof typeof expectedReconciliation] !==

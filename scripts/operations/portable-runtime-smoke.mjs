@@ -27,9 +27,9 @@ import {
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const postgresImage =
   'postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15'
-const currentMigrationCount = 70
+const currentMigrationCount = 71
 const currentMigrationDigest =
-  '105bd79ed6eb1c26fe5f8376c9173281e14ffa8d4567d7009862f1f42b900b97'
+  'bbd55955b0afaf408c99563a205f0a2576776cc88c7926d46a88027b60103239'
 const lastBootstrapMigration =
   '20261009092000_phase7_n4_n2_revision2_digest_fix'
 const migrationLogin = 'nihongo_test_phase7_migration_login'
@@ -218,9 +218,9 @@ export const selectCurrentMigrationNames = (migrationsDirectory) => {
     createHash('sha256').update(JSON.stringify(manifest)).digest('hex') !==
       currentMigrationDigest ||
     manifest[36]?.name !== lastBootstrapMigration ||
-    manifest.at(-1)?.name !== '20261116090000_erasure_to_api'
+    manifest.at(-1)?.name !== '20261117090000_session_family_removal'
   ) {
-    throw new Error('Repository current-70 migration inventory is invalid.')
+    throw new Error('Repository current-71 migration inventory is invalid.')
   }
   return manifest.map(({ name }) => name)
 }
@@ -1009,12 +1009,11 @@ export const runStatefulAuthCompatibilityProbe = async ({
           (SELECT "userId" FROM "Account" WHERE "providerId" = 'google' AND "accountId" = 'phase11-${suffix}');
         SELECT u."id" FROM "User" u JOIN "Account" a ON a."userId" = u."id"
         JOIN "Session" s ON s."userId" = u."id"
-        JOIN "AuthSessionFamily" f ON f."userId" = u."id" AND f."id" = s."sessionFamilyId"
         WHERE a."providerId" = 'google' AND a."accountId" = 'phase11-${suffix}' AND a."password" IS NULL
           AND u."accountStatus" = 'ACTIVE' AND u."targetLevel" = 'N5' AND u."role" = 'USER'
           AND s."issuerProtocolVersion" = 'PHASE7_V1' AND s."authorizationState" = 'ACTIVE'
           AND s."authorityGeneration" = u."authorityGeneration" AND s."expiresAt" > clock_timestamp()
-          AND f."status" = 'ACTIVE' AND (SELECT count(*) FROM "User") = 1
+          AND (SELECT count(*) FROM "User") = 1
           AND (SELECT count(*) FROM "Account") = 1 AND (SELECT count(*) FROM "Session") = 1;`,
       failureLabel: 'Controlled TEST session persistence and profile'
     }

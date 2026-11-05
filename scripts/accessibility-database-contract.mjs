@@ -13,8 +13,6 @@ export const accessibilityDatabaseTables = [
   'Account',
   'AdminAuditLog',
   'AuthIssuerActivation',
-  'AuthSessionFamily',
-  'AuthSessionRotationFence',
   'Bookmark',
   'ContentReview',
   'GuestPrincipal',
@@ -67,8 +65,6 @@ export const accessibilityExpectedTableDeltas = {
   Account: 0,
   AdminAuditLog: 0,
   AuthIssuerActivation: 0,
-  AuthSessionFamily: 2,
-  AuthSessionRotationFence: 0,
   Bookmark: 0,
   ContentReview: 0,
   GuestPrincipal: 0,
@@ -347,11 +343,8 @@ const readIdentityFacts = async (client, fixture) => {
     fixture.reviewer.userId
   ]
   const authSessions = await client.query(
-    `SELECT s."userId", s."authorizationState", s."issuerProtocolVersion",
-       f."status" AS "familyStatus"
+    `SELECT s."userId", s."authorizationState", s."issuerProtocolVersion"
      FROM "Session" AS s
-     JOIN "AuthSessionFamily" AS f
-       ON f."userId" = s."userId" AND f."id" = s."sessionFamilyId"
      WHERE s."userId" = ANY($1::uuid[])
      ORDER BY s."userId", s."id"`,
     [actorIds]
@@ -597,7 +590,6 @@ const assertIdentityContract = (facts, fixture) => {
       'auth authorization state'
     )
     assertEqual(session.issuerProtocolVersion, 'PHASE7_V1', 'auth issuer')
-    assertEqual(session.familyStatus, 'ACTIVE', 'auth family state')
   }
 
   assertEqual(facts.studySessions.length, 3, 'study session identity count')

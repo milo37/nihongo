@@ -111,7 +111,6 @@ const readWriteCounts = async (): Promise<{
   user: number
   verification: number
   audit: number
-  family: number
   question: number
   rateLimit: number
   report: number
@@ -123,7 +122,6 @@ const readWriteCounts = async (): Promise<{
     user: number
     verification: number
     audit: number
-    family: number
     question: number
     rateLimit: number
     report: number
@@ -135,7 +133,6 @@ const readWriteCounts = async (): Promise<{
        (SELECT COUNT(*)::int FROM "User") AS "user",
        (SELECT COUNT(*)::int FROM "Verification") AS verification,
        (SELECT COUNT(*)::int FROM "AdminAuditLog") AS audit,
-       (SELECT COUNT(*)::int FROM "AuthSessionFamily") AS family,
        (SELECT COUNT(*)::int FROM "Question") AS question,
        (SELECT COUNT(*)::int FROM "RateLimit") AS "rateLimit",
        (SELECT COUNT(*)::int FROM "QuestionReport") AS report,
@@ -689,14 +686,11 @@ describe('Technical API gate', () => {
               cookie.startsWith('__Secure-nihongo.session_token=')
           )
       ).toBe(false)
-      const facts = await adminClient.query<{
-        sessions: number
-        families: number
-      }>(
-        `SELECT (SELECT count(*)::int FROM "Session" WHERE "userId"=$1) AS sessions,(SELECT count(*)::int FROM "AuthSessionFamily" WHERE "userId"=$1) AS families`,
+      const facts = await adminClient.query<{ sessions: number }>(
+        `SELECT count(*)::int AS sessions FROM "Session" WHERE "userId"=$1`,
         [actor.userId]
       )
-      expect(facts.rows).toEqual([{ sessions: 0, families: 0 }])
+      expect(facts.rows).toEqual([{ sessions: 0 }])
     } finally {
       beforeSsoIssue = undefined
       release()
@@ -747,15 +741,11 @@ describe('Technical API gate', () => {
               cookie.startsWith('__Secure-nihongo.session_token=')
           )
       ).toBe(false)
-      const facts = await adminClient.query<{
-        sessions: number
-        active: number
-        revoked: number
-      }>(
-        `SELECT (SELECT count(*)::int FROM "Session" WHERE "userId"=$1) AS sessions,(SELECT count(*)::int FROM "AuthSessionFamily" WHERE "userId"=$1 AND status='ACTIVE') AS active,(SELECT count(*)::int FROM "AuthSessionFamily" WHERE "userId"=$1 AND status='REVOKED') AS revoked`,
+      const facts = await adminClient.query<{ sessions: number }>(
+        `SELECT count(*)::int AS sessions FROM "Session" WHERE "userId"=$1`,
         [actor.userId]
       )
-      expect(facts.rows).toEqual([{ sessions: 0, active: 0, revoked: 1 }])
+      expect(facts.rows).toEqual([{ sessions: 0 }])
     } finally {
       verifiedProviderIdentity = null
     }
@@ -812,25 +802,14 @@ describe('Technical API gate', () => {
       [session.userId]
     )
     expect(before.rows).toEqual([{ count: 1 }])
-    expect(
-      (
-        await adminClient.query<{ count: number }>(
-          `SELECT count(*)::int AS count FROM "AuthSessionFamily" WHERE "userId"=$1 AND status='ACTIVE'`,
-          [session.userId]
-        )
-      ).rows
-    ).toEqual([{ count: 1 }])
     const signedOut = await postAuth('/api/auth/sign-out', {}, session.cookie)
     expect(signedOut.status).toBe(200)
     expectExpiredSessionCookies(signedOut)
-    const rows = await adminClient.query<{
-      sessions: number
-      families: number
-    }>(
-      `SELECT (SELECT count(*)::int FROM "Session" WHERE "userId"=$1) AS sessions,(SELECT count(*)::int FROM "AuthSessionFamily" WHERE "userId"=$1 AND status='ACTIVE') AS families`,
+    const rows = await adminClient.query<{ sessions: number }>(
+      `SELECT count(*)::int AS sessions FROM "Session" WHERE "userId"=$1`,
       [session.userId]
     )
-    expect(rows.rows).toEqual([{ sessions: 0, families: 0 }])
+    expect(rows.rows).toEqual([{ sessions: 0 }])
     const beforeGuest = await readWriteCounts()
     const principal = await app.request('/api/v1/me', {
       headers: { Cookie: session.cookie }

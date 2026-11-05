@@ -48,7 +48,6 @@ const fixture = (
       completed = [
         {
           id: input.newSessionId,
-          familyId: userId,
           userId,
           authorityGeneration: 7,
           createdAt: new Date('2026-10-19T00:00:00Z'),

@@ -28,7 +28,6 @@ export interface SsoFixture {
   userId: string
   sessionId: string
   token: string
-  familyId: string
   provider: 'apple' | 'google'
   subject: string
 }
@@ -106,7 +105,7 @@ export const createSsoDbHarness = () => {
   const issueSession = async (sql: string, values: unknown[]) => {
     await owner.query('SET ROLE "nihongo_app"')
     try {
-      return await ownedSessionSql<{ familyId: string }>(owner, sql, values)
+      return await ownedSessionSql<{ id: string }>(owner, sql, values)
     } finally {
       await owner.query('RESET ROLE').catch(() => undefined)
     }
@@ -193,9 +192,9 @@ export const createSsoDbHarness = () => {
       `SELECT * FROM "phase7_issue_v1_session"($1,1,$2::"UserRole",'ACTIVE',$3,$4,'127.0.0.1','sso-db-fixture',false)`,
       [userId, role, sessionId, token]
     )
-    const familyId = result.rows[0]?.familyId
-    if (!familyId) throw new Error('SSO fixture session issuance failed.')
-    return { userId, sessionId, token, familyId, provider, subject }
+    if (result.rows[0]?.id !== sessionId)
+      throw new Error('SSO fixture session issuance failed.')
+    return { userId, sessionId, token, provider, subject }
   }
   const prepare = async (f: SsoFixture): Promise<AdminFreshContext> => {
     const rows = await roleQuery<{ context: unknown }>(
@@ -241,7 +240,6 @@ export const createSsoDbHarness = () => {
     expect(result.rows[0]).toMatchObject({
       id: next.id,
       userId: f.userId,
-      familyId: f.familyId,
       authorityGeneration: 1,
       callbackURL: '/login'
     })
@@ -254,10 +252,9 @@ export const createSsoDbHarness = () => {
     (SELECT count(*)::int FROM "Session" WHERE "id"=$1) AS "oldSessions",
     (SELECT count(*)::int FROM "Session" WHERE "userId"=$2 AND "authorizationState"='ACTIVE') AS "activeSessions",
     (SELECT count(*)::int FROM "Session" WHERE "userId"=$2 AND "authorizationState"='PENDING_REAUTH') AS "pendingSessions",
-    (SELECT count(*)::int FROM "AuthSessionRotationFence" WHERE "oldSessionId"=$1 AND "userId"=$2 AND "oldFamilyId"=$3 AND "replacementFamilyId"=$3) AS fences,
     (SELECT count(*)::int FROM "AdminAuditLog" WHERE "actorId"=$2 AND command='REAUTHENTICATION') AS audits,
     (SELECT count(*)::int FROM "Phase7ReauthenticationIntent" WHERE "userId"=$2 AND state='FINALIZED') AS finalized`,
-        [f.sessionId, f.userId, f.familyId]
+        [f.sessionId, f.userId]
       )
     ).rows[0]
   const stableTables = [
