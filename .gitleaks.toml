@@ -1,30 +1,50 @@
-# Secret scanning for tracked files and commits (gitleaks default rules plus the
-# two project rules the removed tracked-source-security.mjs enforced).
+# Secret scanning for tracked files and commits: gitleaks default rules plus the
+# project rules the removed tracked-source-security.mjs enforced, with its
+# thresholds (non-hex: 24+ chars and entropy >= 4.2; hex: 32+ chars).
 title = "nihongo"
 
 [extend]
 useDefault = true
+# The removed scanner had no name-less generic rule; this one flags content
+# digests, UUID test keys and content keys (63 false positives on dev b689fc6).
+disabledRules = ["generic-api-key"]
 
-# postgres://user:<20+ char password>@host and the same for other database URIs.
 [[rules]]
 id = "credential-uri-password"
 description = "Database or broker URI with an embedded password"
-regex = '''(?i)\b(?:amqps?|mariadb|mongodb(?:\+srv)?|mysql|postgres(?:ql)?|rediss?)://[^\s:/@]+:([^\s/@?#]{20,})@'''
+regex = '''(?i)\b(?:amqps?|mariadb|mongodb(?:\+srv)?|mysql|postgres(?:ql)?|rediss?)://[^\s:/@]+:([A-Za-z0-9+/=_-]{24,})@'''
 secretGroup = 1
+entropy = 4.2
 keywords = ["://"]
 
 [[rules.allowlists]]
 regexTarget = "secret"
 regexes = ['''(?i)(changeme|dummy|example|fake|fixture|mock|placeholder|replace|test|ci_)''']
 
-# password = "<20+ chars>", client_secret: '<20+ chars>' and similar.
+[[rules]]
+id = "credential-uri-password-hex"
+description = "Database or broker URI with an embedded hex password"
+regex = '''(?i)\b(?:amqps?|mariadb|mongodb(?:\+srv)?|mysql|postgres(?:ql)?|rediss?)://[^\s:/@]+:([0-9a-f]{32,})@'''
+secretGroup = 1
+entropy = 3.0
+keywords = ["://"]
+
 [[rules]]
 id = "sensitive-assignment"
-description = "Credential-like name assigned a long literal"
-regex = '''(?i)["'`]?(?:api[_-]?key|auth[_-]?token|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|private[_-]?key|secret)["'`]?\s*[:=]\s*["'`]([A-Za-z0-9+/=_-]{20,})["'`]'''
+description = "Credential-like name assigned a long high-entropy literal"
+regex = '''(?i)["'`]?(?:api[_-]?key|auth[_-]?token|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|private[_-]?key|secret)["'`]?\s*[:=]\s*["'`]?([A-Za-z0-9+/=_-]{24,})'''
 secretGroup = 1
+entropy = 4.2
 keywords = ["key", "token", "secret", "password"]
 
 [[rules.allowlists]]
 regexTarget = "secret"
 regexes = ['''(?i)(changeme|dummy|example|fake|fixture|mock|placeholder|replace|test|ci_)''']
+
+[[rules]]
+id = "sensitive-assignment-hex"
+description = "Credential-like name assigned a long hex literal"
+regex = '''(?i)["'`]?(?:api[_-]?key|auth[_-]?token|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|private[_-]?key|secret)["'`]?\s*[:=]\s*["'`]?([0-9a-f]{32,})'''
+secretGroup = 1
+entropy = 3.0
+keywords = ["key", "token", "secret", "password"]
