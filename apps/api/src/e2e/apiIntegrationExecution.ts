@@ -423,7 +423,7 @@ export const sanitizeDbIntegrationVitestReport = (
     pending: safeCount(result.numPendingTests),
     todo: safeCount(result.numTodoTests),
     dependenciesPresent: {
-      adminWrapper: Boolean(environment.PHASE7_ADMIN_DATABASE_URL?.trim()),
+      adminWrapper: Boolean(environment.ADMIN_DATABASE_URL?.trim()),
       legacyWrapper: Boolean(environment.PHASE7_LEGACY_DATABASE_URL?.trim()),
       developmentWrapper: Boolean(
         environment.TEST_DEVELOPMENT_APP_DATABASE_URL?.trim()

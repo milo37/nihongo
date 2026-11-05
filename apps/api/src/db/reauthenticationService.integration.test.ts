@@ -62,7 +62,7 @@ import { stopOwnedProcesses } from '../e2e/ownedProcessGroup.js'
 const password = 'Phase7-real-reauthentication-2026!'
 const environment = parseApiEnvironment(process.env)
 const schema = getPostgresSchema(environment.DATABASE_URL)
-const adminDatabaseUrl = process.env.PHASE7_ADMIN_DATABASE_URL
+const adminDatabaseUrl = process.env.ADMIN_DATABASE_URL
 const authGatewayDatabaseUrl =
   process.env.PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL
 if (!schema || !adminDatabaseUrl || !authGatewayDatabaseUrl) {
@@ -764,12 +764,12 @@ const spawnStagedCrashWorker = async (
     import { ownedSessionSql } from './src/db/fixtures/ownedSessionSql.ts'
     const { Client } = pg
     process.on('SIGTERM', () => {})
-    const url = new URL(process.env.PHASE7_CRASH_DATABASE_URL)
+    const url = new URL(process.env.CRASH_DATABASE_URL)
     url.searchParams.delete('schema')
     url.searchParams.delete('options')
     const client = new Client({
       connectionString: url.toString(),
-      options: '-c search_path=' + process.env.PHASE7_CRASH_SCHEMA +
+      options: '-c search_path=' + process.env.CRASH_SCHEMA +
         ' -c TimeZone=UTC -c role=nihongo_app'
     })
     await client.connect()
@@ -777,20 +777,20 @@ const spawnStagedCrashWorker = async (
       client,
       ${prepareSql},
       [
-        process.env.PHASE7_CRASH_OLD_TOKEN,
-        process.env.PHASE7_CRASH_USER_ID,
-        process.env.PHASE7_CRASH_REQUEST_ID,
-        process.env.PHASE7_CRASH_INTENT_ID
+        process.env.CRASH_OLD_TOKEN,
+        process.env.CRASH_USER_ID,
+        process.env.CRASH_REQUEST_ID,
+        process.env.CRASH_INTENT_ID
       ]
     )
     await ownedSessionSql(
       client,
       ${stageSql},
       [
-        process.env.PHASE7_CRASH_INTENT_ID,
-        process.env.PHASE7_CRASH_SESSION_ID,
-        process.env.PHASE7_CRASH_NEW_TOKEN,
-        process.env.PHASE7_CRASH_USER_ID
+        process.env.CRASH_INTENT_ID,
+        process.env.CRASH_SESSION_ID,
+        process.env.CRASH_NEW_TOKEN,
+        process.env.CRASH_USER_ID
       ]
     )
     process.stdout.write(JSON.stringify({ event: 'staged' }) + '\\n')
@@ -804,14 +804,14 @@ const spawnStagedCrashWorker = async (
       detached: true,
       env: {
         ...process.env,
-        PHASE7_CRASH_DATABASE_URL: environment.DATABASE_URL,
-        PHASE7_CRASH_INTENT_ID: intentId,
-        PHASE7_CRASH_NEW_TOKEN: newToken,
-        PHASE7_CRASH_OLD_TOKEN: fixture.token,
-        PHASE7_CRASH_REQUEST_ID: requestId,
-        PHASE7_CRASH_SCHEMA: schema,
-        PHASE7_CRASH_SESSION_ID: newSessionId,
-        PHASE7_CRASH_USER_ID: fixture.userId
+        CRASH_DATABASE_URL: environment.DATABASE_URL,
+        CRASH_INTENT_ID: intentId,
+        CRASH_NEW_TOKEN: newToken,
+        CRASH_OLD_TOKEN: fixture.token,
+        CRASH_REQUEST_ID: requestId,
+        CRASH_SCHEMA: schema,
+        CRASH_SESSION_ID: newSessionId,
+        CRASH_USER_ID: fixture.userId
       },
       stdio: ['ignore', 'pipe', 'pipe']
     }
@@ -863,7 +863,7 @@ const runStartupMaintenanceWorker = async (): Promise<void> => {
   const script = `
     import { createRoleDatabaseRuntime } from './src/db/database.ts'
     import { runPhase7ReauthenticationStartupMaintenance } from './src/auth/reauthenticationStartupMaintenance.ts'
-    const databaseUrl = process.env.PHASE7_RESTART_DATABASE_URL
+    const databaseUrl = process.env.RESTART_DATABASE_URL
     if (!databaseUrl) throw new Error('Missing restart database URL.')
     const runtime = createRoleDatabaseRuntime(databaseUrl, 'nihongo_app')
     try {
@@ -881,7 +881,7 @@ const runStartupMaintenanceWorker = async (): Promise<void> => {
       detached: true,
       env: {
         ...process.env,
-        PHASE7_RESTART_DATABASE_URL: environment.DATABASE_URL
+        RESTART_DATABASE_URL: environment.DATABASE_URL
       },
       stdio: ['ignore', 'pipe', 'pipe']
     }

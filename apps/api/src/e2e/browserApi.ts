@@ -474,7 +474,7 @@ export const createBrowserApi = async ({
           })
         ),
         dashboardInsightsService: createDashboardInsightsService(
-          createPrismaDashboardInsightsRepository(database.client, 'PHASE7')
+          createPrismaDashboardInsightsRepository(database.client)
         ),
         dashboardService: createDashboardService(
           createPrismaDashboardRepository(database.client)

@@ -73,7 +73,7 @@ export const apiIntegrationManifest = [
     connectionRole: 'owner',
     requiredEnvironment: [
       'PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL',
-      'PHASE7_ADMIN_DATABASE_URL'
+      'ADMIN_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
     isolation:
@@ -90,7 +90,7 @@ export const apiIntegrationManifest = [
     requiredEnvironment: [
       'DATABASE_URL',
       'PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL',
-      'PHASE7_ADMIN_DATABASE_URL'
+      'ADMIN_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
     isolation:
@@ -103,7 +103,7 @@ export const apiIntegrationManifest = [
     order: 1,
     databaseState: 'phase7-current-capability-active-canonical-65',
     connectionRole: 'owner',
-    requiredEnvironment: ['PHASE7_MIGRATION_DATABASE_URL'],
+    requiredEnvironment: ['MIGRATION_DATABASE_URL'],
     seedPolicy: 'canonical-once',
     isolation: 'dedicated Phase 7 DB schema and canonical roles'
   },

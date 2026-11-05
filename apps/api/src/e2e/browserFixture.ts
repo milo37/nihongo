@@ -1448,7 +1448,7 @@ const createSsoBrowserApiFixture = async (
       createPrismaDashboardRepository(database.client)
     )
     const dashboardInsightsService = createDashboardInsightsService(
-      createPrismaDashboardInsightsRepository(database.client, 'PHASE7')
+      createPrismaDashboardInsightsRepository(database.client)
     )
     const bookmarkService = createBookmarkService(
       createPrismaBookmarkRepository(database.client, {

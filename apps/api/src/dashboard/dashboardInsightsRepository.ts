@@ -88,16 +88,10 @@ export interface DashboardInsightsSnapshotRecord {
   readonly targetRows: readonly DashboardInsightsTargetRecord[]
 }
 
-export type DashboardInsightsPrincipal =
-  | {
-      readonly kind: 'LEGACY'
-      readonly userId: string
-    }
-  | {
-      readonly kind: 'PHASE7'
-      readonly sessionToken: string
-      readonly userId: string
-    }
+export interface DashboardInsightsPrincipal {
+  readonly sessionToken: string
+  readonly userId: string
+}
 
 export interface DashboardInsightsRepository {
   readOwnedSnapshot: (
@@ -149,20 +143,12 @@ const executeRepositoryOperation = async <Result>(
 export const createDashboardInsightsClockQuery = (
   principal: DashboardInsightsPrincipal
 ): Prisma.Sql => {
-  const activePrincipal =
-    principal.kind === 'PHASE7'
-      ? Prisma.sql`
-          SELECT resolved."userId", resolved."targetLevel"
-          FROM (${v1PrincipalSql(principal.sessionToken)})
-            AS resolved
-          WHERE resolved."userId" = ${principal.userId}::uuid
-        `
-      : Prisma.sql`
-          SELECT app_user."id" AS "userId", app_user."targetLevel"
-          FROM "User" AS app_user
-          WHERE app_user."id" = ${principal.userId}::uuid
-            AND app_user."accountStatus" = 'ACTIVE'::"UserAccountStatus"
-        `
+  const activePrincipal = Prisma.sql`
+    SELECT resolved."userId", resolved."targetLevel"
+    FROM (${v1PrincipalSql(principal.sessionToken)})
+      AS resolved
+    WHERE resolved."userId" = ${principal.userId}::uuid
+  `
 
   return Prisma.sql`
     WITH active_principal AS MATERIALIZED (
@@ -732,16 +718,12 @@ export const createDashboardInsightsTargetQuery = (
 }
 
 export const createPrismaDashboardInsightsRepository = (
-  client: PrismaClient,
-  authority: DashboardInsightsPrincipal['kind']
+  client: PrismaClient
 ): DashboardInsightsRepository => ({
   readOwnedSnapshot: (principal) =>
     executeRepositoryOperation(async () =>
       client.$transaction(
         async (transaction) => {
-          if (principal.kind !== authority) {
-            throw new DashboardInsightsPrincipalLostError()
-          }
           await transaction.$executeRaw`SET TRANSACTION READ ONLY`
           const clockRows = await transaction.$queryRaw<
             DashboardInsightsClockRecord[]

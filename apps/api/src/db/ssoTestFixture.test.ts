@@ -48,7 +48,7 @@ beforeEach(() => {
   const environment = createSsoTestEnvironment({
     DATABASE_URL: url('nihongo_test_app_login'),
     PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: url('nihongo_test_app_login'),
-    PHASE7_ADMIN_DATABASE_URL: url('fixture_owner')
+    ADMIN_DATABASE_URL: url('fixture_owner')
   })
   for (const [name, value] of Object.entries(environment))
     vi.stubEnv(name, value)
@@ -133,7 +133,7 @@ describe('SSO TEST fixture capability registration', () => {
   })
   it('preserves the isolated schema boundary before any connection', () => {
     vi.stubEnv(
-      'PHASE7_ADMIN_DATABASE_URL',
+      'ADMIN_DATABASE_URL',
       url('fixture_owner').replace(schema, 'phase7_other_test')
     )
     expect(() => createSsoDbHarness()).toThrow(

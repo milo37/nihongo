@@ -232,8 +232,8 @@ describe('SSO deterministic TEST environment', () => {
     PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: database(
       'nihongo_test_auth_gateway_login'
     ),
-    PHASE7_ADMIN_DATABASE_URL: database('nihongo_test_migration_login'),
-    PHASE7_MIGRATION_DATABASE_URL: database('nihongo_test_migration_login'),
+    ADMIN_DATABASE_URL: database('nihongo_test_migration_login'),
+    MIGRATION_DATABASE_URL: database('nihongo_test_migration_login'),
     PHASE7_LEGACY_DATABASE_URL: database('nihongo_test_legacy_app_login'),
     TEST_DEVELOPMENT_APP_DATABASE_URL: 'synthetic-development-wrapper',
     PRISMA_TEST_DATABASE_URL: database('nihongo_test_app_login'),
@@ -529,7 +529,7 @@ describe('Opt-in foundation execution', () => {
         { testResults: [{ message }] },
         dbFoundationTestFile,
         {
-          PHASE7_ADMIN_DATABASE_URL: 'private-url',
+          ADMIN_DATABASE_URL: 'private-url',
           PHASE7_LEGACY_DATABASE_URL: '  ',
           TEST_DEVELOPMENT_APP_DATABASE_URL: 'secret-token'
         }
@@ -560,8 +560,8 @@ describe('Opt-in foundation execution', () => {
         .mockImplementation(() => true)
       const environment = {
         PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: 'private-gateway',
-        PHASE7_ADMIN_DATABASE_URL: 'private-admin',
-        PHASE7_MIGRATION_DATABASE_URL: 'private-migration',
+        ADMIN_DATABASE_URL: 'private-admin',
+        MIGRATION_DATABASE_URL: 'private-migration',
         PHASE7_LEGACY_DATABASE_URL: 'private-legacy',
         TEST_DEVELOPMENT_APP_DATABASE_URL: 'private-development'
       }
@@ -935,8 +935,8 @@ describe('Bounded SSO first failed assertion', () => {
           onCollectionDiagnostic,
           environment: {
             PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: 'private-gateway',
-            PHASE7_ADMIN_DATABASE_URL: 'private-admin',
-            PHASE7_MIGRATION_DATABASE_URL: 'private-migration',
+            ADMIN_DATABASE_URL: 'private-admin',
+            MIGRATION_DATABASE_URL: 'private-migration',
             PHASE7_LEGACY_DATABASE_URL: 'private-legacy',
             TEST_DEVELOPMENT_APP_DATABASE_URL: 'private-development'
           },
@@ -993,7 +993,7 @@ describe.each([
     DB_INTEGRATION_CASE: fixedCase.mode,
     DB_INTEGRATION_SINGLE_TEST: ssoTestFile,
     DB_INTEGRATION_PRESERVE_REPORT: '1',
-    PHASE7_ADMIN_DATABASE_URL: 'synthetic-admin',
+    ADMIN_DATABASE_URL: 'synthetic-admin',
     PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: 'synthetic-auth',
     PHASE7_LEGACY_DATABASE_URL: 'synthetic-legacy',
     TEST_DEVELOPMENT_APP_DATABASE_URL: 'synthetic-development',
@@ -1328,7 +1328,7 @@ describe('fixed account lifecycle TEST slice', () => {
       environment: {
         DATABASE_URL: 'synthetic',
         PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: 'synthetic',
-        PHASE7_ADMIN_DATABASE_URL: 'synthetic'
+        ADMIN_DATABASE_URL: 'synthetic'
       },
       runCommand: async (_command, args) => {
         expect(args).toContain('--maxWorkers=1')

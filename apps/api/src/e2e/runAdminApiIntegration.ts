@@ -821,7 +821,7 @@ export const prepareIsolatedDatabase = async ({
     NODE_ENV: 'test',
     TEST_API_ADMIN_DATABASE_URL: targetDatabaseUrl.toString(),
     TEST_API_MIGRATION_DATABASE_URL: migrationDatabaseUrl.toString(),
-    PHASE7_MIGRATION_DATABASE_URL: migrationDatabaseUrl.toString(),
+    MIGRATION_DATABASE_URL: migrationDatabaseUrl.toString(),
     PRISMA_TEST_DATABASE_URL: applicationDatabaseUrl.toString(),
     PRODUCTION_DATABASE_URL: syntheticProductionDatabaseUrl.toString()
   }
@@ -972,7 +972,7 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
   )
   const environment = createSsoTestEnvironment({
     ...harness.sharedEnvironment,
-    PHASE7_ADMIN_DATABASE_URL: harness.adminDatabaseUrl
+    ADMIN_DATABASE_URL: harness.adminDatabaseUrl
   })
   const count = await runApiIntegrationManifestVitestFile({
     runCommand,

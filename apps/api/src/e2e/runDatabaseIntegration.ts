@@ -1360,10 +1360,10 @@ const run = async (): Promise<void> => {
     PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: applicationDatabaseUrl.toString(),
     DATABASE_URL: applicationDatabaseUrl.toString(),
     NODE_ENV: 'test',
-    PHASE7_ADMIN_DATABASE_URL: targetDatabaseUrl.toString(),
+    ADMIN_DATABASE_URL: targetDatabaseUrl.toString(),
     TEST_DEVELOPMENT_APP_DATABASE_URL:
       developmentApplicationDatabaseUrl.toString(),
-    PHASE7_MIGRATION_DATABASE_URL: migrationDatabaseUrl.toString(),
+    MIGRATION_DATABASE_URL: migrationDatabaseUrl.toString(),
     TEST_MIGRATIONS_PATH: undefined,
     PRODUCTION_DATABASE_URL: syntheticProductionDatabaseUrl.toString()
   }
@@ -1372,7 +1372,7 @@ const run = async (): Promise<void> => {
     ...sharedEnvironment,
     // vitest.integration.config.ts intentionally maps this value to
     // DATABASE_URL. Integration imports therefore exercise the exact app
-    // wrapper while PHASE7_ADMIN_DATABASE_URL remains the DDL/test harness URL.
+    // wrapper while ADMIN_DATABASE_URL remains the DDL/test harness URL.
     PRISMA_TEST_DATABASE_URL: applicationDatabaseUrl.toString()
   }
   const driftEnvironment: NodeJS.ProcessEnv = {
@@ -1496,10 +1496,10 @@ const run = async (): Promise<void> => {
     'prisma/seed.ts'
   ] as const
   const withoutMigrationUrl: NodeJS.ProcessEnv = { ...seedEnvironment }
-  delete withoutMigrationUrl.PHASE7_MIGRATION_DATABASE_URL
+  delete withoutMigrationUrl.MIGRATION_DATABASE_URL
   const appUrlAsMigration: NodeJS.ProcessEnv = {
     ...seedEnvironment,
-    PHASE7_MIGRATION_DATABASE_URL: applicationDatabaseUrl.toString()
+    MIGRATION_DATABASE_URL: applicationDatabaseUrl.toString()
   }
   const duplicateOptionsUrl = new URL(migrationDatabaseUrl)
   duplicateOptionsUrl.searchParams.append(
@@ -1508,7 +1508,7 @@ const run = async (): Promise<void> => {
   )
   const duplicateMigrationOptions: NodeJS.ProcessEnv = {
     ...seedEnvironment,
-    PHASE7_MIGRATION_DATABASE_URL: duplicateOptionsUrl.toString()
+    MIGRATION_DATABASE_URL: duplicateOptionsUrl.toString()
   }
 
   await assertSeedWriteCount('0')
