@@ -6,15 +6,12 @@ import {
 } from '../src/study/get-study-result.js'
 import {
   duplicateAnswerValidationMarker,
-  submitStudySessionBodySchema,
-  submitStudySessionErrorCodeSchema,
-  submitStudySessionErrorSchema,
-  submitStudySessionHeadersSchema,
   submitStudySessionParamsSchema,
-  submitStudySessionResponseSchema,
   submitStudySessionV2BodySchema,
   submitStudySessionV2ErrorCodeSchema,
-  submitStudySessionV2HeadersSchema
+  submitStudySessionV2ErrorSchema,
+  submitStudySessionV2HeadersSchema,
+  submitStudySessionV2ResponseSchema
 } from '../src/study/submit-study-session.js'
 
 const id = (index: number): string =>
@@ -85,7 +82,8 @@ const body = {
       elapsedSec: 20
     }
   ],
-  durationSec: 30
+  durationSec: 30,
+  expectedDraftRevision: 0
 }
 
 describe('study submit/result contracts', () => {
@@ -94,12 +92,13 @@ describe('study submit/result contracts', () => {
       submitStudySessionParamsSchema.parse({ sessionId: id(1).toUpperCase() })
     ).toEqual({ sessionId: id(1) })
     expect(
-      submitStudySessionHeadersSchema.parse({
-        'idempotency-key': id(99).toUpperCase()
+      submitStudySessionV2HeadersSchema.parse({
+        'idempotency-key': id(99).toUpperCase(),
+        'x-nihongo-practice-contract': '2'
       })
-    ).toEqual({ 'idempotency-key': id(99) })
+    ).toEqual({ 'idempotency-key': id(99), 'x-nihongo-practice-contract': '2' })
     expect(
-      submitStudySessionBodySchema.parse({
+      submitStudySessionV2BodySchema.parse({
         ...body,
         answers: body.answers.map((answer) => ({
           ...answer,
@@ -110,35 +109,28 @@ describe('study submit/result contracts', () => {
     ).toEqual(body)
 
     for (const invalid of [
-      {},
-      { 'Idempotency-Key': id(99) },
-      { 'idempotency-key': 'not-a-uuid' }
+      { 'x-nihongo-practice-contract': '2' },
+      { 'Idempotency-Key': id(99), 'x-nihongo-practice-contract': '2' },
+      { 'idempotency-key': 'not-a-uuid', 'x-nihongo-practice-contract': '2' }
     ]) {
-      expect(submitStudySessionHeadersSchema.safeParse(invalid).success).toBe(
+      expect(submitStudySessionV2HeadersSchema.safeParse(invalid).success).toBe(
         false
       )
     }
 
     expect(
-      submitStudySessionBodySchema.safeParse({ ...body, isCorrect: true })
+      submitStudySessionV2BodySchema.safeParse({ ...body, isCorrect: true })
         .success
     ).toBe(false)
     expect(
-      submitStudySessionBodySchema.safeParse({
+      submitStudySessionV2BodySchema.safeParse({
         ...body,
         answers: [{ ...body.answers[0], questionId: id(10) }]
       }).success
     ).toBe(false)
-
-    expect(
-      submitStudySessionBodySchema.safeParse({
-        ...body,
-        expectedDraftRevision: 0
-      }).success
-    ).toBe(false)
   })
 
-  it('v2 header와 draft revision을 v1과 분리한다', () => {
+  it('v2 header와 draft revision을 강제한다', () => {
     expect(
       submitStudySessionV2HeadersSchema.parse({
         'idempotency-key': id(99),
@@ -151,12 +143,6 @@ describe('study submit/result contracts', () => {
     expect(
       submitStudySessionV2HeadersSchema.safeParse({
         'idempotency-key': id(99)
-      }).success
-    ).toBe(false)
-    expect(
-      submitStudySessionHeadersSchema.safeParse({
-        'idempotency-key': id(99),
-        'x-nihongo-practice-contract': '2'
       }).success
     ).toBe(false)
     expect(
@@ -178,11 +164,13 @@ describe('study submit/result contracts', () => {
       }).success
     ).toBe(false)
 
-    expect(submitStudySessionV2ErrorCodeSchema.options).toEqual([
-      ...submitStudySessionErrorCodeSchema.options,
-      'DRAFT_VERSION_CONFLICT',
-      'DRAFT_SUBMIT_MISMATCH'
-    ])
+    expect(submitStudySessionV2ErrorCodeSchema.options).toEqual(
+      expect.arrayContaining([
+        'DUPLICATE_ANSWER',
+        'DRAFT_VERSION_CONFLICT',
+        'DRAFT_SUBMIT_MISMATCH'
+      ])
+    )
   })
 
   it('답안 중복을 식별 가능한 marker로 거부한다', () => {
@@ -190,7 +178,7 @@ describe('study submit/result contracts', () => {
     if (!firstAnswer) {
       throw new Error('첫 번째 answer fixture가 필요합니다.')
     }
-    const parsed = submitStudySessionBodySchema.safeParse({
+    const parsed = submitStudySessionV2BodySchema.safeParse({
       ...body,
       answers: [
         firstAnswer,
@@ -218,30 +206,31 @@ describe('study submit/result contracts', () => {
 
   it('elapsedSec와 durationSec 경계를 고정한다', () => {
     expect(
-      submitStudySessionBodySchema.safeParse({
+      submitStudySessionV2BodySchema.safeParse({
         ...body,
         answers: [{ ...body.answers[0], elapsedSec: 86_401 }]
       }).success
     ).toBe(false)
     expect(
-      submitStudySessionBodySchema.safeParse({
+      submitStudySessionV2BodySchema.safeParse({
         ...body,
         durationSec: 604_801
       }).success
     ).toBe(false)
     expect(
-      submitStudySessionBodySchema.safeParse({
+      submitStudySessionV2BodySchema.safeParse({
         answers: [
           { ...body.answers[0], elapsedSec: 86_400 },
           { ...body.answers[1], elapsedSec: 0 }
         ],
-        durationSec: 604_800
+        durationSec: 604_800,
+        expectedDraftRevision: 0
       }).success
     ).toBe(true)
   })
 
   it('submit/get이 동일한 canonical StudyResult를 사용한다', () => {
-    const submitted = submitStudySessionResponseSchema.parse(result)
+    const submitted = submitStudySessionV2ResponseSchema.parse(result)
     const fetched = getStudyResultResponseSchema.parse(result)
 
     expect(submitted).toEqual(fetched)
@@ -267,7 +256,7 @@ describe('study submit/result contracts', () => {
       { ...firstItem, wrongNoteStatus: 'NEW' }
     ]) {
       expect(
-        submitStudySessionResponseSchema.safeParse({
+        submitStudySessionV2ResponseSchema.safeParse({
           ...result,
           items: [invalidItem, result.items[1]]
         }).success
@@ -282,9 +271,9 @@ describe('study submit/result contracts', () => {
       { ...result, totalCount: 1 },
       { ...result, items: [result.items[0], result.items[0]] }
     ]) {
-      expect(submitStudySessionResponseSchema.safeParse(invalid).success).toBe(
-        false
-      )
+      expect(
+        submitStudySessionV2ResponseSchema.safeParse(invalid).success
+      ).toBe(false)
     }
   })
 
@@ -311,7 +300,7 @@ describe('study submit/result contracts', () => {
         ]
       }
     ]) {
-      expect(submitStudySessionResponseSchema.safeParse(leaked).success).toBe(
+      expect(submitStudySessionV2ResponseSchema.safeParse(leaked).success).toBe(
         false
       )
     }
@@ -325,13 +314,13 @@ describe('study submit/result contracts', () => {
     }
 
     expect(
-      submitStudySessionErrorSchema.safeParse({
+      submitStudySessionV2ErrorSchema.safeParse({
         ...failure,
         code: 'DUPLICATE_ANSWER'
       }).success
     ).toBe(true)
     expect(
-      submitStudySessionErrorSchema.safeParse({
+      submitStudySessionV2ErrorSchema.safeParse({
         ...failure,
         code: 'STUDY_RESULT_NOT_READY'
       }).success

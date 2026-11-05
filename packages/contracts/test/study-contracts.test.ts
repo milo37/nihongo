@@ -13,8 +13,6 @@ import {
   createResultRetrySessionResponseSchema
 } from '../src/study/create-result-retry-session.js'
 import {
-  createStudySessionHeadersSchema,
-  createStudySessionResponseSchema,
   createStudySessionV2HeadersSchema,
   createStudySessionV2ResponseSchema
 } from '../src/study/create-study-session.js'
@@ -26,7 +24,6 @@ import {
 } from '../src/study/get-study-draft-answers.js'
 import {
   getStudySessionErrorCodeSchema,
-  getStudySessionHeadersSchema,
   getStudySessionV2HeadersSchema,
   getStudySessionV2ResponseSchema
 } from '../src/study/get-study-session.js'
@@ -184,18 +181,6 @@ const failureCodes = {
 
 describe('Study contracts', () => {
   it('practice header negotiation과 response header를 strict lower-case로 닫는다', () => {
-    expect(createStudySessionHeadersSchema.parse({})).toEqual({})
-    expect(getStudySessionHeadersSchema.parse({})).toEqual({})
-    expect(
-      createStudySessionHeadersSchema.safeParse({
-        'x-nihongo-practice-contract': '2'
-      }).success
-    ).toBe(false)
-    expect(
-      getStudySessionHeadersSchema.safeParse({
-        'x-nihongo-practice-contract': '2'
-      }).success
-    ).toBe(false)
     for (const schema of [
       createStudySessionV2HeadersSchema,
       getStudySessionV2HeadersSchema
@@ -223,17 +208,7 @@ describe('Study contracts', () => {
     ).toEqual({ 'x-nihongo-practice-contract': '1' })
   })
 
-  it('v1 payload를 그대로 보존하고 v2 payload를 별도 version field로 닫는다', () => {
-    expect(createStudySessionResponseSchema.parse(basePayload)).toEqual(
-      basePayload
-    )
-    expect(
-      createStudySessionResponseSchema.safeParse({
-        ...basePayload,
-        session: { ...baseSession, practiceContractVersion: 1 }
-      }).success
-    ).toBe(false)
-
+  it('저장된 v1 세션은 version field로 읽고 v2 payload를 별도로 닫는다', () => {
     for (const version of [1, 2] as const) {
       expect(
         getStudySessionV2ResponseSchema.parse({
