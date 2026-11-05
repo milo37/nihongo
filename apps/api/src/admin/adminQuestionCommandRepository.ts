@@ -234,7 +234,7 @@ const rawSqlState = (error: unknown): string | undefined => {
   return first && rest.every((state) => state === first) ? first : undefined
 }
 
-const repositoryFailure = (
+export const repositoryFailure = (
   code: StableErrorCode,
   message: string,
   fieldErrors?: Record<string, string[]>
@@ -531,111 +531,116 @@ const postRollbackImmutableVersion = (cause: unknown) =>
     cause
   })
 
-const classifyAuthorityFailure = async (
-  client: Pick<PrismaClient, '$queryRawUnsafe'>,
-  operation: AdminQuestionDomainOperation,
-  authority: AdminCommandAuthority,
-  error: unknown
-): Promise<AdminQuestionCommandRepositoryError | null> => {
-  const identity = rawDatabaseIdentity(error)
-  if (
-    identity?.sqlState !== '42501' ||
-    !AUTHORITY_FAILURE_MESSAGES.has(identity.message)
-  ) {
-    return null
-  }
+/** Shared by the question command and workflow repositories. */
+export const createAuthorityFailureClassifier =
+  <Operation extends string>(freshOperations: ReadonlySet<Operation>) =>
+  async (
+    client: Pick<PrismaClient, '$queryRawUnsafe'>,
+    operation: Operation,
+    authority: AdminCommandAuthority,
+    error: unknown
+  ): Promise<AdminQuestionCommandRepositoryError | null> => {
+    const identity = rawDatabaseIdentity(error)
+    if (
+      identity?.sqlState !== '42501' ||
+      !AUTHORITY_FAILURE_MESSAGES.has(identity.message)
+    ) {
+      return null
+    }
 
-  let rows: AuthorityProbeRow[]
-  try {
-    rows = await client.$queryRawUnsafe<AuthorityProbeRow[]>(
-      `SELECT principal."userId" AS "principalUserId",
+    let rows: AuthorityProbeRow[]
+    try {
+      rows = await client.$queryRawUnsafe<AuthorityProbeRow[]>(
+        `SELECT principal."userId" AS "principalUserId",
          principal."role" AS "principalRole",
          CASE WHEN principal."userId" IS NULL THEN NULL
            ELSE ${adminSessionFreshSql('$1')}
          END AS "isFresh"
        FROM (${v1PrincipalQuery('$1')}) AS principal`,
-      authority.rawSessionToken
-    )
-  } catch (probeError: unknown) {
-    return new AdminQuestionCommandRepositoryError({
-      code: 'SERVICE_UNAVAILABLE',
-      message: '관리자 세션 상태를 다시 확인할 수 없습니다.',
-      disposition: 'DEFINITE_ROLLBACK',
-      cause: probeError
-    })
-  }
-  const probe = rows.length === 1 ? rows[0] : undefined
-  if (!probe) {
-    let classificationRows: AdminAuthorityClassificationRow[]
-    try {
-      classificationRows = await client.$queryRawUnsafe<
-        AdminAuthorityClassificationRow[]
-      >(
-        'SELECT * FROM "classify_admin_authority"($1)',
         authority.rawSessionToken
       )
-    } catch (classificationError: unknown) {
+    } catch (probeError: unknown) {
       return new AdminQuestionCommandRepositoryError({
         code: 'SERVICE_UNAVAILABLE',
         message: '관리자 세션 상태를 다시 확인할 수 없습니다.',
         disposition: 'DEFINITE_ROLLBACK',
-        cause: classificationError
+        cause: probeError
       })
     }
-    const outcome = classificationRows[0]?.outcome
-    if (
-      classificationRows.length !== 1 ||
-      (outcome !== 'ADMIN_REQUIRED' && outcome !== 'AUTH_SESSION_EXPIRED')
-    ) {
+    const probe = rows.length === 1 ? rows[0] : undefined
+    if (!probe) {
+      let classificationRows: AdminAuthorityClassificationRow[]
+      try {
+        classificationRows = await client.$queryRawUnsafe<
+          AdminAuthorityClassificationRow[]
+        >(
+          'SELECT * FROM "classify_admin_authority"($1)',
+          authority.rawSessionToken
+        )
+      } catch (classificationError: unknown) {
+        return new AdminQuestionCommandRepositoryError({
+          code: 'SERVICE_UNAVAILABLE',
+          message: '관리자 세션 상태를 다시 확인할 수 없습니다.',
+          disposition: 'DEFINITE_ROLLBACK',
+          cause: classificationError
+        })
+      }
+      const outcome = classificationRows[0]?.outcome
+      if (
+        classificationRows.length !== 1 ||
+        (outcome !== 'ADMIN_REQUIRED' && outcome !== 'AUTH_SESSION_EXPIRED')
+      ) {
+        return new AdminQuestionCommandRepositoryError({
+          code: 'SERVICE_UNAVAILABLE',
+          message: '관리자 세션 상태를 안전하게 분류할 수 없습니다.',
+          disposition: 'DEFINITE_ROLLBACK',
+          cause: error
+        })
+      }
       return new AdminQuestionCommandRepositoryError({
-        code: 'SERVICE_UNAVAILABLE',
-        message: '관리자 세션 상태를 안전하게 분류할 수 없습니다.',
+        code: outcome,
+        message:
+          outcome === 'ADMIN_REQUIRED'
+            ? '관리자 권한이 필요합니다.'
+            : '로그인 세션이 만료됐습니다.',
+        disposition: 'DEFINITE_ROLLBACK',
+        cause: error
+      })
+    }
+    if (probe.principalUserId !== authority.actorId) {
+      return new AdminQuestionCommandRepositoryError({
+        code: 'AUTH_SESSION_EXPIRED',
+        message: '로그인 세션이 만료됐습니다.',
+        disposition: 'DEFINITE_ROLLBACK',
+        cause: error
+      })
+    }
+    if (probe.principalRole !== 'ADMIN') {
+      return new AdminQuestionCommandRepositoryError({
+        code: 'ADMIN_REQUIRED',
+        message: '관리자 권한이 필요합니다.',
+        disposition: 'DEFINITE_ROLLBACK',
+        cause: error
+      })
+    }
+    if (freshOperations.has(operation) && probe.isFresh !== true) {
+      return new AdminQuestionCommandRepositoryError({
+        code: 'FRESH_ASSURANCE_REQUIRED',
+        message: '민감한 관리자 작업을 위해 비밀번호를 다시 확인해 주세요.',
         disposition: 'DEFINITE_ROLLBACK',
         cause: error
       })
     }
     return new AdminQuestionCommandRepositoryError({
-      code: outcome,
-      message:
-        outcome === 'ADMIN_REQUIRED'
-          ? '관리자 권한이 필요합니다.'
-          : '로그인 세션이 만료됐습니다.',
+      code: 'SERVICE_UNAVAILABLE',
+      message: '관리자 세션 권한을 안전하게 확정할 수 없습니다.',
       disposition: 'DEFINITE_ROLLBACK',
       cause: error
     })
   }
-  if (probe.principalUserId !== authority.actorId) {
-    return new AdminQuestionCommandRepositoryError({
-      code: 'AUTH_SESSION_EXPIRED',
-      message: '로그인 세션이 만료됐습니다.',
-      disposition: 'DEFINITE_ROLLBACK',
-      cause: error
-    })
-  }
-  if (probe.principalRole !== 'ADMIN') {
-    return new AdminQuestionCommandRepositoryError({
-      code: 'ADMIN_REQUIRED',
-      message: '관리자 권한이 필요합니다.',
-      disposition: 'DEFINITE_ROLLBACK',
-      cause: error
-    })
-  }
-  if (FRESH_OPERATIONS.has(operation) && probe.isFresh !== true) {
-    return new AdminQuestionCommandRepositoryError({
-      code: 'FRESH_ASSURANCE_REQUIRED',
-      message: '민감한 관리자 작업을 위해 비밀번호를 다시 확인해 주세요.',
-      disposition: 'DEFINITE_ROLLBACK',
-      cause: error
-    })
-  }
-  return new AdminQuestionCommandRepositoryError({
-    code: 'SERVICE_UNAVAILABLE',
-    message: '관리자 세션 권한을 안전하게 확정할 수 없습니다.',
-    disposition: 'DEFINITE_ROLLBACK',
-    cause: error
-  })
-}
 
+const classifyAuthorityFailure =
+  createAuthorityFailureClassifier(FRESH_OPERATIONS)
 const toAuthorSnapshot = (
   version: Pick<
     LifecycleVersionTargetRow,
@@ -726,7 +731,7 @@ const beginOperation = async (
   }
 }
 
-const armOperation = async (
+export const armOperation = async (
   transaction: Prisma.TransactionClient,
   operation: ArmableOperation,
   targetManifest: TargetManifest

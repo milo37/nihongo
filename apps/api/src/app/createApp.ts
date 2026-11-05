@@ -64,7 +64,7 @@ import type { AdminCommandRateLimiter } from '../admin/adminCommandRateLimiter.j
 import type {
   AdminQuestionCommandService,
   AdminQuestionPublicationCommandService,
-  AdminQuestionSlice5CommandService
+  AdminQuestionWorkflowCommandService
 } from '../admin/adminQuestionCommandService.js'
 import { createQuestionReportGuard } from '../admin/questionReportGuard.js'
 import type { QuestionReportRateLimiter } from '../admin/questionReportRateLimiter.js'
@@ -93,8 +93,8 @@ import {
   isCanonicalApprovalCommandRequest,
   isCanonicalPublicationCommandRequest,
   isCanonicalLearnerReportRequest,
-  isCanonicalSlice5AdminCommandRequest,
-  isCanonicalSlice5AdminReadRequest,
+  isCanonicalWorkflowAdminCommandRequest,
+  isCanonicalWorkflowAdminReadRequest,
   isCanonicalSlice3ACommandRequest,
   isCanonicalSlice2ReadRequest,
   isProtectedRouteExcluded,
@@ -162,7 +162,7 @@ interface CreateApiAppDependencies {
       rateLimiter: AdminCommandRateLimiter
       service: AdminQuestionCommandService &
         AdminQuestionPublicationCommandService
-      slice5Service?: AdminQuestionSlice5CommandService
+      workflowService?: AdminQuestionWorkflowCommandService
     }
     reports?: {
       rateLimiter: QuestionReportRateLimiter
@@ -508,13 +508,13 @@ export const createApiApp = ({
               method: context.req.method,
               requestTarget
             }))) ||
-        (admin?.commands?.slice5Service !== undefined &&
-          isCanonicalSlice5AdminCommandRequest({
+        (admin?.commands?.workflowService !== undefined &&
+          isCanonicalWorkflowAdminCommandRequest({
             method: context.req.method,
             requestTarget
           })) ||
         (admin?.reports !== undefined &&
-          isCanonicalSlice5AdminReadRequest({
+          isCanonicalWorkflowAdminReadRequest({
             method: context.req.method,
             requestTarget
           })))
@@ -742,8 +742,8 @@ export const createApiApp = ({
               principalService: auth.principalService,
               rateLimiter: admin.commands.rateLimiter
             }),
-            ...(admin.commands.slice5Service
-              ? { slice5CommandService: admin.commands.slice5Service }
+            ...(admin.commands.workflowService
+              ? { workflowCommandService: admin.commands.workflowService }
               : {})
           })
         )

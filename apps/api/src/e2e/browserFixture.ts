@@ -49,11 +49,11 @@ import { createPrismaAdminQuestionRepository } from '../admin/adminQuestionRepos
 import { createAdminQuestionService } from '../admin/adminQuestionService.js'
 import { createAdminCommandRateLimiter } from '../admin/adminCommandRateLimiter.js'
 import { createPrismaAdminQuestionCommandRepository } from '../admin/adminQuestionCommandRepository.js'
-import { createPrismaAdminQuestionSlice5Repository } from '../admin/adminQuestionSlice5Repository.js'
+import { createPrismaAdminQuestionWorkflowRepository } from '../admin/adminQuestionWorkflowRepository.js'
 import {
   createAdminQuestionCommandService,
   createAdminQuestionPublicationCommandService,
-  createAdminQuestionSlice5CommandService
+  createAdminQuestionWorkflowCommandService
 } from '../admin/adminQuestionCommandService.js'
 import { createQuestionReportRateLimiter } from '../admin/questionReportRateLimiter.js'
 import { createPrismaQuestionReportRepository } from '../admin/questionReportRepository.js'
@@ -1468,15 +1468,15 @@ const createSsoBrowserApiFixture = async (
           client: database.client
         })
       : undefined
-    const adminQuestionSlice5Repository = cms
-      ? createPrismaAdminQuestionSlice5Repository({
+    const adminQuestionWorkflowRepository = cms
+      ? createPrismaAdminQuestionWorkflowRepository({
           auditEnvironment:
             environment.NODE_ENV === 'test' ? 'TEST' : 'DEVELOPMENT',
           client: database.client
         })
       : undefined
     const adminQuestionCommandService =
-      adminQuestionCommandRepository && adminQuestionSlice5Repository
+      adminQuestionCommandRepository && adminQuestionWorkflowRepository
         ? {
             ...createAdminQuestionCommandService(
               adminQuestionCommandRepository
@@ -1484,8 +1484,8 @@ const createSsoBrowserApiFixture = async (
             ...createAdminQuestionPublicationCommandService(
               adminQuestionCommandRepository
             ),
-            ...createAdminQuestionSlice5CommandService(
-              adminQuestionSlice5Repository
+            ...createAdminQuestionWorkflowCommandService(
+              adminQuestionWorkflowRepository
             )
           }
         : undefined
@@ -1521,14 +1521,14 @@ const createSsoBrowserApiFixture = async (
       adminCommandRateLimiter &&
       questionReportRateLimiter &&
       questionReportService &&
-      adminQuestionSlice5Repository
+      adminQuestionWorkflowRepository
         ? {
             admin: {
               assertCapability: assertAdminCapability,
               commands: {
                 rateLimiter: adminCommandRateLimiter,
                 service: adminQuestionCommandService,
-                slice5Service: adminQuestionCommandService
+                workflowService: adminQuestionCommandService
               },
               reports: {
                 rateLimiter: questionReportRateLimiter,
