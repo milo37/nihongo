@@ -1,7 +1,10 @@
 import { createHash, randomUUID } from 'node:crypto'
 import type { Prisma, PrismaClient } from '../generated/prisma/client.js'
 import { adminAuditContentDigest } from '../admin/adminRepositoryCommon.js'
-import { reauthenticationTokenDigest } from './adminFreshAuthority.js'
+import {
+  accountFreshProofIsValid,
+  accountSessionContext
+} from './ssoAccountAuthority.js'
 
 /**
  * Account erasure in the API transaction (#504 P7 PR4a).
@@ -583,78 +586,6 @@ export const redactExpiredReportDescriptions = async (
   )
 }
 
-// phase7_sso_account_session: the active V1 Session of a raw token.
-const accountSession = async (
-  transaction: Transaction,
-  rawToken: string
-): Promise<{ userId: string } | undefined> =>
-  (
-    await transaction.$queryRawUnsafe<Array<{ userId: string }>>(
-      `SELECT target_user."id" AS "userId"
-       FROM "Session" AS session
-       JOIN "User" AS target_user ON target_user."id" = session."userId"
-       WHERE session."token" = $1
-         AND session."issuerProtocolVersion" = 'PHASE7_V1'
-         AND session."authorizationState" = 'ACTIVE'
-         AND session."authorityGeneration" = target_user."authorityGeneration"
-         AND target_user."accountStatus" = 'ACTIVE'
-         AND target_user."deletedAt" IS NULL
-         AND session."expiresAt" > clock_timestamp()
-         AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()`,
-      rawToken
-    )
-  )[0]
-
-// phase7_sso_account_proof_valid with phase7_sso_account_context_valid for an
-// ACCOUNT_FRESH proof: verified in the last 5 minutes, unexpired, and bound to
-// this Session, its User authority and a still linked provider account.
-const accountFreshProofIsValid = async (
-  transaction: Transaction,
-  rawToken: string,
-  proofDigest: string | null
-): Promise<boolean> => {
-  if (proofDigest === null) return false
-  const rows = await transaction.$queryRawUnsafe<
-    Array<{ tokenDigest: string; token: string }>
-  >(
-    `SELECT proof."context"->>'tokenDigest' AS "tokenDigest", session."token"
-     FROM "SsoAccountFreshProof" AS proof
-     JOIN "User" AS target_user
-       ON target_user."id" = (proof."context"->>'userId')::uuid
-     JOIN "Session" AS session
-       ON session."id" = (proof."context"->>'sessionId')::uuid
-      AND session."userId" = target_user."id"
-     WHERE proof."proofDigest" = $2
-       AND proof."context"->>'purpose' = 'ACCOUNT_FRESH'
-       AND proof."verifiedAt" IS NOT NULL
-       AND proof."verifiedAt" + INTERVAL '5 minutes' > clock_timestamp()
-       AND proof."expiresAt" > clock_timestamp()
-       AND session."token" = $1
-       AND target_user."role"::text = proof."context"->>'role'
-       AND target_user."authorityGeneration" =
-         (proof."context"->>'authorityGeneration')::integer
-       AND proof."context"->>'provider' IN ('apple', 'google')
-       AND session."issuerProtocolVersion" = 'PHASE7_V1'
-       AND session."authorizationState" = 'ACTIVE'
-       AND session."authorityGeneration" = target_user."authorityGeneration"
-       AND target_user."accountStatus" = 'ACTIVE'
-       AND target_user."deletedAt" IS NULL
-       AND session."expiresAt" > clock_timestamp()
-       AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()
-       AND EXISTS (
-         SELECT 1 FROM "Account" AS account
-         WHERE account."userId" = target_user."id"
-           AND account."providerId" = proof."context"->>'provider'
-           AND account."accountId" = proof."context"->>'accountId'
-       )`,
-    rawToken,
-    proofDigest
-  )
-  return rows.some(
-    (row) => reauthenticationTokenDigest(row.token) === row.tokenDigest
-  )
-}
-
 export type SsoAccountErasureRequestResult =
   | {
       readonly code:
@@ -682,13 +613,13 @@ export const requestSsoAccountErasure = async (
     await transaction.$queryRawUnsafe(
       `SELECT "phase7_require_runtime_ready"() AS ready`
     )
-    const first = await accountSession(transaction, rawToken)
+    const first = await accountSessionContext(transaction, rawToken)
     if (!first) return { code: 'AUTHENTICATION_REQUIRED' }
     await transaction.$queryRawUnsafe(
       `SELECT 1 FROM "User" WHERE "id" = $1::uuid FOR UPDATE`,
       first.userId
     )
-    const actor = await accountSession(transaction, rawToken)
+    const actor = await accountSessionContext(transaction, rawToken)
     if (!actor) return { code: 'AUTHENTICATION_REQUIRED' }
     if (!(await accountFreshProofIsValid(transaction, rawToken, proofDigest)))
       return { code: 'SSO_FRESH_REQUIRED' }

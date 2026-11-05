@@ -4,6 +4,7 @@ import {
   createSsoAccountErasureWorker,
   runSsoAccountErasureBatch
 } from '../auth/ssoAccountRepository.js'
+import { bridgedQuery } from './fixtures/ownedSessionSql.js'
 import { createSsoDbHarness, digest } from './ssoTestFixture.js'
 import type { SsoFixture } from './ssoTestFixture.js'
 let h: ReturnType<typeof createSsoDbHarness>
@@ -17,6 +18,21 @@ afterAll(async () => {
 const gateway = async (sql: string, args: readonly unknown[] = []) =>
   (await h.roleQuery<{ result: unknown }>('nihongo_auth_gateway', sql, args))
     .rows[0]?.result
+// #504 P7 PR5a: a provider cleanup claim needs the request's User
+// DELETION_PENDING; tests set it outside the User trigger.
+const deletionPendingUser = async (): Promise<string> => {
+  const f = await h.fixture('google', 'USER')
+  await h.owner.query('SET session_replication_role = replica')
+  try {
+    await h.owner.query(
+      `UPDATE "User" SET "accountStatus"='DELETION_PENDING' WHERE id=$1`,
+      [f.userId]
+    )
+  } finally {
+    await h.owner.query('SET session_replication_role = origin')
+  }
+  return f.userId
+}
 const verifyFresh = async (f: SsoFixture) => {
   const context = await gateway(
     'SELECT "phase7_prepare_sso_account_fresh"($1,$2) AS result',
@@ -102,6 +118,57 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       await h.owner.query('SET CONSTRAINTS ALL IMMEDIATE')
     })
   })
+  it('#504 P7 PR5a: nihongo_app은 staged link proof 없이 Account를 넣지 못하고, SSO Account 삭제는 그 User의 모든 Session을 회수한다', async () => {
+    await h.rollback(async () => {
+      const f = await h.fixture('google', 'USER')
+      const insertApple = [
+        'INSERT INTO "Account"(id,"providerId","accountId","userId","createdAt","updatedAt") VALUES($1,\'apple\',$2,$3,clock_timestamp(),clock_timestamp())',
+        [randomUUID(), 'direct-' + randomUUID(), f.userId]
+      ] as const
+      await h.rejects('nihongo_app', ...insertApple, '42501')
+      // The generation step comes only from the Account delete trigger.
+      await h.rejects(
+        'nihongo_app',
+        'UPDATE "User" SET "authorityGeneration"="authorityGeneration"+1 WHERE id=$1',
+        [f.userId],
+        '42501'
+      )
+      await h.owner.query(insertApple[0], [...insertApple[1]])
+      await h.roleQuery(
+        'nihongo_app',
+        'DELETE FROM "Account" WHERE "userId"=$1 AND "providerId"=\'apple\'',
+        [f.userId]
+      )
+      expect(
+        (
+          await h.owner.query(
+            `SELECT (SELECT "authorityGeneration" FROM "User" WHERE id=$1) AS generation,
+               (SELECT count(*)::int FROM "Session" WHERE "userId"=$1) AS sessions,
+               (SELECT count(*)::int FROM "Phase7AuthorityRevocationEvidence"
+                WHERE "sessionId"=$2 AND reason='SESSION_INVALIDATED') AS evidence`,
+            [f.userId, f.sessionId]
+          )
+        ).rows
+      ).toEqual([{ generation: 2, sessions: 0, evidence: 1 }])
+      // #504 P7 PR5a: a request whose User is not DELETION_PENDING is never
+      // claimed.
+      const activeRequest = randomUUID()
+      const active = await h.fixture('google', 'USER')
+      await h.owner.query(
+        `INSERT INTO "SsoAccountErasureRequest" (id,"userId","receiptDigest","providerCleanup","receiptExpiresAt","createdAt")
+         VALUES ($1,$3,$2,'[{"provider":"google","status":"PENDING"}]',clock_timestamp()+interval '1 day','2000-01-01')`,
+        [activeRequest, digest(), active.userId]
+      )
+      expect(
+        (
+          await createSsoAccountErasureWorker(
+            h.appClient
+          ).claimProviderCleanups(100, 300, 'TEST')
+        ).some((row) => row.id === activeRequest)
+      ).toBe(false)
+      await h.owner.query('SET CONSTRAINTS ALL IMMEDIATE')
+    })
+  })
   it('concurrent account unlinks cannot remove both sign-in methods', async () => {
     await h.owner.query('BEGIN')
     let f: SsoFixture
@@ -116,12 +183,15 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       await h.owner.query('ROLLBACK')
       throw error
     }
+    // #504 P7 PR5a: the API unlink runs as nihongo_app on two connections.
     const outcomes = await Promise.all([
-      h.gatewayA.query<{ result: { unlinked?: boolean; code?: string } }>(
+      bridgedQuery<{ result: { unlinked?: boolean; code?: string } }>(
+        h.appA,
         "SELECT \"phase7_unlink_sso_account\"($1,'google',ARRAY['apple','google'],NULL) AS result",
         [f.token]
       ),
-      h.gatewayB.query<{ result: { unlinked?: boolean; code?: string } }>(
+      bridgedQuery<{ result: { unlinked?: boolean; code?: string } }>(
+        h.appB,
         "SELECT \"phase7_unlink_sso_account\"($1,'apple',ARRAY['apple','google'],NULL) AS result",
         [f.token]
       )
@@ -434,9 +504,9 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
     await h.rollback(async () => {
       const id = randomUUID()
       await h.owner.query(
-        `INSERT INTO "SsoAccountErasureRequest" (id,"receiptDigest","providerCleanup","receiptExpiresAt","createdAt")
-         VALUES ($1,$2,'[{"provider":"google","status":"PENDING"}]',clock_timestamp()+interval '1 day','2000-01-01')`,
-        [id, digest()]
+        `INSERT INTO "SsoAccountErasureRequest" (id,"userId","receiptDigest","providerCleanup","receiptExpiresAt","createdAt")
+         VALUES ($1,$3,$2,'[{"provider":"google","status":"PENDING"}]',clock_timestamp()+interval '1 day','2000-01-01')`,
+        [id, digest(), await deletionPendingUser()]
       )
       // #504 P7 PR1: the one-shot worker runs as nihongo_app.
       const worker = createSsoAccountErasureWorker(h.appClient)
@@ -530,11 +600,12 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
           'TEST'
         )
       ).toBe(false)
+      // #504 P7 PR5a dropped the pre-fencing recorders.
       for (const sql of [
         "SELECT \"phase7_record_sso_provider_cleanup\"($1,'google','COMPLETED')",
         "SELECT \"phase7_record_sso_provider_cleanup\"($1,'google','COMPLETED','TEST')"
       ])
-        await h.rejects('nihongo_erasure_worker', sql, [id], '42501')
+        await h.rejects('nihongo_erasure_worker', sql, [id], '42883')
       // #504 P7 PR1: nihongo_app runs the worker; the gateway still may not.
       for (const role of ['nihongo_auth_gateway'] as const) {
         await h.rejects(
@@ -584,18 +655,24 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
     const id = randomUUID()
     const peers = [h.createOwnerPeer(), h.createOwnerPeer()]
     await Promise.all(peers.map((peer) => peer.connect()))
+    // The deferred credential check needs the User and Account together.
+    await h.owner.query('BEGIN')
+    const pendingUserId = await deletionPendingUser()
+    await h.owner.query('COMMIT')
     try {
       await h.owner.query(
-        `INSERT INTO "SsoAccountErasureRequest" (id,"receiptDigest","providerCleanup","receiptExpiresAt","createdAt")
-         VALUES ($1,$2,'[{"provider":"google","status":"PENDING"}]',clock_timestamp()+interval '1 day','2000-01-01')`,
-        [id, digest()]
+        `INSERT INTO "SsoAccountErasureRequest" (id,"userId","receiptDigest","providerCleanup","receiptExpiresAt","createdAt")
+         VALUES ($1,$3,$2,'[{"provider":"google","status":"PENDING"}]',clock_timestamp()+interval '1 day','2000-01-01')`,
+        [id, digest(), pendingUserId]
       )
       await Promise.all(
-        peers.map((peer) => peer.query('SET ROLE "nihongo_erasure_worker"'))
+        // #504 P7 PR5a: the API provider cleanup runs as nihongo_app.
+        peers.map((peer) => peer.query('SET ROLE "nihongo_app"'))
       )
       const claims = await Promise.all(
         peers.map((peer) =>
-          peer.query<{ result: Array<{ id: string; leaseToken: string }> }>(
+          bridgedQuery<{ result: Array<{ id: string; leaseToken: string }> }>(
+            peer,
             'SELECT "phase7_claim_sso_provider_cleanups"(1,300,\'TEST\') AS result'
           )
         )
@@ -607,7 +684,8 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       const token = mine[0]!.leaseToken
       const starts = await Promise.all(
         peers.map((peer) =>
-          peer.query<{ ok: boolean }>(
+          bridgedQuery<{ ok: boolean }>(
+            peer,
             "SELECT \"phase7_begin_sso_provider_cleanup\"($1,'google',$2,'TEST') AS ok",
             [id, token]
           )
@@ -627,7 +705,8 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
           'SELECT id FROM "SsoAccountErasureRequest" WHERE id=$1 FOR UPDATE',
           [id]
         )
-        const pending = peer.query<{ ok: boolean }>(
+        const pending = bridgedQuery<{ ok: boolean }>(
+          peer,
           "SELECT \"phase7_record_sso_provider_cleanup\"($1,'google','COMPLETED',$2,'TEST') AS ok",
           [id, token]
         )
@@ -653,7 +732,8 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       } finally {
         await h.owner.query('ROLLBACK')
       }
-      const retried = await peer.query<{ result: Array<{ id: string }> }>(
+      const retried = await bridgedQuery<{ result: Array<{ id: string }> }>(
+        peer,
         'SELECT "phase7_claim_sso_provider_cleanups"(100,300,\'TEST\') AS result'
       )
       expect(retried.rows[0]!.result.some((claim) => claim.id === id)).toBe(

@@ -80,7 +80,7 @@ describe('SSO bootstrap migration history', () => {
       migration_name: name,
       checksum
     }))
-    expect(expected).toHaveLength(74)
+    expect(expected).toHaveLength(75)
     expect(() =>
       assertSsoBootstrapMigrationHistory(expected, applied)
     ).not.toThrow()
@@ -89,18 +89,18 @@ describe('SSO bootstrap migration history', () => {
         expected.slice(0, 50),
         applied.slice(0, 50)
       )
-    ).toThrow(/canonical74/u)
+    ).toThrow(/canonical75/u)
     expect(() =>
       assertSsoBootstrapMigrationHistory(expected, applied.slice(0, 51))
-    ).toThrow(/canonical74/u)
+    ).toThrow(/canonical75/u)
     expect(() =>
       assertSsoBootstrapMigrationHistory(expected, [...applied].reverse())
-    ).toThrow(/canonical74/u)
+    ).toThrow(/canonical75/u)
     const alteredLedger = structuredClone(applied)
     alteredLedger[0]!.checksum = '0'.repeat(64)
     expect(() =>
       assertSsoBootstrapMigrationHistory(expected, alteredLedger)
-    ).toThrow(/canonical74/u)
+    ).toThrow(/canonical75/u)
     const alteredSource = structuredClone(expected)
     alteredSource[0]!.checksum = '0'.repeat(64)
     const matchingAlteredLedger = alteredSource.map(({ name, checksum }) => ({
@@ -109,7 +109,7 @@ describe('SSO bootstrap migration history', () => {
     }))
     expect(() =>
       assertSsoBootstrapMigrationHistory(alteredSource, matchingAlteredLedger)
-    ).toThrow(/canonical74/u)
+    ).toThrow(/canonical75/u)
   })
 })
 
@@ -1306,7 +1306,7 @@ describe('fixed account lifecycle TEST slice', () => {
     expect(clean).not.toHaveProperty('BETTER_AUTH_SECRET')
   })
 
-  const report = (count = 6) => ({
+  const report = (count = 7) => ({
     numTotalTests: count,
     numPassedTests: count,
     numFailedTests: 0,
@@ -1315,7 +1315,7 @@ describe('fixed account lifecycle TEST slice', () => {
     testResults: [{ name: ssoAccountLifecycleTestFile }]
   })
   it('rejects partial success and extra cases rather than accepting a non-empty file', () => {
-    for (const count of [1, 2, 3, 4, 5, 7])
+    for (const count of [1, 2, 3, 4, 5, 6, 8])
       expect(() =>
         assertApiIntegrationVitestFileResult({
           result: report(count),
@@ -1352,7 +1352,7 @@ describe('fixed account lifecycle TEST slice', () => {
         await writeFile(rawPath, JSON.stringify(report()))
       }
     })
-    expect(count).toBe(6)
+    expect(count).toBe(7)
     await expect(stat(rawPath)).rejects.toThrow()
   })
   it('retains only a wholly safe original first error line', () => {

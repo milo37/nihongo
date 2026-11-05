@@ -15,7 +15,7 @@ import {
 import { apiFailureSchema } from '@nihongo/contracts/common/error'
 import { hashPassword } from 'better-auth/crypto'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { ownedSessionSql } from './fixtures/ownedSessionSql.js'
+import { bridgedQuery, ownedSessionSql } from './fixtures/ownedSessionSql.js'
 import { signOutOwnedSession } from '../auth/ownedSessionAuthority.js'
 import { Client } from 'pg'
 import { createAdminReauthenticationService } from '../admin/adminReauthenticationService.js'
@@ -1831,7 +1831,8 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
     })
     await missingBarrier.waitForPreflight()
     try {
-      await gatewayClientA.query(
+      await bridgedQuery(
+        gatewayClientA,
         `SELECT "phase7_change_user_authority"(
           $1, $2, 1, 'USER', 'ACTIVE', 'TEST'
         )`,
@@ -1996,7 +1997,8 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
 
     const roleTarget = await createFixture()
     const operator = await createFixture()
-    await gatewayClientA.query(
+    await bridgedQuery(
+      gatewayClientA,
       `SELECT "phase7_change_user_authority"(
         $1, $2, 1, 'USER', 'ACTIVE', 'TEST'
       )`,
@@ -2106,7 +2108,8 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
         `SELECT * FROM "phase7_finalize_reauthentication"($1, $2)`,
         [authorityStage.intentId, authorityStage.newToken]
       ),
-      gatewayClientB.query(
+      bridgedQuery(
+        gatewayClientB,
         `SELECT "phase7_change_user_authority"(
           $1, $2, 1, 'USER', 'ACTIVE', 'TEST'
         ) AS generation`,

@@ -43,18 +43,6 @@ interface FinalizedSessionRow {
 
 const routineManifest = [
   ['phase7_active_authorization_session', 'raw_token text', false, false],
-  [
-    'phase7_change_user_authority',
-    'raw_actor_token text, target_user_id uuid, expected_target_generation integer, new_role "UserRole", new_status "UserAccountStatus", environment_value "AdminAuditEnvironment"',
-    false,
-    true
-  ],
-  [
-    'phase7_change_user_authority_pre_reauthentication',
-    'raw_actor_token text, target_user_id uuid, expected_target_generation integer, new_role "UserRole", new_status "UserAccountStatus", environment_value "AdminAuditEnvironment"',
-    false,
-    false
-  ],
   ['phase7_classify_admin_authority', 'raw_token text', true, false],
   ['phase7_reauthentication_token_digest', 'raw_token text', false, false],
   [
@@ -713,8 +701,9 @@ describe('Reauthentication DB foundation', () => {
       )
 
       const roleLost = await createAdminSession('role-loss')
-      await withExecutionRole('nihongo_auth_gateway', () =>
-        adminClient.query(
+      await withExecutionRole('nihongo_app', () =>
+        bridgedQuery(
+          adminClient,
           `SELECT "phase7_change_user_authority"(
             $1, $2, 1, 'USER', 'ACTIVE', 'TEST'
           )`,
@@ -723,8 +712,9 @@ describe('Reauthentication DB foundation', () => {
       )
 
       const accountLost = await createAdminSession('account-loss')
-      await withExecutionRole('nihongo_auth_gateway', () =>
-        adminClient.query(
+      await withExecutionRole('nihongo_app', () =>
+        bridgedQuery(
+          adminClient,
           `SELECT "phase7_change_user_authority"(
             $1, $2, 1, 'ADMIN', 'DELETION_PENDING', 'TEST'
           )`,
@@ -1005,8 +995,10 @@ describe('Reauthentication DB foundation', () => {
     // only) and DELETE on User, AuthSessionFamily and AuthSessionRotationFence.
     // #504 P7 PR4b-1 drops the family and fence tables and the family columns
     // of Session and Phase7ReauthenticationIntent with their grants.
+    // #504 P7 PR5a: the API SSO link adds Account 1 (updatedAt insert only)
+    // and the unlink DELETE on Account.
     expect(catalog.rows).toEqual([
-      { sensitiveColumnAclCount: 44, sensitiveTableAclCount: 4 }
+      { sensitiveColumnAclCount: 45, sensitiveTableAclCount: 5 }
     ])
   })
 
@@ -1212,9 +1204,11 @@ describe('Reauthentication DB foundation', () => {
     // #504 P7 PR4a: the erasure worker queue, direct erasure, report redaction
     // and the receipt status moved to the API.
     // #504 P7 PR4b-2 dropped phase7_request_sso_account_erasure.
-    expect(rows.filter((row) => row.gateway).length).toBe(14)
+    // #504 P7 PR5a moved SSO account fresh, link, unlink and provider cleanup
+    // to the API and dropped phase7_change_user_authority.
+    expect(rows.filter((row) => row.gateway).length).toBe(4)
     // #504 P7 PR4b-1 dropped phase7_cleanup_expired_auth_state.
-    expect(rows.filter((row) => row.erasure).length).toBe(3)
+    expect(rows.filter((row) => row.erasure).length).toBe(0)
   })
 
   const createCommittedAdmin = async () => {
@@ -1585,19 +1579,25 @@ describe('Reauthentication DB foundation', () => {
         ...setStatus('DELETION_PENDING'),
         '42501'
       )
-      // The fresh proof cleanup needs the request too.
+      // #504 P7 PR5a: the API deletes its own fresh state (one-time use,
+      // expiry, unlink, erasure) without an erasure request; deleting fresh
+      // state only removes authority.
       await adminClient.query(
         `INSERT INTO "SsoAccountFreshProof" (
            "proofDigest", "context", "userId", "callbackURL", "expiresAt"
          ) VALUES ($1, '{}'::jsonb, $2, '/', clock_timestamp() + INTERVAL '5 minutes')`,
         ['a'.repeat(64), userId]
       )
-      await expectRoleFailure(
-        'nihongo_app',
-        'DELETE FROM "SsoAccountFreshProof" WHERE "userId" = $1',
-        [userId],
-        '42501'
-      )
+      await adminClient.query('SET LOCAL ROLE "nihongo_app"')
+      expect(
+        (
+          await adminClient.query(
+            'DELETE FROM "SsoAccountFreshProof" WHERE "userId" = $1',
+            [userId]
+          )
+        ).rowCount
+      ).toBe(1)
+      await adminClient.query('RESET ROLE')
       // The request trigger owns the cleanup list, expiry and state: a
       // claimed COMPLETED cleanup and a far expiry are replaced.
       await adminClient.query('SET LOCAL ROLE "nihongo_app"')

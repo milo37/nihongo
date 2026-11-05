@@ -22,6 +22,20 @@ import {
   requestSsoAccountErasure,
   ssoAccountErasureStatus
 } from './accountErasureAuthority.js'
+import {
+  accountCapabilities,
+  beginProviderCleanup,
+  claimProviderCleanups,
+  completeAccountFresh,
+  completeAccountLink,
+  consumeAccountFreshTransaction,
+  createAccountFreshTransaction,
+  prepareAccountFresh,
+  prepareAccountLink,
+  recordProviderCleanup,
+  stageAccountFreshProof,
+  unlinkAccount
+} from './ssoAccountAuthority.js'
 
 const digest = z.string().regex(/^[0-9a-f]{64}$/u)
 export const ssoAccountContextSchema = z
@@ -105,34 +119,15 @@ const transactionSchema = z
   .strict()
   .refine((v) => v.provider === v.context.provider)
 const errorSchema = z.object({ code: ssoAccountErrorCodeSchema }).strict()
-const boolRows = (rows: Array<{ created: boolean }>): boolean =>
-  rows.length === 1 && rows[0]?.created === true
 export const createSsoAccountRepository = (
   client: Pick<PrismaClient, '$queryRawUnsafe' | '$transaction'>
 ): SsoAccountPort => {
-  const result = async (sql: string, ...args: unknown[]): Promise<unknown> => {
-    const rows = await client.$queryRawUnsafe<Array<{ result: unknown }>>(
-      sql,
-      ...args
-    )
-    if (rows.length !== 1) throw new Error('SSO account operation unavailable.')
-    return rows[0]?.result
-  }
   return {
     prepare: async (token, provider, purpose, proof) => {
       const raw =
         purpose === 'ACCOUNT_FRESH'
-          ? await result(
-              'SELECT "phase7_prepare_sso_account_fresh"($1,$2) AS result',
-              token,
-              provider
-            )
-          : await result(
-              'SELECT "phase7_prepare_sso_account_link"($1,$2,$3) AS result',
-              token,
-              provider,
-              proof
-            )
+          ? await prepareAccountFresh(client, token, provider)
+          : await prepareAccountLink(client, token, provider, proof)
       if (raw === null) return null
       const context = ssoAccountContextSchema.parse(raw)
       if (context.provider !== provider || context.purpose !== purpose)
@@ -142,27 +137,24 @@ export const createSsoAccountRepository = (
     create: async (transaction, context) => {
       if (transaction.provider !== context.provider)
         throw new Error('SSO account provider mismatch.')
-      const rows = await client.$queryRawUnsafe<Array<{ created: boolean }>>(
-        'SELECT "phase7_create_sso_account_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb) AS created',
-        transaction.provider,
-        transaction.stateDigest,
-        transaction.bindingDigest,
-        transaction.nonce,
-        transaction.codeVerifier,
-        transaction.callbackURL,
-        JSON.stringify(ssoAccountContextSchema.parse(context))
-      )
-      if (!boolRows(rows))
-        throw new Error('SSO account transaction unavailable.')
+      const created = await createAccountFreshTransaction(client, {
+        provider: transaction.provider,
+        stateDigest: transaction.stateDigest,
+        bindingDigest: transaction.bindingDigest,
+        nonce: transaction.nonce,
+        codeVerifier: transaction.codeVerifier,
+        callbackURL: transaction.callbackURL,
+        context: JSON.stringify(ssoAccountContextSchema.parse(context))
+      })
+      if (!created) throw new Error('SSO account transaction unavailable.')
     },
     consume: async (state, binding, provider, purpose) => {
-      const rows = await client.$queryRawUnsafe<unknown[]>(
-        'SELECT * FROM "phase7_consume_sso_account_fresh_transaction"($1,$2,$3,$4)',
+      const rows = await consumeAccountFreshTransaction(client, {
         provider,
-        state,
-        binding,
+        stateDigest: state,
+        bindingDigest: binding,
         purpose
-      )
+      })
       if (rows.length === 0) return null
       if (rows.length !== 1)
         throw new Error('SSO account transaction unavailable.')
@@ -178,47 +170,29 @@ export const createSsoAccountRepository = (
           context.accountId !== identity.accountId)
       )
         return false
-      const rows = await client.$queryRawUnsafe<Array<{ created: boolean }>>(
-        'SELECT "phase7_stage_sso_account_fresh_proof"($1::jsonb,$2,$3,$4,$5) AS created',
-        JSON.stringify(ssoAccountContextSchema.parse(context)),
-        identity.provider,
-        identity.accountId,
-        proof,
+      return stageAccountFreshProof(client, {
+        context: JSON.stringify(ssoAccountContextSchema.parse(context)),
+        provider: identity.provider,
+        subject: identity.accountId,
+        proofDigest: proof,
         callbackURL
-      )
-      return boolRows(rows)
+      })
     },
     complete: async (proof, token, purpose) => {
-      const raw = await result(
+      const raw =
         purpose === 'ACCOUNT_FRESH'
-          ? 'SELECT "phase7_complete_sso_account_fresh"($1,$2) AS result'
-          : 'SELECT "phase7_complete_sso_account_link"($1,$2) AS result',
-        proof,
-        token
-      )
+          ? await completeAccountFresh(client, proof, token)
+          : await completeAccountLink(client, proof, token)
       return raw === null ? null : z.string().max(2048).parse(raw)
     },
     capabilities: async (token, available, proof) => {
-      const raw = await result(
-        'SELECT "phase7_sso_account_capabilities"($1,$2::text[],$3) AS result',
-        token,
-        available,
-        proof
-      )
+      const raw = await accountCapabilities(client, token, available, proof)
       return raw === null ? null : ssoAccountCapabilitiesSchema.parse(raw)
     },
     unlink: async (token, provider, available, proof) =>
       z
         .union([unlinkSsoAccountResponseSchema, errorSchema])
-        .parse(
-          await result(
-            'SELECT "phase7_unlink_sso_account"($1,$2,$3::text[],$4) AS result',
-            token,
-            provider,
-            available,
-            proof
-          )
-        ),
+        .parse(await unlinkAccount(client, token, provider, available, proof)),
     requestErasure: async (token, proof, receipt) =>
       z
         .union([ssoAccountDeletionSchema, errorSchema])
@@ -292,14 +266,14 @@ export const createSsoAccountErasureWorker = (
     leaseSeconds: number,
     environment: SsoAccountErasureEnvironment
   ) => {
-    const rows = await client.$queryRawUnsafe<Array<{ result: unknown }>>(
-      'SELECT "phase7_claim_sso_provider_cleanups"($1::integer,$2::integer,$3::"AdminAuditEnvironment") AS result',
+    const result = await claimProviderCleanups(
+      client,
       z.number().int().min(1).max(100).parse(batchSize),
       z.number().int().min(30).max(3600).parse(leaseSeconds),
       ssoAccountErasureEnvironmentSchema.parse(environment)
     )
-    if (rows.length !== 1) throw new Error('SSO provider claim unavailable.')
-    return providerCleanupClaimSchema.parse(rows[0]?.result)
+    if (result === undefined) throw new Error('SSO provider claim unavailable.')
+    return providerCleanupClaimSchema.parse(result)
   },
   complete: async (
     requestId: string,
@@ -317,14 +291,12 @@ export const createSsoAccountErasureWorker = (
     leaseToken: string,
     environment: SsoAccountErasureEnvironment
   ): Promise<boolean> => {
-    const rows = await client.$queryRawUnsafe<Array<{ started: boolean }>>(
-      'SELECT "phase7_begin_sso_provider_cleanup"($1::uuid,$2,$3::uuid,$4::"AdminAuditEnvironment") AS started',
-      z.uuid().parse(requestId),
-      ssoProviderIdSchema.parse(provider),
-      z.uuid().parse(leaseToken),
-      ssoAccountErasureEnvironmentSchema.parse(environment)
-    )
-    return rows.length === 1 && rows[0]?.started === true
+    return beginProviderCleanup(client, {
+      requestId: z.uuid().parse(requestId),
+      provider: ssoProviderIdSchema.parse(provider),
+      leaseToken: z.uuid().parse(leaseToken),
+      environment: ssoAccountErasureEnvironmentSchema.parse(environment)
+    })
   },
   recordProviderCleanup: async (
     requestId: string,
@@ -333,15 +305,13 @@ export const createSsoAccountErasureWorker = (
     leaseToken: string,
     environment: SsoAccountErasureEnvironment
   ): Promise<boolean> => {
-    const rows = await client.$queryRawUnsafe<Array<{ completed: boolean }>>(
-      'SELECT "phase7_record_sso_provider_cleanup"($1::uuid,$2,$3,$4::uuid,$5::"AdminAuditEnvironment") AS completed',
-      z.uuid().parse(requestId),
-      ssoProviderIdSchema.parse(provider),
-      z.enum(['COMPLETED', 'FAILED', 'UNAVAILABLE']).parse(status),
-      z.uuid().parse(leaseToken),
-      ssoAccountErasureEnvironmentSchema.parse(environment)
-    )
-    return rows.length === 1 && rows[0]?.completed === true
+    return recordProviderCleanup(client, {
+      requestId: z.uuid().parse(requestId),
+      provider: ssoProviderIdSchema.parse(provider),
+      status: z.enum(['COMPLETED', 'FAILED', 'UNAVAILABLE']).parse(status),
+      leaseToken: z.uuid().parse(leaseToken),
+      environment: ssoAccountErasureEnvironmentSchema.parse(environment)
+    })
   }
 })
 export type SsoAccountErasureWorker = ReturnType<

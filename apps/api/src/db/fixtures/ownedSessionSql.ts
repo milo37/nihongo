@@ -29,6 +29,22 @@ import {
   type ErasureEnvironment
 } from '../../auth/accountErasureAuthority.js'
 import {
+  accountCapabilities,
+  beginProviderCleanup,
+  claimProviderCleanups,
+  completeAccountFresh,
+  completeAccountLink,
+  consumeAccountFreshTransaction,
+  createAccountFreshTransaction,
+  prepareAccountFresh,
+  prepareAccountLink,
+  recordProviderCleanup,
+  stageAccountFreshProof,
+  unlinkAccount,
+  type ProviderCleanupEnvironment
+} from '../../auth/ssoAccountAuthority.js'
+import { changeUserAuthorityForTest } from './userAuthorityChange.js'
+import {
   confirmOwnedSession,
   issueOwnedSession,
   refreshRememberedSession,
@@ -110,8 +126,8 @@ const splitArguments = (list: string): string[] => {
   let current = ''
   for (const character of list) {
     if (character === "'") quoted = !quoted
-    if (!quoted && character === '(') depth += 1
-    if (!quoted && character === ')') depth -= 1
+    if (!quoted && (character === '(' || character === '[')) depth += 1
+    if (!quoted && (character === ')' || character === ']')) depth -= 1
     if (!quoted && depth === 0 && character === ',') {
       parts.push(current.trim())
       current = ''
@@ -175,7 +191,20 @@ const BRIDGED_FUNCTIONS = [
   'phase7_sso_account_erasure_status',
   'phase7_redact_expired_report_descriptions',
   'phase7_request_sso_account_erasure',
-  'phase7_create_question_report'
+  'phase7_create_question_report',
+  'phase7_prepare_sso_account_fresh',
+  'phase7_prepare_sso_account_link',
+  'phase7_create_sso_account_fresh_transaction',
+  'phase7_consume_sso_account_fresh_transaction',
+  'phase7_stage_sso_account_fresh_proof',
+  'phase7_complete_sso_account_fresh',
+  'phase7_complete_sso_account_link',
+  'phase7_sso_account_capabilities',
+  'phase7_unlink_sso_account',
+  'phase7_claim_sso_provider_cleanups',
+  'phase7_begin_sso_provider_cleanup',
+  'phase7_record_sso_provider_cleanup',
+  'phase7_change_user_authority'
 ] as const
 
 /** client.query, except that calls to the dropped functions use the bridge. */
@@ -196,7 +225,10 @@ const ERASURE_WORKER_FUNCTIONS = [
   'phase7_erase_user',
   'phase7_complete_sso_account_erasure',
   'phase7_list_sso_account_erasures',
-  'phase7_redact_expired_report_descriptions'
+  'phase7_redact_expired_report_descriptions',
+  'phase7_claim_sso_provider_cleanups',
+  'phase7_begin_sso_provider_cleanup',
+  'phase7_record_sso_provider_cleanup'
 ]
 
 /**
@@ -638,9 +670,247 @@ export const ownedSessionSql = async <
       ]
     ]
   ]
+  // #504 P7 PR5a: SSO account fresh, link, unlink and provider cleanup, and
+  // the TEST-only authority change.
+  const text = (value: unknown): string | null =>
+    value === null || value === undefined ? null : String(value)
+  const json = (value: unknown): string => JSON.stringify(value)
+  const cleanupEnvironment = (value: unknown) =>
+    value as ProviderCleanupEnvironment
+  reauthentication.push(
+    [
+      'phase7_prepare_sso_account_fresh',
+      [
+        ['rawToken', 'text'],
+        ['provider', 'text']
+      ],
+      async (input) => [
+        await prepareAccountFresh(
+          owned,
+          input.rawToken as string,
+          text(input.provider) ?? ''
+        )
+      ]
+    ],
+    [
+      'phase7_prepare_sso_account_link',
+      [
+        ['rawToken', 'text'],
+        ['provider', 'text'],
+        ['proofDigest', 'text']
+      ],
+      async (input) => [
+        await prepareAccountLink(
+          owned,
+          input.rawToken as string,
+          text(input.provider) ?? '',
+          text(input.proofDigest)
+        )
+      ]
+    ],
+    [
+      'phase7_create_sso_account_fresh_transaction',
+      [
+        ['provider', 'text'],
+        ['stateDigest', 'text'],
+        ['bindingDigest', 'text'],
+        ['nonce', 'text'],
+        ['codeVerifier', 'text'],
+        ['callbackURL', 'text'],
+        ['context', 'jsonb']
+      ],
+      async (input) => [
+        await createAccountFreshTransaction(owned, {
+          provider: text(input.provider) ?? '',
+          stateDigest: input.stateDigest as string,
+          bindingDigest: input.bindingDigest as string,
+          nonce: input.nonce as string,
+          codeVerifier: input.codeVerifier as string,
+          callbackURL: text(input.callbackURL),
+          context: json(input.context)
+        })
+      ]
+    ],
+    [
+      'phase7_consume_sso_account_fresh_transaction',
+      [
+        ['provider', 'text'],
+        ['stateDigest', 'text'],
+        ['bindingDigest', 'text'],
+        ['purpose', 'text']
+      ],
+      async (input) =>
+        consumeAccountFreshTransaction(owned, {
+          provider: text(input.provider) ?? '',
+          stateDigest: input.stateDigest as string,
+          bindingDigest: input.bindingDigest as string,
+          purpose: text(input.purpose) ?? ''
+        })
+    ],
+    [
+      'phase7_stage_sso_account_fresh_proof',
+      [
+        ['context', 'jsonb'],
+        ['provider', 'text'],
+        ['subject', 'text'],
+        ['proofDigest', 'text'],
+        ['callbackURL', 'text']
+      ],
+      async (input) => [
+        await stageAccountFreshProof(owned, {
+          context: json(input.context),
+          provider: text(input.provider) ?? '',
+          subject: text(input.subject),
+          proofDigest: input.proofDigest as string,
+          callbackURL: text(input.callbackURL)
+        })
+      ]
+    ],
+    [
+      'phase7_complete_sso_account_fresh',
+      [
+        ['proofDigest', 'text'],
+        ['rawToken', 'text']
+      ],
+      async (input) => [
+        await completeAccountFresh(
+          owned,
+          input.proofDigest as string,
+          input.rawToken as string
+        )
+      ]
+    ],
+    [
+      'phase7_complete_sso_account_link',
+      [
+        ['proofDigest', 'text'],
+        ['rawToken', 'text']
+      ],
+      async (input) => [
+        await completeAccountLink(
+          owned,
+          input.proofDigest as string,
+          input.rawToken as string
+        )
+      ]
+    ],
+    [
+      'phase7_sso_account_capabilities',
+      [
+        ['rawToken', 'text'],
+        ['available', 'text[]'],
+        ['proofDigest', 'text']
+      ],
+      async (input) => [
+        await accountCapabilities(
+          owned,
+          input.rawToken as string,
+          (input.available as string[] | null) ?? [],
+          text(input.proofDigest)
+        )
+      ]
+    ],
+    [
+      'phase7_unlink_sso_account',
+      [
+        ['rawToken', 'text'],
+        ['provider', 'text'],
+        ['available', 'text[]'],
+        ['proofDigest', 'text']
+      ],
+      async (input) => [
+        await unlinkAccount(
+          owned,
+          input.rawToken as string,
+          text(input.provider),
+          (input.available as string[] | null) ?? [],
+          text(input.proofDigest)
+        )
+      ]
+    ],
+    [
+      'phase7_claim_sso_provider_cleanups',
+      [
+        ['batchLimit', 'integer'],
+        ['leaseSeconds', 'integer'],
+        ['environment', 'text']
+      ],
+      async (input) => [
+        await claimProviderCleanups(
+          owned,
+          input.batchLimit as number,
+          input.leaseSeconds as number,
+          cleanupEnvironment(input.environment)
+        )
+      ]
+    ],
+    [
+      'phase7_begin_sso_provider_cleanup',
+      [
+        ['requestId', 'uuid'],
+        ['provider', 'text'],
+        ['leaseToken', 'uuid'],
+        ['environment', 'text']
+      ],
+      async (input) => [
+        await beginProviderCleanup(owned, {
+          requestId: input.requestId as string,
+          provider: text(input.provider) ?? '',
+          leaseToken: text(input.leaseToken),
+          environment: cleanupEnvironment(input.environment)
+        })
+      ]
+    ],
+    [
+      'phase7_record_sso_provider_cleanup',
+      [
+        ['requestId', 'uuid'],
+        ['provider', 'text'],
+        ['status', 'text'],
+        ['leaseToken', 'uuid'],
+        ['environment', 'text']
+      ],
+      async (input) => [
+        await recordProviderCleanup(owned, {
+          requestId: input.requestId as string,
+          provider: text(input.provider),
+          status: text(input.status),
+          leaseToken: text(input.leaseToken),
+          environment: cleanupEnvironment(input.environment)
+        })
+      ]
+    ],
+    [
+      'phase7_change_user_authority',
+      [
+        ['rawActorToken', 'text'],
+        ['targetUserId', 'uuid'],
+        ['expectedTargetGeneration', 'integer'],
+        ['newRole', 'text'],
+        ['newStatus', 'text'],
+        ['environment', 'text']
+      ],
+      async (input) => [
+        await changeUserAuthorityForTest(owned, {
+          rawActorToken: input.rawActorToken as string,
+          targetUserId: input.targetUserId as string,
+          expectedTargetGeneration: input.expectedTargetGeneration as number,
+          newRole: input.newRole as string,
+          newStatus: input.newStatus as string,
+          environment: input.environment as string
+        })
+      ]
+    ]
+  )
+  let otherOverload = false
   for (const [name, names, run] of reauthentication) {
     const matched = call(sql, name)
     if (!matched) continue
+    // Another argument count is a dropped overload: PostgreSQL answers it.
+    if (splitArguments(matched[1] ?? '').length !== names.length) {
+      otherOverload = true
+      continue
+    }
     const rows = await run(
       await evaluate(client, matched[1] ?? '', names, values)
     )
@@ -648,6 +918,10 @@ export const ownedSessionSql = async <
     return answer(
       /^\s*SELECT\s+\*/u.test(sql) ? rows : [{ [matched[2] ?? name]: rows[0] }]
     )
+  }
+  if (otherOverload) {
+    const result = await client.query<Row>(sql, values)
+    return { rows: result.rows, rowCount: result.rowCount ?? 0 }
   }
   throw new Error('Owned Session fixture SQL is not recognised.')
 }
