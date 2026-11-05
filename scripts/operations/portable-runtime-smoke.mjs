@@ -527,7 +527,7 @@ try {
   const migrationUrl = new URL(databaseUrl);
   migrationUrl.searchParams.set('options', '-c role=nihongo_migration');
   const productionSentinel = new URL(databaseUrl);
-  productionSentinel.pathname = '/nihongo_phase11_production_guard_sentinel';
+  productionSentinel.pathname = '/nihongo_smoke_production_guard_sentinel';
   productionSentinel.search = '';
   assertSafeMigrationDatabase({ nodeEnvironment: 'test', migrationDatabaseUrl: migrationUrl.toString(),
     runtimeDatabaseUrl, productionDatabaseUrl: productionSentinel.toString() });
@@ -604,9 +604,9 @@ if (process.env.NODE_ENV !== 'production' || process.env.DEPLOYMENT_ENVIRONMENT 
 const runtime = createRoleDatabaseRuntime(url.toString(), 'nihongo_app');
 try {
   const session = await createSsoIdentityRepository(runtime.client).signIn({
-    provider: 'google', accountId: 'phase11-' + suffix,
-    email: 'phase11-' + suffix + '@example.test', name: 'Phase 11 smoke'
-  }, { ipAddress: '127.0.0.1', userAgent: 'Phase11 controlled TEST fixture' });
+    provider: 'google', accountId: 'smoke-' + suffix,
+    email: 'smoke-' + suffix + '@example.test', name: 'Portable smoke'
+  }, { ipAddress: '127.0.0.1', userAgent: 'Portable smoke controlled TEST fixture' });
   if (session.kind !== 'SESSION_CONFIRMED') throw new Error('Controlled TEST session was not confirmed.');
   const cookie = createOwnedSessionCookie({ token: session.token, secret: process.env.BETTER_AUTH_SECRET,
     isProduction: true, rememberMe: true, now: session.createdAt, expiresAt: session.expiresAt });
@@ -751,7 +751,7 @@ export const validateStatefulPrincipal = (principal) => {
   if (
     typeof principal.user.id !== 'string' ||
     !uuidPattern.test(principal.user.id) ||
-    principal.user.name !== 'Phase 11 smoke' ||
+    principal.user.name !== 'Portable smoke' ||
     principal.user.role !== 'USER' ||
     principal.user.targetLevel !== 'N5'
   ) {
@@ -997,12 +997,12 @@ export const runStatefulAuthCompatibilityProbe = async ({
     {
       input: `SET search_path TO "${schemaName}";
         UPDATE "User" SET "targetLevel" = 'N5' WHERE "id" IN
-          (SELECT "userId" FROM "Account" WHERE "providerId" = 'google' AND "accountId" = 'phase11-${suffix}');
+          (SELECT "userId" FROM "Account" WHERE "providerId" = 'google' AND "accountId" = 'smoke-${suffix}');
         SELECT u."id" FROM "User" u JOIN "Account" a ON a."userId" = u."id"
         JOIN "Session" s ON s."userId" = u."id"
-        WHERE a."providerId" = 'google' AND a."accountId" = 'phase11-${suffix}' AND a."password" IS NULL
+        WHERE a."providerId" = 'google' AND a."accountId" = 'smoke-${suffix}' AND a."password" IS NULL
           AND u."accountStatus" = 'ACTIVE' AND u."targetLevel" = 'N5' AND u."role" = 'USER'
-          AND s."issuerProtocolVersion" = 'PHASE7_V1' AND s."authorizationState" = 'ACTIVE'
+          AND s."issuerProtocolVersion" = 'OWNED_V1' AND s."authorizationState" = 'ACTIVE'
           AND s."authorityGeneration" = u."authorityGeneration" AND s."expiresAt" > clock_timestamp()
           AND (SELECT count(*) FROM "User") = 1
           AND (SELECT count(*) FROM "Account") = 1 AND (SELECT count(*) FROM "Session") = 1;`,
@@ -1375,9 +1375,9 @@ export const runPortableRuntimeSmoke = async ({
     throw new Error('Expected runtime image identity is invalid.')
   }
   const suffix = randomUUID().replaceAll('-', '').slice(0, 12)
-  const networkName = `nihongo-p11-${suffix}`
-  const databaseContainer = `nihongo-p11-db-${suffix}`
-  const runtimeContainer = `nihongo-p11-app-${suffix}`
+  const networkName = `nihongo-smoke-${suffix}`
+  const databaseContainer = `nihongo-smoke-db-${suffix}`
+  const runtimeContainer = `nihongo-smoke-app-${suffix}`
   const databaseName = 'nihongo_runtime_smoke_test'
   const databaseAdminUser = 'nihongo_runtime_smoke_migration'
   const databaseAdminPassword = randomBytes(24).toString('hex')
@@ -1398,7 +1398,9 @@ export const runPortableRuntimeSmoke = async ({
     repositoryRoot,
     'apps/api/prisma/migrations'
   )
-  const certificateDirectory = mkdtempSync(join(tmpdir(), 'nihongo-p11-cert-'))
+  const certificateDirectory = mkdtempSync(
+    join(tmpdir(), 'nihongo-smoke-cert-')
+  )
   let cleanupError
   let operationError
 
