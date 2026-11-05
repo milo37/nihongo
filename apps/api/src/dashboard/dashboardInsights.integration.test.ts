@@ -160,8 +160,7 @@ const submitRandomSession = async ({
       durationSec: materials.reduce((total, _, index) => total + 10 + index, 0),
       expectedDraftRevision: saved.response.revision
     },
-    owner,
-    2
+    owner
   )
   return {
     sessionId: created.session.id,
@@ -205,8 +204,7 @@ const submitWrongNoteSession = async (
       durationSec: 0,
       expectedDraftRevision: 0
     },
-    owner,
-    2
+    owner
   )
   return { sessionId: created.session.id, questionIds: [material.questionId] }
 }

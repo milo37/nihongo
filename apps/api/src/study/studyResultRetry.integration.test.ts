@@ -281,8 +281,7 @@ const createSubmittedSource = async (
       durationSec: material.length * 10,
       expectedDraftRevision: saved.response.revision
     },
-    owner,
-    2
+    owner
   )
   return { created, material, submitted }
 }
@@ -390,8 +389,7 @@ describe('study result retry integration', () => {
         durationSec: 2,
         expectedDraftRevision: 0
       },
-      owner,
-      2
+      owner
     )
     const events = await database.client.reviewEvent.findMany({
       where: { studySessionId: created.response.session.id },
@@ -676,8 +674,7 @@ describe('study result retry integration', () => {
             durationSec: 0,
             expectedDraftRevision: 0
           },
-          owner,
-          2
+          owner
         )
         await expect(
           database.client.reviewEvent.findFirstOrThrow({
@@ -828,8 +825,7 @@ describe('study result retry integration', () => {
           durationSec: 0,
           expectedDraftRevision: 0
         },
-        owner,
-        2
+        owner
       )
 
       const publishedAt = new Date(startedAt.getTime() + 2_000)
@@ -914,8 +910,7 @@ describe('study result retry integration', () => {
           durationSec: 0,
           expectedDraftRevision: 0
         },
-        owner,
-        2
+        owner
       )
       await expect(
         database.client.reviewEvent.findFirstOrThrow({

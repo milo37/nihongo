@@ -83,7 +83,6 @@ const fixture = () => {
       environment,
       guestPrincipalService,
       principalService,
-      practiceContractV2Enabled: true,
       rateLimiter,
       studySessionService: { create: reached } as unknown as StudySessionService
     })

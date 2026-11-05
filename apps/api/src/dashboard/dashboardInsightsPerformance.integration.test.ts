@@ -307,8 +307,7 @@ const populateLearningHistory = async (
             ),
             expectedDraftRevision: saved.response.revision
           },
-          owner,
-          2
+          owner
         )
         answerCount += answers.length
         sessionCount += 1

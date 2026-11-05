@@ -33,8 +33,7 @@ vi.mock('../db/database.js', () => ({
   createDatabaseRuntime: vi.fn(() => ({
     client: { $queryRawUnsafe: f.query },
     disconnect: f.disconnect,
-    checkReadiness: f.ready,
-    checkV1Compatibility: f.ready
+    checkReadiness: f.ready
   })),
   createRoleDatabaseRuntime: vi.fn(() => ({
     client: { $queryRawUnsafe: f.query },

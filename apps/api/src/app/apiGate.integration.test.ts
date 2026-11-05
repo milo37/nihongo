@@ -62,7 +62,6 @@ let authGatewayRuntime: RoleDatabaseRuntime
 let app: ReturnType<typeof createApiApp>
 let verifiedProviderIdentity: SsoVerifiedIdentity | null = null
 let beforeSsoIssue: (() => Promise<void>) | undefined
-let practiceAuthorityCalls = 0
 const apiLogLines: string[] = []
 
 const postAuth = async (
@@ -337,9 +336,6 @@ beforeAll(async () => {
     keySecret: environment.GUEST_COOKIE_SECRET
   })
   app = createApiApp({
-    assertPracticeRuntimeAuthority: async () => {
-      practiceAuthorityCalls += 1
-    },
     auth: {
       environment,
       gateway: createAuthGateway({
@@ -486,9 +482,8 @@ describe('Technical API gate', () => {
     ).resolves.toHaveLength(1)
   })
 
-  it('Prefix를 CORS/auth/practice/DB보다 먼저 제외한다', async () => {
+  it('Prefix를 CORS/auth/DB보다 먼저 제외한다', async () => {
     const before = await readWriteCounts()
-    const callsBefore = practiceAuthorityCalls
     for (const [pathname, method] of [
       ['/api/v1/admin/questions', 'GET'],
       ['/api/v1/admin/questions', 'POST'],
@@ -503,7 +498,6 @@ describe('Technical API gate', () => {
       expect(response.headers.get('Access-Control-Allow-Origin')).toBeNull()
       expect(response.headers.get('Cache-Control')).toBe('private, no-store')
     }
-    expect(practiceAuthorityCalls).toBe(callsBefore)
     expect(await readWriteCounts()).toEqual(before)
   })
 
