@@ -650,7 +650,6 @@ const readDomainTableCounts = async (): Promise<DomainTableCounts> => {
 
 const apiEnvironment = parseApiEnvironment({
   NODE_ENV: 'test',
-  ADMIN_CMS_MODE: 'technical',
   DATABASE_URL: applicationDatabaseUrl,
   TEST_APP_FIXTURE_DATABASE_URL: appFixtureDatabaseUrl,
   TRUSTED_ORIGINS: 'http://localhost:5173',

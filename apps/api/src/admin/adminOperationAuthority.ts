@@ -20,7 +20,7 @@ import { v1PrincipalQuery } from '../auth/ownedSessionAuthority.js'
  * finish cannot commit.
  */
 
-type AuditEnvironment = 'TEST' | 'DEVELOPMENT'
+type AuditEnvironment = 'TEST' | 'DEVELOPMENT' | 'PRODUCTION'
 
 const FRESH_COMMANDS = new Set([
   'APPROVAL',

@@ -64,12 +64,10 @@ const run = async <Result>(
       'Production cleanup requires a separately approved exact-target runbook.'
     )
 
-  const database = createDatabaseRuntime(
-    environment.DATABASE_URL,
-    environment.ADMIN_CMS_MODE === 'technical'
-      ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
-      : {}
-  )
+  const database = createDatabaseRuntime(environment.DATABASE_URL, {
+    migrationProfile: 'current',
+    startupRole: 'nihongo_app'
+  })
   let result: Result
   try {
     await database.checkReadiness()

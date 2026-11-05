@@ -35,17 +35,6 @@ const questionReader: QuestionReader = {
 const authEnvironment = parseApiEnvironment({
   NODE_ENV: 'test',
   DATABASE_URL:
-    'postgresql://nihongo_test_app_login:password@127.0.0.1:55432/nihongo_test',
-  TRUSTED_ORIGINS: 'http://localhost:5173',
-  BETTER_AUTH_SECRET: 'a'.repeat(32),
-  GUEST_COOKIE_SECRET: 'b'.repeat(32),
-  AUTH_EMAIL_FROM: 'auth@example.com'
-})
-
-const technicalAuthEnvironment = parseApiEnvironment({
-  NODE_ENV: 'test',
-  ADMIN_CMS_MODE: 'technical',
-  DATABASE_URL:
     'postgresql://nihongo_test_app_login:password@127.0.0.1:55432/nihongo_test?schema=public',
   TRUSTED_ORIGINS: 'http://localhost:5173',
   BETTER_AUTH_SECRET: 'a'.repeat(32),
@@ -107,7 +96,11 @@ describe('Hono operational boundary', () => {
   it.each([
     {
       pathname: '/api/v1/questions',
-      expectedHeaders: ['Content-Type']
+      expectedHeaders: [
+        'Content-Type',
+        'Idempotency-Key',
+        'X-Nihongo-Practice-Contract'
+      ]
     },
     {
       pathname: '/api/v1/study-sessions',
@@ -127,12 +120,12 @@ describe('Hono operational boundary', () => {
       ]
     }
   ])(
-    'technical CORS $pathname의 method와 request header를 최소 권한으로 고정한다',
+    'technical CORS $pathname의 method와 request header를 하나의 개발용 CORS 정책으로 고정한다',
     async ({ expectedHeaders, pathname }) => {
       const { logger } = createTestLogger()
       const app = createApiApp({
         auth: {
-          environment: technicalAuthEnvironment,
+          environment: authEnvironment,
           gateway: { handle: vi.fn() },
           guestPrincipalService,
           principalService
@@ -539,12 +532,10 @@ describe('protected admin artifact and API composition', () => {
   const fixture = ({
     role = 'ADMIN',
     fresh = true,
-    cms = true,
     production = false
   }: {
     role?: 'ADMIN' | 'USER' | null
     fresh?: boolean
-    cms?: boolean
     production?: boolean
   } = {}) => {
     const directory = mkdtempSync(join(tmpdir(), 'nihongo-admin-composition-'))
@@ -604,7 +595,7 @@ describe('protected admin artifact and API composition', () => {
       questionReader,
       auth: {
         environment: {
-          ...(cms ? technicalAuthEnvironment : authEnvironment),
+          ...authEnvironment,
           ...(production ? { NODE_ENV: 'production' as const } : {})
         },
         gateway: { handle: vi.fn() },
@@ -700,46 +691,55 @@ describe('protected admin artifact and API composition', () => {
     expect(f.listQuestions).toHaveBeenCalledOnce()
   })
 
-  it('keeps CMS disabled for static HTML/assets and direct API even for an authenticated ADMIN', async () => {
-    const f = fixture({ cms: false })
-    for (const path of [
-      '/admin',
-      '/admin/questions',
-      '/admin/assets/admin.js',
-      '/api/v1/admin/questions'
-    ]) {
-      const response = await f.app.request(path)
-      expect(response.status).toBe(404)
-      expect(response.headers.get('Cache-Control')).toBe('private, no-store')
-      expect(await response.text()).not.toContain('ADMIN_')
-    }
-    expect(f.resolve).not.toHaveBeenCalled()
-    expect(f.capability).not.toHaveBeenCalled()
-    expect(f.readLimit).not.toHaveBeenCalled()
-  })
-
-  it.each([false, true])(
-    'keeps production admin HTML/assets and API closed even with CMS=%s',
-    async (cms) => {
-      const f = fixture({ cms, production: true })
-      for (const path of [
-        '/admin',
-        '/admin/questions/123/edit',
-        '/admin/assets/admin.js',
-        '/api/v1/admin/questions'
-      ]) {
-        const response = await f.app.request(path)
-        expect(response.status).toBe(404)
-        expect(response.headers.get('Cache-Control')).toBe('private, no-store')
-        const body = await response.text()
-        expect(body).not.toContain('ADMIN_')
-        expect(body).not.toContain('LEARNER_ONLY')
-      }
-      expect(f.resolve).not.toHaveBeenCalled()
-      expect(f.capability).not.toHaveBeenCalled()
-      expect(f.readLimit).not.toHaveBeenCalled()
+  it.each([
+    { role: null, status: 401, code: 'AUTHENTICATION_REQUIRED' },
+    { role: 'USER' as const, status: 403, code: 'ADMIN_REQUIRED' }
+  ])(
+    'production rejects $role on the admin API and hides admin HTML',
+    async ({ role, status, code }) => {
+      const f = fixture({ role, production: true })
+      const html = await f.app.request('/admin')
+      expect(html.status).toBe(404)
+      expect(await html.text()).not.toContain('ADMIN_HTML_ONLY')
+      const read = await f.app.request('/api/v1/admin/questions')
+      expect(read.status).toBe(status)
+      expect(apiFailureSchema.parse(await read.json()).code).toBe(code)
+      expect(f.listQuestions).not.toHaveBeenCalled()
     }
   )
+
+  it('production serves admin to a current ADMIN through the same guards', async () => {
+    const f = fixture({ production: true })
+    const html = await f.app.request('/admin')
+    expect(html.status).toBe(200)
+    expect(await html.text()).toContain('ADMIN_HTML_ONLY')
+    const read = await f.app.request('/api/v1/admin/questions')
+    expect(read.status).toBe(200)
+    expect(f.capability).toHaveBeenCalledTimes(2)
+    expect(f.readLimit).toHaveBeenCalledTimes(2)
+    expect(f.listQuestions).toHaveBeenCalledOnce()
+  })
+
+  it('production rejects an admin command without fresh SSO', async () => {
+    const f = fixture({ fresh: false, production: true })
+    const response = await f.app.request(
+      '/api/v1/admin/question-versions/33333333-3333-4333-8333-333333333333/approval',
+      {
+        method: 'POST',
+        headers: {
+          Origin: 'http://localhost:5173',
+          'Content-Type': 'application/json'
+        },
+        body: '{}'
+      }
+    )
+    expect(response.status).toBe(401)
+    expect(apiFailureSchema.parse(await response.json()).code).toBe(
+      'FRESH_ASSURANCE_REQUIRED'
+    )
+    expect(f.commandLimit).not.toHaveBeenCalled()
+    expect(f.approve).not.toHaveBeenCalled()
+  })
 
   it('rechecks a revoked session on a conditional asset request instead of using cached ADMIN bytes', async () => {
     const f = fixture()

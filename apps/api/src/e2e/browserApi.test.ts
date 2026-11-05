@@ -47,7 +47,6 @@ const url = (login: string) =>
 const source = (): NodeJS.ProcessEnv => ({
   NODE_ENV: 'test',
   DEPLOYMENT_ENVIRONMENT: 'TEST',
-  ADMIN_CMS_MODE: 'technical',
   HOST: '127.0.0.1',
   PORT: '58101',
   BETTER_AUTH_URL: 'http://127.0.0.1:58101',
@@ -119,8 +118,7 @@ describe('Isolated TEST SSO bootstrap', () => {
     expect(serve).not.toHaveBeenCalled()
     expect(pg.connect).not.toHaveBeenCalled()
     expect(parseBrowserEnvironment(source())).toMatchObject({
-      NODE_ENV: 'test',
-      ADMIN_CMS_MODE: 'technical'
+      NODE_ENV: 'test'
     })
   })
 
@@ -150,7 +148,6 @@ describe('Isolated TEST SSO bootstrap', () => {
   it.each([
     { NODE_ENV: 'production' },
     { DEPLOYMENT_ENVIRONMENT: 'LOCAL' },
-    { ADMIN_CMS_MODE: 'disabled' },
     { GOOGLE_CLIENT_ID: 'real-provider' },
     { APPLE_CLIENT_SECRET: 'real-provider' },
     { TRUSTED_ORIGINS: 'https://outside.example.test' },

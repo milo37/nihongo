@@ -66,7 +66,7 @@ vi.mock('../auth/createSsoAuthentication.js', async (importOriginal) => {
 const schema = `nihongo_${'a'.repeat(32)}_test`
 const url = (login: string) =>
   `postgresql://${login}:test-only@127.0.0.1:5432/nihongo_test?schema=${schema}`
-const options = (cms: 'disabled' | 'technical' = 'technical') => {
+const options = () => {
   const databaseUrl = url('nihongo_test_app_login')
   const appFixtureDatabaseUrl = url('nihongo_test_app_login')
   return {
@@ -76,7 +76,6 @@ const options = (cms: 'disabled' | 'technical' = 'technical') => {
     environment: parseApiEnvironment({
       NODE_ENV: 'test',
       DEPLOYMENT_ENVIRONMENT: 'TEST',
-      ADMIN_CMS_MODE: cms,
       DATABASE_URL: databaseUrl,
       TEST_APP_FIXTURE_DATABASE_URL: appFixtureDatabaseUrl,
       BETTER_AUTH_URL: 'http://127.0.0.1:4100',
@@ -163,7 +162,7 @@ describe('production admin static guard handoff', () => {
   })
 
   it('does not expose an admin guard from the CMS-disabled USER fixture', async () => {
-    const created = await createSsoBrowserApiTestFixture(options('disabled'))
+    const created = await createSsoBrowserApiTestFixture(options())
     expect(created.adminGuard).toBeUndefined()
     expect(createAdminReadGuard).not.toHaveBeenCalled()
     expect(createAdminReadRateLimiter).not.toHaveBeenCalled()
@@ -395,7 +394,7 @@ describe('Google CMS browser TEST handoff', () => {
   })
 
   it('keeps the existing stable actor when sign-in isolation is not selected', async () => {
-    const created = await createSsoBrowserApiTestFixture(options('disabled'))
+    const created = await createSsoBrowserApiTestFixture(options())
     const input = {
       code: 'sso-browser-test-code',
       nonce: 'n'.repeat(43),
@@ -409,7 +408,7 @@ describe('Google CMS browser TEST handoff', () => {
 
   it('isolates Real journey identities across sign-ins while preserving a repeated callback identity', async () => {
     const created = await createSsoBrowserApiTestFixture({
-      ...options('disabled'),
+      ...options(),
       isolateSignIns: true
     })
     const input = {
@@ -440,7 +439,7 @@ describe('Google CMS browser TEST handoff', () => {
   })
 
   it('composes the existing USER learning contract without CMS routes or fixture writes', async () => {
-    const created = await createSsoBrowserApiTestFixture(options('disabled'))
+    const created = await createSsoBrowserApiTestFixture(options())
     const expectedRoutes = [
       ['GET', '/api/v1/study-sessions'],
       ['POST', '/api/v1/study-sessions'],
@@ -484,7 +483,7 @@ describe('Google CMS browser TEST handoff', () => {
   it.each(['/api/v1/dashboard', '/api/v1/dashboard/insights'])(
     'keeps the USER learning route %s authenticated',
     async (path) => {
-      const created = await createSsoBrowserApiTestFixture(options('disabled'))
+      const created = await createSsoBrowserApiTestFixture(options())
       const response = await created.app.request(path)
       expect(response.status).toBe(401)
       expect(response.headers.get('cache-control')).toBe('private, no-store')
@@ -498,7 +497,7 @@ describe('Google CMS browser TEST handoff', () => {
   )
 
   it('retains the original CMS-disabled single-USER fixture without seeding or changing its provider', async () => {
-    const created = await createSsoBrowserApiTestFixture(options('disabled'))
+    const created = await createSsoBrowserApiTestFixture(options())
     expect(f.ownerQuery).not.toHaveBeenCalled()
     expect(await exchange('original-controlled-code')).toEqual(
       created.expectedIdentity
@@ -512,7 +511,6 @@ describe('Google CMS browser TEST handoff', () => {
   })
 
   it.each([
-    'disabled',
     'production',
     'deployment',
     'provider',
@@ -523,8 +521,6 @@ describe('Google CMS browser TEST handoff', () => {
     'externalOrigin'
   ] as const)('rejects %s before any DB construction or seed', async (kind) => {
     const input = options()
-    if (kind === 'disabled')
-      input.environment = { ...input.environment, ADMIN_CMS_MODE: 'disabled' }
     if (kind === 'production') input.environment.NODE_ENV = 'production'
     if (kind === 'deployment')
       input.environment = {

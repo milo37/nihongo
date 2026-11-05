@@ -417,7 +417,6 @@ export const runReal = async (): Promise<void> => {
   const controlSecret = randomBytes(32).toString('base64url')
   const apiEnvironment: NodeJS.ProcessEnv = {
     ...harness.sharedEnvironment,
-    ADMIN_CMS_MODE: 'technical',
     AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32,::1/128',
     BETTER_AUTH_SECRET: randomBytes(32).toString('base64url'),
     BETTER_AUTH_URL: publicOrigin,
