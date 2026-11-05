@@ -1,8 +1,8 @@
 import { encodeReviewEventCursor } from '@nihongo/contracts/wrong-note/list-review-events'
+import { submitStudyAnswers } from '@/test/studySubmission'
 import { listReviewEvents } from '@api/wrong-note/listReviewEvents'
-import { createStudySessionV1 } from '@api/study/createStudySessionV1'
+import { createStudySessionV2 } from '@api/study/createStudySessionV2'
 import { getStudySessionV2 } from '@api/study/getStudySessionV2'
-import { submitStudySessionV1 } from '@api/study/submitStudySessionV1'
 import { getWrongNoteV1 } from '@api/wrong-note/getWrongNoteV1'
 import { getWrongNoteMemo } from '@api/wrong-note/getWrongNoteMemo'
 import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
@@ -30,7 +30,7 @@ const renderReadonlyDetail = async (
   historyMode: 'default' | 'selected' | 'missing' | 'error' = 'default'
 ) => {
   mockDatabase.loginAs('USER')
-  const created = await createStudySessionV1({
+  const { data: created } = await createStudySessionV2({
     level: 'N5',
     subject: 'VOCABULARY',
     mode: 'RANDOM',
@@ -39,19 +39,16 @@ const renderReadonlyDetail = async (
   const question = toCanonicalStudySessionView(created).questions[0]
   if (!question?.sessionQuestionId)
     throw new Error('Canonical question fixture required')
-  await submitStudySessionV1(
+  await submitStudyAnswers(
     created.session.id,
-    {
-      answers: [
-        {
-          studySessionQuestionId: question.sessionQuestionId,
-          selectedOptionId: null,
-          elapsedSec: 0
-        }
-      ],
-      durationSec: 0
-    },
-    crypto.randomUUID()
+    [
+      {
+        studySessionQuestionId: question.sessionQuestionId,
+        selectedOptionId: null,
+        elapsedSec: 0
+      }
+    ],
+    0
   )
   const detail = await getWrongNoteV1(question.id)
   const historyRequests: Array<string | null> = []

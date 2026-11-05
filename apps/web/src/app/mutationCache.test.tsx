@@ -1,13 +1,13 @@
-import { submitStudySessionV1 } from '@api/study/submitStudySessionV1'
+import { saveStudyAnswers, submitStudyAnswers } from '@/test/studySubmission'
 import { authQueries } from '@nihongo/browser/app/login/queries/authQueries'
 import { commitCanonicalAuth } from '@nihongo/browser/app/login/authSession'
-import { createStudySessionV1 } from '@api/study/createStudySessionV1'
+import { createStudySessionV2 } from '@api/study/createStudySessionV2'
 import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react'
 import type { ReactElement, ReactNode } from 'react'
 import { dashboardQueries } from '@app/dashboard/queries/dashboardQueries'
-import { useSubmitStudySession } from '@app/practice/hooks/useSubmitStudySession'
+import { useSubmitStudySessionV2 } from '@app/practice/hooks/useSubmitStudySessionV2'
 import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
 import { studySessionQueries } from '@app/practice/queries/studySessionQueries'
 import { useCreateTargetedReviewSession } from '@app/wrong-note/hooks/useCreateTargetedReviewSession'
@@ -46,7 +46,7 @@ const expectInvalidated = (
 describe('mutation cache contracts', () => {
   it('학습 제출 성공 후 결과를 저장하고 관련 캐시 무효화를 기다린다', async () => {
     mockDatabase.loginAs('USER')
-    const sessionPayload = await createStudySessionV1({
+    const { data: sessionPayload } = await createStudySessionV2({
       level: 'N5',
       subject: 'VOCABULARY',
       mode: 'RANDOM',
@@ -56,9 +56,17 @@ describe('mutation cache contracts', () => {
     const sessionId = sessionPayload.session.id
     const question = sessionView.questions[0]
 
-    if (!question) {
+    const sessionQuestionId = question?.sessionQuestionId
+    if (!question || !sessionQuestionId) {
       throw new Error('테스트 세션에 문제가 없습니다.')
     }
+    const expectedDraftRevision = await saveStudyAnswers(sessionId, [
+      {
+        studySessionQuestionId: sessionQuestionId,
+        selectedOptionId: question.options[0]?.id ?? null,
+        elapsedSec: 3
+      }
+    ])
 
     const selectedOptionId = question.options[0]?.id ?? null
     const client = createTestClient()
@@ -71,20 +79,25 @@ describe('mutation cache contracts', () => {
     seedCache(client, dashboardQueries.stats().queryKey)
     seedCache(client, dashboardQueries.insights().queryKey)
 
-    const { result } = renderHook(() => useSubmitStudySession(sessionId), {
-      wrapper: createWrapper(client)
-    })
+    const { result } = renderHook(
+      () =>
+        useSubmitStudySessionV2(sessionId, getStudyDraftPrincipalScope(null)),
+      {
+        wrapper: createWrapper(client)
+      }
+    )
 
     await act(async () => {
       await result.current.mutateAsync({
         answers: [
           {
-            questionId: question.id,
+            studySessionQuestionId: sessionQuestionId,
             selectedOptionId,
             elapsedSec: 3
           }
         ],
-        durationSec: 3
+        durationSec: 3,
+        expectedDraftRevision
       })
     })
 
@@ -99,7 +112,7 @@ describe('mutation cache contracts', () => {
 
   it('mutateAsync는 병렬 cache invalidation이 모두 끝날 때까지 pending을 유지한다', async () => {
     mockDatabase.loginAs('USER')
-    const sessionPayload = await createStudySessionV1({
+    const { data: sessionPayload } = await createStudySessionV2({
       level: 'N5',
       subject: 'VOCABULARY',
       mode: 'RANDOM',
@@ -109,9 +122,17 @@ describe('mutation cache contracts', () => {
     const sessionId = sessionPayload.session.id
     const question = sessionView.questions[0]
 
-    if (!question) {
+    const sessionQuestionId = question?.sessionQuestionId
+    if (!question || !sessionQuestionId) {
       throw new Error('테스트 세션에 문제가 없습니다.')
     }
+    const expectedDraftRevision = await saveStudyAnswers(sessionId, [
+      {
+        studySessionQuestionId: sessionQuestionId,
+        selectedOptionId: question.options[0]?.id ?? null,
+        elapsedSec: 3
+      }
+    ])
 
     const client = createTestClient()
     client.setQueryData(
@@ -129,25 +150,30 @@ describe('mutation cache contracts', () => {
         await invalidationGate
         return originalInvalidateQueries(filters, options)
       })
-    const { result } = renderHook(() => useSubmitStudySession(sessionId), {
-      wrapper: createWrapper(client)
-    })
+    const { result } = renderHook(
+      () =>
+        useSubmitStudySessionV2(sessionId, getStudyDraftPrincipalScope(null)),
+      {
+        wrapper: createWrapper(client)
+      }
+    )
     let mutationPromise: Promise<unknown> | undefined
 
     act(() => {
       mutationPromise = result.current.mutateAsync({
         answers: [
           {
-            questionId: question.id,
+            studySessionQuestionId: sessionQuestionId,
             selectedOptionId: question.options[0]?.id ?? null,
             elapsedSec: 3
           }
         ],
-        durationSec: 3
+        durationSec: 3,
+        expectedDraftRevision
       })
     })
 
-    await waitFor(() => expect(invalidateQueries).toHaveBeenCalledTimes(3))
+    await waitFor(() => expect(invalidateQueries).toHaveBeenCalledTimes(4))
     expect(result.current.isPending).toBe(true)
 
     await act(async () => {
@@ -170,7 +196,11 @@ describe('mutation cache contracts', () => {
     seedCache(client, dashboardInsightsKey)
 
     const { result } = renderHook(
-      () => useSubmitStudySession('missing-session'),
+      () =>
+        useSubmitStudySessionV2(
+          'missing-session',
+          getStudyDraftPrincipalScope(null)
+        ),
       { wrapper: createWrapper(client) }
     )
 
@@ -178,7 +208,8 @@ describe('mutation cache contracts', () => {
       act(async () => {
         await result.current.mutateAsync({
           answers: [],
-          durationSec: 0
+          durationSec: 0,
+          expectedDraftRevision: 0
         })
       })
     ).rejects.toBeDefined()
@@ -196,7 +227,7 @@ describe('mutation cache contracts', () => {
 
   it('오답 복습 성공 후 오답과 대시보드 캐시를 함께 무효화한다', async () => {
     mockDatabase.loginAs('USER')
-    const sessionPayload = await createStudySessionV1({
+    const { data: sessionPayload } = await createStudySessionV2({
       level: 'N5',
       subject: 'VOCABULARY',
       mode: 'RANDOM',
@@ -206,19 +237,16 @@ describe('mutation cache contracts', () => {
     if (!question || !question.sessionQuestionId) {
       throw new Error('A canonical session-question fixture is required.')
     }
-    await submitStudySessionV1(
+    await submitStudyAnswers(
       sessionPayload.session.id,
-      {
-        answers: [
-          {
-            studySessionQuestionId: question.sessionQuestionId,
-            selectedOptionId: null,
-            elapsedSec: 2
-          }
-        ],
-        durationSec: 2
-      },
-      crypto.randomUUID()
+      [
+        {
+          studySessionQuestionId: question.sessionQuestionId,
+          selectedOptionId: null,
+          elapsedSec: 2
+        }
+      ],
+      2
     )
 
     const client = createTestClient()
