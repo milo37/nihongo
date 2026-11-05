@@ -1,0 +1,25 @@
+# Origin proxy: only requests carrying this distribution's secret header reach
+# the API. X-Forwarded-For is passed through unchanged so the API (which trusts
+# only this proxy's subnet) still sees the viewer address CloudFront appended.
+{
+	admin off
+	auto_https off
+}
+
+%{ if origin_domain != "" ~}
+https://${origin_domain}:443 {
+	tls /run/origin-tls/origin.crt /run/origin-tls/origin.key
+%{ else ~}
+http://:3001 {
+%{ endif ~}
+	@verified header X-Origin-Verify {$ORIGIN_VERIFY_SECRET}
+	handle @verified {
+		reverse_proxy api:3001 {
+			header_up -X-Origin-Verify
+			header_up X-Forwarded-For {http.request.header.X-Forwarded-For}
+		}
+	}
+	handle {
+		respond 403
+	}
+}
