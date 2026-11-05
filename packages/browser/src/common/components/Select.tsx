@@ -6,6 +6,7 @@ import type {
   ReactNode
 } from 'react'
 import { classNames } from './classNames'
+import { FieldError } from './FieldError'
 
 export interface SelectOption {
   value: string
@@ -149,15 +150,7 @@ export const Select = ({
           {hint}
         </p>
       ) : null}
-      {error ? (
-        <p
-          className="field-error text-sm font-medium text-danger"
-          id={errorId}
-          role="alert"
-        >
-          {error}
-        </p>
-      ) : null}
+      {error ? <FieldError id={errorId}>{error}</FieldError> : null}
     </div>
   )
 }

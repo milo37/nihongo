@@ -2,6 +2,7 @@ import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement, ReactNode } from 'react'
 import { classNames } from './classNames'
+import { FieldError } from './FieldError'
 
 export interface RadioOption {
   value: string
@@ -116,15 +117,7 @@ export const RadioGroup = ({
           {hint}
         </p>
       ) : null}
-      {error ? (
-        <p
-          className="field-error text-sm font-medium text-danger"
-          id={errorId}
-          role="alert"
-        >
-          {error}
-        </p>
-      ) : null}
+      {error ? <FieldError id={errorId}>{error}</FieldError> : null}
     </fieldset>
   )
 }

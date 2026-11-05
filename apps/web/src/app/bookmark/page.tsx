@@ -1,4 +1,5 @@
 import { useRef } from 'react'
+import type { RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
@@ -16,6 +17,107 @@ import { useBookmarkPageController } from '@app/bookmark/hooks/useBookmarkPageCo
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 import { AppErrorReportButton } from '@app/question-report/components/AppErrorReportDialog'
+
+type BookmarkController = ReturnType<typeof useBookmarkPageController>
+
+const BookmarkHeading = ({
+  headingRef,
+  total,
+  formatCount
+}: {
+  headingRef: RefObject<HTMLHeadingElement | null>
+  total: number
+  formatCount: (value: number) => string
+}): ReactElement => {
+  const { t } = useTranslation('bookmark')
+  return (
+    <div>
+      <div className="bookmark-title-line">
+        <h1
+          ref={headingRef}
+          className="bookmark-title rounded-sm focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
+          tabIndex={-1}
+        >
+          {t('title')}
+        </h1>
+        <output
+          className="bookmark-count"
+          aria-label={t('count', { formattedCount: formatCount(total) })}
+        >
+          {formatCount(total)}
+        </output>
+      </div>
+      <p className="bookmark-description">{t('description')}</p>
+    </div>
+  )
+}
+
+type BookmarkItemsProps = {
+  bookmarks: BookmarkController
+  items: NonNullable<BookmarkController['bookmarksQuery']['data']>['items']
+  locale: ReturnType<typeof resolveUiLocale>
+  formatCount: (value: number) => string
+  removalTriggerRef: RefObject<HTMLButtonElement | null>
+}
+
+const BookmarkItems = ({
+  bookmarks,
+  items,
+  locale,
+  formatCount,
+  removalTriggerRef
+}: BookmarkItemsProps): ReactElement => {
+  const { t } = useTranslation('bookmark')
+  const { bookmarksQuery, displayedPage, pendingRemovalQuestionId } = bookmarks
+  return (
+    <>
+      <div className="bookmark-items" aria-busy={bookmarksQuery.isFetching}>
+        {items.map((bookmark) => (
+          <BookmarkListItem
+            key={bookmark.questionId}
+            bookmark={bookmark}
+            isDeleting={bookmarks.pendingQuestionIds.has(bookmark.questionId)}
+            isRemoveDisabled={bookmarks.hasPendingBookmarkMutation}
+            locale={locale}
+            removeButtonRef={(element) => {
+              if (element && pendingRemovalQuestionId === bookmark.questionId) {
+                removalTriggerRef.current = element
+              }
+            }}
+            onRemove={(event) => {
+              removalTriggerRef.current = event.currentTarget
+              bookmarks.requestRemoval(bookmark.questionId)
+            }}
+          />
+        ))}
+      </div>
+
+      <p
+        className="sr-only"
+        role="status"
+        aria-atomic="true"
+        aria-live="polite"
+      >
+        {bookmarksQuery.isFetching
+          ? t('pagination.refreshing')
+          : t('pagination.status', {
+              page: formatCount(displayedPage),
+              pageCount: formatCount(bookmarks.pageCount)
+            })}
+      </p>
+      <Pagination
+        className="mt-8"
+        currentPage={displayedPage}
+        requestedPage={bookmarks.page}
+        disabled={bookmarks.isBookmarkNavigationLocked}
+        getPageHref={bookmarks.getPageHref}
+        label={t('pagination.label')}
+        totalPages={bookmarks.pageCount}
+        onPageChange={bookmarks.setPage}
+      />
+    </>
+  )
+}
 
 export const BookmarkPage = (): ReactElement => {
   const { i18n, t } = useTranslation('bookmark')
@@ -71,24 +173,11 @@ export const BookmarkPage = (): ReactElement => {
   return (
     <section className="bookmark-page">
       <div className="bookmark-heading">
-        <div>
-          <div className="bookmark-title-line">
-            <h1
-              ref={headingRef}
-              className="bookmark-title rounded-sm focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
-              tabIndex={-1}
-            >
-              {t('title')}
-            </h1>
-            <output
-              className="bookmark-count"
-              aria-label={t('count', { formattedCount: formatCount(total) })}
-            >
-              {formatCount(total)}
-            </output>
-          </div>
-          <p className="bookmark-description">{t('description')}</p>
-        </div>
+        <BookmarkHeading
+          headingRef={headingRef}
+          total={total}
+          formatCount={formatCount}
+        />
         {items.length > 0 ? (
           <BookmarkPracticePanel
             formatCount={formatCount}
@@ -122,57 +211,13 @@ export const BookmarkPage = (): ReactElement => {
           previousPageHref={bookmarks.getPageHref(displayedPage - 1)}
         />
       ) : (
-        <>
-          <div className="bookmark-items" aria-busy={bookmarksQuery.isFetching}>
-            {items.map((bookmark) => (
-              <BookmarkListItem
-                key={bookmark.questionId}
-                bookmark={bookmark}
-                isDeleting={bookmarks.pendingQuestionIds.has(
-                  bookmark.questionId
-                )}
-                isRemoveDisabled={bookmarks.hasPendingBookmarkMutation}
-                locale={locale}
-                removeButtonRef={(element) => {
-                  if (
-                    element &&
-                    pendingRemovalQuestionId === bookmark.questionId
-                  ) {
-                    removalTriggerRef.current = element
-                  }
-                }}
-                onRemove={(event) => {
-                  removalTriggerRef.current = event.currentTarget
-                  bookmarks.requestRemoval(bookmark.questionId)
-                }}
-              />
-            ))}
-          </div>
-
-          <p
-            className="sr-only"
-            role="status"
-            aria-atomic="true"
-            aria-live="polite"
-          >
-            {bookmarksQuery.isFetching
-              ? t('pagination.refreshing')
-              : t('pagination.status', {
-                  page: formatCount(displayedPage),
-                  pageCount: formatCount(bookmarks.pageCount)
-                })}
-          </p>
-          <Pagination
-            className="mt-8"
-            currentPage={displayedPage}
-            requestedPage={bookmarks.page}
-            disabled={bookmarks.isBookmarkNavigationLocked}
-            getPageHref={bookmarks.getPageHref}
-            label={t('pagination.label')}
-            totalPages={bookmarks.pageCount}
-            onPageChange={bookmarks.setPage}
-          />
-        </>
+        <BookmarkItems
+          bookmarks={bookmarks}
+          items={items}
+          locale={locale}
+          formatCount={formatCount}
+          removalTriggerRef={removalTriggerRef}
+        />
       )}
 
       <BookmarkRemoveDialog
