@@ -10,7 +10,8 @@ import { v1PrincipalQuery } from '../auth/ownedSessionAuthority.js'
  * This keeps the retired phase7_begin_admin_operation and the commit re-check
  * of phase7_finish_admin_operation step for step: the same isolation per
  * command, the same lock order (referenced Users by id, then the actor
- * Session family, then the actor Session, all FOR UPDATE), the same authority
+ * Session, all FOR UPDATE; #504 P7 PR4b-1 removed the Session family), the
+ * same authority
  * conditions and the same SQLSTATE and message on failure. Failures are raised
  * inside PostgreSQL so the existing error mapping sees the same database error.
  */
@@ -58,7 +59,6 @@ const DEFERRED_CONTENT_CONSTRAINTS = [
 interface CapturedOperation {
   readonly actorUserId: string
   readonly capturedAt: number
-  readonly familyId: string
   readonly generation: number
   readonly rawSessionToken: string
   readonly requiresFresh: boolean
@@ -142,26 +142,20 @@ const hasAuthority = async (
   const rows = await transaction.$queryRawUnsafe<Array<{ ok: number }>>(
     `SELECT 1 AS ok
      FROM "User" AS actor
-     JOIN "AuthSessionFamily" AS family
-       ON family."userId" = actor."id" AND family."id" = $2::uuid
      JOIN "Session" AS session
-       ON session."userId" = actor."id"
-      AND session."sessionFamilyId" = family."id"
-      AND session."id" = $3::uuid
+       ON session."userId" = actor."id" AND session."id" = $2::uuid
      WHERE actor."id" = $1::uuid
        AND actor."role" = 'ADMIN'
        AND actor."accountStatus" = 'ACTIVE'
-       AND ($4::integer IS NULL OR actor."authorityGeneration" = $4::integer)
-       AND family."status" = 'ACTIVE'
+       AND ($3::integer IS NULL OR actor."authorityGeneration" = $3::integer)
        AND session."authorizationState" = 'ACTIVE'
        AND session."issuerProtocolVersion" = 'PHASE7_V1'
        AND session."authorityGeneration" = actor."authorityGeneration"
        AND session."expiresAt" > clock_timestamp()
        AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()
-       AND (NOT $5::boolean
+       AND (NOT $4::boolean
          OR session."createdAt" + INTERVAL '5 minutes' > clock_timestamp())`,
     operation.actorUserId,
-    operation.familyId,
     operation.sessionId,
     operation.generation,
     operation.requiresFresh
@@ -218,8 +212,8 @@ export const beginAdminOperation = async (
       'Phase 7 referenced User set must be unique and include the actor.'
     )
 
-  // Lock every referenced User in canonical id order before the actor family,
-  // the actor Session or any domain aggregate.
+  // Lock every referenced User in canonical id order before the actor Session
+  // or any domain aggregate.
   const lockedUsers = await transaction.$queryRawUnsafe<Array<{ id: string }>>(
     `SELECT "id" FROM "User" WHERE "id" = ANY($1::uuid[]) ORDER BY "id"
      FOR UPDATE`,
@@ -232,41 +226,12 @@ export const beginAdminOperation = async (
       'A referenced Phase 7 User is unavailable.'
     )
 
-  const sessions = await transaction.$queryRawUnsafe<
-    Array<{ familyId: string }>
-  >(
-    `SELECT "sessionFamilyId" AS "familyId" FROM "Session"
-     WHERE "id" = $1::uuid AND "userId" = $2::uuid`,
-    actor.sessionId,
-    actor.userId
-  )
-  const familyId = sessions[0]?.familyId
-  if (!familyId)
-    return raise(
-      transaction,
-      '42501',
-      'Phase 7 operation Session is unavailable.'
-    )
-  const family = await transaction.$queryRawUnsafe<unknown[]>(
-    `SELECT 1 FROM "AuthSessionFamily"
-     WHERE "id" = $1::uuid AND "userId" = $2::uuid FOR UPDATE`,
-    familyId,
-    actor.userId
-  )
-  if (family.length !== 1)
-    await raise(
-      transaction,
-      '42501',
-      'Phase 7 operation Session family is unavailable.'
-    )
   const session = await transaction.$queryRawUnsafe<unknown[]>(
     `SELECT 1 FROM "Session"
      WHERE "id" = $1::uuid AND "userId" = $2::uuid
-       AND "sessionFamilyId" = $3::uuid
      FOR UPDATE`,
     actor.sessionId,
-    actor.userId,
-    familyId
+    actor.userId
   )
   if (session.length !== 1)
     await raise(
@@ -278,7 +243,6 @@ export const beginAdminOperation = async (
   const requiresFresh = FRESH_COMMANDS.has(input.command)
   const authority = {
     actorUserId: actor.userId,
-    familyId,
     generation: null,
     rawSessionToken: input.rawSessionToken,
     requiresFresh,

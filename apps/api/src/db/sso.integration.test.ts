@@ -59,7 +59,6 @@ const expectedRotation = {
   oldSessions: 0,
   activeSessions: 1,
   pendingSessions: 0,
-  fences: 1,
   audits: 1,
   finalized: 1
 }
@@ -67,7 +66,6 @@ const unchangedSession = {
   oldSessions: 1,
   activeSessions: 1,
   pendingSessions: 0,
-  fences: 0,
   audits: 0,
   finalized: 0
 }
@@ -82,7 +80,7 @@ const apiTransaction = (client: Client): Prisma.TransactionClient =>
   }) as unknown as Prisma.TransactionClient
 
 describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
-  it('deploy and re-entry leave exactly70 completed names/checksums preserving the old69 prefix', async () => {
+  it('deploy and re-entry leave exactly71 completed names/checksums preserving the old70 prefix', async () => {
     const expected = loadExpectedMigrationManifest(
       fileURLToPath(new URL('../../prisma/migrations/', import.meta.url))
     )
@@ -93,7 +91,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     }>(
       `SELECT migration_name AS name,checksum,finished_at IS NOT NULL AND rolled_back_at IS NULL AS complete FROM "_prisma_migrations" WHERE rolled_back_at IS NULL ORDER BY migration_name`
     )
-    expect(expected).toHaveLength(70)
+    expect(expected).toHaveLength(71)
     expect(
       actual.rows.map(({ name, checksum }) => ({ name, checksum }))
     ).toEqual(expected)
@@ -232,11 +230,16 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         name: '20261116090000_erasure_to_api',
         checksum:
           '863c485216642c6be1ad493b6d2e0460cbe661c9d51ad77a4d13f970b83a0921'
+      },
+      {
+        name: '20261117090000_session_family_removal',
+        checksum:
+          '1b65363ef2733fb6dd45f904e01d4b3c6eb2438efb919ce46a9778bfbb47e6df'
       }
     ])
     // Existing runner executes canonical deploy then db:migrate:deploy re-entry
     // before this suite. One completed row per name proves no duplicate apply.
-    expect(new Set(actual.rows.map((row) => row.name)).size).toBe(70)
+    expect(new Set(actual.rows.map((row) => row.name)).size).toBe(71)
   })
 
   it('new private objects have exact owner, search_path and least-privilege ACLs', async () => {
@@ -435,8 +438,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       // Keep the real repository calls inside this rollback and gateway role.
       const learner = await h.fixture('google', 'USER')
       const beforeSignIn = await h.snapshot()
-      const authorizationSql = `SELECT 'Session' AS kind,s.id,md5(to_jsonb(s)::text) AS fingerprint FROM "Session" s
-        UNION ALL SELECT 'AuthSessionFamily' AS kind,f.id,md5(to_jsonb(f)::text) AS fingerprint FROM "AuthSessionFamily" f ORDER BY kind,id`
+      const authorizationSql = `SELECT 'Session' AS kind,s.id,md5(to_jsonb(s)::text) AS fingerprint FROM "Session" s ORDER BY kind,id`
       const authorizationBefore = (
         await h.owner.query<{ kind: string; id: string; fingerprint: string }>(
           authorizationSql
@@ -480,13 +482,12 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
           throw new Error('SSO bridge session was not confirmed.')
         expect(tokens.has(signedIn.token)).toBe(false)
         tokens.add(signedIn.token)
-        const issued = await h.owner.query<{ id: string; familyId: string }>(
-          `SELECT s.id,s."sessionFamilyId" AS "familyId",s."userId",u.role::text AS role,
+        const issued = await h.owner.query<{ id: string }>(
+          `SELECT s.id,s."userId",u.role::text AS role,
           u."accountStatus"::text AS "accountStatus",s."authorityGeneration",u."authorityGeneration" AS "userGeneration",
           s."issuerProtocolVersion"::text AS "issuerProtocolVersion",s."authorizationState"::text AS "authorizationState",
-          family.status::text AS "familyStatus",s."createdAt",s."expiresAt"
+          s."createdAt",s."expiresAt"
           FROM "Session" s JOIN "User" u ON u.id=s."userId"
-          JOIN "AuthSessionFamily" family ON family.id=s."sessionFamilyId" AND family."userId"=s."userId"
           WHERE s.token=$1`,
           [signedIn.token]
         )
@@ -499,22 +500,20 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
           userGeneration: 1,
           issuerProtocolVersion: 'PHASE7_V1',
           authorizationState: 'ACTIVE',
-          familyStatus: 'ACTIVE',
           createdAt: signedIn.createdAt,
           expiresAt: signedIn.expiresAt
         })
         const session = issued.rows[0]
         if (!session) throw new Error('SSO bridge session row unavailable.')
         newAuthorizations.add(`Session:${session.id}`)
-        newAuthorizations.add(`AuthSessionFamily:${session.familyId}`)
-        expect(newAuthorizations.size).toBe(attempt * 2)
+        expect(newAuthorizations.size).toBe(attempt)
         const authorizationAfter = (
           await h.owner.query<(typeof authorizationBefore)[number]>(
             authorizationSql
           )
         ).rows
         expect(authorizationAfter).toHaveLength(
-          authorizationBefore.length + attempt * 2
+          authorizationBefore.length + attempt
         )
         expect(
           authorizationAfter.filter(
@@ -717,7 +716,6 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       ])
       expect(result.rowCount).toBe(0)
       expect((await h.facts(f))?.oldSessions).toBe(1)
-      expect((await h.facts(f))?.fences).toBe(0)
     })
   })
 
@@ -758,7 +756,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     }
   )
 
-  it.each(['role', 'generation', 'link', 'family', 'session'] as const)(
+  it.each(['role', 'generation', 'link', 'session'] as const)(
     '%s lost after proof issuance rejects finalization without rotating',
     async (change) => {
       await h.rollback(async () => {
@@ -771,10 +769,6 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
             f.userId
           ],
           link: ['DELETE FROM "Account" WHERE "userId"=$1', f.userId],
-          family: [
-            'UPDATE "AuthSessionFamily" SET status=\'REVOKED\',"revokedAt"=clock_timestamp() WHERE id=$1',
-            f.familyId
-          ],
           session: [
             'UPDATE "Session" SET "expiresAt"=clock_timestamp() WHERE id=$1',
             f.sessionId
@@ -791,7 +785,6 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
           ).rowCount
         ).toBe(0)
         expect((await h.facts(f))?.oldSessions).toBe(1)
-        expect((await h.facts(f))?.fences).toBe(0)
         expect((await h.facts(f))?.audits).toBe(0)
       })
     }
@@ -1901,14 +1894,6 @@ describe('JLP-527 first Google ADMIN operator bootstrap', () => {
           ])
         ).rows
       ).toEqual([])
-      expect(
-        (
-          await h.owner.query(
-            'SELECT status FROM "AuthSessionFamily" WHERE id=$1',
-            [first.familyId]
-          )
-        ).rows
-      ).toEqual([{ status: 'REVOKED' }])
       await expect(b.query(bootstrapSql, values(second))).rejects.toMatchObject(
         { code: '42501' }
       )

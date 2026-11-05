@@ -326,20 +326,7 @@ const tombstoneErasedUser = async (
   }
 
   await transaction.$executeRawUnsafe(
-    `UPDATE "AuthSessionFamily" SET "status" = 'REVOKED'
-     WHERE "userId" = $1::uuid AND "status" = 'ACTIVE'`,
-    userId
-  )
-  await transaction.$executeRawUnsafe(
     `DELETE FROM "Session" WHERE "userId" = $1::uuid`,
-    userId
-  )
-  await transaction.$executeRawUnsafe(
-    `DELETE FROM "AuthSessionRotationFence" WHERE "userId" = $1::uuid`,
-    userId
-  )
-  await transaction.$executeRawUnsafe(
-    `DELETE FROM "AuthSessionFamily" WHERE "userId" = $1::uuid`,
     userId
   )
   await transaction.$executeRawUnsafe(
@@ -353,11 +340,7 @@ const LOCK_STATEMENTS = [
   `SELECT 1 FROM "Verification" WHERE "resetUserId" = $1::uuid
    ORDER BY "id" FOR UPDATE`,
   `SELECT 1 FROM "Account" WHERE "userId" = $1::uuid ORDER BY "id" FOR UPDATE`,
-  `SELECT 1 FROM "AuthSessionFamily" WHERE "userId" = $1::uuid
-   ORDER BY "id" FOR UPDATE`,
   `SELECT 1 FROM "Session" WHERE "userId" = $1::uuid ORDER BY "id" FOR UPDATE`,
-  `SELECT 1 FROM "AuthSessionRotationFence" WHERE "userId" = $1::uuid
-   ORDER BY "id" FOR UPDATE`,
   `SELECT 1 FROM "Question"
    WHERE "createdByActorId" = $1::uuid
      OR "id" IN (

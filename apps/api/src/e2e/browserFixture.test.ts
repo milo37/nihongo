@@ -586,7 +586,6 @@ describe('SSO CMS lifecycle persistence postcondition', () => {
     reauthenticationIntent: reauthentications,
     report: cmsAudits ? 1 : 0,
     review: cmsAudits ? 12 : 0,
-    rotationFence: reauthentications,
     user: 10,
     version: cmsAudits ? 13 : 10,
     versionTag: cmsAudits ? 13 : 10
@@ -596,7 +595,6 @@ describe('SSO CMS lifecycle persistence postcondition', () => {
       userId,
       finalized: true,
       proof: true,
-      fence: true,
       audit: true,
       proofCount: 6
     }))
@@ -635,7 +633,7 @@ describe('SSO CMS lifecycle persistence postcondition', () => {
     }
   )
 
-  it.each(['finalized', 'proof', 'fence', 'audit'] as const)(
+  it.each(['finalized', 'proof', 'audit'] as const)(
     'fails closed for an unbound or missing %s despite correct aggregate totals',
     async (key) => {
       const created = await createSsoAdminBrowserApiFixture(options())
@@ -727,7 +725,6 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
     review: 0,
     audit: 8,
     importApply: 0,
-    rotationFence: 0,
     reauthenticationIntent: 0,
     reauthenticationFinalized: 0,
     operationIntent: 0,
@@ -741,7 +738,6 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
     versionTag: 11,
     review: 1,
     audit: 12,
-    rotationFence: 1,
     reauthenticationIntent: 1,
     reauthenticationFinalized: 1
   }
@@ -749,7 +745,6 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
     userId,
     finalized: true,
     proof: true,
-    fence: true,
     audit: true,
     proofCount: 1
   })
@@ -886,7 +881,6 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
           versionTag: 13,
           review: 12,
           audit: 38,
-          rotationFence: 6,
           reauthenticationIntent: 6,
           reauthenticationFinalized: 6,
           report: 1
@@ -908,7 +902,6 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
     ['versionTag', 12],
     ['option', 45],
     ['reauthenticationIntent', 0],
-    ['rotationFence', 2],
     ['operationIntent', 1]
   ] as const)('rejects an unexpected %s total of %i', async (key, value) => {
     const created = await createSsoAdminBrowserApiFixture(
@@ -922,7 +915,7 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
     await created.database.disconnect()
   })
 
-  it.each(['finalized', 'proof', 'fence', 'audit'] as const)(
+  it.each(['finalized', 'proof', 'audit'] as const)(
     'rejects an unbound %s even when all A1-A8 totals match',
     async (key) => {
       const created = await createSsoAdminBrowserApiFixture(

@@ -79,7 +79,6 @@ const transactionSchema = z
 const sessionSchema = z
   .object({
     id: z.uuid(),
-    familyId: z.uuid(),
     userId: z.uuid(),
     authorityGeneration: z.number().int().positive(),
     createdAt: z.date(),

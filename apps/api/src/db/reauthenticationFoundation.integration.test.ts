@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
   bridgedQuery,
@@ -10,6 +10,7 @@ import {
   beginAdminOperation,
   finishAdminOperation
 } from '../admin/adminOperationAuthority.js'
+import { v1PrincipalQuery } from '../auth/ownedSessionAuthority.js'
 import { parseApiEnvironment } from '../config/env.js'
 import type { Prisma } from '../generated/prisma/client.js'
 import {
@@ -37,7 +38,6 @@ interface FinalizedSessionRow {
   readonly authorityGeneration: number
   readonly createdAt: Date
   readonly expiresAt: Date
-  readonly familyId: string
   readonly id: string
 }
 
@@ -247,9 +247,9 @@ const issueSession = async (
       [userId, sessionId, token]
     )
   )
-  const familyId = issued.rows[0]?.familyId
-  if (!familyId) throw new Error('Session family was not issued.')
-  return familyId
+  const issuedId = issued.rows[0]?.id
+  if (issuedId !== sessionId) throw new Error('Session was not issued.')
+  return issuedId
 }
 
 const prepare = async (
@@ -310,7 +310,6 @@ const finalize = async (
 }
 
 interface StagedFixture {
-  readonly familyId: string
   readonly newSessionId: string
   readonly newToken: string
   readonly oldSessionId: string
@@ -326,13 +325,12 @@ const createStagedFixture = async (): Promise<StagedFixture> => {
   const newSessionId = randomUUID()
   const newToken = `phase7-reauth-new-${randomUUID()}`
   await insertCredentialUser(userId, 'ADMIN')
-  const familyId = await issueSession(userId, oldSessionId, oldToken)
+  await issueSession(userId, oldSessionId, oldToken)
   const prepared = await prepare(userId, oldToken)
   const staged = await stage(prepared.intentId, newSessionId, newToken, userId)
   expect(staged.rows).toHaveLength(1)
   expect(staged.rows[0]).toMatchObject({ id: newSessionId })
   return {
-    familyId,
     newSessionId,
     newToken,
     oldSessionId,
@@ -341,13 +339,6 @@ const createStagedFixture = async (): Promise<StagedFixture> => {
     userId
   }
 }
-
-const rotationFenceDigest = (token: string): string =>
-  createHash('sha256')
-    .update('nihongo-auth-session-rotation-fence-v1', 'utf8')
-    .update(Buffer.from([0]))
-    .update(token, 'utf8')
-    .digest('hex')
 
 beforeAll(async () => {
   await adminClient.connect()
@@ -409,7 +400,7 @@ describe('Reauthentication DB foundation', () => {
       const requestId = randomUUID()
       const actorEmail = await insertCredentialUser(actorId, 'ADMIN')
       await insertCredentialUser(targetUserId, 'USER')
-      const familyId = await issueSession(actorId, oldSessionId, oldToken)
+      await issueSession(actorId, oldSessionId, oldToken)
       const prepared = await prepare(actorId, oldToken, requestId)
 
       expect(prepared).toMatchObject({
@@ -437,15 +428,11 @@ describe('Reauthentication DB foundation', () => {
 
       const pendingProof = await adminClient.query<{
         authorizationState: string
-        familyStatus: string
         intentState: string
       }>(
         `SELECT session."authorizationState"::text AS "authorizationState",
-           family."status"::text AS "familyStatus",
            intent."state"::text AS "intentState"
          FROM "Session" AS session
-         JOIN "AuthSessionFamily" AS family
-           ON family."id" = session."sessionFamilyId"
          JOIN "Phase7ReauthenticationIntent" AS intent
            ON intent."stagedSessionId" = session."id"
          WHERE session."id" = $1`,
@@ -454,7 +441,6 @@ describe('Reauthentication DB foundation', () => {
       expect(pendingProof.rows).toEqual([
         {
           authorizationState: 'PENDING_REAUTH',
-          familyStatus: 'ACTIVE',
           intentState: 'STAGED'
         }
       ])
@@ -471,8 +457,8 @@ describe('Reauthentication DB foundation', () => {
         (
           await adminClient.query<{ count: number }>(
             `SELECT COUNT(*)::int AS count FROM "Session"
-             WHERE "sessionFamilyId" = $1`,
-            [familyId]
+             WHERE "userId" = $1`,
+            [actorId]
           )
         ).rows
       ).toEqual([{ count: 2 }])
@@ -598,14 +584,12 @@ describe('Reauthentication DB foundation', () => {
       const finalized = await finalize(prepared.intentId, newToken)
       expect(finalized).toMatchObject({
         authorityGeneration: 1,
-        familyId,
         id: newSessionId
       })
       await adminClient.query('SET CONSTRAINTS ALL IMMEDIATE')
       await adminClient.query('SET CONSTRAINTS ALL DEFERRED')
       const durableProof = await adminClient.query<{
         auditCount: number
-        fenceCount: number
         intentState: string
         newSessionCount: number
         oldSessionCount: number
@@ -620,9 +604,6 @@ describe('Reauthentication DB foundation', () => {
              AS "newSessionCount",
            (SELECT "state"::text FROM "Phase7ReauthenticationIntent"
             WHERE "id" = $3) AS "intentState",
-           (SELECT COUNT(*)::int FROM "AuthSessionRotationFence"
-            WHERE "operationId" = $4 AND "oldTokenDigest" = $5)
-             AS "fenceCount",
            (SELECT COUNT(*)::int FROM "AdminAuditLog"
             WHERE "operationId" = $4 AND "command" = 'REAUTHENTICATION'
               AND "metadata" =
@@ -632,18 +613,11 @@ describe('Reauthentication DB foundation', () => {
              AS "operationCount",
            (SELECT COUNT(*)::int FROM "Phase7TrustedExecution")
              AS "trustedCount"`,
-        [
-          oldSessionId,
-          newSessionId,
-          prepared.intentId,
-          prepared.operationId,
-          rotationFenceDigest(oldToken)
-        ]
+        [oldSessionId, newSessionId, prepared.intentId, prepared.operationId]
       )
       expect(durableProof.rows).toEqual([
         {
           auditCount: 1,
-          fenceCount: 1,
           intentState: 'FINALIZED',
           newSessionCount: 1,
           oldSessionCount: 0,
@@ -661,7 +635,6 @@ describe('Reauthentication DB foundation', () => {
       )
       expect(reconciled.rows).toHaveLength(1)
       expect(reconciled.rows[0]).toMatchObject({
-        familyId,
         id: newSessionId,
         state: 'FINALIZED'
       })
@@ -683,15 +656,8 @@ describe('Reauthentication DB foundation', () => {
         ).rows
       ).toEqual([{ count: 1 }])
 
-      // #504 P7 PR3a: nihongo_app may lock a rotation fence for sign-out but
-      // never change it.
-      await expectRoleFailure(
-        'nihongo_app',
-        `UPDATE "AuthSessionRotationFence" SET "expiresAt" = clock_timestamp()
-         WHERE "userId" = $1`,
-        [actorId],
-        '23514'
-      )
+      // #504 P7 PR4b-1 (fence option A): the old tab's cookie finds no
+      // Session, so its sign-out ends nothing and the replacement stays.
       const delayedOldCookieLogout = await withExecutionRole(
         'nihongo_app',
         () =>
@@ -702,20 +668,33 @@ describe('Reauthentication DB foundation', () => {
           )
       )
       expect(delayedOldCookieLogout.rows).toEqual([{ signedOut: true }])
+      const principalCount = async (token: string) =>
+        (
+          await withExecutionRole('nihongo_app', () =>
+            adminClient.query<{ count: number }>(
+              `SELECT COUNT(*)::int AS count FROM (${v1PrincipalQuery('$1')}) AS principal`,
+              [token]
+            )
+          )
+        ).rows[0]?.count
+      expect(await principalCount(oldToken)).toBe(0)
+      expect(await principalCount(newToken)).toBe(1)
       expect(
         (
           await adminClient.query<{
-            familyStatus: string
-            sessionCount: number
+            newActive: number
+            oldSessions: number
           }>(
-            `SELECT family."status"::text AS "familyStatus",
+            `SELECT
+               (SELECT COUNT(*)::int FROM "Session" WHERE "id" = $1)
+                 AS "oldSessions",
                (SELECT COUNT(*)::int FROM "Session"
-                WHERE "sessionFamilyId" = family."id") AS "sessionCount"
-             FROM "AuthSessionFamily" AS family WHERE family."id" = $1`,
-            [familyId]
+                WHERE "id" = $2 AND "authorizationState" = 'ACTIVE')
+                 AS "newActive"`,
+            [oldSessionId, newSessionId]
           )
         ).rows
-      ).toEqual([{ familyStatus: 'REVOKED', sessionCount: 0 }])
+      ).toEqual([{ newActive: 1, oldSessions: 0 }])
     })
   }, 60_000)
 
@@ -777,18 +756,12 @@ describe('Reauthentication DB foundation', () => {
           await adminClient.query<{
             auditCount: number
             evidenceCount: number
-            familyCount: number
-            fenceCount: number
             intentCount: number
             sessionCount: number
             trustedExecutionCount: number
           }>(
             `SELECT
                (SELECT COUNT(*)::int FROM "Session") AS "sessionCount",
-               (SELECT COUNT(*)::int FROM "AuthSessionFamily")
-                 AS "familyCount",
-               (SELECT COUNT(*)::int FROM "AuthSessionRotationFence")
-                 AS "fenceCount",
                (SELECT COUNT(*)::int FROM "Phase7ReauthenticationIntent")
                  AS "intentCount",
                (SELECT COUNT(*)::int
@@ -985,7 +958,6 @@ describe('Reauthentication DB foundation', () => {
         client === appClient
           ? `SELECT "ipAddress" FROM "Session" LIMIT 1`
           : `SELECT "token" FROM "Session" LIMIT 1`,
-        `SELECT * FROM "AuthSessionRotationFence" LIMIT 1`,
         `SELECT * FROM "Phase7ReauthenticationIntent" LIMIT 1`,
         `SELECT * FROM "Phase7AuthorityRevocationEvidence" LIMIT 1`,
         `UPDATE "Session" SET "token" = "token" WHERE false`
@@ -1009,7 +981,6 @@ describe('Reauthentication DB foundation', () => {
            ('nihongo_erasure_worker'::name)
        ), sensitive_relations(relation_name) AS (
          VALUES ('User'::name), ('Account'::name), ('Session'::name),
-           ('AuthSessionFamily'::name), ('AuthSessionRotationFence'::name),
            ('Phase7ReauthenticationIntent'::name),
            ('Phase7AuthorityRevocationEvidence'::name)
        )
@@ -1031,8 +1002,7 @@ describe('Reauthentication DB foundation', () => {
             ON attribute.attrelid = relation.oid
           WHERE namespace.nspname = current_schema()
             AND relation.relname IN (
-              'User', 'Account', 'Session', 'AuthSessionFamily',
-              'AuthSessionRotationFence', 'Phase7ReauthenticationIntent',
+              'User', 'Account', 'Session', 'Phase7ReauthenticationIntent',
               'Phase7AuthorityRevocationEvidence'
             )
             AND attribute.attnum > 0
@@ -1052,8 +1022,10 @@ describe('Reauthentication DB foundation', () => {
     // Phase7AuthorityRevocationEvidence 2, and DELETE on the last two.
     // #504 P7 PR4a: account erasure adds Account 2 (id read, createdAt lock
     // only) and DELETE on User, AuthSessionFamily and AuthSessionRotationFence.
+    // #504 P7 PR4b-1 drops the family and fence tables and the family columns
+    // of Session and Phase7ReauthenticationIntent with their grants.
     expect(catalog.rows).toEqual([
-      { sensitiveColumnAclCount: 59, sensitiveTableAclCount: 6 }
+      { sensitiveColumnAclCount: 44, sensitiveTableAclCount: 4 }
     ])
   })
 
@@ -1261,7 +1233,8 @@ describe('Reauthentication DB foundation', () => {
     // #504 P7 PR4a: the erasure worker queue, direct erasure, report redaction
     // and the receipt status moved to the API.
     expect(rows.filter((row) => row.gateway).length).toBe(15)
-    expect(rows.filter((row) => row.erasure).length).toBe(4)
+    // #504 P7 PR4b-1 dropped phase7_cleanup_expired_auth_state.
+    expect(rows.filter((row) => row.erasure).length).toBe(3)
   })
 
   const createCommittedAdmin = async () => {
@@ -1311,42 +1284,26 @@ describe('Reauthentication DB foundation', () => {
         [admin.sessionId],
         '42501'
       )
-      // PR3a lets nihongo_app revoke a family, so a no-op ACTIVE write now
-      // reaches the ACTIVE to REVOKED rule.
-      await expectRoleFailure(
-        'nihongo_app',
-        `UPDATE "AuthSessionFamily" SET "status" = 'ACTIVE'
-         WHERE "userId" = $1`,
-        [admin.userId],
-        '23514'
-      )
     })
   })
 
-  it('#504 P7 PR3a: Session·family 트리거는 nihongo_app 직접 쓰기를 발급·갱신·로그아웃 조건일 때만 허용한다', async () => {
+  it('#504 P7 PR3a·PR4b-1: Session 트리거는 nihongo_app 직접 쓰기를 발급·갱신·V1 로그아웃일 때만 허용한다', async () => {
     const admin = await createCommittedAdmin()
-    const family = (
-      await adminClient.query<{ id: string }>(
-        `SELECT "sessionFamilyId" AS id FROM "Session" WHERE "id" = $1`,
-        [admin.sessionId]
-      )
-    ).rows[0]!.id
     const insertSession = (
       overrides: { generation?: number; issuer?: string; state?: string } = {}
     ) =>
       [
         `INSERT INTO "Session" (
          "id", "expiresAt", "token", "createdAt", "updatedAt", "userId",
-         "sessionFamilyId", "authorityGeneration", "issuerProtocolVersion"
+         "authorityGeneration", "issuerProtocolVersion"
        ) VALUES (
          $1, clock_timestamp() + INTERVAL '1 day', $2, clock_timestamp(),
-         clock_timestamp(), $3, $4, $5, $6::"AuthSessionIssuerProtocolVersion"
+         clock_timestamp(), $3, $4, $5::"AuthSessionIssuerProtocolVersion"
        )`,
         [
           randomUUID(),
           `phase7-pr3a-${randomUUID()}`,
           admin.userId,
-          family,
           overrides.generation ?? 1,
           overrides.issuer ?? 'PHASE7_V1'
         ]
@@ -1374,13 +1331,6 @@ describe('Reauthentication DB foundation', () => {
           )
         ).rows
       ).toEqual([{ generation: 1, oneDay: true }])
-      // A family for a missing User is refused before its foreign key.
-      await expectRoleFailure(
-        'nihongo_app',
-        'INSERT INTO "AuthSessionFamily" ("userId") VALUES ($1)',
-        [randomUUID()],
-        '42501'
-      )
       // Refresh: a 1 day Session never extends.
       await expectRoleFailure(
         'nihongo_app',
@@ -1388,28 +1338,51 @@ describe('Reauthentication DB foundation', () => {
         [admin.sessionId],
         '42501'
       )
-      // Sign-out: a Session of an ACTIVE family cannot be deleted.
+      // Identity columns stay closed to every runtime write.
       await expectRoleFailure(
         'nihongo_app',
+        `UPDATE "Session" SET "userId" = "userId" WHERE "id" = $1`,
+        [admin.sessionId],
+        '42501'
+      )
+      // #504 P7 PR4b-1: a non-V1 Session cannot be deleted by nihongo_app,
+      // and no other runtime role may delete a V1 Session.
+      const legacySessionId = randomUUID()
+      await adminClient.query('SET LOCAL session_replication_role = replica')
+      try {
+        await adminClient.query(
+          `INSERT INTO "Session" (
+             "id", "expiresAt", "token", "createdAt", "updatedAt", "userId",
+             "authorityGeneration", "issuerProtocolVersion"
+           ) VALUES (
+             $1, clock_timestamp() + INTERVAL '1 day', $2, clock_timestamp(),
+             clock_timestamp(), $3, 1, 'LEGACY'
+           )`,
+          [legacySessionId, `phase7-pr4b1-legacy-${randomUUID()}`, admin.userId]
+        )
+      } finally {
+        await adminClient.query('SET LOCAL session_replication_role = origin')
+      }
+      await expectRoleFailure(
+        'nihongo_app',
+        'DELETE FROM "Session" WHERE "id" = $1',
+        [legacySessionId],
+        '42501'
+      )
+      await expectRoleFailure(
+        'nihongo_auth_gateway',
         'DELETE FROM "Session" WHERE "id" = $1',
         [admin.sessionId],
         '42501'
       )
-      // Families are deleted only for a confirmed erasure (#504 P7 PR4a).
-      await expectRoleFailure(
-        'nihongo_app',
-        'DELETE FROM "AuthSessionFamily" WHERE "id" = $1',
-        [family],
-        '23514'
-      )
-      // After a revoke, the family takes no new Session.
+      // Sign-out: nihongo_app deletes the V1 Session itself.
       await adminClient.query('SET LOCAL ROLE "nihongo_app"')
-      await adminClient.query(
-        `UPDATE "AuthSessionFamily" SET "status" = 'REVOKED' WHERE "id" = $1`,
-        [family]
+      const deleted = await adminClient.query(
+        'DELETE FROM "Session" WHERE "id" = $1',
+        [admin.sessionId]
       )
       await adminClient.query('RESET ROLE')
-      await expectRoleFailure('nihongo_app', ...insertSession(), '42501')
+      expect(deleted.rowCount).toBe(1)
     })
   })
 
@@ -1422,18 +1395,12 @@ describe('Reauthentication DB foundation', () => {
         'nihongo_app',
         `INSERT INTO "Session" (
            "id", "expiresAt", "token", "createdAt", "updatedAt", "userId",
-           "sessionFamilyId", "authorityGeneration", "issuerProtocolVersion",
-           "authorizationState"
+           "authorityGeneration", "issuerProtocolVersion", "authorizationState"
          ) VALUES (
            $1, clock_timestamp() + INTERVAL '1 day', $2, clock_timestamp(),
-           clock_timestamp(), $3, $4, 1, 'PHASE7_V1', 'PENDING_REAUTH'
+           clock_timestamp(), $3, 1, 'PHASE7_V1', 'PENDING_REAUTH'
          )`,
-        [
-          randomUUID(),
-          `phase7-pr3b1-${randomUUID()}`,
-          staged.userId,
-          staged.familyId
-        ],
+        [randomUUID(), `phase7-pr3b1-${randomUUID()}`, staged.userId],
         '42501'
       )
       // PENDING to ACTIVE only for the staged Session of a live STAGED
@@ -1449,24 +1416,6 @@ describe('Reauthentication DB foundation', () => {
         'nihongo_app',
         `UPDATE "Session" SET "authorizationState" = 'ACTIVE' WHERE "id" = $1`,
         [staged.newSessionId],
-        '42501'
-      )
-      // The rotation fence needs the matching STAGED intent.
-      await expectRoleFailure(
-        'nihongo_app',
-        `INSERT INTO "AuthSessionRotationFence" (
-           "oldSessionId", "oldTokenDigest", "userId", "oldFamilyId",
-           "replacementFamilyId", "replacementSessionId", "operationId",
-           "expiresAt"
-         ) VALUES ($1, $2, $3, $4, $4, $5, $6, clock_timestamp() + INTERVAL '1 day')`,
-        [
-          staged.oldSessionId,
-          rotationFenceDigest(staged.oldToken),
-          staged.userId,
-          staged.familyId,
-          staged.newSessionId,
-          staged.prepared.operationId
-        ],
         '42501'
       )
       // Delete limits: a recently FINALIZED intent, a completed live proof and
@@ -1504,10 +1453,10 @@ describe('Reauthentication DB foundation', () => {
       const evidenceDigest = 'c'.repeat(64)
       await adminClient.query(
         `INSERT INTO "Phase7AuthorityRevocationEvidence" (
-           "tokenDigest", "sessionId", "familyId", "reason", "expiresAt"
-         ) VALUES ($1, $2, $3, 'SESSION_INVALIDATED',
+           "tokenDigest", "sessionId", "reason", "expiresAt"
+         ) VALUES ($1, $2, 'SESSION_INVALIDATED',
            clock_timestamp() + INTERVAL '10 minutes')`,
-        [evidenceDigest, staged.oldSessionId, staged.familyId]
+        [evidenceDigest, staged.oldSessionId]
       )
       await expectRoleFailure(
         'nihongo_app',
@@ -1573,20 +1522,10 @@ describe('Reauthentication DB foundation', () => {
       const otherUserId = randomUUID()
       await insertCredentialUser(userId, 'ADMIN')
       await insertCredentialUser(otherUserId, 'USER')
-      const familyId = await issueSession(
-        userId,
-        randomUUID(),
-        `phase7-pr4a-${randomUUID()}`
-      )
+      await issueSession(userId, randomUUID(), `phase7-pr4a-${randomUUID()}`)
       const deleteUser = 'DELETE FROM "User" WHERE "id" = $1'
-      // No confirmed erasure: the User, its family and its request stay.
+      // No confirmed erasure: the User and its request stay.
       await expectRoleFailure('nihongo_app', deleteUser, [userId], '42501')
-      await expectRoleFailure(
-        'nihongo_app',
-        'DELETE FROM "AuthSessionFamily" WHERE "id" = $1',
-        [familyId],
-        '23514'
-      )
       const receipt = 'e'.repeat(64)
       await adminClient.query(
         `INSERT INTO "SsoAccountErasureRequest" (
@@ -1643,34 +1582,73 @@ describe('Reauthentication DB foundation', () => {
         `SELECT
            (SELECT count(*)::int FROM "User" WHERE "id" = $1) AS users,
            (SELECT count(*)::int FROM "Account" WHERE "userId" = $1) AS accounts,
-           (SELECT count(*)::int FROM "Session" WHERE "userId" = $1) AS sessions,
-           (SELECT count(*)::int FROM "AuthSessionFamily" WHERE "userId" = $1)
-             AS families`,
+           (SELECT count(*)::int FROM "Session" WHERE "userId" = $1) AS sessions`,
         [userId]
       )
-      expect(remaining.rows).toEqual([
-        { users: 0, accounts: 0, sessions: 0, families: 0 }
-      ])
+      expect(remaining.rows).toEqual([{ users: 0, accounts: 0, sessions: 0 }])
     })
   })
 
-  it('#504 P7 PR3a: 세션 발급이 중간에 실패하면 family와 Session이 함께 rollback된다', async () => {
-    const admin = await createCommittedAdmin()
-    const familiesOf = async () =>
-      (
-        await adminClient.query<{ count: number }>(
-          `SELECT COUNT(*)::int AS count FROM "AuthSessionFamily"
-           WHERE "userId" = $1`,
-          [admin.userId]
+  it('#504 P7 PR4a: provider 정리가 일부만 COMPLETED면 erasure 확정이 아니다', async () => {
+    await withinRollback(async () => {
+      const userId = randomUUID()
+      await insertCredentialUser(userId, 'USER')
+      await adminClient.query('SET LOCAL session_replication_role = replica')
+      try {
+        await adminClient.query(
+          `UPDATE "User" SET "accountStatus" = 'DELETION_PENDING'
+           WHERE "id" = $1`,
+          [userId]
         )
-      ).rows[0]?.count
-    const before = await familiesOf()
-    // The family insert succeeds; the Session insert then fails on the
-    // existing Session id, so the whole issuance rolls back.
+      } finally {
+        await adminClient.query('SET LOCAL session_replication_role = origin')
+      }
+      const receipt = 'f'.repeat(64)
+      await adminClient.query(
+        `INSERT INTO "SsoAccountErasureRequest" (
+           "userId", "receiptDigest", "providerCleanup", "receiptExpiresAt"
+         ) VALUES (
+           $1, $2,
+           '[{"provider":"apple","status":"PENDING"},{"provider":"google","status":"COMPLETED"}]',
+           clock_timestamp() + INTERVAL '1 day'
+         )`,
+        [userId, receipt]
+      )
+      const confirmed = async () =>
+        (
+          await withExecutionRole('nihongo_app', () =>
+            adminClient.query<{ confirmed: boolean }>(
+              `SELECT "phase7_user_erasure_confirmed"($1) AS confirmed`,
+              [userId]
+            )
+          )
+        ).rows[0]?.confirmed
+      expect(await confirmed()).toBe(false)
+      await expectRoleFailure(
+        'nihongo_app',
+        'DELETE FROM "User" WHERE "id" = $1',
+        [userId],
+        '42501'
+      )
+      // Positive control: every provider cleanup COMPLETED confirms it.
+      await adminClient.query(
+        `UPDATE "SsoAccountErasureRequest"
+         SET "providerCleanup" =
+           '[{"provider":"apple","status":"COMPLETED"},{"provider":"google","status":"COMPLETED"}]'
+         WHERE "receiptDigest" = $1`,
+        [receipt]
+      )
+      expect(await confirmed()).toBe(true)
+    })
+  })
+
+  it('#504 P7 PR3a: 세션 발급이 중간에 실패하면 Session을 남기지 않는다', async () => {
+    const admin = await createCommittedAdmin()
+    // The Session insert fails on the existing Session id, so the whole
+    // issuance rolls back.
     await expect(
       issueSession(admin.userId, admin.sessionId, `phase7-pr3a-${randomUUID()}`)
     ).rejects.toMatchObject({ code: '23505' })
-    expect(await familiesOf()).toBe(before)
     expect(
       (
         await adminClient.query<{ count: number }>(

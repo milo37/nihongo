@@ -31,7 +31,6 @@ import {
 import { attestRuntimeRoles } from './runtimeRoleAttestation.js'
 
 const EXPECTED_RECENT_MIGRATIONS = [
-  '20261108090000_admin_member_console_to_api',
   '20261109090000_guest_cleanup_to_api',
   '20261110090000_cms_rules_to_api',
   '20261110100000_admin_audit_to_api',
@@ -41,7 +40,8 @@ const EXPECTED_RECENT_MIGRATIONS = [
   '20261113090000_admin_operation_to_api',
   '20261114090000_session_issuance_to_api',
   '20261115090000_admin_fresh_to_api',
-  '20261116090000_erasure_to_api'
+  '20261116090000_erasure_to_api',
+  '20261117090000_session_family_removal'
 ] as const
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',
@@ -520,14 +520,14 @@ afterAll(async () => {
 })
 
 describe('Persistence foundation', () => {
-  it('70 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
+  it('71 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
     const ledger = await client.query<{ migrationName: string }>(
       `SELECT migration_name AS "migrationName"
        FROM "_prisma_migrations"
        WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
        ORDER BY started_at`
     )
-    expect(ledger.rows).toHaveLength(70)
+    expect(ledger.rows).toHaveLength(71)
     expect(
       ledger.rows.slice(-11).map(({ migrationName }) => migrationName)
     ).toEqual(EXPECTED_RECENT_MIGRATIONS)
@@ -607,7 +607,7 @@ describe('Persistence foundation', () => {
              WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`
           )
         ).rows
-      ).toEqual([{ migrationCount: 70 }])
+      ).toEqual([{ migrationCount: 71 }])
     } finally {
       await client.query('ROLLBACK')
     }
@@ -1015,8 +1015,6 @@ describe('Persistence foundation', () => {
         [
           'AdminAuditLog',
           'AuthIssuerActivation',
-          'AuthSessionFamily',
-          'AuthSessionRotationFence',
           'ContentReview',
           'Phase7DatabaseCapability',
           'Phase7OperationIntent',
@@ -1029,8 +1027,6 @@ describe('Persistence foundation', () => {
     expect(tables.rows.map(({ name }) => name)).toEqual([
       'AdminAuditLog',
       'AuthIssuerActivation',
-      'AuthSessionFamily',
-      'AuthSessionRotationFence',
       'ContentReview',
       'Phase7DatabaseCapability',
       'Phase7OperationIntent',
@@ -1057,7 +1053,6 @@ describe('Persistence foundation', () => {
       [
         [
           'Account_deferred_credential_totality',
-          'AuthSessionRotationFence_deferred_replacement',
           'QuestionVersion_deferred_full_content',
           'QuestionVersion_deferred_question_aggregate',
           'QuestionVersion_protect_delete',
@@ -1069,7 +1064,6 @@ describe('Persistence foundation', () => {
     )
     expect(triggers.rows.map(({ name }) => name)).toEqual([
       'Account_deferred_credential_totality',
-      'AuthSessionRotationFence_deferred_replacement',
       'QuestionReport_deferred_remediation',
       'QuestionVersion_deferred_full_content',
       'QuestionVersion_deferred_question_aggregate',
@@ -1116,7 +1110,6 @@ describe('Persistence foundation', () => {
         [
           'phase7_activate_v1_issuer',
           'phase7_change_user_authority',
-          'phase7_cleanup_expired_auth_state',
           'phase7_close_trusted_execution',
           'phase7_create_question_report',
           'phase7_finish_admin_operation',
@@ -1133,7 +1126,7 @@ describe('Persistence foundation', () => {
         ]
       ]
     )
-    expect(publicExecute.rows).toHaveLength(16)
+    expect(publicExecute.rows).toHaveLength(15)
     expect(
       publicExecute.rows.filter(
         ({ ownerName, publicCanExecute }) =>
@@ -3649,10 +3642,8 @@ describe('Persistence foundation', () => {
     const wrongAuthorId = randomUUID()
     const wrongAuthorSessionId = randomUUID()
     const wrongAuthorSessionToken = `phase7-wrong-author-${randomUUID()}`
-    const spoofFamilyId = randomUUID()
     const spoofSessionId = randomUUID()
     const spoofSessionToken = `phase7-spoof-${randomUUID()}`
-    const appSpoofFamilyId = randomUUID()
     const wrongRoleSessionId = randomUUID()
     const wrongRoleSessionToken = `phase7-wrong-role-${randomUUID()}`
     await insertCredentialUser({ id: actorId, role: 'ADMIN' })
@@ -3663,49 +3654,31 @@ describe('Persistence foundation', () => {
       await client.query(`SET LOCAL app.phase7_auth_issue = 'on'`)
       await client.query(`SET LOCAL app.phase7_auth_remember = 'true'`)
       await client.query(
-        `INSERT INTO "AuthSessionFamily" ("id", "userId") VALUES ($1, $2)`,
-        [spoofFamilyId, actorId]
-      )
-      await client.query(
         `INSERT INTO "Session" (
             "id", "expiresAt", "token", "createdAt", "updatedAt",
-            "userId", "sessionFamilyId", "authorityGeneration",
-            "issuerProtocolVersion"
+            "userId", "authorityGeneration", "issuerProtocolVersion"
           ) VALUES (
             $1, clock_timestamp() + INTERVAL '1 day', $2,
-            clock_timestamp(), clock_timestamp(), $3, $4, 1, 'PHASE7_V1'
+            clock_timestamp(), clock_timestamp(), $3, 1, 'PHASE7_V1'
           )`,
-        [spoofSessionId, spoofSessionToken, actorId, spoofFamilyId]
+        [spoofSessionId, spoofSessionToken, actorId]
       )
     }, '42501')
     expect(
       (
         await client.query<{
-          familyCount: number
           sessionCount: number
           trustedExecutionCount: number
         }>(
           `SELECT
-            (SELECT COUNT(*)::int FROM "AuthSessionFamily" WHERE "id" = $1)
-              AS "familyCount",
             (SELECT COUNT(*)::int FROM "Session"
-              WHERE "id" = $2 OR "token" = $3) AS "sessionCount",
+              WHERE "id" = $1 OR "token" = $2) AS "sessionCount",
             (SELECT COUNT(*)::int FROM "Phase7TrustedExecution")
               AS "trustedExecutionCount"`,
-          [spoofFamilyId, spoofSessionId, spoofSessionToken]
+          [spoofSessionId, spoofSessionToken]
         )
       ).rows
-    ).toEqual([{ familyCount: 0, sessionCount: 0, trustedExecutionCount: 0 }])
-    // #504 P7 PR3a: nihongo_app issues families, but only for an ACTIVE User;
-    // a spoofed issuer setting grants nothing more.
-    await expectFailedTransaction(async () => {
-      await client.query(`SET LOCAL ROLE "nihongo_app"`)
-      await client.query(`SET LOCAL app.phase7_auth_issue = 'on'`)
-      await client.query(
-        `INSERT INTO "AuthSessionFamily" ("id", "userId") VALUES ($1, $2)`,
-        [appSpoofFamilyId, randomUUID()]
-      )
-    }, '42501')
+    ).toEqual([{ sessionCount: 0, trustedExecutionCount: 0 }])
     // #504 P7 PR1: nihongo_app may run gateway facades; another role may not.
     await expectFailedTransaction(async () => {
       await client.query(`SET LOCAL ROLE "nihongo_erasure_worker"`)
@@ -3720,16 +3693,13 @@ describe('Persistence foundation', () => {
     }, '42501')
     expect(
       (
-        await client.query<{ familyCount: number; sessionCount: number }>(
-          `SELECT
-            (SELECT COUNT(*)::int FROM "AuthSessionFamily" WHERE "id" = $1)
-              AS "familyCount",
-            (SELECT COUNT(*)::int FROM "Session"
-             WHERE "id" = $2 OR "token" = $3) AS "sessionCount"`,
-          [appSpoofFamilyId, wrongRoleSessionId, wrongRoleSessionToken]
+        await client.query<{ sessionCount: number }>(
+          `SELECT COUNT(*)::int AS "sessionCount" FROM "Session"
+           WHERE "id" = $1 OR "token" = $2`,
+          [wrongRoleSessionId, wrongRoleSessionToken]
         )
       ).rows
-    ).toEqual([{ familyCount: 0, sessionCount: 0 }])
+    ).toEqual([{ sessionCount: 0 }])
 
     const issued = await withExecutionRole('nihongo_app', () =>
       ownedSessionSql(
@@ -3758,20 +3728,11 @@ describe('Persistence foundation', () => {
       )
     ).resolves.toMatchObject({ rows: [{ signed_out: true }] })
 
-    const familyAfterSignOut = await client.query<{
-      sessionCount: number
-      status: string
-    }>(
-      `SELECT family."status"::text AS status,
-         (SELECT COUNT(*)::int FROM "Session"
-          WHERE "sessionFamilyId" = family."id") AS "sessionCount"
-       FROM "AuthSessionFamily" AS family
-       WHERE family."id" = $1`,
-      [issued.rows[0]!.familyId]
+    const afterSignOut = await client.query<{ sessionCount: number }>(
+      `SELECT COUNT(*)::int AS "sessionCount" FROM "Session" WHERE "id" = $1`,
+      [sessionId]
     )
-    expect(familyAfterSignOut.rows).toEqual([
-      { sessionCount: 0, status: 'REVOKED' }
-    ])
+    expect(afterSignOut.rows).toEqual([{ sessionCount: 0 }])
     const operationSession = await withExecutionRole('nihongo_app', () =>
       ownedSessionSql(
         client,
@@ -4165,7 +4126,6 @@ describe('Persistence foundation', () => {
     ).resolves.toMatchObject({ rows: [{ erased: true }] })
     const erased = await client.query<{
       auditCount: number
-      familyCount: number
       operationIntentCount: number
       questionActorId: string
       questionLabel: string
@@ -4189,8 +4149,6 @@ describe('Persistence foundation', () => {
         version."status"::text AS "versionStatus",
         version."retirementKind"::text AS "retirementKind",
         (SELECT COUNT(*)::int FROM "User" WHERE "id" = $1) AS "userCount",
-        (SELECT COUNT(*)::int FROM "AuthSessionFamily" WHERE "userId" = $1)
-          AS "familyCount",
         (SELECT COUNT(*)::int FROM "Phase7OperationIntent")
           AS "operationIntentCount",
         (SELECT COUNT(*)::int FROM "Phase7TrustedExecution")
@@ -4213,7 +4171,6 @@ describe('Persistence foundation', () => {
     expect(erased.rows).toEqual([
       {
         auditCount: 2,
-        familyCount: 0,
         operationIntentCount: 0,
         questionActorId: actorId,
         questionLabel: 'DELETED_ADMIN',
@@ -6041,161 +5998,6 @@ describe('Persistence foundation', () => {
     }
   }, 60_000)
 
-  it('auth cleanup은 captured expired set만 제거하고 동시 신규 발급은 보존한다', async () => {
-    const userId = randomUUID()
-    const expiredSessionId = randomUUID()
-    const freshSessionId = randomUUID()
-    const expiredToken = `phase7-expired-cleanup-${randomUUID()}`
-    const freshToken = `phase7-fresh-cleanup-${randomUUID()}`
-    await insertCredentialUser({ id: userId, role: 'USER' })
-    const expiredIssue = await withExecutionRole('nihongo_app', () =>
-      ownedSessionSql(
-        client,
-        `SELECT * FROM "phase7_issue_v1_session"(
-          $1, 1, 'USER', 'ACTIVE', $2, $3,
-          '127.0.0.1', 'phase7-expired-cleanup', false
-        )`,
-        [userId, expiredSessionId, expiredToken]
-      )
-    )
-    const expiredFamilyId = expiredIssue.rows[0]?.familyId ?? ''
-    expect(expiredFamilyId).not.toBe('')
-    await client.query('BEGIN')
-    try {
-      await client.query(`SET LOCAL session_replication_role = replica`)
-      await client.query(
-        `UPDATE "Session"
-         SET "expiresAt" = clock_timestamp() - INTERVAL '1 minute',
-             "createdAt" = clock_timestamp() - INTERVAL '2 minutes',
-             "updatedAt" = clock_timestamp() - INTERVAL '2 minutes'
-         WHERE "id" = $1`,
-        [expiredSessionId]
-      )
-      await client.query('COMMIT')
-    } catch (error: unknown) {
-      await client.query('ROLLBACK')
-      throw error
-    }
-
-    const cleanupClient = new Client({
-      connectionString: connectionUrl.toString(),
-      options: createPostgresStartupOptions(schema)
-    })
-    let issuerTransactionOpen = false
-    let cleanupPromise: Promise<unknown> | undefined
-    let freshFamilyId = ''
-    await cleanupClient.connect()
-    try {
-      const cleanupBackend = await cleanupClient.query<{ pid: number }>(
-        `SELECT pg_backend_pid() AS pid`
-      )
-      const cleanupBackendPid = cleanupBackend.rows[0]?.pid
-      if (!cleanupBackendPid) {
-        throw new Error('Auth cleanup backend PID is unavailable.')
-      }
-      await client.query('BEGIN')
-      issuerTransactionOpen = true
-      await client.query(`SELECT 1 FROM "User" WHERE "id" = $1 FOR UPDATE`, [
-        userId
-      ])
-      await cleanupClient.query(`SET ROLE "nihongo_erasure_worker"`)
-      cleanupPromise = cleanupClient.query(
-        `SELECT * FROM "phase7_cleanup_expired_auth_state"(1000, 'TEST')`
-      )
-      let lockObserved = false
-      for (let attempt = 0; attempt < 100; attempt += 1) {
-        const activity = await client.query<{ waitEventType: string | null }>(
-          `SELECT wait_event_type AS "waitEventType"
-           FROM pg_stat_activity WHERE pid = $1`,
-          [cleanupBackendPid]
-        )
-        if (activity.rows[0]?.waitEventType === 'Lock') {
-          lockObserved = true
-          break
-        }
-        await new Promise((resolve) => setTimeout(resolve, 10))
-      }
-      expect(lockObserved).toBe(true)
-      const issued = await withExecutionRole('nihongo_app', () =>
-        ownedSessionSql(
-          client,
-          `SELECT * FROM "phase7_issue_v1_session"(
-            $1, 1, 'USER', 'ACTIVE', $2, $3,
-            '127.0.0.1', 'phase7-cleanup-race', false
-          )`,
-          [userId, freshSessionId, freshToken]
-        )
-      )
-      freshFamilyId = issued.rows[0]?.familyId ?? ''
-      expect(freshFamilyId).not.toBe('')
-      await client.query('COMMIT')
-      issuerTransactionOpen = false
-      await expect(cleanupPromise).resolves.toMatchObject({
-        rows: [
-          {
-            familiesDeleted: 1,
-            fencesDeleted: 0,
-            sessionsDeleted: 1
-          }
-        ]
-      })
-    } finally {
-      if (issuerTransactionOpen) await client.query('ROLLBACK')
-      await cleanupPromise?.catch(() => undefined)
-      await cleanupClient.query('RESET ROLE').catch(() => undefined)
-      await cleanupClient.end()
-    }
-
-    expect(
-      (
-        await client.query<{
-          expiredFamilyCount: number
-          expiredSessionCount: number
-          freshFamilyStatus: string
-          freshSessionCount: number
-          trustedExecutionCount: number
-        }>(
-          `SELECT
-            (SELECT COUNT(*)::int FROM "Session" WHERE "id" = $1)
-              AS "expiredSessionCount",
-            (SELECT COUNT(*)::int FROM "AuthSessionFamily" WHERE "id" = $2)
-              AS "expiredFamilyCount",
-            (SELECT COUNT(*)::int FROM "Session"
-             WHERE "id" = $3 AND "token" = $4)
-              AS "freshSessionCount",
-            (SELECT "status"::text FROM "AuthSessionFamily" WHERE "id" = $5)
-              AS "freshFamilyStatus",
-            (SELECT COUNT(*)::int FROM "Phase7TrustedExecution")
-              AS "trustedExecutionCount"`,
-          [
-            expiredSessionId,
-            expiredFamilyId,
-            freshSessionId,
-            freshToken,
-            freshFamilyId
-          ]
-        )
-      ).rows
-    ).toEqual([
-      {
-        expiredFamilyCount: 0,
-        expiredSessionCount: 0,
-        freshFamilyStatus: 'ACTIVE',
-        freshSessionCount: 1,
-        trustedExecutionCount: 0
-      }
-    ])
-    await expect(
-      withExecutionRole('nihongo_app', () =>
-        bridgedQuery(
-          client,
-          `SELECT "phase7_erase_user"($1, 'TEST') AS erased`,
-          [userId]
-        )
-      )
-    ).resolves.toMatchObject({ rows: [{ erased: true }] })
-  })
-
   async function runLegacyCompatibility(): Promise<void> {
     expect(
       (
@@ -6780,7 +6582,6 @@ describe('Persistence foundation', () => {
     const reauthUserId = randomUUID()
     const oldSessionId = randomUUID()
     const oldSessionToken = `phase7-reauth-old-${randomUUID()}`
-    const replacementSessionId = oldSessionId
     await insertCredentialUser({ id: reauthUserId, role: 'ADMIN' })
     const oldSession = await withExecutionRole('nihongo_app', () =>
       ownedSessionSql(
@@ -6792,157 +6593,30 @@ describe('Persistence foundation', () => {
         [reauthUserId, oldSessionId, oldSessionToken]
       )
     )
-    const reauthFamilyId = oldSession.rows[0]?.familyId
-    if (!reauthFamilyId) {
-      throw new Error('Reauthentication family fixture is unavailable.')
-    }
     expect(
       (
-        await client.query<{
-          activeSessionCount: number
-          familyStatus: string
-        }>(
-          `SELECT family."status"::text AS "familyStatus",
-             (SELECT COUNT(*)::int FROM "Session"
-              WHERE "id" = $2 AND "authorizationState" = 'ACTIVE')
-                AS "activeSessionCount"
-           FROM "AuthSessionFamily" AS family WHERE family."id" = $1`,
-          [reauthFamilyId, oldSessionId]
+        await client.query<{ activeSessionCount: number }>(
+          `SELECT COUNT(*)::int AS "activeSessionCount" FROM "Session"
+           WHERE "id" = $1 AND "authorizationState" = 'ACTIVE'`,
+          [oldSessionId]
         )
       ).rows
-    ).toEqual([
-      {
-        activeSessionCount: 1,
-        familyStatus: 'ACTIVE'
-      }
-    ])
+    ).toEqual([{ activeSessionCount: 1 }])
+    expect(oldSession.rows[0]?.id).toBe(oldSessionId)
 
+    // #504 P7 PR4b-1 dropped the rotation fence and its deferred verifier.
     const mismatchUserId = randomUUID()
-    const mismatchSessionId = randomUUID()
-    const mismatchSessionToken = `phase7-fence-mismatch-${randomUUID()}`
-    const alternateSessionId = randomUUID()
-    const alternateSessionToken = `phase7-fence-alternate-${randomUUID()}`
     await insertCredentialUser({ id: mismatchUserId, role: 'USER' })
-    const mismatchSession = await withExecutionRole('nihongo_app', () =>
+    await withExecutionRole('nihongo_app', () =>
       ownedSessionSql(
         client,
         `SELECT * FROM "phase7_issue_v1_session"(
             $1, 1, 'USER', 'ACTIVE', $2, $3,
             '127.0.0.1', 'phase7-fence-mismatch', false
           )`,
-        [mismatchUserId, mismatchSessionId, mismatchSessionToken]
+        [mismatchUserId, randomUUID(), `phase7-mismatch-${randomUUID()}`]
       )
     )
-    const alternateSession = await withExecutionRole('nihongo_app', () =>
-      ownedSessionSql(
-        client,
-        `SELECT * FROM "phase7_issue_v1_session"(
-            $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
-            '127.0.0.1', 'phase7-fence-alternate', false
-          )`,
-        [reauthUserId, alternateSessionId, alternateSessionToken]
-      )
-    )
-    const mismatchFamilyId = mismatchSession.rows[0]?.familyId
-    const alternateFamilyId = alternateSession.rows[0]?.familyId
-    if (!mismatchFamilyId || !alternateFamilyId) {
-      throw new Error(
-        'Rotation fence negative Session fixtures are unavailable.'
-      )
-    }
-    const invalidFenceOperationIds: string[] = []
-    const expectInvalidFenceCommit = async (input: {
-      mutation: 'CROSS_TUPLE' | 'INSERT_THEN_DELETE' | 'SESSION_DRIFT'
-    }): Promise<void> => {
-      const operationId = randomUUID()
-      invalidFenceOperationIds.push(operationId)
-      await expectFailedTransaction(async () => {
-        await client.query(`SET LOCAL ROLE "nihongo_phase7_owner"`)
-        const execution = await client.query<{ id: string }>(
-          `SELECT "phase7_open_trusted_execution"(
-            'REAUTHENTICATE', $1, false
-          ) AS id`,
-          [reauthUserId]
-        )
-        const executionId = execution.rows[0]?.id
-        if (!executionId) {
-          throw new Error('Rotation fence negative execution is unavailable.')
-        }
-        await client.query(
-          `INSERT INTO "AuthSessionRotationFence" (
-            "oldSessionId", "oldTokenDigest", "userId", "oldFamilyId",
-            "replacementFamilyId", "replacementSessionId", "operationId",
-            "expiresAt"
-          ) VALUES (
-            $1, $2, $3, $4, $4, $5, $6,
-            clock_timestamp() + INTERVAL '1 day'
-          )`,
-          [
-            randomUUID(),
-            createHash('sha256')
-              .update(`phase7-invalid-fence-${operationId}`, 'utf8')
-              .digest('hex'),
-            reauthUserId,
-            reauthFamilyId,
-            input.mutation === 'CROSS_TUPLE'
-              ? mismatchSessionId
-              : replacementSessionId,
-            operationId
-          ]
-        )
-        if (input.mutation === 'INSERT_THEN_DELETE') {
-          await client.query(`DELETE FROM "Session" WHERE "id" = $1`, [
-            replacementSessionId
-          ])
-        } else if (input.mutation === 'SESSION_DRIFT') {
-          await client.query(`RESET ROLE`)
-          await client.query(`SET LOCAL session_replication_role = replica`)
-          try {
-            await client.query(
-              `UPDATE "Session" SET "sessionFamilyId" = $2 WHERE "id" = $1`,
-              [replacementSessionId, alternateFamilyId]
-            )
-          } finally {
-            await client.query(`SET LOCAL session_replication_role = origin`)
-          }
-          await client.query(`SET LOCAL ROLE "nihongo_phase7_owner"`)
-        }
-        await client.query(`SELECT "phase7_close_trusted_execution"($1)`, [
-          executionId
-        ])
-        await client.query('COMMIT')
-      }, '23503')
-    }
-    await expectInvalidFenceCommit({ mutation: 'CROSS_TUPLE' })
-    await expectInvalidFenceCommit({ mutation: 'INSERT_THEN_DELETE' })
-    await expectInvalidFenceCommit({ mutation: 'SESSION_DRIFT' })
-    expect(
-      (
-        await client.query<{
-          familyId: string
-          invalidFenceCount: number
-          replacementSessionCount: number
-          trustedExecutionCount: number
-        }>(
-          `SELECT session."sessionFamilyId"::text AS "familyId",
-             COUNT(*)::int AS "replacementSessionCount",
-             (SELECT COUNT(*)::int FROM "AuthSessionRotationFence"
-              WHERE "operationId" = ANY($2::uuid[])) AS "invalidFenceCount",
-             (SELECT COUNT(*)::int FROM "Phase7TrustedExecution")
-               AS "trustedExecutionCount"
-           FROM "Session" AS session WHERE session."id" = $1
-           GROUP BY session."sessionFamilyId"`,
-          [replacementSessionId, invalidFenceOperationIds]
-        )
-      ).rows
-    ).toEqual([
-      {
-        familyId: reauthFamilyId,
-        invalidFenceCount: 0,
-        replacementSessionCount: 1,
-        trustedExecutionCount: 0
-      }
-    ])
 
     // The password reset race probes were dropped with the reset functions
     // in #504 P6a.
@@ -6952,12 +6626,12 @@ describe('Persistence foundation', () => {
       await client.query(
         `INSERT INTO "Session" (
             "id", "expiresAt", "token", "createdAt", "updatedAt", "userId",
-            "sessionFamilyId", "authorityGeneration", "issuerProtocolVersion"
+            "authorityGeneration", "issuerProtocolVersion"
           ) VALUES (
             $1, clock_timestamp() + INTERVAL '1 day', $2,
-            clock_timestamp(), clock_timestamp(), $3, $4, 1, 'LEGACY'
+            clock_timestamp(), clock_timestamp(), $3, 1, 'LEGACY'
           )`,
-        [randomUUID(), `late-legacy-${randomUUID()}`, userId, randomUUID()]
+        [randomUUID(), `late-legacy-${randomUUID()}`, userId]
       )
     }, '42501')
     expect(

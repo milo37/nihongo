@@ -57,8 +57,7 @@ export const selectDatabaseGlobalOmit = (
         session: {
           authorityGeneration: true,
           authorizationState: true,
-          issuerProtocolVersion: true,
-          sessionFamilyId: true
+          issuerProtocolVersion: true
         },
         user: { authorityGeneration: true },
         verification: {

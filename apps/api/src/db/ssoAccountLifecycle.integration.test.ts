@@ -87,11 +87,11 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       expect(
         (
           await h.owner.query(
-            'SELECT (SELECT count(*)::int FROM "Session" WHERE "userId"=$1) AS sessions,(SELECT count(*)::int FROM "AuthSessionFamily" WHERE "userId"=$1 AND status=\'ACTIVE\') AS active,(SELECT count(*)::int FROM "Account" WHERE "userId"=$1 AND "providerId" IN (\'apple\',\'google\')) AS accounts',
+            'SELECT (SELECT count(*)::int FROM "Session" WHERE "userId"=$1) AS sessions,(SELECT count(*)::int FROM "Account" WHERE "userId"=$1 AND "providerId" IN (\'apple\',\'google\')) AS accounts',
             [f.userId]
           )
         ).rows
-      ).toEqual([{ sessions: 0, active: 0, accounts: 1 }])
+      ).toEqual([{ sessions: 0, accounts: 1 }])
       const remaining = await h.fixture('google', 'USER')
       expect(
         await gateway(
@@ -167,11 +167,11 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       expect(
         (
           await h.owner.query(
-            'SELECT (SELECT count(*)::int FROM "Session" WHERE "userId"=$1) AS sessions,(SELECT count(*)::int FROM "AuthSessionFamily" WHERE "userId"=$1 AND status=\'ACTIVE\') AS active,(SELECT "accountStatus"::text FROM "User" WHERE id=$1) AS status',
+            'SELECT (SELECT count(*)::int FROM "Session" WHERE "userId"=$1) AS sessions,(SELECT "accountStatus"::text FROM "User" WHERE id=$1) AS status',
             [f.userId]
           )
         ).rows
-      ).toEqual([{ sessions: 0, active: 0, status: 'DELETION_PENDING' }])
+      ).toEqual([{ sessions: 0, status: 'DELETION_PENDING' }])
       const job = (
         await h.owner.query<{ id: string }>(
           'SELECT id FROM "SsoAccountErasureRequest" WHERE "receiptDigest"=$1',

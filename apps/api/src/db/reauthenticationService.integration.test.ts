@@ -155,9 +155,9 @@ const issueSession = async (
   userId: string,
   sessionId: string,
   token: string
-): Promise<{ expiresAt: Date; familyId: string }> => {
+): Promise<{ expiresAt: Date }> => {
   const result = await withRole('nihongo_app', () =>
-    ownedSessionSql<{ expiresAt: Date; familyId: string }>(
+    ownedSessionSql<{ expiresAt: Date }>(
       adminClient,
       `SELECT * FROM "phase7_issue_v1_session"(
         $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
@@ -198,7 +198,6 @@ const createFixture = async (
   })
   return {
     email,
-    familyId: session.familyId,
     headers,
     passwordHash,
     requestId,
@@ -275,11 +274,10 @@ const completeSsoFresh = async (
   if (!parsed.token) throw new Error('SSO fresh fixture cookie is unavailable.')
   const session = await adminClient.query<{
     id: string
-    familyId: string
     createdAt: Date
     expiresAt: Date
   }>(
-    `SELECT "id", "sessionFamilyId" AS "familyId", "createdAt", "expiresAt"
+    `SELECT "id", "createdAt", "expiresAt"
      FROM "Session" WHERE "token" = $1 AND "userId" = $2`,
     [parsed.token, fixture.userId]
   )
@@ -303,7 +301,6 @@ const completeSsoFresh = async (
     createdAt: current.createdAt,
     fixture: {
       ...fixture,
-      familyId: current.familyId,
       sessionId: current.id,
       token: parsed.token,
       headers: replacementHeaders
@@ -1046,7 +1043,6 @@ const readWriteSnapshot = async () =>
   (
     await adminClient.query<{
       auditCount: number
-      fenceCount: number
       intentCount: number
       rateLimitCount: number
       sessionCount: number
@@ -1056,8 +1052,6 @@ const readWriteSnapshot = async () =>
          (SELECT COUNT(*)::int FROM "Session") AS "sessionCount",
          (SELECT COUNT(*)::int FROM "Phase7ReauthenticationIntent")
            AS "intentCount",
-         (SELECT COUNT(*)::int FROM "AuthSessionRotationFence")
-           AS "fenceCount",
          (SELECT COUNT(*)::int FROM "AdminAuditLog") AS "auditCount",
          (SELECT COUNT(*)::int FROM "RateLimit") AS "rateLimitCount",
          (SELECT COUNT(*)::int FROM "Phase7TrustedExecution")
@@ -1141,7 +1135,6 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
     const proof = await adminClient.query<{
       auditBeforeState: string
       auditCount: number
-      fenceCount: number
       intentState: string
       oldSessionCount: number
       replacementCount: number
@@ -1158,10 +1151,6 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
            AS "replacementCount",
          (SELECT "state"::text FROM "Phase7ReauthenticationIntent"
           WHERE "id" = $2) AS "intentState",
-         (SELECT COUNT(*)::int FROM "AuthSessionRotationFence" AS fence
-          JOIN "Phase7ReauthenticationIntent" AS intent
-            ON intent."operationId" = fence."operationId"
-          WHERE intent."id" = $2) AS "fenceCount",
          (SELECT COUNT(*)::int FROM "AdminAuditLog"
           WHERE "requestId" = (SELECT "requestId" FROM "Phase7ReauthenticationIntent" WHERE "id" = $2) AND "command" = 'REAUTHENTICATION')
            AS "auditCount",
@@ -1174,7 +1163,6 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
       {
         auditBeforeState: 'SESSION_STALE',
         auditCount: 1,
-        fenceCount: 1,
         intentState: 'FINALIZED',
         oldSessionCount: 0,
         replacementCount: 1
@@ -1941,7 +1929,6 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
 
     const proof = await adminClient.query<{
       auditCount: number
-      fenceCount: number
       intentCount: number
       oldActiveCount: number
     }>(
@@ -1951,10 +1938,6 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
            AS "oldActiveCount",
          (SELECT COUNT(*)::int FROM "Phase7ReauthenticationIntent"
           WHERE "requestId" = $2) AS "intentCount",
-         (SELECT COUNT(*)::int FROM "AuthSessionRotationFence" AS fence
-          JOIN "Phase7ReauthenticationIntent" AS intent
-            ON intent."operationId" = fence."operationId"
-          WHERE intent."requestId" = $2) AS "fenceCount",
          (SELECT COUNT(*)::int FROM "AdminAuditLog"
           WHERE "requestId" = $2 AND "command" = 'REAUTHENTICATION')
            AS "auditCount"`,
@@ -1963,7 +1946,6 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
     expect(proof.rows).toEqual([
       {
         auditCount: 0,
-        fenceCount: 0,
         intentCount: 0,
         oldActiveCount: 1
       }
@@ -2069,7 +2051,7 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
     expect(classifierResponse.headers.getSetCookie()).toHaveLength(0)
   })
 
-  it('finalize와 logout/role-change 경합은 revoked authority 뒤 active Session 0으로 선형화된다', async () => {
+  it('finalize와 logout/role-change 경합은 옛 Session을 남기지 않고 revoked authority로 선형화된다', async () => {
     const logoutTarget = await createFixture()
     const logoutStage = await prepareAndStage(logoutTarget)
     const [logoutFinalize, logout] = await Promise.allSettled([
@@ -2091,24 +2073,29 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
         (logoutFinalize.reason as { code?: unknown }).code
       )
     }
+    // #504 P7 PR4b-1 (fence option A): the old Session is gone either way. If
+    // finalize won, the replacement stays; the old token no longer reaches it.
     expect(
       (
         await adminClient.query<{
           activeCount: number
-          familyStatus: string
-          sessionCount: number
+          oldSessionCount: number
         }>(
-          `SELECT family."status"::text AS "familyStatus",
+          `SELECT
+             (SELECT COUNT(*)::int FROM "Session" WHERE "id" = $2)
+               AS "oldSessionCount",
              (SELECT COUNT(*)::int FROM "Session"
-              WHERE "sessionFamilyId" = family."id") AS "sessionCount",
-             (SELECT COUNT(*)::int FROM "Session"
-              WHERE "sessionFamilyId" = family."id"
-                AND "authorizationState" = 'ACTIVE') AS "activeCount"
-           FROM "AuthSessionFamily" AS family WHERE family."id" = $1`,
-          [logoutTarget.familyId]
+              WHERE "userId" = $1 AND "authorizationState" = 'ACTIVE')
+               AS "activeCount"`,
+          [logoutTarget.userId, logoutTarget.sessionId]
         )
       ).rows
-    ).toEqual([{ activeCount: 0, familyStatus: 'REVOKED', sessionCount: 0 }])
+    ).toEqual([
+      {
+        activeCount: logoutFinalize.status === 'fulfilled' ? 1 : 0,
+        oldSessionCount: 0
+      }
+    ])
 
     const authorityTarget = await createFixture()
     const authorityStage = await prepareAndStage(authorityTarget)

@@ -91,7 +91,6 @@ interface BrowserDatabaseSnapshot {
   readonly reauthenticationIntent: number
   readonly report: number
   readonly review: number
-  readonly rotationFence: number
   readonly user: number
   readonly version: number
   readonly versionTag: number
@@ -153,7 +152,6 @@ const readSnapshot = async (
        (SELECT COUNT(*)::int FROM "AdminAuditLog") AS "audit",
        (SELECT COUNT(*)::int FROM "AdminAuditLog"
          WHERE "command" = 'IMPORT_APPLY') AS "importApply",
-       (SELECT COUNT(*)::int FROM "AuthSessionRotationFence") AS "rotationFence",
        (SELECT COUNT(*)::int FROM "Phase7ReauthenticationIntent")
          AS "reauthenticationIntent",
        (SELECT COUNT(*)::int FROM "Phase7ReauthenticationIntent"
@@ -394,7 +392,6 @@ const createBrowserFixtureDatabase = (
         'audit',
         (a1a8 ? 3 + 2 * imported : 10 + 12 + 2) + reauthentications
       )
-      assertDelta(before, after, 'rotationFence', reauthentications)
       assertDelta(before, after, 'reauthenticationIntent', reauthentications)
       assertDelta(before, after, 'reauthenticationFinalized', reauthentications)
       assertDelta(before, after, 'operationIntent', 0)
@@ -406,7 +403,6 @@ const createBrowserFixtureDatabase = (
               userId: string
               finalized: boolean
               proof: boolean
-              fence: boolean
               audit: boolean
               proofCount: number
             }>(
@@ -427,14 +423,6 @@ const createBrowserFixtureDatabase = (
                    AND proof."context"->>'provider' = 'google'
                    AND proof."completedSessionId" = intent."stagedSessionId"
                    AND proof."completedAt" IS NOT NULL) AS "proof",
-               (SELECT COUNT(*) = 1 FROM "AuthSessionRotationFence" AS fence
-                 WHERE fence."operationId" = intent."operationId"
-                   AND fence."userId" = intent."userId"
-                   AND fence."oldSessionId" = intent."oldSessionId"
-                   AND fence."oldTokenDigest" = intent."oldFenceTokenDigest"
-                   AND fence."replacementSessionId" = intent."stagedSessionId"
-                   AND fence."oldFamilyId" = intent."sessionFamilyId"
-                   AND fence."replacementFamilyId" = intent."sessionFamilyId") AS "fence",
                (SELECT COUNT(*) = 1 FROM "AdminAuditLog" AS audit
                  WHERE audit."operationId" = intent."operationId"
                    AND audit."command" = 'REAUTHENTICATION'
@@ -468,7 +456,6 @@ const createBrowserFixtureDatabase = (
             (row) =>
               row.finalized !== true ||
               row.proof !== true ||
-              row.fence !== true ||
               row.audit !== true ||
               row.proofCount !== reauthentications
           )
@@ -821,7 +808,6 @@ const createSsoBrowserApiFixture = async (
     accountCount: number
     bookmarkCount: number
     sessionCount: number
-    familyCount: number
   }
   type SaveBookmarkRow = ReconciliationCounts & {
     studyId: string
@@ -832,7 +818,6 @@ const createSsoBrowserApiFixture = async (
     bookmarkId: string
     userDigest: string
     accountDigest: string
-    familyDigest: string
     studyDigest: string
     questionsDigest: string
     bookmarkDigest: string
@@ -844,7 +829,6 @@ const createSsoBrowserApiFixture = async (
     SaveBookmarkRow & {
       userId: string
       sessionId: string
-      familyId: string
       sessionDigest: string
     }
   >
@@ -853,7 +837,6 @@ const createSsoBrowserApiFixture = async (
     userUnchanged: boolean
     accountUnchanged: boolean
     oldL0Expired: boolean
-    oldF0Active: boolean
     login2SessionValid: boolean
     samePracticeRetained: boolean
     answerARetained: boolean
@@ -861,20 +844,18 @@ const createSsoBrowserApiFixture = async (
   }
   type ReconciliationReceipt = Readonly<{
     baselineOwnedUserAccountCaptured: boolean
-    baselineOwnedSessionFamilyCaptured: boolean
+    baselineOwnedSessionCaptured: boolean
     saveAnswerABeforeBookmarkB: boolean
     saveBookmarkUserDelta: number
     saveBookmarkAccountDelta: number
     saveBookmarkBookmarkDelta: number
     ownedSessionExpiryArmedOnce: number
     oldL0Expired: boolean
-    oldF0Active: boolean
     login2SameInternalUserU: boolean
     login2UserDeltaFromSaveBookmark: number
     login2AccountDeltaFromSaveBookmark: number
     login2BookmarkDeltaFromSaveBookmark: number
     login2SessionDeltaFromSaveBookmark: number
-    login2FamilyDeltaFromSaveBookmark: number
     samePracticeRetained: boolean
     answerARetained: boolean
     bookmarkBRetained: boolean
@@ -884,15 +865,13 @@ const createSsoBrowserApiFixture = async (
     (SELECT count(*)::int FROM "User") AS "userCount",
     (SELECT count(*)::int FROM "Account") AS "accountCount",
     (SELECT count(*)::int FROM "Bookmark") AS "bookmarkCount",
-    (SELECT count(*)::int FROM "Session") AS "sessionCount",
-    (SELECT count(*)::int FROM "AuthSessionFamily") AS "familyCount"`
+    (SELECT count(*)::int FROM "Session") AS "sessionCount"`
   const countsAreSafe = (counts: ReconciliationCounts): boolean =>
     [
       counts.userCount,
       counts.accountCount,
       counts.bookmarkCount,
-      counts.sessionCount,
-      counts.familyCount
+      counts.sessionCount
     ].every((value) => Number.isSafeInteger(value) && value >= 0)
   const projectReconciliation = (
     first: OwnedSession,
@@ -907,10 +886,8 @@ const createSsoBrowserApiFixture = async (
         saved.userId === first.userId &&
         saved.userDigest !== '' &&
         saved.accountDigest !== '',
-      baselineOwnedSessionFamilyCaptured:
-        saved.sessionId === first.id &&
-        saved.familyId !== '' &&
-        saved.sessionDigest !== '',
+      baselineOwnedSessionCaptured:
+        saved.sessionId === first.id && saved.sessionDigest !== '',
       saveAnswerABeforeBookmarkB: saved.saveAnswerABeforeBookmarkB,
       // SAVE+B deltas end at the frozen expiry checkpoint, not at login2.
       saveBookmarkUserDelta: expired.userCount - saved.userCount,
@@ -918,7 +895,6 @@ const createSsoBrowserApiFixture = async (
       saveBookmarkBookmarkDelta: expired.bookmarkCount - saved.bookmarkCount,
       ownedSessionExpiryArmedOnce: mutationCount,
       oldL0Expired: current.oldL0Expired,
-      oldF0Active: current.oldF0Active,
       login2SameInternalUserU:
         login2.userId === saved.userId &&
         current.login2SessionValid &&
@@ -932,8 +908,6 @@ const createSsoBrowserApiFixture = async (
         current.bookmarkCount - expired.bookmarkCount,
       login2SessionDeltaFromSaveBookmark:
         current.sessionCount - expired.sessionCount,
-      login2FamilyDeltaFromSaveBookmark:
-        current.familyCount - expired.familyCount,
       samePracticeRetained: current.samePracticeRetained,
       answerARetained: current.answerARetained,
       bookmarkBRetained: current.bookmarkBRetained
@@ -1016,27 +990,24 @@ const createSsoBrowserApiFixture = async (
         if (user.rowCount !== 1) throw failure()
         const selected = await owner.query<{
           id: string
-          familyId: string
           expiresAt: Date
           matchesToken: boolean
           immutableDigest: string
         }>(
-          `SELECT session.id, family.id AS "familyId", session."expiresAt",
+          `SELECT session.id, session."expiresAt",
               session.token = $2 AS "matchesToken",
               md5((to_jsonb(session) - 'expiresAt')::text) AS "immutableDigest"
             FROM "Session" session
             JOIN "User" target ON target.id = session."userId"
-            JOIN "AuthSessionFamily" family ON family.id = session."sessionFamilyId"
-              AND family."userId" = target.id
             WHERE target.id = $1::uuid AND target.role = 'USER'
               AND target."accountStatus" = 'ACTIVE'
               AND session."authorityGeneration" = target."authorityGeneration"
               AND session."issuerProtocolVersion" = 'PHASE7_V1'
-              AND session."authorizationState" = 'ACTIVE' AND family.status = 'ACTIVE'
+              AND session."authorizationState" = 'ACTIVE'
               AND session."expiresAt" > clock_timestamp()
               AND session."expiresAt" > session."createdAt" + INTERVAL '1 day'
               AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()
-            FOR UPDATE OF session, family`,
+            FOR UPDATE OF session`,
           [session.userId, session.token]
         )
         const original = selected.rows[0]
@@ -1056,7 +1027,6 @@ const createSsoBrowserApiFixture = async (
               answer."selectedOptionId" AS "optionId", bookmark.id AS "bookmarkId",
               md5(to_jsonb(target)::text) AS "userDigest",
               md5(to_jsonb(account)::text) AS "accountDigest",
-              md5(to_jsonb(family)::text) AS "familyDigest",
               md5(to_jsonb(study)::text) AS "studyDigest",
               (SELECT md5(coalesce(string_agg(to_jsonb(pin)::text, E'\\n' ORDER BY pin.ordinal), ''))
                 FROM "StudySessionQuestion" pin WHERE pin."studySessionId" = study.id) AS "questionsDigest",
@@ -1079,7 +1049,6 @@ const createSsoBrowserApiFixture = async (
             JOIN "Account" account ON account."userId" = target.id
               AND account."providerId" = $2 AND account."accountId" = $3
             JOIN "Session" session ON session.id = $4::uuid AND session."userId" = target.id
-            JOIN "AuthSessionFamily" family ON family.id = $5::uuid AND family."userId" = target.id
             JOIN "StudySessionQuestion" question ON question."studySessionId" = study.id AND question.ordinal = 1
             JOIN "StudyDraft" draft ON draft."studySessionId" = study.id
             JOIN "StudyDraftAnswer" answer ON answer."studySessionId" = study.id
@@ -1102,8 +1071,7 @@ const createSsoBrowserApiFixture = async (
             session.userId,
             expectedIdentity.provider,
             expectedIdentity.accountId,
-            session.id,
-            original.familyId
+            session.id
           ]
         )
         const checkpoint = saved.rows[0]
@@ -1118,7 +1086,6 @@ const createSsoBrowserApiFixture = async (
           ...checkpoint,
           userId: session.userId,
           sessionId: session.id,
-          familyId: original.familyId,
           sessionDigest: original.immutableDigest
         })
         await owner.query('SET LOCAL session_replication_role = replica')
@@ -1130,17 +1097,15 @@ const createSsoBrowserApiFixture = async (
             UPDATE "Session" session SET "expiresAt" = deadline.value
             FROM deadline
             WHERE session.id = $1::uuid AND session."userId" = $2::uuid
-              AND session."sessionFamilyId" = $3::uuid
-              AND session."expiresAt" = $4::timestamptz
+              AND session."expiresAt" = $3::timestamptz
               AND session."createdAt" < deadline.value
               AND deadline.value < session."expiresAt"
               AND deadline.value > clock_timestamp()
             RETURNING session."expiresAt",
-              md5((to_jsonb(session) - 'expiresAt')::text) = $5 AS preserved`,
+              md5((to_jsonb(session) - 'expiresAt')::text) = $4 AS preserved`,
           [
             session.id,
             session.userId,
-            original.familyId,
             original.expiresAt,
             original.immutableDigest
           ]
@@ -1163,17 +1128,14 @@ const createSsoBrowserApiFixture = async (
           if (ownerFailed || disconnectPromise) throw failure()
           const crossed = await owner.query<{ expired: boolean }>(
             `SELECT session."expiresAt" <= clock_timestamp() AS expired
-              FROM "Session" session JOIN "AuthSessionFamily" family
-                ON family.id = session."sessionFamilyId" AND family."userId" = session."userId"
+              FROM "Session" session
               WHERE session.id = $1::uuid AND session."userId" = $2::uuid
-                AND session."sessionFamilyId" = $3::uuid
-                AND session."expiresAt" = $4::timestamptz
-                AND session."authorizationState" = 'ACTIVE' AND family.status = 'ACTIVE'
-                AND md5((to_jsonb(session) - 'expiresAt')::text) = $5`,
+                AND session."expiresAt" = $3::timestamptz
+                AND session."authorizationState" = 'ACTIVE'
+                AND md5((to_jsonb(session) - 'expiresAt')::text) = $4`,
             [
               session.id,
               session.userId,
-              original.familyId,
               armed.expiresAt,
               original.immutableDigest
             ]
@@ -1277,49 +1239,43 @@ const createSsoBrowserApiFixture = async (
         const rows = await owner.query<FinalReconciliationRow>(
           `SELECT ${reconciliationCountsSql},
             EXISTS (SELECT 1 FROM "User" target WHERE target.id = $1::uuid
-              AND md5(to_jsonb(target)::text) = $9) AS "userUnchanged",
+              AND md5(to_jsonb(target)::text) = $8) AS "userUnchanged",
             EXISTS (SELECT 1 FROM "Account" account WHERE account."userId" = $1::uuid
-              AND md5(to_jsonb(account)::text) = $10) AS "accountUnchanged",
+              AND md5(to_jsonb(account)::text) = $9) AS "accountUnchanged",
             EXISTS (SELECT 1 FROM "Session" session WHERE session.id = $2::uuid
-              AND session."userId" = $1::uuid AND session."sessionFamilyId" = $3::uuid
-              AND session."expiresAt" = $4::timestamptz AND session."expiresAt" <= clock_timestamp()
-              AND md5((to_jsonb(session) - 'expiresAt')::text) = $5) AS "oldL0Expired",
-            EXISTS (SELECT 1 FROM "AuthSessionFamily" family WHERE family.id = $3::uuid
-              AND family."userId" = $1::uuid AND family.status = 'ACTIVE'
-              AND family."revokedAt" IS NULL AND md5(to_jsonb(family)::text) = $22) AS "oldF0Active",
+              AND session."userId" = $1::uuid
+              AND session."expiresAt" = $3::timestamptz AND session."expiresAt" <= clock_timestamp()
+              AND md5((to_jsonb(session) - 'expiresAt')::text) = $4) AS "oldL0Expired",
             EXISTS (SELECT 1 FROM "Session" session
               JOIN "User" target ON target.id = session."userId"
-              JOIN "AuthSessionFamily" family ON family.id = session."sessionFamilyId" AND family."userId" = target.id
-              WHERE session.id = $6::uuid AND session."userId" = $7::uuid AND session.token = $8
-                AND session.id <> $2::uuid AND family.id <> $3::uuid
+              WHERE session.id = $5::uuid AND session."userId" = $6::uuid AND session.token = $7
+                AND session.id <> $2::uuid
                 AND session."issuerProtocolVersion" = 'PHASE7_V1' AND session."authorizationState" = 'ACTIVE'
                 AND session."authorityGeneration" = target."authorityGeneration"
                 AND target.role = 'USER' AND target."accountStatus" = 'ACTIVE' AND target."deletedAt" IS NULL
-                AND family.status = 'ACTIVE' AND family."revokedAt" IS NULL
-                AND session."createdAt" >= $4::timestamptz AND session."expiresAt" > clock_timestamp()
+                AND session."createdAt" >= $3::timestamptz AND session."expiresAt" > clock_timestamp()
                 AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()) AS "login2SessionValid",
-            EXISTS (SELECT 1 FROM "StudySession" study WHERE study.id = $11::uuid
+            EXISTS (SELECT 1 FROM "StudySession" study WHERE study.id = $10::uuid
               AND study."userId" = $1::uuid AND study.status = 'IN_PROGRESS' AND study."expiresAt" > clock_timestamp()
-              AND md5(to_jsonb(study)::text) = $12
+              AND md5(to_jsonb(study)::text) = $11
               AND (SELECT md5(coalesce(string_agg(to_jsonb(pin)::text, E'\\n' ORDER BY pin.ordinal), ''))
-                FROM "StudySessionQuestion" pin WHERE pin."studySessionId" = study.id) = $13) AS "samePracticeRetained",
+                FROM "StudySessionQuestion" pin WHERE pin."studySessionId" = study.id) = $12) AS "samePracticeRetained",
             EXISTS (SELECT 1 FROM "StudyDraft" draft
               JOIN "StudyDraftAnswer" answer ON answer."studySessionId" = draft."studySessionId"
               JOIN "StudySessionQuestion" question ON question.id = answer."studySessionQuestionId"
                 AND question."studySessionId" = draft."studySessionId"
-              WHERE draft."studySessionId" = $11::uuid AND question.id = $14::uuid
-                AND question."questionId" = $15::uuid AND question."questionVersionId" = $16::uuid
-                AND answer."questionVersionId" = $16::uuid AND answer."selectedOptionId" = $17::uuid
-                AND draft.revision >= $18 AND draft."currentOrdinal" = 1 AND answer."elapsedSec" >= $19
+              WHERE draft."studySessionId" = $10::uuid AND question.id = $13::uuid
+                AND question."questionId" = $14::uuid AND question."questionVersionId" = $15::uuid
+                AND answer."questionVersionId" = $15::uuid AND answer."selectedOptionId" = $16::uuid
+                AND draft.revision >= $17 AND draft."currentOrdinal" = 1 AND answer."elapsedSec" >= $18
                 AND (SELECT count(*) FROM "StudyDraftAnswer" answered WHERE answered."studySessionId" = draft."studySessionId"
                   AND answered."selectedOptionId" IS NOT NULL) = 1) AS "answerARetained",
-            EXISTS (SELECT 1 FROM "Bookmark" bookmark WHERE bookmark.id = $20::uuid
-              AND bookmark."userId" = $1::uuid AND bookmark."questionId" = $15::uuid
-              AND md5(to_jsonb(bookmark)::text) = $21) AS "bookmarkBRetained"`,
+            EXISTS (SELECT 1 FROM "Bookmark" bookmark WHERE bookmark.id = $19::uuid
+              AND bookmark."userId" = $1::uuid AND bookmark."questionId" = $14::uuid
+              AND md5(to_jsonb(bookmark)::text) = $20) AS "bookmarkBRetained"`,
           [
             saved.userId,
             saved.sessionId,
-            saved.familyId,
             expired.expiresAt,
             saved.sessionDigest,
             login2.id,
@@ -1337,8 +1293,7 @@ const createSsoBrowserApiFixture = async (
             saved.revision,
             saved.elapsedSec,
             saved.bookmarkId,
-            saved.bookmarkDigest,
-            saved.familyDigest
+            saved.bookmarkDigest
           ]
         )
         const current = rows.rows[0]
