@@ -11,18 +11,18 @@ import {
   type ContentSubject
 } from './types.js'
 
-export interface InternalBetaTypeFloorV1 {
+interface InternalBetaTypeFloorV1 {
   readonly questionType: ContentQuestionType
   readonly count: number
 }
 
-export interface InternalBetaSubjectFloorV1 {
+interface InternalBetaSubjectFloorV1 {
   readonly subject: ContentSubject
   readonly count: number
   readonly typeFloors: readonly InternalBetaTypeFloorV1[]
 }
 
-export interface InternalBetaLevelFloorV1 {
+interface InternalBetaLevelFloorV1 {
   readonly level: ContentLevel
   readonly count: number
   readonly subjects: readonly InternalBetaSubjectFloorV1[]

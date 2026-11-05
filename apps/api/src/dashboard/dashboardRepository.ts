@@ -39,12 +39,12 @@ export interface DashboardDailyAggregateRecord {
   readonly date: string
 }
 
-export interface DashboardWrongNoteCountsRecord {
+interface DashboardWrongNoteCountsRecord {
   readonly solvedCount: bigint
   readonly totalCount: bigint
 }
 
-export interface DashboardRepeatedWrongRecord {
+interface DashboardRepeatedWrongRecord {
   readonly lastWrongAt: Date
   readonly level: DashboardRepeatedWrongQuestion['level']
   readonly questionId: string

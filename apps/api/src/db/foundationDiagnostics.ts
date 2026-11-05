@@ -5,7 +5,7 @@ export type FoundationStage =
   | 'REGISTER_ROLE'
   | 'CAPABILITY_REGISTER'
   | 'RESET_ROLE'
-export interface FoundationDiagnostic {
+interface FoundationDiagnostic {
   readonly event: 'foundation.initialization'
   readonly stage: FoundationStage
   readonly state: 'BEGIN' | 'COMPLETE' | 'FAILED'

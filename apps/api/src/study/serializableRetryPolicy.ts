@@ -2,7 +2,7 @@ import { randomInt } from 'node:crypto'
 
 /** Shared by study draft save and study submission Serializable transactions. */
 export const SERIALIZABLE_MAX_ATTEMPTS = 5
-export const SERIALIZABLE_RETRY_BASE_DELAY_MS = 10
+const SERIALIZABLE_RETRY_BASE_DELAY_MS = 10
 export const SERIALIZABLE_RETRY_JITTER_MAX_MS = 5
 
 /**

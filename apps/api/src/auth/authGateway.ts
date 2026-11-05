@@ -98,9 +98,7 @@ const stripCredentials = (value: unknown): unknown => {
   return sanitized
 }
 
-export const sanitizeAuthResponse = async (
-  response: Response
-): Promise<Response> => {
+const sanitizeAuthResponse = async (response: Response): Promise<Response> => {
   if (
     !response.ok ||
     !response.headers.get('Content-Type')?.includes('application/json')
@@ -131,7 +129,7 @@ const toCookieOnlySuccess = (response: Response): Response => {
   })
 }
 
-export const assertTrustedWriteRequest = (
+const assertTrustedWriteRequest = (
   request: Request,
   trustedOrigins: readonly string[]
 ): void => {
@@ -430,7 +428,7 @@ export const readLimitedAuthBody = async (
   }
 }
 
-export const readLimitedJsonBody = async (
+const readLimitedJsonBody = async (
   request: Request,
   maximumBytes: number
 ): Promise<Record<string, unknown>> => {

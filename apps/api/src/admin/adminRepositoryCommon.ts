@@ -10,7 +10,7 @@ import { Prisma } from '../generated/prisma/client.js'
 
 export type AuditEnvironment = 'TEST' | 'DEVELOPMENT'
 
-export interface TargetManifestItem {
+interface TargetManifestItem {
   readonly id: string
   readonly rowVersion: number
   readonly state: string
@@ -32,10 +32,6 @@ export interface OperationContext {
 export interface BegunOperationRow {
   readonly actorUserId: string
   readonly operationId: string
-}
-
-export interface OccurredAtRow {
-  readonly occurredAt: Date
 }
 
 export interface AuthorityProbeRow {

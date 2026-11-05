@@ -18,7 +18,7 @@ const inputSchema = z
   })
   .strict()
 
-export interface StudyDraftCleanupService {
+interface StudyDraftCleanupService {
   cleanup: (input?: { batchSize?: number }) => Promise<StudyDraftCleanupResult>
 }
 

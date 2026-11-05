@@ -31,7 +31,7 @@ export interface AdminFreshTransaction
   extends Omit<SsoTransaction, 'stateDigest' | 'bindingDigest'> {
   context: AdminFreshContext
 }
-export interface AdminFreshSession {
+interface AdminFreshSession {
   id: string
   userId: string
   token: string

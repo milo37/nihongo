@@ -9,7 +9,7 @@ type AdminAuditCommand = AdminAuditRecord['command']
 export const ADMIN_ACTIVITY_RETENTION_MS = 365 * 24 * 60 * 60 * 1_000
 
 // Only these commands appear in the reduced activity log.
-export const ADMIN_ACTIVITY_ACTION_BY_COMMAND = {
+const ADMIN_ACTIVITY_ACTION_BY_COMMAND = {
   PUBLICATION: 'PUBLISH',
   QUESTION_CREATE: 'UPDATE',
   QUESTION_VERSION_CREATE: 'UPDATE',

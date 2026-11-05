@@ -15,7 +15,7 @@ interface PgQueryable {
   ) => Promise<{ rowCount: number | null }>
 }
 
-export type CapabilityEnvironment = 'TEST' | 'DEVELOPMENT' | 'PRODUCTION'
+type CapabilityEnvironment = 'TEST' | 'DEVELOPMENT' | 'PRODUCTION'
 
 export const DATABASE_CAPABILITY_SQL = `INSERT INTO "DatabaseCapability" (
     "id", "databaseName", "serverAddress", "serverPort", "environment",

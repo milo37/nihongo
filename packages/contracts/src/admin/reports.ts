@@ -1,6 +1,5 @@
 import { z } from 'zod'
 import { isoDateTimeSchema } from '../common/date.js'
-import { createApiFailureSchema } from '../common/error.js'
 import { opaqueIdSchema } from '../common/id.js'
 import {
   createContentTextSchema,
@@ -13,14 +12,6 @@ import {
   reportTextSchema
 } from '../report/reports.js'
 
-export const listAdminReportsOperationId = 'admin.listAdminReports' as const
-export const getAdminReportOperationId = 'admin.getAdminReport' as const
-export const replyAndCloseAdminReportOperationId =
-  'admin.replyAndCloseAdminReport' as const
-export const saveAdminReportNoteOperationId =
-  'admin.saveAdminReportNote' as const
-export const closeAdminReportOperationId = 'admin.closeAdminReport' as const
-
 /** Sorted RECEIVED first, then createdAt desc, then reportId desc. */
 export const listAdminReportsQuerySchema = z
   .object({
@@ -31,7 +22,7 @@ export const listAdminReportsQuerySchema = z
   })
   .strict()
 
-export const adminReportSummarySchema = z
+const adminReportSummarySchema = z
   .object({
     reportId: opaqueIdSchema,
     kind: reportKindSchema,
@@ -102,24 +93,6 @@ export const closeAdminReportRequestSchema = z
   .strict()
 
 export const adminReportMutationResponseSchema = adminReportDetailSchema
-
-/** No re-authentication. Closed reports reject commands. */
-export const adminReportErrorSchema = createApiFailureSchema(
-  z.enum([
-    'AUTHENTICATION_REQUIRED',
-    'AUTH_SESSION_EXPIRED',
-    'ADMIN_REQUIRED',
-    'INVALID_CSRF',
-    'UNTRUSTED_ORIGIN',
-    'VALIDATION_ERROR',
-    'RESOURCE_NOT_FOUND',
-    'VERSION_CONFLICT',
-    'INVALID_STATE_TRANSITION',
-    'RATE_LIMITED',
-    'INTERNAL_SERVER_ERROR',
-    'SERVICE_UNAVAILABLE'
-  ])
-)
 
 export type ListAdminReportsQuery = z.input<typeof listAdminReportsQuerySchema>
 export type AdminReportSummary = z.output<typeof adminReportSummarySchema>

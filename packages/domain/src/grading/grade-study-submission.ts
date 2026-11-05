@@ -33,7 +33,7 @@ export interface SubmittedStudyAnswer {
   readonly elapsedSec: number
 }
 
-export interface GradedStudyAnswer {
+interface GradedStudyAnswer {
   readonly studySessionQuestionId: string
   readonly questionVersionId: string
   readonly selectedOptionId: string | null
@@ -42,7 +42,7 @@ export interface GradedStudyAnswer {
   readonly gradingVersion: typeof STUDY_GRADING_VERSION
 }
 
-export interface StudySubmissionGrade {
+interface StudySubmissionGrade {
   readonly answers: readonly GradedStudyAnswer[]
   readonly totalCount: number
   readonly correctCount: number

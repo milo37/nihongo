@@ -1,7 +1,7 @@
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 
-export type UserReportKind = 'QUESTION' | 'APP_ERROR'
-export type UserReportStatus = 'RECEIVED' | 'ANSWERED' | 'CLOSED'
+type UserReportKind = 'QUESTION' | 'APP_ERROR'
+type UserReportStatus = 'RECEIVED' | 'ANSWERED' | 'CLOSED'
 
 export interface UserReportRecord {
   readonly id: string
@@ -21,12 +21,12 @@ export interface UserReportRecord {
   readonly updatedAt: Date
 }
 
-export interface UserReportPage {
+interface UserReportPage {
   readonly items: readonly UserReportRecord[]
   readonly total: number
 }
 
-export interface CreateUserReportInput {
+interface CreateUserReportInput {
   readonly kind: UserReportKind
   readonly location: string
   readonly questionId: string | null
@@ -54,7 +54,7 @@ export type UserReportCommandOutcome =
   | { readonly kind: 'VERSION_CONFLICT' }
   | { readonly kind: 'CLOSED' }
 
-export type CreateUserReportOutcome =
+type CreateUserReportOutcome =
   | { readonly kind: 'CREATED'; readonly record: UserReportRecord }
   | { readonly kind: 'QUESTION_NOT_AVAILABLE' }
   | { readonly kind: 'DUPLICATE' }

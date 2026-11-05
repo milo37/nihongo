@@ -3,7 +3,7 @@ import type { SsoProviderId } from '@nihongo/contracts/auth/sign-in-social'
 import { safeSsoReturnPath } from '@nihongo/contracts/auth/sign-in-social'
 export { safeSsoReturnPath } from '@nihongo/contracts/auth/sign-in-social'
 
-export const SSO_TRANSACTION_SECONDS = 600
+const SSO_TRANSACTION_SECONDS = 600
 const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/u
 export interface SsoVerifiedIdentity {
   readonly provider: SsoProviderId
@@ -44,8 +44,8 @@ export interface SsoProvider {
   }) => Promise<SsoVerifiedIdentity | null>
 }
 
-export type SsoFailure = 'CANCELLED' | 'FAILED' | 'INVALID_CALLBACK'
-export type SsoCallbackResult =
+type SsoFailure = 'CANCELLED' | 'FAILED' | 'INVALID_CALLBACK'
+type SsoCallbackResult =
   | {
       readonly kind: 'IDENTITY_VERIFIED'
       readonly identity: SsoVerifiedIdentity
@@ -69,7 +69,7 @@ const hasControlOrSpace = (value: string): boolean =>
 export const ssoTransactionDigest = (value: string): string =>
   createHash('sha256').update(value, 'utf8').digest('hex')
 
-export const ssoBindingCookieName = (production: boolean): string =>
+const ssoBindingCookieName = (production: boolean): string =>
   production ? '__Host-nihongo.sso_binding' : 'nihongo.sso_binding'
 
 export const createSsoBindingCookie = (

@@ -1,7 +1,7 @@
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 
 /** Closed learner reports keep their free-text description for 180 days. */
-export const USER_REPORT_RETENTION_DAYS = 180
+const USER_REPORT_RETENTION_DAYS = 180
 export const DEFAULT_USER_REPORT_RETENTION_BATCH_SIZE = 500
 export const MAX_USER_REPORT_RETENTION_BATCH_SIZE = 5_000
 
@@ -11,7 +11,7 @@ export const USER_REPORT_RETENTION_REDACTED_DESCRIPTION =
 const USER_REPORT_ERASURE_REDACTED_DESCRIPTION =
   '탈퇴한 회원의 제보 내용은 삭제되었습니다.'
 
-export interface UserReportRetentionResult {
+interface UserReportRetentionResult {
   eligibleCount: number
   redactedCount: number
   hasMore: boolean

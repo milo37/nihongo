@@ -40,7 +40,7 @@ export const runReauthenticationStartupMaintenance = async (
   throw new Error('Reauthentication startup cleanup failed.')
 }
 
-export interface ReauthenticationMaintenance {
+interface ReauthenticationMaintenance {
   stop: () => Promise<void>
 }
 

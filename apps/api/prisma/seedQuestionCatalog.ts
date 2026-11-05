@@ -265,7 +265,7 @@ const insertQuestionSeed = async (
   })
 }
 
-export interface SeedQuestionCatalogResult {
+interface SeedQuestionCatalogResult {
   insertedCount: number
   verifiedCount: number
 }

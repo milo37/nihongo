@@ -13,7 +13,7 @@ export interface AdminMemberRecord {
   readonly rowVersion: number
 }
 
-export interface AdminMemberPage {
+interface AdminMemberPage {
   readonly items: readonly AdminMemberRecord[]
   readonly total: number
 }
@@ -24,7 +24,7 @@ export type AdminMemberRestrictionOutcome =
   | 'VERSION_CONFLICT'
   | 'INVALID_STATE_TRANSITION'
 
-export interface AdminMemberRestrictionChange {
+interface AdminMemberRestrictionChange {
   readonly actorId: string
   readonly memberId: string
   readonly expectedRowVersion: number

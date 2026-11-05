@@ -10,7 +10,6 @@ import {
   sha256Schema,
   uuidSchema
 } from './schemaHelpers.js'
-import { validatorRuntimeManifestSchema } from './policySchemas.js'
 
 export const LEGACY_SEED_SOURCE_PATHS = [
   'apps/api/prisma/seed-data/buildQuestionSeed.ts',
@@ -25,7 +24,7 @@ export const LEGACY_SEED_SOURCE_PATHS = [
   'apps/api/prisma/seed-data/questions/n5.ts'
 ] as const
 
-export const legacySeedSourceFileSchema = z
+const legacySeedSourceFileSchema = z
   .object({
     repositoryPath: z
       .string()
@@ -107,7 +106,7 @@ export const legacySeedSourceManifestSchema = z
     }
   })
 
-export const legacySeedMappingItemSchema = z
+const legacySeedMappingItemSchema = z
   .object({
     legacySeedId: contentKeySchema,
     contentKey: contentKeySchema,
@@ -222,124 +221,6 @@ export const legacySeedManifestSchema = z
     }
   })
 
-export const legacyValidatorSourceKeySchema = z.enum([
-  'legacy-seed-manifest-schema',
-  'legacy-seed-source-manifest-schema',
-  'legacy-seed-mapping-manifest-schema',
-  'legacy-policy-snapshot-schema',
-  'legacy-jcs-hash',
-  'legacy-seed-source-projector',
-  'legacy-content-key-mapping',
-  'persisted-semantic-projector',
-  'policy-owner-sshsig-verifier'
-])
-
-export const LEGACY_VALIDATOR_SOURCE_KEYS = [
-  'legacy-content-key-mapping',
-  'legacy-jcs-hash',
-  'legacy-policy-snapshot-schema',
-  'legacy-seed-manifest-schema',
-  'legacy-seed-mapping-manifest-schema',
-  'legacy-seed-source-manifest-schema',
-  'legacy-seed-source-projector',
-  'persisted-semantic-projector',
-  'policy-owner-sshsig-verifier'
-] as const
-
-export const LEGACY_LOGICAL_VALIDATOR_SOURCES = [
-  {
-    key: 'legacy-content-key-mapping',
-    repositoryPath: 'apps/api/prisma/legacySeedProjection.ts'
-  },
-  {
-    key: 'legacy-jcs-hash',
-    repositoryPath:
-      'packages/domain/src/content/validators/v1/canonical-json.ts'
-  },
-  {
-    key: 'legacy-policy-snapshot-schema',
-    repositoryPath: 'apps/api/src/content/validators/v1/legacySchemas.ts'
-  },
-  {
-    key: 'legacy-seed-manifest-schema',
-    repositoryPath: 'apps/api/src/content/validators/v1/legacySchemas.ts'
-  },
-  {
-    key: 'legacy-seed-mapping-manifest-schema',
-    repositoryPath: 'apps/api/src/content/validators/v1/legacySchemas.ts'
-  },
-  {
-    key: 'legacy-seed-source-manifest-schema',
-    repositoryPath: 'apps/api/src/content/validators/v1/legacySchemas.ts'
-  },
-  {
-    key: 'legacy-seed-source-projector',
-    repositoryPath: 'apps/api/src/content/validators/v1/legacySeedProjector.ts'
-  },
-  {
-    key: 'persisted-semantic-projector',
-    repositoryPath: 'apps/api/src/content/validators/v1/legacySeedProjector.ts'
-  },
-  {
-    key: 'policy-owner-sshsig-verifier',
-    repositoryPath: 'apps/api/src/content/validators/v1/sshsigVerifier.ts'
-  }
-] as const
-
-const legacyValidatorRepositoryPathSchema = z
-  .string()
-  .regex(/^(?:apps|packages)\/[A-Za-z0-9._/-]+\.ts$/)
-
-export const legacySeedPolicySnapshotSchema = z
-  .object({
-    schemaVersion: z.literal(1),
-    kind: z.literal('LEGACY_SEED_POLICY_SNAPSHOT_V1'),
-    canonicalizationVersion: z.literal('rfc8785-nihongo-v1'),
-    globalReviewSha256: sha256Schema,
-    seedSourceManifestSha256: sha256Schema,
-    legacySeedMappingSha256: sha256Schema,
-    validatorRuntimeManifest: validatorRuntimeManifestSchema,
-    validatorSources: z.array(
-      z
-        .object({
-          key: legacyValidatorSourceKeySchema,
-          repositoryPath: legacyValidatorRepositoryPathSchema,
-          sha256: sha256Schema
-        })
-        .strict()
-    )
-  })
-  .strict()
-  .superRefine((value, context) => {
-    const keys = value.validatorSources.map(({ key }) => key)
-    if (
-      keys.length !== LEGACY_VALIDATOR_SOURCE_KEYS.length ||
-      keys.some((key, index) => key !== LEGACY_VALIDATOR_SOURCE_KEYS[index])
-    ) {
-      context.addIssue({
-        code: 'custom',
-        message: 'LEGACY_VALIDATOR_SOURCE_SET_OR_ORDER',
-        path: ['validatorSources']
-      })
-    }
-    if (
-      value.validatorSources.some((source, index) => {
-        const expected = LEGACY_LOGICAL_VALIDATOR_SOURCES[index]
-        return (
-          expected === undefined ||
-          source.key !== expected.key ||
-          source.repositoryPath !== expected.repositoryPath
-        )
-      })
-    ) {
-      context.addIssue({
-        code: 'custom',
-        message: 'LEGACY_VALIDATOR_LOGICAL_PATH_BINDING',
-        path: ['validatorSources']
-      })
-    }
-  })
-
 export type LegacySeedSourceManifestV1 = z.infer<
   typeof legacySeedSourceManifestSchema
 >
@@ -347,6 +228,3 @@ export type LegacySeedMappingManifestV1 = z.infer<
   typeof legacySeedMappingManifestSchema
 >
 export type LegacySeedManifestV1 = z.infer<typeof legacySeedManifestSchema>
-export type LegacySeedPolicySnapshotV1 = z.infer<
-  typeof legacySeedPolicySnapshotSchema
->

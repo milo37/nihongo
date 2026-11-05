@@ -89,7 +89,7 @@ const publishJson = async (
   })
 }
 
-export const writeJsonSet = async (
+const writeJsonSet = async (
   repositoryRoot: string,
   outputs: readonly MaterializedJsonOutput[]
 ): Promise<void> => {

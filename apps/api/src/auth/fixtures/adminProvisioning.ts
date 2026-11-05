@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto'
 import type { PrismaClient } from '../../generated/prisma/client.js'
 
-export interface AdminProvisioningInput {
+interface AdminProvisioningInput {
   email: string
   name: string
   password: string
@@ -9,7 +9,7 @@ export interface AdminProvisioningInput {
   targetLevel?: 'N5' | 'N4' | 'N3' | 'N2' | 'N1'
 }
 
-export interface AdminProvisioningResult {
+interface AdminProvisioningResult {
   outcome: 'CREATED' | 'ALREADY_PROVISIONED'
   referenceDigest: string
   userId: string
@@ -21,7 +21,7 @@ interface CreateAdminProvisionerDependencies {
   hashPassword: (password: string) => Promise<string>
 }
 
-export class AdminProvisioningError extends Error {
+class AdminProvisioningError extends Error {
   constructor(
     readonly code:
       | 'ACCOUNT_CREATION_FAILED'
@@ -150,5 +150,3 @@ export const createAdminProvisioner = ({
 
   return { provision }
 }
-
-export type AdminProvisioner = ReturnType<typeof createAdminProvisioner>

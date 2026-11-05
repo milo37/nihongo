@@ -3,11 +3,9 @@ import { Hono } from 'hono'
 import { ApplicationError } from '../errors/applicationError.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
 
-export const liveHealthResponseSchema = z
-  .object({ status: z.literal('ok') })
-  .strict()
+const liveHealthResponseSchema = z.object({ status: z.literal('ok') }).strict()
 
-export const readyHealthResponseSchema = z
+const readyHealthResponseSchema = z
   .object({ status: z.literal('ready') })
   .strict()
 

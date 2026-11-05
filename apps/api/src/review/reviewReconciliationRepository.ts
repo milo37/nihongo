@@ -6,11 +6,11 @@ import {
 } from '@nihongo/domain/review/reconcile-wrong-note-review'
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 
-export interface ReviewReconciliationInput {
+interface ReviewReconciliationInput {
   readonly batchSize: number
 }
 
-export interface ReviewReconciliationCategoryResult {
+interface ReviewReconciliationCategoryResult {
   readonly category: ReviewReconciliationMismatchCategory
   readonly count: number
   readonly oldestOccurredAt: string | null
@@ -28,7 +28,7 @@ export interface ReviewReconciliationRepository {
   ) => Promise<ReviewReconciliationResult>
 }
 
-export const REVIEW_RECONCILIATION_TRANSACTION_TIMEOUT_MS = 60_000
+const REVIEW_RECONCILIATION_TRANSACTION_TIMEOUT_MS = 60_000
 
 interface WrongNoteRow {
   correctStreak: number

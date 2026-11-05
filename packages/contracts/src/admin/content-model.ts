@@ -297,7 +297,7 @@ export const adminQuestionVersionSummarySchema = z
     }
   })
 
-export const adminContentReviewActionSchema = z.enum([
+const adminContentReviewActionSchema = z.enum([
   'REQUESTED',
   'CHANGES_REQUESTED',
   'APPROVED',

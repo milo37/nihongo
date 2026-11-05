@@ -120,11 +120,7 @@ export const reviewCenterRouteConformanceCases = [
   }
 ] as const satisfies readonly PracticeRouteConformanceCase[]
 
-export type ReviewCenterPayloadKind =
-  | 'QUEUE'
-  | 'MEMO'
-  | 'HISTORY'
-  | 'TARGETED_SESSION'
+type ReviewCenterPayloadKind = 'QUEUE' | 'MEMO' | 'HISTORY' | 'TARGETED_SESSION'
 
 const commonForbiddenKeys = [
   'userId',

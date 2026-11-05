@@ -133,13 +133,6 @@ export const listResumableStudySessionsErrorCodeSchema = z.enum([
 export const listResumableStudySessionsErrorSchema = createApiFailureSchema(
   listResumableStudySessionsErrorCodeSchema
 )
-
-export type ListResumableStudySessionsHeaders = z.input<
-  typeof listResumableStudySessionsHeadersSchema
->
-export type ListResumableStudySessionsQuery = z.input<
-  typeof listResumableStudySessionsQuerySchema
->
 export type ParsedListResumableStudySessionsQuery = z.output<
   typeof listResumableStudySessionsQuerySchema
 >
@@ -148,7 +141,4 @@ export type ResumableStudySessionSummary = z.output<
 >
 export type ListResumableStudySessionsResponse = z.output<
   typeof listResumableStudySessionsResponseSchema
->
-export type ListResumableStudySessionsError = z.output<
-  typeof listResumableStudySessionsErrorSchema
 >

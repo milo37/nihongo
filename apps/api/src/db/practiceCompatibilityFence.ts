@@ -1,6 +1,6 @@
 import type { PrismaClient } from '../generated/prisma/client.js'
 
-export interface PracticeCompatibilityFacts {
+interface PracticeCompatibilityFacts {
   bookmarkCount: number
   v2StudySessionCount: number
   studyDraftCount: number
@@ -19,7 +19,7 @@ export class PracticeCompatibilityFenceError extends Error {
   }
 }
 
-export const assertPracticeCompatibilityFacts = (
+const assertPracticeCompatibilityFacts = (
   facts: PracticeCompatibilityFacts
 ): void => {
   if (

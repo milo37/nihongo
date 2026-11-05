@@ -1,4 +1,4 @@
-export interface ShutdownCoordinator {
+interface ShutdownCoordinator {
   begin: (signal: NodeJS.Signals) => Promise<void>
 }
 

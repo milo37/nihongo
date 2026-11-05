@@ -1,12 +1,12 @@
 import { isNfc, isWellFormedUnicode } from './unicode.js'
 
-export type CanonicalJsonPrimitive = null | boolean | number | string
+type CanonicalJsonPrimitive = null | boolean | number | string
 export type CanonicalJsonValue =
   | CanonicalJsonPrimitive
   | readonly CanonicalJsonValue[]
   | { readonly [key: string]: CanonicalJsonValue }
 
-export type CanonicalJsonErrorCode =
+type CanonicalJsonErrorCode =
   | 'CYCLE'
   | 'INVALID_NUMBER'
   | 'INVALID_OBJECT'

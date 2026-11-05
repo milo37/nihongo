@@ -21,7 +21,7 @@ interface CreateGuestPrincipalServiceDependencies {
   secret: string
 }
 
-export type InspectedGuestCredential =
+type InspectedGuestCredential =
   | { kind: 'ABSENT' }
   | { kind: 'INVALID' }
   | { kind: 'VERIFIED'; id: string; tokenDigest: string }
@@ -34,7 +34,7 @@ export interface PreparedGuestCredential {
   tokenDigest: string
 }
 
-export interface ResolvedGuestPrincipal {
+interface ResolvedGuestPrincipal {
   cookieValue: string | null
   id: string
 }

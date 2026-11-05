@@ -20,7 +20,6 @@ import {
 import {
   contentKeySchema,
   contributorRefSchema,
-  nonNegativeSafeIntegerSchema,
   positiveSafeIntegerSchema,
   releaseKeySchema,
   sha256Schema,
@@ -32,15 +31,8 @@ export const contentLevelSchema = z.enum(JLPT_LEVELS)
 export const contentSubjectSchema = z.enum(CONTENT_SUBJECTS)
 export const contentQuestionTypeSchema = z.enum(CONTENT_QUESTION_TYPES)
 export const contentDifficultySchema = z.enum(CONTENT_DIFFICULTIES)
-export const contentOptionKeySchema = z.enum(CONTENT_OPTION_KEYS)
+const contentOptionKeySchema = z.enum(CONTENT_OPTION_KEYS)
 export const tagFamilySchema = z.enum(TAG_FAMILIES)
-
-export const contentOptionSchema = z
-  .object({
-    key: contentOptionKeySchema,
-    text: unicodeScalarStringSchema(1, 500)
-  })
-  .strict()
 
 const contentOptionForKeySchema = (key: '1' | '2' | '3' | '4') =>
   z
@@ -127,7 +119,7 @@ export const persistedQuestionSemanticSchema = z
     )
   })
 
-export const originalContentProvenanceSchema = z
+const originalContentProvenanceSchema = z
   .object({
     sourceType: z.literal('ORIGINAL'),
     authorRef: contributorRefSchema,
@@ -138,7 +130,7 @@ export const originalContentProvenanceSchema = z
   })
   .strict()
 
-export const createIntentSchema = z
+const createIntentSchema = z
   .object({
     kind: z.literal('CREATE'),
     expectedCurrentVersionNumber: z.null(),
@@ -146,7 +138,7 @@ export const createIntentSchema = z
   })
   .strict()
 
-export const newVersionIntentSchema = z
+const newVersionIntentSchema = z
   .object({
     kind: z.literal('NEW_VERSION'),
     expectedCurrentVersionNumber: positiveSafeIntegerSchema,
@@ -165,7 +157,7 @@ export const newVersionIntentSchema = z
   })
   .strict()
 
-export const contentBundleItemSchema = z
+const contentBundleItemSchema = z
   .object({
     contentKey: contentKeySchema,
     intent: z.discriminatedUnion('kind', [
@@ -222,7 +214,7 @@ export const contentBundleSchema = z
     }
   })
 
-export const tagTaxonomyItemSchema = z
+const tagTaxonomyItemSchema = z
   .object({
     key: unicodeScalarStringSchema(1, 80),
     labelKo: unicodeScalarStringSchema(1, 80),
@@ -379,14 +371,14 @@ export const qualityRulesSchema = z
   })
   .strict()
 
-export const typeFloorSchema = z
+const typeFloorSchema = z
   .object({
     questionType: contentQuestionTypeSchema,
     count: positiveSafeIntegerSchema
   })
   .strict()
 
-export const subjectFloorSchema = z
+const subjectFloorSchema = z
   .object({
     subject: contentSubjectSchema,
     count: positiveSafeIntegerSchema,
@@ -394,7 +386,7 @@ export const subjectFloorSchema = z
   })
   .strict()
 
-export const levelFloorSchema = z
+const levelFloorSchema = z
   .object({
     level: contentLevelSchema,
     count: positiveSafeIntegerSchema,
@@ -440,124 +432,4 @@ export const internalBetaCoverageSchema = z
     }
   })
 
-export const bundleCoverageSummarySchema = z
-  .object({
-    schemaVersion: z.literal(1),
-    scope: z.literal('BUNDLE_ONLY'),
-    itemCount: nonNegativeSafeIntegerSchema,
-    byLevelSubject: z.array(
-      z
-        .object({
-          level: contentLevelSchema,
-          subject: contentSubjectSchema,
-          count: nonNegativeSafeIntegerSchema
-        })
-        .strict()
-    ),
-    byLevelSubjectType: z.array(
-      z
-        .object({
-          level: contentLevelSchema,
-          subject: contentSubjectSchema,
-          questionType: contentQuestionTypeSchema,
-          applicable: z.boolean(),
-          count: nonNegativeSafeIntegerSchema
-        })
-        .strict()
-    ),
-    byLevelSubjectDifficulty: z.array(
-      z
-        .object({
-          level: contentLevelSchema,
-          subject: contentSubjectSchema,
-          difficulty: contentDifficultySchema,
-          count: nonNegativeSafeIntegerSchema
-        })
-        .strict()
-    )
-  })
-  .strict()
-  .superRefine((value, context) => {
-    const expectedLevelSubjects = JLPT_LEVELS.flatMap((level) =>
-      CONTENT_SUBJECTS.map((subject) => ({ level, subject }))
-    )
-    const expectedTypes = JLPT_LEVELS.flatMap((level) =>
-      CONTENT_SUBJECTS.flatMap((subject) =>
-        CONTENT_QUESTION_TYPES.map((questionType) => ({
-          level,
-          subject,
-          questionType,
-          applicable: isApplicableContentType(level, subject, questionType)
-        }))
-      )
-    )
-    const expectedDifficulties = JLPT_LEVELS.flatMap((level) =>
-      CONTENT_SUBJECTS.flatMap((subject) =>
-        CONTENT_DIFFICULTIES.map((difficulty) => ({
-          level,
-          subject,
-          difficulty
-        }))
-      )
-    )
-    const levelSubjectOrderValid =
-      value.byLevelSubject.length === expectedLevelSubjects.length &&
-      value.byLevelSubject.every((row, index) => {
-        const expected = expectedLevelSubjects[index]
-        return row.level === expected?.level && row.subject === expected.subject
-      })
-    const typeOrderValid =
-      value.byLevelSubjectType.length === expectedTypes.length &&
-      value.byLevelSubjectType.every((row, index) => {
-        const expected = expectedTypes[index]
-        return (
-          row.level === expected?.level &&
-          row.subject === expected.subject &&
-          row.questionType === expected.questionType &&
-          row.applicable === expected.applicable
-        )
-      })
-    const difficultyOrderValid =
-      value.byLevelSubjectDifficulty.length === expectedDifficulties.length &&
-      value.byLevelSubjectDifficulty.every((row, index) => {
-        const expected = expectedDifficulties[index]
-        return (
-          row.level === expected?.level &&
-          row.subject === expected.subject &&
-          row.difficulty === expected.difficulty
-        )
-      })
-    if (!levelSubjectOrderValid || !typeOrderValid || !difficultyOrderValid) {
-      context.addIssue({
-        code: 'custom',
-        message: 'BUNDLE_COVERAGE_ORDER',
-        path: ['byLevelSubject']
-      })
-    }
-    for (const [path, total] of [
-      [
-        'byLevelSubject',
-        value.byLevelSubject.reduce((sum, row) => sum + row.count, 0)
-      ],
-      [
-        'byLevelSubjectType',
-        value.byLevelSubjectType.reduce((sum, row) => sum + row.count, 0)
-      ],
-      [
-        'byLevelSubjectDifficulty',
-        value.byLevelSubjectDifficulty.reduce((sum, row) => sum + row.count, 0)
-      ]
-    ] as const) {
-      if (total !== value.itemCount) {
-        context.addIssue({
-          code: 'custom',
-          message: 'BUNDLE_COVERAGE_COUNT_MISMATCH',
-          path: [path]
-        })
-      }
-    }
-  })
-
 export type TagTaxonomyV1 = z.infer<typeof tagTaxonomySchema>
-export type QualityRulesV1 = z.infer<typeof qualityRulesSchema>
-export type InternalBetaCoverageV1 = z.infer<typeof internalBetaCoverageSchema>

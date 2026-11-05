@@ -9,13 +9,13 @@ interface CreatePracticeRuntimeGateOptions {
   checkV1Compatibility: () => Promise<void>
 }
 
-export interface PracticeRuntimeGate {
+interface PracticeRuntimeGate {
   practiceContractV2Enabled: boolean
   assertRequestAuthority: () => Promise<void>
   checkReadiness: () => Promise<void>
 }
 
-export class PracticeRuntimeGateConfigurationError extends Error {
+class PracticeRuntimeGateConfigurationError extends Error {
   constructor() {
     super('Practice runtime gate configuration is invalid.')
     this.name = 'PracticeRuntimeGateConfigurationError'
