@@ -88,7 +88,6 @@ assertSafeTestDatabase({
   productionDatabaseUrl: syntheticProductionDatabaseUrl.toString()
 })
 assertSafeAdminCmsDatabase({
-  adminCmsMode: 'technical',
   nodeEnvironment: 'test',
   databaseUrl: baseDatabaseUrl,
   productionDatabaseUrl: syntheticProductionDatabaseUrl.toString()
@@ -1358,7 +1357,6 @@ const run = async (): Promise<void> => {
 
   const sharedEnvironment: NodeJS.ProcessEnv = {
     ...process.env,
-    ADMIN_CMS_MODE: 'technical',
     TEST_APP_FIXTURE_DATABASE_URL: applicationDatabaseUrl.toString(),
     DATABASE_URL: applicationDatabaseUrl.toString(),
     NODE_ENV: 'test',

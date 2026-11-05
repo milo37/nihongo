@@ -42,7 +42,6 @@ const input = {
   NODE_ENV: 'production',
   DEPLOYMENT_ENVIRONMENT: 'TEST',
   RELEASE_ID: 'a'.repeat(40),
-  ADMIN_CMS_MODE: 'disabled',
   HOST: '127.0.0.1',
   PORT: '3001',
   LOG_LEVEL: 'error',
@@ -183,13 +182,12 @@ describe('owned authentication exports', () => {
   })
 })
 
-describe('production-shaped SSO composition with CMS disabled (fake DB ports)', () => {
+describe('production-shaped SSO composition (fake DB ports)', () => {
   it('selects current roles/profile and provides public login/callback/owned sign-out/rate limit', async () => {
     const f = fixture()
-    expect(createAuthRuntimePlan(f.environment)).toMatchObject({
+    expect(createAuthRuntimePlan()).toMatchObject({
       migrationProfile: 'current',
-      applicationRole: 'nihongo_app',
-      cmsEnabled: false
+      applicationRole: 'nihongo_app'
     })
     const response = await f.auth.gateway.handle(
       new Request('https://app.example.test/api/auth/sign-in/social', {
@@ -369,7 +367,7 @@ describe('production-shaped SSO composition with CMS disabled (fake DB ports)', 
     expect(attest.mock.calls[0]).toBeDefined()
   })
   it('keeps technical CMS reads available without any legacy reauthentication service and legacy admin404 touches nothing', async () => {
-    const f = fixture({ NODE_ENV: 'test', ADMIN_CMS_MODE: 'technical' })
+    const f = fixture({ NODE_ENV: 'test' })
     const listQuestions = vi.fn(async () => ({
       items: [],
       page: 1,
@@ -438,9 +436,6 @@ describe('production-shaped SSO composition with CMS disabled (fake DB ports)', 
         ...input,
         DATABASE_URL: input.DATABASE_URL.replace('&sslmode=require', '')
       })
-    ).toThrow()
-    expect(() =>
-      parseApiEnvironment({ ...input, ADMIN_CMS_MODE: 'technical' })
     ).toThrow()
   })
 })

@@ -311,7 +311,6 @@ const exercisePostIssuerAuthorityDrift = async ({
 
 beforeAll(async () => {
   assertSafeAdminCmsDatabase({
-    adminCmsMode: environment.ADMIN_CMS_MODE,
     nodeEnvironment: environment.NODE_ENV,
     databaseUrl: environment.DATABASE_URL,
     productionDatabaseUrl
@@ -504,7 +503,11 @@ describe('Technical API gate', () => {
   it.each([
     {
       pathname: '/api/v1/questions',
-      expectedHeaders: ['Content-Type']
+      expectedHeaders: [
+        'Content-Type',
+        'Idempotency-Key',
+        'X-Nihongo-Practice-Contract'
+      ]
     },
     {
       pathname: '/api/v1/study-sessions',
@@ -524,7 +527,7 @@ describe('Technical API gate', () => {
       ]
     }
   ])(
-    '실제 technical app CORS $pathname를 exact method/header로 제한한다',
+    '실제 app CORS $pathname를 exact method/header로 제한한다',
     async ({ expectedHeaders, pathname }) => {
       const response = await app.request(pathname, {
         method: 'OPTIONS',

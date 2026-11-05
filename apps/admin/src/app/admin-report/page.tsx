@@ -27,6 +27,7 @@ import {
   saveReportContext
 } from '@app/admin-report/navigation/reportListFocus'
 import { ReportStatusBadge } from '@app/admin-report/components/ReportStatusBadge'
+import { PageContainer } from '@nihongo/browser/common/components/PageContainer'
 
 export const AdminReportsPage = (): ReactElement => {
   const { t, presentError, formatAdminDateTime } = useAdminPresentation()
@@ -87,7 +88,7 @@ export const AdminReportsPage = (): ReactElement => {
     ? Math.max(1, Math.ceil(data.total / query.pageSize))
     : 1
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+    <PageContainer width="6xl">
       <header className="pb-8">
         <h1
           ref={heading}
@@ -290,6 +291,6 @@ export const AdminReportsPage = (): ReactElement => {
           </nav>
         </>
       )}
-    </section>
+    </PageContainer>
   )
 }

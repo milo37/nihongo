@@ -16,7 +16,6 @@ const environment = parseApiEnvironment({
   NODE_ENV: 'production',
   DEPLOYMENT_ENVIRONMENT: 'TEST',
   RELEASE_ID: 'a'.repeat(40),
-  ADMIN_CMS_MODE: 'disabled',
   HOST: '127.0.0.1',
   PORT: '3001',
   LOG_LEVEL: 'error',

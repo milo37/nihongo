@@ -105,7 +105,6 @@ assertSafeTestDatabase({
   productionDatabaseUrl: syntheticProductionDatabaseUrl.toString()
 })
 assertSafeAdminCmsDatabase({
-  adminCmsMode: 'technical',
   nodeEnvironment: 'test',
   databaseUrl: baseDatabaseUrl,
   productionDatabaseUrl: syntheticProductionDatabaseUrl.toString()
@@ -808,7 +807,6 @@ export const prepareIsolatedDatabase = async ({
 
   const sharedEnvironment: NodeJS.ProcessEnv = {
     ...process.env,
-    ADMIN_CMS_MODE: 'technical',
     TEST_APP_FIXTURE_DATABASE_URL: applicationDatabaseUrl.toString(),
     DATABASE_URL: applicationDatabaseUrl.toString(),
     GUEST_CLEANUP_DATABASE_URL: applicationDatabaseUrl.toString(),
@@ -1146,7 +1144,6 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
       NODE_ENV: 'test',
       DEPLOYMENT_ENVIRONMENT: 'TEST',
       RELEASE_ID: '0'.repeat(40),
-      ADMIN_CMS_MODE: 'disabled',
       HOST: host,
       PORT: String(port),
       DATABASE_URL: harness.applicationDatabaseUrl,

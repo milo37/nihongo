@@ -63,8 +63,7 @@ describe('safe collection diagnostics', () => {
           ADMIN_DATABASE_URL: 'fixture',
           MIGRATION_DATABASE_URL: 'fixture',
           PRISMA_TEST_DATABASE_URL: 'fixture',
-          NODE_ENV: 'test',
-          ADMIN_CMS_MODE: 'technical'
+          NODE_ENV: 'test'
         },
         onCollectionDiagnostic: () => {
           throw new Error('observer secret')

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 import { useForm, useFieldArray, useWatch } from 'react-hook-form'
-import type { FieldPath } from 'react-hook-form'
+import type { FieldPath, UseFormRegister } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   updateQuestionVersionRequestSchema,
@@ -20,6 +20,135 @@ import {
 } from '@app/admin-question/components/EditorRebaseNotice'
 import { QuestionOptionsFieldset } from '@app/admin-question/components/QuestionOptionsFieldset'
 import { QUESTION_TYPES, SUBJECTS } from '@nihongo/browser/common/types/domain'
+type EditorRegister = UseFormRegister<UpdateQuestionVersionRequest>
+type FieldError = (
+  name: keyof UpdateQuestionVersionRequest
+) => string | undefined
+type FieldsetProps = {
+  register: EditorRegister
+  invalid: FieldError
+  disabled: boolean
+}
+
+const LEVELS = ['N5', 'N4', 'N3', 'N2', 'N1'] as const
+const DIFFICULTIES = ['EASY', 'NORMAL', 'HARD'] as const
+
+/** Level, subject, type, difficulty, passage and question text. */
+const ClassificationFieldset = ({
+  register,
+  invalid,
+  disabled
+}: FieldsetProps): ReactElement => {
+  const { t } = useAdminPresentation()
+  return (
+    <fieldset className="grid gap-5" disabled={disabled}>
+      <legend className="mb-4 text-xl font-bold">
+        {t('editor.classificationLegend')}
+      </legend>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Select
+          label={t('editor.level')}
+          options={LEVELS.map((value) => ({ value, label: value }))}
+          error={invalid('level')}
+          {...register('level')}
+        />
+        <Select
+          label={t('editor.subject')}
+          options={SUBJECTS.map((value) => ({
+            value,
+            label: t(`enums.subjects.${value}`)
+          }))}
+          error={invalid('subject')}
+          {...register('subject')}
+        />
+        <Select
+          label={t('editor.questionType')}
+          options={QUESTION_TYPES.map((value) => ({
+            value,
+            label: t(`enums.questionTypes.${value}`)
+          }))}
+          error={invalid('questionType')}
+          {...register('questionType')}
+        />
+        <Select
+          label={t('editor.difficulty')}
+          options={DIFFICULTIES.map((value) => ({
+            value,
+            label: t(`enums.difficulties.${value}`)
+          }))}
+          error={invalid('difficulty')}
+          {...register('difficulty')}
+        />
+      </div>
+      <Textarea
+        label={t('editor.passage')}
+        hint={t('editor.passageHint')}
+        rows={5}
+        error={invalid('passage')}
+        {...register('passage', {
+          setValueAs: (value: string) => value || null
+        })}
+      />
+      <Textarea
+        label={t('editor.questionText')}
+        rows={3}
+        error={invalid('questionText')}
+        {...register('questionText')}
+      />
+    </fieldset>
+  )
+}
+
+/** Korean and Japanese explanations and comma separated tags. */
+const ExplanationFieldset = ({
+  register,
+  invalid,
+  disabled,
+  tagsKey,
+  tagNames
+}: FieldsetProps & {
+  tagsKey: number
+  tagNames: readonly string[]
+}): ReactElement => {
+  const { t } = useAdminPresentation()
+  return (
+    <fieldset className="grid gap-4" disabled={disabled}>
+      <legend className="mb-2 font-bold">
+        {t('editor.explanationLegend')}
+      </legend>
+      <Textarea
+        label={t('editor.explanationKo')}
+        rows={4}
+        error={invalid('explanationKo')}
+        {...register('explanationKo')}
+      />
+      <Textarea
+        label={t('editor.explanationJa')}
+        rows={4}
+        error={invalid('explanationJa')}
+        {...register('explanationJa', {
+          setValueAs: (value: string) => value || null
+        })}
+      />
+      <Input
+        label={t('editor.selectedTags')}
+        key={tagsKey}
+        defaultValue={tagNames.join(', ')}
+        error={invalid('tagNames')}
+        {...register('tagNames', {
+          setValueAs: (value: unknown) =>
+            typeof value === 'string'
+              ? value
+                  .split(',')
+                  .map((value) => value.trim())
+                  .filter(Boolean)
+              : value
+        })}
+      />
+    </fieldset>
+  )
+}
+
 export const QuestionVersionEditor = ({
   preview,
   rowVersion,
@@ -106,9 +235,7 @@ export const QuestionVersionEditor = ({
     setError,
     setFocus
   ])
-  const invalid = (
-    name: keyof UpdateQuestionVersionRequest
-  ): string | undefined =>
+  const invalid: FieldError = (name) =>
     errors[name] ||
     Object.keys(serverFieldErrors).some(
       (path) => path === name || path.startsWith(name + '.')
@@ -147,64 +274,11 @@ export const QuestionVersionEditor = ({
       <p role="status" className="sr-only">
         {announcement}
       </p>
-      <fieldset className="grid gap-5" disabled={disabled || isSubmitting}>
-        <legend className="mb-4 text-xl font-bold">
-          {t('editor.classificationLegend')}
-        </legend>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Select
-            label={t('editor.level')}
-            options={['N5', 'N4', 'N3', 'N2', 'N1'].map((value) => ({
-              value,
-              label: value
-            }))}
-            error={invalid('level')}
-            {...register('level')}
-          />
-          <Select
-            label={t('editor.subject')}
-            options={SUBJECTS.map((value) => ({
-              value,
-              label: t(`enums.subjects.${value}`)
-            }))}
-            error={invalid('subject')}
-            {...register('subject')}
-          />
-          <Select
-            label={t('editor.questionType')}
-            options={QUESTION_TYPES.map((value) => ({
-              value,
-              label: t(`enums.questionTypes.${value}`)
-            }))}
-            error={invalid('questionType')}
-            {...register('questionType')}
-          />
-          <Select
-            label={t('editor.difficulty')}
-            options={(['EASY', 'NORMAL', 'HARD'] as const).map((value) => ({
-              value,
-              label: t(`enums.difficulties.${value}`)
-            }))}
-            error={invalid('difficulty')}
-            {...register('difficulty')}
-          />
-        </div>
-        <Textarea
-          label={t('editor.passage')}
-          hint={t('editor.passageHint')}
-          rows={5}
-          error={invalid('passage')}
-          {...register('passage', {
-            setValueAs: (value: string) => value || null
-          })}
-        />
-        <Textarea
-          label={t('editor.questionText')}
-          rows={3}
-          error={invalid('questionText')}
-          {...register('questionText')}
-        />
-      </fieldset>
+      <ClassificationFieldset
+        register={register}
+        invalid={invalid}
+        disabled={disabled || isSubmitting}
+      />
       <QuestionOptionsFieldset
         options={options}
         register={register}
@@ -213,40 +287,13 @@ export const QuestionVersionEditor = ({
         disabled={disabled || isSubmitting}
         onMove={moveOption}
       />
-      <fieldset className="grid gap-4" disabled={disabled || isSubmitting}>
-        <legend className="mb-2 font-bold">
-          {t('editor.explanationLegend')}
-        </legend>
-        <Textarea
-          label={t('editor.explanationKo')}
-          rows={4}
-          error={invalid('explanationKo')}
-          {...register('explanationKo')}
-        />
-        <Textarea
-          label={t('editor.explanationJa')}
-          rows={4}
-          error={invalid('explanationJa')}
-          {...register('explanationJa', {
-            setValueAs: (value: string) => value || null
-          })}
-        />
-        <Input
-          label={t('editor.selectedTags')}
-          key={acceptedRow}
-          defaultValue={(values.tagNames ?? []).join(', ')}
-          error={invalid('tagNames')}
-          {...register('tagNames', {
-            setValueAs: (value: unknown) =>
-              typeof value === 'string'
-                ? value
-                    .split(',')
-                    .map((value) => value.trim())
-                    .filter(Boolean)
-                : value
-          })}
-        />
-      </fieldset>
+      <ExplanationFieldset
+        register={register}
+        invalid={invalid}
+        disabled={disabled || isSubmitting}
+        tagsKey={acceptedRow}
+        tagNames={values.tagNames ?? []}
+      />
       {rebasePending ? (
         <EditorRebaseNotice
           changed={changed}

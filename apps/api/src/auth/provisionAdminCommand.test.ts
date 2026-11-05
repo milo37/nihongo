@@ -407,7 +407,6 @@ describe('ADMIN learner access and CMS role boundaries', () => {
   const origin = 'http://localhost:5173'
   const environment = parseApiEnvironment({
     NODE_ENV: 'test',
-    ADMIN_CMS_MODE: 'technical',
     DATABASE_URL:
       'postgresql://nihongo_test_app_login:placeholder@localhost/nihongo_test?schema=public',
     TRUSTED_ORIGINS: origin,

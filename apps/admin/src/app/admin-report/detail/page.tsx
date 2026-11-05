@@ -14,6 +14,7 @@ import {
   ReportProcessPanel,
   cardClass
 } from '@app/admin-report/components/ReportProcessPanel'
+import { PageContainer } from '@nihongo/browser/common/components/PageContainer'
 
 export const AdminReportDetailPage = (): ReactElement => {
   const { reportId = '' } = useParams()
@@ -23,7 +24,7 @@ export const AdminReportDetailPage = (): ReactElement => {
   const heading = useRef<HTMLHeadingElement>(null)
   if (!user || role !== 'ADMIN') return <></>
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+    <PageContainer width="6xl">
       <Link
         to={readReportReturn(user.id, reportId).slice('/admin'.length)}
         className="inline-flex min-h-11 items-center text-sm font-semibold text-brand underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
@@ -56,7 +57,7 @@ export const AdminReportDetailPage = (): ReactElement => {
           message={t('userReport.detail.loading')}
         />
       )}
-    </section>
+    </PageContainer>
   )
 }
 
