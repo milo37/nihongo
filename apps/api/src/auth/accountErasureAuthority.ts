@@ -1,14 +1,16 @@
 import { createHash, randomUUID } from 'node:crypto'
 import type { Prisma, PrismaClient } from '../generated/prisma/client.js'
 import { adminAuditContentDigest } from '../admin/adminRepositoryCommon.js'
+import { reauthenticationTokenDigest } from './adminFreshAuthority.js'
 
 /**
  * Account erasure in the API transaction (#504 P7 PR4a).
  *
  * This keeps phase7_erase_user(_unchecked), the User delete trigger
  * anonymize_question_creator_on_user_delete, phase7_complete_sso_account_erasure,
- * phase7_list_sso_account_erasures, phase7_sso_account_erasure_status and
- * phase7_redact_expired_report_descriptions step for step: the same checks, the
+ * phase7_list_sso_account_erasures, phase7_sso_account_erasure_status,
+ * phase7_redact_expired_report_descriptions and (#504 P7 PR4b-2)
+ * phase7_request_sso_account_erasure step for step: the same checks, the
  * same lock order, the same tombstones and audit rows, and the same SQLSTATE
  * and message on failure. Failures are raised inside PostgreSQL so the existing
  * error mapping sees the same database error. The database allows the
@@ -580,3 +582,158 @@ export const redactExpiredReportDescriptions = async (
     batchLimit
   )
 }
+
+// phase7_sso_account_session: the active V1 Session of a raw token.
+const accountSession = async (
+  transaction: Transaction,
+  rawToken: string
+): Promise<{ userId: string } | undefined> =>
+  (
+    await transaction.$queryRawUnsafe<Array<{ userId: string }>>(
+      `SELECT target_user."id" AS "userId"
+       FROM "Session" AS session
+       JOIN "User" AS target_user ON target_user."id" = session."userId"
+       WHERE session."token" = $1
+         AND session."issuerProtocolVersion" = 'PHASE7_V1'
+         AND session."authorizationState" = 'ACTIVE'
+         AND session."authorityGeneration" = target_user."authorityGeneration"
+         AND target_user."accountStatus" = 'ACTIVE'
+         AND target_user."deletedAt" IS NULL
+         AND session."expiresAt" > clock_timestamp()
+         AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()`,
+      rawToken
+    )
+  )[0]
+
+// phase7_sso_account_proof_valid with phase7_sso_account_context_valid for an
+// ACCOUNT_FRESH proof: verified in the last 5 minutes, unexpired, and bound to
+// this Session, its User authority and a still linked provider account.
+const accountFreshProofIsValid = async (
+  transaction: Transaction,
+  rawToken: string,
+  proofDigest: string | null
+): Promise<boolean> => {
+  if (proofDigest === null) return false
+  const rows = await transaction.$queryRawUnsafe<
+    Array<{ tokenDigest: string; token: string }>
+  >(
+    `SELECT proof."context"->>'tokenDigest' AS "tokenDigest", session."token"
+     FROM "SsoAccountFreshProof" AS proof
+     JOIN "User" AS target_user
+       ON target_user."id" = (proof."context"->>'userId')::uuid
+     JOIN "Session" AS session
+       ON session."id" = (proof."context"->>'sessionId')::uuid
+      AND session."userId" = target_user."id"
+     WHERE proof."proofDigest" = $2
+       AND proof."context"->>'purpose' = 'ACCOUNT_FRESH'
+       AND proof."verifiedAt" IS NOT NULL
+       AND proof."verifiedAt" + INTERVAL '5 minutes' > clock_timestamp()
+       AND proof."expiresAt" > clock_timestamp()
+       AND session."token" = $1
+       AND target_user."role"::text = proof."context"->>'role'
+       AND target_user."authorityGeneration" =
+         (proof."context"->>'authorityGeneration')::integer
+       AND proof."context"->>'provider' IN ('apple', 'google')
+       AND session."issuerProtocolVersion" = 'PHASE7_V1'
+       AND session."authorizationState" = 'ACTIVE'
+       AND session."authorityGeneration" = target_user."authorityGeneration"
+       AND target_user."accountStatus" = 'ACTIVE'
+       AND target_user."deletedAt" IS NULL
+       AND session."expiresAt" > clock_timestamp()
+       AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()
+       AND EXISTS (
+         SELECT 1 FROM "Account" AS account
+         WHERE account."userId" = target_user."id"
+           AND account."providerId" = proof."context"->>'provider'
+           AND account."accountId" = proof."context"->>'accountId'
+       )`,
+    rawToken,
+    proofDigest
+  )
+  return rows.some(
+    (row) => reauthenticationTokenDigest(row.token) === row.tokenDigest
+  )
+}
+
+export type SsoAccountErasureRequestResult =
+  | {
+      readonly code:
+        | 'AUTHENTICATION_REQUIRED'
+        | 'SSO_FRESH_REQUIRED'
+        | 'SSO_ACCOUNT_DELETION_BLOCKED'
+    }
+  | {
+      readonly appStatus: 'DELETION_PENDING'
+      readonly providerCleanup: unknown
+    }
+
+/**
+ * phase7_request_sso_account_erasure: records the provider-first erasure
+ * request and sets the User DELETION_PENDING, which revokes every Session.
+ * The database fills the provider cleanup list and receipt expiry itself.
+ */
+export const requestSsoAccountErasure = async (
+  client: Pick<PrismaClient, '$transaction'>,
+  rawToken: string,
+  proofDigest: string | null,
+  receiptDigest: string
+): Promise<SsoAccountErasureRequestResult> =>
+  client.$transaction(async (transaction) => {
+    await transaction.$queryRawUnsafe(
+      `SELECT "phase7_require_runtime_ready"() AS ready`
+    )
+    const first = await accountSession(transaction, rawToken)
+    if (!first) return { code: 'AUTHENTICATION_REQUIRED' }
+    await transaction.$queryRawUnsafe(
+      `SELECT 1 FROM "User" WHERE "id" = $1::uuid FOR UPDATE`,
+      first.userId
+    )
+    const actor = await accountSession(transaction, rawToken)
+    if (!actor) return { code: 'AUTHENTICATION_REQUIRED' }
+    if (!(await accountFreshProofIsValid(transaction, rawToken, proofDigest)))
+      return { code: 'SSO_FRESH_REQUIRED' }
+    const blocked = await transaction.$queryRawUnsafe<unknown[]>(
+      `SELECT 1 FROM "QuestionVersion"
+       WHERE "createdByActorId" = $1::uuid
+         AND "status" IN ${OPEN_VERSION_STATUSES}
+       LIMIT 1`,
+      actor.userId
+    )
+    if (blocked.length > 0) return { code: 'SSO_ACCOUNT_DELETION_BLOCKED' }
+    if (!/^[0-9a-f]{64}$/u.test(receiptDigest))
+      await raise(transaction, '22023', 'Invalid private erasure receipt.')
+    await transaction.$queryRawUnsafe(
+      `SELECT 1 FROM "Account" WHERE "userId" = $1::uuid ORDER BY "id" FOR UPDATE`,
+      actor.userId
+    )
+    // The request trigger replaces the cleanup list, expiry and state.
+    const inserted = await transaction.$queryRawUnsafe<
+      Array<{ providerCleanup: unknown }>
+    >(
+      `INSERT INTO "SsoAccountErasureRequest" (
+         "userId", "receiptDigest", "providerCleanup", "receiptExpiresAt"
+       ) VALUES ($1::uuid, $2, '[]'::jsonb, clock_timestamp())
+       RETURNING "providerCleanup"`,
+      actor.userId,
+      receiptDigest
+    )
+    // The User trigger accepts ACTIVE to DELETION_PENDING only with the
+    // request just inserted, then revokes every Session of the User.
+    await transaction.$executeRawUnsafe(
+      `UPDATE "User" SET "accountStatus" = 'DELETION_PENDING'
+       WHERE "id" = $1::uuid`,
+      actor.userId
+    )
+    await transaction.$executeRawUnsafe(
+      `DELETE FROM "SsoAccountFreshProof" WHERE "userId" = $1::uuid`,
+      actor.userId
+    )
+    await transaction.$executeRawUnsafe(
+      `DELETE FROM "SsoAccountFreshTransaction" WHERE "userId" = $1::uuid`,
+      actor.userId
+    )
+    return {
+      appStatus: 'DELETION_PENDING',
+      providerCleanup: inserted[0]?.providerCleanup
+    }
+  })

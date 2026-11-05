@@ -51,7 +51,7 @@ describe('SSO account repository boundaries', () => {
   })
   it('preparation uses fixed definer and rejects mismatched provider context', async () => {
     const query = vi.fn(async () => [{ result: context }]),
-      repo = createSsoAccountRepository(client(query))
+      repo = createSsoAccountRepository(workerClient(query))
     expect(
       await repo.prepare('private', 'google', 'ACCOUNT_FRESH', null)
     ).toEqual(context)
@@ -73,7 +73,7 @@ describe('SSO account repository boundaries', () => {
       freshProofDigest: 'b'.repeat(64)
     }
     const query = vi.fn(async () => [{ result: linked }]),
-      repo = createSsoAccountRepository(client(query))
+      repo = createSsoAccountRepository(workerClient(query))
     expect(
       await repo.prepare('private', 'apple', 'ACCOUNT_LINK', 'b'.repeat(64))
     ).toEqual(linked)
@@ -86,7 +86,7 @@ describe('SSO account repository boundaries', () => {
   })
   it('wrong linked subject cannot even submit proof SQL', async () => {
     const query = vi.fn(),
-      repo = createSsoAccountRepository(client(query))
+      repo = createSsoAccountRepository(workerClient(query))
     expect(
       await repo.stageProof(
         context,
@@ -112,7 +112,7 @@ describe('SSO account repository boundaries', () => {
           context
         }
       ]),
-      repo = createSsoAccountRepository(client(query))
+      repo = createSsoAccountRepository(workerClient(query))
     await expect(
       repo.consume('a', 'b', 'google', 'ACCOUNT_LINK')
     ).rejects.toThrow('purpose mismatch')
@@ -121,18 +121,29 @@ describe('SSO account repository boundaries', () => {
     const query = vi.fn(async () => [
         { result: { unlinked: true, sessionRevoked: true, userId: user } }
       ]),
-      repo = createSsoAccountRepository(client(query))
+      repo = createSsoAccountRepository(workerClient(query))
     await expect(
       repo.unlink('private', 'google', ['apple'], null)
     ).rejects.toThrow()
   })
   it('no missing/extra result rows can become mutation success', async () => {
     for (const rows of [[], [{ result: null }, { result: null }]]) {
-      const repo = createSsoAccountRepository(client(vi.fn(async () => rows)))
+      const repo = createSsoAccountRepository(
+        workerClient(vi.fn(async () => rows))
+      )
       await expect(
-        repo.requestErasure('private', null, 'd'.repeat(64))
+        repo.unlink('private', 'google', ['apple'], null)
       ).rejects.toThrow('unavailable')
     }
+  })
+  it('erasure request without a live Session answers AUTHENTICATION_REQUIRED and writes nothing', async () => {
+    const execute = vi.fn(async () => 0)
+    const query = vi.fn(async () => [])
+    const repo = createSsoAccountRepository(workerClient(query, execute))
+    await expect(
+      repo.requestErasure('private', null, 'd'.repeat(64))
+    ).resolves.toEqual({ code: 'AUTHENTICATION_REQUIRED' })
+    expect(execute).not.toHaveBeenCalled()
   })
   it('worker physical erasure and provider cleanup remain separate calls', async () => {
     const query = vi.fn(async (sql: string) =>

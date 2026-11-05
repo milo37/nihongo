@@ -23,6 +23,7 @@ import {
   eraseUserForTest,
   listSsoAccountErasures,
   redactExpiredReportDescriptions,
+  requestSsoAccountErasure,
   ssoAccountErasureStatus,
   type ErasureEnvironment
 } from '../../auth/accountErasureAuthority.js'
@@ -171,7 +172,8 @@ const BRIDGED_FUNCTIONS = [
   'phase7_complete_sso_account_erasure',
   'phase7_list_sso_account_erasures',
   'phase7_sso_account_erasure_status',
-  'phase7_redact_expired_report_descriptions'
+  'phase7_redact_expired_report_descriptions',
+  'phase7_request_sso_account_erasure'
 ] as const
 
 /** client.query, except that calls to the dropped functions use the bridge. */
@@ -575,6 +577,23 @@ export const ownedSessionSql = async <
       [['receiptDigest', 'text']],
       async (input) => [
         await ssoAccountErasureStatus(owned, input.receiptDigest as string)
+      ]
+    ],
+    // #504 P7 PR4b-2: the SSO account erasure request.
+    [
+      'phase7_request_sso_account_erasure',
+      [
+        ['rawToken', 'text'],
+        ['proofDigest', 'text'],
+        ['receiptDigest', 'text']
+      ],
+      async (input) => [
+        await requestSsoAccountErasure(
+          owned,
+          input.rawToken as string,
+          (input.proofDigest as string | null) ?? null,
+          (input.receiptDigest as string | null) ?? ''
+        )
       ]
     ],
     [

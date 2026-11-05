@@ -1232,7 +1232,8 @@ describe('Reauthentication DB foundation', () => {
     ])
     // #504 P7 PR4a: the erasure worker queue, direct erasure, report redaction
     // and the receipt status moved to the API.
-    expect(rows.filter((row) => row.gateway).length).toBe(15)
+    // #504 P7 PR4b-2 dropped phase7_request_sso_account_erasure.
+    expect(rows.filter((row) => row.gateway).length).toBe(14)
     // #504 P7 PR4b-1 dropped phase7_cleanup_expired_auth_state.
     expect(rows.filter((row) => row.erasure).length).toBe(3)
   })
@@ -1586,6 +1587,100 @@ describe('Reauthentication DB foundation', () => {
         [userId]
       )
       expect(remaining.rows).toEqual([{ users: 0, accounts: 0, sessions: 0 }])
+    })
+  })
+
+  it('#504 P7 PR4b-2: nihongo_app의 User 상태 변경은 방금 만든 erasure 요청의 ACTIVE→DELETION_PENDING만 허용한다', async () => {
+    await withinRollback(async () => {
+      const userId = randomUUID()
+      await insertCredentialUser(userId, 'USER')
+      const setStatus = (status: string) =>
+        [
+          `UPDATE "User" SET "accountStatus" = $2::"UserAccountStatus"
+           WHERE "id" = $1`,
+          [userId, status]
+        ] as const
+      // No erasure request: every status change is refused.
+      await expectRoleFailure(
+        'nihongo_app',
+        ...setStatus('DELETION_PENDING'),
+        '42501'
+      )
+      // The fresh proof cleanup needs the request too.
+      await adminClient.query(
+        `INSERT INTO "SsoAccountFreshProof" (
+           "proofDigest", "context", "userId", "callbackURL", "expiresAt"
+         ) VALUES ($1, '{}'::jsonb, $2, '/', clock_timestamp() + INTERVAL '5 minutes')`,
+        ['a'.repeat(64), userId]
+      )
+      await expectRoleFailure(
+        'nihongo_app',
+        'DELETE FROM "SsoAccountFreshProof" WHERE "userId" = $1',
+        [userId],
+        '42501'
+      )
+      // The request trigger owns the cleanup list, expiry and state: a
+      // claimed COMPLETED cleanup and a far expiry are replaced.
+      await adminClient.query('SET LOCAL ROLE "nihongo_app"')
+      await adminClient.query(
+        `INSERT INTO "SsoAccountErasureRequest" (
+           "userId", "receiptDigest", "providerCleanup", "receiptExpiresAt"
+         ) VALUES (
+           $1, $2, '[{"provider":"google","status":"COMPLETED"}]'::jsonb,
+           clock_timestamp() + INTERVAL '30 days'
+         )`,
+        [userId, 'b'.repeat(64)]
+      )
+      await adminClient.query('RESET ROLE')
+      expect(
+        (
+          await adminClient.query<{
+            appStatus: string
+            cleanup: unknown
+            oneDay: boolean
+          }>(
+            `SELECT "appStatus", "providerCleanup" AS cleanup,
+               "receiptExpiresAt" <= clock_timestamp() + INTERVAL '1 day' AS "oneDay"
+             FROM "SsoAccountErasureRequest" WHERE "userId" = $1`,
+            [userId]
+          )
+        ).rows
+      ).toEqual([{ appStatus: 'DELETION_PENDING', cleanup: [], oneDay: true }])
+      // With the request: only ACTIVE to DELETION_PENDING.
+      await expectRoleFailure('nihongo_app', ...setStatus('DELETED'), '42501')
+      await expectRoleFailure(
+        'nihongo_app',
+        `UPDATE "User" SET "role" = 'ADMIN' WHERE "id" = $1`,
+        [userId],
+        '42501'
+      )
+      await adminClient.query('SET LOCAL ROLE "nihongo_app"')
+      {
+        const [pendingSql, pendingValues] = setStatus('DELETION_PENDING')
+        await adminClient.query(pendingSql, [...pendingValues])
+      }
+      await adminClient.query('RESET ROLE')
+      await expectRoleFailure('nihongo_app', ...setStatus('ACTIVE'), '42501')
+      // A second request for a non-ACTIVE User is refused.
+      const otherUserId = randomUUID()
+      await insertCredentialUser(otherUserId, 'USER')
+      await adminClient.query('SET LOCAL session_replication_role = replica')
+      try {
+        await adminClient.query(
+          `UPDATE "User" SET "accountStatus" = 'DELETION_PENDING' WHERE "id" = $1`,
+          [otherUserId]
+        )
+      } finally {
+        await adminClient.query('SET LOCAL session_replication_role = origin')
+      }
+      await expectRoleFailure(
+        'nihongo_app',
+        `INSERT INTO "SsoAccountErasureRequest" (
+           "userId", "receiptDigest", "providerCleanup", "receiptExpiresAt"
+         ) VALUES ($1, $2, '[]'::jsonb, clock_timestamp())`,
+        [otherUserId, 'c'.repeat(64)],
+        '42501'
+      )
     })
   })
 
