@@ -74,7 +74,7 @@ migration은 `20261105090000_baseline` 하나입니다.
 
 **DEVELOPMENT DB 재생성(데이터 보존 없음)**
 baseline 이전 볼륨은 역할 이름과 migration 이력이 달라 그대로 쓸 수 없습니다. 볼륨을 지우고 새로 만듭니다.
-project·volume 이름이 `nihongo-phase7-local`·`nihongo-phase7-postgres-data`에서 `nihongo-local`·`nihongo-local-postgres-data`로 바뀌어 기존 로컬 데이터는 보이지 않으므로, 아래 절차로 새로 만듭니다.
+project·volume 이름이 `nihongo-local`·`nihongo-local-postgres-data`로 바뀌어 이전 이름의 로컬 데이터는 보이지 않습니다. 아래 절차로 새로 만듭니다.
 아래 `down -v`는 이 project의 볼륨 데이터를 영구 삭제합니다.
 
 ```bash

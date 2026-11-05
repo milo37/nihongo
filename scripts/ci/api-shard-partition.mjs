@@ -4,9 +4,7 @@ import { assertApiIntegrationShardPartition } from '../../apps/api/src/e2e/apiIn
 import { apiIntegrationShardGroups } from './check-selection.mjs'
 
 const allShards = [
-  ...new Set(
-    getApiIntegrationEntriesByOwner('phase10').map(({ shard }) => shard)
-  )
+  ...new Set(getApiIntegrationEntriesByOwner('shard').map(({ shard }) => shard))
 ]
 assertApiIntegrationShardPartition(
   allShards,

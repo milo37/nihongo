@@ -1,4 +1,4 @@
-# Phase 11 provider-neutral recovery runbook v1
+# Provider-neutral recovery runbook v1
 
 This runbook is a tracked structural contract. It does not prove that a
 Staging or Production provider has automatic backups, point-in-time recovery,

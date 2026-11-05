@@ -25,7 +25,7 @@ permission has been provisioned or verified by this document.
 Use a disposable PostgreSQL cluster whose base database is
 `nihongo_jlp534_test`. Supply the existing safe TEST environment and bootstrap
 `API_INTEGRATION_DATABASE_URL` (or `DATABASE_URL`) through the authorized
-environment, without printing credentials. The Phase10 runner creates and
+environment, without printing credentials. The API integration runner creates and
 removes a `jlp534_<random>_test` schema for the guest shard and supplies the
 fixture, guest and application URLs with `GUEST_CLEANUP_TEST_ISOLATED=yes`.
 The manifest runner rejects missing environment, zero tests and skipped tests.

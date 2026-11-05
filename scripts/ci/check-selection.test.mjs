@@ -950,7 +950,7 @@ test('API shard partition script rejects drifted matrix groups', () => {
   const check = (groups) => `
     import { getApiIntegrationEntriesByOwner } from './src/e2e/apiIntegrationManifest.ts'
     import { assertApiIntegrationShardPartition } from './src/e2e/apiIntegrationShardSelection.ts'
-    const all = [...new Set(getApiIntegrationEntriesByOwner('phase10').map(({ shard }) => shard))]
+    const all = [...new Set(getApiIntegrationEntriesByOwner('shard').map(({ shard }) => shard))]
     assertApiIntegrationShardPartition(all, ${JSON.stringify(groups)})
   `
   const groups = Object.values(apiIntegrationShardGroups)
@@ -1126,12 +1126,7 @@ test('workflow and command budgets preserve the three protected contexts', () =>
   ]) {
     assert.equal(normal.split(name).length - 1, 1)
   }
-  for (const name of [
-    'Phase 10 real/mock browser and regression acceptance',
-    'Phase 11 portable release and production-mode smoke'
-  ]) {
-    assert.equal(normal.includes(name), false, name)
-  }
+  assert.doesNotMatch(normal, /phase ?[0-9]/iu)
   assert.doesNotMatch(normal + candidate, /previous-results|download-artifact/u)
   assert.equal(normal.split('uses: actions/upload-artifact@v4').length - 1, 2)
   assert.doesNotMatch(candidate, /upload-artifact/u)
@@ -2144,13 +2139,13 @@ test('browser reachability rejects quoted, commented and dead edges', async () =
     assertBrowserScript(real.replace('runBrowser.ts', 'deadBrowser.ts'), 'real')
   )
 
-  const phase9Source = readFileSync(
+  const accessibilitySource = readFileSync(
     path.join(repositoryRoot, 'scripts/runAccessibilityBrowser.ts'),
     'utf8'
   )
   await assert.rejects(() =>
     assertPlaywrightSelection(
-      phase9Source.replace(
+      accessibilitySource.replace(
         "'apps/web/e2e/accessibility.spec.ts'",
         "'apps/web/e2e/dead.spec.ts' /* apps/web/e2e/accessibility.spec.ts */"
       ),

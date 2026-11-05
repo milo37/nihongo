@@ -40,12 +40,9 @@ const wrapperRoles = [
 const removedRoles = [
   'nihongo_auth_gateway',
   'nihongo_erasure_worker',
-  'nihongo_phase7_owner',
-  'nihongo_phase7_migration',
   'auth_gateway_login',
   'erasure_worker_login',
-  'legacy_app_login',
-  'phase7_migration_login'
+  'legacy_app_login'
 ]
 
 const secretNames = [
@@ -104,7 +101,7 @@ test('Compose isolates persistent local roles from disposable runners', async ()
   assert.match(compose, /127\.0\.0\.1:\$\{LOCAL_POSTGRES_PORT:-55433\}:5432/u)
   assert.match(compose, /nihongo-local-postgres-data:\/var\/lib\/postgresql/u)
   assert.match(compose, /\.nihongo-local-provisioned/u)
-  assert.doesNotMatch(compose, /phase7/iu)
+  assert.doesNotMatch(compose, /phase/iu)
 
   for (const secretName of secretNames) {
     const interpolation = '${' + secretName + ':-}'
@@ -133,6 +130,7 @@ test('fresh init matches the canonical local database role graph', async () => {
   assert.match(init, /exact_group_count <> 4/u)
   assert.match(init, /exact_wrapper_count <> 6/u)
   assert.match(init, /expected_membership_count <> 7/u)
+  assert.doesNotMatch(init, /phase/iu)
   assert.match(init, /unexpected_membership_count <> 0/u)
 
   for (const role of groupRoles) {
@@ -279,6 +277,6 @@ test('README documents both mutually exclusive local workflows', async () => {
   assert.match(activation, /BEGIN;/u)
   assert.match(activation, /INSERT INTO "DatabaseCapability"/u)
   assert.doesNotMatch(activation, /GRANT|_prisma_migrations/u)
-  assert.doesNotMatch(activation, /phase7_/u)
+  assert.doesNotMatch(activation, /phase/iu)
   assert.match(activation, /COMMIT;/u)
 })
