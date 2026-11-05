@@ -1,0 +1,144 @@
+variable "project" {
+  description = "Resource name prefix."
+  type        = string
+  default     = "harumaru"
+}
+
+variable "region" {
+  description = "Primary region (user decision 2026-11-05: Seoul)."
+  type        = string
+  default     = "ap-northeast-2"
+}
+
+variable "deployment_environment" {
+  description = "DEPLOYMENT_ENVIRONMENT for the API. No default: STAGING or PRODUCTION is an owner decision."
+  type        = string
+
+  validation {
+    condition     = contains(["STAGING", "PRODUCTION"], var.deployment_environment)
+    error_message = "deployment_environment must be STAGING or PRODUCTION."
+  }
+}
+
+variable "instance_type" {
+  description = "Single API + PostgreSQL host (Graviton)."
+  type        = string
+  default     = "t4g.small"
+
+  validation {
+    condition     = startswith(var.instance_type, "t4g.")
+    error_message = "Use a t4g (arm64) instance type; the AMI and Compose binary are arm64."
+  }
+}
+
+variable "root_volume_gib" {
+  type    = number
+  default = 20
+}
+
+variable "data_volume_gib" {
+  description = "Separate gp3 volume for PostgreSQL data; survives instance replacement."
+  type        = number
+  default     = 10
+}
+
+variable "domain_name" {
+  description = "Custom domain (for example harumaru.net). Empty = use the *.cloudfront.net address."
+  type        = string
+  default     = ""
+}
+
+variable "acm_certificate_arn" {
+  description = "us-east-1 ACM certificate for domain_name. Required only when domain_name is set."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.domain_name == "" || startswith(var.acm_certificate_arn, "arn:aws:acm:us-east-1:")
+    error_message = "A custom domain needs a us-east-1 ACM certificate ARN."
+  }
+}
+
+variable "waf_rate_limit_per_5min" {
+  description = "Requests per client IP per 5 minutes before WAF blocks."
+  type        = number
+  default     = 1000
+}
+
+variable "alert_email" {
+  description = "Receives CloudWatch alarm, budget and cost anomaly mail (subscription must be confirmed)."
+  type        = string
+}
+
+variable "monthly_budget_usd" {
+  description = "Monthly cost limit. AWS Budgets bills in USD; the owner gives the limit in JPY and it is converted."
+  type        = number
+}
+
+variable "budget_stop_ec2_enabled" {
+  description = "Stop the EC2 host automatically when actual cost reaches 100% of the budget."
+  type        = bool
+  default     = true
+}
+
+variable "create_cost_anomaly_monitor" {
+  description = "AWS allows one SERVICE anomaly monitor per account; set false if the console already created it."
+  type        = bool
+  default     = true
+}
+
+variable "cost_anomaly_threshold_usd" {
+  type    = number
+  default = 5
+}
+
+variable "github_repository" {
+  description = "owner/repo allowed to assume the deploy role."
+  type        = string
+  default     = "milo37/nihongo"
+}
+
+variable "github_deploy_ref" {
+  description = "Only this ref may assume the deploy role."
+  type        = string
+  default     = "refs/heads/main"
+}
+
+variable "create_github_oidc_provider" {
+  description = "Set false if the account already has the token.actions.githubusercontent.com provider."
+  type        = bool
+  default     = true
+}
+
+variable "backup_retention_days" {
+  type    = number
+  default = 30
+}
+
+variable "erasure_schedule_enabled" {
+  description = "Account erasure (#57) schedule. Stays false until the production revoke adapter and approval exist."
+  type        = bool
+  default     = false
+}
+
+variable "erasure_schedule_expression" {
+  type    = string
+  default = "cron(0 3 * * ? *)"
+}
+
+variable "compose_version" {
+  type    = string
+  default = "v5.7.0"
+}
+
+variable "compose_sha256" {
+  description = "sha256 of docker-compose-linux-aarch64 from the release checksums.txt."
+  type        = string
+  default     = "15861535d14e26555736b49376c95e14bfd94285366c8446bfac7156a972e76f"
+}
+
+variable "postgres_image" {
+  description = "Same major/minor as compose.yaml."
+  type        = string
+  default     = "postgres:18.4-alpine"
+}

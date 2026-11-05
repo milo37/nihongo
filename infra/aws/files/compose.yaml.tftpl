@@ -1,0 +1,52 @@
+# Host copy at /opt/harumaru/compose.yaml. deploy.sh writes .env (API_IMAGE,
+# RELEASE_ID, AWS_REGION, LOG_GROUP) next to it; secrets come from /run/harumaru.
+name: harumaru
+
+x-logging: &logging
+  driver: awslogs
+  options:
+    awslogs-region: $${AWS_REGION}
+    awslogs-group: $${LOG_GROUP}
+    tag: '{{.Name}}'
+
+services:
+  postgres:
+    image: ${postgres_image}
+    restart: unless-stopped
+    env_file: /run/harumaru/postgres.env
+    environment:
+      POSTGRES_DB: nihongo
+    # Production DATABASE_URL must use sslmode=require (apps/api/src/config/env.ts);
+    # the self-signed certificate is created at first boot.
+    command:
+      - postgres
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/certs/server.crt
+      - -c
+      - ssl_key_file=/certs/server.key
+    volumes:
+      - /var/lib/harumaru/postgres:/var/lib/postgresql
+      - /var/lib/harumaru/certs:/certs:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d nihongo']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+
+  api:
+    image: $${API_IMAGE}
+    restart: unless-stopped
+    env_file:
+      - /etc/harumaru/public.env
+      - /run/harumaru/api.env
+    environment:
+      RELEASE_ID: $${RELEASE_ID}
+    ports:
+      - '3001:3001'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *logging

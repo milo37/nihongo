@@ -1,0 +1,8 @@
+# Copy to terraform.tfvars (ignored by git). No secret values belong here.
+deployment_environment = "PRODUCTION"
+alert_email            = "owner@example.com"
+monthly_budget_usd     = 30
+
+# Later, after buying the domain and issuing a us-east-1 ACM certificate:
+# domain_name         = "harumaru.net"
+# acm_certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/..."
