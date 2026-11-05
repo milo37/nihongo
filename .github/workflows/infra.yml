@@ -76,6 +76,10 @@ jobs:
       - name: shellcheck host scripts
         run: shellcheck --severity=warning files/*.sh scripts/*.sh
 
+      # SSM values are data: no shell evaluation, identity-only URLs for migrate.
+      - name: Host script input handling
+        run: bash scripts/host-scripts-check.sh
+
   migrate-image:
     name: Migrate image build
     runs-on: ubuntu-latest

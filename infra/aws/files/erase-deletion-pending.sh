@@ -16,9 +16,17 @@ if [[ "$DEPLOYMENT_ENVIRONMENT" != "PRODUCTION" ]]; then
 fi
 
 /opt/harumaru/bin/render-env.sh
-set -a
-source /run/harumaru/erase.env
-set +a
+# The SSM value is data: take the one expected line literally instead of
+# `source`, so $(...) or `...` in it is never run by the shell.
+PRODUCTION_DATABASE_URL=''
+while IFS= read -r line || [[ -n "$line" ]]; do
+  case "$line" in
+    '') ;;
+    PRODUCTION_DATABASE_URL=*) PRODUCTION_DATABASE_URL="${line#PRODUCTION_DATABASE_URL=}" ;;
+    *) echo "unexpected line in erase.env" >&2; exit 1 ;;
+  esac
+done < /run/harumaru/erase.env
+export PRODUCTION_DATABASE_URL
 [[ -n "${PRODUCTION_DATABASE_URL:-}" ]] || { echo "missing SSM parameter PRODUCTION_DATABASE_URL" >&2; exit 1; }
 
 # Values come from this shell's environment, so the URL never appears in argv.
