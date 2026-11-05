@@ -56,11 +56,11 @@ import { createPrismaAdminQuestionRepository } from '../admin/adminQuestionRepos
 import { createAdminQuestionService } from '../admin/adminQuestionService.js'
 import { createAdminCommandRateLimiter } from '../admin/adminCommandRateLimiter.js'
 import { createPrismaAdminQuestionCommandRepository } from '../admin/adminQuestionCommandRepository.js'
-import { createPrismaAdminQuestionSlice5Repository } from '../admin/adminQuestionSlice5Repository.js'
+import { createPrismaAdminQuestionWorkflowRepository } from '../admin/adminQuestionWorkflowRepository.js'
 import {
   createAdminQuestionCommandService,
   createAdminQuestionPublicationCommandService,
-  createAdminQuestionSlice5CommandService
+  createAdminQuestionWorkflowCommandService
 } from '../admin/adminQuestionCommandService.js'
 import { createQuestionReportRateLimiter } from '../admin/questionReportRateLimiter.js'
 import { createPrismaQuestionReportRepository } from '../admin/questionReportRepository.js'
@@ -402,14 +402,14 @@ export const createBrowserApi = async ({
       auditEnvironment: 'TEST',
       client: database.client
     })
-    const slice5Repository = createPrismaAdminQuestionSlice5Repository({
+    const workflowRepository = createPrismaAdminQuestionWorkflowRepository({
       auditEnvironment: 'TEST',
       client: database.client
     })
     const commandService = {
       ...createAdminQuestionCommandService(commandRepository),
       ...createAdminQuestionPublicationCommandService(commandRepository),
-      ...createAdminQuestionSlice5CommandService(slice5Repository)
+      ...createAdminQuestionWorkflowCommandService(workflowRepository)
     }
     const reportLimiter = createQuestionReportRateLimiter({
       client: database.client,
@@ -498,7 +498,7 @@ export const createBrowserApi = async ({
             keySecret: environment.GUEST_COOKIE_SECRET
           }),
           service: commandService,
-          slice5Service: commandService
+          workflowService: commandService
         },
         reports: {
           rateLimiter: reportLimiter,

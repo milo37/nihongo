@@ -77,14 +77,14 @@ import {
 import {
   createAdminQuestionCommandService,
   createAdminQuestionPublicationCommandService,
-  createAdminQuestionSlice5CommandService,
+  createAdminQuestionWorkflowCommandService,
   type AdminQuestionCommandService,
   type AdminQuestionPublicationCommandService,
-  type AdminQuestionSlice5CommandService
+  type AdminQuestionWorkflowCommandService
 } from './adminQuestionCommandService.js'
 import { createPrismaAdminQuestionRepository } from './adminQuestionRepository.js'
 import { createAdminQuestionService } from './adminQuestionService.js'
-import { createPrismaAdminQuestionSlice5Repository } from './adminQuestionSlice5Repository.js'
+import { createPrismaAdminQuestionWorkflowRepository } from './adminQuestionWorkflowRepository.js'
 import { createPrismaQuestionReportRepository } from './questionReportRepository.js'
 import {
   createQuestionReportService,
@@ -141,7 +141,7 @@ let authGatewayRuntime: RoleDatabaseRuntime | undefined
 let commandService:
   | (AdminQuestionCommandService & AdminQuestionPublicationCommandService)
   | undefined
-let slice5CommandService: AdminQuestionSlice5CommandService | undefined
+let workflowCommandService: AdminQuestionWorkflowCommandService | undefined
 let questionReportService: QuestionReportService | undefined
 let baseQuestionId = ''
 let baseQuestionRowVersion = 0
@@ -977,12 +977,12 @@ beforeAll(async () => {
     ...createAdminQuestionCommandService(preparedRepository),
     ...createAdminQuestionPublicationCommandService(preparedRepository)
   }
-  const slice5Repository = createPrismaAdminQuestionSlice5Repository({
+  const workflowRepository = createPrismaAdminQuestionWorkflowRepository({
     auditEnvironment: 'TEST',
     client: applicationRuntime.client
   })
-  slice5CommandService =
-    createAdminQuestionSlice5CommandService(slice5Repository)
+  workflowCommandService =
+    createAdminQuestionWorkflowCommandService(workflowRepository)
   questionReportService = createQuestionReportService({
     rateLimiter: { consume: async () => undefined },
     repository: createPrismaQuestionReportRepository(applicationRuntime.client)
@@ -2373,9 +2373,9 @@ describe('ADMIN command TEST database integration', () => {
     })
   }, 120_000)
 
-  it('executes Slice 5 review batches atomically with one operation evidence set', async () => {
-    if (!commandService || !slice5CommandService) {
-      throw new Error('Slice 5 command services are unavailable.')
+  it('executes workflow review batches atomically with one operation evidence set', async () => {
+    if (!commandService || !workflowCommandService) {
+      throw new Error('workflow command services are unavailable.')
     }
     const first = await createDraftQuestion(`batch-first-${randomUUID()}`)
     const second = await createDraftQuestion(`batch-second-${randomUUID()}`)
@@ -2398,7 +2398,7 @@ describe('ADMIN command TEST database integration', () => {
     const batchAuthority = authority(authorId, authorToken)
     const result = assertRequestContentReviewBatchResponse(
       request,
-      await slice5CommandService.requestReviewBatch(batchAuthority, request)
+      await workflowCommandService.requestReviewBatch(batchAuthority, request)
     )
     expect(
       result.items.map(({ questionVersionId }) => questionVersionId)
@@ -2438,7 +2438,7 @@ describe('ADMIN command TEST database integration', () => {
     }
     const rollbackAuthority = authority(authorId, authorToken)
     await expect(
-      slice5CommandService.requestReviewBatch(
+      workflowCommandService.requestReviewBatch(
         rollbackAuthority,
         requestContentReviewBatchRequestSchema.parse({
           items: [
@@ -2502,7 +2502,7 @@ describe('ADMIN command TEST database integration', () => {
     )
     const stateFirstAuthority = authority(authorId, authorToken)
     await expect(
-      slice5CommandService.requestReviewBatch(
+      workflowCommandService.requestReviewBatch(
         stateFirstAuthority,
         requestContentReviewBatchRequestSchema.parse({
           items: [
@@ -2529,7 +2529,7 @@ describe('ADMIN command TEST database integration', () => {
 
     const staleFirstAuthority = authority(authorId, authorToken)
     await expect(
-      slice5CommandService.requestReviewBatch(
+      workflowCommandService.requestReviewBatch(
         staleFirstAuthority,
         requestContentReviewBatchRequestSchema.parse({
           items: [
@@ -2556,8 +2556,8 @@ describe('ADMIN command TEST database integration', () => {
   }, 120_000)
 
   it('validates and atomically applies imports, then exports exact canonical audited bytes', async () => {
-    if (!slice5CommandService) {
-      throw new Error('Slice 5 command service is unavailable.')
+    if (!workflowCommandService) {
+      throw new Error('workflow command service is unavailable.')
     }
     const validationRequest = validateQuestionImportRequestSchema.parse({
       items: [createImportItem(randomUUID()), createImportItem(randomUUID())]
@@ -2565,7 +2565,7 @@ describe('ADMIN command TEST database integration', () => {
     const validation = await assertAdminImportValidationForRequest(
       sha256Port,
       validationRequest,
-      await slice5CommandService.validateImport(validationRequest)
+      await workflowCommandService.validateImport(validationRequest)
     )
     expect(validation).toMatchObject({
       valid: true,
@@ -2579,7 +2579,7 @@ describe('ADMIN command TEST database integration', () => {
       validationDigest: validation.validationDigest
     })
     const applyAuthority = authority(authorId, authorToken)
-    const appliedRaw = await slice5CommandService.applyImport(
+    const appliedRaw = await workflowCommandService.applyImport(
       applyAuthority,
       applyRequest
     )
@@ -2591,7 +2591,7 @@ describe('ADMIN command TEST database integration', () => {
     )
     expect(applied.response.createdCount).toBe(2)
     // Same importId, actor and body replays the stored response (#491).
-    const replayed = await slice5CommandService.applyImport(
+    const replayed = await workflowCommandService.applyImport(
       applyAuthority,
       applyRequest
     )
@@ -2607,10 +2607,10 @@ describe('ADMIN command TEST database integration', () => {
     const otherValidation = await assertAdminImportValidationForRequest(
       sha256Port,
       otherValidationRequest,
-      await slice5CommandService.validateImport(otherValidationRequest)
+      await workflowCommandService.validateImport(otherValidationRequest)
     )
     await expect(
-      slice5CommandService.applyImport(
+      workflowCommandService.applyImport(
         applyAuthority,
         applyQuestionImportRequestSchema.parse({
           importId: applyRequest.importId,
@@ -2649,7 +2649,7 @@ describe('ADMIN command TEST database integration', () => {
     ).toBe(true)
 
     const duplicateValidation =
-      await slice5CommandService.validateImport(validationRequest)
+      await workflowCommandService.validateImport(validationRequest)
     expect(duplicateValidation.valid).toBe(false)
     expect(duplicateValidation.errors.map(({ code }) => code)).toEqual([
       'DUPLICATE_QUESTION_CONTENT',
@@ -2663,7 +2663,7 @@ describe('ADMIN command TEST database integration', () => {
       questionIds
     })
     const exportAuthority = authority(reviewerId, reviewerToken)
-    const exported = await slice5CommandService.exportQuestions(
+    const exported = await workflowCommandService.exportQuestions(
       exportAuthority,
       exportRequest
     )
@@ -2723,7 +2723,7 @@ describe('ADMIN command TEST database integration', () => {
     const concurrentValidation = await assertAdminImportValidationForRequest(
       sha256Port,
       concurrentRequest,
-      await slice5CommandService.validateImport(concurrentRequest)
+      await workflowCommandService.validateImport(concurrentRequest)
     )
     const concurrentApplyRequest = applyQuestionImportRequestSchema.parse({
       importId: randomUUID(),
@@ -2757,8 +2757,8 @@ describe('ADMIN command TEST database integration', () => {
       } as unknown as PrismaClient
     }
     const concurrentServices = [authorId, reviewerId].map(() =>
-      createAdminQuestionSlice5CommandService(
-        createPrismaAdminQuestionSlice5Repository({
+      createAdminQuestionWorkflowCommandService(
+        createPrismaAdminQuestionWorkflowRepository({
           auditEnvironment: 'TEST',
           client: createBarrierClient()
         })
@@ -2801,13 +2801,13 @@ describe('ADMIN command TEST database integration', () => {
     const faultValidationRequest = validateQuestionImportRequestSchema.parse({
       items: [
         createImportItem(`fault-first-${randomUUID()}`),
-        createImportItem('SLICE5_FAULT_INJECTION_SECOND')
+        createImportItem('WORKFLOW_FAULT_INJECTION_SECOND')
       ]
     })
     const faultValidation = await assertAdminImportValidationForRequest(
       sha256Port,
       faultValidationRequest,
-      await slice5CommandService.validateImport(faultValidationRequest)
+      await workflowCommandService.validateImport(faultValidationRequest)
     )
     const faultApplyRequest = applyQuestionImportRequestSchema.parse({
       importId: randomUUID(),
@@ -2816,25 +2816,25 @@ describe('ADMIN command TEST database integration', () => {
     })
     const beforeFault = await readGlobalWriteCounts()
     await adminClient.query(
-      `CREATE FUNCTION "test_fail_slice5_import"()
+      `CREATE FUNCTION "test_fail_workflow_import"()
        RETURNS TRIGGER LANGUAGE plpgsql AS $function$
        BEGIN
-         IF position('SLICE5_FAULT_INJECTION_SECOND' IN NEW."questionText") > 0
+         IF position('WORKFLOW_FAULT_INJECTION_SECOND' IN NEW."questionText") > 0
          THEN
-           RAISE EXCEPTION 'Slice 5 import fault injection.';
+           RAISE EXCEPTION 'workflow import fault injection.';
          END IF;
          RETURN NEW;
        END;
        $function$`
     )
     await adminClient.query(
-      `CREATE TRIGGER "QuestionVersion_slice5_import_fault"
+      `CREATE TRIGGER "QuestionVersion_workflow_import_fault"
        BEFORE INSERT ON "QuestionVersion"
-       FOR EACH ROW EXECUTE FUNCTION "test_fail_slice5_import"()`
+       FOR EACH ROW EXECUTE FUNCTION "test_fail_workflow_import"()`
     )
     try {
       await expect(
-        slice5CommandService.applyImport(
+        workflowCommandService.applyImport(
           authority(authorId, authorToken),
           faultApplyRequest
         )
@@ -2846,11 +2846,11 @@ describe('ADMIN command TEST database integration', () => {
       expect(await readGlobalWriteCounts()).toEqual(beforeFault)
     } finally {
       await adminClient.query(
-        `DROP TRIGGER IF EXISTS "QuestionVersion_slice5_import_fault"
+        `DROP TRIGGER IF EXISTS "QuestionVersion_workflow_import_fault"
          ON "QuestionVersion"`
       )
       await adminClient.query(
-        `DROP FUNCTION IF EXISTS "test_fail_slice5_import"()`
+        `DROP FUNCTION IF EXISTS "test_fail_workflow_import"()`
       )
     }
   }, 120_000)
@@ -2859,10 +2859,10 @@ describe('ADMIN command TEST database integration', () => {
     if (
       !applicationRuntime ||
       !commandService ||
-      !slice5CommandService ||
+      !workflowCommandService ||
       !questionReportService
     ) {
-      throw new Error('Slice 5 report services are unavailable.')
+      throw new Error('workflow report services are unavailable.')
     }
     const target = await prepareApprovedQuestion(`report-${randomUUID()}`)
     const publishRequest = publishQuestionVersionRequestSchema.parse({
@@ -2991,7 +2991,7 @@ describe('ADMIN command TEST database integration', () => {
     const triaged = assertTriageAdminQuestionReportResponse(
       { reportId: created.id },
       triageRequest,
-      await slice5CommandService.triageReport(
+      await workflowCommandService.triageReport(
         triageAuthority,
         created.id,
         triageRequest
@@ -3027,8 +3027,8 @@ describe('ADMIN command TEST database integration', () => {
         return baseResolutionClient.$transaction(callback, options)
       }
     } as unknown as PrismaClient
-    const stalledResolutionService = createAdminQuestionSlice5CommandService(
-      createPrismaAdminQuestionSlice5Repository({
+    const stalledResolutionService = createAdminQuestionWorkflowCommandService(
+      createPrismaAdminQuestionWorkflowRepository({
         auditEnvironment: 'TEST',
         client: stalledResolutionClient
       })
@@ -3043,10 +3043,12 @@ describe('ADMIN command TEST database integration', () => {
     await stalledTransactionReached
     const winnerAuthority = authority(reviewerId, reviewerToken)
     let winnerResult:
-      | Awaited<ReturnType<AdminQuestionSlice5CommandService['resolveReport']>>
+      | Awaited<
+          ReturnType<AdminQuestionWorkflowCommandService['resolveReport']>
+        >
       | undefined
     try {
-      winnerResult = await slice5CommandService.resolveReport(
+      winnerResult = await workflowCommandService.resolveReport(
         winnerAuthority,
         created.id,
         resolutionRequest
@@ -3101,8 +3103,8 @@ describe('ADMIN command TEST database integration', () => {
   }, 120_000)
 
   it('rejects missing, self, cross-question and mutable remediation with report writes at zero', async () => {
-    if (!commandService || !slice5CommandService || !questionReportService) {
-      throw new Error('Slice 5 report services are unavailable.')
+    if (!commandService || !workflowCommandService || !questionReportService) {
+      throw new Error('workflow report services are unavailable.')
     }
     const target = await prepareApprovedQuestion(
       `report-remediation-${randomUUID()}`
@@ -3138,7 +3140,7 @@ describe('ADMIN command TEST database integration', () => {
     const triaged = assertTriageAdminQuestionReportResponse(
       { reportId: created.id },
       triageRequest,
-      await slice5CommandService.triageReport(
+      await workflowCommandService.triageReport(
         authority(reviewerId, reviewerToken),
         created.id,
         triageRequest
@@ -3190,7 +3192,7 @@ describe('ADMIN command TEST database integration', () => {
         remediationVersionId
       })
       await expect(
-        slice5CommandService.resolveReport(
+        workflowCommandService.resolveReport(
           resolveAuthority,
           created.id,
           resolveRequest
@@ -3258,7 +3260,7 @@ describe('ADMIN command TEST database integration', () => {
     const resolved = assertResolveAdminQuestionReportResponse(
       { reportId: created.id },
       validResolutionRequest,
-      await slice5CommandService.resolveReport(
+      await workflowCommandService.resolveReport(
         authority(reviewerId, reviewerToken),
         created.id,
         validResolutionRequest
@@ -3291,7 +3293,7 @@ describe('ADMIN command TEST database integration', () => {
     const olderTriaged = assertTriageAdminQuestionReportResponse(
       { reportId: olderCreated.id },
       olderTriageRequest,
-      await slice5CommandService.triageReport(
+      await workflowCommandService.triageReport(
         authority(reviewerId, reviewerToken),
         olderCreated.id,
         olderTriageRequest
@@ -3306,7 +3308,7 @@ describe('ADMIN command TEST database integration', () => {
         remediationVersionId: target.versionId
       })
     await expect(
-      slice5CommandService.resolveReport(
+      workflowCommandService.resolveReport(
         olderResolutionAuthority,
         olderCreated.id,
         olderResolutionRequest
@@ -3329,7 +3331,7 @@ describe('ADMIN command TEST database integration', () => {
 
   it('keeps report list count and items in one repeatable-read snapshot', async () => {
     if (!applicationRuntime || !commandService || !questionReportService) {
-      throw new Error('Slice 5 report snapshot services are unavailable.')
+      throw new Error('workflow report snapshot services are unavailable.')
     }
     const snapshotQuestionReportService = questionReportService
     const target = await prepareApprovedQuestion(
@@ -3424,7 +3426,7 @@ describe('ADMIN command TEST database integration', () => {
       !erasureWorkerConnected ||
       !commandService
     ) {
-      throw new Error('Slice 5 drift test services are unavailable.')
+      throw new Error('workflow drift test services are unavailable.')
     }
     const driftCommandService = commandService
     const driftApplicationClient = applicationRuntime!.client

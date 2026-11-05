@@ -1,4 +1,3 @@
-import { adminSessionFreshSql } from '../auth/adminFreshAuthority.js'
 import { createHash, randomUUID } from 'node:crypto'
 import {
   adminImportIssueCodeSchema,
@@ -27,7 +26,6 @@ import {
   type TriageAdminQuestionReportRequest,
   type ValidateQuestionImportRequest
 } from '@nihongo/contracts/admin/content-operations'
-import type { StableErrorCode } from '@nihongo/contracts/common/error'
 import { normalizeOptionComparison } from '@nihongo/domain/content/validators/v1/unicode'
 import {
   insertStoredImportResult,
@@ -37,12 +35,7 @@ import {
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 import {
   type AuditEnvironment,
-  type TargetManifest,
-  type OperationContext,
-  type AuthorityProbeRow,
-  type AdminAuthorityClassificationRow,
   CREATE_CHANGED_FIELDS,
-  AUTHORITY_FAILURE_MESSAGES,
   toIso,
   uniqueSorted,
   rawDatabaseIdentity,
@@ -51,18 +44,17 @@ import {
   assertReviewRequestAuthor,
   type AdminAuditDigestFields
 } from './adminRepositoryCommon.js'
-import {
-  armAdminOperation,
-  type ArmableOperation
-} from './adminOperationArm.js'
+import { type ArmableOperation } from './adminOperationArm.js'
 import { beginAdminOperation } from './adminOperationAuthority.js'
-import { v1PrincipalQuery } from '../auth/ownedSessionAuthority.js'
 import {
   AdminQuestionCommandRepositoryError,
+  armOperation,
+  createAuthorityFailureClassifier,
+  repositoryFailure,
   type AdminCommandAuthority
 } from './adminQuestionCommandRepository.js'
 
-type Slice5TransactionalOperation =
+type WorkflowTransactionalOperation =
   | 'requestContentReviewBatch'
   | 'applyQuestionImport'
   | 'exportAdminQuestions'
@@ -233,28 +225,18 @@ interface ReportMutationRow {
 
 const EXPORT_BODY_CAP = 8 * 1024 * 1024
 const EXPORT_VERSION_BATCH_SIZE = 25
-const FRESH_OPERATIONS = new Set<Slice5TransactionalOperation>([
+const FRESH_OPERATIONS = new Set<WorkflowTransactionalOperation>([
   'requestContentReviewBatch',
   'applyQuestionImport',
   'exportAdminQuestions',
   'resolveAdminQuestionReport'
 ])
+const classifyAuthorityFailure =
+  createAuthorityFailureClassifier(FRESH_OPERATIONS)
 const sha256Port: Sha256TextPort = {
   digestUtf8: async (value) =>
     createHash('sha256').update(value, 'utf8').digest('hex')
 }
-
-const repositoryFailure = (
-  code: StableErrorCode,
-  message: string,
-  fieldErrors?: Record<string, string[]>
-): AdminQuestionCommandRepositoryError =>
-  new AdminQuestionCommandRepositoryError({
-    code,
-    message,
-    disposition: 'NO_TX',
-    ...(fieldErrors ? { fieldErrors } : {})
-  })
 
 const repositoryInvariantFailure = (
   message: string,
@@ -310,16 +292,6 @@ const beginOperation = async (
     referencedUserIds: input.referencedUserIds
   }
 }
-
-const armOperation = async (
-  transaction: Prisma.TransactionClient,
-  operation: ArmableOperation,
-  manifest: TargetManifest
-): Promise<OperationContext> => ({
-  actorUserId: operation.actorUserId,
-  operationId: operation.operationId,
-  occurredAt: await armAdminOperation(transaction, operation, manifest)
-})
 
 type AuditMetadata =
   | { readonly kind: 'NONE_V1' }
@@ -1301,112 +1273,8 @@ const loadReportMutation = async (
   }
 }
 
-const classifyAuthorityFailure = async (
-  client: Pick<PrismaClient, '$queryRawUnsafe'>,
-  operation: Slice5TransactionalOperation,
-  authority: AdminCommandAuthority,
-  error: unknown
-): Promise<AdminQuestionCommandRepositoryError | null> => {
-  const identity = rawDatabaseIdentity(error)
-  if (
-    identity?.sqlState !== '42501' ||
-    !AUTHORITY_FAILURE_MESSAGES.has(identity.message)
-  ) {
-    return null
-  }
-  let rows: AuthorityProbeRow[]
-  try {
-    rows = await client.$queryRawUnsafe<AuthorityProbeRow[]>(
-      `SELECT principal."userId" AS "principalUserId",
-         principal."role" AS "principalRole",
-         CASE WHEN principal."userId" IS NULL THEN NULL
-           ELSE ${adminSessionFreshSql('$1')}
-         END AS "isFresh"
-       FROM (${v1PrincipalQuery('$1')}) AS principal`,
-      authority.rawSessionToken
-    )
-  } catch (probeError: unknown) {
-    return new AdminQuestionCommandRepositoryError({
-      code: 'SERVICE_UNAVAILABLE',
-      message: '관리자 세션 상태를 다시 확인할 수 없습니다.',
-      disposition: 'DEFINITE_ROLLBACK',
-      cause: probeError
-    })
-  }
-  const probe = rows.length === 1 ? rows[0] : undefined
-  if (!probe) {
-    let classificationRows: AdminAuthorityClassificationRow[]
-    try {
-      classificationRows = await client.$queryRawUnsafe<
-        AdminAuthorityClassificationRow[]
-      >(
-        'SELECT * FROM "classify_admin_authority"($1)',
-        authority.rawSessionToken
-      )
-    } catch (classificationError: unknown) {
-      return new AdminQuestionCommandRepositoryError({
-        code: 'SERVICE_UNAVAILABLE',
-        message: '관리자 세션 상태를 다시 확인할 수 없습니다.',
-        disposition: 'DEFINITE_ROLLBACK',
-        cause: classificationError
-      })
-    }
-    const outcome = classificationRows[0]?.outcome
-    if (
-      classificationRows.length !== 1 ||
-      (outcome !== 'ADMIN_REQUIRED' && outcome !== 'AUTH_SESSION_EXPIRED')
-    ) {
-      return new AdminQuestionCommandRepositoryError({
-        code: 'SERVICE_UNAVAILABLE',
-        message: '관리자 세션 상태를 안전하게 분류할 수 없습니다.',
-        disposition: 'DEFINITE_ROLLBACK',
-        cause: error
-      })
-    }
-    return new AdminQuestionCommandRepositoryError({
-      code: outcome,
-      message:
-        outcome === 'ADMIN_REQUIRED'
-          ? '관리자 권한이 필요합니다.'
-          : '로그인 세션이 만료됐습니다.',
-      disposition: 'DEFINITE_ROLLBACK',
-      cause: error
-    })
-  }
-  if (probe.principalUserId !== authority.actorId) {
-    return new AdminQuestionCommandRepositoryError({
-      code: 'AUTH_SESSION_EXPIRED',
-      message: '로그인 세션이 만료됐습니다.',
-      disposition: 'DEFINITE_ROLLBACK',
-      cause: error
-    })
-  }
-  if (probe.principalRole !== 'ADMIN') {
-    return new AdminQuestionCommandRepositoryError({
-      code: 'ADMIN_REQUIRED',
-      message: '관리자 권한이 필요합니다.',
-      disposition: 'DEFINITE_ROLLBACK',
-      cause: error
-    })
-  }
-  if (FRESH_OPERATIONS.has(operation) && probe.isFresh !== true) {
-    return new AdminQuestionCommandRepositoryError({
-      code: 'FRESH_ASSURANCE_REQUIRED',
-      message: '민감한 관리자 작업을 위해 비밀번호를 다시 확인해 주세요.',
-      disposition: 'DEFINITE_ROLLBACK',
-      cause: error
-    })
-  }
-  return new AdminQuestionCommandRepositoryError({
-    code: 'SERVICE_UNAVAILABLE',
-    message: '관리자 세션 권한을 안전하게 확정할 수 없습니다.',
-    disposition: 'DEFINITE_ROLLBACK',
-    cause: error
-  })
-}
-
 const mapTransactionError = (
-  operation: Slice5TransactionalOperation,
+  operation: WorkflowTransactionalOperation,
   error: unknown
 ): AdminQuestionCommandRepositoryError => {
   if (error instanceof AdminQuestionCommandRepositoryError) {
@@ -1540,7 +1408,7 @@ const mapTransactionError = (
 
 const executeTransaction = async <Result>(
   client: PrismaClient,
-  operation: Slice5TransactionalOperation,
+  operation: WorkflowTransactionalOperation,
   authority: AdminCommandAuthority,
   action: () => Promise<Result>,
   callbackCompleted: () => boolean
@@ -1568,7 +1436,7 @@ const executeTransaction = async <Result>(
   }
 }
 
-export interface AdminQuestionSlice5Repository {
+export interface AdminQuestionWorkflowRepository {
   readonly requestReviewBatch: (
     authority: AdminCommandAuthority,
     request: RequestContentReviewBatchRequest
@@ -1614,13 +1482,13 @@ export interface AdminQuestionExportRepositoryResult {
   readonly auditEvidence: AdminQuestionExportAuditEvidence
 }
 
-export const createPrismaAdminQuestionSlice5Repository = ({
+export const createPrismaAdminQuestionWorkflowRepository = ({
   auditEnvironment,
   client
 }: {
   readonly auditEnvironment: AuditEnvironment
   readonly client: PrismaClient
-}): AdminQuestionSlice5Repository => ({
+}): AdminQuestionWorkflowRepository => ({
   requestReviewBatch: async (authority, request) => {
     let targets: BatchTargetRow[]
     try {
