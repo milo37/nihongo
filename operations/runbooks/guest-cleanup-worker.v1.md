@@ -5,33 +5,20 @@ permission has been provisioned or verified by this document.
 
 ## Role and migration order
 
-1. On an owned ephemeral TEST cluster, the existing Phase7 runners create
-   `nihongo_guest_cleanup_worker` as NOLOGIN, NOINHERIT, NOSUPERUSER,
-   NOCREATEDB, NOCREATEROLE, NOREPLICATION and NOBYPASSRLS, plus separate TEST
-   and DEVELOPMENT logins with only this membership (ADMIN FALSE, INHERIT
-   FALSE, SET TRUE). No application or erasure membership is granted.
-2. Keep the historical enum migration's five-login CONNECT boundary intact.
-   Apply the canonical 37-migration prefix, canonical seed, then the remaining
-   migrations through `20261030100000_guest_expired_draft_retention` (53).
-   The new SQL file SHA-256 is
-   `5708fd94835c6ce970049b1830d44dca2e10e9c089f54383aa67219218fb81f7`.
-   Migration 53 grants schema USAGE and only the batch function EXECUTE to
-   the worker; it grants no direct table writes. Applied migrations stay intact.
-3. Grant the guest login CONNECT to its target only after the migration chain.
-   The guest TEST shard and portable harness do this after migrations; the
-   persistent local profile does this in `infra/postgres/init/local-database-activate.psql`.
-   Persistent local provisioning uses separate
+1. Local provisioning creates `nihongo_guest_cleanup_worker` as NOLOGIN,
+   NOINHERIT, NOSUPERUSER, NOCREATEDB, NOCREATEROLE, NOREPLICATION and
+   NOBYPASSRLS, plus separate TEST and DEVELOPMENT logins with only this
+   membership (ADMIN FALSE, INHERIT FALSE, SET TRUE), from the
    `PHASE7_TEST_GUEST_CLEANUP_WORKER_PASSWORD` and
-   `PHASE7_DEVELOPMENT_GUEST_CLEANUP_WORKER_PASSWORD` inputs, like the existing
-   erasure wrappers. It is fresh-volume bootstrap, not an existing-volume upgrade.
-4. Register the exact TEST capability and activate the issuer using the existing
-   migration wrapper. Never use an owner or bootstrap URL as the worker URL.
-
-Current ordered name/NUL/checksum/newline SHA-256:
-`39d9c2053323d8a180e53af80e81dd26a00ef6c041040dc7ccea8e99932e9c08`.
-Portable JSON name/checksum inventory SHA-256:
-`40a3146515048b2d7ee280aea0e427fcfc90e307f25346e8c5e20c63959c5d3b`.
-Historical prefix37 and runtime27 boundaries are unchanged.
+   `PHASE7_DEVELOPMENT_GUEST_CLEANUP_WORKER_PASSWORD` inputs. It is
+   fresh-volume bootstrap, not an existing-volume upgrade.
+2. Apply the single `20261105090000_baseline` migration with the
+   `nihongo_{test,development}_migration_login` wrapper (role
+   `nihongo_migration`).
+3. Persistent local provisioning grants the guest login CONNECT on its own
+   database together with the migration and app logins. The guest TEST shard
+   and portable harness grant it after migrations. Never use an owner or
+   bootstrap URL as the worker URL.
 
 ## Required TEST execution
 
