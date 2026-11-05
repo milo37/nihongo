@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import * as contentOperations from '@nihongo/contracts/admin/content-operations'
-import * as legacyOperations from '@nihongo/contracts/admin/phase7'
+import * as legacyOperations from '@nihongo/contracts/admin/content-operations'
 import * as contentConformance from '@nihongo/contracts/testing/admin-content-conformance'
 
 import {
@@ -50,7 +50,7 @@ const failure = (code: string, retryable: boolean) => ({
   retryable
 })
 
-describe('Phase 7 operation and Slice 2 conformance manifests', () => {
+describe('operation and Slice 2 conformance manifests', () => {
   it('keeps the additive contract paths and aliases identical', () => {
     const oldOperation: legacyOperations.AdminOperation = 'createQuestionReport'
     const newOperation: contentOperations.ContentOperation = oldOperation

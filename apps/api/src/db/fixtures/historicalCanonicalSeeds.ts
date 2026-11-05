@@ -5,7 +5,7 @@ import {
 import { toStableSeedUuid } from '../../../prisma/seed-data/id.js'
 import { createOriginalQuestion } from '../../../prisma/seed-data/questions/createQuestion.js'
 
-// Historical Phase 6 inputs from 58a36c11dacb0c40818993585465093eaa006018.
+// Historical inputs from 58a36c11dacb0c40818993585465093eaa006018.
 // n5.ts blob 8ca0ccab29bb0a9b1023f7b982526c92ff563db2; SHA256 bf2003b93b431d84087641fd84bdb9d1a20e22e3aa186c320357bea8bb773a86.
 const n5Questions = [
   createOriginalQuestion({

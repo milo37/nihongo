@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs'
 import { createHash, randomUUID } from 'node:crypto'
 import {
   expectedBaselineCatalog,
+  forwardFunctionSources,
+  withoutForwardChanges,
   withoutLegacyBranchSources
 } from './fixtures/baseline/baselineDelta.js'
 import {
@@ -42,7 +44,10 @@ import {
 import { attestRuntimeRoles } from './runtimeRoleAttestation.js'
 
 // #504 P8-1: one baseline replaces the 76 migrations.
-const EXPECTED_MIGRATIONS = ['20261105090000_baseline'] as const
+const EXPECTED_MIGRATIONS = [
+  '20261105090000_baseline',
+  '20261106090000_remove_phase_names'
+] as const
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',
   'LEVEL',
@@ -487,8 +492,39 @@ describe('Persistence foundation', () => {
       )
     ) as SchemaCatalog
     const actual = await readSchemaCatalog(client, schema)
-    expect(withoutLegacyBranchSources(actual)).toEqual(
-      withoutLegacyBranchSources(expectedBaselineCatalog(snapshot))
+    expect(withoutLegacyBranchSources(withoutForwardChanges(actual))).toEqual(
+      withoutLegacyBranchSources(
+        withoutForwardChanges(expectedBaselineCatalog(snapshot))
+      )
+    )
+  })
+  // #504 P8-2: the forward migration renames one enum label and changes only
+  // the listed strings of the replaced function bodies.
+  it('phase 이름 제거 migration은 enum label 하나와 지정 문자열만 바꾼다', async () => {
+    if (!schema) throw new Error('Integration schema is unavailable.')
+    const baselineSql = readFileSync(
+      new URL(
+        '../../prisma/migrations/20261105090000_baseline/migration.sql',
+        import.meta.url
+      ),
+      'utf8'
+    )
+    const expected = forwardFunctionSources(baselineSql)
+    const actual = await readSchemaCatalog(client, schema)
+    expect(
+      Object.fromEntries(
+        actual.functions
+          .filter(({ name }) => String(name) in expected)
+          .map(({ name, source }) => [String(name), source])
+      )
+    ).toEqual(expected)
+    expect(
+      actual.types.find(
+        ({ name }) => name === 'AuthSessionIssuerProtocolVersion'
+      )?.labels
+    ).toEqual(['LEGACY', 'OWNED_V1'])
+    expect(JSON.stringify(actual)).not.toMatch(
+      /phase ?7|nihongo_auth_gateway/iu
     )
   })
   it('baseline fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
@@ -577,7 +613,7 @@ describe('Persistence foundation', () => {
              WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`
           )
         ).rows
-      ).toEqual([{ migrationCount: 1 }])
+      ).toEqual([{ migrationCount: EXPECTED_MIGRATIONS.length }])
     } finally {
       await client.query('ROLLBACK')
     }
@@ -1269,7 +1305,7 @@ describe('Persistence foundation', () => {
 
   it('hard delete, published mutation, incomplete content commit을 raw SQL에서도 거부한다', async () => {
     const seed = buildAllQuestionSeeds()[0]
-    if (!seed) throw new Error('Canonical Phase 6 seed fixture is unavailable.')
+    if (!seed) throw new Error('Canonical seed fixture is unavailable.')
 
     await expectFailedTransaction(async () => {
       await client.query('DELETE FROM "QuestionVersion" WHERE "id" = $1', [
@@ -3476,7 +3512,7 @@ describe('Persistence foundation', () => {
             "userId", "authorityGeneration", "issuerProtocolVersion"
           ) VALUES (
             $1, clock_timestamp() + INTERVAL '1 day', $2,
-            clock_timestamp(), clock_timestamp(), $3, 1, 'PHASE7_V1'
+            clock_timestamp(), clock_timestamp(), $3, 1, 'OWNED_V1'
           )`,
         [spoofSessionId, spoofSessionToken, actorId]
       )

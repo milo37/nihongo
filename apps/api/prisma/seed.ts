@@ -133,7 +133,7 @@ try {
             }
 
             mark('OWNER_READY')
-            // The signed Phase 6 seed helper owns its inner transaction shape.
+            // The signed seed helper owns its inner transaction shape.
             // This facade makes that inner callback reuse the one explicit outer
             // transaction, so SET LOCAL authority cannot escape its boundary.
             const scopedSeedClient = new Proxy(transaction, {

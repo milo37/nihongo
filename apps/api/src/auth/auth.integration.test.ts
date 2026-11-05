@@ -191,7 +191,7 @@ const createFixtureUser = async ({
   email,
   emailVerified = true,
   name,
-  passwordHash = 'phase10-fixture-password-hash',
+  passwordHash = 'test-fixture-password-hash',
   role = 'USER'
 }: {
   readonly accountStatus?: 'ACTIVE' | 'DELETION_PENDING' | 'DELETED'

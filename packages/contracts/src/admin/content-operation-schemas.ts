@@ -400,12 +400,10 @@ export const buildContentOperationFailureResponse = ({
   const code = stableErrorCodeSchema.parse(failure.code)
   const status = errorStatusByCode[code]
   if (status === 429 && retryAfterSeconds === undefined) {
-    throw new Error('Phase 7 429 response에는 Retry-After가 필요합니다.')
+    throw new Error('429 response에는 Retry-After가 필요합니다.')
   }
   if (retryAfterSeconds !== undefined && status !== 429 && status !== 503) {
-    throw new Error(
-      'Retry-After는 Phase 7 429/503 response에만 사용할 수 있습니다.'
-    )
+    throw new Error('Retry-After는 429/503 response에만 사용할 수 있습니다.')
   }
   const parsedRetryAfter =
     retryAfterSeconds === undefined
@@ -474,16 +472,14 @@ export const assertOperationFailureResponse = ({
 
   const retryAfter = response.headers['Retry-After']
   if (body.code === 'RATE_LIMITED' && retryAfter === undefined) {
-    throw new Error('Phase 7 429 response에는 Retry-After가 필요합니다.')
+    throw new Error('429 response에는 Retry-After가 필요합니다.')
   }
   if (
     retryAfter !== undefined &&
     expectedStatus !== 429 &&
     expectedStatus !== 503
   ) {
-    throw new Error(
-      'Retry-After는 Phase 7 429/503 response에만 사용할 수 있습니다.'
-    )
+    throw new Error('Retry-After는 429/503 response에만 사용할 수 있습니다.')
   }
   if (retryAfter !== undefined) {
     if (!RETRY_AFTER_SECONDS_PATTERN.test(retryAfter)) {
@@ -499,7 +495,7 @@ export const assertOperationSchemaManifest = (): void => {
   const schemaOperations = Object.keys(operationSchemas)
   if (JSON.stringify(manifestOperations) !== JSON.stringify(schemaOperations)) {
     throw new Error(
-      'Phase 7 operation schema manifest는 canonical 29-operation 순서와 같아야 합니다.'
+      'operation schema manifest는 canonical 29-operation 순서와 같아야 합니다.'
     )
   }
   if (
@@ -508,8 +504,6 @@ export const assertOperationSchemaManifest = (): void => {
       (entry) => entry.schemas !== operationSchemas[entry.operation]
     )
   ) {
-    throw new Error(
-      'Phase 7 operation schema binding이 canonical하지 않습니다.'
-    )
+    throw new Error('operation schema binding이 canonical하지 않습니다.')
   }
 }

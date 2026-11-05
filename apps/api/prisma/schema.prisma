@@ -120,7 +120,7 @@ enum QuestionReportResolutionOutcome {
 
 enum AuthSessionIssuerProtocolVersion {
   LEGACY
-  PHASE7_V1
+  OWNED_V1
 }
 
 enum AuthSessionAuthorizationState {

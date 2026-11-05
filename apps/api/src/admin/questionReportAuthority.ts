@@ -83,7 +83,7 @@ export const createQuestionReportInTransaction = async (
      WHERE target_session."token" = $1
        AND target_session."id" = $2::uuid
        AND target_user."accountStatus" = 'ACTIVE'
-       AND target_session."issuerProtocolVersion" = 'PHASE7_V1'
+       AND target_session."issuerProtocolVersion" = 'OWNED_V1'
        AND target_session."authorityGeneration" = target_user."authorityGeneration"
        AND target_session."expiresAt" > clock_timestamp()
        AND target_session."createdAt" + INTERVAL '30 days' > clock_timestamp()`,
@@ -196,7 +196,7 @@ export const createQuestionReportInTransaction = async (
        AND target_user."accountStatus" = 'ACTIVE'
        AND target_user."authorityGeneration" = $4::integer
        AND target_session."token" = $5
-       AND target_session."issuerProtocolVersion" = 'PHASE7_V1'
+       AND target_session."issuerProtocolVersion" = 'OWNED_V1'
        AND target_session."authorityGeneration" = $4::integer
        AND target_session."expiresAt" > clock_timestamp()
        AND target_session."createdAt" + INTERVAL '30 days' > clock_timestamp()`,

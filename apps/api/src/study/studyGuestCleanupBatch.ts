@@ -52,11 +52,10 @@ const RATE_POLICIES: readonly (readonly [string, number])[] = [
     ] as const
   ).flatMap(([scope, windowMs]) =>
     ['ACTOR', 'IP'].map(
-      (subject) =>
-        [`application:phase7:${scope}:${subject}:`, windowMs] as const
+      (subject) => [`application:keyed:${scope}:${subject}:`, windowMs] as const
     )
   ),
-  ['application:phase7:REPORT_VERSION:VERSION:', 3_600_000]
+  ['application:keyed:REPORT_VERSION:VERSION:', 3_600_000]
 ]
 
 /** Window of a known rate key, or NULL for keys cleanup must not touch. */

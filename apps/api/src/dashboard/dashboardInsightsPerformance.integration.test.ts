@@ -192,7 +192,7 @@ const createAuthenticatedUser =
     const userId = randomUUID()
     const accountId = randomUUID()
     const sessionId = randomUUID()
-    const sessionToken = `phase8-performance-${randomUUID()}`
+    const sessionToken = `test-performance-${randomUUID()}`
     const now = new Date()
 
     await adminDatabase.client.$transaction(async (transaction) => {
@@ -202,7 +202,7 @@ const createAuthenticatedUser =
         "accountStatus", "createdAt", "updatedAt"
       ) VALUES (
         ${userId}::uuid, 'Performance',
-        ${`phase8-performance-${randomUUID()}@example.test`}, true,
+        ${`test-performance-${randomUUID()}@example.test`}, true,
         'USER', 'N5', 'ACTIVE', ${now}, ${now}
       )
     `
@@ -212,7 +212,7 @@ const createAuthenticatedUser =
         "createdAt", "updatedAt"
       ) VALUES (
         ${accountId}, ${userId}, 'credential', ${userId}::uuid,
-        'phase8-performance-password-hash', ${now}, ${now}
+        'test-performance-password-hash', ${now}, ${now}
       )
     `
     })
@@ -225,7 +225,7 @@ const createAuthenticatedUser =
       sessionId,
       token: sessionToken,
       ipAddress: '127.0.0.1',
-      userAgent: 'phase8-dashboard-performance',
+      userAgent: 'test-dashboard-performance',
       remember: false
     })
     return { sessionToken, userId }
@@ -891,7 +891,7 @@ describe.sequential('Dashboard insights performance gate', () => {
             sessionCount: population.sessionCount,
             tagFactCount: population.tagFactCount
           },
-          kind: 'nihongo.phase10.database-api-performance',
+          kind: 'nihongo.database-api-performance',
           metadata: {
             command: 'pnpm run test:database-performance',
             commit,
@@ -910,7 +910,7 @@ describe.sequential('Dashboard insights performance gate', () => {
     }
     process.stdout.write(
       `${JSON.stringify({
-        event: 'phase8.dashboard_insights.performance',
+        event: 'dashboard_insights.performance',
         apiP95Milliseconds: apiTiming.statisticsMs.p95,
         databaseP95Milliseconds: databaseTiming.statisticsMs.p95,
         populatedAnswerCount,

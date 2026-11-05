@@ -28,7 +28,7 @@ const row = (key: string, count: number) => ({
 describe('createRateLimitKey', () => {
   it('keeps the existing HMAC key format', () => {
     const digest = createHmac('sha256', keySecret)
-      .update('phase7:ADMIN_READ:ACTOR:user-1', 'utf8')
+      .update('keyed:ADMIN_READ:ACTOR:user-1', 'utf8')
       .digest('hex')
     expect(
       createRateLimitKey({
@@ -37,7 +37,7 @@ describe('createRateLimitKey', () => {
         keySecret,
         value: 'user-1'
       })
-    ).toBe(`application:phase7:ADMIN_READ:ACTOR:${digest}`)
+    ).toBe(`application:keyed:ADMIN_READ:ACTOR:${digest}`)
   })
 })
 

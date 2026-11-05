@@ -335,7 +335,7 @@ const createCanonicalDiffTextSchema = (maximum: number) =>
         normalizeContentText(value) === value &&
         [...value].length >= 1 &&
         [...value].length <= maximum,
-      { message: `canonical Phase 7 text ${maximum} scalar 이하여야 합니다.` }
+      { message: `canonical text ${maximum} scalar 이하여야 합니다.` }
     )
 
 const scalarVersionDiffSchema = z.union([

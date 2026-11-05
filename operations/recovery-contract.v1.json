@@ -23,8 +23,8 @@
     "current": {
       "environments": ["TEST", "STAGING", "PRODUCTION"],
       "selection": "all-release-manifest-entries",
-      "expectedCount": 1,
-      "expectedDigestSha256": "35bdd0a04791cca4d232d9ec4c7f46ae559704685850748efb871cae7871a9c2",
+      "expectedCount": 2,
+      "expectedDigestSha256": "03cc31e0c77830259edfaec8e8db7b4b1ea0cbffe273ecba556b0fefd248637d",
       "externalRecoveryClaimAllowed": false
     }
   },

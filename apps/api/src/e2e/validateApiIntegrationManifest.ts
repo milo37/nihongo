@@ -67,7 +67,7 @@ export const validateApiIntegrationManifest = async (): Promise<{
     }
   }
 
-  for (const owner of ['api', 'db', 'phase10'] as const) {
+  for (const owner of ['api', 'db', 'shard'] as const) {
     const entries = apiIntegrationManifest.filter(
       (entry) => entry.executionOwner === owner
     )
@@ -123,7 +123,7 @@ if (isDirectExecution) {
     .then((result) => {
       process.stdout.write(
         `${JSON.stringify({
-          event: 'phase10.api_integration_manifest.passed',
+          event: 'api_integration_manifest.passed',
           ...result
         })}\n`
       )
@@ -131,7 +131,7 @@ if (isDirectExecution) {
     .catch((error: unknown) => {
       process.stderr.write(
         `${JSON.stringify({
-          event: 'phase10.api_integration_manifest.failed',
+          event: 'api_integration_manifest.failed',
           errorName: error instanceof Error ? error.name : 'UnknownError',
           message: error instanceof Error ? error.message : 'Unknown failure'
         })}\n`

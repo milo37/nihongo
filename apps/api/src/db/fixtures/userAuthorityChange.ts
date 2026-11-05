@@ -46,7 +46,7 @@ const actorHoldsFreshAdmin = async (
        WHERE actor."id" = $1::uuid
          AND actor."role" = 'ADMIN' AND actor."accountStatus" = 'ACTIVE'
          AND session."token" = $3
-         AND session."issuerProtocolVersion" = 'PHASE7_V1'
+         AND session."issuerProtocolVersion" = 'OWNED_V1'
          AND session."authorityGeneration" = actor."authorityGeneration"
          AND session."expiresAt" > checked.at
          AND session."createdAt" + INTERVAL '30 days' > checked.at

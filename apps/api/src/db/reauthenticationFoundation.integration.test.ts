@@ -1180,7 +1180,7 @@ describe('Reauthentication DB foundation', () => {
           `test-pr3a-${randomUUID()}`,
           admin.userId,
           overrides.generation ?? 1,
-          overrides.issuer ?? 'PHASE7_V1'
+          overrides.issuer ?? 'OWNED_V1'
         ]
       ] as const
     await withinRollback(async () => {
@@ -1267,7 +1267,7 @@ describe('Reauthentication DB foundation', () => {
            "authorityGeneration", "issuerProtocolVersion", "authorizationState"
          ) VALUES (
            $1, clock_timestamp() + INTERVAL '1 day', $2, clock_timestamp(),
-           clock_timestamp(), $3, 1, 'PHASE7_V1', 'PENDING_REAUTH'
+           clock_timestamp(), $3, 1, 'OWNED_V1', 'PENDING_REAUTH'
          )`,
         [randomUUID(), `test-pr3b1-${randomUUID()}`, staged.userId],
         '42501'
