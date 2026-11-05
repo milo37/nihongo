@@ -19,6 +19,7 @@ import type { SsoTransaction, SsoVerifiedIdentity } from './ssoProtocol.js'
 import {
   completeSsoAccountErasure,
   listSsoAccountErasures,
+  requestSsoAccountErasure,
   ssoAccountErasureStatus
 } from './accountErasureAuthority.js'
 
@@ -107,7 +108,7 @@ const errorSchema = z.object({ code: ssoAccountErrorCodeSchema }).strict()
 const boolRows = (rows: Array<{ created: boolean }>): boolean =>
   rows.length === 1 && rows[0]?.created === true
 export const createSsoAccountRepository = (
-  client: Pick<PrismaClient, '$queryRawUnsafe'>
+  client: Pick<PrismaClient, '$queryRawUnsafe' | '$transaction'>
 ): SsoAccountPort => {
   const result = async (sql: string, ...args: unknown[]): Promise<unknown> => {
     const rows = await client.$queryRawUnsafe<Array<{ result: unknown }>>(
@@ -221,14 +222,7 @@ export const createSsoAccountRepository = (
     requestErasure: async (token, proof, receipt) =>
       z
         .union([ssoAccountDeletionSchema, errorSchema])
-        .parse(
-          await result(
-            'SELECT "phase7_request_sso_account_erasure"($1,$2,$3) AS result',
-            token,
-            proof,
-            receipt
-          )
-        ),
+        .parse(await requestSsoAccountErasure(client, token, proof, receipt)),
     erasureStatus: async (receipt) => {
       const raw = await ssoAccountErasureStatus(client, receipt)
       return raw === null ? null : ssoAccountDeletionSchema.parse(raw)
