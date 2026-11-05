@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { submitStudyAnswers } from '@/test/studySubmission'
 import { isApiError } from '@nihongo/browser/api/config'
 import { signInMockAccount } from '@/test/auth'
 import { createBookmark } from '@api/bookmark/createBookmark'
@@ -9,11 +10,9 @@ import { setMockSsoAccountForTesting } from '@mocks/handlers/authHandlers'
 import { getCurrentUser } from '@nihongo/browser/api/auth/getCurrentUser/index'
 import { logoutUser } from '@api/auth/logoutUser'
 import { createStudySessionV2 } from '@api/study/createStudySessionV2'
-import { createStudySessionV1 } from '@api/study/createStudySessionV1'
 import { getStudyDraftAnswers } from '@api/study/getStudyDraftAnswers'
 import { submitStudySessionV2 } from '@api/study/submitStudySessionV2'
-import { submitStudySessionV1 } from '@api/study/submitStudySessionV1'
-import type { SubmitStudySessionV1Request } from '@api/study/submitStudySessionV1/requestSchema'
+import type { SubmitStudySessionV2Request } from '@api/study/submitStudySessionV2/schema'
 import { listWrongNotesV1 } from '@api/wrong-note/listWrongNotesV1'
 
 describe('MSW 학습 API 흐름', () => {
@@ -165,7 +164,7 @@ describe('MSW 학습 API 흐름', () => {
     }
   })
 
-  it('v1 제출은 누락·추가·다른 세션과 잘못된 보기를 거부하고 세션을 보존한다', async () => {
+  it('제출은 누락·추가·다른 세션과 잘못된 보기를 거부하고 세션을 보존한다', async () => {
     await signInMockAccount()
     const input = {
       level: 'N5',
@@ -173,27 +172,23 @@ describe('MSW 학습 API 흐름', () => {
       mode: 'RANDOM',
       count: 2
     } as const
-    const source = await createStudySessionV1(input)
-    const foreign = await createStudySessionV1(input)
+    const { data: source } = await createStudySessionV2(input)
+    const { data: foreign } = await createStudySessionV2(input)
     const first = source.questions[0]
     const second = source.questions[1]
     const other = foreign.questions[0]
     if (!first || !second || !other) throw new Error('Study fixture required')
     const answer = (
       studySessionQuestionId: string
-    ): SubmitStudySessionV1Request['answers'][number] => ({
+    ): SubmitStudySessionV2Request['answers'][number] => ({
       studySessionQuestionId,
       selectedOptionId: null,
       elapsedSec: 0
     })
     const firstAnswer = answer(first.sessionQuestionId)
     const secondAnswer = answer(second.sessionQuestionId)
-    const submit = (answers: SubmitStudySessionV1Request['answers']) =>
-      submitStudySessionV1(
-        source.session.id,
-        { answers, durationSec: 0 },
-        crypto.randomUUID()
-      )
+    const submit = async (answers: SubmitStudySessionV2Request['answers']) =>
+      submitStudyAnswers(source.session.id, answers, 0)
 
     for (const answers of [
       [firstAnswer],
@@ -211,7 +206,7 @@ describe('MSW 학습 API 흐름', () => {
         secondAnswer
       ])
     ).rejects.toMatchObject({ code: 'OPTION_NOT_IN_VERSION', status: 422 })
-    const result = await submit([firstAnswer, secondAnswer])
+    const { data: result } = await submit([firstAnswer, secondAnswer])
     expect(result.totalCount).toBe(2)
     expect(result.incorrectCount).toBe(2)
   })

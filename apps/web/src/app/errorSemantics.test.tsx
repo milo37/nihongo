@@ -1,7 +1,9 @@
 import { commitCanonicalAuth } from '@nihongo/browser/app/login/authSession'
+import { submitStudyAnswers } from '@/test/studySubmission'
 import { appI18n } from '@nihongo/browser/i18n/config'
-import { createStudySessionV1 } from '@api/study/createStudySessionV1'
-import { submitStudySessionV1 } from '@api/study/submitStudySessionV1'
+import { createStudySessionV2 } from '@api/study/createStudySessionV2'
+import { submitStudySessionV2 } from '@api/study/submitStudySessionV2'
+import { getStudyDraftAnswers } from '@api/study/getStudyDraftAnswers'
 import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { getWrongNoteV1 } from '@api/wrong-note/getWrongNoteV1'
@@ -12,10 +14,7 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { PracticeResultPage } from '@app/practice/result/page'
-import { createStudySessionV2 } from '@api/study/createStudySessionV2'
 import { getStudySessionV2 } from '@api/study/getStudySessionV2'
-import { getStudyDraftAnswers } from '@api/study/getStudyDraftAnswers'
-import { submitStudySessionV2 } from '@api/study/submitStudySessionV2'
 import { getStudyResultV1 } from '@api/study/getStudyResultV1'
 import { WrongNoteDetailPage } from '@app/wrong-note/detail/page'
 import { wrongNoteQueries } from '@app/wrong-note/queries/wrongNoteQueries'
@@ -124,7 +123,7 @@ describe('detail page error semantics', () => {
   it('오답 상세 retry 성공 후 복구된 제목으로 포커스를 이동한다', async () => {
     const user = userEvent.setup()
     mockDatabase.loginAs('USER')
-    const sessionPayload = await createStudySessionV1({
+    const { data: sessionPayload } = await createStudySessionV2({
       level: 'N5',
       subject: 'VOCABULARY',
       mode: 'RANDOM',
@@ -134,19 +133,16 @@ describe('detail page error semantics', () => {
     if (!question || !question.sessionQuestionId) {
       throw new Error('A canonical session-question fixture is required.')
     }
-    await submitStudySessionV1(
+    await submitStudyAnswers(
       sessionPayload.session.id,
-      {
-        answers: [
-          {
-            studySessionQuestionId: question.sessionQuestionId,
-            selectedOptionId: null,
-            elapsedSec: 2
-          }
-        ],
-        durationSec: 2
-      },
-      crypto.randomUUID()
+      [
+        {
+          studySessionQuestionId: question.sessionQuestionId,
+          selectedOptionId: null,
+          elapsedSec: 2
+        }
+      ],
+      2
     )
     const payload = await getWrongNoteV1(question.id)
     const detail = toCanonicalWrongNoteDetailView(payload)
@@ -325,10 +321,10 @@ describe('detail page error semantics', () => {
 
   it('결과의 한 요청이 retryable이면 다른 요청의 404보다 재시도를 우선한다', async () => {
     mockServer.use(
-      http.get('*/api/study/session/mixed/result', () =>
+      http.get('*/api/v1/study-sessions/mixed/result', () =>
         HttpResponse.json({ message: 'server error' }, { status: 500 })
       ),
-      http.get('*/api/study/session/mixed', () =>
+      http.get('*/api/v1/study-sessions/mixed', () =>
         HttpResponse.json({ message: 'not found' }, { status: 404 })
       )
     )
