@@ -114,7 +114,7 @@ const executeRepositoryOperation = async <Result>(
 
 export const createPrismaQuestionRepository = (
   client: PrismaClient | Prisma.TransactionClient,
-  options: CreatePrismaQuestionRepositoryOptions = {}
+  _options: CreatePrismaQuestionRepositoryOptions = {}
 ): QuestionRepository => ({
   findPublishedById: (questionId) =>
     executeRepositoryOperation(async () => {
@@ -185,9 +185,7 @@ export const createPrismaQuestionRepository = (
           ? {
               tags: {
                 some: {
-                  ...(options.migrationProfile === 'pre-phase7'
-                    ? { tag: { normalizedName: input.normalizedTag } }
-                    : { normalizedNameSnapshot: input.normalizedTag })
+                  normalizedNameSnapshot: input.normalizedTag
                 }
               }
             }

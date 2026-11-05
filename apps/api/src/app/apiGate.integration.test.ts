@@ -324,7 +324,7 @@ beforeAll(async () => {
   })
   authGatewayRuntime = createRoleDatabaseRuntime(
     process.env.PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL!,
-    'nihongo_auth_gateway'
+    'nihongo_app'
   )
 
   const ownedAuthFacade = createOwnedAuthFacade({
@@ -375,7 +375,7 @@ beforeAll(async () => {
                   return async (sql: string, ...values: unknown[]) => {
                     const rows = await target.$queryRawUnsafe(sql, ...values)
                     if (
-                      sql.includes('"phase7_resolve_sso_identity"') &&
+                      sql.includes('"resolve_sso_identity"') &&
                       beforeSsoIssue
                     )
                       await beforeSsoIssue()
@@ -430,13 +430,13 @@ describe('Technical API gate', () => {
     }>(
       `SELECT "databaseName", "serverAddress"::text AS "serverAddress",
          "serverPort", "environment"
-       FROM "Phase7DatabaseCapability" WHERE "id" = 1`
+       FROM "DatabaseCapability" WHERE "id" = 1`
     )
     const original = capability.rows[0]
     if (!original) throw new Error('Registered capability is unavailable.')
 
     await adminClient.query(
-      `UPDATE "Phase7DatabaseCapability"
+      `UPDATE "DatabaseCapability"
        SET "serverPort" = CASE WHEN "serverPort" = 65535
          THEN 65534 ELSE "serverPort" + 1 END
        WHERE "id" = 1`
@@ -444,10 +444,10 @@ describe('Technical API gate', () => {
     try {
       const rejected = await Promise.allSettled([
         applicationRuntime.client.$queryRawUnsafe(
-          'SELECT "phase7_require_runtime_ready"()'
+          'SELECT "require_runtime_ready"()'
         ),
         authGatewayRuntime.client.$queryRawUnsafe(
-          'SELECT "phase7_require_runtime_ready"()'
+          'SELECT "require_runtime_ready"()'
         )
       ])
       expect(rejected.map(({ status }) => status)).toEqual([
@@ -456,7 +456,7 @@ describe('Technical API gate', () => {
       ])
     } finally {
       await adminClient.query(
-        `UPDATE "Phase7DatabaseCapability"
+        `UPDATE "DatabaseCapability"
          SET "databaseName" = $1, "serverAddress" = $2::inet,
            "serverPort" = $3, "environment" = $4
          WHERE "id" = 1`,
@@ -481,15 +481,9 @@ describe('Technical API gate', () => {
     ).resolves.toBeUndefined()
     await expect(
       applicationRuntime.client.$queryRawUnsafe(
-        'SELECT "phase7_require_runtime_ready"()'
+        'SELECT "require_runtime_ready"()'
       )
     ).resolves.toHaveLength(1)
-    // #504 P7 PR5b: the former gateway role holds no EXECUTE.
-    await expect(
-      authGatewayRuntime.client.$queryRawUnsafe(
-        'SELECT "phase7_require_runtime_ready"()'
-      )
-    ).rejects.toThrow(/permission denied for function/u)
   })
 
   it('Prefix를 CORS/auth/practice/DB보다 먼저 제외한다', async () => {

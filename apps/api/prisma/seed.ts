@@ -80,7 +80,7 @@ try {
       connectionString: adapterConnectionString,
       options: createPostgresStartupOptions(
         schema,
-        isTechnicalAdminCms ? 'nihongo_phase7_migration' : undefined
+        isTechnicalAdminCms ? 'nihongo_migration' : undefined
       )
     },
     schema ? { schema } : {}
@@ -91,8 +91,8 @@ try {
     if (isTechnicalAdminCms) {
       const expectedSessionUser =
         target === 'test'
-          ? 'nihongo_test_phase7_migration_login'
-          : 'nihongo_development_phase7_migration_login'
+          ? 'nihongo_test_migration_login'
+          : 'nihongo_development_migration_login'
       const roleEvidence = await client.$queryRawUnsafe<
         Array<{ currentRole: string; sessionUser: string }>
       >(
@@ -103,7 +103,7 @@ try {
       if (
         roleEvidence.length !== 1 ||
         roleEvidence[0]?.sessionUser !== expectedSessionUser ||
-        roleEvidence[0]?.currentRole !== 'nihongo_phase7_migration'
+        roleEvidence[0]?.currentRole !== 'nihongo_migration'
       ) {
         throw new Error('Seed migration role attestation failed.')
       }
@@ -114,7 +114,7 @@ try {
       ? await client.$transaction(
           async (transaction) => {
             await transaction.$executeRawUnsafe(
-              'SET LOCAL ROLE nihongo_phase7_owner'
+              'SET LOCAL ROLE nihongo_owner'
             )
             const ownerEvidence = await transaction.$queryRawUnsafe<
               Array<{ currentRole: string; sessionUser: string }>
@@ -124,12 +124,12 @@ try {
             )
             const expectedSessionUser =
               target === 'test'
-                ? 'nihongo_test_phase7_migration_login'
-                : 'nihongo_development_phase7_migration_login'
+                ? 'nihongo_test_migration_login'
+                : 'nihongo_development_migration_login'
             if (
               ownerEvidence.length !== 1 ||
               ownerEvidence[0]?.sessionUser !== expectedSessionUser ||
-              ownerEvidence[0]?.currentRole !== 'nihongo_phase7_owner'
+              ownerEvidence[0]?.currentRole !== 'nihongo_owner'
             ) {
               throw new Error('Seed owner role attestation failed.')
             }
@@ -168,7 +168,7 @@ try {
       >(`SELECT current_user AS "currentRole"`)
       if (
         restoredRole.length !== 1 ||
-        restoredRole[0]?.currentRole !== 'nihongo_phase7_migration'
+        restoredRole[0]?.currentRole !== 'nihongo_migration'
       ) {
         throw new Error('Seed role boundary did not close.')
       }

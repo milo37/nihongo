@@ -221,45 +221,11 @@ export const bridgedQuery = async <Row extends QueryResultRow = QueryResultRow>(
 export const isOwnedSessionSql = (sql: string): boolean =>
   BRIDGED_FUNCTIONS.some((name) => sql.includes(`"${name}"(`))
 
-const ERASURE_WORKER_FUNCTIONS = [
-  'phase7_erase_user',
-  'phase7_complete_sso_account_erasure',
-  'phase7_list_sso_account_erasures',
-  'phase7_redact_expired_report_descriptions',
-  'phase7_claim_sso_provider_cleanups',
-  'phase7_begin_sso_provider_cleanup',
-  'phase7_record_sso_provider_cleanup'
-]
-
-/**
- * The role a bridged call runs as: since PR1 nihongo_app runs the gateway and
- * erasure worker facades. Any other caller keeps its role and is refused.
- */
-// #504 P7 PR5b: the SQL sign-in facades nihongo_app runs since PR1; the
-// former gateway role holds no EXECUTE on them.
-const SQL_SIGN_IN_FACADES = [
-  'phase7_create_sso_transaction_v2',
-  'phase7_consume_sso_transaction_v2',
-  'phase7_resolve_sso_identity'
-]
-
+/** #504 P8-1: nihongo_app is the only runtime role; a call keeps its role. */
 export const bridgedRole = <Role extends string>(
-  sql: string,
+  _sql: string,
   role: Role
-): Role | 'nihongo_app' => {
-  if (
-    role === 'nihongo_auth_gateway' &&
-    SQL_SIGN_IN_FACADES.some((name) => sql.includes(`"${name}"(`))
-  )
-    return 'nihongo_app'
-  if (!isOwnedSessionSql(sql)) return role
-  const worker = ERASURE_WORKER_FUNCTIONS.some((name) =>
-    sql.includes(`"${name}"(`)
-  )
-  return role === (worker ? 'nihongo_erasure_worker' : 'nihongo_auth_gateway')
-    ? 'nihongo_app'
-    : role
-}
+): Role => role
 
 export const ownedSessionSql = async <
   Row extends QueryResultRow = QueryResultRow

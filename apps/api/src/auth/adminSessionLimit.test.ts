@@ -24,7 +24,7 @@ const createService = (
     // The remembered-session refresh finds nothing to refresh.
     if (
       sql.includes('AS due') ||
-      sql.startsWith('SELECT "phase7_require_runtime_ready"')
+      sql.startsWith('SELECT "require_runtime_ready"')
     )
       return []
     return [

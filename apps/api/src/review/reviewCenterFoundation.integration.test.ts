@@ -355,7 +355,7 @@ beforeAll(async () => {
   await database.checkReadiness()
   if (erasureWorkerClient) {
     await erasureWorkerClient.connect()
-    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+    await erasureWorkerClient.query(`SET ROLE "nihongo_app"`)
   }
 })
 

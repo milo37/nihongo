@@ -23,6 +23,6 @@ export const createOwnedAuthReadiness =
       }
     })
     await applicationClient.$queryRawUnsafe(
-      'SELECT "phase7_require_runtime_ready"()'
+      'SELECT "require_runtime_ready"()'
     )
   }

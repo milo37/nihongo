@@ -19,10 +19,10 @@ export const assertSsoBootstrapMigrationHistory = (
     )
     .digest('hex')
   if (
-    expected.length !== 76 ||
-    expected.at(-1)?.name !== '20261122090000_trusted_execution_drop' ||
+    expected.length !== 1 ||
+    expected.at(-1)?.name !== '20261105090000_baseline' ||
     orderedDigest !==
-      '261e26617bce101ef82ae2e9a871272f68be9afc05ca1e6b08c5eef7c014bfa1' ||
+      '35bdd0a04791cca4d232d9ec4c7f46ae559704685850748efb871cae7871a9c2' ||
     applied.length !== expected.length ||
     applied.some(
       (row, index) =>
@@ -31,7 +31,7 @@ export const assertSsoBootstrapMigrationHistory = (
     )
   ) {
     throw new Error(
-      'First Google ADMIN bootstrap canonical76 migration history mismatch.'
+      'First Google ADMIN bootstrap baseline migration history mismatch.'
     )
   }
 }
@@ -108,9 +108,6 @@ export const createDbIntegrationFileEnvironment = (
   testFile: string,
   base: NodeJS.ProcessEnv
 ): NodeJS.ProcessEnv => {
-  if (testFile === 'src/content/approved308Tags.integration.test.ts') {
-    return { ...base, APPROVED_TAGS_FIXTURE_PROFILE: 'current38' }
-  }
   return testFile === ssoDbTestFile ||
     testFile === ssoAccountLifecycleDbTestFile
     ? createSsoDbTestEnvironment(base)

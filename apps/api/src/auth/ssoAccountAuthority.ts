@@ -35,7 +35,7 @@ const raise = async (
 
 const requireRuntimeReady = async (transaction: Transaction): Promise<void> => {
   await transaction.$queryRawUnsafe(
-    `SELECT "phase7_require_runtime_ready"() AS ready`
+    `SELECT "require_runtime_ready"() AS ready`
   )
 }
 
@@ -45,7 +45,7 @@ const requireCapability = async (
 ): Promise<void> => {
   // The check returns void, which Prisma cannot read as a column.
   await transaction.$executeRawUnsafe(
-    `SELECT "phase7_require_database_capability"($1::"AdminAuditEnvironment")`,
+    `SELECT "require_database_capability"($1::"AdminAuditEnvironment")`,
     environment
   )
 }

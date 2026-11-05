@@ -273,9 +273,7 @@ export const prepareBrowserActors = async ({
     !sameTarget(ownerTarget, new URL(environment.DATABASE_URL)) ||
     [
       'nihongo_test_app_login',
-      'nihongo_test_auth_gateway_login',
-      'nihongo_test_phase7_migration_login',
-      'nihongo_test_legacy_app_login'
+      'nihongo_test_migration_login'
     ].includes(decodeURIComponent(ownerTarget.username)) ||
     !ownerTarget.username
   )
@@ -500,7 +498,7 @@ export const createBrowserApi = async ({
       admin: {
         assertCapability: async () => {
           await database.client.$queryRawUnsafe(
-            'SELECT "phase7_require_runtime_ready"()'
+            'SELECT "require_runtime_ready"()'
           )
         },
         commands: {

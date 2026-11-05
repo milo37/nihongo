@@ -246,14 +246,4 @@ describe('dashboard insights authentication authority', () => {
     })
     expect(harness.transact).not.toHaveBeenCalled()
   })
-
-  it('retains the legacy-only authority branch', async () => {
-    const harness = createHarness({ ownedAuth: false, hasSessionProof: false })
-    const response = await harness.app.request('/api/v1/dashboard/insights')
-    expect(response.status).toBe(200)
-    getDashboardInsightsResponseSchema.parse(await response.json())
-    const statement = harness.query.mock.calls[0]?.[0] as Prisma.Sql
-    expect(statement.text).not.toContain('JOIN "Session" AS session')
-    expect(statement.text).toContain('"User"')
-  })
 })

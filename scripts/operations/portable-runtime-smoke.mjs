@@ -27,14 +27,12 @@ import {
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const postgresImage =
   'postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15'
-const currentMigrationCount = 76
+// #504 P8-1: one baseline replaces the 76 migrations.
+const currentMigrationCount = 1
 const currentMigrationDigest =
-  '332c0982b8e570839f2f4d26f7bb4a758fc9ed309beccea0a72580739d8dc9ae'
-const lastBootstrapMigration =
-  '20261009092000_phase7_n4_n2_revision2_digest_fix'
-const migrationLogin = 'nihongo_test_phase7_migration_login'
+  '00ff3d7fdf21e2da171ea07c5e649337d57b6486b993c64b15a8f002b6ed982e'
+const migrationLogin = 'nihongo_test_migration_login'
 const applicationLogin = 'nihongo_test_app_login'
-const gatewayLogin = 'nihongo_test_auth_gateway_login'
 const schemaPattern = /^phase7_[0-9a-f]{32}_test$/u
 const sha256Pattern = /^[0-9a-f]{64}$/u
 const imageIdPattern = /^sha256:[0-9a-f]{64}$/u
@@ -217,10 +215,9 @@ export const selectCurrentMigrationNames = (migrationsDirectory) => {
     manifest.length !== currentMigrationCount ||
     createHash('sha256').update(JSON.stringify(manifest)).digest('hex') !==
       currentMigrationDigest ||
-    manifest[36]?.name !== lastBootstrapMigration ||
-    manifest.at(-1)?.name !== '20261122090000_trusted_execution_drop'
+    manifest.at(-1)?.name !== '20261105090000_baseline'
   ) {
-    throw new Error('Repository current-76 migration inventory is invalid.')
+    throw new Error('Repository baseline migration inventory is invalid.')
   }
   return manifest.map(({ name }) => name)
 }
@@ -406,7 +403,7 @@ const databaseCommand = (
       ...(schemaName
         ? [
             '--env',
-            `PGOPTIONS=-c search_path=${schemaName} -c role=nihongo_phase7_migration -c TimeZone=UTC`
+            `PGOPTIONS=-c search_path=${schemaName} -c role=nihongo_migration -c TimeZone=UTC`
           ]
         : []),
       containerName,
@@ -429,11 +426,9 @@ const databaseCommand = (
 
 const provisionRuntimeIdentity = (database, schemaName, passwords) => {
   const groups = [
-    'nihongo_phase7_owner',
-    'nihongo_phase7_migration',
+    'nihongo_owner',
+    'nihongo_migration',
     'nihongo_app',
-    'nihongo_auth_gateway',
-    'nihongo_erasure_worker',
     'nihongo_guest_cleanup_worker'
   ]
   const sql = groups.map(
@@ -441,16 +436,13 @@ const provisionRuntimeIdentity = (database, schemaName, passwords) => {
       `CREATE ROLE "${role}" NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;`
   )
   sql.push(
-    'GRANT "nihongo_phase7_owner" TO "nihongo_phase7_migration" WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;'
+    'GRANT "nihongo_owner" TO "nihongo_migration" WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;'
   )
   for (const prefix of ['nihongo_test', 'nihongo_development']) {
     for (const [suffix, group] of [
-      ['phase7_migration', 'nihongo_phase7_migration'],
+      ['migration', 'nihongo_migration'],
       ['app', 'nihongo_app'],
-      ['auth_gateway', 'nihongo_auth_gateway'],
-      ['erasure_worker', 'nihongo_erasure_worker'],
-      ['guest_cleanup_worker', 'nihongo_guest_cleanup_worker'],
-      ['legacy_app', null]
+      ['guest_cleanup_worker', 'nihongo_guest_cleanup_worker']
     ]) {
       const role = `${prefix}_${suffix}_login`
       const password = passwords[role] ?? randomBytes(24).toString('hex')
@@ -464,11 +456,11 @@ const provisionRuntimeIdentity = (database, schemaName, passwords) => {
     }
   }
   sql.push(`CREATE EXTENSION pgcrypto WITH SCHEMA public;
-    ALTER DATABASE "${database.databaseName}" OWNER TO "nihongo_phase7_migration";
-    REVOKE ALL PRIVILEGES ON DATABASE "${database.databaseName}" FROM PUBLIC, "${database.databaseUser}", "nihongo_phase7_migration";
-    GRANT CREATE, TEMPORARY ON DATABASE "${database.databaseName}" TO "nihongo_phase7_migration";
-    GRANT CONNECT ON DATABASE "${database.databaseName}" TO "${migrationLogin}", "${applicationLogin}", "${gatewayLogin}", "nihongo_test_erasure_worker_login", "nihongo_test_legacy_app_login";
-    CREATE SCHEMA "${schemaName}" AUTHORIZATION "nihongo_phase7_migration";`)
+    ALTER DATABASE "${database.databaseName}" OWNER TO "nihongo_migration";
+    REVOKE ALL PRIVILEGES ON DATABASE "${database.databaseName}" FROM PUBLIC, "${database.databaseUser}", "nihongo_migration";
+    GRANT CREATE, TEMPORARY ON DATABASE "${database.databaseName}" TO "nihongo_migration";
+    GRANT CONNECT ON DATABASE "${database.databaseName}" TO "${migrationLogin}", "${applicationLogin}";
+    CREATE SCHEMA "${schemaName}" AUTHORIZATION "nihongo_migration";`)
   databaseCommand(database, sql.join('\n'))
 }
 
@@ -534,7 +526,7 @@ try {
   const { createPostgresStartupOptions, getPostgresSchema } = await import('./src/db/databaseOptions.ts');
   phase = 'test-target';
   const migrationUrl = new URL(databaseUrl);
-  migrationUrl.searchParams.set('options', '-c role=nihongo_phase7_migration');
+  migrationUrl.searchParams.set('options', '-c role=nihongo_migration');
   const productionSentinel = new URL(databaseUrl);
   productionSentinel.pathname = '/nihongo_phase11_production_guard_sentinel';
   productionSentinel.search = '';
@@ -545,13 +537,13 @@ try {
     throw new Error('Controlled TEST seed target is invalid.');
   phase = 'client-setup';
   client = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl,
-    options: createPostgresStartupOptions(schema, 'nihongo_phase7_migration') }, { schema }) });
+    options: createPostgresStartupOptions(schema, 'nihongo_migration') }, { schema }) });
   phase = 'seed-transaction';
   const result = await client.$transaction(async (transaction) => {
     phase = 'seed-owner-role';
-    await transaction.$executeRawUnsafe('SET LOCAL ROLE nihongo_phase7_owner');
+    await transaction.$executeRawUnsafe('SET LOCAL ROLE nihongo_owner');
     const roles = await transaction.$queryRawUnsafe('SELECT current_user AS role, session_user AS login');
-    if (roles.length !== 1 || roles[0].role !== 'nihongo_phase7_owner' || roles[0].login !== 'nihongo_test_phase7_migration_login')
+    if (roles.length !== 1 || roles[0].role !== 'nihongo_owner' || roles[0].login !== 'nihongo_test_migration_login')
       throw new Error('Controlled TEST seed role attestation failed.');
     const scoped = new Proxy(transaction, { get(target, property, receiver) {
       return property === '$transaction' ? async (callback) => await callback(transaction) : Reflect.get(target, property, receiver);
@@ -564,7 +556,7 @@ try {
     throw new Error('Controlled TEST canonical seed count is invalid.');
   phase = 'seed-role-boundary';
   const roles = await client.$queryRawUnsafe('SELECT current_user AS role');
-  if (roles.length !== 1 || roles[0].role !== 'nihongo_phase7_migration')
+  if (roles.length !== 1 || roles[0].role !== 'nihongo_migration')
     throw new Error('Controlled TEST seed role boundary did not close.');
 } catch (error) {
   reportFailure(error);
@@ -1479,9 +1471,9 @@ export const runPortableRuntimeSmoke = async ({
     )
     databaseCommand(
       migrationDatabase,
-      `SELECT "phase7_register_database_capability"(
+      `SELECT "register_database_capability"(
       current_database(), inet_server_addr(), inet_server_port(), 'TEST');
-      SELECT "phase7_activate_v1_issuer"('TEST');`
+      SELECT "activate_v1_issuer"('TEST');`
     )
     const databasePortOutput = run('docker', [
       'port',

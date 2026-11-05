@@ -35,7 +35,7 @@ interface DatabaseIdentity {
 }
 
 const POSTGRES_SCHEMA_PATTERN = /^[a-z_][a-z0-9_]*$/
-const MIGRATION_STARTUP_OPTIONS = '-c role=nihongo_phase7_migration'
+const MIGRATION_STARTUP_OPTIONS = '-c role=nihongo_migration'
 const EXACT_TARGET_PARAMETERS = new Set([
   'schema',
   'sslmode',
@@ -111,14 +111,13 @@ const assertDisabledRuntimeLogin = (
   if (nodeEnvironment !== expectedEnvironment) {
     throw new Error('Disabled admin CMS DB does not match NODE_ENV.')
   }
+  // #504 P8-1: the CMS-disabled runtime is the same nihongo_app runtime.
   const expectedLogin =
     expectedEnvironment === 'test'
-      ? 'nihongo_test_legacy_app_login'
-      : 'nihongo_development_legacy_app_login'
+      ? 'nihongo_test_app_login'
+      : 'nihongo_development_app_login'
   if (target.loginName !== expectedLogin) {
-    throw new Error(
-      'Disabled admin CMS runtime requires its exact legacy app login.'
-    )
+    throw new Error('Disabled admin CMS runtime requires its exact app login.')
   }
 }
 
@@ -333,8 +332,8 @@ export const assertSafeMigrationDatabase = ({
   const runtimeIdentity = getIdentity(runtime)
   const expectedLogin =
     nodeEnvironment === 'test'
-      ? 'nihongo_test_phase7_migration_login'
-      : 'nihongo_development_phase7_migration_login'
+      ? 'nihongo_test_migration_login'
+      : 'nihongo_development_migration_login'
 
   if (migrationIdentity.loginName !== expectedLogin) {
     throw new Error('Migration requires its exact canonical migration login.')

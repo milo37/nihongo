@@ -1,14 +1,10 @@
+import { registerDatabaseCapability } from '../db/databaseCapability.js'
 import { sanitizeSeedLine } from '../../prisma/seedDiagnostics.js'
 import { prepareBrowserArtifacts } from './browserArtifactPreparation.js'
 import {
-  copyFileSync,
-  cpSync,
-  mkdtempSync,
   readFileSync,
-  readdirSync,
-  rmSync
+  readdirSync
 } from 'node:fs'
-import { tmpdir } from 'node:os'
 import { createHash, randomUUID } from 'node:crypto'
 import { spawn, type ChildProcess } from 'node:child_process'
 import nodePath from 'node:path'
@@ -39,59 +35,34 @@ const SCHEMA_PATTERN = guestCleanupShard
   : /^phase7_[a-f0-9]{32}_test$/
 const IDENTIFIER_PATTERN = /^[a-z_][a-z0-9_]{0,62}$/
 const GROUP_ROLES = [
-  'nihongo_phase7_owner',
-  'nihongo_phase7_migration',
+  'nihongo_owner',
+  'nihongo_migration',
   'nihongo_app',
-  'nihongo_auth_gateway',
-  'nihongo_erasure_worker',
   'nihongo_guest_cleanup_worker'
 ] as const
 const WRAPPER_ROLES = [
   {
-    name: 'nihongo_test_phase7_migration_login',
-    grantedRole: 'nihongo_phase7_migration'
+    name: 'nihongo_test_migration_login',
+    grantedRole: 'nihongo_migration'
   },
   { name: 'nihongo_test_app_login', grantedRole: 'nihongo_app' },
-  {
-    name: 'nihongo_test_auth_gateway_login',
-    grantedRole: 'nihongo_auth_gateway'
-  },
-  {
-    name: 'nihongo_test_erasure_worker_login',
-    grantedRole: 'nihongo_erasure_worker'
-  },
   {
     name: 'nihongo_test_guest_cleanup_worker_login',
     grantedRole: 'nihongo_guest_cleanup_worker'
   },
   {
-    name: 'nihongo_development_phase7_migration_login',
-    grantedRole: 'nihongo_phase7_migration'
+    name: 'nihongo_development_migration_login',
+    grantedRole: 'nihongo_migration'
   },
   { name: 'nihongo_development_app_login', grantedRole: 'nihongo_app' },
-  {
-    name: 'nihongo_development_auth_gateway_login',
-    grantedRole: 'nihongo_auth_gateway'
-  },
-  {
-    name: 'nihongo_development_erasure_worker_login',
-    grantedRole: 'nihongo_erasure_worker'
-  },
   {
     name: 'nihongo_development_guest_cleanup_worker_login',
     grantedRole: 'nihongo_guest_cleanup_worker'
   }
 ] as const
-const LEGACY_ROLES = [
-  'nihongo_test_legacy_app_login',
-  'nihongo_development_legacy_app_login'
-] as const
-const TEST_MIGRATION_LOGIN = 'nihongo_test_phase7_migration_login'
+const TEST_MIGRATION_LOGIN = 'nihongo_test_migration_login'
 const TEST_APPLICATION_LOGIN = 'nihongo_test_app_login'
-const TEST_AUTH_GATEWAY_LOGIN = 'nihongo_test_auth_gateway_login'
-const TEST_ERASURE_LOGIN = 'nihongo_test_erasure_worker_login'
 const TEST_GUEST_CLEANUP_LOGIN = 'nihongo_test_guest_cleanup_worker_login'
-const TEST_LEGACY_LOGIN = 'nihongo_test_legacy_app_login'
 const repositoryRoot = nodePath.resolve(
   nodePath.dirname(fileURLToPath(import.meta.url)),
   '../../../..'
@@ -164,7 +135,7 @@ const targetDatabaseUrl = new URL(adminDatabaseUrl)
 targetDatabaseUrl.searchParams.set('schema', schemaName)
 
 const wrapperPasswords = new Map<string, string>(
-  [...WRAPPER_ROLES.map(({ name }) => name), ...LEGACY_ROLES].map((name) => [
+  WRAPPER_ROLES.map(({ name }) => name).map((name) => [
     name,
     randomUUID().replaceAll('-', '')
   ])
@@ -184,11 +155,9 @@ const buildWrapperDatabaseUrl = (role: string): URL => {
 const migrationDatabaseUrl = buildWrapperDatabaseUrl(TEST_MIGRATION_LOGIN)
 migrationDatabaseUrl.searchParams.set(
   'options',
-  '-c role=nihongo_phase7_migration'
+  '-c role=nihongo_migration'
 )
 const applicationDatabaseUrl = buildWrapperDatabaseUrl(TEST_APPLICATION_LOGIN)
-const authGatewayDatabaseUrl = buildWrapperDatabaseUrl(TEST_AUTH_GATEWAY_LOGIN)
-const erasureWorkerDatabaseUrl = buildWrapperDatabaseUrl(TEST_ERASURE_LOGIN)
 
 const quoteIdentifier = (value: string): string => {
   if (!IDENTIFIER_PATTERN.test(value)) {
@@ -240,7 +209,6 @@ export interface IsolatedDatabaseHarness {
 interface PrepareIsolatedDatabaseOptions {
   readonly abortSignal?: AbortSignal
   readonly seedRuns?: number
-  readonly issuerActivationOwner?: 'runner' | 'fixture'
   readonly artifactsPrepared?: boolean
 }
 
@@ -453,10 +421,7 @@ const attestBootstrap = async (): Promise<void> => {
 }
 
 const provisionRoles = async (): Promise<void> => {
-  const wrapperNames = [
-    ...WRAPPER_ROLES.map(({ name }) => name),
-    ...LEGACY_ROLES
-  ]
+  const wrapperNames = WRAPPER_ROLES.map(({ name }) => name)
   const wrapperCollisions = await adminClient.query<{ name: string }>(
     `SELECT rolname AS name FROM pg_roles
      WHERE rolname = ANY($1::text[]) ORDER BY rolname`,
@@ -497,7 +462,7 @@ const provisionRoles = async (): Promise<void> => {
       createdGroupRoles.add(role)
     }
     await adminClient.query(
-      `GRANT "nihongo_phase7_owner" TO "nihongo_phase7_migration"
+      `GRANT "nihongo_owner" TO "nihongo_migration"
        WITH ADMIN FALSE, INHERIT FALSE, SET TRUE`
     )
   }
@@ -518,18 +483,6 @@ const provisionRoles = async (): Promise<void> => {
        WITH ADMIN FALSE, INHERIT FALSE, SET TRUE`
     )
   }
-  for (const name of LEGACY_ROLES) {
-    const password = wrapperPasswords.get(name)
-    if (!password || !/^[a-f0-9]{32}$/u.test(password)) {
-      throw new Error('API legacy wrapper password is unsafe.')
-    }
-    await adminClient.query(
-      `CREATE ROLE ${quoteIdentifier(name)}
-       LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
-       NOREPLICATION NOBYPASSRLS PASSWORD '${password}'`
-    )
-    createdWrapperRoles.add(name)
-  }
 }
 
 const applyMigrationDatabaseBoundary = async (): Promise<void> => {
@@ -539,7 +492,7 @@ const applyMigrationDatabaseBoundary = async (): Promise<void> => {
   databaseChanged = true
   await adminClient.query(
     `ALTER DATABASE ${quoteIdentifier(databaseName)}
-     OWNER TO "nihongo_phase7_migration"`
+     OWNER TO "nihongo_migration"`
   )
   const priorGrantees = new Set(
     (await readDatabaseAcl()).map(({ grantee }) => grantee)
@@ -552,13 +505,11 @@ const applyMigrationDatabaseBoundary = async (): Promise<void> => {
   }
   await adminClient.query(
     `GRANT CREATE, TEMPORARY ON DATABASE ${quoteIdentifier(databaseName)}
-     TO "nihongo_phase7_migration"`
+     TO "nihongo_migration"`
   )
   await adminClient.query(
     `GRANT CONNECT ON DATABASE ${quoteIdentifier(databaseName)} TO
-       "${TEST_MIGRATION_LOGIN}", "${TEST_APPLICATION_LOGIN}",
-       "${TEST_AUTH_GATEWAY_LOGIN}", "${TEST_ERASURE_LOGIN}",
-       "${TEST_LEGACY_LOGIN}"`
+       "${TEST_MIGRATION_LOGIN}", "${TEST_APPLICATION_LOGIN}"`
   )
 }
 
@@ -720,14 +671,9 @@ const cleanup = (): Promise<void> => {
           await adminClient.query(`DROP ROLE ${quoteIdentifier(name)}`)
           createdWrapperRoles.delete(name)
         }
-        for (const name of LEGACY_ROLES.toReversed()) {
-          if (!createdWrapperRoles.has(name)) continue
-          await adminClient.query(`DROP ROLE ${quoteIdentifier(name)}`)
-          createdWrapperRoles.delete(name)
-        }
-        if (createdGroupRoles.has('nihongo_phase7_migration')) {
+        if (createdGroupRoles.has('nihongo_migration')) {
           await adminClient.query(
-            `REVOKE "nihongo_phase7_owner" FROM "nihongo_phase7_migration"`
+            `REVOKE "nihongo_owner" FROM "nihongo_migration"`
           )
         }
         for (const role of GROUP_ROLES.toReversed()) {
@@ -771,9 +717,10 @@ export const cleanupIsolatedDatabase = async (): Promise<void> => {
   await cleanup()
 }
 
-export const registerCapabilityAndActivate = async (
-  abortSignal?: AbortSignal,
-  issuerActivationOwner: 'runner' | 'fixture' = 'runner'
+// #504 P8-1: the baseline starts with V1 issuance active; only the
+// capability row is registered.
+export const registerDatabaseCapabilityForTest = async (
+  abortSignal?: AbortSignal
 ): Promise<void> => {
   abortSignal?.throwIfAborted()
   const migrationClient = new Client({
@@ -783,36 +730,7 @@ export const registerCapabilityAndActivate = async (
   try {
     abortSignal?.throwIfAborted()
     await migrationClient.query(`SET search_path TO ${quoteSchema(schemaName)}`)
-    abortSignal?.throwIfAborted()
-    const endpoint = await migrationClient.query<{
-      databaseName: string
-      serverAddress: string
-      serverPort: number
-    }>(
-      `SELECT current_database() AS "databaseName",
-         inet_server_addr()::text AS "serverAddress",
-         inet_server_port() AS "serverPort"`
-    )
-    const target = endpoint.rows[0]
-    if (!target) {
-      throw new Error('API endpoint identity is unavailable.')
-    }
-    abortSignal?.throwIfAborted()
-    await migrationClient.query(
-      `SELECT "phase7_register_database_capability"(
-         $1, $2::inet, $3, 'TEST'
-       )`,
-      [target.databaseName, target.serverAddress, target.serverPort]
-    )
-    abortSignal?.throwIfAborted()
-    // Lifecycle's existing SSO fixture owns the one-way activation in connect().
-    if (issuerActivationOwner === 'runner') {
-      // Settle the fresh ledger's statistics first: an autovacuum ANALYZE of
-      // _prisma_migrations can otherwise deadlock with the activation's REVOKE
-      // and DROP POLICY on that table (CI run 41787459400).
-      await migrationClient.query(`ANALYZE "_prisma_migrations"`)
-      await migrationClient.query(`SELECT "phase7_activate_v1_issuer"('TEST')`)
-    }
+    await registerDatabaseCapability(migrationClient, 'TEST')
     abortSignal?.throwIfAborted()
   } finally {
     await migrationClient.end()
@@ -861,7 +779,6 @@ export const adminSeedInvocation = (
 export const prepareIsolatedDatabase = async ({
   abortSignal,
   seedRuns = 0,
-  issuerActivationOwner = 'runner',
   artifactsPrepared = false
 }: PrepareIsolatedDatabaseOptions = {}): Promise<IsolatedDatabaseHarness> => {
   if (databasePrepared) {
@@ -891,7 +808,7 @@ export const prepareIsolatedDatabase = async ({
   abortSignal?.throwIfAborted()
   await adminClient.query(
     `CREATE SCHEMA ${quoteSchema(schemaName)}
-     AUTHORIZATION "nihongo_phase7_migration"`
+     AUTHORIZATION "nihongo_migration"`
   )
   schemaCreated = true
   abortSignal?.throwIfAborted()
@@ -899,9 +816,10 @@ export const prepareIsolatedDatabase = async ({
   const sharedEnvironment: NodeJS.ProcessEnv = {
     ...process.env,
     ADMIN_CMS_MODE: 'technical',
-    PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: authGatewayDatabaseUrl.toString(),
+    // #504 P8-1: one runtime role; these names go in P8-2.
+    PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: applicationDatabaseUrl.toString(),
     DATABASE_URL: applicationDatabaseUrl.toString(),
-    TEST_API_ERASURE_DATABASE_URL: erasureWorkerDatabaseUrl.toString(),
+    TEST_API_ERASURE_DATABASE_URL: applicationDatabaseUrl.toString(),
     GUEST_CLEANUP_DATABASE_URL: applicationDatabaseUrl.toString(),
     GUEST_CLEANUP_FIXTURE_DATABASE_URL: targetDatabaseUrl.toString(),
     GUEST_CLEANUP_TEST_ISOLATED: guestCleanupShard ? 'yes' : undefined,
@@ -923,71 +841,22 @@ export const prepareIsolatedDatabase = async ({
     repositoryRoot,
     'apps/api/prisma/migrations'
   )
-  const lastBootstrapMigration =
-    '20261009092000_phase7_n4_n2_revision2_digest_fix'
-  const migrationNames = readdirSync(canonicalMigrationsPath, {
-    withFileTypes: true
-  })
-    .filter(
-      (entry) => entry.isDirectory() && entry.name <= lastBootstrapMigration
-    )
-    .map((entry) => entry.name)
-    .sort()
-  if (
-    migrationNames.length !== 37 ||
-    migrationNames.at(-1) !== lastBootstrapMigration
-  ) {
-    throw new Error('Canonical content migration prefix is inconsistent.')
-  }
-  const bootstrapMigrationsPath = mkdtempSync(
-    nodePath.join(tmpdir(), 'nihongo-phase7-content-')
+  // #504 P8-1: one baseline; seed runs on the migrated schema.
+  await runCommand(
+    'pnpm',
+    ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
+    { ...sharedEnvironment, TEST_MIGRATIONS_PATH: canonicalMigrationsPath },
+    abortSignal
   )
-  try {
-    copyFileSync(
-      nodePath.join(canonicalMigrationsPath, 'migration_lock.toml'),
-      nodePath.join(bootstrapMigrationsPath, 'migration_lock.toml')
-    )
-    for (const name of migrationNames) {
-      cpSync(
-        nodePath.join(canonicalMigrationsPath, name),
-        nodePath.join(bootstrapMigrationsPath, name),
-        { recursive: true }
-      )
-    }
+  await registerDatabaseCapabilityForTest(abortSignal)
+  const seed = adminSeedInvocation(true)
+  for (let runIndex = 0; runIndex < seedRuns; runIndex += 1) {
     await runCommand(
       'pnpm',
-      ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
-      {
-        ...sharedEnvironment,
-        TEST_MIGRATIONS_PATH: bootstrapMigrationsPath
-      },
+      seed.args,
+      { ...sharedEnvironment, ...seed.environment },
       abortSignal
     )
-    await registerCapabilityAndActivate(abortSignal, issuerActivationOwner)
-
-    const seed = adminSeedInvocation(true)
-    for (let runIndex = 0; runIndex < seedRuns; runIndex += 1) {
-      await runCommand(
-        'pnpm',
-        seed.args,
-        { ...sharedEnvironment, ...seed.environment },
-        abortSignal
-      )
-    }
-    // Seed-free callers retain the prefix until their explicit seed step.
-    if (seedRuns > 0) {
-      await runCommand(
-        'pnpm',
-        ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
-        {
-          ...sharedEnvironment,
-          TEST_MIGRATIONS_PATH: canonicalMigrationsPath
-        },
-        abortSignal
-      )
-    }
-  } finally {
-    rmSync(bootstrapMigrationsPath, { recursive: true, force: true })
   }
 
   abortSignal?.throwIfAborted()
@@ -1000,8 +869,8 @@ export const prepareIsolatedDatabase = async ({
   return {
     adminDatabaseUrl: targetDatabaseUrl.toString(),
     applicationDatabaseUrl: applicationDatabaseUrl.toString(),
-    authGatewayDatabaseUrl: authGatewayDatabaseUrl.toString(),
-    erasureWorkerDatabaseUrl: erasureWorkerDatabaseUrl.toString(),
+    authGatewayDatabaseUrl: applicationDatabaseUrl.toString(),
+    erasureWorkerDatabaseUrl: applicationDatabaseUrl.toString(),
     migrationDatabaseUrl: migrationDatabaseUrl.toString(),
     schemaName,
     sharedEnvironment
@@ -1062,8 +931,7 @@ const run = async (): Promise<void> => {
 
 const runSsoAccountLifecycle = async (): Promise<void> => {
   const harness = await prepareIsolatedDatabase({
-    seedRuns: 1,
-    issuerActivationOwner: 'fixture'
+    seedRuns: 1
   })
   await runCommand(
     'pnpm',
@@ -1103,7 +971,7 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
   process.stdout.write(
     JSON.stringify({
       event: 'phase7.api.sso_first_admin_bootstrap.migrations_verified',
-      canonicalCount: 76,
+      canonicalCount: 1,
       checksumMatch: true,
       reentry: true
     }) + '\n'

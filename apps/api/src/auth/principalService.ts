@@ -258,7 +258,7 @@ export const createPhase7PrincipalService = ({
           const authorityRows = await client.$queryRawUnsafe<
             AdminAuthorityFailureRow[]
           >(
-            'SELECT * FROM "phase7_classify_admin_authority"($1)',
+            'SELECT * FROM "classify_admin_authority"($1)',
             credential.token
           )
           const outcome = authorityRows[0]?.outcome

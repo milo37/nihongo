@@ -81,7 +81,7 @@ const fixtureDatabase = fixtureDatabaseUrl
   ? createDatabaseRuntime(fixtureDatabaseUrl)
   : database
 const authGatewayDatabase = isCurrentSourceIntegration
-  ? createRoleDatabaseRuntime(authGatewayDatabaseUrl!, 'nihongo_auth_gateway')
+  ? createRoleDatabaseRuntime(authGatewayDatabaseUrl!, 'nihongo_app')
   : undefined
 const erasureWorkerClient = erasureWorkerDatabaseUrl
   ? new Client({
@@ -396,7 +396,7 @@ beforeAll(async () => {
   await database.checkReadiness()
   if (erasureWorkerClient) {
     await erasureWorkerClient.connect()
-    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+    await erasureWorkerClient.query(`SET ROLE "nihongo_app"`)
   }
   await database.client.rateLimit.deleteMany()
 })

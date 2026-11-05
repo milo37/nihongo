@@ -8,14 +8,8 @@ import { prepareBrowserArtifacts } from './browserArtifactPreparation.js'
 import { randomUUID } from 'node:crypto'
 import { spawn, type ChildProcess } from 'node:child_process'
 import {
-  copyFileSync,
-  cpSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync
+  readFileSync
 } from 'node:fs'
-import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import dotenv from 'dotenv'
@@ -39,57 +33,33 @@ import {
 const SCHEMA_PATTERN = /^phase7_[a-f0-9]{32}_test$/
 const DATABASE_IDENTIFIER_PATTERN = /^[a-z_][a-z0-9_]{0,62}$/
 const TEST_DATABASE_GROUP_ROLES = [
-  'nihongo_phase7_owner',
-  'nihongo_phase7_migration',
+  'nihongo_owner',
+  'nihongo_migration',
   'nihongo_app',
-  'nihongo_auth_gateway',
-  'nihongo_erasure_worker',
   'nihongo_guest_cleanup_worker'
 ] as const
 const TEST_DATABASE_WRAPPER_ROLES = [
   {
-    name: 'nihongo_test_phase7_migration_login',
-    grantedRole: 'nihongo_phase7_migration'
+    name: 'nihongo_test_migration_login',
+    grantedRole: 'nihongo_migration'
   },
   { name: 'nihongo_test_app_login', grantedRole: 'nihongo_app' },
-  {
-    name: 'nihongo_test_auth_gateway_login',
-    grantedRole: 'nihongo_auth_gateway'
-  },
-  {
-    name: 'nihongo_test_erasure_worker_login',
-    grantedRole: 'nihongo_erasure_worker'
-  },
   {
     name: 'nihongo_test_guest_cleanup_worker_login',
     grantedRole: 'nihongo_guest_cleanup_worker'
   },
   {
-    name: 'nihongo_development_phase7_migration_login',
-    grantedRole: 'nihongo_phase7_migration'
+    name: 'nihongo_development_migration_login',
+    grantedRole: 'nihongo_migration'
   },
   { name: 'nihongo_development_app_login', grantedRole: 'nihongo_app' },
-  {
-    name: 'nihongo_development_auth_gateway_login',
-    grantedRole: 'nihongo_auth_gateway'
-  },
-  {
-    name: 'nihongo_development_erasure_worker_login',
-    grantedRole: 'nihongo_erasure_worker'
-  },
   {
     name: 'nihongo_development_guest_cleanup_worker_login',
     grantedRole: 'nihongo_guest_cleanup_worker'
   }
 ] as const
-const TEST_DATABASE_LEGACY_ROLES = [
-  'nihongo_test_legacy_app_login',
-  'nihongo_development_legacy_app_login'
-] as const
-const TEST_MIGRATION_LOGIN = 'nihongo_test_phase7_migration_login'
+const TEST_MIGRATION_LOGIN = 'nihongo_test_migration_login'
 const TEST_APPLICATION_LOGIN = 'nihongo_test_app_login'
-const TEST_AUTH_GATEWAY_LOGIN = 'nihongo_test_auth_gateway_login'
-const TEST_LEGACY_LOGIN = 'nihongo_test_legacy_app_login'
 const DEVELOPMENT_APPLICATION_LOGIN = 'nihongo_development_app_login'
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -141,12 +111,10 @@ if (!DATABASE_IDENTIFIER_PATTERN.test(databaseName)) {
   throw new Error('Integration database name is unsafe.')
 }
 const wrapperPasswords = new Map<string, string>(
-  [...TEST_DATABASE_WRAPPER_ROLES, ...TEST_DATABASE_LEGACY_ROLES].map(
-    (role) => [
-      typeof role === 'string' ? role : role.name,
-      randomUUID().replaceAll('-', '')
-    ]
-  )
+  TEST_DATABASE_WRAPPER_ROLES.map((role) => [
+    role.name,
+    randomUUID().replaceAll('-', '')
+  ])
 )
 
 const buildWrapperDatabaseUrl = (role: string): URL => {
@@ -163,11 +131,9 @@ const buildWrapperDatabaseUrl = (role: string): URL => {
 const migrationDatabaseUrl = buildWrapperDatabaseUrl(TEST_MIGRATION_LOGIN)
 migrationDatabaseUrl.searchParams.set(
   'options',
-  '-c role=nihongo_phase7_migration'
+  '-c role=nihongo_migration'
 )
 const applicationDatabaseUrl = buildWrapperDatabaseUrl(TEST_APPLICATION_LOGIN)
-const authGatewayDatabaseUrl = buildWrapperDatabaseUrl(TEST_AUTH_GATEWAY_LOGIN)
-const legacyDatabaseUrl = buildWrapperDatabaseUrl(TEST_LEGACY_LOGIN)
 const developmentApplicationDatabaseUrl = buildWrapperDatabaseUrl(
   DEVELOPMENT_APPLICATION_LOGIN
 )
@@ -830,10 +796,10 @@ const transitionDatabaseOwnerToMigration = async (): Promise<void> => {
   databaseOwnerChanged = true
   await adminClient.query(
     `ALTER DATABASE ${quoteIdentifier(databaseName)}
-     OWNER TO "nihongo_phase7_migration"`
+     OWNER TO "nihongo_migration"`
   )
   const current = await readDatabaseState()
-  if (current.ownerName !== 'nihongo_phase7_migration') {
+  if (current.ownerName !== 'nihongo_migration') {
     throw new Error('Database owner transition failed.')
   }
 }
@@ -853,15 +819,12 @@ const applyTestDatabaseAcl = async (
   }
   await adminClient.query(
     `GRANT CREATE, TEMPORARY ON DATABASE ${quoteIdentifier(databaseName)} TO
-       "nihongo_phase7_migration"`
+       "nihongo_migration"`
   )
   await adminClient.query(
     `GRANT CONNECT ON DATABASE ${quoteIdentifier(databaseName)} TO
-       "nihongo_test_phase7_migration_login",
-       "nihongo_test_app_login",
-       "nihongo_test_auth_gateway_login",
-       "nihongo_test_erasure_worker_login",
-       "nihongo_test_legacy_app_login"`
+       "nihongo_test_migration_login",
+       "nihongo_test_app_login"`
   )
 }
 
@@ -886,7 +849,7 @@ const attestTestDatabaseAcl = async (): Promise<void> => {
        CROSS JOIN LATERAL aclexplode(database_record.datacl) AS acl_entry
        JOIN pg_roles AS grantee_role ON grantee_role.oid = acl_entry.grantee
        WHERE database_record.datname = current_database()
-         AND grantee_role.rolname = 'nihongo_phase7_migration'
+         AND grantee_role.rolname = 'nihongo_migration'
          AND acl_entry.privilege_type IN ('CREATE', 'TEMPORARY')
          AND NOT acl_entry.is_grantable
      ) AS "migrationPrivilegeAclCount",
@@ -903,19 +866,16 @@ const attestTestDatabaseAcl = async (): Promise<void> => {
     [
       [
         TEST_MIGRATION_LOGIN,
-        TEST_APPLICATION_LOGIN,
-        TEST_AUTH_GATEWAY_LOGIN,
-        'nihongo_test_erasure_worker_login',
-        TEST_LEGACY_LOGIN
+        TEST_APPLICATION_LOGIN
       ]
     ]
   )
   const row = result.rows[0]
   if (
     !row ||
-    row.aclEntryCount !== 7 ||
+    row.aclEntryCount !== 4 ||
     row.migrationPrivilegeAclCount !== 2 ||
-    row.wrapperConnectAclCount !== 5
+    row.wrapperConnectAclCount !== 2
   ) {
     throw new Error('Migration database ACL attestation failed.')
   }
@@ -930,7 +890,7 @@ const exerciseDatabaseAclRestore = async (
   await applyTestDatabaseAcl()
   await adminClient.query(
     `ALTER DATABASE ${quoteIdentifier(databaseName)}
-     OWNER TO "nihongo_phase7_migration"`
+     OWNER TO "nihongo_migration"`
   )
   await adminClient.query(
     `ALTER DATABASE ${quoteIdentifier(databaseName)} OWNER TO
@@ -1050,10 +1010,7 @@ const restorePgcrypto = async (): Promise<void> => {
 }
 
 const provisionGlobalRoles = async (): Promise<void> => {
-  const wrapperNames = [
-    ...TEST_DATABASE_WRAPPER_ROLES.map(({ name }) => name),
-    ...TEST_DATABASE_LEGACY_ROLES
-  ]
+  const wrapperNames = TEST_DATABASE_WRAPPER_ROLES.map(({ name }) => name)
   const collisions = await adminClient.query<{ name: string }>(
     `SELECT rolname AS name FROM pg_roles
      WHERE rolname = ANY($1::text[]) ORDER BY rolname`,
@@ -1114,7 +1071,7 @@ const provisionGlobalRoles = async (): Promise<void> => {
       createdGroupRoles.add(role)
     }
     await adminClient.query(
-      `GRANT "nihongo_phase7_owner" TO "nihongo_phase7_migration"
+      `GRANT "nihongo_owner" TO "nihongo_migration"
        WITH ADMIN FALSE, INHERIT FALSE, SET TRUE`
     )
   } else {
@@ -1140,8 +1097,8 @@ const provisionGlobalRoles = async (): Promise<void> => {
     )
     if (
       protectedMemberships.rows.length !== 1 ||
-      protectedMemberships.rows[0]?.memberName !== 'nihongo_phase7_migration' ||
-      protectedMemberships.rows[0]?.grantedName !== 'nihongo_phase7_owner' ||
+      protectedMemberships.rows[0]?.memberName !== 'nihongo_migration' ||
+      protectedMemberships.rows[0]?.grantedName !== 'nihongo_owner' ||
       protectedMemberships.rows[0]?.adminOption !== false ||
       protectedMemberships.rows[0]?.inheritOption !== false ||
       protectedMemberships.rows[0]?.setOption !== true
@@ -1165,18 +1122,6 @@ const provisionGlobalRoles = async (): Promise<void> => {
       `GRANT ${quoteIdentifier(grantedRole)} TO ${quoteIdentifier(name)}
        WITH ADMIN FALSE, INHERIT FALSE, SET TRUE`
     )
-  }
-  for (const name of TEST_DATABASE_LEGACY_ROLES) {
-    const password = wrapperPasswords.get(name)
-    if (!password || !/^[a-f0-9]{32}$/u.test(password)) {
-      throw new Error('Legacy password fixture is unsafe.')
-    }
-    await adminClient.query(
-      `CREATE ROLE ${quoteIdentifier(name)}
-       LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
-       NOREPLICATION NOBYPASSRLS PASSWORD '${password}'`
-    )
-    createdWrapperRoles.add(name)
   }
 }
 
@@ -1245,23 +1190,16 @@ const cleanup = (): Promise<void> => {
               await adminClient.query(`DROP ROLE ${quoteIdentifier(name)}`)
               createdWrapperRoles.delete(name)
             }
-            for (const name of TEST_DATABASE_LEGACY_ROLES.toReversed()) {
-              if (!createdWrapperRoles.has(name)) continue
-              await adminClient.query(`DROP ROLE ${quoteIdentifier(name)}`)
-              createdWrapperRoles.delete(name)
-            }
-            if (createdGroupRoles.has('nihongo_phase7_migration')) {
+            if (createdGroupRoles.has('nihongo_migration')) {
               await adminClient.query(
-                `REVOKE "nihongo_phase7_owner" FROM "nihongo_phase7_migration"`
+                `REVOKE "nihongo_owner" FROM "nihongo_migration"`
               )
             }
             for (const name of [
               'nihongo_guest_cleanup_worker',
-              'nihongo_erasure_worker',
-              'nihongo_auth_gateway',
               'nihongo_app',
-              'nihongo_phase7_migration',
-              'nihongo_phase7_owner'
+              'nihongo_migration',
+              'nihongo_owner'
             ]) {
               if (!createdGroupRoles.has(name)) continue
               await adminClient.query(`DROP ROLE ${quoteIdentifier(name)}`)
@@ -1325,17 +1263,7 @@ const reportPostSeedDiagnostic = (diagnostic: PostSeedDiagnostic): void => {
   )
 }
 
-const migrationDiagnosticNames = [
-  '20260827100000_phase7_admin_cms_enums',
-  '20260827101000_phase7_admin_cms_foundation',
-  '20260909120000_phase7_archive_empty_manifest_verifier',
-  '20260916120000_phase7_reauthentication_foundation',
-  '20261019090000_sso_login_transactions',
-  '20261019093000_sso_apple_google_providers',
-  '20261019100000_sso_identity_mapping',
-  '20261019103000_sso_admin_fresh',
-  '20261019110000_sso_admin_fresh_erasure_ownership'
-] as const
+const migrationDiagnosticNames = ['20261105090000_baseline'] as const
 
 const sanitizeMigrationDatabaseError = (error: unknown) => {
   const ownText = (key: string, limit: number): string | undefined => {
@@ -1425,7 +1353,7 @@ const run = async (): Promise<void> => {
   await attestTestDatabaseAcl()
   await adminClient.query(
     `CREATE SCHEMA ${quoteSchema(schemaName)}
-     AUTHORIZATION "nihongo_phase7_migration"`
+     AUTHORIZATION "nihongo_migration"`
   )
   schemaCreated = true
   process.stdout.write(
@@ -1438,13 +1366,13 @@ const run = async (): Promise<void> => {
   const sharedEnvironment: NodeJS.ProcessEnv = {
     ...process.env,
     ADMIN_CMS_MODE: 'technical',
-    PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: authGatewayDatabaseUrl.toString(),
+    // #504 P8-1: one runtime login; this env name goes in P8-2.
+    PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: applicationDatabaseUrl.toString(),
     DATABASE_URL: applicationDatabaseUrl.toString(),
     NODE_ENV: 'test',
     PHASE7_ADMIN_DATABASE_URL: targetDatabaseUrl.toString(),
     TEST_DEVELOPMENT_APP_DATABASE_URL:
       developmentApplicationDatabaseUrl.toString(),
-    PHASE7_LEGACY_DATABASE_URL: legacyDatabaseUrl.toString(),
     PHASE7_MIGRATION_DATABASE_URL: migrationDatabaseUrl.toString(),
     TEST_MIGRATIONS_PATH: undefined,
     PRODUCTION_DATABASE_URL: syntheticProductionDatabaseUrl.toString()
@@ -1475,19 +1403,6 @@ const run = async (): Promise<void> => {
     async (command, args, environment) =>
       await runCommand(command, args, environment),
     repositoryRoot
-  )
-  await runCommand(
-    'pnpm',
-    [
-      '--filter',
-      '@nihongo/api',
-      'exec',
-      'vitest',
-      'run',
-      'src/db/adminCmsMigration.test.ts',
-      'src/db/reauthenticationMigration.test.ts'
-    ],
-    migrationEnvironment
   )
   const deployMigrations = async (
     environment: NodeJS.ProcessEnv
@@ -1566,44 +1481,8 @@ const run = async (): Promise<void> => {
     ...migrationEnvironment,
     TEST_MIGRATIONS_PATH: canonicalMigrationsPath
   }
-  const lastBootstrapMigration =
-    '20261009092000_phase7_n4_n2_revision2_digest_fix'
-  const migrationNames = readdirSync(canonicalMigrationsPath, {
-    withFileTypes: true
-  })
-    .filter(
-      (entry) => entry.isDirectory() && entry.name <= lastBootstrapMigration
-    )
-    .map((entry) => entry.name)
-    .sort()
-  if (
-    migrationNames.length !== 37 ||
-    migrationNames.at(-1) !== lastBootstrapMigration
-  ) {
-    throw new Error('Canonical content migration prefix is inconsistent.')
-  }
-  const prefixMigrationsPath = mkdtempSync(
-    path.join(tmpdir(), 'nihongo-phase7-current37-')
-  )
-  try {
-    copyFileSync(
-      path.join(canonicalMigrationsPath, 'migration_lock.toml'),
-      path.join(prefixMigrationsPath, 'migration_lock.toml')
-    )
-    for (const name of migrationNames) {
-      cpSync(
-        path.join(canonicalMigrationsPath, name),
-        path.join(prefixMigrationsPath, name),
-        { recursive: true }
-      )
-    }
-    await deployMigrations({
-      ...migrationEnvironment,
-      TEST_MIGRATIONS_PATH: prefixMigrationsPath
-    })
-  } finally {
-    rmSync(prefixMigrationsPath, { recursive: true, force: true })
-  }
+  // #504 P8-1: one baseline; seed runs on the migrated schema.
+  await deployMigrations(canonicalMigrationEnvironment)
   const readQuestionCount = async (): Promise<string> => {
     const result = await adminClient.query<{ count: string }>(
       `SELECT COUNT(*)::text AS count
@@ -1635,7 +1514,7 @@ const run = async (): Promise<void> => {
   const duplicateOptionsUrl = new URL(migrationDatabaseUrl)
   duplicateOptionsUrl.searchParams.append(
     'options',
-    '-c role=nihongo_phase7_migration'
+    '-c role=nihongo_migration'
   )
   const duplicateMigrationOptions: NodeJS.ProcessEnv = {
     ...seedEnvironment,

@@ -11,7 +11,6 @@ export interface GuestCleanupRoleEvidence {
   sessionCanCreateRoles: boolean
   sessionCanCreateDatabases: boolean
   sessionHasApplicationRole: boolean
-  sessionHasErasureRole: boolean
   workerCanCreateInSchema: boolean
   sessionCanCreateInSchema: boolean
 }
@@ -30,7 +29,6 @@ export const assertStudyGuestCleanupRole = (
     evidence.sessionCanCreateRoles !== false ||
     evidence.sessionCanCreateDatabases !== false ||
     evidence.sessionHasApplicationRole !== true ||
-    evidence.sessionHasErasureRole !== false ||
     evidence.workerCanCreateInSchema !== false ||
     evidence.sessionCanCreateInSchema !== false
   ) {
@@ -55,7 +53,6 @@ export const verifyStudyGuestCleanupRole = async (
       login.rolcreaterole AS "sessionCanCreateRoles",
       login.rolcreatedb AS "sessionCanCreateDatabases",
       pg_has_role(session_user, 'nihongo_app', 'MEMBER') AS "sessionHasApplicationRole",
-      pg_has_role(session_user, 'nihongo_erasure_worker', 'MEMBER') AS "sessionHasErasureRole",
       has_schema_privilege(current_user, current_schema(), 'CREATE') AS "workerCanCreateInSchema",
       has_schema_privilege(session_user, current_schema(), 'CREATE') AS "sessionCanCreateInSchema"
     FROM pg_catalog.pg_roles AS worker

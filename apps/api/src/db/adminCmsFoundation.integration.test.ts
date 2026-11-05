@@ -1,4 +1,11 @@
+import { readFileSync } from 'node:fs'
 import { createHash, randomUUID } from 'node:crypto'
+import {
+  expectedBaselineCatalog,
+  withoutLegacyBranchSources
+} from './fixtures/baseline/baselineDelta.js'
+import { readSchemaCatalog, type SchemaCatalog } from './fixtures/schemaCatalog.js'
+import { registerDatabaseCapability } from './databaseCapability.js'
 import { installAuditDigestSql } from './fixtures/auditDigestSql.js'
 import { canonicalDuplicateIdentity } from '@nihongo/domain/content/validators/v1/duplicates'
 import type { PersistedQuestionSemanticV1 } from '@nihongo/domain/content/validators/v1/types'
@@ -31,21 +38,8 @@ import {
 } from './foundationDiagnostics.js'
 import { attestRuntimeRoles } from './runtimeRoleAttestation.js'
 
-const EXPECTED_RECENT_MIGRATIONS = [
-  '20261110110000_drop_retired_credential_auth',
-  '20261111090000_drop_dead_reauthentication',
-  '20261112090000_merge_runtime_roles',
-  '20261113090000_admin_operation_to_api',
-  '20261114090000_session_issuance_to_api',
-  '20261115090000_admin_fresh_to_api',
-  '20261116090000_erasure_to_api',
-  '20261117090000_session_family_removal',
-  '20261118090000_erasure_request_to_api',
-  '20261119090000_operation_finish_enforcement',
-  '20261120090000_trusted_execution_users',
-  '20261121090000_account_sso_to_api',
-  '20261122090000_trusted_execution_drop'
-] as const
+// #504 P8-1: one baseline replaces the 76 migrations.
+const EXPECTED_MIGRATIONS = ['20261105090000_baseline'] as const
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',
   'LEVEL',
@@ -62,9 +56,7 @@ const EXPECTED_CHANGED_FIELDS = [
 ] as const
 const ALLOWED_EXECUTION_ROLES = [
   'nihongo_app',
-  'nihongo_auth_gateway',
-  'nihongo_erasure_worker',
-  'nihongo_phase7_migration'
+  'nihongo_migration'
 ] as const
 type ExecutionRole = (typeof ALLOWED_EXECUTION_ROLES)[number]
 
@@ -90,26 +82,11 @@ const client = new Client({
   connectionString: connectionUrl.toString(),
   options: createPostgresStartupOptions(schema)
 })
-const legacyDatabaseUrl = process.env.PHASE7_LEGACY_DATABASE_URL
-if (!legacyDatabaseUrl) {
-  throw new Error('Legacy compatibility database URL is required.')
-}
-if (getPostgresSchema(legacyDatabaseUrl) !== schema) {
-  throw new Error('Legacy and runtime schemas must match exactly.')
-}
 const developmentApplicationDatabaseUrl =
   process.env.TEST_DEVELOPMENT_APP_DATABASE_URL
 if (!developmentApplicationDatabaseUrl) {
   throw new Error('Development app wrapper URL is required.')
 }
-const legacyConnectionUrl = new URL(legacyDatabaseUrl)
-const legacySchema = getPostgresSchema(legacyDatabaseUrl)
-legacyConnectionUrl.searchParams.delete('schema')
-const legacyClient = new Client({
-  connectionString: legacyConnectionUrl.toString(),
-  options: createPostgresStartupOptions(legacySchema)
-})
-const legacyCompatibilityUserId = randomUUID()
 const repeatableReadActorId = randomUUID()
 
 const createExpectedFingerprint = (seed: QuestionAggregateSeed): string => {
@@ -492,50 +469,45 @@ beforeAll(async () => {
   await observeInitialization('ADMIN_CONNECT', () => client.connect())
   // #504 P7 PR5b: the SQL audit digest is a test fixture now.
   await installAuditDigestSql(client)
-  await observeInitialization('LEGACY_CONNECT', () => legacyClient.connect())
-  const endpoint = await observeInitialization('ENDPOINT_QUERY', () =>
-    client.query<{
-      databaseName: string
-      serverAddress: string
-      serverPort: number
-    }>(
-      `SELECT current_database() AS "databaseName",
-       inet_server_addr()::text AS "serverAddress",
-       inet_server_port() AS "serverPort"`
-    )
-  )
-  const target = endpoint.rows[0]
-  if (!target) throw new Error('DB endpoint identity is unavailable.')
+  // #504 P8-1: the baseline starts with V1 issuance active; only the
+  // capability row is registered.
   await withExecutionRole(
-    'nihongo_phase7_migration',
-    () =>
-      client.query(
-        `SELECT "phase7_register_database_capability"(
-        $1, $2::inet, $3, 'TEST'
-      )`,
-        [target.databaseName, target.serverAddress, target.serverPort]
-      ),
+    'nihongo_migration',
+    () => registerDatabaseCapability(client, 'TEST'),
     true
   )
 })
 
 afterAll(async () => {
-  await legacyClient.end()
   await client.end()
 })
 
 describe('Persistence foundation', () => {
-  it('76 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
+  // #504 P8-1: the baseline is the 76-migration schema with exactly the
+  // listed exclusions and renames (fixtures/baseline/baselineDelta.ts).
+  it('baseline catalog는 76 migration catalog에서 제외·이름 변경만 다르다', async () => {
+    if (!schema) throw new Error('Integration schema is unavailable.')
+    const snapshot = JSON.parse(
+      readFileSync(
+        new URL('./fixtures/baseline/schema76.catalog.json', import.meta.url),
+        'utf8'
+      )
+    ) as SchemaCatalog
+    const actual = await readSchemaCatalog(client, schema)
+    expect(withoutLegacyBranchSources(actual)).toEqual(
+      withoutLegacyBranchSources(expectedBaselineCatalog(snapshot))
+    )
+  })
+  it('baseline fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
     const ledger = await client.query<{ migrationName: string }>(
       `SELECT migration_name AS "migrationName"
        FROM "_prisma_migrations"
        WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
        ORDER BY started_at`
     )
-    expect(ledger.rows).toHaveLength(76)
-    expect(
-      ledger.rows.slice(-13).map(({ migrationName }) => migrationName)
-    ).toEqual(EXPECTED_RECENT_MIGRATIONS)
+    expect(ledger.rows.map(({ migrationName }) => migrationName)).toEqual(
+      EXPECTED_MIGRATIONS
+    )
     expect(
       (
         await client.query<{
@@ -563,7 +535,7 @@ describe('Persistence foundation', () => {
              procedure_record.prosecdef AS "isSecurityDefiner",
              procedure_record.proconfig::text[] AS config,
              has_function_privilege(
-               'nihongo_phase7_owner', procedure_record.oid, 'EXECUTE'
+               'nihongo_owner', procedure_record.oid, 'EXECUTE'
              ) AS "ownerCanExecute",
              has_function_privilege(
                'nihongo_app', procedure_record.oid, 'EXECUTE'
@@ -612,7 +584,7 @@ describe('Persistence foundation', () => {
              WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`
           )
         ).rows
-      ).toEqual([{ migrationCount: 76 }])
+      ).toEqual([{ migrationCount: 1 }])
     } finally {
       await client.query('ROLLBACK')
     }
@@ -634,18 +606,13 @@ describe('Persistence foundation', () => {
     ).toEqual([
       {
         command: 'SELECT',
-        name: 'phase7_ledger_app_read',
+        name: 'ledger_app_read',
         roles: ['nihongo_app']
       },
       {
         command: 'ALL',
-        name: 'phase7_ledger_full_access',
-        roles: ['nihongo_phase7_migration']
-      },
-      {
-        command: 'SELECT',
-        name: 'phase7_ledger_legacy_read',
-        roles: ['nihongo_test_legacy_app_login']
+        name: 'ledger_full_access',
+        roles: ['nihongo_migration']
       }
     ])
 
@@ -723,19 +690,15 @@ describe('Persistence foundation', () => {
       [
         [
           'nihongo_app',
-          'nihongo_auth_gateway',
-          'nihongo_erasure_worker',
-          'nihongo_phase7_migration',
-          'nihongo_phase7_owner'
+          'nihongo_migration',
+          'nihongo_owner'
         ]
       ]
     )
     expect(roles.rows.map(({ name }) => name)).toEqual([
       'nihongo_app',
-      'nihongo_auth_gateway',
-      'nihongo_erasure_worker',
-      'nihongo_phase7_migration',
-      'nihongo_phase7_owner'
+      'nihongo_migration',
+      'nihongo_owner'
     ])
     expect(
       roles.rows.every(
@@ -771,17 +734,15 @@ describe('Persistence foundation', () => {
       [
         [
           'nihongo_app',
-          'nihongo_auth_gateway',
-          'nihongo_erasure_worker',
-          'nihongo_phase7_migration',
-          'nihongo_phase7_owner'
+          'nihongo_migration',
+          'nihongo_owner'
         ]
       ]
     )
     expect(memberships.rows).toEqual([
       {
-        memberName: 'nihongo_phase7_migration',
-        roleName: 'nihongo_phase7_owner'
+        memberName: 'nihongo_migration',
+        roleName: 'nihongo_owner'
       }
     ])
 
@@ -802,17 +763,13 @@ describe('Persistence foundation', () => {
       [
         [
           'nihongo_app',
-          'nihongo_auth_gateway',
-          'nihongo_erasure_worker',
-          'nihongo_phase7_migration'
+          'nihongo_migration'
         ]
       ]
     )
     expect(schemaPrivileges.rows).toEqual([
       { canCreate: false, canUse: true, name: 'nihongo_app' },
-      { canCreate: false, canUse: true, name: 'nihongo_auth_gateway' },
-      { canCreate: false, canUse: true, name: 'nihongo_erasure_worker' },
-      { canCreate: true, canUse: true, name: 'nihongo_phase7_migration' }
+      { canCreate: true, canUse: true, name: 'nihongo_migration' }
     ])
     expect(
       (
@@ -835,7 +792,7 @@ describe('Persistence foundation', () => {
            WHERE namespace.nspname = current_schema()`
         )
       ).rows
-    ).toEqual([{ ownerName: 'nihongo_phase7_owner', publicCanCreate: false }])
+    ).toEqual([{ ownerName: 'nihongo_owner', publicCanCreate: false }])
 
     const appTablePrivileges = await client.query<{
       canDelete: boolean
@@ -993,10 +950,7 @@ describe('Persistence foundation', () => {
         )
       ).rows
     ).toEqual([{ functionCount: 0 }])
-    for (const runtimeRole of [
-      'nihongo_app',
-      'nihongo_auth_gateway'
-    ] as const) {
+    for (const runtimeRole of ['nihongo_app'] as const) {
       for (const authTable of [
         'User',
         'Account',
@@ -1019,10 +973,9 @@ describe('Persistence foundation', () => {
       [
         [
           'AdminAuditLog',
-          'AuthIssuerActivation',
           'ContentReview',
-          'Phase7DatabaseCapability',
-          'Phase7OperationIntent',
+          'DatabaseCapability',
+          'OperationIntent',
           'QuestionReport',
           'TagApplicability'
         ]
@@ -1030,10 +983,9 @@ describe('Persistence foundation', () => {
     )
     expect(tables.rows.map(({ name }) => name)).toEqual([
       'AdminAuditLog',
-      'AuthIssuerActivation',
       'ContentReview',
-      'Phase7DatabaseCapability',
-      'Phase7OperationIntent',
+      'DatabaseCapability',
+      'OperationIntent',
       'QuestionReport',
       'TagApplicability'
     ])
@@ -1111,123 +1063,32 @@ describe('Persistence foundation', () => {
        ORDER BY procedure_record.proname`,
       [
         [
-          'phase7_activate_v1_issuer',
-          'phase7_register_database_capability',
-          'phase7_require_runtime_ready',
-          'phase7_require_database_capability',
-          'phase7_require_caller_role',
-          'phase7_user_erasure_confirmed',
-          'validate_phase7_question_report_remediation'
+          'require_runtime_ready',
+          'require_database_capability',
+          'require_caller_role',
+          'user_erasure_confirmed',
+          'validate_question_report_remediation'
         ]
       ]
     )
-    expect(publicExecute.rows).toHaveLength(7)
+    expect(publicExecute.rows).toHaveLength(5)
     expect(
       publicExecute.rows.filter(
         ({ ownerName, publicCanExecute }) =>
-          ownerName !== 'nihongo_phase7_owner' || publicCanExecute
+          ownerName !== 'nihongo_owner' || publicCanExecute
       )
     ).toEqual([])
     expect(
       publicExecute.rows.find(
-        ({ name }) => name === 'phase7_require_caller_role'
+        ({ name }) => name === 'require_caller_role'
       )
     ).toMatchObject({ isSecurityDefiner: false })
     expect(
       publicExecute.rows
-        .filter(({ name }) => name !== 'phase7_require_caller_role')
+        .filter(({ name }) => name !== 'require_caller_role')
         .every(({ isSecurityDefiner }) => isSecurityDefiner)
     ).toBe(true)
 
-    expect(
-      (
-        await client.query<{
-          appCanExecute: boolean
-          authCanExecute: boolean
-          erasureCanExecute: boolean
-          isSecurityDefiner: boolean
-          objectOwnerCanExecute: boolean
-          ownerName: string
-          publicCanExecute: boolean
-        }>(
-          `SELECT owner_role.rolname AS "ownerName",
-             procedure_record.prosecdef AS "isSecurityDefiner",
-             has_function_privilege(
-               'nihongo_app', procedure_record.oid, 'EXECUTE'
-             ) AS "appCanExecute",
-             has_function_privilege(
-               'nihongo_auth_gateway', procedure_record.oid, 'EXECUTE'
-             ) AS "authCanExecute",
-             has_function_privilege(
-               'nihongo_erasure_worker', procedure_record.oid, 'EXECUTE'
-             ) AS "erasureCanExecute",
-             has_function_privilege(
-               'nihongo_phase7_owner', procedure_record.oid, 'EXECUTE'
-             ) AS "objectOwnerCanExecute",
-             EXISTS (
-               SELECT 1
-               FROM aclexplode(COALESCE(
-                 procedure_record.proacl,
-                 acldefault('f', procedure_record.proowner)
-               )) AS permission
-               WHERE permission.grantee = 0
-                 AND permission.privilege_type = 'EXECUTE'
-             ) AS "publicCanExecute"
-           FROM pg_proc AS procedure_record
-           JOIN pg_namespace AS namespace
-             ON namespace.oid = procedure_record.pronamespace
-           JOIN pg_roles AS owner_role ON owner_role.oid = procedure_record.proowner
-           WHERE namespace.nspname = current_schema()
-             AND procedure_record.proname =
-               'phase7_revoke_legacy_database_connect'
-             AND pg_get_function_identity_arguments(procedure_record.oid) = ''`
-        )
-      ).rows
-    ).toEqual([
-      {
-        appCanExecute: false,
-        authCanExecute: false,
-        erasureCanExecute: false,
-        isSecurityDefiner: true,
-        objectOwnerCanExecute: true,
-        ownerName: 'nihongo_phase7_migration',
-        publicCanExecute: false
-      }
-    ])
-
-    const legacyActivationStateBefore = await client.query<{
-      canConnect: boolean
-      legacyIssuerDisabled: boolean
-      trustedExecutionCount: number
-    }>(
-      `SELECT has_database_privilege(
-         'nihongo_test_legacy_app_login', current_database(), 'CONNECT'
-       ) AS "canConnect",
-       (SELECT "legacyIssuerDisabled" FROM "AuthIssuerActivation" WHERE "id" = 1)
-         AS "legacyIssuerDisabled",
-       0 /* #504 P7 PR5b dropped Phase7TrustedExecution */
-         AS "trustedExecutionCount"`
-    )
-    await expectFailedTransaction(async () => {
-      await client.query(`SELECT "phase7_revoke_legacy_database_connect"()`)
-    }, '42501')
-    expect(
-      (
-        await client.query<{
-          canConnect: boolean
-          legacyIssuerDisabled: boolean
-          trustedExecutionCount: number
-        }>(
-          `SELECT has_database_privilege(
-             'nihongo_test_legacy_app_login', current_database(), 'CONNECT'
-           ) AS "canConnect",
-           (SELECT "legacyIssuerDisabled" FROM "AuthIssuerActivation" WHERE "id" = 1)
-             AS "legacyIssuerDisabled",
-           0 /* #504 P7 PR5b dropped Phase7TrustedExecution */
-             AS "trustedExecutionCount"`
-        )
-      ).rows
-    ).toEqual(legacyActivationStateBefore.rows)
   })
 
   it('questionText prefix index의 COLLATE C·text_pattern_ops 계약과 planner 사용을 고정한다', async () => {
@@ -1369,7 +1230,7 @@ describe('Persistence foundation', () => {
           AS "fingerprintNullCount",
         (SELECT COUNT(*)::int FROM "QuestionVersion"
           WHERE "contentFingerprint" IS DISTINCT FROM
-            "phase7_question_version_fingerprint"("id"))
+            "question_version_fingerprint"("id"))
           AS "fingerprintMismatchCount",
         (SELECT COUNT(*)::int
           FROM "QuestionVersionTag" AS assignment
@@ -1449,16 +1310,6 @@ describe('Persistence foundation', () => {
     }, '23514')
     await expectFailedTransaction(insertIncompleteSystemQuestion, '23514')
   })
-
-  it(
-    'V1 activation 전 legacy LOGIN의 Phase 6 readiness·learner CRUD·signout을 보존한다',
-    runLegacyCompatibility
-  )
-  it(
-    'V1 issuer activation 뒤 legacy issuance를 write 0으로 차단한다',
-    runIssuerActivation,
-    60_000
-  )
 
   it('SYSTEM_SEED aggregate에 정상 v2 create→review→approval→publication을 허용한다', async () => {
     const seed = buildAllQuestionSeeds().at(-1)
@@ -2433,7 +2284,7 @@ describe('Persistence foundation', () => {
                (SELECT COUNT(*)::int FROM "QuestionVersionTag"
                 WHERE "questionVersionId" = ANY($1::uuid[]))
                  AS "versionTagCount",
-               (SELECT COUNT(*)::int FROM "Phase7OperationIntent"
+               (SELECT COUNT(*)::int FROM "OperationIntent"
                 WHERE "operationId" = ANY($2::uuid[])) AS "intentCount",
                (SELECT COUNT(*)::int FROM "AdminAuditLog"
                 WHERE "operationId" = ANY($2::uuid[])) AS "auditCount"
@@ -3241,7 +3092,7 @@ describe('Persistence foundation', () => {
              published_review."counterpartLabel"::text AS "counterpartLabel",
              (SELECT COUNT(*)::int FROM "AdminAuditLog"
               WHERE "operationId" = $4) AS "auditCount",
-             (SELECT COUNT(*)::int FROM "Phase7OperationIntent"
+             (SELECT COUNT(*)::int FROM "OperationIntent"
               WHERE "operationId" = $4) AS "intentCount"
            FROM "QuestionVersion" AS version
            JOIN "Question" AS question ON question."id" = version."questionId"
@@ -3610,7 +3461,7 @@ describe('Persistence foundation', () => {
       (
         await client.query<{ auditCount: number; intentCount: number }>(
           `SELECT
-             (SELECT COUNT(*)::int FROM "Phase7OperationIntent"
+             (SELECT COUNT(*)::int FROM "OperationIntent"
               WHERE "requestId" = ANY($1::uuid[])) AS "intentCount",
              (SELECT COUNT(*)::int FROM "AdminAuditLog"
               WHERE "requestId" = ANY($1::uuid[])) AS "auditCount"`,
@@ -3678,18 +3529,6 @@ describe('Persistence foundation', () => {
         )
       ).rows
     ).toEqual([{ sessionCount: 0, trustedExecutionCount: 0 }])
-    // #504 P7 PR1: nihongo_app may run gateway facades; another role may not.
-    await expectFailedTransaction(async () => {
-      await client.query(`SET LOCAL ROLE "nihongo_erasure_worker"`)
-      await ownedSessionSql(
-        client,
-        `SELECT * FROM "phase7_issue_v1_session"(
-          $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
-          '127.0.0.1', 'phase7-wrong-role', false
-        )`,
-        [actorId, wrongRoleSessionId, wrongRoleSessionToken]
-      )
-    }, '42501')
     expect(
       (
         await client.query<{ sessionCount: number }>(
@@ -3910,8 +3749,8 @@ describe('Persistence foundation', () => {
 
     const missingCapabilityReportId = randomUUID()
     await expectFailedTransaction(async () => {
-      await client.query(`SET LOCAL ROLE "nihongo_phase7_migration"`)
-      await client.query(`DELETE FROM "Phase7DatabaseCapability"`)
+      await client.query(`SET LOCAL ROLE "nihongo_migration"`)
+      await client.query(`DELETE FROM "DatabaseCapability"`)
       await client.query(`RESET ROLE`)
       await client.query(`SET LOCAL ROLE "nihongo_app"`)
       await bridgedQuery(
@@ -4083,12 +3922,6 @@ describe('Persistence foundation', () => {
     await expect(
       bridgedQuery(client, `SELECT "phase7_erase_user"($1, 'TEST')`, [actorId])
     ).rejects.toMatchObject({ code: '23514' })
-    await expectFailedTransaction(async () => {
-      await client.query(`SET LOCAL ROLE "nihongo_auth_gateway"`)
-      await bridgedQuery(client, `SELECT "phase7_erase_user"($1, 'TEST')`, [
-        actorId
-      ])
-    }, '42501')
     expect(
       (
         await client.query<{
@@ -4099,7 +3932,7 @@ describe('Persistence foundation', () => {
           `SELECT
             (SELECT COUNT(*)::int FROM "User" WHERE "id" = $1)
               AS "userCount",
-            (SELECT COUNT(*)::int FROM "Phase7OperationIntent")
+            (SELECT COUNT(*)::int FROM "OperationIntent")
               AS "operationIntentCount",
             0 /* #504 P7 PR5b dropped Phase7TrustedExecution */
               AS "trustedExecutionCount"`,
@@ -4143,7 +3976,7 @@ describe('Persistence foundation', () => {
         version."status"::text AS "versionStatus",
         version."retirementKind"::text AS "retirementKind",
         (SELECT COUNT(*)::int FROM "User" WHERE "id" = $1) AS "userCount",
-        (SELECT COUNT(*)::int FROM "Phase7OperationIntent")
+        (SELECT COUNT(*)::int FROM "OperationIntent")
           AS "operationIntentCount",
         0 /* #504 P7 PR5b dropped Phase7TrustedExecution */
           AS "trustedExecutionCount",
@@ -4601,7 +4434,7 @@ describe('Persistence foundation', () => {
       )
       await client.query(
         `UPDATE "QuestionVersion"
-         SET "contentFingerprint" = "phase7_question_version_fingerprint"("id")
+         SET "contentFingerprint" = "question_version_fingerprint"("id")
          WHERE "id" = $1`,
         [remediationVersionId]
       )
@@ -4704,15 +4537,6 @@ describe('Persistence foundation', () => {
       throw new Error('Report redaction snapshots are unavailable.')
     }
 
-    // #504 P7 PR1: nihongo_app may run erasure facades; another role may not.
-    await expect(
-      withExecutionRole('nihongo_auth_gateway', () =>
-        bridgedQuery(
-          client,
-          `SELECT "phase7_redact_expired_report_descriptions"(100, 'TEST')`
-        )
-      )
-    ).rejects.toMatchObject({ code: '42501' })
     await expect(
       withExecutionRole('nihongo_app', () =>
         bridgedQuery(
@@ -5120,7 +4944,7 @@ describe('Persistence foundation', () => {
         await client.query<{ count: number }>(
           `SELECT COUNT(*)::int AS count
            FROM (
-             SELECT intent."requestId" FROM "Phase7OperationIntent" AS intent
+             SELECT intent."requestId" FROM "OperationIntent" AS intent
              UNION ALL
              SELECT review."requestId" FROM "ContentReview" AS review
              UNION ALL
@@ -5242,7 +5066,7 @@ describe('Persistence foundation', () => {
               WHERE "operationId" = $3) AS "auditCount",
              (SELECT COUNT(*)::int FROM "ContentReview"
               WHERE "operationId" = $3) AS "reviewCount",
-             (SELECT COUNT(*)::int FROM "Phase7OperationIntent"
+             (SELECT COUNT(*)::int FROM "OperationIntent"
               WHERE "operationId" = $3) AS "intentCount"
            FROM "Question" AS question
            JOIN "QuestionVersion" AS version ON version."id" = $2
@@ -5598,13 +5422,13 @@ describe('Persistence foundation', () => {
               WHERE "requestId" = $3) AS "auditCount",
              (SELECT COUNT(*)::int FROM "ContentReview"
               WHERE "requestId" = $3) AS "reviewCount",
-             (SELECT COUNT(*)::int FROM "Phase7OperationIntent"
+             (SELECT COUNT(*)::int FROM "OperationIntent"
               WHERE "requestId" = $3) AS "winnerIntentCount",
              (SELECT COUNT(*)::int FROM "AdminAuditLog"
               WHERE "requestId" = $4) AS "loserAuditCount",
              (SELECT COUNT(*)::int FROM "ContentReview"
               WHERE "requestId" = $4) AS "loserReviewCount",
-             (SELECT COUNT(*)::int FROM "Phase7OperationIntent"
+             (SELECT COUNT(*)::int FROM "OperationIntent"
               WHERE "requestId" = $4) AS "loserIntentCount"
            FROM "Question" AS question
            JOIN "QuestionVersion" AS version
@@ -5963,7 +5787,7 @@ describe('Persistence foundation', () => {
              WHERE "id" IN ($1, $2)) AS "questionCount",
             (SELECT COUNT(*)::int FROM "AdminAuditLog"
              WHERE "operationId" IN ($3, $4)) AS "auditCount",
-            (SELECT COUNT(*)::int FROM "Phase7OperationIntent")
+            (SELECT COUNT(*)::int FROM "OperationIntent")
               AS "operationIntentCount",
             0 /* #504 P7 PR5b dropped Phase7TrustedExecution */
               AS "trustedExecutionCount"`,
@@ -5996,705 +5820,14 @@ describe('Persistence foundation', () => {
     }
   }, 60_000)
 
-  async function runLegacyCompatibility(): Promise<void> {
-    expect(
-      (
-        await legacyClient.query<{ migrationCount: number }>(
-          `SELECT COUNT(*)::int AS "migrationCount"
-           FROM "_prisma_migrations"
-           WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`
-        )
-      ).rows
-    ).toEqual([{ migrationCount: 27 }])
-    await expect(
-      client.query(
-        `SELECT "legacyIssuerDisabled" FROM "AuthIssuerActivation"
-         WHERE "id" = 1`
-      )
-    ).resolves.toMatchObject({ rows: [{ legacyIssuerDisabled: false }] })
-
-    const accountId = randomUUID()
-    const sessionId = randomUUID()
-    const sessionToken = `phase7-legacy-session-${randomUUID()}`
-    const question = await legacyClient.query<{ id: string }>(
-      `SELECT "id" FROM "Question" ORDER BY "id" LIMIT 1`
-    )
-    const questionId = question.rows[0]?.id
-    if (!questionId) {
-      throw new Error('Legacy learner compatibility question is unavailable.')
-    }
-
-    await legacyClient.query('BEGIN')
-    try {
-      await legacyClient.query(
-        `INSERT INTO "User" (
-          "id", "name", "email", "emailVerified", "role",
-          "targetLevel", "accountStatus", "createdAt", "updatedAt"
-        ) VALUES (
-          $1, 'Legacy learner', $2, true, 'USER',
-          'N5', 'ACTIVE', clock_timestamp(), clock_timestamp()
-        )`,
-        [
-          legacyCompatibilityUserId,
-          `phase7-legacy-${randomUUID()}@example.test`
-        ]
-      )
-      await legacyClient.query(
-        `INSERT INTO "Account" (
-          "id", "accountId", "providerId", "userId", "password",
-          "createdAt", "updatedAt"
-        ) VALUES (
-          $1, $2::uuid::text, 'credential', $2,
-          'phase7-legacy-password-hash', clock_timestamp(), clock_timestamp()
-        )`,
-        [accountId, legacyCompatibilityUserId]
-      )
-      await legacyClient.query(
-        `UPDATE "User" SET "targetLevel" = 'N4', "updatedAt" = clock_timestamp()
-         WHERE "id" = $1`,
-        [legacyCompatibilityUserId]
-      )
-      await legacyClient.query(
-        `INSERT INTO "Bookmark" ("id", "userId", "questionId", "createdAt")
-         VALUES ($1, $2, $3, clock_timestamp())`,
-        [randomUUID(), legacyCompatibilityUserId, questionId]
-      )
-      await legacyClient.query(
-        `DELETE FROM "Bookmark" WHERE "userId" = $1 AND "questionId" = $2`,
-        [legacyCompatibilityUserId, questionId]
-      )
-      await legacyClient.query(
-        `INSERT INTO "Session" (
-          "id", "expiresAt", "token", "createdAt", "updatedAt", "userId"
-        ) VALUES (
-          $1, clock_timestamp() + INTERVAL '1 day', $2,
-          clock_timestamp(), clock_timestamp(), $3
-        )`,
-        [sessionId, sessionToken, legacyCompatibilityUserId]
-      )
-      expect(
-        (
-          await legacyClient.query<{
-            sessionCount: number
-            targetLevel: string
-          }>(
-            `SELECT "targetLevel"::text AS "targetLevel",
-               (SELECT COUNT(*)::int FROM "Session"
-                WHERE "id" = $2 AND "token" = $3) AS "sessionCount"
-             FROM "User" WHERE "id" = $1`,
-            [legacyCompatibilityUserId, sessionId, sessionToken]
-          )
-        ).rows
-      ).toEqual([{ sessionCount: 1, targetLevel: 'N4' }])
-      expect(
-        (
-          await legacyClient.query<{ capped: boolean }>(
-            `UPDATE "Session"
-             SET "expiresAt" = "createdAt" + INTERVAL '60 days',
-                 "updatedAt" = clock_timestamp()
-             WHERE "id" = $1
-             RETURNING "expiresAt" = "createdAt" + INTERVAL '30 days'
-               AS capped`,
-            [sessionId]
-          )
-        ).rows
-      ).toEqual([{ capped: true }])
-      expect(
-        (
-          await legacyClient.query<{ id: string }>(
-            `DELETE FROM "Session" WHERE "token" = $1 RETURNING "id"`,
-            [sessionToken]
-          )
-        ).rows
-      ).toEqual([{ id: sessionId }])
-      await legacyClient.query('COMMIT')
-    } catch (error: unknown) {
-      await legacyClient.query('ROLLBACK')
-      throw error
-    }
-  }
-
-  async function runIssuerActivation(): Promise<void> {
-    const readLegacyCutoverState = async (): Promise<{
-      canConnect: boolean
-      canSelectLedger: boolean
-      canSelectUser: boolean
-      canUseSchema: boolean
-      canUseUserRole: boolean
-      legacyIssuerDisabled: boolean
-      legacyLedgerPolicyCount: number
-    }> => {
-      const state = await client.query<{
-        canConnect: boolean
-        canSelectLedger: boolean
-        canSelectUser: boolean
-        canUseSchema: boolean
-        canUseUserRole: boolean
-        legacyIssuerDisabled: boolean
-        legacyLedgerPolicyCount: number
-      }>(
-        `SELECT
-           has_database_privilege(
-             'nihongo_test_legacy_app_login', current_database(), 'CONNECT'
-           ) AS "canConnect",
-           has_schema_privilege(
-             'nihongo_test_legacy_app_login', current_schema(), 'USAGE'
-           ) AS "canUseSchema",
-           has_table_privilege(
-             'nihongo_test_legacy_app_login',
-             format('%I.%I', current_schema(), 'User'), 'SELECT'
-           ) AS "canSelectUser",
-           has_table_privilege(
-             'nihongo_test_legacy_app_login',
-             format('%I.%I', current_schema(), '_prisma_migrations'), 'SELECT'
-           ) AS "canSelectLedger",
-           has_type_privilege(
-             'nihongo_test_legacy_app_login',
-             format('%I.%I', current_schema(), 'UserRole'), 'USAGE'
-           ) AS "canUseUserRole",
-           (SELECT "legacyIssuerDisabled" FROM "AuthIssuerActivation"
-            WHERE "id" = 1) AS "legacyIssuerDisabled",
-           (SELECT COUNT(*)::int FROM pg_policy AS policy
-            JOIN pg_class AS ledger ON ledger.oid = policy.polrelid
-            JOIN pg_namespace AS namespace ON namespace.oid = ledger.relnamespace
-            WHERE namespace.nspname = current_schema()
-              AND ledger.relname = '_prisma_migrations'
-              AND policy.polname = 'phase7_ledger_legacy_read')
-             AS "legacyLedgerPolicyCount"`
-      )
-      const row = state.rows[0]
-      if (!row) throw new Error('Legacy cutover ACL state is unavailable.')
-      return row
-    }
-    const preActivationState = await readLegacyCutoverState()
-    expect(preActivationState).toEqual({
-      canConnect: true,
-      canSelectLedger: true,
-      canSelectUser: true,
-      canUseSchema: true,
-      canUseUserRole: true,
-      legacyIssuerDisabled: false,
-      legacyLedgerPolicyCount: 1
-    })
-    await client.query('BEGIN')
-    try {
-      await client.query(`SET LOCAL ROLE "nihongo_phase7_migration"`)
-      await client.query(`SELECT "phase7_activate_v1_issuer"('TEST')`)
-      expect(await readLegacyCutoverState()).toEqual({
-        canConnect: false,
-        canSelectLedger: false,
-        canSelectUser: false,
-        canUseSchema: false,
-        canUseUserRole: false,
-        legacyIssuerDisabled: true,
-        legacyLedgerPolicyCount: 0
-      })
-      await client.query('ROLLBACK')
-    } catch (error: unknown) {
-      await client.query('ROLLBACK')
-      throw error
-    }
-    expect(await readLegacyCutoverState()).toEqual(preActivationState)
-    expect(
-      (
-        await legacyClient.query<{ migrationCount: number }>(
-          `SELECT COUNT(*)::int AS "migrationCount"
-           FROM "_prisma_migrations"
-           WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`
-        )
-      ).rows
-    ).toEqual([{ migrationCount: 27 }])
-    await expect(
-      legacyClient.query(`SELECT "id" FROM "User" WHERE "id" = $1`, [
-        legacyCompatibilityUserId
-      ])
-    ).resolves.toMatchObject({ rowCount: 1 })
-
-    const observer = new Client({
-      connectionString: connectionUrl.toString(),
-      options: createPostgresStartupOptions(schema)
-    })
-    const legacyInsertLoser = new Client({
-      connectionString: legacyConnectionUrl.toString(),
-      options: createPostgresStartupOptions(legacySchema)
-    })
-    const legacyPasswordLoser = new Client({
-      connectionString: legacyConnectionUrl.toString(),
-      options: createPostgresStartupOptions(legacySchema)
-    })
-    const mainBackend = await client.query<{ pid: number }>(
-      `SELECT pg_backend_pid() AS pid`
-    )
-    const mainBackendPid = mainBackend.rows[0]?.pid
-    if (!mainBackendPid) {
-      throw new Error('Activation concurrency backend identity is unavailable.')
-    }
-    const waitForLock = async (pid: number): Promise<void> => {
-      for (let attempt = 0; attempt < 100; attempt += 1) {
-        const activity = await observer.query<{ waitEventType: string | null }>(
-          `SELECT wait_event_type AS "waitEventType"
-           FROM pg_stat_activity WHERE pid = $1`,
-          [pid]
-        )
-        if (activity.rows[0]?.waitEventType === 'Lock') return
-        await new Promise((resolve) => setTimeout(resolve, 10))
-      }
-      throw new Error('Activation concurrency lock wait was not observed.')
-    }
-    await observer.connect()
-    await legacyInsertLoser.connect()
-    await legacyPasswordLoser.connect()
-    try {
-      const insertLoserBackend = await legacyInsertLoser.query<{ pid: number }>(
-        `SELECT pg_backend_pid() AS pid`
-      )
-      const passwordLoserBackend = await legacyPasswordLoser.query<{
-        pid: number
-      }>(`SELECT pg_backend_pid() AS pid`)
-      const insertLoserBackendPid = insertLoserBackend.rows[0]?.pid
-      const passwordLoserBackendPid = passwordLoserBackend.rows[0]?.pid
-      if (!insertLoserBackendPid || !passwordLoserBackendPid) {
-        throw new Error('Legacy loser backend identity is unavailable.')
-      }
-
-      const signedOutSessionId = randomUUID()
-      const signedOutToken = `phase7-legacy-signout-winner-${randomUUID()}`
-      const purgedSessionId = randomUUID()
-      const purgedToken = `phase7-legacy-purge-winner-${randomUUID()}`
-      const purgedVerificationId = randomUUID()
-      const rejectedSessionId = randomUUID()
-      const rejectedToken = `phase7-activation-reject-${randomUUID()}`
-      let activationTransactionOpen = false
-      let legacyTransactionOpen = false
-      let activationPromise: Promise<unknown> | undefined
-      let rejectedLegacyInsert: Promise<unknown> | undefined
-      let rejectedLegacyPassword: Promise<unknown> | undefined
-      let successfulPasswordUpdatedAt: Date | undefined
-      try {
-        await legacyClient.query('BEGIN')
-        legacyTransactionOpen = true
-        await legacyClient.query(
-          `INSERT INTO "Session" (
-            "id", "expiresAt", "token", "createdAt", "updatedAt", "userId"
-          ) VALUES (
-            $1, clock_timestamp() + INTERVAL '1 day', $2,
-            clock_timestamp(), clock_timestamp(), $3
-          )`,
-          [signedOutSessionId, signedOutToken, legacyCompatibilityUserId]
-        )
-        await legacyClient.query(`DELETE FROM "Session" WHERE "id" = $1`, [
-          signedOutSessionId
-        ])
-        await legacyClient.query(
-          `INSERT INTO "Session" (
-            "id", "expiresAt", "token", "createdAt", "updatedAt", "userId"
-          ) VALUES (
-            $1, clock_timestamp() + INTERVAL '1 day', $2,
-            clock_timestamp(), clock_timestamp(), $3
-          )`,
-          [purgedSessionId, purgedToken, legacyCompatibilityUserId]
-        )
-        await legacyClient.query(
-          `INSERT INTO "Verification" (
-            "id", "identifier", "value", "expiresAt", "createdAt", "updatedAt"
-          ) VALUES (
-            $1, $2, $3, clock_timestamp() + INTERVAL '1 day',
-            clock_timestamp(), clock_timestamp()
-          )`,
-          [
-            purgedVerificationId,
-            `phase7-legacy-${legacyCompatibilityUserId}`,
-            `phase7-legacy-verification-${randomUUID()}`
-          ]
-        )
-        const passwordUpdate = await legacyClient.query<{
-          password: string
-          updatedAt: Date
-        }>(
-          `UPDATE "Account"
-           SET "password" = 'phase7-legacy-race-winner-hash',
-               "updatedAt" = clock_timestamp()
-           WHERE "userId" = $1 AND "providerId" = 'credential'
-           RETURNING "password", "updatedAt"`,
-          [legacyCompatibilityUserId]
-        )
-        successfulPasswordUpdatedAt = passwordUpdate.rows[0]?.updatedAt
-        expect(passwordUpdate.rows).toEqual([
-          {
-            password: 'phase7-legacy-race-winner-hash',
-            updatedAt: successfulPasswordUpdatedAt
-          }
-        ])
-
-        await client.query('BEGIN')
-        activationTransactionOpen = true
-        await client.query(`SET LOCAL ROLE "nihongo_phase7_migration"`)
-        activationPromise = client.query(
-          `SELECT "phase7_activate_v1_issuer"('TEST')`
-        )
-        await waitForLock(mainBackendPid)
-        await legacyClient.query('COMMIT')
-        legacyTransactionOpen = false
-        await expect(activationPromise).resolves.toBeDefined()
-
-        rejectedLegacyInsert = legacyInsertLoser.query(
-          `INSERT INTO "Session" (
-            "id", "expiresAt", "token", "createdAt", "updatedAt", "userId"
-          ) VALUES (
-            $1, clock_timestamp() + INTERVAL '1 day', $2,
-            clock_timestamp(), clock_timestamp(), $3
-          )`,
-          [rejectedSessionId, rejectedToken, legacyCompatibilityUserId]
-        )
-        void rejectedLegacyInsert.catch(() => undefined)
-        rejectedLegacyPassword = legacyPasswordLoser.query(
-          `UPDATE "Account"
-           SET "password" = 'phase7-legacy-race-loser-hash',
-               "updatedAt" = clock_timestamp()
-           WHERE "userId" = $1 AND "providerId" = 'credential'`,
-          [legacyCompatibilityUserId]
-        )
-        void rejectedLegacyPassword.catch(() => undefined)
-        await Promise.all([
-          waitForLock(insertLoserBackendPid),
-          waitForLock(passwordLoserBackendPid)
-        ])
-        await client.query('COMMIT')
-        activationTransactionOpen = false
-        await expect(rejectedLegacyInsert).rejects.toMatchObject({
-          code: '42501'
-        })
-        await expect(rejectedLegacyPassword).rejects.toMatchObject({
-          code: '42501'
-        })
-      } finally {
-        if (legacyTransactionOpen) {
-          await legacyClient.query('ROLLBACK').catch(() => undefined)
-        }
-        if (activationTransactionOpen) {
-          await client.query('ROLLBACK').catch(() => undefined)
-        }
-        await activationPromise?.catch(() => undefined)
-        await rejectedLegacyInsert?.catch(() => undefined)
-        await rejectedLegacyPassword?.catch(() => undefined)
-      }
-      if (!successfulPasswordUpdatedAt) {
-        throw new Error('Legacy password winner timestamp is unavailable.')
-      }
-      expect(
-        (
-          await client.query<{
-            password: string
-            sessionCount: number
-            updatedAt: Date
-            verificationCount: number
-          }>(
-            `SELECT credential."password", credential."updatedAt",
-               (SELECT COUNT(*)::int FROM "Session"
-                WHERE "id" IN ($2, $3, $4)) AS "sessionCount",
-               (SELECT COUNT(*)::int FROM "Verification"
-                WHERE "id" = $5) AS "verificationCount"
-             FROM "Account" AS credential
-             WHERE credential."userId" = $1
-               AND credential."providerId" = 'credential'`,
-            [
-              legacyCompatibilityUserId,
-              signedOutSessionId,
-              purgedSessionId,
-              rejectedSessionId,
-              purgedVerificationId
-            ]
-          )
-        ).rows
-      ).toEqual([
-        {
-          password: 'phase7-legacy-race-winner-hash',
-          sessionCount: 0,
-          updatedAt: successfulPasswordUpdatedAt,
-          verificationCount: 0
-        }
-      ])
-    } finally {
-      await legacyInsertLoser.end().catch(() => undefined)
-      await legacyPasswordLoser.end().catch(() => undefined)
-      await observer.end()
-    }
-    await expect(
-      client.query(
-        `SELECT "legacyIssuerDisabled" FROM "AuthIssuerActivation" WHERE "id" = 1`
-      )
-    ).resolves.toMatchObject({ rows: [{ legacyIssuerDisabled: true }] })
-    await expect(
-      legacyClient.query(`SELECT COUNT(*)::int AS count FROM "User"`)
-    ).rejects.toMatchObject({ code: '42P01' })
-    await expect(
-      legacyClient.query(
-        `SELECT COUNT(*)::int AS count FROM "_prisma_migrations"`
-      )
-    ).rejects.toMatchObject({ code: '42P01' })
-    expect(
-      (
-        await client.query<{
-          canConnect: boolean
-          canSelectLedger: boolean
-          canSelectUser: boolean
-          canUseSchema: boolean
-          canUseUserRole: boolean
-        }>(
-          `SELECT
-             has_database_privilege(
-               'nihongo_test_legacy_app_login', current_database(), 'CONNECT'
-             ) AS "canConnect",
-             has_schema_privilege(
-               'nihongo_test_legacy_app_login', current_schema(), 'USAGE'
-             ) AS "canUseSchema",
-             has_table_privilege(
-               'nihongo_test_legacy_app_login',
-               format('%I.%I', current_schema(), 'User'), 'SELECT'
-             ) AS "canSelectUser",
-             has_table_privilege(
-               'nihongo_test_legacy_app_login',
-               format('%I.%I', current_schema(), '_prisma_migrations'), 'SELECT'
-             ) AS "canSelectLedger",
-             has_type_privilege(
-               'nihongo_test_legacy_app_login',
-               format('%I.%I', current_schema(), 'UserRole'), 'USAGE'
-             ) AS "canUseUserRole"`
-        )
-      ).rows
-    ).toEqual([
-      {
-        canConnect: false,
-        canSelectLedger: false,
-        canSelectUser: false,
-        canUseSchema: false,
-        canUseUserRole: false
-      }
-    ])
-
-    // The email sign-up/verify/sign-in functions were dropped in #504 P6a
-    // (their routes answer 404); the session user is created directly.
-    const signupUserId = randomUUID()
-    const signupSessionId = randomUUID()
-    const signupSessionToken = `phase7-signup-session-${randomUUID()}`
-    await insertCredentialUser({ id: signupUserId, role: 'USER' })
-    await expect(
-      withExecutionRole('nihongo_app', () =>
-        ownedSessionSql(
-          client,
-          `SELECT * FROM "phase7_issue_v1_session"(
-            $1, 1, 'USER', 'ACTIVE', $2, $3,
-            '127.0.0.1', 'phase7-signup-session', false
-          )`,
-          [signupUserId, signupSessionId, signupSessionToken]
-        )
-      )
-    ).resolves.toMatchObject({ rows: [{ id: signupSessionId }] })
-    await expect(
-      withExecutionRole('nihongo_app', () =>
-        ownedSessionSql(
-          client,
-          `SELECT "phase7_confirm_v1_session_issuance"(
-            $1, $2, $3, 1, 'USER', 'ACTIVE'
-          ) AS confirmed`,
-          [signupSessionToken, signupSessionId, signupUserId]
-        )
-      )
-    ).resolves.toMatchObject({ rows: [{ confirmed: true }] })
-    const mismatchedIssuanceProofs: ReadonlyArray<
-      readonly [string, string, string, number, string, string]
-    > = [
-      [
-        `phase7-wrong-token-${randomUUID()}`,
-        signupSessionId,
-        signupUserId,
-        1,
-        'USER',
-        'ACTIVE'
-      ],
-      [signupSessionToken, randomUUID(), signupUserId, 1, 'USER', 'ACTIVE'],
-      [signupSessionToken, signupSessionId, randomUUID(), 1, 'USER', 'ACTIVE'],
-      [signupSessionToken, signupSessionId, signupUserId, 2, 'USER', 'ACTIVE'],
-      [signupSessionToken, signupSessionId, signupUserId, 1, 'ADMIN', 'ACTIVE'],
-      [
-        signupSessionToken,
-        signupSessionId,
-        signupUserId,
-        1,
-        'USER',
-        'DELETION_PENDING'
-      ]
-    ]
-    for (const proof of mismatchedIssuanceProofs) {
-      await expect(
-        withExecutionRole('nihongo_app', () =>
-          ownedSessionSql(
-            client,
-            `SELECT "phase7_confirm_v1_session_issuance"(
-              $1, $2, $3, $4, $5::"UserRole", $6::"UserAccountStatus"
-            ) AS confirmed`,
-            [...proof]
-          )
-        )
-      ).resolves.toMatchObject({ rows: [{ confirmed: false }] })
-    }
-    // #504 P7 PR1: nihongo_app may run gateway facades; another role may not.
-    await expect(
-      withExecutionRole('nihongo_erasure_worker', () =>
-        ownedSessionSql(
-          client,
-          `SELECT "phase7_confirm_v1_session_issuance"(
-            $1, $2, $3, 1, 'USER', 'ACTIVE'
-          )`,
-          [signupSessionToken, signupSessionId, signupUserId]
-        )
-      )
-    ).rejects.toMatchObject({ code: '42501' })
-    await expect(
-      withExecutionRole('nihongo_app', () =>
-        ownedSessionSql(
-          client,
-          `SELECT * FROM "phase7_resolve_v1_principal"($1)`,
-          [signupSessionToken]
-        )
-      )
-    ).resolves.toMatchObject({
-      rows: [
-        {
-          role: 'USER',
-          sessionId: signupSessionId,
-          userId: signupUserId
-        }
-      ]
-    })
-    await expect(
-      withExecutionRole('nihongo_app', () =>
-        ownedSessionSql(
-          client,
-          `SELECT * FROM "phase7_resolve_v1_principal"($1)`,
-          [`phase7-unknown-${randomUUID()}`]
-        )
-      )
-    ).resolves.toMatchObject({ rowCount: 0, rows: [] })
-
-    const reauthUserId = randomUUID()
-    const oldSessionId = randomUUID()
-    const oldSessionToken = `phase7-reauth-old-${randomUUID()}`
-    await insertCredentialUser({ id: reauthUserId, role: 'ADMIN' })
-    const oldSession = await withExecutionRole('nihongo_app', () =>
-      ownedSessionSql(
-        client,
-        `SELECT * FROM "phase7_issue_v1_session"(
-          $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
-          '127.0.0.1', 'phase7-reauth-old', false
-        )`,
-        [reauthUserId, oldSessionId, oldSessionToken]
-      )
-    )
-    expect(
-      (
-        await client.query<{ activeSessionCount: number }>(
-          `SELECT COUNT(*)::int AS "activeSessionCount" FROM "Session"
-           WHERE "id" = $1 AND "authorizationState" = 'ACTIVE'`,
-          [oldSessionId]
-        )
-      ).rows
-    ).toEqual([{ activeSessionCount: 1 }])
-    expect(oldSession.rows[0]?.id).toBe(oldSessionId)
-
-    // #504 P7 PR4b-1 dropped the rotation fence and its deferred verifier.
-    const mismatchUserId = randomUUID()
-    await insertCredentialUser({ id: mismatchUserId, role: 'USER' })
-    await withExecutionRole('nihongo_app', () =>
-      ownedSessionSql(
-        client,
-        `SELECT * FROM "phase7_issue_v1_session"(
-            $1, 1, 'USER', 'ACTIVE', $2, $3,
-            '127.0.0.1', 'phase7-fence-mismatch', false
-          )`,
-        [mismatchUserId, randomUUID(), `phase7-mismatch-${randomUUID()}`]
-      )
-    )
-
-    // The password reset race probes were dropped with the reset functions
-    // in #504 P6a.
-    const userId = randomUUID()
-    await insertCredentialUser({ id: userId, role: 'USER' })
-    await expectFailedTransaction(async () => {
-      await client.query(
-        `INSERT INTO "Session" (
-            "id", "expiresAt", "token", "createdAt", "updatedAt", "userId",
-            "authorityGeneration", "issuerProtocolVersion"
-          ) VALUES (
-            $1, clock_timestamp() + INTERVAL '1 day', $2,
-            clock_timestamp(), clock_timestamp(), $3, 1, 'LEGACY'
-          )`,
-        [randomUUID(), `late-legacy-${randomUUID()}`, userId]
-      )
-    }, '42501')
-    expect(
-      (
-        await client.query<{ count: number }>(
-          `SELECT COUNT(*)::int AS count FROM "Session" WHERE "userId" = $1`,
-          [userId]
-        )
-      ).rows
-    ).toEqual([{ count: 0 }])
-
-    await expect(
-      withExecutionRole('nihongo_app', () =>
-        bridgedQuery(
-          client,
-          `SELECT "phase7_erase_user"($1, 'TEST') AS erased`,
-          [userId]
-        )
-      )
-    ).resolves.toMatchObject({ rows: [{ erased: true }] })
-    await expect(
-      withExecutionRole('nihongo_app', () =>
-        bridgedQuery(
-          client,
-          `SELECT "phase7_erase_user"($1, 'TEST') AS erased`,
-          [mismatchUserId]
-        )
-      )
-    ).resolves.toMatchObject({ rows: [{ erased: true }] })
-    await expect(
-      withExecutionRole('nihongo_app', () =>
-        bridgedQuery(
-          client,
-          `SELECT "phase7_erase_user"($1, 'TEST') AS erased`,
-          [reauthUserId]
-        )
-      )
-    ).resolves.toMatchObject({ rows: [{ erased: true }] })
-    await expect(
-      withExecutionRole('nihongo_app', () =>
-        bridgedQuery(
-          client,
-          `SELECT "phase7_erase_user"($1, 'TEST') AS erased`,
-          [signupUserId]
-        )
-      )
-    ).resolves.toMatchObject({ rows: [{ erased: true }] })
-    await expect(
-      withExecutionRole('nihongo_app', () =>
-        bridgedQuery(
-          client,
-          `SELECT "phase7_erase_user"($1, 'TEST') AS erased`,
-          [legacyCompatibilityUserId]
-        )
-      )
-    ).resolves.toMatchObject({ rows: [{ erased: true }] })
-  }
-
   it('서로 분리된 LOGIN wrapper를 실제 startup role로 attestation한다', async () => {
     if (!schema) {
       throw new Error('Integration schema is unavailable.')
     }
     const suffix = randomUUID().replaceAll('-', '').slice(0, 20)
     const applicationLogin = 'nihongo_test_app_login'
-    const authGatewayLogin = 'nihongo_test_auth_gateway_login'
+    // #504 P8-1: one runtime login; the gateway names go in P8-2.
+    const authGatewayLogin = 'nihongo_test_app_login'
     const developmentApplicationLogin = 'nihongo_development_app_login'
     const extraRole = `phase7_extra_${suffix}`
     const wrongSchema = `phase7_wrong_${suffix}_test`
@@ -6783,7 +5916,7 @@ describe('Persistence foundation', () => {
       )
       authGatewayRuntime = createRoleDatabaseRuntime(
         authGatewayUrl,
-        'nihongo_auth_gateway'
+        'nihongo_app'
       )
       const endpoints = {
         application: {
@@ -6795,15 +5928,9 @@ describe('Persistence foundation', () => {
       await expect(attestRuntimeRoles(endpoints)).resolves.toBeUndefined()
       await expect(
         applicationRuntime.client.$queryRawUnsafe(
-          `SELECT "phase7_require_runtime_ready"()`
+          `SELECT "require_runtime_ready"()`
         )
       ).resolves.toHaveLength(1)
-      // #504 P7 PR5b: the former gateway role holds no EXECUTE.
-      await expect(
-        authGatewayRuntime.client.$queryRawUnsafe(
-          `SELECT "phase7_require_runtime_ready"()`
-        )
-      ).rejects.toThrow(/permission denied for function/u)
 
       const workerLogin = 'nihongo_test_guest_cleanup_worker_login'
       const developmentWorkerLogin =
@@ -6874,7 +6001,7 @@ describe('Persistence foundation', () => {
         )
         const replicaAuthGatewayRuntime = createRoleDatabaseRuntime(
           authGatewayUrl,
-          'nihongo_auth_gateway'
+          'nihongo_app'
         )
         try {
           const guardedServiceMutation = async (): Promise<number> => {
@@ -7056,11 +6183,11 @@ describe('Persistence foundation', () => {
 
       await client.query(
         `CREATE SCHEMA ${quoteIdentifier(wrongSchema)}
-         AUTHORIZATION "nihongo_phase7_owner"`
+         AUTHORIZATION "nihongo_owner"`
       )
       await client.query(
         `GRANT USAGE ON SCHEMA ${quoteIdentifier(wrongSchema)}
-         TO "nihongo_app", "nihongo_auth_gateway"`
+         TO "nihongo_app"`
       )
       const wrongSchemaApplicationUrl = retargetWrapperUrl(
         { databaseName: configuredDatabaseName, schemaName: wrongSchema },
@@ -7115,11 +6242,11 @@ describe('Persistence foundation', () => {
       await ownedDatabaseAdmin.connect()
       await ownedDatabaseAdmin.query(
         `CREATE SCHEMA ${quoteIdentifier(schema)}
-         AUTHORIZATION "nihongo_phase7_owner"`
+         AUTHORIZATION "nihongo_owner"`
       )
       await ownedDatabaseAdmin.query(
         `GRANT USAGE ON SCHEMA ${quoteIdentifier(schema)}
-         TO "nihongo_app", "nihongo_auth_gateway"`
+         TO "nihongo_app"`
       )
       const ownedDatabaseApplicationUrl = retargetWrapperUrl(
         { databaseName: ownedDatabase },
@@ -7135,7 +6262,7 @@ describe('Persistence foundation', () => {
       )
       ownedDatabaseAuthGatewayRuntime = createRoleDatabaseRuntime(
         ownedDatabaseAuthGatewayUrl,
-        'nihongo_auth_gateway'
+        'nihongo_app'
       )
       await expect(
         attestRuntimeRoles({

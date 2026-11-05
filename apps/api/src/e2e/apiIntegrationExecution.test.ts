@@ -80,27 +80,21 @@ describe('SSO bootstrap migration history', () => {
       migration_name: name,
       checksum
     }))
-    expect(expected).toHaveLength(76)
+    expect(expected).toHaveLength(1)
     expect(() =>
       assertSsoBootstrapMigrationHistory(expected, applied)
     ).not.toThrow()
-    expect(() =>
-      assertSsoBootstrapMigrationHistory(
-        expected.slice(0, 50),
-        applied.slice(0, 50)
-      )
-    ).toThrow(/canonical76/u)
-    expect(() =>
-      assertSsoBootstrapMigrationHistory(expected, applied.slice(0, 51))
-    ).toThrow(/canonical76/u)
-    expect(() =>
-      assertSsoBootstrapMigrationHistory(expected, [...applied].reverse())
-    ).toThrow(/canonical76/u)
+    expect(() => assertSsoBootstrapMigrationHistory([], [])).toThrow(
+      /baseline/u
+    )
+    expect(() => assertSsoBootstrapMigrationHistory(expected, [])).toThrow(
+      /baseline/u
+    )
     const alteredLedger = structuredClone(applied)
     alteredLedger[0]!.checksum = '0'.repeat(64)
     expect(() =>
       assertSsoBootstrapMigrationHistory(expected, alteredLedger)
-    ).toThrow(/canonical76/u)
+    ).toThrow(/baseline/u)
     const alteredSource = structuredClone(expected)
     alteredSource[0]!.checksum = '0'.repeat(64)
     const matchingAlteredLedger = alteredSource.map(({ name, checksum }) => ({
@@ -109,7 +103,7 @@ describe('SSO bootstrap migration history', () => {
     }))
     expect(() =>
       assertSsoBootstrapMigrationHistory(alteredSource, matchingAlteredLedger)
-    ).toThrow(/canonical76/u)
+    ).toThrow(/baseline/u)
   })
 })
 
@@ -238,9 +232,9 @@ describe('SSO deterministic TEST environment', () => {
     PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: database(
       'nihongo_test_auth_gateway_login'
     ),
-    PHASE7_ADMIN_DATABASE_URL: database('nihongo_test_phase7_migration_login'),
+    PHASE7_ADMIN_DATABASE_URL: database('nihongo_test_migration_login'),
     PHASE7_MIGRATION_DATABASE_URL: database(
-      'nihongo_test_phase7_migration_login'
+      'nihongo_test_migration_login'
     ),
     PHASE7_LEGACY_DATABASE_URL: database('nihongo_test_legacy_app_login'),
     TEST_DEVELOPMENT_APP_DATABASE_URL: 'synthetic-development-wrapper',
@@ -283,7 +277,7 @@ describe('SSO deterministic TEST environment', () => {
   })
 
   it('preserves invalid database wrappers so the real authority guard still rejects them', () => {
-    const base = { ...wrappers, DATABASE_URL: database('nihongo_phase7_owner') }
+    const base = { ...wrappers, DATABASE_URL: database('nihongo_owner') }
     const environment = createSsoTestEnvironment(base)
     expect(environment.DATABASE_URL).toBe(base.DATABASE_URL)
     expect(() => parseApiEnvironment(environment)).toThrow(

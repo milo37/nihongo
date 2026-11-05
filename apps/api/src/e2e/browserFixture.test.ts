@@ -69,7 +69,8 @@ const url = (login: string) =>
   `postgresql://${login}:test-only@127.0.0.1:5432/nihongo_test?schema=${schema}`
 const options = (cms: 'disabled' | 'technical' = 'technical') => {
   const databaseUrl = url('nihongo_test_app_login')
-  const authGatewayDatabaseUrl = url('nihongo_test_auth_gateway_login')
+  // #504 P8-1: one runtime login; this URL name goes in P8-2.
+  const authGatewayDatabaseUrl = url('nihongo_test_app_login')
   return {
     databaseUrl,
     authGatewayDatabaseUrl,
@@ -189,7 +190,7 @@ describe('Phase7/8 production admin static guard handoff', () => {
       expect(f.adminReadConsume).toHaveBeenCalledTimes(role === 'ADMIN' ? 1 : 0)
       if (role === 'ADMIN') {
         expect(f.query).toHaveBeenCalledWith(
-          'SELECT "phase7_require_runtime_ready"()'
+          'SELECT "require_runtime_ready"()'
         )
         expect(f.adminReadConsume).toHaveBeenCalledWith({
           actorId: created.fixture.author.userId,
@@ -252,7 +253,7 @@ describe('Phase7/8 production admin static guard handoff', () => {
     })
     expect(
       f.query.mock.calls.every(
-        ([statement]) => statement === 'SELECT "phase7_require_runtime_ready"()'
+        ([statement]) => statement === 'SELECT "require_runtime_ready"()'
       )
     ).toBe(true)
     expect(f.adminReadConsume).toHaveBeenCalledTimes(1)

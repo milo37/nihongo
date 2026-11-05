@@ -34,7 +34,7 @@ const requireRuntimeReady = async (
   client: Pick<PrismaClient, '$queryRawUnsafe'>
 ): Promise<void> => {
   await client.$queryRawUnsafe(
-    `SELECT "phase7_require_runtime_ready"() AS ready`
+    `SELECT "require_runtime_ready"() AS ready`
   )
 }
 
@@ -46,7 +46,7 @@ export const v1PrincipalQuery = (tokenParameter: string): string => `
   SELECT target_user."id" AS "userId", target_user."name"::TEXT AS "name",
     target_user."role", target_user."targetLevel", session."id" AS "sessionId",
     session."createdAt", session."expiresAt"
-  FROM (SELECT "phase7_require_runtime_ready"() AS ready) AS runtime
+  FROM (SELECT "require_runtime_ready"() AS ready) AS runtime
   JOIN "Session" AS session
     ON runtime.ready AND session."token" = ${tokenParameter}
   JOIN "User" AS target_user ON target_user."id" = session."userId"

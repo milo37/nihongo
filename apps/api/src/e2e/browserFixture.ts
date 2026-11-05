@@ -152,11 +152,11 @@ const readSnapshot = async (
        (SELECT COUNT(*)::int FROM "AdminAuditLog") AS "audit",
        (SELECT COUNT(*)::int FROM "AdminAuditLog"
          WHERE "command" = 'IMPORT_APPLY') AS "importApply",
-       (SELECT COUNT(*)::int FROM "Phase7ReauthenticationIntent")
+       (SELECT COUNT(*)::int FROM "ReauthenticationIntent")
          AS "reauthenticationIntent",
-       (SELECT COUNT(*)::int FROM "Phase7ReauthenticationIntent"
+       (SELECT COUNT(*)::int FROM "ReauthenticationIntent"
          WHERE "state" = 'FINALIZED') AS "reauthenticationFinalized",
-       (SELECT COUNT(*)::int FROM "Phase7OperationIntent") AS "operationIntent",
+       (SELECT COUNT(*)::int FROM "OperationIntent") AS "operationIntent",
        (SELECT COUNT(*)::int FROM "QuestionReport") AS "report"`
   )
   const snapshot = result.rows[0]
@@ -440,7 +440,7 @@ const createBrowserFixtureDatabase = (
                    AND audit."requestId" = intent."requestId"
                    AND audit."environment" = intent."environment") AS "audit",
                (SELECT COUNT(*)::int FROM "SsoAdminFreshProof") AS "proofCount"
-             FROM "Phase7ReauthenticationIntent" AS intent
+             FROM "ReauthenticationIntent" AS intent
              WHERE intent."userId" IN ($1::uuid, $2::uuid)`,
               [ssoAdmins.author.userId, ssoAdmins.reviewer.userId]
             )
@@ -644,7 +644,8 @@ const createSsoBrowserApiFixture = async (
   const schema = getPostgresSchema(databaseUrl)
   for (const [value, login] of [
     [databaseUrl, 'nihongo_test_app_login'],
-    [authGatewayDatabaseUrl, 'nihongo_test_auth_gateway_login']
+    // #504 P8-1: one runtime login; this URL name goes in P8-2.
+    [authGatewayDatabaseUrl, 'nihongo_test_app_login']
   ] as const) {
     assertSafeTestDatabase({ nodeEnvironment: 'test', databaseUrl: value })
     const target = new URL(value)
@@ -967,7 +968,7 @@ const createSsoBrowserApiFixture = async (
               WHERE rolname = current_user AND rolsuper)
             AND EXISTS (SELECT 1 FROM pg_catalog.pg_namespace namespace
               JOIN pg_catalog.pg_roles role ON role.oid = namespace.nspowner
-              WHERE namespace.nspname = $1 AND role.rolname = 'nihongo_phase7_owner')
+              WHERE namespace.nspname = $1 AND role.rolname = 'nihongo_owner')
             AND current_schema() = $1 AS safe`,
           [schema]
         )
@@ -1225,7 +1226,7 @@ const createSsoBrowserApiFixture = async (
             AND EXISTS (SELECT 1 FROM pg_catalog.pg_roles WHERE rolname = current_user AND rolsuper)
             AND EXISTS (SELECT 1 FROM pg_catalog.pg_namespace namespace
               JOIN pg_catalog.pg_roles role ON role.oid = namespace.nspowner
-              WHERE namespace.nspname = $1 AND role.rolname = 'nihongo_phase7_owner')
+              WHERE namespace.nspname = $1 AND role.rolname = 'nihongo_owner')
             AND current_schema() = $1 AS safe`,
           [schema]
         )
@@ -1514,7 +1515,7 @@ const createSsoBrowserApiFixture = async (
         : undefined
     const assertAdminCapability = async () => {
       await database.client.$queryRawUnsafe(
-        'SELECT "phase7_require_runtime_ready"()'
+        'SELECT "require_runtime_ready"()'
       )
     }
     const app = createApiApp({

@@ -11,7 +11,8 @@ const deploymentEnvironmentSchema = z.enum([
   'PRODUCTION'
 ])
 const adminCmsModeSchema = z.enum(['disabled', 'technical'])
-const authRuntimeSchema = z.enum(['owned', 'legacy'])
+// #504 P8-1: the legacy issuer is not in the baseline; owned is the only value.
+const authRuntimeSchema = z.enum(['owned'])
 const emailDeliveryModeSchema = z.enum(['test-sink', 'webhook'])
 const secretSchema = z.string().min(32)
 const postgresSchemaPattern = /^[a-z_][a-z0-9_]*$/
@@ -29,7 +30,7 @@ const toUrlOrNull = (value: string): URL | null => {
 
 const databaseLoginContract = (
   value: string,
-  roleSuffix: 'legacy_app_login' | 'app_login' | 'auth_gateway_login'
+  roleSuffix: 'app_login'
 ): { configured: string; expected: string | null } | null => {
   const url = toUrlOrNull(value)
   if (!url) return null

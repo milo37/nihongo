@@ -722,7 +722,7 @@ const readCommandEvidence = async (requestId: string) => {
       )
     : { rows: [] }
   const intents = await adminClient.query<{ count: number }>(
-    `SELECT COUNT(*)::int AS count FROM "Phase7OperationIntent"
+    `SELECT COUNT(*)::int AS count FROM "OperationIntent"
      WHERE "requestId" = $1`,
     [requestId]
   )
@@ -887,7 +887,7 @@ const cleanupFixtures = async (): Promise<void> => {
       [actorIds, questionIds]
     )
     await adminClient.query(
-      `DELETE FROM "Phase7OperationIntent"
+      `DELETE FROM "OperationIntent"
        WHERE "actorUserId" = ANY($1::uuid[])`,
       [actorIds]
     )
@@ -960,11 +960,11 @@ beforeAll(async () => {
   })
   authGatewayRuntime = createRoleDatabaseRuntime(
     authGatewayDatabaseUrl,
-    'nihongo_auth_gateway'
+    'nihongo_app'
   )
   await erasureWorkerClient.connect()
   erasureWorkerConnected = true
-  await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+  await erasureWorkerClient.query(`SET ROLE "nihongo_app"`)
   await insertCredentialUser(authorId)
   await insertCredentialUser(reviewerId)
   await insertCredentialUser(learnerId, 'USER')
@@ -1200,7 +1200,7 @@ describe('ADMIN command TEST database integration', () => {
             AS "environmentCount",
          (SELECT COUNT(*)::int FROM "ContentReview"
           WHERE "questionVersionId" = $2) AS "reviewCount",
-         (SELECT COUNT(*)::int FROM "Phase7OperationIntent"
+         (SELECT COUNT(*)::int FROM "OperationIntent"
           WHERE "requestId" = ANY($1::uuid[])) AS "intentCount"`,
       [successfulRequestIds, createdVersionId]
     )
@@ -1588,7 +1588,7 @@ describe('ADMIN command TEST database integration', () => {
       `SELECT COUNT(*)::int AS count FROM "AdminAuditLog" AS audit
         WHERE audit."targetId" IN ($1, $2)
           AND NOT EXISTS (
-            SELECT 1 FROM "Phase7OperationIntent" AS intent
+            SELECT 1 FROM "OperationIntent" AS intent
              WHERE intent."operationId" = audit."operationId"
           )`,
       [versionId, created.questionId]

@@ -1,10 +1,8 @@
 import { createHash } from 'node:crypto'
-import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   createAdminImportValidationDigest,
-  createQuestionDuplicateIdentityKey,
-  normalizeContentTagKey
+  createQuestionDuplicateIdentityKey
 } from '@nihongo/contracts/admin/content-operations'
 import { originalQuestionSeeds } from '../../prisma/seed-data/questions/index.js'
 import {
@@ -13,37 +11,11 @@ import {
 } from './approved308SourceData.js'
 import {
   approved308InventorySha256,
-  approved308TagMigration,
   createApproved308Imports,
-  createApproved308TagRequirements,
   readApproved308Supply
 } from './approved308Supply.js'
 
 const hash = (text: string) => createHash('sha256').update(text).digest('hex')
-const tupleKey = (t: {
-  normalizedName: string
-  level: string
-  subject: string
-  questionType: string
-}) => [t.normalizedName, t.level, t.subject, t.questionType].join('\0')
-const baseNames = new Set(
-  originalQuestionSeeds.flatMap((q) => q.tags.map(normalizeContentTagKey))
-)
-const baseTuples = new Set(
-  originalQuestionSeeds.flatMap((q) =>
-    q.tags.map((label) =>
-      tupleKey({ ...q, normalizedName: normalizeContentTagKey(label) })
-    )
-  )
-)
-const sql = readFileSync(
-  new URL(
-    `../../prisma/migrations/${approved308TagMigration}/migration.sql`,
-    import.meta.url
-  ),
-  'utf8'
-)
-
 describe('Frozen approved308 CMS supply source', () => {
   it('pins the canonical raw inventory and every original byte string', () => {
     expect(hash(approved308InventoryRawJson)).toBe(approved308InventorySha256)
@@ -164,77 +136,5 @@ describe('Frozen approved308 CMS supply source', () => {
       )
     expect(identities).toHaveLength(373)
     expect(new Set(identities).size).toBe(373)
-  })
-
-  it('has437 required triples and the closed migration adds exactly293 names/323 missing triples', () => {
-    const requirements = createApproved308TagRequirements()
-    const additions = requirements.filter((t) => !baseTuples.has(tupleKey(t)))
-    expect(baseNames.size).toBe(107)
-    expect(baseTuples.size).toBe(126)
-    expect(requirements).toHaveLength(437)
-    expect(new Set(requirements.map((t) => t.normalizedName)).size).toBe(388)
-    expect(additions).toHaveLength(323)
-    expect(
-      new Set(
-        additions
-          .filter((t) => !baseNames.has(t.normalizedName))
-          .map((t) => t.normalizedName)
-      ).size
-    ).toBe(293)
-    const block = sql
-      .split(
-        'AS manifest(ordinal, label, normalized_name, level, subject, question_type)'
-      )[0]
-      ?.split('FOR approved IN SELECT * FROM (VALUES')[1]
-    expect(block).toBeDefined()
-    const parsed = [
-      ...(block ?? '').matchAll(
-        /\((\d+), '((?:''|[^'])*)', '((?:''|[^'])*)', '(N[1-5])', '(VOCABULARY|GRAMMAR|READING)', '([A-Z_]+)'\)/gu
-      )
-    ].map((m) => ({
-      label: m[2]?.replaceAll("''", "'"),
-      normalizedName: m[3]?.replaceAll("''", "'"),
-      level: m[4],
-      subject: m[5],
-      questionType: m[6]
-    }))
-    expect(parsed).toEqual(additions)
-    expect(hash(additions.map((t) => tupleKey(t) + '\n').join(''))).toBe(
-      '94b63e5f57d94b9d594dd15450e5459e1eea6fbfa93069e40ccee47527fc95a0'
-    )
-    expect(sql).toContain('"Tag") <> 400')
-    expect(sql).toContain('"TagApplicability") <> 449')
-  })
-
-  it('keeps migration objects-only with strict current38/39, immutable parent seal and migration-only execute', () => {
-    const install = sql.split('DO $predecessor$')[1]?.split('$predecessor$;')[0]
-    expect(install).toContain('predecessor_count <> 38')
-    expect(install).toContain(
-      '6aa49828fc3138b2b544830794cad68c05ed11ae2ffa018b9e43a2800cb578dd'
-    )
-    expect(install).toContain(
-      '0e4f6c477108c053a924aa1ba0f3cba8e868853328b8626839f95939bb19c798'
-    )
-    expect(install).toContain(
-      '81e1accc76657951962be7d3d21fdd976ea67d78c98ddb87abe6f9823edbc6ef'
-    )
-    expect(install).toContain(
-      '4f8f2c077bc5e79a4755f007f96cd4b8e57bdd6b14f0f906faefaab79eff2fa9'
-    )
-    expect(sql).toContain('"_prisma_migrations") <> 39')
-    expect(sql).toContain('sealed_predecessor_digest CONSTANT TEXT')
-    expect(sql).toContain('JLP478_APPROVED308_PREDECESSOR_UNSET')
-    expect(sql).toContain('before_state IS DISTINCT FROM after_state')
-    expect(sql).toContain('p->>\'tagId\' = a."tagId"::TEXT')
-    expect(sql).toContain('ORDER BY i."operationId"')
-    expect(sql).toContain(
-      'GRANT EXECUTE ON FUNCTION "apply_phase7_approved308_tags"() TO "nihongo_phase7_migration"'
-    )
-    expect(sql).not.toMatch(
-      /(?:INSERT INTO|UPDATE|DELETE FROM) "(?:Question|QuestionVersion|QuestionOption|QuestionVersionTag)"/u
-    )
-    expect(sql).not.toMatch(
-      /DISABLE TRIGGER|CREATE OR REPLACE FUNCTION "(?:protect_phase7|validate_phase7_system)|GRANT .+ TO "nihongo_app"/u
-    )
   })
 })

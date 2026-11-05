@@ -451,41 +451,31 @@ test('PostgreSQL readiness probes only the final TCP listener', () => {
   )
 })
 
-test('portable runtime requires the pinned current76 inventory and rejects count/checksum drift', () => {
+test('portable runtime requires the pinned baseline inventory and rejects count/checksum drift', () => {
   const source = fileURLToPath(
     new URL('../../apps/api/prisma/migrations/', import.meta.url)
   )
   const names = selectCurrentMigrationNames(source)
-  assert.equal(names.length, 76)
-  assert.equal(names[36], '20261009092000_phase7_n4_n2_revision2_digest_fix')
-  assert.equal(names[49], '20261028150000_sso_provider_cleanup_fencing')
-  assert.equal(names[50], '20261028160000_study_contract_v2_default')
-  assert.equal(names[51], '20261028170000_study_v1_retirement_authority')
-  assert.equal(names[52], '20261030100000_guest_expired_draft_retention')
-  assert.equal(names[53], '20261104090000_unified_reports_import_results')
-  assert.equal(names[54], '20261104120000_user_report_erasure_redaction')
-  assert.equal(names[55], '20261104150000_user_account_restriction')
-  assert.equal(names[56], '20261105090000_admin_member_console')
-  assert.equal(names[57], '20261106090000_single_operator_review')
-  assert.equal(names.at(-1), '20261122090000_trusted_execution_drop')
+  // #504 P8-1: one baseline replaces the 76 migrations.
+  assert.deepEqual(names, ['20261105090000_baseline'])
   const directory = mkdtempSync(join(tmpdir(), 'nihongo-p11-migrations-'))
   try {
     cpSync(source, directory, { recursive: true })
     rmSync(join(directory, names.at(-1)), { recursive: true })
     assert.throws(
       () => selectCurrentMigrationNames(directory),
-      /current-76 migration inventory/u
+      /baseline migration inventory/u
     )
     cpSync(source, directory, { recursive: true })
     writeFileSync(join(directory, names[0], 'migration.sql'), 'changed')
     assert.throws(
       () => selectCurrentMigrationNames(directory),
-      /current-76 migration inventory/u
+      /baseline migration inventory/u
     )
     rmSync(join(directory, names[0]), { recursive: true })
     assert.throws(
       () => selectCurrentMigrationNames(directory),
-      /current-76 migration inventory/u
+      /baseline migration inventory/u
     )
   } finally {
     rmSync(directory, { force: true, recursive: true })
@@ -882,7 +872,7 @@ test('portable runtime smoke evidence is closed and bound to TEST', () => {
     profile: 'isolated-production-mode',
     releaseId,
     imageId: `sha256:${'a'.repeat(64)}`,
-    migrationCount: 76,
+    migrationCount: 1,
     databaseAccess: {
       migrationLedger: 'read-only',
       migrationAndRuntimeIdentitiesSeparated: true,
@@ -1081,7 +1071,7 @@ test('canonical seed child preserves native failure with safe stage and code onl
   const sentinel =
     'postgresql://private:private-token@127.0.0.1:1/private?password=secret'
   const prelude =
-    "\nconst scenario = JSON.parse(process.env.PORTABLE_SEED_STUB_SCENARIO);\nconst secretError = (code, databaseCode) => Object.assign(new Error('private-token postgresql://private:password@127.0.0.1/secret SQL parameter'), { code, meta: { code: databaseCode } });\nclass PrismaClient {\n  async $transaction(callback) {\n    return await callback({\n      $executeRawUnsafe: async () => 0,\n      $queryRawUnsafe: async () => [{ role: 'nihongo_phase7_owner', login: 'nihongo_test_phase7_migration_login' }]\n    });\n  }\n  async $queryRawUnsafe() { return [{ role: 'nihongo_phase7_migration' }]; }\n  async $disconnect() { if (scenario.disconnectCode) throw secretError(scenario.disconnectCode); }\n}\nconst loadModule = async (name) => {\n  if (scenario.importCode) throw secretError(scenario.importCode);\n  if (name === '@prisma/adapter-pg') return { PrismaPg: class {} };\n  if (name === './src/generated/prisma/client.ts') return { PrismaClient };\n  if (name === './prisma/seedQuestionCatalog.ts') return {\n    seedQuestionCatalog: async () => {\n      if (scenario.seedCode) throw secretError(scenario.seedCode, scenario.databaseCode);\n      return { insertedCount: scenario.insertedCount ?? 65, verifiedCount: 0 };\n    }\n  };\n  if (name === './src/db/databaseTargetGuard.ts') return { assertSafeMigrationDatabase: () => {} };\n  if (name === './src/db/databaseOptions.ts') return {\n    createPostgresStartupOptions: () => '',\n    getPostgresSchema: (value) => new URL(value).searchParams.get('schema')\n  };\n  throw new Error('Unexpected stub module.');\n};\n"
+    "\nconst scenario = JSON.parse(process.env.PORTABLE_SEED_STUB_SCENARIO);\nconst secretError = (code, databaseCode) => Object.assign(new Error('private-token postgresql://private:password@127.0.0.1/secret SQL parameter'), { code, meta: { code: databaseCode } });\nclass PrismaClient {\n  async $transaction(callback) {\n    return await callback({\n      $executeRawUnsafe: async () => 0,\n      $queryRawUnsafe: async () => [{ role: 'nihongo_owner', login: 'nihongo_test_migration_login' }]\n    });\n  }\n  async $queryRawUnsafe() { return [{ role: 'nihongo_migration' }]; }\n  async $disconnect() { if (scenario.disconnectCode) throw secretError(scenario.disconnectCode); }\n}\nconst loadModule = async (name) => {\n  if (scenario.importCode) throw secretError(scenario.importCode);\n  if (name === '@prisma/adapter-pg') return { PrismaPg: class {} };\n  if (name === './src/generated/prisma/client.ts') return { PrismaClient };\n  if (name === './prisma/seedQuestionCatalog.ts') return {\n    seedQuestionCatalog: async () => {\n      if (scenario.seedCode) throw secretError(scenario.seedCode, scenario.databaseCode);\n      return { insertedCount: scenario.insertedCount ?? 65, verifiedCount: 0 };\n    }\n  };\n  if (name === './src/db/databaseTargetGuard.ts') return { assertSafeMigrationDatabase: () => {} };\n  if (name === './src/db/databaseOptions.ts') return {\n    createPostgresStartupOptions: () => '',\n    getPostgresSchema: (value) => new URL(value).searchParams.get('schema')\n  };\n  throw new Error('Unexpected stub module.');\n};\n"
   const body = canonicalSeedProgram.replaceAll(
     'await import(',
     'await loadModule('

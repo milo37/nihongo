@@ -1340,7 +1340,7 @@ const classifyAuthorityFailure = async (
       classificationRows = await client.$queryRawUnsafe<
         AdminAuthorityClassificationRow[]
       >(
-        'SELECT * FROM "phase7_classify_admin_authority"($1)',
+        'SELECT * FROM "classify_admin_authority"($1)',
         authority.rawSessionToken
       )
     } catch (classificationError: unknown) {

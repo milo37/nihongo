@@ -186,7 +186,7 @@ export const armAdminOperation = async (
   if (manifest.tags.length > 0) {
     await transaction.$queryRawUnsafe(
       `SELECT pg_catalog.pg_advisory_xact_lock(
-         pg_catalog.hashtextextended('nihongo-phase7-tag-assignment-scope-v1', 0)
+         pg_catalog.hashtextextended('nihongo-tag-assignment-scope-v1', 0)
        )::text AS "locked"`
     )
   }

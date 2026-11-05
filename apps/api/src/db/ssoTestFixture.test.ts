@@ -25,21 +25,11 @@ const calls = (name: string) =>
   db.query.mock.calls.filter(
     ([sql]) => typeof sql === 'string' && sql.includes(name)
   )
-const setup = (rows: unknown[] = [{ id: 1, legacyIssuerDisabled: false }]) => {
+const setup = (capabilityRows = 1) => {
   db.query.mockImplementation(async (sql: string) => {
-    if (sql.includes('current_database()')) {
-      return {
-        rows: [
-          {
-            name: 'nihongo_fixture_unit_test',
-            address: '127.0.0.1',
-            port: 5432
-          }
-        ]
-      }
-    }
-    if (sql.includes('FROM "AuthIssuerActivation"')) return { rows }
-    return { rows: [] }
+    if (sql.includes('INSERT INTO "DatabaseCapability"'))
+      return { rows: [], rowCount: capabilityRows }
+    return { rows: [], rowCount: 0 }
   })
 }
 const connected = async (assertions: () => Promise<void>) => {
@@ -57,9 +47,7 @@ beforeEach(() => {
   db.options.length = 0
   const environment = createSsoTestEnvironment({
     DATABASE_URL: url('nihongo_test_app_login'),
-    PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: url(
-      'nihongo_test_auth_gateway_login'
-    ),
+    PHASE7_AUTH_GATEWAY_FIXTURE_DATABASE_URL: url('nihongo_test_app_login'),
     PHASE7_ADMIN_DATABASE_URL: url('fixture_owner')
   })
   for (const [name, value] of Object.entries(environment))
@@ -114,112 +102,35 @@ describe('SSO learning fixture versions', () => {
   })
 })
 
-describe('SSO TEST fixture activation ownership', () => {
-  it('activates fresh state once after registering the exact endpoint capability', async () => {
+// #504 P8-1: the baseline starts with V1 issuance active; the fixture only
+// registers the capability row as the migration role.
+describe('SSO TEST fixture capability registration', () => {
+  it('registers the capability row once as the migration role', async () => {
     await connected(async () => {
-      expect(calls('phase7_register_database_capability')[0]?.[1]).toEqual([
-        'nihongo_fixture_unit_test',
-        '127.0.0.1',
-        5432
+      expect(calls('INSERT INTO "DatabaseCapability"')).toHaveLength(1)
+      expect(calls('INSERT INTO "DatabaseCapability"')[0]?.[1]).toEqual([
+        'TEST'
       ])
-      expect(calls('phase7_activate_v1_issuer')).toHaveLength(1)
+      expect(calls('activate_v1_issuer')).toHaveLength(0)
       const sql = db.query.mock.calls.map(([value]) => String(value))
-      expect(
-        sql.findIndex((value) =>
-          value.includes('phase7_register_database_capability')
-        )
-      ).toBeLessThan(
-        sql.findIndex((value) => value.includes('FROM "AuthIssuerActivation"'))
+      const register = sql.findIndex((value) =>
+        value.includes('INSERT INTO "DatabaseCapability"')
       )
-      expect(
-        sql.findIndex((value) => value.includes('FROM "AuthIssuerActivation"'))
-      ).toBeLessThan(
-        sql.findIndex((value) => value.includes('phase7_activate_v1_issuer'))
-      )
+      expect(sql[register - 1]).toBe('SET ROLE "nihongo_migration"')
+      expect(sql[register + 1]).toBe('RESET ROLE')
     })
   })
-  it('reuses already-active state while retaining endpoint registration and role/namespace options', async () => {
-    setup([{ id: 1, legacyIssuerDisabled: true }])
-    await connected(async () => {
-      expect(calls('phase7_register_database_capability')).toHaveLength(1)
-      expect(calls('phase7_activate_v1_issuer')).toHaveLength(0)
-      // owner, two gateway and three nihongo_app connections (#504 P7 PR3b-1).
-      expect(db.connect).toHaveBeenCalledTimes(6)
-      expect(db.options).toHaveLength(6)
-      expect(
-        db.options.every((value) =>
-          value.options.includes(`search_path=${schema}`)
-        )
-      ).toBe(true)
-      expect(
-        db.options.filter((value) =>
-          value.options.includes('role=nihongo_auth_gateway')
-        )
-      ).toHaveLength(2)
-      expect(
-        db.options.filter((value) => value.options.includes('role=nihongo_app'))
-      ).toHaveLength(3)
-    })
-  })
-  it.each(
-    [
-      [],
-      [
-        { id: 1, legacyIssuerDisabled: false },
-        { id: 1, legacyIssuerDisabled: true }
-      ],
-      [{ id: 2, legacyIssuerDisabled: true }],
-      [{ id: 1, legacyIssuerDisabled: null }],
-      [{ id: 1, legacyIssuerDisabled: 'true' }],
-      [{ id: 1 }]
-    ].map((rows) => ({ rows }))
-  )(
-    'fails closed for invalid activation singleton rows: %j',
-    async ({ rows }) => {
-      setup(rows)
-      const h = createSsoDbHarness()
-      try {
-        await expect(h.connect()).rejects.toThrow(
-          'Issuer activation singleton is invalid.'
-        )
-        expect(calls('phase7_activate_v1_issuer')).toHaveLength(0)
-      } finally {
-        await h.close()
-      }
-    }
-  )
-  it('rejects an unavailable endpoint before registration or activation', async () => {
-    db.query.mockResolvedValue({ rows: [] })
+  it('fails closed when the capability row does not match the target', async () => {
+    setup(0)
     const h = createSsoDbHarness()
     try {
       await expect(h.connect()).rejects.toThrow(
-        'DB endpoint identity is unavailable.'
+        'Database capability does not match the safe target.'
       )
-      expect(calls('phase7_register_database_capability')).toHaveLength(0)
-      expect(calls('phase7_activate_v1_issuer')).toHaveLength(0)
     } finally {
       await h.close()
     }
   })
-  it.each(['phase7_register_database_capability', 'phase7_activate_v1_issuer'])(
-    'propagates %s failure instead of silently continuing',
-    async (command) => {
-      const normal = db.query.getMockImplementation()!
-      const failure = new Error('synthetic command failure')
-      db.query.mockImplementation(async (sql: string) => {
-        if (sql.includes(command)) throw failure
-        return normal(sql)
-      })
-      const h = createSsoDbHarness()
-      try {
-        await expect(h.connect()).rejects.toBe(failure)
-        if (command.includes('register'))
-          expect(calls('phase7_activate_v1_issuer')).toHaveLength(0)
-      } finally {
-        await h.close()
-      }
-    }
-  )
   it('preserves the isolated schema boundary before any connection', () => {
     vi.stubEnv(
       'PHASE7_ADMIN_DATABASE_URL',

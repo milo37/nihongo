@@ -26,7 +26,7 @@ vi.mock('pg', () => ({
   }
 }))
 
-let register: typeof import('./runAdminApiIntegration.js').registerCapabilityAndActivate
+let register: typeof import('./runAdminApiIntegration.js').registerDatabaseCapabilityForTest
 let prepareArtifacts: typeof import('./runAdminApiIntegration.js').prepareIntegrationArtifacts
 let seedInvocation: typeof import('./runAdminApiIntegration.js').adminSeedInvocation
 beforeAll(async () => {
@@ -37,7 +37,7 @@ beforeAll(async () => {
     'postgresql://synthetic:synthetic@127.0.0.1:5432/nihongo_test'
   )
   register = (await import('./runAdminApiIntegration.js'))
-    .registerCapabilityAndActivate
+    .registerDatabaseCapabilityForTest
   prepareArtifacts = (await import('./runAdminApiIntegration.js'))
     .prepareIntegrationArtifacts
   seedInvocation = (await import('./runAdminApiIntegration.js'))
@@ -46,15 +46,7 @@ beforeAll(async () => {
 afterAll(() => vi.unstubAllEnvs())
 beforeEach(() => {
   vi.resetAllMocks()
-  database.query.mockResolvedValue({
-    rows: [
-      {
-        databaseName: 'nihongo_test',
-        serverAddress: '127.0.0.1',
-        serverPort: 5432
-      }
-    ]
-  })
+  database.query.mockResolvedValue({ rows: [], rowCount: 1 })
 })
 
 const callsContaining = (name: string) =>
@@ -62,80 +54,27 @@ const callsContaining = (name: string) =>
     ([sql]) => typeof sql === 'string' && sql.includes(name)
   )
 
-describe('API issuer activation ownership without a database', () => {
-  it('keeps default API/browser preparation registration and activation', async () => {
+// #504 P8-1: the baseline has no issuer activation; the runner registers the
+// capability row only.
+describe('API database capability registration without a database', () => {
+  it('registers the capability row once as the migration login and closes', async () => {
     await register()
-    expect(callsContaining('phase7_register_database_capability')).toHaveLength(
-      1
-    )
-    expect(callsContaining('phase7_activate_v1_issuer')).toHaveLength(1)
+    expect(callsContaining('INSERT INTO "DatabaseCapability"')).toHaveLength(1)
+    expect(callsContaining('activate_v1_issuer')).toHaveLength(0)
     expect(database.connect).toHaveBeenCalledTimes(1)
     expect(database.end).toHaveBeenCalledTimes(1)
   })
-  it('keeps explicit runner activation', async () => {
-    await register(undefined, 'runner')
-    expect(callsContaining('phase7_activate_v1_issuer')).toHaveLength(1)
-  })
-  it('registers the capability but defers lifecycle activation to its existing fixture', async () => {
-    await register(undefined, 'fixture')
-    expect(callsContaining('current_database()')).toHaveLength(1)
-    expect(callsContaining('phase7_register_database_capability')).toHaveLength(
-      1
+  it('fails closed when the capability row does not match the target and still closes', async () => {
+    database.query.mockResolvedValue({ rows: [], rowCount: 0 })
+    await expect(register()).rejects.toThrow(
+      'Database capability does not match the safe target.'
     )
-    expect(callsContaining('phase7_activate_v1_issuer')).toHaveLength(0)
-    expect(database.connect).toHaveBeenCalledTimes(1)
-    expect(database.end).toHaveBeenCalledTimes(1)
-  })
-  it('fails closed on absent endpoint identity and closes the connection', async () => {
-    database.query.mockResolvedValue({ rows: [] })
-    await expect(register(undefined, 'fixture')).rejects.toThrow(
-      'API endpoint identity is unavailable.'
-    )
-    expect(callsContaining('phase7_register_database_capability')).toHaveLength(
-      0
-    )
-    expect(callsContaining('phase7_activate_v1_issuer')).toHaveLength(0)
-    expect(database.end).toHaveBeenCalledTimes(1)
-  })
-  it('propagates registration failure without activating and still closes', async () => {
-    const failure = new Error('synthetic registration failure')
-    database.query.mockImplementation(async (sql: string) => {
-      if (sql.includes('phase7_register_database_capability')) throw failure
-      return {
-        rows: [
-          {
-            databaseName: 'nihongo_test',
-            serverAddress: '127.0.0.1',
-            serverPort: 5432
-          }
-        ]
-      }
-    })
-    await expect(register(undefined, 'fixture')).rejects.toBe(failure)
-    expect(callsContaining('phase7_activate_v1_issuer')).toHaveLength(0)
-    expect(database.end).toHaveBeenCalledTimes(1)
-  })
-  it('preserves the one-way activation failure and closes for runner ownership', async () => {
-    const failure = new Error('synthetic one-way guard failure')
-    database.query.mockImplementation(async (sql: string) => {
-      if (sql.includes('phase7_activate_v1_issuer')) throw failure
-      return {
-        rows: [
-          {
-            databaseName: 'nihongo_test',
-            serverAddress: '127.0.0.1',
-            serverPort: 5432
-          }
-        ]
-      }
-    })
-    await expect(register()).rejects.toBe(failure)
     expect(database.end).toHaveBeenCalledTimes(1)
   })
   it('honors an already aborted operation before opening a connection', async () => {
     const controller = new AbortController()
     controller.abort()
-    await expect(register(controller.signal, 'fixture')).rejects.toBeDefined()
+    await expect(register(controller.signal)).rejects.toBeDefined()
     expect(database.connect).not.toHaveBeenCalled()
     expect(database.query).not.toHaveBeenCalled()
     expect(database.end).not.toHaveBeenCalled()

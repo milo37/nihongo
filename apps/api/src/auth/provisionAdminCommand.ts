@@ -77,7 +77,7 @@ export const runProvisionAdminCommand = async (
     url.searchParams.delete('options')
     const client = new Client({
       connectionString: url.toString(),
-      options: createPostgresStartupOptions(schema, 'nihongo_phase7_migration'),
+      options: createPostgresStartupOptions(schema, 'nihongo_migration'),
       connectionTimeoutMillis: 5000,
       query_timeout: 15000,
       statement_timeout: 10000
@@ -90,7 +90,7 @@ export const runProvisionAdminCommand = async (
       transactionOpen = true
       await client.query("SET LOCAL lock_timeout = '5s'")
       const result = await client.query<{ authorityGeneration: number }>(
-        'SELECT "phase7_bootstrap_first_google_admin"($1::uuid,$2::text,$3::integer,$4::text,$5::"AdminAuditEnvironment") AS "authorityGeneration"',
+        'SELECT "bootstrap_first_google_admin"($1::uuid,$2::text,$3::integer,$4::text,$5::"AdminAuditEnvironment") AS "authorityGeneration"',
         [
           input.ADMIN_PROVISION_USER_ID,
           input.ADMIN_PROVISION_GOOGLE_SUBJECT,
