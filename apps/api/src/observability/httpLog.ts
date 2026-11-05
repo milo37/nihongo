@@ -1,4 +1,4 @@
-export type HttpStatusClass = '1xx' | '2xx' | '3xx' | '4xx' | '5xx'
+type HttpStatusClass = '1xx' | '2xx' | '3xx' | '4xx' | '5xx'
 
 export const toHttpStatusClass = (status: number): HttpStatusClass => {
   if (status >= 100 && status < 200) return '1xx'

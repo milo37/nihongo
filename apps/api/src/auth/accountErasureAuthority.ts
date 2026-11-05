@@ -565,7 +565,7 @@ export const redactExpiredReportDescriptions = async (
   )
 }
 
-export type SsoAccountErasureRequestResult =
+type SsoAccountErasureRequestResult =
   | {
       readonly code:
         | 'AUTHENTICATION_REQUIRED'

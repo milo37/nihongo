@@ -32,16 +32,3 @@ export const cancelStudySessionErrorCodeSchema = z.enum([
 export const cancelStudySessionErrorSchema = createApiFailureSchema(
   cancelStudySessionErrorCodeSchema
 )
-
-export type CancelStudySessionParams = z.input<
-  typeof cancelStudySessionParamsSchema
->
-export type CancelStudySessionHeaders = z.input<
-  typeof cancelStudySessionHeadersSchema
->
-export type CancelStudySessionBody = z.input<
-  typeof cancelStudySessionBodySchema
->
-export type CancelStudySessionError = z.output<
-  typeof cancelStudySessionErrorSchema
->

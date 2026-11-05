@@ -129,11 +129,11 @@ import {
   publishQuestionVersionBatchResponseSchema
 } from './review.js'
 
-export const emptyParamsSchema = z.object({}).strict()
+const emptyParamsSchema = z.object({}).strict()
 export const emptyQuerySchema = z.object({}).strict()
-export const noRequestBodySchema = z.undefined()
+const noRequestBodySchema = z.undefined()
 
-export interface OperationSchemaDescriptor {
+interface OperationSchemaDescriptor {
   readonly params: z.ZodType
   readonly query: z.ZodType
   readonly body: z.ZodType
@@ -141,7 +141,7 @@ export interface OperationSchemaDescriptor {
   readonly error: z.ZodType
 }
 
-export interface OperationSchemaManifestEntry extends OperationManifestEntry {
+interface OperationSchemaManifestEntry extends OperationManifestEntry {
   readonly operation: AdminOperation
   readonly schemas: OperationSchemaDescriptor
 }
@@ -364,14 +364,14 @@ export const operationSchemaManifest: readonly OperationSchemaManifestEntry[] =
     schemas: operationSchemas[entry.operation]
   }))
 
-export interface OperationFailureDetails {
+interface OperationFailureDetails {
   readonly code: StableErrorCode
   readonly message: string
   readonly fieldErrors?: ApiFailure['fieldErrors']
   readonly requestId: string
 }
 
-export interface BuildOperationFailureResponseInput {
+interface BuildOperationFailureResponseInput {
   readonly operation: AdminOperation
   readonly failure: OperationFailureDetails
   readonly disposition: AdminExecutionDisposition
@@ -434,7 +434,7 @@ export const buildContentOperationFailureResponse = ({
   }
 }
 
-export interface AssertOperationFailureResponseInput {
+interface AssertOperationFailureResponseInput {
   readonly operation: AdminOperation
   readonly response: ContentOperationFailureResponse
   readonly disposition: AdminExecutionDisposition

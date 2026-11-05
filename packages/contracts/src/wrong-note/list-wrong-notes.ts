@@ -134,8 +134,6 @@ export const wrongNoteSummarySchema = z
     }
   })
 
-export const listWrongNotesOperationId = 'wrongNote.listWrongNotes' as const
-
 export const listWrongNotesQuerySchema = pageRequestSchema
   .extend({
     level: jlptLevelSchema.optional(),
@@ -163,7 +161,7 @@ export const listWrongNotesResponseSchema = createPageResponseSchema(
     }
   })
 
-export const listWrongNotesErrorCodeSchema = z.enum([
+const listWrongNotesErrorCodeSchema = z.enum([
   'AUTHENTICATION_REQUIRED',
   'AUTH_SESSION_EXPIRED',
   'VALIDATION_ERROR',

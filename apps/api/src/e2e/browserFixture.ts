@@ -65,14 +65,14 @@ import { createPrismaUserReportRepository } from '../report/userReportRepository
 import { createUserReportService } from '../report/userReportService.js'
 import { runReauthenticationStartupMaintenance } from '../auth/reauthenticationStartupMaintenance.js'
 
-export interface BrowserCredentials {
+interface BrowserCredentials {
   readonly email: string
   readonly name: string
   readonly password: string
   readonly userId: string
 }
 
-export interface BrowserFixture {
+interface BrowserFixture {
   readonly author: BrowserCredentials
   readonly insightsLearner: BrowserCredentials
   readonly journeyLearner: BrowserCredentials
@@ -601,7 +601,7 @@ interface SsoBrowserFixtureOptions {
   isolateSignIns?: boolean
 }
 
-export interface SsoBrowserActor {
+interface SsoBrowserActor {
   readonly userId: string
   readonly role: 'ADMIN' | 'USER'
   readonly targetLevel: 'N1' | 'N2' | 'N3' | 'N4' | 'N5'

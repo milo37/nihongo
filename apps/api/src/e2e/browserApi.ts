@@ -151,8 +151,8 @@ const identitiesSchema = z
       subjects.add(identity.accountId)
     }
   })
-export type SsoIdentities = z.output<typeof identitiesSchema>
-export type AccessibilityBrowserFixture = {
+type SsoIdentities = z.output<typeof identitiesSchema>
+type AccessibilityBrowserFixture = {
   readonly [Key in (typeof actorKeys)[number]]: SsoIdentities[Key]['actor']
 }
 

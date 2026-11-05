@@ -400,26 +400,6 @@ export const isCanonicalSlice2ReadRequest = ({
   )
 }
 
-export const getCanonicalSlice2ReadOperation = ({
-  method,
-  requestTarget
-}: {
-  method: string
-  requestTarget: string
-}): ContentOperation | null => {
-  if (hasRequestTargetFragment(requestTarget) || method !== 'GET') {
-    return null
-  }
-  const pathname = getPathnameFromRequestTarget(requestTarget)
-  if (pathname === null) {
-    return null
-  }
-  return (
-    SLICE_2_ADMIN_READ_PATHS.find(({ pattern }) => pattern.test(pathname))
-      ?.operation ?? null
-  )
-}
-
 export const getCanonicalSlice3Operation = ({
   method,
   requestTarget
@@ -438,7 +418,7 @@ export const getCanonicalSlice3Operation = ({
   )
 }
 
-export const getCanonicalAdminReadOperation = ({
+const getCanonicalAdminReadOperation = ({
   method,
   requestTarget
 }: {
@@ -454,7 +434,7 @@ export const getCanonicalAdminReadOperation = ({
   )
 }
 
-export const getCanonicalLearnerReportOperation = ({
+const getCanonicalLearnerReportOperation = ({
   method,
   requestTarget
 }: {
@@ -504,12 +484,6 @@ export const isCanonicalSlice3ACommandRequest = (input: {
   requestTarget: string
 }): boolean => isCanonicalRequestForPaths(input, SLICE_3A_ADMIN_COMMAND_PATHS)
 
-export const isCanonicalReauthenticationRequest = (input: {
-  method: string
-  requestTarget: string
-}): boolean =>
-  isCanonicalRequestForPaths(input, SLICE_3R_A1_REAUTHENTICATION_PATHS)
-
 export const isCanonicalApprovalCommandRequest = (input: {
   method: string
   requestTarget: string
@@ -552,25 +526,3 @@ export const getCanonicalActiveOperation = (input: {
   getCanonicalAdminReadOperation(input) ??
   getCanonicalSlice3Operation(input) ??
   getCanonicalLearnerReportOperation(input)
-
-export const isCanonicalActiveRequest = ({
-  method,
-  requestTarget
-}: {
-  method: string
-  requestTarget: string
-}): boolean => {
-  if (hasRequestTargetFragment(requestTarget)) return false
-  const pathname = getPathnameFromRequestTarget(requestTarget)
-  if (pathname === null) return false
-  if (method === 'OPTIONS') {
-    return (
-      ACTIVE_ADMIN_READ_PATHS.some(({ pattern }) => pattern.test(pathname)) ||
-      ACTIVE_ADMIN_COMMAND_PATHS.some(({ pattern }) =>
-        pattern.test(pathname)
-      ) ||
-      SLICE_5_LEARNER_REPORT_PATHS.some(({ pattern }) => pattern.test(pathname))
-    )
-  }
-  return getCanonicalActiveOperation({ method, requestTarget }) !== null
-}

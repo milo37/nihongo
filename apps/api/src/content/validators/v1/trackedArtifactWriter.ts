@@ -169,7 +169,7 @@ const createPublicationStagingDirectory = async (
   return { directory, metadata }
 }
 
-export interface WriteTrackedArtifactInput {
+interface WriteTrackedArtifactInput {
   readonly repositoryRoot: string
   readonly repositoryPath: string
   readonly bytes: Uint8Array
@@ -177,14 +177,14 @@ export interface WriteTrackedArtifactInput {
   readonly expectedExistingBytes?: Uint8Array | null
 }
 
-export interface WriteTrackedArtifactTestDependenciesV1 {
+interface WriteTrackedArtifactTestDependenciesV1 {
   readonly afterReplacementPublished?: (paths: {
     readonly outputPath: string
     readonly rollbackPath: string
   }) => Promise<void>
 }
 
-export const writeTrackedArtifactWithTestDependencies = async (
+const writeTrackedArtifactWithTestDependencies = async (
   {
     repositoryRoot,
     repositoryPath,
@@ -615,55 +615,3 @@ export const writeTrackedArtifactWithTestDependencies = async (
 export const writeTrackedArtifact = async (
   input: WriteTrackedArtifactInput
 ): Promise<void> => writeTrackedArtifactWithTestDependencies(input, {})
-
-export interface RemoveTrackedArtifactInput {
-  readonly repositoryRoot: string
-  readonly repositoryPath: string
-  readonly expectedBytes: Uint8Array
-  readonly maximumBytes: number
-}
-
-export const removeTrackedArtifact = async ({
-  repositoryRoot,
-  repositoryPath,
-  expectedBytes,
-  maximumBytes
-}: RemoveTrackedArtifactInput): Promise<void> => {
-  if (
-    !/^content\/[A-Za-z0-9._/-]+$/.test(repositoryPath) ||
-    repositoryPath.split('/').some((part) => part === '.' || part === '..')
-  ) {
-    throw new Error('TRACKED_ARTIFACT_PATH_INVALID')
-  }
-  const canonicalRepositoryRoot = await realpath(repositoryRoot)
-  const outputPath = path.resolve(canonicalRepositoryRoot, repositoryPath)
-  if (!isInside(path.join(canonicalRepositoryRoot, 'content'), outputPath)) {
-    throw new Error('TRACKED_ARTIFACT_PATH_INVALID')
-  }
-  const parent = path.dirname(outputPath)
-  if ((await realpath(parent)) !== parent) {
-    throw new Error('TRACKED_ARTIFACT_PARENT_INVALID')
-  }
-  const before = await lstat(outputPath, { bigint: true })
-  const bytes = await readArtifactBytes({
-    repositoryRoot: canonicalRepositoryRoot,
-    filePath: repositoryPath,
-    maximumBytes
-  })
-  const current = await lstat(outputPath, { bigint: true })
-  if (
-    !before.isFile() ||
-    before.isSymbolicLink() ||
-    !sameFileIdentity(before, current) ||
-    !Buffer.from(bytes).equals(expectedBytes)
-  ) {
-    throw new Error('TRACKED_ARTIFACT_PUBLISH_FAILED')
-  }
-  await unlink(outputPath)
-  const directoryHandle = await open(parent, constants.O_RDONLY)
-  try {
-    await directoryHandle.sync()
-  } finally {
-    await directoryHandle.close()
-  }
-}

@@ -1,5 +1,5 @@
-export type SeedPhase = 'FIRST_NORMAL_SEED' | 'PREFIX_RESEED' | 'RESEED'
-export type SeedPhaseState = 'BEGIN' | 'COMPLETE' | 'FAILED'
+type SeedPhase = 'FIRST_NORMAL_SEED' | 'PREFIX_RESEED' | 'RESEED'
+type SeedPhaseState = 'BEGIN' | 'COMPLETE' | 'FAILED'
 
 export const runSeedExecution = async (
   phase: SeedPhase,

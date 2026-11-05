@@ -26,11 +26,11 @@ const practiceRuntimeEnvironmentSchema = z
     }
   })
 
-export type PracticeRuntimeEnvironment = z.output<
+type PracticeRuntimeEnvironment = z.output<
   typeof practiceRuntimeEnvironmentSchema
 >
 
-export class PracticeRuntimeEnvironmentError extends Error {
+class PracticeRuntimeEnvironmentError extends Error {
   constructor() {
     super('Practice runtime environment validation failed.')
     this.name = 'PracticeRuntimeEnvironmentError'

@@ -31,10 +31,4 @@ export const createBookmarkErrorCodeSchema = z.enum([
 export const createBookmarkErrorSchema = createApiFailureSchema(
   createBookmarkErrorCodeSchema
 )
-
-export type CreateBookmarkParams = z.input<typeof createBookmarkParamsSchema>
-export type CreateBookmarkBody = z.input<typeof createBookmarkBodySchema>
-export type CreateBookmarkResponse = z.output<
-  typeof createBookmarkResponseSchema
->
 export type CreateBookmarkError = z.output<typeof createBookmarkErrorSchema>

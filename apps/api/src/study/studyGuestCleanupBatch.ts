@@ -124,7 +124,7 @@ const countCandidates = async (
   return row?.count ?? 0
 }
 
-export class GuestCleanupAlreadyRunningError extends Error {
+class GuestCleanupAlreadyRunningError extends Error {
   constructor() {
     super('Guest cleanup already running.')
     this.name = 'GuestCleanupAlreadyRunningError'

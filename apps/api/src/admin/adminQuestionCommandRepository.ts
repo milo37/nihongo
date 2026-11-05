@@ -1313,8 +1313,8 @@ export interface AdminQuestionPublicationCommandRepository {
   } | null>
 }
 
-export type AdminQuestionPreparedCommandRepository =
-  AdminQuestionCommandRepository & AdminQuestionPublicationCommandRepository
+type AdminQuestionPreparedCommandRepository = AdminQuestionCommandRepository &
+  AdminQuestionPublicationCommandRepository
 
 interface AdminQuestionCommandRepositoryOptions {
   readonly auditEnvironment: AuditEnvironment

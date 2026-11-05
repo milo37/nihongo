@@ -19,13 +19,3 @@ export const practiceContractResponseHeadersSchema = z
     'x-nihongo-practice-contract': z.enum(['1', '2'])
   })
   .strict()
-
-export type PracticeContractV2Headers = z.input<
-  typeof practiceContractV2HeadersSchema
->
-export type IdempotentPracticeContractV2Headers = z.input<
-  typeof idempotentPracticeContractV2HeadersSchema
->
-export type PracticeContractResponseHeaders = z.output<
-  typeof practiceContractResponseHeadersSchema
->

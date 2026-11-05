@@ -19,8 +19,6 @@ import {
 
 const nonBlankTextSchema = z.string().trim().min(1)
 
-export const listQuestionsOperationId = 'question.listQuestions' as const
-
 export const listQuestionsQuerySchema = pageRequestSchema
   .extend({
     level: jlptLevelSchema.optional(),
@@ -76,7 +74,7 @@ export const listQuestionsResponseSchema = createPageResponseSchema(
   publicQuestionSummarySchema
 )
 
-export const listQuestionsErrorCodeSchema = z.enum([
+const listQuestionsErrorCodeSchema = z.enum([
   'VALIDATION_ERROR',
   'RATE_LIMITED',
   'INTERNAL_SERVER_ERROR',

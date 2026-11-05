@@ -4,8 +4,6 @@ import { opaqueIdSchema } from '../common/id.js'
 import { studyResultSchema } from './study-result.js'
 import { idempotentPracticeContractV2HeadersSchema } from './practice-contract.js'
 
-export const submitStudySessionOperationId = 'study.submitStudySession' as const
-
 export const duplicateAnswerValidationMarker = 'DUPLICATE_ANSWER' as const
 
 export const submitStudySessionParamsSchema = z
@@ -19,7 +17,7 @@ export const submitStudySessionHeadersSchema = z
 export const submitStudySessionV2HeadersSchema =
   idempotentPracticeContractV2HeadersSchema
 
-export const submitStudySessionAnswerSchema = z
+const submitStudySessionAnswerSchema = z
   .object({
     studySessionQuestionId: opaqueIdSchema,
     selectedOptionId: opaqueIdSchema.nullable(),
@@ -107,24 +105,14 @@ export const submitStudySessionV2ErrorCodeSchema = z.enum([
 export const submitStudySessionV2ErrorSchema = createApiFailureSchema(
   submitStudySessionV2ErrorCodeSchema
 )
-
-export type SubmitStudySessionParams = z.input<
-  typeof submitStudySessionParamsSchema
->
 export type SubmitStudySessionHeaders = z.input<
   typeof submitStudySessionHeadersSchema
->
-export type SubmitStudySessionV2Headers = z.input<
-  typeof submitStudySessionV2HeadersSchema
 >
 export type SubmitStudySessionBody = z.input<
   typeof submitStudySessionBodySchema
 >
 export type ParsedSubmitStudySessionBody = z.output<
   typeof submitStudySessionBodySchema
->
-export type SubmitStudySessionV2Body = z.input<
-  typeof submitStudySessionV2BodySchema
 >
 export type ParsedSubmitStudySessionV2Body = z.output<
   typeof submitStudySessionV2BodySchema

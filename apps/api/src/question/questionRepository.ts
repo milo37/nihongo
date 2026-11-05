@@ -41,7 +41,7 @@ export interface PublishedQuestionDetailRecord
   options: readonly QuestionOptionRecord[]
 }
 
-export interface ListPublishedQuestionsInput {
+interface ListPublishedQuestionsInput {
   level?: PublishedQuestionSummaryRecord['level']
   subject?: PublishedQuestionSummaryRecord['subject']
   type?: PublishedQuestionSummaryRecord['questionType']
@@ -51,7 +51,7 @@ export interface ListPublishedQuestionsInput {
   pageSize: number
 }
 
-export interface ListPublishedQuestionsResult {
+interface ListPublishedQuestionsResult {
   items: readonly PublishedQuestionSummaryRecord[]
   total: number
 }
@@ -76,7 +76,7 @@ export class QuestionRepositoryUnavailableError extends Error {
   }
 }
 
-export class QuestionRepositoryIntegrityError extends Error {
+class QuestionRepositoryIntegrityError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'QuestionRepositoryIntegrityError'

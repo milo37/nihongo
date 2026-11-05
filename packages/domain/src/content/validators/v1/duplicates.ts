@@ -6,15 +6,15 @@ import type {
   PersistedQuestionSemanticV1
 } from './types.js'
 
-export const DUPLICATE_RULES = {
+const DUPLICATE_RULES = {
   QUESTION_PASSAGE_TRIGRAM_V1: 8200,
   QUESTION_TEXT_EDIT_V1: 9000,
   READING_PASSAGE_TRIGRAM_V1: 9000
 } as const
 
-export type DuplicateRuleId = keyof typeof DUPLICATE_RULES
+type DuplicateRuleId = keyof typeof DUPLICATE_RULES
 
-export interface DuplicateIdentityMaterialV1 {
+interface DuplicateIdentityMaterialV1 {
   readonly subject: OriginalQuestionContentV1['subject']
   readonly questionType: OriginalQuestionContentV1['questionType']
   readonly passage: string | null
@@ -31,18 +31,13 @@ export interface DuplicateScoreV1 {
   readonly matchesThreshold: boolean
 }
 
-export interface BundleDuplicateCandidateV1 {
-  readonly contentKey: string
-  readonly content: OriginalQuestionContentV1 | PersistedQuestionSemanticV1
-}
-
 const optionTextForCorrectKey = (
   content: OriginalQuestionContentV1 | PersistedQuestionSemanticV1
 ): string =>
   content.options.find(({ key }) => key === content.correctOptionKey)?.text ??
   ''
 
-export const createDuplicateIdentityMaterial = (
+const createDuplicateIdentityMaterial = (
   content: OriginalQuestionContentV1 | PersistedQuestionSemanticV1
 ): DuplicateIdentityMaterialV1 => ({
   subject: content.subject,

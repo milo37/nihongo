@@ -126,5 +126,3 @@ export const createAuthRuntime = ({
     },
     logger: { disabled: true }
   })
-
-export type AuthRuntime = ReturnType<typeof createAuthRuntime>

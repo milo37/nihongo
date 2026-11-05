@@ -29,7 +29,7 @@ const isAdminSessionOverLimit = (
 
 // Freshness also requires the session itself to be under 5 minutes old, so the
 // window always ends at session creation + 5 minutes.
-export const ADMIN_FRESH_WINDOW_MS = 5 * 60 * 1_000
+const ADMIN_FRESH_WINDOW_MS = 5 * 60 * 1_000
 
 const toAuthenticatedUser = (
   user: {
@@ -98,7 +98,7 @@ export interface PrincipalService {
   getAuthenticatedUser: (headers: Headers) => Promise<AuthenticatedUser | null>
 }
 
-export interface AdminSessionProof {
+interface AdminSessionProof {
   readonly id: string
   readonly token: string
   readonly createdAt: Date

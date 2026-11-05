@@ -1,8 +1,3 @@
-import {
-  adminQuestionContentInputSchema,
-  validateQuestionImportRequestSchema
-} from '@nihongo/contracts/admin/content-operations'
-
 // JLP-207 internal review; this batch is separate from the immutable 65-question bootstrap.
 export const approvedReadingBatch1 = {
   items: [
@@ -85,28 +80,3 @@ export const approvedReadingBatch1 = {
   registered: 0,
   externalEducatorReview: false
 } as const
-
-// clientItemId is a logical content ID. Import returns newly allocated database IDs.
-// Keep that returned mapping for subsequent review/publish and frontend parity.
-export const createApprovedReadingBatch1Import = () =>
-  validateQuestionImportRequestSchema.parse({
-    items: approvedReadingBatch1.items.map(({ registration }) => ({
-      clientItemId: registration.id,
-      content: adminQuestionContentInputSchema.parse({
-        level: registration.level,
-        subject: registration.subject,
-        questionType: registration.questionType,
-        difficulty: registration.difficulty,
-        questionText: registration.questionText,
-        passage: registration.passage,
-        explanationKo: registration.explanationKo,
-        explanationJa: registration.explanationJa,
-        tagNames: registration.tags,
-        options: registration.options.map((text, index) => ({
-          clientOptionKey: `option-${index + 1}`,
-          text
-        })),
-        correctOptionKey: `option-${registration.correctIndex + 1}`
-      })
-    }))
-  })

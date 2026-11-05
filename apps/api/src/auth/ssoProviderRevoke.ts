@@ -4,8 +4,8 @@ import type {
   SsoAccountErasureWorker
 } from './ssoAccountRepository.js'
 
-export type SsoProviderRevokeOutcome = 'REVOKED' | 'FAILED' | 'UNAVAILABLE'
-export interface SsoProviderRevokeTarget {
+type SsoProviderRevokeOutcome = 'REVOKED' | 'FAILED' | 'UNAVAILABLE'
+interface SsoProviderRevokeTarget {
   provider: SsoProviderId
   subject: string
 }
@@ -20,7 +20,7 @@ export type SsoProviderRevokeAdapter = (
   signal?: AbortSignal
 ) => Promise<SsoProviderRevokeOutcome>
 /** Token storage is not provisioned; SSO sign-in persists no provider tokens. */
-export interface SsoProviderTokenVault {
+interface SsoProviderTokenVault {
   refreshToken: (
     target: SsoProviderRevokeTarget,
     signal?: AbortSignal

@@ -1,7 +1,6 @@
-export const DASHBOARD_INSIGHT_WINDOW_DAYS = 90 as const
-export const DASHBOARD_WEAKNESS_MIN_ATTEMPTS = 5 as const
-export const DASHBOARD_WEAKNESS_FULL_CONFIDENCE_ATTEMPTS = 20 as const
-export const DASHBOARD_RECOMMENDATION_LIMIT = 5 as const
+const DASHBOARD_INSIGHT_WINDOW_DAYS = 90 as const
+const DASHBOARD_WEAKNESS_MIN_ATTEMPTS = 5 as const
+const DASHBOARD_WEAKNESS_FULL_CONFIDENCE_ATTEMPTS = 20 as const
 
 const DAY_MILLISECONDS = 24 * 60 * 60 * 1_000
 const BASIS_POINTS = 10_000n
@@ -40,7 +39,7 @@ const READING_QUESTION_TYPES_BY_LEVEL = {
 export type DashboardInsightLevel = (typeof LEVEL_ORDER)[number]
 export type DashboardInsightSubject = (typeof SUBJECT_ORDER)[number]
 export type DashboardInsightQuestionType = (typeof QUESTION_TYPE_ORDER)[number]
-export type DashboardWeaknessDimension = 'SUBJECT' | 'QUESTION_TYPE' | 'TAG'
+type DashboardWeaknessDimension = 'SUBJECT' | 'QUESTION_TYPE' | 'TAG'
 
 interface DashboardWeaknessCandidateBase {
   readonly attemptedCount: number
@@ -84,7 +83,7 @@ export type DashboardScoredWeakness = DashboardWeaknessCandidate & {
   readonly scoreBasisPoints: number
 }
 
-export type DashboardInsightCalculationErrorCode =
+type DashboardInsightCalculationErrorCode =
   | 'DUPLICATE_WEAKNESS_KEY'
   | 'INVALID_COUNT'
   | 'INVALID_DATE'
@@ -423,7 +422,7 @@ export interface DashboardTargetPracticeCandidate {
   readonly subject: DashboardInsightSubject
 }
 
-export interface DashboardStartSessionAction {
+interface DashboardStartSessionAction {
   readonly count: 5 | 10 | 20
   readonly kind: 'START_SESSION'
   readonly level: DashboardInsightLevel
@@ -431,12 +430,12 @@ export interface DashboardStartSessionAction {
   readonly subject: DashboardInsightSubject
 }
 
-export interface DashboardStartTargetedReviewAction {
+interface DashboardStartTargetedReviewAction {
   readonly kind: 'START_TARGETED_REVIEW'
   readonly questionId: string
 }
 
-export interface DashboardOpenPracticeSetupAction {
+interface DashboardOpenPracticeSetupAction {
   readonly kind: 'OPEN_PRACTICE_SETUP'
 }
 
@@ -449,7 +448,7 @@ interface RankedRecommendation {
   readonly rank: number
 }
 
-export interface DashboardDueRecommendation extends RankedRecommendation {
+interface DashboardDueRecommendation extends RankedRecommendation {
   readonly action: DashboardStartSessionAction & {
     readonly mode: 'DAILY_REVIEW'
   }
@@ -463,8 +462,7 @@ export interface DashboardDueRecommendation extends RankedRecommendation {
   }
 }
 
-export interface DashboardRepeatedWrongRecommendation
-  extends RankedRecommendation {
+interface DashboardRepeatedWrongRecommendation extends RankedRecommendation {
   readonly action: DashboardStartTargetedReviewAction
   readonly kind: 'REPEATED_WRONG'
   readonly reason: {
@@ -478,8 +476,7 @@ export interface DashboardRepeatedWrongRecommendation
   }
 }
 
-export interface DashboardRecentTypeRecommendation
-  extends RankedRecommendation {
+interface DashboardRecentTypeRecommendation extends RankedRecommendation {
   readonly action: DashboardStartSessionAction & { readonly mode: 'WEAKNESS' }
   readonly kind: 'RECENT_LOW_ACCURACY_TYPE'
   readonly reason: {
@@ -493,8 +490,7 @@ export interface DashboardRecentTypeRecommendation
   }
 }
 
-export interface DashboardStaleSubjectRecommendation
-  extends RankedRecommendation {
+interface DashboardStaleSubjectRecommendation extends RankedRecommendation {
   readonly action: DashboardStartSessionAction & { readonly mode: 'WEAKNESS' }
   readonly kind: 'STALE_WEAK_SUBJECT'
   readonly reason: {
@@ -508,8 +504,7 @@ export interface DashboardStaleSubjectRecommendation
   }
 }
 
-export interface DashboardTargetLevelRecommendation
-  extends RankedRecommendation {
+interface DashboardTargetLevelRecommendation extends RankedRecommendation {
   readonly action: DashboardStartSessionAction & { readonly mode: 'RANDOM' }
   readonly kind: 'TARGET_LEVEL_PRACTICE'
   readonly reason: {
@@ -522,8 +517,7 @@ export interface DashboardTargetLevelRecommendation
   }
 }
 
-export interface DashboardPracticeSetupRecommendation
-  extends RankedRecommendation {
+interface DashboardPracticeSetupRecommendation extends RankedRecommendation {
   readonly action: DashboardOpenPracticeSetupAction
   readonly kind: 'PRACTICE_SETUP'
   readonly reason: {
@@ -539,13 +533,13 @@ export type DashboardRecommendation =
   | DashboardTargetLevelRecommendation
   | DashboardPracticeSetupRecommendation
 
-export type DashboardPersonalizationFallbackReason =
+type DashboardPersonalizationFallbackReason =
   | 'NO_PERSONALIZED_EVIDENCE'
   | 'TARGET_LEVEL_NOT_SET'
   | 'NO_TARGET_CATALOG'
   | null
 
-export interface BuildDashboardRecommendationsInput {
+interface BuildDashboardRecommendationsInput {
   readonly actionableWeaknessCandidateCountByLevelSubject: ReadonlyMap<
     string,
     number
@@ -557,7 +551,7 @@ export interface BuildDashboardRecommendationsInput {
   readonly weaknesses: readonly DashboardScoredWeakness[]
 }
 
-export interface DashboardRecommendationResult {
+interface DashboardRecommendationResult {
   readonly personalizationFallbackReason: DashboardPersonalizationFallbackReason
   readonly recommendations: readonly DashboardRecommendation[]
 }

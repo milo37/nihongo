@@ -55,7 +55,7 @@ export const listReviewQueueQuerySchema = pageRequestSchema
     }
   })
 
-export const reviewQueueCountsSchema = z
+const reviewQueueCountsSchema = z
   .object({
     due: safeNonNegativeIntegerSchema,
     unreviewed: safeNonNegativeIntegerSchema,
@@ -242,4 +242,3 @@ export type ReviewQueueItem = z.output<typeof reviewQueueItemSchema>
 export type ListReviewQueueResponse = z.output<
   typeof listReviewQueueResponseSchema
 >
-export type ListReviewQueueError = z.output<typeof listReviewQueueErrorSchema>

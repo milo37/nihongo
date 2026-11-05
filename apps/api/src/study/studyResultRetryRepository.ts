@@ -26,14 +26,14 @@ const UNAVAILABLE_PRISMA_CODES = new Set(['P1001', 'P1002', 'P2024'])
 const delay = async (milliseconds: number): Promise<void> =>
   await new Promise((resolve) => setTimeout(resolve, milliseconds))
 
-export interface CreateResultRetryAtomicInput {
+interface CreateResultRetryAtomicInput {
   readonly idempotencyKey: string
   readonly observedAt: Date
   readonly owner: ExistingStudyOwner
   readonly sourceSessionId: string
 }
 
-export interface CreateResultRetryAtomicResult {
+interface CreateResultRetryAtomicResult {
   readonly replayed: boolean
   readonly response: VersionedStudySessionPayload
 }
@@ -122,7 +122,7 @@ class FreshRetryTransactionError extends Error {
   }
 }
 
-export const hashStudyResultRetryCommand = (sourceSessionId: string): string =>
+const hashStudyResultRetryCommand = (sourceSessionId: string): string =>
   createHash('sha256')
     .update(`${RETRY_COMMAND_VERSION}\n${sourceSessionId}`)
     .digest('hex')

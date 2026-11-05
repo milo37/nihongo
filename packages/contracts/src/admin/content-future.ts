@@ -33,21 +33,6 @@ const addIssue = (
   message: string
 ): void => context.addIssue({ code: 'custom', path, message })
 
-export const validateQuestionImportOperationId =
-  'admin.validateQuestionImport' as const
-export const applyQuestionImportOperationId =
-  'admin.applyQuestionImport' as const
-export const createQuestionReportOperationId =
-  'report.createQuestionReport' as const
-export const listAdminQuestionReportsOperationId =
-  'admin.listAdminQuestionReports' as const
-export const getAdminQuestionReportOperationId =
-  'admin.getAdminQuestionReport' as const
-export const triageAdminQuestionReportOperationId =
-  'admin.triageAdminQuestionReport' as const
-export const resolveAdminQuestionReportOperationId =
-  'admin.resolveAdminQuestionReport' as const
-
 const exactKeySchema = (maximum: number) =>
   z
     .string()
@@ -176,10 +161,7 @@ export const adminImportItemSchema = z
   })
   .strict()
 
-export const adminImportItemsSchema = z
-  .array(adminImportItemSchema)
-  .min(1)
-  .max(100)
+const adminImportItemsSchema = z.array(adminImportItemSchema).min(1).max(100)
 
 export const validateQuestionImportRequestSchema = z
   .object({ items: adminImportItemsSchema })
@@ -205,7 +187,7 @@ export const adminImportIssueCodeSchema = z.enum([
   'DUPLICATE_QUESTION_CONTENT'
 ])
 
-export const adminImportValidationIssueSchema = z
+const adminImportValidationIssueSchema = z
   .object({
     itemIndex: z.number().int().nonnegative().max(99),
     fieldPath: z.string().regex(/^\/items\/\d+(?:\/(?:[^~/]|~[01])*)*$/u),
@@ -256,7 +238,7 @@ export const adminImportValidationResponseSchema = z
     })
   })
 
-export const normalizeAdminImportItems = (
+const normalizeAdminImportItems = (
   items: readonly AdminImportItem[]
 ): readonly CanonicalJsonValue[] =>
   items.map((item) => ({
@@ -351,7 +333,7 @@ export const assertAdminImportValidationForRequest = async (
   return response
 }
 
-export const adminImportApplyItemSchema = z
+const adminImportApplyItemSchema = z
   .object({
     clientItemId: exactKeySchema(64),
     questionId: opaqueIdSchema,
@@ -391,7 +373,7 @@ export const createAdminImportMappingDigest = async (
     )
   )
 
-export interface AdminImportApplyAssertion {
+interface AdminImportApplyAssertion {
   readonly response: AdminImportApplyResponse
   readonly mappingDigest: string
 }
@@ -476,7 +458,7 @@ export const applyQuestionImportErrorSchema = createContentOperationErrorSchema(
   applyQuestionImportErrorCodeSchema
 )
 
-export const questionReportReasonSchema = z.enum([
+const questionReportReasonSchema = z.enum([
   'ANSWER_ERROR',
   'EXPLANATION_ERROR',
   'TYPO_OR_GRAMMAR',
@@ -484,16 +466,13 @@ export const questionReportReasonSchema = z.enum([
   'LEVEL_OR_TAXONOMY',
   'OTHER'
 ])
-export const questionReportStatusSchema = z.enum([
+const questionReportStatusSchema = z.enum([
   'OPEN',
   'TRIAGED',
   'RESOLVED',
   'DISMISSED'
 ])
-export const questionReportResolutionOutcomeSchema = z.enum([
-  'RESOLVED',
-  'DISMISSED'
-])
+const questionReportResolutionOutcomeSchema = z.enum(['RESOLVED', 'DISMISSED'])
 
 const reportResolutionSchema = z
   .object({
@@ -581,7 +560,7 @@ const refineReportStatus = (
   }
 }
 
-export const questionReportSummarySchema = z
+const questionReportSummarySchema = z
   .object(reportBaseFields)
   .strict()
   .superRefine(refineReportStatus)
@@ -624,10 +603,7 @@ export const createQuestionReportRequestSchema = z
 export const createQuestionReportResponseSchema =
   questionReportMutationResultSchema
 
-export const adminQuestionReportSortSchema = z.enum([
-  'UPDATED_DESC',
-  'CREATED_DESC'
-])
+const adminQuestionReportSortSchema = z.enum(['UPDATED_DESC', 'CREATED_DESC'])
 export const listAdminQuestionReportsQuerySchema = z
   .object({
     status: questionReportStatusSchema.optional(),
@@ -985,9 +961,6 @@ export const resolveAdminQuestionReportErrorSchema =
 export type AdminQuestionContentStructureInput = z.output<
   typeof adminQuestionContentStructureInputSchema
 >
-export type AdminQuestionContentInput = z.output<
-  typeof adminQuestionContentInputSchema
->
 export type AdminImportItem = z.output<typeof adminImportItemSchema>
 export type ValidateQuestionImportRequest = z.output<
   typeof validateQuestionImportRequestSchema
@@ -1019,59 +992,9 @@ export type ListAdminQuestionReportsResponse = z.output<
 export type ResolveAdminQuestionReportRequest = z.output<
   typeof resolveAdminQuestionReportRequestSchema
 >
-export type ValidateQuestionImportResponse = AdminImportValidationResponse
-export type ApplyQuestionImportResponse = AdminImportApplyResponse
-export type CreateQuestionReportResponse = z.output<
-  typeof createQuestionReportResponseSchema
->
-export type GetAdminQuestionReportParams = z.output<
-  typeof getAdminQuestionReportParamsSchema
->
-export type GetAdminQuestionReportResponse = z.output<
-  typeof getAdminQuestionReportResponseSchema
->
-export type TriageAdminQuestionReportParams = z.output<
-  typeof triageAdminQuestionReportParamsSchema
->
 export type TriageAdminQuestionReportRequest = z.output<
   typeof triageAdminQuestionReportRequestSchema
 >
-export type TriageAdminQuestionReportResponse = z.output<
-  typeof triageAdminQuestionReportResponseSchema
->
-export type ResolveAdminQuestionReportParams = z.output<
-  typeof resolveAdminQuestionReportParamsSchema
->
-export type ResolveAdminQuestionReportResponse = z.output<
-  typeof resolveAdminQuestionReportResponseSchema
->
-export type CreateQuestionReportErrorCode = z.output<
-  typeof createQuestionReportErrorCodeSchema
->
-export type TriageAdminQuestionReportErrorCode = z.output<
-  typeof triageAdminQuestionReportErrorCodeSchema
->
-export type ResolveAdminQuestionReportErrorCode = z.output<
-  typeof resolveAdminQuestionReportErrorCodeSchema
->
-export type CreateQuestionReportError = z.output<
-  typeof createQuestionReportErrorSchema
->
-export type ListAdminQuestionReportsError = z.output<
-  typeof listAdminQuestionReportsErrorSchema
->
-export type GetAdminQuestionReportError = z.output<
-  typeof getAdminQuestionReportErrorSchema
->
-export type TriageAdminQuestionReportError = z.output<
-  typeof triageAdminQuestionReportErrorSchema
->
-export type ResolveAdminQuestionReportError = z.output<
-  typeof resolveAdminQuestionReportErrorSchema
->
-
-export const getAdminImportResultOperationId =
-  'admin.getAdminImportResult' as const
 
 /** GET /admin/question-imports/:importId recovers a lost apply response. */
 export const getAdminImportResultParamsSchema = z
