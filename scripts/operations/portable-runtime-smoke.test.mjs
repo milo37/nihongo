@@ -178,14 +178,14 @@ test('runtime evidence binds the immutable image used by the container', () => {
 test('runtime and cleanup failures retain both safe diagnostics', () => {
   const operationError = new Error('readiness failed with exit code 1')
   const cleanupError = new Error(
-    'cleanup did not complete: runtime-container:nihongo-p11-app-test'
+    'cleanup did not complete: runtime-container:nihongo-smoke-app-test'
   )
   const combined = combineRuntimeSmokeErrors(operationError, cleanupError)
 
   assert.ok(combined instanceof AggregateError)
   assert.deepEqual(combined.errors, [operationError, cleanupError])
   assert.match(combined.message, /readiness failed with exit code 1/u)
-  assert.match(combined.message, /runtime-container:nihongo-p11-app-test/u)
+  assert.match(combined.message, /runtime-container:nihongo-smoke-app-test/u)
   assert.equal(
     combineRuntimeSmokeErrors(operationError, undefined),
     operationError
@@ -236,7 +236,7 @@ test('stateful auth principal validation is strict and privacy-safe', () => {
     kind: 'USER',
     user: {
       id: '018f6b7a-1f4b-7d5e-8a91-4c27df9c10a1',
-      name: 'Phase 11 smoke',
+      name: 'Portable smoke',
       role: 'USER',
       targetLevel: 'N5'
     }
@@ -461,7 +461,7 @@ test('portable runtime requires the pinned baseline inventory and rejects count/
     '20261105090000_baseline',
     '20261106090000_remove_phase_names'
   ])
-  const directory = mkdtempSync(join(tmpdir(), 'nihongo-p11-migrations-'))
+  const directory = mkdtempSync(join(tmpdir(), 'nihongo-smoke-migrations-'))
   try {
     cpSync(source, directory, { recursive: true })
     rmSync(join(directory, names.at(-1)), { recursive: true })
@@ -672,7 +672,7 @@ test('controlled TEST probe binds the exact actor, Google persistence, question 
           kind: 'USER',
           user: {
             id: actor,
-            name: 'Phase 11 smoke',
+            name: 'Portable smoke',
             role: 'USER',
             targetLevel: 'N5'
           }
@@ -697,7 +697,7 @@ test('controlled TEST probe binds the exact actor, Google persistence, question 
   assert.match(nativeCalls[0].options.input, /createSsoIdentityRepository/u)
   assert.match(
     nativeCalls[1].options.input,
-    /s\."issuerProtocolVersion" = 'PHASE7_V1'/u
+    /s\."issuerProtocolVersion" = 'OWNED_V1'/u
   )
   assert.doesNotMatch(
     nativeCalls[1].options.input,
@@ -721,7 +721,7 @@ test('controlled TEST probe binds the exact actor, Google persistence, question 
       kind: 'USER',
       user: {
         id: '018f6b7a-1f4b-7d5e-8a91-4c27df9c10a2',
-        name: 'Phase 11 smoke',
+        name: 'Portable smoke',
         role: 'USER',
         targetLevel: 'N5'
       }
@@ -992,7 +992,7 @@ test('portable runtime smoke evidence is closed and bound to TEST', () => {
 })
 
 test('portable runtime evidence CLI rejects ambiguous and linked input', async () => {
-  const directory = mkdtempSync(join(tmpdir(), 'nihongo-p11-evidence-'))
+  const directory = mkdtempSync(join(tmpdir(), 'nihongo-smoke-evidence-'))
   try {
     const duplicatePath = join(directory, 'duplicate.json')
     const linkedPath = join(directory, 'linked.json')
@@ -1141,7 +1141,7 @@ test('canonical seed child preserves native failure with safe stage and code onl
 })
 
 test('portable TLS command arguments bind owned DNS and loopback names and expose only the public certificate', () => {
-  const host = 'nihongo-p11-db-abc123'
+  const host = 'nihongo-smoke-db-abc123'
   const directory = '/owned-test-cert'
   const argv = createPostgresCertificateArguments(host, directory)
   assert.deepEqual(argv, [
@@ -1156,7 +1156,7 @@ test('portable TLS command arguments bind owned DNS and loopback names and expos
     '-subj',
     '/CN=postgres',
     '-addext',
-    'subjectAltName=DNS:nihongo-p11-db-abc123,DNS:localhost,IP:127.0.0.1',
+    'subjectAltName=DNS:nihongo-smoke-db-abc123,DNS:localhost,IP:127.0.0.1',
     '-keyout',
     join(directory, 'server.key'),
     '-out',

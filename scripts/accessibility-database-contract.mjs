@@ -575,7 +575,7 @@ const assertIdentityContract = (facts, fixture) => {
       'ACTIVE',
       'auth authorization state'
     )
-    assertEqual(session.issuerProtocolVersion, 'PHASE7_V1', 'auth issuer')
+    assertEqual(session.issuerProtocolVersion, 'OWNED_V1', 'auth issuer')
   }
 
   assertEqual(facts.studySessions.length, 3, 'study session identity count')
