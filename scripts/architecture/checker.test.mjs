@@ -91,9 +91,7 @@ describe('architecture checker', () => {
 })
 
 const withContentOperationFixture = (run) => {
-  const root = fs.mkdtempSync(
-    path.join(tmpdir(), 'nihongo-phase7-architecture-')
-  )
+  const root = fs.mkdtempSync(path.join(tmpdir(), 'nihongo-architecture-'))
   const repository = path.resolve(directory, '../..')
   try {
     for (const relative of [
@@ -187,7 +185,7 @@ const contentOperationInput =
   "{ operation: 'listAdminQuestions', params: {}, query: {}, body: undefined }"
 const contentOperationReturn = `requestContentOperation(${contentOperationInput})`
 
-describe('canonical Phase7 endpoint validation', () => {
+describe('canonical admin endpoint validation', () => {
   it('allows all six actual endpoints and checked returns with source/dist contract identities', () =>
     withContentOperationFixture(({ sourceRoot, files, add, check }) => {
       for (const name of [
@@ -202,11 +200,11 @@ describe('canonical Phase7 endpoint validation', () => {
           files.push(path.join(sourceRoot, 'api/admin-question', name, leaf))
       }
       add(
-        'getAwaitedPhase7',
+        'getAwaitedFixture',
         `${contentOperationImport}export const endpoint = async () => await ${contentOperationReturn}`
       )
       add(
-        'getConstPhase7',
+        'getConstFixture',
         `${contentOperationImport}export const endpoint = async () => { const result = await ${contentOperationReturn}; return result }`
       )
       assert.deepEqual(check('src'), [])
@@ -220,7 +218,7 @@ describe('canonical Phase7 endpoint validation', () => {
         'packages/browser/src/api/content-operations/requestContentOperation.ts'
       )
       const helper = fs.readFileSync(helperPath, 'utf8')
-      const endpoint = 'getAliasIdentityPhase7'
+      const endpoint = 'getAliasIdentityFixture'
       add(
         endpoint,
         `${contentOperationImport}export const endpoint = () => ${contentOperationReturn}`
@@ -276,126 +274,126 @@ describe('canonical Phase7 endpoint validation', () => {
       )
       const cases = new Map([
         [
-          'getFakePhase7',
+          'getFakeFixture',
           `import { requestContentOperation } from '../../content-operations/fakeHelper'; export const endpoint = () => ${contentOperationReturn}`
         ],
         [
-          'getReexportedPhase7',
+          'getReexportedFixture',
           `import { requestContentOperation } from '../../content-operations/facade'; export const endpoint = () => ${contentOperationReturn}`
         ],
         [
-          'getFakeReexportPhase7',
+          'getFakeReexportFixture',
           `import { requestContentOperation } from '../../content-operations/fakeFacade'; export const endpoint = () => ${contentOperationReturn}`
         ],
         [
-          'getRenamedPhase7',
+          'getRenamedFixture',
           `import { requestContentOperation as renamed } from '../../content-operations/requestContentOperation'; export const endpoint = () => renamed(${contentOperationInput})`
         ],
         [
-          'getVariableAliasPhase7',
+          'getVariableAliasFixture',
           `${contentOperationImport}const renamed = requestContentOperation; export const endpoint = () => renamed(${contentOperationInput})`
         ],
         [
-          'getRawRenamedPhase7',
+          'getRawRenamedFixture',
           `import { get as requestContentOperation } from '../../http'; export const endpoint = () => ${contentOperationReturn}`
         ],
         [
-          'getLocalFakePhase7',
+          'getLocalFakeFixture',
           `const requestContentOperation = async (_input: unknown) => ({}); export const endpoint = () => ${contentOperationReturn}`
         ],
         [
-          'getUnknownPhase7',
+          'getUnknownFixture',
           `${contentOperationImport}export const endpoint = () => requestContentOperation({ operation: 'unknownOperation', params: {}, query: {}, body: undefined })`
         ],
         [
-          'getDynamicPhase7',
+          'getDynamicFixture',
           `${contentOperationImport}const operation = 'listAdminQuestions'; export const endpoint = () => requestContentOperation({ operation, params: {}, query: {}, body: undefined })`
         ],
         [
-          'getSpreadPhase7',
+          'getSpreadFixture',
           `${contentOperationImport}export const endpoint = () => requestContentOperation({ operation: 'listAdminQuestions', ...{}, params: {}, query: {}, body: undefined })`
         ],
         [
-          'getDuplicatePhase7',
+          'getDuplicateFixture',
           `${contentOperationImport}export const endpoint = () => requestContentOperation({ operation: 'listAdminQuestions', operation: 'getAdminQuestion', params: {}, query: {}, body: undefined })`
         ],
         [
-          'getComputedPhase7',
+          'getComputedFixture',
           `${contentOperationImport}export const endpoint = () => requestContentOperation({ ['operation']: 'listAdminQuestions', params: {}, query: {}, body: undefined })`
         ],
         [
-          'getInputAliasPhase7',
+          'getInputAliasFixture',
           `${contentOperationImport}const input = ${contentOperationInput}; export const endpoint = () => requestContentOperation(input)`
         ],
         [
-          'getIgnoredPhase7',
+          'getIgnoredFixture',
           `${contentOperationImport}export const endpoint = () => { void ${contentOperationReturn}; return {} }`
         ],
         [
-          'getUncheckedBranchPhase7',
+          'getUncheckedBranchFixture',
           `${contentOperationImport}export const endpoint = (flag: boolean) => { if (flag) return {}; return ${contentOperationReturn} }`
         ],
         [
-          'getUncheckedExportPhase7',
+          'getUncheckedExportFixture',
           `${contentOperationImport}export const endpoint = () => ${contentOperationReturn}; export const unchecked = () => ({})`
         ],
         [
-          'getFetchAliasPhase7',
+          'getFetchAliasFixture',
           `${contentOperationImport}const raw = fetch; export const endpoint = () => { void raw('/api'); return ${contentOperationReturn} }`
         ],
         [
-          'getWindowFetchPhase7',
+          'getWindowFetchFixture',
           `${contentOperationImport}export const endpoint = () => { void window.fetch('/api'); return ${contentOperationReturn} }`
         ],
         [
-          'getHttpAliasPhase7',
+          'getHttpAliasFixture',
           `${contentOperationImport}import { get } from '../../http'; const raw = get; export const endpoint = () => { void raw('/api'); return ${contentOperationReturn} }`
         ],
         [
-          'getClientAliasPhase7',
+          'getClientAliasFixture',
           `${contentOperationImport}import { apiClient } from '../../config'; const client = apiClient; export const endpoint = () => { void client.get('/api'); return ${contentOperationReturn} }`
         ],
         [
-          'getClientMethodPhase7',
+          'getClientMethodFixture',
           `${contentOperationImport}import { apiClient } from '../../config'; const raw = apiClient.get; export const endpoint = () => { void raw('/api'); return ${contentOperationReturn} }`
         ],
         [
-          'getClientDestructurePhase7',
+          'getClientDestructureFixture',
           `${contentOperationImport}import { apiClient } from '../../config'; const { get: raw } = apiClient; export const endpoint = () => { void raw('/api'); return ${contentOperationReturn} }`
         ],
         [
-          'getAxiosPhase7',
+          'getAxiosFixture',
           `${contentOperationImport}import axios from 'axios'; export const endpoint = () => { void axios.get('/api'); return ${contentOperationReturn} }`
         ]
       ])
       for (const [name, source] of cases) add(name, source)
       add(
-        'getMissingSchemaPhase7',
+        'getMissingSchemaFixture',
         `${contentOperationImport}export const endpoint = () => ${contentOperationReturn}`,
         null
       )
       add(
-        'getFakeSchemaPhase7',
+        'getFakeSchemaFixture',
         `${contentOperationImport}export const endpoint = () => ${contentOperationReturn}`,
         "import { z } from 'zod'; export const fakeRequestSchema = z.object({}).strict(); export const fakeResponseSchema = z.object({}).strict()"
       )
       add(
-        'getWrongRequestPhase7',
+        'getWrongRequestFixture',
         `${contentOperationImport}export const endpoint = () => ${contentOperationReturn}`,
         "export { getAdminQuestionParamsSchema as wrongRequestSchema, listAdminQuestionsResponseSchema as correctResponseSchema } from '@nihongo/contracts/admin/phase7'"
       )
       add(
-        'getWrongResponsePhase7',
+        'getWrongResponseFixture',
         `${contentOperationImport}export const endpoint = () => ${contentOperationReturn}`,
         "export { listAdminQuestionsQuerySchema as correctRequestSchema, getAdminQuestionResponseSchema as wrongResponseSchema } from '@nihongo/contracts/admin/phase7'"
       )
       const diagnostics = check()
       for (const name of [
         ...cases.keys(),
-        'getMissingSchemaPhase7',
-        'getFakeSchemaPhase7',
-        'getWrongRequestPhase7',
-        'getWrongResponsePhase7'
+        'getMissingSchemaFixture',
+        'getFakeSchemaFixture',
+        'getWrongRequestFixture',
+        'getWrongResponseFixture'
       ]) {
         assert.deepEqual(
           diagnostics
