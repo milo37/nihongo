@@ -217,8 +217,7 @@ const createSubmittedIncorrectSession = async (
       durationSec: 0,
       expectedDraftRevision: 0
     },
-    { kind: 'USER', userId },
-    2
+    { kind: 'USER', userId }
   )
   return session
 }
@@ -433,8 +432,7 @@ describe('StudyDraft cold cleanup', () => {
             session.id,
             randomUUID(),
             { answers: body.answers, durationSec: 0, expectedDraftRevision: 1 },
-            owner,
-            2
+            owner
           )
         ).rejects.toThrow()
       }
@@ -643,8 +641,7 @@ describe('StudyDraft cold cleanup', () => {
         durationSec: 0,
         expectedDraftRevision: 0
       },
-      owner,
-      2
+      owner
     )
 
     const first = await cleanupService.cleanup({ batchSize: 1 })

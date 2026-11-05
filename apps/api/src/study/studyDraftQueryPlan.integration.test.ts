@@ -530,8 +530,7 @@ const createExpiredRetryFixture = async (
       durationSec: 0,
       expectedDraftRevision: 0
     },
-    { kind: 'USER', userId },
-    2
+    { kind: 'USER', userId }
   )
   const retry = await createStudyResultRetryService(
     createPrismaStudyResultRetryRepository(database.client),
@@ -579,8 +578,7 @@ const createExpiredGuestRetryFixture = async (
       durationSec: 0,
       expectedDraftRevision: 0
     },
-    owner,
-    2
+    owner
   )
   const retry = await createStudyResultRetryService(
     createPrismaStudyResultRetryRepository(database.client),

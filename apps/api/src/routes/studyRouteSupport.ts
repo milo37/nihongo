@@ -8,20 +8,11 @@ import type { ExistingStudyOwner } from '../study/studySessionRepository.js'
 import { GUEST_COOKIE_NAME } from './principal.js'
 import { appendAuthHeaders } from './routeSupport.js'
 
-export const resolvePracticeContractVersion = (
-  value: string | undefined,
-  practiceContractV2Enabled: boolean
-): 1 | 2 => {
-  if (value === undefined || value === '2') {
-    if (!practiceContractV2Enabled) {
-      throw new ApplicationError({
-        code: 'INVALID_REQUEST',
-        message: '이 배포 세대에서는 practice contract 2를 사용할 수 없습니다.',
-        retryable: false
-      })
-    }
-    return 2
-  }
+/** Practice contract 2 is the only contract; the header may be omitted. */
+export const assertPracticeContractHeader = (
+  value: string | undefined
+): void => {
+  if (value === undefined || value === '2') return
   throw new ApplicationError({
     code: 'INVALID_REQUEST',
     message: 'X-Nihongo-Practice-Contract header 값이 올바르지 않습니다.',

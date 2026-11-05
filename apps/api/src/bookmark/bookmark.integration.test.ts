@@ -528,8 +528,7 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
         mode: 'BOOKMARK',
         subject: 'VOCABULARY'
       },
-      { kind: 'USER', userId: ownerId },
-      2
+      { kind: 'USER', userId: ownerId }
     )
 
     expect(created.payload.session).toMatchObject({
@@ -567,8 +566,7 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
           mode: 'BOOKMARK',
           subject: 'VOCABULARY'
         },
-        { kind: 'USER', userId: foreignId },
-        2
+        { kind: 'USER', userId: foreignId }
       )
     ).rejects.toMatchObject({ code: 'NO_ELIGIBLE_QUESTIONS' })
   })
@@ -634,8 +632,7 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
             mode: 'BOOKMARK',
             subject: 'VOCABULARY'
           },
-          { kind: 'USER', userId: ownerId },
-          2
+          { kind: 'USER', userId: ownerId }
         )
         const selected = await Promise.race([
           selectionLocked,
@@ -763,8 +760,7 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
               mode: 'BOOKMARK',
               subject: 'VOCABULARY'
             },
-            { kind: 'USER', userId: ownerId },
-            2
+            { kind: 'USER', userId: ownerId }
           )
         ).rejects.toMatchObject({ code: 'NO_ELIGIBLE_QUESTIONS' })
       } finally {

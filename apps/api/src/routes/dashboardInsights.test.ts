@@ -103,7 +103,6 @@ const createEnvironment = (
     HOST: '127.0.0.1',
     PORT: '4201',
     RELEASE_ID: '1'.repeat(40),
-    PRACTICE_CONTRACT_RUNTIME: 'v1-v2',
     LOG_LEVEL: 'silent'
   })
 }

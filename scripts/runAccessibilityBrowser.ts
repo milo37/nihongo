@@ -483,10 +483,8 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
     NODE_ENV: 'test',
     DEPLOYMENT_ENVIRONMENT: 'TEST',
     PORT: String(apiPort),
-    PRACTICE_CONTRACT_RUNTIME: 'v1-v2',
     TRUSTED_ORIGINS: webOrigin
   }
-  delete apiEnvironment.PRACTICE_COMPATIBILITY_AUTHORITY_FILE
   for (const key of [
     'GOOGLE_CLIENT_ID',
     'GOOGLE_CLIENT_SECRET',

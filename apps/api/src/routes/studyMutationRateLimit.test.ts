@@ -127,7 +127,6 @@ const fixture = () => {
       guestPrincipalService,
       principalService,
       rateLimiter,
-      practiceContractV2Enabled: true,
       studySessionService: { create } as unknown as StudySessionService
     })
   )
@@ -138,7 +137,6 @@ const fixture = () => {
       guestPrincipalService,
       principalService,
       rateLimiter,
-      practiceContractV2Enabled: true,
       studySubmissionService
     })
   )
@@ -289,11 +287,7 @@ describe('study creation contract default', () => {
         })
       })
     expect((await request({})).status).toBe(200)
-    expect(f.create).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.anything(),
-      2
-    )
+    expect(f.create).toHaveBeenCalledWith(expect.anything(), expect.anything())
     expect((await request({ 'X-Nihongo-Practice-Contract': '1' })).status).toBe(
       400
     )

@@ -36,7 +36,7 @@ const session: StudySessionRecord = {
 }
 
 describe('practice contract retirement', () => {
-  it('defaults creation to v2 and rejects explicit v1 before repository writes', async () => {
+  it('creates practice contract 2 sessions', async () => {
     const create = vi.fn(async () => ({ session, issuedGuestCredential: null }))
     const repository: StudySessionRepository = {
       create,
@@ -49,9 +49,6 @@ describe('practice contract retirement', () => {
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({ practiceContractVersion: 2 })
     )
-    await expect(service.create(input, owner, 1)).rejects.toMatchObject({
-      code: 'PRACTICE_CONTRACT_VERSION_MISMATCH'
-    })
     expect(create).toHaveBeenCalledTimes(1)
   })
 
@@ -103,24 +100,5 @@ describe('practice contract retirement', () => {
       )
     ).rejects.toMatchObject({ code: 'PRACTICE_CONTRACT_VERSION_MISMATCH' })
     expect(submitAtomic).not.toHaveBeenCalled()
-  })
-
-  it('rejects explicit v1 submissions before idempotency or repository access', async () => {
-    const preloadOwned = vi.fn<StudySubmissionRepository['preloadOwned']>()
-    const service = createStudySubmissionService({
-      preloadOwned,
-      findOwnedResult: vi.fn(),
-      submitAtomic: vi.fn()
-    })
-    await expect(
-      service.submit(
-        'session',
-        'key',
-        { answers: [], durationSec: 0 },
-        owner,
-        1
-      )
-    ).rejects.toMatchObject({ code: 'PRACTICE_CONTRACT_VERSION_MISMATCH' })
-    expect(preloadOwned).not.toHaveBeenCalled()
   })
 })

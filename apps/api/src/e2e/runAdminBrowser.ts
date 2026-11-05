@@ -426,11 +426,9 @@ export const runReal = async (): Promise<void> => {
     LOG_LEVEL: 'silent',
     NODE_ENV: 'test',
     PORT: String(apiPort),
-    PRACTICE_CONTRACT_RUNTIME: 'v1-v2',
     TRUSTED_ORIGINS: publicOrigin,
     RELEASE_ID: releaseId
   }
-  delete apiEnvironment.PRACTICE_COMPATIBILITY_AUTHORITY_FILE
   for (const key of [
     'GOOGLE_CLIENT_ID',
     'GOOGLE_CLIENT_SECRET',

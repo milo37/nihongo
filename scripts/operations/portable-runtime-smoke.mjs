@@ -316,7 +316,6 @@ export const createRuntimeEnvironment = ({
     NODE_ENV: 'production',
     NODE_EXTRA_CA_CERTS: '/certs/server.crt',
     PORT: '3001',
-    PRACTICE_CONTRACT_RUNTIME: 'v1-v2',
     RELEASE_ID: assertReleaseId(releaseId),
     TRUSTED_ORIGINS: 'https://smoke.invalid'
   }

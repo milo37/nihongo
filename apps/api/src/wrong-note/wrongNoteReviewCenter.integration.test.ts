@@ -934,8 +934,7 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
               tag: currentTag
             }
           }),
-          { kind: 'USER', userId: fixture.userId },
-          2
+          { kind: 'USER', userId: fixture.userId }
         )
         const session = createStudySessionV2ResponseSchema.parse(
           created.payload
@@ -1159,8 +1158,7 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
                     tag: currentTag
                   }
                 }),
-                { kind: 'USER', userId: fixture.userId },
-                2
+                { kind: 'USER', userId: fixture.userId }
               )
               const session = createStudySessionV2ResponseSchema.parse(
                 created.payload

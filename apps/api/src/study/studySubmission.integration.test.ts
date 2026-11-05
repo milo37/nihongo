@@ -453,13 +453,7 @@ describe('Study submission PostgreSQL transaction', () => {
     )
     const idempotencyKey = randomUUID()
 
-    const first = await service.submit(
-      session.id,
-      idempotencyKey,
-      body,
-      owner,
-      2
-    )
+    const first = await service.submit(session.id, idempotencyKey, body, owner)
     const response = studyResultSchema.parse(first.response)
 
     expect(first.replayed).toBe(false)
@@ -491,8 +485,7 @@ describe('Study submission PostgreSQL transaction', () => {
       session.id,
       idempotencyKey,
       { ...body, answers: [...body.answers].reverse() },
-      owner,
-      2
+      owner
     )
     expect(replay).toMatchObject({ replayed: true, response: first.response })
     expect(await countSessionAnswers(session.id)).toBe(2)
@@ -507,12 +500,11 @@ describe('Study submission PostgreSQL transaction', () => {
         session.id,
         idempotencyKey,
         { ...body, durationSec: body.durationSec + 1 },
-        owner,
-        2
+        owner
       )
     ).rejects.toMatchObject({ code: 'IDEMPOTENCY_KEY_REUSED' })
     await expect(
-      service.submit(session.id, randomUUID(), body, owner, 2)
+      service.submit(session.id, randomUUID(), body, owner)
     ).rejects.toMatchObject({
       code: 'SESSION_ALREADY_SUBMITTED',
       location: `/api/v1/study-sessions/${session.id}/result`
@@ -533,8 +525,7 @@ describe('Study submission PostgreSQL transaction', () => {
       secondSession.id,
       randomUUID(),
       secondBody,
-      owner,
-      2
+      owner
     )
     const existingReviewItems = second.response.items.filter(
       ({ wrongNoteStatus }) => wrongNoteStatus !== null
@@ -573,8 +564,7 @@ describe('Study submission PostgreSQL transaction', () => {
           createBody([historical.material], () => null),
           startedAt
         ),
-        owner,
-        2
+        owner
       )
     }
 
@@ -631,8 +621,7 @@ describe('Study submission PostgreSQL transaction', () => {
         durationSec: 0,
         expectedDraftRevision: 0
       },
-      owner,
-      2
+      owner
     )
 
     await database.client.bookmark.create({
@@ -659,8 +648,7 @@ describe('Study submission PostgreSQL transaction', () => {
         durationSec: 0,
         expectedDraftRevision: 0
       },
-      owner,
-      2
+      owner
     )
 
     const beforePointerUpdate =
@@ -699,8 +687,7 @@ describe('Study submission PostgreSQL transaction', () => {
         durationSec: 0,
         expectedDraftRevision: 0
       },
-      owner,
-      2
+      owner
     )
 
     const daily = await createModeSession('DAILY_REVIEW', DAY_MS + 30_000)
@@ -720,8 +707,7 @@ describe('Study submission PostgreSQL transaction', () => {
         durationSec: 0,
         expectedDraftRevision: 0
       },
-      owner,
-      2
+      owner
     )
 
     const targetedAt = new Date(baseTime + DAY_MS + 40_000)
@@ -764,8 +750,7 @@ describe('Study submission PostgreSQL transaction', () => {
       targeted.response.session.id,
       targetedSubmitKey,
       targetedSubmitBody,
-      owner,
-      2
+      owner
     )
     expect(targetedSubmission.replayed).toBe(false)
     await expect(
@@ -773,8 +758,7 @@ describe('Study submission PostgreSQL transaction', () => {
         targeted.response.session.id,
         targetedSubmitKey,
         targetedSubmitBody,
-        owner,
-        2
+        owner
       )
     ).resolves.toMatchObject({
       replayed: true,
@@ -870,8 +854,7 @@ describe('Study submission PostgreSQL transaction', () => {
           createBody([history.material], () => null),
           startedAt
         ),
-        owner,
-        2
+        owner
       )
     }
 
@@ -944,8 +927,7 @@ describe('Study submission PostgreSQL transaction', () => {
           createBody([history.material], () => null),
           startedAt
         ),
-        owner,
-        2
+        owner
       )
     }
 
@@ -996,7 +978,7 @@ describe('Study submission PostgreSQL transaction', () => {
     )
 
     await expect(
-      service.submit(session.id, randomUUID(), body, foreignOwner, 2)
+      service.submit(session.id, randomUUID(), body, foreignOwner)
     ).rejects.toMatchObject({ code: 'RESOURCE_NOT_FOUND' })
     await expect(
       service.getResult(session.id, foreignOwner)
@@ -1040,8 +1022,7 @@ describe('Study submission PostgreSQL transaction', () => {
         createBody(material, ({ correctOptionId }) => correctOptionId),
         startedAt
       ),
-      owner,
-      2
+      owner
     )
     const stored = await database.client.studySession.findUniqueOrThrow({
       where: { id: session.id },
@@ -1096,8 +1077,7 @@ describe('Study submission PostgreSQL transaction', () => {
         session.id,
         randomUUID(),
         { ...validBody, answers: validBody.answers.slice(0, 1) },
-        owner,
-        2
+        owner
       )
     ).rejects.toMatchObject({ code: 'DRAFT_SUBMIT_MISMATCH' })
     await expect(
@@ -1115,8 +1095,7 @@ describe('Study submission PostgreSQL transaction', () => {
               : answer
           )
         },
-        owner,
-        2
+        owner
       )
     ).rejects.toMatchObject({ code: 'DRAFT_SUBMIT_MISMATCH' })
     await expect(
@@ -1131,8 +1110,7 @@ describe('Study submission PostgreSQL transaction', () => {
               : answer
           )
         },
-        owner,
-        2
+        owner
       )
     ).rejects.toMatchObject({ code: 'DRAFT_SUBMIT_MISMATCH' })
     expect(await countSessionAnswers(session.id)).toBe(0)
@@ -1237,8 +1215,7 @@ describe('Study submission PostgreSQL transaction', () => {
           session.id,
           randomUUID(),
           body,
-          owner,
-          2
+          owner
         )
 
         expect(submitted.response).toMatchObject({
@@ -1297,13 +1274,7 @@ describe('Study submission PostgreSQL transaction', () => {
     )
     const idempotencyKey = randomUUID()
 
-    const first = await service.submit(
-      session.id,
-      idempotencyKey,
-      body,
-      owner,
-      2
-    )
+    const first = await service.submit(session.id, idempotencyKey, body, owner)
     const afterFirst = await database.client.guestPrincipal.findUniqueOrThrow({
       where: { id: owner.guestPrincipalId },
       select: { lastSeenAt: true, expiresAt: true }
@@ -1321,13 +1292,7 @@ describe('Study submission PostgreSQL transaction', () => {
       })
     ).toBe(0)
 
-    const replay = await service.submit(
-      session.id,
-      idempotencyKey,
-      body,
-      owner,
-      2
-    )
+    const replay = await service.submit(session.id, idempotencyKey, body, owner)
     const afterReplay = await database.client.guestPrincipal.findUniqueOrThrow({
       where: { id: owner.guestPrincipalId },
       select: { lastSeenAt: true, expiresAt: true }
@@ -1381,8 +1346,7 @@ describe('Study submission PostgreSQL transaction', () => {
           createBody(material, () => null),
           startedAt
         ),
-        owner,
-        2
+        owner
       )
     ).rejects.toBe(failure)
     await expect(
@@ -1435,7 +1399,7 @@ describe('Study submission PostgreSQL transaction', () => {
     )
 
     await expect(
-      failingService.submit(session.id, idempotencyKey, body, owner, 2)
+      failingService.submit(session.id, idempotencyKey, body, owner)
     ).rejects.toBe(failure)
     expect(await countSessionAnswers(session.id)).toBe(0)
     expect(
@@ -1458,7 +1422,7 @@ describe('Study submission PostgreSQL transaction', () => {
     const recovered = await createStudySubmissionService(
       submissionRepository,
       () => new Date(observedAt)
-    ).submit(session.id, idempotencyKey, body, owner, 2)
+    ).submit(session.id, idempotencyKey, body, owner)
     expect(recovered.replayed).toBe(false)
     expect(await countSessionAnswers(session.id)).toBe(1)
   })
@@ -1513,21 +1477,9 @@ describe('Study submission PostgreSQL transaction', () => {
     )
     const idempotencyKey = randomUUID()
 
-    const winner = winnerService.submit(
-      session.id,
-      idempotencyKey,
-      body,
-      owner,
-      2
-    )
+    const winner = winnerService.submit(session.id, idempotencyKey, body, owner)
     await winnerReserved
-    const waiter = loserService.submit(
-      session.id,
-      idempotencyKey,
-      body,
-      owner,
-      2
-    )
+    const waiter = loserService.submit(session.id, idempotencyKey, body, owner)
     await loserMissedExisting
     releaseWinner()
 
@@ -1583,8 +1535,8 @@ describe('Study submission PostgreSQL transaction', () => {
     )
 
     const submissions = [
-      service.submit(session.id, randomUUID(), body, owner, 2),
-      service.submit(session.id, randomUUID(), body, owner, 2)
+      service.submit(session.id, randomUUID(), body, owner),
+      service.submit(session.id, randomUUID(), body, owner)
     ]
     await bothReserved
     releaseReservations()
@@ -1668,8 +1620,7 @@ describe('Study submission PostgreSQL transaction', () => {
           durationSec: 10,
           expectedDraftRevision: 0
         },
-        owner,
-        2
+        owner
       )
     )
     await bothReserved
@@ -1800,21 +1751,9 @@ describe('Study submission PostgreSQL transaction', () => {
     )
     const idempotencyKey = randomUUID()
 
-    const winner = winnerService.submit(
-      session.id,
-      idempotencyKey,
-      body,
-      owner,
-      2
-    )
+    const winner = winnerService.submit(session.id, idempotencyKey, body, owner)
     await reservationHeld
-    const loser = loserService.submit(
-      session.id,
-      idempotencyKey,
-      body,
-      owner,
-      2
-    )
+    const loser = loserService.submit(session.id, idempotencyKey, body, owner)
     await loserMissedExisting
     releaseWinner()
 
