@@ -46,7 +46,7 @@ import {
 } from '@mocks/adapters/questionContractAdapter'
 import type { MockCanonicalAdminQuestionSource } from '@mocks/repository/mockDatabase'
 import { MockStorageRecoveryError } from '@mocks/repository/mockMutationCoordinator'
-import { toPracticeQuestion } from '@mocks/logic/question'
+import { toPracticeQuestion } from '@util/question'
 
 const clone = <Value>(value: Value): Value => structuredClone(value)
 
