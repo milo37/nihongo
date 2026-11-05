@@ -19,7 +19,7 @@ import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { fileURLToPath } from 'node:url'
 import { Client } from 'pg'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { buildHistoricalCanonicalSeeds } from './fixtures/historicalCanonicalSeeds.js'
 import type { QuestionAggregateSeed } from '../../prisma/seed-data/buildQuestionSeed.js'
 import { parseApiEnvironment } from '../config/env.js'
@@ -81,6 +81,54 @@ const adminApiRuleMigrations = [
   '20261110090000_cms_rules_to_api',
   '20261110100000_admin_audit_to_api'
 ] as const
+// This file runs the current admin commands on the historical33 schema. The
+// API authority of #504 P7 needs grants from a later migration, so here the
+// commands keep the SQL authority functions that the historical33 schema has.
+vi.mock('../admin/adminOperationAuthority.js', () => ({
+  beginAdminOperation: async (
+    transaction: {
+      $queryRawUnsafe: <Row>(
+        query: string,
+        ...values: unknown[]
+      ) => Promise<Row>
+    },
+    input: {
+      auditEnvironment: string
+      command: string
+      rawSessionToken: string
+      referencedUserIds: readonly string[]
+    }
+  ) => {
+    const rows = await transaction.$queryRawUnsafe<
+      Array<{ actorUserId: string; operationId: string }>
+    >(
+      `SELECT * FROM "phase7_begin_admin_operation"(
+         $1::"AdminAuditCommand", $2, $3::uuid, $4::"AdminAuditEnvironment",
+         $5::uuid[]
+       )`,
+      input.command,
+      input.rawSessionToken,
+      randomUUID(),
+      input.auditEnvironment,
+      input.referencedUserIds
+    )
+    return rows[0]
+  },
+  finishAdminOperation: async (
+    transaction: {
+      $executeRawUnsafe: (
+        query: string,
+        ...values: unknown[]
+      ) => Promise<number>
+    },
+    operationId: string
+  ) => {
+    await transaction.$executeRawUnsafe(
+      `SELECT "phase7_finish_admin_operation"($1)`,
+      operationId
+    )
+  }
+}))
 const approvedPriorMigrationSha256 = {
   '20260812130000_phase3_operational_baseline':
     '1f87c37afd796fd68b0af03e9ed46e67a54ad3718207da66989c3b09cc036351',

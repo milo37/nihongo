@@ -38,7 +38,6 @@ import {
   type AuditEnvironment,
   type TargetManifest,
   type OperationContext,
-  type BegunOperationRow,
   type AuthorityProbeRow,
   type AdminAuthorityClassificationRow,
   CREATE_CHANGED_FIELDS,
@@ -55,6 +54,7 @@ import {
   armAdminOperation,
   type ArmableOperation
 } from './adminOperationArm.js'
+import { beginAdminOperation } from './adminOperationAuthority.js'
 import {
   AdminQuestionCommandRepositoryError,
   type AdminCommandAuthority
@@ -291,17 +291,12 @@ const beginOperation = async (
     readonly referencedUserIds: readonly string[]
   }
 ): Promise<ArmableOperation> => {
-  const rows = await transaction.$queryRawUnsafe<BegunOperationRow[]>(
-    `SELECT * FROM "phase7_begin_admin_operation"(
-       $1::"AdminAuditCommand", $2, $3, $4::"AdminAuditEnvironment", $5::uuid[]
-     )`,
-    input.command,
-    input.authority.rawSessionToken,
-    input.authority.requestId,
-    input.auditEnvironment,
-    input.referencedUserIds
-  )
-  const operation = rows[0]
+  const operation = await beginAdminOperation(transaction, {
+    auditEnvironment: input.auditEnvironment,
+    command: input.command,
+    rawSessionToken: input.authority.rawSessionToken,
+    referencedUserIds: input.referencedUserIds
+  })
   if (!operation || operation.actorUserId !== input.authority.actorId) {
     throw repositoryInvariantFailure(
       'Phase 7 operation actor did not match the request actor.'

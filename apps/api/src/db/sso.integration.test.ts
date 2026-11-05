@@ -7,7 +7,11 @@ import { assertSafeMigrationDatabase } from './databaseTargetGuard.js'
 import { createPostgresStartupOptions } from './databaseOptions.js'
 import { createSsoAdminFreshRepository } from '../auth/ssoAdminFreshRepository.js'
 import { createSsoIdentityRepository } from '../auth/ssoIdentityRepository.js'
-import type { PrismaClient } from '../generated/prisma/client.js'
+import {
+  beginAdminOperation,
+  finishAdminOperation
+} from '../admin/adminOperationAuthority.js'
+import type { Prisma, PrismaClient } from '../generated/prisma/client.js'
 import { loadExpectedMigrationManifest } from './readiness.js'
 import { createSsoDbHarness, digest } from './ssoTestFixture.js'
 import type { SsoFixture } from './ssoTestFixture.js'
@@ -64,8 +68,17 @@ const unchangedSession = {
   finalized: 0
 }
 
+/** Runs the API admin operation on a raw pg connection inside its transaction. */
+const apiTransaction = (client: Client): Prisma.TransactionClient =>
+  ({
+    $queryRawUnsafe: async (sql: string, ...values: unknown[]) =>
+      (await client.query(sql, values)).rows,
+    $executeRawUnsafe: async (sql: string, ...values: unknown[]) =>
+      (await client.query(sql, values)).rowCount ?? 0
+  }) as unknown as Prisma.TransactionClient
+
 describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
-  it('deploy and re-entry leave exactly66 completed names/checksums preserving the old65 prefix', async () => {
+  it('deploy and re-entry leave exactly67 completed names/checksums preserving the old66 prefix', async () => {
     const expected = loadExpectedMigrationManifest(
       fileURLToPath(new URL('../../prisma/migrations/', import.meta.url))
     )
@@ -76,7 +89,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     }>(
       `SELECT migration_name AS name,checksum,finished_at IS NOT NULL AND rolled_back_at IS NULL AS complete FROM "_prisma_migrations" WHERE rolled_back_at IS NULL ORDER BY migration_name`
     )
-    expect(expected).toHaveLength(66)
+    expect(expected).toHaveLength(67)
     expect(
       actual.rows.map(({ name, checksum }) => ({ name, checksum }))
     ).toEqual(expected)
@@ -195,11 +208,16 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         name: '20261112090000_merge_runtime_roles',
         checksum:
           '3b07241f98ba2f8f8087ece67d522d8b542a1b10e408191e402fd477f8a019f7'
+      },
+      {
+        name: '20261113090000_admin_operation_to_api',
+        checksum:
+          'b6fa895ed7f6341ba12341a65cb7acc1099f14d111b16f921ee2687595f05259'
       }
     ])
     // Existing runner executes canonical deploy then db:migrate:deploy re-entry
     // before this suite. One completed row per name proves no duplicate apply.
-    expect(new Set(actual.rows.map((row) => row.name)).size).toBe(66)
+    expect(new Set(actual.rows.map((row) => row.name)).size).toBe(67)
   })
 
   it('new private objects have exact owner, search_path and least-privilege ACLs', async () => {
@@ -861,35 +879,50 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       const f = await h.fixture()
       const { proof } = await staged(f)
       const next = await h.rotate(f, proof)
-      await h.owner.query(
-        'SET CONSTRAINTS "Phase7OperationIntent_must_finish" DEFERRED'
-      )
-      const begin = `SELECT * FROM "phase7_begin_admin_operation"('EXPORT',$1,$2,'TEST',ARRAY[$3]::uuid[])`
-      await h.rejects(
-        'nihongo_app',
-        begin,
-        [f.token, randomUUID(), f.userId],
-        '42501'
-      )
-      expect(
-        (
-          await h.roleQuery('nihongo_app', begin, [
-            next.token,
-            randomUUID(),
-            f.userId
-          ])
-        ).rowCount
-      ).toBe(1)
+      // #504 P7 PR2: the API admin operation replaces the SQL begin and the
+      // deferred SSO fresh constraint; its commit re-check sees the expiry.
+      const asApp = async <Result>(action: () => Promise<Result>) => {
+        await h.owner.query('SAVEPOINT phase7_api_admin_operation')
+        await h.owner.query('SET LOCAL ROLE "nihongo_app"')
+        try {
+          return { ok: true as const, value: await action() }
+        } catch (error: unknown) {
+          return {
+            ok: false as const,
+            code: (error as { code?: unknown }).code
+          }
+        } finally {
+          await h.owner.query(
+            'ROLLBACK TO SAVEPOINT phase7_api_admin_operation'
+          )
+        }
+      }
+      const begin = (token: string) =>
+        beginAdminOperation(apiTransaction(h.owner), {
+          auditEnvironment: 'TEST',
+          command: 'EXPORT',
+          rawSessionToken: token,
+          referencedUserIds: [f.userId]
+        })
+      expect(await asApp(() => begin(f.token))).toEqual({
+        ok: false,
+        code: '42501'
+      })
+      const admitted = await asApp(() => begin(next.token))
+      if (!admitted.ok)
+        throw new Error('The fresh admin operation was refused.')
       await h.fixtureMutation(
         `UPDATE "SsoAdminFreshProof" SET "expiresAt"=clock_timestamp() WHERE "proofDigest"=$1`,
         [proof]
       )
-      await h.rejects(
-        'nihongo_app',
-        'SET CONSTRAINTS "Phase7OperationIntent_sso_fresh_commit" IMMEDIATE',
-        [],
-        '42501'
-      )
+      expect(
+        await asApp(() =>
+          finishAdminOperation(
+            apiTransaction(h.owner),
+            admitted.value.operationId
+          )
+        )
+      ).toEqual({ ok: false, code: '42501' })
     })
   })
 
@@ -1302,13 +1335,14 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     const before = await h.snapshot()
     await h.app.query('BEGIN ISOLATION LEVEL REPEATABLE READ')
     try {
-      const operation = await h.app.query<{ operationId: string }>(
-        `SELECT * FROM "phase7_begin_admin_operation"('EXPORT',$1,$2,'TEST',ARRAY[$3]::uuid[])`,
-        [next.token, randomUUID(), f.userId]
-      )
-      const operationId = operation.rows[0]?.operationId
+      // #504 P7 PR2: the API admin operation on the real app connection.
+      const { operationId } = await beginAdminOperation(apiTransaction(h.app), {
+        auditEnvironment: 'TEST',
+        command: 'EXPORT',
+        rawSessionToken: next.token,
+        referencedUserIds: [f.userId]
+      })
       expect(operationId).toBeDefined()
-      expect(operation.rowCount).toBe(1)
       // The database clock advances beyond the recorded deadline; the wait is
       // bounded at 3.05 seconds and does not depend on a JavaScript fake clock.
       await h.owner.query('SELECT pg_sleep(3.05)')
@@ -1318,19 +1352,9 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       )
       expect(expiry.rows).toEqual([{ expired: true }])
       await expect(
-        h.app.query(
-          'SET CONSTRAINTS "Phase7OperationIntent_sso_fresh_commit" IMMEDIATE'
-        )
+        finishAdminOperation(apiTransaction(h.app), operationId)
       ).rejects.toMatchObject({ code: '42501' })
       expect((await h.app.query('COMMIT')).command).toBe('ROLLBACK')
-      expect(
-        (
-          await h.owner.query(
-            'SELECT count(*)::int AS count FROM "Phase7OperationIntent" WHERE "operationId"=$1',
-            [operationId]
-          )
-        ).rows
-      ).toEqual([{ count: 0 }])
       expect(await h.snapshot()).toEqual(before)
       expect(await h.facts(f)).toEqual(expectedRotation)
       expect(await fresh(next.token)).toBe(false)

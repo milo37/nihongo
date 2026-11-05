@@ -9,6 +9,10 @@ import {
   armAdminOperation,
   type ArmableOperation
 } from '../admin/adminOperationArm.js'
+import {
+  beginAdminOperation as beginApiAdminOperation,
+  finishAdminOperation
+} from '../admin/adminOperationAuthority.js'
 import { AdminRuleViolation } from '../admin/adminRepositoryCommon.js'
 import { parseApiEnvironment } from '../config/env.js'
 import type { Prisma } from '../generated/prisma/client.js'
@@ -26,7 +30,6 @@ import {
 import { attestRuntimeRoles } from './runtimeRoleAttestation.js'
 
 const EXPECTED_RECENT_MIGRATIONS = [
-  '20261104150000_user_account_restriction',
   '20261105090000_admin_member_console',
   '20261106090000_single_operator_review',
   '20261107090000_drop_study_review_triggers',
@@ -36,7 +39,8 @@ const EXPECTED_RECENT_MIGRATIONS = [
   '20261110100000_admin_audit_to_api',
   '20261110110000_drop_retired_credential_auth',
   '20261111090000_drop_dead_reauthentication',
-  '20261112090000_merge_runtime_roles'
+  '20261112090000_merge_runtime_roles',
+  '20261113090000_admin_operation_to_api'
 ] as const
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',
@@ -135,6 +139,46 @@ const createExpectedFingerprint = (seed: QuestionAggregateSeed): string => {
     .digest('hex')
 }
 
+/**
+ * #504 P7 PR2: admin operation authority runs in the API. These run the API
+ * begin/finish on a raw pg connection inside its transaction and return a
+ * pg-shaped result, so the SQL-era assertions keep their shape.
+ */
+const asTestTransaction = (databaseClient: Client): Prisma.TransactionClient =>
+  ({
+    $queryRawUnsafe: async (sql: string, ...values: unknown[]) =>
+      (await databaseClient.query(sql, values)).rows,
+    $executeRawUnsafe: async (sql: string, ...values: unknown[]) =>
+      (await databaseClient.query(sql, values)).rowCount ?? 0
+  }) as unknown as Prisma.TransactionClient
+
+const beginInTest = async (
+  databaseClient: Client,
+  [command, rawSessionToken, , referencedUserIds]: readonly unknown[]
+) => {
+  const operation = await beginApiAdminOperation(
+    asTestTransaction(databaseClient),
+    {
+      auditEnvironment: 'TEST',
+      command: String(command),
+      rawSessionToken: String(rawSessionToken),
+      referencedUserIds: referencedUserIds as string[]
+    }
+  )
+  return { rowCount: 1, rows: [operation] }
+}
+
+const finishInTest = async (
+  databaseClient: Client,
+  [operationId]: readonly unknown[]
+) => {
+  await finishAdminOperation(
+    asTestTransaction(databaseClient),
+    String(operationId)
+  )
+  return { rowCount: 1, rows: [] }
+}
+
 const expectFailedTransaction = async (
   action: () => Promise<void>,
   code: string
@@ -230,20 +274,12 @@ const beginAdminOperation = async (
   await databaseClient.query(
     `SET TRANSACTION ISOLATION LEVEL ${isolationLevel}`
   )
-  const begun = await databaseClient.query<{
-    actorUserId: string
-    operationId: string
-  }>(
-    `SELECT * FROM "phase7_begin_admin_operation"(
-      $1::"AdminAuditCommand", $2, $3, 'TEST', $4::uuid[]
-    )`,
-    [
-      input.command,
-      input.sessionToken,
-      input.requestId,
-      input.referencedUserIds
-    ]
-  )
+  const begun = await beginInTest(databaseClient, [
+    input.command,
+    input.sessionToken,
+    input.requestId,
+    input.referencedUserIds
+  ])
   const operation = begun.rows[0]
   if (!operation) throw new Error('Phase 7 operation was not created.')
   // The arm step runs in the API since #504 P4 (adminOperationArm.ts).
@@ -479,14 +515,14 @@ afterAll(async () => {
 })
 
 describe('Persistence foundation', () => {
-  it('66 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
+  it('67 migration fresh schema와 핵심 DB guard를 exact manifest로 배포한다', async () => {
     const ledger = await client.query<{ migrationName: string }>(
       `SELECT migration_name AS "migrationName"
        FROM "_prisma_migrations"
        WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL
        ORDER BY started_at`
     )
-    expect(ledger.rows).toHaveLength(66)
+    expect(ledger.rows).toHaveLength(67)
     expect(
       ledger.rows.slice(-11).map(({ migrationName }) => migrationName)
     ).toEqual(EXPECTED_RECENT_MIGRATIONS)
@@ -566,7 +602,7 @@ describe('Persistence foundation', () => {
              WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`
           )
         ).rows
-      ).toEqual([{ migrationCount: 66 }])
+      ).toEqual([{ migrationCount: 67 }])
     } finally {
       await client.query('ROLLBACK')
     }
@@ -1074,7 +1110,6 @@ describe('Persistence foundation', () => {
       [
         [
           'phase7_activate_v1_issuer',
-          'phase7_begin_admin_operation',
           'phase7_change_user_authority',
           'phase7_cleanup_expired_auth_state',
           'phase7_close_trusted_execution',
@@ -1100,7 +1135,7 @@ describe('Persistence foundation', () => {
         ]
       ]
     )
-    expect(publicExecute.rows).toHaveLength(24)
+    expect(publicExecute.rows).toHaveLength(23)
     expect(
       publicExecute.rows.filter(
         ({ ownerName, publicCanExecute }) =>
@@ -1663,9 +1698,7 @@ describe('Persistence foundation', () => {
         requestId: createRequestId,
         targetId: versionId
       })
-      await client.query(`SELECT "phase7_finish_admin_operation"($1)`, [
-        operation.operationId
-      ])
+      await finishInTest(client, [operation.operationId])
       await client.query('COMMIT')
     } catch (error: unknown) {
       await client.query('ROLLBACK')
@@ -1746,9 +1779,7 @@ describe('Persistence foundation', () => {
           requestId,
           targetId: versionId
         })
-        await client.query(`SELECT "phase7_finish_admin_operation"($1)`, [
-          operation.operationId
-        ])
+        await finishInTest(client, [operation.operationId])
         await client.query('COMMIT')
       } catch (error: unknown) {
         await client.query('ROLLBACK')
@@ -1863,9 +1894,7 @@ describe('Persistence foundation', () => {
         requestId: publicationRequestId,
         targetId: versionId
       })
-      await client.query(`SELECT "phase7_finish_admin_operation"($1)`, [
-        operation.operationId
-      ])
+      await finishInTest(client, [operation.operationId])
       await client.query('COMMIT')
     } catch (error: unknown) {
       await client.query('ROLLBACK')
@@ -2159,9 +2188,7 @@ describe('Persistence foundation', () => {
           fixture.occurredAt
         ]
       )
-      await targetClient.query(`SELECT "phase7_finish_admin_operation"($1)`, [
-        fixture.operationId
-      ])
+      await finishInTest(targetClient, [fixture.operationId])
     }
 
     const concurrentClient = new Client({
@@ -2547,9 +2574,7 @@ describe('Persistence foundation', () => {
           updateOperationRow.occurredAt
         ]
       )
-      await client.query(`SELECT "phase7_finish_admin_operation"($1)`, [
-        updateOperationRow.operationId
-      ])
+      await finishInTest(client, [updateOperationRow.operationId])
       await client.query('COMMIT')
       firstTransactionOpen = false
 
@@ -2704,9 +2729,7 @@ describe('Persistence foundation', () => {
           transition.operation.occurredAt
         ]
       )
-      await targetClient.query(`SELECT "phase7_finish_admin_operation"($1)`, [
-        transition.operation.operationId
-      ])
+      await finishInTest(targetClient, [transition.operation.operationId])
     }
     const commitReviewRequest = async (
       target: OperationFixture,
@@ -3001,9 +3024,7 @@ describe('Persistence foundation', () => {
           archiveOperation.occurredAt
         ]
       )
-      await client.query(`SELECT "phase7_finish_admin_operation"($1)`, [
-        archiveOperation.operationId
-      ])
+      await finishInTest(client, [archiveOperation.operationId])
       await client.query('COMMIT')
     } catch (error: unknown) {
       await client.query('ROLLBACK')
@@ -3102,19 +3123,12 @@ describe('Persistence foundation', () => {
     try {
       await client.query(`SET TRANSACTION ISOLATION LEVEL SERIALIZABLE`)
       await client.query(`SET LOCAL ROLE "nihongo_app"`)
-      const begun = await client.query<{
-        actorUserId: string
-        operationId: string
-      }>(
-        `SELECT * FROM "phase7_begin_admin_operation"(
-          'PUBLICATION', $1, $2, 'TEST', $3::uuid[]
-        )`,
-        [
-          freshFirstSessionToken,
-          postAuthorityPublicationRequestId,
-          [firstActorId, secondActorId].toSorted()
-        ]
-      )
+      const begun = await beginInTest(client, [
+        'PUBLICATION',
+        freshFirstSessionToken,
+        postAuthorityPublicationRequestId,
+        [firstActorId, secondActorId].toSorted()
+      ])
       const operation = begun.rows[0]
       if (!operation) {
         throw new Error('Post-authority publication operation is unavailable.')
@@ -3202,9 +3216,7 @@ describe('Persistence foundation', () => {
           occurredAt
         ]
       )
-      await client.query(`SELECT "phase7_finish_admin_operation"($1)`, [
-        operation.operationId
-      ])
+      await finishInTest(client, [operation.operationId])
       await client.query('COMMIT')
     } catch (error: unknown) {
       await client.query('ROLLBACK')
@@ -3310,12 +3322,12 @@ describe('Persistence foundation', () => {
       await client.query(`BEGIN ISOLATION LEVEL ${isolation}`)
       try {
         await client.query(`SET LOCAL ROLE "nihongo_app"`)
-        const operation = client.query(
-          `SELECT * FROM "phase7_begin_admin_operation"(
-            $1::"AdminAuditCommand", $2, $3, 'TEST', $4::uuid[]
-          )`,
-          [command, sessionToken, requestId, [repeatableReadActorId]]
-        )
+        const operation = beginInTest(client, [
+          command,
+          sessionToken,
+          requestId,
+          [repeatableReadActorId]
+        ])
         if (succeeds) {
           await expect(operation).resolves.toMatchObject({ rowCount: 1 })
         } else {
@@ -3358,15 +3370,12 @@ describe('Persistence foundation', () => {
       await client.query('BEGIN ISOLATION LEVEL SERIALIZABLE')
       try {
         await client.query(`SET LOCAL ROLE "nihongo_app"`)
-        const begun = await client.query<{
-          actorUserId: string
-          operationId: string
-        }>(
-          `SELECT * FROM "phase7_begin_admin_operation"(
-            $1::"AdminAuditCommand", $2, $3, 'TEST', $4::uuid[]
-          )`,
-          [input.command, sessionToken, requestId, [repeatableReadActorId]]
-        )
+        const begun = await beginInTest(client, [
+          input.command,
+          sessionToken,
+          requestId,
+          [repeatableReadActorId]
+        ])
         const operation = begun.rows[0]
         if (!operation) {
           throw new Error('Manifest-negative operation is unavailable.')
@@ -3398,12 +3407,12 @@ describe('Persistence foundation', () => {
     try {
       await client.query(`SET LOCAL ROLE "nihongo_app"`)
       await expect(
-        client.query(
-          `SELECT * FROM "phase7_begin_admin_operation"(
-            'QUESTION_CREATE', $1, $2, 'TEST', ARRAY[]::uuid[]
-          )`,
-          [sessionToken, emptyReferenceRequestId]
-        )
+        beginInTest(client, [
+          'QUESTION_CREATE',
+          sessionToken,
+          emptyReferenceRequestId,
+          []
+        ])
       ).rejects.toMatchObject({ code: '22023' })
     } finally {
       await client.query('ROLLBACK')
@@ -3514,15 +3523,12 @@ describe('Persistence foundation', () => {
       )
       await client.query(`SET LOCAL session_replication_role = origin`)
       await client.query(`SET LOCAL ROLE "nihongo_app"`)
-      const begun = await client.query<{
-        actorUserId: string
-        operationId: string
-      }>(
-        `SELECT * FROM "phase7_begin_admin_operation"(
-          'EXPORT', $1, $2, 'TEST', $3::uuid[]
-        )`,
-        [sessionToken, exportRequestId, [repeatableReadActorId]]
-      )
+      const begun = await beginInTest(client, [
+        'EXPORT',
+        sessionToken,
+        exportRequestId,
+        [repeatableReadActorId]
+      ])
       const exportOperation = begun.rows[0]
       if (!exportOperation) {
         throw new Error('Phase 7 513-version EXPORT operation is unavailable.')
@@ -3571,15 +3577,12 @@ describe('Persistence foundation', () => {
         [importTagIds]
       )
       await client.query(`SET LOCAL ROLE "nihongo_app"`)
-      const begun = await client.query<{
-        actorUserId: string
-        operationId: string
-      }>(
-        `SELECT * FROM "phase7_begin_admin_operation"(
-          'IMPORT_APPLY', $1, $2, 'TEST', $3::uuid[]
-        )`,
-        [sessionToken, importRequestId, [repeatableReadActorId]]
-      )
+      const begun = await beginInTest(client, [
+        'IMPORT_APPLY',
+        sessionToken,
+        importRequestId,
+        [repeatableReadActorId]
+      ])
       const importOperation = begun.rows[0]
       if (!importOperation) {
         throw new Error('Phase 7 257-Tag IMPORT operation is unavailable.')
@@ -3911,9 +3914,7 @@ describe('Persistence foundation', () => {
           operationRow.occurredAt
         ]
       )
-      await client.query(`SELECT "phase7_finish_admin_operation"($1)`, [
-        operationRow.operationId
-      ])
+      await finishInTest(client, [operationRow.operationId])
       await client.query('COMMIT')
     } catch (error: unknown) {
       await client.query('ROLLBACK')
@@ -4299,15 +4300,12 @@ describe('Persistence foundation', () => {
       triageTransactionOpen = true
       await client.query(`SET LOCAL ROLE "nihongo_app"`)
       const requestId = randomUUID()
-      const begun = await client.query<{
-        actorUserId: string
-        operationId: string
-      }>(
-        `SELECT * FROM "phase7_begin_admin_operation"(
-          'REPORT_TRIAGE', $1, $2, 'TEST', $3::uuid[]
-        )`,
-        [sessionToken, requestId, [actorId, injectedAssigneeId].toSorted()]
-      )
+      const begun = await beginInTest(client, [
+        'REPORT_TRIAGE',
+        sessionToken,
+        requestId,
+        [actorId, injectedAssigneeId].toSorted()
+      ])
       const triageOperation = begun.rows[0]
       if (!triageOperation) {
         throw new Error('Injected-assignee operation is unavailable.')
@@ -4436,9 +4434,7 @@ describe('Persistence foundation', () => {
           operation.occurredAt
         ]
       )
-      await client.query(`SELECT "phase7_finish_admin_operation"($1)`, [
-        operation.operationId
-      ])
+      await finishInTest(client, [operation.operationId])
       await client.query('COMMIT')
     } catch (error: unknown) {
       await client.query('ROLLBACK')
@@ -4521,9 +4517,7 @@ describe('Persistence foundation', () => {
           operation.occurredAt
         ]
       )
-      await client.query(`SELECT "phase7_finish_admin_operation"($1)`, [
-        operation.operationId
-      ])
+      await finishInTest(client, [operation.operationId])
       await client.query('COMMIT')
     } catch (error: unknown) {
       await client.query('ROLLBACK')
@@ -4980,9 +4974,7 @@ describe('Persistence foundation', () => {
             operation.occurredAt
           ]
         )
-        await client.query(`SELECT "phase7_finish_admin_operation"($1)`, [
-          operation.operationId
-        ])
+        await finishInTest(client, [operation.operationId])
         await client.query('COMMIT')
       } catch (error: unknown) {
         await client.query('ROLLBACK')
@@ -5229,9 +5221,7 @@ describe('Persistence foundation', () => {
           operation.occurredAt
         ]
       )
-      await client.query(`SELECT "phase7_finish_admin_operation"($1)`, [
-        operation.operationId
-      ])
+      await finishInTest(client, [operation.operationId])
       await client.query('COMMIT')
     } catch (error: unknown) {
       await client.query('ROLLBACK')
@@ -5400,9 +5390,7 @@ describe('Persistence foundation', () => {
             operation.occurredAt
           ]
         )
-        await client.query(`SELECT "phase7_finish_admin_operation"($1)`, [
-          operation.operationId
-        ])
+        await finishInTest(client, [operation.operationId])
         await client.query('COMMIT')
       } catch (error: unknown) {
         await client.query('ROLLBACK')
@@ -5537,10 +5525,7 @@ describe('Persistence foundation', () => {
             operation.occurredAt
           ]
         )
-        await databaseClient.query(
-          `SELECT "phase7_finish_admin_operation"($1)`,
-          [operation.operationId]
-        )
+        await finishInTest(databaseClient, [operation.operationId])
         await databaseClient.query('COMMIT')
         return operation.operationId
       } catch (error: unknown) {
@@ -5926,20 +5911,16 @@ describe('Persistence foundation', () => {
       expect(advisoryLockObserved).toBe(true)
       await client.query(`SET LOCAL ROLE "nihongo_app"`)
 
-      await client.query(`SELECT "phase7_finish_admin_operation"($1)`, [
-        first.operationId
-      ])
+      await finishInTest(client, [first.operationId])
       await client.query('COMMIT')
       firstTransactionOpen = false
 
       try {
         const second = await secondStagePromise
         secondStagePromise = undefined
-        loserCompletionPromise = duplicateClient
-          .query(`SELECT "phase7_finish_admin_operation"($1)`, [
-            second.operationId
-          ])
-          .then(() => duplicateClient.query('COMMIT'))
+        loserCompletionPromise = finishInTest(duplicateClient, [
+          second.operationId
+        ]).then(() => duplicateClient.query('COMMIT'))
         await expect(loserCompletionPromise).rejects.toMatchObject({
           code: '40001'
         })
@@ -5970,9 +5951,7 @@ describe('Persistence foundation', () => {
       )
       visibleDuplicateOperationId = visibleDuplicate.operationId
       visibleDuplicateQuestionId = visibleDuplicate.questionId
-      await client.query(`SELECT "phase7_finish_admin_operation"($1)`, [
-        visibleDuplicate.operationId
-      ])
+      await finishInTest(client, [visibleDuplicate.operationId])
     }, '23514')
     expect(visibleDuplicateOperationId).not.toBe('')
     expect(visibleDuplicateQuestionId).not.toBe('')
