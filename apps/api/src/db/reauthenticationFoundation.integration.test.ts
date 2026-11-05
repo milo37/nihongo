@@ -1,10 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { registerDatabaseCapability } from './databaseCapability.js'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import {
-  bridgedQuery,
-  ownedSessionSql
-} from './fixtures/ownedSessionSql.js'
+import { bridgedQuery, ownedSessionSql } from './fixtures/ownedSessionSql.js'
 import { Client } from 'pg'
 import {
   beginAdminOperation,
@@ -148,9 +145,7 @@ const expectRoleFailure = async (
   try {
     // #504 P7 PR3b-1: calls to the dropped functions run the API steps; the
     // gateway facade caller is nihongo_app since PR1.
-    await adminClient.query(
-      `SET LOCAL ROLE "${role}"`
-    )
+    await adminClient.query(`SET LOCAL ROLE "${role}"`)
     await bridgedQuery(adminClient, statement, [...values])
   } catch (error: unknown) {
     actualCode = (error as { code?: unknown }).code
@@ -1055,16 +1050,11 @@ describe('Reauthentication DB foundation', () => {
   })
 
   it('#504 P7 PR1·P8-1: require_caller_role는 nihongo_app에 migration 요구를 거절한다', async () => {
-    const outcome = async (
-      caller: 'nihongo_app',
-      required: string
-    ) => {
+    const outcome = async (caller: 'nihongo_app', required: string) => {
       await adminClient.query('SAVEPOINT phase7_caller_role_probe')
       try {
         await adminClient.query(`SET LOCAL ROLE "${caller}"`)
-        await adminClient.query('SELECT "require_caller_role"($1)', [
-          required
-        ])
+        await adminClient.query('SELECT "require_caller_role"($1)', [required])
         return 'allowed'
       } catch (error: unknown) {
         return (error as { code?: unknown }).code

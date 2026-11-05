@@ -1514,9 +1514,7 @@ const createSsoBrowserApiFixture = async (
           })
         : undefined
     const assertAdminCapability = async () => {
-      await database.client.$queryRawUnsafe(
-        'SELECT "require_runtime_ready"()'
-      )
+      await database.client.$queryRawUnsafe('SELECT "require_runtime_ready"()')
     }
     const app = createApiApp({
       accountRestrictionReader: createPrismaAccountRestrictionReader(

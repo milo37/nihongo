@@ -27,19 +27,14 @@ export interface RoleDatabaseRuntime {
 
 interface CreateDatabaseRuntimeOptions {
   readonly migrationProfile?: MigrationCompatibilityProfile
-  readonly startupRole?:
-    | 'nihongo_app'
-    | 'nihongo_guest_cleanup_worker'
+  readonly startupRole?: 'nihongo_app' | 'nihongo_guest_cleanup_worker'
   /** Test fixture population only; request paths keep the 2.5s default. */
   readonly statementTimeoutMs?: number
 }
 
 const createPrismaClient = (
   connectionString: string,
-  {
-    startupRole,
-    statementTimeoutMs = 2_500
-  }: CreateDatabaseRuntimeOptions = {}
+  { startupRole, statementTimeoutMs = 2_500 }: CreateDatabaseRuntimeOptions = {}
 ): PrismaClient => {
   const schema = getPostgresSchema(connectionString)
   const adapter = new PrismaPg(
@@ -60,9 +55,7 @@ const createPrismaClient = (
 
 export const createRoleDatabaseRuntime = (
   connectionString: string,
-  startupRole:
-    | 'nihongo_app'
-    | 'nihongo_guest_cleanup_worker'
+  startupRole: 'nihongo_app' | 'nihongo_guest_cleanup_worker'
 ): RoleDatabaseRuntime => {
   const client = createPrismaClient(connectionString, { startupRole })
   return {

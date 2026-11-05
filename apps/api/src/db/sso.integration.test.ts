@@ -175,9 +175,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       ])
     }
     await h.rollback(async () => {
-      for (const role of [
-        'nihongo_app'
-      ] as const) {
+      for (const role of ['nihongo_app'] as const) {
         await h.rejects(role, 'SELECT * FROM "SsoAdminFreshProof"', [], '42501')
       }
       // #504 P7 PR1: nihongo_app may run gateway facades; the erasure
@@ -1468,10 +1466,7 @@ describe('JLP-527 first Google ADMIN operator bootstrap', () => {
     url.searchParams.delete('options')
     return new Client({
       connectionString: url.toString(),
-      options: createPostgresStartupOptions(
-        h.schema,
-        'nihongo_migration'
-      ),
+      options: createPostgresStartupOptions(h.schema, 'nihongo_migration'),
       connectionTimeoutMillis: 5000,
       query_timeout: 15000,
       statement_timeout: 10000

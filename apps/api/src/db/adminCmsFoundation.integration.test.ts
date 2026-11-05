@@ -4,7 +4,10 @@ import {
   expectedBaselineCatalog,
   withoutLegacyBranchSources
 } from './fixtures/baseline/baselineDelta.js'
-import { readSchemaCatalog, type SchemaCatalog } from './fixtures/schemaCatalog.js'
+import {
+  readSchemaCatalog,
+  type SchemaCatalog
+} from './fixtures/schemaCatalog.js'
 import { registerDatabaseCapability } from './databaseCapability.js'
 import { installAuditDigestSql } from './fixtures/auditDigestSql.js'
 import { canonicalDuplicateIdentity } from '@nihongo/domain/content/validators/v1/duplicates'
@@ -54,10 +57,7 @@ const EXPECTED_CHANGED_FIELDS = [
   'CORRECT_OPTION',
   'TAGS'
 ] as const
-const ALLOWED_EXECUTION_ROLES = [
-  'nihongo_app',
-  'nihongo_migration'
-] as const
+const ALLOWED_EXECUTION_ROLES = ['nihongo_app', 'nihongo_migration'] as const
 type ExecutionRole = (typeof ALLOWED_EXECUTION_ROLES)[number]
 
 const environment = parseApiEnvironment(process.env)
@@ -687,13 +687,7 @@ describe('Persistence foundation', () => {
        FROM pg_roles
        WHERE rolname = ANY($1::text[])
        ORDER BY rolname`,
-      [
-        [
-          'nihongo_app',
-          'nihongo_migration',
-          'nihongo_owner'
-        ]
-      ]
+      [['nihongo_app', 'nihongo_migration', 'nihongo_owner']]
     )
     expect(roles.rows.map(({ name }) => name)).toEqual([
       'nihongo_app',
@@ -731,13 +725,7 @@ describe('Persistence foundation', () => {
        JOIN pg_roles AS granted_role ON granted_role.oid = membership.roleid
        WHERE member_role.rolname = ANY($1::text[])
        ORDER BY member_role.rolname, granted_role.rolname`,
-      [
-        [
-          'nihongo_app',
-          'nihongo_migration',
-          'nihongo_owner'
-        ]
-      ]
+      [['nihongo_app', 'nihongo_migration', 'nihongo_owner']]
     )
     expect(memberships.rows).toEqual([
       {
@@ -760,12 +748,7 @@ describe('Persistence foundation', () => {
          ) AS "canCreate"
        FROM unnest($1::text[]) AS required(role_name)
        ORDER BY required.role_name`,
-      [
-        [
-          'nihongo_app',
-          'nihongo_migration'
-        ]
-      ]
+      [['nihongo_app', 'nihongo_migration']]
     )
     expect(schemaPrivileges.rows).toEqual([
       { canCreate: false, canUse: true, name: 'nihongo_app' },
@@ -1079,16 +1062,13 @@ describe('Persistence foundation', () => {
       )
     ).toEqual([])
     expect(
-      publicExecute.rows.find(
-        ({ name }) => name === 'require_caller_role'
-      )
+      publicExecute.rows.find(({ name }) => name === 'require_caller_role')
     ).toMatchObject({ isSecurityDefiner: false })
     expect(
       publicExecute.rows
         .filter(({ name }) => name !== 'require_caller_role')
         .every(({ isSecurityDefiner }) => isSecurityDefiner)
     ).toBe(true)
-
   })
 
   it('questionText prefix index의 COLLATE C·text_pattern_ops 계약과 planner 사용을 고정한다', async () => {

@@ -512,9 +512,7 @@ export const ssoAccountErasureStatus = async (
   client: Pick<PrismaClient, '$queryRawUnsafe'>,
   receiptDigest: string
 ): Promise<unknown> => {
-  await client.$queryRawUnsafe(
-    `SELECT "require_runtime_ready"() AS ready`
-  )
+  await client.$queryRawUnsafe(`SELECT "require_runtime_ready"() AS ready`)
   const rows = await client.$queryRawUnsafe<Array<{ result: unknown }>>(
     `SELECT jsonb_build_object(
          'appStatus', r."appStatus", 'providerCleanup', r."providerCleanup"

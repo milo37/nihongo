@@ -233,9 +233,7 @@ describe('SSO deterministic TEST environment', () => {
       'nihongo_test_auth_gateway_login'
     ),
     PHASE7_ADMIN_DATABASE_URL: database('nihongo_test_migration_login'),
-    PHASE7_MIGRATION_DATABASE_URL: database(
-      'nihongo_test_migration_login'
-    ),
+    PHASE7_MIGRATION_DATABASE_URL: database('nihongo_test_migration_login'),
     PHASE7_LEGACY_DATABASE_URL: database('nihongo_test_legacy_app_login'),
     TEST_DEVELOPMENT_APP_DATABASE_URL: 'synthetic-development-wrapper',
     PRISMA_TEST_DATABASE_URL: database('nihongo_test_app_login'),

@@ -113,9 +113,7 @@ try {
     const result = isTechnicalAdminCms
       ? await client.$transaction(
           async (transaction) => {
-            await transaction.$executeRawUnsafe(
-              'SET LOCAL ROLE nihongo_owner'
-            )
+            await transaction.$executeRawUnsafe('SET LOCAL ROLE nihongo_owner')
             const ownerEvidence = await transaction.$queryRawUnsafe<
               Array<{ currentRole: string; sessionUser: string }>
             >(

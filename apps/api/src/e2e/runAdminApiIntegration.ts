@@ -1,10 +1,7 @@
 import { registerDatabaseCapability } from '../db/databaseCapability.js'
 import { sanitizeSeedLine } from '../../prisma/seedDiagnostics.js'
 import { prepareBrowserArtifacts } from './browserArtifactPreparation.js'
-import {
-  readFileSync,
-  readdirSync
-} from 'node:fs'
+import { readFileSync, readdirSync } from 'node:fs'
 import { createHash, randomUUID } from 'node:crypto'
 import { spawn, type ChildProcess } from 'node:child_process'
 import nodePath from 'node:path'
@@ -153,10 +150,7 @@ const buildWrapperDatabaseUrl = (role: string): URL => {
 }
 
 const migrationDatabaseUrl = buildWrapperDatabaseUrl(TEST_MIGRATION_LOGIN)
-migrationDatabaseUrl.searchParams.set(
-  'options',
-  '-c role=nihongo_migration'
-)
+migrationDatabaseUrl.searchParams.set('options', '-c role=nihongo_migration')
 const applicationDatabaseUrl = buildWrapperDatabaseUrl(TEST_APPLICATION_LOGIN)
 
 const quoteIdentifier = (value: string): string => {

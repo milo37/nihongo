@@ -34,9 +34,7 @@ const raise = async (
 }
 
 const requireRuntimeReady = async (transaction: Transaction): Promise<void> => {
-  await transaction.$queryRawUnsafe(
-    `SELECT "require_runtime_ready"() AS ready`
-  )
+  await transaction.$queryRawUnsafe(`SELECT "require_runtime_ready"() AS ready`)
 }
 
 const requireCapability = async (
