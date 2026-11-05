@@ -1,5 +1,9 @@
 import type { PrismaClient } from '../generated/prisma/client.js'
 import { getPostgresSchema } from './databaseOptions.js'
+import {
+  PRODUCTION_DATABASE_NAME,
+  PRODUCTION_LOGIN_PREFIX
+} from './databaseTargetGuard.js'
 
 type RuntimeRole = 'nihongo_app'
 
@@ -280,10 +284,16 @@ const ATTESTATION_QUERY = `
         WHERE acl_role.rolname = ANY (ARRAY[
           CASE WHEN current_database() ~ '_test$'
             THEN 'nihongo_test_migration_login'
-            ELSE 'nihongo_development_migration_login' END,
+            WHEN current_database() ~ '_dev$'
+            THEN 'nihongo_development_migration_login'
+            WHEN current_database() = 'nihongo'
+            THEN 'nihongo_production_migration_login' END,
           CASE WHEN current_database() ~ '_test$'
             THEN 'nihongo_test_app_login'
-            ELSE 'nihongo_development_app_login' END
+            WHEN current_database() ~ '_dev$'
+            THEN 'nihongo_development_app_login'
+            WHEN current_database() = 'nihongo'
+            THEN 'nihongo_production_app_login' END
         ]::name[])
           AND entry.privilege_type = 'CONNECT'
           AND NOT entry.is_grantable
@@ -297,13 +307,22 @@ const ATTESTATION_QUERY = `
               acl_role.rolname = ANY (ARRAY[
                 CASE WHEN current_database() ~ '_test$'
                   THEN 'nihongo_test_migration_login'
-                  ELSE 'nihongo_development_migration_login' END,
+                  WHEN current_database() ~ '_dev$'
+                  THEN 'nihongo_development_migration_login'
+                  WHEN current_database() = 'nihongo'
+                  THEN 'nihongo_production_migration_login' END,
                 CASE WHEN current_database() ~ '_test$'
                   THEN 'nihongo_test_app_login'
-                  ELSE 'nihongo_development_app_login' END,
+                  WHEN current_database() ~ '_dev$'
+                  THEN 'nihongo_development_app_login'
+                  WHEN current_database() = 'nihongo'
+                  THEN 'nihongo_production_app_login' END,
                 CASE WHEN current_database() ~ '_test$'
                   THEN 'nihongo_test_guest_cleanup_worker_login'
-                  ELSE 'nihongo_development_guest_cleanup_worker_login' END
+                  WHEN current_database() ~ '_dev$'
+                  THEN 'nihongo_development_guest_cleanup_worker_login'
+                  WHEN current_database() = 'nihongo'
+                  THEN 'nihongo_production_guest_cleanup_worker_login' END
               ]::name[])
               AND entry.privilege_type = 'CONNECT'
               AND NOT entry.is_grantable
@@ -362,7 +381,9 @@ const expectedWrapperRole = (database: string): string | null => {
     ? 'nihongo_test'
     : database.endsWith('_dev')
       ? 'nihongo_development'
-      : null
+      : database === PRODUCTION_DATABASE_NAME
+        ? PRODUCTION_LOGIN_PREFIX
+        : null
   if (!environmentPrefix) return null
   const roleSuffix = 'app_login'
   return `${environmentPrefix}_${roleSuffix}`

@@ -30,6 +30,10 @@ interface DatabaseIdentity {
   loginName: string
 }
 
+/** Production database and login names shared with the infra provisioning. */
+export const PRODUCTION_DATABASE_NAME = 'nihongo'
+export const PRODUCTION_LOGIN_PREFIX = 'nihongo_production'
+
 const POSTGRES_SCHEMA_PATTERN = /^[a-z_][a-z0-9_]*$/
 const MIGRATION_STARTUP_OPTIONS = '-c role=nihongo_migration'
 const EXACT_TARGET_PARAMETERS = new Set([
@@ -247,6 +251,11 @@ export const assertSafeMigrationDatabase = ({
     )
   }
 
+  const migration = parseDatabaseUrl(migrationDatabaseUrl)
+  const runtime = parseDatabaseUrl(runtimeDatabaseUrl)
+  const migrationIdentity = getIdentity(migration)
+  const runtimeIdentity = getIdentity(runtime)
+
   if (nodeEnvironment === 'test') {
     assertSafeTestDatabase({
       nodeEnvironment,
@@ -259,18 +268,29 @@ export const assertSafeMigrationDatabase = ({
       databaseUrl: migrationDatabaseUrl,
       productionDatabaseUrl
     })
+  } else if (nodeEnvironment === 'production') {
+    // Production proves the opposite: PRODUCTION_DATABASE_URL names this database.
+    const production = parseDatabaseUrl(productionDatabaseUrl)
+    if (
+      migrationIdentity.databaseName !== PRODUCTION_DATABASE_NAME ||
+      migration.searchParams.getAll('sslmode').join() !== 'require' ||
+      !isSameDatabase(migrationIdentity, getIdentity(production)) ||
+      getExactSchema(migration) !== getExactSchema(production)
+    ) {
+      throw new Error('Production migration target is not exact.')
+    }
   } else {
-    throw new Error('Migration requires NODE_ENV=test or development.')
+    throw new Error(
+      'Migration requires NODE_ENV=test, development or production.'
+    )
   }
 
-  const migration = parseDatabaseUrl(migrationDatabaseUrl)
-  const runtime = parseDatabaseUrl(runtimeDatabaseUrl)
-  const migrationIdentity = getIdentity(migration)
-  const runtimeIdentity = getIdentity(runtime)
   const expectedLogin =
     nodeEnvironment === 'test'
       ? 'nihongo_test_migration_login'
-      : 'nihongo_development_migration_login'
+      : nodeEnvironment === 'production'
+        ? `${PRODUCTION_LOGIN_PREFIX}_migration_login`
+        : 'nihongo_development_migration_login'
 
   if (migrationIdentity.loginName !== expectedLogin) {
     throw new Error('Migration requires its exact canonical migration login.')
