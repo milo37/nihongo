@@ -27,10 +27,6 @@
       "types": "./dist/content/validators/v1/question-content.d.ts",
       "import": "./dist/content/validators/v1/question-content.js"
     },
-    "./content/validators/v1/release-hash": {
-      "types": "./dist/content/validators/v1/release-hash.d.ts",
-      "import": "./dist/content/validators/v1/release-hash.js"
-    },
     "./content/validators/v1/types": {
       "types": "./dist/content/validators/v1/types.d.ts",
       "import": "./dist/content/validators/v1/types.js"

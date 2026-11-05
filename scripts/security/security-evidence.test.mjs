@@ -1206,53 +1206,19 @@ test('Playwright evidence rejects empty and skipped-only summaries', async () =>
   }
 })
 
-test('artifact verifier accepts only complete closed-schema security JSON', async () => {
-  const directory = await mkdtemp(path.join(tmpdir(), 'journey-evidence-'))
-  const lockfileSha256 = 'a'.repeat(64)
-  await writeCanonicalEvidence({
-    filePath: path.join(directory, 'tracked-source-security.json'),
-    value: {
+test('artifact verifier rejects retired kinds, unknown JSON, links and profiles', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'retired-evidence-'))
+  // Replaced by gitleaks and pnpm audit (#603 O4-A); nothing writes these now.
+  await writeFile(
+    path.join(directory, 'tracked-source-security.json'),
+    JSON.stringify({
       schemaVersion: 1,
-      kind: 'nihongo.tracked-source-security',
-      status: 'passed',
-      scannedFileCount: 10,
-      activeSecretFindings: [],
-      suppressedSecretFindingCount: 0,
-      unusedAllowlistEntryCount: 0,
-      unsafeHtmlFindings: []
-    }
-  })
-  for (const scope of ['production', 'development']) {
-    await writeCanonicalEvidence({
-      filePath: path.join(directory, `dependency-${scope}.json`),
-      value: {
-        schemaVersion: 1,
-        kind: 'nihongo.dependency-audit',
-        scope,
-        status: 'passed',
-        lockfileSha256,
-        severityCounts: {
-          critical: 0,
-          high: 0,
-          moderate: 0,
-          low: 0,
-          info: 0,
-          unknown: 0
-        },
-        findings: [],
-        appliedDispositionCount: 0
-      }
+      kind: 'nihongo.tracked-source-security'
     })
-  }
-  const manifest = await verifyArtifactDirectory({
-    directory,
-    profile: 'security'
-  })
-  assert.equal(manifest.files.length, 3)
-  assert.equal(
-    JSON.parse(await readFile(path.join(directory, 'artifact-manifest.json')))
-      .profile,
-    'security'
+  )
+  await assert.rejects(
+    () => verifyArtifactDirectory({ directory, profile: 'playwright' }),
+    /SECURITY_EVIDENCE_SCHEMA_UNKNOWN/u
   )
 
   const unsafeDirectory = await mkdtemp(
@@ -1262,7 +1228,7 @@ test('artifact verifier accepts only complete closed-schema security JSON', asyn
   await assert.rejects(() =>
     verifyArtifactDirectory({
       directory: unsafeDirectory,
-      profile: 'security'
+      profile: 'playwright'
     })
   )
   await symlink(
@@ -1272,7 +1238,7 @@ test('artifact verifier accepts only complete closed-schema security JSON', asyn
   await assert.rejects(() =>
     verifyArtifactDirectory({
       directory: unsafeDirectory,
-      profile: 'security'
+      profile: 'playwright'
     })
   )
 })
