@@ -35,17 +35,6 @@ const questionReader: QuestionReader = {
 const authEnvironment = parseApiEnvironment({
   NODE_ENV: 'test',
   DATABASE_URL:
-    'postgresql://nihongo_test_app_login:password@127.0.0.1:55432/nihongo_test',
-  TRUSTED_ORIGINS: 'http://localhost:5173',
-  BETTER_AUTH_SECRET: 'a'.repeat(32),
-  GUEST_COOKIE_SECRET: 'b'.repeat(32),
-  AUTH_EMAIL_FROM: 'auth@example.com'
-})
-
-const technicalAuthEnvironment = parseApiEnvironment({
-  NODE_ENV: 'test',
-  ADMIN_CMS_MODE: 'technical',
-  DATABASE_URL:
     'postgresql://nihongo_test_app_login:password@127.0.0.1:55432/nihongo_test?schema=public',
   TRUSTED_ORIGINS: 'http://localhost:5173',
   BETTER_AUTH_SECRET: 'a'.repeat(32),
@@ -136,7 +125,7 @@ describe('Hono operational boundary', () => {
       const { logger } = createTestLogger()
       const app = createApiApp({
         auth: {
-          environment: technicalAuthEnvironment,
+          environment: authEnvironment,
           gateway: { handle: vi.fn() },
           guestPrincipalService,
           principalService
@@ -543,12 +532,10 @@ describe('protected admin artifact and API composition', () => {
   const fixture = ({
     role = 'ADMIN',
     fresh = true,
-    cms = true,
     production = false
   }: {
     role?: 'ADMIN' | 'USER' | null
     fresh?: boolean
-    cms?: boolean
     production?: boolean
   } = {}) => {
     const directory = mkdtempSync(join(tmpdir(), 'nihongo-admin-composition-'))
@@ -608,7 +595,7 @@ describe('protected admin artifact and API composition', () => {
       questionReader,
       auth: {
         environment: {
-          ...(cms ? technicalAuthEnvironment : authEnvironment),
+          ...authEnvironment,
           ...(production ? { NODE_ENV: 'production' as const } : {})
         },
         gateway: { handle: vi.fn() },
@@ -704,46 +691,25 @@ describe('protected admin artifact and API composition', () => {
     expect(f.listQuestions).toHaveBeenCalledOnce()
   })
 
-  it('keeps CMS disabled for static HTML/assets and direct API even for an authenticated ADMIN', async () => {
-    const f = fixture({ cms: false })
+  it('keeps production admin HTML/assets and API closed', async () => {
+    const f = fixture({ production: true })
     for (const path of [
       '/admin',
-      '/admin/questions',
+      '/admin/questions/123/edit',
       '/admin/assets/admin.js',
       '/api/v1/admin/questions'
     ]) {
       const response = await f.app.request(path)
       expect(response.status).toBe(404)
       expect(response.headers.get('Cache-Control')).toBe('private, no-store')
-      expect(await response.text()).not.toContain('ADMIN_')
+      const body = await response.text()
+      expect(body).not.toContain('ADMIN_')
+      expect(body).not.toContain('LEARNER_ONLY')
     }
     expect(f.resolve).not.toHaveBeenCalled()
     expect(f.capability).not.toHaveBeenCalled()
     expect(f.readLimit).not.toHaveBeenCalled()
   })
-
-  it.each([false, true])(
-    'keeps production admin HTML/assets and API closed even with CMS=%s',
-    async (cms) => {
-      const f = fixture({ cms, production: true })
-      for (const path of [
-        '/admin',
-        '/admin/questions/123/edit',
-        '/admin/assets/admin.js',
-        '/api/v1/admin/questions'
-      ]) {
-        const response = await f.app.request(path)
-        expect(response.status).toBe(404)
-        expect(response.headers.get('Cache-Control')).toBe('private, no-store')
-        const body = await response.text()
-        expect(body).not.toContain('ADMIN_')
-        expect(body).not.toContain('LEARNER_ONLY')
-      }
-      expect(f.resolve).not.toHaveBeenCalled()
-      expect(f.capability).not.toHaveBeenCalled()
-      expect(f.readLimit).not.toHaveBeenCalled()
-    }
-  )
 
   it('rechecks a revoked session on a conditional asset request instead of using cached ADMIN bytes', async () => {
     const f = fixture()

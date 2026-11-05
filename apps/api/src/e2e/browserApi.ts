@@ -208,7 +208,6 @@ export const parseBrowserEnvironment = (source: NodeJS.ProcessEnv) => {
   if (
     source.NODE_ENV !== 'test' ||
     source.DEPLOYMENT_ENVIRONMENT !== 'TEST' ||
-    source.ADMIN_CMS_MODE !== 'technical' ||
     [
       'GOOGLE_CLIENT_ID',
       'GOOGLE_CLIENT_SECRET',
@@ -226,7 +225,6 @@ export const parseBrowserEnvironment = (source: NodeJS.ProcessEnv) => {
   if (decodeURIComponent(app.username) !== 'nihongo_test_app_login')
     throw new Error('BROWSER_TEST_CANONICAL_TEST_DATABASE_ROLES_REQUIRED')
   assertSafeAdminCmsDatabase({
-    adminCmsMode: 'technical',
     nodeEnvironment: 'test',
     databaseUrl: environment.DATABASE_URL,
     productionDatabaseUrl: source.PRODUCTION_DATABASE_URL

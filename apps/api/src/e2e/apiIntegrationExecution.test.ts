@@ -252,7 +252,6 @@ describe('SSO deterministic TEST environment', () => {
     expect(parsed).toMatchObject({
       NODE_ENV: 'test',
       DEPLOYMENT_ENVIRONMENT: 'TEST',
-      ADMIN_CMS_MODE: 'technical',
       HOST: '127.0.0.1',
       PORT: 3001,
       BETTER_AUTH_URL: 'http://127.0.0.1:3001',
@@ -1269,8 +1268,7 @@ describe('fixed account lifecycle TEST slice', () => {
         'postgresql://nihongo_test_app_login:synthetic@127.0.0.1:5432/nihongo_test?schema=nihongo_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_test',
       TEST_APP_FIXTURE_DATABASE_URL:
         'postgresql://nihongo_test_app_login:synthetic@127.0.0.1:5432/nihongo_test?schema=nihongo_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_test',
-      NODE_ENV: 'test',
-      ADMIN_CMS_MODE: 'technical'
+      NODE_ENV: 'test'
     }
     for (const selected of [
       selectDbIntegrationFiles(files, {}),

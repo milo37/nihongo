@@ -10,7 +10,6 @@ const deploymentEnvironmentSchema = z.enum([
   'STAGING',
   'PRODUCTION'
 ])
-const adminCmsModeSchema = z.enum(['disabled', 'technical'])
 const emailDeliveryModeSchema = z.enum(['test-sink', 'webhook'])
 const secretSchema = z.string().min(32)
 const postgresSchemaPattern = /^[a-z_][a-z0-9_]*$/
@@ -178,12 +177,19 @@ const exactOriginSchema = z.url().transform((value, context) => {
   return url.origin
 })
 
+/**
+ * The one switch for the admin CMS routes, its DB guard and the seed path.
+ * Production keeps the CMS off until its activation is decided (#603 O2).
+ */
+export const isAdminCmsEnabled = (environment: {
+  readonly NODE_ENV: string | undefined
+}): boolean => environment.NODE_ENV !== 'production'
+
 const apiEnvironmentSchema = z
   .object({
     NODE_ENV: runtimeEnvironmentSchema,
     DEPLOYMENT_ENVIRONMENT: deploymentEnvironmentSchema,
     RELEASE_ID: releaseIdSchema,
-    ADMIN_CMS_MODE: adminCmsModeSchema,
     HOST: z.string().min(1),
     PORT: z.coerce.number().int().min(1).max(65_535),
     DATABASE_URL: postgresUrlSchema,
@@ -266,18 +272,7 @@ const apiEnvironmentSchema = z
       })
     }
 
-    if (
-      environment.ADMIN_CMS_MODE === 'technical' &&
-      environment.NODE_ENV === 'production'
-    ) {
-      context.addIssue({
-        code: 'custom',
-        path: ['ADMIN_CMS_MODE'],
-        message: 'technical admin CMS mode는 test/development에서만 허용됩니다.'
-      })
-    }
-
-    if (environment.ADMIN_CMS_MODE === 'technical') {
+    if (isAdminCmsEnabled(environment)) {
       for (const [field, roleSuffix] of [
         ['DATABASE_URL', 'app_login']
       ] as const) {
@@ -395,14 +390,12 @@ const apiEnvironmentSchema = z
 
 type ParsedApiEnvironment = z.output<typeof apiEnvironmentSchema>
 
-// Directly constructed test/application dependency fixtures from before the
-// admin CMS remain valid; absence is the same fail-closed value as the parser's
-// explicit `disabled` default.
+// Directly constructed test/application dependency fixtures may omit the
+// deployment environment and release id.
 export type ApiEnvironment = Omit<
   ParsedApiEnvironment,
-  'ADMIN_CMS_MODE' | 'DEPLOYMENT_ENVIRONMENT' | 'RELEASE_ID'
+  'DEPLOYMENT_ENVIRONMENT' | 'RELEASE_ID'
 > & {
-  readonly ADMIN_CMS_MODE?: ParsedApiEnvironment['ADMIN_CMS_MODE']
   readonly DEPLOYMENT_ENVIRONMENT?: ParsedApiEnvironment['DEPLOYMENT_ENVIRONMENT']
   readonly RELEASE_ID?: ParsedApiEnvironment['RELEASE_ID']
 }
@@ -436,7 +429,6 @@ export const parseApiEnvironment = (
     RELEASE_ID:
       source.RELEASE_ID ??
       (canUseDevelopmentDefaults ? LOCAL_RELEASE_ID : undefined),
-    ADMIN_CMS_MODE: source.ADMIN_CMS_MODE ?? 'disabled',
     HOST: source.HOST ?? (canUseDevelopmentDefaults ? '127.0.0.1' : undefined),
     PORT: source.PORT ?? (canUseDevelopmentDefaults ? '3001' : undefined),
     DATABASE_URL: source.DATABASE_URL,

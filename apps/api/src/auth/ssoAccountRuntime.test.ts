@@ -21,7 +21,8 @@ import type {
 } from './ssoAccountRepository.js'
 const environment = parseApiEnvironment({
   NODE_ENV: 'test',
-  DATABASE_URL: 'postgresql://unused:unused@localhost/unused_test',
+  DATABASE_URL:
+    'postgresql://nihongo_test_app_login:unused@127.0.0.1:5432/nihongo_test?schema=nihongo_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_test',
   BETTER_AUTH_SECRET: 'test-auth-placeholder-only-1234567890',
   GUEST_COOKIE_SECRET: 'test-guest-placeholder-only-1234567890',
   AUTH_EMAIL_FROM: 'test@example.test'

@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { parseApiEnvironment } from '../config/env.js'
+import { isAdminCmsEnabled, parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime, type DatabaseRuntime } from '../db/database.js'
 import {
   assertSafeDevelopmentDatabase,
@@ -66,7 +66,7 @@ const run = async <Result>(
 
   const database = createDatabaseRuntime(
     environment.DATABASE_URL,
-    environment.ADMIN_CMS_MODE === 'technical'
+    isAdminCmsEnabled(environment)
       ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
       : {}
   )

@@ -28,7 +28,7 @@ import {
 import { createHealthRoutes } from '../routes/health.js'
 import { createQuestionRoutes } from '../routes/questions.js'
 import { AuthGatewayError, type AuthGateway } from '../auth/authGateway.js'
-import type { ApiEnvironment } from '../config/env.js'
+import { isAdminCmsEnabled, type ApiEnvironment } from '../config/env.js'
 import type { GuestPrincipalService } from '../auth/guestPrincipalService.js'
 import type { PrincipalService } from '../auth/principalService.js'
 import { createWriteSecurity } from '../middleware/writeSecurity.js'
@@ -424,8 +424,8 @@ export const createApiApp = ({
 
   const technicalAdminEnabled =
     admin !== undefined &&
-    auth?.environment.ADMIN_CMS_MODE === 'technical' &&
-    auth.environment.NODE_ENV !== 'production'
+    auth !== undefined &&
+    isAdminCmsEnabled(auth.environment)
   // Learner reports stay available when the technical CMS is disabled.
   const learnerReports =
     auth === undefined
@@ -607,11 +607,7 @@ export const createApiApp = ({
         })
       )
     }
-    if (
-      admin &&
-      auth.environment.ADMIN_CMS_MODE === 'technical' &&
-      auth.environment.NODE_ENV !== 'production'
-    ) {
+    if (admin && isAdminCmsEnabled(auth.environment)) {
       app.route(
         '/api/v1/admin',
         createAdminQuestionRoutes({

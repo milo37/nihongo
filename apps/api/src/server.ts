@@ -10,7 +10,11 @@ import {
   startReauthenticationMaintenance
 } from './auth/reauthenticationStartupMaintenance.js'
 import { createGuestPrincipalService } from './auth/guestPrincipalService.js'
-import { LOCAL_RELEASE_ID, parseApiEnvironment } from './config/env.js'
+import {
+  isAdminCmsEnabled,
+  LOCAL_RELEASE_ID,
+  parseApiEnvironment
+} from './config/env.js'
 import { createAuthRuntimePlan } from './config/authRuntimePlan.js'
 import { createDatabaseRuntime } from './db/database.js'
 import { assertSafeAdminCmsDatabase } from './db/databaseTargetGuard.js'
@@ -74,7 +78,6 @@ const packagedAdminAssetsDirectory = fileURLToPath(
 const authRuntimePlan = createAuthRuntimePlan(environment)
 if (authRuntimePlan.cmsEnabled)
   assertSafeAdminCmsDatabase({
-    adminCmsMode: environment.ADMIN_CMS_MODE,
     nodeEnvironment: environment.NODE_ENV,
     databaseUrl: environment.DATABASE_URL,
     productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
@@ -85,7 +88,7 @@ const logger = createJsonLogger(environment.LOG_LEVEL, undefined, {
     (environment.NODE_ENV === 'test' ? 'TEST' : 'LOCAL'),
   releaseId: environment.RELEASE_ID ?? LOCAL_RELEASE_ID
 })
-const technicalMode = environment.ADMIN_CMS_MODE === 'technical'
+const technicalMode = isAdminCmsEnabled(environment)
 const runtimeMigrationProfile = authRuntimePlan.migrationProfile
 const database = createDatabaseRuntime(environment.DATABASE_URL, {
   migrationProfile: runtimeMigrationProfile,

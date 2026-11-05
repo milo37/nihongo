@@ -311,7 +311,6 @@ const exercisePostIssuerAuthorityDrift = async ({
 
 beforeAll(async () => {
   assertSafeAdminCmsDatabase({
-    adminCmsMode: environment.ADMIN_CMS_MODE,
     nodeEnvironment: environment.NODE_ENV,
     databaseUrl: environment.DATABASE_URL,
     productionDatabaseUrl

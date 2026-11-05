@@ -1,3 +1,4 @@
+import { isAdminCmsEnabled } from '../src/config/env.js'
 import {
   getLastSeedStage,
   writeSeedDiagnostic,
@@ -36,7 +37,9 @@ try {
     quiet: true
   })
 
-  const isTechnicalAdminCms = process.env.ADMIN_CMS_MODE === 'technical'
+  const isTechnicalAdminCms = isAdminCmsEnabled({
+    NODE_ENV: process.env.NODE_ENV
+  })
   const databaseUrl = isTechnicalAdminCms
     ? process.env.MIGRATION_DATABASE_URL
     : target === 'test'

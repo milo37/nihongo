@@ -262,7 +262,7 @@ test('README documents both mutually exclusive local workflows', async () => {
   assert.match(readme, /--profile local-db down -v/u)
   assert.match(readme, /NODE_ENV=test pnpm run db:migrate:deploy/u)
   assert.doesNotMatch(readme, /TEST_MIGRATIONS_PATH/u)
-  assert.match(readme, /ADMIN_CMS_MODE=technical pnpm run db:seed:test/u)
+  assert.match(readme, /pnpm run db:seed:test/u)
   assert.match(
     readme,
     /psql -h 127\.0\.0\.1 -p "\$\{LOCAL_POSTGRES_PORT:-55433\}"/u
