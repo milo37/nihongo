@@ -18,8 +18,6 @@ const context = {
   provider: 'google',
   accountId: 'subject'
 } as const
-const client = (query: unknown) =>
-  ({ $queryRawUnsafe: query }) as Pick<PrismaClient, '$queryRawUnsafe'>
 // #504 P7 PR4a: complete and list run in the API with Prisma raw SQL.
 const workerClient = (query: unknown, execute = vi.fn(async () => 0)) => {
   const value = {
