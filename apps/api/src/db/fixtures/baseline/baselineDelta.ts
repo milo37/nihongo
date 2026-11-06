@@ -200,10 +200,12 @@ export const withoutLegacyBranchSources = (
 })
 
 /**
- * The forward migration 20261106090000_remove_phase_names (#504 P8-2): the
- * functions it replaces and the only strings their bodies may change.
+ * The forward migrations 20261106090000_remove_phase_names (#504 P8-2) and
+ * 20261107090000_first_admin_production (JLP-725): the functions they replace
+ * and the only strings their bodies may change.
  */
 const FORWARD_FUNCTIONS = [
+  'bootstrap_first_google_admin',
   'limit_operation_intent_delete',
   'classify_admin_authority',
   'consume_sso_transaction_v2',
@@ -264,13 +266,23 @@ const FORWARD_SOURCE_REPLACEMENTS: ReadonlyArray<readonly [string, string]> = [
       AND required_role IN ('nihongo_auth_gateway', 'nihongo_erasure_worker')
     ) THEN`,
     '  IF effective_caller IS DISTINCT FROM required_role THEN'
+  ],
+  [
+    `    WHEN environment_value = 'DEVELOPMENT' AND current_database() ~ '_dev$'
+      THEN 'nihongo_development_migration_login'
+`,
+    `    WHEN environment_value = 'DEVELOPMENT' AND current_database() ~ '_dev$'
+      THEN 'nihongo_development_migration_login'
+    WHEN environment_value = 'PRODUCTION' AND current_database() = 'nihongo'
+      THEN 'nihongo_production_migration_login'
+`
   ]
 ]
 
 const forwardFunctions = new Set<string>(FORWARD_FUNCTIONS)
 
 /**
- * Undoes the forward migration's catalog changes the baseline comparison
+ * Undoes the forward migrations' catalog changes the baseline comparison
  * cannot see: the renamed enum label and the replaced function bodies (checked
  * exactly by forwardFunctionSources against the baseline file).
  */
@@ -309,7 +321,8 @@ export const forwardFunctionSources = (
       return [
         name,
         FORWARD_SOURCE_REPLACEMENTS.reduce(
-          (source, [from, to]) => source.replaceAll(from, to),
+          // A replacer function keeps `$'` in a replacement literal.
+          (source, [from, to]) => source.replaceAll(from, () => to),
           `\n${match[2]}`
         )
       ]

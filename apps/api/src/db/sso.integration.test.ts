@@ -8,6 +8,7 @@ import {
 import { Client } from 'pg'
 import { assertSafeMigrationDatabase } from './databaseTargetGuard.js'
 import { createPostgresStartupOptions } from './databaseOptions.js'
+import { runProvisionAdminCommand } from '../auth/provisionAdminCommand.js'
 import { createSsoAdminFreshRepository } from '../auth/ssoAdminFreshRepository.js'
 import { createSsoIdentityRepository } from '../auth/ssoIdentityRepository.js'
 import {
@@ -93,7 +94,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     // #504 P8: the baseline and the phase name removal.
     expect(expected.map(({ name }) => name)).toEqual([
       '20261105090000_baseline',
-      '20261106090000_remove_phase_names'
+      '20261106090000_remove_phase_names',
+      '20261107090000_first_admin_production'
     ])
     expect(
       actual.rows.map(({ name, checksum }) => ({ name, checksum }))
@@ -1714,4 +1716,44 @@ describe('JLP-527 first Google ADMIN operator bootstrap', () => {
       expect(await activeAdmins()).toEqual(previous)
     }
   }, 30_000)
+
+  it('finds the operator command target by email in a dry run without changing it', async () => {
+    await h.owner.query('BEGIN')
+    const target = await h.fixture('google', 'USER')
+    await h.owner.query('COMMIT')
+    const write = vi
+      .spyOn(process.stdout, 'write')
+      .mockImplementation(() => true)
+    try {
+      const [{ email, generation }] = (
+        await h.owner.query<{ email: string; generation: number }>(
+          'SELECT email,"authorityGeneration" AS generation FROM "User" WHERE id=$1',
+          [target.userId]
+        )
+      ).rows as [{ email: string; generation: number }]
+      await runProvisionAdminCommand({
+        ...process.env,
+        ADMIN_PROVISION_EMAIL: email.toUpperCase()
+      })
+      expect(process.exitCode).toBeUndefined()
+      expect(JSON.parse(String(write.mock.calls[0]?.[0]))).toMatchObject({
+        event: 'first_google_admin_dry_run',
+        environment: 'TEST',
+        targetUserId: target.userId,
+        authorityGeneration: generation
+      })
+      const [after] = (
+        await h.owner.query<{ role: string; generation: number }>(
+          'SELECT role::text AS role,"authorityGeneration" AS generation FROM "User" WHERE id=$1',
+          [target.userId]
+        )
+      ).rows
+      expect(after).toEqual({ role: 'USER', generation })
+    } finally {
+      write.mockRestore()
+      await h.roleQuery('nihongo_app', 'SELECT "erase_user"($1,\'TEST\')', [
+        target.userId
+      ])
+    }
+  })
 })

@@ -258,9 +258,9 @@ export const verifyRecoveryContract = (
   )
   if (
     current.selection !== 'all-release-manifest-entries' ||
-    current.expectedCount !== 2 ||
+    current.expectedCount !== 3 ||
     current.expectedDigestSha256 !==
-      'cb91271f8a2574f3956552696e289912bf144b4aed28370c020c13c8a642441b' ||
+      '394720fc58fada71a16e5099332936ae7e5572de5c787c31632e5ccb9fd5a217' ||
     current.externalRecoveryClaimAllowed !== false
   ) {
     throw new Error('Current migration profile is invalid.')
@@ -331,7 +331,7 @@ export const deriveMigrationProfile = (releaseManifest, profileName) => {
     throw new Error('Unsupported recovery migration profile.')
   }
   const entries = manifest.migrations.entries
-  if (entries.length !== 2) {
+  if (entries.length !== 3) {
     throw new Error('Current migration profile count mismatch.')
   }
   const profile = {
@@ -340,7 +340,7 @@ export const deriveMigrationProfile = (releaseManifest, profileName) => {
     name: profileName
   }
   const expectedDigest =
-    'cb91271f8a2574f3956552696e289912bf144b4aed28370c020c13c8a642441b'
+    '394720fc58fada71a16e5099332936ae7e5572de5c787c31632e5ccb9fd5a217'
   if (profile.digestSha256 !== expectedDigest) {
     throw new Error('Recovery migration profile inventory mismatch.')
   }
