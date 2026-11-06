@@ -153,14 +153,14 @@ variable "backup_retention_days" {
 }
 
 variable "erasure_schedule_enabled" {
-  description = "Account erasure (#57) schedule. Stays false until the production revoke adapter and approval exist."
+  description = "Account erasure (#57) hourly schedule. Set true at apply (#670); false creates it DISABLED."
   type        = bool
   default     = false
 }
 
 variable "erasure_schedule_expression" {
   type    = string
-  default = "cron(0 3 * * ? *)"
+  default = "cron(0 * * * ? *)"
 }
 
 variable "compose_version" {

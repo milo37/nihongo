@@ -25,9 +25,9 @@ resource "aws_ssm_document" "deploy" {
 }
 
 # #57 account erasure: the one-shot auth:erase-deletion-pending:compiled command
-# runs from the deployed image on the host. The command refuses PRODUCTION until
-# BE injects a credentialed revoke adapter (operations/runbooks/account-erasure.v2.md),
-# so the schedule below is created DISABLED and only an owner may switch it on.
+# runs from the deployed image on the host, hourly once erasure_schedule_enabled
+# is true (operations/runbooks/account-erasure.v2.md). Since #696 it records
+# provider cleanup as NOT_HELD (no stored tokens) and runs on PRODUCTION.
 resource "aws_ssm_document" "erase_deletion_pending" {
   name            = "${local.name}-erase-deletion-pending"
   document_type   = "Command"
