@@ -7,6 +7,7 @@ import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import { QuestionVersionEditor } from '@app/admin-question/components/QuestionVersionEditor'
 import { QuestionVersionPanels } from '@app/admin-question/components/QuestionVersionPanels'
 import { questionFieldErrors } from '@app/admin-question/detail/questionWorkflow'
+import { getTagServerErrorKey } from '@app/admin-question/components/questionTagServerError'
 import type { QuestionDetailState } from '@app/admin-question/hooks/useQuestionDetail'
 
 type SectionProps = { state: QuestionDetailState }
@@ -116,6 +117,7 @@ const QuestionEditorCard = ({ state }: SectionProps): ReactElement | null => {
         isSubmitting={mutation.isPending}
         conflictRevision={conflictRevision}
         serverFieldErrors={questionFieldErrors(mutation.error)}
+        serverTagErrorKey={getTagServerErrorKey(mutation.error)}
         onDirtyChange={onDirty}
         onSubmit={save}
       />
