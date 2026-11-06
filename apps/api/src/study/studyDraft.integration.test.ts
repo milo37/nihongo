@@ -47,7 +47,7 @@ import {
   IdempotencyKeyReusedError
 } from './studySubmissionRepository.js'
 import { createStudySubmissionService } from './studySubmissionService.js'
-import { eraseTestUser } from '../db/fixtures/accountErasure.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({

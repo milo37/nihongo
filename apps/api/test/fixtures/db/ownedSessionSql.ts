@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { QueryResultRow } from 'pg'
-import type { PrismaClient } from '../../generated/prisma/client.js'
+import type { PrismaClient } from '../../../src/generated/prisma/client.js'
 import {
   abortReauthentication,
   adminSessionFreshSql,
@@ -17,8 +17,8 @@ import {
   stageAdminFreshProof,
   stageReauthentication,
   type AdminFreshContextValue
-} from '../../auth/adminFreshAuthority.js'
-import { createQuestionReportInTransaction } from '../../admin/questionReportAuthority.js'
+} from '../../../src/auth/adminFreshAuthority.js'
+import { createQuestionReportInTransaction } from '../../../src/admin/questionReportAuthority.js'
 import {
   completeSsoAccountErasure,
   eraseUserForTest,
@@ -27,7 +27,7 @@ import {
   requestSsoAccountErasure,
   ssoAccountErasureStatus,
   type ErasureEnvironment
-} from '../../auth/accountErasureAuthority.js'
+} from '../../../src/auth/accountErasureAuthority.js'
 import {
   accountCapabilities,
   beginProviderCleanup,
@@ -42,7 +42,7 @@ import {
   stageAccountFreshProof,
   unlinkAccount,
   type ProviderCleanupEnvironment
-} from '../../auth/ssoAccountAuthority.js'
+} from '../../../src/auth/ssoAccountAuthority.js'
 import { changeUserAuthorityForTest } from './userAuthorityChange.js'
 import {
   confirmOwnedSession,
@@ -51,7 +51,7 @@ import {
   signOutOwnedSession,
   v1PrincipalQuery,
   type OwnedSessionClient
-} from '../../auth/ownedSessionAuthority.js'
+} from '../../../src/auth/ownedSessionAuthority.js'
 
 /**
  * Test fixture bridge for #504 P7 PR3a. Database tests still describe a Session

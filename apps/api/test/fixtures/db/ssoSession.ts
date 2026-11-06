@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
-import type { SsoVerifiedIdentity } from '../../auth/ssoProtocol.js'
-import type { PrismaClient } from '../../generated/prisma/client.js'
-import { createSsoIdentityRepository } from '../../auth/ssoIdentityRepository.js'
-import { createSessionCookie } from '../../auth/sessionCookie.js'
+import type { SsoVerifiedIdentity } from '../../../src/auth/ssoProtocol.js'
+import type { PrismaClient } from '../../../src/generated/prisma/client.js'
+import { createSsoIdentityRepository } from '../../../src/auth/ssoIdentityRepository.js'
+import { createSessionCookie } from '../../../src/auth/sessionCookie.js'
 
 export const createSsoIdentityFixture = async ({
   owner,

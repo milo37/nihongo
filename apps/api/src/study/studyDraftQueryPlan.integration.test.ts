@@ -14,7 +14,7 @@ import { createStudyResultRetryService } from './studyResultRetryService.js'
 import { createPrismaStudySessionRepository } from './studySessionRepository.js'
 import { createPrismaStudySubmissionRepository } from './studySubmissionRepository.js'
 import { createStudySubmissionService } from './studySubmissionService.js'
-import { eraseTestUser } from '../db/fixtures/accountErasure.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 interface ExplainRow {
   'QUERY PLAN': unknown

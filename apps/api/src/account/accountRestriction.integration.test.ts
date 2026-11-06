@@ -12,7 +12,7 @@ import {
   createPrismaAccountRestrictionReader,
   type AccountRestrictionReader
 } from './accountRestriction.js'
-import { eraseTestUser } from '../db/fixtures/accountErasure.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({

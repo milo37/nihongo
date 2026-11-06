@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { installAuditDigestSql } from '../db/fixtures/auditDigestSql.js'
+import { installAuditDigestSql } from '../../test/fixtures/db/auditDigestSql.js'
 import {
   applyQuestionImportRequestSchema,
   assertAdminImportApplyForRequest,
@@ -51,7 +51,7 @@ import {
 } from '../auth/ownedSessionAuthority.js'
 import { Client } from 'pg'
 import { createSsoAdminFreshRepository } from '../auth/ssoAdminFreshRepository.js'
-import { createSsoSessionFixture } from '../db/fixtures/ssoSession.js'
+import { createSsoSessionFixture } from '../../test/fixtures/db/ssoSession.js'
 import { createPrismaBookmarkRepository } from '../bookmark/bookmarkRepository.js'
 import {
   createDatabaseRuntime,
@@ -90,7 +90,7 @@ import {
   createQuestionReportService,
   type QuestionReportService
 } from './questionReportService.js'
-import { eraseTestUser } from '../db/fixtures/accountErasure.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const requireEnvironmentValue = (name: string): string => {
   const value = process.env[name]

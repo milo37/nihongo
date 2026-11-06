@@ -8,7 +8,7 @@ import {
   getPostgresSchema
 } from './databaseOptions.js'
 import { assertSafeTestDatabase } from './databaseTargetGuard.js'
-import { eraseTestUser } from './fixtures/accountErasure.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const DAY_MS = 24 * 60 * 60 * 1_000
 const HOUR_MS = 60 * 60 * 1_000

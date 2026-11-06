@@ -16,7 +16,7 @@ import { toVersionedStudySessionPayload } from '../study/studySessionMapper.js'
 import { createPrismaStudySessionRepository } from '../study/studySessionRepository.js'
 import { createPrismaReviewReconciliationRepository } from './reviewReconciliationRepository.js'
 import { REVIEW_RECONCILIATION_CONFIRMATION } from './reviewReconciliationCommandConfig.js'
-import { eraseTestUser } from '../db/fixtures/accountErasure.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const HOUR_MS = 60 * 60 * 1_000
 const DAY_MS = 24 * HOUR_MS

@@ -22,7 +22,7 @@ import {
   createPostgresStartupOptions,
   getPostgresSchema
 } from '../db/databaseOptions.js'
-import { createSsoIdentityFixture } from '../db/fixtures/ssoSession.js'
+import { createSsoIdentityFixture } from '../../test/fixtures/db/ssoSession.js'
 import { startApiListener } from '../lifecycle/startApiListener.js'
 import { stopServerGracefully } from '../lifecycle/gracefulShutdown.js'
 import { createJsonLogger, type LogLevel } from '../observability/logger.js'

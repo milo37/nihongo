@@ -1,4 +1,7 @@
-import type { Prisma, PrismaClient } from '../../generated/prisma/client.js'
+import type {
+  Prisma,
+  PrismaClient
+} from '../../../src/generated/prisma/client.js'
 
 /**
  * TEST-only User authority change (#504 P7 PR5a).

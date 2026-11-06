@@ -12,7 +12,7 @@ import {
   redactExpiredUserReportDescriptions,
   USER_REPORT_RETENTION_REDACTED_DESCRIPTION
 } from './userReportRetention.js'
-import { eraseTestUser } from '../db/fixtures/accountErasure.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({
