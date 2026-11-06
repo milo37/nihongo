@@ -40,6 +40,17 @@ const target = (): NodeJS.ProcessEnv => ({
     'postgresql://runtime:unit-only@production.invalid:5432/nihongo_production?schema=public',
   TAG_LIST_FILE
 })
+const production = (): NodeJS.ProcessEnv => ({
+  NODE_ENV: 'production',
+  DEPLOYMENT_ENVIRONMENT: 'PRODUCTION',
+  MIGRATION_DATABASE_URL:
+    'postgresql://nihongo_production_migration_login:unit-only@postgres:5432/nihongo?schema=public&sslmode=require&options=-c+role%3Dnihongo_migration',
+  DATABASE_URL:
+    'postgresql://nihongo_production_app_login:unit-only@postgres:5432/nihongo?schema=public&sslmode=require',
+  PRODUCTION_DATABASE_URL:
+    'postgresql://nihongo_production_app_login:unit-only@postgres:5432/nihongo?schema=public&sslmode=require',
+  TAG_LIST_FILE
+})
 const confirm = { TAG_LOAD_CONFIRM: 'LOAD_TAG_LIST' }
 const existing = {
   id: '00000000-0000-4000-8000-000000000001',
@@ -145,6 +156,45 @@ describe('tag load operator CLI', () => {
   })
 
   it.each([
+    ['PRODUCTION', 'PRODUCTION'],
+    ['STAGING', 'PRODUCTION']
+  ])(
+    'loads on a %s deployment as the %s environment',
+    async (deployment, environment) => {
+      await runTagLoadCommand({
+        ...production(),
+        DEPLOYMENT_ENVIRONMENT: deployment
+      })
+      expect(line(stdout)).toMatchObject({
+        event: 'tag_list_dry_run',
+        environment,
+        created: 2
+      })
+      expect(writes()).toEqual([])
+      expect(statements().at(-1)).toBe('ROLLBACK')
+
+      vi.clearAllMocks()
+      await runTagLoadCommand({
+        ...production(),
+        DEPLOYMENT_ENVIRONMENT: deployment,
+        ...confirm
+      })
+      expect(process.exitCode).toBeUndefined()
+      expect(line(stdout)).toMatchObject({
+        event: 'tag_list_loaded',
+        environment,
+        created: 2
+      })
+      expect(db.query).toHaveBeenCalledWith(
+        'SELECT "require_database_capability"($1::"AdminAuditEnvironment")',
+        [environment]
+      )
+      expect(writes()).toHaveLength(2)
+      expect(statements().at(-1)).toBe('COMMIT')
+    }
+  )
+
+  it.each([
     ['a missing file setting', () => ({ ...target(), TAG_LIST_FILE: '' })],
     [
       'an unreadable file',
@@ -155,8 +205,24 @@ describe('tag load operator CLI', () => {
       () => ({ ...target(), TAG_LOAD_CONFIRM: 'YES' })
     ],
     [
-      'a staging deployment',
+      'a test target on a staging deployment',
       () => ({ ...target(), DEPLOYMENT_ENVIRONMENT: 'STAGING' })
+    ],
+    [
+      'production without a deployment',
+      () => ({ ...production(), DEPLOYMENT_ENVIRONMENT: undefined })
+    ],
+    [
+      'production on a test deployment',
+      () => ({ ...production(), DEPLOYMENT_ENVIRONMENT: 'TEST' })
+    ],
+    [
+      'an unconfirmed load value on staging',
+      () => ({
+        ...production(),
+        DEPLOYMENT_ENVIRONMENT: 'STAGING',
+        TAG_LOAD_CONFIRM: 'YES'
+      })
     ]
   ])('rejects %s before connecting', async (_label, input) => {
     await runTagLoadCommand({ ...confirm, ...input() })
