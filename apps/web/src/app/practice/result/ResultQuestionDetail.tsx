@@ -20,6 +20,92 @@ type ResultQuestionDetailProps = {
   readonly actions: ReactNode
 }
 
+/** Bookmark toggle and, when the version is known, the report dialog. */
+const ResultManageButtons = ({
+  item,
+  ordinal,
+  isBookmarked,
+  bookmarkDisabled,
+  isResultSourceUnavailable,
+  onToggleBookmark
+}: Pick<
+  ResultQuestionDetailProps,
+  | 'item'
+  | 'ordinal'
+  | 'isBookmarked'
+  | 'bookmarkDisabled'
+  | 'isResultSourceUnavailable'
+  | 'onToggleBookmark'
+>): ReactElement => {
+  const { i18n, t } = useTranslation('result')
+  const formattedOrdinal = formatNumber(
+    ordinal,
+    resolveUiLocale(i18n.resolvedLanguage)
+  )
+  return (
+    <div className="flex flex-wrap gap-2">
+      <Button
+        variant="ghost"
+        disabled={bookmarkDisabled || !item.question.questionVersionId}
+        aria-label={t(
+          isBookmarked ? 'bookmark.removeLabel' : 'bookmark.addLabel',
+          { formattedOrdinal }
+        )}
+        aria-pressed={isBookmarked}
+        data-selected={isBookmarked}
+        onClick={onToggleBookmark}
+      >
+        <Icon name="bookmark" />
+        {isBookmarked ? t('bookmark.remove') : t('bookmark.add')}
+      </Button>
+      {item.question.questionVersionId && !isResultSourceUnavailable ? (
+        <QuestionReportDialog
+          questionId={item.question.id}
+          questionVersionId={item.question.questionVersionId}
+          ordinal={ordinal}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+/** The learner's answer next to the correct answer. */
+const ResultAnswerComparison = ({
+  item
+}: {
+  item: StudyResultItemView
+}): ReactElement => {
+  const { t } = useTranslation('result')
+  const selectedOption = item.question.options.find(
+    (option) => option.id === item.selectedOptionId
+  )
+  const correctOption = item.question.options.find(
+    (option) => option.id === item.correctOptionId
+  )
+  return (
+    <dl className="study-result-answer-comparison">
+      <div>
+        <dt className={item.isCorrect ? 'text-success' : 'text-danger'}>
+          {t('items.selectedAnswer')}
+        </dt>
+        <dd lang={selectedOption ? 'ja' : undefined}>
+          {selectedOption
+            ? `${selectedOption.label}. ${selectedOption.text}`
+            : t('items.unanswered')}
+        </dd>
+      </div>
+      <div>
+        <dt className="text-success">{t('items.correctAnswer')}</dt>
+        <dd lang={correctOption ? 'ja' : undefined}>
+          {correctOption
+            ? `${correctOption.label}. ${correctOption.text}`
+            : t('items.correctAnswerUnavailable')}
+        </dd>
+      </div>
+    </dl>
+  )
+}
+
 export const ResultQuestionDetail = ({
   item,
   ordinal,
@@ -34,12 +120,6 @@ export const ResultQuestionDetail = ({
   const { i18n, t } = useTranslation('result')
   const locale = resolveUiLocale(i18n.resolvedLanguage)
   const formattedOrdinal = formatNumber(ordinal, locale)
-  const selectedOption = item.question.options.find(
-    (option) => option.id === item.selectedOptionId
-  )
-  const correctOption = item.question.options.find(
-    (option) => option.id === item.correctOptionId
-  )
   const status = item.isCorrect
     ? t('items.correct')
     : item.selectedOptionId === null
@@ -57,29 +137,14 @@ export const ResultQuestionDetail = ({
           {status} · {t('navigation.question', { formattedOrdinal })}
         </p>
         {canManage ? (
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="ghost"
-              disabled={bookmarkDisabled || !item.question.questionVersionId}
-              aria-label={t(
-                isBookmarked ? 'bookmark.removeLabel' : 'bookmark.addLabel',
-                { formattedOrdinal }
-              )}
-              aria-pressed={isBookmarked}
-              data-selected={isBookmarked}
-              onClick={onToggleBookmark}
-            >
-              <Icon name="bookmark" />
-              {isBookmarked ? t('bookmark.remove') : t('bookmark.add')}
-            </Button>
-            {item.question.questionVersionId && !isResultSourceUnavailable ? (
-              <QuestionReportDialog
-                questionId={item.question.id}
-                questionVersionId={item.question.questionVersionId}
-                ordinal={ordinal}
-              />
-            ) : null}
-          </div>
+          <ResultManageButtons
+            item={item}
+            ordinal={ordinal}
+            isBookmarked={isBookmarked}
+            bookmarkDisabled={bookmarkDisabled}
+            isResultSourceUnavailable={isResultSourceUnavailable}
+            onToggleBookmark={onToggleBookmark}
+          />
         ) : null}
       </div>
       {bookmarkMessage ? (
@@ -102,26 +167,7 @@ export const ResultQuestionDetail = ({
       >
         {item.question.questionText}
       </h2>
-      <dl className="study-result-answer-comparison">
-        <div>
-          <dt className={item.isCorrect ? 'text-success' : 'text-danger'}>
-            {t('items.selectedAnswer')}
-          </dt>
-          <dd lang={selectedOption ? 'ja' : undefined}>
-            {selectedOption
-              ? `${selectedOption.label}. ${selectedOption.text}`
-              : t('items.unanswered')}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-success">{t('items.correctAnswer')}</dt>
-          <dd lang={correctOption ? 'ja' : undefined}>
-            {correctOption
-              ? `${correctOption.label}. ${correctOption.text}`
-              : t('items.correctAnswerUnavailable')}
-          </dd>
-        </div>
-      </dl>
+      <ResultAnswerComparison item={item} />
       <section
         className="study-result-explanation"
         aria-labelledby="selected-result-explanation-title"
