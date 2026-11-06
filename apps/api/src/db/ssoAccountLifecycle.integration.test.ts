@@ -232,7 +232,9 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         )
       ).toEqual({
         appStatus: 'DELETION_PENDING',
-        providerCleanup: [{ provider: 'google', status: 'PENDING' }]
+        providerCleanup: [{ provider: 'google', status: 'PENDING' }],
+        // #669: the repository logs this id and strips it from the response.
+        userId: f.userId
       })
       expect(
         (
