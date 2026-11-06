@@ -57,8 +57,35 @@ until the baseline migration hands it to `nihongo_owner`.
    `docker compose --profile migrate run --rm migrate` runs
    `prisma migrate deploy` once on the internal `db` network, read-only, with
    no capabilities.
-5. Only then the new API starts. If step 3 or 4 fails, `.env` is pointed back
-   at the running release and the old API keeps serving.
+5. `register-capability.sh`: the API's readiness
+   (`require_runtime_ready` -> `require_database_capability`) refuses a
+   database without `DatabaseCapability` row 1, so the whole API stays not
+   ready (503) without it. The script runs `registerDatabaseCapabilityCommand`
+   from the release's API image as the migration login (compose service
+   `capability`, profile `operator`, `migrate.env`):
+   - no row (empty database): dry run, then write it;
+   - a row for this environment: leave it;
+   - then, either way, call `require_database_capability` over TCP to
+     `postgres`, the address the API uses. A row for another environment, or
+     one whose database, address or port no longer match, stops the deploy.
+     Replacing it is an operator step (first-admin runbook, "Wrong or stale
+     capability").
+6. Tag import (pending: the backend command is not written yet).
+7. Only then the new API starts. If step 3, 4 or 5 fails, `.env` is pointed
+   back at the running release and the old API keeps serving.
+8. First admin: after the first deploy, `first-admin.v1.md`.
+
+The row records the server address the API connects to. Compose gives the
+`db` network a fixed subnet (`172.30.1.0/24`) and postgres a fixed address
+(`172.30.1.10`); without them Docker assigns addresses in start order, and a
+recreated postgres could come back on another one (checked locally: with a
+container started first it came back on `.3`), which would make the row stale.
+
+The API and the `capability` service mount the postgres certificate and set
+`NODE_EXTRA_CA_CERTS`: node-postgres treats `sslmode=require` as
+`verify-full`, so without it they reject the self-signed certificate
+(`DEPTH_ZERO_SELF_SIGNED_CERT`). Prisma migrate (step 4) is not affected. New
+certificates carry `subjectAltName=DNS:postgres`.
 
 ## Rollback
 
@@ -72,16 +99,19 @@ until the baseline migration hands it to `nihongo_owner`.
   redeploy, or `ALTER ROLE ... NOLOGIN` to lock a wrapper.
 - Images are immutable in ECR; the last 10 releases of both tags are kept.
 
-## Blocked (backend, JLP-717)
+## Local rehearsal (JLP-730, 2026-11-07)
 
-- B1 `apps/api/src/db/databaseTargetGuard.ts` `assertSafeMigrationDatabase`
-  requires `NODE_ENV=test|development` and the TEST/DEVELOPMENT login.
-- B2 `apps/api/src/db/runtimeRoleAttestation.ts` derives the expected login
-  only for `_test` and `_dev` databases, so `/health/ready` fails on `nihongo`.
-- B3 the applied baseline migration's preflight
-  (`20261105090000_baseline`, and `bootstrap_first_google_admin`) accepts only
-  `_test`/`_dev` databases with their wrappers and raises 42501 on `nihongo`.
-  Applied migrations cannot be edited; the backend owner decides the fix.
+`deploy.sh` and its steps ran unchanged against an empty local postgres with
+the production names (stub `aws`; local logs and volumes instead of awslogs and
+EBS): 3 migrations applied, capability registered, `/health/ready` 200 with the
+release id. A second run left everything in place. Also checked: postgres
+recreated while another container held an address kept `172.30.1.10` and the
+API stayed ready; deleting the row made readiness 503 and the script wrote it
+again; a wrong port or another environment in the row stopped the script.
 
-After those land: rehearse with local compose using the production names, then
-the first STAGING deploy.
+## Open
+
+- STAGING: until #649 is merged, `registerDatabaseCapabilityCommand` refuses
+  `DEPLOYMENT_ENVIRONMENT=STAGING`, so a STAGING deploy stops at step 5.
+  The backend PR #649 (JLP-734) lets this one command register a
+  PRODUCTION row on STAGING; rehearse STAGING after it lands.
