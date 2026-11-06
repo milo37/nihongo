@@ -1,0 +1,4649 @@
+{
+  "tags": [
+    {
+      "label": "가능 표현",
+      "normalizedName": "가능 표현",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "가능성",
+      "normalizedName": "가능성",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "가능형",
+      "normalizedName": "가능형",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "가치 판단",
+      "normalizedName": "가치 판단",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "감사",
+      "normalizedName": "감사",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "KANJI_READING"
+        }
+      ]
+    },
+    {
+      "label": "강좌 안내",
+      "normalizedName": "강좌 안내",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "개별 승낙",
+      "normalizedName": "개별 승낙",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "개요",
+      "normalizedName": "개요",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        }
+      ]
+    },
+    {
+      "label": "개인 가치",
+      "normalizedName": "개인 가치",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        }
+      ]
+    },
+    {
+      "label": "거리",
+      "normalizedName": "거리",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "격식 표현",
+      "normalizedName": "격식 표현",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "격차",
+      "normalizedName": "격차",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        }
+      ]
+    },
+    {
+      "label": "결과 연결",
+      "normalizedName": "결과 연결",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "결론 이유",
+      "normalizedName": "결론 이유",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "결석 자료",
+      "normalizedName": "결석 자료",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "결승전",
+      "normalizedName": "결승전",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "결정 과정",
+      "normalizedName": "결정 과정",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "경로 선택",
+      "normalizedName": "경로 선택",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        }
+      ]
+    },
+    {
+      "label": "경로와 기한",
+      "normalizedName": "경로와 기한",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "경험",
+      "normalizedName": "경험",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "경험의 조건",
+      "normalizedName": "경험의 조건",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "계획",
+      "normalizedName": "계획",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "계획 유지",
+      "normalizedName": "계획 유지",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "고급 어휘",
+      "normalizedName": "고급 어휘",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        }
+      ]
+    },
+    {
+      "label": "고유함",
+      "normalizedName": "고유함",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "공공시설",
+      "normalizedName": "공공시설",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "공동 발표",
+      "normalizedName": "공동 발표",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "공동 작업실",
+      "normalizedName": "공동 작업실",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "관점 대비",
+      "normalizedName": "관점 대비",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "관점 변화",
+      "normalizedName": "관점 변화",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "LONG_READING"
+        }
+      ]
+    },
+    {
+      "label": "관찰과 체험",
+      "normalizedName": "관찰과 체험",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "교정 요청",
+      "normalizedName": "교정 요청",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "교착 해결",
+      "normalizedName": "교착 해결",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        }
+      ]
+    },
+    {
+      "label": "교통",
+      "normalizedName": "교통",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        },
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        }
+      ]
+    },
+    {
+      "label": "구매",
+      "normalizedName": "구매",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "권유",
+      "normalizedName": "권유",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "규칙",
+      "normalizedName": "규칙",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        },
+        {
+          "level": "N3",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "근거",
+      "normalizedName": "근거",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "금액",
+      "normalizedName": "금액",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        }
+      ]
+    },
+    {
+      "label": "금지",
+      "normalizedName": "금지",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "기대와 실제",
+      "normalizedName": "기대와 실제",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "기록",
+      "normalizedName": "기록",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        }
+      ]
+    },
+    {
+      "label": "기준",
+      "normalizedName": "기준",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "날씨",
+      "normalizedName": "날씨",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "날짜 기준 요금",
+      "normalizedName": "날짜 기준 요금",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "내용 추가",
+      "normalizedName": "내용 추가",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "논리 독해",
+      "normalizedName": "논리 독해",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "LONG_READING"
+        }
+      ]
+    },
+    {
+      "label": "논문 표현",
+      "normalizedName": "논문 표현",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "VOCABULARY",
+          "questionType": "KANJI_READING"
+        }
+      ]
+    },
+    {
+      "label": "논지 종합",
+      "normalizedName": "논지 종합",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "LONG_READING"
+        }
+      ]
+    },
+    {
+      "label": "논지 파악",
+      "normalizedName": "논지 파악",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "놓친 기회",
+      "normalizedName": "놓친 기회",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "누적 상한",
+      "normalizedName": "누적 상한",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "다음 개실일",
+      "normalizedName": "다음 개실일",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "다음 시도",
+      "normalizedName": "다음 시도",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "단가",
+      "normalizedName": "단가",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        }
+      ]
+    },
+    {
+      "label": "단어 용법",
+      "normalizedName": "단어 용법",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        },
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        },
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        },
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        },
+        {
+          "level": "N5",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        }
+      ]
+    },
+    {
+      "label": "담당 구분",
+      "normalizedName": "담당 구분",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "대략",
+      "normalizedName": "대략",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        }
+      ]
+    },
+    {
+      "label": "대리 수령",
+      "normalizedName": "대리 수령",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "대여 방향",
+      "normalizedName": "대여 방향",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        }
+      ]
+    },
+    {
+      "label": "대응 기준",
+      "normalizedName": "대응 기준",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "도서관",
+      "normalizedName": "도서관",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "독립 조건",
+      "normalizedName": "독립 조건",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "동반 변화",
+      "normalizedName": "동반 변화",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "동사",
+      "normalizedName": "동사",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        },
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        },
+        {
+          "level": "N5",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        }
+      ]
+    },
+    {
+      "label": "동사 활용",
+      "normalizedName": "동사 활용",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        },
+        {
+          "level": "N5",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "동시 동작",
+      "normalizedName": "동시 동작",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "동음어",
+      "normalizedName": "동음어",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        }
+      ]
+    },
+    {
+      "label": "동작성 명사",
+      "normalizedName": "동작성 명사",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        }
+      ]
+    },
+    {
+      "label": "두 요구",
+      "normalizedName": "두 요구",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "두 이유 결합",
+      "normalizedName": "두 이유 결합",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "두 장점",
+      "normalizedName": "두 장점",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "등록 후 변경",
+      "normalizedName": "등록 후 변경",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "마감 준비물",
+      "normalizedName": "마감 준비물",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "목적",
+      "normalizedName": "목적",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        },
+        {
+          "level": "N3",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "목적 이해",
+      "normalizedName": "목적 이해",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "목적 파악",
+      "normalizedName": "목적 파악",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "목적 확인",
+      "normalizedName": "목적 확인",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "무료와 절차",
+      "normalizedName": "무료와 절차",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "문맥 어휘",
+      "normalizedName": "문맥 어휘",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        },
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        },
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        },
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        },
+        {
+          "level": "N5",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        }
+      ]
+    },
+    {
+      "label": "문맥 의미",
+      "normalizedName": "문맥 의미",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        }
+      ]
+    },
+    {
+      "label": "문어체",
+      "normalizedName": "문어체",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "문장문법",
+      "normalizedName": "문장문법",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "물리적 지지",
+      "normalizedName": "물리적 지지",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        }
+      ]
+    },
+    {
+      "label": "물품별 조건",
+      "normalizedName": "물품별 조건",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "미끄러짐",
+      "normalizedName": "미끄러짐",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        }
+      ]
+    },
+    {
+      "label": "미래 대비",
+      "normalizedName": "미래 대비",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "반례",
+      "normalizedName": "반례",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "반환 연장",
+      "normalizedName": "반환 연장",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "방",
+      "normalizedName": "방",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "방향",
+      "normalizedName": "방향",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        }
+      ]
+    },
+    {
+      "label": "범위 확장",
+      "normalizedName": "범위 확장",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "범위와 예외",
+      "normalizedName": "범위와 예외",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "변경 방향",
+      "normalizedName": "변경 방향",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "변화",
+      "normalizedName": "변화",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        }
+      ]
+    },
+    {
+      "label": "변화 진행",
+      "normalizedName": "변화 진행",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "변화 파악",
+      "normalizedName": "변화 파악",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "변화 평가",
+      "normalizedName": "변화 평가",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "보관 반환",
+      "normalizedName": "보관 반환",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "보관 장소 변경",
+      "normalizedName": "보관 장소 변경",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "복수 조건",
+      "normalizedName": "복수 조건",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "부분 부정",
+      "normalizedName": "부분 부정",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "부사",
+      "normalizedName": "부사",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        },
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        }
+      ]
+    },
+    {
+      "label": "부족 조건",
+      "normalizedName": "부족 조건",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "부족분 보충",
+      "normalizedName": "부족분 보충",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        }
+      ]
+    },
+    {
+      "label": "분리배출",
+      "normalizedName": "분리배출",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "분반",
+      "normalizedName": "분반",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "불가피",
+      "normalizedName": "불가피",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "불문",
+      "normalizedName": "불문",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "불필요",
+      "normalizedName": "불필요",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "비",
+      "normalizedName": "비",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "비교",
+      "normalizedName": "비교",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        },
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "비교 기록",
+      "normalizedName": "비교 기록",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "사례 종합",
+      "normalizedName": "사례 종합",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "사용법",
+      "normalizedName": "사용법",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "사용자 검증",
+      "normalizedName": "사용자 검증",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "사전 조치",
+      "normalizedName": "사전 조치",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "사전 준비",
+      "normalizedName": "사전 준비",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "사정 설명",
+      "normalizedName": "사정 설명",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "상담",
+      "normalizedName": "상담",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        }
+      ]
+    },
+    {
+      "label": "상충 요구",
+      "normalizedName": "상충 요구",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "상태 변화",
+      "normalizedName": "상태 변화",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "상호 작용",
+      "normalizedName": "상호 작용",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "생략",
+      "normalizedName": "생략",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        }
+      ]
+    },
+    {
+      "label": "생활 환경",
+      "normalizedName": "생활 환경",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "KANJI_READING"
+        }
+      ]
+    },
+    {
+      "label": "생활문",
+      "normalizedName": "생활문",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "선의와 자유",
+      "normalizedName": "선의와 자유",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "LONG_READING"
+        }
+      ]
+    },
+    {
+      "label": "선택",
+      "normalizedName": "선택",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        }
+      ]
+    },
+    {
+      "label": "선택 이유",
+      "normalizedName": "선택 이유",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "설명 방식",
+      "normalizedName": "설명 방식",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "설명문",
+      "normalizedName": "설명문",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "설명회",
+      "normalizedName": "설명회",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "소비 행동",
+      "normalizedName": "소비 행동",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "소식 반응",
+      "normalizedName": "소식 반응",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        }
+      ]
+    },
+    {
+      "label": "소유권과 관리",
+      "normalizedName": "소유권과 관리",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "소중함",
+      "normalizedName": "소중함",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        }
+      ]
+    },
+    {
+      "label": "수급",
+      "normalizedName": "수급",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        }
+      ]
+    },
+    {
+      "label": "수량",
+      "normalizedName": "수량",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        }
+      ]
+    },
+    {
+      "label": "수량 변화",
+      "normalizedName": "수량 변화",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        }
+      ]
+    },
+    {
+      "label": "수령 경로 비교",
+      "normalizedName": "수령 경로 비교",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "수령 방식 구분",
+      "normalizedName": "수령 방식 구분",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "수리 가능성",
+      "normalizedName": "수리 가능성",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "수영장",
+      "normalizedName": "수영장",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "순간",
+      "normalizedName": "순간",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "승인",
+      "normalizedName": "승인",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        }
+      ]
+    },
+    {
+      "label": "시각 장소",
+      "normalizedName": "시각 장소",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "시간",
+      "normalizedName": "시간",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        }
+      ]
+    },
+    {
+      "label": "시간 요금",
+      "normalizedName": "시간 요금",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "시간표",
+      "normalizedName": "시간표",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "시도 비교",
+      "normalizedName": "시도 비교",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "시설 안내",
+      "normalizedName": "시설 안내",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "시설 요금",
+      "normalizedName": "시설 요금",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "시작점",
+      "normalizedName": "시작점",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "시작점 끝점",
+      "normalizedName": "시작점 끝점",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "시점",
+      "normalizedName": "시점",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "시점 구별",
+      "normalizedName": "시점 구별",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "시제",
+      "normalizedName": "시제",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "식사",
+      "normalizedName": "식사",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "신청 안내",
+      "normalizedName": "신청 안내",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "신청시각 기준",
+      "normalizedName": "신청시각 기준",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "안내문",
+      "normalizedName": "안내문",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "안전 검사",
+      "normalizedName": "안전 검사",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "약속",
+      "normalizedName": "약속",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "약속 정보",
+      "normalizedName": "약속 정보",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "양보 연결",
+      "normalizedName": "양보 연결",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "어미 구별",
+      "normalizedName": "어미 구별",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        }
+      ]
+    },
+    {
+      "label": "얼어붙은 길",
+      "normalizedName": "얼어붙은 길",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        }
+      ]
+    },
+    {
+      "label": "업무",
+      "normalizedName": "업무",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        }
+      ]
+    },
+    {
+      "label": "업무 메모",
+      "normalizedName": "업무 메모",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "업무 연락",
+      "normalizedName": "업무 연락",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "업무 인계",
+      "normalizedName": "업무 인계",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "업무 표현",
+      "normalizedName": "업무 표현",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        }
+      ]
+    },
+    {
+      "label": "업무 효율",
+      "normalizedName": "업무 효율",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "여행",
+      "normalizedName": "여행",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        }
+      ]
+    },
+    {
+      "label": "역사와 지속 이용",
+      "normalizedName": "역사와 지속 이용",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "역접",
+      "normalizedName": "역접",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "역할 대비",
+      "normalizedName": "역할 대비",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "역할별 조건",
+      "normalizedName": "역할별 조건",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "연락",
+      "normalizedName": "연락",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        }
+      ]
+    },
+    {
+      "label": "연속성과 적응",
+      "normalizedName": "연속성과 적응",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "연장 상한",
+      "normalizedName": "연장 상한",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "영화",
+      "normalizedName": "영화",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "예상 밖",
+      "normalizedName": "예상 밖",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        }
+      ]
+    },
+    {
+      "label": "예약 변경",
+      "normalizedName": "예약 변경",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        },
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "예외 조건",
+      "normalizedName": "예외 조건",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "예정 변경",
+      "normalizedName": "예정 변경",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        }
+      ]
+    },
+    {
+      "label": "예측",
+      "normalizedName": "예측",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        }
+      ]
+    },
+    {
+      "label": "옷 수거",
+      "normalizedName": "옷 수거",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "완료",
+      "normalizedName": "완료",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "완료와 미완료",
+      "normalizedName": "완료와 미완료",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "요금",
+      "normalizedName": "요금",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "요리",
+      "normalizedName": "요리",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "요청",
+      "normalizedName": "요청",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "용도별 신청",
+      "normalizedName": "용도별 신청",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "용법",
+      "normalizedName": "용법",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        },
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        },
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        }
+      ]
+    },
+    {
+      "label": "우려",
+      "normalizedName": "우려",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        }
+      ]
+    },
+    {
+      "label": "우산",
+      "normalizedName": "우산",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "우연",
+      "normalizedName": "우연",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        }
+      ]
+    },
+    {
+      "label": "운반",
+      "normalizedName": "운반",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        }
+      ]
+    },
+    {
+      "label": "운영 조정",
+      "normalizedName": "운영 조정",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "운영시간",
+      "normalizedName": "운영시간",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "운영시간 준비물",
+      "normalizedName": "운영시간 준비물",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "원인과 결과",
+      "normalizedName": "원인과 결과",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "유감",
+      "normalizedName": "유감",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        },
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "유사 독음",
+      "normalizedName": "유사 독음",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "KANJI_READING"
+        }
+      ]
+    },
+    {
+      "label": "유사 한자",
+      "normalizedName": "유사 한자",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        }
+      ]
+    },
+    {
+      "label": "유사한자",
+      "normalizedName": "유사한자",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        }
+      ]
+    },
+    {
+      "label": "유의 표현",
+      "normalizedName": "유의 표현",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        },
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        },
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        },
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        },
+        {
+          "level": "N5",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        }
+      ]
+    },
+    {
+      "label": "유의어",
+      "normalizedName": "유의어",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        }
+      ]
+    },
+    {
+      "label": "유지 정보",
+      "normalizedName": "유지 정보",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "음성 기록",
+      "normalizedName": "음성 기록",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        }
+      ]
+    },
+    {
+      "label": "음성 안내기",
+      "normalizedName": "음성 안내기",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "음주",
+      "normalizedName": "음주",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        }
+      ]
+    },
+    {
+      "label": "의무",
+      "normalizedName": "의무",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "의사 전달",
+      "normalizedName": "의사 전달",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        }
+      ]
+    },
+    {
+      "label": "의존 조건",
+      "normalizedName": "의존 조건",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "이동 수단",
+      "normalizedName": "이동 수단",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "이동 시간",
+      "normalizedName": "이동 시간",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "이유",
+      "normalizedName": "이유",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        },
+        {
+          "level": "N5",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "이유 파악",
+      "normalizedName": "이유 파악",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "이점과 부담",
+      "normalizedName": "이점과 부담",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "이해 정도",
+      "normalizedName": "이해 정도",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        }
+      ]
+    },
+    {
+      "label": "인물 정보",
+      "normalizedName": "인물 정보",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "인용 맥락",
+      "normalizedName": "인용 맥락",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "인원",
+      "normalizedName": "인원",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        }
+      ]
+    },
+    {
+      "label": "일반화 제한",
+      "normalizedName": "일반화 제한",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "일상",
+      "normalizedName": "일상",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        }
+      ]
+    },
+    {
+      "label": "일정",
+      "normalizedName": "일정",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "KANJI_READING"
+        }
+      ]
+    },
+    {
+      "label": "임시 체류",
+      "normalizedName": "임시 체류",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "입장권 유효기간",
+      "normalizedName": "입장권 유효기간",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "자동사 타동사",
+      "normalizedName": "자동사 타동사",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        }
+      ]
+    },
+    {
+      "label": "자료 보관",
+      "normalizedName": "자료 보관",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "자연",
+      "normalizedName": "자연",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "VOCABULARY",
+          "questionType": "KANJI_READING"
+        }
+      ]
+    },
+    {
+      "label": "자전거 보관",
+      "normalizedName": "자전거 보관",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "자제",
+      "normalizedName": "자제",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        }
+      ]
+    },
+    {
+      "label": "작업",
+      "normalizedName": "작업",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "KANJI_READING"
+        }
+      ]
+    },
+    {
+      "label": "작업과 휴식",
+      "normalizedName": "작업과 휴식",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "장문 독해",
+      "normalizedName": "장문 독해",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "LONG_READING"
+        }
+      ]
+    },
+    {
+      "label": "장소",
+      "normalizedName": "장소",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "장음 탁음",
+      "normalizedName": "장음 탁음",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "KANJI_READING"
+        }
+      ]
+    },
+    {
+      "label": "재검토 조건",
+      "normalizedName": "재검토 조건",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "LONG_READING"
+        }
+      ]
+    },
+    {
+      "label": "재료",
+      "normalizedName": "재료",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "재사용",
+      "normalizedName": "재사용",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "전달 메모",
+      "normalizedName": "전달 메모",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "전문가 상담",
+      "normalizedName": "전문가 상담",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "전언",
+      "normalizedName": "전언",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "전체와 세부",
+      "normalizedName": "전체와 세부",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        }
+      ]
+    },
+    {
+      "label": "전화",
+      "normalizedName": "전화",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "접속",
+      "normalizedName": "접속",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "접수",
+      "normalizedName": "접수",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "정도 대조",
+      "normalizedName": "정도 대조",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "정리",
+      "normalizedName": "정리",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        }
+      ]
+    },
+    {
+      "label": "정보 검색",
+      "normalizedName": "정보 검색",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        },
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        },
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        },
+        {
+          "level": "N5",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "정보 누락",
+      "normalizedName": "정보 누락",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "정보 찾기",
+      "normalizedName": "정보 찾기",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        },
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        },
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        },
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        },
+        {
+          "level": "N5",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "정보 출처",
+      "normalizedName": "정보 출처",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "정보 확인",
+      "normalizedName": "정보 확인",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "정책",
+      "normalizedName": "정책",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        },
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        }
+      ]
+    },
+    {
+      "label": "제한적 판단",
+      "normalizedName": "제한적 판단",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        }
+      ]
+    },
+    {
+      "label": "조건",
+      "normalizedName": "조건",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "조건 내용",
+      "normalizedName": "조건 내용",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "조건 변화",
+      "normalizedName": "조건 변화",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "조건 비교",
+      "normalizedName": "조건 비교",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "조건과 결과",
+      "normalizedName": "조건과 결과",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "조건별 기한",
+      "normalizedName": "조건별 기한",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "조건별 장소",
+      "normalizedName": "조건별 장소",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "조건형",
+      "normalizedName": "조건형",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "조사",
+      "normalizedName": "조사",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "조사 해석",
+      "normalizedName": "조사 해석",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "조직 문화",
+      "normalizedName": "조직 문화",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "LONG_READING"
+        }
+      ]
+    },
+    {
+      "label": "존재문",
+      "normalizedName": "존재문",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "종료 시점",
+      "normalizedName": "종료 시점",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "주장 파악",
+      "normalizedName": "주장 파악",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        },
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "준비물",
+      "normalizedName": "준비물",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "준비물 예외",
+      "normalizedName": "준비물 예외",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "중문 독해",
+      "normalizedName": "중문 독해",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        },
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        },
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "지시어",
+      "normalizedName": "지시어",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "지위 당위",
+      "normalizedName": "지위 당위",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "지탱",
+      "normalizedName": "지탱",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        }
+      ]
+    },
+    {
+      "label": "지표",
+      "normalizedName": "지표",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "LONG_READING"
+        }
+      ]
+    },
+    {
+      "label": "직후",
+      "normalizedName": "직후",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "진행과 상태",
+      "normalizedName": "진행과 상태",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "짐 이동",
+      "normalizedName": "짐 이동",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        }
+      ]
+    },
+    {
+      "label": "짧은 글",
+      "normalizedName": "짧은 글",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        },
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        },
+        {
+          "level": "N5",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "차이",
+      "normalizedName": "차이",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        }
+      ]
+    },
+    {
+      "label": "착용",
+      "normalizedName": "착용",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        }
+      ]
+    },
+    {
+      "label": "참가 이력",
+      "normalizedName": "참가 이력",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "참가 증명",
+      "normalizedName": "참가 증명",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "참여 과정",
+      "normalizedName": "참여 과정",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "참여 기회",
+      "normalizedName": "참여 기회",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "LONG_READING"
+        }
+      ]
+    },
+    {
+      "label": "참여 조건",
+      "normalizedName": "참여 조건",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "초대",
+      "normalizedName": "초대",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        }
+      ]
+    },
+    {
+      "label": "최초 가능",
+      "normalizedName": "최초 가능",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "추가 조사",
+      "normalizedName": "추가 조사",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "추상 동사",
+      "normalizedName": "추상 동사",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        }
+      ]
+    },
+    {
+      "label": "추상 명사",
+      "normalizedName": "추상 명사",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "KANJI_READING"
+        }
+      ]
+    },
+    {
+      "label": "추측",
+      "normalizedName": "추측",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "출입 시간",
+      "normalizedName": "출입 시간",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "친절",
+      "normalizedName": "친절",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "KANJI_READING"
+        }
+      ]
+    },
+    {
+      "label": "침묵과 동의",
+      "normalizedName": "침묵과 동의",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "LONG_READING"
+        }
+      ]
+    },
+    {
+      "label": "크기",
+      "normalizedName": "크기",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        }
+      ]
+    },
+    {
+      "label": "택배 수령",
+      "normalizedName": "택배 수령",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "통학",
+      "normalizedName": "통학",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "특별한 단계",
+      "normalizedName": "특별한 단계",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "판단",
+      "normalizedName": "판단",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        }
+      ]
+    },
+    {
+      "label": "판단 근거",
+      "normalizedName": "판단 근거",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "편리함",
+      "normalizedName": "편리함",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "KANJI_READING"
+        }
+      ]
+    },
+    {
+      "label": "평가",
+      "normalizedName": "평가",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "KANJI_READING"
+        }
+      ]
+    },
+    {
+      "label": "평소와 예외",
+      "normalizedName": "평소와 예외",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "포함과 제외",
+      "normalizedName": "포함과 제외",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "표기",
+      "normalizedName": "표기",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        },
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        },
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        }
+      ]
+    },
+    {
+      "label": "표정",
+      "normalizedName": "표정",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "KANJI_READING"
+        }
+      ]
+    },
+    {
+      "label": "피해",
+      "normalizedName": "피해",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "VOCABULARY",
+          "questionType": "KANJI_READING"
+        }
+      ]
+    },
+    {
+      "label": "필수 조건",
+      "normalizedName": "필수 조건",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "학교",
+      "normalizedName": "학교",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        }
+      ]
+    },
+    {
+      "label": "학년 시간",
+      "normalizedName": "학년 시간",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "한자 읽기",
+      "normalizedName": "한자 읽기",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "VOCABULARY",
+          "questionType": "KANJI_READING"
+        },
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "KANJI_READING"
+        },
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "KANJI_READING"
+        },
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "KANJI_READING"
+        },
+        {
+          "level": "N5",
+          "subject": "VOCABULARY",
+          "questionType": "KANJI_READING"
+        }
+      ]
+    },
+    {
+      "label": "한자 표기",
+      "normalizedName": "한자 표기",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        },
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        },
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        },
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        },
+        {
+          "level": "N5",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        }
+      ]
+    },
+    {
+      "label": "해석의 근거",
+      "normalizedName": "해석의 근거",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "READING",
+          "questionType": "LONG_READING"
+        }
+      ]
+    },
+    {
+      "label": "행동 나열",
+      "normalizedName": "행동 나열",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "행동 변화",
+      "normalizedName": "행동 변화",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "행동 순서",
+      "normalizedName": "행동 순서",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "행동 시기",
+      "normalizedName": "행동 시기",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        }
+      ]
+    },
+    {
+      "label": "행동 주체",
+      "normalizedName": "행동 주체",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "행동 확인",
+      "normalizedName": "행동 확인",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "READING",
+          "questionType": "SHORT_READING"
+        }
+      ]
+    },
+    {
+      "label": "행사 안내",
+      "normalizedName": "행사 안내",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "READING",
+          "questionType": "INFO_RETRIEVAL"
+        }
+      ]
+    },
+    {
+      "label": "형용동사",
+      "normalizedName": "형용동사",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "VOCABULARY",
+          "questionType": "KANJI_READING"
+        },
+        {
+          "level": "N5",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        }
+      ]
+    },
+    {
+      "label": "혼잡 회피",
+      "normalizedName": "혼잡 회피",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        }
+      ]
+    },
+    {
+      "label": "환기",
+      "normalizedName": "환기",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "KANJI_READING"
+        }
+      ]
+    },
+    {
+      "label": "후기",
+      "normalizedName": "후기",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "READING",
+          "questionType": "MEDIUM_READING"
+        }
+      ]
+    },
+    {
+      "label": "휴일",
+      "normalizedName": "휴일",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "あながち",
+      "normalizedName": "あながち",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        }
+      ]
+    },
+    {
+      "label": "い형용사",
+      "normalizedName": "い형용사",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        }
+      ]
+    },
+    {
+      "label": "い형용사 과거",
+      "normalizedName": "い형용사 과거",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "いかんでは",
+      "normalizedName": "いかんでは",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "おおむね",
+      "normalizedName": "おおむね",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        }
+      ]
+    },
+    {
+      "label": "かった",
+      "normalizedName": "かった",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "からまで",
+      "normalizedName": "からまで",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "ことから",
+      "normalizedName": "ことから",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "ことになる",
+      "normalizedName": "ことになる",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "ざるを得ない",
+      "normalizedName": "ざるを得ない",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "そうだ",
+      "normalizedName": "そうだ",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "その結果",
+      "normalizedName": "その結果",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "それでも",
+      "normalizedName": "それでも",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "それに",
+      "normalizedName": "それに",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "だけでは",
+      "normalizedName": "だけでは",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "たことがある",
+      "normalizedName": "たことがある",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "ために",
+      "normalizedName": "ために",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "たり",
+      "normalizedName": "たり",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "たるもの",
+      "normalizedName": "たるもの",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "ちいさい",
+      "normalizedName": "ちいさい",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "VOCABULARY",
+          "questionType": "PARAPHRASE"
+        }
+      ]
+    },
+    {
+      "label": "で",
+      "normalizedName": "で",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "ておく",
+      "normalizedName": "ておく",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "てきた",
+      "normalizedName": "てきた",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "てはいけません",
+      "normalizedName": "てはいけません",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "て初めて",
+      "normalizedName": "て初めて",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "ところが",
+      "normalizedName": "ところが",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "どころか",
+      "normalizedName": "どころか",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "とたんに",
+      "normalizedName": "とたんに",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "とは限らない",
+      "normalizedName": "とは限らない",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "ともなると",
+      "normalizedName": "ともなると",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "な형용사 연결",
+      "normalizedName": "な형용사 연결",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "ないことには",
+      "normalizedName": "ないことには",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "ながら",
+      "normalizedName": "ながら",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "なければならない",
+      "normalizedName": "なければならない",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "ならでは",
+      "normalizedName": "ならでは",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "につれて",
+      "normalizedName": "につれて",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "にもかかわらず",
+      "normalizedName": "にもかかわらず",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "によって",
+      "normalizedName": "によって",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "に先立って",
+      "normalizedName": "に先立って",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "に応じて",
+      "normalizedName": "に応じて",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "に限らず",
+      "normalizedName": "に限らず",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "ば",
+      "normalizedName": "ば",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "ばかり",
+      "normalizedName": "ばかり",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "はく",
+      "normalizedName": "はく",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        }
+      ]
+    },
+    {
+      "label": "まで",
+      "normalizedName": "まで",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "までもなく",
+      "normalizedName": "までもなく",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "も",
+      "normalizedName": "も",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "ものだから",
+      "normalizedName": "ものだから",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "ものを",
+      "normalizedName": "ものを",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "より",
+      "normalizedName": "より",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "わけではない",
+      "normalizedName": "わけではない",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "を問わず",
+      "normalizedName": "を問わず",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "を皮切りに",
+      "normalizedName": "を皮切りに",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "一方で",
+      "normalizedName": "一方で",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "予定",
+      "normalizedName": "予定",
+      "applicability": [
+        {
+          "level": "N4",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "二百",
+      "normalizedName": "二百",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        }
+      ]
+    },
+    {
+      "label": "右",
+      "normalizedName": "右",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        }
+      ]
+    },
+    {
+      "label": "山",
+      "normalizedName": "山",
+      "applicability": [
+        {
+          "level": "N5",
+          "subject": "VOCABULARY",
+          "questionType": "KANJI_READING"
+        }
+      ]
+    },
+    {
+      "label": "延期",
+      "normalizedName": "延期",
+      "applicability": [
+        {
+          "level": "N3",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        }
+      ]
+    },
+    {
+      "label": "手順",
+      "normalizedName": "手順",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "KANJI_READING"
+        }
+      ]
+    },
+    {
+      "label": "打開",
+      "normalizedName": "打開",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        }
+      ]
+    },
+    {
+      "label": "是正",
+      "normalizedName": "是正",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        }
+      ]
+    },
+    {
+      "label": "次第で",
+      "normalizedName": "次第で",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "GRAMMAR",
+          "questionType": "GRAMMAR_SELECT"
+        }
+      ]
+    },
+    {
+      "label": "甚大",
+      "normalizedName": "甚大",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "VOCABULARY",
+          "questionType": "KANJI_READING"
+        }
+      ]
+    },
+    {
+      "label": "相まって",
+      "normalizedName": "相まって",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "GRAMMAR",
+          "questionType": "TEXT_GRAMMAR"
+        }
+      ]
+    },
+    {
+      "label": "省く",
+      "normalizedName": "省く",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "WORD_USAGE"
+        }
+      ]
+    },
+    {
+      "label": "購入",
+      "normalizedName": "購入",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "CONTEXT_VOCABULARY"
+        }
+      ]
+    },
+    {
+      "label": "遵守",
+      "normalizedName": "遵守",
+      "applicability": [
+        {
+          "level": "N2",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        }
+      ]
+    },
+    {
+      "label": "隠蔽",
+      "normalizedName": "隠蔽",
+      "applicability": [
+        {
+          "level": "N1",
+          "subject": "VOCABULARY",
+          "questionType": "ORTHOGRAPHY"
+        }
+      ]
+    }
+  ]
+}
