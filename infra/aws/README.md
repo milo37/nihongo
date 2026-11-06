@@ -53,11 +53,11 @@ aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUT
 
 1. `main` 병합 → `.github/workflows/release-image.yml`(arm64)이 OIDC 역할로 `ECR:<SHA>`(런타임)와 `ECR:<SHA>-migrate`(Dockerfile `migrate` 단계, Prisma CLI와 migration만)를 push. 저장소 변수 `AWS_DEPLOY_ROLE_ARN`·`ECR_REPOSITORY_URL`·`AWS_REGION`을 넣기 전에는 건너뜁니다.
 2. `aws ssm send-command --document-name harumaru-<env>-deploy --parameters releaseId=<SHA>`
-3. 호스트의 `deploy.sh`: 비밀값 갱신 → 두 이미지 pull → postgres 기동 → `provision-db.sh`(DB 역할 생성·검증) → `migrate.sh`(S3에 `pg_dump` 스냅샷 → `prisma migrate deploy` 1회성 컨테이너) → api 재시작 → `/health/ready`의 `x-release-id` 확인 → 실패하면 직전 이미지로 롤백
+3. 호스트의 `deploy.sh`: 비밀값 갱신 → 두 이미지 pull → postgres 기동 → `provision-db.sh`(DB 역할 생성·검증) → `migrate.sh`(S3에 `pg_dump` 스냅샷 → `prisma migrate deploy` 1회성 컨테이너) → `register-capability.sh`(빈 DB면 `DatabaseCapability` 등록, 있으면 확인만, 어긋나면 중단) → (태그 적재, BE 명령 준비 중) → api 재시작 → `/health/ready`의 `x-release-id` 확인 → 실패하면 직전 이미지로 롤백
 
 절차·롤백은 [operations/runbooks/production-database.v1.md](../../operations/runbooks/production-database.v1.md)에 있습니다.
 
-**아직 막힌 점(백엔드 소관):** 앱의 migration 안전장치(`databaseTargetGuard.ts`)·실행 역할 검사(`runtimeRoleAttestation.ts`)·baseline migration 사전 검사가 TEST/DEVELOPMENT login만 받습니다. 이것이 풀리기 전에는 `migrate.sh`가 거부되어 배포가 멈춥니다(이전 API는 그대로).
+**아직 막힌 점:** STAGING에서는 capability 등록 명령이 거부되어 배포가 `register-capability.sh`에서 멈춥니다(이전 API는 그대로). 백엔드 PR #649(JLP-734, capability 명령만 STAGING 허용, 행은 PRODUCTION) 병합 뒤에 풀립니다. PRODUCTION 이름으로 빈 DB 첫 배포는 로컬에서 끝까지 확인했습니다(런북 'Local rehearsal').
 
 ## #57 계정 삭제 실행 경로
 

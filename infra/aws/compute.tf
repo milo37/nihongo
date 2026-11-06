@@ -123,11 +123,13 @@ resource "aws_instance" "host" {
     ecr_repository  = aws_ecr_repository.api.repository_url
     backup_bucket   = aws_s3_bucket.backup.bucket
     compose_yaml = base64encode(templatefile("${path.module}/files/compose.yaml.tftpl", {
-      postgres_image = var.postgres_image
-      caddy_image    = var.caddy_image
-      origin_port    = local.origin_port
-      origin_tls     = local.origin_tls
-      proxy_subnet   = local.proxy_subnet
+      postgres_image   = var.postgres_image
+      caddy_image      = var.caddy_image
+      origin_port      = local.origin_port
+      origin_tls       = local.origin_tls
+      proxy_subnet     = local.proxy_subnet
+      db_subnet        = local.db_subnet
+      postgres_address = cidrhost(local.db_subnet, 10)
     }))
     caddyfile = base64encode(templatefile("${path.module}/files/Caddyfile.tftpl", {
       origin_domain = var.origin_domain_name
@@ -135,6 +137,7 @@ resource "aws_instance" "host" {
     deploy_sh         = file("${path.module}/files/deploy.sh")
     provision_db_sh   = file("${path.module}/files/provision-db.sh")
     migrate_sh        = file("${path.module}/files/migrate.sh")
+    capability_sh     = file("${path.module}/files/register-capability.sh")
     render_env_sh     = file("${path.module}/files/render-env.sh")
     backup_sh         = file("${path.module}/files/backup.sh")
     erase_sh          = file("${path.module}/files/erase-deletion-pending.sh")
