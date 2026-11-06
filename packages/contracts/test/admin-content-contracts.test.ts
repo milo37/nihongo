@@ -41,6 +41,7 @@ import {
   triageAdminQuestionReportErrorCodeSchema,
   triageAdminQuestionReportErrorSchema,
   validateQuestionImportErrorSchema,
+  validateQuestionImportRequestSchema,
   type AdminImportItem,
   type Sha256TextPort
 } from '../src/admin/content-operations.js'
@@ -519,6 +520,41 @@ describe('future import and report contracts', () => {
     ).toBe(false)
   })
 
+  it('takes one to twelve tag names until the JLP-733 3b remap', () => {
+    const withTags = (count: number) => ({
+      items: [
+        {
+          ...importItem,
+          content: {
+            ...importItem.content,
+            tagNames: Array.from(
+              { length: count },
+              (_, index) => `태그${index}`
+            )
+          }
+        }
+      ]
+    })
+    expect(
+      validateQuestionImportRequestSchema.safeParse(withTags(0)).success
+    ).toBe(false)
+    expect(
+      validateQuestionImportRequestSchema.safeParse(withTags(12)).success
+    ).toBe(true)
+    expect(
+      validateQuestionImportRequestSchema.safeParse(withTags(13)).success
+    ).toBe(false)
+  })
+
+  it('rejects a tag list item with an unknown subject', () => {
+    expect(() =>
+      assertListAdminTagsForRequest(
+        { limit: 1 },
+        { items: [{ ...tag, subject: 'LISTENING' }] }
+      )
+    ).toThrow()
+  })
+
   it('places a tag subject issue on a tag name', async () => {
     const { port } = createDigestPort()
     const request = {
@@ -544,13 +580,25 @@ describe('future import and report contracts', () => {
         response('/items/0/content/tagNames/1')
       )
     ).resolves.toMatchObject({ valid: false })
+    for (const fieldPath of [
+      '/items/0/content/passage',
+      '/items/0/content/tagNames/12'
+    ]) {
+      await expect(
+        assertAdminImportValidationForRequest(
+          port,
+          request,
+          response(fieldPath)
+        )
+      ).rejects.toThrow()
+    }
     await expect(
       assertAdminImportValidationForRequest(
         port,
         request,
-        response('/items/0/content/passage')
+        response('/items/0/content/tagNames/11')
       )
-    ).rejects.toThrow()
+    ).resolves.toMatchObject({ valid: false })
   })
 
   it('computes and verifies import apply positional mapping digest', async () => {
