@@ -629,7 +629,7 @@ export const jaAdminResources = {
         optionDuplicate: '同じ選択肢を重複して入力できません。',
         correct: '正解は選択肢から1つ選んでください。',
         explanationKo: '韓国語解説を入力してください。',
-        tags: 'タグを1つ以上入力してください。',
+        tags: 'タグを1つ以上選んでください。',
         invalid: '入力の形式・長さ・数を確認してください。'
       }
     },
@@ -655,6 +655,27 @@ export const jaAdminResources = {
     explanationKo: '韓国語解説',
     explanationJa: '日本語解説',
     tagTextHint: 'カンマまたは改行で区切ってください。1つ以上必要です。',
+    tagPicker: {
+      count: '{{count}}/2',
+      placeholder: 'タグを検索',
+      hint: '問題の科目に合うタグを1〜2個選んでください。',
+      loading: 'タグを読み込み中…',
+      empty:
+        '「{{query}}」で始まるタグはありません。ここではタグを新しく作れません。',
+      more: 'ほかにもある場合があります。名前で検索してください。',
+      error: 'タグの一覧を読み込めませんでした。',
+      retry: 'もう一度試す',
+      max: 'タグは2個まで選べます。変えるときは1つ削除してください。',
+      overLimit:
+        'この問題にはタグが{{count}}個あります。新しい基準では2個までのため追加できません。不要なタグを削除してください。',
+      subjectMismatch:
+        '問題の科目と合わないタグがあります。削除して選び直してください。',
+      remove: 'タグ「{{label}}」を削除',
+      removeMismatch: 'タグ「{{label}}」を削除（科目不一致）',
+      results: 'タグ{{count}}個',
+      added: 'タグ「{{label}}」を追加しました',
+      removed: 'タグ「{{label}}」を削除しました'
+    },
     tagSearch: '登録済みタグを検索',
     tagSuggestions: '登録済みタグの検索結果',
     tagQueryError: 'タグ検索語は正規化後100文字以下にしてください。',

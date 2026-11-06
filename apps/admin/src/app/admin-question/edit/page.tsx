@@ -19,6 +19,7 @@ import { useToast } from '@nihongo/browser/common/components/Toast'
 import { QuestionPageHeader } from '@app/admin-question/components/QuestionPageHeader'
 import { useQuestionListReturnPath } from '@app/admin-question/navigation/useQuestionListReturnPath'
 import { getAdminErrorKey } from '@app/admin/presentation/adminPresentation'
+import { getTagServerErrorKey } from '@app/admin-question/components/questionTagServerError'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import { PageContainer } from '@nihongo/browser/common/components/PageContainer'
 
@@ -48,6 +49,9 @@ export const EditAdminQuestionPage = (): ReactElement => {
   const [formRevision, setFormRevision] = useState(0)
   const [reloadFailed, setReloadFailed] = useState(false)
   const commandError = updateQuestion.apiError
+  const tagErrorKey = updateQuestion.isError
+    ? getTagServerErrorKey(commandError)
+    : null
   const conflict = commandError?.code === 'VERSION_CONFLICT'
   const blocked =
     conflict ||
@@ -196,6 +200,7 @@ export const EditAdminQuestionPage = (): ReactElement => {
                   : presentError(commandError)
             : undefined
         }
+        serverTagError={tagErrorKey ? t(tagErrorKey) : undefined}
         onSubmit={handleUpdateQuestion}
       />
       <Dialog

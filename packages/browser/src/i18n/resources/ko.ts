@@ -1887,6 +1887,27 @@ export const koResources = {
       explanationKo: '한국어 해설',
       explanationJa: '일본어 해설',
       tagTextHint: '쉼표 또는 줄바꿈으로 구분합니다. 최소 1개가 필요합니다.',
+      tagPicker: {
+        count: '{{count}}/2',
+        placeholder: '태그 검색',
+        hint: '문제 과목에 맞는 태그를 1~2개 고르세요.',
+        loading: '태그를 불러오는 중…',
+        empty:
+          '‘{{query}}’로 시작하는 태그가 없습니다. 태그는 여기서 새로 만들 수 없습니다.',
+        more: '더 있을 수 있어요. 이름으로 검색해 주세요.',
+        error: '태그 목록을 불러오지 못했습니다.',
+        retry: '다시 시도',
+        max: '태그는 2개까지 고를 수 있습니다. 바꾸려면 하나를 지워 주세요.',
+        overLimit:
+          '이 문제에는 태그가 {{count}}개 있습니다. 새 기준은 2개까지라 추가할 수 없습니다. 필요 없는 태그를 지워 주세요.',
+        subjectMismatch:
+          '문제 과목과 맞지 않는 태그가 있습니다. 지우고 다시 골라 주세요.',
+        remove: '{{label}} 태그 지우기',
+        removeMismatch: '{{label}} 태그 지우기 (과목 불일치)',
+        results: '태그 {{count}}개',
+        added: '{{label}} 태그를 추가했습니다',
+        removed: '{{label}} 태그를 지웠습니다'
+      },
       tagSearch: '등록된 태그 검색',
       tagSuggestions: '등록된 태그 검색 결과',
       tagQueryError: '태그 검색어는 정규화 후 100자 이하여야 합니다.',
