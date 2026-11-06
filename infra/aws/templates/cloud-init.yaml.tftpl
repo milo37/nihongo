@@ -43,6 +43,10 @@ write_files:
     permissions: '0750'
     content: |
       ${indent(6, migrate_sh)}
+  - path: /opt/harumaru/bin/register-capability.sh
+    permissions: '0750'
+    content: |
+      ${indent(6, capability_sh)}
   - path: /opt/harumaru/bin/backup.sh
     permissions: '0750'
     content: |
@@ -111,7 +115,7 @@ runcmd:
     mountpoint -q /var/lib/harumaru
     install -d -m 0700 -o 70 -g 70 /var/lib/harumaru/postgres /var/lib/harumaru/certs
     if [ ! -f /var/lib/harumaru/certs/server.key ]; then
-      openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -subj /CN=postgres \
+      openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -subj /CN=postgres -addext subjectAltName=DNS:postgres \
         -keyout /var/lib/harumaru/certs/server.key -out /var/lib/harumaru/certs/server.crt
       chown 70:70 /var/lib/harumaru/certs/server.key /var/lib/harumaru/certs/server.crt
       chmod 0600 /var/lib/harumaru/certs/server.key

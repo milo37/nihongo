@@ -7,6 +7,7 @@ locals {
   origin_port        = local.origin_tls ? 443 : 3001
   # Fixed compose subnet: the API trusts only the origin proxy as its peer.
   proxy_subnet  = "172.30.0.0/24"
+  db_subnet     = "172.30.1.0/24"
   public_origin = var.domain_name != "" ? "https://${var.domain_name}" : "https://${aws_cloudfront_distribution.site.domain_name}"
 
   tags = {

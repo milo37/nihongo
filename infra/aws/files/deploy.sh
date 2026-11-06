@@ -1,6 +1,6 @@
 #!/bin/bash
-# deploy.sh <full git SHA>: provision DB roles, migrate, restart the API, verify,
-# roll back on failure.
+# deploy.sh <full git SHA>: provision DB roles, migrate, register the database
+# capability, restart the API, verify, roll back on failure.
 set -euo pipefail
 release="${1:-}"
 [[ "$release" =~ ^[0-9a-f]{40}$ ]] || { echo "release must be a full git SHA" >&2; exit 2; }
@@ -39,11 +39,14 @@ previous="$(cat current-release 2>/dev/null || true)"
 write_compose_env "$release"
 docker compose up -d --wait postgres
 
-# Roles first (idempotent, attested), then migrations, both before the new API
-# starts. If either fails, .env points back at the running release so a reboot
-# restarts what is live.
-if ! /opt/harumaru/bin/provision-db.sh || ! /opt/harumaru/bin/migrate.sh "$release"; then
-  echo "refusing: database provisioning or migration failed for $release" >&2
+# Roles first (idempotent, attested), then migrations, then the DatabaseCapability
+# row the API's readiness requires (written on an empty database, checked after),
+# all before the new API starts. If any fails, .env points back at the running
+# release so a reboot restarts what is live. Tag import goes after the capability
+# step once its backend command exists (#648).
+if ! /opt/harumaru/bin/provision-db.sh || ! /opt/harumaru/bin/migrate.sh "$release" \
+  || ! /opt/harumaru/bin/register-capability.sh; then
+  echo "refusing: database provisioning, migration or capability failed for $release" >&2
   if [[ -n "$previous" ]]; then write_compose_env "$previous"; fi
   exit 1
 fi
