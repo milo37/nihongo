@@ -10,6 +10,8 @@ import { PracticeSetupForm } from '@app/practice/components/PracticeSetupForm'
 import { ResumablePractice } from '@app/practice/components/ResumablePractice'
 import { usePracticeSetupController } from '@app/practice/hooks/usePracticeSetupController'
 import {
+  DEFAULT_COUNT,
+  DEFAULT_SUBJECT,
   counts,
   levels,
   modes,
@@ -100,10 +102,14 @@ export const PracticePage = ({
         startLabel={startLabel}
         loginHref={setup.loginHref}
         onSubjectChange={(option) =>
-          setup.changeSetting('subject', option, 'GRAMMAR')
+          setup.changeSetting('subject', option, DEFAULT_SUBJECT)
         }
-        onLevelChange={(option) => setup.changeSetting('level', option, 'N3')}
-        onCountChange={(option) => setup.changeSetting('count', option, 10)}
+        onLevelChange={(option) =>
+          setup.changeSetting('level', option, setup.defaultLevel)
+        }
+        onCountChange={(option) =>
+          setup.changeSetting('count', option, DEFAULT_COUNT)
+        }
         onModeChange={(option) => setup.changeSetting('mode', option, 'RANDOM')}
         onStart={setup.handleStart}
         feedback={

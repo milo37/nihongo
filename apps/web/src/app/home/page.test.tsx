@@ -149,8 +149,8 @@ it('keeps guest start available while disclosing example data', () => {
   expect(
     screen.getByRole('button', {
       name: appI18n.t('home:quickDrill.start', {
-        level: 'N3',
-        subject: appI18n.t('common:taxonomy.subjects.GRAMMAR'),
+        level: 'N5',
+        subject: appI18n.t('home:approved.vocabulary'),
         formattedCount: 10
       })
     })
@@ -195,7 +195,7 @@ it.each(['ko', 'ja'] as const)(
     expect(
       screen.getByRole('button', {
         name:
-          locale === 'ko' ? 'N3 문법 · 10문제 시작' : 'N3 文法 · 10問を始める'
+          locale === 'ko' ? 'N5 어휘 · 10문제 시작' : 'N5 語彙 · 10問を始める'
       })
     ).toBeEnabled()
     client.clear()
