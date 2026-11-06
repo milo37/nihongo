@@ -150,8 +150,8 @@ load `created:3`, second load `unchanged:3`, the API stayed ready (200).
 - Migrations are forward-only; the previous API image must accept the new
   schema (already a deploy rule). To undo a schema change, add a reverse
   migration (backend) and deploy it.
-- Data loss or a broken migration: restore the `pre-migrate` dump into a new
-  database, verify, then switch. Follow `recovery.v1.md` stop gates.
+- Data loss or a broken migration: restore the `pre-migrate` dump with
+  `recovery.v1.md` path A (the damaged database is kept under another name).
 - Roles: before any user data exists, `DROP OWNED BY` and `DROP ROLE` reverse
   provisioning. Afterwards never drop roles; rotate the SSM password and
   redeploy, or `ALTER ROLE ... NOLOGIN` to lock a wrapper.
@@ -170,5 +170,5 @@ again; a wrong port or another environment in the row stopped the script.
 STAGING (after #649, release `0d2f860d`): the same empty-database run with
 `DEPLOYMENT_ENVIRONMENT=STAGING` registered the row as `PRODUCTION`
 (`nihongo|172.30.1.10|5432|PRODUCTION`), `/health/ready` returned 200, and a
-second run kept the row (`capability current`). The first-admin command still
-refuses STAGING (exit 1), as intended.
+second run kept the row (`capability current`). The first-admin command
+refused STAGING at that release; #693 allows it.

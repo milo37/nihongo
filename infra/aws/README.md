@@ -32,7 +32,7 @@
 | `edge.tf`                 | CloudFront 배포, origin 비밀 헤더(값은 SSM에도 저장), WAF web ACL(us-east-1)                                              |
 | `registry.tf`             | ECR(태그 불변, push 시 스캔, 릴리스 10개 보존: `<SHA>`·`<SHA>-migrate`)                                                   |
 | `backup.tf`               | 백업 버킷(공개 차단, SSE, TLS 강제, 30일 수명주기)                                                                        |
-| `monitoring.tf`           | SNS 메일, 경보 7개(상태 검사+자동 복구, CPU, CPU 크레딧, 메모리, 디스크, CloudFront 5xx, 백업 누락), 로그 그룹 14일       |
+| `monitoring.tf`           | SNS 메일, 경보 7개(상태 검사+자동 복구, CPU, CPU 크레딧, 메모리, 디스크, CloudFront 5xx, 백업 누락), 로그 그룹 30일       |
 | `cost.tf`                 | 월 5,000엔(세포함)을 USD로 환산한 Budgets, 50/80/100% 실제·100% 예측 알림, 100% 초과 시 EC2 정지(기본 꺼짐), Cost Anomaly |
 | `github.tf`               | GitHub Actions OIDC 역할(`main`만, ECR push와 배포 문서 실행만)                                                           |
 | `operations.tf`           | 배포 SSM 문서, #57 계정 삭제·#694 비회원 정리 SSM 문서와 예약(둘 다 매시, 기본 **DISABLED**)                              |
@@ -120,4 +120,4 @@ EC2와 백업 버킷은 CloudFront나 IAM으로만 접근됩니다. WAF는 IP별
 1. SNS·Budgets·Cost Anomaly 메일 구독 확인
 2. CloudFront 콘솔에서 배포를 **Free 정액 요금제**에 가입(Terraform 미지원). 계정이 AWS Free plan이면 가입할 수 없으므로 유료 전환 뒤에 합니다.
 3. 비밀값 SSM 등록 → Google OAuth 클라이언트에 `output google_oauth_redirect_uri` 등록 → 첫 배포
-4. 백업 복구 연습(#40): 최신 dump를 새 컨테이너에 `pg_restore`
+4. 백업 되살리기 시험: [operations/runbooks/recovery.v1.md](../../operations/runbooks/recovery.v1.md)의 'STAGING 첫 배포 직후' 절
