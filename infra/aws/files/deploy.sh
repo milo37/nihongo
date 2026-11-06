@@ -42,8 +42,8 @@ docker compose up -d --wait postgres
 # Roles first (idempotent, attested), then migrations, then the DatabaseCapability
 # row the API's readiness requires (written on an empty database, checked after),
 # all before the new API starts. If any fails, .env points back at the running
-# release so a reboot restarts what is live. Tag import goes after the capability
-# step once its backend command exists (#648).
+# release so a reboot restarts what is live. The tag list is an operator step
+# after the first deploy (production-database runbook, "Tag list load").
 if ! /opt/harumaru/bin/provision-db.sh || ! /opt/harumaru/bin/migrate.sh "$release" \
   || ! /opt/harumaru/bin/register-capability.sh; then
   echo "refusing: database provisioning, migration or capability failed for $release" >&2
