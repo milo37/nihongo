@@ -24,7 +24,9 @@ A day without a daily dump raises the `harumaru-<env>-backup-missing` alarm.
   below).
 
 Everything written after the chosen dump is lost. Note the dump time and tell
-users if their recent study records are gone.
+users if their recent study records are gone. Accounts whose owners asked for
+erasure after the dump come back; re-apply those requests ("Re-apply account
+erasure" below).
 
 ## Get the dump onto the host
 
@@ -113,6 +115,35 @@ The restored `DatabaseCapability` row stays current because postgres always gets
    `docker compose exec -T postgres psql -U postgres -d postgres -c "DROP DATABASE <aside>"`.
    It doubles disk use until then; the disk alarm fires at 80 %.
 
+## Re-apply account erasure (AWS only)
+
+The restored database has no record of erasure requests made after the dump,
+so those accounts are active again. The API logs each request as
+`{"event":"auth.account_erasure.requested","userId":…,"occurredAt":…}`, and
+the log group keeps 30 days, as long as the dumps.
+
+On the operator's machine, list the user ids requested since one hour before
+the dump time (`<dump epoch>` = the UTC stamp in the dump key, in seconds):
+
+```sh
+qid="$(aws logs start-query --log-group-name /harumaru/<env>/api \
+  --start-time $(( <dump epoch> - 3600 )) --end-time "$(date +%s)" \
+  --query-string 'filter event = "auth.account_erasure.requested" | stats count(*) by userId' \
+  --query queryId --output text)"
+sleep 10
+aws logs get-query-results --query-id "$qid" \
+  --query 'results[] | [?field==`userId`].value' --output text \
+  | tr '\t' '\n' > erasure-reapply-<stamp>.txt
+```
+
+Check the status is `Complete` (`aws logs get-query-results --query-id "$qid"
+--query status`) and keep the file until the step below is done. The ids are
+random UUIDs, not names or emails.
+
+Re-apply with the #702 command (after the deploy). Until #702 ships, hand the
+file to the backend owner to re-apply, and tell those users their erasure is
+being redone.
+
 ## Volume snapshot (AWS only)
 
 Use only when no usable dump exists. Create a gp3 volume from the newest
@@ -137,7 +168,9 @@ ad-hoc SQL on PRODUCTION outside these steps.
    dump (the host reaches S3 over HTTPS through the default egress rule).
 3. Run path A on STAGING with that dump and time it (site down from `stop` to
    `deployed`).
-4. Optionally rehearse the volume snapshot path and record the result here.
+4. Request erasure for a test account after the dump, then run the Logs
+   Insights step of "Re-apply account erasure" and check its id is listed.
+5. Optionally rehearse the volume snapshot path and record the result here.
 
 ## Local rehearsal (#669, 2026-11-07)
 
