@@ -1588,6 +1588,67 @@ describe('ADMIN command TEST database integration', () => {
     expect(operations.rows[0]?.count).toBeGreaterThanOrEqual(5)
   })
 
+  it('rejects a tag whose subject differs from the question (JLP-733)', async () => {
+    if (!commandService || !workflowCommandService) {
+      throw new Error('Command services are unavailable.')
+    }
+    const suffix = randomUUID().slice(0, 8)
+    const grammarLabel = `jlp733 문법 ${suffix}`
+    const vocabularyLabel = `jlp733 어휘 ${suffix}`
+    await adminClient.query(
+      `INSERT INTO "Tag" ("id", "label", "normalizedName", "key", "subject",
+         "status", "updatedAt")
+       VALUES ($1, $2, $2, $3, 'GRAMMAR', 'ACTIVE', clock_timestamp()),
+         ($4, $5, $5, $6, 'VOCABULARY', 'ACTIVE', clock_timestamp())`,
+      [
+        randomUUID(),
+        grammarLabel,
+        `grammar.jlp733-${suffix}`,
+        randomUUID(),
+        vocabularyLabel,
+        `vocab.jlp733-${suffix}`
+      ]
+    )
+    try {
+      const mismatched = {
+        ...createContent(`jlp733-${suffix}`),
+        tagNames: [vocabularyLabel, grammarLabel]
+      }
+      await expect(
+        commandService.createQuestion(
+          authority(authorId, authorToken),
+          mismatched
+        )
+      ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+      const validation = await workflowCommandService.validateImport({
+        items: [{ clientItemId: `jlp733-${suffix}`, content: mismatched }]
+      })
+      expect(validation.errors).toEqual([
+        {
+          itemIndex: 0,
+          fieldPath: '/items/0/content/tagNames/1',
+          code: 'TAG_SUBJECT_MISMATCH',
+          message: '태그 과목이 문제 과목과 같아야 합니다.'
+        }
+      ])
+      // A tag of the question's subject and a tag without a subject pass.
+      const matched = await workflowCommandService.validateImport({
+        items: [
+          {
+            clientItemId: `jlp733-ok-${suffix}`,
+            content: { ...mismatched, tagNames: [vocabularyLabel, tagName] }
+          }
+        ]
+      })
+      expect(matched.errors).toEqual([])
+    } finally {
+      await adminClient.query(
+        `DELETE FROM "Tag" WHERE "label" = ANY($1::text[])`,
+        [[grammarLabel, vocabularyLabel]]
+      )
+    }
+  })
+
   it('executes publication, retirement and all archive shapes atomically', async () => {
     if (!commandService) throw new Error('Command service is unavailable.')
 

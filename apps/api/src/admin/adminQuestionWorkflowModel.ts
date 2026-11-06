@@ -21,6 +21,7 @@ export interface ImportTagRow {
   readonly id: string
   readonly label: string
   readonly normalizedName: string
+  readonly subject: string | null
 }
 
 export interface BatchTargetRow {

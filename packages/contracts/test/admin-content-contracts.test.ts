@@ -41,6 +41,7 @@ import {
   triageAdminQuestionReportErrorCodeSchema,
   triageAdminQuestionReportErrorSchema,
   validateQuestionImportErrorSchema,
+  validateQuestionImportRequestSchema,
   type AdminImportItem,
   type Sha256TextPort
 } from '../src/admin/content-operations.js'
@@ -286,24 +287,62 @@ describe('common and read contracts', () => {
     ).toBe(false)
   })
 
-  it('binds tag autocomplete to normalized prefix and strict order', () => {
-    const secondTag = {
+  it('binds tag autocomplete to normalized prefix, subject and strict order', () => {
+    const first = { ...tag, subject: 'GRAMMAR' }
+    const second = {
       id: '00000000-0000-4000-8000-00000000000d',
       label: '문법 활용',
-      normalizedName: '문법 활용'
+      normalizedName: '문법 활용',
+      subject: null
     }
     expect(
       assertListAdminTagsForRequest(
         { q: '문법', limit: 2 },
-        { items: [tag, secondTag] }
+        { items: [first, second] }
       ).items
     ).toHaveLength(2)
     expect(() =>
       assertListAdminTagsForRequest(
         { q: '문법', limit: 2 },
-        { items: [secondTag, tag] }
+        { items: [second, first] }
       )
     ).toThrow()
+    // JLP-733: q may be omitted to read the whole fixed list.
+    expect(
+      assertListAdminTagsForRequest({ limit: 50 }, { items: [first, second] })
+        .items
+    ).toHaveLength(2)
+    expect(
+      assertListAdminTagsForRequest({ subject: 'GRAMMAR' }, { items: [first] })
+        .items
+    ).toEqual([first])
+    expect(() =>
+      assertListAdminTagsForRequest(
+        { subject: 'GRAMMAR' },
+        { items: [first, second] }
+      )
+    ).toThrow()
+    expect(() =>
+      assertListAdminTagsForRequest({ limit: 2 }, { items: [tag] })
+    ).toThrow()
+  })
+
+  it('takes one or two tag names per question', () => {
+    const withTags = (tagNames: string[]) => ({
+      items: [{ ...importItem, content: { ...importItem.content, tagNames } }]
+    })
+    expect(
+      validateQuestionImportRequestSchema.safeParse(withTags(['문법', '활용']))
+        .success
+    ).toBe(true)
+    expect(
+      validateQuestionImportRequestSchema.safeParse(withTags([])).success
+    ).toBe(false)
+    expect(
+      validateQuestionImportRequestSchema.safeParse(
+        withTags(['문법', '활용', '조사'])
+      ).success
+    ).toBe(false)
   })
 
   it('rejects preview option comparison duplicates', () => {
@@ -497,6 +536,40 @@ describe('future import and report contracts', () => {
         ]
       }).success
     ).toBe(false)
+  })
+
+  it('places tag issues on the first or second tag name only', async () => {
+    const { port } = createDigestPort()
+    const request = {
+      items: [
+        {
+          ...importItem,
+          content: { ...importItem.content, tagNames: ['문법', '활용'] }
+        }
+      ]
+    }
+    const response = (fieldPath: string) => ({
+      valid: false,
+      validationDigest: 'a'.repeat(64),
+      itemCount: 1,
+      errors: [
+        { itemIndex: 0, fieldPath, code: 'TAG_SUBJECT_MISMATCH', message: 'a' }
+      ]
+    })
+    await expect(
+      assertAdminImportValidationForRequest(
+        port,
+        request,
+        response('/items/0/content/tagNames/1')
+      )
+    ).resolves.toMatchObject({ valid: false })
+    await expect(
+      assertAdminImportValidationForRequest(
+        port,
+        request,
+        response('/items/0/content/tagNames/2')
+      )
+    ).rejects.toThrow()
   })
 
   it('computes and verifies import apply positional mapping digest', async () => {

@@ -47,35 +47,50 @@ export const adminQuestionSortSchema = z.enum([
   'REPORT_COUNT_DESC'
 ])
 
+const adminTagSummaryShape = {
+  id: opaqueIdSchema,
+  label: createContentTextSchema({ maxScalars: 100 }),
+  normalizedName: z
+    .string()
+    .min(1)
+    .refine(
+      (value) =>
+        [...value].length <= 100 &&
+        isWellFormedContentText(value) &&
+        !value.includes('\n') &&
+        normalizeContentTagKey(value) === value,
+      {
+        message: 'normalizedName은 canonical normalizeTagKey v1 값이어야 합니다.'
+      }
+    )
+}
+
+const refineTagName = (
+  value: { readonly label: string; readonly normalizedName: string },
+  context: z.RefinementCtx
+): void => {
+  if (normalizeContentTagKey(value.label) !== value.normalizedName) {
+    addIssue(
+      context,
+      ['normalizedName'],
+      'normalizedName은 label의 canonical normalizeTagKey v1 값이어야 합니다.'
+    )
+  }
+}
+
 export const adminTagSummarySchema = z
-  .object({
-    id: opaqueIdSchema,
-    label: createContentTextSchema({ maxScalars: 100 }),
-    normalizedName: z
-      .string()
-      .min(1)
-      .refine(
-        (value) =>
-          [...value].length <= 100 &&
-          isWellFormedContentText(value) &&
-          !value.includes('\n') &&
-          normalizeContentTagKey(value) === value,
-        {
-          message:
-            'normalizedName은 canonical normalizeTagKey v1 값이어야 합니다.'
-        }
-      )
-  })
+  .object(adminTagSummaryShape)
   .strict()
-  .superRefine((value, context) => {
-    if (normalizeContentTagKey(value.label) !== value.normalizedName) {
-      addIssue(
-        context,
-        ['normalizedName'],
-        'normalizedName은 label의 canonical normalizeTagKey v1 값이어야 합니다.'
-      )
-    }
-  })
+  .superRefine(refineTagName)
+
+/**
+ * A tag the admin can pick. `subject` is null for a tag loaded before the
+ * tag list file gave it one (JLP-733).
+ */
+export const adminTagListItemSchema = z
+  .object({ ...adminTagSummaryShape, subject: questionSubjectSchema.nullable() })
+  .strict()
+  .superRefine(refineTagName)
 
 export const compareAdminTags = (
   left: { readonly id: string; readonly normalizedName: string },

@@ -68,10 +68,11 @@ export const adminQuestionContentStructureInputSchema = z
       z.literal('').transform(() => null),
       z.null()
     ]),
+    // JLP-733: a question takes one or two tags from the fixed tag list.
     tagNames: z
       .array(createContentTextSchema({ maxScalars: 100 }))
       .min(1)
-      .max(12),
+      .max(2),
     options: z
       .array(
         z
@@ -182,6 +183,7 @@ export const adminImportIssueCodeSchema = z.enum([
   'DUPLICATE_TAG',
   'CORRECT_OPTION_KEY_NOT_FOUND',
   'UNKNOWN_TAG',
+  'TAG_SUBJECT_MISMATCH',
   'INVALID_READING_PASSAGE',
   'INVALID_CONTENT',
   'DUPLICATE_QUESTION_CONTENT'
@@ -292,7 +294,8 @@ const importIssuePathMatchesCode = (
       return /^\/content\/options\/[0-3]\/text$/u.test(suffix)
     case 'DUPLICATE_TAG':
     case 'UNKNOWN_TAG':
-      return /^\/content\/tagNames\/(?:[0-9]|1[01])$/u.test(suffix)
+    case 'TAG_SUBJECT_MISMATCH':
+      return /^\/content\/tagNames\/[01]$/u.test(suffix)
     case 'CORRECT_OPTION_KEY_NOT_FOUND':
       return suffix === '/content/correctOptionKey'
     case 'INVALID_READING_PASSAGE':

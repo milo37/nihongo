@@ -744,6 +744,12 @@ const routeCases: readonly RouteCase[] = [
       expect(parsed.items.map((item) => item.normalizedName)).toContain(
         'candidate-selected'
       )
+      // Seed tags predate the tag list file, so they have no subject yet.
+      expect(
+        parsed.items.find(
+          (item) => item.normalizedName === 'candidate-selected'
+        )?.subject
+      ).toBeNull()
       return null
     }
   },

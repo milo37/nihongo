@@ -55,7 +55,8 @@ export const loadImportTags = async (
   )
   if (normalizedNames.length === 0) return []
   return client.$queryRawUnsafe<ImportTagRow[]>(
-    `SELECT tag."id", tag."label", tag."normalizedName"
+    `SELECT tag."id", tag."label", tag."normalizedName",
+       tag."subject"::text AS "subject"
      FROM "Tag" AS tag
      WHERE tag."normalizedName" = ANY($1::text[])
      ORDER BY tag."normalizedName" COLLATE "C", tag."id"`,
@@ -143,7 +144,9 @@ export const collectImportValidation = async (
     loadImportTags(client, items),
     createAdminImportValidationDigest(sha256Port, items)
   ])
-  const knownTagNames = new Set(importTags.map((tag) => tag.normalizedName))
+  const tagSubjects = new Map(
+    importTags.map((tag) => [tag.normalizedName, tag.subject])
+  )
   const issues: AdminImportValidationIssue[] = []
   const seenItemIds = new Set<string>()
   const eligibleFingerprints: Array<string | null> = items.map(() => null)
@@ -210,12 +213,21 @@ export const collectImportValidation = async (
           message: '정규화된 태그는 문제 안에서 고유해야 합니다.'
         })
       }
-      if (!knownTagNames.has(normalizedName)) {
+      const tagSubject = tagSubjects.get(normalizedName)
+      if (tagSubject === undefined) {
         pushIssue(issues, {
           itemIndex,
           fieldPath: `${prefix}/content/tagNames/${tagIndex}`,
           code: 'UNKNOWN_TAG',
           message: '태그 목록에 있는 태그가 필요합니다.'
+        })
+      } else if (tagSubject !== null && tagSubject !== item.content.subject) {
+        // A tag without a subject predates the tag list file.
+        pushIssue(issues, {
+          itemIndex,
+          fieldPath: `${prefix}/content/tagNames/${tagIndex}`,
+          code: 'TAG_SUBJECT_MISMATCH',
+          message: '태그 과목이 문제 과목과 같아야 합니다.'
         })
       }
       tagKeys.add(normalizedName)
