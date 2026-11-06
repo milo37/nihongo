@@ -2,8 +2,8 @@ export const operationsPages = {
   legal: {
     path: '/legal',
     sections: [
-      { id: 'terms', key: 'terms' },
-      { id: 'privacy', key: 'privacy' },
+      { id: 'terms', key: 'terms', articleCount: 12 },
+      { id: 'privacy', key: 'privacy', articleCount: 15 },
       { id: 'copyright', key: 'copyright' }
     ]
   },
