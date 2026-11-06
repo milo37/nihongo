@@ -30,12 +30,15 @@ import * as api from '@nihongo/browser/api/content-operations/requestContentOper
 import * as listApi from '@api/admin-question/listAdminQuestion/index'
 import * as importResultApi from '@nihongo/browser/api/admin-import-result/index'
 import { adminRoutes } from '@/router'
+import { preloadAdminPages } from '@/test/preloadAdminPages'
 import {
   actor,
   questionId,
   versionId
 } from '@app/admin-question/test/workflowFixture'
 import { createInput, question } from '@app/admin-question/test/questionFixture'
+
+beforeAll(preloadAdminPages)
 const t = appI18n.getFixedT('ko', 'admin')
 const request = { items: [{ clientItemId: 'row-1', content: createInput }] }
 const digest = '0'.repeat(64)

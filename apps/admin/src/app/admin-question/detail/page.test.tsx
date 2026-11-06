@@ -35,6 +35,7 @@ import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import * as authApi from '@nihongo/browser/api/auth/getCurrentUser/index'
 import * as api from '@nihongo/browser/api/content-operations/requestContentOperation'
 import { adminRoutes } from '@/router'
+import { preloadAdminPages } from '@/test/preloadAdminPages'
 import {
   initial,
   newer,
@@ -56,6 +57,8 @@ import {
   saveQuestionFreshContext
 } from '@app/admin-question/navigation/questionWorkflowContext'
 import type { QuestionWrite } from '@app/admin-question/detail/questionWorkflow'
+
+beforeAll(preloadAdminPages)
 // Compile the existing lazy detail route before timed DOM assertions.
 beforeAll(async () => {
   await import('@app/admin-question/detail/page')
