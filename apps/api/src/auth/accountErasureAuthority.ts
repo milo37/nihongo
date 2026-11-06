@@ -575,6 +575,7 @@ type SsoAccountErasureRequestResult =
   | {
       readonly appStatus: 'DELETION_PENDING'
       readonly providerCleanup: unknown
+      readonly userId: string
     }
 
 /**
@@ -644,6 +645,7 @@ export const requestSsoAccountErasure = async (
     )
     return {
       appStatus: 'DELETION_PENDING',
-      providerCleanup: inserted[0]?.providerCleanup
+      providerCleanup: inserted[0]?.providerCleanup,
+      userId: actor.userId
     }
   })
