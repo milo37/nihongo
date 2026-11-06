@@ -9,9 +9,9 @@ for domain in "" "origin.example.com"; do
   tls=false
   port=3001
   [[ -n "$domain" ]] && { tls=true; port=443; }
-  compose="templatefile(\"files/compose.yaml.tftpl\", {postgres_image=\"postgres:18.4-alpine\", caddy_image=\"caddy:2\", origin_port=${port}, origin_tls=${tls}, proxy_subnet=\"172.30.0.0/24\"})"
+  compose="templatefile(\"files/compose.yaml.tftpl\", {postgres_image=\"postgres:18.4-alpine\", caddy_image=\"caddy:2\", origin_port=${port}, origin_tls=${tls}, proxy_subnet=\"172.30.0.0/24\", db_subnet=\"172.30.1.0/24\", postgres_address=\"172.30.1.10\"})"
   caddy="templatefile(\"files/Caddyfile.tftpl\", {origin_domain=\"${domain}\"})"
-  user_data="base64gzip(templatefile(\"templates/cloud-init.yaml.tftpl\", {region=\"ap-northeast-2\", environment=\"STAGING\", param_path=\"/harumaru/staging\", data_volume_id=\"vol0123\", compose_version=\"v5.7.0\", compose_sha256=\"0\", log_group=\"/harumaru/staging/api\", ecr_repository=\"000000000000.dkr.ecr.ap-northeast-2.amazonaws.com/harumaru/api\", backup_bucket=\"backup\", compose_yaml=base64encode(${compose}), caddyfile=base64encode(${caddy}), deploy_sh=file(\"files/deploy.sh\"), provision_db_sh=file(\"files/provision-db.sh\"), migrate_sh=file(\"files/migrate.sh\"), render_env_sh=file(\"files/render-env.sh\"), backup_sh=file(\"files/backup.sh\"), erase_sh=file(\"files/erase-deletion-pending.sh\"), cloudwatch_config=base64encode(file(\"files/cloudwatch-agent.json\")), public_env=base64encode(\"A=1\")}))"
+  user_data="base64gzip(templatefile(\"templates/cloud-init.yaml.tftpl\", {region=\"ap-northeast-2\", environment=\"STAGING\", param_path=\"/harumaru/staging\", data_volume_id=\"vol0123\", compose_version=\"v5.7.0\", compose_sha256=\"0\", log_group=\"/harumaru/staging/api\", ecr_repository=\"000000000000.dkr.ecr.ap-northeast-2.amazonaws.com/harumaru/api\", backup_bucket=\"backup\", compose_yaml=base64encode(${compose}), caddyfile=base64encode(${caddy}), deploy_sh=file(\"files/deploy.sh\"), provision_db_sh=file(\"files/provision-db.sh\"), migrate_sh=file(\"files/migrate.sh\"), capability_sh=file(\"files/register-capability.sh\"), render_env_sh=file(\"files/render-env.sh\"), backup_sh=file(\"files/backup.sh\"), erase_sh=file(\"files/erase-deletion-pending.sh\"), cloudwatch_config=base64encode(file(\"files/cloudwatch-agent.json\")), public_env=base64encode(\"A=1\")}))"
 
   echo "$user_data" | terraform console | tr -d '"' > "$work/user-data.b64"
   # EC2 limits user data to 16 KB before base64 (the gzip bytes); keep 4 KB spare.
@@ -24,7 +24,7 @@ for domain in "" "origin.example.com"; do
   ruby -ryaml -e '
     init = YAML.safe_load(File.read(ARGV[0]))
     paths = init.fetch("write_files").map { |f| f.fetch("path") }
-    %w[/opt/harumaru/compose.yaml /opt/harumaru/Caddyfile /opt/harumaru/bin/deploy.sh /opt/harumaru/bin/provision-db.sh /opt/harumaru/bin/migrate.sh].each { |p| raise "missing #{p}" unless paths.include?(p) }
+    %w[/opt/harumaru/compose.yaml /opt/harumaru/Caddyfile /opt/harumaru/bin/deploy.sh /opt/harumaru/bin/provision-db.sh /opt/harumaru/bin/migrate.sh /opt/harumaru/bin/register-capability.sh].each { |p| raise "missing #{p}" unless paths.include?(p) }
     # Host scripts are embedded as YAML text blocks; they must come out byte-identical.
     init.fetch("write_files").select { |f| f.fetch("path").start_with?("/opt/harumaru/bin/") }.each do |f|
       source = File.read("files/#{File.basename(f.fetch("path"))}")
@@ -34,10 +34,17 @@ for domain in "" "origin.example.com"; do
     services = compose.fetch("services")
     raise "api must not publish ports" if services.fetch("api").key?("ports")
     raise "proxy must publish #{ARGV[2]}" unless services.fetch("proxy").fetch("ports") == ["#{ARGV[2]}:#{ARGV[2]}"]
-    raise "postgres must stay internal" unless services.fetch("postgres").fetch("networks") == ["db"]
+    raise "postgres must stay internal" unless services.fetch("postgres").fetch("networks").keys == ["db"]
+    # DatabaseCapability records this address; it must not depend on start order.
+    raise "postgres needs its fixed address" unless services.fetch("postgres").fetch("networks").fetch("db") == { "ipv4_address" => "172.30.1.10" }
+    raise "db network needs its fixed subnet" unless compose.fetch("networks").fetch("db").dig("ipam", "config") == [{ "subnet" => "172.30.1.0/24" }]
     migrate = services.fetch("migrate")
     raise "migrate must be profile-only" unless migrate.fetch("profiles") == ["migrate"]
     raise "migrate must stay internal" unless migrate.fetch("networks") == ["db"] && !migrate.key?("ports")
+    capability = services.fetch("capability")
+    raise "capability must be profile-only" unless capability.fetch("profiles") == ["operator"]
+    raise "capability must stay internal" unless capability.fetch("networks") == ["db"] && !capability.key?("ports")
+    raise "capability must use the migration login" unless capability.fetch("env_file").include?("/run/harumaru/migrate.env") && !capability.fetch("env_file").include?("/run/harumaru/api.env")
     puts "ok origin_port=#{ARGV[2]} files=#{paths.size}"
   ' "$work/cloud-init.yaml" "$work/compose.yaml" "$port"
   echo "user data ${bytes} bytes (gzip before base64, limit 16384)"

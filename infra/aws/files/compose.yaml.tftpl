@@ -16,8 +16,12 @@ networks:
     ipam:
       config:
         - subnet: ${proxy_subnet}
+  # Fixed postgres address: DatabaseCapability records it (runbook step 5).
   db:
     internal: true
+    ipam:
+      config:
+        - subnet: ${db_subnet}
 
 services:
   proxy:
@@ -55,7 +59,9 @@ services:
     volumes:
       - /var/lib/harumaru/postgres:/var/lib/postgresql
       - /var/lib/harumaru/certs:/certs:ro
-    networks: [db]
+    networks:
+      db:
+        ipv4_address: ${postgres_address}
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U postgres -d nihongo']
       interval: 10s
@@ -72,6 +78,10 @@ services:
       - /run/harumaru/api.env
     environment:
       RELEASE_ID: $${RELEASE_ID}
+      # node-postgres treats sslmode=require as verify-full: trust the postgres cert.
+      NODE_EXTRA_CA_CERTS: /run/postgres-ca.crt
+    volumes:
+      - /var/lib/harumaru/certs/server.crt:/run/postgres-ca.crt:ro
     networks: [edge, db]
     depends_on:
       postgres:
@@ -85,6 +95,28 @@ services:
     profiles: [migrate]
     restart: 'no'
     env_file: /run/harumaru/migrate.env
+    networks: [db]
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    logging: *logging
+
+  # Operator commands (bin/register-capability.sh, first admin) as the migration login.
+  capability:
+    image: $${API_IMAGE}
+    profiles: [operator]
+    restart: 'no'
+    env_file:
+      - /etc/harumaru/public.env
+      - /run/harumaru/migrate.env
+    entrypoint: ['node', 'api/dist/db/registerDatabaseCapabilityCommand.js']
+    environment:
+      NODE_EXTRA_CA_CERTS: /run/postgres-ca.crt
+    volumes:
+      - /var/lib/harumaru/certs/server.crt:/run/postgres-ca.crt:ro
     networks: [db]
     read_only: true
     tmpfs:

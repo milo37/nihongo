@@ -7,10 +7,10 @@ erasure command.
 
 Two one-shot operator commands run on the server, never over HTTP:
 
-| Command                                                                                    | Purpose                                                                                                                                               |
-| ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `db:register-capability:compiled` (`apps/api/src/db/registerDatabaseCapabilityCommand.ts`) | Records which environment this database serves (`DatabaseCapability` row 1). Admin re-authentication and admin commands refuse a database without it. |
-| `auth:provision-admin:compiled` (`apps/api/src/auth/provisionAdminCommand.ts`)             | Makes the first `ADMIN` from an existing Google-linked `USER`, found by email.                                                                        |
+| Command                                                                                    | Purpose                                                                                                                                                                                                                                                                                                               |
+| ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `db:register-capability:compiled` (`apps/api/src/db/registerDatabaseCapabilityCommand.ts`) | Records which database, server address, port and environment the API serves (`DatabaseCapability` row 1). Without a current row the API's readiness fails (`require_runtime_ready`), so the whole API stays not ready, and admin commands refuse too. `deploy.sh` runs it on every deploy (`register-capability.sh`). |
+| `auth:provision-admin:compiled` (`apps/api/src/auth/provisionAdminCommand.ts`)             | Makes the first `ADMIN` from an existing Google-linked `USER`, found by email.                                                                                                                                                                                                                                        |
 
 Both connect with `MIGRATION_DATABASE_URL` as the environment's migration
 login with the `nihongo_migration` startup role. Both are dry runs unless their
@@ -33,6 +33,10 @@ confirm variable is set, and both print exactly one JSON line.
   uses `nihongo_production_migration_login`, one `sslmode` of `require`,
   `verify-ca` or `verify-full`, and `options=-c role=nihongo_migration`.
 - Environment: `NODE_ENV=production` and `DEPLOYMENT_ENVIRONMENT=PRODUCTION`.
+- The capability row exists: `deploy.sh` writes it on the first deploy to an
+  empty database, before the API starts (`register-capability.sh`,
+  `production-database.v1.md` step 5). The first admin comes after that
+  deploy.
 - The first admin has signed in once with Google, so a `USER` with exactly one
   Google account exists for the email.
 
@@ -48,32 +52,35 @@ confirm variable is set, and both print exactly one JSON line.
 ## Procedure (SSM Run Command)
 
 Run each step with the `AWS-RunShellScript` document on the production host.
-The environment file below is an example: use the file the deploy scripts render
-for the API (DevOps). Values come from the shell environment, so database URLs
-never appear in the command line.
+Both commands run in the compose service `capability` (profile `operator`):
+the release's API image on the internal `db` network, with
+`/etc/harumaru/public.env` and `/run/harumaru/migrate.env` (the migration URL,
+plus the runtime and production URLs without passwords). Database URLs never
+appear in the command line, and no env file is `source`d.
 
 ```bash
 aws ssm send-command \
   --document-name AWS-RunShellScript \
   --targets Key=tag:Name,Values=harumaru-production \
-  --comment "first admin: capability dry run" \
+  --comment "first admin: capability check" \
   --parameters 'commands=[
     "set -euo pipefail",
     "cd /opt/harumaru",
     "/opt/harumaru/bin/render-env.sh",
-    "set -a; source /run/harumaru/api.env; set +a",
-    "export NODE_ENV=production DEPLOYMENT_ENVIRONMENT=PRODUCTION",
-    "docker compose run --rm --no-deps -T -e NODE_ENV -e DEPLOYMENT_ENVIRONMENT -e MIGRATION_DATABASE_URL -e DATABASE_URL -e PRODUCTION_DATABASE_URL api node api/dist/db/registerDatabaseCapabilityCommand.js"
+    "docker compose --profile operator run --rm --no-deps -T capability"
   ]'
 ```
 
-1. Capability dry run (above). Expect
-   `{"event":"database_capability_dry_run","environment":"PRODUCTION","registered":null}`.
-2. Capability write: same command with
-   `export DATABASE_CAPABILITY_CONFIRM=REGISTER_DATABASE_CAPABILITY` and
-   `-e DATABASE_CAPABILITY_CONFIRM`. Expect `database_capability_registered`.
-3. Provision dry run: run `api/dist/auth/provisionAdminCommand.js` with
-   `ADMIN_PROVISION_EMAIL` exported and passed with `-e`. Expect
+1. Capability check (above, a dry run). Expect
+   `{"event":"database_capability_dry_run","environment":"PRODUCTION","registered":"PRODUCTION"}`:
+   the deploy wrote it. `"registered":null` means the deploy did not finish;
+   run `/opt/harumaru/bin/register-capability.sh` or redeploy, not a manual
+   write.
+2. (No step: the capability write is part of the deploy.)
+3. Provision dry run: replace the last command with
+   `"export ADMIN_PROVISION_EMAIL=<email>"` and
+   `"docker compose --profile operator run --rm --no-deps -T -e ADMIN_PROVISION_EMAIL --entrypoint node capability api/dist/auth/provisionAdminCommand.js"`.
+   Expect
    `"eligible":true` and note `targetUserId` and `authorityGeneration`.
    `"eligible":false` comes with a `reason`:
    - `TARGET_NOT_FOUND`: no account has this email.
@@ -112,6 +119,11 @@ are kept.
   is why the provision step requires the dry run's `authorityGeneration` and
   refuses whenever an active ADMIN already exists: check `targetUserId` and
   `emailSha256` from step 3 before step 4.
-- Wrong capability: run step 2 again with the right environment. The row is
-  replaced in place.
+- Wrong or stale capability (`register-capability.sh` refused the deploy):
+  find out why first. Postgres has a fixed address (`172.30.1.10`) and port,
+  so a stale row means the compose file, the database or the port changed. When
+  the new values are intended, replace the row with the capability command
+  above plus `"export DATABASE_CAPABILITY_CONFIRM=REGISTER_DATABASE_CAPABILITY"`
+  and `-e DATABASE_CAPABILITY_CONFIRM`: it writes the current database,
+  address, port and environment in place. Then redeploy.
 - Neither command changes the schema, so there is nothing to migrate back.
