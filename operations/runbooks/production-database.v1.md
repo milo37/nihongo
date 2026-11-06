@@ -1,9 +1,7 @@
 # Production database roles and migrations v1
 
-Status: implemented on the host side (`infra/aws`), not yet runnable. The
-application still accepts only TEST and DEVELOPMENT migration logins in three
-places (see "Blocked"), so `migrate.sh` refuses and the deploy stops before the
-new API starts. Nothing here has run against a real account.
+Status: implemented and rehearsed locally from an empty database for PRODUCTION
+and STAGING ("Local rehearsal"). Nothing here has run against a real account.
 
 ## Role contract
 
@@ -70,10 +68,14 @@ until the baseline migration hands it to `nihongo_owner`.
      one whose database, address or port no longer match, stops the deploy.
      Replacing it is an operator step (first-admin runbook, "Wrong or stale
      capability").
-6. Tag import (pending: the backend command is not written yet).
-7. Only then the new API starts. If step 3, 4 or 5 fails, `.env` is pointed
+6. Only then the new API starts. If step 3, 4 or 5 fails, `.env` is pointed
    back at the running release and the old API keeps serving.
-8. First admin: after the first deploy, `first-admin.v1.md`.
+
+After the first deploy, in this order: the tag list ("Tag list load" below),
+then the first admin (`first-admin.v1.md`), then question import. The API does
+not need tags to start; question import does. `deploy.sh` does not load tags
+yet, because where the final `tags.v2.json` lives (repository or server file)
+is decided when the owner approves the list.
 
 The row records the server address the API connects to. Compose gives the
 `db` network a fixed subnet (`172.30.1.0/24`) and postgres a fixed address
@@ -85,7 +87,63 @@ The API and the `capability` service mount the postgres certificate and set
 `NODE_EXTRA_CA_CERTS`: node-postgres treats `sslmode=require` as
 `verify-full`, so without it they reject the self-signed certificate
 (`DEPTH_ZERO_SELF_SIGNED_CERT`). Prisma migrate (step 4) is not affected. New
-certificates carry `subjectAltName=DNS:postgres`.
+certificates carry `subjectAltName=DNS:postgres`. Caution: a certificate made
+before this change (no SAN) is kept on the data volume, and Node may then
+refuse the hostname `postgres`. If the API or an operator command fails with a
+hostname or altname error, move the old `server.crt` and `server.key` aside
+and reboot, so cloud-init creates a new pair (postgres restarts).
+
+## Tag list load (`content:load-tags`, #653)
+
+One-shot operator command, `api/dist/content/tagLoadCommand.js` in the API
+image. It has the same target checks as the capability command: the migration
+login from `migrate.env`, and the `DatabaseCapability` row must be current for
+this environment. Like the capability command it also runs on
+`DEPLOYMENT_ENVIRONMENT=STAGING` (#659) and reports `environment=PRODUCTION`
+there.
+
+The file is mounted read-only into a container that runs as user `node`
+(uid 1000), so `tags.v2.json` must be readable by uid 1000 (for example mode
+`0644`); otherwise the command fails with `tag_list_load_failed`.
+
+- Input: `TAG_LIST_FILE=<path to tags.v2.json>`. Without
+  `TAG_LOAD_CONFIRM=LOAD_TAG_LIST` it is a dry run.
+- Output: one JSON line on stdout, `tag_list_dry_run` or `tag_list_loaded`,
+  with `fileSha256`, `tagCount`, `created`, `updated`, `claimed`,
+  `unchanged`, `notInFile`, `unkeyed` and `conflicts`. A failure prints
+  `tag_list_load_failed` on stderr and exits 1. Tags missing from the file are
+  counted (`notInFile`), never deleted.
+
+```bash
+cd /opt/harumaru
+/opt/harumaru/bin/render-env.sh
+docker compose --profile operator run --rm --no-deps -T \
+  -v /opt/harumaru/content/tags.v2.json:/run/tags.v2.json:ro \
+  -e TAG_LIST_FILE=/run/tags.v2.json \
+  --entrypoint node capability api/dist/content/tagLoadCommand.js
+```
+
+1. Dry run (above). Read the line, not only the exit code: **a dry run exits
+   0 even when `conflicts` is not empty.** Continue only with
+   `"conflicts":[]` and counts you expect.
+2. Load: the same command with `-e TAG_LOAD_CONFIRM=LOAD_TAG_LIST`. With
+   conflicts it refuses (exit 1) and writes nothing.
+3. Run step 2 again: expect `created` and `updated` 0 and `unchanged` equal to
+   `tagCount`.
+
+Notes:
+
+- Swapping two tags' names (A's label to B and B's to A) needs two loads: first
+  a file with a temporary label for one of them, then the final file.
+- Failure lines and dry run lines have no `occurredAt`; only
+  `tag_list_loaded` does. Keep the SSM invocation time as the time of a failed
+  or dry run.
+- The path `/opt/harumaru/content/tags.v2.json` is an example until the
+  location is decided.
+
+Checked locally (release `8f229404`, empty database, the 3-tag sample
+`apps/api/test/fixtures/content/tags.v2.sample.json`): dry run `created:3`,
+load `created:3`, second load `unchanged:3`, the API stayed ready (200).
 
 ## Rollback
 
