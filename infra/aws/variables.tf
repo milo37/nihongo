@@ -110,9 +110,12 @@ variable "budget_consumption_tax_rate" {
 }
 
 variable "budget_stop_ec2_enabled" {
+  # Off while the account is on the AWS Free plan (credits, no cash bill): usage
+  # runs above the limit there and the stop would take the site down every month.
+  # Set true in terraform.tfvars when switching to the paid plan (README).
   description = "Stop the EC2 host automatically when actual cost reaches 100% of the budget."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "create_cost_anomaly_monitor" {

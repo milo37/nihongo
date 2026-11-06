@@ -26,18 +26,18 @@
 
 ## 파일
 
-| 파일                      | 내용                                                                                                                |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `compute.tf`              | EC2, EIP, 보안그룹, 인스턴스 역할(SSM 경로 읽기, ECR pull, 백업 PutObject만), 데이터 볼륨, DLM 주간 스냅샷          |
-| `edge.tf`                 | CloudFront 배포, origin 비밀 헤더(값은 SSM에도 저장), WAF web ACL(us-east-1)                                        |
-| `registry.tf`             | ECR(태그 불변, push 시 스캔, 릴리스 10개 보존: `<SHA>`·`<SHA>-migrate`)                                             |
-| `backup.tf`               | 백업 버킷(공개 차단, SSE, TLS 강제, 30일 수명주기)                                                                  |
-| `monitoring.tf`           | SNS 메일, 경보 7개(상태 검사+자동 복구, CPU, CPU 크레딧, 메모리, 디스크, CloudFront 5xx, 백업 누락), 로그 그룹 14일 |
-| `cost.tf`                 | 월 5,000엔(세포함)을 USD로 환산한 Budgets, 50/80/100% 실제·100% 예측 알림, 100% 초과 시 EC2 정지, Cost Anomaly      |
-| `github.tf`               | GitHub Actions OIDC 역할(`main`만, ECR push와 배포 문서 실행만)                                                     |
-| `operations.tf`           | 배포 SSM 문서, #57 계정 삭제 SSM 문서, 삭제 예약(**DISABLED**)                                                      |
-| `files/`, `templates/`    | 호스트 compose, Caddyfile, 배포·환경·백업·삭제 스크립트, cloud-init                                                 |
-| `scripts/render-check.sh` | CI에서 cloud-init·compose·Caddyfile을 두 origin 모드로 렌더링해 검사                                                |
+| 파일                      | 내용                                                                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `compute.tf`              | EC2, EIP, 보안그룹, 인스턴스 역할(SSM 경로 읽기, ECR pull, 백업 PutObject만), 데이터 볼륨, DLM 주간 스냅샷                |
+| `edge.tf`                 | CloudFront 배포, origin 비밀 헤더(값은 SSM에도 저장), WAF web ACL(us-east-1)                                              |
+| `registry.tf`             | ECR(태그 불변, push 시 스캔, 릴리스 10개 보존: `<SHA>`·`<SHA>-migrate`)                                                   |
+| `backup.tf`               | 백업 버킷(공개 차단, SSE, TLS 강제, 30일 수명주기)                                                                        |
+| `monitoring.tf`           | SNS 메일, 경보 7개(상태 검사+자동 복구, CPU, CPU 크레딧, 메모리, 디스크, CloudFront 5xx, 백업 누락), 로그 그룹 14일       |
+| `cost.tf`                 | 월 5,000엔(세포함)을 USD로 환산한 Budgets, 50/80/100% 실제·100% 예측 알림, 100% 초과 시 EC2 정지(기본 꺼짐), Cost Anomaly |
+| `github.tf`               | GitHub Actions OIDC 역할(`main`만, ECR push와 배포 문서 실행만)                                                           |
+| `operations.tf`           | 배포 SSM 문서, #57 계정 삭제 SSM 문서, 삭제 예약(**DISABLED**)                                                            |
+| `files/`, `templates/`    | 호스트 compose, Caddyfile, 배포·환경·백업·삭제 스크립트, cloud-init                                                       |
+| `scripts/render-check.sh` | CI에서 cloud-init·compose·Caddyfile을 두 origin 모드로 렌더링해 검사                                                      |
 
 ## 비밀값
 
@@ -73,7 +73,7 @@ aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUT
 EC2와 백업 버킷은 CloudFront나 IAM으로만 접근됩니다. WAF는 IP별 5분 `waf_rate_limit_per_5min`회로 제한합니다. 이상 비용이 5달러 이상이면 메일이 옵니다. 견적은 [COST.md](COST.md)에 있습니다.
 
 - 월 예산은 소비세 포함 `monthly_budget_jpy = 5000`엔입니다(사용자 확정 2026-11-05). Budgets는 USD만 받으므로 `한도 USD = 5000 ÷ (1 + 0.10) ÷ 158.38 = $28.69`로 환산합니다. 세율(`budget_consumption_tax_rate`)과 환율(`budget_jpy_per_usd`, 2026-11-05 기준)은 변수 기본값이고, 예산은 세전 비용과 비교합니다(`include_tax = false`).
-- 알림: 실제 50%(2,500엔)·80%(4,000엔)·100%와 100% 예측. 실제 100%를 넘으면 Budget Action이 EC2를 정지합니다(데이터는 EBS에 남음).
+- 알림: 실제 50%(2,500엔)·80%(4,000엔)·100%와 100% 예측. EC2 자동 정지(Budget Action)는 기본 꺼짐입니다(`budget_stop_ec2_enabled = false`). 켜면 실제 100%를 넘을 때 EC2를 정지합니다(데이터는 EBS에 남음).
 - CloudFront Free 정액 요금제에 못 들어가면 WAF 요금(약 1,620엔, 세포함)이 더해져 예산을 넘습니다. COST.md를 보세요.
 - 예산은 크레딧을 빼기 전 사용액으로 판정합니다(`include_credit = false`). 크레딧이 남아 있는 동안에도 실제 사용량이 보이게 하려는 것입니다.
 
@@ -82,10 +82,11 @@ EC2와 백업 버킷은 CloudFront나 IAM으로만 접근됩니다. WAF는 IP별
 계정은 일반 가입(서울)의 Free plan입니다. 공개 직전에 유료 플랜으로 바꾸고, 그때까지는 크레딧으로 STAGING만 시험 배포합니다.
 
 - Free plan 계정은 CloudFront 정액 요금제에 가입할 수 없습니다. 그래서 CloudFront는 종량제와 WAF로 돌고(코드 변경 없음), 비용은 크레딧에서 빠집니다. 월 약 $31, 세전 약 4,940엔입니다(COST.md).
-- 이 사용액은 예산 한도 $28.69보다 많습니다. 그래서 `budget_stop_ec2_enabled = true`인 채로 두면 매달 말 무렵 Budget Action이 EC2를 정지합니다. Free plan은 현금 청구가 없으므로, 이 기간의 tfvars 값은 apply 때 정합니다.
+- 이 사용액은 예산 한도 $28.69보다 많습니다. Free plan은 현금 청구가 없으므로 이 기간에는 EC2 자동 정지를 끄고 알림만 받습니다(사용자 결정 2026-11-06, 기본값 `budget_stop_ec2_enabled = false`). 정지를 켜 두면 매달 말 무렵 사이트가 멈춥니다.
 - Free plan은 가입 6개월 뒤나 크레딧이 떨어지면 계정이 닫힙니다(90일 안에 전환하지 않으면 데이터 삭제). 크레딧 잔액은 Billing 콘솔에서 확인합니다.
 - 사람 로그인은 MFA를 건 IAM 관리 사용자 1명이고, 루트는 쓰지 않습니다. IAM Identity Center는 AWS Organizations가 필요하고, Organizations에 들어가면 계정이 자동으로 유료 전환되므로 지금은 쓰지 않습니다. 배포는 원래대로 GitHub OIDC 역할입니다.
 - 유료 전환 시점은 공개 직전입니다. 전환한 뒤 아래 'apply 뒤 수동 단계' 2번(정액 요금제 가입)을 하고, 필요하면 Identity Center로 옮깁니다. 남은 크레딧은 이어집니다.
+- 유료 전환 때 EC2 자동 정지를 다시 켭니다: `terraform.tfvars`에 `budget_stop_ec2_enabled = true`를 넣고 plan에서 `aws_iam_role.budget_action`, 정책 연결, `aws_budgets_budget_action.stop_ec2` 3개 추가만 있는지 확인한 뒤 apply합니다. 끌 때는 값을 지우면 3개가 삭제되고 예산·알림은 그대로입니다.
 
 ## DNS (Cloudflare, Route 53 없음)
 
