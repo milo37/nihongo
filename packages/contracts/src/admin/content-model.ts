@@ -60,7 +60,8 @@ const adminTagSummaryShape = {
         !value.includes('\n') &&
         normalizeContentTagKey(value) === value,
       {
-        message: 'normalizedName은 canonical normalizeTagKey v1 값이어야 합니다.'
+        message:
+          'normalizedName은 canonical normalizeTagKey v1 값이어야 합니다.'
       }
     )
 }
@@ -88,7 +89,10 @@ export const adminTagSummarySchema = z
  * tag list file gave it one (JLP-733).
  */
 export const adminTagListItemSchema = z
-  .object({ ...adminTagSummaryShape, subject: questionSubjectSchema.nullable() })
+  .object({
+    ...adminTagSummaryShape,
+    subject: questionSubjectSchema.nullable()
+  })
   .strict()
   .superRefine(refineTagName)
 
