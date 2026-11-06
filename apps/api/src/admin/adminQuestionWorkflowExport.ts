@@ -1,4 +1,3 @@
-import type { AdminQuestionExportAuditEvidence } from './adminQuestionWorkflowRepository.js'
 import {
   canonicalizeJson,
   type CanonicalJsonValue,
@@ -22,7 +21,8 @@ import {
   type ExportRetainedManifestRow,
   type ExportAuditReconciliationRow,
   EXPORT_BODY_CAP,
-  EXPORT_VERSION_BATCH_SIZE
+  EXPORT_VERSION_BATCH_SIZE,
+  type AdminQuestionExportAuditEvidence
 } from './adminQuestionWorkflowModel.js'
 import { repositoryInvariantFailure } from './adminQuestionWorkflowTransactions.js'
 

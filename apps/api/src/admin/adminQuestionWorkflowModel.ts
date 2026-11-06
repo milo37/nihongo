@@ -190,3 +190,10 @@ export const sha256Port: Sha256TextPort = {
   digestUtf8: async (value) =>
     createHash('sha256').update(value, 'utf8').digest('hex')
 }
+
+export interface AdminQuestionExportAuditEvidence {
+  readonly selectionDigest: string
+  readonly responseBodyDigest: string
+  readonly questionCount: number
+  readonly versionCount: number
+}

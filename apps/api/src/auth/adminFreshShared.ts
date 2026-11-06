@@ -227,3 +227,10 @@ export const reauthenticationAuditDigest = (
     changedFields: ['SESSION_ROTATION'],
     metadata: REAUTHENTICATION_METADATA
   } as unknown as Parameters<typeof adminAuditContentDigest>[0])
+
+export interface FinalizedReauthentication {
+  id: string
+  createdAt: Date
+  expiresAt: Date
+  authorityGeneration: number
+}

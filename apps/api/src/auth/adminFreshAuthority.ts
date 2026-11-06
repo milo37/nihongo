@@ -10,7 +10,8 @@ import {
   REAUTHENTICATION_METADATA,
   replacementHoldsAuthority,
   type AdminFreshRotation,
-  reauthenticationAuditDigest
+  reauthenticationAuditDigest,
+  type FinalizedReauthentication
 } from './adminFreshShared.js'
 
 /**
@@ -167,13 +168,6 @@ export const stageReauthentication = async (
       'Reauthentication intent was already consumed.'
     )
   return staged[0] ?? null
-}
-
-export interface FinalizedReauthentication {
-  id: string
-  createdAt: Date
-  expiresAt: Date
-  authorityGeneration: number
 }
 
 /**

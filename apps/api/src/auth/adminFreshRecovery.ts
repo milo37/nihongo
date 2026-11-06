@@ -6,9 +6,9 @@ import {
   reauthenticationTokenDigest,
   readIntent,
   type AdminFreshRotation,
-  reauthenticationAuditDigest
+  reauthenticationAuditDigest,
+  type FinalizedReauthentication
 } from './adminFreshShared.js'
-import type { FinalizedReauthentication } from './adminFreshAuthority.js'
 
 export interface ReconciledReauthentication extends FinalizedReauthentication {
   state: string
