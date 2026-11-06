@@ -31,9 +31,10 @@ const allowedParameters = new Set([
 /**
  * Validates an operator command's database target and builds its client.
  * Every target connects as the environment's migration login with the
- * nihongo_migration startup role. `allowStaging` lets one command also run on
- * a STAGING deployment, which uses the PRODUCTION database contract and so
- * reports the PRODUCTION environment (JLP-734).
+ * nihongo_migration startup role. `allowStaging` lets a command (capability
+ * registration, tag list load) also run on a STAGING deployment, which uses the
+ * PRODUCTION database contract and so reports the PRODUCTION environment
+ * (JLP-734, #659).
  */
 export const createOperatorDatabaseClient = (
   source: NodeJS.ProcessEnv,

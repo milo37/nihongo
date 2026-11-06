@@ -1,9 +1,7 @@
 # Production database roles and migrations v1
 
-Status: implemented on the host side (`infra/aws`), not yet runnable. The
-application still accepts only TEST and DEVELOPMENT migration logins in three
-places (see "Blocked"), so `migrate.sh` refuses and the deploy stops before the
-new API starts. Nothing here has run against a real account.
+Status: implemented and rehearsed locally from an empty database for PRODUCTION
+and STAGING ("Local rehearsal"). Nothing here has run against a real account.
 
 ## Role contract
 
@@ -100,8 +98,13 @@ and reboot, so cloud-init creates a new pair (postgres restarts).
 One-shot operator command, `api/dist/content/tagLoadCommand.js` in the API
 image. It has the same target checks as the capability command: the migration
 login from `migrate.env`, and the `DatabaseCapability` row must be current for
-this environment. It refuses `DEPLOYMENT_ENVIRONMENT=STAGING` (unlike the
-capability command; checked locally, exit 1).
+this environment. Like the capability command it also runs on
+`DEPLOYMENT_ENVIRONMENT=STAGING` (#659) and reports `environment=PRODUCTION`
+there.
+
+The file is mounted read-only into a container that runs as user `node`
+(uid 1000), so `tags.v2.json` must be readable by uid 1000 (for example mode
+`0644`); otherwise the command fails with `tag_list_load_failed`.
 
 - Input: `TAG_LIST_FILE=<path to tags.v2.json>`. Without
   `TAG_LOAD_CONFIRM=LOAD_TAG_LIST` it is a dry run.
