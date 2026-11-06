@@ -116,7 +116,7 @@ export const resolveTags = async (
     rows.some((row) => row.subject !== null && row.subject !== content.subject)
   ) {
     throw repositoryFailure(
-      'VALIDATION_ERROR',
+      'TAG_SUBJECT_MISMATCH',
       '문제 과목과 다른 태그가 포함되어 있습니다.',
       { tagNames: ['태그 과목이 문제 과목과 같아야 합니다.'] }
     )

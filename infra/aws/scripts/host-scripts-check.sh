@@ -92,14 +92,17 @@ fi
 grep -q 'unexpected line' "$work/err" || { cat "$work/err" >&2; exit 1; }
 echo "ok provision-db: \$(...) and backticks not run, unknown keys refused"
 
-# 3. erase-deletion-pending.sh: the URL reaches docker literally.
+# 3. erase-deletion-pending.sh: the URL reaches docker literally, on a STAGING
+#    host too (#670).
+printf 'DEPLOYMENT_ENVIRONMENT=STAGING\n' > "$work/etc/public.env"
 url="postgresql://nihongo_production_app_login:\$(touch $marker)\`touch $marker\`@postgres:5432/nihongo?schema=public"
 params "${base[@]/#PRODUCTION_DATABASE_URL/PRODUCTION_DATABASE_URL_UNUSED}" \
   PROD_GUEST_CLEANUP_LOGIN_PASSWORD guest_password_dddddddddddddd PRODUCTION_DATABASE_URL "$url"
 "$work/bin/erase-deletion-pending.sh"
 [[ ! -e "$marker" ]] || { echo "erase script ran an SSM value as shell code" >&2; exit 1; }
 [[ "$(cat "$work/docker-saw")" == "$url" ]] || { echo "erase script changed the URL" >&2; exit 1; }
-echo "ok erase-deletion-pending: SSM URL passed through literally"
+printf 'DEPLOYMENT_ENVIRONMENT=PRODUCTION\n' > "$work/etc/public.env"
+echo "ok erase-deletion-pending: SSM URL passed through literally on STAGING"
 
 # 4. guest-cleanup.sh: the same URL reaches docker literally, with the run settings.
 rm -f "$work/docker-saw"
