@@ -320,26 +320,39 @@ const isDroppedTagSnapshot = (row: Record<string, unknown>): boolean =>
   row.table === DROPPED_TABLE ||
   (row.table === 'QuestionVersionTag' && /[Ss]napshot/u.test(String(row.name)))
 
+/** JLP-733: the tag list fields the second forward migration adds. */
+const ADDED_TYPE = 'TagStatus'
+const ADDED_TAG_COLUMNS = new Set(['key', 'subject', 'status'])
+const ADDED_TAG_OBJECTS = new Set([
+  'Tag_key_format_check',
+  'Tag_list_fields_check',
+  'Tag_key_key'
+])
+const isAddedTagObject = (row: Record<string, unknown>): boolean =>
+  row.table === 'Tag' && ADDED_TAG_OBJECTS.has(String(row.name))
+
 /**
  * Undoes the forward migrations' catalog changes the baseline comparison
  * cannot see: the renamed enum label, the replaced function bodies (checked
  * exactly by forwardFunctionSources against the baseline file) and the
- * objects JLP-733 drops, removed from both sides.
+ * objects JLP-733 drops or adds, removed from both sides.
  */
 export const withoutForwardChanges = (
   catalog: SchemaCatalog
 ): SchemaCatalog => ({
   ...catalog,
-  types: catalog.types.map((row) =>
-    Array.isArray(row.labels)
-      ? {
-          ...row,
-          labels: row.labels.map((label) =>
-            label === 'OWNED_V1' ? 'PHASE7_V1' : label
-          )
-        }
-      : row
-  ),
+  types: catalog.types
+    .filter(({ name }) => name !== ADDED_TYPE)
+    .map((row) =>
+      Array.isArray(row.labels)
+        ? {
+            ...row,
+            labels: row.labels.map((label) =>
+              label === 'OWNED_V1' ? 'PHASE7_V1' : label
+            )
+          }
+        : row
+    ),
   tables: catalog.tables.filter(({ name }) => name !== DROPPED_TABLE),
   columns: catalog.columns.filter(
     (row) =>
@@ -347,10 +360,15 @@ export const withoutForwardChanges = (
       !(
         row.table === 'QuestionVersionTag' &&
         DROPPED_SNAPSHOT_COLUMNS.has(String(row.name))
-      )
+      ) &&
+      !(row.table === 'Tag' && ADDED_TAG_COLUMNS.has(String(row.name)))
   ),
-  constraints: catalog.constraints.filter((row) => !isDroppedTagSnapshot(row)),
-  indexes: catalog.indexes.filter((row) => !isDroppedTagSnapshot(row)),
+  constraints: catalog.constraints.filter(
+    (row) => !isDroppedTagSnapshot(row) && !isAddedTagObject(row)
+  ),
+  indexes: catalog.indexes.filter(
+    (row) => !isDroppedTagSnapshot(row) && !isAddedTagObject(row)
+  ),
   triggers: catalog.triggers.filter(
     (row) =>
       row.table !== DROPPED_TABLE && !DROPPED_TRIGGERS.has(String(row.name))

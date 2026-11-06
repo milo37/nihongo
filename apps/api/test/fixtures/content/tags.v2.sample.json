@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 2,
+  "tags": [
+    {
+      "key": "vocab.sample-noun",
+      "label": "예시 어휘",
+      "subject": "VOCABULARY",
+      "status": "ACTIVE"
+    },
+    {
+      "key": "grammar.sample",
+      "label": "예시 문법",
+      "subject": "GRAMMAR",
+      "status": "ACTIVE"
+    },
+    {
+      "key": "reading.sample",
+      "label": "예시 독해",
+      "subject": "READING",
+      "status": "RETIRED"
+    }
+  ]
+}

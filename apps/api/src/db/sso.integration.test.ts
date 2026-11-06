@@ -1,4 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import {
@@ -9,6 +12,7 @@ import { Client } from 'pg'
 import { assertSafeMigrationDatabase } from './databaseTargetGuard.js'
 import { createPostgresStartupOptions } from './databaseOptions.js'
 import { runProvisionAdminCommand } from '../auth/provisionAdminCommand.js'
+import { runTagLoadCommand } from '../content/tagLoadCommand.js'
 import { createSsoAdminFreshRepository } from '../auth/ssoAdminFreshRepository.js'
 import { createSsoIdentityRepository } from '../auth/ssoIdentityRepository.js'
 import {
@@ -96,7 +100,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       '20261105090000_baseline',
       '20261106090000_remove_phase_names',
       '20261107090000_first_admin_production',
-      '20261108090000_remove_tag_applicability_and_snapshots'
+      '20261108090000_remove_tag_applicability_and_snapshots',
+      '20261109090000_add_tag_key_subject_status'
     ])
     expect(
       actual.rows.map(({ name, checksum }) => ({ name, checksum }))
@@ -1755,6 +1760,131 @@ describe('JLP-527 first Google ADMIN operator bootstrap', () => {
       await h.roleQuery('nihongo_app', 'SELECT "erase_user"($1,\'TEST\')', [
         target.userId
       ])
+    }
+  })
+})
+
+describe('tag list load operator command', () => {
+  it('claims, creates and then keeps tags by key without touching other rows', async () => {
+    const suffix = randomBytes(4).toString('hex')
+    const legacyId = randomUUID()
+    const legacyLabel = `옛 태그 ${suffix}`
+    const keys = [`vocab.load-${suffix}`, `grammar.load-${suffix}`]
+    const directory = await mkdtemp(join(tmpdir(), 'nihongo-tag-list-'))
+    const file = join(directory, 'tags.v2.json')
+    await writeFile(
+      file,
+      JSON.stringify({
+        schemaVersion: 2,
+        tags: [
+          {
+            key: keys[0],
+            label: legacyLabel,
+            subject: 'VOCABULARY',
+            status: 'ACTIVE'
+          },
+          {
+            key: keys[1],
+            label: `새 태그 ${suffix}`,
+            subject: 'GRAMMAR',
+            status: 'RETIRED'
+          }
+        ]
+      })
+    )
+    await h.owner.query(
+      `INSERT INTO "Tag" ("id", "label", "normalizedName", "updatedAt")
+       VALUES ($1, $2, $2, clock_timestamp())`,
+      [legacyId, legacyLabel]
+    )
+    const write = vi
+      .spyOn(process.stdout, 'write')
+      .mockImplementation(() => true)
+    const run = async (confirm: boolean) => {
+      write.mockClear()
+      await runTagLoadCommand({
+        ...process.env,
+        TAG_LIST_FILE: file,
+        ...(confirm ? { TAG_LOAD_CONFIRM: 'LOAD_TAG_LIST' } : {})
+      })
+      expect(process.exitCode).toBeUndefined()
+      return JSON.parse(String(write.mock.calls[0]?.[0])) as Record<
+        string,
+        unknown
+      >
+    }
+    const loaded = async () =>
+      (
+        await h.owner.query<Record<string, string | null>>(
+          `SELECT "id"::text AS "id", "key", "label",
+             "subject"::text AS "subject", "status"::text AS "status"
+           FROM "Tag" WHERE "key" = ANY($1::text[]) OR "id" = $2::uuid
+           ORDER BY "label"`,
+          [keys, legacyId]
+        )
+      ).rows
+    try {
+      expect(await run(false)).toMatchObject({
+        event: 'tag_list_dry_run',
+        environment: 'TEST',
+        created: 1,
+        claimed: 1,
+        unchanged: 0,
+        conflicts: []
+      })
+      expect(await loaded()).toEqual([
+        {
+          id: legacyId,
+          key: null,
+          label: legacyLabel,
+          subject: null,
+          status: null
+        }
+      ])
+
+      expect(await run(true)).toMatchObject({
+        event: 'tag_list_loaded',
+        created: 1,
+        claimed: 1,
+        updated: 0
+      })
+      expect(await loaded()).toEqual([
+        {
+          id: expect.any(String),
+          key: keys[1],
+          label: `새 태그 ${suffix}`,
+          subject: 'GRAMMAR',
+          status: 'RETIRED'
+        },
+        {
+          id: legacyId,
+          key: keys[0],
+          label: legacyLabel,
+          subject: 'VOCABULARY',
+          status: 'ACTIVE'
+        }
+      ])
+
+      expect(await run(true)).toMatchObject({
+        event: 'tag_list_loaded',
+        created: 0,
+        claimed: 0,
+        updated: 0,
+        unchanged: 2
+      })
+      await expect(
+        h.owner.query(
+          `UPDATE "Tag" SET "subject" = NULL WHERE "id" = $1::uuid`,
+          [legacyId]
+        )
+      ).rejects.toMatchObject({ constraint: 'Tag_list_fields_check' })
+    } finally {
+      write.mockRestore()
+      await h.owner.query(
+        `DELETE FROM "Tag" WHERE "key" = ANY($1::text[]) OR "id" = $2::uuid`,
+        [keys, legacyId]
+      )
+      await rm(directory, { recursive: true, force: true })
     }
   })
 })

@@ -157,6 +157,11 @@ enum QuestionSubject {
   READING
 }
 
+enum TagStatus {
+  ACTIVE
+  RETIRED
+}
+
 enum QuestionType {
   KANJI_READING
   ORTHOGRAPHY
@@ -643,6 +648,9 @@ model Tag {
   id             String               @id @default(uuid()) @db.Uuid
   label          String
   normalizedName String               @unique
+  key            String?              @unique
+  subject        QuestionSubject?
+  status         TagStatus?
   createdAt      DateTime             @default(now()) @db.Timestamptz(3)
   updatedAt      DateTime             @updatedAt @db.Timestamptz(3)
   versions       QuestionVersionTag[]
