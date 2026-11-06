@@ -111,7 +111,7 @@ again; a wrong port or another environment in the row stopped the script.
 
 ## Open
 
-- STAGING: `registerDatabaseCapabilityCommand` refuses
-  `DEPLOYMENT_ENVIRONMENT=STAGING` today, so a STAGING deploy stops at step 5.
-  The backend change (#647, JLP-734) lets this one command register a
+- STAGING: until #649 is merged, `registerDatabaseCapabilityCommand` refuses
+  `DEPLOYMENT_ENVIRONMENT=STAGING`, so a STAGING deploy stops at step 5.
+  The backend PR #649 (JLP-734) lets this one command register a
   PRODUCTION row on STAGING; rehearse STAGING after it lands.

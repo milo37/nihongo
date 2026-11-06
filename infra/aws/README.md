@@ -57,7 +57,7 @@ aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUT
 
 절차·롤백은 [operations/runbooks/production-database.v1.md](../../operations/runbooks/production-database.v1.md)에 있습니다.
 
-**아직 막힌 점:** STAGING에서는 capability 등록 명령이 거부되어 배포가 `register-capability.sh`에서 멈춥니다(이전 API는 그대로). 백엔드 변경 #647(JLP-734) 뒤에 풀립니다. PRODUCTION 이름으로 빈 DB 첫 배포는 로컬에서 끝까지 확인했습니다(런북 'Local rehearsal').
+**아직 막힌 점:** STAGING에서는 capability 등록 명령이 거부되어 배포가 `register-capability.sh`에서 멈춥니다(이전 API는 그대로). 백엔드 PR #649(JLP-734, capability 명령만 STAGING 허용, 행은 PRODUCTION) 병합 뒤에 풀립니다. PRODUCTION 이름으로 빈 DB 첫 배포는 로컬에서 끝까지 확인했습니다(런북 'Local rehearsal').
 
 ## #57 계정 삭제 실행 경로
 

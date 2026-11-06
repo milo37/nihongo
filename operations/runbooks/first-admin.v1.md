@@ -1,9 +1,12 @@
 # First production admin v1
 
 Status: commands ready. Running in PRODUCTION needs every item under
-"Required before any PRODUCTION run" first. The commands are defined for
-PRODUCTION only and refuse `DEPLOYMENT_ENVIRONMENT=STAGING`, like the account
-erasure command.
+"Required before any PRODUCTION run" first. The first-admin command is defined
+for PRODUCTION only and refuses `DEPLOYMENT_ENVIRONMENT=STAGING`, like the
+account erasure command. The capability command is the one exception (#649):
+STAGING uses the production database contract (database `nihongo`,
+`nihongo_production_*` logins), so on STAGING it runs too and writes the row
+with `environment=PRODUCTION`; its dry run also reports `PRODUCTION`.
 
 Two one-shot operator commands run on the server, never over HTTP:
 
