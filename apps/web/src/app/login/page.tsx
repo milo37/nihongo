@@ -185,6 +185,7 @@ export const LoginPage = (): ReactElement => {
                 onClick={() => begin('google')}
               />
             </div>
+            <p className="auth-consent">{t('sso.consentNotice')}</p>
             {start.isError ? (
               <p className="auth-notice auth-error" role="alert">
                 {t('sso.' + errorKey, { provider: providerName })}
