@@ -284,3 +284,22 @@ test('README documents both mutually exclusive local workflows', async () => {
   assert.doesNotMatch(activation, /phase/iu)
   assert.match(activation, /COMMIT;/u)
 })
+
+test('migration preflight admits exactly the test, development and production wrappers', async () => {
+  for (const migrationPath of migrationPaths) {
+    const migration = await readRepositoryFile(migrationPath)
+    const preflight = migration.match(
+      /expected_wrapper TEXT := CASE\n([\s\S]*?)\n\s+ELSE NULL END;/u
+    )
+    assert.ok(preflight, migrationPath)
+    assert.deepEqual(
+      preflight[1].split('\n').map((line) => line.trim()),
+      [
+        "WHEN pg_catalog.current_database() ~ '_test$' THEN 'nihongo_test_migration_login'",
+        "WHEN pg_catalog.current_database() ~ '_dev$' THEN 'nihongo_development_migration_login'",
+        "WHEN pg_catalog.current_database() = 'nihongo' THEN 'nihongo_production_migration_login'"
+      ],
+      migrationPath
+    )
+  }
+})
