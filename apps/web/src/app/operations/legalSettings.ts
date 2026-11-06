@@ -1,13 +1,12 @@
 /**
- * Values the legal pages fill in (K2 #668), set per release build. An empty
- * value shows the fallback copy (STAGING before launch).
+ * Values the legal pages fill in (K2 #668). Put the real values here in a
+ * small commit before the PRODUCTION build; an empty value shows the fallback
+ * copy.
  */
-const readSetting = (value: string | undefined): string => value?.trim() ?? ''
-
 export const legalSettings = {
-  effectiveDate: readSetting(import.meta.env.VITE_LEGAL_EFFECTIVE_DATE),
-  contactEmail: readSetting(import.meta.env.VITE_CONTACT_EMAIL),
-  privacyOfficer: readSetting(import.meta.env.VITE_PRIVACY_OFFICER)
-} as const
+  effectiveDate: '',
+  contactEmail: '',
+  privacyOfficer: ''
+}
 
-export type LegalSettings = typeof legalSettings
+export type LegalSettings = Readonly<Record<keyof typeof legalSettings, string>>
