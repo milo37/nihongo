@@ -51,7 +51,11 @@ export const runTagLoadCommand = async (
     const input = inputSchema.parse(source)
     const execute = input.TAG_LOAD_CONFIRM !== undefined
     const list = parseTagList(await readFile(input.TAG_LIST_FILE))
-    const { client, environment } = createOperatorDatabaseClient(source)
+    // STAGING runs the PRODUCTION database contract, so its rehearsal loads
+    // the same tag list as PRODUCTION, like the capability command (#648).
+    const { client, environment } = createOperatorDatabaseClient(source, {
+      allowStaging: true
+    })
     const report = await runOperatorTransaction<
       { failed: boolean } & Record<string, unknown>
     >(client, async (database) => {
