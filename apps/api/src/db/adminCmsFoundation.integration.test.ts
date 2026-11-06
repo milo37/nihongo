@@ -46,7 +46,8 @@ import { attestRuntimeRoles } from './runtimeRoleAttestation.js'
 // #504 P8-1: one baseline replaces the 76 migrations.
 const EXPECTED_MIGRATIONS = [
   '20261105090000_baseline',
-  '20261106090000_remove_phase_names'
+  '20261106090000_remove_phase_names',
+  '20261107090000_first_admin_production'
 ] as const
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',

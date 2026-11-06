@@ -1254,7 +1254,8 @@ const reportPostSeedDiagnostic = (diagnostic: PostSeedDiagnostic): void => {
 
 const migrationDiagnosticNames = [
   '20261105090000_baseline',
-  '20261106090000_remove_phase_names'
+  '20261106090000_remove_phase_names',
+  '20261107090000_first_admin_production'
 ] as const
 
 const sanitizeMigrationDatabaseError = (error: unknown) => {
