@@ -18,6 +18,35 @@ import {
 import { getButtonClassName } from '@nihongo/browser/common/components/Button'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 
+const subjectLabelKeys = {
+  VOCABULARY: 'approved.vocabulary',
+  GRAMMAR: 'subjects.grammar.label',
+  READING: 'subjects.reading.label'
+} as const
+
+/** Links to the wrong-note review and bookmark lists. */
+const PracticeShortcuts = (): ReactElement => {
+  const { t } = useTranslation('practice')
+  return (
+    <nav className="practice-shortcuts" aria-label={t('setup.shortcutsLabel')}>
+      <Link
+        className={getButtonClassName({ variant: 'ghost' })}
+        to="/wrong-notes"
+      >
+        <Icon name="rotate-ccw" />
+        {t('setup.reviewShortcut')}
+      </Link>
+      <Link
+        className={getButtonClassName({ variant: 'ghost' })}
+        to="/bookmarks"
+      >
+        <Icon name="bookmark" />
+        {t('setup.bookmarkShortcut')}
+      </Link>
+    </nav>
+  )
+}
+
 export const PracticePage = ({
   children
 }: { children?: ReactNode } = {}): ReactElement => {
@@ -27,13 +56,7 @@ export const PracticePage = ({
   const setupHeadingRef = useRef<HTMLHeadingElement>(null)
   const setup = usePracticeSetupController(resumableHeadingRef)
   const { count, level, mode, resumableSessions, subject } = setup
-  const subjectLabel = homeT(
-    subject === 'VOCABULARY'
-      ? 'approved.vocabulary'
-      : subject === 'GRAMMAR'
-        ? 'subjects.grammar.label'
-        : 'subjects.reading.label'
-  )
+  const subjectLabel = homeT(subjectLabelKeys[subject])
   const startLabel = homeT('quickDrill.start', {
     level,
     subject: subjectLabel,
@@ -97,25 +120,7 @@ export const PracticePage = ({
           />
         }
       />
-      <nav
-        className="practice-shortcuts"
-        aria-label={t('setup.shortcutsLabel')}
-      >
-        <Link
-          className={getButtonClassName({ variant: 'ghost' })}
-          to="/wrong-notes"
-        >
-          <Icon name="rotate-ccw" />
-          {t('setup.reviewShortcut')}
-        </Link>
-        <Link
-          className={getButtonClassName({ variant: 'ghost' })}
-          to="/bookmarks"
-        >
-          <Icon name="bookmark" />
-          {t('setup.bookmarkShortcut')}
-        </Link>
-      </nav>
+      <PracticeShortcuts />
 
       {children}
 

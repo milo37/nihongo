@@ -16,7 +16,10 @@ import * as authApi from '@nihongo/browser/api/auth/getCurrentUser/index'
 import * as listApi from '@api/admin-question/listAdminQuestion/index'
 import * as api from '@nihongo/browser/api/content-operations/requestContentOperation'
 import { adminRoutes } from '@/router'
+import { preloadAdminPages } from '@/test/preloadAdminPages'
 import { actorId, question } from '@app/admin-question/test/questionFixture'
+
+beforeAll(preloadAdminPages)
 
 const approvedId = '10000000-0000-4000-8000-0000000000a1'
 const approvedVersion = '10000000-0000-4000-8000-0000000000a2'

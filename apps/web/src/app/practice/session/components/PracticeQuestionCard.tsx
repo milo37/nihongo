@@ -18,6 +18,53 @@ type PracticeQuestionCardProps = {
   selectedOptionId: string | undefined
 }
 
+/** Reading passage, scrollable beside the question on wide screens. */
+const QuestionPassage = ({ passage }: { passage: string }): ReactElement => {
+  const { t } = useTranslation('practice')
+  return (
+    <article
+      aria-label={t('session.question.passageLabel')}
+      className="scroll-mt-24 border-b border-line bg-surface-muted p-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-brand sm:p-7 lg:max-h-[680px] lg:overflow-y-auto lg:border-b-0 lg:border-r"
+      tabIndex={0}
+    >
+      <p className="text-xs font-black tracking-[0.14em] text-brand">
+        {t('session.question.passageEyebrow')}
+      </p>
+      <p className="sr-only">{t('session.question.passageLabel')}</p>
+      <p
+        className="mt-5 whitespace-pre-line text-base leading-8 text-ink"
+        lang="ja"
+      >
+        {passage}
+      </p>
+    </article>
+  )
+}
+
+/** Collapsible keyboard hints with the elapsed time. */
+const KeyboardHelp = ({
+  elapsedSeconds
+}: {
+  elapsedSeconds: number
+}): ReactElement => {
+  const { t } = useTranslation('practice')
+  const { formatDuration } = usePracticeNumberFormat()
+  return (
+    <details className="study-keyboard-help mt-4 text-sm leading-6 text-muted">
+      <summary className="note-link cursor-pointer">
+        {t('session.keyboardHelp')}
+      </summary>
+      <p className="mb-2">
+        {t('session.header.elapsedTime')}{' '}
+        <span className="font-mono tabular-nums">
+          {formatDuration(elapsedSeconds)}
+        </span>
+      </p>
+      <p>{t('session.question.keyboardHint')}</p>
+    </details>
+  )
+}
+
 export const PracticeQuestionCard = ({
   bookmarkButton,
   bookmarkStatus,
@@ -31,7 +78,7 @@ export const PracticeQuestionCard = ({
   selectedOptionId
 }: PracticeQuestionCardProps): ReactElement => {
   const { t } = useTranslation('practice')
-  const { formatCount, formatDuration } = usePracticeNumberFormat()
+  const { formatCount } = usePracticeNumberFormat()
 
   return (
     <div
@@ -42,24 +89,7 @@ export const PracticeQuestionCard = ({
           : ''
       ].join(' ')}
     >
-      {question.passage ? (
-        <article
-          aria-label={t('session.question.passageLabel')}
-          className="scroll-mt-24 border-b border-line bg-surface-muted p-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-brand sm:p-7 lg:max-h-[680px] lg:overflow-y-auto lg:border-b-0 lg:border-r"
-          tabIndex={0}
-        >
-          <p className="text-xs font-black tracking-[0.14em] text-brand">
-            {t('session.question.passageEyebrow')}
-          </p>
-          <p className="sr-only">{t('session.question.passageLabel')}</p>
-          <p
-            className="mt-5 whitespace-pre-line text-base leading-8 text-ink"
-            lang="ja"
-          >
-            {question.passage}
-          </p>
-        </article>
-      ) : null}
+      {question.passage ? <QuestionPassage passage={question.passage} /> : null}
 
       <article className="study-question-content min-w-0 py-4 sm:py-6">
         <div className="flex items-start justify-between gap-4">
@@ -111,18 +141,7 @@ export const PracticeQuestionCard = ({
           />
         </div>
         {saveStatus}
-        <details className="study-keyboard-help mt-4 text-sm leading-6 text-muted">
-          <summary className="note-link cursor-pointer">
-            {t('session.keyboardHelp')}
-          </summary>
-          <p className="mb-2">
-            {t('session.header.elapsedTime')}{' '}
-            <span className="font-mono tabular-nums">
-              {formatDuration(elapsedSeconds)}
-            </span>
-          </p>
-          <p>{t('session.question.keyboardHint')}</p>
-        </details>
+        <KeyboardHelp elapsedSeconds={elapsedSeconds} />
       </article>
     </div>
   )

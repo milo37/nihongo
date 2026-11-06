@@ -48,6 +48,11 @@ import { MockDatabaseError, mockDatabase } from '@mocks/repository/mockDatabase'
 
 const JSON_CONTENT_TYPE_PATTERN = /^application\/json(?:\s*;|$)/iu
 
+/** Same field error as the API's assertPracticeContractHeader. */
+const practiceContractFieldErrors = {
+  'x-nihongo-practice-contract': ['header 값은 2만 허용합니다.']
+}
+
 /** Practice contract 2 is the only contract; the header may be omitted. */
 const hasSupportedPracticeContract = (request: Request): boolean => {
   const header = request.headers.get('X-Nihongo-Practice-Contract')
@@ -383,6 +388,7 @@ export const studySessionHandlers = [
       return createCreateErrorResponse({
         code: 'INVALID_REQUEST',
         message: 'X-Nihongo-Practice-Contract header 값이 올바르지 않습니다.',
+        fieldErrors: practiceContractFieldErrors,
         requestId,
         retryable: false
       })
@@ -490,6 +496,7 @@ export const studySessionHandlers = [
         return createGetErrorResponse({
           code: 'INVALID_REQUEST',
           message: 'X-Nihongo-Practice-Contract header 값이 올바르지 않습니다.',
+          fieldErrors: practiceContractFieldErrors,
           requestId,
           retryable: false
         })
@@ -566,6 +573,7 @@ export const studySessionHandlers = [
         return createSubmitErrorResponse({
           code: 'INVALID_REQUEST',
           message: 'X-Nihongo-Practice-Contract header 값이 올바르지 않습니다.',
+          fieldErrors: practiceContractFieldErrors,
           requestId,
           retryable: false
         })

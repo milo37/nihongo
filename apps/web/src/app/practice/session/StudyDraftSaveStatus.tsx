@@ -16,6 +16,10 @@ const states = [
   'offline'
 ] as const
 
+/** States that show a retry button next to the message. */
+const hasRetry = (value: string | undefined): boolean =>
+  value === 'error' || value === 'offline'
+
 export const StudyDraftSaveStatus = ({
   status,
   onRetry
@@ -25,8 +29,10 @@ export const StudyDraftSaveStatus = ({
     status === 'synced' || status === 'savedAt'
       ? 'saved'
       : states.find((value) => value === status)
-  const canRetry = state === 'error' || state === 'offline'
+  const canRetry = hasRetry(state)
   const shouldAnnounce = canRetry || state === 'reconciled'
+  const iconName =
+    state === 'saved' ? 'check' : canRetry ? 'circle-alert' : 'rotate-ccw'
   return (
     <div className="study-inline-save" data-save-state={status ?? 'detailed'}>
       {/* Measure every localized state in the same grid cell, including wrapped retry.
@@ -37,15 +43,13 @@ export const StudyDraftSaveStatus = ({
             key={value}
             className="study-inline-save-item"
             data-tone={value === 'error' ? 'danger' : undefined}
-            data-has-retry={
-              value === 'error' || value === 'offline' ? '' : undefined
-            }
+            data-has-retry={hasRetry(value) ? '' : undefined}
           >
             <span className="study-inline-save-message">
               <span className="study-inline-save-icon" />
               <span data-copy={t(`session.draft.inline.${value}`)} />
             </span>
-            {value === 'error' || value === 'offline' ? (
+            {hasRetry(value) ? (
               <span
                 className="study-inline-save-retry"
                 data-copy={t('session.draft.retryShort')}
@@ -65,16 +69,7 @@ export const StudyDraftSaveStatus = ({
         {state ? (
           <>
             <span className="study-inline-save-message">
-              <Icon
-                className="study-inline-save-icon"
-                name={
-                  state === 'saved'
-                    ? 'check'
-                    : canRetry
-                      ? 'circle-alert'
-                      : 'rotate-ccw'
-                }
-              />
+              <Icon className="study-inline-save-icon" name={iconName} />
               <span>{t(`session.draft.inline.${state}`)}</span>
             </span>
             {canRetry ? (
