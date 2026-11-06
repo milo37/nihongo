@@ -42,6 +42,46 @@ RUN node scripts/operations/release-manifest.mjs --mode create-oci-component --w
 # skips these two stages when the default (runtime) target is built.
 FROM builder AS migrate-deps
 RUN pnpm --filter @nihongo/api deploy --legacy /release/migrate
+# Keep only what `prisma migrate deploy` with prisma.migrate.config.ts loads: the
+# pnpm closure of prisma and dotenv, at the lockfile versions. typescript is an
+# optional peer of prisma that migrate does not use (the config loads via jiti).
+RUN node - /release/migrate/node_modules /release/migrate-min/node_modules typescript -- prisma dotenv <<'EOF'
+const fs = require('node:fs')
+const path = require('node:path')
+const [source, target, ...rest] = process.argv.slice(2)
+const split = rest.indexOf('--')
+const excluded = new Set(rest.slice(0, split))
+const roots = rest.slice(split + 1)
+const marker = `${path.sep}node_modules${path.sep}`
+const stores = new Set()
+const queue = roots.map((name) => fs.realpathSync(path.join(source, name)))
+while (queue.length > 0) {
+  const real = queue.pop()
+  const store = real.slice(0, real.lastIndexOf(marker))
+  if (stores.has(store)) continue
+  stores.add(store)
+  const modules = path.join(store, 'node_modules')
+  for (const entry of fs.readdirSync(modules)) {
+    const names = entry.startsWith('@')
+      ? fs.readdirSync(path.join(modules, entry)).map((name) => `${entry}/${name}`)
+      : [entry]
+    for (const name of names) {
+      const link = path.join(modules, name)
+      if (!excluded.has(name) && fs.existsSync(link)) queue.push(fs.realpathSync(link))
+    }
+  }
+}
+for (const store of stores) {
+  fs.cpSync(store, path.join(target, '.pnpm', path.basename(store)), { recursive: true, verbatimSymlinks: true })
+}
+for (const name of roots) {
+  const real = fs.realpathSync(path.join(source, name))
+  const link = path.join(target, name)
+  fs.mkdirSync(path.dirname(link), { recursive: true })
+  fs.symlinkSync(path.relative(path.dirname(link), path.join(target, path.relative(source, real))), link)
+}
+console.log(`migrate image keeps ${stores.size} packages`)
+EOF
 
 FROM node:22.23.0-alpine@sha256:ab07539e0988b63558ff621f5fbe1077054c39d9809112974fb79993949d41cd AS migrate
 
@@ -53,7 +93,7 @@ ENV NODE_ENV=production
 ENV RELEASE_ID=$RELEASE_ID
 WORKDIR /migrate
 
-COPY --from=migrate-deps /release/migrate/node_modules /migrate/node_modules
+COPY --from=migrate-deps /release/migrate-min/node_modules /migrate/node_modules
 # The deploy output keeps only package.json "files"; take the rest from the source tree.
 COPY --from=migrate-deps /release/migrate/package.json /migrate/package.json
 COPY --from=builder /workspace/apps/api/prisma.migrate.config.ts /migrate/prisma.migrate.config.ts

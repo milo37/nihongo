@@ -15,6 +15,7 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { adminRoutes } from '@/router'
+import { preloadAdminPages } from '@/test/preloadAdminPages'
 import { invalidateCanonicalAuthTransitions } from '@nihongo/browser/app/login/authSession'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import * as authApi from '@nihongo/browser/api/auth/getCurrentUser/index'
@@ -26,6 +27,8 @@ import {
   reportId,
   reportSummary
 } from '@app/admin-report/test/reportFixture'
+
+beforeAll(preloadAdminPages)
 
 const renderAdmin = (client: QueryClient, entry: string) => {
   const router = createMemoryRouter(adminRoutes, {
