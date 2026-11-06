@@ -34,7 +34,7 @@ export const approvedN5ReadingSeeds: readonly ApprovedN5ReadingSeed[] = [
       explanationKo:
         '어머니는 빵을 이미 샀지만 우유는 아직 없다며 돌아오는 길에 우유 한 개를 사 달라고 합니다. 따라서 우유만 사면 됩니다. 빵만 사는 선택은 요청과 다르고, 빵과 우유를 모두 사는 선택은 빵을 사지 않아도 된다는 말과 다릅니다. 아무것도 사지 않는 선택은 우유를 사 달라는 요청을 따르지 않습니다.',
       difficulty: 'EASY',
-      tags: ['짧은 글', '요청', '완료와 미완료']
+      tags: ['짧은 글', '요청']
     },
     contractIdentity: {
       questionId: '510cf3fc-e5c7-41c4-b188-ce0b557a5be1',
@@ -71,7 +71,7 @@ export const approvedN5ReadingSeeds: readonly ApprovedN5ReadingSeed[] = [
       explanationKo:
         '도서관이 닫혀 있을 때 책을 반환하는 곳은 입구 옆 상자입니다. 질문은 CD 없이 책만 반환하려는 상황입니다. 1층 카운터는 도서관이 열려 있을 때 책을 반환하는 곳입니다. 도서관 안의 의자는 반환 장소로 안내되지 않았고, CD 전용 상자도 안내되지 않았습니다. 오히려 CD를 상자에 넣지 말고 카운터에 반환하라고 합니다.',
       difficulty: 'NORMAL',
-      tags: ['정보 찾기', '시설 안내', '조건']
+      tags: ['정보 찾기', '시설 안내']
     },
     contractIdentity: {
       questionId: '934f1ef1-99d7-4f07-a369-0771a97bf134',
@@ -107,7 +107,7 @@ export const approvedN5ReadingSeeds: readonly ApprovedN5ReadingSeed[] = [
       explanationKo:
         '빨간 연필은 이미 가방 안에 있고, 파란 연필은 집 책상 위에 있습니다. 집을 나서기 전에 가방에 넣겠다는 「それ」는 바로 앞에서 설명한 파란 연필을 가리킵니다. 따라서 이제 넣을 것은 파란 연필입니다. 빨간 연필은 이미 가방 안에 있으므로 새로 넣을 물건이 아닙니다. 두 연필을 모두 넣겠다는 선택도 현재 가방 상태와 맞지 않습니다. 그림책은 지문에 나오지 않습니다.',
       difficulty: 'NORMAL',
-      tags: ['짧은 글', '지시어', '준비물']
+      tags: ['짧은 글', '지시어']
     },
     contractIdentity: {
       questionId: 'fadef91c-4e79-4bae-bb5b-9f35e64950bf',

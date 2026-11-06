@@ -315,6 +315,7 @@ export const jaAdminResources = {
       DUPLICATE_TAG: 'タグの重複',
       CORRECT_OPTION_KEY_NOT_FOUND: '正解の選択肢キーがありません',
       UNKNOWN_TAG: '未登録のタグ',
+      TAG_SUBJECT_MISMATCH: '問題の科目と合わないタグ',
       INVALID_READING_PASSAGE: '読解本文の規則エラー',
       INVALID_CONTENT: '問題内容のエラー',
       DUPLICATE_QUESTION_CONTENT: '問題内容の重複'
