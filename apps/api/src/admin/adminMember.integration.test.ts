@@ -11,7 +11,7 @@ import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { createPrismaAccountRestrictionReader } from '../account/accountRestriction.js'
 import { createPrismaAdminMemberRepository } from './adminMemberRepository.js'
 import { createAdminMemberService } from './adminMemberService.js'
-import { eraseTestUser } from '../db/fixtures/accountErasure.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({

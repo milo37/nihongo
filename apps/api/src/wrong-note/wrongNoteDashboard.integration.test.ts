@@ -25,7 +25,7 @@ import {
   toWrongNoteDetail
 } from './wrongNoteMapper.js'
 import { createWrongNoteService } from './wrongNoteService.js'
-import { eraseTestUser } from '../db/fixtures/accountErasure.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const DAY_MILLISECONDS = 24 * 60 * 60 * 1_000
 

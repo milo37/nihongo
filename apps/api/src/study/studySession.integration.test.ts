@@ -5,7 +5,7 @@ import { Client } from 'pg'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { createApiApp } from '../app/createApp.js'
 import { createAuthGateway } from '../auth/authGateway.js'
-import { createSsoSessionFixture } from '../db/fixtures/ssoSession.js'
+import { createSsoSessionFixture } from '../../test/fixtures/db/ssoSession.js'
 import { createAuthRuntime } from '../auth/createAuth.js'
 import { createAuthEmailDispatcher } from '../auth/emailDispatcher.js'
 import { InMemoryAuthEmailPort } from '../auth/emailPort.js'
@@ -34,7 +34,7 @@ import { createQuestionService } from '../question/questionService.js'
 import { GUEST_COOKIE_NAME } from '../routes/principal.js'
 import { createPrismaStudySessionRepository } from './studySessionRepository.js'
 import { createStudySessionService } from './studySessionService.js'
-import { eraseTestUser } from '../db/fixtures/accountErasure.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({

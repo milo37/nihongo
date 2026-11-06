@@ -1,6 +1,6 @@
 import { randomBytes, randomUUID } from 'node:crypto'
 import { registerDatabaseCapability } from './databaseCapability.js'
-import { installAuditDigestSql } from './fixtures/auditDigestSql.js'
+import { installAuditDigestSql } from '../../test/fixtures/db/auditDigestSql.js'
 import { Client } from 'pg'
 import type { QueryResult, QueryResultRow } from 'pg'
 import { expect } from 'vitest'
@@ -9,7 +9,7 @@ import {
   isOwnedSessionSql,
   ownedSessionSql,
   pgOwnedSessionClient
-} from './fixtures/ownedSessionSql.js'
+} from '../../test/fixtures/db/ownedSessionSql.js'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import { parseApiEnvironment } from '../config/env.js'
 import { assertSafeAdminCmsDatabase } from './databaseTargetGuard.js'

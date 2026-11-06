@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import {
   bridgedQuery,
   pgOwnedSessionClient
-} from './fixtures/ownedSessionSql.js'
+} from '../../test/fixtures/db/ownedSessionSql.js'
 import { Client } from 'pg'
 import { assertSafeMigrationDatabase } from './databaseTargetGuard.js'
 import { createPostgresStartupOptions } from './databaseOptions.js'

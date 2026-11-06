@@ -1,5 +1,5 @@
-import type { PrismaClient } from '../../generated/prisma/client.js'
-import { eraseUserForTest } from '../../auth/accountErasureAuthority.js'
+import type { PrismaClient } from '../../../src/generated/prisma/client.js'
+import { eraseUserForTest } from '../../../src/auth/accountErasureAuthority.js'
 
 /**
  * #504 P7 PR4a: test cleanup erases a User with the API implementation of the

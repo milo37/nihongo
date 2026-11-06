@@ -32,7 +32,7 @@ import {
   createReviewReconciliationNoteBatchQuery,
   createPrismaReviewReconciliationRepository
 } from './reviewReconciliationRepository.js'
-import { eraseTestUser } from '../db/fixtures/accountErasure.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 interface ExplainRow {
   'QUERY PLAN': unknown

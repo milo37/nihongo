@@ -5,7 +5,7 @@ import { createApiApp } from './createApp.js'
 import {
   createSsoIdentityFixture,
   createSsoSessionFixture
-} from '../db/fixtures/ssoSession.js'
+} from '../../test/fixtures/db/ssoSession.js'
 import { createAuthGateway } from '../auth/authGateway.js'
 import { createSsoIdentityRepository } from '../auth/ssoIdentityRepository.js'
 import { createSsoPublicRuntime } from '../auth/ssoPublicRuntime.js'

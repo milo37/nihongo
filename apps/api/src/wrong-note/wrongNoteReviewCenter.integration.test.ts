@@ -35,7 +35,7 @@ import { createPrismaWrongNoteReviewQueueRepository } from './wrongNoteReviewQue
 import { createWrongNoteReviewQueueService } from './wrongNoteReviewQueueService.js'
 import { createPrismaWrongNoteTargetedReviewRepository } from './wrongNoteTargetedReviewRepository.js'
 import { createWrongNoteTargetedReviewService } from './wrongNoteTargetedReviewService.js'
-import { eraseTestUser } from '../db/fixtures/accountErasure.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const DAY_MILLISECONDS = 24 * 60 * 60 * 1_000
 const SUBMITTED_AT = new Date('2026-08-22T00:00:00.000Z')

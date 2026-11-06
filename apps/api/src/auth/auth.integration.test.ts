@@ -3,7 +3,7 @@ import { hashPassword } from 'better-auth/crypto'
 import { Client } from 'pg'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { createApiApp } from '../app/createApp.js'
-import { createSsoSessionFixture } from '../db/fixtures/ssoSession.js'
+import { createSsoSessionFixture } from '../../test/fixtures/db/ssoSession.js'
 import { parseApiEnvironment } from '../config/env.js'
 import {
   createDatabaseRuntime,
@@ -17,7 +17,7 @@ import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { createApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createJsonLogger } from '../observability/logger.js'
 import type { QuestionReader } from '../question/questionService.js'
-import { createAdminProvisioner } from './fixtures/adminProvisioning.js'
+import { createAdminProvisioner } from '../../test/fixtures/auth/adminProvisioning.js'
 import { createAuthGateway } from './authGateway.js'
 import { createAuthRuntime } from './createAuth.js'
 import { createAuthEmailDispatcher } from './emailDispatcher.js'
@@ -29,7 +29,7 @@ import {
   createPrincipalService
 } from './principalService.js'
 import { GUEST_COOKIE_NAME } from '../routes/principal.js'
-import { eraseTestUser } from '../db/fixtures/accountErasure.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({

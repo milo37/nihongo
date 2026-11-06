@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process'
 import { registerDatabaseCapability } from './databaseCapability.js'
-import { installAuditDigestSql } from './fixtures/auditDigestSql.js'
+import { installAuditDigestSql } from '../../test/fixtures/db/auditDigestSql.js'
 import { randomBytes, randomUUID } from 'node:crypto'
 import {
   adminQuestionMutationResultSchema,
@@ -17,7 +17,10 @@ import {
 import { apiFailureSchema } from '@nihongo/contracts/common/error'
 import { hashPassword } from 'better-auth/crypto'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import { bridgedQuery, ownedSessionSql } from './fixtures/ownedSessionSql.js'
+import {
+  bridgedQuery,
+  ownedSessionSql
+} from '../../test/fixtures/db/ownedSessionSql.js'
 import { signOutOwnedSession } from '../auth/ownedSessionAuthority.js'
 import { Client } from 'pg'
 import { createAdminReauthenticationService } from '../admin/adminReauthenticationService.js'
@@ -760,7 +763,7 @@ const spawnStagedCrashWorker = async (
   // nihongo_app through the test bridge.
   const script = `
     import pg from 'pg'
-    import { ownedSessionSql } from './src/db/fixtures/ownedSessionSql.ts'
+    import { ownedSessionSql } from './test/fixtures/db/ownedSessionSql.ts'
     const { Client } = pg
     process.on('SIGTERM', () => {})
     const url = new URL(process.env.CRASH_DATABASE_URL)

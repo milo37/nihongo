@@ -21,7 +21,7 @@ import {
 import { createPrismaStudyDraftRepository } from './studyDraftRepository.js'
 import { createPrismaStudySubmissionRepository } from './studySubmissionRepository.js'
 import { createStudySubmissionService } from './studySubmissionService.js'
-import { eraseTestUser } from '../db/fixtures/accountErasure.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const DAY_MS = 24 * 60 * 60 * 1_000
 

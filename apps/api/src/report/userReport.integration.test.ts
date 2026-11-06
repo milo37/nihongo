@@ -10,7 +10,7 @@ import {
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { createPrismaUserReportRepository } from './userReportRepository.js'
 import { createUserReportService } from './userReportService.js'
-import { eraseTestUser } from '../db/fixtures/accountErasure.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({

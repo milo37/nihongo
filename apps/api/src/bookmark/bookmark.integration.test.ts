@@ -12,7 +12,7 @@ import { createPrismaStudySessionRepository } from '../study/studySessionReposit
 import { createStudySessionService } from '../study/studySessionService.js'
 import { createPrismaBookmarkRepository } from './bookmarkRepository.js'
 import { createBookmarkService } from './bookmarkService.js'
-import { eraseTestUser } from '../db/fixtures/accountErasure.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({

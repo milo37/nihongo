@@ -1,7 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import { registerDatabaseCapability } from './databaseCapability.js'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { bridgedQuery, ownedSessionSql } from './fixtures/ownedSessionSql.js'
+import {
+  bridgedQuery,
+  ownedSessionSql
+} from '../../test/fixtures/db/ownedSessionSql.js'
 import { Client } from 'pg'
 import {
   beginAdminOperation,

@@ -4,7 +4,7 @@ import {
   createSsoAccountErasureWorker,
   runSsoAccountErasureBatch
 } from '../auth/ssoAccountRepository.js'
-import { bridgedQuery } from './fixtures/ownedSessionSql.js'
+import { bridgedQuery } from '../../test/fixtures/db/ownedSessionSql.js'
 import { createSsoDbHarness, digest } from './ssoTestFixture.js'
 import type { SsoFixture } from './ssoTestFixture.js'
 let h: ReturnType<typeof createSsoDbHarness>

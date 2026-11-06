@@ -19,7 +19,7 @@ import { createStudyResultRetryService } from './studyResultRetryService.js'
 import { createPrismaStudySessionRepository } from './studySessionRepository.js'
 import { createPrismaStudySubmissionRepository } from './studySubmissionRepository.js'
 import { createStudySubmissionService } from './studySubmissionService.js'
-import { eraseTestUser } from '../db/fixtures/accountErasure.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const fixtureUrl = process.env.GUEST_CLEANUP_FIXTURE_DATABASE_URL
 const workerUrl = process.env.GUEST_CLEANUP_DATABASE_URL

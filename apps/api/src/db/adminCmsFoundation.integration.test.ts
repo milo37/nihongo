@@ -5,17 +5,20 @@ import {
   forwardFunctionSources,
   withoutForwardChanges,
   withoutLegacyBranchSources
-} from './fixtures/baseline/baselineDelta.js'
+} from '../../test/fixtures/db/baseline/baselineDelta.js'
 import {
   readSchemaCatalog,
   type SchemaCatalog
-} from './fixtures/schemaCatalog.js'
+} from '../../test/fixtures/db/schemaCatalog.js'
 import { registerDatabaseCapability } from './databaseCapability.js'
-import { installAuditDigestSql } from './fixtures/auditDigestSql.js'
+import { installAuditDigestSql } from '../../test/fixtures/db/auditDigestSql.js'
 import { canonicalDuplicateIdentity } from '@nihongo/domain/content/validators/v1/duplicates'
 import type { PersistedQuestionSemanticV1 } from '@nihongo/domain/content/validators/v1/types'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import { bridgedQuery, ownedSessionSql } from './fixtures/ownedSessionSql.js'
+import {
+  bridgedQuery,
+  ownedSessionSql
+} from '../../test/fixtures/db/ownedSessionSql.js'
 import { Client } from 'pg'
 import { buildAllQuestionSeeds } from '../../prisma/seedQuestionCatalog.js'
 import type { QuestionAggregateSeed } from '../../prisma/seed-data/buildQuestionSeed.js'
@@ -482,12 +485,15 @@ afterAll(async () => {
 
 describe('Persistence foundation', () => {
   // #504 P8-1: the baseline is the 76-migration schema with exactly the
-  // listed exclusions and renames (fixtures/baseline/baselineDelta.ts).
+  // listed exclusions and renames (test/fixtures/db/baseline/baselineDelta.ts).
   it('baseline catalog는 76 migration catalog에서 제외·이름 변경만 다르다', async () => {
     if (!schema) throw new Error('Integration schema is unavailable.')
     const snapshot = JSON.parse(
       readFileSync(
-        new URL('./fixtures/baseline/schema76.catalog.json', import.meta.url),
+        new URL(
+          '../../test/fixtures/db/baseline/schema76.catalog.json',
+          import.meta.url
+        ),
         'utf8'
       )
     ) as SchemaCatalog
