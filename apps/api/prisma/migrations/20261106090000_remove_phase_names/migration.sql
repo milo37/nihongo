@@ -15,6 +15,7 @@ DECLARE
   expected_wrapper TEXT := CASE
     WHEN pg_catalog.current_database() ~ '_test$' THEN 'nihongo_test_migration_login'
     WHEN pg_catalog.current_database() ~ '_dev$' THEN 'nihongo_development_migration_login'
+    WHEN pg_catalog.current_database() = 'nihongo' THEN 'nihongo_production_migration_login'
     ELSE NULL END;
 BEGIN
   IF expected_wrapper IS NULL OR SESSION_USER <> expected_wrapper

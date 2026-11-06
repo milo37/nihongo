@@ -14,9 +14,9 @@ maintenance or generation lease. Never infer an environment from a hostname.
 
 `current` is the only migration profile (#504). It selects the baseline
 migration `20261105090000_baseline`
-(file SHA256 `881fbe0e3e57ca5da60687bf1ec749ae8d77acee0c1777295606179460e3fb3e`) followed by the forward
+(file SHA256 `6e71cb629fbeefccf3dcecf6bac3fbb2c90aa812da88e3d2249ca8af19bbfb3c`) followed by the forward
 migration `20261106090000_remove_phase_names`, with ordered inventory digest
-`03cc31e0c77830259edfaec8e8db7b4b1ea0cbffe273ecba556b0fefd248637d`, for TEST, STAGING and PRODUCTION. The baseline replaced the 76
+`cb91271f8a2574f3956552696e289912bf144b4aed28370c020c13c8a642441b`, for TEST, STAGING and PRODUCTION. The baseline replaced the 76
 migrations up to `20261122090000_trusted_execution_drop`; a database migrated
 before it is recreated, not upgraded, and no earlier inventory is a recovery
 profile or fallback. Staging and Production are not activated, so no recovery

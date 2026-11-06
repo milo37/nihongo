@@ -24,7 +24,7 @@
       "environments": ["TEST", "STAGING", "PRODUCTION"],
       "selection": "all-release-manifest-entries",
       "expectedCount": 2,
-      "expectedDigestSha256": "03cc31e0c77830259edfaec8e8db7b4b1ea0cbffe273ecba556b0fefd248637d",
+      "expectedDigestSha256": "cb91271f8a2574f3956552696e289912bf144b4aed28370c020c13c8a642441b",
       "externalRecoveryClaimAllowed": false
     }
   },
