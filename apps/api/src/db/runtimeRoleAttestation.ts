@@ -1,5 +1,9 @@
 import type { PrismaClient } from '../generated/prisma/client.js'
 import { getPostgresSchema } from './databaseOptions.js'
+import {
+  PRODUCTION_DATABASE_NAME,
+  PRODUCTION_LOGIN_PREFIX
+} from './databaseTargetGuard.js'
 
 type RuntimeRole = 'nihongo_app'
 
@@ -49,6 +53,7 @@ interface RuntimeRoleEndpoint {
   client: Pick<PrismaClient, '$queryRawUnsafe'>
   connectionString: string
   expectedRole: RuntimeRole
+  deploymentEnvironment?: string | undefined
 }
 
 const ATTESTATION_QUERY = `
@@ -280,10 +285,16 @@ const ATTESTATION_QUERY = `
         WHERE acl_role.rolname = ANY (ARRAY[
           CASE WHEN current_database() ~ '_test$'
             THEN 'nihongo_test_migration_login'
-            ELSE 'nihongo_development_migration_login' END,
+            WHEN current_database() ~ '_dev$'
+            THEN 'nihongo_development_migration_login'
+            WHEN current_database() = 'nihongo'
+            THEN 'nihongo_production_migration_login' END,
           CASE WHEN current_database() ~ '_test$'
             THEN 'nihongo_test_app_login'
-            ELSE 'nihongo_development_app_login' END
+            WHEN current_database() ~ '_dev$'
+            THEN 'nihongo_development_app_login'
+            WHEN current_database() = 'nihongo'
+            THEN 'nihongo_production_app_login' END
         ]::name[])
           AND entry.privilege_type = 'CONNECT'
           AND NOT entry.is_grantable
@@ -297,13 +308,22 @@ const ATTESTATION_QUERY = `
               acl_role.rolname = ANY (ARRAY[
                 CASE WHEN current_database() ~ '_test$'
                   THEN 'nihongo_test_migration_login'
-                  ELSE 'nihongo_development_migration_login' END,
+                  WHEN current_database() ~ '_dev$'
+                  THEN 'nihongo_development_migration_login'
+                  WHEN current_database() = 'nihongo'
+                  THEN 'nihongo_production_migration_login' END,
                 CASE WHEN current_database() ~ '_test$'
                   THEN 'nihongo_test_app_login'
-                  ELSE 'nihongo_development_app_login' END,
+                  WHEN current_database() ~ '_dev$'
+                  THEN 'nihongo_development_app_login'
+                  WHEN current_database() = 'nihongo'
+                  THEN 'nihongo_production_app_login' END,
                 CASE WHEN current_database() ~ '_test$'
                   THEN 'nihongo_test_guest_cleanup_worker_login'
-                  ELSE 'nihongo_development_guest_cleanup_worker_login' END
+                  WHEN current_database() ~ '_dev$'
+                  THEN 'nihongo_development_guest_cleanup_worker_login'
+                  WHEN current_database() = 'nihongo'
+                  THEN 'nihongo_production_guest_cleanup_worker_login' END
               ]::name[])
               AND entry.privilege_type = 'CONNECT'
               AND NOT entry.is_grantable
@@ -357,12 +377,20 @@ const arraysEqual = (
   left.length === right.length &&
   left.every((value, index) => value === right[index])
 
-const expectedWrapperRole = (database: string): string | null => {
-  const environmentPrefix = database.endsWith('_test')
-    ? 'nihongo_test'
-    : database.endsWith('_dev')
-      ? 'nihongo_development'
-      : null
+const expectedWrapperRole = (
+  database: string,
+  deploymentEnvironment: string | undefined
+): string | null => {
+  const environmentPrefix =
+    deploymentEnvironment === 'PRODUCTION'
+      ? database === PRODUCTION_DATABASE_NAME
+        ? PRODUCTION_LOGIN_PREFIX
+        : null
+      : database.endsWith('_test')
+        ? 'nihongo_test'
+        : database.endsWith('_dev')
+          ? 'nihongo_development'
+          : null
   if (!environmentPrefix) return null
   const roleSuffix = 'app_login'
   return `${environmentPrefix}_${roleSuffix}`
@@ -375,7 +403,10 @@ const assertEndpoint = (
   const configuredLogin = getConfiguredLoginRole(endpoint.connectionString)
   const configuredDatabase = getConfiguredDatabase(endpoint.connectionString)
   const configuredSchema = getPostgresSchema(endpoint.connectionString)
-  const requiredLogin = expectedWrapperRole(configuredDatabase)
+  const requiredLogin = expectedWrapperRole(
+    configuredDatabase,
+    endpoint.deploymentEnvironment
+  )
   const isExact =
     requiredLogin !== null &&
     configuredLogin === requiredLogin &&
@@ -448,7 +479,8 @@ export const attestRuntimeRoles = async ({
   assertRuntimeRoleEvidence(applicationRows[0]!, {
     application: {
       connectionString: application.connectionString,
-      expectedRole: application.expectedRole
+      expectedRole: application.expectedRole,
+      deploymentEnvironment: application.deploymentEnvironment
     }
   })
 }
