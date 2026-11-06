@@ -262,6 +262,38 @@ describe('first Google admin operator CLI', () => {
     }
   )
 
+  it('runs on a STAGING deployment as the PRODUCTION environment (#691)', async () => {
+    const staging = { DEPLOYMENT_ENVIRONMENT: 'STAGING' }
+    await runProvisionAdminCommand({ ...dryRunInput('production'), ...staging })
+    expect(process.exitCode).toBeUndefined()
+    expect(printed(stdout)).toMatchObject({
+      event: 'first_google_admin_dry_run',
+      environment: 'PRODUCTION',
+      eligible: true
+    })
+    expect(statements().at(-1)).toBe('ROLLBACK')
+
+    vi.clearAllMocks()
+    respond()
+    await runProvisionAdminCommand({ ...validInput('production'), ...staging })
+    expect(process.exitCode).toBeUndefined()
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('"bootstrap_first_google_admin"('),
+      [
+        userId,
+        subject,
+        7,
+        migrationUrl('production').searchParams.get('schema'),
+        'PRODUCTION'
+      ]
+    )
+    expect(printed(stdout)).toMatchObject({
+      event: 'first_google_admin_provisioned',
+      environment: 'PRODUCTION'
+    })
+    expect(statements().at(-1)).toBe('COMMIT')
+  })
+
   it('hashes the normalized email so the same address always matches', async () => {
     await runProvisionAdminCommand(dryRunInput())
     const first = printed(stdout).emailSha256
@@ -349,10 +381,6 @@ describe('first Google admin operator CLI', () => {
     [
       'production on a test deployment',
       () => ({ ...validInput('production'), DEPLOYMENT_ENVIRONMENT: 'TEST' })
-    ],
-    [
-      'production on a staging deployment',
-      () => ({ ...validInput('production'), DEPLOYMENT_ENVIRONMENT: 'STAGING' })
     ],
     [
       'wrong confirmation',
