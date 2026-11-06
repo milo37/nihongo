@@ -1,4 +1,4 @@
-import { adminSessionFreshSql } from '../auth/adminFreshAuthority.js'
+import { adminSessionFreshSql } from '../auth/adminFreshSql.js'
 import { randomUUID } from 'node:crypto'
 import type { Prisma } from '../generated/prisma/client.js'
 import type { BegunOperationRow } from './adminRepositoryCommon.js'
