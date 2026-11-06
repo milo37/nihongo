@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Navigate, useOutletContext, useParams } from 'react-router'
-import type { ReactElement } from 'react'
+import type { ReactElement, RefObject } from 'react'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import type { PracticeNavigationContext } from '@app/layout'
 import { usePracticeSessionController } from '@app/practice/hooks/usePracticeSessionController'
@@ -24,6 +24,88 @@ import {
   SessionRecoveryState,
   SessionSetupLinkError
 } from '@app/practice/session/components/PracticeSessionStateScreens'
+
+type SessionController = ReturnType<typeof usePracticeSessionController>
+type SessionQuestion = NonNullable<SessionController['currentQuestion']>
+
+/** The current question with its bookmark, timer and draft save status. */
+const CurrentQuestionCard = ({
+  session,
+  question,
+  headingRef
+}: {
+  session: SessionController
+  question: SessionQuestion
+  headingRef: RefObject<HTMLHeadingElement | null>
+}): ReactElement => {
+  const isBookmarked = session.bookmark.isBookmarked(question.id)
+  const inlineSaveStatus = session.isInlineDraftStatus
+    ? session.draftController.status.code
+    : null
+  return (
+    <PracticeQuestionCard
+      bookmarkButton={
+        <PracticeQuestionBookmarkButton
+          isBookmarked={isBookmarked}
+          isDisabled={session.isBookmarkDisabled}
+          onToggle={session.handleBookmark}
+          questionNumber={session.safeQuestionIndex + 1}
+        />
+      }
+      bookmarkStatus={
+        <PracticeQuestionBookmarkStatus
+          bookmark={session.bookmark}
+          questionId={question.id}
+          role={session.role}
+        />
+      }
+      elapsedSeconds={session.elapsedSeconds}
+      headingRef={headingRef}
+      isOptionsDisabled={
+        session.isSubmitDialogOpen || session.isQuestionNavigationLocked
+      }
+      onSelectOption={session.handleSelectOption}
+      question={question}
+      questionNumber={session.safeQuestionIndex + 1}
+      saveStatus={
+        session.isV2Session ? (
+          <StudyDraftSaveStatus
+            status={inlineSaveStatus}
+            onRetry={session.retryDraftSave}
+          />
+        ) : null
+      }
+      selectedOptionId={session.displayedSelectedAnswers[question.id]}
+    />
+  )
+}
+
+/** Confirm-submit dialog wired to the session's submission state. */
+const SessionSubmitDialog = ({
+  session,
+  returnFocusRef
+}: {
+  session: SessionController
+  returnFocusRef: RefObject<HTMLButtonElement | null>
+}): ReactElement => (
+  <PracticeSubmitDialog
+    open={session.isSubmitDialogOpen && !session.hasDraftConflict}
+    connectivityMessage={session.submissionConnectivityMessage}
+    hasFrozenAttempt={session.hasFrozenSubmissionAttempt}
+    isConfirmDisabled={
+      session.hasDraftConflict || session.isSessionRefreshUnavailable
+    }
+    isConfirmLoading={
+      session.isSubmissionActive || session.isPreparingSubmission
+    }
+    isContinueDisabled={session.mustReplayFrozenSubmission}
+    isSubmissionError={session.isSubmissionError}
+    onConfirm={() => void session.handleSubmit()}
+    onOpenChange={session.handleSubmitDialogOpenChange}
+    returnFocusRef={returnFocusRef}
+    unansweredCount={session.unansweredCount}
+  />
+)
 
 export const PracticeSessionPage = (): ReactElement => {
   const reviewContext =
@@ -179,11 +261,6 @@ export const PracticeSessionPage = (): ReactElement => {
     )
   }
 
-  const isBookmarked = session.bookmark.isBookmarked(session.currentQuestion.id)
-  const inlineSaveStatus = session.isInlineDraftStatus
-    ? session.draftController.status.code
-    : null
-
   return (
     <section
       className={`learning-note study-page study-session ${reviewContext ? 'study-review-session' : ''} mx-auto w-full px-4 py-5 sm:px-6 lg:py-7 ${session.currentQuestion.passage ? 'study-session-reading max-w-6xl' : 'max-w-[760px]'}`}
@@ -213,41 +290,10 @@ export const PracticeSessionPage = (): ReactElement => {
             sessionData={session.sessionQuery.data}
           />
 
-          <PracticeQuestionCard
-            bookmarkButton={
-              <PracticeQuestionBookmarkButton
-                isBookmarked={isBookmarked}
-                isDisabled={session.isBookmarkDisabled}
-                onToggle={session.handleBookmark}
-                questionNumber={session.safeQuestionIndex + 1}
-              />
-            }
-            bookmarkStatus={
-              <PracticeQuestionBookmarkStatus
-                bookmark={session.bookmark}
-                questionId={session.currentQuestion.id}
-                role={session.role}
-              />
-            }
-            elapsedSeconds={session.elapsedSeconds}
-            headingRef={headingRef}
-            isOptionsDisabled={
-              session.isSubmitDialogOpen || session.isQuestionNavigationLocked
-            }
-            onSelectOption={session.handleSelectOption}
+          <CurrentQuestionCard
+            session={session}
             question={session.currentQuestion}
-            questionNumber={session.safeQuestionIndex + 1}
-            saveStatus={
-              session.isV2Session ? (
-                <StudyDraftSaveStatus
-                  status={inlineSaveStatus}
-                  onRetry={session.retryDraftSave}
-                />
-              ) : null
-            }
-            selectedOptionId={
-              session.displayedSelectedAnswers[session.currentQuestion.id]
-            }
+            headingRef={headingRef}
           />
 
           <PracticeQuestionActions
@@ -270,23 +316,7 @@ export const PracticeSessionPage = (): ReactElement => {
         />
       </div>
 
-      <PracticeSubmitDialog
-        open={session.isSubmitDialogOpen && !session.hasDraftConflict}
-        connectivityMessage={session.submissionConnectivityMessage}
-        hasFrozenAttempt={session.hasFrozenSubmissionAttempt}
-        isConfirmDisabled={
-          session.hasDraftConflict || session.isSessionRefreshUnavailable
-        }
-        isConfirmLoading={
-          session.isSubmissionActive || session.isPreparingSubmission
-        }
-        isContinueDisabled={session.mustReplayFrozenSubmission}
-        isSubmissionError={session.isSubmissionError}
-        onConfirm={() => void session.handleSubmit()}
-        onOpenChange={session.handleSubmitDialogOpenChange}
-        returnFocusRef={submitButtonRef}
-        unansweredCount={session.unansweredCount}
-      />
+      <SessionSubmitDialog session={session} returnFocusRef={submitButtonRef} />
 
       {navigationPrompt}
     </section>

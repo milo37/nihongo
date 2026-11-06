@@ -6,11 +6,13 @@ export const createOwnedAuthReadiness =
     checkDatabaseReadiness,
     applicationClient,
     applicationUrl,
+    deploymentEnvironment,
     attest = attestRuntimeRoles
   }: {
     checkDatabaseReadiness: () => Promise<void>
     applicationClient: Pick<PrismaClient, '$queryRawUnsafe'>
     applicationUrl: string
+    deploymentEnvironment?: string | undefined
     attest?: typeof attestRuntimeRoles
   }) =>
   async (): Promise<void> => {
@@ -19,7 +21,8 @@ export const createOwnedAuthReadiness =
       application: {
         client: applicationClient,
         connectionString: applicationUrl,
-        expectedRole: 'nihongo_app'
+        expectedRole: 'nihongo_app',
+        deploymentEnvironment
       }
     })
     await applicationClient.$queryRawUnsafe('SELECT "require_runtime_ready"()')
