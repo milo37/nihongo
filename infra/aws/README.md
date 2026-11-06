@@ -35,7 +35,7 @@
 | `monitoring.tf`           | SNS 메일, 경보 7개(상태 검사+자동 복구, CPU, CPU 크레딧, 메모리, 디스크, CloudFront 5xx, 백업 누락), 로그 그룹 14일       |
 | `cost.tf`                 | 월 5,000엔(세포함)을 USD로 환산한 Budgets, 50/80/100% 실제·100% 예측 알림, 100% 초과 시 EC2 정지(기본 꺼짐), Cost Anomaly |
 | `github.tf`               | GitHub Actions OIDC 역할(`main`만, ECR push와 배포 문서 실행만)                                                           |
-| `operations.tf`           | 배포 SSM 문서, #57 계정 삭제 SSM 문서, 삭제 예약(**DISABLED**)                                                            |
+| `operations.tf`           | 배포 SSM 문서, #57 계정 삭제 SSM 문서, 삭제 예약(매시, 기본 **DISABLED**)                                                 |
 | `files/`, `templates/`    | 호스트 compose, Caddyfile, 배포·환경·백업·삭제 스크립트, cloud-init                                                       |
 | `scripts/render-check.sh` | CI에서 cloud-init·compose·Caddyfile을 두 origin 모드로 렌더링해 검사                                                      |
 
@@ -63,10 +63,10 @@ aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUT
 
 - `harumaru-<env>-erase-deletion-pending` SSM 문서가 `erase-deletion-pending.sh`를 실행합니다. 이 스크립트는 배포된 이미지로 `node api/dist/auth/ssoAccountErasureCommand.js`(= `auth:erase-deletion-pending:compiled`)를 한 번 돌립니다. 종료 코드 0이면 남은 일이 없고, 1이면 실패했거나 일이 남았습니다.
 - 수동 실행: `aws ssm send-command --document-name harumaru-<env>-erase-deletion-pending --instance-ids <id>`
-- 예약: EventBridge Scheduler가 매일 03:00 JST에 실행하도록 만들어 두었지만 `state = DISABLED`입니다. `erasure_schedule_enabled = true`는 소유자 승인 뒤에만 켭니다.
+- 예약: EventBridge Scheduler가 매시 정각(JST)에 실행합니다. 기본값은 `state = DISABLED`이고, apply 때 `erasure_schedule_enabled = true`로 켭니다(#670). STAGING도 같은 PRODUCTION 값으로 돕니다.
 - 스크립트는 이 명령에만 `ACCOUNT_ERASURE_ENVIRONMENT=PRODUCTION`, `ACCOUNT_ERASURE_CONFIRM=ERASE_DELETION_PENDING_ACCOUNTS`, `PRODUCTION_DATABASE_URL`(SSM)을 환경 변수로 넘깁니다(명령줄 인자에는 나타나지 않음).
-- `DEPLOYMENT_ENVIRONMENT=STAGING`이면 DB에 접근하기 전에 거부합니다. CLI가 `TEST|DEVELOPMENT|PRODUCTION`만 받기 때문입니다(STAGING 지원 여부는 BE 결정).
-- 명령 자체가 credentialed revoke adapter 없이는 PRODUCTION을 거부합니다(BE 소관). 그래서 지금 켜도 매번 실패합니다.
+- STAGING 호스트도 DB는 PRODUCTION 형태(capability `PRODUCTION`)라 같은 값으로 돌고, 실제 대상은 `PRODUCTION_DATABASE_URL`과 정확히 같은지로 묶입니다.
+- #696부터 앱이 provider 토큰을 보관하지 않으므로 provider 정리는 `NOT_HELD`로 완료 처리되고 앱 데이터를 지웁니다.
 
 ## 비용 방어
 
