@@ -92,7 +92,7 @@ export const koAdminFormResources = {
       optionDuplicate: '동일한 보기를 중복해서 입력할 수 없습니다.',
       correct: '정답은 보기 중 정확히 하나를 선택해 주세요.',
       explanationKo: '한국어 해설을 입력해 주세요.',
-      tags: '태그를 1개 이상 입력해 주세요.',
+      tags: '태그를 1개 이상 골라 주세요.',
       invalid: '입력 형식, 길이, 개수를 확인해 주세요.'
     }
   }

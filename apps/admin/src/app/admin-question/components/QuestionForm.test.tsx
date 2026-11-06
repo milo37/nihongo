@@ -9,7 +9,9 @@ import {
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import { appI18n } from '@nihongo/browser/i18n/config'
 import { useState } from 'react'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import * as tagApi from '@api/admin-tag/listAdminTags/index'
 import type { CreateAdminQuestionRequest } from '@api/admin-question/createAdminQuestion/schema'
 import type {
   PreviewQuestionVersionResponse,
@@ -38,8 +40,27 @@ const validFormValues: QuestionFormValues = {
   explanationKo: '이유를 나타내는 「ので」가 문맥에 맞습니다.',
   explanationJa: '',
   difficulty: 'NORMAL',
-  tagsText: '이유, 접속 표현'
+  tags: [
+    { label: '이유', subject: 'GRAMMAR' },
+    { label: '접속 표현', subject: 'GRAMMAR' }
+  ]
 }
+
+// The tag picker reads the tag list; these tests only need an empty list.
+beforeEach(() => {
+  vi.spyOn(tagApi, 'listAdminTags').mockResolvedValue({ items: [] })
+})
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+
+const TestProviders = ({ children }: { children: ReactNode }): ReactElement => (
+  <QueryClientProvider
+    client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+  >
+    <I18nProvider>{children}</I18nProvider>
+  </QueryClientProvider>
+)
 
 const getIssueMessages = (values: unknown): string[] => {
   const result = questionFormSchema.safeParse(values)
@@ -94,9 +115,9 @@ const renderQuestionForm = (
   )
 
   return (
-    <I18nProvider>
+    <TestProviders>
       <RouterProvider router={router} />
-    </I18nProvider>
+    </TestProviders>
   )
 }
 
@@ -197,13 +218,47 @@ describe('QuestionForm server error', () => {
     }
     const router = createMemoryRouter([{ path: '/', element: <Host /> }])
     render(
-      <I18nProvider>
+      <TestProviders>
         <RouterProvider router={router} />
-      </I18nProvider>
+      </TestProviders>
     )
     await user.click(await screen.findByRole('button', { name: '실패 알림' }))
     expect(screen.getByRole('alert')).toHaveTextContent('저장 실패')
     expect(screen.getByRole('alert')).toHaveFocus()
+  })
+
+  it('서버가 태그를 거절하면 태그 칸에 오류를 붙이고 검색 칸으로 포커스를 옮긴다', async () => {
+    const user = userEvent.setup()
+    const tagError = '문제 과목과 맞지 않는 태그가 있습니다.'
+    const Host = (): ReactElement => {
+      const [serverTagError, setServerTagError] = useState<string>()
+      return (
+        <>
+          <button type="button" onClick={() => setServerTagError(tagError)}>
+            태그 거절
+          </button>
+          <QuestionForm
+            initialQuestion={initialQuestion}
+            expectedRowVersion={1}
+            isSubmitting={false}
+            submitLabel="문제 등록"
+            submittingLabel="등록 중…"
+            serverTagError={serverTagError}
+            onSubmit={async () => undefined}
+          />
+        </>
+      )
+    }
+    const router = createMemoryRouter([{ path: '/', element: <Host /> }])
+    render(
+      <TestProviders>
+        <RouterProvider router={router} />
+      </TestProviders>
+    )
+    await user.click(await screen.findByRole('button', { name: '태그 거절' }))
+    const search = screen.getByRole('combobox', { name: '태그' })
+    expect(search).toHaveFocus()
+    expect(search).toHaveAccessibleDescription(new RegExp(tagError))
   })
 })
 
@@ -256,51 +311,7 @@ describe('QuestionForm', () => {
     expect(handleSubmit.mock.calls[0][0].options).toHaveLength(4)
   })
 
-  it.each([
-    { separator: '쉼표', pasted: '  문법, 표현  ' },
-    { separator: '전각 쉼표', pasted: '  문법，표현  ' },
-    { separator: 'LF 줄바꿈', pasted: '  문법\n표현  ' },
-    { separator: 'CRLF 줄바꿈', pasted: '  문법\r\n표현  ' }
-  ])(
-    '$separator로 붙여넣은 태그를 두 항목으로 제출한다',
-    async ({ pasted }) => {
-      const user = userEvent.setup()
-      const handleSubmit = vi.fn(
-        async (
-          _input: CreateAdminQuestionRequest | UpdateQuestionVersionRequest
-        ) => undefined
-      )
-      render(renderQuestionForm(handleSubmit, initialQuestion))
-
-      const tags = screen.getByRole('textbox', { name: '태그' })
-      await user.clear(tags)
-      await user.click(tags)
-      await user.paste(pasted)
-      const fieldValue = (tags as HTMLTextAreaElement).value
-      expect(handleSubmit).not.toHaveBeenCalled()
-
-      await user.click(screen.getByRole('button', { name: '문제 등록' }))
-      await waitFor(() => expect(handleSubmit).toHaveBeenCalledTimes(1))
-      const request = handleSubmit.mock.calls[0][0]
-      expect(request).toEqual(
-        expect.objectContaining({
-          expectedRowVersion: 1,
-          correctOptionId: initialQuestion.adminAnswer.correctOptionId,
-          options: initialQuestion.question.options.map((option, index) => ({
-            id: option.id,
-            ordinal: index + 1,
-            text: option.text
-          }))
-        })
-      )
-      expect({ fieldValue, tagNames: request.tagNames }).toEqual({
-        fieldValue: pasted.replace(/\r\n/g, '\n'),
-        tagNames: ['문법', '표현']
-      })
-    }
-  )
-
-  it('태그 입력 중 Enter는 줄을 바꾸고 명시 제출 전 저장하지 않는다', async () => {
+  it('태그 검색 칸의 Enter는 문제를 저장하지 않는다', async () => {
     const user = userEvent.setup()
     const handleSubmit = vi.fn(
       async (
@@ -309,25 +320,14 @@ describe('QuestionForm', () => {
     )
     render(renderQuestionForm(handleSubmit, initialQuestion))
 
-    const tags = screen.getByRole('textbox', { name: '태그' })
-    await user.clear(tags)
-    await user.type(tags, '문법{Enter}표현')
-    expect(tags).toHaveValue('문법\n표현')
+    const search = screen.getByRole('combobox', { name: '태그' })
+    await user.type(search, '없는 태그{Enter}')
     expect(handleSubmit).not.toHaveBeenCalled()
 
     await user.click(screen.getByRole('button', { name: '문제 등록' }))
     await waitFor(() => expect(handleSubmit).toHaveBeenCalledTimes(1))
     expect(handleSubmit.mock.calls[0][0]).toEqual(
-      expect.objectContaining({
-        tagNames: ['문법', '표현'],
-        expectedRowVersion: 1,
-        correctOptionId: initialQuestion.adminAnswer.correctOptionId,
-        options: initialQuestion.question.options.map((option, index) => ({
-          id: option.id,
-          ordinal: index + 1,
-          text: option.text
-        }))
-      })
+      expect.objectContaining({ tagNames: ['문법'] })
     )
   })
 
@@ -390,10 +390,8 @@ describe('question tag locale', () => {
     await waitFor(() => expect(appI18n.resolvedLanguage).toBe('ko'))
     expect(document.documentElement.lang).toBe('ko')
     expect(
-      screen.getByRole('textbox', { name: '태그' })
-    ).toHaveAccessibleDescription(
-      '쉼표 또는 줄바꿈으로 구분합니다. 최소 1개가 필요합니다.'
-    )
+      screen.getByRole('combobox', { name: '태그' })
+    ).toHaveAccessibleDescription('문제 과목에 맞는 태그를 1~2개 고르세요.')
   })
 
   it('uses the Japanese tag label when the provider is set to Japanese', async () => {
@@ -402,11 +400,11 @@ describe('question tag locale', () => {
 
     await waitFor(() => expect(appI18n.resolvedLanguage).toBe('ja'))
     expect(document.documentElement.lang).toBe('ja')
-    expect(screen.getByRole('textbox', { name: 'タグ' })).toBeVisible()
+    expect(screen.getByRole('combobox', { name: 'タグ' })).toBeVisible()
     expect(
-      screen.getByRole('textbox', { name: 'タグ' })
+      screen.getByRole('combobox', { name: 'タグ' })
     ).toHaveAccessibleDescription(
-      'カンマまたは改行で区切ってください。1つ以上必要です。'
+      '問題の科目に合うタグを1〜2個選んでください。'
     )
   })
 })
@@ -425,7 +423,7 @@ describe('question form locale and preserved state', () => {
       question: '문제 문장',
       questionError: '질문을 입력해 주세요.',
       tag: '태그',
-      tagError: '태그를 1개 이상 입력해 주세요.'
+      tagError: '태그를 1개 이상 골라 주세요.'
     },
     {
       locale: 'ja' as const,
@@ -433,7 +431,7 @@ describe('question form locale and preserved state', () => {
       question: '問題文',
       questionError: '問題文を入力してください。',
       tag: 'タグ',
-      tagError: 'タグを1つ以上入力してください。'
+      tagError: 'タグを1つ以上選んでください。'
     }
   ])(
     'shows normal and required errors in $locale',
@@ -445,7 +443,7 @@ describe('question form locale and preserved state', () => {
       await waitFor(() => expect(appI18n.resolvedLanguage).toBe(locale))
       expect(screen.getByRole('heading', { name: heading })).toBeVisible()
       const questionInput = screen.getByRole('textbox', { name: question })
-      const tagInput = screen.getByRole('textbox', { name: tag })
+      const tagInput = screen.getByRole('combobox', { name: tag })
       await user.click(screen.getByRole('button', { name: '문제 등록' }))
       expect(await screen.findByText(questionError)).toBeVisible()
       expect(screen.getByText(tagError)).toBeVisible()
@@ -457,24 +455,34 @@ describe('question form locale and preserved state', () => {
     }
   )
 
+  it('leaves the tag count limit to the server', () => {
+    const tags = Array.from({ length: 13 }, (_, i) => ({
+      label: `태그${i + 1}`,
+      subject: null
+    }))
+    expect(getIssueMessages({ ...validFormValues, tags })).toEqual([])
+  })
+
   it.each([
     {
       locale: 'ko' as const,
-      tag: '태그',
+      option: '1번 보기',
       error: '입력 형식, 길이, 개수를 확인해 주세요.'
     },
     {
       locale: 'ja' as const,
-      tag: 'タグ',
+      option: '選択肢1',
       error: '入力の形式・長さ・数を確認してください。'
     }
   ])(
     'shows the common message in $locale for a contract check without a form key',
-    async ({ locale, tag, error }) => {
-      const tooManyTags = Array.from({ length: 13 }, (_, i) => `태그${i + 1}`)
+    async ({ locale, option, error }) => {
+      const tooLong = 'あ'.repeat(501)
       const messages = getIssueMessages({
         ...validFormValues,
-        tagsText: tooManyTags.join(', ')
+        options: validFormValues.options.map((item, index) =>
+          index === 0 ? { ...item, text: tooLong } : item
+        )
       })
       expect(messages.length).toBeGreaterThan(0)
       expect(
@@ -486,11 +494,11 @@ describe('question form locale and preserved state', () => {
       const handleSubmit = vi.fn()
       render(renderQuestionForm(handleSubmit, initialQuestion, true))
       await waitFor(() => expect(appI18n.resolvedLanguage).toBe(locale))
-      const tagInput = screen.getByRole('textbox', { name: tag })
-      fireEvent.change(tagInput, { target: { value: tooManyTags.join(', ') } })
+      const optionInput = screen.getByRole('textbox', { name: option })
+      fireEvent.change(optionInput, { target: { value: tooLong } })
       await user.click(screen.getByRole('button', { name: '문제 등록' }))
       expect(await screen.findByText(error)).toBeVisible()
-      expect(tagInput).toHaveAttribute('aria-invalid', 'true')
+      expect(optionInput).toHaveAttribute('aria-invalid', 'true')
       for (const message of messages)
         expect(screen.queryByText(message)).not.toBeInTheDocument()
       expect(handleSubmit).not.toHaveBeenCalled()
@@ -555,7 +563,7 @@ describe('question form locale and preserved state', () => {
     expect(screen.getByRole('textbox', { name: '選択肢1' })).toHaveValue(
       initialQuestion.question.options[0].text
     )
-    expect(screen.getByRole('textbox', { name: 'タグ' })).toHaveValue('문법')
+    expect(screen.getByText('문법')).toBeVisible()
     expect(handleSubmit).not.toHaveBeenCalled()
     await user.click(screen.getByRole('button', { name: '한국어' }))
     expect(await screen.findByText('질문을 입력해 주세요.')).toBeVisible()
