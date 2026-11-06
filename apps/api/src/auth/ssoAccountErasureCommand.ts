@@ -16,7 +16,7 @@ import {
 } from './ssoAccountRepository.js'
 import {
   runSsoProviderRevokeBatch,
-  unavailableSsoProviderRevokeAdapter,
+  tokenlessSsoProviderRevokeAdapter,
   type SsoProviderRevokeAdapter,
   type SsoProviderRevokeRunResult
 } from './ssoProviderRevoke.js'
@@ -59,14 +59,13 @@ export const parseSsoAccountErasureCommandInput = (
 
 export const runSsoAccountErasureCommand = async (
   source: NodeJS.ProcessEnv,
-  // Production has no credentialed adapter yet, so it fails before any DB access.
-  revoke?: SsoProviderRevokeAdapter
+  // Sign-in stores no provider token, so by default each provider cleanup
+  // completes without a provider call (#670).
+  revoke: SsoProviderRevokeAdapter = tokenlessSsoProviderRevokeAdapter
 ): Promise<0 | 1> => {
   try {
     // SET ROLE and the DB capability are checked again before queue access.
     const input = parseSsoAccountErasureCommandInput(source)
-    if (input.environment === 'PRODUCTION' && revoke === undefined)
-      throw new Error('Production provider revoke capability is absent.')
     const database = createRoleDatabaseRuntime(input.databaseUrl, 'nihongo_app')
     let providers: SsoProviderRevokeRunResult
     let result: SsoAccountErasureRunResult
@@ -74,7 +73,7 @@ export const runSsoAccountErasureCommand = async (
       const worker = createSsoAccountErasureWorker(database.client)
       providers = await runSsoProviderRevokeBatch(
         worker,
-        revoke ?? unavailableSsoProviderRevokeAdapter,
+        revoke,
         input.environment,
         input.batchSize,
         PROVIDER_LEASE_SECONDS
