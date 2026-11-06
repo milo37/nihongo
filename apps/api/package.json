@@ -24,6 +24,7 @@
     "auth:erase-deletion-pending": "pnpm run db:generate && tsx src/auth/ssoAccountErasureCommand.ts",
     "auth:erase-deletion-pending:compiled": "node dist/auth/ssoAccountErasureCommand.js",
     "content:foundation-check": "tsx prisma/contentFoundationCheck.ts",
+    "content:build-question-imports": "tsx prisma/questionImportFiles.ts",
     "review:reconcile": "pnpm run db:generate && tsx src/review/reviewReconciliationCommand.ts",
     "study:cleanup-expired-guests": "pnpm run db:generate && tsx src/study/studySessionCleanupCommand.ts",
     "study:cleanup-expired-drafts": "pnpm run db:generate && tsx src/study/studyDraftCleanupCommand.ts",
