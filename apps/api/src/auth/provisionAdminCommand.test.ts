@@ -351,6 +351,10 @@ describe('first Google admin operator CLI', () => {
       () => ({ ...validInput('production'), DEPLOYMENT_ENVIRONMENT: 'TEST' })
     ],
     [
+      'production on a staging deployment',
+      () => ({ ...validInput('production'), DEPLOYMENT_ENVIRONMENT: 'STAGING' })
+    ],
+    [
       'wrong confirmation',
       () => ({ ...validInput(), ADMIN_PROVISION_CONFIRM: 'PROVISION_ADMIN' })
     ],

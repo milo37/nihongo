@@ -32,7 +32,11 @@ export const runRegisterDatabaseCapabilityCommand = async (
   try {
     const input = inputSchema.parse(source)
     const execute = input.DATABASE_CAPABILITY_CONFIRM !== undefined
-    const { client, environment } = createOperatorDatabaseClient(source)
+    // STAGING runs the PRODUCTION database contract and its API audits as
+    // PRODUCTION, so its capability row is PRODUCTION too (JLP-734).
+    const { client, environment } = createOperatorDatabaseClient(source, {
+      allowStaging: true
+    })
     const event = await runOperatorTransaction<Record<string, unknown>>(
       client,
       async (database) => {
