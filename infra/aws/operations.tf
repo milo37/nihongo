@@ -46,6 +46,27 @@ resource "aws_ssm_document" "erase_deletion_pending" {
   })
 }
 
+# #694 guest data cleanup: guest sessions and principals 7 days after expiry,
+# replay records and rate-limit rows (files/guest-cleanup.sh). DISABLED until
+# guest_cleanup_schedule_enabled is set; hourly because one run stops at 1,000 rows.
+resource "aws_ssm_document" "guest_cleanup" {
+  name            = "${local.name}-guest-cleanup"
+  document_type   = "Command"
+  document_format = "JSON"
+  content = jsonencode({
+    schemaVersion = "2.2"
+    description   = "Run the guest data cleanup once."
+    mainSteps = [{
+      action = "aws:runShellScript"
+      name   = "cleanup"
+      inputs = {
+        timeoutSeconds = "300"
+        runCommand     = ["/opt/harumaru/bin/guest-cleanup.sh"]
+      }
+    }]
+  })
+}
+
 data "aws_iam_policy_document" "scheduler_assume" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -72,6 +93,7 @@ data "aws_iam_policy_document" "erasure_scheduler" {
     resources = [
       aws_instance.host.arn,
       aws_ssm_document.erase_deletion_pending.arn,
+      aws_ssm_document.guest_cleanup.arn,
     ]
   }
 }
@@ -97,6 +119,30 @@ resource "aws_scheduler_schedule" "erase_deletion_pending" {
     role_arn = aws_iam_role.erasure_scheduler.arn
     input = jsonencode({
       DocumentName = aws_ssm_document.erase_deletion_pending.name
+      InstanceIds  = [aws_instance.host.id]
+    })
+
+    retry_policy {
+      maximum_retry_attempts = 0
+    }
+  }
+}
+
+resource "aws_scheduler_schedule" "guest_cleanup" {
+  name                         = "${local.name}-guest-cleanup"
+  state                        = var.guest_cleanup_schedule_enabled ? "ENABLED" : "DISABLED"
+  schedule_expression          = var.guest_cleanup_schedule_expression
+  schedule_expression_timezone = "Asia/Tokyo"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  target {
+    arn      = "arn:${data.aws_partition.current.partition}:scheduler:::aws-sdk:ssm:sendCommand"
+    role_arn = aws_iam_role.erasure_scheduler.arn
+    input = jsonencode({
+      DocumentName = aws_ssm_document.guest_cleanup.name
       InstanceIds  = [aws_instance.host.id]
     })
 

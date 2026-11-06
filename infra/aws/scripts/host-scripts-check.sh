@@ -3,7 +3,7 @@
 # `aws` and `docker` commands and scratch paths (no AWS, no database):
 # - render-env.sh writes the migrate container's runtime/production URLs without
 #   passwords, leaves api.env intact and refuses missing Google OAuth values;
-# - provision-db.sh and erase-deletion-pending.sh treat SSM values as data, so
+# - provision-db.sh, erase-deletion-pending.sh and guest-cleanup.sh treat SSM values as data, so
 #   $(...) and `...` are never run, and unknown keys are refused.
 set -euo pipefail
 work="$(mktemp -d)"
@@ -19,6 +19,7 @@ copy() {
 copy render-env.sh
 copy provision-db.sh
 copy erase-deletion-pending.sh
+copy guest-cleanup.sh
 printf 'AWS_REGION=x\nPARAM_PATH=/p\n' > "$work/etc/host.env"
 printf 'DEPLOYMENT_ENVIRONMENT=PRODUCTION\n' > "$work/etc/public.env"
 touch "$work/opt/.env"
@@ -32,6 +33,7 @@ EOF
 cat > "$work/stub-docker" <<EOF
 #!/bin/bash
 printf '%s\n' "\$PRODUCTION_DATABASE_URL" > "$work/docker-saw"
+printf '%s\n' "\$GUEST_CLEANUP_ENVIRONMENT \$GUEST_CLEANUP_DRY_RUN \$GUEST_CLEANUP_CONFIRM" > "$work/docker-env"
 exit 0
 EOF
 mkdir -p "$work/path"
@@ -110,3 +112,12 @@ params "${base[@]/#PRODUCTION_DATABASE_URL/PRODUCTION_DATABASE_URL_UNUSED}" \
 [[ "$(cat "$work/docker-saw")" == "$url" ]] || { echo "erase script changed the URL" >&2; exit 1; }
 printf 'DEPLOYMENT_ENVIRONMENT=PRODUCTION\n' > "$work/etc/public.env"
 echo "ok erase-deletion-pending: SSM URL passed through literally on STAGING"
+
+# 4. guest-cleanup.sh: the same URL reaches docker literally, with the run settings.
+rm -f "$work/docker-saw"
+"$work/bin/guest-cleanup.sh"
+[[ ! -e "$marker" ]] || { echo "guest cleanup ran an SSM value as shell code" >&2; exit 1; }
+[[ "$(cat "$work/docker-saw")" == "$url" ]] || { echo "guest cleanup changed the URL" >&2; exit 1; }
+[[ "$(cat "$work/docker-env")" == "PRODUCTION false CLEANUP_EXPIRED_GUEST_DATA" ]] \
+  || { echo "guest cleanup settings changed: $(cat "$work/docker-env")" >&2; exit 1; }
+echo "ok guest-cleanup: SSM URL passed through literally, not a dry run"

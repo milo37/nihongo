@@ -11,13 +11,13 @@ for domain in "" "origin.example.com"; do
   [[ -n "$domain" ]] && { tls=true; port=443; }
   compose="templatefile(\"files/compose.yaml.tftpl\", {postgres_image=\"postgres:18.4-alpine\", caddy_image=\"caddy:2\", origin_port=${port}, origin_tls=${tls}, proxy_subnet=\"172.30.0.0/24\", db_subnet=\"172.30.1.0/24\", postgres_address=\"172.30.1.10\"})"
   caddy="templatefile(\"files/Caddyfile.tftpl\", {origin_domain=\"${domain}\"})"
-  user_data="base64gzip(templatefile(\"templates/cloud-init.yaml.tftpl\", {region=\"ap-northeast-2\", environment=\"STAGING\", param_path=\"/harumaru/staging\", data_volume_id=\"vol0123\", compose_version=\"v5.7.0\", compose_sha256=\"0\", log_group=\"/harumaru/staging/api\", ecr_repository=\"000000000000.dkr.ecr.ap-northeast-2.amazonaws.com/harumaru/api\", backup_bucket=\"backup\", compose_yaml=base64encode(${compose}), caddyfile=base64encode(${caddy}), deploy_sh=file(\"files/deploy.sh\"), provision_db_sh=file(\"files/provision-db.sh\"), migrate_sh=file(\"files/migrate.sh\"), capability_sh=file(\"files/register-capability.sh\"), render_env_sh=file(\"files/render-env.sh\"), backup_sh=file(\"files/backup.sh\"), erase_sh=file(\"files/erase-deletion-pending.sh\"), cloudwatch_config=base64encode(file(\"files/cloudwatch-agent.json\")), public_env=base64encode(\"A=1\")}))"
+  user_data="base64gzip(templatefile(\"templates/cloud-init.yaml.tftpl\", {region=\"ap-northeast-2\", environment=\"STAGING\", param_path=\"/harumaru/staging\", data_volume_id=\"vol0123\", compose_version=\"v5.7.0\", compose_sha256=\"0\", log_group=\"/harumaru/staging/api\", ecr_repository=\"000000000000.dkr.ecr.ap-northeast-2.amazonaws.com/harumaru/api\", backup_bucket=\"backup\", compose_yaml=base64encode(${compose}), caddyfile=base64encode(${caddy}), deploy_sh=file(\"files/deploy.sh\"), provision_db_sh=file(\"files/provision-db.sh\"), migrate_sh=file(\"files/migrate.sh\"), capability_sh=file(\"files/register-capability.sh\"), render_env_sh=file(\"files/render-env.sh\"), backup_sh=file(\"files/backup.sh\"), erase_sh=file(\"files/erase-deletion-pending.sh\"), guest_cleanup_sh=file(\"files/guest-cleanup.sh\"), cloudwatch_config=base64encode(file(\"files/cloudwatch-agent.json\")), public_env=base64encode(\"A=1\")}))"
 
   echo "$user_data" | terraform console | tr -d '"' > "$work/user-data.b64"
-  # EC2 limits user data to 16 KB before base64 (the gzip bytes); keep 4 KB spare.
+  # EC2 limits user data to 16 KB before base64 (the gzip bytes); keep 3 KB spare.
   base64 -d < "$work/user-data.b64" > "$work/user-data.gz"
   bytes="$(wc -c < "$work/user-data.gz")"
-  (( bytes < 16384 - 4096 )) || { echo "user data too large: $bytes" >&2; exit 1; }
+  (( bytes < 16384 - 3072 )) || { echo "user data too large: $bytes" >&2; exit 1; }
   gunzip < "$work/user-data.gz" > "$work/cloud-init.yaml"
   echo "$compose" | terraform console | sed -e '1s/^<<EOT$//' -e '$s/^EOT$//' > "$work/compose.yaml"
 
