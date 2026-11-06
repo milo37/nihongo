@@ -2804,6 +2804,17 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
   padding-top: 24px;
   border-top: 1px solid rgb(var(--color-line));
 }
+.auth-consent {
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: rgb(var(--color-muted));
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+html:lang(ja) .auth-consent {
+  word-break: normal;
+}
 .auth-guest p {
   margin-top: 12px;
   font-size: 13px;
