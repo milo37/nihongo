@@ -3,6 +3,7 @@ import {
   createHttpSsoProviderRevokeAdapter,
   runSsoProviderRevokeBatch,
   SSO_PROVIDER_REVOKE_TIMEOUT_MS,
+  tokenlessSsoProviderRevokeAdapter,
   unavailableSsoProviderRevokeAdapter
 } from './ssoProviderRevoke.js'
 
@@ -48,6 +49,7 @@ describe('SSO provider revoke boundary', () => {
       await runSsoProviderRevokeBatch(worker, revoke, 'TEST', 3, 300)
     ).toEqual({
       revoked: 1,
+      notHeld: 0,
       failed: 1,
       unavailable: 2,
       deferred: 0,
@@ -95,6 +97,7 @@ describe('SSO provider revoke boundary', () => {
     expect(clock).toBeLessThanOrEqual(300_000 - SSO_PROVIDER_REVOKE_TIMEOUT_MS)
     expect(result).toEqual({
       revoked: 29,
+      notHeld: 0,
       failed: 0,
       unavailable: 0,
       deferred: 11,
@@ -121,10 +124,49 @@ describe('SSO provider revoke boundary', () => {
     expect(worker.claimProviderCleanups).not.toHaveBeenCalled()
   })
 
-  it('the default adapter never revokes', async () => {
+  it('the unavailable adapter never revokes', async () => {
     await expect(
       unavailableSsoProviderRevokeAdapter({ provider: 'google', subject: 's' })
     ).resolves.toBe('UNAVAILABLE')
+  })
+
+  it('completes a cleanup without a provider call when no token is held (#670)', async () => {
+    const fetch = vi.spyOn(globalThis, 'fetch')
+    const worker = {
+      claimProviderCleanups: vi.fn(async () => [
+        {
+          id,
+          leaseToken,
+          providers: [
+            { provider: 'google' as const, subject: 'google-subject' },
+            { provider: 'apple' as const, subject: 'apple-subject' }
+          ]
+        }
+      ]),
+      beginProviderCleanup: vi.fn(async () => true),
+      recordProviderCleanup: vi.fn(async () => true)
+    }
+    expect(
+      await runSsoProviderRevokeBatch(
+        worker,
+        tokenlessSsoProviderRevokeAdapter,
+        'PRODUCTION',
+        20,
+        300
+      )
+    ).toEqual({
+      revoked: 0,
+      notHeld: 2,
+      failed: 0,
+      unavailable: 0,
+      deferred: 0,
+      claimLimitReached: false
+    })
+    expect(worker.recordProviderCleanup.mock.calls).toEqual([
+      [id, 'google', 'COMPLETED', leaseToken, 'PRODUCTION'],
+      [id, 'apple', 'COMPLETED', leaseToken, 'PRODUCTION']
+    ])
+    expect(fetch).not.toHaveBeenCalled()
   })
 
   it('calls provider revoke endpoints only with a vault token', async () => {
