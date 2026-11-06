@@ -882,11 +882,12 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
           where: { id: fixture.questionVersionId },
           include: {
             tags: {
-              orderBy: [{ labelSnapshot: 'asc' }, { tagId: 'asc' }]
+              orderBy: [{ tag: { label: 'asc' } }, { tagId: 'asc' }],
+              include: { tag: true }
             }
           }
         })
-      const currentTag = currentVersion.tags[0]?.labelSnapshot
+      const currentTag = currentVersion.tags[0]?.tag.label
       if (!currentTag) {
         throw new Error(
           'current-version parity fixture의 canonical tag가 필요합니다.'
@@ -988,10 +989,10 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
                 where: { id: fixture.questionVersionId },
                 include: {
                   options: { orderBy: { ordinal: 'asc' } },
-                  tags: true
+                  tags: { include: { tag: true } }
                 }
               })
-            const historicalTag = historicalVersion.tags[0]?.labelSnapshot
+            const historicalTag = historicalVersion.tags[0]?.tag.label
             const correctOrdinal = historicalVersion.options.find(
               ({ id }) => id === historicalVersion.correctOptionId
             )?.ordinal
@@ -1058,8 +1059,7 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
               data: {
                 id: randomUUID(),
                 questionVersionId: currentVersionId,
-                tagId: currentTagId,
-                labelSnapshot: currentTag
+                tagId: currentTagId
               }
             })
             await transaction.questionVersion.update({

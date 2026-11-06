@@ -206,15 +206,12 @@ const insertTagSnapshot = async ({
     [tagId, name]
   )
   await adminClient.query(
-    `INSERT INTO "QuestionVersionTag" (
-       "id", "questionVersionId", "tagId", "labelSnapshot",
-       "normalizedNameSnapshot"
-     ) VALUES ($1, $2, $3, $4, $4)`,
+    `INSERT INTO "QuestionVersionTag" ("id", "questionVersionId", "tagId")
+     VALUES ($1, $2, $3)`,
     [
       `019d7100-0000-7000-8000-0000000001${index.toString().padStart(2, '0')}`,
       versionId,
-      tagId,
-      name
+      tagId
     ]
   )
 }

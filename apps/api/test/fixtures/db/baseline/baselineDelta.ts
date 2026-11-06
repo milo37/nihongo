@@ -217,6 +217,7 @@ const FORWARD_FUNCTIONS = [
   'resolve_sso_identity',
   'protect_evidence_history',
   'reject_unfinished_operation',
+  'validate_question_version_content',
   'validate_session_write'
 ] as const
 
@@ -276,15 +277,54 @@ const FORWARD_SOURCE_REPLACEMENTS: ReadonlyArray<readonly [string, string]> = [
     WHEN environment_value = 'PRODUCTION' AND current_database() = 'nihongo'
       THEN 'nihongo_production_migration_login'
 `
+  ],
+  // JLP-733: the applicability lookup is the only part of
+  // validate_question_version_content the forward migration removes.
+  [
+    `    ) OR EXISTS (
+      SELECT 1 FROM "QuestionVersionTag" AS assignment
+      WHERE assignment."questionVersionId" = target_version_id
+        AND NOT EXISTS (
+          SELECT 1 FROM "TagApplicability" AS applicability
+          WHERE applicability."tagId" = assignment."tagId"
+            AND applicability."level" = version_row."level"
+            AND applicability."subject" = version_row."subject"
+            AND applicability."questionType" = version_row."questionType"
+        )
+    ) OR expected_fingerprint IS NULL`,
+    '    ) OR expected_fingerprint IS NULL'
   ]
 ]
 
 const forwardFunctions = new Set<string>(FORWARD_FUNCTIONS)
 
+/** JLP-733: the tag applicability table and the tag snapshot machinery. */
+const DROPPED_TABLE = 'TagApplicability'
+const DROPPED_SNAPSHOT_COLUMNS = new Set([
+  'labelSnapshot',
+  'normalizedNameSnapshot'
+])
+const DROPPED_FUNCTIONS = new Set([
+  'copy_tag_snapshots',
+  'lock_tag_assignment_scope',
+  'protect_tag_applicability',
+  'validate_inserted_tag_snapshots'
+])
+const DROPPED_TRIGGERS = new Set([
+  'QuestionVersionTag_copy_snapshots',
+  'QuestionVersionTag_lock_assignment_scope',
+  'QuestionVersionTag_validate_inserted_snapshots',
+  'Tag_lock_assignment_scope'
+])
+const isDroppedTagSnapshot = (row: Record<string, unknown>): boolean =>
+  row.table === DROPPED_TABLE ||
+  (row.table === 'QuestionVersionTag' && /[Ss]napshot/u.test(String(row.name)))
+
 /**
  * Undoes the forward migrations' catalog changes the baseline comparison
- * cannot see: the renamed enum label and the replaced function bodies (checked
- * exactly by forwardFunctionSources against the baseline file).
+ * cannot see: the renamed enum label, the replaced function bodies (checked
+ * exactly by forwardFunctionSources against the baseline file) and the
+ * objects JLP-733 drops, removed from both sides.
  */
 export const withoutForwardChanges = (
   catalog: SchemaCatalog
@@ -300,11 +340,28 @@ export const withoutForwardChanges = (
         }
       : row
   ),
-  functions: catalog.functions.map((row) =>
-    forwardFunctions.has(String(row.name))
-      ? { ...row, source: '(replaced by the forward migration)' }
-      : row
-  )
+  tables: catalog.tables.filter(({ name }) => name !== DROPPED_TABLE),
+  columns: catalog.columns.filter(
+    (row) =>
+      row.table !== DROPPED_TABLE &&
+      !(
+        row.table === 'QuestionVersionTag' &&
+        DROPPED_SNAPSHOT_COLUMNS.has(String(row.name))
+      )
+  ),
+  constraints: catalog.constraints.filter((row) => !isDroppedTagSnapshot(row)),
+  indexes: catalog.indexes.filter((row) => !isDroppedTagSnapshot(row)),
+  triggers: catalog.triggers.filter(
+    (row) =>
+      row.table !== DROPPED_TABLE && !DROPPED_TRIGGERS.has(String(row.name))
+  ),
+  functions: catalog.functions
+    .filter(({ name }) => !DROPPED_FUNCTIONS.has(String(name)))
+    .map((row) =>
+      forwardFunctions.has(String(row.name))
+        ? { ...row, source: '(replaced by the forward migration)' }
+        : row
+    )
 })
 
 /** Each replaced body: the baseline body with exactly the forward strings. */

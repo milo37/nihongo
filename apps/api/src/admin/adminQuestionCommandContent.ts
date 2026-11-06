@@ -87,25 +87,14 @@ export const assertNoVisibleCrossQuestionDuplicate = async (
 
 export const resolveTags = async (
   client: Pick<PrismaClient, '$queryRawUnsafe'> | Prisma.TransactionClient,
-  content: Pick<
-    CreateAdminQuestionRequest,
-    'level' | 'subject' | 'questionType' | 'tagNames'
-  >
+  content: Pick<CreateAdminQuestionRequest, 'tagNames'>
 ): Promise<TagRow[]> => {
   const normalizedNames = content.tagNames.map(normalizeContentTagKey)
   const rows = await client.$queryRawUnsafe<TagRow[]>(
     `SELECT tag."id", tag."label", tag."normalizedName"
      FROM "Tag" AS tag
-     JOIN "TagApplicability" AS applicability
-       ON applicability."tagId" = tag."id"
-      AND applicability."level" = $1::"JlptLevel"
-      AND applicability."subject" = $2::"QuestionSubject"
-      AND applicability."questionType" = $3::"QuestionType"
-     WHERE tag."normalizedName" = ANY($4::text[])
+     WHERE tag."normalizedName" = ANY($1::text[])
      ORDER BY tag."normalizedName" COLLATE "C", tag."id"`,
-    content.level,
-    content.subject,
-    content.questionType,
     normalizedNames
   )
   const byName = new Map(rows.map((row) => [row.normalizedName, row]))
@@ -116,7 +105,7 @@ export const resolveTags = async (
     throw repositoryFailure(
       'VALIDATION_ERROR',
       '문제에 적용할 수 없는 태그가 포함되어 있습니다.',
-      { tagNames: ['모든 태그는 존재하며 문제 분류에 적용 가능해야 합니다.'] }
+      { tagNames: ['모든 태그는 태그 목록에 있어야 합니다.'] }
     )
   }
   return normalizedNames.map((name) => byName.get(name)!)
@@ -305,15 +294,11 @@ export const createVersionContent = async (
   }
   for (const tag of input.tags) {
     await transaction.$executeRawUnsafe(
-      `INSERT INTO "QuestionVersionTag" (
-         "id", "questionVersionId", "tagId", "labelSnapshot",
-         "normalizedNameSnapshot"
-       ) VALUES ($1, $2, $3, $4, $5)`,
+      `INSERT INTO "QuestionVersionTag" ("id", "questionVersionId", "tagId")
+       VALUES ($1, $2, $3)`,
       randomUUID(),
       input.versionId,
-      tag.id,
-      tag.label,
-      tag.normalizedName
+      tag.id
     )
   }
   await transaction.$executeRawUnsafe(

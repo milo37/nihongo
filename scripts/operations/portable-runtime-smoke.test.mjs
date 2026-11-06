@@ -458,7 +458,8 @@ test('portable runtime requires the pinned baseline inventory and rejects count/
   assert.deepEqual(names, [
     '20261105090000_baseline',
     '20261106090000_remove_phase_names',
-    '20261107090000_first_admin_production'
+    '20261107090000_first_admin_production',
+    '20261108090000_remove_tag_applicability_and_snapshots'
   ])
   const directory = mkdtempSync(join(tmpdir(), 'nihongo-smoke-migrations-'))
   try {
@@ -874,7 +875,7 @@ test('portable runtime smoke evidence is closed and bound to TEST', () => {
     profile: 'isolated-production-mode',
     releaseId,
     imageId: `sha256:${'a'.repeat(64)}`,
-    migrationCount: 3,
+    migrationCount: 4,
     databaseAccess: {
       migrationLedger: 'read-only',
       migrationAndRuntimeIdentitiesSeparated: true,

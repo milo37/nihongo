@@ -50,7 +50,8 @@ import { attestRuntimeRoles } from './runtimeRoleAttestation.js'
 const EXPECTED_MIGRATIONS = [
   '20261105090000_baseline',
   '20261106090000_remove_phase_names',
-  '20261107090000_first_admin_production'
+  '20261107090000_first_admin_production',
+  '20261108090000_remove_tag_applicability_and_snapshots'
 ] as const
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',
@@ -404,11 +405,15 @@ const insertIncompleteSystemQuestion = async (): Promise<void> => {
   }>(
     `SELECT tag."id", tag."label", tag."normalizedName"
      FROM "Tag" AS tag
-     JOIN "TagApplicability" AS applicability
-       ON applicability."tagId" = tag."id"
-     WHERE applicability."level" = 'N5'
-       AND applicability."subject" = 'VOCABULARY'
-       AND applicability."questionType" = 'KANJI_READING'
+     WHERE EXISTS (
+       SELECT 1 FROM "QuestionVersionTag" AS assignment
+       JOIN "QuestionVersion" AS version
+         ON version."id" = assignment."questionVersionId"
+       WHERE assignment."tagId" = tag."id"
+         AND version."level" = 'N5'
+         AND version."subject" = 'VOCABULARY'
+         AND version."questionType" = 'KANJI_READING'
+     )
      ORDER BY tag."id"
      LIMIT 1`
   )
@@ -451,17 +456,9 @@ const insertIncompleteSystemQuestion = async (): Promise<void> => {
     )
   }
   await client.query(
-    `INSERT INTO "QuestionVersionTag" (
-      "id", "questionVersionId", "tagId", "labelSnapshot",
-      "normalizedNameSnapshot"
-    ) VALUES ($1, $2, $3, $4, $5)`,
-    [
-      randomUUID(),
-      versionId,
-      selectedTag.id,
-      selectedTag.label,
-      selectedTag.normalizedName
-    ]
+    `INSERT INTO "QuestionVersionTag" ("id", "questionVersionId", "tagId")
+     VALUES ($1, $2, $3)`,
+    [randomUUID(), versionId, selectedTag.id]
   )
   await client.query('COMMIT')
 }
@@ -856,7 +853,6 @@ describe('Persistence foundation', () => {
           'QuestionVersion',
           'QuestionVersionTag',
           'Tag',
-          'TagApplicability',
           '_prisma_migrations'
         ]
       ]
@@ -936,14 +932,6 @@ describe('Persistence foundation', () => {
         canInsert: false,
         canSelect: true,
         canUpdate: false,
-        name: 'TagApplicability',
-        ...noExtendedPrivileges
-      },
-      {
-        canDelete: false,
-        canInsert: false,
-        canSelect: true,
-        canUpdate: false,
         name: '_prisma_migrations',
         ...noExtendedPrivileges
       }
@@ -994,8 +982,7 @@ describe('Persistence foundation', () => {
           'ContentReview',
           'DatabaseCapability',
           'OperationIntent',
-          'QuestionReport',
-          'TagApplicability'
+          'QuestionReport'
         ]
       ]
     )
@@ -1004,8 +991,7 @@ describe('Persistence foundation', () => {
       'ContentReview',
       'DatabaseCapability',
       'OperationIntent',
-      'QuestionReport',
-      'TagApplicability'
+      'QuestionReport'
     ])
 
     const triggers = await client.query<{
@@ -1214,9 +1200,8 @@ describe('Persistence foundation', () => {
     }
   })
 
-  it('기존 65문항 fingerprint·snapshot·applicability parity와 fake evidence 0을 고정한다', async () => {
+  it('기존 65문항 fingerprint parity와 fake evidence 0을 고정한다', async () => {
     const counts = await client.query<{
-      applicabilityCount: number
       auditCount: number
       fingerprintMismatchCount: number
       fingerprintNullCount: number
@@ -1224,7 +1209,6 @@ describe('Persistence foundation', () => {
       questionCount: number
       reportCount: number
       reviewCount: number
-      snapshotMismatchCount: number
       tagCount: number
       versionCount: number
       versionTagCount: number
@@ -1235,7 +1219,6 @@ describe('Persistence foundation', () => {
         (SELECT COUNT(*)::int FROM "QuestionOption") AS "optionCount",
         (SELECT COUNT(*)::int FROM "Tag") AS "tagCount",
         (SELECT COUNT(*)::int FROM "QuestionVersionTag") AS "versionTagCount",
-        (SELECT COUNT(*)::int FROM "TagApplicability") AS "applicabilityCount",
         (SELECT COUNT(*)::int FROM "ContentReview") AS "reviewCount",
         (SELECT COUNT(*)::int FROM "AdminAuditLog") AS "auditCount",
         (SELECT COUNT(*)::int FROM "QuestionReport") AS "reportCount",
@@ -1246,17 +1229,10 @@ describe('Persistence foundation', () => {
         (SELECT COUNT(*)::int FROM "QuestionVersion"
           WHERE "contentFingerprint" IS DISTINCT FROM
             "question_version_fingerprint"("id"))
-          AS "fingerprintMismatchCount",
-        (SELECT COUNT(*)::int
-          FROM "QuestionVersionTag" AS assignment
-          JOIN "Tag" AS tag ON tag."id" = assignment."tagId"
-          WHERE assignment."labelSnapshot" <> tag."label"
-             OR assignment."normalizedNameSnapshot" <> tag."normalizedName")
-          AS "snapshotMismatchCount"`
+          AS "fingerprintMismatchCount"`
     )
     expect(counts.rows).toEqual([
       {
-        applicabilityCount: 126,
         auditCount: 0,
         fingerprintMismatchCount: 0,
         fingerprintNullCount: 0,
@@ -1264,7 +1240,6 @@ describe('Persistence foundation', () => {
         questionCount: 65,
         reportCount: 0,
         reviewCount: 0,
-        snapshotMismatchCount: 0,
         tagCount: 107,
         versionCount: 65,
         versionTagCount: 130
@@ -1522,17 +1497,9 @@ describe('Persistence foundation', () => {
         )
       }
       await client.query(
-        `INSERT INTO "QuestionVersionTag" (
-          "id", "questionVersionId", "tagId", "labelSnapshot",
-          "normalizedNameSnapshot"
-        ) VALUES ($1, $2, $3, $4, $5)`,
-        [
-          randomUUID(),
-          versionId,
-          selectedTag.id,
-          selectedTag.label,
-          selectedTag.normalizedName
-        ]
+        `INSERT INTO "QuestionVersionTag" ("id", "questionVersionId", "tagId")
+         VALUES ($1, $2, $3)`,
+        [randomUUID(), versionId, selectedTag.id]
       )
       await insertAudit({
         actorUserId: authorId,
@@ -1857,7 +1824,7 @@ describe('Persistence foundation', () => {
     }
   }, 60_000)
 
-  it('Tag/QVT 전역 mutex가 역순 insert와 delete→insert/rename 교차를 직렬화한다', async () => {
+  it('Tag 배정이 있는 문제 생성·태그 수정 뒤 lifecycle 전이를 고정한다', async () => {
     const firstActorId = randomUUID()
     const secondActorId = randomUUID()
     const firstSessionId = randomUUID()
@@ -1896,11 +1863,15 @@ describe('Persistence foundation', () => {
     }>(
       `SELECT tag."id", tag."label", tag."normalizedName"
        FROM "Tag" AS tag
-       JOIN "TagApplicability" AS applicability
-         ON applicability."tagId" = tag."id"
-       WHERE applicability."level" = 'N5'
-         AND applicability."subject" = 'GRAMMAR'
-         AND applicability."questionType" = 'GRAMMAR_SELECT'
+       WHERE EXISTS (
+         SELECT 1 FROM "QuestionVersionTag" AS assignment
+         JOIN "QuestionVersion" AS version
+           ON version."id" = assignment."questionVersionId"
+         WHERE assignment."tagId" = tag."id"
+           AND version."level" = 'N5'
+           AND version."subject" = 'GRAMMAR'
+           AND version."questionType" = 'GRAMMAR_SELECT'
+       )
        ORDER BY tag."id"
        LIMIT 3`
     )
@@ -2001,11 +1972,9 @@ describe('Persistence foundation', () => {
     ): Promise<string> => {
       const assignmentId = randomUUID()
       await targetClient.query(
-        `INSERT INTO "QuestionVersionTag" (
-          "id", "questionVersionId", "tagId", "labelSnapshot",
-          "normalizedNameSnapshot"
-        ) VALUES ($1, $2, $3, $4, $5)`,
-        [assignmentId, versionId, tag.id, tag.label, tag.normalizedName]
+        `INSERT INTO "QuestionVersionTag" ("id", "questionVersionId", "tagId")
+         VALUES ($1, $2, $3)`,
+        [assignmentId, versionId, tag.id]
       )
       return assignmentId
     }
@@ -2053,23 +2022,13 @@ describe('Persistence foundation', () => {
     })
     let firstTransactionOpen = false
     let secondTransactionOpen = false
-    let blockedStage: Promise<OperationFixture> | undefined
-    let blockedRenameArm:
-      | Promise<{ actorUserId: string; occurredAt: Date; operationId: string }>
-      | undefined
     let firstFixture: OperationFixture | undefined
     let secondFixture: OperationFixture | undefined
     await concurrentClient.connect()
     await installAuditDigestSql(concurrentClient)
     try {
-      const concurrentBackend = await concurrentClient.query<{ pid: number }>(
-        `SELECT pg_backend_pid() AS pid`
-      )
-      const concurrentBackendPid = concurrentBackend.rows[0]?.pid
-      if (!concurrentBackendPid) {
-        throw new Error('Tag mutex backend PID is unavailable.')
-      }
-
+      // JLP-733: the Tag/QVT mutex is gone, so both fixtures are created
+      // one after the other.
       await client.query('BEGIN')
       firstTransactionOpen = true
       await client.query(`SET LOCAL ROLE "nihongo_app"`)
@@ -2079,245 +2038,26 @@ describe('Persistence foundation', () => {
         firstActorId,
         'B-then-A'
       )
-      await concurrentClient.query('BEGIN')
-      secondTransactionOpen = true
-      await concurrentClient.query(`SET LOCAL ROLE "nihongo_app"`)
-      blockedStage = stageQuestionCreate(
-        concurrentClient,
-        secondSessionToken,
-        secondActorId,
-        'A-then-B'
-      )
-      void blockedStage.catch(() => undefined)
-
       await insertVersionTag(client, firstFixture.versionId, tagB)
-      await client.query('RESET ROLE')
-      let reverseInsertWaitObserved = false
-      for (let attempt = 0; attempt < 100; attempt += 1) {
-        const activity = await client.query<{ waitEventType: string | null }>(
-          `SELECT wait_event_type AS "waitEventType"
-           FROM pg_stat_activity WHERE pid = $1`,
-          [concurrentBackendPid]
-        )
-        if (activity.rows[0]?.waitEventType === 'Lock') {
-          reverseInsertWaitObserved = true
-          break
-        }
-        await new Promise((resolve) => setTimeout(resolve, 10))
-      }
-      expect(reverseInsertWaitObserved).toBe(true)
-      await client.query(`SET LOCAL ROLE "nihongo_app"`)
       await insertVersionTag(client, firstFixture.versionId, tagA)
       await finishQuestionCreate(client, firstFixture)
       await client.query('COMMIT')
       firstTransactionOpen = false
 
-      let retrySecondCreate = false
-      try {
-        secondFixture = await blockedStage
-        blockedStage = undefined
-        await insertVersionTag(concurrentClient, secondFixture.versionId, tagA)
-        await insertVersionTag(concurrentClient, secondFixture.versionId, tagB)
-        await finishQuestionCreate(concurrentClient, secondFixture)
-        await concurrentClient.query('COMMIT')
-        secondTransactionOpen = false
-      } catch (error: unknown) {
-        blockedStage = undefined
-        expect(error).toMatchObject({ code: '40001' })
-        await concurrentClient.query('ROLLBACK')
-        secondTransactionOpen = false
-        retrySecondCreate = true
-      }
-
-      if (retrySecondCreate) {
-        await concurrentClient.query('BEGIN')
-        secondTransactionOpen = true
-        await concurrentClient.query(`SET LOCAL ROLE "nihongo_app"`)
-        secondFixture = await stageQuestionCreate(
-          concurrentClient,
-          secondSessionToken,
-          secondActorId,
-          'A-then-B-retry'
-        )
-        await insertVersionTag(concurrentClient, secondFixture.versionId, tagA)
-        await insertVersionTag(concurrentClient, secondFixture.versionId, tagB)
-        await finishQuestionCreate(concurrentClient, secondFixture)
-        await concurrentClient.query('COMMIT')
-        secondTransactionOpen = false
-      }
-      if (!secondFixture) {
-        throw new Error('Second Tag mutex fixture is unavailable.')
-      }
-
-      const insertedSnapshots = await client.query<{
-        labelSnapshot: string
-        normalizedNameSnapshot: string
-        questionVersionId: string
-        tagId: string
-      }>(
-        `SELECT assignment."questionVersionId", assignment."tagId",
-           assignment."labelSnapshot", assignment."normalizedNameSnapshot"
-         FROM "QuestionVersionTag" AS assignment
-         WHERE assignment."questionVersionId" = ANY($1::uuid[])
-         ORDER BY assignment."questionVersionId", assignment."tagId"`,
-        [[firstFixture.versionId, secondFixture.versionId]]
+      await concurrentClient.query('BEGIN')
+      secondTransactionOpen = true
+      await concurrentClient.query(`SET LOCAL ROLE "nihongo_app"`)
+      secondFixture = await stageQuestionCreate(
+        concurrentClient,
+        secondSessionToken,
+        secondActorId,
+        'A-then-B'
       )
-      expect(insertedSnapshots.rows).toHaveLength(4)
-      for (const snapshot of insertedSnapshots.rows) {
-        const expectedTag = snapshot.tagId === tagA.id ? tagA : tagB
-        expect(snapshot).toMatchObject({
-          labelSnapshot: expectedTag.label,
-          normalizedNameSnapshot: expectedTag.normalizedName
-        })
-      }
-
-      // Prove that the statement triggers themselves share the global Tag/QVT
-      // mutex. REVIEW_REQUEST operations use disjoint targets and an empty tag
-      // manifest, so neither arm call can acquire the tag-manifest mutex for us.
-      const primaryBackend = await client.query<{ pid: number }>(
-        `SELECT pg_backend_pid() AS pid`
-      )
-      const primaryBackendPid = primaryBackend.rows[0]?.pid
-      if (!primaryBackendPid) {
-        throw new Error('Primary Tag mutex backend PID is unavailable.')
-      }
-      const qvtProbePrimaryRequestId = randomUUID()
-      const qvtProbeSecondaryRequestId = randomUUID()
-      let qvtProbePrimaryOperationId = ''
-      let qvtProbeSecondaryOperationId = ''
-      let qvtProbePrimaryOpen = false
-      let qvtProbeSecondaryOpen = false
-      let blockedTagUpdate: Promise<unknown> | undefined
-      let blockedTagUpdateError: unknown
-      try {
-        await client.query('BEGIN')
-        qvtProbePrimaryOpen = true
-        await client.query(`SET LOCAL ROLE "nihongo_app"`)
-        const primaryProbe = await beginAdminOperation(client, {
-          command: 'REVIEW_REQUEST',
-          referencedUserIds: [firstActorId],
-          requestId: qvtProbePrimaryRequestId,
-          sessionToken: firstSessionToken,
-          targetManifest: {
-            questions: [
-              { id: firstFixture.questionId, rowVersion: 1, state: 'ACTIVE' }
-            ],
-            reports: [],
-            tags: [],
-            versions: [
-              { id: firstFixture.versionId, rowVersion: 1, state: 'DRAFT' }
-            ]
-          }
-        })
-        qvtProbePrimaryOperationId = primaryProbe.operationId
-
-        await concurrentClient.query('BEGIN')
-        qvtProbeSecondaryOpen = true
-        await concurrentClient.query(`SET LOCAL ROLE "nihongo_app"`)
-        const secondaryProbe = await beginAdminOperation(concurrentClient, {
-          command: 'REVIEW_REQUEST',
-          referencedUserIds: [secondActorId],
-          requestId: qvtProbeSecondaryRequestId,
-          sessionToken: secondSessionToken,
-          targetManifest: {
-            questions: [
-              { id: secondFixture.questionId, rowVersion: 1, state: 'ACTIVE' }
-            ],
-            reports: [],
-            tags: [],
-            versions: [
-              { id: secondFixture.versionId, rowVersion: 1, state: 'DRAFT' }
-            ]
-          }
-        })
-        qvtProbeSecondaryOperationId = secondaryProbe.operationId
-
-        await client.query(
-          `DELETE FROM "QuestionVersionTag"
-           WHERE "questionVersionId" = $1 AND "tagId" = $2`,
-          [firstFixture.versionId, tagA.id]
-        )
-        await concurrentClient.query('RESET ROLE')
-        blockedTagUpdate = concurrentClient
-          .query(`UPDATE "Tag" SET "label" = "label" WHERE "id" = $1`, [
-            tagC.id
-          ])
-          .catch((error: unknown) => {
-            blockedTagUpdateError = error
-          })
-
-        await client.query('RESET ROLE')
-        let statementTriggerWaitObserved = false
-        for (let attempt = 0; attempt < 100; attempt += 1) {
-          const activity = await client.query<{
-            blockingPids: number[]
-            waitEventType: string | null
-          }>(
-            `SELECT pg_blocking_pids($1) AS "blockingPids",
-               wait_event_type AS "waitEventType"
-             FROM pg_stat_activity WHERE pid = $1`,
-            [concurrentBackendPid]
-          )
-          if (
-            activity.rows[0]?.waitEventType === 'Lock' &&
-            activity.rows[0]?.blockingPids.length === 1 &&
-            activity.rows[0]?.blockingPids[0] === primaryBackendPid
-          ) {
-            statementTriggerWaitObserved = true
-            break
-          }
-          await new Promise((resolve) => setTimeout(resolve, 10))
-        }
-        expect(statementTriggerWaitObserved).toBe(true)
-      } finally {
-        // Release the statement-trigger blocker before awaiting its waiter.
-        if (qvtProbePrimaryOpen) {
-          await client.query('ROLLBACK').catch(() => undefined)
-          qvtProbePrimaryOpen = false
-        }
-        await blockedTagUpdate?.catch(() => undefined)
-        if (qvtProbeSecondaryOpen) {
-          await concurrentClient.query('ROLLBACK').catch(() => undefined)
-          qvtProbeSecondaryOpen = false
-        }
-      }
-      expect(blockedTagUpdateError).toBeUndefined()
-      expect(qvtProbePrimaryOperationId).not.toBe('')
-      expect(qvtProbeSecondaryOperationId).not.toBe('')
-      expect(
-        (
-          await client.query<{
-            auditCount: number
-            intentCount: number
-            label: string
-            normalizedName: string
-            versionTagCount: number
-          }>(
-            `SELECT tag."label", tag."normalizedName",
-               (SELECT COUNT(*)::int FROM "QuestionVersionTag"
-                WHERE "questionVersionId" = ANY($1::uuid[]))
-                 AS "versionTagCount",
-               (SELECT COUNT(*)::int FROM "OperationIntent"
-                WHERE "operationId" = ANY($2::uuid[])) AS "intentCount",
-               (SELECT COUNT(*)::int FROM "AdminAuditLog"
-                WHERE "operationId" = ANY($2::uuid[])) AS "auditCount"
-             FROM "Tag" AS tag WHERE tag."id" = $3`,
-            [
-              [firstFixture.versionId, secondFixture.versionId],
-              [qvtProbePrimaryOperationId, qvtProbeSecondaryOperationId],
-              tagC.id
-            ]
-          )
-        ).rows
-      ).toEqual([
-        {
-          auditCount: 0,
-          intentCount: 0,
-          label: tagC.label,
-          normalizedName: tagC.normalizedName,
-          versionTagCount: 4
-        }
-      ])
+      await insertVersionTag(concurrentClient, secondFixture.versionId, tagA)
+      await insertVersionTag(concurrentClient, secondFixture.versionId, tagB)
+      await finishQuestionCreate(concurrentClient, secondFixture)
+      await concurrentClient.query('COMMIT')
+      secondTransactionOpen = false
 
       const updateRequestId = randomUUID()
       const firstVersionId = firstFixture.versionId
@@ -2344,42 +2084,6 @@ describe('Persistence foundation', () => {
         [firstVersionId, tagA.id]
       )
 
-      const renameRequestId = randomUUID()
-      await concurrentClient.query('BEGIN')
-      secondTransactionOpen = true
-      await concurrentClient.query(`SET LOCAL ROLE "nihongo_app"`)
-      blockedRenameArm = beginAdminOperation(concurrentClient, {
-        command: 'QUESTION_VERSION_UPDATE',
-        referencedUserIds: [secondActorId],
-        requestId: renameRequestId,
-        sessionToken: secondSessionToken,
-        targetManifest: {
-          questions: [
-            { id: secondFixture.questionId, rowVersion: 1, state: 'ACTIVE' }
-          ],
-          reports: [],
-          tags: [tagC.id],
-          versions: [
-            { id: secondFixture.versionId, rowVersion: 1, state: 'DRAFT' }
-          ]
-        }
-      })
-      void blockedRenameArm.catch(() => undefined)
-      await client.query('RESET ROLE')
-      let renameWaitObserved = false
-      for (let attempt = 0; attempt < 100; attempt += 1) {
-        const activity = await client.query<{ waitEventType: string | null }>(
-          `SELECT wait_event_type AS "waitEventType"
-           FROM pg_stat_activity WHERE pid = $1`,
-          [concurrentBackendPid]
-        )
-        if (activity.rows[0]?.waitEventType === 'Lock') {
-          renameWaitObserved = true
-          break
-        }
-        await new Promise((resolve) => setTimeout(resolve, 10))
-      }
-      expect(renameWaitObserved).toBe(true)
       await client.query(`SET LOCAL ROLE "nihongo_app"`)
       await insertVersionTag(client, firstFixture.versionId, tagC)
       await client.query(
@@ -2435,28 +2139,11 @@ describe('Persistence foundation', () => {
       await client.query('COMMIT')
       firstTransactionOpen = false
 
-      try {
-        await blockedRenameArm
-        blockedRenameArm = undefined
-      } catch (error: unknown) {
-        blockedRenameArm = undefined
-        expect(error).toMatchObject({ code: '40001' })
-      } finally {
-        await concurrentClient.query('ROLLBACK')
-        secondTransactionOpen = false
-      }
-
       expect(
         (
-          await client.query<{
-            labelSnapshot: string
-            liveLabel: string
-            liveNormalizedName: string
-            normalizedNameSnapshot: string
-          }>(
+          await client.query<{ liveLabel: string; liveNormalizedName: string }>(
             `SELECT tag."label" AS "liveLabel",
-               tag."normalizedName" AS "liveNormalizedName",
-               assignment."labelSnapshot", assignment."normalizedNameSnapshot"
+               tag."normalizedName" AS "liveNormalizedName"
              FROM "Tag" AS tag
              JOIN "QuestionVersionTag" AS assignment
                ON assignment."tagId" = tag."id"
@@ -2465,19 +2152,12 @@ describe('Persistence foundation', () => {
           )
         ).rows
       ).toEqual([
-        {
-          labelSnapshot: tagC.label,
-          liveLabel: tagC.label,
-          liveNormalizedName: tagC.normalizedName,
-          normalizedNameSnapshot: tagC.normalizedName
-        }
+        { liveLabel: tagC.label, liveNormalizedName: tagC.normalizedName }
       ])
     } finally {
       if (firstTransactionOpen) {
         await client.query('ROLLBACK').catch(() => undefined)
       }
-      await blockedStage?.catch(() => undefined)
-      await blockedRenameArm?.catch(() => undefined)
       if (secondTransactionOpen) {
         await concurrentClient.query('ROLLBACK').catch(() => undefined)
       }
@@ -3613,11 +3293,15 @@ describe('Persistence foundation', () => {
     }>(
       `SELECT tag."id", tag."label", tag."normalizedName"
        FROM "Tag" AS tag
-       JOIN "TagApplicability" AS applicability
-         ON applicability."tagId" = tag."id"
-       WHERE applicability."level" = 'N5'
-         AND applicability."subject" = 'VOCABULARY'
-         AND applicability."questionType" = 'KANJI_READING'
+       WHERE EXISTS (
+         SELECT 1 FROM "QuestionVersionTag" AS assignment
+         JOIN "QuestionVersion" AS version
+           ON version."id" = assignment."questionVersionId"
+         WHERE assignment."tagId" = tag."id"
+           AND version."level" = 'N5'
+           AND version."subject" = 'VOCABULARY'
+           AND version."questionType" = 'KANJI_READING'
+       )
        ORDER BY tag."id"
        LIMIT 1`
     )
@@ -3689,17 +3373,9 @@ describe('Persistence foundation', () => {
         )
       }
       await client.query(
-        `INSERT INTO "QuestionVersionTag" (
-          "id", "questionVersionId", "tagId", "labelSnapshot",
-          "normalizedNameSnapshot"
-        ) VALUES ($1, $2, $3, $4, $5)`,
-        [
-          randomUUID(),
-          versionId,
-          selectedTag.id,
-          selectedTag.label,
-          selectedTag.normalizedName
-        ]
+        `INSERT INTO "QuestionVersionTag" ("id", "questionVersionId", "tagId")
+         VALUES ($1, $2, $3)`,
+        [randomUUID(), versionId, selectedTag.id]
       )
       await client.query(
         `INSERT INTO "AdminAuditLog" (
@@ -4423,17 +4099,9 @@ describe('Persistence foundation', () => {
         )
       }
       await client.query(
-        `INSERT INTO "QuestionVersionTag" (
-          "id", "questionVersionId", "tagId", "labelSnapshot",
-          "normalizedNameSnapshot"
-        ) VALUES ($1, $2, $3, $4, $5)`,
-        [
-          randomUUID(),
-          remediationVersionId,
-          remediationTag.id,
-          remediationTag.label,
-          remediationTag.normalizedName
-        ]
+        `INSERT INTO "QuestionVersionTag" ("id", "questionVersionId", "tagId")
+         VALUES ($1, $2, $3)`,
+        [randomUUID(), remediationVersionId, remediationTag.id]
       )
       await client.query(
         `UPDATE "QuestionVersion"
@@ -4633,11 +4301,15 @@ describe('Persistence foundation', () => {
     }>(
       `SELECT tag."id", tag."label", tag."normalizedName"
        FROM "Tag" AS tag
-       JOIN "TagApplicability" AS applicability
-         ON applicability."tagId" = tag."id"
-       WHERE applicability."level" = 'N5'
-         AND applicability."subject" = 'VOCABULARY'
-         AND applicability."questionType" = 'KANJI_READING'
+       WHERE EXISTS (
+         SELECT 1 FROM "QuestionVersionTag" AS assignment
+         JOIN "QuestionVersion" AS version
+           ON version."id" = assignment."questionVersionId"
+         WHERE assignment."tagId" = tag."id"
+           AND version."level" = 'N5'
+           AND version."subject" = 'VOCABULARY'
+           AND version."questionType" = 'KANJI_READING'
+       )
        ORDER BY tag."id" LIMIT 1`
     )
     const selectedTag = tag.rows[0]
@@ -4741,17 +4413,9 @@ describe('Persistence foundation', () => {
           )
         }
         await client.query(
-          `INSERT INTO "QuestionVersionTag" (
-            "id", "questionVersionId", "tagId", "labelSnapshot",
-            "normalizedNameSnapshot"
-          ) VALUES ($1, $2, $3, $4, $5)`,
-          [
-            randomUUID(),
-            versionId,
-            selectedTag.id,
-            selectedTag.label,
-            selectedTag.normalizedName
-          ]
+          `INSERT INTO "QuestionVersionTag" ("id", "questionVersionId", "tagId")
+           VALUES ($1, $2, $3)`,
+          [randomUUID(), versionId, selectedTag.id]
         )
         await client.query(
           `INSERT INTO "AdminAuditLog" (
@@ -5521,11 +5185,15 @@ describe('Persistence foundation', () => {
     }>(
       `SELECT tag."id", tag."label", tag."normalizedName"
        FROM "Tag" AS tag
-       JOIN "TagApplicability" AS applicability
-         ON applicability."tagId" = tag."id"
-       WHERE applicability."level" = 'N5'
-         AND applicability."subject" = 'VOCABULARY'
-         AND applicability."questionType" = 'KANJI_READING'
+       WHERE EXISTS (
+         SELECT 1 FROM "QuestionVersionTag" AS assignment
+         JOIN "QuestionVersion" AS version
+           ON version."id" = assignment."questionVersionId"
+         WHERE assignment."tagId" = tag."id"
+           AND version."level" = 'N5'
+           AND version."subject" = 'VOCABULARY'
+           AND version."questionType" = 'KANJI_READING'
+       )
        ORDER BY tag."id"
        LIMIT 1`
     )
@@ -5613,17 +5281,9 @@ describe('Persistence foundation', () => {
         )
       }
       await targetClient.query(
-        `INSERT INTO "QuestionVersionTag" (
-          "id", "questionVersionId", "tagId", "labelSnapshot",
-          "normalizedNameSnapshot"
-        ) VALUES ($1, $2, $3, $4, $5)`,
-        [
-          randomUUID(),
-          versionId,
-          selectedTag.id,
-          selectedTag.label,
-          selectedTag.normalizedName
-        ]
+        `INSERT INTO "QuestionVersionTag" ("id", "questionVersionId", "tagId")
+         VALUES ($1, $2, $3)`,
+        [randomUUID(), versionId, selectedTag.id]
       )
       await targetClient.query(
         `INSERT INTO "AdminAuditLog" (

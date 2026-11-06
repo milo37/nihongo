@@ -350,7 +350,7 @@ export const createDashboardInsightsTagQuery = (
       version."level",
       version."subject",
       version_tag."tagId",
-      version_tag."labelSnapshot" AS "tagLabel",
+      tag."label" AS "tagLabel",
       answer."isCorrect",
       answer."elapsedSec",
       answer."answeredAt"
@@ -365,6 +365,8 @@ export const createDashboardInsightsTagQuery = (
       AND version."id" = item."questionVersionId"
     JOIN "QuestionVersionTag" AS version_tag
       ON version_tag."questionVersionId" = item."questionVersionId"
+    JOIN "Tag" AS tag
+      ON tag."id" = version_tag."tagId"
     WHERE session."userId" = ${userId}::uuid
       AND session."status" = 'SUBMITTED'::"StudySessionStatus"
       AND answer."answeredAt" >= ${fromInclusive}

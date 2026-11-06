@@ -46,6 +46,16 @@ const test = (): NodeJS.ProcessEnv => ({
   PRODUCTION_DATABASE_URL:
     'postgresql://runtime:unit-only@production.invalid:5432/nihongo_production?schema=public'
 })
+const development = (): NodeJS.ProcessEnv => ({
+  NODE_ENV: 'development',
+  DEPLOYMENT_ENVIRONMENT: 'LOCAL',
+  MIGRATION_DATABASE_URL:
+    'postgresql://nihongo_development_migration_login:unit-only@127.0.0.1:5432/nihongo_dev?schema=public&options=-c+role%3Dnihongo_migration',
+  DATABASE_URL:
+    'postgresql://nihongo_app:unit-only@127.0.0.1:5432/nihongo_dev?schema=public',
+  PRODUCTION_DATABASE_URL:
+    'postgresql://runtime:unit-only@production.invalid:5432/nihongo_production?schema=public'
+})
 const staging = (): NodeJS.ProcessEnv => ({
   ...production(),
   DEPLOYMENT_ENVIRONMENT: 'STAGING'
@@ -101,6 +111,7 @@ describe('database capability operator CLI', () => {
 
   it.each([
     ['TEST', test],
+    ['DEVELOPMENT', development],
     ['PRODUCTION', production],
     ['PRODUCTION', staging]
   ])('registers the confirmed %s row', async (environment, input) => {
@@ -150,11 +161,7 @@ describe('database capability operator CLI', () => {
     ],
     [
       'development on a staging deployment',
-      () => ({
-        ...test(),
-        NODE_ENV: 'development',
-        DEPLOYMENT_ENVIRONMENT: 'STAGING'
-      })
+      () => ({ ...development(), DEPLOYMENT_ENVIRONMENT: 'STAGING' })
     ],
     [
       'production with the app login',

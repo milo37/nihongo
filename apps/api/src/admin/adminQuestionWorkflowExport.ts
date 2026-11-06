@@ -139,12 +139,12 @@ export const loadExportVersionChildren = async (
   )
   const tags = await transaction.$queryRawUnsafe<ExportTagRow[]>(
     `SELECT assignment."questionVersionId", assignment."tagId" AS "id",
-       assignment."labelSnapshot" AS "label",
-       assignment."normalizedNameSnapshot" AS "normalizedName"
+       tag."label", tag."normalizedName"
      FROM "QuestionVersionTag" AS assignment
+     JOIN "Tag" AS tag ON tag."id" = assignment."tagId"
      WHERE assignment."questionVersionId" = ANY($1::uuid[])
      ORDER BY assignment."questionVersionId",
-       assignment."normalizedNameSnapshot" COLLATE "C", assignment."id"`,
+       tag."normalizedName" COLLATE "C", assignment."id"`,
     versionIds
   )
   return { options, tags }

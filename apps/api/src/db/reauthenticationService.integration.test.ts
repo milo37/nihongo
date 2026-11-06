@@ -492,17 +492,17 @@ const loadA2Content = async (
     questionType: string
     subject: string
   }>(
-    `SELECT tag."label", applicability."level"::text AS level,
-       applicability."subject"::text AS subject,
-       applicability."questionType"::text AS "questionType"
+    `SELECT tag."label", version."level"::text AS level,
+       version."subject"::text AS subject,
+       version."questionType"::text AS "questionType"
      FROM "Tag" AS tag
-     JOIN "TagApplicability" AS applicability
-       ON applicability."tagId" = tag."id"
-      AND applicability."level" = 'N5'
-      AND applicability."subject" = 'VOCABULARY'
-      AND applicability."questionType" = 'KANJI_READING'
-     ORDER BY tag."normalizedName", applicability."level",
-       applicability."subject", applicability."questionType"
+     JOIN "QuestionVersionTag" AS assignment ON assignment."tagId" = tag."id"
+     JOIN "QuestionVersion" AS version
+       ON version."id" = assignment."questionVersionId"
+      AND version."level" = 'N5'
+      AND version."subject" = 'VOCABULARY'
+      AND version."questionType" = 'KANJI_READING'
+     ORDER BY tag."normalizedName"
      LIMIT 1`
   )
   const tag = result.rows[0]

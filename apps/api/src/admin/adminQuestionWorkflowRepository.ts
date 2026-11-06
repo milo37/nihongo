@@ -57,7 +57,6 @@ import {
   executeTransaction
 } from './adminQuestionWorkflowTransactions.js'
 import {
-  applicabilityKey,
   loadExistingFingerprints,
   eligibleImportFingerprints,
   collectImportValidation,
@@ -420,17 +419,12 @@ export const createPrismaAdminQuestionWorkflowRepository = ({
             request.items
           )
           assertImportApplyValidation(request, validation)
-          const tagByApplicability = new Map(
-            validation.applicableTags.map((tag) => [
-              applicabilityKey(tag.normalizedName, tag),
-              tag
-            ])
+          const tagByName = new Map(
+            validation.importTags.map((tag) => [tag.normalizedName, tag])
           )
           const tagsByItem = request.items.map((item) =>
             item.content.tagNames.map((name) => {
-              const tag = tagByApplicability.get(
-                applicabilityKey(normalizeContentTagKey(name), item.content)
-              )
+              const tag = tagByName.get(normalizeContentTagKey(name))
               if (!tag) {
                 throw repositoryFailure(
                   'IMPORT_VALIDATION_FAILED',

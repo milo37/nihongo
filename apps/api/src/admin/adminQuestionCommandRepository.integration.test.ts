@@ -199,11 +199,6 @@ const loadCanonicalContentFixture = async (): Promise<void> => {
      JOIN "QuestionVersionTag" AS assignment
        ON assignment."questionVersionId" = version."id"
      JOIN "Tag" AS tag ON tag."id" = assignment."tagId"
-     JOIN "TagApplicability" AS applicability
-       ON applicability."tagId" = tag."id"
-      AND applicability."level" = version."level"
-      AND applicability."subject" = version."subject"
-      AND applicability."questionType" = version."questionType"
      WHERE question."createdByLabelSnapshot" = 'SYSTEM_SEED'
        AND question."lifecycleStatus" = 'ACTIVE'
        AND version."status" = 'PUBLISHED'

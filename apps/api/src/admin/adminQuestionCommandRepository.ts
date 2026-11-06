@@ -563,15 +563,11 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
           for (const tag of lockedTags) {
             if (!currentTagIds.has(tag.id)) {
               await transaction.$executeRawUnsafe(
-                `INSERT INTO "QuestionVersionTag" (
-                     "id", "questionVersionId", "tagId", "labelSnapshot",
-                     "normalizedNameSnapshot"
-                   ) VALUES ($1, $2, $3, $4, $5)`,
+                `INSERT INTO "QuestionVersionTag" ("id", "questionVersionId", "tagId")
+                   VALUES ($1, $2, $3)`,
                 randomUUID(),
                 versionId,
-                tag.id,
-                tag.label,
-                tag.normalizedName
+                tag.id
               )
             }
           }
