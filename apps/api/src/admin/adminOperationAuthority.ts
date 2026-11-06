@@ -49,7 +49,6 @@ const DEFERRED_CONTENT_CONSTRAINTS = [
   'QuestionOption_questionVersionId_ordinal_key',
   'QuestionVersion_id_correctOptionId_fkey',
   'Question_id_currentPublishedVersionId_fkey',
-  'QuestionVersionTag_questionVersionId_normalizedNameSnapshot_key',
   'Question_deferred_aggregate',
   'QuestionVersion_deferred_question_aggregate',
   'QuestionVersion_deferred_full_content',

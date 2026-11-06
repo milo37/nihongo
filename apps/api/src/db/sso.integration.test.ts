@@ -95,7 +95,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     expect(expected.map(({ name }) => name)).toEqual([
       '20261105090000_baseline',
       '20261106090000_remove_phase_names',
-      '20261107090000_first_admin_production'
+      '20261107090000_first_admin_production',
+      '20261108090000_remove_tag_applicability_and_snapshots'
     ])
     expect(
       actual.rows.map(({ name, checksum }) => ({ name, checksum }))

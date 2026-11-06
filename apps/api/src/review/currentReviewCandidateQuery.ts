@@ -45,8 +45,9 @@ export const createCurrentReviewCandidatePredicate = (
       AND EXISTS (
         SELECT 1
         FROM "QuestionVersionTag" AS filter_tag
+        JOIN "Tag" AS filter_tag_name ON filter_tag_name."id" = filter_tag."tagId"
         WHERE filter_tag."questionVersionId" = version."id"
-          AND (filter_tag."labelSnapshot" COLLATE "C") =
+          AND (filter_tag_name."label" COLLATE "C") =
             (${filter.tag} COLLATE "C")
       )
     `

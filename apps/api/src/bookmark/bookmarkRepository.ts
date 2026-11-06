@@ -104,8 +104,8 @@ const versionSummarySelect = {
   questionText: true,
   status: true,
   tags: {
-    orderBy: [{ labelSnapshot: 'asc' }, { tagId: 'asc' }],
-    select: { tagId: true, labelSnapshot: true }
+    orderBy: [{ tag: { label: 'asc' } }, { tagId: 'asc' }],
+    select: { tagId: true, tag: { select: { label: true } } }
   }
 } satisfies Prisma.QuestionVersionSelect
 
@@ -151,9 +151,9 @@ const toQuestionRecord = (
   questionType: version.questionType,
   difficulty: version.difficulty,
   questionText: version.questionText,
-  tags: version.tags.map(({ labelSnapshot, tagId }) => ({
+  tags: version.tags.map(({ tag, tagId }) => ({
     id: tagId,
-    label: labelSnapshot
+    label: tag.label
   }))
 })
 

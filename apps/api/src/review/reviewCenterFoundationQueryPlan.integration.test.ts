@@ -463,13 +463,13 @@ const createPlanFixture = async (): Promise<ReviewCenterPlanFixture> => {
       select: {
         questionType: true,
         tags: {
-          orderBy: { labelSnapshot: 'asc' },
+          orderBy: { tag: { label: 'asc' } },
           take: 1,
-          select: { labelSnapshot: true }
+          select: { tag: { select: { label: true } } }
         }
       }
     })
-  const tag = currentVersion.tags[0]?.labelSnapshot
+  const tag = currentVersion.tags[0]?.tag.label
   if (!tag) {
     throw new Error('Review queue query-plan fixture tag가 필요합니다.')
   }
@@ -510,14 +510,11 @@ const createPlanFixture = async (): Promise<ReviewCenterPlanFixture> => {
         FROM generate_series(1, 512) AS fixture(position)
         RETURNING "id", "label"
       )
-      INSERT INTO "QuestionVersionTag" (
-        "id", "questionVersionId", "tagId", "labelSnapshot"
-      )
+      INSERT INTO "QuestionVersionTag" ("id", "questionVersionId", "tagId")
       SELECT
         gen_random_uuid(),
         ${draftVersionId}::uuid,
-        tag."id",
-        tag."label"
+        tag."id"
       FROM inserted_tag AS tag
     `)
   }

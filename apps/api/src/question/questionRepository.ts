@@ -91,11 +91,11 @@ const isDatabaseUnavailableError = (error: unknown): boolean =>
     UNAVAILABLE_PRISMA_CODES.has(error.code))
 
 const toTags = (
-  tags: readonly { tagId: string; labelSnapshot: string }[]
+  tags: readonly { tagId: string; tag: { label: string } }[]
 ): readonly QuestionTagRecord[] =>
-  tags.map(({ labelSnapshot, tagId }) => ({
+  tags.map(({ tag, tagId }) => ({
     id: tagId,
-    label: labelSnapshot
+    label: tag.label
   }))
 
 const executeRepositoryOperation = async <Result>(
@@ -140,8 +140,8 @@ export const createPrismaQuestionRepository = (
                 select: { id: true, label: true, text: true }
               },
               tags: {
-                orderBy: { labelSnapshot: 'asc' },
-                select: { tagId: true, labelSnapshot: true }
+                orderBy: { tag: { label: 'asc' } },
+                select: { tagId: true, tag: { select: { label: true } } }
               }
             }
           }
@@ -185,7 +185,7 @@ export const createPrismaQuestionRepository = (
           ? {
               tags: {
                 some: {
-                  normalizedNameSnapshot: input.normalizedTag
+                  tag: { normalizedName: input.normalizedTag }
                 }
               }
             }
@@ -212,8 +212,8 @@ export const createPrismaQuestionRepository = (
                 questionText: true,
                 difficulty: true,
                 tags: {
-                  orderBy: { labelSnapshot: 'asc' },
-                  select: { tagId: true, labelSnapshot: true }
+                  orderBy: { tag: { label: 'asc' } },
+                  select: { tagId: true, tag: { select: { label: true } } }
                 }
               }
             }

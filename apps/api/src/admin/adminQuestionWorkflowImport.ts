@@ -19,7 +19,7 @@ import { repositoryFailure } from './adminQuestionCommandRepository.js'
 
 import {
   type AdminImportValidationIssue,
-  type TagApplicabilityRow,
+  type ImportTagRow,
   type BatchTargetRow,
   sha256Port
 } from './adminQuestionWorkflowModel.js'
@@ -46,34 +46,19 @@ export const contentFingerprint = (
     .digest('hex')
 }
 
-export const applicabilityKey = (
-  normalizedName: string,
-  content: Pick<
-    AdminQuestionContentStructureInput,
-    'level' | 'subject' | 'questionType'
-  >
-): string =>
-  `${normalizedName}\u0000${content.level}\u0000${content.subject}\u0000${content.questionType}`
-
-export const loadApplicableTags = async (
+export const loadImportTags = async (
   client: Pick<PrismaClient, '$queryRawUnsafe'> | Prisma.TransactionClient,
   items: readonly AdminImportItem[]
-): Promise<TagApplicabilityRow[]> => {
+): Promise<ImportTagRow[]> => {
   const normalizedNames = uniqueSorted(
     items.flatMap((item) => item.content.tagNames.map(normalizeContentTagKey))
   )
   if (normalizedNames.length === 0) return []
-  return client.$queryRawUnsafe<TagApplicabilityRow[]>(
-    `SELECT tag."id", tag."label", tag."normalizedName",
-       applicability."level", applicability."subject",
-       applicability."questionType"
+  return client.$queryRawUnsafe<ImportTagRow[]>(
+    `SELECT tag."id", tag."label", tag."normalizedName"
      FROM "Tag" AS tag
-     JOIN "TagApplicability" AS applicability
-       ON applicability."tagId" = tag."id"
      WHERE tag."normalizedName" = ANY($1::text[])
-     ORDER BY tag."normalizedName" COLLATE "C", tag."id",
-       applicability."level", applicability."subject",
-       applicability."questionType"`,
+     ORDER BY tag."normalizedName" COLLATE "C", tag."id"`,
     normalizedNames
   )
 }
@@ -152,15 +137,13 @@ export const collectImportValidation = async (
   items: readonly AdminImportItem[]
 ): Promise<{
   readonly response: AdminImportValidationResponse
-  readonly applicableTags: readonly TagApplicabilityRow[]
+  readonly importTags: readonly ImportTagRow[]
 }> => {
-  const [applicableTags, validationDigest] = await Promise.all([
-    loadApplicableTags(client, items),
+  const [importTags, validationDigest] = await Promise.all([
+    loadImportTags(client, items),
     createAdminImportValidationDigest(sha256Port, items)
   ])
-  const applicableTagKeys = new Set(
-    applicableTags.map((tag) => applicabilityKey(tag.normalizedName, tag))
-  )
+  const knownTagNames = new Set(importTags.map((tag) => tag.normalizedName))
   const issues: AdminImportValidationIssue[] = []
   const seenItemIds = new Set<string>()
   const eligibleFingerprints: Array<string | null> = items.map(() => null)
@@ -227,14 +210,12 @@ export const collectImportValidation = async (
           message: '정규화된 태그는 문제 안에서 고유해야 합니다.'
         })
       }
-      if (
-        !applicableTagKeys.has(applicabilityKey(normalizedName, item.content))
-      ) {
+      if (!knownTagNames.has(normalizedName)) {
         pushIssue(issues, {
           itemIndex,
           fieldPath: `${prefix}/content/tagNames/${tagIndex}`,
           code: 'UNKNOWN_TAG',
-          message: '존재하며 문제 분류에 적용 가능한 태그가 필요합니다.'
+          message: '태그 목록에 있는 태그가 필요합니다.'
         })
       }
       tagKeys.add(normalizedName)
@@ -314,7 +295,7 @@ export const collectImportValidation = async (
       itemCount: items.length,
       errors: issues
     },
-    applicableTags
+    importTags
   }
 }
 
@@ -355,7 +336,7 @@ export const createVersionContent = async (
     readonly content: AdminQuestionContentStructureInput
     readonly occurredAt: Date
     readonly questionId: string
-    readonly tags: readonly TagApplicabilityRow[]
+    readonly tags: readonly ImportTagRow[]
     readonly versionId: string
   }
 ): Promise<void> => {
@@ -413,15 +394,11 @@ export const createVersionContent = async (
   }
   for (const tag of input.tags) {
     await transaction.$executeRawUnsafe(
-      `INSERT INTO "QuestionVersionTag" (
-         "id", "questionVersionId", "tagId", "labelSnapshot",
-         "normalizedNameSnapshot"
-       ) VALUES ($1, $2, $3, $4, $5)`,
+      `INSERT INTO "QuestionVersionTag" ("id", "questionVersionId", "tagId")
+       VALUES ($1, $2, $3)`,
       randomUUID(),
       input.versionId,
-      tag.id,
-      tag.label,
-      tag.normalizedName
+      tag.id
     )
   }
   await transaction.$executeRawUnsafe(

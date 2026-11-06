@@ -646,32 +646,17 @@ model Tag {
   createdAt      DateTime             @default(now()) @db.Timestamptz(3)
   updatedAt      DateTime             @updatedAt @db.Timestamptz(3)
   versions       QuestionVersionTag[]
-  applicability  TagApplicability[]
 }
 
 model QuestionVersionTag {
-  id                     String          @id @default(uuid()) @db.Uuid
-  questionVersionId      String          @db.Uuid
-  tagId                  String          @db.Uuid
-  labelSnapshot          String
-  normalizedNameSnapshot String          @default(dbgenerated("''::text"))
-  questionVersion        QuestionVersion @relation(fields: [questionVersionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  tag                    Tag             @relation(fields: [tagId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  id                String          @id @default(uuid()) @db.Uuid
+  questionVersionId String          @db.Uuid
+  tagId             String          @db.Uuid
+  questionVersion   QuestionVersion @relation(fields: [questionVersionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  tag               Tag             @relation(fields: [tagId], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
   @@unique([questionVersionId, tagId])
-  @@unique([questionVersionId, normalizedNameSnapshot])
   @@index([tagId])
-}
-
-model TagApplicability {
-  tagId        String          @db.Uuid
-  level        JlptLevel
-  subject      QuestionSubject
-  questionType QuestionType
-  tag          Tag             @relation(fields: [tagId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-
-  @@id([tagId, level, subject, questionType])
-  @@index([level, subject, questionType, tagId], map: "TagApplicability_taxonomy_idx")
 }
 
 model ContentReview {

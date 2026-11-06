@@ -741,8 +741,7 @@ describe('study result retry integration', () => {
         await transaction.questionVersionTag.create({
           data: {
             questionVersionId: versionOneId,
-            tagId,
-            labelSnapshot: 'Slice 5 historical pin'
+            tagId
           }
         })
         await transaction.questionVersion.update({
@@ -859,8 +858,7 @@ describe('study result retry integration', () => {
         await transaction.questionVersionTag.create({
           data: {
             questionVersionId: versionTwoId,
-            tagId,
-            labelSnapshot: 'Slice 5 historical pin'
+            tagId
           }
         })
         await transaction.questionVersion.update({

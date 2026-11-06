@@ -669,8 +669,7 @@ describe('question catalog PostgreSQL integration', () => {
           data: {
             id: randomUUID(),
             questionVersionId: versionId,
-            tagId,
-            labelSnapshot: '임시 태그'
+            tagId
           }
         })
 
@@ -1105,7 +1104,7 @@ describe('question catalog PostgreSQL integration', () => {
           where: { id: seed.versionId },
           include: {
             options: { orderBy: { ordinal: 'asc' } },
-            tags: { orderBy: [{ labelSnapshot: 'asc' }, { tagId: 'asc' }] }
+            tags: { orderBy: [{ tag: { label: 'asc' } }, { tagId: 'asc' }] }
           }
         })
       ])
@@ -1164,7 +1163,7 @@ describe('question catalog PostgreSQL integration', () => {
           where: { id: seed.versionId },
           include: {
             options: { orderBy: { ordinal: 'asc' } },
-            tags: { orderBy: [{ labelSnapshot: 'asc' }, { tagId: 'asc' }] }
+            tags: { orderBy: [{ tag: { label: 'asc' } }, { tagId: 'asc' }] }
           }
         })
       ).resolves.toEqual(v1Before)
@@ -1214,8 +1213,7 @@ describe('question catalog PostgreSQL integration', () => {
           data: v1Before.tags.map((tag) => ({
             id: randomUUID(),
             questionVersionId: v2Id,
-            tagId: tag.tagId,
-            labelSnapshot: tag.labelSnapshot
+            tagId: tag.tagId
           }))
         })
       })

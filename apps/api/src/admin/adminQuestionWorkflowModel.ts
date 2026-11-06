@@ -17,13 +17,10 @@ export type WorkflowTransactionalOperation =
 export type AdminImportValidationIssue =
   AdminImportValidationResponse['errors'][number]
 
-export interface TagApplicabilityRow {
+export interface ImportTagRow {
   readonly id: string
   readonly label: string
   readonly normalizedName: string
-  readonly level: AdminQuestionContentStructureInput['level']
-  readonly subject: AdminQuestionContentStructureInput['subject']
-  readonly questionType: AdminQuestionContentStructureInput['questionType']
 }
 
 export interface BatchTargetRow {

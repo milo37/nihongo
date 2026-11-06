@@ -168,9 +168,9 @@ const executeRepositoryOperation = async <Result>(
 }
 
 const toTags = (
-  tags: readonly { tagId: string; labelSnapshot: string }[]
+  tags: readonly { tagId: string; tag: { label: string } }[]
 ): readonly QuestionTagRecord[] =>
-  tags.map(({ labelSnapshot, tagId }) => ({ id: tagId, label: labelSnapshot }))
+  tags.map(({ tag, tagId }) => ({ id: tagId, label: tag.label }))
 
 const toOptions = (
   options: readonly { id: string; label: string; text: string }[]
@@ -296,11 +296,11 @@ export const loadStudySessionRecord = async (
       ? []
       : await client.questionVersionTag.findMany({
           where: { questionVersionId: { in: questionVersionIds } },
-          orderBy: [{ questionVersionId: 'asc' }, { labelSnapshot: 'asc' }],
+          orderBy: [{ questionVersionId: 'asc' }, { tag: { label: 'asc' } }],
           select: {
             questionVersionId: true,
             tagId: true,
-            labelSnapshot: true
+            tag: { select: { label: true } }
           }
         })
   const versionsById = new Map(versions.map((version) => [version.id, version]))
@@ -712,8 +712,9 @@ const lockAndValidateSelectedQuestions = async (
           AND EXISTS (
             SELECT 1
             FROM "QuestionVersionTag" AS filter_tag
+            JOIN "Tag" AS filter_tag_name ON filter_tag_name."id" = filter_tag."tagId"
             WHERE filter_tag."questionVersionId" = version."id"
-              AND (filter_tag."labelSnapshot" COLLATE "C") =
+              AND (filter_tag_name."label" COLLATE "C") =
                 (${input.reviewFilter.tag} COLLATE "C")
           )
         `

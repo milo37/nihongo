@@ -163,9 +163,6 @@ const EXPECTED_PRISMA_REPRESENTATION_DIFF = [
   'ALTER TABLE "Question" ALTER COLUMN "rowVersion" SET DEFAULT 1;',
   '',
   '-- AlterTable',
-  'ALTER TABLE "QuestionVersionTag" ALTER COLUMN "normalizedNameSnapshot" SET DEFAULT \'\'::text;',
-  '',
-  '-- AlterTable',
   'ALTER TABLE "Session" ALTER COLUMN "authorityGeneration" SET DEFAULT 1,',
   'ALTER COLUMN "issuerProtocolVersion" SET DEFAULT \'LEGACY\'::"AuthSessionIssuerProtocolVersion",',
   'ALTER COLUMN "authorizationState" SET DEFAULT \'ACTIVE\'::"AuthSessionAuthorizationState";',
@@ -201,11 +198,6 @@ const EXPECTED_TEST_DATABASE_DEFAULTS: readonly TestDatabaseDefault[] = [
     columnName: 'rowVersion',
     defaultExpression: '1',
     tableName: 'Question'
-  },
-  {
-    columnName: 'normalizedNameSnapshot',
-    defaultExpression: "''::text",
-    tableName: 'QuestionVersionTag'
   },
   {
     columnName: 'authorityGeneration',
@@ -426,7 +418,6 @@ const assertTestDatabaseDefaults = async (): Promise<void> => {
         AND (relation.relname, attribute.attname) IN (
           VALUES
             ('Question', 'rowVersion'),
-            ('QuestionVersionTag', 'normalizedNameSnapshot'),
             ('Session', 'authorityGeneration'),
             ('Session', 'authorizationState'),
             ('Session', 'issuerProtocolVersion'),
@@ -1255,7 +1246,8 @@ const reportPostSeedDiagnostic = (diagnostic: PostSeedDiagnostic): void => {
 const migrationDiagnosticNames = [
   '20261105090000_baseline',
   '20261106090000_remove_phase_names',
-  '20261107090000_first_admin_production'
+  '20261107090000_first_admin_production',
+  '20261108090000_remove_tag_applicability_and_snapshots'
 ] as const
 
 const sanitizeMigrationDatabaseError = (error: unknown) => {

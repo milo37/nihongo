@@ -423,8 +423,7 @@ type SelectedVersionScalar = Prisma.QuestionVersionGetPayload<{
 interface SelectedVersionTag {
   readonly questionVersionId: string
   readonly tagId: string
-  readonly labelSnapshot: string
-  readonly normalizedNameSnapshot: string
+  readonly tag: { readonly label: string; readonly normalizedName: string }
 }
 
 interface SelectedLatestReviewer {
@@ -481,14 +480,13 @@ const loadVersionSummaryRelations = async (
     where: { questionVersionId: { in: [...versionIds] } },
     orderBy: [
       { questionVersionId: 'asc' },
-      { normalizedNameSnapshot: 'asc' },
+      { tag: { normalizedName: 'asc' } },
       { tagId: 'asc' }
     ],
     select: {
       questionVersionId: true,
       tagId: true,
-      labelSnapshot: true,
-      normalizedNameSnapshot: true
+      tag: { select: { label: true, normalizedName: true } }
     }
   })
   const reviews = await transaction.$queryRaw<SelectedLatestReviewer[]>(
@@ -623,8 +621,8 @@ const mapVersionSummary = (
   tags: version.tags
     .map((tag) => ({
       id: tag.tagId,
-      label: tag.labelSnapshot,
-      normalizedName: tag.normalizedNameSnapshot
+      label: tag.tag.label,
+      normalizedName: tag.tag.normalizedName
     }))
     .toSorted(compareTagRecord),
   latestReviewer: toAccountActor({
@@ -767,8 +765,9 @@ const buildQuestionPageWhere = (
       EXISTS (
         SELECT 1
         FROM "QuestionVersionTag" qvt
+        JOIN "Tag" tag ON tag."id" = qvt."tagId"
         WHERE qvt."questionVersionId" = sv."id"
-          AND qvt."normalizedNameSnapshot" = ${input.normalizedTag}
+          AND tag."normalizedName" = ${input.normalizedTag}
       )
     `)
   }
