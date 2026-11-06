@@ -44,7 +44,8 @@ import {
   type ReportTargetRow,
   type RemediationTargetRow,
   classifyAuthorityFailure,
-  sha256Port
+  sha256Port,
+  type AdminQuestionExportAuditEvidence
 } from './adminQuestionWorkflowModel.js'
 import {
   repositoryInvariantFailure,
@@ -75,6 +76,8 @@ import {
   loadRemediationTarget,
   loadReportMutation
 } from './adminQuestionWorkflowReports.js'
+
+export type { AdminQuestionExportAuditEvidence } from './adminQuestionWorkflowModel.js'
 
 export interface AdminQuestionWorkflowRepository {
   readonly requestReviewBatch: (
@@ -107,13 +110,6 @@ export interface AdminQuestionWorkflowRepository {
 export interface AdminImportApplyRepositoryResult {
   readonly response: AdminImportApplyResponse
   readonly mappingDigest: string
-}
-
-export interface AdminQuestionExportAuditEvidence {
-  readonly selectionDigest: string
-  readonly responseBodyDigest: string
-  readonly questionCount: number
-  readonly versionCount: number
 }
 
 export interface AdminQuestionExportRepositoryResult {
