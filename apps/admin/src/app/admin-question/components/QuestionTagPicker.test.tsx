@@ -261,6 +261,20 @@ describe('QuestionTagPicker', () => {
     ).toBeVisible()
   })
 
+  it('says the subject has no tags when nothing is left without a search', async () => {
+    const user = userEvent.setup()
+    listTags.mockResolvedValue({ items: [] })
+    renderPicker()
+
+    await user.click(search())
+    expect(
+      await screen.findByText(
+        '이 과목에서 고를 수 있는 태그가 없습니다. 태그는 여기서 새로 만들 수 없습니다.'
+      )
+    ).toBeVisible()
+    expect(screen.queryByText(/‘’/)).not.toBeInTheDocument()
+  })
+
   it('treats a blank search as the whole subject list', async () => {
     const user = userEvent.setup()
     renderPicker()

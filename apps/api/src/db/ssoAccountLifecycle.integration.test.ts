@@ -4,6 +4,10 @@ import {
   createSsoAccountErasureWorker,
   runSsoAccountErasureBatch
 } from '../auth/ssoAccountRepository.js'
+import {
+  runSsoProviderRevokeBatch,
+  tokenlessSsoProviderRevokeAdapter
+} from '../auth/ssoProviderRevoke.js'
 import { bridgedQuery } from '../../test/fixtures/db/ownedSessionSql.js'
 import { createSsoDbHarness, digest } from './ssoTestFixture.js'
 import type { SsoFixture } from './ssoTestFixture.js'
@@ -343,6 +347,55 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
           )
         ).rows
       ).toEqual([{ users: 0, proofs: 0, bookmarks: 0 }])
+      await h.owner.query('SET CONSTRAINTS ALL IMMEDIATE')
+    })
+  })
+  it('erases a requested account end to end with the tokenless adapter (#670)', async () => {
+    await h.rollback(async () => {
+      const worker = createSsoAccountErasureWorker(h.appClient)
+      const f = await h.fixture('google', 'USER')
+      const receipt = digest()
+      await gateway(
+        'SELECT "request_sso_account_erasure"($1,$2,$3) AS result',
+        [f.token, await verifyFresh(f), receipt]
+      )
+      const { id } = (
+        await h.owner.query<{ id: string }>(
+          'SELECT id FROM "SsoAccountErasureRequest" WHERE "receiptDigest"=$1',
+          [receipt]
+        )
+      ).rows[0]!
+      const providers = await runSsoProviderRevokeBatch(
+        worker,
+        tokenlessSsoProviderRevokeAdapter,
+        'TEST',
+        100,
+        300
+      )
+      expect(providers).toMatchObject({
+        failed: 0,
+        unavailable: 0,
+        deferred: 0
+      })
+      expect(providers.notHeld).toBeGreaterThanOrEqual(1)
+      const result = await runSsoAccountErasureBatch(worker, 'TEST', 100)
+      expect(result.completedIds).toContain(id)
+      expect(
+        await gateway('SELECT "sso_account_erasure_status"($1) AS result', [
+          receipt
+        ])
+      ).toEqual({
+        appStatus: 'DELETED',
+        providerCleanup: [{ provider: 'google', status: 'COMPLETED' }]
+      })
+      expect(
+        (
+          await h.owner.query(
+            'SELECT (SELECT count(*)::int FROM "User" WHERE id=$1) AS users,(SELECT count(*)::int FROM "Account" WHERE "userId"=$1) AS accounts',
+            [f.userId]
+          )
+        ).rows
+      ).toEqual([{ users: 0, accounts: 0 }])
       await h.owner.query('SET CONSTRAINTS ALL IMMEDIATE')
     })
   })

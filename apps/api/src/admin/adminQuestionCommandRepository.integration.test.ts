@@ -1619,7 +1619,10 @@ describe('ADMIN command TEST database integration', () => {
           authority(authorId, authorToken),
           mismatched
         )
-      ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+      ).rejects.toMatchObject({
+        code: 'TAG_SUBJECT_MISMATCH',
+        fieldErrors: { tagNames: ['태그 과목이 문제 과목과 같아야 합니다.'] }
+      })
       const validation = await workflowCommandService.validateImport({
         items: [{ clientItemId: `jlp733-${suffix}`, content: mismatched }]
       })
