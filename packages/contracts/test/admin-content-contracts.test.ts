@@ -41,7 +41,6 @@ import {
   triageAdminQuestionReportErrorCodeSchema,
   triageAdminQuestionReportErrorSchema,
   validateQuestionImportErrorSchema,
-  validateQuestionImportRequestSchema,
   type AdminImportItem,
   type Sha256TextPort
 } from '../src/admin/content-operations.js'
@@ -327,24 +326,6 @@ describe('common and read contracts', () => {
     ).toThrow()
   })
 
-  it('takes one or two tag names per question', () => {
-    const withTags = (tagNames: string[]) => ({
-      items: [{ ...importItem, content: { ...importItem.content, tagNames } }]
-    })
-    expect(
-      validateQuestionImportRequestSchema.safeParse(withTags(['문법', '활용']))
-        .success
-    ).toBe(true)
-    expect(
-      validateQuestionImportRequestSchema.safeParse(withTags([])).success
-    ).toBe(false)
-    expect(
-      validateQuestionImportRequestSchema.safeParse(
-        withTags(['문법', '활용', '조사'])
-      ).success
-    ).toBe(false)
-  })
-
   it('rejects preview option comparison duplicates', () => {
     const preview = {
       question: {
@@ -538,7 +519,7 @@ describe('future import and report contracts', () => {
     ).toBe(false)
   })
 
-  it('places tag issues on the first or second tag name only', async () => {
+  it('places a tag subject issue on a tag name', async () => {
     const { port } = createDigestPort()
     const request = {
       items: [
@@ -567,7 +548,7 @@ describe('future import and report contracts', () => {
       assertAdminImportValidationForRequest(
         port,
         request,
-        response('/items/0/content/tagNames/2')
+        response('/items/0/content/passage')
       )
     ).rejects.toThrow()
   })
