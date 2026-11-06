@@ -7,10 +7,7 @@ import {
 } from '../common/enum.js'
 import { wrongNoteTagLabelSchema } from '../wrong-note/list-wrong-notes.js'
 import { createApiFailureSchema } from '../common/error.js'
-import {
-  studySessionPayloadSchema,
-  versionedStudySessionPayloadSchema
-} from './study-session.js'
+import { versionedStudySessionPayloadSchema } from './study-session.js'
 import { practiceContractV2HeadersSchema } from './practice-contract.js'
 
 export const createStudySessionOperationId = 'study.createStudySession' as const
@@ -48,18 +45,7 @@ export const createStudySessionV2BodySchema = createStudySessionBodySchema
     }
   })
 
-export const createStudySessionHeadersSchema = z.object({}).strict()
-
 export const createStudySessionV2HeadersSchema = practiceContractV2HeadersSchema
-
-export const createStudySessionResponseSchema =
-  studySessionPayloadSchema.refine(
-    ({ session }) => session.status === 'IN_PROGRESS',
-    {
-      path: ['session', 'status'],
-      message: '새 학습 세션은 IN_PROGRESS 상태여야 합니다.'
-    }
-  )
 
 export const createStudySessionV2ResponseSchema =
   versionedStudySessionPayloadSchema.refine(
@@ -90,9 +76,6 @@ export const createStudySessionErrorSchema = createApiFailureSchema(
   createStudySessionErrorCodeSchema
 )
 
-export type CreateStudySessionBody = z.input<
-  typeof createStudySessionBodySchema
->
 export type CreateStudySessionV2Body = z.input<
   typeof createStudySessionV2BodySchema
 >
@@ -100,9 +83,6 @@ export type ParsedCreateStudySessionV2Body = z.output<
   typeof createStudySessionV2BodySchema
 >
 export type ReviewSelectionFilter = z.output<typeof reviewSelectionFilterSchema>
-export type CreateStudySessionResponse = z.output<
-  typeof createStudySessionResponseSchema
->
 export type CreateStudySessionV2Response = z.output<
   typeof createStudySessionV2ResponseSchema
 >

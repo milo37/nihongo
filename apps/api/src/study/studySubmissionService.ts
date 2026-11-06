@@ -1,7 +1,4 @@
-import type {
-  ParsedSubmitStudySessionBody,
-  ParsedSubmitStudySessionV2Body
-} from '@nihongo/contracts/study/submit-study-session'
+import type { ParsedSubmitStudySessionV2Body } from '@nihongo/contracts/study/submit-study-session'
 import type { StudyResult } from '@nihongo/contracts/study/study-result'
 import {
   StudyGradingError,
@@ -46,7 +43,7 @@ export interface StudySubmissionService {
   submit: (
     sessionId: string,
     idempotencyKey: string,
-    input: ParsedSubmitStudySessionBody | ParsedSubmitStudySessionV2Body,
+    input: ParsedSubmitStudySessionV2Body,
     owner: ExistingStudyOwner
   ) => Promise<SubmitStudySessionServiceResult>
 }
