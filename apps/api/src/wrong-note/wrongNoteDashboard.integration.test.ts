@@ -853,5 +853,4 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
     ])
     expect(foreign.repeatedWrongQuestions).toHaveLength(1)
   })
-
 })

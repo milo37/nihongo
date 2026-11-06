@@ -352,7 +352,8 @@ export const withoutForwardChanges = (
   constraints: catalog.constraints.filter((row) => !isDroppedTagSnapshot(row)),
   indexes: catalog.indexes.filter((row) => !isDroppedTagSnapshot(row)),
   triggers: catalog.triggers.filter(
-    (row) => row.table !== DROPPED_TABLE && !DROPPED_TRIGGERS.has(String(row.name))
+    (row) =>
+      row.table !== DROPPED_TABLE && !DROPPED_TRIGGERS.has(String(row.name))
   ),
   functions: catalog.functions
     .filter(({ name }) => !DROPPED_FUNCTIONS.has(String(name)))

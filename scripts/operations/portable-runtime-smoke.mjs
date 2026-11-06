@@ -215,7 +215,8 @@ export const selectCurrentMigrationNames = (migrationsDirectory) => {
     manifest.length !== currentMigrationCount ||
     createHash('sha256').update(JSON.stringify(manifest)).digest('hex') !==
       currentMigrationDigest ||
-    manifest.at(-1)?.name !== '20261108090000_remove_tag_applicability_and_snapshots'
+    manifest.at(-1)?.name !==
+      '20261108090000_remove_tag_applicability_and_snapshots'
   ) {
     throw new Error('Repository baseline migration inventory is invalid.')
   }

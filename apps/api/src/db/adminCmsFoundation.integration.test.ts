@@ -458,11 +458,7 @@ const insertIncompleteSystemQuestion = async (): Promise<void> => {
   await client.query(
     `INSERT INTO "QuestionVersionTag" ("id", "questionVersionId", "tagId")
      VALUES ($1, $2, $3)`,
-    [
-      randomUUID(),
-      versionId,
-      selectedTag.id
-    ]
+    [randomUUID(), versionId, selectedTag.id]
   )
   await client.query('COMMIT')
 }
@@ -1503,11 +1499,7 @@ describe('Persistence foundation', () => {
       await client.query(
         `INSERT INTO "QuestionVersionTag" ("id", "questionVersionId", "tagId")
          VALUES ($1, $2, $3)`,
-        [
-          randomUUID(),
-          versionId,
-          selectedTag.id
-        ]
+        [randomUUID(), versionId, selectedTag.id]
       )
       await insertAudit({
         actorUserId: authorId,
@@ -3383,11 +3375,7 @@ describe('Persistence foundation', () => {
       await client.query(
         `INSERT INTO "QuestionVersionTag" ("id", "questionVersionId", "tagId")
          VALUES ($1, $2, $3)`,
-        [
-          randomUUID(),
-          versionId,
-          selectedTag.id
-        ]
+        [randomUUID(), versionId, selectedTag.id]
       )
       await client.query(
         `INSERT INTO "AdminAuditLog" (
@@ -4113,11 +4101,7 @@ describe('Persistence foundation', () => {
       await client.query(
         `INSERT INTO "QuestionVersionTag" ("id", "questionVersionId", "tagId")
          VALUES ($1, $2, $3)`,
-        [
-          randomUUID(),
-          remediationVersionId,
-          remediationTag.id
-        ]
+        [randomUUID(), remediationVersionId, remediationTag.id]
       )
       await client.query(
         `UPDATE "QuestionVersion"
@@ -4431,11 +4415,7 @@ describe('Persistence foundation', () => {
         await client.query(
           `INSERT INTO "QuestionVersionTag" ("id", "questionVersionId", "tagId")
            VALUES ($1, $2, $3)`,
-          [
-            randomUUID(),
-            versionId,
-            selectedTag.id
-          ]
+          [randomUUID(), versionId, selectedTag.id]
         )
         await client.query(
           `INSERT INTO "AdminAuditLog" (
@@ -5303,11 +5283,7 @@ describe('Persistence foundation', () => {
       await targetClient.query(
         `INSERT INTO "QuestionVersionTag" ("id", "questionVersionId", "tagId")
          VALUES ($1, $2, $3)`,
-        [
-          randomUUID(),
-          versionId,
-          selectedTag.id
-        ]
+        [randomUUID(), versionId, selectedTag.id]
       )
       await targetClient.query(
         `INSERT INTO "AdminAuditLog" (
