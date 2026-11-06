@@ -19,6 +19,7 @@ import {
   editorFields
 } from '@app/admin-question/components/EditorRebaseNotice'
 import { QuestionOptionsFieldset } from '@app/admin-question/components/QuestionOptionsFieldset'
+import type { getTagServerErrorKey } from '@app/admin-question/components/questionTagServerError'
 import { QUESTION_TYPES, SUBJECTS } from '@nihongo/browser/common/types/domain'
 type EditorRegister = UseFormRegister<UpdateQuestionVersionRequest>
 type FieldError = (
@@ -156,6 +157,7 @@ export const QuestionVersionEditor = ({
   isSubmitting,
   conflictRevision,
   serverFieldErrors,
+  serverTagErrorKey = null,
   onDirtyChange,
   onSubmit
 }: {
@@ -165,6 +167,7 @@ export const QuestionVersionEditor = ({
   isSubmitting: boolean
   conflictRevision: number
   serverFieldErrors: Readonly<Record<string, readonly string[]>>
+  serverTagErrorKey?: ReturnType<typeof getTagServerErrorKey>
   onDirtyChange: (dirty: boolean) => void
   onSubmit: (input: UpdateQuestionVersionRequest) => Promise<boolean>
 }): ReactElement => {
@@ -236,12 +239,17 @@ export const QuestionVersionEditor = ({
     setFocus
   ])
   const invalid: FieldError = (name) =>
-    errors[name] ||
-    Object.keys(serverFieldErrors).some(
-      (path) => path === name || path.startsWith(name + '.')
-    )
-      ? t('errors.validation')
-      : undefined
+    // A local tag error wins over the last server answer.
+    name === 'tagNames' &&
+    serverTagErrorKey &&
+    (!errors.tagNames || errors.tagNames.type === 'server')
+      ? t(serverTagErrorKey)
+      : errors[name] ||
+          Object.keys(serverFieldErrors).some(
+            (path) => path === name || path.startsWith(name + '.')
+          )
+        ? t('errors.validation')
+        : undefined
   const moveOption = (from: number, to: number): void => {
     if (to < 0 || to >= options.length || disabled) return
     move(from, to)

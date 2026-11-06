@@ -233,3 +233,20 @@ it('regression: focuses locally invalid tags and preserves other dirty fields', 
   expect(local).toHaveValue('Kept original local question')
   expect(props.onSubmit).not.toHaveBeenCalled()
 })
+it('shows the subject mismatch on the tags field when the server names it', async () => {
+  const { props, rerender } = view()
+  rerender(
+    <I18nProvider>
+      <QuestionVersionEditor
+        {...props}
+        serverFieldErrors={{ tagNames: ['private wording'] }}
+        serverTagErrorKey="editor.tagPicker.subjectMismatch"
+      />
+    </I18nProvider>
+  )
+  const tags = screen.getByRole('textbox', { name: t('editor.selectedTags') })
+  await waitFor(() => expect(tags).toHaveFocus())
+  expect(tags).toHaveAttribute('aria-invalid', 'true')
+  expect(screen.getByText(t('editor.tagPicker.subjectMismatch'))).toBeVisible()
+  expect(screen.queryByText('private wording')).not.toBeInTheDocument()
+})
