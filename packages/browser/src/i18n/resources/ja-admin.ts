@@ -671,6 +671,7 @@ export const jaAdminResources = {
       subjectMismatch:
         '問題の科目と合わないタグがあります。削除して選び直してください。',
       remove: 'タグ「{{label}}」を削除',
+      removeMismatch: 'タグ「{{label}}」を削除（科目不一致）',
       results: 'タグ{{count}}個',
       added: 'タグ「{{label}}」を追加しました',
       removed: 'タグ「{{label}}」を削除しました'

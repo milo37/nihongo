@@ -147,6 +147,35 @@ describe('QuestionTagPicker', () => {
     expect(search()).toHaveFocus()
   })
 
+  it('keeps the list open when Tab moves to the retry button', async () => {
+    const user = userEvent.setup()
+    listTags.mockRejectedValueOnce(new Error('network'))
+    renderPicker()
+
+    await user.click(search())
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '태그 목록을 불러오지 못했습니다.'
+    )
+    await user.tab()
+    const retry = screen.getByRole('button', { name: '다시 시도' })
+    expect(retry).toHaveFocus()
+    await user.keyboard('{Enter}')
+    expect(await screen.findAllByRole('option')).toHaveLength(3)
+    expect(search()).toHaveFocus()
+  })
+
+  it('moves focus to the new tag’s remove button when the second tag fills the field', async () => {
+    const user = userEvent.setup()
+    renderPicker({ initial: [{ label: '경어', subject: 'GRAMMAR' }] })
+
+    await user.click(search())
+    await user.click(await screen.findByRole('option', { name: '조사' }))
+    expect(search()).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: '조사 태그 지우기' })
+    ).toHaveFocus()
+  })
+
   it('says there may be more when the whole page came back', async () => {
     const user = userEvent.setup()
     listTags.mockResolvedValue({
@@ -224,6 +253,12 @@ describe('QuestionTagPicker', () => {
       )
     ).toBeVisible()
     expect(search()).toHaveAttribute('aria-invalid', 'true')
+    expect(
+      screen.getByRole('button', { name: '조사 태그 지우기 (과목 불일치)' })
+    ).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: '이유 태그 지우기' })
+    ).toBeVisible()
   })
 
   it('treats a blank search as the whole subject list', async () => {

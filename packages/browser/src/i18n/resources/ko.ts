@@ -1903,6 +1903,7 @@ export const koResources = {
         subjectMismatch:
           '문제 과목과 맞지 않는 태그가 있습니다. 지우고 다시 골라 주세요.',
         remove: '{{label}} 태그 지우기',
+        removeMismatch: '{{label}} 태그 지우기 (과목 불일치)',
         results: '태그 {{count}}개',
         added: '{{label}} 태그를 추가했습니다',
         removed: '{{label}} 태그를 지웠습니다'

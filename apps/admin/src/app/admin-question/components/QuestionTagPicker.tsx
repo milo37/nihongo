@@ -64,8 +64,9 @@ export const QuestionTagPicker = ({
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
   const [announcement, setAnnouncement] = useState('')
-  // Index of a just-removed tag; focus moves once the list re-renders.
+  // Remove button index to focus once the tag list re-renders.
   const pendingFocusRef = useRef<number | null>(null)
+  const comboRef = useRef<HTMLDivElement>(null)
 
   const isOverLimit = value.length > MAX_QUESTION_TAGS
   const isFull = value.length >= MAX_QUESTION_TAGS
@@ -154,6 +155,9 @@ export const QuestionTagPicker = ({
     setDebouncedQuery('')
     setOpen(false)
     setAnnouncement(t('editor.tagPicker.added', { label: item.label }))
+    // The last allowed tag disables the search field: focus its remove button.
+    if (value.length + 1 >= MAX_QUESTION_TAGS)
+      pendingFocusRef.current = value.length
   }
 
   const remove = (index: number): void => {
@@ -219,130 +223,148 @@ export const QuestionTagPicker = ({
 
       {value.length > 0 ? (
         <ul className="flex flex-wrap gap-2">
-          {value.map((tag, index) => (
-            <li
-              key={`${normalizeContentTagKey(tag.label)}-${index}`}
-              className="flex max-w-full items-center gap-1"
-            >
-              <Badge
-                variant={
-                  tag.subject !== null && tag.subject !== subject
-                    ? 'warning'
-                    : 'neutral'
-                }
-                className="text-sm [word-break:keep-all]"
+          {value.map((tag, index) => {
+            const isMismatch = tag.subject !== null && tag.subject !== subject
+            return (
+              <li
+                key={`${normalizeContentTagKey(tag.label)}-${index}`}
+                className="flex max-w-full items-center gap-1"
               >
-                {tag.label}
-              </Badge>
-              <IconButton
-                ref={(element) => {
-                  removeRefs.current[index] = element
-                }}
-                variant="ghost"
-                icon={<Icon name="x" />}
-                label={t('editor.tagPicker.remove', { label: tag.label })}
-                disabled={disabled}
-                onClick={() => remove(index)}
-              />
-            </li>
-          ))}
+                <Badge
+                  variant={isMismatch ? 'warning' : 'neutral'}
+                  className="text-sm [word-break:keep-all]"
+                >
+                  {isMismatch ? <Icon name="circle-alert" /> : null}
+                  {tag.label}
+                </Badge>
+                <IconButton
+                  ref={(element) => {
+                    removeRefs.current[index] = element
+                  }}
+                  variant="ghost"
+                  icon={<Icon name="x" />}
+                  label={t(
+                    isMismatch
+                      ? 'editor.tagPicker.removeMismatch'
+                      : 'editor.tagPicker.remove',
+                    { label: tag.label }
+                  )}
+                  disabled={disabled}
+                  onClick={() => remove(index)}
+                />
+              </li>
+            )
+          })}
         </ul>
       ) : null}
 
-      <Input
-        ref={inputRef}
-        name="tags"
-        label={t('editor.fields.tagNames')}
-        hideLabel
-        className="w-full"
-        placeholder={t('editor.tagPicker.placeholder')}
-        role="combobox"
-        aria-expanded={isListOpen}
-        aria-controls={listId}
-        aria-autocomplete="list"
-        aria-activedescendant={
-          isListOpen && activeItem ? optionId(activeItem) : undefined
-        }
-        aria-describedby={[hintId, errorMessage ? errorId : undefined]
-          .filter(Boolean)
-          .join(' ')}
-        aria-invalid={errorMessage ? true : undefined}
-        value={query}
-        disabled={searchDisabled}
-        onChange={(event) => {
-          setQuery(event.target.value)
-          setAnnouncement('')
-          setOpen(true)
-          setActiveIndex(0)
+      <div
+        ref={comboRef}
+        className="grid gap-2"
+        // Tab into the list (e.g. its retry button) keeps the list open.
+        onBlur={(event) => {
+          if (!comboRef.current?.contains(event.relatedTarget)) setOpen(false)
         }}
-        onFocus={openList}
-        onBlur={() => setOpen(false)}
-        onKeyDown={handleKeyDown}
-      />
+      >
+        <Input
+          ref={inputRef}
+          name="tags"
+          label={t('editor.fields.tagNames')}
+          hideLabel
+          className="w-full"
+          placeholder={t('editor.tagPicker.placeholder')}
+          role="combobox"
+          aria-expanded={isListOpen}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          aria-activedescendant={
+            isListOpen && activeItem ? optionId(activeItem) : undefined
+          }
+          aria-describedby={[hintId, errorMessage ? errorId : undefined]
+            .filter(Boolean)
+            .join(' ')}
+          aria-invalid={errorMessage ? true : undefined}
+          value={query}
+          disabled={searchDisabled}
+          onChange={(event) => {
+            setQuery(event.target.value)
+            setAnnouncement('')
+            setOpen(true)
+            setActiveIndex(0)
+          }}
+          onFocus={openList}
+          onKeyDown={handleKeyDown}
+        />
 
-      {isListOpen ? (
-        <div className="rounded-lg border border-line bg-white">
-          {isLoading ? (
-            <p className="px-3 py-3 text-sm text-muted" role="status">
-              {t('editor.tagPicker.loading')}
-            </p>
-          ) : tagsQuery.isError && searchKey !== null ? (
-            <div className="grid justify-items-start gap-2 px-3 py-3">
-              <p className="text-sm text-ink">{t('editor.tagPicker.error')}</p>
-              <Button
-                variant="outline"
-                size="sm"
-                // Keep focus in the search field while retrying.
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => void tagsQuery.refetch()}
-              >
-                {t('editor.tagPicker.retry')}
-              </Button>
-            </div>
-          ) : items.length === 0 ? (
-            <p className="px-3 py-3 text-sm text-muted">
-              {t('editor.tagPicker.empty', { query: query.trim() })}
-            </p>
-          ) : null}
-          <ul
-            id={listId}
-            role="listbox"
-            aria-label={t('editor.fields.tagNames')}
-            className={classNames(
-              'max-h-[280px] overflow-y-auto',
-              items.length === 0 && 'hidden'
-            )}
-          >
-            {items.map((item) => {
-              const isActive = item.id === activeItem?.id
-              return (
-                <li
-                  key={item.id}
-                  id={optionId(item)}
-                  role="option"
-                  aria-selected={isActive}
-                  className={classNames(
-                    'flex min-h-11 cursor-pointer items-center border-l-2 px-3 py-2 text-sm text-ink [overflow-wrap:anywhere] [word-break:keep-all]',
-                    isActive
-                      ? 'border-brand bg-surface-muted'
-                      : 'border-transparent hover:bg-surface-muted'
-                  )}
-                  // Keep focus in the search field while picking.
+        {isListOpen ? (
+          <div className="rounded-lg border border-line bg-white">
+            {isLoading ? (
+              <p className="px-3 py-3 text-sm text-muted" role="status">
+                {t('editor.tagPicker.loading')}
+              </p>
+            ) : tagsQuery.isError && searchKey !== null ? (
+              <div className="grid justify-items-start gap-2 px-3 py-3">
+                <p className="text-sm text-ink" role="alert">
+                  {t('editor.tagPicker.error')}
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  // Keep focus in the search field while retrying.
                   onMouseDown={(event) => event.preventDefault()}
-                  onClick={() => pick(item)}
+                  onClick={() => {
+                    inputRef.current?.focus()
+                    void tagsQuery.refetch()
+                  }}
                 >
-                  {item.label}
-                </li>
-              )
-            })}
-          </ul>
-          {hasMore && items.length > 0 ? (
-            <p className="border-t border-line px-3 py-2 text-sm text-muted">
-              {t('editor.tagPicker.more')}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
+                  {t('editor.tagPicker.retry')}
+                </Button>
+              </div>
+            ) : items.length === 0 ? (
+              <p className="px-3 py-3 text-sm text-muted">
+                {t('editor.tagPicker.empty', { query: query.trim() })}
+              </p>
+            ) : null}
+            <ul
+              id={listId}
+              role="listbox"
+              aria-label={t('editor.fields.tagNames')}
+              className={classNames(
+                'max-h-[280px] overflow-y-auto',
+                items.length === 0 && 'hidden'
+              )}
+            >
+              {items.map((item) => {
+                const isActive = item.id === activeItem?.id
+                return (
+                  <li
+                    key={item.id}
+                    id={optionId(item)}
+                    role="option"
+                    aria-selected={isActive}
+                    className={classNames(
+                      'flex min-h-11 cursor-pointer items-center border-l-2 px-3 py-2 text-sm text-ink [overflow-wrap:anywhere] [word-break:keep-all]',
+                      isActive
+                        ? 'border-brand bg-surface-muted'
+                        : 'border-transparent hover:bg-surface-muted'
+                    )}
+                    // Keep focus in the search field while picking.
+                    onMouseDown={(event) => event.preventDefault()}
+                    onClick={() => pick(item)}
+                  >
+                    {item.label}
+                  </li>
+                )
+              })}
+            </ul>
+            {hasMore && items.length > 0 ? (
+              <p className="border-t border-line px-3 py-2 text-sm text-muted">
+                {t('editor.tagPicker.more')}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
 
       <p
         className={classNames(
