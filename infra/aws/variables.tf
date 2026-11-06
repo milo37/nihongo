@@ -163,6 +163,17 @@ variable "erasure_schedule_expression" {
   default = "cron(0 3 * * ? *)"
 }
 
+variable "guest_cleanup_schedule_enabled" {
+  description = "Guest data cleanup (#694). Off until the owner switches it on with the first deploy."
+  type        = bool
+  default     = false
+}
+
+variable "guest_cleanup_schedule_expression" {
+  type    = string
+  default = "cron(30 * * * ? *)"
+}
+
 variable "compose_version" {
   type    = string
   default = "v5.7.0"

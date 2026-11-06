@@ -141,6 +141,7 @@ resource "aws_instance" "host" {
     render_env_sh     = file("${path.module}/files/render-env.sh")
     backup_sh         = file("${path.module}/files/backup.sh")
     erase_sh          = file("${path.module}/files/erase-deletion-pending.sh")
+    guest_cleanup_sh  = file("${path.module}/files/guest-cleanup.sh")
     cloudwatch_config = base64encode(file("${path.module}/files/cloudwatch-agent.json"))
     public_env = base64encode(join("\n", [
       "NODE_ENV=production",

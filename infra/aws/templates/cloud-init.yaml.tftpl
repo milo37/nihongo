@@ -55,6 +55,10 @@ write_files:
     permissions: '0750'
     content: |
       ${indent(6, erase_sh)}
+  - path: /opt/harumaru/bin/guest-cleanup.sh
+    permissions: '0750'
+    content: |
+      ${indent(6, guest_cleanup_sh)}
   - path: /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
     permissions: '0644'
     encoding: b64
