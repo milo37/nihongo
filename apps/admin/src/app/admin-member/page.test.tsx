@@ -20,7 +20,10 @@ import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import * as authApi from '@nihongo/browser/api/auth/getCurrentUser/index'
 import * as memberApi from '@nihongo/browser/api/admin-member/index'
 import { adminRoutes } from '@/router'
+import { preloadAdminPages } from '@/test/preloadAdminPages'
 import { actorId } from '@app/admin-question/test/questionFixture'
+
+beforeAll(preloadAdminPages)
 
 const memberId = '30000000-0000-4000-8000-000000000001'
 const summary: AdminMemberSummary = {

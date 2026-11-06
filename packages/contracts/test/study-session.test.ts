@@ -1,13 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   createStudySessionBodySchema,
-  createStudySessionErrorSchema,
-  createStudySessionResponseSchema
+  createStudySessionErrorSchema
 } from '../src/study/create-study-session.js'
-import {
-  getStudySessionParamsSchema,
-  getStudySessionResponseSchema
-} from '../src/study/get-study-session.js'
+import { getStudySessionParamsSchema } from '../src/study/get-study-session.js'
+import { studySessionPayloadSchema } from '../src/study/study-session.js'
 
 const ids = Array.from(
   { length: 12 },
@@ -100,20 +97,10 @@ describe('study session contracts', () => {
     ).toBe(false)
   })
 
-  it('create/get이 같은 canonical payload를 사용한다', () => {
-    expect(createStudySessionResponseSchema.parse(payload)).toEqual(payload)
-    expect(getStudySessionResponseSchema.parse(payload)).toEqual(payload)
+  it('canonical payload와 종료된 세션 payload를 통과시킨다', () => {
+    expect(studySessionPayloadSchema.parse(payload)).toEqual(payload)
     expect(
-      createStudySessionResponseSchema.safeParse({
-        ...payload,
-        session: {
-          ...payload.session,
-          status: 'CANCELLED'
-        }
-      }).success
-    ).toBe(false)
-    expect(
-      getStudySessionResponseSchema.safeParse({
+      studySessionPayloadSchema.safeParse({
         ...payload,
         session: {
           ...payload.session,
@@ -125,19 +112,19 @@ describe('study session contracts', () => {
 
   it('count·ordinal·fallback metadata 불일치를 거부한다', () => {
     expect(
-      createStudySessionResponseSchema.safeParse({
+      studySessionPayloadSchema.safeParse({
         ...payload,
         session: { ...payload.session, actualCount: 2 }
       }).success
     ).toBe(false)
     expect(
-      createStudySessionResponseSchema.safeParse({
+      studySessionPayloadSchema.safeParse({
         ...payload,
         questions: [{ ...payload.questions[0], ordinal: 2 }]
       }).success
     ).toBe(false)
     expect(
-      createStudySessionResponseSchema.safeParse({
+      studySessionPayloadSchema.safeParse({
         ...payload,
         session: {
           ...payload.session,
@@ -147,7 +134,7 @@ describe('study session contracts', () => {
       }).success
     ).toBe(false)
     expect(
-      createStudySessionResponseSchema.safeParse({
+      studySessionPayloadSchema.safeParse({
         ...payload,
         session: {
           ...payload.session,
@@ -164,7 +151,7 @@ describe('study session contracts', () => {
       { submittedAt: null, durationSec: 1_800 }
     ]) {
       expect(
-        createStudySessionResponseSchema.safeParse({
+        studySessionPayloadSchema.safeParse({
           ...payload,
           session: { ...payload.session, ...partial }
         }).success
@@ -186,13 +173,13 @@ describe('study session contracts', () => {
       { createdByUserId: ids[9] }
     ]) {
       expect(
-        createStudySessionResponseSchema.safeParse({
+        studySessionPayloadSchema.safeParse({
           ...payload,
           session: { ...payload.session, ...leaked }
         }).success
       ).toBe(false)
       expect(
-        createStudySessionResponseSchema.safeParse({
+        studySessionPayloadSchema.safeParse({
           ...payload,
           questions: [
             {
