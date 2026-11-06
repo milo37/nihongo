@@ -186,6 +186,14 @@ volumes; release `aeb65e4e`, the current migrations):
   added, the API refused to start (see A).
 - Path B: removed the data volume, `.env` and `current-release`, restored onto a
   new volume. Same 42-table match, `capability current`, readiness 200.
+- Re-apply erasure (#704 build `3a8188ad`): two users with Google accounts,
+  daily dump, then one signed in (session and re-auth proof made with the
+  API's own functions, no Google) and sent `POST /api/auth/sso/delete-account`
+  (202, `DELETION_PENDING`; one `auth.account_erasure.requested` line with
+  only `userId`). After path A from that dump the user was `ACTIVE` again. The
+  saved API log, filtered like the Logs Insights query (event, time from dump −
+  1 h, distinct `userId`), gave a file with exactly that user's id; the other
+  user was not listed. The query itself runs on AWS only.
 
 `operations/recovery-contract.v1.json` and `pnpm recovery:verify` are older
 provider-neutral TEST checks. They are not part of this procedure.
