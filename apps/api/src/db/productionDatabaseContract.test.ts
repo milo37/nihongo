@@ -219,6 +219,43 @@ describe('production runtime login contract (B2)', () => {
     expect(production(databaseUrl)).toThrow()
   })
 
+  describe('STAGING deployment', () => {
+    const staging = (databaseUrl: string) => () =>
+      parseApiEnvironment({
+        ...productionInput(databaseUrl),
+        DEPLOYMENT_ENVIRONMENT: 'STAGING'
+      })
+
+    it('accepts the provisioned nihongo database and production app login', () => {
+      expect(staging(runtimeUrl)).not.toThrow()
+    })
+
+    it.each([
+      [
+        'the test database and login',
+        change(runtimeUrl, (url) => {
+          url.username = 'nihongo_test_app_login'
+          url.pathname = '/nihongo_test'
+        })
+      ],
+      [
+        'the development database and login',
+        change(runtimeUrl, (url) => {
+          url.username = 'nihongo_development_app_login'
+          url.pathname = '/nihongo_dev'
+        })
+      ],
+      [
+        'a missing sslmode',
+        change(runtimeUrl, (url) => {
+          url.searchParams.delete('sslmode')
+        })
+      ]
+    ])('rejects %s', (_label, databaseUrl) => {
+      expect(staging(databaseUrl)).toThrow('DATABASE_URL')
+    })
+  })
+
   it('keeps the production-shaped TEST smoke on its test database and login', () => {
     const smoke = (databaseUrl: string) => () =>
       parseApiEnvironment({
@@ -349,7 +386,29 @@ describe('production runtime role attestation (B2)', () => {
     ).rejects.toThrow('Runtime DB role attestation failed.')
   })
 
-  it('rejects the production database outside the PRODUCTION deployment', async () => {
+  it('accepts the production app login on nihongo in the STAGING deployment', async () => {
+    await expect(
+      attest(evidence(), runtimeUrl, 'STAGING')
+    ).resolves.toBeUndefined()
+  })
+
+  it('rejects the test database and login in the STAGING deployment', async () => {
+    await expect(
+      attest(
+        evidence({
+          currentDatabase: 'nihongo_test',
+          sessionUser: 'nihongo_test_app_login'
+        }),
+        change(runtimeUrl, (url) => {
+          url.username = 'nihongo_test_app_login'
+          url.pathname = '/nihongo_test'
+        }),
+        'STAGING'
+      )
+    ).rejects.toThrow('Runtime DB role attestation failed.')
+  })
+
+  it('rejects the production database outside the PRODUCTION and STAGING deployments', async () => {
     await expect(attest(evidence(), runtimeUrl, 'TEST')).rejects.toThrow(
       'Runtime DB role attestation failed.'
     )

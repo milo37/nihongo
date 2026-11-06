@@ -382,7 +382,8 @@ const expectedWrapperRole = (
   deploymentEnvironment: string | undefined
 ): string | null => {
   const environmentPrefix =
-    deploymentEnvironment === 'PRODUCTION'
+    deploymentEnvironment === 'PRODUCTION' ||
+    deploymentEnvironment === 'STAGING'
       ? database === PRODUCTION_DATABASE_NAME
         ? PRODUCTION_LOGIN_PREFIX
         : null

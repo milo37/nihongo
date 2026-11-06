@@ -45,10 +45,12 @@ const databaseLoginContract = (
   } catch {
     return null
   }
-  // The PRODUCTION deployment only accepts its own database; no other
-  // deployment (including production-shaped TEST smoke) may use it.
+  // PRODUCTION and STAGING deployments only accept the provisioned nihongo
+  // database; no other deployment (including production-shaped TEST smoke)
+  // may use it.
   const prefix =
-    deploymentEnvironment === 'PRODUCTION'
+    deploymentEnvironment === 'PRODUCTION' ||
+    deploymentEnvironment === 'STAGING'
       ? database === PRODUCTION_DATABASE_NAME
         ? PRODUCTION_LOGIN_PREFIX
         : null
