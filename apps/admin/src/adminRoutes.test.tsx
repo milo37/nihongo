@@ -15,7 +15,10 @@ import { invalidateCanonicalAuthTransitions } from '@nihongo/browser/app/login/a
 import * as authApi from '@nihongo/browser/api/auth/getCurrentUser/index'
 import * as listApi from '@api/admin-question/listAdminQuestion/index'
 import { adminRoutes } from '@/router'
+import { preloadAdminPages } from '@/test/preloadAdminPages'
 import { question, actorId } from '@app/admin-question/test/questionFixture'
+
+beforeAll(preloadAdminPages)
 
 let client: QueryClient
 beforeEach(() => {
