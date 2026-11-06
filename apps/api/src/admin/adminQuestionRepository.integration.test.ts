@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { Prisma } from '../generated/prisma/client.js'
 import {
   adminAuditLogItemSchema,
@@ -914,6 +914,52 @@ describe('Admin read TEST database integration', () => {
 
   it('keeps every CMS domain table unchanged across all read routes', async () => {
     expect(await readDomainTableCounts()).toEqual(baselineDomainTableCounts)
+  })
+
+  it('filters the tag list by subject, returns each subject and hides RETIRED tags (JLP-733)', async () => {
+    const prefix = `jlp733-${randomUUID().slice(0, 8)}`
+    const rows = [
+      [randomUUID(), `${prefix}-a`, 'grammar', 'GRAMMAR', 'ACTIVE'],
+      [randomUUID(), `${prefix}-b`, 'vocab', 'VOCABULARY', 'ACTIVE'],
+      [randomUUID(), `${prefix}-c`, 'grammar', 'GRAMMAR', 'RETIRED']
+    ] as const
+    for (const [id, name, keyPrefix, subject, status] of rows) {
+      await adminClient.query(
+        `INSERT INTO "Tag" ("id", "label", "normalizedName", "key",
+           "subject", "status", "createdAt", "updatedAt")
+         VALUES ($1, $2, $2, $3, $4::"QuestionSubject", $5::"TagStatus",
+           clock_timestamp(), clock_timestamp())`,
+        [id, name, `${keyPrefix}.${name}`, subject, status]
+      )
+    }
+    const list = async (query: string) => {
+      const response = await app.request(`/api/v1/admin/tags?${query}`)
+      expect(response.status).toBe(200)
+      return listAdminTagsResponseSchema
+        .parse(await response.json())
+        .items.map(({ normalizedName, subject }) => [normalizedName, subject])
+    }
+    try {
+      expect(await list(`q=${prefix}&limit=50`)).toEqual([
+        [`${prefix}-a`, 'GRAMMAR'],
+        [`${prefix}-b`, 'VOCABULARY']
+      ])
+      expect(await list(`q=${prefix}&subject=GRAMMAR`)).toEqual([
+        [`${prefix}-a`, 'GRAMMAR']
+      ])
+      expect(await list(`q=${prefix}&subject=READING`)).toEqual([])
+      // Without q the subject filter alone still applies.
+      expect(
+        (await list('subject=VOCABULARY&limit=50')).every(
+          ([, subject]) => subject === 'VOCABULARY'
+        )
+      ).toBe(true)
+    } finally {
+      await adminClient.query(
+        `DELETE FROM "Tag" WHERE "id" = ANY($1::uuid[])`,
+        [rows.map(([id]) => id)]
+      )
+    }
   })
 
   it('selects candidate, then current published, then highest retained with selected-version stats', async () => {
