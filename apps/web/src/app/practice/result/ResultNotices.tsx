@@ -1,11 +1,30 @@
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 import type { PracticeResultBookmark } from '@app/practice/hooks/usePracticeResultBookmark'
 import type { ResultRetryStatusCode } from '@app/practice/hooks/usePracticeResultController'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
 import { AccountRestrictedNotice } from '@common/components/AccountRestrictedNotice'
+
+/** Amber status line; `live` announces changes politely. */
+const WarningNotice = ({
+  spaced = false,
+  live = false,
+  children
+}: {
+  spaced?: boolean
+  live?: boolean
+  children: ReactNode
+}): ReactElement => (
+  <p
+    className={`${spaced ? 'mt-4 ' : ''}rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm font-semibold text-warning-strong`}
+    role="status"
+    aria-live={live ? 'polite' : undefined}
+  >
+    {children}
+  </p>
+)
 
 type ResultSourceNoticeProps = {
   isError: boolean
@@ -80,14 +99,7 @@ export const ResultRetryNotice = ({
     )
   }
   if (incorrectCount > 0 && !canRequestCanonicalRetry) {
-    return (
-      <p
-        className="mt-4 rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm font-semibold text-warning-strong"
-        role="status"
-      >
-        {t('retry.unsupported')}
-      </p>
-    )
+    return <WarningNotice spaced>{t('retry.unsupported')}</WarningNotice>
   }
   if (incorrectCount === 0) {
     return (
@@ -101,13 +113,9 @@ export const ResultRetryNotice = ({
   }
   if (isRetryPaused) {
     return (
-      <p
-        className="mt-4 rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm font-semibold text-warning-strong"
-        role="status"
-        aria-live="polite"
-      >
+      <WarningNotice spaced live>
         {t('retry.offline')}
-      </p>
+      </WarningNotice>
     )
   }
   if (isRetryAccountRestricted) {
@@ -126,13 +134,9 @@ export const ResultRetryNotice = ({
   }
   if (retryMessage) {
     return (
-      <p
-        className="mt-4 rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm font-semibold text-warning-strong"
-        role="status"
-        aria-live="polite"
-      >
+      <WarningNotice spaced live>
         {t(`retry.${retryMessage}`)}
-      </p>
+      </WarningNotice>
     )
   }
   return null
@@ -152,21 +156,10 @@ export const ResultBookmarkNotices = ({
   return (
     <>
       {isMutationPaused ? (
-        <p
-          className="rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm font-semibold text-warning-strong"
-          role="status"
-          aria-live="polite"
-        >
-          {t('bookmark.offline')}
-        </p>
+        <WarningNotice live>{t('bookmark.offline')}</WarningNotice>
       ) : null}
       {!isGuest && bookmarksQuery.fetchStatus === 'paused' ? (
-        <p
-          className="rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm font-semibold text-warning-strong"
-          role="status"
-        >
-          {t('bookmark.loadOffline')}
-        </p>
+        <WarningNotice>{t('bookmark.loadOffline')}</WarningNotice>
       ) : !isGuest && bookmarksQuery.isError ? (
         <div
           className="flex flex-wrap items-center gap-3 rounded-lg border border-danger-line bg-danger-soft p-4 text-sm font-semibold text-danger"
