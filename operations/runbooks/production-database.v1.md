@@ -109,9 +109,8 @@ recreated while another container held an address kept `172.30.1.10` and the
 API stayed ready; deleting the row made readiness 503 and the script wrote it
 again; a wrong port or another environment in the row stopped the script.
 
-## Open
-
-- STAGING: until #649 is merged, `registerDatabaseCapabilityCommand` refuses
-  `DEPLOYMENT_ENVIRONMENT=STAGING`, so a STAGING deploy stops at step 5.
-  The backend PR #649 (JLP-734) lets this one command register a
-  PRODUCTION row on STAGING; rehearse STAGING after it lands.
+STAGING (after #649, release `0d2f860d`): the same empty-database run with
+`DEPLOYMENT_ENVIRONMENT=STAGING` registered the row as `PRODUCTION`
+(`nihongo|172.30.1.10|5432|PRODUCTION`), `/health/ready` returned 200, and a
+second run kept the row (`capability current`). The first-admin command still
+refuses STAGING (exit 1), as intended.
