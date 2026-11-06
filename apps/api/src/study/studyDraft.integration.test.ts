@@ -377,6 +377,33 @@ const createBarrier = () => {
   }
 }
 
+// Bounded poll: release only after another backend is blocked on a lock.
+// pg_blocking_pids works without pg_read_all_stats; the app role cannot read
+// other sessions' wait_event columns.
+const waitForBlockedBackend = async (): Promise<void> => {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const [row] = await database.client.$queryRaw<Array<{ waiting: number }>>`
+      SELECT count(*)::int AS "waiting"
+      FROM pg_catalog.pg_stat_activity
+      WHERE datname = current_database()
+        AND pid <> pg_backend_pid()
+        AND cardinality(pg_catalog.pg_blocking_pids(pid)) > 0
+    `
+    if ((row?.waiting ?? 0) > 0) return
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+}
+
+const toObservedRejectionCode = (error: unknown): string => {
+  const code: unknown =
+    error && typeof error === 'object' && 'code' in error
+      ? (error as { code?: unknown }).code
+      : undefined
+  return typeof code === 'string' && /^[A-Z0-9_]{1,64}$/u.test(code)
+    ? code
+    : 'OTHER'
+}
+
 beforeAll(async () => {
   await database.checkReadiness()
   if (erasureWorkerClient) {
@@ -1278,6 +1305,7 @@ describe('StudyDraft PostgreSQL integration', () => {
       | 'SAVE_BEFORE_SUBMIT'
       | 'SUBMIT_BEFORE_SAVE'
       | 'FINAL_STATES' = 'SETUP'
+    let lockRaceRejectedCode: string | null = null
     onTestFailed(({ task, signal }) => {
       try {
         const error: unknown = task.result?.errors?.[0]
@@ -1313,7 +1341,7 @@ describe('StudyDraft PostgreSQL integration', () => {
         // fd 1 directly: the JSON reporter drops captured test stdout (#395).
         writeSync(
           1,
-          `${JSON.stringify({ event: 'study_draft_lock_race_failure', stage: lockRaceStage, category })}\n`
+          `${JSON.stringify({ event: 'study_draft_lock_race_failure', stage: lockRaceStage, category, rejectedCode: lockRaceRejectedCode })}\n`
         )
       } catch {
         // Diagnostic output must not change the failure.
@@ -1458,6 +1486,10 @@ describe('StudyDraft PostgreSQL integration', () => {
       },
       owner
     )
+    submitAfterSave.catch((error: unknown) => {
+      lockRaceRejectedCode = toObservedRejectionCode(error)
+    })
+    await waitForBlockedBackend()
     saveBeforeSubmitBarrier.release()
     await expect(saveBeforeSubmit).resolves.toMatchObject({ replayed: false })
     await expect(submitAfterSave).rejects.toMatchObject({
