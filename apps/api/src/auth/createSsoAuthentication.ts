@@ -24,6 +24,7 @@ import {
   type OwnedSessionClient
 } from './ownedSessionAuthority.js'
 import type { AuthFacade } from './authFacade.js'
+import type { StructuredLogger } from '../observability/logger.js'
 
 /** Source-only composition: no mail/password adapter or CMS enablement. */
 export const createSsoAuthentication = ({
@@ -31,13 +32,15 @@ export const createSsoAuthentication = ({
   applicationClient,
   gatewayClient,
   rateLimiter,
-  providers = createConfiguredSsoProviders(environment)
+  providers = createConfiguredSsoProviders(environment),
+  logger
 }: {
   environment: ApiEnvironment
   applicationClient: Pick<PrismaClient, '$queryRawUnsafe'>
   gatewayClient: OwnedSessionClient
   rateLimiter: ApplicationRateLimiter
   providers?: Partial<Record<SsoProviderId, SsoProvider>>
+  logger?: StructuredLogger
 }) => {
   const principalService = createOwnedPrincipalService({
     client: applicationClient,
@@ -53,7 +56,12 @@ export const createSsoAuthentication = ({
   const accountRuntime = createSsoAccountRuntime({
     environment,
     providers,
-    port: createSsoAccountRepository(gatewayClient)
+    port: createSsoAccountRepository(gatewayClient, (userId) =>
+      logger?.info('auth.account_erasure.requested', {
+        userId,
+        occurredAt: new Date().toISOString()
+      })
+    )
   })
   const social = createSsoPublicRuntime({
     environment,

@@ -120,7 +120,10 @@ const transactionSchema = z
   .refine((v) => v.provider === v.context.provider)
 const errorSchema = z.object({ code: ssoAccountErrorCodeSchema }).strict()
 export const createSsoAccountRepository = (
-  client: Pick<PrismaClient, '$queryRawUnsafe' | '$transaction'>
+  client: Pick<PrismaClient, '$queryRawUnsafe' | '$transaction'>,
+  // Runs after the request commits; #669 keeps the User id outside the
+  // database so a restore can re-apply erasures requested after its dump.
+  onErasureRequested?: (userId: string) => void
 ): SsoAccountPort => {
   return {
     prepare: async (token, provider, purpose, proof) => {
@@ -193,10 +196,15 @@ export const createSsoAccountRepository = (
       z
         .union([unlinkSsoAccountResponseSchema, errorSchema])
         .parse(await unlinkAccount(client, token, provider, available, proof)),
-    requestErasure: async (token, proof, receipt) =>
-      z
-        .union([ssoAccountDeletionSchema, errorSchema])
-        .parse(await requestSsoAccountErasure(client, token, proof, receipt)),
+    requestErasure: async (token, proof, receipt) => {
+      const raw = await requestSsoAccountErasure(client, token, proof, receipt)
+      if (!('userId' in raw))
+        return z.union([ssoAccountDeletionSchema, errorSchema]).parse(raw)
+      const { userId, ...accepted } = raw
+      const result = ssoAccountDeletionSchema.parse(accepted)
+      onErasureRequested?.(userId)
+      return result
+    },
     erasureStatus: async (receipt) => {
       const raw = await ssoAccountErasureStatus(client, receipt)
       return raw === null ? null : ssoAccountDeletionSchema.parse(raw)

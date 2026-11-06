@@ -111,7 +111,8 @@ const ssoAuthentication = createSsoAuthentication({
   environment,
   applicationClient: database.client,
   gatewayClient: database.client,
-  rateLimiter: applicationRateLimiter
+  rateLimiter: applicationRateLimiter,
+  logger
 })
 const guestPrincipalService = createGuestPrincipalService({
   client: database.client,
