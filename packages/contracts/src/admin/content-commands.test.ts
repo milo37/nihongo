@@ -707,14 +707,16 @@ describe('Admin command contracts', () => {
 
   it('13 command의 closed error union을 common transport와 domain code로 exact 고정한다', () => {
     expectExactCodes(createAdminQuestionErrorCodeSchema.options, [
-      'DUPLICATE_QUESTION_CONTENT'
+      'DUPLICATE_QUESTION_CONTENT',
+      'TAG_SUBJECT_MISMATCH'
     ])
     expectExactCodes(createAdminQuestionVersionErrorCodeSchema.options, [
       'INVALID_ID',
       'RESOURCE_NOT_FOUND',
       'VERSION_CONFLICT',
       'INVALID_STATE_TRANSITION',
-      'DUPLICATE_QUESTION_CONTENT'
+      'DUPLICATE_QUESTION_CONTENT',
+      'TAG_SUBJECT_MISMATCH'
     ])
     expectExactCodes(updateQuestionVersionErrorCodeSchema.options, [
       'FORBIDDEN',
@@ -723,7 +725,8 @@ describe('Admin command contracts', () => {
       'VERSION_CONFLICT',
       'QUESTION_VERSION_IMMUTABLE',
       'INVALID_STATE_TRANSITION',
-      'DUPLICATE_QUESTION_CONTENT'
+      'DUPLICATE_QUESTION_CONTENT',
+      'TAG_SUBJECT_MISMATCH'
     ])
     expectExactCodes(archiveAdminQuestionErrorCodeSchema.options, [
       'FRESH_ASSURANCE_REQUIRED',
