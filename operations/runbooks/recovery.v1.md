@@ -16,8 +16,8 @@ maintenance or generation lease. Never infer an environment from a hostname.
 migration `20261105090000_baseline`
 (file SHA256 `6e71cb629fbeefccf3dcecf6bac3fbb2c90aa812da88e3d2249ca8af19bbfb3c`) followed by the forward
 migrations `20261106090000_remove_phase_names`,
-`20261107090000_first_admin_production` and `20261108090000_remove_tag_applicability_and_snapshots`, with ordered inventory digest
-`7c982a0d5f1961c982d0dba85a4c872f50d567f3cdf4e863a095b54853fffc0d`, for TEST, STAGING and PRODUCTION. The baseline replaced the 76
+`20261107090000_first_admin_production`, `20261108090000_remove_tag_applicability_and_snapshots` and `20261109090000_add_tag_key_subject_status`, with ordered inventory digest
+`4c837ceabcc52839c21ac952dd26d7a97726f1ac2f7c1cc1bf373ac77eecbce5`, for TEST, STAGING and PRODUCTION. The baseline replaced the 76
 migrations up to `20261122090000_trusted_execution_drop`; a database migrated
 before it is recreated, not upgraded, and no earlier inventory is a recovery
 profile or fallback. Staging and Production are not activated, so no recovery

@@ -13,8 +13,9 @@ permission has been provisioned or verified by this document.
    `DEVELOPMENT_GUEST_CLEANUP_WORKER_PASSWORD` inputs. It is
    fresh-volume bootstrap, not an existing-volume upgrade.
 2. Apply the `20261105090000_baseline`, `20261106090000_remove_phase_names`,
-   `20261107090000_first_admin_production` and
-   `20261108090000_remove_tag_applicability_and_snapshots` migrations with the
+   `20261107090000_first_admin_production`,
+   `20261108090000_remove_tag_applicability_and_snapshots` and
+   `20261109090000_add_tag_key_subject_status` migrations with the
    `nihongo_{test,development}_migration_login` wrapper (role
    `nihongo_migration`).
 3. Persistent local provisioning grants the guest login CONNECT on its own
