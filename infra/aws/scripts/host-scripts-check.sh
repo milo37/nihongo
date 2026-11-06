@@ -2,7 +2,7 @@
 # Run from infra/aws. Exercises the host scripts that read SSM values with stub
 # `aws` and `docker` commands and scratch paths (no AWS, no database):
 # - render-env.sh writes the migrate container's runtime/production URLs without
-#   passwords and leaves api.env intact;
+#   passwords, leaves api.env intact and refuses missing Google OAuth values;
 # - provision-db.sh, erase-deletion-pending.sh and guest-cleanup.sh treat SSM values as data, so
 #   $(...) and `...` are never run, and unknown keys are refused.
 set -euo pipefail
@@ -61,6 +61,7 @@ base=(
   BETTER_AUTH_SECRET s1 GUEST_COOKIE_SECRET s2 ORIGIN_VERIFY_SECRET s3
   PROD_MIGRATION_LOGIN_PASSWORD "$mig_pw"
   PROD_APP_LOGIN_PASSWORD "$app_pw"
+  GOOGLE_CLIENT_ID google_client_id GOOGLE_CLIENT_SECRET google_client_secret
 )
 
 # 1. render-env.sh: passwords only where the container needs them.
@@ -74,6 +75,14 @@ fi
 grep -q '^DATABASE_URL=postgresql://nihongo_production_app_login@postgres:5432/nihongo?' "$work/run/migrate.env" \
   || { echo "migrate.env runtime URL identity changed" >&2; exit 1; }
 echo "ok render-env: migrate.env has identity-only runtime and production URLs"
+
+# Without the Google OAuth client the site would start with no way to sign in.
+params "${base[@]/#GOOGLE_CLIENT_SECRET/GOOGLE_CLIENT_SECRET_UNUSED}" PROD_GUEST_CLEANUP_LOGIN_PASSWORD guest_password_dddddddddddddd
+if "$work/bin/render-env.sh" 2>"$work/err"; then
+  echo "render-env accepted a missing GOOGLE_CLIENT_SECRET" >&2; exit 1
+fi
+grep -q 'missing SSM parameters: GOOGLE_CLIENT_SECRET' "$work/err" || { cat "$work/err" >&2; exit 1; }
+echo "ok render-env: missing Google OAuth values refused"
 
 # 2. provision-db.sh: a command substitution in an SSM value is never run.
 for payload in "\$(touch $marker)" "\`touch $marker\`"; do

@@ -19,6 +19,8 @@ required = [
     "POSTGRES_PASSWORD", "DATABASE_URL", "MIGRATION_DATABASE_URL", "PRODUCTION_DATABASE_URL",
     "BETTER_AUTH_SECRET", "GUEST_COOKIE_SECRET", "ORIGIN_VERIFY_SECRET",
     "PROD_MIGRATION_LOGIN_PASSWORD", "PROD_APP_LOGIN_PASSWORD", "PROD_GUEST_CLEANUP_LOGIN_PASSWORD",
+    # Google is the only sign-in; without it the site starts but nobody can log in.
+    "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET",
 ]
 missing = [k for k in required if k not in params]
 if missing:
