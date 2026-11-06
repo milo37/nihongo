@@ -72,7 +72,7 @@ aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUT
 
 - `harumaru-<env>-guest-cleanup` SSM 문서가 `guest-cleanup.sh`로 배포된 이미지의 `studyGuestCleanupRuntime.js`를 한 번 돌립니다. 만료 7일 지난 비회원 기록·임시저장, 비회원 식별자, 끝난 재요청 기록, 제한 창이 끝나고 7일 지난 요청 제한 기록을 지웁니다. 한 번에 최대 1,000행이고, 남으면 종료 코드 1입니다.
 - 예약은 매시 30분(Asia/Tokyo)이고 기본 `DISABLED`입니다. `guest_cleanup_schedule_enabled = true`로 켭니다. 절차는 [operations/runbooks/guest-cleanup-worker.v1.md](../../operations/runbooks/guest-cleanup-worker.v1.md) 'AWS host'.
-- 회원의 만료 임시저장 정리(`studyDraftCleanupCommand`)는 아직 운영 환경을 거부해서 여기 없습니다(BE 변경 뒤 추가).
+- 회원의 만료 임시저장 정리(`studyDraftCleanupCommand`)는 아직 운영 환경을 거부해서 여기 없습니다(BE 변경, 배포 이후 #699).
 
 ## 비용 방어
 
