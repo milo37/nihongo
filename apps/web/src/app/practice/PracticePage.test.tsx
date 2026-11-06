@@ -1,5 +1,11 @@
 import { QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor, within } from '@testing-library/react'
+import {
+  cleanup,
+  render,
+  screen,
+  waitFor,
+  within
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { createMemoryRouter, RouterProvider } from 'react-router'
@@ -45,6 +51,28 @@ const renderPractice = (search: string, { globalErrors = false } = {}) => {
 }
 
 describe('PracticePage setup', () => {
+  it('게스트의 기본값은 N5 어휘 10문제다', async () => {
+    renderPractice('')
+    expect(
+      await screen.findByRole('button', { name: 'N5 어휘 · 10문제 시작' })
+    ).toBeInTheDocument()
+  })
+
+  it('로그인 사용자의 기본 급수는 목표 급수이고 URL 값이 우선한다', async () => {
+    const user = mockDatabase.loginAs('USER')
+    expect(user.targetLevel).toBe('N2')
+    renderPractice('')
+    expect(
+      await screen.findByRole('button', { name: 'N2 어휘 · 10문제 시작' })
+    ).toBeInTheDocument()
+
+    cleanup()
+    renderPractice('?level=N4&subject=READING&count=5')
+    expect(
+      await screen.findByRole('button', { name: 'N4 독해 · 5문제 시작' })
+    ).toBeInTheDocument()
+  })
+
   it('선택한 조건으로 세션을 만들고 학습 화면으로 이동한다', async () => {
     const router = renderPractice('?level=N5&subject=VOCABULARY&count=5')
     const start = await screen.findByRole('button', {

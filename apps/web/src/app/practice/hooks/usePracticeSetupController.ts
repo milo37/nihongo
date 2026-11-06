@@ -6,6 +6,7 @@ import { useCancelStudySession } from '@app/practice/hooks/useCancelStudySession
 import { useListResumableStudySessions } from '@app/practice/hooks/useListResumableStudySessions'
 import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
 import {
+  FALLBACK_LEVEL,
   getInitialCount,
   getInitialLevel,
   getInitialSubject,
@@ -36,7 +37,8 @@ export const usePracticeSetupController = (
   const beginPractice = useAppStore((state) => state.beginPractice)
   const storedSessionId = useAppStore((state) => state.sessionId)
   const [cancelSessionId, setCancelSessionId] = useState<string | null>(null)
-  const level = getInitialLevel(searchParams.get('level'))
+  const defaultLevel = user?.targetLevel ?? FALLBACK_LEVEL
+  const level = getInitialLevel(searchParams.get('level'), defaultLevel)
   const subject = getInitialSubject(searchParams.get('subject'))
   const count = getInitialCount(searchParams.get('count'))
   const mode = getRequestedMode(searchParams.get('mode'))
@@ -168,6 +170,7 @@ export const usePracticeSetupController = (
     cancelSessionId,
     canLoadResumableSessions,
     changeSetting,
+    defaultLevel,
     confirmCancel,
     count,
     getResumablePageHref: (page: number) =>

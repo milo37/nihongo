@@ -914,10 +914,14 @@ const startVocabularySessionThroughUi = async (
     const radio = page.getByRole('radio', { name: label, exact: true })
     const choice = page.locator('label.choice-option').filter({ has: radio })
     await expect(choice).toHaveCount(1)
+    // A default choice (target level, VOCABULARY, 10) stays out of the URL.
+    const isDefault =
+      (await radio.isChecked()) &&
+      new URL(page.url()).searchParams.get(parameter) === null
     await choice.click()
     await expect(radio).toBeChecked()
     await expect(page).toHaveURL(
-      (url) => url.searchParams.get(parameter) === value
+      (url) => url.searchParams.get(parameter) === (isDefault ? null : value)
     )
   }
   await expect(
