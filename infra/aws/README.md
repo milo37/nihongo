@@ -30,7 +30,7 @@
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `compute.tf`              | EC2, EIP, 보안그룹, 인스턴스 역할(SSM 경로 읽기, ECR pull, 백업 PutObject만), 데이터 볼륨, DLM 주간 스냅샷          |
 | `edge.tf`                 | CloudFront 배포, origin 비밀 헤더(값은 SSM에도 저장), WAF web ACL(us-east-1)                                        |
-| `registry.tf`             | ECR(태그 불변, push 시 스캔, 최근 10개 보존)                                                                        |
+| `registry.tf`             | ECR(태그 불변, push 시 스캔, 릴리스 10개 보존: `<SHA>`·`<SHA>-migrate`)                                             |
 | `backup.tf`               | 백업 버킷(공개 차단, SSE, TLS 강제, 30일 수명주기)                                                                  |
 | `monitoring.tf`           | SNS 메일, 경보 7개(상태 검사+자동 복구, CPU, CPU 크레딧, 메모리, 디스크, CloudFront 5xx, 백업 누락), 로그 그룹 14일 |
 | `cost.tf`                 | 월 5,000엔(세포함)을 USD로 환산한 Budgets, 50/80/100% 실제·100% 예측 알림, 100% 초과 시 EC2 정지, Cost Anomaly      |
@@ -43,7 +43,7 @@
 
 앱 비밀값은 Terraform이 만들지도 읽지도 않아서 state에 남지 않습니다. 예외는 origin 비밀 헤더 `ORIGIN_VERIFY_SECRET` 하나입니다. CloudFront 설정에 값이 들어가야 하므로 Terraform이 만들어 SSM에도 쓰고, 그래서 **state에 남습니다**. state는 운영자 로컬이나 암호화된 비공개 backend에만 둡니다. 첫 배포 전에 운영자가 아래 이름으로 SecureString을 한 번 씁니다(`output secret_parameter_names`). 호스트는 부팅·배포 때 tmpfs(`/run/harumaru`)로만 읽습니다.
 
-`/harumaru/<env>/POSTGRES_PASSWORD`, `DATABASE_URL`(`sslmode=require` 필수), `MIGRATION_DATABASE_URL`, `BETTER_AUTH_SECRET`, `GUEST_COOKIE_SECRET`(앞의 값과 달라야 함), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `PRODUCTION_DATABASE_URL`(계정 삭제 명령 전용, API 런타임에는 넘기지 않음). origin TLS를 켤 때만 `ORIGIN_TLS_CERT_B64`, `ORIGIN_TLS_KEY_B64`도 씁니다.
+`/harumaru/<env>/POSTGRES_PASSWORD`, `DATABASE_URL`(`sslmode=require` 필수), `MIGRATION_DATABASE_URL`, `BETTER_AUTH_SECRET`, `GUEST_COOKIE_SECRET`(앞의 값과 달라야 함), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `PRODUCTION_DATABASE_URL`(계정 삭제 명령·migration 대상 확인용, API 런타임에는 넘기지 않음), DB login 비밀번호 `PROD_MIGRATION_LOGIN_PASSWORD`·`PROD_APP_LOGIN_PASSWORD`·`PROD_GUEST_CLEANUP_LOGIN_PASSWORD`(서로 다른 24자 이상, URL-safe). `DATABASE_URL`은 `nihongo_production_app_login`, `MIGRATION_DATABASE_URL`은 `nihongo_production_migration_login`과 같은 비밀번호를 쓰고 DB 이름은 `nihongo`입니다(`provision-db.sh`가 대조). origin TLS를 켤 때만 `ORIGIN_TLS_CERT_B64`, `ORIGIN_TLS_KEY_B64`도 씁니다.
 
 ```sh
 aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUTH_SECRET --value "$(openssl rand -base64 48)"
@@ -51,11 +51,13 @@ aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUT
 
 ## 배포 흐름
 
-1. `main` 병합 → CI → OIDC 역할로 이미지를 `ECR:<전체 SHA>`로 push
+1. `main` 병합 → `.github/workflows/release-image.yml`(arm64)이 OIDC 역할로 `ECR:<SHA>`(런타임)와 `ECR:<SHA>-migrate`(Dockerfile `migrate` 단계, Prisma CLI와 migration만)를 push. 저장소 변수 `AWS_DEPLOY_ROLE_ARN`·`ECR_REPOSITORY_URL`·`AWS_REGION`을 넣기 전에는 건너뜁니다.
 2. `aws ssm send-command --document-name harumaru-<env>-deploy --parameters releaseId=<SHA>`
-3. 호스트의 `deploy.sh`: 비밀값 갱신 → pull → postgres 기동 → **migration** → api 재시작 → `/health/ready`의 `x-release-id` 확인 → 실패하면 직전 이미지로 롤백
+3. 호스트의 `deploy.sh`: 비밀값 갱신 → 두 이미지 pull → postgres 기동 → `provision-db.sh`(DB 역할 생성·검증) → `migrate.sh`(S3에 `pg_dump` 스냅샷 → `prisma migrate deploy` 1회성 컨테이너) → api 재시작 → `/health/ready`의 `x-release-id` 확인 → 실패하면 직전 이미지로 롤백
 
-**막힌 점(백엔드 소관):** 런타임 이미지에 Prisma CLI가 없고(devDependency), 운영 migration 주체도 정의되지 않았습니다(`operations/runbooks/account-erasure.v2.md`). 그래서 `deploy.sh`는 `/opt/harumaru/bin/migrate.sh`가 없으면 배포를 거부합니다. DB 역할 생성(`nihongo_app` 등)도 같은 문제로 정해져야 합니다.
+절차·롤백은 [operations/runbooks/production-database.v1.md](../../operations/runbooks/production-database.v1.md)에 있습니다.
+
+**아직 막힌 점(백엔드 소관):** 앱의 migration 안전장치(`databaseTargetGuard.ts`)·실행 역할 검사(`runtimeRoleAttestation.ts`)·baseline migration 사전 검사가 TEST/DEVELOPMENT login만 받습니다. 이것이 풀리기 전에는 `migrate.sh`가 거부되어 배포가 멈춥니다(이전 API는 그대로).
 
 ## #57 계정 삭제 실행 경로
 

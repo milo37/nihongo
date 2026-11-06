@@ -4,6 +4,8 @@ packages:
   - amazon-cloudwatch-agent
 
 write_files:
+  # Host scripts are plain text: the whole user data is gzipped once (16 KB limit),
+  # and text compresses far better than base64.
   - path: /etc/harumaru/host.env
     permissions: '0644'
     content: |
@@ -27,20 +29,28 @@ write_files:
     content: ${caddyfile}
   - path: /opt/harumaru/bin/render-env.sh
     permissions: '0750'
-    encoding: b64
-    content: ${render_env_sh}
+    content: |
+      ${indent(6, render_env_sh)}
   - path: /opt/harumaru/bin/deploy.sh
     permissions: '0750'
-    encoding: b64
-    content: ${deploy_sh}
+    content: |
+      ${indent(6, deploy_sh)}
+  - path: /opt/harumaru/bin/provision-db.sh
+    permissions: '0750'
+    content: |
+      ${indent(6, provision_db_sh)}
+  - path: /opt/harumaru/bin/migrate.sh
+    permissions: '0750'
+    content: |
+      ${indent(6, migrate_sh)}
   - path: /opt/harumaru/bin/backup.sh
     permissions: '0750'
-    encoding: b64
-    content: ${backup_sh}
+    content: |
+      ${indent(6, backup_sh)}
   - path: /opt/harumaru/bin/erase-deletion-pending.sh
     permissions: '0750'
-    encoding: b64
-    content: ${erase_sh}
+    content: |
+      ${indent(6, erase_sh)}
   - path: /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
     permissions: '0644'
     encoding: b64

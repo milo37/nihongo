@@ -4,11 +4,13 @@ on:
   pull_request:
     paths:
       - 'infra/aws/**'
+      - 'Dockerfile'
       - '.github/workflows/infra.yml'
   push:
     branches: [dev, main]
     paths:
       - 'infra/aws/**'
+      - 'Dockerfile'
       - '.github/workflows/infra.yml'
 
 permissions:
@@ -70,3 +72,31 @@ jobs:
       # parses the YAML, so template mistakes fail here instead of at boot.
       - name: Render host templates
         run: bash scripts/render-check.sh
+
+      - name: shellcheck host scripts
+        run: shellcheck --severity=warning files/*.sh scripts/*.sh
+
+      # SSM values are data: no shell evaluation, identity-only URLs for migrate.
+      - name: Host script input handling
+        run: bash scripts/host-scripts-check.sh
+
+  migrate-image:
+    name: Migrate image build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # The production migration image (Dockerfile target "migrate") must build and
+      # carry a working Prisma CLI plus every migration directory of this commit.
+      - name: Build and inspect
+        run: |
+          docker build --target migrate --build-arg RELEASE_ID="$GITHUB_SHA" --tag harumaru-migrate:ci .
+          docker run --rm harumaru-migrate:ci --version
+          expected="$(find apps/api/prisma/migrations -mindepth 1 -maxdepth 1 -type d | wc -l)"
+          actual="$(docker run --rm --entrypoint sh harumaru-migrate:ci -c 'find prisma/migrations -mindepth 1 -maxdepth 1 -type d | wc -l')"
+          echo "migrations: expected $expected, image $actual"
+          test "$expected" -gt 0 && test "$expected" = "$actual"

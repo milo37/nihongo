@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { submitStudySessionResponseSchema } from '@nihongo/contracts/study/submit-study-session'
+import { submitStudySessionV2ResponseSchema } from '@nihongo/contracts/study/submit-study-session'
 import type { StudyResult } from '@nihongo/contracts/study/study-result'
 import {
   applyWrongNoteReview,
@@ -269,7 +269,7 @@ const parseStoredStudyResult = (
   message: string
 ): StudyResult => {
   try {
-    return submitStudySessionResponseSchema.parse(value)
+    return submitStudySessionV2ResponseSchema.parse(value)
   } catch (error: unknown) {
     throw new StudySubmissionRepositoryIntegrityError(message, {
       cause: error
