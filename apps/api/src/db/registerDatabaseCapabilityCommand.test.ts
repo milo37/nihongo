@@ -46,6 +46,10 @@ const test = (): NodeJS.ProcessEnv => ({
   PRODUCTION_DATABASE_URL:
     'postgresql://runtime:unit-only@production.invalid:5432/nihongo_production?schema=public'
 })
+const staging = (): NodeJS.ProcessEnv => ({
+  ...production(),
+  DEPLOYMENT_ENVIRONMENT: 'STAGING'
+})
 const confirm = { DATABASE_CAPABILITY_CONFIRM: 'REGISTER_DATABASE_CAPABILITY' }
 
 let stdout: MockInstance<typeof process.stdout.write>
@@ -97,7 +101,8 @@ describe('database capability operator CLI', () => {
 
   it.each([
     ['TEST', test],
-    ['PRODUCTION', production]
+    ['PRODUCTION', production],
+    ['PRODUCTION', staging]
   ])('registers the confirmed %s row', async (environment, input) => {
     await runRegisterDatabaseCapabilityCommand({ ...input(), ...confirm })
     expect(process.exitCode).toBeUndefined()
@@ -134,6 +139,22 @@ describe('database capability operator CLI', () => {
     [
       'production without production deployment',
       () => ({ ...production(), DEPLOYMENT_ENVIRONMENT: undefined })
+    ],
+    [
+      'production on a test deployment',
+      () => ({ ...production(), DEPLOYMENT_ENVIRONMENT: 'TEST' })
+    ],
+    [
+      'test on a staging deployment',
+      () => ({ ...test(), DEPLOYMENT_ENVIRONMENT: 'STAGING' })
+    ],
+    [
+      'development on a staging deployment',
+      () => ({
+        ...test(),
+        NODE_ENV: 'development',
+        DEPLOYMENT_ENVIRONMENT: 'STAGING'
+      })
     ],
     [
       'production with the app login',
