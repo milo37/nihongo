@@ -81,7 +81,12 @@ export const runProvisionAdminCommand = async (
     if (execute && expectedGeneration === undefined) {
       throw new Error('ADMIN_PROVISION_GENERATION_REQUIRED')
     }
-    const { client, environment, schema } = createOperatorDatabaseClient(source)
+    // STAGING runs the PRODUCTION database contract and follows the same
+    // first-admin steps as PRODUCTION (#691), like the tag load (#659).
+    const { client, environment, schema } = createOperatorDatabaseClient(
+      source,
+      { allowStaging: true }
+    )
     const emailSha256 = createHash('sha256')
       .update(input.ADMIN_PROVISION_EMAIL.toLowerCase())
       .digest('hex')

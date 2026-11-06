@@ -12,6 +12,7 @@ const erasure = vi.hoisted(() => ({
 }))
 const noProviderWork = {
   revoked: 0,
+  notHeld: 0,
   failed: 0,
   unavailable: 0,
   deferred: 0,
@@ -40,6 +41,7 @@ import {
   parseSsoAccountErasureCommandInput,
   runSsoAccountErasureCommand
 } from './ssoAccountErasureCommand.js'
+import { tokenlessSsoProviderRevokeAdapter } from './ssoProviderRevoke.js'
 
 const id = '11111111-1111-4111-8111-111111111111'
 const input = (
@@ -148,14 +150,41 @@ describe('SSO account erasure one-shot command', () => {
     expect(database.create).not.toHaveBeenCalled()
   })
 
-  it('refuses PRODUCTION before connecting without a provider revoke capability', async () => {
+  it('runs PRODUCTION with the tokenless adapter by default (#670)', async () => {
+    erasure.runBatch.mockResolvedValueOnce({
+      completedIds: [id],
+      providerCleanupPendingIds: [],
+      failedIds: [],
+      batchLimitReached: false
+    })
     await expect(
       runSsoAccountErasureCommand(input('PRODUCTION'))
-    ).resolves.toBe(1)
-    expect(database.create).not.toHaveBeenCalled()
-    expect(stderr).toHaveBeenCalledExactlyOnceWith(
-      '{"event":"auth.account_erasure.failed"}\n'
+    ).resolves.toBe(0)
+    expect(erasure.runRevoke).toHaveBeenCalledWith(
+      {},
+      tokenlessSsoProviderRevokeAdapter,
+      'PRODUCTION',
+      20,
+      300
     )
+    expect(erasure.runBatch).toHaveBeenCalledWith({}, 'PRODUCTION', 20)
+    expect(stderr).not.toHaveBeenCalled()
+  })
+
+  it('runs on a STAGING host as PRODUCTION, like its database capability (#670)', async () => {
+    erasure.runBatch.mockResolvedValueOnce({
+      completedIds: [id],
+      providerCleanupPendingIds: [],
+      failedIds: [],
+      batchLimitReached: false
+    })
+    await expect(
+      runSsoAccountErasureCommand({
+        ...input('PRODUCTION'),
+        DEPLOYMENT_ENVIRONMENT: 'STAGING'
+      })
+    ).resolves.toBe(0)
+    expect(erasure.runBatch).toHaveBeenCalledWith({}, 'PRODUCTION', 20)
   })
 
   it('passes PRODUCTION and the injected adapter to the worker and returns zero only with no unfinished request', async () => {

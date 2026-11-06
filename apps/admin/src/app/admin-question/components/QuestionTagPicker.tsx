@@ -234,7 +234,9 @@ export const QuestionTagPicker = ({
                   variant={isMismatch ? 'warning' : 'neutral'}
                   className="text-sm [word-break:keep-all]"
                 >
-                  {isMismatch ? <Icon name="circle-alert" /> : null}
+                  {isMismatch ? (
+                    <Icon name="circle-alert" className="shrink-0" />
+                  ) : null}
                   {tag.label}
                 </Badge>
                 <IconButton
@@ -322,7 +324,9 @@ export const QuestionTagPicker = ({
               </div>
             ) : items.length === 0 ? (
               <p className="px-3 py-3 text-sm text-muted">
-                {t('editor.tagPicker.empty', { query: query.trim() })}
+                {query.trim()
+                  ? t('editor.tagPicker.empty', { query: query.trim() })
+                  : t('editor.tagPicker.emptySubject')}
               </p>
             ) : null}
             <ul
