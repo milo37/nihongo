@@ -114,4 +114,4 @@ EC2와 백업 버킷은 CloudFront나 IAM으로만 접근됩니다. WAF는 IP별
 1. SNS·Budgets·Cost Anomaly 메일 구독 확인
 2. CloudFront 콘솔에서 배포를 **Free 정액 요금제**에 가입(Terraform 미지원). 계정이 AWS Free plan이면 가입할 수 없으므로 유료 전환 뒤에 합니다.
 3. 비밀값 SSM 등록 → Google OAuth 클라이언트에 `output google_oauth_redirect_uri` 등록 → 첫 배포
-4. 백업 복구 연습(#40): 최신 dump를 새 컨테이너에 `pg_restore`
+4. 백업 되살리기 시험: [operations/runbooks/recovery.v1.md](../../operations/runbooks/recovery.v1.md)의 'STAGING 첫 배포 직후' 절

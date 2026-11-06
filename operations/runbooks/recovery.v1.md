@@ -1,79 +1,158 @@
-# Provider-neutral recovery runbook v1
+# Recovery runbook v1 (AWS host)
 
-This runbook is a tracked structural contract. It does not prove that a
-Staging or Production provider has automatic backups, point-in-time recovery,
-an isolated restore target, an incident owner, or a tested RPO/RTO.
+How to bring the PostgreSQL data of the AWS host back from a backup. Both
+restore paths below were run end to end on a local copy of the host (see
+"Local rehearsal"). Steps marked **AWS only** cannot run locally; do them
+right after the first STAGING deploy.
 
-## Stop gates
+## What is backed up
 
-Stop before any target write unless all of the following are exact and
-verified: release ID, release manifest, migration profile, external-registry
-digest, source target fingerprint, three separated database identity
-fingerprints, backup evidence, deployment approver, incident owner, and a
-maintenance or generation lease. Never infer an environment from a hostname.
+| Backup                                 | Made by                                                      | Where                                                                  | Kept    |
+| -------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------- | ------- |
+| Daily dump (`pg_dump --format=custom`) | `harumaru-backup.timer`, 19:00 UTC (04:00 JST) → `backup.sh` | `s3://<backup_bucket>/postgres/YYYY/MM/nihongo-<UTC stamp>.dump`       | 30 days |
+| Pre-migrate dump                       | `migrate.sh`, before every `prisma migrate deploy`           | `s3://<backup_bucket>/postgres/pre-migrate/nihongo-<stamp>-<SHA>.dump` | 30 days |
+| Volume snapshot                        | DLM, Sundays 18:00 UTC                                       | EBS snapshots tagged `harumaru-<env>-weekly`                           | last 4  |
 
-`current` is the only migration profile (#504). It selects the baseline
-migration `20261105090000_baseline`
-(file SHA256 `6e71cb629fbeefccf3dcecf6bac3fbb2c90aa812da88e3d2249ca8af19bbfb3c`) followed by the forward
-migrations `20261106090000_remove_phase_names`,
-`20261107090000_first_admin_production`, `20261108090000_remove_tag_applicability_and_snapshots` and `20261109090000_add_tag_key_subject_status`, with ordered inventory digest
-`4c837ceabcc52839c21ac952dd26d7a97726f1ac2f7c1cc1bf373ac77eecbce5`, for TEST, STAGING and PRODUCTION. The baseline replaced the 76
-migrations up to `20261122090000_trusted_execution_drop`; a database migrated
-before it is recreated, not upgraded, and no earlier inventory is a recovery
-profile or fallback. Staging and Production are not activated, so no recovery
-target exists yet. No recovery DB drill is verified here, and this runbook
-grants no SQL execution, activation or deployment.
+A day without a daily dump raises the `harumaru-<env>-backup-missing` alarm.
 
-## Backup proof
+## Pick the source
 
-Resolve the exact target and evidence adapter from the separately protected
-registry. Accept only closed, secret-free evidence whose target fingerprint,
-release, migration digest, observation time, RPO, RTO, and retention match the
-validated recovery plan. A local dump, TEST fixture, successful health check,
-or provider dashboard screenshot is not Staging/Production backup proof.
+- Bad data (a mistaken admin action, a broken import): the newest daily dump
+  from before the damage.
+- A migration broke data: the `pre-migrate` dump of that release.
+- S3 unusable: the weekly volume snapshot (up to 7 days old, **AWS only**,
+  below).
 
-## Migration decision
+Everything written after the chosen dump is lost. Note the dump time and tell
+users if their recent study records are gone.
 
-1. Before migration, abort without a target write when any preflight differs.
-2. With an unchanged migration profile, the previous artifact may be restored.
-3. With an additive change, the previous artifact is allowed only when a
-   separately reviewed compatibility proof is bound to the exact release.
-4. For every other schema change, use a forward-fix.
+## Get the dump onto the host
 
-`prisma migrate reset`, `prisma db push`, `prisma migrate dev`, destructive
-reverse migrations, ad-hoc Production SQL, and restoration over the source
-target are forbidden.
+The host role can only upload backups (`s3:PutObject`), so it cannot download
+them. On the operator's machine (`aws login`), find the key and make a link
+that works for 15 minutes:
 
-## Isolated restore drill
+```sh
+aws s3 ls "s3://<backup_bucket>/postgres/" --recursive | tail -n 5
+aws s3 presign "s3://<backup_bucket>/postgres/2026/11/nihongo-<stamp>.dump" --expires-in 900
+```
 
-Restore only into a separately fingerprinted empty target. Bind the archive to
-the accepted backup evidence without recording its path, URL, database name,
-credential, provider response, SQL, row data, request body, or raw error. Verify
-the migration ledger, schema digest, data digest, readiness compatibility,
-empty-target preflight, runtime-role read access, zero source mutation, timing
-budget, and cleanup. A TEST
-drill must keep every external recovery claim false.
+Open a Session Manager shell on the host, `sudo -i`, and paste the link into a
+variable without echoing it:
 
-## Incident response
+```sh
+read -rs dump_url
+```
 
-Classify incidents as SEV1 (security, unrecoverable write risk, or broad
-unavailability), SEV2 (material degraded service), or SEV3 (contained impact).
-Resolve the incident owner and communication channel from the validated exact
-registry; this repository does not invent either. Preserve only closed-schema
-digest evidence, record the rollback/forward-fix decision, and stop if ownership
-or target identity becomes ambiguous.
+## A. Restore on the running host
 
-## Evidence handling
+For bad data while the host and its volume are fine. The damaged database is
+kept under another name, never overwritten.
 
-Run `pnpm recovery:verify` only as a verifier. It performs no backup, restore,
-migration, deployment, database, network, or provider action. Generated local
-evidence belongs in ignored private scratch storage and must not be committed.
-The current verifier accepts TEST evidence only. It rejects every Staging or
-Production evidence chain, even a structurally self-consistent one, until a
-protected target registry and trusted provider adapter are implemented.
-TEST comparison digests are caller-supplied structural fixture evidence, not
-provider attestation. They cannot be promoted to an external recovery claim.
+```sh
+cd /opt/harumaru
+release="$(cat current-release)"
+docker compose stop api proxy
+aside="nihongo_damaged_$(date -u +%Y%m%d%H%M%S)"
+docker compose exec -T postgres psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+  -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'nihongo'" \
+  -c "ALTER DATABASE nihongo RENAME TO $aside" \
+  -c "ALTER DATABASE $aside OWNER TO postgres" \
+  -c "REVOKE ALL ON DATABASE $aside FROM PUBLIC, nihongo_migration, nihongo_production_migration_login, nihongo_production_app_login, nihongo_production_guest_cleanup_worker_login" \
+  -c "CREATE DATABASE nihongo"
+/opt/harumaru/bin/render-env.sh
+/opt/harumaru/bin/provision-db.sh
+curl -fsS "$dump_url" | docker compose exec -T postgres \
+  pg_restore -U postgres -d nihongo --exit-on-error --single-transaction
+/opt/harumaru/bin/deploy.sh "$release"
+```
 
-Historical Slice 4A completion meant only: provider-neutral recovery contracts
-and TEST-only verifiers were green. It is not Staging or Production recovery proof.
-This metadata correction reruns static verifiers only; no recovery DB drill is executed.
+- The `OWNER` and `REVOKE` lines are required. The API checks at start that its
+  login can connect to no other database; without them it restarts in a loop
+  with `Runtime DB role attestation failed.` (seen in the rehearsal).
+- The site is down from `stop` until `deploy.sh` prints `deployed <SHA>`.
+- `deploy.sh` checks the roles again, takes a pre-migrate dump of the restored
+  data, applies any migration newer than the dump, confirms the
+  `DatabaseCapability` row and waits for `/health/ready`.
+- A dump made by a newer release than `current-release` must be restored with
+  that newer release (migrations only move forward).
+
+## B. Restore on a new data volume
+
+For a lost or unreadable `/var/lib/harumaru` volume: the instance boots with an
+empty data volume (cloud-init formats it and makes a new certificate). If only
+the instance was replaced and the volume survived, do not restore; run
+`deploy.sh <SHA>` instead.
+
+```sh
+cd /opt/harumaru
+release=<full SHA of the release that last ran>   # GitHub main or ECR tags
+/opt/harumaru/bin/render-env.sh
+# Placeholder .env so Compose can start postgres alone; deploy.sh rewrites it.
+(source /etc/harumaru/host.env
+ printf 'API_IMAGE=none\nMIGRATE_IMAGE=none\nAWS_REGION=%s\nLOG_GROUP=%s\n' "$AWS_REGION" "$LOG_GROUP") > .env
+docker compose up -d --wait postgres
+/opt/harumaru/bin/provision-db.sh
+curl -fsS "$dump_url" | docker compose exec -T postgres \
+  pg_restore -U postgres -d nihongo --exit-on-error --single-transaction
+/opt/harumaru/bin/deploy.sh "$release"
+```
+
+The restored `DatabaseCapability` row stays current because postgres always gets
+`172.30.1.10` on the compose `db` network.
+
+## Check
+
+1. `deploy.sh` printed `production role graph and database ACL attested`,
+   `database capability current: <ENV>` and `deployed <SHA>`.
+2. Spot-check counts against what you expect:
+   `docker compose exec -T postgres psql -U postgres -d nihongo -c 'SELECT count(*) FROM "User"'`
+   (also `"Question"`, `"StudyResult"`).
+3. Sign in on the site as an admin and as a learner.
+4. After a few days without complaints, drop the copy (path A):
+   `docker compose exec -T postgres psql -U postgres -d postgres -c "DROP DATABASE <aside>"`.
+   It doubles disk use until then; the disk alarm fires at 80 %.
+
+## Volume snapshot (AWS only)
+
+Use only when no usable dump exists. Create a gp3 volume from the newest
+`harumaru-<env>-weekly` snapshot in the instance's availability zone, stop the
+instance, detach the data volume, attach the new one as `/dev/sdf`, start the
+instance, then run `deploy.sh <SHA>`. Terraform still tracks the old volume
+(`prevent_destroy`), so afterwards `terraform state rm aws_ebs_volume.data` and
+`terraform import aws_ebs_volume.data <new volume id>` before the next apply.
+This path is untested until it is rehearsed on STAGING.
+
+## Never
+
+`prisma migrate reset`, `prisma db push`, `prisma migrate dev`, `pg_restore
+--clean` or any restore over the live database, `DROP DATABASE nihongo`, or
+ad-hoc SQL on PRODUCTION outside these steps.
+
+## To do right after the first STAGING deploy (AWS only)
+
+1. After 04:00 JST the next day: the dump is in S3, the `BackupSucceeded` metric
+   has a point and the backup alarm is OK.
+2. `aws s3 presign` on the operator machine and `curl` on the host download the
+   dump (the host reaches S3 over HTTPS through the default egress rule).
+3. Run path A on STAGING with that dump and time it (site down from `stop` to
+   `deployed`).
+4. Optionally rehearse the volume snapshot path and record the result here.
+
+## Local rehearsal (#669, 2026-11-07)
+
+Real `deploy.sh`, `backup.sh`, `render-env.sh` and `provision-db.sh` against
+local postgres with the host compose file (stub `aws` and S3; local logs and
+volumes; release `aeb65e4e`, the current migrations):
+
+- Empty database → deploy → 3 tags loaded, 2 users with Google accounts added →
+  `backup.sh` wrote a 352 KB dump and the success metric.
+- Path A: deleted the tags and renamed the users, restored. All 42 tables
+  matched the pre-damage state (row counts and an md5 of every row),
+  `/health/ready` 200 with the release id. Before the `OWNER`/`REVOKE` lines were
+  added, the API refused to start (see A).
+- Path B: removed the data volume, `.env` and `current-release`, restored onto a
+  new volume. Same 42-table match, `capability current`, readiness 200.
+
+`operations/recovery-contract.v1.json` and `pnpm recovery:verify` are older
+provider-neutral TEST checks. They are not part of this procedure.
