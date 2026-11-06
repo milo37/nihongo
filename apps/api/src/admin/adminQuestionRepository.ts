@@ -17,10 +17,16 @@ type AdminSystemActorRecord = {
 
 type AdminSafeActorRecord = AdminAccountActorRecord | AdminSystemActorRecord
 
+type QuestionSubject = 'VOCABULARY' | 'GRAMMAR' | 'READING'
+
 export interface AdminTagRecord {
   id: string
   label: string
   normalizedName: string
+}
+
+export interface AdminTagListRecord extends AdminTagRecord {
+  subject: QuestionSubject | null
 }
 
 interface AdminOptionRecord {
@@ -255,9 +261,10 @@ export interface AdminQuestionRepository {
     items: readonly AdminReviewRecord[]
   } | null>
   listTags: (input: {
-    normalizedPrefix: string
+    normalizedPrefix: string | undefined
+    subject: QuestionSubject | undefined
     limit: number
-  }) => Promise<readonly AdminTagRecord[]>
+  }) => Promise<readonly AdminTagListRecord[]>
   listAuditLog: (
     input: ListAdminAuditRecordsInput
   ) => Promise<readonly AdminAuditRecord[]>
@@ -1179,13 +1186,21 @@ const listQuestionVersionReviews = async (
 
 const listAdminTags = async (
   transaction: Prisma.TransactionClient,
-  input: { normalizedPrefix: string; limit: number }
-): Promise<readonly AdminTagRecord[]> => {
-  const prefix = `${escapeLikePrefix(input.normalizedPrefix)}%`
-  return transaction.$queryRaw<AdminTagRecord[]>(Prisma.sql`
-    SELECT "id", "label", "normalizedName"
+  input: {
+    normalizedPrefix: string | undefined
+    subject: QuestionSubject | undefined
+    limit: number
+  }
+): Promise<readonly AdminTagListRecord[]> => {
+  const prefix = `${escapeLikePrefix(input.normalizedPrefix ?? '')}%`
+  // RETIRED tags stay on old questions but are no longer offered (JLP-733).
+  return transaction.$queryRaw<AdminTagListRecord[]>(Prisma.sql`
+    SELECT "id", "label", "normalizedName", "subject"::text AS "subject"
     FROM "Tag"
     WHERE "normalizedName" COLLATE "C" LIKE ${prefix} ESCAPE '\\'
+      AND "status" IS DISTINCT FROM 'RETIRED'
+      AND (${input.subject ?? null}::text IS NULL
+        OR "subject"::text = ${input.subject ?? null}::text)
     ORDER BY "normalizedName" COLLATE "C" ASC, "id" ASC
     LIMIT ${input.limit}
   `)

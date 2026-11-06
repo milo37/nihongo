@@ -46,6 +46,7 @@ import {
   adminQuestionSummarySchema,
   adminQuestionVersionConnectionSchema,
   adminQuestionVersionSummarySchema,
+  adminTagListItemSchema,
   adminTagSummarySchema,
   compareAdminTags,
   assertAdminTagList,
@@ -164,14 +165,16 @@ export const getAdminQuestionErrorSchema = createContentOperationErrorSchema(
   getAdminQuestionErrorCodeSchema
 )
 
+// q is optional so the whole fixed tag list fits one page (JLP-733).
 export const listAdminTagsQuerySchema = z
   .object({
-    q: contentTagKeySchema,
+    q: contentTagKeySchema.optional(),
+    subject: questionSubjectSchema.optional(),
     limit: z.coerce.number().int().min(1).max(50).default(20)
   })
   .strict()
 export const listAdminTagsResponseSchema = z
-  .object({ items: z.array(adminTagSummarySchema).max(50) })
+  .object({ items: z.array(adminTagListItemSchema).max(50) })
   .strict()
 export const listAdminTagsErrorCodeSchema = contentReadBaseErrorCodeSchema
 export const listAdminTagsErrorSchema = createContentOperationErrorSchema(
@@ -1198,8 +1201,10 @@ export const assertListAdminTagsForRequest = (
   const ids = new Set<string>()
   const names = new Set<string>()
   response.items.forEach((item, index) => {
-    if (!item.normalizedName.startsWith(request.q))
+    if (request.q !== undefined && !item.normalizedName.startsWith(request.q))
       throw new Error('tag가 normalized q prefix를 만족하지 않습니다.')
+    if (request.subject !== undefined && item.subject !== request.subject)
+      throw new Error('tag subject가 요청 subject와 다릅니다.')
     if (ids.has(item.id) || names.has(item.normalizedName))
       throw new Error('tag ID/name은 고유해야 합니다.')
     const previous = response.items[index - 1]

@@ -1783,6 +1783,7 @@ export const koResources = {
         DUPLICATE_TAG: '태그 중복',
         CORRECT_OPTION_KEY_NOT_FOUND: '정답 보기 key 없음',
         UNKNOWN_TAG: '등록되지 않은 태그',
+        TAG_SUBJECT_MISMATCH: '문제 과목과 맞지 않는 태그',
         INVALID_READING_PASSAGE: '독해 지문 규칙 오류',
         INVALID_CONTENT: '문항 내용 오류',
         DUPLICATE_QUESTION_CONTENT: '문항 내용 중복'

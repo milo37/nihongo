@@ -68,6 +68,7 @@ export const adminQuestionContentStructureInputSchema = z
       z.literal('').transform(() => null),
       z.null()
     ]),
+    // JLP-733 3b lowers this to 2 with the tag remap of existing content.
     tagNames: z
       .array(createContentTextSchema({ maxScalars: 100 }))
       .min(1)
@@ -182,6 +183,7 @@ export const adminImportIssueCodeSchema = z.enum([
   'DUPLICATE_TAG',
   'CORRECT_OPTION_KEY_NOT_FOUND',
   'UNKNOWN_TAG',
+  'TAG_SUBJECT_MISMATCH',
   'INVALID_READING_PASSAGE',
   'INVALID_CONTENT',
   'DUPLICATE_QUESTION_CONTENT'
@@ -292,6 +294,7 @@ const importIssuePathMatchesCode = (
       return /^\/content\/options\/[0-3]\/text$/u.test(suffix)
     case 'DUPLICATE_TAG':
     case 'UNKNOWN_TAG':
+    case 'TAG_SUBJECT_MISMATCH':
       return /^\/content\/tagNames\/(?:[0-9]|1[01])$/u.test(suffix)
     case 'CORRECT_OPTION_KEY_NOT_FOUND':
       return suffix === '/content/correctOptionKey'
