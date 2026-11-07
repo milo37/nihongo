@@ -45,6 +45,7 @@ for domain in "" "origin.example.com"; do
     raise "capability must be profile-only" unless capability.fetch("profiles") == ["operator"]
     raise "capability must stay internal" unless capability.fetch("networks") == ["db"] && !capability.key?("ports")
     raise "capability must use the migration login" unless capability.fetch("env_file").include?("/run/harumaru/migrate.env") && !capability.fetch("env_file").include?("/run/harumaru/api.env")
+    raise "api must mount the legal contact file read-only" unless services.fetch("api").fetch("volumes").include?("/var/lib/harumaru/web/legal-settings.json:/app/web/legal-settings.json:ro")
     puts "ok origin_port=#{ARGV[2]} files=#{paths.size}"
   ' "$work/cloud-init.yaml" "$work/compose.yaml" "$port"
   echo "user data ${bytes} bytes (gzip before base64, limit 16384)"

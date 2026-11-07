@@ -36,3 +36,8 @@ output "secret_parameter_names" {
   description = "Write each as a SecureString before the first deploy (values never go through Terraform)."
   value       = [for name in local.secret_parameter_names : "${local.param_path}/${name}"]
 }
+
+output "legal_parameter_names" {
+  description = "Optional; write both before PRODUCTION opens (production-database runbook, Legal contact)."
+  value       = [for name in local.legal_parameter_names : "${local.param_path}/${name}"]
+}

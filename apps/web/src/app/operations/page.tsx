@@ -4,11 +4,13 @@ import { OperationsNavigation } from '@app/operations/components/OperationsNavig
 import { OperationsTableOfContents } from '@app/operations/components/OperationsTableOfContents'
 import { operationsPages } from '@app/operations/operationsContent'
 import type { OperationsInformationPageKind } from '@app/operations/operationsContent'
-import { legalSettings } from '@app/operations/legalSettings'
+import { useGetLegalSettings } from '@app/operations/hooks/useGetLegalSettings'
+import { legalEffectiveDate } from '@app/operations/legalSettings'
 import type { LegalSettings } from '@app/operations/legalSettings'
 
 type OperationsInformationPageProps = {
   page: OperationsInformationPageKind
+  /** Overrides the deploy values; for tests. */
   settings?: LegalSettings
 }
 
@@ -18,9 +20,15 @@ const splitClauses = (body: string): string[] =>
 
 export const OperationsInformationPage = ({
   page,
-  settings = legalSettings
+  settings: settingsOverride
 }: OperationsInformationPageProps): ReactElement => {
   const { t } = useTranslation('operations')
+  const { data: runtimeSettings } = useGetLegalSettings(!settingsOverride)
+  const settings: LegalSettings = settingsOverride ?? {
+    effectiveDate: legalEffectiveDate,
+    contactEmail: runtimeSettings?.contactEmail ?? '',
+    privacyOfficer: runtimeSettings?.privacyOfficer ?? ''
+  }
   const { sections } = operationsPages[page]
   const contactUnset = t('sections.contact.contactUnset')
   const values = {

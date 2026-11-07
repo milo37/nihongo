@@ -31,6 +31,13 @@ locals {
     "PROD_APP_LOGIN_PASSWORD",
     "PROD_GUEST_CLEANUP_LOGIN_PASSWORD",
   ]
+
+  # Optional, PRODUCTION only: the privacy officer and contact mail on /legal
+  # (#705). Kept out of the repository; STAGING leaves them unset.
+  legal_parameter_names = [
+    "LEGAL_CONTACT_EMAIL",
+    "LEGAL_PRIVACY_OFFICER",
+  ]
 }
 
 data "aws_caller_identity" "current" {}
