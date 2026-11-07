@@ -71,11 +71,11 @@ until the baseline migration hands it to `nihongo_owner`.
 6. Only then the new API starts. If step 3, 4 or 5 fails, `.env` is pointed
    back at the running release and the old API keeps serving.
 
-After the first deploy, in this order: the tag list ("Tag list load" below),
-then the first admin (`first-admin.v1.md`), then question import. The API does
-not need tags to start; question import does. `deploy.sh` does not load tags
-yet, because where the final `tags.v2.json` lives (repository or server file)
-is decided when the owner approves the list.
+After the first deploy: the first admin (`first-admin.v1.md`), then the tag
+list and the questions (`question-import.v1.md`). The API does not need tags to
+start; question import does. `deploy.sh` does not load tags: the list is
+`content/taxonomy/tags.v2.json` in the repository, fetched onto the host for
+the operator command.
 
 The row records the server address the API connects to. Compose gives the
 `db` network a fixed subnet (`172.30.1.0/24`) and postgres a fixed address
@@ -138,8 +138,8 @@ Notes:
 - Failure lines and dry run lines have no `occurredAt`; only
   `tag_list_loaded` does. Keep the SSM invocation time as the time of a failed
   or dry run.
-- The path `/opt/harumaru/content/tags.v2.json` is an example until the
-  location is decided.
+- `question-import.v1.md` step 1 fetches the file of the deployed release to
+  `/opt/harumaru/content/tags.v2.json`.
 
 Checked locally (release `8f229404`, empty database, the 3-tag sample
 `apps/api/test/fixtures/content/tags.v2.sample.json`): dry run `created:3`,
