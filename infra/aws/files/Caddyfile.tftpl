@@ -12,6 +12,10 @@ https://${origin_domain}:443 {
 %{ else ~}
 http://:3001 {
 %{ endif ~}
+%{ if noindex ~}
+	# STAGING only (#742): keep the test site out of search results.
+	header X-Robots-Tag "noindex, nofollow"
+%{ endif ~}
 	@verified header X-Origin-Verify {$ORIGIN_VERIFY_SECRET}
 	handle @verified {
 		reverse_proxy api:3001 {
