@@ -11,7 +11,11 @@ const ports = vi.hoisted(() => ({
   retire: vi.fn(),
   assets: vi.fn(),
   removeAssets: vi.fn(),
-  staticWeb: vi.fn()
+  staticWeb: vi.fn(),
+  loadTags: vi.fn()
+}))
+vi.mock('../content/tagLoadCommand.js', () => ({
+  runTagLoadCommand: ports.loadTags
 }))
 vi.mock('node:fs/promises', async (importOriginal) => ({
   ...(await importOriginal<typeof import('node:fs/promises')>()),
@@ -437,6 +441,19 @@ describe('admin and dashboard real origin and Mock selection', () => {
         artifactsPrepared: false
       })
       expect(ports.fixture.mock.calls[0]?.[1]).toBe('admin-a1-a8')
+      expect(ports.loadTags).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          NODE_ENV: 'test',
+          DEPLOYMENT_ENVIRONMENT: 'TEST',
+          TAG_LIST_FILE: expect.stringMatching(
+            /content\/taxonomy\/tags\.v2\.json$/u
+          ),
+          TAG_LOAD_CONFIRM: 'LOAD_TAG_LIST'
+        })
+      )
+      expect(ports.loadTags.mock.invocationCallOrder[0]).toBeLessThan(
+        ports.fixture.mock.invocationCallOrder[0] ?? 0
+      )
       expect(checkReadiness).toHaveBeenCalledOnce()
       expect(assertExpectedLifecycleDelta).toHaveBeenCalledWith({ audit: 0 })
       await runner.cleanup()
@@ -455,6 +472,18 @@ describe('admin and dashboard real origin and Mock selection', () => {
       ])
     }
   )
+  it('stops before the fixture when tags.v2 cannot be loaded (#715)', async () => {
+    vi.resetModules()
+    ports.loadTags.mockImplementationOnce(async () => {
+      process.exitCode = 1
+    })
+    const runner = await import('./runAdminBrowser.js')
+    await expect(runner.runReal()).rejects.toThrow('could not load tags.v2')
+    expect(process.exitCode).toBeUndefined()
+    expect(ports.fixture).not.toHaveBeenCalled()
+    await runner.cleanup()
+  })
+
   it('fails closed before building or listening if the fixture has no admin guard', async () => {
     vi.resetModules()
     ports.fixture.mockResolvedValueOnce({
