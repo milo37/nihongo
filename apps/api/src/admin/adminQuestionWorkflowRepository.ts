@@ -420,7 +420,7 @@ export const createPrismaAdminQuestionWorkflowRepository = ({
           )
           assertImportApplyValidation(request, validation)
           const tagByName = new Map(
-            validation.importTags.map((tag) => [tag.normalizedName, tag])
+            validation.importTags.map((tag) => [tag.reference, tag])
           )
           const tagsByItem = request.items.map((item) =>
             item.content.tagNames.map((name) => {

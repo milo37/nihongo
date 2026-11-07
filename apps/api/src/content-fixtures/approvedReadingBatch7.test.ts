@@ -20,6 +20,7 @@ import {
   approvedReadingBatch7,
   createApprovedReadingBatch7Import
 } from './approvedReadingBatch7.js'
+import { importTagKeys } from '../content/approved308Supply.js'
 
 describe('approvedReadingBatch7', () => {
   it('preserves bootstrap and rejects cross-batch logical ID collisions', () => {
@@ -69,7 +70,7 @@ describe('approvedReadingBatch7', () => {
       expect(item.content.questionText).toBe(source.questionText)
       expect(item.content.explanationKo).toBe(source.explanationKo)
       expect(item.content.explanationJa).toBeNull()
-      expect(item.content.tagNames).toEqual(source.tags)
+      expect(item.content.tagNames).toEqual(importTagKeys(source.id))
     })
   })
 })

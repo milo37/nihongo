@@ -4,11 +4,13 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   adminQuestionContentInputSchema,
-  normalizeContentTagKey,
   validateQuestionImportRequestSchema
 } from '@nihongo/contracts/admin/content-operations'
 import { originalQuestionSeeds } from './seed-data/questions/index.js'
-import { readApproved308Supply } from '../src/content/approved308Supply.js'
+import {
+  importTagKeys,
+  readApproved308Supply
+} from '../src/content/approved308Supply.js'
 
 // #633: admin import request files are the question source of truth that
 // replaces the in-code originals. Each file is one validateQuestionImport
@@ -61,48 +63,12 @@ const seedImportItems = (): ImportItem[] =>
         text
       })),
       correctOptionKey: `option-${seed.correctIndex + 1}`,
-      tagNames: [...seed.tags]
+      tagNames: importTagKeys(seed.id)
     })
   }))
 
 const approved308ImportItems = (): ImportItem[] =>
   readApproved308Supply().items.map(({ importItem }) => importItem)
-
-/** Every tag and applicability tuple the import files need in the database. */
-const requiredTags = (items: readonly ImportItem[]) => {
-  const tags = new Map<
-    string,
-    { label: string; normalizedName: string; applicability: Set<string> }
-  >()
-  for (const { content } of items) {
-    for (const label of content.tagNames) {
-      const normalizedName = normalizeContentTagKey(label)
-      const tag = tags.get(normalizedName) ?? {
-        label,
-        normalizedName,
-        applicability: new Set<string>()
-      }
-      tag.applicability.add(
-        `${content.level}/${content.subject}/${content.questionType}`
-      )
-      tags.set(normalizedName, tag)
-    }
-  }
-  return {
-    tags: [...tags.values()]
-      .sort((left, right) =>
-        left.normalizedName.localeCompare(right.normalizedName)
-      )
-      .map(({ label, normalizedName, applicability }) => ({
-        label,
-        normalizedName,
-        applicability: [...applicability].sort().map((tuple) => {
-          const [level, subject, questionType] = tuple.split('/')
-          return { level, subject, questionType }
-        })
-      }))
-  }
-}
 
 /** File name to JSON value, generated from the in-code originals. */
 export const buildQuestionImportFiles = (): Record<string, unknown> => {
@@ -110,8 +76,7 @@ export const buildQuestionImportFiles = (): Record<string, unknown> => {
   const approved308 = approved308ImportItems()
   return {
     ...toBatches('seed65', seed),
-    ...toBatches('approved308', approved308),
-    'required-tags.v1.json': requiredTags([...seed, ...approved308])
+    ...toBatches('approved308', approved308)
   }
 }
 

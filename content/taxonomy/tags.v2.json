@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 2,
+  "tags": [
+    {
+      "key": "vocab.kango",
+      "label": "한자어",
+      "subject": "VOCABULARY",
+      "status": "ACTIVE"
+    },
+    {
+      "key": "vocab.basic-noun",
+      "label": "기초 명사",
+      "subject": "VOCABULARY",
+      "status": "ACTIVE"
+    },
+    {
+      "key": "vocab.verb",
+      "label": "동사",
+      "subject": "VOCABULARY",
+      "status": "ACTIVE"
+    },
+    {
+      "key": "vocab.adjective",
+      "label": "형용사",
+      "subject": "VOCABULARY",
+      "status": "ACTIVE"
+    },
+    {
+      "key": "vocab.adverb-phrase",
+      "label": "부사·관용 표현",
+      "subject": "VOCABULARY",
+      "status": "ACTIVE"
+    },
+    {
+      "key": "grammar.particle",
+      "label": "조사",
+      "subject": "GRAMMAR",
+      "status": "ACTIVE"
+    },
+    {
+      "key": "grammar.conjugation",
+      "label": "활용·형태",
+      "subject": "GRAMMAR",
+      "status": "ACTIVE"
+    },
+    {
+      "key": "grammar.condition",
+      "label": "조건·가정",
+      "subject": "GRAMMAR",
+      "status": "ACTIVE"
+    },
+    {
+      "key": "grammar.cause-purpose",
+      "label": "원인·이유·목적",
+      "subject": "GRAMMAR",
+      "status": "ACTIVE"
+    },
+    {
+      "key": "grammar.contrast-connect",
+      "label": "역접·양보·접속",
+      "subject": "GRAMMAR",
+      "status": "ACTIVE"
+    },
+    {
+      "key": "grammar.guess-hearsay",
+      "label": "추측·전문·부분 부정",
+      "subject": "GRAMMAR",
+      "status": "ACTIVE"
+    },
+    {
+      "key": "grammar.time-change",
+      "label": "시간·순서·변화",
+      "subject": "GRAMMAR",
+      "status": "ACTIVE"
+    },
+    {
+      "key": "grammar.must-will",
+      "label": "의무·의지·허가",
+      "subject": "GRAMMAR",
+      "status": "ACTIVE"
+    },
+    {
+      "key": "grammar.scope-emphasis",
+      "label": "범위·한정·강조",
+      "subject": "GRAMMAR",
+      "status": "ACTIVE"
+    },
+    {
+      "key": "reading.opinion",
+      "label": "주장·견해 파악",
+      "subject": "READING",
+      "status": "ACTIVE"
+    },
+    {
+      "key": "reading.reason-purpose",
+      "label": "이유·목적 파악",
+      "subject": "READING",
+      "status": "ACTIVE"
+    },
+    {
+      "key": "reading.detail",
+      "label": "세부 사실 확인",
+      "subject": "READING",
+      "status": "ACTIVE"
+    },
+    {
+      "key": "reading.condition-match",
+      "label": "조건 대조",
+      "subject": "READING",
+      "status": "ACTIVE"
+    }
+  ]
+}
