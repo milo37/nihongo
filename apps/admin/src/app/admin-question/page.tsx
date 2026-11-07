@@ -3,13 +3,13 @@ import { useEffect, useRef } from 'react'
 import { Link, useLocation } from 'react-router'
 import type { ReactElement } from 'react'
 import { ArchiveQuestionDialog } from '@app/admin-question/components/ArchiveQuestionDialog'
-import { BatchPublishDialog } from '@app/admin-question/components/BatchPublishDialog'
+import { BatchActionDialog } from '@app/admin-question/components/BatchActionDialog'
 import { QuestionBatchBar } from '@app/admin-question/components/QuestionBatchBar'
 import { QuestionListFilters } from '@app/admin-question/components/QuestionListFilters'
 import { QuestionListTable } from '@app/admin-question/components/QuestionListTable'
 import { useListAdminQuestions } from '@app/admin-question/hooks/useListAdminQuestions'
 import { useQuestionArchive } from '@app/admin-question/hooks/useQuestionArchive'
-import { useQuestionBatchPublish } from '@app/admin-question/hooks/useQuestionBatchPublish'
+import { useQuestionBatch } from '@app/admin-question/hooks/useQuestionBatch'
 import { useQuestionListSearch } from '@app/admin-question/hooks/useQuestionListSearch'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
@@ -29,6 +29,7 @@ export const AdminQuestionPage = (): ReactElement => {
     difficulty,
     sort,
     page,
+    pageSize,
     hasActiveFilters,
     searchParams,
     setSearchParams,
@@ -43,10 +44,10 @@ export const AdminQuestionPage = (): ReactElement => {
     difficulty,
     sort,
     page,
-    pageSize: 20
+    pageSize
   })
   const archive = useQuestionArchive(questionList.refetch)
-  const batch = useQuestionBatchPublish(questionList.data?.items ?? [])
+  const batch = useQuestionBatch(questionList.data?.items ?? [])
   // The publish button is gone once the result replaces the selection bar.
   const batchResultHeading = useRef<HTMLHeadingElement>(null)
 
@@ -116,6 +117,7 @@ export const AdminQuestionPage = (): ReactElement => {
         status={status}
         difficulty={difficulty}
         sort={sort}
+        pageSize={pageSize}
         hasActiveFilters={hasActiveFilters}
         setFilter={setFilter}
         total={questionList.data?.total}
@@ -188,7 +190,7 @@ export const AdminQuestionPage = (): ReactElement => {
       ) : null}
 
       <ArchiveQuestionDialog archive={archive} />
-      <BatchPublishDialog batch={batch} fallbackFocusRef={batchResultHeading} />
+      <BatchActionDialog batch={batch} fallbackFocusRef={batchResultHeading} />
     </section>
   )
 }

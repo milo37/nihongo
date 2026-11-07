@@ -9,9 +9,9 @@ import type { AdminQuestionSort } from '@app/admin-question/hooks/useQuestionLis
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import { hasPublicationHistory } from '@app/admin-question/detail/questionWorkflow'
 import {
-  isBatchPublishable,
-  type QuestionBatchPublish
-} from '@app/admin-question/hooks/useQuestionBatchPublish'
+  isBatchSelectable,
+  type QuestionBatch
+} from '@app/admin-question/hooks/useQuestionBatch'
 
 export type AdminQuestionSummary = ListAdminQuestionResponse['items'][number]
 
@@ -25,7 +25,7 @@ type QuestionListTableProps = {
   totalPages: number
   onPageChange: (page: number) => void
   onArchive: (question: AdminQuestionSummary) => void
-  batch: QuestionBatchPublish
+  batch: QuestionBatch
 }
 
 // The select column stays pinned while the table scrolls sideways.
@@ -39,7 +39,7 @@ const PageCheckbox = ({
   label,
   columnLabel
 }: {
-  readonly batch: QuestionBatchPublish
+  readonly batch: QuestionBatch
   readonly label: string
   readonly columnLabel: string
 }): ReactElement => {
@@ -153,7 +153,7 @@ type QuestionRowProps = {
   actorId: string | undefined
   returnTo: string
   onArchive: (question: AdminQuestionSummary) => void
-  batch: QuestionBatchPublish
+  batch: QuestionBatch
 }
 
 const QuestionRow = ({
@@ -175,7 +175,7 @@ const QuestionRow = ({
   return (
     <tr className="align-top hover:bg-slate-50/80">
       <td className={selectCellClassName}>
-        {isBatchPublishable(question) ? (
+        {isBatchSelectable(question) ? (
           <label className={checkboxLabelClassName}>
             <input
               type="checkbox"

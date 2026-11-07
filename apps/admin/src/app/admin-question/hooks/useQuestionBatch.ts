@@ -22,21 +22,43 @@ import {
   questionWorkflowQueries
 } from '@app/admin-question/queries/questionWorkflowQueries'
 
-type FailedResult = Exclude<
-  ContentOperationResult<'publishQuestionVersionBatch'>['items'][number]['result'],
-  'PUBLISHED'
->
+export type BatchAction = 'approve' | 'publish'
 
-export type BatchPublishResult = {
-  readonly published: number
+type FailedResult =
+  | Exclude<
+      ContentOperationResult<'publishQuestionVersionBatch'>['items'][number]['result'],
+      'PUBLISHED'
+    >
+  | Exclude<
+      ContentOperationResult<'approveQuestionVersionBatch'>['items'][number]['result'],
+      'APPROVED'
+    >
+
+export type BatchActionResult = {
+  readonly action: BatchAction
+  readonly succeeded: number
   readonly failed: ReadonlyArray<{
     readonly questionId: string
     readonly result: FailedResult
   }>
 }
 
-export const isBatchPublishable = (question: AdminQuestionSummary): boolean =>
-  question.lifecycleStatus === 'ACTIVE' && question.versionStatus === 'APPROVED'
+const isActive = (question: AdminQuestionSummary): boolean =>
+  question.lifecycleStatus === 'ACTIVE'
+
+/** Rows each batch action can take: approve from review, publish when approved. */
+export const batchTargets: Record<
+  BatchAction,
+  (question: AdminQuestionSummary) => boolean
+> = {
+  approve: (question) =>
+    isActive(question) && question.versionStatus === 'IN_REVIEW',
+  publish: (question) =>
+    isActive(question) && question.versionStatus === 'APPROVED'
+}
+
+export const isBatchSelectable = (question: AdminQuestionSummary): boolean =>
+  batchTargets.approve(question) || batchTargets.publish(question)
 
 const assertAdmin = (fence: AuthActorTransitionFence | undefined): void => {
   if (!fence || fence.role !== 'ADMIN')
@@ -47,10 +69,11 @@ const assertAdmin = (fence: AuthActorTransitionFence | undefined): void => {
   )
 }
 
-/** Current-page selection, confirmation and per-item result of batch publish. */
-export const useQuestionBatchPublish = (
-  items: readonly AdminQuestionSummary[]
-) => {
+/**
+ * Current-page selection, confirmation and per-item result of batch approve
+ * and batch publish. One selection serves both actions.
+ */
+export const useQuestionBatch = (items: readonly AdminQuestionSummary[]) => {
   const { search } = useLocation()
   const client = useQueryClient()
   // Page, filter, sort and search live in the query string, so selection and
@@ -61,9 +84,13 @@ export const useQuestionBatchPublish = (
   }>({ search, ids: new Set() })
   const [outcome, setOutcome] = useState<{
     readonly search: string
-    readonly result: BatchPublishResult
+    readonly result: BatchActionResult
   } | null>(null)
-  const [dialogOpen, setDialogOpen] = useState(false)
+  // The action stays after closing so the dialog keeps its copy while it hides.
+  const [dialog, setDialog] = useState<{
+    readonly action: BatchAction
+    readonly open: boolean
+  }>({ action: 'publish', open: false })
   const [freshConfirmed, setFreshConfirmed] = useState(false)
   // Leaving a query string drops its selection and result, so coming back
   // (for example after resetting a filter) starts empty.
@@ -84,22 +111,25 @@ export const useQuestionBatchPublish = (
       ids: next(current.search === search ? current.ids : new Set())
     }))
 
-  const publishable = items.filter(isBatchPublishable)
-  const selected = publishable.filter(({ questionId }) =>
+  const selectable = items.filter(isBatchSelectable)
+  const selected = selectable.filter(({ questionId }) =>
     selectedIds.has(questionId)
   )
+  const targets = {
+    approve: selected.filter(batchTargets.approve),
+    publish: selected.filter(batchTargets.publish)
+  }
   const pageState =
-    publishable.length === 0
+    selectable.length === 0
       ? 'empty'
       : selected.length === 0
         ? 'none'
-        : selected.length === publishable.length
+        : selected.length === selectable.length
           ? 'all'
           : 'some'
 
-  const options = questionWorkflowMutations.publishBatch()
   const mutation = useMutation({
-    ...options,
+    ...questionWorkflowMutations.batch(),
     retry: false,
     networkMode: 'always',
     onMutate: () => {
@@ -111,7 +141,7 @@ export const useQuestionBatchPublish = (
       if (actor?.role !== 'ADMIN') throw new AuthTransitionSupersededError()
       return captureAuthActorTransitionFence(actor)
     },
-    onSuccess: async (response, _input, fence) => {
+    onSuccess: async (response, { action }, fence) => {
       assertAdmin(fence)
       const questionByVersion = new Map(
         selected.map((question) => [
@@ -122,22 +152,23 @@ export const useQuestionBatchPublish = (
       setOutcome({
         search,
         result: {
-          published: response.publishedCount,
-          failed: response.items.flatMap(({ questionVersionId, result }) =>
-            result === 'PUBLISHED'
+          action,
+          succeeded: response.succeeded,
+          failed: response.items.flatMap(({ questionVersionId, failure }) =>
+            failure === null
               ? []
               : [
                   {
                     questionId:
                       questionByVersion.get(questionVersionId) ??
                       questionVersionId,
-                    result
+                    result: failure
                   }
                 ]
           )
         }
       })
-      setDialogOpen(false)
+      setDialog((current) => ({ ...current, open: false }))
       setSelectedIds(() => new Set())
       await Promise.all(
         [
@@ -163,37 +194,45 @@ export const useQuestionBatchPublish = (
     setSelectedIds(() =>
       pageState === 'all'
         ? new Set()
-        : new Set(publishable.map(({ questionId }) => questionId))
+        : new Set(selectable.map(({ questionId }) => questionId))
     )
+  const dialogTargets = targets[dialog.action]
 
   return {
     selected,
+    targets,
     isSelected: (questionId: string) => selectedIds.has(questionId),
     pageState,
     toggle,
     togglePage,
     clear: () => setSelectedIds(() => new Set()),
-    dialogOpen,
-    open: () => {
+    dialogOpen: dialog.open,
+    dialogAction: dialog.action,
+    dialogTargets,
+    open: (action: BatchAction) => {
       mutation.reset()
       setFreshConfirmed(false)
-      setDialogOpen(true)
+      setDialog({ action, open: true })
     },
     close: () => {
-      if (!mutation.isPending) setDialogOpen(false)
+      if (!mutation.isPending)
+        setDialog((current) => ({ ...current, open: false }))
     },
     freshConfirmed,
     confirmFresh: () => {
       mutation.reset()
       setFreshConfirmed(true)
     },
-    publish: () => {
+    confirm: () => {
       setFreshConfirmed(false)
       mutation.mutate({
-        items: selected.map((question) => ({
-          questionVersionId: question.selectedVersionId,
-          expectedRowVersion: question.versionRowVersion
-        }))
+        action: dialog.action,
+        body: {
+          items: dialogTargets.map((question) => ({
+            questionVersionId: question.selectedVersionId,
+            expectedRowVersion: question.versionRowVersion
+          }))
+        }
       })
     },
     mutation,
@@ -202,4 +241,4 @@ export const useQuestionBatchPublish = (
   }
 }
 
-export type QuestionBatchPublish = ReturnType<typeof useQuestionBatchPublish>
+export type QuestionBatch = ReturnType<typeof useQuestionBatch>
