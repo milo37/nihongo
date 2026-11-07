@@ -174,18 +174,48 @@ export const questionWorkflowMutations = {
         }
       }
     }),
-  publishBatch: () =>
+  /** Batch approve or batch publish; per-item failures, success as null. */
+  batch: () =>
     mutationOptions({
       mutationKey: [
         ...questionWorkflowQueries.allKey(),
-        'publish-question-version-batch'
+        'question-version-batch'
       ],
-      mutationFn: (body: ContentOperationBody<'publishQuestionVersionBatch'>) =>
-        requestContentOperation({
+      mutationFn: async ({
+        action,
+        body
+      }: {
+        readonly action: 'approve' | 'publish'
+        readonly body: ContentOperationBody<'publishQuestionVersionBatch'>
+      }) => {
+        if (action === 'approve') {
+          const response = await requestContentOperation({
+            operation: 'approveQuestionVersionBatch',
+            params: {},
+            query: {},
+            body
+          })
+          return {
+            succeeded: response.approvedCount,
+            items: response.items.map(({ questionVersionId, result }) => ({
+              questionVersionId,
+              failure: result === 'APPROVED' ? null : result
+            }))
+          }
+        }
+        const response = await requestContentOperation({
           operation: 'publishQuestionVersionBatch',
           params: {},
           query: {},
           body
         })
+        return {
+          succeeded: response.publishedCount,
+          items: response.items.map(({ questionVersionId, result }) => ({
+            questionVersionId,
+            failure: result === 'PUBLISHED' ? null : result
+          }))
+        }
+      }
     })
 }

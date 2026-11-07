@@ -444,46 +444,84 @@ export const jaAdminResources = {
     archive: '公開終了・アーカイブ',
     archiveLabel: '問題{{questionId}}を公開終了・アーカイブ',
     batch: {
-      selectColumn: '公開の選択',
+      selectColumn: '一括選択',
       selectRow: '問題{{questionId}}を選択',
-      selectPage: 'このページの承認済みの問題をすべて選択',
+      selectPage: 'このページのレビュー中・承認済みの問題をすべて選択',
       selected: '{{count}}問を選択中',
       clear: '選択を解除',
-      publish: '選択した問題を公開',
-      scopeNote: 'ページやフィルターを変えると、選択は解除されます。',
+      approve: 'レビュー中の{{count}}問を承認',
+      publish: '承認済みの{{count}}問を公開',
+      scopeNote:
+        'レビュー中の問題は承認、承認済みの問題は公開できます。ページやフィルターを変えると、選択は解除されます。',
       dialog: {
-        title: '{{count}}問を公開しますか？',
-        description:
-          '承認済みのバージョンがすぐに学習者に出題されます。公開中のバージョンがある場合は、このバージョンに切り替わります。',
         more: 'ほか{{rest}}問',
-        body: '1問ずつ公開するため、途中で一部だけ公開される場合があります。結果は問題ごとに表示します。',
         cancel: 'キャンセル',
-        confirm: '{{count}}問を公開',
-        confirming: '公開中…',
-        notPublished: '公開していません。'
+        approve: {
+          title: '{{count}}問を承認しますか？',
+          description:
+            'レビュー中のバージョンを承認します。承認した問題は、公開するまで学習者には表示されません。',
+          body: '1問ずつ承認するため、途中で一部だけ承認される場合があります。結果は問題ごとに表示します。',
+          confirm: '{{count}}問を承認',
+          confirming: '承認中…',
+          notDone: '承認していません。'
+        },
+        publish: {
+          title: '{{count}}問を公開しますか？',
+          description:
+            '承認済みのバージョンがすぐに学習者に出題されます。公開中のバージョンがある場合は、このバージョンに切り替わります。',
+          body: '1問ずつ公開するため、途中で一部だけ公開される場合があります。結果は問題ごとに表示します。',
+          confirm: '{{count}}問を公開',
+          confirming: '公開中…',
+          notDone: '公開していません。'
+        }
       },
       result: {
-        allPublished: '{{published}}問を公開しました',
-        partial: '{{published}}問を公開し、{{failed}}問は公開できませんでした',
         close: '閉じる',
-        VERSION_CONFLICT: {
-          label: '変更の競合',
-          reason:
-            '別の変更が先に保存されました。一覧で最新の状態を確認してから、もう一度選択してください。'
+        approve: {
+          all: '{{count}}問を承認しました',
+          partial: '{{count}}問を承認し、{{failed}}問は承認できませんでした',
+          VERSION_CONFLICT: {
+            label: '変更の競合',
+            reason:
+              '別の変更が先に保存されました。一覧で最新の状態を確認してから、もう一度選択してください。'
+          },
+          NOT_IN_REVIEW: {
+            label: 'レビュー中ではない',
+            reason: 'レビュー中ではないため、承認していません。'
+          },
+          NOT_FOUND: {
+            label: '見つかりません',
+            reason:
+              '問題が見つかりません。すでにアーカイブされた可能性があります。'
+          },
+          FAILED: {
+            label: '承認失敗',
+            reason:
+              '承認中に問題が発生しました。もう一度試す前に、一覧で状態を確認してください。'
+          }
         },
-        NOT_REVIEWED: {
-          label: '未承認',
-          reason: '承認済みではないため、公開していません。'
-        },
-        NOT_FOUND: {
-          label: '見つかりません',
-          reason:
-            '問題が見つかりません。すでにアーカイブされた可能性があります。'
-        },
-        FAILED: {
-          label: '公開失敗',
-          reason:
-            '公開中に問題が発生しました。もう一度試す前に、一覧で状態を確認してください。'
+        publish: {
+          all: '{{count}}問を公開しました',
+          partial: '{{count}}問を公開し、{{failed}}問は公開できませんでした',
+          VERSION_CONFLICT: {
+            label: '変更の競合',
+            reason:
+              '別の変更が先に保存されました。一覧で最新の状態を確認してから、もう一度選択してください。'
+          },
+          NOT_REVIEWED: {
+            label: '未承認',
+            reason: '承認済みではないため、公開していません。'
+          },
+          NOT_FOUND: {
+            label: '見つかりません',
+            reason:
+              '問題が見つかりません。すでにアーカイブされた可能性があります。'
+          },
+          FAILED: {
+            label: '公開失敗',
+            reason:
+              '公開中に問題が発生しました。もう一度試す前に、一覧で状態を確認してください。'
+          }
         }
       }
     },

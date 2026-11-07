@@ -86,7 +86,7 @@ const selectAll = async () => {
   )
   await userEvent.click(
     await screen.findByRole('checkbox', {
-      name: '이 페이지의 승인된 문제 모두 선택'
+      name: '이 페이지의 검수 중·승인된 문제 모두 선택'
     })
   )
   expect(
@@ -95,9 +95,7 @@ const selectAll = async () => {
     })
   ).toBeNull()
   expect(screen.getByText('2개 선택됨')).toBeVisible()
-  await userEvent.click(
-    screen.getByRole('button', { name: '선택한 문제 공개' })
-  )
+  await userEvent.click(screen.getByRole('button', { name: '승인된 2개 공개' }))
   return { dialog: screen.getByRole('dialog'), router }
 }
 
@@ -231,8 +229,93 @@ it('clears the selection when the page or filter changes, even after coming back
   await router.navigate('/questions')
   expect(
     await screen.findByRole('checkbox', {
-      name: '이 페이지의 승인된 문제 모두 선택'
+      name: '이 페이지의 검수 중·승인된 문제 모두 선택'
     })
   ).not.toBeChecked()
   expect(screen.queryByText('2개 선택됨')).toBeNull()
+})
+
+it('approves only in-review rows from the same selection and lists failures', async () => {
+  const reviewId = '10000000-0000-4000-8000-0000000000c1'
+  const reviewVersion = '10000000-0000-4000-8000-0000000000c2'
+  const failedReviewId = '10000000-0000-4000-8000-0000000000d1'
+  const failedReviewVersion = '10000000-0000-4000-8000-0000000000d2'
+  const inReview = (questionId: string, versionId: string) => ({
+    ...approved(questionId, versionId),
+    versionStatus: 'IN_REVIEW' as const,
+    versionRowVersion: 5
+  })
+  vi.spyOn(listApi, 'listAdminQuestion').mockResolvedValue({
+    items: [
+      inReview(failedReviewId, failedReviewVersion),
+      inReview(reviewId, reviewVersion),
+      approved(approvedId, approvedVersion),
+      question
+    ],
+    total: 4,
+    page: 1,
+    pageSize: 20
+  })
+  const approve = vi.spyOn(api, 'requestContentOperation').mockResolvedValue({
+    approvedCount: 1,
+    items: [
+      {
+        questionVersionId: failedReviewVersion,
+        result: 'NOT_IN_REVIEW',
+        rowVersion: null
+      },
+      { questionVersionId: reviewVersion, result: 'APPROVED', rowVersion: 6 }
+    ]
+  })
+  const router = createMemoryRouter(adminRoutes, {
+    basename: '/admin',
+    initialEntries: ['/admin/questions']
+  })
+  render(
+    <QueryClientProvider client={client}>
+      <I18nProvider>
+        <ToastProvider>
+          <RouterProvider router={router} />
+        </ToastProvider>
+      </I18nProvider>
+    </QueryClientProvider>
+  )
+  await userEvent.click(
+    await screen.findByRole('checkbox', {
+      name: '이 페이지의 검수 중·승인된 문제 모두 선택'
+    })
+  )
+  expect(screen.getByText('3개 선택됨')).toBeVisible()
+  expect(screen.getByRole('button', { name: '승인된 1개 공개' })).toBeVisible()
+  await userEvent.click(
+    screen.getByRole('button', { name: '검수 중 2개 승인' })
+  )
+  const dialog = screen.getByRole('dialog')
+  expect(
+    within(dialog).getByRole('heading', { name: '문제 2개를 승인할까요?' })
+  ).toBeVisible()
+  await userEvent.click(
+    within(dialog).getByRole('button', { name: '2개 승인' })
+  )
+
+  const heading = await screen.findByRole('heading', {
+    name: '1개 승인, 1개는 승인하지 못했습니다'
+  })
+  await waitFor(() => expect(heading).toHaveFocus())
+  expect(approve).toHaveBeenCalledExactlyOnceWith({
+    operation: 'approveQuestionVersionBatch',
+    params: {},
+    query: {},
+    body: {
+      items: [
+        { questionVersionId: failedReviewVersion, expectedRowVersion: 5 },
+        { questionVersionId: reviewVersion, expectedRowVersion: 5 }
+      ]
+    }
+  })
+  const resultArea = within(heading.closest('section')!)
+  expect(resultArea.getByRole('link', { name: failedReviewId })).toBeVisible()
+  expect(resultArea.getByText('검수 중 아님')).toBeVisible()
+  expect(resultArea.queryByRole('link', { name: reviewId })).toBeNull()
+  expect(screen.queryByText('3개 선택됨')).toBeNull()
 })

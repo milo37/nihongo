@@ -8,23 +8,25 @@ import type { ReactElement, RefObject } from 'react'
 import { FreshAssurance } from '@app/admin/components/FreshAssurance'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import { questionErrorCode } from '@app/admin-question/detail/questionWorkflow'
-import type { QuestionBatchPublish } from '@app/admin-question/hooks/useQuestionBatchPublish'
+import type { QuestionBatch } from '@app/admin-question/hooks/useQuestionBatch'
 
 const LISTED_IDS = 5
 
-export const BatchPublishDialog = ({
+/** Confirmation for the open batch action (approve or publish). */
+export const BatchActionDialog = ({
   batch,
   fallbackFocusRef
 }: {
-  readonly batch: QuestionBatchPublish
+  readonly batch: QuestionBatch
   readonly fallbackFocusRef: RefObject<HTMLElement | null>
 }): ReactElement => {
   const { t, presentError } = useAdminPresentation()
   const { locale } = useUiLocale()
   const { pathname, search } = useLocation()
-  const { selected, mutation } = batch
+  const { dialogTargets: selected, mutation } = batch
+  const prefix = `questionList.batch.dialog.${batch.dialogAction}` as const
   const count = formatNumber(selected.length, locale)
-  const confirmLabel = t('questionList.batch.dialog.confirm', { count })
+  const confirmLabel = t(`${prefix}.confirm`, { count })
   const code = questionErrorCode(mutation.error)
   const rest = selected.length - LISTED_IDS
   const confirmButton = useRef<HTMLButtonElement>(null)
@@ -39,8 +41,8 @@ export const BatchPublishDialog = ({
   return (
     <Dialog
       open={batch.dialogOpen}
-      title={t('questionList.batch.dialog.title', { count })}
-      description={t('questionList.batch.dialog.description')}
+      title={t(`${prefix}.title`, { count })}
+      description={t(`${prefix}.description`)}
       preventClose={mutation.isPending}
       fallbackFocusRef={fallbackFocusRef}
       onOpenChange={(open) => {
@@ -55,7 +57,7 @@ export const BatchPublishDialog = ({
           >
             {t('questionList.batch.dialog.cancel')}
           </Button>
-          {/* aria-disabled, not disabled: focus stays on the button while publishing. */}
+          {/* aria-disabled, not disabled: focus stays on the button while sending. */}
           <Button
             ref={confirmButton}
             className="aria-disabled:cursor-wait aria-disabled:opacity-70"
@@ -63,12 +65,10 @@ export const BatchPublishDialog = ({
             aria-busy={mutation.isPending || undefined}
             disabled={selected.length === 0}
             onClick={() => {
-              if (!mutation.isPending) batch.publish()
+              if (!mutation.isPending) batch.confirm()
             }}
           >
-            {mutation.isPending
-              ? t('questionList.batch.dialog.confirming')
-              : confirmLabel}
+            {mutation.isPending ? t(`${prefix}.confirming`) : confirmLabel}
           </Button>
         </>
       }
@@ -87,9 +87,7 @@ export const BatchPublishDialog = ({
           </li>
         ) : null}
       </ul>
-      <p className="mt-4 leading-7 text-muted">
-        {t('questionList.batch.dialog.body')}
-      </p>
+      <p className="mt-4 leading-7 text-muted">{t(`${prefix}.body`)}</p>
       {batch.freshConfirmed ? (
         <p role="status" className="mt-4 text-sm leading-6">
           {t('members.detail.fresh.confirmed', { command: confirmLabel })}
@@ -107,8 +105,7 @@ export const BatchPublishDialog = ({
           className="mt-4 rounded-sm text-sm font-semibold text-red-700"
           role="alert"
         >
-          {presentError(mutation.error)}{' '}
-          {t('questionList.batch.dialog.notPublished')}
+          {presentError(mutation.error)} {t(`${prefix}.notDone`)}
         </p>
       ) : null}
     </Dialog>
