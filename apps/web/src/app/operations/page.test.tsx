@@ -8,6 +8,7 @@ import {
   within
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { http, HttpResponse } from 'msw'
 import { createMemoryRouter, MemoryRouter, RouterProvider } from 'react-router'
 import { appRoutes } from '@/router'
 import { operationsRoutes } from '@app/operations/router'
@@ -18,6 +19,8 @@ import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import type { LegalSettings } from '@app/operations/legalSettings'
 import { OperationsInformationPage } from '@app/operations/page'
+import { LEGAL_SETTINGS_PATH } from '@api/operations/getLegalSettings'
+import { mockServer } from '@/test/server'
 
 const originalScrollIntoView = HTMLElement.prototype.scrollIntoView
 beforeEach(() => {
@@ -221,11 +224,13 @@ it('explains reporting and an unset contact email without inventing a form, emai
 
 const renderLegalPage = (page: 'legal' | 'support', settings: LegalSettings) =>
   render(
-    <I18nProvider>
-      <MemoryRouter>
-        <OperationsInformationPage page={page} settings={settings} />
-      </MemoryRouter>
-    </I18nProvider>
+    <QueryClientProvider client={queryClient}>
+      <I18nProvider>
+        <MemoryRouter>
+          <OperationsInformationPage page={page} settings={settings} />
+        </MemoryRouter>
+      </I18nProvider>
+    </QueryClientProvider>
   )
 
 it('fills the effective date, privacy officer and contact email from the settings', () => {
@@ -259,6 +264,24 @@ it('fills the effective date, privacy officer and contact email from the setting
   expect(
     screen.queryByText('문의 이메일은 정식 공개 때 안내합니다.')
   ).not.toBeInTheDocument()
+})
+
+it('shows the contact email and privacy officer from the deploy file', async () => {
+  mockServer.use(
+    http.get(LEGAL_SETTINGS_PATH, () =>
+      HttpResponse.json({
+        contactEmail: 'help@example.com',
+        privacyOfficer: '홍길동'
+      })
+    )
+  )
+  renderInformationRoute('/legal')
+  expect(
+    await screen.findByText(
+      '개인정보 보호책임자: 홍길동 / 연락처: help@example.com'
+    )
+  ).toBeInTheDocument()
+  expect(screen.getByText('시행일: 정식 공개일')).toBeInTheDocument()
 })
 
 it('shows the fallback copy for empty settings', () => {

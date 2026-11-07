@@ -82,6 +82,8 @@ services:
       NODE_EXTRA_CA_CERTS: /run/postgres-ca.crt
     volumes:
       - /var/lib/harumaru/certs/server.crt:/run/postgres-ca.crt:ro
+      # Legal contact, rendered from SSM by render-env.sh (#705).
+      - /var/lib/harumaru/web/legal-settings.json:/app/web/legal-settings.json:ro
     networks: [edge, db]
     depends_on:
       postgres:
