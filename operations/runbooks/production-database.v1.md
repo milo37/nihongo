@@ -145,6 +145,30 @@ Checked locally (release `8f229404`, empty database, the 3-tag sample
 `apps/api/test/fixtures/content/tags.v2.sample.json`): dry run `created:3`,
 load `created:3`, second load `unchanged:3`, the API stayed ready (200).
 
+## Legal contact (before PRODUCTION opens, #705)
+
+`/legal` and `/support` show the privacy officer's name and the contact mail
+from `/legal-settings.json`, which the host writes from two optional SSM
+values; the repository, Terraform and the image never hold them. STAGING leaves
+both unset and the pages show the fallback copy. On the operator machine, type
+each value at the prompt (not on the command line, so it stays out of shell
+history):
+
+```sh
+for name in LEGAL_PRIVACY_OFFICER LEGAL_CONTACT_EMAIL; do
+  printf "%s: " "$name"; read -r value
+  aws ssm put-parameter --type SecureString --overwrite \
+    --name "/harumaru/production/$name" --value "$value"
+done
+```
+
+Then in a Session Manager shell on the host, `sudo /opt/harumaru/bin/render-env.sh`
+(or the next deploy) rewrites the file; the API reads it without a restart.
+
+`render-env.sh` refuses a blank value or one over 200 characters. Check the
+page shows both values; to remove them, `aws ssm delete-parameter` and deploy
+again.
+
 ## Rollback
 
 - Migrations are forward-only; the previous API image must accept the new
