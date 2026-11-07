@@ -39,7 +39,7 @@ jobs:
           persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22.23.0
 
@@ -75,7 +75,7 @@ jobs:
           version: 10.2.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22.23.0
           cache: pnpm
@@ -136,7 +136,7 @@ jobs:
           version: 10.2.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22.23.0
           cache: pnpm
@@ -199,7 +199,7 @@ jobs:
           version: 10.2.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22.23.0
           cache: pnpm
@@ -258,7 +258,7 @@ jobs:
           version: 10.2.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22.23.0
           cache: pnpm
@@ -456,7 +456,7 @@ jobs:
           version: 10.2.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: 22.23.0
           cache: pnpm
