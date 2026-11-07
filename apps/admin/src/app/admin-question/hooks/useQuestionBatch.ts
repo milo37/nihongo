@@ -13,52 +13,55 @@ import {
 } from '@nihongo/browser/libs/authTransitionFence'
 import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
 import { useAppStore } from '@nihongo/browser/store/index'
-import type { ContentOperationResult } from '@nihongo/browser/api/content-operations/requestContentOperation'
 import { adminAuditQueries } from '@app/admin-audit/queries/adminAuditQueries'
 import type { AdminQuestionSummary } from '@app/admin-question/components/QuestionListTable'
 import { adminQuestionQueries } from '@app/admin-question/queries/adminQuestionQueries'
 import {
   questionWorkflowMutations,
-  questionWorkflowQueries
+  questionWorkflowQueries,
+  type BatchFailure
 } from '@app/admin-question/queries/questionWorkflowQueries'
 
-export type BatchAction = 'approve' | 'publish'
-
-type FailedResult =
-  | Exclude<
-      ContentOperationResult<'publishQuestionVersionBatch'>['items'][number]['result'],
-      'PUBLISHED'
-    >
-  | Exclude<
-      ContentOperationResult<'approveQuestionVersionBatch'>['items'][number]['result'],
-      'APPROVED'
-    >
+export type BatchAction = 'request' | 'approve' | 'publish'
 
 export type BatchActionResult = {
   readonly action: BatchAction
   readonly succeeded: number
   readonly failed: ReadonlyArray<{
     readonly questionId: string
-    readonly result: FailedResult
+    readonly result: BatchFailure
   }>
 }
 
 const isActive = (question: AdminQuestionSummary): boolean =>
   question.lifecycleStatus === 'ACTIVE'
 
-/** Rows each batch action can take: approve from review, publish when approved. */
+/**
+ * Rows each batch action can take: request review of the actor's own drafts,
+ * approve from review, publish when approved.
+ */
 export const batchTargets: Record<
   BatchAction,
-  (question: AdminQuestionSummary) => boolean
+  (question: AdminQuestionSummary, actorId: string | undefined) => boolean
 > = {
+  request: (question, actorId) =>
+    isActive(question) &&
+    Boolean(actorId) &&
+    question.author?.actorId === actorId &&
+    ['DRAFT', 'CHANGES_REQUESTED'].includes(question.versionStatus),
   approve: (question) =>
     isActive(question) && question.versionStatus === 'IN_REVIEW',
   publish: (question) =>
     isActive(question) && question.versionStatus === 'APPROVED'
 }
 
-export const isBatchSelectable = (question: AdminQuestionSummary): boolean =>
-  batchTargets.approve(question) || batchTargets.publish(question)
+export const isBatchSelectable = (
+  question: AdminQuestionSummary,
+  actorId: string | undefined
+): boolean =>
+  batchTargets.request(question, actorId) ||
+  batchTargets.approve(question, actorId) ||
+  batchTargets.publish(question, actorId)
 
 const assertAdmin = (fence: AuthActorTransitionFence | undefined): void => {
   if (!fence || fence.role !== 'ADMIN')
@@ -70,12 +73,13 @@ const assertAdmin = (fence: AuthActorTransitionFence | undefined): void => {
 }
 
 /**
- * Current-page selection, confirmation and per-item result of batch approve
- * and batch publish. One selection serves both actions.
+ * Current-page selection, confirmation and per-item result of batch review
+ * request, approve and publish. One selection serves every action.
  */
 export const useQuestionBatch = (items: readonly AdminQuestionSummary[]) => {
   const { search } = useLocation()
   const client = useQueryClient()
+  const actorId = useAppStore((state) => state.currentUser?.id)
   // Page, filter, sort and search live in the query string, so selection and
   // result belong to the query string they were made under.
   const [selection, setSelection] = useState<{
@@ -111,13 +115,22 @@ export const useQuestionBatch = (items: readonly AdminQuestionSummary[]) => {
       ids: next(current.search === search ? current.ids : new Set())
     }))
 
-  const selectable = items.filter(isBatchSelectable)
+  const selectable = items.filter((question) =>
+    isBatchSelectable(question, actorId)
+  )
   const selected = selectable.filter(({ questionId }) =>
     selectedIds.has(questionId)
   )
   const targets = {
-    approve: selected.filter(batchTargets.approve),
-    publish: selected.filter(batchTargets.publish)
+    request: selected.filter((question) =>
+      batchTargets.request(question, actorId)
+    ),
+    approve: selected.filter((question) =>
+      batchTargets.approve(question, actorId)
+    ),
+    publish: selected.filter((question) =>
+      batchTargets.publish(question, actorId)
+    )
   }
   const pageState =
     selectable.length === 0
@@ -227,12 +240,10 @@ export const useQuestionBatch = (items: readonly AdminQuestionSummary[]) => {
       setFreshConfirmed(false)
       mutation.mutate({
         action: dialog.action,
-        body: {
-          items: dialogTargets.map((question) => ({
-            questionVersionId: question.selectedVersionId,
-            expectedRowVersion: question.versionRowVersion
-          }))
-        }
+        items: dialogTargets.map((question) => ({
+          questionVersionId: question.selectedVersionId,
+          expectedRowVersion: question.versionRowVersion
+        }))
       })
     },
     mutation,

@@ -1,5 +1,8 @@
 import { createResponseValidationError } from '@nihongo/browser/api/config'
-import type { QuestionWrite } from '@app/admin-question/detail/questionWorkflow'
+import {
+  questionErrorCode,
+  type QuestionWrite
+} from '@app/admin-question/detail/questionWorkflow'
 import {
   mutationOptions,
   queryOptions,
@@ -7,9 +10,108 @@ import {
 } from '@tanstack/react-query'
 import {
   requestContentOperation,
-  type ContentOperationBody
+  type ContentOperationBody,
+  type ContentOperationResult
 } from '@nihongo/browser/api/content-operations/requestContentOperation'
 import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
+/** Why a review request item was not sent; a failed chunk fails all its items. */
+export type ReviewRequestFailure =
+  | 'VERSION_CONFLICT'
+  | 'NOT_DRAFT'
+  | 'NOT_FOUND'
+  | 'RATE_LIMITED'
+  | 'FAILED'
+
+/** Why a batch item was not done, for any batch action. */
+export type BatchFailure =
+  | ReviewRequestFailure
+  | Exclude<
+      ContentOperationResult<'publishQuestionVersionBatch'>['items'][number]['result'],
+      'PUBLISHED'
+    >
+  | Exclude<
+      ContentOperationResult<'approveQuestionVersionBatch'>['items'][number]['result'],
+      'APPROVED'
+    >
+
+type BatchResponse<Failure extends BatchFailure = BatchFailure> = {
+  readonly succeeded: number
+  readonly items: ReadonlyArray<{
+    readonly questionVersionId: string
+    readonly failure: Failure | null
+  }>
+}
+
+export const REVIEW_REQUEST_CHUNK = 20
+
+const chunkFailure: Readonly<Record<string, ReviewRequestFailure>> = {
+  VERSION_CONFLICT: 'VERSION_CONFLICT',
+  INVALID_STATE_TRANSITION: 'NOT_DRAFT',
+  RESOURCE_NOT_FOUND: 'NOT_FOUND'
+}
+
+/**
+ * Sends review requests 20 at a time, in order. A chunk the server refuses
+ * for its items is marked and the next chunk still goes; any other refusal
+ * stops sending. Before anything succeeded the error is thrown so the dialog
+ * can show it (sign-in, fresh assurance, rate limit).
+ */
+const requestReviewInChunks = async (
+  items: ContentOperationBody<'publishQuestionVersionBatch'>['items']
+): Promise<BatchResponse<ReviewRequestFailure>> => {
+  const results: Array<{
+    questionVersionId: string
+    failure: ReviewRequestFailure | null
+  }> = []
+  let succeeded = 0
+  for (let start = 0; start < items.length; start += REVIEW_REQUEST_CHUNK) {
+    const chunk = items.slice(start, start + REVIEW_REQUEST_CHUNK)
+    try {
+      await requestContentOperation({
+        operation: 'requestContentReviewBatch',
+        params: {},
+        query: {},
+        body: {
+          items: chunk.map(({ questionVersionId, expectedRowVersion }) => ({
+            versionId: questionVersionId,
+            expectedRowVersion
+          }))
+        }
+      })
+      succeeded += chunk.length
+      results.push(
+        ...chunk.map(({ questionVersionId }) => ({
+          questionVersionId,
+          failure: null
+        }))
+      )
+    } catch (error) {
+      const code = questionErrorCode(error)
+      const itemFailure = code ? chunkFailure[code] : undefined
+      if (itemFailure) {
+        results.push(
+          ...chunk.map(({ questionVersionId }) => ({
+            questionVersionId,
+            failure: itemFailure
+          }))
+        )
+        continue
+      }
+      if (results.length === 0) throw error
+      const failure: ReviewRequestFailure =
+        code === 'RATE_LIMITED' ? 'RATE_LIMITED' : 'FAILED'
+      results.push(
+        ...items.slice(start).map(({ questionVersionId }) => ({
+          questionVersionId,
+          failure
+        }))
+      )
+      break
+    }
+  }
+  return { succeeded, items: results }
+}
+
 export const questionWorkflowQueries = {
   allKey: serverStateQueryKeys.adminQuestion.all,
   detail: (actor: string | null, epoch: number, questionId: string) =>
@@ -174,7 +276,10 @@ export const questionWorkflowMutations = {
         }
       }
     }),
-  /** Batch approve or batch publish; per-item failures, success as null. */
+  /**
+   * Batch review request, approve or publish; per-item failures, success as
+   * null. Review requests go out 20 at a time, the server's batch limit.
+   */
   batch: () =>
     mutationOptions({
       mutationKey: [
@@ -183,17 +288,18 @@ export const questionWorkflowMutations = {
       ],
       mutationFn: async ({
         action,
-        body
+        items
       }: {
-        readonly action: 'approve' | 'publish'
-        readonly body: ContentOperationBody<'publishQuestionVersionBatch'>
-      }) => {
+        readonly action: 'request' | 'approve' | 'publish'
+        readonly items: ContentOperationBody<'publishQuestionVersionBatch'>['items']
+      }): Promise<BatchResponse> => {
+        if (action === 'request') return requestReviewInChunks(items)
         if (action === 'approve') {
           const response = await requestContentOperation({
             operation: 'approveQuestionVersionBatch',
             params: {},
             query: {},
-            body
+            body: { items }
           })
           return {
             succeeded: response.approvedCount,
@@ -207,7 +313,7 @@ export const questionWorkflowMutations = {
           operation: 'publishQuestionVersionBatch',
           params: {},
           query: {},
-          body
+          body: { items }
         })
         return {
           succeeded: response.publishedCount,
