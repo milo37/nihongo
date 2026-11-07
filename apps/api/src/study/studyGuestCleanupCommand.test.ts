@@ -2,11 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mocks = vi.hoisted(() => ({
   createDatabase: vi.fn(),
+  runBatch: vi.fn(),
   verifyRole: vi.fn()
 }))
 
 vi.mock('../db/database.js', () => ({
   createRoleDatabaseRuntime: mocks.createDatabase
+}))
+vi.mock('./studyGuestCleanupBatch.js', () => ({
+  runGuestCleanupBatch: mocks.runBatch
 }))
 vi.mock('./studyGuestCleanupRole.js', () => ({
   verifyStudyGuestCleanupRole: mocks.verifyRole
@@ -21,15 +25,14 @@ const source = {
 }
 
 const setupDatabase = (result: {
-  deletedCount: bigint
-  eligibleCount: bigint
+  deletedCount: number
+  eligibleCount: number
   hasMore: boolean
 }) => {
-  const query = vi.fn().mockResolvedValue([result])
+  const query = mocks.runBatch.mockResolvedValue(result)
   const disconnect = vi.fn().mockResolvedValue(undefined)
   const transaction = vi.fn(
-    async (callback: (tx: unknown) => Promise<unknown>) =>
-      await callback({ $queryRaw: query })
+    async (callback: (tx: unknown) => Promise<unknown>) => await callback({})
   )
   mocks.createDatabase.mockReturnValue({
     client: { $transaction: transaction },
@@ -45,18 +48,18 @@ afterEach(() => vi.restoreAllMocks())
 describe('guest cleanup command', () => {
   it('uses the guarded preview without printing database credentials', async () => {
     const { query, disconnect } = setupDatabase({
-      deletedCount: 0n,
-      eligibleCount: 3n,
+      deletedCount: 0,
+      eligibleCount: 3,
       hasMore: true
     })
     const output = vi.spyOn(process.stdout, 'write').mockReturnValue(true)
     await expect(runStudyGuestCleanupCommand(source)).resolves.toBe(0)
     expect(mocks.createDatabase).toHaveBeenCalledWith(
       source.GUEST_CLEANUP_DATABASE_URL,
-      'nihongo_guest_cleanup_worker'
+      'nihongo_app'
     )
     expect(mocks.verifyRole).toHaveBeenCalledOnce()
-    expect(query.mock.calls[0]?.at(-1)).toBe(true)
+    expect(query.mock.calls[0]?.at(-1)).toMatchObject({ dryRun: true })
     expect(String(output.mock.calls[0]?.[0])).not.toContain(
       source.GUEST_CLEANUP_DATABASE_URL
     )
@@ -65,8 +68,8 @@ describe('guest cleanup command', () => {
 
   it('stops before a batch if role verification fails', async () => {
     const { query, disconnect } = setupDatabase({
-      deletedCount: 0n,
-      eligibleCount: 0n,
+      deletedCount: 0,
+      eligibleCount: 0,
       hasMore: false
     })
     mocks.verifyRole.mockRejectedValue(new Error('restricted details'))

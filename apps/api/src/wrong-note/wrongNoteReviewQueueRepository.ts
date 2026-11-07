@@ -25,7 +25,7 @@ export interface ReviewQueueRecord
   readonly nextReviewAt: Date
 }
 
-export interface ListOwnedReviewQueueResult {
+interface ListOwnedReviewQueueResult {
   readonly availableTags: readonly string[]
   readonly counts: ReviewQueueCounts
   readonly items: readonly ReviewQueueRecord[]
@@ -33,7 +33,7 @@ export interface ListOwnedReviewQueueResult {
   readonly total: number
 }
 
-export interface ListOwnedReviewQueueInput extends ParsedListReviewQueueQuery {
+interface ListOwnedReviewQueueInput extends ParsedListReviewQueueQuery {
   readonly observedAt?: Date
   readonly userId: string
 }
@@ -184,7 +184,7 @@ export const createReviewQueueAvailableTagsQuery = (
 
   return Prisma.sql`
     SELECT DISTINCT
-      version_tag."labelSnapshot" COLLATE "C" AS "label"
+      tag."label" COLLATE "C" AS "label"
     FROM "WrongNote" AS note
     JOIN "ReviewSchedule" AS schedule
       ON schedule."wrongNoteId" = note."id"
@@ -195,6 +195,8 @@ export const createReviewQueueAvailableTagsQuery = (
       AND version."id" = question."currentPublishedVersionId"
     JOIN "QuestionVersionTag" AS version_tag
       ON version_tag."questionVersionId" = version."id"
+    JOIN "Tag" AS tag
+      ON tag."id" = version_tag."tagId"
     WHERE ${basePredicate}
     ORDER BY "label" ASC
   `
@@ -235,8 +237,9 @@ export const createReviewQueueItemsQuery = (
       ARRAY(
         SELECT labels."label"
         FROM (
-          SELECT DISTINCT item_tag."labelSnapshot" AS "label"
+          SELECT DISTINCT item_tag_name."label" AS "label"
           FROM "QuestionVersionTag" AS item_tag
+          JOIN "Tag" AS item_tag_name ON item_tag_name."id" = item_tag."tagId"
           WHERE item_tag."questionVersionId" = version."id"
         ) AS labels
         ORDER BY labels."label" COLLATE "C" ASC

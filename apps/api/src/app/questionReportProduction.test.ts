@@ -19,14 +19,11 @@ const environment = parseApiEnvironment({
   NODE_ENV: 'production',
   DEPLOYMENT_ENVIRONMENT: 'TEST',
   RELEASE_ID: 'a'.repeat(40),
-  ADMIN_CMS_MODE: 'disabled',
   HOST: '127.0.0.1',
   PORT: '3001',
   LOG_LEVEL: 'error',
   DATABASE_URL:
     'postgresql://nihongo_test_app_login:placeholder@localhost/nihongo_test?schema=public&sslmode=require',
-  AUTH_GATEWAY_DATABASE_URL:
-    'postgresql://nihongo_test_auth_gateway_login:placeholder@localhost/nihongo_test?schema=public&sslmode=require',
   TRUSTED_ORIGINS: origin,
   BETTER_AUTH_URL: origin,
   BETTER_AUTH_SECRET: 'test-auth-placeholder-only-1234567890',
@@ -49,7 +46,7 @@ const fixture = ({
       ? {
           clearSessionCookie: false,
           headers: new Headers(),
-          phase7Session: {
+          ownedSessionProof: {
             id: userId,
             token: 'session-token',
             createdAt: new Date('2026-10-27T00:00:00Z'),

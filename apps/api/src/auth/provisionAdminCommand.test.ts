@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { Hono } from 'hono'
 import { practiceFlowConformanceFixture as practice } from '@nihongo/contracts/testing/practice-flow-conformance'
 import { reviewCenterConformanceFixture as review } from '@nihongo/contracts/testing/review-center-conformance'
@@ -37,7 +38,12 @@ import { runProvisionAdminCommand } from './provisionAdminCommand.js'
 const db = vi.hoisted(() => ({
   connect: vi.fn<() => Promise<void>>(),
   query:
-    vi.fn<(sql: string, values?: unknown[]) => Promise<{ rows: unknown[] }>>(),
+    vi.fn<
+      (
+        sql: string,
+        values?: unknown[]
+      ) => Promise<{ rows: unknown[]; rowCount?: number }>
+    >(),
   end: vi.fn<() => Promise<void>>(),
   construct: vi.fn()
 }))
@@ -53,39 +59,98 @@ vi.mock('pg', () => ({
 }))
 
 const userId = '11111111-1111-4111-8111-111111111111'
-const validInput = (mode = 'test'): NodeJS.ProcessEnv => {
+const email = 'first.admin@example.test'
+const subject = 'opaque-google-subject'
+const target = (change: Record<string, unknown> = {}) => ({
+  userId,
+  role: 'USER',
+  accountStatus: 'ACTIVE',
+  deleted: false,
+  authorityGeneration: 7,
+  googleSubjects: [subject],
+  activeAdminCount: 0,
+  ...change
+})
+const migrationUrl = (mode: string): URL => {
+  const production = mode === 'production'
+  const database =
+    mode === 'test' ? 'nihongo_test' : production ? 'nihongo' : 'nihongo_dev'
+  const schema = production
+    ? 'public'
+    : mode === 'test'
+      ? 'nihongo_bootstrap_test'
+      : 'nihongo_bootstrap_dev'
+  const url = new URL(
+    'postgresql://' +
+      (production ? 'postgres' : '127.0.0.1') +
+      ':5432/' +
+      database
+  )
+  url.username = production
+    ? 'nihongo_production_migration_login'
+    : mode === 'test'
+      ? 'nihongo_test_migration_login'
+      : 'nihongo_development_migration_login'
+  url.password = 'unit-only'
+  url.searchParams.set('schema', schema)
+  if (production) url.searchParams.set('sslmode', 'require')
+  url.searchParams.set('options', '-c role=nihongo_migration')
+  return url
+}
+const targetInput = (mode = 'test'): NodeJS.ProcessEnv => {
+  const migration = migrationUrl(mode)
+  if (mode === 'production') {
+    return {
+      NODE_ENV: 'production',
+      DEPLOYMENT_ENVIRONMENT: 'PRODUCTION',
+      MIGRATION_DATABASE_URL: migration.href,
+      DATABASE_URL:
+        'postgresql://nihongo_production_app_login:unit-only@postgres:5432/nihongo?schema=public&sslmode=require',
+      PRODUCTION_DATABASE_URL:
+        'postgresql://nihongo_production_app_login:unit-only@postgres:5432/nihongo?schema=public&sslmode=require'
+    }
+  }
   const test = mode === 'test'
   const database = test ? 'nihongo_test' : 'nihongo_dev'
-  const schema = test ? 'phase7_bootstrap_test' : 'phase7_bootstrap_dev'
-  const migration = new URL('postgresql://127.0.0.1:5432/' + database)
-  migration.username = test
-    ? 'nihongo_test_phase7_migration_login'
-    : 'nihongo_development_phase7_migration_login'
-  migration.password = 'unit-only'
-  migration.searchParams.set('schema', schema)
-  migration.searchParams.set('options', '-c role=nihongo_phase7_migration')
   return {
     NODE_ENV: mode,
-    DEPLOYMENT_ENV: test ? 'TEST' : 'DEVELOPMENT',
-    ADMIN_PROVISION_CONFIRM: 'PROVISION_FIRST_GOOGLE_ADMIN',
-    ADMIN_PROVISION_USER_ID: userId,
-    ADMIN_PROVISION_GOOGLE_SUBJECT: 'opaque-google-subject',
-    ADMIN_PROVISION_EXPECTED_GENERATION: '7',
-    PHASE7_MIGRATION_DATABASE_URL: migration.href,
+    DEPLOYMENT_ENVIRONMENT: test ? 'TEST' : 'DEVELOPMENT',
+    MIGRATION_DATABASE_URL: migration.href,
     DATABASE_URL:
       'postgresql://nihongo_app:unit-only@127.0.0.1:5432/' +
       database +
       '?schema=' +
-      schema,
+      migration.searchParams.get('schema'),
     PRODUCTION_DATABASE_URL:
       'postgresql://runtime:unit-only@production.invalid:5432/nihongo_production?schema=public'
   }
 }
+const validInput = (mode = 'test'): NodeJS.ProcessEnv => ({
+  ...targetInput(mode),
+  ADMIN_PROVISION_EMAIL: email,
+  ADMIN_PROVISION_CONFIRM: 'PROVISION_FIRST_GOOGLE_ADMIN',
+  ADMIN_PROVISION_EXPECTED_GENERATION: '7'
+})
+const dryRunInput = (mode = 'test'): NodeJS.ProcessEnv => ({
+  ...targetInput(mode),
+  ADMIN_PROVISION_EMAIL: email
+})
 const changeUrl = (source: NodeJS.ProcessEnv, change: (url: URL) => void) => {
-  const url = new URL(source.PHASE7_MIGRATION_DATABASE_URL!)
+  const url = new URL(source.MIGRATION_DATABASE_URL!)
   change(url)
-  return { ...source, PHASE7_MIGRATION_DATABASE_URL: url.href }
+  return { ...source, MIGRATION_DATABASE_URL: url.href }
 }
+const respond = (rows: unknown[] = [target()], result: unknown[] = [8]) => {
+  db.query.mockImplementation(async (sql) => {
+    if (sql.includes('FROM "User" u')) return { rows }
+    if (sql.includes('bootstrap_first_google_admin'))
+      return {
+        rows: result.map((authorityGeneration) => ({ authorityGeneration }))
+      }
+    return { rows: [] }
+  })
+}
+const statements = () => db.query.mock.calls.map(([sql]) => sql)
 let stdout: MockInstance<typeof process.stdout.write>
 let stderr: MockInstance<typeof process.stderr.write>
 const originalExit = process.exitCode
@@ -96,14 +161,14 @@ beforeEach(() => {
   stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
   db.connect.mockResolvedValue(undefined)
   db.end.mockResolvedValue(undefined)
-  db.query.mockImplementation(async (sql) => ({
-    rows: sql.startsWith('SELECT') ? [{ authorityGeneration: 8 }] : []
-  }))
+  respond()
 })
 afterEach(() => {
   process.exitCode = originalExit
   vi.restoreAllMocks()
 })
+const printed = (stream: MockInstance<typeof process.stdout.write>) =>
+  JSON.parse(String(stream.mock.calls[0]?.[0])) as Record<string, unknown>
 const expectFailure = () => {
   expect(process.exitCode).toBe(1)
   expect(stdout).not.toHaveBeenCalled()
@@ -113,66 +178,175 @@ const expectFailure = () => {
 }
 
 describe('first Google admin operator CLI', () => {
-  it.each(['test', 'development'])(
-    'uses canonical %s target and one parameterized owned transition',
+  it.each(['test', 'development', 'production'])(
+    'reports the %s target by email without changing it',
     async (mode) => {
-      const input = validInput(mode)
-      await runProvisionAdminCommand(input)
+      await runProvisionAdminCommand(dryRunInput(mode))
+      expect(process.exitCode).toBeUndefined()
+      expect(statements()).toEqual([
+        'BEGIN ISOLATION LEVEL READ COMMITTED',
+        "SET LOCAL lock_timeout = '5s'",
+        'SET LOCAL ROLE nihongo_owner',
+        expect.stringContaining('FROM "User" u WHERE lower(u."email")'),
+        'SET LOCAL ROLE nihongo_migration',
+        'ROLLBACK'
+      ])
+      expect(db.query.mock.calls[3]?.[1]).toEqual([email])
+      expect(printed(stdout)).toEqual({
+        event: 'first_google_admin_dry_run',
+        environment:
+          mode === 'test'
+            ? 'TEST'
+            : mode === 'production'
+              ? 'PRODUCTION'
+              : 'DEVELOPMENT',
+        emailSha256: expect.stringMatching(/^[0-9a-f]{64}$/u),
+        eligible: true,
+        targetUserId: userId,
+        authorityGeneration: 7
+      })
+      expect(String(stdout.mock.calls[0]?.[0])).not.toContain(email)
+      expect(String(stdout.mock.calls[0]?.[0])).not.toContain(subject)
+      expect(db.end).toHaveBeenCalledOnce()
+      expect(stderr).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each(['test', 'development', 'production'])(
+    'provisions the confirmed %s target through the owned bootstrap function',
+    async (mode) => {
+      await runProvisionAdminCommand(validInput(mode))
       expect(process.exitCode).toBeUndefined()
       const options: unknown = db.construct.mock.calls[0]?.[0]
+      const schema = migrationUrl(mode).searchParams.get('schema')
       expect(options).toEqual({
         connectionString: expect.any(String),
         connectionTimeoutMillis: 5000,
         query_timeout: 15000,
         statement_timeout: 10000,
         options:
-          '-c search_path=phase7_bootstrap_' +
-          (mode === 'test' ? 'test' : 'dev') +
-          ' -c TimeZone=UTC -c role=nihongo_phase7_migration'
+          '-c search_path=' +
+          schema +
+          ' -c TimeZone=UTC -c role=nihongo_migration'
       })
       const connection = new URL(
         (options as { connectionString: string }).connectionString
       )
       expect(connection.searchParams.has('schema')).toBe(false)
       expect(connection.searchParams.has('options')).toBe(false)
-      expect(db.query.mock.calls).toEqual([
-        ['BEGIN ISOLATION LEVEL READ COMMITTED'],
-        ["SET LOCAL lock_timeout = '5s'"],
+      const environment =
+        mode === 'test'
+          ? 'TEST'
+          : mode === 'production'
+            ? 'PRODUCTION'
+            : 'DEVELOPMENT'
+      expect(db.query.mock.calls.slice(5)).toEqual([
         [
           expect.stringContaining(
-            '"phase7_bootstrap_first_google_admin"($1::uuid,$2::text,$3::integer,$4::text,$5::"AdminAuditEnvironment")'
+            '"bootstrap_first_google_admin"($1::uuid,$2::text,$3::integer,$4::text,$5::"AdminAuditEnvironment")'
           ),
-          [
-            userId,
-            'opaque-google-subject',
-            7,
-            'phase7_bootstrap_' + (mode === 'test' ? 'test' : 'dev'),
-            mode === 'test' ? 'TEST' : 'DEVELOPMENT'
-          ]
+          [userId, subject, 7, schema, environment]
         ],
         ['COMMIT']
       ])
-      expect(db.end).toHaveBeenCalledOnce()
-      expect(stdout).toHaveBeenCalledExactlyOnceWith(
-        '{"event":"first_google_admin_provisioned","authorityGeneration":8}\n'
-      )
+      expect(printed(stdout)).toEqual({
+        event: 'first_google_admin_provisioned',
+        environment,
+        emailSha256: expect.stringMatching(/^[0-9a-f]{64}$/u),
+        targetUserId: userId,
+        authorityGeneration: 8,
+        occurredAt: expect.any(String)
+      })
+      expect(String(stdout.mock.calls[0]?.[0])).not.toContain(subject)
       expect(stderr).not.toHaveBeenCalled()
     }
   )
 
-  it('binds an opaque subject without interpolation or success-log identity disclosure', async () => {
-    const subject = "opaque'; SELECT private_data; --"
-    await runProvisionAdminCommand({
-      ...validInput(),
-      ADMIN_PROVISION_GOOGLE_SUBJECT: subject
-    })
+  it('runs on a STAGING deployment as the PRODUCTION environment (#691)', async () => {
+    const staging = { DEPLOYMENT_ENVIRONMENT: 'STAGING' }
+    await runProvisionAdminCommand({ ...dryRunInput('production'), ...staging })
     expect(process.exitCode).toBeUndefined()
-    const call = db.query.mock.calls.find(([sql]) => sql.startsWith('SELECT'))
-    expect(call?.[0]).not.toContain(subject)
-    expect(call?.[1]?.[1]).toBe(subject)
-    expect(stdout).toHaveBeenCalledExactlyOnceWith(
-      '{"event":"first_google_admin_provisioned","authorityGeneration":8}\n'
+    expect(printed(stdout)).toMatchObject({
+      event: 'first_google_admin_dry_run',
+      environment: 'PRODUCTION',
+      eligible: true
+    })
+    expect(statements().at(-1)).toBe('ROLLBACK')
+
+    vi.clearAllMocks()
+    respond()
+    await runProvisionAdminCommand({ ...validInput('production'), ...staging })
+    expect(process.exitCode).toBeUndefined()
+    expect(db.query).toHaveBeenCalledWith(
+      expect.stringContaining('"bootstrap_first_google_admin"('),
+      [
+        userId,
+        subject,
+        7,
+        migrationUrl('production').searchParams.get('schema'),
+        'PRODUCTION'
+      ]
     )
+    expect(printed(stdout)).toMatchObject({
+      event: 'first_google_admin_provisioned',
+      environment: 'PRODUCTION'
+    })
+    expect(statements().at(-1)).toBe('COMMIT')
+  })
+
+  it('hashes the normalized email so the same address always matches', async () => {
+    await runProvisionAdminCommand(dryRunInput())
+    const first = printed(stdout).emailSha256
+    stdout.mockClear()
+    await runProvisionAdminCommand({
+      ...dryRunInput(),
+      ADMIN_PROVISION_EMAIL: email.toUpperCase()
+    })
+    expect(printed(stdout).emailSha256).toBe(first)
+    expect(first).toBe(createHash('sha256').update(email).digest('hex'))
+  })
+
+  it.each([
+    ['TARGET_NOT_FOUND', [] as unknown[]],
+    ['ADMIN_ALREADY_EXISTS', [target({ activeAdminCount: 1 })]],
+    ['TARGET_NOT_ACTIVE_USER', [target({ role: 'ADMIN' })]],
+    ['TARGET_NOT_ACTIVE_USER', [target({ accountStatus: 'RESTRICTED' })]],
+    ['TARGET_NOT_ACTIVE_USER', [target({ deleted: true })]],
+    ['GOOGLE_LINK_REQUIRED', [target({ googleSubjects: [] })]],
+    ['GOOGLE_LINK_REQUIRED', [target({ googleSubjects: ['a', 'b'] })]]
+  ])(
+    'refuses %s before calling the bootstrap function',
+    async (reason, rows) => {
+      respond(rows)
+      await runProvisionAdminCommand(validInput())
+      expect(process.exitCode).toBe(1)
+      expect(stdout).not.toHaveBeenCalled()
+      expect(printed(stderr)).toMatchObject({
+        event: 'first_google_admin_provision_failed',
+        eligible: false,
+        reason
+      })
+      expect(statements().at(-1)).toBe('ROLLBACK')
+      expect(statements().some((sql) => sql.includes('bootstrap'))).toBe(false)
+    }
+  )
+
+  it('reports a refusal in a dry run without failing', async () => {
+    respond([target({ activeAdminCount: 1 })])
+    await runProvisionAdminCommand(dryRunInput())
+    expect(process.exitCode).toBeUndefined()
+    expect(printed(stdout)).toMatchObject({
+      event: 'first_google_admin_dry_run',
+      eligible: false,
+      reason: 'ADMIN_ALREADY_EXISTS'
+    })
+  })
+
+  it('rejects an email that matches more than one account', async () => {
+    respond([target(), target()])
+    await runProvisionAdminCommand(validInput())
+    expectFailure()
+    expect(statements()).toContain('ROLLBACK')
   })
 
   const rejected: [string, () => NodeJS.ProcessEnv][] = [
@@ -192,53 +366,40 @@ describe('first Google admin operator CLI', () => {
           url.searchParams.set(key, 'override.invalid')
         })
     ]),
-    ['production', () => ({ ...validInput(), NODE_ENV: 'production' })],
     [
       'staging deployment',
-      () => ({ ...validInput(), DEPLOYMENT_ENV: 'STAGING' })
+      () => ({ ...validInput(), DEPLOYMENT_ENVIRONMENT: 'STAGING' })
     ],
     [
       'mismatched deployment',
-      () => ({ ...validInput(), DEPLOYMENT_ENV: 'DEVELOPMENT' })
+      () => ({ ...validInput(), DEPLOYMENT_ENVIRONMENT: 'DEVELOPMENT' })
     ],
     [
-      'missing confirmation',
-      () => ({ ...validInput(), ADMIN_PROVISION_CONFIRM: undefined })
+      'production without production deployment',
+      () => ({ ...validInput('production'), DEPLOYMENT_ENVIRONMENT: undefined })
+    ],
+    [
+      'production on a test deployment',
+      () => ({ ...validInput('production'), DEPLOYMENT_ENVIRONMENT: 'TEST' })
     ],
     [
       'wrong confirmation',
       () => ({ ...validInput(), ADMIN_PROVISION_CONFIRM: 'PROVISION_ADMIN' })
     ],
     [
-      'missing UUID',
-      () => ({ ...validInput(), ADMIN_PROVISION_USER_ID: undefined })
-    ],
-    [
-      'invalid UUID',
-      () => ({ ...validInput(), ADMIN_PROVISION_USER_ID: 'email@example.test' })
-    ],
-    [
-      'missing subject',
-      () => ({ ...validInput(), ADMIN_PROVISION_GOOGLE_SUBJECT: undefined })
-    ],
-    [
-      'empty subject',
-      () => ({ ...validInput(), ADMIN_PROVISION_GOOGLE_SUBJECT: '' })
-    ],
-    [
-      'subject whitespace',
-      () => ({ ...validInput(), ADMIN_PROVISION_GOOGLE_SUBJECT: ' subject' })
-    ],
-    [
-      'subject control',
-      () => ({ ...validInput(), ADMIN_PROVISION_GOOGLE_SUBJECT: 'subject\n' })
-    ],
-    [
-      'subject bound',
+      'confirmation without generation',
       () => ({
         ...validInput(),
-        ADMIN_PROVISION_GOOGLE_SUBJECT: 's'.repeat(256)
+        ADMIN_PROVISION_EXPECTED_GENERATION: undefined
       })
+    ],
+    [
+      'missing email',
+      () => ({ ...validInput(), ADMIN_PROVISION_EMAIL: undefined })
+    ],
+    [
+      'invalid email',
+      () => ({ ...validInput(), ADMIN_PROVISION_EMAIL: userId })
     ],
     ...['0', '-1', '1.1', '01', '1e2', '2147483647', '99999999999', ''].map(
       (generation): [string, () => NodeJS.ProcessEnv] => [
@@ -294,21 +455,21 @@ describe('first Google admin operator CLI', () => {
       'wrong startup role',
       () =>
         changeUrl(validInput(), (url) => {
-          url.searchParams.set('options', '-c role=nihongo_phase7_owner')
+          url.searchParams.set('options', '-c role=nihongo_owner')
         })
     ],
     [
       'duplicate startup option',
       () =>
         changeUrl(validInput(), (url) => {
-          url.searchParams.append('options', '-c role=nihongo_phase7_migration')
+          url.searchParams.append('options', '-c role=nihongo_migration')
         })
     ],
     [
       'duplicate schema',
       () =>
         changeUrl(validInput(), (url) => {
-          url.searchParams.append('schema', 'phase7_bootstrap_test')
+          url.searchParams.append('schema', 'nihongo_bootstrap_test')
         })
     ],
     [
@@ -324,6 +485,48 @@ describe('first Google admin operator CLI', () => {
         changeUrl(validInput(), (url) => {
           url.searchParams.set('schema', 'public,pg_temp')
         })
+    ],
+    [
+      'production with a test migration login',
+      () =>
+        changeUrl(validInput('production'), (url) => {
+          url.username = 'nihongo_test_migration_login'
+        })
+    ],
+    [
+      'production without sslmode=require',
+      () =>
+        changeUrl(validInput('production'), (url) => {
+          url.searchParams.delete('sslmode')
+        })
+    ],
+    [
+      'production on a _test database',
+      () =>
+        changeUrl(validInput('production'), (url) => {
+          url.pathname = '/nihongo_test'
+        })
+    ],
+    [
+      'production target other than PRODUCTION_DATABASE_URL',
+      () =>
+        changeUrl(validInput('production'), (url) => {
+          url.hostname = 'other.invalid'
+        })
+    ],
+    [
+      'production schema other than PRODUCTION_DATABASE_URL',
+      () =>
+        changeUrl(validInput('production'), (url) => {
+          url.searchParams.set('schema', 'other')
+        })
+    ],
+    [
+      'production without startup role',
+      () =>
+        changeUrl(validInput('production'), (url) => {
+          url.searchParams.delete('options')
+        })
     ]
   ]
   it.each(rejected)(
@@ -336,54 +539,57 @@ describe('first Google admin operator CLI', () => {
     }
   )
 
-  it.each(['connect', 'BEGIN', 'SET LOCAL', 'SELECT', 'COMMIT', 'end'])(
-    'awaits closure and redacts %s failure',
-    async (stage) => {
-      const secret = new Error(
-        'postgresql://secret:private@host/private opaque-google-subject'
-      )
-      if (stage === 'connect') db.connect.mockRejectedValue(secret)
-      else if (stage === 'end') db.end.mockRejectedValue(secret)
-      else
-        db.query.mockImplementation(async (sql) => {
-          if (sql.startsWith(stage)) throw secret
-          return {
-            rows: sql.startsWith('SELECT') ? [{ authorityGeneration: 8 }] : []
-          }
-        })
-      await runProvisionAdminCommand(validInput())
-      expectFailure()
-      expect(db.end).toHaveBeenCalledOnce()
-      const statements = db.query.mock.calls.map(([sql]) => sql)
-      expect(statements.includes('ROLLBACK')).toBe(
-        ['SET LOCAL', 'SELECT', 'COMMIT'].includes(stage)
-      )
+  it.each([
+    'connect',
+    'BEGIN',
+    'SET LOCAL lock',
+    'SET LOCAL ROLE nihongo_owner',
+    'SELECT u.',
+    'SELECT "bootstrap',
+    'COMMIT',
+    'end'
+  ])('awaits closure and redacts %s failure', async (stage) => {
+    const secret = new Error(
+      'postgresql://secret:private@host/private ' + subject + ' ' + email
+    )
+    if (stage === 'connect') db.connect.mockRejectedValue(secret)
+    else if (stage === 'end') db.end.mockRejectedValue(secret)
+    else {
+      const base = db.query.getMockImplementation()!
+      db.query.mockImplementation(async (sql, values) => {
+        if (sql.startsWith(stage)) throw secret
+        return base(sql, values)
+      })
     }
-  )
-  it.each(
-    [
-      [],
-      [{ authorityGeneration: 7 }],
-      [{ authorityGeneration: 8 }, { authorityGeneration: 8 }]
-    ].map((rows) => ({ rows }))
-  )('rolls back an invalid scalar result %#', async ({ rows }) => {
-    db.query.mockImplementation(async (sql) => ({
-      rows: sql.startsWith('SELECT') ? rows : []
-    }))
     await runProvisionAdminCommand(validInput())
     expectFailure()
-    expect(db.query).toHaveBeenCalledWith('ROLLBACK')
-    expect(db.query).not.toHaveBeenCalledWith('COMMIT')
+    expect(db.end).toHaveBeenCalledOnce()
+    expect(statements().includes('ROLLBACK')).toBe(
+      !['connect', 'BEGIN', 'end'].includes(stage)
+    )
   })
+
+  it.each([[], [7], [8, 8]])(
+    'rolls back an invalid scalar result %#',
+    async (...result) => {
+      respond([target()], result)
+      await runProvisionAdminCommand(validInput())
+      expectFailure()
+      expect(db.query).toHaveBeenCalledWith('ROLLBACK')
+      expect(db.query).not.toHaveBeenCalledWith('COMMIT')
+    }
+  )
+
   it('keeps rollback failures private and still closes', async () => {
     db.query.mockRejectedValue(new Error('private database and subject'))
-    // BEGIN must succeed before either SELECT or ROLLBACK fails.
+    // BEGIN must succeed before either a later statement or ROLLBACK fails.
     db.query.mockResolvedValueOnce({ rows: [] })
     await runProvisionAdminCommand(validInput())
     expectFailure()
     expect(db.query).toHaveBeenCalledWith('ROLLBACK')
     expect(db.end).toHaveBeenCalledOnce()
   })
+
   it('does not announce success until teardown has completed', async () => {
     let finish: (() => void) | undefined
     db.end.mockImplementation(
@@ -407,11 +613,8 @@ describe('ADMIN learner access and CMS role boundaries', () => {
   const origin = 'http://localhost:5173'
   const environment = parseApiEnvironment({
     NODE_ENV: 'test',
-    ADMIN_CMS_MODE: 'technical',
     DATABASE_URL:
       'postgresql://nihongo_test_app_login:placeholder@localhost/nihongo_test?schema=public',
-    AUTH_GATEWAY_DATABASE_URL:
-      'postgresql://nihongo_test_auth_gateway_login:placeholder@localhost/nihongo_test?schema=public',
     TRUSTED_ORIGINS: origin,
     BETTER_AUTH_SECRET: 'a'.repeat(32),
     GUEST_COOKIE_SECRET: 'b'.repeat(32),
@@ -474,7 +677,7 @@ describe('ADMIN learner access and CMS role boundaries', () => {
         user,
         ...(user
           ? {
-              phase7Session: {
+              ownedSessionProof: {
                 id: key,
                 token: 'fixture-session-token',
                 createdAt: new Date('2026-08-17T01:00:00.000Z'),
@@ -537,7 +740,6 @@ describe('ADMIN learner access and CMS role boundaries', () => {
       createStudySessionRoutes({
         ...common,
         guestPrincipalService,
-        practiceContractV2Enabled: true,
         studySessionService: { create, get: unexpected }
       })
     )
@@ -559,7 +761,6 @@ describe('ADMIN learner access and CMS role boundaries', () => {
       createStudySubmissionRoutes({
         ...common,
         guestPrincipalService,
-        practiceContractV2Enabled: true,
         studySubmissionService: { submit, getResult: unexpected }
       })
     )
@@ -661,7 +862,7 @@ describe('ADMIN learner access and CMS role boundaries', () => {
     )
     expect(created.status).toBe(201)
     expect(await created.json()).toEqual(session)
-    expect(h.create).toHaveBeenCalledWith(createBody, owner, 2)
+    expect(h.create).toHaveBeenCalledWith(createBody, owner)
     const saved = await h.request('PUT', base + '/draft-answers', saveBody)
     expect(saved.status).toBe(200)
     expect(await saved.json()).toEqual(draft)
@@ -678,8 +879,7 @@ describe('ADMIN learner access and CMS role boundaries', () => {
       session.session.id,
       key,
       submitBody,
-      owner,
-      2
+      owner
     )
     const reviewed = await h.request('GET', '/api/v1/review-queue')
     expect(reviewed.status).toBe(200)

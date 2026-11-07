@@ -1,4 +1,7 @@
-import type { PrismaClient } from '../generated/prisma/client.js'
+import {
+  cleanupReauthentication,
+  type AdminFreshClient
+} from './adminFreshAuthority.js'
 
 interface ReauthenticationCleanupRow {
   readonly pendingSessionsDeleted: number
@@ -13,15 +16,12 @@ const DEFAULT_MAINTENANCE_INTERVAL_MS = 60_000
 const isCount = (value: unknown): value is number =>
   Number.isSafeInteger(value) && Number(value) >= 0
 
-export const runPhase7ReauthenticationStartupMaintenance = async (
-  client: Pick<PrismaClient, '$queryRawUnsafe'>
+export const runReauthenticationStartupMaintenance = async (
+  client: AdminFreshClient
 ): Promise<void> => {
   for (let batch = 0; batch < MAXIMUM_CLEANUP_BATCHES; batch += 1) {
-    const rows = await client.$queryRawUnsafe<ReauthenticationCleanupRow[]>(
-      'SELECT * FROM "phase7_cleanup_reauthentication"($1)',
-      CLEANUP_BATCH_SIZE
-    )
-    const row = Array.isArray(rows) && rows.length === 1 ? rows[0] : undefined
+    const row: ReauthenticationCleanupRow | undefined =
+      await cleanupReauthentication(client, CLEANUP_BATCH_SIZE)
     if (
       !row ||
       !isCount(row.pendingSessionsDeleted) ||
@@ -40,7 +40,7 @@ export const runPhase7ReauthenticationStartupMaintenance = async (
   throw new Error('Reauthentication startup cleanup failed.')
 }
 
-export interface ReauthenticationMaintenance {
+interface ReauthenticationMaintenance {
   stop: () => Promise<void>
 }
 
@@ -49,7 +49,7 @@ export const startReauthenticationMaintenance = ({
   intervalMs = DEFAULT_MAINTENANCE_INTERVAL_MS,
   onFailure
 }: {
-  client: Pick<PrismaClient, '$queryRawUnsafe'>
+  client: AdminFreshClient
   intervalMs?: number
   onFailure: (error: unknown) => void
 }): ReauthenticationMaintenance => {
@@ -61,7 +61,7 @@ export const startReauthenticationMaintenance = ({
   let inFlight: Promise<void> | undefined
   const run = (): void => {
     if (stopped || inFlight) return
-    const task = runPhase7ReauthenticationStartupMaintenance(client)
+    const task = runReauthenticationStartupMaintenance(client)
       .catch((error: unknown) => {
         try {
           onFailure(error)

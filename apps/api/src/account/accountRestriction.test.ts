@@ -21,7 +21,6 @@ const base = (nodeEnvironment: string): Dependencies =>
     logger: {} as StructuredLogger,
     questionReader: {} as QuestionReader,
     study: {
-      practiceContractV2Enabled: true,
       service: {} as StudySessionService
     }
   }) as unknown as Dependencies

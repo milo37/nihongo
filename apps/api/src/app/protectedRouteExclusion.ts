@@ -179,6 +179,11 @@ const SLICE_5_ADMIN_COMMAND_PATHS = [
   },
   {
     method: 'POST',
+    operation: 'approveQuestionVersionBatch',
+    pattern: /^\/api\/v1\/admin\/question-versions\/approval-batch$/u
+  },
+  {
+    method: 'POST',
     operation: 'validateQuestionImport',
     pattern: /^\/api\/v1\/admin\/questions\/import-validation$/u
   },
@@ -352,7 +357,7 @@ const hasProtectedPrefixAlias = (rawPathname: string): boolean => {
     }
 
     // Decode only ASCII percent bytes and leave malformed/unrelated UTF-8
-    // escapes untouched. Every reserved Phase 7 prefix character is ASCII,
+    // escapes untouched. Every reserved prefix character is ASCII,
     // so a bad suffix must not hide an already-decodable protected prefix.
     const decoded = candidate.replace(
       /%([0-7][0-9a-f])/giu,
@@ -376,12 +381,12 @@ const hasRequestTargetFragment = (requestTarget: string): boolean =>
 export const getRawRequestPathname = (requestTarget: string): string | null =>
   getPathnameFromRequestTarget(requestTarget)
 
-export const isPhase7ExcludedRequest = (requestTarget: string): boolean => {
+export const isProtectedRouteExcluded = (requestTarget: string): boolean => {
   const pathname = getPathnameFromRequestTarget(requestTarget)
   return pathname !== null && hasProtectedPrefixAlias(pathname)
 }
 
-export const isCanonicalPhase7Slice2ReadRequest = ({
+export const isCanonicalSlice2ReadRequest = ({
   method,
   requestTarget
 }: {
@@ -400,27 +405,7 @@ export const isCanonicalPhase7Slice2ReadRequest = ({
   )
 }
 
-export const getCanonicalPhase7Slice2ReadOperation = ({
-  method,
-  requestTarget
-}: {
-  method: string
-  requestTarget: string
-}): ContentOperation | null => {
-  if (hasRequestTargetFragment(requestTarget) || method !== 'GET') {
-    return null
-  }
-  const pathname = getPathnameFromRequestTarget(requestTarget)
-  if (pathname === null) {
-    return null
-  }
-  return (
-    SLICE_2_ADMIN_READ_PATHS.find(({ pattern }) => pattern.test(pathname))
-      ?.operation ?? null
-  )
-}
-
-export const getCanonicalPhase7Slice3Operation = ({
+export const getCanonicalSlice3Operation = ({
   method,
   requestTarget
 }: {
@@ -438,7 +423,7 @@ export const getCanonicalPhase7Slice3Operation = ({
   )
 }
 
-export const getCanonicalPhase7AdminReadOperation = ({
+const getCanonicalAdminReadOperation = ({
   method,
   requestTarget
 }: {
@@ -454,7 +439,7 @@ export const getCanonicalPhase7AdminReadOperation = ({
   )
 }
 
-export const getCanonicalPhase7LearnerReportOperation = ({
+const getCanonicalLearnerReportOperation = ({
   method,
   requestTarget
 }: {
@@ -499,30 +484,24 @@ export const isCanonicalAdminConsoleCommandRequest = (input: {
   requestTarget: string
 }): boolean => isCanonicalRequestForPaths(input, ADMIN_CONSOLE_COMMAND_PATHS)
 
-export const isCanonicalPhase7Slice3ACommandRequest = (input: {
+export const isCanonicalSlice3ACommandRequest = (input: {
   method: string
   requestTarget: string
 }): boolean => isCanonicalRequestForPaths(input, SLICE_3A_ADMIN_COMMAND_PATHS)
 
-export const isCanonicalPhase7ReauthenticationRequest = (input: {
-  method: string
-  requestTarget: string
-}): boolean =>
-  isCanonicalRequestForPaths(input, SLICE_3R_A1_REAUTHENTICATION_PATHS)
-
-export const isCanonicalPhase7ApprovalCommandRequest = (input: {
+export const isCanonicalApprovalCommandRequest = (input: {
   method: string
   requestTarget: string
 }): boolean =>
   isCanonicalRequestForPaths(input, SLICE_3R_A2_APPROVAL_COMMAND_PATHS)
 
-export const isCanonicalPhase7PublicationCommandRequest = (input: {
+export const isCanonicalPublicationCommandRequest = (input: {
   method: string
   requestTarget: string
 }): boolean =>
   isCanonicalRequestForPaths(input, SLICE_4_PUBLICATION_COMMAND_PATHS)
 
-export const isCanonicalPhase7Slice5AdminReadRequest = (input: {
+export const isCanonicalWorkflowAdminReadRequest = (input: {
   method: string
   requestTarget: string
 }): boolean => {
@@ -535,42 +514,20 @@ export const isCanonicalPhase7Slice5AdminReadRequest = (input: {
   )
 }
 
-export const isCanonicalPhase7Slice5AdminCommandRequest = (input: {
+export const isCanonicalWorkflowAdminCommandRequest = (input: {
   method: string
   requestTarget: string
 }): boolean => isCanonicalRequestForPaths(input, SLICE_5_ADMIN_COMMAND_PATHS)
 
-export const isCanonicalPhase7LearnerReportRequest = (input: {
+export const isCanonicalLearnerReportRequest = (input: {
   method: string
   requestTarget: string
 }): boolean => isCanonicalRequestForPaths(input, SLICE_5_LEARNER_REPORT_PATHS)
 
-export const getCanonicalPhase7ActiveOperation = (input: {
+export const getCanonicalActiveOperation = (input: {
   method: string
   requestTarget: string
 }): ContentOperation | null =>
-  getCanonicalPhase7AdminReadOperation(input) ??
-  getCanonicalPhase7Slice3Operation(input) ??
-  getCanonicalPhase7LearnerReportOperation(input)
-
-export const isCanonicalPhase7ActiveRequest = ({
-  method,
-  requestTarget
-}: {
-  method: string
-  requestTarget: string
-}): boolean => {
-  if (hasRequestTargetFragment(requestTarget)) return false
-  const pathname = getPathnameFromRequestTarget(requestTarget)
-  if (pathname === null) return false
-  if (method === 'OPTIONS') {
-    return (
-      ACTIVE_ADMIN_READ_PATHS.some(({ pattern }) => pattern.test(pathname)) ||
-      ACTIVE_ADMIN_COMMAND_PATHS.some(({ pattern }) =>
-        pattern.test(pathname)
-      ) ||
-      SLICE_5_LEARNER_REPORT_PATHS.some(({ pattern }) => pattern.test(pathname))
-    )
-  }
-  return getCanonicalPhase7ActiveOperation({ method, requestTarget }) !== null
-}
+  getCanonicalAdminReadOperation(input) ??
+  getCanonicalSlice3Operation(input) ??
+  getCanonicalLearnerReportOperation(input)

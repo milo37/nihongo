@@ -11,12 +11,9 @@ import { createGoogleSsoProvider } from '../auth/ssoGoogleProvider.js'
 import type { SsoProvider } from '../auth/ssoProtocol.js'
 import { createOwnedAuthReadiness } from '../auth/ownedAuthReadiness.js'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
-import { runPhase7ReauthenticationStartupMaintenance } from '../auth/reauthenticationStartupMaintenance.js'
+import { runReauthenticationStartupMaintenance } from '../auth/reauthenticationStartupMaintenance.js'
 import { parseApiEnvironment } from '../config/env.js'
-import {
-  createDatabaseRuntime,
-  createRoleDatabaseRuntime
-} from '../db/database.js'
+import { createDatabaseRuntime } from '../db/database.js'
 import {
   assertSafeAdminCmsDatabase,
   assertSafeTestDatabase
@@ -25,8 +22,7 @@ import {
   createPostgresStartupOptions,
   getPostgresSchema
 } from '../db/databaseOptions.js'
-import { createSsoIdentityFixture } from '../db/fixtures/ssoSession.js'
-import { createPracticeRuntimeGate } from '../lifecycle/practiceRuntimeGate.js'
+import { createSsoIdentityFixture } from '../../test/fixtures/db/ssoSession.js'
 import { startApiListener } from '../lifecycle/startApiListener.js'
 import { stopServerGracefully } from '../lifecycle/gracefulShutdown.js'
 import { createJsonLogger, type LogLevel } from '../observability/logger.js'
@@ -60,11 +56,11 @@ import { createPrismaAdminQuestionRepository } from '../admin/adminQuestionRepos
 import { createAdminQuestionService } from '../admin/adminQuestionService.js'
 import { createAdminCommandRateLimiter } from '../admin/adminCommandRateLimiter.js'
 import { createPrismaAdminQuestionCommandRepository } from '../admin/adminQuestionCommandRepository.js'
-import { createPrismaAdminQuestionSlice5Repository } from '../admin/adminQuestionSlice5Repository.js'
+import { createPrismaAdminQuestionWorkflowRepository } from '../admin/adminQuestionWorkflowRepository.js'
 import {
   createAdminQuestionCommandService,
   createAdminQuestionPublicationCommandService,
-  createAdminQuestionSlice5CommandService
+  createAdminQuestionWorkflowCommandService
 } from '../admin/adminQuestionCommandService.js'
 import { createQuestionReportRateLimiter } from '../admin/questionReportRateLimiter.js'
 import { createPrismaQuestionReportRepository } from '../admin/questionReportRepository.js'
@@ -154,8 +150,8 @@ const identitiesSchema = z
       subjects.add(identity.accountId)
     }
   })
-export type SsoIdentities = z.output<typeof identitiesSchema>
-export type AccessibilityBrowserFixture = {
+type SsoIdentities = z.output<typeof identitiesSchema>
+type AccessibilityBrowserFixture = {
   readonly [Key in (typeof actorKeys)[number]]: SsoIdentities[Key]['actor']
 }
 
@@ -179,7 +175,7 @@ const assertTestTarget = (
   if (
     target.hash ||
     target.searchParams.getAll('schema').length !== 1 ||
-    !/^phase7_[a-f0-9]{32}_test$/u.test(getPostgresSchema(url) ?? '') ||
+    !/^nihongo_[a-f0-9]{32}_test$/u.test(getPostgresSchema(url) ?? '') ||
     [...target.searchParams.keys()].some(
       (key) => key !== 'schema' && key !== 'sslmode'
     )
@@ -212,8 +208,6 @@ export const parseBrowserEnvironment = (source: NodeJS.ProcessEnv) => {
   if (
     source.NODE_ENV !== 'test' ||
     source.DEPLOYMENT_ENVIRONMENT !== 'TEST' ||
-    source.ADMIN_CMS_MODE !== 'technical' ||
-    source.PRACTICE_CONTRACT_RUNTIME !== 'v1-v2' ||
     [
       'GOOGLE_CLIENT_ID',
       'GOOGLE_CLIENT_SECRET',
@@ -228,28 +222,13 @@ export const parseBrowserEnvironment = (source: NodeJS.ProcessEnv) => {
     environment.DATABASE_URL,
     source.PRODUCTION_DATABASE_URL
   )
-  const gateway = assertTestTarget(
-    environment.AUTH_GATEWAY_DATABASE_URL!,
-    source.PRODUCTION_DATABASE_URL
-  )
-  if (
-    decodeURIComponent(app.username) !== 'nihongo_test_app_login' ||
-    decodeURIComponent(gateway.username) !==
-      'nihongo_test_auth_gateway_login' ||
-    !sameTarget(app, gateway)
-  )
+  if (decodeURIComponent(app.username) !== 'nihongo_test_app_login')
     throw new Error('BROWSER_TEST_CANONICAL_TEST_DATABASE_ROLES_REQUIRED')
-  for (const databaseUrl of [
-    environment.DATABASE_URL,
-    environment.AUTH_GATEWAY_DATABASE_URL
-  ]) {
-    assertSafeAdminCmsDatabase({
-      adminCmsMode: 'technical',
-      nodeEnvironment: 'test',
-      databaseUrl,
-      productionDatabaseUrl: source.PRODUCTION_DATABASE_URL
-    })
-  }
+  assertSafeAdminCmsDatabase({
+    nodeEnvironment: 'test',
+    databaseUrl: environment.DATABASE_URL,
+    productionDatabaseUrl: source.PRODUCTION_DATABASE_URL
+  })
   for (const origin of [
     environment.BETTER_AUTH_URL,
     ...environment.TRUSTED_ORIGINS
@@ -288,12 +267,9 @@ export const prepareBrowserActors = async ({
   )
   if (
     !sameTarget(ownerTarget, new URL(environment.DATABASE_URL)) ||
-    [
-      'nihongo_test_app_login',
-      'nihongo_test_auth_gateway_login',
-      'nihongo_test_phase7_migration_login',
-      'nihongo_test_legacy_app_login'
-    ].includes(decodeURIComponent(ownerTarget.username)) ||
+    ['nihongo_test_app_login', 'nihongo_test_migration_login'].includes(
+      decodeURIComponent(ownerTarget.username)
+    ) ||
     !ownerTarget.username
   )
     throw new Error('BROWSER_TEST_SEPARATE_TEST_OWNER_REQUIRED')
@@ -395,30 +371,19 @@ export const createBrowserApi = async ({
     migrationProfile: 'current',
     startupRole: 'nihongo_app'
   })
-  const gateway = createRoleDatabaseRuntime(
-    environment.AUTH_GATEWAY_DATABASE_URL!,
-    'nihongo_auth_gateway'
-  )
+  // #504 P7 PR1: every auth facade runs on the nihongo_app runtime.
+  const gateway = database
   let closing: Promise<void> | undefined
   const disconnect = (): Promise<void> =>
-    (closing ??= Promise.allSettled([
-      database.disconnect(),
-      gateway.disconnect()
-    ]).then((results) => {
+    (closing ??= Promise.allSettled([database.disconnect()]).then((results) => {
       if (results.some((result) => result.status === 'rejected'))
         throw new Error('BROWSER_TEST_DATABASE_DISCONNECT_FAILED')
     }))
   try {
-    const practice = createPracticeRuntimeGate({
-      runtime: 'v1-v2',
-      checkV1Compatibility: database.checkV1Compatibility,
-      checkDatabaseReadiness: createOwnedAuthReadiness({
-        checkDatabaseReadiness: database.checkReadiness,
-        applicationClient: database.client,
-        gatewayClient: gateway.client,
-        applicationUrl: environment.DATABASE_URL,
-        gatewayUrl: environment.AUTH_GATEWAY_DATABASE_URL!
-      })
+    const checkReadiness = createOwnedAuthReadiness({
+      checkDatabaseReadiness: database.checkReadiness,
+      applicationClient: database.client,
+      applicationUrl: environment.DATABASE_URL
     })
     const rateLimiter = createApplicationRateLimiter({
       client: database.client,
@@ -435,14 +400,14 @@ export const createBrowserApi = async ({
       auditEnvironment: 'TEST',
       client: database.client
     })
-    const slice5Repository = createPrismaAdminQuestionSlice5Repository({
+    const workflowRepository = createPrismaAdminQuestionWorkflowRepository({
       auditEnvironment: 'TEST',
       client: database.client
     })
     const commandService = {
       ...createAdminQuestionCommandService(commandRepository),
       ...createAdminQuestionPublicationCommandService(commandRepository),
-      ...createAdminQuestionSlice5CommandService(slice5Repository)
+      ...createAdminQuestionWorkflowCommandService(workflowRepository)
     }
     const reportLimiter = createQuestionReportRateLimiter({
       client: database.client,
@@ -466,8 +431,7 @@ export const createBrowserApi = async ({
           secret: environment.GUEST_COOKIE_SECRET
         })
       },
-      assertPracticeRuntimeAuthority: practice.assertRequestAuthority,
-      checkReadiness: practice.checkReadiness,
+      checkReadiness,
       logger: createJsonLogger(
         parseBrowserApiLogLevel(source.BROWSER_API_LOG_LEVEL)
       ),
@@ -482,7 +446,6 @@ export const createBrowserApi = async ({
         draftService: createStudyDraftService(
           createPrismaStudyDraftRepository(database.client)
         ),
-        practiceContractV2Enabled: practice.practiceContractV2Enabled,
         rateLimiter,
         retryService: createStudyResultRetryService(
           createPrismaStudyResultRetryRepository(database.client)
@@ -501,13 +464,13 @@ export const createBrowserApi = async ({
           })
         ),
         dashboardInsightsService: createDashboardInsightsService(
-          createPrismaDashboardInsightsRepository(database.client, 'PHASE7')
+          createPrismaDashboardInsightsRepository(database.client)
         ),
         dashboardService: createDashboardService(
           createPrismaDashboardRepository(database.client)
         ),
         rateLimiter,
-        reviewCenterEnabled: practice.practiceContractV2Enabled,
+        reviewCenterEnabled: true,
         reviewCenterService: createWrongNoteReviewCenterService(
           createPrismaWrongNoteReviewCenterRepository(database.client)
         ),
@@ -524,7 +487,7 @@ export const createBrowserApi = async ({
       admin: {
         assertCapability: async () => {
           await database.client.$queryRawUnsafe(
-            'SELECT "phase7_require_runtime_ready"()'
+            'SELECT "require_runtime_ready"()'
           )
         },
         commands: {
@@ -533,7 +496,7 @@ export const createBrowserApi = async ({
             keySecret: environment.GUEST_COOKIE_SECRET
           }),
           service: commandService,
-          slice5Service: commandService
+          workflowService: commandService
         },
         reports: {
           rateLimiter: reportLimiter,
@@ -559,8 +522,8 @@ export const createBrowserApi = async ({
       app,
       disconnect,
       checkReadiness: async () => {
-        await practice.checkReadiness()
-        await runPhase7ReauthenticationStartupMaintenance(gateway.client)
+        await checkReadiness()
+        await runReauthenticationStartupMaintenance(gateway.client)
       }
     }
   } catch (error: unknown) {

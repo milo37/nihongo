@@ -37,521 +37,55 @@ test('recovery policy is closed and cross-linked to the environment registry', (
   assert.throws(() => verifyRecoveryContract(missingField), /registry fields/u)
 })
 
-test('migration profiles separate exact physical 58 TEST entries from the exact v1 runtime 27', () => {
-  const { releaseManifest } = createRecoveryFixtures()
-
-  assert.deepEqual(releaseManifest.migrations.entries[37], {
-    name: '20261009120000_phase7_approved_n4_reading_batch7_tags',
-    sha256: 'd4d2caac296296fd941b7631cf6cf7016da2b1be1f764c01386d1d2b1413d806'
-  })
-  assert.deepEqual(releaseManifest.migrations.entries[38], {
-    name: '20261010071000_phase7_approved308_tags',
-    sha256: '600dd3ab067f2af20bb04ecf1dd0f7c30eb18c6c32eb8ab03d746735fa0b0401'
-  })
-  assert.deepEqual(releaseManifest.migrations.entries[46], {
-    name: '20261020233000_sso_first_admin_bootstrap',
-    sha256: '680ce338ea94f47d1da21c4945270d36b7c39ae60dabf0040da4310c576e90f5'
-  })
-  assert.deepEqual(releaseManifest.migrations.entries[47], {
-    name: '20261028090000_sso_account_erasure_worker_queue',
-    sha256: 'cc91bd854924b2261ac4dcb2e8036ad62c69ec0af8d5afe756d4ce7f9ed5d8d7'
-  })
-  assert.deepEqual(releaseManifest.migrations.entries[48], {
-    name: '20261028120000_sso_account_erasure_claim_lease',
-    sha256: 'bb1075457d171fe0ddc4643e63b8646a27a7cf4087b4aeebe2d151beb3633846'
-  })
-  assert.deepEqual(releaseManifest.migrations.entries[49], {
-    name: '20261028150000_sso_provider_cleanup_fencing',
-    sha256: '394b548011a5021a5d63c39ab6e6a425069aa005f5018a3ef2652336aabd449e'
-  })
-  assert.deepEqual(releaseManifest.migrations.entries[50], {
-    name: '20261028160000_study_contract_v2_default',
-    sha256: '3b2dd4b6186d0f3603942a3de324cea3041e6fb0cd395eb9fc49f57c9e86a858'
-  })
-  assert.deepEqual(releaseManifest.migrations.entries[51], {
-    name: '20261028170000_study_v1_retirement_authority',
-    sha256: '622c83d394d779d0eb9f96baedbf8a81ab97d385c09fd99f82efa4e59905eb82'
-  })
-  assert.deepEqual(releaseManifest.migrations.entries[52], {
-    name: '20261030100000_guest_expired_draft_retention',
-    sha256: '5708fd94835c6ce970049b1830d44dca2e10e9c089f54383aa67219218fb81f7'
-  })
-  assert.deepEqual(releaseManifest.migrations.entries[53], {
-    name: '20261104090000_unified_reports_import_results',
-    sha256: 'aee02806b846d61c64d35e0c873475e25880e82bd72029853fa23ff7742f8042'
-  })
-  assert.deepEqual(releaseManifest.migrations.entries[54], {
-    name: '20261104120000_user_report_erasure_redaction',
-    sha256: '99bdb0fecdcfe27d13850bb106af9fbcbb88c2a8cd79d7d6ae355f1db530efa8'
-  })
-  assert.deepEqual(releaseManifest.migrations.entries[55], {
-    name: '20261104150000_user_account_restriction',
-    sha256: '26762221ae1b1ad9636138825453e4664c46e03128db394fbe77ec13ba1532cc'
-  })
-  assert.deepEqual(releaseManifest.migrations.entries[56], {
-    name: '20261105090000_admin_member_console',
-    sha256: 'a109890b8c812fa5b74c159b2f99f15c955ee6735ac8d1126b597881eb562de9'
-  })
-  assert.deepEqual(releaseManifest.migrations.entries[57], {
-    name: '20261106090000_single_operator_review',
-    sha256: 'f569efc31c2638a23c2870ded6a8140aabb7be90aff57a2f02d740392f6fc6d1'
-  })
-  const historical57 = structuredClone(releaseManifest)
-  historical57.migrations.count = 57
-  historical57.migrations.digestSha256 =
-    '64f4e4765c22cfbb06a9dcc36ab8f3ec707bd18741614c7327fcc6c7472aedb0'
-  historical57.migrations.entries = historical57.migrations.entries.slice(0, 57)
-  assert.throws(
-    () => deriveMigrationProfile(historical57, 'technical-current-test'),
-    /count mismatch/u
-  )
-  const historical56 = structuredClone(releaseManifest)
-  historical56.migrations.count = 56
-  historical56.migrations.digestSha256 =
-    '6682d553434a2836173cc114cdbc664b0cdfc9b9c1e8580397d74c0a930aaa02'
-  historical56.migrations.entries = historical56.migrations.entries.slice(0, 56)
-  assert.throws(
-    () => deriveMigrationProfile(historical56, 'technical-current-test'),
-    /count mismatch/u
-  )
-  const historical55 = structuredClone(releaseManifest)
-  historical55.migrations.count = 55
-  historical55.migrations.digestSha256 =
-    '4ced7adc2cb49210ad05dd09ec77238d5d3f784a27a5fc2182702de3531595b2'
-  historical55.migrations.entries = historical55.migrations.entries.slice(0, 55)
-  assert.throws(
-    () => deriveMigrationProfile(historical55, 'technical-current-test'),
-    /count mismatch/u
-  )
-  const historical53 = structuredClone(releaseManifest)
-  historical53.migrations.count = 53
-  historical53.migrations.digestSha256 =
-    '39d9c2053323d8a180e53af80e81dd26a00ef6c041040dc7ccea8e99932e9c08'
-  historical53.migrations.entries = historical53.migrations.entries.slice(0, 53)
-  assert.throws(
-    () => deriveMigrationProfile(historical53, 'technical-current-test'),
-    /count mismatch/u
-  )
-  const historical52 = structuredClone(releaseManifest)
-  historical52.migrations.count = 52
-  historical52.migrations.digestSha256 =
-    '454ffc17fda1ccdf18ad870bd019d816c48c69fcff7b5ce9e7fed2f9ba42dec6'
-  historical52.migrations.entries = historical52.migrations.entries.slice(0, 52)
-  assert.throws(
-    () => deriveMigrationProfile(historical52, 'technical-current-test'),
-    /count mismatch/u
-  )
-  const historical50 = structuredClone(releaseManifest)
-  historical50.migrations.count = 50
-  historical50.migrations.entries = historical50.migrations.entries.slice(0, 50)
-  historical50.migrations.digestSha256 =
-    '299d197f8d062554585b3566f981583af832c1799f232bea4f60ac3d8e157083'
-  assert.throws(
-    () => deriveMigrationProfile(historical50, 'technical-current-test'),
-    /migration profile count mismatch/u
-  )
-  const historical49 = structuredClone(releaseManifest)
-  historical49.migrations.count = 49
-  historical49.migrations.entries = historical49.migrations.entries.slice(0, 49)
-  historical49.migrations.digestSha256 =
-    '53c9dd466345b5776e2a6b9a6f57ce78b843f1d2638a26a9c90caa7f520a1392'
-  assert.throws(
-    () => deriveMigrationProfile(historical49, 'technical-current-test'),
-    /migration profile count mismatch/u
-  )
-  assert.deepEqual(
-    deriveMigrationProfile(releaseManifest, 'technical-current-test'),
-    {
-      count: 58,
-      digestSha256:
-        '13da74f7dd883ce43d36f9f532dbc41652a84c0eb4b8f812607f1ca622be578c',
-      name: 'technical-current-test'
-    }
-  )
-  const runtime = deriveMigrationProfile(
-    releaseManifest,
-    'v1-runtime-pre-phase7'
-  )
-  assert.equal(runtime.count, 27)
-  assert.equal(
-    runtime.digestSha256,
-    '6870a93dd141b7a6c226de7aeed315d48ce313828c82bb92f91bf8a8861ed2ea'
-  )
-  assert.notEqual(runtime.digestSha256, releaseManifest.migrations.digestSha256)
-
-  const boundaryDrift = structuredClone(releaseManifest)
-  boundaryDrift.migrations.entries[27].name = '20260827100001_wrong_boundary'
-  boundaryDrift.migrations.digestSha256 = createHash('sha256')
-    .update(
-      boundaryDrift.migrations.entries
-        .map(({ name, sha256 }) => `${name}\0${sha256}\n`)
-        .join('')
-    )
-    .digest('hex')
-  assert.throws(
-    () => deriveMigrationProfile(boundaryDrift, 'v1-runtime-pre-phase7'),
-    /migration inventory|boundary mismatch/u
-  )
-
-  const immutablePrefixDrift = structuredClone(releaseManifest)
-  immutablePrefixDrift.migrations.entries[0].sha256 = 'a'.repeat(64)
-  immutablePrefixDrift.migrations.digestSha256 = createHash('sha256')
-    .update(
-      immutablePrefixDrift.migrations.entries
-        .map(({ name, sha256 }) => `${name}\0${sha256}\n`)
-        .join('')
-    )
-    .digest('hex')
-  assert.throws(
-    () => deriveMigrationProfile(immutablePrefixDrift, 'v1-runtime-pre-phase7'),
-    /profile inventory mismatch/u
-  )
-})
-
-test('technical recovery rejects stale and unexpected migration inventories', () => {
+// #504 P8: the baseline and its forward migrations serve every environment.
+test('the current migration profile is exactly the repository migrations for every environment', () => {
   const { contract, releaseManifest } = createRecoveryFixtures()
-  const forwardCorrection = '20261009092000_phase7_n4_n2_revision2_digest_fix'
-  const batch7Tags = '20261009120000_phase7_approved_n4_reading_batch7_tags'
-  const approved308Tags = '20261010071000_phase7_approved308_tags'
-  // Historical test metadata only; never rewrite an applied SQL file.
-  const historicalPhysical38 = releaseManifest.migrations.entries
-    .slice(0, 39)
-    .filter(({ name }) => name !== approved308Tags)
-    .map((entry) =>
-      entry.name === batch7Tags
-        ? {
-            ...entry,
-            sha256:
-              '01ae675a719ccc08854135efd4057f95659d671d04addf40d5c45ba26c850f12'
-          }
-        : entry
+  assert.deepEqual(
+    releaseManifest.migrations.entries.map(({ name }) => name),
+    [
+      '20261105090000_baseline',
+      '20261106090000_remove_phase_names',
+      '20261107090000_first_admin_production',
+      '20261108090000_remove_tag_applicability_and_snapshots',
+      '20261109090000_add_tag_key_subject_status'
+    ]
+  )
+  assert.deepEqual(contract.migrationProfiles.current.environments, [
+    'TEST',
+    'STAGING',
+    'PRODUCTION'
+  ])
+  assert.deepEqual(deriveMigrationProfile(releaseManifest, 'current'), {
+    count: 5,
+    digestSha256: contract.migrationProfiles.current.expectedDigestSha256,
+    name: 'current'
+  })
+  for (const retired of ['technical-current-test', 'v1-runtime-legacy'])
+    assert.throws(
+      () => deriveMigrationProfile(releaseManifest, retired),
+      /Unsupported recovery migration profile/u
     )
-  const digestEntries = (entries) =>
+  const digest = (entries) =>
     createHash('sha256')
       .update(
         entries.map(({ name, sha256 }) => `${name}\0${sha256}\n`).join('')
       )
       .digest('hex')
-  assert.equal(historicalPhysical38.length, 38)
-  assert.equal(
-    digestEntries(historicalPhysical38),
-    'fae541796dc4e4a3afbd05c9c0af39fbad11bdecc4385bd393092fafea8c62b9'
-  )
-  for (const staleProfile of [
-    { expectedCount: 48 },
-    {
-      expectedDigestSha256:
-        'a1ff76baa1b6a00920a0699436fe78f7ac51af8b8f939fa40d136c5ac1535630'
-    },
-    {
-      expectedCount: 48,
-      expectedDigestSha256:
-        'a1ff76baa1b6a00920a0699436fe78f7ac51af8b8f939fa40d136c5ac1535630'
-    },
-    {
-      expectedCount: 38,
-      expectedDigestSha256:
-        'fae541796dc4e4a3afbd05c9c0af39fbad11bdecc4385bd393092fafea8c62b9'
-    },
-    {
-      expectedCount: 38,
-      expectedDigestSha256:
-        '6aa49828fc3138b2b544830794cad68c05ed11ae2ffa018b9e43a2800cb578dd'
-    },
-    {
-      expectedCount: 38,
-      expectedDigestSha256:
-        '0169f4d0491d4e33f917df842cdeb26920edc2e7f02f8b0d41159cd132320f3b'
-    },
-    {
-      expectedCount: 39,
-      expectedDigestSha256: 'a'.repeat(64)
-    },
-    { expectedCount: 31 },
-    {
-      expectedDigestSha256:
-        '3efd321d7d66f31505c0887f3ef9b0bb64dbe89831d70ea132066fba24b63aea'
-    },
-    {
-      expectedCount: 32,
-      expectedDigestSha256:
-        '3b631dcd9b20b145adabdf051a8ac0fe7d1143145080fad6f035f05101b11625'
-    },
-    {
-      expectedCount: 34,
-      expectedDigestSha256:
-        '4448f7aa40804bb3058f1a986c6af5527eb26ca7375973bcca320fa1bf51d7f8'
-    },
-    {
-      expectedCount: 35,
-      expectedDigestSha256:
-        '6ce3cb9d17492c2806fab8e03b923b9440da30ca6be9b10c5a978abc1bd5d8a8'
-    },
-    {
-      expectedCount: 35,
-      expectedDigestSha256:
-        'b1599310da408668bd4617f35ebc47109cb6e23d91e23dd737eaff521d49a393'
-    },
-    {
-      expectedCount: 27,
-      expectedDigestSha256:
-        '6870a93dd141b7a6c226de7aeed315d48ce313828c82bb92f91bf8a8861ed2ea'
-    },
-    {
-      expectedCount: 36,
-      expectedDigestSha256:
-        'b1599310da408668bd4617f35ebc47109cb6e23d91e23dd737eaff521d49a393'
-    },
-    {
-      expectedCount: 36,
-      expectedDigestSha256:
-        '8b9f35ed93aa7179cf5405a49039a10ff3f484171c54a33efbd1018b0494b02f'
-    },
-    {
-      expectedCount: 36,
-      expectedDigestSha256:
-        '96eebebc8d76d1eb858b1cc12d7559685a5e06559a57ff8d9aabdf3b067e3ab3'
-    },
-    {
-      expectedCount: 37,
-      expectedDigestSha256:
-        '8b9f35ed93aa7179cf5405a49039a10ff3f484171c54a33efbd1018b0494b02f'
-    },
-    {
-      expectedCount: 37,
-      expectedDigestSha256:
-        '96eebebc8d76d1eb858b1cc12d7559685a5e06559a57ff8d9aabdf3b067e3ab3'
-    },
-    {
-      expectedCount: 37,
-      expectedDigestSha256: 'a'.repeat(64)
-    },
-    {
-      expectedCount: 37,
-      expectedDigestSha256:
-        '89158202b48454a0d179913983fe1449dc139c0db25aec0ba4c5480040291aad'
-    },
-    {
-      expectedCount: 37,
-      expectedDigestSha256:
-        '79bd5eb74c70780169cf672d330b605a89ed52d4cffd6bc130d77c7aff70577d'
-    },
-    {
-      expectedCount: 38,
-      expectedDigestSha256:
-        '79bd5eb74c70780169cf672d330b605a89ed52d4cffd6bc130d77c7aff70577d'
-    },
-    {
-      expectedCount: 38,
-      expectedDigestSha256: 'a'.repeat(64)
-    }
-  ]) {
-    const staleContract = structuredClone(contract)
-    Object.assign(
-      staleContract.migrationProfiles['technical-current-test'],
-      staleProfile
-    )
-    assert.throws(
-      () => verifyRecoveryContract(staleContract),
-      /Technical migration profile is invalid/u
-    )
-  }
-
-  for (const [count, entries, digestSha256] of [
-    [
-      46,
-      releaseManifest.migrations.entries.slice(0, 46),
-      '5457abb5b6fd6d2b0a839402479c643bd74d5e6878fd7763881abc440248d2aa'
-    ],
-    [
-      39,
-      releaseManifest.migrations.entries.slice(0, 39),
-      '611c2ec676b54bc333706d2401775c242e5d65886c9eb8cb255f15d13dfbc0c1'
-    ],
-    [
-      38,
-      historicalPhysical38,
-      'fae541796dc4e4a3afbd05c9c0af39fbad11bdecc4385bd393092fafea8c62b9'
-    ],
-    [
-      37,
-      releaseManifest.migrations.entries.slice(0, 37),
-      '89158202b48454a0d179913983fe1449dc139c0db25aec0ba4c5480040291aad'
-    ],
-    [
-      38,
-      releaseManifest.migrations.entries.slice(0, 38),
-      '6aa49828fc3138b2b544830794cad68c05ed11ae2ffa018b9e43a2800cb578dd'
-    ],
-    [
-      38,
-      releaseManifest.migrations.entries
-        .slice(0, 39)
-        .filter(
-          ({ name }) =>
-            name !== '20261005183000_phase7_reviewed_catalog_current'
-        ),
-      '0169f4d0491d4e33f917df842cdeb26920edc2e7f02f8b0d41159cd132320f3b'
-    ],
-    [
-      32,
-      historicalPhysical38.slice(0, 32),
-      '3b631dcd9b20b145adabdf051a8ac0fe7d1143145080fad6f035f05101b11625'
-    ],
-    [
-      34,
-      historicalPhysical38.filter(
-        ({ name }) =>
-          name !== '20261005183000_phase7_reviewed_catalog_current' &&
-          name !== '20261009072500_phase7_approved_n4_n2_reading_tags' &&
-          name !== forwardCorrection &&
-          name !== batch7Tags
-      ),
-      '4448f7aa40804bb3058f1a986c6af5527eb26ca7375973bcca320fa1bf51d7f8'
-    ],
-    [
-      35,
-      historicalPhysical38.filter(
-        ({ name }) =>
-          name !== '20261009072500_phase7_approved_n4_n2_reading_tags' &&
-          name !== forwardCorrection &&
-          name !== batch7Tags
-      ),
-      '6ce3cb9d17492c2806fab8e03b923b9440da30ca6be9b10c5a978abc1bd5d8a8'
-    ],
-    [
-      35,
-      historicalPhysical38.filter(
-        ({ name }) =>
-          name !== '20261005183000_phase7_reviewed_catalog_current' &&
-          name !== forwardCorrection &&
-          name !== batch7Tags
-      ),
-      'b1599310da408668bd4617f35ebc47109cb6e23d91e23dd737eaff521d49a393'
-    ],
-    [
-      36,
-      historicalPhysical38.filter(
-        ({ name }) => name !== forwardCorrection && name !== batch7Tags
-      ),
-      '8b9f35ed93aa7179cf5405a49039a10ff3f484171c54a33efbd1018b0494b02f'
-    ],
-    [
-      36,
-      historicalPhysical38.filter(
-        ({ name }) =>
-          name !== '20261005183000_phase7_reviewed_catalog_current' &&
-          name !== batch7Tags
-      ),
-      '96eebebc8d76d1eb858b1cc12d7559685a5e06559a57ff8d9aabdf3b067e3ab3'
-    ],
-    [
-      37,
-      historicalPhysical38.filter(({ name }) => name !== batch7Tags),
-      '89158202b48454a0d179913983fe1449dc139c0db25aec0ba4c5480040291aad'
-    ],
-    [
-      37,
-      historicalPhysical38.filter(
-        ({ name }) => name !== '20261005183000_phase7_reviewed_catalog_current'
-      ),
-      '79bd5eb74c70780169cf672d330b605a89ed52d4cffd6bc130d77c7aff70577d'
-    ]
-  ]) {
-    const staleManifest = structuredClone(releaseManifest)
-    staleManifest.migrations.entries = entries
-    staleManifest.migrations.count = entries.length
-    staleManifest.migrations.digestSha256 = createHash('sha256')
-      .update(
-        entries.map(({ name, sha256 }) => `${name}\0${sha256}\n`).join('')
-      )
-      .digest('hex')
-    assert.equal(staleManifest.migrations.count, count)
-    assert.equal(staleManifest.migrations.digestSha256, digestSha256)
-    assert.throws(
-      () => deriveMigrationProfile(staleManifest, 'technical-current-test'),
-      /Technical migration profile count mismatch/u
-    )
-    assert.deepEqual(
-      deriveMigrationProfile(staleManifest, 'v1-runtime-pre-phase7'),
-      deriveMigrationProfile(releaseManifest, 'v1-runtime-pre-phase7')
-    )
-  }
-
-  const runtimeManifest = structuredClone(releaseManifest)
-  runtimeManifest.migrations.entries = releaseManifest.migrations.entries.slice(
-    0,
-    27
-  )
-  runtimeManifest.migrations.count = 27
-  runtimeManifest.migrations.digestSha256 =
-    '6870a93dd141b7a6c226de7aeed315d48ce313828c82bb92f91bf8a8861ed2ea'
+  const drift = structuredClone(releaseManifest)
+  drift.migrations.entries[0].sha256 = 'a'.repeat(64)
+  drift.migrations.digestSha256 = digest(drift.migrations.entries)
   assert.throws(
-    () => deriveMigrationProfile(runtimeManifest, 'technical-current-test'),
-    /Technical migration profile count mismatch/u
+    () => deriveMigrationProfile(drift, 'current'),
+    /profile inventory mismatch/u
   )
-  assert.throws(
-    () => deriveMigrationProfile(releaseManifest, 'canonical-current-test'),
-    /Unsupported recovery migration profile/u
-  )
-
-  for (const change of [
-    'remove',
-    'add',
-    'rewrite',
-    'rewrite-batch7',
-    'rename'
-  ]) {
-    const inventoryDrift = structuredClone(releaseManifest)
-    if (change === 'remove') {
-      inventoryDrift.migrations.entries.pop()
-    } else if (change === 'add') {
-      inventoryDrift.migrations.entries.push({
-        name: '20261106100001_unreviewed_migration',
-        sha256: 'a'.repeat(64)
-      })
-    } else if (change === 'rename') {
-      inventoryDrift.migrations.entries.at(-1).name =
-        '20261106100001_unreviewed_migration'
-    } else if (change === 'rewrite-batch7') {
-      inventoryDrift.migrations.entries.find(
-        ({ name }) => name === batch7Tags
-      ).sha256 =
-        '01ae675a719ccc08854135efd4057f95659d671d04addf40d5c45ba26c850f12'
-    } else {
-      inventoryDrift.migrations.entries.at(-1).sha256 = 'a'.repeat(64)
-    }
-    inventoryDrift.migrations.count = inventoryDrift.migrations.entries.length
-    inventoryDrift.migrations.digestSha256 = createHash('sha256')
-      .update(
-        inventoryDrift.migrations.entries
-          .map(({ name, sha256 }) => `${name}\0${sha256}\n`)
-          .join('')
-      )
-      .digest('hex')
-    assert.throws(
-      () => deriveMigrationProfile(inventoryDrift, 'technical-current-test'),
-      /Technical migration profile count mismatch|Recovery migration profile inventory mismatch/u
-    )
-    assert.deepEqual(
-      deriveMigrationProfile(inventoryDrift, 'v1-runtime-pre-phase7'),
-      deriveMigrationProfile(releaseManifest, 'v1-runtime-pre-phase7')
-    )
-  }
-
-  const reordered = structuredClone(releaseManifest)
-  reordered.migrations.entries.reverse()
-  reordered.migrations.digestSha256 = createHash('sha256')
-    .update(
-      reordered.migrations.entries
-        .map(({ name, sha256 }) => `${name}\0${sha256}\n`)
-        .join('')
-    )
-    .digest('hex')
-  assert.throws(
-    () => deriveMigrationProfile(reordered, 'technical-current-test'),
-    /Invalid migration entry/u
-  )
+  const extra = structuredClone(releaseManifest)
+  extra.migrations.entries.push({
+    name: '20261106090000_unreviewed_migration',
+    sha256: 'b'.repeat(64)
+  })
+  extra.migrations.count = 2
+  extra.migrations.digestSha256 = digest(extra.migrations.entries)
+  assert.throws(() => deriveMigrationProfile(extra, 'current'))
 })
 
 test('recovery plan is deterministic, registry-committed, self-attested and identity-separated', () => {
@@ -716,10 +250,7 @@ test('backup evidence enforces freshness, retention and TEST claim isolation', (
 test('self-attested external recovery chains fail closed without a trusted adapter', () => {
   const { backupEvidence, contract, now, plan, releaseManifest } =
     createRecoveryFixtures()
-  const runtimeProfile = deriveMigrationProfile(
-    releaseManifest,
-    'v1-runtime-pre-phase7'
-  )
+  const runtimeProfile = deriveMigrationProfile(releaseManifest, 'current')
   const stagingPlan = {
     ...plan,
     classification: contract.classifications.STAGING,

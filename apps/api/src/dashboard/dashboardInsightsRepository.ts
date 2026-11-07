@@ -6,14 +6,15 @@ import type {
 } from '../generated/prisma/client.js'
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 import { createCurrentReviewCandidatePredicate } from '../review/currentReviewCandidateQuery.js'
+import { v1PrincipalSql } from '../auth/ownedSessionAuthority.js'
 
-export interface DashboardInsightsClockRecord {
+interface DashboardInsightsClockRecord {
   readonly futureAnswerCount: bigint
   readonly observedAt: Date
   readonly targetLevel: JlptLevel | null
 }
 
-export type DashboardInsightsNonTagRowKind =
+type DashboardInsightsNonTagRowKind =
   | 'OVERALL'
   | 'LEVEL'
   | 'SUBJECT'
@@ -34,7 +35,7 @@ export interface DashboardInsightsNonTagRecord {
   readonly subject: QuestionSubject | null
 }
 
-export type DashboardInsightsTagRowKind = 'TAG' | 'TAG_WEAKNESS'
+type DashboardInsightsTagRowKind = 'TAG' | 'TAG_WEAKNESS'
 
 export interface DashboardInsightsTagRecord {
   readonly attemptedCount: bigint
@@ -50,7 +51,7 @@ export interface DashboardInsightsTagRecord {
   readonly tagLabel: string
 }
 
-export type DashboardInsightsReviewRowKind =
+type DashboardInsightsReviewRowKind =
   | 'COUNTS'
   | 'DUE_GROUP'
   | 'REPEATED_CANDIDATE'
@@ -71,7 +72,7 @@ export interface DashboardInsightsReviewRecord {
   readonly wrongCount: number | null
 }
 
-export interface DashboardInsightsTargetRecord {
+interface DashboardInsightsTargetRecord {
   readonly catalogCount: bigint
   readonly lastStudiedAt: Date | null
   readonly level: JlptLevel
@@ -87,16 +88,10 @@ export interface DashboardInsightsSnapshotRecord {
   readonly targetRows: readonly DashboardInsightsTargetRecord[]
 }
 
-export type DashboardInsightsPrincipal =
-  | {
-      readonly kind: 'LEGACY'
-      readonly userId: string
-    }
-  | {
-      readonly kind: 'PHASE7'
-      readonly sessionToken: string
-      readonly userId: string
-    }
+export interface DashboardInsightsPrincipal {
+  readonly sessionToken: string
+  readonly userId: string
+}
 
 export interface DashboardInsightsRepository {
   readOwnedSnapshot: (
@@ -148,20 +143,12 @@ const executeRepositoryOperation = async <Result>(
 export const createDashboardInsightsClockQuery = (
   principal: DashboardInsightsPrincipal
 ): Prisma.Sql => {
-  const activePrincipal =
-    principal.kind === 'PHASE7'
-      ? Prisma.sql`
-          SELECT resolved."userId", resolved."targetLevel"
-          FROM "phase7_resolve_v1_principal"(${principal.sessionToken})
-            AS resolved
-          WHERE resolved."userId" = ${principal.userId}::uuid
-        `
-      : Prisma.sql`
-          SELECT app_user."id" AS "userId", app_user."targetLevel"
-          FROM "User" AS app_user
-          WHERE app_user."id" = ${principal.userId}::uuid
-            AND app_user."accountStatus" = 'ACTIVE'::"UserAccountStatus"
-        `
+  const activePrincipal = Prisma.sql`
+    SELECT resolved."userId", resolved."targetLevel"
+    FROM (${v1PrincipalSql(principal.sessionToken)})
+      AS resolved
+    WHERE resolved."userId" = ${principal.userId}::uuid
+  `
 
   return Prisma.sql`
     WITH active_principal AS MATERIALIZED (
@@ -363,7 +350,7 @@ export const createDashboardInsightsTagQuery = (
       version."level",
       version."subject",
       version_tag."tagId",
-      version_tag."labelSnapshot" AS "tagLabel",
+      tag."label" AS "tagLabel",
       answer."isCorrect",
       answer."elapsedSec",
       answer."answeredAt"
@@ -378,6 +365,8 @@ export const createDashboardInsightsTagQuery = (
       AND version."id" = item."questionVersionId"
     JOIN "QuestionVersionTag" AS version_tag
       ON version_tag."questionVersionId" = item."questionVersionId"
+    JOIN "Tag" AS tag
+      ON tag."id" = version_tag."tagId"
     WHERE session."userId" = ${userId}::uuid
       AND session."status" = 'SUBMITTED'::"StudySessionStatus"
       AND answer."answeredAt" >= ${fromInclusive}
@@ -731,16 +720,12 @@ export const createDashboardInsightsTargetQuery = (
 }
 
 export const createPrismaDashboardInsightsRepository = (
-  client: PrismaClient,
-  authority: DashboardInsightsPrincipal['kind']
+  client: PrismaClient
 ): DashboardInsightsRepository => ({
   readOwnedSnapshot: (principal) =>
     executeRepositoryOperation(async () =>
       client.$transaction(
         async (transaction) => {
-          if (principal.kind !== authority) {
-            throw new DashboardInsightsPrincipalLostError()
-          }
           await transaction.$executeRaw`SET TRANSACTION READ ONLY`
           const clockRows = await transaction.$queryRaw<
             DashboardInsightsClockRecord[]

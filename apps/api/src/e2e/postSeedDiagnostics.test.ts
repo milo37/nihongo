@@ -7,7 +7,7 @@ import {
   type PostSeedOperation
 } from './postSeedDiagnostics.js'
 
-const file = getApiIntegrationPathsByOwner('phase7-db')[0]!
+const file = getApiIntegrationPathsByOwner('db')[0]!
 
 describe('post-reseed finite diagnostics', () => {
   for (const operation of [

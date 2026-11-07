@@ -1,0 +1,3304 @@
+{
+  "items": [
+    {
+      "clientItemId": "n4-grammar-13",
+      "content": {
+        "level": "N4",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "この ボタンを 押せ（　）、ドアが 自動で 開きます。",
+        "passage": null,
+        "explanationKo": "押す의 조건형 押せば는 누르면 문이 열린다는 작동 조건을 나타냅니다. 빈칸 앞의 押せ에 ば가 붙어 올바른 조건형이 됩니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.condition"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ば"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ても"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "たり"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ながら"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n4-grammar-14",
+      "content": {
+        "level": "N4",
+        "subject": "GRAMMAR",
+        "questionType": "TEXT_GRAMMAR",
+        "difficulty": "NORMAL",
+        "questionText": "文章の（　）に 入る 最も 適切な 表現は どれですか。",
+        "passage": "駅前の 新しい パン屋で パンを 買いました。朝早くから 開いているので、仕事の 前に 寄ることが できます。（　）、小さい パンも 売っているので、少しだけ 食べたいときにも 便利です。わたしは この 二つの 点が 気に入りました。",
+        "explanationKo": "일찍 문을 열어 출근 전 들를 수 있다는 장점에 작은 빵이 있어 조금 먹고 싶을 때 편리하다는 장점을 추가합니다. 두 가지 점이 좋았다는 마지막 문장도 덧붙임 관계를 뒷받침하므로 それに가 맞습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.contrast-connect"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ところが"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "そのため"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "それに"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "それなのに"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n4-grammar-15",
+      "content": {
+        "level": "N4",
+        "subject": "GRAMMAR",
+        "questionType": "TEXT_GRAMMAR",
+        "difficulty": "NORMAL",
+        "questionText": "文章の（　）に 入る 最も 適切な 表現は どれですか。",
+        "passage": "今朝、近くの 店まで 歩いて 行こうと 思いました。外へ 出ると、冷たい 風が 強く 吹いていました。（　）、家に 戻らず、予定どおり 歩いて 行きました。暖かい コートを 着ていたし、店も すぐ 近くだったからです。",
+        "explanationKo": "차갑고 강한 바람이라는 방해 조건이 있었지만 집에 돌아가지 않고 원래 계획대로 걸었습니다. 그런 조건에도 행동을 유지했다는 양보 연결인 それでも가 맞습니다. 추위가 산책을 유발한 결과나 추위의 요약이 아닙니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.contrast-connect"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "それでも"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "その結果"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "それに"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "つまり"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n4-reading-04",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "「わたし」は ジャムの びんを どうしましたか。",
+        "passage": "ジャムを 全部 食べたので、びんを 捨てようと 思いました。でも、きれいに 洗うと、まだ 使えそうでした。そこで、今は その びんに 花を 入れて、部屋に 飾っています。花を 飾るための 新しい びんは 買いませんでした。",
+        "explanationKo": "잼을 다 먹은 뒤 병을 버리려 했지만, 씻어 보니 다시 쓸 수 있어 현재 꽃을 담아 장식하고 있습니다. 따라서 버리지 않고 꽃을 장식하는 데 사용했다는 선택이 맞습니다. 씻은 뒤 버렸다는 선택은 현재 사용하고 있다는 내용과 다릅니다. 새 병은 사지 않았으며 잼도 이미 다 먹었습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "捨てずに 花を 飾るために 使いました。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "洗ってから ごみ箱に 捨てました。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "新しく 買った びんに ジャムを 入れました。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ジャムを 残したまま 部屋に 飾りました。"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n4-reading-05",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "学生の 山田さんは 火曜日に 映画を 見ます。学生証を 持っています。いくら 払いますか。",
+        "passage": "映画館の 料金\n大人：1,200円\n学生：800円（学生証を 見せて ください）\n火曜日は 大人も 学生も 700円です。\nほかの 割引と 一緒には 使えません。",
+        "explanationKo": "화요일에는 성인과 학생 모두 700엔이라는 특별 요금이 적용됩니다. 학생증을 가지고 있더라도 이 날은 일반 학생 요금 800엔이 아니라 700엔을 냅니다. 1,200엔은 보통 성인 요금입니다. 500엔이라는 요금은 안내에 없고 다른 할인과 함께 사용할 수도 없습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "1,200円"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "800円"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "700円"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "500円"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n4-reading-06",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "「わたし」が Bの 本を 選んだ 理由として、本文に 合うものは どれですか。",
+        "passage": "わたしは 日本語の 小説を 読んでみたいと 思っています。本屋で 二冊の 本を 見つけました。Aの 本は 安いですが、知らない 言葉が 多そうです。Bの 本は Aより 少し 高いですが、短い 話が 五つ 入っていて、言葉の 説明も あります。毎日 少しずつ 読みたいので、Bを 買うことに しました。",
+        "explanationKo": "화자는 매일 조금씩 읽고 싶어 짧은 이야기 다섯 편과 단어 설명이 있는 B를 선택합니다. B가 A보다 조금 비싸므로 가장 저렴해서 선택한 것은 아닙니다. 단어 설명이 있다고 했지만 모르는 단어가 전혀 없다고 하지 않았습니다. B는 하나의 긴 이야기가 아니라 짧은 이야기 다섯 편이며 하루에 다 읽으려는 목적도 아닙니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "二冊の 中で いちばん 安いからです。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "知らない 言葉が 一つも ないからです。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "一つの 長い 話を 一日で 読めるからです。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "短い 話と 言葉の 説明があり、少しずつ 読めそうだからです。"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n4-reading-07",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "「わたしたち」が 野菜を 切る前に したことは 何ですか。",
+        "passage": "日曜日に 友だちと カレーを 作りました。野菜を 切る前に、米を 洗って 炊き始めました。野菜を 切ってから、なべで 肉を 焼きました。そのあと、野菜と 水を 入れました。カレーが できたときには、ご飯も できていました。",
+        "explanationKo": "채소를 자르기 전에 쌀을 씻고 밥을 짓기 시작했다고 명시합니다. 고기를 굽는 일은 채소를 자른 뒤이고, 채소와 물을 넣는 일은 고기를 구운 뒤입니다. 완성된 카레를 먹는 행동은 지문에 서술되지 않았으며, 적어도 채소를 자르기 전의 행동으로 제시되지 않았습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "米を 洗って 炊き始めたことです。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "なべに 野菜と 水を 入れたことです。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "なべで 肉を 焼いたことです。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "できた カレーを 食べたことです。"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n4-reading-08",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "割れていない 空の びんと 空の 缶を 出したいです。どうしますか。",
+        "passage": "マンションの ごみの 出し方\n月曜日：燃える ごみ\n水曜日：びん・缶（中を 空にして、別々の 袋に 入れてください）\n金曜日：紙\n割れた びんは 水曜日に 出さないでください。紙で 包んで、月曜日に 出してください。",
+        "explanationKo": "질문의 병은 깨지지 않았고 병과 캔은 모두 비어 있습니다. 따라서 일반 병·캔 배출 규칙을 적용해 수요일에 각각 다른 봉투에 넣어 내놓습니다. 월요일에 종이로 싸서 내놓는 예외는 깨진 병에만 해당합니다. 같은 봉투에 넣는 것은 별도 봉투 규칙과 다르고, 병만 내놓는 선택은 두 물건을 모두 버리려는 상황을 충족하지 않습니다. 금요일은 종이 배출일입니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "月曜日に、二つを 同じ 袋に 入れて 出します。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "水曜日に、びんと 缶を 別々の 袋に 入れて 出します。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "水曜日に、びんだけを 紙で 包んで 出します。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "金曜日に、二つを 別々の 袋に 入れて 出します。"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n4-reading-09",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "田中さんは、かさを どこで 受け取りますか。",
+        "passage": "田中さんへ。借りていた かさを、きのう あなたの 机の 横に 置きました。名前が 書いてある 青い かさです。今朝、同じ 色の かさが もう 一本 あったので、どちらか 分からなくなると 思って、借りていた かさを 受付の 人に 渡しました。帰るとき、受付で 名前を 言って 受け取ってください。佐藤",
+        "explanationKo": "어제는 책상 옆에 두었지만 오늘 같은 색 우산이 또 있어 빌린 우산을 접수처 직원에게 맡겼습니다. 마지막 안내에 따라 접수처에서 이름을 말하고 받으면 됩니다. 어제 위치를 현재 수령 장소로 선택하면 안 됩니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "自分の 机の 横"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "佐藤さんの 家"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "受付"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "二本の かさが ある 店"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n4-reading-10",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "この 人は、なぜ 今回 服を 持っていきませんか。",
+        "passage": "わたしの 町では、土曜日に 古い 服を 集めています。まだ 着られる 服は、必要な 人に 渡すそうです。わたしは 小さくなった シャツを 持っていこうと 思いましたが、よく 見ると 袖に 穴が ありました。穴の ある 服は 集めないので、この シャツは 家で 掃除に 使うことに しました。ほかの 服は まだ 自分で 着るので、今回は 何も 持っていきません。",
+        "explanationKo": "내려던 셔츠는 구멍이 있어 수거 대상이 아니고 다른 옷은 본인이 계속 입기 때문에 이번에는 아무것도 가져가지 않습니다. 셔츠가 작아진 사실은 최초 기부 생각의 배경이며, 실제로 가져가지 않는 이유는 수거 조건과 다른 옷의 사용 상태입니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "出すつもりの シャツに 穴が あり、ほかの 服は 自分で 着るから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "土曜日には 服を 集めていないから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "シャツが 大きすぎて、持っていけないから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "穴の ある 服だけを 集めているから"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n4-reading-11",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "今回は、母は どうやって 病院へ 行きますか。",
+        "passage": "母は 病院へ 行く 日、いつも わたしに 車で 送ってほしいと 言います。今週の 火曜日も 朝九時に 病院へ 行く予定でしたが、わたしは その 時間に 仕事が ありました。母は バスで 行くと 言っていました。ところが、月曜日に 病院から 電話が 来て、予約が 午後三時に 変わりました。午後なら わたしは 休みなので、今回は バスを 使わずに 済みます。",
+        "explanationKo": "화요일 예약 시각이 오전 9시에서 오후 3시로 바뀌었습니다. 화자는 오후에 쉬므로 평소 어머니가 부탁하는 차량 이동이 가능해졌고 이번에는 버스를 쓰지 않아도 됩니다. 월요일은 전화가 온 날이며 진료 날짜가 바뀌었다는 내용은 없습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "火曜日の 朝、バスで 行きます"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "月曜日に、病院の 車で 行きます"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "火曜日の 午後、歩いて 行きます"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "火曜日の 午後、子どもに 車で 送ってもらいます"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n4-reading-12",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "初めて 参加する 山本さんは、どうすれば いいですか。",
+        "passage": "料理教室の 申し込み\n初めて 参加する 人：ホームページで 名前と 電話番号を 入れて 申し込んでください。\n前に 参加したことが ある 人：電話でも 申し込めます。\n道具は 教室で 貸しますが、エプロンは 自分で 持ってきてください。\n申し込みは 前の 日の 午後五時までです。当日の 申し込みは できません。",
+        "explanationKo": "첫 참가자는 홈페이지로 신청해야 하고 마감은 전날 오후 5시입니다. 도구는 빌릴 수 있지만 앞치마는 직접 가져와야 합니다. 세 조건을 모두 충족하는 보기2이 정답입니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "当日の 朝、電話で 申し込み、エプロンを 持っていきます"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "前の 日の 午後五時までに、ホームページで 申し込み、エプロンを 持っていきます"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "前の 日の 午後五時までに、電話で 申し込み、道具を 全部 持っていきます"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "当日の 朝、ホームページで 申し込み、エプロンを 借ります"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n4-reading-13",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "鈴木さんは 一日の 利用で、月曜日の 午後八時に 自転車を 置き、火曜日の 午前七時に 出します。料金と 利用について 正しい ものは どれですか。",
+        "passage": "駅の 自転車置き場\n一日の 利用：150円。日付が 変わると、さらに 150円 かかります。\n一か月の 利用：2,400円。月の 初めから 終わりまで 使えます。途中から 利用を 始めても、料金は 変わりません。\nどちらも 午前六時から 午後十一時まで 出し入れできます。それ以外の 時間は 門を 閉めます。",
+        "explanationKo": "일일 이용은 날짜가 바뀌면 150엔이 추가되어 월요일부터 화요일까지 합계 300엔입니다. 출입 가능 시간은 오전 6시부터이므로 오전 7시에는 자전거를 꺼낼 수 있습니다. 24시간 요금이 아니라 날짜 변경 기준임을 확인해야 합니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "150円で、午前七時に 出せます"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "300円ですが、午前七時には 門が 閉まっています"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "2,400円で、午前七時に 出せます"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "300円で、午前七時に 出せます"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n4-reading-14",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "山田さんは、会議が始まる前に何をしなければなりませんか。",
+        "passage": "山田さんへ。今日使う資料は、先週送ったものではなく、今朝送った新しいものです。表の数字を直しました。新しい資料は会議が始まる前に六人にメールで送ってください。紙はまだ印刷しなくてもいいです。会議で意見を聞いてから、必要な部分だけ印刷する予定です。森",
+        "explanationKo": "오늘 사용할 자료는 숫자를 고친 오늘 아침의 새 자료입니다. 회의가 시작되기 전에 여섯 명에게 이메일로 보내 달라고 했으므로 첫 번째 보기가 맞습니다. 인쇄는 아직 하지 않아도 되며, 회의에서 의견을 들은 뒤 필요한 부분만 인쇄할 계획입니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "今朝の新しい資料を六人にメールで送る"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "先週の資料を六人分印刷する"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "今朝の資料を全部印刷する"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "六人の意見を聞いてから新しい資料をメールで送る"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n4-reading-15",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "この人が近所の公園によく行くいちばんの理由は何ですか。",
+        "passage": "わたしは、花の写真を撮るのが好きです。休みの日には遠くの山へ行きたいと思っていました。でも、この春は近所の公園によく行っています。同じ花でも、毎週見ると少しずつ色や形が変わることに気づいたからです。公園なら仕事の前にも行けます。今は、遠くへ行くことより、同じ花の変化を続けて見ることがおもしろいです。",
+        "explanationKo": "같은 꽃도 매주 보면 색과 모양이 조금씩 달라진다는 것을 알게 되어 공원에 자주 갑니다. 마지막 문장에서도 같은 꽃의 변화를 계속 보는 것이 재미있다고 강조하므로 세 번째 보기가 주된 이유입니다. 출근 전에도 갈 수 있다는 편리함은 나오지만, 꽃의 수나 산의 촬영 금지는 설명하지 않았습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "山では花の写真を撮れないから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "近所の公園には山より花が多いから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "同じ花が少しずつ変わる様子を見るのがおもしろいから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "花の色や形がいつも同じで安心できるから"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n4-reading-16",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "この人は、なぜ箱を玄関の中に置いて、下にタオルをしくことにしましたか。",
+        "passage": "雨の日、家族がぬれたかさを玄関に置くので、床がぬれて困っていました。わたしは玄関の外に箱を置いて、そこにかさを入れてもらうつもりでした。ところが、母が「外だと、帰ったあとにかさを忘れそう」と言いました。それで、箱は玄関の中に置き、下に古いタオルをしくことにしました。かさを家の中に置いたまま、床をぬらさないようにできます。",
+        "explanationKo": "처음에는 상자를 현관 밖에 두려 했지만, 어머니가 밖에 두면 귀가 후 우산을 잊을 것 같다고 말했습니다. 그래서 상자를 안에 두고 밑에 수건을 깔아, 우산을 집 안에 둔 상태로 바닥이 젖는 것도 막습니다. 두 문제를 함께 해결하는 두 번째 보기가 맞습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "古いタオルを捨てて、新しいかさを買いたいから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "かさを外に置かずに、床がぬれるのも防ぎたいから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "玄関の外に箱を置く場所がないから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "家族に雨の日だけ外で待ってほしいから"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n4-reading-17",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "水曜日の午後二時にラケットを借りました。午後三時半に返すとき、どこへ持っていきますか。",
+        "passage": "体育館のラケット貸し出し\n受付：午前九時から午後五時まで。\nラケットは一人一本、二時間まで借りられます。\n借りるときに利用カードを受付で見せてください。\n返すときも受付へ持ってきてください。入口の箱には入れられません。\nただし、水曜日の午後三時から四時までは、受付が休みです。その時間に返す人は二階の事務室へ持ってきてください。",
+        "explanationKo": "수요일 오후 3시 30분은 접수처가 쉬는 오후 3시부터 4시 사이입니다. 그 시간에 반환하는 사람은 2층 사무실로 가져오라고 했으므로 네 번째 보기가 맞습니다. 오후 2시에 빌려 3시 30분에 반환하므로 대여 시간도 2시간 이내입니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "一階の受付"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "入口の箱"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "体育館の外"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "二階の事務室"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n4-reading-18",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "一人で持てるギターを午前十時に預けて、同じ日の午後七時に取りに来たいです。カードはありますが、現金がありません。この案内に従って預けるために、何をする必要がありますか。",
+        "passage": "駅の荷物預かり\n受付：午前八時から午後八時まで。\n一人で持てる荷物：一個300円。\n一人では持てない荷物：預かれません。\nギターは長くても、一人で持てるものなら預かります。\n午後八時までに取りに来てください。翌日に取りに来ることはできません。\n現金で払ってください。カードは使えません。",
+        "explanationKo": "혼자 들 수 있는 기타는 길더라도 맡길 수 있습니다. 오전 10시에 맡기고 같은 날 오후 7시에 찾는 일정도 운영시간 안이며 당일 수령 조건을 충족합니다. 하지만 카드 결제는 안 되고 현금 300엔이 필요하므로 첫 번째 보기처럼 현금을 준비해야 합니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "現金300円を用意する"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ギターが長いので、預けるのをやめる"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "カードで300円払う"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "次の日の午前八時に取りに来る"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n4-vocabulary-06",
+      "content": {
+        "level": "N4",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "道が 分からないとき、「親切」な 人が 駅まで 案内してくれました。「親切」の 読み方は どれですか。",
+        "passage": null,
+        "explanationKo": "「親切」는 남을 배려하고 친절하게 대하는 뜻이며 「しんせつ」라고 읽습니다. 문장에서는 길을 모를 때 역까지 안내해 준 사람의 친절함을 나타냅니다. 나머지 독음은 「親切」의 읽기가 아닙니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "しんせつ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "しんさい"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "しんけつ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "おやきり"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n4-vocabulary-07",
+      "content": {
+        "level": "N4",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "NORMAL",
+        "questionText": "友だちは 日本語の 辞書を 持っていません。わたしの 辞書を 一週間 使ってもらい、そのあと 返してもらうことに しました。わたしは 友だちに 辞書を（　）。",
+        "passage": null,
+        "explanationKo": "화자가 자기 사전을 친구에게 일주일 쓰게 하고 돌려받으므로 빌려주는 「貸します」가 맞습니다. 「借ります」는 화자가 다른 사람 물건을 빌리는 반대 방향입니다. 「捨てます」는 버리는 행동이고 「売ります」는 팔아 소유를 넘기는 행동으로, 사용 후 돌려받는 이번 대여와 다릅니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "借ります"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "貸します"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "捨てます"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "売ります"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n4-vocabulary-08",
+      "content": {
+        "level": "N4",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "会場には「だいたい」五十人の 人が いました。この 文に 近い 意味の 文は どれですか。",
+        "passage": null,
+        "explanationKo": "숫자 앞의 「だいたい」는 정확히 확정한 수가 아니라 대략 그 정도라는 뜻입니다. 따라서 50명에 가까운 수를 뜻하는 선택이 가장 가깝습니다. 훨씬 많다는 뜻이나 오차 없이 정확히 50명이라는 뜻은 아니며, 사람이 하나도 없다는 뜻도 아닙니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adverb-phrase"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "会場には 五十人より ずっと 多くの 人が いました。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "会場には ちょうど 五十人の 人が いました。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "会場には 五十人に 近い 数の 人が いました。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "会場には 人が 一人も いませんでした。"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n4-vocabulary-09",
+      "content": {
+        "level": "N4",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "NORMAL",
+        "questionText": "使った 道具を 箱に 戻して、部屋を「かたづけます」。正しい 漢字表記は どれですか。",
+        "passage": null,
+        "explanationKo": "물건을 제자리에 돌려놓고 방을 정리하는 「かたづけます」의 한자 표기는 「片付けます」입니다. 「近付けます」는 「ちかづけます」로 가까이 가져가는 뜻, 「続けます」는 「つづけます」로 계속하는 뜻, 「届けます」는 「とどけます」로 전달하는 뜻입니다. 이 문항은 제시된 네 선택지 중 해당 읽기의 한자 표기를 고릅니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "近付けます"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "続けます"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "届けます"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "片付けます"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n4-vocabulary-10",
+      "content": {
+        "level": "N4",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「増える」の 使い方が 正しい 文は どれですか。",
+        "passage": null,
+        "explanationKo": "「増える」는 수나 양이 많아지는 것을 나타내는 자동사입니다. 참가 인원이 20명에서 30명으로 많아졌고 「数が増えました」라고 한 문장이 맞습니다. 20명에서 10명은 줄어든 것이므로 「減りました」가 알맞습니다. 담당자가 인원을 늘리는 타동사 문장에는 「数を増やしました」를 씁니다. 이름을 종이에 쓰는 행동도 「増える」로 표현하지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "参加する 人の 数が 去年の 二十人から 三十人に 増えました。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "参加する 人の 数が 二十人から 十人に 増えました。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "係の 人が 参加する 人の 数を 増えました。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "参加する 人の 名前を 紙に 増えました。"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n4-vocabulary-11",
+      "content": {
+        "level": "N4",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "駅の 近くに 店が 多くて、この 町は「便利」です。「便利」の 読み方は どれですか。",
+        "passage": null,
+        "explanationKo": "便利는 생활에 편리하다는 뜻이고 べんり라고 읽습니다. 便의 べん과 利의 り를 결합한 독음을 확인합니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "べんり"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "べんれい"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "びんり"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "びんれい"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n4-vocabulary-12",
+      "content": {
+        "level": "N4",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "NORMAL",
+        "questionText": "一人では 持てない 大きな 荷物を、二人で トラックまで（　）ました。",
+        "passage": null,
+        "explanationKo": "큰 짐을 두 사람이 트럭까지 이동시킨 행동은 運ぶ이므로 運びました가 맞습니다. 물건을 모으거나 조사하거나 사람을 맞이하는 행동이 아니라 장소를 옮기는 운반 작업입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "集め"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "調べ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "運び"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "迎え"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n4-vocabulary-13",
+      "content": {
+        "level": "N4",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "この 写真は、わたしに とって「大切」です。ここでの「大切」に 近い 意味は どれですか。",
+        "passage": null,
+        "explanationKo": "わたしにとって大切는 나에게 소중하고 중요하다는 뜻입니다. 사진의 크기·구매 시기·무게를 말하는 것이 아니며, 잃고 싶지 않을 만큼 중요한 대상이라는 보기가 가장 가깝습니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "大きすぎる"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "新しく 買った"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "少し 重い"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "なくしたくないほど 重要だ"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n4-vocabulary-14",
+      "content": {
+        "level": "N4",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "NORMAL",
+        "questionText": "三つの 店の 中から、一つを「えらびました」。正しい 漢字表記は どれですか。",
+        "passage": null,
+        "explanationKo": "えらぶ는 여러 대상 중 선택한다는 뜻의 選ぶ이고 과거 정중형은 選びました입니다. 같은 選 한자를 쓴 選いました도 어미가 잘못되어 정답이 아닙니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "洗びました"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "選びました"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "選いました"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "遊びました"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n4-vocabulary-15",
+      "content": {
+        "level": "N4",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「滑る」の 使い方が 正しい 文は どれですか。",
+        "passage": null,
+        "explanationKo": "滑る는 표면 위에서 미끄러지는 뜻으로 얼어붙은 길에서 발이 미끄러졌다는 문장에 맞습니다. 가방 구입·이름 전달·우표 부착은 각각 다른 동사가 필요합니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "道が 凍っていて、足が 滑りました。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "新しい かばんを 店で 滑りました。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "友だちに 名前を 滑りました。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "封筒に 切手を 滑りました。"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-grammar-06",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "きのうは とても（　）です。きょうは あまり さむく ありません。",
+        "passage": null,
+        "explanationKo": "어제의 추위를 말하므로 い형용사 さむい의 과거형 「さむかった」가 맞습니다. さむい는 현재형, さむくない는 현재 부정형, さむく는 이 문장에서 です와 함께 과거 서술을 이루지 못하는 연결형입니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.conjugation"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "さむい"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "さむくない"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "さむく"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "さむかった"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-grammar-07",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "図書館では おおきな 声で 話しては（　）。しずかに してください。",
+        "passage": null,
+        "explanationKo": "도서관에서 큰 소리로 말하면 안 된다는 금지이므로 「〜てはいけません」의 「いけません」이 맞습니다. ください는 てください에서 요청을 나타내지만 여기에는 は가 들어가 금지 구조를 이룹니다. います·あります도 이 금지 구문의 끝을 이루지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.must-will"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "いけません"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ください"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "います"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "あります"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-grammar-08",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "この へやは しずか（　）きれいです。",
+        "passage": null,
+        "explanationKo": "な형용사 しずか를 다른 상태인 きれい와 나열할 때는 「しずかで」를 사용합니다. くて는 い형용사 연결형이며 しずか에는 붙이지 않습니다. に는 부사적 연결, を는 목적격 조사이므로 이 두 상태의 나열에 맞지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.conjugation"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "くて"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "で"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "に"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "を"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-grammar-09",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "TEXT_GRAMMAR",
+        "difficulty": "NORMAL",
+        "questionText": "文章の（　）に 入る ものを えらんで ください。",
+        "passage": "きょう、わたしは スーパーへ 行きます。牛乳と パンを かいます。かばんは 小さいですが、牛乳は 一本です。パン（　）一つ かいます。二つの ものを かばんに 入れます。",
+        "explanationKo": "우유를 사고 빵도 산다는 추가 관계이므로 「パンも一つ買います」의 「も」가 맞습니다. 뒤에서 두 물건을 가방에 넣는다고 하여 빵이 추가 구매 대상임을 확인할 수 있습니다. から·まで는 범위, 「で」는 이 문장에서 구매 대상을 추가하지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.particle"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "から"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "まで"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "も"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "で"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-grammar-10",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "TEXT_GRAMMAR",
+        "difficulty": "NORMAL",
+        "questionText": "文章の（　）に 入る ものを えらんで ください。",
+        "passage": "あした、田中さんの 家へ 行きます。田中さんの 家は はじめてです。田中さんに ききました。わたし「駅（　）家まで、何分 かかりますか。」田中さん「歩いて 十分です。」",
+        "explanationKo": "역에서 집까지 걸리는 시간을 묻으므로 시작점 駅에 「から」를 붙여 「駅から家まで」로 표현합니다. に는 도착점·장소·시간 등에 쓰이지만 이 문장에서는 집까지의 시작점을 나타내지 않습니다. を는 이동 경로나 목적어, と는 동반·인용 등을 나타내어 시작점과 끝점의 짝에 맞지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.particle"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "に"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "を"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "と"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "から"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-grammar-11",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "会議は 午前 十時（　）始まります。",
+        "passage": null,
+        "explanationKo": "회의 시작 시각인 오전 10시를 나타내므로 に가 맞습니다. 구체적인 시각에 동작이 일어남을 나타냅니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.particle"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "を"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "に"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "と"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "の"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-grammar-12",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "姉も わたしも 行きます。あした、わたしは 姉（　）二人で 動物園へ 行きます。",
+        "passage": null,
+        "explanationKo": "언니와 내가 둘이 함께 가므로 동행 상대를 나타내는 と가 맞습니다. 뒤의 二人で는 두 사람이 함께 행동하는 상태를 나타냅니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.particle"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "が"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "を"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "で"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "と"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-grammar-13",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "この かばんは だれのですか。これは わたし（　）です。",
+        "passage": null,
+        "explanationKo": "누구의 가방인지 물었으므로 わたしの는 내 것이라는 뜻입니다. 반복되는 かばん을 생략하고 の로 소유 대상을 대신 나타냅니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.particle"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "の"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "へ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "で"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "を"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-grammar-14",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "家から 店までの 道には 公園が あります。わたしは 公園（　）通って（とおって）、店へ 行きます。",
+        "passage": null,
+        "explanationKo": "문항에서 通って의 읽기를 とおって로 지정했습니다. 가게로 가는 도중 공원을 지나가는 경로를 나타내므로 を가 맞습니다. 같은 한자 표기를 かよって로 읽는 通う는 정기적으로 다닌다는 다른 동사입니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.particle"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "に"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "と"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "を"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "の"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-grammar-15",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "この 電車は バス（　）速いです。バスでは 三十分、この 電車では 十五分かかります。",
+        "passage": null,
+        "explanationKo": "전철이 버스보다 빠르다는 비교이므로 기준을 나타내는 より가 맞습니다. 같은 이동에서 걸리는 시간도 전철이 더 짧습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.particle"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "まで"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "より"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "へ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "を"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-04",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "ゆきさんは 帰りに 何を 買いますか。",
+        "passage": "ゆきさんへ。パンは もう 買いました。牛乳は まだ ありません。帰りに 牛乳を 一つ 買って ください。パンは 買わなくても いいです。母",
+        "explanationKo": "어머니는 빵을 이미 샀지만 우유는 아직 없다며 돌아오는 길에 우유 한 개를 사 달라고 합니다. 따라서 우유만 사면 됩니다. 빵만 사는 선택은 요청과 다르고, 빵과 우유를 모두 사는 선택은 빵을 사지 않아도 된다는 말과 다릅니다. 아무것도 사지 않는 선택은 우유를 사 달라는 요청을 따르지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "パンだけ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "牛乳だけ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "パンと 牛乳"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "何も 買いません"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-05",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "図書館が 閉まっています。本だけを 返したいです。どこに 返しますか。",
+        "passage": "図書館の お知らせ\n本を 返す 場所\n図書館が 開いている とき：一階の カウンター\n図書館が 閉まっている とき：入り口の 横の 箱\nCDは 箱に 入れないで ください。カウンターで 返して ください。",
+        "explanationKo": "도서관이 닫혀 있을 때 책을 반환하는 곳은 입구 옆 상자입니다. 질문은 CD 없이 책만 반환하려는 상황입니다. 1층 카운터는 도서관이 열려 있을 때 책을 반환하는 곳입니다. 도서관 안의 의자는 반환 장소로 안내되지 않았고, CD 전용 상자도 안내되지 않았습니다. 오히려 CD를 상자에 넣지 말고 카운터에 반환하라고 합니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "一階の カウンター"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "入り口の 横の 箱"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "図書館の 中の いす"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "CDの 箱"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-06",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "「わたし」は これから 何を かばんに 入れますか。",
+        "passage": "きょうは 絵の 授業が あります。先生が「赤と 青の えんぴつを 持ってきて ください」と 言いました。わたしの かばんには 赤い えんぴつだけが あります。青い えんぴつは 家の つくえの 上に あります。家を 出る 前に、それを かばんに 入れます。",
+        "explanationKo": "빨간 연필은 이미 가방 안에 있고, 파란 연필은 집 책상 위에 있습니다. 집을 나서기 전에 가방에 넣겠다는 「それ」는 바로 앞에서 설명한 파란 연필을 가리킵니다. 따라서 이제 넣을 것은 파란 연필입니다. 빨간 연필은 이미 가방 안에 있으므로 새로 넣을 물건이 아닙니다. 두 연필을 모두 넣겠다는 선택도 현재 가방 상태와 맞지 않습니다. 그림책은 지문에 나오지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "赤い えんぴつ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "赤い えんぴつと 青い えんぴつ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "絵の 本"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "青い えんぴつ"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-07",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "きょう、しなかったと 書いてある ことは 何ですか。",
+        "passage": "わたしは 毎朝 六時に おきます。家を 出る 前に 花に 水を あげます。花は 庭に あります。きょうは 六時に おきて、朝ご飯を 食べました。でも、きょうは 雨です。花に 水を あげないで、七時に 家を 出ました。",
+        "explanationKo": "오늘은 여섯 시에 일어나 아침을 먹고 일곱 시에 집을 나갔다고 각각 명시했습니다. 비가 와서 꽃에는 물을 주지 않고 나갔다고 했으므로 하지 않았다고 적힌 일은 꽃에 물을 주는 것입니다. 毎朝라는 일반 습관만으로 오늘의 실행을 추정하지 않고, 오늘의 별도 서술을 근거로 삼습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "六時に おきる こと"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "朝ご飯を 食べる こと"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "花に 水を あげる こと"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "七時に 家を 出る こと"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-08",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "山田さんは、田中さんと いつ、どこで 会いたいですか。",
+        "passage": "田中さんへ。土曜日は 駅の 前で 会いましょう。映画は 三時からですが、その前に 昼ご飯を 食べたいです。一時に 会うのは どうですか。昼ご飯の 後で、映画館へ 行きましょう。山田",
+        "explanationKo": "토요일 역 앞에서 만나자는 제안에 이어 점심을 먼저 먹기 위해 1시에 만나자고 했습니다. 영화 시작 3시와 영화관은 만남 이후의 일정·장소이므로 약속 시각·장소와 구별해야 합니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "土曜日の 一時に、駅の 前で"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "土曜日の 三時に、駅の 前で"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "土曜日の 一時に、映画館で"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "土曜日の 三時に、映画館で"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-09",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "わたしは、どうして バスで 学校へ 行きますか。",
+        "passage": "妹は 自転車で 学校へ 行きます。学校は 家から 近くて、自転車で 十分です。わたしの 学校は 遠いので、バスで 行きます。わたしも 自転車が ありますが、学校へ 行く ときは 使いません。",
+        "explanationKo": "화자의 학교는 멀어서 버스로 간다고 「わたしの学校は遠いので」에 이유가 명시되어 있습니다. 자전거가 없어서가 아니며 여동생과 같은 학교인지 또는 버스로 10분인지도 제시되지 않았습니다. 10분은 여동생의 자전거 이동 시간입니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "自転車が ありませんから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "妹と 同じ 学校ですから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "バスで 十分ですから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "学校が 家から 遠いですから"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-10",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "日曜日に プールへ 行きます。正しい ものは どれですか。",
+        "passage": "プールの お知らせ。月曜日から 金曜日は 午前十時から 午後八時までです。土曜日と 日曜日は 午前九時から 午後六時までです。帽子を 持ってきて ください。タオルは 百円で 借りる ことが できます。",
+        "explanationKo": "일요일은 주말 시간인 오전 9시부터이며 모자를 가져오라고 했으므로 두 조건이 맞는 보기2이 정답입니다. 100엔 대여는 모자가 아니라 수건이며 수건을 가져오면 안 된다는 금지는 없습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "午前十時からで、帽子を 持っていきます"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "午前九時からで、帽子を 持っていきます"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "午前九時からで、帽子を 百円で 借ります"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "午前十時からで、タオルを 持っていっては いけません"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-11",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "金曜日は 雨です。二年生は、いつ、どこへ 行きますか。",
+        "passage": "学校の お知らせ。金曜日に 写真を とります。一年生は 九時に 教室へ 来て ください。二年生は 九時半に 庭へ 来て ください。雨の 日は、場所を 体育館に かえます。時間は かえません。一年生は 九時、二年生は 九時半です。",
+        "explanationKo": "2학년 시각은 9시 반이며 비가 오면 장소만 체육관으로 바꾸고 시각은 바꾸지 않는다고 명시했습니다. 따라서 2학년은 9시 반에 체육관에 갑니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "九時に、教室へ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "九時に、体育館へ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "九時半に、体育館へ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "九時半に、庭へ"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-12",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "まきさんが 家へ 来たとき、だれが かぎを 持っていますか。",
+        "passage": "まきさんへ。日よう日の 昼ごはんは 十二時に わたしの 家で 食べましょう。その前に、駅の 近くの 店で おべんとうを 買います。まきさんは 先に わたしの 家へ 来てください。かぎは 弟が 持っています。弟は 家で 待っています。ゆり",
+        "explanationKo": "집에 먼저 오는 마키가 받을 열쇠는 집에서 기다리는 유리의 남동생이 가지고 있습니다. 유리는 그 전에 가게에서 도시락을 삽니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ゆりさん"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "まきさん"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ゆりさんの 弟"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "店の 人"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-13",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "この 人は なべを いつ 返しますか。",
+        "passage": "きのう、となりの 佐藤さんから 大きい なべを 借りました。夕ごはんを 作ってから、なべを 洗いました。佐藤さんは 今日の 午前は 出かけています。午後には 家に いるので、三時に なべを 返します。",
+        "explanationKo": "반환은 사토 씨가 집에 있는 오늘 오후 3시입니다. 어제는 냄비를 빌려 요리하고 씻은 날이며 오늘 오전에는 상대가 외출합니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "今日の 午後 三時"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "きのうの 午後 三時"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "今日の 午前"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "あしたの 午前"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-14",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "この 人が 木よう日に 花に 水を あげたのは、どうしてですか。",
+        "passage": "学校の 花に 水を あげる 当番は、月よう日と 木よう日です。先週は 木よう日に 雨が ふりました。でも、花は 屋根の 下に あって、花には 雨が かかりませんでした。わたしは いつものように 花に 水を あげました。",
+        "explanationKo": "비가 왔지만 꽃은 지붕 아래 있어서 비가 닿지 않았습니다. 따라서 평소처럼 물을 주었습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "その 日は 月よう日だったから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "花に 雨が かからなかったから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "屋根が なかったから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "花の 仕事を 忘れたから"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-15",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "金よう日に 母と 子ども一人の 二人で、土よう日の 会に 行くことに しました。正しい 準備は どれですか。",
+        "passage": "えほんの 会\n土よう日 十時から 十一時まで\n子ども：無料\n大人：一人 三百円\n親子で 来てください。\n来る 前の日の 午後五時までに、電話で 名前と 人数を 教えてください。\n本を 持ってくる 必要は ありません。",
+        "explanationKo": "전날인 금요일 오후 5시까지 전화로 이름과 인원을 알려야 합니다. 어린이는 무료이고 어머니 한 명만 300엔이므로 300엔을 준비합니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "土よう日の 十時に 電話し、六百円を 用意する"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "金よう日の 五時までに 電話し、六百円を 用意する"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "土よう日の 十時に 電話し、三百円を 用意する"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "金よう日の 五時までに 電話し、三百円を 用意する"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-16",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "店から「くつの 修理が 終わりました」と 電話が 来ました。でも、紙を なくしました。くつを もらうために、どうしますか。",
+        "passage": "くつの 修理を した お客様へ\n修理が 終わったら、店から 電話します。\n店からの 電話の あとで、くつを 取りに 来てください。\nその とき、この 紙を 店の 人に 見せてください。\nこの 紙が ない ときは、店の 人に 名前と 電話番号を 言ってください。\n店は 毎日 午前十時から 午後七時まで 開いています。",
+        "explanationKo": "수리는 끝났고 종이가 없는 경우에는 가게 직원에게 이름과 전화번호를 말하면 됩니다. 이름만으로는 안내의 두 정보를 충족하지 않으며 오전 9시는 개점 전입니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "店で 名前と 電話番号を 言う"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "修理が 終わるまで 家で 待つ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "店で 名前だけを 言う"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "午前九時に 店へ 行く"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-17",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "この 人が 黒い コートを 選んだ いちばんの 理由は 何ですか。",
+        "passage": "わたしは コートを 買いに 行きました。青い コートは 五千円で、黒い コートは 四千円でした。青い コートは 軽かったですが、着ると 少し さむかったです。黒い コートは 重かったですが、とても あたたかかったです。冬の 朝は とても さむいので、黒い コートを 買いました。",
+        "explanationKo": "추운 겨울 아침을 위해 따뜻한 검은 코트를 골랐습니다. 가격도 더 싸지만 본문은 추운 아침을 선택 이유로 연결합니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "青い コートより 軽かったから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "あたたかかったから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "青い 色が なかったから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "五千円だったから"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-18",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "足を つけた あと、すぐに 何を しますか。",
+        "passage": "新しい 棚を 作ります。まず、箱から 棚の 板と 足を 出してください。次に、板に 足を つけてください。足を つけてから、棚を 立ててください。棚が できたら、上に 本を 置いてください。",
+        "explanationKo": "다리를 붙인 직후에는 선반을 세웁니다. 책은 선반이 완성된 뒤에 올립니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "箱を 開ける"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "本を 置く"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "板を 箱に 入れる"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "棚を 立てる"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-19",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "冷蔵庫に 入れた りんごは いくつですか。",
+        "passage": "りんごを 六つ 買いました。朝、弟と わたしが 一つずつ 食べました。そのあと、友だちに 二つ あげました。のこりは 冷蔵庫に 入れました。",
+        "explanationKo": "처음 6개에서 두 사람이 한 개씩 먹어 2개를 쓰고 친구에게 2개를 주었으므로 2개가 남았습니다. 6−2−2=2입니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "二つ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "三つ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "四つ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "五つ"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-20",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "たまごを 使っていない パンを 一つ 買いたいです。二百円までなら 払えます。どれを 買いますか。",
+        "passage": "パンの 店\nA：チーズの パン／百五十円／たまごを 使っています。\nB：りんごの パン／二百円／たまごを 使っていません。\nC：チョコレートの パン／百八十円／たまごを 使っています。\nD：豆の パン／二百五十円／たまごを 使っていません。",
+        "explanationKo": "달걀을 사용하지 않으면서 200엔 이하인 것은 B 사과빵입니다. D도 달걀은 없지만 250엔으로 예산을 넘습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "A"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "C"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "B"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "D"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-21",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "一つ目の 信号を 右に 曲がりました。どの 建物へ 行きますか。",
+        "passage": "駅から 会場まで\n① 駅の 東口を 出て、まっすぐ 歩きます。\n② 一つ目の 信号を 右に 曲がります。\n③ 左に 銀行が 見えます。銀行の 向かいの 白い 建物が 会場です。\n※ 銀行の 隣の 赤い 建物は 会場では ありません。",
+        "explanationKo": "오른쪽으로 돈 뒤 찾을 장소는 은행 맞은편의 흰 건물입니다. 옆의 빨간 건물은 행사장이 아니라고 명시합니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "銀行の 向かいの 白い 建物"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "銀行の 隣の 赤い 建物"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "銀行"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "駅の 東口の 建物"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-22",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "田中さんは、この メモで 何を 伝えたいですか。",
+        "passage": "中村さんへ。きのうは 駅まで 車で 送ってくれて、ありがとうございました。重い にもつが あったので、とても 助かりました。おかげで 電車にも 間に 合いました。田中",
+        "explanationKo": "어제 역까지 태워 준 일에 감사하는 메모입니다. 무거운 짐이 있는 상황에서 도움을 받고 기차에도 늦지 않았다는 내용을 전합니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.opinion"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "駅へ 来てほしい"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "車を 借りたい"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "にもつを 買いたい"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "送ってもらって うれしかった"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-23",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "食べた あとの 気持ちは、写真を 見た ときの 考えと どう 違いましたか。",
+        "passage": "新しい 食堂へ 行きました。入口の 写真で カレーが 大きく 見えたので、全部は 食べられないと 思いました。でも、出てきた カレーは 写真より 小さかったです。わたしは 全部 食べて、まだ 少し おなかが すいていました。",
+        "explanationKo": "입구 사진을 보고 양이 너무 많아 다 먹지 못할 것으로 생각했지만 실제 양은 작아서 다 먹고도 조금 배가 고팠습니다. 이 문맥에서는 더 먹고 싶은 상태가 사진을 보고 한 예상과 다릅니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.opinion"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "まだ 食べたいと 思った"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "食べ物が 多すぎると 思った"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "何も 食べたくなかった"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "カレーを 少しも 食べられなかった"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-24",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "山本さんについて、この 文から 分かることは どれですか。",
+        "passage": "山本さんは 先生だと 思っていました。きのう 学校で 山本さんを 見たからです。でも、山本さんは「学校へは 娘に 会いに 行きました。わたしは パンの 店で 働いています」と 言いました。",
+        "explanationKo": "학교에서 봤다는 화자의 추측은 잘못되었고 야마모토 씨는 빵집에서 일한다고 직접 설명합니다. 학교에는 딸을 만나러 갔습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "学校で 教えている"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "パンの 店で 働いている"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "娘が パンの 店で 働いている"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "きのうから 先生に なった"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-25",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "字を 書いた 白い 紙があります。どうしますか。",
+        "passage": "学校で 紙を 集めます\n①新聞と 雑誌：ひもで しばって、青い 箱へ。\n②白い 紙：字が 書いてあっても、そのまま 黄色い 箱へ。\n③色の ついた 紙：赤い 箱へ。\n※使った ティッシュは、どの 箱にも 入れないでください。",
+        "explanationKo": "흰 종이는 글씨가 있어도 그대로 노란 상자에 넣습니다. 묶어서 파란 상자에 넣는 것은 신문과 잡지이고 빨간 상자는 색지입니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ひもで しばって 青い 箱へ 入れる"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "赤い 箱へ 入れる"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "黄色い 箱へ 入れる"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "どの 箱にも 入れない"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-26",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "佐藤さんは 三時に 予約しています。山田さんは 予約せず、二時四十分から 待っています。佐藤さんは 二時五十分に 来ました。三時に 先に 名前を よぶのは だれですか。",
+        "passage": "店の 相談\n予約した 人：予約の 時間に 名前を よびます。\n予約していない 人：番号の 紙を 取って、待ってください。\n※早く 店に 来ても、予約した 人が 先です。\n予約の 時間の 五分前までに、店に 来てください。",
+        "explanationKo": "3시 예약자인 사토 씨가 먼저 불립니다. 야마다 씨가 먼저 왔더라도 예약자 우선이며 사토 씨는 5분 전보다 일찍 도착했습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "佐藤さん"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "山田さん"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "先に 来た 人"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "番号の 紙を 取った 人"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-27",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "一週間で いちばん 多く する スポーツは どれですか。",
+        "passage": "毎週、月よう日と 木よう日に 友だちと テニスを します。火よう日は 一人で 泳ぎます。土よう日と 日よう日は、朝、走ります。水よう日も 走ります。金よう日は 何もしません。",
+        "explanationKo": "테니스는 월·목 2일, 수영은 화요일 1일, 달리기는 수·토·일 3일이므로 가장 자주 하는 운동은 달리기입니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "テニス"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "走る こと"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "泳ぐ こと"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "どれも 同じ"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-28",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "今、できる ことは どれですか。",
+        "passage": "日本語を 勉強し始めた ときは、自分の 名前を 書くのも 難しかったです。毎日 少しずつ 練習しました。今は 名前や 住所を 書けますが、長い 手紙は まだ 書けません。来月は 手紙を 書く 練習を したいです。",
+        "explanationKo": "현재 가능한 일은 이름과 주소 쓰기입니다. 긴 편지는 아직 못 쓰며 다음 달에 연습하고 싶다고 합니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "長い 手紙を 書く"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "日本語を 教える"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "名前と 住所を 書く"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "難しい 本を 読む"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-29",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "友だちが 教えた 店の 休みは いつですか。",
+        "passage": "友だちが「店は 木よう日が 休みだよ」と 言ったと 思っていました。でも、もう一度 聞くと、「木よう日ではなく、水よう日だよ」と 言いました。木よう日には 買い物が できます。",
+        "explanationKo": "다시 확인한 친구의 설명에 따르면 휴무는 수요일입니다. 목요일은 처음 잘못 알아들은 요일이며 쇼핑할 수 있습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "水よう日"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "木よう日"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "金よう日"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "日よう日"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-30",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "切符の 番号は 十一番です。どこに 座りますか。",
+        "passage": "映画の 席\n一番から 十番まで：前の 列\n十一番から 二十番まで：後ろの 列\n入口は 前の 列の 右に あります。\n切符の 番号の 席に 座ってください。空いている 席でも、別の 番号の 席には 座らないでください。",
+        "explanationKo": "11번은 뒷줄 번호 범위 11~20에 포함됩니다. 빈자리가 있더라도 티켓 번호와 다른 자리에 앉으면 안 됩니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "前の 列の 十番"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "入口の 近くの 空いた 五番の 席"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "前の 列の 一番"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "後ろの 列の 十一番"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-reading-31",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "結婚して 名前が 変わりました。カードの 名前を 直したいです。どの 受付へ 行きますか。",
+        "passage": "図書館の 受付\nA：本を 借りる・返す\nB：図書館の カードを 作る・カードの 名前を 変える\nC：使いたい 本を 探す\nD：コピーを する\n※新しい 住所は、どの 受付でも 知らせることが できます。",
+        "explanationKo": "카드 이름 변경은 B 창구 업무입니다. 주소는 어느 창구든 알릴 수 있지만 이번 요청은 이름 변경이므로 B로 가야 합니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "A"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "C"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "B"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "D"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-vocabulary-06",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "「山」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "「山」은 산을 뜻하며 「やま」라고 읽습니다. かわ는 강, うみ는 바다, そら는 하늘의 읽기로 山의 독음이 아닙니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "かわ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "うみ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "やま"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "そら"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-vocabulary-07",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "NORMAL",
+        "questionText": "パンを かいます。パンは 一つ 百円です。二つで（　）です。",
+        "passage": null,
+        "explanationKo": "빵 한 개가 100엔이므로 두 개는 200엔이며 「二百円」이 맞습니다. 五十円은 50엔, 百円은 100엔, 三百円은 300엔입니다. 숫자 어휘를 문맥의 수량과 연결합니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "五十円"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "百円"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "三百円"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "二百円"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-vocabulary-08",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "この かばんは「ちいさい」です。ちかい いみは どれですか。",
+        "passage": null,
+        "explanationKo": "「ちいさい」는 크기가 작다는 뜻이므로 크지 않다는 「大きくありません」이 가장 가깝습니다. 새로움·깨끗함·가격과는 다른 크기의 표현입니다. 크지 않은 모든 것이 반드시 작다는 일반 정의가 아니라, 제시된 보기 중 크기에 관한 가장 가까운 표현을 고릅니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "大きく ありません"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "あたらしく ありません"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "きれいでは ありません"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "やすく ありません"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-vocabulary-09",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "NORMAL",
+        "questionText": "「みぎ」を かんじで かくと どれですか。",
+        "passage": null,
+        "explanationKo": "오른쪽을 뜻하는 「みぎ」의 한자 표기는 「右」입니다. 左는 ひだり(왼쪽), 上은 うえ(위), 下는 した(아래)입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "左"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "右"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "上"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "下"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-vocabulary-10",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「はく」の つかいかたが ただしい ものは どれですか。",
+        "passage": null,
+        "explanationKo": "신발·양말·바지처럼 발이나 하반신에 착용하는 물건에는 「はく」를 씁니다. 따라서 「くつをはきます」가 맞습니다. 모자는 かぶる, 셔츠는 きる, 안경은 かける가 자연스럽습니다. 여기서는 착용 동사의 용법을 묻습니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ぼうしを はきます。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "シャツを はきます。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "くつを はきます。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "めがねを はきます。"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-vocabulary-11",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "「雨」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "雨는 비를 뜻하며 あめ라고 읽습니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ゆき"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "かぜ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "あめ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "くも"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-vocabulary-12",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "NORMAL",
+        "questionText": "へやが あついです。そとの すずしい かぜを 入れたいので、まどを（　）。",
+        "passage": null,
+        "explanationKo": "밖의 시원한 바람이 들어오게 창문을 열려는 상황이므로 あけます가 맞습니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "あけます"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "しめます"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "かります"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "わすれます"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-vocabulary-13",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "土よう日は「ひま」です。しごとも やくそくも ありません。この 文の「ひま」に ちかい いみは どれですか。",
+        "passage": null,
+        "explanationKo": "일이나 약속이 없어 여유 시간이 있다는 문맥에서 ひま는 할 일이 없어 시간이 남는 상태입니다. 반드시 돈이나 갈 장소가 없거나 피곤하다는 뜻은 아닙니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "お金が ありません"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "行く 場所が ありません"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "体が つかれています"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "する ことが なく、時間が あります"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-vocabulary-14",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "NORMAL",
+        "questionText": "「せんせい」を かんじで かくと どれですか。",
+        "passage": null,
+        "explanationKo": "せんせい의 한자 표기는 先生입니다. 先과 生을 차례대로 씁니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "先正"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "先生"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "千生"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "先性"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-vocabulary-15",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「おもい」の つかいかたが ただしい ものは どれですか。",
+        "passage": null,
+        "explanationKo": "짐의 무게가 많이 나가 두 사람이 나른다는 문장에서 おもい가 자연스럽습니다. 나머지 문장의 おもく는 보통의 걷기·창문 열기·이름 쓰기 방법을 나타내는 표현으로 자연스럽지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "この にもつは おもいので、二人で はこびます。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "駅まで おもく 歩いて、十分で つきました。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "まどを おもく あけて、かぜを 入れます。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ペンで なまえを おもく 書いてください。"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-reading-14",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "修理教室が参加者に写真を先に送ってもらう目的は何ですか。",
+        "passage": "町の修理教室では、参加者に壊れた物の写真を先に送ってもらっている。ただし、写真だけで修理できるかどうかを決めるわけではない。講師は写真を見て、必要になりそうな道具を用意する。当日は実物を見て、修理できるかを一緒に確かめる。写真を送るのは、教室の時間を道具探しだけに使わず、修理の方法を考える時間をできるだけ多くするためだ。",
+        "explanationKo": "사진을 보고 필요할 것 같은 도구를 미리 준비하면 당일 도구를 찾는 데만 시간을 쓰지 않고 수리 방법을 생각할 시간을 늘릴 수 있습니다. 따라서 두 번째 보기가 맞습니다. 사진만으로 수리 가능 여부를 확정하는 것은 아니며 당일 실물을 보고 함께 확인한다고 했습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "写真だけで修理できる物を選び、参加者を決めること"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "道具を先に用意して、当日に修理の方法を考える時間を増やすこと"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "修理が終わった物の写真を町の人に見せること"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "参加者が教室に実物を持ってこなくてもよいようにすること"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-reading-15",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "NORMAL",
+        "questionText": "筆者は、作品の記録についてどう考えるようになりましたか。",
+        "passage": "陶芸の教室に通い始めたころ、私は作品が完成したときだけ写真を撮っていた。きれいにできた皿やカップを並べて見ると、自分が上手になっているようでうれしかった。作っている途中の写真は、形もよくないので残す必要がないと思っていた。\nところが、以前うまくできたカップと同じものを作ろうとすると、土をどのくらいの厚さにしたか、どのくらい乾かしたかが思い出せなかった。完成した写真を見ても、そのことは分からなかった。\n先生に相談してから、今は作業の途中にも写真を撮り、試したことを短く書いている。うまくいかなかったときも、どの段階で形が変わったかを残すようにした。あとで記録を比べると、次に何を変えてみるか考えやすくなった。\n完成した作品の写真も、楽しんで見ている。ただ、記録はよい結果を残すだけでなく、次に作るときの手がかりにもなるのだと思うようになった。",
+        "explanationKo": "처음에는 완성품 사진만 남겼지만 같은 컵을 다시 만들려니 두께나 말린 시간 등 제작 과정을 기억할 수 없었습니다. 지금은 중간 사진과 시도한 내용을 기록하고 실패한 단계도 남겨 다음에 바꿀 점을 생각합니다. 따라서 기록을 다음 제작에 활용하게 되었다는 네 번째 보기가 맞습니다. 완성 사진도 계속 즐겨 본다고 했으므로 이를 버린 것은 아닙니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.opinion"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "完成した作品より、途中の形の方が美しいので見せたい"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "同じ作品を二度作らないために、完成写真は消した方がよい"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "途中で失敗した作品は、記録に残さない方が次に役立つ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "完成した結果だけでなく、作る過程も残すと次の制作に役立つ"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-reading-16",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "NORMAL",
+        "questionText": "筆者は、今年の案内をどのように変えましたか。",
+        "passage": "私は町の運動会の案内を担当している。以前は、まだ決まっていないことを書くと参加者が迷うと思い、決まったことだけをホームページに載せていた。雨の場合に会場を変えるかどうかも、当日の朝に決めてから知らせるつもりだった。\nところが、運動会の前日、「雨なら行かない方がいいですか」「何時にホームページを見れば分かりますか」という質問が何度も来た。会場がまだ決まっていないだけでなく、いつ情報が出るか分からないことも、準備を難しくしていたのだ。\nそこで今年は、雨の場合の会場は未定だと書き、その下に「当日の午前七時に、このページでお知らせします」と加えた。晴れた日の会場や開始時刻など、すでに決まっている情報もそのまま残している。\nまだすべてが決まっていなくても、何が決まっていないかと、いつ確認できるかを伝えることはできる。今は、確かなことだけを書くという考え方から、参加者が必要な情報を確かめる方法も案内するという考え方に変わった。",
+        "explanationKo": "예전에는 확정된 사실만 홈페이지에 실었지만, 올해는 우천 시 장소가 미정이라는 사실과 당일 오전 7시에 같은 페이지에서 확인할 수 있다는 안내를 함께 적었습니다. 확정된 정보도 그대로 남겼으므로 첫 번째 보기가 맞습니다. 미정 장소를 확정했다고 하거나 기존 정보를 모두 삭제한 것은 아닙니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.opinion"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "未定のことと、それをいつどこで確認できるかも知らせるようにした"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "雨の場合の会場はもう決まっていると書くようにした"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "質問が来なくなるまで、決まった情報も載せないようにした"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "当日の朝にすべての参加者へ個別に電話するようにした"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-reading-17",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "第二回の土曜日の授業を休む人が、その回の内容を資料で勉強したいです。資料を受け取るために、どうすればよいですか。",
+        "passage": "市民パソコン講座・欠席する場合の案内\n授業は土曜日の午前十時から、全部で四回です。\n欠席する回の前日午後五時までに、窓口へ電話で連絡してください。締め切りまでに連絡した人には、その回の資料をメールで送ります。締め切りを過ぎると、資料をメールで送ることはできません。\n授業の録画はありません。他の日程の授業を代わりに受けることもできません。\n資料を読んで分からない所がある場合は、全四回の授業が終わってから一週間以内に、講師へメールで質問してください。授業期間中のメール質問は受け付けません。",
+        "explanationKo": "결석하는 수업의 전날 오후 5시까지 창구에 전화하면 해당 회차의 자료를 이메일로 보내 줍니다. 수업이 토요일이므로 두 번째 수업이 있는 주의 금요일 오후 5시까지 전화하는 첫 번째 보기가 맞습니다. 강사에게 질문하는 절차는 전체 수업이 끝난 뒤 자료 내용 중 모르는 부분을 묻는 별도 절차입니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "第二回がある週の金曜日の午後五時までに、窓口へ電話する"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "第二回の授業が始まる前に、講師へ質問メールを送る"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "全四回の授業が終わったあとで、第二回の録画を申し込む"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "第二回の次の日に、同じ内容の授業へ参加する"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-reading-18",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "六回のうち四回出席した田中さんは、最後の授業の翌日に修了証の申し込みを考えています。課題はまだ出していません。メールで申し込むなら、どうすればよいですか。",
+        "passage": "市民センター・日本語講座の修了証\n授業は全部で六回です。修了証は、四回以上出席し、最後の課題を提出した人に出します。\n課題の締め切りは、最後の授業から一週間後の午後五時です。\n修了証の申し込みは、課題を提出したあと、最後の授業から二週間以内にしてください。窓口またはメールで受け付けます。メールには氏名と講座番号の両方を書いてください。\n四回以上出席していても、課題を提出していない人には修了証を出せません。\n修了証は翌月の一日から窓口で受け取れます。郵送はしていません。",
+        "explanationKo": "수료증은 4회 이상 출석하고 마지막 과제를 제출한 사람에게 줍니다. 다나카 씨는 출석 조건을 충족했지만 과제가 아직 남아 있으므로 최종 수업 1주 뒤 오후 5시까지 과제를 먼저 내야 합니다. 그 뒤 최종 수업 2주 이내에 이름과 강좌 번호를 모두 적은 이메일로 신청하면 되므로 세 번째 보기가 맞습니다. 전 회차 출석은 요구하지 않았습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "四回出席したので、課題を出さずに氏名だけをメールで送る"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "課題を出したあと、講座番号を書かずにメールで申し込む"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "期限までに課題を出し、申し込みの期限内に氏名と講座番号を書いてメールを送る"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "六回すべてに出席していないので、課題を出しても申し込めない"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n2-reading-14",
+      "content": {
+        "level": "N2",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "NORMAL",
+        "questionText": "筆者は、会議の進め方を変えた効果を何に基づいて判断するべきだと考えていますか。",
+        "passage": "会社で企画を決める会議が長いという意見が出た。そこで、資料の確認は各自に任せ、会議では結論だけを決めるようにした。確かに会議は短くなったが、その後、同じ数字を別の意味に受け取っていたことが分かり、決め直すことが増えた。\n会議の時間だけを見れば効率が上がったように見える。しかし、決定後の問い合わせや修正まで含めると、仕事全体が早く終わったとは言えなかった。省いた確認が、別の場所でより大きな手間として戻ってきたのである。\n今は、参加者が資料を読んで疑問点を先に送ることにしている。会議では、そのうち判断の前提が分かれている点を確かめる。すべての不安が消えるまで待つのではなく、決めるために必要な条件をそろえるのが目的だ。\n効率を考えるときには、一つの場面で何分減ったかだけでなく、その変更が次の仕事にどう影響したかを見る必要がある。短くすること自体を成果にしてしまうと、減らしたはずの時間を、あとで別の形で使うことになりかねない。",
+        "explanationKo": "회의만 짧아졌지만 같은 숫자를 다르게 이해해 문의·수정·재결정이 늘었습니다. 글쓴이는 한 장면의 절약 시간뿐 아니라 다음 업무에 생긴 영향을 보아야 한다고 결론 냅니다. 따라서 결정 후 수정까지 포함한 전체 업무의 영향을 살피는 두 번째 보기가 맞습니다. 모든 불안이 사라질 때까지 기다리는 것이 목적은 아니라고 명시했습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.opinion"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "会議が終わるまでの時間だけを比べ、決定後の修正は別に考える。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "決定後の修正も含め、仕事全体にどのような影響が出たかを見る。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "参加者の不安がすべて消えるまで待ち、その後で初めて結論を決める。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "各自の資料の理解に任せ、疑問点を確認する機会をできるだけ減らす。"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n2-reading-15",
+      "content": {
+        "level": "N2",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "NORMAL",
+        "questionText": "筆者は、このサイトの「無料で返品できる」という表示をどのように受け止めるべきだと述べていますか。",
+        "passage": "服を買うサイトに「合わなければ無料で返品できます」と書かれていた。返送料は店が負担するので、家で試せるのは便利だ。私は、迷った二着を注文し、一着を返すつもりだった。\nところが、返すには服を袋に入れ直し、指定の用紙を添え、荷物を出しに行く必要があった。どれも案内に書かれていたことで、店が約束を破ったわけではない。それでも、忙しい週にこれらの作業をする負担を、注文時には考えていなかった。\n「無料」という言葉は、ここでは返送料を払わなくてよいという条件を示している。服を選び直したり、包んだりする手間までなくなるという意味ではない。費用がかからないことと、自分に負担がないことを同じだと思ったのは、私の方だった。\n返品できる仕組みを使わない方がよいと言いたいのではない。店へ行く時間がない人には役立つこともある。ただ、利用する前に、その条件に含まれているものと、自分で行う必要のあることを分けて考えたい。金額だけでは見えない負担も、選択をするときの材料になる。",
+        "explanationKo": "무료는 이 안내에서 반송료를 내지 않는다는 뜻이며 포장·서류 동봉·발송 행동까지 없어진다는 의미가 아닙니다. 안내를 어긴 것이 아니라 글쓴이가 비용 없음과 부담 없음을 같은 것으로 생각한 것입니다. 반품 제도 자체를 부정하지 않고 조건 범위와 남는 작업을 구분해 활용하자는 네 번째 보기가 맞습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.opinion"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "返品の手間もなくなる約束なので、作業が残れば店の説明違反と考える。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "店へ行くより必ず負担が大きいので、この仕組みを使わずに購入する。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "金額がかからない仕組みでは、自分で行う作業を選択の材料にしない。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "返送料が不要な条件と、自分に残る作業の負担を区別して利用を考える。"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n2-reading-16",
+      "content": {
+        "level": "N2",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "NORMAL",
+        "questionText": "「残り三つ」という札について、筆者の考えに合うものはどれですか。",
+        "passage": "店で収納箱を見ていたとき、「残り三つ」という札が目に入った。それまでは家の棚に入るかどうか確かめてから買うつもりだったのに、急に今買わなければ損をするような気がした。少し離れて考えると、箱の大きさは札を見る前と何も変わっていなかった。\n残りが少ない理由は、たくさん売れたからかもしれないし、最初から少量しか仕入れていなかったからかもしれない。札だけでは、そのどちらかも分からない。まして、その箱が私の棚に合うことを示しているわけではない。\nもちろん、買おうと決めていた物なら、在庫の数を見て早めに買う意味はある。しかし、まだ自分に必要かどうか決めていない段階では、「手に入るうちに」という気持ちが、先に考えるべきことを押しのけてしまうことがある。\n少ないことは、今その店で手に入る数についての情報である。それを、そのまま自分にとっての価値の高さに置き換えないようにしたい。私は家に戻って棚の幅を測り、その箱を使う場所があるか確かめてから、購入を判断することにした。",
+        "explanationKo": "남은 수량만으로 많이 팔린 이유나 본인의 선반에 맞는지를 알 수 없습니다. 이미 사기로 한 물건의 구매 시기를 정할 때는 재고 정보가 도움이 될 수 있지만, 아직 필요성을 정하지 않았다면 사용 조건부터 확인해야 합니다. 따라서 재고의 희소성과 개인에게 필요한 가치를 구별하는 첫 번째 보기가 맞습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.opinion"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "在庫の少なさと自分に必要な価値を分け、使える条件を確認して判断する。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "多くの人に選ばれた証拠なので、棚の大きさを確かめる前に購入を決める。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "在庫が少ない品物は自分には合わないので、用途を考えずに購入を避ける。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "買うと決めていた物でも、在庫の数を購入の時期に使うべきではない。"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n2-reading-17",
+      "content": {
+        "level": "N2",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "三人で一組として作品を展示し、会場の電源を使う予定です。火曜日の午後4時に初めて申し込む場合、案内に合う方法と費用はどれですか。",
+        "passage": "地域の作品紹介会・展示参加の案内\n展示する人は、開催週の火曜日午後5時までにウェブサイトから申し込んでください。当日の展示申込みは受け付けません。見学だけの人は申込み不要で、入場は無料です。\n展示は一組につき机一つを用意します。参加費は一組1,500円で、参加人数によって変わりません。\n会場の電源を使う場合は、展示申込みと同時に「電源利用」を選んでください。追加料金は一組300円です。会場での追加申込みはできません。電源を使わない組には、この追加料金はかかりません。\n作品の紹介や実演はできますが、会場での販売はできません。",
+        "explanationKo": "화요일 오후 4시는 오후 5시 마감 전입니다. 전원 사용은 전시 신청과 동시에 선택해야 하며 현장 추가 신청은 불가합니다. 참가비는 인원별이 아니라 한 조 1,500엔이고 전원 추가 비용도 한 조 300엔이므로 총 1,800엔입니다. 이를 모두 만족하는 세 번째 보기가 맞습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "一組の展示を申し込み、電源は会場で追加して、合計1,800円を払う。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "三人分の展示と電源を別々に申し込み、合計5,400円を払う。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "一組の展示と電源を同時に申し込み、合計1,800円を払う。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "一組の展示だけを申し込み、電源は無料で使い、1,500円を払う。"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n2-reading-18",
+      "content": {
+        "level": "N2",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "午後の修理教室だけに参加したい人が、木曜日に予定を決めました。修理に使える本を持っていません。案内に合う準備と当日の行動はどれですか。",
+        "passage": "町の読書交流会・土曜日の予定\n午前10時～11時30分：本の交換会。予約は不要ですが、交換したい本を一人1～3冊持参してください。破れたり書き込みがあったりする本は交換できません。\n午後2時～3時30分：本の修理教室。金曜日午後5時までにウェブサイトから予約してください。受付は開始15分前までに、会場の窓口で済ませてください。\n修理教室で使う本は持参するのが原則ですが、適した本がない人には会場で一冊貸します。借りたい人は予約時に「教材を借りる」を選んでください。当日の追加申込みはできません。\nどちらも同じ会館で開きます。修理教室だけの参加もできます。交換会に本を出すことは、修理教室の参加条件ではありません。",
+        "explanationKo": "수리 교실만 참가할 수 있으므로 오전 교환회에 책을 낼 필요는 없습니다. 사용할 책이 없으면 금요일 오후 5시까지 교실 예약 시 교재 대여를 선택해야 하며 당일 추가 신청은 불가합니다. 시작 오후 2시의 15분 전인 오후 1시 45분까지 접수를 마쳐야 하므로 두 번째 보기가 맞습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "金曜日の午後5時までに教室だけを予約し、当日の受付で教材を追加申請する。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "金曜日の午後5時までに教室と教材を予約し、土曜日の午後1時45分までに受付を済ませる。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "土曜日の午前に交換用の本を出し、午後2時までに修理教室の予約を済ませる。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "金曜日の午後5時までに教室と教材を予約し、土曜日の午後2時に受付を始める。"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n1-grammar-16",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "本年度の申込受付は、九月三十日（　）終了する。翌日以降は受け付けない。締め切りを改まった文体で告知する表現を選んでください。",
+        "passage": null,
+        "explanationKo": "9월 30일을 끝으로 접수를 종료하고 다음 날 이후에는 받지 않는다고 명시했습니다. 이 날짜를 종료 경계로 알리는 문어적 표현은 「をもって」이므로 세 번째 보기가 맞습니다. 「を皮切りに」는 그때부터 연속적인 활동이 이어지는 시작점이며 이번 접수 종료와 반대입니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.scope-emphasis"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "をよそに"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "を皮切りに"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "をもって"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "に先駆けて"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n1-grammar-17",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "この区画は資料の保存専用である。入口には「許可なく立ち入る（　）」と掲示してある。空欄には、行為を禁じる文語的な表現を入れてください。",
+        "passage": null,
+        "explanationKo": "허가 없이 들어가는 행동을 금지하는 게시문입니다. 「立ち入るべからず」는 들어가서는 안 된다는 문어적 금지를 나타내므로 첫 번째 보기가 맞습니다. 들어갈 목적이나 들어갈 필요가 없다는 판단을 말하려는 문장이 아닙니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.must-will"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "べからず"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "べく"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "までもなく"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ばかりに"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n1-grammar-18",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "長年離れて暮らしていた家族がようやく再会した。その場面を描いた手紙を読み、私は感動（　）。空欄には、感動が自然にわき起こり、抑えることができないという意味の表現を入れてください。",
+        "passage": null,
+        "explanationKo": "편지를 읽으며 감동이 자연스럽게 생겨 억누를 수 없었다는 뜻이 요구됩니다. 「感動を禁じ得なかった」는 감동을 금할 수 없었다는 문어적 감정 표현이므로 네 번째 보기가 맞습니다. 외부 사정 때문에 어떤 행동을 강제로 하게 되었다는 의미를 요구하지 않았습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.must-will"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "に即していた"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "を皮切りにした"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "を余儀なくされた"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "を禁じ得なかった"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n1-grammar-19",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "卒業式で名前が呼ばれると、弟は「絶対に忘れない」と（　）、深くうなずいた。実際には声を出していない。言葉にしない気持ちが、その態度から強く伝わったことを表す形を選んでください。",
+        "passage": null,
+        "explanationKo": "동생은 소리를 내지 않고 깊이 고개를 끄덕였지만 그 태도가 반드시 기억하겠다고 말하는 것처럼 보였습니다. 「と言わんばかりに」는 실제 발언 없이도 그렇게 말할 듯한 강한 태도를 나타내므로 세 번째 보기가 맞습니다. 실제로 말하는 행동이 일어났거나 반드시 일어난다고 서술하는 문장이 아닙니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.guess-hearsay"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "言うまでもなく"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "言ったところで"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "言わんばかりに"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "言わずにはおかず"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n1-grammar-20",
+      "content": {
+        "level": "N1",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "複数の資料を照合し、反例も検討したこの報告書には、次の議論の土台とする（　）内容がある。ここでは「土台として使うだけの価値がある」という評価を述べたい。",
+        "passage": null,
+        "explanationKo": "검토를 거친 보고서가 다음 논의의 토대로 사용할 만큼 가치가 있다는 평가를 하려는 문장입니다. 「土台とするに足る」는 토대로 삼을 만한 가치가 있다는 뜻이므로 두 번째 보기가 맞습니다. 시간상의 선행이나 단순히 관련된 내용이라는 설명이 요구된 것은 아닙니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.scope-emphasis"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "に先立つ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "に足る"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "にかかわる"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "をもって"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-vocabulary-16",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "白い「雪」が ふっています。この 文の「雪」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "흰 눈이 내린다는 문장입니다. 눈을 뜻하는 雪은 이 문맥에서 ゆき로 읽으므로 두 번째 보기가 맞습니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "いけ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ゆき"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "もり"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "いし"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-vocabulary-17",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "NORMAL",
+        "questionText": "おさらが きたないです。水で おさらを（　）。それから、つかいます。",
+        "passage": null,
+        "explanationKo": "접시가 더러워 물로 씻은 뒤 사용한다는 상황입니다. あらいます는 씻다는 뜻이며 「おさらを あらいます」가 자연스러우므로 네 번째 보기가 맞습니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "のみます"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "あけます"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "かります"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "あらいます"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-vocabulary-18",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "今日は「げんき」です。ごはんを よく 食べて、友だちと たくさん あそびました。この 文の「げんき」に ちかい いみは どれですか。",
+        "passage": null,
+        "explanationKo": "잘 먹고 친구와 많이 놀 수 있는 건강하고 활력 있는 상태를 말합니다. 이 문맥의 げんき와 가장 가까운 것은 몸의 상태가 좋고 힘이 있다는 첫 번째 보기입니다. 돈이나 일정, 장소를 알고 있는지에 대한 단어가 아닙니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "体の ちょうしが よく、力が あります"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "お金が たくさん あります"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "時間が なくて、いそがしいです"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "行く 場所が わかりません"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-vocabulary-19",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "NORMAL",
+        "questionText": "「でんしゃ」を かんじで かくと どれですか。",
+        "passage": null,
+        "explanationKo": "でんしゃ는 전차·전철을 뜻하며 電車라고 씁니다. 電 다음에 車를 쓰는 세 번째 보기가 맞습니다. 電話·電池·電気는 다른 단어입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "電話"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "電池"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "電車"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "電気"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-vocabulary-20",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「つめたい」の つかいかたが ただしい 文は どれですか。ここでは、ものを さわった ときの「つめたい」です。",
+        "passage": null,
+        "explanationKo": "문제는 물건에 닿았을 때 차갑다는 온도 의미를 지정했습니다. 냉장고에서 꺼낸 물이 차갑다는 두 번째 문장이 이 의미의 つめたい를 자연스럽게 사용합니다. 나머지 문장은 온도가 낮은 물건을 설명하지 않습니다. 차가운 태도라는 비유적 의미까지 모두 부정하는 해설은 아닙니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "友だちの 名前を つめたく 書きました。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "れいぞうこから 出した 水は つめたいです。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "五時に つめたく 起きました。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "駅まで つめたく 歩きました。"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n4-grammar-16",
+      "content": {
+        "level": "N4",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "この パンは やわらかいので、まだ 歯が 少ない 子どもでも 自分で（　）。「食べることが できる」という 意味になる 形を 選んでください。",
+        "passage": null,
+        "explanationKo": "아이도 혼자 먹을 수 있다는 능력을 묻습니다. 食べる는 一段동사이므로 る를 られる로 바꾼 食べられます가 맞습니다. 같은 られる가 다른 문맥에서 수동·존경을 나타내기도 하지만 이 문항은 「食べることができる」라는 가능 의미를 명시했습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.conjugation"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "食べさせます"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "食べようとします"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "食べられます"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "食べたがります"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n4-grammar-17",
+      "content": {
+        "level": "N4",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "古い 店の 建物が なくなり、その 場所は 公園（　）なりました。",
+        "passage": null,
+        "explanationKo": "가게 건물이 없어지고 그 장소가 공원으로 바뀐 결과이므로 명사 公園 뒤에는 に를 붙여 公園になりました라고 합니다. 이 문항은 변화 결과를 나타내는 명사의 접속을 묻습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.time-change"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "に"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "く"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "な"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "の"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n4-grammar-18",
+      "content": {
+        "level": "N4",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "来月の 休みには、近くの 町へ 一人で 旅行しようと 思っています。わたしは その 町へ 旅行する（　）です。空欄には、自分の 意思に 基づく 計画を 表す 語を 入れてください。",
+        "passage": null,
+        "explanationKo": "화자가 여행하려는 자기 의사를 말하므로 旅行するつもりです가 맞습니다. はず는 근거에 따른 예상·당위, そう는 이 접속에서 전언, ため는 목적이나 원인과 관련된 표현이어서 요구된 자기 의사의 계획과 다릅니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.must-will"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "はず"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "そう"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ため"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "つもり"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n4-grammar-19",
+      "content": {
+        "level": "N4",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "手が 机の 端に ある コップに 当たり、コップが ゆれています。今にも 落ち（　）です。目の前の 様子から、次に 起こることを 予想する 形を 選んでください。",
+        "passage": null,
+        "explanationKo": "흔들리는 컵을 보고 곧 떨어질 듯하다고 예상하므로 落ちます에서 ます를 뺀 落ち에 そうです를 붙입니다. 落ちそうです는 현재 모습으로 판단한 임박한 변화의 예상이며 사전형 落ちるそうです라는 전언과 다릅니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.guess-hearsay"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "よう"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "そう"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "らしい"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "みたい"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    }
+  ]
+}

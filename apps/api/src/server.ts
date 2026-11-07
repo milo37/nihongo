@@ -4,23 +4,15 @@ import { fileURLToPath } from 'node:url'
 import { serve } from '@hono/node-server'
 import { createPrismaAccountRestrictionReader } from './account/accountRestriction.js'
 import { createApiApp } from './app/createApp.js'
-import { createAuthGateway } from './auth/authGateway.js'
-import { createAuthRuntime } from './auth/createAuth.js'
 import { createSsoAuthentication } from './auth/createSsoAuthentication.js'
 import {
-  runPhase7ReauthenticationStartupMaintenance,
+  runReauthenticationStartupMaintenance,
   startReauthenticationMaintenance
 } from './auth/reauthenticationStartupMaintenance.js'
 import { createGuestPrincipalService } from './auth/guestPrincipalService.js'
-import { createPrincipalService } from './auth/principalService.js'
 import { LOCAL_RELEASE_ID, parseApiEnvironment } from './config/env.js'
 import { createAuthRuntimePlan } from './config/authRuntimePlan.js'
-import { createFilePracticeCompatibilityAuthority } from './config/practiceCompatibilityAuthority.js'
-import { parsePracticeRuntimeEnvironment } from './config/practiceRuntimeEnvironment.js'
-import {
-  createDatabaseRuntime,
-  createRoleDatabaseRuntime
-} from './db/database.js'
+import { createDatabaseRuntime } from './db/database.js'
 import { assertSafeAdminCmsDatabase } from './db/databaseTargetGuard.js'
 import { createOwnedAuthReadiness } from './auth/ownedAuthReadiness.js'
 import { stopServerGracefully } from './lifecycle/gracefulShutdown.js'
@@ -44,7 +36,6 @@ import { createDashboardInsightsService } from './dashboard/dashboardInsightsSer
 import { createPrismaStudyDraftRepository } from './study/studyDraftRepository.js'
 import { createStudyDraftService } from './study/studyDraftService.js'
 import { startApiListener } from './lifecycle/startApiListener.js'
-import { createPracticeRuntimeGate } from './lifecycle/practiceRuntimeGate.js'
 import { createPrismaBookmarkRepository } from './bookmark/bookmarkRepository.js'
 import { createBookmarkService } from './bookmark/bookmarkService.js'
 import { createPrismaStudyResultRetryRepository } from './study/studyResultRetryRepository.js'
@@ -63,11 +54,11 @@ import { createPrismaAdminMemberRepository } from './admin/adminMemberRepository
 import { createAdminMemberService } from './admin/adminMemberService.js'
 import { createAdminCommandRateLimiter } from './admin/adminCommandRateLimiter.js'
 import { createPrismaAdminQuestionCommandRepository } from './admin/adminQuestionCommandRepository.js'
-import { createPrismaAdminQuestionSlice5Repository } from './admin/adminQuestionSlice5Repository.js'
+import { createPrismaAdminQuestionWorkflowRepository } from './admin/adminQuestionWorkflowRepository.js'
 import {
   createAdminQuestionCommandService,
   createAdminQuestionPublicationCommandService,
-  createAdminQuestionSlice5CommandService
+  createAdminQuestionWorkflowCommandService
 } from './admin/adminQuestionCommandService.js'
 import { createQuestionReportRateLimiter } from './admin/questionReportRateLimiter.js'
 import { createPrismaQuestionReportRepository } from './admin/questionReportRepository.js'
@@ -80,102 +71,54 @@ const packagedWebAssetsDirectory = fileURLToPath(
 const packagedAdminAssetsDirectory = fileURLToPath(
   new URL('../../admin/', import.meta.url)
 )
-const authRuntimePlan = createAuthRuntimePlan(environment)
-if (!authRuntimePlan.ownedAuth || authRuntimePlan.cmsEnabled)
-  assertSafeAdminCmsDatabase({
-    adminCmsMode: environment.ADMIN_CMS_MODE,
-    nodeEnvironment: environment.NODE_ENV,
-    databaseUrl: environment.DATABASE_URL,
-    productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
-  })
-const practiceEnvironment = parsePracticeRuntimeEnvironment(
-  process.env,
-  environment.NODE_ENV
-)
+const authRuntimePlan = createAuthRuntimePlan()
+assertSafeAdminCmsDatabase({
+  nodeEnvironment: environment.NODE_ENV,
+  databaseUrl: environment.DATABASE_URL,
+  productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
+})
 const logger = createJsonLogger(environment.LOG_LEVEL, undefined, {
   deploymentEnvironment:
     environment.DEPLOYMENT_ENVIRONMENT ??
     (environment.NODE_ENV === 'test' ? 'TEST' : 'LOCAL'),
   releaseId: environment.RELEASE_ID ?? LOCAL_RELEASE_ID
 })
-const compatibilityAuthority =
-  practiceEnvironment.runtime === 'v1-compatible'
-    ? createFilePracticeCompatibilityAuthority(
-        practiceEnvironment.authorityFile ?? ''
-      )
-    : undefined
-const technicalMode = environment.ADMIN_CMS_MODE === 'technical'
-const ownedAuth = authRuntimePlan.ownedAuth
+const auditEnvironment =
+  environment.NODE_ENV === 'production'
+    ? 'PRODUCTION'
+    : environment.NODE_ENV === 'test'
+      ? 'TEST'
+      : 'DEVELOPMENT'
 const runtimeMigrationProfile = authRuntimePlan.migrationProfile
-const authGatewayDatabaseUrl = environment.AUTH_GATEWAY_DATABASE_URL
-if (technicalMode && !authGatewayDatabaseUrl) {
-  throw new Error('Technical auth gateway DB URL is unavailable.')
-}
-if (technicalMode) {
-  assertSafeAdminCmsDatabase({
-    adminCmsMode: environment.ADMIN_CMS_MODE,
-    nodeEnvironment: environment.NODE_ENV,
-    databaseUrl: authGatewayDatabaseUrl,
-    productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
-  })
-}
-const database = createDatabaseRuntime(
-  environment.DATABASE_URL,
-  ownedAuth
-    ? { migrationProfile: runtimeMigrationProfile, startupRole: 'nihongo_app' }
-    : { migrationProfile: runtimeMigrationProfile }
-)
-const authGatewayDatabase = ownedAuth
-  ? createRoleDatabaseRuntime(authGatewayDatabaseUrl!, 'nihongo_auth_gateway')
-  : undefined
-const checkDatabaseReadiness =
-  ownedAuth && authGatewayDatabase && authGatewayDatabaseUrl
-    ? createOwnedAuthReadiness({
-        checkDatabaseReadiness: database.checkReadiness,
-        applicationClient: database.client,
-        gatewayClient: authGatewayDatabase.client,
-        applicationUrl: environment.DATABASE_URL,
-        gatewayUrl: authGatewayDatabaseUrl
-      })
-    : async (): Promise<void> => {
-        await database.checkReadiness()
-        await database.client.$queryRawUnsafe('SELECT 1 FROM "User" LIMIT 0')
-      }
-const disconnectDatabases = async (): Promise<void> => {
-  await Promise.all([
-    database.disconnect(),
-    authGatewayDatabase?.disconnect() ?? Promise.resolve()
-  ])
-}
-const practiceRuntimeGate = createPracticeRuntimeGate({
-  runtime: practiceEnvironment.runtime,
-  ...(compatibilityAuthority ? { authority: compatibilityAuthority } : {}),
-  checkDatabaseReadiness,
-  checkV1Compatibility: database.checkV1Compatibility
+const database = createDatabaseRuntime(environment.DATABASE_URL, {
+  migrationProfile: runtimeMigrationProfile,
+  startupRole: 'nihongo_app'
 })
+const checkDatabaseReadiness = createOwnedAuthReadiness({
+  checkDatabaseReadiness: database.checkReadiness,
+  applicationClient: database.client,
+  applicationUrl: environment.DATABASE_URL,
+  deploymentEnvironment: environment.DEPLOYMENT_ENVIRONMENT
+})
+const disconnectDatabases = async (): Promise<void> => {
+  await database.disconnect()
+}
 const applicationRateLimiter = createApplicationRateLimiter({
   client: database.client,
   keySecret: environment.GUEST_COOKIE_SECRET
 })
-const auth = ownedAuth
-  ? undefined
-  : createAuthRuntime({ client: database.client, environment })
-const ssoAuthentication =
-  ownedAuth && authGatewayDatabase
-    ? createSsoAuthentication({
-        environment,
-        applicationClient: database.client,
-        gatewayClient: authGatewayDatabase.client,
-        rateLimiter: applicationRateLimiter
-      })
-    : undefined
+const ssoAuthentication = createSsoAuthentication({
+  environment,
+  applicationClient: database.client,
+  gatewayClient: database.client,
+  rateLimiter: applicationRateLimiter,
+  logger
+})
 const guestPrincipalService = createGuestPrincipalService({
   client: database.client,
   secret: environment.GUEST_COOKIE_SECRET
 })
-const principalService =
-  ssoAuthentication?.principalService ??
-  createPrincipalService({ authApi: auth!.api, client: database.client })
+const principalService = ssoAuthentication.principalService
 const questionReader = createQuestionService(
   createPrismaQuestionRepository(database.client, {
     migrationProfile: runtimeMigrationProfile
@@ -209,111 +152,76 @@ const dashboardService = createDashboardService(
   createPrismaDashboardRepository(database.client)
 )
 const dashboardInsightsService = createDashboardInsightsService(
-  createPrismaDashboardInsightsRepository(
-    database.client,
-    ownedAuth ? 'PHASE7' : 'LEGACY'
-  )
+  createPrismaDashboardInsightsRepository(database.client)
 )
 const bookmarkService = createBookmarkService(
   createPrismaBookmarkRepository(database.client, {
     migrationProfile: runtimeMigrationProfile
   })
 )
-const adminQuestionReader = technicalMode
-  ? createAdminQuestionService(
-      createPrismaAdminQuestionRepository(database.client)
-    )
-  : undefined
-const adminReadRateLimiter = technicalMode
-  ? createAdminReadRateLimiter({
-      client: database.client,
-      keySecret: environment.GUEST_COOKIE_SECRET
-    })
-  : undefined
-const adminQuestionCommandRepository = technicalMode
-  ? createPrismaAdminQuestionCommandRepository({
-      auditEnvironment:
-        environment.NODE_ENV === 'test' ? 'TEST' : 'DEVELOPMENT',
-      client: database.client
-    })
-  : undefined
-const adminQuestionSlice5Repository = technicalMode
-  ? createPrismaAdminQuestionSlice5Repository({
-      auditEnvironment:
-        environment.NODE_ENV === 'test' ? 'TEST' : 'DEVELOPMENT',
-      client: database.client
-    })
-  : undefined
-const adminQuestionCommandService =
-  adminQuestionCommandRepository && adminQuestionSlice5Repository
-    ? {
-        ...createAdminQuestionCommandService(adminQuestionCommandRepository),
-        ...createAdminQuestionPublicationCommandService(
-          adminQuestionCommandRepository
-        ),
-        ...createAdminQuestionSlice5CommandService(
-          adminQuestionSlice5Repository
-        )
-      }
-    : undefined
-const adminCommandRateLimiter = technicalMode
-  ? createAdminCommandRateLimiter({
-      client: database.client,
-      keySecret: environment.GUEST_COOKIE_SECRET
-    })
-  : undefined
-// Learner reports need Phase 7 sessions and schema, not the technical CMS.
-const questionReportRateLimiter = ownedAuth
-  ? createQuestionReportRateLimiter({
-      client: database.client,
-      keySecret: environment.GUEST_COOKIE_SECRET
-    })
-  : undefined
-const questionReportService = questionReportRateLimiter
-  ? createQuestionReportService({
-      rateLimiter: questionReportRateLimiter,
-      repository: createPrismaQuestionReportRepository(database.client)
-    })
-  : undefined
-const userReportService = questionReportRateLimiter
-  ? createUserReportService(createPrismaUserReportRepository(database.client))
-  : undefined
+const adminQuestionReader = createAdminQuestionService(
+  createPrismaAdminQuestionRepository(database.client)
+)
+const adminReadRateLimiter = createAdminReadRateLimiter({
+  client: database.client,
+  keySecret: environment.GUEST_COOKIE_SECRET
+})
+const adminQuestionCommandRepository =
+  createPrismaAdminQuestionCommandRepository({
+    auditEnvironment,
+    client: database.client
+  })
+const adminQuestionWorkflowRepository =
+  createPrismaAdminQuestionWorkflowRepository({
+    auditEnvironment,
+    client: database.client
+  })
+const adminQuestionCommandService = {
+  ...createAdminQuestionCommandService(adminQuestionCommandRepository),
+  ...createAdminQuestionPublicationCommandService(
+    adminQuestionCommandRepository
+  ),
+  ...createAdminQuestionWorkflowCommandService(adminQuestionWorkflowRepository)
+}
+const adminCommandRateLimiter = createAdminCommandRateLimiter({
+  client: database.client,
+  keySecret: environment.GUEST_COOKIE_SECRET
+})
+const questionReportRateLimiter = createQuestionReportRateLimiter({
+  client: database.client,
+  keySecret: environment.GUEST_COOKIE_SECRET
+})
+const questionReportService = createQuestionReportService({
+  rateLimiter: questionReportRateLimiter,
+  repository: createPrismaQuestionReportRepository(database.client)
+})
+const userReportService = createUserReportService(
+  createPrismaUserReportRepository(database.client)
+)
 const app = createApiApp({
   accountRestrictionReader: createPrismaAccountRestrictionReader(
     database.client
   ),
-  ...(adminQuestionReader &&
-  adminReadRateLimiter &&
-  adminQuestionCommandService &&
-  adminCommandRateLimiter &&
-  questionReportRateLimiter &&
-  questionReportService &&
-  adminQuestionSlice5Repository
-    ? {
-        admin: {
-          assertCapability: async () => {
-            await database.client.$queryRawUnsafe(
-              'SELECT "phase7_require_runtime_ready"()'
-            )
-          },
-          commands: {
-            rateLimiter: adminCommandRateLimiter,
-            service: adminQuestionCommandService,
-            slice5Service: adminQuestionCommandService
-          },
-          reports: {
-            rateLimiter: questionReportRateLimiter,
-            service: questionReportService
-          },
-          importResultReader: createQuestionImportResultReader(database.client),
-          members: createAdminMemberService(
-            createPrismaAdminMemberRepository(database.client)
-          ),
-          rateLimiter: adminReadRateLimiter,
-          reader: adminQuestionReader
-        }
-      }
-    : {}),
+  admin: {
+    assertCapability: async () => {
+      await database.client.$queryRawUnsafe('SELECT "require_runtime_ready"()')
+    },
+    commands: {
+      rateLimiter: adminCommandRateLimiter,
+      service: adminQuestionCommandService,
+      workflowService: adminQuestionCommandService
+    },
+    reports: {
+      rateLimiter: questionReportRateLimiter,
+      service: questionReportService
+    },
+    importResultReader: createQuestionImportResultReader(database.client),
+    members: createAdminMemberService(
+      createPrismaAdminMemberRepository(database.client)
+    ),
+    rateLimiter: adminReadRateLimiter,
+    reader: adminQuestionReader
+  },
   ...(questionReportRateLimiter && userReportService
     ? {
         userReports: {
@@ -330,7 +238,6 @@ const app = createApiApp({
         }
       }
     : {}),
-  assertPracticeRuntimeAuthority: practiceRuntimeGate.assertRequestAuthority,
   releaseId: environment.RELEASE_ID ?? LOCAL_RELEASE_ID,
   ...(environment.NODE_ENV === 'production'
     ? {
@@ -340,20 +247,18 @@ const app = createApiApp({
     : {}),
   auth: {
     environment,
-    gateway:
-      ssoAuthentication?.gateway ??
-      createAuthGateway({ auth: auth!, client: database.client, environment }),
+    gateway: ssoAuthentication.gateway,
     guestPrincipalService,
     principalService
   },
-  checkReadiness: practiceRuntimeGate.checkReadiness,
+  checkReadiness: checkDatabaseReadiness,
   logger,
   learning: {
     bookmarkService,
     dashboardInsightsService,
     dashboardService,
     rateLimiter: applicationRateLimiter,
-    reviewCenterEnabled: practiceRuntimeGate.practiceContractV2Enabled,
+    reviewCenterEnabled: true,
     reviewCenterService: wrongNoteReviewCenterService,
     reviewQueueService: wrongNoteReviewQueueService,
     targetedReviewService: wrongNoteTargetedReviewService,
@@ -366,7 +271,6 @@ const app = createApiApp({
   },
   study: {
     draftService: studyDraftService,
-    practiceContractV2Enabled: practiceRuntimeGate.practiceContractV2Enabled,
     rateLimiter: applicationRateLimiter,
     retryService: studyResultRetryService,
     service: studySessionService,
@@ -375,12 +279,8 @@ const app = createApiApp({
 })
 
 const checkStartupReadiness = async (): Promise<void> => {
-  await practiceRuntimeGate.checkReadiness()
-  if (ownedAuth && authGatewayDatabase) {
-    await runPhase7ReauthenticationStartupMaintenance(
-      authGatewayDatabase.client
-    )
-  }
+  await checkDatabaseReadiness()
+  await runReauthenticationStartupMaintenance(database.client)
 }
 
 const server = await startApiListener({
@@ -395,24 +295,20 @@ const server = await startApiListener({
 })
 server.headersTimeout = 10_000
 server.requestTimeout = 15_000
-const reauthenticationMaintenance =
-  ownedAuth && authGatewayDatabase
-    ? startReauthenticationMaintenance({
-        client: authGatewayDatabase.client,
-        onFailure: () => {
-          logger.error('auth.reauthentication.maintenance_failed', {
-            errorCode: 'MAINTENANCE_FAILED'
-          })
-        }
-      })
-    : undefined
+const reauthenticationMaintenance = startReauthenticationMaintenance({
+  client: database.client,
+  onFailure: () => {
+    logger.error('auth.reauthentication.maintenance_failed', {
+      errorCode: 'MAINTENANCE_FAILED'
+    })
+  }
+})
 
 logger.info('api.started')
 
 const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
   logger.info('api.shutdown.started', { signal })
-  const reauthenticationMaintenanceDrain =
-    reauthenticationMaintenance?.stop() ?? Promise.resolve()
+  const reauthenticationMaintenanceDrain = reauthenticationMaintenance.stop()
 
   await stopServerGracefully({
     server,

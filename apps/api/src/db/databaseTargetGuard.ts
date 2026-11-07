@@ -11,10 +11,6 @@ interface DatabaseGuardInput {
   productionDatabaseUrl?: string | undefined
 }
 
-interface AdminCmsDatabaseGuardInput extends DatabaseGuardInput {
-  adminCmsMode?: 'disabled' | 'technical' | undefined
-}
-
 interface MigrationDatabaseGuardInput {
   nodeEnvironment: string | undefined
   migrationDatabaseUrl: string | undefined
@@ -34,8 +30,22 @@ interface DatabaseIdentity {
   loginName: string
 }
 
+/** Production database and login names shared with the infra provisioning. */
+export const PRODUCTION_DATABASE_NAME = 'nihongo'
+export const PRODUCTION_LOGIN_PREFIX = 'nihongo_production'
+/** TLS is mandatory in production; a verifying mode is also accepted. */
+export const hasProductionSslMode = (url: URL): boolean => {
+  const modes = url.searchParams.getAll('sslmode')
+  return (
+    modes.length === 1 &&
+    ['require', 'verify-ca', 'verify-full'].includes(
+      modes[0]?.toLowerCase() ?? ''
+    )
+  )
+}
+
 const POSTGRES_SCHEMA_PATTERN = /^[a-z_][a-z0-9_]*$/
-const MIGRATION_STARTUP_OPTIONS = '-c role=nihongo_phase7_migration'
+const MIGRATION_STARTUP_OPTIONS = '-c role=nihongo_migration'
 const EXACT_TARGET_PARAMETERS = new Set([
   'schema',
   'sslmode',
@@ -86,40 +96,6 @@ const getExactSchema = (url: URL): string => {
   }
 
   return schema
-}
-
-const assertDisabledRuntimeLogin = (
-  target: DatabaseIdentity,
-  nodeEnvironment: string | undefined
-): void => {
-  if (nodeEnvironment === 'production') {
-    return
-  }
-  if (nodeEnvironment !== 'test' && nodeEnvironment !== 'development') {
-    throw new Error('Disabled admin CMS runtime requires a known NODE_ENV.')
-  }
-  const expectedEnvironment = target.databaseName.endsWith('_test')
-    ? 'test'
-    : target.databaseName.endsWith('_dev')
-      ? 'development'
-      : null
-  if (expectedEnvironment === null) {
-    throw new Error(
-      'Disabled admin CMS runtime requires an environment-suffixed DB.'
-    )
-  }
-  if (nodeEnvironment !== expectedEnvironment) {
-    throw new Error('Disabled admin CMS DB does not match NODE_ENV.')
-  }
-  const expectedLogin =
-    expectedEnvironment === 'test'
-      ? 'nihongo_test_legacy_app_login'
-      : 'nihongo_development_legacy_app_login'
-  if (target.loginName !== expectedLogin) {
-    throw new Error(
-      'Disabled admin CMS runtime requires its exact legacy app login.'
-    )
-  }
 }
 
 const isSameDatabase = (
@@ -235,38 +211,18 @@ export const assertSafeDevelopmentDatabase = ({
 }
 
 export const assertSafeAdminCmsDatabase = ({
-  adminCmsMode,
   nodeEnvironment,
   databaseUrl,
   productionDatabaseUrl
-}: AdminCmsDatabaseGuardInput): void => {
-  if (adminCmsMode === 'disabled' && databaseUrl) {
-    if (nodeEnvironment === 'test') {
-      assertSafeTestDatabase({
-        nodeEnvironment,
-        databaseUrl,
-        productionDatabaseUrl
-      })
-    } else if (nodeEnvironment === 'development') {
-      assertSafeDevelopmentDatabase({
-        nodeEnvironment,
-        databaseUrl,
-        productionDatabaseUrl
-      })
-    }
-    assertDisabledRuntimeLogin(
-      getIdentity(parseDatabaseUrl(databaseUrl)),
-      nodeEnvironment
-    )
-  }
-
-  if (adminCmsMode !== 'technical') {
+}: DatabaseGuardInput): void => {
+  // Production serves the CMS from its own database by design.
+  if (nodeEnvironment === 'production') {
     return
   }
 
   if (!productionDatabaseUrl) {
     throw new Error(
-      'Technical admin CMS mode requires PRODUCTION_DATABASE_URL mismatch proof.'
+      'Admin CMS runtime requires PRODUCTION_DATABASE_URL mismatch proof.'
     )
   }
 
@@ -276,21 +232,15 @@ export const assertSafeAdminCmsDatabase = ({
       databaseUrl,
       productionDatabaseUrl
     })
-    return
-  }
-
-  if (nodeEnvironment === 'development') {
+  } else if (nodeEnvironment === 'development') {
     assertSafeDevelopmentDatabase({
       nodeEnvironment,
       databaseUrl,
       productionDatabaseUrl
     })
-    return
+  } else {
+    throw new Error('Admin CMS runtime requires NODE_ENV=test or development.')
   }
-
-  throw new Error(
-    'Technical admin CMS mode requires NODE_ENV=test or development.'
-  )
 }
 
 export const assertSafeMigrationDatabase = ({
@@ -300,7 +250,7 @@ export const assertSafeMigrationDatabase = ({
   productionDatabaseUrl
 }: MigrationDatabaseGuardInput): void => {
   if (!migrationDatabaseUrl) {
-    throw new Error('PHASE7_MIGRATION_DATABASE_URL is required.')
+    throw new Error('MIGRATION_DATABASE_URL is required.')
   }
   if (!runtimeDatabaseUrl) {
     throw new Error('Migration requires the runtime DATABASE_URL.')
@@ -310,6 +260,11 @@ export const assertSafeMigrationDatabase = ({
       'Migration requires PRODUCTION_DATABASE_URL mismatch proof.'
     )
   }
+
+  const migration = parseDatabaseUrl(migrationDatabaseUrl)
+  const runtime = parseDatabaseUrl(runtimeDatabaseUrl)
+  const migrationIdentity = getIdentity(migration)
+  const runtimeIdentity = getIdentity(runtime)
 
   if (nodeEnvironment === 'test') {
     assertSafeTestDatabase({
@@ -323,18 +278,29 @@ export const assertSafeMigrationDatabase = ({
       databaseUrl: migrationDatabaseUrl,
       productionDatabaseUrl
     })
+  } else if (nodeEnvironment === 'production') {
+    // Production proves the opposite: PRODUCTION_DATABASE_URL names this database.
+    const production = parseDatabaseUrl(productionDatabaseUrl)
+    if (
+      migrationIdentity.databaseName !== PRODUCTION_DATABASE_NAME ||
+      !hasProductionSslMode(migration) ||
+      !isSameDatabase(migrationIdentity, getIdentity(production)) ||
+      getExactSchema(migration) !== getExactSchema(production)
+    ) {
+      throw new Error('Production migration target is not exact.')
+    }
   } else {
-    throw new Error('Migration requires NODE_ENV=test or development.')
+    throw new Error(
+      'Migration requires NODE_ENV=test, development or production.'
+    )
   }
 
-  const migration = parseDatabaseUrl(migrationDatabaseUrl)
-  const runtime = parseDatabaseUrl(runtimeDatabaseUrl)
-  const migrationIdentity = getIdentity(migration)
-  const runtimeIdentity = getIdentity(runtime)
   const expectedLogin =
     nodeEnvironment === 'test'
-      ? 'nihongo_test_phase7_migration_login'
-      : 'nihongo_development_phase7_migration_login'
+      ? 'nihongo_test_migration_login'
+      : nodeEnvironment === 'production'
+        ? `${PRODUCTION_LOGIN_PREFIX}_migration_login`
+        : 'nihongo_development_migration_login'
 
   if (migrationIdentity.loginName !== expectedLogin) {
     throw new Error('Migration requires its exact canonical migration login.')

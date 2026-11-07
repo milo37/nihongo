@@ -19,10 +19,10 @@ export const assertSsoBootstrapMigrationHistory = (
     )
     .digest('hex')
   if (
-    expected.length !== 58 ||
-    expected.at(-1)?.name !== '20261106090000_single_operator_review' ||
+    expected.length !== 5 ||
+    expected.at(-1)?.name !== '20261109090000_add_tag_key_subject_status' ||
     orderedDigest !==
-      '13da74f7dd883ce43d36f9f532dbc41652a84c0eb4b8f812607f1ca622be578c' ||
+      '4c837ceabcc52839c21ac952dd26d7a97726f1ac2f7c1cc1bf373ac77eecbce5' ||
     applied.length !== expected.length ||
     applied.some(
       (row, index) =>
@@ -30,9 +30,7 @@ export const assertSsoBootstrapMigrationHistory = (
         row.checksum !== expected[index]?.checksum
     )
   ) {
-    throw new Error(
-      'First Google ADMIN bootstrap canonical58 migration history mismatch.'
-    )
+    throw new Error('First Google ADMIN bootstrap migration history mismatch.')
   }
 }
 
@@ -71,7 +69,6 @@ const ssoTestProfile = {
   NODE_ENV: 'test',
   DEPLOYMENT_ENVIRONMENT: 'TEST',
   RELEASE_ID: '0'.repeat(40),
-  ADMIN_CMS_MODE: 'technical',
   HOST: '127.0.0.1',
   PORT: '3001',
   LOG_LEVEL: 'silent',
@@ -108,9 +105,6 @@ export const createDbIntegrationFileEnvironment = (
   testFile: string,
   base: NodeJS.ProcessEnv
 ): NodeJS.ProcessEnv => {
-  if (testFile === 'src/content/approved308Tags.integration.test.ts') {
-    return { ...base, APPROVED_TAGS_FIXTURE_PROFILE: 'current38' }
-  }
   return testFile === ssoDbTestFile ||
     testFile === ssoAccountLifecycleDbTestFile
     ? createSsoDbTestEnvironment(base)
@@ -161,7 +155,7 @@ const sanitizeCollectionError = (value: string) => {
       'module'
     ],
     [
-      /(?:Phase 7 )?(?:[Aa]dmin integration|[Ll]egacy compatibility|[Dd]evelopment app wrapper) database URL is required/u,
+      /(?:[Aa]dmin integration|[Ll]egacy compatibility|[Dd]evelopment app wrapper) database URL is required/u,
       'CONFIG_WRAPPER_MISSING',
       'config'
     ],
@@ -176,11 +170,7 @@ const sanitizeCollectionError = (value: string) => {
       'SETUP_ENDPOINT_UNAVAILABLE',
       'setup'
     ],
-    [
-      /Phase 7 operation was not created/u,
-      'SETUP_OPERATION_UNAVAILABLE',
-      'setup'
-    ]
+    [/operation was not created/u, 'SETUP_OPERATION_UNAVAILABLE', 'setup']
   ]
   const rule = rules.find(([pattern]) => pattern.test(text))
   return {
@@ -426,8 +416,7 @@ export const sanitizeDbIntegrationVitestReport = (
     pending: safeCount(result.numPendingTests),
     todo: safeCount(result.numTodoTests),
     dependenciesPresent: {
-      adminWrapper: Boolean(environment.PHASE7_ADMIN_DATABASE_URL?.trim()),
-      legacyWrapper: Boolean(environment.PHASE7_LEGACY_DATABASE_URL?.trim()),
+      adminWrapper: Boolean(environment.ADMIN_DATABASE_URL?.trim()),
       developmentWrapper: Boolean(
         environment.TEST_DEVELOPMENT_APP_DATABASE_URL?.trim()
       )
@@ -603,9 +592,13 @@ export const assertApiIntegrationVitestFileResult = ({
   }
   if (
     expectedPath === ssoAccountLifecycleDbTestFile &&
-    result.numTotalTests !== 6
+    result.numTotalTests !== 9
   ) {
-    throw new Error('SSO account lifecycle requires exactly six passing tests.')
+    // #504 P7 PR5a adds the API link and unlink trigger case; #57 the
+    // erasure role refusal case; #670 the tokenless end-to-end erasure.
+    throw new Error(
+      'SSO account lifecycle requires exactly nine passing tests.'
+    )
   }
   const resultPaths = (result.testResults ?? [])
     .map(({ name }) => (name ? normalizeResultPath(name) : ''))
@@ -645,18 +638,15 @@ export const runApiIntegrationManifestVitestFile = async ({
     throw new Error('Report preservation requires a fixed allowlisted file.')
   }
   if (preserveSanitizedReport && testFile !== ssoAccountLifecycleDbTestFile) {
-    for (const name of [
-      'PHASE7_LEGACY_DATABASE_URL',
-      'TEST_DEVELOPMENT_APP_DATABASE_URL'
-    ]) {
-      if (!environment[name]?.trim())
-        throw new Error(`Wrapper environment missing: ${name}.`)
-    }
+    if (!environment.TEST_DEVELOPMENT_APP_DATABASE_URL?.trim())
+      throw new Error(
+        'Wrapper environment missing: TEST_DEVELOPMENT_APP_DATABASE_URL.'
+      )
   }
   assertApiIntegrationRequiredEnvironment({ environment, testFile })
   const outputFile = path.join(
     os.tmpdir(),
-    `nihongo-phase10-vitest-${randomUUID()}.json`
+    `nihongo-test-vitest-${randomUUID()}.json`
   )
   try {
     try {
@@ -759,7 +749,7 @@ export const runApiIntegrationManifestVitestFile = async ({
         }
         const reportFile = path.join(
           os.tmpdir(),
-          `nihongo-phase7-sanitized-${randomUUID()}.json`
+          `nihongo-sanitized-${randomUUID()}.json`
         )
         await writeFile(
           reportFile,
@@ -769,7 +759,7 @@ export const runApiIntegrationManifestVitestFile = async ({
           { mode: 0o600, flag: 'wx' }
         )
         process.stdout.write(
-          `${JSON.stringify({ event: 'phase7.db.sanitized_report', reportFile })}\n`
+          `${JSON.stringify({ event: 'db.sanitized_report', reportFile })}\n`
         )
       }
     } finally {

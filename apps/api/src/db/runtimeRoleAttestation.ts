@@ -1,7 +1,11 @@
 import type { PrismaClient } from '../generated/prisma/client.js'
 import { getPostgresSchema } from './databaseOptions.js'
+import {
+  PRODUCTION_DATABASE_NAME,
+  PRODUCTION_LOGIN_PREFIX
+} from './databaseTargetGuard.js'
 
-type RuntimeRole = 'nihongo_app' | 'nihongo_auth_gateway'
+type RuntimeRole = 'nihongo_app'
 
 interface RuntimeRoleEvidence {
   currentDatabase: string
@@ -49,6 +53,7 @@ interface RuntimeRoleEndpoint {
   client: Pick<PrismaClient, '$queryRawUnsafe'>
   connectionString: string
   expectedRole: RuntimeRole
+  deploymentEnvironment?: string | undefined
 }
 
 const ATTESTATION_QUERY = `
@@ -172,10 +177,9 @@ const ATTESTATION_QUERY = `
          ON sensitive_column.attrelid = sensitive_relation.oid
        WHERE sensitive_namespace.nspname = current_schema()
          AND sensitive_relation.relname = ANY(ARRAY[
-           'User', 'Account', 'Session', 'AuthSessionFamily',
-           'AuthSessionRotationFence',
-           'Phase7ReauthenticationIntent',
-           'Phase7AuthorityRevocationEvidence'
+           'User', 'Account', 'Session',
+           'ReauthenticationIntent',
+           'AuthorityRevocationEvidence'
          ]::name[])
          AND sensitive_column.attnum > 0
          AND NOT sensitive_column.attisdropped
@@ -183,7 +187,73 @@ const ATTESTATION_QUERY = `
            current_user,
            sensitive_relation.oid,
            sensitive_column.attnum,
-           'SELECT,INSERT,UPDATE,REFERENCES'
+           -- #504 P2 (member console), P7 PR2 (admin operation locks), PR3a
+           -- (owned Session issuance), PR3b-1 (ADMIN_FRESH re-authentication)
+           -- PR4a (account erasure), PR4b-2 (erasure request) and PR5a (SSO
+           -- account link and unlink) grant
+           -- nihongo_app exactly these columns; every other privilege on
+           -- them and every other sensitive column stays closed.
+           CASE WHEN current_user <> 'nihongo_app' THEN 'SELECT,INSERT,UPDATE,REFERENCES'
+           WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
+               ('ReauthenticationIntent', 'finalizedAt'),
+               ('ReauthenticationIntent', 'stagedSessionId'),
+               ('ReauthenticationIntent', 'stagedTokenDigest'),
+               ('User', 'accountStatus'),
+               ('User', 'authorityGeneration')
+             ) THEN 'INSERT,REFERENCES'
+           WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
+               ('AuthorityRevocationEvidence', 'expiresAt'),
+               ('AuthorityRevocationEvidence', 'tokenDigest'),
+               ('User', 'createdAt'),
+               ('User', 'deletedAt'),
+               ('User', 'email'),
+               ('User', 'emailVerified'),
+               ('User', 'id'),
+               ('User', 'name'),
+               ('User', 'role'),
+               ('User', 'targetLevel')
+             ) THEN 'INSERT,UPDATE,REFERENCES'
+           WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
+               ('ReauthenticationIntent', 'state'),
+               ('Session', 'authorizationState'),
+               ('Session', 'expiresAt'),
+               ('Session', 'updatedAt')
+             ) THEN 'REFERENCES'
+           -- PR4a: UPDATE on an insert-only column only to lock erasure rows;
+           -- PR5a: INSERT for the API link.
+           WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
+               ('Account', 'createdAt')
+             ) THEN 'SELECT,REFERENCES'
+           WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
+               ('Account', 'updatedAt'),
+               ('ReauthenticationIntent', 'createdAt'),
+               ('Session', 'ipAddress'),
+               ('Session', 'userAgent')
+             ) THEN 'SELECT,UPDATE,REFERENCES'
+           WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
+               ('Account', 'accountId'),
+               ('Account', 'id'),
+               ('Account', 'providerId'),
+               ('Account', 'userId'),
+               ('ReauthenticationIntent', 'capturedAccountStatus'),
+               ('ReauthenticationIntent', 'capturedAuthorityGeneration'),
+               ('ReauthenticationIntent', 'capturedRole'),
+               ('ReauthenticationIntent', 'environment'),
+               ('ReauthenticationIntent', 'expiresAt'),
+               ('ReauthenticationIntent', 'id'),
+               ('ReauthenticationIntent', 'oldSessionId'),
+               ('ReauthenticationIntent', 'oldTokenDigest'),
+               ('ReauthenticationIntent', 'operationId'),
+               ('ReauthenticationIntent', 'requestId'),
+               ('ReauthenticationIntent', 'userId'),
+               ('Session', 'authorityGeneration'),
+               ('Session', 'createdAt'),
+               ('Session', 'id'),
+               ('Session', 'issuerProtocolVersion'),
+               ('Session', 'token'),
+               ('Session', 'userId')
+             ) THEN 'UPDATE,REFERENCES'
+           ELSE 'SELECT,INSERT,UPDATE,REFERENCES' END
          )) AS "groupSensitiveColumnAclCount",
       (SELECT count(*)::int
        FROM pg_class AS sensitive_relation
@@ -191,15 +261,22 @@ const ATTESTATION_QUERY = `
          ON sensitive_namespace.oid = sensitive_relation.relnamespace
        WHERE sensitive_namespace.nspname = current_schema()
          AND sensitive_relation.relname = ANY(ARRAY[
-           'User', 'Account', 'Session', 'AuthSessionFamily',
-           'AuthSessionRotationFence',
-           'Phase7ReauthenticationIntent',
-           'Phase7AuthorityRevocationEvidence'
+           'User', 'Account', 'Session',
+           'ReauthenticationIntent',
+           'AuthorityRevocationEvidence'
          ]::name[])
          AND has_table_privilege(
            current_user,
            sensitive_relation.oid,
-           'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER'
+           -- #504 P7 PR3a/PR3b-1/PR4a/PR5a: DELETE is a table privilege;
+           -- triggers limit which of these rows nihongo_app may delete.
+           CASE WHEN current_user = 'nihongo_app'
+             AND sensitive_relation.relname IN (
+               'User', 'Account', 'Session', 'ReauthenticationIntent',
+               'AuthorityRevocationEvidence'
+             )
+           THEN 'SELECT,INSERT,UPDATE,TRUNCATE,REFERENCES,TRIGGER'
+           ELSE 'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER' END
          )) AS "groupSensitiveTableAclCount"
   ) AS group_acl
   CROSS JOIN LATERAL (
@@ -207,17 +284,17 @@ const ATTESTATION_QUERY = `
       count(*) FILTER (
         WHERE acl_role.rolname = ANY (ARRAY[
           CASE WHEN current_database() ~ '_test$'
-            THEN 'nihongo_test_phase7_migration_login'
-            ELSE 'nihongo_development_phase7_migration_login' END,
+            THEN 'nihongo_test_migration_login'
+            WHEN current_database() ~ '_dev$'
+            THEN 'nihongo_development_migration_login'
+            WHEN current_database() = 'nihongo'
+            THEN 'nihongo_production_migration_login' END,
           CASE WHEN current_database() ~ '_test$'
             THEN 'nihongo_test_app_login'
-            ELSE 'nihongo_development_app_login' END,
-          CASE WHEN current_database() ~ '_test$'
-            THEN 'nihongo_test_auth_gateway_login'
-            ELSE 'nihongo_development_auth_gateway_login' END,
-          CASE WHEN current_database() ~ '_test$'
-            THEN 'nihongo_test_erasure_worker_login'
-            ELSE 'nihongo_development_erasure_worker_login' END
+            WHEN current_database() ~ '_dev$'
+            THEN 'nihongo_development_app_login'
+            WHEN current_database() = 'nihongo'
+            THEN 'nihongo_production_app_login' END
         ]::name[])
           AND entry.privilege_type = 'CONNECT'
           AND NOT entry.is_grantable
@@ -230,20 +307,23 @@ const ATTESTATION_QUERY = `
             AND NOT (
               acl_role.rolname = ANY (ARRAY[
                 CASE WHEN current_database() ~ '_test$'
-                  THEN 'nihongo_test_phase7_migration_login'
-                  ELSE 'nihongo_development_phase7_migration_login' END,
+                  THEN 'nihongo_test_migration_login'
+                  WHEN current_database() ~ '_dev$'
+                  THEN 'nihongo_development_migration_login'
+                  WHEN current_database() = 'nihongo'
+                  THEN 'nihongo_production_migration_login' END,
                 CASE WHEN current_database() ~ '_test$'
                   THEN 'nihongo_test_app_login'
-                  ELSE 'nihongo_development_app_login' END,
-                CASE WHEN current_database() ~ '_test$'
-                  THEN 'nihongo_test_auth_gateway_login'
-                  ELSE 'nihongo_development_auth_gateway_login' END,
-                CASE WHEN current_database() ~ '_test$'
-                  THEN 'nihongo_test_erasure_worker_login'
-                  ELSE 'nihongo_development_erasure_worker_login' END,
+                  WHEN current_database() ~ '_dev$'
+                  THEN 'nihongo_development_app_login'
+                  WHEN current_database() = 'nihongo'
+                  THEN 'nihongo_production_app_login' END,
                 CASE WHEN current_database() ~ '_test$'
                   THEN 'nihongo_test_guest_cleanup_worker_login'
-                  ELSE 'nihongo_development_guest_cleanup_worker_login' END
+                  WHEN current_database() ~ '_dev$'
+                  THEN 'nihongo_development_guest_cleanup_worker_login'
+                  WHEN current_database() = 'nihongo'
+                  THEN 'nihongo_production_guest_cleanup_worker_login' END
               ]::name[])
               AND entry.privilege_type = 'CONNECT'
               AND NOT entry.is_grantable
@@ -299,16 +379,21 @@ const arraysEqual = (
 
 const expectedWrapperRole = (
   database: string,
-  runtimeRole: RuntimeRole
+  deploymentEnvironment: string | undefined
 ): string | null => {
-  const environmentPrefix = database.endsWith('_test')
-    ? 'nihongo_test'
-    : database.endsWith('_dev')
-      ? 'nihongo_development'
-      : null
+  const environmentPrefix =
+    deploymentEnvironment === 'PRODUCTION' ||
+    deploymentEnvironment === 'STAGING'
+      ? database === PRODUCTION_DATABASE_NAME
+        ? PRODUCTION_LOGIN_PREFIX
+        : null
+      : database.endsWith('_test')
+        ? 'nihongo_test'
+        : database.endsWith('_dev')
+          ? 'nihongo_development'
+          : null
   if (!environmentPrefix) return null
-  const roleSuffix =
-    runtimeRole === 'nihongo_app' ? 'app_login' : 'auth_gateway_login'
+  const roleSuffix = 'app_login'
   return `${environmentPrefix}_${roleSuffix}`
 }
 
@@ -321,7 +406,7 @@ const assertEndpoint = (
   const configuredSchema = getPostgresSchema(endpoint.connectionString)
   const requiredLogin = expectedWrapperRole(
     configuredDatabase,
-    endpoint.expectedRole
+    endpoint.deploymentEnvironment
   )
   const isExact =
     requiredLogin !== null &&
@@ -345,7 +430,7 @@ const assertEndpoint = (
     !evidence.sessionUserMembershipAdminOption &&
     !evidence.sessionUserMembershipInheritOption &&
     evidence.sessionUserMembershipSetOption &&
-    evidence.currentDatabaseExpectedWrapperConnectAclCount === 4 &&
+    evidence.currentDatabaseExpectedWrapperConnectAclCount === 2 &&
     evidence.currentDatabaseUnexpectedAclCount === 0 &&
     evidence.sessionUserCurrentDatabaseConnectAclCount === 1 &&
     evidence.sessionUserColumnAclCount === 0 &&
@@ -360,8 +445,8 @@ const assertEndpoint = (
     !evidence.groupInherit &&
     evidence.groupSensitiveColumnAclCount === 0 &&
     evidence.groupSensitiveTableAclCount === 0 &&
-    evidence.databaseOwner === 'nihongo_phase7_migration' &&
-    evidence.schemaOwner === 'nihongo_phase7_owner' &&
+    evidence.databaseOwner === 'nihongo_migration' &&
+    evidence.schemaOwner === 'nihongo_owner' &&
     evidence.sessionReplicationRole === 'origin' &&
     arraysEqual(evidence.directGrants, [endpoint.expectedRole]) &&
     evidence.groupDirectGrants.length === 0
@@ -371,56 +456,32 @@ const assertEndpoint = (
   }
 }
 
-export const assertRuntimeRoleEvidence = (
+const assertRuntimeRoleEvidence = (
   application: RuntimeRoleEvidence,
-  authGateway: RuntimeRoleEvidence,
-  endpoints: {
-    application: Omit<RuntimeRoleEndpoint, 'client'>
-    authGateway: Omit<RuntimeRoleEndpoint, 'client'>
-  }
+  endpoints: { application: Omit<RuntimeRoleEndpoint, 'client'> }
 ): void => {
   assertEndpoint(application, endpoints.application)
-  assertEndpoint(authGateway, endpoints.authGateway)
-
-  const sameTarget =
-    application.serverAddress !== null &&
-    application.serverPort !== null &&
-    application.currentDatabase === authGateway.currentDatabase &&
-    application.currentSchema === authGateway.currentSchema &&
-    application.serverAddress === authGateway.serverAddress &&
-    application.serverPort === authGateway.serverPort &&
-    application.sessionUser !== authGateway.sessionUser
-
-  if (!sameTarget) {
-    throw new Error('Runtime DB endpoints do not share one safe target.')
-  }
 }
 
+/** The API runs every database facade as nihongo_app (#504 P7 PR1). */
 export const attestRuntimeRoles = async ({
-  application,
-  authGateway
+  application
 }: {
   application: RuntimeRoleEndpoint
-  authGateway: RuntimeRoleEndpoint
 }): Promise<void> => {
-  const [applicationRows, authGatewayRows] = await Promise.all([
-    application.client.$queryRawUnsafe<RuntimeRoleEvidence[]>(
+  const applicationRows =
+    await application.client.$queryRawUnsafe<RuntimeRoleEvidence[]>(
       ATTESTATION_QUERY
-    ),
-    authGateway.client.$queryRawUnsafe<RuntimeRoleEvidence[]>(ATTESTATION_QUERY)
-  ])
-  if (applicationRows.length !== 1 || authGatewayRows.length !== 1) {
+    )
+  if (applicationRows.length !== 1) {
     throw new Error('Runtime DB role evidence is unavailable.')
   }
 
-  assertRuntimeRoleEvidence(applicationRows[0]!, authGatewayRows[0]!, {
+  assertRuntimeRoleEvidence(applicationRows[0]!, {
     application: {
       connectionString: application.connectionString,
-      expectedRole: application.expectedRole
-    },
-    authGateway: {
-      connectionString: authGateway.connectionString,
-      expectedRole: authGateway.expectedRole
+      expectedRole: application.expectedRole,
+      deploymentEnvironment: application.deploymentEnvironment
     }
   })
 }

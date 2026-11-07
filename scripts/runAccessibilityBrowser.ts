@@ -471,7 +471,6 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
   const rateLimitKeySecret = randomBytes(32).toString('base64url')
   const apiEnvironment: NodeJS.ProcessEnv = {
     ...harness.sharedEnvironment,
-    ADMIN_CMS_MODE: 'technical',
     AUTH_EMAIL_DELIVERY_MODE: 'test-sink',
     AUTH_EMAIL_FROM: 'auth@example.test',
     AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32,::1/128',
@@ -483,10 +482,8 @@ const runBrowser = async (browserMode: BrowserMode): Promise<void> => {
     NODE_ENV: 'test',
     DEPLOYMENT_ENVIRONMENT: 'TEST',
     PORT: String(apiPort),
-    PRACTICE_CONTRACT_RUNTIME: 'v1-v2',
     TRUSTED_ORIGINS: webOrigin
   }
-  delete apiEnvironment.PRACTICE_COMPATIBILITY_AUTHORITY_FILE
   for (const key of [
     'GOOGLE_CLIENT_ID',
     'GOOGLE_CLIENT_SECRET',

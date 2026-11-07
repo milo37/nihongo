@@ -2,7 +2,7 @@ import { getConnInfo } from '@hono/node-server/conninfo'
 import type { ContentOperation } from '@nihongo/contracts/admin/content-operations'
 import type { Context } from 'hono'
 import { createMiddleware } from 'hono/factory'
-import { getCanonicalPhase7Slice3Operation } from '../app/protectedRouteExclusion.js'
+import { getCanonicalSlice3Operation } from '../app/protectedRouteExclusion.js'
 import { createClientIpAuthority } from '../auth/clientIp.js'
 import type { PrincipalService } from '../auth/principalService.js'
 import type { ApiEnvironment } from '../config/env.js'
@@ -39,6 +39,7 @@ const bodyCapByOperation: Readonly<Partial<Record<ContentOperation, number>>> =
     archiveAdminQuestion: SMALL_BODY_CAP,
     requestContentReviewBatch: LARGE_BODY_CAP,
     publishQuestionVersionBatch: LARGE_BODY_CAP,
+    approveQuestionVersionBatch: LARGE_BODY_CAP,
     validateQuestionImport: IMPORT_BODY_CAP,
     applyQuestionImport: IMPORT_BODY_CAP,
     exportAdminQuestions: SMALL_BODY_CAP,
@@ -63,6 +64,7 @@ const groupByOperation: Readonly<
   archiveAdminQuestion: 'ADMIN_SENSITIVE',
   requestContentReviewBatch: 'ADMIN_SENSITIVE',
   publishQuestionVersionBatch: 'ADMIN_SENSITIVE',
+  approveQuestionVersionBatch: 'ADMIN_SENSITIVE',
   validateQuestionImport: 'IMPORT_VALIDATION',
   applyQuestionImport: 'ADMIN_SENSITIVE',
   exportAdminQuestions: 'ADMIN_SENSITIVE',
@@ -79,6 +81,7 @@ const freshOperations = new Set<ContentOperation>([
   'archiveAdminQuestion',
   'requestContentReviewBatch',
   'publishQuestionVersionBatch',
+  'approveQuestionVersionBatch',
   'applyQuestionImport',
   'exportAdminQuestions',
   'resolveAdminQuestionReport'
@@ -102,7 +105,7 @@ const requestTooLarge = (): ApplicationError =>
 
 const getOperation = (
   context: Context<AdminRouteEnvironment>,
-  operationResolver: typeof getCanonicalPhase7Slice3Operation
+  operationResolver: typeof getCanonicalSlice3Operation
 ): ContentOperation => {
   const operation = operationResolver({
     method: context.req.method,
@@ -181,13 +184,13 @@ export const getOperationBodySizeLimit = (
 export const createAdminCommandGuard = ({
   assertCapability,
   environment,
-  operationResolver = getCanonicalPhase7Slice3Operation,
+  operationResolver = getCanonicalSlice3Operation,
   principalService,
   rateLimiter
 }: {
   assertCapability: () => void | Promise<void>
   environment: ApiEnvironment
-  operationResolver?: typeof getCanonicalPhase7Slice3Operation
+  operationResolver?: typeof getCanonicalSlice3Operation
   principalService: PrincipalService
   rateLimiter: AdminCommandRateLimiter
 }) => {
@@ -220,7 +223,7 @@ export const createAdminCommandGuard = ({
         cause: error
       })
     }
-    if (!resolution.user || !resolution.phase7Session) {
+    if (!resolution.user || !resolution.ownedSessionProof) {
       if (resolution.clearSessionCookie) {
         try {
           assertTrustedOrigin(context, environment)
@@ -237,11 +240,14 @@ export const createAdminCommandGuard = ({
           adminDisposition: 'NO_TX'
         })
       }
+      const sessionExpired =
+        resolution.adminAuthorityFailure === 'AUTH_SESSION_EXPIRED' ||
+        resolution.clearSessionCookie
       throw new ApplicationError({
-        code: resolution.clearSessionCookie
+        code: sessionExpired
           ? 'AUTH_SESSION_EXPIRED'
           : 'AUTHENTICATION_REQUIRED',
-        message: resolution.clearSessionCookie
+        message: sessionExpired
           ? '로그인 세션이 만료됐습니다.'
           : '관리자 기능을 사용하려면 로그인이 필요합니다.',
         retryable: false,
@@ -276,7 +282,10 @@ export const createAdminCommandGuard = ({
       })
     }
 
-    if (freshOperations.has(operation) && !resolution.phase7Session.isFresh) {
+    if (
+      freshOperations.has(operation) &&
+      !resolution.ownedSessionProof.isFresh
+    ) {
       throw new ApplicationError({
         code: 'FRESH_ASSURANCE_REQUIRED',
         message:
@@ -317,7 +326,7 @@ export const createAdminCommandGuard = ({
 
     context.set('adminActorId', resolution.user.id)
     context.set('adminClientIp', clientIp)
-    context.set('adminSessionToken', resolution.phase7Session.token)
+    context.set('adminSessionToken', resolution.ownedSessionProof.token)
     await next()
   })
 }

@@ -1,13 +1,25 @@
 import { randomBytes, randomUUID } from 'node:crypto'
-import { readFileSync } from 'node:fs'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import {
+  bridgedQuery,
+  pgOwnedSessionClient
+} from '../../test/fixtures/db/ownedSessionSql.js'
 import { Client } from 'pg'
 import { assertSafeMigrationDatabase } from './databaseTargetGuard.js'
 import { createPostgresStartupOptions } from './databaseOptions.js'
+import { runProvisionAdminCommand } from '../auth/provisionAdminCommand.js'
+import { runTagLoadCommand } from '../content/tagLoadCommand.js'
 import { createSsoAdminFreshRepository } from '../auth/ssoAdminFreshRepository.js'
 import { createSsoIdentityRepository } from '../auth/ssoIdentityRepository.js'
-import type { PrismaClient } from '../generated/prisma/client.js'
+import {
+  beginAdminOperation,
+  finishAdminOperation
+} from '../admin/adminOperationAuthority.js'
+import type { Prisma, PrismaClient } from '../generated/prisma/client.js'
 import { loadExpectedMigrationManifest } from './readiness.js'
 import { createSsoDbHarness, digest } from './ssoTestFixture.js'
 import type { SsoFixture } from './ssoTestFixture.js'
@@ -43,7 +55,7 @@ const fresh = async (token: string) =>
   (
     await h.roleQuery<{ fresh: boolean }>(
       'nihongo_app',
-      'SELECT "phase7_sso_admin_session_is_fresh"($1) AS fresh',
+      'SELECT "sso_admin_session_is_fresh"($1) AS fresh',
       [token]
     )
   ).rows[0]?.fresh
@@ -51,7 +63,6 @@ const expectedRotation = {
   oldSessions: 0,
   activeSessions: 1,
   pendingSessions: 0,
-  fences: 1,
   audits: 1,
   finalized: 1
 }
@@ -59,13 +70,21 @@ const unchangedSession = {
   oldSessions: 1,
   activeSessions: 1,
   pendingSessions: 0,
-  fences: 0,
   audits: 0,
   finalized: 0
 }
 
+/** Runs the API admin operation on a raw pg connection inside its transaction. */
+const apiTransaction = (client: Client): Prisma.TransactionClient =>
+  ({
+    $queryRawUnsafe: async (sql: string, ...values: unknown[]) =>
+      (await client.query(sql, values)).rows,
+    $executeRawUnsafe: async (sql: string, ...values: unknown[]) =>
+      (await client.query(sql, values)).rowCount ?? 0
+  }) as unknown as Prisma.TransactionClient
+
 describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
-  it('deploy and re-entry leave exactly58 completed names/checksums preserving the old57 prefix', async () => {
+  it('deploy and re-entry leave exactly the baseline completed name/checksum', async () => {
     const expected = loadExpectedMigrationManifest(
       fileURLToPath(new URL('../../prisma/migrations/', import.meta.url))
     )
@@ -76,105 +95,28 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     }>(
       `SELECT migration_name AS name,checksum,finished_at IS NOT NULL AND rolled_back_at IS NULL AS complete FROM "_prisma_migrations" WHERE rolled_back_at IS NULL ORDER BY migration_name`
     )
-    expect(expected).toHaveLength(58)
+    // #504 P8: the baseline and the phase name removal.
+    expect(expected.map(({ name }) => name)).toEqual([
+      '20261105090000_baseline',
+      '20261106090000_remove_phase_names',
+      '20261107090000_first_admin_production',
+      '20261108090000_remove_tag_applicability_and_snapshots',
+      '20261109090000_add_tag_key_subject_status'
+    ])
     expect(
       actual.rows.map(({ name, checksum }) => ({ name, checksum }))
     ).toEqual(expected)
     expect(actual.rows.every((row) => row.complete)).toBe(true)
-    expect(
-      actual.rows.slice(0, 44).map(({ name, checksum }) => ({ name, checksum }))
-    ).toEqual(expected.slice(0, 44))
-    expect(actual.rows[44]?.name).toBe(
-      '20261019113000_sso_admin_fresh_column_qualification'
-    )
-    expect(actual.rows.slice(39, 44).map((row) => row.name)).toEqual([
-      '20261019090000_sso_login_transactions',
-      '20261019093000_sso_apple_google_providers',
-      '20261019100000_sso_identity_mapping',
-      '20261019103000_sso_admin_fresh',
-      '20261019110000_sso_admin_fresh_erasure_ownership'
-    ])
-    expect(
-      actual.rows.slice(0, 45).map(({ name, checksum }) => ({ name, checksum }))
-    ).toEqual(expected.slice(0, 45))
-    expect(actual.rows[45]?.name).toBe('20261020230000_sso_account_lifecycle')
-    expect(
-      actual.rows.slice(0, 46).map(({ name, checksum }) => ({ name, checksum }))
-    ).toEqual(expected.slice(0, 46))
-    expect(actual.rows[46]?.name).toBe(
-      '20261020233000_sso_first_admin_bootstrap'
-    )
-    expect(actual.rows[47]?.name).toBe(
-      '20261028090000_sso_account_erasure_worker_queue'
-    )
-    expect(actual.rows[48]?.name).toBe(
-      '20261028120000_sso_account_erasure_claim_lease'
-    )
-    expect(actual.rows[49]?.name).toBe(
-      '20261028150000_sso_provider_cleanup_fencing'
-    )
-    expect(
-      actual.rows.slice(50).map(({ name, checksum }) => ({ name, checksum }))
-    ).toEqual([
-      {
-        name: '20261028160000_study_contract_v2_default',
-        checksum:
-          '3b2dd4b6186d0f3603942a3de324cea3041e6fb0cd395eb9fc49f57c9e86a858'
-      },
-      {
-        name: '20261028170000_study_v1_retirement_authority',
-        checksum:
-          '622c83d394d779d0eb9f96baedbf8a81ab97d385c09fd99f82efa4e59905eb82'
-      },
-      {
-        name: '20261030100000_guest_expired_draft_retention',
-        checksum:
-          '5708fd94835c6ce970049b1830d44dca2e10e9c089f54383aa67219218fb81f7'
-      },
-      {
-        name: '20261104090000_unified_reports_import_results',
-        checksum:
-          'aee02806b846d61c64d35e0c873475e25880e82bd72029853fa23ff7742f8042'
-      },
-      {
-        name: '20261104120000_user_report_erasure_redaction',
-        checksum:
-          '99bdb0fecdcfe27d13850bb106af9fbcbb88c2a8cd79d7d6ae355f1db530efa8'
-      },
-      {
-        name: '20261104150000_user_account_restriction',
-        checksum:
-          '26762221ae1b1ad9636138825453e4664c46e03128db394fbe77ec13ba1532cc'
-      },
-      {
-        name: '20261105090000_admin_member_console',
-        checksum:
-          'a109890b8c812fa5b74c159b2f99f15c955ee6735ac8d1126b597881eb562de9'
-      },
-      {
-        name: '20261106090000_single_operator_review',
-        checksum:
-          'f569efc31c2638a23c2870ded6a8140aabb7be90aff57a2f02d740392f6fc6d1'
-      }
-    ])
-    // Existing runner executes canonical deploy then db:migrate:deploy re-entry
-    // before this suite. One completed row per name proves no duplicate apply.
-    expect(new Set(actual.rows.map((row) => row.name)).size).toBe(58)
   })
-
   it('new private objects have exact owner, search_path and least-privilege ACLs', async () => {
     const tables = await h.owner.query<{
       name: string
       owner: string
       app: boolean
-      gateway: boolean
-      erasure: boolean
       publicGrant: boolean
     }>(
       `SELECT c.relname AS name,r.rolname AS owner,
       has_table_privilege('nihongo_app',c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') AS app,
-      has_table_privilege('nihongo_auth_gateway',c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') AS gateway,
-      has_table_privilege('nihongo_erasure_worker',c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') AS erasure,
       EXISTS(SELECT 1 FROM aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a WHERE a.grantee=0) AS "publicGrant"
       FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace JOIN pg_roles r ON r.oid=c.relowner WHERE n.nspname=$1 AND c.relname=ANY($2) ORDER BY c.relname`,
       [
@@ -193,48 +135,31 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         'SsoLoginTransaction'
       ].map((name) => ({
         name,
-        owner: 'nihongo_phase7_owner',
-        app: false,
-        gateway: false,
-        erasure: false,
+        owner: 'nihongo_owner',
+        // #504 P7 PR3b-1: nihongo_app deletes one-time ADMIN_FRESH rows
+        // (DELETE is a table privilege); reads and writes stay column grants.
+        app: name !== 'SsoLoginTransaction',
         publicGrant: false
       }))
     )
     const gatewayFunctions = [
-      'phase7_create_sso_transaction_v2',
-      'phase7_consume_sso_transaction_v2',
-      'phase7_resolve_sso_identity',
-      'phase7_prepare_sso_admin_fresh',
-      'phase7_create_sso_admin_fresh_transaction',
-      'phase7_consume_sso_admin_fresh_transaction',
-      'phase7_stage_sso_admin_fresh_proof',
-      'phase7_complete_sso_admin_fresh',
-      'phase7_reconcile_sso_admin_fresh',
-      'phase7_cancel_sso_admin_fresh_proof'
+      'create_sso_transaction_v2',
+      'consume_sso_transaction_v2',
+      'resolve_sso_identity'
     ]
-    const privateFunctions = [
-      'phase7_create_sso_transaction',
-      'phase7_consume_sso_transaction',
-      'phase7_sso_fresh_context_valid',
-      'validate_phase7_sso_fresh_operation'
-    ]
-    const names = [
-      ...gatewayFunctions,
-      ...privateFunctions,
-      'phase7_sso_admin_session_is_fresh'
-    ].toSorted()
+    // #504 P7 PR3b-1: the ADMIN_FRESH functions moved to the API. #504 P8-1:
+    // the uncalled v1 create/consume functions are not in the baseline.
+    const names = [...gatewayFunctions].toSorted()
     const routines = await h.owner.query<{
       name: string
       owner: string
       definer: boolean
       config: string[]
       app: boolean
-      gateway: boolean
-      erasure: boolean
       publicGrant: boolean
     }>(
       `SELECT p.proname AS name,r.rolname AS owner,p.prosecdef AS definer,p.proconfig AS config,
-      has_function_privilege('nihongo_app',p.oid,'EXECUTE') AS app,has_function_privilege('nihongo_auth_gateway',p.oid,'EXECUTE') AS gateway,has_function_privilege('nihongo_erasure_worker',p.oid,'EXECUTE') AS erasure,
+      has_function_privilege('nihongo_app',p.oid,'EXECUTE') AS app,
       EXISTS(SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a WHERE a.grantee=0 AND a.privilege_type='EXECUTE') AS "publicGrant"
       FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace JOIN pg_roles r ON r.oid=p.proowner WHERE n.nspname=$1 AND p.proname=ANY($2) ORDER BY p.proname`,
       [h.schema, names]
@@ -245,15 +170,13 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         owner: row.owner,
         definer: row.definer,
         app: row.app,
-        gateway: row.gateway,
-        erasure: row.erasure,
         publicGrant: row.publicGrant
       }).toEqual({
-        owner: 'nihongo_phase7_owner',
+        owner: 'nihongo_owner',
         definer: true,
-        app: row.name === 'phase7_sso_admin_session_is_fresh',
-        gateway: gatewayFunctions.includes(row.name),
-        erasure: false,
+        // #504 P7 PR1: nihongo_app also executes every gateway facade.
+        // #504 P7 PR5b: the former gateway role executes none of them.
+        app: gatewayFunctions.includes(row.name),
         publicGrant: false
       })
       expect(row.config).toEqual([
@@ -261,31 +184,11 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       ])
     }
     await h.rollback(async () => {
-      for (const role of [
-        'nihongo_app',
-        'nihongo_auth_gateway',
-        'nihongo_erasure_worker'
-      ] as const) {
+      for (const role of ['nihongo_app'] as const) {
         await h.rejects(role, 'SELECT * FROM "SsoAdminFreshProof"', [], '42501')
       }
-      await h.rejects(
-        'nihongo_app',
-        'SELECT "phase7_prepare_sso_admin_fresh"($1,$2)',
-        ['missing', 'google'],
-        '42501'
-      )
-      await h.rejects(
-        'nihongo_erasure_worker',
-        'SELECT "phase7_prepare_sso_admin_fresh"($1,$2)',
-        ['missing', 'google'],
-        '42501'
-      )
-      await h.rejects(
-        'nihongo_auth_gateway',
-        'SELECT "phase7_sso_fresh_context_valid"($1::jsonb)',
-        ['{}'],
-        '42501'
-      )
+      // #504 P7 PR1: nihongo_app may run gateway facades; the erasure
+      // worker below still may not.
     })
   })
 
@@ -297,16 +200,16 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
           binding = digest()
         const create = (callback: string) =>
           h.roleQuery<{ ok: boolean }>(
-            'nihongo_auth_gateway',
-            'SELECT "phase7_create_sso_transaction_v2"($1,$2,$3,$4,$5,$6) AS ok',
+            'nihongo_app',
+            'SELECT "create_sso_transaction_v2"($1,$2,$3,$4,$5,$6) AS ok',
             [provider, state, binding, 'n'.repeat(43), 'v'.repeat(86), callback]
           )
         expect((await create('//external.test')).rows[0]?.ok).toBe(false)
         expect((await create('/practice')).rows[0]?.ok).toBe(true)
         const consume = (p: string, b: string) =>
           h.roleQuery(
-            'nihongo_auth_gateway',
-            'SELECT * FROM "phase7_consume_sso_transaction_v2"($1,$2,$3)',
+            'nihongo_app',
+            'SELECT * FROM "consume_sso_transaction_v2"($1,$2,$3)',
             [p, state, b]
           )
         expect((await consume(provider, digest())).rowCount).toBe(0)
@@ -331,8 +234,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       ) =>
         (
           await h.roleQuery<{ identity: Record<string, unknown> }>(
-            'nihongo_auth_gateway',
-            'SELECT "phase7_resolve_sso_identity"($1,$2,$3,$4) AS identity',
+            'nihongo_app',
+            'SELECT "resolve_sso_identity"($1,$2,$3,$4) AS identity',
             [provider, subject, email, 'SQL SSO fixture']
           )
         ).rows[0]?.identity
@@ -377,18 +280,33 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       // Keep the real repository calls inside this rollback and gateway role.
       const learner = await h.fixture('google', 'USER')
       const beforeSignIn = await h.snapshot()
-      const authorizationSql = `SELECT 'Session' AS kind,s.id,md5(to_jsonb(s)::text) AS fingerprint FROM "Session" s
-        UNION ALL SELECT 'AuthSessionFamily' AS kind,f.id,md5(to_jsonb(f)::text) AS fingerprint FROM "AuthSessionFamily" f ORDER BY kind,id`
+      const authorizationSql = `SELECT 'Session' AS kind,s.id,md5(to_jsonb(s)::text) AS fingerprint FROM "Session" s ORDER BY kind,id`
       const authorizationBefore = (
         await h.owner.query<{ kind: string; id: string; fingerprint: string }>(
           authorizationSql
         )
       ).rows
       const gatewayQuery = async (sql: string, ...values: unknown[]) =>
-        (await h.roleQuery('nihongo_auth_gateway', sql, values)).rows
+        (await h.roleQuery('nihongo_app', sql, values)).rows
+      // The SSO login runs the API issuance as nihongo_app, as the runtime
+      // does; the identity mapping keeps its gateway-role call.
+      const appSession = pgOwnedSessionClient({
+        query: async (sql, values) => {
+          await h.owner.query('SET ROLE "nihongo_app"')
+          try {
+            return await h.owner.query(sql, values)
+          } finally {
+            await h.owner.query('RESET ROLE').catch(() => undefined)
+          }
+        }
+      })
       const repository = createSsoIdentityRepository({
-        $queryRawUnsafe: gatewayQuery
-      } as unknown as Pick<PrismaClient, '$queryRawUnsafe'>)
+        ...appSession,
+        $queryRawUnsafe: async (sql: string, ...values: unknown[]) =>
+          sql.includes('resolve_sso_identity')
+            ? gatewayQuery(sql, ...values)
+            : appSession.$queryRawUnsafe(sql, ...values)
+      } as unknown as PrismaClient)
       const newAuthorizations = new Set<string>()
       const tokens = new Set<string>()
       for (const attempt of [1, 2]) {
@@ -406,13 +324,12 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
           throw new Error('SSO bridge session was not confirmed.')
         expect(tokens.has(signedIn.token)).toBe(false)
         tokens.add(signedIn.token)
-        const issued = await h.owner.query<{ id: string; familyId: string }>(
-          `SELECT s.id,s."sessionFamilyId" AS "familyId",s."userId",u.role::text AS role,
+        const issued = await h.owner.query<{ id: string }>(
+          `SELECT s.id,s."userId",u.role::text AS role,
           u."accountStatus"::text AS "accountStatus",s."authorityGeneration",u."authorityGeneration" AS "userGeneration",
           s."issuerProtocolVersion"::text AS "issuerProtocolVersion",s."authorizationState"::text AS "authorizationState",
-          family.status::text AS "familyStatus",s."createdAt",s."expiresAt"
+          s."createdAt",s."expiresAt"
           FROM "Session" s JOIN "User" u ON u.id=s."userId"
-          JOIN "AuthSessionFamily" family ON family.id=s."sessionFamilyId" AND family."userId"=s."userId"
           WHERE s.token=$1`,
           [signedIn.token]
         )
@@ -423,24 +340,22 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
           accountStatus: 'ACTIVE',
           authorityGeneration: 1,
           userGeneration: 1,
-          issuerProtocolVersion: 'PHASE7_V1',
+          issuerProtocolVersion: 'OWNED_V1',
           authorizationState: 'ACTIVE',
-          familyStatus: 'ACTIVE',
           createdAt: signedIn.createdAt,
           expiresAt: signedIn.expiresAt
         })
         const session = issued.rows[0]
         if (!session) throw new Error('SSO bridge session row unavailable.')
         newAuthorizations.add(`Session:${session.id}`)
-        newAuthorizations.add(`AuthSessionFamily:${session.familyId}`)
-        expect(newAuthorizations.size).toBe(attempt * 2)
+        expect(newAuthorizations.size).toBe(attempt)
         const authorizationAfter = (
           await h.owner.query<(typeof authorizationBefore)[number]>(
             authorizationSql
           )
         ).rows
         expect(authorizationAfter).toHaveLength(
-          authorizationBefore.length + attempt * 2
+          authorizationBefore.length + attempt
         )
         expect(
           authorizationAfter.filter(
@@ -483,7 +398,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         try {
           process.stdout.write(
             `${JSON.stringify({
-              event: 'phase7.db.integration.post_seed',
+              event: 'db.integration.post_seed',
               stage: `SSO6_${sso6Stage}_${state}`
             })}\n`
           )
@@ -562,7 +477,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
               metadata: unknown
               verified: boolean
             }>(
-              `SELECT command::text,"afterState","changedFields",metadata,"contentDigest"="phase7_admin_audit_content_digest"("operationId",command,"targetType","targetId","beforeState","afterState","beforeRowVersion","afterRowVersion","changedFields",metadata) AS verified FROM "AdminAuditLog" WHERE "actorId"=$1 AND command='REAUTHENTICATION'`,
+              `SELECT command::text,"afterState","changedFields",metadata,"contentDigest"=pg_temp."admin_audit_content_digest"("operationId",command,"targetType","targetId","beforeState","afterState","beforeRowVersion","afterRowVersion","changedFields",metadata) AS verified FROM "AdminAuditLog" WHERE "actorId"=$1 AND command='REAUTHENTICATION'`,
               [f.userId]
             )
             expect(audit.rows).toEqual([
@@ -582,7 +497,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
             expect(
               (
                 await h.roleQuery(
-                  'nihongo_auth_gateway',
+                  'nihongo_app',
                   h.completeSql,
                   h.completeValues(f, proof).values
                 )
@@ -621,20 +536,19 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         expect(
           (
             await h.roleQuery<{ value: unknown }>(
-              'nihongo_auth_gateway',
-              'SELECT "phase7_prepare_sso_admin_fresh"($1,$2) AS value',
+              'nihongo_app',
+              'SELECT "prepare_sso_admin_fresh"($1,$2) AS value',
               [token, provider]
             )
           ).rows[0]?.value
         ).toBeNull()
       const { proof } = await staged(f)
       const other = h.completeValues(f, proof)
-      await h.roleQuery(
-        'nihongo_auth_gateway',
-        `SELECT * FROM "phase7_issue_v1_session"($1,1,'ADMIN','ACTIVE',$2,$3,'127.0.0.1','second-session',false)`,
+      await h.issueSession(
+        `SELECT * FROM "issue_v1_session"($1,1,'ADMIN','ACTIVE',$2,$3,'127.0.0.1','second-session',false)`,
         [f.userId, randomUUID(), other.token]
       )
-      const result = await h.roleQuery('nihongo_auth_gateway', h.completeSql, [
+      const result = await h.roleQuery('nihongo_app', h.completeSql, [
         proof,
         other.token,
         randomUUID(),
@@ -644,7 +558,6 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       ])
       expect(result.rowCount).toBe(0)
       expect((await h.facts(f))?.oldSessions).toBe(1)
-      expect((await h.facts(f))?.fences).toBe(0)
     })
   })
 
@@ -685,7 +598,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     }
   )
 
-  it.each(['role', 'generation', 'link', 'family', 'session'] as const)(
+  it.each(['role', 'generation', 'link', 'session'] as const)(
     '%s lost after proof issuance rejects finalization without rotating',
     async (change) => {
       await h.rollback(async () => {
@@ -698,10 +611,6 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
             f.userId
           ],
           link: ['DELETE FROM "Account" WHERE "userId"=$1', f.userId],
-          family: [
-            'UPDATE "AuthSessionFamily" SET status=\'REVOKED\',"revokedAt"=clock_timestamp() WHERE id=$1',
-            f.familyId
-          ],
           session: [
             'UPDATE "Session" SET "expiresAt"=clock_timestamp() WHERE id=$1',
             f.sessionId
@@ -711,14 +620,13 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         expect(
           (
             await h.roleQuery(
-              'nihongo_auth_gateway',
+              'nihongo_app',
               h.completeSql,
               h.completeValues(f, proof).values
             )
           ).rowCount
         ).toBe(0)
         expect((await h.facts(f))?.oldSessions).toBe(1)
-        expect((await h.facts(f))?.fences).toBe(0)
         expect((await h.facts(f))?.audits).toBe(0)
       })
     }
@@ -731,8 +639,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       const state = digest(),
         binding = digest()
       const created = await h.roleQuery<{ ok: boolean }>(
-        'nihongo_auth_gateway',
-        'SELECT "phase7_create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb) AS ok',
+        'nihongo_app',
+        'SELECT "create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb) AS ok',
         [
           f.provider,
           state,
@@ -751,8 +659,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       expect(lifetime.rows).toEqual([{ valid: true }])
       const consume = (b: string) =>
         h.roleQuery(
-          'nihongo_auth_gateway',
-          'SELECT * FROM "phase7_consume_sso_admin_fresh_transaction"($1,$2,$3)',
+          'nihongo_app',
+          'SELECT * FROM "consume_sso_admin_fresh_transaction"($1,$2,$3)',
           [f.provider, state, b]
         )
       expect((await consume(digest())).rowCount).toBe(0)
@@ -766,7 +674,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       })
       expect((await consume(binding)).rowCount).toBe(0)
       await h.fixtureMutation(
-        `UPDATE "Phase7ReauthenticationIntent" SET "createdAt"=clock_timestamp()-interval '2 minutes',"expiresAt"=clock_timestamp()-interval '1 millisecond' WHERE id=$1`,
+        `UPDATE "ReauthenticationIntent" SET "createdAt"=clock_timestamp()-interval '2 minutes',"expiresAt"=clock_timestamp()-interval '1 millisecond' WHERE id=$1`,
         [context.intentId]
       )
       expect((await h.stage(context)).accepted).toBe(false)
@@ -785,7 +693,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       expect(
         (
           await h.roleQuery(
-            'nihongo_auth_gateway',
+            'nihongo_app',
             h.completeSql,
             h.completeValues(f, proof).values
           )
@@ -822,35 +730,48 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       const f = await h.fixture()
       const { proof } = await staged(f)
       const next = await h.rotate(f, proof)
-      await h.owner.query(
-        'SET CONSTRAINTS "Phase7OperationIntent_must_finish" DEFERRED'
-      )
-      const begin = `SELECT * FROM "phase7_begin_admin_operation"('EXPORT',$1,$2,'TEST',ARRAY[$3]::uuid[])`
-      await h.rejects(
-        'nihongo_app',
-        begin,
-        [f.token, randomUUID(), f.userId],
-        '42501'
-      )
-      expect(
-        (
-          await h.roleQuery('nihongo_app', begin, [
-            next.token,
-            randomUUID(),
-            f.userId
-          ])
-        ).rowCount
-      ).toBe(1)
+      // #504 P7 PR2: the API admin operation replaces the SQL begin and the
+      // deferred SSO fresh constraint; its commit re-check sees the expiry.
+      const asApp = async <Result>(action: () => Promise<Result>) => {
+        await h.owner.query('SAVEPOINT api_admin_operation')
+        await h.owner.query('SET LOCAL ROLE "nihongo_app"')
+        try {
+          return { ok: true as const, value: await action() }
+        } catch (error: unknown) {
+          return {
+            ok: false as const,
+            code: (error as { code?: unknown }).code
+          }
+        } finally {
+          await h.owner.query('ROLLBACK TO SAVEPOINT api_admin_operation')
+        }
+      }
+      const begin = (token: string) =>
+        beginAdminOperation(apiTransaction(h.owner), {
+          auditEnvironment: 'TEST',
+          command: 'EXPORT',
+          rawSessionToken: token,
+          referencedUserIds: [f.userId]
+        })
+      expect(await asApp(() => begin(f.token))).toEqual({
+        ok: false,
+        code: '42501'
+      })
+      const admitted = await asApp(() => begin(next.token))
+      if (!admitted.ok)
+        throw new Error('The fresh admin operation was refused.')
       await h.fixtureMutation(
         `UPDATE "SsoAdminFreshProof" SET "expiresAt"=clock_timestamp() WHERE "proofDigest"=$1`,
         [proof]
       )
-      await h.rejects(
-        'nihongo_app',
-        'SET CONSTRAINTS "Phase7OperationIntent_sso_fresh_commit" IMMEDIATE',
-        [],
-        '42501'
-      )
+      expect(
+        await asApp(() =>
+          finishAdminOperation(
+            apiTransaction(h.owner),
+            admitted.value.operationId
+          )
+        )
+      ).toEqual({ ok: false, code: '42501' })
     })
   })
 
@@ -860,8 +781,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     const state = digest(),
       binding = digest()
     await h.roleQuery(
-      'nihongo_auth_gateway',
-      'SELECT "phase7_create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb)',
+      'nihongo_app',
+      'SELECT "create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb)',
       [
         f.provider,
         state,
@@ -873,9 +794,10 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       ]
     )
     const callbacks = await Promise.all(
-      [h.gatewayA, h.gatewayB].map((client) =>
-        client.query(
-          'SELECT * FROM "phase7_consume_sso_admin_fresh_transaction"($1,$2,$3)',
+      [h.appA, h.appB].map((client) =>
+        bridgedQuery(
+          client,
+          'SELECT * FROM "consume_sso_admin_fresh_transaction"($1,$2,$3)',
           [f.provider, state, binding]
         )
       )
@@ -885,8 +807,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     expect(accepted).toBe(true)
     const candidates = [h.completeValues(f, proof), h.completeValues(f, proof)]
     const rotations = await Promise.all(
-      [h.gatewayA, h.gatewayB].map((client, i) =>
-        client.query(h.completeSql, candidates[i]?.values)
+      [h.appA, h.appB].map((client, i) =>
+        bridgedQuery(client, h.completeSql, candidates[i]?.values)
       )
     )
     expect(rotations.map((r) => r.rowCount).toSorted()).toEqual([0, 1])
@@ -901,25 +823,31 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       const before = await h.snapshot()
       let completed = false,
         cancelled = false
-      const query = async (
-        sql: string,
-        ...values: unknown[]
-      ): Promise<unknown> => {
-        if (sql.includes('cancel_sso')) cancelled = true
-        if (sql.includes('reconcile_sso') && mode === 'unknown')
-          throw new Error('Injected reconciliation transport unavailable.')
-        const result = await h.gatewayA.query(sql, values)
-        if (sql.includes('complete_sso')) {
-          completed = true
-          throw new Error(
-            'Injected return loss after successful PostgreSQL commit.'
-          )
-        }
-        return result.rows
-      }
-      const port = createSsoAdminFreshRepository({
-        $queryRawUnsafe: query
-      } as unknown as Pick<PrismaClient, '$queryRawUnsafe'>)
+      // The API rotation commits on a real nihongo_app connection, then the
+      // response is lost (and, for 'unknown', reconciliation is unreachable).
+      const port = createSsoAdminFreshRepository(
+        pgOwnedSessionClient(h.appA, {
+          beforeQuery: (sql) => {
+            if (sql.includes('DELETE FROM "SsoAdminFreshProof"'))
+              cancelled = true
+            if (completed && mode === 'unknown')
+              throw new Error('Injected reconciliation transport unavailable.')
+          },
+          afterCommit: (statements) => {
+            if (
+              !completed &&
+              statements.some((sql) =>
+                sql.includes('UPDATE "SsoAdminFreshProof"')
+              )
+            ) {
+              completed = true
+              throw new Error(
+                'Injected return loss after successful PostgreSQL commit.'
+              )
+            }
+          }
+        })
+      )
       if (mode === 'unknown')
         await expect(
           port.complete(proof, f.token, {
@@ -942,8 +870,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       expect(
         (
           await h.roleQuery<{ cancelled: boolean }>(
-            'nihongo_auth_gateway',
-            'SELECT "phase7_cancel_sso_admin_fresh_proof"($1) AS cancelled',
+            'nihongo_app',
+            'SELECT "cancel_sso_admin_fresh_proof"($1) AS cancelled',
             [proof]
           )
         ).rows[0]?.cancelled
@@ -963,11 +891,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       `CREATE TRIGGER sso_test_reject_completion BEFORE UPDATE ON "SsoAdminFreshProof" FOR EACH ROW EXECUTE FUNCTION sso_test_reject_completion('${proof}')`
     )
     try {
-      const query = async (sql: string, ...values: unknown[]) =>
-        (await h.gatewayA.query(sql, values)).rows
-      const port = createSsoAdminFreshRepository({
-        $queryRawUnsafe: query
-      } as unknown as Pick<PrismaClient, '$queryRawUnsafe'>)
+      const port = createSsoAdminFreshRepository(pgOwnedSessionClient(h.appA))
       await expect(
         port.complete(proof, f.token, {
           ipAddress: '127.0.0.1',
@@ -1000,8 +924,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       expect(
         (
           await h.roleQuery<{ ok: boolean }>(
-            'nihongo_auth_gateway',
-            'SELECT "phase7_cancel_sso_admin_fresh_proof"($1) AS ok',
+            'nihongo_app',
+            'SELECT "cancel_sso_admin_fresh_proof"($1) AS ok',
             [proof]
           )
         ).rows[0]?.ok
@@ -1009,8 +933,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       expect(
         (
           await h.roleQuery<{ ok: boolean }>(
-            'nihongo_auth_gateway',
-            'SELECT "phase7_cancel_sso_admin_fresh_proof"($1) AS ok',
+            'nihongo_app',
+            'SELECT "cancel_sso_admin_fresh_proof"($1) AS ok',
             [proof]
           )
         ).rows[0]?.ok
@@ -1018,7 +942,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       expect(
         (
           await h.roleQuery(
-            'nihongo_auth_gateway',
+            'nihongo_app',
             h.completeSql,
             h.completeValues(f, proof).values
           )
@@ -1029,7 +953,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       expect(
         (
           await h.owner.query(
-            'SELECT id FROM "Phase7ReauthenticationIntent" WHERE id=$1',
+            'SELECT id FROM "ReauthenticationIntent" WHERE id=$1',
             [context.intentId]
           )
         ).rowCount
@@ -1043,8 +967,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       expect(
         (
           await h.roleQuery<{ erased: boolean }>(
-            'nihongo_erasure_worker',
-            'SELECT "phase7_erase_user"($1,\'TEST\') AS erased',
+            'nihongo_app',
+            'SELECT "erase_user"($1,\'TEST\') AS erased',
             [f.userId]
           )
         ).rows[0]?.erased
@@ -1052,7 +976,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       expect(
         (
           await h.roleQuery(
-            'nihongo_auth_gateway',
+            'nihongo_app',
             h.completeSql,
             h.completeValues(f, proof).values
           )
@@ -1105,8 +1029,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       const state = digest(),
         binding = digest()
       await h.roleQuery(
-        'nihongo_auth_gateway',
-        'SELECT "phase7_create_sso_transaction_v2"($1,$2,$3,$4,$5,$6)',
+        'nihongo_app',
+        'SELECT "create_sso_transaction_v2"($1,$2,$3,$4,$5,$6)',
         [
           f.provider,
           state,
@@ -1119,15 +1043,15 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       expect(
         (
           await h.roleQuery(
-            'nihongo_auth_gateway',
-            'SELECT * FROM "phase7_consume_sso_admin_fresh_transaction"($1,$2,$3)',
+            'nihongo_app',
+            'SELECT * FROM "consume_sso_admin_fresh_transaction"($1,$2,$3)',
             [f.provider, state, binding]
           )
         ).rowCount
       ).toBe(0)
       await h.roleQuery(
-        'nihongo_auth_gateway',
-        'SELECT "phase7_create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb)',
+        'nihongo_app',
+        'SELECT "create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb)',
         [
           f.provider,
           state,
@@ -1141,8 +1065,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       expect(
         (
           await h.roleQuery(
-            'nihongo_auth_gateway',
-            'SELECT * FROM "phase7_consume_sso_admin_fresh_transaction"($1,$2,$3)',
+            'nihongo_app',
+            'SELECT * FROM "consume_sso_admin_fresh_transaction"($1,$2,$3)',
             [f.provider, state, binding]
           )
         ).rowCount
@@ -1162,8 +1086,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       expect(
         (
           await h.roleQuery(
-            'nihongo_auth_gateway',
-            'SELECT * FROM "phase7_consume_sso_transaction_v2"($1,$2,$3)',
+            'nihongo_app',
+            'SELECT * FROM "consume_sso_transaction_v2"($1,$2,$3)',
             [f.provider, state, binding]
           )
         ).rowCount
@@ -1196,12 +1120,6 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
           await h.owner.query('RELEASE SAVEPOINT last_sso')
         }
         expect(await h.snapshot()).toEqual(before)
-        await h.rejects(
-          'nihongo_auth_gateway',
-          'DELETE FROM "Account" WHERE "userId"=$1',
-          [f.userId],
-          '42501'
-        )
       })
     }
   )
@@ -1263,13 +1181,14 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     const before = await h.snapshot()
     await h.app.query('BEGIN ISOLATION LEVEL REPEATABLE READ')
     try {
-      const operation = await h.app.query<{ operationId: string }>(
-        `SELECT * FROM "phase7_begin_admin_operation"('EXPORT',$1,$2,'TEST',ARRAY[$3]::uuid[])`,
-        [next.token, randomUUID(), f.userId]
-      )
-      const operationId = operation.rows[0]?.operationId
+      // #504 P7 PR2: the API admin operation on the real app connection.
+      const { operationId } = await beginAdminOperation(apiTransaction(h.app), {
+        auditEnvironment: 'TEST',
+        command: 'EXPORT',
+        rawSessionToken: next.token,
+        referencedUserIds: [f.userId]
+      })
       expect(operationId).toBeDefined()
-      expect(operation.rowCount).toBe(1)
       // The database clock advances beyond the recorded deadline; the wait is
       // bounded at 3.05 seconds and does not depend on a JavaScript fake clock.
       await h.owner.query('SELECT pg_sleep(3.05)')
@@ -1279,19 +1198,9 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       )
       expect(expiry.rows).toEqual([{ expired: true }])
       await expect(
-        h.app.query(
-          'SET CONSTRAINTS "Phase7OperationIntent_sso_fresh_commit" IMMEDIATE'
-        )
+        finishAdminOperation(apiTransaction(h.app), operationId)
       ).rejects.toMatchObject({ code: '42501' })
       expect((await h.app.query('COMMIT')).command).toBe('ROLLBACK')
-      expect(
-        (
-          await h.owner.query(
-            'SELECT count(*)::int AS count FROM "Phase7OperationIntent" WHERE "operationId"=$1',
-            [operationId]
-          )
-        ).rows
-      ).toEqual([{ count: 0 }])
       expect(await h.snapshot()).toEqual(before)
       expect(await h.facts(f)).toEqual(expectedRotation)
       expect(await fresh(next.token)).toBe(false)
@@ -1306,8 +1215,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       const state = digest(),
         binding = digest()
       const created = await h.roleQuery<{ created: boolean }>(
-        'nihongo_auth_gateway',
-        'SELECT "phase7_create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb) AS created',
+        'nihongo_app',
+        'SELECT "create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb) AS created',
         [
           f.provider,
           state,
@@ -1330,8 +1239,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       expect(
         (
           await h.roleQuery<{ erased: boolean }>(
-            'nihongo_erasure_worker',
-            'SELECT "phase7_erase_user"($1,\'TEST\') AS erased',
+            'nihongo_app',
+            'SELECT "erase_user"($1,\'TEST\') AS erased',
             [f.userId]
           )
         ).rows[0]?.erased
@@ -1347,8 +1256,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       expect(
         (
           await h.roleQuery(
-            'nihongo_auth_gateway',
-            'SELECT * FROM "phase7_consume_sso_admin_fresh_transaction"($1,$2,$3)',
+            'nihongo_app',
+            'SELECT * FROM "consume_sso_admin_fresh_transaction"($1,$2,$3)',
             [f.provider, state, binding]
           )
         ).rowCount
@@ -1357,7 +1266,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       expect(
         (
           await h.roleQuery(
-            'nihongo_auth_gateway',
+            'nihongo_app',
             h.completeSql,
             h.completeValues(f, digest()).values
           )
@@ -1421,7 +1330,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       const otherProof = await staged(other),
         current = await h.rotate(other, otherProof.proof)
       await h.owner.query(
-        'SET CONSTRAINTS "Phase7OperationIntent_must_finish" DEFERRED'
+        'SET CONSTRAINTS "OperationIntent_must_finish" DEFERRED'
       )
       const currentOther = {
         ...other,
@@ -1432,8 +1341,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         state = digest(),
         binding = digest()
       await h.roleQuery(
-        'nihongo_auth_gateway',
-        'SELECT "phase7_create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb)',
+        'nihongo_app',
+        'SELECT "create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb)',
         [
           other.provider,
           state,
@@ -1457,8 +1366,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       expect(
         (
           await h.roleQuery<{ erased: boolean }>(
-            'nihongo_erasure_worker',
-            'SELECT "phase7_erase_user"($1,\'TEST\') AS erased',
+            'nihongo_app',
+            'SELECT "erase_user"($1,\'TEST\') AS erased',
             [target.userId]
           )
         ).rows[0]?.erased
@@ -1474,7 +1383,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       expect(
         (
           await h.roleQuery(
-            'nihongo_auth_gateway',
+            'nihongo_app',
             h.completeSql,
             h.completeValues(target, targetProof.proof).values
           )
@@ -1499,8 +1408,9 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       state = digest(),
       binding = digest()
     const outcomes = await Promise.allSettled([
-      h.gatewayA.query<{ ok: boolean }>(
-        'SELECT "phase7_create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb) AS ok',
+      bridgedQuery<{ ok: boolean }>(
+        h.appA,
+        'SELECT "create_sso_admin_fresh_transaction"($1,$2,$3,$4,$5,$6,$7::jsonb) AS ok',
         [
           f.provider,
           state,
@@ -1512,8 +1422,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
         ]
       ),
       h.roleQuery<{ erased: boolean }>(
-        'nihongo_erasure_worker',
-        'SELECT "phase7_erase_user"($1,\'TEST\') AS erased',
+        'nihongo_app',
+        'SELECT "erase_user"($1,\'TEST\') AS erased',
         [f.userId]
       )
     ])
@@ -1534,71 +1444,13 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       ).rows
     ).toEqual([{ users: 0, transactions: 0, proofs: 0 }])
   })
-  it('the exact forward backfill safely removes malformed/orphan contexts and preserves existing User contexts', async () => {
-    const sql = readFileSync(
-      new URL(
-        '../../prisma/migrations/20261019110000_sso_admin_fresh_erasure_ownership/migration.sql',
-        import.meta.url
-      ),
-      'utf8'
-    )
-    expect(sql.indexOf('LOCK TABLE "User" IN EXCLUSIVE MODE')).toBeLessThan(
-      sql.indexOf('ALTER TABLE "SsoAdminFreshTransaction"')
-    )
-    await h.rollback(async () => {
-      const first = await h.fixture(),
-        second = await h.fixture()
-      const before = await h.snapshot()
-      for (const table of ['SsoAdminFreshTransaction', 'SsoAdminFreshProof']) {
-        const temporary = `sso_backfill_${randomUUID().replaceAll('-', '_')}`
-        await h.owner.query(
-          `CREATE TEMP TABLE "${temporary}" (id int PRIMARY KEY,context jsonb,"userId" uuid)`
-        )
-        const contexts = [
-          { userId: first.userId, accountId: first.subject },
-          {},
-          { userId: 'malformed' },
-          { userId: 17 },
-          { userId: [first.userId] },
-          { userId: randomUUID() },
-          { userId: second.userId, accountId: second.subject }
-        ]
-        for (const [index, context] of contexts.entries())
-          await h.owner.query(
-            `INSERT INTO "${temporary}" (id,context) VALUES ($1,$2::jsonb)`,
-            [index, JSON.stringify(context)]
-          )
-        const start = sql.indexOf(`DELETE FROM "${table}" AS context_row`)
-        const end = sql.indexOf(
-          `ALTER TABLE "${table}" ALTER COLUMN "userId" SET NOT NULL;`,
-          start
-        )
-        expect(start).toBeGreaterThan(0)
-        expect(end).toBeGreaterThan(start)
-        await h.owner.query(
-          sql.slice(start, end).replaceAll(`"${table}"`, `"${temporary}"`)
-        )
-        expect(
-          (
-            await h.owner.query(
-              `SELECT id,context,"userId" FROM "${temporary}" ORDER BY id`
-            )
-          ).rows
-        ).toEqual([
-          { id: 0, context: contexts[0], userId: first.userId },
-          { id: 6, context: contexts[6], userId: second.userId }
-        ])
-      }
-      expect(await h.snapshot()).toEqual(before)
-    })
-  })
 })
 
 describe('JLP-527 first Google ADMIN operator bootstrap', () => {
   const bootstrapSql =
-    'SELECT "phase7_bootstrap_first_google_admin"($1::uuid,$2::text,$3::integer,$4::text,$5::"AdminAuditEnvironment") AS generation'
+    'SELECT "bootstrap_first_google_admin"($1::uuid,$2::text,$3::integer,$4::text,$5::"AdminAuditEnvironment") AS generation'
   const operatorClient = () => {
-    const migrationUrl = process.env.PHASE7_MIGRATION_DATABASE_URL
+    const migrationUrl = process.env.MIGRATION_DATABASE_URL
     assertSafeMigrationDatabase({
       nodeEnvironment: h.environment.NODE_ENV,
       migrationDatabaseUrl: migrationUrl,
@@ -1621,10 +1473,7 @@ describe('JLP-527 first Google ADMIN operator bootstrap', () => {
     url.searchParams.delete('options')
     return new Client({
       connectionString: url.toString(),
-      options: createPostgresStartupOptions(
-        h.schema,
-        'nihongo_phase7_migration'
-      ),
+      options: createPostgresStartupOptions(h.schema, 'nihongo_migration'),
       connectionTimeoutMillis: 5000,
       query_timeout: 15000,
       statement_timeout: 10000
@@ -1662,11 +1511,9 @@ describe('JLP-527 first Google ADMIN operator bootstrap', () => {
     const values = (f: SsoFixture) => [f.userId, f.subject, 1, h.schema, 'TEST']
     const erase = async (f: SsoFixture) => {
       if (erased.has(f.userId)) return
-      await h.roleQuery(
-        'nihongo_erasure_worker',
-        'SELECT "phase7_erase_user"($1,\'TEST\')',
-        [f.userId]
-      )
+      await h.roleQuery('nihongo_app', 'SELECT "erase_user"($1,\'TEST\')', [
+        f.userId
+      ])
       erased.add(f.userId)
     }
     try {
@@ -1705,31 +1552,25 @@ describe('JLP-527 first Google ADMIN operator bootstrap', () => {
           config: string[]
           migration: boolean
           app: boolean
-          gateway: boolean
-          erasure: boolean
           public: boolean
         }>(
           `SELECT r.rolname AS owner,p.proconfig AS config,
-        has_function_privilege('nihongo_phase7_migration',p.oid,'EXECUTE') AS migration,
+        has_function_privilege('nihongo_migration',p.oid,'EXECUTE') AS migration,
         has_function_privilege('nihongo_app',p.oid,'EXECUTE') AS app,
-        has_function_privilege('nihongo_auth_gateway',p.oid,'EXECUTE') AS gateway,
-        has_function_privilege('nihongo_erasure_worker',p.oid,'EXECUTE') AS erasure,
         EXISTS(SELECT 1 FROM aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a
           WHERE a.grantee=0 AND a.privilege_type='EXECUTE') AS public
         FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
         JOIN pg_roles r ON r.oid=p.proowner
-        WHERE p.proname='phase7_bootstrap_first_google_admin' AND n.nspname=$1`,
+        WHERE p.proname='bootstrap_first_google_admin' AND n.nspname=$1`,
           [h.schema]
         )
       ).rows
       expect(acl).toEqual([
         {
-          owner: 'nihongo_phase7_owner',
+          owner: 'nihongo_owner',
           config: ['search_path=pg_catalog, ' + h.schema + ', pg_temp'],
           migration: true,
           app: false,
-          gateway: false,
-          erasure: false,
           public: false
         }
       ])
@@ -1746,9 +1587,9 @@ describe('JLP-527 first Google ADMIN operator bootstrap', () => {
         ).rows
         expect(principal).toEqual([
           {
-            login: 'nihongo_test_phase7_migration_login',
-            role: 'nihongo_phase7_migration',
-            effective: 'nihongo_phase7_migration',
+            login: 'nihongo_test_migration_login',
+            role: 'nihongo_migration',
+            effective: 'nihongo_migration',
             schema: h.schema,
             replication: 'origin',
             isolation: 'read committed'
@@ -1761,7 +1602,7 @@ describe('JLP-527 first Google ADMIN operator bootstrap', () => {
         ).rejects.toMatchObject({ code: '42501' })
       }
       await expect(
-        h.roleQuery('nihongo_phase7_migration', bootstrapSql, values(first))
+        h.roleQuery('nihongo_migration', bootstrapSql, values(first))
       ).rejects.toMatchObject({ code: '42501' })
       await a.query('BEGIN ISOLATION LEVEL READ COMMITTED')
       const rejected: [unknown[], string][] = [
@@ -1818,14 +1659,6 @@ describe('JLP-527 first Google ADMIN operator bootstrap', () => {
           ])
         ).rows
       ).toEqual([])
-      expect(
-        (
-          await h.owner.query(
-            'SELECT status FROM "AuthSessionFamily" WHERE id=$1',
-            [first.familyId]
-          )
-        ).rows
-      ).toEqual([{ status: 'REVOKED' }])
       await expect(b.query(bootstrapSql, values(second))).rejects.toMatchObject(
         { code: '42501' }
       )
@@ -1889,4 +1722,169 @@ describe('JLP-527 first Google ADMIN operator bootstrap', () => {
       expect(await activeAdmins()).toEqual(previous)
     }
   }, 30_000)
+
+  it('finds the operator command target by email in a dry run without changing it', async () => {
+    await h.owner.query('BEGIN')
+    const target = await h.fixture('google', 'USER')
+    await h.owner.query('COMMIT')
+    const write = vi
+      .spyOn(process.stdout, 'write')
+      .mockImplementation(() => true)
+    try {
+      const [{ email, generation }] = (
+        await h.owner.query<{ email: string; generation: number }>(
+          'SELECT email,"authorityGeneration" AS generation FROM "User" WHERE id=$1',
+          [target.userId]
+        )
+      ).rows as [{ email: string; generation: number }]
+      await runProvisionAdminCommand({
+        ...process.env,
+        ADMIN_PROVISION_EMAIL: email.toUpperCase()
+      })
+      expect(process.exitCode).toBeUndefined()
+      expect(JSON.parse(String(write.mock.calls[0]?.[0]))).toMatchObject({
+        event: 'first_google_admin_dry_run',
+        environment: 'TEST',
+        targetUserId: target.userId,
+        authorityGeneration: generation
+      })
+      const [after] = (
+        await h.owner.query<{ role: string; generation: number }>(
+          'SELECT role::text AS role,"authorityGeneration" AS generation FROM "User" WHERE id=$1',
+          [target.userId]
+        )
+      ).rows
+      expect(after).toEqual({ role: 'USER', generation })
+    } finally {
+      write.mockRestore()
+      await h.roleQuery('nihongo_app', 'SELECT "erase_user"($1,\'TEST\')', [
+        target.userId
+      ])
+    }
+  })
+})
+
+describe('tag list load operator command', () => {
+  it('claims, creates and then keeps tags by key without touching other rows', async () => {
+    const suffix = randomBytes(4).toString('hex')
+    const legacyId = randomUUID()
+    const legacyLabel = `옛 태그 ${suffix}`
+    const keys = [`vocab.load-${suffix}`, `grammar.load-${suffix}`]
+    const directory = await mkdtemp(join(tmpdir(), 'nihongo-tag-list-'))
+    const file = join(directory, 'tags.v2.json')
+    await writeFile(
+      file,
+      JSON.stringify({
+        schemaVersion: 2,
+        tags: [
+          {
+            key: keys[0],
+            label: legacyLabel,
+            subject: 'VOCABULARY',
+            status: 'ACTIVE'
+          },
+          {
+            key: keys[1],
+            label: `새 태그 ${suffix}`,
+            subject: 'GRAMMAR',
+            status: 'RETIRED'
+          }
+        ]
+      })
+    )
+    await h.owner.query(
+      `INSERT INTO "Tag" ("id", "label", "normalizedName", "updatedAt")
+       VALUES ($1, $2, $2, clock_timestamp())`,
+      [legacyId, legacyLabel]
+    )
+    const write = vi
+      .spyOn(process.stdout, 'write')
+      .mockImplementation(() => true)
+    const run = async (confirm: boolean) => {
+      write.mockClear()
+      await runTagLoadCommand({
+        ...process.env,
+        TAG_LIST_FILE: file,
+        ...(confirm ? { TAG_LOAD_CONFIRM: 'LOAD_TAG_LIST' } : {})
+      })
+      expect(process.exitCode).toBeUndefined()
+      return JSON.parse(String(write.mock.calls[0]?.[0])) as Record<
+        string,
+        unknown
+      >
+    }
+    const loaded = async () =>
+      (
+        await h.owner.query<Record<string, string | null>>(
+          `SELECT "id"::text AS "id", "key", "label",
+             "subject"::text AS "subject", "status"::text AS "status"
+           FROM "Tag" WHERE "key" = ANY($1::text[]) OR "id" = $2::uuid
+           ORDER BY "label"`,
+          [keys, legacyId]
+        )
+      ).rows
+    try {
+      expect(await run(false)).toMatchObject({
+        event: 'tag_list_dry_run',
+        environment: 'TEST',
+        created: 1,
+        claimed: 1,
+        unchanged: 0,
+        conflicts: []
+      })
+      expect(await loaded()).toEqual([
+        {
+          id: legacyId,
+          key: null,
+          label: legacyLabel,
+          subject: null,
+          status: null
+        }
+      ])
+
+      expect(await run(true)).toMatchObject({
+        event: 'tag_list_loaded',
+        created: 1,
+        claimed: 1,
+        updated: 0
+      })
+      expect(await loaded()).toEqual([
+        {
+          id: expect.any(String),
+          key: keys[1],
+          label: `새 태그 ${suffix}`,
+          subject: 'GRAMMAR',
+          status: 'RETIRED'
+        },
+        {
+          id: legacyId,
+          key: keys[0],
+          label: legacyLabel,
+          subject: 'VOCABULARY',
+          status: 'ACTIVE'
+        }
+      ])
+
+      expect(await run(true)).toMatchObject({
+        event: 'tag_list_loaded',
+        created: 0,
+        claimed: 0,
+        updated: 0,
+        unchanged: 2
+      })
+      await expect(
+        h.owner.query(
+          `UPDATE "Tag" SET "subject" = NULL WHERE "id" = $1::uuid`,
+          [legacyId]
+        )
+      ).rejects.toMatchObject({ constraint: 'Tag_list_fields_check' })
+    } finally {
+      write.mockRestore()
+      await h.owner.query(
+        `DELETE FROM "Tag" WHERE "key" = ANY($1::text[]) OR "id" = $2::uuid`,
+        [keys, legacyId]
+      )
+      await rm(directory, { recursive: true, force: true })
+    }
+  })
 })

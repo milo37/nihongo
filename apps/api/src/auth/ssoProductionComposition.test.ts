@@ -7,11 +7,8 @@ import { createOwnedAuthReadiness } from './ownedAuthReadiness.js'
 import { AuthGatewayError } from './authGateway.js'
 import { createAdminReauthenticationService } from '../admin/adminReauthenticationService.js'
 import { createSsoAuthentication } from './createSsoAuthentication.js'
-import { createOwnedAuthFacade, createPhase7AuthFacade } from './authFacade.js'
-import {
-  createOwnedPrincipalService,
-  createPhase7PrincipalService
-} from './principalService.js'
+import { createOwnedAuthFacade, createAuthFacade } from './authFacade.js'
+import { createOwnedPrincipalService } from './principalService.js'
 import { createApiApp } from '../app/createApp.js'
 import { createJsonLogger } from '../observability/logger.js'
 import { createSessionCookie } from './sessionCookie.js'
@@ -20,20 +17,36 @@ import type { PrismaClient } from '../generated/prisma/client.js'
 import type { AdminQuestionReader } from '../admin/adminQuestionService.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
 import type { SsoProvider, SsoTransaction } from './ssoProtocol.js'
+import { signOutOwnedSession } from './ownedSessionAuthority.js'
+
+// Session writes run in a Prisma transaction; their SQL is covered by the
+// database integration tests.
+vi.mock('./ownedSessionAuthority.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./ownedSessionAuthority.js')>()),
+  issueOwnedSession: vi.fn(
+    async (_client: unknown, input: { sessionId: string }) => ({
+      id: input.sessionId,
+      familyId: '11111111-1111-4111-8111-111111111111',
+      createdAt: new Date('2026-10-19T00:00:00Z'),
+      expiresAt: new Date('2026-10-26T00:00:00Z'),
+      authorityGeneration: 1
+    })
+  ),
+  confirmOwnedSession: vi.fn(async () => true),
+  refreshRememberedSession: vi.fn(async () => []),
+  signOutOwnedSession: vi.fn(async () => true)
+}))
 
 const uuid = '11111111-1111-4111-8111-111111111111'
 const input = {
   NODE_ENV: 'production',
   DEPLOYMENT_ENVIRONMENT: 'TEST',
   RELEASE_ID: 'a'.repeat(40),
-  ADMIN_CMS_MODE: 'disabled',
   HOST: '127.0.0.1',
   PORT: '3001',
   LOG_LEVEL: 'error',
   DATABASE_URL:
     'postgresql://nihongo_test_app_login:placeholder@localhost/nihongo_test?schema=public&sslmode=require',
-  AUTH_GATEWAY_DATABASE_URL:
-    'postgresql://nihongo_test_auth_gateway_login:placeholder@localhost/nihongo_test?schema=public&sslmode=require',
   TRUSTED_ORIGINS: 'https://app.example.test',
   BETTER_AUTH_URL: 'https://app.example.test',
   BETTER_AUTH_SECRET: 'test-auth-placeholder-only-1234567890',
@@ -86,19 +99,7 @@ const fixture = (overrides: Record<string, string> = {}) => {
             }
           }
         ]
-      if (sql.includes('issue_v1_session'))
-        return [
-          {
-            id: args[4],
-            familyId: uuid,
-            createdAt: new Date('2026-10-19T00:00:00Z'),
-            expiresAt: new Date('2026-10-26T00:00:00Z'),
-            authorityGeneration: 1
-          }
-        ]
       if (sql.includes('confirm_v1_session')) return [{ confirmed: true }]
-      if (sql.includes('owned_sign_out')) return [{ signedOut: true }]
-      if (sql.includes('refresh_current')) return []
       return []
     }
   )
@@ -113,14 +114,14 @@ const fixture = (overrides: Record<string, string> = {}) => {
         // Recent sign-in: inside the 8 hour ADMIN session limit.
         createdAt: new Date(Date.now() - 60_000),
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60_000),
-        isFresh: sql.includes('phase7_sso_admin_session_is_fresh')
+        isFresh: sql.includes('"SsoAdminFreshProof"')
           ? fresh && elapsed < 300_000
           : true
       }
     ]
   )
   const client = (query: unknown) =>
-    ({ $queryRawUnsafe: query }) as Pick<PrismaClient, '$queryRawUnsafe'>
+    ({ $queryRawUnsafe: query }) as unknown as PrismaClient
   const provider: SsoProvider = {
     authorizationURL: async ({ state, nonce, codeVerifier }) => {
       const url = new URL('https://accounts.google.com/o/oauth2/v2/auth')
@@ -174,24 +175,19 @@ const fixture = (overrides: Record<string, string> = {}) => {
 
 describe('owned authentication exports', () => {
   it('preserves factory identity and existing function names', () => {
-    expect(createOwnedAuthFacade).toBe(createPhase7AuthFacade)
-    expect(createOwnedPrincipalService).toBe(createPhase7PrincipalService)
-    expect(createOwnedAuthFacade.name).toBe('createPhase7AuthFacade')
-    expect(createOwnedPrincipalService.name).toBe(
-      'createPhase7PrincipalService'
-    )
+    expect(createOwnedAuthFacade).toBe(createAuthFacade)
+    expect(createOwnedPrincipalService).toBe(createOwnedPrincipalService)
+    expect(createOwnedAuthFacade.name).toBe('createAuthFacade')
+    expect(createOwnedPrincipalService.name).toBe('createOwnedPrincipalService')
   })
 })
 
-describe('production-shaped SSO composition with CMS disabled (fake DB ports)', () => {
-  it('selects current roles/profile and provides public login/callback/Phase7 sign-out/rate limit', async () => {
+describe('production-shaped SSO composition (fake DB ports)', () => {
+  it('selects current roles/profile and provides public login/callback/owned sign-out/rate limit', async () => {
     const f = fixture()
-    expect(createAuthRuntimePlan(f.environment)).toMatchObject({
-      ownedAuth: true,
+    expect(createAuthRuntimePlan()).toMatchObject({
       migrationProfile: 'current',
-      applicationRole: 'nihongo_app',
-      gatewayRole: 'nihongo_auth_gateway',
-      cmsEnabled: false
+      applicationRole: 'nihongo_app'
     })
     const response = await f.auth.gateway.handle(
       new Request('https://app.example.test/api/auth/sign-in/social', {
@@ -231,9 +227,7 @@ describe('production-shaped SSO composition with CMS disabled (fake DB ports)', 
       })
     )
     expect(logout.status).toBe(200)
-    expect(
-      f.gatewayQuery.mock.calls.some(([sql]) => sql.includes('owned_sign_out'))
-    ).toBe(true)
+    expect(vi.mocked(signOutOwnedSession)).toHaveBeenCalled()
     expect(f.rateLimiter.consume).toHaveBeenCalled()
     expect(
       f.gatewayQuery.mock.calls.some(([sql]) =>
@@ -311,7 +305,7 @@ describe('production-shaped SSO composition with CMS disabled (fake DB ports)', 
     expect((await command()).status).toBe(401)
     expect(
       f.appQuery.mock.calls.every(([sql]) =>
-        sql.includes('phase7_sso_admin_session_is_fresh')
+        sql.includes('"SsoAdminFreshProof"')
       )
     ).toBe(true)
   })
@@ -345,7 +339,7 @@ describe('production-shaped SSO composition with CMS disabled (fake DB ports)', 
       ).rejects.toBeInstanceOf(AuthGatewayError)
     }
     expect(f.gatewayQuery.mock.calls.length).toBe(before)
-    const service = createAdminReauthenticationService({} as never)
+    const service = createAdminReauthenticationService()
     await expect(
       service.reauthenticate({
         actorId: uuid,
@@ -356,7 +350,7 @@ describe('production-shaped SSO composition with CMS disabled (fake DB ports)', 
       })
     ).rejects.toMatchObject({ code: 'RESOURCE_NOT_FOUND' })
   })
-  it('retains role attestation, both runtime-ready checks and current DB readiness with CMS disabled', async () => {
+  it('retains role attestation, the runtime-ready check and current DB readiness with CMS disabled', async () => {
     const f = fixture()
     const checkReadiness = vi.fn(async () => undefined)
     const query = vi.fn(async () => [])
@@ -364,18 +358,16 @@ describe('production-shaped SSO composition with CMS disabled (fake DB ports)', 
     await createOwnedAuthReadiness({
       checkDatabaseReadiness: checkReadiness,
       applicationClient: { $queryRawUnsafe: query } as never,
-      gatewayClient: { $queryRawUnsafe: query } as never,
       applicationUrl: f.environment.DATABASE_URL,
-      gatewayUrl: f.environment.AUTH_GATEWAY_DATABASE_URL!,
       attest
     })()
     expect(checkReadiness).toHaveBeenCalledOnce()
     expect(attest).toHaveBeenCalledOnce()
-    expect(query).toHaveBeenCalledTimes(2)
+    expect(query).toHaveBeenCalledTimes(1)
     expect(attest.mock.calls[0]).toBeDefined()
   })
   it('keeps technical CMS reads available without any legacy reauthentication service and legacy admin404 touches nothing', async () => {
-    const f = fixture({ NODE_ENV: 'test', ADMIN_CMS_MODE: 'technical' })
+    const f = fixture({ NODE_ENV: 'test' })
     const listQuestions = vi.fn(async () => ({
       items: [],
       page: 1,
@@ -438,27 +430,12 @@ describe('production-shaped SSO composition with CMS disabled (fake DB ports)', 
       mail.mockRestore()
     }
   })
-  it('rejects missing/wrong gateway authority and unsafe production TLS without weakening CMS mode', () => {
-    expect(() =>
-      parseApiEnvironment({ ...input, AUTH_GATEWAY_DATABASE_URL: undefined })
-    ).toThrow()
+  it('rejects unsafe production TLS without weakening CMS mode', () => {
     expect(() =>
       parseApiEnvironment({
         ...input,
-        AUTH_GATEWAY_DATABASE_URL: input.DATABASE_URL
+        DATABASE_URL: input.DATABASE_URL.replace('&sslmode=require', '')
       })
-    ).toThrow()
-    expect(() =>
-      parseApiEnvironment({
-        ...input,
-        AUTH_GATEWAY_DATABASE_URL: input.AUTH_GATEWAY_DATABASE_URL.replace(
-          '&sslmode=require',
-          ''
-        )
-      })
-    ).toThrow()
-    expect(() =>
-      parseApiEnvironment({ ...input, ADMIN_CMS_MODE: 'technical' })
     ).toThrow()
   })
 })

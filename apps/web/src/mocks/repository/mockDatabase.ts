@@ -39,7 +39,6 @@ import {
   removeFreshLocalStorageItemOrThrow,
   subscribeStorageChanges
 } from '@nihongo/browser/libs/storage'
-import type { ParsedSubmitStudySessionBody } from '@nihongo/contracts/study/submit-study-session'
 import type { ParsedSubmitStudySessionV2Body } from '@nihongo/contracts/study/submit-study-session'
 import type { ParsedSaveStudyDraftAnswersBody } from '@nihongo/contracts/study/save-study-draft-answers'
 import type { ReviewSelectionFilter } from '@nihongo/contracts/study/create-study-session'
@@ -98,7 +97,7 @@ import {
   writeMockStorageWithMirror
 } from '@mocks/repository/mockMutationCoordinator'
 import { addDaysToIso, toDateKey } from '@util/date'
-import { toPracticeQuestion } from '@mocks/logic/question'
+import { toPracticeQuestion } from '@util/question'
 import {
   createSeededRandom,
   seededShuffle,
@@ -112,12 +111,12 @@ import {
   selectWeaknessStudyCandidates,
   selectWrongNoteStudyCandidates
 } from '@mocks/adapters/studyCandidateSelection'
-import { calculateStudyResult } from '@mocks/logic/study'
+import { calculateStudyResult } from '@util/study'
 import {
   createWrongNoteFromIncorrectAnswer,
   updateWrongNoteAfterCorrectReview,
   updateWrongNoteAfterIncorrectAnswer
-} from '@mocks/logic/wrongNote'
+} from '@util/wrongNote'
 
 const RECENT_SESSION_LIMIT = 5
 const REPEATED_WRONG_LIMIT = 5
@@ -490,7 +489,7 @@ export type MockCanonicalIdempotencyRecord =
   | MockCanonicalTargetedReviewIdempotencyRecord
 
 export interface SubmitCanonicalStudySessionInput {
-  readonly body: ParsedSubmitStudySessionBody | ParsedSubmitStudySessionV2Body
+  readonly body: ParsedSubmitStudySessionV2Body
   readonly contractVersion?: 1 | 2
   readonly guestPrincipalId: string | null
   readonly idempotencyKey: string
@@ -500,11 +499,11 @@ export interface SubmitCanonicalStudySessionInput {
 export interface MockCanonicalSubmissionOperations {
   readonly canonicalize: (
     record: MockStudySessionSnapshotRecord,
-    body: ParsedSubmitStudySessionBody | ParsedSubmitStudySessionV2Body
+    body: ParsedSubmitStudySessionV2Body
   ) => string
   readonly grade: (
     record: MockStudySessionSnapshotRecord,
-    body: ParsedSubmitStudySessionBody | ParsedSubmitStudySessionV2Body,
+    body: ParsedSubmitStudySessionV2Body,
     submittedAt: string
   ) => MockCanonicalGrading
   readonly toResult: (

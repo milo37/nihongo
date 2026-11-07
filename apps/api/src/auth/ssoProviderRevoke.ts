@@ -4,8 +4,13 @@ import type {
   SsoAccountErasureWorker
 } from './ssoAccountRepository.js'
 
-export type SsoProviderRevokeOutcome = 'REVOKED' | 'FAILED' | 'UNAVAILABLE'
-export interface SsoProviderRevokeTarget {
+/** NOT_HELD: the app keeps no provider token, so there is nothing to revoke. */
+type SsoProviderRevokeOutcome =
+  | 'REVOKED'
+  | 'NOT_HELD'
+  | 'FAILED'
+  | 'UNAVAILABLE'
+interface SsoProviderRevokeTarget {
   provider: SsoProviderId
   subject: string
 }
@@ -20,7 +25,7 @@ export type SsoProviderRevokeAdapter = (
   signal?: AbortSignal
 ) => Promise<SsoProviderRevokeOutcome>
 /** Token storage is not provisioned; SSO sign-in persists no provider tokens. */
-export interface SsoProviderTokenVault {
+interface SsoProviderTokenVault {
   refreshToken: (
     target: SsoProviderRevokeTarget,
     signal?: AbortSignal
@@ -69,6 +74,14 @@ const withinDeadline = async <T>(
 
 export const unavailableSsoProviderRevokeAdapter: SsoProviderRevokeAdapter =
   async () => 'UNAVAILABLE'
+
+/**
+ * SSO sign-in requests online access only and stores no provider token
+ * (#670), so the app holds nothing at the provider to revoke. The grant shown
+ * in the user's Google or Apple account settings stays theirs to remove.
+ */
+export const tokenlessSsoProviderRevokeAdapter: SsoProviderRevokeAdapter =
+  async () => 'NOT_HELD'
 
 export const createHttpSsoProviderRevokeAdapter =
   (input: {
@@ -129,6 +142,8 @@ export const createHttpSsoProviderRevokeAdapter =
 
 export interface SsoProviderRevokeRunResult {
   revoked: number
+  /** Completed without a provider call because no token was held. */
+  notHeld: number
   failed: number
   unavailable: number
   /** Not called because the lease could expire mid-call. */
@@ -155,6 +170,7 @@ export const runSsoProviderRevokeBatch = async (
     throw new Error('Provider lease is shorter than one revoke call.')
   const result: SsoProviderRevokeRunResult = {
     revoked: 0,
+    notHeld: 0,
     failed: 0,
     unavailable: 0,
     deferred: 0,
@@ -221,12 +237,15 @@ export const runSsoProviderRevokeBatch = async (
         worker.recordProviderCleanup(
           claim.id,
           provider,
-          outcome === 'REVOKED' ? 'COMPLETED' : outcome,
+          outcome === 'REVOKED' || outcome === 'NOT_HELD'
+            ? 'COMPLETED'
+            : outcome,
           claim.leaseToken,
           environment
         )
       ).catch(() => false)
       if (outcome === 'REVOKED' && recorded) result.revoked += 1
+      else if (outcome === 'NOT_HELD' && recorded) result.notHeld += 1
       else if (outcome === 'UNAVAILABLE' && recorded) result.unavailable += 1
       else result.failed += 1
     }

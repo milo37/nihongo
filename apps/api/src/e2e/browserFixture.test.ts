@@ -33,8 +33,7 @@ vi.mock('../db/database.js', () => ({
   createDatabaseRuntime: vi.fn(() => ({
     client: { $queryRawUnsafe: f.query },
     disconnect: f.disconnect,
-    checkReadiness: f.ready,
-    checkV1Compatibility: f.ready
+    checkReadiness: f.ready
   })),
   createRoleDatabaseRuntime: vi.fn(() => ({
     client: { $queryRawUnsafe: f.query },
@@ -53,7 +52,7 @@ vi.mock('../admin/adminReadGuard.js', async (importOriginal) => {
   return { ...actual, createAdminReadGuard: vi.fn(actual.createAdminReadGuard) }
 })
 vi.mock('../auth/reauthenticationStartupMaintenance.js', () => ({
-  runPhase7ReauthenticationStartupMaintenance: f.maintenance
+  runReauthenticationStartupMaintenance: f.maintenance
 }))
 vi.mock('../auth/createSsoAuthentication.js', async (importOriginal) => {
   const actual =
@@ -64,22 +63,21 @@ vi.mock('../auth/createSsoAuthentication.js', async (importOriginal) => {
   }
 })
 
-const schema = `phase7_${'a'.repeat(32)}_test`
+const schema = `nihongo_${'a'.repeat(32)}_test`
 const url = (login: string) =>
   `postgresql://${login}:test-only@127.0.0.1:5432/nihongo_test?schema=${schema}`
-const options = (cms: 'disabled' | 'technical' = 'technical') => {
+const options = () => {
   const databaseUrl = url('nihongo_test_app_login')
-  const authGatewayDatabaseUrl = url('nihongo_test_auth_gateway_login')
+  const appFixtureDatabaseUrl = url('nihongo_test_app_login')
   return {
     databaseUrl,
-    authGatewayDatabaseUrl,
+    appFixtureDatabaseUrl,
     adminDatabaseUrl: url('fixture_owner'),
     environment: parseApiEnvironment({
       NODE_ENV: 'test',
       DEPLOYMENT_ENVIRONMENT: 'TEST',
-      ADMIN_CMS_MODE: cms,
       DATABASE_URL: databaseUrl,
-      AUTH_GATEWAY_DATABASE_URL: authGatewayDatabaseUrl,
+      TEST_APP_FIXTURE_DATABASE_URL: appFixtureDatabaseUrl,
       BETTER_AUTH_URL: 'http://127.0.0.1:4100',
       TRUSTED_ORIGINS: 'http://127.0.0.1:4200',
       BETTER_AUTH_SECRET: 'a'.repeat(32),
@@ -129,7 +127,7 @@ const guardedAdminFixture = async (role: 'USER' | 'ADMIN' | null) => {
               role,
               targetLevel: null
             },
-      phase7Session: {
+      ownedSessionProof: {
         id: '22222222-2222-4222-8222-222222222222',
         token: 'guard-unit-session-only',
         createdAt: new Date(0),
@@ -143,7 +141,7 @@ const guardedAdminFixture = async (role: 'USER' | 'ADMIN' | null) => {
   return { created, resolve, served }
 }
 
-describe('Phase7/8 production admin static guard handoff', () => {
+describe('production admin static guard handoff', () => {
   it('shares production guard dependencies with the existing CMS API guards', async () => {
     const input = options()
     const created = await createSsoAdminBrowserApiFixture(input)
@@ -164,7 +162,7 @@ describe('Phase7/8 production admin static guard handoff', () => {
   })
 
   it('does not expose an admin guard from the CMS-disabled USER fixture', async () => {
-    const created = await createSsoBrowserApiTestFixture(options('disabled'))
+    const created = await createSsoBrowserApiTestFixture(options())
     expect(created.adminGuard).toBeUndefined()
     expect(createAdminReadGuard).not.toHaveBeenCalled()
     expect(createAdminReadRateLimiter).not.toHaveBeenCalled()
@@ -188,9 +186,7 @@ describe('Phase7/8 production admin static guard handoff', () => {
       expect(f.query).toHaveBeenCalledTimes(role === 'ADMIN' ? 1 : 0)
       expect(f.adminReadConsume).toHaveBeenCalledTimes(role === 'ADMIN' ? 1 : 0)
       if (role === 'ADMIN') {
-        expect(f.query).toHaveBeenCalledWith(
-          'SELECT "phase7_require_runtime_ready"()'
-        )
+        expect(f.query).toHaveBeenCalledWith('SELECT "require_runtime_ready"()')
         expect(f.adminReadConsume).toHaveBeenCalledWith({
           actorId: created.fixture.author.userId,
           clientIp: expect.any(String)
@@ -252,7 +248,7 @@ describe('Phase7/8 production admin static guard handoff', () => {
     })
     expect(
       f.query.mock.calls.every(
-        ([statement]) => statement === 'SELECT "phase7_require_runtime_ready"()'
+        ([statement]) => statement === 'SELECT "require_runtime_ready"()'
       )
     ).toBe(true)
     expect(f.adminReadConsume).toHaveBeenCalledTimes(1)
@@ -260,7 +256,7 @@ describe('Phase7/8 production admin static guard handoff', () => {
   })
 })
 
-describe('Phase7/8 Google CMS browser TEST handoff', () => {
+describe('Google CMS browser TEST handoff', () => {
   it('prepares distinct linked actors without passwords, promotion or manual session issuance', async () => {
     const created = await createSsoAdminBrowserApiFixture(options())
     const actors = Object.values(created.fixture)
@@ -333,7 +329,7 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
     await created.database.disconnect()
     await created.database.disconnect()
     expect(f.disconnect).toHaveBeenCalledOnce()
-    expect(f.gatewayDisconnect).toHaveBeenCalledOnce()
+    expect(f.gatewayDisconnect).not.toHaveBeenCalled()
     expect(f.end).toHaveBeenCalledOnce()
   })
 
@@ -398,7 +394,7 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
   })
 
   it('keeps the existing stable actor when sign-in isolation is not selected', async () => {
-    const created = await createSsoBrowserApiTestFixture(options('disabled'))
+    const created = await createSsoBrowserApiTestFixture(options())
     const input = {
       code: 'sso-browser-test-code',
       nonce: 'n'.repeat(43),
@@ -412,7 +408,7 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
 
   it('isolates Real journey identities across sign-ins while preserving a repeated callback identity', async () => {
     const created = await createSsoBrowserApiTestFixture({
-      ...options('disabled'),
+      ...options(),
       isolateSignIns: true
     })
     const input = {
@@ -443,7 +439,7 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
   })
 
   it('composes the existing USER learning contract without CMS routes or fixture writes', async () => {
-    const created = await createSsoBrowserApiTestFixture(options('disabled'))
+    const created = await createSsoBrowserApiTestFixture(options())
     const expectedRoutes = [
       ['GET', '/api/v1/study-sessions'],
       ['POST', '/api/v1/study-sessions'],
@@ -481,13 +477,13 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
     expect(f.query).not.toHaveBeenCalled()
     await created.disconnect()
     expect(f.disconnect).toHaveBeenCalledOnce()
-    expect(f.gatewayDisconnect).toHaveBeenCalledOnce()
+    expect(f.gatewayDisconnect).not.toHaveBeenCalled()
   })
 
   it.each(['/api/v1/dashboard', '/api/v1/dashboard/insights'])(
     'keeps the USER learning route %s authenticated',
     async (path) => {
-      const created = await createSsoBrowserApiTestFixture(options('disabled'))
+      const created = await createSsoBrowserApiTestFixture(options())
       const response = await created.app.request(path)
       expect(response.status).toBe(401)
       expect(response.headers.get('cache-control')).toBe('private, no-store')
@@ -501,7 +497,7 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
   )
 
   it('retains the original CMS-disabled single-USER fixture without seeding or changing its provider', async () => {
-    const created = await createSsoBrowserApiTestFixture(options('disabled'))
+    const created = await createSsoBrowserApiTestFixture(options())
     expect(f.ownerQuery).not.toHaveBeenCalled()
     expect(await exchange('original-controlled-code')).toEqual(
       created.expectedIdentity
@@ -515,7 +511,6 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
   })
 
   it.each([
-    'disabled',
     'production',
     'deployment',
     'provider',
@@ -526,8 +521,6 @@ describe('Phase7/8 Google CMS browser TEST handoff', () => {
     'externalOrigin'
   ] as const)('rejects %s before any DB construction or seed', async (kind) => {
     const input = options()
-    if (kind === 'disabled')
-      input.environment = { ...input.environment, ADMIN_CMS_MODE: 'disabled' }
     if (kind === 'production') input.environment.NODE_ENV = 'production'
     if (kind === 'deployment')
       input.environment = {
@@ -586,7 +579,6 @@ describe('SSO CMS lifecycle persistence postcondition', () => {
     reauthenticationIntent: reauthentications,
     report: cmsAudits ? 1 : 0,
     review: cmsAudits ? 12 : 0,
-    rotationFence: reauthentications,
     user: 10,
     version: cmsAudits ? 13 : 10,
     versionTag: cmsAudits ? 13 : 10
@@ -596,7 +588,6 @@ describe('SSO CMS lifecycle persistence postcondition', () => {
       userId,
       finalized: true,
       proof: true,
-      fence: true,
       audit: true,
       proofCount: 6
     }))
@@ -635,7 +626,7 @@ describe('SSO CMS lifecycle persistence postcondition', () => {
     }
   )
 
-  it.each(['finalized', 'proof', 'fence', 'audit'] as const)(
+  it.each(['finalized', 'proof', 'audit'] as const)(
     'fails closed for an unbound or missing %s despite correct aggregate totals',
     async (key) => {
       const created = await createSsoAdminBrowserApiFixture(options())
@@ -727,7 +718,6 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
     review: 0,
     audit: 8,
     importApply: 0,
-    rotationFence: 0,
     reauthenticationIntent: 0,
     reauthenticationFinalized: 0,
     operationIntent: 0,
@@ -741,7 +731,6 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
     versionTag: 11,
     review: 1,
     audit: 12,
-    rotationFence: 1,
     reauthenticationIntent: 1,
     reauthenticationFinalized: 1
   }
@@ -749,7 +738,6 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
     userId,
     finalized: true,
     proof: true,
-    fence: true,
     audit: true,
     proofCount: 1
   })
@@ -886,7 +874,6 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
           versionTag: 13,
           review: 12,
           audit: 38,
-          rotationFence: 6,
           reauthenticationIntent: 6,
           reauthenticationFinalized: 6,
           report: 1
@@ -908,7 +895,6 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
     ['versionTag', 12],
     ['option', 45],
     ['reauthenticationIntent', 0],
-    ['rotationFence', 2],
     ['operationIntent', 1]
   ] as const)('rejects an unexpected %s total of %i', async (key, value) => {
     const created = await createSsoAdminBrowserApiFixture(
@@ -922,7 +908,7 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
     await created.database.disconnect()
   })
 
-  it.each(['finalized', 'proof', 'fence', 'audit'] as const)(
+  it.each(['finalized', 'proof', 'audit'] as const)(
     'rejects an unbound %s even when all A1-A8 totals match',
     async (key) => {
       const created = await createSsoAdminBrowserApiFixture(
@@ -1015,7 +1001,7 @@ describe('explicit A1-A8 SSO administrator lifecycle profile', () => {
   it('rejects an unknown profile before creating or seeding any database client', async () => {
     await expect(
       createSsoAdminBrowserApiFixture(options(), 'unknown' as never)
-    ).rejects.toThrow('Unknown Phase 7 SSO admin lifecycle profile')
+    ).rejects.toThrow('Unknown SSO admin lifecycle profile')
     expect(f.connect).not.toHaveBeenCalled()
     expect(f.ownerQuery).not.toHaveBeenCalled()
   })

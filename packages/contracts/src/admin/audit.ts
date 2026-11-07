@@ -1,6 +1,5 @@
 import { z } from 'zod'
 import { isoDateTimeSchema } from '../common/date.js'
-import { createApiFailureSchema } from '../common/error.js'
 import { opaqueIdSchema } from '../common/id.js'
 import { contentOccurredAtCursorSchema } from '../common/content-cursor.js'
 
@@ -9,7 +8,7 @@ import { contentOccurredAtCursorSchema } from '../common/content-cursor.js'
  * FAILURE is only recorded for ADMIN_SIGN_IN and re-authentication; failed
  * commands roll back and leave no row.
  */
-export const adminActivityActionSchema = z.enum([
+const adminActivityActionSchema = z.enum([
   'PUBLISH',
   'UPDATE',
   'DELETE_OR_ARCHIVE',
@@ -18,7 +17,7 @@ export const adminActivityActionSchema = z.enum([
   'ADMIN_SIGN_IN'
 ])
 
-export const adminActivityResultSchema = z.enum(['SUCCESS', 'FAILURE'])
+const adminActivityResultSchema = z.enum(['SUCCESS', 'FAILURE'])
 
 export const listAdminActivityQuerySchema = z
   .object({
@@ -27,7 +26,7 @@ export const listAdminActivityQuerySchema = z
   })
   .strict()
 
-export const adminActivityItemSchema = z
+const adminActivityItemSchema = z
   .object({
     occurredAt: isoDateTimeSchema,
     action: adminActivityActionSchema,
@@ -44,22 +43,7 @@ export const listAdminActivityResponseSchema = z
   })
   .strict()
 
-export const listAdminActivityErrorSchema = createApiFailureSchema(
-  z.enum([
-    'AUTHENTICATION_REQUIRED',
-    'AUTH_SESSION_EXPIRED',
-    'ADMIN_REQUIRED',
-    'VALIDATION_ERROR',
-    'RATE_LIMITED',
-    'INTERNAL_SERVER_ERROR',
-    'SERVICE_UNAVAILABLE'
-  ])
-)
-
 export type AdminActivityAction = z.output<typeof adminActivityActionSchema>
-export type ListAdminActivityQuery = z.input<
-  typeof listAdminActivityQuerySchema
->
 export type AdminActivityItem = z.output<typeof adminActivityItemSchema>
 export type ListAdminActivityResponse = z.output<
   typeof listAdminActivityResponseSchema

@@ -1,10 +1,8 @@
 const POSTGRES_SCHEMA_PATTERN = /^[a-z_][a-z0-9_]*$/
 const APPROVED_POSTGRES_STARTUP_ROLES = new Set([
   'nihongo_app',
-  'nihongo_auth_gateway',
-  'nihongo_erasure_worker',
   'nihongo_guest_cleanup_worker',
-  'nihongo_phase7_migration'
+  'nihongo_migration'
 ])
 
 export const getPostgresSchema = (
@@ -34,7 +32,7 @@ export const createPostgresStartupOptions = (
   startupRole?: string
 ): string => {
   if (startupRole && !APPROVED_POSTGRES_STARTUP_ROLES.has(startupRole)) {
-    throw new Error('PostgreSQL startup role is not an approved Phase 7 role.')
+    throw new Error('PostgreSQL startup role is not an approved role.')
   }
 
   return [

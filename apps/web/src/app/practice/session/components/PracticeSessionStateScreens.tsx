@@ -1,10 +1,10 @@
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
 import type { ReactElement, ReactNode } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import type { SubmissionConnectivityCode } from '@app/practice/hooks/useSubmissionConnectivity'
 import { AppErrorReportButton } from '@app/question-report/components/AppErrorReportDialog'
+import { TextLink } from '@nihongo/browser/common/components/TextLink'
 
 const FramedSection = ({ children }: { children: ReactNode }): ReactElement => (
   <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
@@ -31,12 +31,7 @@ export const SessionSetupLinkError = ({
       title={title}
       description={description}
       action={
-        <Link
-          className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
-          to="/practice"
-        >
-          {t('session.terminal.openSetup')}
-        </Link>
+        <TextLink to="/practice">{t('session.terminal.openSetup')}</TextLink>
       }
     />
   )

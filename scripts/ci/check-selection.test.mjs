@@ -110,14 +110,20 @@ test('migration changes select operations inventory tests and the portable smoke
   )
 })
 
-test('agent tooling and PR templates select no checks', () => {
+test('agent tooling, PR templates and scanner config select no checks', () => {
   const selection = classifyChangedFiles([
     '.claude/agents/devops-engineer.md',
     '.claude/hooks/check-gh-format.mjs',
     '.claude/settings.json',
     '.claude/skills/graph',
+    '.codex/agents/frontend-engineer.toml',
+    '.codex/config.toml',
+    '.cursor/rules/03-api-guidelines.mdc',
+    '.agents/skills/graph/agents/openai.yaml',
     '.github/pull_request_template.md',
-    '.github/ISSUE_TEMPLATE/1-task.yml'
+    '.github/ISSUE_TEMPLATE/1-task.yml',
+    '.github/dependabot.yml',
+    '.gitleaks.toml'
   ])
   assert.equal(selection.code, false)
   assert.equal(selection.browser, false)
@@ -130,6 +136,12 @@ test('unclassified and unsafe paths fail closed', () => {
     () => classifyChangedFiles(['unknown-area/file.json']),
     /CI_CLASSIFICATION_UNCLASSIFIED_PATH/u
   )
+  for (const file of ['.codexrc.toml', 'tools/.cursor/rules.mdc']) {
+    assert.throws(
+      () => classifyChangedFiles([file]),
+      /CI_CLASSIFICATION_UNCLASSIFIED_PATH/u
+    )
+  }
   assert.throws(
     () => classifyChangedFiles(['apps/web/../api/package.json']),
     /CI_CLASSIFICATION_INVALID_PATH/u
@@ -950,7 +962,7 @@ test('API shard partition script rejects drifted matrix groups', () => {
   const check = (groups) => `
     import { getApiIntegrationEntriesByOwner } from './src/e2e/apiIntegrationManifest.ts'
     import { assertApiIntegrationShardPartition } from './src/e2e/apiIntegrationShardSelection.ts'
-    const all = [...new Set(getApiIntegrationEntriesByOwner('phase10').map(({ shard }) => shard))]
+    const all = [...new Set(getApiIntegrationEntriesByOwner('shard').map(({ shard }) => shard))]
     assertApiIntegrationShardPartition(all, ${JSON.stringify(groups)})
   `
   const groups = Object.values(apiIntegrationShardGroups)
@@ -1126,12 +1138,7 @@ test('workflow and command budgets preserve the three protected contexts', () =>
   ]) {
     assert.equal(normal.split(name).length - 1, 1)
   }
-  for (const name of [
-    'Phase 10 real/mock browser and regression acceptance',
-    'Phase 11 portable release and production-mode smoke'
-  ]) {
-    assert.equal(normal.includes(name), false, name)
-  }
+  assert.doesNotMatch(normal, /phase ?[0-9]/iu)
   assert.doesNotMatch(normal + candidate, /previous-results|download-artifact/u)
   assert.equal(normal.split('uses: actions/upload-artifact@v4').length - 1, 2)
   assert.doesNotMatch(candidate, /upload-artifact/u)
@@ -1286,7 +1293,7 @@ const expectedBrowserCalls = (mode) => [
       '../../scripts/runBrowser.ts',
       mode
     ],
-    phase8: null
+    dashboardAcceptance: null
   }
 ]
 
@@ -1304,7 +1311,7 @@ appendFileSync(
   process.env.BROWSER_STUB_LOG,
   JSON.stringify({
     args,
-    phase8: process.env.DASHBOARD_BROWSER_ACCEPTANCE ?? null
+    dashboardAcceptance: process.env.DASHBOARD_BROWSER_ACCEPTANCE ?? null
   }) + '\\n'
 )
 if (
@@ -1600,7 +1607,7 @@ test('API integration uses shared job preparation and seed avoids regeneration',
 
 const assertAdminPlaywrightSelection = async (source, mode) => {
   const selectSpecs = runInNewContext(
-    `(browserMode, phase8) => {${extractArrowBody(
+    `(browserMode, dashboardAcceptance) => {${extractArrowBody(
       source,
       'export const selectBrowserSpecs = ('
     )}}`
@@ -1626,9 +1633,9 @@ const assertAdminPlaywrightSelection = async (source, mode) => {
         JSON.parse(JSON.stringify({ command, args, environment }))
       )
     },
-    (browserMode, phase8) => {
-      selectionCalls.push([browserMode, phase8])
-      return selectSpecs(browserMode, phase8)
+    (browserMode, dashboardAcceptance) => {
+      selectionCalls.push([browserMode, dashboardAcceptance])
+      return selectSpecs(browserMode, dashboardAcceptance)
     },
     (browserMode, webOrigin, extraEnvironment) => ({
       browserMode,
@@ -2144,13 +2151,13 @@ test('browser reachability rejects quoted, commented and dead edges', async () =
     assertBrowserScript(real.replace('runBrowser.ts', 'deadBrowser.ts'), 'real')
   )
 
-  const phase9Source = readFileSync(
+  const accessibilitySource = readFileSync(
     path.join(repositoryRoot, 'scripts/runAccessibilityBrowser.ts'),
     'utf8'
   )
   await assert.rejects(() =>
     assertPlaywrightSelection(
-      phase9Source.replace(
+      accessibilitySource.replace(
         "'apps/web/e2e/accessibility.spec.ts'",
         "'apps/web/e2e/dead.spec.ts' /* apps/web/e2e/accessibility.spec.ts */"
       ),

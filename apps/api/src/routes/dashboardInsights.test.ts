@@ -77,8 +77,6 @@ const snapshot: DashboardInsightsSnapshotRecord = {
 }
 
 const createEnvironment = (
-  cms: 'disabled' | 'technical',
-  ownedAuth: boolean,
   nodeEnvironment: 'test' | 'production' = 'test'
 ): ApiEnvironment => {
   const origin =
@@ -88,23 +86,13 @@ const createEnvironment = (
   const databaseUrl = (login: string): string =>
     'postgresql://' +
     login +
-    ':unit-only@127.0.0.1:5432/nihongo_test?schema=phase7_' +
+    ':unit-only@127.0.0.1:5432/nihongo_test?schema=nihongo_' +
     'a'.repeat(32) +
     '_test&sslmode=verify-full'
   return parseApiEnvironment({
     NODE_ENV: nodeEnvironment,
     DEPLOYMENT_ENVIRONMENT: 'TEST',
-    ADMIN_CMS_MODE: cms,
-    DATABASE_URL: databaseUrl(
-      ownedAuth ? 'nihongo_test_app_login' : 'nihongo_test_legacy_app_login'
-    ),
-    ...(ownedAuth
-      ? {
-          AUTH_GATEWAY_DATABASE_URL: databaseUrl(
-            'nihongo_test_auth_gateway_login'
-          )
-        }
-      : {}),
+    DATABASE_URL: databaseUrl('nihongo_test_app_login'),
     AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32,::1/128',
     BETTER_AUTH_SECRET: 'a'.repeat(48),
     GUEST_COOKIE_SECRET: 'b'.repeat(48),
@@ -113,27 +101,22 @@ const createEnvironment = (
     HOST: '127.0.0.1',
     PORT: '4201',
     RELEASE_ID: '1'.repeat(40),
-    PRACTICE_CONTRACT_RUNTIME: 'v1-v2',
     LOG_LEVEL: 'silent'
   })
 }
 
 const createHarness = ({
-  cms = 'disabled',
-  ownedAuth = true,
   nodeEnvironment = 'test',
   authenticated = true,
   hasSessionProof = true,
   databasePrincipalPresent = true
 }: {
-  cms?: 'disabled' | 'technical'
-  ownedAuth?: boolean
   nodeEnvironment?: 'test' | 'production'
   authenticated?: boolean
   hasSessionProof?: boolean
   databasePrincipalPresent?: boolean
 } = {}) => {
-  const environment = createEnvironment(cms, ownedAuth, nodeEnvironment)
+  const environment = createEnvironment(nodeEnvironment)
   const query = vi
     .fn<(...args: unknown[]) => Promise<unknown[]>>()
     .mockResolvedValueOnce(databasePrincipalPresent ? [snapshot.clock] : [])
@@ -148,17 +131,14 @@ const createHarness = ({
       operation(transaction)
   )
   const client = { $transaction: transact } as unknown as PrismaClient
-  const repository = createPrismaDashboardInsightsRepository(
-    client,
-    ownedAuth ? 'PHASE7' : 'LEGACY'
-  )
+  const repository = createPrismaDashboardInsightsRepository(client)
   const principalService = {
     getAuthenticatedUser: async () => (authenticated ? user : null),
     resolveAuthenticatedUser: vi.fn(async () => ({
       clearSessionCookie: false,
       headers: new Headers(),
       ...(authenticated && hasSessionProof
-        ? { phase7Session: sessionProof }
+        ? { ownedSessionProof: sessionProof }
         : {}),
       user: authenticated ? user : null
     }))
@@ -186,14 +166,10 @@ const createHarness = ({
 }
 
 describe('dashboard insights authentication authority', () => {
-  it.each([
-    ['test', 'disabled'],
-    ['production', 'disabled'],
-    ['test', 'technical']
-  ] as const)(
-    'uses owned session authority for %s with CMS %s',
-    async (nodeEnvironment, cms) => {
-      const harness = createHarness({ nodeEnvironment, cms })
+  it.each(['test', 'production'] as const)(
+    'uses owned session authority for %s',
+    async (nodeEnvironment) => {
+      const harness = createHarness({ nodeEnvironment })
       const response = await harness.app.request('/api/v1/dashboard/insights')
       expect(response.status).toBe(200)
       expect(response.headers.get('cache-control')).toBe('private, no-store')
@@ -206,16 +182,16 @@ describe('dashboard insights authentication authority', () => {
       expect(harness.transact).toHaveBeenCalledOnce()
       expect(harness.readOnly).toHaveBeenCalledOnce()
       const statement = harness.query.mock.calls[0]?.[0] as Prisma.Sql
-      expect(statement.text).toContain('phase7_resolve_v1_principal')
+      expect(statement.text).toContain('JOIN "Session" AS session')
       expect(statement.values.includes(sessionProof.token)).toBe(true)
       expect(statement.values.includes(userId)).toBe(true)
     }
   )
 
-  it.each(['disabled', 'technical'] as const)(
-    'rejects an owned USER without session proof when CMS is %s',
-    async (cms) => {
-      const harness = createHarness({ cms, hasSessionProof: false })
+  it.each(['test'] as const)(
+    'rejects an owned USER without session proof in %s',
+    async (nodeEnvironment) => {
+      const harness = createHarness({ nodeEnvironment, hasSessionProof: false })
       const response = await harness.app.request('/api/v1/dashboard/insights')
       expect(response.status).toBe(401)
       expect(await response.json()).toMatchObject({
@@ -240,7 +216,7 @@ describe('dashboard insights authentication authority', () => {
     ).toBe(true)
     expect(harness.query).toHaveBeenCalledOnce()
     const statement = harness.query.mock.calls[0]?.[0] as Prisma.Sql
-    expect(statement.text).toContain('phase7_resolve_v1_principal')
+    expect(statement.text).toContain('JOIN "Session" AS session')
   })
 
   it('denies a guest before entering the repository', async () => {
@@ -251,15 +227,5 @@ describe('dashboard insights authentication authority', () => {
       code: 'AUTHENTICATION_REQUIRED'
     })
     expect(harness.transact).not.toHaveBeenCalled()
-  })
-
-  it('retains the legacy-only authority branch', async () => {
-    const harness = createHarness({ ownedAuth: false, hasSessionProof: false })
-    const response = await harness.app.request('/api/v1/dashboard/insights')
-    expect(response.status).toBe(200)
-    getDashboardInsightsResponseSchema.parse(await response.json())
-    const statement = harness.query.mock.calls[0]?.[0] as Prisma.Sql
-    expect(statement.text).not.toContain('phase7_resolve_v1_principal')
-    expect(statement.text).toContain('"User"')
   })
 })

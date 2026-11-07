@@ -1,4 +1,6 @@
 import { spawn } from 'node:child_process'
+import { registerDatabaseCapability } from './databaseCapability.js'
+import { installAuditDigestSql } from '../../test/fixtures/db/auditDigestSql.js'
 import { randomBytes, randomUUID } from 'node:crypto'
 import {
   adminQuestionMutationResultSchema,
@@ -15,6 +17,11 @@ import {
 import { apiFailureSchema } from '@nihongo/contracts/common/error'
 import { hashPassword } from 'better-auth/crypto'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import {
+  bridgedQuery,
+  ownedSessionSql
+} from '../../test/fixtures/db/ownedSessionSql.js'
+import { signOutOwnedSession } from '../auth/ownedSessionAuthority.js'
 import { Client } from 'pg'
 import { createAdminReauthenticationService } from '../admin/adminReauthenticationService.js'
 import { createPrismaAdminQuestionCommandRepository } from '../admin/adminQuestionCommandRepository.js'
@@ -32,7 +39,6 @@ import {
   createOwnedPrincipalService,
   type PrincipalService
 } from '../auth/principalService.js'
-import { createPhase7ReauthenticationContext } from '../auth/reauthenticationContext.js'
 import {
   createSessionCookie,
   createDontRememberCookie,
@@ -56,13 +62,13 @@ import {
 } from './databaseOptions.js'
 import { stopOwnedProcesses } from '../e2e/ownedProcessGroup.js'
 
-const password = 'Phase7-real-reauthentication-2026!'
+const password = 'Test-real-reauthentication-2026!'
 const environment = parseApiEnvironment(process.env)
 const schema = getPostgresSchema(environment.DATABASE_URL)
-const adminDatabaseUrl = process.env.PHASE7_ADMIN_DATABASE_URL
-const authGatewayDatabaseUrl = environment.AUTH_GATEWAY_DATABASE_URL
-if (!schema || !adminDatabaseUrl || !authGatewayDatabaseUrl) {
-  throw new Error('Phase 7 reauthentication service DB URLs are required.')
+const adminDatabaseUrl = process.env.ADMIN_DATABASE_URL
+const appFixtureDatabaseUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
+if (!schema || !adminDatabaseUrl || !appFixtureDatabaseUrl) {
+  throw new Error('Reauthentication service DB URLs are required.')
 }
 
 const adminUrl = new URL(adminDatabaseUrl)
@@ -76,26 +82,28 @@ const createAdminClient = (): Client =>
 const adminClient = createAdminClient()
 const adminControlClient = createAdminClient()
 const gatewayRuntime = createRoleDatabaseRuntime(
-  authGatewayDatabaseUrl,
-  'nihongo_auth_gateway'
+  appFixtureDatabaseUrl,
+  'nihongo_app'
 )
 const applicationRuntime = createRoleDatabaseRuntime(
   environment.DATABASE_URL,
   'nihongo_app'
 )
-const gatewayUrl = new URL(authGatewayDatabaseUrl)
+// #504 P7 PR3b-1: re-authentication and authority races run as the runtime
+// role nihongo_app, which also executes the gateway facades since PR1.
+const gatewayUrl = new URL(environment.DATABASE_URL)
 gatewayUrl.searchParams.delete('schema')
 gatewayUrl.searchParams.delete('options')
 const createGatewayClient = (): Client =>
   new Client({
     connectionString: gatewayUrl.toString(),
-    options: createPostgresStartupOptions(schema, 'nihongo_auth_gateway')
+    options: createPostgresStartupOptions(schema, 'nihongo_app')
   })
 const gatewayClientA = createGatewayClient()
 const gatewayClientB = createGatewayClient()
 
 const withRole = async <Result>(
-  role: 'nihongo_auth_gateway' | 'nihongo_phase7_migration',
+  role: 'nihongo_app' | 'nihongo_auth_gateway' | 'nihongo_migration',
   action: () => Promise<Result>
 ): Promise<Result> => {
   await adminClient.query(`SET ROLE "${role}"`)
@@ -120,7 +128,7 @@ const insertFixtureAdmin = async (
          "id", "name", "email", "emailVerified", "role",
          "accountStatus", "createdAt", "updatedAt"
        ) VALUES (
-         $1, 'Phase 7 real reauthentication', $2, true, 'ADMIN',
+         $1, 'Real reauthentication', $2, true, 'ADMIN',
          'ACTIVE', clock_timestamp(), clock_timestamp()
        )`,
       [userId, email]
@@ -151,18 +159,19 @@ const issueSession = async (
   userId: string,
   sessionId: string,
   token: string
-): Promise<{ expiresAt: Date; familyId: string }> => {
-  const result = await withRole('nihongo_auth_gateway', () =>
-    adminClient.query<{ expiresAt: Date; familyId: string }>(
-      `SELECT * FROM "phase7_issue_v1_session"(
+): Promise<{ expiresAt: Date }> => {
+  const result = await withRole('nihongo_app', () =>
+    ownedSessionSql<{ expiresAt: Date }>(
+      adminClient,
+      `SELECT * FROM "issue_v1_session"(
         $1, 1, 'ADMIN', 'ACTIVE', $2, $3,
-        '127.0.0.1', 'phase7-real-reauthentication', false
+        '127.0.0.1', 'test-real-reauthentication', false
       )`,
       [userId, sessionId, token]
     )
   )
   const row = result.rows[0]
-  if (!row) throw new Error('Phase 7 real Session was not issued.')
+  if (!row) throw new Error('Real Session was not issued.')
   return row
 }
 
@@ -173,8 +182,8 @@ const createFixture = async (
   const sessionId: string = randomUUID()
   const accountId = randomUUID()
   const requestId = randomUUID()
-  const token = `phase7-real-old-${randomUUID()}`
-  const email = `phase7-real-${randomUUID()}@example.test`
+  const token = `test-real-old-${randomUUID()}`
+  const email = `test-real-${randomUUID()}@example.test`
   const passwordHash = await hashPassword(password)
   await insertFixtureAdmin(userId, accountId, email, passwordHash, provider)
   const session = await issueSession(userId, sessionId, token)
@@ -189,11 +198,10 @@ const createFixture = async (
     Cookie: cookie.split(';')[0]!,
     Origin: environment.TRUSTED_ORIGINS[0]!,
     'X-Request-Id': requestId,
-    'User-Agent': 'phase7-real-reauthentication'
+    'User-Agent': 'test-real-reauthentication'
   })
   return {
     email,
-    familyId: session.familyId,
     headers,
     passwordHash,
     requestId,
@@ -206,7 +214,7 @@ const createFixture = async (
 const completeSsoFresh = async (
   fixture: Awaited<ReturnType<typeof createFixture>>
 ) => {
-  const port = createSsoAdminFreshRepository(gatewayRuntime.client)
+  const port = createSsoAdminFreshRepository(applicationRuntime.client)
   const context = await port.prepare(fixture.token, 'google')
   if (!context) throw new Error('SSO fresh fixture preparation failed.')
   expect(context.userId).toBe(fixture.userId)
@@ -218,7 +226,7 @@ const completeSsoFresh = async (
         provider: 'google',
         accountId: context.accountId,
         email: fixture.email,
-        name: 'Phase 7 SSO fresh fixture'
+        name: 'SSO fresh fixture'
       },
       ssoTransactionDigest(rawProof),
       '/admin/questions'
@@ -270,11 +278,10 @@ const completeSsoFresh = async (
   if (!parsed.token) throw new Error('SSO fresh fixture cookie is unavailable.')
   const session = await adminClient.query<{
     id: string
-    familyId: string
     createdAt: Date
     expiresAt: Date
   }>(
-    `SELECT "id", "sessionFamilyId" AS "familyId", "createdAt", "expiresAt"
+    `SELECT "id", "createdAt", "expiresAt"
      FROM "Session" WHERE "token" = $1 AND "userId" = $2`,
     [parsed.token, fixture.userId]
   )
@@ -298,7 +305,6 @@ const completeSsoFresh = async (
     createdAt: current.createdAt,
     fixture: {
       ...fixture,
-      familyId: current.familyId,
       sessionId: current.id,
       token: parsed.token,
       headers: replacementHeaders
@@ -358,7 +364,7 @@ const moveSessionNearFreshCutoffForTesting = async (
       [rawSessionToken, millisecondsUntilCutoff]
     )
     if (result.rows[0]?.preservesLifetime !== true) {
-      throw new Error('Phase 7 A2 Session lifetime was not preserved.')
+      throw new Error('A2 Session lifetime was not preserved.')
     }
     await adminControlClient.query('COMMIT')
     return result.rowCount
@@ -377,7 +383,7 @@ const loadActiveSessionToken = async (userId: string): Promise<string> => {
   )
   const row = result.rows[0]
   if (!row || result.rows.length !== 1) {
-    throw new Error('Phase 7 active replacement Session is unavailable.')
+    throw new Error('Active replacement Session is unavailable.')
   }
   return row.token
 }
@@ -397,7 +403,7 @@ const waitForBlockedContentReviewInsert = async (
     if (result.rows.length === 1) return
     await new Promise((resolve) => setTimeout(resolve, 25))
   }
-  throw new Error('Phase 7 A2 command did not reach its post-write block.')
+  throw new Error('A2 command did not reach its post-write block.')
 }
 
 const waitForSessionFreshCutoff = async (
@@ -413,7 +419,7 @@ const waitForSessionFreshCutoff = async (
     if (result.rows[0]?.reached === true) return
     await new Promise((resolve) => setTimeout(resolve, 25))
   }
-  throw new Error('Phase 7 A2 Session did not reach the fresh cutoff.')
+  throw new Error('A2 Session did not reach the fresh cutoff.')
 }
 
 type TestAdminQuestionCommandService = AdminQuestionCommandService &
@@ -486,29 +492,29 @@ const loadA2Content = async (
     questionType: string
     subject: string
   }>(
-    `SELECT tag."label", applicability."level"::text AS level,
-       applicability."subject"::text AS subject,
-       applicability."questionType"::text AS "questionType"
+    `SELECT tag."label", version."level"::text AS level,
+       version."subject"::text AS subject,
+       version."questionType"::text AS "questionType"
      FROM "Tag" AS tag
-     JOIN "TagApplicability" AS applicability
-       ON applicability."tagId" = tag."id"
-      AND applicability."level" = 'N5'
-      AND applicability."subject" = 'VOCABULARY'
-      AND applicability."questionType" = 'KANJI_READING'
-     ORDER BY tag."normalizedName", applicability."level",
-       applicability."subject", applicability."questionType"
+     JOIN "QuestionVersionTag" AS assignment ON assignment."tagId" = tag."id"
+     JOIN "QuestionVersion" AS version
+       ON version."id" = assignment."questionVersionId"
+      AND version."level" = 'N5'
+      AND version."subject" = 'VOCABULARY'
+      AND version."questionType" = 'KANJI_READING'
+     ORDER BY tag."normalizedName"
      LIMIT 1`
   )
   const tag = result.rows[0]
-  if (!tag) throw new Error('Phase 7 A2 tag fixture is unavailable.')
+  if (!tag) throw new Error('A2 tag fixture is unavailable.')
   return createAdminQuestionRequestSchema.parse({
     level: tag.level,
     subject: tag.subject,
     questionType: tag.questionType,
     difficulty: 'NORMAL',
-    questionText: `Phase 7 A2 실제 승인 문제 ${suffix}`,
+    questionText: `A2 실제 승인 문제 ${suffix}`,
     passage: null,
-    explanationKo: `Phase 7 A2 실제 승인 해설 ${suffix}`,
+    explanationKo: `A2 실제 승인 해설 ${suffix}`,
     explanationJa: null,
     tagNames: [tag.label],
     options: [
@@ -536,7 +542,7 @@ const prepareA2InReviewVersion = async (input: {
   )
   const versionId = created.questionVersionId
   if (!versionId || created.versionRowVersion === null) {
-    throw new Error('Phase 7 A2 created version is unavailable.')
+    throw new Error('A2 created version is unavailable.')
   }
   const reviewRequest = requestContentReviewRequestSchema.parse({
     expectedRowVersion: created.versionRowVersion,
@@ -552,7 +558,7 @@ const prepareA2InReviewVersion = async (input: {
     reviewRequest
   )
   if (inReview.versionRowVersion === null) {
-    throw new Error('Phase 7 A2 in-review rowVersion is unavailable.')
+    throw new Error('A2 in-review rowVersion is unavailable.')
   }
   return {
     questionId: created.questionId,
@@ -610,7 +616,7 @@ const readA2Evidence = async (versionId: string) => {
     `SELECT "command"::text AS command, "beforeState", "afterState",
        "beforeRowVersion", "afterRowVersion", "changedFields",
        "metadata", "operationId", "requestId",
-       "contentDigest" = "phase7_admin_audit_content_digest"(
+       "contentDigest" = pg_temp."admin_audit_content_digest"(
          "operationId", "command", "targetType", "targetId",
          "beforeState", "afterState", "beforeRowVersion",
          "afterRowVersion", "changedFields", "metadata"
@@ -633,7 +639,7 @@ const readA2IntentCount = async (
 ): Promise<number> =>
   (
     await adminClient.query<{ count: number }>(
-      `SELECT COUNT(*)::int AS count FROM "Phase7OperationIntent"
+      `SELECT COUNT(*)::int AS count FROM "OperationIntent"
        WHERE "requestId" = ANY($1::uuid[])`,
       [requestIds]
     )
@@ -692,7 +698,7 @@ const readSlice4State = async (questionId: string, versionId: string) => {
     `SELECT "command"::text AS command, "targetId", "beforeState",
        "afterState", "beforeRowVersion", "afterRowVersion", "changedFields",
        "metadata", "requestId",
-       "contentDigest" = "phase7_admin_audit_content_digest"(
+       "contentDigest" = pg_temp."admin_audit_content_digest"(
          "operationId", "command", "targetType", "targetId",
          "beforeState", "afterState", "beforeRowVersion",
          "afterRowVersion", "changedFields", "metadata"
@@ -716,18 +722,20 @@ const prepareAndStage = async (
   const intentId = randomUUID()
   const requestId = randomUUID()
   const newSessionId = randomUUID()
-  const newToken = `phase7-real-new-${randomUUID()}`
-  const prepared = await gatewayClientA.query<{ intentId: string }>(
-    `SELECT * FROM "phase7_prepare_reauthentication"(
+  const newToken = `test-real-new-${randomUUID()}`
+  const prepared = await ownedSessionSql(
+    gatewayClientA,
+    `SELECT * FROM "prepare_reauthentication"(
       $1, $2, $3, 'TEST', $4
     )`,
     [fixture.token, fixture.userId, requestId, intentId]
   )
   expect(prepared.rows).toEqual([expect.objectContaining({ intentId })])
-  const staged = await gatewayClientA.query<{ id: string }>(
-    `SELECT * FROM "phase7_stage_reauthentication_session"(
+  const staged = await ownedSessionSql(
+    gatewayClientA,
+    `SELECT * FROM "stage_reauthentication_session"(
       $1, $2, $3, $4, clock_timestamp() + INTERVAL '1 day',
-      '127.0.0.1', 'phase7-concurrency'
+      '127.0.0.1', 'test-concurrency'
     )`,
     [intentId, newSessionId, newToken, fixture.userId]
   )
@@ -741,66 +749,75 @@ const spawnStagedCrashWorker = async (
   const intentId = randomUUID()
   const requestId = randomUUID()
   const newSessionId = randomUUID()
-  const newToken = `phase7-crash-new-${randomUUID()}`
+  const newToken = `test-crash-new-${randomUUID()}`
   const prepareSql = JSON.stringify(
-    `SELECT * FROM "phase7_prepare_reauthentication"($1, $2, $3, 'TEST', $4)`
+    `SELECT * FROM "prepare_reauthentication"($1, $2, $3, 'TEST', $4)`
   )
   const stageSql = JSON.stringify(
-    `SELECT * FROM "phase7_stage_reauthentication_session"(
+    `SELECT * FROM "stage_reauthentication_session"(
       $1, $2, $3, $4, clock_timestamp() + INTERVAL '1 day',
-      '127.0.0.1', 'phase7-crash-worker'
+      '127.0.0.1', 'test-crash-worker'
     )`
   )
+  // #504 P7 PR3b-1: the worker runs the API prepare and stage steps as
+  // nihongo_app through the test bridge.
   const script = `
     import pg from 'pg'
+    import { ownedSessionSql } from './test/fixtures/db/ownedSessionSql.ts'
     const { Client } = pg
     process.on('SIGTERM', () => {})
-    const url = new URL(process.env.PHASE7_CRASH_DATABASE_URL)
+    const url = new URL(process.env.CRASH_DATABASE_URL)
     url.searchParams.delete('schema')
     url.searchParams.delete('options')
     const client = new Client({
       connectionString: url.toString(),
-      options: '-c search_path=' + process.env.PHASE7_CRASH_SCHEMA +
-        ' -c TimeZone=UTC -c role=nihongo_auth_gateway'
+      options: '-c search_path=' + process.env.CRASH_SCHEMA +
+        ' -c TimeZone=UTC -c role=nihongo_app'
     })
     await client.connect()
-    await client.query(
+    await ownedSessionSql(
+      client,
       ${prepareSql},
       [
-        process.env.PHASE7_CRASH_OLD_TOKEN,
-        process.env.PHASE7_CRASH_USER_ID,
-        process.env.PHASE7_CRASH_REQUEST_ID,
-        process.env.PHASE7_CRASH_INTENT_ID
+        process.env.CRASH_OLD_TOKEN,
+        process.env.CRASH_USER_ID,
+        process.env.CRASH_REQUEST_ID,
+        process.env.CRASH_INTENT_ID
       ]
     )
-    await client.query(
+    await ownedSessionSql(
+      client,
       ${stageSql},
       [
-        process.env.PHASE7_CRASH_INTENT_ID,
-        process.env.PHASE7_CRASH_SESSION_ID,
-        process.env.PHASE7_CRASH_NEW_TOKEN,
-        process.env.PHASE7_CRASH_USER_ID
+        process.env.CRASH_INTENT_ID,
+        process.env.CRASH_SESSION_ID,
+        process.env.CRASH_NEW_TOKEN,
+        process.env.CRASH_USER_ID
       ]
     )
     process.stdout.write(JSON.stringify({ event: 'staged' }) + '\\n')
     setInterval(() => {}, 1_000)
   `
-  const child = spawn(process.execPath, ['--input-type=module', '-e', script], {
-    cwd: process.cwd(),
-    detached: true,
-    env: {
-      ...process.env,
-      PHASE7_CRASH_DATABASE_URL: authGatewayDatabaseUrl,
-      PHASE7_CRASH_INTENT_ID: intentId,
-      PHASE7_CRASH_NEW_TOKEN: newToken,
-      PHASE7_CRASH_OLD_TOKEN: fixture.token,
-      PHASE7_CRASH_REQUEST_ID: requestId,
-      PHASE7_CRASH_SCHEMA: schema,
-      PHASE7_CRASH_SESSION_ID: newSessionId,
-      PHASE7_CRASH_USER_ID: fixture.userId
-    },
-    stdio: ['ignore', 'pipe', 'pipe']
-  })
+  const child = spawn(
+    process.execPath,
+    ['--import', 'tsx', '--input-type=module', '-e', script],
+    {
+      cwd: process.cwd(),
+      detached: true,
+      env: {
+        ...process.env,
+        CRASH_DATABASE_URL: environment.DATABASE_URL,
+        CRASH_INTENT_ID: intentId,
+        CRASH_NEW_TOKEN: newToken,
+        CRASH_OLD_TOKEN: fixture.token,
+        CRASH_REQUEST_ID: requestId,
+        CRASH_SCHEMA: schema,
+        CRASH_SESSION_ID: newSessionId,
+        CRASH_USER_ID: fixture.userId
+      },
+      stdio: ['ignore', 'pipe', 'pipe']
+    }
+  )
   try {
     await new Promise<void>((resolve, reject) => {
       let stdout = ''
@@ -835,7 +852,7 @@ const spawnStagedCrashWorker = async (
       })
     })
   } catch (error: unknown) {
-    await stopOwnedProcesses([{ child, label: 'phase7-crash-worker' }], {
+    await stopOwnedProcesses([{ child, label: 'test-crash-worker' }], {
       forceKillTimeoutMs: 2_000,
       gracefulTimeoutMs: 50
     }).catch(() => undefined)
@@ -847,12 +864,12 @@ const spawnStagedCrashWorker = async (
 const runStartupMaintenanceWorker = async (): Promise<void> => {
   const script = `
     import { createRoleDatabaseRuntime } from './src/db/database.ts'
-    import { runPhase7ReauthenticationStartupMaintenance } from './src/auth/reauthenticationStartupMaintenance.ts'
-    const databaseUrl = process.env.PHASE7_RESTART_DATABASE_URL
+    import { runReauthenticationStartupMaintenance } from './src/auth/reauthenticationStartupMaintenance.ts'
+    const databaseUrl = process.env.RESTART_DATABASE_URL
     if (!databaseUrl) throw new Error('Missing restart database URL.')
-    const runtime = createRoleDatabaseRuntime(databaseUrl, 'nihongo_auth_gateway')
+    const runtime = createRoleDatabaseRuntime(databaseUrl, 'nihongo_app')
     try {
-      await runPhase7ReauthenticationStartupMaintenance(runtime.client)
+      await runReauthenticationStartupMaintenance(runtime.client)
       process.stdout.write(JSON.stringify({ event: 'startup-maintenance-complete' }) + '\\n')
     } finally {
       await runtime.disconnect()
@@ -866,7 +883,7 @@ const runStartupMaintenanceWorker = async (): Promise<void> => {
       detached: true,
       env: {
         ...process.env,
-        PHASE7_RESTART_DATABASE_URL: authGatewayDatabaseUrl
+        RESTART_DATABASE_URL: environment.DATABASE_URL
       },
       stdio: ['ignore', 'pipe', 'pipe']
     }
@@ -908,34 +925,21 @@ const runStartupMaintenanceWorker = async (): Promise<void> => {
     })
   } catch (error: unknown) {
     await stopOwnedProcesses(
-      [{ child, label: 'phase7-startup-maintenance-worker' }],
+      [{ child, label: 'test-startup-maintenance-worker' }],
       { forceKillTimeoutMs: 2_000, gracefulTimeoutMs: 250 }
     ).catch(() => undefined)
     throw error
   }
 }
 
-const createService = () =>
-  createAdminReauthenticationService({
-    auditEnvironment: 'TEST',
-    authApi: {
-      verifyPassword: async () => {
-        throw new Error('Retired password verification must not run.')
-      },
-      signInEmail: async () => {
-        throw new Error('Retired password sign-in must not run.')
-      }
-    },
-    client: gatewayRuntime.client,
-    context: createPhase7ReauthenticationContext()
-  })
+const createService = () => createAdminReauthenticationService()
 
 const createTestHonoApp = ({
   commandService,
   principalService = createOwnedPrincipalService({
     client: applicationRuntime.client,
     isProduction: environment.NODE_ENV === 'production',
-    refreshClient: gatewayRuntime.client,
+    refreshClient: applicationRuntime.client,
     secret: environment.BETTER_AUTH_SECRET
   }),
   service
@@ -986,7 +990,7 @@ const createTestHonoApp = ({
       gateway: createSsoAuthentication({
         environment,
         applicationClient: applicationRuntime.client,
-        gatewayClient: gatewayRuntime.client,
+        gatewayClient: applicationRuntime.client,
         rateLimiter: { consume: async () => undefined },
         providers: {}
       }).gateway,
@@ -1043,7 +1047,6 @@ const readWriteSnapshot = async () =>
   (
     await adminClient.query<{
       auditCount: number
-      fenceCount: number
       intentCount: number
       rateLimitCount: number
       sessionCount: number
@@ -1051,38 +1054,23 @@ const readWriteSnapshot = async () =>
     }>(
       `SELECT
          (SELECT COUNT(*)::int FROM "Session") AS "sessionCount",
-         (SELECT COUNT(*)::int FROM "Phase7ReauthenticationIntent")
+         (SELECT COUNT(*)::int FROM "ReauthenticationIntent")
            AS "intentCount",
-         (SELECT COUNT(*)::int FROM "AuthSessionRotationFence")
-           AS "fenceCount",
          (SELECT COUNT(*)::int FROM "AdminAuditLog") AS "auditCount",
          (SELECT COUNT(*)::int FROM "RateLimit") AS "rateLimitCount",
-         (SELECT COUNT(*)::int FROM "Phase7TrustedExecution")
+         0 /* #504 P7 PR5b dropped TrustedExecution */
            AS "trustedExecutionCount"`
     )
   ).rows[0]
 
 beforeAll(async () => {
   await Promise.all([adminClient.connect(), adminControlClient.connect()])
+  // #504 P7 PR5b: the SQL audit digest is a test fixture now.
+  await installAuditDigestSql(adminClient)
   await Promise.all([gatewayClientA.connect(), gatewayClientB.connect()])
-  const endpoint = await adminClient.query<{
-    databaseName: string
-    serverAddress: string
-    serverPort: number
-  }>(
-    `SELECT current_database() AS "databaseName",
-       inet_server_addr()::text AS "serverAddress",
-       inet_server_port() AS "serverPort"`
-  )
-  const target = endpoint.rows[0]
-  if (!target) throw new Error('Phase 7 DB endpoint is unavailable.')
-  await withRole('nihongo_phase7_migration', () =>
-    adminClient.query(
-      `SELECT "phase7_register_database_capability"(
-        $1, $2::inet, $3, 'TEST'
-      )`,
-      [target.databaseName, target.serverAddress, target.serverPort]
-    )
+  // #504 P8-1: the baseline starts with V1 issuance active.
+  await withRole('nihongo_migration', () =>
+    registerDatabaseCapability(adminClient, 'TEST')
   )
 })
 
@@ -1095,7 +1083,7 @@ afterAll(async () => {
   await Promise.all([adminClient.end(), adminControlClient.end()])
 })
 
-describe('Phase 7 SSO fresh and retired password boundary with real SQL invariants', () => {
+describe('SSO fresh and retired password boundary with real SQL invariants', () => {
   it('retired password 재인증 POST는404/no-cookie/no-auth-write로 종료한다', async () => {
     const fixture = await createFixture('google')
     const app = createTestHonoApp({ service: createService() })
@@ -1138,7 +1126,6 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
     const proof = await adminClient.query<{
       auditBeforeState: string
       auditCount: number
-      fenceCount: number
       intentState: string
       oldSessionCount: number
       replacementCount: number
@@ -1147,23 +1134,19 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
          (SELECT COUNT(*)::int FROM "Session" WHERE "id" = $1)
            AS "oldSessionCount",
          (SELECT COUNT(*)::int
-          FROM "Phase7ReauthenticationIntent" AS intent
+          FROM "ReauthenticationIntent" AS intent
           JOIN "Session" AS session ON session."id" = intent."stagedSessionId"
           WHERE intent."id" = $2
             AND intent."state" = 'FINALIZED'
             AND session."authorizationState" = 'ACTIVE')
            AS "replacementCount",
-         (SELECT "state"::text FROM "Phase7ReauthenticationIntent"
+         (SELECT "state"::text FROM "ReauthenticationIntent"
           WHERE "id" = $2) AS "intentState",
-         (SELECT COUNT(*)::int FROM "AuthSessionRotationFence" AS fence
-          JOIN "Phase7ReauthenticationIntent" AS intent
-            ON intent."operationId" = fence."operationId"
-          WHERE intent."id" = $2) AS "fenceCount",
          (SELECT COUNT(*)::int FROM "AdminAuditLog"
-          WHERE "requestId" = (SELECT "requestId" FROM "Phase7ReauthenticationIntent" WHERE "id" = $2) AND "command" = 'REAUTHENTICATION')
+          WHERE "requestId" = (SELECT "requestId" FROM "ReauthenticationIntent" WHERE "id" = $2) AND "command" = 'REAUTHENTICATION')
            AS "auditCount",
          (SELECT "beforeState" FROM "AdminAuditLog"
-          WHERE "requestId" = (SELECT "requestId" FROM "Phase7ReauthenticationIntent" WHERE "id" = $2) AND "command" = 'REAUTHENTICATION')
+          WHERE "requestId" = (SELECT "requestId" FROM "ReauthenticationIntent" WHERE "id" = $2) AND "command" = 'REAUTHENTICATION')
            AS "auditBeforeState"`,
       [fixture.sessionId, completed.context.intentId]
     )
@@ -1171,7 +1154,6 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
       {
         auditBeforeState: 'SESSION_STALE',
         auditCount: 1,
-        fenceCount: 1,
         intentState: 'FINALIZED',
         oldSessionCount: 0,
         replacementCount: 1
@@ -1256,12 +1238,21 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
       requestId: revokedOldCookieApproval.requestId,
       retryable: false
     })
-    const revokedOldCookieClears =
-      revokedOldCookieApproval.response.headers.getSetCookie()
-    expect(revokedOldCookieClears).toHaveLength(2)
-    expect(
-      revokedOldCookieClears.every((cookie) => cookie.includes('Max-Age=0'))
-    ).toBe(true)
+    // The rotated cookie's 401 must not clear the replacement cookie.
+    expect(revokedOldCookieApproval.response.headers.getSetCookie()).toEqual([])
+    for (const pathname of ['/api/v1/admin/questions', '/api/v1/me']) {
+      const revokedOldCookieRead = await app.request(
+        `http://localhost:3001${pathname}`,
+        { headers: new Headers(reviewer.headers) }
+      )
+      expect(revokedOldCookieRead.status).toBe(
+        pathname === '/api/v1/me' ? 200 : 401
+      )
+      if (pathname === '/api/v1/me') {
+        expect(await revokedOldCookieRead.json()).toEqual({ kind: 'GUEST' })
+      }
+      expect(revokedOldCookieRead.headers.getSetCookie()).toEqual([])
+    }
     expect(await readA2Evidence(target.versionId)).toEqual(beforeSelfApproval)
     expect(await readA2IntentCount([revokedOldCookieApproval.requestId])).toBe(
       0
@@ -1463,7 +1454,7 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
       )
       const blockingBackendPid = blockingBackend.rows[0]?.pid
       if (blockingBackendPid === undefined) {
-        throw new Error('Phase 7 A2 blocker backend pid is unavailable.')
+        throw new Error('A2 blocker backend pid is unavailable.')
       }
       expect(
         await moveSessionNearFreshCutoffForTesting(replacementRawToken, 1_000)
@@ -1484,7 +1475,7 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
       throw error
     }
     if (!lateFreshApprovalPromise) {
-      throw new Error('Phase 7 A2 late-fresh request was not started.')
+      throw new Error('A2 late-fresh request was not started.')
     }
     const lateFreshApproval = await lateFreshApprovalPromise
     expect(lateFreshApproval.response.status).toBe(401)
@@ -1831,8 +1822,9 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
     })
     await missingBarrier.waitForPreflight()
     try {
-      await gatewayClientA.query(
-        `SELECT "phase7_change_user_authority"(
+      await bridgedQuery(
+        gatewayClientA,
+        `SELECT "change_user_authority"(
           $1, $2, 1, 'USER', 'ACTIVE', 'TEST'
         )`,
         [authorityOperator.token, roleLossReviewer.userId]
@@ -1929,7 +1921,6 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
 
     const proof = await adminClient.query<{
       auditCount: number
-      fenceCount: number
       intentCount: number
       oldActiveCount: number
     }>(
@@ -1937,12 +1928,8 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
          (SELECT COUNT(*)::int FROM "Session"
           WHERE "id" = $1 AND "authorizationState" = 'ACTIVE')
            AS "oldActiveCount",
-         (SELECT COUNT(*)::int FROM "Phase7ReauthenticationIntent"
+         (SELECT COUNT(*)::int FROM "ReauthenticationIntent"
           WHERE "requestId" = $2) AS "intentCount",
-         (SELECT COUNT(*)::int FROM "AuthSessionRotationFence" AS fence
-          JOIN "Phase7ReauthenticationIntent" AS intent
-            ON intent."operationId" = fence."operationId"
-          WHERE intent."requestId" = $2) AS "fenceCount",
          (SELECT COUNT(*)::int FROM "AdminAuditLog"
           WHERE "requestId" = $2 AND "command" = 'REAUTHENTICATION')
            AS "auditCount"`,
@@ -1951,7 +1938,6 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
     expect(proof.rows).toEqual([
       {
         auditCount: 0,
-        fenceCount: 0,
         intentCount: 0,
         oldActiveCount: 1
       }
@@ -1988,9 +1974,7 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
     }
 
     const logoutTarget = await createFixture()
-    await gatewayClientA.query(`SELECT "phase7_owned_sign_out"($1)`, [
-      logoutTarget.token
-    ])
+    await signOutOwnedSession(applicationRuntime.client, logoutTarget.token)
     const logoutResponse = await post(logoutTarget)
     expect(logoutResponse.status).toBe(401)
     expect(
@@ -2000,17 +1984,13 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
       requestId: logoutTarget.requestId,
       retryable: false
     })
-    expect(logoutResponse.headers.getSetCookie()).toHaveLength(2)
-    expect(
-      logoutResponse.headers
-        .getSetCookie()
-        .every((cookie) => cookie.includes('Max-Age=0'))
-    ).toBe(true)
+    expect(logoutResponse.headers.getSetCookie()).toEqual([])
 
     const roleTarget = await createFixture()
     const operator = await createFixture()
-    await gatewayClientA.query(
-      `SELECT "phase7_change_user_authority"(
+    await bridgedQuery(
+      gatewayClientA,
+      `SELECT "change_user_authority"(
         $1, $2, 1, 'USER', 'ACTIVE', 'TEST'
       )`,
       [operator.token, roleTarget.userId]
@@ -2024,22 +2004,15 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
       requestId: roleTarget.requestId,
       retryable: false
     })
-    expect(roleResponse.headers.getSetCookie()).toHaveLength(2)
-    expect(
-      roleResponse.headers
-        .getSetCookie()
-        .every((cookie) => cookie.includes('Max-Age=0'))
-    ).toBe(true)
+    expect(roleResponse.headers.getSetCookie()).toEqual([])
 
     const classifierTarget = await createFixture()
-    await gatewayClientA.query(`SELECT "phase7_owned_sign_out"($1)`, [
-      classifierTarget.token
-    ])
+    await signOutOwnedSession(applicationRuntime.client, classifierTarget.token)
     const classifierFailureQuery = async <QueryResult>(
       query: string,
       ...values: unknown[]
     ): Promise<QueryResult> => {
-      if (query.includes('phase7_classify_admin_authority')) {
+      if (query.includes('classify_admin_authority')) {
         throw new Error('injected classifier failure')
       }
       return await applicationRuntime.client.$queryRawUnsafe<QueryResult>(
@@ -2052,7 +2025,7 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
         $queryRawUnsafe: classifierFailureQuery
       } as unknown as Pick<PrismaClient, '$queryRawUnsafe'>,
       isProduction: environment.NODE_ENV === 'production',
-      refreshClient: gatewayRuntime.client,
+      refreshClient: applicationRuntime.client,
       secret: environment.BETTER_AUTH_SECRET
     })
     const classifierResponse = await post(
@@ -2071,17 +2044,18 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
     expect(classifierResponse.headers.getSetCookie()).toHaveLength(0)
   })
 
-  it('finalize와 logout/role-change 경합은 revoked authority 뒤 active Session 0으로 선형화된다', async () => {
+  it('finalize와 logout/role-change 경합은 옛 Session을 남기지 않고 revoked authority로 선형화된다', async () => {
     const logoutTarget = await createFixture()
     const logoutStage = await prepareAndStage(logoutTarget)
     const [logoutFinalize, logout] = await Promise.allSettled([
-      gatewayClientA.query(
-        `SELECT * FROM "phase7_finalize_reauthentication"($1, $2)`,
+      ownedSessionSql(
+        gatewayClientA,
+        `SELECT * FROM "finalize_reauthentication"($1, $2)`,
         [logoutStage.intentId, logoutStage.newToken]
       ),
-      gatewayClientB.query(`SELECT "phase7_owned_sign_out"($1) AS result`, [
-        logoutTarget.token
-      ])
+      signOutOwnedSession(applicationRuntime.client, logoutTarget.token).then(
+        (result) => ({ rows: [{ result }] })
+      )
     ])
     expect(logout.status).toBe('fulfilled')
     if (logout.status === 'fulfilled') {
@@ -2092,35 +2066,42 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
         (logoutFinalize.reason as { code?: unknown }).code
       )
     }
+    // #504 P7 PR4b-1 (fence option A): the old Session is gone either way. If
+    // finalize won, the replacement stays; the old token no longer reaches it.
     expect(
       (
         await adminClient.query<{
           activeCount: number
-          familyStatus: string
-          sessionCount: number
+          oldSessionCount: number
         }>(
-          `SELECT family."status"::text AS "familyStatus",
+          `SELECT
+             (SELECT COUNT(*)::int FROM "Session" WHERE "id" = $2)
+               AS "oldSessionCount",
              (SELECT COUNT(*)::int FROM "Session"
-              WHERE "sessionFamilyId" = family."id") AS "sessionCount",
-             (SELECT COUNT(*)::int FROM "Session"
-              WHERE "sessionFamilyId" = family."id"
-                AND "authorizationState" = 'ACTIVE') AS "activeCount"
-           FROM "AuthSessionFamily" AS family WHERE family."id" = $1`,
-          [logoutTarget.familyId]
+              WHERE "userId" = $1 AND "authorizationState" = 'ACTIVE')
+               AS "activeCount"`,
+          [logoutTarget.userId, logoutTarget.sessionId]
         )
       ).rows
-    ).toEqual([{ activeCount: 0, familyStatus: 'REVOKED', sessionCount: 0 }])
+    ).toEqual([
+      {
+        activeCount: logoutFinalize.status === 'fulfilled' ? 1 : 0,
+        oldSessionCount: 0
+      }
+    ])
 
     const authorityTarget = await createFixture()
     const authorityStage = await prepareAndStage(authorityTarget)
     const operator = await createFixture()
     const [authorityFinalize, authorityChange] = await Promise.allSettled([
-      gatewayClientA.query(
-        `SELECT * FROM "phase7_finalize_reauthentication"($1, $2)`,
+      ownedSessionSql(
+        gatewayClientA,
+        `SELECT * FROM "finalize_reauthentication"($1, $2)`,
         [authorityStage.intentId, authorityStage.newToken]
       ),
-      gatewayClientB.query(
-        `SELECT "phase7_change_user_authority"(
+      bridgedQuery(
+        gatewayClientB,
+        `SELECT "change_user_authority"(
           $1, $2, 1, 'USER', 'ACTIVE', 'TEST'
         ) AS generation`,
         [operator.token, authorityTarget.userId]
@@ -2154,233 +2135,12 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
     ).toEqual([{ activeCount: 0, generation: 2, role: 'USER' }])
   })
 
-  it('password change와 finalize 경합은 성공한 winner에 맞는 단일 안전 상태만 남긴다', async () => {
-    const fixture = await createFixture()
-    const staged = await prepareAndStage(fixture)
-    const nextHash = await hashPassword(`${password}-next`)
-    const [finalization, passwordChange] = await Promise.allSettled([
-      gatewayClientA.query(
-        `SELECT * FROM "phase7_finalize_reauthentication"($1, $2)`,
-        [staged.intentId, staged.newToken]
-      ),
-      gatewayClientB.query<{ changed: boolean }>(
-        `SELECT "phase7_change_password_v1"($1, $2, $3) AS changed`,
-        [fixture.token, fixture.passwordHash, nextHash]
-      )
-    ])
-    expect(passwordChange.status).toBe('fulfilled')
-    if (passwordChange.status !== 'fulfilled') return
-    const changed = passwordChange.value.rows[0]?.changed === true
-    const state = await adminClient.query<{
-      activeCount: number
-      familyStatus: string
-    }>(
-      `SELECT family."status"::text AS "familyStatus",
-         (SELECT COUNT(*)::int FROM "Session"
-          WHERE "sessionFamilyId" = family."id"
-            AND "authorizationState" = 'ACTIVE') AS "activeCount"
-       FROM "AuthSessionFamily" AS family WHERE family."id" = $1`,
-      [fixture.familyId]
-    )
-    if (changed) {
-      expect(state.rows).toEqual([{ activeCount: 0, familyStatus: 'REVOKED' }])
-      expect(finalization.status).toBe('rejected')
-    } else {
-      expect(finalization.status).toBe('fulfilled')
-      expect(state.rows).toEqual([{ activeCount: 1, familyStatus: 'ACTIVE' }])
-    }
-  })
-
-  it('password reset과 finalize 경합은 reset generation만 남기고 모든 Session을 닫는다', async () => {
-    const fixture = await createFixture()
-    const staged = await prepareAndStage(fixture)
-    const resetToken = `phase7-reset-race-${randomUUID()}`
-    const resetVerificationId = randomUUID()
-    await expect(
-      gatewayClientB.query<{ issued: boolean }>(
-        `SELECT "phase7_request_password_reset"($1, $2, $3) AS issued`,
-        [fixture.email, resetVerificationId, resetToken]
-      )
-    ).resolves.toMatchObject({ rows: [{ issued: true }] })
-    const nextHash = await hashPassword(`${password}-reset`)
-    const adminBackend = await adminClient.query<{ pid: number }>(
-      `SELECT pg_backend_pid() AS pid`
-    )
-    const gatewayBackendA = await gatewayClientA.query<{ pid: number }>(
-      `SELECT pg_backend_pid() AS pid`
-    )
-    const gatewayBackendB = await gatewayClientB.query<{ pid: number }>(
-      `SELECT pg_backend_pid() AS pid`
-    )
-    const adminPid = adminBackend.rows[0]?.pid
-    const gatewayPids = [
-      gatewayBackendA.rows[0]?.pid,
-      gatewayBackendB.rows[0]?.pid
-    ]
-    if (
-      adminPid === undefined ||
-      gatewayPids.some((pid) => pid === undefined)
-    ) {
-      throw new Error('Phase 7 reset race backend pid is unavailable.')
-    }
-
-    const finalizationQuery = () =>
-      gatewayClientA.query(
-        `SELECT * FROM "phase7_finalize_reauthentication"($1, $2)`,
-        [staged.intentId, staged.newToken]
-      )
-    const resetQuery = () =>
-      gatewayClientB.query<{
-        authorityGeneration: number
-        userId: string
-      }>(`SELECT * FROM "phase7_consume_password_reset"($1, $2)`, [
-        resetToken,
-        nextHash
-      ])
-
-    const runContendedRace = async () => {
-      await adminClient.query('BEGIN')
-      let finalizationPromise: ReturnType<typeof finalizationQuery> | undefined
-      let resetPromise: ReturnType<typeof resetQuery> | undefined
-      try {
-        await adminClient.query(
-          `SELECT 1 FROM "User" WHERE "id" = $1 FOR UPDATE`,
-          [fixture.userId]
-        )
-        finalizationPromise = finalizationQuery()
-        resetPromise = resetQuery()
-        let bothBlocked = false
-        for (let attempt = 0; attempt < 100; attempt += 1) {
-          const waits = await adminClient.query<{
-            blockerPids: number[]
-            pid: number
-            waitEventType: string | null
-          }>(
-            `SELECT activity.pid,
-               pg_blocking_pids(activity.pid) AS "blockerPids",
-               activity.wait_event_type AS "waitEventType"
-             FROM pg_stat_activity AS activity
-             WHERE activity.pid = ANY($1::int[])
-             ORDER BY activity.pid`,
-            [gatewayPids]
-          )
-          const allowedBlockers = new Set([adminPid, ...gatewayPids])
-          bothBlocked =
-            waits.rows.length === 2 &&
-            waits.rows.every(
-              (row) =>
-                row.waitEventType === 'Lock' &&
-                row.blockerPids.length > 0 &&
-                row.blockerPids.every((pid) => allowedBlockers.has(pid))
-            ) &&
-            waits.rows.some((row) => row.blockerPids.includes(adminPid))
-          if (bothBlocked) break
-          await new Promise((resolve) => setTimeout(resolve, 20))
-        }
-        expect(bothBlocked).toBe(true)
-        await adminClient.query('COMMIT')
-        if (!finalizationPromise || !resetPromise) {
-          throw new Error('Phase 7 reset race queries were not started.')
-        }
-        return await Promise.allSettled([finalizationPromise, resetPromise])
-      } catch (error: unknown) {
-        await adminClient.query('ROLLBACK').catch(() => undefined)
-        await Promise.allSettled(
-          [finalizationPromise, resetPromise].filter(
-            (promise): promise is NonNullable<typeof promise> =>
-              promise !== undefined
-          )
-        )
-        throw error
-      }
-    }
-    const [finalization, reset] = await runContendedRace()
-    expect(reset.status).toBe('fulfilled')
-    if (reset.status === 'fulfilled') {
-      expect(reset.value.rows).toEqual([
-        { authorityGeneration: 2, userId: fixture.userId }
-      ])
-    }
-    if (finalization.status === 'rejected') {
-      expect(['40001', '42501']).toContain(
-        (finalization.reason as { code?: unknown }).code
-      )
-    }
-    const proof = await adminClient.query<{
-      activeFamilyCount: number
-      auditCount: number
-      authorityGeneration: number
-      fenceCount: number
-      intentState: string | null
-      password: string
-      sessionCount: number
-      trustedExecutionCount: number
-      verificationCount: number
-    }>(
-      `SELECT target_user."authorityGeneration",
-         credential."password",
-         (SELECT COUNT(*)::int FROM "Session"
-          WHERE "userId" = target_user."id") AS "sessionCount",
-         (SELECT COUNT(*)::int FROM "AuthSessionFamily"
-          WHERE "userId" = target_user."id" AND "status" = 'ACTIVE')
-           AS "activeFamilyCount",
-         (SELECT COUNT(*)::int FROM "Verification"
-          WHERE "resetUserId" = target_user."id") AS "verificationCount",
-         (SELECT "state"::text FROM "Phase7ReauthenticationIntent"
-          WHERE "id" = $2) AS "intentState",
-         (SELECT COUNT(*)::int FROM "AuthSessionRotationFence"
-          WHERE "operationId" = (
-            SELECT "operationId" FROM "Phase7ReauthenticationIntent"
-            WHERE "id" = $2
-          )) AS "fenceCount",
-         (SELECT COUNT(*)::int FROM "AdminAuditLog"
-          WHERE "operationId" = (
-            SELECT "operationId" FROM "Phase7ReauthenticationIntent"
-            WHERE "id" = $2
-          )) AS "auditCount",
-         (SELECT COUNT(*)::int FROM "Phase7TrustedExecution")
-           AS "trustedExecutionCount"
-       FROM "User" AS target_user
-       JOIN "Account" AS credential ON credential."userId" = target_user."id"
-        AND credential."providerId" = 'credential'
-       WHERE target_user."id" = $1`,
-      [fixture.userId, staged.intentId]
-    )
-    expect(proof.rows).toEqual([
-      {
-        activeFamilyCount: 0,
-        auditCount: finalization.status === 'fulfilled' ? 1 : 0,
-        authorityGeneration: 2,
-        fenceCount: finalization.status === 'fulfilled' ? 1 : 0,
-        intentState:
-          finalization.status === 'fulfilled' ? 'FINALIZED' : 'STAGED',
-        password: nextHash,
-        sessionCount: 0,
-        trustedExecutionCount: 0,
-        verificationCount: 0
-      }
-    ])
-    if (finalization.status === 'rejected') {
-      await expect(
-        gatewayClientA.query<{
-          aborted: boolean
-          outcome: string
-        }>(`SELECT * FROM "phase7_abort_reauthentication_classified"($1, $2)`, [
-          staged.intentId,
-          fixture.token
-        ])
-      ).resolves.toMatchObject({
-        rows: [{ aborted: true, outcome: 'AUTH_SESSION_EXPIRED' }]
-      })
-    }
-  })
-
   it('staged child process를 SIGKILL한 뒤 새 startup maintenance가 orphan을 제거한다', async () => {
     const fixture = await createFixture()
     const staged = await spawnStagedCrashWorker(fixture)
     let forceKillCount = 0
     await stopOwnedProcesses(
-      [{ child: staged.child, label: 'phase7-reauthentication-crash-worker' }],
+      [{ child: staged.child, label: 'test-reauthentication-crash-worker' }],
       {
         forceKillTimeoutMs: 1_000,
         gracefulTimeoutMs: 50,
@@ -2393,7 +2153,7 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
     await adminClient.query(`SET session_replication_role = replica`)
     try {
       await adminClient.query(
-        `UPDATE "Phase7ReauthenticationIntent"
+        `UPDATE "ReauthenticationIntent"
          SET "createdAt" = clock_timestamp() - INTERVAL '4 minutes',
              "expiresAt" = clock_timestamp() - INTERVAL '1 minute'
          WHERE "id" = $1`,
@@ -2412,7 +2172,7 @@ describe('Phase 7 SSO fresh and retired password boundary with real SQL invarian
           pendingCount: number
         }>(
           `SELECT
-             (SELECT COUNT(*)::int FROM "Phase7ReauthenticationIntent"
+             (SELECT COUNT(*)::int FROM "ReauthenticationIntent"
               WHERE "id" = $1) AS "intentCount",
              (SELECT COUNT(*)::int FROM "Session"
               WHERE "id" = $2 AND "authorizationState" = 'PENDING_REAUTH')

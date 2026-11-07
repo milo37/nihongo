@@ -20,6 +20,10 @@ export type AdminQuestionSort = 'UPDATED_DESC' | 'LEVEL_ASC'
 
 export const SORTS: readonly AdminQuestionSort[] = ['UPDATED_DESC', 'LEVEL_ASC']
 
+/** 100 lets a batch action take a whole contract-sized batch from one page. */
+export const PAGE_SIZES = [20, 100] as const
+export type AdminQuestionPageSize = (typeof PAGE_SIZES)[number]
+
 const LEVEL_SET: ReadonlySet<string> = new Set(LEVELS)
 const SUBJECT_SET: ReadonlySet<string> = new Set(SUBJECTS)
 const STATUS_SET: ReadonlySet<string> = new Set(
@@ -83,6 +87,8 @@ export const useQuestionListSearch = () => {
       ? 'LEVEL_ASC'
       : 'UPDATED_DESC'
   const page = parsePositiveInteger(searchParams.get('page'))
+  const pageSize: AdminQuestionPageSize =
+    searchParams.get('pageSize') === '100' ? 100 : 20
   const hasActiveFilters = Boolean(
     search ||
       level ||
@@ -104,7 +110,11 @@ export const useQuestionListSearch = () => {
   const setFilter = (key: string, value: string): void => {
     const nextParams = new URLSearchParams(searchParams)
 
-    if (value.length === 0 || (key === 'sort' && value === 'UPDATED_DESC')) {
+    if (
+      value.length === 0 ||
+      (key === 'sort' && value === 'UPDATED_DESC') ||
+      (key === 'pageSize' && value === '20')
+    ) {
       nextParams.delete(key)
     } else {
       nextParams.set(key, value)
@@ -132,6 +142,7 @@ export const useQuestionListSearch = () => {
     difficulty,
     sort,
     page,
+    pageSize,
     unsupportedSort,
     hasActiveFilters,
     searchParams,

@@ -1,4 +1,4 @@
-export type ApiIntegrationOwner = 'phase7-api' | 'phase7-db' | 'phase10'
+type ApiIntegrationOwner = 'api' | 'db' | 'shard'
 
 export interface ApiIntegrationManifestEntry {
   readonly path: `src/${string}.integration.test.ts`
@@ -15,16 +15,16 @@ export interface ApiIntegrationManifestEntry {
 export const apiIntegrationManifest = [
   {
     path: 'src/study/studyGuestCleanupWorker.integration.test.ts',
-    executionOwner: 'phase10',
+    executionOwner: 'shard',
     shard: 'current-guest-cleanup',
     order: 24,
-    databaseState: 'phase7-current-canonical-65',
+    databaseState: 'current-canonical-65',
     connectionRole: 'application',
     requiredEnvironment: [
       'GUEST_CLEANUP_DATABASE_URL',
       'GUEST_CLEANUP_FIXTURE_DATABASE_URL',
       'RUNTIME_DATABASE_URL',
-      'TEST_API_ERASURE_DATABASE_URL',
+      'TEST_APP_FIXTURE_DATABASE_URL',
       'GUEST_CLEANUP_TEST_ISOLATED'
     ],
     seedPolicy: 'canonical-once',
@@ -33,64 +33,64 @@ export const apiIntegrationManifest = [
   },
   {
     path: 'src/app/apiGate.integration.test.ts',
-    executionOwner: 'phase7-api',
-    shard: 'phase7-api-post-seed',
+    executionOwner: 'api',
+    shard: 'api-post-seed',
     order: 2,
-    databaseState: 'phase7-current-capability-active-canonical-65',
+    databaseState: 'current-capability-active-canonical-65',
     connectionRole: 'application',
-    requiredEnvironment: ['AUTH_GATEWAY_DATABASE_URL'],
+    requiredEnvironment: ['TEST_APP_FIXTURE_DATABASE_URL'],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 7 API schema'
+    isolation: 'dedicated API schema'
   },
   {
     path: 'src/admin/adminQuestionRepository.integration.test.ts',
-    executionOwner: 'phase7-api',
-    shard: 'phase7-api-pre-seed',
+    executionOwner: 'api',
+    shard: 'api-pre-seed',
     order: 1,
-    databaseState: 'phase7-prefix37-capability-active-empty',
+    databaseState: 'prefix37-capability-active-empty',
     connectionRole: 'application',
     requiredEnvironment: ['TEST_API_ADMIN_DATABASE_URL'],
     seedPolicy: 'none',
-    isolation: 'dedicated Phase 7 API schema'
+    isolation: 'dedicated API schema'
   },
   {
     path: 'src/admin/adminQuestionCommandRepository.integration.test.ts',
-    executionOwner: 'phase7-api',
-    shard: 'phase7-api-post-seed',
+    executionOwner: 'api',
+    shard: 'api-post-seed',
     order: 3,
-    databaseState: 'phase7-current-capability-active-canonical-65',
+    databaseState: 'current-capability-active-canonical-65',
     connectionRole: 'application',
     requiredEnvironment: ['TEST_API_ADMIN_DATABASE_URL'],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 7 API schema'
+    isolation: 'dedicated API schema'
   },
   {
     path: 'src/db/sso.integration.test.ts',
-    executionOwner: 'phase7-db',
-    shard: 'phase7-db-sso',
+    executionOwner: 'db',
+    shard: 'db-sso',
     order: 12,
     databaseState: 'canonical43-sso-current-capability-active-canonical-65',
     connectionRole: 'owner',
     requiredEnvironment: [
-      'AUTH_GATEWAY_DATABASE_URL',
-      'PHASE7_ADMIN_DATABASE_URL'
+      'TEST_APP_FIXTURE_DATABASE_URL',
+      'ADMIN_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
     isolation:
-      'existing runner-owned disposable Phase 7 schema; SQL-only provider proofs; no external OAuth'
+      'existing runner-owned disposable schema; SQL-only provider proofs; no external OAuth'
   },
   {
     path: 'src/db/ssoAccountLifecycle.integration.test.ts',
-    executionOwner: 'phase7-db',
-    shard: 'phase7-db-sso-account-lifecycle',
+    executionOwner: 'db',
+    shard: 'db-sso-account-lifecycle',
     order: 13,
     databaseState:
       'canonical46-account-lifecycle-current-capability-active-canonical-65',
     connectionRole: 'owner',
     requiredEnvironment: [
       'DATABASE_URL',
-      'AUTH_GATEWAY_DATABASE_URL',
-      'PHASE7_ADMIN_DATABASE_URL'
+      'TEST_APP_FIXTURE_DATABASE_URL',
+      'ADMIN_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
     isolation:
@@ -98,151 +98,62 @@ export const apiIntegrationManifest = [
   },
   {
     path: 'src/db/adminCmsFoundation.integration.test.ts',
-    executionOwner: 'phase7-db',
-    shard: 'phase7-db-current',
+    executionOwner: 'db',
+    shard: 'db-current',
     order: 1,
-    databaseState: 'phase7-current-capability-active-canonical-65',
+    databaseState: 'current-capability-active-canonical-65',
     connectionRole: 'owner',
-    requiredEnvironment: ['PHASE7_MIGRATION_DATABASE_URL'],
+    requiredEnvironment: ['MIGRATION_DATABASE_URL'],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 7 DB schema and canonical roles'
+    isolation: 'dedicated DB schema and canonical roles'
   },
   {
     path: 'src/db/reauthenticationFoundation.integration.test.ts',
-    executionOwner: 'phase7-db',
-    shard: 'phase7-db-current',
+    executionOwner: 'db',
+    shard: 'db-current',
     order: 2,
-    databaseState: 'phase7-current-capability-active-canonical-65',
+    databaseState: 'current-capability-active-canonical-65',
     connectionRole: 'owner',
-    requiredEnvironment: ['AUTH_GATEWAY_DATABASE_URL'],
+    requiredEnvironment: ['TEST_APP_FIXTURE_DATABASE_URL'],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 7 DB schema and canonical roles'
+    isolation: 'dedicated DB schema and canonical roles'
   },
   {
     path: 'src/db/reauthenticationService.integration.test.ts',
-    executionOwner: 'phase7-db',
-    shard: 'phase7-db-current',
+    executionOwner: 'db',
+    shard: 'db-current',
     order: 3,
-    databaseState: 'phase7-current-capability-active-canonical-65',
+    databaseState: 'current-capability-active-canonical-65',
     connectionRole: 'owner',
-    requiredEnvironment: ['AUTH_GATEWAY_DATABASE_URL'],
+    requiredEnvironment: ['TEST_APP_FIXTURE_DATABASE_URL'],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 7 DB schema and canonical roles'
+    isolation: 'dedicated DB schema and canonical roles'
   },
   {
     path: 'src/dashboard/dashboardInsights.integration.test.ts',
-    executionOwner: 'phase7-db',
-    shard: 'phase7-db-current',
+    executionOwner: 'db',
+    shard: 'db-current',
     order: 4,
-    databaseState: 'phase7-current-capability-active-canonical-65',
+    databaseState: 'current-capability-active-canonical-65',
     connectionRole: 'application',
     requiredEnvironment: ['DATABASE_URL'],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 7 DB schema and canonical roles'
+    isolation: 'dedicated DB schema and canonical roles'
   },
   {
     path: 'src/dashboard/dashboardInsightsPerformance.integration.test.ts',
-    executionOwner: 'phase7-db',
-    shard: 'phase7-db-current',
+    executionOwner: 'db',
+    shard: 'db-current',
     order: 5,
-    databaseState: 'phase7-current-capability-active-canonical-65',
+    databaseState: 'current-capability-active-canonical-65',
     connectionRole: 'application',
     requiredEnvironment: ['DATABASE_URL'],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 7 DB schema and canonical roles'
-  },
-  {
-    path: 'src/db/adminCmsUpgrade.integration.test.ts',
-    executionOwner: 'phase7-db',
-    shard: 'phase7-db-upgrade',
-    order: 6,
-    databaseState: 'self-managed-phase7-upgrade-history',
-    connectionRole: 'owner',
-    requiredEnvironment: ['PHASE7_MIGRATION_DATABASE_URL'],
-    seedPolicy: 'none',
-    isolation: 'suite-owned migration-history schema'
-  },
-  {
-    path: 'src/content/approvedReadingTags.integration.test.ts',
-    executionOwner: 'phase7-db',
-    shard: 'phase7-db-approved-reading-tags',
-    order: 7,
-    databaseState: 'seeded-65-tags108-applicability127-registration-unapplied',
-    connectionRole: 'owner',
-    requiredEnvironment: ['DATABASE_URL', 'PHASE7_ADMIN_DATABASE_URL'],
-    seedPolicy: 'canonical-once',
-    isolation:
-      'separately prepared disposable fixture; suite mutations roll back'
-  },
-  {
-    path: 'src/content/approvedN3ReadingTags.integration.test.ts',
-    executionOwner: 'phase7-db',
-    shard: 'phase7-db-approved-n3-reading-tags',
-    order: 8,
-    databaseState:
-      'canonical33-plus-n3-migration-seeded-65-before-n5-application',
-    connectionRole: 'owner',
-    requiredEnvironment: [
-      'DATABASE_URL',
-      'PRISMA_TEST_DATABASE_URL',
-      'PHASE7_ADMIN_DATABASE_URL'
-    ],
-    seedPolicy: 'canonical-once',
-    isolation:
-      'separately prepared disposable fixture; suite mutations roll back'
-  },
-  {
-    path: 'src/content/approvedN4N2ReadingTags.integration.test.ts',
-    executionOwner: 'phase7-db',
-    shard: 'phase7-db-approved-n4-n2-reading-tags',
-    order: 9,
-    databaseState: 'canonical36-seeded-65-without-current-catalog107-126',
-    connectionRole: 'owner',
-    requiredEnvironment: [
-      'DATABASE_URL',
-      'PRISMA_TEST_DATABASE_URL',
-      'PHASE7_ADMIN_DATABASE_URL'
-    ],
-    seedPolicy: 'canonical-once',
-    isolation:
-      'separately prepared disposable fixture; suite mutations roll back'
-  },
-  {
-    path: 'src/content/approvedN4ReadingBatch7Tags.integration.test.ts',
-    executionOwner: 'phase7-db',
-    shard: 'phase7-db-approved-batch7-reading-tags',
-    order: 10,
-    databaseState: 'explicit-legacy-or-current-batch7-unapplied-predecessor',
-    connectionRole: 'owner',
-    requiredEnvironment: [
-      'DATABASE_URL',
-      'PRISMA_TEST_DATABASE_URL',
-      'PHASE7_ADMIN_DATABASE_URL'
-    ],
-    seedPolicy: 'canonical-once',
-    isolation:
-      'separately prepared disposable fixture; suite mutations roll back'
-  },
-  {
-    path: 'src/content/approved308Tags.integration.test.ts',
-    executionOwner: 'phase7-db',
-    shard: 'phase7-db-approved308-tags',
-    order: 11,
-    databaseState: 'current38-seeded-65-tags107-applicability126-no-imports',
-    connectionRole: 'owner',
-    requiredEnvironment: [
-      'DATABASE_URL',
-      'PRISMA_TEST_DATABASE_URL',
-      'PHASE7_ADMIN_DATABASE_URL',
-      'APPROVED_TAGS_FIXTURE_PROFILE'
-    ],
-    seedPolicy: 'canonical-once',
-    isolation:
-      'separately prepared disposable fixture; suite mutations roll back'
+    isolation: 'dedicated DB schema and canonical roles'
   },
   {
     path: 'src/app/createApp.integration.test.ts',
-    executionOwner: 'phase10',
+    executionOwner: 'shard',
     shard: 'pure',
     order: 1,
     databaseState: 'none',
@@ -253,36 +164,21 @@ export const apiIntegrationManifest = [
   },
   {
     path: 'src/db/database.integration.test.ts',
-    executionOwner: 'phase10',
+    executionOwner: 'shard',
     shard: 'current-zero-facts',
     order: 2,
-    databaseState: 'phase7-current-canonical-65-zero-learner-facts',
+    databaseState: 'current-canonical-65-zero-learner-facts',
     connectionRole: 'application',
     requiredEnvironment: ['DATABASE_URL'],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 10 schema before learner writes'
-  },
-  {
-    path: 'src/db/practiceCompatibilityFence.integration.test.ts',
-    executionOwner: 'phase10',
-    shard: 'current-zero-facts',
-    order: 3,
-    databaseState: 'phase7-current-canonical-65-zero-learner-facts',
-    connectionRole: 'application',
-    requiredEnvironment: [
-      'DATABASE_URL',
-      'API_INTEGRATION_FIXTURE_DATABASE_URL',
-      'TEST_API_ERASURE_DATABASE_URL'
-    ],
-    seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 10 schema before learner writes'
+    isolation: 'dedicated schema before learner writes'
   },
   {
     path: 'src/question/questionCatalog.integration.test.ts',
-    executionOwner: 'phase10',
+    executionOwner: 'shard',
     shard: 'catalog-baseline',
     order: 4,
-    databaseState: 'phase7-current-canonical-65',
+    databaseState: 'current-canonical-65',
     connectionRole: 'application',
     requiredEnvironment: [
       'DATABASE_URL',
@@ -294,93 +190,93 @@ export const apiIntegrationManifest = [
   },
   {
     path: 'src/db/studySubmissionIntegrity.integration.test.ts',
-    executionOwner: 'phase10',
+    executionOwner: 'shard',
     shard: 'current-app-role',
     order: 5,
-    databaseState: 'phase7-current-canonical-65',
+    databaseState: 'current-canonical-65',
     connectionRole: 'application',
     requiredEnvironment: [
       'DATABASE_URL',
       'API_INTEGRATION_FIXTURE_DATABASE_URL',
-      'TEST_API_ERASURE_DATABASE_URL'
+      'TEST_APP_FIXTURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 10 schema'
+    isolation: 'dedicated schema'
   },
   {
     path: 'src/report/userReport.integration.test.ts',
-    executionOwner: 'phase10',
+    executionOwner: 'shard',
     shard: 'current-app-role',
     order: 25,
-    databaseState: 'phase7-current-canonical-65',
+    databaseState: 'current-canonical-65',
     connectionRole: 'application',
     requiredEnvironment: [
       'DATABASE_URL',
       'API_INTEGRATION_FIXTURE_DATABASE_URL',
-      'TEST_API_ERASURE_DATABASE_URL'
+      'TEST_APP_FIXTURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 10 schema'
+    isolation: 'dedicated schema'
   },
   {
     path: 'src/account/accountRestriction.integration.test.ts',
-    executionOwner: 'phase10',
+    executionOwner: 'shard',
     shard: 'current-app-role',
     order: 26,
-    databaseState: 'phase7-current-canonical-65',
+    databaseState: 'current-canonical-65',
     connectionRole: 'application',
     requiredEnvironment: [
       'DATABASE_URL',
       'API_INTEGRATION_FIXTURE_DATABASE_URL',
-      'TEST_API_ERASURE_DATABASE_URL'
+      'TEST_APP_FIXTURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 10 schema'
+    isolation: 'dedicated schema'
   },
   {
     path: 'src/report/userReportRetention.integration.test.ts',
-    executionOwner: 'phase10',
+    executionOwner: 'shard',
     shard: 'current-app-role',
     order: 27,
-    databaseState: 'phase7-current-canonical-65',
+    databaseState: 'current-canonical-65',
     connectionRole: 'application',
     requiredEnvironment: [
       'DATABASE_URL',
       'API_INTEGRATION_FIXTURE_DATABASE_URL',
-      'TEST_API_ERASURE_DATABASE_URL'
+      'TEST_APP_FIXTURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 10 schema'
+    isolation: 'dedicated schema'
   },
   {
     path: 'src/admin/adminMember.integration.test.ts',
-    executionOwner: 'phase10',
+    executionOwner: 'shard',
     shard: 'current-app-role',
     order: 28,
-    databaseState: 'phase7-current-canonical-65',
+    databaseState: 'current-canonical-65',
     connectionRole: 'application',
     requiredEnvironment: [
       'DATABASE_URL',
       'API_INTEGRATION_FIXTURE_DATABASE_URL',
-      'TEST_API_ERASURE_DATABASE_URL'
+      'TEST_APP_FIXTURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 10 schema'
+    isolation: 'dedicated schema'
   },
   {
     path: 'src/study/studySessionCleanup.integration.test.ts',
-    executionOwner: 'phase10',
+    executionOwner: 'shard',
     shard: 'current-app-role',
     order: 6,
-    databaseState: 'phase7-current-canonical-65',
+    databaseState: 'current-canonical-65',
     connectionRole: 'application',
     requiredEnvironment: [
       'DATABASE_URL',
       'API_INTEGRATION_FIXTURE_DATABASE_URL',
-      'TEST_API_ERASURE_DATABASE_URL'
+      'TEST_APP_FIXTURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once',
-    isolation: 'dedicated Phase 10 schema'
+    isolation: 'dedicated schema'
   },
   ...[
     'study/studyDraft.integration.test.ts',
@@ -390,19 +286,18 @@ export const apiIntegrationManifest = [
     'study/studySessionMigration.integration.test.ts'
   ].map((relativePath, index) => ({
     path: `src/${relativePath}` as `src/${string}.integration.test.ts`,
-    executionOwner: 'phase10' as const,
+    executionOwner: 'shard' as const,
     shard: 'current-app-role-with-owner-fixtures',
     order: 7 + index,
-    databaseState: 'phase7-current-canonical-65',
+    databaseState: 'current-canonical-65',
     connectionRole: 'application' as const,
     requiredEnvironment: [
       'DATABASE_URL',
       'API_INTEGRATION_FIXTURE_DATABASE_URL',
-      'TEST_API_ERASURE_DATABASE_URL',
-      'AUTH_GATEWAY_DATABASE_URL'
+      'TEST_APP_FIXTURE_DATABASE_URL'
     ],
     seedPolicy: 'canonical-once' as const,
-    isolation: 'dedicated Phase 10 schema; owner only for fixture setup'
+    isolation: 'dedicated schema; owner only for fixture setup'
   })),
   ...[
     'auth/auth.integration.test.ts',
@@ -416,10 +311,10 @@ export const apiIntegrationManifest = [
     'wrong-note/wrongNoteReviewCenter.integration.test.ts'
   ].map((relativePath, index) => ({
     path: `src/${relativePath}` as `src/${string}.integration.test.ts`,
-    executionOwner: 'phase10' as const,
+    executionOwner: 'shard' as const,
     shard: 'current-rebased-service',
     order: 12 + index,
-    databaseState: 'phase7-current-canonical-65',
+    databaseState: 'current-canonical-65',
     connectionRole: 'application' as const,
     requiredEnvironment:
       relativePath === 'auth/auth.integration.test.ts' ||
@@ -427,56 +322,16 @@ export const apiIntegrationManifest = [
         ? [
             'DATABASE_URL',
             'API_INTEGRATION_FIXTURE_DATABASE_URL',
-            'TEST_API_ERASURE_DATABASE_URL',
-            'AUTH_GATEWAY_DATABASE_URL'
+            'TEST_APP_FIXTURE_DATABASE_URL'
           ]
         : [
             'DATABASE_URL',
             'API_INTEGRATION_FIXTURE_DATABASE_URL',
-            'TEST_API_ERASURE_DATABASE_URL'
+            'TEST_APP_FIXTURE_DATABASE_URL'
           ],
     seedPolicy: 'canonical-once' as const,
-    isolation: 'disposable fixture aggregate in dedicated Phase 10 schema'
-  })),
-  {
-    path: 'src/db/questionCatalogMigration.integration.test.ts',
-    executionOwner: 'phase10',
-    shard: 'migration-question-catalog',
-    order: 21,
-    databaseState: 'suite-managed-empty-question-catalog-schema',
-    connectionRole: 'owner',
-    requiredEnvironment: ['API_INTEGRATION_FIXTURE_DATABASE_URL'],
-    seedPolicy: 'none',
-    isolation: 'suite-owned upgrade schema'
-  },
-  {
-    path: 'src/db/studySubmissionUpgrade.integration.test.ts',
-    executionOwner: 'phase10',
-    shard: 'migration-submission-history',
-    order: 22,
-    databaseState: 'suite-managed-empty-submission-history-schema',
-    connectionRole: 'application',
-    requiredEnvironment: [
-      'DATABASE_URL',
-      'API_INTEGRATION_APPLICATION_DATABASE_URL',
-      'API_INTEGRATION_FIXTURE_DATABASE_URL',
-      'PHASE7_MIGRATION_DATABASE_URL',
-      'AUTH_GATEWAY_DATABASE_URL'
-    ],
-    seedPolicy: 'none',
-    isolation: 'suite-owned migration directory and schema'
-  },
-  {
-    path: 'src/db/prismaLedgerUpgrade.integration.test.ts',
-    executionOwner: 'phase10',
-    shard: 'migration-ledger-last',
-    order: 23,
-    databaseState: 'suite-managed-prisma-ledger-history',
-    connectionRole: 'migration',
-    requiredEnvironment: ['PHASE7_MIGRATION_DATABASE_URL'],
-    seedPolicy: 'none',
-    isolation: 'last; suite-owned ledger replay schema'
-  }
+    isolation: 'disposable fixture aggregate in dedicated schema'
+  }))
 ] satisfies readonly ApiIntegrationManifestEntry[]
 
 export const getApiIntegrationEntriesByOwner = (

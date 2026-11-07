@@ -7,6 +7,20 @@ import unusedImports from 'eslint-plugin-unused-imports'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
+const UNSAFE_HTML_MESSAGE =
+  'Unsafe HTML or dynamic code in browser runtime source.'
+const UNSAFE_HTML_SYNTAX = [
+  'JSXAttribute[name.name="srcDoc"]',
+  'Property[key.name=/^(?:dangerouslySetInnerHTML|srcDoc)$/]',
+  'Property[key.value=/^(?:dangerouslySetInnerHTML|srcDoc)$/]',
+  'MemberExpression[property.name=/^(?:innerHTML|outerHTML|srcDoc)$/]',
+  'MemberExpression[property.value=/^(?:innerHTML|outerHTML|srcDoc)$/]',
+  'CallExpression[callee.property.name=/^(?:insertAdjacentHTML|createContextualFragment)$/]',
+  'CallExpression[callee.object.name="document"][callee.property.name=/^(?:write|writeln)$/]',
+  'CallExpression[callee.property.name="setAttribute"][arguments.0.value=/^on/i]',
+  'NewExpression[callee.name="DOMParser"]'
+].map((selector) => ({ selector, message: UNSAFE_HTML_MESSAGE }))
+
 export default tseslint.config(
   {
     ignores: [
@@ -64,6 +78,19 @@ export default tseslint.config(
           argsIgnorePattern: '^_'
         }
       ]
+    }
+  },
+  {
+    // Unsafe HTML and dynamic code in browser runtime source (moved here from
+    // the removed scripts/security/tracked-source-security.mjs, #603 O4-A).
+    files: ['apps/{web,admin}/src/**/*.{ts,tsx}'],
+    ignores: ['**/*.{test,spec}.{ts,tsx}', '**/test/**', '**/__tests__/**'],
+    rules: {
+      'no-eval': 'error',
+      'no-implied-eval': 'error',
+      'no-new-func': 'error',
+      'react/no-danger': 'error',
+      'no-restricted-syntax': ['error', ...UNSAFE_HTML_SYNTAX]
     }
   }
 )

@@ -34,7 +34,6 @@ import { createJsonLogger } from '../observability/logger.js'
 import { createPrismaQuestionRepository } from '../question/questionRepository.js'
 import { createQuestionService } from '../question/questionService.js'
 import { GUEST_COOKIE_NAME } from '../routes/principal.js'
-import { Prisma } from '../generated/prisma/client.js'
 import {
   createPrismaStudyDraftRepository,
   DraftVersionConflictError,
@@ -48,6 +47,7 @@ import {
   IdempotencyKeyReusedError
 } from './studySubmissionRepository.js'
 import { createStudySubmissionService } from './studySubmissionService.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({
@@ -59,11 +59,10 @@ assertSafeTestDatabase({
 const isCurrentSourceIntegration =
   process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
 const fixtureDatabaseUrl = process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
-const erasureWorkerDatabaseUrl = process.env.TEST_API_ERASURE_DATABASE_URL
-const authGatewayDatabaseUrl = environment.AUTH_GATEWAY_DATABASE_URL
+const appFixtureDatabaseUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
 if (
   isCurrentSourceIntegration &&
-  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl || !authGatewayDatabaseUrl)
+  (!fixtureDatabaseUrl || !appFixtureDatabaseUrl)
 ) {
   throw new Error(
     'StudyDraft requires fixture, erasure, and auth-gateway databases.'
@@ -71,8 +70,8 @@ if (
 }
 for (const databaseUrl of [
   fixtureDatabaseUrl,
-  erasureWorkerDatabaseUrl,
-  authGatewayDatabaseUrl
+  appFixtureDatabaseUrl,
+  appFixtureDatabaseUrl
 ]) {
   if (databaseUrl) {
     assertSafeTestDatabase({
@@ -93,13 +92,13 @@ const fixtureDatabase = fixtureDatabaseUrl
   ? createDatabaseRuntime(fixtureDatabaseUrl)
   : database
 const authGatewayDatabase = isCurrentSourceIntegration
-  ? createRoleDatabaseRuntime(authGatewayDatabaseUrl!, 'nihongo_auth_gateway')
+  ? createRoleDatabaseRuntime(appFixtureDatabaseUrl!, 'nihongo_app')
   : undefined
-const erasureWorkerClient = erasureWorkerDatabaseUrl
+const erasureWorkerClient = appFixtureDatabaseUrl
   ? new Client({
-      connectionString: erasureWorkerDatabaseUrl,
+      connectionString: appFixtureDatabaseUrl,
       options: createPostgresStartupOptions(
-        getPostgresSchema(erasureWorkerDatabaseUrl)
+        getPostgresSchema(appFixtureDatabaseUrl)
       )
     })
   : undefined
@@ -121,7 +120,7 @@ const principalService = isCurrentSourceIntegration
   ? createOwnedPrincipalService({
       client: database.client,
       isProduction: false,
-      refreshClient: authGatewayDatabase!.client,
+      refreshClient: database.client,
       secret: environment.BETTER_AUTH_SECRET
     })
   : createPrincipalService({
@@ -149,7 +148,7 @@ const app = createApiApp({
       ? createAuthGateway({
           environment,
           ownedAuthFacade: createOwnedAuthFacade({
-            client: authGatewayDatabase!.client,
+            client: database.client,
             emailDispatcher,
             environment
           }),
@@ -170,7 +169,6 @@ const app = createApiApp({
   ),
   study: {
     draftService: createStudyDraftService(studyDraftRepository),
-    practiceContractV2Enabled: true,
     rateLimiter: noOpRateLimiter,
     service: createStudySessionService(studySessionRepository),
     submissionService: createStudySubmissionService(studySubmissionRepository)
@@ -263,7 +261,7 @@ const createUser = async (): Promise<string> => {
     await fixture.account.create({
       data: {
         accountId: userId,
-        password: 'phase10-fixture-password-hash',
+        password: 'test-fixture-password-hash',
         providerId: 'credential',
         userId
       }
@@ -379,11 +377,38 @@ const createBarrier = () => {
   }
 }
 
+// Bounded poll: release only after another backend is blocked on a lock.
+// pg_blocking_pids works without pg_read_all_stats; the app role cannot read
+// other sessions' wait_event columns.
+const waitForBlockedBackend = async (): Promise<void> => {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const [row] = await database.client.$queryRaw<Array<{ waiting: number }>>`
+      SELECT count(*)::int AS "waiting"
+      FROM pg_catalog.pg_stat_activity
+      WHERE datname = current_database()
+        AND pid <> pg_backend_pid()
+        AND cardinality(pg_catalog.pg_blocking_pids(pid)) > 0
+    `
+    if ((row?.waiting ?? 0) > 0) return
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
+}
+
+const toObservedRejectionCode = (error: unknown): string => {
+  const code: unknown =
+    error && typeof error === 'object' && 'code' in error
+      ? (error as { code?: unknown }).code
+      : undefined
+  return typeof code === 'string' && /^[A-Z0-9_]{1,64}$/u.test(code)
+    ? code
+    : 'OTHER'
+}
+
 beforeAll(async () => {
   await database.checkReadiness()
   if (erasureWorkerClient) {
     await erasureWorkerClient.connect()
-    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+    await erasureWorkerClient.query(`SET ROLE "nihongo_app"`)
   }
 })
 
@@ -396,10 +421,7 @@ afterAll(async () => {
   if (createdUserIds.size > 0) {
     if (erasureWorkerClient) {
       for (const userId of createdUserIds) {
-        await erasureWorkerClient.query(
-          `SELECT "phase7_erase_user"($1, 'TEST')`,
-          [userId]
-        )
+        await eraseTestUser(database.client, userId)
       }
     } else {
       await database.client.user.deleteMany({
@@ -949,63 +971,6 @@ describe('StudyDraft PostgreSQL integration', () => {
     ).toBe(0)
   })
 
-  it('draft idempotency committed response는 canonical snapshot 전체와 일치해야 한다', async () => {
-    const userId = await createUser()
-    const session = await createOwnedV2Session(userId)
-    const saved = await studyDraftRepository.saveAtomic({
-      sessionId: session.id,
-      idempotencyKey: randomUUID(),
-      owner: { kind: 'USER', userId },
-      observedAt: new Date(),
-      body: toEmptyDraftBody(session)
-    })
-    const record = await database.client.idempotencyRecord.findFirstOrThrow({
-      where: {
-        studySessionId: session.id,
-        operation: 'STUDY_DRAFT_SAVE'
-      },
-      select: { id: true }
-    })
-    const changedAnswer = structuredClone(saved.response)
-    const firstAnswer = changedAnswer.answers[0]
-    if (!firstAnswer) {
-      throw new Error('Draft response answer fixture가 필요합니다.')
-    }
-    firstAnswer.elapsedSec += 1
-    const malformedResponses: unknown[] = [
-      { ...saved.response, unexpected: true },
-      { ...saved.response, currentOrdinal: 2 },
-      { ...saved.response, savedAt: '2099-01-01T00:00:00.000Z' },
-      changedAnswer,
-      {
-        studySessionId: saved.response.studySessionId,
-        revision: saved.response.revision,
-        currentOrdinal: saved.response.currentOrdinal,
-        savedAt: saved.response.savedAt
-      }
-    ]
-
-    for (const malformedResponse of malformedResponses) {
-      await expect(
-        database.client.$transaction(async (transaction) => {
-          await transaction.$executeRaw(
-            Prisma.sql`ALTER TABLE "IdempotencyRecord"
-              DISABLE TRIGGER "IdempotencyRecord_validate_change"`
-          )
-          await transaction.$executeRaw(Prisma.sql`
-            UPDATE "IdempotencyRecord"
-            SET "responseBody" = ${JSON.stringify(malformedResponse)}::jsonb
-            WHERE "id" = ${record.id}::uuid
-          `)
-          await transaction.$executeRaw(
-            Prisma.sql`ALTER TABLE "IdempotencyRecord"
-              ENABLE TRIGGER "IdempotencyRecord_validate_change"`
-          )
-        })
-      ).rejects.toThrow()
-    }
-  })
-
   it('foreign과 missing session을 GET/PUT/cancel 모두 같은 404로 숨긴다', async () => {
     const ownerSession = await createV2Session()
     const foreignSession = await createV2Session()
@@ -1237,8 +1202,7 @@ describe('StudyDraft PostgreSQL integration', () => {
           durationSec: 0,
           expectedDraftRevision: 0
         },
-        owner,
-        2
+        owner
       )
     ).rejects.toMatchObject({ code: 'STUDY_SESSION_NOT_EDITABLE' })
     await assertExpired(submitSession.id)
@@ -1307,7 +1271,7 @@ describe('StudyDraft PostgreSQL integration', () => {
     await createStudySubmissionService(
       studySubmissionRepository,
       () => new Date(now.getTime() - 25 * 60 * 60 * 1_000)
-    ).submit(submitSession.id, submitKey, submitBody, owner, 2)
+    ).submit(submitSession.id, submitKey, submitBody, owner)
     const submitRecord =
       await database.client.idempotencyRecord.findFirstOrThrow({
         where: { studySessionId: submitSession.id, operation: 'STUDY_SUBMIT' },
@@ -1321,13 +1285,13 @@ describe('StudyDraft PostgreSQL integration', () => {
       createStudySubmissionService(
         studySubmissionRepository,
         () => new Date(submitExpiresAt.getTime() - 1)
-      ).submit(submitSession.id, submitKey, submitBody, owner, 2)
+      ).submit(submitSession.id, submitKey, submitBody, owner)
     ).resolves.toMatchObject({ replayed: true })
     await expect(
       createStudySubmissionService(
         studySubmissionRepository,
         () => submitExpiresAt
-      ).submit(submitSession.id, submitKey, submitBody, owner, 2)
+      ).submit(submitSession.id, submitKey, submitBody, owner)
     ).rejects.toMatchObject({ code: 'SESSION_ALREADY_SUBMITTED' })
   })
 
@@ -1341,6 +1305,7 @@ describe('StudyDraft PostgreSQL integration', () => {
       | 'SAVE_BEFORE_SUBMIT'
       | 'SUBMIT_BEFORE_SAVE'
       | 'FINAL_STATES' = 'SETUP'
+    let lockRaceRejectedCode: string | null = null
     onTestFailed(({ task, signal }) => {
       try {
         const error: unknown = task.result?.errors?.[0]
@@ -1376,7 +1341,7 @@ describe('StudyDraft PostgreSQL integration', () => {
         // fd 1 directly: the JSON reporter drops captured test stdout (#395).
         writeSync(
           1,
-          `${JSON.stringify({ event: 'study_draft_lock_race_failure', stage: lockRaceStage, category })}\n`
+          `${JSON.stringify({ event: 'study_draft_lock_race_failure', stage: lockRaceStage, category, rejectedCode: lockRaceRejectedCode })}\n`
         )
       } catch {
         // Diagnostic output must not change the failure.
@@ -1451,8 +1416,7 @@ describe('StudyDraft PostgreSQL integration', () => {
         durationSec: 0,
         expectedDraftRevision: 0
       },
-      owner,
-      2
+      owner
     )
     await submitBarrier.entered
     const cancelAfterSubmit = studyDraftRepository.cancelOwned(
@@ -1487,8 +1451,7 @@ describe('StudyDraft PostgreSQL integration', () => {
         durationSec: 0,
         expectedDraftRevision: 0
       },
-      owner,
-      2
+      owner
     )
     cancelBeforeSubmitBarrier.release()
     await expect(cancelBeforeSubmit).resolves.toEqual({ kind: 'CANCELLED' })
@@ -1521,9 +1484,12 @@ describe('StudyDraft PostgreSQL integration', () => {
         durationSec: 0,
         expectedDraftRevision: 0
       },
-      owner,
-      2
+      owner
     )
+    submitAfterSave.catch((error: unknown) => {
+      lockRaceRejectedCode = toObservedRejectionCode(error)
+    })
+    await waitForBlockedBackend()
     saveBeforeSubmitBarrier.release()
     await expect(saveBeforeSubmit).resolves.toMatchObject({ replayed: false })
     await expect(submitAfterSave).rejects.toMatchObject({
@@ -1546,8 +1512,7 @@ describe('StudyDraft PostgreSQL integration', () => {
         durationSec: 0,
         expectedDraftRevision: 0
       },
-      owner,
-      2
+      owner
     )
     await submitBeforeSaveBarrier.entered
     const saveAfterSubmit = studyDraftRepository.saveAtomic({

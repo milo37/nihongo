@@ -1,5 +1,5 @@
-export type HttpMethod = 'GET' | 'PATCH' | 'POST'
-export type ResponseBodyKind = 'JSON' | 'ATTACHMENT'
+type HttpMethod = 'GET' | 'PATCH' | 'POST'
+type ResponseBodyKind = 'JSON' | 'ATTACHMENT'
 
 export interface OperationManifestEntry {
   readonly operation: string
@@ -204,6 +204,16 @@ export const operationManifest = [
     slice2Route: false
   },
   {
+    operation: 'approveQuestionVersionBatch',
+    operationId: 'admin.approveQuestionVersionBatch',
+    method: 'POST',
+    path: '/api/v1/admin/question-versions/approval-batch',
+    successStatus: 200,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: true,
+    slice2Route: false
+  },
+  {
     operation: 'validateQuestionImport',
     operationId: 'admin.validateQuestionImport',
     method: 'POST',
@@ -341,6 +351,7 @@ const ADMIN_SLICE_4_OPERATIONS = new Set<AdminOperation>([
 const ADMIN_SLICE_5_OPERATIONS = new Set<AdminOperation>([
   'requestContentReviewBatch',
   'publishQuestionVersionBatch',
+  'approveQuestionVersionBatch',
   'validateQuestionImport',
   'applyQuestionImport',
   'exportAdminQuestions',
@@ -488,8 +499,8 @@ export const dormantAfterSlice5OperationManifest = operationManifest.filter(
 )
 
 export const assertOperationManifest = (): void => {
-  if (operationManifest.length !== 29) {
-    throw new Error('Phase 7 operation manifest는 정확히 29개여야 합니다.')
+  if (operationManifest.length !== 30) {
+    throw new Error('operation manifest는 정확히 30개여야 합니다.')
   }
   if (slice2ReadOperationManifest.length !== 8) {
     throw new Error('Route manifest는 정확히 8개여야 합니다.')
@@ -498,28 +509,28 @@ export const assertOperationManifest = (): void => {
     slice3ACommandOperationManifest.length !== 5 ||
     slice3RRemediationOperationManifest.length !== 3 ||
     activeThroughSlice3AOperationManifest.length !== 13 ||
-    dormantAfterSlice3AOperationManifest.length !== 16 ||
+    dormantAfterSlice3AOperationManifest.length !== 17 ||
     activeThroughSlice3RA1OperationManifest.length !== 14 ||
-    dormantAfterSlice3RA1OperationManifest.length !== 15 ||
+    dormantAfterSlice3RA1OperationManifest.length !== 16 ||
     activeThroughSlice3RA2OperationManifest.length !== 16 ||
-    dormantAfterSlice3RA2OperationManifest.length !== 13 ||
+    dormantAfterSlice3RA2OperationManifest.length !== 14 ||
     slice4OperationManifest.length !== 3 ||
     activeThroughSlice4OperationManifest.length !== 19 ||
-    dormantAfterSlice4OperationManifest.length !== 10 ||
-    slice5OperationManifest.length !== 10 ||
-    activeThroughSlice5OperationManifest.length !== 29 ||
+    dormantAfterSlice4OperationManifest.length !== 11 ||
+    slice5OperationManifest.length !== 11 ||
+    activeThroughSlice5OperationManifest.length !== 30 ||
     dormantAfterSlice5OperationManifest.length !== 0
   ) {
     throw new Error(
-      'Manifest는 Slice 3A historical 13/16, Slice 3R-A1 14/15, Slice 3R-A2 16/13, Slice 4 19/10, Slice 5 29/0 경계를 유지해야 합니다.'
+      'Manifest는 Slice 3A historical 13/17, Slice 3R-A1 14/16, Slice 3R-A2 16/14, Slice 4 19/11, Slice 5 30/0 경계를 유지해야 합니다.'
     )
   }
   const operations = new Set(operationManifest.map((entry) => entry.operation))
   const operationIds = new Set(
     operationManifest.map((entry) => entry.operationId)
   )
-  if (operations.size !== 29 || operationIds.size !== 29) {
-    throw new Error('Phase 7 operation/operationId는 각각 고유해야 합니다.')
+  if (operations.size !== 30 || operationIds.size !== 30) {
+    throw new Error('operation/operationId는 각각 고유해야 합니다.')
   }
   if (slice2ReadOperationManifest.some((entry) => entry.method !== 'GET')) {
     throw new Error('Slice 2 manifest에는 GET read만 등록할 수 있습니다.')
@@ -535,4 +546,3 @@ export const assertOperationManifest = (): void => {
 }
 
 export type AdminOperation = (typeof operationManifest)[number]['operation']
-export type OperationId = (typeof operationManifest)[number]['operationId']

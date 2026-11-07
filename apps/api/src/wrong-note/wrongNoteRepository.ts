@@ -4,12 +4,12 @@ import type {
 } from '@nihongo/contracts/wrong-note/list-wrong-notes'
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 
-export interface HistoricalQuestionTagRecord {
+interface HistoricalQuestionTagRecord {
   readonly id: string
   readonly label: string
 }
 
-export interface HistoricalQuestionOptionRecord {
+interface HistoricalQuestionOptionRecord {
   readonly id: string
   readonly label: string
   readonly text: string
@@ -62,11 +62,11 @@ export interface WrongNoteDetailRecord
   readonly question: HistoricalReviewedQuestionRecord
 }
 
-export interface ListOwnedWrongNotesInput extends ParsedListWrongNotesQuery {
+interface ListOwnedWrongNotesInput extends ParsedListWrongNotesQuery {
   readonly userId: string
 }
 
-export interface ListOwnedWrongNotesResult {
+interface ListOwnedWrongNotesResult {
   readonly availableTagLabels: readonly string[]
   readonly items: readonly WrongNoteReadRecord[]
   readonly total: number
@@ -146,8 +146,8 @@ const summaryVersionSelect = {
   questionType: true,
   questionText: true,
   tags: {
-    orderBy: [{ labelSnapshot: 'asc' }, { tagId: 'asc' }],
-    select: { tagId: true, labelSnapshot: true }
+    orderBy: [{ tag: { label: 'asc' } }, { tagId: 'asc' }],
+    select: { tagId: true, tag: { select: { label: true } } }
   }
 } satisfies Prisma.QuestionVersionSelect
 
@@ -182,11 +182,14 @@ type WrongNoteDetailVersionRow = Prisma.QuestionVersionGetPayload<{
 }>
 
 const toTags = (
-  tags: readonly { readonly labelSnapshot: string; readonly tagId: string }[]
+  tags: readonly {
+    readonly tag: { readonly label: string }
+    readonly tagId: string
+  }[]
 ): readonly HistoricalQuestionTagRecord[] =>
-  tags.map(({ labelSnapshot, tagId }) => ({
+  tags.map(({ tag, tagId }) => ({
     id: tagId,
-    label: labelSnapshot
+    label: tag.label
   }))
 
 const toSummaryRecord = (
@@ -221,7 +224,10 @@ const toDetailRecord = (
   row: WrongNoteBaseRow,
   question: QuestionAvailabilityRow,
   version: WrongNoteDetailVersionRow,
-  tags: readonly { readonly labelSnapshot: string; readonly tagId: string }[]
+  tags: readonly {
+    readonly tag: { readonly label: string }
+    readonly tagId: string
+  }[]
 ): WrongNoteDetailRecord => ({
   id: row.id,
   questionId: row.questionId,
@@ -271,7 +277,7 @@ const toBaseWhere = (
   const versionFilter: Prisma.QuestionVersionWhereInput = {
     ...(input.level ? { level: input.level } : {}),
     ...(input.subject ? { subject: input.subject } : {}),
-    ...(input.tag ? { tags: { some: { labelSnapshot: input.tag } } } : {})
+    ...(input.tag ? { tags: { some: { tag: { label: input.tag } } } } : {})
   }
 
   return {
@@ -327,8 +333,8 @@ export const createPrismaWrongNoteRepository = (
         })
         const tags = await transaction.questionVersionTag.findMany({
           where: { questionVersionId: row.lastWrongQuestionVersionId },
-          orderBy: [{ labelSnapshot: 'asc' }, { tagId: 'asc' }],
-          select: { tagId: true, labelSnapshot: true }
+          orderBy: [{ tag: { label: 'asc' } }, { tagId: 'asc' }],
+          select: { tagId: true, tag: { select: { label: true } } }
         })
         if (!question || !version) {
           throw new WrongNoteRepositoryIntegrityError(
@@ -382,11 +388,12 @@ export const createPrismaWrongNoteRepository = (
         )
         const tagRows = await transaction.$queryRaw<AvailableTagLabelRow[]>(
           Prisma.sql`
-            SELECT DISTINCT version_tag."labelSnapshot" AS "label"
+            SELECT DISTINCT tag."label" AS "label"
             FROM "WrongNote" AS note
             JOIN "QuestionVersionTag" AS version_tag
               ON version_tag."questionVersionId" =
                 note."lastWrongQuestionVersionId"
+            JOIN "Tag" AS tag ON tag."id" = version_tag."tagId"
             WHERE note."userId" = ${input.userId}::uuid`
         )
 

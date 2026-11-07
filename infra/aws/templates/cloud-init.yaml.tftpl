@@ -1,0 +1,137 @@
+#cloud-config
+packages:
+  - docker
+  - amazon-cloudwatch-agent
+
+write_files:
+  # Host scripts are plain text: the whole user data is gzipped once (16 KB limit),
+  # and text compresses far better than base64.
+  - path: /etc/harumaru/host.env
+    permissions: '0644'
+    content: |
+      AWS_REGION=${region}
+      PARAM_PATH=${param_path}
+      ECR_REPOSITORY=${ecr_repository}
+      LOG_GROUP=${log_group}
+      BACKUP_BUCKET=${backup_bucket}
+      ENVIRONMENT=${environment}
+  - path: /etc/harumaru/public.env
+    permissions: '0644'
+    encoding: b64
+    content: ${public_env}
+  - path: /opt/harumaru/compose.yaml
+    permissions: '0644'
+    encoding: b64
+    content: ${compose_yaml}
+  - path: /opt/harumaru/Caddyfile
+    permissions: '0644'
+    encoding: b64
+    content: ${caddyfile}
+  - path: /opt/harumaru/bin/render-env.sh
+    permissions: '0750'
+    content: |
+      ${indent(6, render_env_sh)}
+  - path: /opt/harumaru/bin/deploy.sh
+    permissions: '0750'
+    content: |
+      ${indent(6, deploy_sh)}
+  - path: /opt/harumaru/bin/provision-db.sh
+    permissions: '0750'
+    content: |
+      ${indent(6, provision_db_sh)}
+  - path: /opt/harumaru/bin/migrate.sh
+    permissions: '0750'
+    content: |
+      ${indent(6, migrate_sh)}
+  - path: /opt/harumaru/bin/register-capability.sh
+    permissions: '0750'
+    content: |
+      ${indent(6, capability_sh)}
+  - path: /opt/harumaru/bin/backup.sh
+    permissions: '0750'
+    content: |
+      ${indent(6, backup_sh)}
+  - path: /opt/harumaru/bin/erase-deletion-pending.sh
+    permissions: '0750'
+    content: |
+      ${indent(6, erase_sh)}
+  - path: /opt/harumaru/bin/guest-cleanup.sh
+    permissions: '0750'
+    content: |
+      ${indent(6, guest_cleanup_sh)}
+  - path: /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+    permissions: '0644'
+    encoding: b64
+    content: ${cloudwatch_config}
+  # After a reboot (or a budget stop and manual start) /run is empty again.
+  - path: /etc/systemd/system/harumaru.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=harumaru API and PostgreSQL
+      After=docker.service network-online.target var-lib-harumaru.mount
+      Requires=docker.service var-lib-harumaru.mount
+      ConditionPathExists=/opt/harumaru/.env
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      WorkingDirectory=/opt/harumaru
+      ExecStartPre=/opt/harumaru/bin/render-env.sh
+      ExecStart=/usr/local/lib/docker/cli-plugins/docker-compose up -d --wait
+
+      [Install]
+      WantedBy=multi-user.target
+  - path: /etc/systemd/system/harumaru-backup.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=harumaru daily pg_dump to S3
+      ConditionPathExists=/opt/harumaru/.env
+
+      [Service]
+      Type=oneshot
+      ExecStart=/opt/harumaru/bin/backup.sh
+  - path: /etc/systemd/system/harumaru-backup.timer
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=harumaru daily backup (04:00 JST)
+
+      [Timer]
+      OnCalendar=*-*-* 19:00:00 UTC
+      Persistent=true
+
+      [Install]
+      WantedBy=timers.target
+
+runcmd:
+  - |
+    set -euo pipefail
+    device=/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_${data_volume_id}
+    for _ in $(seq 1 60); do [ -e "$device" ] && break; sleep 5; done
+    [ -e "$device" ] || { echo "data volume not attached" >&2; exit 1; }
+    blkid "$device" >/dev/null || mkfs.ext4 -L harumaru-data "$device"
+    install -d /var/lib/harumaru
+    grep -q 'LABEL=harumaru-data' /etc/fstab || echo 'LABEL=harumaru-data /var/lib/harumaru ext4 defaults,nofail 0 2' >> /etc/fstab
+    systemctl daemon-reload
+    mount /var/lib/harumaru || true
+    mountpoint -q /var/lib/harumaru
+    install -d -m 0700 -o 70 -g 70 /var/lib/harumaru/postgres /var/lib/harumaru/certs
+    if [ ! -f /var/lib/harumaru/certs/server.key ]; then
+      openssl req -x509 -newkey rsa:2048 -nodes -days 3650 -subj /CN=postgres -addext subjectAltName=DNS:postgres \
+        -keyout /var/lib/harumaru/certs/server.key -out /var/lib/harumaru/certs/server.crt
+      chown 70:70 /var/lib/harumaru/certs/server.key /var/lib/harumaru/certs/server.crt
+      chmod 0600 /var/lib/harumaru/certs/server.key
+    fi
+  - |
+    set -euo pipefail
+    install -d /usr/local/lib/docker/cli-plugins
+    curl -fsSL -o /tmp/docker-compose https://github.com/docker/compose/releases/download/${compose_version}/docker-compose-linux-aarch64
+    echo "${compose_sha256}  /tmp/docker-compose" | sha256sum -c -
+    install -m 0755 /tmp/docker-compose /usr/local/lib/docker/cli-plugins/docker-compose
+    rm -f /tmp/docker-compose
+  - systemctl enable --now docker
+  - /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+  - systemctl enable harumaru.service
+  - systemctl enable --now harumaru-backup.timer

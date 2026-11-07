@@ -5,7 +5,7 @@ import { Client } from 'pg'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { createApiApp } from '../app/createApp.js'
 import { createAuthGateway } from '../auth/authGateway.js'
-import { createSsoSessionFixture } from '../db/fixtures/ssoSession.js'
+import { createSsoSessionFixture } from '../../test/fixtures/db/ssoSession.js'
 import { createAuthRuntime } from '../auth/createAuth.js'
 import { createAuthEmailDispatcher } from '../auth/emailDispatcher.js'
 import { InMemoryAuthEmailPort } from '../auth/emailPort.js'
@@ -34,6 +34,7 @@ import { createQuestionService } from '../question/questionService.js'
 import { GUEST_COOKIE_NAME } from '../routes/principal.js'
 import { createPrismaStudySessionRepository } from './studySessionRepository.js'
 import { createStudySessionService } from './studySessionService.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({
@@ -45,11 +46,10 @@ assertSafeTestDatabase({
 const isCurrentSourceIntegration =
   process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
 const fixtureDatabaseUrl = process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
-const erasureWorkerDatabaseUrl = process.env.TEST_API_ERASURE_DATABASE_URL
-const authGatewayDatabaseUrl = environment.AUTH_GATEWAY_DATABASE_URL
+const appFixtureDatabaseUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
 if (
   isCurrentSourceIntegration &&
-  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl || !authGatewayDatabaseUrl)
+  (!fixtureDatabaseUrl || !appFixtureDatabaseUrl)
 ) {
   throw new Error(
     'Study-session tests require fixture, erasure, and auth-gateway databases.'
@@ -57,8 +57,8 @@ if (
 }
 for (const databaseUrl of [
   fixtureDatabaseUrl,
-  erasureWorkerDatabaseUrl,
-  authGatewayDatabaseUrl
+  appFixtureDatabaseUrl,
+  appFixtureDatabaseUrl
 ]) {
   if (databaseUrl) {
     assertSafeTestDatabase({
@@ -79,13 +79,13 @@ const fixtureDatabase = fixtureDatabaseUrl
   ? createDatabaseRuntime(fixtureDatabaseUrl)
   : database
 const authGatewayDatabase = isCurrentSourceIntegration
-  ? createRoleDatabaseRuntime(authGatewayDatabaseUrl!, 'nihongo_auth_gateway')
+  ? createRoleDatabaseRuntime(appFixtureDatabaseUrl!, 'nihongo_app')
   : undefined
-const erasureWorkerClient = erasureWorkerDatabaseUrl
+const erasureWorkerClient = appFixtureDatabaseUrl
   ? new Client({
-      connectionString: erasureWorkerDatabaseUrl,
+      connectionString: appFixtureDatabaseUrl,
       options: createPostgresStartupOptions(
-        getPostgresSchema(erasureWorkerDatabaseUrl)
+        getPostgresSchema(appFixtureDatabaseUrl)
       )
     })
   : undefined
@@ -108,7 +108,7 @@ const principalService = isCurrentSourceIntegration
   ? createOwnedPrincipalService({
       client: database.client,
       isProduction: false,
-      refreshClient: authGatewayDatabase!.client,
+      refreshClient: database.client,
       secret: environment.BETTER_AUTH_SECRET
     })
   : createPrincipalService({
@@ -131,7 +131,7 @@ const app = createApiApp({
           delay: async () => undefined,
           environment,
           ownedAuthFacade: createOwnedAuthFacade({
-            client: authGatewayDatabase!.client,
+            client: database.client,
             emailDispatcher,
             environment
           }),
@@ -151,7 +151,6 @@ const app = createApiApp({
     createPrismaQuestionRepository(database.client)
   ),
   study: {
-    practiceContractV2Enabled: true,
     rateLimiter: noOpRateLimiter,
     service: createStudySessionService(repository)
   }
@@ -271,7 +270,7 @@ const createFixtureUser = async (label: string): Promise<string> => {
     await fixture.account.create({
       data: {
         accountId: userId,
-        password: 'phase10-fixture-password-hash',
+        password: 'test-fixture-password-hash',
         providerId: 'credential',
         userId
       }
@@ -283,9 +282,7 @@ const createFixtureUser = async (label: string): Promise<string> => {
 
 const eraseUser = async (userId: string): Promise<void> => {
   if (erasureWorkerClient) {
-    await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
-      userId
-    ])
+    await eraseTestUser(database.client, userId)
   } else {
     await fixtureDatabase.client.user.delete({ where: { id: userId } })
   }
@@ -333,7 +330,7 @@ const createAuthenticatedActor = async (
     throw new Error('Current SSO gateway fixture is required.')
   const actor = await createSsoSessionFixture({
     owner: fixtureDatabase.client,
-    gateway: authGatewayDatabase.client,
+    gateway: database.client,
     secret: environment.BETTER_AUTH_SECRET,
     role
   })
@@ -396,7 +393,7 @@ beforeAll(async () => {
   await database.checkReadiness()
   if (erasureWorkerClient) {
     await erasureWorkerClient.connect()
-    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+    await erasureWorkerClient.query(`SET ROLE "nihongo_app"`)
   }
   await database.client.rateLimit.deleteMany()
 })
@@ -952,7 +949,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
 
   it(
     isCurrentSourceIntegration
-      ? '비인가 Question archive를 42501로 거부하고 pinned payload를 보존한다'
+      ? '비인가 Question archive를 DB가 거부하고 pinned payload를 보존한다'
       : 'Question을 archive해도 pinned version payload를 그대로 조회한다',
     async () => {
       const response = await postStudySession({
@@ -987,8 +984,10 @@ describe('StudySession PostgreSQL vertical slice', () => {
       if (isCurrentSourceIntegration) {
         const archiveTime = new Date()
         await expectRawDatabaseError({
+          // The armed-intent trigger is gone (#504 P4); the deferred aggregate
+          // invariant still refuses an archive that only clears the pointer.
           expectedMessage:
-            'An armed trusted Phase 7 operation intent is required.',
+            'Question pointer/lifecycle aggregate invariant failed.',
           operation: async () =>
             await database.client.$executeRaw`
             UPDATE "Question"
@@ -1000,7 +999,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
               "updatedAt" = ${archiveTime}
             WHERE "id" = ${questionId}::uuid
           `,
-          sqlState: '42501'
+          sqlState: '23514'
         })
         await expect(
           database.client.question.findUniqueOrThrow({
@@ -1060,7 +1059,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
 
   it(
     isCurrentSourceIntegration
-      ? 'selection 중 비인가 archive를 원자 거부하고 version pin을 보존한다'
+      ? 'selection 중 archive transaction을 rollback하면 version pin을 보존한다'
       : '동시 archive를 selection lock 뒤로 직렬화하고 pinned payload를 보존한다',
     async () => {
       const archiveClient = createApplicationClient()
@@ -1212,10 +1211,9 @@ describe('StudySession PostgreSQL vertical slice', () => {
         expect(archiveSettled).toBe(true)
 
         if (isCurrentSourceIntegration) {
-          expect(archiveError).toMatchObject({
-            code: '42501',
-            message: 'An armed trusted Phase 7 operation intent is required.'
-          })
+          // The deferred aggregate check runs at commit (#504 P4), so the
+          // uncommitted archive is rolled back here.
+          expect(archiveError).toBeUndefined()
           await archiveClient.query('ROLLBACK')
           archiveTransactionOpen = false
         } else {

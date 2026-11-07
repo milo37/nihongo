@@ -1,0 +1,57 @@
+name: Release image
+
+# Publishes ECR:<SHA> (runtime) and ECR:<SHA>-migrate for the host's deploy.sh.
+# Skipped until the repository variables AWS_DEPLOY_ROLE_ARN (terraform output
+# github_deploy_role_arn), ECR_REPOSITORY_URL and AWS_REGION are set. The role
+# trusts main only (infra/aws/github.tf).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: release-image-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish runtime and migrate images
+    if: vars.AWS_DEPLOY_ROLE_ARN != '' && vars.ECR_REPOSITORY_URL != '' && vars.AWS_REGION != ''
+    # The host is Graviton (t4g), so the images are built natively on arm64.
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    env:
+      ECR_REPOSITORY_URL: ${{ vars.ECR_REPOSITORY_URL }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Assume the deploy role (OIDC, no stored keys)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Log in to ECR
+        run: |
+          aws ecr get-login-password \
+            | docker login --username AWS --password-stdin "${ECR_REPOSITORY_URL%%/*}"
+
+      - name: Build
+        run: |
+          docker build --build-arg RELEASE_ID="$GITHUB_SHA" \
+            --tag "$ECR_REPOSITORY_URL:$GITHUB_SHA" .
+          docker build --target migrate --build-arg RELEASE_ID="$GITHUB_SHA" \
+            --tag "$ECR_REPOSITORY_URL:$GITHUB_SHA-migrate" .
+
+      # Migrate first: a runtime tag never exists without its migrate image.
+      - name: Push
+        run: |
+          docker push "$ECR_REPOSITORY_URL:$GITHUB_SHA-migrate"
+          docker push "$ECR_REPOSITORY_URL:$GITHUB_SHA"

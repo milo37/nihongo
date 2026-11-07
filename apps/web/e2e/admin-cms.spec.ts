@@ -22,6 +22,7 @@ import {
   getAdminQuestionResponseSchema,
   listAdminQuestionsErrorSchema,
   listAdminQuestionsResponseSchema,
+  listAdminTagsResponseSchema,
   previewQuestionVersionResponseSchema,
   updateQuestionVersionErrorSchema,
   updateQuestionVersionRequestSchema,
@@ -378,14 +379,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
       item.questionType === 'GRAMMAR_SELECT'
   )
   if (!seed)
-    throw new Error(
-      'The canonical N3 grammar-select catalog must supply an existing applicable tag.'
-    )
-  const tag = seed.tags[0]
-  if (!tag)
-    throw new Error(
-      'The existing catalog tag is required; do not create a test-only tag.'
-    )
+    throw new Error('The canonical N3 grammar-select catalog is required.')
   await expect(
     page.getByRole('heading', { name: '문제 관리', exact: true })
   ).toBeVisible()
@@ -415,7 +409,22 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
   await page
     .getByLabel('한국어 해설', { exact: true })
     .fill('행동이 이루어지는 장소에는 조사 で를 씁니다.')
-  await page.getByLabel('태그', { exact: true }).fill(tag.label)
+  // Tags are picked from the subject's list (#662), which holds the loaded
+  // tag list file (#707); do not create a test-only tag.
+  const tagSearch = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'GET' &&
+      new URL(response.url()).pathname === '/api/v1/admin/tags' &&
+      new URL(response.url()).searchParams.has('q')
+  )
+  await page.getByRole('combobox', { name: '태그', exact: true }).fill('조사')
+  const listed = listAdminTagsResponseSchema
+    .parse(await canonicalJson(await tagSearch, 200))
+    .items.find((item) => item.label === '조사')
+  if (listed?.subject !== 'GRAMMAR')
+    throw new Error('The loaded GRAMMAR tag 조사 is required.')
+  const { subject: _subject, ...tag } = listed
+  await page.getByRole('option', { name: tag.label, exact: true }).click()
   const createResponse = waitForResponse(
     page,
     'POST',
@@ -860,10 +869,8 @@ test('administrator member list renders the real masked member page', async ({
         row.getByRole('cell', { name: member.maskedEmail, exact: true })
       ).toBeVisible()
     }
-    // Fixture addresses are phase7-<actor>-<suffix>@example.test; only masked text may render.
-    await expect(grid.getByText(/phase7-[a-z]+-.+@example\.test/)).toHaveCount(
-      0
-    )
+    // Fixture addresses are test-<actor>-<suffix>@example.test; only masked text may render.
+    await expect(grid.getByText(/test-[a-z]+-.+@example\.test/)).toHaveCount(0)
     await waitForLedgerToQuiesce(ledger)
   } finally {
     await context.close()

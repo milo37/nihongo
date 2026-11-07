@@ -59,6 +59,7 @@ import {
   reauthenticateAdminRequestSchema,
   reauthenticateAdminResponseSchema,
   publishQuestionVersionBatchErrorSchema,
+  approveQuestionVersionBatchErrorSchema,
   requestContentReviewBatchErrorSchema,
   requestContentReviewBatchRequestSchema,
   requestContentReviewBatchResponseSchema,
@@ -125,15 +126,17 @@ import {
   type OperationManifestEntry
 } from './content-manifest.js'
 import {
+  approveQuestionVersionBatchRequestSchema,
+  approveQuestionVersionBatchResponseSchema,
   publishQuestionVersionBatchRequestSchema,
   publishQuestionVersionBatchResponseSchema
 } from './review.js'
 
-export const emptyParamsSchema = z.object({}).strict()
+const emptyParamsSchema = z.object({}).strict()
 export const emptyQuerySchema = z.object({}).strict()
-export const noRequestBodySchema = z.undefined()
+const noRequestBodySchema = z.undefined()
 
-export interface OperationSchemaDescriptor {
+interface OperationSchemaDescriptor {
   readonly params: z.ZodType
   readonly query: z.ZodType
   readonly body: z.ZodType
@@ -141,7 +144,7 @@ export interface OperationSchemaDescriptor {
   readonly error: z.ZodType
 }
 
-export interface OperationSchemaManifestEntry extends OperationManifestEntry {
+interface OperationSchemaManifestEntry extends OperationManifestEntry {
   readonly operation: AdminOperation
   readonly schemas: OperationSchemaDescriptor
 }
@@ -284,6 +287,13 @@ export const operationSchemas = {
     success: publishQuestionVersionBatchResponseSchema,
     error: publishQuestionVersionBatchErrorSchema
   },
+  approveQuestionVersionBatch: {
+    params: noParams,
+    query: noQuery,
+    body: approveQuestionVersionBatchRequestSchema,
+    success: approveQuestionVersionBatchResponseSchema,
+    error: approveQuestionVersionBatchErrorSchema
+  },
   validateQuestionImport: {
     params: noParams,
     query: noQuery,
@@ -364,14 +374,14 @@ export const operationSchemaManifest: readonly OperationSchemaManifestEntry[] =
     schemas: operationSchemas[entry.operation]
   }))
 
-export interface OperationFailureDetails {
+interface OperationFailureDetails {
   readonly code: StableErrorCode
   readonly message: string
   readonly fieldErrors?: ApiFailure['fieldErrors']
   readonly requestId: string
 }
 
-export interface BuildOperationFailureResponseInput {
+interface BuildOperationFailureResponseInput {
   readonly operation: AdminOperation
   readonly failure: OperationFailureDetails
   readonly disposition: AdminExecutionDisposition
@@ -400,12 +410,10 @@ export const buildContentOperationFailureResponse = ({
   const code = stableErrorCodeSchema.parse(failure.code)
   const status = errorStatusByCode[code]
   if (status === 429 && retryAfterSeconds === undefined) {
-    throw new Error('Phase 7 429 response에는 Retry-After가 필요합니다.')
+    throw new Error('429 response에는 Retry-After가 필요합니다.')
   }
   if (retryAfterSeconds !== undefined && status !== 429 && status !== 503) {
-    throw new Error(
-      'Retry-After는 Phase 7 429/503 response에만 사용할 수 있습니다.'
-    )
+    throw new Error('Retry-After는 429/503 response에만 사용할 수 있습니다.')
   }
   const parsedRetryAfter =
     retryAfterSeconds === undefined
@@ -436,7 +444,7 @@ export const buildContentOperationFailureResponse = ({
   }
 }
 
-export interface AssertOperationFailureResponseInput {
+interface AssertOperationFailureResponseInput {
   readonly operation: AdminOperation
   readonly response: ContentOperationFailureResponse
   readonly disposition: AdminExecutionDisposition
@@ -474,16 +482,14 @@ export const assertOperationFailureResponse = ({
 
   const retryAfter = response.headers['Retry-After']
   if (body.code === 'RATE_LIMITED' && retryAfter === undefined) {
-    throw new Error('Phase 7 429 response에는 Retry-After가 필요합니다.')
+    throw new Error('429 response에는 Retry-After가 필요합니다.')
   }
   if (
     retryAfter !== undefined &&
     expectedStatus !== 429 &&
     expectedStatus !== 503
   ) {
-    throw new Error(
-      'Retry-After는 Phase 7 429/503 response에만 사용할 수 있습니다.'
-    )
+    throw new Error('Retry-After는 429/503 response에만 사용할 수 있습니다.')
   }
   if (retryAfter !== undefined) {
     if (!RETRY_AFTER_SECONDS_PATTERN.test(retryAfter)) {
@@ -499,17 +505,15 @@ export const assertOperationSchemaManifest = (): void => {
   const schemaOperations = Object.keys(operationSchemas)
   if (JSON.stringify(manifestOperations) !== JSON.stringify(schemaOperations)) {
     throw new Error(
-      'Phase 7 operation schema manifest는 canonical 29-operation 순서와 같아야 합니다.'
+      'operation schema manifest는 canonical 30-operation 순서와 같아야 합니다.'
     )
   }
   if (
-    operationSchemaManifest.length !== 29 ||
+    operationSchemaManifest.length !== 30 ||
     operationSchemaManifest.some(
       (entry) => entry.schemas !== operationSchemas[entry.operation]
     )
   ) {
-    throw new Error(
-      'Phase 7 operation schema binding이 canonical하지 않습니다.'
-    )
+    throw new Error('operation schema binding이 canonical하지 않습니다.')
   }
 }

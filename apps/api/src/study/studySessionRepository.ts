@@ -23,11 +23,14 @@ import {
   createCurrentReviewCandidatePredicate,
   reviewQueueStatusOrder
 } from '../review/currentReviewCandidateQuery.js'
-
-const UNAVAILABLE_PRISMA_CODES = new Set(['P1001', 'P1002', 'P2024'])
-const MAX_TRANSACTION_ATTEMPTS = 3
-const RETRY_BASE_DELAY_MS = 5
-const RETRY_JITTER_MAX_MS = 5
+import {
+  MAX_TRANSACTION_ATTEMPTS,
+  RETRY_BASE_DELAY_MS,
+  RETRY_JITTER_MAX_MS,
+  delay,
+  isDatabaseUnavailableError,
+  isSerializableConflict as isPrismaSerializableConflict
+} from './studyRepositorySupport.js'
 
 interface StudySessionRepositoryOptions {
   afterOwnedSessionLocked?: () => Promise<void>
@@ -41,9 +44,6 @@ interface StudySessionRepositoryOptions {
   jitterMilliseconds?: () => number
   random?: () => number
 }
-
-const delay = async (milliseconds: number): Promise<void> =>
-  await new Promise((resolve) => setTimeout(resolve, milliseconds))
 
 export type ExistingStudyOwner =
   | { kind: 'USER'; userId: string }
@@ -71,12 +71,9 @@ export interface CreateStudySessionInput {
   subject: 'VOCABULARY' | 'GRAMMAR' | 'READING'
 }
 
-export type CreateRandomStudySessionInput = Omit<
-  CreateStudySessionInput,
-  'mode'
->
+type CreateRandomStudySessionInput = Omit<CreateStudySessionInput, 'mode'>
 
-export interface StudySessionQuestionRecord {
+interface StudySessionQuestionRecord {
   ordinal: number
   question: PublishedQuestionDetailRecord
   sessionQuestionId: string
@@ -139,17 +136,12 @@ export class StudySessionRepositoryUnavailableError extends Error {
   }
 }
 
-export class StudySessionRepositoryIntegrityError extends Error {
+class StudySessionRepositoryIntegrityError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'StudySessionRepositoryIntegrityError'
   }
 }
-
-const isDatabaseUnavailableError = (error: unknown): boolean =>
-  error instanceof Prisma.PrismaClientInitializationError ||
-  (error instanceof Prisma.PrismaClientKnownRequestError &&
-    UNAVAILABLE_PRISMA_CODES.has(error.code))
 
 class StudySelectionChangedError extends Error {
   constructor(message: string) {
@@ -158,22 +150,9 @@ class StudySelectionChangedError extends Error {
   }
 }
 
-const isSerializableConflict = (error: unknown): boolean => {
-  if (error instanceof StudySelectionChangedError) {
-    return true
-  }
-  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
-    return false
-  }
-  const sqlState = error.meta?.code
-  return (
-    error.code === 'P2034' ||
-    (error.code === 'P2010' &&
-      (sqlState === '40001' ||
-        sqlState === '40P01' ||
-        /Code: [`'](?:40001|40P01)[`']/u.test(error.message)))
-  )
-}
+const isSerializableConflict = (error: unknown): boolean =>
+  error instanceof StudySelectionChangedError ||
+  isPrismaSerializableConflict(error)
 
 const executeRepositoryOperation = async <Result>(
   operation: () => Promise<Result>
@@ -189,9 +168,9 @@ const executeRepositoryOperation = async <Result>(
 }
 
 const toTags = (
-  tags: readonly { tagId: string; labelSnapshot: string }[]
+  tags: readonly { tagId: string; tag: { label: string } }[]
 ): readonly QuestionTagRecord[] =>
-  tags.map(({ labelSnapshot, tagId }) => ({ id: tagId, label: labelSnapshot }))
+  tags.map(({ tag, tagId }) => ({ id: tagId, label: tag.label }))
 
 const toOptions = (
   options: readonly { id: string; label: string; text: string }[]
@@ -317,11 +296,11 @@ export const loadStudySessionRecord = async (
       ? []
       : await client.questionVersionTag.findMany({
           where: { questionVersionId: { in: questionVersionIds } },
-          orderBy: [{ questionVersionId: 'asc' }, { labelSnapshot: 'asc' }],
+          orderBy: [{ questionVersionId: 'asc' }, { tag: { label: 'asc' } }],
           select: {
             questionVersionId: true,
             tagId: true,
-            labelSnapshot: true
+            tag: { select: { label: true } }
           }
         })
   const versionsById = new Map(versions.map((version) => [version.id, version]))
@@ -733,8 +712,9 @@ const lockAndValidateSelectedQuestions = async (
           AND EXISTS (
             SELECT 1
             FROM "QuestionVersionTag" AS filter_tag
+            JOIN "Tag" AS filter_tag_name ON filter_tag_name."id" = filter_tag."tagId"
             WHERE filter_tag."questionVersionId" = version."id"
-              AND (filter_tag."labelSnapshot" COLLATE "C") =
+              AND (filter_tag_name."label" COLLATE "C") =
                 (${input.reviewFilter.tag} COLLATE "C")
           )
         `

@@ -23,6 +23,7 @@ import {
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import { useAdminMembersList } from '@app/admin-member/hooks/useAdminMembers'
 import { MemberStatusBadge } from '@app/admin-member/components/MemberStatusBadge'
+import { PageContainer } from '@nihongo/browser/common/components/PageContainer'
 
 type PageSize = (typeof ADMIN_GRID_PAGE_SIZES)[number]
 
@@ -179,7 +180,7 @@ export const AdminMembersPage = (): ReactElement => {
   }
 
   return (
-    <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14">
+    <PageContainer width="6xl">
       <header className="border-b border-line pb-8">
         <h1 className="text-balance text-3xl font-black sm:text-4xl">
           {t('members.title')}
@@ -253,6 +254,6 @@ export const AdminMembersPage = (): ReactElement => {
           />
         )}
       </div>
-    </section>
+    </PageContainer>
   )
 }

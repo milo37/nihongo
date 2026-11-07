@@ -80,17 +80,19 @@ beforeEach(() => {
   })
   responder = (url, method) => ({
     status: method === 'post' && url === '/v1/admin/questions' ? 201 : 200,
-    data: url.endsWith('/archive')
-      ? archiveReceipt
-      : method === 'patch'
-        ? updateReceipt
-        : method === 'post'
-          ? createReceipt
-          : url.endsWith('/preview')
-            ? preview
-            : url.endsWith(question.questionId)
-              ? detail
-              : envelope
+    data: url.endsWith('/admin/tags')
+      ? { items: [{ ...question.tags[0], subject: 'GRAMMAR' }] }
+      : url.endsWith('/archive')
+        ? archiveReceipt
+        : method === 'patch'
+          ? updateReceipt
+          : method === 'post'
+            ? createReceipt
+            : url.endsWith('/preview')
+              ? preview
+              : url.endsWith(question.questionId)
+                ? detail
+                : envelope
   })
   apiClient.defaults.adapter = async (config) => {
     const url = config.url ?? ''
@@ -407,7 +409,13 @@ it('registers a draft, enters the returned question editor, and saves back to th
     screen.getByRole('textbox', { name: '한국어 해설' }),
     preview.adminAnswer.explanationKo
   )
-  await user.type(screen.getByRole('textbox', { name: '태그' }), '문법')
+  await user.click(screen.getByRole('combobox', { name: '태그' }))
+  await user.click(
+    await within(screen.getByRole('listbox', { name: '태그' })).findByRole(
+      'option',
+      { name: '문법' }
+    )
+  )
   await user.click(screen.getByRole('button', { name: '초안 등록' }))
   await screen.findByRole('heading', { name: '문제 수정' })
   expect(router.state.location.pathname).toBe(
@@ -567,10 +575,13 @@ it('shows the edit save failure from the error code, not the server message', as
   expect(screen.queryByText('요청을 확인해 주세요.')).toBeNull()
 })
 it('explains a duplicate-content 409 on create, including archived questions', async () => {
+  const defaultResponder = responder
   responder = (url, method) =>
     method === 'post'
       ? failure('DUPLICATE_QUESTION_CONTENT', 409)
-      : { status: 200, data: envelope }
+      : url.endsWith('/admin/tags')
+        ? defaultResponder(url, method)
+        : { status: 200, data: envelope }
   const user = userEvent.setup()
   renderPage('create')
   await user.type(
@@ -587,7 +598,13 @@ it('explains a duplicate-content 409 on create, including archived questions', a
     screen.getByRole('textbox', { name: '한국어 해설' }),
     preview.adminAnswer.explanationKo
   )
-  await user.type(screen.getByRole('textbox', { name: '태그' }), '문법')
+  await user.click(screen.getByRole('combobox', { name: '태그' }))
+  await user.click(
+    await within(screen.getByRole('listbox', { name: '태그' })).findByRole(
+      'option',
+      { name: '문법' }
+    )
+  )
   await user.click(screen.getByRole('button', { name: '초안 등록' }))
   expect(
     await screen.findByText(

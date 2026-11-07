@@ -17,7 +17,7 @@ export const createSsoTransactionStore = (
 ): SsoTransactionStore => ({
   create: async (transaction) => {
     const rows = await client.$queryRawUnsafe<Array<{ created: boolean }>>(
-      'SELECT "phase7_create_sso_transaction_v2"($1, $2, $3, $4, $5, $6) AS "created"',
+      'SELECT "create_sso_transaction_v2"($1, $2, $3, $4, $5, $6) AS "created"',
       transaction.provider,
       transaction.stateDigest,
       transaction.bindingDigest,
@@ -31,7 +31,7 @@ export const createSsoTransactionStore = (
   },
   consume: async (stateDigest, bindingDigest, provider) => {
     const rows = await client.$queryRawUnsafe<unknown[]>(
-      'SELECT * FROM "phase7_consume_sso_transaction_v2"($1, $2, $3)',
+      'SELECT * FROM "consume_sso_transaction_v2"($1, $2, $3)',
       provider,
       stateDigest,
       bindingDigest

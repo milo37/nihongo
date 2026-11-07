@@ -41,7 +41,7 @@ export interface PublishedQuestionDetailRecord
   options: readonly QuestionOptionRecord[]
 }
 
-export interface ListPublishedQuestionsInput {
+interface ListPublishedQuestionsInput {
   level?: PublishedQuestionSummaryRecord['level']
   subject?: PublishedQuestionSummaryRecord['subject']
   type?: PublishedQuestionSummaryRecord['questionType']
@@ -51,7 +51,7 @@ export interface ListPublishedQuestionsInput {
   pageSize: number
 }
 
-export interface ListPublishedQuestionsResult {
+interface ListPublishedQuestionsResult {
   items: readonly PublishedQuestionSummaryRecord[]
   total: number
 }
@@ -76,7 +76,7 @@ export class QuestionRepositoryUnavailableError extends Error {
   }
 }
 
-export class QuestionRepositoryIntegrityError extends Error {
+class QuestionRepositoryIntegrityError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'QuestionRepositoryIntegrityError'
@@ -91,11 +91,11 @@ const isDatabaseUnavailableError = (error: unknown): boolean =>
     UNAVAILABLE_PRISMA_CODES.has(error.code))
 
 const toTags = (
-  tags: readonly { tagId: string; labelSnapshot: string }[]
+  tags: readonly { tagId: string; tag: { label: string } }[]
 ): readonly QuestionTagRecord[] =>
-  tags.map(({ labelSnapshot, tagId }) => ({
+  tags.map(({ tag, tagId }) => ({
     id: tagId,
-    label: labelSnapshot
+    label: tag.label
   }))
 
 const executeRepositoryOperation = async <Result>(
@@ -114,7 +114,7 @@ const executeRepositoryOperation = async <Result>(
 
 export const createPrismaQuestionRepository = (
   client: PrismaClient | Prisma.TransactionClient,
-  options: CreatePrismaQuestionRepositoryOptions = {}
+  _options: CreatePrismaQuestionRepositoryOptions = {}
 ): QuestionRepository => ({
   findPublishedById: (questionId) =>
     executeRepositoryOperation(async () => {
@@ -140,8 +140,8 @@ export const createPrismaQuestionRepository = (
                 select: { id: true, label: true, text: true }
               },
               tags: {
-                orderBy: { labelSnapshot: 'asc' },
-                select: { tagId: true, labelSnapshot: true }
+                orderBy: { tag: { label: 'asc' } },
+                select: { tagId: true, tag: { select: { label: true } } }
               }
             }
           }
@@ -185,9 +185,7 @@ export const createPrismaQuestionRepository = (
           ? {
               tags: {
                 some: {
-                  ...(options.migrationProfile === 'pre-phase7'
-                    ? { tag: { normalizedName: input.normalizedTag } }
-                    : { normalizedNameSnapshot: input.normalizedTag })
+                  tag: { normalizedName: input.normalizedTag }
                 }
               }
             }
@@ -214,8 +212,8 @@ export const createPrismaQuestionRepository = (
                 questionText: true,
                 difficulty: true,
                 tags: {
-                  orderBy: { labelSnapshot: 'asc' },
-                  select: { tagId: true, labelSnapshot: true }
+                  orderBy: { tag: { label: 'asc' } },
+                  select: { tagId: true, tag: { select: { label: true } } }
                 }
               }
             }

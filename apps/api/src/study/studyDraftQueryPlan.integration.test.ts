@@ -14,6 +14,7 @@ import { createStudyResultRetryService } from './studyResultRetryService.js'
 import { createPrismaStudySessionRepository } from './studySessionRepository.js'
 import { createPrismaStudySubmissionRepository } from './studySubmissionRepository.js'
 import { createStudySubmissionService } from './studySubmissionService.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 interface ExplainRow {
   'QUERY PLAN': unknown
@@ -65,16 +66,16 @@ assertSafeTestDatabase({
 const isCurrentSourceIntegration =
   process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
 const fixtureDatabaseUrl = process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
-const erasureWorkerDatabaseUrl = process.env.TEST_API_ERASURE_DATABASE_URL
+const appFixtureDatabaseUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
 if (
   isCurrentSourceIntegration &&
-  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
+  (!fixtureDatabaseUrl || !appFixtureDatabaseUrl)
 ) {
   throw new Error(
     'StudyDraft query-plan tests require fixture and erasure databases.'
   )
 }
-for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
+for (const databaseUrl of [fixtureDatabaseUrl, appFixtureDatabaseUrl]) {
   if (databaseUrl) {
     assertSafeTestDatabase({
       nodeEnvironment: environment.NODE_ENV,
@@ -93,11 +94,11 @@ const database = createDatabaseRuntime(
 const fixtureDatabase = fixtureDatabaseUrl
   ? createDatabaseRuntime(fixtureDatabaseUrl)
   : database
-const erasureWorkerClient = erasureWorkerDatabaseUrl
+const erasureWorkerClient = appFixtureDatabaseUrl
   ? new Client({
-      connectionString: erasureWorkerDatabaseUrl,
+      connectionString: appFixtureDatabaseUrl,
       options: createPostgresStartupOptions(
-        getPostgresSchema(erasureWorkerDatabaseUrl)
+        getPostgresSchema(appFixtureDatabaseUrl)
       )
     })
   : undefined
@@ -118,7 +119,7 @@ const createUser = async (kind: string): Promise<{ readonly id: string }> => {
     await fixture.account.create({
       data: {
         accountId: userId,
-        password: 'phase10-fixture-password-hash',
+        password: 'test-fixture-password-hash',
         providerId: 'credential',
         userId
       }
@@ -529,8 +530,7 @@ const createExpiredRetryFixture = async (
       durationSec: 0,
       expectedDraftRevision: 0
     },
-    { kind: 'USER', userId },
-    2
+    { kind: 'USER', userId }
   )
   const retry = await createStudyResultRetryService(
     createPrismaStudyResultRetryRepository(database.client),
@@ -578,8 +578,7 @@ const createExpiredGuestRetryFixture = async (
       durationSec: 0,
       expectedDraftRevision: 0
     },
-    owner,
-    2
+    owner
   )
   const retry = await createStudyResultRetryService(
     createPrismaStudyResultRetryRepository(database.client),
@@ -595,7 +594,7 @@ beforeAll(async () => {
   await database.checkReadiness()
   if (erasureWorkerClient) {
     await erasureWorkerClient.connect()
-    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+    await erasureWorkerClient.query(`SET ROLE "nihongo_app"`)
   }
 })
 
@@ -608,10 +607,7 @@ afterAll(async () => {
   if (createdUserIds.size > 0) {
     if (erasureWorkerClient) {
       for (const userId of createdUserIds) {
-        await erasureWorkerClient.query(
-          `SELECT "phase7_erase_user"($1, 'TEST')`,
-          [userId]
-        )
+        await eraseTestUser(database.client, userId)
       }
     } else {
       await fixtureDatabase.client.user.deleteMany({

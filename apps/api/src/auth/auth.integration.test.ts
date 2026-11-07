@@ -3,7 +3,7 @@ import { hashPassword } from 'better-auth/crypto'
 import { Client } from 'pg'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { createApiApp } from '../app/createApp.js'
-import { createSsoSessionFixture } from '../db/fixtures/ssoSession.js'
+import { createSsoSessionFixture } from '../../test/fixtures/db/ssoSession.js'
 import { parseApiEnvironment } from '../config/env.js'
 import {
   createDatabaseRuntime,
@@ -17,7 +17,7 @@ import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { createApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createJsonLogger } from '../observability/logger.js'
 import type { QuestionReader } from '../question/questionService.js'
-import { createAdminProvisioner } from './fixtures/adminProvisioning.js'
+import { createAdminProvisioner } from '../../test/fixtures/auth/adminProvisioning.js'
 import { createAuthGateway } from './authGateway.js'
 import { createAuthRuntime } from './createAuth.js'
 import { createAuthEmailDispatcher } from './emailDispatcher.js'
@@ -29,6 +29,7 @@ import {
   createPrincipalService
 } from './principalService.js'
 import { GUEST_COOKIE_NAME } from '../routes/principal.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({
@@ -40,11 +41,10 @@ assertSafeTestDatabase({
 const isCurrentSourceIntegration =
   process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
 const fixtureDatabaseUrl = process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
-const erasureWorkerDatabaseUrl = process.env.TEST_API_ERASURE_DATABASE_URL
-const authGatewayDatabaseUrl = environment.AUTH_GATEWAY_DATABASE_URL
+const appFixtureDatabaseUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
 if (
   isCurrentSourceIntegration &&
-  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl || !authGatewayDatabaseUrl)
+  (!fixtureDatabaseUrl || !appFixtureDatabaseUrl)
 ) {
   throw new Error(
     'Auth tests require fixture, erasure, and auth-gateway databases.'
@@ -52,8 +52,8 @@ if (
 }
 for (const databaseUrl of [
   fixtureDatabaseUrl,
-  erasureWorkerDatabaseUrl,
-  authGatewayDatabaseUrl
+  appFixtureDatabaseUrl,
+  appFixtureDatabaseUrl
 ]) {
   if (databaseUrl) {
     assertSafeTestDatabase({
@@ -74,13 +74,13 @@ const fixtureDatabase = fixtureDatabaseUrl
   ? createDatabaseRuntime(fixtureDatabaseUrl)
   : database
 const authGatewayDatabase = isCurrentSourceIntegration
-  ? createRoleDatabaseRuntime(authGatewayDatabaseUrl!, 'nihongo_auth_gateway')
+  ? createRoleDatabaseRuntime(appFixtureDatabaseUrl!, 'nihongo_app')
   : undefined
-const erasureWorkerClient = erasureWorkerDatabaseUrl
+const erasureWorkerClient = appFixtureDatabaseUrl
   ? new Client({
-      connectionString: erasureWorkerDatabaseUrl,
+      connectionString: appFixtureDatabaseUrl,
       options: createPostgresStartupOptions(
-        getPostgresSchema(erasureWorkerDatabaseUrl)
+        getPostgresSchema(appFixtureDatabaseUrl)
       )
     })
   : undefined
@@ -101,7 +101,7 @@ const principalService = isCurrentSourceIntegration
   ? createOwnedPrincipalService({
       client: database.client,
       isProduction: false,
-      refreshClient: authGatewayDatabase!.client,
+      refreshClient: database.client,
       secret: environment.BETTER_AUTH_SECRET
     })
   : createPrincipalService({
@@ -124,7 +124,7 @@ const app = createApiApp({
           delay: async () => undefined,
           environment,
           ownedAuthFacade: createOwnedAuthFacade({
-            client: authGatewayDatabase!.client,
+            client: database.client,
             emailDispatcher,
             environment
           }),
@@ -191,7 +191,7 @@ const createFixtureUser = async ({
   email,
   emailVerified = true,
   name,
-  passwordHash = 'phase10-fixture-password-hash',
+  passwordHash = 'test-fixture-password-hash',
   role = 'USER'
 }: {
   readonly accountStatus?: 'ACTIVE' | 'DELETION_PENDING' | 'DELETED'
@@ -228,9 +228,7 @@ const createFixtureUser = async ({
 
 const eraseUser = async (userId: string): Promise<void> => {
   if (erasureWorkerClient) {
-    await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
-      userId
-    ])
+    await eraseTestUser(database.client, userId)
   } else {
     await fixtureDatabase.client.user.delete({ where: { id: userId } })
   }
@@ -240,7 +238,7 @@ beforeAll(async () => {
   await database.checkReadiness()
   if (erasureWorkerClient) {
     await erasureWorkerClient.connect()
-    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+    await erasureWorkerClient.query(`SET ROLE "nihongo_app"`)
   }
 })
 
@@ -302,6 +300,37 @@ describe(
         code: 'AUTH_ROUTE_NOT_FOUND'
       })
       expect(rejected.headers.get('Set-Cookie')).toBeNull()
+      // #504 P6a dropped the SQL behind these retired routes; all stay 404.
+      for (const [path, body] of [
+        [
+          '/api/auth/sign-in/email',
+          { email: 'retired@example.test', password: 'retired-password' }
+        ],
+        [
+          '/api/auth/change-password',
+          {
+            currentPassword: 'retired-password',
+            newPassword: 'retired-password-2'
+          }
+        ],
+        ['/api/auth/request-password-reset', { email: 'retired@example.test' }],
+        [
+          '/api/auth/reset-password',
+          { newPassword: 'retired-password-2', token: 'retired-token' }
+        ],
+        [
+          '/api/auth/send-verification-email',
+          { email: 'retired@example.test' }
+        ],
+        ['/api/auth/verify-email', { token: 'retired-token' }]
+      ] as const) {
+        const retired = await postAuth(path, body)
+        expect(retired.status).toBe(404)
+        expect(await retired.json()).toMatchObject({
+          code: 'AUTH_ROUTE_NOT_FOUND'
+        })
+        expect(retired.headers.get('Set-Cookie')).toBeNull()
+      }
       expect(
         await Promise.all([
           fixtureDatabase.client.user.count(),
@@ -312,7 +341,7 @@ describe(
       ).toEqual(before)
       const session = await createSsoSessionFixture({
         owner: fixtureDatabase.client,
-        gateway: authGatewayDatabase.client,
+        gateway: database.client,
         secret: environment.BETTER_AUTH_SECRET,
         role: 'USER'
       })
@@ -479,7 +508,7 @@ describe(
         throw new Error('Current SSO gateway fixture is required.')
       const adminSession = await createSsoSessionFixture({
         owner: fixtureDatabase.client,
-        gateway: authGatewayDatabase.client,
+        gateway: database.client,
         secret: environment.BETTER_AUTH_SECRET,
         role: 'ADMIN',
         existingUser: { id: created.userId, email, name: 'Admin SSO fixture' }
@@ -669,7 +698,7 @@ describe(
             throw new Error('Current SSO gateway fixture is required.')
           const session = await createSsoSessionFixture({
             owner: fixtureDatabase.client,
-            gateway: authGatewayDatabase.client,
+            gateway: database.client,
             secret: environment.BETTER_AUTH_SECRET,
             role: 'USER',
             existingUser: { id: user.id, email, name: 'Erasure SSO fixture' }

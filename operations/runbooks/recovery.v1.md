@@ -1,212 +1,199 @@
-# Phase 11 provider-neutral recovery runbook v1
+# Recovery runbook v1 (AWS host)
 
-This runbook is a tracked structural contract. It does not prove that a
-Staging or Production provider has automatic backups, point-in-time recovery,
-an isolated restore target, an incident owner, or a tested RPO/RTO.
+How to bring the PostgreSQL data of the AWS host back from a backup. Both
+restore paths below were run end to end on a local copy of the host (see
+"Local rehearsal"). Steps marked **AWS only** cannot run locally; do them
+right after the first STAGING deploy.
 
-## Stop gates
+## What is backed up
 
-Stop before any target write unless all of the following are exact and
-verified: release ID, release manifest, migration profile, external-registry
-digest, source target fingerprint, three separated database identity
-fingerprints, backup evidence, deployment approver, incident owner, and a
-maintenance or generation lease. Never infer an environment from a hostname.
+| Backup                                 | Made by                                                      | Where                                                                  | Kept    |
+| -------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------- | ------- |
+| Daily dump (`pg_dump --format=custom`) | `harumaru-backup.timer`, 19:00 UTC (04:00 JST) → `backup.sh` | `s3://<backup_bucket>/postgres/YYYY/MM/nihongo-<UTC stamp>.dump`       | 30 days |
+| Pre-migrate dump                       | `migrate.sh`, before every `prisma migrate deploy`           | `s3://<backup_bucket>/postgres/pre-migrate/nihongo-<stamp>-<SHA>.dump` | 30 days |
+| Volume snapshot                        | DLM, Sundays 18:00 UTC                                       | EBS snapshots tagged `harumaru-<env>-weekly`                           | last 4  |
 
-`technical-current-test` is TEST-only and selects the exact 52 ordered physical
-release migrations, including the current catalog migration. Both the count and
-the reviewed SHA256 digest
-`454ffc17fda1ccdf18ad870bd019d816c48c69fcff7b5ce9e7fed2f9ba42dec6`
-are fixed; an internally consistent count or digest alone is not sufficient.
-The current source pin for
-`20261009120000_phase7_approved_n4_reading_batch7_tags` is
-`d4d2caac296296fd941b7631cf6cf7016da2b1be1f764c01386d1d2b1413d806`. The catalog entry
-`20261010071000_phase7_approved308_tags` has reviewed file SHA256
-`600dd3ab067f2af20bb04ecf1dd0f7c30eb18c6c32eb8ab03d746735fa0b0401`.
-These are source-inventory pins, not evidence that either SQL file was applied.
-They do not authorize rewriting an applied migration or repairing a live ledger.
+A day without a daily dump raises the `harumaru-<env>-backup-missing` alarm.
 
-The historical physical 37 predecessor, physical 38 batch7-installed prefix and
-physical 39 inventory have respective ordered file digests
-`89158202b48454a0d179913983fe1449dc139c0db25aec0ba4c5480040291aad`,
-`6aa49828fc3138b2b544830794cad68c05ed11ae2ffa018b9e43a2800cb578dd` and
-`611c2ec676b54bc333706d2401775c242e5d65886c9eb8cb255f15d13dfbc0c1`. These predecessor profiles are rejected as the current technical recovery
-profile. The historical physical46 source adds seven SSO migrations after approved308, ending
-at `20261020230000_sso_account_lifecycle`; its file digest is
-`d0a81eff438c516b761ed8c4b3eeba72276f9a539d81baad2799fa455cda8b2a`. Its ordered inventory digest
-`5457abb5b6fd6d2b0a839402479c643bd74d5e6878fd7763881abc440248d2aa` is also rejected. The historical physical47 source adds
-`20261020233000_sso_first_admin_bootstrap`, with reviewed file SHA256
-`680ce338ea94f47d1da21c4945270d36b7c39ae60dabf0040da4310c576e90f5`.
-Its ordered inventory digest
-`006376ae3be87dd53131cc3c2ee9ccf06f6f8c1706841662a55309618c694891`
-is also rejected.
-The historical physical48 source adds
-`20261028090000_sso_account_erasure_worker_queue`, with reviewed file SHA256
-`cc91bd854924b2261ac4dcb2e8036ad62c69ec0af8d5afe756d4ce7f9ed5d8d7`.
-Its ordered inventory digest
-`a1ff76baa1b6a00920a0699436fe78f7ac51af8b8f939fa40d136c5ac1535630`
-is also rejected.
-The historical physical49 source adds
-`20261028120000_sso_account_erasure_claim_lease`, with reviewed file SHA256
-`bb1075457d171fe0ddc4643e63b8646a27a7cf4087b4aeebe2d151beb3633846`.
-Its ordered inventory digest
-`53c9dd466345b5776e2a6b9a6f57ce78b843f1d2638a26a9c90caa7f520a1392`
-is also rejected.
-The historical physical50 source adds
-`20261028150000_sso_provider_cleanup_fencing`, with reviewed file SHA256
-`394b548011a5021a5d63c39ab6e6a425069aa005f5018a3ef2652336aabd449e`.
-Its ordered inventory digest is
-`299d197f8d062554585b3566f981583af832c1799f232bea4f60ac3d8e157083`.
-The historical physical52 inventory added `20261028160000_study_contract_v2_default`
-(file SHA256 `3b2dd4b6186d0f3603942a3de324cea3041e6fb0cd395eb9fc49f57c9e86a858`)
-and `20261028170000_study_v1_retirement_authority`
-(file SHA256 `622c83d394d779d0eb9f96baedbf8a81ab97d385c09fd99f82efa4e59905eb82`).
-The historical physical53 inventory added `20261030100000_guest_expired_draft_retention`
-(file SHA256 `5708fd94835c6ce970049b1830d44dca2e10e9c089f54383aa67219218fb81f7`);
-its ordered inventory digest is
-`39d9c2053323d8a180e53af80e81dd26a00ef6c041040dc7ccea8e99932e9c08`.
-The historical physical55 inventory added `20261104090000_unified_reports_import_results`
-(file SHA256 `aee02806b846d61c64d35e0c873475e25880e82bd72029853fa23ff7742f8042`)
-and `20261104120000_user_report_erasure_redaction`
-(file SHA256 `99bdb0fecdcfe27d13850bb106af9fbcbb88c2a8cd79d7d6ae355f1db530efa8`),
-with ordered inventory digest
-`4ced7adc2cb49210ad05dd09ec77238d5d3f784a27a5fc2182702de3531595b2`.
-The historical physical56 inventory added `20261104150000_user_account_restriction`
-(file SHA256 `26762221ae1b1ad9636138825453e4664c46e03128db394fbe77ec13ba1532cc`),
-with ordered inventory digest
-`6682d553434a2836173cc114cdbc664b0cdfc9b9c1e8580397d74c0a930aaa02`.
-The historical physical57 inventory added `20261105090000_admin_member_console`
-(file SHA256 `a109890b8c812fa5b74c159b2f99f15c955ee6735ac8d1126b597881eb562de9`),
-with ordered inventory digest
-`64f4e4765c22cfbb06a9dcc36ab8f3ec707bd18741614c7327fcc6c7472aedb0`.
-The current physical58 inventory adds `20261106090000_single_operator_review`
-(file SHA256 `f569efc31c2638a23c2870ded6a8140aabb7be90aff57a2f02d740392f6fc6d1`),
-with ordered inventory digest
-`13da74f7dd883ce43d36f9f532dbc41652a84c0eb4b8f812607f1ca622be578c`.
-Historical physical50, physical52, physical53, physical55, physical56 and physical57 are rejected as the current technical profile.
-A historical catalog-excluded 38-entry inventory has file digest
-`0169f4d0491d4e33f917df842cdeb26920edc2e7f02f8b0d41159cd132320f3b`;
-it is neither this technical recovery profile nor a runtime profile.
-No current physical58, historical57, historical56, historical55, historical53, historical52, historical50, historical49, historical48, historical47, historical39 or catalog-excluded38
-recovery DB drill is verified here.
+## Pick the source
 
-The previous physical 38 source freeze used digest
-`fae541796dc4e4a3afbd05c9c0af39fbad11bdecc4385bd393092fafea8c62b9`
-and the earlier batch7 file pin
-`01ae675a719ccc08854135efd4057f95659d671d04addf40d5c45ba26c850f12`.
-Its historical canonical 37-migration isolated DB candidate excludes
-`20261005183000_phase7_reviewed_catalog_current` and is neither this technical
-recovery profile nor a runtime profile. Its reviewed file digest is
-`79bd5eb74c70780169cf672d330b605a89ed52d4cffd6bc130d77c7aff70577d`;
-actual new DB8 execution remains unverified and requires a separate assignment.
-JLP-472 implementation and JLP-473 review provide historical source evidence only.
-That historical disposable-fixture plan was to first complete canonical36 with the
-original 65 questions, 108 tags and 127 applicability cells; its prior unchanged
-20-name/24-cell command was to reach 128/151, followed by the then-new append,
-completed canonical37 and the closed 15-name/15-cell command. These historical
-counts and commands are not preparation instructions for the current SQL52.
-All predecessor, historical and catalog-excluded inventories remain rejected
-as the current technical profile, even when their own digests are consistent.
-No fixture preparation, SQL execution, activation or deployment is performed by
-this metadata update.
+- Bad data (a mistaken admin action, a broken import): the newest daily dump
+  from before the damage.
+- A migration broke data: the `pre-migrate` dump of that release.
+- S3 unusable: the weekly volume snapshot (up to 7 days old, **AWS only**,
+  below).
 
-Previous physical 37 and canonical 36 inventories remain historical, with
-digests
-`89158202b48454a0d179913983fe1449dc139c0db25aec0ba4c5480040291aad`
-and `96eebebc8d76d1eb858b1cc12d7559685a5e06559a57ff8d9aabdf3b067e3ab3`
-respectively. Their JLP-462 exact-five source freeze remains preserved.
-The earlier forward correction
-`20261009092000_phase7_n4_n2_revision2_digest_fix` retains reviewed file SHA256
-`21f8911ff72d11405338df8c7a539c6eff92279593d895dfba2cc4dd236326aa`.
-JLP-465 recorded a separate canonical36 DB8 pass; it does not verify the new
-canonical37 command or make either previous inventory a recovery fallback.
+Everything written after the chosen dump is lost. Note the dump time and tell
+users if their recent study records are gone. Accounts whose owners asked for
+erasure after the dump come back; re-apply those requests ("Re-apply account
+erasure" below).
 
-Previous physical 36 and canonical 35 inventories remain historical, with
-digests
-`8b9f35ed93aa7179cf5405a49039a10ff3f484171c54a33efbd1018b0494b02f`
-and `b1599310da408668bd4617f35ebc47109cb6e23d91e23dd737eaff521d49a393`
-respectively. Their JLP-454 exact-five freeze and independent JLP-455 review
-remain historical source evidence. JLP-456 recorded six passing and two failing
-DB8 cases without failed identities. JLP-458 identified failures in cases 3 and
-4; two passing identities remain unknown. Those failures are not upgraded by
-the new source metadata, and neither previous inventory is a recovery fallback.
+## Get the dump onto the host
 
-Historical physical 35 and canonical 34 inventories remain preserved for
-comparison, with digests
-`6ce3cb9d17492c2806fab8e03b923b9440da30ca6be9b10c5a978abc1bd5d8a8`
-and `4448f7aa40804bb3058f1a986c6af5527eb26ca7375973bcca320fa1bf51d7f8`
-respectively. The previous physical 35 exact-five source freeze and independent
-JLP-448 review remain historical evidence. Neither inventory is accepted as the
-current technical recovery profile or as a fallback.
+The host role can only upload backups (`s3:PutObject`), so it cannot download
+them. On the operator's machine (`aws login`), find the key and make a link
+that works for 15 minutes:
 
-`v1-runtime-pre-phase7` selects the exact 27 entries before
-`20260827100000_phase7_admin_cms_enums`, but it is an unverified activation
-candidate rather than current-artifact compatibility or deployability proof.
-The retired email sign-up/sign-in smoke cannot validate the Google-only artifact.
-The replacement candidate uses a current-58 controlled Google-linked TEST session:
-task-owned setup applies the existing Phase7 prefix37, capability/issuer activation,
-reviewed canonical65 seed helper, and remaining immutable migrations. An existing
-unique canonical tag must return exactly one matching question/version. The same
-confirmed session must read the principal and create/list exactly one bookmark.
-The production image reuses its identity repository and production cookie signer;
-external Google exchange remains unverified. This fixture is not a Google login,
-Staging/Production recovery proof, or permission to activate an external target.
-Actual Docker/database execution of this candidate remains unverified. The host
-setup requires installed API dependencies, tsx and the generated Prisma client;
-it reads no environment files and runs no TEST replacement server in the image.
-Activation remains blocked pending exact current-artifact compatibility evidence
-and a trusted registry/provider adapter. Never point bare `prisma migrate deploy`
-at the full current directory for a historical v1 Staging/Production target.
+```sh
+aws s3 ls "s3://<backup_bucket>/postgres/" --recursive | tail -n 5
+aws s3 presign "s3://<backup_bucket>/postgres/2026/11/nihongo-<stamp>.dump" --expires-in 900
+```
 
-## Backup proof
+Open a Session Manager shell on the host, `sudo -i`, and paste the link into a
+variable without echoing it:
 
-Resolve the exact target and evidence adapter from the separately protected
-registry. Accept only closed, secret-free evidence whose target fingerprint,
-release, migration digest, observation time, RPO, RTO, and retention match the
-validated recovery plan. A local dump, TEST fixture, successful health check,
-or provider dashboard screenshot is not Staging/Production backup proof.
+```sh
+read -rs dump_url
+```
 
-## Migration decision
+## A. Restore on the running host
 
-1. Before migration, abort without a target write when any preflight differs.
-2. With an unchanged migration profile, the previous artifact may be restored.
-3. With an additive change, the previous artifact is allowed only when a
-   separately reviewed compatibility proof is bound to the exact release.
-4. For every other schema change, use a forward-fix.
+For bad data while the host and its volume are fine. The damaged database is
+kept under another name, never overwritten.
 
-`prisma migrate reset`, `prisma db push`, `prisma migrate dev`, destructive
-reverse migrations, ad-hoc Production SQL, and restoration over the source
-target are forbidden.
+```sh
+cd /opt/harumaru
+release="$(cat current-release)"
+docker compose stop api proxy
+aside="nihongo_damaged_$(date -u +%Y%m%d%H%M%S)"
+docker compose exec -T postgres psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
+  -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'nihongo'" \
+  -c "ALTER DATABASE nihongo RENAME TO $aside" \
+  -c "ALTER DATABASE $aside OWNER TO postgres" \
+  -c "REVOKE ALL ON DATABASE $aside FROM PUBLIC, nihongo_migration, nihongo_production_migration_login, nihongo_production_app_login, nihongo_production_guest_cleanup_worker_login" \
+  -c "CREATE DATABASE nihongo"
+/opt/harumaru/bin/render-env.sh
+/opt/harumaru/bin/provision-db.sh
+curl -fsS "$dump_url" | docker compose exec -T postgres \
+  pg_restore -U postgres -d nihongo --exit-on-error --single-transaction
+/opt/harumaru/bin/deploy.sh "$release"
+```
 
-## Isolated restore drill
+- The `OWNER` and `REVOKE` lines are required. The API checks at start that its
+  login can connect to no other database; without them it restarts in a loop
+  with `Runtime DB role attestation failed.` (seen in the rehearsal).
+- The site is down from `stop` until `deploy.sh` prints `deployed <SHA>`.
+- `deploy.sh` checks the roles again, takes a pre-migrate dump of the restored
+  data, applies any migration newer than the dump, confirms the
+  `DatabaseCapability` row and waits for `/health/ready`.
+- A dump made by a newer release than `current-release` must be restored with
+  that newer release (migrations only move forward).
 
-Restore only into a separately fingerprinted empty target. Bind the archive to
-the accepted backup evidence without recording its path, URL, database name,
-credential, provider response, SQL, row data, request body, or raw error. Verify
-the migration ledger, schema digest, data digest, readiness compatibility,
-empty-target preflight, runtime-role read access, zero source mutation, timing
-budget, and cleanup. A TEST
-drill must keep every external recovery claim false.
+## B. Restore on a new data volume
 
-## Incident response
+For a lost or unreadable `/var/lib/harumaru` volume: the instance boots with an
+empty data volume (cloud-init formats it and makes a new certificate). If only
+the instance was replaced and the volume survived, do not restore; run
+`deploy.sh <SHA>` instead.
 
-Classify incidents as SEV1 (security, unrecoverable write risk, or broad
-unavailability), SEV2 (material degraded service), or SEV3 (contained impact).
-Resolve the incident owner and communication channel from the validated exact
-registry; this repository does not invent either. Preserve only closed-schema
-digest evidence, record the rollback/forward-fix decision, and stop if ownership
-or target identity becomes ambiguous.
+```sh
+cd /opt/harumaru
+release=<full SHA of the release that last ran>   # GitHub main or ECR tags
+/opt/harumaru/bin/render-env.sh
+# Placeholder .env so Compose can start postgres alone; deploy.sh rewrites it.
+(source /etc/harumaru/host.env
+ printf 'API_IMAGE=none\nMIGRATE_IMAGE=none\nAWS_REGION=%s\nLOG_GROUP=%s\n' "$AWS_REGION" "$LOG_GROUP") > .env
+docker compose up -d --wait postgres
+/opt/harumaru/bin/provision-db.sh
+curl -fsS "$dump_url" | docker compose exec -T postgres \
+  pg_restore -U postgres -d nihongo --exit-on-error --single-transaction
+/opt/harumaru/bin/deploy.sh "$release"
+```
 
-## Evidence handling
+The restored `DatabaseCapability` row stays current because postgres always gets
+`172.30.1.10` on the compose `db` network.
 
-Run `pnpm recovery:verify` only as a verifier. It performs no backup, restore,
-migration, deployment, database, network, or provider action. Generated local
-evidence belongs in ignored private scratch storage and must not be committed.
-The current verifier accepts TEST evidence only. It rejects every Staging or
-Production evidence chain, even a structurally self-consistent one, until a
-protected target registry and trusted provider adapter are implemented.
-TEST comparison digests are caller-supplied structural fixture evidence, not
-provider attestation. They cannot be promoted to an external recovery claim.
+## Check
 
-Historical Slice 4A completion meant only: provider-neutral recovery contracts
-and TEST-only verifiers were green. It is not Staging or Production recovery proof.
-This metadata correction reruns static verifiers only; no recovery DB drill is executed.
+1. `deploy.sh` printed `production role graph and database ACL attested`,
+   `database capability current: <ENV>` and `deployed <SHA>`.
+2. Spot-check counts against what you expect:
+   `docker compose exec -T postgres psql -U postgres -d nihongo -c 'SELECT count(*) FROM "User"'`
+   (also `"Question"`, `"StudyResult"`).
+3. Sign in on the site as an admin and as a learner.
+4. After a few days without complaints, drop the copy (path A):
+   `docker compose exec -T postgres psql -U postgres -d postgres -c "DROP DATABASE <aside>"`.
+   It doubles disk use until then; the disk alarm fires at 80 %.
+
+## Re-apply account erasure (AWS only)
+
+The restored database has no record of erasure requests made after the dump,
+so those accounts are active again. The API logs each request as
+`{"event":"auth.account_erasure.requested","userId":…,"occurredAt":…}`, and
+the log group keeps 30 days, as long as the dumps.
+
+On the operator's machine, list the user ids requested since one hour before
+the dump time (`<dump epoch>` = the UTC stamp in the dump key, in seconds):
+
+```sh
+qid="$(aws logs start-query --log-group-name /harumaru/<env>/api \
+  --start-time $(( <dump epoch> - 3600 )) --end-time "$(date +%s)" \
+  --query-string 'filter event = "auth.account_erasure.requested" | stats count(*) by userId' \
+  --query queryId --output text)"
+sleep 10
+aws logs get-query-results --query-id "$qid" \
+  --query 'results[] | [?field==`userId`].value' --output text \
+  | tr '\t' '\n' > erasure-reapply-<stamp>.txt
+```
+
+Check the status is `Complete` (`aws logs get-query-results --query-id "$qid"
+--query status`) and keep the file until the step below is done. The ids are
+random UUIDs, not names or emails.
+
+Re-apply with the #702 command (after the deploy). Until #702 ships, hand the
+file to the backend owner to re-apply, and tell those users their erasure is
+being redone.
+
+## Volume snapshot (AWS only)
+
+Use only when no usable dump exists. Create a gp3 volume from the newest
+`harumaru-<env>-weekly` snapshot in the instance's availability zone, stop the
+instance, detach the data volume, attach the new one as `/dev/sdf`, start the
+instance, then run `deploy.sh <SHA>`. Terraform still tracks the old volume
+(`prevent_destroy`), so afterwards `terraform state rm aws_ebs_volume.data` and
+`terraform import aws_ebs_volume.data <new volume id>` before the next apply.
+This path is untested until it is rehearsed on STAGING.
+
+## Never
+
+`prisma migrate reset`, `prisma db push`, `prisma migrate dev`, `pg_restore
+--clean` or any restore over the live database, `DROP DATABASE nihongo`, or
+ad-hoc SQL on PRODUCTION outside these steps.
+
+## To do right after the first STAGING deploy (AWS only)
+
+1. After 04:00 JST the next day: the dump is in S3, the `BackupSucceeded` metric
+   has a point and the backup alarm is OK.
+2. `aws s3 presign` on the operator machine and `curl` on the host download the
+   dump (the host reaches S3 over HTTPS through the default egress rule).
+3. Run path A on STAGING with that dump and time it (site down from `stop` to
+   `deployed`).
+4. Request erasure for a test account after the dump, then run the Logs
+   Insights step of "Re-apply account erasure" and check its id is listed.
+5. Optionally rehearse the volume snapshot path and record the result here.
+
+## Local rehearsal (#669, 2026-11-07)
+
+Real `deploy.sh`, `backup.sh`, `render-env.sh` and `provision-db.sh` against
+local postgres with the host compose file (stub `aws` and S3; local logs and
+volumes; release `aeb65e4e`, the current migrations):
+
+- Empty database → deploy → 3 tags loaded, 2 users with Google accounts added →
+  `backup.sh` wrote a 352 KB dump and the success metric.
+- Path A: deleted the tags and renamed the users, restored. All 42 tables
+  matched the pre-damage state (row counts and an md5 of every row),
+  `/health/ready` 200 with the release id. Before the `OWNER`/`REVOKE` lines were
+  added, the API refused to start (see A).
+- Path B: removed the data volume, `.env` and `current-release`, restored onto a
+  new volume. Same 42-table match, `capability current`, readiness 200.
+- Re-apply erasure (#704 build `3a8188ad`): two users with Google accounts,
+  daily dump, then one signed in (session and re-auth proof made with the
+  API's own functions, no Google) and sent `POST /api/auth/sso/delete-account`
+  (202, `DELETION_PENDING`; one `auth.account_erasure.requested` line with
+  only `userId`). After path A from that dump the user was `ACTIVE` again. The
+  saved API log, filtered like the Logs Insights query (event, time from dump −
+  1 h, distinct `userId`), gave a file with exactly that user's id; the other
+  user was not listed. The query itself runs on AWS only.
+
+`operations/recovery-contract.v1.json` and `pnpm recovery:verify` are older
+provider-neutral TEST checks. They are not part of this procedure.

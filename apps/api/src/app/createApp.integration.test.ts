@@ -35,20 +35,7 @@ const questionReader: QuestionReader = {
 const authEnvironment = parseApiEnvironment({
   NODE_ENV: 'test',
   DATABASE_URL:
-    'postgresql://nihongo_test_legacy_app_login:password@127.0.0.1:55432/nihongo_test',
-  TRUSTED_ORIGINS: 'http://localhost:5173',
-  BETTER_AUTH_SECRET: 'a'.repeat(32),
-  GUEST_COOKIE_SECRET: 'b'.repeat(32),
-  AUTH_EMAIL_FROM: 'auth@example.com'
-})
-
-const technicalAuthEnvironment = parseApiEnvironment({
-  NODE_ENV: 'test',
-  ADMIN_CMS_MODE: 'technical',
-  DATABASE_URL:
     'postgresql://nihongo_test_app_login:password@127.0.0.1:55432/nihongo_test?schema=public',
-  AUTH_GATEWAY_DATABASE_URL:
-    'postgresql://nihongo_test_auth_gateway_login:password@127.0.0.1:55432/nihongo_test?schema=public',
   TRUSTED_ORIGINS: 'http://localhost:5173',
   BETTER_AUTH_SECRET: 'a'.repeat(32),
   GUEST_COOKIE_SECRET: 'b'.repeat(32),
@@ -109,7 +96,11 @@ describe('Hono operational boundary', () => {
   it.each([
     {
       pathname: '/api/v1/questions',
-      expectedHeaders: ['Content-Type']
+      expectedHeaders: [
+        'Content-Type',
+        'Idempotency-Key',
+        'X-Nihongo-Practice-Contract'
+      ]
     },
     {
       pathname: '/api/v1/study-sessions',
@@ -129,12 +120,12 @@ describe('Hono operational boundary', () => {
       ]
     }
   ])(
-    'technical CORS $pathname의 method와 request header를 최소 권한으로 고정한다',
+    'technical CORS $pathname의 method와 request header를 하나의 개발용 CORS 정책으로 고정한다',
     async ({ expectedHeaders, pathname }) => {
       const { logger } = createTestLogger()
       const app = createApiApp({
         auth: {
-          environment: technicalAuthEnvironment,
+          environment: authEnvironment,
           gateway: { handle: vi.fn() },
           guestPrincipalService,
           principalService
@@ -175,10 +166,9 @@ describe('Hono operational boundary', () => {
   )
 
   it.each(['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'HEAD'])(
-    'Phase 7 prefix를 %s에서도 CORS·practice authority 전에 generic 404로 닫는다',
+    'Prefix를 %s에서도 CORS 전에 generic 404로 닫는다',
     async (method) => {
       const { logger } = createTestLogger()
-      const assertPracticeRuntimeAuthority = vi.fn()
       const gateway: AuthGateway = { handle: vi.fn() }
       const app = createApiApp({
         auth: {
@@ -187,7 +177,6 @@ describe('Hono operational boundary', () => {
           guestPrincipalService,
           principalService
         },
-        assertPracticeRuntimeAuthority,
         checkReadiness: vi.fn().mockResolvedValue(undefined),
         logger,
         questionReader
@@ -200,7 +189,6 @@ describe('Hono operational boundary', () => {
       expect(response.status).toBe(404)
       expect(response.headers.get('Access-Control-Allow-Origin')).toBeNull()
       expect(response.headers.get('Cache-Control')).toBe('private, no-store')
-      expect(assertPracticeRuntimeAuthority).not.toHaveBeenCalled()
       expect(gateway.handle).not.toHaveBeenCalled()
 
       if (method !== 'HEAD') {
@@ -210,9 +198,8 @@ describe('Hono operational boundary', () => {
     }
   )
 
-  it('Phase 7 decoded prefix alias도 조기 차단한다', async () => {
+  it('Decoded prefix alias도 조기 차단한다', async () => {
     const { logger } = createTestLogger()
-    const assertPracticeRuntimeAuthority = vi.fn()
     const app = createApiApp({
       auth: {
         environment: authEnvironment,
@@ -220,7 +207,6 @@ describe('Hono operational boundary', () => {
         guestPrincipalService,
         principalService
       },
-      assertPracticeRuntimeAuthority,
       checkReadiness: vi.fn().mockResolvedValue(undefined),
       logger,
       questionReader
@@ -231,7 +217,6 @@ describe('Hono operational boundary', () => {
 
     expect(response.status).toBe(404)
     expect(response.headers.get('Access-Control-Allow-Origin')).toBeNull()
-    expect(assertPracticeRuntimeAuthority).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -249,10 +234,9 @@ describe('Hono operational boundary', () => {
       rawTarget: String.raw`http:/\localhost:3001\api\v1\admin\questions`
     }
   ])(
-    'absolute-form backslash Phase 7 alias $rawTarget를 조기 차단한다',
+    'absolute-form backslash alias $rawTarget를 조기 차단한다',
     async ({ canonicalUrl, rawTarget }) => {
       const { logger } = createTestLogger()
-      const assertPracticeRuntimeAuthority = vi.fn()
       const checkReadiness = vi.fn().mockResolvedValue(undefined)
       const gateway: AuthGateway = { handle: vi.fn() }
       const listQuestions = vi.fn().mockResolvedValue({
@@ -268,7 +252,6 @@ describe('Hono operational boundary', () => {
           guestPrincipalService,
           principalService
         },
-        assertPracticeRuntimeAuthority,
         checkReadiness,
         logger,
         questionReader: { ...questionReader, listQuestions }
@@ -288,7 +271,6 @@ describe('Hono operational boundary', () => {
         'RESOURCE_NOT_FOUND'
       )
       expect(checkReadiness).not.toHaveBeenCalled()
-      expect(assertPracticeRuntimeAuthority).not.toHaveBeenCalled()
       expect(gateway.handle).not.toHaveBeenCalled()
       expect(listQuestions).not.toHaveBeenCalled()
     }
@@ -300,41 +282,35 @@ describe('Hono operational boundary', () => {
     '/api/v1/%252561dmin/questions',
     '/api/v1/%61dmin/%ZZ',
     '/api/v1/%71uestion-reports/%ZZ'
-  ])(
-    'adapter가 보존한 raw Phase 7 alias %s를 조기 차단한다',
-    async (rawUrl) => {
-      const { logger } = createTestLogger()
-      const assertPracticeRuntimeAuthority = vi.fn()
-      const listQuestions = vi.fn().mockResolvedValue({
-        items: [],
-        page: 1,
-        pageSize: 20,
-        total: 0
-      })
-      const app = createApiApp({
-        auth: {
-          environment: authEnvironment,
-          gateway: { handle: vi.fn() },
-          guestPrincipalService,
-          principalService
-        },
-        assertPracticeRuntimeAuthority,
-        checkReadiness: vi.fn().mockResolvedValue(undefined),
-        logger,
-        questionReader: { ...questionReader, listQuestions }
-      })
+  ])('adapter가 보존한 raw alias %s를 조기 차단한다', async (rawUrl) => {
+    const { logger } = createTestLogger()
+    const listQuestions = vi.fn().mockResolvedValue({
+      items: [],
+      page: 1,
+      pageSize: 20,
+      total: 0
+    })
+    const app = createApiApp({
+      auth: {
+        environment: authEnvironment,
+        gateway: { handle: vi.fn() },
+        guestPrincipalService,
+        principalService
+      },
+      checkReadiness: vi.fn().mockResolvedValue(undefined),
+      logger,
+      questionReader: { ...questionReader, listQuestions }
+    })
 
-      const response = await app.fetch(
-        new Request('http://localhost:3001/api/v1/questions'),
-        { incoming: { url: rawUrl } } as never
-      )
+    const response = await app.fetch(
+      new Request('http://localhost:3001/api/v1/questions'),
+      { incoming: { url: rawUrl } } as never
+    )
 
-      expect(response.status).toBe(404)
-      expect(response.headers.get('Access-Control-Allow-Origin')).toBeNull()
-      expect(assertPracticeRuntimeAuthority).not.toHaveBeenCalled()
-      expect(listQuestions).not.toHaveBeenCalled()
-    }
-  )
+    expect(response.status).toBe(404)
+    expect(response.headers.get('Access-Control-Allow-Origin')).toBeNull()
+    expect(listQuestions).not.toHaveBeenCalled()
+  })
 
   it.each([
     {
@@ -363,7 +339,7 @@ describe('Hono operational boundary', () => {
       rawTarget: String.raw`http:/\localhost:3001\api\v1\admin\..\..\..\health\ready`
     }
   ])(
-    'health로 정규화된 raw Phase 7 alias $rawTarget도 health handler 전에 닫는다',
+    'health로 정규화된 raw alias $rawTarget도 health handler 전에 닫는다',
     async ({ canonicalUrl, rawTarget }) => {
       const { logger } = createTestLogger()
       const checkReadiness = vi.fn().mockResolvedValue(undefined)
@@ -505,40 +481,6 @@ describe('Hono operational boundary', () => {
     expect(lines.some((line) => line.includes(payload.requestId))).toBe(true)
   })
 
-  it('compatibility authority가 유효하지 않으면 API 요청을 503으로 닫는다', async () => {
-    const { logger } = createTestLogger()
-    const gatedQuestionReader: QuestionReader = {
-      ...questionReader,
-      listQuestions: vi.fn().mockResolvedValue({
-        items: [],
-        page: 1,
-        pageSize: 20,
-        total: 0
-      })
-    }
-    const app = createApiApp({
-      auth: {
-        environment: authEnvironment,
-        gateway: { handle: vi.fn() },
-        guestPrincipalService,
-        principalService
-      },
-      assertPracticeRuntimeAuthority: vi.fn(() => {
-        throw new Error('revoked generation')
-      }),
-      checkReadiness: vi.fn().mockResolvedValue(undefined),
-      logger,
-      questionReader: gatedQuestionReader
-    })
-    const response = await app.request('/api/v1/questions')
-    const failure = apiFailureSchema.parse(await response.json())
-
-    expect(response.status).toBe(503)
-    expect(failure.code).toBe('SERVICE_UNAVAILABLE')
-    expect(failure.message).not.toContain('revoked')
-    expect(gatedQuestionReader.listQuestions).not.toHaveBeenCalled()
-  })
-
   it('인증 게이트웨이의 예상 밖 오류에도 trusted-origin CORS를 보존한다', async () => {
     const { logger } = createTestLogger()
     const gateway: AuthGateway = {
@@ -590,12 +532,10 @@ describe('protected admin artifact and API composition', () => {
   const fixture = ({
     role = 'ADMIN',
     fresh = true,
-    cms = true,
     production = false
   }: {
     role?: 'ADMIN' | 'USER' | null
     fresh?: boolean
-    cms?: boolean
     production?: boolean
   } = {}) => {
     const directory = mkdtempSync(join(tmpdir(), 'nihongo-admin-composition-'))
@@ -625,7 +565,7 @@ describe('protected admin artifact and API composition', () => {
         user,
         ...(user
           ? {
-              phase7Session: {
+              ownedSessionProof: {
                 id: '22222222-2222-4222-8222-222222222222',
                 token: 'test-session-only',
                 createdAt: new Date(0),
@@ -655,7 +595,7 @@ describe('protected admin artifact and API composition', () => {
       questionReader,
       auth: {
         environment: {
-          ...(cms ? technicalAuthEnvironment : authEnvironment),
+          ...authEnvironment,
           ...(production ? { NODE_ENV: 'production' as const } : {})
         },
         gateway: { handle: vi.fn() },
@@ -751,46 +691,55 @@ describe('protected admin artifact and API composition', () => {
     expect(f.listQuestions).toHaveBeenCalledOnce()
   })
 
-  it('keeps CMS disabled for static HTML/assets and direct API even for an authenticated ADMIN', async () => {
-    const f = fixture({ cms: false })
-    for (const path of [
-      '/admin',
-      '/admin/questions',
-      '/admin/assets/admin.js',
-      '/api/v1/admin/questions'
-    ]) {
-      const response = await f.app.request(path)
-      expect(response.status).toBe(404)
-      expect(response.headers.get('Cache-Control')).toBe('private, no-store')
-      expect(await response.text()).not.toContain('ADMIN_')
-    }
-    expect(f.resolve).not.toHaveBeenCalled()
-    expect(f.capability).not.toHaveBeenCalled()
-    expect(f.readLimit).not.toHaveBeenCalled()
-  })
-
-  it.each([false, true])(
-    'keeps production admin HTML/assets and API closed even with CMS=%s',
-    async (cms) => {
-      const f = fixture({ cms, production: true })
-      for (const path of [
-        '/admin',
-        '/admin/questions/123/edit',
-        '/admin/assets/admin.js',
-        '/api/v1/admin/questions'
-      ]) {
-        const response = await f.app.request(path)
-        expect(response.status).toBe(404)
-        expect(response.headers.get('Cache-Control')).toBe('private, no-store')
-        const body = await response.text()
-        expect(body).not.toContain('ADMIN_')
-        expect(body).not.toContain('LEARNER_ONLY')
-      }
-      expect(f.resolve).not.toHaveBeenCalled()
-      expect(f.capability).not.toHaveBeenCalled()
-      expect(f.readLimit).not.toHaveBeenCalled()
+  it.each([
+    { role: null, status: 401, code: 'AUTHENTICATION_REQUIRED' },
+    { role: 'USER' as const, status: 403, code: 'ADMIN_REQUIRED' }
+  ])(
+    'production rejects $role on the admin API and hides admin HTML',
+    async ({ role, status, code }) => {
+      const f = fixture({ role, production: true })
+      const html = await f.app.request('/admin')
+      expect(html.status).toBe(404)
+      expect(await html.text()).not.toContain('ADMIN_HTML_ONLY')
+      const read = await f.app.request('/api/v1/admin/questions')
+      expect(read.status).toBe(status)
+      expect(apiFailureSchema.parse(await read.json()).code).toBe(code)
+      expect(f.listQuestions).not.toHaveBeenCalled()
     }
   )
+
+  it('production serves admin to a current ADMIN through the same guards', async () => {
+    const f = fixture({ production: true })
+    const html = await f.app.request('/admin')
+    expect(html.status).toBe(200)
+    expect(await html.text()).toContain('ADMIN_HTML_ONLY')
+    const read = await f.app.request('/api/v1/admin/questions')
+    expect(read.status).toBe(200)
+    expect(f.capability).toHaveBeenCalledTimes(2)
+    expect(f.readLimit).toHaveBeenCalledTimes(2)
+    expect(f.listQuestions).toHaveBeenCalledOnce()
+  })
+
+  it('production rejects an admin command without fresh SSO', async () => {
+    const f = fixture({ fresh: false, production: true })
+    const response = await f.app.request(
+      '/api/v1/admin/question-versions/33333333-3333-4333-8333-333333333333/approval',
+      {
+        method: 'POST',
+        headers: {
+          Origin: 'http://localhost:5173',
+          'Content-Type': 'application/json'
+        },
+        body: '{}'
+      }
+    )
+    expect(response.status).toBe(401)
+    expect(apiFailureSchema.parse(await response.json()).code).toBe(
+      'FRESH_ASSURANCE_REQUIRED'
+    )
+    expect(f.commandLimit).not.toHaveBeenCalled()
+    expect(f.approve).not.toHaveBeenCalled()
+  })
 
   it('rechecks a revoked session on a conditional asset request instead of using cached ADMIN bytes', async () => {
     const f = fixture()
@@ -811,7 +760,7 @@ describe('protected admin artifact and API composition', () => {
     })
     expect(denied.status).toBe(404)
     expect(denied.headers.get('Cache-Control')).toBe('private, no-store')
-    expect(denied.headers.get('Set-Cookie')).toContain('Max-Age=0')
+    expect(denied.headers.get('Set-Cookie')).toBeNull()
     expect(await denied.text()).not.toContain('ADMIN_ASSET_ONLY')
     expect(f.readLimit).not.toHaveBeenCalled()
   })

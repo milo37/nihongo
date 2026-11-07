@@ -67,7 +67,7 @@ export const validateApiIntegrationManifest = async (): Promise<{
     }
   }
 
-  for (const owner of ['phase7-api', 'phase7-db', 'phase10'] as const) {
+  for (const owner of ['api', 'db', 'shard'] as const) {
     const entries = apiIntegrationManifest.filter(
       (entry) => entry.executionOwner === owner
     )
@@ -78,7 +78,7 @@ export const validateApiIntegrationManifest = async (): Promise<{
   }
 
   const apiRunnerContract = apiIntegrationManifest
-    .filter(({ executionOwner }) => executionOwner === 'phase7-api')
+    .filter(({ executionOwner }) => executionOwner === 'api')
     .toSorted((left, right) => left.order - right.order)
     .map(({ path: testPath, seedPolicy, shard }) => ({
       path: testPath,
@@ -91,17 +91,17 @@ export const validateApiIntegrationManifest = async (): Promise<{
       {
         path: 'src/admin/adminQuestionRepository.integration.test.ts',
         seedPolicy: 'none',
-        shard: 'phase7-api-pre-seed'
+        shard: 'api-pre-seed'
       },
       {
         path: 'src/app/apiGate.integration.test.ts',
         seedPolicy: 'canonical-once',
-        shard: 'phase7-api-post-seed'
+        shard: 'api-post-seed'
       },
       {
         path: 'src/admin/adminQuestionCommandRepository.integration.test.ts',
         seedPolicy: 'canonical-once',
-        shard: 'phase7-api-post-seed'
+        shard: 'api-post-seed'
       }
     ])
   ) {
@@ -123,7 +123,7 @@ if (isDirectExecution) {
     .then((result) => {
       process.stdout.write(
         `${JSON.stringify({
-          event: 'phase10.api_integration_manifest.passed',
+          event: 'api_integration_manifest.passed',
           ...result
         })}\n`
       )
@@ -131,7 +131,7 @@ if (isDirectExecution) {
     .catch((error: unknown) => {
       process.stderr.write(
         `${JSON.stringify({
-          event: 'phase10.api_integration_manifest.failed',
+          event: 'api_integration_manifest.failed',
           errorName: error instanceof Error ? error.name : 'UnknownError',
           message: error instanceof Error ? error.message : 'Unknown failure'
         })}\n`

@@ -7,9 +7,8 @@ const SHA256_PATTERN = /^[0-9a-f]{64}$/u
 const SAFE_LABEL_PATTERN =
   /^(?:admin-dashboard|accessibility|journey)-(?:real|mock)$/u
 const SAFE_LEDGER_LABEL_PATTERN =
-  /^(?:admin-(?:cms-real-request-ledger|(?:guest|user)-denial)|(?:admin-lifecycle|(?:phase8-)?dashboard|guest-auth|user-journey|resilience)-(?:real|mock)-request-ledger|journey-(?:real|mock)-(?:ko|ja)-handoff)$/u
-const SAFE_PERFORMANCE_LABEL_PATTERN =
-  /^(?:phase8-)?dashboard-(?:real|mock)-performance$/u
+  /^(?:admin-(?:cms-real-request-ledger|(?:guest|user)-denial)|(?:admin-lifecycle|dashboard|guest-auth|user-journey|resilience)-(?:real|mock)-request-ledger|journey-(?:real|mock)-(?:ko|ja)-handoff)$/u
+const SAFE_PERFORMANCE_LABEL_PATTERN = /^dashboard-(?:real|mock)-performance$/u
 // Admin authority ledgers come only from the admin-only or admin-dashboard real run.
 const ADMIN_AUTHORITY_LEDGER_LABELS = new Set([
   'admin-cms-real-request-ledger',
@@ -78,7 +77,7 @@ const ADMIN_LIFECYCLE_LEDGER_CONTRACT = [
   ['PATCH', '/api/v1/admin/question-versions/:id', null]
 ]
 const SENSITIVE_ENVIRONMENT_KEY =
-  /(?:_SECRET|_PASSWORD|_TOKEN|DATABASE_URL|COOKIE|AUTHORIZATION|PHASE\d+_BROWSER_FIXTURE)/iu
+  /(?:_SECRET|_PASSWORD|_TOKEN|DATABASE_URL|COOKIE|AUTHORIZATION|_BROWSER_FIXTURE)/iu
 const STRONG_SENSITIVE_PATTERNS = [
   /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/u,
   /\bAKIA[0-9A-Z]{16}\b/u,
@@ -146,7 +145,7 @@ export const collectSensitiveEnvironmentValues = (environment) => {
       continue
     }
     if (rawValue.length >= 8) values.add(rawValue)
-    if (/PHASE\d+_BROWSER_FIXTURE/iu.test(key)) {
+    if (/_BROWSER_FIXTURE$/iu.test(key)) {
       try {
         collectNestedStrings(JSON.parse(rawValue), values)
       } catch {
@@ -187,122 +186,6 @@ export const writeCanonicalEvidence = async ({ filePath, value }) => {
   await rename(temporaryPath, filePath)
 }
 
-const assertFinding = (finding) => {
-  if (
-    !exactKeys(finding, [
-      'kind',
-      'ruleId',
-      'path',
-      'line',
-      'column',
-      'fingerprint'
-    ]) ||
-    !['SECRET', 'UNSAFE_HTML'].includes(finding.kind) ||
-    typeof finding.ruleId !== 'string' ||
-    typeof finding.path !== 'string' ||
-    !Number.isSafeInteger(finding.line) ||
-    finding.line < 1 ||
-    !Number.isSafeInteger(finding.column) ||
-    finding.column < 1 ||
-    typeof finding.fingerprint !== 'string' ||
-    !SHA256_PATTERN.test(finding.fingerprint)
-  ) {
-    throw new Error('SECURITY_EVIDENCE_SCHEMA_INVALID')
-  }
-}
-
-const assertTrackedSourceEvidence = (value) => {
-  if (
-    !exactKeys(value, [
-      'schemaVersion',
-      'kind',
-      'status',
-      'scannedFileCount',
-      'activeSecretFindings',
-      'suppressedSecretFindingCount',
-      'unusedAllowlistEntryCount',
-      'unsafeHtmlFindings'
-    ]) ||
-    value.schemaVersion !== 1 ||
-    value.kind !== 'nihongo.tracked-source-security' ||
-    value.status !== 'passed' ||
-    !Number.isSafeInteger(value.scannedFileCount) ||
-    value.scannedFileCount < 1 ||
-    !Array.isArray(value.activeSecretFindings) ||
-    !Array.isArray(value.unsafeHtmlFindings) ||
-    value.activeSecretFindings.length !== 0 ||
-    value.unsafeHtmlFindings.length !== 0 ||
-    !Number.isSafeInteger(value.suppressedSecretFindingCount) ||
-    !Number.isSafeInteger(value.unusedAllowlistEntryCount) ||
-    value.unusedAllowlistEntryCount !== 0
-  ) {
-    throw new Error('SECURITY_EVIDENCE_SCHEMA_INVALID')
-  }
-  value.activeSecretFindings.forEach(assertFinding)
-  value.unsafeHtmlFindings.forEach(assertFinding)
-}
-
-const assertDependencyFinding = (finding) => {
-  if (
-    !exactKeys(finding, [
-      'advisoryId',
-      'package',
-      'severity',
-      'installedVersion',
-      'dependencyPath'
-    ]) ||
-    !['critical', 'high', 'moderate', 'low', 'info', 'unknown'].includes(
-      finding.severity
-    ) ||
-    ![
-      finding.advisoryId,
-      finding.package,
-      finding.installedVersion,
-      finding.dependencyPath
-    ].every((item) => typeof item === 'string' && item.length > 0)
-  ) {
-    throw new Error('SECURITY_EVIDENCE_SCHEMA_INVALID')
-  }
-}
-
-const assertDependencyEvidence = (value) => {
-  if (
-    !exactKeys(value, [
-      'schemaVersion',
-      'kind',
-      'scope',
-      'status',
-      'lockfileSha256',
-      'severityCounts',
-      'findings',
-      'appliedDispositionCount'
-    ]) ||
-    value.schemaVersion !== 1 ||
-    value.kind !== 'nihongo.dependency-audit' ||
-    !['production', 'development'].includes(value.scope) ||
-    value.status !== 'passed' ||
-    typeof value.lockfileSha256 !== 'string' ||
-    !SHA256_PATTERN.test(value.lockfileSha256) ||
-    !exactKeys(value.severityCounts, [
-      'critical',
-      'high',
-      'moderate',
-      'low',
-      'info',
-      'unknown'
-    ]) ||
-    !Object.values(value.severityCounts).every(
-      (count) => Number.isSafeInteger(count) && count >= 0
-    ) ||
-    !Array.isArray(value.findings) ||
-    !Number.isSafeInteger(value.appliedDispositionCount) ||
-    value.appliedDispositionCount < 0
-  ) {
-    throw new Error('SECURITY_EVIDENCE_SCHEMA_INVALID')
-  }
-  value.findings.forEach(assertDependencyFinding)
-}
-
 const dashboardPrefix = 'dashboard'
 
 export const assertPlaywrightRequestLedger = (ledger, summaryLabel) => {
@@ -310,7 +193,7 @@ export const assertPlaywrightRequestLedger = (ledger, summaryLabel) => {
     !exactKeys(ledger, ['label', 'entries']) ||
     typeof ledger.label !== 'string' ||
     !SAFE_LEDGER_LABEL_PATTERN.test(ledger.label) ||
-    (/^(?:phase8-)?dashboard-/u.test(ledger.label) &&
+    (/^dashboard-/u.test(ledger.label) &&
       ledger.label !==
         `${dashboardPrefix}-${summaryLabel.split('-').at(-1)}-request-ledger`) ||
     (ADMIN_AUTHORITY_LEDGER_LABELS.has(ledger.label)
@@ -859,11 +742,7 @@ const assertKnownEvidenceSchema = (value) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('SECURITY_EVIDENCE_SCHEMA_INVALID')
   }
-  if (value.kind === 'nihongo.tracked-source-security') {
-    assertTrackedSourceEvidence(value)
-  } else if (value.kind === 'nihongo.dependency-audit') {
-    assertDependencyEvidence(value)
-  } else if (value.kind === 'nihongo.playwright-safe-summary') {
+  if (value.kind === 'nihongo.playwright-safe-summary') {
     assertPlaywrightEvidence(value)
   } else {
     throw new Error('SECURITY_EVIDENCE_SCHEMA_UNKNOWN')
@@ -886,8 +765,6 @@ export const verifyArtifactDirectory = async ({
   let totalBytes = 0
   const manifestFiles = []
   const observedLabels = new Set()
-  const observedScopes = new Set()
-  let observedTrackedSource = false
 
   for (const entry of inputEntries.toSorted((left, right) =>
     left.name.localeCompare(right.name)
@@ -919,18 +796,6 @@ export const verifyArtifactDirectory = async ({
       }
       observedLabels.add(value.label)
     }
-    if (value.kind === 'nihongo.dependency-audit') {
-      if (entry.name !== `dependency-${value.scope}.json`) {
-        throw new Error('SECURITY_EVIDENCE_FILENAME_MISMATCH')
-      }
-      observedScopes.add(value.scope)
-    }
-    if (value.kind === 'nihongo.tracked-source-security') {
-      if (entry.name !== 'tracked-source-security.json') {
-        throw new Error('SECURITY_EVIDENCE_FILENAME_MISMATCH')
-      }
-      observedTrackedSource = true
-    }
     manifestFiles.push({
       path: entry.name,
       bytes: fileStats.size,
@@ -938,15 +803,6 @@ export const verifyArtifactDirectory = async ({
     })
   }
 
-  if (
-    profile === 'security' &&
-    (!observedTrackedSource ||
-      !observedScopes.has('production') ||
-      !observedScopes.has('development') ||
-      inputEntries.length !== 3)
-  ) {
-    throw new Error('SECURITY_EVIDENCE_INCOMPLETE')
-  }
   if (profile === 'playwright') {
     const expected = [...requiredLabels].toSorted()
     if (
@@ -958,7 +814,7 @@ export const verifyArtifactDirectory = async ({
       throw new Error('SECURITY_EVIDENCE_INCOMPLETE')
     }
   }
-  if (!['security', 'playwright'].includes(profile)) {
+  if (profile !== 'playwright') {
     throw new Error('SECURITY_EVIDENCE_PROFILE_INVALID')
   }
 

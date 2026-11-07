@@ -7,15 +7,7 @@ import { runSeedExecution } from './seedExecution.js'
 import { prepareBrowserArtifacts } from './browserArtifactPreparation.js'
 import { randomUUID } from 'node:crypto'
 import { spawn, type ChildProcess } from 'node:child_process'
-import {
-  copyFileSync,
-  cpSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync
-} from 'node:fs'
-import { tmpdir } from 'node:os'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import dotenv from 'dotenv'
@@ -36,60 +28,36 @@ import {
   selectDbIntegrationFiles
 } from './apiIntegrationExecution.js'
 
-const SCHEMA_PATTERN = /^phase7_[a-f0-9]{32}_test$/
+const SCHEMA_PATTERN = /^nihongo_[a-f0-9]{32}_test$/
 const DATABASE_IDENTIFIER_PATTERN = /^[a-z_][a-z0-9_]{0,62}$/
 const TEST_DATABASE_GROUP_ROLES = [
-  'nihongo_phase7_owner',
-  'nihongo_phase7_migration',
+  'nihongo_owner',
+  'nihongo_migration',
   'nihongo_app',
-  'nihongo_auth_gateway',
-  'nihongo_erasure_worker',
   'nihongo_guest_cleanup_worker'
 ] as const
 const TEST_DATABASE_WRAPPER_ROLES = [
   {
-    name: 'nihongo_test_phase7_migration_login',
-    grantedRole: 'nihongo_phase7_migration'
+    name: 'nihongo_test_migration_login',
+    grantedRole: 'nihongo_migration'
   },
   { name: 'nihongo_test_app_login', grantedRole: 'nihongo_app' },
-  {
-    name: 'nihongo_test_auth_gateway_login',
-    grantedRole: 'nihongo_auth_gateway'
-  },
-  {
-    name: 'nihongo_test_erasure_worker_login',
-    grantedRole: 'nihongo_erasure_worker'
-  },
   {
     name: 'nihongo_test_guest_cleanup_worker_login',
     grantedRole: 'nihongo_guest_cleanup_worker'
   },
   {
-    name: 'nihongo_development_phase7_migration_login',
-    grantedRole: 'nihongo_phase7_migration'
+    name: 'nihongo_development_migration_login',
+    grantedRole: 'nihongo_migration'
   },
   { name: 'nihongo_development_app_login', grantedRole: 'nihongo_app' },
-  {
-    name: 'nihongo_development_auth_gateway_login',
-    grantedRole: 'nihongo_auth_gateway'
-  },
-  {
-    name: 'nihongo_development_erasure_worker_login',
-    grantedRole: 'nihongo_erasure_worker'
-  },
   {
     name: 'nihongo_development_guest_cleanup_worker_login',
     grantedRole: 'nihongo_guest_cleanup_worker'
   }
 ] as const
-const TEST_DATABASE_LEGACY_ROLES = [
-  'nihongo_test_legacy_app_login',
-  'nihongo_development_legacy_app_login'
-] as const
-const TEST_MIGRATION_LOGIN = 'nihongo_test_phase7_migration_login'
+const TEST_MIGRATION_LOGIN = 'nihongo_test_migration_login'
 const TEST_APPLICATION_LOGIN = 'nihongo_test_app_login'
-const TEST_AUTH_GATEWAY_LOGIN = 'nihongo_test_auth_gateway_login'
-const TEST_LEGACY_LOGIN = 'nihongo_test_legacy_app_login'
 const DEVELOPMENT_APPLICATION_LOGIN = 'nihongo_development_app_login'
 const repositoryRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -111,7 +79,7 @@ if (!baseDatabaseUrl) {
 
 const syntheticProductionDatabaseUrl = new URL(baseDatabaseUrl)
 syntheticProductionDatabaseUrl.pathname =
-  '/nihongo_phase7_production_guard_sentinel'
+  '/nihongo_test_production_guard_sentinel'
 syntheticProductionDatabaseUrl.searchParams.delete('schema')
 
 assertSafeTestDatabase({
@@ -120,15 +88,14 @@ assertSafeTestDatabase({
   productionDatabaseUrl: syntheticProductionDatabaseUrl.toString()
 })
 assertSafeAdminCmsDatabase({
-  adminCmsMode: 'technical',
   nodeEnvironment: 'test',
   databaseUrl: baseDatabaseUrl,
   productionDatabaseUrl: syntheticProductionDatabaseUrl.toString()
 })
 
-const schemaName = `phase7_${randomUUID().replaceAll('-', '')}_test`
+const schemaName = `nihongo_${randomUUID().replaceAll('-', '')}_test`
 if (!SCHEMA_PATTERN.test(schemaName)) {
-  throw new Error('Generated Phase 7 integration schema is unsafe.')
+  throw new Error('Generated integration schema is unsafe.')
 }
 
 const adminDatabaseUrl = new URL(baseDatabaseUrl)
@@ -141,12 +108,10 @@ if (!DATABASE_IDENTIFIER_PATTERN.test(databaseName)) {
   throw new Error('Integration database name is unsafe.')
 }
 const wrapperPasswords = new Map<string, string>(
-  [...TEST_DATABASE_WRAPPER_ROLES, ...TEST_DATABASE_LEGACY_ROLES].map(
-    (role) => [
-      typeof role === 'string' ? role : role.name,
-      randomUUID().replaceAll('-', '')
-    ]
-  )
+  TEST_DATABASE_WRAPPER_ROLES.map((role) => [
+    role.name,
+    randomUUID().replaceAll('-', '')
+  ])
 )
 
 const buildWrapperDatabaseUrl = (role: string): URL => {
@@ -161,27 +126,22 @@ const buildWrapperDatabaseUrl = (role: string): URL => {
 }
 
 const migrationDatabaseUrl = buildWrapperDatabaseUrl(TEST_MIGRATION_LOGIN)
-migrationDatabaseUrl.searchParams.set(
-  'options',
-  '-c role=nihongo_phase7_migration'
-)
+migrationDatabaseUrl.searchParams.set('options', '-c role=nihongo_migration')
 const applicationDatabaseUrl = buildWrapperDatabaseUrl(TEST_APPLICATION_LOGIN)
-const authGatewayDatabaseUrl = buildWrapperDatabaseUrl(TEST_AUTH_GATEWAY_LOGIN)
-const legacyDatabaseUrl = buildWrapperDatabaseUrl(TEST_LEGACY_LOGIN)
 const developmentApplicationDatabaseUrl = buildWrapperDatabaseUrl(
   DEVELOPMENT_APPLICATION_LOGIN
 )
 
 const quoteSchema = (value: string): string => {
   if (!SCHEMA_PATTERN.test(value)) {
-    throw new Error('Refusing to quote an unexpected Phase 7 schema name.')
+    throw new Error('Refusing to quote an unexpected schema name.')
   }
   return `"${value}"`
 }
 
 const quoteIdentifier = (value: string): string => {
   if (!DATABASE_IDENTIFIER_PATTERN.test(value)) {
-    throw new Error('Refusing to quote an unsafe Phase 7 identifier.')
+    throw new Error('Refusing to quote an unsafe identifier.')
   }
   return `"${value}"`
 }
@@ -201,9 +161,6 @@ const EXPECTED_PRISMA_REPRESENTATION_DIFF = [
   '',
   '-- AlterTable',
   'ALTER TABLE "Question" ALTER COLUMN "rowVersion" SET DEFAULT 1;',
-  '',
-  '-- AlterTable',
-  'ALTER TABLE "QuestionVersionTag" ALTER COLUMN "normalizedNameSnapshot" SET DEFAULT \'\'::text;',
   '',
   '-- AlterTable',
   'ALTER TABLE "Session" ALTER COLUMN "authorityGeneration" SET DEFAULT 1,',
@@ -241,11 +198,6 @@ const EXPECTED_TEST_DATABASE_DEFAULTS: readonly TestDatabaseDefault[] = [
     columnName: 'rowVersion',
     defaultExpression: '1',
     tableName: 'Question'
-  },
-  {
-    columnName: 'normalizedNameSnapshot',
-    defaultExpression: "''::text",
-    tableName: 'QuestionVersionTag'
   },
   {
     columnName: 'authorityGeneration',
@@ -286,7 +238,7 @@ const runCommand = async (
     ): void => {
       if (output !== 'redacted') return
       process.stdout.write(
-        `${JSON.stringify({ event: 'phase7.db.integration.migration_command', script, state, exitCode })}\n`
+        `${JSON.stringify({ event: 'db.integration.migration_command', script, state, exitCode })}\n`
       )
     }
     reportCommand('BEGIN', null)
@@ -409,7 +361,7 @@ const runCommandExpectFailure = async (
           if (code !== 0) {
             process.stdout.write(
               `${JSON.stringify({
-                event: 'phase7.db.integration.expected_command_rejection',
+                event: 'db.integration.expected_command_rejection',
                 command: formatCommand(command, args),
                 signal,
                 stderrTail: stderr.trim().slice(-512)
@@ -437,7 +389,7 @@ const assertExpectedPrismaRepresentationDiff = (value: string): void => {
   }
   process.stdout.write(
     `${JSON.stringify({
-      event: 'phase7.db.integration.prisma_representation_diff_allowlisted',
+      event: 'db.integration.prisma_representation_diff_allowlisted',
       enumDefaults: ['ACTIVE', 'LEGACY'],
       indexName: 'QuestionVersion_questionText_prefix_idx'
     })}\n`
@@ -466,7 +418,6 @@ const assertTestDatabaseDefaults = async (): Promise<void> => {
         AND (relation.relname, attribute.attname) IN (
           VALUES
             ('Question', 'rowVersion'),
-            ('QuestionVersionTag', 'normalizedNameSnapshot'),
             ('Session', 'authorityGeneration'),
             ('Session', 'authorizationState'),
             ('Session', 'issuerProtocolVersion'),
@@ -759,12 +710,12 @@ const assertPgcryptoStateRestored = async (): Promise<void> => {
 const acquireGlobalRoleProvisioningLock = async (): Promise<void> => {
   const lock = await adminClient.query<{ acquired: boolean }>(
     `SELECT pg_try_advisory_lock(hashtextextended(
-       'phase7-db-integration-global-role-provisioning', 0
+       'db-integration-global-role-provisioning', 0
      )) AS acquired`
   )
   globalRoleProvisioningLockAcquired = lock.rows[0]?.acquired === true
   if (!globalRoleProvisioningLockAcquired) {
-    throw new Error('Another Phase 7 DB integration role run is active.')
+    throw new Error('Another DB integration role run is active.')
   }
 }
 
@@ -830,10 +781,10 @@ const transitionDatabaseOwnerToMigration = async (): Promise<void> => {
   databaseOwnerChanged = true
   await adminClient.query(
     `ALTER DATABASE ${quoteIdentifier(databaseName)}
-     OWNER TO "nihongo_phase7_migration"`
+     OWNER TO "nihongo_migration"`
   )
   const current = await readDatabaseState()
-  if (current.ownerName !== 'nihongo_phase7_migration') {
+  if (current.ownerName !== 'nihongo_migration') {
     throw new Error('Database owner transition failed.')
   }
 }
@@ -853,15 +804,12 @@ const applyTestDatabaseAcl = async (
   }
   await adminClient.query(
     `GRANT CREATE, TEMPORARY ON DATABASE ${quoteIdentifier(databaseName)} TO
-       "nihongo_phase7_migration"`
+       "nihongo_migration"`
   )
   await adminClient.query(
     `GRANT CONNECT ON DATABASE ${quoteIdentifier(databaseName)} TO
-       "nihongo_test_phase7_migration_login",
-       "nihongo_test_app_login",
-       "nihongo_test_auth_gateway_login",
-       "nihongo_test_erasure_worker_login",
-       "nihongo_test_legacy_app_login"`
+       "nihongo_test_migration_login",
+       "nihongo_test_app_login"`
   )
 }
 
@@ -886,7 +834,7 @@ const attestTestDatabaseAcl = async (): Promise<void> => {
        CROSS JOIN LATERAL aclexplode(database_record.datacl) AS acl_entry
        JOIN pg_roles AS grantee_role ON grantee_role.oid = acl_entry.grantee
        WHERE database_record.datname = current_database()
-         AND grantee_role.rolname = 'nihongo_phase7_migration'
+         AND grantee_role.rolname = 'nihongo_migration'
          AND acl_entry.privilege_type IN ('CREATE', 'TEMPORARY')
          AND NOT acl_entry.is_grantable
      ) AS "migrationPrivilegeAclCount",
@@ -900,22 +848,14 @@ const attestTestDatabaseAcl = async (): Promise<void> => {
          AND acl_entry.privilege_type = 'CONNECT'
          AND NOT acl_entry.is_grantable
      ) AS "wrapperConnectAclCount"`,
-    [
-      [
-        TEST_MIGRATION_LOGIN,
-        TEST_APPLICATION_LOGIN,
-        TEST_AUTH_GATEWAY_LOGIN,
-        'nihongo_test_erasure_worker_login',
-        TEST_LEGACY_LOGIN
-      ]
-    ]
+    [[TEST_MIGRATION_LOGIN, TEST_APPLICATION_LOGIN]]
   )
   const row = result.rows[0]
   if (
     !row ||
-    row.aclEntryCount !== 7 ||
+    row.aclEntryCount !== 4 ||
     row.migrationPrivilegeAclCount !== 2 ||
-    row.wrapperConnectAclCount !== 5
+    row.wrapperConnectAclCount !== 2
   ) {
     throw new Error('Migration database ACL attestation failed.')
   }
@@ -930,7 +870,7 @@ const exerciseDatabaseAclRestore = async (
   await applyTestDatabaseAcl()
   await adminClient.query(
     `ALTER DATABASE ${quoteIdentifier(databaseName)}
-     OWNER TO "nihongo_phase7_migration"`
+     OWNER TO "nihongo_migration"`
   )
   await adminClient.query(
     `ALTER DATABASE ${quoteIdentifier(databaseName)} OWNER TO
@@ -956,7 +896,7 @@ const verifyTransactionalDatabaseRestoreFixtures = async (): Promise<void> => {
   await assertDatabaseStateRestored()
   process.stdout.write(
     `${JSON.stringify({
-      event: 'phase7.db.integration.database_acl_roundtrip_verified',
+      event: 'db.integration.database_acl_roundtrip_verified',
       rawAclEntryCount: databaseStateSnapshot.rawAcl?.length ?? null
     })}\n`
   )
@@ -1050,10 +990,7 @@ const restorePgcrypto = async (): Promise<void> => {
 }
 
 const provisionGlobalRoles = async (): Promise<void> => {
-  const wrapperNames = [
-    ...TEST_DATABASE_WRAPPER_ROLES.map(({ name }) => name),
-    ...TEST_DATABASE_LEGACY_ROLES
-  ]
+  const wrapperNames = TEST_DATABASE_WRAPPER_ROLES.map(({ name }) => name)
   const collisions = await adminClient.query<{ name: string }>(
     `SELECT rolname AS name FROM pg_roles
      WHERE rolname = ANY($1::text[]) ORDER BY rolname`,
@@ -1114,7 +1051,7 @@ const provisionGlobalRoles = async (): Promise<void> => {
       createdGroupRoles.add(role)
     }
     await adminClient.query(
-      `GRANT "nihongo_phase7_owner" TO "nihongo_phase7_migration"
+      `GRANT "nihongo_owner" TO "nihongo_migration"
        WITH ADMIN FALSE, INHERIT FALSE, SET TRUE`
     )
   } else {
@@ -1140,8 +1077,8 @@ const provisionGlobalRoles = async (): Promise<void> => {
     )
     if (
       protectedMemberships.rows.length !== 1 ||
-      protectedMemberships.rows[0]?.memberName !== 'nihongo_phase7_migration' ||
-      protectedMemberships.rows[0]?.grantedName !== 'nihongo_phase7_owner' ||
+      protectedMemberships.rows[0]?.memberName !== 'nihongo_migration' ||
+      protectedMemberships.rows[0]?.grantedName !== 'nihongo_owner' ||
       protectedMemberships.rows[0]?.adminOption !== false ||
       protectedMemberships.rows[0]?.inheritOption !== false ||
       protectedMemberships.rows[0]?.setOption !== true
@@ -1165,18 +1102,6 @@ const provisionGlobalRoles = async (): Promise<void> => {
       `GRANT ${quoteIdentifier(grantedRole)} TO ${quoteIdentifier(name)}
        WITH ADMIN FALSE, INHERIT FALSE, SET TRUE`
     )
-  }
-  for (const name of TEST_DATABASE_LEGACY_ROLES) {
-    const password = wrapperPasswords.get(name)
-    if (!password || !/^[a-f0-9]{32}$/u.test(password)) {
-      throw new Error('Legacy password fixture is unsafe.')
-    }
-    await adminClient.query(
-      `CREATE ROLE ${quoteIdentifier(name)}
-       LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
-       NOREPLICATION NOBYPASSRLS PASSWORD '${password}'`
-    )
-    createdWrapperRoles.add(name)
   }
 }
 
@@ -1218,7 +1143,7 @@ const cleanup = (): Promise<void> => {
           await verifySchemaAbsent()
           process.stdout.write(
             `${JSON.stringify({
-              event: 'phase7.db.integration.schema_removed',
+              event: 'db.integration.schema_removed',
               schemaName
             })}\n`
           )
@@ -1245,23 +1170,16 @@ const cleanup = (): Promise<void> => {
               await adminClient.query(`DROP ROLE ${quoteIdentifier(name)}`)
               createdWrapperRoles.delete(name)
             }
-            for (const name of TEST_DATABASE_LEGACY_ROLES.toReversed()) {
-              if (!createdWrapperRoles.has(name)) continue
-              await adminClient.query(`DROP ROLE ${quoteIdentifier(name)}`)
-              createdWrapperRoles.delete(name)
-            }
-            if (createdGroupRoles.has('nihongo_phase7_migration')) {
+            if (createdGroupRoles.has('nihongo_migration')) {
               await adminClient.query(
-                `REVOKE "nihongo_phase7_owner" FROM "nihongo_phase7_migration"`
+                `REVOKE "nihongo_owner" FROM "nihongo_migration"`
               )
             }
             for (const name of [
               'nihongo_guest_cleanup_worker',
-              'nihongo_erasure_worker',
-              'nihongo_auth_gateway',
               'nihongo_app',
-              'nihongo_phase7_migration',
-              'nihongo_phase7_owner'
+              'nihongo_migration',
+              'nihongo_owner'
             ]) {
               if (!createdGroupRoles.has(name)) continue
               await adminClient.query(`DROP ROLE ${quoteIdentifier(name)}`)
@@ -1285,7 +1203,7 @@ const cleanup = (): Promise<void> => {
         try {
           await adminClient.query(
             `SELECT pg_advisory_unlock(hashtextextended(
-               'phase7-db-integration-global-role-provisioning', 0
+               'db-integration-global-role-provisioning', 0
              ))`
           )
           globalRoleProvisioningLockAcquired = false
@@ -1319,22 +1237,18 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
 const reportPostSeedDiagnostic = (diagnostic: PostSeedDiagnostic): void => {
   process.stdout.write(
     JSON.stringify({
-      event: 'phase7.db.integration.post_seed',
+      event: 'db.integration.post_seed',
       ...diagnostic
     }) + '\n'
   )
 }
 
 const migrationDiagnosticNames = [
-  '20260827100000_phase7_admin_cms_enums',
-  '20260827101000_phase7_admin_cms_foundation',
-  '20260909120000_phase7_archive_empty_manifest_verifier',
-  '20260916120000_phase7_reauthentication_foundation',
-  '20261019090000_sso_login_transactions',
-  '20261019093000_sso_apple_google_providers',
-  '20261019100000_sso_identity_mapping',
-  '20261019103000_sso_admin_fresh',
-  '20261019110000_sso_admin_fresh_erasure_ownership'
+  '20261105090000_baseline',
+  '20261106090000_remove_phase_names',
+  '20261107090000_first_admin_production',
+  '20261108090000_remove_tag_applicability_and_snapshots',
+  '20261109090000_add_tag_key_subject_status'
 ] as const
 
 const sanitizeMigrationDatabaseError = (error: unknown) => {
@@ -1360,12 +1274,12 @@ const sanitizeMigrationDatabaseError = (error: unknown) => {
     'Malformed verified SSO identity.',
     'SSO staging rejected.',
     'SSO rotation confirmation rejected.',
-    'Phase 7 operation authority is stale or insufficient.'
+    'Operation authority is stale or insufficient.'
   ]
   const where = ownText('where', 2048)
     ?.split('\n')
     .find((frame) =>
-      /^PL\/pgSQL function (?:inline_code_block|(?:phase7_[a-z0-9_]+|validate_phase7_[a-z0-9_]+)\([a-z0-9_, ]*\)) line [1-9][0-9]{0,5} at (?:RAISE|SQL statement|EXECUTE|assignment|PERFORM|RETURN|IF)$/u.test(
+      /^PL\/pgSQL function (?:inline_code_block|(?:[a-z0-9_]+|validate_[a-z0-9_]+)\([a-z0-9_, ]*\)) line [1-9][0-9]{0,5} at (?:RAISE|SQL statement|EXECUTE|assignment|PERFORM|RETURN|IF)$/u.test(
         frame
       )
     )
@@ -1386,7 +1300,7 @@ const reportMigrationFailure = (
   if (!migrationDiagnosticNames.some((name) => name === migrationName)) return
   process.stderr.write(
     `${JSON.stringify({
-      event: 'phase7.db.integration.migration_failure',
+      event: 'db.integration.migration_failure',
       diagnosticSource: 'BOUNDED_REPLAY',
       migrationName,
       replayOutcome,
@@ -1397,7 +1311,7 @@ const reportMigrationFailure = (
 
 const run = async (): Promise<void> => {
   const selectedTestFiles = selectDbIntegrationFiles(
-    getApiIntegrationPathsByOwner('phase7-db'),
+    getApiIntegrationPathsByOwner('db'),
     process.env
   )
   const preserveSanitizedReport =
@@ -1425,27 +1339,25 @@ const run = async (): Promise<void> => {
   await attestTestDatabaseAcl()
   await adminClient.query(
     `CREATE SCHEMA ${quoteSchema(schemaName)}
-     AUTHORIZATION "nihongo_phase7_migration"`
+     AUTHORIZATION "nihongo_migration"`
   )
   schemaCreated = true
   process.stdout.write(
     `${JSON.stringify({
-      event: 'phase7.db.integration.schema_created',
+      event: 'db.integration.schema_created',
       schemaName
     })}\n`
   )
 
   const sharedEnvironment: NodeJS.ProcessEnv = {
     ...process.env,
-    ADMIN_CMS_MODE: 'technical',
-    AUTH_GATEWAY_DATABASE_URL: authGatewayDatabaseUrl.toString(),
+    TEST_APP_FIXTURE_DATABASE_URL: applicationDatabaseUrl.toString(),
     DATABASE_URL: applicationDatabaseUrl.toString(),
     NODE_ENV: 'test',
-    PHASE7_ADMIN_DATABASE_URL: targetDatabaseUrl.toString(),
+    ADMIN_DATABASE_URL: targetDatabaseUrl.toString(),
     TEST_DEVELOPMENT_APP_DATABASE_URL:
       developmentApplicationDatabaseUrl.toString(),
-    PHASE7_LEGACY_DATABASE_URL: legacyDatabaseUrl.toString(),
-    PHASE7_MIGRATION_DATABASE_URL: migrationDatabaseUrl.toString(),
+    MIGRATION_DATABASE_URL: migrationDatabaseUrl.toString(),
     TEST_MIGRATIONS_PATH: undefined,
     PRODUCTION_DATABASE_URL: syntheticProductionDatabaseUrl.toString()
   }
@@ -1454,7 +1366,7 @@ const run = async (): Promise<void> => {
     ...sharedEnvironment,
     // vitest.integration.config.ts intentionally maps this value to
     // DATABASE_URL. Integration imports therefore exercise the exact app
-    // wrapper while PHASE7_ADMIN_DATABASE_URL remains the DDL/test harness URL.
+    // wrapper while ADMIN_DATABASE_URL remains the DDL/test harness URL.
     PRISMA_TEST_DATABASE_URL: applicationDatabaseUrl.toString()
   }
   const driftEnvironment: NodeJS.ProcessEnv = {
@@ -1475,19 +1387,6 @@ const run = async (): Promise<void> => {
     async (command, args, environment) =>
       await runCommand(command, args, environment),
     repositoryRoot
-  )
-  await runCommand(
-    'pnpm',
-    [
-      '--filter',
-      '@nihongo/api',
-      'exec',
-      'vitest',
-      'run',
-      'src/db/adminCmsMigration.test.ts',
-      'src/db/reauthenticationMigration.test.ts'
-    ],
-    migrationEnvironment
   )
   const deployMigrations = async (
     environment: NodeJS.ProcessEnv
@@ -1566,44 +1465,8 @@ const run = async (): Promise<void> => {
     ...migrationEnvironment,
     TEST_MIGRATIONS_PATH: canonicalMigrationsPath
   }
-  const lastBootstrapMigration =
-    '20261009092000_phase7_n4_n2_revision2_digest_fix'
-  const migrationNames = readdirSync(canonicalMigrationsPath, {
-    withFileTypes: true
-  })
-    .filter(
-      (entry) => entry.isDirectory() && entry.name <= lastBootstrapMigration
-    )
-    .map((entry) => entry.name)
-    .sort()
-  if (
-    migrationNames.length !== 37 ||
-    migrationNames.at(-1) !== lastBootstrapMigration
-  ) {
-    throw new Error('Canonical content migration prefix is inconsistent.')
-  }
-  const prefixMigrationsPath = mkdtempSync(
-    path.join(tmpdir(), 'nihongo-phase7-current37-')
-  )
-  try {
-    copyFileSync(
-      path.join(canonicalMigrationsPath, 'migration_lock.toml'),
-      path.join(prefixMigrationsPath, 'migration_lock.toml')
-    )
-    for (const name of migrationNames) {
-      cpSync(
-        path.join(canonicalMigrationsPath, name),
-        path.join(prefixMigrationsPath, name),
-        { recursive: true }
-      )
-    }
-    await deployMigrations({
-      ...migrationEnvironment,
-      TEST_MIGRATIONS_PATH: prefixMigrationsPath
-    })
-  } finally {
-    rmSync(prefixMigrationsPath, { recursive: true, force: true })
-  }
+  // #504 P8-1: one baseline; seed runs on the migrated schema.
+  await deployMigrations(canonicalMigrationEnvironment)
   const readQuestionCount = async (): Promise<string> => {
     const result = await adminClient.query<{ count: string }>(
       `SELECT COUNT(*)::text AS count
@@ -1627,19 +1490,19 @@ const run = async (): Promise<void> => {
     'prisma/seed.ts'
   ] as const
   const withoutMigrationUrl: NodeJS.ProcessEnv = { ...seedEnvironment }
-  delete withoutMigrationUrl.PHASE7_MIGRATION_DATABASE_URL
+  delete withoutMigrationUrl.MIGRATION_DATABASE_URL
   const appUrlAsMigration: NodeJS.ProcessEnv = {
     ...seedEnvironment,
-    PHASE7_MIGRATION_DATABASE_URL: applicationDatabaseUrl.toString()
+    MIGRATION_DATABASE_URL: applicationDatabaseUrl.toString()
   }
   const duplicateOptionsUrl = new URL(migrationDatabaseUrl)
   duplicateOptionsUrl.searchParams.append(
     'options',
-    '-c role=nihongo_phase7_migration'
+    '-c role=nihongo_migration'
   )
   const duplicateMigrationOptions: NodeJS.ProcessEnv = {
     ...seedEnvironment,
-    PHASE7_MIGRATION_DATABASE_URL: duplicateOptionsUrl.toString()
+    MIGRATION_DATABASE_URL: duplicateOptionsUrl.toString()
   }
 
   await assertSeedWriteCount('0')
@@ -1652,14 +1515,14 @@ const run = async (): Promise<void> => {
     await assertSeedWriteCount('0')
   }
 
-  const seedFailureFunction = 'phase7_seed_forced_failure'
-  const seedFailureTrigger = 'phase7_seed_forced_failure_trigger'
+  const seedFailureFunction = 'seed_forced_failure'
+  const seedFailureTrigger = 'seed_forced_failure_trigger'
   await adminClient.query(
     `CREATE FUNCTION ${quoteSchema(schemaName)}.${quoteIdentifier(seedFailureFunction)}()
      RETURNS trigger LANGUAGE plpgsql
      AS $function$
      BEGIN
-       RAISE EXCEPTION 'forced Phase 7 seed rollback';
+       RAISE EXCEPTION 'forced seed rollback';
      END;
      $function$`
   )
@@ -1688,7 +1551,7 @@ const run = async (): Promise<void> => {
     (phase, state) => {
       process.stdout.write(
         JSON.stringify({
-          event: 'phase7.db.integration.seed_phase',
+          event: 'db.integration.seed_phase',
           phase,
           state
         }) + '\n'
@@ -1704,7 +1567,7 @@ const run = async (): Promise<void> => {
     (phase, state) => {
       process.stdout.write(
         JSON.stringify({
-          event: 'phase7.db.integration.seed_phase',
+          event: 'db.integration.seed_phase',
           phase,
           state
         }) + '\n'
@@ -1722,7 +1585,7 @@ const run = async (): Promise<void> => {
   )
   await assertTestDatabaseDefaultDriftRejected(
     `ALTER TABLE ${quoteSchema(schemaName)}."Session"
-       ALTER COLUMN "issuerProtocolVersion" SET DEFAULT 'PHASE7_V1'`
+       ALTER COLUMN "issuerProtocolVersion" SET DEFAULT 'OWNED_V1'`
   )
   await assertTestDatabaseDefaultDriftRejected(
     `ALTER TABLE ${quoteSchema(schemaName)}."Session"
@@ -1731,7 +1594,7 @@ const run = async (): Promise<void> => {
   await assertTestDatabaseDefaults()
   process.stdout.write(
     `${JSON.stringify({
-      event: 'phase7.db.integration.database_defaults_attested',
+      event: 'db.integration.database_defaults_attested',
       defaultCount: EXPECTED_TEST_DATABASE_DEFAULTS.length,
       driftRejections: 2
     })}\n`
@@ -1794,7 +1657,7 @@ const run = async (): Promise<void> => {
     (phase, state) => {
       process.stdout.write(
         JSON.stringify({
-          event: 'phase7.db.integration.seed_phase',
+          event: 'db.integration.seed_phase',
           phase,
           state
         }) + '\n'
@@ -1837,7 +1700,7 @@ void run()
     } catch (cleanupError: unknown) {
       process.stderr.write(
         `${JSON.stringify({
-          event: 'phase7.db.integration.cleanup_failed',
+          event: 'db.integration.cleanup_failed',
           errorCode: getPostSeedErrorCode(cleanupError),
           schemaName
         })}\n`
@@ -1845,7 +1708,7 @@ void run()
     }
     process.stderr.write(
       `${JSON.stringify({
-        event: 'phase7.db.integration.failed',
+        event: 'db.integration.failed',
         errorCode: getPostSeedErrorCode(error),
         schemaName
       })}\n`

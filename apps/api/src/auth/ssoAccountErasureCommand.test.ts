@@ -12,6 +12,7 @@ const erasure = vi.hoisted(() => ({
 }))
 const noProviderWork = {
   revoked: 0,
+  notHeld: 0,
   failed: 0,
   unavailable: 0,
   deferred: 0,
@@ -40,6 +41,7 @@ import {
   parseSsoAccountErasureCommandInput,
   runSsoAccountErasureCommand
 } from './ssoAccountErasureCommand.js'
+import { tokenlessSsoProviderRevokeAdapter } from './ssoProviderRevoke.js'
 
 const id = '11111111-1111-4111-8111-111111111111'
 const input = (
@@ -47,7 +49,7 @@ const input = (
 ): NodeJS.ProcessEnv => {
   if (environment === 'PRODUCTION')
     return {
-      ERASURE_WORKER_DATABASE_URL:
+      DATABASE_URL:
         'postgresql://worker:secret@db.internal:5432/nihongo?schema=app',
       PRODUCTION_DATABASE_URL:
         'postgresql://runtime:secret@db.internal:5432/nihongo?schema=app',
@@ -56,7 +58,7 @@ const input = (
     }
   const suffix = environment === 'TEST' ? 'test' : 'dev'
   return {
-    ERASURE_WORKER_DATABASE_URL: `postgresql://worker:secret@127.0.0.1:5432/nihongo_${suffix}?schema=app`,
+    DATABASE_URL: `postgresql://worker:secret@127.0.0.1:5432/nihongo_${suffix}?schema=app`,
     PRODUCTION_DATABASE_URL:
       'postgresql://runtime:secret@production.invalid:5432/nihongo?schema=app',
     ACCOUNT_ERASURE_ENVIRONMENT: environment,
@@ -89,7 +91,7 @@ describe('SSO account erasure one-shot command', () => {
     'accepts a guarded %s target and bounded defaults',
     (environment) => {
       expect(parseSsoAccountErasureCommandInput(input(environment))).toEqual({
-        databaseUrl: input(environment).ERASURE_WORKER_DATABASE_URL,
+        databaseUrl: input(environment).DATABASE_URL,
         productionDatabaseUrl: input(environment).PRODUCTION_DATABASE_URL,
         environment,
         batchSize: 20,
@@ -131,17 +133,14 @@ describe('SSO account erasure one-shot command', () => {
       'connection override',
       () => ({
         ...input('PRODUCTION'),
-        ERASURE_WORKER_DATABASE_URL:
-          input('PRODUCTION').ERASURE_WORKER_DATABASE_URL +
-          '&host=other.internal'
+        DATABASE_URL: input('PRODUCTION').DATABASE_URL + '&host=other.internal'
       })
     ],
     [
       'implicit database names',
       () => ({
         ...input('PRODUCTION'),
-        ERASURE_WORKER_DATABASE_URL:
-          'postgresql://worker:secret@db.internal:5432?schema=app',
+        DATABASE_URL: 'postgresql://worker:secret@db.internal:5432?schema=app',
         PRODUCTION_DATABASE_URL:
           'postgresql://runtime:secret@db.internal:5432?schema=app'
       })
@@ -151,14 +150,41 @@ describe('SSO account erasure one-shot command', () => {
     expect(database.create).not.toHaveBeenCalled()
   })
 
-  it('refuses PRODUCTION before connecting without a provider revoke capability', async () => {
+  it('runs PRODUCTION with the tokenless adapter by default (#670)', async () => {
+    erasure.runBatch.mockResolvedValueOnce({
+      completedIds: [id],
+      providerCleanupPendingIds: [],
+      failedIds: [],
+      batchLimitReached: false
+    })
     await expect(
       runSsoAccountErasureCommand(input('PRODUCTION'))
-    ).resolves.toBe(1)
-    expect(database.create).not.toHaveBeenCalled()
-    expect(stderr).toHaveBeenCalledExactlyOnceWith(
-      '{"event":"auth.account_erasure.failed"}\n'
+    ).resolves.toBe(0)
+    expect(erasure.runRevoke).toHaveBeenCalledWith(
+      {},
+      tokenlessSsoProviderRevokeAdapter,
+      'PRODUCTION',
+      20,
+      300
     )
+    expect(erasure.runBatch).toHaveBeenCalledWith({}, 'PRODUCTION', 20)
+    expect(stderr).not.toHaveBeenCalled()
+  })
+
+  it('runs on a STAGING host as PRODUCTION, like its database capability (#670)', async () => {
+    erasure.runBatch.mockResolvedValueOnce({
+      completedIds: [id],
+      providerCleanupPendingIds: [],
+      failedIds: [],
+      batchLimitReached: false
+    })
+    await expect(
+      runSsoAccountErasureCommand({
+        ...input('PRODUCTION'),
+        DEPLOYMENT_ENVIRONMENT: 'STAGING'
+      })
+    ).resolves.toBe(0)
+    expect(erasure.runBatch).toHaveBeenCalledWith({}, 'PRODUCTION', 20)
   })
 
   it('passes PRODUCTION and the injected adapter to the worker and returns zero only with no unfinished request', async () => {
@@ -173,8 +199,8 @@ describe('SSO account erasure one-shot command', () => {
       runSsoAccountErasureCommand(input('PRODUCTION'), revoke)
     ).resolves.toBe(0)
     expect(database.create).toHaveBeenCalledWith(
-      input('PRODUCTION').ERASURE_WORKER_DATABASE_URL,
-      'nihongo_erasure_worker'
+      input('PRODUCTION').DATABASE_URL,
+      'nihongo_app'
     )
     expect(erasure.runRevoke).toHaveBeenCalledWith(
       {},

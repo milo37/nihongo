@@ -248,6 +248,7 @@ export const adminImportIssueCodeKey = {
   CORRECT_OPTION_KEY_NOT_FOUND:
     'enums.importIssueCodes.CORRECT_OPTION_KEY_NOT_FOUND',
   UNKNOWN_TAG: 'enums.importIssueCodes.UNKNOWN_TAG',
+  TAG_SUBJECT_MISMATCH: 'enums.importIssueCodes.TAG_SUBJECT_MISMATCH',
   INVALID_READING_PASSAGE: 'enums.importIssueCodes.INVALID_READING_PASSAGE',
   INVALID_CONTENT: 'enums.importIssueCodes.INVALID_CONTENT',
   DUPLICATE_QUESTION_CONTENT:

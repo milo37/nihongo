@@ -8,7 +8,7 @@ export interface ReviewedQuestionRecord extends PublishedQuestionDetailRecord {
   explanationKo: string
 }
 
-export interface StudyResultQuestionRecord {
+interface StudyResultQuestionRecord {
   readonly answer: {
     readonly isCorrect: boolean
     readonly reviewEvent: {

@@ -1,7 +1,4 @@
-import type {
-  ParsedSubmitStudySessionBody,
-  ParsedSubmitStudySessionV2Body
-} from '@nihongo/contracts/study/submit-study-session'
+import type { ParsedSubmitStudySessionV2Body } from '@nihongo/contracts/study/submit-study-session'
 import {
   studyResultSchema,
   type StudyResult,
@@ -17,7 +14,7 @@ import type {
   MockCanonicalSubmissionOperations,
   MockStudySessionSnapshotRecord
 } from '@mocks/repository/mockDatabase'
-import { toPracticeQuestion } from '@mocks/logic/question'
+import { toPracticeQuestion } from '@util/question'
 
 const STUDY_SUBMISSION_CANONICAL_PREFIX = 'submit-v1:'
 const STUDY_SUBMISSION_V2_CANONICAL_PREFIX = 'submit-v2:'
@@ -71,9 +68,9 @@ const compareText = (left: string, right: string): number =>
 const getSessionQuestionId = (sessionId: string, ordinal: number): string =>
   toStableMockUuid('study-session-question', `${sessionId}:${ordinal}`)
 
-export const canonicalizeMockStudySubmission = (
+const canonicalizeMockStudySubmission = (
   record: MockStudySessionSnapshotRecord,
-  input: ParsedSubmitStudySessionBody
+  input: ParsedSubmitStudySessionV2Body
 ): string => {
   const ordinalBySessionQuestionId = new Map(
     record.questions.map((_, index) => [
@@ -122,7 +119,7 @@ export const canonicalizeMockStudySubmission = (
 
 export const canonicalizeMockStudySubmissionV2 = (
   record: MockStudySessionSnapshotRecord,
-  input: ParsedSubmitStudySessionBody | ParsedSubmitStudySessionV2Body
+  input: ParsedSubmitStudySessionV2Body
 ): string => {
   if (!('expectedDraftRevision' in input)) {
     throw new MockCanonicalSubmissionIntegrityError(
@@ -158,7 +155,7 @@ const getCorrectOption = (
 
 const gradeMockCanonicalStudySubmission = (
   record: MockStudySessionSnapshotRecord,
-  input: ParsedSubmitStudySessionBody,
+  input: ParsedSubmitStudySessionV2Body,
   submittedAt: string
 ): MockCanonicalGrading => {
   const answerBySessionQuestionId = new Map(
@@ -272,12 +269,6 @@ export const toMockCanonicalStudyResult = (
         wrongNoteStatusBySessionQuestionId.get(studySessionQuestionId) ?? null
     }))
   })
-
-export const mockCanonicalSubmissionOperations = {
-  canonicalize: canonicalizeMockStudySubmission,
-  grade: gradeMockCanonicalStudySubmission,
-  toResult: toMockCanonicalStudyResult
-} satisfies MockCanonicalSubmissionOperations
 
 export const mockCanonicalSubmissionV2Operations = {
   canonicalize: canonicalizeMockStudySubmissionV2,

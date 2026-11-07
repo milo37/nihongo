@@ -59,10 +59,7 @@ export const createRecoveryFixtures = () => {
       sha256: sha256('environment-contract')
     }
   }
-  const migrationProfile = deriveMigrationProfile(
-    releaseManifest,
-    'technical-current-test'
-  )
+  const migrationProfile = deriveMigrationProfile(releaseManifest, 'current')
   const falseClaims = {
     automaticBackupProof: false,
     pointInTimeRecoveryProof: false,

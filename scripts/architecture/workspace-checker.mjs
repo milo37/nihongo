@@ -442,7 +442,7 @@ const collectWebLeakDiagnostics = (rootDir) => {
           rootDir,
           fileName,
           'ARCH116',
-          'Phase 6 server-side content cannot be copied into Web public/build artifacts'
+          'server-side content cannot be copied into Web public/build artifacts'
         )
       )
     }
@@ -1254,7 +1254,7 @@ export const checkWorkspaceArchitecture = ({
             sourceFile,
             literal,
             'ARCH116',
-            'apps/web cannot reference Phase 6 server-side content as a static asset'
+            'apps/web cannot reference server-side content as a static asset'
           )
         )
       }
@@ -1325,7 +1325,7 @@ export const checkWorkspaceArchitecture = ({
             sourceFile,
             reference.node,
             'ARCH116',
-            'apps/web cannot import Phase 6 server-side content or validator source'
+            'apps/web cannot import server-side content or validator source'
           )
         )
       }

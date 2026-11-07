@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto'
+import { installAuditDigestSql } from '../../test/fixtures/db/auditDigestSql.js'
 import {
   applyQuestionImportRequestSchema,
   assertAdminImportApplyForRequest,
@@ -25,6 +26,7 @@ import {
   createAdminQuestionVersionRequestSchema,
   createQuestionDuplicateIdentityKey,
   exportAdminQuestionsRequestSchema,
+  listAdminAuditLogQuerySchema,
   listAdminQuestionReportsQuerySchema,
   listQuestionVersionReviewsResponseSchema,
   publishQuestionVersionRequestSchema,
@@ -43,9 +45,13 @@ import {
   type UpdateQuestionVersionRequest
 } from '@nihongo/contracts/admin/content-operations'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import {
+  issueOwnedSession,
+  signOutOwnedSession
+} from '../auth/ownedSessionAuthority.js'
 import { Client } from 'pg'
 import { createSsoAdminFreshRepository } from '../auth/ssoAdminFreshRepository.js'
-import { createSsoSessionFixture } from '../db/fixtures/ssoSession.js'
+import { createSsoSessionFixture } from '../../test/fixtures/db/ssoSession.js'
 import { createPrismaBookmarkRepository } from '../bookmark/bookmarkRepository.js'
 import {
   createDatabaseRuntime,
@@ -71,19 +77,20 @@ import {
 import {
   createAdminQuestionCommandService,
   createAdminQuestionPublicationCommandService,
-  createAdminQuestionSlice5CommandService,
+  createAdminQuestionWorkflowCommandService,
   type AdminQuestionCommandService,
   type AdminQuestionPublicationCommandService,
-  type AdminQuestionSlice5CommandService
+  type AdminQuestionWorkflowCommandService
 } from './adminQuestionCommandService.js'
 import { createPrismaAdminQuestionRepository } from './adminQuestionRepository.js'
 import { createAdminQuestionService } from './adminQuestionService.js'
-import { createPrismaAdminQuestionSlice5Repository } from './adminQuestionSlice5Repository.js'
+import { createPrismaAdminQuestionWorkflowRepository } from './adminQuestionWorkflowRepository.js'
 import { createPrismaQuestionReportRepository } from './questionReportRepository.js'
 import {
   createQuestionReportService,
   type QuestionReportService
 } from './questionReportService.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const requireEnvironmentValue = (name: string): string => {
   const value = process.env[name]
@@ -95,14 +102,11 @@ const requireEnvironmentValue = (name: string): string => {
 
 const adminDatabaseUrl = requireEnvironmentValue('TEST_API_ADMIN_DATABASE_URL')
 const applicationDatabaseUrl = requireEnvironmentValue('DATABASE_URL')
-const authGatewayDatabaseUrl = requireEnvironmentValue(
-  'AUTH_GATEWAY_DATABASE_URL'
-)
-const erasureWorkerDatabaseUrl = requireEnvironmentValue(
-  'TEST_API_ERASURE_DATABASE_URL'
+const appFixtureDatabaseUrl = requireEnvironmentValue(
+  'TEST_APP_FIXTURE_DATABASE_URL'
 )
 const schemaName = new URL(adminDatabaseUrl).searchParams.get('schema')
-if (!schemaName || !/^phase7_[a-f0-9]{32}_test$/u.test(schemaName)) {
+if (!schemaName || !/^nihongo_[a-f0-9]{32}_test$/u.test(schemaName)) {
   throw new Error('Admin command integration received an unsafe schema.')
 }
 
@@ -120,13 +124,13 @@ const actorIds = [
 ]
 let authorToken = ''
 let reviewerToken = ''
-const learnerToken = `phase7-command-learner-${randomUUID()}`
+const learnerToken = `test-command-learner-${randomUUID()}`
 const adminClient = new Client({
   connectionString: adminDatabaseUrl,
   options: createPostgresStartupOptions(schemaName)
 })
 const erasureWorkerClient = new Client({
-  connectionString: erasureWorkerDatabaseUrl,
+  connectionString: appFixtureDatabaseUrl,
   options: createPostgresStartupOptions(schemaName)
 })
 
@@ -137,7 +141,7 @@ let authGatewayRuntime: RoleDatabaseRuntime | undefined
 let commandService:
   | (AdminQuestionCommandService & AdminQuestionPublicationCommandService)
   | undefined
-let slice5CommandService: AdminQuestionSlice5CommandService | undefined
+let workflowCommandService: AdminQuestionWorkflowCommandService | undefined
 let questionReportService: QuestionReportService | undefined
 let baseQuestionId = ''
 let baseQuestionRowVersion = 0
@@ -159,7 +163,7 @@ const insertCredentialUser = async (
          $1, 'Command integration', $2, true, $4::"UserRole",
          'ACTIVE', $3, $3
        )`,
-      [id, `phase7-command-${randomUUID()}@example.test`, now, role]
+      [id, `test-command-${randomUUID()}@example.test`, now, role]
     )
     await adminClient.query(
       `INSERT INTO "Account" (
@@ -195,11 +199,6 @@ const loadCanonicalContentFixture = async (): Promise<void> => {
      JOIN "QuestionVersionTag" AS assignment
        ON assignment."questionVersionId" = version."id"
      JOIN "Tag" AS tag ON tag."id" = assignment."tagId"
-     JOIN "TagApplicability" AS applicability
-       ON applicability."tagId" = tag."id"
-      AND applicability."level" = version."level"
-      AND applicability."subject" = version."subject"
-      AND applicability."questionType" = version."questionType"
      WHERE question."createdByLabelSnapshot" = 'SYSTEM_SEED'
        AND question."lifecycleStatus" = 'ACTIVE'
        AND version."status" = 'PUBLISHED'
@@ -211,7 +210,7 @@ const loadCanonicalContentFixture = async (): Promise<void> => {
   )
   const fixture = result.rows[0]
   if (!fixture) {
-    throw new Error('Canonical Phase 7 seed fixture is unavailable.')
+    throw new Error('Canonical seed fixture is unavailable.')
   }
   baseQuestionId = fixture.questionId
   baseQuestionRowVersion = fixture.rowVersion
@@ -224,24 +223,20 @@ const issueSession = async (
   token: string,
   role: 'ADMIN' | 'USER' = 'ADMIN'
 ): Promise<void> => {
-  if (!authGatewayRuntime) {
-    throw new Error('Auth gateway runtime is unavailable.')
+  if (!applicationRuntime) {
+    throw new Error('Application runtime is unavailable.')
   }
-  const rows = await authGatewayRuntime.client.$queryRawUnsafe<
-    Array<{ id: string }>
-  >(
-    `SELECT * FROM "phase7_issue_v1_session"(
-       $1, 1, $4::"UserRole", 'ACTIVE', $2, $3,
-       '127.0.0.1', 'phase7-command-integration', false
-     )`,
+  await issueOwnedSession(applicationRuntime.client, {
     userId,
-    randomUUID(),
+    authorityGeneration: 1,
+    role,
+    accountStatus: 'ACTIVE',
+    sessionId: randomUUID(),
     token,
-    role
-  )
-  if (rows.length !== 1) {
-    throw new Error('Command integration session was not issued.')
-  }
+    ipAddress: '127.0.0.1',
+    userAgent: 'test-command-integration',
+    remember: false
+  })
 }
 
 const issueFreshAdminSession = async (userId: string): Promise<string> => {
@@ -260,12 +255,12 @@ const issueFreshAdminSession = async (userId: string): Promise<string> => {
       $queryRawUnsafe: async <T = unknown>(sql: string, ...values: unknown[]) =>
         (await adminClient.query(sql, values)).rows as T
     },
-    gateway: authGatewayRuntime.client,
+    gateway: applicationRuntime!.client,
     role: 'ADMIN',
     existingUser: user,
-    secret: 'phase7-command-test-session-secret-with-32-characters'
+    secret: 'test-command-test-session-secret-with-32-characters'
   })
-  const fresh = createSsoAdminFreshRepository(authGatewayRuntime.client)
+  const fresh = createSsoAdminFreshRepository(applicationRuntime!.client)
   const context = await fresh.prepare(session.token, session.identity.provider)
   const proof = createHash('sha256').update(randomUUID()).digest('hex')
   if (
@@ -276,7 +271,7 @@ const issueFreshAdminSession = async (userId: string): Promise<string> => {
   }
   const confirmed = await fresh.complete(proof, session.token, {
     ipAddress: '127.0.0.1',
-    userAgent: 'phase7-command-integration'
+    userAgent: 'test-command-integration'
   })
   if (!confirmed || confirmed.userId !== userId) {
     throw new Error('Command ADMIN SSO proof was not confirmed.')
@@ -693,7 +688,7 @@ const readCommandEvidence = async (requestId: string) => {
     `SELECT audit."command", audit."operationId",
        audit."changedFields" AS "changedFields",
        audit."metadata" AS metadata,
-       audit."contentDigest" = "phase7_admin_audit_content_digest"(
+       audit."contentDigest" = pg_temp."admin_audit_content_digest"(
          audit."operationId", audit."command", audit."targetType",
          audit."targetId", audit."beforeState", audit."afterState",
          audit."beforeRowVersion", audit."afterRowVersion",
@@ -719,7 +714,7 @@ const readCommandEvidence = async (requestId: string) => {
       )
     : { rows: [] }
   const intents = await adminClient.query<{ count: number }>(
-    `SELECT COUNT(*)::int AS count FROM "Phase7OperationIntent"
+    `SELECT COUNT(*)::int AS count FROM "OperationIntent"
      WHERE "requestId" = $1`,
     [requestId]
   )
@@ -884,7 +879,7 @@ const cleanupFixtures = async (): Promise<void> => {
       [actorIds, questionIds]
     )
     await adminClient.query(
-      `DELETE FROM "Phase7OperationIntent"
+      `DELETE FROM "OperationIntent"
        WHERE "actorUserId" = ANY($1::uuid[])`,
       [actorIds]
     )
@@ -932,10 +927,6 @@ const cleanupFixtures = async (): Promise<void> => {
       [actorIds]
     )
     await adminClient.query(
-      `DELETE FROM "AuthSessionFamily" WHERE "userId" = ANY($1::uuid[])`,
-      [actorIds]
-    )
-    await adminClient.query(
       `DELETE FROM "Account" WHERE "userId" = ANY($1::uuid[])`,
       [actorIds]
     )
@@ -952,18 +943,20 @@ const cleanupFixtures = async (): Promise<void> => {
 
 beforeAll(async () => {
   await adminClient.connect()
+  // #504 P7 PR5b: the SQL audit digest is a test fixture now.
+  await installAuditDigestSql(adminClient)
   adminConnected = true
   applicationRuntime = createDatabaseRuntime(applicationDatabaseUrl, {
     migrationProfile: 'current',
     startupRole: 'nihongo_app'
   })
   authGatewayRuntime = createRoleDatabaseRuntime(
-    authGatewayDatabaseUrl,
-    'nihongo_auth_gateway'
+    appFixtureDatabaseUrl,
+    'nihongo_app'
   )
   await erasureWorkerClient.connect()
   erasureWorkerConnected = true
-  await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+  await erasureWorkerClient.query(`SET ROLE "nihongo_app"`)
   await insertCredentialUser(authorId)
   await insertCredentialUser(reviewerId)
   await insertCredentialUser(learnerId, 'USER')
@@ -979,12 +972,12 @@ beforeAll(async () => {
     ...createAdminQuestionCommandService(preparedRepository),
     ...createAdminQuestionPublicationCommandService(preparedRepository)
   }
-  const slice5Repository = createPrismaAdminQuestionSlice5Repository({
+  const workflowRepository = createPrismaAdminQuestionWorkflowRepository({
     auditEnvironment: 'TEST',
     client: applicationRuntime.client
   })
-  slice5CommandService =
-    createAdminQuestionSlice5CommandService(slice5Repository)
+  workflowCommandService =
+    createAdminQuestionWorkflowCommandService(workflowRepository)
   questionReportService = createQuestionReportService({
     rateLimiter: { consume: async () => undefined },
     repository: createPrismaQuestionReportRepository(applicationRuntime.client)
@@ -1199,7 +1192,7 @@ describe('ADMIN command TEST database integration', () => {
             AS "environmentCount",
          (SELECT COUNT(*)::int FROM "ContentReview"
           WHERE "questionVersionId" = $2) AS "reviewCount",
-         (SELECT COUNT(*)::int FROM "Phase7OperationIntent"
+         (SELECT COUNT(*)::int FROM "OperationIntent"
           WHERE "requestId" = ANY($1::uuid[])) AS "intentCount"`,
       [successfulRequestIds, createdVersionId]
     )
@@ -1362,6 +1355,110 @@ describe('ADMIN command TEST database integration', () => {
     })
   })
 
+  it('approves a batch item by item with the single approval audit (#709)', async () => {
+    if (!commandService) throw new Error('Command service is unavailable.')
+
+    const inReview = async (suffix: string) => {
+      const content = createContent(suffix)
+      const created = assertCreateAdminQuestionResponse(
+        content,
+        await commandService!.createQuestion(
+          authority(authorId, authorToken),
+          content
+        )
+      )
+      const versionId = created.questionVersionId
+      if (!versionId) throw new Error('Created version ID is unavailable.')
+      const request = requestContentReviewRequestSchema.parse({
+        expectedRowVersion: created.versionRowVersion
+      })
+      const reviewed = assertRequestContentReviewResponse(
+        { versionId },
+        request,
+        await commandService!.requestReview(
+          authority(authorId, authorToken),
+          versionId,
+          request
+        )
+      )
+      return { versionId, rowVersion: reviewed.versionRowVersion ?? 0 }
+    }
+    const first = await inReview(`approve-a-${randomUUID()}`)
+    const second = await inReview(`approve-b-${randomUUID()}`)
+    const approved = await prepareApprovedQuestion(`approve-c-${randomUUID()}`)
+    const missingId = randomUUID()
+    const batchAuthority = authority(reviewerId, reviewerToken)
+
+    const response = await commandService.approveVersionBatch(batchAuthority, {
+      items: [
+        {
+          questionVersionId: first.versionId,
+          expectedRowVersion: first.rowVersion
+        },
+        {
+          questionVersionId: second.versionId,
+          expectedRowVersion: second.rowVersion + 1
+        },
+        {
+          questionVersionId: approved.versionId,
+          expectedRowVersion: approved.versionRowVersion
+        },
+        { questionVersionId: missingId, expectedRowVersion: 1 }
+      ]
+    })
+
+    expect(response).toEqual({
+      approvedCount: 1,
+      items: [
+        {
+          questionVersionId: first.versionId,
+          result: 'APPROVED',
+          rowVersion: first.rowVersion + 1
+        },
+        {
+          questionVersionId: second.versionId,
+          result: 'VERSION_CONFLICT',
+          rowVersion: null
+        },
+        {
+          questionVersionId: approved.versionId,
+          result: 'NOT_IN_REVIEW',
+          rowVersion: null
+        },
+        { questionVersionId: missingId, result: 'NOT_FOUND', rowVersion: null }
+      ]
+    })
+    const statuses = await adminClient.query<{ id: string; status: string }>(
+      `SELECT "id", "status"::text AS "status" FROM "QuestionVersion"
+         WHERE "id" = ANY($1::uuid[])`,
+      [[first.versionId, second.versionId]]
+    )
+    expect(
+      Object.fromEntries(statuses.rows.map((row) => [row.id, row.status]))
+    ).toEqual({
+      [first.versionId]: 'APPROVED',
+      [second.versionId]: 'IN_REVIEW'
+    })
+    const evidence = await adminClient.query<{
+      approvalCount: number
+      auditCount: number
+      reviews: string[]
+    }>(
+      `SELECT
+         COUNT(*)::int AS "auditCount",
+         COUNT(*) FILTER (WHERE "command" = 'APPROVAL')::int
+           AS "approvalCount",
+         (SELECT array_agg("action"::text) FROM "ContentReview"
+          WHERE "requestId" = $1) AS "reviews"
+       FROM "AdminAuditLog" WHERE "requestId" = $1`,
+      [batchAuthority.requestId]
+    )
+    expect(evidence.rows[0]).toMatchObject({
+      approvalCount: 1,
+      reviews: ['APPROVED']
+    })
+  })
+
   it('lets a single operator approve, withdraw and publish their own version (JLP-704)', async () => {
     if (!commandService) throw new Error('Command service is unavailable.')
     const own = authority(authorId, authorToken)
@@ -1420,6 +1517,277 @@ describe('ADMIN command TEST database integration', () => {
         .map(({ action }) => action)
         .sort()
     ).toEqual(['APPROVAL_WITHDRAWN', 'APPROVED', 'APPROVED'])
+  })
+
+  it('keeps the former CMS trigger rules and audits every command in the API (#504 P4)', async () => {
+    if (!commandService) throw new Error('Command service is unavailable.')
+    const own = () => authority(authorId, authorToken)
+    const other = () => authority(reviewerId, reviewerToken)
+    // Former publish content rules: the API request schema rejects a version
+    // with three options, a reading question without a passage, no tags, or
+    // a correct option that is not one of its own options.
+    const valid = createContent(`p4-publish-${randomUUID()}`)
+    for (const [invalid, field] of [
+      [{ ...valid, options: valid.options.slice(0, 3) }, 'options'],
+      [
+        {
+          ...valid,
+          subject: 'READING',
+          questionType: 'SHORT_READING',
+          passage: null
+        },
+        'passage'
+      ],
+      [{ ...valid, tagNames: [] }, 'tagNames'],
+      [{ ...valid, correctOptionKey: 'z' }, 'correctOptionKey']
+    ] as const) {
+      const parsed = createAdminQuestionRequestSchema.safeParse(invalid)
+      expect(parsed.success).toBe(false)
+      expect(parsed.error?.issues.map(({ path }) => path[0])).toContain(field)
+    }
+    const created = await createDraftQuestion(`p4-rules-${randomUUID()}`)
+    const versionId = created.questionVersionId
+    if (!versionId) throw new Error('Created version ID is unavailable.')
+    const draftRowVersion = created.versionRowVersion!
+    const untouched = await readVersionWriteCounts(versionId)
+
+    // Former finish check: only the locked live author updates content.
+    await expect(
+      commandService.updateVersion(
+        other(),
+        versionId,
+        await loadUpdateRequest({
+          expectedRowVersion: draftRowVersion,
+          questionText: `p4 타인 수정 ${randomUUID()}`,
+          versionId
+        })
+      )
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' })
+    // Former evidence trigger: a review request comes from the author.
+    await expect(
+      commandService.requestReview(
+        other(),
+        versionId,
+        requestContentReviewRequestSchema.parse({
+          expectedRowVersion: draftRowVersion
+        })
+      )
+    ).rejects.toMatchObject({ code: 'FORBIDDEN' })
+    // Former arm/status-transition rule: a DRAFT cannot be approved.
+    await expect(
+      commandService.approveVersion(
+        other(),
+        versionId,
+        approveQuestionVersionRequestSchema.parse({
+          expectedRowVersion: draftRowVersion
+        })
+      )
+    ).rejects.toMatchObject({ code: 'INVALID_STATE_TRANSITION' })
+    // Former arm target check: a stale rowVersion conflicts.
+    await expect(
+      commandService.requestReview(
+        own(),
+        versionId,
+        requestContentReviewRequestSchema.parse({
+          expectedRowVersion: draftRowVersion + 1
+        })
+      )
+    ).rejects.toMatchObject({ code: 'VERSION_CONFLICT' })
+    expect(await readVersionWriteCounts(versionId)).toEqual(untouched)
+
+    const reviewed = await commandService.requestReview(
+      own(),
+      versionId,
+      requestContentReviewRequestSchema.parse({
+        expectedRowVersion: draftRowVersion
+      })
+    )
+    expect(reviewed.versionStatus).toBe('IN_REVIEW')
+    // Former QuestionVersion trigger: reviewed content is immutable.
+    const inReview = await readVersionWriteCounts(versionId)
+    await expect(
+      commandService.updateVersion(
+        own(),
+        versionId,
+        await loadUpdateRequest({
+          expectedRowVersion: reviewed.versionRowVersion!,
+          questionText: `p4 검수 중 수정 ${randomUUID()}`,
+          versionId
+        })
+      )
+    ).rejects.toMatchObject({ code: 'QUESTION_VERSION_IMMUTABLE' })
+    expect(await readVersionWriteCounts(versionId)).toEqual(inReview)
+
+    const approved = await commandService.approveVersion(
+      own(),
+      versionId,
+      approveQuestionVersionRequestSchema.parse({
+        expectedRowVersion: reviewed.versionRowVersion
+      })
+    )
+    const published = await commandService.publishVersion(
+      own(),
+      versionId,
+      publishQuestionVersionRequestSchema.parse({
+        expectedRowVersion: approved.versionRowVersion,
+        expectedQuestionRowVersion: approved.questionRowVersion
+      })
+    )
+    expect(published.versionStatus).toBe('PUBLISHED')
+    const archived = await commandService.archiveQuestion(
+      own(),
+      created.questionId,
+      archiveAdminQuestionRequestSchema.parse({
+        expectedQuestionRowVersion: published.questionRowVersion,
+        expectedOpenCandidateVersionId: null,
+        expectedOpenCandidateRowVersion: null
+      })
+    )
+    expect(archived.lifecycleStatus).toBe('ARCHIVED')
+    // Former arm rule: commands on an ARCHIVED question are rejected.
+    await expect(
+      commandService.createVersion(
+        own(),
+        created.questionId,
+        createAdminQuestionVersionRequestSchema.parse({
+          ...createContent(`p4-archived-${randomUUID()}`),
+          expectedQuestionRowVersion: archived.questionRowVersion
+        })
+      )
+    ).rejects.toMatchObject({ code: 'INVALID_STATE_TRANSITION' })
+
+    // Every successful command left its audit row in the same transaction,
+    // and the read API re-verifies each API-computed contentDigest.
+    const auditService = createAdminQuestionService(
+      createPrismaAdminQuestionRepository(applicationRuntime!.client)
+    )
+    const audited = await Promise.all(
+      [versionId, created.questionId].map((targetId) =>
+        auditService.listAuditLog(
+          listAdminAuditLogQuerySchema.parse({ targetId, limit: 20 })
+        )
+      )
+    )
+    const commands = new Set(
+      audited.flatMap(({ items }) => items.map(({ command }) => command))
+    )
+    for (const command of [
+      'QUESTION_CREATE',
+      'REVIEW_REQUEST',
+      'APPROVAL',
+      'PUBLICATION',
+      'QUESTION_ARCHIVE'
+    ]) {
+      expect(commands).toContain(command)
+    }
+    const operations = await adminClient.query<{ count: number }>(
+      `SELECT COUNT(*)::int AS count FROM "AdminAuditLog" AS audit
+        WHERE audit."targetId" IN ($1, $2)
+          AND NOT EXISTS (
+            SELECT 1 FROM "OperationIntent" AS intent
+             WHERE intent."operationId" = audit."operationId"
+          )`,
+      [versionId, created.questionId]
+    )
+    expect(operations.rows[0]?.count).toBeGreaterThanOrEqual(5)
+  })
+
+  it('rejects a tag whose subject differs from the question (JLP-733)', async () => {
+    if (!commandService || !workflowCommandService) {
+      throw new Error('Command services are unavailable.')
+    }
+    const suffix = randomUUID().slice(0, 8)
+    const grammarLabel = `jlp733 문법 ${suffix}`
+    const vocabularyLabel = `jlp733 어휘 ${suffix}`
+    await adminClient.query(
+      `INSERT INTO "Tag" ("id", "label", "normalizedName", "key", "subject",
+         "status", "updatedAt")
+       VALUES ($1, $2, $2, $3, 'GRAMMAR', 'ACTIVE', clock_timestamp()),
+         ($4, $5, $5, $6, 'VOCABULARY', 'ACTIVE', clock_timestamp())`,
+      [
+        randomUUID(),
+        grammarLabel,
+        `grammar.jlp733-${suffix}`,
+        randomUUID(),
+        vocabularyLabel,
+        `vocab.jlp733-${suffix}`
+      ]
+    )
+    try {
+      const mismatched = {
+        ...createContent(`jlp733-${suffix}`),
+        tagNames: [vocabularyLabel, grammarLabel]
+      }
+      await expect(
+        commandService.createQuestion(
+          authority(authorId, authorToken),
+          mismatched
+        )
+      ).rejects.toMatchObject({
+        code: 'TAG_SUBJECT_MISMATCH',
+        fieldErrors: { tagNames: ['태그 과목이 문제 과목과 같아야 합니다.'] }
+      })
+      const validation = await workflowCommandService.validateImport({
+        items: [{ clientItemId: `jlp733-${suffix}`, content: mismatched }]
+      })
+      expect(validation.errors).toEqual([
+        {
+          itemIndex: 0,
+          fieldPath: '/items/0/content/tagNames/1',
+          code: 'TAG_SUBJECT_MISMATCH',
+          message: '태그 과목이 문제 과목과 같아야 합니다.'
+        }
+      ])
+      // A tag of the question's subject and a tag without a subject pass.
+      const matched = await workflowCommandService.validateImport({
+        items: [
+          {
+            clientItemId: `jlp733-ok-${suffix}`,
+            content: { ...mismatched, tagNames: [vocabularyLabel, tagName] }
+          }
+        ]
+      })
+      expect(matched.errors).toEqual([])
+      // #646 3b: a tags.v2.json key names its tag; a key and its own label
+      // are one tag, and a key keeps the subject check.
+      const byKey = (clientItemId: string, tagNames: string[]) =>
+        workflowCommandService!.validateImport({
+          items: [{ clientItemId, content: { ...mismatched, tagNames } }]
+        })
+      expect(
+        (await byKey(`jlp733-key-${suffix}`, [`vocab.jlp733-${suffix}`])).errors
+      ).toEqual([])
+      expect(
+        (
+          await byKey(`jlp733-dup-${suffix}`, [
+            `vocab.jlp733-${suffix}`,
+            vocabularyLabel
+          ])
+        ).errors
+      ).toMatchObject([
+        { fieldPath: '/items/0/content/tagNames/1', code: 'DUPLICATE_TAG' }
+      ])
+      expect(
+        (await byKey(`jlp733-subject-${suffix}`, [`grammar.jlp733-${suffix}`]))
+          .errors
+      ).toMatchObject([
+        {
+          fieldPath: '/items/0/content/tagNames/0',
+          code: 'TAG_SUBJECT_MISMATCH'
+        }
+      ])
+      await expect(
+        commandService.createQuestion(authority(authorId, authorToken), {
+          ...mismatched,
+          tagNames: [`vocab.jlp733-${suffix}`, vocabularyLabel]
+        })
+      ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
+    } finally {
+      await adminClient.query(
+        `DELETE FROM "Tag" WHERE "label" = ANY($1::text[])`,
+        [[grammarLabel, vocabularyLabel]]
+      )
+    }
   })
 
   it('executes publication, retirement and all archive shapes atomically', async () => {
@@ -2202,9 +2570,9 @@ describe('ADMIN command TEST database integration', () => {
     })
   }, 120_000)
 
-  it('executes Slice 5 review batches atomically with one operation evidence set', async () => {
-    if (!commandService || !slice5CommandService) {
-      throw new Error('Slice 5 command services are unavailable.')
+  it('executes workflow review batches atomically with one operation evidence set', async () => {
+    if (!commandService || !workflowCommandService) {
+      throw new Error('workflow command services are unavailable.')
     }
     const first = await createDraftQuestion(`batch-first-${randomUUID()}`)
     const second = await createDraftQuestion(`batch-second-${randomUUID()}`)
@@ -2227,7 +2595,7 @@ describe('ADMIN command TEST database integration', () => {
     const batchAuthority = authority(authorId, authorToken)
     const result = assertRequestContentReviewBatchResponse(
       request,
-      await slice5CommandService.requestReviewBatch(batchAuthority, request)
+      await workflowCommandService.requestReviewBatch(batchAuthority, request)
     )
     expect(
       result.items.map(({ questionVersionId }) => questionVersionId)
@@ -2267,7 +2635,7 @@ describe('ADMIN command TEST database integration', () => {
     }
     const rollbackAuthority = authority(authorId, authorToken)
     await expect(
-      slice5CommandService.requestReviewBatch(
+      workflowCommandService.requestReviewBatch(
         rollbackAuthority,
         requestContentReviewBatchRequestSchema.parse({
           items: [
@@ -2331,7 +2699,7 @@ describe('ADMIN command TEST database integration', () => {
     )
     const stateFirstAuthority = authority(authorId, authorToken)
     await expect(
-      slice5CommandService.requestReviewBatch(
+      workflowCommandService.requestReviewBatch(
         stateFirstAuthority,
         requestContentReviewBatchRequestSchema.parse({
           items: [
@@ -2358,7 +2726,7 @@ describe('ADMIN command TEST database integration', () => {
 
     const staleFirstAuthority = authority(authorId, authorToken)
     await expect(
-      slice5CommandService.requestReviewBatch(
+      workflowCommandService.requestReviewBatch(
         staleFirstAuthority,
         requestContentReviewBatchRequestSchema.parse({
           items: [
@@ -2385,8 +2753,8 @@ describe('ADMIN command TEST database integration', () => {
   }, 120_000)
 
   it('validates and atomically applies imports, then exports exact canonical audited bytes', async () => {
-    if (!slice5CommandService) {
-      throw new Error('Slice 5 command service is unavailable.')
+    if (!workflowCommandService) {
+      throw new Error('workflow command service is unavailable.')
     }
     const validationRequest = validateQuestionImportRequestSchema.parse({
       items: [createImportItem(randomUUID()), createImportItem(randomUUID())]
@@ -2394,7 +2762,7 @@ describe('ADMIN command TEST database integration', () => {
     const validation = await assertAdminImportValidationForRequest(
       sha256Port,
       validationRequest,
-      await slice5CommandService.validateImport(validationRequest)
+      await workflowCommandService.validateImport(validationRequest)
     )
     expect(validation).toMatchObject({
       valid: true,
@@ -2408,7 +2776,7 @@ describe('ADMIN command TEST database integration', () => {
       validationDigest: validation.validationDigest
     })
     const applyAuthority = authority(authorId, authorToken)
-    const appliedRaw = await slice5CommandService.applyImport(
+    const appliedRaw = await workflowCommandService.applyImport(
       applyAuthority,
       applyRequest
     )
@@ -2420,7 +2788,7 @@ describe('ADMIN command TEST database integration', () => {
     )
     expect(applied.response.createdCount).toBe(2)
     // Same importId, actor and body replays the stored response (#491).
-    const replayed = await slice5CommandService.applyImport(
+    const replayed = await workflowCommandService.applyImport(
       applyAuthority,
       applyRequest
     )
@@ -2436,10 +2804,10 @@ describe('ADMIN command TEST database integration', () => {
     const otherValidation = await assertAdminImportValidationForRequest(
       sha256Port,
       otherValidationRequest,
-      await slice5CommandService.validateImport(otherValidationRequest)
+      await workflowCommandService.validateImport(otherValidationRequest)
     )
     await expect(
-      slice5CommandService.applyImport(
+      workflowCommandService.applyImport(
         applyAuthority,
         applyQuestionImportRequestSchema.parse({
           importId: applyRequest.importId,
@@ -2454,7 +2822,7 @@ describe('ADMIN command TEST database integration', () => {
       operationId: string
     }>(
       `SELECT audit."command", audit."operationId",
-         audit."contentDigest" = "phase7_admin_audit_content_digest"(
+         audit."contentDigest" = pg_temp."admin_audit_content_digest"(
            audit."operationId", audit."command", audit."targetType",
            audit."targetId", audit."beforeState", audit."afterState",
            audit."beforeRowVersion", audit."afterRowVersion",
@@ -2478,7 +2846,7 @@ describe('ADMIN command TEST database integration', () => {
     ).toBe(true)
 
     const duplicateValidation =
-      await slice5CommandService.validateImport(validationRequest)
+      await workflowCommandService.validateImport(validationRequest)
     expect(duplicateValidation.valid).toBe(false)
     expect(duplicateValidation.errors.map(({ code }) => code)).toEqual([
       'DUPLICATE_QUESTION_CONTENT',
@@ -2492,7 +2860,7 @@ describe('ADMIN command TEST database integration', () => {
       questionIds
     })
     const exportAuthority = authority(reviewerId, reviewerToken)
-    const exported = await slice5CommandService.exportQuestions(
+    const exported = await workflowCommandService.exportQuestions(
       exportAuthority,
       exportRequest
     )
@@ -2523,7 +2891,7 @@ describe('ADMIN command TEST database integration', () => {
       }
     }>(
       `SELECT audit."command", audit."metadata" AS metadata,
-         audit."contentDigest" = "phase7_admin_audit_content_digest"(
+         audit."contentDigest" = pg_temp."admin_audit_content_digest"(
            audit."operationId", audit."command", audit."targetType",
            audit."targetId", audit."beforeState", audit."afterState",
            audit."beforeRowVersion", audit."afterRowVersion",
@@ -2552,7 +2920,7 @@ describe('ADMIN command TEST database integration', () => {
     const concurrentValidation = await assertAdminImportValidationForRequest(
       sha256Port,
       concurrentRequest,
-      await slice5CommandService.validateImport(concurrentRequest)
+      await workflowCommandService.validateImport(concurrentRequest)
     )
     const concurrentApplyRequest = applyQuestionImportRequestSchema.parse({
       importId: randomUUID(),
@@ -2586,8 +2954,8 @@ describe('ADMIN command TEST database integration', () => {
       } as unknown as PrismaClient
     }
     const concurrentServices = [authorId, reviewerId].map(() =>
-      createAdminQuestionSlice5CommandService(
-        createPrismaAdminQuestionSlice5Repository({
+      createAdminQuestionWorkflowCommandService(
+        createPrismaAdminQuestionWorkflowRepository({
           auditEnvironment: 'TEST',
           client: createBarrierClient()
         })
@@ -2630,13 +2998,13 @@ describe('ADMIN command TEST database integration', () => {
     const faultValidationRequest = validateQuestionImportRequestSchema.parse({
       items: [
         createImportItem(`fault-first-${randomUUID()}`),
-        createImportItem('SLICE5_FAULT_INJECTION_SECOND')
+        createImportItem('WORKFLOW_FAULT_INJECTION_SECOND')
       ]
     })
     const faultValidation = await assertAdminImportValidationForRequest(
       sha256Port,
       faultValidationRequest,
-      await slice5CommandService.validateImport(faultValidationRequest)
+      await workflowCommandService.validateImport(faultValidationRequest)
     )
     const faultApplyRequest = applyQuestionImportRequestSchema.parse({
       importId: randomUUID(),
@@ -2645,25 +3013,25 @@ describe('ADMIN command TEST database integration', () => {
     })
     const beforeFault = await readGlobalWriteCounts()
     await adminClient.query(
-      `CREATE FUNCTION "phase7_test_fail_slice5_import"()
+      `CREATE FUNCTION "test_fail_workflow_import"()
        RETURNS TRIGGER LANGUAGE plpgsql AS $function$
        BEGIN
-         IF position('SLICE5_FAULT_INJECTION_SECOND' IN NEW."questionText") > 0
+         IF position('WORKFLOW_FAULT_INJECTION_SECOND' IN NEW."questionText") > 0
          THEN
-           RAISE EXCEPTION 'Slice 5 import fault injection.';
+           RAISE EXCEPTION 'workflow import fault injection.';
          END IF;
          RETURN NEW;
        END;
        $function$`
     )
     await adminClient.query(
-      `CREATE TRIGGER "QuestionVersion_slice5_import_fault"
+      `CREATE TRIGGER "QuestionVersion_workflow_import_fault"
        BEFORE INSERT ON "QuestionVersion"
-       FOR EACH ROW EXECUTE FUNCTION "phase7_test_fail_slice5_import"()`
+       FOR EACH ROW EXECUTE FUNCTION "test_fail_workflow_import"()`
     )
     try {
       await expect(
-        slice5CommandService.applyImport(
+        workflowCommandService.applyImport(
           authority(authorId, authorToken),
           faultApplyRequest
         )
@@ -2675,11 +3043,11 @@ describe('ADMIN command TEST database integration', () => {
       expect(await readGlobalWriteCounts()).toEqual(beforeFault)
     } finally {
       await adminClient.query(
-        `DROP TRIGGER IF EXISTS "QuestionVersion_slice5_import_fault"
+        `DROP TRIGGER IF EXISTS "QuestionVersion_workflow_import_fault"
          ON "QuestionVersion"`
       )
       await adminClient.query(
-        `DROP FUNCTION IF EXISTS "phase7_test_fail_slice5_import"()`
+        `DROP FUNCTION IF EXISTS "test_fail_workflow_import"()`
       )
     }
   }, 120_000)
@@ -2688,10 +3056,10 @@ describe('ADMIN command TEST database integration', () => {
     if (
       !applicationRuntime ||
       !commandService ||
-      !slice5CommandService ||
+      !workflowCommandService ||
       !questionReportService
     ) {
-      throw new Error('Slice 5 report services are unavailable.')
+      throw new Error('workflow report services are unavailable.')
     }
     const target = await prepareApprovedQuestion(`report-${randomUUID()}`)
     const publishRequest = publishQuestionVersionRequestSchema.parse({
@@ -2820,7 +3188,7 @@ describe('ADMIN command TEST database integration', () => {
     const triaged = assertTriageAdminQuestionReportResponse(
       { reportId: created.id },
       triageRequest,
-      await slice5CommandService.triageReport(
+      await workflowCommandService.triageReport(
         triageAuthority,
         created.id,
         triageRequest
@@ -2856,8 +3224,8 @@ describe('ADMIN command TEST database integration', () => {
         return baseResolutionClient.$transaction(callback, options)
       }
     } as unknown as PrismaClient
-    const stalledResolutionService = createAdminQuestionSlice5CommandService(
-      createPrismaAdminQuestionSlice5Repository({
+    const stalledResolutionService = createAdminQuestionWorkflowCommandService(
+      createPrismaAdminQuestionWorkflowRepository({
         auditEnvironment: 'TEST',
         client: stalledResolutionClient
       })
@@ -2872,10 +3240,12 @@ describe('ADMIN command TEST database integration', () => {
     await stalledTransactionReached
     const winnerAuthority = authority(reviewerId, reviewerToken)
     let winnerResult:
-      | Awaited<ReturnType<AdminQuestionSlice5CommandService['resolveReport']>>
+      | Awaited<
+          ReturnType<AdminQuestionWorkflowCommandService['resolveReport']>
+        >
       | undefined
     try {
-      winnerResult = await slice5CommandService.resolveReport(
+      winnerResult = await workflowCommandService.resolveReport(
         winnerAuthority,
         created.id,
         resolutionRequest
@@ -2911,7 +3281,7 @@ describe('ADMIN command TEST database integration', () => {
       contentDigestValid: boolean
     }>(
       `SELECT audit."command",
-         audit."contentDigest" = "phase7_admin_audit_content_digest"(
+         audit."contentDigest" = pg_temp."admin_audit_content_digest"(
            audit."operationId", audit."command", audit."targetType",
            audit."targetId", audit."beforeState", audit."afterState",
            audit."beforeRowVersion", audit."afterRowVersion",
@@ -2930,8 +3300,8 @@ describe('ADMIN command TEST database integration', () => {
   }, 120_000)
 
   it('rejects missing, self, cross-question and mutable remediation with report writes at zero', async () => {
-    if (!commandService || !slice5CommandService || !questionReportService) {
-      throw new Error('Slice 5 report services are unavailable.')
+    if (!commandService || !workflowCommandService || !questionReportService) {
+      throw new Error('workflow report services are unavailable.')
     }
     const target = await prepareApprovedQuestion(
       `report-remediation-${randomUUID()}`
@@ -2967,7 +3337,7 @@ describe('ADMIN command TEST database integration', () => {
     const triaged = assertTriageAdminQuestionReportResponse(
       { reportId: created.id },
       triageRequest,
-      await slice5CommandService.triageReport(
+      await workflowCommandService.triageReport(
         authority(reviewerId, reviewerToken),
         created.id,
         triageRequest
@@ -3019,7 +3389,7 @@ describe('ADMIN command TEST database integration', () => {
         remediationVersionId
       })
       await expect(
-        slice5CommandService.resolveReport(
+        workflowCommandService.resolveReport(
           resolveAuthority,
           created.id,
           resolveRequest
@@ -3087,7 +3457,7 @@ describe('ADMIN command TEST database integration', () => {
     const resolved = assertResolveAdminQuestionReportResponse(
       { reportId: created.id },
       validResolutionRequest,
-      await slice5CommandService.resolveReport(
+      await workflowCommandService.resolveReport(
         authority(reviewerId, reviewerToken),
         created.id,
         validResolutionRequest
@@ -3120,7 +3490,7 @@ describe('ADMIN command TEST database integration', () => {
     const olderTriaged = assertTriageAdminQuestionReportResponse(
       { reportId: olderCreated.id },
       olderTriageRequest,
-      await slice5CommandService.triageReport(
+      await workflowCommandService.triageReport(
         authority(reviewerId, reviewerToken),
         olderCreated.id,
         olderTriageRequest
@@ -3135,7 +3505,7 @@ describe('ADMIN command TEST database integration', () => {
         remediationVersionId: target.versionId
       })
     await expect(
-      slice5CommandService.resolveReport(
+      workflowCommandService.resolveReport(
         olderResolutionAuthority,
         olderCreated.id,
         olderResolutionRequest
@@ -3158,7 +3528,7 @@ describe('ADMIN command TEST database integration', () => {
 
   it('keeps report list count and items in one repeatable-read snapshot', async () => {
     if (!applicationRuntime || !commandService || !questionReportService) {
-      throw new Error('Slice 5 report snapshot services are unavailable.')
+      throw new Error('workflow report snapshot services are unavailable.')
     }
     const snapshotQuestionReportService = questionReportService
     const target = await prepareApprovedQuestion(
@@ -3253,11 +3623,10 @@ describe('ADMIN command TEST database integration', () => {
       !erasureWorkerConnected ||
       !commandService
     ) {
-      throw new Error('Slice 5 drift test services are unavailable.')
+      throw new Error('workflow drift test services are unavailable.')
     }
     const driftCommandService = commandService
-    const driftAuthGatewayRuntime = authGatewayRuntime
-    const driftErasureWorkerClient = erasureWorkerClient
+    const driftApplicationClient = applicationRuntime!.client
     const reportAuditCountBefore = await adminClient.query<{ count: number }>(
       `SELECT COUNT(*)::int AS "count"
        FROM "AdminAuditLog"
@@ -3344,7 +3713,7 @@ describe('ADMIN command TEST database integration', () => {
       authorityTarget.versionId,
       authorityPublishRequest
     )
-    const driftToken = `phase7-report-drift-${randomUUID()}`
+    const driftToken = `test-report-drift-${randomUUID()}`
     await issueSession(learnerId, driftToken, 'USER')
     const authorityCreateRequest = createQuestionReportRequestSchema.parse({
       questionVersionId: authorityTarget.versionId,
@@ -3371,10 +3740,7 @@ describe('ADMIN command TEST database integration', () => {
           )
           if (!signedOut) {
             signedOut = true
-            await driftAuthGatewayRuntime.client.$queryRawUnsafe(
-              'SELECT "phase7_owned_sign_out"($1)',
-              driftToken
-            )
+            await signOutOwnedSession(driftApplicationClient, driftToken)
           }
           return state
         }
@@ -3392,10 +3758,8 @@ describe('ADMIN command TEST database integration', () => {
     })
 
     await insertCredentialUser(revocationLearnerId, 'USER')
-    const revocationToken = `phase7-report-revocation-${randomUUID()}`
-    const revocationTriggerToken = `phase7-report-revocation-trigger-${randomUUID()}`
+    const revocationToken = `test-report-revocation-${randomUUID()}`
     await issueSession(revocationLearnerId, revocationToken, 'USER')
-    await issueSession(revocationLearnerId, revocationTriggerToken, 'USER')
     const revocationCreateRequest = createQuestionReportRequestSchema.parse({
       questionVersionId: authorityTarget.versionId,
       reason: 'ANSWER_ERROR',
@@ -3421,15 +3785,24 @@ describe('ADMIN command TEST database integration', () => {
           )
           if (!revoked) {
             revoked = true
-            const rows = await driftAuthGatewayRuntime.client.$queryRawUnsafe<
-              Array<{ changed: boolean }>
-            >(
-              `SELECT "phase7_change_password_v1"($1, $2, $3) AS changed`,
-              revocationTriggerToken,
-              'integration-password-hash',
-              `integration-password-hash-${randomUUID()}`
-            )
-            expect(rows).toEqual([{ changed: true }])
+            // The retired password change used to revoke every session
+            // (#504 P6a); advancing the authority generation does the same.
+            await adminClient.query('BEGIN')
+            try {
+              await adminClient.query(
+                'SET LOCAL session_replication_role = replica'
+              )
+              await adminClient.query(
+                `UPDATE "User"
+                 SET "authorityGeneration" = "authorityGeneration" + 1
+                 WHERE "id" = $1`,
+                [revocationLearnerId]
+              )
+              await adminClient.query('COMMIT')
+            } catch (error: unknown) {
+              await adminClient.query('ROLLBACK')
+              throw error
+            }
           }
           return state
         }
@@ -3447,7 +3820,7 @@ describe('ADMIN command TEST database integration', () => {
     })
 
     await insertCredentialUser(erasureLearnerId, 'USER')
-    const erasureToken = `phase7-report-erasure-${randomUUID()}`
+    const erasureToken = `test-report-erasure-${randomUUID()}`
     await issueSession(erasureLearnerId, erasureToken, 'USER')
     const erasureCreateRequest = createQuestionReportRequestSchema.parse({
       questionVersionId: authorityTarget.versionId,
@@ -3474,10 +3847,7 @@ describe('ADMIN command TEST database integration', () => {
           )
           if (!erased) {
             erased = true
-            await driftErasureWorkerClient.query(
-              `SELECT "phase7_erase_user"($1, 'TEST')`,
-              [erasureLearnerId]
-            )
+            await eraseTestUser(applicationRuntime!.client, erasureLearnerId)
           }
           return state
         }
@@ -3643,7 +4013,7 @@ describe('ADMIN command TEST database integration', () => {
   it('classifies unknown and revoked tokens through the app-role resolver with write 0', async () => {
     if (!commandService) throw new Error('Command service is unavailable.')
     const before = await readGlobalWriteCounts()
-    const unknownToken = `phase7-command-unknown-${randomUUID()}`
+    const unknownToken = `test-command-unknown-${randomUUID()}`
 
     await expect(
       commandService.createQuestion(
@@ -3655,15 +4025,12 @@ describe('ADMIN command TEST database integration', () => {
       adminDisposition: 'DEFINITE_ROLLBACK'
     })
 
-    const revokedToken = `phase7-command-revoked-${randomUUID()}`
+    const revokedToken = `test-command-revoked-${randomUUID()}`
     await issueSession(authorId, revokedToken)
-    if (!authGatewayRuntime) {
-      throw new Error('Auth gateway runtime is unavailable.')
+    if (!applicationRuntime) {
+      throw new Error('Application runtime is unavailable.')
     }
-    await authGatewayRuntime.client.$queryRawUnsafe(
-      'SELECT "phase7_owned_sign_out"($1)',
-      revokedToken
-    )
+    await signOutOwnedSession(applicationRuntime.client, revokedToken)
     await expect(
       commandService.createQuestion(
         authority(authorId, revokedToken),

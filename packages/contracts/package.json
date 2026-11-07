@@ -11,10 +11,6 @@
       "types": "./dist/analytics/events.d.ts",
       "import": "./dist/analytics/events.js"
     },
-    "./admin/phase7": {
-      "types": "./dist/admin/content-operations.d.ts",
-      "import": "./dist/admin/content-operations.js"
-    },
     "./admin/content-operations": {
       "types": "./dist/admin/content-operations.d.ts",
       "import": "./dist/admin/content-operations.js"
@@ -239,6 +235,6 @@
   },
   "devDependencies": {
     "typescript": "5.8.3",
-    "vitest": "4.1.11"
+    "vitest": "4.1.12"
   }
 }

@@ -19,7 +19,9 @@ import { useToast } from '@nihongo/browser/common/components/Toast'
 import { QuestionPageHeader } from '@app/admin-question/components/QuestionPageHeader'
 import { useQuestionListReturnPath } from '@app/admin-question/navigation/useQuestionListReturnPath'
 import { getAdminErrorKey } from '@app/admin/presentation/adminPresentation'
+import { getTagServerErrorKey } from '@app/admin-question/components/questionTagServerError'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
+import { PageContainer } from '@nihongo/browser/common/components/PageContainer'
 
 export const EditAdminQuestionPage = (): ReactElement => {
   const { t, presentError } = useAdminPresentation()
@@ -47,6 +49,9 @@ export const EditAdminQuestionPage = (): ReactElement => {
   const [formRevision, setFormRevision] = useState(0)
   const [reloadFailed, setReloadFailed] = useState(false)
   const commandError = updateQuestion.apiError
+  const tagErrorKey = updateQuestion.isError
+    ? getTagServerErrorKey(commandError)
+    : null
   const conflict = commandError?.code === 'VERSION_CONFLICT'
   const blocked =
     conflict ||
@@ -103,7 +108,7 @@ export const EditAdminQuestionPage = (): ReactElement => {
 
   if (!working && question.isError && isNotFoundApiError(question.error)) {
     return (
-      <section className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
+      <PageContainer width="5xl">
         <ErrorState
           headingLevel={1}
           title={t('editor.page.notFound')}
@@ -117,7 +122,7 @@ export const EditAdminQuestionPage = (): ReactElement => {
             </Link>
           }
         />
-      </section>
+      </PageContainer>
     )
   }
 
@@ -128,7 +133,7 @@ export const EditAdminQuestionPage = (): ReactElement => {
     !question.preview
   ) {
     return (
-      <section className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
+      <PageContainer width="5xl">
         <ErrorState
           headingLevel={1}
           title={t('editor.page.loadError')}
@@ -142,12 +147,12 @@ export const EditAdminQuestionPage = (): ReactElement => {
             void question.refetch().catch(() => undefined)
           }}
         />
-      </section>
+      </PageContainer>
     )
   }
 
   return (
-    <section className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
+    <PageContainer width="5xl">
       <QuestionPageHeader
         returnPath={returnPath}
         currentLabel={t('editor.page.breadcrumb', {
@@ -195,6 +200,7 @@ export const EditAdminQuestionPage = (): ReactElement => {
                   : presentError(commandError)
             : undefined
         }
+        serverTagError={tagErrorKey ? t(tagErrorKey) : undefined}
         onSubmit={handleUpdateQuestion}
       />
       <Dialog
@@ -230,6 +236,6 @@ export const EditAdminQuestionPage = (): ReactElement => {
           <p role="alert">{t('editor.page.reloadError')}</p>
         ) : null}
       </Dialog>
-    </section>
+    </PageContainer>
   )
 }

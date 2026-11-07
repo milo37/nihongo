@@ -54,7 +54,7 @@ export const createQuestionReportGuard = ({
         })
       }
 
-      if (!resolution.user || !resolution.phase7Session) {
+      if (!resolution.user || !resolution.ownedSessionProof) {
         if (resolution.clearSessionCookie) {
           try {
             assertTrustedOrigin(context, environment)
@@ -95,7 +95,7 @@ export const createQuestionReportGuard = ({
       })
 
       context.set('reporterActorId', resolution.user.id)
-      context.set('reporterSessionToken', resolution.phase7Session.token)
+      context.set('reporterSessionToken', resolution.ownedSessionProof.token)
       await next()
     }
   )

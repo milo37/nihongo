@@ -5,7 +5,7 @@ import { createApiApp } from './createApp.js'
 import {
   createSsoIdentityFixture,
   createSsoSessionFixture
-} from '../db/fixtures/ssoSession.js'
+} from '../../test/fixtures/db/ssoSession.js'
 import { createAuthGateway } from '../auth/authGateway.js'
 import { createSsoIdentityRepository } from '../auth/ssoIdentityRepository.js'
 import { createSsoPublicRuntime } from '../auth/ssoPublicRuntime.js'
@@ -41,7 +41,7 @@ const environment = parseApiEnvironment(process.env)
 const adminDatabaseUrl = requireEnvironmentValue('TEST_API_ADMIN_DATABASE_URL')
 const productionDatabaseUrl = requireEnvironmentValue('PRODUCTION_DATABASE_URL')
 const schemaName = new URL(adminDatabaseUrl).searchParams.get('schema')
-if (!schemaName || !/^phase7_[a-f0-9]{32}_test$/u.test(schemaName)) {
+if (!schemaName || !/^nihongo_[a-f0-9]{32}_test$/u.test(schemaName)) {
   throw new Error('API gate received an unsafe schema.')
 }
 
@@ -62,7 +62,6 @@ let authGatewayRuntime: RoleDatabaseRuntime
 let app: ReturnType<typeof createApiApp>
 let verifiedProviderIdentity: SsoVerifiedIdentity | null = null
 let beforeSsoIssue: (() => Promise<void>) | undefined
-let practiceAuthorityCalls = 0
 const apiLogLines: string[] = []
 
 const postAuth = async (
@@ -76,7 +75,7 @@ const postAuth = async (
       'Content-Type': 'application/json',
       Origin: environment.TRUSTED_ORIGINS[0]!,
       'Sec-Fetch-Site': 'same-origin',
-      'User-Agent': 'phase7-api-gate',
+      'User-Agent': 'api-gate',
       ...(cookie ? { Cookie: cookie } : {})
     },
     body: JSON.stringify(body)
@@ -89,7 +88,7 @@ const ssoOwner: Parameters<typeof createSsoSessionFixture>[0]['owner'] = {
 const createSsoSession = async () =>
   await createSsoSessionFixture({
     owner: ssoOwner,
-    gateway: authGatewayRuntime.client,
+    gateway: applicationRuntime!.client,
     secret: environment.BETTER_AUTH_SECRET,
     role: 'USER'
   })
@@ -111,7 +110,6 @@ const readWriteCounts = async (): Promise<{
   user: number
   verification: number
   audit: number
-  family: number
   question: number
   rateLimit: number
   report: number
@@ -123,7 +121,6 @@ const readWriteCounts = async (): Promise<{
     user: number
     verification: number
     audit: number
-    family: number
     question: number
     rateLimit: number
     report: number
@@ -135,7 +132,6 @@ const readWriteCounts = async (): Promise<{
        (SELECT COUNT(*)::int FROM "User") AS "user",
        (SELECT COUNT(*)::int FROM "Verification") AS verification,
        (SELECT COUNT(*)::int FROM "AdminAuditLog") AS audit,
-       (SELECT COUNT(*)::int FROM "AuthSessionFamily") AS family,
        (SELECT COUNT(*)::int FROM "Question") AS question,
        (SELECT COUNT(*)::int FROM "RateLimit") AS "rateLimit",
        (SELECT COUNT(*)::int FROM "QuestionReport") AS report,
@@ -178,7 +174,7 @@ const exercisePostIssuerAuthorityDrift = async ({
   userId: string
 }): Promise<Response> => {
   const driftClient = createAdminConnection()
-  const barrierKey = 'phase7-api-post-issuer-barrier'
+  const barrierKey = 'api-post-issuer-barrier'
   let advisoryLockHeld = false
   let driftConnected = false
   let driftTransactionOpen = false
@@ -186,7 +182,7 @@ const exercisePostIssuerAuthorityDrift = async ({
   let signIn: Promise<Response> | undefined
 
   await adminClient.query(
-    `CREATE FUNCTION "phase7_api_wait_after_session_insert"()
+    `CREATE FUNCTION "api_wait_after_session_insert"()
      RETURNS trigger LANGUAGE plpgsql
      SET search_path FROM CURRENT
      AS $function$
@@ -199,13 +195,13 @@ const exercisePostIssuerAuthorityDrift = async ({
      $function$`
   )
   await adminClient.query(
-    `REVOKE ALL ON FUNCTION "phase7_api_wait_after_session_insert"()
+    `REVOKE ALL ON FUNCTION "api_wait_after_session_insert"()
      FROM PUBLIC`
   )
   await adminClient.query(
-    `CREATE TRIGGER "phase7_api_wait_after_session_insert_trigger"
+    `CREATE TRIGGER "api_wait_after_session_insert_trigger"
      AFTER INSERT ON "Session" FOR EACH ROW
-     EXECUTE FUNCTION "phase7_api_wait_after_session_insert"()`
+     EXECUTE FUNCTION "api_wait_after_session_insert"()`
   )
 
   try {
@@ -222,7 +218,7 @@ const exercisePostIssuerAuthorityDrift = async ({
       const activity = await adminClient.query<{ count: number }>(
         `SELECT COUNT(*)::int AS count FROM pg_stat_activity
          WHERE datname = current_database()
-           AND usename = 'nihongo_test_auth_gateway_login'
+           AND usename = 'nihongo_test_app_login'
            AND wait_event_type = 'Lock'`
       )
       if ((activity.rows[0]?.count ?? 0) > 0) {
@@ -304,18 +300,17 @@ const exercisePostIssuerAuthorityDrift = async ({
     await adminClient
       .query(
         `DROP TRIGGER IF EXISTS
-           "phase7_api_wait_after_session_insert_trigger" ON "Session"`
+           "api_wait_after_session_insert_trigger" ON "Session"`
       )
       .catch(() => undefined)
     await adminClient
-      .query(`DROP FUNCTION IF EXISTS "phase7_api_wait_after_session_insert"()`)
+      .query(`DROP FUNCTION IF EXISTS "api_wait_after_session_insert"()`)
       .catch(() => undefined)
   }
 }
 
 beforeAll(async () => {
   assertSafeAdminCmsDatabase({
-    adminCmsMode: environment.ADMIN_CMS_MODE,
     nodeEnvironment: environment.NODE_ENV,
     databaseUrl: environment.DATABASE_URL,
     productionDatabaseUrl
@@ -326,12 +321,12 @@ beforeAll(async () => {
     startupRole: 'nihongo_app'
   })
   authGatewayRuntime = createRoleDatabaseRuntime(
-    environment.AUTH_GATEWAY_DATABASE_URL!,
-    'nihongo_auth_gateway'
+    process.env.TEST_APP_FIXTURE_DATABASE_URL!,
+    'nihongo_app'
   )
 
   const ownedAuthFacade = createOwnedAuthFacade({
-    client: authGatewayRuntime.client,
+    client: applicationRuntime!.client,
     emailDispatcher,
     environment
   })
@@ -340,9 +335,6 @@ beforeAll(async () => {
     keySecret: environment.GUEST_COOKIE_SECRET
   })
   app = createApiApp({
-    assertPracticeRuntimeAuthority: async () => {
-      practiceAuthorityCalls += 1
-    },
     auth: {
       environment,
       gateway: createAuthGateway({
@@ -369,15 +361,16 @@ beforeAll(async () => {
               exchange: async () => verifiedProviderIdentity
             }
           },
-          store: createSsoTransactionStore(authGatewayRuntime.client),
+          // #504 P7 PR5b: the SSO store runs on nihongo_app, as server.ts does.
+          store: createSsoTransactionStore(applicationRuntime.client),
           identities: createSsoIdentityRepository(
-            new Proxy(authGatewayRuntime.client, {
+            new Proxy(applicationRuntime.client, {
               get(target, key) {
                 if (key === '$queryRawUnsafe')
                   return async (sql: string, ...values: unknown[]) => {
                     const rows = await target.$queryRawUnsafe(sql, ...values)
                     if (
-                      sql.includes('"phase7_resolve_sso_identity"') &&
+                      sql.includes('"resolve_sso_identity"') &&
                       beforeSsoIssue
                     )
                       await beforeSsoIssue()
@@ -397,7 +390,7 @@ beforeAll(async () => {
       principalService: createOwnedPrincipalService({
         client: applicationRuntime.client,
         isProduction: false,
-        refreshClient: authGatewayRuntime.client,
+        refreshClient: applicationRuntime!.client,
         secret: environment.BETTER_AUTH_SECRET
       })
     },
@@ -432,13 +425,13 @@ describe('Technical API gate', () => {
     }>(
       `SELECT "databaseName", "serverAddress"::text AS "serverAddress",
          "serverPort", "environment"
-       FROM "Phase7DatabaseCapability" WHERE "id" = 1`
+       FROM "DatabaseCapability" WHERE "id" = 1`
     )
     const original = capability.rows[0]
     if (!original) throw new Error('Registered capability is unavailable.')
 
     await adminClient.query(
-      `UPDATE "Phase7DatabaseCapability"
+      `UPDATE "DatabaseCapability"
        SET "serverPort" = CASE WHEN "serverPort" = 65535
          THEN 65534 ELSE "serverPort" + 1 END
        WHERE "id" = 1`
@@ -446,10 +439,10 @@ describe('Technical API gate', () => {
     try {
       const rejected = await Promise.allSettled([
         applicationRuntime.client.$queryRawUnsafe(
-          'SELECT "phase7_require_runtime_ready"()'
+          'SELECT "require_runtime_ready"()'
         ),
         authGatewayRuntime.client.$queryRawUnsafe(
-          'SELECT "phase7_require_runtime_ready"()'
+          'SELECT "require_runtime_ready"()'
         )
       ])
       expect(rejected.map(({ status }) => status)).toEqual([
@@ -458,7 +451,7 @@ describe('Technical API gate', () => {
       ])
     } finally {
       await adminClient.query(
-        `UPDATE "Phase7DatabaseCapability"
+        `UPDATE "DatabaseCapability"
          SET "databaseName" = $1, "serverAddress" = $2::inet,
            "serverPort" = $3, "environment" = $4
          WHERE "id" = 1`,
@@ -478,29 +471,18 @@ describe('Technical API gate', () => {
           client: applicationRuntime.client,
           connectionString: environment.DATABASE_URL,
           expectedRole: 'nihongo_app'
-        },
-        authGateway: {
-          client: authGatewayRuntime.client,
-          connectionString: environment.AUTH_GATEWAY_DATABASE_URL!,
-          expectedRole: 'nihongo_auth_gateway'
         }
       })
     ).resolves.toBeUndefined()
     await expect(
-      Promise.all([
-        applicationRuntime.client.$queryRawUnsafe(
-          'SELECT "phase7_require_runtime_ready"()'
-        ),
-        authGatewayRuntime.client.$queryRawUnsafe(
-          'SELECT "phase7_require_runtime_ready"()'
-        )
-      ])
-    ).resolves.toHaveLength(2)
+      applicationRuntime.client.$queryRawUnsafe(
+        'SELECT "require_runtime_ready"()'
+      )
+    ).resolves.toHaveLength(1)
   })
 
-  it('Prefix를 CORS/auth/practice/DB보다 먼저 제외한다', async () => {
+  it('Prefix를 CORS/auth/DB보다 먼저 제외한다', async () => {
     const before = await readWriteCounts()
-    const callsBefore = practiceAuthorityCalls
     for (const [pathname, method] of [
       ['/api/v1/admin/questions', 'GET'],
       ['/api/v1/admin/questions', 'POST'],
@@ -515,14 +497,17 @@ describe('Technical API gate', () => {
       expect(response.headers.get('Access-Control-Allow-Origin')).toBeNull()
       expect(response.headers.get('Cache-Control')).toBe('private, no-store')
     }
-    expect(practiceAuthorityCalls).toBe(callsBefore)
     expect(await readWriteCounts()).toEqual(before)
   })
 
   it.each([
     {
       pathname: '/api/v1/questions',
-      expectedHeaders: ['Content-Type']
+      expectedHeaders: [
+        'Content-Type',
+        'Idempotency-Key',
+        'X-Nihongo-Practice-Contract'
+      ]
     },
     {
       pathname: '/api/v1/study-sessions',
@@ -542,7 +527,7 @@ describe('Technical API gate', () => {
       ]
     }
   ])(
-    '실제 technical app CORS $pathname를 exact method/header로 제한한다',
+    '실제 app CORS $pathname를 exact method/header로 제한한다',
     async ({ expectedHeaders, pathname }) => {
       const response = await app.request(pathname, {
         method: 'OPTIONS',
@@ -694,14 +679,11 @@ describe('Technical API gate', () => {
               cookie.startsWith('__Secure-nihongo.session_token=')
           )
       ).toBe(false)
-      const facts = await adminClient.query<{
-        sessions: number
-        families: number
-      }>(
-        `SELECT (SELECT count(*)::int FROM "Session" WHERE "userId"=$1) AS sessions,(SELECT count(*)::int FROM "AuthSessionFamily" WHERE "userId"=$1) AS families`,
+      const facts = await adminClient.query<{ sessions: number }>(
+        `SELECT count(*)::int AS sessions FROM "Session" WHERE "userId"=$1`,
         [actor.userId]
       )
-      expect(facts.rows).toEqual([{ sessions: 0, families: 0 }])
+      expect(facts.rows).toEqual([{ sessions: 0 }])
     } finally {
       beforeSsoIssue = undefined
       release()
@@ -752,21 +734,17 @@ describe('Technical API gate', () => {
               cookie.startsWith('__Secure-nihongo.session_token=')
           )
       ).toBe(false)
-      const facts = await adminClient.query<{
-        sessions: number
-        active: number
-        revoked: number
-      }>(
-        `SELECT (SELECT count(*)::int FROM "Session" WHERE "userId"=$1) AS sessions,(SELECT count(*)::int FROM "AuthSessionFamily" WHERE "userId"=$1 AND status='ACTIVE') AS active,(SELECT count(*)::int FROM "AuthSessionFamily" WHERE "userId"=$1 AND status='REVOKED') AS revoked`,
+      const facts = await adminClient.query<{ sessions: number }>(
+        `SELECT count(*)::int AS sessions FROM "Session" WHERE "userId"=$1`,
         [actor.userId]
       )
-      expect(facts.rows).toEqual([{ sessions: 0, active: 0, revoked: 1 }])
+      expect(facts.rows).toEqual([{ sessions: 0 }])
     } finally {
       verifiedProviderIdentity = null
     }
   }, 30_000)
 
-  it('SSO principal is valid and stale authority clears cookies with write0', async () => {
+  it('SSO principal is valid and stale authority resolves to GUEST without clearing cookies with write0', async () => {
     const session = await createSsoSession()
     const principal = await app.request('/api/v1/me', {
       headers: { Cookie: session.cookie }
@@ -783,7 +761,8 @@ describe('Technical API gate', () => {
     })
     expect(stale.status).toBe(200)
     expect(await stale.json()).toEqual({ kind: 'GUEST' })
-    expectExpiredSessionCookies(stale)
+    // An unresolved token may have just been rotated; keep the cookie.
+    expect(stale.headers.getSetCookie()).toEqual([])
     expect(await readWriteCounts()).toEqual(before)
   })
 
@@ -816,25 +795,14 @@ describe('Technical API gate', () => {
       [session.userId]
     )
     expect(before.rows).toEqual([{ count: 1 }])
-    expect(
-      (
-        await adminClient.query<{ count: number }>(
-          `SELECT count(*)::int AS count FROM "AuthSessionFamily" WHERE "userId"=$1 AND status='ACTIVE'`,
-          [session.userId]
-        )
-      ).rows
-    ).toEqual([{ count: 1 }])
     const signedOut = await postAuth('/api/auth/sign-out', {}, session.cookie)
     expect(signedOut.status).toBe(200)
     expectExpiredSessionCookies(signedOut)
-    const rows = await adminClient.query<{
-      sessions: number
-      families: number
-    }>(
-      `SELECT (SELECT count(*)::int FROM "Session" WHERE "userId"=$1) AS sessions,(SELECT count(*)::int FROM "AuthSessionFamily" WHERE "userId"=$1 AND status='ACTIVE') AS families`,
+    const rows = await adminClient.query<{ sessions: number }>(
+      `SELECT count(*)::int AS sessions FROM "Session" WHERE "userId"=$1`,
       [session.userId]
     )
-    expect(rows.rows).toEqual([{ sessions: 0, families: 0 }])
+    expect(rows.rows).toEqual([{ sessions: 0 }])
     const beforeGuest = await readWriteCounts()
     const principal = await app.request('/api/v1/me', {
       headers: { Cookie: session.cookie }

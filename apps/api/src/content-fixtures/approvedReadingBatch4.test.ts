@@ -8,6 +8,7 @@ import {
 import { approvedReadingBatch3 } from './approvedReadingBatch3.js'
 import { approvedReadingBatch2 } from './approvedReadingBatch2.js'
 import { approvedReadingBatch1 } from './approvedReadingBatch1.js'
+import { importTagKeys } from '../content/approved308Supply.js'
 
 describe('approved fourth incremental reading batch', () => {
   it('keeps the 65-question bootstrap separate and logical IDs disjoint', () => {
@@ -41,7 +42,7 @@ describe('approved fourth incremental reading batch', () => {
       expect(item.content.questionText).toBe(source.questionText)
       expect(item.content.explanationKo).toBe(source.explanationKo)
       expect(item.content.explanationJa).toBeNull()
-      expect(item.content.tagNames).toEqual(source.tags)
+      expect(item.content.tagNames).toEqual(importTagKeys(source.id))
     })
   })
 })

@@ -6,7 +6,7 @@ export type PostSeedOperation =
   | 'CLEANUP'
   | 'PRISMA_DIFF_CAPTURE'
   | 'PRISMA_DIFF_REPRESENTATION'
-export type PostSeedState = 'BEGIN' | 'COMPLETE' | 'FAILED'
+type PostSeedState = 'BEGIN' | 'COMPLETE' | 'FAILED'
 const errorCodes = [
   '23514',
   '42501',
@@ -14,7 +14,7 @@ const errorCodes = [
   'EACCES',
   'ECONNREFUSED'
 ] as const
-export type PostSeedErrorCode = (typeof errorCodes)[number] | 'UNKNOWN_REDACTED'
+type PostSeedErrorCode = (typeof errorCodes)[number] | 'UNKNOWN_REDACTED'
 
 export interface PostSeedDiagnostic {
   readonly stage: `${PostSeedOperation}_${PostSeedState}`
@@ -39,7 +39,7 @@ export const runPostSeedDiagnostic = async <T>(
   const approvedFile =
     operation === 'FILE' &&
     file !== undefined &&
-    getApiIntegrationPathsByOwner('phase7-db').some((path) => path === file)
+    getApiIntegrationPathsByOwner('db').some((path) => path === file)
       ? file
       : undefined
   const emit = (state: PostSeedState, error?: unknown): void => {

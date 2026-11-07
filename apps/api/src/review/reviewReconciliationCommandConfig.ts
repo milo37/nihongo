@@ -19,7 +19,7 @@ const commandInputSchema = z
   })
   .strict()
 
-export interface ReviewReconciliationCommandInput {
+interface ReviewReconciliationCommandInput {
   readonly batchSize: number
 }
 

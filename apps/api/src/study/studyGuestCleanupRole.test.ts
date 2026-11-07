@@ -7,7 +7,7 @@ import {
 } from './studyGuestCleanupRole.js'
 
 const isolated: GuestCleanupRoleEvidence = {
-  currentRole: 'nihongo_guest_cleanup_worker',
+  currentRole: 'nihongo_app',
   workerIsSuperuser: false,
   workerCanBypassRls: false,
   workerCanCreateRoles: false,
@@ -16,17 +16,13 @@ const isolated: GuestCleanupRoleEvidence = {
   sessionCanBypassRls: false,
   sessionCanCreateRoles: false,
   sessionCanCreateDatabases: false,
-  sessionHasCleanupRole: true,
-  sessionHasApplicationRole: false,
-  sessionHasErasureRole: false,
-  workerCanModifyTables: false,
-  sessionCanModifyTables: false,
+  sessionHasApplicationRole: true,
   workerCanCreateInSchema: false,
   sessionCanCreateInSchema: false
 }
 
 describe('guest cleanup role', () => {
-  it('accepts only an isolated cleanup role', () => {
+  it('accepts only the isolated application role', () => {
     expect(() => assertStudyGuestCleanupRole(isolated)).not.toThrow()
   })
 
@@ -39,12 +35,12 @@ describe('guest cleanup role', () => {
     await expect(verifyStudyGuestCleanupRole(client)).rejects.toThrow()
     query.mockResolvedValue([isolated])
     await expect(verifyStudyGuestCleanupRole(client)).resolves.toBeUndefined()
-    query.mockResolvedValue([{ ...isolated, sessionHasErasureRole: true }])
+    query.mockResolvedValue([{ ...isolated, sessionHasApplicationRole: false }])
     await expect(verifyStudyGuestCleanupRole(client)).rejects.toThrow()
   })
 
   it.each([
-    { currentRole: 'nihongo_app' },
+    { currentRole: 'nihongo_guest_cleanup_worker' },
     { workerIsSuperuser: true },
     { workerCanBypassRls: true },
     { workerCanCreateRoles: true },
@@ -53,11 +49,7 @@ describe('guest cleanup role', () => {
     { sessionCanBypassRls: true },
     { sessionCanCreateRoles: true },
     { sessionCanCreateDatabases: true },
-    { sessionHasCleanupRole: false },
-    { sessionHasApplicationRole: true },
-    { sessionHasErasureRole: true },
-    { workerCanModifyTables: true },
-    { sessionCanModifyTables: true },
+    { sessionHasApplicationRole: false },
     { workerCanCreateInSchema: true },
     { sessionCanCreateInSchema: true }
   ])('refuses an unsafe role: %o', (change) => {

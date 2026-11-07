@@ -1,5 +1,7 @@
 import type { ReactElement } from 'react'
+import { Controller } from 'react-hook-form'
 import type {
+  Control,
   FieldErrors,
   UseFormRegister,
   UseFormSetValue
@@ -16,15 +18,22 @@ import { RadioGroup } from '@nihongo/browser/common/components/RadioGroup'
 import { Select } from '@nihongo/browser/common/components/Select'
 import { Textarea } from '@nihongo/browser/common/components/Textarea'
 import type { QuestionFormValues } from '@app/admin-question/components/questionFormSchema'
+import { QuestionTagPicker } from '@app/admin-question/components/QuestionTagPicker'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 
+const sectionCardClassName =
+  'rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-7'
+
 export type QuestionFormFields = {
+  control: Control<QuestionFormValues>
   register: UseFormRegister<QuestionFormValues>
   errors: FieldErrors<QuestionFormValues>
   localError: (message: string | undefined) => string | undefined
   setValue: UseFormSetValue<QuestionFormValues>
   subject: QuestionFormValues['subject']
   correctOptionId: string
+  /** The server's tag rejection, shown on the tag field's error line. */
+  tagServerError?: string
 }
 
 /** Level, subject, question type and difficulty selects. */
@@ -37,7 +46,7 @@ export const QuestionClassificationSection = ({
   const { register, errors, localError } = fields
   return (
     <section
-      className="rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-7"
+      className={sectionCardClassName}
       aria-labelledby="question-basic-information"
     >
       <div className="border-b border-line pb-5">
@@ -113,7 +122,7 @@ export const QuestionContentSection = ({
     fields
   return (
     <section
-      className="rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-7"
+      className={sectionCardClassName}
       aria-labelledby="question-content"
     >
       <div className="border-b border-line pb-5">
@@ -213,10 +222,11 @@ export const QuestionExplanationSection = ({
   fields: QuestionFormFields
 }): ReactElement => {
   const { t } = useAdminPresentation()
-  const { register, errors, localError } = fields
+  const { control, register, errors, localError, subject, tagServerError } =
+    fields
   return (
     <section
-      className="rounded-2xl border border-line bg-white p-5 shadow-sm sm:p-7"
+      className={sectionCardClassName}
       aria-labelledby="question-explanation"
     >
       <div className="border-b border-line pb-5">
@@ -246,12 +256,19 @@ export const QuestionExplanationSection = ({
           placeholder={t('editor.form.explanationJaPlaceholder')}
           {...register('explanationJa')}
         />
-        <Textarea
-          label={t('editor.fields.tagNames')}
-          hint={t('editor.tagTextHint')}
-          error={localError(errors.tagsText?.message)}
-          placeholder={t('editor.form.tagPlaceholder')}
-          {...register('tagsText')}
+        <Controller
+          control={control}
+          name="tags"
+          render={({ field }) => (
+            <QuestionTagPicker
+              ref={field.ref}
+              value={field.value}
+              onChange={field.onChange}
+              subject={subject}
+              disabled={field.disabled}
+              error={localError(errors.tags?.message) ?? tagServerError}
+            />
+          )}
         />
       </div>
     </section>

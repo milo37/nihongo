@@ -1,6 +1,4 @@
 import { randomUUID } from 'node:crypto'
-import { readFileSync } from 'node:fs'
-import { fileURLToPath } from 'node:url'
 import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { parseApiEnvironment } from '../config/env.js'
@@ -10,6 +8,7 @@ import {
   getPostgresSchema
 } from '../db/databaseOptions.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({
@@ -21,16 +20,16 @@ assertSafeTestDatabase({
 const isCurrentSourceIntegration =
   process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
 const fixtureDatabaseUrl = process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
-const erasureWorkerDatabaseUrl = process.env.TEST_API_ERASURE_DATABASE_URL
+const appFixtureDatabaseUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
 if (
   isCurrentSourceIntegration &&
-  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
+  (!fixtureDatabaseUrl || !appFixtureDatabaseUrl)
 ) {
   throw new Error(
     'StudySession migration tests require fixture and erasure databases.'
   )
 }
-for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
+for (const databaseUrl of [fixtureDatabaseUrl, appFixtureDatabaseUrl]) {
   if (databaseUrl) {
     assertSafeTestDatabase({
       nodeEnvironment: environment.NODE_ENV,
@@ -49,11 +48,11 @@ const database = createDatabaseRuntime(
 const fixtureDatabase = fixtureDatabaseUrl
   ? createDatabaseRuntime(fixtureDatabaseUrl)
   : database
-const erasureWorkerClient = erasureWorkerDatabaseUrl
+const erasureWorkerClient = appFixtureDatabaseUrl
   ? new Client({
-      connectionString: erasureWorkerDatabaseUrl,
+      connectionString: appFixtureDatabaseUrl,
       options: createPostgresStartupOptions(
-        getPostgresSchema(erasureWorkerDatabaseUrl)
+        getPostgresSchema(appFixtureDatabaseUrl)
       )
     })
   : undefined
@@ -74,7 +73,7 @@ const createUser = async (label: string): Promise<string> => {
     await fixture.account.create({
       data: {
         accountId: userId,
-        password: 'phase10-fixture-password-hash',
+        password: 'test-fixture-password-hash',
         providerId: 'credential',
         userId
       }
@@ -89,9 +88,7 @@ const eraseUser = async (userId: string): Promise<void> => {
     await fixtureDatabase.client.user.delete({ where: { id: userId } })
     return
   }
-  await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
-    userId
-  ])
+  await eraseTestUser(database.client, userId)
 }
 
 const getPinnedQuestions = async (count: number) => {
@@ -180,7 +177,7 @@ beforeAll(async () => {
   await database.checkReadiness()
   if (erasureWorkerClient) {
     await erasureWorkerClient.connect()
-    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+    await erasureWorkerClient.query(`SET ROLE "nihongo_app"`)
   }
 })
 
@@ -205,7 +202,7 @@ afterAll(async () => {
 })
 
 describe('StudySession migration invariants', () => {
-  it('deferred selection trigger와 인덱스·FK를 실제 catalog에 만든다', async () => {
+  it('trigger 없이 인덱스·FK를 실제 catalog에 만든다', async () => {
     const [triggers, indexes, foreignKeys] = await Promise.all([
       database.client.$queryRaw<
         Array<{
@@ -241,22 +238,8 @@ describe('StudySession migration invariants', () => {
           )`
     ])
 
-    expect(triggers.map(({ name }) => name)).toEqual(
-      expect.arrayContaining([
-        'StudySession_validate_change',
-        'StudySession_protect_created_at',
-        'StudySessionQuestion_validate_change',
-        'StudySession_validate_selection_complete'
-      ])
-    )
-    expect(triggers).toContainEqual(
-      expect.objectContaining({
-        name: 'StudySession_validate_selection_complete',
-        deferrable: true,
-        initiallyDeferred: true,
-        enabled: 'O'
-      })
-    )
+    // #504 P1: selection and state rules live in the API services.
+    expect(triggers).toEqual([])
     expect(indexes.map(({ name }) => name)).toEqual(
       expect.arrayContaining([
         'StudySession_userId_status_startedAt_idx',
@@ -296,149 +279,6 @@ describe('StudySession migration invariants', () => {
       ])
     )
     expect(foreignKeys).toHaveLength(8)
-  })
-
-  it('parent-only와 부족한 selection은 commit 시점에 거부한다', async () => {
-    const userId = await createUser('incomplete')
-    const questions = await getPinnedQuestions(1)
-
-    await expect(
-      database.client.studySession.create({
-        data: {
-          userId,
-          level: 'N5',
-          subject: 'VOCABULARY',
-          mode: 'RANDOM',
-          practiceContractVersion: 1,
-          requestedCount: 1,
-          actualCount: 1,
-          startedAt: new Date('2026-08-14T00:00:00.000Z'),
-          expiresAt: new Date('2026-08-15T00:00:00.000Z')
-        }
-      })
-    ).rejects.toThrow()
-
-    await expect(
-      database.client.$transaction(async (transaction) => {
-        const session = await transaction.studySession.create({
-          data: {
-            userId,
-            level: 'N5',
-            subject: 'VOCABULARY',
-            mode: 'RANDOM',
-            practiceContractVersion: 1,
-            requestedCount: 2,
-            actualCount: 2,
-            startedAt: new Date('2026-08-14T00:00:00.000Z'),
-            expiresAt: new Date('2026-08-15T00:00:00.000Z')
-          }
-        })
-        await transaction.studySessionQuestion.create({
-          data: {
-            studySessionId: session.id,
-            questionId: questions[0]!.id,
-            questionVersionId: questions[0]!.currentPublishedVersionId,
-            ordinal: 1
-          }
-        })
-      })
-    ).rejects.toThrow()
-  })
-
-  it('생성 transaction 안에서도 StudySession id 변경으로 selection 검증을 우회할 수 없다', async () => {
-    const userId = await createUser('identity')
-
-    await expect(
-      database.client.$transaction(async (transaction) => {
-        const session = await transaction.studySession.create({
-          data: {
-            userId,
-            level: 'N5',
-            subject: 'VOCABULARY',
-            mode: 'RANDOM',
-            requestedCount: 1,
-            actualCount: 1,
-            startedAt: new Date('2026-08-14T00:00:00.000Z'),
-            expiresAt: new Date('2026-08-15T00:00:00.000Z')
-          },
-          select: { id: true }
-        })
-
-        await transaction.studySession.update({
-          where: { id: session.id },
-          data: { id: randomUUID() }
-        })
-      })
-    ).rejects.toThrow()
-  })
-
-  it('forward guard가 legacy incomplete aggregate를 migration 시점에 거부한다', async () => {
-    const guardDatabaseUrl = fixtureDatabaseUrl ?? environment.DATABASE_URL
-    const schema = getPostgresSchema(guardDatabaseUrl)
-    if (!schema) {
-      throw new Error('StudySession migration test schema가 필요합니다.')
-    }
-    const migrationSql = readFileSync(
-      fileURLToPath(
-        new URL(
-          '../../prisma/migrations/20260814144000_phase3_study_session_existing_selection_guard/migration.sql',
-          import.meta.url
-        )
-      ),
-      'utf8'
-    )
-    const client = new Client({
-      connectionString: guardDatabaseUrl,
-      options: `-c search_path=${schema}`
-    })
-    const userId = await createUser('guard')
-    const sessionId = randomUUID()
-    let connected = false
-
-    try {
-      await client.connect()
-      connected = true
-      await client.query('BEGIN')
-      await client.query(
-        'ALTER TABLE "StudySession" DISABLE TRIGGER "StudySession_validate_selection_complete"'
-      )
-      await client.query(
-        `INSERT INTO "StudySession" (
-          "id", "userId", "level", "subject", "mode", "status",
-          "requestedCount", "actualCount", "usedFallback", "practiceContractVersion",
-          "startedAt", "expiresAt", "createdAt", "updatedAt"
-        ) VALUES (
-          $1, $2, 'N5', 'VOCABULARY', 'RANDOM', 'IN_PROGRESS',
-          1, 1, false, 1, $3, $4, $3, $3
-        )`,
-        [
-          sessionId,
-          userId,
-          new Date('2026-08-14T00:00:00.000Z'),
-          new Date('2026-08-15T00:00:00.000Z')
-        ]
-      )
-      await client.query('SET CONSTRAINTS ALL IMMEDIATE')
-      await client.query(
-        'ALTER TABLE "StudySession" ENABLE TRIGGER "StudySession_validate_selection_complete"'
-      )
-      await client.query('COMMIT')
-
-      await expect(client.query(migrationSql)).rejects.toMatchObject({
-        code: '23514',
-        message:
-          'Existing StudySession selection is incomplete or non-contiguous.'
-      })
-      await client.query('ROLLBACK')
-    } finally {
-      if (connected) {
-        await client.query('ROLLBACK').catch(() => undefined)
-        await client
-          .query('DELETE FROM "StudySession" WHERE "id" = $1', [sessionId])
-          .catch(() => undefined)
-        await client.end()
-      }
-    }
   })
 
   it('owner/count/fallback/time check와 cross-question version FK를 거부한다', async () => {
@@ -488,51 +328,7 @@ describe('StudySession migration invariants', () => {
     ).rejects.toThrow()
   })
 
-  it('완성된 ordered version selection은 이후 변경할 수 없다', async () => {
-    const userId = await createUser('immutable')
-    const questions = await getPinnedQuestions(2)
-    const sessionId = await createCompleteSession(userId, questions)
-    const children = await database.client.studySessionQuestion.findMany({
-      where: { studySessionId: sessionId },
-      orderBy: { ordinal: 'asc' }
-    })
-
-    await expect(
-      database.client.studySessionQuestion.update({
-        where: { id: children[0]!.id },
-        data: { ordinal: 2 }
-      })
-    ).rejects.toThrow()
-    await expect(
-      database.client.studySessionQuestion.delete({
-        where: { id: children[0]!.id }
-      })
-    ).rejects.toThrow()
-    await expect(
-      database.client.studySessionQuestion.create({
-        data: {
-          studySessionId: sessionId,
-          questionId: questions[0]!.id,
-          questionVersionId: questions[0]!.currentPublishedVersionId,
-          ordinal: 3
-        }
-      })
-    ).rejects.toThrow()
-    await expect(
-      database.client.studySession.update({
-        where: { id: sessionId },
-        data: { requestedCount: 3 }
-      })
-    ).rejects.toThrow()
-    await expect(
-      database.client.studySession.update({
-        where: { id: sessionId },
-        data: { createdAt: new Date('2026-08-14T00:01:00.000Z') }
-      })
-    ).rejects.toThrow()
-  })
-
-  it('Session 삭제와 승인된 User erasure cascade는 immutable child trigger를 안전하게 통과한다', async () => {
+  it('Session 삭제와 승인된 User erasure cascade가 child row를 함께 지운다', async () => {
     const directUserId = await createUser('session-cascade')
     const question = await getPinnedQuestions(1)
     const directSessionId = await createCompleteSession(directUserId, question)

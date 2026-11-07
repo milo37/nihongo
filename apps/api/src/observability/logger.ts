@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error' | 'silent'
 
-export type OperationalLogEvent =
+type OperationalLogEvent =
   | 'api.started'
   | 'api.shutdown.started'
   | 'api.shutdown.completed'
@@ -11,12 +11,13 @@ export type OperationalLogEvent =
   | 'http.request.failed'
   | 'auth.email.delivery_failed'
   | 'auth.reauthentication.maintenance_failed'
+  | 'auth.account_erasure.requested'
 
-export interface LogContext {
+interface LogContext {
   readonly [key: string]: unknown
 }
 
-export interface OperationalLogMetadata {
+interface OperationalLogMetadata {
   readonly deploymentEnvironment:
     | 'LOCAL'
     | 'TEST'
@@ -94,6 +95,10 @@ const contextSchemaByEvent = {
     .strict(),
   'auth.reauthentication.maintenance_failed': z
     .object({ errorCode: z.literal('MAINTENANCE_FAILED') })
+    .strict(),
+  // #669: the only User id in the logs, so a restore can re-apply erasures.
+  'auth.account_erasure.requested': z
+    .object({ userId: z.uuid(), occurredAt: z.iso.datetime() })
     .strict()
 } as const
 

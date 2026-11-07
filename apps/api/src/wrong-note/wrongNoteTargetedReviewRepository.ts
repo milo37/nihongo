@@ -23,14 +23,14 @@ const UNAVAILABLE_PRISMA_CODES = new Set(['P1001', 'P1002', 'P2024'])
 const delay = async (milliseconds: number): Promise<void> =>
   await new Promise((resolve) => setTimeout(resolve, milliseconds))
 
-export interface CreateTargetedReviewAtomicInput {
+interface CreateTargetedReviewAtomicInput {
   readonly idempotencyKey: string
   readonly observedAt: Date
   readonly questionId: string
   readonly userId: string
 }
 
-export interface CreateTargetedReviewAtomicResult {
+interface CreateTargetedReviewAtomicResult {
   readonly replayed: boolean
   readonly response: CreateTargetedReviewSessionResponse
 }
@@ -146,7 +146,7 @@ const isSerializableConflict = (error: unknown): boolean => {
   )
 }
 
-export const hashTargetedReviewCommand = (questionId: string): string =>
+const hashTargetedReviewCommand = (questionId: string): string =>
   createHash('sha256')
     .update(createTargetedReviewSessionCanonicalMaterial(questionId))
     .digest('hex')
@@ -443,7 +443,7 @@ const createTargetedReviewInTransaction = async (
   })
   const tagRows = await transaction.questionVersionTag.findMany({
     where: { questionVersionId: target.questionVersionId },
-    select: { tagId: true, labelSnapshot: true }
+    select: { tagId: true, tag: { select: { label: true } } }
   })
   let response: CreateTargetedReviewSessionResponse
   try {
@@ -483,9 +483,9 @@ const createTargetedReviewInTransaction = async (
             options: optionsRows,
             difficulty: target.difficulty,
             tags: tagRows
-              .map(({ labelSnapshot, tagId }) => ({
+              .map(({ tag, tagId }) => ({
                 id: tagId,
-                label: labelSnapshot
+                label: tag.label
               }))
               .toSorted(comparePublicQuestionTags)
           }

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { PrismaClient } from '../generated/prisma/client.js'
+import { reauthenticationTokenDigest } from './adminFreshAuthority.js'
 import {
   createSsoAccountRepository,
   createSsoAccountErasureWorker,
@@ -18,8 +19,38 @@ const context = {
   provider: 'google',
   accountId: 'subject'
 } as const
-const client = (query: unknown) =>
-  ({ $queryRawUnsafe: query }) as Pick<PrismaClient, '$queryRawUnsafe'>
+// #504 P7 PR4a: complete and list run in the API with Prisma raw SQL.
+const workerClient = (query: unknown, execute = vi.fn(async () => 0)) => {
+  const value = {
+    $queryRawUnsafe: query,
+    $executeRawUnsafe: execute,
+    $transaction: vi.fn(async (operation: (tx: unknown) => unknown) =>
+      operation(value)
+    )
+  }
+  return value as unknown as Pick<
+    PrismaClient,
+    '$queryRawUnsafe' | '$executeRawUnsafe' | '$transaction'
+  > & { $transaction: ReturnType<typeof vi.fn> }
+}
+// #504 P7 PR5a: account fresh, link, unlink and provider cleanup run in the
+// API; answers by statement.
+const answering =
+  (answers: Array<[string, unknown[]]>) =>
+  async (sql: string): Promise<unknown[]> =>
+    answers.find(([fragment]) => sql.includes(fragment))?.[1] ?? []
+const liveSession = [
+  'FROM "Session" s JOIN "User" u',
+  [
+    {
+      userId: user,
+      sessionId: session,
+      role: 'USER',
+      authorityGeneration: 1,
+      token: 'private'
+    }
+  ]
+] as [string, unknown[]]
 describe('SSO account repository boundaries', () => {
   it('strict contexts bind role, generation, session and purpose', () => {
     expect(ssoAccountContextSchema.parse(context)).toEqual(context)
@@ -35,44 +66,73 @@ describe('SSO account repository boundaries', () => {
         .success
     ).toBe(false)
   })
-  it('preparation uses fixed definer and rejects mismatched provider context', async () => {
-    const query = vi.fn(async () => [{ result: context }]),
-      repo = createSsoAccountRepository(client(query))
+  it('preparation reads the live Session under the User lock and needs one linked subject', async () => {
+    const query = vi.fn(
+        answering([
+          liveSession,
+          ['min("accountId")', [{ accountId: 'subject' }]]
+        ])
+      ),
+      prisma = workerClient(query),
+      repo = createSsoAccountRepository(prisma)
     expect(
       await repo.prepare('private', 'google', 'ACCOUNT_FRESH', null)
-    ).toEqual(context)
-    expect(query).toHaveBeenCalledWith(
-      'SELECT "phase7_prepare_sso_account_fresh"($1,$2) AS result',
-      'private',
-      'google'
-    )
-    await expect(
-      repo.prepare('private', 'apple', 'ACCOUNT_FRESH', null)
-    ).rejects.toThrow('purpose mismatch')
-  })
-  it('LINK preparation forwards only canonical token and private proof binding', async () => {
-    const linked = {
+    ).toEqual({
       ...context,
+      tokenDigest: reauthenticationTokenDigest('private')
+    })
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1)
+    expect(query).toHaveBeenCalledWith(
+      'SELECT 1 FROM "User" WHERE "id" = $1::uuid FOR UPDATE',
+      user
+    )
+    query.mockImplementation(answering([liveSession]))
+    expect(
+      await repo.prepare('private', 'apple', 'ACCOUNT_FRESH', null)
+    ).toBeNull()
+  })
+  it('LINK preparation binds the private fresh proof and refuses a linked provider', async () => {
+    const proof = 'b'.repeat(64)
+    const freshProof = [
+      'FROM "SsoAccountFreshProof" AS proof',
+      [
+        {
+          tokenDigest: reauthenticationTokenDigest('private'),
+          token: 'private'
+        }
+      ]
+    ] as [string, unknown[]]
+    const query = vi.fn(answering([liveSession, freshProof])),
+      repo = createSsoAccountRepository(workerClient(query))
+    expect(
+      await repo.prepare('private', 'apple', 'ACCOUNT_LINK', proof)
+    ).toEqual({
+      ...context,
+      tokenDigest: reauthenticationTokenDigest('private'),
       purpose: 'ACCOUNT_LINK',
       provider: 'apple',
       accountId: null,
-      freshProofDigest: 'b'.repeat(64)
-    }
-    const query = vi.fn(async () => [{ result: linked }]),
-      repo = createSsoAccountRepository(client(query))
-    expect(
-      await repo.prepare('private', 'apple', 'ACCOUNT_LINK', 'b'.repeat(64))
-    ).toEqual(linked)
+      freshProofDigest: proof
+    })
     expect(query).toHaveBeenCalledWith(
-      'SELECT "phase7_prepare_sso_account_link"($1,$2,$3) AS result',
+      expect.stringContaining('FROM "SsoAccountFreshProof" AS proof'),
       'private',
-      'apple',
-      'b'.repeat(64)
+      proof
     )
+    query.mockImplementation(
+      answering([
+        liveSession,
+        freshProof,
+        ['"providerId" = $2', [{ linked: 1 }]]
+      ])
+    )
+    expect(
+      await repo.prepare('private', 'apple', 'ACCOUNT_LINK', proof)
+    ).toBeNull()
   })
   it('wrong linked subject cannot even submit proof SQL', async () => {
     const query = vi.fn(),
-      repo = createSsoAccountRepository(client(query))
+      repo = createSsoAccountRepository(workerClient(query))
     expect(
       await repo.stageProof(
         context,
@@ -98,36 +158,57 @@ describe('SSO account repository boundaries', () => {
           context
         }
       ]),
-      repo = createSsoAccountRepository(client(query))
+      repo = createSsoAccountRepository(workerClient(query))
     await expect(
       repo.consume('a', 'b', 'google', 'ACCOUNT_LINK')
     ).rejects.toThrow('purpose mismatch')
   })
-  it('mutation rejects impossible success and extra private fields', async () => {
-    const query = vi.fn(async () => [
-        { result: { unlinked: true, sessionRevoked: true, userId: user } }
-      ]),
-      repo = createSsoAccountRepository(client(query))
+  it('unlink without a live Session answers AUTHENTICATION_REQUIRED and writes nothing', async () => {
+    const execute = vi.fn(async () => 0)
+    const repo = createSsoAccountRepository(
+      workerClient(
+        vi.fn(async () => []),
+        execute
+      )
+    )
     await expect(
       repo.unlink('private', 'google', ['apple'], null)
-    ).rejects.toThrow()
+    ).resolves.toEqual({ code: 'AUTHENTICATION_REQUIRED' })
+    expect(execute).not.toHaveBeenCalled()
   })
-  it('no missing/extra result rows can become mutation success', async () => {
-    for (const rows of [[], [{ result: null }, { result: null }]]) {
-      const repo = createSsoAccountRepository(client(vi.fn(async () => rows)))
-      await expect(
-        repo.requestErasure('private', null, 'd'.repeat(64))
-      ).rejects.toThrow('unavailable')
-    }
+  it('erasure request without a live Session answers AUTHENTICATION_REQUIRED and writes nothing', async () => {
+    const execute = vi.fn(async () => 0)
+    const query = vi.fn(async () => [])
+    const repo = createSsoAccountRepository(workerClient(query, execute))
+    await expect(
+      repo.requestErasure('private', null, 'd'.repeat(64))
+    ).resolves.toEqual({ code: 'AUTHENTICATION_REQUIRED' })
+    expect(execute).not.toHaveBeenCalled()
   })
   it('worker physical erasure and provider cleanup remain separate calls', async () => {
-    const query = vi.fn(async () => [{ completed: true }]),
-      worker = createSsoAccountErasureWorker(client(query))
+    const query = vi.fn(async (sql: string) =>
+        sql.includes('AS "leaseLive"')
+          ? [
+              {
+                appStatus: 'DELETION_PENDING',
+                leaseToken: session,
+                leaseLive: true,
+                activeProvider: 'apple'
+              }
+            ]
+          : sql.includes('"SsoAccountErasureRequest"')
+            ? [{ userId: null, appStatus: 'DELETED', ready: true }]
+            : [{ completed: true }]
+      ),
+      execute = vi.fn(async () => 1),
+      prisma = workerClient(query, execute),
+      worker = createSsoAccountErasureWorker(prisma)
+    // An already DELETED request with completed providers reports true.
     expect(await worker.complete(user, 'TEST')).toBe(true)
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1)
     expect(query).toHaveBeenCalledWith(
-      'SELECT "phase7_complete_sso_account_erasure"($1::uuid,$2::"AdminAuditEnvironment") AS completed',
-      user,
-      'TEST'
+      expect.stringContaining('FROM "SsoAccountErasureRequest" AS r'),
+      user
     )
     expect(
       await worker.recordProviderCleanup(
@@ -138,28 +219,39 @@ describe('SSO account repository boundaries', () => {
         'TEST'
       )
     ).toBe(true)
-    expect(query).toHaveBeenLastCalledWith(
-      'SELECT "phase7_record_sso_provider_cleanup"($1::uuid,$2,$3,$4::uuid,$5::"AdminAuditEnvironment") AS completed',
+    // Its own transaction: the leased row is locked before the live check.
+    expect(prisma.$transaction).toHaveBeenCalledTimes(2)
+    expect(execute).toHaveBeenLastCalledWith(
+      expect.stringContaining('UPDATE "SsoAccountErasureRequest" SET'),
       user,
       'apple',
       'FAILED',
-      session,
-      'TEST'
+      session
     )
-    expect(query).toHaveBeenCalledTimes(2)
   })
   it('requires a UUID lease token before dispatch or record SQL', async () => {
-    const query = vi.fn(async () => [{ started: true }])
-    const worker = createSsoAccountErasureWorker(client(query))
+    const query = vi.fn(async (sql: string) =>
+      sql.includes('AS "leaseLive"')
+        ? [
+            {
+              appStatus: 'DELETION_PENDING',
+              leaseToken: session,
+              leaseLive: true,
+              activeProvider: null
+            }
+          ]
+        : [{ pending: 1 }]
+    )
+    const execute = vi.fn(async () => 1)
+    const prisma = workerClient(query, execute)
+    const worker = createSsoAccountErasureWorker(prisma)
     expect(
       await worker.beginProviderCleanup(user, 'google', session, 'TEST')
     ).toBe(true)
-    expect(query).toHaveBeenCalledWith(
-      'SELECT "phase7_begin_sso_provider_cleanup"($1::uuid,$2,$3::uuid,$4::"AdminAuditEnvironment") AS started',
+    expect(execute).toHaveBeenLastCalledWith(
+      expect.stringContaining('SET "activeProvider" = $2'),
       user,
-      'google',
-      session,
-      'TEST'
+      'google'
     )
     await expect(
       worker.beginProviderCleanup(user, 'google', '', 'TEST')
@@ -167,11 +259,11 @@ describe('SSO account repository boundaries', () => {
     await expect(
       worker.recordProviderCleanup(user, 'google', 'COMPLETED', '', 'TEST')
     ).rejects.toThrow()
-    expect(query).toHaveBeenCalledTimes(1)
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1)
   })
   it('rejects a claim without a fencing token', async () => {
     const query = vi.fn(async () => [{ result: [{ id: user, providers: [] }] }])
-    const worker = createSsoAccountErasureWorker(client(query))
+    const worker = createSsoAccountErasureWorker(workerClient(query))
     await expect(worker.claimProviderCleanups(1, 300, 'TEST')).rejects.toThrow()
   })
   it('worker queue uses the fixed worker definer and rejects leaked fields', async () => {
@@ -183,12 +275,11 @@ describe('SSO account repository boundaries', () => {
       }
     ]
     const query = vi.fn(async () => [{ result: queue }]),
-      worker = createSsoAccountErasureWorker(client(query))
+      worker = createSsoAccountErasureWorker(workerClient(query))
     expect(await worker.list(20, 'PRODUCTION')).toEqual(queue)
     expect(query).toHaveBeenCalledWith(
-      'SELECT "phase7_list_sso_account_erasures"($1::integer,$2::"AdminAuditEnvironment") AS result',
-      20,
-      'PRODUCTION'
+      expect.stringContaining('FROM "SsoAccountErasureRequest" AS r'),
+      20
     )
     await expect(worker.list(101, 'TEST')).rejects.toThrow()
     query.mockResolvedValueOnce([
@@ -197,7 +288,7 @@ describe('SSO account repository boundaries', () => {
     await expect(worker.list(20, 'TEST')).rejects.toThrow()
     expect(query).toHaveBeenCalledTimes(2)
   })
-  it('provider claim uses the leased worker definer and rejects leaked fields', async () => {
+  it('provider claim leases DELETION_PENDING requests and rejects leaked fields', async () => {
     const claims = [
       {
         id: user,
@@ -206,13 +297,14 @@ describe('SSO account repository boundaries', () => {
       }
     ]
     const query = vi.fn(async () => [{ result: claims }]),
-      worker = createSsoAccountErasureWorker(client(query))
+      worker = createSsoAccountErasureWorker(workerClient(query))
     expect(await worker.claimProviderCleanups(20, 300, 'TEST')).toEqual(claims)
     expect(query).toHaveBeenCalledWith(
-      'SELECT "phase7_claim_sso_provider_cleanups"($1::integer,$2::integer,$3::"AdminAuditEnvironment") AS result',
+      expect.stringMatching(
+        /"leaseToken" = gen_random_uuid\(\)[\s\S]*u\."accountStatus" = 'DELETION_PENDING'/u
+      ),
       20,
-      300,
-      'TEST'
+      300
     )
     await expect(worker.claimProviderCleanups(20, 29, 'TEST')).rejects.toThrow()
     query.mockResolvedValueOnce([
@@ -246,7 +338,7 @@ describe('SSO account repository boundaries', () => {
           ]
         }
       ]),
-      worker = createSsoAccountErasureWorker(client(query))
+      worker = createSsoAccountErasureWorker(workerClient(query))
     await expect(worker.list(20, 'TEST')).rejects.toThrow()
   })
   it('batch completes app erasure, retries failures and never completes without provider cleanup', async () => {

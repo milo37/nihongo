@@ -332,15 +332,15 @@ export const createBrowserPlaywrightEnvironment = (
 
 export const selectBrowserSpecs = (
   browserMode: BrowserMode,
-  phase8: boolean
+  dashboardAcceptance: boolean
 ): string[] => {
   const specs = [
     ...(browserMode === 'real' ? ['apps/web/e2e/admin-cms.spec.ts'] : []),
-    ...(phase8 ? ['apps/web/e2e/dashboard.spec.ts'] : [])
+    ...(dashboardAcceptance ? ['apps/web/e2e/dashboard.spec.ts'] : [])
   ]
   if (specs.length === 0)
     throw new Error(
-      'Administrator UI requires real mode; Mock coverage starts with the Phase 8 dashboard.'
+      'Administrator UI requires real mode; Mock coverage starts with the dashboard.'
     )
   return specs
 }
@@ -402,6 +402,34 @@ export const runMock = async (): Promise<void> => {
   await runPlaywright('mock', webOrigin)
 }
 
+/**
+ * Loads tags.v2 the way operators do (content:load-tags), so the admin tag
+ * picker has subject tags; the seed tags have no subject (#715). The load is
+ * keyed, so a second run changes nothing.
+ */
+export const loadBrowserTags = async (
+  environment: NodeJS.ProcessEnv
+): Promise<void> => {
+  const { runTagLoadCommand } = await import('../content/tagLoadCommand.js')
+  const previousExitCode = process.exitCode
+  process.exitCode = undefined
+  await runTagLoadCommand({
+    ...environment,
+    NODE_ENV: 'test',
+    DEPLOYMENT_ENVIRONMENT: 'TEST',
+    TAG_LIST_FILE: nodePath.join(
+      repositoryRoot,
+      'content/taxonomy/tags.v2.json'
+    ),
+    TAG_LOAD_CONFIRM: 'LOAD_TAG_LIST'
+  })
+  const failed = process.exitCode === 1
+  process.exitCode = previousExitCode
+  if (failed) {
+    throw new Error(`${acceptanceSuite} Real could not load tags.v2.`)
+  }
+}
+
 export const runReal = async (): Promise<void> => {
   const { cleanupIsolatedDatabase, prepareIsolatedDatabase } = await import(
     './runAdminApiIntegration.js'
@@ -411,13 +439,13 @@ export const runReal = async (): Promise<void> => {
     seedRuns: 2,
     artifactsPrepared: process.env.JLP541_BROWSER_ARTIFACTS_PREPARED === '1'
   })
+  await loadBrowserTags(harness.sharedEnvironment)
   const apiPort = await reserveLoopbackPort()
   const publicOrigin = `http://127.0.0.1:${apiPort}`
   const releaseId = '0'.repeat(40)
   const controlSecret = randomBytes(32).toString('base64url')
   const apiEnvironment: NodeJS.ProcessEnv = {
     ...harness.sharedEnvironment,
-    ADMIN_CMS_MODE: 'technical',
     AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32,::1/128',
     BETTER_AUTH_SECRET: randomBytes(32).toString('base64url'),
     BETTER_AUTH_URL: publicOrigin,
@@ -426,11 +454,9 @@ export const runReal = async (): Promise<void> => {
     LOG_LEVEL: 'silent',
     NODE_ENV: 'test',
     PORT: String(apiPort),
-    PRACTICE_CONTRACT_RUNTIME: 'v1-v2',
     TRUSTED_ORIGINS: publicOrigin,
     RELEASE_ID: releaseId
   }
-  delete apiEnvironment.PRACTICE_COMPATIBILITY_AUTHORITY_FILE
   for (const key of [
     'GOOGLE_CLIENT_ID',
     'GOOGLE_CLIENT_SECRET',
@@ -450,7 +476,7 @@ export const runReal = async (): Promise<void> => {
   const created = await createSsoAdminBrowserApiFixture(
     {
       databaseUrl: harness.applicationDatabaseUrl,
-      authGatewayDatabaseUrl: harness.authGatewayDatabaseUrl,
+      appFixtureDatabaseUrl: harness.appFixtureDatabaseUrl,
       adminDatabaseUrl: harness.adminDatabaseUrl,
       environment: parseApiEnvironment(apiEnvironment)
     },

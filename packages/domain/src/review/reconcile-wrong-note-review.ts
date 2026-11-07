@@ -39,19 +39,19 @@ export interface ReviewReconciliationSchedule {
   readonly updatedAt: Date
 }
 
-export interface ReviewReconciliationMaterializedWrongNote
+interface ReviewReconciliationMaterializedWrongNote
   extends WrongNoteReviewState {
   readonly lastWrongQuestionVersionId: string
   readonly updatedAt: Date
 }
 
-export interface ReconcileWrongNoteReviewInput {
+interface ReconcileWrongNoteReviewInput {
   readonly events: readonly ReviewReconciliationEvent[]
   readonly materializedWrongNote: ReviewReconciliationMaterializedWrongNote
   readonly schedule: ReviewReconciliationSchedule | null
 }
 
-export interface ReconcileWrongNoteReviewResult {
+interface ReconcileWrongNoteReviewResult {
   readonly mismatchCategories: readonly ReviewReconciliationMismatchCategory[]
   readonly oldestMismatchOccurredAtByCategory: Readonly<
     Partial<Record<ReviewReconciliationMismatchCategory, Date | null>>

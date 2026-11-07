@@ -1,3 +1,4 @@
+import { adminSessionFreshSql } from './adminFreshAuthority.js'
 import {
   authenticatedUserSchema,
   type AuthenticatedUser
@@ -5,6 +6,11 @@ import {
 import { z } from 'zod'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import { createSessionCookie, readSessionToken } from './sessionCookie.js'
+import {
+  refreshRememberedSession,
+  v1PrincipalQuery,
+  type OwnedSessionClient
+} from './ownedSessionAuthority.js'
 
 const ABSOLUTE_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1_000
 export const ADMIN_SESSION_ABSOLUTE_TTL_MS = 8 * 60 * 60 * 1_000
@@ -23,7 +29,7 @@ const isAdminSessionOverLimit = (
 
 // Freshness also requires the session itself to be under 5 minutes old, so the
 // window always ends at session creation + 5 minutes.
-export const ADMIN_FRESH_WINDOW_MS = 5 * 60 * 1_000
+const ADMIN_FRESH_WINDOW_MS = 5 * 60 * 1_000
 
 const toAuthenticatedUser = (
   user: {
@@ -86,21 +92,19 @@ export interface PrincipalService {
     adminAuthorityFailure?: 'ADMIN_REQUIRED' | 'AUTH_SESSION_EXPIRED'
     clearSessionCookie: boolean
     headers: Headers
-    phase7Session?: AdminSessionProof
+    ownedSessionProof?: AdminSessionProof
     user: AuthenticatedUser | null
   }>
   getAuthenticatedUser: (headers: Headers) => Promise<AuthenticatedUser | null>
 }
 
-export interface Phase7AdminSessionProof {
+interface AdminSessionProof {
   readonly id: string
   readonly token: string
   readonly createdAt: Date
   readonly expiresAt: Date
   readonly isFresh: boolean
 }
-
-export type AdminSessionProof = Phase7AdminSessionProof
 
 export const createPrincipalService = ({
   authApi,
@@ -194,18 +198,11 @@ interface PrincipalDatabaseRow {
   isFresh: boolean
 }
 
-interface RememberedSessionRefreshRow {
-  id: string
-  updatedAt: Date
-  expiresAt: Date
-  refreshed: boolean
-}
-
 interface AdminAuthorityFailureRow {
   outcome: 'ADMIN_REQUIRED' | 'AUTH_SESSION_EXPIRED'
 }
 
-export const createPhase7PrincipalService = ({
+export const createOwnedPrincipalService = ({
   client,
   isProduction,
   now = () => new Date(),
@@ -215,7 +212,7 @@ export const createPhase7PrincipalService = ({
   client: Pick<PrismaClient, '$queryRawUnsafe'>
   isProduction: boolean
   now?: () => Date
-  refreshClient: Pick<PrismaClient, '$queryRawUnsafe'>
+  refreshClient: OwnedSessionClient
   secret: string
 }): PrincipalService => {
   const resolveAuthenticatedUser: PrincipalService['resolveAuthenticatedUser'] =
@@ -236,10 +233,7 @@ export const createPhase7PrincipalService = ({
       const refreshRows =
         options.refreshRememberedSession === false
           ? []
-          : await refreshClient.$queryRawUnsafe<RememberedSessionRefreshRow[]>(
-              'SELECT * FROM "phase7_refresh_current_remembered_session"($1)',
-              credential.token
-            )
+          : await refreshRememberedSession(refreshClient, credential.token)
       if (refreshRows.length > 1) {
         return {
           clearSessionCookie: true,
@@ -250,8 +244,8 @@ export const createPhase7PrincipalService = ({
 
       const rows = await client.$queryRawUnsafe<PrincipalDatabaseRow[]>(
         `SELECT principal.*,
-           "phase7_sso_admin_session_is_fresh"($1) AS "isFresh"
-         FROM "phase7_resolve_v1_principal"($1) AS principal`,
+           ${adminSessionFreshSql('$1')} AS "isFresh"
+         FROM (${v1PrincipalQuery('$1')}) AS principal`,
         credential.token
       )
       if (rows.length !== 1) {
@@ -261,24 +255,23 @@ export const createPhase7PrincipalService = ({
         if (options.classifyAdminAuthorityLoss) {
           const authorityRows = await client.$queryRawUnsafe<
             AdminAuthorityFailureRow[]
-          >(
-            'SELECT * FROM "phase7_classify_admin_authority"($1)',
-            credential.token
-          )
+          >('SELECT * FROM "classify_admin_authority"($1)', credential.token)
           const outcome = authorityRows[0]?.outcome
           if (
             authorityRows.length !== 1 ||
             (outcome !== 'ADMIN_REQUIRED' && outcome !== 'AUTH_SESSION_EXPIRED')
           ) {
-            throw new Error('Phase 7 ADMIN authority classification failed.')
+            throw new Error('ADMIN authority classification failed.')
           }
           adminAuthorityFailure = outcome
         }
+        // An unresolved token may be one that a re-authentication just rotated.
+        // Clearing the cookie here would erase the replacement session cookie.
         return {
           ...(adminAuthorityFailure === undefined
             ? {}
             : { adminAuthorityFailure }),
-          clearSessionCookie: true,
+          clearSessionCookie: false,
           headers: new Headers(),
           user: null
         }
@@ -320,7 +313,7 @@ export const createPhase7PrincipalService = ({
       return {
         clearSessionCookie: false,
         headers: responseHeaders,
-        phase7Session: {
+        ownedSessionProof: {
           id: row.sessionId,
           token: credential.token,
           createdAt: row.createdAt,
@@ -346,5 +339,3 @@ export const createPhase7PrincipalService = ({
       (await resolveAuthenticatedUser(headers)).user
   }
 }
-
-export { createPhase7PrincipalService as createOwnedPrincipalService }

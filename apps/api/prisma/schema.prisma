@@ -118,14 +118,9 @@ enum QuestionReportResolutionOutcome {
   DISMISSED
 }
 
-enum AuthSessionFamilyStatus {
-  ACTIVE
-  REVOKED
-}
-
 enum AuthSessionIssuerProtocolVersion {
   LEGACY
-  PHASE7_V1
+  OWNED_V1
 }
 
 enum AuthSessionAuthorizationState {
@@ -133,13 +128,13 @@ enum AuthSessionAuthorizationState {
   PENDING_REAUTH
 }
 
-enum Phase7ReauthenticationIntentState {
+enum ReauthenticationIntentState {
   PREPARED
   STAGED
   FINALIZED
 }
 
-enum Phase7AuthorityRevocationReason {
+enum AuthorityRevocationReason {
   ADMIN_AUTHORITY_LOST
   SESSION_INVALIDATED
 }
@@ -160,6 +155,11 @@ enum QuestionSubject {
   VOCABULARY
   GRAMMAR
   READING
+}
+
+enum TagStatus {
+  ACTIVE
+  RETIRED
 }
 
 enum QuestionType {
@@ -268,8 +268,6 @@ model User {
   createdAt                   DateTime                      @default(now()) @db.Timestamptz(3)
   updatedAt                   DateTime                      @updatedAt @db.Timestamptz(3)
   sessions                    Session[]
-  sessionFamilies             AuthSessionFamily[]
-  sessionRotationFences       AuthSessionRotationFence[]
   accounts                    Account[]
   resetVerifications          Verification[]                @relation("PasswordResetUser")
   createdQuestions            Question[]                    @relation("QuestionCreator")
@@ -305,115 +303,38 @@ model Session {
   ipAddress             String?
   userAgent             String?
   userId                String                           @db.Uuid
-  sessionFamilyId       String                           @default(dbgenerated("public.gen_random_uuid()")) @db.Uuid
   authorityGeneration   Int                              @default(dbgenerated("1"))
   issuerProtocolVersion AuthSessionIssuerProtocolVersion @default(dbgenerated("'LEGACY'::\"AuthSessionIssuerProtocolVersion\""))
   authorizationState    AuthSessionAuthorizationState    @default(dbgenerated("'ACTIVE'::\"AuthSessionAuthorizationState\""))
   user                  User                             @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  sessionFamily         AuthSessionFamily                @relation(fields: [userId, sessionFamilyId], references: [userId, id], onDelete: Restrict, onUpdate: NoAction)
 
-  @@unique([userId, sessionFamilyId, id])
-  @@index([userId, sessionFamilyId, expiresAt])
   @@index([userId, issuerProtocolVersion, expiresAt])
   @@index([expiresAt])
 }
 
-model AuthIssuerActivation {
-  id                   Int      @id @default(1) @db.SmallInt
-  legacyIssuerDisabled Boolean  @default(false)
-  updatedAt            DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
-}
-
-model AuthSessionFamily {
-  id                String                     @id @default(uuid()) @db.Uuid
-  userId            String                     @db.Uuid
-  status            AuthSessionFamilyStatus    @default(ACTIVE)
-  createdAt         DateTime                   @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
-  revokedAt         DateTime?                  @db.Timestamptz(3)
-  user              User                       @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  sessions          Session[]
-  oldFences         AuthSessionRotationFence[] @relation("RotationFenceOldFamily")
-  replacementFences AuthSessionRotationFence[] @relation("RotationFenceReplacementFamily")
-
-  @@unique([userId, id])
-  @@index([userId, status, id])
-}
-
-model AuthSessionRotationFence {
-  id                   String            @id @default(dbgenerated("public.gen_random_uuid()")) @db.Uuid
-  oldSessionId         String            @unique @db.Uuid
-  oldTokenDigest       String            @unique @db.VarChar(64)
-  userId               String            @db.Uuid
-  oldFamilyId          String            @db.Uuid
-  replacementFamilyId  String            @db.Uuid
-  replacementSessionId String            @db.Uuid
-  operationId          String            @unique @db.Uuid
-  createdAt            DateTime          @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
-  expiresAt            DateTime          @db.Timestamptz(3)
-  user                 User              @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  oldFamily            AuthSessionFamily @relation("RotationFenceOldFamily", fields: [userId, oldFamilyId], references: [userId, id], onDelete: Restrict, onUpdate: NoAction)
-  replacementFamily    AuthSessionFamily @relation("RotationFenceReplacementFamily", fields: [userId, replacementFamilyId], references: [userId, id], onDelete: Restrict, onUpdate: NoAction)
-
-  @@index([replacementFamilyId, expiresAt])
-}
-
-// Transaction-local Phase 7 authority/evidence state. These tables are part of
+// Transaction-local authority/evidence state. These tables are part of
 // migration drift control but intentionally excluded from Prisma Client so
 // application code cannot treat their rows as a public persistence API.
-model Phase7OperationIntent {
-  operationId                 String                 @id @db.Uuid
-  requestId                   String                 @db.Uuid
+model OperationIntent {
+  operationId                 String                @id @db.Uuid
+  requestId                   String?               @db.Uuid
   command                     AdminAuditCommand
-  actorUserId                 String?                @db.Uuid
-  actorSessionId              String?                @db.Uuid
-  actorFamilyId               String?                @db.Uuid
+  actorUserId                 String?               @db.Uuid
+  actorSessionId              String?               @db.Uuid
   capturedAuthorityGeneration Int?
-  referencedUserIds           String[]               @db.Uuid
-  targetManifest              Json?                  @db.JsonB
-  requiresFresh               Boolean                @default(false)
+  referencedUserIds           String[]              @default([]) @db.Uuid
+  targetManifest              Json?                 @db.JsonB
+  requiresFresh               Boolean               @default(false)
   environment                 AdminAuditEnvironment
-  occurredAt                  DateTime?              @db.Timestamptz(3)
-  backendPid                  Int
-  transactionId               BigInt
-  deltas                      Phase7OperationDelta[]
+  occurredAt                  DateTime?             @db.Timestamptz(3)
+  backendPid                  Int                   @default(dbgenerated("pg_backend_pid()"))
+  transactionId               BigInt                @default(dbgenerated("txid_current()"))
 
-  @@unique([backendPid, transactionId], map: "Phase7OperationIntent_backend_transaction_key")
+  @@unique([backendPid, transactionId], map: "OperationIntent_backend_transaction_key")
   @@ignore
 }
 
-model Phase7OperationDelta {
-  operationId      String                @db.Uuid
-  entityType       String
-  targetId         String                @db.Uuid
-  questionId       String?               @db.Uuid
-  mutation         String
-  fromState        String?
-  toState          String?
-  beforeRowVersion Int?
-  afterRowVersion  Int?
-  beforeSnapshot   Json?                 @db.JsonB
-  afterSnapshot    Json?                 @db.JsonB
-  intent           Phase7OperationIntent @relation(fields: [operationId], references: [operationId], onDelete: Cascade, onUpdate: NoAction)
-
-  @@id([operationId, entityType, targetId])
-  @@ignore
-}
-
-model Phase7TrustedExecution {
-  id              String                 @id @default(dbgenerated("public.gen_random_uuid()")) @db.Uuid
-  kind            String
-  targetUserId    String?                @db.Uuid
-  rememberSession Boolean?
-  environment     AdminAuditEnvironment?
-  backendPid      Int
-  transactionId   BigInt
-  createdAt       DateTime               @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
-
-  @@unique([backendPid, transactionId, kind], map: "Phase7TrustedExecution_context_key")
-  @@ignore
-}
-
-model Phase7DatabaseCapability {
+model DatabaseCapability {
   id            Int                   @id @default(1) @db.SmallInt
   databaseName  String
   serverAddress String                @db.Inet
@@ -424,38 +345,34 @@ model Phase7DatabaseCapability {
   @@ignore
 }
 
-model Phase7ReauthenticationIntent {
-  id                          String                            @id @default(dbgenerated("public.gen_random_uuid()")) @db.Uuid
-  operationId                 String                            @unique @default(dbgenerated("public.gen_random_uuid()")) @db.Uuid
-  requestId                   String                            @db.Uuid
-  userId                      String                            @db.Uuid
-  oldSessionId                String                            @db.Uuid
-  oldTokenDigest              String                            @db.VarChar(64)
-  oldFenceTokenDigest         String                            @db.VarChar(64)
-  sessionFamilyId             String                            @db.Uuid
+model ReauthenticationIntent {
+  id                          String                      @id @default(dbgenerated("public.gen_random_uuid()")) @db.Uuid
+  operationId                 String                      @unique @default(dbgenerated("public.gen_random_uuid()")) @db.Uuid
+  requestId                   String                      @db.Uuid
+  userId                      String                      @db.Uuid
+  oldSessionId                String                      @db.Uuid
+  oldTokenDigest              String                      @db.VarChar(64)
   capturedAuthorityGeneration Int
   capturedRole                UserRole
   capturedAccountStatus       UserAccountStatus
-  state                       Phase7ReauthenticationIntentState @default(PREPARED)
-  stagedSessionId             String?                           @unique @db.Uuid
-  stagedTokenDigest           String?                           @unique @db.VarChar(64)
+  state                       ReauthenticationIntentState @default(PREPARED)
+  stagedSessionId             String?                     @unique @db.Uuid
+  stagedTokenDigest           String?                     @unique @db.VarChar(64)
   environment                 AdminAuditEnvironment
-  createdAt                   DateTime                          @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
-  expiresAt                   DateTime                          @db.Timestamptz(3)
-  finalizedAt                 DateTime?                         @db.Timestamptz(3)
+  createdAt                   DateTime                    @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  expiresAt                   DateTime                    @db.Timestamptz(3)
+  finalizedAt                 DateTime?                   @db.Timestamptz(3)
 
   @@index([state, expiresAt, id])
-  @@index([userId, sessionFamilyId, state])
   @@ignore
 }
 
-model Phase7AuthorityRevocationEvidence {
-  tokenDigest String                          @id @db.VarChar(64)
-  sessionId   String                          @db.Uuid
-  familyId    String                          @db.Uuid
-  reason      Phase7AuthorityRevocationReason
-  createdAt   DateTime                        @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
-  expiresAt   DateTime                        @db.Timestamptz(3)
+model AuthorityRevocationEvidence {
+  tokenDigest String                    @id @db.VarChar(64)
+  sessionId   String                    @db.Uuid
+  reason      AuthorityRevocationReason
+  createdAt   DateTime                  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  expiresAt   DateTime                  @db.Timestamptz(3)
 
   @@index([expiresAt, tokenDigest])
   @@ignore
@@ -705,7 +622,7 @@ model QuestionVersion {
   @@index([questionId, versionNumber(sort: Desc), id(sort: Desc)])
   @@index([contentFingerprint])
   // The migration-owned index also fixes COLLATE "C"; Prisma cannot model a
-  // per-index-key collation, so the Phase 7 drift gate verifies pg_get_indexdef.
+  // per-index-key collation, so the drift gate verifies pg_get_indexdef.
   @@index([questionText(ops: raw("text_pattern_ops"))], map: "QuestionVersion_questionText_prefix_idx")
   @@index([createdByUserId])
 }
@@ -731,35 +648,23 @@ model Tag {
   id             String               @id @default(uuid()) @db.Uuid
   label          String
   normalizedName String               @unique
+  key            String?              @unique
+  subject        QuestionSubject?
+  status         TagStatus?
   createdAt      DateTime             @default(now()) @db.Timestamptz(3)
   updatedAt      DateTime             @updatedAt @db.Timestamptz(3)
   versions       QuestionVersionTag[]
-  applicability  TagApplicability[]
 }
 
 model QuestionVersionTag {
-  id                     String          @id @default(uuid()) @db.Uuid
-  questionVersionId      String          @db.Uuid
-  tagId                  String          @db.Uuid
-  labelSnapshot          String
-  normalizedNameSnapshot String          @default(dbgenerated("''::text"))
-  questionVersion        QuestionVersion @relation(fields: [questionVersionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-  tag                    Tag             @relation(fields: [tagId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  id                String          @id @default(uuid()) @db.Uuid
+  questionVersionId String          @db.Uuid
+  tagId             String          @db.Uuid
+  questionVersion   QuestionVersion @relation(fields: [questionVersionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  tag               Tag             @relation(fields: [tagId], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
   @@unique([questionVersionId, tagId])
-  @@unique([questionVersionId, normalizedNameSnapshot])
   @@index([tagId])
-}
-
-model TagApplicability {
-  tagId        String          @db.Uuid
-  level        JlptLevel
-  subject      QuestionSubject
-  questionType QuestionType
-  tag          Tag             @relation(fields: [tagId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-
-  @@id([tagId, level, subject, questionType])
-  @@index([level, subject, questionType, tagId], map: "TagApplicability_taxonomy_idx")
 }
 
 model ContentReview {
@@ -1048,41 +953,6 @@ model SsoAdminFreshProof {
 }
 
 // Migration-owned registration evidence is represented for drift checks only.
-model Phase7ApprovedReadingTagRegistration {
-  batch     String   @id
-  appliedAt DateTime @default(now()) @db.Timestamptz(6)
-
-  @@ignore
-}
-
-model Phase7ApprovedN3ReadingTagRegistration {
-  batch     String   @id
-  appliedAt DateTime @default(now()) @db.Timestamptz(6)
-
-  @@ignore
-}
-
-model Phase7ApprovedN4N2ReadingTagRegistration {
-  batch     String   @id
-  appliedAt DateTime @default(now()) @db.Timestamptz(6)
-
-  @@ignore
-}
-
-model Phase7ApprovedN4ReadingBatch7TagRegistration {
-  batch     String   @id
-  appliedAt DateTime @default(now()) @db.Timestamptz(6)
-
-  @@ignore
-}
-
-model Phase7Approved308TagRegistration {
-  batch     String   @id
-  appliedAt DateTime @default(now()) @db.Timestamptz(6)
-
-  @@ignore
-}
-
 model SsoAccountFreshTransaction {
   stateDigest   String   @id @db.VarChar(64)
   bindingDigest String   @db.VarChar(64)
@@ -1168,7 +1038,7 @@ model UserAccountRestriction {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
-/// Written only by admin_set_member_restriction (JLP-691); no app table grants.
+/// Written only by adminMemberRepository.setRestriction (JLP-691, #504 P2).
 model UserAccountRestrictionEvent {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId      String   @db.Uuid

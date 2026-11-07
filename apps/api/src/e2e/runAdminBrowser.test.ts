@@ -11,7 +11,11 @@ const ports = vi.hoisted(() => ({
   retire: vi.fn(),
   assets: vi.fn(),
   removeAssets: vi.fn(),
-  staticWeb: vi.fn()
+  staticWeb: vi.fn(),
+  loadTags: vi.fn()
+}))
+vi.mock('../content/tagLoadCommand.js', () => ({
+  runTagLoadCommand: ports.loadTags
 }))
 vi.mock('node:fs/promises', async (importOriginal) => ({
   ...(await importOriginal<typeof import('node:fs/promises')>()),
@@ -249,8 +253,8 @@ describe('admin and dashboard real origin and Mock selection', () => {
     vi.clearAllMocks()
     ports.assets.mockImplementation(async (prefix: string) =>
       prefix.includes('-admin-')
-        ? '/tmp/phase7-browser-admin-unit'
-        : '/tmp/phase7-browser-web-unit'
+        ? '/tmp/browser-admin-unit'
+        : '/tmp/browser-web-unit'
     )
     ports.removeAssets.mockResolvedValue(undefined)
     buildRetireCountAtInstall = 0
@@ -310,7 +314,7 @@ describe('admin and dashboard real origin and Mock selection', () => {
     })
     ports.prepare.mockResolvedValue({
       applicationDatabaseUrl: 'test-application',
-      authGatewayDatabaseUrl: 'test-gateway',
+      appFixtureDatabaseUrl: 'test-gateway',
       adminDatabaseUrl: 'test-owner',
       sharedEnvironment: { DEPLOYMENT_ENVIRONMENT: 'TEST' }
     })
@@ -378,9 +382,9 @@ describe('admin and dashboard real origin and Mock selection', () => {
 
   it.each(['0', '1'])(
     'serves production static assets and API on one public origin (dashboard=%s)',
-    async (phase8) => {
+    async (dashboardAcceptance) => {
       vi.resetModules()
-      vi.stubEnv('DASHBOARD_BROWSER_ACCEPTANCE', phase8)
+      vi.stubEnv('DASHBOARD_BROWSER_ACCEPTANCE', dashboardAcceptance)
       const runner = await import('./runAdminBrowser.js')
       await runner.runReal()
       const calls = ports.spawn.mock.calls
@@ -405,7 +409,7 @@ describe('admin and dashboard real origin and Mock selection', () => {
           'vite',
           'build',
           '--outDir',
-          `/tmp/phase7-browser-${artifact}-unit`,
+          `/tmp/browser-${artifact}-unit`,
           '--emptyOutDir'
         ])
         expect(builds[index]?.[2].env).toMatchObject({
@@ -418,8 +422,8 @@ describe('admin and dashboard real origin and Mock selection', () => {
       expect(ports.staticWeb).toHaveBeenCalledWith({
         app: expect.anything(),
         releaseId: '0'.repeat(40),
-        webAssetsDirectory: '/tmp/phase7-browser-web-unit',
-        adminAssetsDirectory: '/tmp/phase7-browser-admin-unit',
+        webAssetsDirectory: '/tmp/browser-web-unit',
+        adminAssetsDirectory: '/tmp/browser-admin-unit',
         adminGuard
       })
       const playwright = calls.find(([, args]) => args.includes('playwright'))
@@ -429,12 +433,27 @@ describe('admin and dashboard real origin and Mock selection', () => {
         ADMIN_BROWSER_MODE: 'real'
       })
       expect(playwright?.[1]).toContain(adminSpec)
-      expect(playwright?.[1].includes(dashboardSpec)).toBe(phase8 === '1')
+      expect(playwright?.[1].includes(dashboardSpec)).toBe(
+        dashboardAcceptance === '1'
+      )
       expect(ports.prepare).toHaveBeenCalledWith({
         seedRuns: 2,
         artifactsPrepared: false
       })
       expect(ports.fixture.mock.calls[0]?.[1]).toBe('admin-a1-a8')
+      expect(ports.loadTags).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({
+          NODE_ENV: 'test',
+          DEPLOYMENT_ENVIRONMENT: 'TEST',
+          TAG_LIST_FILE: expect.stringMatching(
+            /content\/taxonomy\/tags\.v2\.json$/u
+          ),
+          TAG_LOAD_CONFIRM: 'LOAD_TAG_LIST'
+        })
+      )
+      expect(ports.loadTags.mock.invocationCallOrder[0]).toBeLessThan(
+        ports.fixture.mock.invocationCallOrder[0] ?? 0
+      )
       expect(checkReadiness).toHaveBeenCalledOnce()
       expect(assertExpectedLifecycleDelta).toHaveBeenCalledWith({ audit: 0 })
       await runner.cleanup()
@@ -448,11 +467,23 @@ describe('admin and dashboard real origin and Mock selection', () => {
       ])
       expect(disconnect).toHaveBeenCalledOnce()
       expect(ports.removeAssets.mock.calls).toEqual([
-        ['/tmp/phase7-browser-web-unit', { recursive: true, force: true }],
-        ['/tmp/phase7-browser-admin-unit', { recursive: true, force: true }]
+        ['/tmp/browser-web-unit', { recursive: true, force: true }],
+        ['/tmp/browser-admin-unit', { recursive: true, force: true }]
       ])
     }
   )
+  it('stops before the fixture when tags.v2 cannot be loaded (#715)', async () => {
+    vi.resetModules()
+    ports.loadTags.mockImplementationOnce(async () => {
+      process.exitCode = 1
+    })
+    const runner = await import('./runAdminBrowser.js')
+    await expect(runner.runReal()).rejects.toThrow('could not load tags.v2')
+    expect(process.exitCode).toBeUndefined()
+    expect(ports.fixture).not.toHaveBeenCalled()
+    await runner.cleanup()
+  })
+
   it('fails closed before building or listening if the fixture has no admin guard', async () => {
     vi.resetModules()
     ports.fixture.mockResolvedValueOnce({
@@ -498,8 +529,8 @@ describe('admin and dashboard real origin and Mock selection', () => {
     ).toBe(false)
     await runner.cleanup()
     expect(ports.removeAssets.mock.calls).toEqual([
-      ['/tmp/phase7-browser-web-unit', { recursive: true, force: true }],
-      ['/tmp/phase7-browser-admin-unit', { recursive: true, force: true }]
+      ['/tmp/browser-web-unit', { recursive: true, force: true }],
+      ['/tmp/browser-admin-unit', { recursive: true, force: true }]
     ])
     expect(disconnect).toHaveBeenCalledOnce()
     expect(ports.cleanupHarness).toHaveBeenCalledOnce()
@@ -511,14 +542,14 @@ describe('admin and dashboard real origin and Mock selection', () => {
       vi.resetModules()
       const failure = new Error(`${artifact} removal failed`)
       ports.removeAssets.mockImplementation(async (directory: string) => {
-        if (directory === `/tmp/phase7-browser-${artifact}-unit`) throw failure
+        if (directory === `/tmp/browser-${artifact}-unit`) throw failure
       })
       const runner = await import('./runAdminBrowser.js')
       await runner.runReal()
       await expect(runner.cleanup()).rejects.toBe(failure)
       expect(ports.removeAssets.mock.calls).toEqual([
-        ['/tmp/phase7-browser-web-unit', { recursive: true, force: true }],
-        ['/tmp/phase7-browser-admin-unit', { recursive: true, force: true }]
+        ['/tmp/browser-web-unit', { recursive: true, force: true }],
+        ['/tmp/browser-admin-unit', { recursive: true, force: true }]
       ])
       expect(shutdown).toEqual([
         'children',

@@ -25,6 +25,7 @@ import {
   toWrongNoteDetail
 } from './wrongNoteMapper.js'
 import { createWrongNoteService } from './wrongNoteService.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const DAY_MILLISECONDS = 24 * 60 * 60 * 1_000
 
@@ -38,16 +39,16 @@ assertSafeTestDatabase({
 const isCurrentSourceIntegration =
   process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
 const fixtureDatabaseUrl = process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
-const erasureWorkerDatabaseUrl = process.env.TEST_API_ERASURE_DATABASE_URL
+const appFixtureDatabaseUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
 if (
   isCurrentSourceIntegration &&
-  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
+  (!fixtureDatabaseUrl || !appFixtureDatabaseUrl)
 ) {
   throw new Error(
     'Wrong-note dashboard requires fixture and erasure databases.'
   )
 }
-for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
+for (const databaseUrl of [fixtureDatabaseUrl, appFixtureDatabaseUrl]) {
   if (databaseUrl) {
     assertSafeTestDatabase({
       nodeEnvironment: environment.NODE_ENV,
@@ -66,11 +67,11 @@ const database = createDatabaseRuntime(
 const fixtureDatabase = fixtureDatabaseUrl
   ? createDatabaseRuntime(fixtureDatabaseUrl)
   : database
-const erasureWorkerClient = erasureWorkerDatabaseUrl
+const erasureWorkerClient = appFixtureDatabaseUrl
   ? new Client({
-      connectionString: erasureWorkerDatabaseUrl,
+      connectionString: appFixtureDatabaseUrl,
       options: createPostgresStartupOptions(
-        getPostgresSchema(erasureWorkerDatabaseUrl)
+        getPostgresSchema(appFixtureDatabaseUrl)
       )
     })
   : undefined
@@ -209,7 +210,7 @@ const createUser = async (label: string): Promise<string> => {
     await fixture.account.create({
       data: {
         accountId: userId,
-        password: 'phase10-fixture-password-hash',
+        password: 'test-fixture-password-hash',
         providerId: 'credential',
         userId
       }
@@ -221,9 +222,7 @@ const createUser = async (label: string): Promise<string> => {
 
 const eraseUser = async (userId: string): Promise<void> => {
   if (erasureWorkerClient) {
-    await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
-      userId
-    ])
+    await eraseTestUser(database.client, userId)
   } else {
     await fixtureDatabase.client.user.delete({ where: { id: userId } })
   }
@@ -288,8 +287,7 @@ const submitRandomSession = async (
       durationSec: 10,
       expectedDraftRevision: saved.response.revision
     },
-    owner,
-    2
+    owner
   )
 
   const fixture = {
@@ -341,8 +339,7 @@ const submitWrongNoteSession = async (
       durationSec: 0,
       expectedDraftRevision: 0
     },
-    owner,
-    2
+    owner
   )
   const fixture = {
     correct: false,
@@ -364,7 +361,7 @@ beforeAll(async () => {
   await database.checkReadiness()
   if (erasureWorkerClient) {
     await erasureWorkerClient.connect()
-    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+    await erasureWorkerClient.query(`SET ROLE "nihongo_app"`)
   }
 })
 
@@ -444,7 +441,7 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
   it(
     isCurrentSourceIntegration
       ? '비인가 Tag rename을 42501로 거부하고 exact historical tag filter와 owner isolation을 유지한다'
-      : 'exact historical tag filter는 mutable Tag rename과 owner isolation에 영향받지 않는다',
+      : 'exact tag filter는 Tag rename 뒤 새 이름을 따르고 owner isolation을 유지한다',
     async () => {
       const target = await database.client.wrongNote.findFirstOrThrow({
         where: { userId: ownerUserId },
@@ -454,9 +451,8 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
           lastWrongQuestionVersion: {
             select: {
               tags: {
-                orderBy: [{ labelSnapshot: 'asc' }, { tagId: 'asc' }],
+                orderBy: [{ tag: { label: 'asc' } }, { tagId: 'asc' }],
                 select: {
-                  labelSnapshot: true,
                   tag: {
                     select: { id: true, label: true, normalizedName: true }
                   }
@@ -500,30 +496,37 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
         })
       }
 
+      // JLP-733: tag names are read from the live Tag, so a rename applies
+      // to history too.
+      const filterLabel = isCurrentSourceIntegration
+        ? historicalTag.tag.label
+        : renamedLabel
       const exact = await wrongNoteService.listWrongNotes(ownerUserId, {
         page: 1,
         pageSize: 100,
         sort: 'RECENT',
-        tag: historicalTag.labelSnapshot
+        tag: filterLabel
       })
       const different = await wrongNoteService.listWrongNotes(ownerUserId, {
         page: 1,
         pageSize: 100,
         sort: 'RECENT',
-        tag: `${historicalTag.labelSnapshot}-different`
+        tag: `${filterLabel}-different`
       })
       const outsider = await wrongNoteService.listWrongNotes(outsiderUserId, {
         page: 1,
         pageSize: 100,
         sort: 'RECENT',
-        tag: historicalTag.labelSnapshot
+        tag: filterLabel
       })
 
       expect(
         exact.items.some(({ questionId }) => questionId === target.questionId)
       ).toBe(true)
-      expect(exact.availableTags).toContain(historicalTag.labelSnapshot)
-      expect(exact.availableTags).not.toContain(renamedLabel)
+      expect(exact.availableTags).toContain(filterLabel)
+      expect(exact.availableTags).not.toContain(
+        isCurrentSourceIntegration ? renamedLabel : historicalTag.tag.label
+      )
       expect(different.total).toBe(0)
       expect(outsider.total).toBe(0)
       expect(outsider.availableTags).toEqual([])
@@ -625,8 +628,10 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
           })
         const archiveTime = new Date('2026-08-16T03:00:00.000Z')
         await expectRawDatabaseError({
+          // The armed-intent trigger is gone (#504 P4); the deferred aggregate
+          // invariant still refuses an archive that only clears the pointer.
           expectedMessage:
-            'An armed trusted Phase 7 operation intent is required.',
+            'Question pointer/lifecycle aggregate invariant failed.',
           operation: async () =>
             await database.client.$executeRaw`
             UPDATE "Question"
@@ -638,7 +643,7 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
               "updatedAt" = ${archiveTime}
             WHERE "id" = ${target.questionId}::uuid
           `,
-          sqlState: '42501'
+          sqlState: '23514'
         })
         await expect(
           database.client.question.findUniqueOrThrow({
@@ -847,93 +852,5 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
       foreignFixture?.sessionId
     ])
     expect(foreign.repeatedWrongQuestions).toHaveLength(1)
-  })
-
-  it('migration trim CHECK가 draft historical snapshot edge space를 거부한다', async () => {
-    if (isCurrentSourceIntegration) {
-      const version =
-        await fixtureDatabase.client.questionVersion.findFirstOrThrow({
-          orderBy: { id: 'asc' },
-          select: { id: true }
-        })
-      const tagId = randomUUID()
-      const normalizedName = `trim-check-${randomUUID()}`
-      await expectRawDatabaseError({
-        expectedMessage:
-          'new row for relation "QuestionVersionTag" violates check constraint "QuestionVersionTag_label_snapshot_trimmed_check"',
-        operation: async () =>
-          await fixtureDatabase.client.$transaction(async (fixture) => {
-            await fixture.tag.create({
-              data: { id: tagId, label: 'trim-check', normalizedName }
-            })
-            await fixture.$executeRawUnsafe(
-              'ALTER TABLE "QuestionVersionTag" DISABLE TRIGGER USER'
-            )
-            await fixture.$executeRaw`
-              INSERT INTO "QuestionVersionTag" (
-                "id",
-                "questionVersionId",
-                "tagId",
-                "labelSnapshot",
-                "normalizedNameSnapshot"
-              ) VALUES (
-                ${randomUUID()}::uuid,
-                ${version.id}::uuid,
-                ${tagId}::uuid,
-                ' trim-check ',
-                ${normalizedName}
-              )
-            `
-            throw new Error(
-              'QuestionVersionTag trim constraint unexpectedly accepted edge spaces.'
-            )
-          }),
-        sqlState: '23514'
-      })
-      return
-    }
-
-    const questionId = randomUUID()
-    const versionId = randomUUID()
-    const tagId = randomUUID()
-    await database.client.question.create({
-      data: { id: questionId, createdByLabelSnapshot: 'SYSTEM_SEED' }
-    })
-    await database.client.questionVersion.create({
-      data: {
-        id: versionId,
-        questionId,
-        versionNumber: 1,
-        level: 'N5',
-        subject: 'VOCABULARY',
-        questionType: 'KANJI_READING',
-        questionText: 'trim constraint fixture',
-        explanationKo: 'trim constraint fixture',
-        difficulty: 'EASY',
-        createdByLabelSnapshot: 'SYSTEM_SEED'
-      }
-    })
-    await database.client.tag.create({
-      data: {
-        id: tagId,
-        label: 'trim-check',
-        normalizedName: `trim-check-${randomUUID()}`
-      }
-    })
-
-    try {
-      await expect(
-        database.client.questionVersionTag.create({
-          data: {
-            questionVersionId: versionId,
-            tagId,
-            labelSnapshot: ' trim-check '
-          }
-        })
-      ).rejects.toThrow()
-    } finally {
-      await database.client.question.delete({ where: { id: questionId } })
-      await database.client.tag.delete({ where: { id: tagId } })
-    }
   })
 })

@@ -1,7 +1,8 @@
 import {
   adminQuestionContentInputSchema,
   validateQuestionImportRequestSchema
-} from '@nihongo/contracts/admin/phase7'
+} from '@nihongo/contracts/admin/content-operations'
+import { importTagKeys } from '../content/approved308Supply.js'
 
 // JLP-266 internal QA; registration and release remain unverified.
 export const approvedReadingBatch7 = {
@@ -158,7 +159,7 @@ export const createApprovedReadingBatch7Import = () =>
         passage: registration.passage,
         explanationKo: registration.explanationKo,
         explanationJa: registration.explanationJa,
-        tagNames: registration.tags,
+        tagNames: importTagKeys(registration.id),
         options: registration.options.map((text, index) => ({
           clientOptionKey: `option-${index + 1}`,
           text

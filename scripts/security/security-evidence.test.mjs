@@ -22,8 +22,6 @@ import {
   writeCanonicalEvidence
 } from './security-evidence.mjs'
 
-// Former phase numbers stay as test-table keys; the evidence labels use suite names.
-const suiteLabels = { 8: 'admin-dashboard', 9: 'accessibility', 10: 'journey' }
 const adminLedgerOperations = [
   ['POST', '/api/v1/admin/questions/import-validation', 200],
   ['POST', '/api/v1/admin/questions/import-application', 201],
@@ -280,8 +278,8 @@ test('environment values and strong credential shapes are rejected without echoi
   )
 })
 
-test('safe reporter supports exact Phase 7 runner labels and rejects unsafe labels', async () => {
-  const directory = await mkdtemp(path.join(tmpdir(), 'phase7-reporter-'))
+test('safe reporter supports exact runner labels and rejects unsafe labels', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'runner-reporter-'))
   for (const mode of ['real', 'mock']) {
     const label = `admin-${mode}`
     const reporter = new PlaywrightEvidenceReporter({
@@ -296,7 +294,7 @@ test('safe reporter supports exact Phase 7 runner labels and rejects unsafe labe
     assert.equal(summary.label, label)
     assert.equal(summary.status, 'passed')
   }
-  for (const label of ['phase6-real', 'phase7-live', '../admin-real']) {
+  for (const label of ['unknown-real', 'stale-live', '../admin-real']) {
     assert.throws(
       () =>
         new PlaywrightEvidenceReporter({
@@ -309,8 +307,8 @@ test('safe reporter supports exact Phase 7 runner labels and rejects unsafe labe
 })
 
 test('safe Playwright reporter hashes identity and ignores title, errors, output and attachments', async () => {
-  const directory = await mkdtemp(path.join(tmpdir(), 'phase10-reporter-'))
-  const sentinel = 'phase10-verification-token-sentinel'
+  const directory = await mkdtemp(path.join(tmpdir(), 'journey-reporter-'))
+  const sentinel = 'journey-verification-token-sentinel'
   const reporter = new PlaywrightEvidenceReporter({
     outputDirectory: directory,
     label: 'journey-real'
@@ -385,8 +383,8 @@ test('safe Playwright reporter hashes identity and ignores title, errors, output
 })
 
 for (const mode of ['real', 'mock']) {
-  test(`Phase 9 ${mode} evidence enforces its exact test count and rejects unsafe suites`, async () => {
-    const directory = await mkdtemp(path.join(tmpdir(), 'phase9-count-'))
+  test(`accessibility ${mode} evidence enforces its exact test count and rejects unsafe suites`, async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), 'accessibility-count-'))
     const label = `accessibility-${mode}`
     const expectedCount = mode === 'mock' ? 3 : 4
     const filePath = path.join(directory, `${label}.json`)
@@ -473,18 +471,19 @@ test('all six safe suites retain exact current counts and approved attachments',
   const directory = await mkdtemp(path.join(tmpdir(), 'six-safe-suites-'))
   const labels = []
   for (const mode of ['real', 'mock']) {
-    for (const [phase, count] of [
-      [8, mode === 'real' ? 4 : 1],
-      [9, mode === 'real' ? 4 : 3],
-      [10, 5]
+    for (const [suite, count] of [
+      ['admin-dashboard', mode === 'real' ? 4 : 1],
+      ['accessibility', mode === 'real' ? 4 : 3],
+      ['journey', 5]
     ]) {
-      const label = `${suiteLabels[phase]}-${mode}`
+      const label = `${suite}-${mode}`
       labels.push(label)
       const reporter = new PlaywrightEvidenceReporter({
         outputDirectory: directory,
         label
       })
-      const attachments = phase === 10 ? createJourneyAttachments(mode) : []
+      const attachments =
+        suite === 'journey' ? createJourneyAttachments(mode) : []
       reporter.onBegin()
       for (let index = 0; index < count; index += 1) {
         reporter.onTestEnd(
@@ -497,7 +496,7 @@ test('all six safe suites retain exact current counts and approved attachments',
             duration: 1,
             retry: 0,
             attachments:
-              phase === 8
+              suite === 'admin-dashboard'
                 ? createCurrentAcceptanceAttachments(mode, index)
                 : index === 0
                   ? attachments
@@ -516,8 +515,8 @@ test('all six safe suites retain exact current counts and approved attachments',
   assert.equal(manifest.files.length, 6)
 })
 
-test('Phase 8 reporter retains exact ledger and performance evidence', async () => {
-  const directory = await mkdtemp(path.join(tmpdir(), 'phase8-reporter-'))
+test('dashboard reporter retains exact ledger and performance evidence', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'dashboard-reporter-'))
   const reporter = new PlaywrightEvidenceReporter({
     outputDirectory: directory,
     label: 'admin-dashboard-real'
@@ -527,7 +526,7 @@ test('Phase 8 reporter retains exact ledger and performance evidence', async () 
     reporter.onTestEnd(
       {
         location: { file: `/private/spec-${index}.ts`, line: index + 1 },
-        titlePath: () => ['phase8', `test-${index}`]
+        titlePath: () => ['dashboard', `test-${index}`]
       },
       {
         status: 'passed',
@@ -572,9 +571,9 @@ test('Phase 8 reporter retains exact ledger and performance evidence', async () 
     const archived = structuredClone(value)
     archived.requestLedgers.find(
       ({ label }) => label === 'dashboard-real-request-ledger'
-    ).label = 'phase8-dashboard-real-request-ledger'
+    ).label = 'legacy8-dashboard-real-request-ledger'
     archived.performanceMeasurements[0].label =
-      'phase8-dashboard-real-performance'
+      'legacy8-dashboard-real-performance'
     const originalFile = path.join(original, 'admin-dashboard-real.json')
     const copyFilePath = path.join(copy, 'admin-dashboard-real.json')
     await writeCanonicalEvidence({ filePath: originalFile, value: archived })
@@ -611,7 +610,8 @@ test('Phase 8 reporter retains exact ledger and performance evidence', async () 
     assert.equal(sha256(await readFile(originalFile)), originalHash)
     for (const mutate of [
       (v) => {
-        v.performanceMeasurements[0].label = 'phase8-dashboard-real-performance'
+        v.performanceMeasurements[0].label =
+          'legacy8-dashboard-real-performance'
       },
       (v) => {
         v.requestLedgers.push(
@@ -668,7 +668,7 @@ test('fresh reporter rejects legacy dashboard attachments even when current evid
               ? [createRequestLedgerAttachment('dashboard-real-request-ledger')]
               : []),
             createRequestLedgerAttachment(
-              'phase8-dashboard-real-request-ledger'
+              'legacy8-dashboard-real-request-ledger'
             )
           ]
         }
@@ -824,11 +824,11 @@ test('current A1-A8 evidence rejects forged commands, denials, provenance and ra
   }
 })
 
-test('current Phase 8 summaries reject missing, duplicate, forged and obsolete evidence', async () => {
+test('current dashboard summaries reject missing, duplicate, forged and obsolete evidence', async () => {
   for (const mode of ['real', 'mock']) {
     const label = `admin-dashboard-${mode}`
     const directory = await mkdtemp(
-      path.join(tmpdir(), 'phase8-current-summary-')
+      path.join(tmpdir(), 'dashboard-current-summary-')
     )
     const reporter = new PlaywrightEvidenceReporter({
       outputDirectory: directory,
@@ -927,7 +927,7 @@ test('current Phase 8 summaries reject missing, duplicate, forged and obsolete e
   }
 })
 
-test('Phase 8 dashboard ledgers require ordered sequential user journeys', () => {
+test('dashboard ledgers require ordered sequential user journeys', () => {
   for (const mode of ['real', 'mock']) {
     const label = `dashboard-${mode}-request-ledger`
     const valid = {
@@ -1206,63 +1206,29 @@ test('Playwright evidence rejects empty and skipped-only summaries', async () =>
   }
 })
 
-test('artifact verifier accepts only complete closed-schema security JSON', async () => {
-  const directory = await mkdtemp(path.join(tmpdir(), 'phase10-evidence-'))
-  const lockfileSha256 = 'a'.repeat(64)
-  await writeCanonicalEvidence({
-    filePath: path.join(directory, 'tracked-source-security.json'),
-    value: {
+test('artifact verifier rejects retired kinds, unknown JSON, links and profiles', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'retired-evidence-'))
+  // Replaced by gitleaks and pnpm audit (#603 O4-A); nothing writes these now.
+  await writeFile(
+    path.join(directory, 'tracked-source-security.json'),
+    JSON.stringify({
       schemaVersion: 1,
-      kind: 'nihongo.tracked-source-security',
-      status: 'passed',
-      scannedFileCount: 10,
-      activeSecretFindings: [],
-      suppressedSecretFindingCount: 0,
-      unusedAllowlistEntryCount: 0,
-      unsafeHtmlFindings: []
-    }
-  })
-  for (const scope of ['production', 'development']) {
-    await writeCanonicalEvidence({
-      filePath: path.join(directory, `dependency-${scope}.json`),
-      value: {
-        schemaVersion: 1,
-        kind: 'nihongo.dependency-audit',
-        scope,
-        status: 'passed',
-        lockfileSha256,
-        severityCounts: {
-          critical: 0,
-          high: 0,
-          moderate: 0,
-          low: 0,
-          info: 0,
-          unknown: 0
-        },
-        findings: [],
-        appliedDispositionCount: 0
-      }
+      kind: 'nihongo.tracked-source-security'
     })
-  }
-  const manifest = await verifyArtifactDirectory({
-    directory,
-    profile: 'security'
-  })
-  assert.equal(manifest.files.length, 3)
-  assert.equal(
-    JSON.parse(await readFile(path.join(directory, 'artifact-manifest.json')))
-      .profile,
-    'security'
+  )
+  await assert.rejects(
+    () => verifyArtifactDirectory({ directory, profile: 'playwright' }),
+    /SECURITY_EVIDENCE_SCHEMA_UNKNOWN/u
   )
 
   const unsafeDirectory = await mkdtemp(
-    path.join(tmpdir(), 'phase10-unsafe-evidence-')
+    path.join(tmpdir(), 'journey-unsafe-evidence-')
   )
   await writeFile(path.join(unsafeDirectory, 'unknown.json'), '{}')
   await assert.rejects(() =>
     verifyArtifactDirectory({
       directory: unsafeDirectory,
-      profile: 'security'
+      profile: 'playwright'
     })
   )
   await symlink(
@@ -1272,21 +1238,21 @@ test('artifact verifier accepts only complete closed-schema security JSON', asyn
   await assert.rejects(() =>
     verifyArtifactDirectory({
       directory: unsafeDirectory,
-      profile: 'security'
+      profile: 'playwright'
     })
   )
 })
 
-test('real-only browser evidence requires all three exact phases', async () => {
+test('real-only browser evidence requires all three exact suites', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'real-safe-suites-'))
   const labels = ['admin-dashboard-real', 'accessibility-real', 'journey-real']
   try {
-    for (const [phase, count] of [
-      [8, 4],
-      [9, 4],
-      [10, 5]
+    for (const [suite, count] of [
+      ['admin-dashboard', 4],
+      ['accessibility', 4],
+      ['journey', 5]
     ]) {
-      const label = `${suiteLabels[phase]}-real`
+      const label = `${suite}-real`
       const reporter = new PlaywrightEvidenceReporter({
         outputDirectory: directory,
         label
@@ -1303,9 +1269,9 @@ test('real-only browser evidence requires all three exact phases', async () => {
             duration: 1,
             retry: 0,
             attachments:
-              phase === 8
+              suite === 'admin-dashboard'
                 ? createCurrentAcceptanceAttachments('real', index)
-                : phase === 10 && index === 0
+                : suite === 'journey' && index === 0
                   ? createJourneyAttachments('real')
                   : []
           }
@@ -1364,11 +1330,11 @@ test('CI uploads only verified real and Mock browser summaries', async () => {
 
 for (const mode of ['real', 'mock']) {
   test(
-    'Phase 10 ' +
+    'journey ' +
       mode +
       ' requires all five tests and exact five source ledgers',
     async () => {
-      const directory = await mkdtemp(path.join(tmpdir(), 'phase10-five-'))
+      const directory = await mkdtemp(path.join(tmpdir(), 'journey-five-'))
       const label = 'journey-' + mode
       const makeSummary = (count = 5) => ({
         schemaVersion: 2,
@@ -1528,7 +1494,7 @@ test('both handoff sources reject missing, duplicated, forged and noncanonical r
 })
 
 test('handoff attachment payload cannot override its source label', async () => {
-  const directory = await mkdtemp(path.join(tmpdir(), 'phase10-source-label-'))
+  const directory = await mkdtemp(path.join(tmpdir(), 'journey-source-label-'))
   try {
     const reporter = new PlaywrightEvidenceReporter({
       outputDirectory: directory,

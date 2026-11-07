@@ -15,7 +15,6 @@ import {
   SUBJECTS
 } from '@nihongo/browser/common/types/domain'
 
-const TAG_SEPARATOR_REGEX = /[,，\n]/
 const OPTION_LABEL_SET: ReadonlySet<string> = new Set(OPTION_LABELS)
 
 export const VALIDATION_KEY_PREFIX = 'editor.form.validation.'
@@ -54,11 +53,15 @@ export const questionFormSchema = z
     difficulty: z.enum(QUESTION_DIFFICULTIES, {
       error: 'editor.form.validation.difficulty'
     }),
-    tagsText: z.string().refine((value) => {
-      return value
-        .split(TAG_SEPARATOR_REGEX)
-        .some((tag) => tag.trim().length > 0)
-    }, 'editor.form.validation.tags')
+    // `subject` is known for a tag picked from the tag list; a tag loaded
+    // with the question has none, so only the server checks it.
+    tags: z
+      .array(
+        z
+          .object({ label: z.string(), subject: z.enum(SUBJECTS).nullable() })
+          .strict()
+      )
+      .min(1, 'editor.form.validation.tags')
   })
   .strict()
   .superRefine((value, context) => {
@@ -75,9 +78,12 @@ export const questionFormSchema = z
     )
     if (!canonical.success) {
       for (const issue of canonical.error.issues) {
+        // The server owns the tag count limit (#646): a question loaded with
+        // more tags than the limit can still be saved and judged there.
+        if (issue.path[0] === 'tagNames' && issue.code === 'too_big') continue
         const field =
           issue.path[0] === 'tagNames'
-            ? 'tagsText'
+            ? 'tags'
             : issue.path[0] === 'correctOptionKey'
               ? 'correctOptionId'
               : issue.path[0]
@@ -86,8 +92,8 @@ export const questionFormSchema = z
           path:
             field === undefined
               ? []
-              : field === 'tagsText'
-                ? ['tagsText']
+              : field === 'tags'
+                ? ['tags']
                 : [field, ...issue.path.slice(1)],
           message:
             issue.code === 'custom' &&
@@ -127,24 +133,6 @@ export const questionFormSchema = z
 
 export type QuestionFormValues = z.infer<typeof questionFormSchema>
 
-export const parseTags = (value: string): string[] => {
-  const tags: string[] = []
-  const seenTags = new Set<string>()
-
-  for (const rawTag of value.split(TAG_SEPARATOR_REGEX)) {
-    const tag = rawTag.trim()
-
-    if (tag.length === 0 || seenTags.has(tag)) {
-      continue
-    }
-
-    seenTags.add(tag)
-    tags.push(tag)
-  }
-
-  return tags
-}
-
 export const createDefaultValues = (
   preview?: PreviewQuestionVersionResponse
 ): QuestionFormValues => {
@@ -164,7 +152,7 @@ export const createDefaultValues = (
       explanationKo: '',
       explanationJa: '',
       difficulty: 'NORMAL',
-      tagsText: ''
+      tags: []
     }
   }
 
@@ -194,7 +182,7 @@ export const createDefaultValues = (
     explanationKo: preview?.adminAnswer.explanationKo ?? '',
     explanationJa: preview?.adminAnswer.explanationJa ?? '',
     difficulty: question.difficulty,
-    tagsText: question.tags.map((tag) => tag.label).join(', ')
+    tags: question.tags.map((tag) => ({ label: tag.label, subject: null }))
   }
 }
 
@@ -214,5 +202,5 @@ export const toCreateContent = (
   explanationKo: values.explanationKo,
   explanationJa: values.explanationJa.trim() || null,
   difficulty: values.difficulty,
-  tagNames: parseTags(values.tagsText)
+  tagNames: values.tags.map((tag) => tag.label)
 })

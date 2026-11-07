@@ -18,10 +18,15 @@
     "test:api-regression": "tsx src/e2e/runAdminApiIntegration.ts",
     "test:performance": "tsx src/e2e/runDatabaseApiPerformance.ts",
     "auth:provision-admin": "pnpm run db:generate && tsx src/auth/provisionAdminCommand.ts",
+    "auth:provision-admin:compiled": "node dist/auth/provisionAdminCommand.js",
+    "db:register-capability": "pnpm run db:generate && tsx src/db/registerDatabaseCapabilityCommand.ts",
+    "db:register-capability:compiled": "node dist/db/registerDatabaseCapabilityCommand.js",
+    "content:load-tags": "pnpm run db:generate && tsx src/content/tagLoadCommand.ts",
+    "content:load-tags:compiled": "node dist/content/tagLoadCommand.js",
     "auth:erase-deletion-pending": "pnpm run db:generate && tsx src/auth/ssoAccountErasureCommand.ts",
     "auth:erase-deletion-pending:compiled": "node dist/auth/ssoAccountErasureCommand.js",
-    "content:materialize-slice1": "tsx prisma/materializeLegacySeedArtifacts.ts",
     "content:foundation-check": "tsx prisma/contentFoundationCheck.ts",
+    "content:build-question-imports": "tsx prisma/questionImportFiles.ts",
     "review:reconcile": "pnpm run db:generate && tsx src/review/reviewReconciliationCommand.ts",
     "study:cleanup-expired-guests": "pnpm run db:generate && tsx src/study/studySessionCleanupCommand.ts",
     "study:cleanup-expired-drafts": "pnpm run db:generate && tsx src/study/studyDraftCleanupCommand.ts",
@@ -38,7 +43,7 @@
   },
   "dependencies": {
     "@better-auth/prisma-adapter": "1.7.14",
-    "@hono/node-server": "2.1.0",
+    "@hono/node-server": "2.1.6",
     "@nihongo/contracts": "workspace:*",
     "@nihongo/domain": "workspace:*",
     "@prisma/adapter-pg": "7.9.1",
@@ -55,6 +60,6 @@
     "prisma": "7.9.1",
     "tsx": "4.23.12",
     "typescript": "5.8.3",
-    "vitest": "4.1.11"
+    "vitest": "4.1.12"
   }
 }

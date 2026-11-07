@@ -8,16 +8,16 @@ export type AdminAccountActorRecord = {
   label: 'ACTIVE_USER' | 'DELETED_USER' | 'ACTIVE_ADMIN' | 'DELETED_ADMIN'
 }
 
-export type AdminSystemActorRecord = {
+type AdminSystemActorRecord = {
   kind: 'SYSTEM'
   actorId: null
   role: 'SYSTEM'
   label: 'ACCOUNT_ERASURE'
 }
 
-export type AdminSafeActorRecord =
-  | AdminAccountActorRecord
-  | AdminSystemActorRecord
+type AdminSafeActorRecord = AdminAccountActorRecord | AdminSystemActorRecord
+
+type QuestionSubject = 'VOCABULARY' | 'GRAMMAR' | 'READING'
 
 export interface AdminTagRecord {
   id: string
@@ -25,7 +25,11 @@ export interface AdminTagRecord {
   normalizedName: string
 }
 
-export interface AdminOptionRecord {
+export interface AdminTagListRecord extends AdminTagRecord {
+  subject: QuestionSubject | null
+}
+
+interface AdminOptionRecord {
   id: string
   label: string
   ordinal: number
@@ -98,7 +102,7 @@ export interface AdminQuestionListRecord {
   openReportCount: number
 }
 
-export interface ListAdminQuestionRecordsInput {
+interface ListAdminQuestionRecordsInput {
   q?: string
   level?: AdminVersionSummaryRecord['level']
   subject?: AdminVersionSummaryRecord['subject']
@@ -143,7 +147,7 @@ export type AdminAuditCommand =
   | 'REAUTHENTICATION'
   | 'AUTHOR_ERASURE_ABANDON'
 
-export interface AdminQuestionDetailRecord {
+interface AdminQuestionDetailRecord {
   questionId: string
   lifecycleStatus: 'ACTIVE' | 'ARCHIVED'
   rowVersion: number
@@ -162,7 +166,7 @@ export interface AdminQuestionDetailRecord {
   }
 }
 
-export interface AdminReviewRecord {
+interface AdminReviewRecord {
   id: string
   questionId: string
   questionVersionId: string
@@ -215,12 +219,12 @@ export interface AdminAuditRecord {
   occurredAt: Date
 }
 
-export interface OccurredAtCursorInput {
+interface OccurredAtCursorInput {
   occurredAt: Date
   id: string
 }
 
-export interface ListAdminAuditRecordsInput {
+interface ListAdminAuditRecordsInput {
   command?: AdminAuditCommand
   commands?: readonly AdminAuditCommand[]
   targetType?: AdminAuditTargetType
@@ -257,9 +261,10 @@ export interface AdminQuestionRepository {
     items: readonly AdminReviewRecord[]
   } | null>
   listTags: (input: {
-    normalizedPrefix: string
+    normalizedPrefix: string | undefined
+    subject: QuestionSubject | undefined
     limit: number
-  }) => Promise<readonly AdminTagRecord[]>
+  }) => Promise<readonly AdminTagListRecord[]>
   listAuditLog: (
     input: ListAdminAuditRecordsInput
   ) => Promise<readonly AdminAuditRecord[]>
@@ -425,8 +430,7 @@ type SelectedVersionScalar = Prisma.QuestionVersionGetPayload<{
 interface SelectedVersionTag {
   readonly questionVersionId: string
   readonly tagId: string
-  readonly labelSnapshot: string
-  readonly normalizedNameSnapshot: string
+  readonly tag: { readonly label: string; readonly normalizedName: string }
 }
 
 interface SelectedLatestReviewer {
@@ -483,14 +487,13 @@ const loadVersionSummaryRelations = async (
     where: { questionVersionId: { in: [...versionIds] } },
     orderBy: [
       { questionVersionId: 'asc' },
-      { normalizedNameSnapshot: 'asc' },
+      { tag: { normalizedName: 'asc' } },
       { tagId: 'asc' }
     ],
     select: {
       questionVersionId: true,
       tagId: true,
-      labelSnapshot: true,
-      normalizedNameSnapshot: true
+      tag: { select: { label: true, normalizedName: true } }
     }
   })
   const reviews = await transaction.$queryRaw<SelectedLatestReviewer[]>(
@@ -625,8 +628,8 @@ const mapVersionSummary = (
   tags: version.tags
     .map((tag) => ({
       id: tag.tagId,
-      label: tag.labelSnapshot,
-      normalizedName: tag.normalizedNameSnapshot
+      label: tag.tag.label,
+      normalizedName: tag.tag.normalizedName
     }))
     .toSorted(compareTagRecord),
   latestReviewer: toAccountActor({
@@ -769,8 +772,9 @@ const buildQuestionPageWhere = (
       EXISTS (
         SELECT 1
         FROM "QuestionVersionTag" qvt
+        JOIN "Tag" tag ON tag."id" = qvt."tagId"
         WHERE qvt."questionVersionId" = sv."id"
-          AND qvt."normalizedNameSnapshot" = ${input.normalizedTag}
+          AND tag."normalizedName" = ${input.normalizedTag}
       )
     `)
   }
@@ -1182,13 +1186,21 @@ const listQuestionVersionReviews = async (
 
 const listAdminTags = async (
   transaction: Prisma.TransactionClient,
-  input: { normalizedPrefix: string; limit: number }
-): Promise<readonly AdminTagRecord[]> => {
-  const prefix = `${escapeLikePrefix(input.normalizedPrefix)}%`
-  return transaction.$queryRaw<AdminTagRecord[]>(Prisma.sql`
-    SELECT "id", "label", "normalizedName"
+  input: {
+    normalizedPrefix: string | undefined
+    subject: QuestionSubject | undefined
+    limit: number
+  }
+): Promise<readonly AdminTagListRecord[]> => {
+  const prefix = `${escapeLikePrefix(input.normalizedPrefix ?? '')}%`
+  // RETIRED tags stay on old questions but are no longer offered (JLP-733).
+  return transaction.$queryRaw<AdminTagListRecord[]>(Prisma.sql`
+    SELECT "id", "label", "normalizedName", "subject"::text AS "subject"
     FROM "Tag"
     WHERE "normalizedName" COLLATE "C" LIKE ${prefix} ESCAPE '\\'
+      AND "status" IS DISTINCT FROM 'RETIRED'
+      AND (${input.subject ?? null}::text IS NULL
+        OR "subject"::text = ${input.subject ?? null}::text)
     ORDER BY "normalizedName" COLLATE "C" ASC, "id" ASC
     LIMIT ${input.limit}
   `)

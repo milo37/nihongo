@@ -1,9 +1,6 @@
 import type { AdminReauthenticationResult } from '@nihongo/contracts/admin/content-operations'
-import type { PrismaClient } from '../generated/prisma/client.js'
-import type { ReauthenticationAuthApi } from '../auth/createReauthenticationAuth.js'
-import type { ReauthenticationContext } from '../auth/reauthenticationContext.js'
 import { ApplicationError } from '../errors/applicationError.js'
-export interface AdminReauthenticationInput {
+interface AdminReauthenticationInput {
   readonly actorId: string
   readonly headers: Headers
   readonly password: string
@@ -11,7 +8,7 @@ export interface AdminReauthenticationInput {
   readonly requestId: string
 }
 
-export interface AdminReauthenticationOutput {
+interface AdminReauthenticationOutput {
   readonly response: AdminReauthenticationResult
   readonly setCookies: readonly string[]
 }
@@ -23,19 +20,14 @@ export interface AdminReauthenticationService {
 }
 
 /** Retired compatibility surface; never verifies passwords or writes auth data. */
-export const createAdminReauthenticationService = (_dependencies: {
-  auditEnvironment: 'TEST' | 'DEVELOPMENT'
-  authApi: ReauthenticationAuthApi
-  client: Pick<PrismaClient, '$queryRawUnsafe'>
-  context: ReauthenticationContext
-  createIntentId?: () => string
-}): AdminReauthenticationService => ({
-  reauthenticate: async () => {
-    throw new ApplicationError({
-      code: 'RESOURCE_NOT_FOUND',
-      message: 'Retired authentication operation.',
-      retryable: false,
-      adminDisposition: 'NO_TX'
-    })
-  }
-})
+export const createAdminReauthenticationService =
+  (): AdminReauthenticationService => ({
+    reauthenticate: async () => {
+      throw new ApplicationError({
+        code: 'RESOURCE_NOT_FOUND',
+        message: 'Retired authentication operation.',
+        retryable: false,
+        adminDisposition: 'NO_TX'
+      })
+    }
+  })

@@ -27,15 +27,13 @@ import {
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const postgresImage =
   'postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15'
-const currentMigrationCount = 58
+// #504 P8-1: one baseline replaces the 76 migrations.
+const currentMigrationCount = 5
 const currentMigrationDigest =
-  '8ed7fcac10ea37174714c7582aeb49f44a0b783c75f25e77645294d164124d9e'
-const lastBootstrapMigration =
-  '20261009092000_phase7_n4_n2_revision2_digest_fix'
-const migrationLogin = 'nihongo_test_phase7_migration_login'
+  '5cce3c01a8ce08d23698ef19e75a6faeabecc8977e672fc26f982a6d2af3fe91'
+const migrationLogin = 'nihongo_test_migration_login'
 const applicationLogin = 'nihongo_test_app_login'
-const gatewayLogin = 'nihongo_test_auth_gateway_login'
-const schemaPattern = /^phase7_[0-9a-f]{32}_test$/u
+const schemaPattern = /^nihongo_[0-9a-f]{32}_test$/u
 const sha256Pattern = /^[0-9a-f]{64}$/u
 const imageIdPattern = /^sha256:[0-9a-f]{64}$/u
 const uuidPattern =
@@ -217,10 +215,9 @@ export const selectCurrentMigrationNames = (migrationsDirectory) => {
     manifest.length !== currentMigrationCount ||
     createHash('sha256').update(JSON.stringify(manifest)).digest('hex') !==
       currentMigrationDigest ||
-    manifest[36]?.name !== lastBootstrapMigration ||
-    manifest.at(-1)?.name !== '20261106090000_single_operator_review'
+    manifest.at(-1)?.name !== '20261109090000_add_tag_key_subject_status'
   ) {
-    throw new Error('Repository current-58 migration inventory is invalid.')
+    throw new Error('Repository baseline migration inventory is invalid.')
   }
   return manifest.map(({ name }) => name)
 }
@@ -293,7 +290,6 @@ export const createRuntimeEnvironment = ({
   databaseHost,
   databaseName,
   databasePassword,
-  gatewayPassword,
   schemaName,
   releaseId
 }) => {
@@ -301,17 +297,13 @@ export const createRuntimeEnvironment = ({
     !schemaPattern.test(schemaName) ||
     !/^[a-z_][a-z0-9_]*_test$/u.test(databaseName) ||
     !/^[a-z0-9-]+$/u.test(databaseHost) ||
-    !/^[a-f0-9]{48}$/u.test(databasePassword) ||
-    !/^[a-f0-9]{48}$/u.test(gatewayPassword) ||
-    databasePassword === gatewayPassword
+    !/^[a-f0-9]{48}$/u.test(databasePassword)
   ) {
     throw new Error('Isolated owned-auth TEST database inputs are invalid.')
   }
   const databaseUrl = (login, password) =>
     `postgresql://${login}:${password}@${databaseHost}:5432/${databaseName}?schema=${schemaName}&sslmode=verify-full`
   return {
-    ADMIN_CMS_MODE: 'disabled',
-    AUTH_GATEWAY_DATABASE_URL: databaseUrl(gatewayLogin, gatewayPassword),
     AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32,::1/128',
     BETTER_AUTH_SECRET: randomBytes(32).toString('hex'),
     BETTER_AUTH_URL: 'https://smoke.invalid',
@@ -323,7 +315,6 @@ export const createRuntimeEnvironment = ({
     NODE_ENV: 'production',
     NODE_EXTRA_CA_CERTS: '/certs/server.crt',
     PORT: '3001',
-    PRACTICE_CONTRACT_RUNTIME: 'v1-v2',
     RELEASE_ID: assertReleaseId(releaseId),
     TRUSTED_ORIGINS: 'https://smoke.invalid'
   }
@@ -409,7 +400,7 @@ const databaseCommand = (
       ...(schemaName
         ? [
             '--env',
-            `PGOPTIONS=-c search_path=${schemaName} -c role=nihongo_phase7_migration -c TimeZone=UTC`
+            `PGOPTIONS=-c search_path=${schemaName} -c role=nihongo_migration -c TimeZone=UTC`
           ]
         : []),
       containerName,
@@ -432,11 +423,9 @@ const databaseCommand = (
 
 const provisionRuntimeIdentity = (database, schemaName, passwords) => {
   const groups = [
-    'nihongo_phase7_owner',
-    'nihongo_phase7_migration',
+    'nihongo_owner',
+    'nihongo_migration',
     'nihongo_app',
-    'nihongo_auth_gateway',
-    'nihongo_erasure_worker',
     'nihongo_guest_cleanup_worker'
   ]
   const sql = groups.map(
@@ -444,16 +433,13 @@ const provisionRuntimeIdentity = (database, schemaName, passwords) => {
       `CREATE ROLE "${role}" NOLOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;`
   )
   sql.push(
-    'GRANT "nihongo_phase7_owner" TO "nihongo_phase7_migration" WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;'
+    'GRANT "nihongo_owner" TO "nihongo_migration" WITH ADMIN FALSE, INHERIT FALSE, SET TRUE;'
   )
   for (const prefix of ['nihongo_test', 'nihongo_development']) {
     for (const [suffix, group] of [
-      ['phase7_migration', 'nihongo_phase7_migration'],
+      ['migration', 'nihongo_migration'],
       ['app', 'nihongo_app'],
-      ['auth_gateway', 'nihongo_auth_gateway'],
-      ['erasure_worker', 'nihongo_erasure_worker'],
-      ['guest_cleanup_worker', 'nihongo_guest_cleanup_worker'],
-      ['legacy_app', null]
+      ['guest_cleanup_worker', 'nihongo_guest_cleanup_worker']
     ]) {
       const role = `${prefix}_${suffix}_login`
       const password = passwords[role] ?? randomBytes(24).toString('hex')
@@ -467,11 +453,11 @@ const provisionRuntimeIdentity = (database, schemaName, passwords) => {
     }
   }
   sql.push(`CREATE EXTENSION pgcrypto WITH SCHEMA public;
-    ALTER DATABASE "${database.databaseName}" OWNER TO "nihongo_phase7_migration";
-    REVOKE ALL PRIVILEGES ON DATABASE "${database.databaseName}" FROM PUBLIC, "${database.databaseUser}", "nihongo_phase7_migration";
-    GRANT CREATE, TEMPORARY ON DATABASE "${database.databaseName}" TO "nihongo_phase7_migration";
-    GRANT CONNECT ON DATABASE "${database.databaseName}" TO "${migrationLogin}", "${applicationLogin}", "${gatewayLogin}", "nihongo_test_erasure_worker_login", "nihongo_test_legacy_app_login";
-    CREATE SCHEMA "${schemaName}" AUTHORIZATION "nihongo_phase7_migration";`)
+    ALTER DATABASE "${database.databaseName}" OWNER TO "nihongo_migration";
+    REVOKE ALL PRIVILEGES ON DATABASE "${database.databaseName}" FROM PUBLIC, "${database.databaseUser}", "nihongo_migration";
+    GRANT CREATE, TEMPORARY ON DATABASE "${database.databaseName}" TO "nihongo_migration";
+    GRANT CONNECT ON DATABASE "${database.databaseName}" TO "${migrationLogin}", "${applicationLogin}";
+    CREATE SCHEMA "${schemaName}" AUTHORIZATION "nihongo_migration";`)
   databaseCommand(database, sql.join('\n'))
 }
 
@@ -501,7 +487,7 @@ const applyCurrentMigrations = (
       VALUES ('${randomUUID()}', '${checksum}', now(), '${name}', now(), 1);`
     )
   }
-  if (names.includes('20261030100000_guest_expired_draft_retention')) {
+  if (names.includes('20261105090000_baseline')) {
     databaseCommand(
       database,
       `GRANT CONNECT ON DATABASE "${database.databaseName}" TO "nihongo_test_guest_cleanup_worker_login";`
@@ -537,24 +523,24 @@ try {
   const { createPostgresStartupOptions, getPostgresSchema } = await import('./src/db/databaseOptions.ts');
   phase = 'test-target';
   const migrationUrl = new URL(databaseUrl);
-  migrationUrl.searchParams.set('options', '-c role=nihongo_phase7_migration');
+  migrationUrl.searchParams.set('options', '-c role=nihongo_migration');
   const productionSentinel = new URL(databaseUrl);
-  productionSentinel.pathname = '/nihongo_phase11_production_guard_sentinel';
+  productionSentinel.pathname = '/nihongo_smoke_production_guard_sentinel';
   productionSentinel.search = '';
   assertSafeMigrationDatabase({ nodeEnvironment: 'test', migrationDatabaseUrl: migrationUrl.toString(),
     runtimeDatabaseUrl, productionDatabaseUrl: productionSentinel.toString() });
   const schema = getPostgresSchema(databaseUrl);
-  if (new URL(databaseUrl).hostname !== '127.0.0.1' || !/^phase7_[a-f0-9]{32}_test$/.test(schema))
+  if (new URL(databaseUrl).hostname !== '127.0.0.1' || !/^nihongo_[a-f0-9]{32}_test$/.test(schema))
     throw new Error('Controlled TEST seed target is invalid.');
   phase = 'client-setup';
   client = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl,
-    options: createPostgresStartupOptions(schema, 'nihongo_phase7_migration') }, { schema }) });
+    options: createPostgresStartupOptions(schema, 'nihongo_migration') }, { schema }) });
   phase = 'seed-transaction';
   const result = await client.$transaction(async (transaction) => {
     phase = 'seed-owner-role';
-    await transaction.$executeRawUnsafe('SET LOCAL ROLE nihongo_phase7_owner');
+    await transaction.$executeRawUnsafe('SET LOCAL ROLE nihongo_owner');
     const roles = await transaction.$queryRawUnsafe('SELECT current_user AS role, session_user AS login');
-    if (roles.length !== 1 || roles[0].role !== 'nihongo_phase7_owner' || roles[0].login !== 'nihongo_test_phase7_migration_login')
+    if (roles.length !== 1 || roles[0].role !== 'nihongo_owner' || roles[0].login !== 'nihongo_test_migration_login')
       throw new Error('Controlled TEST seed role attestation failed.');
     const scoped = new Proxy(transaction, { get(target, property, receiver) {
       return property === '$transaction' ? async (callback) => await callback(transaction) : Reflect.get(target, property, receiver);
@@ -567,7 +553,7 @@ try {
     throw new Error('Controlled TEST canonical seed count is invalid.');
   phase = 'seed-role-boundary';
   const roles = await client.$queryRawUnsafe('SELECT current_user AS role');
-  if (roles.length !== 1 || roles[0].role !== 'nihongo_phase7_migration')
+  if (roles.length !== 1 || roles[0].role !== 'nihongo_migration')
     throw new Error('Controlled TEST seed role boundary did not close.');
 } catch (error) {
   reportFailure(error);
@@ -608,22 +594,22 @@ import { createSsoIdentityRepository } from '/app/api/dist/auth/ssoIdentityRepos
 import { createOwnedSessionCookie } from '/app/api/dist/auth/sessionCookie.js';
 import { readFileSync } from 'node:fs';
 const { suffix } = JSON.parse(readFileSync(0, 'utf8'));
-const url = new URL(process.env.AUTH_GATEWAY_DATABASE_URL);
+const url = new URL(process.env.DATABASE_URL);
 if (process.env.NODE_ENV !== 'production' || process.env.DEPLOYMENT_ENVIRONMENT !== 'TEST' ||
     !/^[a-f0-9]{12}$/.test(suffix) || !url.pathname.endsWith('_test') ||
-    !/^phase7_[a-f0-9]{32}_test$/.test(url.searchParams.get('schema')))
+    !/^nihongo_[a-f0-9]{32}_test$/.test(url.searchParams.get('schema')))
   throw new Error('Controlled TEST session target is invalid.');
-const gateway = createRoleDatabaseRuntime(url.toString(), 'nihongo_auth_gateway');
+const runtime = createRoleDatabaseRuntime(url.toString(), 'nihongo_app');
 try {
-  const session = await createSsoIdentityRepository(gateway.client).signIn({
-    provider: 'google', accountId: 'phase11-' + suffix,
-    email: 'phase11-' + suffix + '@example.test', name: 'Phase 11 smoke'
-  }, { ipAddress: '127.0.0.1', userAgent: 'Phase11 controlled TEST fixture' });
+  const session = await createSsoIdentityRepository(runtime.client).signIn({
+    provider: 'google', accountId: 'smoke-' + suffix,
+    email: 'smoke-' + suffix + '@example.test', name: 'Portable smoke'
+  }, { ipAddress: '127.0.0.1', userAgent: 'Portable smoke controlled TEST fixture' });
   if (session.kind !== 'SESSION_CONFIRMED') throw new Error('Controlled TEST session was not confirmed.');
   const cookie = createOwnedSessionCookie({ token: session.token, secret: process.env.BETTER_AUTH_SECRET,
     isProduction: true, rememberMe: true, now: session.createdAt, expiresAt: session.expiresAt });
   process.stdout.write(JSON.stringify({ cookie, kind: 'controlled-test-session', provider: 'google' }));
-} finally { await gateway.disconnect(); }
+} finally { await runtime.disconnect(); }
 `
 
 export const readSafeRuntimeFailureDiagnostics = (
@@ -763,7 +749,7 @@ export const validateStatefulPrincipal = (principal) => {
   if (
     typeof principal.user.id !== 'string' ||
     !uuidPattern.test(principal.user.id) ||
-    principal.user.name !== 'Phase 11 smoke' ||
+    principal.user.name !== 'Portable smoke' ||
     principal.user.role !== 'USER' ||
     principal.user.targetLevel !== 'N5'
   ) {
@@ -1009,15 +995,14 @@ export const runStatefulAuthCompatibilityProbe = async ({
     {
       input: `SET search_path TO "${schemaName}";
         UPDATE "User" SET "targetLevel" = 'N5' WHERE "id" IN
-          (SELECT "userId" FROM "Account" WHERE "providerId" = 'google' AND "accountId" = 'phase11-${suffix}');
+          (SELECT "userId" FROM "Account" WHERE "providerId" = 'google' AND "accountId" = 'smoke-${suffix}');
         SELECT u."id" FROM "User" u JOIN "Account" a ON a."userId" = u."id"
         JOIN "Session" s ON s."userId" = u."id"
-        JOIN "AuthSessionFamily" f ON f."userId" = u."id" AND f."id" = s."sessionFamilyId"
-        WHERE a."providerId" = 'google' AND a."accountId" = 'phase11-${suffix}' AND a."password" IS NULL
+        WHERE a."providerId" = 'google' AND a."accountId" = 'smoke-${suffix}' AND a."password" IS NULL
           AND u."accountStatus" = 'ACTIVE' AND u."targetLevel" = 'N5' AND u."role" = 'USER'
-          AND s."issuerProtocolVersion" = 'PHASE7_V1' AND s."authorizationState" = 'ACTIVE'
+          AND s."issuerProtocolVersion" = 'OWNED_V1' AND s."authorizationState" = 'ACTIVE'
           AND s."authorityGeneration" = u."authorityGeneration" AND s."expiresAt" > clock_timestamp()
-          AND f."status" = 'ACTIVE' AND (SELECT count(*) FROM "User") = 1
+          AND (SELECT count(*) FROM "User") = 1
           AND (SELECT count(*) FROM "Account") = 1 AND (SELECT count(*) FROM "Session") = 1;`,
       failureLabel: 'Controlled TEST session persistence and profile'
     }
@@ -1388,16 +1373,15 @@ export const runPortableRuntimeSmoke = async ({
     throw new Error('Expected runtime image identity is invalid.')
   }
   const suffix = randomUUID().replaceAll('-', '').slice(0, 12)
-  const networkName = `nihongo-p11-${suffix}`
-  const databaseContainer = `nihongo-p11-db-${suffix}`
-  const runtimeContainer = `nihongo-p11-app-${suffix}`
+  const networkName = `nihongo-smoke-${suffix}`
+  const databaseContainer = `nihongo-smoke-db-${suffix}`
+  const runtimeContainer = `nihongo-smoke-app-${suffix}`
   const databaseName = 'nihongo_runtime_smoke_test'
   const databaseAdminUser = 'nihongo_runtime_smoke_migration'
   const databaseAdminPassword = randomBytes(24).toString('hex')
   const runtimePassword = randomBytes(24).toString('hex')
-  const gatewayPassword = randomBytes(24).toString('hex')
   const migrationPassword = randomBytes(24).toString('hex')
-  const schemaName = `phase7_${randomUUID().replaceAll('-', '')}_test`
+  const schemaName = `nihongo_${randomUUID().replaceAll('-', '')}_test`
   const migrationNames = selectCurrentMigrationNames(
     resolve(repositoryRoot, 'apps/api/prisma/migrations')
   )
@@ -1412,7 +1396,9 @@ export const runPortableRuntimeSmoke = async ({
     repositoryRoot,
     'apps/api/prisma/migrations'
   )
-  const certificateDirectory = mkdtempSync(join(tmpdir(), 'nihongo-p11-cert-'))
+  const certificateDirectory = mkdtempSync(
+    join(tmpdir(), 'nihongo-smoke-cert-')
+  )
   let cleanupError
   let operationError
 
@@ -1468,8 +1454,7 @@ export const runPortableRuntimeSmoke = async ({
     await waitForPostgres(databaseContainer, databaseAdminUser, databaseName)
     provisionRuntimeIdentity(database, schemaName, {
       [migrationLogin]: migrationPassword,
-      [applicationLogin]: runtimePassword,
-      [gatewayLogin]: gatewayPassword
+      [applicationLogin]: runtimePassword
     })
     const migrationDatabase = {
       ...database,
@@ -1480,14 +1465,22 @@ export const runPortableRuntimeSmoke = async ({
     applyCurrentMigrations(
       migrationDatabase,
       migrationsDirectory,
-      migrationNames.slice(0, 37),
+      migrationNames,
       true
     )
+    // The baseline has no registration function; this is the API's
+    // DATABASE_CAPABILITY_SQL (apps/api/src/db/databaseCapability.ts) for TEST.
     databaseCommand(
       migrationDatabase,
-      `SELECT "phase7_register_database_capability"(
-      current_database(), inet_server_addr(), inet_server_port(), 'TEST');
-      SELECT "phase7_activate_v1_issuer"('TEST');`
+      `INSERT INTO "DatabaseCapability" (
+      "id", "databaseName", "serverAddress", "serverPort", "environment",
+      "registeredAt")
+      SELECT 1, current_database(), inet_server_addr(), inet_server_port(),
+      'TEST'::"AdminAuditEnvironment", clock_timestamp()
+      WHERE inet_server_addr() IS NOT NULL AND current_database() ~ '_test$';
+      DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM "DatabaseCapability") THEN
+      RAISE EXCEPTION 'Database capability does not match the safe target.';
+      END IF; END $$;`
     )
     const databasePortOutput = run('docker', [
       'port',
@@ -1502,24 +1495,16 @@ export const runPortableRuntimeSmoke = async ({
       `postgresql://${applicationLogin}:${runtimePassword}@127.0.0.1:${databasePort}/${databaseName}?schema=${schemaName}&sslmode=verify-full`,
       join(certificateDirectory, 'server.crt')
     )
-    applyCurrentMigrations(
-      migrationDatabase,
-      migrationsDirectory,
-      migrationNames.slice(37)
-    )
     const migrationCount = migrationNames.length
 
     const runtimeEnvironment = createRuntimeEnvironment({
       databaseHost: databaseContainer,
       databaseName,
       databasePassword: runtimePassword,
-      gatewayPassword,
       schemaName,
       releaseId: exactReleaseId
     })
     const runtimeSensitiveValues = [
-      runtimeEnvironment.AUTH_GATEWAY_DATABASE_URL,
-      gatewayPassword,
       migrationPassword,
       runtimeEnvironment.BETTER_AUTH_SECRET,
       runtimeEnvironment.DATABASE_URL,

@@ -16,10 +16,6 @@ import {
   isApplicableContentType,
   validateOriginalQuestionContent
 } from '../src/content/validators/v1/question-content.js'
-import {
-  createContentBundleReleaseHashInput,
-  createLegacySeedItemHashInput
-} from '../src/content/validators/v1/release-hash.js'
 import type { OriginalQuestionContentV1 } from '../src/content/validators/v1/types.js'
 import {
   compareUnicodeScalars,
@@ -159,44 +155,5 @@ describe('Content validator v1 domain', () => {
       )?.count
     ).toBe(1)
     expect(summary.byLevelSubjectType).toHaveLength(5 * 3 * 12)
-  })
-
-  it('projects release hash inputs without runtime discriminator overrides', () => {
-    const digest = '0'.repeat(64)
-    const projected = createContentBundleReleaseHashInput({
-      releaseKey: 'fixture-release',
-      releaseRevision: 1,
-      bundleSha256: digest,
-      certificateSha256: digest,
-      duplicateReviewPlanSha256: digest,
-      reviewEvidenceSha256: digest,
-      authorSignatureSha256: digest,
-      reviewerSignatureSha256: digest,
-      approvalReceiptSha256: digest,
-      approvalOwnerSignatureSha256: digest,
-      policyActivationRevision: 1,
-      policyActivationSha256: digest,
-      policyActivationOwnerSignatureSha256: digest,
-      policySnapshotSha256: digest,
-      policyOwnerSignatureSha256: digest,
-      schemaVersion: 9,
-      artifactKind: 'OVERRIDE',
-      extra: true
-    } as unknown as Parameters<typeof createContentBundleReleaseHashInput>[0])
-    expect(projected.schemaVersion).toBe(1)
-    expect(projected.artifactKind).toBe('CONTENT_BUNDLE_V1')
-    expect(Object.keys(projected)).not.toContain('extra')
-    expect(
-      createLegacySeedItemHashInput({
-        contentKey: 'n5-vocabulary-01',
-        semanticContentSha256: digest,
-        globalReviewSha256: digest
-      })
-    ).toEqual({
-      kind: 'LEGACY_SEED_ITEM_V1',
-      contentKey: 'n5-vocabulary-01',
-      semanticContentSha256: digest,
-      globalReviewSha256: digest
-    })
   })
 })

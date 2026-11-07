@@ -11,6 +11,7 @@ import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { createPrismaAccountRestrictionReader } from '../account/accountRestriction.js'
 import { createPrismaAdminMemberRepository } from './adminMemberRepository.js'
 import { createAdminMemberService } from './adminMemberService.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({
@@ -25,16 +26,16 @@ if (!schema)
 const isCurrentSourceIntegration =
   process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
 const fixtureDatabaseUrl = process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
-const erasureWorkerDatabaseUrl = process.env.TEST_API_ERASURE_DATABASE_URL
+const appFixtureDatabaseUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
 if (
   isCurrentSourceIntegration &&
-  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
+  (!fixtureDatabaseUrl || !appFixtureDatabaseUrl)
 ) {
   throw new Error(
     'Admin member integration requires fixture and erasure databases.'
   )
 }
-for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
+for (const databaseUrl of [fixtureDatabaseUrl, appFixtureDatabaseUrl]) {
   if (databaseUrl) {
     assertSafeTestDatabase({
       nodeEnvironment: environment.NODE_ENV,
@@ -60,11 +61,11 @@ const client = new Client({
     isCurrentSourceIntegration ? 'nihongo_app' : undefined
   )
 })
-const erasureWorkerClient = erasureWorkerDatabaseUrl
+const erasureWorkerClient = appFixtureDatabaseUrl
   ? new Client({
-      connectionString: erasureWorkerDatabaseUrl,
+      connectionString: appFixtureDatabaseUrl,
       options: createPostgresStartupOptions(
-        getPostgresSchema(erasureWorkerDatabaseUrl)
+        getPostgresSchema(appFixtureDatabaseUrl)
       )
     })
   : undefined
@@ -93,7 +94,7 @@ const createUser = async (
     await fixture.account.create({
       data: {
         accountId: id,
-        password: 'phase10-fixture-password-hash',
+        password: 'test-fixture-password-hash',
         providerId: 'credential',
         userId: id
       }
@@ -105,9 +106,7 @@ const createUser = async (
 
 const eraseUser = async (userId: string): Promise<void> => {
   if (erasureWorkerClient) {
-    await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
-      userId
-    ])
+    await eraseTestUser(database.client, userId)
   } else {
     await client.query('DELETE FROM "User" WHERE "id" = $1', [userId])
   }
@@ -120,7 +119,7 @@ beforeAll(async () => {
   await client.connect()
   if (erasureWorkerClient) {
     await erasureWorkerClient.connect()
-    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+    await erasureWorkerClient.query(`SET ROLE "nihongo_app"`)
   }
   admin = await createUser('admin', 'ADMIN')
 })
@@ -137,8 +136,8 @@ afterAll(async () => {
   ])
 })
 
-describe('admin member console functions (JLP-691)', () => {
-  it('returns masked members only and keeps "User" unreadable for the app role', async () => {
+describe('admin member console (JLP-691)', () => {
+  it('returns masked members only', async () => {
     const member = await createUser('list')
 
     const detail = await service.getMember(admin.id, member.id)
@@ -182,18 +181,6 @@ describe('admin member console functions (JLP-691)', () => {
     })
     expect(page.items.some((item) => item.memberId === member.id)).toBe(true)
     expect(page.items.some((item) => item.memberId === admin.id)).toBe(false)
-
-    if (isCurrentSourceIntegration) {
-      await expect(
-        client.query('SELECT "email" FROM "User" LIMIT 1')
-      ).rejects.toMatchObject({ code: '42501' })
-      await expect(
-        client.query('SELECT 1 FROM "UserAccountRestrictionEvent" LIMIT 1')
-      ).rejects.toMatchObject({ code: '42501' })
-      await expect(
-        client.query(`SELECT "admin_mask_member_email"('a@b.c')`)
-      ).rejects.toMatchObject({ code: '42501' })
-    }
   })
 
   it('refuses a caller that is not an active administrator', async () => {

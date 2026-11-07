@@ -23,7 +23,7 @@ export interface DashboardService {
   ) => Promise<GetDashboardStatsResponse>
 }
 
-export interface NormalizedDashboardWindow extends DashboardReadWindow {
+interface NormalizedDashboardWindow extends DashboardReadWindow {
   readonly anchorDate: string
 }
 
@@ -33,7 +33,7 @@ const startOfUtcDate = (calendarDate: string): Date =>
 const addUtcDays = (date: Date, days: number): Date =>
   new Date(date.getTime() + days * DAY_MILLISECONDS)
 
-export const normalizeDashboardWindow = (
+const normalizeDashboardWindow = (
   userId: string,
   query: ParsedGetDashboardStatsQuery,
   observedAt: Date

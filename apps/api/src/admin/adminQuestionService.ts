@@ -46,7 +46,7 @@ import {
   type AdminAccountActorRecord,
   type AdminQuestionListRecord,
   type AdminQuestionRepository,
-  type AdminTagRecord,
+  type AdminTagListRecord,
   type AdminVersionRecord,
   type AdminVersionSummaryRecord
 } from './adminQuestionRepository.js'
@@ -477,9 +477,10 @@ export const createAdminQuestionService = (
       items: [
         ...(await repository.listTags({
           normalizedPrefix: query.q,
+          subject: query.subject,
           limit: query.limit
         }))
-      ] as AdminTagRecord[]
+      ] as AdminTagListRecord[]
     })),
   listReviews: (versionId, query) =>
     withRepositoryErrors(async () => {

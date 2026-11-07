@@ -20,7 +20,6 @@ const runtime = vi.hoisted(() => ({
   app: {
     client: { $queryRawUnsafe: vi.fn() },
     checkReadiness: vi.fn(),
-    checkV1Compatibility: vi.fn(),
     disconnect: vi.fn()
   },
   gateway: { client: { $queryRawUnsafe: vi.fn() }, disconnect: vi.fn() }
@@ -42,26 +41,23 @@ vi.mock('pg', async (importOriginal) => ({
   }
 }))
 
-const schema = `phase7_${'a'.repeat(32)}_test`
+const schema = `nihongo_${'a'.repeat(32)}_test`
 const url = (login: string) =>
-  `postgresql://${login}:unused@127.0.0.1:5432/nihongo_phase9_test?schema=${schema}`
+  `postgresql://${login}:unused@127.0.0.1:5432/nihongo_fixture_test?schema=${schema}`
 const source = (): NodeJS.ProcessEnv => ({
   NODE_ENV: 'test',
   DEPLOYMENT_ENVIRONMENT: 'TEST',
-  ADMIN_CMS_MODE: 'technical',
-  PRACTICE_CONTRACT_RUNTIME: 'v1-v2',
   HOST: '127.0.0.1',
   PORT: '58101',
   BETTER_AUTH_URL: 'http://127.0.0.1:58101',
   TRUSTED_ORIGINS: 'http://127.0.0.1:58102',
   DATABASE_URL: url('nihongo_test_app_login'),
-  AUTH_GATEWAY_DATABASE_URL: url('nihongo_test_auth_gateway_login'),
   PRODUCTION_DATABASE_URL:
     'postgresql://production:unused@production.example.invalid/production',
   BETTER_AUTH_SECRET: 'a'.repeat(32),
   GUEST_COOKIE_SECRET: 'b'.repeat(32)
 })
-const ownerUrl = url('phase9_test_owner')
+const ownerUrl = url('fixture_test_owner')
 const makeIdentities = () =>
   Object.fromEntries(
     [
@@ -122,8 +118,7 @@ describe('Isolated TEST SSO bootstrap', () => {
     expect(serve).not.toHaveBeenCalled()
     expect(pg.connect).not.toHaveBeenCalled()
     expect(parseBrowserEnvironment(source())).toMatchObject({
-      NODE_ENV: 'test',
-      ADMIN_CMS_MODE: 'technical'
+      NODE_ENV: 'test'
     })
   })
 
@@ -147,25 +142,17 @@ describe('Isolated TEST SSO bootstrap', () => {
     expect(serve).not.toHaveBeenCalled()
     await Promise.all([fixture.disconnect(), fixture.disconnect()])
     expect(runtime.app.disconnect).toHaveBeenCalledTimes(1)
-    expect(runtime.gateway.disconnect).toHaveBeenCalledTimes(1)
+    expect(runtime.gateway.disconnect).not.toHaveBeenCalled()
   })
 
   it.each([
     { NODE_ENV: 'production' },
     { DEPLOYMENT_ENVIRONMENT: 'LOCAL' },
-    { ADMIN_CMS_MODE: 'disabled' },
-    { PRACTICE_CONTRACT_RUNTIME: 'v1-compatible' },
     { GOOGLE_CLIENT_ID: 'real-provider' },
     { APPLE_CLIENT_SECRET: 'real-provider' },
     { TRUSTED_ORIGINS: 'https://outside.example.test' },
     { BETTER_AUTH_URL: 'http://127.0.0.1:58103' },
     { DATABASE_URL: url('nihongo_test_auth_gateway_login') },
-    {
-      AUTH_GATEWAY_DATABASE_URL: url('nihongo_test_auth_gateway_login').replace(
-        'nihongo_phase9_test',
-        'another_test'
-      )
-    },
     { DATABASE_URL: url('nihongo_test_app_login') + '&schema=other' },
     {
       DATABASE_URL:
@@ -218,7 +205,7 @@ describe('Isolated TEST SSO bootstrap', () => {
       '',
       'unknown',
       'test-google-author-extra',
-      'PHASE7-TEST-GOOGLE-AUTHOR',
+      'TEST-GOOGLE-AUTHOR',
       '__proto__'
     ]) {
       expect(await provider.exchange({ ...input, code })).toBeNull()
@@ -316,7 +303,7 @@ describe('Isolated TEST SSO bootstrap', () => {
 
   it.each([
     url('nihongo_test_app_login'),
-    ownerUrl.replace('nihongo_phase9_test', 'another_test')
+    ownerUrl.replace('nihongo_fixture_test', 'another_test')
   ])(
     'rejects a runtime or foreign owner before connecting',
     async (adminDatabaseUrl) => {

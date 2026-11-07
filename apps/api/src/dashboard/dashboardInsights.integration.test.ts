@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { getDashboardInsightsResponseSchema } from '@nihongo/contracts/dashboard/get-dashboard-insights'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { issueOwnedSession } from '../auth/ownedSessionAuthority.js'
 import { parseApiEnvironment } from '../config/env.js'
 import {
   createDatabaseRuntime,
@@ -20,12 +21,12 @@ import { createDashboardInsightsService } from './dashboardInsightsService.js'
 const DAY_MILLISECONDS = 86_400_000
 
 const environment = parseApiEnvironment(process.env)
-const adminDatabaseUrl = process.env.PHASE7_ADMIN_DATABASE_URL
+const adminDatabaseUrl = process.env.ADMIN_DATABASE_URL
 if (!adminDatabaseUrl) {
-  throw new Error('Integration requires the Phase 7 admin test URL.')
+  throw new Error('Integration requires the admin test URL.')
 }
-const authGatewayDatabaseUrl = environment.AUTH_GATEWAY_DATABASE_URL
-if (!authGatewayDatabaseUrl) {
+const appFixtureDatabaseUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
+if (!appFixtureDatabaseUrl) {
   throw new Error('Integration requires the auth-gateway test URL.')
 }
 assertSafeTestDatabase({
@@ -40,15 +41,15 @@ const database = createRoleDatabaseRuntime(
 )
 const adminDatabase = createDatabaseRuntime(adminDatabaseUrl)
 const authGatewayDatabase = createRoleDatabaseRuntime(
-  authGatewayDatabaseUrl,
-  'nihongo_auth_gateway'
+  appFixtureDatabaseUrl,
+  'nihongo_app'
 )
 const sessionRepository = createPrismaStudySessionRepository(database.client)
 const submissionRepository = createPrismaStudySubmissionRepository(
   database.client
 )
 const insightsService = createDashboardInsightsService(
-  createPrismaDashboardInsightsRepository(database.client, 'PHASE7')
+  createPrismaDashboardInsightsRepository(database.client)
 )
 
 interface SubmittedFixture {
@@ -68,8 +69,8 @@ const createUser = async (
         "id", "name", "email", "emailVerified", "role", "targetLevel",
         "accountStatus", "createdAt", "updatedAt"
       ) VALUES (
-        ${userId}::uuid, ${`Phase 8 ${label}`},
-        ${`phase8-${label}-${randomUUID()}@example.test`}, true, 'USER', 'N5',
+        ${userId}::uuid, ${`${label}`},
+        ${`test-${label}-${randomUUID()}@example.test`}, true, 'USER', 'N5',
         'ACTIVE', ${now}, ${now}
       )
     `
@@ -79,28 +80,23 @@ const createUser = async (
         "createdAt", "updatedAt"
       ) VALUES (
         ${accountId}, ${userId}, 'credential', ${userId}::uuid,
-        'phase8-integration-password-hash', ${now}, ${now}
+        'test-integration-password-hash', ${now}, ${now}
       )
     `
   })
-  const sessionToken = `phase8-insights-${label}-${randomUUID()}`
+  const sessionToken = `test-insights-${label}-${randomUUID()}`
   const sessionId = randomUUID()
-  const issued = await authGatewayDatabase.client.$queryRawUnsafe<
-    Array<{ familyId: string }>
-  >(
-    `SELECT * FROM "phase7_issue_v1_session"(
-      $1, $2, $3::"UserRole", 'ACTIVE', $4, $5,
-      '127.0.0.1', 'phase8-dashboard-insights', false
-    )`,
+  await issueOwnedSession(database.client, {
     userId,
-    1,
-    'USER',
+    authorityGeneration: 1,
+    role: 'USER',
+    accountStatus: 'ACTIVE',
     sessionId,
-    sessionToken
-  )
-  if (issued.length !== 1 || !issued[0]) {
-    throw new Error('Integration session was not issued.')
-  }
+    token: sessionToken,
+    ipAddress: '127.0.0.1',
+    userAgent: 'test-dashboard-insights',
+    remember: false
+  })
   return { sessionToken, userId }
 }
 
@@ -164,8 +160,7 @@ const submitRandomSession = async ({
       durationSec: materials.reduce((total, _, index) => total + 10 + index, 0),
       expectedDraftRevision: saved.response.revision
     },
-    owner,
-    2
+    owner
   )
   return {
     sessionId: created.session.id,
@@ -209,8 +204,7 @@ const submitWrongNoteSession = async (
       durationSec: 0,
       expectedDraftRevision: 0
     },
-    owner,
-    2
+    owner
   )
   return { sessionId: created.session.id, questionIds: [material.questionId] }
 }
@@ -289,7 +283,6 @@ describe.sequential('Dashboard insights PostgreSQL projection', () => {
     const before = await readOwnedBusinessSnapshot(ownerUserId)
     const response = getDashboardInsightsResponseSchema.parse(
       await insightsService.getDashboardInsights({
-        kind: 'PHASE7',
         sessionToken: ownerSessionToken,
         userId: ownerUserId
       })
@@ -386,7 +379,6 @@ describe.sequential('Dashboard insights PostgreSQL projection', () => {
     ).toEqual(rawTags)
 
     const foreign = await insightsService.getDashboardInsights({
-      kind: 'PHASE7',
       sessionToken: foreignSessionToken,
       userId: foreignUserId
     })
@@ -404,7 +396,6 @@ describe.sequential('Dashboard insights PostgreSQL projection', () => {
       }
     })
     const before = await insightsService.getDashboardInsights({
-      kind: 'PHASE7',
       sessionToken: ownerSessionToken,
       userId: ownerUserId
     })
@@ -424,7 +415,6 @@ describe.sequential('Dashboard insights PostgreSQL projection', () => {
         })
       })
       const archived = await insightsService.getDashboardInsights({
-        kind: 'PHASE7',
         sessionToken: ownerSessionToken,
         userId: ownerUserId
       })

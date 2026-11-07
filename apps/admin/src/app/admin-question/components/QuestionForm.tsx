@@ -41,6 +41,8 @@ type QuestionFormProps = {
   submittingLabel: string
   cancelHref?: string
   serverError?: string
+  /** A save rejected for its tags; shown on the tag field, which gets focus. */
+  serverTagError?: string
 }
 
 export const QuestionForm = ({
@@ -51,13 +53,20 @@ export const QuestionForm = ({
   isSubmitting,
   onSubmit,
   serverError,
+  serverTagError,
   submitLabel,
   submittingLabel
 }: QuestionFormProps): ReactElement => {
   const { t } = useAdminPresentation()
+  // Contract checks without a form key carry raw (often English) text; show
+  // the common validation message instead.
   const localError = (message: string | undefined): string | undefined => {
     if (!message) return message
-    return message.startsWith(VALIDATION_KEY_PREFIX) ? t(message) : message
+    return t(
+      message.startsWith(VALIDATION_KEY_PREFIX)
+        ? message
+        : `${VALIDATION_KEY_PREFIX}invalid`
+    )
   }
   const [revision] = useState(expectedRowVersion)
   const [defaultValues] = useState(() => createDefaultValues(initialQuestion))
@@ -76,12 +85,14 @@ export const QuestionForm = ({
   const subject = useWatch({ control, name: 'subject' })
   const correctOptionId = useWatch({ control, name: 'correctOptionId' })
   const fields: QuestionFormFields = {
+    control,
     register,
     errors,
     localError,
     setValue,
     subject,
-    correctOptionId
+    correctOptionId,
+    tagServerError: serverTagError
   }
   const shouldBlockNavigation = isDirty && !isSubmitting && !isFormSubmitting
   const blocker = useBlocker(shouldBlockNavigation)
@@ -108,6 +119,11 @@ export const QuestionForm = ({
       return
     }
 
+    if (formErrors.tags) {
+      setFocus('tags')
+      return
+    }
+
     if (formErrors.correctOptionId) {
       document
         .getElementById('correct-answer-group')
@@ -119,8 +135,9 @@ export const QuestionForm = ({
   // On mobile the alert sits above the fold; move focus (and the view) to it.
   const serverErrorRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (serverError) serverErrorRef.current?.focus()
-  }, [serverError])
+    if (serverTagError) setFocus('tags')
+    else if (serverError) serverErrorRef.current?.focus()
+  }, [serverError, serverTagError, setFocus])
 
   const submitForm = handleSubmit(async (values) => {
     if (readOnly) return

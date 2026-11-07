@@ -74,9 +74,9 @@ const toComparableVersion = (
     text
   })),
   tags: version.tags
-    .map(({ id, labelSnapshot, tagId, tag }) => ({
+    .map(({ id, tagId, tag }) => ({
       id,
-      labelSnapshot,
+      label: tag.label,
       tagId,
       normalizedName: tag.normalizedName
     }))
@@ -110,7 +110,7 @@ const toExpectedVersion = (seed: QuestionAggregateSeed) => ({
   tags: seed.tags
     .map(({ id: tagId, label, normalizedName, versionTagId: id }) => ({
       id,
-      labelSnapshot: label,
+      label,
       tagId,
       normalizedName
     }))
@@ -240,11 +240,10 @@ const insertQuestionSeed = async (
   }
 
   await transaction.questionVersionTag.createMany({
-    data: seed.tags.map(({ id: tagId, label, versionTagId: id }) => ({
+    data: seed.tags.map(({ id: tagId, versionTagId: id }) => ({
       id,
       questionVersionId: seed.versionId,
-      tagId,
-      labelSnapshot: label
+      tagId
     }))
   })
   await transaction.questionVersion.update({
@@ -265,7 +264,7 @@ const insertQuestionSeed = async (
   })
 }
 
-export interface SeedQuestionCatalogResult {
+interface SeedQuestionCatalogResult {
   insertedCount: number
   verifiedCount: number
 }

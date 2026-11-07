@@ -12,6 +12,8 @@ import { QuestionPageHeader } from '@app/admin-question/components/QuestionPageH
 import { useQuestionListReturnPath } from '@app/admin-question/navigation/useQuestionListReturnPath'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import { getAdminErrorKey } from '@app/admin/presentation/adminPresentation'
+import { getTagServerErrorKey } from '@app/admin-question/components/questionTagServerError'
+import { PageContainer } from '@nihongo/browser/common/components/PageContainer'
 
 export const CreateAdminQuestionPage = (): ReactElement => {
   const { t, presentError } = useAdminPresentation()
@@ -41,8 +43,10 @@ export const CreateAdminQuestionPage = (): ReactElement => {
     }
   }
 
+  const tagErrorKey = getTagServerErrorKey(createQuestion.error)
+
   return (
-    <section className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
+    <PageContainer width="5xl">
       <QuestionPageHeader
         returnPath={returnPath}
         currentLabel={t('create.page.title')}
@@ -64,8 +68,9 @@ export const CreateAdminQuestionPage = (): ReactElement => {
               ? presentError(createQuestion.error)
               : t('create.page.error')
         }
+        serverTagError={tagErrorKey ? t(tagErrorKey) : undefined}
         onSubmit={handleCreateQuestion}
       />
-    </section>
+    </PageContainer>
   )
 }

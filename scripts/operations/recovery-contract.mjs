@@ -4,7 +4,8 @@ import { verifyReleaseManifest } from './release-contract.mjs'
 const SHA256_PATTERN = /^[0-9a-f]{64}$/u
 const ADAPTER_SLUG_PATTERN = /^[a-z][a-z0-9-]{0,62}$/u
 const ENVIRONMENTS = ['TEST', 'STAGING', 'PRODUCTION']
-const PROFILE_NAMES = ['technical-current-test', 'v1-runtime-pre-phase7']
+// #504 P8-1: one baseline migration serves every environment.
+const PROFILE_NAMES = ['current']
 const EXTERNAL_CLAIM_KEYS = [
   'automaticBackupProof',
   'pointInTimeRecoveryProof',
@@ -239,8 +240,8 @@ export const verifyRecoveryContract = (
     PROFILE_NAMES,
     'Migration profiles'
   )
-  const technical = assertExactKeys(
-    contract.migrationProfiles['technical-current-test'],
+  const current = assertExactKeys(
+    contract.migrationProfiles.current,
     [
       'environments',
       'expectedCount',
@@ -248,45 +249,21 @@ export const verifyRecoveryContract = (
       'externalRecoveryClaimAllowed',
       'selection'
     ],
-    'Technical migration profile'
-  )
-  assertExactArray(technical.environments, ['TEST'], 'Technical environments')
-  if (
-    technical.selection !== 'all-release-manifest-entries' ||
-    technical.expectedCount !== 58 ||
-    technical.expectedDigestSha256 !==
-      '13da74f7dd883ce43d36f9f532dbc41652a84c0eb4b8f812607f1ca622be578c' ||
-    technical.externalRecoveryClaimAllowed !== false
-  ) {
-    throw new Error('Technical migration profile is invalid.')
-  }
-
-  const runtime = assertExactKeys(
-    contract.migrationProfiles['v1-runtime-pre-phase7'],
-    [
-      'boundaryMigration',
-      'environments',
-      'expectedCount',
-      'expectedDigestSha256',
-      'externalRecoveryClaimAllowed',
-      'selection'
-    ],
-    'Runtime migration profile'
+    'Current migration profile'
   )
   assertExactArray(
-    runtime.environments,
-    ['STAGING', 'PRODUCTION'],
-    'Runtime environments'
+    current.environments,
+    ['TEST', 'STAGING', 'PRODUCTION'],
+    'Current profile environments'
   )
   if (
-    runtime.selection !== 'entries-before-boundary' ||
-    runtime.boundaryMigration !== '20260827100000_phase7_admin_cms_enums' ||
-    runtime.expectedCount !== 27 ||
-    runtime.expectedDigestSha256 !==
-      '6870a93dd141b7a6c226de7aeed315d48ce313828c82bb92f91bf8a8861ed2ea' ||
-    runtime.externalRecoveryClaimAllowed !== false
+    current.selection !== 'all-release-manifest-entries' ||
+    current.expectedCount !== 5 ||
+    current.expectedDigestSha256 !==
+      '4c837ceabcc52839c21ac952dd26d7a97726f1ac2f7c1cc1bf373ac77eecbce5' ||
+    current.externalRecoveryClaimAllowed !== false
   ) {
-    throw new Error('Runtime migration profile is invalid.')
+    throw new Error('Current migration profile is invalid.')
   }
 
   assertExactArray(contract.sequence, expectedSequence, 'Recovery sequence')
@@ -353,20 +330,9 @@ export const deriveMigrationProfile = (releaseManifest, profileName) => {
   if (!PROFILE_NAMES.includes(profileName)) {
     throw new Error('Unsupported recovery migration profile.')
   }
-  let entries
-  if (profileName === 'technical-current-test') {
-    entries = manifest.migrations.entries
-    if (entries.length !== 58) {
-      throw new Error('Technical migration profile count mismatch.')
-    }
-  } else {
-    const boundaryIndex = manifest.migrations.entries.findIndex(
-      ({ name }) => name === '20260827100000_phase7_admin_cms_enums'
-    )
-    if (boundaryIndex !== 27) {
-      throw new Error('Runtime migration profile boundary mismatch.')
-    }
-    entries = manifest.migrations.entries.slice(0, boundaryIndex)
+  const entries = manifest.migrations.entries
+  if (entries.length !== 5) {
+    throw new Error('Current migration profile count mismatch.')
   }
   const profile = {
     count: entries.length,
@@ -374,9 +340,7 @@ export const deriveMigrationProfile = (releaseManifest, profileName) => {
     name: profileName
   }
   const expectedDigest =
-    profileName === 'technical-current-test'
-      ? '13da74f7dd883ce43d36f9f532dbc41652a84c0eb4b8f812607f1ca622be578c'
-      : '6870a93dd141b7a6c226de7aeed315d48ce313828c82bb92f91bf8a8861ed2ea'
+    '4c837ceabcc52839c21ac952dd26d7a97726f1ac2f7c1cc1bf373ac77eecbce5'
   if (profile.digestSha256 !== expectedDigest) {
     throw new Error('Recovery migration profile inventory mismatch.')
   }

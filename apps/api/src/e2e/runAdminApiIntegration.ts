@@ -1,14 +1,7 @@
+import { registerDatabaseCapability } from '../db/databaseCapability.js'
 import { sanitizeSeedLine } from '../../prisma/seedDiagnostics.js'
 import { prepareBrowserArtifacts } from './browserArtifactPreparation.js'
-import {
-  copyFileSync,
-  cpSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync
-} from 'node:fs'
-import { tmpdir } from 'node:os'
+import { readFileSync, readdirSync } from 'node:fs'
 import { createHash, randomUUID } from 'node:crypto'
 import { spawn, type ChildProcess } from 'node:child_process'
 import nodePath from 'node:path'
@@ -36,62 +29,37 @@ import {
 const guestCleanupShard = process.argv.includes('--shard=current-guest-cleanup')
 const SCHEMA_PATTERN = guestCleanupShard
   ? /^jlp534_[a-f0-9]{32}_test$/
-  : /^phase7_[a-f0-9]{32}_test$/
+  : /^nihongo_[a-f0-9]{32}_test$/
 const IDENTIFIER_PATTERN = /^[a-z_][a-z0-9_]{0,62}$/
 const GROUP_ROLES = [
-  'nihongo_phase7_owner',
-  'nihongo_phase7_migration',
+  'nihongo_owner',
+  'nihongo_migration',
   'nihongo_app',
-  'nihongo_auth_gateway',
-  'nihongo_erasure_worker',
   'nihongo_guest_cleanup_worker'
 ] as const
 const WRAPPER_ROLES = [
   {
-    name: 'nihongo_test_phase7_migration_login',
-    grantedRole: 'nihongo_phase7_migration'
+    name: 'nihongo_test_migration_login',
+    grantedRole: 'nihongo_migration'
   },
   { name: 'nihongo_test_app_login', grantedRole: 'nihongo_app' },
-  {
-    name: 'nihongo_test_auth_gateway_login',
-    grantedRole: 'nihongo_auth_gateway'
-  },
-  {
-    name: 'nihongo_test_erasure_worker_login',
-    grantedRole: 'nihongo_erasure_worker'
-  },
   {
     name: 'nihongo_test_guest_cleanup_worker_login',
     grantedRole: 'nihongo_guest_cleanup_worker'
   },
   {
-    name: 'nihongo_development_phase7_migration_login',
-    grantedRole: 'nihongo_phase7_migration'
+    name: 'nihongo_development_migration_login',
+    grantedRole: 'nihongo_migration'
   },
   { name: 'nihongo_development_app_login', grantedRole: 'nihongo_app' },
-  {
-    name: 'nihongo_development_auth_gateway_login',
-    grantedRole: 'nihongo_auth_gateway'
-  },
-  {
-    name: 'nihongo_development_erasure_worker_login',
-    grantedRole: 'nihongo_erasure_worker'
-  },
   {
     name: 'nihongo_development_guest_cleanup_worker_login',
     grantedRole: 'nihongo_guest_cleanup_worker'
   }
 ] as const
-const LEGACY_ROLES = [
-  'nihongo_test_legacy_app_login',
-  'nihongo_development_legacy_app_login'
-] as const
-const TEST_MIGRATION_LOGIN = 'nihongo_test_phase7_migration_login'
+const TEST_MIGRATION_LOGIN = 'nihongo_test_migration_login'
 const TEST_APPLICATION_LOGIN = 'nihongo_test_app_login'
-const TEST_AUTH_GATEWAY_LOGIN = 'nihongo_test_auth_gateway_login'
-const TEST_ERASURE_LOGIN = 'nihongo_test_erasure_worker_login'
 const TEST_GUEST_CLEANUP_LOGIN = 'nihongo_test_guest_cleanup_worker_login'
-const TEST_LEGACY_LOGIN = 'nihongo_test_legacy_app_login'
 const repositoryRoot = nodePath.resolve(
   nodePath.dirname(fileURLToPath(import.meta.url)),
   '../../../..'
@@ -128,7 +96,7 @@ if (apiIntegrationCase === 'sso-browser-google') {
 
 const syntheticProductionDatabaseUrl = new URL(baseDatabaseUrl)
 syntheticProductionDatabaseUrl.pathname =
-  '/nihongo_phase7_api_production_guard_sentinel'
+  '/nihongo_api_production_guard_sentinel'
 syntheticProductionDatabaseUrl.search = ''
 
 assertSafeTestDatabase({
@@ -137,7 +105,6 @@ assertSafeTestDatabase({
   productionDatabaseUrl: syntheticProductionDatabaseUrl.toString()
 })
 assertSafeAdminCmsDatabase({
-  adminCmsMode: 'technical',
   nodeEnvironment: 'test',
   databaseUrl: baseDatabaseUrl,
   productionDatabaseUrl: syntheticProductionDatabaseUrl.toString()
@@ -149,9 +116,9 @@ if (
 ) {
   throw new Error('Guest cleanup requires its dedicated test database.')
 }
-const schemaName = `${guestCleanupShard ? 'jlp534' : 'phase7'}_${randomUUID().replaceAll('-', '')}_test`
+const schemaName = `${guestCleanupShard ? 'jlp534' : 'nihongo'}_${randomUUID().replaceAll('-', '')}_test`
 if (!SCHEMA_PATTERN.test(schemaName)) {
-  throw new Error('Generated Phase 7 API schema is unsafe.')
+  throw new Error('Generated API schema is unsafe.')
 }
 
 const adminDatabaseUrl = new URL(baseDatabaseUrl)
@@ -164,7 +131,7 @@ const targetDatabaseUrl = new URL(adminDatabaseUrl)
 targetDatabaseUrl.searchParams.set('schema', schemaName)
 
 const wrapperPasswords = new Map<string, string>(
-  [...WRAPPER_ROLES.map(({ name }) => name), ...LEGACY_ROLES].map((name) => [
+  WRAPPER_ROLES.map(({ name }) => name).map((name) => [
     name,
     randomUUID().replaceAll('-', '')
   ])
@@ -182,24 +149,19 @@ const buildWrapperDatabaseUrl = (role: string): URL => {
 }
 
 const migrationDatabaseUrl = buildWrapperDatabaseUrl(TEST_MIGRATION_LOGIN)
-migrationDatabaseUrl.searchParams.set(
-  'options',
-  '-c role=nihongo_phase7_migration'
-)
+migrationDatabaseUrl.searchParams.set('options', '-c role=nihongo_migration')
 const applicationDatabaseUrl = buildWrapperDatabaseUrl(TEST_APPLICATION_LOGIN)
-const authGatewayDatabaseUrl = buildWrapperDatabaseUrl(TEST_AUTH_GATEWAY_LOGIN)
-const erasureWorkerDatabaseUrl = buildWrapperDatabaseUrl(TEST_ERASURE_LOGIN)
 
 const quoteIdentifier = (value: string): string => {
   if (!IDENTIFIER_PATTERN.test(value)) {
-    throw new Error('Refusing to quote an unsafe Phase 7 API identifier.')
+    throw new Error('Refusing to quote an unsafe API identifier.')
   }
   return `"${value}"`
 }
 
 const quoteSchema = (value: string): string => {
   if (!SCHEMA_PATTERN.test(value)) {
-    throw new Error('Refusing to quote an unsafe Phase 7 API schema.')
+    throw new Error('Refusing to quote an unsafe API schema.')
   }
   return `"${value}"`
 }
@@ -227,11 +189,10 @@ interface PgcryptoSnapshot {
   readonly version: string | null
 }
 
-export interface IsolatedDatabaseHarness {
+interface IsolatedDatabaseHarness {
   readonly adminDatabaseUrl: string
   readonly applicationDatabaseUrl: string
-  readonly authGatewayDatabaseUrl: string
-  readonly erasureWorkerDatabaseUrl: string
+  readonly appFixtureDatabaseUrl: string
   readonly migrationDatabaseUrl: string
   readonly schemaName: string
   readonly sharedEnvironment: NodeJS.ProcessEnv
@@ -240,7 +201,6 @@ export interface IsolatedDatabaseHarness {
 interface PrepareIsolatedDatabaseOptions {
   readonly abortSignal?: AbortSignal
   readonly seedRuns?: number
-  readonly issuerActivationOwner?: 'runner' | 'fixture'
   readonly artifactsPrepared?: boolean
 }
 
@@ -417,12 +377,12 @@ const restorePgcrypto = async (): Promise<void> => {
 const acquireProvisioningLock = async (): Promise<void> => {
   const result = await adminClient.query<{ acquired: boolean }>(
     `SELECT pg_try_advisory_lock(hashtextextended(
-       'phase7-db-integration-global-role-provisioning', 0
+       'db-integration-global-role-provisioning', 0
      )) AS acquired`
   )
   provisioningLockAcquired = result.rows[0]?.acquired === true
   if (!provisioningLockAcquired) {
-    throw new Error('Another Phase 7 database gate is active.')
+    throw new Error('Another database gate is active.')
   }
 }
 
@@ -453,10 +413,7 @@ const attestBootstrap = async (): Promise<void> => {
 }
 
 const provisionRoles = async (): Promise<void> => {
-  const wrapperNames = [
-    ...WRAPPER_ROLES.map(({ name }) => name),
-    ...LEGACY_ROLES
-  ]
+  const wrapperNames = WRAPPER_ROLES.map(({ name }) => name)
   const wrapperCollisions = await adminClient.query<{ name: string }>(
     `SELECT rolname AS name FROM pg_roles
      WHERE rolname = ANY($1::text[]) ORDER BY rolname`,
@@ -497,7 +454,7 @@ const provisionRoles = async (): Promise<void> => {
       createdGroupRoles.add(role)
     }
     await adminClient.query(
-      `GRANT "nihongo_phase7_owner" TO "nihongo_phase7_migration"
+      `GRANT "nihongo_owner" TO "nihongo_migration"
        WITH ADMIN FALSE, INHERIT FALSE, SET TRUE`
     )
   }
@@ -518,18 +475,6 @@ const provisionRoles = async (): Promise<void> => {
        WITH ADMIN FALSE, INHERIT FALSE, SET TRUE`
     )
   }
-  for (const name of LEGACY_ROLES) {
-    const password = wrapperPasswords.get(name)
-    if (!password || !/^[a-f0-9]{32}$/u.test(password)) {
-      throw new Error('API legacy wrapper password is unsafe.')
-    }
-    await adminClient.query(
-      `CREATE ROLE ${quoteIdentifier(name)}
-       LOGIN NOINHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE
-       NOREPLICATION NOBYPASSRLS PASSWORD '${password}'`
-    )
-    createdWrapperRoles.add(name)
-  }
 }
 
 const applyMigrationDatabaseBoundary = async (): Promise<void> => {
@@ -539,7 +484,7 @@ const applyMigrationDatabaseBoundary = async (): Promise<void> => {
   databaseChanged = true
   await adminClient.query(
     `ALTER DATABASE ${quoteIdentifier(databaseName)}
-     OWNER TO "nihongo_phase7_migration"`
+     OWNER TO "nihongo_migration"`
   )
   const priorGrantees = new Set(
     (await readDatabaseAcl()).map(({ grantee }) => grantee)
@@ -552,13 +497,11 @@ const applyMigrationDatabaseBoundary = async (): Promise<void> => {
   }
   await adminClient.query(
     `GRANT CREATE, TEMPORARY ON DATABASE ${quoteIdentifier(databaseName)}
-     TO "nihongo_phase7_migration"`
+     TO "nihongo_migration"`
   )
   await adminClient.query(
     `GRANT CONNECT ON DATABASE ${quoteIdentifier(databaseName)} TO
-       "${TEST_MIGRATION_LOGIN}", "${TEST_APPLICATION_LOGIN}",
-       "${TEST_AUTH_GATEWAY_LOGIN}", "${TEST_ERASURE_LOGIN}",
-       "${TEST_LEGACY_LOGIN}"`
+       "${TEST_MIGRATION_LOGIN}", "${TEST_APPLICATION_LOGIN}"`
   )
 }
 
@@ -720,14 +663,9 @@ const cleanup = (): Promise<void> => {
           await adminClient.query(`DROP ROLE ${quoteIdentifier(name)}`)
           createdWrapperRoles.delete(name)
         }
-        for (const name of LEGACY_ROLES.toReversed()) {
-          if (!createdWrapperRoles.has(name)) continue
-          await adminClient.query(`DROP ROLE ${quoteIdentifier(name)}`)
-          createdWrapperRoles.delete(name)
-        }
-        if (createdGroupRoles.has('nihongo_phase7_migration')) {
+        if (createdGroupRoles.has('nihongo_migration')) {
           await adminClient.query(
-            `REVOKE "nihongo_phase7_owner" FROM "nihongo_phase7_migration"`
+            `REVOKE "nihongo_owner" FROM "nihongo_migration"`
           )
         }
         for (const role of GROUP_ROLES.toReversed()) {
@@ -746,7 +684,7 @@ const cleanup = (): Promise<void> => {
       try {
         await adminClient.query(
           `SELECT pg_advisory_unlock(hashtextextended(
-             'phase7-db-integration-global-role-provisioning', 0
+             'db-integration-global-role-provisioning', 0
            ))`
         )
         provisioningLockAcquired = false
@@ -771,9 +709,10 @@ export const cleanupIsolatedDatabase = async (): Promise<void> => {
   await cleanup()
 }
 
-export const registerCapabilityAndActivate = async (
-  abortSignal?: AbortSignal,
-  issuerActivationOwner: 'runner' | 'fixture' = 'runner'
+// #504 P8-1: the baseline starts with V1 issuance active; only the
+// capability row is registered.
+export const registerDatabaseCapabilityForTest = async (
+  abortSignal?: AbortSignal
 ): Promise<void> => {
   abortSignal?.throwIfAborted()
   const migrationClient = new Client({
@@ -783,36 +722,7 @@ export const registerCapabilityAndActivate = async (
   try {
     abortSignal?.throwIfAborted()
     await migrationClient.query(`SET search_path TO ${quoteSchema(schemaName)}`)
-    abortSignal?.throwIfAborted()
-    const endpoint = await migrationClient.query<{
-      databaseName: string
-      serverAddress: string
-      serverPort: number
-    }>(
-      `SELECT current_database() AS "databaseName",
-         inet_server_addr()::text AS "serverAddress",
-         inet_server_port() AS "serverPort"`
-    )
-    const target = endpoint.rows[0]
-    if (!target) {
-      throw new Error('API endpoint identity is unavailable.')
-    }
-    abortSignal?.throwIfAborted()
-    await migrationClient.query(
-      `SELECT "phase7_register_database_capability"(
-         $1, $2::inet, $3, 'TEST'
-       )`,
-      [target.databaseName, target.serverAddress, target.serverPort]
-    )
-    abortSignal?.throwIfAborted()
-    // Lifecycle's existing SSO fixture owns the one-way activation in connect().
-    if (issuerActivationOwner === 'runner') {
-      // Settle the fresh ledger's statistics first: an autovacuum ANALYZE of
-      // _prisma_migrations can otherwise deadlock with the activation's REVOKE
-      // and DROP POLICY on that table (CI run 41787459400).
-      await migrationClient.query(`ANALYZE "_prisma_migrations"`)
-      await migrationClient.query(`SELECT "phase7_activate_v1_issuer"('TEST')`)
-    }
+    await registerDatabaseCapability(migrationClient, 'TEST')
     abortSignal?.throwIfAborted()
   } finally {
     await migrationClient.end()
@@ -861,7 +771,6 @@ export const adminSeedInvocation = (
 export const prepareIsolatedDatabase = async ({
   abortSignal,
   seedRuns = 0,
-  issuerActivationOwner = 'runner',
   artifactsPrepared = false
 }: PrepareIsolatedDatabaseOptions = {}): Promise<IsolatedDatabaseHarness> => {
   if (databasePrepared) {
@@ -891,27 +800,23 @@ export const prepareIsolatedDatabase = async ({
   abortSignal?.throwIfAborted()
   await adminClient.query(
     `CREATE SCHEMA ${quoteSchema(schemaName)}
-     AUTHORIZATION "nihongo_phase7_migration"`
+     AUTHORIZATION "nihongo_migration"`
   )
   schemaCreated = true
   abortSignal?.throwIfAborted()
 
   const sharedEnvironment: NodeJS.ProcessEnv = {
     ...process.env,
-    ADMIN_CMS_MODE: 'technical',
-    AUTH_GATEWAY_DATABASE_URL: authGatewayDatabaseUrl.toString(),
+    TEST_APP_FIXTURE_DATABASE_URL: applicationDatabaseUrl.toString(),
     DATABASE_URL: applicationDatabaseUrl.toString(),
-    TEST_API_ERASURE_DATABASE_URL: erasureWorkerDatabaseUrl.toString(),
-    GUEST_CLEANUP_DATABASE_URL: buildWrapperDatabaseUrl(
-      TEST_GUEST_CLEANUP_LOGIN
-    ).toString(),
+    GUEST_CLEANUP_DATABASE_URL: applicationDatabaseUrl.toString(),
     GUEST_CLEANUP_FIXTURE_DATABASE_URL: targetDatabaseUrl.toString(),
     GUEST_CLEANUP_TEST_ISOLATED: guestCleanupShard ? 'yes' : undefined,
     RUNTIME_DATABASE_URL: applicationDatabaseUrl.toString(),
     NODE_ENV: 'test',
     TEST_API_ADMIN_DATABASE_URL: targetDatabaseUrl.toString(),
     TEST_API_MIGRATION_DATABASE_URL: migrationDatabaseUrl.toString(),
-    PHASE7_MIGRATION_DATABASE_URL: migrationDatabaseUrl.toString(),
+    MIGRATION_DATABASE_URL: migrationDatabaseUrl.toString(),
     PRISMA_TEST_DATABASE_URL: applicationDatabaseUrl.toString(),
     PRODUCTION_DATABASE_URL: syntheticProductionDatabaseUrl.toString()
   }
@@ -925,71 +830,22 @@ export const prepareIsolatedDatabase = async ({
     repositoryRoot,
     'apps/api/prisma/migrations'
   )
-  const lastBootstrapMigration =
-    '20261009092000_phase7_n4_n2_revision2_digest_fix'
-  const migrationNames = readdirSync(canonicalMigrationsPath, {
-    withFileTypes: true
-  })
-    .filter(
-      (entry) => entry.isDirectory() && entry.name <= lastBootstrapMigration
-    )
-    .map((entry) => entry.name)
-    .sort()
-  if (
-    migrationNames.length !== 37 ||
-    migrationNames.at(-1) !== lastBootstrapMigration
-  ) {
-    throw new Error('Canonical content migration prefix is inconsistent.')
-  }
-  const bootstrapMigrationsPath = mkdtempSync(
-    nodePath.join(tmpdir(), 'nihongo-phase7-content-')
+  // #504 P8-1: one baseline; seed runs on the migrated schema.
+  await runCommand(
+    'pnpm',
+    ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
+    { ...sharedEnvironment, TEST_MIGRATIONS_PATH: canonicalMigrationsPath },
+    abortSignal
   )
-  try {
-    copyFileSync(
-      nodePath.join(canonicalMigrationsPath, 'migration_lock.toml'),
-      nodePath.join(bootstrapMigrationsPath, 'migration_lock.toml')
-    )
-    for (const name of migrationNames) {
-      cpSync(
-        nodePath.join(canonicalMigrationsPath, name),
-        nodePath.join(bootstrapMigrationsPath, name),
-        { recursive: true }
-      )
-    }
+  await registerDatabaseCapabilityForTest(abortSignal)
+  const seed = adminSeedInvocation(true)
+  for (let runIndex = 0; runIndex < seedRuns; runIndex += 1) {
     await runCommand(
       'pnpm',
-      ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
-      {
-        ...sharedEnvironment,
-        TEST_MIGRATIONS_PATH: bootstrapMigrationsPath
-      },
+      seed.args,
+      { ...sharedEnvironment, ...seed.environment },
       abortSignal
     )
-    await registerCapabilityAndActivate(abortSignal, issuerActivationOwner)
-
-    const seed = adminSeedInvocation(true)
-    for (let runIndex = 0; runIndex < seedRuns; runIndex += 1) {
-      await runCommand(
-        'pnpm',
-        seed.args,
-        { ...sharedEnvironment, ...seed.environment },
-        abortSignal
-      )
-    }
-    // Seed-free callers retain the prefix until their explicit seed step.
-    if (seedRuns > 0) {
-      await runCommand(
-        'pnpm',
-        ['--filter', '@nihongo/api', 'run', 'db:migrate:deploy'],
-        {
-          ...sharedEnvironment,
-          TEST_MIGRATIONS_PATH: canonicalMigrationsPath
-        },
-        abortSignal
-      )
-    }
-  } finally {
-    rmSync(bootstrapMigrationsPath, { recursive: true, force: true })
   }
 
   abortSignal?.throwIfAborted()
@@ -1002,8 +858,7 @@ export const prepareIsolatedDatabase = async ({
   return {
     adminDatabaseUrl: targetDatabaseUrl.toString(),
     applicationDatabaseUrl: applicationDatabaseUrl.toString(),
-    authGatewayDatabaseUrl: authGatewayDatabaseUrl.toString(),
-    erasureWorkerDatabaseUrl: erasureWorkerDatabaseUrl.toString(),
+    appFixtureDatabaseUrl: applicationDatabaseUrl.toString(),
     migrationDatabaseUrl: migrationDatabaseUrl.toString(),
     schemaName,
     sharedEnvironment
@@ -1012,18 +867,18 @@ export const prepareIsolatedDatabase = async ({
 
 const run = async (): Promise<void> => {
   const { sharedEnvironment } = await prepareIsolatedDatabase()
-  const apiEntries = getApiIntegrationEntriesByOwner('phase7-api')
+  const apiEntries = getApiIntegrationEntriesByOwner('api')
   const [repositoryEntry, apiGateEntry, commandRepositoryEntry] = apiEntries
   if (
     apiEntries.length !== 3 ||
     !apiGateEntry ||
     !repositoryEntry ||
     !commandRepositoryEntry ||
-    apiGateEntry.shard !== 'phase7-api-post-seed' ||
+    apiGateEntry.shard !== 'api-post-seed' ||
     apiGateEntry.seedPolicy !== 'canonical-once' ||
-    repositoryEntry.shard !== 'phase7-api-pre-seed' ||
+    repositoryEntry.shard !== 'api-pre-seed' ||
     repositoryEntry.seedPolicy !== 'none' ||
-    commandRepositoryEntry.shard !== 'phase7-api-post-seed' ||
+    commandRepositoryEntry.shard !== 'api-post-seed' ||
     commandRepositoryEntry.seedPolicy !== 'canonical-once'
   ) {
     throw new Error('API integration manifest is incomplete.')
@@ -1064,8 +919,7 @@ const run = async (): Promise<void> => {
 
 const runSsoAccountLifecycle = async (): Promise<void> => {
   const harness = await prepareIsolatedDatabase({
-    seedRuns: 1,
-    issuerActivationOwner: 'fixture'
+    seedRuns: 1
   })
   await runCommand(
     'pnpm',
@@ -1104,15 +958,15 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
   assertSsoBootstrapMigrationHistory(expectedMigrations, applied.rows)
   process.stdout.write(
     JSON.stringify({
-      event: 'phase7.api.sso_first_admin_bootstrap.migrations_verified',
-      canonicalCount: 58,
+      event: 'api.sso_first_admin_bootstrap.migrations_verified',
+      canonicalCount: 1,
       checksumMatch: true,
       reentry: true
     }) + '\n'
   )
   const environment = createSsoTestEnvironment({
     ...harness.sharedEnvironment,
-    PHASE7_ADMIN_DATABASE_URL: harness.adminDatabaseUrl
+    ADMIN_DATABASE_URL: harness.adminDatabaseUrl
   })
   const count = await runApiIntegrationManifestVitestFile({
     runCommand,
@@ -1136,7 +990,7 @@ const runSsoAccountLifecycle = async (): Promise<void> => {
     throw new Error('SSO account lifecycle exact6/orphan verification failed.')
   process.stdout.write(
     JSON.stringify({
-      event: 'phase7.api.sso_account_lifecycle.tests_verified',
+      event: 'api.sso_account_lifecycle.tests_verified',
       selected: 6,
       passed: count,
       orphanCount: 0
@@ -1290,11 +1144,9 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
       NODE_ENV: 'test',
       DEPLOYMENT_ENVIRONMENT: 'TEST',
       RELEASE_ID: '0'.repeat(40),
-      ADMIN_CMS_MODE: 'disabled',
       HOST: host,
       PORT: String(port),
       DATABASE_URL: harness.applicationDatabaseUrl,
-      AUTH_GATEWAY_DATABASE_URL: harness.authGatewayDatabaseUrl,
       TRUSTED_ORIGINS: webOrigin,
       BETTER_AUTH_URL: apiOrigin,
       BETTER_AUTH_SECRET: 'a'.repeat(32),
@@ -1304,7 +1156,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
     controller.signal.throwIfAborted()
     fixture = await createSsoBrowserApiTestFixture({
       databaseUrl: harness.applicationDatabaseUrl,
-      authGatewayDatabaseUrl: harness.authGatewayDatabaseUrl,
+      appFixtureDatabaseUrl: harness.appFixtureDatabaseUrl,
       adminDatabaseUrl: harness.adminDatabaseUrl,
       environment,
       isolateSignIns: true
@@ -1336,20 +1188,18 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
     }
     const expectedReconciliation = {
       baselineOwnedUserAccountCaptured: true,
-      baselineOwnedSessionFamilyCaptured: true,
+      baselineOwnedSessionCaptured: true,
       saveAnswerABeforeBookmarkB: true,
       saveBookmarkUserDelta: 0,
       saveBookmarkAccountDelta: 0,
       saveBookmarkBookmarkDelta: 0,
       ownedSessionExpiryArmedOnce: 1,
       oldL0Expired: true,
-      oldF0Active: true,
       login2SameInternalUserU: true,
       login2UserDeltaFromSaveBookmark: 0,
       login2AccountDeltaFromSaveBookmark: 0,
       login2BookmarkDeltaFromSaveBookmark: 0,
       login2SessionDeltaFromSaveBookmark: 1,
-      login2FamilyDeltaFromSaveBookmark: 1,
       samePracticeRetained: true,
       answerARetained: true,
       bookmarkBRetained: true
@@ -1410,8 +1260,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
               expiryPhase = 'FIRST_401_CONFIRMED'
               process.stdout.write(
                 `${JSON.stringify({
-                  event:
-                    'phase7.api.sso_browser.session_expiry.first_protected',
+                  event: 'api.sso_browser.session_expiry.first_protected',
                   kind: 'BOOKMARK_LIST',
                   firstProtectedIngressAfterArm: true,
                   countBeforeFirst401: protectedIngressCountBeforeFirst401,
@@ -1432,8 +1281,8 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
               const finalReceipt = {
                 baselineOwnedUserAccountCaptured:
                   receipt.baselineOwnedUserAccountCaptured,
-                baselineOwnedSessionFamilyCaptured:
-                  receipt.baselineOwnedSessionFamilyCaptured,
+                baselineOwnedSessionCaptured:
+                  receipt.baselineOwnedSessionCaptured,
                 saveAnswerABeforeBookmarkB: receipt.saveAnswerABeforeBookmarkB,
                 saveBookmarkUserDelta: receipt.saveBookmarkUserDelta,
                 saveBookmarkAccountDelta: receipt.saveBookmarkAccountDelta,
@@ -1441,7 +1290,6 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
                 ownedSessionExpiryArmedOnce:
                   receipt.ownedSessionExpiryArmedOnce,
                 oldL0Expired: receipt.oldL0Expired,
-                oldF0Active: receipt.oldF0Active,
                 login2SameInternalUserU: receipt.login2SameInternalUserU,
                 login2UserDeltaFromSaveBookmark:
                   receipt.login2UserDeltaFromSaveBookmark,
@@ -1451,15 +1299,13 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
                   receipt.login2BookmarkDeltaFromSaveBookmark,
                 login2SessionDeltaFromSaveBookmark:
                   receipt.login2SessionDeltaFromSaveBookmark,
-                login2FamilyDeltaFromSaveBookmark:
-                  receipt.login2FamilyDeltaFromSaveBookmark,
                 samePracticeRetained: receipt.samePracticeRetained,
                 answerARetained: receipt.answerARetained,
                 bookmarkBRetained: receipt.bookmarkBRetained
               }
               if (
                 firstFailure ||
-                Object.keys(receipt).length !== 18 ||
+                Object.keys(receipt).length !== 16 ||
                 Object.entries(expectedReconciliation).some(
                   ([key, expected]) =>
                     finalReceipt[key as keyof typeof expectedReconciliation] !==
@@ -1470,7 +1316,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
               }
               process.stdout.write(
                 `${JSON.stringify({
-                  event: 'phase7.api.sso_browser.session_expiry.reconciled',
+                  event: 'api.sso_browser.session_expiry.reconciled',
                   ...finalReceipt
                 })}\n`
               )
@@ -1509,7 +1355,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
                 try {
                   process.stdout.write(
                     `${JSON.stringify({
-                      event: 'phase7.api.sso_browser.session_expiry.armed',
+                      event: 'api.sso_browser.session_expiry.armed',
                       armed: true,
                       expired: true,
                       sessionCount: 1
@@ -1528,7 +1374,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
         try {
           process.stdout.write(
             `${JSON.stringify({
-              event: 'phase7.api.sso_browser.start.entered',
+              event: 'api.sso_browser.start.entered',
               method: 'POST',
               path: '/api/auth/sign-in/social'
             })}\n`
@@ -1543,7 +1389,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
           try {
             process.stdout.write(
               `${JSON.stringify({
-                event: 'phase7.api.sso_browser.start.fetch_failed',
+                event: 'api.sso_browser.start.fetch_failed',
                 method: 'POST',
                 path: '/api/auth/sign-in/social'
               })}\n`
@@ -1567,8 +1413,8 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
           process.stdout.write(
             `${JSON.stringify({
               event: statusClass
-                ? 'phase7.api.sso_browser.start.completed'
-                : 'phase7.api.sso_browser.start.status_failed',
+                ? 'api.sso_browser.start.completed'
+                : 'api.sso_browser.start.status_failed',
               method: 'POST',
               path: '/api/auth/sign-in/social',
               ...(statusClass ? { statusClass } : {})
@@ -1616,7 +1462,7 @@ const runSsoBrowserGoogle = async (): Promise<void> => {
       throw new Error('SSO browser listener did not bind the owned endpoint.')
     }
     process.stdout.write(
-      `${JSON.stringify({ event: 'phase7.api.sso_browser.ready', apiOrigin })}\n`
+      `${JSON.stringify({ event: 'api.sso_browser.ready', apiOrigin })}\n`
     )
     await stopped
     if (firstFailure) throw firstFailure
@@ -1643,7 +1489,7 @@ const isDirectExecution =
 if (isDirectExecution && apiIntegrationCase === 'sso-browser-google') {
   void runSsoBrowserGoogle().catch(() => {
     process.stderr.write(
-      `${JSON.stringify({ event: 'phase7.api.sso_browser.failed' })}\n`
+      `${JSON.stringify({ event: 'api.sso_browser.failed' })}\n`
     )
     process.exitCode = 1
   })
@@ -1665,7 +1511,7 @@ if (isDirectExecution && apiIntegrationCase === 'sso-browser-google') {
       await cleanup()
       process.stdout.write(
         `${JSON.stringify({
-          event: 'phase7.api.integration.passed',
+          event: 'api.integration.passed',
           schemaRemoved: true
         })}\n`
       )
@@ -1676,7 +1522,7 @@ if (isDirectExecution && apiIntegrationCase === 'sso-browser-google') {
       } catch (cleanupError: unknown) {
         process.stderr.write(
           `${JSON.stringify({
-            event: 'phase7.api.integration.cleanup_failed',
+            event: 'api.integration.cleanup_failed',
             errorName:
               cleanupError instanceof Error
                 ? cleanupError.name
@@ -1687,7 +1533,7 @@ if (isDirectExecution && apiIntegrationCase === 'sso-browser-google') {
       }
       process.stderr.write(
         `${JSON.stringify({
-          event: 'phase7.api.integration.failed',
+          event: 'api.integration.failed',
           errorName: error instanceof Error ? error.name : 'UnknownError',
           message: error instanceof Error ? error.message : 'Unknown failure',
           schemaName

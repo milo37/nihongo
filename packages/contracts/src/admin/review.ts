@@ -1,19 +1,9 @@
 import { z } from 'zod'
-import { createApiFailureSchema } from '../common/error.js'
 import { opaqueIdSchema } from '../common/id.js'
 import {
   nonNegativeSafeIntegerSchema,
   rowVersionSchema
 } from '../common/content-validation.js'
-
-export const completeQuestionReviewOperationId =
-  'admin.completeQuestionReview' as const
-export const holdQuestionReviewOperationId = 'admin.holdQuestionReview' as const
-export const publishQuestionVersionBatchOperationId =
-  'admin.publishQuestionVersionBatch' as const
-/** @deprecated No endpoint; delete drafts via archiveAdminQuestion (JLP-691). */
-export const deleteQuestionDraftOperationId =
-  'admin.deleteQuestionDraft' as const
 
 /**
  * One person flow. Internal version states map to:
@@ -28,7 +18,7 @@ export const questionReviewStageSchema = z.enum([
   'RETIRED'
 ])
 
-export const autoValidationIssueSchema = z
+const autoValidationIssueSchema = z
   .object({
     field: z.string().min(1).max(200),
     code: z.string().min(1).max(100),
@@ -47,20 +37,6 @@ export const autoValidationResultSchema = z
     message: '통과일 때만 이슈 목록이 비어 있어야 합니다.'
   })
 
-/** Added to admin question summaries, version summaries and detail. */
-export const adminQuestionReviewStateSchema = z
-  .object({
-    reviewStage: questionReviewStageSchema,
-    autoValidation: autoValidationResultSchema,
-    /** Submitted study answers for this question; > 0 means retire/archive only. */
-    usageCount: nonNegativeSafeIntegerSchema
-  })
-  .strict()
-
-export const questionVersionParamsSchema = z
-  .object({ versionId: opaqueIdSchema })
-  .strict()
-
 export const completeQuestionReviewRequestSchema = z
   .object({
     expectedRowVersion: rowVersionSchema,
@@ -73,41 +49,6 @@ export const completeQuestionReviewRequestSchema = z
       .strict()
   })
   .strict()
-
-export const holdQuestionReviewRequestSchema = z
-  .object({ expectedRowVersion: rowVersionSchema })
-  .strict()
-
-export const questionReviewMutationResultSchema = z
-  .object({
-    questionVersionId: opaqueIdSchema,
-    reviewStage: questionReviewStageSchema,
-    rowVersion: rowVersionSchema
-  })
-  .strict()
-
-export const completeQuestionReviewResponseSchema =
-  questionReviewMutationResultSchema
-export const holdQuestionReviewResponseSchema =
-  questionReviewMutationResultSchema
-
-/** Review commands do not require re-authentication. */
-export const questionReviewErrorSchema = createApiFailureSchema(
-  z.enum([
-    'AUTHENTICATION_REQUIRED',
-    'AUTH_SESSION_EXPIRED',
-    'ADMIN_REQUIRED',
-    'INVALID_CSRF',
-    'UNTRUSTED_ORIGIN',
-    'VALIDATION_ERROR',
-    'RESOURCE_NOT_FOUND',
-    'VERSION_CONFLICT',
-    'INVALID_STATE_TRANSITION',
-    'RATE_LIMITED',
-    'INTERNAL_SERVER_ERROR',
-    'SERVICE_UNAVAILABLE'
-  ])
-)
 
 export const publishQuestionVersionBatchRequestSchema = z
   .object({
@@ -131,7 +72,7 @@ export const publishQuestionVersionBatchRequestSchema = z
   })
   .strict()
 
-export const publishQuestionVersionBatchItemResultSchema = z.enum([
+const publishQuestionVersionBatchItemResultSchema = z.enum([
   'PUBLISHED',
   'VERSION_CONFLICT',
   'NOT_REVIEWED',
@@ -170,66 +111,58 @@ export const publishQuestionVersionBatchResponseSchema = z
     { path: ['publishedCount'], message: 'publishedCount가 결과와 달라요.' }
   )
 
-/** Error schema: `publishQuestionVersionBatchErrorSchema` in content-commands. */
+export const approveQuestionVersionBatchRequestSchema =
+  publishQuestionVersionBatchRequestSchema
+
+const approveQuestionVersionBatchItemResultSchema = z.enum([
+  'APPROVED',
+  'VERSION_CONFLICT',
+  /** Not IN_REVIEW, or the question is archived. */
+  'NOT_IN_REVIEW',
+  'NOT_FOUND',
+  /** Unexpected failure after an earlier item was approved; reload and retry. */
+  'FAILED'
+])
 
 /**
- * POST /admin/question-versions/:versionId/draft-deletion.
- * Only a never published draft with usageCount 0 can be deleted.
- * @deprecated Never implemented. Drafts are removed with archiveAdminQuestion,
- * which retires open versions; removal is a #504 candidate (JLP-691).
+ * Same shape and per item commits as the publication batch (#709). An error
+ * response means nothing was approved.
  */
-export const deleteQuestionDraftRequestSchema = z
-  .object({ expectedRowVersion: rowVersionSchema })
+export const approveQuestionVersionBatchResponseSchema = z
+  .object({
+    approvedCount: nonNegativeSafeIntegerSchema,
+    items: z
+      .array(
+        z
+          .object({
+            questionVersionId: opaqueIdSchema,
+            result: approveQuestionVersionBatchItemResultSchema,
+            rowVersion: rowVersionSchema.nullable()
+          })
+          .strict()
+      )
+      .min(1)
+      .max(100)
+  })
   .strict()
-
-/** @deprecated No endpoint; delete drafts via archiveAdminQuestion (JLP-691). */
-export const deleteQuestionDraftResponseSchema = z
-  .object({ questionVersionId: opaqueIdSchema, deleted: z.literal(true) })
-  .strict()
-
-/** @deprecated No endpoint; delete drafts via archiveAdminQuestion (JLP-691). */
-export const deleteQuestionDraftErrorSchema = createApiFailureSchema(
-  z.enum([
-    'AUTHENTICATION_REQUIRED',
-    'AUTH_SESSION_EXPIRED',
-    'ADMIN_REQUIRED',
-    'INVALID_CSRF',
-    'UNTRUSTED_ORIGIN',
-    'VALIDATION_ERROR',
-    'RESOURCE_NOT_FOUND',
-    'VERSION_CONFLICT',
-    'INVALID_STATE_TRANSITION',
-    'RATE_LIMITED',
-    'INTERNAL_SERVER_ERROR',
-    'SERVICE_UNAVAILABLE'
-  ])
-)
+  .refine(
+    (response) =>
+      response.approvedCount ===
+      response.items.filter(({ result }) => result === 'APPROVED').length,
+    { path: ['approvedCount'], message: 'approvedCount가 결과와 달라요.' }
+  )
 
 export type QuestionReviewStage = z.output<typeof questionReviewStageSchema>
 export type AutoValidationResult = z.output<typeof autoValidationResultSchema>
-export type AdminQuestionReviewState = z.output<
-  typeof adminQuestionReviewStateSchema
->
-export type CompleteQuestionReviewRequest = z.input<
-  typeof completeQuestionReviewRequestSchema
->
-export type HoldQuestionReviewRequest = z.input<
-  typeof holdQuestionReviewRequestSchema
->
-export type QuestionReviewMutationResult = z.output<
-  typeof questionReviewMutationResultSchema
->
 export type PublishQuestionVersionBatchRequest = z.input<
   typeof publishQuestionVersionBatchRequestSchema
 >
 export type PublishQuestionVersionBatchResponse = z.output<
   typeof publishQuestionVersionBatchResponseSchema
 >
-/** @deprecated No endpoint; delete drafts via archiveAdminQuestion (JLP-691). */
-export type DeleteQuestionDraftRequest = z.input<
-  typeof deleteQuestionDraftRequestSchema
+export type ApproveQuestionVersionBatchRequest = z.input<
+  typeof approveQuestionVersionBatchRequestSchema
 >
-/** @deprecated No endpoint; delete drafts via archiveAdminQuestion (JLP-691). */
-export type DeleteQuestionDraftResponse = z.output<
-  typeof deleteQuestionDraftResponseSchema
+export type ApproveQuestionVersionBatchResponse = z.output<
+  typeof approveQuestionVersionBatchResponseSchema
 >

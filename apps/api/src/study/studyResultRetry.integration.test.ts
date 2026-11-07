@@ -17,6 +17,7 @@ import { createStudyResultRetryService } from './studyResultRetryService.js'
 import { createPrismaStudySessionRepository } from './studySessionRepository.js'
 import { createPrismaStudySubmissionRepository } from './studySubmissionRepository.js'
 import { createStudySubmissionService } from './studySubmissionService.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const DAY_MS = 24 * 60 * 60 * 1_000
 const environment = parseApiEnvironment(process.env)
@@ -29,14 +30,14 @@ assertSafeTestDatabase({
 const isCurrentSourceIntegration =
   process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
 const fixtureDatabaseUrl = process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
-const erasureWorkerDatabaseUrl = process.env.TEST_API_ERASURE_DATABASE_URL
+const appFixtureDatabaseUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
 if (
   isCurrentSourceIntegration &&
-  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
+  (!fixtureDatabaseUrl || !appFixtureDatabaseUrl)
 ) {
   throw new Error('Result retry requires fixture and erasure databases.')
 }
-for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
+for (const databaseUrl of [fixtureDatabaseUrl, appFixtureDatabaseUrl]) {
   if (databaseUrl) {
     assertSafeTestDatabase({
       nodeEnvironment: environment.NODE_ENV,
@@ -55,11 +56,11 @@ const database = createDatabaseRuntime(
 const fixtureDatabase = fixtureDatabaseUrl
   ? createDatabaseRuntime(fixtureDatabaseUrl)
   : database
-const erasureWorkerClient = erasureWorkerDatabaseUrl
+const erasureWorkerClient = appFixtureDatabaseUrl
   ? new Client({
-      connectionString: erasureWorkerDatabaseUrl,
+      connectionString: appFixtureDatabaseUrl,
       options: createPostgresStartupOptions(
-        getPostgresSchema(erasureWorkerDatabaseUrl)
+        getPostgresSchema(appFixtureDatabaseUrl)
       )
     })
   : undefined
@@ -180,7 +181,7 @@ const createUser = async (label: string): Promise<string> => {
     await fixture.account.create({
       data: {
         accountId: userId,
-        password: 'phase10-fixture-password-hash',
+        password: 'test-fixture-password-hash',
         providerId: 'credential',
         userId
       }
@@ -192,9 +193,7 @@ const createUser = async (label: string): Promise<string> => {
 
 const eraseUser = async (userId: string): Promise<void> => {
   if (erasureWorkerClient) {
-    await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
-      userId
-    ])
+    await eraseTestUser(database.client, userId)
   } else {
     await fixtureDatabase.client.user.delete({ where: { id: userId } })
   }
@@ -282,8 +281,7 @@ const createSubmittedSource = async (
       durationSec: material.length * 10,
       expectedDraftRevision: saved.response.revision
     },
-    owner,
-    2
+    owner
   )
   return { created, material, submitted }
 }
@@ -292,7 +290,7 @@ beforeAll(async () => {
   await database.checkReadiness()
   if (erasureWorkerClient) {
     await erasureWorkerClient.connect()
-    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+    await erasureWorkerClient.query(`SET ROLE "nihongo_app"`)
   }
 })
 
@@ -375,58 +373,6 @@ describe('study result retry integration', () => {
       })
     ).toBe(0)
 
-    const retryRecord =
-      await database.client.idempotencyRecord.findFirstOrThrow({
-        where: {
-          operation: 'STUDY_RETRY_CREATE',
-          studySessionId: created.response.session.id
-        },
-        select: { id: true, responseBody: true }
-      })
-    await fixtureDatabase.client.$executeRawUnsafe(
-      'ALTER TABLE "IdempotencyRecord" ' +
-        'DISABLE TRIGGER "IdempotencyRecord_validate_change"'
-    )
-    try {
-      for (const responseExpression of [
-        `jsonb_set(
-          "responseBody" #- '{session,fallbackReason}',
-          '{session,extra}', 'null'::jsonb, true
-        )`,
-        `jsonb_set(
-          "responseBody", '{session,usedFallback}', '"false"'::jsonb, true
-        )`,
-        `jsonb_set(
-          "responseBody", '{session,practiceContractVersion}',
-          '"2"'::jsonb, true
-        )`
-      ]) {
-        await expectRawDatabaseError({
-          expectedMessage:
-            'Committed retry idempotency state does not match its target session.',
-          operation: async () =>
-            await fixtureDatabase.client.$executeRawUnsafe(
-              `UPDATE "IdempotencyRecord"
-             SET "responseBody" = ${responseExpression}
-             WHERE "id" = $1::uuid`,
-              retryRecord.id
-            ),
-          sqlState: '23514'
-        })
-      }
-    } finally {
-      await fixtureDatabase.client.$executeRawUnsafe(
-        'ALTER TABLE "IdempotencyRecord" ' +
-          'ENABLE TRIGGER "IdempotencyRecord_validate_change"'
-      )
-    }
-    expect(
-      await database.client.idempotencyRecord.findUniqueOrThrow({
-        where: { id: retryRecord.id },
-        select: { responseBody: true }
-      })
-    ).toEqual({ responseBody: retryRecord.responseBody })
-
     const submittedAt = new Date(retryAt.getTime() + 1_000)
     await createStudySubmissionService(
       submissionRepository,
@@ -443,8 +389,7 @@ describe('study result retry integration', () => {
         durationSec: 2,
         expectedDraftRevision: 0
       },
-      owner,
-      2
+      owner
     )
     const events = await database.client.reviewEvent.findMany({
       where: { studySessionId: created.response.session.id },
@@ -569,7 +514,7 @@ describe('study result retry integration', () => {
       const archiveTime = new Date()
       await expectRawDatabaseError({
         expectedMessage:
-          'An armed trusted Phase 7 operation intent is required.',
+          'Question pointer/lifecycle aggregate invariant failed.',
         operation: async () =>
           await database.client.$executeRaw`
             UPDATE "Question"
@@ -581,7 +526,7 @@ describe('study result retry integration', () => {
               "updatedAt" = ${archiveTime}
             WHERE "id" = ${archivedQuestionId}::uuid
           `,
-        sqlState: '42501'
+        sqlState: '23514'
       })
       await expect(
         database.client.question.findUniqueOrThrow({
@@ -678,7 +623,7 @@ describe('study result retry integration', () => {
         const retirementTime = new Date(startedAt.getTime() + 2_000)
         await expectRawDatabaseError({
           expectedMessage:
-            'An armed trusted Phase 7 operation intent is required.',
+            'Question pointer/lifecycle aggregate invariant failed.',
           operation: async () =>
             await database.client.$executeRaw`
             UPDATE "QuestionVersion"
@@ -690,7 +635,7 @@ describe('study result retry integration', () => {
               "updatedAt" = ${retirementTime}
             WHERE "id" = ${sourceVersionId}::uuid
           `,
-          sqlState: '42501'
+          sqlState: '23514'
         })
         await expect(
           database.client.questionVersion.findUniqueOrThrow({
@@ -729,8 +674,7 @@ describe('study result retry integration', () => {
             durationSec: 0,
             expectedDraftRevision: 0
           },
-          owner,
-          2
+          owner
         )
         await expect(
           database.client.reviewEvent.findFirstOrThrow({
@@ -797,8 +741,7 @@ describe('study result retry integration', () => {
         await transaction.questionVersionTag.create({
           data: {
             questionVersionId: versionOneId,
-            tagId,
-            labelSnapshot: 'Slice 5 historical pin'
+            tagId
           }
         })
         await transaction.questionVersion.update({
@@ -881,8 +824,7 @@ describe('study result retry integration', () => {
           durationSec: 0,
           expectedDraftRevision: 0
         },
-        owner,
-        2
+        owner
       )
 
       const publishedAt = new Date(startedAt.getTime() + 2_000)
@@ -916,8 +858,7 @@ describe('study result retry integration', () => {
         await transaction.questionVersionTag.create({
           data: {
             questionVersionId: versionTwoId,
-            tagId,
-            labelSnapshot: 'Slice 5 historical pin'
+            tagId
           }
         })
         await transaction.questionVersion.update({
@@ -967,8 +908,7 @@ describe('study result retry integration', () => {
           durationSec: 0,
           expectedDraftRevision: 0
         },
-        owner,
-        2
+        owner
       )
       await expect(
         database.client.reviewEvent.findFirstOrThrow({

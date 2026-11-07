@@ -12,6 +12,7 @@ import {
   createPrismaAccountRestrictionReader,
   type AccountRestrictionReader
 } from './accountRestriction.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({
@@ -26,16 +27,16 @@ if (!schema)
 const isCurrentSourceIntegration =
   process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
 const fixtureDatabaseUrl = process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
-const erasureWorkerDatabaseUrl = process.env.TEST_API_ERASURE_DATABASE_URL
+const appFixtureDatabaseUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
 if (
   isCurrentSourceIntegration &&
-  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
+  (!fixtureDatabaseUrl || !appFixtureDatabaseUrl)
 ) {
   throw new Error(
     'Account restriction integration requires fixture and erasure databases.'
   )
 }
-for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
+for (const databaseUrl of [fixtureDatabaseUrl, appFixtureDatabaseUrl]) {
   if (databaseUrl) {
     assertSafeTestDatabase({
       nodeEnvironment: environment.NODE_ENV,
@@ -61,11 +62,11 @@ const client = new Client({
     isCurrentSourceIntegration ? 'nihongo_app' : undefined
   )
 })
-const erasureWorkerClient = erasureWorkerDatabaseUrl
+const erasureWorkerClient = appFixtureDatabaseUrl
   ? new Client({
-      connectionString: erasureWorkerDatabaseUrl,
+      connectionString: appFixtureDatabaseUrl,
       options: createPostgresStartupOptions(
-        getPostgresSchema(erasureWorkerDatabaseUrl)
+        getPostgresSchema(appFixtureDatabaseUrl)
       )
     })
   : undefined
@@ -89,7 +90,7 @@ const createUser = async (label: string): Promise<string> => {
     await fixture.account.create({
       data: {
         accountId: id,
-        password: 'phase10-fixture-password-hash',
+        password: 'test-fixture-password-hash',
         providerId: 'credential',
         userId: id
       }
@@ -101,9 +102,7 @@ const createUser = async (label: string): Promise<string> => {
 
 const eraseUser = async (userId: string): Promise<void> => {
   if (erasureWorkerClient) {
-    await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
-      userId
-    ])
+    await eraseTestUser(database.client, userId)
   } else {
     await client.query('DELETE FROM "User" WHERE "id" = $1', [userId])
   }
@@ -125,7 +124,7 @@ beforeAll(async () => {
   await client.connect()
   if (erasureWorkerClient) {
     await erasureWorkerClient.connect()
-    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+    await erasureWorkerClient.query(`SET ROLE "nihongo_app"`)
   }
 })
 
@@ -158,36 +157,6 @@ describe('UserAccountRestriction (#484)', () => {
       await expect(restrict(member, reason)).rejects.toThrow()
     }
     await expect(reader.isRestricted(member)).resolves.toBe(false)
-  })
-
-  it('lets the application role read but not write restrictions', async () => {
-    const member = await createUser('acl')
-    await expect(
-      client.query(
-        `INSERT INTO "UserAccountRestriction" ("userId", "reason")
-           VALUES ($1, 'self-granted')`,
-        [member]
-      )
-    ).rejects.toMatchObject({ code: '42501' })
-
-    await restrict(member, '운영 확인 중')
-    await expect(
-      client.query('DELETE FROM "UserAccountRestriction" WHERE "userId" = $1', [
-        member
-      ])
-    ).rejects.toMatchObject({ code: '42501' })
-    await expect(
-      client.query(
-        `UPDATE "UserAccountRestriction" SET "reason" = 'changed'
-           WHERE "userId" = $1`,
-        [member]
-      )
-    ).rejects.toMatchObject({ code: '42501' })
-    const visible = await client.query(
-      'SELECT "userId" FROM "UserAccountRestriction" WHERE "userId" = $1',
-      [member]
-    )
-    expect(visible.rows).toEqual([{ userId: member }])
   })
 
   it('removes the restriction together with an erased member', async () => {

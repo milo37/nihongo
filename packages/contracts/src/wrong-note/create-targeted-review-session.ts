@@ -87,22 +87,6 @@ export const createTargetedReviewSessionErrorCodeSchema = z.enum([
 export const createTargetedReviewSessionErrorSchema = createApiFailureSchema(
   createTargetedReviewSessionErrorCodeSchema
 )
-
-export type CreateTargetedReviewSessionParams = z.input<
-  typeof createTargetedReviewSessionParamsSchema
->
-export type CreateTargetedReviewSessionHeaders = z.input<
-  typeof createTargetedReviewSessionHeadersSchema
->
-export type CreateTargetedReviewSessionQuery = z.input<
-  typeof createTargetedReviewSessionQuerySchema
->
-export type CreateTargetedReviewSessionBody = z.input<
-  typeof createTargetedReviewSessionBodySchema
->
 export type CreateTargetedReviewSessionResponse = z.output<
   typeof createTargetedReviewSessionResponseSchema
->
-export type CreateTargetedReviewSessionError = z.output<
-  typeof createTargetedReviewSessionErrorSchema
 >

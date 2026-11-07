@@ -3,18 +3,19 @@ import { useEffect, useRef } from 'react'
 import { Link, useLocation } from 'react-router'
 import type { ReactElement } from 'react'
 import { ArchiveQuestionDialog } from '@app/admin-question/components/ArchiveQuestionDialog'
-import { BatchPublishDialog } from '@app/admin-question/components/BatchPublishDialog'
+import { BatchActionDialog } from '@app/admin-question/components/BatchActionDialog'
 import { QuestionBatchBar } from '@app/admin-question/components/QuestionBatchBar'
 import { QuestionListFilters } from '@app/admin-question/components/QuestionListFilters'
 import { QuestionListTable } from '@app/admin-question/components/QuestionListTable'
 import { useListAdminQuestions } from '@app/admin-question/hooks/useListAdminQuestions'
 import { useQuestionArchive } from '@app/admin-question/hooks/useQuestionArchive'
-import { useQuestionBatchPublish } from '@app/admin-question/hooks/useQuestionBatchPublish'
+import { useQuestionBatch } from '@app/admin-question/hooks/useQuestionBatch'
 import { useQuestionListSearch } from '@app/admin-question/hooks/useQuestionListSearch'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
+import { Eyebrow } from '@nihongo/browser/common/components/Eyebrow'
 
 export const AdminQuestionPage = (): ReactElement => {
   const { t } = useAdminPresentation()
@@ -28,6 +29,7 @@ export const AdminQuestionPage = (): ReactElement => {
     difficulty,
     sort,
     page,
+    pageSize,
     hasActiveFilters,
     searchParams,
     setSearchParams,
@@ -42,10 +44,10 @@ export const AdminQuestionPage = (): ReactElement => {
     difficulty,
     sort,
     page,
-    pageSize: 20
+    pageSize
   })
   const archive = useQuestionArchive(questionList.refetch)
-  const batch = useQuestionBatchPublish(questionList.data?.items ?? [])
+  const batch = useQuestionBatch(questionList.data?.items ?? [])
   // The publish button is gone once the result replaces the selection bar.
   const batchResultHeading = useRef<HTMLHeadingElement>(null)
 
@@ -79,9 +81,7 @@ export const AdminQuestionPage = (): ReactElement => {
     <section className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 sm:py-14">
       <div className="flex flex-col gap-6 border-b border-line pb-8 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-3xl">
-          <p className="text-sm font-bold tracking-[0.14em] text-brand">
-            {t('questionList.eyebrow')}
-          </p>
+          <Eyebrow>{t('questionList.eyebrow')}</Eyebrow>
           <h1 className="mt-2 text-balance text-3xl font-black tracking-tight sm:text-4xl">
             {t('questionList.title')}
           </h1>
@@ -117,6 +117,7 @@ export const AdminQuestionPage = (): ReactElement => {
         status={status}
         difficulty={difficulty}
         sort={sort}
+        pageSize={pageSize}
         hasActiveFilters={hasActiveFilters}
         setFilter={setFilter}
         total={questionList.data?.total}
@@ -189,7 +190,7 @@ export const AdminQuestionPage = (): ReactElement => {
       ) : null}
 
       <ArchiveQuestionDialog archive={archive} />
-      <BatchPublishDialog batch={batch} fallbackFocusRef={batchResultHeading} />
+      <BatchActionDialog batch={batch} fallbackFocusRef={batchResultHeading} />
     </section>
   )
 }

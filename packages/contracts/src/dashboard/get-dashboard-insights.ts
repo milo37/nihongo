@@ -15,7 +15,7 @@ import {
 export const dashboardInsightsWindowDays = 90 as const
 export const dashboardWeaknessMinAttempts = 5 as const
 export const dashboardWeaknessFullConfidenceAttempts = 20 as const
-export const dashboardRecommendationLimit = 5 as const
+const dashboardRecommendationLimit = 5 as const
 export const dashboardInsightTagLimit = 100 as const
 
 const DAY_MILLISECONDS = 24 * 60 * 60 * 1_000
@@ -96,9 +96,6 @@ const isApplicableQuestionType = (
   return READING_QUESTION_TYPES_BY_LEVEL[level].includes(questionType as never)
 }
 
-export const getDashboardInsightsOperationId =
-  'dashboard.getDashboardInsights' as const
-
 export const getDashboardInsightsQuerySchema = z.object({}).strict()
 
 export const dashboardInsightMetricSchema = z
@@ -150,20 +147,19 @@ export const dashboardInsightMetricSchema = z
     }
   })
 
-export const dashboardInsightLevelStatSchema = dashboardInsightMetricSchema
+const dashboardInsightLevelStatSchema = dashboardInsightMetricSchema
   .safeExtend({ level: jlptLevelSchema })
   .strict()
 
-export const dashboardInsightSubjectStatSchema = dashboardInsightMetricSchema
+const dashboardInsightSubjectStatSchema = dashboardInsightMetricSchema
   .safeExtend({ subject: questionSubjectSchema })
   .strict()
 
-export const dashboardInsightQuestionTypeStatSchema =
-  dashboardInsightMetricSchema
-    .safeExtend({ questionType: questionTypeSchema })
-    .strict()
+const dashboardInsightQuestionTypeStatSchema = dashboardInsightMetricSchema
+  .safeExtend({ questionType: questionTypeSchema })
+  .strict()
 
-export const dashboardInsightTagStatSchema = dashboardInsightMetricSchema
+const dashboardInsightTagStatSchema = dashboardInsightMetricSchema
   .safeExtend({
     tagId: opaqueIdSchema,
     tagLabel: dashboardInsightTagLabelSchema
@@ -224,7 +220,7 @@ const dashboardTagWeaknessSchema = z
   })
   .strict()
 
-export const dashboardWeaknessSchema = z
+const dashboardWeaknessSchema = z
   .discriminatedUnion('dimension', [
     dashboardSubjectWeaknessSchema,
     dashboardQuestionTypeWeaknessSchema,
@@ -1138,7 +1134,7 @@ export const getDashboardInsightsResponseSchema = z
     }
   })
 
-export const getDashboardInsightsErrorCodeSchema = z.enum([
+const getDashboardInsightsErrorCodeSchema = z.enum([
   'AUTHENTICATION_REQUIRED',
   'AUTH_SESSION_EXPIRED',
   'VALIDATION_ERROR',
@@ -1159,15 +1155,6 @@ export type ParsedGetDashboardInsightsQuery = z.output<
 >
 export type DashboardInsightMetric = z.output<
   typeof dashboardInsightMetricSchema
->
-export type DashboardInsightLevelStat = z.output<
-  typeof dashboardInsightLevelStatSchema
->
-export type DashboardInsightSubjectStat = z.output<
-  typeof dashboardInsightSubjectStatSchema
->
-export type DashboardInsightQuestionTypeStat = z.output<
-  typeof dashboardInsightQuestionTypeStatSchema
 >
 export type DashboardInsightTagStat = z.output<
   typeof dashboardInsightTagStatSchema

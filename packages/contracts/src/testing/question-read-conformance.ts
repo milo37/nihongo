@@ -1,6 +1,6 @@
 import type { ListQuestionsQuery } from '../question/list-questions.js'
 
-export interface QuestionListConformanceCase {
+interface QuestionListConformanceCase {
   readonly query: ListQuestionsQuery
   readonly expectedQuestionIds: readonly string[]
   readonly expectedTotal: number

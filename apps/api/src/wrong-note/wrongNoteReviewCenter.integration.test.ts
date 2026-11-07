@@ -35,6 +35,7 @@ import { createPrismaWrongNoteReviewQueueRepository } from './wrongNoteReviewQue
 import { createWrongNoteReviewQueueService } from './wrongNoteReviewQueueService.js'
 import { createPrismaWrongNoteTargetedReviewRepository } from './wrongNoteTargetedReviewRepository.js'
 import { createWrongNoteTargetedReviewService } from './wrongNoteTargetedReviewService.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const DAY_MILLISECONDS = 24 * 60 * 60 * 1_000
 const SUBMITTED_AT = new Date('2026-08-22T00:00:00.000Z')
@@ -51,16 +52,16 @@ assertSafeTestDatabase({
 const isCurrentSourceIntegration =
   process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
 const fixtureDatabaseUrl = process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
-const erasureWorkerDatabaseUrl = process.env.TEST_API_ERASURE_DATABASE_URL
+const appFixtureDatabaseUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
 if (
   isCurrentSourceIntegration &&
-  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
+  (!fixtureDatabaseUrl || !appFixtureDatabaseUrl)
 ) {
   throw new Error(
     'Wrong-note review center requires fixture and erasure databases.'
   )
 }
-for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
+for (const databaseUrl of [fixtureDatabaseUrl, appFixtureDatabaseUrl]) {
   if (databaseUrl) {
     assertSafeTestDatabase({
       nodeEnvironment: environment.NODE_ENV,
@@ -79,11 +80,11 @@ const database = createDatabaseRuntime(
 const fixtureDatabase = fixtureDatabaseUrl
   ? createDatabaseRuntime(fixtureDatabaseUrl)
   : database
-const erasureWorkerClient = erasureWorkerDatabaseUrl
+const erasureWorkerClient = appFixtureDatabaseUrl
   ? new Client({
-      connectionString: erasureWorkerDatabaseUrl,
+      connectionString: appFixtureDatabaseUrl,
       options: createPostgresStartupOptions(
-        getPostgresSchema(erasureWorkerDatabaseUrl)
+        getPostgresSchema(appFixtureDatabaseUrl)
       )
     })
   : undefined
@@ -214,7 +215,7 @@ const createUser = async (label: string): Promise<string> => {
     await fixtureClient.account.create({
       data: {
         accountId: userId,
-        password: 'phase10-fixture-password-hash',
+        password: 'test-fixture-password-hash',
         providerId: 'credential',
         userId
       }
@@ -226,9 +227,7 @@ const createUser = async (label: string): Promise<string> => {
 
 const eraseUser = async (userId: string): Promise<void> => {
   if (erasureWorkerClient) {
-    await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
-      userId
-    ])
+    await eraseTestUser(database.client, userId)
   } else {
     await fixtureDatabase.client.user.delete({ where: { id: userId } })
   }
@@ -597,7 +596,7 @@ beforeAll(async () => {
   await database.checkReadiness()
   if (erasureWorkerClient) {
     await erasureWorkerClient.connect()
-    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+    await erasureWorkerClient.query(`SET ROLE "nihongo_app"`)
   }
   const ownerUserId = await createUser('owner')
   foreignUserId = await createUser('foreign')
@@ -807,8 +806,10 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
       const archiveTime = new Date(dueAt.getTime() + 1_000)
       if (isCurrentSourceIntegration) {
         await expectRawDatabaseError({
+          // The armed-intent trigger is gone (#504 P4); the deferred aggregate
+          // invariant still refuses an archive that only clears the pointer.
           expectedMessage:
-            'An armed trusted Phase 7 operation intent is required.',
+            'Question pointer/lifecycle aggregate invariant failed.',
           operation: async () =>
             await database.client.$executeRaw`
               UPDATE "Question"
@@ -820,7 +821,7 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
                 "updatedAt" = ${archiveTime}
               WHERE "id" = ${fixture.questionId}::uuid
             `,
-          sqlState: '42501'
+          sqlState: '23514'
         })
         await expect(
           database.client.question.findUniqueOrThrow({
@@ -881,11 +882,12 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
           where: { id: fixture.questionVersionId },
           include: {
             tags: {
-              orderBy: [{ labelSnapshot: 'asc' }, { tagId: 'asc' }]
+              orderBy: [{ tag: { label: 'asc' } }, { tagId: 'asc' }],
+              include: { tag: true }
             }
           }
         })
-      const currentTag = currentVersion.tags[0]?.labelSnapshot
+      const currentTag = currentVersion.tags[0]?.tag.label
       if (!currentTag) {
         throw new Error(
           'current-version parity fixture의 canonical tag가 필요합니다.'
@@ -933,8 +935,7 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
               tag: currentTag
             }
           }),
-          { kind: 'USER', userId: fixture.userId },
-          2
+          { kind: 'USER', userId: fixture.userId }
         )
         const session = createStudySessionV2ResponseSchema.parse(
           created.payload
@@ -967,8 +968,8 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
               "id", "label", "normalizedName", "createdAt", "updatedAt"
             ) VALUES (
               ${forbiddenTagId}::uuid,
-              'phase10-forbidden-tag',
-              ${`phase10-forbidden-${randomUUID()}`},
+              'test-forbidden-tag',
+              ${`test-forbidden-${randomUUID()}`},
               ${dueAt},
               ${dueAt}
             )
@@ -988,10 +989,10 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
                 where: { id: fixture.questionVersionId },
                 include: {
                   options: { orderBy: { ordinal: 'asc' } },
-                  tags: true
+                  tags: { include: { tag: true } }
                 }
               })
-            const historicalTag = historicalVersion.tags[0]?.labelSnapshot
+            const historicalTag = historicalVersion.tags[0]?.tag.label
             const correctOrdinal = historicalVersion.options.find(
               ({ id }) => id === historicalVersion.correctOptionId
             )?.ordinal
@@ -1051,15 +1052,14 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
               data: {
                 id: currentTagId,
                 label: currentTag,
-                normalizedName: `phase5-current-${randomUUID()}`
+                normalizedName: `test-current-${randomUUID()}`
               }
             })
             await transaction.questionVersionTag.create({
               data: {
                 id: randomUUID(),
                 questionVersionId: currentVersionId,
-                tagId: currentTagId,
-                labelSnapshot: currentTag
+                tagId: currentTagId
               }
             })
             await transaction.questionVersion.update({
@@ -1158,8 +1158,7 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
                     tag: currentTag
                   }
                 }),
-                { kind: 'USER', userId: fixture.userId },
-                2
+                { kind: 'USER', userId: fixture.userId }
               )
               const session = createStudySessionV2ResponseSchema.parse(
                 created.payload
@@ -1451,8 +1450,10 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
       const archiveTime = new Date('2026-08-22T01:00:00.000Z')
       if (isCurrentSourceIntegration) {
         await expectRawDatabaseError({
+          // The armed-intent trigger is gone (#504 P4); the deferred aggregate
+          // invariant still refuses an archive that only clears the pointer.
           expectedMessage:
-            'An armed trusted Phase 7 operation intent is required.',
+            'Question pointer/lifecycle aggregate invariant failed.',
           operation: async () =>
             await database.client.$executeRaw`
             UPDATE "Question"
@@ -1464,7 +1465,7 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
               "updatedAt" = ${archiveTime}
             WHERE "id" = ${fixture.questionId}::uuid
           `,
-          sqlState: '42501'
+          sqlState: '23514'
         })
         await expect(
           database.client.question.findUniqueOrThrow({
@@ -1756,8 +1757,10 @@ describe.sequential('Slice 4 targeted review PostgreSQL', () => {
     const archiveTime = new Date(TARGETED_AT.getTime() + 2_000)
     if (isCurrentSourceIntegration) {
       await expectRawDatabaseError({
+        // The armed-intent trigger is gone (#504 P4); the deferred aggregate
+        // invariant still refuses an archive that only clears the pointer.
         expectedMessage:
-          'An armed trusted Phase 7 operation intent is required.',
+          'Question pointer/lifecycle aggregate invariant failed.',
         operation: async () =>
           await database.client.$executeRaw`
             UPDATE "Question"
@@ -1769,7 +1772,7 @@ describe.sequential('Slice 4 targeted review PostgreSQL', () => {
               "updatedAt" = ${archiveTime}
             WHERE "id" = ${targetFixture.questionId}::uuid
           `,
-        sqlState: '42501'
+        sqlState: '23514'
       })
       await expect(
         database.client.question.findUniqueOrThrow({
@@ -1946,10 +1949,9 @@ describe.sequential('Slice 4 targeted review PostgreSQL', () => {
           questionVersionId: targetFixture.questionVersionId
         })
         if (isCurrentSourceIntegration) {
-          expect(archiveError).toMatchObject({
-            code: '42501',
-            message: 'An armed trusted Phase 7 operation intent is required.'
-          })
+          // The deferred aggregate check runs at commit (#504 P4), so the
+          // uncommitted archive is rolled back here.
+          expect(archiveError).toBeUndefined()
           await archiveClient.query('ROLLBACK')
           archiveTransactionOpen = false
           await expect(

@@ -123,6 +123,7 @@ export const jaAdminResources = {
     rowVersion: 'rowVersion',
     selectedFile: '選択中: {{fileName}}',
     retryAfter: '{{message}} {{seconds}}秒後にもう一度お試しください。',
+    retryAfterMinutes: '{{message}} {{minutes}}分後にもう一度お試しください。',
     pausedTitle: 'オフラインでは最新状態を確認できません',
     pausedDescription:
       '接続が復旧したら再確認してください。最新状態を確認するまで管理者の変更操作は利用できません。',
@@ -315,6 +316,7 @@ export const jaAdminResources = {
       DUPLICATE_TAG: 'タグの重複',
       CORRECT_OPTION_KEY_NOT_FOUND: '正解の選択肢キーがありません',
       UNKNOWN_TAG: '未登録のタグ',
+      TAG_SUBJECT_MISMATCH: '問題の科目と合わないタグ',
       INVALID_READING_PASSAGE: '読解本文の規則エラー',
       INVALID_CONTENT: '問題内容のエラー',
       DUPLICATE_QUESTION_CONTENT: '問題内容の重複'
@@ -402,6 +404,8 @@ export const jaAdminResources = {
     allDifficulties: 'すべての難易度',
     sort: '並べ替え',
     total: '全{{formattedCount}}問',
+    pageSize: '1ページの表示数',
+    pageSizeOption: '{{count}}問ずつ',
     totalPending: '問題数を確認しています…',
     resetFilters: '絞り込みをリセット',
     loading: '管理者用の問題一覧を読み込んでいます…',
@@ -443,46 +447,126 @@ export const jaAdminResources = {
     archive: '公開終了・アーカイブ',
     archiveLabel: '問題{{questionId}}を公開終了・アーカイブ',
     batch: {
-      selectColumn: '公開の選択',
+      selectColumn: '一括選択',
       selectRow: '問題{{questionId}}を選択',
-      selectPage: 'このページの承認済みの問題をすべて選択',
+      selectPage: 'このページで選択できる問題をすべて選択',
       selected: '{{count}}問を選択中',
       clear: '選択を解除',
-      publish: '選択した問題を公開',
-      scopeNote: 'ページやフィルターを変えると、選択は解除されます。',
+      request: '自分の下書き{{count}}問をレビュー依頼',
+      approve: 'レビュー中の{{count}}問を承認',
+      publish: '承認済みの{{count}}問を公開',
+      scopeNote:
+        '自分が作成した下書き・修正依頼の問題はレビュー依頼、レビュー中の問題は承認、承認済みの問題は公開できます。ページやフィルターを変えると、選択は解除されます。',
       dialog: {
-        title: '{{count}}問を公開しますか？',
-        description:
-          '承認済みのバージョンがすぐに学習者に出題されます。公開中のバージョンがある場合は、このバージョンに切り替わります。',
         more: 'ほか{{rest}}問',
-        body: '1問ずつ公開するため、途中で一部だけ公開される場合があります。結果は問題ごとに表示します。',
         cancel: 'キャンセル',
-        confirm: '{{count}}問を公開',
-        confirming: '公開中…',
-        notPublished: '公開していません。'
+        freshAfterWait:
+          '待った後にもう一度送るときは、管理者の本人確認をもう一度行う必要があります。',
+        request: {
+          title: '{{count}}問をレビュー依頼しますか？',
+          description:
+            '下書きをレビュー中に変えます。レビュー中は、承認されるまで内容を編集できません。',
+          body: '20問ずつに分けて順に依頼します。1つのまとまりが拒否されると、そのまとまりの20問は依頼されず、次のまとまりは引き続き送ります。結果は問題ごとに表示します。一括操作は15分に10回まで送れ、20問のまとまり1つが1回です。',
+          confirm: '{{count}}問をレビュー依頼',
+          confirming: 'レビュー依頼中…',
+          notDone: 'レビュー依頼していません。'
+        },
+        approve: {
+          title: '{{count}}問を承認しますか？',
+          description:
+            'レビュー中のバージョンを承認します。承認した問題は、公開するまで学習者には表示されません。',
+          body: '1問ずつ承認するため、途中で一部だけ承認される場合があります。結果は問題ごとに表示します。',
+          confirm: '{{count}}問を承認',
+          confirming: '承認中…',
+          notDone: '承認していません。'
+        },
+        publish: {
+          title: '{{count}}問を公開しますか？',
+          description:
+            '承認済みのバージョンがすぐに学習者に出題されます。公開中のバージョンがある場合は、このバージョンに切り替わります。',
+          body: '1問ずつ公開するため、途中で一部だけ公開される場合があります。結果は問題ごとに表示します。',
+          confirm: '{{count}}問を公開',
+          confirming: '公開中…',
+          notDone: '公開していません。'
+        }
       },
       result: {
-        allPublished: '{{published}}問を公開しました',
-        partial: '{{published}}問を公開し、{{failed}}問は公開できませんでした',
         close: '閉じる',
-        VERSION_CONFLICT: {
-          label: '変更の競合',
-          reason:
-            '別の変更が先に保存されました。一覧で最新の状態を確認してから、もう一度選択してください。'
+        request: {
+          all: '{{count}}問をレビュー依頼しました',
+          partial:
+            '{{count}}問をレビュー依頼し、{{failed}}問は依頼できませんでした',
+          VERSION_CONFLICT: {
+            label: '変更の競合',
+            reason:
+              '一緒に送った20問のまとまりに、別の変更が先に保存された問題があったため、まとまり全体を依頼していません。一覧を更新してから、もう一度選択してください。'
+          },
+          NOT_DRAFT: {
+            label: '下書きではない',
+            reason:
+              '一緒に送った20問のまとまりに、下書き・修正依頼ではない問題があったため、まとまり全体を依頼していません。一覧を更新してから、もう一度選択してください。'
+          },
+          NOT_FOUND: {
+            label: '見つかりません',
+            reason:
+              '一緒に送った20問のまとまりに、見つからない問題があったため、まとまり全体を依頼していません。すでにアーカイブされた可能性があります。'
+          },
+          RATE_LIMITED: {
+            label: '未送信',
+            reason:
+              '送信回数の上限（15分に10回）に達したため、送っていません。15分ほど待ってから、もう一度選択してください。その際、管理者の本人確認をもう一度行う必要があります。'
+          },
+          FAILED: {
+            label: '依頼失敗',
+            reason:
+              '依頼中に問題が発生したため、送っていません。もう一度試す前に、一覧で状態を確認してください。'
+          }
         },
-        NOT_REVIEWED: {
-          label: '未承認',
-          reason: '承認済みではないため、公開していません。'
+        approve: {
+          all: '{{count}}問を承認しました',
+          partial: '{{count}}問を承認し、{{failed}}問は承認できませんでした',
+          VERSION_CONFLICT: {
+            label: '変更の競合',
+            reason:
+              '別の変更が先に保存されました。一覧で最新の状態を確認してから、もう一度選択してください。'
+          },
+          NOT_IN_REVIEW: {
+            label: 'レビュー中ではない',
+            reason: 'レビュー中ではないため、承認していません。'
+          },
+          NOT_FOUND: {
+            label: '見つかりません',
+            reason:
+              '問題が見つかりません。すでにアーカイブされた可能性があります。'
+          },
+          FAILED: {
+            label: '承認失敗',
+            reason:
+              '承認中に問題が発生しました。もう一度試す前に、一覧で状態を確認してください。'
+          }
         },
-        NOT_FOUND: {
-          label: '見つかりません',
-          reason:
-            '問題が見つかりません。すでにアーカイブされた可能性があります。'
-        },
-        FAILED: {
-          label: '公開失敗',
-          reason:
-            '公開中に問題が発生しました。もう一度試す前に、一覧で状態を確認してください。'
+        publish: {
+          all: '{{count}}問を公開しました',
+          partial: '{{count}}問を公開し、{{failed}}問は公開できませんでした',
+          VERSION_CONFLICT: {
+            label: '変更の競合',
+            reason:
+              '別の変更が先に保存されました。一覧で最新の状態を確認してから、もう一度選択してください。'
+          },
+          NOT_REVIEWED: {
+            label: '未承認',
+            reason: '承認済みではないため、公開していません。'
+          },
+          NOT_FOUND: {
+            label: '見つかりません',
+            reason:
+              '問題が見つかりません。すでにアーカイブされた可能性があります。'
+          },
+          FAILED: {
+            label: '公開失敗',
+            reason:
+              '公開中に問題が発生しました。もう一度試す前に、一覧で状態を確認してください。'
+          }
         }
       }
     },
@@ -628,7 +712,8 @@ export const jaAdminResources = {
         optionDuplicate: '同じ選択肢を重複して入力できません。',
         correct: '正解は選択肢から1つ選んでください。',
         explanationKo: '韓国語解説を入力してください。',
-        tags: 'タグを1つ以上入力してください。'
+        tags: 'タグを1つ以上選んでください。',
+        invalid: '入力の形式・長さ・数を確認してください。'
       }
     },
     classificationLegend: '分類と本文',
@@ -653,6 +738,29 @@ export const jaAdminResources = {
     explanationKo: '韓国語解説',
     explanationJa: '日本語解説',
     tagTextHint: 'カンマまたは改行で区切ってください。1つ以上必要です。',
+    tagPicker: {
+      count: '{{count}}/2',
+      placeholder: 'タグを検索',
+      hint: '問題の科目に合うタグを1〜2個選んでください。',
+      loading: 'タグを読み込み中…',
+      empty:
+        '「{{query}}」で始まるタグはありません。ここではタグを新しく作れません。',
+      emptySubject:
+        'この科目で選べるタグはありません。ここではタグを新しく作れません。',
+      more: 'ほかにもある場合があります。名前で検索してください。',
+      error: 'タグの一覧を読み込めませんでした。',
+      retry: 'もう一度試す',
+      max: 'タグは2個まで選べます。変えるときは1つ削除してください。',
+      overLimit:
+        'この問題にはタグが{{count}}個あります。新しい基準では2個までのため追加できません。不要なタグを削除してください。',
+      subjectMismatch:
+        '問題の科目と合わないタグがあります。削除して選び直してください。',
+      remove: 'タグ「{{label}}」を削除',
+      removeMismatch: 'タグ「{{label}}」を削除（科目不一致）',
+      results: 'タグ{{count}}個',
+      added: 'タグ「{{label}}」を追加しました',
+      removed: 'タグ「{{label}}」を削除しました'
+    },
     tagSearch: '登録済みタグを検索',
     tagSuggestions: '登録済みタグの検索結果',
     tagQueryError: 'タグ検索語は正規化後100文字以下にしてください。',

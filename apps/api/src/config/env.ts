@@ -1,5 +1,10 @@
 import { isIP } from 'node:net'
 import { z } from 'zod'
+import {
+  hasProductionSslMode,
+  PRODUCTION_DATABASE_NAME,
+  PRODUCTION_LOGIN_PREFIX
+} from '../db/databaseTargetGuard.js'
 
 const logLevelSchema = z.enum(['debug', 'info', 'warn', 'error', 'silent'])
 const runtimeEnvironmentSchema = z.enum(['development', 'test', 'production'])
@@ -10,7 +15,6 @@ const deploymentEnvironmentSchema = z.enum([
   'STAGING',
   'PRODUCTION'
 ])
-const adminCmsModeSchema = z.enum(['disabled', 'technical'])
 const emailDeliveryModeSchema = z.enum(['test-sink', 'webhook'])
 const secretSchema = z.string().min(32)
 const postgresSchemaPattern = /^[a-z_][a-z0-9_]*$/
@@ -28,7 +32,8 @@ const toUrlOrNull = (value: string): URL | null => {
 
 const databaseLoginContract = (
   value: string,
-  roleSuffix: 'legacy_app_login' | 'app_login' | 'auth_gateway_login'
+  roleSuffix: 'app_login',
+  deploymentEnvironment: z.output<typeof deploymentEnvironmentSchema>
 ): { configured: string; expected: string | null } | null => {
   const url = toUrlOrNull(value)
   if (!url) return null
@@ -40,11 +45,20 @@ const databaseLoginContract = (
   } catch {
     return null
   }
-  const prefix = database.endsWith('_test')
-    ? 'nihongo_test'
-    : database.endsWith('_dev')
-      ? 'nihongo_development'
-      : null
+  // PRODUCTION and STAGING deployments only accept the provisioned nihongo
+  // database; no other deployment (including production-shaped TEST smoke)
+  // may use it.
+  const prefix =
+    deploymentEnvironment === 'PRODUCTION' ||
+    deploymentEnvironment === 'STAGING'
+      ? database === PRODUCTION_DATABASE_NAME
+        ? PRODUCTION_LOGIN_PREFIX
+        : null
+      : database.endsWith('_test')
+        ? 'nihongo_test'
+        : database.endsWith('_dev')
+          ? 'nihongo_development'
+          : null
   const expected = prefix ? `${prefix}_${roleSuffix}` : null
   return { configured, expected }
 }
@@ -183,11 +197,9 @@ const apiEnvironmentSchema = z
     NODE_ENV: runtimeEnvironmentSchema,
     DEPLOYMENT_ENVIRONMENT: deploymentEnvironmentSchema,
     RELEASE_ID: releaseIdSchema,
-    ADMIN_CMS_MODE: adminCmsModeSchema,
     HOST: z.string().min(1),
     PORT: z.coerce.number().int().min(1).max(65_535),
     DATABASE_URL: postgresUrlSchema,
-    AUTH_GATEWAY_DATABASE_URL: postgresUrlSchema.optional(),
     TRUSTED_ORIGINS: originListSchema,
     LOG_LEVEL: logLevelSchema,
     BETTER_AUTH_SECRET: secretSchema,
@@ -216,16 +228,6 @@ const apiEnvironmentSchema = z
           message: 'SSO client ID and secret must be configured together.'
         })
       }
-    }
-    if (
-      (environment.APPLE_CLIENT_ID || environment.GOOGLE_CLIENT_ID) &&
-      !environment.AUTH_GATEWAY_DATABASE_URL
-    ) {
-      context.addIssue({
-        code: 'custom',
-        path: ['AUTH_GATEWAY_DATABASE_URL'],
-        message: 'SSO requires its dedicated auth gateway database authority.'
-      })
     }
     if (environment.APPLE_CLIENT_ID) {
       const callback = new URL(environment.BETTER_AUTH_URL)
@@ -277,59 +279,35 @@ const apiEnvironmentSchema = z
       })
     }
 
-    if (
-      environment.ADMIN_CMS_MODE === 'technical' &&
-      environment.NODE_ENV === 'production'
-    ) {
-      context.addIssue({
-        code: 'custom',
-        path: ['ADMIN_CMS_MODE'],
-        message: 'technical admin CMS mode는 test/development에서만 허용됩니다.'
-      })
-    }
-
-    if (
-      environment.ADMIN_CMS_MODE === 'technical' &&
-      !environment.AUTH_GATEWAY_DATABASE_URL
-    ) {
-      context.addIssue({
-        code: 'custom',
-        path: ['AUTH_GATEWAY_DATABASE_URL'],
-        message:
-          'technical admin CMS mode는 분리된 auth gateway DB URL이 필요합니다.'
-      })
-    }
-
-    if (
-      environment.ADMIN_CMS_MODE === 'technical' ||
-      environment.AUTH_GATEWAY_DATABASE_URL
-    ) {
-      for (const [field, roleSuffix] of [
-        ['DATABASE_URL', 'app_login'],
-        ['AUTH_GATEWAY_DATABASE_URL', 'auth_gateway_login']
-      ] as const) {
-        const value = environment[field]
-        if (value && !hasSingleSafePostgresSchema(value)) {
+    // Every runtime uses its environment's wrapper login and one schema.
+    for (const [field, roleSuffix] of [
+      ['DATABASE_URL', 'app_login']
+    ] as const) {
+      const value = environment[field]
+      if (value && !hasSingleSafePostgresSchema(value)) {
+        context.addIssue({
+          code: 'custom',
+          path: [field],
+          message: 'technical DB URL은 하나의 safe schema를 명시해야 합니다.'
+        })
+      }
+      if (value) {
+        const login = databaseLoginContract(
+          value,
+          roleSuffix,
+          environment.DEPLOYMENT_ENVIRONMENT
+        )
+        if (
+          login === null ||
+          login.expected === null ||
+          login.configured !== login.expected
+        ) {
           context.addIssue({
             code: 'custom',
             path: [field],
-            message: 'technical DB URL은 하나의 safe schema를 명시해야 합니다.'
+            message:
+              'technical DB URL은 환경·역할 전용 wrapper login이 필요합니다.'
           })
-        }
-        if (value) {
-          const login = databaseLoginContract(value, roleSuffix)
-          if (
-            login === null ||
-            login.expected === null ||
-            login.configured !== login.expected
-          ) {
-            context.addIssue({
-              code: 'custom',
-              path: [field],
-              message:
-                'technical DB URL은 환경·역할 전용 wrapper login이 필요합니다.'
-            })
-          }
         }
       }
     }
@@ -355,13 +333,7 @@ const apiEnvironmentSchema = z
 
     const databaseUrl = toUrlOrNull(environment.DATABASE_URL)
     if (!databaseUrl) return
-    const sslModes = databaseUrl.searchParams.getAll('sslmode')
-    const sslMode = sslModes[0]?.toLowerCase()
-
-    if (
-      sslModes.length !== 1 ||
-      !['require', 'verify-ca', 'verify-full'].includes(sslMode ?? '')
-    ) {
+    if (!hasProductionSslMode(databaseUrl)) {
       context.addIssue({
         code: 'custom',
         path: ['DATABASE_URL'],
@@ -369,21 +341,6 @@ const apiEnvironmentSchema = z
       })
     }
 
-    if (environment.AUTH_GATEWAY_DATABASE_URL) {
-      const tls =
-        toUrlOrNull(environment.AUTH_GATEWAY_DATABASE_URL)?.searchParams.getAll(
-          'sslmode'
-        ) ?? []
-      if (
-        tls.length !== 1 ||
-        !['require', 'verify-ca', 'verify-full'].includes(tls[0] ?? '')
-      )
-        context.addIssue({
-          code: 'custom',
-          path: ['AUTH_GATEWAY_DATABASE_URL'],
-          message: 'Production SSO gateway PostgreSQL requires TLS.'
-        })
-    }
     for (const origin of environment.TRUSTED_ORIGINS) {
       if (new URL(origin).protocol !== 'https:') {
         context.addIssue({
@@ -437,14 +394,12 @@ const apiEnvironmentSchema = z
 
 type ParsedApiEnvironment = z.output<typeof apiEnvironmentSchema>
 
-// Directly constructed test/application dependency fixtures from the pre-Phase
-// 7 surface remain valid; absence is the same fail-closed value as the parser's
-// explicit `disabled` default.
+// Directly constructed test/application dependency fixtures may omit the
+// deployment environment and release id.
 export type ApiEnvironment = Omit<
   ParsedApiEnvironment,
-  'ADMIN_CMS_MODE' | 'DEPLOYMENT_ENVIRONMENT' | 'RELEASE_ID'
+  'DEPLOYMENT_ENVIRONMENT' | 'RELEASE_ID'
 > & {
-  readonly ADMIN_CMS_MODE?: ParsedApiEnvironment['ADMIN_CMS_MODE']
   readonly DEPLOYMENT_ENVIRONMENT?: ParsedApiEnvironment['DEPLOYMENT_ENVIRONMENT']
   readonly RELEASE_ID?: ParsedApiEnvironment['RELEASE_ID']
 }
@@ -478,11 +433,9 @@ export const parseApiEnvironment = (
     RELEASE_ID:
       source.RELEASE_ID ??
       (canUseDevelopmentDefaults ? LOCAL_RELEASE_ID : undefined),
-    ADMIN_CMS_MODE: source.ADMIN_CMS_MODE ?? 'disabled',
     HOST: source.HOST ?? (canUseDevelopmentDefaults ? '127.0.0.1' : undefined),
     PORT: source.PORT ?? (canUseDevelopmentDefaults ? '3001' : undefined),
     DATABASE_URL: source.DATABASE_URL,
-    AUTH_GATEWAY_DATABASE_URL: source.AUTH_GATEWAY_DATABASE_URL,
     TRUSTED_ORIGINS:
       source.TRUSTED_ORIGINS ??
       (canUseDevelopmentDefaults ? 'http://localhost:5173' : undefined),

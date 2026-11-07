@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
-import type { ReactElement } from 'react'
+import type { ReactElement, RefObject } from 'react'
 import { useGetDashboardInsights } from '@app/dashboard/hooks/useGetDashboardInsights'
 import { useDashboardRecommendationAction } from '@app/dashboard/hooks/useDashboardRecommendationAction'
 import { useListResumableStudySessions } from '@app/practice/hooks/useListResumableStudySessions'
@@ -85,14 +85,181 @@ const useEntryRetryFocus = (isReady: boolean) => {
   }
 }
 
+const EntryRetryAlert = ({
+  message,
+  disabled,
+  onRetry
+}: {
+  message: string
+  disabled: boolean
+  onRetry: () => void
+}): ReactElement => {
+  const { t } = useTranslation('home')
+  return (
+    <div role="alert">
+      <p>{message}</p>
+      <Button
+        className="mt-4"
+        variant="secondary"
+        disabled={disabled}
+        onClick={onRetry}
+      >
+        {t('entry.retry')}
+      </Button>
+    </div>
+  )
+}
+
+type Recommendation = NonNullable<
+  ReturnType<typeof useGetDashboardInsights>['data']
+>['recommendations'][number]
+type RecommendationAction = ReturnType<typeof useDashboardRecommendationAction>
+
+const RecommendationCard = ({
+  recommendation,
+  action
+}: {
+  recommendation: Recommendation
+  action: RecommendationAction
+}): ReactElement => {
+  const { t } = useTranslation('home')
+  return (
+    <>
+      <h2
+        tabIndex={-1}
+        className="mt-3 text-2xl font-semibold focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
+      >
+        {recommendation.title}
+      </h2>
+      <p className="mt-4 leading-7 text-muted">
+        {recommendation.reason.leading}
+        {recommendation.reason.japanesePreview ? (
+          <span lang="ja">{recommendation.reason.japanesePreview}</span>
+        ) : null}
+        {recommendation.reason.trailing}
+      </p>
+      <p className="mt-3 text-sm text-muted">{recommendation.actionSummary}</p>
+      {recommendation.action.kind === 'START_SESSION' &&
+      recommendation.action.mode === 'WEAKNESS' ? (
+        <p className="mt-2 text-sm leading-6 text-muted">
+          {t('entry.subjectScope')}
+        </p>
+      ) : null}
+      <Button
+        className="mt-6 w-full sm:w-auto"
+        size="lg"
+        disabled={
+          action.blockedRecommendationKind === recommendation.kind ||
+          action.isActionPending
+        }
+        isLoading={action.pendingRecommendationKind === recommendation.kind}
+        onClick={() => action.runRecommendation(recommendation)}
+      >
+        {recommendation.actionLabel}
+      </Button>
+    </>
+  )
+}
+
+const RecommendationActionNotice = ({
+  action
+}: {
+  action: RecommendationAction
+}): ReactElement | null => {
+  const { t } = useTranslation('home')
+  const { t: dashboardT } = useTranslation('dashboard')
+  const { t: commonT } = useTranslation('common')
+  if (!action.actionNotice) return null
+  return (
+    <div
+      className="mt-4 border-l-2 border-brand pl-4"
+      role="status"
+      aria-live="polite"
+      key={action.actionNotice.id}
+    >
+      <p>
+        {action.actionNotice.code === 'accountRestricted'
+          ? commonT('state.accountRestricted')
+          : dashboardT(`insights.actionNotice.${action.actionNotice.code}`)}
+      </p>
+      {action.blockedRecommendationKind ? (
+        <Button
+          className="mt-3"
+          variant="secondary"
+          disabled={action.isActionPending}
+          onClick={() => void action.retryInsights()}
+        >
+          {t('entry.retry')}
+        </Button>
+      ) : null}
+    </div>
+  )
+}
+
+type ResumableSession = NonNullable<
+  ReturnType<typeof useListResumableStudySessions>['data']
+>['items'][number]
+
+const ResumeCard = ({
+  containerRef,
+  item,
+  locale
+}: {
+  containerRef: RefObject<HTMLDivElement | null>
+  item: ResumableSession
+  locale: ReturnType<typeof resolveUiLocale>
+}): ReactElement => {
+  const { t } = useTranslation('home')
+  const { t: commonT } = useTranslation('common')
+  const canResume =
+    item.practiceContractVersion === 2 && item.resumeAvailability === 'SERVER'
+  return (
+    <div ref={containerRef}>
+      <p className="text-xs text-muted">{t('entry.resumeEyebrow')}</p>
+      <h2
+        tabIndex={-1}
+        className="mt-3 text-2xl font-semibold focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
+      >
+        {item.level} · {commonT(`taxonomy.subjects.${item.subject}`)}
+      </h2>
+      <p className="mt-4 leading-7">
+        {t('entry.position', {
+          current: formatNumber(item.currentOrdinal ?? 1, locale),
+          total: formatNumber(item.actualCount, locale)
+        })}
+      </p>
+      <p className="mt-2 text-sm text-muted">
+        {item.draftSavedAt
+          ? t('entry.savedAt', {
+              date: formatDateTime(item.draftSavedAt, locale, {
+                dateStyle: 'medium',
+                timeStyle: 'short'
+              })
+            })
+          : t('entry.notSaved')}
+      </p>
+      {canResume ? (
+        <Link
+          className="note-primary mt-6 w-full sm:w-auto"
+          to={`/practice/session/${item.id}`}
+        >
+          {t('entry.resume')}
+        </Link>
+      ) : (
+        <p className="mt-4" role="status">
+          {t('entry.legacyUnavailable')}
+        </p>
+      )}
+    </div>
+  )
+}
+
 type RecommendedEntryProps = { readonly onReady: () => void }
 
 export const DashboardRecommendedEntry = ({
   onReady
 }: RecommendedEntryProps): ReactElement => {
   const { t } = useTranslation('home')
-  const { t: dashboardT } = useTranslation('dashboard')
-  const { t: commonT } = useTranslation('common')
   const query = useGetDashboardInsights()
   const action = useDashboardRecommendationAction({
     refetchInsights: async () => {
@@ -118,17 +285,11 @@ export const DashboardRecommendedEntry = ({
   }
   if (unavailable || !query.data) {
     return (
-      <div role="alert">
-        <p>{t('entry.recommendationError')}</p>
-        <Button
-          className="mt-4"
-          variant="secondary"
-          disabled={query.isFetching}
-          onClick={() => void retryWithFocus(query.refetch)}
-        >
-          {t('entry.retry')}
-        </Button>
-      </div>
+      <EntryRetryAlert
+        message={t('entry.recommendationError')}
+        disabled={query.isFetching}
+        onRetry={() => void retryWithFocus(query.refetch)}
+      />
     )
   }
   return (
@@ -140,69 +301,11 @@ export const DashboardRecommendedEntry = ({
         </p>
       ) : null}
       {recommendation ? (
-        <>
-          <h2
-            tabIndex={-1}
-            className="mt-3 text-2xl font-semibold focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
-          >
-            {recommendation.title}
-          </h2>
-          <p className="mt-4 leading-7 text-muted">
-            {recommendation.reason.leading}
-            {recommendation.reason.japanesePreview ? (
-              <span lang="ja">{recommendation.reason.japanesePreview}</span>
-            ) : null}
-            {recommendation.reason.trailing}
-          </p>
-          <p className="mt-3 text-sm text-muted">
-            {recommendation.actionSummary}
-          </p>
-          {recommendation.action.kind === 'START_SESSION' &&
-          recommendation.action.mode === 'WEAKNESS' ? (
-            <p className="mt-2 text-sm leading-6 text-muted">
-              {t('entry.subjectScope')}
-            </p>
-          ) : null}
-          <Button
-            className="mt-6 w-full sm:w-auto"
-            size="lg"
-            disabled={
-              action.blockedRecommendationKind === recommendation.kind ||
-              action.isActionPending
-            }
-            isLoading={action.pendingRecommendationKind === recommendation.kind}
-            onClick={() => action.runRecommendation(recommendation)}
-          >
-            {recommendation.actionLabel}
-          </Button>
-        </>
+        <RecommendationCard recommendation={recommendation} action={action} />
       ) : (
         <p className="mt-4">{t('entry.noRecommendation')}</p>
       )}
-      {action.actionNotice ? (
-        <div
-          className="mt-4 border-l-2 border-brand pl-4"
-          role="status"
-          aria-live="polite"
-          key={action.actionNotice.id}
-        >
-          <p>
-            {action.actionNotice.code === 'accountRestricted'
-              ? commonT('state.accountRestricted')
-              : dashboardT(`insights.actionNotice.${action.actionNotice.code}`)}
-          </p>
-          {action.blockedRecommendationKind ? (
-            <Button
-              className="mt-3"
-              variant="secondary"
-              disabled={action.isActionPending}
-              onClick={() => void action.retryInsights()}
-            >
-              {t('entry.retry')}
-            </Button>
-          ) : null}
-        </div>
-      ) : null}
+      <RecommendationActionNotice action={action} />
     </div>
   )
 }
@@ -213,7 +316,6 @@ export const LearningEntry = ({
   isMember
 }: LearningEntryProps): ReactElement | null => {
   const { i18n, t } = useTranslation('home')
-  const { t: commonT } = useTranslation('common')
   const storedSessionId = useAppStore((state) => state.sessionId)
   const enabled = isMember || storedSessionId !== null
   const query = useListResumableStudySessions(1, 5, enabled)
@@ -229,60 +331,16 @@ export const LearningEntry = ({
     return <p role="status">{t('entry.loading')}</p>
   if (unavailable) {
     return (
-      <div role="alert">
-        <p>{t('entry.resumeError')}</p>
-        <Button
-          className="mt-4"
-          variant="secondary"
-          disabled={query.isFetching}
-          onClick={() => void retryWithFocus(query.refetch)}
-        >
-          {t('entry.retry')}
-        </Button>
-      </div>
+      <EntryRetryAlert
+        message={t('entry.resumeError')}
+        disabled={query.isFetching}
+        onRetry={() => void retryWithFocus(query.refetch)}
+      />
     )
   }
   if (item) {
-    const canResume =
-      item.practiceContractVersion === 2 && item.resumeAvailability === 'SERVER'
     return (
-      <div ref={containerRef}>
-        <p className="text-xs text-muted">{t('entry.resumeEyebrow')}</p>
-        <h2
-          tabIndex={-1}
-          className="mt-3 text-2xl font-semibold focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
-        >
-          {item.level} · {commonT(`taxonomy.subjects.${item.subject}`)}
-        </h2>
-        <p className="mt-4 leading-7">
-          {t('entry.position', {
-            current: formatNumber(item.currentOrdinal ?? 1, locale),
-            total: formatNumber(item.actualCount, locale)
-          })}
-        </p>
-        <p className="mt-2 text-sm text-muted">
-          {item.draftSavedAt
-            ? t('entry.savedAt', {
-                date: formatDateTime(item.draftSavedAt, locale, {
-                  dateStyle: 'medium',
-                  timeStyle: 'short'
-                })
-              })
-            : t('entry.notSaved')}
-        </p>
-        {canResume ? (
-          <Link
-            className="note-primary mt-6 w-full sm:w-auto"
-            to={`/practice/session/${item.id}`}
-          >
-            {t('entry.resume')}
-          </Link>
-        ) : (
-          <p className="mt-4" role="status">
-            {t('entry.legacyUnavailable')}
-          </p>
-        )}
-      </div>
+      <ResumeCard containerRef={containerRef} item={item} locale={locale} />
     )
   }
   return isMember ? (

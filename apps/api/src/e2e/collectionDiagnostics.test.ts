@@ -16,12 +16,12 @@ describe('safe collection diagnostics', () => {
       'ENVIRONMENT_INVALID'
     ],
     ['EnvironmentValidationError token=secret', 'setup', 'ENVIRONMENT_INVALID'],
+    ['Admin integration database URL is required.', 'setup', 'WRAPPER_MISSING'],
     [
-      'Phase 7 admin integration database URL is required.',
+      'Admin and runtime schemas must match exactly.',
       'setup',
-      'WRAPPER_MISSING'
+      'SCHEMA_MISMATCH'
     ],
-    ['Phase 7 schemas must match exactly.', 'setup', 'SCHEMA_MISMATCH'],
     ['secret unknown', 'unknown', 'UNKNOWN_REDACTED']
   ])('classifies %s without retaining raw data', (message, stage, code) => {
     const output = classifyCollectionDiagnostic(message)
@@ -60,11 +60,10 @@ describe('safe collection diagnostics', () => {
         testFile: 'src/db/adminCmsFoundation.integration.test.ts',
         environment: {
           DATABASE_URL: 'fixture',
-          PHASE7_ADMIN_DATABASE_URL: 'fixture',
-          PHASE7_MIGRATION_DATABASE_URL: 'fixture',
+          ADMIN_DATABASE_URL: 'fixture',
+          MIGRATION_DATABASE_URL: 'fixture',
           PRISMA_TEST_DATABASE_URL: 'fixture',
-          NODE_ENV: 'test',
-          ADMIN_CMS_MODE: 'technical'
+          NODE_ENV: 'test'
         },
         onCollectionDiagnostic: () => {
           throw new Error('observer secret')
@@ -97,8 +96,8 @@ describe('safe collection diagnostics', () => {
         testFile: 'src/db/adminCmsFoundation.integration.test.ts',
         environment: {
           DATABASE_URL: 'fixture',
-          PHASE7_ADMIN_DATABASE_URL: 'fixture',
-          PHASE7_MIGRATION_DATABASE_URL: 'fixture'
+          ADMIN_DATABASE_URL: 'fixture',
+          MIGRATION_DATABASE_URL: 'fixture'
         },
         onCollectionDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
         runCommand: async (_command, args) => {
@@ -133,8 +132,8 @@ describe('safe collection diagnostics', () => {
         testFile: 'src/db/adminCmsFoundation.integration.test.ts',
         environment: {
           DATABASE_URL: 'fixture',
-          PHASE7_ADMIN_DATABASE_URL: 'fixture',
-          PHASE7_MIGRATION_DATABASE_URL: 'fixture'
+          ADMIN_DATABASE_URL: 'fixture',
+          MIGRATION_DATABASE_URL: 'fixture'
         },
         onCollectionDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
         runCommand: async () => {

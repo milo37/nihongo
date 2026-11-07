@@ -21,6 +21,7 @@ import {
 import { createPrismaStudyDraftRepository } from './studyDraftRepository.js'
 import { createPrismaStudySubmissionRepository } from './studySubmissionRepository.js'
 import { createStudySubmissionService } from './studySubmissionService.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const DAY_MS = 24 * 60 * 60 * 1_000
 
@@ -34,14 +35,14 @@ assertSafeTestDatabase({
 const isCurrentSourceIntegration =
   process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
 const fixtureDatabaseUrl = process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
-const erasureWorkerDatabaseUrl = process.env.TEST_API_ERASURE_DATABASE_URL
+const appFixtureDatabaseUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
 if (
   isCurrentSourceIntegration &&
-  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
+  (!fixtureDatabaseUrl || !appFixtureDatabaseUrl)
 ) {
   throw new Error('Study submission requires fixture and erasure databases.')
 }
-for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
+for (const databaseUrl of [fixtureDatabaseUrl, appFixtureDatabaseUrl]) {
   if (databaseUrl) {
     assertSafeTestDatabase({
       nodeEnvironment: environment.NODE_ENV,
@@ -60,11 +61,11 @@ const database = createDatabaseRuntime(
 const fixtureDatabase = fixtureDatabaseUrl
   ? createDatabaseRuntime(fixtureDatabaseUrl)
   : database
-const erasureWorkerClient = erasureWorkerDatabaseUrl
+const erasureWorkerClient = appFixtureDatabaseUrl
   ? new Client({
-      connectionString: erasureWorkerDatabaseUrl,
+      connectionString: appFixtureDatabaseUrl,
       options: createPostgresStartupOptions(
-        getPostgresSchema(erasureWorkerDatabaseUrl)
+        getPostgresSchema(appFixtureDatabaseUrl)
       )
     })
   : undefined
@@ -186,7 +187,7 @@ const createUser = async (): Promise<string> => {
     await fixture.account.create({
       data: {
         accountId: userId,
-        password: 'phase10-fixture-password-hash',
+        password: 'test-fixture-password-hash',
         providerId: 'credential',
         userId
       }
@@ -198,9 +199,7 @@ const createUser = async (): Promise<string> => {
 
 const eraseUser = async (userId: string): Promise<void> => {
   if (erasureWorkerClient) {
-    await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
-      userId
-    ])
+    await eraseTestUser(database.client, userId)
   } else {
     await fixtureDatabase.client.user.delete({ where: { id: userId } })
   }
@@ -404,7 +403,7 @@ beforeAll(async () => {
   await database.checkReadiness()
   if (erasureWorkerClient) {
     await erasureWorkerClient.connect()
-    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+    await erasureWorkerClient.query(`SET ROLE "nihongo_app"`)
   }
 })
 
@@ -454,13 +453,7 @@ describe('Study submission PostgreSQL transaction', () => {
     )
     const idempotencyKey = randomUUID()
 
-    const first = await service.submit(
-      session.id,
-      idempotencyKey,
-      body,
-      owner,
-      2
-    )
+    const first = await service.submit(session.id, idempotencyKey, body, owner)
     const response = studyResultSchema.parse(first.response)
 
     expect(first.replayed).toBe(false)
@@ -492,8 +485,7 @@ describe('Study submission PostgreSQL transaction', () => {
       session.id,
       idempotencyKey,
       { ...body, answers: [...body.answers].reverse() },
-      owner,
-      2
+      owner
     )
     expect(replay).toMatchObject({ replayed: true, response: first.response })
     expect(await countSessionAnswers(session.id)).toBe(2)
@@ -508,12 +500,11 @@ describe('Study submission PostgreSQL transaction', () => {
         session.id,
         idempotencyKey,
         { ...body, durationSec: body.durationSec + 1 },
-        owner,
-        2
+        owner
       )
     ).rejects.toMatchObject({ code: 'IDEMPOTENCY_KEY_REUSED' })
     await expect(
-      service.submit(session.id, randomUUID(), body, owner, 2)
+      service.submit(session.id, randomUUID(), body, owner)
     ).rejects.toMatchObject({
       code: 'SESSION_ALREADY_SUBMITTED',
       location: `/api/v1/study-sessions/${session.id}/result`
@@ -534,8 +525,7 @@ describe('Study submission PostgreSQL transaction', () => {
       secondSession.id,
       randomUUID(),
       secondBody,
-      owner,
-      2
+      owner
     )
     const existingReviewItems = second.response.items.filter(
       ({ wrongNoteStatus }) => wrongNoteStatus !== null
@@ -574,8 +564,7 @@ describe('Study submission PostgreSQL transaction', () => {
           createBody([historical.material], () => null),
           startedAt
         ),
-        owner,
-        2
+        owner
       )
     }
 
@@ -632,8 +621,7 @@ describe('Study submission PostgreSQL transaction', () => {
         durationSec: 0,
         expectedDraftRevision: 0
       },
-      owner,
-      2
+      owner
     )
 
     await database.client.bookmark.create({
@@ -660,8 +648,7 @@ describe('Study submission PostgreSQL transaction', () => {
         durationSec: 0,
         expectedDraftRevision: 0
       },
-      owner,
-      2
+      owner
     )
 
     const beforePointerUpdate =
@@ -700,8 +687,7 @@ describe('Study submission PostgreSQL transaction', () => {
         durationSec: 0,
         expectedDraftRevision: 0
       },
-      owner,
-      2
+      owner
     )
 
     const daily = await createModeSession('DAILY_REVIEW', DAY_MS + 30_000)
@@ -721,8 +707,7 @@ describe('Study submission PostgreSQL transaction', () => {
         durationSec: 0,
         expectedDraftRevision: 0
       },
-      owner,
-      2
+      owner
     )
 
     const targetedAt = new Date(baseTime + DAY_MS + 40_000)
@@ -765,8 +750,7 @@ describe('Study submission PostgreSQL transaction', () => {
       targeted.response.session.id,
       targetedSubmitKey,
       targetedSubmitBody,
-      owner,
-      2
+      owner
     )
     expect(targetedSubmission.replayed).toBe(false)
     await expect(
@@ -774,8 +758,7 @@ describe('Study submission PostgreSQL transaction', () => {
         targeted.response.session.id,
         targetedSubmitKey,
         targetedSubmitBody,
-        owner,
-        2
+        owner
       )
     ).resolves.toMatchObject({
       replayed: true,
@@ -871,8 +854,7 @@ describe('Study submission PostgreSQL transaction', () => {
           createBody([history.material], () => null),
           startedAt
         ),
-        owner,
-        2
+        owner
       )
     }
 
@@ -945,8 +927,7 @@ describe('Study submission PostgreSQL transaction', () => {
           createBody([history.material], () => null),
           startedAt
         ),
-        owner,
-        2
+        owner
       )
     }
 
@@ -997,7 +978,7 @@ describe('Study submission PostgreSQL transaction', () => {
     )
 
     await expect(
-      service.submit(session.id, randomUUID(), body, foreignOwner, 2)
+      service.submit(session.id, randomUUID(), body, foreignOwner)
     ).rejects.toMatchObject({ code: 'RESOURCE_NOT_FOUND' })
     await expect(
       service.getResult(session.id, foreignOwner)
@@ -1041,8 +1022,7 @@ describe('Study submission PostgreSQL transaction', () => {
         createBody(material, ({ correctOptionId }) => correctOptionId),
         startedAt
       ),
-      owner,
-      2
+      owner
     )
     const stored = await database.client.studySession.findUniqueOrThrow({
       where: { id: session.id },
@@ -1097,8 +1077,7 @@ describe('Study submission PostgreSQL transaction', () => {
         session.id,
         randomUUID(),
         { ...validBody, answers: validBody.answers.slice(0, 1) },
-        owner,
-        2
+        owner
       )
     ).rejects.toMatchObject({ code: 'DRAFT_SUBMIT_MISMATCH' })
     await expect(
@@ -1116,8 +1095,7 @@ describe('Study submission PostgreSQL transaction', () => {
               : answer
           )
         },
-        owner,
-        2
+        owner
       )
     ).rejects.toMatchObject({ code: 'DRAFT_SUBMIT_MISMATCH' })
     await expect(
@@ -1132,8 +1110,7 @@ describe('Study submission PostgreSQL transaction', () => {
               : answer
           )
         },
-        owner,
-        2
+        owner
       )
     ).rejects.toMatchObject({ code: 'DRAFT_SUBMIT_MISMATCH' })
     expect(await countSessionAnswers(session.id)).toBe(0)
@@ -1157,7 +1134,7 @@ describe('Study submission PostgreSQL transaction', () => {
 
   it(
     isCurrentSourceIntegration
-      ? '비인가 Question archive를 42501로 거부하고 pinned version으로 채점·조회한다'
+      ? '비인가 Question archive를 DB가 거부하고 pinned version으로 채점·조회한다'
       : 'Question pointer 제거와 archive 뒤에도 pinned version으로 채점·조회한다',
     async () => {
       const userId = await createUser()
@@ -1180,8 +1157,10 @@ describe('Study submission PostgreSQL transaction', () => {
       if (isCurrentSourceIntegration) {
         const archiveTime = new Date(startedAt.getTime() + 500)
         await expectRawDatabaseError({
+          // The armed-intent trigger is gone (#504 P4); the deferred aggregate
+          // invariant still refuses an archive that only clears the pointer.
           expectedMessage:
-            'An armed trusted Phase 7 operation intent is required.',
+            'Question pointer/lifecycle aggregate invariant failed.',
           operation: async () =>
             await database.client.$executeRaw`
             UPDATE "Question"
@@ -1193,7 +1172,7 @@ describe('Study submission PostgreSQL transaction', () => {
               "updatedAt" = ${archiveTime}
             WHERE "id" = ${pinned.questionId}::uuid
           `,
-          sqlState: '42501'
+          sqlState: '23514'
         })
         await expect(
           database.client.question.findUniqueOrThrow({
@@ -1236,8 +1215,7 @@ describe('Study submission PostgreSQL transaction', () => {
           session.id,
           randomUUID(),
           body,
-          owner,
-          2
+          owner
         )
 
         expect(submitted.response).toMatchObject({
@@ -1296,13 +1274,7 @@ describe('Study submission PostgreSQL transaction', () => {
     )
     const idempotencyKey = randomUUID()
 
-    const first = await service.submit(
-      session.id,
-      idempotencyKey,
-      body,
-      owner,
-      2
-    )
+    const first = await service.submit(session.id, idempotencyKey, body, owner)
     const afterFirst = await database.client.guestPrincipal.findUniqueOrThrow({
       where: { id: owner.guestPrincipalId },
       select: { lastSeenAt: true, expiresAt: true }
@@ -1320,13 +1292,7 @@ describe('Study submission PostgreSQL transaction', () => {
       })
     ).toBe(0)
 
-    const replay = await service.submit(
-      session.id,
-      idempotencyKey,
-      body,
-      owner,
-      2
-    )
+    const replay = await service.submit(session.id, idempotencyKey, body, owner)
     const afterReplay = await database.client.guestPrincipal.findUniqueOrThrow({
       where: { id: owner.guestPrincipalId },
       select: { lastSeenAt: true, expiresAt: true }
@@ -1380,8 +1346,7 @@ describe('Study submission PostgreSQL transaction', () => {
           createBody(material, () => null),
           startedAt
         ),
-        owner,
-        2
+        owner
       )
     ).rejects.toBe(failure)
     await expect(
@@ -1434,7 +1399,7 @@ describe('Study submission PostgreSQL transaction', () => {
     )
 
     await expect(
-      failingService.submit(session.id, idempotencyKey, body, owner, 2)
+      failingService.submit(session.id, idempotencyKey, body, owner)
     ).rejects.toBe(failure)
     expect(await countSessionAnswers(session.id)).toBe(0)
     expect(
@@ -1457,7 +1422,7 @@ describe('Study submission PostgreSQL transaction', () => {
     const recovered = await createStudySubmissionService(
       submissionRepository,
       () => new Date(observedAt)
-    ).submit(session.id, idempotencyKey, body, owner, 2)
+    ).submit(session.id, idempotencyKey, body, owner)
     expect(recovered.replayed).toBe(false)
     expect(await countSessionAnswers(session.id)).toBe(1)
   })
@@ -1512,21 +1477,9 @@ describe('Study submission PostgreSQL transaction', () => {
     )
     const idempotencyKey = randomUUID()
 
-    const winner = winnerService.submit(
-      session.id,
-      idempotencyKey,
-      body,
-      owner,
-      2
-    )
+    const winner = winnerService.submit(session.id, idempotencyKey, body, owner)
     await winnerReserved
-    const waiter = loserService.submit(
-      session.id,
-      idempotencyKey,
-      body,
-      owner,
-      2
-    )
+    const waiter = loserService.submit(session.id, idempotencyKey, body, owner)
     await loserMissedExisting
     releaseWinner()
 
@@ -1582,8 +1535,8 @@ describe('Study submission PostgreSQL transaction', () => {
     )
 
     const submissions = [
-      service.submit(session.id, randomUUID(), body, owner, 2),
-      service.submit(session.id, randomUUID(), body, owner, 2)
+      service.submit(session.id, randomUUID(), body, owner),
+      service.submit(session.id, randomUUID(), body, owner)
     ]
     await bothReserved
     releaseReservations()
@@ -1667,8 +1620,7 @@ describe('Study submission PostgreSQL transaction', () => {
           durationSec: 10,
           expectedDraftRevision: 0
         },
-        owner,
-        2
+        owner
       )
     )
     await bothReserved
@@ -1799,21 +1751,9 @@ describe('Study submission PostgreSQL transaction', () => {
     )
     const idempotencyKey = randomUUID()
 
-    const winner = winnerService.submit(
-      session.id,
-      idempotencyKey,
-      body,
-      owner,
-      2
-    )
+    const winner = winnerService.submit(session.id, idempotencyKey, body, owner)
     await reservationHeld
-    const loser = loserService.submit(
-      session.id,
-      idempotencyKey,
-      body,
-      owner,
-      2
-    )
+    const loser = loserService.submit(session.id, idempotencyKey, body, owner)
     await loserMissedExisting
     releaseWinner()
 

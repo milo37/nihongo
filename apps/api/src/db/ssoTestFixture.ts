@@ -1,7 +1,16 @@
 import { randomBytes, randomUUID } from 'node:crypto'
+import { registerDatabaseCapability } from './databaseCapability.js'
+import { installAuditDigestSql } from '../../test/fixtures/db/auditDigestSql.js'
 import { Client } from 'pg'
-import type { QueryResultRow } from 'pg'
+import type { QueryResult, QueryResultRow } from 'pg'
 import { expect } from 'vitest'
+import {
+  bridgedRole,
+  isOwnedSessionSql,
+  ownedSessionSql,
+  pgOwnedSessionClient
+} from '../../test/fixtures/db/ownedSessionSql.js'
+import type { PrismaClient } from '../generated/prisma/client.js'
 import { parseApiEnvironment } from '../config/env.js'
 import { assertSafeAdminCmsDatabase } from './databaseTargetGuard.js'
 import {
@@ -12,39 +21,36 @@ import { adminFreshContextSchema } from '../auth/ssoAdminFreshRepository.js'
 import type { AdminFreshContext } from '../auth/ssoAdminFreshRepository.js'
 
 export const digest = () => randomBytes(32).toString('hex')
-export type TestRole =
+type TestRole =
   | 'nihongo_app'
-  | 'nihongo_auth_gateway'
-  | 'nihongo_phase7_migration'
-  | 'nihongo_erasure_worker'
+  | 'nihongo_guest_cleanup_worker'
+  | 'nihongo_migration'
 export interface SsoFixture {
   userId: string
   sessionId: string
   token: string
-  familyId: string
   provider: 'apple' | 'google'
   subject: string
 }
 export const createSsoDbHarness = () => {
   const environment = parseApiEnvironment(process.env)
   assertSafeAdminCmsDatabase({
-    adminCmsMode: environment.ADMIN_CMS_MODE,
     nodeEnvironment: environment.NODE_ENV,
     databaseUrl: environment.DATABASE_URL,
     productionDatabaseUrl: process.env.PRODUCTION_DATABASE_URL
   })
   const schema = getPostgresSchema(environment.DATABASE_URL)
-  const adminUrl = process.env.PHASE7_ADMIN_DATABASE_URL
-  const gatewayUrl = environment.AUTH_GATEWAY_DATABASE_URL
+  const adminUrl = process.env.ADMIN_DATABASE_URL
+  const gatewayUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
   if (
     environment.NODE_ENV !== 'test' ||
-    !schema?.match(/^phase7_[a-z0-9_]+_test$/u) ||
+    !schema?.match(/^nihongo_[a-z0-9_]+_test$/u) ||
     !adminUrl ||
     !gatewayUrl ||
     [adminUrl, gatewayUrl].some((url) => getPostgresSchema(url) !== schema)
   )
     throw new Error(
-      'SSO integration requires the existing isolated Phase 7 TEST harness.'
+      'SSO integration requires the existing isolated TEST harness.'
     )
   const connection = (value: string, role?: TestRole) => {
     const url = new URL(value)
@@ -59,17 +65,29 @@ export const createSsoDbHarness = () => {
     })
   }
   const owner = connection(adminUrl)
-  const gatewayA = connection(gatewayUrl, 'nihongo_auth_gateway')
-  const gatewayB = connection(gatewayUrl, 'nihongo_auth_gateway')
+  const gatewayA = connection(gatewayUrl, 'nihongo_app')
+  const gatewayB = connection(gatewayUrl, 'nihongo_app')
   const app = connection(environment.DATABASE_URL, 'nihongo_app')
+  // #504 P7 PR3a/PR3b-1: the API runs Session and ADMIN_FRESH writes as
+  // nihongo_app; concurrency probes need two such connections.
+  const appA = connection(environment.DATABASE_URL, 'nihongo_app')
+  const appB = connection(environment.DATABASE_URL, 'nihongo_app')
   const roleQuery = async <Row extends QueryResultRow = QueryResultRow>(
     role: TestRole,
     sql: string,
     values: readonly unknown[] = []
   ) => {
-    await owner.query(`SET ROLE "${role}"`)
+    // #504 P7 PR3a/PR3b-1: calls to the dropped Session functions run the API
+    // implementation. Gateway facade callers are nihongo_app since PR1.
+    const bridged = isOwnedSessionSql(sql)
+    const executionRole = bridgedRole(sql, role)
+    await owner.query(`SET ROLE "${executionRole}"`)
     try {
-      const result = await owner.query<Row>(sql, [...values])
+      const result = bridged
+        ? ((await ownedSessionSql<Row>(owner, sql, [
+            ...values
+          ])) as unknown as QueryResult<Row>)
+        : await owner.query<Row>(sql, [...values])
       await owner.query('RESET ROLE')
       return result
     } catch (error: unknown) {
@@ -83,6 +101,15 @@ export const createSsoDbHarness = () => {
       throw error
     }
   }
+  // Issues an owned V1 Session through the API implementation as nihongo_app.
+  const issueSession = async (sql: string, values: unknown[]) => {
+    await owner.query('SET ROLE "nihongo_app"')
+    try {
+      return await ownedSessionSql<{ id: string }>(owner, sql, values)
+    } finally {
+      await owner.query('RESET ROLE').catch(() => undefined)
+    }
+  }
   const rollback = async (action: () => Promise<void>) => {
     await owner.query('BEGIN')
     try {
@@ -92,6 +119,26 @@ export const createSsoDbHarness = () => {
     }
   }
   let sequence = 0
+  // #504 P7 PR4a: a Prisma-shaped nihongo_app client for the erasure worker.
+  const appClient = {
+    $queryRawUnsafe: async (sql: string, ...args: unknown[]) =>
+      (await roleQuery('nihongo_app', sql, args)).rows,
+    $executeRawUnsafe: async (sql: string, ...args: unknown[]) =>
+      (await roleQuery('nihongo_app', sql, args)).rowCount ?? 0,
+    $transaction: async (operation: (transaction: never) => unknown) => {
+      await owner.query('SET ROLE "nihongo_app"')
+      try {
+        return await pgOwnedSessionClient(owner).$transaction(
+          operation as never
+        )
+      } finally {
+        await owner.query('RESET ROLE')
+      }
+    }
+  } as unknown as Pick<
+    PrismaClient,
+    '$queryRawUnsafe' | '$executeRawUnsafe' | '$transaction'
+  >
   const rejects = async (
     role: TestRole,
     sql: string,
@@ -141,19 +188,18 @@ export const createSsoDbHarness = () => {
       `INSERT INTO "Account" ("id","accountId","providerId","userId","createdAt","updatedAt") VALUES ($1,$2,$3,$4,clock_timestamp(),clock_timestamp())`,
       [randomUUID(), subject, provider, userId]
     )
-    const result = await roleQuery<{ familyId: string }>(
-      'nihongo_auth_gateway',
-      `SELECT * FROM "phase7_issue_v1_session"($1,1,$2::"UserRole",'ACTIVE',$3,$4,'127.0.0.1','sso-db-fixture',false)`,
+    const result = await issueSession(
+      `SELECT * FROM "issue_v1_session"($1,1,$2::"UserRole",'ACTIVE',$3,$4,'127.0.0.1','sso-db-fixture',false)`,
       [userId, role, sessionId, token]
     )
-    const familyId = result.rows[0]?.familyId
-    if (!familyId) throw new Error('SSO fixture session issuance failed.')
-    return { userId, sessionId, token, familyId, provider, subject }
+    if (result.rows[0]?.id !== sessionId)
+      throw new Error('SSO fixture session issuance failed.')
+    return { userId, sessionId, token, provider, subject }
   }
   const prepare = async (f: SsoFixture): Promise<AdminFreshContext> => {
     const rows = await roleQuery<{ context: unknown }>(
-      'nihongo_auth_gateway',
-      'SELECT "phase7_prepare_sso_admin_fresh"($1,$2) AS context',
+      'nihongo_app',
+      'SELECT "prepare_sso_admin_fresh"($1,$2) AS context',
       [f.token, f.provider]
     )
     return adminFreshContextSchema.parse(rows.rows[0]?.context)
@@ -165,14 +211,14 @@ export const createSsoDbHarness = () => {
     subject = context.accountId
   ) => {
     const rows = await roleQuery<{ accepted: boolean }>(
-      'nihongo_auth_gateway',
-      'SELECT "phase7_stage_sso_admin_fresh_proof"($1::jsonb,$2,$3,$4,$5) AS accepted',
+      'nihongo_app',
+      'SELECT "stage_sso_admin_fresh_proof"($1::jsonb,$2,$3,$4,$5) AS accepted',
       [JSON.stringify(context), provider, subject, proof, '/login']
     )
     return { proof, accepted: rows.rows[0]?.accepted }
   }
   const completeSql =
-    'SELECT * FROM "phase7_complete_sso_admin_fresh"($1,$2,$3,$4,$5,$6)'
+    'SELECT * FROM "complete_sso_admin_fresh"($1,$2,$3,$4,$5,$6)'
   const completeValues = (
     f: SsoFixture,
     proof: string,
@@ -185,16 +231,11 @@ export const createSsoDbHarness = () => {
   })
   const rotate = async (f: SsoFixture, proof: string) => {
     const next = completeValues(f, proof)
-    const result = await roleQuery(
-      'nihongo_auth_gateway',
-      completeSql,
-      next.values
-    )
+    const result = await roleQuery('nihongo_app', completeSql, next.values)
     expect(result.rows).toHaveLength(1)
     expect(result.rows[0]).toMatchObject({
       id: next.id,
       userId: f.userId,
-      familyId: f.familyId,
       authorityGeneration: 1,
       callbackURL: '/login'
     })
@@ -207,10 +248,9 @@ export const createSsoDbHarness = () => {
     (SELECT count(*)::int FROM "Session" WHERE "id"=$1) AS "oldSessions",
     (SELECT count(*)::int FROM "Session" WHERE "userId"=$2 AND "authorizationState"='ACTIVE') AS "activeSessions",
     (SELECT count(*)::int FROM "Session" WHERE "userId"=$2 AND "authorizationState"='PENDING_REAUTH') AS "pendingSessions",
-    (SELECT count(*)::int FROM "AuthSessionRotationFence" WHERE "oldSessionId"=$1 AND "userId"=$2 AND "oldFamilyId"=$3 AND "replacementFamilyId"=$3) AS fences,
     (SELECT count(*)::int FROM "AdminAuditLog" WHERE "actorId"=$2 AND command='REAUTHENTICATION') AS audits,
-    (SELECT count(*)::int FROM "Phase7ReauthenticationIntent" WHERE "userId"=$2 AND state='FINALIZED') AS finalized`,
-        [f.sessionId, f.userId, f.familyId]
+    (SELECT count(*)::int FROM "ReauthenticationIntent" WHERE "userId"=$2 AND state='FINALIZED') AS finalized`,
+        [f.sessionId, f.userId]
       )
     ).rows[0]
   const stableTables = [
@@ -344,10 +384,14 @@ export const createSsoDbHarness = () => {
     createOwnerPeer: () => connection(adminUrl),
     gatewayA,
     gatewayB,
+    appA,
+    appB,
     app,
     schema,
     environment,
     roleQuery,
+    appClient,
+    issueSession,
     rollback,
     rejects,
     fixtureMutation,
@@ -362,37 +406,19 @@ export const createSsoDbHarness = () => {
     learningFixture,
     connect: async () => {
       await owner.connect()
+      // #504 P7 PR5b: the SQL audit digest is a test fixture now.
+      await installAuditDigestSql(owner)
       await gatewayA.connect()
       await gatewayB.connect()
+      await appA.connect()
+      await appB.connect()
       await app.connect()
-      const endpoint = (
-        await owner.query<{ name: string; address: string; port: number }>(
-          `SELECT current_database() AS name,inet_server_addr()::text AS address,inet_server_port() AS port`
-        )
-      ).rows[0]
-      if (!endpoint) throw new Error('DB endpoint identity is unavailable.')
-      await roleQuery(
-        'nihongo_phase7_migration',
-        `SELECT "phase7_register_database_capability"($1,$2::inet,$3,'TEST')`,
-        [endpoint.name, endpoint.address, endpoint.port]
-      )
-      const activation = await owner.query<{
-        id: number
-        legacyIssuerDisabled: boolean
-      }>(`SELECT "id", "legacyIssuerDisabled" FROM "AuthIssuerActivation"`)
-      const issuer = activation.rows[0]
-      if (
-        activation.rows.length !== 1 ||
-        issuer?.id !== 1 ||
-        typeof issuer.legacyIssuerDisabled !== 'boolean'
-      ) {
-        throw new Error('Issuer activation singleton is invalid.')
-      }
-      if (!issuer.legacyIssuerDisabled) {
-        await roleQuery(
-          'nihongo_phase7_migration',
-          `SELECT "phase7_activate_v1_issuer"('TEST')`
-        )
+      // #504 P8-1: the baseline starts with V1 issuance active.
+      await owner.query('SET ROLE "nihongo_migration"')
+      try {
+        await registerDatabaseCapability(owner, 'TEST')
+      } finally {
+        await owner.query('RESET ROLE')
       }
     },
     close: async () => {
@@ -400,6 +426,8 @@ export const createSsoDbHarness = () => {
         owner.end(),
         gatewayA.end(),
         gatewayB.end(),
+        appA.end(),
+        appB.end(),
         app.end()
       ])
     }

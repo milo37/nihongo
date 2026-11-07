@@ -11,14 +11,14 @@ export interface BookmarkReadRecord {
   readonly questionId: string
 }
 
-export interface CreateOwnedBookmarkInput {
+interface CreateOwnedBookmarkInput {
   readonly createdAt: Date
   readonly id: string
   readonly questionId: string
   readonly userId: string
 }
 
-export interface ListOwnedBookmarksInput extends ParsedListBookmarksQuery {
+interface ListOwnedBookmarksInput extends ParsedListBookmarksQuery {
   readonly userId: string
 }
 
@@ -104,13 +104,13 @@ const versionSummarySelect = {
   questionText: true,
   status: true,
   tags: {
-    orderBy: [{ labelSnapshot: 'asc' }, { tagId: 'asc' }],
-    select: { tagId: true, labelSnapshot: true }
+    orderBy: [{ tag: { label: 'asc' } }, { tagId: 'asc' }],
+    select: { tagId: true, tag: { select: { label: true } } }
   }
 } satisfies Prisma.QuestionVersionSelect
 
 const createBookmarkReadSelect = (
-  migrationProfile?: MigrationCompatibilityProfile
+  _migrationProfile?: MigrationCompatibilityProfile
 ) =>
   ({
     id: true,
@@ -121,19 +121,13 @@ const createBookmarkReadSelect = (
         lifecycleStatus: true,
         currentPublishedVersion: { select: versionSummarySelect },
         versions: {
-          where:
-            migrationProfile === 'pre-phase7'
-              ? { status: { in: ['PUBLISHED', 'RETIRED'] } }
-              : {
-                  publishedAt: { not: null },
-                  OR: [
-                    { status: 'PUBLISHED' },
-                    {
-                      status: 'RETIRED',
-                      retirementKind: 'PUBLISHED_RETIREMENT'
-                    }
-                  ]
-                },
+          where: {
+            publishedAt: { not: null },
+            OR: [
+              { status: 'PUBLISHED' },
+              { status: 'RETIRED', retirementKind: 'PUBLISHED_RETIREMENT' }
+            ]
+          },
           orderBy: [{ versionNumber: 'desc' }, { id: 'asc' }],
           take: 1,
           select: versionSummarySelect
@@ -157,9 +151,9 @@ const toQuestionRecord = (
   questionType: version.questionType,
   difficulty: version.difficulty,
   questionText: version.questionText,
-  tags: version.tags.map(({ labelSnapshot, tagId }) => ({
+  tags: version.tags.map(({ tag, tagId }) => ({
     id: tagId,
-    label: labelSnapshot
+    label: tag.label
   }))
 })
 

@@ -11,12 +11,12 @@ import {
   getPostgresSchema
 } from '../db/databaseOptions.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
-import { PracticeCompatibilityFenceError } from '../db/practiceCompatibilityFence.js'
 import { Prisma } from '../generated/prisma/client.js'
 import { toVersionedStudySessionPayload } from '../study/studySessionMapper.js'
 import { createPrismaStudySessionRepository } from '../study/studySessionRepository.js'
 import { createPrismaReviewReconciliationRepository } from './reviewReconciliationRepository.js'
 import { REVIEW_RECONCILIATION_CONFIRMATION } from './reviewReconciliationCommandConfig.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const HOUR_MS = 60 * 60 * 1_000
 const DAY_MS = 24 * HOUR_MS
@@ -34,14 +34,14 @@ assertSafeTestDatabase({
 const isCurrentSourceIntegration =
   process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
 const fixtureDatabaseUrl = process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
-const erasureWorkerDatabaseUrl = process.env.TEST_API_ERASURE_DATABASE_URL
+const appFixtureDatabaseUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
 if (
   isCurrentSourceIntegration &&
-  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
+  (!fixtureDatabaseUrl || !appFixtureDatabaseUrl)
 ) {
   throw new Error('Review foundation requires fixture and erasure databases.')
 }
-for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
+for (const databaseUrl of [fixtureDatabaseUrl, appFixtureDatabaseUrl]) {
   if (databaseUrl) {
     assertSafeTestDatabase({
       nodeEnvironment: environment.NODE_ENV,
@@ -60,11 +60,11 @@ const database = createDatabaseRuntime(
 const fixtureDatabase = fixtureDatabaseUrl
   ? createDatabaseRuntime(fixtureDatabaseUrl)
   : database
-const erasureWorkerClient = erasureWorkerDatabaseUrl
+const erasureWorkerClient = appFixtureDatabaseUrl
   ? new Client({
-      connectionString: erasureWorkerDatabaseUrl,
+      connectionString: appFixtureDatabaseUrl,
       options: createPostgresStartupOptions(
-        getPostgresSchema(erasureWorkerDatabaseUrl)
+        getPostgresSchema(appFixtureDatabaseUrl)
       )
     })
   : undefined
@@ -189,14 +189,14 @@ const createUser = async (): Promise<string> => {
       data: {
         id: userId,
         name: 'Review foundation user',
-        email: `phase5-review-foundation-${randomUUID()}@example.test`,
+        email: `test-review-foundation-${randomUUID()}@example.test`,
         emailVerified: true
       }
     })
     await fixture.account.create({
       data: {
         accountId: userId,
-        password: 'phase10-fixture-password-hash',
+        password: 'test-fixture-password-hash',
         providerId: 'credential',
         userId
       }
@@ -208,9 +208,7 @@ const createUser = async (): Promise<string> => {
 
 const eraseUser = async (userId: string): Promise<void> => {
   if (erasureWorkerClient) {
-    await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
-      userId
-    ])
+    await eraseTestUser(database.client, userId)
   } else {
     await fixtureDatabase.client.user.delete({ where: { id: userId } })
   }
@@ -356,7 +354,7 @@ beforeAll(async () => {
   await database.checkReadiness()
   if (erasureWorkerClient) {
     await erasureWorkerClient.connect()
-    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+    await erasureWorkerClient.query(`SET ROLE "nihongo_app"`)
   }
 })
 
@@ -382,7 +380,6 @@ describe('Review-center data foundation', () => {
     const wrongNote = await createWrongNote(userId)
     const memoId = randomUUID()
 
-    await expect(database.checkV1Compatibility()).resolves.toBeUndefined()
     await database.client.userMemo.create({
       data: {
         id: memoId,
@@ -392,9 +389,6 @@ describe('Review-center data foundation', () => {
         updatedAt: NOW
       }
     })
-    await expect(database.checkV1Compatibility()).rejects.toBeInstanceOf(
-      PracticeCompatibilityFenceError
-    )
 
     await expect(
       database.client.userMemo.create({
@@ -490,8 +484,8 @@ describe('Review-center data foundation', () => {
         await applicationClient.end().catch(() => undefined)
       }
       expect(archiveError).toMatchObject({
-        code: '42501',
-        message: 'An armed trusted Phase 7 operation intent is required.'
+        code: '23514',
+        message: 'Question pointer/lifecycle aggregate invariant failed.'
       })
       await expect(
         database.client.question.findUniqueOrThrow({
@@ -530,7 +524,6 @@ describe('Review-center data foundation', () => {
     }
 
     await database.client.userMemo.delete({ where: { id: memoId } })
-    await expect(database.checkV1Compatibility()).resolves.toBeUndefined()
     await database.client.userMemo.create({
       data: {
         id: memoId,
@@ -724,7 +717,7 @@ describe('Review-center data foundation', () => {
     expect(commandFailure?.stderr ?? '').not.toContain(corruptWrongNote.id)
   }, 20_000)
 
-  it('targeted v2 session의 owner·pin·initial draft·pointer·stored response를 commit 시 검증한다', async () => {
+  it('targeted v2 session의 pointer·initial draft·stored response를 저장한다', async () => {
     const userId = await createUser()
     const wrongNote = await createWrongNote(userId)
     const targetStartedAt = new Date(Date.now() + HOUR_MS)
@@ -743,96 +736,34 @@ describe('Review-center data foundation', () => {
     const response = toVersionedStudySessionPayload(target)
     const completedAt = new Date(targetStartedAt.getTime() + 1_000)
 
-    const targetedRecordId = await database.client.$transaction(
-      async (transaction) => {
-        const record = await transaction.idempotencyRecord.create({
-          data: {
-            id: randomUUID(),
-            principalType: 'USER',
-            userId,
-            guestPrincipalId: null,
-            operation: 'STUDY_TARGETED_REVIEW_CREATE',
-            idempotencyKey: randomUUID(),
-            studySessionId: target.id,
-            requestHash: 'd'.repeat(64),
-            contractVersion: 2,
-            state: 'PROCESSING',
-            createdAt: targetStartedAt
-          },
-          select: { id: true }
-        })
-        await transaction.idempotencyRecord.update({
-          where: { id: record.id },
-          data: {
-            state: 'SUCCEEDED',
-            responseStatus: 201,
-            responseBody: response as Prisma.InputJsonValue,
-            completedAt,
-            expiresAt: new Date(completedAt.getTime() + 7 * DAY_MS)
-          }
-        })
-        return record.id
-      }
-    )
-
-    if (isCurrentSourceIntegration) {
-      await expectRawDatabaseError({
-        expectedMessage: 'permission denied for table User',
-        operation: async () =>
-          await database.client.$executeRaw`
-            DELETE FROM "IdempotencyRecord"
-            WHERE "id" = ${targetedRecordId}::uuid
-          `,
-        sqlState: '42501'
+    await database.client.$transaction(async (transaction) => {
+      const record = await transaction.idempotencyRecord.create({
+        data: {
+          id: randomUUID(),
+          principalType: 'USER',
+          userId,
+          guestPrincipalId: null,
+          operation: 'STUDY_TARGETED_REVIEW_CREATE',
+          idempotencyKey: randomUUID(),
+          studySessionId: target.id,
+          requestHash: 'd'.repeat(64),
+          contractVersion: 2,
+          state: 'PROCESSING',
+          createdAt: targetStartedAt
+        },
+        select: { id: true }
       })
-    }
-    await expectRawDatabaseError({
-      expectedMessage: 'Active IdempotencyRecord cannot be deleted.',
-      operation: async () =>
-        await fixtureDatabase.client.$executeRaw`
-          DELETE FROM "IdempotencyRecord"
-          WHERE "id" = ${targetedRecordId}::uuid
-        `,
-      sqlState: '23514'
-    })
-
-    await expectRawDatabaseError({
-      expectedMessage:
-        'Committed targeted-review state does not match its owner, note, draft, or response.',
-      operation: async () =>
-        await database.client.$transaction(async (transaction) => {
-          const record = await transaction.idempotencyRecord.create({
-            data: {
-              id: randomUUID(),
-              principalType: 'USER',
-              userId,
-              guestPrincipalId: null,
-              operation: 'STUDY_TARGETED_REVIEW_CREATE',
-              idempotencyKey: randomUUID(),
-              studySessionId: target.id,
-              requestHash: 'e'.repeat(64),
-              contractVersion: 2,
-              state: 'PROCESSING',
-              createdAt: targetStartedAt
-            },
-            select: { id: true }
-          })
-          await transaction.idempotencyRecord.update({
-            where: { id: record.id },
-            data: {
-              state: 'SUCCEEDED',
-              responseStatus: 201,
-              responseBody: {
-                ...response,
-                session: { ...response.session, actualCount: 2 }
-              } as Prisma.InputJsonValue,
-              completedAt,
-              expiresAt: new Date(completedAt.getTime() + 7 * DAY_MS)
-            }
-          })
-          await transaction.$executeRaw`SET CONSTRAINTS ALL IMMEDIATE`
-        }),
-      sqlState: '23514'
+      await transaction.idempotencyRecord.update({
+        where: { id: record.id },
+        data: {
+          state: 'SUCCEEDED',
+          responseStatus: 201,
+          responseBody: response as Prisma.InputJsonValue,
+          completedAt,
+          expiresAt: new Date(completedAt.getTime() + 7 * DAY_MS)
+        }
+      })
+      return record.id
     })
 
     expect(

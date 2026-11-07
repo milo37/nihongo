@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { Prisma } from '../generated/prisma/client.js'
 import {
   adminAuditLogItemSchema,
@@ -40,11 +40,11 @@ const requireEnvironmentValue = (name: string): string => {
 
 const adminDatabaseUrl = requireEnvironmentValue('TEST_API_ADMIN_DATABASE_URL')
 const applicationDatabaseUrl = requireEnvironmentValue('DATABASE_URL')
-const authGatewayDatabaseUrl = requireEnvironmentValue(
-  'AUTH_GATEWAY_DATABASE_URL'
+const appFixtureDatabaseUrl = requireEnvironmentValue(
+  'TEST_APP_FIXTURE_DATABASE_URL'
 )
 const schemaName = new URL(adminDatabaseUrl).searchParams.get('schema')
-if (!schemaName || !/^phase7_[a-f0-9]{32}_test$/u.test(schemaName)) {
+if (!schemaName || !/^nihongo_[a-f0-9]{32}_test$/u.test(schemaName)) {
   throw new Error('Admin read integration received an unsafe schema.')
 }
 
@@ -206,15 +206,12 @@ const insertTagSnapshot = async ({
     [tagId, name]
   )
   await adminClient.query(
-    `INSERT INTO "QuestionVersionTag" (
-       "id", "questionVersionId", "tagId", "labelSnapshot",
-       "normalizedNameSnapshot"
-     ) VALUES ($1, $2, $3, $4, $4)`,
+    `INSERT INTO "QuestionVersionTag" ("id", "questionVersionId", "tagId")
+     VALUES ($1, $2, $3)`,
     [
       `019d7100-0000-7000-8000-0000000001${index.toString().padStart(2, '0')}`,
       versionId,
-      tagId,
-      name
+      tagId
     ]
   )
 }
@@ -650,9 +647,8 @@ const readDomainTableCounts = async (): Promise<DomainTableCounts> => {
 
 const apiEnvironment = parseApiEnvironment({
   NODE_ENV: 'test',
-  ADMIN_CMS_MODE: 'technical',
   DATABASE_URL: applicationDatabaseUrl,
-  AUTH_GATEWAY_DATABASE_URL: authGatewayDatabaseUrl,
+  TEST_APP_FIXTURE_DATABASE_URL: appFixtureDatabaseUrl,
   TRUSTED_ORIGINS: 'http://localhost:5173',
   BETTER_AUTH_SECRET: 'a'.repeat(32),
   GUEST_COOKIE_SECRET: 'b'.repeat(32),
@@ -748,6 +744,12 @@ const routeCases: readonly RouteCase[] = [
       expect(parsed.items.map((item) => item.normalizedName)).toContain(
         'candidate-selected'
       )
+      // Seed tags predate the tag list file, so they have no subject yet.
+      expect(
+        parsed.items.find(
+          (item) => item.normalizedName === 'candidate-selected'
+        )?.subject
+      ).toBeNull()
       return null
     }
   },
@@ -912,6 +914,52 @@ describe('Admin read TEST database integration', () => {
 
   it('keeps every CMS domain table unchanged across all read routes', async () => {
     expect(await readDomainTableCounts()).toEqual(baselineDomainTableCounts)
+  })
+
+  it('filters the tag list by subject, returns each subject and hides RETIRED tags (JLP-733)', async () => {
+    const prefix = `jlp733-${randomUUID().slice(0, 8)}`
+    const rows = [
+      [randomUUID(), `${prefix}-a`, 'grammar', 'GRAMMAR', 'ACTIVE'],
+      [randomUUID(), `${prefix}-b`, 'vocab', 'VOCABULARY', 'ACTIVE'],
+      [randomUUID(), `${prefix}-c`, 'grammar', 'GRAMMAR', 'RETIRED']
+    ] as const
+    for (const [id, name, keyPrefix, subject, status] of rows) {
+      await adminClient.query(
+        `INSERT INTO "Tag" ("id", "label", "normalizedName", "key",
+           "subject", "status", "createdAt", "updatedAt")
+         VALUES ($1, $2, $2, $3, $4::"QuestionSubject", $5::"TagStatus",
+           clock_timestamp(), clock_timestamp())`,
+        [id, name, `${keyPrefix}.${name}`, subject, status]
+      )
+    }
+    const list = async (query: string) => {
+      const response = await app.request(`/api/v1/admin/tags?${query}`)
+      expect(response.status).toBe(200)
+      return listAdminTagsResponseSchema
+        .parse(await response.json())
+        .items.map(({ normalizedName, subject }) => [normalizedName, subject])
+    }
+    try {
+      expect(await list(`q=${prefix}&limit=50`)).toEqual([
+        [`${prefix}-a`, 'GRAMMAR'],
+        [`${prefix}-b`, 'VOCABULARY']
+      ])
+      expect(await list(`q=${prefix}&subject=GRAMMAR`)).toEqual([
+        [`${prefix}-a`, 'GRAMMAR']
+      ])
+      expect(await list(`q=${prefix}&subject=READING`)).toEqual([])
+      // Without q the subject filter alone still applies.
+      expect(
+        (await list('subject=VOCABULARY&limit=50')).every(
+          ([, subject]) => subject === 'VOCABULARY'
+        )
+      ).toBe(true)
+    } finally {
+      await adminClient.query(
+        `DELETE FROM "Tag" WHERE "id" = ANY($1::uuid[])`,
+        [rows.map(([id]) => id)]
+      )
+    }
   })
 
   it('selects candidate, then current published, then highest retained with selected-version stats', async () => {

@@ -26,9 +26,16 @@ import {
   getSerializableRetryDelayMs,
   SERIALIZABLE_MAX_ATTEMPTS
 } from './serializableRetryPolicy.js'
+import {
+  delay,
+  idempotencyOwnerWhere,
+  isDatabaseUnavailableError,
+  isSerializableConflict,
+  ownerWhere,
+  type ReservationRow
+} from './studyRepositorySupport.js'
 
 const DRAFT_IDEMPOTENCY_RETENTION_MS = 48 * 60 * 60 * 1_000
-const UNAVAILABLE_PRISMA_CODES = new Set(['P1001', 'P1002', 'P2024'])
 
 interface StudyDraftRepositoryOptions {
   afterCancelSessionLocked?: () => Promise<void>
@@ -55,11 +62,7 @@ interface DraftQuestionRow {
   studySessionQuestionId: string
 }
 
-interface ReservationRow {
-  id: string
-}
-
-export interface SaveStudyDraftAtomicInput {
+interface SaveStudyDraftAtomicInput {
   readonly body: ParsedSaveStudyDraftAnswersBody
   readonly idempotencyKey: string
   readonly observedAt: Date
@@ -67,12 +70,12 @@ export interface SaveStudyDraftAtomicInput {
   readonly sessionId: string
 }
 
-export interface SaveStudyDraftAtomicResult {
+interface SaveStudyDraftAtomicResult {
   readonly replayed: boolean
   readonly response: StudyDraftSnapshot
 }
 
-export type CancelOwnedStudySessionOutcome =
+type CancelOwnedStudySessionOutcome =
   | { readonly kind: 'CANCELLED' }
   | { readonly kind: 'NOT_EDITABLE' }
   | { readonly kind: 'NOT_FOUND' }
@@ -158,46 +161,6 @@ class FreshDraftTransactionRetry extends Error {
     this.name = 'FreshDraftTransactionRetry'
   }
 }
-
-const delay = async (milliseconds: number): Promise<void> =>
-  await new Promise((resolve) => setTimeout(resolve, milliseconds))
-
-const isDatabaseUnavailableError = (error: unknown): boolean =>
-  error instanceof Prisma.PrismaClientInitializationError ||
-  (error instanceof Prisma.PrismaClientKnownRequestError &&
-    UNAVAILABLE_PRISMA_CODES.has(error.code))
-
-const isSerializableConflict = (error: unknown): boolean => {
-  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
-    return false
-  }
-  const sqlState = error.meta?.code
-  return (
-    error.code === 'P2034' ||
-    (error.code === 'P2010' &&
-      (sqlState === '40001' ||
-        sqlState === '40P01' ||
-        /Code: [`'](?:40001|40P01)[`']/u.test(error.message)))
-  )
-}
-
-const ownerWhere = (owner: ExistingStudyOwner) =>
-  owner.kind === 'USER'
-    ? { userId: owner.userId }
-    : { guestPrincipalId: owner.guestPrincipalId }
-
-const idempotencyOwnerWhere = (owner: ExistingStudyOwner) =>
-  owner.kind === 'USER'
-    ? {
-        principalType: 'USER' as const,
-        userId: owner.userId,
-        guestPrincipalId: null
-      }
-    : {
-        principalType: 'GUEST' as const,
-        userId: null,
-        guestPrincipalId: owner.guestPrincipalId
-      }
 
 const assertGuestProof = async (
   client: Prisma.TransactionClient | PrismaClient,

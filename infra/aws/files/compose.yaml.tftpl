@@ -1,0 +1,129 @@
+# Host copy at /opt/harumaru/compose.yaml. deploy.sh writes .env (API_IMAGE,
+# MIGRATE_IMAGE, RELEASE_ID, AWS_REGION, LOG_GROUP) next to it; secrets come from
+# /run/harumaru.
+name: harumaru
+
+x-logging: &logging
+  driver: awslogs
+  options:
+    awslogs-region: $${AWS_REGION}
+    awslogs-group: $${LOG_GROUP}
+    tag: '{{.Name}}'
+
+networks:
+  # The API trusts only this subnet as a proxy (AUTH_TRUSTED_PROXY_CIDRS).
+  edge:
+    ipam:
+      config:
+        - subnet: ${proxy_subnet}
+  # Fixed postgres address: DatabaseCapability records it (runbook step 5).
+  db:
+    internal: true
+    ipam:
+      config:
+        - subnet: ${db_subnet}
+
+services:
+  proxy:
+    image: ${caddy_image}
+    restart: unless-stopped
+    env_file: /run/harumaru/proxy.env
+    ports:
+      - '${origin_port}:${origin_port}'
+    volumes:
+      - /opt/harumaru/Caddyfile:/etc/caddy/Caddyfile:ro
+%{ if origin_tls ~}
+      - /run/harumaru/origin-tls:/run/origin-tls:ro
+%{ endif ~}
+    networks: [edge]
+    depends_on:
+      - api
+    logging: *logging
+
+  postgres:
+    image: ${postgres_image}
+    restart: unless-stopped
+    env_file: /run/harumaru/postgres.env
+    environment:
+      POSTGRES_DB: nihongo
+    # Production DATABASE_URL must use sslmode=require (apps/api/src/config/env.ts);
+    # the self-signed certificate is created at first boot.
+    command:
+      - postgres
+      - -c
+      - ssl=on
+      - -c
+      - ssl_cert_file=/certs/server.crt
+      - -c
+      - ssl_key_file=/certs/server.key
+    volumes:
+      - /var/lib/harumaru/postgres:/var/lib/postgresql
+      - /var/lib/harumaru/certs:/certs:ro
+    networks:
+      db:
+        ipv4_address: ${postgres_address}
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d nihongo']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+
+  # Not published on the host: only the proxy reaches it.
+  api:
+    image: $${API_IMAGE}
+    restart: unless-stopped
+    env_file:
+      - /etc/harumaru/public.env
+      - /run/harumaru/api.env
+    environment:
+      RELEASE_ID: $${RELEASE_ID}
+      # node-postgres treats sslmode=require as verify-full: trust the postgres cert.
+      NODE_EXTRA_CA_CERTS: /run/postgres-ca.crt
+    volumes:
+      - /var/lib/harumaru/certs/server.crt:/run/postgres-ca.crt:ro
+      # Legal contact, rendered from SSM by render-env.sh (#705).
+      - /var/lib/harumaru/web/legal-settings.json:/app/web/legal-settings.json:ro
+    networks: [edge, db]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *logging
+
+  # One-shot `prisma migrate deploy` (bin/migrate.sh). The profile keeps it out of
+  # `docker compose up`; it reaches only the internal db network.
+  migrate:
+    image: $${MIGRATE_IMAGE}
+    profiles: [migrate]
+    restart: 'no'
+    env_file: /run/harumaru/migrate.env
+    networks: [db]
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    logging: *logging
+
+  # Operator commands (bin/register-capability.sh, first admin) as the migration login.
+  capability:
+    image: $${API_IMAGE}
+    profiles: [operator]
+    restart: 'no'
+    env_file:
+      - /etc/harumaru/public.env
+      - /run/harumaru/migrate.env
+    entrypoint: ['node', 'api/dist/db/registerDatabaseCapabilityCommand.js']
+    environment:
+      NODE_EXTRA_CA_CERTS: /run/postgres-ca.crt
+    volumes:
+      - /var/lib/harumaru/certs/server.crt:/run/postgres-ca.crt:ro
+    networks: [db]
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    logging: *logging

@@ -1,4 +1,4 @@
-export const seedStages = [
+const seedStages = [
   'SEED_GENERATE',
   'MODULE_READY',
   'TARGET_READY',
@@ -84,9 +84,9 @@ const readSeedDatabaseFailure = (
   }
   return result()
 }
-export const getSeedFailureSqlState = (error: unknown): '23514' | undefined =>
+const getSeedFailureSqlState = (error: unknown): '23514' | undefined =>
   readSeedDatabaseFailure(error).sqlstate
-export const classifySeedFailure = (error: unknown): (typeof ids)[number] => {
+const classifySeedFailure = (error: unknown): (typeof ids)[number] => {
   const { diagnosticId } = readSeedDatabaseFailure(error)
   if (diagnosticId) return diagnosticId
   if (!(error instanceof Error)) return 'UNKNOWN_REDACTED'
@@ -97,7 +97,7 @@ export const classifySeedFailure = (error: unknown): (typeof ids)[number] => {
 }
 let lastStage: SeedStage = 'SEED_GENERATE'
 export const getLastSeedStage = (): SeedStage => lastStage
-export type SeedFailureKind = 'PRIMARY_FAILURE' | 'CLEANUP_FAILURE'
+type SeedFailureKind = 'PRIMARY_FAILURE' | 'CLEANUP_FAILURE'
 export const writeSeedDiagnostic = (
   stage: SeedStage,
   error?: unknown,

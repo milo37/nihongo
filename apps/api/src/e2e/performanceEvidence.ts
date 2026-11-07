@@ -44,7 +44,7 @@ interface StatementEvidence {
   readonly transactionPerSample: number
 }
 
-export interface TimingMeasurement {
+interface TimingMeasurement {
   readonly budget: TimingBudget
   readonly measuredCount: number
   readonly metric: string
@@ -53,7 +53,7 @@ export interface TimingMeasurement {
   readonly warmupCount: number
 }
 
-export interface DatabaseApiPerformanceEvidence {
+interface DatabaseApiPerformanceEvidence {
   readonly api: TimingMeasurement & {
     readonly cacheControl: 'private, no-store'
     readonly noStoreCount: number
@@ -91,7 +91,7 @@ export interface DatabaseApiPerformanceEvidence {
     readonly sessionCount: number
     readonly tagFactCount: number
   }
-  readonly kind: 'nihongo.phase10.database-api-performance'
+  readonly kind: 'nihongo.database-api-performance'
   readonly metadata: {
     readonly command: 'pnpm run test:database-performance'
     readonly commit: string
@@ -299,7 +299,7 @@ const assertStatementEvidence = (
   }
 }
 
-export const assertDatabaseApiPerformanceEvidence: (
+const assertDatabaseApiPerformanceEvidence: (
   value: unknown
 ) => asserts value is DatabaseApiPerformanceEvidence = (value) => {
   if (
@@ -319,7 +319,7 @@ export const assertDatabaseApiPerformanceEvidence: (
   const evidence = value as Record<string, unknown>
   if (
     evidence.schemaVersion !== 1 ||
-    evidence.kind !== 'nihongo.phase10.database-api-performance' ||
+    evidence.kind !== 'nihongo.database-api-performance' ||
     evidence.status !== 'passed' ||
     !exactKeys(evidence.metadata, [
       'command',

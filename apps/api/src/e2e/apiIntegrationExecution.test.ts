@@ -80,27 +80,21 @@ describe('SSO bootstrap migration history', () => {
       migration_name: name,
       checksum
     }))
-    expect(expected).toHaveLength(58)
+    expect(expected).toHaveLength(5)
     expect(() =>
       assertSsoBootstrapMigrationHistory(expected, applied)
     ).not.toThrow()
-    expect(() =>
-      assertSsoBootstrapMigrationHistory(
-        expected.slice(0, 50),
-        applied.slice(0, 50)
-      )
-    ).toThrow(/canonical58/u)
-    expect(() =>
-      assertSsoBootstrapMigrationHistory(expected, applied.slice(0, 51))
-    ).toThrow(/canonical58/u)
-    expect(() =>
-      assertSsoBootstrapMigrationHistory(expected, [...applied].reverse())
-    ).toThrow(/canonical58/u)
+    expect(() => assertSsoBootstrapMigrationHistory([], [])).toThrow(
+      /migration history/u
+    )
+    expect(() => assertSsoBootstrapMigrationHistory(expected, [])).toThrow(
+      /migration history/u
+    )
     const alteredLedger = structuredClone(applied)
     alteredLedger[0]!.checksum = '0'.repeat(64)
     expect(() =>
       assertSsoBootstrapMigrationHistory(expected, alteredLedger)
-    ).toThrow(/canonical58/u)
+    ).toThrow(/migration history/u)
     const alteredSource = structuredClone(expected)
     alteredSource[0]!.checksum = '0'.repeat(64)
     const matchingAlteredLedger = alteredSource.map(({ name, checksum }) => ({
@@ -109,7 +103,7 @@ describe('SSO bootstrap migration history', () => {
     }))
     expect(() =>
       assertSsoBootstrapMigrationHistory(alteredSource, matchingAlteredLedger)
-    ).toThrow(/canonical58/u)
+    ).toThrow(/migration history/u)
   })
 })
 
@@ -139,7 +133,7 @@ describe('query-plan failure diagnostics', () => {
         environment: {
           DATABASE_URL: 'synthetic',
           API_INTEGRATION_FIXTURE_DATABASE_URL: 'synthetic',
-          TEST_API_ERASURE_DATABASE_URL: 'synthetic'
+          TEST_APP_FIXTURE_DATABASE_URL: 'synthetic'
         },
         runCommand: async (_command, args) => {
           rawPath = args
@@ -230,17 +224,14 @@ describe('query-plan failure diagnostics', () => {
 })
 
 describe('SSO deterministic TEST environment', () => {
-  const schema = 'phase7_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_test'
+  const schema = 'nihongo_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_test'
   const database = (role: string) =>
     `postgresql://${role}:synthetic@127.0.0.1:5432/nihongo_test?schema=${schema}`
   const wrappers = {
     DATABASE_URL: database('nihongo_test_app_login'),
-    AUTH_GATEWAY_DATABASE_URL: database('nihongo_test_auth_gateway_login'),
-    PHASE7_ADMIN_DATABASE_URL: database('nihongo_test_phase7_migration_login'),
-    PHASE7_MIGRATION_DATABASE_URL: database(
-      'nihongo_test_phase7_migration_login'
-    ),
-    PHASE7_LEGACY_DATABASE_URL: database('nihongo_test_legacy_app_login'),
+    TEST_APP_FIXTURE_DATABASE_URL: database('nihongo_test_app_login'),
+    ADMIN_DATABASE_URL: database('nihongo_test_migration_login'),
+    MIGRATION_DATABASE_URL: database('nihongo_test_migration_login'),
     TEST_DEVELOPMENT_APP_DATABASE_URL: 'synthetic-development-wrapper',
     PRISMA_TEST_DATABASE_URL: database('nihongo_test_app_login'),
     PATH: '/synthetic/toolchain'
@@ -261,7 +252,6 @@ describe('SSO deterministic TEST environment', () => {
     expect(parsed).toMatchObject({
       NODE_ENV: 'test',
       DEPLOYMENT_ENVIRONMENT: 'TEST',
-      ADMIN_CMS_MODE: 'technical',
       HOST: '127.0.0.1',
       PORT: 3001,
       BETTER_AUTH_URL: 'http://127.0.0.1:3001',
@@ -281,7 +271,7 @@ describe('SSO deterministic TEST environment', () => {
   })
 
   it('preserves invalid database wrappers so the real authority guard still rejects them', () => {
-    const base = { ...wrappers, DATABASE_URL: database('nihongo_phase7_owner') }
+    const base = { ...wrappers, DATABASE_URL: database('nihongo_owner') }
     const environment = createSsoTestEnvironment(base)
     expect(environment.DATABASE_URL).toBe(base.DATABASE_URL)
     expect(() => parseApiEnvironment(environment)).toThrow(
@@ -370,8 +360,8 @@ describe('SSO deterministic TEST environment', () => {
         expect(childEnvironment).toBe(environment)
         expect(parseApiEnvironment(childEnvironment).NODE_ENV).toBe('test')
         expect(childEnvironment.DATABASE_URL).toBe(wrappers.DATABASE_URL)
-        expect(childEnvironment.AUTH_GATEWAY_DATABASE_URL).toBe(
-          wrappers.AUTH_GATEWAY_DATABASE_URL
+        expect(childEnvironment.TEST_APP_FIXTURE_DATABASE_URL).toBe(
+          wrappers.TEST_APP_FIXTURE_DATABASE_URL
         )
         rawPath = args
           .find((arg) => arg.startsWith('--outputFile='))!
@@ -535,15 +525,13 @@ describe('Opt-in foundation execution', () => {
         { testResults: [{ message }] },
         dbFoundationTestFile,
         {
-          PHASE7_ADMIN_DATABASE_URL: 'private-url',
-          PHASE7_LEGACY_DATABASE_URL: '  ',
+          ADMIN_DATABASE_URL: 'private-url',
           TEST_DEVELOPMENT_APP_DATABASE_URL: 'secret-token'
         }
       )
       expect(report.errors).toEqual([{ diagnosticId, location }])
       expect(report.dependenciesPresent).toEqual({
         adminWrapper: true,
-        legacyWrapper: false,
         developmentWrapper: true
       })
       expect(JSON.stringify(report)).not.toMatch(
@@ -565,10 +553,9 @@ describe('Opt-in foundation execution', () => {
         .spyOn(process.stdout, 'write')
         .mockImplementation(() => true)
       const environment = {
-        AUTH_GATEWAY_DATABASE_URL: 'private-gateway',
-        PHASE7_ADMIN_DATABASE_URL: 'private-admin',
-        PHASE7_MIGRATION_DATABASE_URL: 'private-migration',
-        PHASE7_LEGACY_DATABASE_URL: 'private-legacy',
+        TEST_APP_FIXTURE_DATABASE_URL: 'private-gateway',
+        ADMIN_DATABASE_URL: 'private-admin',
+        MIGRATION_DATABASE_URL: 'private-migration',
         TEST_DEVELOPMENT_APP_DATABASE_URL: 'private-development'
       }
       try {
@@ -691,7 +678,6 @@ describe('Bounded SSO first failed assertion', () => {
       todo: 0,
       dependenciesPresent: {
         adminWrapper: false,
-        legacyWrapper: false,
         developmentWrapper: false
       },
       errors: [],
@@ -940,10 +926,9 @@ describe('Bounded SSO first failed assertion', () => {
           preserveSanitizedReport: true,
           onCollectionDiagnostic,
           environment: {
-            AUTH_GATEWAY_DATABASE_URL: 'private-gateway',
-            PHASE7_ADMIN_DATABASE_URL: 'private-admin',
-            PHASE7_MIGRATION_DATABASE_URL: 'private-migration',
-            PHASE7_LEGACY_DATABASE_URL: 'private-legacy',
+            TEST_APP_FIXTURE_DATABASE_URL: 'private-gateway',
+            ADMIN_DATABASE_URL: 'private-admin',
+            MIGRATION_DATABASE_URL: 'private-migration',
             TEST_DEVELOPMENT_APP_DATABASE_URL: 'private-development'
           },
           runCommand: async (_command, args) => {
@@ -999,9 +984,8 @@ describe.each([
     DB_INTEGRATION_CASE: fixedCase.mode,
     DB_INTEGRATION_SINGLE_TEST: ssoTestFile,
     DB_INTEGRATION_PRESERVE_REPORT: '1',
-    PHASE7_ADMIN_DATABASE_URL: 'synthetic-admin',
-    AUTH_GATEWAY_DATABASE_URL: 'synthetic-auth',
-    PHASE7_LEGACY_DATABASE_URL: 'synthetic-legacy',
+    ADMIN_DATABASE_URL: 'synthetic-admin',
+    TEST_APP_FIXTURE_DATABASE_URL: 'synthetic-auth',
     TEST_DEVELOPMENT_APP_DATABASE_URL: 'synthetic-development',
     PRISMA_TEST_DATABASE_URL: 'synthetic-test'
   }
@@ -1281,11 +1265,10 @@ describe('fixed account lifecycle TEST slice', () => {
     const files = [ssoTestFile, ssoAccountLifecycleTestFile]
     const clean = {
       DATABASE_URL:
-        'postgresql://nihongo_test_app_login:synthetic@127.0.0.1:5432/nihongo_test?schema=phase7_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_test',
-      AUTH_GATEWAY_DATABASE_URL:
-        'postgresql://nihongo_test_auth_gateway_login:synthetic@127.0.0.1:5432/nihongo_test?schema=phase7_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_test',
-      NODE_ENV: 'test',
-      ADMIN_CMS_MODE: 'technical'
+        'postgresql://nihongo_test_app_login:synthetic@127.0.0.1:5432/nihongo_test?schema=nihongo_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_test',
+      TEST_APP_FIXTURE_DATABASE_URL:
+        'postgresql://nihongo_test_app_login:synthetic@127.0.0.1:5432/nihongo_test?schema=nihongo_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa_test',
+      NODE_ENV: 'test'
     }
     for (const selected of [
       selectDbIntegrationFiles(files, {}),
@@ -1304,7 +1287,7 @@ describe('fixed account lifecycle TEST slice', () => {
     expect(clean).not.toHaveProperty('BETTER_AUTH_SECRET')
   })
 
-  const report = (count = 6) => ({
+  const report = (count = 9) => ({
     numTotalTests: count,
     numPassedTests: count,
     numFailedTests: 0,
@@ -1313,7 +1296,7 @@ describe('fixed account lifecycle TEST slice', () => {
     testResults: [{ name: ssoAccountLifecycleTestFile }]
   })
   it('rejects partial success and extra cases rather than accepting a non-empty file', () => {
-    for (const count of [1, 2, 3, 4, 5, 7])
+    for (const count of [1, 2, 3, 4, 5, 6, 7, 8, 10])
       expect(() =>
         assertApiIntegrationVitestFileResult({
           result: report(count),
@@ -1333,8 +1316,8 @@ describe('fixed account lifecycle TEST slice', () => {
       testFile: ssoAccountLifecycleTestFile,
       environment: {
         DATABASE_URL: 'synthetic',
-        AUTH_GATEWAY_DATABASE_URL: 'synthetic',
-        PHASE7_ADMIN_DATABASE_URL: 'synthetic'
+        TEST_APP_FIXTURE_DATABASE_URL: 'synthetic',
+        ADMIN_DATABASE_URL: 'synthetic'
       },
       runCommand: async (_command, args) => {
         expect(args).toContain('--maxWorkers=1')
@@ -1350,7 +1333,7 @@ describe('fixed account lifecycle TEST slice', () => {
         await writeFile(rawPath, JSON.stringify(report()))
       }
     })
-    expect(count).toBe(6)
+    expect(count).toBe(9)
     await expect(stat(rawPath)).rejects.toThrow()
   })
   it('retains only a wholly safe original first error line', () => {
@@ -1392,7 +1375,7 @@ describe('guest cleanup required environment', () => {
     GUEST_CLEANUP_DATABASE_URL: 'worker',
     GUEST_CLEANUP_FIXTURE_DATABASE_URL: 'fixture',
     RUNTIME_DATABASE_URL: 'application',
-    TEST_API_ERASURE_DATABASE_URL: 'erasure',
+    TEST_APP_FIXTURE_DATABASE_URL: 'erasure',
     GUEST_CLEANUP_TEST_ISOLATED: 'yes'
   }
 

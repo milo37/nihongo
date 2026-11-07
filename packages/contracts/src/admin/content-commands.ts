@@ -102,7 +102,7 @@ const remapCreateContentIssuePath = (
   return [...path]
 }
 
-export const adminQuestionUpdateContentInputSchema =
+const adminQuestionUpdateContentInputSchema =
   adminQuestionUpdateContentStructureInputSchema.superRefine(
     (content, context) => {
       const orderedOrdinals = content.options
@@ -217,7 +217,7 @@ export const publishQuestionVersionRequestSchema = publicationRequestSchema
 export const retireQuestionVersionParamsSchema = versionParamsSchema
 export const retireQuestionVersionRequestSchema = publicationRequestSchema
 
-export const adminReviewRequestBatchItemSchema = z
+const adminReviewRequestBatchItemSchema = z
   .object({
     versionId: opaqueIdSchema,
     expectedRowVersion: positiveSafeIntegerSchema,
@@ -402,7 +402,7 @@ export const archiveAdminQuestionResponseSchema =
     }
   )
 
-export const adminReviewRequestBatchResultSchema = z
+const adminReviewRequestBatchResultSchema = z
   .object({
     items: z.array(requestContentReviewResponseSchema).min(1).max(20)
   })
@@ -431,7 +431,7 @@ export const adminReviewRequestBatchResultSchema = z
 export const requestContentReviewBatchResponseSchema =
   adminReviewRequestBatchResultSchema
 
-export const adminReauthenticationResultSchema = z
+const adminReauthenticationResultSchema = z
   .object({
     reauthenticatedAt: isoDateTimeSchema,
     assuranceExpiresAt: isoDateTimeSchema
@@ -657,15 +657,7 @@ export const assertRequestContentReviewBatchResponse = (
   return response
 }
 
-export const assertReauthenticateAdminResponse = (
-  rawRequest: unknown,
-  rawResponse: unknown
-): AdminReauthenticationResult => {
-  reauthenticateAdminRequestSchema.parse(rawRequest)
-  return reauthenticateAdminResponseSchema.parse(rawResponse)
-}
-
-export const adminQuestionExportOptionSchema = z
+const adminQuestionExportOptionSchema = z
   .object({
     id: opaqueIdSchema,
     ordinal: z.number().int().min(1).max(4),
@@ -673,7 +665,7 @@ export const adminQuestionExportOptionSchema = z
   })
   .strict()
 
-export const adminQuestionExportContentSchema = z
+const adminQuestionExportContentSchema = z
   .object({
     level: adminQuestionContentStructureInputSchema.shape.level,
     subject: adminQuestionContentStructureInputSchema.shape.subject,
@@ -689,7 +681,7 @@ export const adminQuestionExportContentSchema = z
   })
   .strict()
 
-export const adminQuestionExportVersionSchema = z
+const adminQuestionExportVersionSchema = z
   .object({
     questionVersionId: opaqueIdSchema,
     versionNumber: positiveSafeIntegerSchema,
@@ -698,7 +690,7 @@ export const adminQuestionExportVersionSchema = z
   })
   .strict()
 
-export const adminQuestionExportQuestionSchema = z
+const adminQuestionExportQuestionSchema = z
   .object({
     questionId: opaqueIdSchema,
     lifecycleStatus: questionLifecycleStatusSchema,
@@ -866,7 +858,7 @@ export const adminQuestionExportAttachmentHeadersSchema = z
   })
   .strict()
 
-export const adminQuestionExportAuditEvidenceSchema = z
+const adminQuestionExportAuditEvidenceSchema = z
   .object({
     selectionDigest: sha256HexSchema,
     responseBodyDigest: sha256HexSchema,
@@ -879,7 +871,7 @@ export const adminQuestionExportAuditEvidenceSchema = z
     message: 'versionCount는 questionCount 이상이어야 합니다.'
   })
 
-export const createAdminQuestionExportSelectionDigest = async (
+const createAdminQuestionExportSelectionDigest = async (
   port: Sha256TextPort,
   questionIds: readonly string[]
 ): Promise<string> =>
@@ -889,17 +881,17 @@ export const createAdminQuestionExportSelectionDigest = async (
     canonicalizeJson({ questionIds: [...questionIds] })
   )
 
-export const createAdminQuestionExportResponseBodyDigest = async (
+const createAdminQuestionExportResponseBodyDigest = async (
   port: Sha256TextPort,
   canonicalResponseBody: string
 ): Promise<string> => sha256Text(port, canonicalResponseBody)
 
-export interface AdminQuestionExportAssertionOptions {
+interface AdminQuestionExportAssertionOptions {
   readonly canonicalResponseBody?: string
   readonly auditEvidence?: unknown
 }
 
-export interface AdminQuestionExportAssertion {
+interface AdminQuestionExportAssertion {
   readonly document: AdminQuestionExportDocumentV1
   readonly canonicalResponseBody: string
   readonly selectionDigest: string
@@ -984,6 +976,7 @@ export const createAdminQuestionErrorCodeSchema = z.enum([
   'REQUEST_TOO_LARGE',
   'VALIDATION_ERROR',
   'DUPLICATE_QUESTION_CONTENT',
+  'TAG_SUBJECT_MISMATCH',
   'UNTRUSTED_ORIGIN',
   'RATE_LIMITED',
   'INTERNAL_SERVER_ERROR',
@@ -1007,6 +1000,7 @@ export const createAdminQuestionVersionErrorCodeSchema = z.enum([
   'VERSION_CONFLICT',
   'INVALID_STATE_TRANSITION',
   'DUPLICATE_QUESTION_CONTENT',
+  'TAG_SUBJECT_MISMATCH',
   'UNTRUSTED_ORIGIN',
   'RATE_LIMITED',
   'INTERNAL_SERVER_ERROR',
@@ -1033,6 +1027,7 @@ export const updateQuestionVersionErrorCodeSchema = z.enum([
   'QUESTION_VERSION_IMMUTABLE',
   'INVALID_STATE_TRANSITION',
   'DUPLICATE_QUESTION_CONTENT',
+  'TAG_SUBJECT_MISMATCH',
   'UNTRUSTED_ORIGIN',
   'RATE_LIMITED',
   'INTERNAL_SERVER_ERROR',
@@ -1238,6 +1233,14 @@ export const publishQuestionVersionBatchErrorSchema =
     publishQuestionVersionBatchErrorCodeSchema
   )
 
+export const approveQuestionVersionBatchErrorCodeSchema =
+  publishQuestionVersionBatchErrorCodeSchema
+export const approveQuestionVersionBatchErrorSchema =
+  createContentOperationErrorSchema(
+    'approveQuestionVersionBatch',
+    approveQuestionVersionBatchErrorCodeSchema
+  )
+
 export const requestContentReviewBatchErrorCodeSchema = z.enum([
   'AUTHENTICATION_REQUIRED',
   'AUTH_SESSION_EXPIRED',
@@ -1305,74 +1308,38 @@ export const reauthenticateAdminErrorSchema = createContentOperationErrorSchema(
 export type CreateAdminQuestionRequest = z.output<
   typeof createAdminQuestionRequestSchema
 >
-export type CreateAdminQuestionVersionParams = z.output<
-  typeof createAdminQuestionVersionParamsSchema
->
 export type CreateAdminQuestionVersionRequest = z.output<
   typeof createAdminQuestionVersionRequestSchema
->
-export type ArchiveAdminQuestionParams = z.output<
-  typeof archiveAdminQuestionParamsSchema
 >
 export type ArchiveAdminQuestionRequest = z.output<
   typeof archiveAdminQuestionRequestSchema
 >
-export type AdminQuestionUpdateContentInput = z.output<
-  typeof adminQuestionUpdateContentInputSchema
->
-export type UpdateQuestionVersionParams = z.output<
-  typeof updateQuestionVersionParamsSchema
->
 export type UpdateQuestionVersionRequest = z.output<
   typeof updateQuestionVersionRequestSchema
->
-export type RequestContentReviewParams = z.output<
-  typeof requestContentReviewParamsSchema
 >
 export type RequestContentReviewRequest = z.output<
   typeof requestContentReviewRequestSchema
 >
-export type RequestQuestionChangesParams = z.output<
-  typeof requestQuestionChangesParamsSchema
->
 export type RequestQuestionChangesRequest = z.output<
   typeof requestQuestionChangesRequestSchema
->
-export type ApproveQuestionVersionParams = z.output<
-  typeof approveQuestionVersionParamsSchema
 >
 export type ApproveQuestionVersionRequest = z.output<
   typeof approveQuestionVersionRequestSchema
 >
-export type WithdrawQuestionApprovalParams = z.output<
-  typeof withdrawQuestionApprovalParamsSchema
->
 export type WithdrawQuestionApprovalRequest = z.output<
   typeof withdrawQuestionApprovalRequestSchema
->
-export type PublishQuestionVersionParams = z.output<
-  typeof publishQuestionVersionParamsSchema
 >
 export type PublishQuestionVersionRequest = z.output<
   typeof publishQuestionVersionRequestSchema
 >
-export type RetireQuestionVersionParams = z.output<
-  typeof retireQuestionVersionParamsSchema
->
 export type RetireQuestionVersionRequest = z.output<
   typeof retireQuestionVersionRequestSchema
->
-export type AdminReviewRequestBatchItem = z.output<
-  typeof adminReviewRequestBatchItemSchema
 >
 export type RequestContentReviewBatchRequest = z.output<
   typeof requestContentReviewBatchRequestSchema
 >
 export type ExportAdminQuestionsRequest = z.output<
   typeof exportAdminQuestionsRequestSchema
->
-export type ReauthenticateAdminRequest = z.output<
-  typeof reauthenticateAdminRequestSchema
 >
 
 export type AdminQuestionMutationResult = z.output<
@@ -1381,141 +1348,42 @@ export type AdminQuestionMutationResult = z.output<
 export type CreateAdminQuestionResponse = z.output<
   typeof createAdminQuestionResponseSchema
 >
-export type CreateAdminQuestionVersionResponse = z.output<
+type CreateAdminQuestionVersionResponse = z.output<
   typeof createAdminQuestionVersionResponseSchema
 >
-export type UpdateQuestionVersionResponse = z.output<
+type UpdateQuestionVersionResponse = z.output<
   typeof updateQuestionVersionResponseSchema
 >
-export type RequestContentReviewResponse = z.output<
+type RequestContentReviewResponse = z.output<
   typeof requestContentReviewResponseSchema
 >
-export type RequestQuestionChangesResponse = z.output<
+type RequestQuestionChangesResponse = z.output<
   typeof requestQuestionChangesResponseSchema
 >
-export type ApproveQuestionVersionResponse = z.output<
+type ApproveQuestionVersionResponse = z.output<
   typeof approveQuestionVersionResponseSchema
 >
-export type WithdrawQuestionApprovalResponse = z.output<
+type WithdrawQuestionApprovalResponse = z.output<
   typeof withdrawQuestionApprovalResponseSchema
 >
-export type PublishQuestionVersionResponse = z.output<
+type PublishQuestionVersionResponse = z.output<
   typeof publishQuestionVersionResponseSchema
 >
-export type RetireQuestionVersionResponse = z.output<
+type RetireQuestionVersionResponse = z.output<
   typeof retireQuestionVersionResponseSchema
 >
-export type ArchiveAdminQuestionResponse = z.output<
+type ArchiveAdminQuestionResponse = z.output<
   typeof archiveAdminQuestionResponseSchema
 >
 export type AdminReviewRequestBatchResult = z.output<
   typeof adminReviewRequestBatchResultSchema
 >
-export type RequestContentReviewBatchResponse = z.output<
-  typeof requestContentReviewBatchResponseSchema
->
 export type AdminReauthenticationResult = z.output<
   typeof adminReauthenticationResultSchema
->
-
-export type AdminQuestionExportOption = z.output<
-  typeof adminQuestionExportOptionSchema
->
-export type AdminQuestionExportContent = z.output<
-  typeof adminQuestionExportContentSchema
->
-export type AdminQuestionExportVersion = z.output<
-  typeof adminQuestionExportVersionSchema
->
-export type AdminQuestionExportQuestion = z.output<
-  typeof adminQuestionExportQuestionSchema
 >
 export type AdminQuestionExportDocumentV1 = z.output<
   typeof adminQuestionExportDocumentV1Schema
 >
-export type ExportAdminQuestionsResponse = z.output<
-  typeof exportAdminQuestionsResponseSchema
->
 export type AdminQuestionExportAuditEvidence = z.output<
   typeof adminQuestionExportAuditEvidenceSchema
->
-
-export type CreateAdminQuestionErrorCode = z.output<
-  typeof createAdminQuestionErrorCodeSchema
->
-export type CreateAdminQuestionVersionErrorCode = z.output<
-  typeof createAdminQuestionVersionErrorCodeSchema
->
-export type UpdateQuestionVersionErrorCode = z.output<
-  typeof updateQuestionVersionErrorCodeSchema
->
-export type ArchiveAdminQuestionErrorCode = z.output<
-  typeof archiveAdminQuestionErrorCodeSchema
->
-export type RequestContentReviewErrorCode = z.output<
-  typeof requestContentReviewErrorCodeSchema
->
-export type RequestQuestionChangesErrorCode = z.output<
-  typeof requestQuestionChangesErrorCodeSchema
->
-export type ApproveQuestionVersionErrorCode = z.output<
-  typeof approveQuestionVersionErrorCodeSchema
->
-export type WithdrawQuestionApprovalErrorCode = z.output<
-  typeof withdrawQuestionApprovalErrorCodeSchema
->
-export type PublishQuestionVersionErrorCode = z.output<
-  typeof publishQuestionVersionErrorCodeSchema
->
-export type RetireQuestionVersionErrorCode = z.output<
-  typeof retireQuestionVersionErrorCodeSchema
->
-export type RequestContentReviewBatchErrorCode = z.output<
-  typeof requestContentReviewBatchErrorCodeSchema
->
-export type ExportAdminQuestionsErrorCode = z.output<
-  typeof exportAdminQuestionsErrorCodeSchema
->
-export type ReauthenticateAdminErrorCode = z.output<
-  typeof reauthenticateAdminErrorCodeSchema
->
-
-export type CreateAdminQuestionError = z.output<
-  typeof createAdminQuestionErrorSchema
->
-export type CreateAdminQuestionVersionError = z.output<
-  typeof createAdminQuestionVersionErrorSchema
->
-export type UpdateQuestionVersionError = z.output<
-  typeof updateQuestionVersionErrorSchema
->
-export type ArchiveAdminQuestionError = z.output<
-  typeof archiveAdminQuestionErrorSchema
->
-export type RequestContentReviewError = z.output<
-  typeof requestContentReviewErrorSchema
->
-export type RequestQuestionChangesError = z.output<
-  typeof requestQuestionChangesErrorSchema
->
-export type ApproveQuestionVersionError = z.output<
-  typeof approveQuestionVersionErrorSchema
->
-export type WithdrawQuestionApprovalError = z.output<
-  typeof withdrawQuestionApprovalErrorSchema
->
-export type PublishQuestionVersionError = z.output<
-  typeof publishQuestionVersionErrorSchema
->
-export type RetireQuestionVersionError = z.output<
-  typeof retireQuestionVersionErrorSchema
->
-export type RequestContentReviewBatchError = z.output<
-  typeof requestContentReviewBatchErrorSchema
->
-export type ExportAdminQuestionsError = z.output<
-  typeof exportAdminQuestionsErrorSchema
->
-export type ReauthenticateAdminError = z.output<
-  typeof reauthenticateAdminErrorSchema
 >

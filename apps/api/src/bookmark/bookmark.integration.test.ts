@@ -12,6 +12,7 @@ import { createPrismaStudySessionRepository } from '../study/studySessionReposit
 import { createStudySessionService } from '../study/studySessionService.js'
 import { createPrismaBookmarkRepository } from './bookmarkRepository.js'
 import { createBookmarkService } from './bookmarkService.js'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({
@@ -23,14 +24,14 @@ assertSafeTestDatabase({
 const isCurrentSourceIntegration =
   process.env.API_INTEGRATION_CURRENT_SOURCE === '1'
 const fixtureDatabaseUrl = process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
-const erasureWorkerDatabaseUrl = process.env.TEST_API_ERASURE_DATABASE_URL
+const appFixtureDatabaseUrl = process.env.TEST_APP_FIXTURE_DATABASE_URL
 if (
   isCurrentSourceIntegration &&
-  (!fixtureDatabaseUrl || !erasureWorkerDatabaseUrl)
+  (!fixtureDatabaseUrl || !appFixtureDatabaseUrl)
 ) {
   throw new Error('Bookmark tests require fixture and erasure databases.')
 }
-for (const databaseUrl of [fixtureDatabaseUrl, erasureWorkerDatabaseUrl]) {
+for (const databaseUrl of [fixtureDatabaseUrl, appFixtureDatabaseUrl]) {
   if (databaseUrl) {
     assertSafeTestDatabase({
       nodeEnvironment: environment.NODE_ENV,
@@ -49,11 +50,11 @@ const database = createDatabaseRuntime(
 const fixtureDatabase = fixtureDatabaseUrl
   ? createDatabaseRuntime(fixtureDatabaseUrl)
   : database
-const erasureWorkerClient = erasureWorkerDatabaseUrl
+const erasureWorkerClient = appFixtureDatabaseUrl
   ? new Client({
-      connectionString: erasureWorkerDatabaseUrl,
+      connectionString: appFixtureDatabaseUrl,
       options: createPostgresStartupOptions(
-        getPostgresSchema(erasureWorkerDatabaseUrl)
+        getPostgresSchema(appFixtureDatabaseUrl)
       )
     })
   : undefined
@@ -92,7 +93,7 @@ const createUser = async (label: string): Promise<string> => {
     await fixture.account.create({
       data: {
         accountId: userId,
-        password: 'phase10-fixture-password-hash',
+        password: 'test-fixture-password-hash',
         providerId: 'credential',
         userId
       }
@@ -104,9 +105,7 @@ const createUser = async (label: string): Promise<string> => {
 
 const eraseUser = async (userId: string): Promise<void> => {
   if (erasureWorkerClient) {
-    await erasureWorkerClient.query(`SELECT "phase7_erase_user"($1, 'TEST')`, [
-      userId
-    ])
+    await eraseTestUser(database.client, userId)
   } else {
     await fixtureDatabase.client.user.delete({ where: { id: userId } })
   }
@@ -182,7 +181,7 @@ beforeAll(async () => {
   await database.checkReadiness()
   if (erasureWorkerClient) {
     await erasureWorkerClient.connect()
-    await erasureWorkerClient.query(`SET ROLE "nihongo_erasure_worker"`)
+    await erasureWorkerClient.query(`SET ROLE "nihongo_app"`)
   }
   const questions = await readPublishedQuestions()
   if (questions.length < 3) {
@@ -319,7 +318,7 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
 
   it(
     isCurrentSourceIntegration
-      ? '기존 Bookmark snapshot을 보존하고 비인가 archive를 원자 거부한다'
+      ? '기존 Bookmark snapshot을 보존하고 불완전한 archive를 원자 거부한다'
       : '기존 Bookmark의 public snapshot은 archive 뒤에도 보존하고 신규 추가는 막는다',
     async () => {
       const ownerId = await createUser('archive-owner')
@@ -370,9 +369,11 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
         } finally {
           await applicationClient.end().catch(() => undefined)
         }
+        // Admin archive rules run in the API (#504 P4); the deferred aggregate
+        // check still rejects a raw archive that leaves the aggregate invalid.
         expect(archiveError).toMatchObject({
-          code: '42501',
-          message: 'An armed trusted Phase 7 operation intent is required.'
+          code: '23514',
+          message: 'Question pointer/lifecycle aggregate invariant failed.'
         })
 
         const listed = await bookmarkService.list(ownerId, {
@@ -527,8 +528,7 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
         mode: 'BOOKMARK',
         subject: 'VOCABULARY'
       },
-      { kind: 'USER', userId: ownerId },
-      2
+      { kind: 'USER', userId: ownerId }
     )
 
     expect(created.payload.session).toMatchObject({
@@ -566,15 +566,14 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
           mode: 'BOOKMARK',
           subject: 'VOCABULARY'
         },
-        { kind: 'USER', userId: foreignId },
-        2
+        { kind: 'USER', userId: foreignId }
       )
     ).rejects.toMatchObject({ code: 'NO_ELIGIBLE_QUESTIONS' })
   })
 
   it(
     isCurrentSourceIntegration
-      ? 'BOOKMARK selection 중 비인가 archive를 원자 거부하고 version pin을 보존한다'
+      ? 'BOOKMARK selection 중 archive transaction을 rollback하면 version pin을 보존한다'
       : 'BOOKMARK selection과 archive를 직렬화하고 이미 선택한 version pin을 보존한다',
     async () => {
       const ownerId = await createUser('archive-race')
@@ -633,8 +632,7 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
             mode: 'BOOKMARK',
             subject: 'VOCABULARY'
           },
-          { kind: 'USER', userId: ownerId },
-          2
+          { kind: 'USER', userId: ownerId }
         )
         const selected = await Promise.race([
           selectionLocked,
@@ -724,10 +722,8 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
         })
 
         if (isCurrentSourceIntegration) {
-          expect(archiveError).toMatchObject({
-            code: '42501',
-            message: 'An armed trusted Phase 7 operation intent is required.'
-          })
+          // Admin archive rules run in the API (#504 P4), so the raw update
+          // is not rejected here; rolling it back keeps the version pin.
           await archiveClient.query('ROLLBACK')
           archiveTransactionOpen = false
           await expect(
@@ -764,8 +760,7 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
               mode: 'BOOKMARK',
               subject: 'VOCABULARY'
             },
-            { kind: 'USER', userId: ownerId },
-            2
+            { kind: 'USER', userId: ownerId }
           )
         ).rejects.toMatchObject({ code: 'NO_ELIGIBLE_QUESTIONS' })
       } finally {

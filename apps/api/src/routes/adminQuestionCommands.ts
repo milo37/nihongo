@@ -1,8 +1,9 @@
 import {
+  approveQuestionVersionBatchRequestSchema,
+  approveQuestionVersionBatchResponseSchema,
   publishQuestionVersionBatchRequestSchema,
   publishQuestionVersionBatchResponseSchema,
-  type PublishQuestionVersionBatchRequest,
-  type PublishQuestionVersionBatchResponse
+  type PublishQuestionVersionBatchRequest
 } from '@nihongo/contracts/admin/review'
 import { createHash } from 'node:crypto'
 import {
@@ -76,7 +77,7 @@ import { z, type ZodType } from 'zod'
 import type {
   AdminQuestionCommandService,
   AdminQuestionPublicationCommandService,
-  AdminQuestionSlice5CommandService
+  AdminQuestionWorkflowCommandService
 } from '../admin/adminQuestionCommandService.js'
 import { getOperationBodySizeLimit } from '../admin/adminCommandGuard.js'
 import { ApplicationError } from '../errors/applicationError.js'
@@ -159,11 +160,14 @@ const assertCommittedResponse = <Response>(
   }
 }
 
-const assertBatchCorrelated = (
+const assertBatchCorrelated = <
+  Response extends { items: readonly { questionVersionId: string }[] }
+>(
   request: PublishQuestionVersionBatchRequest,
-  raw: unknown
-): PublishQuestionVersionBatchResponse => {
-  const parsed = publishQuestionVersionBatchResponseSchema.parse(raw)
+  raw: unknown,
+  schema: ZodType<Response>
+): Response => {
+  const parsed = schema.parse(raw)
   if (
     parsed.items.length !== request.items.length ||
     parsed.items.some(
@@ -171,7 +175,7 @@ const assertBatchCorrelated = (
         item.questionVersionId !== request.items[index]!.questionVersionId
     )
   ) {
-    throw new Error('Batch publication items are not correlated.')
+    throw new Error('Batch items are not correlated.')
   }
   return parsed
 }
@@ -232,12 +236,12 @@ const authority = (context: {
 export const createAdminQuestionCommandRoutes = ({
   commandService,
   guard,
-  slice5CommandService
+  workflowCommandService
 }: {
   commandService: AdminQuestionCommandService &
     AdminQuestionPublicationCommandService
   guard: MiddlewareHandler<AdminRouteEnvironment>
-  slice5CommandService?: AdminQuestionSlice5CommandService
+  workflowCommandService?: AdminQuestionWorkflowCommandService
 }): Hono<AdminRouteEnvironment> => {
   const routes = new Hono<AdminRouteEnvironment>()
 
@@ -565,14 +569,48 @@ export const createAdminQuestionCommandRoutes = ({
       )
       // Items commit one by one, so any mismatch here is after commit.
       const response = publishQuestionVersionBatchResponseSchema.parse(
-        assertCommittedResponse(() => assertBatchCorrelated(request, raw))
+        assertCommittedResponse(() =>
+          assertBatchCorrelated(
+            request,
+            raw,
+            publishQuestionVersionBatchResponseSchema
+          )
+        )
       )
       noStore(context)
       return context.json(response)
     }
   )
 
-  if (slice5CommandService) {
+  routes.post('/question-versions/approval-batch', guard, async (context) => {
+    assertEmptyQuery(context.get('rawRequestTarget'))
+    const request = approveQuestionVersionBatchRequestSchema.parse(
+      await parseBody(
+        context.req.raw,
+        'approveQuestionVersionBatch',
+        approveQuestionVersionBatchRequestSchema,
+        '일괄 승인 요청이 올바르지 않습니다.'
+      )
+    )
+    const raw = await commandService.approveVersionBatch(
+      authority(context),
+      request
+    )
+    // Items commit one by one, so any mismatch here is after commit.
+    const response = approveQuestionVersionBatchResponseSchema.parse(
+      assertCommittedResponse(() =>
+        assertBatchCorrelated(
+          request,
+          raw,
+          approveQuestionVersionBatchResponseSchema
+        )
+      )
+    )
+    noStore(context)
+    return context.json(response)
+  })
+
+  if (workflowCommandService) {
     routes.post(
       '/question-versions/review-request-batch',
       guard,
@@ -586,7 +624,7 @@ export const createAdminQuestionCommandRoutes = ({
             '일괄 콘텐츠 검수 요청이 올바르지 않습니다.'
           )
         )
-        const raw = await slice5CommandService.requestReviewBatch(
+        const raw = await workflowCommandService.requestReviewBatch(
           authority(context),
           request
         )
@@ -610,7 +648,7 @@ export const createAdminQuestionCommandRoutes = ({
           '문제 import 검증 요청이 올바르지 않습니다.'
         )
       )
-      const raw = await slice5CommandService.validateImport(request)
+      const raw = await workflowCommandService.validateImport(request)
       const response = adminImportValidationResponseSchema.parse(
         await assertNoTransactionAsync(() =>
           assertAdminImportValidationForRequest(sha256Port, request, raw)
@@ -630,7 +668,7 @@ export const createAdminQuestionCommandRoutes = ({
           '문제 import 적용 요청이 올바르지 않습니다.'
         )
       )
-      const raw = await slice5CommandService.applyImport(
+      const raw = await workflowCommandService.applyImport(
         authority(context),
         request
       )
@@ -657,7 +695,7 @@ export const createAdminQuestionCommandRoutes = ({
           '관리자 문제 내보내기 요청이 올바르지 않습니다.'
         )
       )
-      const raw = await slice5CommandService.exportQuestions(
+      const raw = await workflowCommandService.exportQuestions(
         authority(context),
         request
       )
@@ -704,7 +742,7 @@ export const createAdminQuestionCommandRoutes = ({
           triageAdminQuestionReportRequestSchema,
           '문제 신고 triage 요청이 올바르지 않습니다.'
         )
-        const raw = await slice5CommandService.triageReport(
+        const raw = await workflowCommandService.triageReport(
           authority(context),
           params.reportId,
           request
@@ -737,7 +775,7 @@ export const createAdminQuestionCommandRoutes = ({
           resolveAdminQuestionReportRequestSchema,
           '문제 신고 종결 요청이 올바르지 않습니다.'
         )
-        const raw = await slice5CommandService.resolveReport(
+        const raw = await workflowCommandService.resolveReport(
           authority(context),
           params.reportId,
           request

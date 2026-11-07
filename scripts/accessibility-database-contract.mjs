@@ -6,30 +6,19 @@ const requireFromApi = createRequire(
 )
 const { Client } = requireFromApi('pg')
 
-const SAFE_SCHEMA_PATTERN = /^phase7_[a-f0-9]{32}_test$/u
+const SAFE_SCHEMA_PATTERN = /^nihongo_[a-f0-9]{32}_test$/u
 const SHA256_PATTERN = /^[a-f0-9]{64}$/u
 
 export const accessibilityDatabaseTables = [
   'Account',
   'AdminAuditLog',
-  'AuthIssuerActivation',
-  'AuthSessionFamily',
-  'AuthSessionRotationFence',
+  'AuthorityRevocationEvidence',
   'Bookmark',
   'ContentReview',
+  'DatabaseCapability',
   'GuestPrincipal',
   'IdempotencyRecord',
-  'Phase7Approved308TagRegistration',
-  'Phase7ApprovedN3ReadingTagRegistration',
-  'Phase7ApprovedN4N2ReadingTagRegistration',
-  'Phase7ApprovedN4ReadingBatch7TagRegistration',
-  'Phase7ApprovedReadingTagRegistration',
-  'Phase7AuthorityRevocationEvidence',
-  'Phase7DatabaseCapability',
-  'Phase7OperationDelta',
-  'Phase7OperationIntent',
-  'Phase7ReauthenticationIntent',
-  'Phase7TrustedExecution',
+  'OperationIntent',
   'Question',
   'QuestionImportResult',
   'QuestionOption',
@@ -37,6 +26,7 @@ export const accessibilityDatabaseTables = [
   'QuestionVersion',
   'QuestionVersionTag',
   'RateLimit',
+  'ReauthenticationIntent',
   'ReviewEvent',
   'ReviewSchedule',
   'Session',
@@ -53,7 +43,6 @@ export const accessibilityDatabaseTables = [
   'StudySession',
   'StudySessionQuestion',
   'Tag',
-  'TagApplicability',
   'User',
   'UserAccountRestriction',
   'UserAccountRestrictionEvent',
@@ -67,24 +56,14 @@ export const accessibilityDatabaseTables = [
 export const accessibilityExpectedTableDeltas = {
   Account: 0,
   AdminAuditLog: 0,
-  AuthIssuerActivation: 0,
-  AuthSessionFamily: 2,
-  AuthSessionRotationFence: 0,
   Bookmark: 0,
   ContentReview: 0,
   GuestPrincipal: 0,
   IdempotencyRecord: 4,
-  Phase7Approved308TagRegistration: 0,
-  Phase7ApprovedN3ReadingTagRegistration: 0,
-  Phase7ApprovedN4N2ReadingTagRegistration: 0,
-  Phase7ApprovedN4ReadingBatch7TagRegistration: 0,
-  Phase7ApprovedReadingTagRegistration: 0,
-  Phase7AuthorityRevocationEvidence: 0,
-  Phase7DatabaseCapability: 0,
-  Phase7OperationDelta: 0,
-  Phase7OperationIntent: 0,
-  Phase7ReauthenticationIntent: 0,
-  Phase7TrustedExecution: 0,
+  AuthorityRevocationEvidence: 0,
+  DatabaseCapability: 0,
+  OperationIntent: 0,
+  ReauthenticationIntent: 0,
   Question: 0,
   QuestionImportResult: 0,
   QuestionOption: 0,
@@ -108,7 +87,6 @@ export const accessibilityExpectedTableDeltas = {
   StudySession: 3,
   StudySessionQuestion: 13,
   Tag: 0,
-  TagApplicability: 0,
   User: 0,
   UserAccountRestriction: 0,
   UserAccountRestrictionEvent: 0,
@@ -124,11 +102,11 @@ export const accessibilityExpectedRateLimitCategories = {
   'application:bookmark-write': 1,
   'application:dashboard-insights-read': 2,
   'application:dashboard-read': 1,
-  'application:phase7:ADMIN_READ:ACTOR': 1,
-  'application:phase7:ADMIN_READ:IP': 1,
-  'application:phase7:REPORT_ACTOR:ACTOR': 1,
-  'application:phase7:REPORT_ACTOR:IP': 1,
-  'application:phase7:REPORT_VERSION:VERSION': 0,
+  'application:keyed:ADMIN_READ:ACTOR': 1,
+  'application:keyed:ADMIN_READ:IP': 1,
+  'application:keyed:REPORT_ACTOR:ACTOR': 1,
+  'application:keyed:REPORT_ACTOR:IP': 1,
+  'application:keyed:REPORT_VERSION:VERSION': 0,
   'application:study-cancel': 0,
   'application:study-create': 2,
   'application:study-draft-save': 1,
@@ -349,11 +327,8 @@ const readIdentityFacts = async (client, fixture) => {
     fixture.reviewer.userId
   ]
   const authSessions = await client.query(
-    `SELECT s."userId", s."authorizationState", s."issuerProtocolVersion",
-       f."status" AS "familyStatus"
+    `SELECT s."userId", s."authorizationState", s."issuerProtocolVersion"
      FROM "Session" AS s
-     JOIN "AuthSessionFamily" AS f
-       ON f."userId" = s."userId" AND f."id" = s."sessionFamilyId"
      WHERE s."userId" = ANY($1::uuid[])
      ORDER BY s."userId", s."id"`,
     [actorIds]
@@ -598,8 +573,7 @@ const assertIdentityContract = (facts, fixture) => {
       'ACTIVE',
       'auth authorization state'
     )
-    assertEqual(session.issuerProtocolVersion, 'PHASE7_V1', 'auth issuer')
-    assertEqual(session.familyStatus, 'ACTIVE', 'auth family state')
+    assertEqual(session.issuerProtocolVersion, 'OWNED_V1', 'auth issuer')
   }
 
   assertEqual(facts.studySessions.length, 3, 'study session identity count')

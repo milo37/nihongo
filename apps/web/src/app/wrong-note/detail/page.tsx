@@ -17,6 +17,7 @@ import { getSafeWrongNoteReturnTo } from '@app/wrong-note/reviewQueueSearch'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { useTrackWrongNoteOpened } from '@/analytics/client'
 import { AppErrorReportButton } from '@app/question-report/components/AppErrorReportDialog'
+import { TextLink } from '@nihongo/browser/common/components/TextLink'
 
 export const WrongNoteDetailPage = (): ReactElement => {
   const { t } = useTranslation('wrongNote')
@@ -76,12 +77,9 @@ export const WrongNoteDetailPage = (): ReactElement => {
           title={t('detail.states.notFoundTitle')}
           description={t('detail.states.notFoundDescription')}
           action={
-            <Link
-              className="inline-flex min-h-11 items-center px-1 font-bold text-brand underline hover:no-underline"
-              to="/wrong-notes"
-            >
+            <TextLink to="/wrong-notes">
               {t('detail.states.backCenter')}
-            </Link>
+            </TextLink>
           }
         />
       </section>

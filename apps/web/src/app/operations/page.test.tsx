@@ -8,7 +8,8 @@ import {
   within
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createMemoryRouter, RouterProvider } from 'react-router'
+import { http, HttpResponse } from 'msw'
+import { createMemoryRouter, MemoryRouter, RouterProvider } from 'react-router'
 import { appRoutes } from '@/router'
 import { operationsRoutes } from '@app/operations/router'
 import { ToastProvider } from '@nihongo/browser/common/components/Toast'
@@ -16,6 +17,10 @@ import { queryClient } from '@nihongo/browser/libs/queryClient'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
+import type { LegalSettings } from '@app/operations/legalSettings'
+import { OperationsInformationPage } from '@app/operations/page'
+import { LEGAL_SETTINGS_PATH } from '@api/operations/getLegalSettings'
+import { mockServer } from '@/test/server'
 
 const originalScrollIntoView = HTMLElement.prototype.scrollIntoView
 beforeEach(() => {
@@ -97,9 +102,7 @@ it.each(cases)(
     expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalledWith({
       block: 'start'
     })
-    expect(
-      within(page).getByRole('complementary', { name: '운영 안내 확인 필요' })
-    ).toBeInTheDocument()
+    expect(page).not.toHaveTextContent('확인이 필요합니다')
     expect(container.querySelector('form')).toBeNull()
     expect(
       page.querySelector('button,input,[download],a[href^="mailto:"]')
@@ -132,7 +135,7 @@ it('connects footer, contents focus, cross-page navigation and Back; registers a
   await user.click(within(footer).getByRole('link', { name: '이용 안내' }))
   await screen.findByRole('heading', { level: 1, name: '이용 안내' })
   const toc = screen.getByRole('navigation', { name: '이 페이지 목차' })
-  const privacy = within(toc).getByRole('link', { name: '개인정보 안내' })
+  const privacy = within(toc).getByRole('link', { name: '개인정보 처리방침' })
   privacy.focus()
   await user.keyboard('{Enter}')
   await waitFor(() => expect(document.getElementById('privacy')).toHaveFocus())
@@ -164,7 +167,7 @@ it.each([
     path: '/legal',
     id: 'privacy',
     title: '이용 안내',
-    linkName: '개인정보 안내'
+    linkName: '개인정보 처리방침'
   },
   {
     path: '/support',
@@ -201,21 +204,102 @@ it.each([
   }
 )
 
-it('explains reporting and pending contact without inventing a form, email or success', async () => {
+it('explains reporting and an unset contact email without inventing a form, email or success', async () => {
   const { container } = renderInformationRoute('/support')
   await screen.findByRole('heading', { level: 1, name: '문제 신고·문의 안내' })
   expect(screen.getByText(/6개 사유 중 하나/)).toHaveTextContent(
     '설명은 필수이며 최대 2,000자입니다.'
   )
   expect(
-    screen.getByText('이 화면에서는 문의를 접수하지 않습니다.')
+    screen.getByText(/신고마다 개별 답변을 보내지는 않습니다/)
   ).toBeInTheDocument()
   expect(
-    screen.getByText('일부 운영 정보는 아직 확인이 필요합니다.')
+    screen.getByText('문의 이메일은 정식 공개 때 안내합니다.')
   ).toBeInTheDocument()
+  expect(container).not.toHaveTextContent('확인이 필요합니다')
   expect(
     container.querySelector('form,a[href^="mailto:"],[download]')
   ).toBeNull()
+})
+
+const renderLegalPage = (page: 'legal' | 'support', settings: LegalSettings) =>
+  render(
+    <QueryClientProvider client={queryClient}>
+      <I18nProvider>
+        <MemoryRouter>
+          <OperationsInformationPage page={page} settings={settings} />
+        </MemoryRouter>
+      </I18nProvider>
+    </QueryClientProvider>
+  )
+
+it('fills the effective date, privacy officer and contact email from the settings', () => {
+  renderLegalPage('legal', {
+    effectiveDate: '2026-11-16',
+    contactEmail: 'help@example.com',
+    privacyOfficer: '홍길동'
+  })
+  expect(screen.getByText('시행일: 2026-11-16')).toBeInTheDocument()
+  expect(
+    screen.getByRole('heading', { level: 3, name: '제12조(부칙)' })
+  ).toBeInTheDocument()
+  expect(
+    screen.getByText('이 약관은 2026-11-16부터 시행합니다.')
+  ).toBeInTheDocument()
+  expect(
+    screen.getByText('개인정보 보호책임자: 홍길동 / 연락처: help@example.com')
+  ).toBeInTheDocument()
+  expect(screen.getAllByRole('heading', { level: 3 })).toHaveLength(27)
+  cleanup()
+  renderLegalPage('support', {
+    effectiveDate: '2026-11-16',
+    contactEmail: 'help@example.com',
+    privacyOfficer: '홍길동'
+  })
+  expect(
+    screen.getByText(
+      '계정, 개인정보, 저작권에 관한 문의는 이메일로 받습니다: help@example.com'
+    )
+  ).toBeInTheDocument()
+  expect(
+    screen.queryByText('문의 이메일은 정식 공개 때 안내합니다.')
+  ).not.toBeInTheDocument()
+})
+
+it('shows the contact email and privacy officer from the deploy file', async () => {
+  mockServer.use(
+    http.get(LEGAL_SETTINGS_PATH, () =>
+      HttpResponse.json({
+        contactEmail: 'help@example.com',
+        privacyOfficer: '홍길동'
+      })
+    )
+  )
+  renderInformationRoute('/legal')
+  expect(
+    await screen.findByText(
+      '개인정보 보호책임자: 홍길동 / 연락처: help@example.com'
+    )
+  ).toBeInTheDocument()
+  expect(screen.getByText('시행일: 정식 공개일')).toBeInTheDocument()
+})
+
+it('shows the fallback copy for empty settings', () => {
+  renderLegalPage('legal', {
+    effectiveDate: '',
+    contactEmail: '',
+    privacyOfficer: ''
+  })
+  expect(screen.getByText('시행일: 정식 공개일')).toBeInTheDocument()
+  expect(
+    screen.getByText(
+      '개인정보 보호책임자: 하루마루 운영자 / 연락처: 문의 이메일은 정식 공개 때 안내합니다.'
+    )
+  ).toBeInTheDocument()
+  // Each circled clause gets its own paragraph.
+  expect(
+    screen.getByText('① "회원"은 Google 계정으로 로그인한 이용자입니다.')
+  ).toBeInTheDocument()
 })
 
 it.each(cases)(
