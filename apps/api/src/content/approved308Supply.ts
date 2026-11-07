@@ -9,6 +9,7 @@ import {
   approved308InventoryRawJson,
   approved308RawSources
 } from './approved308SourceData.js'
+import { questionTagKeys } from './questionTagKeys.js'
 
 export const approved308InventorySha256 =
   'adbbaf21660607b509a4a95fe68604bbdbe28ee897a053c1f0889141f1057a81'
@@ -49,6 +50,13 @@ const originalSchema = z.looseObject({
   optionRationalesKo: z.array(z.string()).length(4),
   learningGoalKo: z.string()
 })
+
+// #646 3b: import items carry the remapped tags.v2.json keys.
+export const importTagKeys = (id: string): string[] => {
+  const keys = questionTagKeys[id]
+  if (!keys) throw new Error(`Question ${id} has no tag key.`)
+  return [...keys]
+}
 
 // Only the frozen byte strings are authoritative. Parse a fresh copy per call so
 // a consumer cannot mutate the next import or replace the approved provenance.
@@ -92,7 +100,7 @@ export const readApproved308Supply = () => {
         text
       })),
       correctOptionKey: `option-${original.correctIndex + 1}`,
-      tagNames: original.tags
+      tagNames: importTagKeys(entry.id)
     })
     return {
       provenance: entry,
@@ -128,10 +136,12 @@ export const createApproved308TagRequirements = () => {
       questionType: string
     }
   >()
+  // The retained v1 analysis reads the frozen originals' own tags.
   for (const {
+    original,
     importItem: { content }
   } of readApproved308Supply().items) {
-    for (const label of content.tagNames) {
+    for (const label of original.tags) {
       const normalizedName = normalizeContentTagKey(label)
       const key = [
         normalizedName,

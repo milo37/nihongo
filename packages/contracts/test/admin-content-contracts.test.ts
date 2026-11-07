@@ -325,6 +325,13 @@ describe('common and read contracts', () => {
     expect(() =>
       assertListAdminTagsForRequest({ limit: 2 }, { items: [tag] })
     ).toThrow()
+    // A valid item whose subject is not the requested one (QA, #657).
+    expect(() =>
+      assertListAdminTagsForRequest(
+        { subject: 'VOCABULARY' },
+        { items: [first] }
+      )
+    ).toThrow()
   })
 
   it('rejects preview option comparison duplicates', () => {
@@ -520,7 +527,7 @@ describe('future import and report contracts', () => {
     ).toBe(false)
   })
 
-  it('takes one to twelve tag names until the JLP-733 3b remap', () => {
+  it('takes one or two tag names (JLP-733 3b)', () => {
     const withTags = (count: number) => ({
       items: [
         {
@@ -539,10 +546,10 @@ describe('future import and report contracts', () => {
       validateQuestionImportRequestSchema.safeParse(withTags(0)).success
     ).toBe(false)
     expect(
-      validateQuestionImportRequestSchema.safeParse(withTags(12)).success
+      validateQuestionImportRequestSchema.safeParse(withTags(2)).success
     ).toBe(true)
     expect(
-      validateQuestionImportRequestSchema.safeParse(withTags(13)).success
+      validateQuestionImportRequestSchema.safeParse(withTags(3)).success
     ).toBe(false)
   })
 
@@ -582,7 +589,7 @@ describe('future import and report contracts', () => {
     ).resolves.toMatchObject({ valid: false })
     for (const fieldPath of [
       '/items/0/content/passage',
-      '/items/0/content/tagNames/12'
+      '/items/0/content/tagNames/2'
     ]) {
       await expect(
         assertAdminImportValidationForRequest(
@@ -596,7 +603,7 @@ describe('future import and report contracts', () => {
       assertAdminImportValidationForRequest(
         port,
         request,
-        response('/items/0/content/tagNames/11')
+        response('/items/0/content/tagNames/0')
       )
     ).resolves.toMatchObject({ valid: false })
   })

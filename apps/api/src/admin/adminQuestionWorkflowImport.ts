@@ -16,6 +16,7 @@ import { normalizeOptionComparison } from '@nihongo/domain/content/validators/v1
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 import { uniqueSorted } from './adminRepositoryCommon.js'
 import { repositoryFailure } from './adminQuestionCommandRepository.js'
+import { TAG_REFERENCE_SQL } from './adminQuestionCommandContent.js'
 
 import {
   type AdminImportValidationIssue,
@@ -55,11 +56,7 @@ export const loadImportTags = async (
   )
   if (normalizedNames.length === 0) return []
   return client.$queryRawUnsafe<ImportTagRow[]>(
-    `SELECT tag."id", tag."label", tag."normalizedName",
-       tag."subject"::text AS "subject"
-     FROM "Tag" AS tag
-     WHERE tag."normalizedName" = ANY($1::text[])
-     ORDER BY tag."normalizedName" COLLATE "C", tag."id"`,
+    TAG_REFERENCE_SQL,
     normalizedNames
   )
 }
@@ -144,9 +141,7 @@ export const collectImportValidation = async (
     loadImportTags(client, items),
     createAdminImportValidationDigest(sha256Port, items)
   ])
-  const tagSubjects = new Map(
-    importTags.map((tag) => [tag.normalizedName, tag.subject])
-  )
+  const tagsByReference = new Map(importTags.map((tag) => [tag.reference, tag]))
   const issues: AdminImportValidationIssue[] = []
   const seenItemIds = new Set<string>()
   const eligibleFingerprints: Array<string | null> = items.map(() => null)
@@ -204,8 +199,11 @@ export const collectImportValidation = async (
 
     const tagKeys = new Set<string>()
     item.content.tagNames.forEach((tagName, tagIndex) => {
-      const normalizedName = normalizeContentTagKey(tagName)
-      if (tagKeys.has(normalizedName)) {
+      const reference = normalizeContentTagKey(tagName)
+      const tag = tagsByReference.get(reference)
+      // A key and its label name the same tag.
+      const identity = tag?.id ?? reference
+      if (tagKeys.has(identity)) {
         pushIssue(issues, {
           itemIndex,
           fieldPath: `${prefix}/content/tagNames/${tagIndex}`,
@@ -213,7 +211,7 @@ export const collectImportValidation = async (
           message: '정규화된 태그는 문제 안에서 고유해야 합니다.'
         })
       }
-      const tagSubject = tagSubjects.get(normalizedName)
+      const tagSubject = tag?.subject
       if (tagSubject === undefined) {
         pushIssue(issues, {
           itemIndex,
@@ -230,7 +228,7 @@ export const collectImportValidation = async (
           message: '태그 과목이 문제 과목과 같아야 합니다.'
         })
       }
-      tagKeys.add(normalizedName)
+      tagKeys.add(identity)
     })
 
     const passageIsValid =

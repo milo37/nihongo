@@ -85,25 +85,27 @@ export const assertNoVisibleCrossQuestionDuplicate = async (
   }
 }
 
+// #646 3b: a tag name is its tags.v2.json key or its label. A key wins
+// when one name matches both. Rows come back per normalized name.
+export const TAG_REFERENCE_SQL = `SELECT DISTINCT ON (ref) ref AS "reference",
+     tag."id", tag."label", tag."normalizedName",
+     tag."subject"::text AS "subject"
+   FROM unnest($1::text[]) AS ref
+   JOIN "Tag" AS tag ON tag."key" = ref OR tag."normalizedName" = ref
+   ORDER BY ref, (tag."key" = ref) DESC NULLS LAST, tag."id"`
+
 export const resolveTags = async (
   client: Pick<PrismaClient, '$queryRawUnsafe'> | Prisma.TransactionClient,
   content: Pick<CreateAdminQuestionRequest, 'tagNames' | 'subject'>
 ): Promise<TagRow[]> => {
-  const normalizedNames = content.tagNames.map(normalizeContentTagKey)
+  const references = content.tagNames.map(normalizeContentTagKey)
   const rows = await client.$queryRawUnsafe<
-    Array<TagRow & { subject: string | null }>
-  >(
-    `SELECT tag."id", tag."label", tag."normalizedName",
-       tag."subject"::text AS "subject"
-     FROM "Tag" AS tag
-     WHERE tag."normalizedName" = ANY($1::text[])
-     ORDER BY tag."normalizedName" COLLATE "C", tag."id"`,
-    normalizedNames
-  )
-  const byName = new Map(rows.map((row) => [row.normalizedName, row]))
+    Array<TagRow & { reference: string; subject: string | null }>
+  >(TAG_REFERENCE_SQL, references)
+  const byName = new Map(rows.map((row) => [row.reference, row]))
   if (
-    rows.length !== normalizedNames.length ||
-    normalizedNames.some((name) => !byName.has(name))
+    references.some((name) => !byName.has(name)) ||
+    new Set(rows.map((row) => row.id)).size !== references.length
   ) {
     throw repositoryFailure(
       'VALIDATION_ERROR',
@@ -121,7 +123,7 @@ export const resolveTags = async (
       { tagNames: ['태그 과목이 문제 과목과 같아야 합니다.'] }
     )
   }
-  return normalizedNames.map((name) => {
+  return references.map((name) => {
     const { id, label, normalizedName } = byName.get(name)!
     return { id, label, normalizedName }
   })

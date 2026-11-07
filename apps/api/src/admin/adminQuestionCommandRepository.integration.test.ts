@@ -1644,6 +1644,40 @@ describe('ADMIN command TEST database integration', () => {
         ]
       })
       expect(matched.errors).toEqual([])
+      // #646 3b: a tags.v2.json key names its tag; a key and its own label
+      // are one tag, and a key keeps the subject check.
+      const byKey = (clientItemId: string, tagNames: string[]) =>
+        workflowCommandService!.validateImport({
+          items: [{ clientItemId, content: { ...mismatched, tagNames } }]
+        })
+      expect(
+        (await byKey(`jlp733-key-${suffix}`, [`vocab.jlp733-${suffix}`])).errors
+      ).toEqual([])
+      expect(
+        (
+          await byKey(`jlp733-dup-${suffix}`, [
+            `vocab.jlp733-${suffix}`,
+            vocabularyLabel
+          ])
+        ).errors
+      ).toMatchObject([
+        { fieldPath: '/items/0/content/tagNames/1', code: 'DUPLICATE_TAG' }
+      ])
+      expect(
+        (await byKey(`jlp733-subject-${suffix}`, [`grammar.jlp733-${suffix}`]))
+          .errors
+      ).toMatchObject([
+        {
+          fieldPath: '/items/0/content/tagNames/0',
+          code: 'TAG_SUBJECT_MISMATCH'
+        }
+      ])
+      await expect(
+        commandService.createQuestion(authority(authorId, authorToken), {
+          ...mismatched,
+          tagNames: [`vocab.jlp733-${suffix}`, vocabularyLabel]
+        })
+      ).rejects.toMatchObject({ code: 'VALIDATION_ERROR' })
     } finally {
       await adminClient.query(
         `DELETE FROM "Tag" WHERE "label" = ANY($1::text[])`,

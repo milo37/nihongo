@@ -12,6 +12,7 @@ import {
 import {
   approved308InventorySha256,
   createApproved308Imports,
+  importTagKeys,
   readApproved308Supply
 } from './approved308Supply.js'
 
@@ -54,7 +55,8 @@ describe('Frozen approved308 CMS supply source', () => {
       expect(c.explanationKo).toBe(original.explanationKo)
       expect(c.options.map((x) => x.text)).toEqual(original.options)
       expect(c.correctOptionKey).toBe(`option-${original.correctIndex + 1}`)
-      expect(c.tagNames).toEqual(original.tags)
+      // #646 3b: import items carry the remapped tags.v2.json key.
+      expect(c.tagNames).toEqual(importTagKeys(original.id))
       expect(c.difficulty).toBe(original.difficulty)
       expect(c.explanationJa).toBeNull()
       expect(original.optionRationalesKo).toHaveLength(4)

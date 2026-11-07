@@ -18,6 +18,8 @@ export type AdminImportValidationIssue =
   AdminImportValidationResponse['errors'][number]
 
 export interface ImportTagRow {
+  // The normalized tag name the item gave: a tags.v2.json key or a label.
+  readonly reference: string
   readonly id: string
   readonly label: string
   readonly normalizedName: string

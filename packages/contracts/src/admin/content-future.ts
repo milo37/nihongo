@@ -68,11 +68,12 @@ export const adminQuestionContentStructureInputSchema = z
       z.literal('').transform(() => null),
       z.null()
     ]),
-    // JLP-733 3b lowers this to 2 with the tag remap of existing content.
+    // JLP-733 3b (#646): one or two tags, each a tags.v2.json key or label.
+    // Read and export responses keep 12 so older versions still parse.
     tagNames: z
       .array(createContentTextSchema({ maxScalars: 100 }))
       .min(1)
-      .max(12),
+      .max(2),
     options: z
       .array(
         z
@@ -295,7 +296,7 @@ const importIssuePathMatchesCode = (
     case 'DUPLICATE_TAG':
     case 'UNKNOWN_TAG':
     case 'TAG_SUBJECT_MISMATCH':
-      return /^\/content\/tagNames\/(?:[0-9]|1[01])$/u.test(suffix)
+      return /^\/content\/tagNames\/[01]$/u.test(suffix)
     case 'CORRECT_OPTION_KEY_NOT_FOUND':
       return suffix === '/content/correctOptionKey'
     case 'INVALID_READING_PASSAGE':
