@@ -39,6 +39,7 @@ const bodyCapByOperation: Readonly<Partial<Record<ContentOperation, number>>> =
     archiveAdminQuestion: SMALL_BODY_CAP,
     requestContentReviewBatch: LARGE_BODY_CAP,
     publishQuestionVersionBatch: LARGE_BODY_CAP,
+    approveQuestionVersionBatch: LARGE_BODY_CAP,
     validateQuestionImport: IMPORT_BODY_CAP,
     applyQuestionImport: IMPORT_BODY_CAP,
     exportAdminQuestions: SMALL_BODY_CAP,
@@ -63,6 +64,7 @@ const groupByOperation: Readonly<
   archiveAdminQuestion: 'ADMIN_SENSITIVE',
   requestContentReviewBatch: 'ADMIN_SENSITIVE',
   publishQuestionVersionBatch: 'ADMIN_SENSITIVE',
+  approveQuestionVersionBatch: 'ADMIN_SENSITIVE',
   validateQuestionImport: 'IMPORT_VALIDATION',
   applyQuestionImport: 'ADMIN_SENSITIVE',
   exportAdminQuestions: 'ADMIN_SENSITIVE',
@@ -79,6 +81,7 @@ const freshOperations = new Set<ContentOperation>([
   'archiveAdminQuestion',
   'requestContentReviewBatch',
   'publishQuestionVersionBatch',
+  'approveQuestionVersionBatch',
   'applyQuestionImport',
   'exportAdminQuestions',
   'resolveAdminQuestionReport'

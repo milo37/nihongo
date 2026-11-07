@@ -59,6 +59,7 @@ import {
   reauthenticateAdminRequestSchema,
   reauthenticateAdminResponseSchema,
   publishQuestionVersionBatchErrorSchema,
+  approveQuestionVersionBatchErrorSchema,
   requestContentReviewBatchErrorSchema,
   requestContentReviewBatchRequestSchema,
   requestContentReviewBatchResponseSchema,
@@ -125,6 +126,8 @@ import {
   type OperationManifestEntry
 } from './content-manifest.js'
 import {
+  approveQuestionVersionBatchRequestSchema,
+  approveQuestionVersionBatchResponseSchema,
   publishQuestionVersionBatchRequestSchema,
   publishQuestionVersionBatchResponseSchema
 } from './review.js'
@@ -283,6 +286,13 @@ export const operationSchemas = {
     body: publishQuestionVersionBatchRequestSchema,
     success: publishQuestionVersionBatchResponseSchema,
     error: publishQuestionVersionBatchErrorSchema
+  },
+  approveQuestionVersionBatch: {
+    params: noParams,
+    query: noQuery,
+    body: approveQuestionVersionBatchRequestSchema,
+    success: approveQuestionVersionBatchResponseSchema,
+    error: approveQuestionVersionBatchErrorSchema
   },
   validateQuestionImport: {
     params: noParams,
@@ -495,11 +505,11 @@ export const assertOperationSchemaManifest = (): void => {
   const schemaOperations = Object.keys(operationSchemas)
   if (JSON.stringify(manifestOperations) !== JSON.stringify(schemaOperations)) {
     throw new Error(
-      'operation schema manifest는 canonical 29-operation 순서와 같아야 합니다.'
+      'operation schema manifest는 canonical 30-operation 순서와 같아야 합니다.'
     )
   }
   if (
-    operationSchemaManifest.length !== 29 ||
+    operationSchemaManifest.length !== 30 ||
     operationSchemaManifest.some(
       (entry) => entry.schemas !== operationSchemas[entry.operation]
     )
