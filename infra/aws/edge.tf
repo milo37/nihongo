@@ -32,6 +32,21 @@ resource "aws_ssm_parameter" "origin_verify" {
   value = random_password.origin_verify.result
 }
 
+# STAGING only (#742): keep the test site out of search results. PRODUCTION
+# gets no policy, so its responses are unchanged.
+resource "aws_cloudfront_response_headers_policy" "staging_noindex" {
+  count = var.deployment_environment == "STAGING" ? 1 : 0
+  name  = "${local.name}-noindex"
+
+  custom_headers_config {
+    items {
+      header   = "X-Robots-Tag"
+      value    = "noindex, nofollow"
+      override = true
+    }
+  }
+}
+
 resource "aws_cloudfront_distribution" "site" {
   enabled         = true
   is_ipv6_enabled = true
@@ -61,24 +76,26 @@ resource "aws_cloudfront_distribution" "site" {
   }
 
   default_cache_behavior {
-    target_origin_id         = "api"
-    viewer_protocol_policy   = "redirect-to-https"
-    allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
-    cached_methods           = ["GET", "HEAD"]
-    cache_policy_id          = data.aws_cloudfront_cache_policy.disabled.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
-    compress                 = true
+    target_origin_id           = "api"
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
+    cached_methods             = ["GET", "HEAD"]
+    cache_policy_id            = data.aws_cloudfront_cache_policy.disabled.id
+    origin_request_policy_id   = data.aws_cloudfront_origin_request_policy.all_viewer.id
+    response_headers_policy_id = one(aws_cloudfront_response_headers_policy.staging_noindex[*].id)
+    compress                   = true
   }
 
   # Hashed learner assets only. /admin/* stays uncached so the admin guard runs.
   ordered_cache_behavior {
-    path_pattern           = "/assets/*"
-    target_origin_id       = "api"
-    viewer_protocol_policy = "redirect-to-https"
-    allowed_methods        = ["GET", "HEAD"]
-    cached_methods         = ["GET", "HEAD"]
-    cache_policy_id        = data.aws_cloudfront_cache_policy.optimized.id
-    compress               = true
+    path_pattern               = "/assets/*"
+    target_origin_id           = "api"
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = ["GET", "HEAD"]
+    cached_methods             = ["GET", "HEAD"]
+    cache_policy_id            = data.aws_cloudfront_cache_policy.optimized.id
+    response_headers_policy_id = one(aws_cloudfront_response_headers_policy.staging_noindex[*].id)
+    compress                   = true
   }
 
   restrictions {
