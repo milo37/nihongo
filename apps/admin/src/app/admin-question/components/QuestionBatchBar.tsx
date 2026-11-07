@@ -92,7 +92,7 @@ export const QuestionBatchBar = ({
           >
             {t('questionList.batch.clear')}
           </Button>
-          {(['approve', 'publish'] as const).map((action) =>
+          {(['request', 'approve', 'publish'] as const).map((action) =>
             batch.targets[action].length > 0 ? (
               <Button
                 key={action}
