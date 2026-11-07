@@ -35,6 +35,17 @@ const approved = (questionId: string, versionId: string) => ({
   latestReviewer: question.author
 })
 
+// Someone else's draft: only its author may request review, so no checkbox.
+const othersDraft = {
+  ...question,
+  author: {
+    kind: 'ACCOUNT' as const,
+    actorId: '10000000-0000-4000-8000-0000000000ff',
+    role: 'ADMIN' as const,
+    label: 'ACTIVE_ADMIN' as const
+  }
+}
+
 let client: QueryClient
 beforeEach(() => {
   client = new QueryClient({
@@ -56,7 +67,7 @@ beforeEach(() => {
     items: [
       approved(secondId, secondVersion),
       approved(approvedId, approvedVersion),
-      question
+      othersDraft
     ],
     total: 3,
     page: 1,
@@ -86,7 +97,7 @@ const selectAll = async () => {
   )
   await userEvent.click(
     await screen.findByRole('checkbox', {
-      name: '이 페이지의 검수 중·승인된 문제 모두 선택'
+      name: '이 페이지에서 고를 수 있는 문제 모두 선택'
     })
   )
   expect(
@@ -229,7 +240,7 @@ it('clears the selection when the page or filter changes, even after coming back
   await router.navigate('/questions')
   expect(
     await screen.findByRole('checkbox', {
-      name: '이 페이지의 검수 중·승인된 문제 모두 선택'
+      name: '이 페이지에서 고를 수 있는 문제 모두 선택'
     })
   ).not.toBeChecked()
   expect(screen.queryByText('2개 선택됨')).toBeNull()
@@ -250,7 +261,7 @@ it('approves only in-review rows from the same selection and lists failures', as
       inReview(failedReviewId, failedReviewVersion),
       inReview(reviewId, reviewVersion),
       approved(approvedId, approvedVersion),
-      question
+      othersDraft
     ],
     total: 4,
     page: 1,
@@ -282,7 +293,7 @@ it('approves only in-review rows from the same selection and lists failures', as
   )
   await userEvent.click(
     await screen.findByRole('checkbox', {
-      name: '이 페이지의 검수 중·승인된 문제 모두 선택'
+      name: '이 페이지에서 고를 수 있는 문제 모두 선택'
     })
   )
   expect(screen.getByText('3개 선택됨')).toBeVisible()
@@ -356,4 +367,153 @@ it('shows a rate limit wait in minutes and says the admin check is needed again'
   expect(alert).toHaveTextContent(
     '기다린 뒤 다시 보낼 때는 관리자 본인 확인을 다시 해야 합니다.'
   )
+})
+
+it('requests review of own drafts 20 at a time and marks a refused chunk', async () => {
+  const draft = (index: number) => {
+    const suffix = index.toString(16).padStart(4, '0')
+    return {
+      ...question,
+      questionId: `20000000-0000-4000-8000-00000000${suffix}`,
+      selectedVersionId: `20000000-0000-4000-8000-10000000${suffix}`,
+      openCandidateVersionId: `20000000-0000-4000-8000-10000000${suffix}`,
+      versionRowVersion: 2
+    }
+  }
+  const drafts = Array.from({ length: 25 }, (_, index) => draft(25 - index))
+  vi.spyOn(listApi, 'listAdminQuestion').mockResolvedValue({
+    items: [...drafts, approved(approvedId, approvedVersion), othersDraft],
+    total: 27,
+    page: 1,
+    pageSize: 100
+  })
+  const request = vi
+    .spyOn(api, 'requestContentOperation')
+    .mockResolvedValueOnce({ items: [] })
+    .mockRejectedValueOnce(
+      Object.assign(new Error('conflict'), {
+        code: 'VERSION_CONFLICT',
+        status: 409
+      })
+    )
+  const router = createMemoryRouter(adminRoutes, {
+    basename: '/admin',
+    initialEntries: ['/admin/questions?pageSize=100']
+  })
+  render(
+    <QueryClientProvider client={client}>
+      <I18nProvider>
+        <ToastProvider>
+          <RouterProvider router={router} />
+        </ToastProvider>
+      </I18nProvider>
+    </QueryClientProvider>
+  )
+  await userEvent.click(
+    await screen.findByRole('checkbox', {
+      name: '이 페이지에서 고를 수 있는 문제 모두 선택'
+    })
+  )
+  expect(screen.getByText('26개 선택됨')).toBeVisible()
+  expect(screen.getByRole('button', { name: '승인된 1개 공개' })).toBeVisible()
+  await userEvent.click(
+    screen.getByRole('button', { name: '내 초안 25개 검수 요청' })
+  )
+  const dialog = screen.getByRole('dialog')
+  expect(
+    within(dialog).getByRole('heading', {
+      name: '문제 25개를 검수 요청할까요?'
+    })
+  ).toBeVisible()
+  await userEvent.click(
+    within(dialog).getByRole('button', { name: '25개 검수 요청' })
+  )
+
+  const heading = await screen.findByRole('heading', {
+    name: '20개 검수 요청, 5개는 요청하지 못했습니다'
+  })
+  await waitFor(() => expect(heading).toHaveFocus())
+  const sent = (from: number, to: number) => ({
+    operation: 'requestContentReviewBatch',
+    params: {},
+    query: {},
+    body: {
+      items: drafts.slice(from, to).map((row) => ({
+        versionId: row.selectedVersionId,
+        expectedRowVersion: 2
+      }))
+    }
+  })
+  expect(request).toHaveBeenCalledTimes(2)
+  expect(request).toHaveBeenNthCalledWith(1, sent(0, 20))
+  expect(request).toHaveBeenNthCalledWith(2, sent(20, 25))
+  const resultArea = within(heading.closest('section')!)
+  expect(resultArea.getAllByText('변경 충돌')).toHaveLength(5)
+  expect(
+    resultArea.getByRole('link', { name: drafts[24]!.questionId })
+  ).toBeVisible()
+  expect(
+    resultArea.queryByRole('link', { name: drafts[0]!.questionId })
+  ).toBeNull()
+})
+
+it('stops sending review requests at the rate limit after a chunk went through', async () => {
+  const drafts = Array.from({ length: 41 }, (_, index) => {
+    const suffix = (41 - index).toString(16).padStart(4, '0')
+    return {
+      ...question,
+      questionId: `30000000-0000-4000-8000-00000000${suffix}`,
+      selectedVersionId: `30000000-0000-4000-8000-10000000${suffix}`,
+      openCandidateVersionId: `30000000-0000-4000-8000-10000000${suffix}`
+    }
+  })
+  vi.spyOn(listApi, 'listAdminQuestion').mockResolvedValue({
+    items: drafts,
+    total: 41,
+    page: 1,
+    pageSize: 100
+  })
+  const request = vi
+    .spyOn(api, 'requestContentOperation')
+    .mockResolvedValueOnce({ items: [] })
+    .mockRejectedValueOnce(
+      Object.assign(new Error('limited'), {
+        code: 'RATE_LIMITED',
+        status: 429,
+        retryAfterMs: 900_000
+      })
+    )
+  const router = createMemoryRouter(adminRoutes, {
+    basename: '/admin',
+    initialEntries: ['/admin/questions?pageSize=100']
+  })
+  render(
+    <QueryClientProvider client={client}>
+      <I18nProvider>
+        <ToastProvider>
+          <RouterProvider router={router} />
+        </ToastProvider>
+      </I18nProvider>
+    </QueryClientProvider>
+  )
+  await userEvent.click(
+    await screen.findByRole('checkbox', {
+      name: '이 페이지에서 고를 수 있는 문제 모두 선택'
+    })
+  )
+  await userEvent.click(
+    screen.getByRole('button', { name: '내 초안 41개 검수 요청' })
+  )
+  await userEvent.click(
+    within(screen.getByRole('dialog')).getByRole('button', {
+      name: '41개 검수 요청'
+    })
+  )
+  const heading = await screen.findByRole('heading', {
+    name: '20개 검수 요청, 21개는 요청하지 못했습니다'
+  })
+  expect(request).toHaveBeenCalledTimes(2)
+  expect(
+    within(heading.closest('section')!).getAllByText('보내지 않음')
+  ).toHaveLength(21)
 })
