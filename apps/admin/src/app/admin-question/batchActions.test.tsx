@@ -319,3 +319,41 @@ it('approves only in-review rows from the same selection and lists failures', as
   expect(resultArea.queryByRole('link', { name: reviewId })).toBeNull()
   expect(screen.queryByText('3개 선택됨')).toBeNull()
 })
+
+it('loads 100 rows per page when chosen so one batch can take a full page', async () => {
+  const list = vi.mocked(listApi.listAdminQuestion)
+  await selectAll()
+  await userEvent.click(screen.getByRole('button', { name: '취소' }))
+  expect(list).toHaveBeenLastCalledWith(
+    expect.objectContaining({ page: 1, pageSize: 20 })
+  )
+  await userEvent.selectOptions(
+    screen.getByRole('combobox', { name: '한 페이지에' }),
+    '100'
+  )
+  await waitFor(() =>
+    expect(list).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1, pageSize: 100 })
+    )
+  )
+})
+
+it('shows a rate limit wait in minutes and says the admin check is needed again', async () => {
+  vi.spyOn(api, 'requestContentOperation').mockRejectedValue(
+    Object.assign(new Error('limited'), {
+      code: 'RATE_LIMITED',
+      status: 429,
+      retryAfterMs: 900_000
+    })
+  )
+  const { dialog } = await selectAll()
+  await userEvent.click(
+    within(dialog).getByRole('button', { name: '2개 공개' })
+  )
+  const alert = await within(dialog).findByRole('alert')
+  expect(alert).toHaveTextContent('15분 뒤 다시 시도해 주세요.')
+  expect(alert).not.toHaveTextContent('900')
+  expect(alert).toHaveTextContent(
+    '기다린 뒤 다시 보낼 때는 관리자 본인 확인을 다시 해야 합니다.'
+  )
+})

@@ -29,6 +29,7 @@ export const AdminQuestionPage = (): ReactElement => {
     difficulty,
     sort,
     page,
+    pageSize,
     hasActiveFilters,
     searchParams,
     setSearchParams,
@@ -43,7 +44,7 @@ export const AdminQuestionPage = (): ReactElement => {
     difficulty,
     sort,
     page,
-    pageSize: 20
+    pageSize
   })
   const archive = useQuestionArchive(questionList.refetch)
   const batch = useQuestionBatch(questionList.data?.items ?? [])
@@ -116,6 +117,7 @@ export const AdminQuestionPage = (): ReactElement => {
         status={status}
         difficulty={difficulty}
         sort={sort}
+        pageSize={pageSize}
         hasActiveFilters={hasActiveFilters}
         setFilter={setFilter}
         total={questionList.data?.total}

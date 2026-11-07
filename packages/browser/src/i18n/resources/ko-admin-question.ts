@@ -16,6 +16,8 @@ export const koAdminQuestionListResources = {
   allDifficulties: '전체 난이도',
   sort: '정렬',
   total: '총 {{formattedCount}}개 문제',
+  pageSize: '한 페이지에',
+  pageSizeOption: '{{count}}개씩',
   totalPending: '문제 수를 확인하는 중입니다…',
   resetFilters: '필터 초기화',
   loading: '관리자 문제 목록을 불러오고 있습니다…',
@@ -66,6 +68,8 @@ export const koAdminQuestionListResources = {
     dialog: {
       more: '외 {{rest}}개',
       cancel: '취소',
+      freshAfterWait:
+        '기다린 뒤 다시 보낼 때는 관리자 본인 확인을 다시 해야 합니다.',
       approve: {
         title: '문제 {{count}}개를 승인할까요?',
         description:

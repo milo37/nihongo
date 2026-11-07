@@ -123,6 +123,7 @@ export const jaAdminResources = {
     rowVersion: 'rowVersion',
     selectedFile: '選択中: {{fileName}}',
     retryAfter: '{{message}} {{seconds}}秒後にもう一度お試しください。',
+    retryAfterMinutes: '{{message}} {{minutes}}分後にもう一度お試しください。',
     pausedTitle: 'オフラインでは最新状態を確認できません',
     pausedDescription:
       '接続が復旧したら再確認してください。最新状態を確認するまで管理者の変更操作は利用できません。',
@@ -403,6 +404,8 @@ export const jaAdminResources = {
     allDifficulties: 'すべての難易度',
     sort: '並べ替え',
     total: '全{{formattedCount}}問',
+    pageSize: '1ページの表示数',
+    pageSizeOption: '{{count}}問ずつ',
     totalPending: '問題数を確認しています…',
     resetFilters: '絞り込みをリセット',
     loading: '管理者用の問題一覧を読み込んでいます…',
@@ -456,6 +459,8 @@ export const jaAdminResources = {
       dialog: {
         more: 'ほか{{rest}}問',
         cancel: 'キャンセル',
+        freshAfterWait:
+          '待った後にもう一度送るときは、管理者の本人確認をもう一度行う必要があります。',
         approve: {
           title: '{{count}}問を承認しますか？',
           description:

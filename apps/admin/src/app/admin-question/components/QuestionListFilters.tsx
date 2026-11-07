@@ -10,7 +10,10 @@ import {
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { useUiLocale } from '@nihongo/browser/provider/I18nProvider'
 import type { FormEvent, ReactElement } from 'react'
-import { SORTS } from '@app/admin-question/hooks/useQuestionListSearch'
+import {
+  PAGE_SIZES,
+  SORTS
+} from '@app/admin-question/hooks/useQuestionListSearch'
 import type { useQuestionListSearch } from '@app/admin-question/hooks/useQuestionListSearch'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 
@@ -24,6 +27,7 @@ type QuestionListFiltersProps = Pick<
   | 'status'
   | 'difficulty'
   | 'sort'
+  | 'pageSize'
   | 'hasActiveFilters'
   | 'setFilter'
 > & {
@@ -39,6 +43,7 @@ export const QuestionListFilters = ({
   status,
   difficulty,
   sort,
+  pageSize,
   hasActiveFilters,
   setFilter,
   total,
@@ -146,13 +151,32 @@ export const QuestionListFilters = ({
       </fieldset>
 
       <div className="mt-5 flex min-h-11 flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
-        <p className="text-sm text-muted" aria-live="polite">
-          {total !== undefined
-            ? t('questionList.total', {
-                formattedCount: formatNumber(total, locale)
-              })
-            : t('questionList.totalPending')}
-        </p>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <p className="text-sm text-muted" aria-live="polite">
+            {total !== undefined
+              ? t('questionList.total', {
+                  formattedCount: formatNumber(total, locale)
+                })
+              : t('questionList.totalPending')}
+          </p>
+          <Select
+            name="pageSize"
+            label={t('questionList.pageSize')}
+            className="w-32"
+            value={String(pageSize)}
+            onChange={(event) =>
+              setFilter('pageSize', event.currentTarget.value)
+            }
+          >
+            {PAGE_SIZES.map((value) => (
+              <option key={value} value={value}>
+                {t('questionList.pageSizeOption', {
+                  count: formatNumber(value, locale)
+                })}
+              </option>
+            ))}
+          </Select>
+        </div>
         {hasActiveFilters ? (
           <button
             className="min-h-11 rounded-lg px-3 text-sm font-semibold text-brand underline underline-offset-4 hover:no-underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"

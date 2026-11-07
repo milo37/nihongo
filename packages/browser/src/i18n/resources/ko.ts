@@ -1688,6 +1688,7 @@ export const koResources = {
       rowVersion: 'rowVersion',
       selectedFile: '선택: {{fileName}}',
       retryAfter: '{{message}} {{seconds}}초 뒤 다시 시도해 주세요.',
+      retryAfterMinutes: '{{message}} {{minutes}}분 뒤 다시 시도해 주세요.',
       pausedTitle: '오프라인에서 최신 상태를 확인할 수 없습니다',
       pausedDescription:
         '연결이 복구되면 다시 확인해 주세요. 최신 상태를 확인할 때까지 관리자 변경 작업을 사용할 수 없습니다.',

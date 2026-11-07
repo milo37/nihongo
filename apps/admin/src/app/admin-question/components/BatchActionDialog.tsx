@@ -106,6 +106,11 @@ export const BatchActionDialog = ({
           role="alert"
         >
           {presentError(mutation.error)} {t(`${prefix}.notDone`)}
+          {code === 'RATE_LIMITED' ? (
+            <span className="mt-1 block font-normal">
+              {t('questionList.batch.dialog.freshAfterWait')}
+            </span>
+          ) : null}
         </p>
       ) : null}
     </Dialog>
