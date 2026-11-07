@@ -369,6 +369,31 @@ describe('PracticeSessionPage', () => {
     expect(readDraftSelection(firstQuestion.sessionQuestionId)).toBe(second.id)
   })
 
+  it('풀이 중에는 정답을 드러낼 수 있는 태그를 보여 주지 않는다', async () => {
+    const response = await createStudySessionV2({
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'RANDOM',
+      count: 5
+    })
+    const sessionPayload = toCanonicalStudySessionView(response.data)
+    const tags = sessionPayload.questions.flatMap((question) => question.tags)
+    expect(tags.length).toBeGreaterThan(0)
+    useAppStore
+      .getState()
+      .beginPractice(
+        sessionPayload.session.id,
+        sessionPayload.session.startedAt
+      )
+    renderSession(sessionPayload.session.id)
+    const heading = await screen.findByRole('heading', { level: 1 })
+    const card = heading.closest('article')
+    if (!card) throw new Error('Question card required')
+    for (const tag of new Set(tags)) {
+      expect(within(card).queryByText(tag, { exact: true })).toBeNull()
+    }
+  })
+
   it('제출 Dialog가 열리면 배경 문제의 숫자 단축키를 비활성화한다', async () => {
     const user = userEvent.setup()
     const response = await createStudySessionV2({

@@ -92,14 +92,8 @@ export const PracticeQuestionCard = ({
       {question.passage ? <QuestionPassage passage={question.passage} /> : null}
 
       <article className="study-question-content min-w-0 py-4 sm:py-6">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex flex-wrap gap-2">
-            {question.tags.map((tag) => (
-              <span key={tag} className="text-sm text-muted">
-                {tag}
-              </span>
-            ))}
-          </div>
+        {/* Tags can name the answer, so they appear only after submission. */}
+        <div className="flex items-start justify-end gap-4">
           {bookmarkButton}
         </div>
         {bookmarkStatus}
