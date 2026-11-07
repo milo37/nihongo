@@ -1233,6 +1233,14 @@ export const publishQuestionVersionBatchErrorSchema =
     publishQuestionVersionBatchErrorCodeSchema
   )
 
+export const approveQuestionVersionBatchErrorCodeSchema =
+  publishQuestionVersionBatchErrorCodeSchema
+export const approveQuestionVersionBatchErrorSchema =
+  createContentOperationErrorSchema(
+    'approveQuestionVersionBatch',
+    approveQuestionVersionBatchErrorCodeSchema
+  )
+
 export const requestContentReviewBatchErrorCodeSchema = z.enum([
   'AUTHENTICATION_REQUIRED',
   'AUTH_SESSION_EXPIRED',

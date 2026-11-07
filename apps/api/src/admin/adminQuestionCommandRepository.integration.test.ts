@@ -1355,6 +1355,110 @@ describe('ADMIN command TEST database integration', () => {
     })
   })
 
+  it('approves a batch item by item with the single approval audit (#709)', async () => {
+    if (!commandService) throw new Error('Command service is unavailable.')
+
+    const inReview = async (suffix: string) => {
+      const content = createContent(suffix)
+      const created = assertCreateAdminQuestionResponse(
+        content,
+        await commandService!.createQuestion(
+          authority(authorId, authorToken),
+          content
+        )
+      )
+      const versionId = created.questionVersionId
+      if (!versionId) throw new Error('Created version ID is unavailable.')
+      const request = requestContentReviewRequestSchema.parse({
+        expectedRowVersion: created.versionRowVersion
+      })
+      const reviewed = assertRequestContentReviewResponse(
+        { versionId },
+        request,
+        await commandService!.requestReview(
+          authority(authorId, authorToken),
+          versionId,
+          request
+        )
+      )
+      return { versionId, rowVersion: reviewed.versionRowVersion ?? 0 }
+    }
+    const first = await inReview(`approve-a-${randomUUID()}`)
+    const second = await inReview(`approve-b-${randomUUID()}`)
+    const approved = await prepareApprovedQuestion(`approve-c-${randomUUID()}`)
+    const missingId = randomUUID()
+    const batchAuthority = authority(reviewerId, reviewerToken)
+
+    const response = await commandService.approveVersionBatch(batchAuthority, {
+      items: [
+        {
+          questionVersionId: first.versionId,
+          expectedRowVersion: first.rowVersion
+        },
+        {
+          questionVersionId: second.versionId,
+          expectedRowVersion: second.rowVersion + 1
+        },
+        {
+          questionVersionId: approved.versionId,
+          expectedRowVersion: approved.versionRowVersion
+        },
+        { questionVersionId: missingId, expectedRowVersion: 1 }
+      ]
+    })
+
+    expect(response).toEqual({
+      approvedCount: 1,
+      items: [
+        {
+          questionVersionId: first.versionId,
+          result: 'APPROVED',
+          rowVersion: first.rowVersion + 1
+        },
+        {
+          questionVersionId: second.versionId,
+          result: 'VERSION_CONFLICT',
+          rowVersion: null
+        },
+        {
+          questionVersionId: approved.versionId,
+          result: 'NOT_IN_REVIEW',
+          rowVersion: null
+        },
+        { questionVersionId: missingId, result: 'NOT_FOUND', rowVersion: null }
+      ]
+    })
+    const statuses = await adminClient.query<{ id: string; status: string }>(
+      `SELECT "id", "status"::text AS "status" FROM "QuestionVersion"
+         WHERE "id" = ANY($1::uuid[])`,
+      [[first.versionId, second.versionId]]
+    )
+    expect(
+      Object.fromEntries(statuses.rows.map((row) => [row.id, row.status]))
+    ).toEqual({
+      [first.versionId]: 'APPROVED',
+      [second.versionId]: 'IN_REVIEW'
+    })
+    const evidence = await adminClient.query<{
+      approvalCount: number
+      auditCount: number
+      reviews: string[]
+    }>(
+      `SELECT
+         COUNT(*)::int AS "auditCount",
+         COUNT(*) FILTER (WHERE "command" = 'APPROVAL')::int
+           AS "approvalCount",
+         (SELECT array_agg("action"::text) FROM "ContentReview"
+          WHERE "requestId" = $1) AS "reviews"
+       FROM "AdminAuditLog" WHERE "requestId" = $1`,
+      [batchAuthority.requestId]
+    )
+    expect(evidence.rows[0]).toMatchObject({
+      approvalCount: 1,
+      reviews: ['APPROVED']
+    })
+  })
+
   it('lets a single operator approve, withdraw and publish their own version (JLP-704)', async () => {
     if (!commandService) throw new Error('Command service is unavailable.')
     const own = authority(authorId, authorToken)

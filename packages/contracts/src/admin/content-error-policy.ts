@@ -58,6 +58,7 @@ export const contentErrorSurfaceByOperation = {
   retireQuestionVersion: 'KEYLESS_MUTATION',
   requestContentReviewBatch: 'KEYLESS_MUTATION',
   publishQuestionVersionBatch: 'KEYLESS_MUTATION',
+  approveQuestionVersionBatch: 'KEYLESS_MUTATION',
   validateQuestionImport: 'VALIDATION_WRITE_ZERO',
   applyQuestionImport: 'APPLY_IMPORT',
   exportAdminQuestions: 'EXPORT',
@@ -218,7 +219,7 @@ export const assertErrorPolicyManifest = (): void => {
     counts.GET_READ !== 10 ||
     counts.VALIDATION_WRITE_ZERO !== 1 ||
     counts.APPLY_IMPORT !== 1 ||
-    counts.KEYLESS_MUTATION !== 15 ||
+    counts.KEYLESS_MUTATION !== 16 ||
     counts.EXPORT !== 1 ||
     counts.REAUTHENTICATION !== 1
   ) {
