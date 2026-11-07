@@ -133,6 +133,7 @@ resource "aws_instance" "host" {
     }))
     caddyfile = base64encode(templatefile("${path.module}/files/Caddyfile.tftpl", {
       origin_domain = var.origin_domain_name
+      noindex       = var.deployment_environment == "STAGING"
     }))
     deploy_sh         = file("${path.module}/files/deploy.sh")
     provision_db_sh   = file("${path.module}/files/provision-db.sh")
