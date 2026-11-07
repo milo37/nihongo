@@ -53,9 +53,9 @@ aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUT
 
 1. `main` 병합 → `.github/workflows/release-image.yml`(arm64)이 OIDC 역할로 `ECR:<SHA>`(런타임)와 `ECR:<SHA>-migrate`(Dockerfile `migrate` 단계, Prisma CLI와 migration만)를 push. 저장소 변수 `AWS_DEPLOY_ROLE_ARN`·`ECR_REPOSITORY_URL`·`AWS_REGION`을 넣기 전에는 건너뜁니다.
 2. `aws ssm send-command --document-name harumaru-<env>-deploy --parameters releaseId=<SHA>`
-3. 호스트의 `deploy.sh`: 비밀값 갱신 → 두 이미지 pull → postgres 기동 → `provision-db.sh`(DB 역할 생성·검증) → `migrate.sh`(S3에 `pg_dump` 스냅샷 → `prisma migrate deploy` 1회성 컨테이너) → `register-capability.sh`(빈 DB면 `DatabaseCapability` 등록, 있으면 확인만, 어긋나면 중단) → (태그 적재, BE 명령 준비 중) → api 재시작 → `/health/ready`의 `x-release-id` 확인 → 실패하면 직전 이미지로 롤백
+3. 호스트의 `deploy.sh`: 비밀값 갱신 → 두 이미지 pull → postgres 기동 → `provision-db.sh`(DB 역할 생성·검증) → `migrate.sh`(S3에 `pg_dump` 스냅샷 → `prisma migrate deploy` 1회성 컨테이너) → `register-capability.sh`(빈 DB면 `DatabaseCapability` 등록, 있으면 확인만, 어긋나면 중단) → api 재시작 → `/health/ready`의 `x-release-id` 확인 → 실패하면 직전 이미지로 롤백
 
-절차·롤백은 [operations/runbooks/production-database.v1.md](../../operations/runbooks/production-database.v1.md)에 있습니다.
+절차·롤백은 [operations/runbooks/production-database.v1.md](../../operations/runbooks/production-database.v1.md)에 있습니다. 태그 적재와 문제 가져오기는 첫 배포 뒤 운영자가 따로 합니다: 첫 관리자 → [question-import.v1.md](../../operations/runbooks/question-import.v1.md)(태그 18 → 373문제 → 일괄 검수 요청·승인·공개, 약 45분).
 
 **로컬 확인:** 빈 DB 첫 배포를 PRODUCTION과 STAGING(#649 뒤) 모두 로컬에서 끝까지 확인했습니다. STAGING도 capability 행은 `PRODUCTION`으로 들어갑니다(런북 'Local rehearsal').
 
