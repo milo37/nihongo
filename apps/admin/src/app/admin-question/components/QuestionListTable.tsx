@@ -175,7 +175,7 @@ const QuestionRow = ({
   return (
     <tr className="align-top hover:bg-slate-50/80">
       <td className={selectCellClassName}>
-        {isBatchSelectable(question) ? (
+        {isBatchSelectable(question, actorId) ? (
           <label className={checkboxLabelClassName}>
             <input
               type="checkbox"
