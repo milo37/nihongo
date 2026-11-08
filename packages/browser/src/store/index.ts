@@ -74,6 +74,17 @@ const sanitizePersistedState = (
   return sanitized
 }
 
+// adminServerTime changes on every /me read. Persisting it would rewrite the
+// shared entry each time, and the storage event makes every other tab read
+// /me and write again, so two admin tabs never stop.
+const toPersistedUser = (
+  user: AuthenticatedUser | null
+): AuthenticatedUser | null => {
+  if (!user) return null
+  const { adminServerTime: _serverTime, ...stable } = user
+  return stable
+}
+
 export const useAppStore = create<AppStore>()(
   persist(
     (...args) => ({
@@ -92,7 +103,7 @@ export const useAppStore = create<AppStore>()(
         ...sanitizePersistedState(persistedState, true)
       }),
       partialize: (state) => ({
-        currentUser: state.currentUser,
+        currentUser: toPersistedUser(state.currentUser),
         sessionId: state.sessionId,
         currentQuestionIndex: state.currentQuestionIndex,
         selectedAnswers: state.selectedAnswers,

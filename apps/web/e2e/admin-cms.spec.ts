@@ -163,11 +163,16 @@ const login = async (
   expect(started.status).toBe(200)
   // Keep bootstrap requests in their document until all ledger events complete.
   await waitForLedgerToQuiesce(ledger)
+  // The signed-in practice page reads resumable sessions only after /me
+  // settles, which can be after the ledger looks quiet; wait for it so the
+  // next navigation does not abort it.
+  const resumable = waitForResponse(page, 'GET', '/api/v1/study-sessions')
   // Enter the installed TEST provider callback; no credentials, cookies or session state are injected.
   await page.goto(callbackPath(started.body, actor))
   await expect(page).toHaveURL(
     (url) => url.origin === publicOrigin && url.pathname === '/practice'
   )
+  expect((await resumable).status()).toBe(200)
   await confirmActor(page, actor)
   await waitForLedgerToQuiesce(ledger)
 }
