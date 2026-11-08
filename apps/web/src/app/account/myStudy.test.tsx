@@ -11,6 +11,7 @@ import { queryClient } from '@nihongo/browser/libs/queryClient'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { ProtectedRouteProvider } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
+import { subscribeApiError } from '@nihongo/browser/libs/errorBus'
 import { mockServer } from '@/test/server'
 
 const days = (counts: readonly number[]) =>
@@ -226,15 +227,20 @@ describe('마이페이지 내 학습', () => {
 
   it('통계 실패는 내 학습 안에서만 알리고 다시 시도하며 계정 영역은 그대로 둔다', async () => {
     const reads = useStats('error')
+    const banner: unknown[] = []
+    const unsubscribe = subscribeApiError((error) => banner.push(error))
     renderAccount()
-    const alert = await within(
-      await screen.findByRole('region', { name: '내 학습' })
-    ).findByRole('alert')
+    const section = await screen.findByRole('region', { name: '내 학습' })
+    const alert = await within(section).findByRole('alert')
     expect(alert).toHaveTextContent('학습 기록을 불러오지 못했어요.')
+    expect(alert).toHaveClass('auth-error')
     expect(screen.getByRole('button', { name: '로그아웃' })).toBeEnabled()
+    // The card owns this failure, so the shared error banner stays quiet.
+    expect(banner).toEqual([])
+    unsubscribe()
     const before = reads()
     await userEvent.click(
-      within(alert).getByRole('button', { name: '다시 시도' })
+      within(section).getByRole('button', { name: '다시 시도' })
     )
     expect(reads()).toBeGreaterThan(before)
   })

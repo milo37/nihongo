@@ -30,9 +30,12 @@ export const SignInCard = ({
   const start = useStartSocialSignIn()
   const google = useRef<HTMLButtonElement>(null)
   const busy = start.isPending || start.isRedirecting
+  // An error, from the start request or the returned result, puts focus
+  // on the button that recovers from it.
+  const noticeIsError = notice?.tone === 'error'
   useEffect(() => {
-    if (start.isError) google.current?.focus()
-  }, [start.isError])
+    if (start.isError || noticeIsError) google.current?.focus()
+  }, [noticeIsError, start.isError])
   const error = start.isError
     ? t(
         start.error instanceof AuthFlowError && start.error.unavailable

@@ -22,7 +22,7 @@ const StepMarker = ({
 }: {
   index: number
   label: string
-  state: 'done' | 'current'
+  state: 'done' | 'current' | 'upcoming'
 }): ReactElement => (
   <li
     className="flex items-center gap-3"
@@ -30,14 +30,18 @@ const StepMarker = ({
   >
     <span
       className={[
-        'grid size-7 shrink-0 place-items-center rounded-full text-xs font-bold text-on-accent',
-        state === 'done' ? 'bg-success' : 'bg-brand'
+        'grid size-7 shrink-0 place-items-center rounded-full text-xs font-bold',
+        state === 'done'
+          ? 'bg-success text-on-accent'
+          : state === 'current'
+            ? 'bg-brand text-on-accent'
+            : 'border border-line bg-surface text-muted'
       ].join(' ')}
       aria-hidden="true"
     >
       {state === 'done' ? <Icon name="check" className="size-4" /> : index}
     </span>
-    <span className={state === 'done' ? 'text-muted' : 'font-medium'}>
+    <span className={state === 'current' ? 'font-medium' : 'text-muted'}>
       {label}
     </span>
   </li>
@@ -95,8 +99,7 @@ export const TwoStepConfirmDialog = ({
             </Button>
           ) : (
             <Button
-              variant="outline"
-              className="border-danger text-danger hover:border-danger-strong"
+              variant="danger-outline"
               disabled={flow.busy || !flow.canVerify}
               isLoading={flow.busy}
               loadingLabel={authT('sso.redirecting', { provider })}
@@ -116,15 +119,11 @@ export const TwoStepConfirmDialog = ({
               label={t('confirm.stepVerify')}
               state={isConfirm ? 'done' : 'current'}
             />
-            {isConfirm ? (
-              <StepMarker
-                index={2}
-                label={t(
-                  isUnlink ? 'confirm.stepUnlink' : 'confirm.stepDelete'
-                )}
-                state="current"
-              />
-            ) : null}
+            <StepMarker
+              index={2}
+              label={t(isUnlink ? 'confirm.stepUnlink' : 'confirm.stepDelete')}
+              state={isConfirm ? 'current' : 'upcoming'}
+            />
           </ol>
           <div className="mt-4 grid gap-2 break-words text-sm leading-6">
             {isUnlink ? (

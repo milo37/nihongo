@@ -125,8 +125,7 @@ export const AccountSettings = (): ReactElement => {
         <SettingRow
           action={
             <Button
-              variant="outline"
-              className="border-danger text-danger hover:border-danger-strong"
+              variant="danger-outline"
               disabled={controlsDisabled || !caps?.canDelete}
               aria-describedby={
                 caps && !caps.canDelete ? deleteReasonId : undefined

@@ -15,20 +15,25 @@ const getQueryRetryDelay = (attempt: number, error: Error): number => {
   return Math.min(1_000 * 2 ** attempt, 10_000)
 }
 
+// A screen that renders its own failure message opts out of the shared
+// banner/toast with meta.localErrorUi; authentication failures still reach
+// the global handler.
+const showsOwnError = (
+  meta: Record<string, unknown> | undefined,
+  error: Error
+): boolean =>
+  meta?.localErrorUi === true && !(isApiError(error) && error.isAuthError)
+
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({
-    onError: emitApiError
+    onError: (error, query) => {
+      if (showsOwnError(query.meta, error)) return
+      emitApiError(error)
+    }
   }),
   mutationCache: new MutationCache({
     onError: (error, _variables, _context, mutation) => {
-      // A screen that renders its own failure message opts out of the shared
-      // banner/toast; authentication failures still reach the global handler.
-      if (
-        mutation.meta?.localErrorUi === true &&
-        !(isApiError(error) && error.isAuthError)
-      ) {
-        return
-      }
+      if (showsOwnError(mutation.meta, error)) return
       emitApiError(error)
     }
   }),

@@ -41,6 +41,11 @@ const readNotice = (search: URLSearchParams, state: unknown): Notice | null => {
   return null
 }
 
+const errorNotices: ReadonlySet<Notice> = new Set([
+  'FAILED',
+  'INVALID_CALLBACK'
+])
+
 const noticeKeys: Record<Exclude<Notice, 'DELETION'>, string> = {
   CANCELLED: 'sso.cancelledProvider',
   FAILED: 'sso.failedProvider',
@@ -106,7 +111,8 @@ export const LoginPage = (): ReactElement => {
   ])
 
   useEffect(() => {
-    if (notice && isReady) heading.current?.focus()
+    // Error notices focus the Google button inside the card instead.
+    if (notice && isReady && !errorNotices.has(notice)) heading.current?.focus()
   }, [isReady, notice])
 
   if (!isReady) {
@@ -148,10 +154,7 @@ export const LoginPage = (): ReactElement => {
           : null
         : {
             message: t(noticeKeys[notice], { provider: 'Google' }),
-            tone:
-              notice === 'FAILED' || notice === 'INVALID_CALLBACK'
-                ? 'error'
-                : 'info'
+            tone: errorNotices.has(notice) ? 'error' : 'info'
           }
   return (
     <section className="auth-page">
