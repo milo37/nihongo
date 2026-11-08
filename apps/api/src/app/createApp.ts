@@ -834,7 +834,18 @@ export const createApiApp = ({
 
   app.route(
     '/api/v1/questions',
-    createQuestionRoutes({ questionReader, questionReadSecurity })
+    createQuestionRoutes({
+      questionReader,
+      questionReadSecurity,
+      ...(auth
+        ? {
+            members: {
+              environment: auth.environment,
+              principalService: auth.principalService
+            }
+          }
+        : {})
+    })
   )
 
   if (enableTestRoutes) {

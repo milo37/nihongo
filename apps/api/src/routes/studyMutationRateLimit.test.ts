@@ -1,3 +1,7 @@
+import {
+  GUEST_DAILY_SESSION_LIMIT_PER_IP,
+  GUEST_SESSION_QUESTION_LIMIT
+} from '@nihongo/contracts/study/guest-limits'
 import { unrestrictedAccountReader } from '../account/accountRestriction.js'
 import { Hono } from 'hono'
 import { describe, expect, it, vi } from 'vitest'
@@ -55,11 +59,15 @@ const fixture = () => {
         rows.get(where.key) ?? null
     }
   } as unknown as PrismaClient
+  let clock = 1_000
   const rateLimiter = createApplicationRateLimiter({
     client,
     keySecret: 'fixture-secret',
-    now: () => 1_000
+    now: () => clock
   })
+  const advance = (milliseconds: number) => {
+    clock += milliseconds
+  }
   const guestPrincipalService = createGuestPrincipalService({
     client,
     secret: 'guest-fixture-secret'
@@ -169,7 +177,16 @@ const fixture = () => {
       body: JSON.stringify(body)
     })
   }
-  return { app, request, guestPrincipalService, reached, cancel, create, rows }
+  return {
+    app,
+    request,
+    guestPrincipalService,
+    reached,
+    cancel,
+    create,
+    rows,
+    advance
+  }
 }
 
 describe('study mutation request budgets', () => {
@@ -292,5 +309,42 @@ describe('study creation contract default', () => {
       400
     )
     expect(f.create).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('guest session starts per IP and Korea-time day (#737)', () => {
+  const start = (f: ReturnType<typeof fixture>, auth = '') =>
+    f.app.request('/sessions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Nihongo-Practice-Contract': '2',
+        Authorization: auth
+      },
+      body: JSON.stringify({
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'RANDOM',
+        count: GUEST_SESSION_QUESTION_LIMIT
+      })
+    })
+
+  it('asks guests on one IP to sign in after the daily IP limit', async () => {
+    const f = fixture()
+    // Each request is a new guest, as when the guest cookie is cleared. A
+    // minute between starts keeps the per-minute creation budget out of it.
+    for (let i = 0; i < GUEST_DAILY_SESSION_LIMIT_PER_IP; i++) {
+      expect((await start(f)).status).toBe(200)
+      f.advance(60_001)
+    }
+    const denied = await start(f)
+    expect(denied.status).toBe(403)
+    expect(await denied.json()).toMatchObject({
+      code: 'GUEST_LIMIT_REACHED',
+      retryable: false
+    })
+    expect(f.create).toHaveBeenCalledTimes(GUEST_DAILY_SESSION_LIMIT_PER_IP)
+    // Members on the same IP are not counted.
+    expect((await start(f, 'Bearer user-a')).status).toBe(200)
   })
 })

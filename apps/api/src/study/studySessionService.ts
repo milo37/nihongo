@@ -1,8 +1,13 @@
 import type { ParsedCreateStudySessionV2Body } from '@nihongo/contracts/study/create-study-session'
 import type { VersionedStudySessionPayload } from '@nihongo/contracts/study/study-session'
+import {
+  GUEST_DAILY_SESSION_LIMIT,
+  GUEST_SESSION_QUESTION_LIMIT
+} from '@nihongo/contracts/study/guest-limits'
 import { ApplicationError } from '../errors/applicationError.js'
 import {
   GuestCredentialExpiredError,
+  GuestDailyLimitReachedError,
   NoEligibleQuestionsError,
   StudySessionRepositoryUnavailableError,
   type CreateStudyOwner,
@@ -50,6 +55,13 @@ const withRepositoryErrors = async <Result>(
         retryable: false
       })
     }
+    if (error instanceof GuestDailyLimitReachedError) {
+      throw new ApplicationError({
+        code: 'GUEST_LIMIT_REACHED',
+        message: `비회원은 하루 ${GUEST_DAILY_SESSION_LIMIT}번까지 풀 수 있습니다. 더 풀려면 로그인해 주세요.`,
+        retryable: false
+      })
+    }
     if (error instanceof StudySessionRepositoryUnavailableError) {
       throw new ApplicationError({
         code: 'SERVICE_UNAVAILABLE',
@@ -67,15 +79,21 @@ export const createStudySessionService = (
   now: () => Date = () => new Date()
 ): StudySessionService => ({
   create: async (input, owner) => {
-    if (
-      (input.mode === 'WRONG_NOTE' ||
-        input.mode === 'DAILY_REVIEW' ||
-        input.mode === 'BOOKMARK') &&
-      owner.kind !== 'USER'
-    ) {
+    // Guests only try short random sessions (#737).
+    if (input.mode !== 'RANDOM' && owner.kind !== 'USER') {
       throw new ApplicationError({
         code: 'AUTHENTICATION_REQUIRED',
         message: '이 출제 모드는 로그인이 필요합니다.',
+        retryable: false
+      })
+    }
+    if (owner.kind !== 'USER' && input.count !== GUEST_SESSION_QUESTION_LIMIT) {
+      throw new ApplicationError({
+        code: 'VALIDATION_ERROR',
+        message: `비회원은 ${GUEST_SESSION_QUESTION_LIMIT}문제씩 풀 수 있습니다.`,
+        fieldErrors: {
+          count: [`${GUEST_SESSION_QUESTION_LIMIT}이어야 합니다.`]
+        },
         retryable: false
       })
     }

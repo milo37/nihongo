@@ -16,6 +16,7 @@ import {
 import type { GuestPrincipalService } from '../auth/guestPrincipalService.js'
 import type { PrincipalService } from '../auth/principalService.js'
 import type { ApiEnvironment } from '../config/env.js'
+import { GUEST_DAILY_SESSION_LIMIT_PER_IP } from '@nihongo/contracts/study/guest-limits'
 import { ApplicationError } from '../errors/applicationError.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createClientIpMiddleware } from '../middleware/clientIp.js'
@@ -23,6 +24,7 @@ import { readBoundedJsonObject } from '../middleware/boundedJson.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
 import type { StudySessionService } from '../study/studySessionService.js'
 import type { CreateStudyOwner } from '../study/studySessionRepository.js'
+import { guestDayKey } from '../study/guestDay.js'
 import { GUEST_COOKIE_NAME } from './principal.js'
 import { appendAuthHeaders, toFieldErrors } from './routeSupport.js'
 import {
@@ -40,6 +42,36 @@ interface StudySessionRouteDependencies {
 }
 
 type StudySessionRouteEnvironment = { Variables: ApiVariables }
+
+/**
+ * Counts guest session starts per client IP and Korea-time day, so a new
+ * guest cookie does not reset the guest limit (#737). The day is part of the
+ * key, so the count starts again at midnight Korea time.
+ */
+const consumeGuestDailyIpLimit = async (
+  rateLimiter: ApplicationRateLimiter,
+  clientIp: string,
+  now = new Date()
+): Promise<void> => {
+  try {
+    await rateLimiter.consume({
+      clientIp: `${clientIp}|${guestDayKey(now)}`,
+      operation: 'guest-study-create-day',
+      windowMs: 24 * 60 * 60 * 1_000,
+      max: GUEST_DAILY_SESSION_LIMIT_PER_IP
+    })
+  } catch (error: unknown) {
+    if (error instanceof ApplicationError && error.code === 'RATE_LIMITED') {
+      throw new ApplicationError({
+        code: 'GUEST_LIMIT_REACHED',
+        message:
+          '오늘 이 네트워크에서 비회원으로 풀 수 있는 횟수를 모두 썼습니다. 더 풀려면 로그인해 주세요.',
+        retryable: false
+      })
+    }
+    throw error
+  }
+}
 
 export const createStudySessionRoutes = ({
   accountRestrictionReader,
@@ -96,6 +128,7 @@ export const createStudySessionRoutes = ({
       )
       owner = { kind: 'USER', userId: resolution.user.id }
     } else {
+      await consumeGuestDailyIpLimit(rateLimiter, context.get('clientIp'))
       const inspected = guestPrincipalService.inspectCookie(
         getCookie(context, GUEST_COOKIE_NAME)
       )

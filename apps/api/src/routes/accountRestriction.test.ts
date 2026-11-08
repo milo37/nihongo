@@ -213,6 +213,19 @@ describe('account restriction (#484)', () => {
     expect(reached).toHaveBeenCalledOnce()
   })
 
+  it('asks a guest to sign in before a result retry (#737)', async () => {
+    const { app, isRestricted, reached } = fixture()
+    const [path, init] = requests['result retry session']
+    const response = await app.request(path, init)
+
+    expect(response.status).toBe(401)
+    expect(await response.json()).toMatchObject({
+      code: 'AUTHENTICATION_REQUIRED'
+    })
+    expect(isRestricted).not.toHaveBeenCalled()
+    expect(reached).not.toHaveBeenCalled()
+  })
+
   it('still lets a restricted member read their own reports', async () => {
     const { app, isRestricted, reached } = fixture()
     const response = await app.request('/api/v1/reports', {

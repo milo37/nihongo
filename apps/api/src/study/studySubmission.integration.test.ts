@@ -912,8 +912,11 @@ describe('Study submission PostgreSQL transaction', () => {
     const pinned = await loadPinnedQuestion()
     const baseTime = Date.now()
 
+    // The service no longer lets guests start WEAKNESS (#737); this pins the
+    // repository's owner scoping. History sits on earlier days so the guest
+    // daily session limit does not refuse the final start.
     for (let index = 0; index < 3; index += 1) {
-      const startedAt = new Date(baseTime + index * 1_000)
+      const startedAt = new Date(baseTime - (3 - index) * DAY_MS)
       const history = await createPinnedSession(owner, pinned, startedAt)
       await createStudySubmissionService(
         submissionRepository,

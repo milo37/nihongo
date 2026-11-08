@@ -55,7 +55,9 @@ const RATE_POLICIES: readonly (readonly [string, number])[] = [
       (subject) => [`application:keyed:${scope}:${subject}:`, windowMs] as const
     )
   ),
-  ['application:keyed:REPORT_VERSION:VERSION:', 3_600_000]
+  ['application:keyed:REPORT_VERSION:VERSION:', 3_600_000],
+  // Guest session starts per IP and Korea-time day (#737).
+  ['application:guest-study-create-day:', 86_400_000]
 ]
 
 /** Window of a known rate key, or NULL for keys cleanup must not touch. */

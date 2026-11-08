@@ -32,7 +32,11 @@ import { createJsonLogger } from '../observability/logger.js'
 import { createPrismaQuestionRepository } from '../question/questionRepository.js'
 import { createQuestionService } from '../question/questionService.js'
 import { GUEST_COOKIE_NAME } from '../routes/principal.js'
-import { createPrismaStudySessionRepository } from './studySessionRepository.js'
+import { startOfGuestDay } from './guestDay.js'
+import {
+  createPrismaStudySessionRepository,
+  GuestDailyLimitReachedError
+} from './studySessionRepository.js'
 import { createStudySessionService } from './studySessionService.js'
 import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
@@ -612,7 +616,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
       level: 'N5',
       subject: 'VOCABULARY',
       mode: 'RANDOM',
-      count: 1
+      count: 5
     })
     const guestPayload = createStudySessionV2ResponseSchema.parse(
       await guestCreate.json()
@@ -653,12 +657,17 @@ describe('StudySession PostgreSQL vertical slice', () => {
   })
 
   it('후보가 부족하면 fallback 없이 실제 개수를 반환한다', async () => {
-    const response = await postStudySession({
-      level: 'N5',
-      subject: 'VOCABULARY',
-      mode: 'RANDOM',
-      count: 20
-    })
+    // Guests are capped at a few questions (#737), so a member asks for 20.
+    const member = await createAuthenticatedActor('USER')
+    const response = await postStudySession(
+      {
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'RANDOM',
+        count: 20
+      },
+      member.cookie
+    )
     const payload = createStudySessionV2ResponseSchema.parse(
       await response.json()
     )
@@ -725,11 +734,16 @@ describe('StudySession PostgreSQL vertical slice', () => {
     expect(await database.client.studySession.count()).toBe(beforeSessions)
   })
 
-  it('v2 guest mode 정책을 401/404로 분리하고 빈 WEAKNESS owner를 만들지 않는다', async () => {
+  it('v2 guest는 RANDOM 외 mode를 401로 거절하고 guest를 만들지 않는다 (#737)', async () => {
     const beforeGuests = await database.client.guestPrincipal.count()
     const beforeSessions = await database.client.studySession.count()
 
-    for (const mode of ['WRONG_NOTE', 'DAILY_REVIEW', 'BOOKMARK'] as const) {
+    for (const mode of [
+      'WEAKNESS',
+      'WRONG_NOTE',
+      'DAILY_REVIEW',
+      'BOOKMARK'
+    ] as const) {
       const response = await postStudySession(
         { level: 'N5', subject: 'VOCABULARY', mode, count: 1 },
         undefined,
@@ -742,22 +756,6 @@ describe('StudySession PostgreSQL vertical slice', () => {
       })
       expect(response.headers.get('Set-Cookie')).toBeNull()
     }
-
-    const weakness = await postStudySession(
-      {
-        level: 'N5',
-        subject: 'VOCABULARY',
-        mode: 'WEAKNESS',
-        count: 1
-      },
-      undefined,
-      2
-    )
-    expect(weakness.status).toBe(404)
-    expect(await weakness.json()).toMatchObject({
-      code: 'NO_ELIGIBLE_QUESTIONS',
-      retryable: false
-    })
 
     expect(await database.client.guestPrincipal.count()).toBe(beforeGuests)
     expect(await database.client.studySession.count()).toBe(beforeSessions)
@@ -846,7 +844,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
       level: 'N4',
       subject: 'GRAMMAR',
       mode: 'RANDOM',
-      count: 1
+      count: 5
     })
     const firstPayload = createStudySessionV2ResponseSchema.parse(
       await first.json()
@@ -858,7 +856,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
       level: 'N4',
       subject: 'GRAMMAR',
       mode: 'RANDOM',
-      count: 1
+      count: 5
     })
     const secondPayload = createStudySessionV2ResponseSchema.parse(
       await second.json()
@@ -894,7 +892,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
       level: 'N4',
       subject: 'READING',
       mode: 'RANDOM',
-      count: 1
+      count: 5
     })
     const firstPayload = createStudySessionV2ResponseSchema.parse(
       await first.json()
@@ -918,7 +916,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
         level: 'N4',
         subject: 'READING',
         mode: 'RANDOM',
-        count: 1
+        count: 5
       },
       staleCookie
     )
@@ -956,7 +954,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
         level: 'N3',
         subject: 'READING',
         mode: 'RANDOM',
-        count: 1
+        count: 5
       })
       const payload = createStudySessionV2ResponseSchema.parse(
         await response.json()
@@ -1117,7 +1115,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
             level: 'N5',
             subject: 'VOCABULARY',
             mode: 'RANDOM',
-            count: 3
+            count: 5
           },
           { kind: 'NEW_GUEST', credential }
         )
@@ -1321,6 +1319,63 @@ describe('StudySession PostgreSQL vertical slice', () => {
     },
     15_000
   )
+
+  it('guest 하루 세션 상한은 한국 시간 자정부터 세고 동시 시작도 하나씩 센다 (#737)', async () => {
+    // Guest renewal timestamps only move forward, so the guest is last seen
+    // before the earliest start below.
+    const dayStart = startOfGuestDay(new Date())
+    const lastSeenAt = new Date(dayStart.getTime() - 60 * 60 * 1_000)
+    const owner = {
+      kind: 'GUEST' as const,
+      guestPrincipalId: randomUUID(),
+      tokenDigest: randomUUID().replaceAll('-', '').repeat(2)
+    }
+    await database.client.guestPrincipal.create({
+      data: {
+        id: owner.guestPrincipalId,
+        tokenDigest: owner.tokenDigest,
+        createdAt: lastSeenAt,
+        lastSeenAt,
+        expiresAt: new Date(lastSeenAt.getTime() + 7 * 24 * 60 * 60 * 1_000)
+      }
+    })
+    createdGuestIds.add(owner.guestPrincipalId)
+    const start = (startedAt: Date) =>
+      repository.createRandom({
+        owner,
+        level: 'N5',
+        subject: 'VOCABULARY',
+        requestedCount: 1,
+        practiceContractVersion: 2,
+        startedAt,
+        expiresAt: new Date(startedAt.getTime() + 24 * 60 * 60 * 1_000)
+      })
+
+    // Two sessions just before Korea-time midnight belong to the day before.
+    await start(new Date(dayStart.getTime() - 2))
+    await start(new Date(dayStart.getTime() - 1))
+    await start(dayStart)
+
+    const results = await Promise.allSettled([
+      start(new Date(dayStart.getTime() + 1_000)),
+      start(new Date(dayStart.getTime() + 1_000))
+    ])
+    expect(results.filter(({ status }) => status === 'fulfilled')).toHaveLength(
+      1
+    )
+    const rejected = results.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected'
+    )
+    expect(rejected?.reason).toBeInstanceOf(GuestDailyLimitReachedError)
+    await expect(
+      start(new Date(dayStart.getTime() + 2_000))
+    ).rejects.toBeInstanceOf(GuestDailyLimitReachedError)
+    expect(
+      await database.client.studySession.count({
+        where: { guestPrincipalId: owner.guestPrincipalId }
+      })
+    ).toBe(4)
+  })
 
   it('owner scoped GET에서 만료 상태를 영속하고 foreign user는 404다', async () => {
     const [ownerUserId, foreignUserId] = await Promise.all([
