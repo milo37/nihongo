@@ -1049,8 +1049,14 @@ export const jaAdminResources = {
           title: '処理する報告はありません。',
           description: '新しく届いた報告はすべて処理済みです。'
         },
-        ANSWERED: { title: '返信済みの報告はありません。' },
-        CLOSED: { title: '完了した報告はありません。' },
+        ANSWERED: {
+          title: '返信済みの報告はありません。',
+          description: '返信した報告がここに表示されます。'
+        },
+        CLOSED: {
+          title: '完了した報告はありません。',
+          description: '完了した報告がここに表示されます。'
+        },
         filtered: {
           title: '条件に合う報告はありません。',
           description: '絞り込みを変えるか、[リセット]を押してください。'

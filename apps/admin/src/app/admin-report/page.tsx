@@ -326,11 +326,7 @@ export const AdminReportsPage = (): ReactElement => {
       {data && data.items.length === 0 ? (
         <EmptyState
           title={t(`userReport.list.empty.${emptyCase}.title`)}
-          description={
-            emptyCase === 'ANSWERED' || emptyCase === 'CLOSED'
-              ? ''
-              : t(`userReport.list.empty.${emptyCase}.description`)
-          }
+          description={t(`userReport.list.empty.${emptyCase}.description`)}
         />
       ) : null}
       {data && data.items.length > 0 ? (

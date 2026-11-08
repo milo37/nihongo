@@ -176,6 +176,28 @@ it.each([
   expect(await screen.findByRole('region', { name: ja })).toBeVisible()
 })
 
+it.each([
+  [
+    '?status=ANSWERED',
+    '답변을 보낸 제보가 여기에 보입니다.',
+    '返信した報告がここに表示されます。'
+  ],
+  [
+    '?status=CLOSED',
+    '종결한 제보가 여기에 보입니다.',
+    '完了した報告がここに表示されます。'
+  ]
+])('explains where %j reports appear', async (search, ko, ja) => {
+  vi.spyOn(reportApi, 'listAdminReports').mockResolvedValue(page([], 0))
+  renderAdmin(client, '/admin/reports' + search)
+  expect(await screen.findByText(ko)).toBeVisible()
+  cleanup()
+  client.clear()
+  writeUiLocalePreference('ja')
+  renderAdmin(client, '/admin/reports' + search)
+  expect(await screen.findByText(ja)).toBeVisible()
+})
+
 it('falls back to safe defaults for unsupported URL filters', async () => {
   const list = vi.spyOn(reportApi, 'listAdminReports').mockResolvedValue(page())
   renderAdmin(client, '/admin/reports?status=OPEN&pageSize=30')

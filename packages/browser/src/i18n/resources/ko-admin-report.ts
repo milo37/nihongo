@@ -22,8 +22,14 @@ export const koAdminReportResources = {
         title: '처리할 제보가 없습니다.',
         description: '새로 들어온 제보를 모두 처리했습니다.'
       },
-      ANSWERED: { title: '답변 완료한 제보가 없습니다.' },
-      CLOSED: { title: '종결한 제보가 없습니다.' },
+      ANSWERED: {
+        title: '답변 완료한 제보가 없습니다.',
+        description: '답변을 보낸 제보가 여기에 보입니다.'
+      },
+      CLOSED: {
+        title: '종결한 제보가 없습니다.',
+        description: '종결한 제보가 여기에 보입니다.'
+      },
       filtered: {
         title: '조건에 맞는 제보가 없습니다.',
         description: '필터를 바꾸거나 [초기화]를 눌러 주세요.'

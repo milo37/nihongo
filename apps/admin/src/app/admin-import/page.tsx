@@ -290,13 +290,17 @@ const ImportPage = ({
       ) : null}
       <ImportOperationError state={state} />
       <ImportValidationResult state={state} />
-      {createdCount !== null ? (
-        <p role="status" className="mt-6 font-semibold">
-          {t('import.applied', {
-            formattedCount: formatNumber(createdCount, locale)
-          })}
-        </p>
-      ) : null}
+      {/* Always mounted so the result is announced when the text arrives. */}
+      <p
+        role="status"
+        className={createdCount !== null ? 'mt-6 font-semibold' : undefined}
+      >
+        {createdCount !== null
+          ? t('import.applied', {
+              formattedCount: formatNumber(createdCount, locale)
+            })
+          : null}
+      </p>
     </PageContainer>
   )
 }
