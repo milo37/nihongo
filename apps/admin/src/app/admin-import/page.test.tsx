@@ -5,7 +5,8 @@ import {
   fireEvent,
   render,
   screen,
-  waitFor
+  waitFor,
+  within
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
@@ -26,6 +27,7 @@ import { useAppStore } from '@nihongo/browser/store/index'
 import { appI18n } from '@nihongo/browser/i18n/config'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import * as authApi from '@nihongo/browser/api/auth/getCurrentUser/index'
+import * as startApi from '@nihongo/browser/api/auth/startAdminReauth/index'
 import * as api from '@nihongo/browser/api/content-operations/requestContentOperation'
 import * as listApi from '@api/admin-question/listAdminQuestion/index'
 import * as importResultApi from '@nihongo/browser/api/admin-import-result/index'
@@ -482,26 +484,30 @@ describe('lost apply response recovery', () => {
     expect(recover).not.toHaveBeenCalled()
   })
 })
-it('offers Google fresh explicitly and returns to an empty import workflow without stored source or replay', async () => {
+it('asks for re-verification in place and returns to an empty import workflow without stored source or replay', async () => {
   apply = async () => {
     throw { code: 'FRESH_ASSURANCE_REQUIRED' }
   }
-  const assign = vi
-    .spyOn(appDocumentNavigation, 'assign')
-    .mockImplementation(() => undefined)
+  const start = vi
+    .spyOn(startApi, 'startAdminReauth')
+    .mockReturnValue(new Promise(() => undefined))
   const first = route()
   await upload()
   await runValidate()
   await userEvent.click(applyButton())
-  const fresh = await screen.findByRole('button', {
-    name: t('reportDetail.fresh')
+  const alert = await screen.findByRole('alert')
+  expect(alert).toHaveTextContent(t('reauth.blockedHelpImport'))
+  const check = within(screen.getByRole('main')).getByRole('button', {
+    name: t('reauth.action')
   })
-  expect(assign).not.toHaveBeenCalled()
-  expect(screen.getByText(t('import.freshRevalidateHint'))).toBeVisible()
-  await userEvent.click(fresh)
-  expect(assign).toHaveBeenCalledExactlyOnceWith(
-    '/login?redirect=' + encodeURIComponent('/admin/questions/import')
-  )
+  expect(check).toHaveFocus()
+  expect(start).not.toHaveBeenCalled()
+  await userEvent.click(check)
+  expect(start).toHaveBeenCalledExactlyOnceWith({
+    purpose: 'ADMIN_FRESH',
+    provider: 'google',
+    callbackURL: '/admin/questions/import'
+  })
   expect(Object.values(sessionStorage).join('')).not.toContain(
     JSON.stringify(request)
   )

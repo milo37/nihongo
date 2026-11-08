@@ -1,9 +1,18 @@
 import { cachedSessionStorage } from '@nihongo/browser/libs/storage'
 import {
   REAUTH_KEEP_MS,
-  saveReauthKeep,
-  takeReauthKeep
+  clearReauthKeep,
+  readReauthKeep,
+  saveReauthKeep
 } from '@app/admin/reauth/reauthKeep'
+
+const takeReauthKeep = (
+  ...args: Parameters<typeof readReauthKeep>
+): unknown => {
+  const value = readReauthKeep(...args)
+  clearReauthKeep(args[0], args[1])
+  return value
+}
 
 const NOW = Date.parse('2026-11-08T10:00:00.000Z')
 
@@ -15,8 +24,10 @@ afterEach(() => {
 it('restores a kept value once, for the same admin and screen', () => {
   const kept = { selected: ['q-1', 'q-2'] }
   expect(saveReauthKeep('admin-1', 'question-list', kept, NOW)).toBe(true)
-  expect(takeReauthKeep('admin-2', 'question-list', NOW)).toBeNull()
-  expect(takeReauthKeep('admin-1', 'report-detail', NOW)).toBeNull()
+  expect(readReauthKeep('admin-2', 'question-list', NOW)).toBeNull()
+  expect(readReauthKeep('admin-1', 'report-detail', NOW)).toBeNull()
+  // Reading twice (a doubled state initializer) still finds it.
+  expect(readReauthKeep('admin-1', 'question-list', NOW + 500)).toEqual(kept)
   expect(takeReauthKeep('admin-1', 'question-list', NOW + 1000)).toEqual(kept)
   expect(takeReauthKeep('admin-1', 'question-list', NOW + 2000)).toBeNull()
 })

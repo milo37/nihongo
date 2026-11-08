@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
-import { ReauthButton } from '@app/admin/reauth/ReauthButton'
-import type { ReauthStart } from '@app/admin/reauth/ReauthButton'
+import { ReauthButton } from '@nihongo/browser/app/reauth/components/ReauthButton'
+import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
+import { REAUTH_STATUS_ID } from '@nihongo/browser/app/reauth/components/ReauthReturnNotice'
+import { useAdminReauth } from '@app/admin/reauth/useAdminReauth'
 import { useReauthClock } from '@app/admin/reauth/useReauthClock'
 import type { ReauthClock } from '@app/admin/reauth/useReauthClock'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
-
-type ReauthStatusProps = { readonly start: ReauthStart }
 
 const chipClassNames = {
   active: 'border-success-line bg-success-soft text-success-strong',
@@ -33,15 +33,30 @@ const useReauthAnnouncement = (clock: ReauthClock): string => {
   return message
 }
 
-/** Top bar status: a sign-in check button, or the time left as a plain chip. */
-export const ReauthStatus = ({ start }: ReauthStatusProps): ReactElement => {
+/**
+ * Top bar status for admins: a re-verification button, or the time left as a
+ * plain chip. The wrapper carries REAUTH_STATUS_ID so a closed return notice
+ * hands focus back here.
+ */
+export const AdminReauthStatus = (): ReactElement => {
   const { t } = useAdminPresentation()
   const clock = useReauthClock()
+  const reauth = useAdminReauth()
   const announcement = useReauthAnnouncement(clock)
   return (
-    <div className="flex items-center gap-2">
-      {clock.state === 'need' || start.pending ? (
-        <ReauthButton start={start} />
+    <div
+      id={REAUTH_STATUS_ID}
+      tabIndex={-1}
+      role="group"
+      aria-label={t('reauth.action')}
+      className="flex items-center gap-2 rounded-control focus:outline-none"
+    >
+      {clock.state === 'need' || reauth.busy ? (
+        <ReauthButton
+          label={t('reauth.action')}
+          busy={reauth.busy}
+          onClick={() => reauth.start()}
+        />
       ) : (
         <>
           <p
@@ -59,7 +74,7 @@ export const ReauthStatus = ({ start }: ReauthStatusProps): ReactElement => {
             </span>
           </p>
           {clock.state === 'soon' ? (
-            <Button variant="outline" onClick={start.run}>
+            <Button variant="outline" onClick={() => reauth.start()}>
               {t('reauth.extend')}
             </Button>
           ) : null}
@@ -70,4 +85,10 @@ export const ReauthStatus = ({ start }: ReauthStatusProps): ReactElement => {
       </p>
     </div>
   )
+}
+
+/** Top bar slot: the status only for admins, nothing on the not-found page. */
+export const ReauthStatus = (): ReactElement | null => {
+  const { role } = useAuth()
+  return role === 'ADMIN' ? <AdminReauthStatus /> : null
 }

@@ -1,18 +1,23 @@
 import { act, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router'
+import * as startApi from '@nihongo/browser/api/auth/startAdminReauth/index'
 import { authQueries } from '@nihongo/browser/app/login/queries/authQueries'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
-import { ReauthButton } from '@app/admin/reauth/ReauthButton'
-import type { ReauthStart } from '@app/admin/reauth/ReauthButton'
-import { ReauthRequiredNotice } from '@app/admin/reauth/ReauthRequiredNotice'
-import { ReauthStatus } from '@app/admin/reauth/ReauthStatus'
-import { reauthClockAt, reauthEndsAt } from '@app/admin/reauth/useReauthClock'
-import type { ReactNode } from 'react'
+import {
+  ReauthDialogButton,
+  ReauthRequiredNotice
+} from '@app/admin/reauth/ReauthRequiredNotice'
+import { AdminReauthStatus } from '@app/admin/reauth/ReauthStatus'
+import { useAdminReauth } from '@app/admin/reauth/useAdminReauth'
+import { reauthClockFor } from '@app/admin/reauth/useReauthClock'
+import type { ReactElement, ReactNode } from 'react'
 
 const MINUTE = 60_000
 const SERVER_NOW = Date.parse('2026-11-08T10:00:00.000Z')
 
-const admin = (freshMinutes: number | null) => ({
+const admin = (freshMinutes: number | null, skewMinutes = 0) => ({
   id: 'admin-1',
   name: '관리자',
   role: 'ADMIN' as const,
@@ -22,58 +27,48 @@ const admin = (freshMinutes: number | null) => ({
     freshMinutes === null
       ? null
       : new Date(SERVER_NOW + freshMinutes * MINUTE).toISOString(),
-  adminServerTime: new Date(SERVER_NOW).toISOString()
+  // The server clock runs `skewMinutes` behind the browser.
+  adminServerTime: new Date(SERVER_NOW - skewMinutes * MINUTE).toISOString()
 })
 
-const start = (pending = false): ReauthStart => ({
-  run: vi.fn(),
-  pending,
-  pendingLabel: 'Google로 이동 중…'
-})
-
-const renderWithUser = (
-  user: ReturnType<typeof admin>,
+const renderWith = (
+  user: ReturnType<typeof admin> | null,
   ui: ReactNode
-): QueryClient => {
+): void => {
   const client = new QueryClient()
-  client.setQueryData(authQueries.currentUser().queryKey, user)
+  if (user) client.setQueryData(authQueries.currentUser().queryKey, user)
   render(
     <QueryClientProvider client={client}>
-      <I18nProvider>{ui}</I18nProvider>
+      <I18nProvider>
+        <MemoryRouter
+          basename="/admin"
+          initialEntries={['/admin/questions?level=N3']}
+        >
+          {ui}
+        </MemoryRouter>
+      </I18nProvider>
     </QueryClientProvider>
   )
-  return client
 }
 
-afterEach(() => vi.useRealTimers())
+afterEach(() => {
+  vi.useRealTimers()
+  vi.restoreAllMocks()
+})
 
-it('measures the window on the server clock and rounds minutes up', () => {
-  // The browser clock is 7 minutes fast; 28 minutes were left on arrival.
-  const receivedAt = SERVER_NOW + 7 * MINUTE
-  const endsAt = reauthEndsAt(
-    admin(28).adminFreshUntil,
-    admin(28).adminServerTime,
-    receivedAt
-  )
-  expect(endsAt).toBe(receivedAt + 28 * MINUTE)
-  expect(reauthClockAt(endsAt, receivedAt)).toEqual({
-    state: 'active',
-    minutes: 28
-  })
-  expect(reauthClockAt(endsAt, receivedAt + 23 * MINUTE + 50_000)).toEqual({
+it('rounds the minutes left up and warns from five minutes', () => {
+  expect(reauthClockFor(28 * MINUTE)).toEqual({ state: 'active', minutes: 28 })
+  expect(reauthClockFor(4 * MINUTE + 10_000)).toEqual({
     state: 'soon',
     minutes: 5
   })
-  expect(reauthClockAt(endsAt, receivedAt + 28 * MINUTE)).toEqual({
-    state: 'need'
-  })
-  expect(reauthEndsAt(null, admin(28).adminServerTime, receivedAt)).toBeNull()
-  expect(reauthClockAt(null, receivedAt)).toEqual({ state: 'need' })
+  expect(reauthClockFor(0)).toEqual({ state: 'need' })
 })
 
-it('shows the time left, warns once at five minutes and once at the end', () => {
+it('counts on the server clock, warns once at five minutes and once at the end', () => {
   vi.useFakeTimers({ now: SERVER_NOW })
-  renderWithUser(admin(6), <ReauthStatus start={start()} />)
+  // 6 minutes left by the server even though the browser clock is 3 minutes ahead.
+  renderWith(admin(3, 3), <AdminReauthStatus />)
   expect(screen.getByText('본인 확인 · 6분 남음')).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: '연장' })).toBeNull()
   expect(screen.getByRole('status')).toHaveTextContent('')
@@ -99,39 +94,36 @@ it('shows the time left, warns once at five minutes and once at the end', () => 
   )
 })
 
-it('offers the check when the session is not fresh and blocks a second press', () => {
-  const idle = start()
-  const { rerender } = render(
-    <I18nProvider>
-      <ReauthButton start={idle} />
-    </I18nProvider>
-  )
-  screen.getByRole('button', { name: '본인 확인' }).click()
-  expect(idle.run).toHaveBeenCalledTimes(1)
-
-  rerender(
-    <I18nProvider>
-      <ReauthButton start={start(true)} />
-    </I18nProvider>
-  )
-  const busy = screen.getByRole('button', { name: 'Google로 이동 중…' })
-  expect(busy).toBeDisabled()
-  expect(busy).toHaveAttribute('aria-busy', 'true')
-})
-
-it('starts with the check button when no fresh window is reported', () => {
-  renderWithUser(admin(null), <ReauthStatus start={start()} />)
+it('offers the check when no fresh window is reported', () => {
+  renderWith(admin(null), <AdminReauthStatus />)
   expect(screen.getByRole('button', { name: '본인 확인' })).toBeInTheDocument()
   expect(screen.queryByText(/남음/u)).toBeNull()
+  expect(screen.getByRole('group', { name: '본인 확인' })).toHaveAttribute(
+    'id',
+    'reauth-status'
+  )
 })
 
-it('explains an expired command in the dialog and focuses the check', () => {
-  render(
-    <I18nProvider>
-      <ReauthRequiredNotice command="승인" keeps="selection" />
-      <ReauthButton start={start()} variant="primary" focusOnMount />
-    </I18nProvider>
+const ExpiredDialogBody = ({
+  keep
+}: {
+  readonly keep: () => boolean
+}): ReactElement => {
+  const reauth = useAdminReauth()
+  return (
+    <>
+      <ReauthRequiredNotice command="승인" keeps="selection" reauth={reauth} />
+      <ReauthDialogButton reauth={reauth} keep={keep} />
+    </>
   )
+}
+
+it('explains an expired command, focuses the check and stays when input cannot be kept', async () => {
+  const user = userEvent.setup()
+  const start = vi
+    .spyOn(startApi, 'startAdminReauth')
+    .mockReturnValue(new Promise(() => undefined))
+  renderWith(admin(null), <ExpiredDialogBody keep={() => false} />)
   expect(screen.getByRole('alert')).toHaveTextContent(
     '본인 확인 시간이 끝나 ‘승인’ 작업을 적용하지 않았습니다.'
   )
@@ -139,5 +131,28 @@ it('explains an expired command in the dialog and focuses the check', () => {
   expect(
     screen.getByText('관리자 작업은 본인 확인 후 30분 동안 다시 묻지 않습니다.')
   ).toBeInTheDocument()
-  expect(screen.getByRole('button', { name: '본인 확인' })).toHaveFocus()
+  const button = screen.getByRole('button', { name: '본인 확인' })
+  expect(button).toHaveFocus()
+
+  await user.click(button)
+  expect(start).not.toHaveBeenCalled()
+  expect(screen.getByRole('alert')).toHaveTextContent(
+    '입력을 보관하지 못해 본인 확인 화면으로 이동하지 않았습니다.'
+  )
+})
+
+it('leaves for Google from this page once the input is kept', async () => {
+  const user = userEvent.setup()
+  const start = vi
+    .spyOn(startApi, 'startAdminReauth')
+    .mockReturnValue(new Promise(() => undefined))
+  const keep = vi.fn(() => true)
+  renderWith(admin(null), <ExpiredDialogBody keep={keep} />)
+  await user.click(screen.getByRole('button', { name: '본인 확인' }))
+  expect(keep).toHaveBeenCalledTimes(1)
+  expect(start).toHaveBeenCalledWith({
+    purpose: 'ADMIN_FRESH',
+    provider: 'google',
+    callbackURL: '/admin/questions?level=N3'
+  })
 })

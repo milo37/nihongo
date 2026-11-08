@@ -13,6 +13,7 @@ import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { useAppStore } from '@nihongo/browser/store/index'
 import { invalidateCanonicalAuthTransitions } from '@nihongo/browser/app/login/authSession'
 import * as authApi from '@nihongo/browser/api/auth/getCurrentUser/index'
+import * as startApi from '@nihongo/browser/api/auth/startAdminReauth/index'
 import * as listApi from '@api/admin-question/listAdminQuestion/index'
 import * as api from '@nihongo/browser/api/content-operations/requestContentOperation'
 import { adminRoutes } from '@/router'
@@ -60,7 +61,8 @@ beforeEach(() => {
     role: 'ADMIN',
     targetLevel: 'N3',
     adminSessionExpiresAt: '2099-01-01T00:00:00.000Z',
-    adminFreshUntil: null
+    adminFreshUntil: null,
+    adminServerTime: new Date().toISOString()
   })
   // Server order: updatedAt desc, then questionId desc.
   vi.spyOn(listApi, 'listAdminQuestion').mockResolvedValue({
@@ -161,7 +163,7 @@ it('publishes only approved rows and lists failed items with focus on the result
   expect(screen.queryByText('2개 선택됨')).toBeNull()
 })
 
-it('keeps the dialog and selection on fresh assurance and never resends by itself', async () => {
+it('asks for re-verification in the dialog, keeps the selection across the return and never resends by itself', async () => {
   const publish = vi.spyOn(api, 'requestContentOperation').mockRejectedValue(
     Object.assign(new Error('fresh'), {
       code: 'FRESH_ASSURANCE_REQUIRED',
@@ -173,33 +175,48 @@ it('keeps the dialog and selection on fresh assurance and never resends by itsel
     within(dialog).getByRole('button', { name: '2개 공개' })
   )
 
-  expect(
-    await within(dialog).findByRole('link', { name: '새 탭에서 본인 확인' })
-  ).toBeVisible()
-  await waitFor(() =>
-    expect(
-      within(dialog).getByRole('button', { name: '확인 완료' })
-    ).toHaveFocus()
+  expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+    '선택한 문제는 그대로 남으니'
   )
+  expect(
+    within(dialog).queryByRole('button', { name: '2개 공개' })
+  ).not.toBeInTheDocument()
+  const check = within(dialog).getByRole('button', { name: '본인 확인' })
+  await waitFor(() => expect(check).toHaveFocus())
   expect(screen.getByText('2개 선택됨')).toBeVisible()
   expect(publish).toHaveBeenCalledTimes(1)
 
-  vi.spyOn(authApi, 'getCurrentUser').mockResolvedValue({
-    id: actorId,
-    name: '관리자',
-    role: 'ADMIN',
-    targetLevel: 'N3',
-    adminSessionExpiresAt: '2099-01-01T00:00:00.000Z',
-    adminFreshUntil: '2099-01-01T00:00:00.000Z'
+  const start = vi
+    .spyOn(startApi, 'startAdminReauth')
+    .mockReturnValue(new Promise(() => undefined))
+  await userEvent.click(check)
+  expect(start).toHaveBeenCalledExactlyOnceWith({
+    purpose: 'ADMIN_FRESH',
+    provider: 'google',
+    callbackURL: '/admin/questions'
   })
-  await userEvent.click(
-    within(dialog).getByRole('button', { name: '확인 완료' })
+
+  // Back from Google on the same list: the selection returns, the dialog
+  // does not, and nothing is sent until the admin presses again.
+  cleanup()
+  client.clear()
+  const router = createMemoryRouter(adminRoutes, {
+    basename: '/admin',
+    initialEntries: ['/admin/questions?ssoFresh=REAUTHENTICATED']
+  })
+  render(
+    <QueryClientProvider client={client}>
+      <I18nProvider>
+        <ToastProvider>
+          <RouterProvider router={router} />
+        </ToastProvider>
+      </I18nProvider>
+    </QueryClientProvider>
   )
-  await waitFor(() =>
-    expect(
-      within(dialog).getByRole('button', { name: '2개 공개' })
-    ).toHaveFocus()
-  )
+  expect(await screen.findByText('2개 선택됨')).toBeVisible()
+  await waitFor(() => expect(router.state.location.search).toBe(''))
+  expect(screen.getByText('2개 선택됨')).toBeVisible()
+  expect(screen.queryByRole('dialog')).toBeNull()
   expect(publish).toHaveBeenCalledTimes(1)
 })
 
@@ -349,7 +366,7 @@ it('loads 100 rows per page when chosen so one batch can take a full page', asyn
   )
 })
 
-it('shows a rate limit wait in minutes and says the admin check is needed again', async () => {
+it('shows a rate limit wait in minutes', async () => {
   vi.spyOn(api, 'requestContentOperation').mockRejectedValue(
     Object.assign(new Error('limited'), {
       code: 'RATE_LIMITED',
@@ -364,9 +381,6 @@ it('shows a rate limit wait in minutes and says the admin check is needed again'
   const alert = await within(dialog).findByRole('alert')
   expect(alert).toHaveTextContent('15분 뒤 다시 시도해 주세요.')
   expect(alert).not.toHaveTextContent('900')
-  expect(alert).toHaveTextContent(
-    '기다린 뒤 다시 보낼 때는 관리자 본인 확인을 다시 해야 합니다.'
-  )
 })
 
 it('requests review of own drafts 20 at a time and marks a refused chunk', async () => {

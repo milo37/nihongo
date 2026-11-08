@@ -35,10 +35,11 @@ export const saveReauthKeep = (
 }
 
 /**
- * Returns the kept value once and removes it. The caller validates the shape;
- * anything stale, foreign or unreadable comes back as null.
+ * Reads the kept value without removing it, so a state initializer may run
+ * twice; call clearReauthKeep once it is applied. The caller validates the
+ * shape; anything stale, foreign or unreadable comes back as null.
  */
-export const takeReauthKeep = (
+export const readReauthKeep = (
   actorId: string,
   screen: ReauthKeepScreen,
   now: number = Date.now()
@@ -46,7 +47,6 @@ export const takeReauthKeep = (
   const name = key(actorId, screen)
   const raw = cachedSessionStorage.getItem(name)
   if (raw === null) return null
-  cachedSessionStorage.removeItem(name)
   try {
     const kept: unknown = JSON.parse(raw)
     if (
@@ -70,3 +70,9 @@ export const takeReauthKeep = (
     return null
   }
 }
+
+/** Drops the kept value so a reload does not restore it again. */
+export const clearReauthKeep = (
+  actorId: string,
+  screen: ReauthKeepScreen
+): void => cachedSessionStorage.removeItem(key(actorId, screen))
