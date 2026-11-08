@@ -382,6 +382,13 @@ export const usePracticeSessionController = ({
     }
   }
 
+  // A guest's work is not kept, so leaving needs no save first (U4 G3).
+  const leaveWithoutSaving = (): void => {
+    if (submissionNavigationBlocker.state !== 'blocked') return
+    allowSubmissionNavigationRef.current = true
+    submissionNavigationBlocker.proceed()
+  }
+
   const cancelNavigation = (): void => {
     submissionNavigationBlocker.reset?.()
   }
@@ -528,6 +535,7 @@ export const usePracticeSessionController = ({
     elapsedSeconds,
     handleBookmark,
     handleSaveAndLeave,
+    leaveWithoutSaving,
     handleSelectOption,
     handleSubmit,
     handleSubmitDialogOpenChange,

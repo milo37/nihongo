@@ -133,9 +133,7 @@ describe('현재 Google SSO 로그인', () => {
       })
     ).toHaveAttribute('href', '/legal#privacy')
     expect(
-      screen.getByText(
-        /로그인하지 않아도 문제를 풀 수 있어요\. 기록은 로그인해야 남아요\./
-      )
+      screen.getByText(/하루 2번, 5문제씩 풀 수 있어요\. 기록은 남지 않아요\./)
     ).toBeInTheDocument()
   })
 

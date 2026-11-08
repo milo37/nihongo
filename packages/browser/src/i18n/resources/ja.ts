@@ -421,6 +421,19 @@ export const jaCoreResources = {
     }
   },
   auth: {
+    guestGate: {
+      title: 'ログインが必要です',
+      bookmarks: 'ブックマークした問題をまとめて見直し、もう一度解けます。',
+      review: '間違えた問題をまとめて復習できます。',
+      wrongNote: '間違いノートはログインすると見られます。',
+      dashboard: '学習記録と進み具合を確認できます。',
+      toStudy: '学習へ'
+    },
+    guestToast: {
+      login: 'ログイン',
+      bookmark: 'ブックマークはログインすると保存できます。',
+      sessionNotKept: 'ログインすると、今の解答は引き継がれません。'
+    },
     adminFresh: {
       title: '管理者の本人確認',
       description:
@@ -444,8 +457,7 @@ export const jaCoreResources = {
         '本人確認または連携をキャンセルしました。元のアカウントは維持されます。',
       title: 'ログイン',
       description: 'Googleアカウントで学習記録を引き継ぎましょう。',
-      guestHint:
-        'ログインしなくても問題を解けます。記録はログインすると残ります。',
+      guestHint: '1日{{total}}回、{{count}}問ずつ解けます。記録は残りません。',
       guestLink: 'ログインせずに解いてみる',
       checkingSession: 'ログイン状態を確認しています。',
       redirecting: '{{provider}}に移動しています。',
@@ -499,7 +511,8 @@ export const jaCoreResources = {
       newTitle: '新しく始める',
       modeSummary: '出題方式',
       shortcutsLabel: 'もう一度学ぶ',
-      guestHint: 'ログインなしで始められます。',
+      guestHint:
+        'ログインしなくても、1日{{total}}回、{{count}}問ずつ解いてみられます。',
       reviewShortcut: '間違えた問題を復習',
       bookmarkShortcut: 'ブックマーク',
 
@@ -514,8 +527,6 @@ export const jaCoreResources = {
         otherAction: 'ほかの進行中の学習を見る',
         description: '最近保存した学習から再開できます。',
         refreshing: '一覧を更新中…',
-        guestHint:
-          '新しいゲストセッションを始めると、このタブでサーバーの下書きから再開できます。ログインすると、別の端末でも同じアカウントの下書きを確認できます。',
         loading: '保存済みの下書きを確認しています…',
         offline:
           'オフラインです。接続が戻ると再開セッションの一覧を自動で再確認します。',
@@ -565,14 +576,20 @@ export const jaCoreResources = {
             'サーバーの予定に従い、今日復習する間違いを順番に解きます。'
         }
       },
-      memberModes: '会員機能',
-      memberModesHint:
-        '間違えた問題・ブックマーク・今日の復習はログイン後に利用できます。',
+      guestResumeHint: 'ログインすると、解きかけの問題を続きから解けます。',
+      memberLocked: 'ログインが必要',
+      locked: {
+        count: '10問・20問はログインすると解けます。',
+        mode: 'ランダム以外の出題方法は、ログインすると使えます。'
+      },
+      guestLeft: '今日の体験は<b>{{total}}回中あと{{remaining}}回</b>です。',
+      dailyLimit: {
+        title: '今日の体験はすべて使いました',
+        description:
+          'ログインすると問題数の制限なく解けて、記録も残ります。体験は明日0時（日本時間）にまた{{total}}回使えます。'
+      },
+      urlLocked: '問題数・出題方法はログインすると選べます。',
       availableCountNote: '問題が不足する場合は、用意できる数を提供します。',
-      loginRequired: 'ログイン後に利用できます',
-      protectedMode:
-        '選択したモードはログイン後に利用できます。ランダム問題には変更していません。',
-      login: 'ログイン',
       noEligibleTitle: '現在の条件では出題可能な{{mode}}がありません。',
       noEligibleDescription:
         'レベル・科目・モードを変更するか、ランダム問題を選んでください。サーバーが別のモードへ自動変更することはありません。',
@@ -640,6 +657,13 @@ export const jaCoreResources = {
         description:
           '新しいRANDOM学習を開始してください。このセッションには回答を提出できません。',
         openSetup: '学習設定へ移動'
+      },
+      exitGuest: {
+        title: '解答をやめますか？',
+        description: 'やめると、この解答は保存されません。',
+        countNotBack: '今日の体験回数は戻りません。',
+        keep: '解き続ける',
+        leave: 'やめる'
       },
       navigationGuard: {
         title: 'ひと休みしますか？',
@@ -725,7 +749,6 @@ export const jaCoreResources = {
         remove: 'ブックマーク解除',
         addLabel: '{{ordinal}}番の問題をブックマークに追加',
         removeLabel: '{{ordinal}}番の問題のブックマークを解除',
-        loginRequired: 'ブックマークに保存するにはログインしてください。',
         legacyReadOnly:
           '以前の契約セッションではブックマークを変更できません。',
         removed: 'ブックマークから外しました。',
@@ -737,8 +760,7 @@ export const jaCoreResources = {
         statusLoadOffline:
           'オフラインのため、ブックマークの状態を確認できません。接続が戻ると自動的に再確認します。',
         statusLoadFailed: 'ブックマークの状態を確認できませんでした。',
-        retryStatus: '再確認',
-        chooseLogin: 'ログインを選ぶ'
+        retryStatus: '再確認'
       },
       navigation: {
         previous: '前へ',
@@ -828,15 +850,20 @@ export const jaCoreResources = {
       duration: '所要時間',
       durationValue: '{{minutes}}分{{seconds}}秒'
     },
+    guestDone: '今日の体験はここまでです。ログインすると続けて解けます。',
+    memberLocked: 'ログインが必要',
+    locked: {
+      retry: '間違えた問題の解き直しは、ログインすると使えます。'
+    },
     status: {
       guest:
-        '現在のゲストセッションでは間違えた問題を解き直せますが、アカウントの間違いノートには保存されません。',
+        'ログインすると、間違えた問題が間違いノートに保存されます。今の結果は引き継がれません。',
       savedWrongCount:
         '間違えた{{formattedCount}}問を間違いノートに反映しました。'
     },
     actions: {
       retryIncorrect: '間違えた問題だけ解き直す',
-      loginChoice: 'ログインを選ぶ',
+      loginChoice: 'ログイン',
       openWrongNotes: '間違いノートを見る'
     },
     retry: {
@@ -1128,10 +1155,6 @@ export const jaCoreResources = {
       versionChanged:
         '最後に間違えた時点の問題の解説です。解き直しには最新の問題を使います。',
       guest: {
-        title: '間違えた問題をまとめて復習しましょう。',
-        description: 'ログインすると復習する問題を続けて確認できます。',
-        login: 'ログイン',
-        practice: '学習へ',
         result: 'この端末で直前に終えた学習結果'
       },
       empty: {
@@ -1525,7 +1548,6 @@ export const jaCoreResources = {
   },
   account: {
     title: 'マイページ',
-    guestTitle: 'ログインが必要です',
     guestDescription: 'マイページでは学習記録とアカウントを管理できます。',
     study: {
       title: '学習の記録',

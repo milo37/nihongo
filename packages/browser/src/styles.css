@@ -612,6 +612,60 @@
   font-size: 15px;
 }
 
+.practice-guest-hint {
+  margin-top: 8px;
+  color: rgb(var(--color-muted));
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* U4: shared-link note (L12) and the used-up card (L18), under the title. */
+.practice-guest-note,
+.practice-guest-limit {
+  margin-bottom: 20px;
+  border-radius: var(--radius-card);
+}
+.practice-guest-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid rgb(var(--color-warning) / 0.4);
+  background: rgb(var(--color-warning) / 0.08);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.practice-guest-limit {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid rgb(var(--color-line));
+  background: rgb(var(--color-surface));
+}
+.practice-guest-limit h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+.practice-guest-limit p {
+  margin: 4px 0 16px;
+  color: rgb(var(--color-muted));
+  line-height: 1.6;
+}
+.practice-guest-limit-icon {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgb(var(--color-brand) / 0.12);
+  font-size: 22px;
+}
+
 .practice-supply-note {
   margin-top: 12px;
   font-size: 13px;
@@ -2244,10 +2298,6 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
   justify-content: center;
   gap: 16px;
 }
-.review-guest-result {
-  display: flex;
-  justify-content: center;
-}
 .review-document-meta {
   margin: -20px 0 24px;
 }
@@ -2827,6 +2877,42 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
   font-weight: 750;
   line-height: 1.35;
 }
+/* U4 GuestGate: sign-in card for a member-only screen. */
+.guest-gate {
+  padding: 40px 32px;
+  text-align: center;
+}
+.guest-gate-icon {
+  display: inline-flex;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 16px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgb(var(--color-brand) / 0.12);
+  color: rgb(var(--color-brand));
+  font-size: 24px;
+}
+.guest-gate h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+.guest-gate-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 16px;
+  margin-top: 16px;
+}
+.guest-gate-links a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  color: rgb(var(--color-link));
+  font-weight: 600;
+}
 .auth-description {
   margin-top: 8px;
   color: rgb(var(--color-muted));
@@ -3018,6 +3104,12 @@ html:lang(ja) .auth-consent {
   }
   .auth-panel {
     padding: 24px 20px;
+  }
+  .guest-gate-page {
+    padding-top: 8px;
+  }
+  .guest-gate {
+    padding: 28px 20px;
   }
   .auth-standalone-panel {
     padding: 0;

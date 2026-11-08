@@ -25,16 +25,22 @@ export const bundleBaseline = Object.freeze({
 })
 
 export const bundleCeilings = Object.freeze({
-  emittedFileCount: 90,
+  // U4 guest screens (JLP-782, #737): practice setup is the home page, so the
+  // guest allowance query, its contract, the sign-in toast hook and the
+  // used-up card load up front; GuestGate for member-only screens is lazy.
+  // Measured web: 96 files, 31 initial, gzip 252,715, raw 806,482, total raw
+  // 1,475,941. Loading more of it lazily was tried and grew the initial
+  // set (32 files, gzip 252,797): shared code split into extra chunks.
+  emittedFileCount: 97,
   // The header account menu, with its logout dialog, loads on every page
   // (bundle 1 #734): two more initial chunks, about 5.5 KB gzip.
   // U12 (JLP-791): the shared global error handler now raises offline and
   // sign-out toasts, so Toast becomes its own shared initial chunk (+1
   // file, gzip 250,094 measured; it must be ready before the first event,
   // so it cannot load lazily).
-  initialAssetCount: 28,
-  initialGzipBytes: 252_000,
-  initialRawBytes: 803_000,
+  initialAssetCount: 31,
+  initialGzipBytes: 253_500,
+  initialRawBytes: 808_000,
   javaScriptAssetCount: 88,
   javaScriptGzipBytes: 470_000,
   javaScriptRawBytes: 1_429_000,
@@ -44,7 +50,7 @@ export const bundleCeilings = Object.freeze({
   largestLazyJavaScriptGzipBytes: 30_000,
   largestLazyJavaScriptRawBytes: 102_000,
   totalGzipBytes: 480_000,
-  totalRawBytes: 1_476_000
+  totalRawBytes: 1_478_000
 })
 
 export const approvedStaticAssetPaths = Object.freeze([

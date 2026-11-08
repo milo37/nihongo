@@ -1,5 +1,4 @@
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
 import type { ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import type { PracticeSessionBookmark } from '@app/practice/hooks/usePracticeSessionBookmark'
@@ -58,10 +57,7 @@ export const PracticeQuestionBookmarkStatus = ({
 }: PracticeQuestionBookmarkStatusProps): ReactElement => {
   const { t } = useTranslation('practice')
   const { bookmarksQuery, isMutationPaused, message } = bookmark
-  const failure =
-    message?.questionId === questionId && message.code !== 'loginRequired'
-      ? message.code
-      : null
+  const failure = message?.questionId === questionId ? message.code : null
   return (
     <>
       {failure ? (
@@ -69,23 +65,9 @@ export const PracticeQuestionBookmarkStatus = ({
         <p className="mt-3 text-sm font-semibold text-danger" role="alert">
           {t(`session.bookmark.${failure}`)}
         </p>
-      ) : (message?.questionId === questionId &&
-          message.code === 'loginRequired') ||
-        isMutationPaused ? (
+      ) : isMutationPaused ? (
         <p className="mt-3 text-sm font-semibold text-warning" role="status">
-          {isMutationPaused
-            ? t('session.bookmark.offlineQueued')
-            : message
-              ? t(`session.bookmark.${message.code}`)
-              : null}{' '}
-          {role === 'GUEST' ? (
-            <Link
-              className="inline-flex min-h-11 items-center px-1 underline hover:no-underline"
-              to="/login?redirect=%2Fpractice"
-            >
-              {t('session.bookmark.chooseLogin')}
-            </Link>
-          ) : null}
+          {t('session.bookmark.offlineQueued')}
         </p>
       ) : null}
       {role !== 'GUEST' && bookmarksQuery.fetchStatus === 'paused' ? (

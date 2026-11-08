@@ -211,10 +211,10 @@ describe('approved integrated review', () => {
     const requests = vi.fn()
     mockServer.use(http.get('*/api/v1/review-queue', requests))
     mount()
-    expect(screen.getByRole('link', { name: '로그인' })).toHaveAttribute(
-      'href',
-      '/login?redirect=%2Fwrong-notes'
-    )
+    expect(screen.getByText('틀린 문제를 모아 복습할 수 있어요.')).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: 'Google로 계속하기' })
+    ).toBeEnabled()
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
     expect(requests).not.toHaveBeenCalled()
   })

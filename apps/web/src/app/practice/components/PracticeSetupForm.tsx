@@ -1,5 +1,4 @@
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
 import type { ReactElement, ReactNode } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { ChoiceRadioGroup } from '@common/components/ChoiceRadioGroup'
@@ -12,6 +11,15 @@ import type {
 } from '@nihongo/browser/common/types/domain'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
+import { GUEST_SESSION_QUESTION_LIMIT } from '@nihongo/contracts/study/guest-limits'
+
+// Renders the <b>…</b> marks in a translated line as bold text.
+export const withBold = (text: string): ReactNode[] =>
+  text
+    .split(/(<b>.*?<\/b>)/u)
+    .map((part, index) =>
+      part.startsWith('<b>') ? <b key={index}>{part.slice(3, -4)}</b> : part
+    )
 
 type PracticeSetupFormProps = {
   level: JlptLevel
@@ -21,15 +29,16 @@ type PracticeSetupFormProps = {
   levels: readonly JlptLevel[]
   subjects: readonly QuestionSubject[]
   counts: readonly number[]
-  modes: readonly { value: StudyMode; requiresLogin: boolean }[]
+  modes: readonly StudyMode[]
   isReady: boolean
   isGuest: boolean
   isCreating: boolean
-  isProtectedGuestMode: boolean
+  /** Guest who used today's tries: no start button (L18 card shows above). */
+  isGuestDailyLimitReached: boolean
+  guestAllowance: { remaining: number; dailyLimit: number } | null
   hasResumableSession: boolean
   subjectLabel: string
   startLabel: string
-  loginHref: string
   feedback: ReactNode
   onLevelChange: (level: JlptLevel) => void
   onSubjectChange: (subject: QuestionSubject) => void
@@ -89,7 +98,8 @@ const StartSummary = ({
   isReady,
   isGuest,
   isCreating,
-  isProtectedGuestMode,
+  isGuestDailyLimitReached,
+  guestAllowance,
   hasResumableSession
 }: Pick<
   PracticeSetupFormProps,
@@ -100,12 +110,14 @@ const StartSummary = ({
   | 'isReady'
   | 'isGuest'
   | 'isCreating'
-  | 'isProtectedGuestMode'
+  | 'isGuestDailyLimitReached'
+  | 'guestAllowance'
   | 'hasResumableSession'
->): ReactElement => {
+>): ReactElement | null => {
   const { i18n, t } = useTranslation('practice')
   const { t: homeT } = useTranslation('home')
   const locale = resolveUiLocale(i18n.resolvedLanguage)
+  if (isGuestDailyLimitReached) return null
   return (
     <div className="practice-start-summary">
       <p className="sr-only" aria-live="polite">
@@ -120,7 +132,7 @@ const StartSummary = ({
         fullWidth
         type="submit"
         aria-label={isCreating ? homeT('approved.loading') : startLabel}
-        disabled={!isReady || isProtectedGuestMode}
+        disabled={!isReady}
         isLoading={isCreating}
         loadingLabel={homeT('approved.loading')}
         showLoadingIndicator={false}
@@ -128,33 +140,38 @@ const StartSummary = ({
       >
         {startLabel}
       </Button>
-      <p className="practice-supply-note">
-        {isGuest ? t('setup.guestHint') : t('setup.availableCountNote')}
-      </p>
+      {isGuest ? (
+        guestAllowance ? (
+          <p className="practice-supply-note">
+            {withBold(
+              t('setup.guestLeft', {
+                total: formatNumber(guestAllowance.dailyLimit, locale),
+                remaining: formatNumber(guestAllowance.remaining, locale)
+              })
+            )}
+          </p>
+        ) : null
+      ) : (
+        <p className="practice-supply-note">{t('setup.availableCountNote')}</p>
+      )}
     </div>
   )
 }
 
-/** Collapsible mode picker; member-only modes are listed but disabled for guests. */
+/**
+ * Collapsible mode picker. For a guest every mode but RANDOM is marked
+ * locked yet still choosable: choosing one explains why and keeps RANDOM.
+ */
 const ModeOptions = ({
   mode,
   modes,
   isReady,
   isGuest,
   isCreating,
-  isProtectedGuestMode,
-  loginHref,
   onModeChange
 }: Pick<
   PracticeSetupFormProps,
-  | 'mode'
-  | 'modes'
-  | 'isReady'
-  | 'isGuest'
-  | 'isCreating'
-  | 'isProtectedGuestMode'
-  | 'loginHref'
-  | 'onModeChange'
+  'mode' | 'modes' | 'isReady' | 'isGuest' | 'isCreating' | 'onModeChange'
 >): ReactElement => {
   const { t } = useTranslation('practice')
   return (
@@ -173,37 +190,22 @@ const ModeOptions = ({
           aria-describedby="practice-mode-description"
           onChange={(event) => {
             const option = modes.find(
-              (item) => item.value === event.currentTarget.value
+              (item) => item === event.currentTarget.value
             )
-            if (option) onModeChange(option.value)
+            if (option) onModeChange(option)
           }}
         >
-          {modes
-            .filter((option) => !option.requiresLogin)
-            .map(({ value }) => (
-              <option key={value} value={value}>
-                {t(`setup.modes.${value}.label`)}
-              </option>
-            ))}
-          <optgroup label={t('setup.memberModes')}>
-            {modes
-              .filter((option) => option.requiresLogin)
-              .map(({ value }) => (
-                <option key={value} value={value} disabled={isGuest}>
-                  {t(`setup.modes.${value}.label`)}
-                </option>
-              ))}
-          </optgroup>
+          {modes.map((value) => (
+            <option key={value} value={value}>
+              {isGuest && value !== 'RANDOM'
+                ? `${t(`setup.modes.${value}.label`)} 🔒 ${t('setup.memberLocked')}`
+                : t(`setup.modes.${value}.label`)}
+            </option>
+          ))}
         </Select>
         <p className="practice-field-detail" id="practice-mode-description">
           {t(`setup.modes.${mode}.description`)}
         </p>
-        {isGuest && !isProtectedGuestMode ? (
-          <p className="practice-mode-login practice-field-detail">
-            {t('setup.memberModesHint')}{' '}
-            <Link to={loginHref}>{t('setup.login')}</Link>
-          </p>
-        ) : null}
       </div>
     </details>
   )
@@ -221,11 +223,11 @@ export const PracticeSetupForm = ({
   isReady,
   isGuest,
   isCreating,
-  isProtectedGuestMode,
+  isGuestDailyLimitReached,
+  guestAllowance,
   hasResumableSession,
   subjectLabel,
   startLabel,
-  loginHref,
   feedback,
   onLevelChange,
   onSubjectChange,
@@ -274,9 +276,20 @@ export const PracticeSetupForm = ({
           disabled={isCreating}
           options={counts.map((value) => ({
             value: String(value),
-            label: t('setup.questionCount', {
-              formattedCount: formatCount(value)
-            })
+            label:
+              isGuest && value !== GUEST_SESSION_QUESTION_LIMIT ? (
+                <>
+                  {t('setup.questionCount', {
+                    formattedCount: formatCount(value)
+                  })}
+                  <span aria-hidden="true">🔒</span>
+                  <span className="sr-only">{t('setup.memberLocked')}</span>
+                </>
+              ) : (
+                t('setup.questionCount', {
+                  formattedCount: formatCount(value)
+                })
+              )
           }))}
           onValueChange={(value) => onCountChange(Number(value))}
         />
@@ -294,7 +307,8 @@ export const PracticeSetupForm = ({
         isReady={isReady}
         isGuest={isGuest}
         isCreating={isCreating}
-        isProtectedGuestMode={isProtectedGuestMode}
+        isGuestDailyLimitReached={isGuestDailyLimitReached}
+        guestAllowance={guestAllowance}
         hasResumableSession={hasResumableSession}
       />
       <ModeOptions
@@ -303,8 +317,6 @@ export const PracticeSetupForm = ({
         isReady={isReady}
         isGuest={isGuest}
         isCreating={isCreating}
-        isProtectedGuestMode={isProtectedGuestMode}
-        loginHref={loginHref}
         onModeChange={onModeChange}
       />
     </form>

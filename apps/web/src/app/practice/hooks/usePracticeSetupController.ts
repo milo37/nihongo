@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import type { RefObject } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
@@ -10,15 +11,20 @@ import {
   getInitialLevel,
   getInitialSubject,
   getRequestedMode,
-  getResumablePage,
-  loginRequiredModes
+  getResumablePage
 } from '@app/practice/practiceSetupOptions'
+import {
+  asGuestAllowance,
+  guestAllowanceQueries
+} from '@app/practice/queries/guestAllowanceQueries'
+import { GUEST_SESSION_QUESTION_LIMIT } from '@nihongo/contracts/study/guest-limits'
 import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
 import { useAppStore } from '@nihongo/browser/store/index'
 import {
   isAccountRestrictedApiError,
+  isGuestLimitReachedApiError,
   isNoEligibleQuestionsApiError
 } from '@libs/apiError'
 
@@ -34,12 +40,25 @@ export const usePracticeSetupController = (
   const [searchParams, setSearchParams] = useSearchParams()
   const { isReady, role, user } = useAuth()
   const beginPractice = useAppStore((state) => state.beginPractice)
-  const storedSessionId = useAppStore((state) => state.sessionId)
   const [cancelSessionId, setCancelSessionId] = useState<string | null>(null)
   const level = getInitialLevel(searchParams.get('level'))
   const subject = getInitialSubject(searchParams.get('subject'))
-  const count = getInitialCount(searchParams.get('count'))
-  const mode = getRequestedMode(searchParams.get('mode'))
+  const isGuest = isReady && role === 'GUEST'
+  const requestedCount = getInitialCount(searchParams.get('count'))
+  const requestedMode = getRequestedMode(searchParams.get('mode'))
+  // Guests only try short random sessions; a shared link asking for more
+  // keeps its level and subject and says why the rest changed (L12).
+  const count = isGuest ? GUEST_SESSION_QUESTION_LIMIT : requestedCount
+  const mode = isGuest ? 'RANDOM' : requestedMode
+  const isUrlLockedForGuest =
+    isGuest &&
+    ((searchParams.has('count') &&
+      requestedCount !== GUEST_SESSION_QUESTION_LIMIT) ||
+      requestedMode !== 'RANDOM')
+  const guestAllowance = useQuery({
+    ...guestAllowanceQueries.get(),
+    enabled: isGuest
+  })
   const resumablePage = getResumablePage(searchParams.get('resumePage'))
   const updateSearchParam = useCallback(
     (
@@ -65,12 +84,10 @@ export const usePracticeSetupController = (
     else next.set(key, String(value))
     return `?${next.toString()}`
   }
-  const isProtectedGuestMode =
-    role === 'GUEST' && loginRequiredModes.includes(mode)
   const createSession = useCreateStudySession()
   const principalScope = getStudyDraftPrincipalScope(user)
-  const canLoadResumableSessions =
-    isReady && (user !== null || storedSessionId !== null)
+  // Guests have no saved work to resume (G1).
+  const canLoadResumableSessions = isReady && user !== null
   const resumableSessions = useListResumableStudySessions(
     resumablePage,
     RESUMABLE_PAGE_SIZE,
@@ -90,8 +107,14 @@ export const usePracticeSetupController = (
     createSession.isError && isNoEligibleQuestionsApiError(createSession.error)
   const accountRestricted =
     createSession.isError && isAccountRestrictedApiError(createSession.error)
+  const guestAllowanceData = asGuestAllowance(guestAllowance.data)
+  const guestLimitRejected =
+    createSession.isError && isGuestLimitReachedApiError(createSession.error)
+  const isGuestDailyLimitReached =
+    isGuest && (guestLimitRejected || guestAllowanceData?.remaining === 0)
   const hasCreateError =
     createSession.isError &&
+    !guestLimitRejected &&
     !isAuthTransitionSupersededError(createSession.error)
   const isResumableSourceUnavailable =
     resumableSessions.isError || resumableSessions.fetchStatus === 'paused'
@@ -127,7 +150,7 @@ export const usePracticeSetupController = (
   const loginHref = `/login?redirect=${encodeURIComponent(`${location.pathname}${location.search}`)}`
 
   const handleStart = (): void => {
-    if (!isReady || isCreatingSession || isProtectedGuestMode) {
+    if (!isReady || isCreatingSession || isGuestDailyLimitReached) {
       return
     }
 
@@ -179,8 +202,10 @@ export const usePracticeSetupController = (
     hasCreateError,
     isCancelling: cancelSession.isPending,
     isCreatingSession,
-    isGuest: role === 'GUEST',
-    isProtectedGuestMode,
+    guestAllowance: guestAllowanceData,
+    isGuest,
+    isGuestDailyLimitReached,
+    isUrlLockedForGuest,
     isReady,
     isResumableInteractionLocked,
     isResumableSourceUnavailable,

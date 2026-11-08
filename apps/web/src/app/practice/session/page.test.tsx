@@ -51,7 +51,8 @@ const renderSession = (sessionId: string) => {
         )
       },
       { path: '/practice/result/:sessionId', element: <p>제출 결과 도착</p> },
-      { path: '/practice', element: <p>학습 설정 도착</p> }
+      { path: '/practice', element: <p>학습 설정 도착</p> },
+      { path: '/login', element: <p>로그인 화면 도착</p> }
     ],
     { initialEntries: [`/practice/session/${sessionId}`] }
   )
@@ -750,7 +751,7 @@ describe('PracticeSessionPage', () => {
     await commitCanonicalAuth(queryClient, principal)
   }
 
-  it('게스트 책갈피는 로그인 안내와 로그인 링크를 보여 준다', async () => {
+  it('게스트 책갈피는 로그인 토스트로 안내하고 [로그인]을 눌러야 이동한다', async () => {
     const user = userEvent.setup()
     const payload = await startSession(1)
     const option = payload.questions[0]?.options[0]
@@ -765,14 +766,24 @@ describe('PracticeSessionPage', () => {
     })
     expect(bookmark).toHaveAttribute('aria-pressed', 'false')
     await user.click(bookmark)
+    // A toast with [로그인]; nothing moves and the button stays unpressed (L7).
+    const toasts = await screen.findByRole('region', { name: '알림' })
     expect(
-      await screen.findByText(/책갈피를 저장하려면 로그인해 주세요\./u)
-    ).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '로그인 선택' })).toHaveAttribute(
-      'href',
-      '/login?redirect=%2Fpractice'
-    )
+      within(toasts).getByText('책갈피는 로그인하면 저장할 수 있어요.')
+    ).toBeVisible()
+    expect(
+      within(toasts).getByText('로그인하면 지금 풀이는 이어지지 않아요.')
+    ).toBeVisible()
     expect(bookmark).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.queryByRole('link', { name: '로그인 선택' })).toBeNull()
+    await user.click(within(toasts).getByRole('button', { name: '로그인' }))
+    // Leaving the session still asks first.
+    await user.click(
+      within(
+        await screen.findByRole('dialog', { name: '풀이를 그만둘까요?' })
+      ).getByRole('button', { name: '나가기' })
+    )
+    expect(await screen.findByText('로그인 화면 도착')).toBeInTheDocument()
   })
 
   it('USER 책갈피 추가·해제가 버튼 상태와 안내를 갱신한다', async () => {
@@ -791,7 +802,9 @@ describe('PracticeSessionPage', () => {
     await user.click(add)
     // Success is a toast, not text under the button.
     const toasts = await screen.findByRole('region', { name: '알림' })
-    expect(await within(toasts).findByText('책갈피에 저장했어요.')).toBeVisible()
+    expect(
+      await within(toasts).findByText('책갈피에 저장했어요.')
+    ).toBeVisible()
     const remove = screen.getByRole('button', {
       name: '1번 문제 책갈피 해제'
     })
@@ -917,8 +930,36 @@ describe('PracticeSessionPage', () => {
     ).toBeInTheDocument()
   })
 
+  it('게스트가 풀이 중 나가려 하면 저장되지 않는다고 알리고 계속 풀기에 먼저 초점을 둔다 (G3)', async () => {
+    const user = userEvent.setup()
+    const payload = await startSession(1)
+    const option = payload.questions[0]?.options[0]
+    if (!option) throw new Error('Public option required')
+    renderSession(payload.session.id)
+    const radio = await screen.findByRole('radio', {
+      name: `1. ${option.text}`
+    })
+    await waitFor(() => expect(radio).toBeEnabled())
+    await user.click(screen.getByRole('link', { name: '학습으로 돌아가기' }))
+    const dialog = await screen.findByRole('dialog', {
+      name: '풀이를 그만둘까요?'
+    })
+    expect(
+      within(dialog).getByText('나가면 이 풀이는 저장되지 않아요.')
+    ).toBeVisible()
+    expect(
+      within(dialog).getByText('오늘 체험 횟수는 돌아오지 않아요.')
+    ).toBeVisible()
+    expect(
+      within(dialog).getByRole('button', { name: '계속 풀기' })
+    ).toHaveFocus()
+    await user.click(within(dialog).getByRole('button', { name: '나가기' }))
+    expect(await screen.findByText('학습 설정 도착')).toBeInTheDocument()
+  })
+
   it('편집 중 뒤로 가기는 이탈 Dialog를 열고 계속 풀기로 남는다', async () => {
     const user = userEvent.setup()
+    await loginAsUser()
     const payload = await startSession(1)
     const option = payload.questions[0]?.options[0]
     if (!option) throw new Error('Public option required')

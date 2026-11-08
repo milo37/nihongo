@@ -128,10 +128,17 @@ describe('마이페이지 계정 설정', () => {
     renderAccount()
     expect(
       await screen.findByRole('heading', {
-        level: 1,
+        level: 2,
         name: '로그인이 필요해요'
       })
     ).toBeInTheDocument()
+    expect(
+      screen.getByText('마이페이지에서 학습 기록과 계정을 관리할 수 있어요.')
+    ).toBeVisible()
+    expect(screen.getByRole('link', { name: '학습으로' })).toHaveAttribute(
+      'href',
+      '/practice'
+    )
     expect(
       screen.getByRole('button', { name: 'Google로 계속하기' })
     ).toBeEnabled()

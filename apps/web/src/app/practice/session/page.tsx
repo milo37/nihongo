@@ -121,8 +121,10 @@ export const PracticeSessionPage = (): ReactElement => {
   const navigationPrompt = (
     <PracticeNavigationGuardDialog
       open={session.isNavigationGuardOpen}
+      isGuest={session.role === 'GUEST'}
       isSaving={session.isSavingBeforeNavigation}
       onContinue={session.cancelNavigation}
+      onLeave={session.leaveWithoutSaving}
       onSaveAndLeave={() => void session.handleSaveAndLeave()}
     />
   )

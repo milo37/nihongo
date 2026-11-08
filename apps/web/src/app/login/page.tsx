@@ -12,6 +12,10 @@ import { AdminFreshEntry } from '@app/login/components/AdminFreshEntry'
 import { SignInCard } from '@app/login/components/SignInCard'
 import type { SignInNotice } from '@app/login/components/SignInCard'
 import { useSsoAccountDeletion } from '@app/login/hooks/useSsoAccountDeletion'
+import {
+  GUEST_DAILY_SESSION_LIMIT,
+  GUEST_SESSION_QUESTION_LIMIT
+} from '@nihongo/contracts/study/guest-limits'
 import { useAppNavigate } from '@nihongo/browser/libs/appNavigation'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 
@@ -167,7 +171,10 @@ export const LoginPage = (): ReactElement => {
         onStart={() => setNotice(null)}
       />
       <p className="auth-guest-hint">
-        {t('sso.guestHint')}{' '}
+        {t('sso.guestHint', {
+          total: GUEST_DAILY_SESSION_LIMIT,
+          count: GUEST_SESSION_QUESTION_LIMIT
+        })}{' '}
         <Link to={redirect.startsWith('/practice') ? redirect : '/practice'}>
           {t('sso.guestLink')}
         </Link>
