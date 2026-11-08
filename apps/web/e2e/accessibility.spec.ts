@@ -2686,6 +2686,16 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
       width: 768
     }
   )
+  // 768–1103px: the wide tables scroll inside their own box, never the page.
+  for (const [path, label] of [
+    ['/admin/questions', 'admin-question-list-1024'],
+    ['/admin/members', 'admin-member-list-1024'],
+    ['/admin/reports', 'admin-report-list-1024']
+  ] as const)
+    await verifyViewport(page, testInfo, path, label, {
+      height: 900,
+      width: 1024
+    })
   await verifyViewport(
     page,
     testInfo,

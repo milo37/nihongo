@@ -16,12 +16,12 @@ import {
 } from '@nihongo/contracts/admin/members'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
-import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import {
   ADMIN_GRID_PAGE_SIZES,
   AdminDataGrid,
   type AdminGridFeatures
 } from '@app/admin/components/data-grid/AdminDataGrid'
+import { AdminListSkeleton } from '@app/admin/components/list/AdminListSkeleton'
 import { AdminListFilters } from '@app/admin/components/list/AdminListFilters'
 import { AdminListSearch } from '@app/admin/components/list/AdminListSearch'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
@@ -31,9 +31,11 @@ import { PageContainer } from '@nihongo/browser/common/components/PageContainer'
 
 type PageSize = (typeof ADMIN_GRID_PAGE_SIZES)[number]
 
-// U8 widths; the email column takes what is left.
+// U8 widths; the email column takes what is left (13.5rem or more within
+// the table minimum width) and truncates, with the full value in its title.
 const COLUMN_CLASS_NAMES: Readonly<Record<string, string>> = {
   memberId: 'w-[7.5rem]',
+  maskedEmail: 'truncate',
   joinedAt: 'w-[7.5rem]',
   lastStudiedAt: 'w-[7.5rem]',
   solvedCount: 'w-28 text-right tabular-nums',
@@ -93,7 +95,7 @@ export const AdminMembersPage = (): ReactElement => {
           to={memberHref(info.getValue())}
           title={info.getValue()}
           aria-label={info.getValue()}
-          className="whitespace-nowrap font-mono text-sm font-semibold underline"
+          className="inline-flex min-h-11 items-center whitespace-nowrap font-mono text-sm font-semibold underline"
         >
           {`${info.getValue().slice(0, 8)}…`}
         </Link>
@@ -101,7 +103,8 @@ export const AdminMembersPage = (): ReactElement => {
     }),
     helper.accessor('maskedEmail', {
       header: t('members.columns.email'),
-      enableSorting: false
+      enableSorting: false,
+      cell: (info) => <span title={info.getValue()}>{info.getValue()}</span>
     }),
     helper.accessor('joinedAt', {
       header: t('members.columns.joinedAt'),
@@ -127,7 +130,7 @@ export const AdminMembersPage = (): ReactElement => {
       cell: (info) => (
         <Link
           to={memberHref(info.row.original.memberId)}
-          className="font-semibold underline"
+          className="inline-flex min-h-11 items-center font-semibold underline"
         >
           {t('members.openDetail')}
         </Link>
@@ -233,7 +236,7 @@ export const AdminMembersPage = (): ReactElement => {
       />
       <div className="mt-6">
         {members.isPending ? (
-          <LoadingState label={t('members.loading')} />
+          <AdminListSkeleton message={t('members.loading')} />
         ) : members.isError && !members.data ? (
           <ErrorState
             title={t('members.loadError')}
@@ -246,6 +249,7 @@ export const AdminMembersPage = (): ReactElement => {
             label={t('members.gridLabel')}
             columns={columns}
             columnClassNames={COLUMN_CLASS_NAMES}
+            minTableWidth="min-w-[58rem]"
             data={members.data?.items ?? []}
             rowCount={members.data?.total ?? 0}
             getRowId={(member) => member.memberId}

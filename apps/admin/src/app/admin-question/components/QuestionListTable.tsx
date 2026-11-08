@@ -214,7 +214,7 @@ const IdLink = ({
   readonly href: string
 }): ReactElement => (
   <Link
-    className="whitespace-nowrap rounded-sm font-mono text-sm font-semibold text-brand underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+    className="inline-flex min-h-11 items-center whitespace-nowrap rounded-sm font-mono text-sm font-semibold text-brand underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
     translate="no"
     title={questionId}
     to={href}
@@ -400,7 +400,9 @@ export const QuestionListTable = ({
     )
   return (
     <div
-      className="overflow-x-auto rounded-card border border-line bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+      // relative: screen-reader-only text in the far columns is placed inside
+      // this scroll box, not against the page, so only the box scrolls.
+      className="relative overflow-x-auto rounded-card border border-line bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
       role="region"
       aria-label={t('questionList.tableLabel')}
       tabIndex={0}

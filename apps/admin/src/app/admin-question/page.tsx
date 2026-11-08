@@ -17,6 +17,7 @@ import {
   PAGE_SIZES,
   useQuestionListSearch
 } from '@app/admin-question/hooks/useQuestionListSearch'
+import { AdminListSkeleton } from '@app/admin/components/list/AdminListSkeleton'
 import {
   AdminListToolbar,
   adminListPageCount,
@@ -25,7 +26,6 @@ import {
 import { Button } from '@nihongo/browser/common/components/Button'
 import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
-import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import { Eyebrow } from '@nihongo/browser/common/components/Eyebrow'
 
 export const AdminQuestionPage = (): ReactElement => {
@@ -165,7 +165,7 @@ export const AdminQuestionPage = (): ReactElement => {
       ) : null}
 
       {questionList.isPending ? (
-        <LoadingState message={t('questionList.loading')} />
+        <AdminListSkeleton message={t('questionList.loading')} />
       ) : null}
 
       {questionList.isError ? (

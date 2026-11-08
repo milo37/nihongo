@@ -13,7 +13,10 @@ type AdminPagerProps = {
   readonly onPageChange: (page: number) => void
 }
 
-/** First, previous, `page / pageCount`, next and last page buttons. */
+/**
+ * First, previous, `page / pageCount`, next and last page buttons. Below
+ * 640px the first and last jumps hide so page size and pager share one line.
+ */
 export const AdminPager = ({
   label,
   page,
@@ -29,6 +32,7 @@ export const AdminPager = ({
     <nav aria-label={label} className="flex items-center gap-1">
       <IconButton
         label={t('adminList.first')}
+        className="max-sm:hidden"
         icon={<Icon name="chevrons-left" />}
         disabled={atStart}
         onClick={() => onPageChange(1)}
@@ -53,6 +57,7 @@ export const AdminPager = ({
       />
       <IconButton
         label={t('adminList.last')}
+        className="max-sm:hidden"
         icon={<Icon name="chevrons-right" />}
         disabled={atEnd}
         onClick={() => onPageChange(pageCount)}

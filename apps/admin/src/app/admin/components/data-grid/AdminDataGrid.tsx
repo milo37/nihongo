@@ -35,6 +35,11 @@ type AdminDataGridProps<TData extends RowData> = {
   readonly columns: readonly ColumnDef<AdminGridFeatures, TData>[]
   /** Width and alignment classes per column id (U8 fixed widths). */
   readonly columnClassNames?: Readonly<Record<string, string>>
+  /**
+   * Minimum table width: the fixed columns plus room for the flexible one.
+   * Narrower screens scroll inside the table box, never the page.
+   */
+  readonly minTableWidth?: string
   readonly data: readonly TData[]
   readonly rowCount: number
   readonly getRowId: (row: TData) => string
@@ -256,6 +261,7 @@ export const AdminDataGrid = <TData extends RowData>({
   label,
   columns,
   columnClassNames = {},
+  minTableWidth = 'min-w-[48rem]',
   data,
   rowCount,
   getRowId,
@@ -310,9 +316,11 @@ export const AdminDataGrid = <TData extends RowData>({
           role="region"
           aria-label={label}
           tabIndex={0}
-          className="overflow-x-auto rounded-card border border-line bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+          className="relative overflow-x-auto rounded-card border border-line bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
         >
-          <table className="w-full min-w-[48rem] table-fixed border-collapse text-left text-sm">
+          <table
+            className={`w-full ${minTableWidth} table-fixed border-collapse text-left text-sm`}
+          >
             <caption className="sr-only">{label}</caption>
             <GridHead table={table} columnClassNames={columnClassNames} />
             <GridBody

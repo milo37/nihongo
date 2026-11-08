@@ -6,10 +6,10 @@ import {
   reportStatusSchema
 } from '@nihongo/contracts/report/reports'
 import { Badge } from '@nihongo/browser/common/components/Badge'
-import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
+import { AdminListSkeleton } from '@app/admin/components/list/AdminListSkeleton'
 import { AdminListFilters } from '@app/admin/components/list/AdminListFilters'
 import {
   AdminListToolbar,
@@ -98,7 +98,7 @@ const ReportTable = ({
 }: ReportListProps): ReactElement => {
   const { t, formatAdminDateTime } = useAdminPresentation()
   return (
-    <div className="overflow-x-auto rounded-card border border-line bg-surface">
+    <div className="relative overflow-x-auto rounded-card border border-line bg-surface">
       <table className="w-full min-w-[48rem] table-fixed border-collapse text-left text-sm">
         <caption className="sr-only">{t('userReport.list.title')}</caption>
         <thead className="border-b border-line bg-surface-muted text-muted">
@@ -163,7 +163,7 @@ const ReportCards = ({
       {items.map((item) => (
         <li
           key={item.reportId}
-          className="grid gap-2 rounded-card border border-line bg-surface px-4 py-3"
+          className="grid grid-cols-[minmax(0,1fr)] gap-2 rounded-card border border-line bg-surface px-4 py-3"
         >
           <span className="flex flex-wrap gap-2">
             <ReportBadges item={item} />
@@ -338,7 +338,9 @@ export const AdminReportsPage = (): ReactElement => {
         </>
       ) : null}
       {!data && loading ? (
-        <LoadingState className="mt-8" message={t('userReport.list.loading')} />
+        <div className="mt-8">
+          <AdminListSkeleton message={t('userReport.list.loading')} />
+        </div>
       ) : null}
     </PageContainer>
   )

@@ -98,7 +98,7 @@ export const AdminListToolbar = ({
       >
         {isTop && leading ? leading : count}
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 md:justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-2 md:justify-end md:gap-x-4">
         {trailing}
         <div className="flex items-center gap-2">
           <span
