@@ -323,7 +323,14 @@ describe('현재 Google SSO 로그인', () => {
       expect(router.state.location.hash).toBe('')
       expect(document.body).not.toHaveTextContent('private-value')
       expect(mockDatabase.getCurrentUser()).toBeNull()
-      expect(screen.getByRole('heading', { name: '로그인' })).toHaveFocus()
+      // Errors put focus on the recovering button; a cancel is only news.
+      await waitFor(() =>
+        expect(
+          outcome === 'CANCELLED'
+            ? screen.getByRole('heading', { name: '로그인' })
+            : screen.getByRole('button', { name: 'Google로 계속하기' })
+        ).toHaveFocus()
+      )
     }
   )
 

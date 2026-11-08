@@ -1,11 +1,24 @@
 import { useQuery } from '@tanstack/react-query'
 import { dashboardQueries } from '@app/dashboard/queries/dashboardQueries'
 
-// fresh: re-read on mount even when a recent copy is cached (account page).
-export const useGetDashboardStats = (enabled = true, fresh = false) => {
+type DashboardStatsOptions = {
+  enabled?: boolean
+  /**
+   * My page: re-read on mount even when a recent copy is cached, and show a
+   * failure in the card instead of the shared error banner.
+   */
+  myPage?: boolean
+}
+
+export const useGetDashboardStats = ({
+  enabled = true,
+  myPage = false
+}: DashboardStatsOptions = {}) => {
   return useQuery({
     ...dashboardQueries.stats(),
     enabled,
-    ...(fresh ? { refetchOnMount: 'always' as const } : {})
+    ...(myPage
+      ? { refetchOnMount: 'always' as const, meta: { localErrorUi: true } }
+      : {})
   })
 }

@@ -25,7 +25,7 @@ const StepMarker = ({
 }: {
   index: number
   label: string
-  state: 'done' | 'current'
+  state: 'done' | 'current' | 'upcoming'
   doneLabel: string
 }): ReactElement => (
   <li
@@ -34,14 +34,18 @@ const StepMarker = ({
   >
     <span
       className={[
-        'grid size-7 shrink-0 place-items-center rounded-full text-xs font-bold text-on-accent',
-        state === 'done' ? 'bg-success' : 'bg-brand'
+        'grid size-7 shrink-0 place-items-center rounded-full text-xs font-bold',
+        state === 'done'
+          ? 'bg-success text-on-accent'
+          : state === 'current'
+            ? 'bg-brand text-on-accent'
+            : 'border border-line bg-surface text-muted'
       ].join(' ')}
       aria-hidden="true"
     >
       {state === 'done' ? <Icon name="check" className="size-4" /> : index}
     </span>
-    <span className={state === 'done' ? 'text-muted' : 'font-medium'}>
+    <span className={state === 'current' ? 'font-medium' : 'text-muted'}>
       {label}
       {state === 'done' ? <span className="sr-only"> {doneLabel}</span> : null}
     </span>
@@ -100,6 +104,7 @@ export const TwoStepConfirmDialog = ({
             </Button>
           ) : (
             <ReauthButton
+              variant="danger-outline"
               busy={flow.busy}
               disabled={!flow.canVerify}
               onClick={flow.verify}
@@ -117,16 +122,12 @@ export const TwoStepConfirmDialog = ({
               state={isConfirm ? 'done' : 'current'}
               doneLabel={authT('reauth.stepDone')}
             />
-            {isConfirm ? (
-              <StepMarker
-                index={2}
-                label={t(
-                  isUnlink ? 'confirm.stepUnlink' : 'confirm.stepDelete'
-                )}
-                state="current"
-                doneLabel={authT('reauth.stepDone')}
-              />
-            ) : null}
+            <StepMarker
+              index={2}
+              label={t(isUnlink ? 'confirm.stepUnlink' : 'confirm.stepDelete')}
+              state={isConfirm ? 'current' : 'upcoming'}
+              doneLabel={authT('reauth.stepDone')}
+            />
           </ol>
           <div className="mt-4 grid gap-2 break-words text-sm leading-6">
             {isUnlink ? (

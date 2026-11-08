@@ -1,5 +1,4 @@
 import { mutationOptions } from '@tanstack/react-query'
-import { logoutUser } from '@api/auth/logoutUser'
 import { signInSocial } from '@api/auth/signInSocial'
 import type { SignInSocialRequest } from '@api/auth/signInSocial/schema'
 import { AuthFlowError } from '@nihongo/browser/app/login/authFlowErrors'
@@ -23,19 +22,6 @@ export const authMutations = {
             await completeMockSocialSignIn(input.provider)
           }
           return response
-        } catch (error: unknown) {
-          throw new AuthFlowError(error)
-        }
-      }
-    }),
-  logout: () =>
-    mutationOptions({
-      mutationKey: [...authQueries.allKey(), 'logout-user'] as const,
-      networkMode: 'always',
-      mutationFn: async () => {
-        advanceAuthTransitionEpoch()
-        try {
-          return await logoutUser()
         } catch (error: unknown) {
           throw new AuthFlowError(error)
         }

@@ -26,8 +26,10 @@ export const bundleBaseline = Object.freeze({
 
 export const bundleCeilings = Object.freeze({
   emittedFileCount: 90,
-  initialAssetCount: 25,
-  initialGzipBytes: 248_000,
+  // The header account menu, with its logout dialog, loads on every page
+  // (bundle 1 #734): two more initial chunks, about 5.5 KB gzip.
+  initialAssetCount: 27,
+  initialGzipBytes: 252_000,
   initialRawBytes: 803_000,
   javaScriptAssetCount: 88,
   javaScriptGzipBytes: 470_000,

@@ -263,6 +263,7 @@ it('places an app-owned header status in the top bar just before the account men
     <MemoryRouter initialEntries={['/practice']}>
       <AppLayout
         robots="noindex,follow"
+        reviewReturnContext={null}
         accountMenu={<button type="button">계정</button>}
         headerStatus={<span>● 28분 남음</span>}
       />
@@ -279,7 +280,11 @@ it('places an app-owned header status in the top bar just before the account men
 it('adds no header status wrapper when the app has none', () => {
   render(
     <MemoryRouter initialEntries={['/practice']}>
-      <AppLayout robots="noindex,follow" accountMenu={<span>계정</span>} />
+      <AppLayout
+        robots="noindex,follow"
+        reviewReturnContext={null}
+        accountMenu={<span>계정</span>}
+      />
     </MemoryRouter>
   )
   expect(document.querySelector('.app-shell-header-status')).toBeNull()

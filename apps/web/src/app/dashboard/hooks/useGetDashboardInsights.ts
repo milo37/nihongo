@@ -17,6 +17,8 @@ export const useGetDashboardInsights = (enabled = true) => {
   return useQuery({
     ...dashboardQueries.insights(),
     enabled,
+    // Only My page reads insights, and it hides the block on failure.
+    meta: { localErrorUi: true },
     select: (response) => toDashboardInsightsView(response, localization)
   })
 }

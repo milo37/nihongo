@@ -2903,6 +2903,7 @@ html:lang(ja) .auth-consent {
   text-underline-offset: 3px;
 }
 .auth-guest-hint {
+  width: 100%;
   max-width: 440px;
   margin: 24px auto 0;
   color: rgb(var(--color-muted));
@@ -2910,6 +2911,11 @@ html:lang(ja) .auth-consent {
   line-height: 1.65;
   text-align: center;
   text-wrap: balance;
+}
+/* Korean wraps between words; Japanese has no spaces and keeps normal breaks. */
+.auth-guest-hint:lang(ko),
+.auth-consent:lang(ko) {
+  word-break: keep-all;
 }
 .auth-panel .auth-notice {
   margin-top: 24px;

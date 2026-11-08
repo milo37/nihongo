@@ -287,6 +287,11 @@ describe('마이페이지 계정 설정', () => {
       expect(
         within(dialog).getByRole('listitem', { current: 'step' })
       ).toHaveTextContent('본인 확인')
+      // Step ② is listed from the start so the length of the flow is clear.
+      const steps = within(dialog).getAllByRole('listitem')
+      expect(steps).toHaveLength(2)
+      expect(steps[1]).toHaveTextContent('탈퇴 최종 확인')
+      expect(steps[1]).not.toHaveAttribute('aria-current')
       expect(
         within(dialog).getByText('확인이 끝나면 이 화면으로 돌아와요.')
       ).toBeInTheDocument()

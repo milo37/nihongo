@@ -33,7 +33,7 @@ export const MyStudy = (): ReactElement => {
   const locale = resolveUiLocale(i18n.resolvedLanguage)
   const headingId = useId()
   // Opening My page always shows a current read.
-  const stats = useGetDashboardStats(true, true)
+  const stats = useGetDashboardStats({ myPage: true })
   const data = stats.data
   const isFew = data !== undefined && data.totalAnsweredCount < FEW_DATA_LIMIT
   return (
@@ -57,8 +57,10 @@ export const MyStudy = (): ReactElement => {
             </div>
           </>
         ) : !data ? (
-          <div className="account-card" role="alert">
-            <p>{t('study.error')}</p>
+          <div className="account-card">
+            <p className="auth-notice auth-error mt-0" role="alert">
+              {t('study.error')}
+            </p>
             <Button
               className="mt-3"
               variant="outline"
