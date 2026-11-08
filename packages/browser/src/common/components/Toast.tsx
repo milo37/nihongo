@@ -289,7 +289,7 @@ export const ToastProvider = ({
       </div>
       {ordered.length > 0 ? (
         <section className="ui-toast-region" aria-label={t('toast.region')}>
-          {ordered.map((toast) => (
+          {ordered.map(({ key: _dedupeKey, ...toast }) => (
             <Toast
               key={toast.id}
               {...toast}
