@@ -1149,25 +1149,13 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: 20px;
-  margin-bottom: 28px;
-}
-
-.bookmark-title-line {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
+  margin-bottom: 32px;
 }
 
 .bookmark-title {
   font-size: 30px;
   line-height: 1.3;
   font-weight: 750;
-}
-
-.bookmark-count {
-  font-size: 20px;
-  font-weight: 500;
-  color: rgb(var(--color-muted));
 }
 
 .bookmark-description {
@@ -1180,14 +1168,12 @@
   position: relative;
 }
 
-.bookmark-practice > summary,
-.bookmark-preview > summary {
+.bookmark-practice > summary {
   cursor: pointer;
   list-style: none;
 }
 
-.bookmark-practice > summary::-webkit-details-marker,
-.bookmark-preview > summary::-webkit-details-marker {
+.bookmark-practice > summary::-webkit-details-marker {
   display: none;
 }
 
@@ -1211,113 +1197,6 @@
 }
 .study-session-layout > .study-question-map {
   margin-top: 0;
-}
-
-.bookmark-items {
-  border-top: 1px solid rgb(var(--color-line));
-}
-
-.bookmark-item {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 100px 44px;
-  align-items: center;
-  gap: 20px;
-  min-width: 0;
-  padding: 17px 18px;
-  border-bottom: 1px solid rgb(var(--color-line));
-}
-
-.bookmark-item:hover {
-  background: rgb(var(--color-hover-surface));
-}
-
-.bookmark-content {
-  min-width: 0;
-}
-
-.bookmark-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 10px;
-  margin-bottom: 7px;
-  font-size: 12px;
-  color: rgb(var(--color-muted));
-}
-
-.bookmark-meta strong {
-  font-weight: 650;
-}
-
-.bookmark-archive,
-.bookmark-archive-description {
-  color: rgb(var(--color-warning));
-}
-
-.bookmark-preview > summary {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  border-radius: var(--radius-control);
-  font-size: 16px;
-  font-weight: 500;
-  line-height: 1.75;
-}
-
-.bookmark-preview > summary > span {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-}
-
-.bookmark-preview[open] > summary > span {
-  -webkit-line-clamp: unset;
-}
-
-.bookmark-preview > summary > svg {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  margin-top: 4px;
-  color: rgb(var(--color-muted));
-}
-
-.bookmark-preview[open] > summary > svg {
-  transform: rotate(180deg);
-}
-
-.bookmark-preview > summary:focus-visible {
-  outline: var(--focus-width) solid rgb(var(--focus-color));
-  outline-offset: var(--focus-offset);
-}
-
-.bookmark-preview-note,
-.bookmark-archive-description {
-  margin-top: 10px;
-  font-size: 13px;
-}
-
-.bookmark-preview-note,
-.bookmark-added {
-  color: rgb(var(--color-muted));
-}
-
-.bookmark-added {
-  font-size: 12px;
-}
-
-.bookmark-remove {
-  width: 44px;
-  min-height: 44px;
-  padding: 10px;
-}
-
-.bookmark-remove > svg {
-  fill: currentColor;
 }
 
 @media (max-width: 1000px) and (min-width: 761px) {
@@ -1359,35 +1238,16 @@
     padding: 22px 20px 28px;
   }
   .bookmark-heading {
-    gap: 12px;
-    margin-bottom: 22px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
   }
-  .bookmark-count {
-    font-size: 17px;
-  }
+
   .bookmark-description {
     font-size: 14px;
   }
   .bookmark-practice > summary {
-    padding: 10px 12px;
-  }
-  .bookmark-item {
-    grid-template-columns: minmax(0, 1fr) 44px;
-    align-items: start;
-    gap: 10px;
-    padding: 16px 0;
-    padding-inline-end: calc(var(--focus-width) + var(--focus-offset));
-  }
-  .bookmark-meta {
-    gap: 4px 8px;
-    font-size: 11px;
-    margin-bottom: 6px;
-  }
-  .bookmark-added {
-    display: none;
-  }
-  .bookmark-remove {
-    margin-top: 22px;
+    width: 100%;
   }
 }
 
@@ -2598,7 +2458,7 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
   max-width: 800px;
 }
 /* One 760px column, like the list rule (ux2 §1-1). */
-.app-shell-body > main > .study-result {
+.app-shell-body > main > :is(.study-result, .bookmark-page) {
   max-width: 760px;
   margin-inline: 0;
 }

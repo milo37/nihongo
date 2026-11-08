@@ -1,11 +1,13 @@
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement } from 'react'
-import { Button } from '@nihongo/browser/common/components/Button'
+import {
+  Button,
+  getButtonClassName
+} from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'
 import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
 import type { RefObject } from 'react'
-import { TextLink } from '@nihongo/browser/common/components/TextLink'
 
 type BookmarkListNoticesProps = {
   isCachedOffline: boolean
@@ -77,7 +79,9 @@ export const BookmarkEmptyPage = ({
       }
       action={
         isFirstPage ? (
-          <TextLink to="/practice">{t('empty.start')}</TextLink>
+          <Link className={getButtonClassName({ size: 'lg' })} to="/practice">
+            {t('empty.start')}
+          </Link>
         ) : isNavigationLocked ? (
           <Button disabled>{t('empty.previousPage')}</Button>
         ) : (

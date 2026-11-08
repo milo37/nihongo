@@ -5,6 +5,7 @@ import { Icon } from '@nihongo/browser/common/components/Icon'
 import { Button } from '@nihongo/browser/common/components/Button'
 import type { UiLocale } from '@nihongo/browser/i18n/types'
 import { formatDateTime } from '@nihongo/browser/libs/localeFormatters'
+import { StudyListRow } from '@common/components/StudyList'
 
 type BookmarkListItemProps = {
   bookmark: BookmarkSummary
@@ -15,6 +16,7 @@ type BookmarkListItemProps = {
   removeButtonRef: (element: HTMLButtonElement | null) => void
 }
 
+/** A list row (ux2 §4): not a link, so only the remove button is pressed. */
 export const BookmarkListItem = ({
   bookmark,
   isDeleting,
@@ -29,69 +31,69 @@ export const BookmarkListItem = ({
   const questionTypeLabel = commonT(
     `taxonomy.questionTypes.${question.questionType}`
   )
+  const isArchived = bookmark.availability === 'ARCHIVED'
+  // Two topic labels at most: the question type, then the first tag.
+  const topics = [
+    questionTypeLabel,
+    ...question.tags
+      .map((tag) => tag.label)
+      .filter((label) => label !== questionTypeLabel)
+  ].slice(0, 2)
+  const tooltipId = `bookmark-remove-tip-${bookmark.questionId}`
   return (
-    <article className="bookmark-item content-auto">
-      <div className="bookmark-content">
-        <p className="bookmark-meta">
-          <strong>
-            {question.level} ·{' '}
-            {commonT(`taxonomy.subjects.${question.subject}`)}
-          </strong>
-          <span>{questionTypeLabel}</span>
-          {question.tags
-            .filter((tag) => tag.label !== questionTypeLabel)
-            .map((tag) => (
-              <span key={tag.id}>{tag.label}</span>
-            ))}
-          {bookmark.availability === 'ARCHIVED' ? (
-            <span className="bookmark-archive">
+    <StudyListRow
+      meta={
+        <>
+          {question.level} · {commonT(`taxonomy.subjects.${question.subject}`)}
+          <span className="ms-2 font-normal">{topics.join(' · ')}</span>
+          {isArchived ? (
+            <span className="ms-2 rounded-full border border-warning bg-warning-soft px-2 py-0.5 font-bold text-warning">
               {t('availability.archived')}
             </span>
           ) : null}
-        </p>
-        <details className="bookmark-preview">
-          <summary aria-label={t('preview.expand')}>
-            <span lang="ja">{question.questionTextPreview}</span>
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="m6 9 6 6 6-6" />
-            </svg>
-          </summary>
-          <p className="bookmark-preview-note">{t('preview.description')}</p>
-        </details>
-        {bookmark.availability === 'ARCHIVED' ? (
-          <p className="bookmark-archive-description">
-            {t('availability.archivedDescription')}
-          </p>
-        ) : null}
-      </div>
-      <time className="bookmark-added" dateTime={bookmark.createdAt}>
-        {formatDateTime(bookmark.createdAt, locale, {
-          month: 'numeric',
-          day: 'numeric'
-        })}
-      </time>
-      <Button
-        id={`bookmark-remove-${bookmark.questionId}`}
-        ref={removeButtonRef}
-        className="bookmark-remove"
-        size="sm"
-        variant="ghost"
-        aria-label={t('remove')}
-        title={t('remove')}
-        disabled={isRemoveDisabled}
-        aria-busy={isDeleting || undefined}
-        onClick={onRemove}
-      >
-        <Icon name="bookmark" />
-      </Button>
-    </article>
+        </>
+      }
+      text={question.questionTextPreview}
+      sub={
+        <>
+          {isArchived ? `${t('availability.archivedDescription')} · ` : null}
+          <time dateTime={bookmark.createdAt}>
+            {t('savedOn', {
+              date: formatDateTime(bookmark.createdAt, locale, {
+                month: 'long',
+                day: 'numeric'
+              })
+            })}
+          </time>
+        </>
+      }
+      end={
+        <span className="group relative">
+          <Button
+            id={`bookmark-remove-${bookmark.questionId}`}
+            ref={removeButtonRef}
+            className="-me-3 size-11 p-0 text-brand-strong"
+            size="sm"
+            variant="ghost"
+            aria-label={t('remove')}
+            aria-describedby={tooltipId}
+            disabled={isRemoveDisabled}
+            aria-busy={isDeleting || undefined}
+            onClick={onRemove}
+          >
+            <Icon name="bookmark" className="fill-current" />
+          </Button>
+          {/* Visible on hover and keyboard focus (ux2 §4). The 44px target
+              reaches into the page margin so the question keeps ≥300px. */}
+          <span
+            id={tooltipId}
+            role="tooltip"
+            className="pointer-events-none absolute right-0 top-full z-10 mt-1 hidden whitespace-nowrap rounded-control bg-ink px-2 py-1 text-xs text-on-accent group-focus-within:block group-hover:block"
+          >
+            {t('remove')}
+          </span>
+        </span>
+      }
+    />
   )
 }

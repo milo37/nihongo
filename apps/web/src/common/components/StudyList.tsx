@@ -18,7 +18,7 @@ export const StudyListHeader = ({
   aside
 }: StudyListHeaderProps): ReactElement => (
   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line py-3">
-    <p className="text-[15px] font-bold">{count}</p>
+    <div className="text-[15px] font-bold">{count}</div>
     {aside ? (
       <div className="flex items-center gap-3 text-sm text-muted">{aside}</div>
     ) : null}
@@ -26,7 +26,7 @@ export const StudyListHeader = ({
 )
 
 // 20px rows (16px under 640px); no hover on rows that are not links.
-const rowClassName = 'flex min-h-11 items-center gap-4 py-4 sm:py-5'
+const rowClassName = 'flex min-h-11 items-center gap-3 py-4 sm:py-5'
 
 type StudyListRowProps = {
   meta: ReactNode
@@ -39,6 +39,7 @@ type StudyListRowProps = {
   to?: string
   /** Screen-reader name of the row link. */
   label?: string
+  linkRef?: (node: HTMLAnchorElement | null) => void
 }
 
 export const StudyListRow = ({
@@ -47,7 +48,8 @@ export const StudyListRow = ({
   sub,
   end,
   to,
-  label
+  label,
+  linkRef
 }: StudyListRowProps): ReactElement => {
   const body = (
     <>
@@ -74,6 +76,7 @@ export const StudyListRow = ({
       {to ? (
         <Link
           className={`${rowClassName} hover:bg-surface-muted`}
+          ref={linkRef}
           to={to}
           aria-label={label}
         >
@@ -89,13 +92,15 @@ export const StudyListRow = ({
 /** The list column: header line, then rows (`StudyListRow`). */
 export const StudyList = ({
   header,
-  children
+  children,
+  busy
 }: {
   header: ReactNode
   children: ReactNode
+  busy?: boolean
 }): ReactElement => (
   <div className="max-w-[760px]">
     {header}
-    <ul>{children}</ul>
+    <ul aria-busy={busy || undefined}>{children}</ul>
   </div>
 )
