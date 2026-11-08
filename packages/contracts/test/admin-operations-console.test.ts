@@ -192,6 +192,34 @@ describe('session and errors', () => {
     ).toBe(false)
   })
 
+  it('carries the server clock to admins only (#683)', () => {
+    const user = { id: id(6), name: '관리자', targetLevel: null }
+    const admin = {
+      ...user,
+      role: 'ADMIN',
+      adminSessionExpiresAt: iso,
+      adminFreshUntil: iso
+    }
+    expect(
+      getCurrentPrincipalResponseSchema.safeParse({
+        kind: 'USER',
+        user: { ...admin, adminServerTime: iso }
+      }).success
+    ).toBe(true)
+    expect(
+      getCurrentPrincipalResponseSchema.safeParse({
+        kind: 'USER',
+        user: { ...user, role: 'USER', adminServerTime: iso }
+      }).success
+    ).toBe(false)
+    expect(
+      getCurrentPrincipalResponseSchema.safeParse({
+        kind: 'USER',
+        user: { ...admin, adminServerTime: 'now' }
+      }).success
+    ).toBe(false)
+  })
+
   it('maps ACCOUNT_RESTRICTED to 403', () => {
     expect(errorStatusByCode.ACCOUNT_RESTRICTED).toBe(403)
   })

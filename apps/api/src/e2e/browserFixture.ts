@@ -3,6 +3,7 @@ import { hashPassword } from 'better-auth/crypto'
 import { Client } from 'pg'
 import { createPrismaAccountRestrictionReader } from '../account/accountRestriction.js'
 import { createApiApp } from '../app/createApp.js'
+import { ADMIN_FRESH_WINDOW_SQL } from '../auth/adminFreshWindow.js'
 import { createSsoAuthentication } from '../auth/createSsoAuthentication.js'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
 import { createOwnedAuthReadiness } from '../auth/ownedAuthReadiness.js'
@@ -299,7 +300,8 @@ const createBrowserFixtureDatabase = (
           )
           const updated = await operationClient.query(
             `UPDATE "Session"
-               SET "createdAt" = clock_timestamp() - INTERVAL '6 minutes'
+               SET "createdAt" = clock_timestamp() - ${ADMIN_FRESH_WINDOW_SQL}
+                 - INTERVAL '1 minute'
                WHERE "userId" = $1::uuid
                  AND "issuerProtocolVersion" = 'OWNED_V1'
                  AND "authorizationState" = 'ACTIVE'`,

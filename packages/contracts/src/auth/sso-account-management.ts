@@ -1,6 +1,37 @@
 import { z } from 'zod'
-import { safeAdminFreshReturnPath } from './admin-fresh-sso.js'
-import { ssoProviderIdSchema } from './sign-in-social.js'
+import {
+  relativeURL,
+  safeSsoReturnPath,
+  ssoProviderIdSchema
+} from './sign-in-social.js'
+
+/**
+ * The account action a member re-authenticates for, carried back as
+ * `/login?reauth=<value>` so the same dialog reopens (#683).
+ */
+export const accountReauthActionSchema = z.enum([
+  'delete',
+  ...ssoProviderIdSchema.options.map(
+    (provider) => `unlink:${provider}` as const
+  )
+])
+export type AccountReauthAction = z.output<typeof accountReauthActionSchema>
+
+/**
+ * Account SSO returns to sign-in, optionally with one known `reauth` action,
+ * or to a page the sign-in policy allows.
+ */
+export const safeAccountSsoReturnPath = (value: unknown): string => {
+  if (value === undefined || value === '/login') return '/login'
+  const url = relativeURL(value)
+  if (url?.pathname !== '/login') return safeSsoReturnPath(value)
+  const keys = [...url.searchParams.keys()]
+  return keys.length === 1 &&
+    keys[0] === 'reauth' &&
+    accountReauthActionSchema.safeParse(url.searchParams.get('reauth')).success
+    ? url.pathname + url.search
+    : '/login'
+}
 
 const accountSsoPurposeSchema = z.enum(['ACCOUNT_FRESH', 'ACCOUNT_LINK'])
 export const accountSsoRequestSchema = z
@@ -11,7 +42,7 @@ export const accountSsoRequestSchema = z
       .string()
       .max(2048)
       .optional()
-      .transform(safeAdminFreshReturnPath)
+      .transform(safeAccountSsoReturnPath)
   })
   .strict()
 export const accountFreshOutcomeSchema = z.enum([

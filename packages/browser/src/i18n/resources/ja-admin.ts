@@ -10,6 +10,7 @@ export const jaAdminResources = {
     previous: '前へ',
     next: '次へ'
   },
+  adminList: {},
   nav: {
     brand: '하루마루 管理',
     questions: '問題',

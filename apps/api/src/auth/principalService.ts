@@ -1,4 +1,5 @@
 import { adminSessionFreshSql } from './adminFreshAuthority.js'
+import { ADMIN_FRESH_WINDOW_MS } from './adminFreshWindow.js'
 import {
   authenticatedUserSchema,
   type AuthenticatedUser
@@ -27,9 +28,8 @@ const isAdminSessionOverLimit = (
   role === 'ADMIN' &&
   now.getTime() >= getAdminSessionExpiresAt(sessionCreatedAt).getTime()
 
-// Freshness also requires the session itself to be under 5 minutes old, so the
-// window always ends at session creation + 5 minutes.
-const ADMIN_FRESH_WINDOW_MS = 5 * 60 * 1_000
+// Freshness also requires the session itself to be inside the window, so the
+// window always ends at session creation + ADMIN_FRESH_WINDOW_MS.
 
 const toAuthenticatedUser = (
   user: {
@@ -39,6 +39,7 @@ const toAuthenticatedUser = (
     targetLevel: AuthenticatedUser['targetLevel']
   },
   sessionCreatedAt: Date,
+  serverTime: Date,
   isFresh = false
 ): AuthenticatedUser =>
   authenticatedUserSchema.parse({
@@ -54,7 +55,8 @@ const toAuthenticatedUser = (
             ? new Date(
                 sessionCreatedAt.getTime() + ADMIN_FRESH_WINDOW_MS
               ).toISOString()
-            : null
+            : null,
+          adminServerTime: serverTime.toISOString()
         }
       : {})
   })
@@ -174,7 +176,11 @@ export const createPrincipalService = ({
       return {
         clearSessionCookie: false,
         headers: sessionResult.headers,
-        user: toAuthenticatedUser(user, parsedSession.data.session.createdAt)
+        user: toAuthenticatedUser(
+          user,
+          parsedSession.data.session.createdAt,
+          now()
+        )
       }
     }
 
@@ -196,6 +202,8 @@ interface PrincipalDatabaseRow {
   createdAt: Date
   expiresAt: Date
   isFresh: boolean
+  /** The DB clock that decided isFresh. */
+  checkedAt: Date
 }
 
 interface AdminAuthorityFailureRow {
@@ -244,7 +252,8 @@ export const createOwnedPrincipalService = ({
 
       const rows = await client.$queryRawUnsafe<PrincipalDatabaseRow[]>(
         `SELECT principal.*,
-           ${adminSessionFreshSql('$1')} AS "isFresh"
+           ${adminSessionFreshSql('$1')} AS "isFresh",
+           clock_timestamp() AS "checkedAt"
          FROM (${v1PrincipalQuery('$1')}) AS principal`,
         credential.token
       )
@@ -328,6 +337,7 @@ export const createOwnedPrincipalService = ({
             targetLevel: row.targetLevel
           },
           row.createdAt,
+          row.checkedAt,
           row.isFresh
         )
       }

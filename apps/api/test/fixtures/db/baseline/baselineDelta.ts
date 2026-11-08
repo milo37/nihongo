@@ -331,11 +331,26 @@ const ADDED_TAG_OBJECTS = new Set([
 const isAddedTagObject = (row: Record<string, unknown>): boolean =>
   row.table === 'Tag' && ADDED_TAG_OBJECTS.has(String(row.name))
 
+/** #683: the ADMIN_FRESH proof bound moves from 7 to 32 minutes. */
+const WIDENED_CHECK = 'SsoAdminFreshProof_check1'
+const withBaselineProofBound = (
+  row: Record<string, unknown>
+): Record<string, unknown> =>
+  row.table === 'SsoAdminFreshProof' && row.name === WIDENED_CHECK
+    ? {
+        ...row,
+        definition: String(row.definition).replace(
+          "'00:32:00'::interval",
+          "'00:07:00'::interval"
+        )
+      }
+    : row
+
 /**
  * Undoes the forward migrations' catalog changes the baseline comparison
  * cannot see: the renamed enum label, the replaced function bodies (checked
- * exactly by forwardFunctionSources against the baseline file) and the
- * objects JLP-733 drops or adds, removed from both sides.
+ * exactly by forwardFunctionSources against the baseline file), the objects
+ * JLP-733 drops or adds, removed from both sides, and the #683 proof bound.
  */
 export const withoutForwardChanges = (
   catalog: SchemaCatalog
@@ -363,9 +378,9 @@ export const withoutForwardChanges = (
       ) &&
       !(row.table === 'Tag' && ADDED_TAG_COLUMNS.has(String(row.name)))
   ),
-  constraints: catalog.constraints.filter(
-    (row) => !isDroppedTagSnapshot(row) && !isAddedTagObject(row)
-  ),
+  constraints: catalog.constraints
+    .filter((row) => !isDroppedTagSnapshot(row) && !isAddedTagObject(row))
+    .map(withBaselineProofBound),
   indexes: catalog.indexes.filter(
     (row) => !isDroppedTagSnapshot(row) && !isAddedTagObject(row)
   ),
