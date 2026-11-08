@@ -15,7 +15,7 @@ import {
 } from '@app/admin/reauth/ReauthRequiredNotice'
 import { AdminReauthStatus } from '@app/admin/reauth/ReauthStatus'
 import { useAdminReauth } from '@app/admin/reauth/useAdminReauth'
-import { reauthClockFor } from '@app/admin/reauth/useReauthClock'
+import { reauthClockFor } from '@app/admin/reauth/hooks/useReauthClock'
 import type { ReactElement, ReactNode } from 'react'
 
 const MINUTE = 60_000

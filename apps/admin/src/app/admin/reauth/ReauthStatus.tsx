@@ -8,8 +8,8 @@ import { useUiLocale } from '@nihongo/browser/provider/I18nProvider'
 import { REAUTH_STATUS_ID } from '@nihongo/browser/app/reauth/components/ReauthReturnNotice'
 import { useAdminReauth } from '@app/admin/reauth/useAdminReauth'
 import type { AdminReauth } from '@app/admin/reauth/useAdminReauth'
-import { useReauthClock } from '@app/admin/reauth/useReauthClock'
-import type { ReauthClock } from '@app/admin/reauth/useReauthClock'
+import { useReauthClock } from '@app/admin/reauth/hooks/useReauthClock'
+import type { ReauthClock } from '@app/admin/reauth/hooks/useReauthClock'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 
 const chipClassNames = {
