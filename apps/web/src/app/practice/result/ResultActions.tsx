@@ -68,13 +68,17 @@ export const ResultActions = ({
         <div className="practice-guest-note" role="status">
           <span>{t('guestDone')}</span>
           <Link
-            className={getButtonClassName({ variant: 'outline', size: 'sm' })}
+            className={getButtonClassName({
+              size: 'lg',
+              className: SAME_HEIGHT
+            })}
             to={`/login?redirect=${encodeURIComponent('/practice')}`}
           >
             {authT('guestToast.login')}
           </Link>
         </div>
       ) : null}
+      {/* The L20 box's login is the one filled button; the rest outlined. */}
       {/* Stacked full width under 640px, one row at text width above. */}
       <div className="study-result-buttons flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         {isGuest

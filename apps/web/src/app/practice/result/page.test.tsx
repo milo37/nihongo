@@ -473,8 +473,11 @@ describe('approved general result navigation', () => {
         '오늘 체험은 여기까지예요. 로그인하면 계속 풀 수 있어요.'
       )
     ).toBeVisible()
-    // The L20 box holds the only login link.
-    expect(screen.getAllByRole('link', { name: '로그인' })).toHaveLength(1)
+    // The L20 box holds the only login link, as the one filled button.
+    const logins = screen.getAllByRole('link', { name: '로그인' })
+    expect(logins).toHaveLength(1)
+    expect(logins[0]!.className).toContain('bg-brand')
+    expect(logins[0]!.className).toContain('h-12')
     const retry = screen.getByRole('button', { name: /오답만 다시 풀기/u })
     await userEvent.setup().click(retry)
     expect(

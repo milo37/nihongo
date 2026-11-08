@@ -2294,7 +2294,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     { available, item }
   ] of explanationAvailability.entries()) {
     const questionControl = resultNavigation.getByRole('button', {
-      name: `문제 ${index + 1} · 미응답`,
+      name: `문제 ${index + 1}, 미응답`,
       exact: true
     })
     await focusByTab(page, questionControl)
