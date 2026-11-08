@@ -444,11 +444,14 @@ describe('approved general result navigation', () => {
     expect(
       screen.queryByRole('button', { name: /문제 신고/u })
     ).not.toBeInTheDocument()
-    expect(
-      screen.getByText(
-        '로그인하면 오답이 오답노트에 저장돼요. 지금 결과는 이어지지 않아요.'
-      )
-    ).toBeVisible()
+    const line = screen.getByText(/로그인하면 오답이 오답노트에 저장돼요/u)
+    expect(line).toBeVisible()
+    // One login place, right beside the line (design review #767).
+    expect(within(line).getByRole('link', { name: '로그인' })).toHaveAttribute(
+      'href',
+      '/login?redirect=%2Fpractice'
+    )
+    expect(screen.getAllByRole('link', { name: '로그인' })).toHaveLength(1)
     view.unmount()
     fixture.client.clear()
   })
@@ -462,6 +465,8 @@ describe('approved general result navigation', () => {
         '오늘 체험은 여기까지예요. 로그인하면 계속 풀 수 있어요.'
       )
     ).toBeVisible()
+    // The L20 box holds the only login link.
+    expect(screen.getAllByRole('link', { name: '로그인' })).toHaveLength(1)
     const retry = screen.getByRole('button', { name: /오답만 다시 풀기/u })
     await userEvent.setup().click(retry)
     expect(

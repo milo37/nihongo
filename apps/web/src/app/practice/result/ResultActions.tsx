@@ -40,12 +40,18 @@ export const ResultActions = ({
   const loginHref = `/login?redirect=${encodeURIComponent('/practice')}`
   return (
     <div className="study-result-actions mt-4 flex flex-col gap-3">
+      {/* One login place: beside the L10 line, or in the L20 box. */}
       <p className="text-sm leading-6 text-muted">
         {isGuest
           ? t('status.guest')
           : t('status.savedWrongCount', {
               formattedCount: formatCount(incorrectCount)
             })}
+        {isGuest && !isGuestDone ? (
+          <Link className="note-link ms-2" to={loginHref}>
+            {t('actions.loginChoice')}
+          </Link>
+        ) : null}
       </p>
       {isGuestDone ? (
         <div className="practice-guest-note" role="status">
@@ -89,16 +95,14 @@ export const ResultActions = ({
         >
           {t('navigation.openBookmarks')}
         </Link>
-        <Link
-          className="note-link"
-          to={
-            isGuest
-              ? loginHref
-              : `/wrong-notes?level=${session.level}&subject=${session.subject}&view=UNREVIEWED`
-          }
-        >
-          {isGuest ? t('actions.loginChoice') : t('actions.openWrongNotes')}
-        </Link>
+        {isGuest ? null : (
+          <Link
+            className="note-link"
+            to={`/wrong-notes?level=${session.level}&subject=${session.subject}&view=UNREVIEWED`}
+          >
+            {t('actions.openWrongNotes')}
+          </Link>
+        )}
         <Link
           className="inline-flex min-h-11 items-center justify-center rounded-control px-4 py-2.5 text-sm font-semibold text-muted hover:bg-surface-muted focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
           to="/practice"

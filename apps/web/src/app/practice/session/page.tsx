@@ -68,7 +68,8 @@ const CurrentQuestionCard = ({
       question={question}
       questionNumber={session.safeQuestionIndex + 1}
       saveStatus={
-        session.isV2Session ? (
+        // A guest's answers are not kept (F4), so no "saved" line.
+        session.isV2Session && session.role !== 'GUEST' ? (
           <StudyDraftSaveStatus
             status={inlineSaveStatus}
             onRetry={session.retryDraftSave}

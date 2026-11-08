@@ -655,6 +655,17 @@
   color: rgb(var(--color-muted));
   line-height: 1.6;
 }
+/* Under 480px the icon sits above the title so the text keeps its width. */
+@media (max-width: 479px) {
+  .practice-guest-limit {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+/* Locked count chips (L16) are grey; 🔒 says why. */
+.choice-surface:has(.practice-locked-mark) {
+  background: rgb(var(--color-surface-muted));
+}
 .practice-guest-limit-icon {
   display: inline-flex;
   width: 44px;

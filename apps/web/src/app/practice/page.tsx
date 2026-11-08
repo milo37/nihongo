@@ -55,7 +55,7 @@ const PracticeShortcuts = (): ReactElement => {
 }
 
 export const PracticePage = (): ReactElement => {
-  const { t } = useTranslation('practice')
+  const { t, i18n } = useTranslation('practice')
   const { t: homeT } = useTranslation('home')
   const resumableHeadingRef = useRef<HTMLHeadingElement>(null)
   const setupHeadingRef = useRef<HTMLHeadingElement>(null)
@@ -80,7 +80,9 @@ export const PracticePage = (): ReactElement => {
             {t('setup.guestHint', {
               total: GUEST_DAILY_SESSION_LIMIT,
               count: GUEST_SESSION_QUESTION_LIMIT
-            })}{' '}
+            })}
+            {/* Japanese puts no space between sentences. */}
+            {i18n.resolvedLanguage === 'ja' ? '' : ' '}
             {t('setup.guestResumeHint')}
           </p>
         ) : null}

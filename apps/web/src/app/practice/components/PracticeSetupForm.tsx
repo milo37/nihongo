@@ -282,7 +282,9 @@ export const PracticeSetupForm = ({
                   {t('setup.questionCount', {
                     formattedCount: formatCount(value)
                   })}
-                  <span aria-hidden="true">🔒</span>
+                  <span className="practice-locked-mark" aria-hidden="true">
+                    🔒
+                  </span>
                   <span className="sr-only">{t('setup.memberLocked')}</span>
                 </>
               ) : (

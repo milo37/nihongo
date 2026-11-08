@@ -150,10 +150,11 @@ describe('PracticeSessionPage', () => {
       clearSubmissionAttemptMemoryCache()
       clearStudyDraftWorkingCopyMemoryCache()
       expect(readStoredSubmissionAttempt(sessionId)).toEqual(oldAttempt)
+      // After a reload only members' copies remain; a guest's lived in memory.
       copies.forEach((copy) =>
         expect(
           readStudyDraftWorkingCopy(copy.principalScope, copy.sessionId)
-        ).toEqual(copy)
+        ).toEqual(copy.principalScope === 'GUEST' ? null : copy)
       )
     }
   )
@@ -912,6 +913,25 @@ describe('PracticeSessionPage', () => {
     expect(router.state.location.pathname).toBe(
       `/practice/result/${payload.session.id}`
     )
+  })
+
+  it('게스트가 답을 골라도 탭 저장소에 남기지 않고 저장 문구도 없다 (F4·F5)', async () => {
+    const user = userEvent.setup()
+    const payload = await startSession(1)
+    const option = payload.questions[0]?.options[0]
+    if (!option) throw new Error('Public option required')
+    renderSession(payload.session.id)
+    const radio = await screen.findByRole('radio', {
+      name: `1. ${option.text}`
+    })
+    await waitFor(() => expect(radio).toBeEnabled())
+    await user.click(radio)
+    expect(radio).toBeChecked()
+    const keys = Object.keys(window.sessionStorage)
+    expect(
+      keys.filter((key) => key.includes('study-draft-working-copy'))
+    ).toEqual([])
+    expect(screen.queryByText(/자동으로 저장/u)).not.toBeInTheDocument()
   })
 
   it('게스트 풀이는 작업본 API를 부르지 않고 화면의 답 그대로 제출한다 (BE #765)', async () => {
