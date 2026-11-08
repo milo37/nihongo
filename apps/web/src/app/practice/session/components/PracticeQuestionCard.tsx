@@ -27,10 +27,9 @@ const QuestionPassage = ({ passage }: { passage: string }): ReactElement => {
       className="scroll-mt-24 border-b border-line bg-surface-muted p-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-brand sm:p-7 lg:max-h-[680px] lg:overflow-y-auto lg:border-b-0 lg:border-r"
       tabIndex={0}
     >
-      <p className="text-xs font-black tracking-[0.14em] text-brand">
-        {t('session.question.passageEyebrow')}
+      <p className="text-[13px] font-semibold text-muted">
+        {t('session.question.passageLabel')}
       </p>
-      <p className="sr-only">{t('session.question.passageLabel')}</p>
       <p
         className="mt-5 whitespace-pre-line text-base leading-8 text-ink"
         lang="ja"
