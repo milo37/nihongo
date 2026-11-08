@@ -154,7 +154,6 @@ export const jaAdminResources = {
     updatedAt: '更新日時',
     details: '詳細',
     rowVersion: 'rowVersion',
-    selectedFile: '選択中: {{fileName}}',
     retryAfter: '{{message}} {{seconds}}秒後にもう一度お試しください。',
     retryAfterMinutes: '{{message}} {{minutes}}分後にもう一度お試しください。',
     pausedTitle: 'オフラインでは最新状態を確認できません',
@@ -631,10 +630,9 @@ export const jaAdminResources = {
       error:
         '問題を登録できませんでした。入力内容を確認して、もう一度お試しください。'
     },
-    eyebrow: 'CREATE DRAFT',
     title: '新しい問題の下書きを作成',
     description:
-      '作成結果は必ず新しい下書きバージョンになります。フォームから公開状態を直接指定することはできません。',
+      '新しい問題は下書きとして保存されます。確認・承認を経て学習者に公開されます。',
     submit: '下書きを作成',
     error: '問題を作成できませんでした。'
   },
@@ -813,9 +811,9 @@ export const jaAdminResources = {
     noPreviousVersion: '比較する前のバージョンはありません。',
     actions: '現在のバージョンの操作',
 
-    title: '問題バージョンワークフロー',
+    title: 'バージョンと承認ステップ',
     description:
-      '行バージョンが競合した場合もローカル編集内容は保持され、再読み込み後に差分を確認できます。',
+      '別の場所で先に変更された場合も、入力中の内容はそのまま残し、再読み込み後に変更点をお見せします。',
     loading: '管理者用問題の詳細を読み込んでいます…',
     loadErrorTitle: '問題詳細を読み込めませんでした',
     cachedError:
@@ -827,7 +825,7 @@ export const jaAdminResources = {
     newDraft: '新しい下書きバージョンを作成',
     archive: '問題をアーカイブ',
     dirtyLock:
-      '未保存の編集内容があるため、バージョン切り替えとワークフロー操作をロックしました。先に下書きを保存してください。',
+      '未保存の編集内容があるため、バージョン切り替えと承認ステップの操作をロックしました。先に下書きを保存してください。',
     diffTitle: '前のバージョンとの差分',
     diffLoading: '差分を計算しています…',
     diffError: '差分を読み込めませんでした。',
@@ -919,10 +917,9 @@ export const jaAdminResources = {
     }
   },
   audit: {
-    eyebrow: 'ADMIN AUDIT',
     title: '管理者監査ログ',
     description:
-      '機密性のある問題本文ではなく、許可された状態とdigestの証跡のみ表示します。',
+      '誰がいつどの操作をしたかを表示します。問題本文は表示しません。',
     cachedError:
       '最新の監査ログを確認できませんでした。現在のログは保持されます。',
     retry: '監査ログを再確認',
@@ -932,7 +929,7 @@ export const jaAdminResources = {
     emptyDescription: '記録された管理者コマンドはまだありません。',
     stateChange: '状態変更',
     changedFields: '変更フィールド',
-    requestEnvironment: 'リクエスト {{requestId}} · 環境 {{environment}}',
+    requestEnvironment: 'リクエスト番号 {{requestId}} · {{environment}}',
     moreLoading: '以前の監査ログを読み込んでいます…',
     more: '以前の監査ログをさらに表示'
   },

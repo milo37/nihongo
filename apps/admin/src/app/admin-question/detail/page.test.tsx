@@ -814,7 +814,7 @@ it('uses Japanese headings/actions and keeps raw catalog keys out of the detail'
   writeUiLocalePreference('ja')
   route()
   expect(
-    await screen.findByRole('heading', { name: '問題バージョンワークフロー' })
+    await screen.findByRole('heading', { name: 'バージョンと承認ステップ' })
   ).toBeVisible()
   expect(
     await screen.findByRole('button', { name: 'レビュー依頼' })
