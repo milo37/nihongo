@@ -138,17 +138,16 @@ const MobileNavigation = ({
   )
 }
 
-type AccountMenuProps = {
+type DefaultAccountMenuProps = {
   buttonRef: RefObject<HTMLButtonElement | null>
-  action: AppLayoutProps['accountMenuAction']
   onClose: () => void
 }
 
-const AccountMenu = ({
+// Used when the app supplies no account menu of its own (the admin app).
+const DefaultAccountMenu = ({
   buttonRef,
-  action,
   onClose
-}: AccountMenuProps): ReactElement => {
+}: DefaultAccountMenuProps): ReactElement => {
   const { t } = useTranslation('navigation')
   const { role, user } = useAuth()
   const isOpen = useAppStore((state) => state.isMobileMenuOpen)
@@ -195,17 +194,6 @@ const AccountMenu = ({
                 {t('learningStart')}
               </Link>
             ) : null}
-            {role !== 'GUEST' && action ? (
-              <button
-                type="button"
-                onClick={() => {
-                  onClose()
-                  action.onSelect()
-                }}
-              >
-                {action.label}
-              </button>
-            ) : null}
             <div className="app-mobile-locale">
               <LocaleSwitcher />
             </div>
@@ -220,8 +208,14 @@ type AppLayoutProps = PracticeNavigationContext & {
   children?: ReactNode
   robots: 'index,follow' | 'noindex,follow'
   learnerNavigation?: boolean
-  /** App-owned member action in the account menu, such as an error report. */
-  accountMenuAction?: { label: string; onSelect: () => void }
+  /** App-owned account menu; replaces the default menu and locale select. */
+  accountMenu?: ReactNode
+  /**
+   * Top bar status just left of the account menu, such as the admin
+   * re-verification chip. It stays on the same row on narrow screens and may
+   * shrink, so keep its text short there.
+   */
+  headerStatus?: ReactNode
 }
 
 export const AppLayout = ({
@@ -229,7 +223,8 @@ export const AppLayout = ({
   reviewReturnContext,
   robots,
   learnerNavigation = true,
-  accountMenuAction
+  accountMenu,
+  headerStatus
 }: AppLayoutProps): ReactElement => {
   const { t: commonT } = useTranslation('common')
   const { t: navigationT } = useTranslation('navigation')
@@ -433,11 +428,17 @@ export const AppLayout = ({
                 onClick={closeMenu}
               />
 
-              <AccountMenu
-                buttonRef={mobileMenuButtonRef}
-                action={accountMenuAction}
-                onClose={closeMenu}
-              />
+              <div className="app-shell-header-actions">
+                {headerStatus ? (
+                  <div className="app-shell-header-status">{headerStatus}</div>
+                ) : null}
+                {accountMenu ?? (
+                  <DefaultAccountMenu
+                    buttonRef={mobileMenuButtonRef}
+                    onClose={closeMenu}
+                  />
+                )}
+              </div>
             </div>
           </header>
         ) : null

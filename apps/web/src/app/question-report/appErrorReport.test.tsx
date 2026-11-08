@@ -53,17 +53,14 @@ describe('APP_ERROR report entry points', () => {
     mockDatabase.loginAs('USER')
     renderAt('/dashboard', <Layout />)
     const account = await screen.findByRole('button', {
-      name: appI18n.t('navigation:account')
+      name: appI18n.t('navigation:accountMenu.label')
     })
-    await waitFor(() =>
-      expect(
-        screen.queryByRole('link', {
-          name: appI18n.t('navigation:login')
-        })
-      ).toBeNull()
-    )
+    // The signed-in trigger shows the member avatar and name.
+    await waitFor(() => expect(account).toHaveClass('account-menu-trigger'))
     await userEvent.click(account)
-    await userEvent.click(screen.getByRole('button', { name: '앱 오류 제보' }))
+    await userEvent.click(
+      screen.getByRole('menuitem', { name: '앱 오류 제보' })
+    )
     await submitAppError('대시보드 숫자가 비어 있습니다.')
     expect(mockDatabase.peekUserReports()).toEqual([
       expect.objectContaining({

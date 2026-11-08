@@ -100,7 +100,8 @@ export const accessibilityExpectedTableDeltas = {
 export const accessibilityExpectedRateLimitCategories = {
   'application:bookmark-list': 1,
   'application:bookmark-write': 1,
-  'application:dashboard-insights-read': 2,
+  // Only My page reads insights; the learning home no longer does (#745).
+  'application:dashboard-insights-read': 1,
   'application:dashboard-read': 1,
   'application:keyed:ADMIN_READ:ACTOR': 1,
   'application:keyed:ADMIN_READ:IP': 1,
@@ -121,7 +122,10 @@ export const accessibilityExpectedRateLimitCategories = {
   'application:wrong-note-review-queue': 1,
   // Two isolated actor IPs each start Google and consume one callback.
   'application:auth:/api/auth/sign-in/social': 2,
-  'application:auth:/api/auth/callback/google': 2
+  'application:auth:/api/auth/callback/google': 2,
+  // The learner My page scan reads the account sign-in methods once; the
+  // gateway rate-limits every SSO account path as auth:<path> (#735).
+  'application:auth:/api/auth/sso/accounts': 1
 }
 
 const sorted = (values) =>

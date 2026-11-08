@@ -3,6 +3,38 @@ import type { koResources } from './ko'
 
 export const jaAdminResources = {
   name: '管理者',
+  reauth: {
+    action: '本人確認',
+    extend: '延長',
+    remaining: '本人確認・残り{{minutes}}分',
+    remainingShort: '残り{{minutes}}分',
+    scopeAdmin: '管理者の操作は、本人確認から30分間は再確認しません。',
+    expiringSoon: '本人確認はあと{{minutes}}分で切れます。',
+    expired: '本人確認の有効時間が切れました。',
+    blocked:
+      '本人確認の有効時間が切れたため、「{{command}}」は適用していません。',
+    blockedHelp:
+      'Googleでもう一度ログインすると、この画面に戻ります。選択した問題はそのまま残るので、もう一度ボタンを押してください。',
+    blockedHelpInput:
+      'Googleでもう一度ログインすると、この画面に戻ります。入力内容はそのまま残るので、もう一度ボタンを押してください。',
+    blockedHelpImport:
+      'ファイルは安全のため保持できません。戻ったあと、同じファイルを選び直してチェックしてください。',
+    storageFailed:
+      '入力を保存できなかったため、本人確認に移動しませんでした。入力をコピーしておくか、もう一度お試しください。',
+    restored:
+      '移動前の入力を復元しました。内容を確認してから操作してください。',
+    checking: '本人確認の結果を確認しています…',
+    returned:
+      '本人確認が完了しました（30分間有効）。操作は自動実行されないため、もう一度ボタンを押してください。',
+    cancelled: '本人確認をキャンセルしました。操作は適用していません。',
+    failed: '本人確認を完了できませんでした。操作は適用していません。',
+    wrongAccount:
+      '現在ログイン中の管理者と同じGoogleアカウントを選んでください。',
+    invalid: '確認リクエストの期限が切れました。もう一度お試しください。',
+    unknown: '接続の問題で結果を確認できませんでした。',
+    retry: 'もう一度試す',
+    recheck: '再確認'
+  },
   grid: {
     columns: '表示する列',
     pageSize: '1ページの行数',
@@ -389,34 +421,6 @@ export const jaAdminResources = {
     reauthenticationFailed:
       '連携したアカウントで本人確認を完了できませんでした。',
     fieldInvalid: 'この入力値を確認してください。'
-  },
-  freshAssurance: {
-    title: '管理者本人確認',
-    description:
-      '{{reason}} 連携したアカウントで本人確認後、操作ボタンをもう一度押す必要があります。',
-    cancel: 'キャンセル',
-    checkingSession: 'ログイン状態を確認しています…',
-    retrySession: 'ログイン状態を再確認',
-    checking: '確認しています…',
-    confirm: '本人確認',
-    complete:
-      'ログイン状態を再確認しました。元の操作は自動実行されていません。内容を確認してから手動でもう一度実行してください。',
-    recovered:
-      '現在の管理者セッションを確認しました。連携したアカウントで本人確認をやり直してください。',
-    recoveryFailed:
-      'ログイン状態を確認できませんでした。ローカル作業は保持されます。ログイン状態の確認をもう一度お試しください。',
-    failed: '本人確認を完了できませんでした。',
-    reasons: {
-      BATCH_REVIEW: '一括レビュー依頼は慎重な確認が必要な管理者操作です。',
-      EXPORT: '問題のエクスポートには機密性のある正解と解説が含まれます。',
-      IMPORT_APPLY: 'インポートの適用は複数の問題を作成する管理者操作です。',
-      QUESTION_APPROVE: '承認は慎重な確認が必要な管理者操作です。',
-      QUESTION_ARCHIVE: '問題のアーカイブは慎重な確認が必要な管理者操作です。',
-      QUESTION_PUBLISH: '公開は慎重な確認が必要な管理者操作です。',
-      QUESTION_RETIRE: '公開終了は慎重な確認が必要な管理者操作です。',
-      QUESTION_WITHDRAW: '承認取り消しは慎重な確認が必要な管理者操作です。',
-      REPORT_RESOLUTION: '報告の最終処理は慎重な確認が必要な管理者操作です。'
-    }
   },
   questionList: {
     title: '問題管理',
@@ -936,7 +940,7 @@ export const jaAdminResources = {
   questionReportDialog: {
     trigger: '問題を報告',
     title: '問題を報告',
-    description: '報告内容は管理者のみが確認し、HTMLとして解釈されません。',
+    description: '報告内容は管理者のみ確認します。',
     details: '説明',
     descriptionRequired: '報告の説明を入力してください。',
     cancel: 'キャンセル',

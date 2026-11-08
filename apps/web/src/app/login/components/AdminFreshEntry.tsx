@@ -1,60 +1,44 @@
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
-import { safeAdminFreshReturnPath } from '@nihongo/contracts/auth/admin-fresh-sso'
-import type { SsoProviderId } from '@nihongo/contracts/auth/sign-in-social'
-import { SsoProviderButton } from '@app/login/components/SsoProviderButton'
-import { useStartAdminFresh } from '@app/login/hooks/useStartAdminFresh'
 import { AuthFlowError } from '@nihongo/browser/app/login/authFlowErrors'
+import { ReauthButton } from '@nihongo/browser/app/reauth/components/ReauthButton'
+import { useStartReauth } from '@nihongo/browser/app/reauth/hooks/useStartReauth'
 
-type AdminFreshEntryProps = { returnPath: string; disabled?: boolean }
+type AdminFreshEntryProps = { returnPath: string }
+
+// Admin pages still link here as /login?redirect=/admin/...; each starts the
+// same-tab re-verification directly once the admin screens use
+// useStartReauth, and this entry goes away.
 export const AdminFreshEntry = ({
-  returnPath,
-  disabled = false
+  returnPath
 }: AdminFreshEntryProps): ReactElement => {
   const { t } = useTranslation('auth')
-  const start = useStartAdminFresh()
-  const apple = useRef<HTMLButtonElement>(null)
+  const { t: adminT } = useTranslation('admin')
+  const reauth = useStartReauth()
   const google = useRef<HTMLButtonElement>(null)
-  const busy = start.isPending || start.isRedirecting
-  const provider = start.variables?.provider
   useEffect(() => {
-    if (start.isError) (provider === 'apple' ? apple : google).current?.focus()
-  }, [provider, start.isError])
-  const begin = (selected: SsoProviderId): void => {
-    if (busy || disabled) return
-    start.mutate({
-      purpose: 'ADMIN_FRESH',
-      provider: selected,
-      callbackURL: safeAdminFreshReturnPath(returnPath)
-    })
-  }
+    if (reauth.error) google.current?.focus()
+  }, [reauth.error])
   return (
-    <section className="auth-guest" aria-labelledby="admin-fresh-title">
-      <h2 id="admin-fresh-title" className="text-lg font-semibold">
-        {t('adminFresh.title')}
-      </h2>
-      <p>{t('adminFresh.description')}</p>
+    <section aria-labelledby="admin-fresh-title">
+      <h1 id="admin-fresh-title">{t('reauth.name')}</h1>
+      <p className="auth-description">{t('reauth.description')}</p>
       <div className="auth-actions">
-        <SsoProviderButton
-          provider="google"
-          label={t('sso.continueGoogle')}
+        <ReauthButton
+          size="lg"
+          fullWidth
+          className="auth-sso-button"
           buttonRef={google}
-          disabled={disabled || busy}
-          isLoading={busy}
-          loadingLabel={t('sso.redirecting', {
-            provider: provider === 'apple' ? 'Apple' : 'Google'
-          })}
-          onClick={() => begin('google')}
+          busy={reauth.busy}
+          onClick={() => reauth.start(returnPath)}
         />
       </div>
-      {start.isError ? (
+      {reauth.error ? (
         <p className="auth-notice auth-error" role="alert">
-          {t(
-            start.error instanceof AuthFlowError && start.error.unavailable
-              ? 'sso.unavailable'
-              : 'adminFresh.failed'
-          )}
+          {reauth.error instanceof AuthFlowError && reauth.error.unavailable
+            ? t('sso.unavailable')
+            : adminT('reauth.failed')}
         </p>
       ) : null}
     </section>

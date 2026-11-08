@@ -642,7 +642,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
         startResponse,
         providerRequest,
         winner
-          .getByRole('button', { name: 'Google로 계속하기', exact: true })
+          .getByRole('button', { name: 'Google로 본인 확인', exact: true })
           .click()
       ])
       expect(
