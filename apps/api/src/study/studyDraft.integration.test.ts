@@ -573,7 +573,12 @@ describe('StudyDraft PostgreSQL integration', () => {
           studySessionQuestionId: secondQuestion.sessionQuestionId,
           selectedOptionId: null,
           elapsedSec: 4
-        }
+        },
+        ...payload.questions.slice(2).map(({ sessionQuestionId }) => ({
+          studySessionQuestionId: sessionQuestionId,
+          selectedOptionId: null,
+          elapsedSec: 0
+        }))
       ]
     }
     const save = (key: string, body: object) =>
