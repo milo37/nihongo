@@ -459,84 +459,26 @@ describe('현재 Google SSO 로그인', () => {
   })
 })
 
-const validFreshURL = (provider: 'apple' | 'google'): string => {
-  const url = new URL(
-    provider === 'apple'
-      ? 'https://appleid.apple.com/auth/authorize'
-      : 'https://accounts.google.com/o/oauth2/v2/auth'
-  )
-  url.search = new URLSearchParams({
-    state: 's'.repeat(43),
-    nonce: 'n'.repeat(43),
-    code_challenge: 'c'.repeat(43),
-    code_challenge_method: 'S256',
-    response_type: 'code',
-    ...(provider === 'apple' ? { response_mode: 'form_post' } : {})
-  }).toString()
-  return url.href
-}
-
 describe('관리자 ADMIN_FRESH 소비', () => {
-  it.each(['google'] as const)(
-    '%s에서 목적·업무 경로를 보내고 돌아와도 명령·fresh 권한을 만들지 않는다',
-    async (provider) => {
-      const replaceDocument = vi
-        .spyOn(appDocumentNavigation, 'replace')
-        .mockImplementation(() => undefined)
-      const actor = mockDatabase.loginAs('ADMIN')
-      const requests: unknown[] = []
-      mockServer.use(
-        http.post('*/api/auth/sign-in/social', async ({ request }) => {
-          requests.push(await request.json())
-          return HttpResponse.json({
-            url: validFreshURL(provider),
-            redirect: true
-          })
-        })
+  it('로그인한 관리자의 예전 /login?redirect=/admin 링크는 중간 화면 없이 관리자 화면으로 간다', async () => {
+    const replaceDocument = vi
+      .spyOn(appDocumentNavigation, 'replace')
+      .mockImplementation(() => undefined)
+    mockDatabase.loginAs('ADMIN')
+    const router = renderLogin(
+      '/login?redirect=' +
+        encodeURIComponent('/admin/questions?level=N5&page=2')
+    )
+    await waitFor(() =>
+      expect(replaceDocument).toHaveBeenCalledExactlyOnceWith(
+        '/admin/questions?level=N5&page=2'
       )
-      const router = renderLogin(
-        '/login?redirect=' +
-          encodeURIComponent('/admin/questions?level=N5&page=2')
-      )
-      const region = await screen.findByRole('region', {
-        name: '본인 확인'
-      })
-      queryClient.setQueryData(['bookmarks', 'private'], { owner: actor.id })
-      useAppStore
-        .getState()
-        .beginPractice('preserved-admin-draft', '2026-10-19T00:00:00.000Z')
-      const user = userEvent.setup()
-      await user.click(
-        within(region).getByRole('button', {
-          name: 'Google로 본인 확인'
-        })
-      )
-      await waitFor(() =>
-        expect(replaceDocument).toHaveBeenCalledWith(
-          '/admin/questions?level=N5&page=2&ssoFresh=REAUTHENTICATED',
-          undefined
-        )
-      )
-      expect(requests).toEqual([
-        {
-          purpose: 'ADMIN_FRESH',
-          provider,
-          callbackURL: '/admin/questions?level=N5&page=2'
-        }
-      ])
-      expect(router.state.location.pathname).toBe('/login')
-      expect(useAppStore.getState().currentUser).toMatchObject({
-        id: actor.id,
-        role: 'ADMIN'
-      })
-      expect(useAppStore.getState().sessionId).toBe('preserved-admin-draft')
-      expect(queryClient.getQueryData(['bookmarks', 'private'])).toEqual({
-        owner: actor.id
-      })
-      expect(document.body).not.toHaveTextContent('본인 확인이 완료')
-      expect(document.body).not.toHaveTextContent('5분')
-    }
-  )
+    )
+    expect(router.state.location.pathname).toBe('/login')
+    expect(
+      screen.queryByRole('button', { name: 'Google로 본인 확인' })
+    ).not.toBeInTheDocument()
+  })
 
   it.each([
     ['REAUTHENTICATED', '본인 확인을 마쳤습니다(30분 유효).'],
@@ -646,50 +588,5 @@ describe('관리자 ADMIN_FRESH 소비', () => {
     expect(
       screen.queryByRole('region', { name: '본인 확인' })
     ).not.toBeInTheDocument()
-  })
-
-  it('Google 시작503은 버튼을 잠근 뒤 복구하고 이전 ADMIN·초안을 유지한다', async () => {
-    const actor = mockDatabase.loginAs('ADMIN')
-    let finish: (() => void) | undefined
-    let starts = 0
-    mockServer.use(
-      http.post('*/api/auth/sign-in/social', async () => {
-        starts += 1
-        await new Promise<void>((resolve) => {
-          finish = resolve
-        })
-        return HttpResponse.json(
-          { code: 'SSO_UNAVAILABLE', message: 'private-detail' },
-          { status: 503 }
-        )
-      })
-    )
-    renderLogin('/login?redirect=%2Fadmin%2Fquestions')
-    const region = await screen.findByRole('region', {
-      name: '본인 확인'
-    })
-    useAppStore
-      .getState()
-      .beginPractice('preserved-fresh-error', '2026-10-19T00:00:00.000Z')
-    const user = userEvent.setup()
-    const google = within(region).getByRole('button', {
-      name: 'Google로 본인 확인'
-    })
-    expect(
-      within(region).queryByRole('button', { name: /Apple/ })
-    ).not.toBeInTheDocument()
-    await user.dblClick(google)
-    await waitFor(() => expect(starts).toBe(1))
-    expect(google).toBeDisabled()
-    await act(async () => finish?.())
-    expect(await within(region).findByRole('alert')).toHaveTextContent(
-      '지금은 로그인을 이용할 수 없어요.'
-    )
-    expect(google).toBeEnabled()
-    expect(google).toHaveFocus()
-    expect(useAppStore.getState().currentUser?.id).toBe(actor.id)
-    expect(useAppStore.getState().sessionId).toBe('preserved-fresh-error')
-    expect(document.body).not.toHaveTextContent('private-detail')
-    expect(starts).toBe(1)
   })
 })

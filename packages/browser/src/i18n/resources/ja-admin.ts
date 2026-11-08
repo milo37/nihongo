@@ -21,6 +21,7 @@ export const jaAdminResources = {
       'ファイルは安全のため保持できません。戻ったあと、同じファイルを選び直してチェックしてください。',
     storageFailed:
       '入力を保存できなかったため、本人確認に移動しませんでした。入力をコピーしておくか、もう一度お試しください。',
+    startFailed: 'Googleに移動できませんでした。もう一度お試しください。',
     restored:
       '移動前の入力を復元しました。内容を確認してから操作してください。',
     checking: '本人確認の結果を確認しています…',
@@ -28,8 +29,6 @@ export const jaAdminResources = {
       '本人確認が完了しました（30分間有効）。操作は自動実行されないため、もう一度ボタンを押してください。',
     cancelled: '本人確認をキャンセルしました。操作は適用していません。',
     failed: '本人確認を完了できませんでした。操作は適用していません。',
-    wrongAccount:
-      '現在ログイン中の管理者と同じGoogleアカウントを選んでください。',
     invalid: '確認リクエストの期限が切れました。もう一度お試しください。',
     unknown: '接続の問題で結果を確認できませんでした。',
     retry: 'もう一度試す',
@@ -131,15 +130,6 @@ export const jaAdminResources = {
       release: '制限を解除',
       releasing: '解除しています…',
       released: '利用制限を解除しました。',
-      fresh: {
-        required:
-          'セキュリティのため管理者の本人確認が必要です。新しいタブで本人確認を済ませてから、ここで確認完了を押してください。入力内容はそのまま残り、「{{command}}」はまだ適用されていません。',
-        openNewTab: '新しいタブで本人確認',
-        confirm: '確認完了',
-        confirmed:
-          '本人確認が完了しました。もう一度「{{command}}」を押して適用してください。',
-        failed: '本人確認が完了しなかったため、適用していません。'
-      },
       confirm: {
         title: '利用を制限しますか？',
         description: '次の会員にすぐ適用されます。',
@@ -478,8 +468,6 @@ export const jaAdminResources = {
       dialog: {
         more: 'ほか{{rest}}問',
         cancel: 'キャンセル',
-        freshAfterWait:
-          '待った後にもう一度送るときは、管理者の本人確認をもう一度行う必要があります。',
         request: {
           title: '{{count}}問をレビュー依頼しますか？',
           description:
@@ -610,12 +598,9 @@ export const jaAdminResources = {
       cancel: 'キャンセル',
       confirm: '公開終了・アーカイブ',
       confirming: 'アーカイブ中…',
-      reauthenticate: '管理者の再認証',
       refresh: '最新の状態を確認',
       refreshFailed:
         '最新の状態を確認できませんでした。アーカイブは実行していません。',
-      freshRequired:
-        '管理者の再認証が必要です。再認証後、一覧で確認してからアーカイブしてください。',
       conflict:
         '別の変更が先に保存されました。最新の状態を確認してから、もう一度アーカイブしてください。',
       failed:
@@ -888,8 +873,6 @@ export const jaAdminResources = {
     commandComplete: '{{command}}を完了しました。'
   },
   import: {
-    freshRevalidateHint:
-      'Googleでの本人確認へ移動すると、ファイル選択と検証結果はリセットされます。戻ったら同じJSONファイルを選び直し、検証してから手動で適用してください。',
     eyebrow: 'ATOMIC IMPORT',
     title: '問題の下書きをインポート',
     description:
