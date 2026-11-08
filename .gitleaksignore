@@ -1,0 +1,3 @@
+# Known fake: a dummy Cloudflare token the Caddy config check used in this one
+# commit (#771); the script now builds it at run time.
+a7cdabb2f3f67bce4c259ee3bac6b629527ef068:infra/aws/scripts/render-check.sh:cloudflare-api-key:84
