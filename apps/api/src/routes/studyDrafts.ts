@@ -76,17 +76,25 @@ const resolveOwner = async (
   environment: ApiEnvironment,
   guestPrincipalService: GuestPrincipalService,
   principalService: PrincipalService
-): Promise<ExistingStudyOwner> =>
-  (
-    await resolveExistingStudyOwner({
-      authenticationRequiredMessage:
-        '학습 초안을 사용하려면 인증 정보가 필요합니다.',
-      context,
-      environment,
-      guestPrincipalService,
-      principalService
+): Promise<ExistingStudyOwner> => {
+  const { owner } = await resolveExistingStudyOwner({
+    authenticationRequiredMessage:
+      '학습 초안을 사용하려면 인증 정보가 필요합니다.',
+    context,
+    environment,
+    guestPrincipalService,
+    principalService
+  })
+  // Guests keep no saved progress: no draft, resume list or cancel (#737).
+  if (owner.kind !== 'USER') {
+    throw new ApplicationError({
+      code: 'AUTHENTICATION_REQUIRED',
+      message: '풀던 문제를 저장하고 이어 풀려면 로그인이 필요합니다.',
+      retryable: false
     })
-  ).owner
+  }
+  return owner
+}
 
 const parseRequiredPracticeHeader = (value: string | undefined): void => {
   try {

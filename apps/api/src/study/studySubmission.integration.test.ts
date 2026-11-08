@@ -382,6 +382,10 @@ const prepareBody = async (
   body: ReturnType<typeof createBody>,
   observedAt: Date
 ) => {
+  // Guests keep no draft and submit with revision 0 (#737).
+  if (owner.kind === 'GUEST') {
+    return { ...body, expectedDraftRevision: 0 }
+  }
   const saved = await createPrismaStudyDraftRepository(
     database.client
   ).saveAtomic({

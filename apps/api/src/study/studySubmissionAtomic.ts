@@ -193,7 +193,8 @@ export const runAtomicSubmission = async (
     throw new StudySubmissionContractVersionMismatchError()
   }
 
-  if (practiceContractVersion === 2) {
+  // Guests keep no draft, so only members' answers are checked against it (#737).
+  if (practiceContractVersion === 2 && input.owner.kind !== 'GUEST') {
     if (!session.draft || expectedDraftRevision === null) {
       throw new StudySubmissionContractVersionMismatchError()
     }
@@ -342,7 +343,7 @@ export const runAtomicSubmission = async (
     }
   })
   if (practiceContractVersion === 2) {
-    await transaction.studyDraft.delete({
+    await transaction.studyDraft.deleteMany({
       where: { studySessionId: input.sessionId }
     })
   }

@@ -146,6 +146,38 @@ const createGuest = async (createdAt: Date) => {
   return prepared
 }
 
+// Guests no longer get a draft (#737); rows written before that still need cleanup.
+const seedLegacyGuestDraft = async (
+  sessionId: string,
+  createdAt: Date
+): Promise<void> => {
+  const questions = await database.client.studySessionQuestion.findMany({
+    where: { studySessionId: sessionId },
+    select: { id: true, questionVersionId: true }
+  })
+  await database.client.studyDraft.create({
+    data: {
+      studySessionId: sessionId,
+      revision: 0,
+      currentOrdinal: 1,
+      savedAt: null,
+      createdAt,
+      updatedAt: createdAt,
+      answers: {
+        createMany: {
+          data: questions.map((question) => ({
+            studySessionQuestionId: question.id,
+            questionVersionId: question.questionVersionId,
+            selectedOptionId: null,
+            elapsedSec: 0,
+            updatedAt: createdAt
+          }))
+        }
+      }
+    }
+  })
+}
+
 const createGuestSession = async ({
   expiresAt,
   startedAt
@@ -154,21 +186,21 @@ const createGuestSession = async ({
   startedAt: Date
 }) => {
   const guest = await createGuest(startedAt)
-  return (
-    await sessionRepository.createRandom({
-      owner: {
-        kind: 'GUEST',
-        guestPrincipalId: guest.id,
-        tokenDigest: guest.tokenDigest
-      },
-      level: 'N5',
-      subject: 'VOCABULARY',
-      requestedCount: 1,
-      startedAt,
-      expiresAt,
-      practiceContractVersion: 2
-    })
-  ).session
+  const { session } = await sessionRepository.createRandom({
+    owner: {
+      kind: 'GUEST',
+      guestPrincipalId: guest.id,
+      tokenDigest: guest.tokenDigest
+    },
+    level: 'N5',
+    subject: 'VOCABULARY',
+    requestedCount: 1,
+    startedAt,
+    expiresAt,
+    practiceContractVersion: 2
+  })
+  await seedLegacyGuestDraft(session.id, startedAt)
+  return session
 }
 
 const saveEmptyDraft = async (
@@ -396,6 +428,7 @@ describe('StudyDraft cold cleanup', () => {
           practiceContractVersion: 2
         })
       ).session
+      await seedLegacyGuestDraft(session.id, startedAt)
       const idempotencyKey = randomUUID()
       const body = {
         expectedRevision: 0,
@@ -493,6 +526,10 @@ describe('StudyDraft cold cleanup', () => {
         practiceContractVersion: 2
       })
     ).session
+    await seedLegacyGuestDraft(
+      session.id,
+      new Date(expiresAt.getTime() - HOUR_MS)
+    )
     await sessionRepository.findOwnedById(
       session.id,
       {
@@ -999,6 +1036,7 @@ describe('StudyDraft cold cleanup', () => {
         practiceContractVersion: 2
       })
     ).session
+    await seedLegacyGuestDraft(session.id, startedAt)
     const savedAt = new Date(
       replayNow.getTime() - 47 * HOUR_MS - 30 * 60 * 1_000
     )

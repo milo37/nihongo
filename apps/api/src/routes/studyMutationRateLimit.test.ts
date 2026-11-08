@@ -236,18 +236,41 @@ describe('study mutation request budgets', () => {
       (guest.cookieValue.endsWith('A') ? 'B' : 'A')
     expect(
       (
-        await f.request('save', '', {
+        await f.request('submit', '', {
           Cookie: `nihongo.guest_principal=${forged}`
         })
       ).status
     ).toBe(401)
     expect(
       (
-        await f.request('save', '', {
+        await f.request('submit', '', {
           Cookie: `nihongo.guest_principal=${guest.cookieValue}`
         })
       ).status
     ).toBe(200)
+  })
+
+  it('keeps guests out of draft save, read, resume list and cancel', async () => {
+    const f = fixture()
+    const guest = f.guestPrincipalService.prepareCredential()
+    const cookie = { Cookie: `nihongo.guest_principal=${guest.cookieValue}` }
+    const responses = [
+      await f.request('save', '', cookie),
+      await f.request('cancel', '', cookie),
+      await f.app.request(`/study/${sessionId}/draft-answers`, {
+        headers: { ...cookie, 'X-Nihongo-Practice-Contract': '2' }
+      }),
+      await f.app.request('/study?status=IN_PROGRESS', {
+        headers: { ...cookie, 'X-Nihongo-Practice-Contract': '2' }
+      })
+    ]
+    for (const response of responses) {
+      expect(response.status).toBe(401)
+      expect(await response.json()).toMatchObject({
+        code: 'AUTHENTICATION_REQUIRED'
+      })
+    }
+    expect(f.cancel).not.toHaveBeenCalled()
   })
 
   it('keeps a shared coarse IP limit even across different valid actors', async () => {
