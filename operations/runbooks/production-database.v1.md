@@ -171,8 +171,7 @@ again.
 
 ## Rollback
 
-- Migrations are forward-only; the previous API image must accept the new
-  schema (already a deploy rule). To undo a schema change, add a reverse
+- Migrations are forward-only. To undo a schema change, add a reverse
   migration (backend) and deploy it.
 - A release that adds a migration cannot be undone by going back to the
   previous image: its readiness check refuses a database with more migrations
