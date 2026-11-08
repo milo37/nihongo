@@ -32,7 +32,8 @@ export const MyStudy = (): ReactElement => {
   const { t, i18n } = useTranslation('account')
   const locale = resolveUiLocale(i18n.resolvedLanguage)
   const headingId = useId()
-  const stats = useGetDashboardStats()
+  // Opening My page always shows a current read.
+  const stats = useGetDashboardStats(true, true)
   const data = stats.data
   const isFew = data !== undefined && data.totalAnsweredCount < FEW_DATA_LIMIT
   return (
@@ -117,7 +118,8 @@ export const MyStudy = (): ReactElement => {
           </>
         )}
       </section>
-      <AccountRecommendations />
+      {/* Insights start only after this visit's fresh stats read settles. */}
+      <AccountRecommendations enabled={stats.isFetchedAfterMount} />
     </>
   )
 }

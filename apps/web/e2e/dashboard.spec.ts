@@ -232,13 +232,13 @@ const assertCanonicalDashboardLedger = (ledger: RequestLedger): void => {
     expectedProvenance,
     expectedProvenance
   ])
-  // The account page reads stats and insights in parallel.
-  expect(ledger.entries.map(({ path }) => path).toSorted()).toEqual([
-    ...canonicalDashboardPaths
-  ])
-  expect(
-    ledger.entries.every(({ finishSequence }) => finishSequence !== null)
-  ).toBe(true)
+  // The account page reads insights only after the stats read settles.
+  expect(ledger.entries.map(({ path }) => path)).toEqual(
+    canonicalDashboardPaths
+  )
+  const [stats, insights] = ledger.entries
+  expect(stats!.finishSequence).not.toBeNull()
+  expect(stats!.finishSequence!).toBeLessThan(insights!.startSequence)
 }
 
 const assertCanonicalDashboardAggregate = (
@@ -257,12 +257,11 @@ const assertCanonicalDashboardAggregate = (
       statuses: Array.from({ length: triggerCount }, () => 200)
     }
   ])
-  const expectedProvenance = isMockBrowser
-    ? 'canonical-mock-service-worker'
-    : 'canonical-real-network'
-  expect(
-    ledger.entries.every(({ provenance }) => provenance === expectedProvenance)
-  ).toBe(true)
+  for (let index = 0; index < triggerCount; index += 1) {
+    assertCanonicalDashboardLedger({
+      entries: ledger.entries.slice(index * 2, index * 2 + 2)
+    })
+  }
 }
 
 const checkRecentResultsDisclosure = async (page: Page): Promise<void> => {

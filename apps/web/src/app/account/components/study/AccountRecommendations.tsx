@@ -7,14 +7,21 @@ import { Button } from '@nihongo/browser/common/components/Button'
 
 const MAX_SHOWN = 2
 
+type AccountRecommendationsProps = {
+  /** Insights load after the stats read settles, so the summary comes first. */
+  enabled?: boolean
+}
+
 // Insight recommendations moved here from the learning home (top two by
 // rank). A failed insights request hides the section without an alert.
-export const AccountRecommendations = (): ReactElement | null => {
+export const AccountRecommendations = ({
+  enabled = true
+}: AccountRecommendationsProps): ReactElement | null => {
   const { t } = useTranslation('account')
   const { t: dashboardT } = useTranslation('dashboard')
   const { t: commonT } = useTranslation('common')
   const headingId = useId()
-  const query = useGetDashboardInsights()
+  const query = useGetDashboardInsights(enabled)
   const action = useDashboardRecommendationAction({
     refetchInsights: async () => {
       const result = await query.refetch()

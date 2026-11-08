@@ -236,16 +236,17 @@ const ssoRequestContract = [
         method: 'GET',
         path: '/api/auth/callback/google',
         statuses: [303]
-      },
-  ...(mode === 'mock'
-    ? ([
-        { method: 'GET', path: '/api/auth/sso/accounts', statuses: [200] }
-      ] as const)
-    : [])
+      }
+] as const satisfies readonly RequestLedgerContractEntry[]
+
+// Opening My page reads the sign-in methods and the all-time stats once.
+const accountPageRequestContract = [
+  { method: 'GET', path: '/api/auth/sso/accounts', statuses: [200] }
 ] as const satisfies readonly RequestLedgerContractEntry[]
 
 const userJourneyRequestContract = [
   ...ssoRequestContract,
+  ...accountPageRequestContract,
   {
     method: 'GET',
     path: '/api/v1/me',
@@ -256,7 +257,7 @@ const userJourneyRequestContract = [
     path: '/api/v1/study-sessions',
     statuses: successfulStatuses(3)
   },
-  { method: 'GET', path: '/api/v1/dashboard/insights', statuses: [200, 200] },
+  { method: 'GET', path: '/api/v1/dashboard/insights', statuses: [200] },
   { method: 'GET', path: '/api/v1/bookmarks', statuses: successfulStatuses(3) },
   {
     method: 'GET',
@@ -277,7 +278,7 @@ const userJourneyRequestContract = [
     path: '/api/v1/wrong-notes/:id/review-events',
     statuses: [200]
   },
-  { method: 'GET', path: '/api/v1/dashboard', statuses: [200] },
+  { method: 'GET', path: '/api/v1/dashboard', statuses: [200, 200] },
   { method: 'POST', path: '/api/v1/study-sessions', statuses: [201] },
   {
     method: 'POST',
@@ -298,6 +299,8 @@ const userJourneyRequestContract = [
 
 const resilienceRequestContract = [
   ...ssoRequestContract,
+  ...accountPageRequestContract,
+  { method: 'GET', path: '/api/v1/dashboard', statuses: [200] },
   {
     method: 'GET',
     path: '/api/v1/me',
@@ -432,36 +435,11 @@ const loginThroughUi = async (page: Page): Promise<void> => {
     )
     expect(sessions).toEqual({ items: [], total: 0, page: 1, pageSize: 5 })
   })
-  const insightsResponse = waitForApiResponse(
-    page,
-    'GET',
-    '/api/v1/dashboard/insights'
-  ).then(async (response) =>
-    getDashboardInsightsResponseSchema.parse(
-      await readCanonicalResponse(response)
-    )
-  )
   const startedResponse = waitForApiResponse(
     page,
     'POST',
     '/api/auth/sign-in/social'
   )
-  const accountResponse =
-    mode === 'mock'
-      ? waitForApiResponse(page, 'GET', '/api/auth/sso/accounts').then(
-          async (response) => {
-            const capabilities = ssoAccountCapabilitiesSchema.parse(
-              await readCanonicalResponse(response)
-            )
-            expect(
-              capabilities.providers.some(
-                ({ provider, reauthAvailable }) =>
-                  provider === 'google' && reauthAvailable
-              )
-            ).toBe(true)
-          }
-        )
-      : Promise.resolve()
   const providerURL = /^https:\/\/accounts\.google\.com\//u
   if (mode === 'real') await page.route(providerURL, (route) => route.abort())
   try {
@@ -503,13 +481,7 @@ const loginThroughUi = async (page: Page): Promise<void> => {
         )
       }
     }
-    await Promise.all([
-      principalResponse,
-      resumableResponse,
-      insightsResponse,
-      accountResponse,
-      completeSignIn()
-    ])
+    await Promise.all([principalResponse, resumableResponse, completeSignIn()])
     await expect(page).toHaveURL(
       (url) =>
         url.origin === origin &&
@@ -820,9 +792,25 @@ const answerEveryQuestionWithFirstOption = async (
 }
 
 const openMyPage = async (page: Page): Promise<void> => {
+  const accountResponse = waitForApiResponse(
+    page,
+    'GET',
+    '/api/auth/sso/accounts'
+  ).then(async (response) => {
+    const capabilities = ssoAccountCapabilitiesSchema.parse(
+      await readCanonicalResponse(response)
+    )
+    expect(
+      capabilities.providers.some(
+        ({ provider, reauthAvailable }) =>
+          provider === 'google' && reauthAvailable
+      )
+    ).toBe(true)
+  })
   await page.getByRole('button', { name: '계정 메뉴', exact: true }).click()
   await page.getByRole('menuitem', { name: '마이페이지', exact: true }).click()
   await expect(page).toHaveURL(/\/account$/u)
+  await accountResponse
 }
 
 const recommendationRegion = (page: Page) =>
@@ -1097,8 +1085,7 @@ test('guest SSO boundary and authenticated practice transition match the active 
       path: '/api/v1/me',
       statuses: successfulStatuses(mode === 'mock' ? 6 : 5)
     },
-    { method: 'GET', path: '/api/v1/study-sessions', statuses: [200] },
-    { method: 'GET', path: '/api/v1/dashboard/insights', statuses: [200] }
+    { method: 'GET', path: '/api/v1/study-sessions', statuses: [200] }
   ])
 })
 
@@ -1145,15 +1132,17 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   await expect(
     page.getByRole('heading', { name: '학습 결과', exact: true })
   ).toBeVisible()
-  const locale = page.locator('select[name="ui-locale"]:visible')
-  await expect(locale).toHaveCount(1)
-  await locale.selectOption('ja')
-  await expect(page.locator('html')).toHaveAttribute('lang', 'ja')
+  const chooseLocale = async (value: 'ko' | 'ja'): Promise<void> => {
+    await page.locator('#account-menu-button').click()
+    await page.locator(`[role="menuitemradio"][lang="${value}"]`).click()
+    await page.keyboard.press('Escape')
+    await expect(page.locator('html')).toHaveAttribute('lang', value)
+  }
+  await chooseLocale('ja')
   await expect(
     page.getByRole('heading', { name: '学習結果', exact: true })
   ).toBeVisible()
-  await locale.selectOption('ko')
-  await expect(page.locator('html')).toHaveAttribute('lang', 'ko')
+  await chooseLocale('ko')
 
   await page.getByRole('link', { name: '오답노트 보기', exact: true }).click()
   await expect(page).toHaveURL(
@@ -1406,8 +1395,13 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
     '/api/v1/dashboard/insights',
     dashboardStartIndex
   )
-  expect(dashboardSummaryEntries).toHaveLength(1)
+  // The review page reads the summary once, then My page reads it fresh and
+  // starts insights only after that read settles.
+  expect(dashboardSummaryEntries).toHaveLength(2)
   expect(dashboardInsightEntries).toHaveLength(1)
+  expect(requireFinished(dashboardSummaryEntries[1])).toBeLessThan(
+    dashboardInsightEntries[0]?.startSequence ?? -1
+  )
   for (const entry of [
     ...dashboardSummaryEntries,
     ...dashboardInsightEntries
