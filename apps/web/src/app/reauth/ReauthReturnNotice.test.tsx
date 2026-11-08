@@ -8,7 +8,7 @@ import { adminFreshRemainingMs } from '@nihongo/browser/app/reauth/adminFreshTim
 import {
   REAUTH_STATUS_ID,
   ReauthReturnNotice
-} from '@nihongo/browser/app/reauth/ReauthReturnNotice'
+} from '@nihongo/browser/app/reauth/components/ReauthReturnNotice'
 import { queryClient } from '@nihongo/browser/libs/queryClient'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { DEMO_ADMIN_ID } from '@mocks/data/users'

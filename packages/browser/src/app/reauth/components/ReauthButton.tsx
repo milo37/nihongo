@@ -1,7 +1,10 @@
 import { useTranslation } from 'react-i18next'
 import type { ReactElement, Ref } from 'react'
-import { Button } from '../../common/components/Button'
-import type { ButtonSize, ButtonVariant } from '../../common/components/Button'
+import { Button } from '../../../common/components/Button'
+import type {
+  ButtonSize,
+  ButtonVariant
+} from '../../../common/components/Button'
 
 type ReauthButtonProps = {
   /** Visible label; defaults to "Google로 본인 확인". */

@@ -1,17 +1,17 @@
-import { adminFreshSsoRequestSchema } from '@nihongo/contracts/auth/admin-fresh-sso'
-import type { AdminFreshSsoRequest } from '@nihongo/contracts/auth/admin-fresh-sso'
-import {
-  isSsoAuthorizationURLForProvider,
-  signInSocialResponseSchema
-} from '@nihongo/contracts/auth/sign-in-social'
+import { isSsoAuthorizationURLForProvider } from '@nihongo/contracts/auth/sign-in-social'
 import { createResponseValidationError } from '../../config'
 import { safePost } from '../../http'
+import {
+  startAdminReauthRequestSchema,
+  startAdminReauthResponseSchema
+} from './schema'
+import type { StartAdminReauthRequest } from './schema'
 
-const requestStart = safePost(signInSocialResponseSchema)
+const requestStart = safePost(startAdminReauthResponseSchema)
 
 /** Starts the admin re-verification (ADMIN_FRESH) Google sign-in. */
-export const startAdminReauth = async (raw: AdminFreshSsoRequest) => {
-  const input = adminFreshSsoRequestSchema.parse(raw)
+export const startAdminReauth = async (raw: StartAdminReauthRequest) => {
+  const input = startAdminReauthRequestSchema.parse(raw)
   const response = await requestStart('/auth/sign-in/social', input)
   if (!isSsoAuthorizationURLForProvider(input.provider, response.url))
     throw createResponseValidationError(

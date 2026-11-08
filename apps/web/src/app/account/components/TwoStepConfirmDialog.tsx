@@ -7,7 +7,7 @@ import type { SsoAccountFlow } from '@app/account/hooks/useSsoAccountManagement'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'
 import { Icon } from '@nihongo/browser/common/components/Icon'
-import { ReauthButton } from '@nihongo/browser/app/reauth/ReauthButton'
+import { ReauthButton } from '@nihongo/browser/app/reauth/components/ReauthButton'
 
 export const DELETE_PARAGRAPHS = ['scope', 'reports', 'google'] as const
 

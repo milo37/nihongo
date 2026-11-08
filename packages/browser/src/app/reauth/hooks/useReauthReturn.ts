@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { authQueries } from '../login/queries/authQueries'
-import { commitCanonicalAuth } from '../login/authSession'
+import { authQueries } from '../../login/queries/authQueries'
+import { commitCanonicalAuth } from '../../login/authSession'
 import {
   captureAuthTransitionEpoch,
   isCurrentAuthTransitionEpoch
-} from '../../libs/authTransitionFence'
-import { adminFreshRemainingMs } from './adminFreshTime'
+} from '../../../libs/authTransitionFence'
+import { adminFreshRemainingMs } from '../adminFreshTime'
 
 export type ReauthCheck =
   | { phase: 'checking' }

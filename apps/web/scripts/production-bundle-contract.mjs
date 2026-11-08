@@ -30,7 +30,8 @@ export const bundleCeilings = Object.freeze({
   // (bundle 1 #734): two more initial chunks, about 5.5 KB gzip.
   initialAssetCount: 27,
   initialGzipBytes: 252_000,
-  initialRawBytes: 803_000,
+  // Shared admin re-verification return notice with its retry start (U5 #683).
+  initialRawBytes: 810_000,
   javaScriptAssetCount: 88,
   javaScriptGzipBytes: 470_000,
   javaScriptRawBytes: 1_429_000,

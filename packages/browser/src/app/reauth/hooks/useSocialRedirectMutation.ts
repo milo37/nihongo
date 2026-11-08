@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import type { UseMutationOptions } from '@tanstack/react-query'
-import { AuthFlowError } from '../login/authFlowErrors'
-import { isMockApiMode } from '../../libs/apiMode'
-import { socialAuthNavigation } from '../../libs/socialAuthNavigation'
+import { AuthFlowError } from '../../login/authFlowErrors'
+import { isMockApiMode } from '../../../libs/apiMode'
+import { socialAuthNavigation } from '../../../libs/socialAuthNavigation'
 
 /**
  * Starts an SSO redirect once, keeps the page busy until it leaves, and

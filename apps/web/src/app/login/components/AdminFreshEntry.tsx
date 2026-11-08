@@ -2,8 +2,8 @@ import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import { AuthFlowError } from '@nihongo/browser/app/login/authFlowErrors'
-import { ReauthButton } from '@nihongo/browser/app/reauth/ReauthButton'
-import { useStartReauth } from '@nihongo/browser/app/reauth/useStartReauth'
+import { ReauthButton } from '@nihongo/browser/app/reauth/components/ReauthButton'
+import { useStartReauth } from '@nihongo/browser/app/reauth/hooks/useStartReauth'
 
 type AdminFreshEntryProps = { returnPath: string }
 
