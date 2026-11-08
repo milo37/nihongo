@@ -156,9 +156,9 @@ const renderLastPageDelete = async (
     await user.click(removalTrigger)
   }
   expect(
-    screen.getByRole('heading', { name: '책갈피에서 뺄까요?' })
+    screen.getByRole('heading', { name: '책갈피를 해제할까요?' })
   ).toBeVisible()
-  const confirm = screen.getByRole('button', { name: '빼기' })
+  const confirm = screen.getByRole('button', { name: '해제 확인' })
   if (activation === 'keyboard') {
     await user.tab({ shift: true })
     expect(confirm).toHaveFocus()
@@ -460,7 +460,7 @@ describe('BookmarkPage pagination settlement', () => {
 
     await interaction.click(trigger)
     expect(
-      screen.getByRole('heading', { name: '책갈피에서 뺄까요?' })
+      screen.getByRole('heading', { name: '책갈피를 해제할까요?' })
     ).toBeVisible()
     await interaction.click(screen.getByRole('button', { name: '계속 보관' }))
 
@@ -472,7 +472,7 @@ describe('BookmarkPage pagination settlement', () => {
   it('마지막 페이지 delete 실패 중에는 page를 유지하고 rollback 항목을 복원한다', async () => {
     const fixture = await renderLastPageDelete()
     expect(
-      screen.queryByText('책갈피에서 빼고 있어요…')
+      screen.queryByText('책갈피 해제를 처리하고 있어요…')
     ).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '처리 중…' })).toBeDisabled()
     expect(
@@ -486,7 +486,7 @@ describe('BookmarkPage pagination settlement', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('2 / 2 페이지')).toBeInTheDocument()
     expect(
-      screen.getByText('책갈피에서 빼지 못해 이전 상태로 되돌렸어요.')
+      screen.getByText('책갈피 해제를 완료하지 못해 이전 상태로 복원했어요.')
     ).toBeVisible()
     const restoredTrigger = screen.getByRole('button', { name: '책갈피 빼기' })
     expect(restoredTrigger).not.toBe(fixture.removalTrigger)
@@ -556,7 +556,7 @@ describe('BookmarkPage pagination settlement', () => {
     ).toBeVisible()
     expect(screen.getByText('2 / 2 페이지')).toBeInTheDocument()
     expect(
-      screen.getByText('책갈피에서 빼지 못해 이전 상태로 되돌렸어요.')
+      screen.getByText('책갈피 해제를 완료하지 못해 이전 상태로 복원했어요.')
     ).toBeVisible()
     const restoredTrigger = screen.getByRole('button', { name: '책갈피 빼기' })
     expect(restoredTrigger).not.toBe(fixture.removalTrigger)
