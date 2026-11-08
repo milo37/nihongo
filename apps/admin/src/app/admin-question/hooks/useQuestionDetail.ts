@@ -7,6 +7,7 @@ import {
 } from '@nihongo/contracts/admin/content-operations'
 import { assertCurrentAuthActorTransitionFence } from '@nihongo/browser/libs/authTransitionFence'
 import { useAppStore } from '@nihongo/browser/store/index'
+import { useToast } from '@nihongo/browser/common/components/Toast'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import { useAdminReauth } from '@app/admin/reauth/useAdminReauth'
 import { useQuestionWorkflow } from '@app/admin-question/hooks/useQuestionWorkflow'
@@ -37,6 +38,7 @@ export const useQuestionDetail = ({
   epoch: number
 }) => {
   const { t, presentError } = useAdminPresentation()
+  const { addToast } = useToast()
   const reauth = useAdminReauth()
   const [searchParams, setSearchParams] = useSearchParams()
   const [freshRecovery, setFreshRecovery] = useState<
@@ -100,13 +102,18 @@ export const useQuestionDetail = ({
       setNote('')
       setPending(null)
       discardQuestionFreshContext(actorId, questionId)
-      setAnnouncement(
-        request.operation === 'updateQuestionVersion'
-          ? t('questionDetail.saveComplete')
-          : t('questionDetail.commandComplete', {
-              command: pending ? commandLabel(pending) : t('common.details')
-            })
-      )
+      // Success is a toast (U12 E1-6); the status badge shows the new state.
+      setAnnouncement('')
+      addToast({
+        title:
+          request.operation === 'updateQuestionVersion'
+            ? t('questionDetail.saveComplete')
+            : t('questionDetail.commandComplete', {
+                command: pending ? commandLabel(pending) : t('common.details')
+              }),
+        variant: 'success',
+        key: 'admin-question-command'
+      })
       if (
         request.operation === 'createAdminQuestionVersion' &&
         result.questionVersionId

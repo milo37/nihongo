@@ -130,8 +130,17 @@ it('replies and closes with the current row version and the optional note', asyn
     reporterReply: '해설에 추가했습니다.',
     internalNote: '새 버전 예정'
   })
-  const status = await screen.findByText('답변을 보내고 종결했습니다.')
-  await waitFor(() => expect(status).toHaveFocus())
+  // Success is a toast (E1-7), not text in the panel; focus goes to the
+  // panel heading because the form it came from is gone.
+  expect(await screen.findByText('답변을 보내고 종결했습니다.')).toBeVisible()
+  expect(
+    within(process()).queryByText('답변을 보내고 종결했습니다.')
+  ).toBeNull()
+  await waitFor(() =>
+    expect(
+      within(process()).getByRole('heading', { name: '처리' })
+    ).toHaveFocus()
+  )
 })
 
 it('requires a reply before replying and closing', async () => {
