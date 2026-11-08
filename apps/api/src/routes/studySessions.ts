@@ -24,7 +24,11 @@ import { readBoundedJsonObject } from '../middleware/boundedJson.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
 import type { StudySessionService } from '../study/studySessionService.js'
 import type { CreateStudyOwner } from '../study/studySessionRepository.js'
-import { guestDayKey } from '../study/guestDay.js'
+import {
+  GUEST_DAILY_IP_OPERATION,
+  GUEST_DAILY_IP_WINDOW_MS,
+  guestDailyIpClient
+} from '../study/guestDay.js'
 import { GUEST_COOKIE_NAME } from './principal.js'
 import { appendAuthHeaders, toFieldErrors } from './routeSupport.js'
 import {
@@ -55,9 +59,9 @@ const consumeGuestDailyIpLimit = async (
 ): Promise<void> => {
   try {
     await rateLimiter.consume({
-      clientIp: `${clientIp}|${guestDayKey(now)}`,
-      operation: 'guest-study-create-day',
-      windowMs: 24 * 60 * 60 * 1_000,
+      clientIp: guestDailyIpClient(clientIp, now),
+      operation: GUEST_DAILY_IP_OPERATION,
+      windowMs: GUEST_DAILY_IP_WINDOW_MS,
       max: GUEST_DAILY_SESSION_LIMIT_PER_IP
     })
   } catch (error: unknown) {

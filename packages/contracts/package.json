@@ -107,6 +107,10 @@
       "types": "./dist/study/guest-limits.d.ts",
       "import": "./dist/study/guest-limits.js"
     },
+    "./study/get-guest-allowance": {
+      "types": "./dist/study/get-guest-allowance.d.ts",
+      "import": "./dist/study/get-guest-allowance.js"
+    },
     "./study/cancel-study-session": {
       "types": "./dist/study/cancel-study-session.d.ts",
       "import": "./dist/study/cancel-study-session.js"

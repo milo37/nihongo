@@ -37,6 +37,8 @@ import type { QuestionReader } from '../question/questionService.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import type { StudySessionService } from '../study/studySessionService.js'
 import { createStudySessionRoutes } from '../routes/studySessions.js'
+import { createGuestAllowanceRoutes } from '../routes/guestAllowance.js'
+import type { GuestAllowanceReader } from '../study/guestAllowance.js'
 import type { StudySubmissionService } from '../study/studySubmissionService.js'
 import { createStudySubmissionRoutes } from '../routes/studySubmissions.js'
 import type { WrongNoteService } from '../wrong-note/wrongNoteService.js'
@@ -168,6 +170,7 @@ interface CreateApiAppDependencies {
   }
   study?: {
     draftService?: StudyDraftService
+    guestAllowanceReader?: GuestAllowanceReader
     rateLimiter: ApplicationRateLimiter
     retryService?: StudyResultRetryService
     service: StudySessionService
@@ -738,6 +741,18 @@ export const createApiApp = ({
             principalService: auth.principalService,
             rateLimiter: study.rateLimiter,
             studyResultRetryService: study.retryService
+          })
+        )
+      }
+      if (study.guestAllowanceReader) {
+        app.route(
+          '/api/v1/guest-allowance',
+          createGuestAllowanceRoutes({
+            environment: auth.environment,
+            guestAllowanceReader: study.guestAllowanceReader,
+            guestPrincipalService: auth.guestPrincipalService,
+            principalService: auth.principalService,
+            rateLimiter: study.rateLimiter
           })
         )
       }

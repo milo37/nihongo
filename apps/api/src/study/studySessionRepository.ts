@@ -15,7 +15,7 @@ import {
   type StudySessionStatus
 } from '../generated/prisma/client.js'
 import type { PreparedGuestCredential } from '../auth/guestPrincipalService.js'
-import { startOfGuestDay } from './guestDay.js'
+import { nextGuestDayStart, startOfGuestDay } from './guestDay.js'
 import type {
   PublishedQuestionDetailRecord,
   QuestionOptionRecord,
@@ -422,7 +422,7 @@ const assertGuestDailySessionLimit = async (
     WHERE "id" = ${guestPrincipalId}::uuid
     FOR UPDATE`)
   const dayStart = startOfGuestDay(startedAt)
-  const nextDayStart = new Date(dayStart.getTime() + 24 * 60 * 60 * 1_000)
+  const nextDayStart = nextGuestDayStart(startedAt)
   const [started] = await transaction.$queryRaw<{ count: number }[]>(
     Prisma.sql`
       SELECT COUNT(*)::int AS "count" FROM "StudySession"

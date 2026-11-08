@@ -32,6 +32,7 @@ import { createJsonLogger } from '../observability/logger.js'
 import { createPrismaQuestionRepository } from '../question/questionRepository.js'
 import { createQuestionService } from '../question/questionService.js'
 import { GUEST_COOKIE_NAME } from '../routes/principal.js'
+import { createPrismaGuestAllowanceReader } from './guestAllowance.js'
 import { startOfGuestDay } from './guestDay.js'
 import {
   createPrismaStudySessionRepository,
@@ -1375,6 +1376,32 @@ describe('StudySession PostgreSQL vertical slice', () => {
         where: { guestPrincipalId: owner.guestPrincipalId }
       })
     ).toBe(4)
+
+    // The allowance read sees the same count and resets at the next midnight.
+    const reader = createPrismaGuestAllowanceReader({
+      client: database.client,
+      keySecret: environment.GUEST_COOKIE_SECRET
+    })
+    const at = new Date(dayStart.getTime() + 3_000)
+    const clientIp = `203.0.113.${Math.floor(Math.random() * 200) + 1}`
+    await expect(
+      reader.read({ at, clientIp, guest: owner })
+    ).resolves.toMatchObject({
+      remaining: 0,
+      resetsAt: new Date(
+        dayStart.getTime() + 24 * 60 * 60 * 1_000
+      ).toISOString()
+    })
+    await expect(
+      reader.read({ at, clientIp, guest: null })
+    ).resolves.toMatchObject({ remaining: 2 })
+    await expect(
+      reader.read({
+        at,
+        clientIp,
+        guest: { ...owner, tokenDigest: 'f'.repeat(64) }
+      })
+    ).resolves.toMatchObject({ remaining: 2 })
   })
 
   it('owner scoped GET에서 만료 상태를 영속하고 foreign user는 404다', async () => {
