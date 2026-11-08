@@ -70,6 +70,56 @@ it('opens the row menu from the keyboard, moves between items and returns focus 
   expect(button).toHaveFocus()
 })
 
+const nextFrame = () =>
+  act(
+    () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+  )
+
+it('keeps the row menu open through scrolling and a refetch, and closes once its button leaves the screen', async () => {
+  const user = userEvent.setup()
+  const menuFor = (label: string) => (
+    <RowActionMenu
+      label="q-1 작업"
+      items={[{ key: 'archive', label, onSelect: vi.fn() }]}
+    />
+  )
+  const { rerender } = wrap(menuFor('초안 삭제'))
+  const button = screen.getByRole('button', { name: 'q-1 작업' })
+  let top = 100
+  vi.spyOn(button, 'getBoundingClientRect').mockImplementation(
+    () => ({ top, bottom: top + 36, right: 900 }) as DOMRect
+  )
+  await user.click(button)
+  const menu = screen.getByRole('menu', { name: 'q-1 작업' })
+  expect(menu).toHaveStyle({ top: '140px' })
+
+  // The page or the table scrolls: the menu follows its button.
+  top = 60
+  act(() => {
+    window.dispatchEvent(new Event('scroll'))
+    window.dispatchEvent(new Event('resize'))
+  })
+  await nextFrame()
+  expect(screen.getByRole('menu', { name: 'q-1 작업' })).toHaveStyle({
+    top: '100px'
+  })
+
+  // A refetch redraws the same row with new data: the menu stays open.
+  rerender(
+    <I18nProvider>
+      <MemoryRouter>{menuFor('보관')}</MemoryRouter>
+    </I18nProvider>
+  )
+  expect(screen.getByRole('menuitem', { name: '보관' })).toBeInTheDocument()
+
+  // Scrolled out of view: nothing left to point at, so it closes.
+  top = -200
+  act(() => window.dispatchEvent(new Event('scroll')))
+  await nextFrame()
+  expect(screen.queryByRole('menu')).toBeNull()
+  expect(button).toHaveAttribute('aria-expanded', 'false')
+})
+
 it('copies the full id and announces it', async () => {
   const user = userEvent.setup()
   const writeText = vi.fn(() => Promise.resolve())

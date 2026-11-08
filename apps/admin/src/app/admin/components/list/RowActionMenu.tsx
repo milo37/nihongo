@@ -26,9 +26,27 @@ type RowActionMenuProps = {
 const itemClassName =
   'flex min-h-11 w-full items-center whitespace-nowrap px-4 text-left text-sm font-semibold hover:bg-surface-muted focus:bg-surface-muted focus:outline-none'
 
+/** Fixed position next to the button; null once the button is gone or off screen. */
+const placeBeside = (
+  button: HTMLButtonElement | null
+): CSSProperties | null => {
+  if (!button?.isConnected) return null
+  const rect = button.getBoundingClientRect()
+  if (rect.bottom < 0 || rect.top > window.innerHeight) return null
+  const below = window.innerHeight - rect.bottom
+  return {
+    right: Math.max(8, window.innerWidth - rect.right),
+    ...(below < 240 && rect.top > below
+      ? { bottom: window.innerHeight - rect.top + 4 }
+      : { top: rect.bottom + 4 })
+  }
+}
+
 /**
  * `⋯` button with a menu. The menu is fixed to the viewport so a scrolling
- * table never clips it; it closes on scroll, resize or an outside press.
+ * table never clips it. Scrolling and resizing move it with its button; it
+ * closes on an outside press, or when the button leaves the screen or the
+ * row is removed.
  */
 export const RowActionMenu = ({
   label,
@@ -47,15 +65,9 @@ export const RowActionMenu = ({
     )
 
   const show = (first: boolean): void => {
-    const rect = button.current?.getBoundingClientRect()
-    if (!rect) return
-    const below = window.innerHeight - rect.bottom
-    setPosition({
-      right: Math.max(8, window.innerWidth - rect.right),
-      ...(below < 240 && rect.top > below
-        ? { bottom: window.innerHeight - rect.top + 4 }
-        : { top: rect.bottom + 4 })
-    })
+    const next = placeBeside(button.current)
+    if (!next) return
+    setPosition(next)
     focusFirst.current = first
     setOpen(true)
   }
@@ -68,19 +80,29 @@ export const RowActionMenu = ({
     if (!open) return
     const list = menuItems()
     ;(focusFirst.current ? list[0] : list.at(-1))?.focus()
-    const close = (): void => setOpen(false)
+    let frame = 0
+    // One update per frame however many scroll events arrive.
+    const follow = (): void => {
+      window.cancelAnimationFrame(frame)
+      frame = window.requestAnimationFrame(() => {
+        const next = placeBeside(button.current)
+        if (next) setPosition(next)
+        else setOpen(false)
+      })
+    }
     const onPointerDown = (event: PointerEvent): void => {
       const target = event.target as Node
       if (!menu.current?.contains(target) && !button.current?.contains(target))
         setOpen(false)
     }
     document.addEventListener('pointerdown', onPointerDown)
-    window.addEventListener('scroll', close, true)
-    window.addEventListener('resize', close)
+    window.addEventListener('scroll', follow, true)
+    window.addEventListener('resize', follow)
     return () => {
+      window.cancelAnimationFrame(frame)
       document.removeEventListener('pointerdown', onPointerDown)
-      window.removeEventListener('scroll', close, true)
-      window.removeEventListener('resize', close)
+      window.removeEventListener('scroll', follow, true)
+      window.removeEventListener('resize', follow)
     }
   }, [open])
 
