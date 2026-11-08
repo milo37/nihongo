@@ -50,7 +50,8 @@ export const bundleCeilings = Object.freeze({
   largestLazyJavaScriptGzipBytes: 30_000,
   largestLazyJavaScriptRawBytes: 102_000,
   totalGzipBytes: 480_000,
-  totalRawBytes: 1_478_000
+  // U4 design fixes (#767): measured 1,478,177 (god approved; re-measure after deploy).
+  totalRawBytes: 1_478_500
 })
 
 export const approvedStaticAssetPaths = Object.freeze([
