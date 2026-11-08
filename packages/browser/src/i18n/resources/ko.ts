@@ -1465,9 +1465,9 @@ export const koResources = {
         '책갈피의 최신 상태를 확인하지 못했어요. 현재 목록은 유지돼요.'
     },
     status: {
-      removing: '책갈피 해제를 처리하고 있어요…',
-      removed: '책갈피에서 해제했어요.',
-      restoreFailed: '책갈피 해제를 완료하지 못해 이전 상태로 복원했어요.',
+      removing: '책갈피에서 빼고 있어요…',
+      removed: '책갈피에서 뺐어요.',
+      restoreFailed: '책갈피에서 빼지 못해 이전 상태로 되돌렸어요.',
       offline: '오프라인이에요. 연결되면 책갈피 변경을 다시 시도해요.'
     },
     eyebrow: 'BOOKMARKS',
@@ -1503,11 +1503,11 @@ export const koResources = {
     },
     remove: '책갈피 빼기',
     removeDialog: {
-      title: '책갈피를 해제할까요?',
+      title: '책갈피에서 뺄까요?',
       description:
-        '이 문제는 책갈피 목록에서 제거돼요. 문제풀이 화면에서 다시 저장할 수 있어요.',
+        '이 문제는 책갈피 목록에서 빠져요. 문제풀이 화면에서 다시 저장할 수 있어요.',
       cancel: '계속 보관',
-      confirm: '해제 확인'
+      confirm: '빼기'
     },
     pagination: {
       label: '책갈피 페이지',

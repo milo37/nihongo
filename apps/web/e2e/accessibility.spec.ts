@@ -2440,11 +2440,11 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await focusByTab(page, removeBookmarkTrigger)
   await page.keyboard.press('Enter')
   const removeDialog = page.getByRole('dialog', {
-    name: '책갈피를 해제할까요?',
+    name: '책갈피에서 뺄까요?',
     exact: true
   })
   await expect(removeDialog).toBeVisible()
-  await removeDialog.getByRole('button', { name: '해제 확인' }).click()
+  await removeDialog.getByRole('button', { name: '빼기', exact: true }).click()
   const deleteBookmarkResponse = await deleteBookmarkResponsePromise
   expect(deleteBookmarkResponse.status()).toBe(204)
   expect(deleteBookmarkResponse.fromServiceWorker()).toBe(isMockBrowser)
