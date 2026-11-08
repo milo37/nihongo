@@ -158,8 +158,8 @@ export const koResources = {
       adminQuestionDetail: '문제 상세',
       adminQuestions: '문제 관리',
       adminAudit: '관리자 감사 기록',
-      adminReportDetail: '문제 신고 상세',
-      adminReports: '문제 신고 큐',
+      adminReportDetail: '신고 상세',
+      adminReports: '문제 신고',
       forbidden: '접근 권한 없음',
       page: '페이지'
     }
@@ -768,8 +768,7 @@ export const koResources = {
       },
       progressLabel: '답변 완료 {{percent}}%',
       question: {
-        passageEyebrow: 'READING PASSAGE',
-        passageLabel: '독해 지문',
+        passageLabel: '지문',
         numberLabel: '{{ordinal}}번 문제.',
         answerLegend: '정답 보기',
         keyboardHint:
@@ -1587,7 +1586,7 @@ export const koResources = {
     questionReportDialog: {
       trigger: '문제 신고',
       title: '문제 신고',
-      description: '신고 내용은 관리자만 확인하며 HTML로 해석하지 않습니다.',
+      description: '신고 내용은 관리자만 확인해요.',
       details: '설명',
       descriptionRequired: '신고 설명을 입력해 주세요.',
       cancel: '취소',

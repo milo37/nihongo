@@ -922,7 +922,7 @@ export const jaAdminResources = {
   questionReportDialog: {
     trigger: '問題を報告',
     title: '問題を報告',
-    description: '報告内容は管理者のみが確認し、HTMLとして解釈されません。',
+    description: '報告内容は管理者のみ確認します。',
     details: '説明',
     descriptionRequired: '報告の説明を入力してください。',
     cancel: 'キャンセル',

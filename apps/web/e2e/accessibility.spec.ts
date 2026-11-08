@@ -2137,7 +2137,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await expect(page.locator('button.ui-question-jump')).toHaveCount(
     readingFixture.actualCount
   )
-  const readingPassage = page.getByRole('article', { name: '독해 지문' })
+  const readingPassage = page.getByRole('article', { name: '지문' })
   const firstAnswer = page.getByRole('radio').first()
   await expect(readingPassage).toBeVisible()
   expect(
