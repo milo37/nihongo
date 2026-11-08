@@ -1,6 +1,5 @@
 /** Admin question list screen; kept out of the shared Korean chunk. */
 export const koAdminQuestionListResources = {
-  eyebrow: 'ADMIN QUESTION CMS',
   title: '문제 관리',
   description:
     '활성 문제의 대표 버전을 관리합니다. 작성·검토 중인 버전이 있으면 먼저 표시하며, 공개본 유무는 별도로 표시합니다. 목록에는 정답과 해설을 노출하지 않습니다.',

@@ -62,6 +62,26 @@ export const koAdminReportResources = {
     myDraft: '내가 쓴 메모',
     restoreDraft: '내 메모 다시 넣기'
   },
+  location: {
+    question: '{{screen}} · {{ordinal}}번 문제',
+    unknown: '기타 화면 ({{raw}})',
+    screens: {
+      home: '첫 화면',
+      login: '로그인',
+      dashboard: '학습 홈',
+      practiceSetup: '연습 설정',
+      practiceSession: '문제 풀이',
+      result: '결과 화면',
+      wrongNoteCenter: '복습',
+      wrongNoteDetail: '해설 보기',
+      bookmarks: '책갈피',
+      legal: '약관·정책',
+      accountData: '계정 데이터 안내',
+      support: '지원 안내',
+      forbidden: '접근 권한 없음',
+      page: '기타 화면'
+    }
+  },
   statuses: {
     RECEIVED: '접수됨',
     ANSWERED: '답변 완료',

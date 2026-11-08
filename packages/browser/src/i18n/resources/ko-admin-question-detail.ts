@@ -4,9 +4,9 @@ export const koAdminQuestionDetailResources = {
   noPreviousVersion: '비교할 이전 버전이 없습니다.',
   actions: '현재 버전 작업',
 
-  title: '문제 버전 워크플로',
+  title: '버전과 승인 단계',
   description:
-    '행 버전 충돌 시 로컬 편집 내용은 유지되며, 새로고침 후 차이를 확인할 수 있습니다.',
+    '다른 곳에서 먼저 고쳤다면, 지금 쓰던 내용은 그대로 두고 새로고침 후 달라진 점을 보여 드려요.',
   loading: '관리자 문제 상세를 불러오는 중입니다…',
   loadErrorTitle: '문제 상세를 불러오지 못했습니다',
   cachedError:
@@ -18,7 +18,7 @@ export const koAdminQuestionDetailResources = {
   newDraft: '새 초안 버전 만들기',
   archive: '문제 보관',
   dirtyLock:
-    '저장하지 않은 편집 내용이 있어 버전 전환과 워크플로 명령을 잠갔습니다. 먼저 초안을 저장해 주세요.',
+    '저장하지 않은 편집 내용이 있어 버전 전환과 승인 단계 작업을 잠갔습니다. 먼저 초안을 저장해 주세요.',
   diffTitle: '이전 버전과 차이',
   diffLoading: '차이를 계산하는 중입니다…',
   diffError: '차이를 불러오지 못했습니다.',

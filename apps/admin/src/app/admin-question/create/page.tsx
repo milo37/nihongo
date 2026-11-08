@@ -50,7 +50,6 @@ export const CreateAdminQuestionPage = (): ReactElement => {
       <QuestionPageHeader
         returnPath={returnPath}
         currentLabel={t('create.page.title')}
-        eyebrow="CREATE QUESTION"
         title={t('create.page.title')}
         description={t('create.page.description')}
       />
