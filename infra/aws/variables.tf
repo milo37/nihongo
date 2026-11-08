@@ -43,7 +43,7 @@ variable "data_volume_gib" {
 }
 
 variable "domain_name" {
-  description = "Custom domain (for example harumaru.net). Empty = use the *.cloudfront.net address."
+  description = "Custom domain (for example harumaru.app). Empty = use the *.cloudfront.net address."
   type        = string
   default     = ""
 }
@@ -60,7 +60,7 @@ variable "acm_certificate_arn" {
 }
 
 variable "origin_domain_name" {
-  description = "Origin hostname with a public certificate (for example origin.harumaru.net). Empty = HTTP origin on 3001 (no TLS on the CloudFront to EC2 hop)."
+  description = "Origin hostname with a public certificate (for example origin.harumaru.app). Empty = HTTP origin on 3001 (no TLS on the CloudFront to EC2 hop)."
   type        = string
   default     = ""
 
