@@ -262,9 +262,9 @@ describe('PracticePage setup', () => {
     await waitFor(() => expect(start).toBeEnabled())
     await userEvent.setup().click(start)
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      '임시로 이용이 제한된 계정입니다. 새 학습과 신고는 제한이 풀린 뒤 이용할 수 있습니다.'
+      '임시로 이용이 제한된 계정이에요. 새 학습과 신고는 제한이 풀린 뒤 이용할 수 있어요.'
     )
-    expect(screen.queryByText('요청을 완료하지 못했습니다')).toBeNull()
+    expect(screen.queryByText('요청을 완료하지 못했어요')).toBeNull()
     // The global 403 handler must keep the restricted member on this screen.
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(router.state.location.pathname).toBe('/practice')

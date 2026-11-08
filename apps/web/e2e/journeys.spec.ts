@@ -985,7 +985,7 @@ const submitCurrentSessionThroughUi = async (
     `/api/v1/study-sessions/${sessionId}/submission`
   )
   await page.getByRole('button', { name: '답안 제출', exact: true }).click()
-  const dialog = page.getByRole('dialog', { name: '답안을 제출하시겠습니까?' })
+  const dialog = page.getByRole('dialog', { name: '답안을 제출할까요?' })
   await expect(dialog).toBeVisible()
   await dialog
     .getByRole('button', { name: '제출하고 결과 보기', exact: true })

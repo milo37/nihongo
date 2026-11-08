@@ -328,7 +328,7 @@ const openDashboardSections = async (
     page.getByRole('region', { name: '추천 학습', exact: true })
   ).toBeVisible()
   await expect(
-    page.getByText('목표 급수의 다음 문제를 풀어보세요', { exact: true })
+    page.getByText('목표 급수의 다음 문제를 풀어 보세요', { exact: true })
   ).toBeVisible()
   await waitForLedgerToQuiesce(ledger, startIndex)
   return insights
@@ -434,11 +434,11 @@ test('current stats and learning routes preserve contracts before an explicit re
   }
 
   await expect(
-    page.getByText('목표 급수의 다음 문제를 풀어보세요', { exact: true })
+    page.getByText('목표 급수의 다음 문제를 풀어 보세요', { exact: true })
   ).toBeVisible()
   await expect(
     page.getByText(
-      '개인화 근거가 아직 충분하지 않아 목표 급수의 일반 연습을 함께 추천합니다.'
+      '개인화 근거가 아직 충분하지 않아 목표 급수의 일반 연습을 함께 추천해요.'
     )
   ).toBeVisible()
   expect(sessionPostRequests).toHaveLength(0)

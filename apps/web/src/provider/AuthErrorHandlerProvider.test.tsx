@@ -52,7 +52,7 @@ describe('AuthErrorHandlerProvider', () => {
 
     const banner = screen.getByRole('alert')
     expect(banner).toHaveTextContent(
-      '네트워크 연결이 원활하지 않습니다. 다시 시도해 주세요.'
+      '네트워크 연결이 원활하지 않아요. 다시 시도해 주세요.'
     )
     expect(
       document.documentElement.style.getPropertyValue('--global-banner-offset')

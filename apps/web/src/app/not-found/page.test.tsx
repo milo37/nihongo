@@ -28,7 +28,7 @@ it.each([false, true])(
       </I18nProvider>
     )
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      '이 페이지를 볼 권한이 없습니다'
+      '이 페이지를 볼 권한이 없어요'
     )
     expect(
       screen.getByRole('link', { name: '학습으로 돌아가기' })
@@ -51,7 +51,7 @@ it('keeps an unknown route distinct from a rendering error with a safe learning 
     </I18nProvider>
   )
   expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-    '요청한 페이지가 없습니다'
+    '요청한 페이지가 없어요'
   )
   expect(
     screen.getByRole('link', { name: '학습으로 돌아가기' })
@@ -81,7 +81,7 @@ it('renders a shell-independent fallback without disclosing the thrown error', a
       </I18nProvider>
     )
     expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent(
-      '화면을 불러오지 못했습니다'
+      '화면을 불러오지 못했어요'
     )
     expect(document.body).not.toHaveTextContent(
       'private-fixture-token-and-internal-message'
