@@ -1,7 +1,7 @@
 import { queryOptions } from '@tanstack/react-query'
 import { getSsoAccounts } from '@api/auth/getSsoAccounts'
 import { getSsoDeletion } from '@api/auth/getSsoDeletion'
-import { accountRequest } from '@app/login/accountFlowErrors'
+import { accountRequest } from '@app/account/accountFlowErrors'
 export const accountQueries = {
   allKey: () => ['sso-account'] as const,
   capabilities: (userId: string) =>

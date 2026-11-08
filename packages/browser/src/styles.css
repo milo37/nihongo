@@ -2680,14 +2680,14 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
 
 /* Approved auth bodies use the current app shell and shared semantic tokens. */
 .auth-page {
-  padding: 60px 0;
+  padding: 48px 0;
 }
 .auth-panel,
 .auth-standalone-panel {
   width: 100%;
-  max-width: 520px;
+  max-width: 440px;
   margin: 0 auto;
-  padding: 36px 40px;
+  padding: 40px;
   border: 1px solid rgb(var(--color-line));
   border-radius: var(--radius-card);
   background: rgb(var(--color-surface));
@@ -2696,14 +2696,16 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
 .auth-standalone-panel h1,
 .auth-result-title {
   margin: 0;
-  font-size: 30px;
+  font-size: 28px;
   font-weight: 750;
   line-height: 1.35;
 }
-.auth-heading {
-  margin-bottom: 28px;
+.auth-description {
+  margin-top: 8px;
+  color: rgb(var(--color-muted));
+  font-size: 16px;
+  line-height: 1.6;
 }
-.auth-heading p,
 .auth-result-description {
   margin-top: 14px;
   color: rgb(var(--color-muted));
@@ -2766,16 +2768,10 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
 .auth-actions {
   display: grid;
   gap: 12px;
-  margin-top: 28px;
+  margin-top: 32px;
 }
-.auth-account {
-  border-block: 1px solid rgb(var(--color-line));
-  padding: 18px 0;
-}
-.auth-account p {
-  color: rgb(var(--color-muted));
-  font-size: 14px;
-  margin-bottom: 4px;
+.auth-actions-tight {
+  margin-top: 16px;
 }
 .auth-link-row {
   display: flex;
@@ -2799,11 +2795,6 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
   cursor: not-allowed;
   color: rgb(var(--color-disabled-text));
 }
-.auth-guest {
-  margin-top: 26px;
-  padding-top: 24px;
-  border-top: 1px solid rgb(var(--color-line));
-}
 .auth-consent {
   margin-top: 12px;
   font-size: 13px;
@@ -2815,11 +2806,36 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
 html:lang(ja) .auth-consent {
   word-break: normal;
 }
-.auth-guest p {
-  margin-top: 12px;
+.auth-consent a,
+.auth-guest-hint a {
+  color: rgb(var(--color-link));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.auth-guest-hint {
+  max-width: 440px;
+  margin: 24px auto 0;
+  color: rgb(var(--color-muted));
   font-size: 13px;
   line-height: 1.65;
-  color: rgb(var(--color-muted));
+  text-align: center;
+  text-wrap: balance;
+}
+.auth-panel .auth-notice {
+  margin-top: 24px;
+}
+.auth-notice.auth-error {
+  border-color: rgb(var(--color-danger));
+  background: rgb(var(--color-danger-soft));
+  color: rgb(var(--color-danger-strong));
+}
+.account-page {
+  display: grid;
+  gap: 32px;
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 48px 0;
 }
 .auth-mock-notice,
 .auth-notice {
@@ -2858,9 +2874,11 @@ html:lang(ja) .auth-consent {
 }
 @media (max-width: 760px) {
   .auth-page {
-    padding-block: 32px;
+    padding-block: 24px;
   }
-  .auth-panel,
+  .auth-panel {
+    padding: 24px 20px;
+  }
   .auth-standalone-panel {
     padding: 0;
     border: 0;
@@ -2870,16 +2888,16 @@ html:lang(ja) .auth-consent {
   .auth-panel h1,
   .auth-standalone-panel h1,
   .auth-result-title {
-    font-size: 26px;
+    font-size: 24px;
+  }
+  .account-page {
+    gap: 24px;
+    padding-block: 24px;
   }
   .auth-panel .ui-button,
   .auth-standalone-panel .ui-button,
   .auth-standalone-panel a {
     min-height: 50px;
-  }
-  .auth-guest {
-    margin-top: 24px;
-    padding-top: 22px;
   }
   .auth-route-fallback {
     padding: 32px 20px;
@@ -2927,9 +2945,6 @@ html:lang(ja) .auth-consent {
 .auth-sso-button[data-provider='google'] {
   font-family: Roboto, Arial, sans-serif;
 }
-.auth-sso-button[data-provider='apple'] {
-  border-color: #000;
-}
 .auth-sso-button .ui-spinner {
   width: 20px;
   height: 20px;
@@ -2954,24 +2969,6 @@ html:lang(ja) .auth-consent {
 .auth-sso-button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
-}
-.auth-account > span {
-  display: block;
-  color: rgb(var(--color-muted));
-  font-size: 14px;
-  margin-bottom: 4px;
-}
-.auth-guest > a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  color: rgb(var(--color-link));
-  text-decoration: underline;
-  text-underline-offset: 4px;
-}
-.auth-guest > a:focus-visible {
-  outline: var(--focus-width) solid rgb(var(--focus-color));
-  outline-offset: var(--focus-offset);
 }
 @media (max-width: 760px) {
   .auth-sso-button {
