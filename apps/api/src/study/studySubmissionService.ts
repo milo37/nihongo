@@ -15,10 +15,7 @@ import {
   type ExistingStudyOwner
 } from './studySessionRepository.js'
 import {
-  createTolerantSubmissionHash,
   createTolerantSubmissionV2Hash,
-  DraftSubmissionVersionConflictError,
-  DraftSubmitMismatchError,
   IdempotencyKeyReusedError,
   OwnedStudySessionNotFoundError,
   StudySessionAlreadySubmittedError,
@@ -114,20 +111,6 @@ const throwMappedRepositoryError = (
       retryable: false
     })
   }
-  if (error instanceof DraftSubmissionVersionConflictError) {
-    throw new ApplicationError({
-      code: 'DRAFT_VERSION_CONFLICT',
-      message: '제출 전 초안 revision이 변경됐습니다.',
-      retryable: false
-    })
-  }
-  if (error instanceof DraftSubmitMismatchError) {
-    throw new ApplicationError({
-      code: 'DRAFT_SUBMIT_MISMATCH',
-      message: '제출 답안이 저장된 초안과 일치하지 않습니다.',
-      retryable: false
-    })
-  }
   if (
     error instanceof StudyGradingError ||
     error instanceof StudySubmissionCanonicalizationError
@@ -202,16 +185,11 @@ export const createStudySubmissionService = (
           retryable: false
         })
       }
-      const expectedDraftRevision =
-        'expectedDraftRevision' in input ? input.expectedDraftRevision : null
-      const requestHash =
-        expectedDraftRevision !== null
-          ? createTolerantSubmissionV2Hash(preload, {
-              answers: input.answers,
-              durationSec: input.durationSec,
-              expectedDraftRevision
-            })
-          : createTolerantSubmissionHash(preload, input)
+      // expectedDraftRevision is accepted but ignored: answers are graded as sent.
+      const requestHash = createTolerantSubmissionV2Hash(preload, {
+        answers: input.answers,
+        durationSec: input.durationSec
+      })
       return await repository.submitAtomic({
         sessionId,
         owner,
@@ -219,7 +197,6 @@ export const createStudySubmissionService = (
         requestHash,
         answers: input.answers,
         durationSec: input.durationSec,
-        expectedDraftRevision,
         practiceContractVersion: 2,
         observedAt
       })

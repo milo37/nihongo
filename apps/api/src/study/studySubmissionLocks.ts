@@ -118,20 +118,6 @@ export const loadAtomicSession = async (
     return null
   }
 
-  const draft = await transaction.studyDraft.findUnique({
-    where: { studySessionId: sessionId },
-    select: { revision: true }
-  })
-  const draftAnswers = draft
-    ? await transaction.studyDraftAnswer.findMany({
-        where: { studySessionId: sessionId },
-        select: {
-          studySessionQuestionId: true,
-          selectedOptionId: true,
-          elapsedSec: true
-        }
-      })
-    : []
   const sessionQuestions = await transaction.studySessionQuestion.findMany({
     where: { studySessionId: sessionId },
     orderBy: { ordinal: 'asc' },
@@ -179,7 +165,6 @@ export const loadAtomicSession = async (
     startedAt: session.startedAt,
     mode: session.mode,
     practiceContractVersion: session.practiceContractVersion,
-    draft: draft ? { revision: draft.revision, answers: draftAnswers } : null,
     questions: sessionQuestions.map((question) => {
       const questionVersion = versionsById.get(question.questionVersionId)
       if (!questionVersion?.correctOptionId) {
