@@ -16,6 +16,7 @@ import {
 import type { GuestPrincipalService } from '../auth/guestPrincipalService.js'
 import type { PrincipalService } from '../auth/principalService.js'
 import type { ApiEnvironment } from '../config/env.js'
+import { GUEST_DAILY_SESSION_LIMIT_PER_IP } from '@nihongo/contracts/study/guest-limits'
 import { ApplicationError } from '../errors/applicationError.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createClientIpMiddleware } from '../middleware/clientIp.js'
@@ -23,6 +24,8 @@ import { readBoundedJsonObject } from '../middleware/boundedJson.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
 import type { StudySessionService } from '../study/studySessionService.js'
 import type { CreateStudyOwner } from '../study/studySessionRepository.js'
+import type { GuestIpDailyCounter } from '../study/guestIpDailyCounter.js'
+import { nextGuestDayStart } from '../study/guestDay.js'
 import { GUEST_COOKIE_NAME } from './principal.js'
 import { appendAuthHeaders, toFieldErrors } from './routeSupport.js'
 import {
@@ -35,17 +38,31 @@ interface StudySessionRouteDependencies {
   environment: ApiEnvironment
   guestPrincipalService: GuestPrincipalService
   principalService: PrincipalService
+  /** Absent in tests that do not cover the per-IP guest limit. */
+  guestIpDailyCounter?: GuestIpDailyCounter
+  now?: () => Date
   rateLimiter: ApplicationRateLimiter
   studySessionService: StudySessionService
 }
 
 type StudySessionRouteEnvironment = { Variables: ApiVariables }
 
+const guestIpLimitReached = (at: Date): ApplicationError =>
+  new ApplicationError({
+    code: 'GUEST_LIMIT_REACHED',
+    message:
+      '오늘 이 네트워크에서 비회원으로 풀 수 있는 횟수를 모두 썼습니다. 더 풀려면 로그인해 주세요.',
+    details: { resetsAt: nextGuestDayStart(at).toISOString() },
+    retryable: false
+  })
+
 export const createStudySessionRoutes = ({
   accountRestrictionReader,
   environment,
   guestPrincipalService,
   principalService,
+  guestIpDailyCounter,
+  now = () => new Date(),
   rateLimiter,
   studySessionService
 }: StudySessionRouteDependencies): Hono<StudySessionRouteEnvironment> => {
@@ -96,6 +113,14 @@ export const createStudySessionRoutes = ({
       )
       owner = { kind: 'USER', userId: resolution.user.id }
     } else {
+      const checkedAt = now()
+      if (
+        guestIpDailyCounter &&
+        (await guestIpDailyCounter.used(context.get('clientIp'), checkedAt)) >=
+          GUEST_DAILY_SESSION_LIMIT_PER_IP
+      ) {
+        throw guestIpLimitReached(checkedAt)
+      }
       const inspected = guestPrincipalService.inspectCookie(
         getCookie(context, GUEST_COOKIE_NAME)
       )
@@ -113,6 +138,9 @@ export const createStudySessionRoutes = ({
     }
 
     const created = await studySessionService.create(input, owner)
+    if (owner.kind !== 'USER') {
+      await guestIpDailyCounter?.record(context.get('clientIp'), now())
+    }
     if (created.issuedGuestCredential) {
       setCookie(
         context,

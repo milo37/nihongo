@@ -3,6 +3,7 @@ import type { ReactElement, ReactNode } from 'react'
 import type { StudyResultItemView } from '@app/practice/adapters/studyResultView'
 import { QuestionReportDialog } from '@app/question-report/components/QuestionReportDialog'
 import { Button } from '@nihongo/browser/common/components/Button'
+import { classNames } from '@nihongo/browser/common/components/classNames'
 import { ExplanationLanguagePanel } from '@common/components/ExplanationLanguagePanel'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
@@ -11,11 +12,12 @@ import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 type ResultQuestionDetailProps = {
   readonly item: StudyResultItemView
   readonly ordinal: number
-  readonly canManage: boolean
+  /** Guests see the bookmark (it explains sign-in) but not the report. */
+  readonly canReport: boolean
   readonly isBookmarked: boolean
   readonly bookmarkDisabled: boolean
   readonly isResultSourceUnavailable: boolean
-  readonly bookmarkMessage: string | null
+  readonly bookmarkMessage: { text: string; isError: boolean } | null
   readonly onToggleBookmark: () => void
   readonly actions: ReactNode
 }
@@ -24,6 +26,7 @@ type ResultQuestionDetailProps = {
 const ResultManageButtons = ({
   item,
   ordinal,
+  canReport,
   isBookmarked,
   bookmarkDisabled,
   isResultSourceUnavailable,
@@ -32,6 +35,7 @@ const ResultManageButtons = ({
   ResultQuestionDetailProps,
   | 'item'
   | 'ordinal'
+  | 'canReport'
   | 'isBookmarked'
   | 'bookmarkDisabled'
   | 'isResultSourceUnavailable'
@@ -45,20 +49,27 @@ const ResultManageButtons = ({
   return (
     <div className="flex flex-wrap gap-2">
       <Button
+        className="aria-disabled:cursor-wait aria-disabled:opacity-70"
         variant="ghost"
-        disabled={bookmarkDisabled || !item.question.questionVersionId}
+        disabled={!item.question.questionVersionId}
+        // Focus stays here while busy (a toast closed with Esc returns to it).
+        aria-disabled={bookmarkDisabled || undefined}
         aria-label={t(
           isBookmarked ? 'bookmark.removeLabel' : 'bookmark.addLabel',
           { formattedOrdinal }
         )}
         aria-pressed={isBookmarked}
         data-selected={isBookmarked}
-        onClick={onToggleBookmark}
+        onClick={() => {
+          if (!bookmarkDisabled) onToggleBookmark()
+        }}
       >
         <Icon name="bookmark" />
         {isBookmarked ? t('bookmark.remove') : t('bookmark.add')}
       </Button>
-      {item.question.questionVersionId && !isResultSourceUnavailable ? (
+      {canReport &&
+      item.question.questionVersionId &&
+      !isResultSourceUnavailable ? (
         <QuestionReportDialog
           questionId={item.question.id}
           questionVersionId={item.question.questionVersionId}
@@ -109,7 +120,7 @@ const ResultAnswerComparison = ({
 export const ResultQuestionDetail = ({
   item,
   ordinal,
-  canManage,
+  canReport,
   isBookmarked,
   bookmarkDisabled,
   isResultSourceUnavailable,
@@ -136,20 +147,27 @@ export const ResultQuestionDetail = ({
         <p className={item.isCorrect ? 'text-success' : 'text-danger'}>
           {status} · {t('navigation.question', { formattedOrdinal })}
         </p>
-        {canManage ? (
+        {
           <ResultManageButtons
             item={item}
             ordinal={ordinal}
+            canReport={canReport}
             isBookmarked={isBookmarked}
             bookmarkDisabled={bookmarkDisabled}
             isResultSourceUnavailable={isResultSourceUnavailable}
             onToggleBookmark={onToggleBookmark}
           />
-        ) : null}
+        }
       </div>
       {bookmarkMessage ? (
-        <p className="mt-3 text-sm font-semibold text-warning" role="status">
-          {bookmarkMessage}
+        <p
+          className={classNames(
+            'mt-3 text-sm font-semibold',
+            bookmarkMessage.isError ? 'text-danger' : 'text-warning'
+          )}
+          role={bookmarkMessage.isError ? 'alert' : 'status'}
+        >
+          {bookmarkMessage.text}
         </p>
       ) : null}
       {item.tags.length > 0 ? (

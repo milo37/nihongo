@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { RefObject } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
@@ -6,25 +7,35 @@ import { useCancelStudySession } from '@app/practice/hooks/useCancelStudySession
 import { useListResumableStudySessions } from '@app/practice/hooks/useListResumableStudySessions'
 import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
 import {
+  FALLBACK_LEVEL,
   getInitialCount,
   getInitialLevel,
   getInitialSubject,
   getRequestedMode,
   getResumablePage,
-  loginRequiredModes
+  levels
 } from '@app/practice/practiceSetupOptions'
+import {
+  asGuestAllowance,
+  guestAllowanceQueries
+} from '@app/practice/queries/guestAllowanceQueries'
+import { GUEST_SESSION_QUESTION_LIMIT } from '@nihongo/contracts/study/guest-limits'
 import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
 import { useAppStore } from '@nihongo/browser/store/index'
 import {
+  getGuestLimitResetsAt,
   isAccountRestrictedApiError,
+  isGuestLimitReachedApiError,
   isNoEligibleQuestionsApiError
 } from '@libs/apiError'
 
 type SetupSearchKey = 'count' | 'level' | 'mode' | 'resumePage' | 'subject'
 
 const RESUMABLE_PAGE_SIZE = 5
+// setTimeout's limit; a reset is at most a day away.
+const MAX_TIMER_MS = 2 ** 31 - 1
 
 export const usePracticeSetupController = (
   resumableHeadingRef: RefObject<HTMLHeadingElement | null>
@@ -34,12 +45,33 @@ export const usePracticeSetupController = (
   const [searchParams, setSearchParams] = useSearchParams()
   const { isReady, role, user } = useAuth()
   const beginPractice = useAppStore((state) => state.beginPractice)
-  const storedSessionId = useAppStore((state) => state.sessionId)
   const [cancelSessionId, setCancelSessionId] = useState<string | null>(null)
-  const level = getInitialLevel(searchParams.get('level'))
+  const defaultLevel = user?.targetLevel ?? FALLBACK_LEVEL
+  const urlLevel = searchParams.get('level')
+  // Without a URL level the default waits for the signed-in user, so it is
+  // set once (no N5 first, then the target level).
+  const level =
+    isReady || levels.some((value) => value === urlLevel)
+      ? getInitialLevel(urlLevel, defaultLevel)
+      : null
   const subject = getInitialSubject(searchParams.get('subject'))
-  const count = getInitialCount(searchParams.get('count'))
-  const mode = getRequestedMode(searchParams.get('mode'))
+  const isGuest = isReady && role === 'GUEST'
+  const requestedCount = getInitialCount(searchParams.get('count'))
+  const requestedMode = getRequestedMode(searchParams.get('mode'))
+  // Guests only try short random sessions; a shared link asking for more
+  // keeps its level and subject and says why the rest changed (L12).
+  const count = isGuest ? GUEST_SESSION_QUESTION_LIMIT : requestedCount
+  const mode = isGuest ? 'RANDOM' : requestedMode
+  const isUrlLockedForGuest =
+    isGuest &&
+    ((searchParams.has('count') &&
+      requestedCount !== GUEST_SESSION_QUESTION_LIMIT) ||
+      requestedMode !== 'RANDOM')
+  const queryClient = useQueryClient()
+  const guestAllowance = useQuery({
+    ...guestAllowanceQueries.get(),
+    enabled: isGuest
+  })
   const resumablePage = getResumablePage(searchParams.get('resumePage'))
   const updateSearchParam = useCallback(
     (
@@ -65,12 +97,10 @@ export const usePracticeSetupController = (
     else next.set(key, String(value))
     return `?${next.toString()}`
   }
-  const isProtectedGuestMode =
-    role === 'GUEST' && loginRequiredModes.includes(mode)
   const createSession = useCreateStudySession()
   const principalScope = getStudyDraftPrincipalScope(user)
-  const canLoadResumableSessions =
-    isReady && (user !== null || storedSessionId !== null)
+  // Guests have no saved work to resume (G1).
+  const canLoadResumableSessions = isReady && user !== null
   const resumableSessions = useListResumableStudySessions(
     resumablePage,
     RESUMABLE_PAGE_SIZE,
@@ -90,8 +120,20 @@ export const usePracticeSetupController = (
     createSession.isError && isNoEligibleQuestionsApiError(createSession.error)
   const accountRestricted =
     createSession.isError && isAccountRestrictedApiError(createSession.error)
+  const guestAllowanceData = asGuestAllowance(guestAllowance.data)
+  const guestLimitRejected =
+    createSession.isError && isGuestLimitReachedApiError(createSession.error)
+  const isGuestDailyLimitReached =
+    isGuest && (guestLimitRejected || guestAllowanceData?.remaining === 0)
+  // The refusal carries the reset time, so the card clears at midnight even
+  // when the allowance could not be read.
+  const guestResetsAt = guestLimitRejected
+    ? getGuestLimitResetsAt(createSession.error)
+    : guestAllowanceData?.resetsAt
+  const resetCreateSession = createSession.reset
   const hasCreateError =
     createSession.isError &&
+    !guestLimitRejected &&
     !isAuthTransitionSupersededError(createSession.error)
   const isResumableSourceUnavailable =
     resumableSessions.isError || resumableSessions.fetchStatus === 'paused'
@@ -119,6 +161,19 @@ export const usePracticeSetupController = (
   ])
 
   useEffect(() => {
+    if (!isGuestDailyLimitReached || !guestResetsAt) return
+    const waitMs = Date.parse(guestResetsAt) - Date.now()
+    if (!(waitMs > 0) || waitMs > MAX_TIMER_MS) return
+    const timerId = window.setTimeout(() => {
+      resetCreateSession()
+      void queryClient.invalidateQueries({
+        queryKey: guestAllowanceQueries.get().queryKey
+      })
+    }, waitMs)
+    return () => window.clearTimeout(timerId)
+  }, [guestResetsAt, isGuestDailyLimitReached, queryClient, resetCreateSession])
+
+  useEffect(() => {
     if (resumableSessions.isError && !resumableSessions.data) {
       resumableHeadingRef.current?.focus()
     }
@@ -127,7 +182,7 @@ export const usePracticeSetupController = (
   const loginHref = `/login?redirect=${encodeURIComponent(`${location.pathname}${location.search}`)}`
 
   const handleStart = (): void => {
-    if (!isReady || isCreatingSession || isProtectedGuestMode) {
+    if (!isReady || !level || isCreatingSession || isGuestDailyLimitReached) {
       return
     }
 
@@ -168,6 +223,7 @@ export const usePracticeSetupController = (
     cancelSessionId,
     canLoadResumableSessions,
     changeSetting,
+    defaultLevel,
     confirmCancel,
     count,
     getResumablePageHref: (page: number) =>
@@ -179,8 +235,10 @@ export const usePracticeSetupController = (
     hasCreateError,
     isCancelling: cancelSession.isPending,
     isCreatingSession,
-    isGuest: role === 'GUEST',
-    isProtectedGuestMode,
+    guestAllowance: guestAllowanceData,
+    isGuest,
+    isGuestDailyLimitReached,
+    isUrlLockedForGuest,
     isReady,
     isResumableInteractionLocked,
     isResumableSourceUnavailable,

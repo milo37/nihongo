@@ -232,6 +232,7 @@ const assertCanonicalDashboardLedger = (ledger: RequestLedger): void => {
     expectedProvenance,
     expectedProvenance
   ])
+  // The account page reads insights only after the stats read settles.
   expect(ledger.entries.map(({ path }) => path)).toEqual(
     canonicalDashboardPaths
   )
@@ -263,11 +264,7 @@ const assertCanonicalDashboardAggregate = (
   }
 }
 
-const openDashboardSections = async (
-  page: Page,
-  ledger: RequestLedger
-): Promise<z.infer<typeof getDashboardInsightsResponseSchema>> => {
-  const wrongNotesStartIndex = ledger.entries.length
+const checkRecentResultsDisclosure = async (page: Page): Promise<void> => {
   await page.goto('/wrong-notes')
   const recentResults = page
     .locator('summary')
@@ -292,42 +289,48 @@ const openDashboardSections = async (
   await expect(
     page.getByText('아직 마친 학습이 없어요.', { exact: true })
   ).toBeVisible()
+}
 
-  // Empty review queues also load history independently of the stats response.
-  await waitForLedgerToQuiesce(ledger, wrongNotesStartIndex)
-
-  // Insights mount on the learning route before its native disclosure is opened.
+// The account page loads the all-time stats and the recommendations.
+const openDashboardSections = async (
+  page: Page,
+  ledger: RequestLedger
+): Promise<z.infer<typeof getDashboardInsightsResponseSchema>> => {
+  const startIndex = ledger.entries.length
+  const statsResponsePromise = waitForResponse(page, 'GET', '/api/v1/dashboard')
   const insightsResponsePromise = waitForResponse(
     page,
     'GET',
     '/api/v1/dashboard/insights'
   )
-  await page.goto('/dashboard?view=learning')
-  await expect(page).toHaveURL(
-    (url) =>
-      url.pathname === '/dashboard' &&
-      url.searchParams.get('view') === 'learning'
+  await page.goto('/account')
+  await expect(page).toHaveURL((url) => url.pathname === '/account')
+  const [statsResponse, insightsResponse] = await Promise.all([
+    statsResponsePromise,
+    insightsResponsePromise
+  ])
+  for (const response of [statsResponse, insightsResponse]) {
+    expect(response.status()).toBe(200)
+    expect(response.headers()['cache-control']).toBe('private, no-store')
+    expectExpectedApiTransport(response)
+  }
+  const stats = getDashboardStatsResponseSchema.parse(
+    JSON.parse(await statsResponse.text()) as unknown
   )
-  const insightsResponse = await insightsResponsePromise
-  expect(insightsResponse.status()).toBe(200)
-  expect(insightsResponse.headers()['cache-control']).toBe('private, no-store')
-  expectExpectedApiTransport(insightsResponse)
+  expect(stats.totalAnsweredCount).toBe(0)
+  await expect(
+    page.getByText('아직 푼 문제가 없어요', { exact: true })
+  ).toBeVisible()
   const insights = getDashboardInsightsResponseSchema.parse(
     JSON.parse(await insightsResponse.text()) as unknown
   )
-  const recommendations = page
-    .locator('summary')
-    .filter({ hasText: /^학습 추천 더 보기$/u })
-  await expect(recommendations).toBeVisible()
-  await expect(recommendations.locator('..')).toHaveJSProperty('open', false)
-  await recommendations.click()
-  await expect(recommendations.locator('..')).toHaveJSProperty('open', true)
   await expect(
-    page.getByRole('heading', {
-      exact: true,
-      name: '목표 급수의 다음 문제를 풀어보세요'
-    })
+    page.getByRole('region', { name: '추천 학습', exact: true })
   ).toBeVisible()
+  await expect(
+    page.getByText('목표 급수의 다음 문제를 풀어 보세요', { exact: true })
+  ).toBeVisible()
+  await waitForLedgerToQuiesce(ledger, startIndex)
   return insights
 }
 
@@ -371,6 +374,7 @@ test('current stats and learning routes preserve contracts before an explicit re
   })
 
   await login(page)
+  await checkRecentResultsDisclosure(page)
 
   const initialDashboardStartIndex = ledger.entries.length
   const insights = await openDashboardSections(page, ledger)
@@ -430,14 +434,11 @@ test('current stats and learning routes preserve contracts before an explicit re
   }
 
   await expect(
-    page.getByRole('heading', {
-      exact: true,
-      name: '목표 급수의 다음 문제를 풀어보세요'
-    })
+    page.getByText('목표 급수의 다음 문제를 풀어 보세요', { exact: true })
   ).toBeVisible()
   await expect(
     page.getByText(
-      '개인화 근거가 아직 충분하지 않아 목표 급수의 일반 연습을 함께 추천합니다.'
+      '개인화 근거가 아직 충분하지 않아 목표 급수의 일반 연습을 함께 추천해요.'
     )
   ).toBeVisible()
   expect(sessionPostRequests).toHaveLength(0)
@@ -513,7 +514,7 @@ test('current stats and learning routes preserve contracts before an explicit re
   const actionSummary = `일반 연습 · ${action.level} ${subjectLabels[action.subject]} · ${action.count}문제`
   const actionButton = page.getByRole('button', {
     exact: true,
-    name: '일반 연습 시작하기'
+    name: '목표 급수의 다음 문제를 풀어 보세요 시작'
   })
   await expect(page.getByText(actionSummary, { exact: true })).toBeVisible()
   await expect(actionButton).toBeVisible()

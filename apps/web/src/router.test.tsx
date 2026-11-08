@@ -62,17 +62,25 @@ const renderRoutes = (
 }
 
 describe('application router boundaries', () => {
-  it('guest의 보호 상세 경로와 search를 login redirect에 보존한다', async () => {
+  it('guest가 보호 상세 경로에 오면 그 자리에서 로그인 안내 카드를 보여 준다 (U4 R4)', async () => {
     const entry =
       '/wrong-notes/00000000-0000-4000-8000-000000000001?returnTo=%2Fwrong-notes%3Fview%3DUNREVIEWED'
     const router = renderRoutes(entry)
     expect(
-      await screen.findByRole('heading', { name: '로그인' }, { timeout: 3000 })
+      await screen.findByRole(
+        'heading',
+        { level: 2, name: '로그인이 필요해요' },
+        { timeout: 3000 }
+      )
     ).toBeInTheDocument()
-    expect(router.state.location.pathname).toBe('/login')
-    expect(router.state.location.search).toBe(
-      `?redirect=${encodeURIComponent(entry)}`
-    )
+    // No silent move to /login: the address stays for the sign-in return.
+    expect(
+      `${router.state.location.pathname}${router.state.location.search}`
+    ).toBe(entry)
+    expect(
+      screen.getByText('오답노트는 로그인하면 볼 수 있어요.')
+    ).toBeVisible()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('guest의 공개 복습 진입은 로그인 안내와 보호된 기록 경계를 제공한다', async () => {
@@ -82,10 +90,12 @@ describe('application router boundaries', () => {
     ).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/wrong-notes')
     const main = screen.getByRole('main')
-    expect(within(main).getByRole('link', { name: '로그인' })).toHaveAttribute(
-      'href',
-      '/login?redirect=%2Fwrong-notes'
-    )
+    expect(
+      within(main).getByRole('heading', { level: 2, name: '로그인이 필요해요' })
+    ).toBeVisible()
+    expect(
+      within(main).getByRole('button', { name: 'Google로 계속하기' })
+    ).toBeEnabled()
     expect(within(main).queryByRole('combobox')).not.toBeInTheDocument()
   })
 
@@ -95,7 +105,7 @@ describe('application router boundaries', () => {
       mockDatabase.loginAs(role)
       const router = renderRoutes('/admin/questions')
       expect(
-        await screen.findByRole('heading', { name: '요청한 페이지가 없습니다' })
+        await screen.findByRole('heading', { name: '요청한 페이지가 없어요' })
       ).toBeInTheDocument()
       expect(router.state.location.pathname).toBe('/admin/questions')
       expect(
@@ -109,7 +119,7 @@ describe('application router boundaries', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: '요청한 페이지가 없습니다'
+        name: '요청한 페이지가 없어요'
       })
     ).toBeInTheDocument()
   })
@@ -134,9 +144,7 @@ describe('application router boundaries', () => {
 
     await vi.waitFor(() => {
       expect(document.querySelector('#main-content')).toHaveFocus()
-      expect(
-        screen.getByText('학습 화면으로 이동했습니다.')
-      ).toBeInTheDocument()
+      expect(screen.getByText('학습 화면으로 이동했어요.')).toBeInTheDocument()
     })
     expect(scrollTo).toHaveBeenCalledWith({
       top: 0,
@@ -425,11 +433,11 @@ describe('application router boundaries', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: '화면을 불러오지 못했습니다'
+        name: '화면을 불러오지 못했어요'
       })
     ).toBeInTheDocument()
     expect(
-      screen.getByText('예상하지 못한 오류가 발생했습니다.')
+      screen.getByText('예상하지 못한 오류가 발생했어요.')
     ).toBeInTheDocument()
     expect(screen.queryByText('route-render-failure')).not.toBeInTheDocument()
   })

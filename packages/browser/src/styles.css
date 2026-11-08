@@ -231,6 +231,122 @@
   background: rgb(var(--color-hover-surface));
 }
 
+.account-menu {
+  position: relative;
+  margin-left: auto;
+}
+/* Right side of the top bar: optional status, then the account menu. */
+.app-shell-header-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+.app-shell-header-status {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  .app-shell-header-actions {
+    gap: 8px;
+  }
+}
+.account-menu-trigger,
+.account-menu-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid rgb(var(--color-line));
+  border-radius: 999px;
+  background: rgb(var(--color-surface));
+  color: rgb(var(--color-ink));
+}
+.account-menu-trigger {
+  gap: 8px;
+  padding: 5px 12px 5px 5px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.account-menu-trigger:hover,
+.account-menu-icon:hover,
+.account-menu-trigger[aria-expanded='true'] {
+  border-color: rgb(var(--color-line-interactive));
+  background: rgb(var(--color-surface-muted));
+}
+.account-menu-trigger:focus-visible,
+.account-menu-icon:focus-visible,
+.account-menu-panel :focus-visible {
+  outline: var(--focus-width) solid rgb(var(--focus-color));
+  outline-offset: var(--focus-offset);
+}
+.account-menu-name {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.account-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 280px;
+  padding: 8px;
+  border: 1px solid rgb(var(--color-line));
+  border-radius: var(--radius-card);
+  background: rgb(var(--color-surface));
+  box-shadow: var(--shadow-elevated);
+  z-index: var(--z-dropdown);
+}
+.account-menu-separator {
+  height: 1px;
+  margin: 8px 0;
+  background: rgb(var(--color-line));
+}
+.account-menu-segment {
+  display: inline-flex;
+  border: 1px solid rgb(var(--color-line-interactive));
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+.account-menu-segment > button {
+  min-width: 56px;
+  min-height: 44px;
+  padding: 0 10px;
+  font-size: 13px;
+  color: rgb(var(--color-ink));
+}
+.account-menu-segment > button + button {
+  border-left: 1px solid rgb(var(--color-line));
+}
+.account-menu-segment > button[aria-checked='true'] {
+  background: rgb(var(--color-brand-soft));
+  color: rgb(var(--color-brand-strong));
+  font-weight: 700;
+}
+@media (max-width: 760px) {
+  .account-menu-trigger {
+    padding: 0;
+    width: 44px;
+  }
+  .account-menu-name,
+  .account-menu-caret {
+    display: none;
+  }
+  .account-menu-panel {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    top: 64px;
+    width: auto;
+  }
+}
+
 .app-mobile-locale,
 .app-mobile-navigation {
   display: none;
@@ -514,6 +630,71 @@
 .practice-start-button {
   min-height: 60px;
   font-size: 15px;
+}
+
+.practice-guest-hint {
+  margin-top: 8px;
+  color: rgb(var(--color-muted));
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+/* U4: shared-link note (L12) and the used-up card (L18), under the title. */
+.practice-guest-note,
+.practice-guest-limit {
+  margin-bottom: 20px;
+  border-radius: var(--radius-card);
+}
+.practice-guest-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid rgb(var(--color-warning) / 0.4);
+  background: rgb(var(--color-warning) / 0.08);
+  font-size: 14px;
+  line-height: 1.6;
+}
+.practice-guest-limit {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid rgb(var(--color-line));
+  background: rgb(var(--color-surface));
+}
+.practice-guest-limit h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+.practice-guest-limit p {
+  margin: 4px 0 16px;
+  color: rgb(var(--color-muted));
+  line-height: 1.6;
+}
+/* Under 480px the icon sits above the title so the text keeps its width. */
+@media (max-width: 479px) {
+  .practice-guest-limit {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+/* Locked count chips (L16) are grey; 🔒 says why. */
+.choice-surface:has(.practice-locked-mark) {
+  background: rgb(var(--color-surface-muted));
+}
+.practice-guest-limit-icon {
+  display: inline-flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgb(var(--color-brand) / 0.12);
+  font-size: 22px;
 }
 
 .practice-supply-note {
@@ -1137,32 +1318,6 @@
   fill: currentColor;
 }
 
-.practice-recommendations {
-  margin-top: 24px;
-  font-size: 14px;
-}
-
-.practice-recommendations > summary {
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  color: rgb(var(--color-muted));
-  cursor: pointer;
-}
-
-.practice-recommendations > summary::before {
-  content: '+';
-  margin-right: 8px;
-}
-
-.practice-recommendations[open] > summary::before {
-  content: '−';
-}
-
-.practice-recommendations > div {
-  padding-block: 16px;
-}
-
 @media (max-width: 1000px) and (min-width: 761px) {
   .study-session-layout {
     grid-template-columns: minmax(0, 1fr) 208px;
@@ -1398,7 +1553,64 @@
   }
 
   .ui-toast {
+    --ui-toast-tone: var(--color-info);
+    border-left: 4px solid rgb(var(--ui-toast-tone));
     animation: ui-toast-in 180ms ease-out;
+  }
+
+  .ui-toast-success {
+    --ui-toast-tone: var(--color-success);
+  }
+
+  .ui-toast-warning {
+    --ui-toast-tone: var(--color-warning);
+  }
+
+  .ui-toast-icon {
+    display: inline-flex;
+    width: 24px;
+    height: 24px;
+    margin-top: 2px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: rgb(var(--ui-toast-tone));
+    color: rgb(var(--color-surface));
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  /* Bottom right on wide screens, above the learner bottom navigation on
+     narrow ones, and above the global error banner when it shows. */
+  .ui-toast-region {
+    position: fixed;
+    right: 24px;
+    bottom: calc(24px + var(--global-banner-offset, 0px));
+    z-index: var(--z-toast);
+    display: grid;
+    width: 360px;
+    gap: 8px;
+    pointer-events: none;
+  }
+
+  @media (max-width: 760px) {
+    .ui-toast-region {
+      right: 16px;
+      left: 16px;
+      bottom: calc(
+        max(16px, env(safe-area-inset-bottom)) +
+          var(--global-banner-offset, 0px)
+      );
+      width: auto;
+    }
+
+    body:has(.app-mobile-navigation) .ui-toast-region {
+      bottom: calc(
+        var(--mobile-navigation-height) + env(safe-area-inset-bottom) + 12px +
+          var(--global-banner-offset, 0px)
+      );
+    }
   }
 
   .ui-tab {
@@ -1486,7 +1698,7 @@
 @keyframes ui-toast-in {
   from {
     opacity: 0;
-    transform: translateY(0.75rem);
+    transform: translateY(8px);
   }
 }
 
@@ -1807,6 +2019,37 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
   border-radius: var(--radius-control);
 }
 
+/* Result buttons (polish §3): under 640px the primary and secondary stack
+   full width with the links below; from 640px one row at text width. */
+.study-result-actions .study-result-buttons {
+  align-items: stretch;
+  gap: 8px;
+}
+
+.study-result-buttons > .ui-button {
+  width: 100%;
+  min-height: 56px;
+}
+
+.study-result-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+@media (min-width: 640px) {
+  .study-result-actions .study-result-buttons {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .study-result-buttons > .ui-button {
+    width: auto;
+  }
+}
+
 .study-result-item {
   content-visibility: visible;
 }
@@ -2116,10 +2359,6 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
   flex-wrap: wrap;
   justify-content: center;
   gap: 16px;
-}
-.review-guest-result {
-  display: flex;
-  justify-content: center;
 }
 .review-document-meta {
   margin: -20px 0 24px;
@@ -2680,14 +2919,14 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
 
 /* Approved auth bodies use the current app shell and shared semantic tokens. */
 .auth-page {
-  padding: 60px 0;
+  padding: 48px 0;
 }
 .auth-panel,
 .auth-standalone-panel {
   width: 100%;
-  max-width: 520px;
+  max-width: 440px;
   margin: 0 auto;
-  padding: 36px 40px;
+  padding: 40px;
   border: 1px solid rgb(var(--color-line));
   border-radius: var(--radius-card);
   background: rgb(var(--color-surface));
@@ -2696,14 +2935,52 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
 .auth-standalone-panel h1,
 .auth-result-title {
   margin: 0;
-  font-size: 30px;
+  font-size: 28px;
   font-weight: 750;
   line-height: 1.35;
 }
-.auth-heading {
-  margin-bottom: 28px;
+/* U4 GuestGate: sign-in card for a member-only screen. */
+.guest-gate {
+  padding: 40px 32px;
+  text-align: center;
 }
-.auth-heading p,
+.guest-gate-icon {
+  display: inline-flex;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 16px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgb(var(--color-brand) / 0.12);
+  color: rgb(var(--color-brand));
+  font-size: 24px;
+}
+.guest-gate h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+.guest-gate-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 16px;
+  margin-top: 16px;
+}
+.guest-gate-links a {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  color: rgb(var(--color-link));
+  font-weight: 600;
+}
+.auth-description {
+  margin-top: 8px;
+  color: rgb(var(--color-muted));
+  font-size: 16px;
+  line-height: 1.6;
+}
 .auth-result-description {
   margin-top: 14px;
   color: rgb(var(--color-muted));
@@ -2766,16 +3043,10 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
 .auth-actions {
   display: grid;
   gap: 12px;
-  margin-top: 28px;
+  margin-top: 32px;
 }
-.auth-account {
-  border-block: 1px solid rgb(var(--color-line));
-  padding: 18px 0;
-}
-.auth-account p {
-  color: rgb(var(--color-muted));
-  font-size: 14px;
-  margin-bottom: 4px;
+.auth-actions-tight {
+  margin-top: 16px;
 }
 .auth-link-row {
   display: flex;
@@ -2799,11 +3070,6 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
   cursor: not-allowed;
   color: rgb(var(--color-disabled-text));
 }
-.auth-guest {
-  margin-top: 26px;
-  padding-top: 24px;
-  border-top: 1px solid rgb(var(--color-line));
-}
 .auth-consent {
   margin-top: 12px;
   font-size: 13px;
@@ -2815,11 +3081,49 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
 html:lang(ja) .auth-consent {
   word-break: normal;
 }
-.auth-guest p {
-  margin-top: 12px;
+.auth-consent a,
+.auth-guest-hint a {
+  color: rgb(var(--color-link));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.auth-guest-hint {
+  width: 100%;
+  max-width: 440px;
+  margin: 24px auto 0;
+  color: rgb(var(--color-muted));
   font-size: 13px;
   line-height: 1.65;
-  color: rgb(var(--color-muted));
+  text-align: center;
+  text-wrap: balance;
+}
+/* Korean wraps between words; Japanese has no spaces and keeps normal breaks. */
+.auth-guest-hint:lang(ko),
+.auth-consent:lang(ko) {
+  word-break: keep-all;
+}
+.auth-panel .auth-notice {
+  margin-top: 24px;
+}
+.auth-notice.auth-error {
+  border-color: rgb(var(--color-danger));
+  background: rgb(var(--color-danger-soft));
+  color: rgb(var(--color-danger-strong));
+}
+.account-card {
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid rgb(var(--color-line));
+  border-radius: var(--radius-panel);
+  background: rgb(var(--color-surface));
+}
+.account-page {
+  display: grid;
+  gap: 32px;
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 48px 0;
 }
 .auth-mock-notice,
 .auth-notice {
@@ -2858,9 +3162,17 @@ html:lang(ja) .auth-consent {
 }
 @media (max-width: 760px) {
   .auth-page {
-    padding-block: 32px;
+    padding-block: 24px;
   }
-  .auth-panel,
+  .auth-panel {
+    padding: 24px 20px;
+  }
+  .guest-gate-page {
+    padding-top: 8px;
+  }
+  .guest-gate {
+    padding: 28px 20px;
+  }
   .auth-standalone-panel {
     padding: 0;
     border: 0;
@@ -2870,16 +3182,19 @@ html:lang(ja) .auth-consent {
   .auth-panel h1,
   .auth-standalone-panel h1,
   .auth-result-title {
-    font-size: 26px;
+    font-size: 24px;
+  }
+  .account-page {
+    gap: 24px;
+    padding-block: 24px;
+  }
+  .account-card {
+    padding: 16px;
   }
   .auth-panel .ui-button,
   .auth-standalone-panel .ui-button,
   .auth-standalone-panel a {
     min-height: 50px;
-  }
-  .auth-guest {
-    margin-top: 24px;
-    padding-top: 22px;
   }
   .auth-route-fallback {
     padding: 32px 20px;
@@ -2927,9 +3242,6 @@ html:lang(ja) .auth-consent {
 .auth-sso-button[data-provider='google'] {
   font-family: Roboto, Arial, sans-serif;
 }
-.auth-sso-button[data-provider='apple'] {
-  border-color: #000;
-}
 .auth-sso-button .ui-spinner {
   width: 20px;
   height: 20px;
@@ -2954,24 +3266,6 @@ html:lang(ja) .auth-consent {
 .auth-sso-button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
-}
-.auth-account > span {
-  display: block;
-  color: rgb(var(--color-muted));
-  font-size: 14px;
-  margin-bottom: 4px;
-}
-.auth-guest > a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  color: rgb(var(--color-link));
-  text-decoration: underline;
-  text-underline-offset: 4px;
-}
-.auth-guest > a:focus-visible {
-  outline: var(--focus-width) solid rgb(var(--focus-color));
-  outline-offset: var(--focus-offset);
 }
 @media (max-width: 760px) {
   .auth-sso-button {

@@ -159,7 +159,6 @@ export const EditAdminQuestionPage = (): ReactElement => {
           questionId: question.data.question.questionId
         })}
         currentClassName="max-w-64 truncate"
-        eyebrow="EDIT QUESTION"
         title={t(canEdit ? 'editor.page.title' : 'editor.page.details')}
         description={t('editor.page.description', {
           questionId: question.data.question.questionId

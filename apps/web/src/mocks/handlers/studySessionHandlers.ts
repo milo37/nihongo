@@ -45,6 +45,8 @@ import {
   readBoundedMockJsonObject
 } from '@mocks/handlers/shared'
 import { MockDatabaseError, mockDatabase } from '@mocks/repository/mockDatabase'
+import { GUEST_SESSION_QUESTION_LIMIT } from '@nihongo/contracts/study/guest-limits'
+import { mockGuestAllowance } from '@mocks/handlers/guestAllowanceHandlers'
 
 const JSON_CONTENT_TYPE_PATTERN = /^application\/json(?:\s*;|$)/iu
 
@@ -308,8 +310,6 @@ const normalizeSubmitError = (
       FORBIDDEN: 'RESOURCE_NOT_FOUND',
       IDEMPOTENCY_KEY_REUSED: 'IDEMPOTENCY_KEY_REUSED',
       NOT_FOUND: 'RESOURCE_NOT_FOUND',
-      DRAFT_SUBMIT_MISMATCH: 'DRAFT_SUBMIT_MISMATCH',
-      DRAFT_VERSION_CONFLICT: 'DRAFT_VERSION_CONFLICT',
       PRACTICE_CONTRACT_VERSION_MISMATCH: 'PRACTICE_CONTRACT_VERSION_MISMATCH',
       SESSION_SUBMITTED: 'SESSION_ALREADY_SUBMITTED',
       STUDY_SESSION_NOT_EDITABLE: 'STUDY_SESSION_NOT_EDITABLE'
@@ -429,13 +429,33 @@ export const studySessionHandlers = [
           retryable: false
         })
       }
-      if (
-        isGuest &&
-        ['BOOKMARK', 'DAILY_REVIEW', 'WRONG_NOTE'].includes(input.mode)
-      ) {
+      // Guests only try short random sessions, a few a day (#737).
+      if (isGuest && input.mode !== 'RANDOM') {
         return createCreateErrorResponse({
           code: 'AUTHENTICATION_REQUIRED',
           message: '이 출제 모드는 로그인이 필요합니다.',
+          requestId,
+          retryable: false
+        })
+      }
+      const guestLimits = isGuest && mockGuestAllowance.isEnforced()
+      if (guestLimits && input.count !== GUEST_SESSION_QUESTION_LIMIT) {
+        return createCreateErrorResponse({
+          code: 'VALIDATION_ERROR',
+          message: `비회원은 ${GUEST_SESSION_QUESTION_LIMIT}문제씩 풀 수 있습니다.`,
+          fieldErrors: {
+            count: [`${GUEST_SESSION_QUESTION_LIMIT}이어야 합니다.`]
+          },
+          requestId,
+          retryable: false
+        })
+      }
+      if (guestLimits && mockGuestAllowance.remaining() === 0) {
+        return createCreateErrorResponse({
+          code: 'GUEST_LIMIT_REACHED',
+          message:
+            '비회원은 하루 2번까지 풀 수 있습니다. 더 풀려면 로그인해 주세요.',
+          details: { resetsAt: mockGuestAllowance.resetsAt() },
           requestId,
           retryable: false
         })
@@ -462,6 +482,7 @@ export const studySessionHandlers = [
           ? { reviewFilter: input.reviewFilter }
           : {})
       })
+      if (isGuest) mockGuestAllowance.record()
       const source = mockDatabase.getCanonicalStudySessionSnapshotRecord(
         created.session.id,
         canonicalGuestPrincipalId ?? null

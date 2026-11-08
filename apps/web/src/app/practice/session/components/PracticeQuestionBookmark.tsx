@@ -1,5 +1,4 @@
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
 import type { ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import type { PracticeSessionBookmark } from '@app/practice/hooks/usePracticeSessionBookmark'
@@ -23,10 +22,11 @@ export const PracticeQuestionBookmarkButton = ({
   const { formatCount } = usePracticeNumberFormat()
   return (
     <Button
-      className="shrink-0"
+      className="shrink-0 aria-disabled:cursor-wait aria-disabled:opacity-70"
       variant="outline"
       type="button"
-      disabled={isDisabled}
+      // Focus stays here while busy (a toast closed with Esc returns to it).
+      aria-disabled={isDisabled || undefined}
       aria-label={t(
         isBookmarked
           ? 'session.bookmark.removeLabel'
@@ -35,7 +35,9 @@ export const PracticeQuestionBookmarkButton = ({
       )}
       aria-pressed={isBookmarked}
       data-selected={isBookmarked}
-      onClick={onToggle}
+      onClick={() => {
+        if (!isDisabled) onToggle()
+      }}
     >
       {isBookmarked ? t('session.bookmark.remove') : t('session.bookmark.add')}
     </Button>
@@ -55,23 +57,17 @@ export const PracticeQuestionBookmarkStatus = ({
 }: PracticeQuestionBookmarkStatusProps): ReactElement => {
   const { t } = useTranslation('practice')
   const { bookmarksQuery, isMutationPaused, message } = bookmark
+  const failure = message?.questionId === questionId ? message.code : null
   return (
     <>
-      {message?.questionId === questionId || isMutationPaused ? (
+      {failure ? (
+        // A failed change is an error next to the button, never a toast.
+        <p className="mt-3 text-sm font-semibold text-danger" role="alert">
+          {t(`session.bookmark.${failure}`)}
+        </p>
+      ) : isMutationPaused ? (
         <p className="mt-3 text-sm font-semibold text-warning" role="status">
-          {isMutationPaused
-            ? t('session.bookmark.offlineQueued')
-            : message
-              ? t(`session.bookmark.${message.code}`)
-              : null}{' '}
-          {role === 'GUEST' ? (
-            <Link
-              className="inline-flex min-h-11 items-center px-1 underline hover:no-underline"
-              to="/login?redirect=%2Fpractice"
-            >
-              {t('session.bookmark.chooseLogin')}
-            </Link>
-          ) : null}
+          {t('session.bookmark.offlineQueued')}
         </p>
       ) : null}
       {role !== 'GUEST' && bookmarksQuery.fetchStatus === 'paused' ? (

@@ -13,6 +13,7 @@ import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { useAppStore } from '@nihongo/browser/store/index'
 import { invalidateCanonicalAuthTransitions } from '@nihongo/browser/app/login/authSession'
 import * as authApi from '@nihongo/browser/api/auth/getCurrentUser/index'
+import * as startApi from '@nihongo/browser/api/auth/startAdminReauth/index'
 import * as listApi from '@api/admin-question/listAdminQuestion/index'
 import * as api from '@nihongo/browser/api/content-operations/requestContentOperation'
 import { adminRoutes } from '@/router'
@@ -105,7 +106,7 @@ const selectAll = async () => {
       name: `${question.questionId} 문제 선택`
     })
   ).toBeNull()
-  expect(screen.getByText('2개 선택됨')).toBeVisible()
+  expect(screen.getByText('2개 선택')).toBeVisible()
   await userEvent.click(screen.getByRole('button', { name: '승인된 2개 공개' }))
   return { dialog: screen.getByRole('dialog'), router }
 }
@@ -128,7 +129,9 @@ it('publishes only approved rows and lists failed items with focus on the result
   })
   const { dialog } = await selectAll()
   expect(
-    within(dialog).getByRole('heading', { name: '문제 2개를 공개할까요?' })
+    within(dialog).getByRole('heading', {
+      name: '문제 2개를 공개하시겠습니까?'
+    })
   ).toBeVisible()
   await userEvent.click(
     within(dialog).getByRole('button', { name: '2개 공개' })
@@ -158,10 +161,10 @@ it('publishes only approved rows and lists failed items with focus on the result
       '공개 중 문제가 생겼습니다. 다시 시도하기 전에 목록에서 상태를 확인해 주세요.'
     )
   ).toBeVisible()
-  expect(screen.queryByText('2개 선택됨')).toBeNull()
+  expect(screen.queryByText('2개 선택')).toBeNull()
 })
 
-it('keeps the dialog and selection on fresh assurance and never resends by itself', async () => {
+it('asks for re-verification in the dialog, keeps the selection across the return and never resends by itself', async () => {
   const publish = vi.spyOn(api, 'requestContentOperation').mockRejectedValue(
     Object.assign(new Error('fresh'), {
       code: 'FRESH_ASSURANCE_REQUIRED',
@@ -173,33 +176,48 @@ it('keeps the dialog and selection on fresh assurance and never resends by itsel
     within(dialog).getByRole('button', { name: '2개 공개' })
   )
 
-  expect(
-    await within(dialog).findByRole('link', { name: '새 탭에서 본인 확인' })
-  ).toBeVisible()
-  await waitFor(() =>
-    expect(
-      within(dialog).getByRole('button', { name: '확인 완료' })
-    ).toHaveFocus()
+  expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+    '선택한 문제는 그대로 남으니'
   )
-  expect(screen.getByText('2개 선택됨')).toBeVisible()
+  expect(
+    within(dialog).queryByRole('button', { name: '2개 공개' })
+  ).not.toBeInTheDocument()
+  const check = within(dialog).getByRole('button', { name: '본인 확인' })
+  await waitFor(() => expect(check).toHaveFocus())
+  expect(screen.getByText('2개 선택')).toBeVisible()
   expect(publish).toHaveBeenCalledTimes(1)
 
-  vi.spyOn(authApi, 'getCurrentUser').mockResolvedValue({
-    id: actorId,
-    name: '관리자',
-    role: 'ADMIN',
-    targetLevel: 'N3',
-    adminSessionExpiresAt: '2099-01-01T00:00:00.000Z',
-    adminFreshUntil: '2099-01-01T00:00:00.000Z'
+  const start = vi
+    .spyOn(startApi, 'startAdminReauth')
+    .mockReturnValue(new Promise(() => undefined))
+  await userEvent.click(check)
+  expect(start).toHaveBeenCalledExactlyOnceWith({
+    purpose: 'ADMIN_FRESH',
+    provider: 'google',
+    callbackURL: '/admin/questions'
   })
-  await userEvent.click(
-    within(dialog).getByRole('button', { name: '확인 완료' })
+
+  // Back from Google on the same list: the selection returns, the dialog
+  // does not, and nothing is sent until the admin presses again.
+  cleanup()
+  client.clear()
+  const router = createMemoryRouter(adminRoutes, {
+    basename: '/admin',
+    initialEntries: ['/admin/questions?ssoFresh=REAUTHENTICATED']
+  })
+  render(
+    <QueryClientProvider client={client}>
+      <I18nProvider>
+        <ToastProvider>
+          <RouterProvider router={router} />
+        </ToastProvider>
+      </I18nProvider>
+    </QueryClientProvider>
   )
-  await waitFor(() =>
-    expect(
-      within(dialog).getByRole('button', { name: '2개 공개' })
-    ).toHaveFocus()
-  )
+  expect(await screen.findByText('2개 선택')).toBeVisible()
+  await waitFor(() => expect(router.state.location.search).toBe(''))
+  expect(screen.getByText('2개 선택')).toBeVisible()
+  expect(screen.queryByRole('dialog')).toBeNull()
   expect(publish).toHaveBeenCalledTimes(1)
 })
 
@@ -235,7 +253,7 @@ it('clears the selection when the page or filter changes, even after coming back
   const { dialog, router } = await selectAll()
   await userEvent.click(within(dialog).getByRole('button', { name: '취소' }))
   await router.navigate('/questions?level=N3')
-  await waitFor(() => expect(screen.queryByText('2개 선택됨')).toBeNull())
+  await waitFor(() => expect(screen.queryByText('2개 선택')).toBeNull())
 
   await router.navigate('/questions')
   expect(
@@ -243,7 +261,7 @@ it('clears the selection when the page or filter changes, even after coming back
       name: '이 페이지에서 고를 수 있는 문제 모두 선택'
     })
   ).not.toBeChecked()
-  expect(screen.queryByText('2개 선택됨')).toBeNull()
+  expect(screen.queryByText('2개 선택')).toBeNull()
 })
 
 it('approves only in-review rows from the same selection and lists failures', async () => {
@@ -296,14 +314,16 @@ it('approves only in-review rows from the same selection and lists failures', as
       name: '이 페이지에서 고를 수 있는 문제 모두 선택'
     })
   )
-  expect(screen.getByText('3개 선택됨')).toBeVisible()
+  expect(screen.getByText('3개 선택')).toBeVisible()
   expect(screen.getByRole('button', { name: '승인된 1개 공개' })).toBeVisible()
   await userEvent.click(
     screen.getByRole('button', { name: '검수 중 2개 승인' })
   )
   const dialog = screen.getByRole('dialog')
   expect(
-    within(dialog).getByRole('heading', { name: '문제 2개를 승인할까요?' })
+    within(dialog).getByRole('heading', {
+      name: '문제 2개를 승인하시겠습니까?'
+    })
   ).toBeVisible()
   await userEvent.click(
     within(dialog).getByRole('button', { name: '2개 승인' })
@@ -328,7 +348,7 @@ it('approves only in-review rows from the same selection and lists failures', as
   expect(resultArea.getByRole('link', { name: failedReviewId })).toBeVisible()
   expect(resultArea.getByText('검수 중 아님')).toBeVisible()
   expect(resultArea.queryByRole('link', { name: reviewId })).toBeNull()
-  expect(screen.queryByText('3개 선택됨')).toBeNull()
+  expect(screen.queryByText('3개 선택')).toBeNull()
 })
 
 it('loads 100 rows per page when chosen so one batch can take a full page', async () => {
@@ -339,7 +359,7 @@ it('loads 100 rows per page when chosen so one batch can take a full page', asyn
     expect.objectContaining({ page: 1, pageSize: 20 })
   )
   await userEvent.selectOptions(
-    screen.getByRole('combobox', { name: '한 페이지에' }),
+    screen.getAllByRole('combobox', { name: '한 페이지에' })[0],
     '100'
   )
   await waitFor(() =>
@@ -349,7 +369,7 @@ it('loads 100 rows per page when chosen so one batch can take a full page', asyn
   )
 })
 
-it('shows a rate limit wait in minutes and says the admin check is needed again', async () => {
+it('shows a rate limit wait in minutes', async () => {
   vi.spyOn(api, 'requestContentOperation').mockRejectedValue(
     Object.assign(new Error('limited'), {
       code: 'RATE_LIMITED',
@@ -364,9 +384,6 @@ it('shows a rate limit wait in minutes and says the admin check is needed again'
   const alert = await within(dialog).findByRole('alert')
   expect(alert).toHaveTextContent('15분 뒤 다시 시도해 주세요.')
   expect(alert).not.toHaveTextContent('900')
-  expect(alert).toHaveTextContent(
-    '기다린 뒤 다시 보낼 때는 관리자 본인 확인을 다시 해야 합니다.'
-  )
 })
 
 it('requests review of own drafts 20 at a time and marks a refused chunk', async () => {
@@ -414,7 +431,7 @@ it('requests review of own drafts 20 at a time and marks a refused chunk', async
       name: '이 페이지에서 고를 수 있는 문제 모두 선택'
     })
   )
-  expect(screen.getByText('26개 선택됨')).toBeVisible()
+  expect(screen.getByText('26개 선택')).toBeVisible()
   expect(screen.getByRole('button', { name: '승인된 1개 공개' })).toBeVisible()
   await userEvent.click(
     screen.getByRole('button', { name: '내 초안 25개 검수 요청' })
@@ -422,7 +439,7 @@ it('requests review of own drafts 20 at a time and marks a refused chunk', async
   const dialog = screen.getByRole('dialog')
   expect(
     within(dialog).getByRole('heading', {
-      name: '문제 25개를 검수 요청할까요?'
+      name: '문제 25개를 검수 요청하시겠습니까?'
     })
   ).toBeVisible()
   await userEvent.click(

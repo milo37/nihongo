@@ -203,7 +203,7 @@ describe('approved integrated review', () => {
       await screen.findByText(/현재 URL 조건으로 복습 대기열을 자동으로/u)
     ).toBeVisible()
     expect(
-      screen.queryByText('복습 대기열을 불러오고 있습니다…')
+      screen.queryByText('복습 대기열을 불러오고 있어요…')
     ).not.toBeInTheDocument()
   })
   it('offers a guest login without making member queue requests', async () => {
@@ -211,10 +211,10 @@ describe('approved integrated review', () => {
     const requests = vi.fn()
     mockServer.use(http.get('*/api/v1/review-queue', requests))
     mount()
-    expect(screen.getByRole('link', { name: '로그인' })).toHaveAttribute(
-      'href',
-      '/login?redirect=%2Fwrong-notes'
-    )
+    expect(screen.getByText('틀린 문제를 모아 복습할 수 있어요.')).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: 'Google로 계속하기' })
+    ).toBeEnabled()
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
     expect(requests).not.toHaveBeenCalled()
   })
@@ -387,12 +387,12 @@ it.each(['success', 'error'] as const)(
         })
       ).not.toBeInTheDocument()
       expect(screen.getByRole('status')).toHaveTextContent(
-        '복습 대기열을 불러오고 있습니다…'
+        '복습 대기열을 불러오고 있어요…'
       )
       await act(async () => releaseResponse())
       if (outcome === 'error') {
         const error = await screen.findByRole('alert')
-        expect(error).toHaveTextContent('복습 대기열을 불러오지 못했습니다')
+        expect(error).toHaveTextContent('복습 대기열을 불러오지 못했어요')
         expect(
           screen.queryByRole('heading', { name: '0문제' })
         ).not.toBeInTheDocument()

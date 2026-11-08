@@ -6,13 +6,16 @@ import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
-import { appDocumentNavigation } from '@nihongo/browser/libs/appNavigation'
 import { captureAuthTransitionEpoch } from '@nihongo/browser/libs/authTransitionFence'
 import { WideScreenNotice } from '@app/admin/components/WideScreenNotice'
+import {
+  ReauthDialogButton,
+  ReauthRequiredNotice
+} from '@app/admin/reauth/ReauthRequiredNotice'
+import { useAdminReauth } from '@app/admin/reauth/useAdminReauth'
 import { useQuestionImport } from '@app/admin-import/hooks/useQuestionImport'
 import { useUiLocale } from '@nihongo/browser/provider/I18nProvider'
 import { PageContainer } from '@nihongo/browser/common/components/PageContainer'
-import { Eyebrow } from '@nihongo/browser/common/components/Eyebrow'
 
 export const AdminQuestionImportPage = (): ReactElement => {
   const { user, role } = useAuth()
@@ -25,7 +28,7 @@ export const AdminQuestionImportPage = (): ReactElement => {
 }
 type ImportState = ReturnType<typeof useQuestionImport>
 
-/** Breadcrumb back to the question list, eyebrow, title and description. */
+/** Breadcrumb back to the question list, title and description. */
 const ImportHeader = ({ state }: { state: ImportState }): ReactElement => {
   const { t, heading } = state
   return (
@@ -42,12 +45,11 @@ const ImportHeader = ({ state }: { state: ImportState }): ReactElement => {
         </span>
         <span aria-current="page">{t('common.import')}</span>
       </nav>
-      <header className="my-6">
-        <Eyebrow>{t('import.eyebrow')}</Eyebrow>
+      <header className="mb-8 mt-4">
         <h1
           ref={heading}
           tabIndex={-1}
-          className="mt-2 rounded-sm text-3xl font-black sm:text-4xl"
+          className="rounded-sm text-3xl font-black sm:text-4xl"
         >
           {t('import.title')}
         </h1>
@@ -76,39 +78,49 @@ const ImportFileSection = ({ state }: { state: ImportState }): ReactElement => {
   } = state
   return (
     <section
-      className="border-b border-line py-6"
+      className="border-y border-line py-8"
       aria-labelledby="import-file-heading"
     >
       <h2 id="import-file-heading" className="text-xl font-bold">
         {t('import.fileLabel')}
       </h2>
-      <p id="import-file-hint" className="mt-3 text-sm text-muted">
+      <p id="import-file-hint" className="mt-1 text-sm text-muted">
         {t('import.fileHint')}
       </p>
-      <label htmlFor="import-file" className="mt-6 block font-semibold">
-        {t('import.fileLabel')}
-      </label>
-      <input
-        ref={fileInput}
-        id="import-file"
-        name="question-import-file"
-        type="file"
-        accept="application/json,.json"
-        disabled={pending}
-        aria-busy={reading}
-        aria-invalid={fileError ? true : undefined}
-        aria-describedby={`import-file-hint${reading ? ' import-reading' : ''}${fileError ? ' import-file-error' : ''}`}
-        className="mt-3 min-h-11 w-full rounded-lg border border-line-interactive bg-surface p-3 file:mr-4 file:min-h-11 file:rounded-control file:border file:border-line file:bg-surface file:px-3 file:font-semibold file:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
-        onChange={(event) => void selectFile(event)}
-      />
+      {/* The section heading names the input; the visible label is the
+          translated picker button, so the browser's own text never shows. */}
+      <div className="mt-2 flex min-h-14 items-center gap-3 rounded-lg border border-line-interactive bg-surface px-2 has-[:focus-visible]:outline has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-brand">
+        <input
+          ref={fileInput}
+          id="import-file"
+          name="question-import-file"
+          type="file"
+          accept="application/json,.json"
+          disabled={pending}
+          aria-labelledby="import-file-heading"
+          aria-busy={reading}
+          aria-invalid={fileError ? true : undefined}
+          aria-describedby={`import-file-hint import-file-name${reading ? ' import-reading' : ''}${fileError ? ' import-file-error' : ''}`}
+          className="peer sr-only"
+          onChange={(event) => void selectFile(event)}
+        />
+        <label
+          htmlFor="import-file"
+          aria-hidden="true"
+          className="inline-flex min-h-10 shrink-0 cursor-pointer items-center rounded-control border border-line-interactive bg-surface px-3 text-sm font-semibold text-brand hover:bg-surface-muted peer-disabled:cursor-not-allowed peer-disabled:text-disabled-text"
+        >
+          {t('import.chooseFile')}
+        </label>
+        <span
+          id="import-file-name"
+          className={`min-w-0 break-words text-sm ${fileName ? '' : 'text-muted'}`}
+        >
+          {fileName ?? t('import.noFileChosen')}
+        </span>
+      </div>
       {reading ? (
         <p id="import-reading" role="status" className="mt-3">
           {t('import.readingFile')}
-        </p>
-      ) : null}
-      {fileName ? (
-        <p className="mt-3 break-words text-sm text-muted">
-          {t('common.selectedFile', { fileName })}
         </p>
       ) : null}
       {fileError ? (
@@ -126,6 +138,7 @@ const ImportFileSection = ({ state }: { state: ImportState }): ReactElement => {
       ) : null}
       <Button
         className="mt-6"
+        variant="outline"
         disabled={!request || reading || pending || !online}
         isLoading={validation.isPending}
         onClick={() => void validate()}
@@ -136,33 +149,29 @@ const ImportFileSection = ({ state }: { state: ImportState }): ReactElement => {
   )
 }
 
-/** Validate or apply failure, recovery hint and the fresh sign-in path. */
+/** Validate or apply failure, recovery hint and the re-verification path. */
 const ImportOperationError = ({
   state
 }: {
   state: ImportState
 }): ReactElement | null => {
-  const {
-    t,
-    presentError,
-    online,
-    recovery,
-    pending,
-    assertActor,
-    operationError,
-    needsFresh
-  } = state
+  const { t, presentError, recovery, operationError, needsFresh } = state
+  const reauth = useAdminReauth()
   if (!operationError) return null
-  const startFresh = (): void => {
-    try {
-      assertActor()
-      appDocumentNavigation.assign(
-        '/login?redirect=' + encodeURIComponent('/admin/questions/import')
-      )
-    } catch {
-      /* A changed actor cannot start fresh from this page. */
-    }
-  }
+  if (needsFresh)
+    // The chosen file cannot be kept; the notice asks for it again.
+    return (
+      <div className="my-6">
+        <ReauthRequiredNotice
+          command={t('common.import')}
+          keeps="file"
+          reauth={reauth}
+        />
+        <div className="mt-3">
+          <ReauthDialogButton reauth={reauth} />
+        </div>
+      </div>
+    )
   return (
     <div className="my-6">
       <ErrorState
@@ -173,20 +182,6 @@ const ImportOperationError = ({
         <p role="status" className="mt-4 text-sm leading-7">
           {t(`import.recovery.${recovery}`)}
         </p>
-      ) : null}
-      {needsFresh ? (
-        <>
-          <p className="mt-4 text-sm leading-7">
-            {t('import.freshRevalidateHint')}
-          </p>
-          <Button
-            className="mt-3"
-            disabled={pending || !online}
-            onClick={startFresh}
-          >
-            {t('reportDetail.fresh')}
-          </Button>
-        </>
       ) : null}
     </div>
   )
@@ -201,32 +196,50 @@ const ImportValidationResult = ({
   const { t, applyImport, validated, resultHeading, apply, canApply } = state
   const { locale } = useUiLocale()
   if (!validated) return null
-  const verdict = validated.result.valid ? 'import.valid' : 'import.invalid'
+  const { valid, itemCount, errors } = validated.result
   return (
     <section
-      className="mt-8 rounded-2xl border border-line bg-surface p-5 sm:p-6"
+      className={`mt-8 rounded-card border p-4 sm:p-6 ${valid ? 'border-line bg-surface' : 'border-danger-line bg-danger-soft'}`}
       aria-labelledby="import-result-heading"
     >
+      {/* Focus lands here, so the verdict is part of the heading. */}
       <h2
         ref={resultHeading}
         tabIndex={-1}
         id="import-result-heading"
-        className="rounded-sm text-xl font-bold"
+        className="flex flex-wrap items-center gap-3 rounded-sm text-xl font-bold"
       >
-        {t(verdict)}
+        {t('import.resultTitle')}
+        <Badge
+          variant={valid ? 'success' : 'danger'}
+          className="inline-flex items-center gap-1"
+        >
+          <Icon
+            name={valid ? 'circle-check' : 'circle-alert'}
+            className="size-3.5 shrink-0"
+          />
+          {t(valid ? 'import.valid' : 'import.invalid')}
+        </Badge>
       </h2>
-      <p className="mt-3">
-        {t('import.resultCount', {
-          formattedCount: formatNumber(validated.result.itemCount, locale)
-        })}
+      <p className="mt-4 flex items-baseline gap-2">
+        <span className="text-sm text-muted">
+          {t(valid ? 'import.resultCountLabel' : 'import.issueCountLabel')}
+        </span>
+        <span className="text-xl font-bold tabular-nums">
+          {t('import.resultCount', {
+            formattedCount: formatNumber(
+              valid ? itemCount : errors.length,
+              locale
+            )
+          })}
+        </span>
       </p>
-      <Badge className="mt-3">{t(verdict)}</Badge>
-      {validated.result.errors.length ? (
-        <ul className="mt-5 grid gap-3">
-          {validated.result.errors.map((issue) => (
+      {errors.length ? (
+        <ul className="mt-4 grid list-disc gap-1 pl-5">
+          {errors.map((issue) => (
             <li
               key={`${issue.itemIndex}:${issue.fieldPath}:${issue.code}`}
-              className="break-words rounded-lg border border-line p-3"
+              className="break-words"
             >
               {t('import.issueLabel', {
                 code: t(`enums.importIssueCodes.${issue.code}`),
@@ -237,14 +250,20 @@ const ImportValidationResult = ({
           ))}
         </ul>
       ) : null}
-      <Button
-        className="mt-6"
-        disabled={!canApply}
-        isLoading={applyImport.isPending}
-        onClick={() => void apply()}
-      >
-        {t('import.apply')}
-      </Button>
+      {valid ? (
+        <div className="mt-6 flex justify-end">
+          <Button
+            className="w-full sm:w-auto"
+            disabled={!canApply}
+            isLoading={applyImport.isPending}
+            onClick={() => void apply()}
+          >
+            {t('import.apply', {
+              formattedCount: formatNumber(itemCount, locale)
+            })}
+          </Button>
+        </div>
+      ) : null}
     </section>
   )
 }
@@ -263,16 +282,6 @@ const ImportPage = ({
     <PageContainer width="6xl">
       <ImportHeader state={state} />
       <WideScreenNotice />
-      <ol
-        className="my-6 flex flex-wrap items-center gap-3 border-b border-line pb-6 text-sm"
-        aria-label={t('common.import')}
-      >
-        <li className="font-semibold">{t('import.validate')}</li>
-        <li aria-hidden="true">
-          <Icon name="arrow-right" className="size-4" />
-        </li>
-        <li>{t('import.apply')}</li>
-      </ol>
       <ImportFileSection state={state} />
       {!online ? (
         <p role="status" className="my-4">
@@ -281,13 +290,17 @@ const ImportPage = ({
       ) : null}
       <ImportOperationError state={state} />
       <ImportValidationResult state={state} />
-      {createdCount !== null ? (
-        <p role="status" className="mt-6 font-semibold">
-          {t('import.applied', {
-            formattedCount: formatNumber(createdCount, locale)
-          })}
-        </p>
-      ) : null}
+      {/* Always mounted so the result is announced when the text arrives. */}
+      <p
+        role="status"
+        className={createdCount !== null ? 'mt-6 font-semibold' : undefined}
+      >
+        {createdCount !== null
+          ? t('import.applied', {
+              formattedCount: formatNumber(createdCount, locale)
+            })
+          : null}
+      </p>
     </PageContainer>
   )
 }

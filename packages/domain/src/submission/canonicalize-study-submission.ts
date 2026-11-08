@@ -36,11 +36,6 @@ export interface CanonicalizeStudySubmissionInput {
   readonly durationSec: number
 }
 
-interface CanonicalizeStudySubmissionV2Input
-  extends CanonicalizeStudySubmissionInput {
-  readonly expectedDraftRevision: number
-}
-
 const isValidDuration = (value: number, maximum: number): boolean =>
   Number.isInteger(value) && value >= 0 && value <= maximum
 
@@ -188,23 +183,13 @@ export const canonicalizeStudySubmission = ({
   })}`
 }
 
+// Submit grades the answers as sent; the saved draft is not part of it.
 export const canonicalizeStudySubmissionV2 = ({
   sessionId,
   orderedSessionQuestions,
   answers,
-  durationSec,
-  expectedDraftRevision
-}: CanonicalizeStudySubmissionV2Input): string => {
-  if (
-    !Number.isSafeInteger(expectedDraftRevision) ||
-    expectedDraftRevision < 0
-  ) {
-    throw new StudySubmissionCanonicalizationError(
-      'INVALID_DURATION',
-      'expectedDraftRevision 범위를 벗어났습니다.'
-    )
-  }
-
+  durationSec
+}: CanonicalizeStudySubmissionInput): string => {
   const v1Canonical = canonicalizeStudySubmission({
     sessionId,
     orderedSessionQuestions,
@@ -222,7 +207,6 @@ export const canonicalizeStudySubmissionV2 = ({
   return `${STUDY_SUBMISSION_V2_CANONICAL_PREFIX}${JSON.stringify({
     sessionId: material.sessionId,
     answers: material.answers,
-    durationSec: material.durationSec,
-    expectedDraftRevision
+    durationSec: material.durationSec
   })}`
 }

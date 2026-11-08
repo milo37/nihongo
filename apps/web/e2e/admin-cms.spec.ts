@@ -163,11 +163,16 @@ const login = async (
   expect(started.status).toBe(200)
   // Keep bootstrap requests in their document until all ledger events complete.
   await waitForLedgerToQuiesce(ledger)
+  // The signed-in practice page reads resumable sessions only after /me
+  // settles, which can be after the ledger looks quiet; wait for it so the
+  // next navigation does not abort it.
+  const resumable = waitForResponse(page, 'GET', '/api/v1/study-sessions')
   // Enter the installed TEST provider callback; no credentials, cookies or session state are injected.
   await page.goto(callbackPath(started.body, actor))
   await expect(page).toHaveURL(
     (url) => url.origin === publicOrigin && url.pathname === '/practice'
   )
+  expect((await resumable).status()).toBe(200)
   await confirmActor(page, actor)
   await waitForLedgerToQuiesce(ledger)
 }
@@ -554,7 +559,10 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
     const archivePath = `/api/v1/admin/questions/${questionId}/archive`
     const openArchive = async (): Promise<void> => {
       await winner
-        .getByRole('button', { name: `${questionId} 초안 삭제`, exact: true })
+        .getByRole('button', { name: `${questionId} 작업`, exact: true })
+        .click()
+      await winner
+        .getByRole('menuitem', { name: '초안 삭제', exact: true })
         .click()
       await expect(
         winner.getByRole('dialog', {
@@ -585,16 +593,19 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
         staleResponse.request().postDataJSON() as unknown
       )
     ).toEqual(expectedArchive)
-    await winner
-      .getByRole('link', { name: '관리자 재인증', exact: true })
-      .click()
-    await expect(winner).toHaveURL(
-      (url) =>
-        url.origin === publicOrigin &&
-        url.pathname === '/login' &&
-        url.searchParams.get('redirect') === '/admin/questions' + query
+    // Same dialog, same tab: the command gives way to the check.
+    const archiveDialog = winner.getByRole('dialog')
+    await expect(archiveDialog.getByRole('alert')).toContainText(
+      '본인 확인 시간이 끝나 ‘초안 삭제’ 작업을 적용하지 않았습니다.'
     )
-    await confirmActor(winner, author)
+    await expect(
+      archiveDialog.getByRole('button', { name: '초안 삭제', exact: true })
+    ).toHaveCount(0)
+    const reauthButton = archiveDialog.getByRole('button', {
+      name: '본인 확인',
+      exact: true
+    })
+    await expect(reauthButton).toBeFocused()
     await waitForLedgerToQuiesce(ledger)
     const returnedDocuments: Array<{
       origin: string
@@ -633,9 +644,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
       const [started, authorizationRequest] = await Promise.all([
         startResponse,
         providerRequest,
-        winner
-          .getByRole('button', { name: 'Google로 계속하기', exact: true })
-          .click()
+        reauthButton.click()
       ])
       expect(
         adminFreshSsoRequestSchema.parse(
@@ -676,6 +685,13 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
       expect(returnedDocuments).toEqual([
         { origin: publicOrigin, path: '/admin/questions', status: 200 }
       ])
+      // The server result is checked before it is shown; the top bar counts.
+      await expect(
+        winner.locator('[data-reauth-result="returned"]')
+      ).toContainText('본인 확인을 마쳤습니다(30분 유효).')
+      await expect(
+        winner.getByText('본인 확인 · 30분 남음', { exact: true })
+      ).toBeVisible()
       await confirmActor(winner, author)
       await waitForLedgerToQuiesce(ledger)
       expect(
@@ -712,7 +728,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
       })
       await expect(
         winner.getByRole('button', {
-          name: `${questionId} 초안 삭제`,
+          name: `${questionId} 작업`,
           exact: true
         })
       ).toHaveCount(0)
@@ -794,7 +810,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
         '/api/v1/admin/questions/import-validation'
       )
       await winner
-        .getByRole('button', { name: '쓰기 없이 검증', exact: true })
+        .getByRole('button', { name: '검사하기', exact: true })
         .click()
       expect(
         adminImportValidationResponseSchema.parse(
@@ -807,7 +823,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
         '/api/v1/admin/questions/import-application'
       )
       await winner
-        .getByRole('button', { name: '동일 검증 결과 원자 적용', exact: true })
+        .getByRole('button', { name: '1개 초안으로 가져오기', exact: true })
         .click()
       const appliedResponse = await applyResponse
       const { importId } = applyQuestionImportRequestSchema.parse(

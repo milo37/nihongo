@@ -8,7 +8,7 @@ import { listReviewQueueQuerySchema } from '../wrong-note/list-review-queue.js'
 // Contracts intentionally compile with ES-only libs. These local structural
 // types describe the standard Web URL API without adding Node/DOM dependencies
 // or changing global declarations; both supported browsers and Node 22 supply it.
-interface RuntimeSearchParams extends Iterable<[string, string]> {
+export interface RuntimeSearchParams extends Iterable<[string, string]> {
   keys: () => IterableIterator<string>
   get: (key: string) => string | null
   getAll: (key: string) => string[]
@@ -16,7 +16,7 @@ interface RuntimeSearchParams extends Iterable<[string, string]> {
   delete: (key: string) => void
   toString: () => string
 }
-interface RuntimeURL {
+export interface RuntimeURL {
   origin: string
   pathname: string
   search: string
@@ -75,7 +75,8 @@ const hasControlOrSpace = (value: string): boolean =>
       character.charCodeAt(0) <= 32 || character.charCodeAt(0) === 127
   )
 
-const relativeURL = (value: unknown): RuntimeURL | null => {
+/** A same-origin relative URL with no fragment, controls or repeated keys. */
+export const relativeURL = (value: unknown): RuntimeURL | null => {
   if (
     typeof value !== 'string' ||
     value.length > 2048 ||

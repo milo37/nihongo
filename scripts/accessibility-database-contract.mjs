@@ -70,7 +70,7 @@ export const accessibilityExpectedTableDeltas = {
   QuestionReport: 0,
   QuestionVersion: 0,
   QuestionVersionTag: 0,
-  RateLimit: 28,
+  RateLimit: 29,
   ReviewEvent: 10,
   ReviewSchedule: 10,
   Session: 2,
@@ -100,7 +100,8 @@ export const accessibilityExpectedTableDeltas = {
 export const accessibilityExpectedRateLimitCategories = {
   'application:bookmark-list': 1,
   'application:bookmark-write': 1,
-  'application:dashboard-insights-read': 2,
+  // Only My page reads insights; the learning home no longer does (#745).
+  'application:dashboard-insights-read': 1,
   'application:dashboard-read': 1,
   'application:keyed:ADMIN_READ:ACTOR': 1,
   'application:keyed:ADMIN_READ:IP': 1,
@@ -109,6 +110,10 @@ export const accessibilityExpectedRateLimitCategories = {
   'application:keyed:REPORT_VERSION:VERSION': 0,
   'application:study-cancel': 0,
   'application:study-create': 2,
+  // The guest practice page reads the remaining guest starts once; the
+  // scan starts no guest session, so the per-IP day counter stays empty (#737).
+  'application:guest-allowance-read': 1,
+  'application:guest-study-create-day': 0,
   'application:study-draft-save': 1,
   'application:study-mutation-ip': 2,
   'application:study-read': 2,
@@ -121,7 +126,10 @@ export const accessibilityExpectedRateLimitCategories = {
   'application:wrong-note-review-queue': 1,
   // Two isolated actor IPs each start Google and consume one callback.
   'application:auth:/api/auth/sign-in/social': 2,
-  'application:auth:/api/auth/callback/google': 2
+  'application:auth:/api/auth/callback/google': 2,
+  // The learner My page scan reads the account sign-in methods once; the
+  // gateway rate-limits every SSO account path as auth:<path> (#735).
+  'application:auth:/api/auth/sso/accounts': 1
 }
 
 const sorted = (values) =>

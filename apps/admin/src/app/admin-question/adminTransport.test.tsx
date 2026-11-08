@@ -1,5 +1,6 @@
 import {
   cleanup,
+  fireEvent,
   render,
   screen,
   waitFor,
@@ -22,6 +23,7 @@ import { AuthErrorHandlerProvider } from '@nihongo/browser/provider/AuthErrorHan
 import { emitApiError } from '@nihongo/browser/libs/errorBus'
 import { appDocumentNavigation } from '@nihongo/browser/libs/appNavigation'
 import { useAppStore } from '@nihongo/browser/store/index'
+import * as startApi from '@nihongo/browser/api/auth/startAdminReauth/index'
 import { invalidateCanonicalAuthTransitions } from '@nihongo/browser/app/login/authSession'
 import {
   adminQuestionQueries,
@@ -43,6 +45,12 @@ import {
   updateReceipt,
   archiveReceipt
 } from '@app/admin-question/test/questionFixture'
+
+/** Opens a list row's ⋯ menu and returns one of its items. */
+const rowMenuItem = (questionId: string, name: string): HTMLElement => {
+  fireEvent.click(screen.getByRole('button', { name: questionId + ' 작업' }))
+  return screen.getByRole('menuitem', { name })
+}
 
 const requestId = '30000000-0000-4000-8000-000000000001'
 const originalAdapter = apiClient.defaults.adapter
@@ -319,7 +327,7 @@ it.each([
     expect(calls).toHaveLength(1)
   }
 )
-it('renders the populated canonical list and shows fresh SSO without expiring the ADMIN session or replaying archive', async () => {
+it('renders the populated canonical list and asks for re-verification without expiring the ADMIN session or replaying archive', async () => {
   responder = (url) =>
     url.endsWith('/archive')
       ? failure('FRESH_ASSURANCE_REQUIRED', 401)
@@ -330,30 +338,34 @@ it('renders the populated canonical list and shows fresh SSO without expiring th
   const user = userEvent.setup()
   renderPage()
   await screen.findByRole('region', { name: '관리자 문제 목록' })
-  await user.click(
-    screen.getByRole('button', { name: question.questionId + ' 초안 삭제' })
-  )
+  await user.click(rowMenuItem(question.questionId, '초안 삭제'))
   await user.click(
     within(screen.getByRole('dialog')).getByRole('button', {
       name: '초안 삭제'
     })
   )
-  const link = await screen.findByRole('link', { name: '관리자 재인증' })
+  const dialog = screen.getByRole('dialog')
+  expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+    '본인 확인 시간이 끝나 ‘초안 삭제’ 작업을 적용하지 않았습니다.'
+  )
+  // The command button gives way to the check; nothing is sent again.
   expect(
-    new URL(link.getAttribute('href') ?? '', window.location.origin).pathname +
-      new URL(link.getAttribute('href') ?? '', window.location.origin).search
-  ).toBe('/login?redirect=%2Fadmin%2Fquestions%3Flevel%3DN3')
-  expect(
-    new URL(link.getAttribute('href') ?? '', window.location.origin).origin
-  ).toBe(window.location.origin)
+    within(dialog).queryByRole('button', { name: '초안 삭제' })
+  ).not.toBeInTheDocument()
+  const check = within(dialog).getByRole('button', { name: '본인 확인' })
+  expect(check).toHaveFocus()
   expect(replace).not.toHaveBeenCalled()
   expect(useAppStore.getState().currentUser?.id).toBe(actorId)
   expect(calls.filter(({ method }) => method === 'post')).toHaveLength(1)
-  expect(
-    within(screen.getByRole('dialog')).getByRole('button', {
-      name: '초안 삭제'
-    })
-  ).toBeDisabled()
+  const start = vi
+    .spyOn(startApi, 'startAdminReauth')
+    .mockReturnValue(new Promise(() => undefined))
+  await user.click(check)
+  expect(start).toHaveBeenCalledExactlyOnceWith({
+    purpose: 'ADMIN_FRESH',
+    provider: 'google',
+    callbackURL: '/admin/questions?level=N3'
+  })
 })
 it('an actual ordinary401 from the list retains the admin filter in the public login document', async () => {
   responder = () => failure('AUTH_SESSION_EXPIRED', 401)
@@ -507,7 +519,8 @@ it('labels a draft and an existing published copy separately and normalizes unsu
     'maxLength',
     '100'
   )
-  expect(screen.getByText(/초안 · 활성 · 공개본 있음/)).toBeVisible()
+  expect(screen.getByText('초안')).toBeVisible()
+  expect(screen.getByText('공개본 있음')).toBeVisible()
   expect(
     screen.getByText('상태순 정렬은 지원하지 않아 최근 수정순으로 표시합니다.')
   ).toBeVisible()
@@ -526,9 +539,7 @@ it('shows the archive failure from the error code, not the server message', asyn
   const user = userEvent.setup()
   renderPage()
   await screen.findByRole('region', { name: '관리자 문제 목록' })
-  await user.click(
-    screen.getByRole('button', { name: question.questionId + ' 초안 삭제' })
-  )
+  await user.click(rowMenuItem(question.questionId, '초안 삭제'))
   const dialog = screen.getByRole('dialog')
   await user.click(within(dialog).getByRole('button', { name: '초안 삭제' }))
   expect(
@@ -546,9 +557,7 @@ it('falls back to the archive copy for an unknown error code', async () => {
   const user = userEvent.setup()
   renderPage()
   await screen.findByRole('region', { name: '관리자 문제 목록' })
-  await user.click(
-    screen.getByRole('button', { name: question.questionId + ' 초안 삭제' })
-  )
+  await user.click(rowMenuItem(question.questionId, '초안 삭제'))
   const dialog = screen.getByRole('dialog')
   await user.click(within(dialog).getByRole('button', { name: '초안 삭제' }))
   expect(
@@ -617,9 +626,7 @@ it('labels a never-published draft as draft deletion and explains content reuse'
   const user = userEvent.setup()
   renderPage()
   await screen.findByRole('region', { name: '관리자 문제 목록' })
-  await user.click(
-    screen.getByRole('button', { name: question.questionId + ' 초안 삭제' })
-  )
+  await user.click(rowMenuItem(question.questionId, '초안 삭제'))
   expect(
     within(screen.getByRole('dialog')).getByText(
       `${question.questionId} 초안을 목록에서 지우고 보관합니다. 같은 내용으로 새 문제를 만들 수 없습니다.`
@@ -639,11 +646,7 @@ it('labels a question with a published past as stop publishing and archive', asy
   const user = userEvent.setup()
   renderPage()
   await screen.findByRole('region', { name: '관리자 문제 목록' })
-  await user.click(
-    screen.getByRole('button', {
-      name: question.questionId + ' 문제 공개 중단·보관'
-    })
-  )
+  await user.click(rowMenuItem(question.questionId, '공개 중단·보관'))
   const dialog = screen.getByRole('dialog')
   expect(
     within(dialog).getByRole('button', { name: '공개 중단·보관' })

@@ -29,6 +29,8 @@ import { createJsonLogger, type LogLevel } from '../observability/logger.js'
 import { createApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createPrismaQuestionRepository } from '../question/questionRepository.js'
 import { createQuestionService } from '../question/questionService.js'
+import { createPrismaGuestAllowanceReader } from '../study/guestAllowance.js'
+import { createGuestIpDailyCounter } from '../study/guestIpDailyCounter.js'
 import { createPrismaStudySessionRepository } from '../study/studySessionRepository.js'
 import { createStudySessionService } from '../study/studySessionService.js'
 import { createPrismaStudySubmissionRepository } from '../study/studySubmissionRepository.js'
@@ -446,6 +448,15 @@ export const createBrowserApi = async ({
         draftService: createStudyDraftService(
           createPrismaStudyDraftRepository(database.client)
         ),
+        guestAllowanceReader: createPrismaGuestAllowanceReader({
+          client: database.client,
+          keySecret: environment.GUEST_COOKIE_SECRET
+        }),
+        guestIpDailyCounter: createGuestIpDailyCounter({
+          client: database.client,
+          keySecret: environment.GUEST_COOKIE_SECRET,
+          rateLimiter
+        }),
         rateLimiter,
         retryService: createStudyResultRetryService(
           createPrismaStudyResultRetryRepository(database.client)

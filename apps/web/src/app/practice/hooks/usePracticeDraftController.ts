@@ -1574,21 +1574,12 @@ export const usePracticeDraftController = ({
 
   const prepareSubmission = async (): Promise<PreparedStudyDraftSubmission> => {
     const snapshot = await flush()
-    const currentState = useAppStore.getState()
-    if (
-      currentState.draftWorkingCopy?.pendingConflict ||
-      currentState.draftConflict ||
-      currentState.isDraftConflictPending
-    ) {
-      throw new Error('다른 기기의 변경 충돌을 해결한 뒤 제출해 주세요.')
-    }
     return {
       answers: snapshot.answers,
       durationSec: snapshot.answers.reduce(
         (total, answer) => total + answer.elapsedSec,
         0
-      ),
-      expectedDraftRevision: snapshot.revision
+      )
     }
   }
 

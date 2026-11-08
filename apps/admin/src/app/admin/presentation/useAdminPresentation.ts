@@ -14,6 +14,15 @@ export const useAdminPresentation = () => {
   const t = appI18n.getFixedT(locale, 'admin')
   return {
     t,
+    /** Date only for list cells; the year shows only when it is not this year. */
+    formatAdminDate: (value: string): string =>
+      formatDateTime(value, locale, {
+        ...(new Date(value).getFullYear() === new Date().getFullYear()
+          ? {}
+          : { year: 'numeric' }),
+        month: 'numeric',
+        day: 'numeric'
+      }),
     formatAdminDateTime: (value: string): string =>
       formatDateTime(value, locale, {
         dateStyle: 'medium',

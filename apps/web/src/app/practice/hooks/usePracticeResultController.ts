@@ -22,6 +22,11 @@ import { useGuestResultOwnerProof } from '@app/practice/hooks/useGuestResultOwne
 import { usePracticeResultBookmark } from '@app/practice/hooks/usePracticeResultBookmark'
 import { readResultRetryAttempt } from '@nihongo/browser/app/practice/resultRetryAttemptStorage'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
+import { useQuery } from '@tanstack/react-query'
+import {
+  asGuestAllowance,
+  guestAllowanceQueries
+} from '@app/practice/queries/guestAllowanceQueries'
 import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
 
 export type ResultRetryStatusCode = 'priorEnded' | 'sourceRefreshing'
@@ -48,6 +53,13 @@ export const usePracticeResultController = ({
   const [retryDestination, setRetryDestination] = useState<string | null>(null)
   const [isRetrySourceMissing, setRetrySourceMissing] = useState(false)
   const { isReady: isAuthReady, role, user } = useAuth()
+  const guestAllowance = useQuery({
+    ...guestAllowanceQueries.get(),
+    enabled: isAuthReady && role === 'GUEST'
+  })
+  // The guest just used the last try for today (L20).
+  const isGuestDone =
+    role === 'GUEST' && asGuestAllowance(guestAllowance.data)?.remaining === 0
   const principalScope = getStudyDraftPrincipalScope(user)
   const requireFreshGuestOwnerProbe = isAuthReady && role === 'GUEST'
   const resultQuery = useGetStudyResult(
@@ -334,6 +346,7 @@ export const usePracticeResultController = ({
     bookmark,
     canRequestCanonicalRetry,
     canShowRetryButton,
+    isGuestDone,
     createRetrySession,
     handleRetryIncorrect,
     hasNoEligibleRetry,

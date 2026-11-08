@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  accountReauthActionSchema,
   accountSsoRequestSchema,
+  safeAccountSsoReturnPath,
   ssoAccountCapabilitiesSchema,
   ssoAccountDeletionSchema,
   unlinkSsoAccountRequestSchema,
@@ -23,6 +25,34 @@ const capabilities = {
   freshVerified: false
 }
 describe('SSO account transport', () => {
+  // #683: the reopened dialog comes back only through known actions.
+  it.each(['delete', 'unlink:apple', 'unlink:google'])(
+    'returns to sign-in with the reauth action %s',
+    (action) => {
+      expect(accountReauthActionSchema.parse(action)).toBe(action)
+      const path = `/login?reauth=${encodeURIComponent(action)}`
+      expect(safeAccountSsoReturnPath(path)).toBe(path)
+      expect(
+        accountSsoRequestSchema.parse({
+          purpose: 'ACCOUNT_FRESH',
+          provider: 'google',
+          callbackURL: path
+        }).callbackURL
+      ).toBe(path)
+    }
+  )
+  it.each([
+    '/login?reauth=unlink:naver',
+    '/login?reauth=delete-all',
+    '/login?reauth=',
+    '/login?reauth=delete&reauth=delete',
+    '/login?reauth=delete&redirect=%2F%2Fevil.test',
+    '/login?redirect=%2Fadmin',
+    '/login?reauth=delete#x'
+  ])('drops an unknown reauth value back to /login: %s', (path) => {
+    expect(['/login', '/']).toContain(safeAccountSsoReturnPath(path))
+    expect(safeAccountSsoReturnPath(path)).not.toContain('reauth')
+  })
   it.each(['ACCOUNT_FRESH', 'ACCOUNT_LINK'])(
     'strict %s keeps LOGIN allowlist separate',
     (purpose) => {

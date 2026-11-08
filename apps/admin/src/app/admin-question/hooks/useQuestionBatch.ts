@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router'
 import {
   onlineManager,
@@ -11,11 +11,17 @@ import {
   captureAuthActorTransitionFence,
   type AuthActorTransitionFence
 } from '@nihongo/browser/libs/authTransitionFence'
+import { REAUTH_RETURN_PARAM } from '@nihongo/browser/app/reauth/hooks/useStartReauth'
 import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
 import { useAppStore } from '@nihongo/browser/store/index'
 import { adminAuditQueries } from '@app/admin-audit/queries/adminAuditQueries'
 import type { AdminQuestionSummary } from '@app/admin-question/components/QuestionListTable'
 import { adminQuestionQueries } from '@app/admin-question/queries/adminQuestionQueries'
+import {
+  clearReauthKeep,
+  readReauthKeep,
+  saveReauthKeep
+} from '@app/admin/reauth/reauthKeep'
 import {
   questionWorkflowMutations,
   questionWorkflowQueries,
@@ -63,6 +69,31 @@ export const isBatchSelectable = (
   batchTargets.approve(question, actorId) ||
   batchTargets.publish(question, actorId)
 
+/** The list's query string without the re-verification result. */
+const listSearchOf = (search: string): string => {
+  const params = new URLSearchParams(search)
+  params.delete(REAUTH_RETURN_PARAM)
+  return params.toString()
+}
+
+/** Selection kept before re-verification, if it was made on this list. */
+const restoredSelection = (
+  actorId: string | undefined,
+  search: string
+): ReadonlySet<string> => {
+  if (!actorId) return new Set()
+  const kept = readReauthKeep(actorId, 'question-list')
+  return typeof kept === 'object' &&
+    kept !== null &&
+    'search' in kept &&
+    kept.search === search &&
+    'ids' in kept &&
+    Array.isArray(kept.ids) &&
+    kept.ids.every((id) => typeof id === 'string')
+    ? new Set<string>(kept.ids)
+    : new Set()
+}
+
 const assertAdmin = (fence: AuthActorTransitionFence | undefined): void => {
   if (!fence || fence.role !== 'ADMIN')
     throw new AuthTransitionSupersededError()
@@ -77,7 +108,7 @@ const assertAdmin = (fence: AuthActorTransitionFence | undefined): void => {
  * request, approve and publish. One selection serves every action.
  */
 export const useQuestionBatch = (items: readonly AdminQuestionSummary[]) => {
-  const { search } = useLocation()
+  const search = listSearchOf(useLocation().search)
   const client = useQueryClient()
   const actorId = useAppStore((state) => state.currentUser?.id)
   // Page, filter, sort and search live in the query string, so selection and
@@ -85,7 +116,10 @@ export const useQuestionBatch = (items: readonly AdminQuestionSummary[]) => {
   const [selection, setSelection] = useState<{
     readonly search: string
     readonly ids: ReadonlySet<string>
-  }>({ search, ids: new Set() })
+  }>(() => ({ search, ids: restoredSelection(actorId, search) }))
+  useEffect(() => {
+    if (actorId) clearReauthKeep(actorId, 'question-list')
+  }, [actorId])
   const [outcome, setOutcome] = useState<{
     readonly search: string
     readonly result: BatchActionResult
@@ -95,7 +129,6 @@ export const useQuestionBatch = (items: readonly AdminQuestionSummary[]) => {
     readonly action: BatchAction
     readonly open: boolean
   }>({ action: 'publish', open: false })
-  const [freshConfirmed, setFreshConfirmed] = useState(false)
   // Leaving a query string drops its selection and result, so coming back
   // (for example after resetting a filter) starts empty.
   const [shownSearch, setShownSearch] = useState(search)
@@ -224,20 +257,20 @@ export const useQuestionBatch = (items: readonly AdminQuestionSummary[]) => {
     dialogTargets,
     open: (action: BatchAction) => {
       mutation.reset()
-      setFreshConfirmed(false)
       setDialog({ action, open: true })
     },
     close: () => {
       if (!mutation.isPending)
         setDialog((current) => ({ ...current, open: false }))
     },
-    freshConfirmed,
-    confirmFresh: () => {
-      mutation.reset()
-      setFreshConfirmed(true)
-    },
+    /** Keeps the selection for the return from re-verification. */
+    keepSelection: (): boolean =>
+      Boolean(actorId) &&
+      saveReauthKeep(actorId as string, 'question-list', {
+        search,
+        ids: [...selectedIds]
+      }),
     confirm: () => {
-      setFreshConfirmed(false)
       mutation.mutate({
         action: dialog.action,
         items: dialogTargets.map((question) => ({

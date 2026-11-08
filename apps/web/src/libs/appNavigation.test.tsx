@@ -1,4 +1,5 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
+import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { AppLink } from '@nihongo/browser/common/components/AppLink'
@@ -54,7 +55,11 @@ describe('web/admin document boundary', () => {
       ],
       { basename: '/admin', initialEntries: ['/admin/questions'] }
     )
-    render(<RouterProvider router={router} />)
+    render(
+      <ToastProvider>
+        <RouterProvider router={router} />
+      </ToastProvider>
+    )
     expect(screen.getByRole('link', { name: '학습' })).toHaveAttribute(
       'href',
       window.location.origin + '/practice'
@@ -84,7 +89,11 @@ describe('web/admin document boundary', () => {
     const router = createMemoryRouter([{ path: '*', element: <Entry /> }], {
       initialEntries: ['/login']
     })
-    render(<RouterProvider router={router} />)
+    render(
+      <ToastProvider>
+        <RouterProvider router={router} />
+      </ToastProvider>
+    )
     act(() => screen.getByRole('button', { name: '돌아가기' }).click())
     expect(replace).toHaveBeenCalledWith(
       '/admin/questions?level=N5&page=2',
@@ -107,7 +116,9 @@ describe('web/admin document boundary', () => {
     )
     render(
       <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
+        <ToastProvider>
+          <RouterProvider router={router} />
+        </ToastProvider>
       </QueryClientProvider>
     )
     act(() =>

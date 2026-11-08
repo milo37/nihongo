@@ -12,9 +12,12 @@ export const authenticatedUserSchema = z
     /** Only for ADMIN: the server side 8 hour absolute session limit. */
     adminSessionExpiresAt: isoDateTimeSchema.optional(),
     /**
-     * Only for ADMIN: end of the 5 minute fresh sign-in window, or null when
+     * Only for ADMIN: end of the 30 minute fresh sign-in window, or null when
      * the session is not fresh. Display hint only; commands still answer
-     * FRESH_ASSURANCE_REQUIRED.
+     * FRESH_ASSURANCE_REQUIRED. The remaining time is `adminFreshUntil` minus
+     * the HTTP `Date` header of the same response (server clock, 1 second),
+     * so the browser clock does not matter. A server time field in the body
+     * would change on every read and churn the cached user (#683).
      */
     adminFreshUntil: isoDateTimeSchema.nullable().optional()
   })

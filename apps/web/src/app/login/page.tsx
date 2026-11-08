@@ -1,31 +1,35 @@
-import { useAppNavigate } from '@nihongo/browser/libs/appNavigation'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useLocation, useSearchParams } from 'react-router'
+import { Link, Navigate, useLocation, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
 import {
   safeSsoReturnPath,
   ssoCallbackOutcomeSchema
 } from '@nihongo/contracts/auth/sign-in-social'
-import type {
-  SsoCallbackOutcome,
-  SsoProviderId
-} from '@nihongo/contracts/auth/sign-in-social'
-import { SsoAccountManagement } from '@app/login/components/SsoAccountManagement'
+import type { SsoCallbackOutcome } from '@nihongo/contracts/auth/sign-in-social'
 import {
-  accountFreshOutcomeSchema,
-  accountLinkOutcomeSchema
-} from '@nihongo/contracts/auth/sso-account-management'
-import { AdminFreshEntry } from '@app/login/components/AdminFreshEntry'
-import { AuthFlowError } from '@nihongo/browser/app/login/authFlowErrors'
-import { SsoProviderButton } from '@app/login/components/SsoProviderButton'
-import { useLogoutUser } from '@app/login/hooks/useLogoutUser'
-import { useStartSocialSignIn } from '@app/login/hooks/useStartSocialSignIn'
-import { Button } from '@nihongo/browser/common/components/Button'
-import { Dialog } from '@nihongo/browser/common/components/Dialog'
+  ACCOUNT_FRESH_PARAM,
+  ACCOUNT_REAUTH_PARAM
+} from '@app/account/hooks/useSsoAccountManagement'
+import { SignInCard } from '@app/login/components/SignInCard'
+import type { SignInNotice } from '@app/login/components/SignInCard'
+import { useSsoAccountDeletion } from '@app/login/hooks/useSsoAccountDeletion'
+import {
+  GUEST_DAILY_SESSION_LIMIT,
+  GUEST_SESSION_QUESTION_LIMIT
+} from '@nihongo/contracts/study/guest-limits'
+import {
+  appDocumentNavigation,
+  useAppNavigate
+} from '@nihongo/browser/libs/appNavigation'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 
-type Notice = SsoCallbackOutcome | 'LEGACY' | 'EXPIRED'
+type Notice =
+  | SsoCallbackOutcome
+  | 'LEGACY'
+  | 'EXPIRED'
+  | 'DELETION'
+  | 'UNLINKED'
 
 const hasStateFlag = (state: unknown, flag: string): boolean =>
   state !== null &&
@@ -33,46 +37,74 @@ const hasStateFlag = (state: unknown, flag: string): boolean =>
   flag in state &&
   Reflect.get(state, flag) === true
 
+const readNotice = (search: URLSearchParams, state: unknown): Notice | null => {
+  if (search.has('sso')) {
+    const outcome = ssoCallbackOutcomeSchema.safeParse(search.get('sso'))
+    return outcome.success ? outcome.data : 'INVALID_CALLBACK'
+  }
+  if (search.has('mode') || hasStateFlag(state, 'legacyAuthMethod'))
+    return 'LEGACY'
+  if (hasStateFlag(state, 'sessionExpired')) return 'EXPIRED'
+  if (hasStateFlag(state, 'deletionRequested')) return 'DELETION'
+  if (hasStateFlag(state, 'accountUnlinked')) return 'UNLINKED'
+  return null
+}
+
+const errorNotices: ReadonlySet<Notice> = new Set([
+  'FAILED',
+  'INVALID_CALLBACK'
+])
+
+const noticeKeys: Record<Exclude<Notice, 'DELETION'>, string> = {
+  CANCELLED: 'sso.cancelledProvider',
+  FAILED: 'sso.failedProvider',
+  INVALID_CALLBACK: 'sso.expired',
+  EXPIRED: 'sso.sessionExpired',
+  LEGACY: 'sso.legacyMethod',
+  UNLINKED: 'sso.unlinked'
+}
+
+// Shows the account deletion result once, only right after this browser
+// requested it; ordinary visitors never query the deletion receipt.
+const useDeletionNotice = (active: boolean): string | null => {
+  const { t } = useTranslation('auth')
+  const { receipt } = useSsoAccountDeletion(active)
+  if (!active) return null
+  if (receipt.isPending) return t('sso.checkingAccount')
+  return t(
+    receipt.data?.appStatus === 'DELETED'
+      ? 'sso.deletionComplete'
+      : 'sso.deletionAccepted'
+  )
+}
+
+// /login is for signed-out visitors. Signed-in visitors go to learning home,
+// except two hand-offs that still arrive here: account verification returns
+// (forwarded to /account) and admin verification opened from the admin app.
+/** The admin app is another document, so leave the learner router. */
+const AdminDocumentReturn = ({ to }: { readonly to: string }): null => {
+  useEffect(() => appDocumentNavigation.replace(to), [to])
+  return null
+}
+
 export const LoginPage = (): ReactElement => {
   const { t } = useTranslation('auth')
   const navigate = useAppNavigate()
   const location = useLocation()
   const [search] = useSearchParams()
   const { isReady, user } = useAuth()
-  const start = useStartSocialSignIn()
-  const logout = useLogoutUser()
-  const [logoutOpen, setLogoutOpen] = useState(false)
   const heading = useRef<HTMLHeadingElement>(null)
-  const logoutButton = useRef<HTMLButtonElement>(null)
-  const cancelButton = useRef<HTMLButtonElement>(null)
-  const appleButton = useRef<HTMLButtonElement>(null)
-  const googleButton = useRef<HTMLButtonElement>(null)
   const redirect = safeSsoReturnPath(search.get('redirect'))
-  const [notice, setNotice] = useState<Notice | null>(() => {
-    if (search.has('sso')) {
-      const outcome = ssoCallbackOutcomeSchema.safeParse(search.get('sso'))
-      return outcome.success ? outcome.data : 'INVALID_CALLBACK'
-    }
-    if (search.has('mode') || hasStateFlag(location.state, 'legacyAuthMethod'))
-      return 'LEGACY'
-    if (hasStateFlag(location.state, 'sessionExpired')) return 'EXPIRED'
-    return null
-  })
-  const busy = start.isPending || start.isRedirecting
-  const provider = start.variables?.provider
-  const providerName = provider === 'apple' ? 'Apple' : 'Google'
+  const accountReturn = search.get(ACCOUNT_FRESH_PARAM)
+  const [notice, setNotice] = useState<Notice | null>(() =>
+    readNotice(search, location.state)
+  )
+  const deletionNotice = useDeletionNotice(notice === 'DELETION')
 
   useEffect(() => {
+    if (accountReturn !== null) return
     const canonical = new URLSearchParams()
     if (redirect !== '/') canonical.set('redirect', redirect)
-    for (const [key, schema] of [
-      ['ssoAccountFresh', accountFreshOutcomeSchema],
-      ['ssoAccountLink', accountLinkOutcomeSchema]
-    ] as const) {
-      const values = search.getAll(key)
-      const parsed = schema.safeParse(values[0])
-      if (values.length === 1 && parsed.success) canonical.set(key, parsed.data)
-    }
     const desired = canonical.toString()
     if (
       location.search !== (desired ? '?' + desired : '') ||
@@ -85,167 +117,76 @@ export const LoginPage = (): ReactElement => {
       )
     }
   }, [
+    accountReturn,
     location.hash,
     location.search,
     location.state,
     navigate,
-    redirect,
-    search
+    redirect
   ])
 
   useEffect(() => {
-    if (notice) heading.current?.focus()
-  }, [notice])
+    // Error notices focus the Google button inside the card instead.
+    if (notice && isReady && !errorNotices.has(notice)) heading.current?.focus()
+  }, [isReady, notice])
 
-  useEffect(() => {
-    if (start.isError) {
-      ;(provider === 'apple' ? appleButton : googleButton).current?.focus()
-    }
-  }, [provider, start.isError])
-
-  const begin = (selected: SsoProviderId): void => {
-    if (busy) return
-    setNotice(null)
-    start.mutate({ provider: selected, callbackURL: redirect })
+  if (!isReady) {
+    return (
+      <section className="auth-page">
+        <p role="status">{t('sso.checkingSession')}</p>
+      </section>
+    )
   }
-  const noticeKey =
-    notice === 'CANCELLED'
-      ? 'cancelled'
-      : notice === 'FAILED'
-        ? 'failed'
-        : notice === 'INVALID_CALLBACK'
-          ? 'expired'
-          : notice === 'EXPIRED'
-            ? 'sessionExpired'
-            : 'legacyMethod'
-  const failed = notice === 'FAILED' || notice === 'INVALID_CALLBACK'
-  const errorKey =
-    start.error instanceof AuthFlowError && start.error.unavailable
-      ? 'unavailableProvider'
-      : 'failedProvider'
+  if (user) {
+    if (accountReturn !== null) {
+      const forward = new URLSearchParams()
+      forward.set(ACCOUNT_FRESH_PARAM, accountReturn)
+      const reauth = search.get(ACCOUNT_REAUTH_PARAM)
+      if (reauth !== null) forward.set(ACCOUNT_REAUTH_PARAM, reauth)
+      return (
+        <Navigate
+          replace
+          to={{ pathname: '/account', search: forward.toString() }}
+        />
+      )
+    }
+    // Admin pages start re-verification themselves; an old
+    // /login?redirect=/admin/... link just goes back to the admin page.
+    if (user.role === 'ADMIN' && redirect.startsWith('/admin'))
+      return <AdminDocumentReturn to={redirect} />
+    return <Navigate replace to="/" />
+  }
 
+  const shown: SignInNotice | null =
+    notice === null
+      ? null
+      : notice === 'DELETION'
+        ? deletionNotice
+          ? { message: deletionNotice, tone: 'info' }
+          : null
+        : {
+            message: t(noticeKeys[notice], { provider: 'Google' }),
+            tone: errorNotices.has(notice) ? 'error' : 'info'
+          }
   return (
     <section className="auth-page">
-      <div className="auth-panel">
-        <header className="auth-heading">
-          <h1 ref={heading} tabIndex={notice ? -1 : undefined}>
-            {!isReady
-              ? t('sso.checkingSession')
-              : user
-                ? t('sso.alreadySignedIn')
-                : t('sso.title')}
-          </h1>
-          {isReady ? (
-            <p>{user ? t('currentDescription') : t('sso.description')}</p>
-          ) : null}
-        </header>
-        {!isReady ? (
-          <p className="sr-only" role="status">
-            {t('sso.checkingSession')}
-          </p>
-        ) : user ? (
-          <>
-            <div className="auth-account">
-              <span>{t('currentAccount')}</span>
-              <strong>{user.name}</strong>
-            </div>
-            {user.role === 'ADMIN' ? (
-              <AdminFreshEntry
-                returnPath={redirect === '/' ? '/login' : redirect}
-                disabled={logoutOpen || logout.isPending}
-              />
-            ) : null}
-            <div className="auth-actions">
-              <Button
-                fullWidth
-                onClick={() => void navigate(redirect, { replace: true })}
-              >
-                {t('sso.backToLearning')}
-              </Button>
-              <Button
-                ref={logoutButton}
-                fullWidth
-                variant="outline"
-                onClick={() => setLogoutOpen(true)}
-              >
-                {t('sso.logoutAction')}
-              </Button>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="auth-actions">
-              <SsoProviderButton
-                provider="google"
-                label={t('sso.continueGoogle')}
-                disabled={busy}
-                isLoading={busy}
-                loadingLabel={t('sso.redirecting', { provider: providerName })}
-                buttonRef={googleButton}
-                onClick={() => begin('google')}
-              />
-            </div>
-            <p className="auth-consent">{t('sso.consentNotice')}</p>
-            {start.isError ? (
-              <p className="auth-notice auth-error" role="alert">
-                {t('sso.' + errorKey, { provider: providerName })}
-              </p>
-            ) : notice ? (
-              <p
-                className={'auth-notice' + (failed ? ' auth-error' : '')}
-                role={failed ? 'alert' : 'status'}
-              >
-                {t('sso.' + noticeKey)}
-              </p>
-            ) : null}
-            <div className="auth-guest">
-              <Link
-                to={
-                  redirect === '/' || redirect.startsWith('/practice')
-                    ? redirect
-                    : '/practice'
-                }
-              >
-                {t('sso.guest')}
-              </Link>
-            </div>
-          </>
-        )}
-        <SsoAccountManagement />
-      </div>
-      <Dialog
-        open={logoutOpen && user !== null}
-        onOpenChange={setLogoutOpen}
-        title={t('sso.logoutTitle')}
-        description={t('sso.logoutDescription')}
-        preventClose={logout.isPending}
-        initialFocusRef={cancelButton}
-        returnFocusRef={logoutButton}
-        fallbackFocusRef={heading}
-        footer={
-          <>
-            <Button
-              ref={cancelButton}
-              variant="outline"
-              disabled={logout.isPending}
-              onClick={() => setLogoutOpen(false)}
-            >
-              {t('sso.cancel')}
-            </Button>
-            <Button
-              disabled={logout.isPending}
-              onClick={() =>
-                logout.isError ? logout.recheck() : logout.mutate()
-              }
-            >
-              {t(logout.isError ? 'sso.recheck' : 'sso.logoutAction')}
-            </Button>
-          </>
-        }
-      >
-        {logout.isPending ? <p role="status">{t('sso.loggingOut')}</p> : null}
-        {logout.isError ? <p role="alert">{t('sso.logoutUnknown')}</p> : null}
-      </Dialog>
+      <SignInCard
+        title={t('sso.title')}
+        description={t('sso.description')}
+        redirect={redirect}
+        notice={shown}
+        headingRef={heading}
+        onStart={() => setNotice(null)}
+      />
+      <p className="auth-guest-hint">
+        {t('sso.guestHint', {
+          total: GUEST_DAILY_SESSION_LIMIT,
+          count: GUEST_SESSION_QUESTION_LIMIT
+        })}{' '}
+        <Link to={redirect.startsWith('/practice') ? redirect : '/practice'}>
+          {t('sso.guestLink')}
+        </Link>
+      </p>
     </section>
   )
 }

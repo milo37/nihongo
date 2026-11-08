@@ -75,31 +75,57 @@ const page = (items = [reportSummary()], total = items.length) => ({
 it('lists unified reports with status, kind, preview, location and a detail link', async () => {
   const list = vi.spyOn(reportApi, 'listAdminReports').mockResolvedValue(page())
   renderAdmin(client, '/admin/reports')
-  const items = await screen.findByRole('list', { name: '버그 리포트' })
-  const row = within(items).getAllByRole('listitem')[0]!
+  const table = await screen.findByRole('table', { name: '버그 리포트' })
+  // The 48rem table scrolls sideways below that width; keyboard users reach
+  // the scroll area by its name.
+  const scroller = screen.getByRole('region', { name: '버그 리포트' })
+  expect(scroller).toContainElement(table)
+  expect(scroller).toHaveAttribute('tabindex', '0')
+  expect(
+    within(table).getByRole('columnheader', { name: '상태·종류' })
+  ).toBeVisible()
+  const row = within(table).getAllByRole('row')[1]!
   expect(within(row).getByText('접수됨')).toBeVisible()
   expect(within(row).getByText('문항 신고')).toBeVisible()
   expect(
     within(row).getByText(/정답이 두 개처럼 보여요/u, { selector: 'p' })
   ).toBeVisible()
-  expect(within(row).getByText('result#2')).toBeVisible()
+  expect(within(row).getByText('결과 화면 · 2번 문제')).toBeVisible()
   expect(within(row).getByRole('link', { name: /상세 보기/u })).toHaveAttribute(
     'href',
     `/admin/reports/${reportId}`
   )
   expect(list).toHaveBeenCalledWith({ page: 1, pageSize: 25 })
-  expect(screen.getByText('제보 1건')).toBeVisible()
+  expect(screen.getAllByText('총 1개')).toHaveLength(2)
+  // Without a value there is nothing to reset; the old apply button is gone.
+  expect(screen.queryByRole('button', { name: '초기화' })).toBeNull()
+  expect(screen.queryByRole('button', { name: '필터 적용' })).toBeNull()
 })
 
-it('applies status, kind and page size filters through the URL', async () => {
+it('applies each status and kind choice at once and moves page size to the toolbar', async () => {
   const list = vi.spyOn(reportApi, 'listAdminReports').mockResolvedValue(page())
-  const router = renderAdmin(client, '/admin/reports')
-  await screen.findByRole('list', { name: '버그 리포트' })
+  const router = renderAdmin(client, '/admin/reports?page=2')
+  await screen.findByRole('table', { name: '버그 리포트' })
   const user = userEvent.setup()
-  await user.selectOptions(screen.getByLabelText('처리 상태'), 'ANSWERED')
-  await user.selectOptions(screen.getByLabelText('유형'), 'APP_ERROR')
-  await user.selectOptions(screen.getByLabelText('페이지당 개수'), '50')
-  await user.click(screen.getByRole('button', { name: '필터 적용' }))
+  await user.click(screen.getByRole('button', { name: '처리 상태' }))
+  await user.click(screen.getByRole('option', { name: '답변 완료' }))
+  await waitFor(() =>
+    expect(list).toHaveBeenLastCalledWith({
+      page: 1,
+      pageSize: 25,
+      status: 'ANSWERED'
+    })
+  )
+  // Keyboard: open the chip, move down past "all" and the first kind.
+  screen.getByRole('button', { name: '유형' }).focus()
+  await user.keyboard('{Enter}')
+  expect(screen.getByRole('listbox', { name: '유형' })).toHaveFocus()
+  await user.keyboard('{ArrowDown}{ArrowDown}{Enter}')
+  expect(screen.getByRole('button', { name: '유형: 앱 오류' })).toHaveFocus()
+  await user.selectOptions(
+    screen.getAllByRole('combobox', { name: '한 페이지에' })[0]!,
+    '50'
+  )
   await waitFor(() =>
     expect(list).toHaveBeenLastCalledWith({
       page: 1,
@@ -111,12 +137,65 @@ it('applies status, kind and page size filters through the URL', async () => {
   expect(router.state.location.search).toBe(
     '?status=ANSWERED&kind=APP_ERROR&page=1&pageSize=50'
   )
+  await user.click(
+    screen.getByRole('button', { name: '처리 상태 필터 지우기' })
+  )
+  await waitFor(() =>
+    expect(router.state.location.search).toBe(
+      '?kind=APP_ERROR&page=1&pageSize=50'
+    )
+  )
+  await user.click(screen.getByRole('button', { name: '초기화' }))
+  await waitFor(() =>
+    expect(router.state.location.search).toBe('?page=1&pageSize=50')
+  )
 })
 
-it('shows the design empty state when there is nothing to handle', async () => {
+it.each([
+  ['', '아직 받은 제보가 없습니다.', 'まだ報告はありません。'],
+  ['?status=RECEIVED', '처리할 제보가 없습니다.', '処理する報告はありません。'],
+  [
+    '?status=ANSWERED',
+    '답변 완료한 제보가 없습니다.',
+    '返信済みの報告はありません。'
+  ],
+  ['?status=CLOSED', '종결한 제보가 없습니다.', '完了した報告はありません。'],
+  [
+    '?status=RECEIVED&kind=APP_ERROR',
+    '조건에 맞는 제보가 없습니다.',
+    '条件に合う報告はありません。'
+  ]
+])('names the empty list for filter %j', async (search, ko, ja) => {
   vi.spyOn(reportApi, 'listAdminReports').mockResolvedValue(page([], 0))
-  renderAdmin(client, '/admin/reports')
-  expect(await screen.findByText('처리할 제보가 없습니다.')).toBeVisible()
+  renderAdmin(client, '/admin/reports' + search)
+  expect(await screen.findByRole('region', { name: ko })).toBeVisible()
+  cleanup()
+  client.clear()
+  writeUiLocalePreference('ja')
+  renderAdmin(client, '/admin/reports' + search)
+  expect(await screen.findByRole('region', { name: ja })).toBeVisible()
+})
+
+it.each([
+  [
+    '?status=ANSWERED',
+    '답변을 보낸 제보가 여기에 보입니다.',
+    '返信した報告がここに表示されます。'
+  ],
+  [
+    '?status=CLOSED',
+    '종결한 제보가 여기에 보입니다.',
+    '完了した報告がここに表示されます。'
+  ]
+])('explains where %j reports appear', async (search, ko, ja) => {
+  vi.spyOn(reportApi, 'listAdminReports').mockResolvedValue(page([], 0))
+  renderAdmin(client, '/admin/reports' + search)
+  expect(await screen.findByText(ko)).toBeVisible()
+  cleanup()
+  client.clear()
+  writeUiLocalePreference('ja')
+  renderAdmin(client, '/admin/reports' + search)
+  expect(await screen.findByText(ja)).toBeVisible()
 })
 
 it('falls back to safe defaults for unsupported URL filters', async () => {
@@ -124,7 +203,7 @@ it('falls back to safe defaults for unsupported URL filters', async () => {
   renderAdmin(client, '/admin/reports?status=OPEN&pageSize=30')
   expect(
     await screen.findByText(
-      'URL 검색 조건이 허용 범위를 벗어났습니다. 기본 조건을 사용합니다.'
+      '검색 조건을 읽지 못해 기본 조건으로 보여 드립니다.'
     )
   ).toBeVisible()
   expect(list).toHaveBeenCalledWith({ page: 1, pageSize: 25 })

@@ -100,7 +100,9 @@ export const jaCoreResources = {
       info: 'お知らせ',
       success: '完了',
       warning: '注意',
-      danger: 'エラー'
+      loggedOut: 'ログアウトしました。',
+      offline: 'オフラインです。接続を確認してください。',
+      restored: '再接続しました。'
     },
     footer: {
       originalContent: 'オリジナル問題で学習します。',
@@ -120,6 +122,14 @@ export const jaCoreResources = {
     }
   },
   navigation: {
+    accountMenu: {
+      label: 'アカウントメニュー',
+      signedInWith: 'Googleアカウントでログイン中',
+      myPage: 'マイページ',
+      language: '言語',
+      guestTitle: 'ログインしていません',
+      guestDescription: 'ログインすると学習記録が残ります'
+    },
     account: 'アカウント',
     mobilePrimary: 'モバイルのメインメニュー',
 
@@ -150,6 +160,7 @@ export const jaCoreResources = {
       wrongNoteDetail: '解説を見る',
       bookmarks: 'ブックマーク',
       legal: '法的情報',
+      account: 'マイページ',
       accountData: 'アカウントデータ案内',
       support: 'サポート案内',
       adminQuestionNew: '問題登録',
@@ -157,8 +168,8 @@ export const jaCoreResources = {
       adminQuestionDetail: '問題詳細',
       adminQuestions: '問題管理',
       adminAudit: '管理者監査ログ',
-      adminReportDetail: '問題報告の詳細',
-      adminReports: '問題報告キュー',
+      adminReportDetail: 'バグレポートの詳細',
+      adminReports: 'バグレポート',
       forbidden: 'アクセス権限なし',
       page: 'ページ'
     }
@@ -352,36 +363,6 @@ export const jaCoreResources = {
       maximum: '最大10問',
       loading: '読み込み中'
     },
-    entry: {
-      additionalOptions: '学習のおすすめを見る',
-      guestNoticeTitle: '未ログインの学習について',
-      guestNotice:
-        '開発用のサンプルデータで学習します。実際のアカウント記録とは別です。',
-      demoLogin: 'デモアカウントでログイン',
-      eyebrow: '今日の学習ノート',
-      title: '少しずつ、苦手なところから。',
-      description: '途中の学習を続けるか、今取り組む内容を選んで始めましょう。',
-      loading: '続けられる学習を確認しています…',
-      recommended: '次の一枚',
-      recommendationError:
-        'おすすめを確認できませんでした。再確認するか、別の学習を選んでください。',
-      resumeError:
-        '途中の学習を確認できませんでした。再確認するか、学習設定で確認してください。',
-      retry: '再確認',
-      subjectScope:
-        'この形式の記録を参考にした科目単位の苦手学習です。他の形式も出題されることがあります。',
-      noRecommendation:
-        '今始められるおすすめがありません。別の学習を選んでください。',
-      resumeEyebrow: '途中の一枚',
-      position: '現在{{current}}番 · 実際の問題数{{total}}問',
-      savedAt: 'サーバーへの最終保存 {{date}}',
-      notSaved: '保存済みの回答はまだありません。',
-      resume: '続きから解く',
-      legacyUnavailable:
-        '以前の学習セッションは終了しました。新しい学習を始めてください。',
-      other: '別の学習を選ぶ',
-      records: '学習記録'
-    },
     eyebrow: 'JLPT N5–N1 · VOCABULARY / GRAMMAR / READING',
     hero: {
       titleLine1: '間違えた問題を',
@@ -440,73 +421,55 @@ export const jaCoreResources = {
     }
   },
   auth: {
-    adminFresh: {
-      title: '管理者の本人確認',
-      description:
-        '慎重な確認が必要な操作を続けるには、同じ管理者アカウントに連携したログイン方法を選んでください。',
-      checking: '現在のログイン状態を再確認しています。',
-      returned:
-        'ログイン状態を再確認しました。元の操作に戻り、内容を確認してから手動でもう一度実行してください。操作の権限はサーバーで再確認されます。',
-      cancelled:
-        '本人確認をキャンセルしました。現在のログイン状態を確認し、必要な場合はもう一度お試しください。',
-      failed:
-        '本人確認の結果を確認できませんでした。現在のログイン状態と元の操作を確認してから、もう一度お試しください。',
-      invalid:
-        '本人確認のリクエストが期限切れか、正しくありません。必要な場合はやり直してください。',
-      unknown:
-        '現在のログイン状態を確認できませんでした。完了したかどうかは確定できません。接続を確認してから、もう一度状態を確認してください。'
+    guestGate: {
+      title: 'ログインが必要です',
+      bookmarks: 'ブックマークした問題をまとめて見直し、もう一度解けます。',
+      review: '間違えた問題をまとめて復習できます。',
+      wrongNote: '間違いノートはログインすると見られます。',
+      dashboard: '学習記録と進み具合を確認できます。',
+      toStudy: '学習へ'
     },
-    currentDescription: '現在のアカウントで学習を続けられます。',
-    currentAccount: '現在のアカウント',
+    guestToast: {
+      login: 'ログイン',
+      bookmark: 'ブックマークはログインすると保存できます。',
+      sessionNotKept: 'ログインすると、今の解答は引き継がれません。'
+    },
+    reauth: {
+      name: '本人確認',
+      description: 'Googleでもう一度ログインして確認します。',
+      go: 'Googleで本人確認',
+      redirecting: 'Googleに移動中…',
+      returnNote: '確認が終わると、この画面に戻ります。',
+      scopeAccount: '連携解除と退会は、毎回本人確認を行います。',
+      stepDone: '完了',
+      account: {
+        returned: '本人確認が完了しました。最後のステップを確認してください。',
+        failed: '本人確認を完了できませんでした。もう一度お試しください。',
+        cancelled:
+          '本人確認をキャンセルしました。必要な場合はもう一度お試しください。',
+        wrongAccount:
+          '最初にログインしたGoogleアカウントでもう一度お試しください。',
+        invalid: '確認リクエストの期限が切れました。もう一度お試しください。'
+      }
+    },
     sso: {
-      accountTitle: 'アカウント管理',
-      connected: '連携済みのログイン方法',
-      linkProvider: '{{provider}}を連携',
-      linked:
-        'ログイン方法を連携しました。連携済みアカウントを確認してください。',
-      freshConfirmed:
-        '本人確認が完了しました。操作を選び、最後に確認してください。',
-      freshNeeded:
-        '現在のアカウントに連携済みのログイン方法で本人確認した後、操作をもう一度選んでください。',
       checkingAccount: 'アカウントの状態を確認しています。',
-      remainingUnavailable:
-        '他のログイン方法を利用できないため、連携を解除できません。',
       openAdminWork: '進行中の管理作業があるため、現在は退会できません。',
-      cancelledAccount:
-        '本人確認または連携をキャンセルしました。元のアカウントは維持されます。',
-      dataGuide: 'アカウントとデータの案内',
-      dataDescription:
-        'ログアウトはアプリのセッションを終了し、連携解除はログイン方法を削除し、退会はアプリアカウントの削除処理を申請します。',
-      deletionUnknown:
-        '退会結果を確認できません。申請を繰り返さず、状態を再確認してください。',
-      cleanupPending: '連携の整理はまだ完了していません。',
-      cleanupComplete: 'このログイン方法の連携整理が完了しました。',
-      cleanupFailed:
-        '連携を整理できませんでした。アプリの退会状態とは別に確認してください。',
       title: 'ログイン',
-      description: '連携したアカウントで学習を続けましょう。',
-      continueProvider: '{{provider}}で続ける',
-      guest: 'ログインせずに学習する',
+      description: 'Googleアカウントで学習記録を引き継ぎましょう。',
+      guestHint: '1日{{total}}回、{{count}}問ずつ解けます。記録は残りません。',
+      guestLink: 'ログインせずに解いてみる',
       checkingSession: 'ログイン状態を確認しています。',
       redirecting: '{{provider}}に移動しています。',
-      checkingReturn: 'ログインを確認しています。',
-      cancelled:
-        'ログインをキャンセルしました。もう一度試すか、ログインせずに学習できます。',
-      failed: 'ログインできませんでした。もう一度お試しください。',
       expired:
         'ログインのリクエストが期限切れになりました。もう一度お試しください。',
       unavailable:
         '現在ログインを利用できません。しばらくしてからお試しください。',
-      conflict:
-        'このアカウントとの連携を完了できませんでした。これまで使っていたログイン方法でお試しください。',
       sessionExpired:
         'ログインの有効期限が切れました。もう一度ログインしてください。',
-      alreadySignedIn: 'ログインしています。',
-      backToLearning: '学習に戻る',
       migrationIncomplete:
         'これまでの学習記録を連携できませんでした。ログイン方法の移行案内をご確認ください。',
       cancel: 'キャンセル',
-      close: '閉じる',
       recheck: 'もう一度確認',
       logoutTitle: 'ログアウトしますか？',
       logoutDescription:
@@ -515,35 +478,21 @@ export const jaCoreResources = {
       loggingOut: 'ログアウトしています。',
       logoutUnknown:
         'ログアウトの状態を確認できませんでした。もう一度ご確認ください。',
-      loggedOut: 'ログアウトしました。',
       unlinkTitle: '{{provider}}との連携を解除しますか？',
       unlinkDescription:
         '連携を解除した後は、連携済みの別のログイン方法でログインしてください。学習記録は維持されます。退会は別の操作です。',
       unlinkAction: '連携を解除',
       lastMethodTitle: '最後のログイン方法は解除できません。',
-      lastMethodDescription:
-        '連携を解除するとログインできなくなります。アカウントを削除する場合は退会の案内をご確認ください。',
-      withdrawalHelp: '退会の案内',
-      reauthTitle: '続けるには、もう一度ログインしてください。',
-      wrongAccount: '最初にログインしたアカウントでもう一度お試しください。',
       deleteTitle: '退会しますか？',
-      deleteDescription:
-        '退会後は、このアカウントで하루마루を利用できません。データの取り扱いはアカウントとデータの案内をご確認ください。連携した外部アカウント自体は削除されません。',
-      deleteAction: '退会する',
       processing: '処理しています。',
       actionFailed:
         'リクエストを完了できませんでした。もう一度ご確認ください。',
       deletionAccepted: '退会のリクエストを受け付けました。',
       deletionComplete: '退会が完了しました。',
-      appDataDeletionComplete: 'アプリデータの削除が完了しました。',
       unlinked: '連携を解除しました。',
-      providerCleanupPending:
-        'アプリデータの削除は完了しましたが、{{provider}}との連携の解除はまだ完了していません。',
       legacyMethod:
         'ログイン方法が変更されました。連携したアカウントで続けてください。',
-      continueApple: 'Appleで続ける',
       continueGoogle: 'Googleで続ける',
-      checkingProviderReturn: '{{provider}}でのログインを確認しています。',
       cancelledProvider:
         '{{provider}}でのログインをキャンセルしました。もう一度試すか、ログインせずに学習できます。',
       failedProvider:
@@ -551,7 +500,7 @@ export const jaCoreResources = {
       unavailableProvider:
         '現在、{{provider}}でのログインは利用できません。しばらくしてからお試しください。',
       consentNotice:
-        '続行すると、利用規約と個人情報処理方針を確認したものとみなします。14歳未満の方は登録できません。'
+        '続行すると、<terms>利用規約</terms>と<privacy>個人情報処理方針</privacy>を確認したものとみなします。14歳未満の方は登録できません。'
     }
   },
   practice: {
@@ -561,7 +510,8 @@ export const jaCoreResources = {
       newTitle: '新しく始める',
       modeSummary: '出題方式',
       shortcutsLabel: 'もう一度学ぶ',
-      guestHint: 'ログインなしで始められます。',
+      guestHint:
+        'ログインしなくても、1日{{total}}回、{{count}}問ずつ解いてみられます。',
       reviewShortcut: '間違えた問題を復習',
       bookmarkShortcut: 'ブックマーク',
 
@@ -576,8 +526,6 @@ export const jaCoreResources = {
         otherAction: 'ほかの進行中の学習を見る',
         description: '最近保存した学習から再開できます。',
         refreshing: '一覧を更新中…',
-        guestHint:
-          '新しいゲストセッションを始めると、このタブでサーバーの下書きから再開できます。ログインすると、別の端末でも同じアカウントの下書きを確認できます。',
         loading: '保存済みの下書きを確認しています…',
         offline:
           'オフラインです。接続が戻ると再開セッションの一覧を自動で再確認します。',
@@ -627,17 +575,24 @@ export const jaCoreResources = {
             'サーバーの予定に従い、今日復習する間違いを順番に解きます。'
         }
       },
-      memberModes: '会員機能',
-      memberModesHint:
-        '間違えた問題・ブックマーク・今日の復習はログイン後に利用できます。',
+      guestResumeHint: 'ログインすると、解きかけの問題を続きから解けます。',
+      memberLocked: 'ログインが必要',
+      locked: {
+        count: '10問・20問はログインすると解けます。',
+        mode: 'ランダム以外の出題方法は、ログインすると使えます。'
+      },
+      guestLeft: '今日の体験は<b>{{total}}回中あと{{remaining}}回</b>です。',
+      dailyLimit: {
+        title: '今日の体験はすべて使いました',
+        description:
+          'ログインすると問題数の制限なく解けて、記録も残ります。体験は明日0時（日本時間）にまた{{total}}回使えます。'
+      },
+      urlLocked: '問題数・出題方法はログインすると選べます。',
       availableCountNote: '問題が不足する場合は、用意できる数を提供します。',
-      loginRequired: 'ログイン後に利用できます',
-      protectedMode:
-        '選択したモードはログイン後に利用できます。ランダム問題には変更していません。',
-      login: 'ログイン',
-      noEligibleTitle: '現在の条件では出題可能な{{mode}}がありません。',
+      noEligibleTitle:
+        '現在の条件では「{{mode}}」で出題できる問題がありません。',
       noEligibleDescription:
-        'レベル・科目・モードを変更するか、ランダム問題を選んでください。サーバーが別のモードへ自動変更することはありません。',
+        'レベル・科目・モードを変更するか、ランダム問題を選んでください。別のモードに自動で切り替わることはありません。',
       selectRandom: 'ランダム問題を選択',
       createError:
         'セッションを作成できませんでした。ネットワーク状態と選択条件を確認し、もう一度お試しください。',
@@ -702,6 +657,13 @@ export const jaCoreResources = {
         description:
           '新しいRANDOM学習を開始してください。このセッションには回答を提出できません。',
         openSetup: '学習設定へ移動'
+      },
+      exitGuest: {
+        title: '解答をやめますか？',
+        description: 'やめると、この解答は保存されません。',
+        countNotBack: '今日の体験回数は戻りません。',
+        keep: '解き続ける',
+        leave: 'やめる'
       },
       navigationGuard: {
         title: 'ひと休みしますか？',
@@ -775,8 +737,7 @@ export const jaCoreResources = {
       },
       progressLabel: '回答済み {{percent}}%',
       question: {
-        passageEyebrow: 'READING PASSAGE',
-        passageLabel: '読解文',
+        passageLabel: '文章',
         numberLabel: '{{ordinal}}番の問題。',
         answerLegend: '答えの選択肢',
         keyboardHint:
@@ -787,10 +748,9 @@ export const jaCoreResources = {
         remove: 'ブックマーク解除',
         addLabel: '{{ordinal}}番の問題をブックマークに追加',
         removeLabel: '{{ordinal}}番の問題のブックマークを解除',
-        loginRequired: 'ブックマークに保存するにはログインしてください。',
         legacyReadOnly:
           '以前の契約セッションではブックマークを変更できません。',
-        removed: 'ブックマークを解除しました。',
+        removed: 'ブックマークから外しました。',
         removeRollback: 'ブックマークを解除できなかったため元に戻しました。',
         saved: 'ブックマークに保存しました。',
         saveRollback: 'ブックマークに保存できなかったため元に戻しました。',
@@ -799,8 +759,7 @@ export const jaCoreResources = {
         statusLoadOffline:
           'オフラインのため、ブックマークの状態を確認できません。接続が戻ると自動的に再確認します。',
         statusLoadFailed: 'ブックマークの状態を確認できませんでした。',
-        retryStatus: '再確認',
-        chooseLogin: 'ログインを選ぶ'
+        retryStatus: '再確認'
       },
       navigation: {
         previous: '前へ',
@@ -890,15 +849,20 @@ export const jaCoreResources = {
       duration: '所要時間',
       durationValue: '{{minutes}}分{{seconds}}秒'
     },
+    guestDone: '今日の体験はここまでです。ログインすると続けて解けます。',
+    memberLocked: 'ログインが必要',
+    locked: {
+      retry: '間違えた問題の解き直しは、ログインすると使えます。'
+    },
     status: {
       guest:
-        '現在のゲストセッションでは間違えた問題を解き直せますが、アカウントの間違いノートには保存されません。',
+        'ログインすると、間違えた問題が間違いノートに保存されます。今の結果は引き継がれません。',
       savedWrongCount:
         '間違えた{{formattedCount}}問を間違いノートに反映しました。'
     },
     actions: {
       retryIncorrect: '間違えた問題だけ解き直す',
-      loginChoice: 'ログインを選ぶ',
+      loginChoice: 'ログイン',
       openWrongNotes: '間違いノートを見る'
     },
     retry: {
@@ -944,7 +908,7 @@ export const jaCoreResources = {
       remove: 'ブックマーク解除',
       removeLabel: '{{formattedOrdinal}}番の問題のブックマークを解除',
       unavailable: 'この結果ではブックマークを変更できません。',
-      removed: 'ブックマークを解除しました。',
+      removed: 'ブックマークから外しました。',
       removeFailed: 'ブックマークを解除できなかったため元に戻しました。',
       saved: 'ブックマークに保存しました。',
       saveFailed: 'ブックマークに保存できなかったため元に戻しました。'
@@ -1190,10 +1154,6 @@ export const jaCoreResources = {
       versionChanged:
         '最後に間違えた時点の問題の解説です。解き直しには最新の問題を使います。',
       guest: {
-        title: '間違えた問題をまとめて復習しましょう。',
-        description: 'ログインすると復習する問題を続けて確認できます。',
-        login: 'ログイン',
-        practice: '学習へ',
         result: 'この端末で直前に終えた学習結果'
       },
       empty: {
@@ -1450,8 +1410,8 @@ export const jaCoreResources = {
       retrySave: 'もう一度保存',
       saving: '保存中…',
       savedAt: '{{time}} 保存',
-      saved: '保存しました',
-      deleted: 'メモを削除しました',
+      saved: 'メモを保存しました。',
+      deleted: 'メモを削除しました。',
       saveError:
         '保存できませんでした。入力した内容はそのまま残っています。接続を確認してもう一度保存してください。',
       saveOffline:
@@ -1585,6 +1545,73 @@ export const jaCoreResources = {
       status: '{{page}} / {{pageCount}}ページ'
     }
   },
+  account: {
+    title: 'マイページ',
+    guestDescription: 'マイページでは学習記録とアカウントを管理できます。',
+    study: {
+      title: '学習の記録',
+      period: '全期間',
+      total: '解いた問題',
+      totalUnit: '問',
+      rate: '正答率',
+      wrongNotes: '間違いノート',
+      wrongSolved: '解決 {{solved}}・{{total}}件中',
+      bySubject: '科目別の正答率',
+      weakest: 'いちばん苦手な科目：{{subject}}',
+      startSubject: '{{subject}}の学習を始める',
+      noRecord: 'まだ記録なし',
+      week: '直近7日',
+      weekSummary: '7日中{{days}}日学習、合計{{count}}問',
+      recent: '最近の学習',
+      repeated: 'よく間違える問題',
+      wrongTimes: '{{count}}回間違い',
+      seeInReview: '復習で見る',
+      fewData: '問題を解くほど分析が正確になります。',
+      emptyTitle: 'まだ解いた問題がありません',
+      emptyDescription: '問題を解くと、正答率と苦手な科目をここに表示します。',
+      emptyAction: '最初の学習を始める',
+      error: '学習記録を読み込めませんでした。',
+      retry: 'もう一度試す',
+      loading: '学習記録を読み込んでいます。'
+    },
+    recommend: {
+      title: 'おすすめ学習',
+      start: '始める'
+    },
+    settings: {
+      title: 'アカウント',
+      signInMethod: 'ログイン方法',
+      connected: '連携済み',
+      onlyMethod: '唯一のログイン方法のため、連携を解除できません。',
+      logoutDescription:
+        'この端末からログアウトします。学習記録はそのまま残ります。'
+    },
+    danger: {
+      title: '退会',
+      description:
+        '退会するとすぐにログアウトされ、1時間以内に学習記録・間違いノート・メモ・ブックマーク・復習予定とアカウント情報が削除されます。元に戻すことはできません。\nGoogleアカウントは削除されません。',
+      action: '退会する'
+    },
+    confirm: {
+      stepDelete: '退会の最終確認',
+      stepUnlink: '連携解除の最終確認',
+      deleteDescription: {
+        scope:
+          '退会するとすぐにログアウトされ、1時間以内に学習記録・間違いノート・メモ・ブックマーク・復習予定とアカウント情報（氏名・メールアドレス）が削除されます。元に戻すことはできません。',
+        reports:
+          'お送りいただいた問題報告は、説明を削除し、アカウントとの紐付けを解除した状態で残ります。',
+        google:
+          'Googleアカウントは削除されません。Googleアカウント設定の「サードパーティ製アプリとの接続」から、ハルマルとの接続を直接解除できます。'
+      }
+    },
+    dataGuide: 'アカウントとデータの取り扱い',
+    data: {
+      description:
+        'ログアウトはアプリのセッションを終了し、連携解除はログイン方法を削除し、退会はアプリアカウントの削除処理を申請します。',
+      privacyLink: 'プライバシーポリシーを見る',
+      manageLink: 'マイページでアカウントを管理する'
+    }
+  },
   errors: {
     forbidden: {
       memberDescription: '現在のアカウントではこの画面にアクセスできません。',
@@ -1616,10 +1643,6 @@ export const jaCoreResources = {
         '接続が復旧したらログイン状態を再確認します。保存済みのアカウント情報は権限判定に使用していません。'
     },
     banner: {
-      loggedOut: 'ログアウトしました。',
-      offline: 'オフラインです。ネットワーク接続を確認してください。',
-      restored:
-        'ネットワーク接続の復旧を検出しました。必要なリクエストをもう一度お試しください。',
       generic:
         'リクエストを処理できませんでした。しばらく後にもう一度お試しください。',
       network: 'ネットワーク接続が不安定です。もう一度お試しください。',

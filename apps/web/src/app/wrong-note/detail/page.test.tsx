@@ -263,7 +263,7 @@ describe('wrong-note approved R9 readonly workflow', () => {
   it('reports a history read error while preserving the question and explanation', async () => {
     const { question, detail } = await renderReadonlyDetail('error')
     expect(
-      await screen.findByText('내 이전 답을 불러오지 못했습니다.')
+      await screen.findByText('내 이전 답을 불러오지 못했어요.')
     ).toBeInTheDocument()
     expect(
       screen.getByRole('heading', { name: question.questionText })
@@ -275,7 +275,7 @@ describe('wrong-note approved R9 readonly workflow', () => {
 
 describe('wrong-note restricted account', () => {
   const restrictedMessage =
-    '임시로 이용이 제한된 계정입니다. 새 학습과 신고는 제한이 풀린 뒤 이용할 수 있습니다.'
+    '임시로 이용이 제한된 계정이에요. 새 학습과 신고는 제한이 풀린 뒤 이용할 수 있어요.'
 
   it('제한된 계정이 단일 복습을 시작하면 제한 안내를 보여 주고 머문다', async () => {
     const user = userEvent.setup()
@@ -313,7 +313,7 @@ describe('wrong-note restricted account', () => {
     expect(notice).toHaveClass('bg-amber-50')
     expect(notice).not.toHaveClass('text-red-700')
     expect(
-      within(dialog).queryByText('문제 신고를 접수하지 못했습니다.')
+      within(dialog).queryByText('문제 신고를 접수하지 못했어요.')
     ).toBeNull()
     expect(within(dialog).getByRole('textbox', { name: /설명/u })).toHaveValue(
       '보기 문구를 확인해 주세요.'
@@ -335,9 +335,7 @@ describe('wrong-note question report', () => {
     )
     await user.click(within(dialog).getByRole('button', { name: '신고 접수' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(
-      await screen.findByText('문제 신고를 접수했습니다.')
-    ).toBeInTheDocument()
+    expect(await screen.findByText('신고를 보냈어요.')).toBeInTheDocument()
     expect(mockDatabase.peekUserReports()).toEqual([
       expect.objectContaining({
         kind: 'QUESTION',
@@ -359,7 +357,7 @@ describe('wrong-note memo section', () => {
   const memoUrl = (questionId: string): string =>
     `*/api/v1/wrong-notes/${questionId}/memo`
 
-  it('메모를 쓰고 저장하면 저장 상태로 바꾸고 초점을 알림에 둔다', async () => {
+  it('메모를 쓰고 저장하면 성공 토스트를 띄우고 초점을 수정 버튼에 둔다', async () => {
     const user = userEvent.setup()
     const { question } = await renderReadonlyDetail()
     const bodies: unknown[] = []
@@ -376,7 +374,12 @@ describe('wrong-note memo section', () => {
     await user.type(textbox, '  が는 자연현상 주어  ')
     expect(screen.getByText('10 / 2,000')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '저장' }))
-    expect(await screen.findByText('저장했어요')).toHaveFocus()
+    const toasts = await screen.findByRole('region', { name: '알림' })
+    expect(within(toasts).getByText('메모를 저장했어요.')).toBeVisible()
+    // The toast never takes focus; focus returns to the edit button.
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '수정' })).toHaveFocus()
+    )
     expect(screen.getByText('が는 자연현상 주어')).toBeInTheDocument()
     expect(bodies).toEqual([{ memo: 'が는 자연현상 주어' }])
     expect(screen.getByRole('button', { name: '수정' })).toBeEnabled()
@@ -436,14 +439,14 @@ describe('wrong-note memo section', () => {
       '지울 메모'
     )
     await user.click(screen.getByRole('button', { name: '저장' }))
-    await screen.findByText('저장했어요')
+    await screen.findByText('메모를 저장했어요.')
     await user.click(screen.getByRole('button', { name: '삭제' }))
     const dialog = await screen.findByRole('dialog', {
       name: '메모를 삭제할까요?'
     })
     expect(dialog).toHaveTextContent('삭제한 메모는 되돌릴 수 없어요.')
     await user.click(within(dialog).getByRole('button', { name: '삭제' }))
-    expect(await screen.findByText('메모를 삭제했어요')).toBeInTheDocument()
+    expect(await screen.findByText('메모를 삭제했어요.')).toBeInTheDocument()
     await waitFor(() =>
       expect(screen.getByRole('button', { name: '메모 쓰기' })).toHaveFocus()
     )

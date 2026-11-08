@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { ADMIN_FRESH_WINDOW_SECONDS } from '../auth/admin-fresh-sso.js'
 import { isoDateTimeSchema } from '../common/date.js'
 import { opaqueIdSchema } from '../common/id.js'
 import {
@@ -440,12 +441,12 @@ const adminReauthenticationResultSchema = z
   .superRefine((result, context) => {
     if (
       Date.parse(result.assuranceExpiresAt) !==
-      Date.parse(result.reauthenticatedAt) + 300_000
+      Date.parse(result.reauthenticatedAt) + ADMIN_FRESH_WINDOW_SECONDS * 1_000
     ) {
       addIssue(
         context,
         ['assuranceExpiresAt'],
-        'assuranceExpiresAt은 reauthenticatedAt보다 정확히 5분 뒤여야 합니다.'
+        'assuranceExpiresAt은 reauthenticatedAt보다 정확히 30분 뒤여야 합니다.'
       )
     }
   })

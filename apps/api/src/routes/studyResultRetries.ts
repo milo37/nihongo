@@ -123,9 +123,15 @@ export const createStudyResultRetryRoutes = ({
       guestPrincipalService,
       principalService
     })
-    if (owner.kind === 'USER') {
-      await assertAccountNotRestricted(accountRestrictionReader, owner.userId)
+    // A retry is a new session; guests only start limited random ones (#737).
+    if (owner.kind !== 'USER') {
+      throw new ApplicationError({
+        code: 'AUTHENTICATION_REQUIRED',
+        message: '오답을 다시 풀려면 로그인이 필요합니다.',
+        retryable: false
+      })
     }
+    await assertAccountNotRestricted(accountRestrictionReader, owner.userId)
 
     const created = await studyResultRetryService.create(
       params.sessionId,

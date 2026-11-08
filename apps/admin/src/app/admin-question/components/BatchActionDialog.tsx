@@ -2,10 +2,13 @@ import { Button } from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { useUiLocale } from '@nihongo/browser/provider/I18nProvider'
-import { useLocation } from 'react-router'
 import { useEffect, useRef } from 'react'
 import type { ReactElement, RefObject } from 'react'
-import { FreshAssurance } from '@app/admin/components/FreshAssurance'
+import {
+  ReauthDialogButton,
+  ReauthRequiredNotice
+} from '@app/admin/reauth/ReauthRequiredNotice'
+import { useAdminReauth } from '@app/admin/reauth/useAdminReauth'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import { questionErrorCode } from '@app/admin-question/detail/questionWorkflow'
 import type { QuestionBatch } from '@app/admin-question/hooks/useQuestionBatch'
@@ -22,7 +25,7 @@ export const BatchActionDialog = ({
 }): ReactElement => {
   const { t, presentError } = useAdminPresentation()
   const { locale } = useUiLocale()
-  const { pathname, search } = useLocation()
+  const reauth = useAdminReauth()
   const { dialogTargets: selected, mutation } = batch
   const prefix = `questionList.batch.dialog.${batch.dialogAction}` as const
   const count = formatNumber(selected.length, locale)
@@ -31,13 +34,11 @@ export const BatchActionDialog = ({
   const rest = selected.length - LISTED_IDS
   const confirmButton = useRef<HTMLButtonElement>(null)
   const errorAlert = useRef<HTMLParagraphElement>(null)
-  const showError = mutation.isError && code !== 'FRESH_ASSURANCE_REQUIRED'
+  const needsReauth = code === 'FRESH_ASSURANCE_REQUIRED'
+  const showError = mutation.isError && !needsReauth
   useEffect(() => {
     if (showError) errorAlert.current?.focus()
   }, [showError])
-  useEffect(() => {
-    if (batch.freshConfirmed) confirmButton.current?.focus()
-  }, [batch.freshConfirmed])
   return (
     <Dialog
       open={batch.dialogOpen}
@@ -57,19 +58,23 @@ export const BatchActionDialog = ({
           >
             {t('questionList.batch.dialog.cancel')}
           </Button>
-          {/* aria-disabled, not disabled: focus stays on the button while sending. */}
-          <Button
-            ref={confirmButton}
-            className="aria-disabled:cursor-wait aria-disabled:opacity-70"
-            aria-disabled={mutation.isPending || undefined}
-            aria-busy={mutation.isPending || undefined}
-            disabled={selected.length === 0}
-            onClick={() => {
-              if (!mutation.isPending) batch.confirm()
-            }}
-          >
-            {mutation.isPending ? t(`${prefix}.confirming`) : confirmLabel}
-          </Button>
+          {needsReauth ? (
+            <ReauthDialogButton reauth={reauth} keep={batch.keepSelection} />
+          ) : (
+            /* aria-disabled, not disabled: focus stays on the button while sending. */
+            <Button
+              ref={confirmButton}
+              className="aria-disabled:cursor-wait aria-disabled:opacity-70"
+              aria-disabled={mutation.isPending || undefined}
+              aria-busy={mutation.isPending || undefined}
+              disabled={selected.length === 0}
+              onClick={() => {
+                if (!mutation.isPending) batch.confirm()
+              }}
+            >
+              {mutation.isPending ? t(`${prefix}.confirming`) : confirmLabel}
+            </Button>
+          )}
         </>
       }
     >
@@ -88,15 +93,11 @@ export const BatchActionDialog = ({
         ) : null}
       </ul>
       <p className="mt-4 leading-7 text-muted">{t(`${prefix}.body`)}</p>
-      {batch.freshConfirmed ? (
-        <p role="status" className="mt-4 text-sm leading-6">
-          {t('members.detail.fresh.confirmed', { command: confirmLabel })}
-        </p>
-      ) : code === 'FRESH_ASSURANCE_REQUIRED' ? (
-        <FreshAssurance
-          commandLabel={confirmLabel}
-          returnPath={`/admin${pathname}${search}`}
-          onConfirmed={batch.confirmFresh}
+      {needsReauth ? (
+        <ReauthRequiredNotice
+          command={confirmLabel}
+          keeps="selection"
+          reauth={reauth}
         />
       ) : showError ? (
         <p
@@ -106,11 +107,6 @@ export const BatchActionDialog = ({
           role="alert"
         >
           {presentError(mutation.error)} {t(`${prefix}.notDone`)}
-          {code === 'RATE_LIMITED' ? (
-            <span className="mt-1 block font-normal">
-              {t('questionList.batch.dialog.freshAfterWait')}
-            </span>
-          ) : null}
         </p>
       ) : null}
     </Dialog>

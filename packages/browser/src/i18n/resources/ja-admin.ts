@@ -3,12 +3,76 @@ import type { koResources } from './ko'
 
 export const jaAdminResources = {
   name: '管理者',
+  reauth: {
+    action: '本人確認',
+    extend: '延長',
+    remaining: '本人確認・残り{{minutes}}分',
+    remainingShort: '残り{{minutes}}分',
+    scopeAdmin: '管理者の操作は、本人確認から30分間は再確認しません。',
+    expiringSoon: '本人確認はあと{{minutes}}分で切れます。',
+    expired: '本人確認の有効時間が切れました。',
+    blocked:
+      '本人確認の有効時間が切れたため、「{{command}}」は適用していません。',
+    blockedHelp:
+      'Googleでもう一度ログインすると、この画面に戻ります。選択した問題はそのまま残るので、もう一度ボタンを押してください。',
+    blockedHelpInput:
+      'Googleでもう一度ログインすると、この画面に戻ります。入力内容はそのまま残るので、もう一度ボタンを押してください。',
+    blockedHelpImport:
+      'ファイルは安全のため保持できません。戻ったあと、同じファイルを選び直してチェックしてください。',
+    storageFailed:
+      '入力を保存できなかったため、本人確認に移動しませんでした。入力をコピーしておくか、もう一度お試しください。',
+    startFailed: 'Googleに移動できませんでした。もう一度お試しください。',
+    restored:
+      '移動前の入力を復元しました。内容を確認してから操作してください。',
+    checking: '本人確認の結果を確認しています…',
+    returned:
+      '本人確認が完了しました（30分間有効）。操作は自動実行されないため、もう一度ボタンを押してください。',
+    cancelled: '本人確認をキャンセルしました。操作は適用していません。',
+    failed: '本人確認を完了できませんでした。操作は適用していません。',
+    invalid: '確認リクエストの期限が切れました。もう一度お試しください。',
+    unknown: '接続の問題で結果を確認できませんでした。',
+    retry: 'もう一度試す',
+    recheck: '再確認'
+  },
   grid: {
     columns: '表示する列',
     pageSize: '1ページの行数',
     pageStatus: '{{page}} / {{pageCount}}ページ · 全{{total}}件',
     previous: '前へ',
     next: '次へ'
+  },
+  adminList: {
+    total: '全{{total}}件',
+    range: '· {{from}}–{{to}}件',
+    totalPending: '件数を確認中…',
+    pageSize: '1ページの表示数',
+    pageSizeOption: '{{count}}件ずつ',
+    pageStatus: '{{page}} / {{pageCount}}',
+    first: '最初のページ',
+    previous: '前のページ',
+    next: '次のページ',
+    last: '最後のページ',
+    pagerTop: 'ページ移動（一覧の上）',
+    pagerBottom: 'ページ移動（一覧の下）',
+    movingPage: '別のページを読み込み中…',
+    filters: {
+      button: '絞り込み',
+      buttonCount: '絞り込み（{{count}}）',
+      chipValue: '{{label}}: {{value}}',
+      remove: '{{label}}の絞り込みを解除',
+      all: 'すべて',
+      reset: 'リセット',
+      sheetDone: '{{count}}件を表示',
+      sheetDonePending: '結果を表示',
+      sort: '並べ替え'
+    },
+    columns: '列',
+    rowMenu: '{{id}}の操作',
+    copyId: 'IDをコピー',
+    copied: 'コピーしました',
+    copyFailed: 'コピーできませんでした',
+    selected: '{{count}}件選択中',
+    clearSelection: '選択を解除'
   },
   nav: {
     brand: '하루마루 管理',
@@ -44,7 +108,7 @@ export const jaAdminResources = {
       solvedCount: '解いた問題',
       reportCount: '報告',
       status: '状態',
-      actions: '詳細・対応'
+      actions: '詳細'
     },
     status: { ACTIVE: '利用中', RESTRICTED: '利用制限' },
     detail: {
@@ -66,15 +130,6 @@ export const jaAdminResources = {
       release: '制限を解除',
       releasing: '解除しています…',
       released: '利用制限を解除しました。',
-      fresh: {
-        required:
-          'セキュリティのため管理者の本人確認が必要です。新しいタブで本人確認を済ませてから、ここで確認完了を押してください。入力内容はそのまま残り、「{{command}}」はまだ適用されていません。',
-        openNewTab: '新しいタブで本人確認',
-        confirm: '確認完了',
-        confirmed:
-          '本人確認が完了しました。もう一度「{{command}}」を押して適用してください。',
-        failed: '本人確認が完了しなかったため、適用していません。'
-      },
       confirm: {
         title: '利用を制限しますか？',
         description: '次の会員にすぐ適用されます。',
@@ -121,7 +176,6 @@ export const jaAdminResources = {
     updatedAt: '更新日時',
     details: '詳細',
     rowVersion: 'rowVersion',
-    selectedFile: '選択中: {{fileName}}',
     retryAfter: '{{message}} {{seconds}}秒後にもう一度お試しください。',
     retryAfterMinutes: '{{message}} {{minutes}}分後にもう一度お試しください。',
     pausedTitle: 'オフラインでは最新状態を確認できません',
@@ -358,36 +412,7 @@ export const jaAdminResources = {
       '連携したアカウントで本人確認を完了できませんでした。',
     fieldInvalid: 'この入力値を確認してください。'
   },
-  freshAssurance: {
-    title: '管理者本人確認',
-    description:
-      '{{reason}} 連携したアカウントで本人確認後、操作ボタンをもう一度押す必要があります。',
-    cancel: 'キャンセル',
-    checkingSession: 'ログイン状態を確認しています…',
-    retrySession: 'ログイン状態を再確認',
-    checking: '確認しています…',
-    confirm: '本人確認',
-    complete:
-      'ログイン状態を再確認しました。元の操作は自動実行されていません。内容を確認してから手動でもう一度実行してください。',
-    recovered:
-      '現在の管理者セッションを確認しました。連携したアカウントで本人確認をやり直してください。',
-    recoveryFailed:
-      'ログイン状態を確認できませんでした。ローカル作業は保持されます。ログイン状態の確認をもう一度お試しください。',
-    failed: '本人確認を完了できませんでした。',
-    reasons: {
-      BATCH_REVIEW: '一括レビュー依頼は慎重な確認が必要な管理者操作です。',
-      EXPORT: '問題のエクスポートには機密性のある正解と解説が含まれます。',
-      IMPORT_APPLY: 'インポートの適用は複数の問題を作成する管理者操作です。',
-      QUESTION_APPROVE: '承認は慎重な確認が必要な管理者操作です。',
-      QUESTION_ARCHIVE: '問題のアーカイブは慎重な確認が必要な管理者操作です。',
-      QUESTION_PUBLISH: '公開は慎重な確認が必要な管理者操作です。',
-      QUESTION_RETIRE: '公開終了は慎重な確認が必要な管理者操作です。',
-      QUESTION_WITHDRAW: '承認取り消しは慎重な確認が必要な管理者操作です。',
-      REPORT_RESOLUTION: '報告の最終処理は慎重な確認が必要な管理者操作です。'
-    }
-  },
   questionList: {
-    eyebrow: 'ADMIN QUESTION CMS',
     title: '問題管理',
     description:
       '有効な問題の代表バージョンを管理します。作成中・レビュー中のバージョンがあれば優先して表示し、公開版の有無は別に表示します。一覧には正解と解説を表示しません。',
@@ -397,39 +422,25 @@ export const jaAdminResources = {
     searchLabel: '問題を検索',
     searchPlaceholder: '問題文の書き出しを入力してください…',
     search: '検索',
-    filtersLegend: '問題一覧の絞り込みと並べ替え',
-    allLevels: 'すべてのレベル',
-    allSubjects: 'すべての科目',
-    allStatuses: 'すべての表示バージョンのステータス',
-    allDifficulties: 'すべての難易度',
     sort: '並べ替え',
-    total: '全{{formattedCount}}問',
-    pageSize: '1ページの表示数',
-    pageSizeOption: '{{count}}問ずつ',
-    totalPending: '問題数を確認しています…',
-    resetFilters: '絞り込みをリセット',
     loading: '管理者用の問題一覧を読み込んでいます…',
     loadErrorTitle: '問題一覧を読み込めませんでした',
     loadErrorDescription:
       'ネットワークの状態を確認してから、もう一度お試しください。',
-    movingPage: '有効な問題一覧のページに移動しています。',
-    noMatchTitle: '検索条件に合う問題はありません',
-    noMatchDescription:
-      '検索語や絞り込みを変更して、もう一度確認してください。',
+    noMatchTitle: '条件に合う問題はありません',
+    noMatchDescription: '絞り込みを減らすか、検索語を変えてください。',
     noQuestionsTitle: '登録された問題はありません',
     noQuestionsDescription:
       '最初のオリジナル問題を登録して、問題バンクを作りましょう。',
     firstQuestion: '最初の問題を登録',
     emptyTitle: '表示する問題がありません',
-    tableHelp:
-      '表を左右にスクロールすると、すべての列と管理ボタンを確認できます。',
     tableLabel: '管理者用の問題一覧',
     tableCaption: 'JLPT管理者用の問題一覧。編集とアーカイブの操作を含みます。',
     columns: {
       id: 'ID',
       level: 'レベル',
       subject: '科目',
-      questionType: '形式',
+      subjectType: '科目・形式',
       question: '問題文',
       difficulty: '難易度',
       status: 'ステータス',
@@ -437,21 +448,16 @@ export const jaAdminResources = {
       updatedAt: '更新日',
       actions: '管理'
     },
-    lifecycle: { ACTIVE: '有効', ARCHIVED: 'アーカイブ' },
     published: '公開版あり',
-    unpublished: '公開版なし',
+    archivedNote: 'アーカイブ済み',
     noDate: '日付情報なし',
     edit: '編集',
-    details: '詳細',
-    rowActionLabel: '問題{{questionId}}の{{action}}',
+    details: '詳細を見る',
     archive: '公開終了・アーカイブ',
-    archiveLabel: '問題{{questionId}}を公開終了・アーカイブ',
     batch: {
       selectColumn: '一括選択',
       selectRow: '問題{{questionId}}を選択',
       selectPage: 'このページで選択できる問題をすべて選択',
-      selected: '{{count}}問を選択中',
-      clear: '選択を解除',
       request: '自分の下書き{{count}}問をレビュー依頼',
       approve: 'レビュー中の{{count}}問を承認',
       publish: '承認済みの{{count}}問を公開',
@@ -460,8 +466,6 @@ export const jaAdminResources = {
       dialog: {
         more: 'ほか{{rest}}問',
         cancel: 'キャンセル',
-        freshAfterWait:
-          '待った後にもう一度送るときは、管理者の本人確認をもう一度行う必要があります。',
         request: {
           title: '{{count}}問をレビュー依頼しますか？',
           description:
@@ -571,7 +575,6 @@ export const jaAdminResources = {
       }
     },
     draftDelete: '下書きを削除',
-    draftDeleteLabel: '下書き{{questionId}}を削除',
     draftDialog: {
       title: '下書きを削除しますか？',
       description:
@@ -593,12 +596,9 @@ export const jaAdminResources = {
       cancel: 'キャンセル',
       confirm: '公開終了・アーカイブ',
       confirming: 'アーカイブ中…',
-      reauthenticate: '管理者の再認証',
       refresh: '最新の状態を確認',
       refreshFailed:
         '最新の状態を確認できませんでした。アーカイブは実行していません。',
-      freshRequired:
-        '管理者の再認証が必要です。再認証後、一覧で確認してからアーカイブしてください。',
       conflict:
         '別の変更が先に保存されました。最新の状態を確認してから、もう一度アーカイブしてください。',
       failed:
@@ -619,10 +619,9 @@ export const jaAdminResources = {
       error:
         '問題を登録できませんでした。入力内容を確認して、もう一度お試しください。'
     },
-    eyebrow: 'CREATE DRAFT',
     title: '新しい問題の下書きを作成',
     description:
-      '作成結果は必ず新しい下書きバージョンになります。フォームから公開状態を直接指定することはできません。',
+      '新しい問題は下書きとして保存されます。確認・承認を経て学習者に公開されます。',
     submit: '下書きを作成',
     error: '問題を作成できませんでした。'
   },
@@ -801,9 +800,9 @@ export const jaAdminResources = {
     noPreviousVersion: '比較する前のバージョンはありません。',
     actions: '現在のバージョンの操作',
 
-    title: '問題バージョンワークフロー',
+    title: 'バージョンと承認ステップ',
     description:
-      '行バージョンが競合した場合もローカル編集内容は保持され、再読み込み後に差分を確認できます。',
+      '別の場所で先に変更された場合も、入力中の内容はそのまま残し、再読み込み後に変更点をお見せします。',
     loading: '管理者用問題の詳細を読み込んでいます…',
     loadErrorTitle: '問題詳細を読み込めませんでした',
     cachedError:
@@ -815,7 +814,7 @@ export const jaAdminResources = {
     newDraft: '新しい下書きバージョンを作成',
     archive: '問題をアーカイブ',
     dirtyLock:
-      '未保存の編集内容があるため、バージョン切り替えとワークフロー操作をロックしました。先に下書きを保存してください。',
+      '未保存の編集内容があるため、バージョン切り替えと承認ステップの操作をロックしました。先に下書きを保存してください。',
     diffTitle: '前のバージョンとの差分',
     diffLoading: '差分を計算しています…',
     diffError: '差分を読み込めませんでした。',
@@ -871,40 +870,43 @@ export const jaAdminResources = {
     commandComplete: '{{command}}を完了しました。'
   },
   import: {
-    freshRevalidateHint:
-      'Googleでの本人確認へ移動すると、ファイル選択と検証結果はリセットされます。戻ったら同じJSONファイルを選び直し、検証してから手動で適用してください。',
-    eyebrow: 'ATOMIC IMPORT',
     title: '問題の下書きをインポート',
     description:
-      '最初に書き込みなしで検証し、同一項目とvalidation digestに対してのみ全件を適用します。',
-    fileLabel: 'JSONファイル',
-    fileHint: '最大2 MiB · 最大100件 · UTF-8 strict JSON',
+      '①ファイルを選んでチェックします（まだ保存しません）。②問題がなければ「インポート」を押して、すべての問題を下書きとして一度に作成します。1件でも失敗した場合は何も作成しません。',
+    fileLabel: 'インポートするファイル（.json）',
+    fileHint: '2MB以下、問題100件まで',
+    chooseFile: 'ファイルを選択',
+    noFileChosen: 'ファイルが選択されていません',
     readingFile: 'ファイルを安全に読み込んでいます…',
-    fileSizeError: 'ファイルは1 byte以上2 MiB以下にしてください。',
+    fileSizeError:
+      '空のファイルか、2MBを超えています。2MB以下のファイルを選んでください。',
     fileFormatError:
-      'JSONキーの重複がなく、canonical import request形式のUTF-8 JSONファイルが必要です。',
-    validate: '書き込みなしで検証',
-    valid: '検証成功',
-    invalid: '検証エラー',
+      'インポート形式に合わないファイルです。問題インポートの手順書の形式で作成したファイルか確認してください。',
+    validate: 'チェックする',
+    resultTitle: 'チェック結果',
+    resultCountLabel: 'チェックした問題',
+    issueCountLabel: 'エラー',
+    valid: 'チェック通過',
+    invalid: '修正が必要な箇所があります',
     resultCount: '{{formattedCount}}件',
-    apply: '同じ検証結果を一括適用',
-    applied: '{{formattedCount}}件の下書きを一括作成しました。',
+    apply: '{{formattedCount}}件を下書きとしてインポート',
+    applied:
+      '{{formattedCount}}件の問題を下書きとして作成しました。問題管理で確認してください。',
     error: 'インポート要求を処理できませんでした。',
-    issueLabel: '{{code}} · 項目{{item}} · {{field}}',
+    issueLabel: '{{item}}件目 · {{field}} · {{code}}',
     recovery: {
       checking:
         '適用の応答を受け取れなかったため、同じインポートIDで適用結果を確認しています。',
       notApplied:
-        'このインポートは適用されていません。再度適用しても下書きが重複して作成されることはありません。',
+        'インポートされませんでした。もう一度押しても問題が二重に作成されることはありません。',
       failed:
-        '適用結果を確認できませんでした。再度適用すると同じインポートIDで処理され、下書きが重複して作成されることはありません。'
+        '結果を確認できませんでした。もう一度押しても問題が二重に作成されることはありません。'
     }
   },
   audit: {
-    eyebrow: 'ADMIN AUDIT',
     title: '管理者監査ログ',
     description:
-      '機密性のある問題本文ではなく、許可された状態とdigestの証跡のみ表示します。',
+      '誰がいつどの操作をしたかを表示します。問題本文は表示しません。',
     cachedError:
       '最新の監査ログを確認できませんでした。現在のログは保持されます。',
     retry: '監査ログを再確認',
@@ -914,19 +916,19 @@ export const jaAdminResources = {
     emptyDescription: '記録された管理者コマンドはまだありません。',
     stateChange: '状態変更',
     changedFields: '変更フィールド',
-    requestEnvironment: 'リクエスト {{requestId}} · 環境 {{environment}}',
+    requestEnvironment: 'リクエスト番号 {{requestId}} · {{environment}}',
     moreLoading: '以前の監査ログを読み込んでいます…',
     more: '以前の監査ログをさらに表示'
   },
   questionReportDialog: {
     trigger: '問題を報告',
     title: '問題を報告',
-    description: '報告内容は管理者のみが確認し、HTMLとして解釈されません。',
+    description: '報告内容は管理者のみ確認します。',
     details: '説明',
     descriptionRequired: '報告の説明を入力してください。',
     cancel: 'キャンセル',
     submit: '報告を送信',
-    submitted: '問題の報告を受け付けました。',
+    sent: '報告を送信しました。',
     error: '問題の報告を受け付けられませんでした。',
     offline: 'オフラインです。入力した説明は保持されます。',
     appErrorTrigger: 'アプリの不具合を報告',
@@ -934,124 +936,54 @@ export const jaAdminResources = {
     appErrorTitle: 'アプリの不具合を報告',
     appErrorDescription:
       'どの画面で何をしていたときに問題が起きたかを入力してください。報告内容は管理者のみが確認します。',
-    appErrorSubmitted: 'アプリの不具合報告を受け付けました。',
+    appErrorSent: 'エラー報告を送信しました。',
     appErrorError: 'アプリの不具合報告を受け付けられませんでした。'
-  },
-  reportList: {
-    eyebrow: 'QUESTION REPORTS · TECHNICAL MODE',
-    title: '問題報告キュー',
-    description:
-      '一覧では報告の説明を表示しません。詳細画面でのみプレーンテキストとして確認します。',
-    invalidQuery:
-      'URLの報告検索条件が許容範囲外です。安全な初期条件を使用します。',
-    status: '処理状態',
-    allStatuses: 'すべての状態',
-    reason: '報告理由',
-    allReasons: 'すべての理由',
-    questionId: '問題ID',
-    assigneeActorId: '担当者actor ID',
-    createdFrom: '報告作成日時の開始',
-    createdTo: '報告作成日時の終了',
-    updatedFrom: '報告更新日時の開始',
-    updatedTo: '報告更新日時の終了',
-    sort: '並び順',
-    applySearch: '検索条件を適用',
-    resetFilters: 'フィルターをリセット',
-    cachedError:
-      '最新の報告キューを確認できませんでした。現在の一覧は保持されます。',
-    error: '報告キューを読み込めませんでした。',
-    retry: '報告キューを再確認',
-    loading: '報告キューを読み込んでいます…',
-    refreshing: '報告キューのページを更新しています…',
-    emptyTitle: '報告がありません',
-    emptyDescription: '現在の条件に一致する報告はありません。',
-    tableScrollLabel: '問題報告一覧の横スクロール領域',
-    tableCaption:
-      '問題報告キュー一覧。状態、理由、問題、報告者、担当者、作成日時、更新日時、詳細の列があります。',
-    sortCreated: '作成日時が新しい順で並べ替え',
-    sortCreatedActive: '作成日時が新しい順です',
-    sortUpdated: '更新日時が新しい順で並べ替え',
-    sortUpdatedActive: '更新日時が新しい順です'
-  },
-  reportDetail: {
-    advancedFilters: '詳細条件',
-    dateHint: 'タイムゾーン付きISO日時（例: 2026-10-01T00:00:00Z）',
-    applyFilters: 'フィルターを適用',
-    previous: '前の一覧',
-    next: '次の一覧',
-    first: '最初の一覧へ',
-    total: '全{{count}}件',
-    rowInfo: '報告情報',
-    back: '報告一覧へ',
-    reasonHint: '最大1,000文字（Unicode文字単位）',
-    restored:
-      '同じ管理者と報告の版を確認し、処理理由の下書きを復元しました。内容を確認してから実行してください。',
-    storageFailed:
-      '下書きを保存できなかったため、本人確認へ移動しませんでした。入力をコピーして保管するか、再試行してください。',
-    discard: '下書きを破棄',
-    fresh: 'Googleで管理者本人確認',
-    leaveTitle: '編集中の処理理由があります',
-    stay: '編集を続ける',
-    leave: '破棄して移動',
-    pending: '処理が完了するまでお待ちください。',
-    listDescription: '報告理由と状態を確認し、詳細から対応してください。',
-    title: '問題報告の詳細',
-    loading: '報告詳細を読み込んでいます…',
-    error: '報告詳細を読み込めませんでした。',
-    cachedError:
-      '報告詳細の最新状態を確認できませんでした。現在の処理入力は保持されます。',
-    retry: '報告詳細を再確認',
-    description: '報告の説明',
-    noDescription: '説明は入力されていません。',
-    triageTitle: '分類を開始',
-    triageDescription: '現在の管理者に割り当て、分類済み状態へ移行します。',
-    triage: '報告の分類を開始',
-    resolutionTitle: '最終処理',
-    outcome: '処理結果',
-    resolutionReason: '処理理由',
-    remediationHint:
-      '任意です。同じ問題の検証済み後続バージョンIDのみ指定できます。',
-    remediationVersionId: '改善バージョンID',
-    resolve: '最終処理を実行',
-    resolved: '処理完了: {{outcome}}',
-    statusChanged: '報告を{{status}}状態へ変更しました。',
-    resolutionComplete: '報告を{{status}}として処理しました。',
-    conflictRefreshFailed:
-      '報告の最新状態を確認できませんでした。入力は保持されます。ネットワークを確認してもう一度お試しください。',
-    conflictRefreshed:
-      '報告の最新状態を反映しました。入力を確認してから操作をもう一度実行してください。',
-    mutationError: '報告状態を変更できませんでした。',
-    retryConflict: '報告の最新状態を読み込む',
-    conflictTitle: '別の操作で報告状態が変更されました'
   },
   userReport: {
     list: {
       title: 'バグレポート',
       description:
         '学習者から届いた問題の報告とアプリの不具合報告です。受付済みを先に、新しい順で表示します。',
-      invalidQuery: 'URLの検索条件が許可範囲外です。既定の条件を使用します。',
+      invalidQuery:
+        '検索条件を読み取れなかったため、初期条件で表示しています。',
       status: '処理状態',
-      allStatuses: 'すべての状態',
       kind: '種類',
-      allKinds: 'すべての種類',
-      pageSize: '1ページの件数',
-      apply: 'フィルターを適用',
-      reset: 'フィルターをリセット',
       loading: '報告を読み込んでいます…',
       refreshing: '報告一覧を更新しています…',
       error: '報告一覧を読み込めませんでした。',
       cachedError:
         '最新の報告一覧を確認できませんでした。現在の一覧はそのまま残ります。',
       retry: '報告一覧を再確認',
-      emptyTitle: '処理する報告はありません。',
-      emptyDescription: '現在の条件に合う報告はありません。',
-      total: '報告 {{formattedCount}}件',
-      location: '発生場所',
-      createdAt: '受付日時',
+      empty: {
+        all: {
+          title: 'まだ報告はありません。',
+          description:
+            '学習者から問題の報告やアプリの不具合報告が届くと、ここに表示されます。'
+        },
+        RECEIVED: {
+          title: '処理する報告はありません。',
+          description: '新しく届いた報告はすべて処理済みです。'
+        },
+        ANSWERED: {
+          title: '返信済みの報告はありません。',
+          description: '返信した報告がここに表示されます。'
+        },
+        CLOSED: {
+          title: '完了した報告はありません。',
+          description: '完了した報告がここに表示されます。'
+        },
+        filtered: {
+          title: '条件に合う報告はありません。',
+          description: '絞り込みを変えるか、[リセット]を押してください。'
+        }
+      },
       details: '詳細を見る',
-      previous: '前のページ',
-      next: '次のページ',
-      first: '最初のページへ'
+      columns: {
+        statusKind: '状態・種類',
+        content: '内容',
+        locationTime: '発生場所・日時',
+        link: '詳細を見る'
+      }
     },
     detail: {
       back: 'バグレポート一覧',
@@ -1090,6 +1022,26 @@ export const jaAdminResources = {
         'メモ欄を他の管理者が保存した最新のメモに置き換えました。自分のメモは下に別途残しています。',
       myDraft: '自分のメモ',
       restoreDraft: '自分のメモを戻す'
+    },
+    location: {
+      question: '{{screen}} · {{ordinal}}問目',
+      unknown: 'その他の画面（{{raw}}）',
+      screens: {
+        home: 'トップ画面',
+        login: 'ログイン',
+        dashboard: '学習ホーム',
+        practiceSetup: '演習の設定',
+        practiceSession: '問題演習',
+        result: '結果画面',
+        wrongNoteCenter: '復習',
+        wrongNoteDetail: '解説を見る',
+        bookmarks: 'ブックマーク',
+        legal: '規約・ポリシー',
+        accountData: 'アカウントデータ案内',
+        support: 'サポート案内',
+        forbidden: 'アクセス権限なし',
+        page: 'その他の画面'
+      }
     },
     statuses: {
       RECEIVED: '受付済み',

@@ -192,6 +192,29 @@ describe('session and errors', () => {
     ).toBe(false)
   })
 
+  // The server clock comes from the HTTP Date header; a per-read clock in the
+  // body would change the cached user on every read (#683).
+  it('keeps the server clock out of the current user', () => {
+    const admin = {
+      id: id(6),
+      name: '관리자',
+      targetLevel: null,
+      role: 'ADMIN',
+      adminSessionExpiresAt: iso,
+      adminFreshUntil: iso
+    }
+    expect(
+      getCurrentPrincipalResponseSchema.safeParse({ kind: 'USER', user: admin })
+        .success
+    ).toBe(true)
+    expect(
+      getCurrentPrincipalResponseSchema.safeParse({
+        kind: 'USER',
+        user: { ...admin, adminServerTime: iso }
+      }).success
+    ).toBe(false)
+  })
+
   it('maps ACCOUNT_RESTRICTED to 403', () => {
     expect(errorStatusByCode.ACCOUNT_RESTRICTED).toBe(403)
   })
