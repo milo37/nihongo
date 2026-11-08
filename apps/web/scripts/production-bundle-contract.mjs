@@ -37,16 +37,20 @@ export const bundleCeilings = Object.freeze({
   // U12 (JLP-791): the shared global error handler now raises offline and
   // sign-out toasts, so Toast becomes its own shared initial chunk (+1
   // file; it must be ready before the first event, so it cannot load lazily).
-  // U4 guest screens (#767): 31 initial files measured.
-  initialAssetCount: 31,
+  // #761 + U4 together (#767 c9af0ed5): 32 initial files measured.
+  initialAssetCount: 32,
   // #755 on dev ef36052b (U5 shared re-verification notice + #752 storage
   // guard): web initial gzip 252,166 measured. The notice sits in the global
   // error handler and must show on the first frame after the return, so it
   // stays in the initial load. With U12 toasts (#761) on dev e78241bd:
   // 253,145 measured; Toast must be ready before the first event (not lazy).
-  initialGzipBytes: 253_500,
+  // #761 Toast + U4 guest allowance query, sign-in toast and used-up card on
+  // the practice home (#767 c9af0ed5): 255,775 measured (god approved;
+  // shrinking the first-screen bundle is a post-deploy card).
+  initialGzipBytes: 256_000,
   // Shared admin re-verification return notice with its retry start (U5 #683).
-  initialRawBytes: 810_000,
+  // #761 + U4 (#767 c9af0ed5): 813,670 measured.
+  initialRawBytes: 814_000,
   javaScriptAssetCount: 88,
   javaScriptGzipBytes: 470_000,
   javaScriptRawBytes: 1_429_000,
@@ -56,8 +60,8 @@ export const bundleCeilings = Object.freeze({
   largestLazyJavaScriptGzipBytes: 30_000,
   largestLazyJavaScriptRawBytes: 102_000,
   totalGzipBytes: 480_000,
-  // U4 design fixes (#767): measured 1,478,177 (god approved; re-measure after deploy).
-  totalRawBytes: 1_478_500
+  // #761 + U4 (#767 c9af0ed5): 1,482,644 measured (god approved; re-measure after deploy).
+  totalRawBytes: 1_483_000
 })
 
 export const approvedStaticAssetPaths = Object.freeze([
