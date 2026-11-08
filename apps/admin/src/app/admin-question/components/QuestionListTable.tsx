@@ -435,7 +435,10 @@ export const QuestionListTable = ({
                     t(`questionList.columns.${column.key}`)
                   )}
                   {sorted ? (
-                    <span aria-hidden="true">
+                    <span
+                      aria-hidden="true"
+                      className="ui-table-sort-indicator"
+                    >
                       {column.sortedBy?.direction === 'ascending' ? ' ↑' : ' ↓'}
                     </span>
                   ) : null}
