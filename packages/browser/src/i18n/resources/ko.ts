@@ -13,8 +13,6 @@ import { koAdminQuestionListResources } from './ko-admin-question'
 import { koAdminQuestionDetailResources } from './ko-admin-question-detail'
 import { koAdminReauthResources } from './ko-admin-reauth'
 import { koAdminReportResources } from './ko-admin-report'
-import { koAdminReportDetailResources } from './ko-admin-report-detail'
-import { koAdminReportListResources } from './ko-admin-report-list'
 import { koAdminSharedListResources } from './ko-admin-shared-list'
 import { questionTypeLabels } from './ko-question-types'
 
@@ -1622,8 +1620,6 @@ export const koResources = {
       appErrorSent: '오류 제보를 보냈어요.',
       appErrorError: '앱 오류 제보를 접수하지 못했어요.'
     },
-    reportList: koAdminReportListResources,
-    reportDetail: koAdminReportDetailResources,
     userReport: koAdminReportResources
   },
   errors: {
