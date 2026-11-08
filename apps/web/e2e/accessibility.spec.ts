@@ -1831,7 +1831,7 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
     },
     {
       minimumTarget: page.getByRole('button', {
-        name: 'N3 문법 · 10문제 시작',
+        name: 'N3 문법 · 5문제 시작',
         exact: true
       })
     }
@@ -1841,11 +1841,14 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
   await focusByTab(page, modeOptions.locator('summary'))
   await page.keyboard.press('Enter')
   await expect(modeOptions).toHaveJSProperty('open', true)
-  const practiceLogin = modeOptions.getByRole('link', {
-    name: '로그인하기',
-    exact: true
-  })
-  await focusByTab(page, practiceLogin)
+  // A guest choosing a locked mode keeps RANDOM and gets a toast (U4 L11).
+  const modeSelect = modeOptions.getByRole('combobox', { name: '출제 모드' })
+  await modeSelect.selectOption('WEAKNESS')
+  await expect(modeSelect).toHaveValue('RANDOM')
+  const practiceLogin = page
+    .getByRole('region', { name: '알림' })
+    .getByRole('button', { name: '로그인', exact: true })
+  await practiceLogin.focus()
   await page.keyboard.press('Enter')
   await expect(page).toHaveURL(/\/login\?redirect=/u)
   await expect(page.locator('main')).toBeFocused()

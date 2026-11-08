@@ -11,11 +11,17 @@ import {
   ACCOUNT_FRESH_PARAM,
   ACCOUNT_REAUTH_PARAM
 } from '@app/account/hooks/useSsoAccountManagement'
-import { AdminFreshEntry } from '@app/login/components/AdminFreshEntry'
 import { SignInCard } from '@app/login/components/SignInCard'
 import type { SignInNotice } from '@app/login/components/SignInCard'
 import { useSsoAccountDeletion } from '@app/login/hooks/useSsoAccountDeletion'
-import { useAppNavigate } from '@nihongo/browser/libs/appNavigation'
+import {
+  GUEST_DAILY_SESSION_LIMIT,
+  GUEST_SESSION_QUESTION_LIMIT
+} from '@nihongo/contracts/study/guest-limits'
+import {
+  appDocumentNavigation,
+  useAppNavigate
+} from '@nihongo/browser/libs/appNavigation'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 
 type Notice =
@@ -75,6 +81,12 @@ const useDeletionNotice = (active: boolean): string | null => {
 // /login is for signed-out visitors. Signed-in visitors go to learning home,
 // except two hand-offs that still arrive here: account verification returns
 // (forwarded to /account) and admin verification opened from the admin app.
+/** The admin app is another document, so leave the learner router. */
+const AdminDocumentReturn = ({ to }: { readonly to: string }): null => {
+  useEffect(() => appDocumentNavigation.replace(to), [to])
+  return null
+}
+
 export const LoginPage = (): ReactElement => {
   const { t } = useTranslation('auth')
   const navigate = useAppNavigate()
@@ -138,15 +150,10 @@ export const LoginPage = (): ReactElement => {
         />
       )
     }
-    if (user.role === 'ADMIN' && redirect.startsWith('/admin')) {
-      return (
-        <section className="auth-page">
-          <div className="auth-panel">
-            <AdminFreshEntry returnPath={redirect} />
-          </div>
-        </section>
-      )
-    }
+    // Admin pages start re-verification themselves; an old
+    // /login?redirect=/admin/... link just goes back to the admin page.
+    if (user.role === 'ADMIN' && redirect.startsWith('/admin'))
+      return <AdminDocumentReturn to={redirect} />
     return <Navigate replace to="/" />
   }
 
@@ -172,7 +179,10 @@ export const LoginPage = (): ReactElement => {
         onStart={() => setNotice(null)}
       />
       <p className="auth-guest-hint">
-        {t('sso.guestHint')}{' '}
+        {t('sso.guestHint', {
+          total: GUEST_DAILY_SESSION_LIMIT,
+          count: GUEST_SESSION_QUESTION_LIMIT
+        })}{' '}
         <Link to={redirect.startsWith('/practice') ? redirect : '/practice'}>
           {t('sso.guestLink')}
         </Link>

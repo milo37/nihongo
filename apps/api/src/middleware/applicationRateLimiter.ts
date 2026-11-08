@@ -27,6 +27,16 @@ interface RateLimitRow {
 
 const DENIAL_CACHE_CAPACITY = 4_096
 
+/** The stored key of an IP-scoped limit, so other code can read its count. */
+export const applicationRateLimitKey = (
+  keySecret: string,
+  operation: string,
+  clientIp: string
+): string =>
+  `application:${operation}:${createHmac('sha256', keySecret)
+    .update(`${operation}:${clientIp}`)
+    .digest('hex')}`
+
 const unavailable = (cause?: unknown): ApplicationError =>
   new ApplicationError({
     code: 'SERVICE_UNAVAILABLE',
@@ -81,13 +91,11 @@ export const createApplicationRateLimiter = ({
 
   return {
     consume: async ({ clientIp, max, operation, principal, windowMs }) => {
-      const keyInput = principal
-        ? JSON.stringify([operation, principal.kind, principal.id])
-        : `${operation}:${clientIp}`
-      const keyDigest = createHmac('sha256', keySecret)
-        .update(keyInput)
-        .digest('hex')
-      const key = `application:${operation}:${keyDigest}`
+      const key = principal
+        ? `application:${operation}:${createHmac('sha256', keySecret)
+            .update(JSON.stringify([operation, principal.kind, principal.id]))
+            .digest('hex')}`
+        : applicationRateLimitKey(keySecret, operation, clientIp)
       const cacheKey = `${key}:${max}:${windowMs}`
       let nowMilliseconds = BigInt(now())
       const windowMilliseconds = BigInt(windowMs)

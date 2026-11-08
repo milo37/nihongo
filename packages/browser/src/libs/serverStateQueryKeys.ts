@@ -22,7 +22,8 @@ export const serverStateQueryKeys = {
         'resumable',
         { page: params.page, pageSize: params.pageSize }
       ] as const,
-    result: (sessionId: string) => ['study', 'get-result', sessionId] as const
+    result: (sessionId: string) => ['study', 'get-result', sessionId] as const,
+    guestAllowance: () => ['study', 'guest-allowance'] as const
   },
   wrongNote: {
     all: () => ['wrong-note'] as const,

@@ -1,8 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement } from 'react'
-import { getButtonClassName } from '@nihongo/browser/common/components/Button'
-import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
+import { GuestGate } from '@app/login/components/GuestGate'
 import { useGetStudySession } from '@app/practice/hooks/useGetStudySession'
 import { useGetStudyResult } from '@app/practice/hooks/useGetStudyResult'
 import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
@@ -31,34 +30,14 @@ export const GuestReview = (): ReactElement => {
     result.fetchStatus !== 'paused' &&
     session.data?.session.status === 'SUBMITTED' &&
     result.data?.sessionId === sessionId
+  // The shared sign-in card (L4); a result just finished here stays linked.
   return (
-    <section className="review-hub">
-      <h1 className="review-title">{t('integration.title')}</h1>
-      <EmptyState
-        title={t('integration.guest.title')}
-        description={t('integration.guest.description')}
-        action={
-          <div className="review-empty-actions">
-            <Link
-              className={getButtonClassName()}
-              to="/login?redirect=%2Fwrong-notes"
-            >
-              {t('integration.guest.login')}
-            </Link>
-            <Link className="note-link" to="/practice">
-              {t('integration.guest.practice')}
-            </Link>
-          </div>
-        }
-      />
+    <GuestGate screen="review">
       {hasVerifiedResult ? (
-        <Link
-          className="review-guest-result note-link"
-          to={`/practice/result/${sessionId}`}
-        >
+        <Link to={`/practice/result/${sessionId}`}>
           {t('integration.guest.result')}
         </Link>
       ) : null}
-    </section>
+    </GuestGate>
   )
 }

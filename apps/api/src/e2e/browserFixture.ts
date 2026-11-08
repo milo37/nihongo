@@ -18,6 +18,8 @@ import { createApplicationRateLimiter } from '../middleware/applicationRateLimit
 import { createJsonLogger } from '../observability/logger.js'
 import { createPrismaQuestionRepository } from '../question/questionRepository.js'
 import { createQuestionService } from '../question/questionService.js'
+import { createPrismaGuestAllowanceReader } from '../study/guestAllowance.js'
+import { createGuestIpDailyCounter } from '../study/guestIpDailyCounter.js'
 import { createPrismaStudyDraftRepository } from '../study/studyDraftRepository.js'
 import { createStudyDraftService } from '../study/studyDraftService.js'
 import { createPrismaStudySessionRepository } from '../study/studySessionRepository.js'
@@ -1585,6 +1587,15 @@ const createSsoBrowserApiFixture = async (
         draftService: createStudyDraftService(
           createPrismaStudyDraftRepository(database.client)
         ),
+        guestAllowanceReader: createPrismaGuestAllowanceReader({
+          client: database.client,
+          keySecret: environment.GUEST_COOKIE_SECRET
+        }),
+        guestIpDailyCounter: createGuestIpDailyCounter({
+          client: database.client,
+          keySecret: environment.GUEST_COOKIE_SECRET,
+          rateLimiter
+        }),
         retryService: studyResultRetryService,
         submissionService: studySubmissionService,
         rateLimiter,

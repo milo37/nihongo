@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useToast } from '@nihongo/browser/common/components/Toast'
+import { useGuestAction } from '@app/login/hooks/useGuestAction'
 import { toOptimisticBookmark } from '@app/bookmark/toOptimisticBookmark'
 import type { StudyResultItemView } from '@app/practice/adapters/studyResultView'
 import { useBookmarkMutationActivity } from '@app/bookmark/hooks/useBookmarkMutationActivity'
@@ -29,7 +30,9 @@ export const usePracticeResultBookmark = ({
     questionId: string
   } | null>(null)
   const { t } = useTranslation('result')
+  const { t: authT } = useTranslation('auth')
   const { addToast } = useToast()
+  const guestAction = useGuestAction()
   // Success is a toast; one bookmark toast at a time, a repeat restarts it.
   const notifySuccess = (code: 'saved' | 'removed'): void => {
     addToast({
@@ -59,10 +62,11 @@ export const usePracticeResultBookmark = ({
       )
     )
   const isUnavailable =
-    mutationActivity.pendingQuestionIds.size > 0 ||
-    bookmarksQuery.isPending ||
-    bookmarksQuery.isError ||
-    bookmarksQuery.fetchStatus === 'paused'
+    role !== 'GUEST' &&
+    (mutationActivity.pendingQuestionIds.size > 0 ||
+      bookmarksQuery.isPending ||
+      bookmarksQuery.isError ||
+      bookmarksQuery.fetchStatus === 'paused')
 
   const toggle = (
     item: StudyResultItemView,
@@ -70,9 +74,11 @@ export const usePracticeResultBookmark = ({
     isResultSourceUnavailable: boolean
   ): void => {
     const { question } = item
+    if (guestAction(authT('guestToast.bookmark'), { sessionNotKept: true })) {
+      return
+    }
     if (
       isResultSourceUnavailable ||
-      role === 'GUEST' ||
       !question.questionVersionId ||
       !question.tagSummaries
     ) {

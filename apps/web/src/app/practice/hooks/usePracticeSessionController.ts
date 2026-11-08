@@ -382,6 +382,13 @@ export const usePracticeSessionController = ({
     }
   }
 
+  // A guest's work is not kept, so leaving needs no save first (U4 G3).
+  const leaveWithoutSaving = (): void => {
+    if (submissionNavigationBlocker.state !== 'blocked') return
+    allowSubmissionNavigationRef.current = true
+    submissionNavigationBlocker.proceed()
+  }
+
   const cancelNavigation = (): void => {
     submissionNavigationBlocker.reset?.()
   }
@@ -416,9 +423,7 @@ export const usePracticeSessionController = ({
     const errorCode = getStudySubmissionErrorCode(error)
     if (
       errorCode !== 'RESOURCE_NOT_FOUND' &&
-      errorCode !== 'STUDY_SESSION_NOT_EDITABLE' &&
-      errorCode !== 'DRAFT_VERSION_CONFLICT' &&
-      errorCode !== 'DRAFT_SUBMIT_MISMATCH'
+      errorCode !== 'STUDY_SESSION_NOT_EDITABLE'
     ) {
       return
     }
@@ -426,14 +431,6 @@ export const usePracticeSessionController = ({
     setPreparingSubmission(true)
     void (async (): Promise<void> => {
       try {
-        if (
-          errorCode === 'DRAFT_VERSION_CONFLICT' ||
-          errorCode === 'DRAFT_SUBMIT_MISMATCH'
-        ) {
-          await draftController.retrySave()
-          setDraftActionMessage('conflictRefreshComplete')
-          return
-        }
         await sessionQuery.refetch()
       } catch (reconciliationError: unknown) {
         if (!isAuthTransitionSupersededError(reconciliationError)) {
@@ -528,6 +525,7 @@ export const usePracticeSessionController = ({
     elapsedSeconds,
     handleBookmark,
     handleSaveAndLeave,
+    leaveWithoutSaving,
     handleSelectOption,
     handleSubmit,
     handleSubmitDialogOpenChange,

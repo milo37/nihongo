@@ -180,6 +180,11 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
         return
       }
 
+      // A guest's daily limit: practice setup shows its own sign-in card.
+      if (error.code === 'GUEST_LIMIT_REACHED') {
+        return
+      }
+
       if (error.isForbiddenError) {
         navigate('/forbidden', { replace: true })
         return

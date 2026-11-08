@@ -51,7 +51,8 @@ const renderSession = (sessionId: string) => {
         )
       },
       { path: '/practice/result/:sessionId', element: <p>제출 결과 도착</p> },
-      { path: '/practice', element: <p>학습 설정 도착</p> }
+      { path: '/practice', element: <p>학습 설정 도착</p> },
+      { path: '/login', element: <p>로그인 화면 도착</p> }
     ],
     { initialEntries: [`/practice/session/${sessionId}`] }
   )
@@ -149,10 +150,11 @@ describe('PracticeSessionPage', () => {
       clearSubmissionAttemptMemoryCache()
       clearStudyDraftWorkingCopyMemoryCache()
       expect(readStoredSubmissionAttempt(sessionId)).toEqual(oldAttempt)
+      // After a reload only members' copies remain; a guest's lived in memory.
       copies.forEach((copy) =>
         expect(
           readStudyDraftWorkingCopy(copy.principalScope, copy.sessionId)
-        ).toEqual(copy)
+        ).toEqual(copy.principalScope === 'GUEST' ? null : copy)
       )
     }
   )
@@ -465,6 +467,8 @@ describe('PracticeSessionPage', () => {
   ] as const)(
     'announces the applied server record after a 409 and clears it on the next answer (%s)',
     async (locale, message) => {
+      // Server drafts are members only (guests keep answers locally).
+      await loginAsUser()
       writeUiLocalePreference(locale)
       const user = userEvent.setup()
       const response = await createStudySessionV2({
@@ -524,6 +528,8 @@ describe('PracticeSessionPage', () => {
   )
 
   it('저장 중과 실패·재시도를 분리하며 답안과 서버 저장 완료 의미를 유지한다', async () => {
+    // Server drafts are members only (guests keep answers locally).
+    await loginAsUser()
     const user = userEvent.setup()
     const response = await createStudySessionV2({
       level: 'N5',
@@ -618,6 +624,8 @@ describe('PracticeSessionPage', () => {
   it.each(['ko', 'ja'] as const)(
     '보기 뒤 인라인 상태가 실제 저장과 오프라인·충돌을 반영하고 답안 초점을 유지한다 (%s)',
     async (locale) => {
+      // Server drafts are members only (guests keep answers locally).
+      await loginAsUser()
       writeUiLocalePreference(locale)
       const savedLabel =
         locale === 'ko'
@@ -750,7 +758,7 @@ describe('PracticeSessionPage', () => {
     await commitCanonicalAuth(queryClient, principal)
   }
 
-  it('게스트 책갈피는 로그인 안내와 로그인 링크를 보여 준다', async () => {
+  it('게스트 책갈피는 로그인 토스트로 안내하고 [로그인]을 눌러야 이동한다', async () => {
     const user = userEvent.setup()
     const payload = await startSession(1)
     const option = payload.questions[0]?.options[0]
@@ -765,14 +773,24 @@ describe('PracticeSessionPage', () => {
     })
     expect(bookmark).toHaveAttribute('aria-pressed', 'false')
     await user.click(bookmark)
+    // A toast with [로그인]; nothing moves and the button stays unpressed (L7).
+    const toasts = await screen.findByRole('region', { name: '알림' })
     expect(
-      await screen.findByText(/책갈피를 저장하려면 로그인해 주세요\./u)
-    ).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '로그인 선택' })).toHaveAttribute(
-      'href',
-      '/login?redirect=%2Fpractice'
-    )
+      within(toasts).getByText('책갈피는 로그인하면 저장할 수 있어요.')
+    ).toBeVisible()
+    expect(
+      within(toasts).getByText('로그인하면 지금 풀이는 이어지지 않아요.')
+    ).toBeVisible()
     expect(bookmark).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.queryByRole('link', { name: '로그인 선택' })).toBeNull()
+    await user.click(within(toasts).getByRole('button', { name: '로그인' }))
+    // Leaving the session still asks first.
+    await user.click(
+      within(
+        await screen.findByRole('dialog', { name: '풀이를 그만둘까요?' })
+      ).getByRole('button', { name: '나가기' })
+    )
+    expect(await screen.findByText('로그인 화면 도착')).toBeInTheDocument()
   })
 
   it('USER 책갈피 추가·해제가 버튼 상태와 안내를 갱신한다', async () => {
@@ -860,6 +878,8 @@ describe('PracticeSessionPage', () => {
   })
 
   it('미응답 수를 확인한 뒤 제출하면 결과 경로로 이동한다', async () => {
+    // Server drafts are members only (guests keep answers locally).
+    await loginAsUser()
     const user = userEvent.setup()
     const payload = await startSession(2)
     const [first] = payload.questions
@@ -895,6 +915,71 @@ describe('PracticeSessionPage', () => {
     )
   })
 
+  it('게스트가 답을 골라도 탭 저장소에 남기지 않고 저장 문구도 없다 (F4·F5)', async () => {
+    const user = userEvent.setup()
+    const payload = await startSession(1)
+    const option = payload.questions[0]?.options[0]
+    if (!option) throw new Error('Public option required')
+    renderSession(payload.session.id)
+    const radio = await screen.findByRole('radio', {
+      name: `1. ${option.text}`
+    })
+    await waitFor(() => expect(radio).toBeEnabled())
+    await user.click(radio)
+    expect(radio).toBeChecked()
+    const keys = Object.keys(window.sessionStorage)
+    expect(
+      keys.filter((key) => key.includes('study-draft-working-copy'))
+    ).toEqual([])
+    expect(screen.queryByText(/자동으로 저장/u)).not.toBeInTheDocument()
+  })
+
+  it('게스트 풀이는 작업본 API를 부르지 않고 화면의 답 그대로 제출한다 (BE #765)', async () => {
+    const user = userEvent.setup()
+    const payload = await startSession(1)
+    const option = payload.questions[0]?.options[0]
+    if (!option) throw new Error('Public option required')
+    const draftCalls: string[] = []
+    let submitted: unknown
+    const observe = ({ request }: { request: Request }): void => {
+      if (request.url.includes('/draft-answers')) draftCalls.push(request.url)
+      if (request.method === 'POST' && /\/submi(t|ssion)$/u.test(request.url)) {
+        void request
+          .clone()
+          .json()
+          .then((body: unknown) => {
+            submitted = body
+          })
+      }
+    }
+    mockServer.events.on('request:start', observe)
+    try {
+      renderSession(payload.session.id)
+      const radio = await screen.findByRole('radio', {
+        name: `1. ${option.text}`
+      })
+      await waitFor(() => expect(radio).toBeEnabled())
+      await user.click(radio)
+      const submit = screen.getByRole('button', { name: '답안 제출' })
+      await waitFor(() => expect(submit).toBeEnabled())
+      await user.click(submit)
+      await user.click(
+        within(await screen.findByRole('dialog')).getByRole('button', {
+          name: '제출하고 결과 보기'
+        })
+      )
+      expect(await screen.findByText('제출 결과 도착')).toBeInTheDocument()
+      expect(submitted).toMatchObject({
+        answers: [expect.objectContaining({ selectedOptionId: option.id })]
+      })
+      // JLP-792: submit no longer sends a draft revision.
+      expect(submitted).not.toHaveProperty('expectedDraftRevision')
+      expect(draftCalls).toEqual([])
+    } finally {
+      mockServer.events.removeListener('request:start', observe)
+    }
+  })
+
   it('헤더 진행 표시가 현재 번호·전체·답변 수를 따라간다', async () => {
     const user = userEvent.setup()
     const payload = await startSession(3)
@@ -919,8 +1004,36 @@ describe('PracticeSessionPage', () => {
     ).toBeInTheDocument()
   })
 
+  it('게스트가 풀이 중 나가려 하면 저장되지 않는다고 알리고 계속 풀기에 먼저 초점을 둔다 (G3)', async () => {
+    const user = userEvent.setup()
+    const payload = await startSession(1)
+    const option = payload.questions[0]?.options[0]
+    if (!option) throw new Error('Public option required')
+    renderSession(payload.session.id)
+    const radio = await screen.findByRole('radio', {
+      name: `1. ${option.text}`
+    })
+    await waitFor(() => expect(radio).toBeEnabled())
+    await user.click(screen.getByRole('link', { name: '학습으로 돌아가기' }))
+    const dialog = await screen.findByRole('dialog', {
+      name: '풀이를 그만둘까요?'
+    })
+    expect(
+      within(dialog).getByText('나가면 이 풀이는 저장되지 않아요.')
+    ).toBeVisible()
+    expect(
+      within(dialog).getByText('오늘 체험 횟수는 돌아오지 않아요.')
+    ).toBeVisible()
+    expect(
+      within(dialog).getByRole('button', { name: '계속 풀기' })
+    ).toHaveFocus()
+    await user.click(within(dialog).getByRole('button', { name: '나가기' }))
+    expect(await screen.findByText('학습 설정 도착')).toBeInTheDocument()
+  })
+
   it('편집 중 뒤로 가기는 이탈 Dialog를 열고 계속 풀기로 남는다', async () => {
     const user = userEvent.setup()
+    await loginAsUser()
     const payload = await startSession(1)
     const option = payload.questions[0]?.options[0]
     if (!option) throw new Error('Public option required')

@@ -21,11 +21,8 @@ const storedStudyDraftSubmissionBodySchema = z
       .min(1)
       .max(20),
     durationSec: z.number().int().min(0).max(604_800),
-    expectedDraftRevision: z
-      .number()
-      .int()
-      .nonnegative()
-      .max(Number.MAX_SAFE_INTEGER)
+    // Written by builds before JLP-792; the server ignores it, so read past it.
+    expectedDraftRevision: z.unknown().optional()
   })
   .strict()
   .superRefine(({ answers }, context) => {
@@ -56,13 +53,21 @@ export interface StudyDraftSubmissionAttempt {
   idempotencyKey: string
 }
 
+const withoutDraftRevision = (
+  attempt: z.output<typeof studyDraftSubmissionAttemptSchema>
+): StudyDraftSubmissionAttempt => {
+  const { expectedDraftRevision: _ignored, ...canonicalBody } =
+    attempt.canonicalBody
+  return { ...attempt, canonicalBody }
+}
+
 export const readStudyDraftSubmissionAttempt = (
   sessionId: string
 ): StudyDraftSubmissionAttempt | null => {
   const result = studyDraftSubmissionAttemptSchema.safeParse(
     readStoredSubmissionAttempt(sessionId)
   )
-  return result.success ? result.data : null
+  return result.success ? withoutDraftRevision(result.data) : null
 }
 
 export const getOrCreateStudyDraftSubmissionAttempt = (
@@ -80,7 +85,7 @@ export const getOrCreateStudyDraftSubmissionAttempt = (
     idempotencyKey: crypto.randomUUID()
   })
   writeStoredSubmissionAttempt(sessionId, attempt)
-  return attempt
+  return withoutDraftRevision(attempt)
 }
 
 export const clearInvalidStudyDraftSubmissionAttempt = (

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useToast } from '@nihongo/browser/common/components/Toast'
+import { useGuestAction } from '@app/login/hooks/useGuestAction'
 import { useBookmarkMutationActivity } from '@app/bookmark/hooks/useBookmarkMutationActivity'
 import { useCreateBookmark } from '@app/bookmark/hooks/useCreateBookmark'
 import { useDeleteBookmark } from '@app/bookmark/hooks/useDeleteBookmark'
@@ -13,10 +14,7 @@ import { toOptimisticBookmark } from '@app/bookmark/toOptimisticBookmark'
 import type { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
 
-export type BookmarkNoticeCode =
-  | 'loginRequired'
-  | 'removeRollback'
-  | 'saveRollback'
+export type BookmarkNoticeCode = 'removeRollback' | 'saveRollback'
 
 type UsePracticeSessionBookmarkInput = {
   role: ReturnType<typeof useAuth>['role']
@@ -32,7 +30,9 @@ export const usePracticeSessionBookmark = ({
     questionId: string
   } | null>(null)
   const { t } = useTranslation('practice')
+  const { t: authT } = useTranslation('auth')
   const { addToast } = useToast()
+  const guestAction = useGuestAction()
   // Success is a toast; one bookmark toast at a time, a repeat restarts it.
   const notifySuccess = (code: 'saved' | 'removed'): void => {
     addToast({
@@ -73,8 +73,7 @@ export const usePracticeSessionBookmark = ({
       bookmarksQuery.fetchStatus === 'paused')
 
   const toggle = (question: StudyQuestionView): void => {
-    if (role === 'GUEST') {
-      setMessage({ code: 'loginRequired', questionId: question.id })
+    if (guestAction(authT('guestToast.bookmark'), { sessionNotKept: true })) {
       return
     }
     setMessage(null)

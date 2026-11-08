@@ -12,7 +12,8 @@ import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 type ResultQuestionDetailProps = {
   readonly item: StudyResultItemView
   readonly ordinal: number
-  readonly canManage: boolean
+  /** Guests see the bookmark (it explains sign-in) but not the report. */
+  readonly canReport: boolean
   readonly isBookmarked: boolean
   readonly bookmarkDisabled: boolean
   readonly isResultSourceUnavailable: boolean
@@ -25,6 +26,7 @@ type ResultQuestionDetailProps = {
 const ResultManageButtons = ({
   item,
   ordinal,
+  canReport,
   isBookmarked,
   bookmarkDisabled,
   isResultSourceUnavailable,
@@ -33,6 +35,7 @@ const ResultManageButtons = ({
   ResultQuestionDetailProps,
   | 'item'
   | 'ordinal'
+  | 'canReport'
   | 'isBookmarked'
   | 'bookmarkDisabled'
   | 'isResultSourceUnavailable'
@@ -64,7 +67,9 @@ const ResultManageButtons = ({
         <Icon name="bookmark" />
         {isBookmarked ? t('bookmark.remove') : t('bookmark.add')}
       </Button>
-      {item.question.questionVersionId && !isResultSourceUnavailable ? (
+      {canReport &&
+      item.question.questionVersionId &&
+      !isResultSourceUnavailable ? (
         <QuestionReportDialog
           questionId={item.question.id}
           questionVersionId={item.question.questionVersionId}
@@ -115,7 +120,7 @@ const ResultAnswerComparison = ({
 export const ResultQuestionDetail = ({
   item,
   ordinal,
-  canManage,
+  canReport,
   isBookmarked,
   bookmarkDisabled,
   isResultSourceUnavailable,
@@ -142,16 +147,17 @@ export const ResultQuestionDetail = ({
         <p className={item.isCorrect ? 'text-success' : 'text-danger'}>
           {status} · {t('navigation.question', { formattedOrdinal })}
         </p>
-        {canManage ? (
+        {
           <ResultManageButtons
             item={item}
             ordinal={ordinal}
+            canReport={canReport}
             isBookmarked={isBookmarked}
             bookmarkDisabled={bookmarkDisabled}
             isResultSourceUnavailable={isResultSourceUnavailable}
             onToggleBookmark={onToggleBookmark}
           />
-        ) : null}
+        }
       </div>
       {bookmarkMessage ? (
         <p

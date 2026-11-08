@@ -421,6 +421,19 @@ export const koResources = {
     }
   },
   auth: {
+    guestGate: {
+      title: '로그인이 필요해요',
+      bookmarks: '책갈피한 문제를 모아 보고 다시 풀 수 있어요.',
+      review: '틀린 문제를 모아 복습할 수 있어요.',
+      wrongNote: '오답노트는 로그인하면 볼 수 있어요.',
+      dashboard: '학습 기록과 진도를 볼 수 있어요.',
+      toStudy: '학습으로'
+    },
+    guestToast: {
+      login: '로그인',
+      bookmark: '책갈피는 로그인하면 저장할 수 있어요.',
+      sessionNotKept: '로그인하면 지금 풀이는 이어지지 않아요.'
+    },
     reauth: {
       name: '본인 확인',
       description: 'Google로 다시 로그인해 확인해요.',
@@ -443,7 +456,7 @@ export const koResources = {
       title: '로그인',
       description: 'Google 계정으로 학습 기록을 이어가세요.',
       guestHint:
-        '로그인하지 않아도 문제를 풀 수 있어요. 기록은 로그인해야 남아요.',
+        '하루 {{total}}번, {{count}}문제씩 풀 수 있어요. 기록은 남지 않아요.',
       guestLink: '로그인 없이 풀어 보기',
       checkingSession: '로그인 상태를 확인하고 있어요.',
       redirecting: '{{provider}}로 이동하고 있어요.',
@@ -492,7 +505,8 @@ export const koResources = {
       newTitle: '새로 시작하기',
       modeSummary: '출제 방식',
       shortcutsLabel: '다시 공부하기',
-      guestHint: '로그인 없이 시작할 수 있어요.',
+      guestHint:
+        '로그인 없이 하루 {{total}}번, {{count}}문제씩 풀어 볼 수 있어요.',
       reviewShortcut: '틀린 문제 복습',
       bookmarkShortcut: '책갈피',
 
@@ -507,8 +521,6 @@ export const koResources = {
         otherAction: '다른 진행 학습 보기',
         description: '최근 저장한 학습부터 이어갈 수 있습니다.',
         refreshing: '목록 갱신 중…',
-        guestHint:
-          '새 게스트 세션을 시작하면 이 탭에서 서버 작업본을 이어서 풀 수 있습니다. 로그인하면 다른 기기에서도 같은 계정의 작업본을 확인할 수 있습니다.',
         loading: '저장된 작업본을 확인하고 있습니다…',
         offline:
           '오프라인입니다. 연결되면 이어풀기 목록을 자동으로 다시 확인합니다.',
@@ -557,14 +569,20 @@ export const koResources = {
           description: '서버 일정상 오늘 복습할 오답을 순서대로 풉니다.'
         }
       },
-      memberModes: '회원 기능',
-      memberModesHint:
-        '오답·책갈피·오늘의 복습은 로그인 후 이용할 수 있습니다.',
+      guestResumeHint: '로그인하면 풀던 문제를 이어서 풀 수 있어요.',
+      memberLocked: '로그인 필요',
+      locked: {
+        count: '10문제·20문제는 로그인하면 풀 수 있어요.',
+        mode: '무작위 외 출제 방식은 로그인하면 쓸 수 있어요.'
+      },
+      guestLeft: '오늘 체험 <b>{{total}}회 중 {{remaining}}회</b> 남았어요.',
+      dailyLimit: {
+        title: '오늘 체험을 다 썼어요',
+        description:
+          '로그인하면 문제 수 제한 없이 풀고 기록도 남아요. 체험은 내일 0시(한국 시간)에 다시 {{total}}회 생겨요.'
+      },
+      urlLocked: '문항 수·출제 방식은 로그인하면 고를 수 있어요.',
       availableCountNote: '문제가 부족하면 가능한 수만 제공합니다.',
-      loginRequired: '로그인 후 이용 가능',
-      protectedMode:
-        '선택한 모드는 로그인 후 이용할 수 있습니다. 랜덤 문제로 바꾸지 않았습니다.',
-      login: '로그인하기',
       noEligibleTitle: '현재 조건에는 출제 가능한 {{mode}} 문제가 없습니다.',
       noEligibleDescription:
         '급수·과목·모드를 바꾸거나 랜덤 문제를 선택해 주세요. 서버가 다른 모드로 자동 대체하지는 않습니다.',
@@ -632,6 +650,13 @@ export const koResources = {
         description:
           '새 RANDOM 학습을 시작해 주세요. 이 세션에는 답안을 제출할 수 없습니다.',
         openSetup: '학습 설정으로 이동'
+      },
+      exitGuest: {
+        title: '풀이를 그만둘까요?',
+        description: '나가면 이 풀이는 저장되지 않아요.',
+        countNotBack: '오늘 체험 횟수는 돌아오지 않아요.',
+        keep: '계속 풀기',
+        leave: '나가기'
       },
       navigationGuard: {
         title: '잠시 쉬어 갈까요?',
@@ -714,7 +739,6 @@ export const koResources = {
         remove: '책갈피 해제',
         addLabel: '{{ordinal}}번 문제 책갈피 추가',
         removeLabel: '{{ordinal}}번 문제 책갈피 해제',
-        loginRequired: '책갈피를 저장하려면 로그인해 주세요.',
         legacyReadOnly: '이전 계약 세션에서는 책갈피를 변경할 수 없습니다.',
         removed: '책갈피에서 뺐어요.',
         removeRollback: '책갈피 해제를 완료하지 못해 복원했습니다.',
@@ -725,8 +749,7 @@ export const koResources = {
         statusLoadOffline:
           '오프라인이라 책갈피 상태를 확인할 수 없습니다. 연결되면 자동으로 다시 확인합니다.',
         statusLoadFailed: '책갈피 상태를 확인하지 못했습니다.',
-        retryStatus: '다시 확인',
-        chooseLogin: '로그인 선택'
+        retryStatus: '다시 확인'
       },
       navigation: {
         previous: '이전',
@@ -815,15 +838,20 @@ export const koResources = {
       duration: '소요 시간',
       durationValue: '{{minutes}}분 {{seconds}}초'
     },
+    guestDone: '오늘 체험은 여기까지예요. 로그인하면 계속 풀 수 있어요.',
+    memberLocked: '로그인 필요',
+    locked: {
+      retry: '틀린 문제 다시 풀기는 로그인하면 쓸 수 있어요.'
+    },
     status: {
       guest:
-        '현재 게스트 세션에서는 오답을 다시 풀 수 있지만 계정 오답노트에는 저장되지 않습니다.',
+        '로그인하면 오답이 오답노트에 저장돼요. 지금 결과는 이어지지 않아요.',
       savedWrongCount:
         '틀린 {{formattedCount}}문제가 오답노트에 반영되었습니다.'
     },
     actions: {
       retryIncorrect: '오답만 다시 풀기',
-      loginChoice: '로그인 선택',
+      loginChoice: '로그인',
       openWrongNotes: '오답노트 보기'
     },
     retry: {
@@ -1115,10 +1143,6 @@ export const koResources = {
       versionChanged:
         '이 해설은 마지막으로 틀린 문제 버전입니다. 다시 풀 때는 최신 문항이 나옵니다.',
       guest: {
-        title: '틀린 문제를 모아 복습하세요.',
-        description: '로그인하면 복습할 문제를 이어서 확인할 수 있어요.',
-        login: '로그인',
-        practice: '학습으로',
         result: '이 기기에서 방금 마친 학습 결과'
       },
       empty: {
@@ -1503,7 +1527,6 @@ export const koResources = {
   },
   account: {
     title: '마이페이지',
-    guestTitle: '로그인이 필요해요',
     guestDescription: '마이페이지에서 학습 기록과 계정을 관리할 수 있어요.',
     study: {
       title: '내 학습',

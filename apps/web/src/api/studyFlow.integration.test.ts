@@ -156,8 +156,8 @@ describe('MSW 학습 API 흐름', () => {
       expect(isApiError(error)).toBe(true)
       if (isApiError(error)) {
         expect(error.status).toBe(422)
-        // V2 checks equality with the persisted draft before accepting answers.
-        expect(error.code).toBe('DRAFT_SUBMIT_MISMATCH')
+        // JLP-792: no draft comparison; the answer itself is refused.
+        expect(error.code).toBe('ANSWER_NOT_IN_SESSION')
         expect(error.isValidationError).toBe(true)
         expect(error.isServerError).toBe(false)
       }

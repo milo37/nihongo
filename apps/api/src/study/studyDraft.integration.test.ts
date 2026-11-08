@@ -16,7 +16,8 @@ import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
 import { createOwnedAuthFacade } from '../auth/authFacade.js'
 import {
   createOwnedPrincipalService,
-  createPrincipalService
+  createPrincipalService,
+  type PrincipalService
 } from '../auth/principalService.js'
 import { parseApiEnvironment } from '../config/env.js'
 import {
@@ -127,6 +128,32 @@ const principalService = isCurrentSourceIntegration
       authApi: auth!.api,
       client: database.client
     })
+// Drafts are members only (#737); a test cookie stands in for a member login.
+const TEST_MEMBER_COOKIE_NAME = 'nihongo.test_member'
+const readTestMember = (headers: Headers): string | null =>
+  (headers.get('Cookie') ?? '')
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(`${TEST_MEMBER_COOKIE_NAME}=`))
+    ?.slice(TEST_MEMBER_COOKIE_NAME.length + 1) ?? null
+const memberAwarePrincipalService: PrincipalService = {
+  ...principalService,
+  resolveAuthenticatedUser: async (headers, options) => {
+    const userId = readTestMember(headers)
+    return userId
+      ? {
+          clearSessionCookie: false,
+          headers: new Headers(),
+          user: {
+            id: userId,
+            name: 'Draft member',
+            role: 'USER',
+            targetLevel: null
+          }
+        }
+      : await principalService.resolveAuthenticatedUser(headers, options)
+  }
+}
 const technicalAuthRateLimiter = createApplicationRateLimiter({
   client: database.client,
   keySecret: environment.GUEST_COOKIE_SECRET
@@ -160,7 +187,7 @@ const app = createApiApp({
           environment
         }),
     guestPrincipalService,
-    principalService
+    principalService: memberAwarePrincipalService
   },
   checkReadiness: database.checkReadiness,
   logger: createJsonLogger('silent'),
@@ -210,6 +237,33 @@ const createV2Session = async (): Promise<{
   cookie: string
   payload: ReturnType<typeof createStudySessionV2ResponseSchema.parse>
 }> => {
+  const cookie = `${TEST_MEMBER_COOKIE_NAME}=${await createUser()}`
+  const response = await app.request('/api/v1/study-sessions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: cookie,
+      Origin: origin,
+      'X-Nihongo-Practice-Contract': '2'
+    },
+    body: JSON.stringify({
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'RANDOM',
+      count: 5
+    })
+  })
+  expect(response.status).toBe(201)
+  const payload = createStudySessionV2ResponseSchema.parse(
+    await response.json()
+  )
+  return { cookie, payload }
+}
+
+const createGuestV2Session = async (): Promise<{
+  cookie: string
+  payload: ReturnType<typeof createStudySessionV2ResponseSchema.parse>
+}> => {
   const response = await app.request('/api/v1/study-sessions', {
     method: 'POST',
     headers: {
@@ -221,7 +275,7 @@ const createV2Session = async (): Promise<{
       level: 'N5',
       subject: 'VOCABULARY',
       mode: 'RANDOM',
-      count: 2
+      count: 5
     })
   })
   expect(response.status).toBe(201)
@@ -553,6 +607,87 @@ describe('StudyDraft PostgreSQL integration', () => {
     )
   })
 
+  it('비회원 v2 세션은 draft 없이 시작하고 draft API를 거절하며 draft 대조 없이 제출한다', async () => {
+    const { cookie, payload } = await createGuestV2Session()
+    const sessionId = payload.session.id
+    expect(
+      await database.client.studyDraft.count({
+        where: { studySessionId: sessionId }
+      })
+    ).toBe(0)
+
+    const refused = [
+      await draftRequest(sessionId, cookie),
+      await draftRequest(sessionId, cookie, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Origin: origin,
+          'Idempotency-Key': randomUUID()
+        },
+        body: JSON.stringify({
+          expectedRevision: 0,
+          currentOrdinal: 1,
+          answers: payload.questions.map(({ sessionQuestionId }) => ({
+            studySessionQuestionId: sessionQuestionId,
+            selectedOptionId: null,
+            elapsedSec: 1
+          }))
+        })
+      }),
+      await app.request(
+        '/api/v1/study-sessions?status=IN_PROGRESS&page=1&pageSize=20',
+        { headers: { Cookie: cookie, 'X-Nihongo-Practice-Contract': '2' } }
+      ),
+      await app.request(`/api/v1/study-sessions/${sessionId}/cancellation`, {
+        method: 'POST',
+        headers: {
+          Cookie: cookie,
+          'Content-Type': 'application/json',
+          Origin: origin,
+          'Idempotency-Key': randomUUID(),
+          'X-Nihongo-Practice-Contract': '2'
+        },
+        body: JSON.stringify({})
+      })
+    ]
+    for (const response of refused) {
+      expect(response.status).toBe(401)
+      expect(await response.json()).toMatchObject({
+        code: 'AUTHENTICATION_REQUIRED'
+      })
+    }
+
+    const submit = await app.request(
+      `/api/v1/study-sessions/${sessionId}/submission`,
+      {
+        method: 'POST',
+        headers: {
+          Cookie: cookie,
+          'Content-Type': 'application/json',
+          Origin: origin,
+          'Idempotency-Key': randomUUID(),
+          'X-Nihongo-Practice-Contract': '2'
+        },
+        body: JSON.stringify({
+          answers: payload.questions.map(({ sessionQuestionId }) => ({
+            studySessionQuestionId: sessionQuestionId,
+            selectedOptionId: null,
+            elapsedSec: 2
+          })),
+          durationSec: payload.questions.length * 2,
+          expectedDraftRevision: 0
+        })
+      }
+    )
+    expect(submit.status).toBe(201)
+    const session = await database.client.studySession.findUniqueOrThrow({
+      where: { id: sessionId },
+      select: { status: true }
+    })
+    expect(session.status).toBe('SUBMITTED')
+  })
+
   it('response-loss replay와 historical replay가 revision을 중복 증가시키지 않는다', async () => {
     const { cookie, payload } = await createV2Session()
     const [firstQuestion, secondQuestion] = payload.questions
@@ -573,7 +708,12 @@ describe('StudyDraft PostgreSQL integration', () => {
           studySessionQuestionId: secondQuestion.sessionQuestionId,
           selectedOptionId: null,
           elapsedSec: 4
-        }
+        },
+        ...payload.questions.slice(2).map(({ sessionQuestionId }) => ({
+          studySessionQuestionId: sessionQuestionId,
+          selectedOptionId: null,
+          elapsedSec: 0
+        }))
       ]
     }
     const save = (key: string, body: object) =>
@@ -737,6 +877,7 @@ describe('StudyDraft PostgreSQL integration', () => {
     expect(submitReplay.status).toBe(201)
     expect(submitReplay.headers.get('Idempotency-Replayed')).toBe('true')
 
+    // expectedDraftRevision is ignored and left out of the request hash.
     const v1SubmissionBody = {
       answers: submissionBody.answers,
       durationSec: submissionBody.durationSec
@@ -755,13 +896,15 @@ describe('StudyDraft PostgreSQL integration', () => {
           body: JSON.stringify(v1SubmissionBody)
         }
       )
-      expect(missingRevision.status).toBe(422)
-      expect(
-        apiFailureSchema.parse(await missingRevision.json())
-      ).toMatchObject({
-        code: 'VALIDATION_ERROR',
-        fieldErrors: { expectedDraftRevision: expect.any(Array) }
-      })
+      if (idempotencyKey === submissionKey) {
+        expect(missingRevision.status).toBe(201)
+        expect(missingRevision.headers.get('Idempotency-Replayed')).toBe('true')
+      } else {
+        expect(missingRevision.status).toBe(409)
+        expect(apiFailureSchema.parse(await missingRevision.json()).code).toBe(
+          'SESSION_ALREADY_SUBMITTED'
+        )
+      }
       const legacyHeader = await app.request(
         `/api/v1/study-sessions/${submissionSession.payload.session.id}/submission`,
         {
@@ -1492,9 +1635,13 @@ describe('StudyDraft PostgreSQL integration', () => {
     await waitForBlockedBackend()
     saveBeforeSubmitBarrier.release()
     await expect(saveBeforeSubmit).resolves.toMatchObject({ replayed: false })
-    await expect(submitAfterSave).rejects.toMatchObject({
-      code: 'DRAFT_VERSION_CONFLICT'
-    })
+    // Submit waits for the save's lock, then grades the answers as sent.
+    await expect(submitAfterSave).resolves.toMatchObject({ replayed: false })
+    expect(
+      await database.client.studyDraft.count({
+        where: { studySessionId: saveBeforeSubmitSession.id }
+      })
+    ).toBe(0)
 
     lockRaceStage = 'SUBMIT_BEFORE_SAVE'
     const submitBeforeSaveSession = await createOwnedV2Session(userId)
@@ -1554,11 +1701,7 @@ describe('StudyDraft PostgreSQL integration', () => {
           status: 'CANCELLED',
           draft: null
         },
-        {
-          id: saveBeforeSubmitSession.id,
-          status: 'IN_PROGRESS',
-          draft: expect.objectContaining({ revision: 1 })
-        },
+        { id: saveBeforeSubmitSession.id, status: 'SUBMITTED', draft: null },
         { id: submitBeforeSaveSession.id, status: 'SUBMITTED', draft: null }
       ])
     )

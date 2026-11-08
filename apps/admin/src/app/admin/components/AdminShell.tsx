@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router'
 import { AdminNavigation } from '@app/admin/components/AdminNavigation'
 import { IdleLockDialog } from '@app/admin/idle-lock/IdleLockDialog'
+import { ReauthReturnNotice } from '@nihongo/browser/app/reauth/components/ReauthReturnNotice'
 import type { ReactElement } from 'react'
 
 export const AdminShell = (): ReactElement => (
@@ -12,5 +13,6 @@ export const AdminShell = (): ReactElement => (
       <Outlet />
     </div>
     <IdleLockDialog />
+    <ReauthReturnNotice />
   </div>
 )

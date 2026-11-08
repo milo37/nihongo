@@ -1,5 +1,4 @@
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
 import type { ReactElement, RefObject } from 'react'
 import type { StudyMode } from '@nihongo/browser/common/types/domain'
 import { Button } from '@nihongo/browser/common/components/Button'
@@ -10,8 +9,6 @@ import { AccountRestrictedNotice } from '@common/components/AccountRestrictedNot
 type PracticeSetupFeedbackProps = {
   accountRestricted: boolean
   hasCreateError: boolean
-  isProtectedGuestMode: boolean
-  loginHref: string
   mode: StudyMode
   noEligibleQuestions: boolean
   onSelectRandom: () => void
@@ -20,8 +17,6 @@ type PracticeSetupFeedbackProps = {
 export const PracticeSetupFeedback = ({
   accountRestricted,
   hasCreateError,
-  isProtectedGuestMode,
-  loginHref,
   mode,
   noEligibleQuestions,
   onSelectRandom
@@ -30,21 +25,6 @@ export const PracticeSetupFeedback = ({
   const { t: commonT } = useTranslation('common')
   return (
     <>
-      {isProtectedGuestMode ? (
-        <div
-          className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-950"
-          role="alert"
-        >
-          {t('setup.protectedMode')}{' '}
-          <Link
-            className="inline-flex min-h-11 items-center px-1 font-bold underline underline-offset-2 hover:no-underline"
-            to={loginHref}
-          >
-            {t('setup.login')}
-          </Link>
-        </div>
-      ) : null}
-
       {accountRestricted ? (
         <AccountRestrictedNotice />
       ) : noEligibleQuestions ? (

@@ -5,11 +5,11 @@ import {
   type PreviewQuestionVersionResponse,
   type UpdateQuestionVersionRequest
 } from '@nihongo/contracts/admin/content-operations'
-import { appDocumentNavigation } from '@nihongo/browser/libs/appNavigation'
 import { assertCurrentAuthActorTransitionFence } from '@nihongo/browser/libs/authTransitionFence'
 import { useAppStore } from '@nihongo/browser/store/index'
 import { useToast } from '@nihongo/browser/common/components/Toast'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
+import { useAdminReauth } from '@app/admin/reauth/useAdminReauth'
 import { useQuestionWorkflow } from '@app/admin-question/hooks/useQuestionWorkflow'
 import { useQuestionCommands } from '@app/admin-question/hooks/useQuestionCommands'
 import {
@@ -39,6 +39,7 @@ export const useQuestionDetail = ({
 }) => {
   const { t, presentError } = useAdminPresentation()
   const { addToast } = useToast()
+  const reauth = useAdminReauth()
   const [searchParams, setSearchParams] = useSearchParams()
   const [freshRecovery, setFreshRecovery] = useState<
     'pending' | 'ready' | 'stale'
@@ -242,7 +243,7 @@ export const useQuestionDetail = ({
       })
       setPending(freshContext.command)
       setNote(freshContext.note)
-      setAnnouncement(t('freshAssurance.complete'))
+      setAnnouncement(t('reauth.restored'))
     }
   }
   useEffect(() => {
@@ -350,7 +351,8 @@ export const useQuestionDetail = ({
       return false
     }
   }
-  const fresh = (): void => {
+  /** Keeps the open command and its note for the return; false stays here. */
+  const keepCommand = (): boolean => {
     if (
       !selected ||
       !detail.data ||
@@ -359,14 +361,14 @@ export const useQuestionDetail = ({
       dirty ||
       mutation.isPending
     )
-      return
+      return false
     try {
       assertCurrentAuthActorTransitionFence(
         { actorId, epoch, role: 'ADMIN' },
         useAppStore.getState().currentUser
       )
     } catch {
-      return
+      return false
     }
     if (
       !saveQuestionFreshContext({
@@ -387,14 +389,10 @@ export const useQuestionDetail = ({
         command: pending,
         note
       })
-    ) {
-      setAnnouncement(t('errors.generic'))
-      return
-    }
-    allowNavigation.current = true
-    appDocumentNavigation.assign(
-      '/login?redirect=' + encodeURIComponent('/admin/questions/' + questionId)
     )
+      return false
+    allowNavigation.current = true
+    return true
   }
   const reasonRequired = pending === 'CHANGE_REQUEST' || pending === 'WITHDRAW'
   const noteLimit = reasonRequired ? 100 : 1000
@@ -454,7 +452,8 @@ export const useQuestionDetail = ({
     blocker,
     refreshSnapshot,
     save,
-    fresh,
+    keepCommand,
+    reauth,
     reasonRequired,
     noteError,
     showNote,

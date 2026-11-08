@@ -263,13 +263,19 @@ const createSubmittedSource = async (
       : item.correctOptionId,
     elapsedSec: index + 1
   }))
-  const saved = await draftRepository.saveAtomic({
-    sessionId: created.session.id,
-    idempotencyKey: randomUUID(),
-    owner,
-    observedAt: new Date(startedAt.getTime() + 1_000),
-    body: { expectedRevision: 0, currentOrdinal: 1, answers }
-  })
+  // Guests keep no draft and submit with revision 0 (#737).
+  const expectedDraftRevision =
+    owner.kind === 'GUEST'
+      ? 0
+      : (
+          await draftRepository.saveAtomic({
+            sessionId: created.session.id,
+            idempotencyKey: randomUUID(),
+            owner,
+            observedAt: new Date(startedAt.getTime() + 1_000),
+            body: { expectedRevision: 0, currentOrdinal: 1, answers }
+          })
+        ).response.revision
   const submitted = await createStudySubmissionService(
     submissionRepository,
     () => new Date(startedAt.getTime() + 1_000)
@@ -279,7 +285,7 @@ const createSubmittedSource = async (
     {
       answers,
       durationSec: material.length * 10,
-      expectedDraftRevision: saved.response.revision
+      expectedDraftRevision
     },
     owner
   )

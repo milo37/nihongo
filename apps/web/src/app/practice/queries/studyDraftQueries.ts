@@ -12,6 +12,11 @@ import {
 } from '@api/study/listResumableStudySessions/schema'
 import { saveStudyDraftAnswers } from '@nihongo/browser/api/study/saveStudyDraftAnswers/index'
 import type { ParsedSaveStudyDraftAnswersRequest } from '@nihongo/browser/api/study/saveStudyDraftAnswers/schema'
+import {
+  isGuestPrincipal,
+  readGuestDraft,
+  saveGuestDraft
+} from '@app/practice/draft/guestLocalDraft'
 import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
 import { createObjectAuthBoundActionFence } from '@nihongo/browser/libs/authTransitionFence'
 
@@ -29,10 +34,14 @@ const saveDraftActionFence =
 const cancelSessionActionFence =
   createObjectAuthBoundActionFence<CancelStudySessionMutationInput>()
 
+// Guests keep their answers in memory only (BE #765 answers 401).
 export const fetchStudyDraftSnapshot = async (
   sessionId: string,
   signal?: AbortSignal
-) => (await getStudyDraftAnswers(sessionId, signal)).data
+) =>
+  isGuestPrincipal()
+    ? readGuestDraft(sessionId, signal)
+    : (await getStudyDraftAnswers(sessionId, signal)).data
 
 export const assertCurrentSaveStudyDraftAction = (
   input: SaveStudyDraftMutationInput
@@ -76,11 +85,13 @@ export const studyDraftMutations = {
         saveDraftActionFence.capture(input),
       mutationFn: async (input: SaveStudyDraftMutationInput) => {
         assertCurrentSaveStudyDraftAction(input)
-        const response = await saveStudyDraftAnswers(
-          sessionId,
-          input.body,
-          input.idempotencyKey
-        )
+        const response = isGuestPrincipal()
+          ? saveGuestDraft(sessionId, input.body)
+          : await saveStudyDraftAnswers(
+              sessionId,
+              input.body,
+              input.idempotencyKey
+            )
         assertCurrentSaveStudyDraftAction(input)
         return response
       }

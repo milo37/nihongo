@@ -18,6 +18,7 @@ import { useAppStore } from '@nihongo/browser/store/index'
 import { invalidateCanonicalAuthTransitions } from '@nihongo/browser/app/login/authSession'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import * as authApi from '@nihongo/browser/api/auth/getCurrentUser/index'
+import * as startApi from '@nihongo/browser/api/auth/startAdminReauth/index'
 import * as memberApi from '@nihongo/browser/api/admin-member/index'
 import { adminRoutes } from '@/router'
 import { preloadAdminPages } from '@/test/preloadAdminPages'
@@ -169,36 +170,40 @@ it('confirms a restriction and keeps the reason through an in-page re-check when
   })
 
   const alert = await screen.findByRole('alert')
-  const confirm = within(alert).getByRole('button', { name: '확인 완료' })
-  await waitFor(() => expect(confirm).toHaveFocus())
-  const link = within(alert).getByRole('link', { name: '새 탭에서 본인 확인' })
-  expect(link).toHaveAttribute('target', '_blank')
-  expect(link).toHaveAttribute(
-    'href',
-    `/login?redirect=${encodeURIComponent(`/admin/members/${memberId}`)}`
+  expect(alert).toHaveTextContent(
+    '본인 확인 시간이 끝나 ‘이용 제한’ 작업을 적용하지 않았습니다.'
   )
-
-  // Same admin without a recent ADMIN_FRESH sign-in is not confirmed.
-  await userEvent.click(confirm)
-  expect(
-    await screen.findByText('본인 확인이 끝나지 않아 적용하지 않았습니다.')
-  ).toBeVisible()
-  await waitFor(() => expect(confirm).toHaveFocus())
-
-  vi.mocked(authApi.getCurrentUser).mockResolvedValue({
-    id: actorId,
-    name: '관리자',
-    role: 'ADMIN',
-    targetLevel: 'N3',
-    adminSessionExpiresAt: '2099-01-01T00:00:00.000Z',
-    adminFreshUntil: new Date(Date.now() + 5 * 60_000).toISOString()
+  expect(alert).toHaveTextContent('입력한 내용은 그대로 남으니')
+  const check = within(screen.getByRole('main')).getByRole('button', {
+    name: '본인 확인'
   })
-  await userEvent.click(confirm)
-  const confirmed = await screen.findByText(
-    '본인 확인을 마쳤습니다. ‘이용 제한’ 버튼을 다시 눌러 적용해 주세요.'
+  await waitFor(() => expect(check).toHaveFocus())
+
+  // Same tab: the reason is kept, then the page leaves for Google.
+  const start = vi
+    .spyOn(startApi, 'startAdminReauth')
+    .mockReturnValue(new Promise(() => undefined))
+  await userEvent.click(check)
+  expect(start).toHaveBeenCalledExactlyOnceWith({
+    purpose: 'ADMIN_FRESH',
+    provider: 'google',
+    callbackURL: `/admin/members/${memberId}`
+  })
+  expect(restrict).toHaveBeenCalledTimes(1)
+
+  // Back from Google on the same page: the reason returns, nothing is sent.
+  cleanup()
+  client.clear()
+  renderRoute(`/admin/members/${memberId}?ssoFresh=REAUTHENTICATED`)
+  expect(await screen.findByLabelText('제한 사유')).toHaveValue(
+    '반복 스팸 제보'
   )
-  await waitFor(() => expect(confirmed).toHaveFocus())
-  expect(screen.getByLabelText('제한 사유')).toHaveValue('반복 스팸 제보')
+  expect(
+    screen.getByText(
+      '이동 전 입력을 되살렸습니다. 내용을 확인한 뒤 직접 실행해 주세요.'
+    )
+  ).toBeVisible()
+  expect(restrict).toHaveBeenCalledTimes(1)
 })
 
 it('releases a restricted member and moves focus to the new section heading', async () => {

@@ -58,7 +58,7 @@ const SelectedResultItem = ({
         key={item.question.id}
         item={item}
         ordinal={result.selectedIndex + 1}
-        canManage={!isGuest}
+        canReport={!isGuest}
         isBookmarked={result.selectedIsBookmarked}
         bookmarkDisabled={
           bookmark.isUnavailable || result.isResultSourceUnavailable
@@ -77,6 +77,7 @@ const SelectedResultItem = ({
           <ResultActions
             incorrectCount={result.incorrectItems.length}
             isGuest={isGuest}
+            isGuestDone={result.isGuestDone}
             isRetryDisabled={result.isResultSourceUnavailable}
             isRetryLoading={
               createRetrySession.isPending || result.isRetrySourceRefreshing

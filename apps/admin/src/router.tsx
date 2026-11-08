@@ -14,6 +14,7 @@ import { adminReportRoutes } from '@app/admin-report/router'
 import { adminAuditRoutes } from '@app/admin-audit/router'
 import { adminMemberRoutes } from '@app/admin-member/router'
 import { AdminShell } from '@app/admin/components/AdminShell'
+import { ReauthStatus } from '@app/admin/reauth/ReauthStatus'
 
 export const adminRoutes: RouteObject[] = [
   {
@@ -35,6 +36,7 @@ export const adminRoutes: RouteObject[] = [
           robots="noindex,follow"
           reviewReturnContext={null}
           learnerNavigation={false}
+          headerStatus={<ReauthStatus />}
         />
       </ProtectedRouteProvider>
     ),

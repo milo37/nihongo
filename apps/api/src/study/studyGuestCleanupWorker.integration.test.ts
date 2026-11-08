@@ -151,6 +151,38 @@ afterAll(async () => {
   await application.disconnect()
 })
 
+// Guests no longer get a draft (#737); rows written before that still need cleanup.
+const seedLegacyGuestDraft = async (
+  sessionId: string,
+  createdAt: Date
+): Promise<void> => {
+  const questions = await fixtureDatabase.client.studySessionQuestion.findMany({
+    where: { studySessionId: sessionId },
+    select: { id: true, questionVersionId: true }
+  })
+  await fixtureDatabase.client.studyDraft.create({
+    data: {
+      studySessionId: sessionId,
+      revision: 0,
+      currentOrdinal: 1,
+      savedAt: null,
+      createdAt,
+      updatedAt: createdAt,
+      answers: {
+        createMany: {
+          data: questions.map((question) => ({
+            studySessionQuestionId: question.id,
+            questionVersionId: question.questionVersionId,
+            selectedOptionId: null,
+            elapsedSec: 0,
+            updatedAt: createdAt
+          }))
+        }
+      }
+    }
+  })
+}
+
 describe('guest cleanup worker boundary', () => {
   it('keeps guest and member data through preview and bounded cleanup across the retention threshold', async () => {
     const clock = await fixture.query<{ now: Date }>(
@@ -196,6 +228,7 @@ describe('guest cleanup worker boundary', () => {
           practiceContractVersion: 2
         })
       ).session
+      await seedLegacyGuestDraft(session.id, startedAt)
       return { session, owner }
     }
     const { session: before } = await createGuestSession(
@@ -367,6 +400,7 @@ describe('guest cleanup worker boundary', () => {
         }
       )
     ).session
+    await seedLegacyGuestDraft(session.id, startedAt)
     const pendingId = randomUUID()
     await fixture.query('BEGIN')
     try {

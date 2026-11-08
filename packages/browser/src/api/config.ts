@@ -12,6 +12,8 @@ import { recordServerDate } from '../libs/serverClock'
 
 export interface ApiErrorFlags {
   code?: string
+  /** Only on GUEST_LIMIT_REACHED: when the guest can start again. */
+  details?: ApiFailure['details']
   fieldErrors?: ApiFailure['fieldErrors']
   isAuthError?: boolean
   isForbiddenError?: boolean
@@ -35,6 +37,7 @@ const API_TIMEOUT_MS = 10_000
 const MAX_RETRY_AFTER_MS = 60 * 60_000
 const ERROR_FLAG_KEYS = new Set<keyof ApiErrorFlags>([
   'code',
+  'details',
   'fieldErrors',
   'isAuthError',
   'isForbiddenError',
@@ -208,6 +211,9 @@ apiClient.interceptors.response.use(
           ...(code === undefined ? {} : { code }),
           ...(parsedFailure.success && parsedFailure.data.fieldErrors
             ? { fieldErrors: parsedFailure.data.fieldErrors }
+            : {}),
+          ...(parsedFailure.success && parsedFailure.data.details
+            ? { details: parsedFailure.data.details }
             : {}),
           isAuthError: status === 401,
           isForbiddenError: status === 403,

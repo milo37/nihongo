@@ -86,11 +86,20 @@ const accept = (input: SaveStudyDraftMutationInput) => {
   })
   return { data: server }
 }
+// Server drafts are a member's (a guest's live only in memory), so the
+// durability cases run as this member.
+const member: AuthenticatedUser = {
+  id: '00000000-0000-4000-8000-0000000000aa',
+  name: 'Member',
+  role: 'USER',
+  targetLevel: 'N5'
+}
+const MEMBER_SCOPE = `USER:${member.id}`
 const mount = (
   client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
   }),
-  user: AuthenticatedUser | null = null
+  user: AuthenticatedUser | null = member
 ) => {
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
@@ -160,7 +169,7 @@ describe('practice draft autosave pacing', () => {
     const h = mount()
     act(() => h.result.current.selectOption(answer(), optionA))
     expect(
-      readStudyDraftWorkingCopy('GUEST', server.studySessionId)?.localDiff
+      readStudyDraftWorkingCopy(MEMBER_SCOPE, server.studySessionId)?.localDiff
         .answers[answer()]?.selectedOptionId
     ).toBe(optionA)
     await advance(1_000)
@@ -231,7 +240,7 @@ describe('practice draft autosave pacing', () => {
     const frozen = useAppStore.getState().draftWorkingCopy?.frozenAttempt
     act(() => h.result.current.selectOption(answer(), optionB))
     expect(
-      readStudyDraftWorkingCopy('GUEST', server.studySessionId)
+      readStudyDraftWorkingCopy(MEMBER_SCOPE, server.studySessionId)
         ?.postFlightLocalDiff.answers[answer()]?.selectedOptionId
     ).toBe(optionB)
     await advance(10_000)
@@ -264,14 +273,20 @@ describe('practice draft autosave pacing', () => {
     act(() => h.result.current.selectOption(answer(), optionB))
     act(() => h.result.current.selectOption(answer(), optionA))
     expect(
-      readStudyDraftWorkingCopy('GUEST', server.studySessionId)
+      readStudyDraftWorkingCopy(MEMBER_SCOPE, server.studySessionId)
         ?.postFlightLocalDiff.answers[answer()]?.selectedOptionId
     ).toBe(optionA)
     await act(async () => finish())
   })
 
   it('submit and concurrent leave drain share one flight and bypass pacing after its ACK', async () => {
-    const h = mount()
+    // A member: the submit carries the saved draft revision (guests send 0).
+    const h = mount(undefined, {
+      id: crypto.randomUUID(),
+      name: 'Member',
+      role: 'USER',
+      targetLevel: 'N5'
+    })
     let finish!: () => void
     io.save.mockImplementationOnce(
       async (input: SaveStudyDraftMutationInput) => {
@@ -300,7 +315,6 @@ describe('practice draft autosave pacing', () => {
     expect(io.save).toHaveBeenCalledTimes(2)
     expect(startedAt[1]! - startedAt[0]!).toBe(100)
     expect((await submit).answers[0]?.selectedOptionId).toBe(optionB)
-    expect((await submit).expectedDraftRevision).toBe(2)
   })
 
   it('first submit does not wait for the 2s idle timer', async () => {
@@ -516,7 +530,8 @@ describe('practice draft autosave pacing', () => {
     act(() => h.result.current.selectOption(answer(), optionA))
     await advance(2_000)
     expect(
-      readStudyDraftWorkingCopy('GUEST', server.studySessionId)?.frozenAttempt
+      readStudyDraftWorkingCopy(MEMBER_SCOPE, server.studySessionId)
+        ?.frozenAttempt
     ).not.toBeNull()
     expect(h.result.current.saveState).not.toBe('saved')
   })
@@ -596,7 +611,7 @@ describe('practice draft autosave pacing', () => {
     }
     await act(async () => rejectPut())
     expect(io.canonical).toHaveBeenCalledTimes(1)
-    const saved = readStudyDraftWorkingCopy('GUEST', server.studySessionId)
+    const saved = readStudyDraftWorkingCopy(MEMBER_SCOPE, server.studySessionId)
     expect(
       saved?.postFlightLocalDiff.answers[questions()[1]!]?.selectedOptionId
     ).toBe(optionB)
@@ -679,7 +694,7 @@ describe('practice draft autosave pacing', () => {
     writeStudyDraftWorkingCopy({
       ...createStudyDraftWorkingCopy({
         confirmedBase: server,
-        principalScope: 'GUEST',
+        principalScope: MEMBER_SCOPE,
         sessionId: server.studySessionId
       }),
       localDiff: diffStudyDraftSnapshots(server, merged.localPreferred),
@@ -695,7 +710,8 @@ describe('practice draft autosave pacing', () => {
     const h = mount()
     await advance(0)
     expect(
-      readStudyDraftWorkingCopy('GUEST', server.studySessionId)?.pendingConflict
+      readStudyDraftWorkingCopy(MEMBER_SCOPE, server.studySessionId)
+        ?.pendingConflict
     ).not.toBeNull()
     expect(useAppStore.getState().isDraftConflictPending).toBe(true)
     expect(io.save).not.toHaveBeenCalled()
@@ -703,7 +719,9 @@ describe('practice draft autosave pacing', () => {
     expect(h.result.current.snapshot?.answers[0]?.selectedOptionId).toBe(
       optionB
     )
-    expect(readStudyDraftWorkingCopy('GUEST', server.studySessionId)).toBeNull()
+    expect(
+      readStudyDraftWorkingCopy(MEMBER_SCOPE, server.studySessionId)
+    ).toBeNull()
     expect(io.save).not.toHaveBeenCalled()
   })
 
@@ -885,7 +903,7 @@ describe('practice draft autosave pacing', () => {
     await retry
     expect(io.save).toHaveBeenCalledTimes(1)
     expect(
-      readStudyDraftWorkingCopy('GUEST', server.studySessionId)?.localDiff
+      readStudyDraftWorkingCopy(MEMBER_SCOPE, server.studySessionId)?.localDiff
         .answers[answer()]?.selectedOptionId
     ).toBe(optionB)
   })
@@ -907,7 +925,8 @@ describe('practice draft autosave pacing', () => {
     expect(h.result.current.saveState).toBe('error')
     expect(useAppStore.getState().isDraftConflictPending).toBe(true)
     expect(
-      readStudyDraftWorkingCopy('GUEST', server.studySessionId)?.frozenAttempt
+      readStudyDraftWorkingCopy(MEMBER_SCOPE, server.studySessionId)
+        ?.frozenAttempt
     ).not.toBeNull()
     await advance(20_000)
     expect(io.save).toHaveBeenCalledTimes(1)
@@ -955,7 +974,7 @@ describe('practice draft autosave pacing', () => {
         channels[0]!.dispatchEvent(
           new MessageEvent('message', {
             data: {
-              principalScope: 'GUEST',
+              principalScope: MEMBER_SCOPE,
               sessionId: server.studySessionId,
               revision: 1
             }
@@ -1031,7 +1050,7 @@ describe('practice draft autosave pacing', () => {
       channels[0]!.dispatchEvent(
         new MessageEvent('message', {
           data: {
-            principalScope: 'GUEST',
+            principalScope: MEMBER_SCOPE,
             sessionId: server.studySessionId,
             revision: 1
           }
@@ -1273,7 +1292,7 @@ describe('practice draft autosave pacing', () => {
               role: 'USER',
               targetLevel: 'N5'
             }
-          : null
+          : member
       const resumed = mount(h.client, actor)
       act(() => resumed.result.current.selectOption(answer(), optionB))
       await advance(2_000)
