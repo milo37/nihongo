@@ -80,7 +80,7 @@ it('shows the content card, location, target question and process panel', async 
   expect(status).toHaveClass('bg-warning-soft')
   expect(status.querySelector('svg')).not.toBeNull()
   expect(screen.getByText('문항 신고')).not.toHaveClass('bg-warning-soft')
-  expect(screen.getByText('result#2')).toBeVisible()
+  expect(screen.getByText('결과 화면 · 2번 문제')).toBeVisible()
   expect(screen.getByRole('link', { name: questionId })).toHaveAttribute(
     'href',
     `/admin/questions/${questionId}`

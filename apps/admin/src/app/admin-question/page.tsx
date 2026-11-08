@@ -26,7 +26,6 @@ import {
 import { Button } from '@nihongo/browser/common/components/Button'
 import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
-import { Eyebrow } from '@nihongo/browser/common/components/Eyebrow'
 
 export const AdminQuestionPage = (): ReactElement => {
   const { t } = useAdminPresentation()
@@ -98,8 +97,7 @@ export const AdminQuestionPage = (): ReactElement => {
     <section className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 sm:py-14">
       <div className="flex flex-col gap-6 border-b border-line pb-8 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-3xl">
-          <Eyebrow>{t('questionList.eyebrow')}</Eyebrow>
-          <h1 className="mt-2 text-balance text-3xl font-black tracking-tight sm:text-4xl">
+          <h1 className="text-balance text-3xl font-black tracking-tight sm:text-4xl">
             {t('questionList.title')}
           </h1>
           <p className="mt-4 text-pretty leading-7 text-muted">

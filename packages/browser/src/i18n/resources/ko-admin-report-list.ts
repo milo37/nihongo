@@ -1,11 +1,9 @@
 /** Admin question report queue; kept out of the shared Korean chunk. */
 export const koAdminReportListResources = {
-  eyebrow: 'QUESTION REPORTS · TECHNICAL MODE',
-  title: '문제 신고 큐',
+  title: '문제 신고',
   description:
-    '목록에서는 신고 설명을 노출하지 않습니다. 상세에서만 일반 텍스트로 확인합니다.',
-  invalidQuery:
-    'URL 신고 검색 조건이 허용 범위를 벗어났습니다. 안전한 기본 조건을 사용합니다.',
+    '목록에는 신고 설명을 보여 주지 않아요. 설명은 신고를 열어 확인해 주세요.',
+  invalidQuery: '검색 조건을 읽지 못해 기본 조건으로 보여 드려요.',
   status: '처리 상태',
   allStatuses: '전체 상태',
   reason: '신고 사유',

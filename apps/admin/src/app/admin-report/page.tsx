@@ -30,6 +30,7 @@ import {
   saveReportContext
 } from '@app/admin-report/navigation/reportListFocus'
 import { ReportStatusBadge } from '@app/admin-report/components/ReportStatusBadge'
+import { useReportLocationLabel } from '@app/admin-report/useReportLocationLabel'
 import { PageContainer } from '@nihongo/browser/common/components/PageContainer'
 
 type ReportListResult = NonNullable<
@@ -97,6 +98,7 @@ const ReportTable = ({
   onOpen
 }: ReportListProps): ReactElement => {
   const { t, formatAdminDateTime } = useAdminPresentation()
+  const locationLabel = useReportLocationLabel()
   return (
     <div
       role="region"
@@ -138,8 +140,11 @@ const ReportTable = ({
                 </p>
               </td>
               <td className="px-3 py-3 align-top">
-                <span className="block truncate" title={item.location}>
-                  {item.location}
+                <span
+                  className="block truncate"
+                  title={locationLabel(item.location)}
+                >
+                  {locationLabel(item.location)}
                 </span>
                 <span className="block text-muted">
                   {formatAdminDateTime(item.createdAt)}
@@ -163,6 +168,7 @@ const ReportCards = ({
   onOpen
 }: ReportListProps): ReactElement => {
   const { t, formatAdminDateTime } = useAdminPresentation()
+  const locationLabel = useReportLocationLabel()
   return (
     <ul className="grid gap-2" aria-label={t('userReport.list.title')}>
       {items.map((item) => (
@@ -177,7 +183,9 @@ const ReportCards = ({
             {item.descriptionPreview}
           </p>
           <p className="text-sm text-muted">
-            <span className="block truncate">{item.location}</span>
+            <span className="block truncate">
+              {locationLabel(item.location)}
+            </span>
             {formatAdminDateTime(item.createdAt)}
           </p>
           <ReportLink item={item} blocked={blocked} onOpen={onOpen} />

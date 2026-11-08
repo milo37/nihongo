@@ -90,7 +90,7 @@ it('lists unified reports with status, kind, preview, location and a detail link
   expect(
     within(row).getByText(/정답이 두 개처럼 보여요/u, { selector: 'p' })
   ).toBeVisible()
-  expect(within(row).getByText('result#2')).toBeVisible()
+  expect(within(row).getByText('결과 화면 · 2번 문제')).toBeVisible()
   expect(within(row).getByRole('link', { name: /상세 보기/u })).toHaveAttribute(
     'href',
     `/admin/reports/${reportId}`

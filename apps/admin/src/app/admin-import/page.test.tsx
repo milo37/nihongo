@@ -44,6 +44,10 @@ const rowMenuItem = (questionId: string, name: string): HTMLElement => {
   return screen.getByRole('menuitem', { name })
 }
 
+/** The result heading carries the verdict badge after its title. */
+const resultHeading = (verdict: 'import.valid' | 'import.invalid'): string =>
+  `${t('import.resultTitle')} ${t(verdict)}`
+
 beforeAll(preloadAdminPages)
 const t = appI18n.getFixedT('ko', 'admin')
 const request = { items: [{ clientItemId: 'row-1', content: createInput }] }
@@ -134,7 +138,9 @@ const input = () =>
 const validateButton = () =>
   screen.getByRole('button', { name: t('import.validate') })
 const applyButton = () =>
-  screen.getByRole('button', { name: t('import.apply') })
+  screen.getByRole('button', {
+    name: t('import.apply', { formattedCount: '1' })
+  })
 const upload = async (file = jsonFile()) => {
   await screen.findByLabelText(t('import.fileLabel'), { selector: 'input' })
   await userEvent.upload(input(), file)
@@ -142,7 +148,7 @@ const upload = async (file = jsonFile()) => {
 }
 const runValidate = async () => {
   await userEvent.click(validateButton())
-  await screen.findByRole('heading', { name: t('import.valid') })
+  await screen.findByRole('heading', { name: resultHeading('import.valid') })
 }
 const applies = () =>
   endpoint.mock.calls.filter(
@@ -166,7 +172,9 @@ it('restores the approved static route before dynamic question detail and waits 
   await upload()
   expect(endpoint).not.toHaveBeenCalled()
   expect(
-    screen.queryByRole('button', { name: t('import.apply') })
+    screen.queryByRole('button', {
+      name: t('import.apply', { formattedCount: '1' })
+    })
   ).not.toBeInTheDocument()
 })
 it('validates exact items then explicitly applies the same digest and blocks duplicate application even after reselect', async () => {
@@ -181,7 +189,7 @@ it('validates exact items then explicitly applies the same digest and blocks dup
   })
   await waitFor(() =>
     expect(
-      screen.getByRole('heading', { name: t('import.valid') })
+      screen.getByRole('heading', { name: resultHeading('import.valid') })
     ).toHaveFocus()
   )
   await userEvent.click(applyButton())
@@ -221,9 +229,20 @@ it('shows item/field validation issues using localized codes without raw server 
   await upload()
   await userEvent.click(validateButton())
   expect(
-    await screen.findByRole('heading', { name: t('import.invalid') })
+    await screen.findByRole('heading', {
+      name: resultHeading('import.invalid')
+    })
   ).toBeVisible()
-  expect(applyButton()).toBeDisabled()
+  // An invalid result shows its error count and no apply button at all.
+  expect(screen.getByText(t('import.issueCountLabel'))).toBeVisible()
+  expect(
+    screen.getByText(t('import.resultCount', { formattedCount: '1' }))
+  ).toBeVisible()
+  expect(
+    screen.queryByRole('button', {
+      name: t('import.apply', { formattedCount: '1' })
+    })
+  ).toBeNull()
   expect(screen.getByText(/items\/0\/content\/tagNames\/0/)).toBeVisible()
   expect(container.querySelector('script')).toBeNull()
   expect(
@@ -306,7 +325,7 @@ it('discards a stale validation result if selection changes before it settles', 
   })
   await waitFor(() => expect(validateButton()).toBeEnabled())
   expect(
-    screen.queryByRole('heading', { name: t('import.valid') })
+    screen.queryByRole('heading', { name: resultHeading('import.valid') })
   ).not.toBeInTheDocument()
   expect(applies()).toHaveLength(0)
 })
@@ -390,7 +409,9 @@ it.each(['IMPORT_VALIDATION_FAILED', 'IMPORT_IDENTITY_CONFLICT'])(
       )
     ).toBeVisible()
     expect(
-      screen.queryByRole('button', { name: t('import.apply') })
+      screen.queryByRole('button', {
+        name: t('import.apply', { formattedCount: '1' })
+      })
     ).not.toBeInTheDocument()
     expect(input().files?.[0]?.name).toBe('original.json')
     expect(applies()).toHaveLength(1)
@@ -575,8 +596,6 @@ it('renders Japanese import copy from the shared catalog', async () => {
   expect(
     await screen.findByRole('heading', { name: '問題の下書きをインポート' })
   ).toBeVisible()
-  expect(
-    screen.getByRole('button', { name: '書き込みなしで検証' })
-  ).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'チェックする' })).toBeDisabled()
   expect(screen.queryByText('import.title')).not.toBeInTheDocument()
 })
