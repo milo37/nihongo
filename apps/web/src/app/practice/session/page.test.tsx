@@ -791,7 +791,9 @@ describe('PracticeSessionPage', () => {
     await user.click(add)
     // Success is a toast, not text under the button.
     const toasts = await screen.findByRole('region', { name: '알림' })
-    expect(await within(toasts).findByText('책갈피에 저장했어요.')).toBeVisible()
+    expect(
+      await within(toasts).findByText('책갈피에 저장했어요.')
+    ).toBeVisible()
     const remove = screen.getByRole('button', {
       name: '1번 문제 책갈피 해제'
     })
