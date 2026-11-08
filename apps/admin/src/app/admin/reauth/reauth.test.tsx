@@ -164,15 +164,28 @@ it('leaves for Google from this page once the input is kept', async () => {
 
 it('says in the dialog when leaving for Google failed and lets the admin try again', async () => {
   const user = userEvent.setup()
+  let fail: (error: Error) => void = () => undefined
   const start = vi
     .spyOn(startApi, 'startAdminReauth')
-    .mockRejectedValueOnce(new Error('503'))
+    .mockReturnValueOnce(
+      new Promise((_resolve, reject) => {
+        fail = reject
+      })
+    )
     .mockReturnValue(new Promise(() => undefined))
   renderWith(admin(null), <ExpiredDialogBody keep={() => true} />)
   await user.click(screen.getByRole('button', { name: '본인 확인' }))
+  // A browser drops focus from the button while it is disabled; jsdom keeps
+  // it, so move it elsewhere the way the page would lose it.
+  const elsewhere = document.createElement('button')
+  document.body.append(elsewhere)
+  act(() => elsewhere.focus())
+  act(() => fail(new Error('503')))
   expect(
     await screen.findByText('Google로 이동하지 못했습니다. 다시 시도해 주세요.')
   ).toHaveAttribute('role', 'alert')
+  expect(screen.getByRole('button', { name: '본인 확인' })).toHaveFocus()
+  elsewhere.remove()
 
   await user.click(screen.getByRole('button', { name: '본인 확인' }))
   expect(start).toHaveBeenCalledTimes(2)

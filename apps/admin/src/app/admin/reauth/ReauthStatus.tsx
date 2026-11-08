@@ -57,7 +57,7 @@ const ReauthStartFailedNotice = ({
       tabIndex={-1}
       role="alert"
       data-reauth-result="startFailed"
-      className="app-global-banner fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-[560px] flex-col gap-2 rounded-xl border border-l-4 border-line border-l-danger bg-surface px-4 py-3 text-sm text-ink shadow-soft focus:outline-none min-[480px]:flex-row min-[480px]:items-start min-[480px]:justify-between min-[480px]:gap-3"
+      className="app-global-banner fixed whitespace-normal inset-x-4 bottom-4 z-50 mx-auto flex max-w-[560px] flex-col gap-2 rounded-xl border border-l-4 border-line border-l-danger bg-surface px-4 py-3 text-sm text-ink shadow-soft focus:outline-none min-[480px]:flex-row min-[480px]:items-start min-[480px]:justify-between min-[480px]:gap-3"
     >
       <p className="min-w-0 flex-1 py-2.5 font-semibold leading-6 text-danger-strong">
         {t('reauth.startFailed')}

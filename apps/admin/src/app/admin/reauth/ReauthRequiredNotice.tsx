@@ -70,6 +70,11 @@ export const ReauthDialogButton = ({
   const { t } = useAdminPresentation()
   const button = useRef<HTMLButtonElement>(null)
   useEffect(() => button.current?.focus(), [])
+  // The button was disabled while leaving, which drops focus; a failed start
+  // hands it back so the admin can try again from the keyboard.
+  useEffect(() => {
+    if (reauth.startFailed) button.current?.focus()
+  }, [reauth.startFailed])
   return (
     <ReauthButton
       buttonRef={button}
