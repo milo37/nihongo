@@ -5,6 +5,7 @@ import { koAdminMembersResources } from './ko-admin-members'
 import { koAdminQuestionListResources } from './ko-admin-question'
 import { koAdminReportResources } from './ko-admin-report'
 import { koAdminReportListResources } from './ko-admin-report-list'
+import { koAdminSharedListResources } from './ko-admin-shared-list'
 
 const questionTypeLabels = {
   KANJI_READING: '한자 읽기',
@@ -1573,6 +1574,7 @@ export const koResources = {
   admin: {
     name: '관리자',
     grid: koAdminListResources,
+    adminList: koAdminSharedListResources,
     nav: {
       brand: '하루마루 관리',
       questions: '문제',
