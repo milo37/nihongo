@@ -87,7 +87,7 @@ it('USER is rejected before an admin list request', async () => {
     .mockImplementation(() => undefined)
   renderRoutes()
   expect(
-    await screen.findByRole('heading', { name: '요청한 페이지가 없습니다' })
+    await screen.findByRole('heading', { name: '요청한 페이지가 없어요' })
   ).toBeVisible()
   expect(replace).not.toHaveBeenCalled()
   expect(list).not.toHaveBeenCalled()

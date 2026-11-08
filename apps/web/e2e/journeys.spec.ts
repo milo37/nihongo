@@ -900,10 +900,14 @@ const startVocabularySessionThroughUi = async (
     const radio = page.getByRole('radio', { name: label, exact: true })
     const choice = page.locator('label.choice-option').filter({ has: radio })
     await expect(choice).toHaveCount(1)
+    // A default choice (target level, VOCABULARY, 10) stays out of the URL.
+    const isDefault =
+      (await radio.isChecked()) &&
+      new URL(page.url()).searchParams.get(parameter) === null
     await choice.click()
     await expect(radio).toBeChecked()
     await expect(page).toHaveURL(
-      (url) => url.searchParams.get(parameter) === value
+      (url) => url.searchParams.get(parameter) === (isDefault ? null : value)
     )
   }
   await expect(
@@ -1264,7 +1268,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
     completed.wrongNote.nextReviewAt
   )
   await expect(page.locator('.review-feedback p')).toHaveText(
-    `같은 문제를 다시 틀렸어요. 해설을 읽고 다시 복습해요. 다음 복습은 ${nextReviewDate}예요.`
+    `같은 문제를 다시 틀렸어요. 해설을 읽고 다시 복습해요. 다음 복습: ${nextReviewDate}`
   )
 
   const dashboardStartIndex = ledger.entries.length

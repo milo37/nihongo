@@ -13,7 +13,8 @@ type ChoiceRadioGroupProps<Value extends string> = {
   name: string
   legend: string
   options: readonly ChoiceRadioOption<Value>[]
-  value: Value
+  /** Null: nothing checked yet. */
+  value: Value | null
   onValueChange: (value: Value) => void
   selectionIndicator?: ReactNode
   appearance?: 'cards' | 'segmented'

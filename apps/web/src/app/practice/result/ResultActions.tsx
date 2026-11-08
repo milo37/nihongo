@@ -40,11 +40,7 @@ export const ResultActions = ({
   const loginHref = `/login?redirect=${encodeURIComponent('/practice')}`
   const newPracticeButton = (variant: 'primary' | 'outline'): ReactElement => (
     <Link
-      className={getButtonClassName({
-        variant,
-        size: 'lg',
-        className: 'w-full sm:w-auto'
-      })}
+      className={getButtonClassName({ variant, size: 'lg' })}
       to="/practice"
     >
       {t('newPractice')}
@@ -76,14 +72,12 @@ export const ResultActions = ({
           </Link>
         </div>
       ) : null}
-      {/* Primary → secondary → text links (one row on wide screens; on
-          narrow ones the two buttons stack full width above the links). */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+      {/* Primary → secondary → text links; layout in styles.css. */}
+      <div className="study-result-buttons">
         {isGuest && !isGuestDone ? newPracticeButton('primary') : null}
         {isGuest && incorrectCount > 0 ? (
           // Locked, not hidden: pressing it says why (G4).
           <Button
-            className="w-full sm:w-auto"
             size="lg"
             variant="outline"
             onClick={() =>
@@ -96,7 +90,6 @@ export const ResultActions = ({
           </Button>
         ) : !isGuest && showRetry ? (
           <Button
-            className="w-full sm:w-auto"
             size="lg"
             disabled={isRetryDisabled}
             isLoading={isRetryLoading}
@@ -107,7 +100,7 @@ export const ResultActions = ({
           </Button>
         ) : null}
         {isGuest ? null : newPracticeButton(showRetry ? 'outline' : 'primary')}
-        <div className="flex flex-wrap gap-4">
+        <div className="study-result-links">
           {isGuest ? null : (
             <Link
               className="note-link"
