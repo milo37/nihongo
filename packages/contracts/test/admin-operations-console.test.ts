@@ -192,30 +192,25 @@ describe('session and errors', () => {
     ).toBe(false)
   })
 
-  it('carries the server clock to admins only (#683)', () => {
-    const user = { id: id(6), name: '관리자', targetLevel: null }
+  // The server clock comes from the HTTP Date header; a per-read clock in the
+  // body would change the cached user on every read (#683).
+  it('keeps the server clock out of the current user', () => {
     const admin = {
-      ...user,
+      id: id(6),
+      name: '관리자',
+      targetLevel: null,
       role: 'ADMIN',
       adminSessionExpiresAt: iso,
       adminFreshUntil: iso
     }
     expect(
-      getCurrentPrincipalResponseSchema.safeParse({
-        kind: 'USER',
-        user: { ...admin, adminServerTime: iso }
-      }).success
+      getCurrentPrincipalResponseSchema.safeParse({ kind: 'USER', user: admin })
+        .success
     ).toBe(true)
     expect(
       getCurrentPrincipalResponseSchema.safeParse({
         kind: 'USER',
-        user: { ...user, role: 'USER', adminServerTime: iso }
-      }).success
-    ).toBe(false)
-    expect(
-      getCurrentPrincipalResponseSchema.safeParse({
-        kind: 'USER',
-        user: { ...admin, adminServerTime: 'now' }
+        user: { ...admin, adminServerTime: iso }
       }).success
     ).toBe(false)
   })

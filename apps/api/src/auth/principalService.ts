@@ -39,7 +39,6 @@ const toAuthenticatedUser = (
     targetLevel: AuthenticatedUser['targetLevel']
   },
   sessionCreatedAt: Date,
-  serverTime: Date,
   isFresh = false
 ): AuthenticatedUser =>
   authenticatedUserSchema.parse({
@@ -55,8 +54,7 @@ const toAuthenticatedUser = (
             ? new Date(
                 sessionCreatedAt.getTime() + ADMIN_FRESH_WINDOW_MS
               ).toISOString()
-            : null,
-          adminServerTime: serverTime.toISOString()
+            : null
         }
       : {})
   })
@@ -176,11 +174,7 @@ export const createPrincipalService = ({
       return {
         clearSessionCookie: false,
         headers: sessionResult.headers,
-        user: toAuthenticatedUser(
-          user,
-          parsedSession.data.session.createdAt,
-          now()
-        )
+        user: toAuthenticatedUser(user, parsedSession.data.session.createdAt)
       }
     }
 
@@ -202,8 +196,6 @@ interface PrincipalDatabaseRow {
   createdAt: Date
   expiresAt: Date
   isFresh: boolean
-  /** The DB clock that decided isFresh. */
-  checkedAt: Date
 }
 
 interface AdminAuthorityFailureRow {
@@ -252,15 +244,13 @@ export const createOwnedPrincipalService = ({
 
       const rows = await client.$queryRawUnsafe<PrincipalDatabaseRow[]>(
         `SELECT principal.*,
-           ${adminSessionFreshSql('$1')} AS "isFresh",
-           clock_timestamp() AS "checkedAt"
+           ${adminSessionFreshSql('$1')} AS "isFresh"
          FROM (${v1PrincipalQuery('$1')}) AS principal`,
         credential.token
       )
       if (rows.length !== 1) {
         let adminAuthorityFailure:
-          | AdminAuthorityFailureRow['outcome']
-          | undefined
+          AdminAuthorityFailureRow['outcome'] | undefined
         if (options.classifyAdminAuthorityLoss) {
           const authorityRows = await client.$queryRawUnsafe<
             AdminAuthorityFailureRow[]
@@ -337,7 +327,6 @@ export const createOwnedPrincipalService = ({
             targetLevel: row.targetLevel
           },
           row.createdAt,
-          row.checkedAt,
           row.isFresh
         )
       }

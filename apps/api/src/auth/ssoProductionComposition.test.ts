@@ -103,24 +103,21 @@ const fixture = (overrides: Record<string, string> = {}) => {
       return []
     }
   )
-  const appQuery = vi.fn(
-    async (sql: string): Promise<unknown> => [
-      {
-        userId: uuid,
-        name: '관리자',
-        role: 'ADMIN',
-        targetLevel: null,
-        sessionId: uuid,
-        // Recent sign-in: inside the 8 hour ADMIN session limit.
-        createdAt: new Date(Date.now() - 60_000),
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60_000),
-        checkedAt: new Date(),
-        isFresh: sql.includes('"SsoAdminFreshProof"')
-          ? fresh && elapsed < ADMIN_FRESH_WINDOW_MS
-          : true
-      }
-    ]
-  )
+  const appQuery = vi.fn(async (sql: string): Promise<unknown> => [
+    {
+      userId: uuid,
+      name: '관리자',
+      role: 'ADMIN',
+      targetLevel: null,
+      sessionId: uuid,
+      // Recent sign-in: inside the 8 hour ADMIN session limit.
+      createdAt: new Date(Date.now() - 60_000),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60_000),
+      isFresh: sql.includes('"SsoAdminFreshProof"')
+        ? fresh && elapsed < ADMIN_FRESH_WINDOW_MS
+        : true
+    }
+  ])
   const client = (query: unknown) =>
     ({ $queryRawUnsafe: query }) as unknown as PrismaClient
   const provider: SsoProvider = {
