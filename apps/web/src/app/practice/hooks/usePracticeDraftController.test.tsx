@@ -271,7 +271,13 @@ describe('practice draft autosave pacing', () => {
   })
 
   it('submit and concurrent leave drain share one flight and bypass pacing after its ACK', async () => {
-    const h = mount()
+    // A member: the submit carries the saved draft revision (guests send 0).
+    const h = mount(undefined, {
+      id: crypto.randomUUID(),
+      name: 'Member',
+      role: 'USER',
+      targetLevel: 'N5'
+    })
     let finish!: () => void
     io.save.mockImplementationOnce(
       async (input: SaveStudyDraftMutationInput) => {

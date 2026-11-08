@@ -30,6 +30,7 @@ import { resetQuestionReadRateLimitForTesting } from '@mocks/handlers/questionHa
 import { useAppStore } from '@nihongo/browser/store/index'
 import { clearMockGuestPrincipalCookie, mockServer } from '@/test/server'
 import { mockGuestAllowance } from '@mocks/handlers/guestAllowanceHandlers'
+import { clearGuestDraftsForTesting } from '@app/practice/draft/guestLocalDraft'
 
 const resetTestState = async (): Promise<void> => {
   await clearMockGuestPrincipalCookie()
@@ -45,6 +46,7 @@ const resetTestState = async (): Promise<void> => {
   resetMockSocialSignInForTesting()
   mockDatabase.reset()
   mockGuestAllowance.reset({ enforce: false })
+  clearGuestDraftsForTesting()
   useAppStore.setState({
     currentUser: null,
     sessionId: null,

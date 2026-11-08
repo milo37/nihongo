@@ -5,10 +5,22 @@ import { createStudySessionV2 } from '@api/study/createStudySessionV2'
 import { studyDraftQueries } from '@app/practice/queries/studyDraftQueries'
 import { studySessionQueries } from '@app/practice/queries/studySessionQueries'
 import { mockServer } from '@/test/server'
+import { mockDatabase } from '@mocks/repository/mockDatabase'
+import { authQueries } from '@nihongo/browser/app/login/queries/authQueries'
+import { commitCanonicalAuth } from '@nihongo/browser/app/login/authSession'
+import { queryClient as canonicalQueryClient } from '@nihongo/browser/libs/queryClient'
 
 it.each(['session', 'draft'] as const)(
   'cancelling a pending %s query aborts its transport before another read',
   async (kind) => {
+    if (kind === 'draft') {
+      // Server drafts are members only (guests keep answers locally).
+      mockDatabase.loginAs('USER')
+      await commitCanonicalAuth(
+        canonicalQueryClient,
+        await canonicalQueryClient.fetchQuery(authQueries.currentUser())
+      )
+    }
     const { data: created } = await createStudySessionV2({
       level: 'N5',
       subject: 'VOCABULARY',

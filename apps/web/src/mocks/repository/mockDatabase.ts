@@ -1890,7 +1890,9 @@ export class MockDatabase {
       )
     }
 
-    if (contractVersion === 2) {
+    // A guest keeps no draft on the server (BE #765): the submitted answers
+    // are taken as they are, without comparing a saved draft.
+    if (contractVersion === 2 && owner.userId) {
       const draft = this.canonicalDraftBySessionId.get(session.id)
       const expectedDraftRevision =
         'expectedDraftRevision' in input.body

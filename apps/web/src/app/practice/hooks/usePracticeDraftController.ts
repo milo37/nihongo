@@ -1588,7 +1588,8 @@ export const usePracticeDraftController = ({
         (total, answer) => total + answer.elapsedSec,
         0
       ),
-      expectedDraftRevision: snapshot.revision
+      // The server does not compare a guest's answers with a saved draft.
+      expectedDraftRevision: user ? snapshot.revision : 0
     }
   }
 

@@ -466,6 +466,8 @@ describe('PracticeSessionPage', () => {
   ] as const)(
     'announces the applied server record after a 409 and clears it on the next answer (%s)',
     async (locale, message) => {
+      // Server drafts are members only (guests keep answers locally).
+      await loginAsUser()
       writeUiLocalePreference(locale)
       const user = userEvent.setup()
       const response = await createStudySessionV2({
@@ -525,6 +527,8 @@ describe('PracticeSessionPage', () => {
   )
 
   it('저장 중과 실패·재시도를 분리하며 답안과 서버 저장 완료 의미를 유지한다', async () => {
+    // Server drafts are members only (guests keep answers locally).
+    await loginAsUser()
     const user = userEvent.setup()
     const response = await createStudySessionV2({
       level: 'N5',
@@ -619,6 +623,8 @@ describe('PracticeSessionPage', () => {
   it.each(['ko', 'ja'] as const)(
     '보기 뒤 인라인 상태가 실제 저장과 오프라인·충돌을 반영하고 답안 초점을 유지한다 (%s)',
     async (locale) => {
+      // Server drafts are members only (guests keep answers locally).
+      await loginAsUser()
       writeUiLocalePreference(locale)
       const savedLabel =
         locale === 'ko'
@@ -871,6 +877,8 @@ describe('PracticeSessionPage', () => {
   })
 
   it('미응답 수를 확인한 뒤 제출하면 결과 경로로 이동한다', async () => {
+    // Server drafts are members only (guests keep answers locally).
+    await loginAsUser()
     const user = userEvent.setup()
     const payload = await startSession(2)
     const [first] = payload.questions
@@ -904,6 +912,51 @@ describe('PracticeSessionPage', () => {
     expect(router.state.location.pathname).toBe(
       `/practice/result/${payload.session.id}`
     )
+  })
+
+  it('게스트 풀이는 작업본 API를 부르지 않고 화면의 답과 revision 0으로 제출한다 (BE #765)', async () => {
+    const user = userEvent.setup()
+    const payload = await startSession(1)
+    const option = payload.questions[0]?.options[0]
+    if (!option) throw new Error('Public option required')
+    const draftCalls: string[] = []
+    let submitted: unknown
+    const observe = ({ request }: { request: Request }): void => {
+      if (request.url.includes('/draft-answers')) draftCalls.push(request.url)
+      if (request.method === 'POST' && /\/submi(t|ssion)$/u.test(request.url)) {
+        void request
+          .clone()
+          .json()
+          .then((body: unknown) => {
+            submitted = body
+          })
+      }
+    }
+    mockServer.events.on('request:start', observe)
+    try {
+      renderSession(payload.session.id)
+      const radio = await screen.findByRole('radio', {
+        name: `1. ${option.text}`
+      })
+      await waitFor(() => expect(radio).toBeEnabled())
+      await user.click(radio)
+      const submit = screen.getByRole('button', { name: '답안 제출' })
+      await waitFor(() => expect(submit).toBeEnabled())
+      await user.click(submit)
+      await user.click(
+        within(await screen.findByRole('dialog')).getByRole('button', {
+          name: '제출하고 결과 보기'
+        })
+      )
+      expect(await screen.findByText('제출 결과 도착')).toBeInTheDocument()
+      expect(submitted).toMatchObject({
+        expectedDraftRevision: 0,
+        answers: [expect.objectContaining({ selectedOptionId: option.id })]
+      })
+      expect(draftCalls).toEqual([])
+    } finally {
+      mockServer.events.removeListener('request:start', observe)
+    }
   })
 
   it('헤더 진행 표시가 현재 번호·전체·답변 수를 따라간다', async () => {
