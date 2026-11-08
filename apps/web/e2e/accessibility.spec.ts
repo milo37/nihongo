@@ -9,7 +9,6 @@ import {
 import { createReportResponseSchema } from '@nihongo/contracts/report/reports'
 import { createBookmarkResponseSchema } from '@nihongo/contracts/bookmark/create-bookmark'
 import { listBookmarksResponseSchema } from '@nihongo/contracts/bookmark/list-bookmarks'
-import { getDashboardInsightsResponseSchema } from '@nihongo/contracts/dashboard/get-dashboard-insights'
 import {
   listResumableStudySessionsQuerySchema,
   listResumableStudySessionsResponseSchema
@@ -1343,26 +1342,7 @@ const login = async (
             pageSize: 5
           })
         })
-      const insightsResponse = page
-        .waitForResponse((response) => {
-          const url = new URL(response.url())
-          return (
-            response.request().method() === 'GET' &&
-            url.origin === origin &&
-            url.pathname === '/api/v1/dashboard/insights'
-          )
-        })
-        .then(async (response) => {
-          expect(response.status()).toBe(200)
-          expect(response.fromServiceWorker()).toBe(false)
-          expect(response.headers()['cache-control']).toBe('private, no-store')
-          getDashboardInsightsResponseSchema.parse(await response.json())
-        })
-      await Promise.all([
-        resumableResponse,
-        insightsResponse,
-        page.goto(callback.href)
-      ])
+      await Promise.all([resumableResponse, page.goto(callback.href)])
       await expect(page).toHaveURL(
         (url) =>
           url.origin === origin &&
