@@ -1039,7 +1039,11 @@ export const createPrismaStudySessionRepository = (
                   createdAt: input.startedAt
                 }))
               })
-              if ((input.practiceContractVersion ?? 2) === 2) {
+              // Guests keep no saved progress, so only members get a draft (#737).
+              if (
+                (input.practiceContractVersion ?? 2) === 2 &&
+                input.owner.kind === 'USER'
+              ) {
                 await transaction.studyDraft.create({
                   data: {
                     studySessionId: session.id,
