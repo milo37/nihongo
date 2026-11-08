@@ -210,6 +210,12 @@ type AppLayoutProps = PracticeNavigationContext & {
   learnerNavigation?: boolean
   /** App-owned account menu; replaces the default menu and locale select. */
   accountMenu?: ReactNode
+  /**
+   * Top bar status just left of the account menu, such as the admin
+   * re-verification chip. It stays on the same row on narrow screens and may
+   * shrink, so keep its text short there.
+   */
+  headerStatus?: ReactNode
 }
 
 export const AppLayout = ({
@@ -217,7 +223,8 @@ export const AppLayout = ({
   reviewReturnContext,
   robots,
   learnerNavigation = true,
-  accountMenu
+  accountMenu,
+  headerStatus
 }: AppLayoutProps): ReactElement => {
   const { t: commonT } = useTranslation('common')
   const { t: navigationT } = useTranslation('navigation')
@@ -421,12 +428,17 @@ export const AppLayout = ({
                 onClick={closeMenu}
               />
 
-              {accountMenu ?? (
-                <DefaultAccountMenu
-                  buttonRef={mobileMenuButtonRef}
-                  onClose={closeMenu}
-                />
-              )}
+              <div className="app-shell-header-actions">
+                {headerStatus ? (
+                  <div className="app-shell-header-status">{headerStatus}</div>
+                ) : null}
+                {accountMenu ?? (
+                  <DefaultAccountMenu
+                    buttonRef={mobileMenuButtonRef}
+                    onClose={closeMenu}
+                  />
+                )}
+              </div>
             </div>
           </header>
         ) : null

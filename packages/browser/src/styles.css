@@ -235,6 +235,26 @@
   position: relative;
   margin-left: auto;
 }
+/* Right side of the top bar: optional status, then the account menu. */
+.app-shell-header-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+.app-shell-header-status {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+@media (max-width: 760px) {
+  .app-shell-header-actions {
+    gap: 8px;
+  }
+}
 .account-menu-trigger,
 .account-menu-icon {
   display: inline-flex;
