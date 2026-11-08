@@ -914,7 +914,7 @@ describe('PracticeSessionPage', () => {
     )
   })
 
-  it('게스트 풀이는 작업본 API를 부르지 않고 화면의 답과 revision 0으로 제출한다 (BE #765)', async () => {
+  it('게스트 풀이는 작업본 API를 부르지 않고 화면의 답 그대로 제출한다 (BE #765)', async () => {
     const user = userEvent.setup()
     const payload = await startSession(1)
     const option = payload.questions[0]?.options[0]
@@ -950,9 +950,10 @@ describe('PracticeSessionPage', () => {
       )
       expect(await screen.findByText('제출 결과 도착')).toBeInTheDocument()
       expect(submitted).toMatchObject({
-        expectedDraftRevision: 0,
         answers: [expect.objectContaining({ selectedOptionId: option.id })]
       })
+      // JLP-792: submit no longer sends a draft revision.
+      expect(submitted).not.toHaveProperty('expectedDraftRevision')
       expect(draftCalls).toEqual([])
     } finally {
       mockServer.events.removeListener('request:start', observe)

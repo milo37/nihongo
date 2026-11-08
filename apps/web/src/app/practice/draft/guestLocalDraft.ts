@@ -8,7 +8,7 @@ import { useAppStore } from '@nihongo/browser/store/index'
  * A guest's answers are not kept on the server (U4, BE #765): the draft
  * APIs answer 401 for guests. The session screen still works on a draft,
  * so for a guest it lives here, in memory, and is lost on reload. Submit
- * then sends expectedDraftRevision 0 with the answers on screen.
+ * sends the answers on screen, like a member's.
  */
 const drafts = new Map<string, StudyDraftSnapshot>()
 

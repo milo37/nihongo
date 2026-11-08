@@ -306,7 +306,6 @@ describe('practice draft autosave pacing', () => {
     expect(io.save).toHaveBeenCalledTimes(2)
     expect(startedAt[1]! - startedAt[0]!).toBe(100)
     expect((await submit).answers[0]?.selectedOptionId).toBe(optionB)
-    expect((await submit).expectedDraftRevision).toBe(2)
   })
 
   it('first submit does not wait for the 2s idle timer', async () => {

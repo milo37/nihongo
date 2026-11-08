@@ -127,7 +127,6 @@ export type MockDatabaseErrorCode =
   | 'ANSWER_NOT_IN_SESSION'
   | 'AUTH_REQUIRED'
   | 'DUPLICATE_RESOURCE'
-  | 'DRAFT_SUBMIT_MISMATCH'
   | 'DRAFT_VERSION_CONFLICT'
   | 'FORBIDDEN'
   | 'IDEMPOTENCY_KEY_REUSED'
@@ -1890,29 +1889,7 @@ export class MockDatabase {
       )
     }
 
-    // A guest keeps no draft on the server (BE #765): the submitted answers
-    // are taken as they are, without comparing a saved draft.
-    if (contractVersion === 2 && owner.userId) {
-      const draft = this.canonicalDraftBySessionId.get(session.id)
-      const expectedDraftRevision =
-        'expectedDraftRevision' in input.body
-          ? input.body.expectedDraftRevision
-          : null
-      if (!draft || expectedDraftRevision !== draft.revision) {
-        throw new MockDatabaseError(
-          'DRAFT_VERSION_CONFLICT',
-          409,
-          '학습 draft revision이 현재 서버 상태와 다릅니다.'
-        )
-      }
-      if (!this.hasMatchingDraftAnswers(draft, input.body.answers)) {
-        throw new MockDatabaseError(
-          'DRAFT_SUBMIT_MISMATCH',
-          422,
-          '제출 답안이 저장된 draft와 다릅니다.'
-        )
-      }
-    }
+    // JLP-792: the answers are graded as sent, never compared with a draft.
 
     const canonicalWrongNoteByQuestionId = owner.userId
       ? new Map(
@@ -4853,8 +4830,6 @@ export class MockDatabase {
           )
           return (
             isRecord(parsed) &&
-            Number.isSafeInteger(parsed.expectedDraftRevision) &&
-            parsed.expectedDraftRevision !== undefined &&
             JSON.stringify({
               sessionId: parsed.sessionId,
               answers: parsed.answers,
@@ -5454,32 +5429,6 @@ export class MockDatabase {
       this.persist()
     }
     return status
-  }
-
-  private hasMatchingDraftAnswers(
-    draft: StudyDraftSnapshot,
-    answers: readonly {
-      studySessionQuestionId: string
-      selectedOptionId: string | null
-      elapsedSec: number
-    }[]
-  ): boolean {
-    if (draft.answers.length !== answers.length) {
-      return false
-    }
-    const answerById = new Map(
-      answers.map((answer) => [answer.studySessionQuestionId, answer])
-    )
-    return (
-      answerById.size === answers.length &&
-      draft.answers.every((draftAnswer) => {
-        const answer = answerById.get(draftAnswer.studySessionQuestionId)
-        return (
-          answer?.selectedOptionId === draftAnswer.selectedOptionId &&
-          answer.elapsedSec === draftAnswer.elapsedSec
-        )
-      })
-    )
   }
 
   private hasValidCanonicalInProgressDraft(
