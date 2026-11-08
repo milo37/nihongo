@@ -43,3 +43,40 @@ resource "aws_ecr_lifecycle_policy" "api" {
     ]
   })
 }
+
+# PRODUCTION only (origin_domain_name set, #40): Caddy with the Cloudflare DNS
+# provider (infra/aws/caddy). Kept apart from the api repository, whose lifecycle
+# rule counts every image. Pushed by .github/workflows/caddy-image.yml.
+resource "aws_ecr_repository" "caddy" {
+  count                = local.origin_tls ? 1 : 0
+  name                 = "${var.project}/caddy"
+  image_tag_mutability = "IMMUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  encryption_configuration {
+    encryption_type = "AES256"
+  }
+}
+
+# The host pins one digest (caddy_dns_image); 5 keeps that one and its rollbacks.
+resource "aws_ecr_lifecycle_policy" "caddy" {
+  count      = local.origin_tls ? 1 : 0
+  repository = aws_ecr_repository.caddy[0].name
+  policy = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Keep the last 5 Caddy images"
+        selection = {
+          tagStatus   = "any"
+          countType   = "imageCountMoreThan"
+          countNumber = 5
+        }
+        action = { type = "expire" }
+      },
+    ]
+  })
+}

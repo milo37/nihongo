@@ -18,7 +18,7 @@ locals {
 
   # Secret values are never in Terraform or its state. The operator writes each
   # name below once as a SecureString (see README), and the host reads them at boot.
-  secret_parameter_names = [
+  secret_parameter_names = concat([
     "POSTGRES_PASSWORD",
     "DATABASE_URL",
     "MIGRATION_DATABASE_URL",
@@ -30,7 +30,8 @@ locals {
     "PROD_MIGRATION_LOGIN_PASSWORD",
     "PROD_APP_LOGIN_PASSWORD",
     "PROD_GUEST_CLEANUP_LOGIN_PASSWORD",
-  ]
+    # PRODUCTION only: Caddy's DNS-01 token (Zone:DNS:Edit on the one zone, #40).
+  ], local.origin_tls ? ["CLOUDFLARE_API_TOKEN"] : [])
 
   # Optional, PRODUCTION only: the privacy officer and contact mail on /legal
   # (#705). Kept out of the repository; STAGING leaves them unset.

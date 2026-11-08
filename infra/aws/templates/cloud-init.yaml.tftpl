@@ -59,6 +59,28 @@ write_files:
     permissions: '0750'
     content: |
       ${indent(6, guest_cleanup_sh)}
+%{ if origin_tls ~}
+  - path: /opt/harumaru/bin/render-origin-env.sh
+    permissions: '0750'
+    content: |
+      ${indent(6, render_origin_env_sh)}
+  - path: /etc/systemd/system/harumaru-origin-env.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=harumaru origin certificate token
+      After=network-online.target
+      Before=harumaru.service
+
+      [Service]
+      Type=oneshot
+      RemainAfterExit=yes
+      ExecStart=/opt/harumaru/bin/render-origin-env.sh
+
+      [Install]
+      WantedBy=multi-user.target
+      RequiredBy=harumaru.service
+%{ endif ~}
   - path: /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
     permissions: '0644'
     encoding: b64
@@ -133,5 +155,8 @@ runcmd:
     rm -f /tmp/docker-compose
   - systemctl enable --now docker
   - /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+%{ if origin_tls ~}
+  - systemctl enable --now harumaru-origin-env.service
+%{ endif ~}
   - systemctl enable harumaru.service
   - systemctl enable --now harumaru-backup.timer

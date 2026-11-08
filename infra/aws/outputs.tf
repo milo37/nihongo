@@ -41,3 +41,8 @@ output "legal_parameter_names" {
   description = "Optional; write both before PRODUCTION opens (production-database runbook, Legal contact)."
   value       = [for name in local.legal_parameter_names : "${local.param_path}/${name}"]
 }
+
+# PRODUCTION only (null in STAGING): set as the GitHub variable CADDY_ECR_REPOSITORY_URL.
+output "caddy_ecr_repository_url" {
+  value = try(aws_ecr_repository.caddy[0].repository_url, null)
+}

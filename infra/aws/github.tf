@@ -78,3 +78,31 @@ resource "aws_iam_role_policy" "github_deploy" {
   role   = aws_iam_role.github_deploy.id
   policy = data.aws_iam_policy_document.github_deploy.json
 }
+
+# PRODUCTION only (#40): the same role pushes the Caddy image. A separate policy
+# so the first apply can create the repository and this permission alone
+# (-target, README) before the host needs the image digest.
+data "aws_iam_policy_document" "github_caddy_push" {
+  count = local.origin_tls ? 1 : 0
+
+  statement {
+    sid = "EcrPushCaddy"
+    actions = [
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:BatchGetImage",
+      "ecr:CompleteLayerUpload",
+      "ecr:DescribeImages",
+      "ecr:InitiateLayerUpload",
+      "ecr:PutImage",
+      "ecr:UploadLayerPart",
+    ]
+    resources = [aws_ecr_repository.caddy[0].arn]
+  }
+}
+
+resource "aws_iam_role_policy" "github_caddy_push" {
+  count  = local.origin_tls ? 1 : 0
+  name   = "caddy-push"
+  role   = aws_iam_role.github_deploy.id
+  policy = data.aws_iam_policy_document.github_caddy_push[0].json
+}

@@ -48,3 +48,12 @@ regex = '''(?i)["'`]?(?:api[_-]?key|auth[_-]?token|access[_-]?token|refresh[_-]?
 secretGroup = 1
 entropy = 3.0
 keywords = ["key", "token", "secret", "password"]
+
+# A dummy Cloudflare token the Caddy config check used in one commit of #771;
+# scripts/render-check.sh now builds it at run time.
+[[allowlists]]
+description = "render-check dummy Cloudflare token (#771)"
+condition = "AND"
+targetRules = ["cloudflare-api-key"]
+commits = ["a7cdabb2f3f67bce4c259ee3bac6b629527ef068"]
+paths = ['''^infra/aws/scripts/render-check\.sh$''']

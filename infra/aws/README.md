@@ -20,7 +20,7 @@
 - CloudFront 정액 요금제의 Free·Pro에는 VPC origin이 없습니다(Business 이상). 그래서 EC2에 공인 IPv4(EIP)를 붙이고, 보안그룹으로 CloudFront만 들어오게 막았습니다.
 - 보안그룹의 prefix list는 **모든 AWS 계정의** CloudFront를 허용합니다. 그래서 CloudFront가 origin에 비밀 헤더(`X-Origin-Verify`, Terraform `random_password`)를 붙이고, compose 안의 Caddy가 헤더가 없거나 틀린 요청에 403을 돌려줍니다. 다른 배포를 거쳐 우리 WAF를 우회하는 길이 이것으로 막힙니다.
 - API 3001은 호스트에 공개하지 않습니다. 앱은 compose 고정 서브넷(`172.30.0.0/24`)만 trusted proxy(`AUTH_TRUSTED_PROXY_CIDRS`)로 믿고, Caddy는 CloudFront가 붙인 `X-Forwarded-For`를 그대로 넘깁니다. 앱 코드는 바꾸지 않았습니다.
-- **origin TLS:** `origin_domain_name`(예: `origin.harumaru.app`, EIP를 가리키는 A 레코드)을 설정하면 CloudFront→EC2가 HTTPS 443이 되고, Caddy가 SSM의 `ORIGIN_TLS_CERT_B64`·`ORIGIN_TLS_KEY_B64`(공인 CA 인증서와 키의 PEM을 base64로) 파일로 TLS를 엽니다. 기본값은 꺼짐(빈 값)입니다. EC2 기본 DNS(amazonaws.com)에는 공인 인증서를 받을 수 없어서 도메인이 있어야 합니다. 인증서 발급·갱신 방법(Let's Encrypt DNS-01 등)은 도메인을 정할 때 고릅니다.
+- **origin TLS:** `origin_domain_name`(예: `origin.harumaru.app`, EIP를 가리키는 A 레코드)을 설정하면 CloudFront→EC2가 HTTPS 443이 되고, Caddy가 Let's Encrypt 인증서를 DNS-01(Cloudflare API 토큰)로 직접 받고 갱신합니다(#40, 아래 "origin 인증서"). 기본값은 꺼짐(빈 값)이고 PRODUCTION만 켭니다. EC2 기본 DNS(amazonaws.com)에는 공인 인증서를 받을 수 없어서 도메인이 있어야 합니다.
 - 정액 요금제 제약에 맞췄습니다. 관리형 cache·origin request policy만 쓰고, cache behavior는 2개(한도 5), WAF 규칙은 4개(한도 5)입니다.
 - 도메인은 `domain_name`·`acm_certificate_arn` 변수로 나중에 붙입니다. 비어 있으면 `https://<id>.cloudfront.net`이 `BETTER_AUTH_URL`이자 하나뿐인 `TRUSTED_ORIGINS`가 됩니다.
 
@@ -43,7 +43,7 @@
 
 앱 비밀값은 Terraform이 만들지도 읽지도 않아서 state에 남지 않습니다. 예외는 origin 비밀 헤더 `ORIGIN_VERIFY_SECRET` 하나입니다. CloudFront 설정에 값이 들어가야 하므로 Terraform이 만들어 SSM에도 쓰고, 그래서 **state에 남습니다**. state는 운영자 로컬이나 암호화된 비공개 backend에만 둡니다. 첫 배포 전에 운영자가 아래 이름으로 SecureString을 한 번 씁니다(`output secret_parameter_names`). 호스트는 부팅·배포 때 tmpfs(`/run/harumaru`)로만 읽습니다.
 
-`/harumaru/<env>/POSTGRES_PASSWORD`, `DATABASE_URL`(`sslmode=require` 필수), `MIGRATION_DATABASE_URL`, `BETTER_AUTH_SECRET`, `GUEST_COOKIE_SECRET`(앞의 값과 달라야 함), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`(로그인은 Google뿐이라 없으면 `render-env.sh`가 배포와 부팅을 멈춤), `PRODUCTION_DATABASE_URL`(계정 삭제 명령·migration 대상 확인용, API 런타임에는 넘기지 않음), DB login 비밀번호 `PROD_MIGRATION_LOGIN_PASSWORD`·`PROD_APP_LOGIN_PASSWORD`·`PROD_GUEST_CLEANUP_LOGIN_PASSWORD`(서로 다른 24자 이상, URL-safe). `DATABASE_URL`은 `nihongo_production_app_login`, `MIGRATION_DATABASE_URL`은 `nihongo_production_migration_login`과 같은 비밀번호를 쓰고 DB 이름은 `nihongo`입니다(`provision-db.sh`가 대조). origin TLS를 켤 때만 `ORIGIN_TLS_CERT_B64`, `ORIGIN_TLS_KEY_B64`도 씁니다. 약관·문의 화면의 보호책임자·문의 메일은 선택값 `LEGAL_PRIVACY_OFFICER`·`LEGAL_CONTACT_EMAIL`(`output legal_parameter_names`)이고, PRODUCTION 전에만 넣습니다. `render-env.sh`가 `/var/lib/harumaru/web/legal-settings.json`으로 쓰고 api가 `/app/web/legal-settings.json`으로 읽기 전용 마운트합니다. 없으면(STAGING) `{}`라 화면은 대체 문구를 씁니다(#705, [runbook](../../operations/runbooks/production-database.v1.md) "Legal contact").
+`/harumaru/<env>/POSTGRES_PASSWORD`, `DATABASE_URL`(`sslmode=require` 필수), `MIGRATION_DATABASE_URL`, `BETTER_AUTH_SECRET`, `GUEST_COOKIE_SECRET`(앞의 값과 달라야 함), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`(로그인은 Google뿐이라 없으면 `render-env.sh`가 배포와 부팅을 멈춤), `PRODUCTION_DATABASE_URL`(계정 삭제 명령·migration 대상 확인용, API 런타임에는 넘기지 않음), DB login 비밀번호 `PROD_MIGRATION_LOGIN_PASSWORD`·`PROD_APP_LOGIN_PASSWORD`·`PROD_GUEST_CLEANUP_LOGIN_PASSWORD`(서로 다른 24자 이상, URL-safe). `DATABASE_URL`은 `nihongo_production_app_login`, `MIGRATION_DATABASE_URL`은 `nihongo_production_migration_login`과 같은 비밀번호를 쓰고 DB 이름은 `nihongo`입니다(`provision-db.sh`가 대조). origin TLS를 켤 때(PRODUCTION)만 `CLOUDFLARE_API_TOKEN`도 씁니다(아래 "origin 인증서"). `render-env.sh`에 남은 `ORIGIN_TLS_*` 처리는 쓰지 않는 옛 경로이고, STAGING 호스트 파일을 바꾸지 않으려고 다음 STAGING 변경 때 지웁니다. 약관·문의 화면의 보호책임자·문의 메일은 선택값 `LEGAL_PRIVACY_OFFICER`·`LEGAL_CONTACT_EMAIL`(`output legal_parameter_names`)이고, PRODUCTION 전에만 넣습니다. `render-env.sh`가 `/var/lib/harumaru/web/legal-settings.json`으로 쓰고 api가 `/app/web/legal-settings.json`으로 읽기 전용 마운트합니다. 없으면(STAGING) `{}`라 화면은 대체 문구를 씁니다(#705, [runbook](../../operations/runbooks/production-database.v1.md) "Legal contact").
 
 ```sh
 aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUTH_SECRET --value "$(openssl rand -base64 48)"
@@ -100,8 +100,22 @@ EC2와 백업 버킷은 CloudFront나 IAM으로만 접근됩니다. WAF는 IP별
 
 1. us-east-1 ACM에서 `harumaru.app` 인증서를 DNS 검증으로 요청하고, ACM이 주는 검증 CNAME을 Cloudflare DNS에 넣습니다. 발급되면 ARN을 `acm_certificate_arn`에, `harumaru.app`을 `domain_name`에 넣습니다.
 2. Cloudflare에 `harumaru.app` → `<id>.cloudfront.net` CNAME을 만듭니다(apex는 Cloudflare CNAME flattening). **프록시는 끕니다(DNS only, 회색 구름).** 켜면 Cloudflare가 CloudFront 앞에 한 겹 더 서서 TLS·캐시·클라이언트 IP가 꼬입니다.
-3. origin TLS: Cloudflare에 `origin.harumaru.app` A 레코드 → EIP(`output`의 공인 IP)를 DNS only로 만들고 `origin_domain_name = "origin.harumaru.app"`을 설정합니다. 인증서는 공인 CA여야 하므로 Cloudflare Origin CA 인증서는 쓸 수 없습니다(CloudFront가 믿지 않음). Let's Encrypt DNS-01(Cloudflare API 토큰) 등으로 받아 SSM `ORIGIN_TLS_CERT_B64`·`ORIGIN_TLS_KEY_B64`에 넣습니다. 발급·갱신 방식은 그때 정합니다.
+3. origin TLS: Cloudflare에 `origin.harumaru.app` A 레코드 → EIP(`output`의 공인 IP)를 DNS only로 만들고 `origin_domain_name = "origin.harumaru.app"`을 설정합니다. 인증서는 공인 CA여야 하므로 Cloudflare Origin CA 인증서는 쓸 수 없습니다(CloudFront가 믿지 않음). 발급·갱신은 아래 "origin 인증서"대로 Caddy가 합니다.
 4. 도메인을 붙이면 `BETTER_AUTH_URL`·`TRUSTED_ORIGINS`가 `https://harumaru.app`으로 바뀌므로, Google OAuth 클라이언트의 redirect URI도 새 `google_oauth_redirect_uri`로 바꿉니다.
+
+## origin 인증서 (PRODUCTION, Let's Encrypt DNS-01, #40)
+
+보안그룹이 CloudFront만 들이므로 HTTP-01·TLS-ALPN-01 검증은 못 씁니다. 그래서 Caddy가 Cloudflare DNS에 TXT를 잠깐 써서 인증서를 받고, 만료 전에 스스로 갱신합니다(Let's Encrypt 수명이 2027-02부터 64일, 2028년 45일로 줄어도 손댈 일 없음).
+
+- 이미지: 기본 Caddy에는 Cloudflare 모듈이 없어서 `caddy/Dockerfile`(Caddy 2.11.8 + `caddy-dns/cloudflare` v0.2.4, 베이스 digest 고정)을 `.github/workflows/caddy-image.yml`이 arm64로 빌드해 **PRODUCTION 전용 ECR `harumaru/caddy`**(`output caddy_ecr_repository_url`, 최근 5개 보관)에 넣습니다. 역할은 api 이미지와 같은 GitHub OIDC 배포 역할이고(main만 신뢰), 그 리포 push만 별도 정책 `caddy-push`로 더합니다. 서버는 인스턴스 역할로 같은 리포를 pull합니다. 호스트는 `caddy_dns_image`(`<리포 URL>@sha256:<digest>`)를 digest로 고정합니다. STAGING은 이 리포·정책·변수 모두 없고 `caddy_image` 그대로입니다.
+- 토큰: Cloudflare API 토큰은 권한 **Zone · DNS · Edit**, 대상 **harumaru.app 한 zone**, **Client IP 필터 = EIP**로 만듭니다. SSM `/harumaru/production/CLOUDFLARE_API_TOKEN`(SecureString)에만 두고, 부팅 때 `harumaru-origin-env.service`(`render-origin-env.sh`)가 tmpfs `/run/harumaru/origin.env`로 꺼내 proxy에 넘깁니다. 바꿀 때는 SSM 값을 고친 뒤 호스트에서 `sudo /opt/harumaru/bin/render-origin-env.sh && cd /opt/harumaru && sudo docker compose up -d --force-recreate proxy`.
+- 저장: ACME 계정과 인증서는 Docker 볼륨 `caddy-data`(`/data`)에 남아 재시작해도 다시 발급하지 않습니다(발급 한도 주 5회/같은 이름).
+- 첫 PRODUCTION apply 순서(이 변경이 main에 들어간 뒤, 워크플로가 main에서만 돕니다):
+  1. 리포·push 권한·EIP만 먼저: `terraform apply -target=aws_iam_role_policy.github_caddy_push -target=aws_ecr_lifecycle_policy.caddy -target=aws_eip.host` → 6 to add(계정에 GitHub OIDC 공급자가 이미 있어 `create_github_oidc_provider = false`면 5), 0 change, 0 destroy.
+  2. Cloudflare: 위 조건으로 토큰을 만들고 SSM에 넣습니다(값은 채팅·파일에 남기지 않음). `origin.harumaru.app` A → EIP(DNS only)도 이때 만듭니다.
+  3. GitHub 저장소 변수 `PRODUCTION_AWS_DEPLOY_ROLE_ARN`(`output github_deploy_role_arn`)·`CADDY_ECR_REPOSITORY_URL`(`output caddy_ecr_repository_url`)을 넣고 Actions에서 "Caddy image"를 main으로 실행합니다. 요약에 나온 `caddy_dns_image = "...@sha256:..."` 줄을 `terraform.tfvars`에 붙입니다.
+  4. 전체 apply: 50 to add, 0 change, 0 destroy(기본값 기준 합계 56). `caddy_dns_image` 없이 plan하면 precondition이 멈춥니다.
+  5. 확인: 호스트에서 `sudo docker compose -f /opt/harumaru/compose.yaml logs proxy | grep -i 'certificate obtained'`, 밖에서 `curl -sI https://harumaru.app/health/ready`.
 
 ## 검증
 
