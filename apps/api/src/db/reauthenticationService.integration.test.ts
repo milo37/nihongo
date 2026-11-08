@@ -315,15 +315,18 @@ const completeSsoFresh = async (
 const createSsoFixture = async () =>
   (await completeSsoFresh(await createFixture('google'))).fixture
 
+// Five minutes past the admin fresh window, so the session is clearly stale.
+const staleSessionShiftSql = `(${ADMIN_FRESH_WINDOW_SQL} + INTERVAL '5 minutes')`
+
 const makeSessionStaleForTesting = async (sessionId: string) => {
   await adminClient.query('BEGIN')
   try {
     await adminClient.query('SET LOCAL session_replication_role = replica')
     const result = await adminClient.query(
       `UPDATE "Session"
-       SET "createdAt" = "createdAt" - INTERVAL '10 minutes',
-           "updatedAt" = "updatedAt" - INTERVAL '10 minutes',
-           "expiresAt" = "expiresAt" - INTERVAL '10 minutes'
+       SET "createdAt" = "createdAt" - ${staleSessionShiftSql},
+           "updatedAt" = "updatedAt" - ${staleSessionShiftSql},
+           "expiresAt" = "expiresAt" - ${staleSessionShiftSql}
        WHERE "id" = $1`,
       [sessionId]
     )
