@@ -803,8 +803,13 @@ export const koResources = {
       emptyDescription: '학습 설정으로 돌아가 새 문제를 풀어 보세요.'
     },
     name: '학습 결과',
-    scoreTotal: '/ {{formattedTotal}} 정답',
-    nextSteps: '다음에 할 일',
+    summary: {
+      score: '{{total}}문제 중 {{correct}}개 맞음',
+      meta: '정답률 {{accuracy}} · {{duration}}'
+    },
+    nextActions: {
+      title: '다음에 할 일'
+    },
     outcomesNote:
       '미응답도 채점에서는 오답으로 포함돼요. 해설을 확인하고 필요할 때 다시 풀어 보세요.',
     loading: '채점 결과를 불러오고 있어요…',

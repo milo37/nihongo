@@ -62,7 +62,7 @@ export const ResultActions = ({
       aria-labelledby="result-next-steps"
     >
       <h2 id="result-next-steps" className="mb-4 text-xl font-bold">
-        {t('nextSteps')}
+        {t('nextActions.title')}
       </h2>
       {isGuestDone ? (
         <div className="practice-guest-note" role="status">

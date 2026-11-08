@@ -7,6 +7,8 @@ import { useResultNumberFormat } from '@app/practice/hooks/useResultNumberFormat
 import { Badge } from '@nihongo/browser/common/components/Badge'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 
+const SCORE_SLOT = '\u0000'
+
 type ResultSummaryProps = {
   headingRef: RefObject<HTMLHeadingElement | null>
   incorrectCount: number
@@ -33,14 +35,21 @@ export const ResultSummary = ({
     (item) => item.selectedOptionId === null
   ).length
   const details = [
-    `${t('metrics.accuracy')} ${formatNumber(result.correctRate, locale, {
-      maximumFractionDigits: 2
-    })}%`,
-    formatDuration(result.durationSec),
+    t('summary.meta', {
+      accuracy: `${formatNumber(result.correctRate, locale, {
+        maximumFractionDigits: 2
+      })}%`,
+      duration: formatDuration(result.durationSec)
+    }),
     ...(unansweredCount > 0
       ? [`${t('items.unanswered')} ${formatCount(unansweredCount)}`]
       : [])
   ]
+  // Only the correct count is large; split the sentence around it.
+  const [scoreBefore = '', scoreAfter = ''] = t('summary.score', {
+    total: formatCount(result.totalCount),
+    correct: SCORE_SLOT
+  }).split(SCORE_SLOT)
 
   return (
     <div className="study-result-summary">
@@ -57,10 +66,11 @@ export const ResultSummary = ({
       </h1>
       <p className="mt-4 flex flex-wrap items-baseline gap-3 text-xl font-bold text-muted">
         <span>
+          {scoreBefore}
           <strong className="text-[34px] font-black leading-none text-ink sm:text-[40px]">
             {formatCount(result.correctCount)}
-          </strong>{' '}
-          {t('scoreTotal', { formattedTotal: formatCount(result.totalCount) })}
+          </strong>
+          {scoreAfter}
         </span>
         <span className="text-sm font-normal">{details.join(' · ')}</span>
       </p>

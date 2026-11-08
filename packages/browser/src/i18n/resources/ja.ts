@@ -815,8 +815,13 @@ export const jaCoreResources = {
       emptyDescription: '学習設定に戻り、新しい問題を解いてください。'
     },
     name: '学習結果',
-    scoreTotal: '/ {{formattedTotal}}問 正解',
-    nextSteps: '次にやること',
+    summary: {
+      score: '{{total}}問中 {{correct}}問正解',
+      meta: '正答率 {{accuracy}} · {{duration}}'
+    },
+    nextActions: {
+      title: '次にやること'
+    },
     outcomesNote:
       '未回答も採点では不正解に含まれます。解説を確認し、必要なときに解き直しましょう。',
     loading: '採点結果を読み込んでいます…',

@@ -260,7 +260,7 @@ describe('approved general result navigation', () => {
     expect(buttons[0]).toHaveAccessibleName('문제 1, 정답')
     expect(buttons[1]).toHaveAccessibleName('문제 2, 오답')
     expect(buttons[2]).toHaveAccessibleName('문제 3, 미응답')
-    // Shape as well as colour: filled ✓, filled ✕, dashed – (ux2 §2-1).
+    // Shape as well as colour: hollow ○, filled ✕, dashed – (ux2 §2-1).
     expect(
       buttons
         .slice(0, 3)
@@ -703,10 +703,13 @@ describe('approved general result navigation', () => {
   it('요약은 점수·정답률·시간·미응답을 한 번만 보이고, 해설 확인·오늘은 여기까지가 없다 (ux2 §2-2·2-3)', async () => {
     const fixture = await createFixture()
     const { view } = fixture.mount()
-    const score = (await screen.findByText('/ 3 정답')).closest('p')
+    const score = (
+      await screen.findByText('3문제 중', { exact: false })
+    ).closest('p')
     expect(score).toHaveTextContent(
-      '1 / 3 정답정답률 33.33% · 0분 0초 · 미응답 1'
+      '3문제 중 1개 맞음정답률 33.33% · 0분 0초 · 미응답 1'
     )
+    expect(score?.querySelector('strong')).toHaveTextContent(/^1$/u)
     expect(
       screen.getByText('미응답도 채점에서는 오답으로 포함돼요.', {
         exact: false

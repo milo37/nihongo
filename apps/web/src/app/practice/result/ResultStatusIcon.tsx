@@ -12,18 +12,17 @@ export const getResultStatus = (item: StudyResultItemView): ResultStatus =>
       : 'incorrect'
 
 const statusIcons = {
-  correct: 'check',
   incorrect: 'x',
   unanswered: 'minus'
 } as const
 
 const statusClassNames: Record<ResultStatus, string> = {
-  correct: 'bg-success text-on-accent',
+  correct: 'border-[3px] border-current text-success',
   incorrect: 'bg-danger text-on-accent',
   unanswered: 'border border-dashed border-current text-muted'
 }
 
-/** Colour and shape (filled ✓, filled ✕, dashed –); the name is in text. */
+/** Colour and shape (hollow ○, filled ✕, dashed –); the name is in text. */
 export const ResultStatusIcon = ({
   status
 }: {
@@ -33,6 +32,6 @@ export const ResultStatusIcon = ({
     className={`result-status-icon inline-grid size-5 shrink-0 place-items-center rounded-full ${statusClassNames[status]}`}
     data-status={status}
   >
-    <Icon name={statusIcons[status]} />
+    {status === 'correct' ? null : <Icon name={statusIcons[status]} />}
   </span>
 )
