@@ -58,6 +58,8 @@ const isAdminQuestionSort = (
   return value !== null && SORT_SET.has(value)
 }
 
+const FILTER_KEYS = ['level', 'subject', 'status', 'difficulty'] as const
+
 const parsePositiveInteger = (value: string | null): number => {
   const parsedValue = Number(value)
   return Number.isInteger(parsedValue) && parsedValue > 0 ? parsedValue : 1
@@ -89,14 +91,7 @@ export const useQuestionListSearch = () => {
   const page = parsePositiveInteger(searchParams.get('page'))
   const pageSize: AdminQuestionPageSize =
     searchParams.get('pageSize') === '100' ? 100 : 20
-  const hasActiveFilters = Boolean(
-    search ||
-      level ||
-      subject ||
-      status ||
-      difficulty ||
-      sort !== 'UPDATED_DESC'
-  )
+  const hasActiveFilters = Boolean(level || subject || status || difficulty)
 
   useEffect(() => {
     if (!rawSort || isAdminQuestionSort(rawSort)) return
@@ -127,6 +122,12 @@ export const useQuestionListSearch = () => {
     setSearchParams(nextParams)
   }
 
+  const removeParams = (keys: readonly string[]): void => {
+    const nextParams = new URLSearchParams(searchParams)
+    for (const key of [...keys, 'page']) nextParams.delete(key)
+    setSearchParams(nextParams)
+  }
+
   const handleSearch = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
@@ -149,6 +150,9 @@ export const useQuestionListSearch = () => {
     setSearchParams,
     setFilter,
     handleSearch,
-    resetFilters: () => setSearchParams({})
+    /** Clears the chip filters; search text, sort and page size stay. */
+    resetFilters: () => removeParams(FILTER_KEYS),
+    /** Clears the search text too, for the no-match state. */
+    clearSearchAndFilters: () => removeParams([...FILTER_KEYS, 'search'])
   }
 }

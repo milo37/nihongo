@@ -106,7 +106,7 @@ const selectAll = async () => {
       name: `${question.questionId} 문제 선택`
     })
   ).toBeNull()
-  expect(screen.getByText('2개 선택됨')).toBeVisible()
+  expect(screen.getByText('2개 선택')).toBeVisible()
   await userEvent.click(screen.getByRole('button', { name: '승인된 2개 공개' }))
   return { dialog: screen.getByRole('dialog'), router }
 }
@@ -159,7 +159,7 @@ it('publishes only approved rows and lists failed items with focus on the result
       '공개 중 문제가 생겼습니다. 다시 시도하기 전에 목록에서 상태를 확인해 주세요.'
     )
   ).toBeVisible()
-  expect(screen.queryByText('2개 선택됨')).toBeNull()
+  expect(screen.queryByText('2개 선택')).toBeNull()
 })
 
 it('asks for re-verification in the dialog, keeps the selection across the return and never resends by itself', async () => {
@@ -182,7 +182,7 @@ it('asks for re-verification in the dialog, keeps the selection across the retur
   ).not.toBeInTheDocument()
   const check = within(dialog).getByRole('button', { name: '본인 확인' })
   await waitFor(() => expect(check).toHaveFocus())
-  expect(screen.getByText('2개 선택됨')).toBeVisible()
+  expect(screen.getByText('2개 선택')).toBeVisible()
   expect(publish).toHaveBeenCalledTimes(1)
 
   const start = vi
@@ -212,9 +212,9 @@ it('asks for re-verification in the dialog, keeps the selection across the retur
       </I18nProvider>
     </QueryClientProvider>
   )
-  expect(await screen.findByText('2개 선택됨')).toBeVisible()
+  expect(await screen.findByText('2개 선택')).toBeVisible()
   await waitFor(() => expect(router.state.location.search).toBe(''))
-  expect(screen.getByText('2개 선택됨')).toBeVisible()
+  expect(screen.getByText('2개 선택')).toBeVisible()
   expect(screen.queryByRole('dialog')).toBeNull()
   expect(publish).toHaveBeenCalledTimes(1)
 })
@@ -251,7 +251,7 @@ it('clears the selection when the page or filter changes, even after coming back
   const { dialog, router } = await selectAll()
   await userEvent.click(within(dialog).getByRole('button', { name: '취소' }))
   await router.navigate('/questions?level=N3')
-  await waitFor(() => expect(screen.queryByText('2개 선택됨')).toBeNull())
+  await waitFor(() => expect(screen.queryByText('2개 선택')).toBeNull())
 
   await router.navigate('/questions')
   expect(
@@ -259,7 +259,7 @@ it('clears the selection when the page or filter changes, even after coming back
       name: '이 페이지에서 고를 수 있는 문제 모두 선택'
     })
   ).not.toBeChecked()
-  expect(screen.queryByText('2개 선택됨')).toBeNull()
+  expect(screen.queryByText('2개 선택')).toBeNull()
 })
 
 it('approves only in-review rows from the same selection and lists failures', async () => {
@@ -312,7 +312,7 @@ it('approves only in-review rows from the same selection and lists failures', as
       name: '이 페이지에서 고를 수 있는 문제 모두 선택'
     })
   )
-  expect(screen.getByText('3개 선택됨')).toBeVisible()
+  expect(screen.getByText('3개 선택')).toBeVisible()
   expect(screen.getByRole('button', { name: '승인된 1개 공개' })).toBeVisible()
   await userEvent.click(
     screen.getByRole('button', { name: '검수 중 2개 승인' })
@@ -344,7 +344,7 @@ it('approves only in-review rows from the same selection and lists failures', as
   expect(resultArea.getByRole('link', { name: failedReviewId })).toBeVisible()
   expect(resultArea.getByText('검수 중 아님')).toBeVisible()
   expect(resultArea.queryByRole('link', { name: reviewId })).toBeNull()
-  expect(screen.queryByText('3개 선택됨')).toBeNull()
+  expect(screen.queryByText('3개 선택')).toBeNull()
 })
 
 it('loads 100 rows per page when chosen so one batch can take a full page', async () => {
@@ -355,7 +355,7 @@ it('loads 100 rows per page when chosen so one batch can take a full page', asyn
     expect.objectContaining({ page: 1, pageSize: 20 })
   )
   await userEvent.selectOptions(
-    screen.getByRole('combobox', { name: '한 페이지에' }),
+    screen.getAllByRole('combobox', { name: '한 페이지에' })[0],
     '100'
   )
   await waitFor(() =>
@@ -427,7 +427,7 @@ it('requests review of own drafts 20 at a time and marks a refused chunk', async
       name: '이 페이지에서 고를 수 있는 문제 모두 선택'
     })
   )
-  expect(screen.getByText('26개 선택됨')).toBeVisible()
+  expect(screen.getByText('26개 선택')).toBeVisible()
   expect(screen.getByRole('button', { name: '승인된 1개 공개' })).toBeVisible()
   await userEvent.click(
     screen.getByRole('button', { name: '내 초안 25개 검수 요청' })

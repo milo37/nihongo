@@ -1,5 +1,6 @@
 import {
   cleanup,
+  fireEvent,
   render,
   screen,
   waitFor,
@@ -44,6 +45,12 @@ import {
   updateReceipt,
   archiveReceipt
 } from '@app/admin-question/test/questionFixture'
+
+/** Opens a list row's ⋯ menu and returns one of its items. */
+const rowMenuItem = (questionId: string, name: string): HTMLElement => {
+  fireEvent.click(screen.getByRole('button', { name: questionId + ' 작업' }))
+  return screen.getByRole('menuitem', { name })
+}
 
 const requestId = '30000000-0000-4000-8000-000000000001'
 const originalAdapter = apiClient.defaults.adapter
@@ -331,9 +338,7 @@ it('renders the populated canonical list and asks for re-verification without ex
   const user = userEvent.setup()
   renderPage()
   await screen.findByRole('region', { name: '관리자 문제 목록' })
-  await user.click(
-    screen.getByRole('button', { name: question.questionId + ' 초안 삭제' })
-  )
+  await user.click(rowMenuItem(question.questionId, '초안 삭제'))
   await user.click(
     within(screen.getByRole('dialog')).getByRole('button', {
       name: '초안 삭제'
@@ -514,7 +519,8 @@ it('labels a draft and an existing published copy separately and normalizes unsu
     'maxLength',
     '100'
   )
-  expect(screen.getByText(/초안 · 활성 · 공개본 있음/)).toBeVisible()
+  expect(screen.getByText('초안')).toBeVisible()
+  expect(screen.getByText('공개본 있음')).toBeVisible()
   expect(
     screen.getByText('상태순 정렬은 지원하지 않아 최근 수정순으로 표시합니다.')
   ).toBeVisible()
@@ -533,9 +539,7 @@ it('shows the archive failure from the error code, not the server message', asyn
   const user = userEvent.setup()
   renderPage()
   await screen.findByRole('region', { name: '관리자 문제 목록' })
-  await user.click(
-    screen.getByRole('button', { name: question.questionId + ' 초안 삭제' })
-  )
+  await user.click(rowMenuItem(question.questionId, '초안 삭제'))
   const dialog = screen.getByRole('dialog')
   await user.click(within(dialog).getByRole('button', { name: '초안 삭제' }))
   expect(
@@ -553,9 +557,7 @@ it('falls back to the archive copy for an unknown error code', async () => {
   const user = userEvent.setup()
   renderPage()
   await screen.findByRole('region', { name: '관리자 문제 목록' })
-  await user.click(
-    screen.getByRole('button', { name: question.questionId + ' 초안 삭제' })
-  )
+  await user.click(rowMenuItem(question.questionId, '초안 삭제'))
   const dialog = screen.getByRole('dialog')
   await user.click(within(dialog).getByRole('button', { name: '초안 삭제' }))
   expect(
@@ -624,9 +626,7 @@ it('labels a never-published draft as draft deletion and explains content reuse'
   const user = userEvent.setup()
   renderPage()
   await screen.findByRole('region', { name: '관리자 문제 목록' })
-  await user.click(
-    screen.getByRole('button', { name: question.questionId + ' 초안 삭제' })
-  )
+  await user.click(rowMenuItem(question.questionId, '초안 삭제'))
   expect(
     within(screen.getByRole('dialog')).getByText(
       `${question.questionId} 초안을 목록에서 지우고 보관합니다. 같은 내용으로 새 문제를 만들 수 없습니다.`
@@ -646,11 +646,7 @@ it('labels a question with a published past as stop publishing and archive', asy
   const user = userEvent.setup()
   renderPage()
   await screen.findByRole('region', { name: '관리자 문제 목록' })
-  await user.click(
-    screen.getByRole('button', {
-      name: question.questionId + ' 문제 공개 중단·보관'
-    })
-  )
+  await user.click(rowMenuItem(question.questionId, '공개 중단·보관'))
   const dialog = screen.getByRole('dialog')
   expect(
     within(dialog).getByRole('button', { name: '공개 중단·보관' })

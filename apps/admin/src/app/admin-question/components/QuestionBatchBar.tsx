@@ -8,8 +8,8 @@ import type { ReactElement, RefObject } from 'react'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import type { QuestionBatch } from '@app/admin-question/hooks/useQuestionBatch'
 
-/** Selection bar above the list, replaced by the result of the last batch action. */
-export const QuestionBatchBar = ({
+/** Result of the last batch action, shown above the list until closed. */
+export const QuestionBatchResult = ({
   batch,
   headingRef
 }: {
@@ -75,41 +75,41 @@ export const QuestionBatchBar = ({
     )
   }
 
-  if (batch.selected.length === 0) return null
+  return null
+}
+
+/** Top toolbar content while rows are selected: count, actions, clear. */
+export const QuestionSelectionBar = ({
+  batch
+}: {
+  readonly batch: QuestionBatch
+}): ReactElement => {
+  const { t } = useAdminPresentation()
+  const { locale } = useUiLocale()
   return (
-    <section className="mt-8 rounded-2xl border border-line bg-white p-4 shadow-sm">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p aria-live="polite" className="font-semibold">
-          {t('questionList.batch.selected', {
+    <div>
+      <div className="flex flex-wrap items-center gap-2">
+        <p className="mr-2 text-sm font-bold">
+          {t('adminList.selected', {
             count: formatNumber(batch.selected.length, locale)
           })}
         </p>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Button
-            variant="secondary"
-            className="w-full sm:w-auto"
-            onClick={batch.clear}
-          >
-            {t('questionList.batch.clear')}
-          </Button>
-          {(['request', 'approve', 'publish'] as const).map((action) =>
-            batch.targets[action].length > 0 ? (
-              <Button
-                key={action}
-                className="w-full sm:w-auto"
-                onClick={() => batch.open(action)}
-              >
-                {t(`questionList.batch.${action}`, {
-                  count: formatNumber(batch.targets[action].length, locale)
-                })}
-              </Button>
-            ) : null
-          )}
-        </div>
+        {(['request', 'approve', 'publish'] as const).map((action) =>
+          batch.targets[action].length > 0 ? (
+            <Button key={action} size="sm" onClick={() => batch.open(action)}>
+              {t(`questionList.batch.${action}`, {
+                count: formatNumber(batch.targets[action].length, locale)
+              })}
+            </Button>
+          ) : null
+        )}
+        <Button variant="ghost" size="sm" onClick={batch.clear}>
+          {t('adminList.clearSelection')}
+        </Button>
       </div>
-      <p className="mt-2 text-sm text-muted">
+      <p className="mt-1 text-xs text-muted">
         {t('questionList.batch.scopeNote')}
       </p>
-    </section>
+    </div>
   )
 }

@@ -141,6 +141,30 @@ describe('마이페이지 계정 설정', () => {
     ).toHaveLength(0)
     expect(reads()).toBe(0)
   })
+  it('로그인 회원이 새로고침하면 /me 응답 전에는 확인 중만 보이고 로그인 카드를 보이지 않는다', async () => {
+    mockDatabase.loginAs('USER')
+    let release: () => void = () => undefined
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    mockServer.use(
+      http.get('*/api/v1/me', async () => {
+        await gate
+        return undefined
+      })
+    )
+    renderAccount()
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      '로그인 상태를 확인하고 있어요.'
+    )
+    expect(screen.queryByText('로그인이 필요해요')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Google로 계속하기/u })
+    ).not.toBeInTheDocument()
+    release()
+    expect(await screen.findByText('연결됨')).toBeInTheDocument()
+  })
+
   it('Google 연결 상태와 유일한 방법 안내를 보여 주고 해제 버튼은 두지 않는다', async () => {
     mockDatabase.loginAs('USER')
     renderAccount()
@@ -516,18 +540,27 @@ describe('마이페이지 계정 설정', () => {
     expect(mockDatabase.ssoAccounts.capabilities().freshVerified).toBe(false)
   })
   it.each([
-    ['CANCELLED', '본인 확인을 취소했어요. 필요하면 다시 시도해 주세요.'],
-    ['FAILED', '본인 확인을 마치지 못했어요. 다시 시도해 주세요.'],
-    ['INVALID_CALLBACK', '확인 요청이 만료됐어요. 다시 시도해 주세요.']
-  ])(
-    '%s 복귀는 같은 대화상자의 ① 단계에 그 결과를 보여 준다',
-    async (outcome, copy) => {
+    [
+      'CANCELLED',
+      '본인 확인을 취소했어요. 필요하면 다시 시도해 주세요.',
+      'status'
+    ],
+    ['FAILED', '본인 확인을 마치지 못했어요. 다시 시도해 주세요.', 'alert'],
+    ['INVALID_CALLBACK', '확인 요청이 만료됐어요. 다시 시도해 주세요.', 'alert']
+  ] as const)(
+    '%s 복귀는 같은 대화상자의 ① 단계에 그 결과를 보여 준다(실패·만료는 빨간 상자, 취소는 중립 상자)',
+    async (outcome, copy, role) => {
       mockDatabase.loginAs('USER')
       renderAccount('/login?reauth=delete&ssoAccountFresh=' + outcome)
       const dialog = await screen.findByRole('dialog', {
         name: '회원 탈퇴할까요?'
       })
       expect(dialog).toHaveTextContent(copy)
+      const box = within(dialog).getByText(copy)
+      expect(box).toHaveAttribute('role', role)
+      expect(box).toHaveClass('auth-notice')
+      if (role === 'alert') expect(box).toHaveClass('auth-error')
+      else expect(box).not.toHaveClass('auth-error')
       expect(
         within(dialog).queryByRole('button', { name: '회원 탈퇴' })
       ).not.toBeInTheDocument()

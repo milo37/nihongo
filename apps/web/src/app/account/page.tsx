@@ -10,7 +10,16 @@ import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 export const AccountPage = (): ReactElement => {
   const { t } = useTranslation('account')
   const { t: navigationT } = useTranslation('navigation')
-  const { user } = useAuth()
+  const { t: authT } = useTranslation('auth')
+  const { isReady, user } = useAuth()
+  // Until /me answers, a signed-in member must not see the sign-in card.
+  if (!isReady) {
+    return (
+      <section className="auth-page">
+        <p role="status">{authT('sso.checkingSession')}</p>
+      </section>
+    )
+  }
   if (!user) {
     return (
       <section className="auth-page">

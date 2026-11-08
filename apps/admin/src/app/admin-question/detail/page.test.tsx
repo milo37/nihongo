@@ -59,6 +59,12 @@ import {
 } from '@app/admin-question/navigation/questionWorkflowContext'
 import type { QuestionWrite } from '@app/admin-question/detail/questionWorkflow'
 
+/** Opens a list row's ⋯ menu and returns one of its items. */
+const rowMenuItem = (questionId: string, name: string): HTMLElement => {
+  fireEvent.click(screen.getByRole('button', { name: questionId + ' 작업' }))
+  return screen.getByRole('menuitem', { name })
+}
+
 beforeAll(preloadAdminPages)
 // Compile the existing lazy detail route before timed DOM assertions.
 beforeAll(async () => {
@@ -858,9 +864,7 @@ it.each(['DRAFT', 'PUBLISHED'] as const)(
         encodeURIComponent('/admin/questions?level=N3&page=1')
     )
     if (status === 'PUBLISHED')
-      expect(
-        screen.getByRole('link', { name: questionId + ' 문제 상세' })
-      ).toHaveAttribute(
+      expect(rowMenuItem(questionId, '상세 보기')).toHaveAttribute(
         'href',
         '/admin/questions/' +
           questionId +
