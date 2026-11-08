@@ -200,7 +200,7 @@ test('rejects a repeated Google callback consumption', () => {
 })
 
 test('current two-actor rate-limit model is exact and rejects cardinality drift', () => {
-  assert.equal(Object.keys(accessibilityExpectedRateLimitCategories).length, 24)
+  assert.equal(Object.keys(accessibilityExpectedRateLimitCategories).length, 25)
   assert.equal(
     accessibilityExpectedRateLimitCategories['application:study-read'],
     2
