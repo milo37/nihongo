@@ -1,6 +1,8 @@
+import { ADMIN_FRESH_WINDOW_SQL } from './adminFreshWindow.js'
+
 /**
  * A boolean SQL expression: the raw Session token belongs to a Session
- * created by a completed SSO ADMIN_FRESH proof less than 5 minutes ago.
+ * created by a completed SSO ADMIN_FRESH proof inside the fresh window.
  * `tokenParameter` is a bind placeholder.
  */
 export const adminSessionFreshSql = (tokenParameter: string): string => `
@@ -22,7 +24,7 @@ export const adminSessionFreshSql = (tokenParameter: string): string => `
         (proof."context"->>'authorityGeneration')::INTEGER
       AND session."authorityGeneration" = actor."authorityGeneration"
       AND proof."expiresAt" > clock_timestamp()
-      AND proof."completedAt" + INTERVAL '5 minutes' > clock_timestamp()
-      AND session."createdAt" + INTERVAL '5 minutes' > clock_timestamp()
+      AND proof."completedAt" + ${ADMIN_FRESH_WINDOW_SQL} > clock_timestamp()
+      AND session."createdAt" + ${ADMIN_FRESH_WINDOW_SQL} > clock_timestamp()
       AND session."expiresAt" > clock_timestamp()
   )`

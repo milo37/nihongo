@@ -13,6 +13,7 @@ import {
   reauthenticationAuditDigest,
   type FinalizedReauthentication
 } from './adminFreshShared.js'
+import { ADMIN_FRESH_WINDOW_SQL } from './adminFreshWindow.js'
 
 /**
  * SSO ADMIN_FRESH re-authentication in the API (#504 P7 PR3b-1).
@@ -239,7 +240,7 @@ export const finalizeReauthentication = async (
     Array<{ beforeState: string; ready: boolean; token: string }>
   >(
     `SELECT old_session."token",
-       CASE WHEN old_session."createdAt" + INTERVAL '5 minutes' > clock_timestamp()
+       CASE WHEN old_session."createdAt" + ${ADMIN_FRESH_WINDOW_SQL} > clock_timestamp()
          THEN 'SESSION_FRESH' ELSE 'SESSION_STALE' END AS "beforeState",
        pending."expiresAt" - pending."createdAt" = INTERVAL '1 day'
          AND pending."authorityGeneration" = $4::integer
@@ -468,7 +469,7 @@ export const completeAdminFresh = async (
       `UPDATE "SsoAdminFreshProof"
        SET "completedSessionId" = $2::uuid, "completedAt" = $3::timestamptz,
            "expiresAt" = least(
-             $3::timestamptz + INTERVAL '5 minutes', $4::timestamptz
+             $3::timestamptz + ${ADMIN_FRESH_WINDOW_SQL}, $4::timestamptz
            )
        WHERE "proofDigest" = $1`,
       input.proofDigest,

@@ -12,11 +12,17 @@ export const authenticatedUserSchema = z
     /** Only for ADMIN: the server side 8 hour absolute session limit. */
     adminSessionExpiresAt: isoDateTimeSchema.optional(),
     /**
-     * Only for ADMIN: end of the 5 minute fresh sign-in window, or null when
+     * Only for ADMIN: end of the 30 minute fresh sign-in window, or null when
      * the session is not fresh. Display hint only; commands still answer
      * FRESH_ASSURANCE_REQUIRED.
      */
-    adminFreshUntil: isoDateTimeSchema.nullable().optional()
+    adminFreshUntil: isoDateTimeSchema.nullable().optional(),
+    /**
+     * Only for ADMIN: the server clock when this answer was made, so the
+     * remaining fresh time is `adminFreshUntil - adminServerTime` whatever
+     * the browser clock says (#683).
+     */
+    adminServerTime: isoDateTimeSchema.optional()
   })
   .strict()
   .refine(
@@ -32,6 +38,15 @@ export const authenticatedUserSchema = z
     {
       path: ['adminFreshUntil'],
       message: '관리자에게만 본인 확인 유효 시각이 있어야 합니다.'
+    }
+  )
+  // The server always sends it to an ADMIN; optional here so older admin
+  // fixtures still parse while the browser adopts it.
+  .refine(
+    (user) => user.role === 'ADMIN' || user.adminServerTime === undefined,
+    {
+      path: ['adminServerTime'],
+      message: '관리자에게만 서버 현재 시각이 있어야 합니다.'
     }
   )
 

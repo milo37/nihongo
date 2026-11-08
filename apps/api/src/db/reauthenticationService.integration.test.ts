@@ -16,14 +16,14 @@ import {
 } from '@nihongo/contracts/admin/content-operations'
 import { apiFailureSchema } from '@nihongo/contracts/common/error'
 import { hashPassword } from 'better-auth/crypto'
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
   bridgedQuery,
   ownedSessionSql
 } from '../../test/fixtures/db/ownedSessionSql.js'
 import { signOutOwnedSession } from '../auth/ownedSessionAuthority.js'
 import { Client } from 'pg'
-import { createAdminReauthenticationService } from '../admin/adminReauthenticationService.js'
+import { ADMIN_FRESH_WINDOW_SQL } from '../auth/adminFreshWindow.js'
 import { createPrismaAdminQuestionCommandRepository } from '../admin/adminQuestionCommandRepository.js'
 import {
   createAdminQuestionCommandService,
@@ -348,7 +348,7 @@ const moveSessionNearFreshCutoffForTesting = async (
       preservesLifetime: boolean
     }>(
       `WITH target AS (
-         SELECT clock_timestamp() - INTERVAL '5 minutes'
+         SELECT clock_timestamp() - ${ADMIN_FRESH_WINDOW_SQL}
            + $2::int * INTERVAL '1 millisecond' AS created_at
        )
        UPDATE "Session" AS session
@@ -411,7 +411,7 @@ const waitForSessionFreshCutoff = async (
 ): Promise<void> => {
   for (let attempt = 0; attempt < 160; attempt += 1) {
     const result = await adminControlClient.query<{ reached: boolean }>(
-      `SELECT "createdAt" + INTERVAL '5 minutes' <= clock_timestamp()
+      `SELECT "createdAt" + ${ADMIN_FRESH_WINDOW_SQL} <= clock_timestamp()
          AS reached
        FROM "Session" WHERE "token" = $1`,
       [rawSessionToken]
@@ -932,8 +932,6 @@ const runStartupMaintenanceWorker = async (): Promise<void> => {
   }
 }
 
-const createService = () => createAdminReauthenticationService()
-
 const createTestHonoApp = ({
   commandService,
   principalService = createOwnedPrincipalService({
@@ -941,13 +939,11 @@ const createTestHonoApp = ({
     isProduction: environment.NODE_ENV === 'production',
     refreshClient: applicationRuntime.client,
     secret: environment.BETTER_AUTH_SECRET
-  }),
-  service
+  })
 }: {
   commandService?: TestAdminQuestionCommandService
   principalService?: PrincipalService
-  service: ReturnType<typeof createService>
-}) => {
+} = {}) => {
   const reader: AdminQuestionReader = {
     listActivity: async () => Promise.reject(new Error('not used')),
     diffVersion: async () => Promise.reject(new Error('not used')),
@@ -979,11 +975,7 @@ const createTestHonoApp = ({
           }
         : {}),
       rateLimiter: readRateLimiter,
-      reader,
-      reauthentication: {
-        rateLimiter: { consume: async () => undefined },
-        service
-      }
+      reader
     },
     auth: {
       environment,
@@ -1086,7 +1078,7 @@ afterAll(async () => {
 describe('SSO fresh and retired password boundary with real SQL invariants', () => {
   it('retired password 재인증 POST는404/no-cookie/no-auth-write로 종료한다', async () => {
     const fixture = await createFixture('google')
-    const app = createTestHonoApp({ service: createService() })
+    const app = createTestHonoApp()
     const before = await readWriteSnapshot()
     const response = await app.request(
       'http://localhost:3001/api/v1/admin/reauthentication',
@@ -1117,7 +1109,7 @@ describe('SSO fresh and retired password boundary with real SQL invariants', () 
       'private, no-store'
     )
     const assurance = await adminClient.query<{ valid: boolean }>(
-      `SELECT "expiresAt" = "completedAt" + INTERVAL '5 minutes' AS valid
+      `SELECT "expiresAt" = "completedAt" + ${ADMIN_FRESH_WINDOW_SQL} AS valid
        FROM "SsoAdminFreshProof"
        WHERE "completedSessionId" = $1 AND "context"->>'intentId' = $2`,
       [completed.fixture.sessionId, completed.context.intentId]
@@ -1175,7 +1167,7 @@ describe('SSO fresh and retired password boundary with real SQL invariants', () 
     })
     const approvalPath = `/api/v1/admin/question-versions/${target.versionId}/approval`
     const withdrawalPath = `/api/v1/admin/question-versions/${target.versionId}/approval-withdrawal`
-    const app = createTestHonoApp({ commandService, service: createService() })
+    const app = createTestHonoApp({ commandService })
 
     const beforeSelfApproval = await readA2Evidence(target.versionId)
     // JLP-704 allows self-approval; a self change request is still rejected.
@@ -1519,7 +1511,7 @@ describe('SSO fresh and retired password boundary with real SQL invariants', () 
       versionStatus: 'APPROVED'
     })
 
-    const app = createTestHonoApp({ commandService, service: createService() })
+    const app = createTestHonoApp({ commandService })
     const publicationRequest = publishQuestionVersionRequestSchema.parse({
       expectedQuestionRowVersion: approved.questionRowVersion,
       expectedRowVersion: approved.versionRowVersion
@@ -1739,7 +1731,7 @@ describe('SSO fresh and retired password boundary with real SQL invariants', () 
     if (approved.versionRowVersion === null) {
       throw new Error('Slice 4 approved version rowVersion is unavailable.')
     }
-    const app = createTestHonoApp({ commandService, service: createService() })
+    const app = createTestHonoApp({ commandService })
     const beforeLateFreshFailure = await readSlice4State(
       target.questionId,
       target.versionId
@@ -1811,8 +1803,7 @@ describe('SSO fresh and retired password boundary with real SQL invariants', () 
     )
     const missingBarrier = createVersionPreflightBarrierCommandService()
     const missingApp = createTestHonoApp({
-      commandService: missingBarrier.commandService,
-      service: createService()
+      commandService: missingBarrier.commandService
     })
     const missingRequest = requestA2Command({
       app: missingApp,
@@ -1857,8 +1848,7 @@ describe('SSO fresh and retired password boundary with real SQL invariants', () 
     )
     const invalidStateBarrier = createVersionPreflightBarrierCommandService()
     const invalidStateApp = createTestHonoApp({
-      commandService: invalidStateBarrier.commandService,
-      service: createService()
+      commandService: invalidStateBarrier.commandService
     })
     const invalidStateRequest = requestA2Command({
       app: invalidStateApp,
@@ -1893,7 +1883,7 @@ describe('SSO fresh and retired password boundary with real SQL invariants', () 
 
   it('retired password/error/change/reset HTTP는404이고 pending·audit·fence·cookie 없이 old ACTIVE를 보존한다', async () => {
     const fixture = await createFixture()
-    const app = createTestHonoApp({ service: createService() })
+    const app = createTestHonoApp()
     const headers = new Headers(fixture.headers)
     headers.set('Content-Type', 'application/json')
     const before = await readWriteSnapshot()
@@ -1949,11 +1939,8 @@ describe('SSO fresh and retired password boundary with real SQL invariants', () 
       fixture: Awaited<ReturnType<typeof createFixture>>,
       principalService?: PrincipalService
     ) => {
-      const service = createService()
-      const reauthenticate = vi.spyOn(service, 'reauthenticate')
       const app = createTestHonoApp({
         ...(principalService ? { principalService } : {}),
-        service,
         commandService: createCommandService()
       })
       const headers = new Headers(fixture.headers)
@@ -1969,7 +1956,6 @@ describe('SSO fresh and retired password boundary with real SQL invariants', () 
       )
       const after = await readWriteSnapshot()
       expect(after).toEqual(before)
-      expect(reauthenticate).not.toHaveBeenCalled()
       return response
     }
 
