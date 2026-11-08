@@ -7,7 +7,10 @@ import {
   ssoCallbackOutcomeSchema
 } from '@nihongo/contracts/auth/sign-in-social'
 import type { SsoCallbackOutcome } from '@nihongo/contracts/auth/sign-in-social'
-import { ACCOUNT_FRESH_PARAM } from '@app/account/hooks/useSsoAccountManagement'
+import {
+  ACCOUNT_FRESH_PARAM,
+  ACCOUNT_REAUTH_PARAM
+} from '@app/account/hooks/useSsoAccountManagement'
 import { AdminFreshEntry } from '@app/login/components/AdminFreshEntry'
 import { SignInCard } from '@app/login/components/SignInCard'
 import type { SignInNotice } from '@app/login/components/SignInCard'
@@ -130,6 +133,8 @@ export const LoginPage = (): ReactElement => {
     if (accountReturn !== null) {
       const forward = new URLSearchParams()
       forward.set(ACCOUNT_FRESH_PARAM, accountReturn)
+      const reauth = search.get(ACCOUNT_REAUTH_PARAM)
+      if (reauth !== null) forward.set(ACCOUNT_REAUTH_PARAM, reauth)
       return (
         <Navigate
           replace

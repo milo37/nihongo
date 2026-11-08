@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
 import { vi } from 'vitest'
 import { Layout } from '@app/layout'
+import { AppLayout } from '@nihongo/browser/common/components/AppLayout'
 import { appI18n } from '@nihongo/browser/i18n/config'
 import { useAppStore } from '@nihongo/browser/store/index'
 
@@ -256,4 +257,35 @@ it('keeps an ordinary result in learning context rather than switching it to rev
       name: appI18n.t('navigation:learningStart')
     })
   ).toHaveAttribute('aria-current', 'page')
+})
+it('places an app-owned header status in the top bar just before the account menu', () => {
+  render(
+    <MemoryRouter initialEntries={['/practice']}>
+      <AppLayout
+        robots="noindex,follow"
+        reviewReturnContext={null}
+        accountMenu={<button type="button">계정</button>}
+        headerStatus={<span>● 28분 남음</span>}
+      />
+    </MemoryRouter>
+  )
+  const banner = screen.getByRole('banner')
+  const status = within(banner).getByText('● 28분 남음')
+  const account = within(banner).getByRole('button', { name: '계정' })
+  expect(
+    status.compareDocumentPosition(account) & Node.DOCUMENT_POSITION_FOLLOWING
+  ).toBeTruthy()
+  expect(status.closest('.app-shell-header-status')).not.toBeNull()
+})
+it('adds no header status wrapper when the app has none', () => {
+  render(
+    <MemoryRouter initialEntries={['/practice']}>
+      <AppLayout
+        robots="noindex,follow"
+        reviewReturnContext={null}
+        accountMenu={<span>계정</span>}
+      />
+    </MemoryRouter>
+  )
+  expect(document.querySelector('.app-shell-header-status')).toBeNull()
 })

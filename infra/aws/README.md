@@ -20,7 +20,7 @@
 - CloudFront 정액 요금제의 Free·Pro에는 VPC origin이 없습니다(Business 이상). 그래서 EC2에 공인 IPv4(EIP)를 붙이고, 보안그룹으로 CloudFront만 들어오게 막았습니다.
 - 보안그룹의 prefix list는 **모든 AWS 계정의** CloudFront를 허용합니다. 그래서 CloudFront가 origin에 비밀 헤더(`X-Origin-Verify`, Terraform `random_password`)를 붙이고, compose 안의 Caddy가 헤더가 없거나 틀린 요청에 403을 돌려줍니다. 다른 배포를 거쳐 우리 WAF를 우회하는 길이 이것으로 막힙니다.
 - API 3001은 호스트에 공개하지 않습니다. 앱은 compose 고정 서브넷(`172.30.0.0/24`)만 trusted proxy(`AUTH_TRUSTED_PROXY_CIDRS`)로 믿고, Caddy는 CloudFront가 붙인 `X-Forwarded-For`를 그대로 넘깁니다. 앱 코드는 바꾸지 않았습니다.
-- **origin TLS:** `origin_domain_name`(예: `origin.harumaru.net`, EIP를 가리키는 A 레코드)을 설정하면 CloudFront→EC2가 HTTPS 443이 되고, Caddy가 SSM의 `ORIGIN_TLS_CERT_B64`·`ORIGIN_TLS_KEY_B64`(공인 CA 인증서와 키의 PEM을 base64로) 파일로 TLS를 엽니다. 기본값은 꺼짐(빈 값)입니다. EC2 기본 DNS(amazonaws.com)에는 공인 인증서를 받을 수 없어서 도메인이 있어야 합니다. 인증서 발급·갱신 방법(Let's Encrypt DNS-01 등)은 도메인을 정할 때 고릅니다.
+- **origin TLS:** `origin_domain_name`(예: `origin.harumaru.app`, EIP를 가리키는 A 레코드)을 설정하면 CloudFront→EC2가 HTTPS 443이 되고, Caddy가 SSM의 `ORIGIN_TLS_CERT_B64`·`ORIGIN_TLS_KEY_B64`(공인 CA 인증서와 키의 PEM을 base64로) 파일로 TLS를 엽니다. 기본값은 꺼짐(빈 값)입니다. EC2 기본 DNS(amazonaws.com)에는 공인 인증서를 받을 수 없어서 도메인이 있어야 합니다. 인증서 발급·갱신 방법(Let's Encrypt DNS-01 등)은 도메인을 정할 때 고릅니다.
 - 정액 요금제 제약에 맞췄습니다. 관리형 cache·origin request policy만 쓰고, cache behavior는 2개(한도 5), WAF 규칙은 4개(한도 5)입니다.
 - 도메인은 `domain_name`·`acm_certificate_arn` 변수로 나중에 붙입니다. 비어 있으면 `https://<id>.cloudfront.net`이 `BETTER_AUTH_URL`이자 하나뿐인 `TRUSTED_ORIGINS`가 됩니다.
 
@@ -96,12 +96,12 @@ EC2와 백업 버킷은 CloudFront나 IAM으로만 접근됩니다. WAF는 IP별
 
 ## DNS (Cloudflare, Route 53 없음)
 
-도메인 harumaru.net은 AWS 밖(Cloudflare 등)에서 삽니다. 구매 시점은 아직 정하지 않았고, **그 전에는 apply하지 않습니다**(남는 위험 절). Route 53 hosted zone은 만들지 않습니다. 산 뒤 할 일:
+도메인 harumaru.app은 AWS 밖 Cloudflare Registrar에서 삽니다. PRODUCTION은 **도메인을 산 뒤에 apply합니다**(남는 위험 절). STAGING은 `*.cloudfront.net` 주소로 운영합니다. `.app`은 브라우저가 HTTPS로만 여는 TLD(HSTS preload)입니다. CloudFront는 이미 http를 https로 돌리고, 쿠키는 `__Secure-`·`__Host-`라 그대로 맞습니다. 아래 DNS 검증(ACM CNAME, Let's Encrypt DNS-01, Search Console TXT)은 브라우저를 거치지 않아 영향이 없습니다. Route 53 hosted zone은 만들지 않습니다. 산 뒤 할 일:
 
-1. us-east-1 ACM에서 `harumaru.net` 인증서를 DNS 검증으로 요청하고, ACM이 주는 검증 CNAME을 Cloudflare DNS에 넣습니다. 발급되면 ARN을 `acm_certificate_arn`에, `harumaru.net`을 `domain_name`에 넣습니다.
-2. Cloudflare에 `harumaru.net` → `<id>.cloudfront.net` CNAME을 만듭니다(apex는 Cloudflare CNAME flattening). **프록시는 끕니다(DNS only, 회색 구름).** 켜면 Cloudflare가 CloudFront 앞에 한 겹 더 서서 TLS·캐시·클라이언트 IP가 꼬입니다.
-3. origin TLS: Cloudflare에 `origin.harumaru.net` A 레코드 → EIP(`output`의 공인 IP)를 DNS only로 만들고 `origin_domain_name = "origin.harumaru.net"`을 설정합니다. 인증서는 공인 CA여야 하므로 Cloudflare Origin CA 인증서는 쓸 수 없습니다(CloudFront가 믿지 않음). Let's Encrypt DNS-01(Cloudflare API 토큰) 등으로 받아 SSM `ORIGIN_TLS_CERT_B64`·`ORIGIN_TLS_KEY_B64`에 넣습니다. 발급·갱신 방식은 그때 정합니다.
-4. 도메인을 붙이면 `BETTER_AUTH_URL`·`TRUSTED_ORIGINS`가 `https://harumaru.net`으로 바뀌므로, Google OAuth 클라이언트의 redirect URI도 새 `google_oauth_redirect_uri`로 바꿉니다.
+1. us-east-1 ACM에서 `harumaru.app` 인증서를 DNS 검증으로 요청하고, ACM이 주는 검증 CNAME을 Cloudflare DNS에 넣습니다. 발급되면 ARN을 `acm_certificate_arn`에, `harumaru.app`을 `domain_name`에 넣습니다.
+2. Cloudflare에 `harumaru.app` → `<id>.cloudfront.net` CNAME을 만듭니다(apex는 Cloudflare CNAME flattening). **프록시는 끕니다(DNS only, 회색 구름).** 켜면 Cloudflare가 CloudFront 앞에 한 겹 더 서서 TLS·캐시·클라이언트 IP가 꼬입니다.
+3. origin TLS: Cloudflare에 `origin.harumaru.app` A 레코드 → EIP(`output`의 공인 IP)를 DNS only로 만들고 `origin_domain_name = "origin.harumaru.app"`을 설정합니다. 인증서는 공인 CA여야 하므로 Cloudflare Origin CA 인증서는 쓸 수 없습니다(CloudFront가 믿지 않음). Let's Encrypt DNS-01(Cloudflare API 토큰) 등으로 받아 SSM `ORIGIN_TLS_CERT_B64`·`ORIGIN_TLS_KEY_B64`에 넣습니다. 발급·갱신 방식은 그때 정합니다.
+4. 도메인을 붙이면 `BETTER_AUTH_URL`·`TRUSTED_ORIGINS`가 `https://harumaru.app`으로 바뀌므로, Google OAuth 클라이언트의 redirect URI도 새 `google_oauth_redirect_uri`로 바꿉니다.
 
 ## 검증
 

@@ -11,7 +11,7 @@ import { useTranslation } from 'react-i18next'
 import { useHref, useLocation } from 'react-router'
 import type { ReactElement } from 'react'
 import { safeSsoReturnPath } from '@nihongo/contracts/auth/sign-in-social'
-import { AdminFreshReturnNotice } from '../app/login/components/AdminFreshReturnNotice'
+import { ReauthReturnNotice } from '../app/reauth/components/ReauthReturnNotice'
 import { AuthFlowError } from '../app/login/authFlowErrors'
 import { isApiError } from '../api/config'
 import { commitCanonicalAuth } from '../app/login/authSession'
@@ -225,7 +225,7 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
 
   return (
     <>
-      <AdminFreshReturnNotice suppressed={banner !== null} />
+      <ReauthReturnNotice suppressed={banner !== null} />
       {banner ? (
         <div
           ref={bannerRef}
