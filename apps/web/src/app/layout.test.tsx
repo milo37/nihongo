@@ -9,10 +9,11 @@ import { useAppStore } from '@nihongo/browser/store/index'
 const mocks = vi.hoisted(() => ({
   setLocale: vi.fn(),
   role: 'GUEST' as 'GUEST' | 'USER' | 'ADMIN',
+  user: null as { id: string; name: string; role: 'USER' | 'ADMIN' } | null,
   review: false
 }))
 vi.mock('@nihongo/browser/provider/ProtectedRouteProvider', () => ({
-  useAuth: () => ({ isReady: true, role: mocks.role, user: null })
+  useAuth: () => ({ isReady: true, role: mocks.role, user: mocks.user })
 }))
 vi.mock('@app/wrong-note/reviewReturnContext', () => ({
   readReviewReturnContext: () =>
@@ -28,6 +29,7 @@ beforeEach(() => {
   useAppStore.setState({ isMobileMenuOpen: false })
   mocks.setLocale.mockClear()
   mocks.role = 'GUEST'
+  mocks.user = null
   mocks.review = false
 })
 afterEach(() => useAppStore.setState({ isMobileMenuOpen: false }))
@@ -60,26 +62,38 @@ it.each(['ko', 'ja'] as const)(
       })
     ).toHaveAttribute('aria-current', 'page')
     expect(primary.querySelectorAll('[aria-current="page"]')).toHaveLength(1)
+    expect(
+      within(screen.getByRole('banner')).queryByRole('combobox')
+    ).not.toBeInTheDocument()
     const account = screen.getByRole('button', {
-      name: appI18n.t('navigation:account')
+      name: appI18n.t('navigation:accountMenu.label')
     })
+    expect(account).toHaveAttribute('aria-haspopup', 'menu')
     await userEvent.click(account)
     expect(account).toHaveAttribute('aria-expanded', 'true')
-    const accountNav = screen.getByRole('navigation', {
-      name: appI18n.t('navigation:account')
+    const menu = screen.getByRole('menu')
+    const login = within(menu).getByRole('menuitem', {
+      name: appI18n.t('navigation:login')
     })
+    expect(login).toHaveAttribute('href', '/login')
+    expect(login).toHaveFocus()
+    expect(within(menu).getAllByRole('menuitem')).toHaveLength(1)
+    const other = locale === 'ko' ? 'ja' : 'ko'
+    await userEvent.keyboard('{ArrowDown}')
     expect(
-      within(accountNav).getByRole('link', {
-        name: appI18n.t('navigation:login')
+      within(menu).getByRole('menuitemradio', {
+        name: appI18n.t(`common:locale.${locale}`)
       })
-    ).toHaveAttribute('href', '/login')
-    await userEvent.selectOptions(
-      within(accountNav).getByRole('combobox'),
-      locale === 'ko' ? 'ja' : 'ko'
+    ).toHaveAttribute('aria-checked', 'true')
+    await userEvent.click(
+      within(menu).getByRole('menuitemradio', {
+        name: appI18n.t(`common:locale.${other}`)
+      })
     )
-    expect(mocks.setLocale).toHaveBeenCalledWith(locale === 'ko' ? 'ja' : 'ko')
+    expect(mocks.setLocale).toHaveBeenCalledWith(other)
     await userEvent.keyboard('{Escape}')
     expect(account).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
     expect(account).toHaveFocus()
   }
 )
@@ -114,6 +128,7 @@ it.each(['ko', 'ja'] as const)(
   async (locale) => {
     await appI18n.changeLanguage(locale)
     mocks.role = 'ADMIN'
+    mocks.user = { id: 'admin-1', name: '하루 관리자', role: 'ADMIN' }
     render(
       <MemoryRouter initialEntries={['/dashboard?view=learning']}>
         <Layout />
@@ -130,22 +145,45 @@ it.each(['ko', 'ja'] as const)(
       ).toHaveAttribute('aria-current', 'page')
       expect(nav.querySelectorAll('[aria-current="page"]')).toHaveLength(1)
     }
-    await userEvent.click(
-      screen.getByRole('button', { name: appI18n.t('navigation:account') })
-    )
-    const account = screen.getByRole('navigation', {
-      name: appI18n.t('navigation:account')
+    const account = screen.getByRole('button', {
+      name: appI18n.t('navigation:accountMenu.label')
     })
+    expect(account).toHaveTextContent('하루')
+    await userEvent.click(account)
+    const menu = screen.getByRole('menu')
     expect(
-      within(account).getByRole('link', {
-        name: appI18n.t('navigation:learningStart')
+      within(menu)
+        .getAllByRole('menuitem')
+        .map((item) => item.textContent)
+    ).toEqual([
+      appI18n.t('navigation:accountMenu.myPage'),
+      appI18n.t('admin:questionReportDialog.appErrorTrigger'),
+      appI18n.t('auth:sso.logoutAction')
+    ])
+    expect(
+      within(menu).getByRole('menuitem', {
+        name: appI18n.t('navigation:accountMenu.myPage')
       })
-    ).toHaveAttribute('href', '/dashboard?view=learning')
+    ).toHaveAttribute('href', '/account')
     expect(
-      within(account).queryByRole('link', {
+      within(menu).queryByRole('link', {
         name: appI18n.t('navigation:adminQuestions')
       })
     ).not.toBeInTheDocument()
+    await userEvent.keyboard('{End}')
+    expect(
+      within(menu).getByRole('menuitem', {
+        name: appI18n.t('auth:sso.logoutAction')
+      })
+    ).toHaveFocus()
+    await userEvent.keyboard('{ArrowDown}')
+    expect(
+      within(menu).getByRole('menuitem', {
+        name: appI18n.t('navigation:accountMenu.myPage')
+      })
+    ).toHaveFocus()
+    await userEvent.click(document.body)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   }
 )
 

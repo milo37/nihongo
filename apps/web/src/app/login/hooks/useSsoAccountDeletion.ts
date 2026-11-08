@@ -1,13 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
-import { accountQueries } from '@app/login/queries/accountQueries'
+import { accountQueries } from '@app/account/queries/accountQueries'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 
-export const useSsoAccountDeletion = () => {
+// Deletion receipt for the browser that just requested deletion.
+export const useSsoAccountDeletion = (requested: boolean) => {
   const { isReady, user } = useAuth()
   const receipt = useQuery({
     ...accountQueries.deletion(),
-    enabled: isReady && user === null
+    enabled: requested && isReady && user === null
   })
 
-  return { isReady, user, receipt }
+  return { receipt }
 }

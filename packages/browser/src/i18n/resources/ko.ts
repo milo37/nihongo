@@ -121,6 +121,14 @@ export const koResources = {
     }
   },
   navigation: {
+    accountMenu: {
+      label: '계정 메뉴',
+      signedInWith: 'Google 계정으로 로그인',
+      myPage: '마이페이지',
+      language: '언어',
+      guestTitle: '로그인하지 않았어요',
+      guestDescription: '로그인하면 학습 기록이 남아요'
+    },
     account: '계정',
     mobilePrimary: '모바일 주요 메뉴',
 
@@ -151,6 +159,7 @@ export const koResources = {
       wrongNoteDetail: '해설 보기',
       bookmarks: '책갈피',
       legal: '법적 안내',
+      account: '마이페이지',
       accountData: '계정 데이터 안내',
       support: '지원 안내',
       adminQuestionNew: '문제 등록',
@@ -352,37 +361,6 @@ export const koResources = {
       maximum: '최대 10문제',
       loading: '불러오는 중'
     },
-    entry: {
-      additionalOptions: '학습 추천 더 보기',
-      guestNoticeTitle: '미로그인 학습 안내',
-      guestNotice:
-        '개발용 예시 데이터로 학습합니다. 실제 계정 기록과는 별개입니다.',
-      demoLogin: '데모 계정으로 로그인',
-      eyebrow: '오늘의 학습 노트',
-      title: '한 번에 조금씩, 약한 곳부터.',
-      description:
-        '남겨 둔 학습을 이어가거나, 지금 보완할 내용을 골라 시작하세요.',
-      loading: '이어갈 학습을 확인하고 있습니다…',
-      recommended: '다음 한 장',
-      recommendationError:
-        '추천을 확인하지 못했습니다. 다시 확인하거나 다른 학습을 선택해 주세요.',
-      resumeError:
-        '이어갈 학습을 확인하지 못했습니다. 다시 확인하거나 학습 설정에서 확인해 주세요.',
-      retry: '다시 확인',
-      subjectScope:
-        '이 유형의 기록을 참고한 과목별 약점 학습입니다. 다른 유형도 함께 나올 수 있습니다.',
-      noRecommendation:
-        '지금 시작할 추천이 없습니다. 다른 학습을 선택해 주세요.',
-      resumeEyebrow: '남겨 둔 한 장',
-      position: '현재 {{current}}번 · 실제 {{total}}문제',
-      savedAt: '서버에 마지막 저장 {{date}}',
-      notSaved: '아직 저장된 답안이 없습니다.',
-      resume: '이어서 풀기',
-      legacyUnavailable:
-        '이전 학습 세션이 종료되었습니다. 새 학습을 시작해 주세요.',
-      other: '다른 학습 고르기',
-      records: '내 학습 기록'
-    },
     eyebrow: 'JLPT N5–N1 · VOCABULARY / GRAMMAR / READING',
     hero: {
       titleLine1: '틀린 문제를',
@@ -457,54 +435,25 @@ export const koResources = {
       unknown:
         '현재 로그인 상태를 확인하지 못했어요. 완료 여부를 확정할 수 없어요. 연결을 확인하고 다시 조회해 주세요.'
     },
-    currentDescription: '현재 계정으로 학습을 계속할 수 있어요.',
-    currentAccount: '현재 계정',
     sso: {
-      accountTitle: '계정 관리',
-      connected: '연결된 로그인 방법',
-      linkProvider: '{{provider}} 연결',
-      linked: '로그인 방법을 연결했어요. 연결된 계정을 확인해 주세요.',
-      freshConfirmed:
-        '본인 확인을 완료했어요. 원하는 작업을 선택하고 최종 확인해 주세요.',
-      freshNeeded:
-        '현재 계정에 연결된 로그인 방법으로 본인을 확인한 뒤, 원하는 작업을 다시 선택해 주세요.',
       checkingAccount: '계정 상태를 확인하고 있어요.',
-      remainingUnavailable:
-        '다른 로그인 방법을 현재 이용할 수 없어 연결을 해제할 수 없어요.',
       openAdminWork: '진행 중인 관리자 작업이 있어 지금은 탈퇴할 수 없어요.',
       cancelledAccount:
         '본인 확인이나 계정 연결을 취소했어요. 기존 계정은 유지돼요.',
-      dataGuide: '계정과 데이터 안내',
-      dataDescription:
-        '로그아웃은 앱 세션을 종료하고, 연결 해제는 로그인 방법을 제거하며, 회원 탈퇴는 앱 계정의 삭제 처리를 요청합니다.',
-      deletionUnknown:
-        '탈퇴 결과를 확인할 수 없어요. 요청을 반복하지 말고 상태를 다시 확인해 주세요.',
-      cleanupPending: '연결 정리가 아직 완료되지 않았어요.',
-      cleanupComplete: '이 로그인 방법의 연결 정리가 완료됐어요.',
-      cleanupFailed:
-        '연결 정리를 완료하지 못했어요. 앱 탈퇴 상태와 별도로 확인해 주세요.',
       title: '로그인',
-      description: '연결한 계정으로 학습 기록을 이어가세요.',
-      continueProvider: '{{provider}}로 계속하기',
-      guest: '로그인 없이 학습하기',
+      description: 'Google 계정으로 학습 기록을 이어가세요.',
+      guestHint:
+        '로그인하지 않아도 문제를 풀 수 있어요. 기록은 로그인해야 남아요.',
+      guestLink: '로그인 없이 풀어 보기',
       checkingSession: '로그인 상태를 확인하고 있어요.',
       redirecting: '{{provider}}로 이동하고 있어요.',
-      checkingReturn: '로그인을 확인하고 있어요.',
-      cancelled:
-        '로그인을 취소했어요. 다시 시도하거나 로그인 없이 학습할 수 있어요.',
-      failed: '로그인을 완료하지 못했어요. 다시 시도해 주세요.',
       expired: '로그인 요청이 만료되었어요. 다시 시작해 주세요.',
       unavailable:
         '지금은 로그인을 이용할 수 없어요. 잠시 후 다시 시도해 주세요.',
-      conflict:
-        '이 계정으로 연결을 완료하지 못했어요. 기존에 사용한 로그인 방법으로 다시 시도해 주세요.',
       sessionExpired: '로그인이 만료되었어요. 다시 로그인해 주세요.',
-      alreadySignedIn: '로그인되어 있어요.',
-      backToLearning: '학습으로 돌아가기',
       migrationIncomplete:
         '기존 학습 기록을 연결하지 못했어요. 로그인 방법 전환 안내를 확인해 주세요.',
       cancel: '취소',
-      close: '닫기',
       recheck: '다시 확인',
       logoutTitle: '로그아웃할까요?',
       logoutDescription:
@@ -518,28 +467,16 @@ export const koResources = {
         '연결 해제 후에는 연결된 다른 로그인 방법으로 로그인해 주세요. 학습 기록은 유지되며, 회원 탈퇴는 별도입니다.',
       unlinkAction: '연결 해제',
       lastMethodTitle: '마지막 로그인 방법은 해제할 수 없어요.',
-      lastMethodDescription:
-        '연결을 해제하면 다시 로그인할 수 없어요. 계정을 삭제하려면 회원 탈퇴 안내를 확인해 주세요.',
-      withdrawalHelp: '회원 탈퇴 안내',
-      reauthTitle: '계속하려면 다시 로그인해 주세요.',
       wrongAccount: '처음 로그인한 계정으로 다시 시도해 주세요.',
       deleteTitle: '회원 탈퇴할까요?',
-      deleteDescription:
-        '회원 탈퇴 후에는 이 계정으로 하루마루를 이용할 수 없어요. 데이터 처리 내용은 계정과 데이터 안내에서 확인해 주세요. 연결한 외부 계정 자체가 삭제되지는 않아요.',
-      deleteAction: '회원 탈퇴',
       processing: '처리하고 있어요.',
       actionFailed: '요청을 완료하지 못했어요. 다시 확인해 주세요.',
       deletionAccepted: '회원 탈퇴 요청을 접수했어요.',
       deletionComplete: '회원 탈퇴가 완료됐어요.',
-      appDataDeletionComplete: '앱 데이터 삭제가 완료됐어요.',
       unlinked: '연결을 해제했어요.',
-      providerCleanupPending:
-        '앱 데이터 삭제는 완료됐지만 {{provider}} 연결 정리는 아직 완료되지 않았어요.',
       legacyMethod:
         '로그인 방법이 변경되었어요. 연결한 계정으로 계속해 주세요.',
-      continueApple: 'Apple로 계속하기',
       continueGoogle: 'Google로 계속하기',
-      checkingProviderReturn: '{{provider}} 로그인을 확인하고 있어요.',
       cancelledProvider:
         '{{provider}} 로그인을 취소했어요. 다시 시도하거나 로그인 없이 학습할 수 있어요.',
       failedProvider:
@@ -547,7 +484,7 @@ export const koResources = {
       unavailableProvider:
         '지금은 {{provider}} 로그인을 이용할 수 없어요. 잠시 후 다시 시도해 주세요.',
       consentNotice:
-        '계속하면 이용약관과 개인정보 처리방침을 확인한 것으로 봅니다. 만 14세 미만은 가입할 수 없습니다.'
+        '계속하면 <terms>이용약관</terms>과 <privacy>개인정보 처리방침</privacy>을 확인한 것으로 봅니다. 만\u00a014세 미만은 가입할 수 없습니다.'
     }
   },
   practice: {
@@ -1565,6 +1502,78 @@ export const koResources = {
       label: '책갈피 페이지',
       refreshing: '책갈피 페이지를 갱신하고 있습니다…',
       status: '{{page}} / {{pageCount}} 페이지'
+    }
+  },
+  account: {
+    title: '마이페이지',
+    guestTitle: '로그인이 필요해요',
+    guestDescription: '마이페이지에서 학습 기록과 계정을 관리할 수 있어요.',
+    study: {
+      title: '내 학습',
+      period: '전체 기간',
+      total: '푼 문제',
+      totalUnit: '문제',
+      rate: '정답률',
+      wrongNotes: '오답노트',
+      wrongSolved: '해결 {{solved}} · {{total}}개 중',
+      bySubject: '과목별 정답률',
+      weakest: '가장 약한 과목: {{subject}}',
+      startSubject: '{{subject}} 학습 시작',
+      noRecord: '아직 기록 없음',
+      week: '최근 7일',
+      weekSummary: '7일 중 {{days}}일 학습, 합계 {{count}}문제',
+      recent: '최근 학습',
+      repeated: '자주 틀린 문제',
+      wrongTimes: '{{count}}번 틀림',
+      seeInReview: '복습에서 보기',
+      fewData: '문제를 더 풀수록 분석이 정확해져요.',
+      emptyTitle: '아직 푼 문제가 없어요',
+      emptyDescription: '문제를 풀면 정답률과 약한 과목을 여기서 보여 드려요.',
+      emptyAction: '첫 학습 시작',
+      error: '학습 기록을 불러오지 못했어요.',
+      retry: '다시 시도',
+      loading: '학습 기록을 불러오고 있어요.'
+    },
+    recommend: {
+      title: '추천 학습',
+      start: '시작'
+    },
+    settings: {
+      title: '계정',
+      signInMethod: '로그인 방법',
+      connected: '연결됨',
+      onlyMethod: '유일한 로그인 방법이라 연결을 해제할 수 없어요.',
+      logoutDescription:
+        '이 기기에서 로그아웃합니다. 학습 기록은 그대로 남아요.'
+    },
+    danger: {
+      title: '회원 탈퇴',
+      description:
+        '탈퇴하면 바로 로그아웃되고, 1시간 안에 학습 기록·오답노트·메모·책갈피·복습 일정과 계정 정보가 삭제돼요. 되돌릴 수 없어요.\nGoogle 계정은 삭제되지 않아요.',
+      action: '회원 탈퇴'
+    },
+    confirm: {
+      stepVerify: 'Google로 본인 확인',
+      stepDelete: '탈퇴 최종 확인',
+      stepUnlink: '연결 해제 최종 확인',
+      verifyNote:
+        '보안을 위해 Google로 한 번 더 로그인해야 해요. 확인 후 이 화면으로 돌아와요.',
+      verifyAction: 'Google로 확인하고 계속',
+      deleteDescription: {
+        scope:
+          '탈퇴하면 바로 로그아웃되고, 1시간 안에 학습 기록·오답노트·메모·책갈피·복습 일정과 계정 정보(이름·이메일)가 삭제돼요. 되돌릴 수 없어요.',
+        reports:
+          '보내 주신 문제 신고는 설명을 지우고 계정과 연결을 끊은 채 남아요.',
+        google:
+          "Google 계정은 삭제되지 않아요. Google 계정 설정의 '타사 앱 연결'에서 하루마루 연결을 직접 해제할 수 있어요."
+      }
+    },
+    dataGuide: '계정과 데이터 처리 안내',
+    data: {
+      description:
+        '로그아웃은 앱 세션을 종료하고, 연결 해제는 로그인 방법을 제거하며, 회원 탈퇴는 앱 계정의 삭제 처리를 요청합니다.',
+      privacyLink: '개인정보 처리방침 보기',
+      manageLink: '마이페이지에서 계정 관리하기'
     }
   },
   admin: {

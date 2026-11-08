@@ -7,22 +7,19 @@ import { SsoProviderButton } from '@app/login/components/SsoProviderButton'
 import { useStartAdminFresh } from '@app/login/hooks/useStartAdminFresh'
 import { AuthFlowError } from '@nihongo/browser/app/login/authFlowErrors'
 
-type AdminFreshEntryProps = { returnPath: string; disabled?: boolean }
+type AdminFreshEntryProps = { returnPath: string }
 export const AdminFreshEntry = ({
-  returnPath,
-  disabled = false
+  returnPath
 }: AdminFreshEntryProps): ReactElement => {
   const { t } = useTranslation('auth')
   const start = useStartAdminFresh()
-  const apple = useRef<HTMLButtonElement>(null)
   const google = useRef<HTMLButtonElement>(null)
   const busy = start.isPending || start.isRedirecting
-  const provider = start.variables?.provider
   useEffect(() => {
-    if (start.isError) (provider === 'apple' ? apple : google).current?.focus()
-  }, [provider, start.isError])
+    if (start.isError) google.current?.focus()
+  }, [start.isError])
   const begin = (selected: SsoProviderId): void => {
-    if (busy || disabled) return
+    if (busy) return
     start.mutate({
       purpose: 'ADMIN_FRESH',
       provider: selected,
@@ -30,21 +27,17 @@ export const AdminFreshEntry = ({
     })
   }
   return (
-    <section className="auth-guest" aria-labelledby="admin-fresh-title">
-      <h2 id="admin-fresh-title" className="text-lg font-semibold">
-        {t('adminFresh.title')}
-      </h2>
-      <p>{t('adminFresh.description')}</p>
+    <section aria-labelledby="admin-fresh-title">
+      <h1 id="admin-fresh-title">{t('adminFresh.title')}</h1>
+      <p className="auth-description">{t('adminFresh.description')}</p>
       <div className="auth-actions">
         <SsoProviderButton
           provider="google"
           label={t('sso.continueGoogle')}
           buttonRef={google}
-          disabled={disabled || busy}
+          disabled={busy}
           isLoading={busy}
-          loadingLabel={t('sso.redirecting', {
-            provider: provider === 'apple' ? 'Apple' : 'Google'
-          })}
+          loadingLabel={t('sso.redirecting', { provider: 'Google' })}
           onClick={() => begin('google')}
         />
       </div>

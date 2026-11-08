@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
-import type { ReactElement, ReactNode } from 'react'
+import type { ReactElement } from 'react'
 import {
   CancelResumableDialog,
   PracticeSetupFeedback
@@ -47,9 +47,7 @@ const PracticeShortcuts = (): ReactElement => {
   )
 }
 
-export const PracticePage = ({
-  children
-}: { children?: ReactNode } = {}): ReactElement => {
+export const PracticePage = (): ReactElement => {
   const { t } = useTranslation('practice')
   const { t: homeT } = useTranslation('home')
   const resumableHeadingRef = useRef<HTMLHeadingElement>(null)
@@ -121,8 +119,6 @@ export const PracticePage = ({
         }
       />
       <PracticeShortcuts />
-
-      {children}
 
       <CancelResumableDialog
         open={setup.cancelSessionId !== null}

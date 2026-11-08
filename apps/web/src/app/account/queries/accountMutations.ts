@@ -7,8 +7,8 @@ import type {
 import { startAccountSso } from '@api/auth/startAccountSso'
 import { unlinkSsoAccount } from '@api/auth/unlinkSsoAccount'
 import { deleteSsoAccount } from '@api/auth/deleteSsoAccount'
-import { accountMutationRequest } from '@app/login/accountFlowErrors'
-import { accountQueries } from '@app/login/queries/accountQueries'
+import { accountMutationRequest } from '@app/account/accountFlowErrors'
+import { accountQueries } from '@app/account/queries/accountQueries'
 export const accountMutations = {
   start: () =>
     mutationOptions({

@@ -7,6 +7,7 @@ import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { readReviewReturnContext } from '@app/wrong-note/reviewReturnContext'
 import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
 import { getRouteIndexingPolicy } from '@app/seo/routeIndexingPolicy'
+import { AccountMenu } from '@app/account/components/AccountMenu'
 import { AppErrorReportMenuDialog } from '@app/question-report/components/AppErrorReportDialog'
 export type { PracticeNavigationContext } from '@nihongo/browser/common/components/AppLayout'
 
@@ -33,16 +34,18 @@ export const Layout = ({
       <AppLayout
         reviewReturnContext={reviewReturnContext}
         robots={getRouteIndexingPolicy(pathname)}
-        accountMenuAction={{
-          label: t('questionReportDialog.appErrorTrigger'),
-          onSelect: () => {
-            accountMenuButtonRef.current = document.getElementById(
-              'account-menu-button'
-            )
-            setHasErrorReport(true)
-            setErrorReportOpen(true)
-          }
-        }}
+        accountMenu={
+          <AccountMenu
+            reportErrorLabel={t('questionReportDialog.appErrorTrigger')}
+            onReportError={() => {
+              accountMenuButtonRef.current = document.getElementById(
+                'account-menu-button'
+              )
+              setHasErrorReport(true)
+              setErrorReportOpen(true)
+            }}
+          />
+        }
       >
         {children}
       </AppLayout>

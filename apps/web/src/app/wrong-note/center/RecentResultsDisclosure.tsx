@@ -20,7 +20,7 @@ export const RecentResultsDisclosure = ({
   const { t } = useTranslation('wrongNote')
   const { t: commonT } = useTranslation('common')
   const [recentOpen, setRecentOpen] = useState(false)
-  const recent = useGetDashboardStats(recentOpen)
+  const recent = useGetDashboardStats({ enabled: recentOpen })
   return (
     <details
       className="review-recent-results"
