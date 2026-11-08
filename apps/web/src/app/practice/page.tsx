@@ -17,6 +17,8 @@ import {
 import { ResumablePractice } from '@app/practice/components/ResumablePractice'
 import { usePracticeSetupController } from '@app/practice/hooks/usePracticeSetupController'
 import {
+  DEFAULT_COUNT,
+  DEFAULT_SUBJECT,
   counts,
   levels,
   modes,
@@ -63,11 +65,13 @@ export const PracticePage = (): ReactElement => {
   const guestAction = useGuestAction()
   const { count, level, mode, resumableSessions, subject } = setup
   const subjectLabel = homeT(subjectLabelKeys[subject])
-  const startLabel = homeT('quickDrill.start', {
-    level,
-    subject: subjectLabel,
-    formattedCount: count
-  })
+  const startLabel = level
+    ? homeT('quickDrill.start', {
+        level,
+        subject: subjectLabel,
+        formattedCount: count
+      })
+    : homeT('approved.loading')
 
   return (
     <section className="practice-setup-page">
@@ -123,9 +127,11 @@ export const PracticePage = (): ReactElement => {
         subjectLabel={subjectLabel}
         startLabel={startLabel}
         onSubjectChange={(option) =>
-          setup.changeSetting('subject', option, 'GRAMMAR')
+          setup.changeSetting('subject', option, DEFAULT_SUBJECT)
         }
-        onLevelChange={(option) => setup.changeSetting('level', option, 'N3')}
+        onLevelChange={(option) =>
+          setup.changeSetting('level', option, setup.defaultLevel)
+        }
         onCountChange={(option) => {
           if (
             option !== GUEST_SESSION_QUESTION_LIMIT &&
@@ -133,7 +139,7 @@ export const PracticePage = (): ReactElement => {
           ) {
             return
           }
-          setup.changeSetting('count', option, 10)
+          setup.changeSetting('count', option, DEFAULT_COUNT)
         }}
         onModeChange={(option) => {
           if (option !== 'RANDOM' && guestAction(t('setup.locked.mode'))) {

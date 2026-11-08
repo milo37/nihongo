@@ -900,10 +900,14 @@ const startVocabularySessionThroughUi = async (
     const radio = page.getByRole('radio', { name: label, exact: true })
     const choice = page.locator('label.choice-option').filter({ has: radio })
     await expect(choice).toHaveCount(1)
+    // A default choice (target level, VOCABULARY, 10) stays out of the URL.
+    const isDefault =
+      (await radio.isChecked()) &&
+      new URL(page.url()).searchParams.get(parameter) === null
     await choice.click()
     await expect(radio).toBeChecked()
     await expect(page).toHaveURL(
-      (url) => url.searchParams.get(parameter) === value
+      (url) => url.searchParams.get(parameter) === (isDefault ? null : value)
     )
   }
   await expect(
@@ -985,7 +989,7 @@ const submitCurrentSessionThroughUi = async (
     `/api/v1/study-sessions/${sessionId}/submission`
   )
   await page.getByRole('button', { name: '답안 제출', exact: true }).click()
-  const dialog = page.getByRole('dialog', { name: '답안을 제출하시겠습니까?' })
+  const dialog = page.getByRole('dialog', { name: '답안을 제출할까요?' })
   await expect(dialog).toBeVisible()
   await dialog
     .getByRole('button', { name: '제출하고 결과 보기', exact: true })
@@ -1264,7 +1268,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
     completed.wrongNote.nextReviewAt
   )
   await expect(page.locator('.review-feedback p')).toHaveText(
-    `같은 문제를 다시 틀렸어요. 해설을 읽고 다시 복습해요. 다음 복습은 ${nextReviewDate}예요.`
+    `같은 문제를 다시 틀렸어요. 해설을 읽고 다시 복습해요. 다음 복습: ${nextReviewDate}`
   )
 
   const dashboardStartIndex = ledger.entries.length

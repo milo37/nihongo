@@ -168,8 +168,8 @@ export const jaCoreResources = {
       adminQuestionDetail: '問題詳細',
       adminQuestions: '問題管理',
       adminAudit: '管理者監査ログ',
-      adminReportDetail: '報告の詳細',
-      adminReports: '問題報告',
+      adminReportDetail: 'バグレポートの詳細',
+      adminReports: 'バグレポート',
       forbidden: 'アクセス権限なし',
       page: 'ページ'
     }
@@ -589,9 +589,10 @@ export const jaCoreResources = {
       },
       urlLocked: '問題数・出題方法はログインすると選べます。',
       availableCountNote: '問題が不足する場合は、用意できる数を提供します。',
-      noEligibleTitle: '現在の条件では出題可能な{{mode}}がありません。',
+      noEligibleTitle:
+        '現在の条件では「{{mode}}」で出題できる問題がありません。',
       noEligibleDescription:
-        'レベル・科目・モードを変更するか、ランダム問題を選んでください。サーバーが別のモードへ自動変更することはありません。',
+        'レベル・科目・モードを変更するか、ランダム問題を選んでください。別のモードに自動で切り替わることはありません。',
       selectRandom: 'ランダム問題を選択',
       createError:
         'セッションを作成できませんでした。ネットワーク状態と選択条件を確認し、もう一度お試しください。',

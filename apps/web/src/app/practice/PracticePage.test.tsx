@@ -52,6 +52,67 @@ const renderPractice = (search: string, { globalErrors = false } = {}) => {
 }
 
 describe('PracticePage setup', () => {
+  it('게스트의 기본값은 N5 어휘이고 문제 수는 게스트 한도 5문제다', async () => {
+    renderPractice('')
+    expect(
+      await screen.findByRole('button', { name: 'N5 어휘 · 5문제 시작' })
+    ).toBeInTheDocument()
+  })
+
+  it('로그인 사용자의 기본 급수는 목표 급수이고 URL 값이 우선한다', async () => {
+    const user = mockDatabase.loginAs('USER')
+    expect(user.targetLevel).toBe('N2')
+    renderPractice('')
+    expect(
+      await screen.findByRole('button', { name: 'N2 어휘 · 10문제 시작' })
+    ).toBeInTheDocument()
+
+    cleanup()
+    renderPractice('?level=N4&subject=READING&count=5')
+    expect(
+      await screen.findByRole('button', { name: 'N4 독해 · 5문제 시작' })
+    ).toBeInTheDocument()
+  })
+
+  it('사용자 정보가 늦게 오면 기본 급수를 기다렸다가 한 번만 정한다', async () => {
+    let releaseMe = (): void => undefined
+    const meGate = new Promise<void>((resolve) => {
+      releaseMe = resolve
+    })
+    // Hold /me, then fall through to the normal mock answer.
+    mockServer.use(
+      http.get('*/api/v1/me', async () => {
+        await meGate
+        return undefined
+      })
+    )
+    mockDatabase.loginAs('USER')
+    renderPractice('')
+    const level = await screen.findByRole('group', { name: '급수' })
+    const start = screen.getByRole('button', { name: '불러오는 중' })
+    expect(start).toBeDisabled()
+    expect(within(level).queryByRole('radio', { checked: true })).toBeNull()
+    expect(screen.queryByText(/N5 어휘/)).not.toBeInTheDocument()
+
+    releaseMe()
+    expect(
+      await screen.findByRole('button', { name: 'N2 어휘 · 10문제 시작' })
+    ).toBeEnabled()
+    expect(
+      within(level).getByRole('radio', { checked: true })
+    ).toHaveAccessibleName('N2')
+  })
+
+  it('URL에 급수가 있으면 사용자 정보를 기다리지 않고 그 급수를 보여 준다', async () => {
+    mockServer.use(http.get('*/api/v1/me', () => new Promise<never>(() => {})))
+    mockDatabase.loginAs('USER')
+    renderPractice('?level=N4')
+    const level = await screen.findByRole('group', { name: '급수' })
+    expect(
+      within(level).getByRole('radio', { checked: true })
+    ).toHaveAccessibleName('N4')
+  })
+
   it('선택한 조건으로 세션을 만들고 학습 화면으로 이동한다', async () => {
     const router = renderPractice('?level=N5&subject=VOCABULARY&count=5')
     const start = await screen.findByRole('button', {
@@ -213,6 +274,44 @@ describe('PracticePage setup', () => {
     expect(await screen.findByRole('button', { name })).toBeEnabled()
   })
 
+  it('기본값으로 시작했는데 공개된 문제가 없으면 그 조건 그대로 안내한다', async () => {
+    let requested: unknown
+    mockServer.use(
+      http.post('*/api/v1/study-sessions', async ({ request }) => {
+        requested = await request.json()
+        return HttpResponse.json(
+          {
+            code: 'NO_ELIGIBLE_QUESTIONS',
+            message: 'synthetic',
+            requestId: crypto.randomUUID()
+          },
+          { status: 422 }
+        )
+      })
+    )
+    mockDatabase.loginAs('USER')
+    renderPractice('')
+    const user = userEvent.setup()
+    const start = await screen.findByRole('button', {
+      name: 'N2 어휘 · 10문제 시작'
+    })
+    await waitFor(() => expect(start).toBeEnabled())
+    await user.click(start)
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      "지금 조건으로는 '랜덤 문제'에서 풀 수 있는 문제가 없어요."
+    )
+    expect(requested).toMatchObject({
+      level: 'N2',
+      subject: 'VOCABULARY',
+      count: 10,
+      mode: 'RANDOM'
+    })
+    // Already RANDOM: there is no other mode to offer.
+    expect(
+      screen.queryByRole('button', { name: '랜덤 문제 선택' })
+    ).not.toBeInTheDocument()
+  })
+
   it('출제 가능한 문제가 없으면 안내 후 랜덤 모드로 바꿀 수 있다', async () => {
     mockServer.use(
       http.post('*/api/v1/study-sessions', () =>
@@ -236,7 +335,7 @@ describe('PracticePage setup', () => {
     await user.click(start)
     expect(
       await screen.findByText(
-        '현재 조건에는 출제 가능한 약점 추천 문제가 없습니다.'
+        "지금 조건으로는 '약점 추천'에서 풀 수 있는 문제가 없어요."
       )
     ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '랜덤 문제 선택' }))
@@ -246,7 +345,9 @@ describe('PracticePage setup', () => {
       ).toBeNull()
     )
     expect(
-      screen.queryByText('현재 조건에는 출제 가능한 약점 추천 문제가 없습니다.')
+      screen.queryByText(
+        "지금 조건으로는 '약점 추천'에서 풀 수 있는 문제가 없어요."
+      )
     ).not.toBeInTheDocument()
   })
 
@@ -262,9 +363,9 @@ describe('PracticePage setup', () => {
     await waitFor(() => expect(start).toBeEnabled())
     await userEvent.setup().click(start)
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      '임시로 이용이 제한된 계정입니다. 새 학습과 신고는 제한이 풀린 뒤 이용할 수 있습니다.'
+      '임시로 이용이 제한된 계정이에요. 새 학습과 신고는 제한이 풀린 뒤 이용할 수 있어요.'
     )
-    expect(screen.queryByText('요청을 완료하지 못했습니다')).toBeNull()
+    expect(screen.queryByText('요청을 완료하지 못했어요')).toBeNull()
     // The global 403 handler must keep the restricted member on this screen.
     await new Promise((resolve) => setTimeout(resolve, 50))
     expect(router.state.location.pathname).toBe('/practice')

@@ -263,7 +263,7 @@ describe('wrong-note approved R9 readonly workflow', () => {
   it('reports a history read error while preserving the question and explanation', async () => {
     const { question, detail } = await renderReadonlyDetail('error')
     expect(
-      await screen.findByText('내 이전 답을 불러오지 못했습니다.')
+      await screen.findByText('내 이전 답을 불러오지 못했어요.')
     ).toBeInTheDocument()
     expect(
       screen.getByRole('heading', { name: question.questionText })
@@ -275,7 +275,7 @@ describe('wrong-note approved R9 readonly workflow', () => {
 
 describe('wrong-note restricted account', () => {
   const restrictedMessage =
-    '임시로 이용이 제한된 계정입니다. 새 학습과 신고는 제한이 풀린 뒤 이용할 수 있습니다.'
+    '임시로 이용이 제한된 계정이에요. 새 학습과 신고는 제한이 풀린 뒤 이용할 수 있어요.'
 
   it('제한된 계정이 단일 복습을 시작하면 제한 안내를 보여 주고 머문다', async () => {
     const user = userEvent.setup()
@@ -313,7 +313,7 @@ describe('wrong-note restricted account', () => {
     expect(notice).toHaveClass('bg-amber-50')
     expect(notice).not.toHaveClass('text-red-700')
     expect(
-      within(dialog).queryByText('문제 신고를 접수하지 못했습니다.')
+      within(dialog).queryByText('문제 신고를 접수하지 못했어요.')
     ).toBeNull()
     expect(within(dialog).getByRole('textbox', { name: /설명/u })).toHaveValue(
       '보기 문구를 확인해 주세요.'

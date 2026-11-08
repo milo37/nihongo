@@ -134,7 +134,7 @@ describe('PracticeSessionPage', () => {
       const router = renderSession(sessionId)
       expect(
         await screen.findByRole('heading', {
-          name: '학습 세션을 찾을 수 없습니다'
+          name: '학습 세션을 찾을 수 없어요'
         })
       ).toBeVisible()
       expect(readStoredSubmissionAttempt(sessionId)).toEqual(oldAttempt)
@@ -211,8 +211,8 @@ describe('PracticeSessionPage', () => {
           screen.getByRole('heading', {
             name:
               status === 404
-                ? '학습 세션을 찾을 수 없습니다'
-                : '학습 세션을 불러오지 못했습니다'
+                ? '학습 세션을 찾을 수 없어요'
+                : '학습 세션을 불러오지 못했어요'
           })
         ).toBeVisible()
       )
@@ -227,7 +227,7 @@ describe('PracticeSessionPage', () => {
       }
       expect(
         screen.queryByRole('heading', {
-          name: '이전 학습 세션이 종료되었습니다'
+          name: '이전 학습 세션이 종료되었어요'
         })
       ).not.toBeInTheDocument()
     }
@@ -261,7 +261,7 @@ describe('PracticeSessionPage', () => {
       const router = renderSession(sessionId)
       const title =
         locale === 'ko'
-          ? '이전 학습 세션이 종료되었습니다'
+          ? '이전 학습 세션이 종료되었어요'
           : '以前の学習セッションは終了しました'
       expect(await screen.findByRole('heading', { name: title })).toBeVisible()
       expect(
@@ -321,7 +321,7 @@ describe('PracticeSessionPage', () => {
     renderSession(sessionId)
     expect(
       await screen.findByRole('heading', {
-        name: '이전 학습 세션이 종료되었습니다'
+        name: '이전 학습 세션이 종료되었어요'
       })
     ).toBeVisible()
     expect(readStoredSubmissionAttempt(sessionId)).toEqual(oldAttempt)
@@ -428,7 +428,7 @@ describe('PracticeSessionPage', () => {
     await waitFor(() => expect(submit).toBeEnabled())
     await user.click(submit)
     expect(
-      await screen.findByRole('heading', { name: '답안을 제출하시겠습니까?' })
+      await screen.findByRole('heading', { name: '답안을 제출할까요?' })
     ).toBeInTheDocument()
     const selectionBefore = readDraftSelection(question.sessionQuestionId)
     fireEvent.keyDown(window, { key: '2' })
@@ -609,7 +609,7 @@ describe('PracticeSessionPage', () => {
     )
     expect(document.querySelector('.study-save-toast')).toBeNull()
     expect(
-      screen.queryByText(/^서버에 저장했습니다. 마지막 저장/)
+      screen.queryByText(/^서버에 저장했어요. 마지막 저장/)
     ).not.toBeInTheDocument()
     expect(
       document.querySelector('[role="status"][data-save-state]')
@@ -720,7 +720,7 @@ describe('PracticeSessionPage', () => {
       )
       expect(detailedStatus).toHaveTextContent(
         locale === 'ko'
-          ? '오프라인입니다. 변경 내용은 이 기기에만 임시 보관되며 연결 후 다시 저장합니다.'
+          ? '오프라인이에요. 변경 내용은 이 기기에만 임시 보관되며 연결 후 다시 저장해요.'
           : 'オフラインです。変更内容はこの端末だけに一時保存し、接続後に再保存します。'
       )
       expect(
@@ -897,7 +897,7 @@ describe('PracticeSessionPage', () => {
     await user.click(submit)
     const dialog = await screen.findByRole('dialog')
     expect(dialog).toHaveTextContent(
-      '아직 답하지 않은 문제가 1개 있습니다. 미응답은 오답으로 처리됩니다.'
+      '아직 답하지 않은 문제가 1개 있어요. 미응답은 오답으로 처리돼요.'
     )
     await user.click(within(dialog).getByRole('button', { name: '계속 풀기' }))
     await waitFor(() =>
@@ -1088,7 +1088,7 @@ describe('PracticeSessionPage', () => {
     })
     renderSession(frozen.session.id)
     expect(
-      await screen.findByRole('dialog', { name: '답안을 제출하시겠습니까?' })
+      await screen.findByRole('dialog', { name: '답안을 제출할까요?' })
     ).toBeInTheDocument()
     const blocked = new Event('beforeunload', { cancelable: true })
     window.dispatchEvent(blocked)

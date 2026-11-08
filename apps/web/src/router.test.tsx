@@ -105,7 +105,7 @@ describe('application router boundaries', () => {
       mockDatabase.loginAs(role)
       const router = renderRoutes('/admin/questions')
       expect(
-        await screen.findByRole('heading', { name: '요청한 페이지가 없습니다' })
+        await screen.findByRole('heading', { name: '요청한 페이지가 없어요' })
       ).toBeInTheDocument()
       expect(router.state.location.pathname).toBe('/admin/questions')
       expect(
@@ -119,7 +119,7 @@ describe('application router boundaries', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: '요청한 페이지가 없습니다'
+        name: '요청한 페이지가 없어요'
       })
     ).toBeInTheDocument()
   })
@@ -144,9 +144,7 @@ describe('application router boundaries', () => {
 
     await vi.waitFor(() => {
       expect(document.querySelector('#main-content')).toHaveFocus()
-      expect(
-        screen.getByText('학습 화면으로 이동했습니다.')
-      ).toBeInTheDocument()
+      expect(screen.getByText('학습 화면으로 이동했어요.')).toBeInTheDocument()
     })
     expect(scrollTo).toHaveBeenCalledWith({
       top: 0,
@@ -435,11 +433,11 @@ describe('application router boundaries', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: '화면을 불러오지 못했습니다'
+        name: '화면을 불러오지 못했어요'
       })
     ).toBeInTheDocument()
     expect(
-      screen.getByText('예상하지 못한 오류가 발생했습니다.')
+      screen.getByText('예상하지 못한 오류가 발생했어요.')
     ).toBeInTheDocument()
     expect(screen.queryByText('route-render-failure')).not.toBeInTheDocument()
   })

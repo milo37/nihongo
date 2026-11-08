@@ -22,7 +22,8 @@ export const withBold = (text: string): ReactNode[] =>
     )
 
 type PracticeSetupFormProps = {
-  level: JlptLevel
+  /** Null until the default level is known. */
+  level: JlptLevel | null
   subject: QuestionSubject
   count: 5 | 10 | 20
   mode: StudyMode
@@ -121,10 +122,11 @@ const StartSummary = ({
   return (
     <div className="practice-start-summary">
       <p className="sr-only" aria-live="polite">
-        {level} {subjectLabel} ·{' '}
-        {t('setup.questionCount', {
-          formattedCount: formatNumber(count, locale)
-        })}
+        {level
+          ? `${level} ${subjectLabel} · ${t('setup.questionCount', {
+              formattedCount: formatNumber(count, locale)
+            })}`
+          : null}
       </p>
       <Button
         className="practice-start-button"
