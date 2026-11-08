@@ -2660,6 +2660,16 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
       width: 768
     }
   )
+  // 768–1103px: the wide tables scroll inside their own box, never the page.
+  for (const [path, label] of [
+    ['/admin/questions', 'admin-question-list-1024'],
+    ['/admin/members', 'admin-member-list-1024'],
+    ['/admin/reports', 'admin-report-list-1024']
+  ] as const)
+    await verifyViewport(page, testInfo, path, label, {
+      height: 900,
+      width: 1024
+    })
   await verifyViewport(
     page,
     testInfo,
@@ -2722,24 +2732,41 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
     })
   ).toHaveAttribute('aria-sort', 'ascending')
 
-  const levelFilter = page.getByRole('combobox', {
-    name: '급수',
+  // Filter chips: Enter opens the listbox ("전체" first), a choice applies at
+  // once and focus returns to the chip, which now shows the value.
+  await focusByTab(
+    page,
+    page.getByRole('button', { name: '급수', exact: true })
+  )
+  await page.keyboard.press('Enter')
+  await expect(
+    page.getByRole('listbox', { name: '급수', exact: true })
+  ).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('Enter')
+  const levelFilter = page.getByRole('button', {
+    name: '급수: N5',
     exact: true
   })
-  await levelFilter.selectOption('N5')
-  await expect(levelFilter).toHaveValue('N5')
+  await expect(levelFilter).toBeFocused()
   await expect(page).toHaveURL(
     (url) =>
       url.pathname === '/admin/questions' &&
       url.searchParams.get('level') === 'N5' &&
       url.searchParams.get('sort') === 'LEVEL_ASC'
   )
-  const subjectFilter = page.getByRole('combobox', {
-    name: '과목',
+  await focusByTab(
+    page,
+    page.getByRole('button', { name: '과목', exact: true })
+  )
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('Enter')
+  const subjectFilter = page.getByRole('button', {
+    name: '과목: 문자·어휘',
     exact: true
   })
-  await subjectFilter.selectOption('VOCABULARY')
-  await expect(subjectFilter).toHaveValue('VOCABULARY')
+  await expect(subjectFilter).toBeFocused()
   await expect(page).toHaveURL(
     (url) =>
       url.pathname === '/admin/questions' &&
@@ -2750,15 +2777,15 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
   await settlePage(page)
   await waitForApiTransportQuiet(transport)
   await expect(levelSort).toHaveValue('LEVEL_ASC')
-  await expect(levelFilter).toHaveValue('N5')
-  await expect(subjectFilter).toHaveValue('VOCABULARY')
+  await expect(levelFilter).toBeVisible()
+  await expect(subjectFilter).toBeVisible()
   const fixtureRow = tableRegion.getByRole('row').filter({
     has: page.getByRole('rowheader', { name: fixture.questionId, exact: true })
   })
   await expect(fixtureRow).toHaveCount(1)
   const returnTo = new URL(page.url()).pathname + new URL(page.url()).search
   const detailLink = fixtureRow.getByRole('link', {
-    name: `${fixture.questionId} 문제 상세`,
+    name: fixture.questionId,
     exact: true
   })
   await expect(detailLink).toHaveAttribute(
@@ -2775,8 +2802,8 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
     body: JSON.stringify({
       returnTo,
       href: await detailLink.getAttribute('href'),
-      level: await levelFilter.inputValue(),
-      subject: await subjectFilter.inputValue(),
+      level: new URL(page.url()).searchParams.get('level'),
+      subject: new URL(page.url()).searchParams.get('subject'),
       sort: await levelSort.inputValue()
     }),
     contentType: 'application/json'
@@ -2823,11 +2850,21 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
   await page.keyboard.press('Enter')
   await expect(page).toHaveURL((url) => url.pathname + url.search === returnTo)
   await settlePage(page)
+  // Row commands live in the ⋯ menu; Enter opens it on the first item and
+  // End reaches the destructive item.
   const archiveTrigger = fixtureRow.getByRole('button', {
-    name: `${fixture.questionId} 문제 공개 중단·보관`,
+    name: `${fixture.questionId} 작업`,
     exact: true
   })
   await focusByTab(page, archiveTrigger)
+  await page.keyboard.press('Enter')
+  await expect(
+    page.getByRole('menuitem', { name: '상세 보기', exact: true })
+  ).toBeFocused()
+  await page.keyboard.press('End')
+  await expect(
+    page.getByRole('menuitem', { name: '공개 중단·보관', exact: true })
+  ).toBeFocused()
   await page.keyboard.press('Enter')
   const commandDialog = page.getByRole('dialog', {
     name: '이 문제를 공개 중단하고 보관하시겠습니까?',

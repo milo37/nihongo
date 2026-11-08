@@ -29,7 +29,11 @@ export const bundleCeilings = Object.freeze({
   // The header account menu, with its logout dialog, loads on every page
   // (bundle 1 #734): two more initial chunks, about 5.5 KB gzip.
   initialAssetCount: 27,
-  initialGzipBytes: 252_000,
+  // #755 on dev ef36052b (U5 shared re-verification notice + #752 storage
+  // guard): web initial gzip 252,166 measured. The notice sits in the global
+  // error handler and must show on the first frame after the return, so it
+  // stays in the initial load.
+  initialGzipBytes: 252_500,
   // Shared admin re-verification return notice with its retry start (U5 #683).
   initialRawBytes: 810_000,
   javaScriptAssetCount: 88,

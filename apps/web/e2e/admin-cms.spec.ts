@@ -559,7 +559,10 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
     const archivePath = `/api/v1/admin/questions/${questionId}/archive`
     const openArchive = async (): Promise<void> => {
       await winner
-        .getByRole('button', { name: `${questionId} 초안 삭제`, exact: true })
+        .getByRole('button', { name: `${questionId} 작업`, exact: true })
+        .click()
+      await winner
+        .getByRole('menuitem', { name: '초안 삭제', exact: true })
         .click()
       await expect(
         winner.getByRole('dialog', {
@@ -717,7 +720,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
       })
       await expect(
         winner.getByRole('button', {
-          name: `${questionId} 초안 삭제`,
+          name: `${questionId} 작업`,
           exact: true
         })
       ).toHaveCount(0)
