@@ -76,6 +76,11 @@ it('lists unified reports with status, kind, preview, location and a detail link
   const list = vi.spyOn(reportApi, 'listAdminReports').mockResolvedValue(page())
   renderAdmin(client, '/admin/reports')
   const table = await screen.findByRole('table', { name: '버그 리포트' })
+  // The 48rem table scrolls sideways below that width; keyboard users reach
+  // the scroll area by its name.
+  const scroller = screen.getByRole('region', { name: '버그 리포트' })
+  expect(scroller).toContainElement(table)
+  expect(scroller).toHaveAttribute('tabindex', '0')
   expect(
     within(table).getByRole('columnheader', { name: '상태·종류' })
   ).toBeVisible()

@@ -98,7 +98,12 @@ const ReportTable = ({
 }: ReportListProps): ReactElement => {
   const { t, formatAdminDateTime } = useAdminPresentation()
   return (
-    <div className="relative overflow-x-auto rounded-card border border-line bg-surface">
+    <div
+      role="region"
+      aria-label={t('userReport.list.title')}
+      tabIndex={0}
+      className="relative overflow-x-auto rounded-card border border-line bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+    >
       <table className="w-full min-w-[48rem] table-fixed border-collapse text-left text-sm">
         <caption className="sr-only">{t('userReport.list.title')}</caption>
         <thead className="border-b border-line bg-surface-muted text-muted">
