@@ -469,7 +469,13 @@ describe('guest session starts per IP and Korea-time day (#737)', () => {
       expect((await start(f)).status).toBe(201)
       f.advance(60_001)
     }
-    expect((await start(f)).status).toBe(403)
+    const denied = await start(f)
+    expect(denied.status).toBe(403)
+    // The error alone tells the guest when they can start again.
+    expect(await denied.json()).toMatchObject({
+      code: 'GUEST_LIMIT_REACHED',
+      details: { resetsAt: '2026-11-08T15:00:00.000Z' }
+    })
     now = new Date('2026-11-08T15:00:00.000Z') // 00:00 KST the next day
     expect((await start(f)).status).toBe(201)
   })

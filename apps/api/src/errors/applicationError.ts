@@ -1,4 +1,7 @@
-import type { StableErrorCode } from '@nihongo/contracts/common/error'
+import type {
+  GuestLimitDetails,
+  StableErrorCode
+} from '@nihongo/contracts/common/error'
 import type {
   AdminExecutionDisposition,
   AdminInternalFailureReason
@@ -9,6 +12,7 @@ interface ApplicationErrorOptions {
   message: string
   retryable: boolean
   fieldErrors?: Record<string, string[]>
+  details?: GuestLimitDetails
   location?: `/api/v1/study-sessions/${string}/result`
   retryAfterSeconds?: number
   adminDisposition?: AdminExecutionDisposition
@@ -20,6 +24,7 @@ export class ApplicationError extends Error {
   readonly code: StableErrorCode
   readonly retryable: boolean
   readonly fieldErrors?: Record<string, string[]>
+  readonly details?: GuestLimitDetails
   readonly location?: `/api/v1/study-sessions/${string}/result`
   readonly retryAfterSeconds?: number
   readonly adminDisposition?: AdminExecutionDisposition
@@ -33,6 +38,9 @@ export class ApplicationError extends Error {
 
     if (options.fieldErrors) {
       this.fieldErrors = options.fieldErrors
+    }
+    if (options.details) {
+      this.details = options.details
     }
     if (options.location) {
       this.location = options.location

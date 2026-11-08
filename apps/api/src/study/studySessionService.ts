@@ -59,6 +59,7 @@ const withRepositoryErrors = async <Result>(
       throw new ApplicationError({
         code: 'GUEST_LIMIT_REACHED',
         message: `비회원은 하루 ${GUEST_DAILY_SESSION_LIMIT}번까지 풀 수 있습니다. 더 풀려면 로그인해 주세요.`,
+        details: { resetsAt: error.resetsAt.toISOString() },
         retryable: false
       })
     }
