@@ -477,6 +477,13 @@ it('requires explicit confirm, sends viewed CAS once, and focuses the stable hea
     ).toHaveFocus()
   )
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  // Success is one toast (E1-6), no longer a line under the title.
+  const done = t('questionDetail.commandComplete', {
+    command: t('enums.commands.REQUEST_REVIEW')
+  })
+  expect(await screen.findByText(done)).toBeVisible()
+  expect(screen.getAllByText(done)).toHaveLength(1)
+  expect(screen.getByText(done).closest('[role="status"]')).toBeNull()
 })
 it('keeps draft input after conflict, requires manual refresh+rebase, then saves the new viewed CAS', async () => {
   route()
