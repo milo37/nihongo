@@ -8,7 +8,6 @@ import type { PrismaClient } from '../generated/prisma/client.js'
 import { applicationRateLimitKey } from '../middleware/applicationRateLimiter.js'
 import {
   GUEST_DAILY_IP_OPERATION,
-  GUEST_DAILY_IP_WINDOW_MS,
   guestDailyIpClient,
   nextGuestDayStart,
   startOfGuestDay
@@ -30,7 +29,7 @@ export interface GuestAllowanceReader {
 /**
  * Reads what a guest may still start today without writing anything. The
  * guest count matches the per-guest check in session creation, and the IP
- * count reads the same limiter row that session creation consumes.
+ * count reads the same row as `GuestIpDailyCounter` (created sessions only).
  */
 export const createPrismaGuestAllowanceReader = ({
   client,
@@ -59,14 +58,11 @@ export const createPrismaGuestAllowanceReader = ({
             guestDailyIpClient(clientIp, at)
           )
         },
-        select: { count: true, lastRequest: true }
+        select: { count: true }
       })
     ])
-    const ipStarted =
-      ipRow &&
-      ipRow.lastRequest > BigInt(at.getTime() - GUEST_DAILY_IP_WINDOW_MS)
-        ? ipRow.count
-        : 0
+    // The key holds the Korea-time date, so the row only ever counts today.
+    const ipStarted = ipRow?.count ?? 0
     return {
       kind: 'GUEST',
       sessionQuestionCount: GUEST_SESSION_QUESTION_LIMIT,
