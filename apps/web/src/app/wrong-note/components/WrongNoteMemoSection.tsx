@@ -158,9 +158,7 @@ export const WrongNoteMemoSection = ({
     </h2>
   )
 
-  const noticeMessage = (
-    <WrongNoteMemoNotice notice={notice} />
-  )
+  const noticeMessage = <WrongNoteMemoNotice notice={notice} />
 
   const offlineMessage = !isOnline ? (
     <p className="mt-2 text-sm font-semibold text-warning" role="status">
