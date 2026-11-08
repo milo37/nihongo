@@ -30,7 +30,6 @@ export interface OwnedStudySubmissionPreload {
 export interface SubmitStudySessionAtomicInput {
   readonly answers: readonly SubmittedStudyAnswer[]
   readonly durationSec: number
-  readonly expectedDraftRevision?: number | null
   readonly idempotencyKey: string
   readonly observedAt: Date
   readonly owner: ExistingStudyOwner
@@ -91,20 +90,6 @@ export class StudySubmissionContractVersionMismatchError extends Error {
   constructor() {
     super('Submission contract version does not match the StudySession.')
     this.name = 'StudySubmissionContractVersionMismatchError'
-  }
-}
-
-export class DraftSubmissionVersionConflictError extends Error {
-  constructor() {
-    super('Submission expectedDraftRevision is stale.')
-    this.name = 'DraftSubmissionVersionConflictError'
-  }
-}
-
-export class DraftSubmitMismatchError extends Error {
-  constructor() {
-    super('Submission answers do not match the authoritative draft.')
-    this.name = 'DraftSubmitMismatchError'
   }
 }
 
@@ -173,14 +158,6 @@ export interface AtomicQuestion {
 }
 
 export interface AtomicSession {
-  readonly draft: {
-    readonly answers: readonly {
-      readonly elapsedSec: number
-      readonly selectedOptionId: string | null
-      readonly studySessionQuestionId: string
-    }[]
-    readonly revision: number
-  } | null
   readonly expiresAt: Date
   readonly mode:
     | 'RANDOM'

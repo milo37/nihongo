@@ -1,5 +1,6 @@
 import { randomInt, randomUUID } from 'node:crypto'
 import type { ReviewSelectionFilter } from '@nihongo/contracts/study/create-study-session'
+import { GUEST_DAILY_SESSION_LIMIT } from '@nihongo/contracts/study/guest-limits'
 import {
   selectBookmarkStudyCandidates,
   selectDailyReviewStudyCandidates,
@@ -14,6 +15,7 @@ import {
   type StudySessionStatus
 } from '../generated/prisma/client.js'
 import type { PreparedGuestCredential } from '../auth/guestPrincipalService.js'
+import { nextGuestDayStart, startOfGuestDay } from './guestDay.js'
 import type {
   PublishedQuestionDetailRecord,
   QuestionOptionRecord,
@@ -126,6 +128,13 @@ export class GuestCredentialExpiredError extends Error {
   constructor() {
     super('Guest credential is invalid or expired.')
     this.name = 'GuestCredentialExpiredError'
+  }
+}
+
+export class GuestDailyLimitReachedError extends Error {
+  constructor(readonly resetsAt: Date) {
+    super('The guest started its daily session limit.')
+    this.name = 'GuestDailyLimitReachedError'
   }
 }
 
@@ -397,6 +406,33 @@ const findExistingGuest = async (
     throw new GuestCredentialExpiredError()
   }
   return guest
+}
+
+/**
+ * A guest may start GUEST_DAILY_SESSION_LIMIT sessions per Korea-time day.
+ * The row lock makes two concurrent starts of one guest count one by one.
+ */
+const assertGuestDailySessionLimit = async (
+  transaction: Prisma.TransactionClient,
+  guestPrincipalId: string,
+  startedAt: Date
+): Promise<void> => {
+  await transaction.$queryRaw(Prisma.sql`
+    SELECT 1 FROM "GuestPrincipal"
+    WHERE "id" = ${guestPrincipalId}::uuid
+    FOR UPDATE`)
+  const dayStart = startOfGuestDay(startedAt)
+  const nextDayStart = nextGuestDayStart(startedAt)
+  const [started] = await transaction.$queryRaw<{ count: number }[]>(
+    Prisma.sql`
+      SELECT COUNT(*)::int AS "count" FROM "StudySession"
+      WHERE "guestPrincipalId" = ${guestPrincipalId}::uuid
+        AND "startedAt" >= ${dayStart}
+        AND "startedAt" < ${nextDayStart}`
+  )
+  if ((started?.count ?? 0) >= GUEST_DAILY_SESSION_LIMIT) {
+    throw new GuestDailyLimitReachedError(nextDayStart)
+  }
 }
 
 const toSelectionOwner = (
@@ -864,6 +900,13 @@ export const createPrismaStudySessionRepository = (
           return await client.$transaction(
             async (transaction) => {
               const existingGuest = await findExistingGuest(transaction, input)
+              if (existingGuest) {
+                await assertGuestDailySessionLimit(
+                  transaction,
+                  existingGuest.id,
+                  input.startedAt
+                )
+              }
               const selectionOwner = toSelectionOwner(input, existingGuest)
               const selected = await selectStudyQuestions(
                 transaction,
@@ -996,7 +1039,11 @@ export const createPrismaStudySessionRepository = (
                   createdAt: input.startedAt
                 }))
               })
-              if ((input.practiceContractVersion ?? 2) === 2) {
+              // Guests keep no saved progress, so only members get a draft (#737).
+              if (
+                (input.practiceContractVersion ?? 2) === 2 &&
+                input.owner.kind === 'USER'
+              ) {
                 await transaction.studyDraft.create({
                   data: {
                     studySessionId: session.id,

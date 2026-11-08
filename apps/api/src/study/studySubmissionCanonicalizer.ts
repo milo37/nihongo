@@ -17,10 +17,6 @@ interface TolerantStudySubmissionInput {
   readonly sessionId: string
 }
 
-interface TolerantStudySubmissionV2Input extends TolerantStudySubmissionInput {
-  readonly expectedDraftRevision: number
-}
-
 const compareText = (left: string, right: string): number =>
   left === right ? 0 : left < right ? -1 : 1
 
@@ -75,10 +71,9 @@ export const canonicalizeTolerantStudySubmission = ({
 export const hashStudySubmission = (canonical: string): string =>
   createHash('sha256').update(canonical).digest('hex')
 
-export const canonicalizeTolerantStudySubmissionV2 = ({
-  expectedDraftRevision,
-  ...input
-}: TolerantStudySubmissionV2Input): string => {
+export const canonicalizeTolerantStudySubmissionV2 = (
+  input: TolerantStudySubmissionInput
+): string => {
   const v1Canonical = canonicalizeTolerantStudySubmission(input)
   const material = JSON.parse(
     v1Canonical.slice(STUDY_SUBMISSION_CANONICAL_PREFIX.length)
@@ -91,7 +86,6 @@ export const canonicalizeTolerantStudySubmissionV2 = ({
   return `${STUDY_SUBMISSION_V2_CANONICAL_PREFIX}${JSON.stringify({
     sessionId: material.sessionId,
     answers: material.answers,
-    durationSec: material.durationSec,
-    expectedDraftRevision
+    durationSec: material.durationSec
   })}`
 }

@@ -21,6 +21,10 @@ export const getStudyDraftWorkingCopyStorageKey = (
 ): string =>
   `${STORAGE_KEY_PREFIX}${encodeURIComponent(principalScope)}:${encodeURIComponent(sessionId)}`
 
+// A guest's progress is not kept (spec S): memory only, gone on reload.
+const isGuestScope = (principalScope: string): boolean =>
+  principalScope === 'GUEST'
+
 export const readStudyDraftWorkingCopy = (
   principalScope: string,
   sessionId: string
@@ -29,6 +33,10 @@ export const readStudyDraftWorkingCopy = (
   const cached = memoryRecords.get(key)
   if (cached) {
     return cached
+  }
+  if (isGuestScope(principalScope)) {
+    cachedSessionStorage.removeItem(key)
+    return null
   }
 
   const serialized = cachedSessionStorage.getItem(key)
@@ -71,7 +79,10 @@ export const writeStudyDraftWorkingCopy = (
   )
   const serialized = JSON.stringify(parsed)
 
-  if (!cachedSessionStorage.setItem(key, serialized)) {
+  if (
+    !isGuestScope(parsed.principalScope) &&
+    !cachedSessionStorage.setItem(key, serialized)
+  ) {
     throw new StudyDraftWorkingCopyPersistenceError()
   }
 

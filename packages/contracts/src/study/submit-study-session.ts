@@ -50,11 +50,16 @@ const refineUniqueStudyAnswers = (
 
 export const submitStudySessionV2BodySchema = submitStudySessionBodyObjectSchema
   .extend({
+    /**
+     * Accepted and ignored: the server grades the answers as sent and does
+     * not compare them with the saved draft. Removed after deploy (JLP-755).
+     */
     expectedDraftRevision: z
       .number()
       .int()
       .nonnegative()
       .max(Number.MAX_SAFE_INTEGER)
+      .optional()
   })
   .superRefine(refineUniqueStudyAnswers)
 
@@ -84,11 +89,9 @@ const submitStudySessionErrorCodeSchema = z.enum([
   'SERVICE_UNAVAILABLE'
 ])
 
-export const submitStudySessionV2ErrorCodeSchema = z.enum([
-  ...submitStudySessionErrorCodeSchema.options,
-  'DRAFT_VERSION_CONFLICT',
-  'DRAFT_SUBMIT_MISMATCH'
-])
+export const submitStudySessionV2ErrorCodeSchema = z.enum(
+  submitStudySessionErrorCodeSchema.options
+)
 
 export const submitStudySessionV2ErrorSchema = createApiFailureSchema(
   submitStudySessionV2ErrorCodeSchema

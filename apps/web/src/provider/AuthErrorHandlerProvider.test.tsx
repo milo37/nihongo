@@ -1,4 +1,8 @@
 import { QueryClientProvider } from '@tanstack/react-query'
+import {
+  TOAST_ANNOUNCER_ID,
+  ToastProvider
+} from '@nihongo/browser/common/components/Toast'
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
@@ -23,7 +27,9 @@ const renderProvider = (initialEntry = '/practice?mode=RANDOM') => {
 
   const view = render(
     <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
+      <ToastProvider>
+        <RouterProvider router={router} />
+      </ToastProvider>
     </QueryClientProvider>
   )
 
@@ -31,7 +37,7 @@ const renderProvider = (initialEntry = '/practice?mode=RANDOM') => {
 }
 
 describe('AuthErrorHandlerProvider', () => {
-  it('전역 errorBus의 네트워크 오류를 접근 가능한 배너로 알린다', async () => {
+  it('전역 errorBus의 네트워크 오류를 오류 띠(role=alert)로 알리고 토스트를 그 위로 올린다', async () => {
     const user = userEvent.setup()
     renderProvider()
 
@@ -44,36 +50,52 @@ describe('AuthErrorHandlerProvider', () => {
       )
     })
 
-    const banner = screen.getByRole('status')
-    expect(banner).toHaveAttribute('aria-live', 'polite')
+    const banner = screen.getByRole('alert')
     expect(banner).toHaveTextContent(
       '네트워크 연결이 원활하지 않습니다. 다시 시도해 주세요.'
     )
+    expect(
+      document.documentElement.style.getPropertyValue('--global-banner-offset')
+    ).toMatch(/px$/u)
 
     await user.click(screen.getByRole('button', { name: '닫기' }))
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(
+      document.documentElement.style.getPropertyValue('--global-banner-offset')
+    ).toBe('')
   })
 
-  it('실제 offline에서 online으로 바뀔 때만 복구 상태를 다시 알린다', async () => {
+  it('오프라인은 연결될 때까지 남는 토스트, 다시 연결되면 같은 자리의 성공 토스트로 바뀐다', async () => {
     const user = userEvent.setup()
     vi.spyOn(window.navigator, 'onLine', 'get').mockReturnValue(true)
     renderProvider()
+    const toasts = () =>
+      screen
+        .queryByRole('region', { name: '알림' })
+        ?.querySelectorAll('article') ?? []
 
     act(() => window.dispatchEvent(new Event('online')))
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    expect(toasts()).toHaveLength(0)
 
     act(() => window.dispatchEvent(new Event('offline')))
-    expect(screen.getByRole('status')).toHaveTextContent('오프라인 상태입니다')
-
-    await user.click(screen.getByRole('button', { name: '닫기' }))
-    act(() => window.dispatchEvent(new Event('offline')))
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
-
-    act(() => window.dispatchEvent(new Event('online')))
-    expect(screen.getByRole('status')).toHaveAttribute('data-kind', 'restored')
-    expect(screen.getByRole('status')).toHaveTextContent(
-      '네트워크 연결이 복구된 것으로 감지했습니다'
+    expect(toasts()).toHaveLength(1)
+    expect(toasts()[0]).toHaveTextContent(
+      '오프라인이에요. 연결을 확인해 주세요.'
     )
+    expect(toasts()[0]).toHaveAttribute('data-variant', 'warning')
+    expect(document.getElementById(TOAST_ANNOUNCER_ID)).toHaveTextContent(
+      '주의: 오프라인이에요. 연결을 확인해 주세요.'
+    )
+
+    await user.click(screen.getByRole('button', { name: '알림 닫기' }))
+    act(() => window.dispatchEvent(new Event('offline')))
+    expect(toasts()).toHaveLength(0)
+
+    act(() => window.dispatchEvent(new Event('online')))
+    expect(toasts()).toHaveLength(1)
+    expect(toasts()[0]).toHaveAttribute('data-variant', 'success')
+    expect(toasts()[0]).toHaveTextContent('다시 연결됐어요.')
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
   it('401에서 이전 사용자 cache와 practice를 지운 뒤 원래 경로를 보존한다', async () => {

@@ -37,6 +37,10 @@ type SignInCardProps = {
   notice?: SignInNotice | null
   headingRef?: RefObject<HTMLHeadingElement | null>
   onStart?: () => void
+  /** h2 when the page has its own (screen-reader) h1, as in GuestGate. */
+  headingLevel?: 'h1' | 'h2'
+  icon?: ReactNode
+  footer?: ReactNode
 }
 
 // One Google sign-in card for /login and the signed-out account page.
@@ -46,7 +50,10 @@ export const SignInCard = ({
   redirect,
   notice = null,
   headingRef,
-  onStart
+  onStart,
+  headingLevel: Heading = 'h1',
+  icon,
+  footer
 }: SignInCardProps): ReactElement => {
   const { t } = useTranslation('auth')
   const start = useStartSocialSignIn()
@@ -70,10 +77,15 @@ export const SignInCard = ({
     ? { message: error, tone: 'error' }
     : notice
   return (
-    <div className="auth-panel">
-      <h1 ref={headingRef} tabIndex={headingRef ? -1 : undefined}>
+    <div className={icon ? 'auth-panel guest-gate' : 'auth-panel'}>
+      {icon ? (
+        <span className="guest-gate-icon" aria-hidden="true">
+          {icon}
+        </span>
+      ) : null}
+      <Heading ref={headingRef} tabIndex={headingRef ? -1 : undefined}>
         {title}
-      </h1>
+      </Heading>
       <p className="auth-description">{description}</p>
       {shown ? (
         <p
@@ -103,6 +115,7 @@ export const SignInCard = ({
         />
       </div>
       <p className="auth-consent">{linkConsent(t('sso.consentNotice'))}</p>
+      {footer}
     </div>
   )
 }
