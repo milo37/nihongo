@@ -185,7 +185,7 @@ describe('QuestionTagPicker', () => {
 
     await user.click(search())
     expect(
-      await screen.findByText('더 있을 수 있어요. 이름으로 검색해 주세요.')
+      await screen.findByText('더 있을 수 있습니다. 이름으로 검색해 주세요.')
     ).toBeVisible()
   })
 

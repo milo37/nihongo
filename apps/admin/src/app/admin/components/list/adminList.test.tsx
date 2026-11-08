@@ -130,7 +130,7 @@ it('copies the full id and announces it', async () => {
   wrap(<CopyIdButton id="10000000-0000-4000-8000-000000000001" />)
   await user.click(screen.getByRole('button', { name: 'ID 복사' }))
   expect(writeText).toHaveBeenCalledWith('10000000-0000-4000-8000-000000000001')
-  expect(await screen.findByRole('status')).toHaveTextContent('복사했어요')
+  expect(await screen.findByRole('status')).toHaveTextContent('복사했습니다')
 })
 
 const SheetHarness = (): ReactElement => {

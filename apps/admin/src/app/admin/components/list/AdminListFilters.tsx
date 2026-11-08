@@ -42,10 +42,13 @@ export const AdminListFilters = ({
   const hasFilters = filters.length > 0
 
   return (
-    <div className="mt-8">
+    // Without search, the header's own padding is the narrow-screen gap.
+    <div className={search ? 'mt-8' : 'sm:mt-8'}>
       {search}
       {hasFilters || sort ? (
-        <div className="mt-4 flex flex-wrap items-center gap-2">
+        <div
+          className={`${search ? 'mt-4' : 'sm:mt-4'} flex flex-wrap items-center gap-2`}
+        >
           {hasFilters && wide ? (
             <>
               {filters.map((filter) => (

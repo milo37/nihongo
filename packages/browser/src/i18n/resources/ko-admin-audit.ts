@@ -2,7 +2,7 @@
 export const koAdminAuditResources = {
   title: '관리자 감사 기록',
   description:
-    '누가 언제 어떤 작업을 했는지 보여 줘요. 문제 본문은 표시하지 않아요.',
+    '누가 언제 어떤 작업을 했는지 보여 줍니다. 문제 본문은 표시하지 않습니다.',
   cachedError:
     '최신 감사 기록을 확인하지 못했습니다. 현재 기록은 그대로 유지됩니다.',
   retry: '감사 기록 다시 확인',

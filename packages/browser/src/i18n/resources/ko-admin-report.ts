@@ -4,8 +4,7 @@ export const koAdminReportResources = {
     title: '버그 리포트',
     description:
       '학습자가 보낸 문항 신고와 앱 오류 제보입니다. 접수됨이 먼저, 최신순으로 보입니다.',
-    invalidQuery:
-      'URL 검색 조건이 허용 범위를 벗어났습니다. 기본 조건을 사용합니다.',
+    invalidQuery: '검색 조건을 읽지 못해 기본 조건으로 보여 드립니다.',
     status: '처리 상태',
     kind: '유형',
     loading: '제보를 불러오는 중입니다…',
@@ -14,8 +13,28 @@ export const koAdminReportResources = {
     cachedError:
       '최신 제보 목록을 확인하지 못했습니다. 현재 목록은 그대로 유지됩니다.',
     retry: '제보 목록 다시 확인',
-    emptyTitle: '처리할 제보가 없습니다.',
-    emptyDescription: '현재 조건에 맞는 제보가 없습니다.',
+    empty: {
+      all: {
+        title: '아직 받은 제보가 없습니다.',
+        description: '학습자가 문항 신고나 앱 오류를 보내면 여기에 보입니다.'
+      },
+      RECEIVED: {
+        title: '처리할 제보가 없습니다.',
+        description: '새로 들어온 제보를 모두 처리했습니다.'
+      },
+      ANSWERED: {
+        title: '답변 완료한 제보가 없습니다.',
+        description: '답변을 보낸 제보가 여기에 보입니다.'
+      },
+      CLOSED: {
+        title: '종결한 제보가 없습니다.',
+        description: '종결한 제보가 여기에 보입니다.'
+      },
+      filtered: {
+        title: '조건에 맞는 제보가 없습니다.',
+        description: '필터를 바꾸거나 [초기화]를 눌러 주세요.'
+      }
+    },
     details: '상세 보기',
     columns: {
       statusKind: '상태·종류',

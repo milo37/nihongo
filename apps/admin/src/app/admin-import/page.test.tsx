@@ -184,6 +184,24 @@ it('restores the approved static route before dynamic question detail and waits 
     })
   ).not.toBeInTheDocument()
 })
+it('announces the apply result through a status region that was already there', async () => {
+  route()
+  await upload()
+  await runValidate()
+  const empties = screen
+    .getAllByRole('status')
+    .filter((element) => element.textContent === '')
+  // The apply result region is the last one on the page.
+  const status = empties.at(-1)
+  if (!status) throw new Error('An empty status region is needed first.')
+  await userEvent.click(applyButton())
+  await waitFor(() =>
+    expect(status).toHaveTextContent(
+      t('import.applied', { formattedCount: '1' })
+    )
+  )
+  expect(status).toBeInTheDocument()
+})
 it('validates exact items then explicitly applies the same digest and blocks duplicate application even after reselect', async () => {
   route()
   await upload()

@@ -6,17 +6,16 @@ export const koAdminQuestionListResources = {
   newQuestion: '새 문제 등록',
   unsupportedSort: '상태순 정렬은 지원하지 않아 최근 수정순으로 표시합니다.',
   searchLabel: '문제 검색',
-  searchPlaceholder: '질문이 시작하는 내용을 입력하세요…',
+  searchPlaceholder: '질문의 첫 부분을 입력해 주세요…',
   search: '검색',
   sort: '정렬',
   loading: '관리자 문제 목록을 불러오고 있습니다…',
   loadErrorTitle: '문제 목록을 불러오지 못했습니다',
   loadErrorDescription: '네트워크 상태를 확인한 뒤 다시 시도해 주세요.',
-  noMatchTitle: '조건에 맞는 문제가 없어요',
-  noMatchDescription: '필터를 줄이거나 검색어를 바꿔 보세요.',
+  noMatchTitle: '조건에 맞는 문제가 없습니다',
+  noMatchDescription: '필터를 줄이거나 검색어를 바꿔 주세요.',
   noQuestionsTitle: '등록된 문제가 없습니다',
-  noQuestionsDescription:
-    '첫 자체 제작 문제를 등록하여 문제 은행을 구성해 보세요.',
+  noQuestionsDescription: '첫 자체 제작 문제를 등록해 주세요.',
   firstQuestion: '첫 문제 등록',
   emptyTitle: '표시할 문제가 없습니다',
   tableLabel: '관리자 문제 목록',
@@ -52,7 +51,7 @@ export const koAdminQuestionListResources = {
       more: '외 {{rest}}개',
       cancel: '취소',
       request: {
-        title: '문제 {{count}}개를 검수 요청할까요?',
+        title: '문제 {{count}}개를 검수 요청하시겠습니까?',
         description:
           '초안을 검수 중으로 바꿉니다. 검수 중에는 승인 전까지 내용을 고칠 수 없습니다.',
         body: '20개씩 나눠 차례로 요청합니다. 한 묶음이 거절되면 그 묶음의 20개는 요청되지 않고 다음 묶음은 계속 보냅니다. 결과는 문제별로 보여 드립니다. 일괄 작업은 15분에 10번까지 보낼 수 있고, 20개 묶음 하나가 1번입니다.',
@@ -61,7 +60,7 @@ export const koAdminQuestionListResources = {
         notDone: '검수 요청하지 않았습니다.'
       },
       approve: {
-        title: '문제 {{count}}개를 승인할까요?',
+        title: '문제 {{count}}개를 승인하시겠습니까?',
         description:
           '검수 중인 버전을 승인합니다. 승인한 문제는 공개하기 전까지 학습자에게 보이지 않습니다.',
         body: '문제를 하나씩 승인하므로 중간에 일부만 승인될 수 있습니다. 결과는 문제별로 보여 드립니다.',
@@ -70,7 +69,7 @@ export const koAdminQuestionListResources = {
         notDone: '승인하지 않았습니다.'
       },
       publish: {
-        title: '문제 {{count}}개를 공개할까요?',
+        title: '문제 {{count}}개를 공개하시겠습니까?',
         description:
           '승인된 버전이 학습자에게 바로 출제됩니다. 공개 중인 버전이 있으면 이 버전으로 바뀝니다.',
         body: '문제를 하나씩 공개하므로 중간에 일부만 공개될 수 있습니다. 결과는 문제별로 보여 드립니다.',

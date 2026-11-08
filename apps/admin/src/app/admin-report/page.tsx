@@ -273,12 +273,13 @@ export const AdminReportsPage = (): ReactElement => {
     onPageChange: (page) => go({ ...query, page }),
     onPageSizeChange: (pageSize) => go({ ...query, page: 1, pageSize })
   }
+  const emptyCase = query.kind ? 'filtered' : (query.status ?? 'all')
   const openReport = (reportId: string): void => {
     if (user) saveReportContext(user.id, reportId, canonical)
   }
   return (
     <PageContainer width="6xl">
-      <header className="pb-8">
+      <header className="pb-6 sm:pb-8">
         <h1
           ref={heading}
           tabIndex={-1}
@@ -324,8 +325,8 @@ export const AdminReportsPage = (): ReactElement => {
       ) : null}
       {data && data.items.length === 0 ? (
         <EmptyState
-          title={t('userReport.list.emptyTitle')}
-          description={t('userReport.list.emptyDescription')}
+          title={t(`userReport.list.empty.${emptyCase}.title`)}
+          description={t(`userReport.list.empty.${emptyCase}.description`)}
         />
       ) : null}
       {data && data.items.length > 0 ? (

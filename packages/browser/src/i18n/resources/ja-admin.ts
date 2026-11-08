@@ -944,7 +944,8 @@ export const jaAdminResources = {
       title: 'バグレポート',
       description:
         '学習者から届いた問題の報告とアプリの不具合報告です。受付済みを先に、新しい順で表示します。',
-      invalidQuery: 'URLの検索条件が許可範囲外です。既定の条件を使用します。',
+      invalidQuery:
+        '検索条件を読み取れなかったため、初期条件で表示しています。',
       status: '処理状態',
       kind: '種類',
       loading: '報告を読み込んでいます…',
@@ -953,8 +954,29 @@ export const jaAdminResources = {
       cachedError:
         '最新の報告一覧を確認できませんでした。現在の一覧はそのまま残ります。',
       retry: '報告一覧を再確認',
-      emptyTitle: '処理する報告はありません。',
-      emptyDescription: '現在の条件に合う報告はありません。',
+      empty: {
+        all: {
+          title: 'まだ報告はありません。',
+          description:
+            '学習者から問題の報告やアプリの不具合報告が届くと、ここに表示されます。'
+        },
+        RECEIVED: {
+          title: '処理する報告はありません。',
+          description: '新しく届いた報告はすべて処理済みです。'
+        },
+        ANSWERED: {
+          title: '返信済みの報告はありません。',
+          description: '返信した報告がここに表示されます。'
+        },
+        CLOSED: {
+          title: '完了した報告はありません。',
+          description: '完了した報告がここに表示されます。'
+        },
+        filtered: {
+          title: '条件に合う報告はありません。',
+          description: '絞り込みを変えるか、[リセット]を押してください。'
+        }
+      },
       details: '詳細を見る',
       columns: {
         statusKind: '状態・種類',

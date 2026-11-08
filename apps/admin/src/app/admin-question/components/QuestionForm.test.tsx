@@ -391,7 +391,7 @@ describe('question tag locale', () => {
     expect(document.documentElement.lang).toBe('ko')
     expect(
       screen.getByRole('combobox', { name: '태그' })
-    ).toHaveAccessibleDescription('문제 과목에 맞는 태그를 1~2개 고르세요.')
+    ).toHaveAccessibleDescription('문제 과목에 맞는 태그를 1~2개 골라 주세요.')
   })
 
   it('uses the Japanese tag label when the provider is set to Japanese', async () => {
