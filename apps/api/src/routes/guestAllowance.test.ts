@@ -85,6 +85,14 @@ describe('GET /guest-allowance (#737)', () => {
     })
   })
 
+  it('refuses any query part without reading counts', async () => {
+    const f = fixture()
+    const response = await f.app.request('/guest-allowance?remaining=9')
+    expect(response.status).toBe(400)
+    expect(await response.json()).toMatchObject({ code: 'INVALID_REQUEST' })
+    expect(f.read).not.toHaveBeenCalled()
+  })
+
   it('passes a verified guest cookie and ignores a tampered one', async () => {
     const f = fixture()
     const credential = f.guestPrincipalService.prepareCredential()
