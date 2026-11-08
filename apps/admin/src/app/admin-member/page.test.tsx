@@ -157,7 +157,7 @@ it('confirms a restriction and keeps the reason through an in-page re-check when
   await userEvent.type(screen.getByLabelText('제한 사유'), '반복 스팸 제보')
   await userEvent.click(screen.getByRole('button', { name: '이용 제한' }))
   const dialog = await screen.findByRole('dialog', {
-    name: '이용을 제한할까요?'
+    name: '이용을 제한하시겠습니까?'
   })
   expect(within(dialog).getByText('le***@example.test')).toBeVisible()
   expect(restrict).not.toHaveBeenCalled()

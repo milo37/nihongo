@@ -27,8 +27,8 @@ export const koAdminSharedListResources = {
   columns: '열',
   rowMenu: '{{id}} 작업',
   copyId: 'ID 복사',
-  copied: '복사했어요',
-  copyFailed: '복사하지 못했어요',
+  copied: '복사했습니다',
+  copyFailed: '복사하지 못했습니다',
   selected: '{{count}}개 선택',
   clearSelection: '선택 해제'
 } as const

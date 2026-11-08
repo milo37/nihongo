@@ -48,7 +48,7 @@ export const koAdminMembersResources = {
     releasing: '해제하는 중…',
     released: '이용 제한을 해제했습니다.',
     confirm: {
-      title: '이용을 제한할까요?',
+      title: '이용을 제한하시겠습니까?',
       description: '아래 가입자에게 바로 적용됩니다.',
       preserved: '학습 기록과 보낸 제보는 지워지지 않습니다.',
       cancel: '취소',

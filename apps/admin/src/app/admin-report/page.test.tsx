@@ -151,10 +151,29 @@ it('applies each status and kind choice at once and moves page size to the toolb
   )
 })
 
-it('shows the design empty state when there is nothing to handle', async () => {
+it.each([
+  ['', '아직 받은 제보가 없습니다.', 'まだ報告はありません。'],
+  ['?status=RECEIVED', '처리할 제보가 없습니다.', '処理する報告はありません。'],
+  [
+    '?status=ANSWERED',
+    '답변 완료한 제보가 없습니다.',
+    '返信済みの報告はありません。'
+  ],
+  ['?status=CLOSED', '종결한 제보가 없습니다.', '完了した報告はありません。'],
+  [
+    '?status=RECEIVED&kind=APP_ERROR',
+    '조건에 맞는 제보가 없습니다.',
+    '条件に合う報告はありません。'
+  ]
+])('names the empty list for filter %j', async (search, ko, ja) => {
   vi.spyOn(reportApi, 'listAdminReports').mockResolvedValue(page([], 0))
-  renderAdmin(client, '/admin/reports')
-  expect(await screen.findByText('처리할 제보가 없습니다.')).toBeVisible()
+  renderAdmin(client, '/admin/reports' + search)
+  expect(await screen.findByRole('region', { name: ko })).toBeVisible()
+  cleanup()
+  client.clear()
+  writeUiLocalePreference('ja')
+  renderAdmin(client, '/admin/reports' + search)
+  expect(await screen.findByRole('region', { name: ja })).toBeVisible()
 })
 
 it('falls back to safe defaults for unsupported URL filters', async () => {
@@ -162,7 +181,7 @@ it('falls back to safe defaults for unsupported URL filters', async () => {
   renderAdmin(client, '/admin/reports?status=OPEN&pageSize=30')
   expect(
     await screen.findByText(
-      'URL 검색 조건이 허용 범위를 벗어났습니다. 기본 조건을 사용합니다.'
+      '검색 조건을 읽지 못해 기본 조건으로 보여 드립니다.'
     )
   ).toBeVisible()
   expect(list).toHaveBeenCalledWith({ page: 1, pageSize: 25 })

@@ -6,7 +6,7 @@ export const koAdminQuestionDetailResources = {
 
   title: '버전과 승인 단계',
   description:
-    '다른 곳에서 먼저 고쳤다면, 지금 쓰던 내용은 그대로 두고 새로고침 후 달라진 점을 보여 드려요.',
+    '다른 곳에서 먼저 고쳤다면, 지금 쓰던 내용은 그대로 두고 새로고침 후 달라진 점을 보여 드립니다.',
   loading: '관리자 문제 상세를 불러오는 중입니다…',
   loadErrorTitle: '문제 상세를 불러오지 못했습니다',
   cachedError:

@@ -129,7 +129,9 @@ it('publishes only approved rows and lists failed items with focus on the result
   })
   const { dialog } = await selectAll()
   expect(
-    within(dialog).getByRole('heading', { name: '문제 2개를 공개할까요?' })
+    within(dialog).getByRole('heading', {
+      name: '문제 2개를 공개하시겠습니까?'
+    })
   ).toBeVisible()
   await userEvent.click(
     within(dialog).getByRole('button', { name: '2개 공개' })
@@ -319,7 +321,9 @@ it('approves only in-review rows from the same selection and lists failures', as
   )
   const dialog = screen.getByRole('dialog')
   expect(
-    within(dialog).getByRole('heading', { name: '문제 2개를 승인할까요?' })
+    within(dialog).getByRole('heading', {
+      name: '문제 2개를 승인하시겠습니까?'
+    })
   ).toBeVisible()
   await userEvent.click(
     within(dialog).getByRole('button', { name: '2개 승인' })
@@ -435,7 +439,7 @@ it('requests review of own drafts 20 at a time and marks a refused chunk', async
   const dialog = screen.getByRole('dialog')
   expect(
     within(dialog).getByRole('heading', {
-      name: '문제 25개를 검수 요청할까요?'
+      name: '문제 25개를 검수 요청하시겠습니까?'
     })
   ).toBeVisible()
   await userEvent.click(
