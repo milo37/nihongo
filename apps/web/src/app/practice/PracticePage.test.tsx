@@ -74,6 +74,45 @@ describe('PracticePage setup', () => {
     ).toBeInTheDocument()
   })
 
+  it('사용자 정보가 늦게 오면 기본 급수를 기다렸다가 한 번만 정한다', async () => {
+    let releaseMe = (): void => undefined
+    const meGate = new Promise<void>((resolve) => {
+      releaseMe = resolve
+    })
+    // Hold /me, then fall through to the normal mock answer.
+    mockServer.use(
+      http.get('*/api/v1/me', async () => {
+        await meGate
+        return undefined
+      })
+    )
+    mockDatabase.loginAs('USER')
+    renderPractice('')
+    const level = await screen.findByRole('group', { name: '급수' })
+    const start = screen.getByRole('button', { name: '불러오는 중' })
+    expect(start).toBeDisabled()
+    expect(within(level).queryByRole('radio', { checked: true })).toBeNull()
+    expect(screen.queryByText(/N5 어휘/)).not.toBeInTheDocument()
+
+    releaseMe()
+    expect(
+      await screen.findByRole('button', { name: 'N2 어휘 · 10문제 시작' })
+    ).toBeEnabled()
+    expect(
+      within(level).getByRole('radio', { checked: true })
+    ).toHaveAccessibleName('N2')
+  })
+
+  it('URL에 급수가 있으면 사용자 정보를 기다리지 않고 그 급수를 보여 준다', async () => {
+    mockServer.use(http.get('*/api/v1/me', () => new Promise<never>(() => {})))
+    mockDatabase.loginAs('USER')
+    renderPractice('?level=N4')
+    const level = await screen.findByRole('group', { name: '급수' })
+    expect(
+      within(level).getByRole('radio', { checked: true })
+    ).toHaveAccessibleName('N4')
+  })
+
   it('선택한 조건으로 세션을 만들고 학습 화면으로 이동한다', async () => {
     const router = renderPractice('?level=N5&subject=VOCABULARY&count=5')
     const start = await screen.findByRole('button', {
@@ -259,7 +298,7 @@ describe('PracticePage setup', () => {
     await waitFor(() => expect(start).toBeEnabled())
     await user.click(start)
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      /현재 조건에는 출제 가능한 랜덤 문제/
+      "지금 조건으로는 '랜덤 문제'에서 풀 수 있는 문제가 없어요."
     )
     expect(requested).toMatchObject({
       level: 'N2',
@@ -296,7 +335,7 @@ describe('PracticePage setup', () => {
     await user.click(start)
     expect(
       await screen.findByText(
-        '현재 조건에는 출제 가능한 약점 추천 문제가 없습니다.'
+        "지금 조건으로는 '약점 추천'에서 풀 수 있는 문제가 없어요."
       )
     ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '랜덤 문제 선택' }))
@@ -306,7 +345,9 @@ describe('PracticePage setup', () => {
       ).toBeNull()
     )
     expect(
-      screen.queryByText('현재 조건에는 출제 가능한 약점 추천 문제가 없습니다.')
+      screen.queryByText(
+        "지금 조건으로는 '약점 추천'에서 풀 수 있는 문제가 없어요."
+      )
     ).not.toBeInTheDocument()
   })
 

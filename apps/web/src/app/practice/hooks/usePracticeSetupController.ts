@@ -12,7 +12,8 @@ import {
   getInitialLevel,
   getInitialSubject,
   getRequestedMode,
-  getResumablePage
+  getResumablePage,
+  levels
 } from '@app/practice/practiceSetupOptions'
 import {
   asGuestAllowance,
@@ -46,7 +47,13 @@ export const usePracticeSetupController = (
   const beginPractice = useAppStore((state) => state.beginPractice)
   const [cancelSessionId, setCancelSessionId] = useState<string | null>(null)
   const defaultLevel = user?.targetLevel ?? FALLBACK_LEVEL
-  const level = getInitialLevel(searchParams.get('level'), defaultLevel)
+  const urlLevel = searchParams.get('level')
+  // Without a URL level the default waits for the signed-in user, so it is
+  // set once (no N5 first, then the target level).
+  const level =
+    isReady || levels.some((value) => value === urlLevel)
+      ? getInitialLevel(urlLevel, defaultLevel)
+      : null
   const subject = getInitialSubject(searchParams.get('subject'))
   const isGuest = isReady && role === 'GUEST'
   const requestedCount = getInitialCount(searchParams.get('count'))
@@ -175,7 +182,7 @@ export const usePracticeSetupController = (
   const loginHref = `/login?redirect=${encodeURIComponent(`${location.pathname}${location.search}`)}`
 
   const handleStart = (): void => {
-    if (!isReady || isCreatingSession || isGuestDailyLimitReached) {
+    if (!isReady || !level || isCreatingSession || isGuestDailyLimitReached) {
       return
     }
 

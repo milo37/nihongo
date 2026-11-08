@@ -65,11 +65,13 @@ export const PracticePage = (): ReactElement => {
   const guestAction = useGuestAction()
   const { count, level, mode, resumableSessions, subject } = setup
   const subjectLabel = homeT(subjectLabelKeys[subject])
-  const startLabel = homeT('quickDrill.start', {
-    level,
-    subject: subjectLabel,
-    formattedCount: count
-  })
+  const startLabel = level
+    ? homeT('quickDrill.start', {
+        level,
+        subject: subjectLabel,
+        formattedCount: count
+      })
+    : homeT('approved.loading')
 
   return (
     <section className="practice-setup-page">
