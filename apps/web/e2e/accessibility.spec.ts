@@ -1831,7 +1831,7 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
     },
     {
       minimumTarget: page.getByRole('button', {
-        name: 'N3 문법 · 5문제 시작',
+        name: 'N5 어휘 · 5문제 시작',
         exact: true
       })
     }

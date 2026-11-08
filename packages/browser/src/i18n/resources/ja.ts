@@ -589,7 +589,8 @@ export const jaCoreResources = {
       },
       urlLocked: '問題数・出題方法はログインすると選べます。',
       availableCountNote: '問題が不足する場合は、用意できる数を提供します。',
-      noEligibleTitle: '現在の条件では出題可能な{{mode}}がありません。',
+      noEligibleTitle:
+        '現在の条件では「{{mode}}」で出題できる問題がありません。',
       noEligibleDescription:
         'レベル・科目・モードを変更するか、ランダム問題を選んでください。サーバーが別のモードへ自動変更することはありません。',
       selectRandom: 'ランダム問題を選択',
