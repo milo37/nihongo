@@ -1,10 +1,32 @@
 import { useEffect, useRef } from 'react'
-import { Trans, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
-import type { ReactElement, RefObject } from 'react'
+import type { ReactElement, ReactNode, RefObject } from 'react'
 import { AuthFlowError } from '@nihongo/browser/app/login/authFlowErrors'
 import { SsoProviderButton } from '@app/login/components/SsoProviderButton'
 import { useStartSocialSignIn } from '@app/login/hooks/useStartSocialSignIn'
+
+const CONSENT_LINKS = {
+  terms: '/legal#terms',
+  privacy: '/legal#privacy'
+} as const
+
+// Turns the <terms>…</terms> and <privacy>…</privacy> marks in the consent
+// text into links. (react-i18next's Trans would add an HTML parser package
+// to the production bundle.)
+const linkConsent = (text: string): ReactNode[] =>
+  text
+    .split(/(<(?:terms|privacy)>.*?<\/(?:terms|privacy)>)/u)
+    .map((part, index) => {
+      const match = /^<(terms|privacy)>(.*)<\/\1>$/u.exec(part)
+      if (!match) return part
+      const name = match[1] as keyof typeof CONSENT_LINKS
+      return (
+        <Link key={index} to={CONSENT_LINKS[name]}>
+          {match[2]}
+        </Link>
+      )
+    })
 
 export type SignInNotice = { message: string; tone: 'error' | 'info' }
 
@@ -80,16 +102,7 @@ export const SignInCard = ({
           }}
         />
       </div>
-      <p className="auth-consent">
-        <Trans
-          t={t}
-          i18nKey="sso.consentNotice"
-          components={{
-            terms: <Link to="/legal#terms" />,
-            privacy: <Link to="/legal#privacy" />
-          }}
-        />
-      </p>
+      <p className="auth-consent">{linkConsent(t('sso.consentNotice'))}</p>
     </div>
   )
 }

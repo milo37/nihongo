@@ -8,7 +8,7 @@ import {
   refreshCanonicalAuthAfterMutation
 } from '@nihongo/browser/app/login/authSession'
 import { authQueries } from '@nihongo/browser/app/login/queries/authQueries'
-import { authMutations } from '@app/login/queries/authMutations'
+import { logoutMutations } from '@app/account/queries/logoutMutations'
 
 export const useLogoutUser = () => {
   const queryClient = useQueryClient()
@@ -21,7 +21,7 @@ export const useLogoutUser = () => {
   }
 
   const logout = useMutation({
-    ...authMutations.logout(),
+    ...logoutMutations.logout(),
     onSuccess: async () => {
       try {
         const confirmed = await refreshCanonicalAuthAfterMutation(queryClient, {
