@@ -11,13 +11,16 @@ import { signInSocial } from '@api/auth/signInSocial'
 import { completeMockSocialSignIn } from '@api/auth/completeMockSocialSignIn'
 import { loginRoutes } from '@app/login/router'
 import { SsoProviderButton } from '@app/login/components/SsoProviderButton'
-import { AdminFreshReturnNotice } from '@nihongo/browser/app/login/components/AdminFreshReturnNotice'
+import { ReauthReturnNotice } from '@nihongo/browser/app/reauth/components/ReauthReturnNotice'
 import { invalidateCanonicalAuthTransitions } from '@nihongo/browser/app/login/authSession'
 import { LocaleSwitcher } from '@nihongo/browser/common/components/LocaleSwitcher'
 import { queryClient } from '@nihongo/browser/libs/queryClient'
 import { emitApiError } from '@nihongo/browser/libs/errorBus'
 import { DEMO_ADMIN_ID, DEMO_USER_ID } from '@mocks/data/users'
-import { setMockSsoAccountForTesting } from '@mocks/handlers/authHandlers'
+import {
+  grantMockAdminFreshForTesting,
+  setMockSsoAccountForTesting
+} from '@mocks/handlers/authHandlers'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { AuthErrorHandlerProvider } from '@nihongo/browser/provider/AuthErrorHandlerProvider'
 import { ProtectedRouteProvider } from '@nihongo/browser/provider/ProtectedRouteProvider'
@@ -381,7 +384,7 @@ describe('현재 Google SSO 로그인', () => {
       expect(await screen.findByText('홈 도착')).toBeInTheDocument()
       expect(router.state.historyAction).toBe('REPLACE')
       expect(
-        screen.queryByRole('region', { name: '관리자 본인 확인' })
+        screen.queryByRole('region', { name: '본인 확인' })
       ).not.toBeInTheDocument()
     }
   )
@@ -499,7 +502,7 @@ describe('관리자 ADMIN_FRESH 소비', () => {
           encodeURIComponent('/admin/questions?level=N5&page=2')
       )
       const region = await screen.findByRole('region', {
-        name: '관리자 본인 확인'
+        name: '본인 확인'
       })
       queryClient.setQueryData(['bookmarks', 'private'], { owner: actor.id })
       useAppStore
@@ -508,7 +511,7 @@ describe('관리자 ADMIN_FRESH 소비', () => {
       const user = userEvent.setup()
       await user.click(
         within(region).getByRole('button', {
-          name: 'Google로 계속하기'
+          name: 'Google로 본인 확인'
         })
       )
       await waitFor(() =>
@@ -539,14 +542,15 @@ describe('관리자 ADMIN_FRESH 소비', () => {
   )
 
   it.each([
-    ['REAUTHENTICATED', '작업 권한은 서버에서 다시 확인합니다.'],
-    ['CANCELLED', '본인 확인을 취소했어요.'],
-    ['FAILED', '본인 확인 결과를 확인하지 못했어요.'],
-    ['INVALID_CALLBACK', '본인 확인 요청이 만료되었거나 올바르지 않아요.']
+    ['REAUTHENTICATED', '본인 확인을 마쳤습니다(30분 유효).'],
+    ['CANCELLED', '본인 확인을 취소했습니다.'],
+    ['FAILED', '본인 확인을 마치지 못했습니다.'],
+    ['INVALID_CALLBACK', '확인 요청이 만료되었습니다.']
   ])(
     '%s 복귀는 canonical 신원 조회 후 유한 안내만 표시한다',
     async (outcome, copy) => {
-      mockDatabase.loginAs('ADMIN')
+      const actor = mockDatabase.loginAs('ADMIN')
+      grantMockAdminFreshForTesting(actor.id)
       const router = renderLogin(
         '/admin/questions?level=N2&page=2&ssoFresh=' + outcome
       )
@@ -568,7 +572,7 @@ describe('관리자 ADMIN_FRESH 소비', () => {
     )
     await waitFor(() =>
       expect(getAnnouncedStatus()).toHaveTextContent(
-        '본인 확인 요청이 만료되었거나 올바르지 않아요.'
+        '확인 요청이 만료되었습니다.'
       )
     )
     expect(router.state.location.search).toBe('')
@@ -587,10 +591,10 @@ describe('관리자 ADMIN_FRESH 소비', () => {
     await waitFor(() => expect(useAppStore.getState().currentUser).toBeNull())
     expect(queryClient.getQueryData(['bookmarks', 'private'])).toBeUndefined()
     expect(
-      screen.queryByRole('region', { name: '관리자 본인 확인' })
+      screen.queryByRole('region', { name: '본인 확인' })
     ).not.toBeInTheDocument()
     expect(getAnnouncedStatus()).toHaveTextContent(
-      '본인 확인 결과를 확인하지 못했어요.'
+      '본인 확인을 마치지 못했습니다.'
     )
   })
 
@@ -615,7 +619,7 @@ describe('관리자 ADMIN_FRESH 소비', () => {
       })
     )
     const router = createMemoryRouter(
-      [{ path: '/login', element: <AdminFreshReturnNotice /> }],
+      [{ path: '/login', element: <ReauthReturnNotice /> }],
       { initialEntries: ['/login?ssoFresh=REAUTHENTICATED'] }
     )
     render(
@@ -632,13 +636,11 @@ describe('관리자 ADMIN_FRESH 소비', () => {
     await act(async () => finish?.())
     await waitFor(() =>
       expect(getAnnouncedStatus()).toHaveTextContent(
-        '현재 로그인 상태를 확인하지 못했어요.'
+        '연결 문제로 결과를 확인하지 못했습니다.'
       )
     )
     expect(getAnnouncedStatus()).toHaveFocus()
-    expect(getAnnouncedStatus()).not.toHaveTextContent(
-      '작업 권한은 서버에서 다시 확인합니다.'
-    )
+    expect(getAnnouncedStatus()).not.toHaveTextContent('본인 확인을 마쳤습니다')
     expect(useAppStore.getState().currentUser?.id).toBe(actor.id)
   })
 
@@ -647,7 +649,7 @@ describe('관리자 ADMIN_FRESH 소비', () => {
     renderLogin('/login?redirect=%2Fadmin%2Fquestions')
     await screen.findByText('홈 도착')
     expect(
-      screen.queryByRole('region', { name: '관리자 본인 확인' })
+      screen.queryByRole('region', { name: '본인 확인' })
     ).not.toBeInTheDocument()
   })
 
@@ -669,14 +671,14 @@ describe('관리자 ADMIN_FRESH 소비', () => {
     )
     renderLogin('/login?redirect=%2Fadmin%2Fquestions')
     const region = await screen.findByRole('region', {
-      name: '관리자 본인 확인'
+      name: '본인 확인'
     })
     useAppStore
       .getState()
       .beginPractice('preserved-fresh-error', '2026-10-19T00:00:00.000Z')
     const user = userEvent.setup()
     const google = within(region).getByRole('button', {
-      name: 'Google로 계속하기'
+      name: 'Google로 본인 확인'
     })
     expect(
       within(region).queryByRole('button', { name: /Apple/ })
