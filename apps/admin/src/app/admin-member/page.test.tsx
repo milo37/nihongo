@@ -57,8 +57,7 @@ beforeEach(() => {
     role: 'ADMIN',
     targetLevel: 'N3',
     adminSessionExpiresAt: '2099-01-01T00:00:00.000Z',
-    adminFreshUntil: null,
-    adminServerTime: new Date().toISOString()
+    adminFreshUntil: null
   })
 })
 afterEach(() => {

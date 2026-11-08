@@ -25,13 +25,12 @@ export const reauthClockFor = (remainingMs: number): ReauthClock =>
  * countdown.
  */
 export const useReauthClock = (): ReauthClock => {
-  const { data, dataUpdatedAt } = useQuery({
+  const { data } = useQuery({
     ...authQueries.currentUser(),
     enabled: false
   })
   const [now, setNow] = useState(() => Date.now())
-  const at = Math.max(now, dataUpdatedAt)
-  const remaining = adminFreshRemainingMs(data ?? null, dataUpdatedAt, at)
+  const remaining = adminFreshRemainingMs(data ?? null, now)
 
   useEffect(() => {
     if (remaining <= 0) return

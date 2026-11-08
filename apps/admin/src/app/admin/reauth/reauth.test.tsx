@@ -6,6 +6,10 @@ import * as startApi from '@nihongo/browser/api/auth/startAdminReauth/index'
 import { authQueries } from '@nihongo/browser/app/login/queries/authQueries'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import {
+  recordServerDate,
+  resetServerClockForTesting
+} from '@nihongo/browser/libs/serverClock'
+import {
   ReauthDialogButton,
   ReauthRequiredNotice
 } from '@app/admin/reauth/ReauthRequiredNotice'
@@ -17,7 +21,7 @@ import type { ReactElement, ReactNode } from 'react'
 const MINUTE = 60_000
 const SERVER_NOW = Date.parse('2026-11-08T10:00:00.000Z')
 
-const admin = (freshMinutes: number | null, skewMinutes = 0) => ({
+const admin = (freshMinutes: number | null) => ({
   id: 'admin-1',
   name: '관리자',
   role: 'ADMIN' as const,
@@ -26,9 +30,7 @@ const admin = (freshMinutes: number | null, skewMinutes = 0) => ({
   adminFreshUntil:
     freshMinutes === null
       ? null
-      : new Date(SERVER_NOW + freshMinutes * MINUTE).toISOString(),
-  // The server clock runs `skewMinutes` behind the browser.
-  adminServerTime: new Date(SERVER_NOW - skewMinutes * MINUTE).toISOString()
+      : new Date(SERVER_NOW + freshMinutes * MINUTE).toISOString()
 })
 
 const renderWith = (
@@ -52,6 +54,7 @@ const renderWith = (
 }
 
 afterEach(() => {
+  resetServerClockForTesting()
   vi.useRealTimers()
   vi.restoreAllMocks()
 })
@@ -67,8 +70,10 @@ it('rounds the minutes left up and warns from five minutes', () => {
 
 it('counts on the server clock, warns once at five minutes and once at the end', () => {
   vi.useFakeTimers({ now: SERVER_NOW })
-  // 6 minutes left by the server even though the browser clock is 3 minutes ahead.
-  renderWith(admin(3, 3), <AdminReauthStatus />)
+  // The /me Date header says the server is 3 minutes behind the browser, so
+  // 6 minutes are left by the server although the browser counts 3.
+  recordServerDate(new Date(SERVER_NOW - 3 * MINUTE).toUTCString(), SERVER_NOW)
+  renderWith(admin(3), <AdminReauthStatus />)
   expect(screen.getByText('본인 확인 · 6분 남음')).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: '연장' })).toBeNull()
   expect(screen.getByRole('status')).toHaveTextContent('')
