@@ -55,9 +55,20 @@ export const PracticeQuestionBookmarkStatus = ({
 }: PracticeQuestionBookmarkStatusProps): ReactElement => {
   const { t } = useTranslation('practice')
   const { bookmarksQuery, isMutationPaused, message } = bookmark
+  const failure =
+    message?.questionId === questionId && message.code !== 'loginRequired'
+      ? message.code
+      : null
   return (
     <>
-      {message?.questionId === questionId || isMutationPaused ? (
+      {failure ? (
+        // A failed change is an error next to the button, never a toast.
+        <p className="mt-3 text-sm font-semibold text-danger" role="alert">
+          {t(`session.bookmark.${failure}`)}
+        </p>
+      ) : (message?.questionId === questionId &&
+          message.code === 'loginRequired') ||
+        isMutationPaused ? (
         <p className="mt-3 text-sm font-semibold text-warning" role="status">
           {isMutationPaused
             ? t('session.bookmark.offlineQueued')

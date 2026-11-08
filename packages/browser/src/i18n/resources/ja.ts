@@ -100,7 +100,9 @@ export const jaCoreResources = {
       info: 'お知らせ',
       success: '完了',
       warning: '注意',
-      danger: 'エラー'
+      loggedOut: 'ログアウトしました。',
+      offline: 'オフラインです。接続を確認してください。',
+      restored: '再接続しました。'
     },
     footer: {
       originalContent: 'オリジナル問題で学習します。',
@@ -464,7 +466,6 @@ export const jaCoreResources = {
       loggingOut: 'ログアウトしています。',
       logoutUnknown:
         'ログアウトの状態を確認できませんでした。もう一度ご確認ください。',
-      loggedOut: 'ログアウトしました。',
       unlinkTitle: '{{provider}}との連携を解除しますか？',
       unlinkDescription:
         '連携を解除した後は、連携済みの別のログイン方法でログインしてください。学習記録は維持されます。退会は別の操作です。',
@@ -727,7 +728,7 @@ export const jaCoreResources = {
         loginRequired: 'ブックマークに保存するにはログインしてください。',
         legacyReadOnly:
           '以前の契約セッションではブックマークを変更できません。',
-        removed: 'ブックマークを解除しました。',
+        removed: 'ブックマークから外しました。',
         removeRollback: 'ブックマークを解除できなかったため元に戻しました。',
         saved: 'ブックマークに保存しました。',
         saveRollback: 'ブックマークに保存できなかったため元に戻しました。',
@@ -881,7 +882,7 @@ export const jaCoreResources = {
       remove: 'ブックマーク解除',
       removeLabel: '{{formattedOrdinal}}番の問題のブックマークを解除',
       unavailable: 'この結果ではブックマークを変更できません。',
-      removed: 'ブックマークを解除しました。',
+      removed: 'ブックマークから外しました。',
       removeFailed: 'ブックマークを解除できなかったため元に戻しました。',
       saved: 'ブックマークに保存しました。',
       saveFailed: 'ブックマークに保存できなかったため元に戻しました。'
@@ -1387,8 +1388,8 @@ export const jaCoreResources = {
       retrySave: 'もう一度保存',
       saving: '保存中…',
       savedAt: '{{time}} 保存',
-      saved: '保存しました',
-      deleted: 'メモを削除しました',
+      saved: 'メモを保存しました。',
+      deleted: 'メモを削除しました。',
       saveError:
         '保存できませんでした。入力した内容はそのまま残っています。接続を確認してもう一度保存してください。',
       saveOffline:
@@ -1625,10 +1626,6 @@ export const jaCoreResources = {
         '接続が復旧したらログイン状態を再確認します。保存済みのアカウント情報は権限判定に使用していません。'
     },
     banner: {
-      loggedOut: 'ログアウトしました。',
-      offline: 'オフラインです。ネットワーク接続を確認してください。',
-      restored:
-        'ネットワーク接続の復旧を検出しました。必要なリクエストをもう一度お試しください。',
       generic:
         'リクエストを処理できませんでした。しばらく後にもう一度お試しください。',
       network: 'ネットワーク接続が不安定です。もう一度お試しください。',

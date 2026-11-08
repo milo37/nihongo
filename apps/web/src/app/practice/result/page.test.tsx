@@ -780,7 +780,8 @@ describe('approved general result navigation', () => {
     })
     await waitFor(() => expect(button).toBeEnabled())
     await userEvent.setup().click(button)
-    expect(await screen.findByText('책갈피에 저장했습니다.')).toBeVisible()
+    const toasts = await screen.findByRole('region', { name: '알림' })
+    expect(await within(toasts).findByText('책갈피에 저장했어요.')).toBeVisible()
     expect(
       screen.getByRole('button', { name: '2번 문제 책갈피 해제' })
     ).toHaveAttribute('aria-pressed', 'true')

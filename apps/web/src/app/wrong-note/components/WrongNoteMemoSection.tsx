@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useToast } from '@nihongo/browser/common/components/Toast'
 import type { ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'
@@ -25,7 +26,7 @@ type WrongNoteMemoSectionProps = {
   questionId: string
 }
 
-type FocusTarget = 'textarea' | 'trigger' | 'notice' | null
+type FocusTarget = 'textarea' | 'trigger' | null
 
 const penIcon = (
   <svg
@@ -47,6 +48,7 @@ export const WrongNoteMemoSection = ({
   questionId
 }: WrongNoteMemoSectionProps): ReactElement => {
   const { i18n, t } = useTranslation('wrongNote')
+  const { addToast } = useToast()
   const locale = resolveUiLocale(i18n.resolvedLanguage)
   const memoQuery = useGetWrongNoteMemo(questionId)
   const updateMemo = useUpdateWrongNoteMemo(questionId)
@@ -57,7 +59,6 @@ export const WrongNoteMemoSection = ({
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
-  const noticeRef = useRef<HTMLParagraphElement>(null)
   const pendingFocusRef = useRef<FocusTarget>(null)
   const headingId = useId()
 
@@ -67,8 +68,7 @@ export const WrongNoteMemoSection = ({
     pendingFocusRef.current = null
     const target = {
       textarea: textareaRef,
-      trigger: triggerRef,
-      notice: noticeRef
+      trigger: triggerRef
     }[focusTarget].current
     target?.focus()
   })
@@ -108,8 +108,14 @@ export const WrongNoteMemoSection = ({
       {
         onSuccess: () => {
           setIsEditing(false)
-          setNotice('saved')
-          pendingFocusRef.current = 'notice'
+          // Success is a toast (it never takes focus); focus returns to the
+          // edit button next to the saved time.
+          addToast({
+            key: 'memo',
+            title: t('memo.saved'),
+            variant: 'success'
+          })
+          pendingFocusRef.current = 'trigger'
         },
         onError: (error) => {
           setNotice(
@@ -128,7 +134,11 @@ export const WrongNoteMemoSection = ({
       {
         onSuccess: () => {
           setIsDeleteOpen(false)
-          setNotice('deleted')
+          addToast({
+            key: 'memo',
+            title: t('memo.deleted'),
+            variant: 'success'
+          })
           pendingFocusRef.current = 'trigger'
         },
         onError: () => {
@@ -149,7 +159,7 @@ export const WrongNoteMemoSection = ({
   )
 
   const noticeMessage = (
-    <WrongNoteMemoNotice notice={notice} noticeRef={noticeRef} />
+    <WrongNoteMemoNotice notice={notice} />
   )
 
   const offlineMessage = !isOnline ? (

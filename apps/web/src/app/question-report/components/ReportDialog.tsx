@@ -8,6 +8,7 @@ import { useCreateReport } from '@app/question-report/hooks/useCreateReport'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'
 import { Textarea } from '@nihongo/browser/common/components/Textarea'
+import { useToast } from '@nihongo/browser/common/components/Toast'
 
 export type ReportDialogCopy = {
   readonly title: string
@@ -20,7 +21,7 @@ interface ReportDialogProps {
   readonly copy: ReportDialogCopy
   readonly open: boolean
   readonly onOpenChange: (open: boolean) => void
-  readonly onSubmitted: () => void
+  readonly onSubmitted?: () => void
   /** Builds the request from the description; location is app-owned. */
   readonly toRequest: (description: string) => CreateReportRequest
   readonly returnFocusRef?: RefObject<HTMLElement | null>
@@ -50,10 +51,13 @@ export const ReportDialog = ({
       setDescriptionRequired(false)
     }
   }
+  const { addToast } = useToast()
   const mutation = useCreateReport(() => {
     onOpenChange(false)
     setDescription('')
-    onSubmitted()
+    // The dialog closes, so success is a toast.
+    addToast({ key: 'report', title: copy.submitted, variant: 'success' })
+    onSubmitted?.()
   })
 
   const visibleError = submittedSinceOpen ? mutation.error : null

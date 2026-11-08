@@ -66,7 +66,10 @@ const SelectedResultItem = ({
         isResultSourceUnavailable={result.isResultSourceUnavailable}
         bookmarkMessage={
           bookmark.message?.questionId === item.question.id
-            ? t(`bookmark.${bookmark.message.code}`)
+            ? {
+                text: t(`bookmark.${bookmark.message.code}`),
+                isError: bookmark.message.code !== 'unavailable'
+              }
             : null
         }
         onToggleBookmark={result.toggleSelectedBookmark}

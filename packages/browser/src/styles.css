@@ -1468,7 +1468,64 @@
   }
 
   .ui-toast {
+    --ui-toast-tone: var(--color-info);
+    border-left: 4px solid rgb(var(--ui-toast-tone));
     animation: ui-toast-in 180ms ease-out;
+  }
+
+  .ui-toast-success {
+    --ui-toast-tone: var(--color-success);
+  }
+
+  .ui-toast-warning {
+    --ui-toast-tone: var(--color-warning);
+  }
+
+  .ui-toast-icon {
+    display: inline-flex;
+    width: 24px;
+    height: 24px;
+    margin-top: 2px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    background: rgb(var(--ui-toast-tone));
+    color: rgb(var(--color-surface));
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  /* Bottom right on wide screens, above the learner bottom navigation on
+     narrow ones, and above the global error banner when it shows. */
+  .ui-toast-region {
+    position: fixed;
+    right: 24px;
+    bottom: calc(24px + var(--global-banner-offset, 0px));
+    z-index: var(--z-toast);
+    display: grid;
+    width: 360px;
+    gap: 8px;
+    pointer-events: none;
+  }
+
+  @media (max-width: 760px) {
+    .ui-toast-region {
+      right: 16px;
+      left: 16px;
+      bottom: calc(
+        max(16px, env(safe-area-inset-bottom)) +
+          var(--global-banner-offset, 0px)
+      );
+      width: auto;
+    }
+
+    body:has(.app-mobile-navigation) .ui-toast-region {
+      bottom: calc(
+        var(--mobile-navigation-height) + env(safe-area-inset-bottom) + 12px +
+          var(--global-banner-offset, 0px)
+      );
+    }
   }
 
   .ui-tab {
@@ -1556,7 +1613,7 @@
 @keyframes ui-toast-in {
   from {
     opacity: 0;
-    transform: translateY(0.75rem);
+    transform: translateY(8px);
   }
 }
 

@@ -101,7 +101,9 @@ export const koResources = {
       info: '안내',
       success: '성공',
       warning: '주의',
-      danger: '오류'
+      loggedOut: '로그아웃했어요.',
+      offline: '오프라인이에요. 연결을 확인해 주세요.',
+      restored: '다시 연결됐어요.'
     },
     footer: {
       originalContent: '자체 제작 문제로 학습합니다.',
@@ -461,7 +463,6 @@ export const koResources = {
       logoutAction: '로그아웃',
       loggingOut: '로그아웃하고 있어요.',
       logoutUnknown: '로그아웃 상태를 확인하지 못했어요. 다시 확인해 주세요.',
-      loggedOut: '로그아웃했어요.',
       unlinkTitle: '{{provider}} 연결을 해제할까요?',
       unlinkDescription:
         '연결 해제 후에는 연결된 다른 로그인 방법으로 로그인해 주세요. 학습 기록은 유지되며, 회원 탈퇴는 별도입니다.',
@@ -719,9 +720,9 @@ export const koResources = {
         removeLabel: '{{ordinal}}번 문제 책갈피 해제',
         loginRequired: '책갈피를 저장하려면 로그인해 주세요.',
         legacyReadOnly: '이전 계약 세션에서는 책갈피를 변경할 수 없습니다.',
-        removed: '책갈피에서 해제했습니다.',
+        removed: '책갈피에서 뺐어요.',
         removeRollback: '책갈피 해제를 완료하지 못해 복원했습니다.',
-        saved: '책갈피에 저장했습니다.',
+        saved: '책갈피에 저장했어요.',
         saveRollback: '책갈피를 저장하지 못해 이전 상태로 복원했습니다.',
         offlineQueued:
           '오프라인입니다. 연결되면 책갈피 변경을 다시 시도합니다.',
@@ -871,9 +872,9 @@ export const koResources = {
       remove: '책갈피 해제',
       removeLabel: '{{formattedOrdinal}}번 문제 책갈피 해제',
       unavailable: '이 결과에서는 책갈피를 변경할 수 없습니다.',
-      removed: '책갈피에서 해제했습니다.',
+      removed: '책갈피에서 뺐어요.',
       removeFailed: '책갈피 해제를 완료하지 못해 복원했습니다.',
-      saved: '책갈피에 저장했습니다.',
+      saved: '책갈피에 저장했어요.',
       saveFailed: '책갈피를 저장하지 못해 이전 상태로 복원했습니다.'
     },
     blocker: {
@@ -1374,8 +1375,8 @@ export const koResources = {
       retrySave: '다시 저장',
       saving: '저장 중…',
       savedAt: '{{time}} 저장',
-      saved: '저장했어요',
-      deleted: '메모를 삭제했어요',
+      saved: '메모를 저장했어요.',
+      deleted: '메모를 삭제했어요.',
       saveError:
         '저장하지 못했어요. 쓴 내용은 그대로 있어요. 연결을 확인하고 다시 저장해 주세요.',
       saveOffline:
@@ -1601,7 +1602,7 @@ export const koResources = {
       descriptionRequired: '신고 설명을 입력해 주세요.',
       cancel: '취소',
       submit: '신고 접수',
-      submitted: '문제 신고를 접수했습니다.',
+      sent: '신고를 보냈어요.',
       error: '문제 신고를 접수하지 못했습니다.',
       offline: '오프라인입니다. 작성한 설명은 유지됩니다.',
       appErrorTrigger: '앱 오류 제보',
@@ -1609,7 +1610,7 @@ export const koResources = {
       appErrorTitle: '앱 오류 제보',
       appErrorDescription:
         '어떤 화면에서 무엇을 하다가 문제가 생겼는지 적어 주세요. 제보 내용은 관리자만 확인합니다.',
-      appErrorSubmitted: '앱 오류 제보를 접수했습니다.',
+      appErrorSent: '오류 제보를 보냈어요.',
       appErrorError: '앱 오류 제보를 접수하지 못했습니다.'
     },
     reportList: koAdminReportListResources,
@@ -1646,10 +1647,6 @@ export const koResources = {
         '연결이 복구되면 로그인 상태를 다시 확인합니다. 저장된 계정 정보는 권한 판단에 사용하지 않았습니다.'
     },
     banner: {
-      loggedOut: '로그아웃했어요.',
-      offline: '오프라인 상태입니다. 네트워크 연결을 확인해 주세요.',
-      restored:
-        '네트워크 연결이 복구된 것으로 감지했습니다. 필요한 요청을 다시 시도해 주세요.',
       generic: '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.',
       network: '네트워크 연결이 원활하지 않습니다. 다시 시도해 주세요.',
       response: '응답 형식이 올바르지 않습니다. 다시 시도해 주세요.',

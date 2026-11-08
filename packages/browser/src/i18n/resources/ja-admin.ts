@@ -927,7 +927,7 @@ export const jaAdminResources = {
     descriptionRequired: '報告の説明を入力してください。',
     cancel: 'キャンセル',
     submit: '報告を送信',
-    submitted: '問題の報告を受け付けました。',
+    sent: '報告を送信しました。',
     error: '問題の報告を受け付けられませんでした。',
     offline: 'オフラインです。入力した説明は保持されます。',
     appErrorTrigger: 'アプリの不具合を報告',
@@ -935,7 +935,7 @@ export const jaAdminResources = {
     appErrorTitle: 'アプリの不具合を報告',
     appErrorDescription:
       'どの画面で何をしていたときに問題が起きたかを入力してください。報告内容は管理者のみが確認します。',
-    appErrorSubmitted: 'アプリの不具合報告を受け付けました。',
+    appErrorSent: 'エラー報告を送信しました。',
     appErrorError: 'アプリの不具合報告を受け付けられませんでした。'
   },
   reportList: {

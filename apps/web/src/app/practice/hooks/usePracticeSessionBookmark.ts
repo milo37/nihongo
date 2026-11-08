@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { useToast } from '@nihongo/browser/common/components/Toast'
 import { useBookmarkMutationActivity } from '@app/bookmark/hooks/useBookmarkMutationActivity'
 import { useCreateBookmark } from '@app/bookmark/hooks/useCreateBookmark'
 import { useDeleteBookmark } from '@app/bookmark/hooks/useDeleteBookmark'
@@ -13,9 +15,7 @@ import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTrans
 
 export type BookmarkNoticeCode =
   | 'loginRequired'
-  | 'removed'
   | 'removeRollback'
-  | 'saved'
   | 'saveRollback'
 
 type UsePracticeSessionBookmarkInput = {
@@ -31,6 +31,16 @@ export const usePracticeSessionBookmark = ({
     code: BookmarkNoticeCode
     questionId: string
   } | null>(null)
+  const { t } = useTranslation('practice')
+  const { addToast } = useToast()
+  // Success is a toast; one bookmark toast at a time, a repeat restarts it.
+  const notifySuccess = (code: 'saved' | 'removed'): void => {
+    addToast({
+      key: 'bookmark',
+      title: t(`session.bookmark.${code}`),
+      variant: 'success'
+    })
+  }
   const createBookmark = useCreateBookmark('PRACTICE')
   const deleteBookmark = useDeleteBookmark()
   const mutationActivity = useBookmarkMutationActivity()
@@ -70,8 +80,7 @@ export const usePracticeSessionBookmark = ({
     setMessage(null)
     if (isBookmarked(question.id)) {
       deleteBookmark.mutate(question.id, {
-        onSuccess: () =>
-          setMessage({ code: 'removed', questionId: question.id }),
+        onSuccess: () => notifySuccess('removed'),
         onError: (error) => {
           if (!isAuthTransitionSupersededError(error)) {
             setMessage({ code: 'removeRollback', questionId: question.id })
@@ -87,7 +96,7 @@ export const usePracticeSessionBookmark = ({
         optimisticBookmark: toOptimisticBookmark(question)
       },
       {
-        onSuccess: () => setMessage({ code: 'saved', questionId: question.id }),
+        onSuccess: () => notifySuccess('saved'),
         onError: (error) => {
           if (!isAuthTransitionSupersededError(error)) {
             setMessage({ code: 'saveRollback', questionId: question.id })

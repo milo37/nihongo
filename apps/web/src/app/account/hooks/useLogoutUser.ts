@@ -13,11 +13,11 @@ import { logoutMutations } from '@app/account/queries/logoutMutations'
 export const useLogoutUser = () => {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
-  const { t } = useTranslation('auth')
+  const { t: commonT } = useTranslation('common')
   const { addToast } = useToast()
   const leave = async (): Promise<void> => {
     await navigate('/', { replace: true })
-    addToast({ title: t('sso.loggedOut'), variant: 'success' })
+    addToast({ title: commonT('toast.loggedOut'), variant: 'success' })
   }
 
   const logout = useMutation({
