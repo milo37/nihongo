@@ -1632,9 +1632,13 @@ describe('StudyDraft PostgreSQL integration', () => {
     await waitForBlockedBackend()
     saveBeforeSubmitBarrier.release()
     await expect(saveBeforeSubmit).resolves.toMatchObject({ replayed: false })
-    await expect(submitAfterSave).rejects.toMatchObject({
-      code: 'DRAFT_VERSION_CONFLICT'
-    })
+    // Submit waits for the save's lock, then grades the answers as sent.
+    await expect(submitAfterSave).resolves.toMatchObject({ replayed: false })
+    expect(
+      await database.client.studyDraft.count({
+        where: { studySessionId: saveBeforeSubmitSession.id }
+      })
+    ).toBe(0)
 
     lockRaceStage = 'SUBMIT_BEFORE_SAVE'
     const submitBeforeSaveSession = await createOwnedV2Session(userId)

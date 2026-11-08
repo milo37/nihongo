@@ -7,6 +7,9 @@ import {
 
 export const getGuestAllowanceOperationId = 'study.getGuestAllowance' as const
 
+/** The read takes no query; any query part is refused. */
+export const getGuestAllowanceQuerySchema = z.object({}).strict()
+
 /**
  * What a guest may still start today (#737; planning S2, S3). Only fixed
  * values: the browser turns `resetsAt` (the next midnight Korea time) into

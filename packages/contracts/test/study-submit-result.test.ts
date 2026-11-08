@@ -130,7 +130,7 @@ describe('study submit/result contracts', () => {
     ).toBe(false)
   })
 
-  it('v2 header와 draft revision을 강제한다', () => {
+  it('v2 header를 강제하고 draft revision은 받되 쓰지 않는다', () => {
     expect(
       submitStudySessionV2HeadersSchema.parse({
         'idempotency-key': id(99),
@@ -151,6 +151,8 @@ describe('study submit/result contracts', () => {
         expectedDraftRevision: 0
       }).expectedDraftRevision
     ).toBe(0)
+    // Optional and ignored: the server grades the answers as sent.
+    expect(submitStudySessionV2BodySchema.safeParse(body).success).toBe(true)
     expect(
       submitStudySessionV2BodySchema.safeParse({
         ...body,
@@ -164,12 +166,14 @@ describe('study submit/result contracts', () => {
       }).success
     ).toBe(false)
 
-    expect(submitStudySessionV2ErrorCodeSchema.options).toEqual(
-      expect.arrayContaining([
-        'DUPLICATE_ANSWER',
-        'DRAFT_VERSION_CONFLICT',
-        'DRAFT_SUBMIT_MISMATCH'
-      ])
+    expect(submitStudySessionV2ErrorCodeSchema.options).toContain(
+      'DUPLICATE_ANSWER'
+    )
+    expect(submitStudySessionV2ErrorCodeSchema.options).not.toContain(
+      'DRAFT_VERSION_CONFLICT'
+    )
+    expect(submitStudySessionV2ErrorCodeSchema.options).not.toContain(
+      'DRAFT_SUBMIT_MISMATCH'
     )
   })
 
