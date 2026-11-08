@@ -149,6 +149,36 @@ describe('storage adapters', () => {
     expect(useAppStore.getState().selectedAnswers).toEqual({})
   })
 
+  it('관리자 /me의 서버 시각은 저장하지 않아 같은 사용자를 다시 받아도 저장값이 바뀌지 않는다', () => {
+    const admin = {
+      id: 'admin-1',
+      name: '관리자',
+      role: 'ADMIN' as const,
+      targetLevel: null,
+      adminFreshUntil: null
+    }
+    act(() =>
+      useAppStore.getState().setCurrentUser({
+        ...admin,
+        adminServerTime: '2026-11-08T10:00:00.000Z'
+      })
+    )
+    const first = cachedStorage.getItem(APP_STORE_KEY)
+    act(() =>
+      useAppStore.getState().setCurrentUser({
+        ...admin,
+        adminServerTime: '2026-11-08T10:00:01.000Z'
+      })
+    )
+    // An unchanged value fires no storage event, so other tabs stay quiet.
+    expect(cachedStorage.getItem(APP_STORE_KEY)).toBe(first)
+    expect(first).not.toContain('adminServerTime')
+    expect(useAppStore.getState().currentUser?.adminServerTime).toBe(
+      '2026-11-08T10:00:01.000Z'
+    )
+    act(() => useAppStore.getState().setCurrentUser(null))
+  })
+
   it('v2 auth가 없거나 손상되면 남아 있는 practice도 안전하게 폐기한다', () => {
     const authStorage = createMemoryStorage()
     const practiceStorage = createMemoryStorage()
