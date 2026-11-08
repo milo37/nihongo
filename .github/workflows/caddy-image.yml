@@ -1,0 +1,63 @@
+name: Caddy image
+
+# PRODUCTION origin proxy (infra/aws/caddy, #40): builds Caddy with the
+# Cloudflare DNS provider and pushes ECR:<SHA> to the PRODUCTION-only caddy
+# repository. Skipped until the repository variables
+# PRODUCTION_AWS_DEPLOY_ROLE_ARN (PRODUCTION terraform output
+# github_deploy_role_arn), CADDY_ECR_REPOSITORY_URL (output
+# caddy_ecr_repository_url) and AWS_REGION are set. The role trusts main only.
+# The pushed digest goes into terraform.tfvars as caddy_dns_image.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'infra/aws/caddy/**'
+      - '.github/workflows/caddy-image.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: caddy-image-${{ github.sha }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish the Caddy DNS-01 image
+    if: vars.PRODUCTION_AWS_DEPLOY_ROLE_ARN != '' && vars.CADDY_ECR_REPOSITORY_URL != '' && vars.AWS_REGION != ''
+    # The host is Graviton (t4g), so the image is built natively on arm64.
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    env:
+      CADDY_ECR_REPOSITORY_URL: ${{ vars.CADDY_ECR_REPOSITORY_URL }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Assume the PRODUCTION deploy role (OIDC, no stored keys)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.PRODUCTION_AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Log in to ECR
+        run: |
+          aws ecr get-login-password \
+            | docker login --username AWS --password-stdin "${CADDY_ECR_REPOSITORY_URL%%/*}"
+
+      # Tags are immutable: a rerun on the same commit reports the existing digest.
+      - name: Build and push
+        run: |
+          repo="${CADDY_ECR_REPOSITORY_URL#*/}"
+          if ! aws ecr describe-images --repository-name "$repo" --image-ids imageTag="$GITHUB_SHA" >/dev/null 2>&1; then
+            docker build --tag "$CADDY_ECR_REPOSITORY_URL:$GITHUB_SHA" infra/aws/caddy
+            docker run --rm "$CADDY_ECR_REPOSITORY_URL:$GITHUB_SHA" caddy list-modules | grep -qx 'dns.providers.cloudflare'
+            docker push "$CADDY_ECR_REPOSITORY_URL:$GITHUB_SHA"
+          fi
+          digest="$(aws ecr describe-images --repository-name "$repo" --image-ids imageTag="$GITHUB_SHA" \
+            --query 'imageDetails[0].imageDigest' --output text)"
+          echo "caddy_dns_image = \"$CADDY_ECR_REPOSITORY_URL@$digest\"" | tee -a "$GITHUB_STEP_SUMMARY"

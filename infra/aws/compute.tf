@@ -59,9 +59,10 @@ data "aws_iam_policy_document" "host" {
   }
 
   statement {
-    sid       = "EcrPull"
-    actions   = ["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer", "ecr:BatchCheckLayerAvailability"]
-    resources = [aws_ecr_repository.api.arn]
+    sid     = "EcrPull"
+    actions = ["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer", "ecr:BatchCheckLayerAvailability"]
+    # PRODUCTION adds its origin proxy image (aws_ecr_repository.caddy, #40).
+    resources = concat([aws_ecr_repository.api.arn], aws_ecr_repository.caddy[*].arn)
   }
 
   statement {
@@ -125,6 +126,7 @@ resource "aws_instance" "host" {
     compose_yaml = base64encode(templatefile("${path.module}/files/compose.yaml.tftpl", {
       postgres_image   = var.postgres_image
       caddy_image      = var.caddy_image
+      caddy_dns_image  = var.caddy_dns_image
       origin_port      = local.origin_port
       origin_tls       = local.origin_tls
       proxy_subnet     = local.proxy_subnet
@@ -144,6 +146,9 @@ resource "aws_instance" "host" {
     erase_sh          = file("${path.module}/files/erase-deletion-pending.sh")
     guest_cleanup_sh  = file("${path.module}/files/guest-cleanup.sh")
     cloudwatch_config = base64encode(file("${path.module}/files/cloudwatch-agent.json"))
+    # PRODUCTION only: Cloudflare token for the origin certificate (#40).
+    origin_tls           = local.origin_tls
+    render_origin_env_sh = file("${path.module}/files/render-origin-env.sh")
     public_env = base64encode(join("\n", [
       "NODE_ENV=production",
       "DEPLOYMENT_ENVIRONMENT=${var.deployment_environment}",
@@ -163,6 +168,11 @@ resource "aws_instance" "host" {
 
   lifecycle {
     ignore_changes = [ami]
+
+    precondition {
+      condition     = !local.origin_tls || var.caddy_dns_image != ""
+      error_message = "origin_domain_name needs caddy_dns_image: build it with the Caddy image workflow first (infra/aws/README.md)."
+    }
   }
 }
 

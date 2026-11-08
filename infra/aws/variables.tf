@@ -76,6 +76,17 @@ variable "caddy_image" {
   default     = "caddy:2.11.8-alpine@sha256:f6228111e5fafa1a5238258d0858e103f10599b8d1659a146e7726681a002bb9"
 }
 
+variable "caddy_dns_image" {
+  description = "PRODUCTION origin proxy with the Cloudflare DNS provider (infra/aws/caddy), as <caddy repository URL>@sha256:<digest>. Used only with origin_domain_name; STAGING leaves it empty."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.caddy_dns_image == "" || can(regex("@sha256:[0-9a-f]{64}$", var.caddy_dns_image))
+    error_message = "caddy_dns_image must be pinned by digest (...@sha256:<64 hex>)."
+  }
+}
+
 variable "waf_rate_limit_per_5min" {
   description = "Requests per client IP per 5 minutes before WAF blocks."
   type        = number

@@ -31,7 +31,8 @@ jobs:
   terraform:
     name: Terraform static checks
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Render host templates builds the PRODUCTION Caddy image (Go build, #40).
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: infra/aws
