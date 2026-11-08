@@ -324,22 +324,25 @@ export const createSplitAppStateStorage = (
       startedAt
     } = envelope.state
 
-    const authWritten = authStorage.setItem(
-      key,
-      serializeEnvelope({ currentUser }, envelope.version)
+    // Write only what changed. Every auth write sends a storage event to the
+    // other tabs, and each of them reads /me and writes again, so rewriting
+    // an unchanged value (or persisting a value that changes on every read)
+    // keeps tabs waking each other forever.
+    const nextAuth = serializeEnvelope({ currentUser }, envelope.version)
+    const nextPractice = serializeEnvelope(
+      {
+        sessionId,
+        currentQuestionIndex,
+        selectedAnswers,
+        startedAt
+      },
+      envelope.version
     )
-    const practiceWritten = practiceStorage.setItem(
-      PRACTICE_STORE_KEY,
-      serializeEnvelope(
-        {
-          sessionId,
-          currentQuestionIndex,
-          selectedAnswers,
-          startedAt
-        },
-        envelope.version
-      )
-    )
+    const authWritten =
+      nextAuth === previousAuth || authStorage.setItem(key, nextAuth)
+    const practiceWritten =
+      nextPractice === previousPractice ||
+      practiceStorage.setItem(PRACTICE_STORE_KEY, nextPractice)
 
     if (authWritten && practiceWritten) {
       return true
