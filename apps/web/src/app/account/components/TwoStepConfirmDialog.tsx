@@ -166,9 +166,17 @@ export const TwoStepConfirmDialog = ({
             </p>
           ) : null}
           {flow.feedback ? (
-            <p className="mt-4 text-sm" role="alert">
-              {authT(ACCOUNT_FEEDBACK_KEY[flow.feedback])}
-            </p>
+            // Cancelling is not an error: a neutral box. Failures and an
+            // expired check are a red error box.
+            flow.feedback === 'reauthCancelled' ? (
+              <p className="auth-notice mt-4" role="status">
+                {authT(ACCOUNT_FEEDBACK_KEY[flow.feedback])}
+              </p>
+            ) : (
+              <p className="auth-notice auth-error mt-4" role="alert">
+                {authT(ACCOUNT_FEEDBACK_KEY[flow.feedback])}
+              </p>
+            )
           ) : null}
           {flow.uncertain ? (
             <Button

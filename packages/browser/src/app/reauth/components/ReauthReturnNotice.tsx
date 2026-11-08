@@ -86,7 +86,7 @@ const ReturnCheck = ({
       aria-live="polite"
       data-reauth-result={key}
       className={classNames(
-        'app-global-banner reauth-return-notice fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-[560px] items-start justify-between gap-3 rounded-xl border border-l-4 border-line bg-surface px-4 py-3 text-sm text-ink shadow-soft',
+        'app-global-banner reauth-return-notice fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-[560px] items-start justify-between gap-3 max-[480px]:flex-col max-[480px]:items-stretch max-[480px]:gap-1 rounded-xl border border-l-4 border-line bg-surface px-4 py-3 text-sm text-ink shadow-soft',
         toneClassNames[tone]
       )}
       onMouseEnter={() => setPaused(true)}
@@ -99,7 +99,10 @@ const ReturnCheck = ({
         if (!event.currentTarget.contains(event.relatedTarget)) setPaused(false)
       }}
     >
-      <p className="min-w-0 flex-1 py-2.5 leading-6">{t('reauth.' + key)}</p>
+      <p className="min-w-0 flex-1 py-2.5 leading-6 max-[480px]:pb-0">
+        {t('reauth.' + key)}
+      </p>
+      {/* Below 480px the buttons go under the text so it keeps the full width. */}
       <div className="flex shrink-0 flex-wrap justify-end gap-2">
         {check.phase === 'unknown' ? (
           <Button variant="outline" size="sm" onClick={onRecheck}>

@@ -540,18 +540,27 @@ describe('마이페이지 계정 설정', () => {
     expect(mockDatabase.ssoAccounts.capabilities().freshVerified).toBe(false)
   })
   it.each([
-    ['CANCELLED', '본인 확인을 취소했어요. 필요하면 다시 시도해 주세요.'],
-    ['FAILED', '본인 확인을 마치지 못했어요. 다시 시도해 주세요.'],
-    ['INVALID_CALLBACK', '확인 요청이 만료됐어요. 다시 시도해 주세요.']
-  ])(
-    '%s 복귀는 같은 대화상자의 ① 단계에 그 결과를 보여 준다',
-    async (outcome, copy) => {
+    [
+      'CANCELLED',
+      '본인 확인을 취소했어요. 필요하면 다시 시도해 주세요.',
+      'status'
+    ],
+    ['FAILED', '본인 확인을 마치지 못했어요. 다시 시도해 주세요.', 'alert'],
+    ['INVALID_CALLBACK', '확인 요청이 만료됐어요. 다시 시도해 주세요.', 'alert']
+  ] as const)(
+    '%s 복귀는 같은 대화상자의 ① 단계에 그 결과를 보여 준다(실패·만료는 빨간 상자, 취소는 중립 상자)',
+    async (outcome, copy, role) => {
       mockDatabase.loginAs('USER')
       renderAccount('/login?reauth=delete&ssoAccountFresh=' + outcome)
       const dialog = await screen.findByRole('dialog', {
         name: '회원 탈퇴할까요?'
       })
       expect(dialog).toHaveTextContent(copy)
+      const box = within(dialog).getByText(copy)
+      expect(box).toHaveAttribute('role', role)
+      expect(box).toHaveClass('auth-notice')
+      if (role === 'alert') expect(box).toHaveClass('auth-error')
+      else expect(box).not.toHaveClass('auth-error')
       expect(
         within(dialog).queryByRole('button', { name: '회원 탈퇴' })
       ).not.toBeInTheDocument()
