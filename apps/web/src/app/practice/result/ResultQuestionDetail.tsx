@@ -3,6 +3,7 @@ import type { ReactElement, ReactNode } from 'react'
 import type { StudyResultItemView } from '@app/practice/adapters/studyResultView'
 import { QuestionReportDialog } from '@app/question-report/components/QuestionReportDialog'
 import { Button } from '@nihongo/browser/common/components/Button'
+import { classNames } from '@nihongo/browser/common/components/classNames'
 import { ExplanationLanguagePanel } from '@common/components/ExplanationLanguagePanel'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
@@ -15,7 +16,7 @@ type ResultQuestionDetailProps = {
   readonly isBookmarked: boolean
   readonly bookmarkDisabled: boolean
   readonly isResultSourceUnavailable: boolean
-  readonly bookmarkMessage: string | null
+  readonly bookmarkMessage: { text: string; isError: boolean } | null
   readonly onToggleBookmark: () => void
   readonly actions: ReactNode
 }
@@ -45,15 +46,20 @@ const ResultManageButtons = ({
   return (
     <div className="flex flex-wrap gap-2">
       <Button
+        className="aria-disabled:cursor-wait aria-disabled:opacity-70"
         variant="ghost"
-        disabled={bookmarkDisabled || !item.question.questionVersionId}
+        disabled={!item.question.questionVersionId}
+        // Focus stays here while busy (a toast closed with Esc returns to it).
+        aria-disabled={bookmarkDisabled || undefined}
         aria-label={t(
           isBookmarked ? 'bookmark.removeLabel' : 'bookmark.addLabel',
           { formattedOrdinal }
         )}
         aria-pressed={isBookmarked}
         data-selected={isBookmarked}
-        onClick={onToggleBookmark}
+        onClick={() => {
+          if (!bookmarkDisabled) onToggleBookmark()
+        }}
       >
         <Icon name="bookmark" />
         {isBookmarked ? t('bookmark.remove') : t('bookmark.add')}
@@ -148,8 +154,14 @@ export const ResultQuestionDetail = ({
         ) : null}
       </div>
       {bookmarkMessage ? (
-        <p className="mt-3 text-sm font-semibold text-warning" role="status">
-          {bookmarkMessage}
+        <p
+          className={classNames(
+            'mt-3 text-sm font-semibold',
+            bookmarkMessage.isError ? 'text-danger' : 'text-warning'
+          )}
+          role={bookmarkMessage.isError ? 'alert' : 'status'}
+        >
+          {bookmarkMessage.text}
         </p>
       ) : null}
       {item.tags.length > 0 ? (

@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { useToast } from '@nihongo/browser/common/components/Toast'
 import { toOptimisticBookmark } from '@app/bookmark/toOptimisticBookmark'
 import type { StudyResultItemView } from '@app/practice/adapters/studyResultView'
 import { useBookmarkMutationActivity } from '@app/bookmark/hooks/useBookmarkMutationActivity'
@@ -10,9 +12,7 @@ import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTrans
 
 export type ResultBookmarkStatusCode =
   | 'unavailable'
-  | 'removed'
   | 'removeFailed'
-  | 'saved'
   | 'saveFailed'
 
 type UsePracticeResultBookmarkInput = {
@@ -28,6 +28,16 @@ export const usePracticeResultBookmark = ({
     code: ResultBookmarkStatusCode
     questionId: string
   } | null>(null)
+  const { t } = useTranslation('result')
+  const { addToast } = useToast()
+  // Success is a toast; one bookmark toast at a time, a repeat restarts it.
+  const notifySuccess = (code: 'saved' | 'removed'): void => {
+    addToast({
+      key: 'bookmark',
+      title: t(`bookmark.${code}`),
+      variant: 'success'
+    })
+  }
   const createBookmark = useCreateBookmark('RESULT')
   const deleteBookmark = useDeleteBookmark()
   const mutationActivity = useBookmarkMutationActivity()
@@ -73,7 +83,7 @@ export const usePracticeResultBookmark = ({
     if (isItemBookmarked) {
       deleteBookmark.mutate(question.id, {
         onSuccess: () =>
-          setMessage({ code: 'removed', questionId: question.id }),
+          notifySuccess('removed'),
         onError: (error) => {
           if (!isAuthTransitionSupersededError(error)) {
             setMessage({ code: 'removeFailed', questionId: question.id })
@@ -86,7 +96,7 @@ export const usePracticeResultBookmark = ({
     createBookmark.mutate(
       { questionId: question.id, optimisticBookmark },
       {
-        onSuccess: () => setMessage({ code: 'saved', questionId: question.id }),
+        onSuccess: () => notifySuccess('saved'),
         onError: (error) => {
           if (!isAuthTransitionSupersededError(error)) {
             setMessage({ code: 'saveFailed', questionId: question.id })

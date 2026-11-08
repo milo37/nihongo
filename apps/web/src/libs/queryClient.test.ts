@@ -1,5 +1,6 @@
 import { QueryObserver } from '@tanstack/react-query'
 import { queryClient as canonicalQueryClient } from '@nihongo/browser/libs/queryClient'
+import { bookmarkMutations } from '@app/bookmark/queries/bookmarkQueries'
 
 it('the canonical query client invalidates an active query and reads the same cache', async () => {
   const queryKey = [
@@ -71,4 +72,47 @@ it('meta.localErrorUi keeps screen-local mutation errors off the shared bus but 
   } finally {
     unsubscribe()
   }
+})
+
+it('meta.localErrorUi keeps screen-local query errors off the shared bus but still forwards auth errors', async () => {
+  const { subscribeApiError } = await import('@nihongo/browser/libs/errorBus')
+  const received: unknown[] = []
+  const unsubscribe = subscribeApiError((error) => received.push(error))
+  const apiError = (isAuthError: boolean): Error =>
+    Object.assign(new Error(isAuthError ? 'auth' : 'server'), {
+      isAuthError,
+      isNetworkError: false,
+      isOffline: false,
+      retryable: false
+    })
+  const run = (
+    name: string,
+    meta: Record<string, unknown> | undefined,
+    error: Error
+  ) =>
+    canonicalQueryClient
+      .fetchQuery({
+        queryKey: ['local-error-ui', name],
+        meta,
+        retry: false,
+        queryFn: () => Promise.reject(error)
+      })
+      .catch(() => undefined)
+  try {
+    const local = apiError(false)
+    const auth = apiError(true)
+    const shared = apiError(false)
+    await run('local', { localErrorUi: true }, local)
+    await run('auth', { localErrorUi: true }, auth)
+    await run('shared', undefined, shared)
+    expect(received).toEqual([auth, shared])
+  } finally {
+    unsubscribe()
+    canonicalQueryClient.removeQueries({ queryKey: ['local-error-ui'] })
+  }
+})
+
+it('bookmark mutations show their failure inline, not in the shared banner', () => {
+  expect(bookmarkMutations.create().meta).toEqual({ localErrorUi: true })
+  expect(bookmarkMutations.delete().meta).toEqual({ localErrorUi: true })
 })

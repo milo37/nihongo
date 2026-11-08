@@ -82,10 +82,12 @@ export const bookmarkQueries = {
   }
 } as const
 
+// Every caller shows its own inline failure, so the global banner stays out.
 export const bookmarkMutations = {
   create: () =>
     mutationOptions({
       mutationKey: [...bookmarkQueries.allKey(), 'create'] as const,
+      meta: { localErrorUi: true },
       mutationFn: async (input: CreateBookmarkActionInput) => {
         assertCurrentCreateBookmarkAction(input)
         const response = await createBookmark(input.questionId)
@@ -96,6 +98,7 @@ export const bookmarkMutations = {
   delete: () =>
     mutationOptions({
       mutationKey: [...bookmarkQueries.allKey(), 'delete'] as const,
+      meta: { localErrorUi: true },
       mutationFn: async (input: DeleteBookmarkActionInput) => {
         assertCurrentDeleteBookmarkAction(input)
         const response = await deleteBookmark(input.questionId)

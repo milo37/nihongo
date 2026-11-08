@@ -200,7 +200,7 @@ test('rejects a repeated Google callback consumption', () => {
 })
 
 test('current two-actor rate-limit model is exact and rejects cardinality drift', () => {
-  assert.equal(Object.keys(accessibilityExpectedRateLimitCategories).length, 23)
+  assert.equal(Object.keys(accessibilityExpectedRateLimitCategories).length, 24)
   assert.equal(
     accessibilityExpectedRateLimitCategories['application:study-read'],
     2
@@ -209,7 +209,7 @@ test('current two-actor rate-limit model is exact and rejects cardinality drift'
     accessibilityExpectedRateLimitCategories[
       'application:dashboard-insights-read'
     ],
-    2
+    1
   )
   assert.equal(
     accessibilityExpectedRateLimitCategories[
@@ -229,7 +229,8 @@ test('current two-actor rate-limit model is exact and rejects cardinality drift'
     'application:study-read',
     'application:dashboard-insights-read'
   ]) {
-    for (const count of [1, 3]) {
+    const expected = accessibilityExpectedRateLimitCategories[category]
+    for (const count of [expected - 1, expected + 1]) {
       const { before, after } = createRateLimitSnapshots()
       after.rateLimitRows = after.rateLimitRows.filter(
         ({ key }) => !key.startsWith(category + ':')

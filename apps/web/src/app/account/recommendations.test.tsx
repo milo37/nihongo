@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, RouterProvider } from 'react-router'
-import { DashboardRecommendedEntry } from '@app/dashboard/components/LearningEntry'
+import { AccountRecommendations } from '@app/account/components/study/AccountRecommendations'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { createStudySessionV2 } from '@api/study/createStudySessionV2'
 import { getStudyDraftAnswers } from '@api/study/getStudyDraftAnswers'
@@ -17,15 +17,15 @@ const renderRecommendation = () => {
   const router = createMemoryRouter(
     [
       {
-        path: '/dashboard',
+        path: '/account',
         element: (
           <ProtectedRouteProvider>
-            <DashboardRecommendedEntry onReady={() => undefined} />
+            <AccountRecommendations />
           </ProtectedRouteProvider>
         )
       }
     ],
-    { initialEntries: ['/dashboard'] }
+    { initialEntries: ['/account'] }
   )
   render(
     <QueryClientProvider client={client}>
@@ -43,7 +43,11 @@ it('이용이 제한된 계정이 추천 학습을 시작하면 제한 안내를
   const { client, router } = renderRecommendation()
   await userEvent
     .setup()
-    .click(await screen.findByRole('button', { name: '일반 연습 시작하기' }))
+    .click(
+      (
+        await screen.findAllByRole('button', { name: /시작$/u })
+      )[0] as HTMLElement
+    )
   expect(
     await screen.findByText(
       '임시로 이용이 제한된 계정입니다. 새 학습과 신고는 제한이 풀린 뒤 이용할 수 있습니다.'
@@ -52,7 +56,7 @@ it('이용이 제한된 계정이 추천 학습을 시작하면 제한 안내를
   expect(
     screen.queryByText(/추천 학습을 시작하지 못했습니다/u)
   ).not.toBeInTheDocument()
-  expect(router.state.location.pathname).toBe('/dashboard')
+  expect(router.state.location.pathname).toBe('/account')
   client.clear()
 })
 
@@ -84,7 +88,11 @@ it('이용이 제한된 계정이 추천 단일 복습을 시작하면 제한 �
   const { client, router } = renderRecommendation()
   await userEvent
     .setup()
-    .click(await screen.findByRole('button', { name: '이 문제만 복습하기' }))
+    .click(
+      (
+        await screen.findAllByRole('button', { name: /시작$/u })
+      )[0] as HTMLElement
+    )
   expect(
     await screen.findByText(
       '임시로 이용이 제한된 계정입니다. 새 학습과 신고는 제한이 풀린 뒤 이용할 수 있습니다.'
@@ -93,6 +101,6 @@ it('이용이 제한된 계정이 추천 단일 복습을 시작하면 제한 �
   expect(
     screen.queryByText(/단일 복습을 시작하지 못했습니다/u)
   ).not.toBeInTheDocument()
-  expect(router.state.location.pathname).toBe('/dashboard')
+  expect(router.state.location.pathname).toBe('/account')
   client.clear()
 })

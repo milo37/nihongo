@@ -789,14 +789,18 @@ describe('PracticeSessionPage', () => {
     const add = screen.getByRole('button', { name: '1번 문제 책갈피 추가' })
     await waitFor(() => expect(add).toBeEnabled())
     await user.click(add)
-    expect(await screen.findByText('책갈피에 저장했습니다.')).toBeVisible()
+    // Success is a toast, not text under the button.
+    const toasts = await screen.findByRole('region', { name: '알림' })
+    expect(await within(toasts).findByText('책갈피에 저장했어요.')).toBeVisible()
     const remove = screen.getByRole('button', {
       name: '1번 문제 책갈피 해제'
     })
     expect(remove).toHaveAttribute('aria-pressed', 'true')
     await waitFor(() => expect(remove).toBeEnabled())
     await user.click(remove)
-    expect(await screen.findByText('책갈피에서 해제했습니다.')).toBeVisible()
+    expect(await within(toasts).findByText('책갈피에서 뺐어요.')).toBeVisible()
+    // One bookmark toast at a time: the second replaced the first.
+    expect(within(toasts).getAllByRole('article')).toHaveLength(1)
     expect(
       screen.getByRole('button', { name: '1번 문제 책갈피 추가' })
     ).toHaveAttribute('aria-pressed', 'false')

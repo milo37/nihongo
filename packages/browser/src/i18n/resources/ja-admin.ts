@@ -10,7 +10,39 @@ export const jaAdminResources = {
     previous: '前へ',
     next: '次へ'
   },
-  adminList: {},
+  adminList: {
+    total: '全{{total}}件',
+    range: '· {{from}}–{{to}}件',
+    totalPending: '件数を確認中…',
+    pageSize: '1ページの表示数',
+    pageSizeOption: '{{count}}件ずつ',
+    pageStatus: '{{page}} / {{pageCount}}',
+    first: '最初のページ',
+    previous: '前のページ',
+    next: '次のページ',
+    last: '最後のページ',
+    pagerTop: 'ページ移動（一覧の上）',
+    pagerBottom: 'ページ移動（一覧の下）',
+    movingPage: '別のページを読み込み中…',
+    filters: {
+      button: '絞り込み',
+      buttonCount: '絞り込み（{{count}}）',
+      chipValue: '{{label}}: {{value}}',
+      remove: '{{label}}の絞り込みを解除',
+      all: 'すべて',
+      reset: 'リセット',
+      sheetDone: '{{count}}件を表示',
+      sheetDonePending: '結果を表示',
+      sort: '並べ替え'
+    },
+    columns: '列',
+    rowMenu: '{{id}}の操作',
+    copyId: 'IDをコピー',
+    copied: 'コピーしました',
+    copyFailed: 'コピーできませんでした',
+    selected: '{{count}}件選択中',
+    clearSelection: '選択を解除'
+  },
   nav: {
     brand: '하루마루 管理',
     questions: '問題',
@@ -45,7 +77,7 @@ export const jaAdminResources = {
       solvedCount: '解いた問題',
       reportCount: '報告',
       status: '状態',
-      actions: '詳細・対応'
+      actions: '詳細'
     },
     status: { ACTIVE: '利用中', RESTRICTED: '利用制限' },
     detail: {
@@ -398,39 +430,25 @@ export const jaAdminResources = {
     searchLabel: '問題を検索',
     searchPlaceholder: '問題文の書き出しを入力してください…',
     search: '検索',
-    filtersLegend: '問題一覧の絞り込みと並べ替え',
-    allLevels: 'すべてのレベル',
-    allSubjects: 'すべての科目',
-    allStatuses: 'すべての表示バージョンのステータス',
-    allDifficulties: 'すべての難易度',
     sort: '並べ替え',
-    total: '全{{formattedCount}}問',
-    pageSize: '1ページの表示数',
-    pageSizeOption: '{{count}}問ずつ',
-    totalPending: '問題数を確認しています…',
-    resetFilters: '絞り込みをリセット',
     loading: '管理者用の問題一覧を読み込んでいます…',
     loadErrorTitle: '問題一覧を読み込めませんでした',
     loadErrorDescription:
       'ネットワークの状態を確認してから、もう一度お試しください。',
-    movingPage: '有効な問題一覧のページに移動しています。',
-    noMatchTitle: '検索条件に合う問題はありません',
-    noMatchDescription:
-      '検索語や絞り込みを変更して、もう一度確認してください。',
+    noMatchTitle: '条件に合う問題はありません',
+    noMatchDescription: '絞り込みを減らすか、検索語を変えてください。',
     noQuestionsTitle: '登録された問題はありません',
     noQuestionsDescription:
       '最初のオリジナル問題を登録して、問題バンクを作りましょう。',
     firstQuestion: '最初の問題を登録',
     emptyTitle: '表示する問題がありません',
-    tableHelp:
-      '表を左右にスクロールすると、すべての列と管理ボタンを確認できます。',
     tableLabel: '管理者用の問題一覧',
     tableCaption: 'JLPT管理者用の問題一覧。編集とアーカイブの操作を含みます。',
     columns: {
       id: 'ID',
       level: 'レベル',
       subject: '科目',
-      questionType: '形式',
+      subjectType: '科目・形式',
       question: '問題文',
       difficulty: '難易度',
       status: 'ステータス',
@@ -438,21 +456,16 @@ export const jaAdminResources = {
       updatedAt: '更新日',
       actions: '管理'
     },
-    lifecycle: { ACTIVE: '有効', ARCHIVED: 'アーカイブ' },
     published: '公開版あり',
-    unpublished: '公開版なし',
+    archivedNote: 'アーカイブ済み',
     noDate: '日付情報なし',
     edit: '編集',
-    details: '詳細',
-    rowActionLabel: '問題{{questionId}}の{{action}}',
+    details: '詳細を見る',
     archive: '公開終了・アーカイブ',
-    archiveLabel: '問題{{questionId}}を公開終了・アーカイブ',
     batch: {
       selectColumn: '一括選択',
       selectRow: '問題{{questionId}}を選択',
       selectPage: 'このページで選択できる問題をすべて選択',
-      selected: '{{count}}問を選択中',
-      clear: '選択を解除',
       request: '自分の下書き{{count}}問をレビュー依頼',
       approve: 'レビュー中の{{count}}問を承認',
       publish: '承認済みの{{count}}問を公開',
@@ -572,7 +585,6 @@ export const jaAdminResources = {
       }
     },
     draftDelete: '下書きを削除',
-    draftDeleteLabel: '下書き{{questionId}}を削除',
     draftDialog: {
       title: '下書きを削除しますか？',
       description:
@@ -927,7 +939,7 @@ export const jaAdminResources = {
     descriptionRequired: '報告の説明を入力してください。',
     cancel: 'キャンセル',
     submit: '報告を送信',
-    submitted: '問題の報告を受け付けました。',
+    sent: '報告を送信しました。',
     error: '問題の報告を受け付けられませんでした。',
     offline: 'オフラインです。入力した説明は保持されます。',
     appErrorTrigger: 'アプリの不具合を報告',
@@ -935,7 +947,7 @@ export const jaAdminResources = {
     appErrorTitle: 'アプリの不具合を報告',
     appErrorDescription:
       'どの画面で何をしていたときに問題が起きたかを入力してください。報告内容は管理者のみが確認します。',
-    appErrorSubmitted: 'アプリの不具合報告を受け付けました。',
+    appErrorSent: 'エラー報告を送信しました。',
     appErrorError: 'アプリの不具合報告を受け付けられませんでした。'
   },
   reportList: {
@@ -1032,12 +1044,7 @@ export const jaAdminResources = {
         '学習者から届いた問題の報告とアプリの不具合報告です。受付済みを先に、新しい順で表示します。',
       invalidQuery: 'URLの検索条件が許可範囲外です。既定の条件を使用します。',
       status: '処理状態',
-      allStatuses: 'すべての状態',
       kind: '種類',
-      allKinds: 'すべての種類',
-      pageSize: '1ページの件数',
-      apply: 'フィルターを適用',
-      reset: 'フィルターをリセット',
       loading: '報告を読み込んでいます…',
       refreshing: '報告一覧を更新しています…',
       error: '報告一覧を読み込めませんでした。',
@@ -1046,13 +1053,13 @@ export const jaAdminResources = {
       retry: '報告一覧を再確認',
       emptyTitle: '処理する報告はありません。',
       emptyDescription: '現在の条件に合う報告はありません。',
-      total: '報告 {{formattedCount}}件',
-      location: '発生場所',
-      createdAt: '受付日時',
       details: '詳細を見る',
-      previous: '前のページ',
-      next: '次のページ',
-      first: '最初のページへ'
+      columns: {
+        statusKind: '状態・種類',
+        content: '内容',
+        locationTime: '発生場所・日時',
+        link: '詳細を見る'
+      }
     },
     detail: {
       back: 'バグレポート一覧',

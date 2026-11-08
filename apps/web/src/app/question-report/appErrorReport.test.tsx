@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { ReactElement } from 'react'
@@ -30,7 +31,9 @@ const renderAt = (path: string, element: ReactElement) => {
   render(
     <QueryClientProvider client={client}>
       <I18nProvider>
-        <RouterProvider router={router} />
+        <ToastProvider>
+          <RouterProvider router={router} />
+        </ToastProvider>
       </I18nProvider>
     </QueryClientProvider>
   )
@@ -53,17 +56,14 @@ describe('APP_ERROR report entry points', () => {
     mockDatabase.loginAs('USER')
     renderAt('/dashboard', <Layout />)
     const account = await screen.findByRole('button', {
-      name: appI18n.t('navigation:account')
+      name: appI18n.t('navigation:accountMenu.label')
     })
-    await waitFor(() =>
-      expect(
-        screen.queryByRole('link', {
-          name: appI18n.t('navigation:login')
-        })
-      ).toBeNull()
-    )
+    // The signed-in trigger shows the member avatar and name.
+    await waitFor(() => expect(account).toHaveClass('account-menu-trigger'))
     await userEvent.click(account)
-    await userEvent.click(screen.getByRole('button', { name: '앱 오류 제보' }))
+    await userEvent.click(
+      screen.getByRole('menuitem', { name: '앱 오류 제보' })
+    )
     await submitAppError('대시보드 숫자가 비어 있습니다.')
     expect(mockDatabase.peekUserReports()).toEqual([
       expect.objectContaining({
@@ -93,9 +93,7 @@ describe('APP_ERROR report entry points', () => {
         questionVersionId: null
       })
     ])
-    expect(
-      await screen.findByText('앱 오류 제보를 접수했습니다.')
-    ).toBeInTheDocument()
+    expect(await screen.findByText('오류 제보를 보냈어요.')).toBeInTheDocument()
   })
 
   it('hides the error screen button from guests', async () => {

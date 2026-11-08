@@ -92,5 +92,13 @@ export default tseslint.config(
       'react/no-danger': 'error',
       'no-restricted-syntax': ['error', ...UNSAFE_HTML_SYNTAX]
     }
+  },
+  {
+    // U12 R12: no window.alert/confirm/prompt; use a dialog or a toast.
+    files: [
+      'apps/{web,admin}/src/**/*.{ts,tsx}',
+      'packages/browser/src/**/*.{ts,tsx}'
+    ],
+    rules: { 'no-alert': 'error' }
   }
 )

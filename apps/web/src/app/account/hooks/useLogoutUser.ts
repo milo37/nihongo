@@ -1,19 +1,27 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
+import { useTranslation } from 'react-i18next'
+import { useToast } from '@nihongo/browser/common/components/Toast'
 import { AuthFlowError } from '@nihongo/browser/app/login/authFlowErrors'
 import {
   commitCanonicalAuth,
   refreshCanonicalAuthAfterMutation
 } from '@nihongo/browser/app/login/authSession'
 import { authQueries } from '@nihongo/browser/app/login/queries/authQueries'
-import { authMutations } from '@app/login/queries/authMutations'
+import { logoutMutations } from '@app/account/queries/logoutMutations'
 
 export const useLogoutUser = () => {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const { t: commonT } = useTranslation('common')
+  const { addToast } = useToast()
+  const leave = async (): Promise<void> => {
+    await navigate('/', { replace: true })
+    addToast({ title: commonT('toast.loggedOut'), variant: 'success' })
+  }
 
   const logout = useMutation({
-    ...authMutations.logout(),
+    ...logoutMutations.logout(),
     onSuccess: async () => {
       try {
         const confirmed = await refreshCanonicalAuthAfterMutation(queryClient, {
@@ -21,12 +29,7 @@ export const useLogoutUser = () => {
           forceClear: true,
           forcePracticeReset: true
         })
-        if (confirmed.applied) {
-          await navigate('/practice', {
-            replace: true,
-            state: { signedOut: true }
-          })
-        }
+        if (confirmed.applied) await leave()
       } catch (error: unknown) {
         throw new AuthFlowError(error)
       }
@@ -53,10 +56,7 @@ export const useLogoutUser = () => {
       )
       if (!confirmed.applied) return
       if (user === null) {
-        await navigate('/practice', {
-          replace: true,
-          state: { signedOut: true }
-        })
+        await leave()
       } else {
         // A fresh canonical USER confirms the sign-out did not complete. A new
         // explicit logout is now allowed; never replay the uncertain command.

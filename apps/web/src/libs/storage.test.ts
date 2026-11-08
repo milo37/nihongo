@@ -149,6 +149,49 @@ describe('storage adapters', () => {
     expect(useAppStore.getState().selectedAnswers).toEqual({})
   })
 
+  it('같은 사용자를 다시 받으면 저장소에 쓰지 않아 다른 탭에 storage 이벤트가 가지 않는다', () => {
+    const admin = () => ({
+      id: 'admin-1',
+      name: '관리자',
+      role: 'ADMIN' as const,
+      targetLevel: null,
+      adminFreshUntil: null
+    })
+    act(() => useAppStore.getState().setCurrentUser(admin()))
+    const writes = vi.spyOn(Storage.prototype, 'setItem')
+    try {
+      // A fresh /me answer is a new object with the same value.
+      act(() => useAppStore.getState().setCurrentUser(admin()))
+      expect(writes).not.toHaveBeenCalled()
+      act(() =>
+        useAppStore.getState().setCurrentUser({
+          ...admin(),
+          adminFreshUntil: '2026-11-08T10:30:00.000Z'
+        })
+      )
+      expect(writes).toHaveBeenCalledTimes(1)
+    } finally {
+      writes.mockRestore()
+      act(() => useAppStore.getState().setCurrentUser(null))
+    }
+  })
+
+  it('분리 저장소는 바뀐 쪽만 쓴다', () => {
+    const authStorage = createMemoryStorage()
+    const practiceStorage = createMemoryStorage()
+    const storage = createSplitAppStateStorage(authStorage, practiceStorage)
+    const value = createEnvelope('session-a')
+    storage.setItem(APP_STORE_KEY, value)
+    const authWrite = vi.spyOn(authStorage, 'setItem')
+    const practiceWrite = vi.spyOn(practiceStorage, 'setItem')
+    expect(storage.setItem(APP_STORE_KEY, value)).toBe(true)
+    expect(authWrite).not.toHaveBeenCalled()
+    expect(practiceWrite).not.toHaveBeenCalled()
+    storage.setItem(APP_STORE_KEY, createEnvelope('session-b'))
+    expect(authWrite).not.toHaveBeenCalled()
+    expect(practiceWrite).toHaveBeenCalledTimes(1)
+  })
+
   it('v2 auth가 없거나 손상되면 남아 있는 practice도 안전하게 폐기한다', () => {
     const authStorage = createMemoryStorage()
     const practiceStorage = createMemoryStorage()
