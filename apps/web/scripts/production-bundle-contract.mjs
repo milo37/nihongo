@@ -35,8 +35,9 @@ export const bundleCeilings = Object.freeze({
   // #755 on dev ef36052b (U5 shared re-verification notice + #752 storage
   // guard): web initial gzip 252,166 measured. The notice sits in the global
   // error handler and must show on the first frame after the return, so it
-  // stays in the initial load.
-  initialGzipBytes: 252_500,
+  // stays in the initial load. With U12 toasts (#761) on dev e78241bd:
+  // 253,145 measured; Toast must be ready before the first event (not lazy).
+  initialGzipBytes: 253_500,
   // Shared admin re-verification return notice with its retry start (U5 #683).
   initialRawBytes: 810_000,
   javaScriptAssetCount: 88,
