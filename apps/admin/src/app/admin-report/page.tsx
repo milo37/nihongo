@@ -1,19 +1,22 @@
 import { useEffect, useRef, useState } from 'react'
-import type { FormEvent, ReactElement } from 'react'
+import type { ReactElement } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import {
   reportKindSchema,
   reportStatusSchema
 } from '@nihongo/contracts/report/reports'
-import { Button } from '@nihongo/browser/common/components/Button'
-import { Select } from '@nihongo/browser/common/components/Select'
 import { Badge } from '@nihongo/browser/common/components/Badge'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
-import { useUiLocale } from '@nihongo/browser/provider/I18nProvider'
-import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
+import { AdminListFilters } from '@app/admin/components/list/AdminListFilters'
+import {
+  AdminListToolbar,
+  type AdminListPaging
+} from '@app/admin/components/list/AdminListToolbar'
+import type { AdminListFilter } from '@app/admin/components/list/FilterChip'
+import { useWideLayout } from '@app/admin/components/list/useWideLayout'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import { useAdminReportsList } from '@app/admin-report/hooks/useAdminReportQueries'
 import {
@@ -29,80 +32,13 @@ import {
 import { ReportStatusBadge } from '@app/admin-report/components/ReportStatusBadge'
 import { PageContainer } from '@nihongo/browser/common/components/PageContainer'
 
-type ReportListQuery = ReturnType<typeof parseReportListSearch>['query']
 type ReportListResult = NonNullable<
   ReturnType<typeof useAdminReportsList>['data']
 >
 type ReportItem = ReportListResult['items'][number]
 
-/** Status, kind and page size filters; the form remounts per search. */
-const ReportFilters = ({
-  query,
-  formKey,
-  onApply,
-  onReset
-}: {
-  query: ReportListQuery
-  formKey: string
-  onApply: (event: FormEvent<HTMLFormElement>) => void
-  onReset: () => void
-}): ReactElement => {
-  const { t } = useAdminPresentation()
-  const { locale } = useUiLocale()
-  return (
-    <form
-      key={formKey}
-      className="grid gap-5 rounded-xl border border-line bg-surface p-5 sm:p-6"
-      onSubmit={onApply}
-      noValidate
-    >
-      <div className="grid min-w-0 gap-4 sm:grid-cols-3">
-        <Select
-          name="status"
-          label={t('userReport.list.status')}
-          defaultValue={query.status ?? ''}
-          options={[
-            { value: '', label: t('userReport.list.allStatuses') },
-            ...reportStatusSchema.options.map((value) => ({
-              value,
-              label: t(`userReport.statuses.${value}`)
-            }))
-          ]}
-        />
-        <Select
-          name="kind"
-          label={t('userReport.list.kind')}
-          defaultValue={query.kind ?? ''}
-          options={[
-            { value: '', label: t('userReport.list.allKinds') },
-            ...reportKindSchema.options.map((value) => ({
-              value,
-              label: t(`userReport.kinds.${value}`)
-            }))
-          ]}
-        />
-        <Select
-          name="pageSize"
-          label={t('userReport.list.pageSize')}
-          defaultValue={String(query.pageSize)}
-          options={reportPageSizes.map((value) => ({
-            value: String(value),
-            label: formatNumber(value, locale)
-          }))}
-        />
-      </div>
-      <div className="flex flex-wrap gap-3">
-        <Button type="submit">{t('userReport.list.apply')}</Button>
-        <Button variant="ghost" onClick={onReset}>
-          {t('userReport.list.reset')}
-        </Button>
-      </div>
-    </form>
-  )
-}
-
-/** One report: status and kind, preview, location, time and detail link. */
-const ReportRow = ({
+/** One report's detail link; blocked while the list is not current. */
+const ReportLink = ({
   item,
   blocked,
   onOpen
@@ -111,125 +47,138 @@ const ReportRow = ({
   blocked: boolean
   onOpen: (reportId: string) => void
 }): ReactElement => {
-  const { t, formatAdminDateTime } = useAdminPresentation()
+  const { t } = useAdminPresentation()
   return (
-    <li className="grid min-w-0 gap-3 bg-surface px-4 py-6 sm:grid-cols-[9rem_minmax(0,1fr)_auto] sm:gap-6">
-      <div className="flex flex-wrap gap-2 sm:flex-col sm:items-start">
-        <ReportStatusBadge status={item.status} />
-        <Badge>{t(`userReport.kinds.${item.kind}`)}</Badge>
-      </div>
-      <div className="min-w-0">
-        <p className="break-words font-semibold">{item.descriptionPreview}</p>
-        <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
-          <div>
-            <dt className="text-muted">{t('userReport.list.location')}</dt>
-            <dd className="break-all">{item.location}</dd>
-          </div>
-          <div>
-            <dt className="text-muted">{t('userReport.list.createdAt')}</dt>
-            <dd>{formatAdminDateTime(item.createdAt)}</dd>
-          </div>
-        </dl>
-      </div>
-      <Link
-        id={'report-' + item.reportId}
-        to={reportDetailHref(item.reportId)}
-        aria-disabled={blocked || undefined}
-        tabIndex={blocked ? -1 : undefined}
-        onClick={(event) => {
-          if (blocked) {
-            event.preventDefault()
-            return
-          }
-          onOpen(item.reportId)
-        }}
-        className={
-          'inline-flex min-h-11 items-center self-start font-semibold underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand ' +
-          (blocked ? 'cursor-not-allowed text-muted' : 'text-brand')
+    <Link
+      id={'report-' + item.reportId}
+      to={reportDetailHref(item.reportId)}
+      aria-disabled={blocked || undefined}
+      tabIndex={blocked ? -1 : undefined}
+      onClick={(event) => {
+        if (blocked) {
+          event.preventDefault()
+          return
         }
-      >
-        {t('userReport.list.details')}
-        <span className="sr-only"> · {item.descriptionPreview}</span>
-      </Link>
-    </li>
+        onOpen(item.reportId)
+      }}
+      className={
+        'inline-flex min-h-11 items-center whitespace-nowrap font-semibold underline underline-offset-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand ' +
+        (blocked ? 'cursor-not-allowed text-muted' : 'text-brand')
+      }
+    >
+      {t('userReport.list.details')}
+      <span className="sr-only"> · {item.descriptionPreview}</span>
+    </Link>
   )
 }
 
-/** Total, report rows or empty state, and previous/next paging. */
-const ReportResults = ({
-  data,
-  query,
-  blocked,
-  onOpen,
-  go
-}: {
-  data: ReportListResult
-  query: ReportListQuery
-  blocked: boolean
-  onOpen: (reportId: string) => void
-  go: (next: Parameters<typeof reportListHref>[0]) => void
-}): ReactElement => {
+const ReportBadges = ({ item }: { item: ReportItem }): ReactElement => {
   const { t } = useAdminPresentation()
-  const { locale } = useUiLocale()
-  const lastPage = Math.max(1, Math.ceil(data.total / query.pageSize))
   return (
     <>
-      <p className="mt-8 font-semibold" role="status">
-        {t('userReport.list.total', {
-          formattedCount: formatNumber(data.total, locale)
-        })}
-      </p>
-      {data.items.length === 0 ? (
-        <EmptyState
-          className="mt-4"
-          title={t('userReport.list.emptyTitle')}
-          description={t('userReport.list.emptyDescription')}
-        />
-      ) : (
-        <ul
-          className="mt-4 divide-y divide-line border-y border-line"
-          aria-label={t('userReport.list.title')}
-        >
-          {data.items.map((item) => (
-            <ReportRow
-              key={item.reportId}
-              item={item}
-              blocked={blocked}
-              onOpen={onOpen}
-            />
-          ))}
-        </ul>
-      )}
-      {query.page > lastPage ? (
-        <Button
-          className="mt-6"
-          variant="outline"
-          disabled={blocked}
-          onClick={() => go({ ...query, page: 1 })}
-        >
-          {t('userReport.list.first')}
-        </Button>
-      ) : null}
-      <nav
-        aria-label={t('userReport.list.title')}
-        className="mt-8 flex justify-between gap-4"
-      >
-        <Button
-          variant="outline"
-          disabled={blocked || query.page <= 1}
-          onClick={() => go({ ...query, page: query.page - 1 })}
-        >
-          {t('userReport.list.previous')}
-        </Button>
-        <Button
-          variant="outline"
-          disabled={blocked || query.page >= lastPage}
-          onClick={() => go({ ...query, page: query.page + 1 })}
-        >
-          {t('userReport.list.next')}
-        </Button>
-      </nav>
+      <ReportStatusBadge status={item.status} />
+      <Badge className="whitespace-nowrap">
+        {t(`userReport.kinds.${item.kind}`)}
+      </Badge>
     </>
+  )
+}
+
+type ReportListProps = {
+  items: readonly ReportItem[]
+  blocked: boolean
+  onOpen: (reportId: string) => void
+}
+
+/** Header row with status·kind, content, location·time and the link. */
+const ReportTable = ({
+  items,
+  blocked,
+  onOpen
+}: ReportListProps): ReactElement => {
+  const { t, formatAdminDateTime } = useAdminPresentation()
+  return (
+    <div className="overflow-x-auto rounded-card border border-line bg-surface">
+      <table className="w-full min-w-[48rem] table-fixed border-collapse text-left text-sm">
+        <caption className="sr-only">{t('userReport.list.title')}</caption>
+        <thead className="border-b border-line bg-surface-muted text-muted">
+          <tr>
+            <th scope="col" className="w-[7.5rem] px-3 py-3 font-semibold">
+              {t('userReport.list.columns.statusKind')}
+            </th>
+            <th scope="col" className="px-3 py-3 font-semibold">
+              {t('userReport.list.columns.content')}
+            </th>
+            <th scope="col" className="w-[12.5rem] px-3 py-3 font-semibold">
+              {t('userReport.list.columns.locationTime')}
+            </th>
+            <th scope="col" className="w-[5.5rem] px-3 py-3">
+              <span className="sr-only">
+                {t('userReport.list.columns.link')}
+              </span>
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-line">
+          {items.map((item) => (
+            <tr key={item.reportId}>
+              <td className="px-3 py-3 align-top">
+                <span className="flex flex-col items-start gap-1">
+                  <ReportBadges item={item} />
+                </span>
+              </td>
+              <td className="px-3 py-3 align-top">
+                <p className="line-clamp-2 break-words font-semibold leading-6">
+                  {item.descriptionPreview}
+                </p>
+              </td>
+              <td className="px-3 py-3 align-top">
+                <span className="block truncate" title={item.location}>
+                  {item.location}
+                </span>
+                <span className="block text-muted">
+                  {formatAdminDateTime(item.createdAt)}
+                </span>
+              </td>
+              <td className="px-3 py-1 align-top">
+                <ReportLink item={item} blocked={blocked} onOpen={onOpen} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/** Narrow screens: one card per report. */
+const ReportCards = ({
+  items,
+  blocked,
+  onOpen
+}: ReportListProps): ReactElement => {
+  const { t, formatAdminDateTime } = useAdminPresentation()
+  return (
+    <ul className="grid gap-2" aria-label={t('userReport.list.title')}>
+      {items.map((item) => (
+        <li
+          key={item.reportId}
+          className="grid gap-2 rounded-card border border-line bg-surface px-4 py-3"
+        >
+          <span className="flex flex-wrap gap-2">
+            <ReportBadges item={item} />
+          </span>
+          <p className="line-clamp-2 break-words font-semibold">
+            {item.descriptionPreview}
+          </p>
+          <p className="text-sm text-muted">
+            <span className="block truncate">{item.location}</span>
+            {formatAdminDateTime(item.createdAt)}
+          </p>
+          <ReportLink item={item} blocked={blocked} onOpen={onOpen} />
+        </li>
+      ))}
+    </ul>
   )
 }
 
@@ -241,6 +190,8 @@ export const AdminReportsPage = (): ReactElement => {
   const { query, valid } = parseReportListSearch(search)
   const reports = useAdminReportsList(query)
   const heading = useRef<HTMLHeadingElement>(null)
+  const listTop = useRef<HTMLDivElement>(null)
+  const wide = useWideLayout()
   const [retryCompletion, setRetryCompletion] = useState(0)
   const canonical = reportListHref(query)
   const blocked =
@@ -271,27 +222,44 @@ export const AdminReportsPage = (): ReactElement => {
   const go = (next: Parameters<typeof reportListHref>[0]): void => {
     void navigate(reportListHref(next).slice('/admin'.length))
   }
-  const apply = (event: FormEvent<HTMLFormElement>): void => {
-    event.preventDefault()
-    const data = new FormData(event.currentTarget)
-    const status = reportStatusSchema.safeParse(data.get('status'))
-    const kind = reportKindSchema.safeParse(data.get('kind'))
-    const pageSize = Number(data.get('pageSize'))
-    go({
-      page: 1,
-      pageSize: (reportPageSizes as readonly number[]).includes(pageSize)
-        ? pageSize
-        : query.pageSize,
-      ...(status.success ? { status: status.data } : {}),
-      ...(kind.success ? { kind: kind.data } : {})
-    })
-  }
   const data = reports.data
   const unavailable =
     reports.isError || reports.fetchStatus === 'paused' || reports.isOffline
   const paused = reports.fetchStatus === 'paused' || reports.isOffline
   const loading =
     reports.isPending && reports.fetchStatus !== 'paused' && !reports.isOffline
+  const filter = (
+    key: 'status' | 'kind',
+    options: readonly string[],
+    labelPrefix: 'statuses' | 'kinds'
+  ): AdminListFilter => ({
+    key,
+    label: t(`userReport.list.${key}`),
+    value: query[key],
+    options: options.map((value) => ({
+      value,
+      label: t(`userReport.${labelPrefix}.${value as 'NEW'}`)
+    })),
+    onChange: (value) => {
+      const next = { ...query, page: 1 }
+      if (value === undefined) delete next[key]
+      else Object.assign(next, { [key]: value })
+      go(next)
+    }
+  })
+  const filters = [
+    filter('status', reportStatusSchema.options, 'statuses'),
+    filter('kind', reportKindSchema.options, 'kinds')
+  ]
+  const paging: AdminListPaging = {
+    total: data?.total,
+    page: query.page,
+    pageSize: query.pageSize,
+    pageSizes: reportPageSizes,
+    disabled: blocked,
+    onPageChange: (page) => go({ ...query, page }),
+    onPageSizeChange: (pageSize) => go({ ...query, page: 1, pageSize })
+  }
   const openReport = (reportId: string): void => {
     if (user) saveReportContext(user.id, reportId, canonical)
   }
@@ -314,12 +282,14 @@ export const AdminReportsPage = (): ReactElement => {
           {t('userReport.list.invalidQuery')}
         </p>
       ) : null}
-      <ReportFilters
-        query={query}
-        formKey={search.toString()}
-        onApply={apply}
-        onReset={() => void navigate('/reports')}
+      <AdminListFilters
+        filters={filters}
+        resultCount={data?.total}
+        onReset={() => go({ page: 1, pageSize: query.pageSize })}
       />
+      <div className="mt-6">
+        <AdminListToolbar position="top" paging={paging} anchorRef={listTop} />
+      </div>
       {reports.isFetching && data ? (
         <p role="status" className="mt-6 text-muted">
           {t('userReport.list.refreshing')}
@@ -339,15 +309,35 @@ export const AdminReportsPage = (): ReactElement => {
           autoFocus={!data}
         />
       ) : null}
-      {data ? (
-        <ReportResults
-          data={data}
-          query={query}
-          blocked={blocked}
-          onOpen={openReport}
-          go={go}
+      {data && data.items.length === 0 ? (
+        <EmptyState
+          title={t('userReport.list.emptyTitle')}
+          description={t('userReport.list.emptyDescription')}
         />
-      ) : loading ? (
+      ) : null}
+      {data && data.items.length > 0 ? (
+        <>
+          {wide ? (
+            <ReportTable
+              items={data.items}
+              blocked={blocked}
+              onOpen={openReport}
+            />
+          ) : (
+            <ReportCards
+              items={data.items}
+              blocked={blocked}
+              onOpen={openReport}
+            />
+          )}
+          <AdminListToolbar
+            position="bottom"
+            paging={paging}
+            anchorRef={listTop}
+          />
+        </>
+      ) : null}
+      {!data && loading ? (
         <LoadingState className="mt-8" message={t('userReport.list.loading')} />
       ) : null}
     </PageContainer>

@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import {
   columnVisibilityFeature,
   rowPaginationFeature,
@@ -14,8 +14,12 @@ import type {
   RowData,
   SortingState
 } from '@tanstack/react-table'
+import { AdminListIcon } from '@app/admin/components/list/AdminListIcon'
+import { AdminListToolbar } from '@app/admin/components/list/AdminListToolbar'
+import type { AdminListPaging } from '@app/admin/components/list/AdminListToolbar'
+import { useWideLayout } from '@app/admin/components/list/useWideLayout'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 
 export const adminGridFeatures = tableFeatures({
   rowSortingFeature,
@@ -26,30 +30,11 @@ export type AdminGridFeatures = typeof adminGridFeatures
 
 export const ADMIN_GRID_PAGE_SIZES = [25, 50, 100] as const
 
-const COMPACT_QUERY = '(max-width: 760px)'
-
-/**
- * Column visibility whose default depends on the viewport: on narrow screens
- * only `compactColumnIds` start visible; the rest can be turned on from the
- * column picker. The default is chosen once, so user choices are kept.
- */
-export const useResponsiveColumnVisibility = (
-  columnIds: readonly string[],
-  compactColumnIds: readonly string[]
-) =>
-  useState<ColumnVisibilityState>(() =>
-    typeof window !== 'undefined' &&
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia(COMPACT_QUERY).matches
-      ? Object.fromEntries(
-          columnIds.map((id) => [id, compactColumnIds.includes(id)])
-        )
-      : {}
-  )
-
 type AdminDataGridProps<TData extends RowData> = {
   readonly label: string
   readonly columns: readonly ColumnDef<AdminGridFeatures, TData>[]
+  /** Width and alignment classes per column id (U8 fixed widths). */
+  readonly columnClassNames?: Readonly<Record<string, string>>
   readonly data: readonly TData[]
   readonly rowCount: number
   readonly getRowId: (row: TData) => string
@@ -62,6 +47,8 @@ type AdminDataGridProps<TData extends RowData> = {
   readonly emptyMessage: string
   /** Whole-row tap target; keep a real link in a cell for keyboard users. */
   readonly onRowActivate?: (row: TData) => void
+  /** Card for one row below 768px, where the table is not shown. */
+  readonly renderCard: (row: TData) => ReactNode
 }
 
 const resolve = <T,>(updater: T | ((previous: T) => T), previous: T): T =>
@@ -85,54 +72,90 @@ const ariaSortFor = (
 const sortIcon = (sorted: SortDirection): string =>
   sorted === 'asc' ? '↑' : sorted === 'desc' ? '↓' : '↕'
 
-/** Collapsible picker for the columns that can be hidden. */
+/** `열` button with a checkbox popover for the columns that can be hidden. */
 const ColumnPicker = <TData extends RowData>({
   table
 }: {
   table: GridTable<TData>
 }): ReactElement => {
   const { t } = useAdminPresentation()
+  const panelId = useId()
+  const [open, setOpen] = useState(false)
+  const container = useRef<HTMLDivElement>(null)
+  const button = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (event: PointerEvent): void => {
+      if (!container.current?.contains(event.target as Node)) setOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [open])
   return (
-    <details className="text-sm">
-      <summary className="inline-flex min-h-11 cursor-pointer items-center rounded-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand">
-        {t('grid.columns')}
-      </summary>
-      <fieldset className="mt-2 flex flex-wrap gap-x-4">
-        <legend className="sr-only">{t('grid.columns')}</legend>
-        {table
-          .getAllLeafColumns()
-          .filter((column) => column.getCanHide())
-          .map((column) => (
-            <label
-              key={column.id}
-              className="inline-flex min-h-11 items-center gap-2"
-            >
-              <input
-                type="checkbox"
-                className="size-4"
-                checked={column.getIsVisible()}
-                onChange={column.getToggleVisibilityHandler()}
-              />
-              {typeof column.columnDef.header === 'string'
-                ? column.columnDef.header
-                : column.id}
-            </label>
-          ))}
-      </fieldset>
-    </details>
+    <div
+      ref={container}
+      className="relative"
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape' || !open) return
+        event.preventDefault()
+        setOpen(false)
+        button.current?.focus()
+      }}
+    >
+      <button
+        ref={button}
+        type="button"
+        className="inline-flex min-h-11 items-center gap-1 rounded-control border border-line-interactive bg-surface px-3 text-sm font-semibold hover:border-line-strong focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
+        aria-expanded={open}
+        aria-controls={open ? panelId : undefined}
+        onClick={() => setOpen((value) => !value)}
+      >
+        {t('adminList.columns')}
+        <AdminListIcon name="chevron-down" className="size-4" />
+      </button>
+      {open ? (
+        <fieldset
+          id={panelId}
+          className="absolute right-0 top-full z-30 mt-1 grid min-w-48 rounded-control border border-line bg-surface px-3 py-1 shadow-elevated"
+        >
+          <legend className="sr-only">{t('adminList.columns')}</legend>
+          {table
+            .getAllLeafColumns()
+            .filter((column) => column.getCanHide())
+            .map((column) => (
+              <label
+                key={column.id}
+                className="inline-flex min-h-11 items-center gap-2 whitespace-nowrap text-sm"
+              >
+                <input
+                  type="checkbox"
+                  className="size-4 accent-brand"
+                  checked={column.getIsVisible()}
+                  onChange={column.getToggleVisibilityHandler()}
+                />
+                {typeof column.columnDef.header === 'string'
+                  ? column.columnDef.header
+                  : column.id}
+              </label>
+            ))}
+        </fieldset>
+      ) : null}
+    </div>
   )
 }
 
-/** Sticky header row; sortable columns get a toggle button and arrow. */
+/** Header row; sortable columns get a toggle button and arrow. */
 const GridHead = <TData extends RowData>({
-  table
+  table,
+  columnClassNames
 }: {
   table: GridTable<TData>
+  columnClassNames: Readonly<Record<string, string>>
 }): ReactElement => (
-  <thead>
+  <thead className="border-b border-line bg-surface-muted text-muted">
     {table.getHeaderGroups().map((group) => (
       <tr key={group.id}>
-        {group.headers.map((header, index) => {
+        {group.headers.map((header) => {
           const sorted = header.column.getIsSorted()
           const canSort = header.column.getCanSort()
           return (
@@ -140,7 +163,7 @@ const GridHead = <TData extends RowData>({
               key={header.id}
               scope="col"
               aria-sort={ariaSortFor(canSort, sorted)}
-              className={`sticky top-0 whitespace-nowrap border-b border-line bg-surface px-2 py-2 font-semibold sm:px-3 ${index === 0 ? 'left-0 z-20' : 'z-10'}`}
+              className={`whitespace-nowrap px-3 py-2 font-semibold ${columnClassNames[header.column.id] ?? ''}`}
             >
               {header.isPlaceholder ? null : canSort ? (
                 <button
@@ -162,13 +185,23 @@ const GridHead = <TData extends RowData>({
   </thead>
 )
 
+const activateUnlessControl =
+  <TData,>(row: TData, onRowActivate?: (row: TData) => void) =>
+  (event: { target: EventTarget }): void => {
+    // Let links and buttons inside the row act on their own.
+    if (onRowActivate && !(event.target as Element).closest('a, button, input'))
+      onRowActivate(row)
+  }
+
 /** Rows, or one full-width empty row; optional whole-row activation. */
 const GridBody = <TData extends RowData>({
   table,
+  columnClassNames,
   emptyMessage,
   onRowActivate
 }: {
   table: GridTable<TData>
+  columnClassNames: Readonly<Record<string, string>>
   emptyMessage: string
   onRowActivate?: (row: TData) => void
 }): ReactElement => {
@@ -187,25 +220,23 @@ const GridBody = <TData extends RowData>({
       </tbody>
     )
   return (
-    <tbody>
+    <tbody className="divide-y divide-line">
       {rows.map((row) => (
         <tr
           key={row.id}
-          className={`border-b border-line last:border-0 ${onRowActivate ? 'cursor-pointer hover:bg-brand-soft' : ''}`}
+          className={
+            onRowActivate ? 'cursor-pointer hover:bg-surface-muted' : ''
+          }
           onClick={
             onRowActivate
-              ? (event) => {
-                  // Let links and buttons inside the row act on their own.
-                  if (!(event.target as Element).closest('a, button, input'))
-                    onRowActivate(row.original)
-                }
+              ? activateUnlessControl(row.original, onRowActivate)
               : undefined
           }
         >
-          {row.getVisibleCells().map((cell, index) => (
+          {row.getVisibleCells().map((cell) => (
             <td
               key={cell.id}
-              className={`whitespace-nowrap px-2 py-2 sm:px-3 ${index === 0 ? 'sticky left-0 z-[1] bg-surface' : ''}`}
+              className={`h-16 whitespace-nowrap px-3 py-2 ${columnClassNames[cell.column.id] ?? ''}`}
             >
               <table.FlexRender cell={cell} />
             </td>
@@ -216,79 +247,15 @@ const GridBody = <TData extends RowData>({
   )
 }
 
-const pagerButtonClassName =
-  'min-h-11 rounded-sm border border-line px-4 font-semibold disabled:text-disabled-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand'
-
-/** Page size, page status and previous/next buttons. */
-const GridPager = <TData extends RowData>({
-  table,
-  pagination,
-  rowCount,
-  onPaginationChange
-}: {
-  table: GridTable<TData>
-  pagination: PaginationState
-  rowCount: number
-  onPaginationChange: (pagination: PaginationState) => void
-}): ReactElement => {
-  const { t } = useAdminPresentation()
-  const pageSizeId = useId()
-  return (
-    <div className="flex flex-wrap items-center gap-3 text-sm">
-      <label htmlFor={pageSizeId}>{t('grid.pageSize')}</label>
-      <select
-        id={pageSizeId}
-        className="min-h-11 rounded-sm border border-line bg-surface px-2"
-        value={pagination.pageSize}
-        onChange={(event) =>
-          onPaginationChange({
-            pageIndex: 0,
-            pageSize: Number(event.target.value)
-          })
-        }
-      >
-        {ADMIN_GRID_PAGE_SIZES.map((size) => (
-          <option key={size} value={size}>
-            {size}
-          </option>
-        ))}
-      </select>
-      <p aria-live="polite" className="text-muted">
-        {t('grid.pageStatus', {
-          page: pagination.pageIndex + 1,
-          pageCount: Math.max(1, table.getPageCount()),
-          total: rowCount
-        })}
-      </p>
-      <div className="ml-auto flex gap-2">
-        <button
-          type="button"
-          disabled={!table.getCanPreviousPage()}
-          onClick={() => table.previousPage()}
-          className={pagerButtonClassName}
-        >
-          {t('grid.previous')}
-        </button>
-        <button
-          type="button"
-          disabled={!table.getCanNextPage()}
-          onClick={() => table.nextPage()}
-          className={pagerButtonClassName}
-        >
-          {t('grid.next')}
-        </button>
-      </div>
-    </div>
-  )
-}
-
 /**
  * Server-driven data grid for admin lists: sorting and paging are reported to
  * the owner, which fetches the matching page. Rows are never processed here.
+ * Below 768px the rows render as cards instead of the table.
  */
 export const AdminDataGrid = <TData extends RowData>({
   label,
   columns,
+  columnClassNames = {},
   data,
   rowCount,
   getRowId,
@@ -299,8 +266,11 @@ export const AdminDataGrid = <TData extends RowData>({
   columnVisibility,
   onColumnVisibilityChange,
   emptyMessage,
-  onRowActivate
+  onRowActivate,
+  renderCard
 }: AdminDataGridProps<TData>): ReactElement => {
+  const wide = useWideLayout()
+  const listTop = useRef<HTMLDivElement>(null)
   const table = useTable({
     features: adminGridFeatures,
     columns: columns as ColumnDef<AdminGridFeatures, TData>[],
@@ -316,32 +286,61 @@ export const AdminDataGrid = <TData extends RowData>({
     onColumnVisibilityChange: (updater) =>
       onColumnVisibilityChange(resolve(updater, columnVisibility))
   })
+  const paging: AdminListPaging = {
+    total: rowCount,
+    page: pagination.pageIndex + 1,
+    pageSize: pagination.pageSize,
+    pageSizes: ADMIN_GRID_PAGE_SIZES,
+    onPageChange: (page) =>
+      onPaginationChange({ ...pagination, pageIndex: page - 1 }),
+    onPageSizeChange: (pageSize) =>
+      onPaginationChange({ pageIndex: 0, pageSize })
+  }
 
   return (
-    <div className="space-y-3">
-      <ColumnPicker table={table} />
-      <div
-        role="region"
-        aria-label={label}
-        tabIndex={0}
-        className="max-h-[70vh] overflow-auto rounded-sm border border-line focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
-      >
-        <table className="w-full min-w-max border-collapse text-left text-sm">
-          <caption className="sr-only">{label}</caption>
-          <GridHead table={table} />
-          <GridBody
-            table={table}
-            emptyMessage={emptyMessage}
-            onRowActivate={onRowActivate}
-          />
-        </table>
-      </div>
-      <GridPager
-        table={table}
-        pagination={pagination}
-        rowCount={rowCount}
-        onPaginationChange={onPaginationChange}
+    <div>
+      <AdminListToolbar
+        position="top"
+        paging={paging}
+        anchorRef={listTop}
+        trailing={wide ? <ColumnPicker table={table} /> : undefined}
       />
+      {wide ? (
+        <div
+          role="region"
+          aria-label={label}
+          tabIndex={0}
+          className="overflow-x-auto rounded-card border border-line bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+        >
+          <table className="w-full min-w-[48rem] table-fixed border-collapse text-left text-sm">
+            <caption className="sr-only">{label}</caption>
+            <GridHead table={table} columnClassNames={columnClassNames} />
+            <GridBody
+              table={table}
+              columnClassNames={columnClassNames}
+              emptyMessage={emptyMessage}
+              onRowActivate={onRowActivate}
+            />
+          </table>
+        </div>
+      ) : data.length === 0 ? (
+        <p className="rounded-card border border-line bg-surface px-4 py-8 text-center text-muted">
+          {emptyMessage}
+        </p>
+      ) : (
+        <ul className="grid gap-2" aria-label={label}>
+          {data.map((row) => (
+            <li
+              key={getRowId(row)}
+              className={`rounded-card border border-line bg-surface px-4 py-3 ${onRowActivate ? 'cursor-pointer' : ''}`}
+              onClick={activateUnlessControl(row, onRowActivate)}
+            >
+              {renderCard(row)}
+            </li>
+          ))}
+        </ul>
+      )}
+      <AdminListToolbar position="bottom" paging={paging} anchorRef={listTop} />
     </div>
   )
 }

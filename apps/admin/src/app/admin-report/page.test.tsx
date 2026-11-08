@@ -75,8 +75,11 @@ const page = (items = [reportSummary()], total = items.length) => ({
 it('lists unified reports with status, kind, preview, location and a detail link', async () => {
   const list = vi.spyOn(reportApi, 'listAdminReports').mockResolvedValue(page())
   renderAdmin(client, '/admin/reports')
-  const items = await screen.findByRole('list', { name: '버그 리포트' })
-  const row = within(items).getAllByRole('listitem')[0]!
+  const table = await screen.findByRole('table', { name: '버그 리포트' })
+  expect(
+    within(table).getByRole('columnheader', { name: '상태·종류' })
+  ).toBeVisible()
+  const row = within(table).getAllByRole('row')[1]!
   expect(within(row).getByText('접수됨')).toBeVisible()
   expect(within(row).getByText('문항 신고')).toBeVisible()
   expect(
@@ -88,18 +91,36 @@ it('lists unified reports with status, kind, preview, location and a detail link
     `/admin/reports/${reportId}`
   )
   expect(list).toHaveBeenCalledWith({ page: 1, pageSize: 25 })
-  expect(screen.getByText('제보 1건')).toBeVisible()
+  expect(screen.getAllByText('총 1개')).toHaveLength(2)
+  // Without a value there is nothing to reset; the old apply button is gone.
+  expect(screen.queryByRole('button', { name: '초기화' })).toBeNull()
+  expect(screen.queryByRole('button', { name: '필터 적용' })).toBeNull()
 })
 
-it('applies status, kind and page size filters through the URL', async () => {
+it('applies each status and kind choice at once and moves page size to the toolbar', async () => {
   const list = vi.spyOn(reportApi, 'listAdminReports').mockResolvedValue(page())
-  const router = renderAdmin(client, '/admin/reports')
-  await screen.findByRole('list', { name: '버그 리포트' })
+  const router = renderAdmin(client, '/admin/reports?page=2')
+  await screen.findByRole('table', { name: '버그 리포트' })
   const user = userEvent.setup()
-  await user.selectOptions(screen.getByLabelText('처리 상태'), 'ANSWERED')
-  await user.selectOptions(screen.getByLabelText('유형'), 'APP_ERROR')
-  await user.selectOptions(screen.getByLabelText('페이지당 개수'), '50')
-  await user.click(screen.getByRole('button', { name: '필터 적용' }))
+  await user.click(screen.getByRole('button', { name: '처리 상태' }))
+  await user.click(screen.getByRole('option', { name: '답변 완료' }))
+  await waitFor(() =>
+    expect(list).toHaveBeenLastCalledWith({
+      page: 1,
+      pageSize: 25,
+      status: 'ANSWERED'
+    })
+  )
+  // Keyboard: open the chip, move down past "all" and the first kind.
+  screen.getByRole('button', { name: '유형' }).focus()
+  await user.keyboard('{Enter}')
+  expect(screen.getByRole('listbox', { name: '유형' })).toHaveFocus()
+  await user.keyboard('{ArrowDown}{ArrowDown}{Enter}')
+  expect(screen.getByRole('button', { name: '유형: 앱 오류' })).toHaveFocus()
+  await user.selectOptions(
+    screen.getAllByRole('combobox', { name: '한 페이지에' })[0]!,
+    '50'
+  )
   await waitFor(() =>
     expect(list).toHaveBeenLastCalledWith({
       page: 1,
@@ -110,6 +131,18 @@ it('applies status, kind and page size filters through the URL', async () => {
   )
   expect(router.state.location.search).toBe(
     '?status=ANSWERED&kind=APP_ERROR&page=1&pageSize=50'
+  )
+  await user.click(
+    screen.getByRole('button', { name: '처리 상태 필터 지우기' })
+  )
+  await waitFor(() =>
+    expect(router.state.location.search).toBe(
+      '?kind=APP_ERROR&page=1&pageSize=50'
+    )
+  )
+  await user.click(screen.getByRole('button', { name: '초기화' }))
+  await waitFor(() =>
+    expect(router.state.location.search).toBe('?page=1&pageSize=50')
   )
 })
 

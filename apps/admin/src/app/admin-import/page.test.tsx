@@ -38,6 +38,12 @@ import {
 } from '@app/admin-question/test/workflowFixture'
 import { createInput, question } from '@app/admin-question/test/questionFixture'
 
+/** Opens a list row's ⋯ menu and returns one of its items. */
+const rowMenuItem = (questionId: string, name: string): HTMLElement => {
+  fireEvent.click(screen.getByRole('button', { name: questionId + ' 작업' }))
+  return screen.getByRole('menuitem', { name })
+}
+
 beforeAll(preloadAdminPages)
 const t = appI18n.getFixedT('ko', 'admin')
 const request = { items: [{ clientItemId: 'row-1', content: createInput }] }
@@ -552,7 +558,9 @@ it('connects the existing list entry and preserves its current create/edit targe
     expect(link).toHaveAttribute('href', '/admin/questions/import')
   )
   expect(
-    await screen.findByRole('link', { name: questionId + ' 문제 수정' })
+    await screen
+      .findByRole('button', { name: questionId + ' 작업' })
+      .then(() => rowMenuItem(questionId, '수정'))
   ).toHaveAttribute(
     'href',
     '/admin/questions/' +

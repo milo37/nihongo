@@ -2,7 +2,11 @@ import { useRef, useState } from 'react'
 import type { FormEvent, ReactElement } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { createColumnHelper } from '@tanstack/react-table'
-import type { PaginationState, SortingState } from '@tanstack/react-table'
+import type {
+  ColumnVisibilityState,
+  PaginationState,
+  SortingState
+} from '@tanstack/react-table'
 import {
   adminMemberEmailQuerySchema,
   adminMemberSortSchema,
@@ -12,14 +16,14 @@ import {
 } from '@nihongo/contracts/admin/members'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
-import { Input } from '@nihongo/browser/common/components/Input'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import {
   ADMIN_GRID_PAGE_SIZES,
   AdminDataGrid,
-  useResponsiveColumnVisibility,
   type AdminGridFeatures
 } from '@app/admin/components/data-grid/AdminDataGrid'
+import { AdminListFilters } from '@app/admin/components/list/AdminListFilters'
+import { AdminListSearch } from '@app/admin/components/list/AdminListSearch'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import { useAdminMembersList } from '@app/admin-member/hooks/useAdminMembers'
 import { MemberStatusBadge } from '@app/admin-member/components/MemberStatusBadge'
@@ -27,17 +31,16 @@ import { PageContainer } from '@nihongo/browser/common/components/PageContainer'
 
 type PageSize = (typeof ADMIN_GRID_PAGE_SIZES)[number]
 
-const COLUMN_IDS = [
-  'memberId',
-  'maskedEmail',
-  'joinedAt',
-  'lastStudiedAt',
-  'solvedCount',
-  'reportCount',
-  'status',
-  'actions'
-] as const
-const COMPACT_COLUMN_IDS = ['memberId', 'maskedEmail', 'status'] as const
+// U8 widths; the email column takes what is left.
+const COLUMN_CLASS_NAMES: Readonly<Record<string, string>> = {
+  memberId: 'w-[7.5rem]',
+  joinedAt: 'w-[7.5rem]',
+  lastStudiedAt: 'w-[7.5rem]',
+  solvedCount: 'w-28 text-right tabular-nums',
+  reportCount: 'w-16 text-right tabular-nums',
+  status: 'w-[6.5rem]',
+  actions: 'w-[4.5rem]'
+}
 
 const readQuery = (params: URLSearchParams): ParsedListAdminMembersQuery => {
   const sort = adminMemberSortSchema.safeParse(params.get('sort'))
@@ -56,7 +59,8 @@ const readQuery = (params: URLSearchParams): ParsedListAdminMembersQuery => {
 }
 
 export const AdminMembersPage = (): ReactElement => {
-  const { t, formatAdminDateTime, presentError } = useAdminPresentation()
+  const { t, formatAdminDate, formatAdminDateTime, presentError } =
+    useAdminPresentation()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const query = readQuery(searchParams)
@@ -64,10 +68,19 @@ export const AdminMembersPage = (): ReactElement => {
   const [emailDraft, setEmailDraft] = useState(query.email ?? '')
   const [emailError, setEmailError] = useState<string | undefined>()
   const emailRef = useRef<HTMLInputElement>(null)
-  const [columnVisibility, setColumnVisibility] = useResponsiveColumnVisibility(
-    COLUMN_IDS,
-    COMPACT_COLUMN_IDS
+  const [columnVisibility, setColumnVisibility] =
+    useState<ColumnVisibilityState>({})
+  const memberHref = (memberId: string): string =>
+    `/members/${encodeURIComponent(memberId)}`
+  const date = (value: string): ReactElement => (
+    <span title={formatAdminDateTime(value)}>{formatAdminDate(value)}</span>
   )
+  const lastStudied = (value: string | null): ReactElement =>
+    value === null ? (
+      <span className="text-muted">{t('members.never')}</span>
+    ) : (
+      date(value)
+    )
 
   const helper = createColumnHelper<AdminGridFeatures, AdminMemberSummary>()
   const columns = helper.columns([
@@ -77,7 +90,7 @@ export const AdminMembersPage = (): ReactElement => {
       enableHiding: false,
       cell: (info) => (
         <Link
-          to={`/members/${encodeURIComponent(info.getValue())}`}
+          to={memberHref(info.getValue())}
           title={info.getValue()}
           aria-label={info.getValue()}
           className="whitespace-nowrap font-mono text-sm font-semibold underline"
@@ -92,14 +105,11 @@ export const AdminMembersPage = (): ReactElement => {
     }),
     helper.accessor('joinedAt', {
       header: t('members.columns.joinedAt'),
-      cell: (info) => formatAdminDateTime(info.getValue())
+      cell: (info) => date(info.getValue())
     }),
     helper.accessor('lastStudiedAt', {
       header: t('members.columns.lastStudiedAt'),
-      cell: (info) => {
-        const value = info.getValue()
-        return value === null ? t('members.never') : formatAdminDateTime(value)
-      }
+      cell: (info) => lastStudied(info.getValue())
     }),
     helper.accessor('solvedCount', {
       header: t('members.columns.solvedCount')
@@ -116,7 +126,7 @@ export const AdminMembersPage = (): ReactElement => {
       header: t('members.columns.actions'),
       cell: (info) => (
         <Link
-          to={`/members/${encodeURIComponent(info.row.original.memberId)}`}
+          to={memberHref(info.row.original.memberId)}
           className="font-semibold underline"
         >
           {t('members.openDetail')}
@@ -189,41 +199,38 @@ export const AdminMembersPage = (): ReactElement => {
           {t('members.description')}
         </p>
       </header>
-      <form
-        role="search"
-        className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-end"
-        onSubmit={onSearch}
-        noValidate
-      >
-        <div className="min-w-0 sm:w-96">
-          <Input
+      <AdminListFilters
+        search={
+          <AdminListSearch
             ref={emailRef}
             type="email"
             name="email"
             autoComplete="off"
             label={t('members.search.label')}
+            placeholder={t('members.search.label')}
             hint={t('members.search.hint')}
             error={emailError}
             value={emailDraft}
             onChange={(event) => setEmailDraft(event.target.value)}
+            submitLabel={t('members.search.submit')}
+            onSearch={onSearch}
+            actions={
+              query.email ? (
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setEmailDraft('')
+                    setEmailError(undefined)
+                    update({ email: null, page: null })
+                  }}
+                >
+                  {t('members.search.clear')}
+                </Button>
+              ) : null
+            }
           />
-        </div>
-        <div className="flex gap-2">
-          <Button type="submit">{t('members.search.submit')}</Button>
-          {query.email ? (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setEmailDraft('')
-                setEmailError(undefined)
-                update({ email: null, page: null })
-              }}
-            >
-              {t('members.search.clear')}
-            </Button>
-          ) : null}
-        </div>
-      </form>
+        }
+      />
       <div className="mt-6">
         {members.isPending ? (
           <LoadingState label={t('members.loading')} />
@@ -238,6 +245,7 @@ export const AdminMembersPage = (): ReactElement => {
           <AdminDataGrid
             label={t('members.gridLabel')}
             columns={columns}
+            columnClassNames={COLUMN_CLASS_NAMES}
             data={members.data?.items ?? []}
             rowCount={members.data?.total ?? 0}
             getRowId={(member) => member.memberId}
@@ -249,8 +257,39 @@ export const AdminMembersPage = (): ReactElement => {
             onColumnVisibilityChange={setColumnVisibility}
             emptyMessage={t(query.email ? 'members.noMatch' : 'members.empty')}
             onRowActivate={(member) =>
-              void navigate(`/members/${encodeURIComponent(member.memberId)}`)
+              void navigate(memberHref(member.memberId))
             }
+            renderCard={(member) => (
+              <div className="grid gap-1">
+                <div className="flex items-center justify-between gap-2">
+                  <Link
+                    to={memberHref(member.memberId)}
+                    title={member.memberId}
+                    aria-label={member.memberId}
+                    className="font-mono text-sm font-semibold underline"
+                  >
+                    {`${member.memberId.slice(0, 8)}…`}
+                  </Link>
+                  <MemberStatusBadge status={member.status} />
+                </div>
+                <p className="break-all">{member.maskedEmail}</p>
+                <div className="flex items-end justify-between gap-2">
+                  <p className="text-sm text-muted">
+                    {t('members.columns.joinedAt')} {date(member.joinedAt)} ·{' '}
+                    {t('members.columns.lastStudiedAt')}{' '}
+                    {lastStudied(member.lastStudiedAt)} ·{' '}
+                    {t('members.columns.solvedCount')} {member.solvedCount} ·{' '}
+                    {t('members.columns.reportCount')} {member.reportCount}
+                  </p>
+                  <Link
+                    to={memberHref(member.memberId)}
+                    className="inline-flex min-h-11 shrink-0 items-center font-semibold text-brand underline"
+                  >
+                    {t('members.openDetail')} ›
+                  </Link>
+                </div>
+              </div>
+            )}
           />
         )}
       </div>
