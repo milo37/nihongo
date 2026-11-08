@@ -3,8 +3,11 @@ import type { ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { ReauthButton } from '@nihongo/browser/app/reauth/components/ReauthButton'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
+import { appI18n } from '@nihongo/browser/i18n/config'
+import { useUiLocale } from '@nihongo/browser/provider/I18nProvider'
 import { REAUTH_STATUS_ID } from '@nihongo/browser/app/reauth/components/ReauthReturnNotice'
 import { useAdminReauth } from '@app/admin/reauth/useAdminReauth'
+import type { AdminReauth } from '@app/admin/reauth/useAdminReauth'
 import { useReauthClock } from '@app/admin/reauth/useReauthClock'
 import type { ReauthClock } from '@app/admin/reauth/useReauthClock'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
@@ -31,6 +34,55 @@ const useReauthAnnouncement = (clock: ReauthClock): string => {
       setMessage(t('reauth.expired'))
   }, [clock, t])
   return message
+}
+
+/**
+ * The top bar's request to leave for Google failed. Shown where the return
+ * notice appears, in red with a retry; under 480px the buttons go below the
+ * text so it keeps the width.
+ */
+const ReauthStartFailedNotice = ({
+  reauth
+}: {
+  readonly reauth: AdminReauth
+}): ReactElement => {
+  const { t } = useAdminPresentation()
+  const { locale } = useUiLocale()
+  const commonT = appI18n.getFixedT(locale, 'common')
+  const notice = useRef<HTMLElement>(null)
+  useEffect(() => notice.current?.focus(), [])
+  return (
+    <aside
+      ref={notice}
+      tabIndex={-1}
+      role="alert"
+      data-reauth-result="startFailed"
+      className="app-global-banner fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-[560px] flex-col gap-2 rounded-xl border border-l-4 border-line border-l-danger bg-surface px-4 py-3 text-sm text-ink shadow-soft focus:outline-none min-[480px]:flex-row min-[480px]:items-start min-[480px]:justify-between min-[480px]:gap-3"
+    >
+      <p className="min-w-0 flex-1 py-2.5 font-semibold leading-6 text-danger-strong">
+        {t('reauth.startFailed')}
+      </p>
+      <div className="flex shrink-0 flex-wrap justify-end gap-2">
+        <ReauthButton
+          size="sm"
+          label={t('reauth.retry')}
+          busy={reauth.busy}
+          onClick={() => reauth.start()}
+        />
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-label={commonT('actions.close')}
+          onClick={() => {
+            reauth.reset()
+            document.getElementById(REAUTH_STATUS_ID)?.focus()
+          }}
+        >
+          <span aria-hidden="true">✕</span>
+        </Button>
+      </div>
+    </aside>
+  )
 }
 
 /**
@@ -83,6 +135,7 @@ export const AdminReauthStatus = (): ReactElement => {
       <p role="status" aria-live="polite" className="sr-only">
         {announcement}
       </p>
+      {reauth.startFailed ? <ReauthStartFailedNotice reauth={reauth} /> : null}
     </div>
   )
 }

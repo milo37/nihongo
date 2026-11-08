@@ -18,7 +18,14 @@ export const useAdminReauth = () => {
     setStorageFailed(false)
     reauth.start()
   }
-  return { start, busy: reauth.busy, error: reauth.error, storageFailed }
+  return {
+    start,
+    busy: reauth.busy,
+    /** The request to leave for Google failed; the page stayed. */
+    startFailed: reauth.error !== null,
+    reset: reauth.reset,
+    storageFailed
+  }
 }
 
 export type AdminReauth = ReturnType<typeof useAdminReauth>

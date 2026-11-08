@@ -45,6 +45,14 @@ export const ReauthRequiredNotice = ({
           </p>
         ) : null}
       </div>
+      {reauth.startFailed ? (
+        <p
+          role="alert"
+          className="text-sm font-semibold leading-6 text-danger-strong"
+        >
+          {t('reauth.startFailed')}
+        </p>
+      ) : null}
       <p className="text-xs leading-5 text-muted">{t('reauth.scopeAdmin')}</p>
     </div>
   )

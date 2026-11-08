@@ -161,3 +161,50 @@ it('leaves for Google from this page once the input is kept', async () => {
     callbackURL: '/admin/questions?level=N3'
   })
 })
+
+it('says in the dialog when leaving for Google failed and lets the admin try again', async () => {
+  const user = userEvent.setup()
+  const start = vi
+    .spyOn(startApi, 'startAdminReauth')
+    .mockRejectedValueOnce(new Error('503'))
+    .mockReturnValue(new Promise(() => undefined))
+  renderWith(admin(null), <ExpiredDialogBody keep={() => true} />)
+  await user.click(screen.getByRole('button', { name: '본인 확인' }))
+  expect(
+    await screen.findByText('Google로 이동하지 못했습니다. 다시 시도해 주세요.')
+  ).toHaveAttribute('role', 'alert')
+
+  await user.click(screen.getByRole('button', { name: '본인 확인' }))
+  expect(start).toHaveBeenCalledTimes(2)
+  expect(screen.queryByText(/Google로 이동하지 못했습니다/u)).toBeNull()
+})
+
+it('shows a red notice with a retry when the top bar check cannot leave', async () => {
+  const user = userEvent.setup()
+  const start = vi
+    .spyOn(startApi, 'startAdminReauth')
+    .mockRejectedValueOnce(new Error('503'))
+    .mockRejectedValueOnce(new Error('503'))
+    .mockReturnValue(new Promise(() => undefined))
+  renderWith(admin(null), <AdminReauthStatus />)
+  await user.click(screen.getByRole('button', { name: '본인 확인' }))
+  const notice = await screen.findByRole('alert')
+  expect(notice).toHaveTextContent(
+    'Google로 이동하지 못했습니다. 다시 시도해 주세요.'
+  )
+  expect(notice).toHaveFocus()
+
+  await user.click(screen.getByRole('button', { name: '닫기' }))
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(screen.getByRole('group', { name: '본인 확인' })).toHaveFocus()
+
+  await user.click(screen.getByRole('button', { name: '본인 확인' }))
+  await screen.findByRole('alert')
+  await user.click(screen.getByRole('button', { name: '다시 시도' }))
+  expect(start).toHaveBeenCalledTimes(3)
+  expect(start).toHaveBeenLastCalledWith({
+    purpose: 'ADMIN_FRESH',
+    provider: 'google',
+    callbackURL: '/admin/questions?level=N3'
+  })
+})
