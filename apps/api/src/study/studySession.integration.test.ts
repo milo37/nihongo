@@ -812,7 +812,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
         level: 'N1',
         subject: 'READING',
         mode: 'RANDOM',
-        count: 3
+        count: 5
       })
 
       expect(response.status).toBe(404)
@@ -1222,8 +1222,8 @@ describe('StudySession PostgreSQL vertical slice', () => {
         }
 
         expect(created.payload.session).toMatchObject({
-          actualCount: 3,
-          requestedCount: 3,
+          actualCount: 5,
+          requestedCount: 5,
           status: 'IN_PROGRESS'
         })
         expect(
