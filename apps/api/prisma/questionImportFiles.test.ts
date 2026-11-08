@@ -12,14 +12,20 @@ import {
 import { parseTagList } from '../src/content/tagList.js'
 
 const generated = buildQuestionImportFiles()
-const importFileNames = Object.keys(generated)
+/** Reviewed content written by hand, not generated from seed data (JLP-801). */
+const handWrittenFileNames = [
+  'n4-b2.v1.json',
+  'n5-b2.v1.json',
+  'n5n4-sentence-order.v1.json'
+]
+const importFileNames = [...Object.keys(generated), ...handWrittenFileNames]
 const readImportFile = (name: string): unknown =>
   JSON.parse(readFileSync(join(questionImportDirectory, name), 'utf8'))
 
 describe('question import files (#633)', () => {
   it('match the in-code originals', () => {
     expect(readdirSync(questionImportDirectory).sort()).toEqual(
-      Object.keys(generated).sort()
+      [...importFileNames].sort()
     )
     for (const [name, value] of Object.entries(generated)) {
       expect(readImportFile(name), name).toEqual(
@@ -45,7 +51,7 @@ describe('question import files (#633)', () => {
         count += 1
       }
     }
-    expect(count).toBe(65 + 308)
+    expect(count).toBe(65 + 308 + 110)
   })
 
   it('use one or two active tags.v2.json keys of the item subject (#646)', () => {

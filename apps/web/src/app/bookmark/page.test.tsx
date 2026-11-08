@@ -226,9 +226,15 @@ describe('BookmarkPage pagination settlement', () => {
     expect(within(row).queryByRole('link')).toBeNull()
     expect(within(row).getByText(/저장$/u)).toBeVisible()
     const remove = within(row).getByRole('button', { name: '책갈피 빼기' })
-    expect(remove).toHaveAccessibleDescription('책갈피 빼기')
+    // The tip repeats the name, so it is not read twice.
+    expect(remove).not.toHaveAttribute('aria-describedby')
     await interaction.hover(remove)
-    expect(within(row).getByRole('tooltip')).toHaveTextContent('책갈피 빼기')
+    const tip = within(row).getByText('책갈피 빼기', { selector: 'span' })
+    expect(tip).toHaveAttribute('aria-hidden', 'true')
+    await interaction.keyboard('{Escape}')
+    expect(
+      within(row).queryByText('책갈피 빼기', { selector: 'span' })
+    ).toBeNull()
     expect(readCount).toBe(1)
     dispose(fixture.client, fixture.unmount)
   })

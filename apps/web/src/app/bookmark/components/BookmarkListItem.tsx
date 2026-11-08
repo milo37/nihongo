@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { useEffect, useState } from 'react'
 import type { MouseEvent, ReactElement } from 'react'
 import type { BookmarkSummary } from '@nihongo/contracts/bookmark/bookmark'
 import { Icon } from '@nihongo/browser/common/components/Icon'
@@ -39,7 +40,16 @@ export const BookmarkListItem = ({
       .map((tag) => tag.label)
       .filter((label) => label !== questionTypeLabel)
   ].slice(0, 2)
-  const tooltipId = `bookmark-remove-tip-${bookmark.questionId}`
+  // Shown on hover and keyboard focus; Esc hides it (WCAG 1.4.13).
+  const [isTipOpen, setIsTipOpen] = useState(false)
+  useEffect(() => {
+    if (!isTipOpen) return
+    const closeOnEscape = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setIsTipOpen(false)
+    }
+    document.addEventListener('keydown', closeOnEscape)
+    return () => document.removeEventListener('keydown', closeOnEscape)
+  }, [isTipOpen])
   return (
     <StudyListRow
       meta={
@@ -68,7 +78,13 @@ export const BookmarkListItem = ({
         </>
       }
       end={
-        <span className="group relative">
+        <span
+          className="relative"
+          onMouseEnter={() => setIsTipOpen(true)}
+          onMouseLeave={() => setIsTipOpen(false)}
+          onFocus={() => setIsTipOpen(true)}
+          onBlur={() => setIsTipOpen(false)}
+        >
           <Button
             id={`bookmark-remove-${bookmark.questionId}`}
             ref={removeButtonRef}
@@ -76,22 +92,24 @@ export const BookmarkListItem = ({
             size="sm"
             variant="ghost"
             aria-label={t('remove')}
-            aria-describedby={tooltipId}
             disabled={isRemoveDisabled}
             aria-busy={isDeleting || undefined}
             onClick={onRemove}
           >
             <Icon name="bookmark" className="fill-current" />
           </Button>
-          {/* Visible on hover and keyboard focus (ux2 §4). The 44px target
-              reaches into the page margin so the question keeps ≥300px. */}
-          <span
-            id={tooltipId}
-            role="tooltip"
-            className="pointer-events-none absolute right-0 top-full z-10 mt-1 hidden whitespace-nowrap rounded-control bg-ink px-2 py-1 text-xs text-on-accent group-focus-within:block group-hover:block"
-          >
-            {t('remove')}
-          </span>
+          {/* ux2 §4. The text repeats the button name, so it is hidden from
+              screen readers. It touches the button so the pointer can move
+              onto it. The 44px target reaches into the page margin so the
+              question keeps ≥300px. */}
+          {isTipOpen ? (
+            <span
+              aria-hidden="true"
+              className="absolute right-0 top-full z-10 whitespace-nowrap rounded-control bg-ink px-2 py-1 text-xs text-on-accent"
+            >
+              {t('remove')}
+            </span>
+          ) : null}
         </span>
       }
     />
