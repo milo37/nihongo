@@ -1368,6 +1368,9 @@ describe('StudySession PostgreSQL vertical slice', () => {
       (result): result is PromiseRejectedResult => result.status === 'rejected'
     )
     expect(rejected?.reason).toBeInstanceOf(GuestDailyLimitReachedError)
+    expect((rejected?.reason as GuestDailyLimitReachedError).resetsAt).toEqual(
+      new Date(dayStart.getTime() + 24 * 60 * 60 * 1_000)
+    )
     await expect(
       start(new Date(dayStart.getTime() + 2_000))
     ).rejects.toBeInstanceOf(GuestDailyLimitReachedError)

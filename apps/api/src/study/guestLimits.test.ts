@@ -98,7 +98,10 @@ describe('guest study session limits (#737)', () => {
   })
 
   it('reports the daily guest limit as GUEST_LIMIT_REACHED', async () => {
-    const create = vi.fn().mockRejectedValue(new GuestDailyLimitReachedError())
+    const resetsAt = new Date('2026-11-08T15:00:00.000Z')
+    const create = vi
+      .fn()
+      .mockRejectedValue(new GuestDailyLimitReachedError(resetsAt))
     const error = await rejection(
       createService(create).create(
         body('RANDOM', GUEST_SESSION_QUESTION_LIMIT),
@@ -107,5 +110,6 @@ describe('guest study session limits (#737)', () => {
     )
     expect(error.code).toBe('GUEST_LIMIT_REACHED')
     expect(error.message).toContain(String(GUEST_DAILY_SESSION_LIMIT))
+    expect(error.details).toEqual({ resetsAt: '2026-11-08T15:00:00.000Z' })
   })
 })
