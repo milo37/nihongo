@@ -324,10 +324,11 @@ export const createSplitAppStateStorage = (
       startedAt
     } = envelope.state
 
-    // Write only what changed. Every auth write sends a storage event to the
-    // other tabs, and each of them reads /me and writes again, so rewriting
-    // an unchanged value (or persisting a value that changes on every read)
-    // keeps tabs waking each other forever.
+    // Write only what changed. A changed localStorage value sends a storage
+    // event to the other tabs (the HTML standard skips the event when the
+    // value is unchanged), and each of them reads /me and writes again. So a
+    // value that changes on every read must never be persisted, and skipping
+    // unchanged writes here also covers storage layers that would rewrite.
     const nextAuth = serializeEnvelope({ currentUser }, envelope.version)
     const nextPractice = serializeEnvelope(
       {
