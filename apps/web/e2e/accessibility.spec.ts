@@ -697,15 +697,30 @@ const setLocale = async (page: Page, locale: UiLocale): Promise<void> => {
       localeSettingsPages.set(page, settingsPage)
     }
   }
-  const localeSelect = settingsPage.locator('select[name="ui-locale"]:visible')
-  if (!(await localeSelect.isVisible())) {
-    const menuButton = settingsPage.locator(
-      'button[aria-controls="account-navigation"]'
+  // The learner app keeps the language in its account menu; the admin app
+  // keeps the default menu with a language select.
+  const webMenuButton = settingsPage.locator(
+    '#account-menu-button[aria-haspopup="menu"]'
+  )
+  if ((await webMenuButton.count()) > 0) {
+    await webMenuButton.click()
+    await settingsPage
+      .locator(`[role="menuitemradio"][lang="${locale}"]`)
+      .click()
+    await settingsPage.keyboard.press('Escape')
+  } else {
+    const localeSelect = settingsPage.locator(
+      'select[name="ui-locale"]:visible'
     )
-    await menuButton.click()
-    await expect(localeSelect).toBeVisible()
+    if (!(await localeSelect.isVisible())) {
+      const menuButton = settingsPage.locator(
+        'button[aria-controls="account-navigation"]'
+      )
+      await menuButton.click()
+      await expect(localeSelect).toBeVisible()
+    }
+    await localeSelect.selectOption(locale)
   }
-  await localeSelect.selectOption(locale)
   await expect(settingsPage.locator('html')).toHaveAttribute('lang', locale)
   await expect(page.locator('html')).toHaveAttribute('lang', locale)
   await expect(page.locator('main h1')).toBeVisible()
@@ -1745,7 +1760,7 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
 
   await page.goto('/')
   await settlePage(page)
-  const menuButton = page.locator('button[aria-controls="account-navigation"]')
+  const menuButton = page.locator('#account-menu-button')
   await focusByTab(page, menuButton)
   await attachFocusedElementEvidence(
     page,
@@ -1753,13 +1768,15 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
     'guest-mobile-account-trigger',
     44
   )
+  await expect(menuButton).toHaveAttribute('aria-haspopup', 'menu')
   await page.keyboard.press('Enter')
   await expect(menuButton).toHaveAttribute('aria-expanded', 'true')
-  await expect(page.locator('#account-navigation')).toBeVisible()
+  await expect(page.getByRole('menu')).toBeVisible()
+  await expect(page.getByRole('menuitem').first()).toBeFocused()
   await page.keyboard.press('Escape')
   await expect(menuButton).toBeFocused()
   await expect(menuButton).toHaveAttribute('aria-expanded', 'false')
-  await expect(page.locator('#account-navigation')).toHaveCount(0)
+  await expect(page.getByRole('menu')).toHaveCount(0)
   const mobileNavigation = page.locator('#mobile-navigation')
   await expect(mobileNavigation).toHaveAccessibleName(/\S/u)
   await expect(mobileNavigation.getByRole('link')).toHaveCount(3)
@@ -1805,9 +1822,11 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
   await page.reload()
   await settlePage(page)
   await expect(page.locator('html')).toHaveAttribute('lang', 'ja')
-  await expect(page.locator('select[name="ui-locale"]').first()).toHaveValue(
-    'ja'
-  )
+  await page.locator('#account-menu-button').click()
+  await expect(
+    page.locator('[role="menuitemradio"][lang="ja"]')
+  ).toHaveAttribute('aria-checked', 'true')
+  await page.keyboard.press('Escape')
 
   const secondPage = await context.newPage()
   await secondPage.goto('/')
