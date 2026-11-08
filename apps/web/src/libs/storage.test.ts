@@ -164,12 +164,10 @@ describe('storage adapters', () => {
       act(() => useAppStore.getState().setCurrentUser(admin()))
       expect(writes).not.toHaveBeenCalled()
       act(() =>
-        useAppStore
-          .getState()
-          .setCurrentUser({
-            ...admin(),
-            adminFreshUntil: '2026-11-08T10:30:00.000Z'
-          })
+        useAppStore.getState().setCurrentUser({
+          ...admin(),
+          adminFreshUntil: '2026-11-08T10:30:00.000Z'
+        })
       )
       expect(writes).toHaveBeenCalledTimes(1)
     } finally {
