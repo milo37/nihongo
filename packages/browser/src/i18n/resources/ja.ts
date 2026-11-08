@@ -1494,11 +1494,9 @@ export const jaCoreResources = {
     },
     eyebrow: 'BOOKMARKS',
     title: 'ブックマーク',
-    count: '全{{formattedCount}}件',
-    preview: {
-      expand: '問題のプレビューを開く',
-      description: '保存した問題のプレビューです。'
-    },
+    listCount: '{{formattedCount}}問',
+    sortSaved: '保存した順',
+    savedOn: '{{date}}に保存',
     description: 'もう一度解きたい問題を集めました。',
     empty: {
       firstTitle: '保存した問題はありません',
@@ -1529,7 +1527,7 @@ export const jaCoreResources = {
       archivedDescription:
         '公開が終了したため、新しい学習セッションには含まれません。'
     },
-    remove: 'ブックマークを解除',
+    remove: 'ブックマークから外す',
     removeDialog: {
       title: 'ブックマークを解除しますか？',
       description:

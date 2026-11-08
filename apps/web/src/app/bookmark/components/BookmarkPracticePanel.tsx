@@ -40,7 +40,9 @@ export const BookmarkPracticePanel = ({
   const { t: commonT } = useTranslation('common')
   return (
     <details className="bookmark-practice">
-      <summary className={getButtonClassName()}>
+      <summary
+        className={getButtonClassName({ size: 'lg', className: 'h-12' })}
+      >
         <Icon name="rotate-ccw" />
         {t('practice.title')}
       </summary>

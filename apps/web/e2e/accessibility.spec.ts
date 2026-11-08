@@ -2422,7 +2422,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   const removeBookmarkTrigger = page.locator(
     `[id="bookmark-remove-${targetQuestion.question.id}"]`
   )
-  await expect(removeBookmarkTrigger).toHaveAccessibleName('책갈피 해제')
+  await expect(removeBookmarkTrigger).toHaveAccessibleName('책갈피 빼기')
   const bookmarkedArticle = page.locator('article').filter({
     has: removeBookmarkTrigger
   })

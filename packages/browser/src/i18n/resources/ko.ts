@@ -1472,11 +1472,9 @@ export const koResources = {
     },
     eyebrow: 'BOOKMARKS',
     title: '책갈피',
-    count: '전체 {{formattedCount}}개',
-    preview: {
-      expand: '문항 미리보기 펼치기',
-      description: '저장된 문항 미리보기예요.'
-    },
+    listCount: '{{formattedCount}}문제',
+    sortSaved: '저장한 순',
+    savedOn: '{{date}} 저장',
     description: '다시 풀고 싶은 문제를 모아뒀어요.',
     empty: {
       firstTitle: '저장한 문제가 없어요',
@@ -1503,7 +1501,7 @@ export const koResources = {
       archived: '보관된 문제',
       archivedDescription: '공개가 종료되어 새 학습 세션에는 포함되지 않아요.'
     },
-    remove: '책갈피 해제',
+    remove: '책갈피 빼기',
     removeDialog: {
       title: '책갈피를 해제할까요?',
       description:
