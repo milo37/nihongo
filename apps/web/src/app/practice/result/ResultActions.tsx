@@ -3,11 +3,14 @@ import { Link } from 'react-router'
 import type { ReactElement } from 'react'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
 import { useGuestAction } from '@app/login/hooks/useGuestAction'
-import { useResultNumberFormat } from '@app/practice/hooks/useResultNumberFormat'
 import {
   Button,
   getButtonClassName
 } from '@nihongo/browser/common/components/Button'
+import { Icon } from '@nihongo/browser/common/components/Icon'
+
+// Outlined buttons add a border; fix every button at 48px (ux2 §2-4).
+const SAME_HEIGHT = 'h-12'
 
 type ResultActionsProps = {
   incorrectCount: number
@@ -22,6 +25,7 @@ type ResultActionsProps = {
   showRetry: boolean
 }
 
+/** '다음에 할 일': one filled button, the rest outlined, all 48px; no links. */
 export const ResultActions = ({
   incorrectCount,
   isGuest,
@@ -35,49 +39,55 @@ export const ResultActions = ({
 }: ResultActionsProps): ReactElement => {
   const { t } = useTranslation('result')
   const { t: authT } = useTranslation('auth')
-  const { formatCount } = useResultNumberFormat()
   const guestAction = useGuestAction()
-  const loginHref = `/login?redirect=${encodeURIComponent('/practice')}`
-  const newPracticeButton = (variant: 'primary' | 'outline'): ReactElement => (
+  const linkButton = (
+    to: string,
+    label: string,
+    variant: 'primary' | 'outline' = 'outline'
+  ): ReactElement => (
     <Link
-      className={getButtonClassName({ variant, size: 'lg' })}
-      to="/practice"
+      className={getButtonClassName({
+        variant,
+        size: 'lg',
+        className: SAME_HEIGHT
+      })}
+      to={to}
     >
-      {t('newPractice')}
+      {label}
     </Link>
   )
   return (
-    <div className="study-result-actions mt-4 flex flex-col gap-3">
-      {/* One login place: beside the L10 line, or in the L20 box. */}
-      <p className="text-sm leading-6 text-muted">
-        {isGuest
-          ? t('status.guest')
-          : t('status.savedWrongCount', {
-              formattedCount: formatCount(incorrectCount)
-            })}
-        {isGuest && !isGuestDone ? (
-          <Link className="note-link ms-2" to={loginHref}>
-            {t('actions.loginChoice')}
-          </Link>
-        ) : null}
-      </p>
+    <section
+      className="study-result-actions mt-10"
+      aria-labelledby="result-next-steps"
+    >
+      <h2 id="result-next-steps" className="mb-4 text-xl font-bold">
+        {t('nextSteps')}
+      </h2>
       {isGuestDone ? (
         <div className="practice-guest-note" role="status">
           <span>{t('guestDone')}</span>
           <Link
             className={getButtonClassName({ variant: 'outline', size: 'sm' })}
-            to={loginHref}
+            to={`/login?redirect=${encodeURIComponent('/practice')}`}
           >
             {authT('guestToast.login')}
           </Link>
         </div>
       ) : null}
-      {/* Primary → secondary → text links; layout in styles.css. */}
-      <div className="study-result-buttons">
-        {isGuest && !isGuestDone ? newPracticeButton('primary') : null}
+      {/* Stacked full width under 640px, one row at text width above. */}
+      <div className="study-result-buttons flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        {isGuest
+          ? linkButton(
+              '/practice',
+              t('newPractice'),
+              isGuestDone ? 'outline' : 'primary'
+            )
+          : null}
         {isGuest && incorrectCount > 0 ? (
           // Locked, not hidden: pressing it says why (G4).
           <Button
+            className={SAME_HEIGHT}
             size="lg"
             variant="outline"
             onClick={() =>
@@ -85,11 +95,12 @@ export const ResultActions = ({
             }
           >
             {t('actions.retryIncorrect')}
-            <span aria-hidden="true">🔒</span>
+            <Icon name="lock" />
             <span className="sr-only">{t('memberLocked')}</span>
           </Button>
         ) : !isGuest && showRetry ? (
           <Button
+            className={SAME_HEIGHT}
             size="lg"
             disabled={isRetryDisabled}
             isLoading={isRetryLoading}
@@ -99,27 +110,21 @@ export const ResultActions = ({
             {t('actions.retryIncorrect')}
           </Button>
         ) : null}
-        {isGuest ? null : newPracticeButton(showRetry ? 'outline' : 'primary')}
-        <div className="study-result-links">
-          {isGuest ? null : (
-            <Link
-              className="note-link"
-              to={`/wrong-notes?level=${session.level}&subject=${session.subject}&view=UNREVIEWED`}
-            >
-              {t('actions.openWrongNotes')}
-            </Link>
-          )}
-          <Link className="note-link" to="/bookmarks">
-            {t('navigation.openBookmarks')}
-          </Link>
-          {/* The L20 box replaces the primary; new practice stays as text. */}
-          {isGuestDone ? (
-            <Link className="note-link" to="/practice">
-              {t('newPractice')}
-            </Link>
-          ) : null}
-        </div>
+        {isGuest
+          ? null
+          : linkButton(
+              '/practice',
+              t('newPractice'),
+              showRetry ? 'outline' : 'primary'
+            )}
+        {isGuest
+          ? null
+          : linkButton(
+              `/wrong-notes?level=${session.level}&subject=${session.subject}&view=UNREVIEWED`,
+              t('actions.openWrongNotes')
+            )}
+        {linkButton('/bookmarks', t('navigation.openBookmarks'))}
       </div>
-    </div>
+    </section>
   )
 }

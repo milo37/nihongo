@@ -2359,7 +2359,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     submitted.result.items.map((item) => item.question.id)
   )
   const firstResultQuestion = resultNavigation.getByRole('button', {
-    name: '문제 1 · 미응답',
+    name: '문제 1, 미응답',
     exact: true
   })
   await focusByTab(page, firstResultQuestion)

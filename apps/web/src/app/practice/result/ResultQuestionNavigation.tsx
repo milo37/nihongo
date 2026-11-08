@@ -3,9 +3,12 @@ import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import type { StudyResultItemView } from '@app/practice/adapters/studyResultView'
 import { Button } from '@nihongo/browser/common/components/Button'
-import { Icon } from '@nihongo/browser/common/components/Icon'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
+import {
+  getResultStatus,
+  ResultStatusIcon
+} from '@app/practice/result/ResultStatusIcon'
 
 type ResultQuestionNavigationProps = {
   readonly items: readonly StudyResultItemView[]
@@ -58,11 +61,7 @@ export const ResultQuestionNavigation = ({
     >
       {items.map((item, index) => {
         const selected = item.question.id === selectedQuestionId
-        const status = item.isCorrect
-          ? t('items.correct')
-          : item.selectedOptionId === null
-            ? t('items.unanswered')
-            : t('items.incorrect')
+        const status = getResultStatus(item)
         const label = t('navigation.question', {
           formattedOrdinal: formatNumber(index + 1, locale)
         })
@@ -72,12 +71,12 @@ export const ResultQuestionNavigation = ({
             key={item.question.id}
             variant="ghost"
             className="study-result-question"
-            aria-label={`${label} · ${status}`}
+            aria-label={`${label}, ${t(`items.${status}`)}`}
             aria-pressed={selected}
             aria-controls="selected-result-question"
             onClick={() => onSelect(item.question.id)}
           >
-            <Icon name={item.isCorrect ? 'circle-check' : 'circle-alert'} />
+            <ResultStatusIcon status={status} />
             <span>{label}</span>
           </Button>
         )

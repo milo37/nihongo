@@ -257,9 +257,19 @@ describe('approved general result navigation', () => {
     expect(document.getElementById('result-explanations')).toHaveFocus()
     const buttons = within(navigation).getAllByRole('button')
     expect(buttons).toHaveLength(3)
-    expect(buttons[0]).toHaveAccessibleName('문제 1 · 정답')
-    expect(buttons[1]).toHaveAccessibleName('문제 2 · 오답')
-    expect(buttons[2]).toHaveAccessibleName('문제 3 · 미응답')
+    expect(buttons[0]).toHaveAccessibleName('문제 1, 정답')
+    expect(buttons[1]).toHaveAccessibleName('문제 2, 오답')
+    expect(buttons[2]).toHaveAccessibleName('문제 3, 미응답')
+    // Shape as well as colour: filled ✓, filled ✕, dashed – (ux2 §2-1).
+    expect(
+      buttons
+        .slice(0, 3)
+        .map((button) =>
+          button
+            .querySelector('.result-status-icon')
+            ?.getAttribute('data-status')
+        )
+    ).toEqual(['correct', 'incorrect', 'unanswered'])
     expect(
       screen.getByRole('heading', { name: first.question.questionText })
     ).toBeVisible()
@@ -473,10 +483,10 @@ describe('approved general result navigation', () => {
       )
     ).toBeVisible()
     expect(router.state.location.pathname).toMatch(/^\/practice\/result\//u)
-    // The box replaces the primary; new practice stays as a text link.
-    expect(screen.getByRole('link', { name: '새 문제 풀기' })).toHaveClass(
-      'note-link'
-    )
+    // The box replaces the primary; new practice stays a button (ux2 §2-4).
+    const newPractice = screen.getByRole('link', { name: '새 문제 풀기' })
+    expect(newPractice.className).toContain('border-line-interactive')
+    expect(newPractice.className).not.toContain('bg-brand')
     view.unmount()
     fixture.client.clear()
   })
@@ -614,7 +624,7 @@ describe('approved general result navigation', () => {
       })
       await waitFor(() => expect(navigation.scrollLeft).toBe(144))
       let selected = within(navigation).getByRole('button', {
-        name: '문제 5 · 미응답'
+        name: '문제 5, 미응답'
       })
       expect(selected.getBoundingClientRect().right + 6).toBeLessThanOrEqual(
         navigation.getBoundingClientRect().right
@@ -639,7 +649,7 @@ describe('approved general result navigation', () => {
       navigation = await screen.findByRole('navigation', { name: '해설 문항' })
       await waitFor(() => expect(navigation.scrollLeft).toBe(144))
       selected = within(navigation).getByRole('button', {
-        name: '문제 5 · 미응답'
+        name: '문제 5, 미응답'
       })
       expect(selected).not.toHaveFocus()
       expect(selected.getBoundingClientRect().right + 6).toBeLessThanOrEqual(
@@ -677,7 +687,7 @@ describe('approved general result navigation', () => {
       await act(async () => window.dispatchEvent(new Event('resize')))
       expect(navigation.scrollLeft).toBe(0)
       expect(
-        within(navigation).getByRole('button', { name: '문제 5 · 미응답' })
+        within(navigation).getByRole('button', { name: '문제 5, 미응답' })
       ).not.toHaveFocus()
       expect(scrollTo).not.toHaveBeenCalled()
       expect(scrollIntoView).not.toHaveBeenCalled()
@@ -690,22 +700,25 @@ describe('approved general result navigation', () => {
     }
   })
 
-  it('요약에 정답·선택 오답·미응답, 지표, 오답노트 연결을 표시한다', async () => {
+  it('요약은 점수·정답률·시간·미응답을 한 번만 보이고, 해설 확인·오늘은 여기까지가 없다 (ux2 §2-2·2-3)', async () => {
     const fixture = await createFixture()
     const { view } = fixture.mount()
+    const score = (await screen.findByText('/ 3 정답')).closest('p')
+    expect(score).toHaveTextContent(
+      '1 / 3 정답정답률 33.33% · 0분 0초 · 미응답 1'
+    )
     expect(
-      await screen.findByText('정답 1 · 선택 오답 1 · 미응답 1')
-    ).toBeInTheDocument()
-    const metrics = screen.getByText('정답률').closest('dl')
-    if (!metrics) throw new Error('지표 목록이 필요합니다.')
-    expect(within(metrics).getByText('33.33%')).toBeInTheDocument()
-    expect(within(metrics).getByText('0분 0초')).toBeInTheDocument()
+      screen.getByText('미응답도 채점에서는 오답으로 포함돼요.', {
+        exact: false
+      })
+    ).toBeVisible()
+    // No second set of the same numbers (the old five metrics).
+    expect(score?.parentElement?.querySelector('dl')).toBeNull()
     expect(
       screen.getByText('틀린 2문제가 오답노트에 반영되었어요.')
     ).toBeInTheDocument()
-    expect(
-      screen.getByRole('link', { name: '오늘은 여기까지' })
-    ).toHaveAttribute('href', '/dashboard?view=learning')
+    expect(screen.queryByText('해설 확인하기')).toBeNull()
+    expect(screen.queryByText('오늘은 여기까지')).toBeNull()
     expect(screen.getByRole('link', { name: '오답노트 보기' })).toHaveAttribute(
       'href',
       '/wrong-notes?level=N5&subject=VOCABULARY&view=UNREVIEWED'
@@ -778,21 +791,7 @@ describe('approved general result navigation', () => {
     }
   )
 
-  it('요약 지표에 전체·정답·오답 수를 각각 표시한다', async () => {
-    const fixture = await createFixture()
-    const { view } = fixture.mount()
-    const metrics = (await screen.findByText('정답률')).closest('dl')
-    if (!metrics) throw new Error('지표 목록이 필요합니다.')
-    const valueOf = (label: string): string | null | undefined =>
-      within(metrics).getByText(label).nextElementSibling?.textContent
-    expect(valueOf('전체')).toBe('3')
-    expect(valueOf('정답')).toBe('1')
-    expect(valueOf('오답')).toBe('2')
-    view.unmount()
-    fixture.client.clear()
-  })
-
-  it('회원 결과 아래 버튼은 오답 다시 풀기(주) → 새 문제(보조) → 오답노트·책갈피(텍스트)다 (3절)', async () => {
+  it('회원 다음에 할 일은 오답 다시 풀기(주) → 새 문제·오답노트·책갈피(테두리 버튼)다 (ux2 §2-4)', async () => {
     const actionsOf = (element: HTMLElement): HTMLElement => {
       const actions = element.closest<HTMLElement>('.study-result-actions')
       if (!actions) throw new Error('결과 동작 영역이 필요합니다.')
@@ -800,7 +799,7 @@ describe('approved general result navigation', () => {
     }
     const names = (actions: HTMLElement): string[] =>
       Array.from(actions.querySelectorAll<HTMLElement>('a, button')).map(
-        (element) => element.textContent?.replace('🔒', '').trim() ?? ''
+        (element) => element.textContent?.trim() ?? ''
       )
     const member = await createFixture()
     const memberView = member.mount()
@@ -808,6 +807,9 @@ describe('approved general result navigation', () => {
       name: '오답만 다시 풀기'
     })
     const actions = actionsOf(retry)
+    expect(
+      within(actions).getByRole('heading', { level: 2, name: '다음에 할 일' })
+    ).toBeVisible()
     expect(names(actions)).toEqual([
       '오답만 다시 풀기',
       '새 문제 풀기',
@@ -815,21 +817,18 @@ describe('approved general result navigation', () => {
       '책갈피 보기'
     ])
     expect(retry.className).toContain('bg-brand')
-    const memberNew = within(actions).getByRole('link', {
-      name: '새 문제 풀기'
-    })
-    expect(memberNew.className).toContain('border-line-interactive')
-    expect(memberNew.className).not.toContain('bg-brand')
-    for (const name of ['오답노트 보기', '책갈피 보기']) {
-      expect(within(actions).getByRole('link', { name })).toHaveClass(
-        'note-link'
-      )
+    for (const name of ['새 문제 풀기', '오답노트 보기', '책갈피 보기']) {
+      const link = within(actions).getByRole('link', { name })
+      expect(link.className).toContain('border-line-interactive')
+      expect(link.className).toContain('min-h-12')
+      expect(link.className).not.toContain('bg-brand')
     }
+    expect(actions.querySelector('.note-link')).toBeNull()
     memberView.view.unmount()
     member.client.clear()
   })
 
-  it('게스트 결과 아래 버튼은 새 문제(주) → 잠긴 다시 풀기(보조) → 책갈피(텍스트)다 (3절)', async () => {
+  it('게스트 다음에 할 일은 새 문제(주) → 잠긴 다시 풀기·책갈피(테두리 버튼)다 (ux2 §2-4)', async () => {
     const actionsOf = (element: HTMLElement): HTMLElement => {
       const actions = element.closest<HTMLElement>('.study-result-actions')
       if (!actions) throw new Error('결과 동작 영역이 필요합니다.')
@@ -837,7 +836,7 @@ describe('approved general result navigation', () => {
     }
     const names = (actions: HTMLElement): string[] =>
       Array.from(actions.querySelectorAll<HTMLElement>('a, button')).map(
-        (element) => element.textContent?.replace('🔒', '').trim() ?? ''
+        (element) => element.textContent?.trim() ?? ''
       )
     const guest = await createFixture({ role: 'GUEST', mixed: false })
     const guestView = guest.mount()
@@ -846,7 +845,6 @@ describe('approved general result navigation', () => {
     })
     const guestActions = actionsOf(guestRetry)
     expect(names(guestActions)).toEqual([
-      '로그인',
       '새 문제 풀기',
       '오답만 다시 풀기로그인 필요',
       '책갈피 보기'
@@ -855,17 +853,17 @@ describe('approved general result navigation', () => {
       within(guestActions).getByRole('link', { name: '새 문제 풀기' }).className
     ).toContain('bg-brand')
     expect(guestRetry.className).toContain('border-line-interactive')
+    // The lock is a Lucide icon, not an emoji.
+    expect(guestRetry.querySelector('svg')).not.toBeNull()
+    expect(guestActions.querySelector('.note-link')).toBeNull()
     guestView.view.unmount()
     guest.client.clear()
   })
 
-  it('게스트 연결 링크는 홈과 로그인 선택으로 보낸다', async () => {
+  it('게스트 요약 안내 옆 로그인 링크는 로그인 선택으로 보낸다', async () => {
     const fixture = await createFixture({ role: 'GUEST' })
     const { view } = fixture.mount()
-    expect(
-      await screen.findByRole('link', { name: '오늘은 여기까지' })
-    ).toHaveAttribute('href', '/')
-    expect(screen.getByRole('link', { name: '로그인' })).toHaveAttribute(
+    expect(await screen.findByRole('link', { name: '로그인' })).toHaveAttribute(
       'href',
       '/login?redirect=%2Fpractice'
     )
