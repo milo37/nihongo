@@ -141,6 +141,30 @@ describe('마이페이지 계정 설정', () => {
     ).toHaveLength(0)
     expect(reads()).toBe(0)
   })
+  it('로그인 회원이 새로고침하면 /me 응답 전에는 확인 중만 보이고 로그인 카드를 보이지 않는다', async () => {
+    mockDatabase.loginAs('USER')
+    let release: () => void = () => undefined
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    mockServer.use(
+      http.get('*/api/v1/me', async () => {
+        await gate
+        return undefined
+      })
+    )
+    renderAccount()
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      '로그인 상태를 확인하고 있어요.'
+    )
+    expect(screen.queryByText('로그인이 필요해요')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Google로 계속하기/u })
+    ).not.toBeInTheDocument()
+    release()
+    expect(await screen.findByText('연결됨')).toBeInTheDocument()
+  })
+
   it('Google 연결 상태와 유일한 방법 안내를 보여 주고 해제 버튼은 두지 않는다', async () => {
     mockDatabase.loginAs('USER')
     renderAccount()
@@ -286,19 +310,22 @@ describe('마이페이지 계정 설정', () => {
       const dialog = await openDeleteDialog(user)
       expect(
         within(dialog).getByRole('listitem', { current: 'step' })
-      ).toHaveTextContent('Google로 본인 확인')
+      ).toHaveTextContent('본인 확인')
       // Step ② is listed from the start so the length of the flow is clear.
       const steps = within(dialog).getAllByRole('listitem')
       expect(steps).toHaveLength(2)
       expect(steps[1]).toHaveTextContent('탈퇴 최종 확인')
       expect(steps[1]).not.toHaveAttribute('aria-current')
       expect(
+        within(dialog).getByText('확인이 끝나면 이 화면으로 돌아와요.')
+      ).toBeInTheDocument()
+      expect(
         within(dialog).getByText(
-          '보안을 위해 Google로 한 번 더 로그인해야 해요. 확인 후 이 화면으로 돌아와요.'
+          '연결 해제와 회원 탈퇴는 할 때마다 본인 확인을 해요.'
         )
       ).toBeInTheDocument()
       expect(
-        within(dialog).getByRole('button', { name: 'Google로 확인하고 계속' })
+        within(dialog).getByRole('button', { name: 'Google로 본인 확인' })
       ).toBeEnabled()
       expect(
         within(dialog).queryByRole('button', { name: '회원 탈퇴' })
@@ -328,40 +355,58 @@ describe('마이페이지 계정 설정', () => {
     renderAccount()
     const dialog = await openDeleteDialog(user)
     const verify = within(dialog).getByRole('button', {
-      name: 'Google로 확인하고 계속'
+      name: 'Google로 본인 확인'
     })
     await user.dblClick(verify)
     await waitFor(() => expect(requests).toBe(1))
     expect(verify).toBeDisabled()
-    expect(verify).toHaveAccessibleName('Google로 이동하고 있어요.')
+    expect(verify).toHaveAccessibleName('Google로 이동 중…')
     expect(verify.querySelectorAll('.ui-spinner')).toHaveLength(1)
     await act(async () => finish?.())
     await waitFor(() => expect(verify).toBeEnabled())
-    expect(verify).toHaveAccessibleName('Google로 확인하고 계속')
+    expect(verify).toHaveAccessibleName('Google로 본인 확인')
     expect(within(dialog).getByRole('alert')).toBeInTheDocument()
     expect(requests).toBe(1)
-    expect(sessionStorage.getItem('harumaru:account-intent:v1')).toBeNull()
   })
   it('Google 본인 확인 뒤 같은 창이 ② 최종 확인으로 바뀌고 탈퇴는 아직 하지 않는다', async () => {
     const actor = mockDatabase.loginAs('USER')
     const user = userEvent.setup()
     const posts = vi.spyOn(apiClient, 'post')
-    renderAccount()
-    const dialog = await openDeleteDialog(user)
+    const router = renderAccount()
+    const opened = await openDeleteDialog(user)
     queryClient.setQueryData(['bookmarks', 'private'], { owner: actor.id })
     await user.click(
-      within(dialog).getByRole('button', { name: 'Google로 확인하고 계속' })
+      within(opened).getByRole('button', { name: 'Google로 본인 확인' })
     )
-    const final = await within(dialog).findByRole('button', {
-      name: '회원 탈퇴'
-    })
+    // The same-tab return reopens the same dialog at step ②.
+    await waitFor(() =>
+      expect(
+        within(
+          screen.getByRole('dialog', { name: '회원 탈퇴할까요?' })
+        ).getByRole('listitem', { current: 'step' })
+      ).toHaveTextContent('탈퇴 최종 확인')
+    )
+    const dialog = screen.getByRole('dialog', { name: '회원 탈퇴할까요?' })
+    expect(within(dialog).getByRole('status')).toHaveTextContent(
+      '본인 확인을 마쳤어요. 마지막 단계를 확인해 주세요.'
+    )
+    expect(within(dialog).getAllByRole('listitem')[0]).toHaveTextContent(
+      '본인 확인 완료'
+    )
     expect(
-      within(dialog).getByRole('listitem', { current: 'step' })
-    ).toHaveTextContent('탈퇴 최종 확인')
+      within(dialog).getByRole('heading', { name: '회원 탈퇴할까요?' })
+    ).toHaveFocus()
+    await waitFor(() =>
+      expect(
+        router.state.location.pathname + router.state.location.search
+      ).toBe('/account')
+    )
     expect(dialog).toHaveTextContent(
       '보내 주신 문제 신고는 설명을 지우고 계정과 연결을 끊은 채 남아요.'
     )
-    expect(final).toBeEnabled()
+    expect(
+      within(dialog).getByRole('button', { name: '회원 탈퇴' })
+    ).toBeEnabled()
     expect(mockDatabase.ssoAccounts.capabilities().freshVerified).toBe(true)
     expect(countPosts(posts, '/auth/sign-in/social')).toBe(1)
     expect(countPosts(posts, '/auth/sso/delete-account')).toBe(0)
@@ -410,7 +455,7 @@ describe('마이페이지 계정 설정', () => {
     const dialog = await openDeleteDialog(user)
     await user.click(within(dialog).getByRole('button', { name: '회원 탈퇴' }))
     await within(dialog).findByRole('button', {
-      name: 'Google로 확인하고 계속'
+      name: 'Google로 본인 확인'
     })
     expect(router.state.location.pathname).toBe('/account')
     expect(countPosts(posts, '/auth/sso/delete-account')).toBe(1)
@@ -458,31 +503,76 @@ describe('마이페이지 계정 설정', () => {
     expect(mockDatabase.ssoAccounts.capabilities().freshVerified).toBe(false)
     expect(posts).not.toHaveBeenCalled()
   })
-  it('본인 확인 복귀는 이 계정이 남긴 탈퇴 의도만 ② 단계로 다시 연다', async () => {
-    const actor = freshActor()
-    sessionStorage.setItem(
-      'harumaru:account-intent:v1',
-      JSON.stringify({ userId: actor.id, intent: { kind: 'delete' } })
-    )
+  it('?reauth=delete 복귀는 서버가 확인을 기록했을 때만 같은 대화상자를 ② 단계로 다시 연다', async () => {
+    freshActor()
     const posts = vi.spyOn(apiClient, 'post')
-    renderAccount('/login?ssoAccountFresh=REAUTHENTICATED')
+    const router = renderAccount(
+      '/login?reauth=delete&ssoAccountFresh=REAUTHENTICATED'
+    )
     const dialog = await screen.findByRole('dialog', {
       name: '회원 탈퇴할까요?'
     })
     expect(
       within(dialog).getByRole('listitem', { current: 'step' })
     ).toHaveTextContent('탈퇴 최종 확인')
-    expect(sessionStorage.getItem('harumaru:account-intent:v1')).toBeNull()
+    expect(within(dialog).getByRole('status')).toHaveTextContent(
+      '본인 확인을 마쳤어요.'
+    )
+    await waitFor(() => expect(router.state.location.search).toBe(''))
+    expect(router.state.location.pathname).toBe('/account')
     expect(posts).not.toHaveBeenCalled()
   })
-  it('다른 계정이 남긴 탈퇴 의도는 열지 않는다', async () => {
-    freshActor()
-    sessionStorage.setItem(
-      'harumaru:account-intent:v1',
-      JSON.stringify({ userId: 'someone-else', intent: { kind: 'delete' } })
+  it('복귀 주소만 성공이고 서버 확인이 없으면 ① 단계에서 실패를 알린다', async () => {
+    mockDatabase.loginAs('USER')
+    renderAccount('/login?reauth=delete&ssoAccountFresh=REAUTHENTICATED')
+    const dialog = await screen.findByRole('dialog', {
+      name: '회원 탈퇴할까요?'
+    })
+    expect(
+      within(dialog).getByRole('listitem', { current: 'step' })
+    ).toHaveTextContent('본인 확인')
+    expect(within(dialog).getByRole('alert')).toHaveTextContent(
+      '본인 확인을 마치지 못했어요. 다시 시도해 주세요.'
     )
-    renderAccount('/login?ssoAccountFresh=REAUTHENTICATED')
+    expect(
+      within(dialog).getByRole('button', { name: 'Google로 본인 확인' })
+    ).toBeEnabled()
+    expect(mockDatabase.ssoAccounts.capabilities().freshVerified).toBe(false)
+  })
+  it.each([
+    [
+      'CANCELLED',
+      '본인 확인을 취소했어요. 필요하면 다시 시도해 주세요.',
+      'status'
+    ],
+    ['FAILED', '본인 확인을 마치지 못했어요. 다시 시도해 주세요.', 'alert'],
+    ['INVALID_CALLBACK', '확인 요청이 만료됐어요. 다시 시도해 주세요.', 'alert']
+  ] as const)(
+    '%s 복귀는 같은 대화상자의 ① 단계에 그 결과를 보여 준다(실패·만료는 빨간 상자, 취소는 중립 상자)',
+    async (outcome, copy, role) => {
+      mockDatabase.loginAs('USER')
+      renderAccount('/login?reauth=delete&ssoAccountFresh=' + outcome)
+      const dialog = await screen.findByRole('dialog', {
+        name: '회원 탈퇴할까요?'
+      })
+      expect(dialog).toHaveTextContent(copy)
+      const box = within(dialog).getByText(copy)
+      expect(box).toHaveAttribute('role', role)
+      expect(box).toHaveClass('auth-notice')
+      if (role === 'alert') expect(box).toHaveClass('auth-error')
+      else expect(box).not.toHaveClass('auth-error')
+      expect(
+        within(dialog).queryByRole('button', { name: '회원 탈퇴' })
+      ).not.toBeInTheDocument()
+    }
+  )
+  it('알 수 없는 reauth 값은 대화상자를 열지 않는다', async () => {
+    freshActor()
+    const router = renderAccount(
+      '/login?reauth=unlink:kakao&ssoAccountFresh=REAUTHENTICATED'
+    )
     await screen.findByText('연결됨')
+    await waitFor(() => expect(router.state.location.search).toBe(''))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
   it('복귀 CANCELLED는 기존 회원·개인 cache를 지우거나 mutation하지 않고 안내만 한다', async () => {
@@ -495,7 +585,7 @@ describe('마이페이지 계정 설정', () => {
       await router.navigate('/login?ssoAccountFresh=CANCELLED')
     })
     await screen.findByText(
-      '본인 확인이나 계정 연결을 취소했어요. 기존 계정은 유지돼요.'
+      '본인 확인을 취소했어요. 필요하면 다시 시도해 주세요.'
     )
     expect(router.state.location.pathname).toBe('/account')
     expect(queryClient.getQueryData(['bookmarks', 'private'])).toEqual({

@@ -1,5 +1,6 @@
 import {
   cleanup,
+  fireEvent,
   render,
   screen,
   waitFor,
@@ -17,6 +18,12 @@ import * as listApi from '@api/admin-question/listAdminQuestion/index'
 import { adminRoutes } from '@/router'
 import { preloadAdminPages } from '@/test/preloadAdminPages'
 import { question, actorId } from '@app/admin-question/test/questionFixture'
+
+/** Opens a list row's ⋯ menu and returns one of its items. */
+const rowMenuItem = (questionId: string, name: string): HTMLElement => {
+  fireEvent.click(screen.getByRole('button', { name: questionId + ' 작업' }))
+  return screen.getByRole('menuitem', { name })
+}
 
 beforeAll(preloadAdminPages)
 
@@ -109,9 +116,7 @@ it('ADMIN loads the existing table at the /admin basename with the local create/
   expect(
     within(region).getByRole('table', { name: /JLPT 관리자 문제 목록/ })
   ).toBeInTheDocument()
-  expect(
-    screen.getByRole('link', { name: question.questionId + ' 문제 수정' })
-  ).toHaveAttribute(
+  expect(rowMenuItem(question.questionId, '수정')).toHaveAttribute(
     'href',
     '/admin/questions/' +
       question.questionId +

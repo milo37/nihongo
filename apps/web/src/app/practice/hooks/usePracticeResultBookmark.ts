@@ -82,8 +82,7 @@ export const usePracticeResultBookmark = ({
     setMessage(null)
     if (isItemBookmarked) {
       deleteBookmark.mutate(question.id, {
-        onSuccess: () =>
-          notifySuccess('removed'),
+        onSuccess: () => notifySuccess('removed'),
         onError: (error) => {
           if (!isAuthTransitionSupersededError(error)) {
             setMessage({ code: 'removeFailed', questionId: question.id })

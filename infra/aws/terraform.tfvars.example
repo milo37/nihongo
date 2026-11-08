@@ -6,6 +6,6 @@ alert_email            = "owner@example.com"
 
 # PRODUCTION needs origin_domain_name (validation). After buying the domain
 # (Cloudflare DNS, see README) and issuing a us-east-1 ACM certificate:
-# origin_domain_name  = "origin.harumaru.net"
-# domain_name         = "harumaru.net"
+# origin_domain_name  = "origin.harumaru.app"
+# domain_name         = "harumaru.app"
 # acm_certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/..."

@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw'
-import { startAdminFresh } from '@api/auth/startAdminFresh'
+import { startAdminReauth } from '@nihongo/browser/api/auth/startAdminReauth/index'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { DEMO_ADMIN_ID } from '@mocks/data/users'
 import { setMockSsoAccountForTesting } from '@mocks/handlers/authHandlers'
@@ -8,7 +8,7 @@ import { mockServer } from '@/test/server'
 it('uses the strict ADMIN_FRESH module with safe default callback and no ordinary LOGIN side effect', async () => {
   const actor = mockDatabase.loginAs('ADMIN')
   setMockSsoAccountForTesting('google', DEMO_ADMIN_ID)
-  const response = await startAdminFresh({
+  const response = await startAdminReauth({
     purpose: 'ADMIN_FRESH',
     provider: 'google'
   })
@@ -18,7 +18,7 @@ it('uses the strict ADMIN_FRESH module with safe default callback and no ordinar
 it('rejects an unlinked identity without switching to an ordinary fixture account', async () => {
   const actor = mockDatabase.loginAs('ADMIN')
   await expect(
-    startAdminFresh({ purpose: 'ADMIN_FRESH', provider: 'google' })
+    startAdminReauth({ purpose: 'ADMIN_FRESH', provider: 'google' })
   ).rejects.toMatchObject({ status: 401, code: 'REAUTHENTICATION_FAILED' })
   expect(mockDatabase.getCurrentUser()?.id).toBe(actor.id)
 })
@@ -38,6 +38,6 @@ it('rejects a selected-provider mismatch even when the URL shape is otherwise va
     )
   )
   await expect(
-    startAdminFresh({ purpose: 'ADMIN_FRESH', provider: 'google' })
+    startAdminReauth({ purpose: 'ADMIN_FRESH', provider: 'google' })
   ).rejects.toBeDefined()
 })

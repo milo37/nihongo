@@ -23,10 +23,11 @@ export const PracticeQuestionBookmarkButton = ({
   const { formatCount } = usePracticeNumberFormat()
   return (
     <Button
-      className="shrink-0"
+      className="shrink-0 aria-disabled:cursor-wait aria-disabled:opacity-70"
       variant="outline"
       type="button"
-      disabled={isDisabled}
+      // Focus stays here while busy (a toast closed with Esc returns to it).
+      aria-disabled={isDisabled || undefined}
       aria-label={t(
         isBookmarked
           ? 'session.bookmark.removeLabel'
@@ -35,7 +36,9 @@ export const PracticeQuestionBookmarkButton = ({
       )}
       aria-pressed={isBookmarked}
       data-selected={isBookmarked}
-      onClick={onToggle}
+      onClick={() => {
+        if (!isDisabled) onToggle()
+      }}
     >
       {isBookmarked ? t('session.bookmark.remove') : t('session.bookmark.add')}
     </Button>

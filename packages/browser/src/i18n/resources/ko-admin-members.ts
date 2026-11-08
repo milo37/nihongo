@@ -25,7 +25,7 @@ export const koAdminMembersResources = {
     solvedCount: '푼 문제',
     reportCount: '제보',
     status: '상태',
-    actions: '상세/조치'
+    actions: '상세'
   },
   status: { ACTIVE: '이용 중', RESTRICTED: '이용 제한' },
   detail: {

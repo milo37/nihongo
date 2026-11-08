@@ -53,6 +53,9 @@ describe('Toast (U12 §3)', () => {
     const [card] = cards()
     expect(card).not.toHaveAttribute('role')
     expect(card).not.toHaveAttribute('aria-live')
+    // No all-sides border utility, or it would hide the 4px tone strip.
+    expect(card!.className.split(' ')).not.toContain('border')
+    expect(card!.className.split(' ')).not.toContain('border-line')
     expect(screen.getByRole('button', { name: '알림 닫기' })).toBeVisible()
   })
 

@@ -354,6 +354,10 @@ describe('approved general result navigation', () => {
     let body: unknown
     let requestedUrl: string | undefined
     let optimisticBookmark: BookmarkSummary | undefined
+    let release = (): void => undefined
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
     mockServer.use(
       http.get('*/api/v1/bookmarks', () =>
         HttpResponse.json({ items: [], total: 0, page: 1, pageSize: 20 })
@@ -373,6 +377,7 @@ describe('approved general result navigation', () => {
             (bookmark) =>
               bookmark.questionId === fixture.result.items[1]?.question.id
           )
+        await gate
         return HttpResponse.json(
           {
             code: 'INTERNAL_SERVER_ERROR',
@@ -392,6 +397,11 @@ describe('approved general result navigation', () => {
     })
     await waitFor(() => expect(button).toBeEnabled())
     await userEvent.setup().click(button)
+    // Busy but still focusable, so focus does not fall back to <body>.
+    await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'true'))
+    expect(button).toBeEnabled()
+    expect(button).toHaveFocus()
+    release()
     expect(
       await screen.findByText(
         '책갈피를 저장하지 못해 이전 상태로 복원했습니다.'
@@ -781,7 +791,9 @@ describe('approved general result navigation', () => {
     await waitFor(() => expect(button).toBeEnabled())
     await userEvent.setup().click(button)
     const toasts = await screen.findByRole('region', { name: '알림' })
-    expect(await within(toasts).findByText('책갈피에 저장했어요.')).toBeVisible()
+    expect(
+      await within(toasts).findByText('책갈피에 저장했어요.')
+    ).toBeVisible()
     expect(
       screen.getByRole('button', { name: '2번 문제 책갈피 해제' })
     ).toHaveAttribute('aria-pressed', 'true')
