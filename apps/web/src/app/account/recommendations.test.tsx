@@ -54,7 +54,7 @@ it('이용이 제한된 계정이 추천 학습을 시작하면 제한 안내를
     )
   ).toBeVisible()
   expect(
-    screen.queryByText(/추천 학습을 시작하지 못했습니다/u)
+    screen.queryByText(/추천 학습을 시작하지 못했어요/u)
   ).not.toBeInTheDocument()
   expect(router.state.location.pathname).toBe('/account')
   client.clear()
@@ -99,7 +99,7 @@ it('이용이 제한된 계정이 추천 단일 복습을 시작하면 제한 �
     )
   ).toBeVisible()
   expect(
-    screen.queryByText(/단일 복습을 시작하지 못했습니다/u)
+    screen.queryByText(/단일 복습을 시작하지 못했어요/u)
   ).not.toBeInTheDocument()
   expect(router.state.location.pathname).toBe('/account')
   client.clear()

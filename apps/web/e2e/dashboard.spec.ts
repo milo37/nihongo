@@ -514,7 +514,7 @@ test('current stats and learning routes preserve contracts before an explicit re
   const actionSummary = `일반 연습 · ${action.level} ${subjectLabels[action.subject]} · ${action.count}문제`
   const actionButton = page.getByRole('button', {
     exact: true,
-    name: '목표 급수의 다음 문제를 풀어보세요 시작'
+    name: '목표 급수의 다음 문제를 풀어 보세요 시작'
   })
   await expect(page.getByText(actionSummary, { exact: true })).toBeVisible()
   await expect(actionButton).toBeVisible()
