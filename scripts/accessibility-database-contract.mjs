@@ -110,8 +110,10 @@ export const accessibilityExpectedRateLimitCategories = {
   'application:keyed:REPORT_VERSION:VERSION': 0,
   'application:study-cancel': 0,
   'application:study-create': 2,
-  // The guest scan starts one guest session from one IP (#737).
-  'application:guest-study-create-day': 1,
+  // The guest practice page reads the remaining guest starts once; the
+  // scan starts no guest session, so the per-IP day counter stays empty (#737).
+  'application:guest-allowance-read': 1,
+  'application:guest-study-create-day': 0,
   'application:study-draft-save': 1,
   'application:study-mutation-ip': 2,
   'application:study-read': 2,
