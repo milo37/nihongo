@@ -18,7 +18,15 @@ import {
 import { createJsonLogger } from '../observability/logger.js'
 import type { StudyDraftService } from '../study/studyDraftService.js'
 import type { StudySubmissionService } from '../study/studySubmissionService.js'
-import type { StudySessionService } from '../study/studySessionService.js'
+import { createGuestIpDailyCounter } from '../study/guestIpDailyCounter.js'
+import type {
+  StudySessionRecord,
+  StudySessionRepository
+} from '../study/studySessionRepository.js'
+import {
+  createStudySessionService,
+  type StudySessionService
+} from '../study/studySessionService.js'
 import { createStudyDraftRoutes } from './studyDrafts.js'
 import { createStudySubmissionRoutes } from './studySubmissions.js'
 import { createStudySessionRoutes } from './studySessions.js'
@@ -32,7 +40,12 @@ const answer = {
   elapsedSec: 0
 }
 
-const fixture = () => {
+const fixture = (
+  options: {
+    now?: () => Date
+    studySessionService?: StudySessionService
+  } = {}
+) => {
   const rows = new Map<string, { count: number; lastRequest: bigint }>()
   const client = {
     $queryRaw: async (query: Prisma.Sql) => {
@@ -135,7 +148,15 @@ const fixture = () => {
       guestPrincipalService,
       principalService,
       rateLimiter,
-      studySessionService: { create } as unknown as StudySessionService
+      guestIpDailyCounter: createGuestIpDailyCounter({
+        client,
+        keySecret: 'fixture-secret',
+        rateLimiter
+      }),
+      ...(options.now ? { now: options.now } : {}),
+      studySessionService:
+        options.studySessionService ??
+        ({ create } as unknown as StudySessionService)
     })
   )
   app.route(
@@ -329,12 +350,69 @@ describe('guest session starts per IP and Korea-time day (#737)', () => {
       })
     })
 
-  it('asks guests on one IP to sign in after the daily IP limit', async () => {
-    const f = fixture()
+  // A service that really creates sessions, so the IP count goes up.
+  const creatingService = () => {
+    const at = new Date('2026-11-08T05:00:00.000Z')
+    const session: StudySessionRecord = {
+      id: '22222222-2222-4222-8222-222222222222',
+      userId: null,
+      guestPrincipalId: '11111111-1111-4111-8111-111111111111',
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'RANDOM',
+      status: 'IN_PROGRESS',
+      requestedCount: GUEST_SESSION_QUESTION_LIMIT,
+      actualCount: 1,
+      usedFallback: false,
+      fallbackReason: null,
+      startedAt: at,
+      expiresAt: new Date(at.getTime() + 24 * 60 * 60 * 1_000),
+      submittedAt: null,
+      durationSec: null,
+      practiceContractVersion: 2,
+      questions: [
+        {
+          ordinal: 1,
+          sessionQuestionId: '33333333-3333-4333-8333-333333333333',
+          question: {
+            id: '44444444-4444-4444-8444-444444444444',
+            questionVersionId: '55555555-5555-4555-8555-555555555555',
+            level: 'N5',
+            subject: 'VOCABULARY',
+            questionType: 'KANJI_READING',
+            difficulty: 'EASY',
+            questionText: '日本',
+            tags: [
+              { id: '77777777-7777-4777-8777-777777777777', label: '한자 읽기' }
+            ],
+            passage: null,
+            options: ['1', '2', '3', '4'].map((label, index) => ({
+              id: `6666666${index}-6666-4666-8666-666666666666`,
+              label,
+              text: `選択肢${label}`
+            }))
+          }
+        }
+      ]
+    }
+    const create = vi.fn(async () => ({ session, issuedGuestCredential: null }))
+    return {
+      create,
+      service: createStudySessionService({
+        create,
+        createRandom: vi.fn(),
+        findOwnedById: vi.fn()
+      } as StudySessionRepository)
+    }
+  }
+
+  it('asks guests on one IP to sign in after the daily IP limit of created sessions', async () => {
+    const created = creatingService()
+    const f = fixture({ studySessionService: created.service })
     // Each request is a new guest, as when the guest cookie is cleared. A
     // minute between starts keeps the per-minute creation budget out of it.
     for (let i = 0; i < GUEST_DAILY_SESSION_LIMIT_PER_IP; i++) {
-      expect((await start(f)).status).toBe(200)
+      expect((await start(f)).status).toBe(201)
       f.advance(60_001)
     }
     const denied = await start(f)
@@ -343,8 +421,33 @@ describe('guest session starts per IP and Korea-time day (#737)', () => {
       code: 'GUEST_LIMIT_REACHED',
       retryable: false
     })
-    expect(f.create).toHaveBeenCalledTimes(GUEST_DAILY_SESSION_LIMIT_PER_IP)
+    expect(created.create).toHaveBeenCalledTimes(
+      GUEST_DAILY_SESSION_LIMIT_PER_IP
+    )
     // Members on the same IP are not counted.
-    expect((await start(f, 'Bearer user-a')).status).toBe(200)
+    expect((await start(f, 'Bearer user-a')).status).toBe(201)
+  })
+
+  it('does not count guest starts that create no session', async () => {
+    const f = fixture()
+    // The fixture service fails every start, so no session is created.
+    for (let i = 0; i < GUEST_DAILY_SESSION_LIMIT_PER_IP + 5; i++) {
+      expect((await start(f)).status).toBe(200)
+      f.advance(60_001)
+    }
+    expect(f.create).toHaveBeenCalledTimes(GUEST_DAILY_SESSION_LIMIT_PER_IP + 5)
+  })
+
+  it('gives the IP its sessions again at midnight Korea time', async () => {
+    let now = new Date('2026-11-08T14:59:00.000Z') // 23:59 KST
+    const created = creatingService()
+    const f = fixture({ now: () => now, studySessionService: created.service })
+    for (let i = 0; i < GUEST_DAILY_SESSION_LIMIT_PER_IP; i++) {
+      expect((await start(f)).status).toBe(201)
+      f.advance(60_001)
+    }
+    expect((await start(f)).status).toBe(403)
+    now = new Date('2026-11-08T15:00:00.000Z') // 00:00 KST the next day
+    expect((await start(f)).status).toBe(201)
   })
 })

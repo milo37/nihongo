@@ -37,6 +37,7 @@ import type { QuestionReader } from '../question/questionService.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import type { StudySessionService } from '../study/studySessionService.js'
 import { createStudySessionRoutes } from '../routes/studySessions.js'
+import type { GuestIpDailyCounter } from '../study/guestIpDailyCounter.js'
 import type { StudySubmissionService } from '../study/studySubmissionService.js'
 import { createStudySubmissionRoutes } from '../routes/studySubmissions.js'
 import type { WrongNoteService } from '../wrong-note/wrongNoteService.js'
@@ -168,6 +169,7 @@ interface CreateApiAppDependencies {
   }
   study?: {
     draftService?: StudyDraftService
+    guestIpDailyCounter?: GuestIpDailyCounter
     rateLimiter: ApplicationRateLimiter
     retryService?: StudyResultRetryService
     service: StudySessionService
@@ -712,6 +714,9 @@ export const createApiApp = ({
           environment: auth.environment,
           guestPrincipalService: auth.guestPrincipalService,
           principalService: auth.principalService,
+          ...(study.guestIpDailyCounter
+            ? { guestIpDailyCounter: study.guestIpDailyCounter }
+            : {}),
           rateLimiter: study.rateLimiter,
           studySessionService: study.service
         })
