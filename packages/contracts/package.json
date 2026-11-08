@@ -87,6 +87,10 @@
       "types": "./dist/dashboard/get-dashboard-stats.d.ts",
       "import": "./dist/dashboard/get-dashboard-stats.js"
     },
+    "./dashboard/get-my-today": {
+      "types": "./dist/dashboard/get-my-today.d.ts",
+      "import": "./dist/dashboard/get-my-today.js"
+    },
     "./dashboard/get-dashboard-insights": {
       "types": "./dist/dashboard/get-dashboard-insights.d.ts",
       "import": "./dist/dashboard/get-dashboard-insights.js"

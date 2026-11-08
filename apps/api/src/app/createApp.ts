@@ -50,6 +50,8 @@ import type { DashboardInsightsService } from '../dashboard/dashboardInsightsSer
 import { createWrongNoteRoutes } from '../routes/wrongNotes.js'
 import { createDashboardRoutes } from '../routes/dashboard.js'
 import { createDashboardInsightsRoutes } from '../routes/dashboardInsights.js'
+import type { MyTodayService } from '../dashboard/myTodayService.js'
+import { createMyTodayRoutes } from '../routes/myToday.js'
 import type { StudyDraftService } from '../study/studyDraftService.js'
 import { createStudyDraftRoutes } from '../routes/studyDrafts.js'
 import type { BookmarkService } from '../bookmark/bookmarkService.js'
@@ -182,6 +184,8 @@ interface CreateApiAppDependencies {
     bookmarkService?: BookmarkService
     dashboardInsightsService?: DashboardInsightsService
     dashboardService: DashboardService
+    /** Learner home "my today" card (#773). */
+    myTodayService?: MyTodayService
     rateLimiter: ApplicationRateLimiter
     reviewCenterEnabled: boolean
     reviewCenterService: WrongNoteReviewCenterService
@@ -839,6 +843,17 @@ export const createApiApp = ({
           rateLimiter: learning.rateLimiter
         })
       )
+      if (learning.myTodayService) {
+        app.route(
+          '/api/v1/me',
+          createMyTodayRoutes({
+            environment: auth.environment,
+            myTodayService: learning.myTodayService,
+            principalService: auth.principalService,
+            rateLimiter: learning.rateLimiter
+          })
+        )
+      }
       if (learning.dashboardInsightsService) {
         app.route(
           '/api/v1/dashboard',

@@ -33,6 +33,8 @@ import { createPrismaWrongNoteReviewCenterRepository } from './wrong-note/wrongN
 import { createWrongNoteReviewCenterService } from './wrong-note/wrongNoteReviewCenterService.js'
 import { createPrismaDashboardRepository } from './dashboard/dashboardRepository.js'
 import { createDashboardService } from './dashboard/dashboardService.js'
+import { createPrismaMyTodayRepository } from './dashboard/myTodayRepository.js'
+import { createMyTodayService } from './dashboard/myTodayService.js'
 import { createPrismaDashboardInsightsRepository } from './dashboard/dashboardInsightsRepository.js'
 import { createDashboardInsightsService } from './dashboard/dashboardInsightsService.js'
 import { createPrismaStudyDraftRepository } from './study/studyDraftRepository.js'
@@ -153,6 +155,10 @@ const wrongNoteTargetedReviewService = createWrongNoteTargetedReviewService(
 const dashboardService = createDashboardService(
   createPrismaDashboardRepository(database.client)
 )
+const myTodayService = createMyTodayService(
+  createPrismaMyTodayRepository(database.client),
+  createPrismaStudyDraftRepository(database.client)
+)
 const dashboardInsightsService = createDashboardInsightsService(
   createPrismaDashboardInsightsRepository(database.client)
 )
@@ -259,6 +265,7 @@ const app = createApiApp({
     bookmarkService,
     dashboardInsightsService,
     dashboardService,
+    myTodayService,
     rateLimiter: applicationRateLimiter,
     reviewCenterEnabled: true,
     reviewCenterService: wrongNoteReviewCenterService,

@@ -49,6 +49,8 @@ import { createPrismaWrongNoteTargetedReviewRepository } from '../wrong-note/wro
 import { createWrongNoteTargetedReviewService } from '../wrong-note/wrongNoteTargetedReviewService.js'
 import { createPrismaDashboardRepository } from '../dashboard/dashboardRepository.js'
 import { createDashboardService } from '../dashboard/dashboardService.js'
+import { createPrismaMyTodayRepository } from '../dashboard/myTodayRepository.js'
+import { createMyTodayService } from '../dashboard/myTodayService.js'
 import { createPrismaDashboardInsightsRepository } from '../dashboard/dashboardInsightsRepository.js'
 import { createDashboardInsightsService } from '../dashboard/dashboardInsightsService.js'
 import { createPrismaBookmarkRepository } from '../bookmark/bookmarkRepository.js'
@@ -479,6 +481,10 @@ export const createBrowserApi = async ({
         ),
         dashboardService: createDashboardService(
           createPrismaDashboardRepository(database.client)
+        ),
+        myTodayService: createMyTodayService(
+          createPrismaMyTodayRepository(database.client),
+          createPrismaStudyDraftRepository(database.client)
         ),
         rateLimiter,
         reviewCenterEnabled: true,

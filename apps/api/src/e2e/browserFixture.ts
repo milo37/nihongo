@@ -37,6 +37,8 @@ import { createPrismaWrongNoteReviewCenterRepository } from '../wrong-note/wrong
 import { createWrongNoteReviewCenterService } from '../wrong-note/wrongNoteReviewCenterService.js'
 import { createPrismaDashboardRepository } from '../dashboard/dashboardRepository.js'
 import { createDashboardService } from '../dashboard/dashboardService.js'
+import { createPrismaMyTodayRepository } from '../dashboard/myTodayRepository.js'
+import { createMyTodayService } from '../dashboard/myTodayService.js'
 import { createPrismaDashboardInsightsRepository } from '../dashboard/dashboardInsightsRepository.js'
 import { createDashboardInsightsService } from '../dashboard/dashboardInsightsService.js'
 import { createPrismaStudyResultRetryRepository } from '../study/studyResultRetryRepository.js'
@@ -1439,6 +1441,10 @@ const createSsoBrowserApiFixture = async (
     const dashboardService = createDashboardService(
       createPrismaDashboardRepository(database.client)
     )
+    const myTodayService = createMyTodayService(
+      createPrismaMyTodayRepository(database.client),
+      createPrismaStudyDraftRepository(database.client)
+    )
     const dashboardInsightsService = createDashboardInsightsService(
       createPrismaDashboardInsightsRepository(database.client)
     )
@@ -1556,6 +1562,7 @@ const createSsoBrowserApiFixture = async (
         bookmarkService,
         dashboardInsightsService,
         dashboardService,
+        myTodayService,
         rateLimiter,
         reviewCenterEnabled: true,
         reviewCenterService: wrongNoteReviewCenterService,

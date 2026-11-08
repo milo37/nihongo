@@ -5,6 +5,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { parseApiEnvironment } from '../config/env.js'
 import { createDashboardService } from '../dashboard/dashboardService.js'
 import { createPrismaDashboardRepository } from '../dashboard/dashboardRepository.js'
+import { createPrismaMyTodayRepository } from '../dashboard/myTodayRepository.js'
+import { createMyTodayService } from '../dashboard/myTodayService.js'
 import { createDatabaseRuntime } from '../db/database.js'
 import {
   createPostgresStartupOptions,
@@ -25,6 +27,9 @@ import {
   toWrongNoteDetail
 } from './wrongNoteMapper.js'
 import { createWrongNoteService } from './wrongNoteService.js'
+import { createPrismaWrongNoteReviewQueueRepository } from './wrongNoteReviewQueueRepository.js'
+import { listReviewQueueQuerySchema } from '@nihongo/contracts/wrong-note/list-review-queue'
+import { getMyTodayResponseSchema } from '@nihongo/contracts/dashboard/get-my-today'
 import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const DAY_MILLISECONDS = 24 * 60 * 60 * 1_000
@@ -852,5 +857,92 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
       foreignFixture?.sessionId
     ])
     expect(foreign.repeatedWrongQuestions).toHaveLength(1)
+  })
+})
+
+describe.sequential('my today (#773) PostgreSQL reads', () => {
+  const readMyToday = (userId: string, observedAt: string) =>
+    createMyTodayService(
+      createPrismaMyTodayRepository(database.client),
+      createPrismaStudyDraftRepository(database.client),
+      () => new Date(observedAt)
+    )
+      .getMyToday(userId)
+      .then((response) => getMyTodayResponseSchema.parse(response))
+
+  it('counts Korea-time studied days, today answers, due reviews and the latest resumable session', async () => {
+    const userId = await createUser('my-today')
+    const owner = { kind: 'USER', userId } as const
+    // Korea days 08-14 (23:00), 08-15 (00:30, still UTC 08-14) and 08-16.
+    await submitRandomSession(
+      owner,
+      'VOCABULARY',
+      new Date('2026-08-14T14:00:00.000Z'),
+      false
+    )
+    await submitRandomSession(
+      owner,
+      'VOCABULARY',
+      new Date('2026-08-14T15:30:00.000Z'),
+      true
+    )
+    await submitRandomSession(
+      owner,
+      'GRAMMAR',
+      new Date('2026-08-16T01:00:00.000Z'),
+      false
+    )
+    const resumableStartedAt = new Date('2026-08-16T04:00:00.000Z')
+    const resumable = await sessionRepository.createRandom({
+      level: 'N5',
+      subject: 'READING',
+      owner,
+      requestedCount: 1,
+      startedAt: resumableStartedAt,
+      expiresAt: new Date(resumableStartedAt.getTime() + DAY_MILLISECONDS)
+    })
+
+    const today = await readMyToday(userId, '2026-08-16T05:00:00.000Z')
+    const dueCounts = await createPrismaWrongNoteReviewQueueRepository(
+      database.client
+    ).listOwned({
+      ...listReviewQueueQuerySchema.parse({}),
+      userId,
+      observedAt: new Date('2026-08-16T05:00:00.000Z')
+    })
+    expect(today).toMatchObject({
+      today: '2026-08-16',
+      timeZone: 'Asia/Seoul',
+      streakDays: 3,
+      studiedToday: true,
+      todayAnsweredCount: 1,
+      dailyGoal: 10,
+      reviewDueCount: dueCounts.counts.due
+    })
+    expect(today.latestResumableSession?.id).toBe(resumable.session.id)
+
+    const nextDay = await readMyToday(userId, '2026-08-17T05:00:00.000Z')
+    expect(nextDay).toMatchObject({
+      today: '2026-08-17',
+      streakDays: 3,
+      studiedToday: false,
+      todayAnsweredCount: 0,
+      latestResumableSession: null
+    })
+
+    const broken = await readMyToday(userId, '2026-08-18T05:00:00.000Z')
+    expect(broken).toMatchObject({ streakDays: 0, studiedToday: false })
+
+    const fresh = await readMyToday(
+      await createUser('my-today-empty'),
+      '2026-08-16T05:00:00.000Z'
+    )
+    expect(fresh).toMatchObject({
+      streakDays: 0,
+      studiedToday: false,
+      todayAnsweredCount: 0,
+      reviewDueCount: 0,
+      latestResumableSession: null
+    })
   })
 })
