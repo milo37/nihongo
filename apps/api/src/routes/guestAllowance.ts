@@ -1,15 +1,20 @@
-import { getGuestAllowanceResponseSchema } from '@nihongo/contracts/study/get-guest-allowance'
+import {
+  getGuestAllowanceQuerySchema,
+  getGuestAllowanceResponseSchema
+} from '@nihongo/contracts/study/get-guest-allowance'
 import { Hono } from 'hono'
 import { getCookie } from 'hono/cookie'
+import { z } from 'zod'
 import type { GuestPrincipalService } from '../auth/guestPrincipalService.js'
 import type { PrincipalService } from '../auth/principalService.js'
 import type { ApiEnvironment } from '../config/env.js'
+import { ApplicationError } from '../errors/applicationError.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createClientIpMiddleware } from '../middleware/clientIp.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
 import type { GuestAllowanceReader } from '../study/guestAllowance.js'
 import { GUEST_COOKIE_NAME } from './principal.js'
-import { appendAuthHeaders } from './routeSupport.js'
+import { appendAuthHeaders, toFieldErrors } from './routeSupport.js'
 
 interface GuestAllowanceRouteDependencies {
   environment: ApiEnvironment
@@ -47,6 +52,19 @@ export const createGuestAllowanceRoutes = ({
       windowMs: 60_000,
       max: 60
     })
+    try {
+      getGuestAllowanceQuerySchema.parse(context.req.query())
+    } catch (error: unknown) {
+      if (error instanceof z.ZodError) {
+        throw new ApplicationError({
+          code: 'INVALID_REQUEST',
+          message: '남은 횟수 조회는 조건을 받지 않습니다.',
+          fieldErrors: toFieldErrors(error),
+          retryable: false
+        })
+      }
+      throw error
+    }
     context.header('Cache-Control', 'private, no-store')
     const resolution = await principalService.resolveAuthenticatedUser(
       context.req.raw.headers
