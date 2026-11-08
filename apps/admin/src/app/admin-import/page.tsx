@@ -6,9 +6,13 @@ import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
-import { appDocumentNavigation } from '@nihongo/browser/libs/appNavigation'
 import { captureAuthTransitionEpoch } from '@nihongo/browser/libs/authTransitionFence'
 import { WideScreenNotice } from '@app/admin/components/WideScreenNotice'
+import {
+  ReauthDialogButton,
+  ReauthRequiredNotice
+} from '@app/admin/reauth/ReauthRequiredNotice'
+import { useAdminReauth } from '@app/admin/reauth/useAdminReauth'
 import { useQuestionImport } from '@app/admin-import/hooks/useQuestionImport'
 import { useUiLocale } from '@nihongo/browser/provider/I18nProvider'
 import { PageContainer } from '@nihongo/browser/common/components/PageContainer'
@@ -145,33 +149,29 @@ const ImportFileSection = ({ state }: { state: ImportState }): ReactElement => {
   )
 }
 
-/** Validate or apply failure, recovery hint and the fresh sign-in path. */
+/** Validate or apply failure, recovery hint and the re-verification path. */
 const ImportOperationError = ({
   state
 }: {
   state: ImportState
 }): ReactElement | null => {
-  const {
-    t,
-    presentError,
-    online,
-    recovery,
-    pending,
-    assertActor,
-    operationError,
-    needsFresh
-  } = state
+  const { t, presentError, recovery, operationError, needsFresh } = state
+  const reauth = useAdminReauth()
   if (!operationError) return null
-  const startFresh = (): void => {
-    try {
-      assertActor()
-      appDocumentNavigation.assign(
-        '/login?redirect=' + encodeURIComponent('/admin/questions/import')
-      )
-    } catch {
-      /* A changed actor cannot start fresh from this page. */
-    }
-  }
+  if (needsFresh)
+    // The chosen file cannot be kept; the notice asks for it again.
+    return (
+      <div className="my-6">
+        <ReauthRequiredNotice
+          command={t('common.import')}
+          keeps="file"
+          reauth={reauth}
+        />
+        <div className="mt-3">
+          <ReauthDialogButton reauth={reauth} />
+        </div>
+      </div>
+    )
   return (
     <div className="my-6">
       <ErrorState
@@ -182,20 +182,6 @@ const ImportOperationError = ({
         <p role="status" className="mt-4 text-sm leading-7">
           {t(`import.recovery.${recovery}`)}
         </p>
-      ) : null}
-      {needsFresh ? (
-        <>
-          <p className="mt-4 text-sm leading-7">
-            {t('import.freshRevalidateHint')}
-          </p>
-          <Button
-            className="mt-3"
-            disabled={pending || !online}
-            onClick={startFresh}
-          >
-            {t('reportDetail.fresh')}
-          </Button>
-        </>
       ) : null}
     </div>
   )

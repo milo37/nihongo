@@ -7,7 +7,7 @@ import { toReportScreenKey } from '@app/question-report/reportLocation'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { useAppStore } from '@nihongo/browser/store/index'
 
-const useAppErrorReport = (onSubmitted: () => void) => {
+const useAppErrorReport = () => {
   const { t } = useAdminPresentation()
   const { pathname } = useLocation()
   return {
@@ -15,10 +15,9 @@ const useAppErrorReport = (onSubmitted: () => void) => {
     copy: {
       title: t('questionReportDialog.appErrorTitle'),
       description: t('questionReportDialog.appErrorDescription'),
-      submitted: t('questionReportDialog.appErrorSubmitted'),
+      submitted: t('questionReportDialog.appErrorSent'),
       error: t('questionReportDialog.appErrorError')
     },
-    onSubmitted,
     toRequest: (description: string) => ({
       kind: 'APP_ERROR' as const,
       location: toReportScreenKey(pathname),
@@ -32,8 +31,7 @@ export const AppErrorReportButton = (): ReactElement | null => {
   const role = useAppStore((state) => state.currentUser?.role)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
-  const [wasSubmitted, setWasSubmitted] = useState(false)
-  const report = useAppErrorReport(() => setWasSubmitted(true))
+  const report = useAppErrorReport()
   if (role !== 'USER' && role !== 'ADMIN') return null
   return (
     <>
@@ -41,10 +39,7 @@ export const AppErrorReportButton = (): ReactElement | null => {
         ref={triggerRef}
         size="sm"
         variant="outline"
-        onClick={() => {
-          setWasSubmitted(false)
-          setOpen(true)
-        }}
+        onClick={() => setOpen(true)}
       >
         {report.t('questionReportDialog.errorScreenTrigger')}
       </Button>
@@ -52,13 +47,9 @@ export const AppErrorReportButton = (): ReactElement | null => {
         copy={report.copy}
         open={open}
         onOpenChange={setOpen}
-        onSubmitted={report.onSubmitted}
         returnFocusRef={triggerRef}
         toRequest={report.toRequest}
       />
-      <p className="sr-only" aria-live="polite">
-        {wasSubmitted ? report.copy.submitted : ''}
-      </p>
     </>
   )
 }
@@ -76,24 +67,16 @@ export const AppErrorReportMenuDialog = ({
   onOpenChange,
   returnFocusRef
 }: AppErrorReportMenuDialogProps): ReactElement => {
-  const [wasSubmitted, setWasSubmitted] = useState(false)
-  const report = useAppErrorReport(() => setWasSubmitted(true))
+  const report = useAppErrorReport()
   return (
     <>
       <ReportDialog
         copy={report.copy}
         open={open}
-        onOpenChange={(nextOpen) => {
-          if (nextOpen) setWasSubmitted(false)
-          onOpenChange(nextOpen)
-        }}
-        onSubmitted={report.onSubmitted}
+        onOpenChange={onOpenChange}
         returnFocusRef={returnFocusRef}
         toRequest={report.toRequest}
       />
-      <p className="sr-only" aria-live="polite">
-        {wasSubmitted ? report.copy.submitted : ''}
-      </p>
     </>
   )
 }

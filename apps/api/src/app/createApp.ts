@@ -37,6 +37,9 @@ import type { QuestionReader } from '../question/questionService.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import type { StudySessionService } from '../study/studySessionService.js'
 import { createStudySessionRoutes } from '../routes/studySessions.js'
+import { createGuestAllowanceRoutes } from '../routes/guestAllowance.js'
+import type { GuestAllowanceReader } from '../study/guestAllowance.js'
+import type { GuestIpDailyCounter } from '../study/guestIpDailyCounter.js'
 import type { StudySubmissionService } from '../study/studySubmissionService.js'
 import { createStudySubmissionRoutes } from '../routes/studySubmissions.js'
 import type { WrongNoteService } from '../wrong-note/wrongNoteService.js'
@@ -168,6 +171,8 @@ interface CreateApiAppDependencies {
   }
   study?: {
     draftService?: StudyDraftService
+    guestAllowanceReader?: GuestAllowanceReader
+    guestIpDailyCounter?: GuestIpDailyCounter
     rateLimiter: ApplicationRateLimiter
     retryService?: StudyResultRetryService
     service: StudySessionService
@@ -218,6 +223,7 @@ const toFailure = (error: unknown, requestId: string): ApiFailure => {
       code: error.code,
       message: error.message,
       ...(error.fieldErrors ? { fieldErrors: error.fieldErrors } : {}),
+      ...(error.details ? { details: error.details } : {}),
       requestId,
       retryable: error.retryable
     })
@@ -712,6 +718,9 @@ export const createApiApp = ({
           environment: auth.environment,
           guestPrincipalService: auth.guestPrincipalService,
           principalService: auth.principalService,
+          ...(study.guestIpDailyCounter
+            ? { guestIpDailyCounter: study.guestIpDailyCounter }
+            : {}),
           rateLimiter: study.rateLimiter,
           studySessionService: study.service
         })
@@ -738,6 +747,18 @@ export const createApiApp = ({
             principalService: auth.principalService,
             rateLimiter: study.rateLimiter,
             studyResultRetryService: study.retryService
+          })
+        )
+      }
+      if (study.guestAllowanceReader) {
+        app.route(
+          '/api/v1/guest-allowance',
+          createGuestAllowanceRoutes({
+            environment: auth.environment,
+            guestAllowanceReader: study.guestAllowanceReader,
+            guestPrincipalService: auth.guestPrincipalService,
+            principalService: auth.principalService,
+            rateLimiter: study.rateLimiter
           })
         )
       }
@@ -834,7 +855,18 @@ export const createApiApp = ({
 
   app.route(
     '/api/v1/questions',
-    createQuestionRoutes({ questionReader, questionReadSecurity })
+    createQuestionRoutes({
+      questionReader,
+      questionReadSecurity,
+      ...(auth
+        ? {
+            members: {
+              environment: auth.environment,
+              principalService: auth.principalService
+            }
+          }
+        : {})
+    })
   )
 
   if (enableTestRoutes) {

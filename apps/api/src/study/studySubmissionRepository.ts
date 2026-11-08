@@ -37,8 +37,6 @@ import { runAtomicSubmission } from './studySubmissionAtomic.js'
 
 export type { StudySubmissionRepository } from './studySubmissionModel.js'
 export {
-  DraftSubmissionVersionConflictError,
-  DraftSubmitMismatchError,
   IdempotencyKeyReusedError,
   OwnedStudySessionNotFoundError,
   StudySessionAlreadySubmittedError,
@@ -233,7 +231,6 @@ export const createTolerantSubmissionV2Hash = (
   input: {
     readonly answers: readonly SubmittedStudyAnswer[]
     readonly durationSec: number
-    readonly expectedDraftRevision: number
   }
 ): string =>
   hashStudySubmission(
@@ -241,7 +238,6 @@ export const createTolerantSubmissionV2Hash = (
       sessionId: preload.sessionId,
       orderedSessionQuestions: preload.orderedSessionQuestions,
       answers: input.answers,
-      durationSec: input.durationSec,
-      expectedDraftRevision: input.expectedDraftRevision
+      durationSec: input.durationSec
     })
   )

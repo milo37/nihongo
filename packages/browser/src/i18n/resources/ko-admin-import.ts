@@ -1,7 +1,5 @@
 /** Admin question import screen; kept out of the shared Korean chunk. */
 export const koAdminImportResources = {
-  freshRevalidateHint:
-    '본인 확인을 위해 Google로 이동하면 고른 파일과 검사 결과가 지워져요. 돌아온 뒤 같은 파일을 다시 골라 검사하고 가져오기를 눌러 주세요.',
   title: '문제 초안 가져오기',
   description:
     "① 파일을 골라 검사합니다(아직 저장하지 않아요). ② 문제가 없으면 '가져오기'를 눌러 모든 문제를 초안으로 한 번에 만듭니다. 하나라도 실패하면 아무것도 만들지 않아요.",

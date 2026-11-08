@@ -382,6 +382,10 @@ const prepareBody = async (
   body: ReturnType<typeof createBody>,
   observedAt: Date
 ) => {
+  // Guests keep no draft and submit with revision 0 (#737).
+  if (owner.kind === 'GUEST') {
+    return { ...body, expectedDraftRevision: 0 }
+  }
   const saved = await createPrismaStudyDraftRepository(
     database.client
   ).saveAtomic({
@@ -912,8 +916,11 @@ describe('Study submission PostgreSQL transaction', () => {
     const pinned = await loadPinnedQuestion()
     const baseTime = Date.now()
 
+    // The service no longer lets guests start WEAKNESS (#737); this pins the
+    // repository's owner scoping. History sits on earlier days so the guest
+    // daily session limit does not refuse the final start.
     for (let index = 0; index < 3; index += 1) {
-      const startedAt = new Date(baseTime + index * 1_000)
+      const startedAt = new Date(baseTime - (3 - index) * DAY_MS)
       const history = await createPinnedSession(owner, pinned, startedAt)
       await createStudySubmissionService(
         submissionRepository,
@@ -1038,7 +1045,7 @@ describe('Study submission PostgreSQL transaction', () => {
     )
   })
 
-  it('missing/foreign session answer와 foreign version option은 draft mismatch로 rollback한다', async () => {
+  it('missing/foreign session answer와 foreign version option은 채점 오류로 rollback한다', async () => {
     const userId = await createUser()
     const owner = { kind: 'USER' as const, userId }
     const startedAt = new Date()
@@ -1079,7 +1086,7 @@ describe('Study submission PostgreSQL transaction', () => {
         { ...validBody, answers: validBody.answers.slice(0, 1) },
         owner
       )
-    ).rejects.toMatchObject({ code: 'DRAFT_SUBMIT_MISMATCH' })
+    ).rejects.toMatchObject({ code: 'ANSWER_NOT_IN_SESSION' })
     await expect(
       service.submit(
         session.id,
@@ -1097,7 +1104,7 @@ describe('Study submission PostgreSQL transaction', () => {
         },
         owner
       )
-    ).rejects.toMatchObject({ code: 'DRAFT_SUBMIT_MISMATCH' })
+    ).rejects.toMatchObject({ code: 'ANSWER_NOT_IN_SESSION' })
     await expect(
       service.submit(
         session.id,
@@ -1112,7 +1119,7 @@ describe('Study submission PostgreSQL transaction', () => {
         },
         owner
       )
-    ).rejects.toMatchObject({ code: 'DRAFT_SUBMIT_MISMATCH' })
+    ).rejects.toMatchObject({ code: 'OPTION_NOT_IN_VERSION' })
     expect(await countSessionAnswers(session.id)).toBe(0)
     expect(
       await database.client.studyResult.count({
@@ -1498,7 +1505,46 @@ describe('Study submission PostgreSQL transaction', () => {
     ).toBe(1)
   })
 
-  it('동시 different-key 제출은 결과 하나와 SESSION_ALREADY_SUBMITTED 하나로 수렴한다', async () => {
+  it('저장본과 달라도 보낸 답 그대로 채점하고 draft를 지운다', async () => {
+    const userId = await createUser()
+    const owner = { kind: 'USER' as const, userId }
+    const startedAt = new Date()
+    const session = await createSession(owner, 2, startedAt)
+    const material = await loadAnswerMaterial(session.id)
+    // The saved draft has every answer correct (revision 1).
+    await prepareBody(
+      session.id,
+      owner,
+      createBody(material, ({ correctOptionId }) => correctOptionId),
+      startedAt
+    )
+    // The submit leaves every answer empty and names a stale revision.
+    const sent = {
+      ...createBody(material, () => null),
+      expectedDraftRevision: 0
+    }
+    const submitted = await createStudySubmissionService(
+      submissionRepository,
+      () => new Date(startedAt.getTime() + 2_000)
+    ).submit(session.id, randomUUID(), sent, owner)
+
+    expect(submitted.replayed).toBe(false)
+    expect(
+      submitted.response.items.map(({ selectedOptionId, isCorrect }) => ({
+        selectedOptionId,
+        isCorrect
+      }))
+    ).toEqual(
+      material.map(() => ({ selectedOptionId: null, isCorrect: false }))
+    )
+    expect(
+      await database.client.studyDraft.count({
+        where: { studySessionId: session.id }
+      })
+    ).toBe(0)
+  })
+
+  it('두 탭의 동시 different-key 제출은 먼저 온 답 그대로 채점하고 나중 것은 SESSION_ALREADY_SUBMITTED다', async () => {
     const userId = await createUser()
     const owner = { kind: 'USER' as const, userId }
     const startedAt = new Date()
@@ -1534,10 +1580,14 @@ describe('Study submission PostgreSQL transaction', () => {
       () => new Date(observedAt)
     )
 
-    const submissions = [
-      service.submit(session.id, randomUUID(), body, owner),
-      service.submit(session.id, randomUUID(), body, owner)
+    // The second tab sends other answers against a stale draft revision.
+    const tabs = [
+      body,
+      { ...createBody(material, () => null), expectedDraftRevision: 0 }
     ]
+    const submissions = tabs.map((tab) =>
+      service.submit(session.id, randomUUID(), tab, owner)
+    )
     await bothReserved
     releaseReservations()
     const outcomes = await Promise.allSettled(submissions)
@@ -1560,6 +1610,16 @@ describe('Study submission PostgreSQL transaction', () => {
       code: 'SESSION_ALREADY_SUBMITTED'
     })
     expect(await countSessionAnswers(session.id)).toBe(1)
+    const winner =
+      tabs[outcomes.findIndex(({ status }) => status === 'fulfilled')]
+    expect(
+      (
+        await database.client.studyAnswer.findMany({
+          where: { studySessionQuestion: { studySessionId: session.id } },
+          select: { selectedOptionId: true }
+        })
+      ).map(({ selectedOptionId }) => selectedOptionId)
+    ).toEqual(winner?.answers.map(({ selectedOptionId }) => selectedOptionId))
     expect(
       await database.client.studyResult.count({
         where: { studySessionId: session.id }

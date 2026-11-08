@@ -1,5 +1,6 @@
 import { QueryObserver } from '@tanstack/react-query'
 import { queryClient as canonicalQueryClient } from '@nihongo/browser/libs/queryClient'
+import { bookmarkMutations } from '@app/bookmark/queries/bookmarkQueries'
 
 it('the canonical query client invalidates an active query and reads the same cache', async () => {
   const queryKey = [
@@ -109,4 +110,9 @@ it('meta.localErrorUi keeps screen-local query errors off the shared bus but sti
     unsubscribe()
     canonicalQueryClient.removeQueries({ queryKey: ['local-error-ui'] })
   }
+})
+
+it('bookmark mutations show their failure inline, not in the shared banner', () => {
+  expect(bookmarkMutations.create().meta).toEqual({ localErrorUi: true })
+  expect(bookmarkMutations.delete().meta).toEqual({ localErrorUi: true })
 })

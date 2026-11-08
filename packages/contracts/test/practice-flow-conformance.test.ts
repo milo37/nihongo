@@ -191,8 +191,7 @@ describe('Shared conformance fixtures', () => {
     const v2 = `submit-v2:${JSON.stringify({
       sessionId: fixture.sessionId,
       answers,
-      durationSec: fixture.durationSec,
-      expectedDraftRevision: fixture.expectedDraftRevision
+      durationSec: fixture.durationSec
     })}`
 
     expect(v1).toBe(fixture.v1CanonicalMaterial)

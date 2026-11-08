@@ -1026,11 +1026,15 @@ test('guest SSO boundary and authenticated practice transition match the active 
   await guestPrincipal
   await settleJourneyPage(page)
   await expect(
-    page.getByText('로그인 없이 시작할 수 있어요.', { exact: true })
+    page.getByText(/^로그인 없이 하루 2번, 5문제씩 풀어 볼 수 있어요\./u)
   ).toBeVisible()
+  await expect(page.getByText('오늘 체험 2회 중 2회 남았어요.')).toBeVisible()
+  // Locked, not disabled: choosing one explains sign-in (U4 L11).
   const studyMode = await openPracticeModes(page)
-  for (const value of ['BOOKMARK', 'DAILY_REVIEW', 'WRONG_NOTE']) {
-    await expect(studyMode.locator(`option[value="${value}"]`)).toBeDisabled()
+  for (const value of ['WEAKNESS', 'BOOKMARK', 'DAILY_REVIEW', 'WRONG_NOTE']) {
+    const option = studyMode.locator(`option[value="${value}"]`)
+    await expect(option).toBeEnabled()
+    await expect(option).toContainText('로그인 필요')
   }
   for (const path of [
     '/login?mode=signup#retired-token',
@@ -1063,14 +1067,12 @@ test('guest SSO boundary and authenticated practice transition match the active 
   await expect(recommendationRegion(page)).toHaveCount(0)
   await settleJourneyPage(page)
   const memberStudyMode = await openPracticeModes(page)
-  for (const value of ['BOOKMARK', 'DAILY_REVIEW', 'WRONG_NOTE']) {
-    await expect(
-      memberStudyMode.locator(`option[value="${value}"]`)
-    ).toBeEnabled()
+  for (const value of ['WEAKNESS', 'BOOKMARK', 'DAILY_REVIEW', 'WRONG_NOTE']) {
+    const option = memberStudyMode.locator(`option[value="${value}"]`)
+    await expect(option).toBeEnabled()
+    await expect(option).not.toContainText('로그인 필요')
   }
-  await expect(
-    page.getByText('로그인 없이 시작할 수 있어요.', { exact: true })
-  ).toHaveCount(0)
+  await expect(page.getByText(/^로그인 없이 하루/u)).toHaveCount(0)
   await waitForLedgerToQuiesce(ledger)
   assertCanonicalLedger(ledger)
   await assertAndAttachLedger(
@@ -1085,6 +1087,7 @@ test('guest SSO boundary and authenticated practice transition match the active 
       path: '/api/v1/me',
       statuses: successfulStatuses(mode === 'mock' ? 6 : 5)
     },
+    { method: 'GET', path: '/api/v1/guest-allowance', statuses: [200] },
     { method: 'GET', path: '/api/v1/study-sessions', statuses: [200] }
   ])
 })

@@ -9,6 +9,10 @@ import { useSubmitStudySessionV2 } from '@app/practice/hooks/useSubmitStudySessi
 import { studySessionQueries } from '@app/practice/queries/studySessionQueries'
 import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
 import { mockServer } from '@/test/server'
+import { mockDatabase } from '@mocks/repository/mockDatabase'
+import { authQueries } from '@nihongo/browser/app/login/queries/authQueries'
+import { commitCanonicalAuth } from '@nihongo/browser/app/login/authSession'
+import { queryClient } from '@nihongo/browser/libs/queryClient'
 import {
   advanceAuthTransitionEpoch,
   AuthTransitionSupersededError
@@ -19,6 +23,10 @@ describe('v2 submission while the practice observer is still mounted', () => {
   it.each([false, true])(
     'does not recreate the active draft query after submission (auth transition during cancellation: %s)',
     async (transitionDuringCancel) => {
+      // Server drafts are members only (guests keep answers locally).
+      mockDatabase.loginAs('USER')
+      const member = await queryClient.fetchQuery(authQueries.currentUser())
+      await commitCanonicalAuth(queryClient, member)
       const { data: created } = await createStudySessionV2({
         level: 'N5',
         subject: 'VOCABULARY',
@@ -73,7 +81,7 @@ describe('v2 submission while the practice observer is still mounted', () => {
           )
           const submission = useSubmitStudySessionV2(
             sessionId,
-            getStudyDraftPrincipalScope(null)
+            getStudyDraftPrincipalScope(member)
           )
           return { session, draft, submission }
         },

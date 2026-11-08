@@ -12,6 +12,7 @@ import {
 } from '@mocks/data/users'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { queryClient } from '@nihongo/browser/libs/queryClient'
+import { mockGuestAllowance } from '@mocks/handlers/guestAllowanceHandlers'
 
 const assertMockTestMode = (): void => {
   if (__NIHONGO_API_MODE__ !== 'mock' || import.meta.env.MODE !== 'test') {
@@ -25,6 +26,7 @@ export const resetJourneyMockState = async (): Promise<void> => {
   worker.resetHandlers()
   resetMockSocialSignInForTesting()
   mockDatabase.reset()
+  mockGuestAllowance.reset()
   queryClient.clear()
 }
 

@@ -23,17 +23,6 @@ export type AdminQuestionCommand =
   | 'RETIRE'
   | 'WITHDRAW'
 
-export type FreshAssuranceReasonCode =
-  | 'BATCH_REVIEW'
-  | 'EXPORT'
-  | 'IMPORT_APPLY'
-  | 'QUESTION_APPROVE'
-  | 'QUESTION_ARCHIVE'
-  | 'QUESTION_PUBLISH'
-  | 'QUESTION_RETIRE'
-  | 'QUESTION_WITHDRAW'
-  | 'REPORT_RESOLUTION'
-
 export interface AdminApiErrorPresentation {
   readonly code?: string
   readonly isOffline?: boolean
@@ -258,18 +247,6 @@ export const adminImportIssueCodeKey = {
   string
 >
 
-export const freshAssuranceReasonKey = {
-  BATCH_REVIEW: 'freshAssurance.reasons.BATCH_REVIEW',
-  EXPORT: 'freshAssurance.reasons.EXPORT',
-  IMPORT_APPLY: 'freshAssurance.reasons.IMPORT_APPLY',
-  QUESTION_APPROVE: 'freshAssurance.reasons.QUESTION_APPROVE',
-  QUESTION_ARCHIVE: 'freshAssurance.reasons.QUESTION_ARCHIVE',
-  QUESTION_PUBLISH: 'freshAssurance.reasons.QUESTION_PUBLISH',
-  QUESTION_RETIRE: 'freshAssurance.reasons.QUESTION_RETIRE',
-  QUESTION_WITHDRAW: 'freshAssurance.reasons.QUESTION_WITHDRAW',
-  REPORT_RESOLUTION: 'freshAssurance.reasons.REPORT_RESOLUTION'
-} as const satisfies Record<FreshAssuranceReasonCode, string>
-
 export type AdminStableErrorCode =
   | 'ADMIN_REQUIRED'
   | 'AUTHENTICATION_REQUIRED'
@@ -350,27 +327,6 @@ export const getAdminRetryAfterSeconds = (
 export const hasAdminFieldError = (
   messages: readonly string[] | undefined
 ): boolean => Boolean(messages?.length)
-
-export const getFreshAssuranceReasonCode = (
-  command: AdminQuestionCommand
-): FreshAssuranceReasonCode | null => {
-  switch (command) {
-    case 'APPROVE':
-      return 'QUESTION_APPROVE'
-    case 'ARCHIVE':
-      return 'QUESTION_ARCHIVE'
-    case 'PUBLISH':
-      return 'QUESTION_PUBLISH'
-    case 'RETIRE':
-      return 'QUESTION_RETIRE'
-    case 'WITHDRAW':
-      return 'QUESTION_WITHDRAW'
-    case 'CHANGE_REQUEST':
-    case 'CREATE_VERSION':
-    case 'REQUEST_REVIEW':
-      return null
-  }
-}
 
 export const getSelectedVersionStatus = (
   version: AdminQuestionVersionSummary

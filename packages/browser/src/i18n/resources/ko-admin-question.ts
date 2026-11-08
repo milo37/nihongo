@@ -51,8 +51,6 @@ export const koAdminQuestionListResources = {
     dialog: {
       more: '외 {{rest}}개',
       cancel: '취소',
-      freshAfterWait:
-        '기다린 뒤 다시 보낼 때는 관리자 본인 확인을 다시 해야 합니다.',
       request: {
         title: '문제 {{count}}개를 검수 요청할까요?',
         description:
@@ -179,12 +177,9 @@ export const koAdminQuestionListResources = {
     cancel: '취소',
     confirm: '공개 중단·보관',
     confirming: '보관 중…',
-    reauthenticate: '관리자 재인증',
     refresh: '최신 상태 확인',
     refreshFailed:
       '최신 상태를 확인하지 못했습니다. 보관은 실행하지 않았습니다.',
-    freshRequired:
-      '관리자 재인증이 필요합니다. 재인증 후 목록에서 다시 확인해 보관해 주세요.',
     conflict:
       '다른 변경이 먼저 저장되었습니다. 최신 상태를 확인한 뒤 다시 보관해 주세요.',
     failed: '문제를 보관하지 못했습니다. 잠시 후 다시 시도해 주세요.',

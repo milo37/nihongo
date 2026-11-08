@@ -3,7 +3,9 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState
 } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -11,7 +13,8 @@ import type { ReactElement, ReactNode } from 'react'
 import { IconButton } from './IconButton'
 import { classNames } from './classNames'
 
-export type ToastVariant = 'info' | 'success' | 'warning' | 'danger'
+// Failures never use a toast (they would vanish); they stay inline.
+export type ToastVariant = 'info' | 'success' | 'warning'
 
 export interface ToastAction {
   label: string
@@ -24,10 +27,18 @@ export interface ToastInput {
   variant?: ToastVariant
   durationMs?: number
   action?: ToastAction
+  /** Only one toast per key: a repeat restarts its timer instead of stacking. */
+  key?: string
+  /** Stays until dismissed (offline), pinned at the top of the stack. */
+  persistent?: boolean
 }
 
 interface ToastRecord extends ToastInput {
   id: string
+  /** Bumped when a toast with the same key comes again, to restart its timer. */
+  revision: number
+  /** Element to return focus to when the toast is closed from inside. */
+  opener: Element | null
 }
 
 interface ToastContextValue {
@@ -38,29 +49,36 @@ interface ToastContextValue {
 type ToastProviderProps = {
   children: ReactNode
   defaultDurationMs?: number
+  actionDurationMs?: number
   maxVisible?: number
 }
 
 type ToastProps = ToastRecord & {
-  defaultDurationMs: number
-  onDismiss: (toastId: string) => void
+  durationMs: number
+  onDismiss: (toastId: string, returnFocus: boolean) => void
 }
+
+export const TOAST_ANNOUNCER_ID = 'toast-announcer'
 
 const ToastContext = createContext<ToastContextValue | null>(null)
 
 const variantClassNames: Record<ToastVariant, string> = {
-  info: 'border-info-line bg-info-soft text-info-strong',
-  success: 'border-success-line bg-success-soft text-success-strong',
-  warning: 'border-warning-line bg-warning-soft text-warning-strong',
-  danger: 'border-danger-line bg-danger-soft text-danger-strong'
+  info: 'ui-toast-info',
+  success: 'ui-toast-success',
+  warning: 'ui-toast-warning'
 }
 
 const variantLabelKeys = {
   info: 'toast.info',
   success: 'toast.success',
-  warning: 'toast.warning',
-  danger: 'toast.danger'
+  warning: 'toast.warning'
 } as const satisfies Record<ToastVariant, string>
+
+const variantIcons: Record<ToastVariant, string> = {
+  info: 'i',
+  success: '✓',
+  warning: '!'
+}
 
 const closeIcon = (
   <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -82,11 +100,11 @@ const createToastId = (): string => {
 
 export const Toast = ({
   action,
-  defaultDurationMs,
   description,
   durationMs,
   id,
   onDismiss,
+  revision,
   title,
   variant = 'info'
 }: ToastProps): ReactElement => {
@@ -94,26 +112,29 @@ export const Toast = ({
   const [isPaused, setIsPaused] = useState(false)
 
   useEffect(() => {
-    const timeoutDuration = durationMs ?? defaultDurationMs
-
-    if (isPaused || !Number.isFinite(timeoutDuration) || timeoutDuration <= 0) {
+    if (isPaused || !Number.isFinite(durationMs) || durationMs <= 0) {
       return
     }
 
-    const timeout = window.setTimeout(() => onDismiss(id), timeoutDuration)
+    const timeout = window.setTimeout(() => onDismiss(id, false), durationMs)
 
     return () => window.clearTimeout(timeout)
-  }, [defaultDurationMs, durationMs, id, isPaused, onDismiss])
+  }, [durationMs, id, isPaused, onDismiss, revision])
 
   return (
+    // The visible card has no live role; the provider's region announces it.
+    // Top/right borders only: .ui-toast draws the 4px tone strip on the left.
     <article
       className={classNames(
-        'ui-toast pointer-events-auto grid grid-cols-[1fr_auto] gap-3 rounded-card border p-4 shadow-soft',
+        'ui-toast pointer-events-auto grid grid-cols-[auto_1fr_auto] items-start gap-3 rounded-[12px] border-y border-r border-y-line border-r-line bg-surface py-3 pl-3.5 pr-1 text-ink shadow-soft',
         variantClassNames[variant]
       )}
-      role="status"
-      aria-live="polite"
-      aria-atomic="true"
+      data-variant={variant}
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape') return
+        event.stopPropagation()
+        onDismiss(id, true)
+      }}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       onFocusCapture={() => setIsPaused(true)}
@@ -128,67 +149,119 @@ export const Toast = ({
         }
       }}
     >
-      <div className="min-w-0">
-        <p className="text-xs font-bold uppercase tracking-wide opacity-75">
-          {t(variantLabelKeys[variant])}
+      <span className="ui-toast-icon" aria-hidden="true">
+        {variantIcons[variant]}
+      </span>
+      <div className="min-w-0 py-0.5">
+        <p className="break-words text-sm font-semibold leading-6">
+          <span className="sr-only">{t(variantLabelKeys[variant])}: </span>
+          {title}
         </p>
-        <p className="mt-1 break-words font-bold">{title}</p>
         {description ? (
-          <p className="mt-1 break-words text-sm leading-6 opacity-80">
+          <p className="mt-0.5 break-words text-[13px] leading-5 text-muted">
             {description}
           </p>
         ) : null}
         {action ? (
           <button
-            className="mt-3 min-h-11 rounded-md px-2 text-sm font-bold underline decoration-1 underline-offset-4 hover:no-underline focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-current"
+            className="mt-2 min-h-11 rounded-control border border-line-strong bg-surface px-4 text-sm font-semibold text-ink hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
             type="button"
-            onClick={action.onClick}
+            onClick={() => {
+              action.onClick()
+              onDismiss(id, false)
+            }}
           >
             {action.label}
           </button>
         ) : null}
       </div>
       <IconButton
-        className="-mr-2 -mt-2"
         label={t('actions.closeNotification')}
         icon={closeIcon}
-        size="sm"
         variant="ghost"
-        onClick={() => onDismiss(id)}
+        onClick={() => onDismiss(id, true)}
       />
     </article>
   )
 }
 
+const announcementFor = (toast: ToastInput, variantLabel: string): string =>
+  [`${variantLabel}: ${toast.title}`, toast.description]
+    .filter(Boolean)
+    .join(' ')
+
 export const ToastProvider = ({
   children,
-  defaultDurationMs = 4500,
+  defaultDurationMs = 5000,
+  actionDurationMs = 8000,
   maxVisible = 3
 }: ToastProviderProps): ReactElement => {
   const { t } = useTranslation('common')
   const [toasts, setToasts] = useState<ToastRecord[]>([])
+  const [announcement, setAnnouncement] = useState('')
+  const toastsRef = useRef(toasts)
+  useLayoutEffect(() => {
+    toastsRef.current = toasts
+  }, [toasts])
 
-  const dismissToast = useCallback((toastId: string): void => {
-    setToasts((currentToasts) =>
-      currentToasts.filter((toast) => toast.id !== toastId)
-    )
+  const dismiss = useCallback((toastId: string, returnFocus: boolean): void => {
+    const toast = toastsRef.current.find((entry) => entry.id === toastId)
+    setToasts((current) => current.filter((entry) => entry.id !== toastId))
+    if (!returnFocus || !toast) return
+    const opener = toast.opener
+    const target =
+      opener instanceof HTMLElement &&
+      opener !== document.body &&
+      opener.isConnected
+        ? opener
+        : document.querySelector<HTMLElement>('main')
+    target?.focus()
   }, [])
+
+  const dismissToast = useCallback(
+    (toastId: string): void => dismiss(toastId, false),
+    [dismiss]
+  )
 
   const addToast = useCallback(
     (toast: ToastInput): string => {
-      const id = createToastId()
       const safeMaxVisible =
         Number.isFinite(maxVisible) && maxVisible > 0
           ? Math.floor(maxVisible)
           : 1
+      const existing = toast.key
+        ? toastsRef.current.find((entry) => entry.key === toast.key)
+        : undefined
+      const id = existing?.id ?? createToastId()
+      const opener =
+        typeof document === 'undefined' ? null : document.activeElement
 
-      setToasts((currentToasts) =>
-        [...currentToasts, { ...toast, id }].slice(-safeMaxVisible)
+      setToasts((current) => {
+        const same = current.find((entry) => entry.id === id)
+        if (same) {
+          return current.map((entry) =>
+            entry.id === id
+              ? { ...entry, ...toast, revision: entry.revision + 1 }
+              : entry
+          )
+        }
+        let next = [...current, { ...toast, id, revision: 0, opener }]
+        // Drop the oldest non-persistent toasts first.
+        while (next.length > safeMaxVisible) {
+          const oldest = next.findIndex((entry) => !entry.persistent)
+          next = next.filter(
+            (_, index) => index !== (oldest === -1 ? 0 : oldest)
+          )
+        }
+        return next
+      })
+      setAnnouncement(
+        announcementFor(toast, t(variantLabelKeys[toast.variant ?? 'info']))
       )
 
       return id
     },
-    [maxVisible]
+    [maxVisible, t]
   )
 
   const contextValue = useMemo<ToastContextValue>(
@@ -196,24 +269,41 @@ export const ToastProvider = ({
     [addToast, dismissToast]
   )
 
+  // Persistent toasts stay on top; the newest sits nearest the screen edge.
+  const ordered = [
+    ...toasts.filter((toast) => toast.persistent),
+    ...toasts.filter((toast) => !toast.persistent)
+  ]
+
   return (
     <ToastContext.Provider value={contextValue}>
       {children}
-      {toasts.length > 0 ? (
-        <div
-          className="pointer-events-none fixed inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] z-toast ml-auto grid max-w-md gap-3"
-          aria-label={t('toast.region')}
-          role="region"
-        >
-          {toasts.map((toast) => (
+      {/* Always present so the first toast is announced too. No status
+          role: screens keep their own status regions unambiguous. */}
+      <div
+        id={TOAST_ANNOUNCER_ID}
+        className="sr-only"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {announcement}
+      </div>
+      {ordered.length > 0 ? (
+        <section className="ui-toast-region" aria-label={t('toast.region')}>
+          {ordered.map(({ key: _dedupeKey, ...toast }) => (
             <Toast
               key={toast.id}
               {...toast}
-              defaultDurationMs={defaultDurationMs}
-              onDismiss={dismissToast}
+              durationMs={
+                toast.persistent
+                  ? Number.POSITIVE_INFINITY
+                  : (toast.durationMs ??
+                    (toast.action ? actionDurationMs : defaultDurationMs))
+              }
+              onDismiss={dismiss}
             />
           ))}
-        </div>
+        </section>
       ) : null}
     </ToastContext.Provider>
   )

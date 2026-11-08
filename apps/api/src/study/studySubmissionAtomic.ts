@@ -25,8 +25,6 @@ import {
   StudySessionAlreadySubmittedError,
   StudySessionNotEditableError,
   StudySubmissionContractVersionMismatchError,
-  DraftSubmissionVersionConflictError,
-  DraftSubmitMismatchError,
   OwnedStudySessionNotFoundError,
   StudySubmissionRepositoryIntegrityError,
   FreshTransactionRetry
@@ -60,7 +58,6 @@ export const runAtomicSubmission = async (
   options: StudySubmissionRepositoryOptions
 ): Promise<RunAtomicSubmissionOutcome> => {
   const practiceContractVersion = input.practiceContractVersion ?? 2
-  const expectedDraftRevision = input.expectedDraftRevision ?? null
   const guestProof =
     input.owner.kind === 'GUEST'
       ? await lockGuestProof(transaction, input.owner, input.observedAt)
@@ -130,11 +127,7 @@ export const runAtomicSubmission = async (
     }
   }
   await options.afterExistingMiss?.()
-  if (
-    prelockedSession.practiceContractVersion !== practiceContractVersion ||
-    (practiceContractVersion === 1 && expectedDraftRevision !== null) ||
-    (practiceContractVersion === 2 && expectedDraftRevision === null)
-  ) {
+  if (prelockedSession.practiceContractVersion !== practiceContractVersion) {
     throw new StudySubmissionContractVersionMismatchError()
   }
   if (prelockedSession.status === 'SUBMITTED') {
@@ -193,51 +186,18 @@ export const runAtomicSubmission = async (
     throw new StudySubmissionContractVersionMismatchError()
   }
 
-  if (practiceContractVersion === 2) {
-    if (!session.draft || expectedDraftRevision === null) {
-      throw new StudySubmissionContractVersionMismatchError()
-    }
-    if (session.draft.revision !== expectedDraftRevision) {
-      throw new DraftSubmissionVersionConflictError()
-    }
-    const submittedByQuestionId = new Map(
-      input.answers.map((answer) => [answer.studySessionQuestionId, answer])
-    )
-    const draftMatches =
-      session.draft.answers.length === session.questions.length &&
-      session.questions.every((question) => {
-        const submitted = submittedByQuestionId.get(
-          question.studySessionQuestionId
-        )
-        const draftAnswer = session.draft?.answers.find(
-          (answer) =>
-            answer.studySessionQuestionId === question.studySessionQuestionId
-        )
-        return (
-          submitted !== undefined &&
-          draftAnswer !== undefined &&
-          submitted.selectedOptionId === draftAnswer.selectedOptionId &&
-          submitted.elapsedSec === draftAnswer.elapsedSec
-        )
-      })
-    if (!draftMatches) {
-      throw new DraftSubmitMismatchError()
-    }
-  }
-
   const orderedSessionQuestions: OrderedSessionQuestionForSubmission[] =
     session.questions.map(({ ordinal, studySessionQuestionId }) => ({
       ordinal,
       studySessionQuestionId
     }))
   const exactCanonical =
-    practiceContractVersion === 2 && expectedDraftRevision !== null
+    practiceContractVersion === 2
       ? canonicalizeStudySubmissionV2({
           sessionId: input.sessionId,
           orderedSessionQuestions,
           answers: input.answers,
-          durationSec: input.durationSec,
-          expectedDraftRevision
+          durationSec: input.durationSec
         })
       : canonicalizeStudySubmission({
           sessionId: input.sessionId,
@@ -342,7 +302,7 @@ export const runAtomicSubmission = async (
     }
   })
   if (practiceContractVersion === 2) {
-    await transaction.studyDraft.delete({
+    await transaction.studyDraft.deleteMany({
       where: { studySessionId: input.sessionId }
     })
   }

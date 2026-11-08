@@ -23,6 +23,7 @@ import { AuthErrorHandlerProvider } from '@nihongo/browser/provider/AuthErrorHan
 import { emitApiError } from '@nihongo/browser/libs/errorBus'
 import { appDocumentNavigation } from '@nihongo/browser/libs/appNavigation'
 import { useAppStore } from '@nihongo/browser/store/index'
+import * as startApi from '@nihongo/browser/api/auth/startAdminReauth/index'
 import { invalidateCanonicalAuthTransitions } from '@nihongo/browser/app/login/authSession'
 import {
   adminQuestionQueries,
@@ -326,7 +327,7 @@ it.each([
     expect(calls).toHaveLength(1)
   }
 )
-it('renders the populated canonical list and shows fresh SSO without expiring the ADMIN session or replaying archive', async () => {
+it('renders the populated canonical list and asks for re-verification without expiring the ADMIN session or replaying archive', async () => {
   responder = (url) =>
     url.endsWith('/archive')
       ? failure('FRESH_ASSURANCE_REQUIRED', 401)
@@ -343,22 +344,28 @@ it('renders the populated canonical list and shows fresh SSO without expiring th
       name: '초안 삭제'
     })
   )
-  const link = await screen.findByRole('link', { name: '관리자 재인증' })
+  const dialog = screen.getByRole('dialog')
+  expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+    '본인 확인 시간이 끝나 ‘초안 삭제’ 작업을 적용하지 않았습니다.'
+  )
+  // The command button gives way to the check; nothing is sent again.
   expect(
-    new URL(link.getAttribute('href') ?? '', window.location.origin).pathname +
-      new URL(link.getAttribute('href') ?? '', window.location.origin).search
-  ).toBe('/login?redirect=%2Fadmin%2Fquestions%3Flevel%3DN3')
-  expect(
-    new URL(link.getAttribute('href') ?? '', window.location.origin).origin
-  ).toBe(window.location.origin)
+    within(dialog).queryByRole('button', { name: '초안 삭제' })
+  ).not.toBeInTheDocument()
+  const check = within(dialog).getByRole('button', { name: '본인 확인' })
+  expect(check).toHaveFocus()
   expect(replace).not.toHaveBeenCalled()
   expect(useAppStore.getState().currentUser?.id).toBe(actorId)
   expect(calls.filter(({ method }) => method === 'post')).toHaveLength(1)
-  expect(
-    within(screen.getByRole('dialog')).getByRole('button', {
-      name: '초안 삭제'
-    })
-  ).toBeDisabled()
+  const start = vi
+    .spyOn(startApi, 'startAdminReauth')
+    .mockReturnValue(new Promise(() => undefined))
+  await user.click(check)
+  expect(start).toHaveBeenCalledExactlyOnceWith({
+    purpose: 'ADMIN_FRESH',
+    provider: 'google',
+    callbackURL: '/admin/questions?level=N3'
+  })
 })
 it('an actual ordinary401 from the list retains the admin filter in the public login document', async () => {
   responder = () => failure('AUTH_SESSION_EXPIRED', 401)

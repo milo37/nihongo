@@ -1,13 +1,20 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   assertCurrentCreateStudySessionAction,
   studySessionMutations
 } from '@app/practice/queries/studySessionQueries'
 import { analyticsClient } from '@/analytics/client'
+import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
 
 export const useCreateStudySession = () => {
+  const queryClient = useQueryClient()
   return useMutation({
     ...studySessionMutations.createSession(),
+    // A guest's remaining count changes on success and on GUEST_LIMIT_REACHED.
+    onSettled: () =>
+      queryClient.invalidateQueries({
+        queryKey: serverStateQueryKeys.study.guestAllowance()
+      }),
     onSuccess: (data, input) => {
       assertCurrentCreateStudySessionAction(input)
       analyticsClient.track({

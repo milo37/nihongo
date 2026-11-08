@@ -25,6 +25,7 @@ import { AuthErrorHandlerProvider } from '@nihongo/browser/provider/AuthErrorHan
 import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
+import { mockGuestAllowance } from '@mocks/handlers/guestAllowanceHandlers'
 import { mockServer } from '@/test/server'
 import {
   readStoredSubmissionAttempt,
@@ -354,6 +355,10 @@ describe('approved general result navigation', () => {
     let body: unknown
     let requestedUrl: string | undefined
     let optimisticBookmark: BookmarkSummary | undefined
+    let release = (): void => undefined
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
     mockServer.use(
       http.get('*/api/v1/bookmarks', () =>
         HttpResponse.json({ items: [], total: 0, page: 1, pageSize: 20 })
@@ -373,6 +378,7 @@ describe('approved general result navigation', () => {
             (bookmark) =>
               bookmark.questionId === fixture.result.items[1]?.question.id
           )
+        await gate
         return HttpResponse.json(
           {
             code: 'INTERNAL_SERVER_ERROR',
@@ -392,6 +398,11 @@ describe('approved general result navigation', () => {
     })
     await waitFor(() => expect(button).toBeEnabled())
     await userEvent.setup().click(button)
+    // Busy but still focusable, so focus does not fall back to <body>.
+    await waitFor(() => expect(button).toHaveAttribute('aria-disabled', 'true'))
+    expect(button).toBeEnabled()
+    expect(button).toHaveFocus()
+    release()
     expect(
       await screen.findByText(
         '책갈피를 저장하지 못해 이전 상태로 복원했습니다.'
@@ -413,19 +424,57 @@ describe('approved general result navigation', () => {
     fixture.client.clear()
   })
 
-  it('게스트도 탐색·해설을 읽되 회원 책갈피·신고 동작을 노출하지 않는다', async () => {
+  it('게스트에게 책갈피는 보이고 누르면 로그인 토스트만, 신고는 숨긴다 (L8·L9·L10)', async () => {
     const fixture = await createFixture({ role: 'GUEST' })
-    const { view } = fixture.mount()
+    const { router, view } = fixture.mount()
     await screen.findByRole('navigation', { name: '해설 문항' })
+    const bookmark = await screen.findByRole('button', {
+      name: /문제 책갈피 추가/u
+    })
+    await userEvent.setup().click(bookmark)
+    const toasts = screen.getByRole('region', { name: '알림' })
     expect(
-      screen.queryByRole('button', { name: /문제 책갈피/ })
+      within(toasts).getByText('책갈피는 로그인하면 저장할 수 있어요.')
+    ).toBeVisible()
+    expect(
+      within(toasts).getByText('로그인하면 지금 풀이는 이어지지 않아요.')
+    ).toBeVisible()
+    expect(bookmark).toHaveAttribute('aria-pressed', 'false')
+    expect(router.state.location.pathname).toMatch(/^\/practice\/result\//u)
+    expect(
+      screen.queryByRole('button', { name: /문제 신고/u })
     ).not.toBeInTheDocument()
+    const line = screen.getByText(/로그인하면 오답이 오답노트에 저장돼요/u)
+    expect(line).toBeVisible()
+    // One login place, right beside the line (design review #767).
+    expect(within(line).getByRole('link', { name: '로그인' })).toHaveAttribute(
+      'href',
+      '/login?redirect=%2Fpractice'
+    )
+    expect(screen.getAllByRole('link', { name: '로그인' })).toHaveLength(1)
+    view.unmount()
+    fixture.client.clear()
+  })
+
+  it('게스트의 오답만 다시 풀기는 잠금 표시이고 누르면 토스트, 마지막 체험이면 오늘은 여기까지 상자 (G4·L20)', async () => {
+    mockGuestAllowance.setRemaining(0)
+    const fixture = await createFixture({ role: 'GUEST', mixed: false })
+    const { router, view } = fixture.mount()
     expect(
-      screen.getByText(
-        '현재 게스트 세션에서는 오답을 다시 풀 수 있지만 계정 오답노트에는 저장되지 않습니다.'
+      await screen.findByText(
+        '오늘 체험은 여기까지예요. 로그인하면 계속 풀 수 있어요.'
       )
     ).toBeVisible()
-    expect(screen.getByRole('link', { name: '로그인 선택' })).toBeVisible()
+    // The L20 box holds the only login link.
+    expect(screen.getAllByRole('link', { name: '로그인' })).toHaveLength(1)
+    const retry = screen.getByRole('button', { name: /오답만 다시 풀기/u })
+    await userEvent.setup().click(retry)
+    expect(
+      within(screen.getByRole('region', { name: '알림' })).getByText(
+        '틀린 문제 다시 풀기는 로그인하면 쓸 수 있어요.'
+      )
+    ).toBeVisible()
+    expect(router.state.location.pathname).toMatch(/^\/practice\/result\//u)
     view.unmount()
     fixture.client.clear()
   })
@@ -759,7 +808,7 @@ describe('approved general result navigation', () => {
     expect(
       await screen.findByRole('link', { name: '오늘은 여기까지' })
     ).toHaveAttribute('href', '/')
-    expect(screen.getByRole('link', { name: '로그인 선택' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '로그인' })).toHaveAttribute(
       'href',
       '/login?redirect=%2Fpractice'
     )
@@ -780,7 +829,10 @@ describe('approved general result navigation', () => {
     })
     await waitFor(() => expect(button).toBeEnabled())
     await userEvent.setup().click(button)
-    expect(await screen.findByText('책갈피에 저장했습니다.')).toBeVisible()
+    const toasts = await screen.findByRole('region', { name: '알림' })
+    expect(
+      await within(toasts).findByText('책갈피에 저장했어요.')
+    ).toBeVisible()
     expect(
       screen.getByRole('button', { name: '2번 문제 책갈피 해제' })
     ).toHaveAttribute('aria-pressed', 'true')

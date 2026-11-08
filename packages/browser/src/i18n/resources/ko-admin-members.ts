@@ -47,15 +47,6 @@ export const koAdminMembersResources = {
     release: '제한 해제',
     releasing: '해제하는 중…',
     released: '이용 제한을 해제했습니다.',
-    fresh: {
-      required:
-        '보안을 위해 관리자 본인 확인이 필요합니다. 새 탭에서 본인 확인을 마친 뒤 여기서 확인 완료를 눌러 주세요. 입력한 내용은 그대로 있고, ‘{{command}}’ 작업은 아직 적용되지 않았습니다.',
-      openNewTab: '새 탭에서 본인 확인',
-      confirm: '확인 완료',
-      confirmed:
-        '본인 확인을 마쳤습니다. ‘{{command}}’ 버튼을 다시 눌러 적용해 주세요.',
-      failed: '본인 확인이 끝나지 않아 적용하지 않았습니다.'
-    },
     confirm: {
       title: '이용을 제한할까요?',
       description: '아래 가입자에게 바로 적용됩니다.',

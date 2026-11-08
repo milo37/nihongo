@@ -121,11 +121,6 @@ export const canonicalizeMockStudySubmissionV2 = (
   record: MockStudySessionSnapshotRecord,
   input: ParsedSubmitStudySessionV2Body
 ): string => {
-  if (!('expectedDraftRevision' in input)) {
-    throw new MockCanonicalSubmissionIntegrityError(
-      'v2 제출에는 expectedDraftRevision이 필요합니다.'
-    )
-  }
   const v1Material = canonicalizeMockStudySubmission(record, input)
   const parsedMaterial: unknown = JSON.parse(
     v1Material.slice(STUDY_SUBMISSION_CANONICAL_PREFIX.length)
@@ -134,8 +129,7 @@ export const canonicalizeMockStudySubmissionV2 = (
   return `${STUDY_SUBMISSION_V2_CANONICAL_PREFIX}${JSON.stringify({
     ...(typeof parsedMaterial === 'object' && parsedMaterial !== null
       ? parsedMaterial
-      : {}),
-    expectedDraftRevision: input.expectedDraftRevision
+      : {})
   })}`
 }
 

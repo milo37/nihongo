@@ -593,16 +593,19 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
         staleResponse.request().postDataJSON() as unknown
       )
     ).toEqual(expectedArchive)
-    await winner
-      .getByRole('link', { name: '관리자 재인증', exact: true })
-      .click()
-    await expect(winner).toHaveURL(
-      (url) =>
-        url.origin === publicOrigin &&
-        url.pathname === '/login' &&
-        url.searchParams.get('redirect') === '/admin/questions' + query
+    // Same dialog, same tab: the command gives way to the check.
+    const archiveDialog = winner.getByRole('dialog')
+    await expect(archiveDialog.getByRole('alert')).toContainText(
+      '본인 확인 시간이 끝나 ‘초안 삭제’ 작업을 적용하지 않았습니다.'
     )
-    await confirmActor(winner, author)
+    await expect(
+      archiveDialog.getByRole('button', { name: '초안 삭제', exact: true })
+    ).toHaveCount(0)
+    const reauthButton = archiveDialog.getByRole('button', {
+      name: '본인 확인',
+      exact: true
+    })
+    await expect(reauthButton).toBeFocused()
     await waitForLedgerToQuiesce(ledger)
     const returnedDocuments: Array<{
       origin: string
@@ -641,9 +644,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
       const [started, authorizationRequest] = await Promise.all([
         startResponse,
         providerRequest,
-        winner
-          .getByRole('button', { name: 'Google로 본인 확인', exact: true })
-          .click()
+        reauthButton.click()
       ])
       expect(
         adminFreshSsoRequestSchema.parse(
@@ -684,6 +685,13 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
       expect(returnedDocuments).toEqual([
         { origin: publicOrigin, path: '/admin/questions', status: 200 }
       ])
+      // The server result is checked before it is shown; the top bar counts.
+      await expect(
+        winner.locator('[data-reauth-result="returned"]')
+      ).toContainText('본인 확인을 마쳤습니다(30분 유효).')
+      await expect(
+        winner.getByText('본인 확인 · 30분 남음', { exact: true })
+      ).toBeVisible()
       await confirmActor(winner, author)
       await waitForLedgerToQuiesce(ledger)
       expect(
