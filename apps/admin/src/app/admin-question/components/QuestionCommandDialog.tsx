@@ -2,6 +2,10 @@ import type { ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'
 import { Textarea } from '@nihongo/browser/common/components/Textarea'
+import {
+  ReauthDialogButton,
+  ReauthRequiredNotice
+} from '@app/admin/reauth/ReauthRequiredNotice'
 import { buildQuestionCommand } from '@app/admin-question/detail/questionWorkflow'
 import type { QuestionDetailState } from '@app/admin-question/hooks/useQuestionDetail'
 
@@ -37,7 +41,8 @@ export const QuestionCommandDialog = ({
     locked,
     commands,
     refreshSnapshot,
-    fresh,
+    keepCommand,
+    reauth,
     reasonRequired,
     noteError,
     showNote
@@ -78,7 +83,7 @@ export const QuestionCommandDialog = ({
                 {t('questionDetail.retryConflict')}
               </Button>
             ) : code === 'FRESH_ASSURANCE_REQUIRED' ? (
-              <Button onClick={fresh}>{t('reportDetail.fresh')}</Button>
+              <ReauthDialogButton reauth={reauth} keep={keepCommand} />
             ) : (
               <Button
                 disabled={
@@ -164,7 +169,13 @@ export const QuestionCommandDialog = ({
             onChange={(event) => setNote(event.target.value)}
           />
         ) : null}
-        {mutation.error || commandStale ? (
+        {code === 'FRESH_ASSURANCE_REQUIRED' && pending ? (
+          <ReauthRequiredNotice
+            command={commandLabel(pending)}
+            keeps="input"
+            reauth={reauth}
+          />
+        ) : mutation.error || commandStale ? (
           <p className="mt-3" role="alert">
             {commandStale
               ? t('questionDetail.versionConflictDescription')

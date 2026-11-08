@@ -6,7 +6,17 @@ import { Dialog } from '@nihongo/browser/common/components/Dialog'
 import { Textarea } from '@nihongo/browser/common/components/Textarea'
 import { useToast } from '@nihongo/browser/common/components/Toast'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
-import { FreshAssurance } from '@app/admin/components/FreshAssurance'
+import { useAppStore } from '@nihongo/browser/store/index'
+import {
+  ReauthDialogButton,
+  ReauthRequiredNotice
+} from '@app/admin/reauth/ReauthRequiredNotice'
+import {
+  clearReauthKeep,
+  readReauthKeep,
+  saveReauthKeep
+} from '@app/admin/reauth/reauthKeep'
+import { useAdminReauth } from '@app/admin/reauth/useAdminReauth'
 import { MemberIdText } from '@app/admin-member/components/MemberIdText'
 import {
   useReleaseAdminMemberRestriction,
@@ -19,6 +29,23 @@ const errorCode = (error: unknown): string | null =>
   error && typeof error === 'object' && 'code' in error
     ? String(error.code)
     : null
+
+/** A restriction reason kept for this member before re-verification. */
+const restoredReason = (
+  actorId: string | undefined,
+  memberId: string
+): string | null => {
+  if (!actorId) return null
+  const kept = readReauthKeep(actorId, 'member-detail')
+  return typeof kept === 'object' &&
+    kept !== null &&
+    'memberId' in kept &&
+    kept.memberId === memberId &&
+    'reason' in kept &&
+    typeof kept.reason === 'string'
+    ? kept.reason
+    : null
+}
 
 type MemberActionsProps = {
   readonly member: AdminMemberDetail
@@ -35,13 +62,17 @@ export const MemberActions = ({
 }: MemberActionsProps): ReactElement => {
   const { t, presentError } = useAdminPresentation()
   const { addToast } = useToast()
-  const [reason, setReason] = useState('')
+  const actorId = useAppStore((state) => state.currentUser?.id)
+  const reauth = useAdminReauth()
+  const [restored] = useState(() => restoredReason(actorId, member.memberId))
+  useEffect(() => {
+    if (actorId) clearReauthKeep(actorId, 'member-detail')
+  }, [actorId])
+  const [reason, setReason] = useState(restored ?? '')
   const [reasonError, setReasonError] = useState<string | undefined>()
   const [confirming, setConfirming] = useState(false)
-  const [freshConfirmed, setFreshConfirmed] = useState(false)
   const reasonRef = useRef<HTMLTextAreaElement>(null)
   const headingRef = useRef<HTMLHeadingElement>(null)
-  const confirmedRef = useRef<HTMLParagraphElement>(null)
   const restrict = useRestrictAdminMember(member.memberId, () => {
     addToast({ title: t('members.detail.restricted'), variant: 'success' })
     onCompleted()
@@ -60,9 +91,6 @@ export const MemberActions = ({
   useEffect(() => {
     if (focusHeading) headingRef.current?.focus()
   }, [focusHeading])
-  useEffect(() => {
-    if (freshConfirmed) confirmedRef.current?.focus()
-  }, [freshConfirmed])
 
   const onRestrict = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault()
@@ -75,8 +103,13 @@ export const MemberActions = ({
     setReasonError(undefined)
     setConfirming(true)
   }
+  const keepReason = (): boolean =>
+    Boolean(actorId) &&
+    saveReauthKeep(actorId as string, 'member-detail', {
+      memberId: member.memberId,
+      reason
+    })
   const run = (): void => {
-    setFreshConfirmed(false)
     if (restricted) {
       release.mutate({ expectedRowVersion: member.rowVersion })
       return
@@ -88,40 +121,38 @@ export const MemberActions = ({
     })
   }
 
-  const feedback = freshConfirmed ? (
-    <p
-      ref={confirmedRef}
-      role="status"
-      tabIndex={-1}
-      className="mt-4 rounded-sm text-sm leading-6"
-    >
-      {t('members.detail.fresh.confirmed', { command: commandLabel })}
-    </p>
-  ) : code === 'FRESH_ASSURANCE_REQUIRED' ? (
-    <FreshAssurance
-      commandLabel={commandLabel}
-      onConfirmed={() => {
-        command.reset()
-        setFreshConfirmed(true)
-      }}
-    />
-  ) : command.isError ? (
-    <div role="alert" className="mt-4 text-sm text-danger-strong">
-      <p>{presentError(command.error)}</p>
-      {code === 'VERSION_CONFLICT' || code === 'INVALID_STATE_TRANSITION' ? (
-        <Button
-          className="mt-2"
-          variant="secondary"
-          onClick={() => {
-            command.reset()
-            onReload()
-          }}
-        >
-          {t('members.detail.reload')}
-        </Button>
-      ) : null}
-    </div>
-  ) : null
+  const feedback =
+    code === 'FRESH_ASSURANCE_REQUIRED' ? (
+      <div className="max-w-xl">
+        <ReauthRequiredNotice
+          command={commandLabel}
+          keeps="input"
+          reauth={reauth}
+        />
+        <div className="mt-3">
+          <ReauthDialogButton
+            reauth={reauth}
+            keep={restricted ? undefined : keepReason}
+          />
+        </div>
+      </div>
+    ) : command.isError ? (
+      <div role="alert" className="mt-4 text-sm text-danger-strong">
+        <p>{presentError(command.error)}</p>
+        {code === 'VERSION_CONFLICT' || code === 'INVALID_STATE_TRANSITION' ? (
+          <Button
+            className="mt-2"
+            variant="secondary"
+            onClick={() => {
+              command.reset()
+              onReload()
+            }}
+          >
+            {t('members.detail.reload')}
+          </Button>
+        ) : null}
+      </div>
+    ) : null
 
   const heading = (id: string, key: string): ReactElement => (
     <h2
@@ -157,6 +188,11 @@ export const MemberActions = ({
     <section aria-labelledby="member-restrict" className="mt-8">
       {heading('member-restrict', 'members.detail.restrictTitle')}
       <p className="mt-2 text-muted">{t('members.detail.restrictHint')}</p>
+      {restored !== null ? (
+        <p role="status" className="mt-2 text-sm font-semibold">
+          {t('reauth.restored')}
+        </p>
+      ) : null}
       <form className="mt-4 max-w-xl" onSubmit={onRestrict} noValidate>
         <Textarea
           ref={reasonRef}
