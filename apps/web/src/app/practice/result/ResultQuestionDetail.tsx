@@ -1,11 +1,15 @@
 import { useTranslation } from 'react-i18next'
-import type { ReactElement, ReactNode } from 'react'
+import type { ReactElement } from 'react'
 import type { StudyResultItemView } from '@app/practice/adapters/studyResultView'
 import { QuestionReportDialog } from '@app/question-report/components/QuestionReportDialog'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { classNames } from '@nihongo/browser/common/components/classNames'
 import { ExplanationLanguagePanel } from '@common/components/ExplanationLanguagePanel'
 import { Icon } from '@nihongo/browser/common/components/Icon'
+import {
+  getResultStatus,
+  ResultStatusIcon
+} from '@app/practice/result/ResultStatusIcon'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 
@@ -19,7 +23,6 @@ type ResultQuestionDetailProps = {
   readonly isResultSourceUnavailable: boolean
   readonly bookmarkMessage: { text: string; isError: boolean } | null
   readonly onToggleBookmark: () => void
-  readonly actions: ReactNode
 }
 
 /** Bookmark toggle and, when the version is known, the report dialog. */
@@ -125,17 +128,12 @@ export const ResultQuestionDetail = ({
   bookmarkDisabled,
   isResultSourceUnavailable,
   bookmarkMessage,
-  onToggleBookmark,
-  actions
+  onToggleBookmark
 }: ResultQuestionDetailProps): ReactElement => {
   const { i18n, t } = useTranslation('result')
   const locale = resolveUiLocale(i18n.resolvedLanguage)
   const formattedOrdinal = formatNumber(ordinal, locale)
-  const status = item.isCorrect
-    ? t('items.correct')
-    : item.selectedOptionId === null
-      ? t('items.unanswered')
-      : t('items.incorrect')
+  const status = getResultStatus(item)
 
   return (
     <article
@@ -145,7 +143,9 @@ export const ResultQuestionDetail = ({
     >
       <div className="study-result-detail-heading">
         <p className={item.isCorrect ? 'text-success' : 'text-danger'}>
-          {status} · {t('navigation.question', { formattedOrdinal })}
+          <ResultStatusIcon status={status} />
+          {t(`items.${status}`)} ·{' '}
+          {t('navigation.question', { formattedOrdinal })}
         </p>
         {
           <ResultManageButtons
@@ -196,7 +196,6 @@ export const ResultQuestionDetail = ({
           explanationKo={item.explanationKo}
         />
       </section>
-      {actions}
     </article>
   )
 }
