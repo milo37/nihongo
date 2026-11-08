@@ -9,3 +9,5 @@ alert_email            = "owner@example.com"
 # origin_domain_name  = "origin.harumaru.app"
 # domain_name         = "harumaru.app"
 # acm_certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/..."
+# Origin proxy with the Cloudflare DNS provider (README "origin 인증서"):
+# caddy_dns_image     = "123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/harumaru/caddy@sha256:..."

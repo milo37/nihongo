@@ -5,7 +5,9 @@
 #   passwords, leaves api.env intact, refuses missing Google OAuth values and
 #   writes the legal contact file (empty without its optional values);
 # - provision-db.sh, erase-deletion-pending.sh and guest-cleanup.sh treat SSM values as data, so
-#   $(...) and `...` are never run, and unknown keys are refused.
+#   $(...) and `...` are never run, and unknown keys are refused;
+# - render-origin-env.sh (PRODUCTION, #40) writes the Cloudflare token literally
+#   and refuses an empty value or one with whitespace.
 set -euo pipefail
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
@@ -21,14 +23,15 @@ copy render-env.sh
 copy provision-db.sh
 copy erase-deletion-pending.sh
 copy guest-cleanup.sh
+copy render-origin-env.sh
 printf 'AWS_REGION=x\nPARAM_PATH=/p\n' > "$work/etc/host.env"
 printf 'DEPLOYMENT_ENVIRONMENT=PRODUCTION\n' > "$work/etc/public.env"
 touch "$work/opt/.env"
 
-# Stub aws: prints the SSM parameters from $work/params.json.
+# Stub aws: prints the SSM parameters from $work/params.json (get-parameter: $work/token).
 cat > "$work/stub-aws" <<EOF
 #!/bin/bash
-cat "$work/params.json"
+if [[ "\$1 \$2" == "ssm get-parameter" ]]; then cat "$work/token"; else cat "$work/params.json"; fi
 EOF
 # Stub docker: records the environment it would pass on.
 cat > "$work/stub-docker" <<EOF
@@ -144,3 +147,16 @@ rm -f "$work/docker-saw"
 [[ "$(cat "$work/docker-env")" == "PRODUCTION false CLEANUP_EXPIRED_GUEST_DATA" ]] \
   || { echo "guest cleanup settings changed: $(cat "$work/docker-env")" >&2; exit 1; }
 echo "ok guest-cleanup: SSM URL passed through literally, not a dry run"
+
+# 5. render-origin-env.sh: the Cloudflare token reaches origin.env literally.
+token='cf_$(id)_`id`_token'
+printf '%s\n' "$token" > "$work/token"
+"$work/bin/render-origin-env.sh"
+[[ "$(cat "$work/run/origin.env")" == "CLOUDFLARE_API_TOKEN=$token" ]] || { echo "origin.env changed the token" >&2; exit 1; }
+for bad in "" "None" "two words"; do
+  printf '%s\n' "$bad" > "$work/token"
+  if "$work/bin/render-origin-env.sh" 2>"$work/err"; then
+    echo "render-origin-env accepted '$bad'" >&2; exit 1
+  fi
+done
+echo "ok render-origin-env: token written literally, empty or spaced values refused"

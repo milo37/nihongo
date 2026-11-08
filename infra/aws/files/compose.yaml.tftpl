@@ -25,15 +25,21 @@ networks:
 
 services:
   proxy:
-    image: ${caddy_image}
+    image: ${origin_tls ? caddy_dns_image : caddy_image}
     restart: unless-stopped
+%{ if origin_tls ~}
+    env_file:
+      - /run/harumaru/proxy.env
+      - /run/harumaru/origin.env
+%{ else ~}
     env_file: /run/harumaru/proxy.env
+%{ endif ~}
     ports:
       - '${origin_port}:${origin_port}'
     volumes:
       - /opt/harumaru/Caddyfile:/etc/caddy/Caddyfile:ro
 %{ if origin_tls ~}
-      - /run/harumaru/origin-tls:/run/origin-tls:ro
+      - caddy-data:/data
 %{ endif ~}
     networks: [edge]
     depends_on:
@@ -127,3 +133,8 @@ services:
     security_opt:
       - no-new-privileges:true
     logging: *logging
+%{ if origin_tls ~}
+
+volumes:
+  caddy-data:
+%{ endif ~}

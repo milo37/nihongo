@@ -3,12 +3,19 @@
 # only this proxy's subnet) still sees the viewer address CloudFront appended.
 {
 	admin off
+%{ if origin_domain != "" ~}
+	auto_https disable_redirects
+%{ else ~}
 	auto_https off
+%{ endif ~}
 }
 
 %{ if origin_domain != "" ~}
 https://${origin_domain}:443 {
-	tls /run/origin-tls/origin.crt /run/origin-tls/origin.key
+	tls {
+		dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+		resolvers 1.1.1.1
+	}
 %{ else ~}
 http://:3001 {
 %{ endif ~}
