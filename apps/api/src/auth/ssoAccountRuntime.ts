@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import {
   accountSsoRequestSchema,
+  safeAccountSsoReturnPath,
   deleteSsoAccountRequestSchema,
   unlinkSsoAccountRequestSchema,
   ssoAccountCapabilitiesSchema,
@@ -11,7 +12,6 @@ import type {
   AccountSsoPurpose,
   SsoAccountErrorCode
 } from '@nihongo/contracts/auth/sso-account-management'
-import { safeAdminFreshReturnPath } from '@nihongo/contracts/auth/admin-fresh-sso'
 import { signInSocialResponseSchema } from '@nihongo/contracts/auth/sign-in-social'
 import type { SsoProviderId } from '@nihongo/contracts/auth/sign-in-social'
 import type { ApiEnvironment } from '../config/env.js'
@@ -134,7 +134,7 @@ export const createSsoAccountRuntime = ({
     cookies: string[] = []
   ) => {
     const target = new URL(
-      safeAdminFreshReturnPath(callbackURL),
+      safeAccountSsoReturnPath(callbackURL),
       environment.TRUSTED_ORIGINS[0] ?? environment.BETTER_AUTH_URL
     )
     target.searchParams.set(
@@ -184,7 +184,7 @@ export const createSsoAccountRuntime = ({
           provider: providers[parsed.data.provider],
           purpose: parsed.data.purpose,
           store,
-          returnPathPolicy: safeAdminFreshReturnPath
+          returnPathPolicy: safeAccountSsoReturnPath
         }).start(parsed.data.callbackURL)
         return json(
           signInSocialResponseSchema.parse({
@@ -225,7 +225,7 @@ export const createSsoAccountRuntime = ({
           provider: providers[provider],
           purpose,
           store,
-          returnPathPolicy: safeAdminFreshReturnPath
+          returnPathPolicy: safeAccountSsoReturnPath
         }).finish({ query, binding })
         if (verified.kind !== 'IDENTITY_VERIFIED')
           return outcome(purpose, verified.kind, verified.callbackURL, [clear])

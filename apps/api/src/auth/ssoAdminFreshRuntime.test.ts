@@ -156,7 +156,7 @@ const fixture = (provider: SsoProviderId = 'google') => {
       rememberMe: true,
       expiresAt: new Date('2026-10-26T00:00:00Z')
     }).split(';')[0]!
-  const start = async () => {
+  const start = async (callbackURL = '/admin/questions?page=2') => {
     const response = await runtime.start(
       new Request('https://app.example.test/api/auth/sign-in/social', {
         headers: { Cookie: sessionCookie() }
@@ -164,7 +164,7 @@ const fixture = (provider: SsoProviderId = 'google') => {
       {
         purpose: 'ADMIN_FRESH',
         provider,
-        callbackURL: '/admin/questions?page=2'
+        callbackURL
       }
     )
     const body = (await response.json()) as { url: string }
@@ -229,6 +229,23 @@ const fixture = (provider: SsoProviderId = 'google') => {
 }
 
 describe('separate ADMIN_FRESH flow', () => {
+  // #683: the same-tab return only adds the outcome; a callback outside the
+  // admin return policy never reaches the provider and lands on /.
+  it.each([
+    '/admin/questions?action=approve',
+    '/admin/questions/11111111-1111-4111-8111-111111111111/approve',
+    'https://evil.example/admin/questions'
+  ])('returns a refused callback to /: %s', async (callbackURL) => {
+    const f = fixture('google')
+    const start = await f.start(callbackURL)
+    expect(start.response.status).toBe(200)
+    expect([...f.transactions.values()][0]?.callbackURL).toBe('/')
+    const callback = await f.oauth(start.state, start.binding)
+    const result = await f.finish(f.proofCookie(callback))
+    expect(result.headers.get('Location')).toBe(
+      'https://app.example.test/?ssoFresh=REAUTHENTICATED'
+    )
+  })
   it.each(['apple', 'google'] as const)(
     'rotates only after %s proof and exact current session finalization',
     async (provider) => {

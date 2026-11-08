@@ -101,7 +101,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       '20261106090000_remove_phase_names',
       '20261107090000_first_admin_production',
       '20261108090000_remove_tag_applicability_and_snapshots',
-      '20261109090000_add_tag_key_subject_status'
+      '20261109090000_add_tag_key_subject_status',
+      '20261110090000_admin_fresh_window_30_minutes'
     ])
     expect(
       actual.rows.map(({ name, checksum }) => ({ name, checksum }))
@@ -682,7 +683,7 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     })
   })
 
-  it('proof expiry and exact five-minute freshness boundaries fail closed; ordinary LOGIN has no fresh assurance', async () => {
+  it('proof expiry and exact 30-minute freshness boundaries fail closed; ordinary LOGIN has no fresh assurance', async () => {
     await h.rollback(async () => {
       const f = await h.fixture()
       const { proof } = await staged(f)
@@ -706,8 +707,14 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       const { proof } = await staged(f)
       const next = await h.rotate(f, proof)
       expect(await fresh(next.token)).toBe(true)
+      // #683: still fresh just inside the 30-minute window.
       await h.fixtureMutation(
-        `UPDATE "Session" SET "createdAt"=clock_timestamp()-interval '5 minutes' WHERE id=$1`,
+        `UPDATE "Session" SET "createdAt"=clock_timestamp()-interval '29 minutes 50 seconds' WHERE id=$1`,
+        [next.id]
+      )
+      expect(await fresh(next.token)).toBe(true)
+      await h.fixtureMutation(
+        `UPDATE "Session" SET "createdAt"=clock_timestamp()-interval '30 minutes' WHERE id=$1`,
         [next.id]
       )
       expect(await fresh(next.token)).toBe(false)
@@ -716,12 +723,35 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       const f = await h.fixture()
       const { proof } = await staged(f)
       const next = await h.rotate(f, proof)
+      // #683: the completed proof expires 30 minutes after completion.
+      expect(
+        (
+          await h.owner.query<{ valid: boolean }>(
+            `SELECT "expiresAt" = "completedAt" + interval '30 minutes' AS valid FROM "SsoAdminFreshProof" WHERE "proofDigest"=$1`,
+            [proof]
+          )
+        ).rows
+      ).toEqual([{ valid: true }])
       await h.fixtureMutation(
-        `UPDATE "SsoAdminFreshProof" SET "createdAt"=clock_timestamp()-interval '5 minutes',"completedAt"=clock_timestamp()-interval '5 minutes',"expiresAt"=clock_timestamp()+interval '1 minute' WHERE "proofDigest"=$1`,
+        `UPDATE "SsoAdminFreshProof" SET "createdAt"=clock_timestamp()-interval '30 minutes',"completedAt"=clock_timestamp()-interval '30 minutes',"expiresAt"=clock_timestamp()+interval '1 minute' WHERE "proofDigest"=$1`,
         [proof]
       )
       expect(await fresh(next.token)).toBe(false)
     })
+  })
+
+  it('bounds an ADMIN_FRESH proof at creation + 32 minutes (#683)', async () => {
+    const bound = await h.owner.query<{ definition: string }>(
+      `SELECT pg_catalog.pg_get_constraintdef(oid) AS definition
+       FROM pg_catalog.pg_constraint
+       WHERE conrelid = '"SsoAdminFreshProof"'::regclass
+         AND conname = 'SsoAdminFreshProof_check1'`
+    )
+    expect(bound.rows).toEqual([
+      {
+        definition: `CHECK ((("expiresAt" > "createdAt") AND ("expiresAt" <= ("createdAt" + '00:32:00'::interval))))`
+      }
+    ])
   })
 
   it('new SSO deferred operation guard rechecks expired assurance after successful admission', async () => {
