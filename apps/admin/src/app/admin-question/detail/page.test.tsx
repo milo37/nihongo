@@ -823,7 +823,7 @@ it.each(['GUEST', 'USER'])(
       await waitFor(() => expect(replace).toHaveBeenCalled())
     } else {
       expect(
-        await screen.findByRole('heading', { name: '요청한 페이지가 없습니다' })
+        await screen.findByRole('heading', { name: '요청한 페이지가 없어요' })
       ).toBeVisible()
       expect(replace).not.toHaveBeenCalled()
     }

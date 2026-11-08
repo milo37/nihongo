@@ -108,13 +108,13 @@ describe('detail page error semantics', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: '오답 상세를 불러오지 못했습니다'
+        name: '오답 상세를 불러오지 못했어요'
       })
     ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '다시 시도' }))
     expect(
       await screen.findByRole('heading', {
-        name: '오답을 찾을 수 없습니다'
+        name: '오답을 찾을 수 없어요'
       })
     ).toBeInTheDocument()
     expect(requestCount).toBe(2)
@@ -176,7 +176,7 @@ describe('detail page error semantics', () => {
     )
 
     await screen.findByRole('heading', {
-      name: '상세의 최신 상태를 확인하지 못했습니다. 표시 중인 내용과 작성 중인 메모는 유지됩니다.'
+      name: '상세의 최신 상태를 확인하지 못했어요. 표시 중인 내용과 작성 중인 메모는 유지돼요.'
     })
     await user.click(
       screen.getByRole('button', {
@@ -218,7 +218,7 @@ describe('detail page error semantics', () => {
     )
     expect(
       await screen.findByRole('heading', {
-        name: '학습 결과를 찾을 수 없습니다'
+        name: '학습 결과를 찾을 수 없어요'
       })
     ).toBeInTheDocument()
     expect(
@@ -299,7 +299,7 @@ describe('detail page error semantics', () => {
     )
     expect(
       await screen.findByRole('heading', {
-        name: '학습 결과를 불러오지 못했습니다'
+        name: '학습 결과를 불러오지 못했어요'
       })
     ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '다시 시도' }))
@@ -362,12 +362,12 @@ describe('detail page error semantics', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: '학습 결과를 불러오지 못했습니다'
+        name: '학습 결과를 불러오지 못했어요'
       })
     ).toBeInTheDocument()
     expect(
       screen.queryByRole('heading', {
-        name: '학습 결과를 찾을 수 없습니다'
+        name: '학습 결과를 찾을 수 없어요'
       })
     ).not.toBeInTheDocument()
     expect(requests.result).toBeGreaterThan(0)
@@ -387,7 +387,7 @@ describe('detail page error semantics', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: '학습 결과를 찾을 수 없습니다'
+        name: '학습 결과를 찾을 수 없어요'
       })
     ).toBeInTheDocument()
     expect(requests.result).toBeGreaterThan(0)

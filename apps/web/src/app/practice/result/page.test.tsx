@@ -201,7 +201,7 @@ describe('approved general result navigation', () => {
     const { view } = fixture.mount()
     expect(
       await screen.findByRole('heading', {
-        name: '학습 결과를 찾을 수 없습니다'
+        name: '학습 결과를 찾을 수 없어요'
       })
     ).toBeVisible()
     await waitFor(() => {
@@ -231,7 +231,7 @@ describe('approved general result navigation', () => {
       fixture.mount()
       const title =
         locale === 'ko'
-          ? '이전 학습 결과가 종료되었습니다'
+          ? '이전 학습 결과가 종료되었어요'
           : '以前の学習結果は終了しました'
       expect(await screen.findByRole('heading', { name: title })).toBeVisible()
       expect(
@@ -404,9 +404,7 @@ describe('approved general result navigation', () => {
     expect(button).toHaveFocus()
     release()
     expect(
-      await screen.findByText(
-        '책갈피를 저장하지 못해 이전 상태로 복원했습니다.'
-      )
+      await screen.findByText('책갈피를 저장하지 못해 이전 상태로 복원했어요.')
     ).toBeVisible()
     expect(requestedUrl && new URL(requestedUrl).pathname).toBe(
       `/api/v1/bookmarks/${second.question.id}`
@@ -475,6 +473,10 @@ describe('approved general result navigation', () => {
       )
     ).toBeVisible()
     expect(router.state.location.pathname).toMatch(/^\/practice\/result\//u)
+    // The box replaces the primary; new practice stays as a text link.
+    expect(screen.getByRole('link', { name: '새 문제 풀기' })).toHaveClass(
+      'note-link'
+    )
     view.unmount()
     fixture.client.clear()
   })
@@ -515,13 +517,11 @@ describe('approved general result navigation', () => {
       await screen.findByRole('button', { name: '오답만 다시 풀기' })
     )
     const notice = await screen.findByText(
-      '임시로 이용이 제한된 계정입니다. 새 학습과 신고는 제한이 풀린 뒤 이용할 수 있습니다.'
+      '임시로 이용이 제한된 계정이에요. 새 학습과 신고는 제한이 풀린 뒤 이용할 수 있어요.'
     )
     await waitFor(() => expect(notice).toHaveFocus())
     expect(router.state.location.pathname).toMatch(/^\/practice\/result\//u)
-    expect(
-      screen.queryByText('오답 재출제 세션을 만들지 못했습니다.')
-    ).toBeNull()
+    expect(screen.queryByText('오답 재출제 세션을 만들지 못했어요.')).toBeNull()
     view.unmount()
     fixture.client.clear()
   })
@@ -557,7 +557,7 @@ describe('approved general result navigation', () => {
       ).toBeVisible()
       expect(
         screen.getByText(
-          '최신 결과로 갱신하지 못해 마지막으로 확인한 결과를 표시합니다. 다시 확인할 때까지 결과 기반 동작은 잠깁니다.'
+          '최신 결과로 갱신하지 못해 마지막으로 확인한 결과를 표시해요. 다시 확인할 때까지 결과 기반 동작은 잠겨요.'
         )
       ).toBeVisible()
       expect(
@@ -701,7 +701,7 @@ describe('approved general result navigation', () => {
     expect(within(metrics).getByText('33.33%')).toBeInTheDocument()
     expect(within(metrics).getByText('0분 0초')).toBeInTheDocument()
     expect(
-      screen.getByText('틀린 2문제가 오답노트에 반영되었습니다.')
+      screen.getByText('틀린 2문제가 오답노트에 반영되었어요.')
     ).toBeInTheDocument()
     expect(
       screen.getByRole('link', { name: '오늘은 여기까지' })
@@ -738,7 +738,7 @@ describe('approved general result navigation', () => {
       )
     )
     const { view } = fixture.mount()
-    expect(await screen.findByText('다시 풀 오답이 없습니다')).toBeVisible()
+    expect(await screen.findByText('다시 풀 오답이 없어요')).toBeVisible()
     expect(
       screen.queryByRole('button', { name: '오답만 다시 풀기' })
     ).not.toBeInTheDocument()
@@ -747,18 +747,8 @@ describe('approved general result navigation', () => {
   })
 
   it.each([
-    [
-      'NO_ELIGIBLE_QUESTIONS',
-      422,
-      '현재 다시 풀 수 있는 오답이 없습니다',
-      false
-    ],
-    [
-      'INTERNAL_SERVER_ERROR',
-      500,
-      '오답 재출제 세션을 만들지 못했습니다.',
-      true
-    ]
+    ['NO_ELIGIBLE_QUESTIONS', 422, '현재 다시 풀 수 있는 오답이 없어요', false],
+    ['INTERNAL_SERVER_ERROR', 500, '오답 재출제 세션을 만들지 못했어요.', true]
   ] as const)(
     '재출제 실패 %s는 결과 화면에 머물며 안내를 보여 준다',
     async (code, status, message, keepsRetryButton) => {
@@ -800,6 +790,73 @@ describe('approved general result navigation', () => {
     expect(valueOf('오답')).toBe('2')
     view.unmount()
     fixture.client.clear()
+  })
+
+  it('회원 결과 아래 버튼은 오답 다시 풀기(주) → 새 문제(보조) → 오답노트·책갈피(텍스트)다 (3절)', async () => {
+    const actionsOf = (element: HTMLElement): HTMLElement => {
+      const actions = element.closest<HTMLElement>('.study-result-actions')
+      if (!actions) throw new Error('결과 동작 영역이 필요합니다.')
+      return actions
+    }
+    const names = (actions: HTMLElement): string[] =>
+      Array.from(actions.querySelectorAll<HTMLElement>('a, button')).map(
+        (element) => element.textContent?.replace('🔒', '').trim() ?? ''
+      )
+    const member = await createFixture()
+    const memberView = member.mount()
+    const retry = await screen.findByRole('button', {
+      name: '오답만 다시 풀기'
+    })
+    const actions = actionsOf(retry)
+    expect(names(actions)).toEqual([
+      '오답만 다시 풀기',
+      '새 문제 풀기',
+      '오답노트 보기',
+      '책갈피 보기'
+    ])
+    expect(retry.className).toContain('bg-brand')
+    const memberNew = within(actions).getByRole('link', {
+      name: '새 문제 풀기'
+    })
+    expect(memberNew.className).toContain('border-line-interactive')
+    expect(memberNew.className).not.toContain('bg-brand')
+    for (const name of ['오답노트 보기', '책갈피 보기']) {
+      expect(within(actions).getByRole('link', { name })).toHaveClass(
+        'note-link'
+      )
+    }
+    memberView.view.unmount()
+    member.client.clear()
+  })
+
+  it('게스트 결과 아래 버튼은 새 문제(주) → 잠긴 다시 풀기(보조) → 책갈피(텍스트)다 (3절)', async () => {
+    const actionsOf = (element: HTMLElement): HTMLElement => {
+      const actions = element.closest<HTMLElement>('.study-result-actions')
+      if (!actions) throw new Error('결과 동작 영역이 필요합니다.')
+      return actions
+    }
+    const names = (actions: HTMLElement): string[] =>
+      Array.from(actions.querySelectorAll<HTMLElement>('a, button')).map(
+        (element) => element.textContent?.replace('🔒', '').trim() ?? ''
+      )
+    const guest = await createFixture({ role: 'GUEST', mixed: false })
+    const guestView = guest.mount()
+    const guestRetry = await screen.findByRole('button', {
+      name: /오답만 다시 풀기/u
+    })
+    const guestActions = actionsOf(guestRetry)
+    expect(names(guestActions)).toEqual([
+      '로그인',
+      '새 문제 풀기',
+      '오답만 다시 풀기로그인 필요',
+      '책갈피 보기'
+    ])
+    expect(
+      within(guestActions).getByRole('link', { name: '새 문제 풀기' }).className
+    ).toContain('bg-brand')
+    expect(guestRetry.className).toContain('border-line-interactive')
+    guestView.view.unmount()
+    guest.client.clear()
   })
 
   it('게스트 연결 링크는 홈과 로그인 선택으로 보낸다', async () => {

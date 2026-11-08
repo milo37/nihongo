@@ -13,8 +13,6 @@ import { koAdminQuestionListResources } from './ko-admin-question'
 import { koAdminQuestionDetailResources } from './ko-admin-question-detail'
 import { koAdminReauthResources } from './ko-admin-reauth'
 import { koAdminReportResources } from './ko-admin-report'
-import { koAdminReportDetailResources } from './ko-admin-report-detail'
-import { koAdminReportListResources } from './ko-admin-report-list'
 import { koAdminSharedListResources } from './ko-admin-shared-list'
 import { questionTypeLabels } from './ko-question-types'
 
@@ -29,13 +27,13 @@ export const koResources = {
     },
     explanation: {
       languageLabel: '해설 언어',
-      japaneseUnavailable: '일본어 해설이 없어 한국어 해설을 표시합니다.'
+      japaneseUnavailable: '일본어 해설이 없어 한국어 해설을 표시해요.'
     },
     loading: {
-      content: '콘텐츠를 불러오는 중입니다…',
-      page: '페이지를 불러오는 중입니다…',
-      auth: '로그인 상태를 확인하고 있습니다…',
-      mockNotice: 'Mock 계정 안내를 불러오고 있습니다…',
+      content: '콘텐츠를 불러오는 중이에요…',
+      page: '페이지를 불러오는 중이에요…',
+      auth: '로그인 상태를 확인하고 있어요…',
+      mockNotice: 'Mock 계정 안내를 불러오고 있어요…',
       processing: '처리 중…'
     },
     actions: {
@@ -51,8 +49,8 @@ export const koResources = {
     },
     state: {
       accountRestricted:
-        '임시로 이용이 제한된 계정입니다. 새 학습과 신고는 제한이 풀린 뒤 이용할 수 있습니다.',
-      requestFailed: '요청을 완료하지 못했습니다'
+        '임시로 이용이 제한된 계정이에요. 새 학습과 신고는 제한이 풀린 뒤 이용할 수 있어요.',
+      requestFailed: '요청을 완료하지 못했어요'
     },
     required: '(필수)',
     taxonomy: {
@@ -106,8 +104,8 @@ export const koResources = {
       restored: '다시 연결됐어요.'
     },
     footer: {
-      originalContent: '자체 제작 문제로 학습합니다.',
-      scope: '청해·실제 JLPT 기출문제는 포함하지 않습니다.',
+      originalContent: '자체 제작 문제로 학습해요.',
+      scope: '청해·실제 JLPT 기출문제는 포함하지 않아요.',
       release: '· {{release}}',
       groups: {
         guidance: '이용 안내',
@@ -145,7 +143,7 @@ export const koResources = {
     dashboard: '대시보드',
     adminQuestions: '문제 관리',
     login: '로그인',
-    routeChanged: '{{route}} 화면으로 이동했습니다.',
+    routeChanged: '{{route}} 화면으로 이동했어요.',
     documentTitle: '{{route}} | 하루마루',
     metaDescription:
       'JLPT N5부터 N1까지 문제를 풀고 오답을 반복 학습하는 하루마루',
@@ -169,8 +167,8 @@ export const koResources = {
       adminQuestionDetail: '문제 상세',
       adminQuestions: '문제 관리',
       adminAudit: '관리자 감사 기록',
-      adminReportDetail: '신고 상세',
-      adminReports: '문제 신고',
+      adminReportDetail: '버그 리포트 상세',
+      adminReports: '버그 리포트',
       forbidden: '접근 권한 없음',
       page: '페이지'
     }
@@ -368,7 +366,7 @@ export const koResources = {
       titleLine1: '틀린 문제를',
       titleLine2: '끝까지 해결하는 학습',
       description:
-        '급수와 과목을 고르고 바로 문제를 푸세요. 제출한 오답은 자동으로 정리되고, 두 번 연속 맞힐 때까지 복습 흐름이 이어집니다.',
+        '급수와 과목을 고르고 바로 문제를 푸세요. 제출한 오답은 자동으로 정리되고, 두 번 연속 맞힐 때까지 복습 흐름이 이어져요.',
       openSetup: '학습 설정 열기',
       accountLogin: '계정 로그인',
       myDashboard: '내 학습 대시보드'
@@ -381,8 +379,8 @@ export const koResources = {
       subjectLegend: '학습 과목',
       start: '{{level}} {{subject}} · {{formattedCount}}문제 시작',
       error:
-        '세션을 만들지 못했습니다. 네트워크 상태와 선택 조건을 확인한 뒤 다시 시도해 주세요.',
-      countNote: '문제가 10개보다 적으면 준비된 문제 수만큼 출제합니다.'
+        '세션을 만들지 못했어요. 네트워크 상태와 선택 조건을 확인한 뒤 다시 시도해 주세요.',
+      countNote: '문제가 10개보다 적으면 준비된 문제 수만큼 출제해요.'
     },
     subjects: {
       vocabulary: {
@@ -400,22 +398,22 @@ export const koResources = {
     },
     loop: {
       eyebrow: 'LEARNING LOOP',
-      title: '문제를 푸는 순간부터 복습까지 연결됩니다',
+      title: '문제를 푸는 순간부터 복습까지 연결돼요',
       items: {
         wrongNote: {
           title: '자동 오답노트',
           description:
-            '틀린 횟수와 복습 상태를 기록해 다시 볼 문제를 놓치지 않습니다.'
+            '틀린 횟수와 복습 상태를 기록해 다시 볼 문제를 놓치지 않아요.'
         },
         weakness: {
           title: '약점 분석',
           description:
-            '과목별 정답률과 반복 오답을 기반으로 다음 학습 방향을 잡습니다.'
+            '과목별 정답률과 반복 오답을 기반으로 다음 학습 방향을 잡아요.'
         },
         mastery: {
           title: '2회 연속 정답',
           description:
-            '한 번의 우연이 아니라 두 번 연속 맞힐 때 해결한 문제로 전환합니다.'
+            '한 번의 우연이 아니라 두 번 연속 맞힐 때 해결한 문제로 전환해요.'
         }
       }
     }
@@ -470,13 +468,13 @@ export const koResources = {
       recheck: '다시 확인',
       logoutTitle: '로그아웃할까요?',
       logoutDescription:
-        '하루마루에서 로그아웃합니다. 연결한 계정은 그대로 유지돼요.',
+        '하루마루에서 로그아웃해요. 연결한 계정은 그대로 유지돼요.',
       logoutAction: '로그아웃',
       loggingOut: '로그아웃하고 있어요.',
       logoutUnknown: '로그아웃 상태를 확인하지 못했어요. 다시 확인해 주세요.',
       unlinkTitle: '{{provider}} 연결을 해제할까요?',
       unlinkDescription:
-        '연결 해제 후에는 연결된 다른 로그인 방법으로 로그인해 주세요. 학습 기록은 유지되며, 회원 탈퇴는 별도입니다.',
+        '연결 해제 후에는 연결된 다른 로그인 방법으로 로그인해 주세요. 학습 기록은 그대로 남고, 회원 탈퇴는 따로 해야 해요.',
       unlinkAction: '연결 해제',
       lastMethodTitle: '마지막 로그인 방법은 해제할 수 없어요.',
       deleteTitle: '회원 탈퇴할까요?',
@@ -513,29 +511,29 @@ export const koResources = {
       eyebrow: 'PRACTICE SETUP',
       title: '학습',
       description:
-        '출제 가능한 문제가 부족하면 가능한 수만 제공하고 실제 문항 수를 알려드립니다.',
+        '출제 가능한 문제가 부족하면 가능한 수만 내고 실제 문제 수를 알려 드려요.',
       currentRole: '현재 역할: {{role}}',
       resume: {
         title: '이어서 풀기',
         otherTitle: '다른 진행 중 학습',
         otherAction: '다른 진행 학습 보기',
-        description: '최근 저장한 학습부터 이어갈 수 있습니다.',
+        description: '최근 저장한 학습부터 이어갈 수 있어요.',
         refreshing: '목록 갱신 중…',
-        loading: '저장된 작업본을 확인하고 있습니다…',
+        loading: '저장된 작업본을 확인하고 있어요…',
         offline:
-          '오프라인입니다. 연결되면 이어풀기 목록을 자동으로 다시 확인합니다.',
+          '오프라인이에요. 연결되면 이어풀기 목록을 자동으로 다시 확인해요.',
         cachedOffline:
-          '오프라인이라 마지막으로 확인한 목록을 표시합니다. 연결될 때까지 취소와 페이지 이동은 잠깁니다.',
+          '오프라인이라 마지막으로 확인한 목록을 표시해요. 연결될 때까지 취소와 페이지 이동은 잠겨요.',
         stale:
-          '최신 이어풀기 목록으로 갱신하지 못했습니다. 마지막으로 확인한 목록을 유지합니다.',
-        error: '이어풀기 목록을 불러오지 못했습니다.',
+          '최신 이어풀기 목록으로 갱신하지 못했어요. 마지막으로 확인한 목록을 유지해요.',
+        error: '이어풀기 목록을 불러오지 못했어요.',
         empty:
-          '저장된 진행 중 작업본이 없습니다. 아래에서 새 학습을 시작해 주세요.',
+          '저장된 진행 중 작업본이 없어요. 아래에서 새 학습을 시작해 주세요.',
         summary: '{{formattedCount}}문제 중 {{formattedOrdinal}}번째 문항',
         lastSaved: '마지막 저장 {{date}}',
         notSaved: '아직 답안 저장 전',
         legacyUnavailable:
-          '이전 학습 세션이 종료되었습니다. 새 학습을 시작해 주세요.',
+          '이전 학습 세션이 종료되었어요. 새 학습을 시작해 주세요.',
         action: '이어서 풀기',
         cancel: '세션 취소',
         paginationLabel: '이어풀기 페이지'
@@ -550,23 +548,23 @@ export const koResources = {
       modes: {
         RANDOM: {
           label: '랜덤 문제',
-          description: '선택한 급수와 과목에서 무작위로 출제합니다.'
+          description: '선택한 급수와 과목에서 무작위로 출제해요.'
         },
         WRONG_NOTE: {
           label: '오답 문제',
-          description: '아직 해결하지 못한 오답을 우선 출제합니다.'
+          description: '아직 해결하지 못한 오답을 우선 출제해요.'
         },
         WEAKNESS: {
           label: '약점 추천',
-          description: '최근 제출에서 안정적으로 자주 틀린 문제를 우선합니다.'
+          description: '최근 제출에서 자주 틀린 문제를 먼저 출제해요.'
         },
         BOOKMARK: {
           label: '책갈피',
-          description: '저장한 문제만 모아 다시 풉니다.'
+          description: '저장한 문제만 모아 다시 풀어요.'
         },
         DAILY_REVIEW: {
           label: '오늘의 복습',
-          description: '서버 일정상 오늘 복습할 오답을 순서대로 풉니다.'
+          description: '서버 일정상 오늘 복습할 오답을 순서대로 풀어요.'
         }
       },
       guestResumeHint: '로그인하면 풀던 문제를 이어서 풀 수 있어요.',
@@ -582,74 +580,74 @@ export const koResources = {
           '로그인하면 문제 수 제한 없이 풀고 기록도 남아요. 체험은 내일 0시(한국 시간)에 다시 {{total}}회 생겨요.'
       },
       urlLocked: '문항 수·출제 방식은 로그인하면 고를 수 있어요.',
-      availableCountNote: '문제가 부족하면 가능한 수만 제공합니다.',
+      availableCountNote: '문제가 부족하면 가능한 수만 제공해요.',
       noEligibleTitle:
         "지금 조건으로는 '{{mode}}'에서 풀 수 있는 문제가 없어요.",
       noEligibleDescription:
         '급수·과목·모드를 바꾸거나 랜덤 문제를 골라 주세요. 다른 모드로 저절로 바뀌지는 않아요.',
       selectRandom: '랜덤 문제 선택',
       createError:
-        '세션을 만들지 못했습니다. 네트워크 상태와 선택 조건을 확인한 뒤 다시 시도해 주세요.',
+        '세션을 만들지 못했어요. 네트워크 상태와 선택 조건을 확인한 뒤 다시 시도해 주세요.',
       authorityNote:
-        '선택한 범위에서 준비된 문제만 출제합니다. 다른 모드로 자동 변경하지 않습니다.',
+        '선택한 범위에서 준비된 문제만 출제해요. 다른 모드로 자동 변경하지 않아요.',
       start: '학습 시작하기',
       cancelDialog: {
         title: '진행 중 세션을 취소할까요?',
         description:
-          '취소하면 서버 작업본은 삭제되며 이 세션에는 더 이상 답안을 저장하거나 제출할 수 없습니다.',
+          '취소하면 서버 작업본은 삭제되며 이 세션에는 더 이상 답안을 저장하거나 제출할 수 없어요.',
         keep: '계속 보관',
         confirm: '세션 취소',
         error:
-          '세션을 취소하지 못했습니다. 상태를 새로 확인한 뒤 다시 시도해 주세요.'
+          '세션을 취소하지 못했어요. 상태를 새로 확인한 뒤 다시 시도해 주세요.'
       }
     },
     session: {
       loading: {
-        questions: '문제를 준비하고 있습니다…',
-        guestOwnership: '게스트 세션 소유권을 확인하고 있습니다…',
-        resultRedirect: '제출 결과로 이동하고 있습니다…',
-        draft: '저장한 답안을 확인하고 있습니다…'
+        questions: '문제를 준비하고 있어요…',
+        guestOwnership: '게스트 세션 소유권을 확인하고 있어요…',
+        resultRedirect: '제출 결과로 이동하고 있어요…',
+        draft: '저장한 답안을 확인하고 있어요…'
       },
       recovery: {
-        title: '이전 제출 결과 확인이 필요합니다',
+        title: '이전 제출 결과 확인이 필요해요',
         pendingDescription:
-          '응답 손실 가능성이 있어 이 세션에서 이동하거나 답안을 바꿀 수 없습니다. 연결이 복구되면 세션 상태를 자동으로 다시 확인합니다.',
+          '응답 손실 가능성이 있어 이 세션에서 이동하거나 답안을 바꿀 수 없어요. 연결이 복구되면 세션 상태를 자동으로 다시 확인해요.',
         failedDescription:
-          '응답 손실 가능성이 있어 이 세션에서 이동하거나 답안을 바꿀 수 없습니다. 네트워크 상태를 확인한 뒤 세션을 다시 불러와 동일 답안으로 계속해 주세요.',
+          '응답 손실 가능성이 있어 이 세션에서 이동하거나 답안을 바꿀 수 없어요. 네트워크 상태를 확인한 뒤 세션을 다시 불러와 동일 답안으로 계속해 주세요.',
         retry: '세션 상태 다시 확인',
         checkingStatus:
-          '세션 상태를 불러오는 중입니다. 결과를 확인할 때까지 이 화면에 머물러 주세요.',
+          '세션 상태를 불러오는 중이에요. 결과를 확인할 때까지 이 화면에 머물러 주세요.',
         connectedStatus:
-          '네트워크가 연결되어 있습니다. 세션 상태를 다시 확인해 주세요.'
+          '네트워크가 연결되어 있어요. 세션 상태를 다시 확인해 주세요.'
       },
       errors: {
-        sessionLoadTitle: '학습 세션을 불러오지 못했습니다',
+        sessionLoadTitle: '학습 세션을 불러오지 못했어요',
         sessionLoadDescription:
           '세션 주소를 확인하거나 새 학습을 시작해 주세요.',
         offlineSessionDescription:
-          '오프라인입니다. 연결되면 학습 세션을 자동으로 다시 확인합니다.',
+          '오프라인이에요. 연결되면 학습 세션을 자동으로 다시 확인해요.',
         cachedOfflineDescription:
-          '오프라인입니다. 현재 문제와 답안을 유지하지만 연결이 복구될 때까지 변경하거나 제출할 수 없습니다.',
+          '오프라인이에요. 현재 문제와 답안을 유지하지만 연결이 복구될 때까지 변경하거나 제출할 수 없어요.',
         staleSessionDescription:
-          '학습 세션의 최신 상태를 확인하지 못했습니다. 현재 문제와 답안은 유지되며 다시 확인할 때까지 변경하거나 제출할 수 없습니다.',
+          '학습 세션의 최신 상태를 확인하지 못했어요. 현재 문제와 답안은 유지되며 다시 확인할 때까지 변경하거나 제출할 수 없어요.',
         retrySession: '학습 세션 다시 확인',
-        draftLoadTitle: '서버 작업본을 불러오지 못했습니다',
+        draftLoadTitle: '서버 작업본을 불러오지 못했어요',
         draftLoadDescription:
-          '안전하게 이어가기 위해 최신 답안을 확인해야 합니다. 연결을 확인한 뒤 다시 시도해 주세요.',
-        emptyTitle: '출제할 문제가 없습니다',
+          '안전하게 이어가기 위해 최신 답안을 확인해야 해요. 연결을 확인한 뒤 다시 시도해 주세요.',
+        emptyTitle: '출제할 문제가 없어요',
         emptyDescription: '다른 급수, 과목 또는 출제 모드를 선택해 주세요.'
       },
       terminal: {
-        notFoundTitle: '학습 세션을 찾을 수 없습니다',
+        notFoundTitle: '학습 세션을 찾을 수 없어요',
         notFoundDescription:
-          '종료되었거나 접근할 수 없는 학습입니다. 새 학습을 시작해 주세요.',
-        retiredTitle: '이전 학습 세션이 종료되었습니다',
+          '종료되었거나 접근할 수 없는 학습이에요. 새 학습을 시작해 주세요.',
+        retiredTitle: '이전 학습 세션이 종료되었어요',
         retiredDescription:
-          '이전 학습 기록은 더 이상 이어갈 수 없습니다. 새 학습을 시작해 주세요.',
-        expiredTitle: '만료된 학습 세션입니다',
-        cancelledTitle: '취소된 학습 세션입니다',
+          '이전 학습 기록은 더 이상 이어갈 수 없어요. 새 학습을 시작해 주세요.',
+        expiredTitle: '만료된 학습 세션이에요',
+        cancelledTitle: '취소된 학습 세션이에요',
         description:
-          '새 RANDOM 학습을 시작해 주세요. 이 세션에는 답안을 제출할 수 없습니다.',
+          '랜덤 문제로 새 학습을 시작해 주세요. 이 세션에는 답안을 제출할 수 없어요.',
         openSetup: '학습 설정으로 이동'
       },
       exitGuest: {
@@ -662,7 +660,7 @@ export const koResources = {
       navigationGuard: {
         title: '잠시 쉬어 갈까요?',
         description:
-          '현재 답과 풀이 시간을 저장한 뒤 이동합니다. 나중에 이어서 풀 수 있습니다.',
+          '현재 답과 풀이 시간을 저장한 뒤 이동해요. 나중에 이어서 풀 수 있어요.',
         continue: '계속 풀기',
         saveAndLeave: '저장하고 이동'
       },
@@ -687,45 +685,45 @@ export const koResources = {
         status: {
           reconciled: '최신 저장 기록을 불러왔어요. 답을 확인해 주세요.',
           remoteDeferred:
-            '다른 탭의 저장을 감지했습니다. 현재 저장과 최신 서버 기록을 확인하고 있습니다.',
-          conflictPending: '최신 서버 기록을 확인하고 있습니다.',
-          dirty: '변경 내용을 이 탭에 임시 보관했습니다.',
-          saving: '변경 내용을 서버에 저장하고 있습니다.',
-          savedAt: '서버에 저장했습니다. 마지막 저장 {{time}}',
-          saved: '답안을 서버에 저장했습니다.',
+            '다른 탭의 저장을 감지했어요. 현재 저장과 최신 서버 기록을 확인하고 있어요.',
+          conflictPending: '최신 서버 기록을 확인하고 있어요.',
+          dirty: '변경 내용을 이 탭에 임시 보관했어요.',
+          saving: '변경 내용을 서버에 저장하고 있어요.',
+          savedAt: '서버에 저장했어요. 마지막 저장 {{time}}',
+          saved: '답안을 서버에 저장했어요.',
           offline:
-            '오프라인입니다. 변경 내용은 이 기기에만 임시 보관되며 연결 후 다시 저장합니다.',
-          conflict: '최신 서버 기록을 확인하고 있습니다.',
+            '오프라인이에요. 변경 내용은 이 기기에만 임시 보관되며 연결 후 다시 저장해요.',
+          conflict: '최신 서버 기록을 확인하고 있어요.',
           error:
-            '저장하지 못했습니다. 선택한 답은 유지되며 다시 시도할 수 있습니다.',
-          synced: '서버에 저장한 답안과 일치합니다.'
+            '저장하지 못했어요. 선택한 답은 유지되며 다시 시도할 수 있어요.',
+          synced: '서버에 저장한 답안과 일치해요.'
         },
         conflictCheckPending:
-          '최신 서버 작업본을 확인하는 동안 답안 저장과 제출을 잠시 멈춥니다.',
+          '최신 서버 작업본을 확인하는 동안 답안 저장과 제출을 잠시 멈춰요.',
         retry: '작업본 저장 다시 시도',
         notices: {
-          saveBeforeLeaveFailed: '작업본을 저장하지 못해 현재 화면에 머뭅니다.',
+          saveBeforeLeaveFailed: '작업본을 저장하지 못해 현재 화면에 머물러요.',
           conflictRefreshComplete:
-            '최신 서버 작업본을 확인했습니다. 내용을 확인한 뒤 다시 제출해 주세요.',
-          sessionRefreshFailed: '최신 세션 상태를 확인하지 못했습니다.',
+            '최신 서버 작업본을 확인했어요. 내용을 확인한 뒤 다시 제출해 주세요.',
+          sessionRefreshFailed: '최신 세션 상태를 확인하지 못했어요.',
           submissionPreparationFailed:
-            '서버 작업본을 저장하지 못해 제출하지 않았습니다.',
+            '서버 작업본을 저장하지 못해 제출하지 않았어요.',
           retrySaveFailed:
-            '작업본을 다시 저장하지 못했습니다. 연결을 확인한 뒤 다시 시도해 주세요.'
+            '작업본을 다시 저장하지 못했어요. 연결을 확인한 뒤 다시 시도해 주세요.'
         }
       },
       supply: {
         canonicalPartial:
-          '요청한 {{requested}}문제 중 {{mode}} 모드로 출제 가능한 {{actual}}문제만 제공합니다. 다른 모드로 대체하지 않았습니다.',
+          '요청한 {{requested}}문제 중 {{mode}} 모드로 출제 가능한 {{actual}}문제만 제공해요. 다른 모드로 대체하지 않았어요.',
         legacyFallback:
-          '레거시 세션에서 선택한 모드의 문제가 부족해 랜덤 문제를 함께 제공합니다.',
-        canonicalNoFallback: '서버 권위 세션은 다른 모드로 대체하지 않습니다.'
+          '레거시 세션에서 선택한 모드의 문제가 부족해 랜덤 문제를 함께 제공해요.',
+        canonicalNoFallback: '서버 권위 세션은 다른 모드로 대체하지 않아요.'
       },
       keyboardHelp: '풀이 도움말',
       guide: {
         title: '풀이 안내',
         beforeSubmit: '답은 제출 전까지 바꿀 수 있어요.',
-        afterSubmit: '정답과 해설은 제출 후 확인합니다.'
+        afterSubmit: '정답과 해설은 제출 후 확인해요.'
       },
       progressLabel: '답변 완료 {{percent}}%',
       question: {
@@ -733,23 +731,22 @@ export const koResources = {
         numberLabel: '{{ordinal}}번 문제.',
         answerLegend: '정답 보기',
         keyboardHint:
-          '숫자 1–4로 답을 선택하고, ← → 키로 문제를 이동하며, 마지막 문제에서 Ctrl+⏎ 또는 ⌘+⏎로 제출 확인을 열 수 있습니다.'
+          '숫자 1–4로 답을 선택하고, ← → 키로 문제를 이동하며, 마지막 문제에서 Ctrl+⏎ 또는 ⌘+⏎로 제출 확인을 열 수 있어요.'
       },
       bookmark: {
         add: '책갈피',
         remove: '책갈피 해제',
         addLabel: '{{ordinal}}번 문제 책갈피 추가',
         removeLabel: '{{ordinal}}번 문제 책갈피 해제',
-        legacyReadOnly: '이전 계약 세션에서는 책갈피를 변경할 수 없습니다.',
+        legacyReadOnly: '이전 계약 세션에서는 책갈피를 변경할 수 없어요.',
         removed: '책갈피에서 뺐어요.',
-        removeRollback: '책갈피 해제를 완료하지 못해 복원했습니다.',
+        removeRollback: '책갈피 해제를 완료하지 못해 복원했어요.',
         saved: '책갈피에 저장했어요.',
-        saveRollback: '책갈피를 저장하지 못해 이전 상태로 복원했습니다.',
-        offlineQueued:
-          '오프라인입니다. 연결되면 책갈피 변경을 다시 시도합니다.',
+        saveRollback: '책갈피를 저장하지 못해 이전 상태로 복원했어요.',
+        offlineQueued: '오프라인이에요. 연결되면 책갈피 변경을 다시 시도해요.',
         statusLoadOffline:
-          '오프라인이라 책갈피 상태를 확인할 수 없습니다. 연결되면 자동으로 다시 확인합니다.',
-        statusLoadFailed: '책갈피 상태를 확인하지 못했습니다.',
+          '오프라인이라 책갈피 상태를 확인할 수 없어요. 연결되면 자동으로 다시 확인해요.',
+        statusLoadFailed: '책갈피 상태를 확인하지 못했어요.',
         retryStatus: '다시 확인'
       },
       navigation: {
@@ -761,48 +758,48 @@ export const koResources = {
         jumpQuestionUnanswered: '{{ordinal}}번 문제, 미응답'
       },
       submit: {
-        title: '답안을 제출하시겠습니까?',
+        title: '답안을 제출할까요?',
         frozenDescription:
-          '이전에 전송한 답안을 그대로 다시 제출합니다. 결과를 확인할 때까지 답안은 변경할 수 없습니다.',
+          '이전에 전송한 답안을 그대로 다시 제출해요. 결과를 확인할 때까지 답안은 변경할 수 없어요.',
         unansweredDescription:
-          '아직 답하지 않은 문제가 {{unanswered}}개 있습니다. 미응답은 오답으로 처리됩니다.',
+          '아직 답하지 않은 문제가 {{unanswered}}개 있어요. 미응답은 오답으로 처리돼요.',
         completeDescription:
-          '모든 문제에 답했습니다. 제출 후에는 답을 수정할 수 없습니다.',
+          '모든 문제에 답했어요. 제출 후에는 답을 수정할 수 없어요.',
         continue: '계속 풀기',
         confirm: '제출하고 결과 보기',
         frozenFailure:
-          '결과를 확인하지 못했습니다. 네트워크 상태를 확인한 뒤 동일 답안으로 다시 시도해 주세요.',
+          '결과를 확인하지 못했어요. 네트워크 상태를 확인한 뒤 동일 답안으로 다시 시도해 주세요.',
         requestFailure:
-          '제출 요청이 처리되지 않았습니다. 입력과 세션 상태를 확인한 뒤 다시 시도해 주세요.',
+          '제출 요청이 처리되지 않았어요. 입력과 세션 상태를 확인한 뒤 다시 시도해 주세요.',
         connectivity: {
           offline:
-            '오프라인 상태입니다. 연결이 복구되면 동일 답안으로 다시 시도해 주세요.',
+            '오프라인 상태예요. 연결이 복구되면 동일 답안으로 다시 시도해 주세요.',
           restored:
-            '네트워크 연결이 복구되었습니다. 동일 답안으로 다시 시도할 수 있습니다.'
+            '네트워크 연결이 복구되었어요. 동일 답안으로 다시 시도할 수 있어요.'
         }
       },
       conflict: {
-        title: '다른 기기의 작업과 충돌했습니다',
+        title: '다른 기기의 작업과 충돌했어요',
         description:
-          '{{conflicts}}개 항목의 변경이 서로 다릅니다. 자동으로 덮어쓰지 않고 선택한 기록을 기준으로 이어갑니다.',
+          '{{conflicts}}개 항목의 변경이 서로 달라요. 자동으로 덮어쓰지 않고 선택한 기록을 기준으로 이어가요.',
         useServer: '서버 기록 사용',
         keepLocal: '내 변경 유지',
         detail:
-          '서버에 저장된 답안을 선택하면 이 탭의 충돌하는 변경은 버립니다. 내 변경을 선택하면 최신 답안에 다시 저장합니다.'
+          '서버에 저장된 답안을 선택하면 이 탭의 충돌하는 변경은 버려요. 내 변경을 선택하면 최신 답안에 다시 저장해요.'
       }
     }
   },
   result: {
     retired: {
-      title: '이전 학습 결과가 종료되었습니다',
+      title: '이전 학습 결과가 종료되었어요',
       description:
-        '이전 학습 결과는 더 이상 확인할 수 없습니다. 새 학습을 시작해 주세요.'
+        '이전 학습 결과는 더 이상 확인할 수 없어요. 새 학습을 시작해 주세요.'
     },
     navigation: {
       label: '해설 문항',
       question: '문제 {{formattedOrdinal}}',
       openBookmarks: '책갈피 보기',
-      emptyTitle: '확인할 문항이 없습니다',
+      emptyTitle: '확인할 문제가 없어요',
       emptyDescription: '학습 설정으로 돌아가 새 문제를 풀어 보세요.'
     },
     name: '학습 결과',
@@ -810,24 +807,24 @@ export const koResources = {
     reviewExplanations: '해설 확인하기',
     outcomes: '정답 {{correct}} · 선택 오답 {{wrong}} · 미응답 {{unanswered}}',
     outcomesNote:
-      '미응답도 채점에서는 오답으로 포함됩니다. 해설을 확인하고 필요할 때 다시 풀어 보세요.',
-    loading: '채점 결과를 불러오고 있습니다…',
+      '미응답도 채점에서는 오답으로 포함돼요. 해설을 확인하고 필요할 때 다시 풀어 보세요.',
+    loading: '채점 결과를 불러오고 있어요…',
     error: {
-      title: '학습 결과를 불러오지 못했습니다',
+      title: '학습 결과를 불러오지 못했어요',
       description: '네트워크 상태를 확인한 뒤 다시 시도해 주세요.',
-      offlineTitle: '오프라인에서 학습 결과를 기다리고 있습니다',
+      offlineTitle: '오프라인에서 학습 결과를 기다리고 있어요',
       offlineDescription:
-        '연결되면 학습 결과와 세션 상태를 자동으로 다시 확인합니다.',
+        '연결되면 학습 결과와 세션 상태를 자동으로 다시 확인해요.',
       cachedOffline:
-        '오프라인이라 마지막으로 확인한 학습 결과를 표시합니다. 연결될 때까지 결과 기반 동작은 잠깁니다.',
+        '오프라인이라 마지막으로 확인한 학습 결과를 표시해요. 연결될 때까지 결과 기반 동작은 잠겨요.',
       staleDescription:
-        '최신 결과로 갱신하지 못해 마지막으로 확인한 결과를 표시합니다. 다시 확인할 때까지 결과 기반 동작은 잠깁니다.'
+        '최신 결과로 갱신하지 못해 마지막으로 확인한 결과를 표시해요. 다시 확인할 때까지 결과 기반 동작은 잠겨요.'
     },
     notFound: {
-      title: '학습 결과를 찾을 수 없습니다',
-      description: '아직 제출하지 않은 세션이거나 만료된 학습 기록입니다.',
+      title: '학습 결과를 찾을 수 없어요',
+      description: '아직 제출하지 않은 세션이거나 만료된 학습 기록이에요.',
       retrySourceDescription:
-        '재출제할 원본 결과가 없거나 현재 계정에서 접근할 수 없습니다.'
+        '재출제할 원본 결과가 없거나 현재 계정에서 접근할 수 없어요.'
     },
     newPractice: '새 문제 풀기',
     description: '정답과 해설을 확인하고 틀린 문제를 다음 복습으로 연결하세요.',
@@ -847,8 +844,7 @@ export const koResources = {
     status: {
       guest:
         '로그인하면 오답이 오답노트에 저장돼요. 지금 결과는 이어지지 않아요.',
-      savedWrongCount:
-        '틀린 {{formattedCount}}문제가 오답노트에 반영되었습니다.'
+      savedWrongCount: '틀린 {{formattedCount}}문제가 오답노트에 반영되었어요.'
     },
     actions: {
       retryIncorrect: '오답만 다시 풀기',
@@ -859,21 +855,21 @@ export const koResources = {
       checking: '결과 확인 중…',
       waitingConnection: '연결 대기 중…',
       creating: '재출제 중…',
-      noEligibleTitle: '현재 다시 풀 수 있는 오답이 없습니다',
+      noEligibleTitle: '현재 다시 풀 수 있는 오답이 없어요',
       noEligibleDescription:
-        '문제가 보관 처리됐거나 재출제 가능한 고정 버전이 남아 있지 않습니다.',
+        '문제가 보관 처리됐거나 재출제 가능한 고정 버전이 남아 있지 않아요.',
       unsupported:
-        '이 결과 형식에서는 오답 재출제를 지원하지 않습니다. 새 문제 풀기로 학습을 이어가 주세요.',
-      allCorrectTitle: '다시 풀 오답이 없습니다',
+        '이 결과 형식에서는 오답 재출제를 지원하지 않아요. 새 문제 풀기로 학습을 이어가 주세요.',
+      allCorrectTitle: '다시 풀 오답이 없어요',
       allCorrectDescription:
-        '모든 문제를 맞혔습니다. 새 문제로 학습을 이어가세요.',
-      offline: '오프라인입니다. 연결되면 같은 재출제 키로 요청을 이어갑니다.',
-      errorTitle: '오답 재출제 세션을 만들지 못했습니다.',
+        '모든 문제를 맞혔어요. 새 문제로 학습을 이어가세요.',
+      offline: '오프라인이에요. 연결되면 같은 재출제 키로 요청을 이어가요.',
+      errorTitle: '오답 재출제 세션을 만들지 못했어요.',
       errorDescription:
         '네트워크 상태를 확인한 뒤 같은 버튼으로 다시 시도해 주세요.',
       priorEnded:
-        '이전에 만든 오답 재출제 세션이 종료됐습니다. 다시 누르면 새 세션을 만듭니다.',
-      sourceRefreshing: '원본 학습 결과의 현재 상태를 다시 확인하고 있습니다.'
+        '이전에 만든 오답 재출제 세션이 종료됐어요. 다시 누르면 새 세션을 만들어요.',
+      sourceRefreshing: '원본 학습 결과의 현재 상태를 다시 확인하고 있어요.'
     },
     items: {
       title: '문제별 결과',
@@ -887,59 +883,59 @@ export const koResources = {
       explanation: '해설'
     },
     bookmark: {
-      offline: '오프라인입니다. 연결되면 책갈피 변경을 다시 시도합니다.',
+      offline: '오프라인이에요. 연결되면 책갈피 변경을 다시 시도해요.',
       loadOffline:
-        '오프라인이라 책갈피 상태를 확인할 수 없습니다. 연결되면 자동으로 다시 확인합니다.',
-      loadError: '책갈피 상태를 확인하지 못했습니다.',
+        '오프라인이라 책갈피 상태를 확인할 수 없어요. 연결되면 자동으로 다시 확인해요.',
+      loadError: '책갈피 상태를 확인하지 못했어요.',
       retry: '다시 확인',
       add: '책갈피',
       addLabel: '{{formattedOrdinal}}번 문제 책갈피 추가',
       remove: '책갈피 해제',
       removeLabel: '{{formattedOrdinal}}번 문제 책갈피 해제',
-      unavailable: '이 결과에서는 책갈피를 변경할 수 없습니다.',
+      unavailable: '이 결과에서는 책갈피를 변경할 수 없어요.',
       removed: '책갈피에서 뺐어요.',
-      removeFailed: '책갈피 해제를 완료하지 못해 복원했습니다.',
+      removeFailed: '책갈피 해제를 완료하지 못해 복원했어요.',
       saved: '책갈피에 저장했어요.',
-      saveFailed: '책갈피를 저장하지 못해 이전 상태로 복원했습니다.'
+      saveFailed: '책갈피를 저장하지 못해 이전 상태로 복원했어요.'
     },
     blocker: {
-      title: '오답 재출제 요청을 처리하고 있습니다',
+      title: '오답 재출제 요청을 처리하고 있어요',
       description:
-        '요청 결과를 확인한 뒤 새 학습 세션으로 자동 이동합니다. 잠시 현재 화면에 머물러 주세요.',
+        '요청 결과를 확인한 뒤 새 학습 세션으로 자동 이동해요. 잠시 현재 화면에 머물러 주세요.',
       stay: '현재 화면에 머물기'
     }
   },
   dashboard: {
     name: '학습 대시보드',
-    loading: '학습 대시보드를 불러오고 있습니다…',
+    loading: '학습 대시보드를 불러오고 있어요…',
     offline: {
-      title: '오프라인에서 대시보드를 기다리고 있습니다',
+      title: '오프라인에서 대시보드를 기다리고 있어요',
       description:
-        '연결되면 누적 통계와 최근 인사이트를 자동으로 다시 불러옵니다.'
+        '연결되면 누적 통계와 최근 인사이트를 자동으로 다시 불러와요.'
     },
     eyebrow: 'DASHBOARD',
     title: '학습 흐름을 확인하세요',
-    greeting: '{{name}}님의 목표 급수는 {{level}}입니다.',
+    greeting: '{{name}}님의 목표 급수: {{level}}',
     learnerFallback: '학습자',
     targetUnset: '미설정',
     basisNote:
       '누적 수치는 전체 기간 기준이며, 최근 7일 날짜는 UTC 기준입니다.',
     startToday: '오늘 학습 시작',
     summary: {
-      loading: '누적 학습 통계를 불러오고 있습니다…',
-      offlineTitle: '오프라인에서 누적 통계를 기다리고 있습니다',
-      offlineDescription: '연결되면 누적 학습 통계를 자동으로 다시 확인합니다.',
+      loading: '누적 학습 통계를 불러오고 있어요…',
+      offlineTitle: '오프라인에서 누적 통계를 기다리고 있어요',
+      offlineDescription: '연결되면 누적 학습 통계를 자동으로 다시 확인해요.',
       staleTitle: '최신 누적 통계로 갱신하지 못했습니다',
-      staleDescription: '현재 화면에는 마지막으로 확인한 결과를 유지합니다.',
+      staleDescription: '현재 화면에는 마지막으로 확인한 결과를 유지해요.',
       cachedOffline:
-        '오프라인이라 마지막으로 확인한 누적 통계를 표시합니다. 연결되면 자동으로 다시 확인합니다.',
+        '오프라인이라 마지막으로 확인한 누적 통계를 표시해요. 연결되면 자동으로 다시 확인해요.',
       retry: '누적 통계 다시 시도',
-      errorTitle: '누적 대시보드를 불러오지 못했습니다',
+      errorTitle: '누적 대시보드를 불러오지 못했어요',
       errorDescription:
-        '최근 90일 인사이트는 별도로 확인할 수 있습니다. 누적 통계만 다시 요청해 주세요.',
-      emptyTitle: '아직 학습 기록이 없습니다',
+        '최근 90일 인사이트는 별도로 확인할 수 있어요. 누적 통계만 다시 요청해 주세요.',
+      emptyTitle: '아직 학습 기록이 없어요',
       emptyDescription:
-        '첫 문제를 풀면 정답률, 약한 과목, 최근 7일 학습량이 이곳에 표시됩니다.',
+        '첫 문제를 풀면 정답률, 약한 과목, 최근 7일 학습량이 이곳에 표시돼요.',
       emptyAction: '첫 학습 시작하기',
       totalAnswered: '전체 풀이',
       correctRate: '전체 정답률',
@@ -965,23 +961,23 @@ export const koResources = {
       noRepeatedWrong: '반복해서 틀린 문제가 없습니다.'
     },
     insights: {
-      loading: '최근 90일 인사이트를 불러오고 있습니다…',
-      offlineTitle: '오프라인에서 최근 인사이트를 기다리고 있습니다',
+      loading: '최근 90일 인사이트를 불러오고 있어요…',
+      offlineTitle: '오프라인에서 최근 인사이트를 기다리고 있어요',
       offlineDescription:
-        '연결되면 최근 90일 학습 인사이트를 자동으로 다시 확인합니다.',
-      errorTitle: '학습 인사이트를 불러오지 못했습니다',
+        '연결되면 최근 90일 학습 인사이트를 자동으로 다시 확인해요.',
+      errorTitle: '학습 인사이트를 불러오지 못했어요',
       errorDescription:
-        '기존 누적 통계는 그대로 확인할 수 있습니다. 최근 90일 분석만 다시 요청해 주세요.',
+        '기존 누적 통계는 그대로 확인할 수 있어요. 최근 90일 분석만 다시 요청해 주세요.',
       retry: '최근 인사이트 다시 시도',
       eyebrow: 'LAST 90 DAYS',
       title: '약점과 다음 학습 추천',
       window:
         '{{formattedDays}}일 기록 · 최소 {{formattedAttempts}}회 표본 · {{observedAt}} 기준',
       ruleBased: '규칙 기반 추천',
-      staleTitle: '최신 인사이트로 갱신하지 못했습니다',
-      staleDescription: '현재 화면에는 마지막으로 확인한 결과를 유지합니다.',
+      staleTitle: '최신 인사이트로 갱신하지 못했어요',
+      staleDescription: '현재 화면에는 마지막으로 확인한 결과를 유지해요.',
       cachedOffline:
-        '오프라인이라 마지막으로 확인한 추천을 표시합니다. 연결될 때까지 추천 실행은 잠깁니다.',
+        '오프라인이라 마지막으로 확인한 추천을 표시해요. 연결될 때까지 추천 실행은 잠겨요.',
       recentAttempts: '최근 풀이',
       recentAccuracy: '최근 정답률',
       averageTime: '평균 풀이 시간',
@@ -989,8 +985,8 @@ export const koResources = {
       repeatedWrong: '반복 오답',
       questionUnit: '문제',
       byLevel: '급수별 정답률',
-      chartDescription: '막대와 같은 수치를 아래 표에서도 확인할 수 있습니다.',
-      chartLoading: '급수별 정답률 차트를 불러오는 중입니다…',
+      chartDescription: '막대와 같은 수치를 아래 표에서도 확인할 수 있어요.',
+      chartLoading: '급수별 정답률 차트를 불러오는 중이에요…',
       levelTableLabel: '최근 90일 급수별 정답률 상세 표',
       levelTableTitle: '급수별 상세 수치',
       subjectTableLabel: '최근 90일 과목별 정답률 상세 표',
@@ -1003,17 +999,17 @@ export const koResources = {
       tag: '태그',
       tagTableLabel: '최근 90일 태그별 정답률 상세 표',
       tagTableTitle: '태그별 통계',
-      noTags: '관측된 태그가 없습니다.',
+      noTags: '관측된 태그가 없어요.',
       tagTruncated:
-        '태그 전체 {{formattedTotal}}개 중 최대 {{formattedLimit}}개를 표시합니다.',
-      emptyTitle: '최근 90일 학습 기록이 없습니다',
+        '태그 전체 {{formattedTotal}}개 중 최대 {{formattedLimit}}개를 표시해요.',
+      emptyTitle: '최근 90일 학습 기록이 없어요',
       emptyDescription:
-        '문제를 풀면 급수·과목·유형·태그별 정확도와 평균 풀이 시간이 표시됩니다. 표본이 없는 값은 0%가 아니라 ‘표본 없음’으로 구분합니다.',
+        '문제를 풀면 급수·과목·유형·태그별 정확도와 평균 풀이 시간이 표시돼요. 표본이 없는 값은 0%가 아니라 ‘표본 없음’으로 구분해요.',
       weaknesses: '분석된 약점',
       count: '{{formattedCount}}개',
-      noWeaknessTitle: '분석 기준을 충족한 약점이 없습니다',
+      noWeaknessTitle: '분석 기준을 충족한 약점이 없어요',
       noWeaknessDescription:
-        '같은 분류에서 최소 {{formattedAttempts}}회 표본이 쌓이고 오답이 있어야 약점으로 표시합니다.',
+        '같은 분류에서 최소 {{formattedAttempts}}회 표본이 쌓이고 오답이 있어야 약점으로 표시해요.',
       recommendations: '다음 학습 추천',
       actionLoading: '추천 학습 준비 중…',
       actionAriaLabel: '{{action}}: {{summary}}',
@@ -1045,71 +1041,71 @@ export const koResources = {
           DUE_REVIEW: {
             title: '오늘 복습부터 시작하세요',
             reason:
-              '{{level}} {{subject}} 복습 예정 문제가 {{formattedCount}}개 있습니다. 가장 이른 예정 시각은 {{date}}입니다.'
+              '{{level}} {{subject}} 복습 예정 문제가 {{formattedCount}}개 있어요. 가장 이른 예정 시각: {{date}}'
           },
           REPEATED_WRONG: {
             title: '반복해서 틀린 문제를 다시 확인하세요',
             reasonPrefix: '“',
             reasonSuffix:
-              '” 문제를 {{formattedCount}}회 틀렸습니다. 마지막 오답은 {{date}}입니다.'
+              '” 문제를 {{formattedCount}}회 틀렸어요. 마지막 오답: {{date}}'
           },
           RECENT_LOW_ACCURACY_TYPE: {
             title: '최근 정확도가 낮은 유형을 연습하세요',
             reason:
-              '{{level}} {{subject}}의 {{questionType}} 유형에서 {{attempted}}회 중 {{incorrect}}회 틀렸습니다. 정답률은 {{accuracy}}입니다.'
+              '{{level}} {{subject}}의 {{questionType}} 유형에서 {{attempted}}회 중 {{incorrect}}회 틀렸어요(정답률 {{accuracy}}).'
           },
           STALE_WEAK_SUBJECT: {
             title: '오래 쉬었던 약한 과목을 다시 잡아보세요',
             reason:
-              '{{level}} {{subject}}의 마지막 약점 근거가 {{days}}일 전입니다. {{attempted}}회 중 {{incorrect}}회 틀렸습니다.'
+              '{{level}} {{subject}}의 마지막 약점 근거가 {{days}}일 전이에요. {{attempted}}회 중 {{incorrect}}회 틀렸어요.'
           },
           TARGET_LEVEL_PRACTICE: {
-            title: '목표 급수의 다음 문제를 풀어보세요',
+            title: '목표 급수의 다음 문제를 풀어 보세요',
             reason:
-              '{{level}} {{subject}} 문제 {{catalogCount}}개 중 {{nonRecentCount}}개가 최근 3개 세션 밖에 있어 우선 연습할 수 있습니다.'
+              '{{level}} {{subject}} 문제 {{catalogCount}}개 중 {{nonRecentCount}}개가 최근 3개 세션 밖에 있어 우선 연습할 수 있어요.'
           },
           PRACTICE_SETUP_TARGET: {
             title: '목표 급수를 먼저 설정해 주세요',
             reason:
-              '목표 급수가 정해지면 현재 공개된 문제 안에서 다음 연습을 추천합니다.'
+              '목표 급수가 정해지면 현재 공개된 문제 안에서 다음 연습을 추천해요.'
           },
           PRACTICE_SETUP_CATALOG: {
             title: '연습 조건을 다시 선택해 주세요',
             reason:
-              '현재 목표 급수에 공개된 문제가 없어 다른 급수나 과목을 선택해야 합니다.'
+              '현재 목표 급수에 공개된 문제가 없어 다른 급수나 과목을 선택해야 해요.'
           }
         },
         personalization: {
           NO_PERSONALIZED_EVIDENCE:
-            '개인화 근거가 아직 충분하지 않아 목표 급수의 일반 연습을 함께 추천합니다.',
-          TARGET_LEVEL_NOT_SET: '목표 급수가 없어 연습 조건 설정을 안내합니다.',
+            '개인화 근거가 아직 충분하지 않아 목표 급수의 일반 연습을 함께 추천해요.',
+          TARGET_LEVEL_NOT_SET: '목표 급수가 없어 연습 조건 설정을 안내해요.',
           NO_TARGET_CATALOG:
-            '현재 목표 급수에 공개된 문제가 없어 연습 조건 설정을 안내합니다.'
+            '현재 목표 급수에 공개된 문제가 없어 연습 조건 설정을 안내해요.'
         }
       },
       actionNotice: {
         sessionExhausted:
-          '추천 시점 이후 출제 가능한 문제가 없어 이 학습을 시작하지 못했습니다. 요청한 모드는 다른 모드로 바꾸지 않았으며 최신 추천을 확인하는 중입니다.',
+          '추천 시점 이후 출제 가능한 문제가 없어 이 학습을 시작하지 못했어요. 요청한 모드는 다른 모드로 바꾸지 않았으며 최신 추천을 확인하는 중이에요.',
         sessionRefreshed:
-          '요청한 모드는 다른 모드로 바꾸지 않았으며 최신 추천을 새로 확인했습니다.',
+          '요청한 모드는 다른 모드로 바꾸지 않았으며 최신 추천을 새로 확인했어요.',
         sessionRefreshFailed:
-          '요청한 모드는 다른 모드로 바꾸지 않았습니다. 최신 추천을 불러오지 못해 이 추천은 잠시 비활성화했습니다. 최근 인사이트를 다시 시도해 주세요.',
+          '요청한 모드는 다른 모드로 바꾸지 않았어요. 최신 추천을 불러오지 못해 이 추천은 잠시 비활성화했어요. 최근 인사이트를 다시 시도해 주세요.',
         sessionFailed:
-          '추천 학습을 시작하지 못했습니다. 다른 모드로 자동 변경하지 않았습니다. 같은 추천을 다시 시도해 주세요.',
+          '추천 학습을 시작하지 못했어요. 다른 모드로 자동 변경하지 않았어요. 같은 추천을 다시 시도해 주세요.',
         targetedEnded:
-          '이전에 만든 단일 복습 세션이 이미 종료됐습니다. 다른 학습으로 바꾸지 않고 최신 추천을 확인하는 중입니다.',
+          '이전에 만든 단일 복습 세션이 이미 종료됐어요. 다른 학습으로 바꾸지 않고 최신 추천을 확인하는 중이에요.',
         targetedEndedRefreshed:
-          '종료된 단일 복습을 다른 학습으로 바꾸지 않고 최신 추천을 새로 확인했습니다.',
+          '종료된 단일 복습을 다른 학습으로 바꾸지 않고 최신 추천을 새로 확인했어요.',
         targetedEndedRefreshFailed:
-          '종료된 단일 복습을 다른 학습으로 바꾸지 않았습니다. 최신 추천을 불러오지 못해 이 추천은 잠시 비활성화했습니다. 최근 인사이트를 다시 시도해 주세요.',
+          '종료된 단일 복습을 다른 학습으로 바꾸지 않았어요. 최신 추천을 불러오지 못해 이 추천은 잠시 비활성화했어요. 최근 인사이트를 다시 시도해 주세요.',
         targetedUnavailable:
-          '추천한 문제가 더 이상 복습 가능하지 않습니다. 다른 학습으로 자동 변경하지 않았으며 최신 추천을 확인하는 중입니다.',
+          '추천한 문제가 더 이상 복습 가능하지 않아요. 다른 학습으로 자동 변경하지 않았으며 최신 추천을 확인하는 중이에요.',
         targetedRefreshed:
-          '다른 학습으로 자동 변경하지 않았으며 최신 추천을 새로 확인했습니다.',
+          '다른 학습으로 자동 변경하지 않았으며 최신 추천을 새로 확인했어요.',
         targetedRefreshFailed:
-          '다른 학습으로 자동 변경하지 않았습니다. 최신 추천을 불러오지 못해 이 추천은 잠시 비활성화했습니다. 최근 인사이트를 다시 시도해 주세요.',
+          '다른 학습으로 자동 변경하지 않았어요. 최신 추천을 불러오지 못해 이 추천은 잠시 비활성화했어요. 최근 인사이트를 다시 시도해 주세요.',
         targetedFailed:
-          '단일 복습을 시작하지 못했습니다. 다른 학습으로 자동 변경하지 않았습니다. 같은 추천을 다시 시도해 주세요.'
+          '단일 복습을 시작하지 못했어요. 다른 학습으로 자동 변경하지 않았어요. 같은 추천을 다시 시도해 주세요.'
       }
     }
   },
@@ -1142,7 +1138,7 @@ export const koResources = {
       back: '복습 목록으로',
       start: '새 학습 시작',
       versionChanged:
-        '이 해설은 마지막으로 틀린 문제 버전입니다. 다시 풀 때는 최신 문항이 나옵니다.',
+        '이 해설은 마지막으로 틀린 문제 버전이에요. 다시 풀 때는 최신 문제가 나와요.',
       guest: {
         result: '이 기기에서 방금 마친 학습 결과'
       },
@@ -1181,7 +1177,7 @@ export const koResources = {
             '연속으로 맞혀 해결한 문제예요. 복습 시점이 되면 다시 나와요.',
           AGAIN: '같은 문제를 다시 틀렸어요. 해설을 읽고 다시 복습해요.'
         },
-        next: '다음 복습은 {{date}}예요.',
+        next: '다음 복습: {{date}}',
         checking: '답은 채점됐어요. 현재 복습 상태를 확인하고 있어요.',
         unknown:
           '답은 채점됐지만 현재 상태와 다음 일정을 확인하지 못했어요. 다시 제출하지 않고 상태만 확인할 수 있어요.',
@@ -1197,7 +1193,7 @@ export const koResources = {
       eyebrow: 'WRONG NOTE',
       title: '전체 오답 기록',
       description:
-        '마지막으로 틀린 문제 버전과 당시 상태를 보존한 historical archive입니다.',
+        '마지막으로 틀린 문제 버전과 그때의 상태를 그대로 보관한 기록이에요.',
       backToCenter: '복습 센터로 돌아가기',
       filters: {
         level: '급수',
@@ -1215,17 +1211,17 @@ export const koResources = {
       },
       states: {
         offline:
-          '오프라인입니다. 연결이 복구되면 현재 URL 조건으로 전체 오답 기록을 자동으로 다시 불러옵니다.',
-        loading: '오답노트를 불러오고 있습니다…',
-        refreshing: '오답노트 페이지를 갱신하고 있습니다…',
-        errorTitle: '오답노트를 불러오지 못했습니다',
+          '오프라인이에요. 연결이 복구되면 현재 URL 조건으로 전체 오답 기록을 자동으로 다시 불러와요.',
+        loading: '오답노트를 불러오고 있어요…',
+        refreshing: '오답노트 페이지를 갱신하고 있어요…',
+        errorTitle: '오답노트를 불러오지 못했어요',
         errorDescription: '잠시 후 다시 시도해 주세요.',
         stale:
-          '전체 오답 기록의 최신 상태를 확인하지 못했습니다. 현재까지 불러온 기록은 유지됩니다.',
+          '전체 오답 기록의 최신 상태를 확인하지 못했어요. 현재까지 불러온 기록은 유지돼요.',
         retryStale: '전체 오답 기록 다시 확인',
-        correctingPage: '유효한 오답노트 페이지로 이동하고 있습니다…',
-        emptyTitle: '아직 조건에 맞는 오답이 없습니다',
-        emptyDescription: '문제를 풀고 틀린 항목은 자동으로 이곳에 저장됩니다.',
+        correctingPage: '유효한 오답노트 페이지로 이동하고 있어요…',
+        emptyTitle: '아직 조건에 맞는 오답이 없어요',
+        emptyDescription: '문제를 풀고 틀린 항목은 자동으로 이곳에 저장돼요.',
         start: '첫 문제 풀기'
       },
       results: {
@@ -1273,29 +1269,28 @@ export const koResources = {
         loading: '복습 세션 준비 중…',
         start: '조건에 맞는 오늘의 복습 시작',
         offline:
-          '오프라인에서는 복습 세션을 만들 수 없습니다. 연결 후 같은 조건으로 다시 시도해 주세요.',
-        noEligible: '현재 조건으로 출제 가능한 복습 문제가 없습니다.',
-        error:
-          '복습 세션을 만들지 못했습니다. 입력과 연결 상태를 확인해 주세요.'
+          '오프라인에서는 복습 세션을 만들 수 없어요. 연결 후 같은 조건으로 다시 시도해 주세요.',
+        noEligible: '현재 조건으로 출제 가능한 복습 문제가 없어요.',
+        error: '복습 세션을 만들지 못했어요. 입력과 연결 상태를 확인해 주세요.'
       },
       states: {
         offline:
-          '오프라인입니다. 연결이 복구되면 현재 URL 조건으로 복습 대기열을 자동으로 다시 불러옵니다.',
-        loading: '복습 대기열을 불러오고 있습니다…',
-        refreshing: '복습 대기열 페이지를 갱신하고 있습니다…',
-        errorTitle: '복습 대기열을 불러오지 못했습니다',
+          '오프라인이에요. 연결이 복구되면 현재 URL 조건으로 복습 대기열을 자동으로 다시 불러와요.',
+        loading: '복습 대기열을 불러오고 있어요…',
+        refreshing: '복습 대기열 페이지를 갱신하고 있어요…',
+        errorTitle: '복습 대기열을 불러오지 못했어요',
         errorDescription: '연결 상태를 확인한 뒤 다시 시도해 주세요.',
         stale:
-          '복습 대기열의 최신 상태를 확인하지 못했습니다. 현재 결과는 유지되며, 최신성을 확인할 때까지 묶음 복습을 시작할 수 없습니다.',
+          '복습 대기열의 최신 상태를 확인하지 못했어요. 현재 결과는 유지되며, 최신성을 확인할 때까지 묶음 복습을 시작할 수 없어요.',
         retryStale: '복습 대기열 다시 확인',
-        correctingPage: '유효한 복습 대기열 페이지로 이동하고 있습니다…'
+        correctingPage: '유효한 복습 대기열 페이지로 이동하고 있어요…'
       },
       results: {
         count: '조건에 맞는 오답 {{formattedCount}}개',
         observedAt: '서버 기준 시각 {{date}}',
         resetFilters: '필터 초기화',
-        dueEmptyTitle: '지금 예정된 복습이 없습니다',
-        filteredEmptyTitle: '조건에 맞는 오답이 없습니다',
+        dueEmptyTitle: '지금 예정된 복습이 없어요',
+        filteredEmptyTitle: '조건에 맞는 오답이 없어요',
         dueEmptyDescription:
           '전체 기록을 돌아보거나 새로운 문제를 풀어 다음 복습을 준비하세요.',
         filteredEmptyDescription:
@@ -1314,14 +1309,14 @@ export const koResources = {
     detail: {
       title: '마지막 오답 문제 상세',
       snapshotNotice:
-        '아래 문제·보기·해설은 마지막으로 틀렸을 때 고정된 문제 버전입니다.',
+        '아래 문제·보기·해설은 마지막으로 틀렸을 때 고정된 문제 버전이에요.',
       previousAnswer: {
         selected: '내 이전 답',
         unanswered: '내 이전 답: 미응답',
         unavailable: '내 이전 답: 기록 확인 불가',
-        loading: '내 이전 답을 확인하고 있습니다…',
-        error: '내 이전 답을 불러오지 못했습니다.',
-        paused: '연결이 복구되면 내 이전 답을 확인합니다.'
+        loading: '내 이전 답을 확인하고 있어요…',
+        error: '내 이전 답을 불러오지 못했어요.',
+        paused: '연결이 복구되면 내 이전 답을 확인해요.'
       },
       correct: '정답',
       explanation: '해설',
@@ -1334,27 +1329,26 @@ export const koResources = {
         nextReview: '다음 복습',
         lastReview: '최근 복습',
         noRecord: '기록 없음',
-        archived: '보관된 문제: 현재 출제 가능한 문제 버전이 없습니다.',
+        archived: '보관된 문제: 현재 출제 가능한 문제 버전이 없어요.',
         available:
-          '현재 출제 가능한 문제 버전으로 단일 복습을 시작할 수 있습니다.'
+          '현재 출제 가능한 문제 버전으로 단일 복습을 시작할 수 있어요.'
       },
       states: {
-        coldOfflineTitle: '오프라인에서는 오답 상세를 불러올 수 없습니다',
+        coldOfflineTitle: '오프라인에서는 오답 상세를 불러올 수 없어요',
         coldOfflineDescription:
-          '연결이 복구되면 이 문제를 자동으로 다시 불러옵니다.',
-        loading: '오답 상세를 불러오고 있습니다…',
-        notFoundTitle: '오답을 찾을 수 없습니다',
-        notFoundDescription:
-          '삭제되었거나 현재 계정에 저장되지 않은 문제입니다.',
-        loadErrorTitle: '오답 상세를 불러오지 못했습니다',
+          '연결이 복구되면 이 문제를 자동으로 다시 불러와요.',
+        loading: '오답 상세를 불러오고 있어요…',
+        notFoundTitle: '오답을 찾을 수 없어요',
+        notFoundDescription: '삭제되었거나 현재 계정에 저장되지 않은 문제예요.',
+        loadErrorTitle: '오답 상세를 불러오지 못했어요',
         loadErrorDescription: '네트워크 상태를 확인한 뒤 다시 시도해 주세요.',
         backHistory: '전체 오답 기록으로 돌아가기',
         backDashboard: '학습 대시보드로 돌아가기',
         backCenter: '복습 센터로 돌아가기',
         cachedOffline:
-          '오프라인입니다. 현재 저장된 상세를 표시하며 연결되면 서버 상태를 다시 확인합니다.',
+          '오프라인이에요. 현재 저장된 상세를 표시하며 연결되면 서버 상태를 다시 확인해요.',
         stale:
-          '상세의 최신 상태를 확인하지 못했습니다. 표시 중인 내용과 작성 중인 메모는 유지됩니다.',
+          '상세의 최신 상태를 확인하지 못했어요. 표시 중인 내용과 작성 중인 메모는 유지돼요.',
         retry: '상세 다시 확인'
       },
       targeted: {
@@ -1363,21 +1357,21 @@ export const koResources = {
         recover: '기존 단일 복습 복구',
         start: '이 문제만 다시 풀기',
         archivedRecovery:
-          '문제는 보관됐지만 이전에 생성된 단일 복습 세션은 같은 요청 키로 복구할 수 있습니다.',
+          '문제는 보관됐지만 이전에 생성된 단일 복습 세션은 같은 요청 키로 복구할 수 있어요.',
         offline:
-          '오프라인입니다. 연결되면 같은 요청 키로 단일 복습 생성을 이어갑니다.',
-        unavailable: '현재 출제 가능한 문제 버전이 없습니다.',
-        error: '단일 복습 세션을 만들지 못했습니다. 다시 시도해 주세요.',
-        archivedOnly: '보관된 문제는 기록과 메모만 확인할 수 있습니다.',
+          '오프라인이에요. 연결되면 같은 요청 키로 단일 복습 생성을 이어가요.',
+        unavailable: '현재 출제 가능한 문제 버전이 없어요.',
+        error: '단일 복습 세션을 만들지 못했어요. 다시 시도해 주세요.',
+        archivedOnly: '보관된 문제는 기록과 메모만 확인할 수 있어요.',
         endedArchived:
-          '이전에 만든 단일 복습 세션이 종료됐습니다. 보관된 문제에서는 새 단일 복습을 시작할 수 없습니다.',
+          '이전에 만든 단일 복습 세션이 종료됐어요. 보관된 문제에서는 새 단일 복습을 시작할 수 없어요.',
         endedAvailable:
-          '이전에 만든 단일 복습 세션이 종료됐습니다. 다시 누르면 새 세션을 만듭니다.'
+          '이전에 만든 단일 복습 세션이 종료됐어요. 다시 누르면 새 세션을 만들어요.'
       },
       timelineSection: {
         title: '복습 타임라인',
         description:
-          '최신 기록부터 표시하며 상태와 횟수 변화는 텍스트로 함께 제공합니다.'
+          '최신 기록부터 표시하며 상태와 횟수 변화는 텍스트로 함께 제공해요.'
       }
     },
     memo: {
@@ -1431,15 +1425,15 @@ export const koResources = {
       },
       loadingOffline:
         '오프라인에서는 복습 기록을 불러올 수 없습니다. 연결되면 자동으로 다시 불러옵니다.',
-      loading: '복습 기록을 불러오고 있습니다…',
-      loadError: '복습 기록을 불러오지 못했습니다.',
+      loading: '복습 기록을 불러오고 있어요…',
+      loadError: '복습 기록을 불러오지 못했어요.',
       stale:
-        '복습 기록의 최신 상태를 확인하지 못했습니다. 현재까지 불러온 기록은 유지됩니다.',
+        '복습 기록의 최신 상태를 확인하지 못했어요. 현재까지 불러온 기록은 유지돼요.',
       retryStale: '복습 기록 다시 확인',
       emptyOffline: '오프라인입니다. 연결되면 복습 기록을 다시 확인합니다.',
-      empty: '아직 복습 이벤트가 없습니다.',
+      empty: '아직 복습 이벤트가 없어요.',
       cachedOffline:
-        '오프라인입니다. 현재 기록을 유지하며 연결되면 중단된 요청을 이어갑니다.',
+        '오프라인이에요. 현재 기록을 유지하며 연결되면 중단된 요청을 이어가요.',
       statusChange: '상태 변화',
       recordStart: '기록 시작',
       wrongCount: '오답 횟수',
@@ -1455,27 +1449,27 @@ export const koResources = {
       waitingConnection: '연결 대기 중…',
       loadingMore: '이전 기록 불러오는 중…',
       loadMore: '이전 기록 더 보기',
-      complete: '첫 오답 기록까지 모두 확인했습니다.'
+      complete: '첫 오답 기록까지 모두 확인했어요.'
     }
   },
   bookmark: {
     name: '책갈피',
-    loading: '책갈피를 불러오고 있습니다…',
+    loading: '책갈피를 불러오고 있어요…',
     error: {
-      title: '책갈피를 불러오지 못했습니다',
+      title: '책갈피를 불러오지 못했어요',
       description: '잠시 후 다시 요청해 주세요.',
-      offlineTitle: '오프라인에서 책갈피를 기다리고 있습니다',
-      offlineDescription: '연결되면 책갈피 목록을 자동으로 다시 불러옵니다.',
+      offlineTitle: '오프라인에서 책갈피를 기다리고 있어요',
+      offlineDescription: '연결되면 책갈피 목록을 자동으로 다시 불러와요.',
       cachedOffline:
-        '오프라인입니다. 현재 목록을 유지하며 연결되면 중단된 요청을 이어갑니다.',
+        '오프라인이에요. 현재 목록을 유지하며 연결되면 중단된 요청을 이어가요.',
       staleDescription:
-        '책갈피의 최신 상태를 확인하지 못했습니다. 현재 목록은 유지됩니다.'
+        '책갈피의 최신 상태를 확인하지 못했어요. 현재 목록은 유지돼요.'
     },
     status: {
-      removing: '책갈피 해제를 처리하고 있습니다…',
-      removed: '책갈피에서 해제했습니다.',
-      restoreFailed: '책갈피 해제를 완료하지 못해 이전 상태로 복원했습니다.',
-      offline: '오프라인입니다. 연결되면 책갈피 변경을 다시 시도합니다.'
+      removing: '책갈피 해제를 처리하고 있어요…',
+      removed: '책갈피에서 해제했어요.',
+      restoreFailed: '책갈피 해제를 완료하지 못해 이전 상태로 복원했어요.',
+      offline: '오프라인이에요. 연결되면 책갈피 변경을 다시 시도해요.'
     },
     eyebrow: 'BOOKMARKS',
     title: '책갈피',
@@ -1486,10 +1480,10 @@ export const koResources = {
     },
     description: '다시 풀고 싶은 문제를 모아뒀어요.',
     empty: {
-      firstTitle: '저장한 문제가 없습니다',
-      pageTitle: '이 페이지가 비었습니다',
+      firstTitle: '저장한 문제가 없어요',
+      pageTitle: '이 페이지가 비었어요',
       firstDescription:
-        '문제풀이 화면에서 책갈피를 누르면 이곳에 모아볼 수 있습니다.',
+        '문제풀이 화면에서 책갈피를 누르면 이곳에 모아 볼 수 있어요.',
       pageDescription: '이전 페이지에서 책갈피를 확인해 주세요.',
       start: '문제 풀러 가기',
       previousPage: '이전 페이지'
@@ -1497,32 +1491,30 @@ export const koResources = {
     practice: {
       title: '다시 풀기',
       description:
-        '같은 급수와 과목의 현재 공개 문제를 저장 순서대로 출제합니다.',
+        '같은 급수와 과목의 현재 공개 문제를 저장 순서대로 출제해요.',
       groupAction: '{{level}} · {{subject}} · 최대 {{formattedCount}}문제 풀기',
-      allArchived:
-        '이 페이지의 책갈피는 모두 보관되어 현재 출제할 수 없습니다.',
-      noneAvailable: '선택한 범위에 현재 출제 가능한 책갈피 문제가 없습니다.',
+      allArchived: '이 페이지의 책갈피는 모두 보관되어 현재 출제할 수 없어요.',
+      noneAvailable: '선택한 범위에 현재 출제 가능한 책갈피 문제가 없어요.',
       refresh: '책갈피 목록 새로고침',
-      offline: '오프라인입니다. 연결되면 BOOKMARK 학습 생성을 다시 시도합니다.',
-      startError:
-        'BOOKMARK 학습을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+      offline: '오프라인이에요. 연결되면 책갈피 학습 만들기를 다시 시도해요.',
+      startError: '책갈피 학습을 시작하지 못했어요. 잠시 후 다시 시도해 주세요.'
     },
     availability: {
       available: '출제 가능',
       archived: '보관된 문제',
-      archivedDescription: '공개가 종료되어 새 학습 세션에는 포함되지 않습니다.'
+      archivedDescription: '공개가 종료되어 새 학습 세션에는 포함되지 않아요.'
     },
     remove: '책갈피 해제',
     removeDialog: {
       title: '책갈피를 해제할까요?',
       description:
-        '이 문제는 책갈피 목록에서 제거됩니다. 문제풀이 화면에서 다시 저장할 수 있습니다.',
+        '이 문제는 책갈피 목록에서 제거돼요. 문제풀이 화면에서 다시 저장할 수 있어요.',
       cancel: '계속 보관',
       confirm: '해제 확인'
     },
     pagination: {
       label: '책갈피 페이지',
-      refreshing: '책갈피 페이지를 갱신하고 있습니다…',
+      refreshing: '책갈피 페이지를 갱신하고 있어요…',
       status: '{{page}} / {{pageCount}} 페이지'
     }
   },
@@ -1564,8 +1556,7 @@ export const koResources = {
       signInMethod: '로그인 방법',
       connected: '연결됨',
       onlyMethod: '유일한 로그인 방법이라 연결을 해제할 수 없어요.',
-      logoutDescription:
-        '이 기기에서 로그아웃합니다. 학습 기록은 그대로 남아요.'
+      logoutDescription: '이 기기에서 로그아웃해요. 학습 기록은 그대로 남아요.'
     },
     danger: {
       title: '회원 탈퇴',
@@ -1588,7 +1579,7 @@ export const koResources = {
     dataGuide: '계정과 데이터 처리 안내',
     data: {
       description:
-        '로그아웃은 앱 세션을 종료하고, 연결 해제는 로그인 방법을 제거하며, 회원 탈퇴는 앱 계정의 삭제 처리를 요청합니다.',
+        '로그아웃은 앱 세션을 종료하고, 연결 해제는 로그인 방법을 제거하며, 회원 탈퇴는 앱 계정의 삭제 처리를 요청해요.',
       privacyLink: '개인정보 처리방침 보기',
       manageLink: '마이페이지에서 계정 관리하기'
     }
@@ -1619,55 +1610,53 @@ export const koResources = {
       cancel: '취소',
       submit: '신고 접수',
       sent: '신고를 보냈어요.',
-      error: '문제 신고를 접수하지 못했습니다.',
-      offline: '오프라인입니다. 작성한 설명은 유지됩니다.',
+      error: '문제 신고를 접수하지 못했어요.',
+      offline: '오프라인이에요. 작성한 설명은 그대로 남아 있어요.',
       appErrorTrigger: '앱 오류 제보',
       errorScreenTrigger: '오류 제보',
       appErrorTitle: '앱 오류 제보',
       appErrorDescription:
-        '어떤 화면에서 무엇을 하다가 문제가 생겼는지 적어 주세요. 제보 내용은 관리자만 확인합니다.',
+        '어떤 화면에서 무엇을 하다가 문제가 생겼는지 적어 주세요. 제보 내용은 관리자만 확인해요.',
       appErrorSent: '오류 제보를 보냈어요.',
-      appErrorError: '앱 오류 제보를 접수하지 못했습니다.'
+      appErrorError: '앱 오류 제보를 접수하지 못했어요.'
     },
-    reportList: koAdminReportListResources,
-    reportDetail: koAdminReportDetailResources,
     userReport: koAdminReportResources
   },
   errors: {
     forbidden: {
-      memberDescription: '현재 계정에 이 화면을 볼 수 있는 권한이 없습니다.',
+      memberDescription: '현재 계정에 이 화면을 볼 수 있는 권한이 없어요.',
       guestDescription: '이 화면을 볼 수 있는 계정으로 로그인해 주세요.',
       accountAction: '계정 확인',
       eyebrow: '403 · 접근 권한 없음',
-      title: '이 페이지를 볼 권한이 없습니다',
+      title: '이 페이지를 볼 권한이 없어요',
       description:
-        '관리자 계정이 필요한 화면입니다. 데모 관리자로 로그인해 주세요.',
+        '관리자 계정이 필요한 화면이에요. 데모 관리자로 로그인해 주세요.',
       action: '로그인 선택으로 이동'
     },
     notFound: {
       eyebrow: '404 · 찾을 수 없음',
-      title: '요청한 페이지가 없습니다',
+      title: '요청한 페이지가 없어요',
       description: '주소를 확인하거나 홈에서 다시 시작해 주세요.'
     },
     route: {
       eyebrow: '페이지 오류',
-      title: '화면을 불러오지 못했습니다',
-      fallback: '예상하지 못한 오류가 발생했습니다.'
+      title: '화면을 불러오지 못했어요',
+      fallback: '예상하지 못한 오류가 발생했어요.'
     },
     authStatus: {
-      title: '로그인 상태를 확인할 수 없습니다',
+      title: '로그인 상태를 확인할 수 없어요',
       description:
-        '서버에서 로그인 상태를 확인하지 못했습니다. 저장된 계정 정보는 권한 판단에 사용하지 않았습니다.',
-      offlineTitle: '오프라인에서 로그인 상태를 확인할 수 없습니다',
+        '서버에서 로그인 상태를 확인하지 못했어요. 저장된 계정 정보는 권한 판단에 사용하지 않았어요.',
+      offlineTitle: '오프라인에서 로그인 상태를 확인할 수 없어요',
       offlineDescription:
-        '연결이 복구되면 로그인 상태를 다시 확인합니다. 저장된 계정 정보는 권한 판단에 사용하지 않았습니다.'
+        '연결이 복구되면 로그인 상태를 다시 확인해요. 저장된 계정 정보는 권한 판단에 사용하지 않았어요.'
     },
     banner: {
-      generic: '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.',
-      network: '네트워크 연결이 원활하지 않습니다. 다시 시도해 주세요.',
-      response: '응답 형식이 올바르지 않습니다. 다시 시도해 주세요.',
+      generic: '요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.',
+      network: '네트워크 연결이 원활하지 않아요. 다시 시도해 주세요.',
+      response: '응답 형식이 올바르지 않아요. 다시 시도해 주세요.',
       validation: '입력 내용을 확인한 뒤 다시 시도해 주세요.',
-      server: '서버 요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+      server: '서버 요청을 처리하지 못했어요. 잠시 후 다시 시도해 주세요.'
     }
   },
   a11y: {

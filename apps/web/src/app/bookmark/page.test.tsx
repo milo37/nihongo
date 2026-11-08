@@ -166,7 +166,7 @@ const renderLastPageDelete = async (
   } else {
     await user.click(confirm)
   }
-  await screen.findByText('이 페이지가 비었습니다')
+  await screen.findByText('이 페이지가 비었어요')
   expect(removalTrigger.isConnected).toBe(false)
 
   return {
@@ -239,11 +239,11 @@ describe('BookmarkPage pagination settlement', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: '오프라인에서 책갈피를 기다리고 있습니다'
+        name: '오프라인에서 책갈피를 기다리고 있어요'
       })
     ).toBeInTheDocument()
     expect(
-      screen.queryByText('책갈피를 불러오고 있습니다…')
+      screen.queryByText('책갈피를 불러오고 있어요…')
     ).not.toBeInTheDocument()
     dispose(fixture.client, fixture.unmount)
   })
@@ -281,7 +281,7 @@ describe('BookmarkPage pagination settlement', () => {
     expect(await screen.findByText('캐시에 남은 책갈피')).toBeVisible()
     expect(
       await screen.findByText(
-        '책갈피의 최신 상태를 확인하지 못했습니다. 현재 목록은 유지됩니다.'
+        '책갈피의 최신 상태를 확인하지 못했어요. 현재 목록은 유지돼요.'
       )
     ).toBeVisible()
     expect(screen.getByRole('button', { name: '다시 시도' })).toBeEnabled()
@@ -312,7 +312,7 @@ describe('BookmarkPage pagination settlement', () => {
     expect(await screen.findByText('1 / 2 페이지')).toBeVisible()
     expect(
       screen.getByText(
-        '오프라인입니다. 현재 목록을 유지하며 연결되면 중단된 요청을 이어갑니다.'
+        '오프라인이에요. 현재 목록을 유지하며 연결되면 중단된 요청을 이어가요.'
       )
     ).toBeVisible()
     expect(screen.getByRole('link', { name: '이전 페이지' })).toHaveAttribute(
@@ -357,7 +357,7 @@ describe('BookmarkPage pagination settlement', () => {
       screen.getByText(items[0]?.question.questionTextPreview ?? '')
     ).toBeVisible()
     expect(
-      screen.getByText('책갈피 페이지를 갱신하고 있습니다…')
+      screen.getByText('책갈피 페이지를 갱신하고 있어요…')
     ).toHaveAttribute('role', 'status')
     expect(
       screen
@@ -374,7 +374,7 @@ describe('BookmarkPage pagination settlement', () => {
     expect(screen.getByRole('link', { current: 'page' })).toHaveFocus()
     expect(next).toHaveAttribute('aria-disabled', 'true')
     expect(
-      screen.queryByText('책갈피 페이지를 갱신하고 있습니다…')
+      screen.queryByText('책갈피 페이지를 갱신하고 있어요…')
     ).not.toBeInTheDocument()
     expect(screen.getByText('2 / 2 페이지')).toBeInTheDocument()
     expect(screen.getByRole('link', { current: 'page' })).toHaveTextContent('2')
@@ -422,7 +422,7 @@ describe('BookmarkPage pagination settlement', () => {
 
     await act(async () => pageTwoGate.resolve())
     const errorHeading = await screen.findByRole('heading', {
-      name: '책갈피를 불러오지 못했습니다'
+      name: '책갈피를 불러오지 못했어요'
     })
     expect(errorHeading).toHaveFocus()
     expect(screen.queryByRole('link', { name: '다음 페이지' })).toBeNull()
@@ -466,7 +466,7 @@ describe('BookmarkPage pagination settlement', () => {
   it('마지막 페이지 delete 실패 중에는 page를 유지하고 rollback 항목을 복원한다', async () => {
     const fixture = await renderLastPageDelete()
     expect(
-      screen.queryByText('책갈피 해제를 처리하고 있습니다…')
+      screen.queryByText('책갈피 해제를 처리하고 있어요…')
     ).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '처리 중…' })).toBeDisabled()
     expect(
@@ -480,7 +480,7 @@ describe('BookmarkPage pagination settlement', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('2 / 2 페이지')).toBeInTheDocument()
     expect(
-      screen.getByText('책갈피 해제를 완료하지 못해 이전 상태로 복원했습니다.')
+      screen.getByText('책갈피 해제를 완료하지 못해 이전 상태로 복원했어요.')
     ).toBeVisible()
     const restoredTrigger = screen.getByRole('button', { name: '책갈피 해제' })
     expect(restoredTrigger).not.toBe(fixture.removalTrigger)
@@ -547,7 +547,7 @@ describe('BookmarkPage pagination settlement', () => {
     ).toBeVisible()
     expect(screen.getByText('2 / 2 페이지')).toBeInTheDocument()
     expect(
-      screen.getByText('책갈피 해제를 완료하지 못해 이전 상태로 복원했습니다.')
+      screen.getByText('책갈피 해제를 완료하지 못해 이전 상태로 복원했어요.')
     ).toBeVisible()
     const restoredTrigger = screen.getByRole('button', { name: '책갈피 해제' })
     expect(restoredTrigger).not.toBe(fixture.removalTrigger)
@@ -650,12 +650,12 @@ it('이용이 제한된 계정이면 BOOKMARK 학습 시작 오류 대신 제한
   await user.click(screen.getByRole('button', { name: /N5.*어휘/ }))
   expect(
     await screen.findByText(
-      '임시로 이용이 제한된 계정입니다. 새 학습과 신고는 제한이 풀린 뒤 이용할 수 있습니다.'
+      '임시로 이용이 제한된 계정이에요. 새 학습과 신고는 제한이 풀린 뒤 이용할 수 있어요.'
     )
   ).toHaveAttribute('role', 'alert')
   expect(
     screen.queryByText(
-      'BOOKMARK 학습을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.'
+      '책갈피 학습을 시작하지 못했어요. 잠시 후 다시 시도해 주세요.'
     )
   ).toBeNull()
   dispose(fixture.client, fixture.unmount)

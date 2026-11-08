@@ -2019,6 +2019,37 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
   border-radius: var(--radius-control);
 }
 
+/* Result buttons (polish §3): under 640px the primary and secondary stack
+   full width with the links below; from 640px one row at text width. */
+.study-result-actions .study-result-buttons {
+  align-items: stretch;
+  gap: 8px;
+}
+
+.study-result-buttons > .ui-button {
+  width: 100%;
+  min-height: 56px;
+}
+
+.study-result-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+@media (min-width: 640px) {
+  .study-result-actions .study-result-buttons {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .study-result-buttons > .ui-button {
+    width: auto;
+  }
+}
+
 .study-result-item {
   content-visibility: visible;
 }
