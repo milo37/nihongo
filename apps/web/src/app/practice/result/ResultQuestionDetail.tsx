@@ -46,15 +46,20 @@ const ResultManageButtons = ({
   return (
     <div className="flex flex-wrap gap-2">
       <Button
+        className="aria-disabled:cursor-wait aria-disabled:opacity-70"
         variant="ghost"
-        disabled={bookmarkDisabled || !item.question.questionVersionId}
+        disabled={!item.question.questionVersionId}
+        // Focus stays here while busy (a toast closed with Esc returns to it).
+        aria-disabled={bookmarkDisabled || undefined}
         aria-label={t(
           isBookmarked ? 'bookmark.removeLabel' : 'bookmark.addLabel',
           { formattedOrdinal }
         )}
         aria-pressed={isBookmarked}
         data-selected={isBookmarked}
-        onClick={onToggleBookmark}
+        onClick={() => {
+          if (!bookmarkDisabled) onToggleBookmark()
+        }}
       >
         <Icon name="bookmark" />
         {isBookmarked ? t('bookmark.remove') : t('bookmark.add')}

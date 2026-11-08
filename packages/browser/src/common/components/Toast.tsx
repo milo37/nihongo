@@ -123,9 +123,10 @@ export const Toast = ({
 
   return (
     // The visible card has no live role; the provider's region announces it.
+    // Top/right borders only: .ui-toast draws the 4px tone strip on the left.
     <article
       className={classNames(
-        'ui-toast pointer-events-auto grid grid-cols-[auto_1fr_auto] items-start gap-3 rounded-[12px] border border-line bg-surface py-3 pl-3.5 pr-1 text-ink shadow-soft',
+        'ui-toast pointer-events-auto grid grid-cols-[auto_1fr_auto] items-start gap-3 rounded-[12px] border-y border-r border-y-line border-r-line bg-surface py-3 pl-3.5 pr-1 text-ink shadow-soft',
         variantClassNames[variant]
       )}
       data-variant={variant}
