@@ -3,6 +3,38 @@ import type { koResources } from './ko'
 
 export const jaAdminResources = {
   name: '管理者',
+  reauth: {
+    action: '本人確認',
+    extend: '延長',
+    remaining: '本人確認・残り{{minutes}}分',
+    remainingShort: '残り{{minutes}}分',
+    scopeAdmin: '管理者の操作は、本人確認から30分間は再確認しません。',
+    expiringSoon: '本人確認はあと{{minutes}}分で切れます。',
+    expired: '本人確認の有効時間が切れました。',
+    blocked:
+      '本人確認の有効時間が切れたため、「{{command}}」は適用していません。',
+    blockedHelp:
+      'Googleでもう一度ログインすると、この画面に戻ります。選択した問題はそのまま残るので、もう一度ボタンを押してください。',
+    blockedHelpInput:
+      'Googleでもう一度ログインすると、この画面に戻ります。入力内容はそのまま残るので、もう一度ボタンを押してください。',
+    blockedHelpImport:
+      'ファイルは安全のため保持できません。戻ったあと、同じファイルを選び直してチェックしてください。',
+    storageFailed:
+      '入力を保存できなかったため、本人確認に移動しませんでした。入力をコピーしておくか、もう一度お試しください。',
+    restored:
+      '移動前の入力を復元しました。内容を確認してから操作してください。',
+    checking: '本人確認の結果を確認しています…',
+    returned:
+      '本人確認が完了しました（30分間有効）。操作は自動実行されないため、もう一度ボタンを押してください。',
+    cancelled: '本人確認をキャンセルしました。操作は適用していません。',
+    failed: '本人確認を完了できませんでした。操作は適用していません。',
+    wrongAccount:
+      '現在ログイン中の管理者と同じGoogleアカウントを選んでください。',
+    invalid: '確認リクエストの期限が切れました。もう一度お試しください。',
+    unknown: '接続の問題で結果を確認できませんでした。',
+    retry: 'もう一度試す',
+    recheck: '再確認'
+  },
   grid: {
     columns: '表示する列',
     pageSize: '1ページの行数',

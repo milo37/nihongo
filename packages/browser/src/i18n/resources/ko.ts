@@ -3,6 +3,7 @@ import { koAdminImportResources } from './ko-admin-import'
 import { koAdminListResources } from './ko-admin-list'
 import { koAdminMembersResources } from './ko-admin-members'
 import { koAdminQuestionListResources } from './ko-admin-question'
+import { koAdminReauthResources } from './ko-admin-reauth'
 import { koAdminReportResources } from './ko-admin-report'
 import { koAdminReportListResources } from './ko-admin-report-list'
 import { koAdminSharedListResources } from './ko-admin-shared-list'
@@ -423,27 +424,25 @@ export const koResources = {
     }
   },
   auth: {
-    adminFresh: {
-      title: '관리자 본인 확인',
-      description:
-        '민감한 작업을 계속하려면 같은 관리자 계정에 연결한 로그인 방법을 선택하세요.',
-      checking: '현재 로그인 상태를 다시 확인하고 있어요.',
-      returned:
-        '로그인 상태를 다시 확인했어요. 원래 작업으로 돌아가 내용을 확인하고 직접 다시 실행해 주세요. 작업 권한은 서버에서 다시 확인합니다.',
-      cancelled:
-        '본인 확인을 취소했어요. 현재 로그인 상태를 확인한 뒤 필요하면 다시 시도해 주세요.',
-      failed:
-        '본인 확인 결과를 확인하지 못했어요. 현재 로그인 상태와 원래 작업을 확인한 뒤 다시 시도해 주세요.',
-      invalid:
-        '본인 확인 요청이 만료되었거나 올바르지 않아요. 필요하면 다시 시작해 주세요.',
-      unknown:
-        '현재 로그인 상태를 확인하지 못했어요. 완료 여부를 확정할 수 없어요. 연결을 확인하고 다시 조회해 주세요.'
+    reauth: {
+      name: '본인 확인',
+      description: 'Google로 다시 로그인해 확인해요.',
+      go: 'Google로 본인 확인',
+      redirecting: 'Google로 이동 중…',
+      returnNote: '확인이 끝나면 이 화면으로 돌아와요.',
+      scopeAccount: '연결 해제와 회원 탈퇴는 할 때마다 본인 확인을 해요.',
+      stepDone: '완료',
+      account: {
+        returned: '본인 확인을 마쳤어요. 마지막 단계를 확인해 주세요.',
+        failed: '본인 확인을 마치지 못했어요. 다시 시도해 주세요.',
+        cancelled: '본인 확인을 취소했어요. 필요하면 다시 시도해 주세요.',
+        wrongAccount: '처음 로그인한 Google 계정으로 다시 시도해 주세요.',
+        invalid: '확인 요청이 만료됐어요. 다시 시도해 주세요.'
+      }
     },
     sso: {
       checkingAccount: '계정 상태를 확인하고 있어요.',
       openAdminWork: '진행 중인 관리자 작업이 있어 지금은 탈퇴할 수 없어요.',
-      cancelledAccount:
-        '본인 확인이나 계정 연결을 취소했어요. 기존 계정은 유지돼요.',
       title: '로그인',
       description: 'Google 계정으로 학습 기록을 이어가세요.',
       guestHint:
@@ -471,7 +470,6 @@ export const koResources = {
         '연결 해제 후에는 연결된 다른 로그인 방법으로 로그인해 주세요. 학습 기록은 유지되며, 회원 탈퇴는 별도입니다.',
       unlinkAction: '연결 해제',
       lastMethodTitle: '마지막 로그인 방법은 해제할 수 없어요.',
-      wrongAccount: '처음 로그인한 계정으로 다시 시도해 주세요.',
       deleteTitle: '회원 탈퇴할까요?',
       processing: '처리하고 있어요.',
       actionFailed: '요청을 완료하지 못했어요. 다시 확인해 주세요.',
@@ -1557,12 +1555,8 @@ export const koResources = {
       action: '회원 탈퇴'
     },
     confirm: {
-      stepVerify: 'Google로 본인 확인',
       stepDelete: '탈퇴 최종 확인',
       stepUnlink: '연결 해제 최종 확인',
-      verifyNote:
-        '보안을 위해 Google로 한 번 더 로그인해야 해요. 확인 후 이 화면으로 돌아와요.',
-      verifyAction: 'Google로 확인하고 계속',
       deleteDescription: {
         scope:
           '탈퇴하면 바로 로그아웃되고, 1시간 안에 학습 기록·오답노트·메모·책갈피·복습 일정과 계정 정보(이름·이메일)가 삭제돼요. 되돌릴 수 없어요.',
@@ -1582,6 +1576,7 @@ export const koResources = {
   },
   admin: {
     name: '관리자',
+    reauth: koAdminReauthResources,
     grid: koAdminListResources,
     adminList: koAdminSharedListResources,
     nav: {

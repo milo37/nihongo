@@ -2,10 +2,12 @@ import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement, RefObject } from 'react'
+import { ACCOUNT_FEEDBACK_KEY } from '@app/account/hooks/useSsoAccountManagement'
 import type { SsoAccountFlow } from '@app/account/hooks/useSsoAccountManagement'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'
 import { Icon } from '@nihongo/browser/common/components/Icon'
+import { ReauthButton } from '@nihongo/browser/app/reauth/ReauthButton'
 
 export const DELETE_PARAGRAPHS = ['scope', 'reports', 'google'] as const
 
@@ -18,11 +20,13 @@ type TwoStepConfirmDialogProps = {
 const StepMarker = ({
   index,
   label,
-  state
+  state,
+  doneLabel
 }: {
   index: number
   label: string
   state: 'done' | 'current'
+  doneLabel: string
 }): ReactElement => (
   <li
     className="flex items-center gap-3"
@@ -39,6 +43,7 @@ const StepMarker = ({
     </span>
     <span className={state === 'done' ? 'text-muted' : 'font-medium'}>
       {label}
+      {state === 'done' ? <span className="sr-only"> {doneLabel}</span> : null}
     </span>
   </li>
 )
@@ -70,7 +75,7 @@ export const TwoStepConfirmDialog = ({
           : authT('sso.deleteTitle')
       }
       preventClose={flow.busy}
-      initialFocusRef={cancel}
+      initialFocusRef={flow.returned ? undefined : cancel}
       returnFocusRef={returnFocusRef}
       fallbackFocusRef={fallbackFocusRef}
       footer={
@@ -94,16 +99,11 @@ export const TwoStepConfirmDialog = ({
               {isUnlink ? authT('sso.unlinkAction') : t('danger.action')}
             </Button>
           ) : (
-            <Button
-              variant="outline"
-              className="border-danger text-danger hover:border-danger-strong"
-              disabled={flow.busy || !flow.canVerify}
-              isLoading={flow.busy}
-              loadingLabel={authT('sso.redirecting', { provider })}
+            <ReauthButton
+              busy={flow.busy}
+              disabled={!flow.canVerify}
               onClick={flow.verify}
-            >
-              {t('confirm.verifyAction')}
-            </Button>
+            />
           )}
         </>
       }
@@ -113,8 +113,9 @@ export const TwoStepConfirmDialog = ({
           <ol className="grid gap-3 text-sm">
             <StepMarker
               index={1}
-              label={t('confirm.stepVerify')}
+              label={authT('reauth.name')}
               state={isConfirm ? 'done' : 'current'}
+              doneLabel={authT('reauth.stepDone')}
             />
             {isConfirm ? (
               <StepMarker
@@ -123,6 +124,7 @@ export const TwoStepConfirmDialog = ({
                   isUnlink ? 'confirm.stepUnlink' : 'confirm.stepDelete'
                 )}
                 state="current"
+                doneLabel={authT('reauth.stepDone')}
               />
             ) : null}
           </ol>
@@ -144,14 +146,27 @@ export const TwoStepConfirmDialog = ({
             {!isConfirm ? (
               <p className="text-xs text-muted">
                 {flow.canVerify
-                  ? t('confirm.verifyNote')
+                  ? authT('reauth.returnNote')
                   : authT('sso.unavailableProvider', { provider })}
               </p>
             ) : null}
+            {!isConfirm ? (
+              <p className="text-xs text-muted">
+                {authT('reauth.scopeAccount')}
+              </p>
+            ) : null}
           </div>
+          {isConfirm && flow.returned ? (
+            <p
+              className="mt-4 text-sm font-medium text-success-strong"
+              role="status"
+            >
+              {authT('reauth.account.returned')}
+            </p>
+          ) : null}
           {flow.feedback ? (
             <p className="mt-4 text-sm" role="alert">
-              {authT('sso.' + flow.feedback)}
+              {authT(ACCOUNT_FEEDBACK_KEY[flow.feedback])}
             </p>
           ) : null}
           {flow.uncertain ? (

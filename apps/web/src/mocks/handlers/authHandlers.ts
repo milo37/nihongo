@@ -10,7 +10,10 @@ import {
 } from '@nihongo/contracts/auth/sso-account-management'
 import { MockSsoAccountError } from '@mocks/repository/ssoAccountRepository'
 import { http, HttpResponse } from 'msw'
-import { adminFreshSsoRequestSchema } from '@nihongo/contracts/auth/admin-fresh-sso'
+import {
+  ADMIN_FRESH_WINDOW_SECONDS,
+  adminFreshSsoRequestSchema
+} from '@nihongo/contracts/auth/admin-fresh-sso'
 import { z } from 'zod'
 import { getCurrentPrincipalResponseSchema } from '@nihongo/contracts/auth/get-current-principal'
 import {
@@ -37,10 +40,20 @@ const fixtureIds: Record<SsoProviderId, string> = {
   google: DEMO_USER_ID
 }
 let pendingProvider: SsoProviderId | null = null
+// MSW has no Google round trip, so a started admin re-verification counts as
+// done at once and opens the same 30 minute window the server would.
+let adminFresh: { userId: string; until: number } | null = null
 export const resetMockSocialSignInForTesting = (): void => {
   pendingProvider = null
+  adminFresh = null
   fixtureIds.apple = DEMO_USER_ID
   fixtureIds.google = DEMO_USER_ID
+}
+export const grantMockAdminFreshForTesting = (
+  userId: string,
+  until: number = Date.now() + ADMIN_FRESH_WINDOW_SECONDS * 1000
+): void => {
+  adminFresh = { userId, until }
 }
 export const setMockSsoAccountForTesting = (
   provider: SsoProviderId,
@@ -70,7 +83,11 @@ const toAuthenticatedUser = (user: User) => ({
         adminSessionExpiresAt: new Date(
           Date.now() + ADMIN_SESSION_MS
         ).toISOString(),
-        adminFreshUntil: null
+        adminFreshUntil:
+          adminFresh?.userId === user.id && adminFresh.until > Date.now()
+            ? new Date(adminFresh.until).toISOString()
+            : null,
+        adminServerTime: new Date().toISOString()
       }
     : {})
 })
@@ -207,6 +224,10 @@ export const authHandlers = [
             'REAUTHENTICATION_FAILED',
             '같은 관리자 계정으로 다시 시도해 주세요.'
           )
+        adminFresh = {
+          userId: actor.id,
+          until: Date.now() + ADMIN_FRESH_WINDOW_SECONDS * 1000
+        }
       } else pendingProvider = input.provider
       const url = new URL(
         input.provider === 'apple'
@@ -267,6 +288,7 @@ export const authHandlers = [
   http.post('*/api/auth/sign-out', () => {
     try {
       pendingProvider = null
+      adminFresh = null
       mockDatabase.logout()
       return HttpResponse.json({ success: true as const })
     } catch (error: unknown) {

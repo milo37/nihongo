@@ -2,7 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useLocation, useNavigate } from 'react-router'
 import type { z } from 'zod'
-import { accountFreshOutcomeSchema } from '@nihongo/contracts/auth/sso-account-management'
+import {
+  accountFreshOutcomeSchema,
+  accountReauthActionSchema
+} from '@nihongo/contracts/auth/sso-account-management'
+import type { AccountReauthAction } from '@nihongo/contracts/auth/sso-account-management'
+import type { SsoProviderId } from '@nihongo/contracts/auth/sign-in-social'
 import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
 import {
   AccountFlowError,
@@ -11,28 +16,37 @@ import {
 import { commitCanonicalAuth } from '@nihongo/browser/app/login/authSession'
 import { accountQueries } from '@app/account/queries/accountQueries'
 import { accountMutations } from '@app/account/queries/accountMutations'
-import {
-  clearPendingAccountIntent,
-  readPendingAccountIntent,
-  savePendingAccountIntent,
-  takePendingAccountIntent
-} from '@app/account/pendingAccountIntent'
-import type { AccountIntent } from '@app/account/pendingAccountIntent'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { isMockApiMode } from '@nihongo/browser/libs/apiMode'
 import { socialAuthNavigation } from '@nihongo/browser/libs/socialAuthNavigation'
 
 type AccountFreshOutcome = z.output<typeof accountFreshOutcomeSchema>
+export type AccountIntent =
+  | { kind: 'delete' }
+  | { kind: 'unlink'; provider: SsoProviderId }
 export type AccountDialog = AccountIntent & { step: 'verify' | 'confirm' }
 export type AccountFeedback =
   | 'actionFailed'
-  | 'cancelledAccount'
-  | 'expired'
   | 'lastMethodTitle'
   | 'openAdminWork'
+  | 'reauthCancelled'
+  | 'reauthFailed'
+  | 'reauthInvalid'
   | 'wrongAccount'
 
+/** The `auth` text key for each account feedback. */
+export const ACCOUNT_FEEDBACK_KEY: Record<AccountFeedback, string> = {
+  actionFailed: 'sso.actionFailed',
+  lastMethodTitle: 'sso.lastMethodTitle',
+  openAdminWork: 'sso.openAdminWork',
+  reauthCancelled: 'reauth.account.cancelled',
+  reauthFailed: 'reauth.account.failed',
+  reauthInvalid: 'reauth.account.invalid',
+  wrongAccount: 'reauth.account.wrongAccount'
+}
+
 export const ACCOUNT_FRESH_PARAM = 'ssoAccountFresh'
+export const ACCOUNT_REAUTH_PARAM = 'reauth'
 
 const readFreshReturn = (search: string): AccountFreshOutcome | null => {
   const values = new URLSearchParams(search).getAll(ACCOUNT_FRESH_PARAM)
@@ -43,18 +57,33 @@ const readFreshReturn = (search: string): AccountFreshOutcome | null => {
     : 'INVALID_CALLBACK'
 }
 
+const toAction = (intent: AccountIntent): AccountReauthAction =>
+  intent.kind === 'delete' ? 'delete' : `unlink:${intent.provider}`
+
+const readReturnIntent = (search: string): AccountIntent | null => {
+  const values = new URLSearchParams(search).getAll(ACCOUNT_REAUTH_PARAM)
+  const parsed = accountReauthActionSchema.safeParse(
+    values.length === 1 ? values[0] : null
+  )
+  if (!parsed.success) return null
+  if (parsed.data === 'delete') return { kind: 'delete' }
+  const [, provider] = parsed.data.split(':') as [string, SsoProviderId]
+  return { kind: 'unlink', provider }
+}
+
 const returnFeedback: Record<
   Exclude<AccountFreshOutcome, 'REAUTHENTICATED'>,
   AccountFeedback
 > = {
-  CANCELLED: 'cancelledAccount',
-  FAILED: 'actionFailed',
-  INVALID_CALLBACK: 'expired'
+  CANCELLED: 'reauthCancelled',
+  FAILED: 'reauthFailed',
+  INVALID_CALLBACK: 'reauthInvalid'
 }
 
-// Runs sign-in method unlink and account deletion as "verify with Google,
-// then confirm". The account SSO return path is limited to /login by the
-// shared contract, so /login forwards the result parameter to /account.
+// Runs sign-in method unlink and account deletion as one dialog: ① verify
+// with Google in the same tab, then ② confirm. Verification returns to
+// /login?reauth=<action> (the account SSO return contract) and /login
+// forwards both parameters here, where the same dialog opens again.
 export const useSsoAccountManagement = () => {
   const { isReady, user } = useAuth()
   const client = useQueryClient()
@@ -66,9 +95,11 @@ export const useSsoAccountManagement = () => {
   const [redirecting, setRedirecting] = useState(false)
   // A verified return reopens its dialog once capabilities have reloaded.
   const [resumeIntent, setResumeIntent] = useState<AccountIntent | null>(null)
+  const [returned, setReturned] = useState(false)
   const navigating = useRef(false)
   const userId = user?.id ?? null
   const incoming = readFreshReturn(location.search)
+  const incomingIntent = readReturnIntent(location.search)
   const capabilities = useQuery({
     ...accountQueries.capabilities(userId ?? ''),
     enabled: isReady && userId !== null
@@ -88,15 +119,17 @@ export const useSsoAccountManagement = () => {
     handledReturnKey !== location.key
   ) {
     setHandledReturnKey(location.key)
-    if (incoming === 'REAUTHENTICATED')
-      setResumeIntent(readPendingAccountIntent(userId))
-    else setFeedback(returnFeedback[incoming])
+    if (incoming === 'REAUTHENTICATED') setResumeIntent(incomingIntent)
+    else {
+      setFeedback(returnFeedback[incoming])
+      if (incomingIntent) setDialog({ ...incomingIntent, step: 'verify' })
+    }
   }
   useEffect(() => {
     if (incoming === null || userId === null) return
-    clearPendingAccountIntent()
     const search = new URLSearchParams(location.search)
     search.delete(ACCOUNT_FRESH_PARAM)
+    search.delete(ACCOUNT_REAUTH_PARAM)
     void navigate(
       { pathname: location.pathname, search: search.toString(), hash: '' },
       { replace: true, state: null }
@@ -105,6 +138,9 @@ export const useSsoAccountManagement = () => {
   }, [client, incoming, location.pathname, location.search, navigate, userId])
   if (resumeIntent && caps && !capabilities.isFetching) {
     setResumeIntent(null)
+    // The server decides: only a verification it recorded opens step ②.
+    setReturned(caps.freshVerified)
+    if (!caps.freshVerified) setFeedback('reauthFailed')
     setDialog({
       ...resumeIntent,
       step: caps.freshVerified ? 'confirm' : 'verify'
@@ -130,6 +166,7 @@ export const useSsoAccountManagement = () => {
       error instanceof AccountFlowError &&
       error.code === 'SSO_FRESH_REQUIRED'
     ) {
+      setReturned(false)
       setDialog((current) => (current ? { ...current, step: 'verify' } : null))
       void client.invalidateQueries({ queryKey: accountQueries.allKey() })
       return
@@ -164,14 +201,17 @@ export const useSsoAccountManagement = () => {
         )
         try {
           await accountMutationRequest(() => completeMockAccountSso(input))
-          setResumeIntent(userId ? takePendingAccountIntent(userId) : null)
-          await client.invalidateQueries({
-            queryKey: accountQueries.allKey()
-          })
         } catch (error: unknown) {
-          clearPendingAccountIntent()
           fail(error instanceof Error ? error : new AccountFlowError(error))
+          return
         }
+        // MSW has no Google round trip: come back the way the server would.
+        const back = new URL(
+          input.callbackURL ?? '/login',
+          window.location.origin
+        )
+        back.searchParams.set(ACCOUNT_FRESH_PARAM, 'REAUTHENTICATED')
+        await navigate(back.pathname + back.search, { replace: true })
         return
       }
       if (navigating.current) return
@@ -182,12 +222,10 @@ export const useSsoAccountManagement = () => {
       } catch {
         navigating.current = false
         setRedirecting(false)
-        clearPendingAccountIntent()
         setFeedback('actionFailed')
       }
     },
     onError: (error) => {
-      clearPendingAccountIntent()
       // Starting verification changes no account state, so a failure here is
       // never "uncertain" and the same button stays available.
       if (
@@ -263,20 +301,19 @@ export const useSsoAccountManagement = () => {
       (intent.kind === 'delete' || caps.unlinkRequiresFresh) &&
       !caps.freshVerified
     setFeedback(null)
+    setReturned(false)
     setDialog({ ...intent, step: needsFresh ? 'verify' : 'confirm' })
   }
   const verify = () => {
     if (busy || uncertain || !dialog || !userId || !canVerify) return
-    const intent: AccountIntent =
-      dialog.kind === 'unlink'
-        ? { kind: 'unlink', provider: dialog.provider }
-        : { kind: 'delete' }
-    savePendingAccountIntent(userId, intent)
+    const back = new URLSearchParams({
+      [ACCOUNT_REAUTH_PARAM]: toAction(dialog)
+    })
     setFeedback(null)
     start.mutate({
       purpose: 'ACCOUNT_FRESH',
       provider: 'google',
-      callbackURL: '/login'
+      callbackURL: '/login?' + back.toString()
     })
   }
   const confirm = () => {
@@ -285,7 +322,9 @@ export const useSsoAccountManagement = () => {
     else deletion.mutate({})
   }
   const closeDialog = () => {
-    if (!busy) setDialog(null)
+    if (busy) return
+    setDialog(null)
+    setReturned(false)
   }
   return {
     isReady,
@@ -294,6 +333,7 @@ export const useSsoAccountManagement = () => {
     caps,
     canVerify,
     dialog,
+    returned,
     closeDialog,
     feedback,
     uncertain,

@@ -2,7 +2,10 @@ import { useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement, ReactNode } from 'react'
-import { useSsoAccountManagement } from '@app/account/hooks/useSsoAccountManagement'
+import {
+  ACCOUNT_FEEDBACK_KEY,
+  useSsoAccountManagement
+} from '@app/account/hooks/useSsoAccountManagement'
 import { LogoutDialog } from '@app/account/components/LogoutDialog'
 import { TwoStepConfirmDialog } from '@app/account/components/TwoStepConfirmDialog'
 import { Badge } from '@nihongo/browser/common/components/Badge'
@@ -154,9 +157,9 @@ export const AccountSettings = (): ReactElement => {
       {flow.feedback && flow.dialog === null ? (
         <p
           className="text-sm"
-          role={flow.feedback === 'cancelledAccount' ? 'status' : 'alert'}
+          role={flow.feedback === 'reauthCancelled' ? 'status' : 'alert'}
         >
-          {authT('sso.' + flow.feedback)}
+          {authT(ACCOUNT_FEEDBACK_KEY[flow.feedback])}
         </p>
       ) : null}
       {flow.uncertain && flow.dialog === null ? (

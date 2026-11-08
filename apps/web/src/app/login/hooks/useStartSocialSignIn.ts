@@ -3,7 +3,7 @@ import { useAppNavigate } from '@nihongo/browser/libs/appNavigation'
 import { safeSsoReturnPath } from '@nihongo/contracts/auth/sign-in-social'
 import { refreshCanonicalAuthAfterMutation } from '@nihongo/browser/app/login/authSession'
 import { authMutations } from '@app/login/queries/authMutations'
-import { useSocialRedirectMutation } from '@app/login/hooks/useSocialRedirectMutation'
+import { useSocialRedirectMutation } from '@nihongo/browser/app/reauth/useSocialRedirectMutation'
 
 export const useStartSocialSignIn = () => {
   const queryClient = useQueryClient()
