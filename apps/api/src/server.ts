@@ -23,6 +23,8 @@ import { createQuestionService } from './question/questionService.js'
 import { createApplicationRateLimiter } from './middleware/applicationRateLimiter.js'
 import { createPrismaStudySessionRepository } from './study/studySessionRepository.js'
 import { createStudySessionService } from './study/studySessionService.js'
+import { createPrismaGuestAllowanceReader } from './study/guestAllowance.js'
+import { createGuestIpDailyCounter } from './study/guestIpDailyCounter.js'
 import { createPrismaStudySubmissionRepository } from './study/studySubmissionRepository.js'
 import { createStudySubmissionService } from './study/studySubmissionService.js'
 import { createPrismaWrongNoteRepository } from './wrong-note/wrongNoteRepository.js'
@@ -111,7 +113,8 @@ const ssoAuthentication = createSsoAuthentication({
   environment,
   applicationClient: database.client,
   gatewayClient: database.client,
-  rateLimiter: applicationRateLimiter
+  rateLimiter: applicationRateLimiter,
+  logger
 })
 const guestPrincipalService = createGuestPrincipalService({
   client: database.client,
@@ -270,6 +273,15 @@ const app = createApiApp({
   },
   study: {
     draftService: studyDraftService,
+    guestAllowanceReader: createPrismaGuestAllowanceReader({
+      client: database.client,
+      keySecret: environment.GUEST_COOKIE_SECRET
+    }),
+    guestIpDailyCounter: createGuestIpDailyCounter({
+      client: database.client,
+      keySecret: environment.GUEST_COOKIE_SECRET,
+      rateLimiter: applicationRateLimiter
+    }),
     rateLimiter: applicationRateLimiter,
     retryService: studyResultRetryService,
     service: studySessionService,

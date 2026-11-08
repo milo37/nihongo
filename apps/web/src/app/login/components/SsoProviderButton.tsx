@@ -25,6 +25,8 @@ export const SsoProviderButton = ({
     <Button
       ref={buttonRef}
       variant="outline"
+      size="lg"
+      fullWidth
       className="auth-sso-button"
       data-provider={provider}
       disabled={disabled}

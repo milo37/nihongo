@@ -335,9 +335,7 @@ describe('wrong-note question report', () => {
     )
     await user.click(within(dialog).getByRole('button', { name: '신고 접수' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(
-      await screen.findByText('문제 신고를 접수했습니다.')
-    ).toBeInTheDocument()
+    expect(await screen.findByText('신고를 보냈어요.')).toBeInTheDocument()
     expect(mockDatabase.peekUserReports()).toEqual([
       expect.objectContaining({
         kind: 'QUESTION',
@@ -359,7 +357,7 @@ describe('wrong-note memo section', () => {
   const memoUrl = (questionId: string): string =>
     `*/api/v1/wrong-notes/${questionId}/memo`
 
-  it('메모를 쓰고 저장하면 저장 상태로 바꾸고 초점을 알림에 둔다', async () => {
+  it('메모를 쓰고 저장하면 성공 토스트를 띄우고 초점을 수정 버튼에 둔다', async () => {
     const user = userEvent.setup()
     const { question } = await renderReadonlyDetail()
     const bodies: unknown[] = []
@@ -376,7 +374,12 @@ describe('wrong-note memo section', () => {
     await user.type(textbox, '  が는 자연현상 주어  ')
     expect(screen.getByText('10 / 2,000')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '저장' }))
-    expect(await screen.findByText('저장했어요')).toHaveFocus()
+    const toasts = await screen.findByRole('region', { name: '알림' })
+    expect(within(toasts).getByText('메모를 저장했어요.')).toBeVisible()
+    // The toast never takes focus; focus returns to the edit button.
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '수정' })).toHaveFocus()
+    )
     expect(screen.getByText('が는 자연현상 주어')).toBeInTheDocument()
     expect(bodies).toEqual([{ memo: 'が는 자연현상 주어' }])
     expect(screen.getByRole('button', { name: '수정' })).toBeEnabled()
@@ -436,14 +439,14 @@ describe('wrong-note memo section', () => {
       '지울 메모'
     )
     await user.click(screen.getByRole('button', { name: '저장' }))
-    await screen.findByText('저장했어요')
+    await screen.findByText('메모를 저장했어요.')
     await user.click(screen.getByRole('button', { name: '삭제' }))
     const dialog = await screen.findByRole('dialog', {
       name: '메모를 삭제할까요?'
     })
     expect(dialog).toHaveTextContent('삭제한 메모는 되돌릴 수 없어요.')
     await user.click(within(dialog).getByRole('button', { name: '삭제' }))
-    expect(await screen.findByText('메모를 삭제했어요')).toBeInTheDocument()
+    expect(await screen.findByText('메모를 삭제했어요.')).toBeInTheDocument()
     await waitFor(() =>
       expect(screen.getByRole('button', { name: '메모 쓰기' })).toHaveFocus()
     )

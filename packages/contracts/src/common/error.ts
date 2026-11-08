@@ -1,4 +1,5 @@
 import { z, type ZodType } from 'zod'
+import { isoDateTimeSchema } from './date.js'
 import { requestIdSchema } from './id.js'
 
 export const stableErrorCodeSchema = z.enum([
@@ -7,6 +8,7 @@ export const stableErrorCodeSchema = z.enum([
   'FRESH_ASSURANCE_REQUIRED',
   'REAUTHENTICATION_FAILED',
   'GUEST_SESSION_EXPIRED',
+  'GUEST_LIMIT_REACHED',
   'INVALID_CSRF',
   'UNTRUSTED_ORIGIN',
   'FORBIDDEN',
@@ -29,6 +31,7 @@ export const stableErrorCodeSchema = z.enum([
   'INVALID_STATE_TRANSITION',
   'SEPARATION_OF_DUTIES_VIOLATION',
   'DUPLICATE_QUESTION_CONTENT',
+  'TAG_SUBJECT_MISMATCH',
   'IMPORT_IDENTITY_CONFLICT',
   'QUESTION_REPORT_DUPLICATE',
   'IMPORT_VALIDATION_FAILED',
@@ -55,6 +58,7 @@ export const errorStatusByCode = {
   FRESH_ASSURANCE_REQUIRED: 401,
   REAUTHENTICATION_FAILED: 401,
   GUEST_SESSION_EXPIRED: 401,
+  GUEST_LIMIT_REACHED: 403,
   INVALID_CSRF: 403,
   UNTRUSTED_ORIGIN: 403,
   FORBIDDEN: 403,
@@ -77,6 +81,7 @@ export const errorStatusByCode = {
   INVALID_STATE_TRANSITION: 409,
   SEPARATION_OF_DUTIES_VIOLATION: 409,
   DUPLICATE_QUESTION_CONTENT: 409,
+  TAG_SUBJECT_MISMATCH: 422,
   IMPORT_IDENTITY_CONFLICT: 409,
   QUESTION_REPORT_DUPLICATE: 409,
   IMPORT_VALIDATION_FAILED: 422,
@@ -100,6 +105,16 @@ const fieldErrorsSchema = z.record(
   z.array(z.string().min(1)).min(1)
 )
 
+/**
+ * Only on GUEST_LIMIT_REACHED, and always there: when the guest can start
+ * again (next KST midnight, the same value as guest-allowance `resetsAt`).
+ */
+export const guestLimitDetailsSchema = z
+  .object({ resetsAt: isoDateTimeSchema })
+  .strict()
+
+export type GuestLimitDetails = z.output<typeof guestLimitDetailsSchema>
+
 export const createApiFailureSchema = <CodeSchema extends ZodType<string>>(
   codeSchema: CodeSchema
 ) =>
@@ -108,10 +123,24 @@ export const createApiFailureSchema = <CodeSchema extends ZodType<string>>(
       code: codeSchema,
       message: z.string().min(1),
       fieldErrors: fieldErrorsSchema.optional(),
+      details: guestLimitDetailsSchema.optional(),
       requestId: requestIdSchema,
       retryable: z.boolean()
     })
     .strict()
+    .superRefine((failure, context) => {
+      const { code, details } = failure as { code: string; details?: unknown }
+      const isGuestLimit = code === 'GUEST_LIMIT_REACHED'
+      if (isGuestLimit !== (details !== undefined)) {
+        context.addIssue({
+          code: 'custom',
+          path: ['details'],
+          message: isGuestLimit
+            ? 'GUEST_LIMIT_REACHED에는 details.resetsAt이 필요합니다.'
+            : 'details는 GUEST_LIMIT_REACHED에만 씁니다.'
+        })
+      }
+    })
 
 export const apiFailureSchema = createApiFailureSchema(stableErrorCodeSchema)
 

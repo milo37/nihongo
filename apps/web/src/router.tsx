@@ -1,6 +1,8 @@
+import { lazy, Suspense } from 'react'
 import { createBrowserRouter } from 'react-router'
 import type { RouteObject } from 'react-router'
 import { bookmarkRoutes } from '@app/bookmark/router'
+import { accountRoutes } from '@app/account/router'
 import { dashboardRoutes } from '@app/dashboard/router'
 import { ForbiddenPage } from '@nihongo/browser/app/forbidden/page'
 import { homeRoutes } from '@app/home/router'
@@ -17,6 +19,11 @@ import {
   ProtectedRouteProvider,
   RequireRole
 } from '@nihongo/browser/provider/ProtectedRouteProvider'
+
+// Loaded only when a guest opens a member-only screen.
+const GuestGate = lazy(async () => ({
+  default: (await import('@app/login/components/GuestGate')).GuestGate
+}))
 
 const developmentRoutes: RouteObject[] = import.meta.env.DEV
   ? (await import('@app/development/router')).developmentRoutes
@@ -37,12 +44,22 @@ export const appRoutes: RouteObject[] = [
     errorElement: <RouteErrorPage action={<AppErrorReportButton />} />,
     children: [
       ...homeRoutes,
+      ...accountRoutes,
       ...loginRoutes,
       ...operationsRoutes,
       ...practiceRoutes,
       ...wrongNoteRoutes.filter((route) => route.path === 'wrong-notes'),
       {
-        element: <RequireRole allowedRoles={['USER', 'ADMIN']} />,
+        element: (
+          <RequireRole
+            allowedRoles={['USER', 'ADMIN']}
+            guestElement={
+              <Suspense fallback={null}>
+                <GuestGate />
+              </Suspense>
+            }
+          />
+        ),
         children: [
           ...dashboardRoutes,
           ...wrongNoteRoutes.filter((route) => route.path !== 'wrong-notes'),

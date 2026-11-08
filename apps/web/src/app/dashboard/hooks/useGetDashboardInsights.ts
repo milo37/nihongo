@@ -5,7 +5,7 @@ import { toDashboardInsightsView } from '@app/dashboard/adapters/dashboardInsigh
 import { dashboardQueries } from '@app/dashboard/queries/dashboardQueries'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 
-export const useGetDashboardInsights = () => {
+export const useGetDashboardInsights = (enabled = true) => {
   const { i18n, t } = useTranslation('dashboard')
   const { t: commonT } = useTranslation('common')
   const locale = resolveUiLocale(i18n.resolvedLanguage)
@@ -16,6 +16,9 @@ export const useGetDashboardInsights = () => {
 
   return useQuery({
     ...dashboardQueries.insights(),
+    enabled,
+    // Only My page reads insights, and it hides the block on failure.
+    meta: { localErrorUi: true },
     select: (response) => toDashboardInsightsView(response, localization)
   })
 }

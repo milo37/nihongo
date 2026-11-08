@@ -2,10 +2,14 @@ import { describe, expect, it } from 'vitest'
 
 import {
   type AdminCommandAuthority,
+  type AdminQuestionCommandRepository,
   AdminQuestionCommandRepositoryError,
   type AdminQuestionPublicationCommandRepository
 } from './adminQuestionCommandRepository.js'
-import { createAdminQuestionPublicationCommandService } from './adminQuestionCommandService.js'
+import {
+  createAdminQuestionCommandService,
+  createAdminQuestionPublicationCommandService
+} from './adminQuestionCommandService.js'
 
 const authority = { actorId: 'actor-1' } as unknown as AdminCommandAuthority
 
@@ -62,6 +66,69 @@ describe('publishVersionBatch partial failure', () => {
 
     await expect(
       service.publishVersionBatch(authority, { items: items('v1', 'v2') })
+    ).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' })
+  })
+})
+
+const failure = (code: 'VERSION_CONFLICT' | 'INVALID_STATE_TRANSITION') =>
+  new AdminQuestionCommandRepositoryError({
+    code,
+    message: '실패',
+    disposition: 'DEFINITE_ROLLBACK'
+  })
+
+const createApprovalRepository = (
+  failures: Readonly<Record<string, () => Error>>
+): AdminQuestionCommandRepository =>
+  ({
+    transitionVersion: async (
+      operation: string,
+      _authority: unknown,
+      versionId: string
+    ) => {
+      expect(operation).toBe('approveQuestionVersion')
+      const fail = failures[versionId]
+      if (fail) throw fail()
+      return { versionRowVersion: 3 }
+    }
+  }) as unknown as AdminQuestionCommandRepository
+
+describe('approveVersionBatch (#709)', () => {
+  it('maps item outcomes and keeps going after an unexpected failure', async () => {
+    const service = createAdminQuestionCommandService(
+      createApprovalRepository({
+        v2: () => failure('VERSION_CONFLICT'),
+        v3: () => failure('INVALID_STATE_TRANSITION'),
+        v4: unexpected
+      })
+    )
+
+    await expect(
+      service.approveVersionBatch(authority, {
+        items: items('v1', 'v2', 'v3', 'v4')
+      })
+    ).resolves.toEqual({
+      approvedCount: 1,
+      items: [
+        { questionVersionId: 'v1', result: 'APPROVED', rowVersion: 3 },
+        {
+          questionVersionId: 'v2',
+          result: 'VERSION_CONFLICT',
+          rowVersion: null
+        },
+        { questionVersionId: 'v3', result: 'NOT_IN_REVIEW', rowVersion: null },
+        { questionVersionId: 'v4', result: 'FAILED', rowVersion: null }
+      ]
+    })
+  })
+
+  it('throws when nothing was approved yet', async () => {
+    const service = createAdminQuestionCommandService(
+      createApprovalRepository({ v1: unexpected })
+    )
+
+    await expect(
+      service.approveVersionBatch(authority, { items: items('v1', 'v2') })
     ).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' })
   })
 })

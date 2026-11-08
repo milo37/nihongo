@@ -5,10 +5,10 @@ import { parseApiEnvironment } from '../config/env.js'
 import { createAuthRuntimePlan } from '../config/authRuntimePlan.js'
 import { createOwnedAuthReadiness } from './ownedAuthReadiness.js'
 import { AuthGatewayError } from './authGateway.js'
-import { createAdminReauthenticationService } from '../admin/adminReauthenticationService.js'
 import { createSsoAuthentication } from './createSsoAuthentication.js'
 import { createOwnedAuthFacade, createAuthFacade } from './authFacade.js'
 import { createOwnedPrincipalService } from './principalService.js'
+import { ADMIN_FRESH_WINDOW_MS } from './adminFreshWindow.js'
 import { createApiApp } from '../app/createApp.js'
 import { createJsonLogger } from '../observability/logger.js'
 import { createSessionCookie } from './sessionCookie.js'
@@ -115,7 +115,7 @@ const fixture = (overrides: Record<string, string> = {}) => {
         createdAt: new Date(Date.now() - 60_000),
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60_000),
         isFresh: sql.includes('"SsoAdminFreshProof"')
-          ? fresh && elapsed < 300_000
+          ? fresh && elapsed < ADMIN_FRESH_WINDOW_MS
           : true
       }
     ]
@@ -268,7 +268,7 @@ describe('production-shaped SSO composition (fake DB ports)', () => {
     )
     expect(user?.id).toBe(uuid)
   })
-  it('denies ordinary ADMIN sessions and consumes only fresh SSO proof up to the exact five-minute boundary', async () => {
+  it('denies ordinary ADMIN sessions and consumes only fresh SSO proof up to the exact 30-minute boundary', async () => {
     const f = fixture()
     const app = new Hono<{ Variables: ApiVariables }>()
     app.onError((error, c) =>
@@ -299,9 +299,9 @@ describe('production-shaped SSO composition (fake DB ports)', () => {
       })
     expect((await command()).status).toBe(401)
     f.setFresh(true)
-    f.setElapsed(299_999)
+    f.setElapsed(ADMIN_FRESH_WINDOW_MS - 1)
     expect((await command()).status).toBe(200)
-    f.setElapsed(300_000)
+    f.setElapsed(ADMIN_FRESH_WINDOW_MS)
     expect((await command()).status).toBe(401)
     expect(
       f.appQuery.mock.calls.every(([sql]) =>
@@ -327,7 +327,11 @@ describe('production-shaped SSO composition (fake DB ports)', () => {
       'request-password-reset',
       'send-verification-email',
       'verify-email',
-      'change-password'
+      'change-password',
+      // better-auth fresh-session routes: freshAge is never reachable.
+      'unlink-account',
+      'delete-user',
+      'list-sessions'
     ]) {
       await expect(
         f.auth.gateway.handle(
@@ -339,16 +343,6 @@ describe('production-shaped SSO composition (fake DB ports)', () => {
       ).rejects.toBeInstanceOf(AuthGatewayError)
     }
     expect(f.gatewayQuery.mock.calls.length).toBe(before)
-    const service = createAdminReauthenticationService()
-    await expect(
-      service.reauthenticate({
-        actorId: uuid,
-        headers: new Headers(),
-        password: 'retired-placeholder',
-        rawSessionToken: 'private',
-        requestId: uuid
-      })
-    ).rejects.toMatchObject({ code: 'RESOURCE_NOT_FOUND' })
   })
   it('retains role attestation, the runtime-ready check and current DB readiness with CMS disabled', async () => {
     const f = fixture()

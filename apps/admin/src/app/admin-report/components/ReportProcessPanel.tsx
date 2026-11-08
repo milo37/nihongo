@@ -3,6 +3,7 @@ import type { FormEvent, ReactElement } from 'react'
 import { Link } from 'react-router'
 import type { AdminReportDetail } from '@nihongo/contracts/admin/reports'
 import { Button } from '@nihongo/browser/common/components/Button'
+import { useToast } from '@nihongo/browser/common/components/Toast'
 import { Textarea } from '@nihongo/browser/common/components/Textarea'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import {
@@ -151,12 +152,13 @@ export const ReportProcessPanel = ({
   onConflict: () => void
 }): ReactElement => {
   const { t, presentError } = useAdminPresentation()
+  const { addToast } = useToast()
+  const headingRef = useRef<HTMLHeadingElement>(null)
   const statusRef = useRef<HTMLParagraphElement>(null)
   const replyRef = useRef<HTMLTextAreaElement>(null)
   const [reply, setReply] = useState('')
   const [note, setNote] = useState(report.internalNote ?? '')
   const [replyRequired, setReplyRequired] = useState(false)
-  const [outcome, setOutcome] = useState<Outcome | null>(null)
   const [failure, setFailure] = useState<unknown>(null)
   // After a conflict the memo field shows the latest saved memo; the admin's
   // own draft is kept aside so a later command never silently overwrites it.
@@ -172,14 +174,19 @@ export const ReportProcessPanel = ({
       setNote(latest)
     }
   }
+  // Success is a toast (U12 E1-7), which never takes focus; focus still moves
+  // to the top of this panel, since closing removes the form it came from.
   const announce = (next: Outcome): void => {
     setFailure(null)
     setNoteDraft(null)
-    setOutcome(next)
-    window.requestAnimationFrame(() => statusRef.current?.focus())
+    addToast({
+      title: t(`userReport.detail.${next}`),
+      variant: 'success',
+      key: 'admin-report-process'
+    })
+    window.requestAnimationFrame(() => headingRef.current?.focus())
   }
   const fail = (error: unknown): void => {
-    setOutcome(null)
     setFailure(error)
     setReplyRequired(false)
     // The reply stays; the latest row version and memo are loaded.
@@ -205,13 +212,10 @@ export const ReportProcessPanel = ({
     replyAndClose.isPending || saveNote.isPending || close.isPending
   const isOpen = report.status === 'RECEIVED'
   const expectedRowVersion = report.rowVersion
-  const statusMessage = failure
-    ? errorCode(failure) === 'VERSION_CONFLICT'
+  const statusMessage =
+    errorCode(failure) === 'VERSION_CONFLICT'
       ? t('userReport.detail.conflict')
       : presentError(failure)
-    : outcome
-      ? t(`userReport.detail.${outcome}`)
-      : ''
   const submitReply = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault()
     if (pending) return
@@ -238,20 +242,24 @@ export const ReportProcessPanel = ({
   return (
     <div className="grid min-w-0 content-start gap-4">
       <section className={cardClass} aria-labelledby="report-process">
-        <h2 id="report-process" className="text-lg font-bold">
+        <h2
+          ref={headingRef}
+          id="report-process"
+          tabIndex={-1}
+          className="text-lg font-bold focus:outline-none"
+        >
           {t('userReport.detail.process')}
         </h2>
-        <p
-          ref={statusRef}
-          tabIndex={-1}
-          role={failure ? 'alert' : 'status'}
-          className={
-            'mt-2 text-sm font-semibold ' +
-            (failure ? 'text-danger' : 'text-success-strong')
-          }
-        >
-          {statusMessage}
-        </p>
+        {failure ? (
+          <p
+            ref={statusRef}
+            tabIndex={-1}
+            role="alert"
+            className="mt-2 text-sm font-semibold text-danger"
+          >
+            {statusMessage}
+          </p>
+        ) : null}
         {isOpen ? (
           <form className="mt-2 grid gap-4" noValidate onSubmit={submitReply}>
             <Textarea

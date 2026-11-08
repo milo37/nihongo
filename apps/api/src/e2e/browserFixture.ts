@@ -3,6 +3,7 @@ import { hashPassword } from 'better-auth/crypto'
 import { Client } from 'pg'
 import { createPrismaAccountRestrictionReader } from '../account/accountRestriction.js'
 import { createApiApp } from '../app/createApp.js'
+import { ADMIN_FRESH_WINDOW_SQL } from '../auth/adminFreshWindow.js'
 import { createSsoAuthentication } from '../auth/createSsoAuthentication.js'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
 import { createOwnedAuthReadiness } from '../auth/ownedAuthReadiness.js'
@@ -17,6 +18,8 @@ import { createApplicationRateLimiter } from '../middleware/applicationRateLimit
 import { createJsonLogger } from '../observability/logger.js'
 import { createPrismaQuestionRepository } from '../question/questionRepository.js'
 import { createQuestionService } from '../question/questionService.js'
+import { createPrismaGuestAllowanceReader } from '../study/guestAllowance.js'
+import { createGuestIpDailyCounter } from '../study/guestIpDailyCounter.js'
 import { createPrismaStudyDraftRepository } from '../study/studyDraftRepository.js'
 import { createStudyDraftService } from '../study/studyDraftService.js'
 import { createPrismaStudySessionRepository } from '../study/studySessionRepository.js'
@@ -299,7 +302,8 @@ const createBrowserFixtureDatabase = (
           )
           const updated = await operationClient.query(
             `UPDATE "Session"
-               SET "createdAt" = clock_timestamp() - INTERVAL '6 minutes'
+               SET "createdAt" = clock_timestamp() - ${ADMIN_FRESH_WINDOW_SQL}
+                 - INTERVAL '1 minute'
                WHERE "userId" = $1::uuid
                  AND "issuerProtocolVersion" = 'OWNED_V1'
                  AND "authorizationState" = 'ACTIVE'`,
@@ -1583,6 +1587,15 @@ const createSsoBrowserApiFixture = async (
         draftService: createStudyDraftService(
           createPrismaStudyDraftRepository(database.client)
         ),
+        guestAllowanceReader: createPrismaGuestAllowanceReader({
+          client: database.client,
+          keySecret: environment.GUEST_COOKIE_SECRET
+        }),
+        guestIpDailyCounter: createGuestIpDailyCounter({
+          client: database.client,
+          keySecret: environment.GUEST_COOKIE_SECRET,
+          rateLimiter
+        }),
         retryService: studyResultRetryService,
         submissionService: studySubmissionService,
         rateLimiter,

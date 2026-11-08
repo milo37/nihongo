@@ -111,6 +111,47 @@ export const publishQuestionVersionBatchResponseSchema = z
     { path: ['publishedCount'], message: 'publishedCount가 결과와 달라요.' }
   )
 
+export const approveQuestionVersionBatchRequestSchema =
+  publishQuestionVersionBatchRequestSchema
+
+const approveQuestionVersionBatchItemResultSchema = z.enum([
+  'APPROVED',
+  'VERSION_CONFLICT',
+  /** Not IN_REVIEW, or the question is archived. */
+  'NOT_IN_REVIEW',
+  'NOT_FOUND',
+  /** Unexpected failure after an earlier item was approved; reload and retry. */
+  'FAILED'
+])
+
+/**
+ * Same shape and per item commits as the publication batch (#709). An error
+ * response means nothing was approved.
+ */
+export const approveQuestionVersionBatchResponseSchema = z
+  .object({
+    approvedCount: nonNegativeSafeIntegerSchema,
+    items: z
+      .array(
+        z
+          .object({
+            questionVersionId: opaqueIdSchema,
+            result: approveQuestionVersionBatchItemResultSchema,
+            rowVersion: rowVersionSchema.nullable()
+          })
+          .strict()
+      )
+      .min(1)
+      .max(100)
+  })
+  .strict()
+  .refine(
+    (response) =>
+      response.approvedCount ===
+      response.items.filter(({ result }) => result === 'APPROVED').length,
+    { path: ['approvedCount'], message: 'approvedCount가 결과와 달라요.' }
+  )
+
 export type QuestionReviewStage = z.output<typeof questionReviewStageSchema>
 export type AutoValidationResult = z.output<typeof autoValidationResultSchema>
 export type PublishQuestionVersionBatchRequest = z.input<
@@ -118,4 +159,10 @@ export type PublishQuestionVersionBatchRequest = z.input<
 >
 export type PublishQuestionVersionBatchResponse = z.output<
   typeof publishQuestionVersionBatchResponseSchema
+>
+export type ApproveQuestionVersionBatchRequest = z.input<
+  typeof approveQuestionVersionBatchRequestSchema
+>
+export type ApproveQuestionVersionBatchResponse = z.output<
+  typeof approveQuestionVersionBatchResponseSchema
 >

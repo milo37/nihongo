@@ -2,7 +2,6 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   adminQuestionContentInputSchema,
-  normalizeContentTagKey,
   validateQuestionImportRequestSchema
 } from '@nihongo/contracts/admin/content-operations'
 import { describe, expect, it } from 'vitest'
@@ -10,11 +9,10 @@ import {
   buildQuestionImportFiles,
   questionImportDirectory
 } from './questionImportFiles.js'
+import { parseTagList } from '../src/content/tagList.js'
 
 const generated = buildQuestionImportFiles()
-const importFileNames = Object.keys(generated).filter(
-  (name) => name !== 'required-tags.v1.json'
-)
+const importFileNames = Object.keys(generated)
 const readImportFile = (name: string): unknown =>
   JSON.parse(readFileSync(join(questionImportDirectory, name), 'utf8'))
 
@@ -50,42 +48,32 @@ describe('question import files (#633)', () => {
     expect(count).toBe(65 + 308)
   })
 
-  it('list every tag and applicability the import files use', () => {
-    const { tags } = readImportFile('required-tags.v1.json') as {
-      tags: Array<{
-        normalizedName: string
-        applicability: Array<{
-          level: string
-          subject: string
-          questionType: string
-        }>
-      }>
-    }
-    const listed = new Set(
-      tags.flatMap(({ normalizedName, applicability }) =>
-        applicability.map(
-          ({ level, subject, questionType }) =>
-            `${normalizedName}/${level}/${subject}/${questionType}`
-        )
-      )
+  it('use one or two active tags.v2.json keys of the item subject (#646)', () => {
+    const { tags } = parseTagList(
+      readFileSync(join(questionImportDirectory, '../taxonomy/tags.v2.json'))
     )
-    expect(new Set(tags.map(({ normalizedName }) => normalizedName)).size).toBe(
-      tags.length
+    expect(tags).toHaveLength(18)
+    const subjectByKey = new Map(
+      tags
+        .filter(({ status }) => status === 'ACTIVE')
+        .map(({ key, subject }) => [key, subject])
     )
+    const counts = new Map<string, number>()
     for (const name of importFileNames) {
       const { items } = validateQuestionImportRequestSchema.parse(
         readImportFile(name)
       )
-      for (const { content } of items) {
-        for (const tagName of content.tagNames) {
-          expect(
-            listed.has(
-              `${normalizeContentTagKey(tagName)}/${content.level}/${content.subject}/${content.questionType}`
-            ),
-            tagName
-          ).toBe(true)
+      for (const { clientItemId, content } of items) {
+        expect(content.tagNames.length, clientItemId).toBeLessThanOrEqual(2)
+        for (const key of content.tagNames) {
+          expect(subjectByKey.get(key), `${clientItemId} ${key}`).toBe(
+            content.subject
+          )
+          counts.set(key, (counts.get(key) ?? 0) + 1)
         }
       }
     }
+    // Every listed tag has at least one question.
+    expect([...counts.keys()].sort()).toEqual([...subjectByKey.keys()].sort())
   })
 })

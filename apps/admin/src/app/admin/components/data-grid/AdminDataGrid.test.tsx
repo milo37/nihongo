@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import { createColumnHelper } from '@tanstack/react-table'
-import type { PaginationState, SortingState } from '@tanstack/react-table'
+import type {
+  ColumnVisibilityState,
+  PaginationState,
+  SortingState
+} from '@tanstack/react-table'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
-import {
-  AdminDataGrid,
-  useResponsiveColumnVisibility
-} from '@app/admin/components/data-grid/AdminDataGrid'
+import { AdminDataGrid } from '@app/admin/components/data-grid/AdminDataGrid'
 import type { AdminGridFeatures } from '@app/admin/components/data-grid/AdminDataGrid'
 
 // Test-only row shape; real admin lists use their shared contract types.
@@ -33,10 +34,7 @@ const Harness = ({ rows, total }: { rows: Row[]; total: number }) => {
     pageIndex: 0,
     pageSize: 25
   })
-  const [visibility, setVisibility] = useResponsiveColumnVisibility(
-    ['id', 'name', 'count'],
-    ['id', 'name']
-  )
+  const [visibility, setVisibility] = useState<ColumnVisibilityState>({})
   return (
     <AdminDataGrid
       label="테스트 목록"
@@ -58,6 +56,7 @@ const Harness = ({ rows, total }: { rows: Row[]; total: number }) => {
       onColumnVisibilityChange={setVisibility}
       emptyMessage="결과가 없습니다."
       onRowActivate={onRow}
+      renderCard={(row) => <p>{`카드 ${row.name}`}</p>}
     />
   )
 }
@@ -69,10 +68,18 @@ const renderGrid = (rows: Row[], total = rows.length) =>
     </I18nProvider>
   )
 
+// The grid asks for (min-width: 768px), so a narrow screen does not match.
 const setNarrow = (narrow: boolean) =>
   vi.stubGlobal(
     'matchMedia',
-    vi.fn(() => ({ matches: narrow }) as unknown as MediaQueryList)
+    vi.fn(
+      () =>
+        ({
+          matches: !narrow,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn()
+        }) as unknown as MediaQueryList
+    )
   )
 
 beforeEach(() => {
@@ -83,17 +90,16 @@ beforeEach(() => {
 })
 afterEach(() => vi.unstubAllGlobals())
 
-it('starts with only the compact columns on narrow screens and keeps the first column sticky', () => {
+it('shows cards instead of the table and column picker on narrow screens', () => {
   setNarrow(true)
   renderGrid([{ id: 'a', name: '가', count: 1 }])
-  expect(screen.getAllByRole('columnheader')).toHaveLength(2)
-  expect(screen.getByRole('checkbox', { name: '횟수' })).not.toBeChecked()
-  fireEvent.click(screen.getByRole('checkbox', { name: '횟수' }))
-  expect(screen.getAllByRole('columnheader')).toHaveLength(3)
-  expect(screen.getByRole('cell', { name: 'a' })).toHaveClass(
-    'sticky',
-    'left-0'
-  )
+  expect(screen.queryByRole('table')).not.toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: '열' })).not.toBeInTheDocument()
+  const card = within(
+    screen.getByRole('list', { name: '테스트 목록' })
+  ).getByText('카드 가')
+  fireEvent.click(card)
+  expect(onRow).toHaveBeenCalledWith({ id: 'a', name: '가', count: 1 })
 })
 
 it('activates the whole row from any cell', () => {
@@ -118,6 +124,9 @@ it('reports header sorting with aria-sort and leaves unsortable columns plain', 
 
 it('hides a column from the column picker but not the fixed ID column', () => {
   renderGrid([{ id: 'a', name: '가', count: 1 }])
+  const picker = screen.getByRole('button', { name: '열' })
+  expect(picker).toHaveAttribute('aria-expanded', 'false')
+  fireEvent.click(picker)
   expect(screen.queryByRole('checkbox', { name: 'ID' })).not.toBeInTheDocument()
   fireEvent.click(screen.getByRole('checkbox', { name: '횟수' }))
   expect(
@@ -128,22 +137,34 @@ it('hides a column from the column picker but not the fixed ID column', () => {
 
 it('pages on the server: page size resets to the first page and buttons follow the total', () => {
   renderGrid([{ id: 'a', name: '가', count: 1 }], 60)
-  expect(screen.getByText('1 / 3쪽 · 전체 60건')).toBeInTheDocument()
-  const previous = screen.getByRole('button', { name: '이전' })
-  const next = screen.getByRole('button', { name: '다음' })
-  expect(previous).toBeDisabled()
-  fireEvent.click(next)
+  const top = screen.getByRole('navigation', { name: '페이지 이동, 목록 위' })
+  expect(
+    screen.getByRole('navigation', { name: '페이지 이동, 목록 아래' })
+  ).toBeInTheDocument()
+  expect(screen.getAllByText('총 60개')).toHaveLength(2)
+  expect(screen.getAllByText('· 1–25')).toHaveLength(2)
+  expect(within(top).getByText('1 / 3')).toBeInTheDocument()
+  expect(within(top).getByRole('button', { name: '첫 페이지' })).toBeDisabled()
+  expect(
+    within(top).getByRole('button', { name: '이전 페이지' })
+  ).toBeDisabled()
+  fireEvent.click(within(top).getByRole('button', { name: '다음 페이지' }))
   expect(onPagination).toHaveBeenLastCalledWith({ pageIndex: 1, pageSize: 25 })
-  fireEvent.change(screen.getByLabelText('쪽당 행 수'), {
-    target: { value: '50' }
-  })
+  fireEvent.click(within(top).getByRole('button', { name: '마지막 페이지' }))
+  expect(onPagination).toHaveBeenLastCalledWith({ pageIndex: 2, pageSize: 25 })
+  fireEvent.change(
+    screen.getAllByRole('combobox', { name: '한 페이지에' })[0] as HTMLElement,
+    { target: { value: '50' } }
+  )
   expect(onPagination).toHaveBeenLastCalledWith({ pageIndex: 0, pageSize: 50 })
-  expect(screen.getByText('1 / 2쪽 · 전체 60건')).toBeInTheDocument()
+  expect(within(top).getByText('1 / 2')).toBeInTheDocument()
 })
 
 it('shows the empty message across the visible columns', () => {
   renderGrid([], 0)
   const cell = screen.getByRole('cell', { name: '결과가 없습니다.' })
   expect(cell).toHaveAttribute('colspan', '3')
-  expect(screen.getByRole('button', { name: '다음' })).toBeDisabled()
+  expect(screen.getAllByText('총 0개')).toHaveLength(2)
+  for (const next of screen.getAllByRole('button', { name: '다음 페이지' }))
+    expect(next).toBeDisabled()
 })

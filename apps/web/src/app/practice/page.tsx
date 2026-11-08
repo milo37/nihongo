@@ -1,12 +1,19 @@
 import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
-import type { ReactElement, ReactNode } from 'react'
+import type { ReactElement } from 'react'
 import {
   CancelResumableDialog,
   PracticeSetupFeedback
 } from '@app/practice/components/PracticeSetupFeedback'
 import { PracticeSetupForm } from '@app/practice/components/PracticeSetupForm'
+import { GuestDailyLimitCard } from '@app/practice/components/GuestDailyLimitCard'
+import { GuestUrlLockedNotice } from '@app/practice/components/GuestSetupNotices'
+import { useGuestAction } from '@app/login/hooks/useGuestAction'
+import {
+  GUEST_DAILY_SESSION_LIMIT,
+  GUEST_SESSION_QUESTION_LIMIT
+} from '@nihongo/contracts/study/guest-limits'
 import { ResumablePractice } from '@app/practice/components/ResumablePractice'
 import { usePracticeSetupController } from '@app/practice/hooks/usePracticeSetupController'
 import {
@@ -49,14 +56,13 @@ const PracticeShortcuts = (): ReactElement => {
   )
 }
 
-export const PracticePage = ({
-  children
-}: { children?: ReactNode } = {}): ReactElement => {
-  const { t } = useTranslation('practice')
+export const PracticePage = (): ReactElement => {
+  const { t, i18n } = useTranslation('practice')
   const { t: homeT } = useTranslation('home')
   const resumableHeadingRef = useRef<HTMLHeadingElement>(null)
   const setupHeadingRef = useRef<HTMLHeadingElement>(null)
   const setup = usePracticeSetupController(resumableHeadingRef)
+  const guestAction = useGuestAction()
   const { count, level, mode, resumableSessions, subject } = setup
   const subjectLabel = homeT(subjectLabelKeys[subject])
   const startLabel = homeT('quickDrill.start', {
@@ -71,7 +77,24 @@ export const PracticePage = ({
         <h1 ref={setupHeadingRef} tabIndex={-1}>
           {t('setup.title')}
         </h1>
+        {setup.isGuest ? (
+          <p className="practice-guest-hint">
+            {t('setup.guestHint', {
+              total: GUEST_DAILY_SESSION_LIMIT,
+              count: GUEST_SESSION_QUESTION_LIMIT
+            })}
+            {/* Japanese puts no space between sentences. */}
+            {i18n.resolvedLanguage === 'ja' ? '' : ' '}
+            {t('setup.guestResumeHint')}
+          </p>
+        ) : null}
       </div>
+      {setup.isGuestDailyLimitReached ? (
+        <GuestDailyLimitCard redirect="/practice" />
+      ) : null}
+      {setup.isUrlLockedForGuest ? (
+        <GuestUrlLockedNotice loginHref={setup.loginHref} />
+      ) : null}
       <ResumablePractice
         query={resumableSessions}
         canLoad={setup.canLoadResumableSessions}
@@ -96,28 +119,37 @@ export const PracticePage = ({
         isReady={setup.isReady}
         isGuest={setup.isGuest}
         isCreating={setup.isCreatingSession}
-        isProtectedGuestMode={setup.isProtectedGuestMode}
+        isGuestDailyLimitReached={setup.isGuestDailyLimitReached}
+        guestAllowance={setup.guestAllowance}
         hasResumableSession={Boolean(resumableSessions.data?.items.length)}
         subjectLabel={subjectLabel}
         startLabel={startLabel}
-        loginHref={setup.loginHref}
         onSubjectChange={(option) =>
           setup.changeSetting('subject', option, DEFAULT_SUBJECT)
         }
         onLevelChange={(option) =>
           setup.changeSetting('level', option, setup.defaultLevel)
         }
-        onCountChange={(option) =>
+        onCountChange={(option) => {
+          if (
+            option !== GUEST_SESSION_QUESTION_LIMIT &&
+            guestAction(t('setup.locked.count'))
+          ) {
+            return
+          }
           setup.changeSetting('count', option, DEFAULT_COUNT)
-        }
-        onModeChange={(option) => setup.changeSetting('mode', option, 'RANDOM')}
+        }}
+        onModeChange={(option) => {
+          if (option !== 'RANDOM' && guestAction(t('setup.locked.mode'))) {
+            return
+          }
+          setup.changeSetting('mode', option, 'RANDOM')
+        }}
         onStart={setup.handleStart}
         feedback={
           <PracticeSetupFeedback
             accountRestricted={setup.accountRestricted}
             hasCreateError={setup.hasCreateError}
-            isProtectedGuestMode={setup.isProtectedGuestMode}
-            loginHref={setup.loginHref}
             mode={mode}
             noEligibleQuestions={setup.noEligibleQuestions}
             onSelectRandom={() =>
@@ -127,8 +159,6 @@ export const PracticePage = ({
         }
       />
       <PracticeShortcuts />
-
-      {children}
 
       <CancelResumableDialog
         open={setup.cancelSessionId !== null}

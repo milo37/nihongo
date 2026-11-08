@@ -5,7 +5,8 @@ import {
   fireEvent,
   render,
   screen,
-  waitFor
+  waitFor,
+  within
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import {
@@ -26,6 +27,7 @@ import { useAppStore } from '@nihongo/browser/store/index'
 import { appI18n } from '@nihongo/browser/i18n/config'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import * as authApi from '@nihongo/browser/api/auth/getCurrentUser/index'
+import * as startApi from '@nihongo/browser/api/auth/startAdminReauth/index'
 import * as api from '@nihongo/browser/api/content-operations/requestContentOperation'
 import * as listApi from '@api/admin-question/listAdminQuestion/index'
 import * as importResultApi from '@nihongo/browser/api/admin-import-result/index'
@@ -37,6 +39,16 @@ import {
   versionId
 } from '@app/admin-question/test/workflowFixture'
 import { createInput, question } from '@app/admin-question/test/questionFixture'
+
+/** Opens a list row's ⋯ menu and returns one of its items. */
+const rowMenuItem = (questionId: string, name: string): HTMLElement => {
+  fireEvent.click(screen.getByRole('button', { name: questionId + ' 작업' }))
+  return screen.getByRole('menuitem', { name })
+}
+
+/** The result heading carries the verdict badge after its title. */
+const resultHeading = (verdict: 'import.valid' | 'import.invalid'): string =>
+  `${t('import.resultTitle')} ${t(verdict)}`
 
 beforeAll(preloadAdminPages)
 const t = appI18n.getFixedT('ko', 'admin')
@@ -128,7 +140,9 @@ const input = () =>
 const validateButton = () =>
   screen.getByRole('button', { name: t('import.validate') })
 const applyButton = () =>
-  screen.getByRole('button', { name: t('import.apply') })
+  screen.getByRole('button', {
+    name: t('import.apply', { formattedCount: '1' })
+  })
 const upload = async (file = jsonFile()) => {
   await screen.findByLabelText(t('import.fileLabel'), { selector: 'input' })
   await userEvent.upload(input(), file)
@@ -136,7 +150,12 @@ const upload = async (file = jsonFile()) => {
 }
 const runValidate = async () => {
   await userEvent.click(validateButton())
-  await screen.findByRole('heading', { name: t('import.valid') })
+  const heading = await screen.findByRole('heading', {
+    name: resultHeading('import.valid')
+  })
+  // The result heading takes focus on the next frame; wait so a later
+  // focus move is not overwritten by it.
+  await waitFor(() => expect(heading).toHaveFocus())
 }
 const applies = () =>
   endpoint.mock.calls.filter(
@@ -160,7 +179,9 @@ it('restores the approved static route before dynamic question detail and waits 
   await upload()
   expect(endpoint).not.toHaveBeenCalled()
   expect(
-    screen.queryByRole('button', { name: t('import.apply') })
+    screen.queryByRole('button', {
+      name: t('import.apply', { formattedCount: '1' })
+    })
   ).not.toBeInTheDocument()
 })
 it('validates exact items then explicitly applies the same digest and blocks duplicate application even after reselect', async () => {
@@ -175,7 +196,7 @@ it('validates exact items then explicitly applies the same digest and blocks dup
   })
   await waitFor(() =>
     expect(
-      screen.getByRole('heading', { name: t('import.valid') })
+      screen.getByRole('heading', { name: resultHeading('import.valid') })
     ).toHaveFocus()
   )
   await userEvent.click(applyButton())
@@ -215,9 +236,20 @@ it('shows item/field validation issues using localized codes without raw server 
   await upload()
   await userEvent.click(validateButton())
   expect(
-    await screen.findByRole('heading', { name: t('import.invalid') })
+    await screen.findByRole('heading', {
+      name: resultHeading('import.invalid')
+    })
   ).toBeVisible()
-  expect(applyButton()).toBeDisabled()
+  // An invalid result shows its error count and no apply button at all.
+  expect(screen.getByText(t('import.issueCountLabel'))).toBeVisible()
+  expect(
+    screen.getByText(t('import.resultCount', { formattedCount: '1' }))
+  ).toBeVisible()
+  expect(
+    screen.queryByRole('button', {
+      name: t('import.apply', { formattedCount: '1' })
+    })
+  ).toBeNull()
   expect(screen.getByText(/items\/0\/content\/tagNames\/0/)).toBeVisible()
   expect(container.querySelector('script')).toBeNull()
   expect(
@@ -300,7 +332,7 @@ it('discards a stale validation result if selection changes before it settles', 
   })
   await waitFor(() => expect(validateButton()).toBeEnabled())
   expect(
-    screen.queryByRole('heading', { name: t('import.valid') })
+    screen.queryByRole('heading', { name: resultHeading('import.valid') })
   ).not.toBeInTheDocument()
   expect(applies()).toHaveLength(0)
 })
@@ -384,7 +416,9 @@ it.each(['IMPORT_VALIDATION_FAILED', 'IMPORT_IDENTITY_CONFLICT'])(
       )
     ).toBeVisible()
     expect(
-      screen.queryByRole('button', { name: t('import.apply') })
+      screen.queryByRole('button', {
+        name: t('import.apply', { formattedCount: '1' })
+      })
     ).not.toBeInTheDocument()
     expect(input().files?.[0]?.name).toBe('original.json')
     expect(applies()).toHaveLength(1)
@@ -482,26 +516,30 @@ describe('lost apply response recovery', () => {
     expect(recover).not.toHaveBeenCalled()
   })
 })
-it('offers Google fresh explicitly and returns to an empty import workflow without stored source or replay', async () => {
+it('asks for re-verification in place and returns to an empty import workflow without stored source or replay', async () => {
   apply = async () => {
     throw { code: 'FRESH_ASSURANCE_REQUIRED' }
   }
-  const assign = vi
-    .spyOn(appDocumentNavigation, 'assign')
-    .mockImplementation(() => undefined)
+  const start = vi
+    .spyOn(startApi, 'startAdminReauth')
+    .mockReturnValue(new Promise(() => undefined))
   const first = route()
   await upload()
   await runValidate()
   await userEvent.click(applyButton())
-  const fresh = await screen.findByRole('button', {
-    name: t('reportDetail.fresh')
+  const alert = await screen.findByRole('alert')
+  expect(alert).toHaveTextContent(t('reauth.blockedHelpImport'))
+  const check = within(screen.getByRole('main')).getByRole('button', {
+    name: t('reauth.action')
   })
-  expect(assign).not.toHaveBeenCalled()
-  expect(screen.getByText(t('import.freshRevalidateHint'))).toBeVisible()
-  await userEvent.click(fresh)
-  expect(assign).toHaveBeenCalledExactlyOnceWith(
-    '/login?redirect=' + encodeURIComponent('/admin/questions/import')
-  )
+  expect(check).toHaveFocus()
+  expect(start).not.toHaveBeenCalled()
+  await userEvent.click(check)
+  expect(start).toHaveBeenCalledExactlyOnceWith({
+    purpose: 'ADMIN_FRESH',
+    provider: 'google',
+    callbackURL: '/admin/questions/import'
+  })
   expect(Object.values(sessionStorage).join('')).not.toContain(
     JSON.stringify(request)
   )
@@ -552,7 +590,9 @@ it('connects the existing list entry and preserves its current create/edit targe
     expect(link).toHaveAttribute('href', '/admin/questions/import')
   )
   expect(
-    await screen.findByRole('link', { name: questionId + ' 문제 수정' })
+    await screen
+      .findByRole('button', { name: questionId + ' 작업' })
+      .then(() => rowMenuItem(questionId, '수정'))
   ).toHaveAttribute(
     'href',
     '/admin/questions/' +
@@ -567,8 +607,6 @@ it('renders Japanese import copy from the shared catalog', async () => {
   expect(
     await screen.findByRole('heading', { name: '問題の下書きをインポート' })
   ).toBeVisible()
-  expect(
-    screen.getByRole('button', { name: '書き込みなしで検証' })
-  ).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'チェックする' })).toBeDisabled()
   expect(screen.queryByText('import.title')).not.toBeInTheDocument()
 })

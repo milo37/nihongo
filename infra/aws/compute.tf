@@ -133,6 +133,7 @@ resource "aws_instance" "host" {
     }))
     caddyfile = base64encode(templatefile("${path.module}/files/Caddyfile.tftpl", {
       origin_domain = var.origin_domain_name
+      noindex       = var.deployment_environment == "STAGING"
     }))
     deploy_sh         = file("${path.module}/files/deploy.sh")
     provision_db_sh   = file("${path.module}/files/provision-db.sh")
@@ -141,6 +142,7 @@ resource "aws_instance" "host" {
     render_env_sh     = file("${path.module}/files/render-env.sh")
     backup_sh         = file("${path.module}/files/backup.sh")
     erase_sh          = file("${path.module}/files/erase-deletion-pending.sh")
+    guest_cleanup_sh  = file("${path.module}/files/guest-cleanup.sh")
     cloudwatch_config = base64encode(file("${path.module}/files/cloudwatch-agent.json"))
     public_env = base64encode(join("\n", [
       "NODE_ENV=production",

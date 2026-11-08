@@ -33,8 +33,11 @@ import {
   type ContentOperation
 } from '@nihongo/contracts/admin/content-operations'
 import {
+  approveQuestionVersionBatchRequestSchema,
+  approveQuestionVersionBatchResponseSchema,
   publishQuestionVersionBatchRequestSchema,
   publishQuestionVersionBatchResponseSchema,
+  type ApproveQuestionVersionBatchResponse,
   type PublishQuestionVersionBatchResponse
 } from '@nihongo/contracts/admin/review'
 import type { z } from 'zod'
@@ -156,13 +159,27 @@ const toClientPath = (manifestPath: string, params: unknown): string => {
     : interpolated
 }
 
+type BatchRequest = {
+  readonly items: ReadonlyArray<{
+    readonly questionVersionId: string
+    readonly expectedRowVersion: number
+  }>
+}
+type BatchResponse = {
+  readonly items: ReadonlyArray<{
+    readonly questionVersionId: string
+    readonly result: string
+    readonly rowVersion: number | null
+  }>
+}
+
 // Items commit one by one, so each answer must line up with its request item.
-const assertPublishQuestionVersionBatchResponse = (
-  rawRequest: unknown,
-  rawResponse: unknown
-): PublishQuestionVersionBatchResponse => {
-  const request = publishQuestionVersionBatchRequestSchema.parse(rawRequest)
-  const response = publishQuestionVersionBatchResponseSchema.parse(rawResponse)
+const assertBatchOrder = (
+  request: BatchRequest,
+  response: BatchResponse,
+  succeeded: string,
+  name: string
+): void => {
   if (
     response.items.length !== request.items.length ||
     response.items.some((item, index) => {
@@ -171,16 +188,41 @@ const assertPublishQuestionVersionBatchResponse = (
         requested === undefined ||
         item.questionVersionId !== requested.questionVersionId ||
         item.rowVersion !==
-          (item.result === 'PUBLISHED'
-            ? requested.expectedRowVersion + 1
-            : null)
+          (item.result === succeeded ? requested.expectedRowVersion + 1 : null)
       )
     })
   ) {
     throw new Error(
-      'batch publish result가 request order/version rowVersion과 다릅니다.'
+      `batch ${name} result가 request order/version rowVersion과 다릅니다.`
     )
   }
+}
+
+const assertPublishQuestionVersionBatchResponse = (
+  rawRequest: unknown,
+  rawResponse: unknown
+): PublishQuestionVersionBatchResponse => {
+  const response = publishQuestionVersionBatchResponseSchema.parse(rawResponse)
+  assertBatchOrder(
+    publishQuestionVersionBatchRequestSchema.parse(rawRequest),
+    response,
+    'PUBLISHED',
+    'publish'
+  )
+  return response
+}
+
+const assertApproveQuestionVersionBatchResponse = (
+  rawRequest: unknown,
+  rawResponse: unknown
+): ApproveQuestionVersionBatchResponse => {
+  const response = approveQuestionVersionBatchResponseSchema.parse(rawResponse)
+  assertBatchOrder(
+    approveQuestionVersionBatchRequestSchema.parse(rawRequest),
+    response,
+    'APPROVED',
+    'approve'
+  )
   return response
 }
 
@@ -230,6 +272,8 @@ const assertCorrelatedResponse = async (
       return assertRequestContentReviewBatchResponse(body, response)
     case 'publishQuestionVersionBatch':
       return assertPublishQuestionVersionBatchResponse(body, response)
+    case 'approveQuestionVersionBatch':
+      return assertApproveQuestionVersionBatchResponse(body, response)
     case 'validateQuestionImport':
       return assertAdminImportValidationForRequest(
         sha256TextPort,

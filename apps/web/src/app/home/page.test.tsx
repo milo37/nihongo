@@ -22,11 +22,12 @@ const render = (ui: ReactElement) =>
         new QueryClient({ defaultOptions: { queries: { retry: false } } })
       }
     >
-      {ui}
+      <ToastProvider>{ui}</ToastProvider>
     </QueryClientProvider>
   )
 import { appI18n } from '@nihongo/browser/i18n/config'
 import { HomePage } from '@app/home/page'
+import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
@@ -143,7 +144,10 @@ it('keeps guest start available while disclosing example data', () => {
   )
   expect(
     screen.getByRole('radio', {
-      name: appI18n.t('practice:setup.questionCount', { formattedCount: 20 })
+      // Locked for guests: the name ends with "로그인 필요".
+      name: new RegExp(
+        `^${appI18n.t('practice:setup.questionCount', { formattedCount: 20 })}`
+      )
     })
   ).toBeVisible()
   expect(
@@ -151,7 +155,7 @@ it('keeps guest start available while disclosing example data', () => {
       name: appI18n.t('home:quickDrill.start', {
         level: 'N5',
         subject: appI18n.t('home:approved.vocabulary'),
-        formattedCount: 10
+        formattedCount: 5
       })
     })
   ).toBeEnabled()
@@ -194,8 +198,7 @@ it.each(['ko', 'ja'] as const)(
     ).not.toBeInTheDocument()
     expect(
       screen.getByRole('button', {
-        name:
-          locale === 'ko' ? 'N5 어휘 · 10문제 시작' : 'N5 語彙 · 10問を始める'
+        name: locale === 'ko' ? 'N5 어휘 · 5문제 시작' : 'N5 語彙 · 5問を始める'
       })
     ).toBeEnabled()
     client.clear()
@@ -233,7 +236,7 @@ it.each(['ko', 'ja'] as const)(
     fireEvent.submit(form)
     expect(mocks.mutate).toHaveBeenCalledTimes(1)
     expect(mocks.mutate).toHaveBeenCalledWith(
-      { level: 'N5', subject: 'READING', count: 10, mode: 'RANDOM' },
+      { level: 'N5', subject: 'READING', count: 5, mode: 'RANDOM' },
       expect.objectContaining({ onSuccess: expect.any(Function) })
     )
   }
@@ -280,12 +283,12 @@ it('announces loading and prevents duplicate start requests', () => {
 })
 
 it.each([
-  ['ko', 'N5', 'VOCABULARY', '어휘', 'N5 어휘 · 10문제 시작'],
-  ['ko', 'N3', 'GRAMMAR', '문법', 'N3 문법 · 10문제 시작'],
-  ['ko', 'N1', 'READING', '독해', 'N1 독해 · 10문제 시작'],
-  ['ja', 'N5', 'VOCABULARY', '語彙', 'N5 語彙 · 10問を始める'],
-  ['ja', 'N3', 'GRAMMAR', '文法', 'N3 文法 · 10問を始める'],
-  ['ja', 'N1', 'READING', '読解', 'N1 読解 · 10問を始める']
+  ['ko', 'N5', 'VOCABULARY', '어휘', 'N5 어휘 · 5문제 시작'],
+  ['ko', 'N3', 'GRAMMAR', '문법', 'N3 문법 · 5문제 시작'],
+  ['ko', 'N1', 'READING', '독해', 'N1 독해 · 5문제 시작'],
+  ['ja', 'N5', 'VOCABULARY', '語彙', 'N5 語彙 · 5問を始める'],
+  ['ja', 'N3', 'GRAMMAR', '文法', 'N3 文法 · 5問を始める'],
+  ['ja', 'N1', 'READING', '読解', 'N1 読解 · 5問を始める']
 ] as const)(
   'shows and submits the same current scope without a CTA icon (%s %s %s)',
   async (locale, level, subject, subjectLabel, label) => {
@@ -305,7 +308,7 @@ it.each([
     expect(screen.getByRole('radio', { name: level })).toBeChecked()
     fireEvent.click(start)
     expect(mocks.mutate).toHaveBeenCalledWith(
-      { level, subject, count: 10, mode: 'RANDOM' },
+      { level, subject, count: 5, mode: 'RANDOM' },
       expect.objectContaining({ onSuccess: expect.any(Function) })
     )
   }

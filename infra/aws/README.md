@@ -20,7 +20,7 @@
 - CloudFront 정액 요금제의 Free·Pro에는 VPC origin이 없습니다(Business 이상). 그래서 EC2에 공인 IPv4(EIP)를 붙이고, 보안그룹으로 CloudFront만 들어오게 막았습니다.
 - 보안그룹의 prefix list는 **모든 AWS 계정의** CloudFront를 허용합니다. 그래서 CloudFront가 origin에 비밀 헤더(`X-Origin-Verify`, Terraform `random_password`)를 붙이고, compose 안의 Caddy가 헤더가 없거나 틀린 요청에 403을 돌려줍니다. 다른 배포를 거쳐 우리 WAF를 우회하는 길이 이것으로 막힙니다.
 - API 3001은 호스트에 공개하지 않습니다. 앱은 compose 고정 서브넷(`172.30.0.0/24`)만 trusted proxy(`AUTH_TRUSTED_PROXY_CIDRS`)로 믿고, Caddy는 CloudFront가 붙인 `X-Forwarded-For`를 그대로 넘깁니다. 앱 코드는 바꾸지 않았습니다.
-- **origin TLS:** `origin_domain_name`(예: `origin.harumaru.net`, EIP를 가리키는 A 레코드)을 설정하면 CloudFront→EC2가 HTTPS 443이 되고, Caddy가 SSM의 `ORIGIN_TLS_CERT_B64`·`ORIGIN_TLS_KEY_B64`(공인 CA 인증서와 키의 PEM을 base64로) 파일로 TLS를 엽니다. 기본값은 꺼짐(빈 값)입니다. EC2 기본 DNS(amazonaws.com)에는 공인 인증서를 받을 수 없어서 도메인이 있어야 합니다. 인증서 발급·갱신 방법(Let's Encrypt DNS-01 등)은 도메인을 정할 때 고릅니다.
+- **origin TLS:** `origin_domain_name`(예: `origin.harumaru.app`, EIP를 가리키는 A 레코드)을 설정하면 CloudFront→EC2가 HTTPS 443이 되고, Caddy가 SSM의 `ORIGIN_TLS_CERT_B64`·`ORIGIN_TLS_KEY_B64`(공인 CA 인증서와 키의 PEM을 base64로) 파일로 TLS를 엽니다. 기본값은 꺼짐(빈 값)입니다. EC2 기본 DNS(amazonaws.com)에는 공인 인증서를 받을 수 없어서 도메인이 있어야 합니다. 인증서 발급·갱신 방법(Let's Encrypt DNS-01 등)은 도메인을 정할 때 고릅니다.
 - 정액 요금제 제약에 맞췄습니다. 관리형 cache·origin request policy만 쓰고, cache behavior는 2개(한도 5), WAF 규칙은 4개(한도 5)입니다.
 - 도메인은 `domain_name`·`acm_certificate_arn` 변수로 나중에 붙입니다. 비어 있으면 `https://<id>.cloudfront.net`이 `BETTER_AUTH_URL`이자 하나뿐인 `TRUSTED_ORIGINS`가 됩니다.
 
@@ -32,10 +32,10 @@
 | `edge.tf`                 | CloudFront 배포, origin 비밀 헤더(값은 SSM에도 저장), WAF web ACL(us-east-1)                                              |
 | `registry.tf`             | ECR(태그 불변, push 시 스캔, 릴리스 10개 보존: `<SHA>`·`<SHA>-migrate`)                                                   |
 | `backup.tf`               | 백업 버킷(공개 차단, SSE, TLS 강제, 30일 수명주기)                                                                        |
-| `monitoring.tf`           | SNS 메일, 경보 7개(상태 검사+자동 복구, CPU, CPU 크레딧, 메모리, 디스크, CloudFront 5xx, 백업 누락), 로그 그룹 14일       |
+| `monitoring.tf`           | SNS 메일, 경보 7개(상태 검사+자동 복구, CPU, CPU 크레딧, 메모리, 디스크, CloudFront 5xx, 백업 누락), 로그 그룹 30일       |
 | `cost.tf`                 | 월 5,000엔(세포함)을 USD로 환산한 Budgets, 50/80/100% 실제·100% 예측 알림, 100% 초과 시 EC2 정지(기본 꺼짐), Cost Anomaly |
 | `github.tf`               | GitHub Actions OIDC 역할(`main`만, ECR push와 배포 문서 실행만)                                                           |
-| `operations.tf`           | 배포 SSM 문서, #57 계정 삭제 SSM 문서, 삭제 예약(**DISABLED**)                                                            |
+| `operations.tf`           | 배포 SSM 문서, #57 계정 삭제·#694 비회원 정리 SSM 문서와 예약(둘 다 매시, 기본 **DISABLED**)                              |
 | `files/`, `templates/`    | 호스트 compose, Caddyfile, 배포·환경·백업·삭제 스크립트, cloud-init                                                       |
 | `scripts/render-check.sh` | CI에서 cloud-init·compose·Caddyfile을 두 origin 모드로 렌더링해 검사                                                      |
 
@@ -43,7 +43,7 @@
 
 앱 비밀값은 Terraform이 만들지도 읽지도 않아서 state에 남지 않습니다. 예외는 origin 비밀 헤더 `ORIGIN_VERIFY_SECRET` 하나입니다. CloudFront 설정에 값이 들어가야 하므로 Terraform이 만들어 SSM에도 쓰고, 그래서 **state에 남습니다**. state는 운영자 로컬이나 암호화된 비공개 backend에만 둡니다. 첫 배포 전에 운영자가 아래 이름으로 SecureString을 한 번 씁니다(`output secret_parameter_names`). 호스트는 부팅·배포 때 tmpfs(`/run/harumaru`)로만 읽습니다.
 
-`/harumaru/<env>/POSTGRES_PASSWORD`, `DATABASE_URL`(`sslmode=require` 필수), `MIGRATION_DATABASE_URL`, `BETTER_AUTH_SECRET`, `GUEST_COOKIE_SECRET`(앞의 값과 달라야 함), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `PRODUCTION_DATABASE_URL`(계정 삭제 명령·migration 대상 확인용, API 런타임에는 넘기지 않음), DB login 비밀번호 `PROD_MIGRATION_LOGIN_PASSWORD`·`PROD_APP_LOGIN_PASSWORD`·`PROD_GUEST_CLEANUP_LOGIN_PASSWORD`(서로 다른 24자 이상, URL-safe). `DATABASE_URL`은 `nihongo_production_app_login`, `MIGRATION_DATABASE_URL`은 `nihongo_production_migration_login`과 같은 비밀번호를 쓰고 DB 이름은 `nihongo`입니다(`provision-db.sh`가 대조). origin TLS를 켤 때만 `ORIGIN_TLS_CERT_B64`, `ORIGIN_TLS_KEY_B64`도 씁니다.
+`/harumaru/<env>/POSTGRES_PASSWORD`, `DATABASE_URL`(`sslmode=require` 필수), `MIGRATION_DATABASE_URL`, `BETTER_AUTH_SECRET`, `GUEST_COOKIE_SECRET`(앞의 값과 달라야 함), `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`(로그인은 Google뿐이라 없으면 `render-env.sh`가 배포와 부팅을 멈춤), `PRODUCTION_DATABASE_URL`(계정 삭제 명령·migration 대상 확인용, API 런타임에는 넘기지 않음), DB login 비밀번호 `PROD_MIGRATION_LOGIN_PASSWORD`·`PROD_APP_LOGIN_PASSWORD`·`PROD_GUEST_CLEANUP_LOGIN_PASSWORD`(서로 다른 24자 이상, URL-safe). `DATABASE_URL`은 `nihongo_production_app_login`, `MIGRATION_DATABASE_URL`은 `nihongo_production_migration_login`과 같은 비밀번호를 쓰고 DB 이름은 `nihongo`입니다(`provision-db.sh`가 대조). origin TLS를 켤 때만 `ORIGIN_TLS_CERT_B64`, `ORIGIN_TLS_KEY_B64`도 씁니다. 약관·문의 화면의 보호책임자·문의 메일은 선택값 `LEGAL_PRIVACY_OFFICER`·`LEGAL_CONTACT_EMAIL`(`output legal_parameter_names`)이고, PRODUCTION 전에만 넣습니다. `render-env.sh`가 `/var/lib/harumaru/web/legal-settings.json`으로 쓰고 api가 `/app/web/legal-settings.json`으로 읽기 전용 마운트합니다. 없으면(STAGING) `{}`라 화면은 대체 문구를 씁니다(#705, [runbook](../../operations/runbooks/production-database.v1.md) "Legal contact").
 
 ```sh
 aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUTH_SECRET --value "$(openssl rand -base64 48)"
@@ -53,9 +53,9 @@ aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUT
 
 1. `main` 병합 → `.github/workflows/release-image.yml`(arm64)이 OIDC 역할로 `ECR:<SHA>`(런타임)와 `ECR:<SHA>-migrate`(Dockerfile `migrate` 단계, Prisma CLI와 migration만)를 push. 저장소 변수 `AWS_DEPLOY_ROLE_ARN`·`ECR_REPOSITORY_URL`·`AWS_REGION`을 넣기 전에는 건너뜁니다.
 2. `aws ssm send-command --document-name harumaru-<env>-deploy --parameters releaseId=<SHA>`
-3. 호스트의 `deploy.sh`: 비밀값 갱신 → 두 이미지 pull → postgres 기동 → `provision-db.sh`(DB 역할 생성·검증) → `migrate.sh`(S3에 `pg_dump` 스냅샷 → `prisma migrate deploy` 1회성 컨테이너) → `register-capability.sh`(빈 DB면 `DatabaseCapability` 등록, 있으면 확인만, 어긋나면 중단) → (태그 적재, BE 명령 준비 중) → api 재시작 → `/health/ready`의 `x-release-id` 확인 → 실패하면 직전 이미지로 롤백
+3. 호스트의 `deploy.sh`: 비밀값 갱신 → 두 이미지 pull → postgres 기동 → `provision-db.sh`(DB 역할 생성·검증) → `migrate.sh`(S3에 `pg_dump` 스냅샷 → `prisma migrate deploy` 1회성 컨테이너) → `register-capability.sh`(빈 DB면 `DatabaseCapability` 등록, 있으면 확인만, 어긋나면 중단) → api 재시작 → `/health/ready`의 `x-release-id` 확인 → 실패하면 직전 이미지로 롤백
 
-절차·롤백은 [operations/runbooks/production-database.v1.md](../../operations/runbooks/production-database.v1.md)에 있습니다.
+절차·롤백은 [operations/runbooks/production-database.v1.md](../../operations/runbooks/production-database.v1.md)에 있습니다. 태그 적재와 문제 가져오기는 첫 배포 뒤 운영자가 따로 합니다: 첫 관리자 → [question-import.v1.md](../../operations/runbooks/question-import.v1.md)(태그 18 → 373문제 → 일괄 검수 요청·승인·공개, 약 45분).
 
 **로컬 확인:** 빈 DB 첫 배포를 PRODUCTION과 STAGING(#649 뒤) 모두 로컬에서 끝까지 확인했습니다. STAGING도 capability 행은 `PRODUCTION`으로 들어갑니다(런북 'Local rehearsal').
 
@@ -63,10 +63,16 @@ aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUT
 
 - `harumaru-<env>-erase-deletion-pending` SSM 문서가 `erase-deletion-pending.sh`를 실행합니다. 이 스크립트는 배포된 이미지로 `node api/dist/auth/ssoAccountErasureCommand.js`(= `auth:erase-deletion-pending:compiled`)를 한 번 돌립니다. 종료 코드 0이면 남은 일이 없고, 1이면 실패했거나 일이 남았습니다.
 - 수동 실행: `aws ssm send-command --document-name harumaru-<env>-erase-deletion-pending --instance-ids <id>`
-- 예약: EventBridge Scheduler가 매일 03:00 JST에 실행하도록 만들어 두었지만 `state = DISABLED`입니다. `erasure_schedule_enabled = true`는 소유자 승인 뒤에만 켭니다.
+- 예약: EventBridge Scheduler가 매시 정각(JST)에 실행합니다. 기본값은 `state = DISABLED`이고, apply 때 `erasure_schedule_enabled = true`로 켭니다(#670). STAGING도 같은 PRODUCTION 값으로 돕니다.
 - 스크립트는 이 명령에만 `ACCOUNT_ERASURE_ENVIRONMENT=PRODUCTION`, `ACCOUNT_ERASURE_CONFIRM=ERASE_DELETION_PENDING_ACCOUNTS`, `PRODUCTION_DATABASE_URL`(SSM)을 환경 변수로 넘깁니다(명령줄 인자에는 나타나지 않음).
-- `DEPLOYMENT_ENVIRONMENT=STAGING`이면 DB에 접근하기 전에 거부합니다. CLI가 `TEST|DEVELOPMENT|PRODUCTION`만 받기 때문입니다(STAGING 지원 여부는 BE 결정).
-- 명령 자체가 credentialed revoke adapter 없이는 PRODUCTION을 거부합니다(BE 소관). 그래서 지금 켜도 매번 실패합니다.
+- STAGING 호스트도 DB는 PRODUCTION 형태(capability `PRODUCTION`)라 같은 값으로 돌고, 실제 대상은 `PRODUCTION_DATABASE_URL`과 정확히 같은지로 묶입니다.
+- #696부터 앱이 provider 토큰을 보관하지 않으므로 provider 정리는 `NOT_HELD`로 완료 처리되고 앱 데이터를 지웁니다.
+
+## #694 비회원 데이터 정리
+
+- `harumaru-<env>-guest-cleanup` SSM 문서가 `guest-cleanup.sh`로 배포된 이미지의 `studyGuestCleanupRuntime.js`를 한 번 돌립니다. 만료 7일 지난 비회원 기록·임시저장, 비회원 식별자, 끝난 재요청 기록, 제한 창이 끝나고 7일 지난 요청 제한 기록을 지웁니다. 한 번에 최대 1,000행이고, 남으면 종료 코드 1입니다.
+- 예약은 매시 30분(Asia/Tokyo)이고 기본 `DISABLED`입니다. `guest_cleanup_schedule_enabled = true`로 켭니다. 절차는 [operations/runbooks/guest-cleanup-worker.v1.md](../../operations/runbooks/guest-cleanup-worker.v1.md) 'AWS host'.
+- 회원의 만료 임시저장 정리(`studyDraftCleanupCommand`)는 아직 운영 환경을 거부해서 여기 없습니다(BE 변경, 배포 이후 #699).
 
 ## 비용 방어
 
@@ -90,12 +96,12 @@ EC2와 백업 버킷은 CloudFront나 IAM으로만 접근됩니다. WAF는 IP별
 
 ## DNS (Cloudflare, Route 53 없음)
 
-도메인 harumaru.net은 AWS 밖(Cloudflare 등)에서 삽니다. 구매 시점은 아직 정하지 않았고, **그 전에는 apply하지 않습니다**(남는 위험 절). Route 53 hosted zone은 만들지 않습니다. 산 뒤 할 일:
+도메인 harumaru.app은 AWS 밖 Cloudflare Registrar에서 삽니다. PRODUCTION은 **도메인을 산 뒤에 apply합니다**(남는 위험 절). STAGING은 `*.cloudfront.net` 주소로 운영합니다. `.app`은 브라우저가 HTTPS로만 여는 TLD(HSTS preload)입니다. CloudFront는 이미 http를 https로 돌리고, 쿠키는 `__Secure-`·`__Host-`라 그대로 맞습니다. 아래 DNS 검증(ACM CNAME, Let's Encrypt DNS-01, Search Console TXT)은 브라우저를 거치지 않아 영향이 없습니다. Route 53 hosted zone은 만들지 않습니다. 산 뒤 할 일:
 
-1. us-east-1 ACM에서 `harumaru.net` 인증서를 DNS 검증으로 요청하고, ACM이 주는 검증 CNAME을 Cloudflare DNS에 넣습니다. 발급되면 ARN을 `acm_certificate_arn`에, `harumaru.net`을 `domain_name`에 넣습니다.
-2. Cloudflare에 `harumaru.net` → `<id>.cloudfront.net` CNAME을 만듭니다(apex는 Cloudflare CNAME flattening). **프록시는 끕니다(DNS only, 회색 구름).** 켜면 Cloudflare가 CloudFront 앞에 한 겹 더 서서 TLS·캐시·클라이언트 IP가 꼬입니다.
-3. origin TLS: Cloudflare에 `origin.harumaru.net` A 레코드 → EIP(`output`의 공인 IP)를 DNS only로 만들고 `origin_domain_name = "origin.harumaru.net"`을 설정합니다. 인증서는 공인 CA여야 하므로 Cloudflare Origin CA 인증서는 쓸 수 없습니다(CloudFront가 믿지 않음). Let's Encrypt DNS-01(Cloudflare API 토큰) 등으로 받아 SSM `ORIGIN_TLS_CERT_B64`·`ORIGIN_TLS_KEY_B64`에 넣습니다. 발급·갱신 방식은 그때 정합니다.
-4. 도메인을 붙이면 `BETTER_AUTH_URL`·`TRUSTED_ORIGINS`가 `https://harumaru.net`으로 바뀌므로, Google OAuth 클라이언트의 redirect URI도 새 `google_oauth_redirect_uri`로 바꿉니다.
+1. us-east-1 ACM에서 `harumaru.app` 인증서를 DNS 검증으로 요청하고, ACM이 주는 검증 CNAME을 Cloudflare DNS에 넣습니다. 발급되면 ARN을 `acm_certificate_arn`에, `harumaru.app`을 `domain_name`에 넣습니다.
+2. Cloudflare에 `harumaru.app` → `<id>.cloudfront.net` CNAME을 만듭니다(apex는 Cloudflare CNAME flattening). **프록시는 끕니다(DNS only, 회색 구름).** 켜면 Cloudflare가 CloudFront 앞에 한 겹 더 서서 TLS·캐시·클라이언트 IP가 꼬입니다.
+3. origin TLS: Cloudflare에 `origin.harumaru.app` A 레코드 → EIP(`output`의 공인 IP)를 DNS only로 만들고 `origin_domain_name = "origin.harumaru.app"`을 설정합니다. 인증서는 공인 CA여야 하므로 Cloudflare Origin CA 인증서는 쓸 수 없습니다(CloudFront가 믿지 않음). Let's Encrypt DNS-01(Cloudflare API 토큰) 등으로 받아 SSM `ORIGIN_TLS_CERT_B64`·`ORIGIN_TLS_KEY_B64`에 넣습니다. 발급·갱신 방식은 그때 정합니다.
+4. 도메인을 붙이면 `BETTER_AUTH_URL`·`TRUSTED_ORIGINS`가 `https://harumaru.app`으로 바뀌므로, Google OAuth 클라이언트의 redirect URI도 새 `google_oauth_redirect_uri`로 바꿉니다.
 
 ## 검증
 
@@ -114,4 +120,4 @@ EC2와 백업 버킷은 CloudFront나 IAM으로만 접근됩니다. WAF는 IP별
 1. SNS·Budgets·Cost Anomaly 메일 구독 확인
 2. CloudFront 콘솔에서 배포를 **Free 정액 요금제**에 가입(Terraform 미지원). 계정이 AWS Free plan이면 가입할 수 없으므로 유료 전환 뒤에 합니다.
 3. 비밀값 SSM 등록 → Google OAuth 클라이언트에 `output google_oauth_redirect_uri` 등록 → 첫 배포
-4. 백업 복구 연습(#40): 최신 dump를 새 컨테이너에 `pg_restore`
+4. 백업 되살리기 시험: [operations/runbooks/recovery.v1.md](../../operations/runbooks/recovery.v1.md)의 'STAGING 첫 배포 직후' 절

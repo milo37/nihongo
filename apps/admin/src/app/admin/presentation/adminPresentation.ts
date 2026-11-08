@@ -7,6 +7,7 @@ const adminErrorKeys = {
   VERSION_CONFLICT: 'errors.versionConflict',
   INVALID_STATE_TRANSITION: 'errors.invalidState',
   DUPLICATE_QUESTION_CONTENT: 'errors.duplicateQuestionContent',
+  TAG_SUBJECT_MISMATCH: 'editor.tagPicker.subjectMismatch',
   INVALID_ID: 'errors.invalidId',
   INVALID_REQUEST: 'errors.invalidRequest',
   VALIDATION_ERROR: 'errors.validation',

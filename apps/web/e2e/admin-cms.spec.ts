@@ -22,6 +22,7 @@ import {
   getAdminQuestionResponseSchema,
   listAdminQuestionsErrorSchema,
   listAdminQuestionsResponseSchema,
+  listAdminTagsResponseSchema,
   previewQuestionVersionResponseSchema,
   updateQuestionVersionErrorSchema,
   updateQuestionVersionRequestSchema,
@@ -162,11 +163,16 @@ const login = async (
   expect(started.status).toBe(200)
   // Keep bootstrap requests in their document until all ledger events complete.
   await waitForLedgerToQuiesce(ledger)
+  // The signed-in practice page reads resumable sessions only after /me
+  // settles, which can be after the ledger looks quiet; wait for it so the
+  // next navigation does not abort it.
+  const resumable = waitForResponse(page, 'GET', '/api/v1/study-sessions')
   // Enter the installed TEST provider callback; no credentials, cookies or session state are injected.
   await page.goto(callbackPath(started.body, actor))
   await expect(page).toHaveURL(
     (url) => url.origin === publicOrigin && url.pathname === '/practice'
   )
+  expect((await resumable).status()).toBe(200)
   await confirmActor(page, actor)
   await waitForLedgerToQuiesce(ledger)
 }
@@ -378,14 +384,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
       item.questionType === 'GRAMMAR_SELECT'
   )
   if (!seed)
-    throw new Error(
-      'The canonical N3 grammar-select catalog must supply an existing applicable tag.'
-    )
-  const tag = seed.tags[0]
-  if (!tag)
-    throw new Error(
-      'The existing catalog tag is required; do not create a test-only tag.'
-    )
+    throw new Error('The canonical N3 grammar-select catalog is required.')
   await expect(
     page.getByRole('heading', { name: '문제 관리', exact: true })
   ).toBeVisible()
@@ -415,7 +414,22 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
   await page
     .getByLabel('한국어 해설', { exact: true })
     .fill('행동이 이루어지는 장소에는 조사 で를 씁니다.')
-  await page.getByLabel('태그', { exact: true }).fill(tag.label)
+  // Tags are picked from the subject's list (#662), which holds the loaded
+  // tag list file (#707); do not create a test-only tag.
+  const tagSearch = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'GET' &&
+      new URL(response.url()).pathname === '/api/v1/admin/tags' &&
+      new URL(response.url()).searchParams.has('q')
+  )
+  await page.getByRole('combobox', { name: '태그', exact: true }).fill('조사')
+  const listed = listAdminTagsResponseSchema
+    .parse(await canonicalJson(await tagSearch, 200))
+    .items.find((item) => item.label === '조사')
+  if (listed?.subject !== 'GRAMMAR')
+    throw new Error('The loaded GRAMMAR tag 조사 is required.')
+  const { subject: _subject, ...tag } = listed
+  await page.getByRole('option', { name: tag.label, exact: true }).click()
   const createResponse = waitForResponse(
     page,
     'POST',
@@ -545,7 +559,10 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
     const archivePath = `/api/v1/admin/questions/${questionId}/archive`
     const openArchive = async (): Promise<void> => {
       await winner
-        .getByRole('button', { name: `${questionId} 초안 삭제`, exact: true })
+        .getByRole('button', { name: `${questionId} 작업`, exact: true })
+        .click()
+      await winner
+        .getByRole('menuitem', { name: '초안 삭제', exact: true })
         .click()
       await expect(
         winner.getByRole('dialog', {
@@ -576,16 +593,19 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
         staleResponse.request().postDataJSON() as unknown
       )
     ).toEqual(expectedArchive)
-    await winner
-      .getByRole('link', { name: '관리자 재인증', exact: true })
-      .click()
-    await expect(winner).toHaveURL(
-      (url) =>
-        url.origin === publicOrigin &&
-        url.pathname === '/login' &&
-        url.searchParams.get('redirect') === '/admin/questions' + query
+    // Same dialog, same tab: the command gives way to the check.
+    const archiveDialog = winner.getByRole('dialog')
+    await expect(archiveDialog.getByRole('alert')).toContainText(
+      '본인 확인 시간이 끝나 ‘초안 삭제’ 작업을 적용하지 않았습니다.'
     )
-    await confirmActor(winner, author)
+    await expect(
+      archiveDialog.getByRole('button', { name: '초안 삭제', exact: true })
+    ).toHaveCount(0)
+    const reauthButton = archiveDialog.getByRole('button', {
+      name: '본인 확인',
+      exact: true
+    })
+    await expect(reauthButton).toBeFocused()
     await waitForLedgerToQuiesce(ledger)
     const returnedDocuments: Array<{
       origin: string
@@ -624,9 +644,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
       const [started, authorizationRequest] = await Promise.all([
         startResponse,
         providerRequest,
-        winner
-          .getByRole('button', { name: 'Google로 계속하기', exact: true })
-          .click()
+        reauthButton.click()
       ])
       expect(
         adminFreshSsoRequestSchema.parse(
@@ -667,6 +685,13 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
       expect(returnedDocuments).toEqual([
         { origin: publicOrigin, path: '/admin/questions', status: 200 }
       ])
+      // The server result is checked before it is shown; the top bar counts.
+      await expect(
+        winner.locator('[data-reauth-result="returned"]')
+      ).toContainText('본인 확인을 마쳤습니다(30분 유효).')
+      await expect(
+        winner.getByText('본인 확인 · 30분 남음', { exact: true })
+      ).toBeVisible()
       await confirmActor(winner, author)
       await waitForLedgerToQuiesce(ledger)
       expect(
@@ -703,7 +728,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
       })
       await expect(
         winner.getByRole('button', {
-          name: `${questionId} 초안 삭제`,
+          name: `${questionId} 작업`,
           exact: true
         })
       ).toHaveCount(0)
@@ -785,7 +810,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
         '/api/v1/admin/questions/import-validation'
       )
       await winner
-        .getByRole('button', { name: '쓰기 없이 검증', exact: true })
+        .getByRole('button', { name: '검사하기', exact: true })
         .click()
       expect(
         adminImportValidationResponseSchema.parse(
@@ -798,7 +823,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
         '/api/v1/admin/questions/import-application'
       )
       await winner
-        .getByRole('button', { name: '동일 검증 결과 원자 적용', exact: true })
+        .getByRole('button', { name: '1개 초안으로 가져오기', exact: true })
         .click()
       const appliedResponse = await applyResponse
       const { importId } = applyQuestionImportRequestSchema.parse(

@@ -71,11 +71,11 @@ until the baseline migration hands it to `nihongo_owner`.
 6. Only then the new API starts. If step 3, 4 or 5 fails, `.env` is pointed
    back at the running release and the old API keeps serving.
 
-After the first deploy, in this order: the tag list ("Tag list load" below),
-then the first admin (`first-admin.v1.md`), then question import. The API does
-not need tags to start; question import does. `deploy.sh` does not load tags
-yet, because where the final `tags.v2.json` lives (repository or server file)
-is decided when the owner approves the list.
+After the first deploy: the first admin (`first-admin.v1.md`), then the tag
+list and the questions (`question-import.v1.md`). The API does not need tags to
+start; question import does. `deploy.sh` does not load tags: the list is
+`content/taxonomy/tags.v2.json` in the repository, fetched onto the host for
+the operator command.
 
 The row records the server address the API connects to. Compose gives the
 `db` network a fixed subnet (`172.30.1.0/24`) and postgres a fixed address
@@ -138,20 +138,48 @@ Notes:
 - Failure lines and dry run lines have no `occurredAt`; only
   `tag_list_loaded` does. Keep the SSM invocation time as the time of a failed
   or dry run.
-- The path `/opt/harumaru/content/tags.v2.json` is an example until the
-  location is decided.
+- `question-import.v1.md` step 1 fetches the file of the deployed release to
+  `/opt/harumaru/content/tags.v2.json`.
 
 Checked locally (release `8f229404`, empty database, the 3-tag sample
 `apps/api/test/fixtures/content/tags.v2.sample.json`): dry run `created:3`,
 load `created:3`, second load `unchanged:3`, the API stayed ready (200).
 
+## Legal contact (before PRODUCTION opens, #705)
+
+`/legal` and `/support` show the privacy officer's name and the contact mail
+from `/legal-settings.json`, which the host writes from two optional SSM
+values; the repository, Terraform and the image never hold them. STAGING leaves
+both unset and the pages show the fallback copy. On the operator machine, type
+each value at the prompt (not on the command line, so it stays out of shell
+history):
+
+```sh
+for name in LEGAL_PRIVACY_OFFICER LEGAL_CONTACT_EMAIL; do
+  printf "%s: " "$name"; read -r value
+  aws ssm put-parameter --type SecureString --overwrite \
+    --name "/harumaru/production/$name" --value "$value"
+done
+```
+
+Then in a Session Manager shell on the host, `sudo /opt/harumaru/bin/render-env.sh`
+(or the next deploy) rewrites the file; the API reads it without a restart.
+
+`render-env.sh` refuses a blank value or one over 200 characters. Check the
+page shows both values; to remove them, `aws ssm delete-parameter` and deploy
+again.
+
 ## Rollback
 
-- Migrations are forward-only; the previous API image must accept the new
-  schema (already a deploy rule). To undo a schema change, add a reverse
+- Migrations are forward-only. To undo a schema change, add a reverse
   migration (backend) and deploy it.
-- Data loss or a broken migration: restore the `pre-migrate` dump into a new
-  database, verify, then switch. Follow `recovery.v1.md` stop gates.
+- A release that adds a migration cannot be undone by going back to the
+  previous image: its readiness check refuses a database with more migrations
+  than it knows (`assertMigrationCompatibility`), so `deploy.sh`'s automatic
+  rollback does not become ready either. Fix forward: deploy a corrected
+  release on top of the new schema.
+- Data loss or a broken migration: restore the `pre-migrate` dump with
+  `recovery.v1.md` path A (the damaged database is kept under another name).
 - Roles: before any user data exists, `DROP OWNED BY` and `DROP ROLE` reverse
   provisioning. Afterwards never drop roles; rotate the SSM password and
   redeploy, or `ALTER ROLE ... NOLOGIN` to lock a wrapper.
@@ -170,5 +198,5 @@ again; a wrong port or another environment in the row stopped the script.
 STAGING (after #649, release `0d2f860d`): the same empty-database run with
 `DEPLOYMENT_ENVIRONMENT=STAGING` registered the row as `PRODUCTION`
 (`nihongo|172.30.1.10|5432|PRODUCTION`), `/health/ready` returned 200, and a
-second run kept the row (`capability current`). The first-admin command still
-refuses STAGING (exit 1), as intended.
+second run kept the row (`capability current`). The first-admin command
+refused STAGING at that release; #693 allows it.

@@ -15,7 +15,8 @@ import { ApplicationError } from '../errors/applicationError.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
 import type { QuestionReader } from '../question/questionService.js'
-import { toFieldErrors } from './routeSupport.js'
+import type { PrincipalService } from '../auth/principalService.js'
+import { appendAuthHeaders, toFieldErrors } from './routeSupport.js'
 
 type QuestionRouteEnvironment = { Variables: ApiVariables }
 type QuestionReadOperation = 'question-list-read' | 'question-detail-read'
@@ -25,9 +26,16 @@ interface QuestionReadSecurityDependencies {
   readonly rateLimiter: ApplicationRateLimiter
 }
 
+interface QuestionMemberDependencies {
+  readonly environment: ApiEnvironment
+  readonly principalService: PrincipalService
+}
+
 interface QuestionRouteDependencies {
   readonly questionReader: QuestionReader
   readonly questionReadSecurity: QuestionReadSecurityDependencies | undefined
+  /** Signed-in members only (#737); absent only in auth-less test apps. */
+  readonly members?: QuestionMemberDependencies
 }
 
 const QUESTION_READ_MAX = 120
@@ -35,9 +43,31 @@ const QUESTION_READ_WINDOW_MILLISECONDS = 60_000
 
 export const createQuestionRoutes = ({
   questionReader,
-  questionReadSecurity
+  questionReadSecurity,
+  members
 }: QuestionRouteDependencies): Hono<QuestionRouteEnvironment> => {
   const routes = new Hono<QuestionRouteEnvironment>()
+  // Guests only see questions inside their limited sessions (#737).
+  const requireMember = async (
+    context: Context<QuestionRouteEnvironment>
+  ): Promise<void> => {
+    if (!members) return
+    const resolution = await members.principalService.resolveAuthenticatedUser(
+      context.req.raw.headers
+    )
+    appendAuthHeaders(context, resolution, members.environment)
+    if (!resolution.user) {
+      throw new ApplicationError({
+        code: resolution.clearSessionCookie
+          ? 'AUTH_SESSION_EXPIRED'
+          : 'AUTHENTICATION_REQUIRED',
+        message: resolution.clearSessionCookie
+          ? '로그인 세션이 만료됐습니다.'
+          : '문제 조회는 로그인이 필요합니다.',
+        retryable: false
+      })
+    }
+  }
   const clientIpAuthority = questionReadSecurity
     ? createClientIpAuthority(
         questionReadSecurity.environment.AUTH_TRUSTED_PROXY_CIDRS
@@ -76,6 +106,7 @@ export const createQuestionRoutes = ({
 
   routes.get('/', async (context) => {
     await consumeQuestionReadRateLimit(context, 'question-list-read')
+    await requireMember(context)
     let query
 
     try {
@@ -103,6 +134,7 @@ export const createQuestionRoutes = ({
 
   routes.get('/:questionId', async (context) => {
     await consumeQuestionReadRateLimit(context, 'question-detail-read')
+    await requireMember(context)
     let params
 
     try {

@@ -680,26 +680,30 @@ describe('Admin command contracts', () => {
     ).toThrow()
   })
 
-  it('reauth success window를 정확히 5분으로 닫는다', () => {
+  it('reauth success window를 정확히 30분으로 닫는다', () => {
     expect(
       reauthenticateAdminResponseSchema.parse({
         reauthenticatedAt: '2026-08-29T12:00:00+09:00',
-        assuranceExpiresAt: '2026-08-29T12:05:00+09:00'
+        assuranceExpiresAt: '2026-08-29T12:30:00+09:00'
       })
     ).toEqual({
       reauthenticatedAt: '2026-08-29T03:00:00.000Z',
-      assuranceExpiresAt: '2026-08-29T03:05:00.000Z'
+      assuranceExpiresAt: '2026-08-29T03:30:00.000Z'
     })
+    for (const assuranceExpiresAt of [
+      '2026-08-29T03:05:00.000Z',
+      '2026-08-29T03:30:00.001Z'
+    ])
+      expect(
+        reauthenticateAdminResponseSchema.safeParse({
+          reauthenticatedAt: occurredAt,
+          assuranceExpiresAt
+        }).success
+      ).toBe(false)
     expect(
       reauthenticateAdminResponseSchema.safeParse({
         reauthenticatedAt: occurredAt,
-        assuranceExpiresAt: '2026-08-29T03:05:00.001Z'
-      }).success
-    ).toBe(false)
-    expect(
-      reauthenticateAdminResponseSchema.safeParse({
-        reauthenticatedAt: occurredAt,
-        assuranceExpiresAt: '2026-08-29T03:05:00.000Z',
+        assuranceExpiresAt: '2026-08-29T03:30:00.000Z',
         sessionToken: 'secret'
       }).success
     ).toBe(false)
@@ -707,14 +711,16 @@ describe('Admin command contracts', () => {
 
   it('13 command의 closed error union을 common transport와 domain code로 exact 고정한다', () => {
     expectExactCodes(createAdminQuestionErrorCodeSchema.options, [
-      'DUPLICATE_QUESTION_CONTENT'
+      'DUPLICATE_QUESTION_CONTENT',
+      'TAG_SUBJECT_MISMATCH'
     ])
     expectExactCodes(createAdminQuestionVersionErrorCodeSchema.options, [
       'INVALID_ID',
       'RESOURCE_NOT_FOUND',
       'VERSION_CONFLICT',
       'INVALID_STATE_TRANSITION',
-      'DUPLICATE_QUESTION_CONTENT'
+      'DUPLICATE_QUESTION_CONTENT',
+      'TAG_SUBJECT_MISMATCH'
     ])
     expectExactCodes(updateQuestionVersionErrorCodeSchema.options, [
       'FORBIDDEN',
@@ -723,7 +729,8 @@ describe('Admin command contracts', () => {
       'VERSION_CONFLICT',
       'QUESTION_VERSION_IMMUTABLE',
       'INVALID_STATE_TRANSITION',
-      'DUPLICATE_QUESTION_CONTENT'
+      'DUPLICATE_QUESTION_CONTENT',
+      'TAG_SUBJECT_MISMATCH'
     ])
     expectExactCodes(archiveAdminQuestionErrorCodeSchema.options, [
       'FRESH_ASSURANCE_REQUIRED',

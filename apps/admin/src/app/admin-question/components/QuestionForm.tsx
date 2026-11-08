@@ -41,6 +41,8 @@ type QuestionFormProps = {
   submittingLabel: string
   cancelHref?: string
   serverError?: string
+  /** A save rejected for its tags; shown on the tag field, which gets focus. */
+  serverTagError?: string
 }
 
 export const QuestionForm = ({
@@ -51,6 +53,7 @@ export const QuestionForm = ({
   isSubmitting,
   onSubmit,
   serverError,
+  serverTagError,
   submitLabel,
   submittingLabel
 }: QuestionFormProps): ReactElement => {
@@ -82,12 +85,14 @@ export const QuestionForm = ({
   const subject = useWatch({ control, name: 'subject' })
   const correctOptionId = useWatch({ control, name: 'correctOptionId' })
   const fields: QuestionFormFields = {
+    control,
     register,
     errors,
     localError,
     setValue,
     subject,
-    correctOptionId
+    correctOptionId,
+    tagServerError: serverTagError
   }
   const shouldBlockNavigation = isDirty && !isSubmitting && !isFormSubmitting
   const blocker = useBlocker(shouldBlockNavigation)
@@ -114,6 +119,11 @@ export const QuestionForm = ({
       return
     }
 
+    if (formErrors.tags) {
+      setFocus('tags')
+      return
+    }
+
     if (formErrors.correctOptionId) {
       document
         .getElementById('correct-answer-group')
@@ -125,8 +135,9 @@ export const QuestionForm = ({
   // On mobile the alert sits above the fold; move focus (and the view) to it.
   const serverErrorRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (serverError) serverErrorRef.current?.focus()
-  }, [serverError])
+    if (serverTagError) setFocus('tags')
+    else if (serverError) serverErrorRef.current?.focus()
+  }, [serverError, serverTagError, setFocus])
 
   const submitForm = handleSubmit(async (values) => {
     if (readOnly) return

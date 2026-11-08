@@ -67,7 +67,9 @@ describe('ADMIN 8 hour absolute session limit', () => {
 
   it('exposes the fresh sign-in window end only when the session is fresh', async () => {
     const result = await resolve(createService('ADMIN', 60_000, true))
-    expect(result.user?.adminFreshUntil).toBe('2026-11-03T00:05:00.000Z')
+    expect(result.user?.adminFreshUntil).toBe('2026-11-03T00:30:00.000Z')
+    // #683: the server clock travels in the Date header, not the body.
+    expect(result.user).not.toHaveProperty('adminServerTime')
   })
 
   it('expires the admin session at exactly 8 hours', async () => {

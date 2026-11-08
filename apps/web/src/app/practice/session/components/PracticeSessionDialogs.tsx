@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement, RefObject } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
@@ -6,32 +7,53 @@ import type { SubmissionConnectivityCode } from '@app/practice/hooks/useSubmissi
 import { usePracticeNumberFormat } from '@app/practice/hooks/usePracticeNumberFormat'
 
 type PracticeNavigationGuardDialogProps = {
+  isGuest: boolean
   isSaving: boolean
   onContinue: () => void
+  onLeave: () => void
   onSaveAndLeave: () => void
   open: boolean
 }
 
 export const PracticeNavigationGuardDialog = ({
+  isGuest,
   isSaving,
   onContinue,
+  onLeave,
   onSaveAndLeave,
   open
 }: PracticeNavigationGuardDialogProps): ReactElement => {
   const { t } = useTranslation('practice')
+  const keepRef = useRef<HTMLButtonElement>(null)
+  // A guest cannot resume, so leaving drops this try (U4 G3).
+  const copy = isGuest ? 'session.exitGuest' : 'session.navigationGuard'
   return (
     <Dialog
       open={open}
-      title={t('session.navigationGuard.title')}
-      description={t('session.navigationGuard.description')}
+      title={t(`${copy}.title`)}
+      description={t(`${copy}.description`)}
+      initialFocusRef={keepRef}
       footer={
         <>
-          <Button variant="secondary" disabled={isSaving} onClick={onContinue}>
-            {t('session.navigationGuard.continue')}
+          <Button
+            ref={keepRef}
+            variant="secondary"
+            disabled={isSaving}
+            onClick={onContinue}
+          >
+            {t(
+              isGuest
+                ? 'session.exitGuest.keep'
+                : 'session.navigationGuard.continue'
+            )}
           </Button>
-          <Button isLoading={isSaving} onClick={onSaveAndLeave}>
-            {t('session.navigationGuard.saveAndLeave')}
-          </Button>
+          {isGuest ? (
+            <Button onClick={onLeave}>{t('session.exitGuest.leave')}</Button>
+          ) : (
+            <Button isLoading={isSaving} onClick={onSaveAndLeave}>
+              {t('session.navigationGuard.saveAndLeave')}
+            </Button>
+          )}
         </>
       }
       preventClose={isSaving}
@@ -40,7 +62,13 @@ export const PracticeNavigationGuardDialog = ({
           onContinue()
         }
       }}
-    />
+    >
+      {isGuest ? (
+        <p className="text-sm leading-6 text-muted">
+          {t('session.exitGuest.countNotBack')}
+        </p>
+      ) : null}
+    </Dialog>
   )
 }
 

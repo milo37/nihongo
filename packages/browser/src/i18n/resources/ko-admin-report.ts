@@ -7,12 +7,7 @@ export const koAdminReportResources = {
     invalidQuery:
       'URL 검색 조건이 허용 범위를 벗어났습니다. 기본 조건을 사용합니다.',
     status: '처리 상태',
-    allStatuses: '전체 상태',
     kind: '유형',
-    allKinds: '전체 유형',
-    pageSize: '페이지당 개수',
-    apply: '필터 적용',
-    reset: '필터 초기화',
     loading: '제보를 불러오는 중입니다…',
     refreshing: '제보 목록을 갱신하고 있습니다…',
     error: '제보 목록을 불러오지 못했습니다.',
@@ -21,13 +16,13 @@ export const koAdminReportResources = {
     retry: '제보 목록 다시 확인',
     emptyTitle: '처리할 제보가 없습니다.',
     emptyDescription: '현재 조건에 맞는 제보가 없습니다.',
-    total: '제보 {{formattedCount}}건',
-    location: '발생 위치',
-    createdAt: '접수 시각',
     details: '상세 보기',
-    previous: '이전 페이지',
-    next: '다음 페이지',
-    first: '첫 페이지로'
+    columns: {
+      statusKind: '상태·종류',
+      content: '내용',
+      locationTime: '발생 위치·시각',
+      link: '상세 보기'
+    }
   },
   detail: {
     back: '버그 리포트 목록',
@@ -66,6 +61,26 @@ export const koAdminReportResources = {
       '메모 칸을 다른 관리자가 저장한 최신 메모로 바꿨습니다. 내가 쓴 메모는 아래에 따로 남겨 두었습니다.',
     myDraft: '내가 쓴 메모',
     restoreDraft: '내 메모 다시 넣기'
+  },
+  location: {
+    question: '{{screen}} · {{ordinal}}번 문제',
+    unknown: '기타 화면 ({{raw}})',
+    screens: {
+      home: '첫 화면',
+      login: '로그인',
+      dashboard: '학습 홈',
+      practiceSetup: '연습 설정',
+      practiceSession: '문제 풀이',
+      result: '결과 화면',
+      wrongNoteCenter: '복습',
+      wrongNoteDetail: '해설 보기',
+      bookmarks: '책갈피',
+      legal: '약관·정책',
+      accountData: '계정 데이터 안내',
+      support: '지원 안내',
+      forbidden: '접근 권한 없음',
+      page: '기타 화면'
+    }
   },
   statuses: {
     RECEIVED: '접수됨',

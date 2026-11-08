@@ -43,7 +43,7 @@ variable "data_volume_gib" {
 }
 
 variable "domain_name" {
-  description = "Custom domain (for example harumaru.net). Empty = use the *.cloudfront.net address."
+  description = "Custom domain (for example harumaru.app). Empty = use the *.cloudfront.net address."
   type        = string
   default     = ""
 }
@@ -60,7 +60,7 @@ variable "acm_certificate_arn" {
 }
 
 variable "origin_domain_name" {
-  description = "Origin hostname with a public certificate (for example origin.harumaru.net). Empty = HTTP origin on 3001 (no TLS on the CloudFront to EC2 hop)."
+  description = "Origin hostname with a public certificate (for example origin.harumaru.app). Empty = HTTP origin on 3001 (no TLS on the CloudFront to EC2 hop)."
   type        = string
   default     = ""
 
@@ -153,14 +153,25 @@ variable "backup_retention_days" {
 }
 
 variable "erasure_schedule_enabled" {
-  description = "Account erasure (#57) schedule. Stays false until the production revoke adapter and approval exist."
+  description = "Account erasure (#57) hourly schedule. Set true at apply (#670); false creates it DISABLED."
   type        = bool
   default     = false
 }
 
 variable "erasure_schedule_expression" {
   type    = string
-  default = "cron(0 3 * * ? *)"
+  default = "cron(0 * * * ? *)"
+}
+
+variable "guest_cleanup_schedule_enabled" {
+  description = "Guest data cleanup (#694). Off until the owner switches it on with the first deploy."
+  type        = bool
+  default     = false
+}
+
+variable "guest_cleanup_schedule_expression" {
+  type    = string
+  default = "cron(30 * * * ? *)"
 }
 
 variable "compose_version" {

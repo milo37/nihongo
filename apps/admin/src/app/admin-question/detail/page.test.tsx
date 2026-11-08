@@ -29,6 +29,7 @@ import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { invalidateCanonicalAuthTransitions } from '@nihongo/browser/app/login/authSession'
 import { appDocumentNavigation } from '@nihongo/browser/libs/appNavigation'
+import * as startApi from '@nihongo/browser/api/auth/startAdminReauth/index'
 import { useAppStore } from '@nihongo/browser/store/index'
 import { appI18n } from '@nihongo/browser/i18n/config'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
@@ -57,6 +58,12 @@ import {
   saveQuestionFreshContext
 } from '@app/admin-question/navigation/questionWorkflowContext'
 import type { QuestionWrite } from '@app/admin-question/detail/questionWorkflow'
+
+/** Opens a list row's ⋯ menu and returns one of its items. */
+const rowMenuItem = (questionId: string, name: string): HTMLElement => {
+  fireEvent.click(screen.getByRole('button', { name: questionId + ' 작업' }))
+  return screen.getByRole('menuitem', { name })
+}
 
 beforeAll(preloadAdminPages)
 // Compile the existing lazy detail route before timed DOM assertions.
@@ -477,6 +484,13 @@ it('requires explicit confirm, sends viewed CAS once, and focuses the stable hea
     ).toHaveFocus()
   )
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  // Success is one toast (E1-6), no longer a line under the title.
+  const done = t('questionDetail.commandComplete', {
+    command: t('enums.commands.REQUEST_REVIEW')
+  })
+  expect(await screen.findByText(done)).toBeVisible()
+  expect(screen.getAllByText(done)).toHaveLength(1)
+  expect(screen.getByText(done).closest('[role="status"]')).toBeNull()
 })
 it('keeps draft input after conflict, requires manual refresh+rebase, then saves the new viewed CAS', async () => {
   route()
@@ -673,7 +687,7 @@ it('blocks version changes and leaving while dirty and retains input when the us
   expect(input).toHaveValue('Unsaved original')
   expect(router.state.location.pathname).toBe('/admin/questions/' + questionId)
 })
-it('preserves reason and selected version across explicit Google fresh and never replays automatically', async () => {
+it('preserves reason and selected version across same-tab re-verification and never replays automatically', async () => {
   vi.mocked(authApi.getCurrentUser).mockResolvedValue(actor(reviewerId))
   const approved = {
     ...newer,
@@ -687,9 +701,9 @@ it('preserves reason and selected version across explicit Google fresh and never
   write = async () => {
     throw { code: 'FRESH_ASSURANCE_REQUIRED' }
   }
-  const assign = vi
-    .spyOn(appDocumentNavigation, 'assign')
-    .mockImplementation(() => undefined)
+  const start = vi
+    .spyOn(startApi, 'startAdminReauth')
+    .mockReturnValue(new Promise(() => undefined))
   const first = route(
     '?version=' +
       versionId +
@@ -708,14 +722,26 @@ it('preserves reason and selected version across explicit Google fresh and never
     { target: { value: 'Reviewed original note' } }
   )
   await execute(dialog)
-  const fresh = await within(dialog).findByRole('button', {
-    name: t('reportDetail.fresh')
-  })
-  expect(assign).not.toHaveBeenCalled()
-  await userEvent.click(fresh)
-  expect(assign).toHaveBeenCalledExactlyOnceWith(
-    '/login?redirect=' + encodeURIComponent('/admin/questions/' + questionId)
+  expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+    t('reauth.blockedHelpInput')
   )
+  const fresh = within(dialog).getByRole('button', {
+    name: t('reauth.action')
+  })
+  expect(fresh).toHaveFocus()
+  expect(start).not.toHaveBeenCalled()
+  await userEvent.click(fresh)
+  expect(start).toHaveBeenCalledExactlyOnceWith({
+    purpose: 'ADMIN_FRESH',
+    provider: 'google',
+    callbackURL:
+      '/admin/questions/' +
+      questionId +
+      '?version=' +
+      versionId +
+      '&returnTo=' +
+      encodeURIComponent('/admin/questions?page=2')
+  })
   expect(readQuestionFreshContext(reviewerId, questionId)).toMatchObject({
     versionId,
     versionRowVersion: 1,
@@ -808,7 +834,7 @@ it('uses Japanese headings/actions and keeps raw catalog keys out of the detail'
   writeUiLocalePreference('ja')
   route()
   expect(
-    await screen.findByRole('heading', { name: '問題バージョンワークフロー' })
+    await screen.findByRole('heading', { name: 'バージョンと承認ステップ' })
   ).toBeVisible()
   expect(
     await screen.findByRole('button', { name: 'レビュー依頼' })
@@ -845,9 +871,7 @@ it.each(['DRAFT', 'PUBLISHED'] as const)(
         encodeURIComponent('/admin/questions?level=N3&page=1')
     )
     if (status === 'PUBLISHED')
-      expect(
-        screen.getByRole('link', { name: questionId + ' 문제 상세' })
-      ).toHaveAttribute(
+      expect(rowMenuItem(questionId, '상세 보기')).toHaveAttribute(
         'href',
         '/admin/questions/' +
           questionId +
@@ -1000,14 +1024,14 @@ it('regression: pins ARCHIVE to the open candidate rowVersion even when an older
   })
 })
 it.each([false, true])(
-  'regression: restores ARCHIVE after Google fresh only while the pinned candidate is unchanged (candidate moved=%s)',
+  'regression: restores ARCHIVE after re-verification only while the pinned candidate is unchanged (candidate moved=%s)',
   async (moved) => {
     write = async () => {
       throw { code: 'FRESH_ASSURANCE_REQUIRED' }
     }
-    const assign = vi
-      .spyOn(appDocumentNavigation, 'assign')
-      .mockImplementation(() => undefined)
+    const start = vi
+      .spyOn(startApi, 'startAdminReauth')
+      .mockReturnValue(new Promise(() => undefined))
     const first = route('?version=' + oldVersionId)
     const archive = await screen.findByRole('button', {
       name: t('questionList.archive')
@@ -1016,12 +1040,14 @@ it.each([false, true])(
     const dialog = await open(t('questionList.archive'))
     await execute(dialog)
     const fresh = await within(dialog).findByRole('button', {
-      name: t('reportDetail.fresh')
+      name: t('reauth.action')
     })
     await userEvent.click(fresh)
-    expect(assign).toHaveBeenCalledExactlyOnceWith(
-      '/login?redirect=' + encodeURIComponent('/admin/questions/' + questionId)
-    )
+    expect(start).toHaveBeenCalledExactlyOnceWith({
+      purpose: 'ADMIN_FRESH',
+      provider: 'google',
+      callbackURL: '/admin/questions/' + questionId + '?version=' + oldVersionId
+    })
     if (!moved)
       expect(readQuestionFreshContext(actorId, questionId)).toMatchObject({
         versionId: oldVersionId,

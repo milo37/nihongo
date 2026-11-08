@@ -20,6 +20,10 @@ export type AdminQuestionSort = 'UPDATED_DESC' | 'LEVEL_ASC'
 
 export const SORTS: readonly AdminQuestionSort[] = ['UPDATED_DESC', 'LEVEL_ASC']
 
+/** 100 lets a batch action take a whole contract-sized batch from one page. */
+export const PAGE_SIZES = [20, 100] as const
+export type AdminQuestionPageSize = (typeof PAGE_SIZES)[number]
+
 const LEVEL_SET: ReadonlySet<string> = new Set(LEVELS)
 const SUBJECT_SET: ReadonlySet<string> = new Set(SUBJECTS)
 const STATUS_SET: ReadonlySet<string> = new Set(
@@ -54,6 +58,8 @@ const isAdminQuestionSort = (
   return value !== null && SORT_SET.has(value)
 }
 
+const FILTER_KEYS = ['level', 'subject', 'status', 'difficulty'] as const
+
 const parsePositiveInteger = (value: string | null): number => {
   const parsedValue = Number(value)
   return Number.isInteger(parsedValue) && parsedValue > 0 ? parsedValue : 1
@@ -83,14 +89,9 @@ export const useQuestionListSearch = () => {
       ? 'LEVEL_ASC'
       : 'UPDATED_DESC'
   const page = parsePositiveInteger(searchParams.get('page'))
-  const hasActiveFilters = Boolean(
-    search ||
-      level ||
-      subject ||
-      status ||
-      difficulty ||
-      sort !== 'UPDATED_DESC'
-  )
+  const pageSize: AdminQuestionPageSize =
+    searchParams.get('pageSize') === '100' ? 100 : 20
+  const hasActiveFilters = Boolean(level || subject || status || difficulty)
 
   useEffect(() => {
     if (!rawSort || isAdminQuestionSort(rawSort)) return
@@ -104,7 +105,11 @@ export const useQuestionListSearch = () => {
   const setFilter = (key: string, value: string): void => {
     const nextParams = new URLSearchParams(searchParams)
 
-    if (value.length === 0 || (key === 'sort' && value === 'UPDATED_DESC')) {
+    if (
+      value.length === 0 ||
+      (key === 'sort' && value === 'UPDATED_DESC') ||
+      (key === 'pageSize' && value === '20')
+    ) {
       nextParams.delete(key)
     } else {
       nextParams.set(key, value)
@@ -114,6 +119,12 @@ export const useQuestionListSearch = () => {
       nextParams.delete('page')
     }
 
+    setSearchParams(nextParams)
+  }
+
+  const removeParams = (keys: readonly string[]): void => {
+    const nextParams = new URLSearchParams(searchParams)
+    for (const key of [...keys, 'page']) nextParams.delete(key)
     setSearchParams(nextParams)
   }
 
@@ -132,12 +143,16 @@ export const useQuestionListSearch = () => {
     difficulty,
     sort,
     page,
+    pageSize,
     unsupportedSort,
     hasActiveFilters,
     searchParams,
     setSearchParams,
     setFilter,
     handleSearch,
-    resetFilters: () => setSearchParams({})
+    /** Clears the chip filters; search text, sort and page size stay. */
+    resetFilters: () => removeParams(FILTER_KEYS),
+    /** Clears the search text too, for the no-match state. */
+    clearSearchAndFilters: () => removeParams([...FILTER_KEYS, 'search'])
   }
 }

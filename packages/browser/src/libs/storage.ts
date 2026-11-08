@@ -324,22 +324,26 @@ export const createSplitAppStateStorage = (
       startedAt
     } = envelope.state
 
-    const authWritten = authStorage.setItem(
-      key,
-      serializeEnvelope({ currentUser }, envelope.version)
+    // Write only what changed. A changed localStorage value sends a storage
+    // event to the other tabs (the HTML standard skips the event when the
+    // value is unchanged), and each of them reads /me and writes again. So a
+    // value that changes on every read must never be persisted, and skipping
+    // unchanged writes here also covers storage layers that would rewrite.
+    const nextAuth = serializeEnvelope({ currentUser }, envelope.version)
+    const nextPractice = serializeEnvelope(
+      {
+        sessionId,
+        currentQuestionIndex,
+        selectedAnswers,
+        startedAt
+      },
+      envelope.version
     )
-    const practiceWritten = practiceStorage.setItem(
-      PRACTICE_STORE_KEY,
-      serializeEnvelope(
-        {
-          sessionId,
-          currentQuestionIndex,
-          selectedAnswers,
-          startedAt
-        },
-        envelope.version
-      )
-    )
+    const authWritten =
+      nextAuth === previousAuth || authStorage.setItem(key, nextAuth)
+    const practiceWritten =
+      nextPractice === previousPractice ||
+      practiceStorage.setItem(PRACTICE_STORE_KEY, nextPractice)
 
     if (authWritten && practiceWritten) {
       return true

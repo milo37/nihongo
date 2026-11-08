@@ -25,7 +25,6 @@ export const QuestionReportDialog = ({
   const { pathname } = useLocation()
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
-  const [wasSubmitted, setWasSubmitted] = useState(false)
 
   return (
     <>
@@ -33,10 +32,7 @@ export const QuestionReportDialog = ({
         ref={triggerRef}
         size="sm"
         variant="outline"
-        onClick={() => {
-          setWasSubmitted(false)
-          setOpen(true)
-        }}
+        onClick={() => setOpen(true)}
       >
         {t('questionReportDialog.trigger')}
       </Button>
@@ -44,12 +40,11 @@ export const QuestionReportDialog = ({
         copy={{
           title: t('questionReportDialog.title'),
           description: t('questionReportDialog.description'),
-          submitted: t('questionReportDialog.submitted'),
+          submitted: t('questionReportDialog.sent'),
           error: t('questionReportDialog.error')
         }}
         open={open}
         onOpenChange={setOpen}
-        onSubmitted={() => setWasSubmitted(true)}
         returnFocusRef={triggerRef}
         toRequest={(description) => ({
           kind: 'QUESTION',
@@ -62,9 +57,6 @@ export const QuestionReportDialog = ({
           description
         })}
       />
-      <p className="sr-only" aria-live="polite">
-        {wasSubmitted ? t('questionReportDialog.submitted') : ''}
-      </p>
     </>
   )
 }

@@ -26,6 +26,8 @@ type ProtectedRouteProviderProps = {
 type RequireRoleProps = {
   allowedRoles: UserRole[]
   deniedElement?: ReactElement
+  /** Shown to a guest in place of the sign-in redirect (learner screens). */
+  guestElement?: ReactElement
 }
 
 const getRedirectPath = (location: Location): string => {
@@ -108,7 +110,8 @@ export const useAuth = (): AuthContextValue => {
 
 export const RequireRole = ({
   allowedRoles,
-  deniedElement
+  deniedElement,
+  guestElement
 }: RequireRoleProps): ReactElement => {
   const { t } = useTranslation('common')
   const { isReady, role } = useAuth()
@@ -121,6 +124,10 @@ export const RequireRole = ({
 
   if (allowedRoles.includes(role)) {
     return <Outlet />
+  }
+
+  if (role === 'GUEST' && guestElement) {
+    return guestElement
   }
 
   if (role === 'GUEST') {

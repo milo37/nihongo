@@ -8,6 +8,8 @@ import { appI18n } from '@nihongo/browser/i18n/config'
 // a missing element still fails, only later, and well inside the 5s test
 // timeout.
 configure({ asyncUtilTimeout: 3_000 })
+// jsdom has no layout; list paging scrolls the top toolbar into view.
+Element.prototype.scrollIntoView ??= () => undefined
 beforeEach(async () => {
   await appI18n.changeLanguage('ko')
 })

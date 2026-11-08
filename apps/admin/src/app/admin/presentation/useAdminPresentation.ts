@@ -14,6 +14,15 @@ export const useAdminPresentation = () => {
   const t = appI18n.getFixedT(locale, 'admin')
   return {
     t,
+    /** Date only for list cells; the year shows only when it is not this year. */
+    formatAdminDate: (value: string): string =>
+      formatDateTime(value, locale, {
+        ...(new Date(value).getFullYear() === new Date().getFullYear()
+          ? {}
+          : { year: 'numeric' }),
+        month: 'numeric',
+        day: 'numeric'
+      }),
     formatAdminDateTime: (value: string): string =>
       formatDateTime(value, locale, {
         dateStyle: 'medium',
@@ -22,8 +31,13 @@ export const useAdminPresentation = () => {
     presentError: (error: unknown): string => {
       const message = t(getAdminErrorKey(error))
       const seconds = getAdminRetryAfterSeconds(error)
-      return seconds === null
-        ? message
+      if (seconds === null) return message
+      // Long waits (the 15-minute admin command limit) read better in minutes.
+      return seconds >= 60
+        ? t('common.retryAfterMinutes', {
+            message,
+            minutes: formatNumber(Math.ceil(seconds / 60), locale)
+          })
         : t('common.retryAfter', {
             message,
             seconds: formatNumber(seconds, locale)

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { ADMIN_FRESH_WINDOW_SECONDS } from '../auth/admin-fresh-sso.js'
 import { isoDateTimeSchema } from '../common/date.js'
 import { opaqueIdSchema } from '../common/id.js'
 import {
@@ -440,12 +441,12 @@ const adminReauthenticationResultSchema = z
   .superRefine((result, context) => {
     if (
       Date.parse(result.assuranceExpiresAt) !==
-      Date.parse(result.reauthenticatedAt) + 300_000
+      Date.parse(result.reauthenticatedAt) + ADMIN_FRESH_WINDOW_SECONDS * 1_000
     ) {
       addIssue(
         context,
         ['assuranceExpiresAt'],
-        'assuranceExpiresAt은 reauthenticatedAt보다 정확히 5분 뒤여야 합니다.'
+        'assuranceExpiresAt은 reauthenticatedAt보다 정확히 30분 뒤여야 합니다.'
       )
     }
   })
@@ -976,6 +977,7 @@ export const createAdminQuestionErrorCodeSchema = z.enum([
   'REQUEST_TOO_LARGE',
   'VALIDATION_ERROR',
   'DUPLICATE_QUESTION_CONTENT',
+  'TAG_SUBJECT_MISMATCH',
   'UNTRUSTED_ORIGIN',
   'RATE_LIMITED',
   'INTERNAL_SERVER_ERROR',
@@ -999,6 +1001,7 @@ export const createAdminQuestionVersionErrorCodeSchema = z.enum([
   'VERSION_CONFLICT',
   'INVALID_STATE_TRANSITION',
   'DUPLICATE_QUESTION_CONTENT',
+  'TAG_SUBJECT_MISMATCH',
   'UNTRUSTED_ORIGIN',
   'RATE_LIMITED',
   'INTERNAL_SERVER_ERROR',
@@ -1025,6 +1028,7 @@ export const updateQuestionVersionErrorCodeSchema = z.enum([
   'QUESTION_VERSION_IMMUTABLE',
   'INVALID_STATE_TRANSITION',
   'DUPLICATE_QUESTION_CONTENT',
+  'TAG_SUBJECT_MISMATCH',
   'UNTRUSTED_ORIGIN',
   'RATE_LIMITED',
   'INTERNAL_SERVER_ERROR',
@@ -1228,6 +1232,14 @@ export const publishQuestionVersionBatchErrorSchema =
   createContentOperationErrorSchema(
     'publishQuestionVersionBatch',
     publishQuestionVersionBatchErrorCodeSchema
+  )
+
+export const approveQuestionVersionBatchErrorCodeSchema =
+  publishQuestionVersionBatchErrorCodeSchema
+export const approveQuestionVersionBatchErrorSchema =
+  createContentOperationErrorSchema(
+    'approveQuestionVersionBatch',
+    approveQuestionVersionBatchErrorCodeSchema
   )
 
 export const requestContentReviewBatchErrorCodeSchema = z.enum([

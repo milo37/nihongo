@@ -1,21 +1,22 @@
-import { koAdminFormResources } from './ko-admin-form'
+import { koAdminAuditResources } from './ko-admin-audit'
+import { koAdminCommonResources } from './ko-admin-common'
+import { koAdminCreateResources } from './ko-admin-create'
+import { koAdminEditorResources } from './ko-admin-editor'
+import { koAdminEnumsResources } from './ko-admin-enums'
+import { koAdminErrorsResources } from './ko-admin-errors'
+import { koAdminIdleLockResources } from './ko-admin-idle-lock'
+import { koAdminImportResources } from './ko-admin-import'
+import { koAdminListResources } from './ko-admin-list'
+import { koAdminMembersResources } from './ko-admin-members'
+import { koAdminNavResources } from './ko-admin-nav'
 import { koAdminQuestionListResources } from './ko-admin-question'
+import { koAdminQuestionDetailResources } from './ko-admin-question-detail'
+import { koAdminReauthResources } from './ko-admin-reauth'
 import { koAdminReportResources } from './ko-admin-report'
-
-const questionTypeLabels = {
-  KANJI_READING: '한자 읽기',
-  ORTHOGRAPHY: '표기',
-  CONTEXT_VOCABULARY: '문맥 어휘',
-  PARAPHRASE: '유의 표현',
-  WORD_USAGE: '용법',
-  GRAMMAR_SELECT: '문법 선택',
-  SENTENCE_ORDER: '문장 배열',
-  TEXT_GRAMMAR: '글의 문법',
-  SHORT_READING: '단문 독해',
-  MEDIUM_READING: '중문 독해',
-  LONG_READING: '장문 독해',
-  INFO_RETRIEVAL: '정보 검색'
-} as const
+import { koAdminReportDetailResources } from './ko-admin-report-detail'
+import { koAdminReportListResources } from './ko-admin-report-list'
+import { koAdminSharedListResources } from './ko-admin-shared-list'
+import { questionTypeLabels } from './ko-question-types'
 
 export const koResources = {
   common: {
@@ -100,7 +101,9 @@ export const koResources = {
       info: '안내',
       success: '성공',
       warning: '주의',
-      danger: '오류'
+      loggedOut: '로그아웃했어요.',
+      offline: '오프라인이에요. 연결을 확인해 주세요.',
+      restored: '다시 연결됐어요.'
     },
     footer: {
       originalContent: '자체 제작 문제로 학습합니다.',
@@ -115,13 +118,19 @@ export const koResources = {
       terms: '이용 조건',
       privacy: '개인정보 안내',
       copyright: '저작권 안내',
-      deletion: '계정 삭제',
-      dataExport: '데이터 내보내기',
       questionReport: '문제 신고',
       contact: '문의'
     }
   },
   navigation: {
+    accountMenu: {
+      label: '계정 메뉴',
+      signedInWith: 'Google 계정으로 로그인',
+      myPage: '마이페이지',
+      language: '언어',
+      guestTitle: '로그인하지 않았어요',
+      guestDescription: '로그인하면 학습 기록이 남아요'
+    },
     account: '계정',
     mobilePrimary: '모바일 주요 메뉴',
 
@@ -152,6 +161,7 @@ export const koResources = {
       wrongNoteDetail: '해설 보기',
       bookmarks: '책갈피',
       legal: '법적 안내',
+      account: '마이페이지',
       accountData: '계정 데이터 안내',
       support: '지원 안내',
       adminQuestionNew: '문제 등록',
@@ -159,40 +169,35 @@ export const koResources = {
       adminQuestionDetail: '문제 상세',
       adminQuestions: '문제 관리',
       adminAudit: '관리자 감사 기록',
-      adminReportDetail: '문제 신고 상세',
-      adminReports: '문제 신고 큐',
+      adminReportDetail: '신고 상세',
+      adminReports: '문제 신고',
       forbidden: '접근 권한 없음',
       page: '페이지'
     }
   },
   operations: {
+    effectiveDate: '시행일: {{effectiveDate}}',
+    settingFallback: {
+      effectiveDate: '정식 공개일',
+      privacyOfficer: '하루마루 운영자'
+    },
+    articleTitle: '제{{number}}조({{title}})',
     pages: {
       legal: {
         title: '이용 안내',
-        description: '서비스의 이용 조건, 개인정보와 문제 출처를 안내합니다.'
-      },
-      account: {
-        eyebrow: 'ACCOUNT DATA FOUNDATION',
-        title: '계정과 학습 데이터 관리 안내',
         description:
-          '계정 삭제와 데이터 내보내기의 현재 지원 범위와 활성화 전 제한을 설명합니다.'
+          '하루마루의 이용약관, 개인정보 처리방침, 문제 출처와 문의 방법을 안내합니다.'
       },
       support: {
         title: '문제 신고·문의 안내',
         description: '문제 내용 신고 방법과 문의 채널의 현재 상태를 확인하세요.'
       }
     },
-    foundation: {
-      title: '운영 안내 확인 필요',
-      description: '일부 운영 정보는 아직 확인이 필요합니다.'
-    },
     navigation: {
       label: '서비스 안내',
       terms: '이용 조건',
       privacy: '개인정보',
       copyright: '저작권',
-      deletion: '계정 삭제',
-      dataExport: '데이터 내보내기',
       questionReport: '문제 신고',
       contact: '문의',
       tocLabel: '이 페이지 목차',
@@ -202,46 +207,133 @@ export const koResources = {
     },
     sections: {
       terms: {
-        title: '이용 조건',
+        title: '이용약관',
         summary:
-          'N5–N1 어휘·문법·독해를 연습하고, 틀린 문제를 다시 복습할 수 있습니다.',
-        details:
-          '실제 시험 문제와 상업 교재 문항을 복제하지 않습니다. 합격을 보장하는 서비스는 아닙니다.',
-        status: '운영자와 시행일 등 최종 이용 조건은 확인이 필요합니다.'
+          '하루마루 운영자(이하 "운영자")가 제공하는 하루마루 서비스의 이용 조건입니다.',
+        articles: {
+          '1': {
+            title: '목적',
+            body: '이 약관은 운영자가 제공하는 일본어 JLPT 학습 서비스 "하루마루"(이하 "서비스")의 이용 조건과 절차, 운영자와 이용자의 권리·의무를 정합니다.'
+          },
+          '2': {
+            title: '정의',
+            body: '① "회원"은 Google 계정으로 로그인한 이용자입니다. ② "비회원"은 로그인하지 않고 학습 기능을 이용하는 이용자입니다. ③ "콘텐츠"는 서비스에서 제공하는 문제, 해설과 그 밖의 자료입니다.'
+          },
+          '3': {
+            title: '약관 게시와 변경',
+            body: '① 운영자는 이 약관을 서비스 화면에 게시합니다. ② 약관을 바꿀 때는 시행 7일 전부터 서비스 화면에 바뀌는 내용과 시행일을 알립니다. 이용자에게 불리한 변경은 30일 전부터 알립니다. ③ 바뀐 약관에 동의하지 않으면 이용을 멈추고 탈퇴할 수 있습니다.'
+          },
+          '4': {
+            title: '서비스 내용과 변경·중단',
+            body: '① 서비스는 N5~N1 어휘·문법·독해 문제 풀이, 오답노트, 책갈피, 복습과 학습 통계를 무료로 제공합니다. ② 운영자는 운영상·기술상 필요하면 서비스의 전부 또는 일부를 바꾸거나 중단할 수 있으며, 미리 서비스 화면에 알립니다. 부득이한 경우에는 사후에 알릴 수 있습니다.'
+          },
+          '5': {
+            title: '회원 가입과 탈퇴',
+            body: '① 만 14세 이상인 사람은 Google 계정으로 로그인해 회원이 될 수 있습니다. ② 회원은 언제든지 계정 관리 화면에서 탈퇴할 수 있습니다. 탈퇴를 요청하면 바로 로그아웃되고 이용이 중지되며, 회원 정보와 학습 기록은 1시간 안에 삭제되어 되돌릴 수 없습니다.'
+          },
+          '6': {
+            title: '이용자의 의무',
+            body: '이용자는 다음 행위를 해서는 안 됩니다. ① 다른 사람의 계정을 이용하는 행위 ② 서비스 운영을 방해하거나 자동화된 방법으로 대량 요청·수집하는 행위 ③ 콘텐츠를 개인 학습 외의 목적으로 복제·배포·판매하는 행위 ④ 신고에 다른 사람의 개인정보나 비방을 적는 행위 ⑤ 법령이나 이 약관을 위반하는 행위'
+          },
+          '7': {
+            title: '이용 제한',
+            body: '운영자는 회원이 제6조를 위반하면 서비스 이용을 제한할 수 있으며, 제한 사실을 서비스 화면으로 알립니다.'
+          },
+          '8': {
+            title: '콘텐츠와 저작권',
+            body: '① 서비스의 문제와 해설은 운영자가 직접 만든 것이며 저작권은 운영자에게 있습니다. 실제 JLPT 기출문제나 상업 교재의 문항을 옮기지 않았습니다. ② 이용자는 콘텐츠를 개인 학습 목적 안에서만 이용할 수 있습니다. ③ 이용자가 보낸 신고는 문제를 고치고 서비스를 개선하는 데 쓰입니다.'
+          },
+          '9': {
+            title: '공식 서비스가 아님',
+            body: '서비스는 일본어능력시험(JLPT) 시행 기관과 관계없는 개인 운영 학습 서비스입니다. 실제 시험 문제를 포함하지 않으며 합격을 보장하지 않습니다.'
+          },
+          '10': {
+            title: '책임의 제한',
+            body: '① 운영자는 무료로 제공하는 서비스의 이용과 관련해 운영자의 고의 또는 중대한 과실이 없는 한 손해를 배상할 책임을 지지 않습니다. ② 운영자는 천재지변, 외부 서비스(호스팅·Google 로그인) 장애처럼 운영자가 통제할 수 없는 사유로 서비스를 제공하지 못한 경우 책임을 지지 않습니다. ③ 학습 결과와 통계는 참고용이며 실제 시험 결과를 예측하지 않습니다.'
+          },
+          '11': {
+            title: '준거법과 관할',
+            body: '이 약관은 대한민국 법에 따릅니다. 서비스와 관련한 분쟁은 민사소송법에 따른 관할 법원에서 해결합니다.'
+          },
+          '12': {
+            title: '부칙',
+            body: '이 약관은 {{effectiveDate}}부터 시행합니다.'
+          }
+        }
       },
       privacy: {
-        title: '개인정보 안내',
+        title: '개인정보 처리방침',
         summary:
-          '계정 정보, 학습 세션, 답안, 오답노트, 책갈피와 문제 신고 정보가 기능 제공을 위해 처리될 수 있습니다.',
-        details:
-          '원문 답안·문제·자유 입력은 로그와 분석 이벤트에 포함하지 않도록 제한합니다.',
-        status:
-          '개인정보의 처리 주체, 보관·삭제 기준 등 세부 처리 내용은 확인이 필요합니다.'
+          '하루마루 운영자는 「개인정보 보호법」에 따라 이용자의 개인정보를 보호하고 관련 고충을 처리하기 위해 이 처리방침을 둡니다.',
+        articles: {
+          '1': {
+            title: '처리 목적',
+            body: '운영자는 다음 목적으로만 개인정보를 처리합니다. ① 회원 식별과 로그인 상태 유지 ② 문제 풀이 기록, 채점, 오답노트, 책갈피, 복습 일정, 학습 통계 제공 ③ 문제 신고의 접수와 처리 ④ 부정 이용 방지와 보안(요청 횟수 제한, 이용 제한)'
+          },
+          '2': {
+            title: '처리하는 항목',
+            body: '① 회원 가입(Google 로그인) 때 Google에서 받는 정보: Google 계정 식별자, 이메일 주소, 이름 ② 회원이 선택해 입력하는 정보: 목표 급수 ③ 서비스 이용 중 생성되는 정보: 학습 세션·답안·문제별 풀이 시간·결과, 임시 저장 답안, 오답노트와 메모, 책갈피, 복습 일정, 문제 신고(위치, 대상 문제, 사유, 설명)와 답변 ④ 자동으로 생성·수집되는 정보: 로그인 세션 정보(접속 IP 주소, 브라우저 정보, 만료 시각), 요청 횟수 제한을 위해 IP 주소를 복원할 수 없게 변환한 값, 비회원 학습용 식별값(서버에는 변환된 값만 저장) ⑤ 운영자는 비밀번호, 프로필 사진, Google 접근 토큰, 전화번호, 생년월일을 저장하지 않습니다.'
+          },
+          '3': {
+            title: '보유 기간',
+            body: '① 회원 정보와 학습 기록: 탈퇴할 때까지(탈퇴 요청 후 1시간 안에 삭제) ② 문제 신고 설명: 처리(답변 또는 종료)가 끝난 뒤 180일 ③ 로그인 세션 정보(접속 IP 주소, 브라우저 정보): 마지막 이용부터 7일(이용할 때마다 연장, 최대 30일)이 지나거나 로그아웃하면 효력이 없어집니다. 기록은 로그아웃하거나 탈퇴할 때까지 보관하고 그때 삭제합니다 ④ 요청 횟수 제한 기록: 제한 시간이 끝난 뒤 7일 ⑤ 비회원 학습 기록: 마지막 이용 후 7일 ⑥ 임시 저장 답안: 제출·취소하면 바로 삭제합니다. 그 밖의 회원 임시 저장 답안은 탈퇴할 때까지 보관하고 탈퇴 시 삭제하며, 비회원 임시 저장 답안은 ⑤와 같이 마지막 이용 후 7일이 지나면 삭제합니다 ⑦ 서버 로그: 14일 ⑧ 데이터베이스 백업: 최대 30일. 백업에 남은 정보는 이 기간이 지나면 자동으로 지워집니다(삭제 처리에 하루 정도 걸릴 수 있습니다). 법령에 따라 따로 보관해야 하는 정보는 없습니다.'
+          },
+          '4': {
+            title: '파기 절차와 방법',
+            body: '보유 기간이 끝나거나 처리 목적을 이루면 지체 없이 파기합니다. 전자 파일은 데이터베이스에서 복구할 수 없게 삭제하고, 신고 설명은 삭제 안내 문구로 바꿉니다. 탈퇴를 요청하면 즉시 모든 로그인 세션을 지우고 이용을 중지하며, 1시간 안에 회원 정보(이름, 이메일), Google 계정 식별자, 학습 기록(학습 세션, 답안, 결과, 임시 저장), 오답노트·메모, 책갈피, 복습 기록, 이용 제한 기록을 삭제합니다. 백업과 서버 로그에 남은 정보는 제3조의 보관 기간이 지나면 지워집니다. 다만 문제 개선 이력을 위해 다음은 회원과의 연결을 끊은 형태로 남습니다. ① 문제 신고: 대상 문제·화면 위치·사유·시각과 운영자 답변만 남고 설명은 삭제 ② 탈퇴 처리 확인 기록: 변환된 접수 번호, 처리 상태, 로그인 방법 이름(google), 시각.'
+          },
+          '5': {
+            title: '제3자 제공',
+            body: '운영자는 개인정보를 제3자에게 제공하지 않습니다. 법령에 특별한 규정이 있는 경우만 예외입니다.'
+          },
+          '6': {
+            title: '처리 위탁',
+            body: '운영자는 서비스 운영을 위해 다음 업무를 맡깁니다. 수탁자: Amazon Web Services, Inc. / 업무: 서버, 데이터베이스, 백업, 로그 보관 / 보관 위치: 대한민국(서울 리전)'
+          },
+          '7': {
+            title: '국외 이전',
+            body: '운영자는 개인정보를 국외로 옮겨 보관하지 않습니다. Google 로그인은 이용자가 Google에 직접 로그인하고, 운영자는 그 결과로 Google 계정 식별자·이메일·이름만 받습니다.'
+          },
+          '8': {
+            title: '정보주체의 권리와 행사 방법',
+            body: "① 이용자는 언제든지 자기 개인정보의 열람, 정정, 삭제, 처리정지를 요구할 수 있습니다. ② 회원 탈퇴(삭제)는 계정 관리 화면에서 직접 할 수 있습니다. Google 계정 설정의 '타사 앱 연결'에 남는 하루마루 연결 기록은 운영자가 지울 수 없으므로 Google 계정 설정에서 직접 해제해 주세요. ③ 그 밖의 요구는 아래 문의 이메일로 보내 주시면 지체 없이(늦어도 10일 안에) 처리하고 결과를 알려 드립니다. ④ 법정대리인이나 위임받은 사람을 통해서도 요구할 수 있습니다."
+          },
+          '9': {
+            title: '안전성 확보 조치',
+            body: '① 관리자 권한은 운영자 1명에게만 주고 민감한 작업 전 본인 확인을 다시 요구합니다. ② 관리자 작업 기록을 남깁니다. ③ 모든 통신은 암호화(HTTPS)합니다. ④ 데이터베이스 저장 장치와 백업을 암호화하고, 비밀 설정값은 암호화된 저장소에 둡니다. ⑤ 로그인 쿠키는 스크립트가 읽을 수 없게(HttpOnly) 설정하고, 비회원 식별값은 변환된 값으로만 저장합니다. ⑥ 로그에는 답안·문제·신고 원문을 남기지 않도록 제한합니다.'
+          },
+          '10': {
+            title: '쿠키와 거부 방법',
+            body: '① 서비스는 로그인 유지(세션), 로그인 진행 확인, 비회원 학습을 위해 꼭 필요한 쿠키만 씁니다. 광고·분석 쿠키는 쓰지 않습니다. ② 학습 중인 답안 사본과 화면 설정은 브라우저 저장소(localStorage)에 보관할 수 있습니다. ③ 브라우저 설정에서 쿠키를 거부하거나 지울 수 있습니다. 거부하면 로그인과 비회원 학습을 이용할 수 없습니다.'
+          },
+          '11': {
+            title: '만 14세 미만 아동',
+            body: '서비스는 만 14세 미만 아동의 가입을 받지 않습니다. 만 14세 미만의 정보가 수집된 사실을 알게 되면 바로 삭제합니다.'
+          },
+          '12': {
+            title: '민감정보·가명정보',
+            body: '서비스는 민감정보와 가명정보를 처리하지 않습니다.'
+          },
+          '13': {
+            title: '개인정보 보호책임자',
+            body: '개인정보 보호책임자: {{privacyOfficer}} / 연락처: {{contactEmail}}'
+          },
+          '14': {
+            title: '권익침해 구제 방법',
+            body: '개인정보 침해에 대한 상담·신고는 다음 기관에 할 수 있습니다. 개인정보분쟁조정위원회 1833-6972, 개인정보침해신고센터 118, 대검찰청 1301, 경찰청 182'
+          },
+          '15': {
+            title: '처리방침의 변경',
+            body: '이 처리방침은 {{effectiveDate}}부터 시행합니다. 내용이 바뀌면 시행 7일 전부터 서비스 화면에 알리고, 이전 처리방침은 이 화면에서 계속 볼 수 있게 합니다.'
+          }
+        }
       },
       copyright: {
         title: '저작권과 문제 출처',
-        summary: '문제와 해설은 프로젝트를 위해 자체 작성한 예시 자료입니다.',
-        details:
-          '문제 내용과 출처에 문제가 있다면 지원되는 화면의 문제 신고 기능을 이용할 수 있습니다.',
-        status: '정식 권리자 문의 절차와 담당 연락처는 확인이 필요합니다.'
-      },
-      deletion: {
-        title: '계정 삭제',
         summary:
-          '계정 삭제 요청은 인증된 사용자와 정확한 데이터 범위를 확인한 뒤 처리되어야 합니다.',
+          '문제와 해설은 하루마루 운영자가 직접 만든 자료이며, 실제 JLPT 기출문제나 상업 교재 문항을 옮기지 않았습니다.',
         details:
-          '현재 이 구조 화면은 삭제 요청을 전송하거나 완료했다고 표시하지 않습니다. 운영용 인증 절차, 보존 예외, 처리 기한과 결과 통지 채널이 준비되기 전에는 민감한 정보를 임의 주소로 보내지 마세요.',
-        status:
-          'Production 삭제 접수 채널과 담당자가 아직 활성화되지 않았습니다.'
-      },
-      dataExport: {
-        title: '데이터 내보내기',
-        summary:
-          '학습자가 자신의 계정·학습 데이터 사본을 요청할 수 있는 절차가 필요합니다.',
-        details:
-          '현재 이 화면에는 실제 내보내기 작업이나 다운로드 링크가 없습니다. 신원 재확인, 범위, 포맷, 만료, 감사 증거가 검증된 뒤에만 운영 기능을 활성화해야 합니다.',
-        status:
-          'Production 학습자 데이터 내보내기 기능은 아직 활성화되지 않았습니다.'
+          "권리 침해가 의심되면 해당 문제의 '문제 신고'를 이용하거나 문의 이메일로 알려 주세요. 확인되면 해당 문제를 바로 내립니다."
       },
       questionReport: {
         title: '문제 내용 신고',
@@ -249,14 +341,16 @@ export const koResources = {
           '로그인한 회원은 신고가 지원되는 학습 결과 또는 오답 상세 화면에서 해당 문제를 신고할 수 있습니다.',
         details:
           '해당 문제의 ‘문제 신고’를 열어 6개 사유 중 하나를 선택하고 설명을 입력합니다. 설명은 필수이며 최대 2,000자입니다. 이 안내 페이지에서는 신고를 접수하지 않습니다.',
-        status: '신고 처리 담당과 응답 기준은 확인이 필요합니다.'
+        response:
+          '신고는 운영자가 순서대로 확인해 문제를 고치는 데 씁니다. 처리 기한은 따로 정해 두지 않으며, 신고마다 개별 답변을 보내지는 않습니다.'
       },
       contact: {
         title: '문의',
-        summary: '이 화면에서는 문의를 접수하지 않습니다.',
+        summary:
+          '계정, 개인정보, 저작권에 관한 문의는 이메일로 받습니다: {{contactEmail}}',
         details:
-          '계정·개인정보·저작권 관련 문의 채널은 아직 정해지지 않았습니다. 확인되지 않은 연락처로 비밀번호나 원문 학습 데이터를 보내지 마세요.',
-        status: '공식 문의 채널은 확인이 필요합니다.'
+          '문의할 때 비밀번호나 다른 사람의 개인정보를 보내지 마세요. 본인 확인을 위해 로그인에 쓰는 Google 이메일 주소로 보내 주세요.',
+        contactUnset: '문의 이메일은 정식 공개 때 안내합니다.'
       }
     }
   },
@@ -268,37 +362,6 @@ export const koResources = {
       selected: '선택한 학습',
       maximum: '최대 10문제',
       loading: '불러오는 중'
-    },
-    entry: {
-      additionalOptions: '학습 추천 더 보기',
-      guestNoticeTitle: '미로그인 학습 안내',
-      guestNotice:
-        '개발용 예시 데이터로 학습합니다. 실제 계정 기록과는 별개입니다.',
-      demoLogin: '데모 계정으로 로그인',
-      eyebrow: '오늘의 학습 노트',
-      title: '한 번에 조금씩, 약한 곳부터.',
-      description:
-        '남겨 둔 학습을 이어가거나, 지금 보완할 내용을 골라 시작하세요.',
-      loading: '이어갈 학습을 확인하고 있습니다…',
-      recommended: '다음 한 장',
-      recommendationError:
-        '추천을 확인하지 못했습니다. 다시 확인하거나 다른 학습을 선택해 주세요.',
-      resumeError:
-        '이어갈 학습을 확인하지 못했습니다. 다시 확인하거나 학습 설정에서 확인해 주세요.',
-      retry: '다시 확인',
-      subjectScope:
-        '이 유형의 기록을 참고한 과목별 약점 학습입니다. 다른 유형도 함께 나올 수 있습니다.',
-      noRecommendation:
-        '지금 시작할 추천이 없습니다. 다른 학습을 선택해 주세요.',
-      resumeEyebrow: '남겨 둔 한 장',
-      position: '현재 {{current}}번 · 실제 {{total}}문제',
-      savedAt: '서버에 마지막 저장 {{date}}',
-      notSaved: '아직 저장된 답안이 없습니다.',
-      resume: '이어서 풀기',
-      legacyUnavailable:
-        '이전 학습 세션이 종료되었습니다. 새 학습을 시작해 주세요.',
-      other: '다른 학습 고르기',
-      records: '내 학습 기록'
     },
     eyebrow: 'JLPT N5–N1 · VOCABULARY / GRAMMAR / READING',
     hero: {
@@ -358,70 +421,52 @@ export const koResources = {
     }
   },
   auth: {
-    adminFresh: {
-      title: '관리자 본인 확인',
-      description:
-        '민감한 작업을 계속하려면 같은 관리자 계정에 연결한 로그인 방법을 선택하세요.',
-      checking: '현재 로그인 상태를 다시 확인하고 있어요.',
-      returned:
-        '로그인 상태를 다시 확인했어요. 원래 작업으로 돌아가 내용을 확인하고 직접 다시 실행해 주세요. 작업 권한은 서버에서 다시 확인합니다.',
-      cancelled:
-        '본인 확인을 취소했어요. 현재 로그인 상태를 확인한 뒤 필요하면 다시 시도해 주세요.',
-      failed:
-        '본인 확인 결과를 확인하지 못했어요. 현재 로그인 상태와 원래 작업을 확인한 뒤 다시 시도해 주세요.',
-      invalid:
-        '본인 확인 요청이 만료되었거나 올바르지 않아요. 필요하면 다시 시작해 주세요.',
-      unknown:
-        '현재 로그인 상태를 확인하지 못했어요. 완료 여부를 확정할 수 없어요. 연결을 확인하고 다시 조회해 주세요.'
+    guestGate: {
+      title: '로그인이 필요해요',
+      bookmarks: '책갈피한 문제를 모아 보고 다시 풀 수 있어요.',
+      review: '틀린 문제를 모아 복습할 수 있어요.',
+      wrongNote: '오답노트는 로그인하면 볼 수 있어요.',
+      dashboard: '학습 기록과 진도를 볼 수 있어요.',
+      toStudy: '학습으로'
     },
-    currentDescription: '현재 계정으로 학습을 계속할 수 있어요.',
-    currentAccount: '현재 계정',
+    guestToast: {
+      login: '로그인',
+      bookmark: '책갈피는 로그인하면 저장할 수 있어요.',
+      sessionNotKept: '로그인하면 지금 풀이는 이어지지 않아요.'
+    },
+    reauth: {
+      name: '본인 확인',
+      description: 'Google로 다시 로그인해 확인해요.',
+      go: 'Google로 본인 확인',
+      redirecting: 'Google로 이동 중…',
+      returnNote: '확인이 끝나면 이 화면으로 돌아와요.',
+      scopeAccount: '연결 해제와 회원 탈퇴는 할 때마다 본인 확인을 해요.',
+      stepDone: '완료',
+      account: {
+        returned: '본인 확인을 마쳤어요. 마지막 단계를 확인해 주세요.',
+        failed: '본인 확인을 마치지 못했어요. 다시 시도해 주세요.',
+        cancelled: '본인 확인을 취소했어요. 필요하면 다시 시도해 주세요.',
+        wrongAccount: '처음 로그인한 Google 계정으로 다시 시도해 주세요.',
+        invalid: '확인 요청이 만료됐어요. 다시 시도해 주세요.'
+      }
+    },
     sso: {
-      accountTitle: '계정 관리',
-      connected: '연결된 로그인 방법',
-      linkProvider: '{{provider}} 연결',
-      linked: '로그인 방법을 연결했어요. 연결된 계정을 확인해 주세요.',
-      freshConfirmed:
-        '본인 확인을 완료했어요. 원하는 작업을 선택하고 최종 확인해 주세요.',
-      freshNeeded:
-        '현재 계정에 연결된 로그인 방법으로 본인을 확인한 뒤, 원하는 작업을 다시 선택해 주세요.',
       checkingAccount: '계정 상태를 확인하고 있어요.',
-      remainingUnavailable:
-        '다른 로그인 방법을 현재 이용할 수 없어 연결을 해제할 수 없어요.',
       openAdminWork: '진행 중인 관리자 작업이 있어 지금은 탈퇴할 수 없어요.',
-      cancelledAccount:
-        '본인 확인이나 계정 연결을 취소했어요. 기존 계정은 유지돼요.',
-      dataGuide: '계정과 데이터 안내',
-      dataDescription:
-        '로그아웃은 앱 세션을 종료하고, 연결 해제는 로그인 방법을 제거하며, 회원 탈퇴는 앱 계정의 삭제 처리를 요청합니다.',
-      deletionUnknown:
-        '탈퇴 결과를 확인할 수 없어요. 요청을 반복하지 말고 상태를 다시 확인해 주세요.',
-      cleanupPending: '연결 정리가 아직 완료되지 않았어요.',
-      cleanupComplete: '이 로그인 방법의 연결 정리가 완료됐어요.',
-      cleanupFailed:
-        '연결 정리를 완료하지 못했어요. 앱 탈퇴 상태와 별도로 확인해 주세요.',
       title: '로그인',
-      description: '연결한 계정으로 학습 기록을 이어가세요.',
-      continueProvider: '{{provider}}로 계속하기',
-      guest: '로그인 없이 학습하기',
+      description: 'Google 계정으로 학습 기록을 이어가세요.',
+      guestHint:
+        '하루 {{total}}번, {{count}}문제씩 풀 수 있어요. 기록은 남지 않아요.',
+      guestLink: '로그인 없이 풀어 보기',
       checkingSession: '로그인 상태를 확인하고 있어요.',
       redirecting: '{{provider}}로 이동하고 있어요.',
-      checkingReturn: '로그인을 확인하고 있어요.',
-      cancelled:
-        '로그인을 취소했어요. 다시 시도하거나 로그인 없이 학습할 수 있어요.',
-      failed: '로그인을 완료하지 못했어요. 다시 시도해 주세요.',
       expired: '로그인 요청이 만료되었어요. 다시 시작해 주세요.',
       unavailable:
         '지금은 로그인을 이용할 수 없어요. 잠시 후 다시 시도해 주세요.',
-      conflict:
-        '이 계정으로 연결을 완료하지 못했어요. 기존에 사용한 로그인 방법으로 다시 시도해 주세요.',
       sessionExpired: '로그인이 만료되었어요. 다시 로그인해 주세요.',
-      alreadySignedIn: '로그인되어 있어요.',
-      backToLearning: '학습으로 돌아가기',
       migrationIncomplete:
         '기존 학습 기록을 연결하지 못했어요. 로그인 방법 전환 안내를 확인해 주세요.',
       cancel: '취소',
-      close: '닫기',
       recheck: '다시 확인',
       logoutTitle: '로그아웃할까요?',
       logoutDescription:
@@ -429,40 +474,28 @@ export const koResources = {
       logoutAction: '로그아웃',
       loggingOut: '로그아웃하고 있어요.',
       logoutUnknown: '로그아웃 상태를 확인하지 못했어요. 다시 확인해 주세요.',
-      loggedOut: '로그아웃했어요.',
       unlinkTitle: '{{provider}} 연결을 해제할까요?',
       unlinkDescription:
         '연결 해제 후에는 연결된 다른 로그인 방법으로 로그인해 주세요. 학습 기록은 유지되며, 회원 탈퇴는 별도입니다.',
       unlinkAction: '연결 해제',
       lastMethodTitle: '마지막 로그인 방법은 해제할 수 없어요.',
-      lastMethodDescription:
-        '연결을 해제하면 다시 로그인할 수 없어요. 계정을 삭제하려면 회원 탈퇴 안내를 확인해 주세요.',
-      withdrawalHelp: '회원 탈퇴 안내',
-      reauthTitle: '계속하려면 다시 로그인해 주세요.',
-      wrongAccount: '처음 로그인한 계정으로 다시 시도해 주세요.',
       deleteTitle: '회원 탈퇴할까요?',
-      deleteDescription:
-        '회원 탈퇴 후에는 이 계정으로 하루마루를 이용할 수 없어요. 데이터 처리 내용은 계정과 데이터 안내에서 확인해 주세요. 연결한 외부 계정 자체가 삭제되지는 않아요.',
-      deleteAction: '회원 탈퇴',
       processing: '처리하고 있어요.',
       actionFailed: '요청을 완료하지 못했어요. 다시 확인해 주세요.',
       deletionAccepted: '회원 탈퇴 요청을 접수했어요.',
       deletionComplete: '회원 탈퇴가 완료됐어요.',
-      appDataDeletionComplete: '앱 데이터 삭제가 완료됐어요.',
       unlinked: '연결을 해제했어요.',
-      providerCleanupPending:
-        '앱 데이터 삭제는 완료됐지만 {{provider}} 연결 정리는 아직 완료되지 않았어요.',
       legacyMethod:
         '로그인 방법이 변경되었어요. 연결한 계정으로 계속해 주세요.',
-      continueApple: 'Apple로 계속하기',
       continueGoogle: 'Google로 계속하기',
-      checkingProviderReturn: '{{provider}} 로그인을 확인하고 있어요.',
       cancelledProvider:
         '{{provider}} 로그인을 취소했어요. 다시 시도하거나 로그인 없이 학습할 수 있어요.',
       failedProvider:
         '{{provider}} 로그인을 완료하지 못했어요. 다시 시도해 주세요.',
       unavailableProvider:
-        '지금은 {{provider}} 로그인을 이용할 수 없어요. 잠시 후 다시 시도해 주세요.'
+        '지금은 {{provider}} 로그인을 이용할 수 없어요. 잠시 후 다시 시도해 주세요.',
+      consentNotice:
+        '계속하면 <terms>이용약관</terms>과 <privacy>개인정보 처리방침</privacy>을 확인한 것으로 봅니다. 만\u00a014세 미만은 가입할 수 없습니다.'
     }
   },
   practice: {
@@ -472,7 +505,8 @@ export const koResources = {
       newTitle: '새로 시작하기',
       modeSummary: '출제 방식',
       shortcutsLabel: '다시 공부하기',
-      guestHint: '로그인 없이 시작할 수 있어요.',
+      guestHint:
+        '로그인 없이 하루 {{total}}번, {{count}}문제씩 풀어 볼 수 있어요.',
       reviewShortcut: '틀린 문제 복습',
       bookmarkShortcut: '책갈피',
 
@@ -487,8 +521,6 @@ export const koResources = {
         otherAction: '다른 진행 학습 보기',
         description: '최근 저장한 학습부터 이어갈 수 있습니다.',
         refreshing: '목록 갱신 중…',
-        guestHint:
-          '새 게스트 세션을 시작하면 이 탭에서 서버 작업본을 이어서 풀 수 있습니다. 로그인하면 다른 기기에서도 같은 계정의 작업본을 확인할 수 있습니다.',
         loading: '저장된 작업본을 확인하고 있습니다…',
         offline:
           '오프라인입니다. 연결되면 이어풀기 목록을 자동으로 다시 확인합니다.',
@@ -537,14 +569,20 @@ export const koResources = {
           description: '서버 일정상 오늘 복습할 오답을 순서대로 풉니다.'
         }
       },
-      memberModes: '회원 기능',
-      memberModesHint:
-        '오답·책갈피·오늘의 복습은 로그인 후 이용할 수 있습니다.',
+      guestResumeHint: '로그인하면 풀던 문제를 이어서 풀 수 있어요.',
+      memberLocked: '로그인 필요',
+      locked: {
+        count: '10문제·20문제는 로그인하면 풀 수 있어요.',
+        mode: '무작위 외 출제 방식은 로그인하면 쓸 수 있어요.'
+      },
+      guestLeft: '오늘 체험 <b>{{total}}회 중 {{remaining}}회</b> 남았어요.',
+      dailyLimit: {
+        title: '오늘 체험을 다 썼어요',
+        description:
+          '로그인하면 문제 수 제한 없이 풀고 기록도 남아요. 체험은 내일 0시(한국 시간)에 다시 {{total}}회 생겨요.'
+      },
+      urlLocked: '문항 수·출제 방식은 로그인하면 고를 수 있어요.',
       availableCountNote: '문제가 부족하면 가능한 수만 제공합니다.',
-      loginRequired: '로그인 후 이용 가능',
-      protectedMode:
-        '선택한 모드는 로그인 후 이용할 수 있습니다. 랜덤 문제로 바꾸지 않았습니다.',
-      login: '로그인하기',
       noEligibleTitle: '현재 조건에는 출제 가능한 {{mode}} 문제가 없습니다.',
       noEligibleDescription:
         '급수·과목·모드를 바꾸거나 랜덤 문제를 선택해 주세요. 서버가 다른 모드로 자동 대체하지는 않습니다.',
@@ -612,6 +650,13 @@ export const koResources = {
         description:
           '새 RANDOM 학습을 시작해 주세요. 이 세션에는 답안을 제출할 수 없습니다.',
         openSetup: '학습 설정으로 이동'
+      },
+      exitGuest: {
+        title: '풀이를 그만둘까요?',
+        description: '나가면 이 풀이는 저장되지 않아요.',
+        countNotBack: '오늘 체험 횟수는 돌아오지 않아요.',
+        keep: '계속 풀기',
+        leave: '나가기'
       },
       navigationGuard: {
         title: '잠시 쉬어 갈까요?',
@@ -683,8 +728,7 @@ export const koResources = {
       },
       progressLabel: '답변 완료 {{percent}}%',
       question: {
-        passageEyebrow: 'READING PASSAGE',
-        passageLabel: '독해 지문',
+        passageLabel: '지문',
         numberLabel: '{{ordinal}}번 문제.',
         answerLegend: '정답 보기',
         keyboardHint:
@@ -695,19 +739,17 @@ export const koResources = {
         remove: '책갈피 해제',
         addLabel: '{{ordinal}}번 문제 책갈피 추가',
         removeLabel: '{{ordinal}}번 문제 책갈피 해제',
-        loginRequired: '책갈피를 저장하려면 로그인해 주세요.',
         legacyReadOnly: '이전 계약 세션에서는 책갈피를 변경할 수 없습니다.',
-        removed: '책갈피에서 해제했습니다.',
+        removed: '책갈피에서 뺐어요.',
         removeRollback: '책갈피 해제를 완료하지 못해 복원했습니다.',
-        saved: '책갈피에 저장했습니다.',
+        saved: '책갈피에 저장했어요.',
         saveRollback: '책갈피를 저장하지 못해 이전 상태로 복원했습니다.',
         offlineQueued:
           '오프라인입니다. 연결되면 책갈피 변경을 다시 시도합니다.',
         statusLoadOffline:
           '오프라인이라 책갈피 상태를 확인할 수 없습니다. 연결되면 자동으로 다시 확인합니다.',
         statusLoadFailed: '책갈피 상태를 확인하지 못했습니다.',
-        retryStatus: '다시 확인',
-        chooseLogin: '로그인 선택'
+        retryStatus: '다시 확인'
       },
       navigation: {
         previous: '이전',
@@ -796,15 +838,20 @@ export const koResources = {
       duration: '소요 시간',
       durationValue: '{{minutes}}분 {{seconds}}초'
     },
+    guestDone: '오늘 체험은 여기까지예요. 로그인하면 계속 풀 수 있어요.',
+    memberLocked: '로그인 필요',
+    locked: {
+      retry: '틀린 문제 다시 풀기는 로그인하면 쓸 수 있어요.'
+    },
     status: {
       guest:
-        '현재 게스트 세션에서는 오답을 다시 풀 수 있지만 계정 오답노트에는 저장되지 않습니다.',
+        '로그인하면 오답이 오답노트에 저장돼요. 지금 결과는 이어지지 않아요.',
       savedWrongCount:
         '틀린 {{formattedCount}}문제가 오답노트에 반영되었습니다.'
     },
     actions: {
       retryIncorrect: '오답만 다시 풀기',
-      loginChoice: '로그인 선택',
+      loginChoice: '로그인',
       openWrongNotes: '오답노트 보기'
     },
     retry: {
@@ -849,9 +896,9 @@ export const koResources = {
       remove: '책갈피 해제',
       removeLabel: '{{formattedOrdinal}}번 문제 책갈피 해제',
       unavailable: '이 결과에서는 책갈피를 변경할 수 없습니다.',
-      removed: '책갈피에서 해제했습니다.',
+      removed: '책갈피에서 뺐어요.',
       removeFailed: '책갈피 해제를 완료하지 못해 복원했습니다.',
-      saved: '책갈피에 저장했습니다.',
+      saved: '책갈피에 저장했어요.',
       saveFailed: '책갈피를 저장하지 못해 이전 상태로 복원했습니다.'
     },
     blocker: {
@@ -1096,10 +1143,6 @@ export const koResources = {
       versionChanged:
         '이 해설은 마지막으로 틀린 문제 버전입니다. 다시 풀 때는 최신 문항이 나옵니다.',
       guest: {
-        title: '틀린 문제를 모아 복습하세요.',
-        description: '로그인하면 복습할 문제를 이어서 확인할 수 있어요.',
-        login: '로그인',
-        practice: '학습으로',
         result: '이 기기에서 방금 마친 학습 결과'
       },
       empty: {
@@ -1352,8 +1395,8 @@ export const koResources = {
       retrySave: '다시 저장',
       saving: '저장 중…',
       savedAt: '{{time}} 저장',
-      saved: '저장했어요',
-      deleted: '메모를 삭제했어요',
+      saved: '메모를 저장했어요.',
+      deleted: '메모를 삭제했어요.',
       saveError:
         '저장하지 못했어요. 쓴 내용은 그대로 있어요. 연결을 확인하고 다시 저장해 주세요.',
       saveOffline:
@@ -1482,577 +1525,99 @@ export const koResources = {
       status: '{{page}} / {{pageCount}} 페이지'
     }
   },
+  account: {
+    title: '마이페이지',
+    guestDescription: '마이페이지에서 학습 기록과 계정을 관리할 수 있어요.',
+    study: {
+      title: '내 학습',
+      period: '전체 기간',
+      total: '푼 문제',
+      totalUnit: '문제',
+      rate: '정답률',
+      wrongNotes: '오답노트',
+      wrongSolved: '해결 {{solved}} · {{total}}개 중',
+      bySubject: '과목별 정답률',
+      weakest: '가장 약한 과목: {{subject}}',
+      startSubject: '{{subject}} 학습 시작',
+      noRecord: '아직 기록 없음',
+      week: '최근 7일',
+      weekSummary: '7일 중 {{days}}일 학습, 합계 {{count}}문제',
+      recent: '최근 학습',
+      repeated: '자주 틀린 문제',
+      wrongTimes: '{{count}}번 틀림',
+      seeInReview: '복습에서 보기',
+      fewData: '문제를 더 풀수록 분석이 정확해져요.',
+      emptyTitle: '아직 푼 문제가 없어요',
+      emptyDescription: '문제를 풀면 정답률과 약한 과목을 여기서 보여 드려요.',
+      emptyAction: '첫 학습 시작',
+      error: '학습 기록을 불러오지 못했어요.',
+      retry: '다시 시도',
+      loading: '학습 기록을 불러오고 있어요.'
+    },
+    recommend: {
+      title: '추천 학습',
+      start: '시작'
+    },
+    settings: {
+      title: '계정',
+      signInMethod: '로그인 방법',
+      connected: '연결됨',
+      onlyMethod: '유일한 로그인 방법이라 연결을 해제할 수 없어요.',
+      logoutDescription:
+        '이 기기에서 로그아웃합니다. 학습 기록은 그대로 남아요.'
+    },
+    danger: {
+      title: '회원 탈퇴',
+      description:
+        '탈퇴하면 바로 로그아웃되고, 1시간 안에 학습 기록·오답노트·메모·책갈피·복습 일정과 계정 정보가 삭제돼요. 되돌릴 수 없어요.\nGoogle 계정은 삭제되지 않아요.',
+      action: '회원 탈퇴'
+    },
+    confirm: {
+      stepDelete: '탈퇴 최종 확인',
+      stepUnlink: '연결 해제 최종 확인',
+      deleteDescription: {
+        scope:
+          '탈퇴하면 바로 로그아웃되고, 1시간 안에 학습 기록·오답노트·메모·책갈피·복습 일정과 계정 정보(이름·이메일)가 삭제돼요. 되돌릴 수 없어요.',
+        reports:
+          '보내 주신 문제 신고는 설명을 지우고 계정과 연결을 끊은 채 남아요.',
+        google:
+          "Google 계정은 삭제되지 않아요. Google 계정 설정의 '타사 앱 연결'에서 하루마루 연결을 직접 해제할 수 있어요."
+      }
+    },
+    dataGuide: '계정과 데이터 처리 안내',
+    data: {
+      description:
+        '로그아웃은 앱 세션을 종료하고, 연결 해제는 로그인 방법을 제거하며, 회원 탈퇴는 앱 계정의 삭제 처리를 요청합니다.',
+      privacyLink: '개인정보 처리방침 보기',
+      manageLink: '마이페이지에서 계정 관리하기'
+    }
+  },
   admin: {
     name: '관리자',
-    grid: {
-      columns: '표시할 열',
-      pageSize: '쪽당 행 수',
-      pageStatus: '{{page}} / {{pageCount}}쪽 · 전체 {{total}}건',
-      previous: '이전',
-      next: '다음'
-    },
-    nav: {
-      brand: '하루마루 관리',
-      questions: '문제',
-      import: '가져오기',
-      members: '가입자',
-      reports: '버그 리포트',
-      auditLog: '감사 이력'
-    },
-    members: {
-      title: '가입자',
-      description:
-        '가입자의 학습 현황과 이용 상태를 확인하고 필요하면 이용을 제한합니다. 이메일은 가려서 보여 줍니다.',
-      gridLabel: '가입자 목록',
-      loading: '가입자 정보를 불러오는 중입니다.',
-      loadError: '가입자 목록을 불러오지 못했습니다',
-      empty: '아직 가입자가 없습니다.',
-      noMatch: '이 이메일로 가입한 사람이 없습니다.',
-      never: '학습 기록 없음',
-      openDetail: '상세',
-      search: {
-        label: '이메일로 찾기',
-        hint: '전체 이메일 주소를 정확히 입력해 주세요.',
-        submit: '찾기',
-        clear: '검색 해제',
-        invalid: '올바른 이메일 주소를 입력해 주세요.'
-      },
-      columns: {
-        memberId: '회원 ID',
-        email: '이메일',
-        joinedAt: '가입일',
-        lastStudiedAt: '최근 학습',
-        solvedCount: '푼 문제',
-        reportCount: '제보',
-        status: '상태',
-        actions: '상세/조치'
-      },
-      status: { ACTIVE: '이용 중', RESTRICTED: '이용 제한' },
-      detail: {
-        title: '가입자 상세',
-        back: '가입자 목록으로',
-        loadError: '가입자 정보를 불러오지 못했습니다',
-        restrictedAt: '제한 시각',
-        restrictTitle: '이용 제한',
-        restrictHint:
-          '제한하면 새 학습·복습 시작과 새 제보를 할 수 없습니다. 로그인과 기록 조회는 계속 됩니다.',
-        reason: '제한 사유',
-        reasonHint: '{{max}}자 이내로 적어 주세요. 감사 이력에 남습니다.',
-        reasonRequired: '제한 사유를 1~{{max}}자로 적어 주세요.',
-        restrict: '이용 제한',
-        restricting: '제한하는 중…',
-        restricted: '이용을 제한했습니다.',
-        releaseTitle: '제한 해제',
-        releaseHint: '해제하면 바로 다시 학습과 제보를 할 수 있습니다.',
-        release: '제한 해제',
-        releasing: '해제하는 중…',
-        released: '이용 제한을 해제했습니다.',
-        fresh: {
-          required:
-            '보안을 위해 관리자 본인 확인이 필요합니다. 새 탭에서 본인 확인을 마친 뒤 여기서 확인 완료를 눌러 주세요. 입력한 내용은 그대로 있고, ‘{{command}}’ 작업은 아직 적용되지 않았습니다.',
-          openNewTab: '새 탭에서 본인 확인',
-          confirm: '확인 완료',
-          confirmed:
-            '본인 확인을 마쳤습니다. ‘{{command}}’ 버튼을 다시 눌러 적용해 주세요.',
-          failed: '본인 확인이 끝나지 않아 적용하지 않았습니다.'
-        },
-        confirm: {
-          title: '이용을 제한할까요?',
-          description: '아래 가입자에게 바로 적용됩니다.',
-          preserved: '학습 기록과 보낸 제보는 지워지지 않습니다.',
-          cancel: '취소',
-          apply: '제한 적용'
-        },
-        reload: '최신 정보 다시 불러오기'
-      }
-    },
-    idleLock: {
-      title: '15분 동안 사용하지 않아 잠갔습니다',
-      description: '입력한 내용은 그대로 있습니다.',
-      recheck: '다시 확인',
-      checking: '확인 중…',
-      failed: '본인 확인이 끝나지 않았습니다. 다시 시도해 주세요.',
-      expired:
-        '로그인이 끝났습니다. 입력한 내용은 이 화면에 그대로 있습니다. 새 탭에서 다시 로그인한 뒤 이 화면으로 돌아와 다시 확인을 눌러 주세요.',
-      signInNewTab: '새 탭에서 로그인'
-    },
-    common: {
-      breadcrumbLabel: '현재 위치',
-      menuLabel: '관리자 메뉴',
-      wideScreenRecommended:
-        '이 작업은 넓은 화면에서 하는 것을 권장합니다. 휴대폰에서도 계속할 수 있습니다.',
-      questions: '문제 관리',
-      questionDetail: '문제 상세',
-      newQuestion: '새 문제',
-      import: '가져오기',
-      auditLog: '감사 기록',
-      reports: '신고 큐',
-      reportDetail: '신고 상세',
-      none: '없음',
-      unassigned: '미할당',
-      open: '열기',
-      question: '문제',
-      version: '버전',
-      status: '상태',
-      reason: '사유',
-      reporter: '신고자',
-      assignee: '담당자',
-      actor: '행위자',
-      createdAt: '생성일',
-      updatedAt: '수정일',
-      details: '상세',
-      rowVersion: 'rowVersion',
-      selectedFile: '선택: {{fileName}}',
-      retryAfter: '{{message}} {{seconds}}초 뒤 다시 시도해 주세요.',
-      pausedTitle: '오프라인에서 최신 상태를 확인할 수 없습니다',
-      pausedDescription:
-        '연결이 복구되면 다시 확인해 주세요. 최신 상태를 확인할 때까지 관리자 변경 작업을 사용할 수 없습니다.',
-      cachedPausedDescription:
-        '오프라인이라 최신 상태를 확인하지 못했습니다. 현재 자료는 유지되며 관리자 변경 작업은 잠겼습니다.',
-      retry: '최신 상태 다시 확인'
-    },
-    enums: {
-      subjects: {
-        VOCABULARY: '문자·어휘',
-        GRAMMAR: '문법',
-        READING: '독해'
-      },
-      questionTypes: { ...questionTypeLabels },
-      difficulties: {
-        EASY: '쉬움',
-        NORMAL: '보통',
-        HARD: '어려움'
-      },
-      lifecycleStatuses: {
-        ACTIVE: '활성',
-        ARCHIVED: '보관됨'
-      },
-      versionStatuses: {
-        DRAFT: '초안',
-        IN_REVIEW: '검수 중',
-        CHANGES_REQUESTED: '수정 요청',
-        APPROVED: '승인',
-        PUBLISHED: '공개',
-        RETIRED: '공개 중단'
-      },
-      questionSort: {
-        UPDATED_DESC: '최근 수정순',
-        CREATED_DESC: '최근 생성순',
-        LEVEL_ASC: '급수순',
-        REPORT_COUNT_DESC: '신고 많은 순',
-        CREATED_ASC: '오래된 순'
-      },
-      reportSort: {
-        UPDATED_DESC: '최근 수정순',
-        CREATED_DESC: '최근 생성순'
-      },
-      reportReasons: {
-        ANSWER_ERROR: '정답 오류',
-        EXPLANATION_ERROR: '해설 오류',
-        TYPO_OR_GRAMMAR: '오탈자·문법 오류',
-        AMBIGUOUS: '모호한 문제',
-        LEVEL_OR_TAXONOMY: '급수·분류 오류',
-        OTHER: '기타'
-      },
-      reportStatuses: {
-        OPEN: '접수됨',
-        TRIAGED: '분류됨',
-        RESOLVED: '해결됨',
-        DISMISSED: '기각됨'
-      },
-      reportOutcomes: {
-        RESOLVED: '해결',
-        DISMISSED: '기각'
-      },
-      commands: {
-        APPROVE: '승인',
-        ARCHIVE: '문제 보관',
-        CHANGE_REQUEST: '수정 요청',
-        CREATE_VERSION: '새 버전 만들기',
-        PUBLISH: '공개',
-        REQUEST_REVIEW: '검수 요청',
-        RETIRE: '공개 중단',
-        WITHDRAW: '승인 철회'
-      },
-      reviewActions: {
-        REQUESTED: '검수 요청',
-        CHANGES_REQUESTED: '수정 요청',
-        APPROVED: '승인',
-        APPROVAL_WITHDRAWN: '승인 철회',
-        PUBLISHED: '공개',
-        RETIRED: '공개 중단',
-        ARCHIVE_ABANDONED: '보관으로 검수 종료',
-        AUTHOR_ERASURE_ABANDONED: '작성자 삭제로 검수 종료'
-      },
-      auditCommands: {
-        QUESTION_CREATE: '문제 생성',
-        QUESTION_VERSION_CREATE: '문제 버전 생성',
-        QUESTION_VERSION_UPDATE: '문제 버전 수정',
-        REVIEW_REQUEST: '검수 요청',
-        CHANGE_REQUEST: '수정 요청',
-        APPROVAL: '승인',
-        APPROVAL_WITHDRAWAL: '승인 철회',
-        PUBLICATION: '공개',
-        RETIREMENT: '공개 중단',
-        QUESTION_ARCHIVE: '문제 보관',
-        REVIEW_REQUEST_BATCH: '일괄 검수 요청',
-        IMPORT_APPLY: '가져오기 적용',
-        EXPORT: '내보내기',
-        REPORT_TRIAGE: '신고 분류',
-        REPORT_RESOLUTION: '신고 최종 처리',
-        REAUTHENTICATION: '관리자 본인 확인',
-        AUTHOR_ERASURE_ABANDON: '작성자 삭제 후 검수 종료'
-      },
-      auditTargetTypes: {
-        QUESTION: '문제',
-        QUESTION_VERSION: '문제 버전',
-        QUESTION_REPORT: '문제 신고',
-        REVIEW_REQUEST_BATCH: '일괄 검수 요청',
-        IMPORT_REQUEST: '가져오기 요청',
-        EXPORT_REQUEST: '내보내기 요청',
-        ADMIN_SESSION: '관리자 세션',
-        USER_ERASURE: '사용자 삭제'
-      },
-      auditStates: {
-        ACTIVE: '활성',
-        ARCHIVED: '보관됨',
-        DRAFT: '초안',
-        IN_REVIEW: '검수 중',
-        CHANGES_REQUESTED: '수정 요청',
-        APPROVED: '승인',
-        PUBLISHED: '공개',
-        RETIRED: '공개 중단',
-        OPEN: '접수됨',
-        TRIAGED: '분류됨',
-        RESOLVED: '해결됨',
-        DISMISSED: '기각됨',
-        SESSION_STALE: '본인 확인 만료',
-        SESSION_FRESH: '본인 확인 완료'
-      },
-      auditChangedFields: {
-        LIFECYCLE_STATUS: '문제 수명주기',
-        VERSION_STATUS: '버전 상태',
-        CURRENT_PUBLISHED_VERSION_ID: '현재 공개 버전',
-        LEVEL: '급수',
-        SUBJECT: '과목',
-        QUESTION_TYPE: '문제 유형',
-        DIFFICULTY: '난이도',
-        PASSAGE: '지문',
-        QUESTION_TEXT: '문제 문장',
-        EXPLANATION_KO: '한국어 해설',
-        EXPLANATION_JA: '일본어 해설',
-        OPTIONS: '보기',
-        CORRECT_OPTION: '정답',
-        TAGS: '태그',
-        ASSIGNEE: '담당자',
-        RESOLUTION: '처리 결과',
-        REPORT_STATUS: '신고 상태',
-        SESSION_ROTATION: '세션 교체',
-        IMPORT_ITEMS: '가져오기 항목',
-        EXPORT_SELECTION: '내보내기 선택',
-        AUTHOR_TOMBSTONE: '삭제된 작성자 표시'
-      },
-      auditEnvironments: {
-        TEST: '테스트',
-        DEVELOPMENT: '개발',
-        PRODUCTION: '운영'
-      },
-      actorLabels: {
-        ACTIVE_USER: '활성 학습자',
-        DELETED_USER: '삭제된 학습자',
-        ACTIVE_ADMIN: '활성 관리자',
-        DELETED_ADMIN: '삭제된 관리자',
-        ACCOUNT_ERASURE: '계정 삭제 시스템 작업'
-      },
-      diffFields: {
-        LEVEL: '급수',
-        SUBJECT: '과목',
-        QUESTION_TYPE: '문제 유형',
-        DIFFICULTY: '난이도',
-        PASSAGE: '지문',
-        QUESTION_TEXT: '문제 문장',
-        EXPLANATION_KO: '한국어 해설',
-        EXPLANATION_JA: '일본어 해설',
-        OPTIONS: '선택지와 정답',
-        TAGS: '태그'
-      },
-      importIssueCodes: {
-        DUPLICATE_CLIENT_ITEM_ID: '가져오기 항목 ID 중복',
-        DUPLICATE_CLIENT_OPTION_KEY: '보기 key 중복',
-        DUPLICATE_OPTION_TEXT: '보기 내용 중복',
-        DUPLICATE_TAG: '태그 중복',
-        CORRECT_OPTION_KEY_NOT_FOUND: '정답 보기 key 없음',
-        UNKNOWN_TAG: '등록되지 않은 태그',
-        TAG_SUBJECT_MISMATCH: '문제 과목과 맞지 않는 태그',
-        INVALID_READING_PASSAGE: '독해 지문 규칙 오류',
-        INVALID_CONTENT: '문항 내용 오류',
-        DUPLICATE_QUESTION_CONTENT: '문항 내용 중복'
-      }
-    },
-    errors: {
-      generic: '관리자 요청을 완료하지 못했습니다.',
-      offline: '오프라인 상태입니다. 입력과 선택은 유지됩니다.',
-      authenticationRequired: '로그인이 필요합니다. 다시 로그인해 주세요.',
-      sessionExpired: '로그인 세션이 만료되었습니다. 다시 로그인해 주세요.',
-      adminRequired: '관리자 권한이 필요합니다.',
-      forbidden: '이 관리자 작업을 실행할 권한이 없습니다.',
-      freshAssuranceRequired:
-        '이 작업을 실행하려면 관리자 본인 확인이 필요합니다.',
-      invalidId: '요청 식별자 형식이 올바르지 않습니다.',
-      invalidRequest: '요청 형식이 올바르지 않습니다. 입력을 확인해 주세요.',
-      requestTooLarge: '요청 크기가 허용 범위를 초과했습니다.',
-      validation: '입력 내용을 확인해 주세요.',
-      notFound: '요청한 관리자 자료를 찾을 수 없습니다.',
-      versionConflict: '다른 작업에서 최신 상태가 변경되었습니다.',
-      questionVersionImmutable: '이 문제 버전은 더 이상 수정할 수 없습니다.',
-      invalidState: '현재 상태에서는 이 작업을 실행할 수 없습니다.',
-      separationOfDuties:
-        '작성과 검수 역할을 분리해야 하므로 이 작업을 실행할 수 없습니다.',
-      duplicateQuestionContent:
-        '보관된 문제를 포함해 같은 내용의 문제가 이미 있습니다. 문구를 바꿔 다시 저장해 주세요.',
-      untrustedOrigin: '허용되지 않은 요청 출처입니다.',
-      rateLimited: '요청이 너무 많습니다.',
-      server: '서버에서 관리자 요청을 처리하지 못했습니다.',
-      unavailable: '관리자 기능을 잠시 사용할 수 없습니다.',
-      reportDuplicate: '같은 문제 버전에 처리 중인 신고가 이미 있습니다.',
-      importIdentityConflict:
-        '가져오기 항목의 식별자가 기존 자료와 충돌합니다.',
-      importValidationFailed:
-        '가져오기 검증 결과가 현재 요청과 일치하지 않습니다.',
-      reauthenticationFailed:
-        '연결한 계정으로 본인 확인을 완료하지 못했습니다.',
-      fieldInvalid: '이 입력값을 확인해 주세요.'
-    },
-    freshAssurance: {
-      title: '관리자 본인 확인',
-      description:
-        '{{reason}} 연결한 계정으로 본인 확인 후 작업 버튼을 다시 눌러야 합니다.',
-      cancel: '취소',
-      checkingSession: '로그인 상태 확인 중…',
-      retrySession: '로그인 상태 다시 확인',
-      checking: '확인 중…',
-      confirm: '본인 확인',
-      complete:
-        '로그인 상태를 다시 확인했습니다. 원래 작업은 자동 실행되지 않았습니다. 내용을 확인한 뒤 직접 다시 실행해 주세요.',
-      recovered:
-        '현재 관리자 세션을 확인했습니다. 연결한 계정으로 본인 확인을 재시도해 주세요.',
-      recoveryFailed:
-        '로그인 상태를 확인하지 못했습니다. 로컬 작업은 유지됩니다. 로그인 상태 확인을 다시 시도해 주세요.',
-      failed: '본인 확인을 완료하지 못했습니다.',
-      reasons: {
-        BATCH_REVIEW: '일괄 검수 요청은 민감한 관리자 작업입니다.',
-        EXPORT: '문제 내보내기에는 민감한 정답·해설이 포함됩니다.',
-        IMPORT_APPLY:
-          '가져오기 적용은 여러 문제를 만드는 민감한 관리자 작업입니다.',
-        QUESTION_APPROVE: '승인 작업은 민감한 관리자 작업입니다.',
-        QUESTION_ARCHIVE: '문제 보관 작업은 민감한 관리자 작업입니다.',
-        QUESTION_PUBLISH: '공개 작업은 민감한 관리자 작업입니다.',
-        QUESTION_RETIRE: '공개 중단 작업은 민감한 관리자 작업입니다.',
-        QUESTION_WITHDRAW: '승인 철회 작업은 민감한 관리자 작업입니다.',
-        REPORT_RESOLUTION: '신고 최종 처리는 민감한 관리자 작업입니다.'
-      }
-    },
+    reauth: koAdminReauthResources,
+    grid: koAdminListResources,
+    adminList: koAdminSharedListResources,
+    nav: koAdminNavResources,
+    members: koAdminMembersResources,
+    idleLock: koAdminIdleLockResources,
+    common: koAdminCommonResources,
+    enums: koAdminEnumsResources,
+    errors: koAdminErrorsResources,
     questionList: koAdminQuestionListResources,
-    create: {
-      page: koAdminFormResources.createPage,
-      eyebrow: 'CREATE DRAFT',
-      title: '새 문제 초안 만들기',
-      description:
-        '생성 결과는 항상 새 초안 버전입니다. 공개 상태를 폼에서 직접 지정할 수 없습니다.',
-      submit: '초안 만들기',
-      error: '문제를 만들지 못했습니다.'
-    },
-    editor: {
-      page: koAdminFormResources.editorPage,
-      form: koAdminFormResources.editorForm,
-      classificationLegend: '분류와 본문',
-      level: 'JLPT 급수',
-      subject: '과목',
-      questionType: '문제 유형',
-      difficulty: '난이도',
-      questionText: '문제 문장',
-      passage: '지문',
-      passageHint:
-        '독해 문제에는 필수이며, 그 외에는 글의 문법 유형에서만 사용할 수 있습니다.',
-      optionsLegend: '보기와 정답',
-      reorderHint:
-        '이동 버튼 또는 보기 입력란에서 Alt+위/아래 화살표로 순서를 바꿀 수 있습니다.',
-      correctOption: '정답 {{number}}',
-      optionLabel: '{{number}}번 보기',
-      moveUp: '{{number}}번 보기 위로 이동',
-      moveDown: '{{number}}번 보기 아래로 이동',
-      optionMoved:
-        '{{from}}번 보기를 {{to}}번 위치로 이동했습니다. 정답 ID는 유지됩니다.',
-      explanationLegend: '해설과 태그',
-      explanationKo: '한국어 해설',
-      explanationJa: '일본어 해설',
-      tagTextHint: '쉼표 또는 줄바꿈으로 구분합니다. 최소 1개가 필요합니다.',
-      tagSearch: '등록된 태그 검색',
-      tagSuggestions: '등록된 태그 검색 결과',
-      tagQueryError: '태그 검색어는 정규화 후 100자 이하여야 합니다.',
-      tagLoadError: '태그 목록을 불러오지 못했습니다.',
-      tagLoading: '태그를 검색하는 중입니다…',
-      tagEmpty: '일치하는 등록 태그가 없습니다.',
-      tagOffline: '오프라인에서는 태그를 검색할 수 없습니다.',
-      selectedTags: '선택된 태그',
-      removeTag: '{{tag}} 태그 제거',
-      conflictTitle: '서버 최신본과 로컬 초안을 비교했습니다',
-      conflictDescription:
-        '다음 필드가 다릅니다. 자동 병합하거나 저장하지 않았습니다.',
-      rowVersionOnly: 'rowVersion만 변경됨',
-      rebaseAnnouncement:
-        '로컬 초안을 최신 rowVersion에 적용하도록 명시적으로 선택했습니다.',
-      rebaseAction: '검토한 로컬 초안을 최신 rowVersion에 적용',
-      saving: '저장 중…',
-      unsavedTitle: '저장하지 않은 변경사항이 있습니다',
-      unsavedDescription: '이 페이지를 떠나면 현재 편집 내용이 사라집니다.',
-      keepEditing: '계속 편집',
-      discardAndLeave: '변경사항 버리고 이동',
-      fields: {
-        level: 'JLPT 급수',
-        subject: '과목',
-        questionType: '문제 유형',
-        difficulty: '난이도',
-        questionText: '문제 문장',
-        passage: '지문',
-        options: '보기 내용·순서',
-        correctIdentity: '정답',
-        explanationKo: '한국어 해설',
-        explanationJa: '일본어 해설',
-        tagNames: '태그'
-      }
-    },
-    questionDetail: {
-      editDraft: '초안 편집',
-      noPreviousVersion: '비교할 이전 버전이 없습니다.',
-      actions: '현재 버전 작업',
-
-      title: '문제 버전 워크플로',
-      description:
-        '행 버전 충돌 시 로컬 편집 내용은 유지되며, 새로고침 후 차이를 확인할 수 있습니다.',
-      loading: '관리자 문제 상세를 불러오는 중입니다…',
-      loadErrorTitle: '문제 상세를 불러오지 못했습니다',
-      cachedError:
-        '최신 문제 정보를 확인하지 못했습니다. 화면의 편집 내용은 그대로 유지됩니다.',
-      retryDetail: '문제 정보 다시 확인',
-      history: '버전 기록',
-      historyLoading: '이전 버전 불러오는 중…',
-      historyMore: '이전 버전 더 보기',
-      newDraft: '새 초안 버전 만들기',
-      archive: '문제 보관',
-      dirtyLock:
-        '저장하지 않은 편집 내용이 있어 버전 전환과 워크플로 명령을 잠갔습니다. 먼저 초안을 저장해 주세요.',
-      diffTitle: '이전 버전과 차이',
-      diffLoading: '차이를 계산하는 중입니다…',
-      diffError: '차이를 불러오지 못했습니다.',
-      diffEmpty: '변경된 필드가 없습니다.',
-      retryDiff: '차이 다시 불러오기',
-      diffListLabel: '버전별 변경 내용',
-      diffBefore: '변경 전',
-      diffAfter: '변경 후',
-      diffBeforeLabel: '{{field}} 변경 전',
-      diffAfterLabel: '{{field}} 변경 후',
-      correctSuffix: ' (정답)',
-      previewTitle: '학습자 공개 화면 미리보기',
-      previewDescription:
-        '{{status}} 버전의 공개 화면 투영을 읽기 전용으로 표시합니다.',
-      answerExplanation: '관리자 정답·해설',
-      answer: '정답: {{answer}}',
-      previewLoading: '버전 미리보기를 불러오는 중입니다…',
-      previewErrorTitle: '미리보기를 불러오지 못했습니다',
-      previewCachedError:
-        '최신 미리보기를 확인하지 못했습니다. 화면의 편집 내용은 그대로 유지됩니다.',
-      retryPreview: '미리보기 다시 확인',
-      saveDraft: '초안 변경사항 저장',
-      saveComplete: '초안 변경사항을 저장했습니다.',
-      versionConflictDescription:
-        '다른 탭이나 관리자가 먼저 수정했습니다. 로컬 편집 내용은 유지됩니다.',
-      versionConflictTitle: '최신 버전 확인이 필요합니다',
-      retryConflict: '최신 rowVersion과 차이 불러오기',
-      conflictLoaded:
-        '서버의 최신 rowVersion과 차이를 불러왔습니다. 로컬 편집 내용은 유지됩니다.',
-      conflictLoadFailed:
-        '최신 버전을 확인하지 못했습니다. 로컬 편집 내용은 유지됩니다.',
-      reviews: '검수 기록',
-      reviewsCachedError:
-        '최신 검수 기록을 확인하지 못했습니다. 현재 기록은 그대로 유지됩니다.',
-      retryReviews: '검수 기록 다시 확인',
-      reviewsLoading: '검수 기록을 불러오는 중입니다…',
-      reviewsErrorTitle: '검수 기록을 불러오지 못했습니다',
-      reviewsEmpty: '아직 검수 기록이 없습니다.',
-      reviewsMoreLoading: '이전 검수 기록 불러오는 중…',
-      reviewsMore: '이전 검수 기록 더 보기',
-      commandFailedTitle: '명령을 완료하지 못했습니다',
-      commandDialogTitle: '{{command}} 확인',
-      commandDialogFallbackTitle: '작업 확인',
-      commandDialogDescription:
-        '다른 관리자가 먼저 바꿨다면 실행하지 않고 알려 드립니다.',
-      cancel: '취소',
-      execute: '실행',
-      requiredReason: '사유',
-      optionalReviewNote: '검수 메모 (선택)',
-      noteLimit: '메모는 {{formattedCount}}자 이하여야 합니다.',
-      commandWarning:
-        '이 작업은 학습자 노출과 기록에 영향을 줄 수 있습니다. 결과를 확인한 뒤 실행해 주세요.',
-      commandComplete: '{{command}} 작업이 완료됐습니다.'
-    },
-    import: {
-      freshRevalidateHint:
-        'Google 재확인 화면으로 이동하면 파일 선택과 검증 결과가 초기화됩니다. 돌아온 뒤 같은 JSON 파일을 다시 선택해 검증하고 직접 적용해 주세요.',
-      eyebrow: 'ATOMIC IMPORT',
-      title: '문제 초안 가져오기',
-      description:
-        '먼저 쓰기 없는 검증을 수행한 뒤, 동일 항목과 validation digest에 한해서만 전체 적용합니다.',
-      fileLabel: 'JSON 파일',
-      fileHint: '최대 2 MiB · 최대 100개 · UTF-8 strict JSON',
-      readingFile: '파일을 안전하게 읽고 있습니다…',
-      fileSizeError: '파일은 1 byte 이상 2 MiB 이하여야 합니다.',
-      fileFormatError:
-        '중복 JSON 키가 없고 canonical import request 형식인 UTF-8 JSON 파일이 필요합니다.',
-      validate: '쓰기 없이 검증',
-      valid: '검증 통과',
-      invalid: '검증 오류',
-      resultCount: '{{formattedCount}}개',
-      apply: '동일 검증 결과 원자 적용',
-      applied: '{{formattedCount}}개 초안을 원자적으로 만들었습니다.',
-      error: '가져오기 요청을 처리하지 못했습니다.',
-      issueLabel: '{{code}} · 항목 {{item}} · {{field}}',
-      recovery: {
-        checking:
-          '적용 응답을 받지 못해 같은 가져오기 ID로 적용 결과를 확인하고 있습니다.',
-        notApplied:
-          '이 가져오기는 적용되지 않았습니다. 다시 적용해도 초안이 중복으로 만들어지지 않습니다.',
-        failed:
-          '적용 결과를 확인하지 못했습니다. 다시 적용하면 같은 가져오기 ID로 처리되어 초안이 중복으로 만들어지지 않습니다.'
-      }
-    },
-    audit: {
-      eyebrow: 'ADMIN AUDIT',
-      title: '관리자 감사 기록',
-      description:
-        '민감한 문제 본문 대신 허용된 상태·digest 증거만 표시합니다.',
-      cachedError:
-        '최신 감사 기록을 확인하지 못했습니다. 현재 기록은 그대로 유지됩니다.',
-      retry: '감사 기록 다시 확인',
-      loading: '감사 기록을 불러오는 중입니다…',
-      error: '감사 기록을 불러오지 못했습니다.',
-      emptyTitle: '감사 기록이 없습니다',
-      emptyDescription: '아직 기록된 관리자 명령이 없습니다.',
-      stateChange: '상태 변경',
-      changedFields: '변경 필드',
-      requestEnvironment: '요청 {{requestId}} · 환경 {{environment}}',
-      moreLoading: '이전 감사 기록 불러오는 중…',
-      more: '이전 감사 기록 더 보기'
-    },
+    create: koAdminCreateResources,
+    editor: koAdminEditorResources,
+    questionDetail: koAdminQuestionDetailResources,
+    import: koAdminImportResources,
+    audit: koAdminAuditResources,
     questionReportDialog: {
       trigger: '문제 신고',
       title: '문제 신고',
-      description: '신고 내용은 관리자만 확인하며 HTML로 해석하지 않습니다.',
+      description: '신고 내용은 관리자만 확인해요.',
       details: '설명',
       descriptionRequired: '신고 설명을 입력해 주세요.',
       cancel: '취소',
       submit: '신고 접수',
-      submitted: '문제 신고를 접수했습니다.',
+      sent: '신고를 보냈어요.',
       error: '문제 신고를 접수하지 못했습니다.',
       offline: '오프라인입니다. 작성한 설명은 유지됩니다.',
       appErrorTrigger: '앱 오류 제보',
@@ -2060,96 +1625,11 @@ export const koResources = {
       appErrorTitle: '앱 오류 제보',
       appErrorDescription:
         '어떤 화면에서 무엇을 하다가 문제가 생겼는지 적어 주세요. 제보 내용은 관리자만 확인합니다.',
-      appErrorSubmitted: '앱 오류 제보를 접수했습니다.',
+      appErrorSent: '오류 제보를 보냈어요.',
       appErrorError: '앱 오류 제보를 접수하지 못했습니다.'
     },
-    reportList: {
-      eyebrow: 'QUESTION REPORTS · TECHNICAL MODE',
-      title: '문제 신고 큐',
-      description:
-        '목록에서는 신고 설명을 노출하지 않습니다. 상세에서만 일반 텍스트로 확인합니다.',
-      invalidQuery:
-        'URL 신고 검색 조건이 허용 범위를 벗어났습니다. 안전한 기본 조건을 사용합니다.',
-      status: '처리 상태',
-      allStatuses: '전체 상태',
-      reason: '신고 사유',
-      allReasons: '전체 사유',
-      questionId: '문제 ID',
-      assigneeActorId: '담당자 actor ID',
-      createdFrom: '신고 생성 시작 시각',
-      createdTo: '신고 생성 종료 시각',
-      updatedFrom: '신고 수정 시작 시각',
-      updatedTo: '신고 수정 종료 시각',
-      sort: '정렬',
-      applySearch: '검색 적용',
-      resetFilters: '필터 초기화',
-      cachedError:
-        '최신 신고 큐를 확인하지 못했습니다. 현재 목록은 그대로 유지됩니다.',
-      error: '신고 큐를 불러오지 못했습니다.',
-      retry: '신고 큐 다시 확인',
-      loading: '신고 큐를 불러오는 중입니다…',
-      refreshing: '신고 큐 페이지를 갱신하고 있습니다…',
-      emptyTitle: '신고가 없습니다',
-      emptyDescription: '현재 조건에 맞는 신고가 없습니다.',
-      tableScrollLabel: '문제 신고 목록 가로 스크롤 영역',
-      tableCaption:
-        '문제 신고 큐 목록. 상태, 사유, 문제, 신고자, 담당자, 생성일, 수정일, 상세 열로 구성됩니다.',
-      sortCreated: '생성일, 최근순으로 정렬',
-      sortCreatedActive: '생성일, 최근순 정렬됨',
-      sortUpdated: '수정일, 최근순으로 정렬',
-      sortUpdatedActive: '수정일, 최근순 정렬됨'
-    },
-    reportDetail: {
-      advancedFilters: '상세 조건',
-      dateHint: '시간대가 포함된 ISO 시각 (예: 2026-10-01T00:00:00Z)',
-      applyFilters: '필터 적용',
-      previous: '이전 목록',
-      next: '다음 목록',
-      first: '처음 목록으로',
-      total: '전체 {{count}}건',
-      rowInfo: '신고 정보',
-      back: '신고 목록으로',
-      reasonHint: '최대 1,000자 (유니코드 문자 기준)',
-      restored:
-        '같은 관리자 계정과 신고 버전을 확인해 처리 사유 초안을 복구했습니다. 내용을 확인한 뒤 직접 처리해 주세요.',
-      storageFailed:
-        '초안을 보관하지 못해 본인 확인 화면으로 이동하지 않았습니다. 입력을 복사해 보관하거나 다시 시도해 주세요.',
-      discard: '초안 버리기',
-      fresh: 'Google로 관리자 본인 확인',
-      leaveTitle: '작성 중인 처리 사유가 있습니다',
-      stay: '계속 작성',
-      leave: '버리고 이동',
-      pending: '작업이 끝날 때까지 기다려 주세요.',
-      listDescription: '신고 사유와 처리 상태를 확인하고 상세에서 처리하세요.',
-      title: '문제 신고 상세',
-      loading: '신고 상세를 불러오는 중입니다…',
-      error: '신고 상세를 불러오지 못했습니다.',
-      cachedError:
-        '최신 신고 상세를 확인하지 못했습니다. 현재 처리 입력은 그대로 유지됩니다.',
-      retry: '신고 상세 다시 확인',
-      description: '신고 설명',
-      noDescription: '설명이 입력되지 않았습니다.',
-      triageTitle: '분류 시작',
-      triageDescription: '현재 관리자에게 할당하고 분류됨 상태로 전환합니다.',
-      triage: '신고 분류 시작',
-      resolutionTitle: '최종 처리',
-      outcome: '처리 결과',
-      resolutionReason: '처리 사유',
-      remediationHint:
-        '선택 사항입니다. 같은 문제의 검증된 후속 버전 ID만 허용됩니다.',
-      remediationVersionId: '개선 버전 ID',
-      resolve: '최종 처리 실행',
-      resolved: '처리 완료: {{outcome}}',
-      statusChanged: '신고가 {{status}} 상태로 변경됐습니다.',
-      resolutionComplete: '신고를 {{status}} 처리했습니다.',
-      conflictRefreshFailed:
-        '최신 신고 상태를 확인하지 못했습니다. 입력은 유지됩니다. 네트워크를 확인한 뒤 다시 시도해 주세요.',
-      conflictRefreshed:
-        '최신 신고 상태를 반영했습니다. 입력을 확인한 뒤 작업을 다시 실행해 주세요.',
-      mutationError: '신고 상태를 변경하지 못했습니다.',
-      retryConflict: '최신 신고 상태 불러오기',
-      conflictTitle: '다른 작업에서 신고 상태가 변경됐습니다'
-    },
+    reportList: koAdminReportListResources,
+    reportDetail: koAdminReportDetailResources,
     userReport: koAdminReportResources
   },
   errors: {
@@ -2182,10 +1662,6 @@ export const koResources = {
         '연결이 복구되면 로그인 상태를 다시 확인합니다. 저장된 계정 정보는 권한 판단에 사용하지 않았습니다.'
     },
     banner: {
-      loggedOut: '로그아웃했어요.',
-      offline: '오프라인 상태입니다. 네트워크 연결을 확인해 주세요.',
-      restored:
-        '네트워크 연결이 복구된 것으로 감지했습니다. 필요한 요청을 다시 시도해 주세요.',
       generic: '요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.',
       network: '네트워크 연결이 원활하지 않습니다. 다시 시도해 주세요.',
       response: '응답 형식이 올바르지 않습니다. 다시 시도해 주세요.',

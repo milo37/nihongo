@@ -21,6 +21,8 @@ import type {
   WithdrawQuestionApprovalRequest
 } from '@nihongo/contracts/admin/content-operations'
 import type {
+  ApproveQuestionVersionBatchRequest,
+  ApproveQuestionVersionBatchResponse,
   PublishQuestionVersionBatchRequest,
   PublishQuestionVersionBatchResponse
 } from '@nihongo/contracts/admin/review'
@@ -72,6 +74,11 @@ export interface AdminQuestionCommandService {
     versionId: string,
     request: WithdrawQuestionApprovalRequest
   ) => Promise<AdminQuestionMutationResult>
+  /** Approves each item in its own transaction; the batch is not atomic. */
+  approveVersionBatch: (
+    authority: AdminCommandAuthority,
+    request: ApproveQuestionVersionBatchRequest
+  ) => Promise<ApproveQuestionVersionBatchResponse>
 }
 
 export interface AdminQuestionPublicationCommandService {
@@ -195,8 +202,80 @@ export const createAdminQuestionCommandService = (
         versionId,
         request
       )
-    )
+    ),
+  approveVersionBatch: (authority, request) =>
+    execute(async () => {
+      const items: ApproveQuestionVersionBatchResponse['items'][number][] = []
+      for (const { questionVersionId, expectedRowVersion } of request.items) {
+        items.push(
+          await approveBatchItem(
+            repository,
+            authority,
+            questionVersionId,
+            expectedRowVersion,
+            items.some(({ result }) => result === 'APPROVED')
+          )
+        )
+      }
+      return {
+        approvedCount: items.filter(({ result }) => result === 'APPROVED')
+          .length,
+        items
+      }
+    })
 })
+
+const APPROVAL_BATCH_ITEM_RESULTS = {
+  RESOURCE_NOT_FOUND: 'NOT_FOUND',
+  VERSION_CONFLICT: 'VERSION_CONFLICT',
+  INVALID_STATE_TRANSITION: 'NOT_IN_REVIEW'
+} as const satisfies Partial<
+  Record<
+    AdminQuestionCommandRepositoryError['code'],
+    ApproveQuestionVersionBatchResponse['items'][number]['result']
+  >
+>
+
+/** Same failure rule as publishBatchItem: throw until something commits. */
+const approveBatchItem = async (
+  repository: AdminQuestionCommandRepository,
+  authority: AdminCommandAuthority,
+  questionVersionId: string,
+  expectedRowVersion: number,
+  anyApproved: boolean
+): Promise<ApproveQuestionVersionBatchResponse['items'][number]> => {
+  try {
+    const approved = await repository.transitionVersion(
+      'approveQuestionVersion',
+      authority,
+      questionVersionId,
+      { expectedRowVersion }
+    )
+    return {
+      questionVersionId,
+      result: 'APPROVED',
+      rowVersion: approved.versionRowVersion
+    }
+  } catch (error: unknown) {
+    if (
+      error instanceof AdminQuestionCommandRepositoryError &&
+      error.code in APPROVAL_BATCH_ITEM_RESULTS
+    ) {
+      return {
+        questionVersionId,
+        result:
+          APPROVAL_BATCH_ITEM_RESULTS[
+            error.code as keyof typeof APPROVAL_BATCH_ITEM_RESULTS
+          ],
+        rowVersion: null
+      }
+    }
+    if (!anyApproved) {
+      throw error
+    }
+    return { questionVersionId, result: 'FAILED', rowVersion: null }
+  }
+}
 
 const BATCH_ITEM_RESULTS = {
   RESOURCE_NOT_FOUND: 'NOT_FOUND',

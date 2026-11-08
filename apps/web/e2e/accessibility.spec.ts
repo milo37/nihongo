@@ -9,7 +9,6 @@ import {
 import { createReportResponseSchema } from '@nihongo/contracts/report/reports'
 import { createBookmarkResponseSchema } from '@nihongo/contracts/bookmark/create-bookmark'
 import { listBookmarksResponseSchema } from '@nihongo/contracts/bookmark/list-bookmarks'
-import { getDashboardInsightsResponseSchema } from '@nihongo/contracts/dashboard/get-dashboard-insights'
 import {
   listResumableStudySessionsQuerySchema,
   listResumableStudySessionsResponseSchema
@@ -697,15 +696,30 @@ const setLocale = async (page: Page, locale: UiLocale): Promise<void> => {
       localeSettingsPages.set(page, settingsPage)
     }
   }
-  const localeSelect = settingsPage.locator('select[name="ui-locale"]:visible')
-  if (!(await localeSelect.isVisible())) {
-    const menuButton = settingsPage.locator(
-      'button[aria-controls="account-navigation"]'
+  // The learner app keeps the language in its account menu; the admin app
+  // keeps the default menu with a language select.
+  const webMenuButton = settingsPage.locator(
+    '#account-menu-button[aria-haspopup="menu"]'
+  )
+  if ((await webMenuButton.count()) > 0) {
+    await webMenuButton.click()
+    await settingsPage
+      .locator(`[role="menuitemradio"][lang="${locale}"]`)
+      .click()
+    await settingsPage.keyboard.press('Escape')
+  } else {
+    const localeSelect = settingsPage.locator(
+      'select[name="ui-locale"]:visible'
     )
-    await menuButton.click()
-    await expect(localeSelect).toBeVisible()
+    if (!(await localeSelect.isVisible())) {
+      const menuButton = settingsPage.locator(
+        'button[aria-controls="account-navigation"]'
+      )
+      await menuButton.click()
+      await expect(localeSelect).toBeVisible()
+    }
+    await localeSelect.selectOption(locale)
   }
-  await localeSelect.selectOption(locale)
   await expect(settingsPage.locator('html')).toHaveAttribute('lang', locale)
   await expect(page.locator('html')).toHaveAttribute('lang', locale)
   await expect(page.locator('main h1')).toBeVisible()
@@ -1328,26 +1342,7 @@ const login = async (
             pageSize: 5
           })
         })
-      const insightsResponse = page
-        .waitForResponse((response) => {
-          const url = new URL(response.url())
-          return (
-            response.request().method() === 'GET' &&
-            url.origin === origin &&
-            url.pathname === '/api/v1/dashboard/insights'
-          )
-        })
-        .then(async (response) => {
-          expect(response.status()).toBe(200)
-          expect(response.fromServiceWorker()).toBe(false)
-          expect(response.headers()['cache-control']).toBe('private, no-store')
-          getDashboardInsightsResponseSchema.parse(await response.json())
-        })
-      await Promise.all([
-        resumableResponse,
-        insightsResponse,
-        page.goto(callback.href)
-      ])
+      await Promise.all([resumableResponse, page.goto(callback.href)])
       await expect(page).toHaveURL(
         (url) =>
           url.origin === origin &&
@@ -1745,7 +1740,7 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
 
   await page.goto('/')
   await settlePage(page)
-  const menuButton = page.locator('button[aria-controls="account-navigation"]')
+  const menuButton = page.locator('#account-menu-button')
   await focusByTab(page, menuButton)
   await attachFocusedElementEvidence(
     page,
@@ -1753,13 +1748,15 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
     'guest-mobile-account-trigger',
     44
   )
+  await expect(menuButton).toHaveAttribute('aria-haspopup', 'menu')
   await page.keyboard.press('Enter')
   await expect(menuButton).toHaveAttribute('aria-expanded', 'true')
-  await expect(page.locator('#account-navigation')).toBeVisible()
+  await expect(page.getByRole('menu')).toBeVisible()
+  await expect(page.getByRole('menuitem').first()).toBeFocused()
   await page.keyboard.press('Escape')
   await expect(menuButton).toBeFocused()
   await expect(menuButton).toHaveAttribute('aria-expanded', 'false')
-  await expect(page.locator('#account-navigation')).toHaveCount(0)
+  await expect(page.getByRole('menu')).toHaveCount(0)
   const mobileNavigation = page.locator('#mobile-navigation')
   await expect(mobileNavigation).toHaveAccessibleName(/\S/u)
   await expect(mobileNavigation.getByRole('link')).toHaveCount(3)
@@ -1805,9 +1802,11 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
   await page.reload()
   await settlePage(page)
   await expect(page.locator('html')).toHaveAttribute('lang', 'ja')
-  await expect(page.locator('select[name="ui-locale"]').first()).toHaveValue(
-    'ja'
-  )
+  await page.locator('#account-menu-button').click()
+  await expect(
+    page.locator('[role="menuitemradio"][lang="ja"]')
+  ).toHaveAttribute('aria-checked', 'true')
+  await page.keyboard.press('Escape')
 
   const secondPage = await context.newPage()
   await secondPage.goto('/')
@@ -1832,7 +1831,7 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
     },
     {
       minimumTarget: page.getByRole('button', {
-        name: 'N5 어휘 · 10문제 시작',
+        name: 'N5 어휘 · 5문제 시작',
         exact: true
       })
     }
@@ -1842,11 +1841,14 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
   await focusByTab(page, modeOptions.locator('summary'))
   await page.keyboard.press('Enter')
   await expect(modeOptions).toHaveJSProperty('open', true)
-  const practiceLogin = modeOptions.getByRole('link', {
-    name: '로그인하기',
-    exact: true
-  })
-  await focusByTab(page, practiceLogin)
+  // A guest choosing a locked mode keeps RANDOM and gets a toast (U4 L11).
+  const modeSelect = modeOptions.getByRole('combobox', { name: '출제 모드' })
+  await modeSelect.selectOption('WEAKNESS')
+  await expect(modeSelect).toHaveValue('RANDOM')
+  const practiceLogin = page
+    .getByRole('region', { name: '알림' })
+    .getByRole('button', { name: '로그인', exact: true })
+  await practiceLogin.focus()
   await page.keyboard.press('Enter')
   await expect(page).toHaveURL(/\/login\?redirect=/u)
   await expect(page.locator('main')).toBeFocused()
@@ -1864,6 +1866,8 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
     { label: 'reset-password-missing-token', path: '/reset-password' },
     { label: 'verify-email-missing-token', path: '/verify-email' },
     { label: 'practice-setup-guest', path: '/practice' },
+    { label: 'account-guest', path: '/account' },
+    { label: 'account-data-guest', path: '/account/data' },
     { label: 'forbidden', path: '/forbidden' },
     { label: 'not-found', path: '/missing-route-check' }
   ])
@@ -1981,65 +1985,43 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await expect(recentPanel).toHaveJSProperty('open', false)
   await waitForApiTransportQuiet(transport)
 
-  await page.goto('/dashboard?view=learning')
+  await page.goto('/account')
   await settlePage(page)
   await waitForDashboardQueryState(page, 'insights', 'idle')
-  const recommendations = page
-    .locator('summary')
-    .filter({ hasText: /^학습 추천 더 보기$/u })
-  const recommendationPanel = recommendations.locator('..')
-  const recommendationHeading = recommendationPanel.locator('h2')
-  await expect(recommendationPanel).toHaveJSProperty('open', false)
-  await flushTransportEvidence(transport)
-  const requestsBeforeDisclosure = transport.requests.length
-  await focusByTab(page, recommendations)
-  await page.keyboard.press('Enter')
-  await expect(recommendationHeading).toBeVisible()
-  await page.keyboard.press('Space')
-  await expect(recommendationPanel).toHaveJSProperty('open', false)
-  await expect(recommendationHeading).toBeHidden()
-  await page.keyboard.press('Enter')
-  await expect(recommendationPanel).toHaveJSProperty('open', true)
-  await expect(recommendationHeading).toBeVisible()
-  await flushTransportEvidence(transport)
-  expect(transport.requests).toHaveLength(requestsBeforeDisclosure)
+  const recommendationRegion = page.getByRole('region', {
+    exact: true,
+    name: '추천 학습'
+  })
+  const recommendationStart = recommendationRegion.getByRole('button').first()
+  await expect(recommendationRegion).toBeVisible()
+  await expect(
+    page.getByRole('region', { exact: true, name: '내 학습' })
+  ).toBeVisible()
   for (const locale of locales) {
     await setLocale(page, locale)
-    await scanCurrentPage(
-      page,
-      testInfo,
-      'learner-recommendations-open',
-      locale
-    )
+    await scanCurrentPage(page, testInfo, 'learner-account', locale)
   }
   await setLocale(page, 'ko')
-  await focusByTab(page, recommendations)
+  await focusByTab(page, recommendationStart)
   await flushTransportEvidence(transport)
   const requestsBeforeInsightsOffline = transport.requests.length
   await context.setOffline(true)
   await invalidateDashboardWhileOffline(page, 'insights')
   await waitForDashboardQueryState(page, 'insights', 'paused')
-  const recommendationError = recommendationPanel.getByText(
-    '추천을 확인하지 못했습니다. 다시 확인하거나 다른 학습을 선택해 주세요.',
-    { exact: true }
-  )
-  await expect(recommendationError).toBeVisible()
-  await expect(recommendationHeading).toHaveCount(0)
+  // A paused refetch keeps the last recommendations on screen.
+  await expect(recommendationStart).toBeVisible()
   await flushTransportEvidence(transport)
   expect(transport.requests).toHaveLength(requestsBeforeInsightsOffline)
-  expect(
-    getApiExchanges(transport, 'POST', '/api/v1/study-sessions').requests
-  ).toHaveLength(0)
   await context.setOffline(false)
   await waitForDashboardQueryState(page, 'insights', 'idle')
-  await expect(recommendationError).toBeHidden()
-  await expect(recommendationHeading).toBeVisible()
-  await expect(recommendations).toBeFocused()
+  await expect(recommendationStart).toBeVisible()
   await waitForApiTransportQuiet(transport)
 
+  // A failed read hides the section without an alert; the next read restores it.
   const removeDashboardFault = await armDashboardInsightsFailure(page)
   await invalidateDashboardInsights(page)
-  await expect(recommendationError).toBeVisible()
+  await expect(recommendationRegion).toBeHidden()
+  await expect(page.locator('main [role="alert"]')).toHaveCount(0)
   await removeDashboardFault()
   const successfulRetryResponse = page.waitForResponse(
     (response) =>
@@ -2047,15 +2029,9 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
       response.request().method() === 'GET' &&
       new URL(response.url()).pathname === '/api/v1/dashboard/insights'
   )
-  const retryRecommendation = recommendationPanel.getByRole('button', {
-    exact: true,
-    name: '다시 확인'
-  })
-  await focusByTab(page, retryRecommendation)
-  await page.keyboard.press('Enter')
+  await invalidateDashboardInsights(page)
   await successfulRetryResponse
-  await expect(recommendationError).toBeHidden()
-  await expect(recommendationHeading).toBeFocused()
+  await expect(recommendationRegion).toBeVisible()
   expect(
     getApiExchanges(transport, 'POST', '/api/v1/study-sessions').requests
   ).toHaveLength(0)
@@ -2137,7 +2113,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await expect(page.locator('button.ui-question-jump')).toHaveCount(
     readingFixture.actualCount
   )
-  const readingPassage = page.getByRole('article', { name: '독해 지문' })
+  const readingPassage = page.getByRole('article', { name: '지문' })
   const firstAnswer = page.getByRole('radio').first()
   await expect(readingPassage).toBeVisible()
   expect(
@@ -2237,6 +2213,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await page.setViewportSize({ height: 900, width: 1280 })
   await scanRoutes(page, testInfo, [
     { label: 'dashboard', path: '/dashboard?view=learning' },
+    { label: 'account', path: '/account' },
     { label: 'wrong-note-center', path: '/wrong-notes' },
     { label: 'wrong-note-history', path: '/wrong-notes/history' },
     { label: 'wrong-note-detail', path: wrongNotePath },
@@ -2686,6 +2663,16 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
       width: 768
     }
   )
+  // 768–1103px: the wide tables scroll inside their own box, never the page.
+  for (const [path, label] of [
+    ['/admin/questions', 'admin-question-list-1024'],
+    ['/admin/members', 'admin-member-list-1024'],
+    ['/admin/reports', 'admin-report-list-1024']
+  ] as const)
+    await verifyViewport(page, testInfo, path, label, {
+      height: 900,
+      width: 1024
+    })
   await verifyViewport(
     page,
     testInfo,
@@ -2748,24 +2735,41 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
     })
   ).toHaveAttribute('aria-sort', 'ascending')
 
-  const levelFilter = page.getByRole('combobox', {
-    name: '급수',
+  // Filter chips: Enter opens the listbox ("전체" first), a choice applies at
+  // once and focus returns to the chip, which now shows the value.
+  await focusByTab(
+    page,
+    page.getByRole('button', { name: '급수', exact: true })
+  )
+  await page.keyboard.press('Enter')
+  await expect(
+    page.getByRole('listbox', { name: '급수', exact: true })
+  ).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('Enter')
+  const levelFilter = page.getByRole('button', {
+    name: '급수: N5',
     exact: true
   })
-  await levelFilter.selectOption('N5')
-  await expect(levelFilter).toHaveValue('N5')
+  await expect(levelFilter).toBeFocused()
   await expect(page).toHaveURL(
     (url) =>
       url.pathname === '/admin/questions' &&
       url.searchParams.get('level') === 'N5' &&
       url.searchParams.get('sort') === 'LEVEL_ASC'
   )
-  const subjectFilter = page.getByRole('combobox', {
-    name: '과목',
+  await focusByTab(
+    page,
+    page.getByRole('button', { name: '과목', exact: true })
+  )
+  await page.keyboard.press('Enter')
+  await page.keyboard.press('ArrowDown')
+  await page.keyboard.press('Enter')
+  const subjectFilter = page.getByRole('button', {
+    name: '과목: 문자·어휘',
     exact: true
   })
-  await subjectFilter.selectOption('VOCABULARY')
-  await expect(subjectFilter).toHaveValue('VOCABULARY')
+  await expect(subjectFilter).toBeFocused()
   await expect(page).toHaveURL(
     (url) =>
       url.pathname === '/admin/questions' &&
@@ -2776,15 +2780,15 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
   await settlePage(page)
   await waitForApiTransportQuiet(transport)
   await expect(levelSort).toHaveValue('LEVEL_ASC')
-  await expect(levelFilter).toHaveValue('N5')
-  await expect(subjectFilter).toHaveValue('VOCABULARY')
+  await expect(levelFilter).toBeVisible()
+  await expect(subjectFilter).toBeVisible()
   const fixtureRow = tableRegion.getByRole('row').filter({
     has: page.getByRole('rowheader', { name: fixture.questionId, exact: true })
   })
   await expect(fixtureRow).toHaveCount(1)
   const returnTo = new URL(page.url()).pathname + new URL(page.url()).search
   const detailLink = fixtureRow.getByRole('link', {
-    name: `${fixture.questionId} 문제 상세`,
+    name: fixture.questionId,
     exact: true
   })
   await expect(detailLink).toHaveAttribute(
@@ -2801,8 +2805,8 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
     body: JSON.stringify({
       returnTo,
       href: await detailLink.getAttribute('href'),
-      level: await levelFilter.inputValue(),
-      subject: await subjectFilter.inputValue(),
+      level: new URL(page.url()).searchParams.get('level'),
+      subject: new URL(page.url()).searchParams.get('subject'),
       sort: await levelSort.inputValue()
     }),
     contentType: 'application/json'
@@ -2815,7 +2819,7 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
   )
   await expect(page.locator('main')).toBeFocused()
   await expect(
-    page.getByRole('heading', { name: '문제 버전 워크플로', exact: true })
+    page.getByRole('heading', { name: '버전과 승인 단계', exact: true })
   ).toBeVisible()
   const preview = page.getByRole('region', {
     name: '학습자 공개 화면 미리보기',
@@ -2849,11 +2853,21 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
   await page.keyboard.press('Enter')
   await expect(page).toHaveURL((url) => url.pathname + url.search === returnTo)
   await settlePage(page)
+  // Row commands live in the ⋯ menu; Enter opens it on the first item and
+  // End reaches the destructive item.
   const archiveTrigger = fixtureRow.getByRole('button', {
-    name: `${fixture.questionId} 문제 공개 중단·보관`,
+    name: `${fixture.questionId} 작업`,
     exact: true
   })
   await focusByTab(page, archiveTrigger)
+  await page.keyboard.press('Enter')
+  await expect(
+    page.getByRole('menuitem', { name: '상세 보기', exact: true })
+  ).toBeFocused()
+  await page.keyboard.press('End')
+  await expect(
+    page.getByRole('menuitem', { name: '공개 중단·보관', exact: true })
+  ).toBeFocused()
   await page.keyboard.press('Enter')
   const commandDialog = page.getByRole('dialog', {
     name: '이 문제를 공개 중단하고 보관하시겠습니까?',

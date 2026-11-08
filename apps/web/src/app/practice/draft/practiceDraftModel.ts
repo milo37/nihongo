@@ -38,7 +38,6 @@ export const savePacingQueryKey = ['study', 'draft-save-pacing'] as const
 export interface PreparedStudyDraftSubmission {
   answers: StudyDraftSnapshot['answers']
   durationSec: number
-  expectedDraftRevision: number
 }
 
 export type PracticeDraftStatusCode =

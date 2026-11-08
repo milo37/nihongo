@@ -2,6 +2,7 @@ import {
   adminQuestionContentInputSchema,
   validateQuestionImportRequestSchema
 } from '@nihongo/contracts/admin/content-operations'
+import { importTagKeys } from '../content/approved308Supply.js'
 
 // JLP-212 internal review; this batch is separate from the immutable 65-question bootstrap.
 export const approvedReadingBatch2 = {
@@ -155,7 +156,7 @@ export const createApprovedReadingBatch2Import = () =>
         passage: registration.passage,
         explanationKo: registration.explanationKo,
         explanationJa: registration.explanationJa,
-        tagNames: registration.tags,
+        tagNames: importTagKeys(registration.id),
         options: registration.options.map((text, index) => ({
           clientOptionKey: `option-${index + 1}`,
           text

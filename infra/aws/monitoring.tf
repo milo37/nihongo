@@ -21,9 +21,11 @@ resource "aws_sns_topic_subscription" "alerts_us_east_1_email" {
   endpoint  = var.alert_email
 }
 
+# Kept at least as long as the 30-day dumps: after a restore, the account
+# erasure requests made since the dump are read back from here (recovery.v1.md).
 resource "aws_cloudwatch_log_group" "api" {
   name              = "/${var.project}/${lower(var.deployment_environment)}/api"
-  retention_in_days = 14
+  retention_in_days = 30
 }
 
 # Ten standard alarms are free per month; this file defines seven.

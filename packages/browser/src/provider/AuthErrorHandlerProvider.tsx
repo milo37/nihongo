@@ -1,23 +1,28 @@
 import { getAppPath, useAppNavigate } from '../libs/appNavigation'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState
+} from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useHref, useLocation } from 'react-router'
 import type { ReactElement } from 'react'
 import { safeSsoReturnPath } from '@nihongo/contracts/auth/sign-in-social'
-import { AdminFreshReturnNotice } from '../app/login/components/AdminFreshReturnNotice'
+import { ReauthReturnNotice } from '../app/reauth/components/ReauthReturnNotice'
 import { AuthFlowError } from '../app/login/authFlowErrors'
 import { isApiError } from '../api/config'
 import { commitCanonicalAuth } from '../app/login/authSession'
 import { subscribeApiError } from '../libs/errorBus'
 import { getRouteLabelKey } from '../i18n/routePresentation'
 import { frontendErrorReporter } from '../observability/frontendErrorReporter'
+import { useToast } from '../common/components/Toast'
 
-type BannerKind = 'error' | 'offline' | 'restored' | 'signedOut'
+// Only failures nobody else shows stay in the banner; sign-out, offline and
+// reconnect are toasts.
 type BannerMessageKey =
-  | 'banner.loggedOut'
-  | 'banner.offline'
-  | 'banner.restored'
   | 'banner.generic'
   | 'banner.network'
   | 'banner.response'
@@ -35,37 +40,8 @@ const toStatusClass = (
   return '5xx'
 }
 
-interface StatusBanner {
-  kind: BannerKind
-  messageKey: BannerMessageKey
-}
-
-const offlineBanner: StatusBanner = {
-  kind: 'offline',
-  messageKey: 'banner.offline'
-}
-
-const getInitialBanner = (): StatusBanner | null => {
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
-    return offlineBanner
-  }
-
-  return null
-}
-
-const bannerClasses: Record<BannerKind, string> = {
-  error: 'border-red-200 bg-red-50 text-red-900',
-  offline: 'border-amber-200 bg-amber-50 text-amber-950',
-  restored: 'border-emerald-200 bg-emerald-50 text-emerald-950',
-  signedOut: 'border-line bg-surface text-ink'
-}
-
-const closeButtonClasses: Record<BannerKind, string> = {
-  error: 'hover:bg-red-100 focus-visible:outline-red-700',
-  offline: 'hover:bg-amber-100 focus-visible:outline-amber-700',
-  restored: 'hover:bg-emerald-100 focus-visible:outline-emerald-700',
-  signedOut: 'hover:bg-surface-muted focus-visible:outline-brand'
-}
+const OFFLINE_TOAST_KEY = 'connection'
+const BANNER_OFFSET_PROPERTY = '--global-banner-offset'
 
 export const AuthErrorHandlerProvider = (): ReactElement | null => {
   const { t } = useTranslation('errors')
@@ -82,51 +58,30 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
   useLayoutEffect(() => {
     currentPathnameRef.current = location.pathname
   }, [location.pathname])
-  const [banner, setBanner] = useState<StatusBanner | null>(getInitialBanner)
-  const isOnlineRef = useRef(
-    typeof navigator === 'undefined' || navigator.onLine !== false
-  )
+  const [banner, setBanner] = useState<BannerMessageKey | null>(null)
+  const bannerRef = useRef<HTMLDivElement>(null)
+  const { addToast } = useToast()
+  const isOnlineRef = useRef(true)
 
-  const [consumedSignOutKey, setConsumedSignOutKey] = useState<string | null>(
-    null
-  )
-  const routeState: unknown = location.state
-  const isConfirmedSignOut = Boolean(
-    routeState &&
-      typeof routeState === 'object' &&
-      'signedOut' in routeState &&
-      routeState.signedOut === true
-  )
-  if (isConfirmedSignOut && consumedSignOutKey !== location.key) {
-    setConsumedSignOutKey(location.key)
-    setBanner({ kind: 'signedOut', messageKey: 'banner.loggedOut' })
-  }
-  useEffect(() => {
-    if (!isConfirmedSignOut) return
-    void navigate(
-      {
-        pathname: location.pathname,
-        search: location.search,
-        hash: location.hash
-      },
-      { replace: true, state: null }
-    )
-  }, [
-    isConfirmedSignOut,
-    location.hash,
-    location.pathname,
-    location.search,
-    navigate
-  ])
+  const showOffline = useCallback((): void => {
+    isOnlineRef.current = false
+    addToast({
+      key: OFFLINE_TOAST_KEY,
+      title: commonT('toast.offline'),
+      variant: 'warning',
+      persistent: true
+    })
+  }, [addToast, commonT])
 
   useEffect(() => {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      showOffline()
+    }
     const handleOffline = (): void => {
       if (!isOnlineRef.current) {
         return
       }
-
-      isOnlineRef.current = false
-      setBanner(offlineBanner)
+      showOffline()
     }
     const handleOnline = (): void => {
       if (isOnlineRef.current) {
@@ -134,9 +89,12 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
       }
 
       isOnlineRef.current = true
-      setBanner({
-        kind: 'restored',
-        messageKey: 'banner.restored'
+      // Same key: the offline toast turns into the reconnect one.
+      addToast({
+        key: OFFLINE_TOAST_KEY,
+        title: commonT('toast.restored'),
+        variant: 'success',
+        persistent: false
       })
     }
 
@@ -146,7 +104,30 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
       window.removeEventListener('offline', handleOffline)
       window.removeEventListener('online', handleOnline)
     }
-  }, [])
+  }, [addToast, commonT, showOffline])
+
+  // Toasts sit above the banner: publish its height (+8px) while it shows.
+  useLayoutEffect(() => {
+    const root = document.documentElement
+    const element = bannerRef.current
+    if (!element) {
+      root.style.removeProperty(BANNER_OFFSET_PROPERTY)
+      return
+    }
+    const update = (): void =>
+      root.style.setProperty(
+        BANNER_OFFSET_PROPERTY,
+        `${element.getBoundingClientRect().height + 8}px`
+      )
+    update()
+    const observer =
+      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update)
+    observer?.observe(element)
+    return () => {
+      observer?.disconnect()
+      root.style.removeProperty(BANNER_OFFSET_PROPERTY)
+    }
+  }, [banner])
 
   useEffect(() => {
     return subscribeApiError((error) => {
@@ -156,10 +137,7 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
           source: 'UNEXPECTED_API_ERROR',
           routeKey: getRouteLabelKey(location.pathname)
         })
-        setBanner({
-          kind: 'error',
-          messageKey: 'banner.generic'
-        })
+        setBanner('banner.generic')
         return
       }
 
@@ -202,22 +180,23 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
         return
       }
 
+      // A guest's daily limit: practice setup shows its own sign-in card.
+      if (error.code === 'GUEST_LIMIT_REACHED') {
+        return
+      }
+
       if (error.isForbiddenError) {
         navigate('/forbidden', { replace: true })
         return
       }
 
       if (error.isOffline) {
-        isOnlineRef.current = false
-        setBanner(offlineBanner)
+        if (isOnlineRef.current) showOffline()
         return
       }
 
       if (error.isNetworkError) {
-        setBanner({
-          kind: 'error',
-          messageKey: 'banner.network'
-        })
+        setBanner('banner.network')
         return
       }
 
@@ -229,43 +208,34 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
           ...(error.requestId ? { requestId: error.requestId } : {}),
           ...(statusClass ? { statusClass } : {})
         })
-        setBanner({
-          kind: 'error',
-          messageKey: 'banner.response'
-        })
+        setBanner('banner.response')
         return
       }
 
       if (error.isServerValidationError || error.isValidationError) {
-        setBanner({
-          kind: 'error',
-          messageKey: 'banner.validation'
-        })
+        setBanner('banner.validation')
         return
       }
 
       if (error.isServerError) {
-        setBanner({
-          kind: 'error',
-          messageKey: 'banner.server'
-        })
+        setBanner('banner.server')
       }
     })
-  }, [location.pathname, location.search, navigate, queryClient])
+  }, [location.pathname, location.search, navigate, queryClient, showOffline])
 
   return (
     <>
-      <AdminFreshReturnNotice suppressed={banner !== null} />
+      <ReauthReturnNotice suppressed={banner !== null} />
       {banner ? (
         <div
-          className={`app-global-banner fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-xl items-center justify-between gap-4 rounded-xl border px-4 py-3 text-sm shadow-soft ${bannerClasses[banner.kind]}`}
-          role="status"
-          aria-live="polite"
-          data-kind={banner.kind}
+          ref={bannerRef}
+          className="app-global-banner fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-xl items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 shadow-soft"
+          role="alert"
+          data-kind="error"
         >
-          <span>{t(banner.messageKey)}</span>
+          <span>{t(banner)}</span>
           <button
-            className={`min-h-11 shrink-0 rounded-lg px-3 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 ${closeButtonClasses[banner.kind]}`}
+            className="min-h-11 shrink-0 rounded-lg px-3 font-semibold hover:bg-red-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
             type="button"
             onClick={() => setBanner(null)}
           >

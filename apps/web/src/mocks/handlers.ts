@@ -3,6 +3,7 @@ import { bookmarkHandlers } from '@mocks/handlers/bookmarkHandlers'
 import { dashboardHandlers } from '@mocks/handlers/dashboardHandlers'
 import { dashboardInsightsV1Handlers } from '@mocks/handlers/dashboardInsightsV1Handlers'
 import { dashboardV1Handlers } from '@mocks/handlers/dashboardV1Handlers'
+import { operationsHandlers } from '@mocks/handlers/operationsHandlers'
 import { questionHandlers } from '@mocks/handlers/questionHandlers'
 import { reportHandlers } from '@mocks/handlers/reportHandlers'
 import { reviewCenterHandlers } from '@mocks/handlers/reviewCenterHandlers'
@@ -11,6 +12,7 @@ import { studyResultRetryHandlers } from '@mocks/handlers/studyResultRetryHandle
 import { studySessionHandlers } from '@mocks/handlers/studySessionHandlers'
 import { wrongNoteHandlers } from '@mocks/handlers/wrongNoteHandlers'
 import { wrongNoteV1Handlers } from '@mocks/handlers/wrongNoteV1Handlers'
+import { guestAllowanceHandlers } from '@mocks/handlers/guestAllowanceHandlers'
 
 export const handlers = [
   ...authHandlers,
@@ -18,6 +20,7 @@ export const handlers = [
   ...studyDraftV2Handlers,
   ...studyResultRetryHandlers,
   ...studySessionHandlers,
+  ...guestAllowanceHandlers,
   ...reportHandlers,
   ...reviewCenterHandlers,
   ...wrongNoteV1Handlers,
@@ -25,5 +28,6 @@ export const handlers = [
   ...dashboardV1Handlers,
   ...wrongNoteHandlers,
   ...bookmarkHandlers,
-  ...dashboardHandlers
+  ...dashboardHandlers,
+  ...operationsHandlers
 ]
