@@ -1,6 +1,7 @@
 import { createBrowserRouter } from 'react-router'
 import type { RouteObject } from 'react-router'
 import { bookmarkRoutes } from '@app/bookmark/router'
+import { accountRoutes } from '@app/account/router'
 import { dashboardRoutes } from '@app/dashboard/router'
 import { ForbiddenPage } from '@nihongo/browser/app/forbidden/page'
 import { homeRoutes } from '@app/home/router'
@@ -37,6 +38,7 @@ export const appRoutes: RouteObject[] = [
     errorElement: <RouteErrorPage action={<AppErrorReportButton />} />,
     children: [
       ...homeRoutes,
+      ...accountRoutes,
       ...loginRoutes,
       ...operationsRoutes,
       ...practiceRoutes,

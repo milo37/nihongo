@@ -10,6 +10,7 @@ export const routeLabelKeys = [
   'routes.wrongNoteDetail',
   'routes.bookmarks',
   'routes.legal',
+  'routes.account',
   'routes.accountData',
   'routes.support',
   'routes.adminQuestionNew',
@@ -39,6 +40,7 @@ export const getRouteLabelKey = (pathname: string): RouteLabelKey => {
   if (pathname.startsWith('/wrong-notes/')) return 'routes.wrongNoteDetail'
   if (pathname === '/bookmarks') return 'routes.bookmarks'
   if (pathname === '/legal') return 'routes.legal'
+  if (pathname === '/account') return 'routes.account'
   if (pathname === '/account/data') return 'routes.accountData'
   if (pathname === '/support') return 'routes.support'
   if (pathname === '/admin/questions/new') return 'routes.adminQuestionNew'

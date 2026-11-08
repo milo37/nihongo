@@ -14,7 +14,6 @@ import { ResumablePractice } from '@app/practice/components/ResumablePractice'
 import { useListResumableStudySessions } from '@app/practice/hooks/useListResumableStudySessions'
 import { mockServer } from '@/test/server'
 import { appI18n } from '@nihongo/browser/i18n/config'
-import { LearningEntry } from '@app/dashboard/components/LearningEntry'
 import { useAppStore } from '@nihongo/browser/store/index'
 
 const clients: QueryClient[] = []
@@ -50,7 +49,7 @@ const Harness = () => {
     />
   )
 }
-const mount = (total: number, legacy = false, dashboard = false) => {
+const mount = (total: number, legacy = false) => {
   const items = Array.from({ length: total }, () => ({
     id: crypto.randomUUID(),
     level: 'N5',
@@ -100,7 +99,7 @@ const mount = (total: number, legacy = false, dashboard = false) => {
     [
       {
         path: '/practice',
-        element: dashboard ? <LearningEntry isMember /> : <Harness />
+        element: <Harness />
       }
     ],
     { initialEntries: ['/practice?level=N5&mode=RANDOM'] }
@@ -128,15 +127,6 @@ it('does not resume or cancel an older local-only session', async () => {
     screen.queryByRole('button', {
       name: appI18n.t('practice:setup.resume.cancel')
     })
-  ).not.toBeInTheDocument()
-})
-it('does not resume a retired dashboard session even when its local identifier matches', async () => {
-  mount(1, true, true)
-  expect(
-    await screen.findByText(appI18n.t('home:entry.legacyUnavailable'))
-  ).toBeVisible()
-  expect(
-    screen.queryByRole('link', { name: appI18n.t('home:entry.resume') })
   ).not.toBeInTheDocument()
 })
 it('preserves a single resumable banner without adding a one-item list pager', async () => {

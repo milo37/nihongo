@@ -9,6 +9,7 @@ export type ButtonVariant =
   | 'outline'
   | 'ghost'
   | 'danger'
+  | 'danger-outline'
 
 export type ButtonSize = 'sm' | 'md' | 'lg'
 
@@ -32,7 +33,10 @@ const variantClassNames: Record<ButtonVariant, string> = {
     'border border-line-interactive bg-surface text-ink hover:border-line-strong hover:bg-surface-muted active:bg-line',
   ghost: 'text-ink hover:bg-surface-muted active:bg-line',
   danger:
-    'bg-danger text-on-accent shadow-control hover:bg-danger-strong active:bg-danger-strong/90'
+    'bg-danger text-on-accent shadow-control hover:bg-danger-strong active:bg-danger-strong/90',
+  // A destructive action that still needs a later confirmation step.
+  'danger-outline':
+    'border border-danger bg-surface text-danger hover:border-danger-strong hover:bg-danger-soft active:bg-danger-soft'
 }
 
 const sizeClassNames: Record<ButtonSize, string> = {
