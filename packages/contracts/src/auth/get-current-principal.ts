@@ -14,15 +14,12 @@ export const authenticatedUserSchema = z
     /**
      * Only for ADMIN: end of the 30 minute fresh sign-in window, or null when
      * the session is not fresh. Display hint only; commands still answer
-     * FRESH_ASSURANCE_REQUIRED.
+     * FRESH_ASSURANCE_REQUIRED. The remaining time is `adminFreshUntil` minus
+     * the HTTP `Date` header of the same response (server clock, 1 second),
+     * so the browser clock does not matter. A server time field in the body
+     * would change on every read and churn the cached user (#683).
      */
-    adminFreshUntil: isoDateTimeSchema.nullable().optional(),
-    /**
-     * Only for ADMIN: the server clock when this answer was made, so the
-     * remaining fresh time is `adminFreshUntil - adminServerTime` whatever
-     * the browser clock says (#683).
-     */
-    adminServerTime: isoDateTimeSchema.optional()
+    adminFreshUntil: isoDateTimeSchema.nullable().optional()
   })
   .strict()
   .refine(
@@ -38,15 +35,6 @@ export const authenticatedUserSchema = z
     {
       path: ['adminFreshUntil'],
       message: '관리자에게만 본인 확인 유효 시각이 있어야 합니다.'
-    }
-  )
-  // The server always sends it to an ADMIN; optional here so older admin
-  // fixtures still parse while the browser adopts it.
-  .refine(
-    (user) => user.role === 'ADMIN' || user.adminServerTime === undefined,
-    {
-      path: ['adminServerTime'],
-      message: '관리자에게만 서버 현재 시각이 있어야 합니다.'
     }
   )
 
