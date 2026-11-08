@@ -360,37 +360,6 @@ export const koResources = {
       maximum: '최대 10문제',
       loading: '불러오는 중'
     },
-    entry: {
-      additionalOptions: '학습 추천 더 보기',
-      guestNoticeTitle: '미로그인 학습 안내',
-      guestNotice:
-        '개발용 예시 데이터로 학습합니다. 실제 계정 기록과는 별개입니다.',
-      demoLogin: '데모 계정으로 로그인',
-      eyebrow: '오늘의 학습 노트',
-      title: '한 번에 조금씩, 약한 곳부터.',
-      description:
-        '남겨 둔 학습을 이어가거나, 지금 보완할 내용을 골라 시작하세요.',
-      loading: '이어갈 학습을 확인하고 있습니다…',
-      recommended: '다음 한 장',
-      recommendationError:
-        '추천을 확인하지 못했습니다. 다시 확인하거나 다른 학습을 선택해 주세요.',
-      resumeError:
-        '이어갈 학습을 확인하지 못했습니다. 다시 확인하거나 학습 설정에서 확인해 주세요.',
-      retry: '다시 확인',
-      subjectScope:
-        '이 유형의 기록을 참고한 과목별 약점 학습입니다. 다른 유형도 함께 나올 수 있습니다.',
-      noRecommendation:
-        '지금 시작할 추천이 없습니다. 다른 학습을 선택해 주세요.',
-      resumeEyebrow: '남겨 둔 한 장',
-      position: '현재 {{current}}번 · 실제 {{total}}문제',
-      savedAt: '서버에 마지막 저장 {{date}}',
-      notSaved: '아직 저장된 답안이 없습니다.',
-      resume: '이어서 풀기',
-      legacyUnavailable:
-        '이전 학습 세션이 종료되었습니다. 새 학습을 시작해 주세요.',
-      other: '다른 학습 고르기',
-      records: '내 학습 기록'
-    },
     eyebrow: 'JLPT N5–N1 · VOCABULARY / GRAMMAR / READING',
     hero: {
       titleLine1: '틀린 문제를',

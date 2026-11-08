@@ -1233,32 +1233,6 @@
   fill: currentColor;
 }
 
-.practice-recommendations {
-  margin-top: 24px;
-  font-size: 14px;
-}
-
-.practice-recommendations > summary {
-  min-height: 44px;
-  display: flex;
-  align-items: center;
-  color: rgb(var(--color-muted));
-  cursor: pointer;
-}
-
-.practice-recommendations > summary::before {
-  content: '+';
-  margin-right: 8px;
-}
-
-.practice-recommendations[open] > summary::before {
-  content: '−';
-}
-
-.practice-recommendations > div {
-  padding-block: 16px;
-}
-
 @media (max-width: 1000px) and (min-width: 761px) {
   .study-session-layout {
     grid-template-columns: minmax(0, 1fr) 208px;
@@ -2925,6 +2899,13 @@ html:lang(ja) .auth-consent {
   background: rgb(var(--color-danger-soft));
   color: rgb(var(--color-danger-strong));
 }
+.account-card {
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid rgb(var(--color-line));
+  border-radius: var(--radius-panel);
+  background: rgb(var(--color-surface));
+}
 .account-page {
   display: grid;
   gap: 32px;
@@ -2989,6 +2970,9 @@ html:lang(ja) .auth-consent {
   .account-page {
     gap: 24px;
     padding-block: 24px;
+  }
+  .account-card {
+    padding: 16px;
   }
   .auth-panel .ui-button,
   .auth-standalone-panel .ui-button,

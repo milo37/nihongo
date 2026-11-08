@@ -819,6 +819,17 @@ const answerEveryQuestionWithFirstOption = async (
   }
 }
 
+const openMyPage = async (page: Page): Promise<void> => {
+  await page.getByRole('button', { name: '계정 메뉴', exact: true }).click()
+  await page.getByRole('menuitem', { name: '마이페이지', exact: true }).click()
+  await expect(page).toHaveURL(/\/account$/u)
+}
+
+const recommendationRegion = (page: Page) =>
+  page.getByRole('region', { name: '추천 학습', exact: true })
+
+// On the account page a failed insights read hides the recommendations
+// without an alert; the next successful read shows them again.
 const assertFaultRecovery = async (
   page: Page,
   ledger: RequestLedger,
@@ -827,20 +838,10 @@ const assertFaultRecovery = async (
   const path = '/api/v1/dashboard/insights'
   const startIndex = ledger.entries.length
   const removeFault = await armDashboardFault(page, fault)
-  const error = page
-    .locator('details.practice-recommendations')
-    .getByRole('alert')
   try {
     await invalidateDashboardInsights(page)
-    await expect(
-      error.getByText(
-        '추천을 확인하지 못했습니다. 다시 확인하거나 다른 학습을 선택해 주세요.',
-        { exact: true }
-      )
-    ).toBeVisible()
-    await expect(
-      error.getByRole('button', { name: '다시 확인', exact: true })
-    ).toBeEnabled()
+    await expect(recommendationRegion(page)).toBeHidden()
+    await expect(page.locator('main [role="alert"]')).toHaveCount(0)
   } finally {
     await removeFault()
   }
@@ -870,12 +871,9 @@ const assertFaultRecovery = async (
       )
     }
   )
-  await error.getByRole('button', { name: '다시 확인', exact: true }).click()
+  await invalidateDashboardInsights(page)
   await recovered
-  await expect(error).toBeHidden()
-  await expect(
-    page.locator('details.practice-recommendations h2')
-  ).toBeFocused()
+  await expect(recommendationRegion(page)).toBeVisible()
   await waitForLedgerToQuiesce(ledger)
   const entries = ledgerEntriesFor(ledger, 'GET', path, startIndex)
   expect(entries).toHaveLength(failureCount + 1)
@@ -1074,7 +1072,7 @@ test('guest SSO boundary and authenticated practice transition match the active 
   await loginThroughUi(page)
   await page.locator('#primary-navigation a[href="/practice"]').click()
   await expect(page).toHaveURL(/\/practice$/u)
-  await expect(page.locator('details.practice-recommendations')).toHaveCount(0)
+  await expect(recommendationRegion(page)).toHaveCount(0)
   await settleJourneyPage(page)
   const memberStudyMode = await openPracticeModes(page)
   for (const value of ['BOOKMARK', 'DAILY_REVIEW', 'WRONG_NOTE']) {
@@ -1314,12 +1312,10 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   await expect(home).toBeVisible()
   await home.click()
   await expect(page).toHaveURL(/\/dashboard\?view=learning$/u)
+  await openMyPage(page)
   const insights = await finalInsightsResponse
   expect(insights.stats.overall.attemptedCount).toBe(6)
-  await page.locator('details.practice-recommendations > summary').click()
-  await expect(
-    page.locator('details.practice-recommendations h2')
-  ).toBeVisible()
+  await expect(recommendationRegion(page)).toBeVisible()
   await waitForLedgerToQuiesce(ledger)
 
   const signInEntries = ledgerEntriesFor(
@@ -1459,10 +1455,8 @@ test('network, rate-limit, and malformed responses require explicit recovery wit
   expect(landingReads[0]?.startSequence).toBeGreaterThan(
     signIn[0]?.finishSequence ?? -1
   )
-  await page.locator('details.practice-recommendations > summary').click()
-  await expect(
-    page.locator('details.practice-recommendations h2')
-  ).toBeVisible()
+  await openMyPage(page)
+  await expect(recommendationRegion(page)).toBeVisible()
   for (const fault of [
     'network',
     'rate-limit',

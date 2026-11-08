@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import { AccountSettings } from '@app/account/components/AccountSettings'
 import { Avatar } from '@app/account/components/Avatar'
+import { MyStudy } from '@app/account/components/study/MyStudy'
 import { SignInCard } from '@app/login/components/SignInCard'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 
@@ -34,6 +35,7 @@ export const AccountPage = (): ReactElement => {
           </p>
         </div>
       </header>
+      <MyStudy />
       <AccountSettings />
     </div>
   )

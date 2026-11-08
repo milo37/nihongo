@@ -361,36 +361,6 @@ export const jaCoreResources = {
       maximum: '最大10問',
       loading: '読み込み中'
     },
-    entry: {
-      additionalOptions: '学習のおすすめを見る',
-      guestNoticeTitle: '未ログインの学習について',
-      guestNotice:
-        '開発用のサンプルデータで学習します。実際のアカウント記録とは別です。',
-      demoLogin: 'デモアカウントでログイン',
-      eyebrow: '今日の学習ノート',
-      title: '少しずつ、苦手なところから。',
-      description: '途中の学習を続けるか、今取り組む内容を選んで始めましょう。',
-      loading: '続けられる学習を確認しています…',
-      recommended: '次の一枚',
-      recommendationError:
-        'おすすめを確認できませんでした。再確認するか、別の学習を選んでください。',
-      resumeError:
-        '途中の学習を確認できませんでした。再確認するか、学習設定で確認してください。',
-      retry: '再確認',
-      subjectScope:
-        'この形式の記録を参考にした科目単位の苦手学習です。他の形式も出題されることがあります。',
-      noRecommendation:
-        '今始められるおすすめがありません。別の学習を選んでください。',
-      resumeEyebrow: '途中の一枚',
-      position: '現在{{current}}番 · 実際の問題数{{total}}問',
-      savedAt: 'サーバーへの最終保存 {{date}}',
-      notSaved: '保存済みの回答はまだありません。',
-      resume: '続きから解く',
-      legacyUnavailable:
-        '以前の学習セッションは終了しました。新しい学習を始めてください。',
-      other: '別の学習を選ぶ',
-      records: '学習記録'
-    },
     eyebrow: 'JLPT N5–N1 · VOCABULARY / GRAMMAR / READING',
     hero: {
       titleLine1: '間違えた問題を',

@@ -1864,6 +1864,8 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
     { label: 'reset-password-missing-token', path: '/reset-password' },
     { label: 'verify-email-missing-token', path: '/verify-email' },
     { label: 'practice-setup-guest', path: '/practice' },
+    { label: 'account-guest', path: '/account' },
+    { label: 'account-data-guest', path: '/account/data' },
     { label: 'forbidden', path: '/forbidden' },
     { label: 'not-found', path: '/missing-route-check' }
   ])
@@ -1981,65 +1983,43 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await expect(recentPanel).toHaveJSProperty('open', false)
   await waitForApiTransportQuiet(transport)
 
-  await page.goto('/dashboard?view=learning')
+  await page.goto('/account')
   await settlePage(page)
   await waitForDashboardQueryState(page, 'insights', 'idle')
-  const recommendations = page
-    .locator('summary')
-    .filter({ hasText: /^학습 추천 더 보기$/u })
-  const recommendationPanel = recommendations.locator('..')
-  const recommendationHeading = recommendationPanel.locator('h2')
-  await expect(recommendationPanel).toHaveJSProperty('open', false)
-  await flushTransportEvidence(transport)
-  const requestsBeforeDisclosure = transport.requests.length
-  await focusByTab(page, recommendations)
-  await page.keyboard.press('Enter')
-  await expect(recommendationHeading).toBeVisible()
-  await page.keyboard.press('Space')
-  await expect(recommendationPanel).toHaveJSProperty('open', false)
-  await expect(recommendationHeading).toBeHidden()
-  await page.keyboard.press('Enter')
-  await expect(recommendationPanel).toHaveJSProperty('open', true)
-  await expect(recommendationHeading).toBeVisible()
-  await flushTransportEvidence(transport)
-  expect(transport.requests).toHaveLength(requestsBeforeDisclosure)
+  const recommendationRegion = page.getByRole('region', {
+    exact: true,
+    name: '추천 학습'
+  })
+  const recommendationStart = recommendationRegion.getByRole('button').first()
+  await expect(recommendationRegion).toBeVisible()
+  await expect(
+    page.getByRole('region', { exact: true, name: '내 학습' })
+  ).toBeVisible()
   for (const locale of locales) {
     await setLocale(page, locale)
-    await scanCurrentPage(
-      page,
-      testInfo,
-      'learner-recommendations-open',
-      locale
-    )
+    await scanCurrentPage(page, testInfo, 'learner-account', locale)
   }
   await setLocale(page, 'ko')
-  await focusByTab(page, recommendations)
+  await focusByTab(page, recommendationStart)
   await flushTransportEvidence(transport)
   const requestsBeforeInsightsOffline = transport.requests.length
   await context.setOffline(true)
   await invalidateDashboardWhileOffline(page, 'insights')
   await waitForDashboardQueryState(page, 'insights', 'paused')
-  const recommendationError = recommendationPanel.getByText(
-    '추천을 확인하지 못했습니다. 다시 확인하거나 다른 학습을 선택해 주세요.',
-    { exact: true }
-  )
-  await expect(recommendationError).toBeVisible()
-  await expect(recommendationHeading).toHaveCount(0)
+  // A paused refetch keeps the last recommendations on screen.
+  await expect(recommendationStart).toBeVisible()
   await flushTransportEvidence(transport)
   expect(transport.requests).toHaveLength(requestsBeforeInsightsOffline)
-  expect(
-    getApiExchanges(transport, 'POST', '/api/v1/study-sessions').requests
-  ).toHaveLength(0)
   await context.setOffline(false)
   await waitForDashboardQueryState(page, 'insights', 'idle')
-  await expect(recommendationError).toBeHidden()
-  await expect(recommendationHeading).toBeVisible()
-  await expect(recommendations).toBeFocused()
+  await expect(recommendationStart).toBeVisible()
   await waitForApiTransportQuiet(transport)
 
+  // A failed read hides the section without an alert; the next read restores it.
   const removeDashboardFault = await armDashboardInsightsFailure(page)
   await invalidateDashboardInsights(page)
-  await expect(recommendationError).toBeVisible()
+  await expect(recommendationRegion).toBeHidden()
+  await expect(page.locator('main [role="alert"]')).toHaveCount(0)
   await removeDashboardFault()
   const successfulRetryResponse = page.waitForResponse(
     (response) =>
@@ -2047,15 +2027,9 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
       response.request().method() === 'GET' &&
       new URL(response.url()).pathname === '/api/v1/dashboard/insights'
   )
-  const retryRecommendation = recommendationPanel.getByRole('button', {
-    exact: true,
-    name: '다시 확인'
-  })
-  await focusByTab(page, retryRecommendation)
-  await page.keyboard.press('Enter')
+  await invalidateDashboardInsights(page)
   await successfulRetryResponse
-  await expect(recommendationError).toBeHidden()
-  await expect(recommendationHeading).toBeFocused()
+  await expect(recommendationRegion).toBeVisible()
   expect(
     getApiExchanges(transport, 'POST', '/api/v1/study-sessions').requests
   ).toHaveLength(0)
@@ -2237,6 +2211,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await page.setViewportSize({ height: 900, width: 1280 })
   await scanRoutes(page, testInfo, [
     { label: 'dashboard', path: '/dashboard?view=learning' },
+    { label: 'account', path: '/account' },
     { label: 'wrong-note-center', path: '/wrong-notes' },
     { label: 'wrong-note-history', path: '/wrong-notes/history' },
     { label: 'wrong-note-detail', path: wrongNotePath },
