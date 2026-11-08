@@ -23,6 +23,9 @@ const usedToday = (now: Date): number =>
   used.day === guestDay(now) ? used.count : 0
 
 export const mockGuestAllowance = {
+  /** The next midnight Korea time, as the server sends it. */
+  resetsAt: (now = new Date()): string =>
+    new Date((guestDay(now) + 1) * DAY_MS - OFFSET_MS).toISOString(),
   remaining: (now = new Date()): number =>
     Math.max(0, GUEST_DAILY_SESSION_LIMIT - usedToday(now)),
   record: (now = new Date()): void => {
@@ -56,9 +59,7 @@ export const guestAllowanceHandlers = [
           sessionQuestionCount: GUEST_SESSION_QUESTION_LIMIT,
           dailyLimit: GUEST_DAILY_SESSION_LIMIT,
           remaining: mockGuestAllowance.remaining(now),
-          resetsAt: new Date(
-            (guestDay(now) + 1) * DAY_MS - OFFSET_MS
-          ).toISOString()
+          resetsAt: mockGuestAllowance.resetsAt(now)
         }
     return HttpResponse.json(getGuestAllowanceResponseSchema.parse(body), {
       headers: { 'Cache-Control': 'private, no-store' }

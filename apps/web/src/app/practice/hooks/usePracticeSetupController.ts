@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { RefObject } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
@@ -23,6 +23,7 @@ import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
 import { useAppStore } from '@nihongo/browser/store/index'
 import {
+  getGuestLimitResetsAt,
   isAccountRestrictedApiError,
   isGuestLimitReachedApiError,
   isNoEligibleQuestionsApiError
@@ -31,6 +32,8 @@ import {
 type SetupSearchKey = 'count' | 'level' | 'mode' | 'resumePage' | 'subject'
 
 const RESUMABLE_PAGE_SIZE = 5
+// setTimeout's limit; a reset is at most a day away.
+const MAX_TIMER_MS = 2 ** 31 - 1
 
 export const usePracticeSetupController = (
   resumableHeadingRef: RefObject<HTMLHeadingElement | null>
@@ -55,6 +58,7 @@ export const usePracticeSetupController = (
     ((searchParams.has('count') &&
       requestedCount !== GUEST_SESSION_QUESTION_LIMIT) ||
       requestedMode !== 'RANDOM')
+  const queryClient = useQueryClient()
   const guestAllowance = useQuery({
     ...guestAllowanceQueries.get(),
     enabled: isGuest
@@ -112,6 +116,12 @@ export const usePracticeSetupController = (
     createSession.isError && isGuestLimitReachedApiError(createSession.error)
   const isGuestDailyLimitReached =
     isGuest && (guestLimitRejected || guestAllowanceData?.remaining === 0)
+  // The refusal carries the reset time, so the card clears at midnight even
+  // when the allowance could not be read.
+  const guestResetsAt = guestLimitRejected
+    ? getGuestLimitResetsAt(createSession.error)
+    : guestAllowanceData?.resetsAt
+  const resetCreateSession = createSession.reset
   const hasCreateError =
     createSession.isError &&
     !guestLimitRejected &&
@@ -140,6 +150,19 @@ export const usePracticeSetupController = (
     resumableSessions.data,
     updateSearchParam
   ])
+
+  useEffect(() => {
+    if (!isGuestDailyLimitReached || !guestResetsAt) return
+    const waitMs = Date.parse(guestResetsAt) - Date.now()
+    if (!(waitMs > 0) || waitMs > MAX_TIMER_MS) return
+    const timerId = window.setTimeout(() => {
+      resetCreateSession()
+      void queryClient.invalidateQueries({
+        queryKey: guestAllowanceQueries.get().queryKey
+      })
+    }, waitMs)
+    return () => window.clearTimeout(timerId)
+  }, [guestResetsAt, isGuestDailyLimitReached, queryClient, resetCreateSession])
 
   useEffect(() => {
     if (resumableSessions.isError && !resumableSessions.data) {

@@ -457,6 +457,7 @@ export const studySessionHandlers = [
           code: 'GUEST_LIMIT_REACHED',
           message:
             '비회원은 하루 2번까지 풀 수 있습니다. 더 풀려면 로그인해 주세요.',
+          details: { resetsAt: mockGuestAllowance.resetsAt() },
           requestId,
           retryable: false
         })

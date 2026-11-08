@@ -154,6 +154,7 @@ describe('PracticePage setup', () => {
           {
             code: 'GUEST_LIMIT_REACHED',
             message: 'synthetic',
+            details: { resetsAt: mockGuestAllowance.resetsAt() },
             requestId: crypto.randomUUID(),
             retryable: false
           },
@@ -174,6 +175,42 @@ describe('PracticePage setup', () => {
     ).toBeVisible()
     expect(router.state.location.pathname).toBe('/practice')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('거절에 실린 초기화 시각이 지나면 카드를 걷고 시작 버튼을 돌려준다', async () => {
+    mockGuestAllowance.enforce()
+    mockGuestAllowance.setRemaining(1)
+    const resetsAt = new Date(Date.now() + 1_500).toISOString()
+    mockServer.use(
+      http.post('*/api/v1/study-sessions', () =>
+        HttpResponse.json(
+          {
+            code: 'GUEST_LIMIT_REACHED',
+            message: 'synthetic',
+            details: { resetsAt },
+            requestId: crypto.randomUUID(),
+            retryable: false
+          },
+          { status: 403 }
+        )
+      )
+    )
+    renderPractice('?level=N5&subject=VOCABULARY', { globalErrors: true })
+    const name = 'N5 어휘 · 5문제 시작'
+    const start = await screen.findByRole('button', { name })
+    await waitFor(() => expect(start).toBeEnabled())
+    await userEvent.setup().click(start)
+    expect(
+      await screen.findByRole('heading', { name: '오늘 체험을 다 썼어요' })
+    ).toBeVisible()
+    await waitFor(
+      () =>
+        expect(
+          screen.queryByRole('heading', { name: '오늘 체험을 다 썼어요' })
+        ).not.toBeInTheDocument(),
+      { timeout: 4_000 }
+    )
+    expect(await screen.findByRole('button', { name })).toBeEnabled()
   })
 
   it('출제 가능한 문제가 없으면 안내 후 랜덤 모드로 바꿀 수 있다', async () => {

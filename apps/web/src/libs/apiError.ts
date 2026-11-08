@@ -25,6 +25,12 @@ export const isAccountRestrictedApiError = (error: unknown): boolean =>
 export const isGuestLimitReachedApiError = (error: unknown): boolean =>
   isApiError(error) && error.code === 'GUEST_LIMIT_REACHED'
 
+/** When a guest refused for the daily limit can start again (ISO UTC). */
+export const getGuestLimitResetsAt = (error: unknown): string | undefined =>
+  isApiError(error) && error.code === 'GUEST_LIMIT_REACHED'
+    ? error.details?.resetsAt
+    : undefined
+
 export const isNoEligibleQuestionsApiError = (error: unknown): boolean =>
   isApiError(error) && error.code === 'NO_ELIGIBLE_QUESTIONS'
 
