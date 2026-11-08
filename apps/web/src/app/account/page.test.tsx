@@ -141,6 +141,30 @@ describe('마이페이지 계정 설정', () => {
     ).toHaveLength(0)
     expect(reads()).toBe(0)
   })
+  it('로그인 회원이 새로고침하면 /me 응답 전에는 확인 중만 보이고 로그인 카드를 보이지 않는다', async () => {
+    mockDatabase.loginAs('USER')
+    let release: () => void = () => undefined
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    mockServer.use(
+      http.get('*/api/v1/me', async () => {
+        await gate
+        return undefined
+      })
+    )
+    renderAccount()
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      '로그인 상태를 확인하고 있어요.'
+    )
+    expect(screen.queryByText('로그인이 필요해요')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: /Google로 계속하기/u })
+    ).not.toBeInTheDocument()
+    release()
+    expect(await screen.findByText('연결됨')).toBeInTheDocument()
+  })
+
   it('Google 연결 상태와 유일한 방법 안내를 보여 주고 해제 버튼은 두지 않는다', async () => {
     mockDatabase.loginAs('USER')
     renderAccount()
