@@ -166,8 +166,8 @@ export const jaCoreResources = {
       adminQuestionDetail: '問題詳細',
       adminQuestions: '問題管理',
       adminAudit: '管理者監査ログ',
-      adminReportDetail: '問題報告の詳細',
-      adminReports: '問題報告キュー',
+      adminReportDetail: '報告の詳細',
+      adminReports: '問題報告',
       forbidden: 'アクセス権限なし',
       page: 'ページ'
     }
@@ -711,8 +711,7 @@ export const jaCoreResources = {
       },
       progressLabel: '回答済み {{percent}}%',
       question: {
-        passageEyebrow: 'READING PASSAGE',
-        passageLabel: '読解文',
+        passageLabel: '文章',
         numberLabel: '{{ordinal}}番の問題。',
         answerLegend: '答えの選択肢',
         keyboardHint:
