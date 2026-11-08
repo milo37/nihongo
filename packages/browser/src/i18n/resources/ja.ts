@@ -419,27 +419,27 @@ export const jaCoreResources = {
     }
   },
   auth: {
-    adminFresh: {
-      title: '管理者の本人確認',
-      description:
-        '慎重な確認が必要な操作を続けるには、同じ管理者アカウントに連携したログイン方法を選んでください。',
-      checking: '現在のログイン状態を再確認しています。',
-      returned:
-        'ログイン状態を再確認しました。元の操作に戻り、内容を確認してから手動でもう一度実行してください。操作の権限はサーバーで再確認されます。',
-      cancelled:
-        '本人確認をキャンセルしました。現在のログイン状態を確認し、必要な場合はもう一度お試しください。',
-      failed:
-        '本人確認の結果を確認できませんでした。現在のログイン状態と元の操作を確認してから、もう一度お試しください。',
-      invalid:
-        '本人確認のリクエストが期限切れか、正しくありません。必要な場合はやり直してください。',
-      unknown:
-        '現在のログイン状態を確認できませんでした。完了したかどうかは確定できません。接続を確認してから、もう一度状態を確認してください。'
+    reauth: {
+      name: '本人確認',
+      description: 'Googleでもう一度ログインして確認します。',
+      go: 'Googleで本人確認',
+      redirecting: 'Googleに移動中…',
+      returnNote: '確認が終わると、この画面に戻ります。',
+      scopeAccount: '連携解除と退会は、毎回本人確認を行います。',
+      stepDone: '完了',
+      account: {
+        returned: '本人確認が完了しました。最後のステップを確認してください。',
+        failed: '本人確認を完了できませんでした。もう一度お試しください。',
+        cancelled:
+          '本人確認をキャンセルしました。必要な場合はもう一度お試しください。',
+        wrongAccount:
+          '最初にログインしたGoogleアカウントでもう一度お試しください。',
+        invalid: '確認リクエストの期限が切れました。もう一度お試しください。'
+      }
     },
     sso: {
       checkingAccount: 'アカウントの状態を確認しています。',
       openAdminWork: '進行中の管理作業があるため、現在は退会できません。',
-      cancelledAccount:
-        '本人確認または連携をキャンセルしました。元のアカウントは維持されます。',
       title: 'ログイン',
       description: 'Googleアカウントで学習記録を引き継ぎましょう。',
       guestHint:
@@ -470,7 +470,6 @@ export const jaCoreResources = {
         '連携を解除した後は、連携済みの別のログイン方法でログインしてください。学習記録は維持されます。退会は別の操作です。',
       unlinkAction: '連携を解除',
       lastMethodTitle: '最後のログイン方法は解除できません。',
-      wrongAccount: '最初にログインしたアカウントでもう一度お試しください。',
       deleteTitle: '退会しますか？',
       processing: '処理しています。',
       actionFailed:
@@ -1571,12 +1570,8 @@ export const jaCoreResources = {
       action: '退会する'
     },
     confirm: {
-      stepVerify: 'Googleで本人確認',
       stepDelete: '退会の最終確認',
       stepUnlink: '連携解除の最終確認',
-      verifyNote:
-        '安全のため、Googleでもう一度ログインする必要があります。確認後この画面に戻ります。',
-      verifyAction: 'Googleで確認して続ける',
       deleteDescription: {
         scope:
           '退会するとすぐにログアウトされ、1時間以内に学習記録・間違いノート・メモ・ブックマーク・復習予定とアカウント情報（氏名・メールアドレス）が削除されます。元に戻すことはできません。',
