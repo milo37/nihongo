@@ -28,7 +28,11 @@ export const bundleCeilings = Object.freeze({
   emittedFileCount: 90,
   // The header account menu, with its logout dialog, loads on every page
   // (bundle 1 #734): two more initial chunks, about 5.5 KB gzip.
-  initialAssetCount: 27,
+  // U12 (JLP-791): the shared global error handler now raises offline and
+  // sign-out toasts, so Toast becomes its own shared initial chunk (+1
+  // file, gzip 250,094 measured; it must be ready before the first event,
+  // so it cannot load lazily).
+  initialAssetCount: 28,
   initialGzipBytes: 252_000,
   initialRawBytes: 803_000,
   javaScriptAssetCount: 88,
