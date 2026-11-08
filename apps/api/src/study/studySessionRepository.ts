@@ -132,7 +132,7 @@ export class GuestCredentialExpiredError extends Error {
 }
 
 export class GuestDailyLimitReachedError extends Error {
-  constructor() {
+  constructor(readonly resetsAt: Date) {
     super('The guest started its daily session limit.')
     this.name = 'GuestDailyLimitReachedError'
   }
@@ -431,7 +431,7 @@ const assertGuestDailySessionLimit = async (
         AND "startedAt" < ${nextDayStart}`
   )
   if ((started?.count ?? 0) >= GUEST_DAILY_SESSION_LIMIT) {
-    throw new GuestDailyLimitReachedError()
+    throw new GuestDailyLimitReachedError(nextDayStart)
   }
 }
 

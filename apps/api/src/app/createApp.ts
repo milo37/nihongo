@@ -220,6 +220,7 @@ const toFailure = (error: unknown, requestId: string): ApiFailure => {
       code: error.code,
       message: error.message,
       ...(error.fieldErrors ? { fieldErrors: error.fieldErrors } : {}),
+      ...(error.details ? { details: error.details } : {}),
       requestId,
       retryable: error.retryable
     })

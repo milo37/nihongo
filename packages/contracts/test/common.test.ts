@@ -64,4 +64,41 @@ describe('공통 계약', () => {
     expect(errorStatusByCode.DRAFT_SUBMIT_MISMATCH).toBe(422)
     expect(errorStatusByCode.PRACTICE_CONTRACT_VERSION_MISMATCH).toBe(409)
   })
+
+  it('GUEST_LIMIT_REACHED에만 details.resetsAt을 반드시 싣는다', () => {
+    const guestLimit = {
+      code: 'GUEST_LIMIT_REACHED',
+      message: '비회원은 하루 2번까지 풀 수 있습니다.',
+      requestId: UUID,
+      retryable: false
+    }
+    expect(
+      apiFailureSchema.parse({
+        ...guestLimit,
+        details: { resetsAt: '2026-11-09T00:00:00+09:00' }
+      }).details
+    ).toEqual({ resetsAt: '2026-11-08T15:00:00.000Z' })
+    expect(apiFailureSchema.safeParse(guestLimit).success).toBe(false)
+    expect(
+      apiFailureSchema.safeParse({
+        ...guestLimit,
+        details: { resetsAt: 'tomorrow' }
+      }).success
+    ).toBe(false)
+    expect(
+      apiFailureSchema.safeParse({
+        ...guestLimit,
+        details: { resetsAt: '2026-11-08T15:00:00.000Z', remaining: 0 }
+      }).success
+    ).toBe(false)
+    expect(
+      apiFailureSchema.safeParse({
+        code: 'RATE_LIMITED',
+        message: '잠시 뒤 다시 시도해 주세요.',
+        requestId: UUID,
+        retryable: true,
+        details: { resetsAt: '2026-11-08T15:00:00.000Z' }
+      }).success
+    ).toBe(false)
+  })
 })

@@ -1,4 +1,5 @@
 import { z, type ZodType } from 'zod'
+import { isoDateTimeSchema } from './date.js'
 import { requestIdSchema } from './id.js'
 
 export const stableErrorCodeSchema = z.enum([
@@ -104,6 +105,16 @@ const fieldErrorsSchema = z.record(
   z.array(z.string().min(1)).min(1)
 )
 
+/**
+ * Only on GUEST_LIMIT_REACHED, and always there: when the guest can start
+ * again (next KST midnight, the same value as guest-allowance `resetsAt`).
+ */
+export const guestLimitDetailsSchema = z
+  .object({ resetsAt: isoDateTimeSchema })
+  .strict()
+
+export type GuestLimitDetails = z.output<typeof guestLimitDetailsSchema>
+
 export const createApiFailureSchema = <CodeSchema extends ZodType<string>>(
   codeSchema: CodeSchema
 ) =>
@@ -112,10 +123,24 @@ export const createApiFailureSchema = <CodeSchema extends ZodType<string>>(
       code: codeSchema,
       message: z.string().min(1),
       fieldErrors: fieldErrorsSchema.optional(),
+      details: guestLimitDetailsSchema.optional(),
       requestId: requestIdSchema,
       retryable: z.boolean()
     })
     .strict()
+    .superRefine((failure, context) => {
+      const { code, details } = failure as { code: string; details?: unknown }
+      const isGuestLimit = code === 'GUEST_LIMIT_REACHED'
+      if (isGuestLimit !== (details !== undefined)) {
+        context.addIssue({
+          code: 'custom',
+          path: ['details'],
+          message: isGuestLimit
+            ? 'GUEST_LIMIT_REACHED에는 details.resetsAt이 필요합니다.'
+            : 'details는 GUEST_LIMIT_REACHED에만 씁니다.'
+        })
+      }
+    })
 
 export const apiFailureSchema = createApiFailureSchema(stableErrorCodeSchema)
 
