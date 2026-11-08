@@ -1,6 +1,11 @@
 import { koAdminFormResources } from './ko-admin-form'
+import { koAdminImportResources } from './ko-admin-import'
+import { koAdminListResources } from './ko-admin-list'
+import { koAdminMembersResources } from './ko-admin-members'
 import { koAdminQuestionListResources } from './ko-admin-question'
 import { koAdminReportResources } from './ko-admin-report'
+import { koAdminReportListResources } from './ko-admin-report-list'
+import { koAdminSharedListResources } from './ko-admin-shared-list'
 
 const questionTypeLabels = {
   KANJI_READING: '한자 읽기',
@@ -1568,13 +1573,8 @@ export const koResources = {
   },
   admin: {
     name: '관리자',
-    grid: {
-      columns: '표시할 열',
-      pageSize: '쪽당 행 수',
-      pageStatus: '{{page}} / {{pageCount}}쪽 · 전체 {{total}}건',
-      previous: '이전',
-      next: '다음'
-    },
+    grid: koAdminListResources,
+    adminList: koAdminSharedListResources,
     nav: {
       brand: '하루마루 관리',
       questions: '문제',
@@ -1583,73 +1583,7 @@ export const koResources = {
       reports: '버그 리포트',
       auditLog: '감사 이력'
     },
-    members: {
-      title: '가입자',
-      description:
-        '가입자의 학습 현황과 이용 상태를 확인하고 필요하면 이용을 제한합니다. 이메일은 가려서 보여 줍니다.',
-      gridLabel: '가입자 목록',
-      loading: '가입자 정보를 불러오는 중입니다.',
-      loadError: '가입자 목록을 불러오지 못했습니다',
-      empty: '아직 가입자가 없습니다.',
-      noMatch: '이 이메일로 가입한 사람이 없습니다.',
-      never: '학습 기록 없음',
-      openDetail: '상세',
-      search: {
-        label: '이메일로 찾기',
-        hint: '전체 이메일 주소를 정확히 입력해 주세요.',
-        submit: '찾기',
-        clear: '검색 해제',
-        invalid: '올바른 이메일 주소를 입력해 주세요.'
-      },
-      columns: {
-        memberId: '회원 ID',
-        email: '이메일',
-        joinedAt: '가입일',
-        lastStudiedAt: '최근 학습',
-        solvedCount: '푼 문제',
-        reportCount: '제보',
-        status: '상태',
-        actions: '상세/조치'
-      },
-      status: { ACTIVE: '이용 중', RESTRICTED: '이용 제한' },
-      detail: {
-        title: '가입자 상세',
-        back: '가입자 목록으로',
-        loadError: '가입자 정보를 불러오지 못했습니다',
-        restrictedAt: '제한 시각',
-        restrictTitle: '이용 제한',
-        restrictHint:
-          '제한하면 새 학습·복습 시작과 새 제보를 할 수 없습니다. 로그인과 기록 조회는 계속 됩니다.',
-        reason: '제한 사유',
-        reasonHint: '{{max}}자 이내로 적어 주세요. 감사 이력에 남습니다.',
-        reasonRequired: '제한 사유를 1~{{max}}자로 적어 주세요.',
-        restrict: '이용 제한',
-        restricting: '제한하는 중…',
-        restricted: '이용을 제한했습니다.',
-        releaseTitle: '제한 해제',
-        releaseHint: '해제하면 바로 다시 학습과 제보를 할 수 있습니다.',
-        release: '제한 해제',
-        releasing: '해제하는 중…',
-        released: '이용 제한을 해제했습니다.',
-        fresh: {
-          required:
-            '보안을 위해 관리자 본인 확인이 필요합니다. 새 탭에서 본인 확인을 마친 뒤 여기서 확인 완료를 눌러 주세요. 입력한 내용은 그대로 있고, ‘{{command}}’ 작업은 아직 적용되지 않았습니다.',
-          openNewTab: '새 탭에서 본인 확인',
-          confirm: '확인 완료',
-          confirmed:
-            '본인 확인을 마쳤습니다. ‘{{command}}’ 버튼을 다시 눌러 적용해 주세요.',
-          failed: '본인 확인이 끝나지 않아 적용하지 않았습니다.'
-        },
-        confirm: {
-          title: '이용을 제한할까요?',
-          description: '아래 가입자에게 바로 적용됩니다.',
-          preserved: '학습 기록과 보낸 제보는 지워지지 않습니다.',
-          cancel: '취소',
-          apply: '제한 적용'
-        },
-        reload: '최신 정보 다시 불러오기'
-      }
-    },
+    members: koAdminMembersResources,
     idleLock: {
       title: '15분 동안 사용하지 않아 잠갔습니다',
       description: '입력한 내용은 그대로 있습니다.',
@@ -2104,36 +2038,7 @@ export const koResources = {
         '이 작업은 학습자 노출과 기록에 영향을 줄 수 있습니다. 결과를 확인한 뒤 실행해 주세요.',
       commandComplete: '{{command}} 작업이 완료됐습니다.'
     },
-    import: {
-      freshRevalidateHint:
-        'Google 재확인 화면으로 이동하면 파일 선택과 검증 결과가 초기화됩니다. 돌아온 뒤 같은 JSON 파일을 다시 선택해 검증하고 직접 적용해 주세요.',
-      eyebrow: 'ATOMIC IMPORT',
-      title: '문제 초안 가져오기',
-      description:
-        '먼저 쓰기 없는 검증을 수행한 뒤, 동일 항목과 validation digest에 한해서만 전체 적용합니다.',
-      fileLabel: 'JSON 파일',
-      fileHint: '최대 2 MiB · 최대 100개 · UTF-8 strict JSON',
-      readingFile: '파일을 안전하게 읽고 있습니다…',
-      fileSizeError: '파일은 1 byte 이상 2 MiB 이하여야 합니다.',
-      fileFormatError:
-        '중복 JSON 키가 없고 canonical import request 형식인 UTF-8 JSON 파일이 필요합니다.',
-      validate: '쓰기 없이 검증',
-      valid: '검증 통과',
-      invalid: '검증 오류',
-      resultCount: '{{formattedCount}}개',
-      apply: '동일 검증 결과 원자 적용',
-      applied: '{{formattedCount}}개 초안을 원자적으로 만들었습니다.',
-      error: '가져오기 요청을 처리하지 못했습니다.',
-      issueLabel: '{{code}} · 항목 {{item}} · {{field}}',
-      recovery: {
-        checking:
-          '적용 응답을 받지 못해 같은 가져오기 ID로 적용 결과를 확인하고 있습니다.',
-        notApplied:
-          '이 가져오기는 적용되지 않았습니다. 다시 적용해도 초안이 중복으로 만들어지지 않습니다.',
-        failed:
-          '적용 결과를 확인하지 못했습니다. 다시 적용하면 같은 가져오기 ID로 처리되어 초안이 중복으로 만들어지지 않습니다.'
-      }
-    },
+    import: koAdminImportResources,
     audit: {
       eyebrow: 'ADMIN AUDIT',
       title: '관리자 감사 기록',
@@ -2171,42 +2076,7 @@ export const koResources = {
       appErrorSubmitted: '앱 오류 제보를 접수했습니다.',
       appErrorError: '앱 오류 제보를 접수하지 못했습니다.'
     },
-    reportList: {
-      eyebrow: 'QUESTION REPORTS · TECHNICAL MODE',
-      title: '문제 신고 큐',
-      description:
-        '목록에서는 신고 설명을 노출하지 않습니다. 상세에서만 일반 텍스트로 확인합니다.',
-      invalidQuery:
-        'URL 신고 검색 조건이 허용 범위를 벗어났습니다. 안전한 기본 조건을 사용합니다.',
-      status: '처리 상태',
-      allStatuses: '전체 상태',
-      reason: '신고 사유',
-      allReasons: '전체 사유',
-      questionId: '문제 ID',
-      assigneeActorId: '담당자 actor ID',
-      createdFrom: '신고 생성 시작 시각',
-      createdTo: '신고 생성 종료 시각',
-      updatedFrom: '신고 수정 시작 시각',
-      updatedTo: '신고 수정 종료 시각',
-      sort: '정렬',
-      applySearch: '검색 적용',
-      resetFilters: '필터 초기화',
-      cachedError:
-        '최신 신고 큐를 확인하지 못했습니다. 현재 목록은 그대로 유지됩니다.',
-      error: '신고 큐를 불러오지 못했습니다.',
-      retry: '신고 큐 다시 확인',
-      loading: '신고 큐를 불러오는 중입니다…',
-      refreshing: '신고 큐 페이지를 갱신하고 있습니다…',
-      emptyTitle: '신고가 없습니다',
-      emptyDescription: '현재 조건에 맞는 신고가 없습니다.',
-      tableScrollLabel: '문제 신고 목록 가로 스크롤 영역',
-      tableCaption:
-        '문제 신고 큐 목록. 상태, 사유, 문제, 신고자, 담당자, 생성일, 수정일, 상세 열로 구성됩니다.',
-      sortCreated: '생성일, 최근순으로 정렬',
-      sortCreatedActive: '생성일, 최근순 정렬됨',
-      sortUpdated: '수정일, 최근순으로 정렬',
-      sortUpdatedActive: '수정일, 최근순 정렬됨'
-    },
+    reportList: koAdminReportListResources,
     reportDetail: {
       advancedFilters: '상세 조건',
       dateHint: '시간대가 포함된 ISO 시각 (예: 2026-10-01T00:00:00Z)',
