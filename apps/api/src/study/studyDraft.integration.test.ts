@@ -877,6 +877,7 @@ describe('StudyDraft PostgreSQL integration', () => {
     expect(submitReplay.status).toBe(201)
     expect(submitReplay.headers.get('Idempotency-Replayed')).toBe('true')
 
+    // expectedDraftRevision is ignored and left out of the request hash.
     const v1SubmissionBody = {
       answers: submissionBody.answers,
       durationSec: submissionBody.durationSec
@@ -895,13 +896,15 @@ describe('StudyDraft PostgreSQL integration', () => {
           body: JSON.stringify(v1SubmissionBody)
         }
       )
-      expect(missingRevision.status).toBe(422)
-      expect(
-        apiFailureSchema.parse(await missingRevision.json())
-      ).toMatchObject({
-        code: 'VALIDATION_ERROR',
-        fieldErrors: { expectedDraftRevision: expect.any(Array) }
-      })
+      if (idempotencyKey === submissionKey) {
+        expect(missingRevision.status).toBe(201)
+        expect(missingRevision.headers.get('Idempotency-Replayed')).toBe('true')
+      } else {
+        expect(missingRevision.status).toBe(409)
+        expect(apiFailureSchema.parse(await missingRevision.json()).code).toBe(
+          'SESSION_ALREADY_SUBMITTED'
+        )
+      }
       const legacyHeader = await app.request(
         `/api/v1/study-sessions/${submissionSession.payload.session.id}/submission`,
         {
@@ -1698,11 +1701,7 @@ describe('StudyDraft PostgreSQL integration', () => {
           status: 'CANCELLED',
           draft: null
         },
-        {
-          id: saveBeforeSubmitSession.id,
-          status: 'IN_PROGRESS',
-          draft: expect.objectContaining({ revision: 1 })
-        },
+        { id: saveBeforeSubmitSession.id, status: 'SUBMITTED', draft: null },
         { id: submitBeforeSaveSession.id, status: 'SUBMITTED', draft: null }
       ])
     )

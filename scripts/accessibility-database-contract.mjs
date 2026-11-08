@@ -70,7 +70,7 @@ export const accessibilityExpectedTableDeltas = {
   QuestionReport: 0,
   QuestionVersion: 0,
   QuestionVersionTag: 0,
-  RateLimit: 28,
+  RateLimit: 29,
   ReviewEvent: 10,
   ReviewSchedule: 10,
   Session: 2,
@@ -110,6 +110,8 @@ export const accessibilityExpectedRateLimitCategories = {
   'application:keyed:REPORT_VERSION:VERSION': 0,
   'application:study-cancel': 0,
   'application:study-create': 2,
+  // The guest scan starts one guest session from one IP (#737).
+  'application:guest-study-create-day': 1,
   'application:study-draft-save': 1,
   'application:study-mutation-ip': 2,
   'application:study-read': 2,
