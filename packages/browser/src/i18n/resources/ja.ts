@@ -168,8 +168,8 @@ export const jaCoreResources = {
       adminQuestionDetail: '問題詳細',
       adminQuestions: '問題管理',
       adminAudit: '管理者監査ログ',
-      adminReportDetail: '報告の詳細',
-      adminReports: '問題報告',
+      adminReportDetail: 'バグレポートの詳細',
+      adminReports: 'バグレポート',
       forbidden: 'アクセス権限なし',
       page: 'ページ'
     }

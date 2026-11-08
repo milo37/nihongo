@@ -655,7 +655,7 @@ it('이용이 제한된 계정이면 BOOKMARK 학습 시작 오류 대신 제한
   ).toHaveAttribute('role', 'alert')
   expect(
     screen.queryByText(
-      'BOOKMARK 학습을 시작하지 못했어요. 잠시 후 다시 시도해 주세요.'
+      '책갈피 학습을 시작하지 못했어요. 잠시 후 다시 시도해 주세요.'
     )
   ).toBeNull()
   dispose(fixture.client, fixture.unmount)

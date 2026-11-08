@@ -169,8 +169,8 @@ export const koResources = {
       adminQuestionDetail: '문제 상세',
       adminQuestions: '문제 관리',
       adminAudit: '관리자 감사 기록',
-      adminReportDetail: '신고 상세',
-      adminReports: '문제 신고',
+      adminReportDetail: '버그 리포트 상세',
+      adminReports: '버그 리포트',
       forbidden: '접근 권한 없음',
       page: '페이지'
     }
@@ -476,7 +476,7 @@ export const koResources = {
       logoutUnknown: '로그아웃 상태를 확인하지 못했어요. 다시 확인해 주세요.',
       unlinkTitle: '{{provider}} 연결을 해제할까요?',
       unlinkDescription:
-        '연결 해제 후에는 연결된 다른 로그인 방법으로 로그인해 주세요. 학습 기록은 유지되며, 회원 탈퇴는 별도예요.',
+        '연결 해제 후에는 연결된 다른 로그인 방법으로 로그인해 주세요. 학습 기록은 그대로 남고, 회원 탈퇴는 따로 해야 해요.',
       unlinkAction: '연결 해제',
       lastMethodTitle: '마지막 로그인 방법은 해제할 수 없어요.',
       deleteTitle: '회원 탈퇴할까요?',
@@ -495,7 +495,7 @@ export const koResources = {
       unavailableProvider:
         '지금은 {{provider}} 로그인을 이용할 수 없어요. 잠시 후 다시 시도해 주세요.',
       consentNotice:
-        '계속하면 <terms>이용약관</terms>과 <privacy>개인정보 처리방침</privacy>을 확인한 것으로 봐요. 만\u00a014세 미만은 가입할 수 없어요.'
+        '계속하면 <terms>이용약관</terms>과 <privacy>개인정보 처리방침</privacy>을 확인한 것으로 봅니다. 만\u00a014세 미만은 가입할 수 없습니다.'
     }
   },
   practice: {
@@ -513,7 +513,7 @@ export const koResources = {
       eyebrow: 'PRACTICE SETUP',
       title: '학습',
       description:
-        '출제 가능한 문제가 부족하면 가능한 수만 제공하고 실제 문항 수를 알려드려요.',
+        '출제 가능한 문제가 부족하면 가능한 수만 내고 실제 문제 수를 알려 드려요.',
       currentRole: '현재 역할: {{role}}',
       resume: {
         title: '이어서 풀기',
@@ -558,7 +558,7 @@ export const koResources = {
         },
         WEAKNESS: {
           label: '약점 추천',
-          description: '최근 제출에서 안정적으로 자주 틀린 문제를 우선해요.'
+          description: '최근 제출에서 자주 틀린 문제를 먼저 출제해요.'
         },
         BOOKMARK: {
           label: '책갈피',
@@ -648,7 +648,7 @@ export const koResources = {
         expiredTitle: '만료된 학습 세션이에요',
         cancelledTitle: '취소된 학습 세션이에요',
         description:
-          '새 RANDOM 학습을 시작해 주세요. 이 세션에는 답안을 제출할 수 없어요.',
+          '랜덤 문제로 새 학습을 시작해 주세요. 이 세션에는 답안을 제출할 수 없어요.',
         openSetup: '학습 설정으로 이동'
       },
       exitGuest: {
@@ -800,7 +800,7 @@ export const koResources = {
       label: '해설 문항',
       question: '문제 {{formattedOrdinal}}',
       openBookmarks: '책갈피 보기',
-      emptyTitle: '확인할 문항이 없어요',
+      emptyTitle: '확인할 문제가 없어요',
       emptyDescription: '학습 설정으로 돌아가 새 문제를 풀어 보세요.'
     },
     name: '학습 결과',
@@ -916,7 +916,7 @@ export const koResources = {
     },
     eyebrow: 'DASHBOARD',
     title: '학습 흐름을 확인하세요',
-    greeting: '{{name}}님의 목표 급수는 {{level}}입니다.',
+    greeting: '{{name}}님의 목표 급수: {{level}}',
     learnerFallback: '학습자',
     targetUnset: '미설정',
     basisNote:
@@ -1042,18 +1042,18 @@ export const koResources = {
           DUE_REVIEW: {
             title: '오늘 복습부터 시작하세요',
             reason:
-              '{{level}} {{subject}} 복습 예정 문제가 {{formattedCount}}개 있어요. 가장 이른 예정 시각은 {{date}}이에요.'
+              '{{level}} {{subject}} 복습 예정 문제가 {{formattedCount}}개 있어요. 가장 이른 예정 시각: {{date}}'
           },
           REPEATED_WRONG: {
             title: '반복해서 틀린 문제를 다시 확인하세요',
             reasonPrefix: '“',
             reasonSuffix:
-              '” 문제를 {{formattedCount}}회 틀렸어요. 마지막 오답은 {{date}}이에요.'
+              '” 문제를 {{formattedCount}}회 틀렸어요. 마지막 오답: {{date}}'
           },
           RECENT_LOW_ACCURACY_TYPE: {
             title: '최근 정확도가 낮은 유형을 연습하세요',
             reason:
-              '{{level}} {{subject}}의 {{questionType}} 유형에서 {{attempted}}회 중 {{incorrect}}회 틀렸어요. 정답률은 {{accuracy}}이에요.'
+              '{{level}} {{subject}}의 {{questionType}} 유형에서 {{attempted}}회 중 {{incorrect}}회 틀렸어요(정답률 {{accuracy}}).'
           },
           STALE_WEAK_SUBJECT: {
             title: '오래 쉬었던 약한 과목을 다시 잡아보세요',
@@ -1139,7 +1139,7 @@ export const koResources = {
       back: '복습 목록으로',
       start: '새 학습 시작',
       versionChanged:
-        '이 해설은 마지막으로 틀린 문제 버전이에요. 다시 풀 때는 최신 문항이 나와요.',
+        '이 해설은 마지막으로 틀린 문제 버전이에요. 다시 풀 때는 최신 문제가 나와요.',
       guest: {
         result: '이 기기에서 방금 마친 학습 결과'
       },
@@ -1484,7 +1484,7 @@ export const koResources = {
       firstTitle: '저장한 문제가 없어요',
       pageTitle: '이 페이지가 비었어요',
       firstDescription:
-        '문제풀이 화면에서 책갈피를 누르면 이곳에 모아볼 수 있어요.',
+        '문제풀이 화면에서 책갈피를 누르면 이곳에 모아 볼 수 있어요.',
       pageDescription: '이전 페이지에서 책갈피를 확인해 주세요.',
       start: '문제 풀러 가기',
       previousPage: '이전 페이지'
@@ -1497,9 +1497,8 @@ export const koResources = {
       allArchived: '이 페이지의 책갈피는 모두 보관되어 현재 출제할 수 없어요.',
       noneAvailable: '선택한 범위에 현재 출제 가능한 책갈피 문제가 없어요.',
       refresh: '책갈피 목록 새로고침',
-      offline: '오프라인이에요. 연결되면 BOOKMARK 학습 생성을 다시 시도해요.',
-      startError:
-        'BOOKMARK 학습을 시작하지 못했어요. 잠시 후 다시 시도해 주세요.'
+      offline: '오프라인이에요. 연결되면 책갈피 학습 만들기를 다시 시도해요.',
+      startError: '책갈피 학습을 시작하지 못했어요. 잠시 후 다시 시도해 주세요.'
     },
     availability: {
       available: '출제 가능',
@@ -1613,7 +1612,7 @@ export const koResources = {
       submit: '신고 접수',
       sent: '신고를 보냈어요.',
       error: '문제 신고를 접수하지 못했어요.',
-      offline: '오프라인이에요. 작성한 설명은 유지돼요.',
+      offline: '오프라인이에요. 작성한 설명은 그대로 남아 있어요.',
       appErrorTrigger: '앱 오류 제보',
       errorScreenTrigger: '오류 제보',
       appErrorTitle: '앱 오류 제보',

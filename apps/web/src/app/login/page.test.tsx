@@ -125,7 +125,7 @@ describe('현재 Google SSO 로그인', () => {
     ).not.toBeInTheDocument()
     const consent = document.querySelector('.auth-consent')
     expect(consent).toHaveTextContent(
-      '계속하면 이용약관과 개인정보 처리방침을 확인한 것으로 봐요. 만 14세 미만은 가입할 수 없어요.'
+      '계속하면 이용약관과 개인정보 처리방침을 확인한 것으로 봅니다. 만 14세 미만은 가입할 수 없습니다.'
     )
     expect(
       within(consent as HTMLElement).getByRole('link', { name: '이용약관' })
