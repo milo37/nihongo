@@ -1,19 +1,15 @@
 import type { AuthenticatedUser } from '@nihongo/contracts/auth/get-current-principal'
+import { serverNow } from '../../libs/serverClock'
 
 /**
  * Milliseconds of admin re-verification left at `now`, counted on the
- * server clock: `adminFreshUntil - adminServerTime` when the answer arrived
- * (`receivedAt`), minus the time since. 0 when there is none.
+ * server clock from the last /me Date header, so a wrong browser clock does
+ * not matter. 0 when there is none.
  */
 export const adminFreshRemainingMs = (
-  user: Pick<AuthenticatedUser, 'adminFreshUntil' | 'adminServerTime'> | null,
-  receivedAt: number,
+  user: Pick<AuthenticatedUser, 'adminFreshUntil'> | null,
   now: number = Date.now()
 ): number => {
   if (!user?.adminFreshUntil) return 0
-  const until = Date.parse(user.adminFreshUntil)
-  const serverNow = user.adminServerTime
-    ? Date.parse(user.adminServerTime)
-    : receivedAt
-  return Math.max(0, until - serverNow - (now - receivedAt))
+  return Math.max(0, Date.parse(user.adminFreshUntil) - serverNow(now))
 }

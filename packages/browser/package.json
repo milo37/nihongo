@@ -83,6 +83,7 @@
     "./libs/queryClient": "./src/libs/queryClient.ts",
     "./libs/resolveApiMode": "./src/libs/resolveApiMode.ts",
     "./libs/resolveReleaseId": "./src/libs/resolveReleaseId.ts",
+    "./libs/serverClock": "./src/libs/serverClock.ts",
     "./libs/serverStateQueryKeys": "./src/libs/serverStateQueryKeys.ts",
     "./libs/socialAuthNavigation": "./src/libs/socialAuthNavigation.ts",
     "./libs/storage": "./src/libs/storage.ts",

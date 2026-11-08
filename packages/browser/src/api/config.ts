@@ -8,6 +8,7 @@ import {
   assertCurrentAuthTransitionEpoch,
   captureAuthTransitionEpoch
 } from '../libs/authTransitionFence'
+import { recordServerDate } from '../libs/serverClock'
 
 export interface ApiErrorFlags {
   code?: string
@@ -170,7 +171,13 @@ apiClient.interceptors.request.use((config) => {
 })
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // The /me Date header is the server clock for admin fresh time. It stays
+    // out of the user object, which must not change on every read.
+    if (response.config.url === '/v1/me')
+      recordServerDate(response.headers['date'])
+    return response
+  },
   (error: unknown) => {
     if (checkOfflineStatus()) {
       const offlineError =

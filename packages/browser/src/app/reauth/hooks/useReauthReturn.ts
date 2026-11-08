@@ -38,7 +38,7 @@ export const useReauthReturn = (): ReauthCheck => {
           result.applied
             ? {
                 phase: 'checked',
-                fresh: adminFreshRemainingMs(user, Date.now()) > 0
+                fresh: adminFreshRemainingMs(user) > 0
               }
             : { phase: 'unknown' }
         )

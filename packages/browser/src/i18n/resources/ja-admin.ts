@@ -391,34 +391,6 @@ export const jaAdminResources = {
       '連携したアカウントで本人確認を完了できませんでした。',
     fieldInvalid: 'この入力値を確認してください。'
   },
-  freshAssurance: {
-    title: '管理者本人確認',
-    description:
-      '{{reason}} 連携したアカウントで本人確認後、操作ボタンをもう一度押す必要があります。',
-    cancel: 'キャンセル',
-    checkingSession: 'ログイン状態を確認しています…',
-    retrySession: 'ログイン状態を再確認',
-    checking: '確認しています…',
-    confirm: '本人確認',
-    complete:
-      'ログイン状態を再確認しました。元の操作は自動実行されていません。内容を確認してから手動でもう一度実行してください。',
-    recovered:
-      '現在の管理者セッションを確認しました。連携したアカウントで本人確認をやり直してください。',
-    recoveryFailed:
-      'ログイン状態を確認できませんでした。ローカル作業は保持されます。ログイン状態の確認をもう一度お試しください。',
-    failed: '本人確認を完了できませんでした。',
-    reasons: {
-      BATCH_REVIEW: '一括レビュー依頼は慎重な確認が必要な管理者操作です。',
-      EXPORT: '問題のエクスポートには機密性のある正解と解説が含まれます。',
-      IMPORT_APPLY: 'インポートの適用は複数の問題を作成する管理者操作です。',
-      QUESTION_APPROVE: '承認は慎重な確認が必要な管理者操作です。',
-      QUESTION_ARCHIVE: '問題のアーカイブは慎重な確認が必要な管理者操作です。',
-      QUESTION_PUBLISH: '公開は慎重な確認が必要な管理者操作です。',
-      QUESTION_RETIRE: '公開終了は慎重な確認が必要な管理者操作です。',
-      QUESTION_WITHDRAW: '承認取り消しは慎重な確認が必要な管理者操作です。',
-      REPORT_RESOLUTION: '報告の最終処理は慎重な確認が必要な管理者操作です。'
-    }
-  },
   questionList: {
     eyebrow: 'ADMIN QUESTION CMS',
     title: '問題管理',

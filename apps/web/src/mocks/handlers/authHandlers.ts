@@ -43,9 +43,22 @@ let pendingProvider: SsoProviderId | null = null
 // MSW has no Google round trip, so a started admin re-verification counts as
 // done at once and opens the same 30 minute window the server would.
 let adminFresh: { userId: string; until: number } | null = null
+// The server fixes the admin session end at sign-in; keep it stable across
+// /me reads so the user value does not change on every read.
+const ADMIN_SESSION_MS = 8 * 60 * 60_000
+let adminSession: { userId: string; expiresAt: string } | null = null
+const adminSessionExpiresAt = (userId: string): string => {
+  if (adminSession?.userId !== userId)
+    adminSession = {
+      userId,
+      expiresAt: new Date(Date.now() + ADMIN_SESSION_MS).toISOString()
+    }
+  return adminSession.expiresAt
+}
 export const resetMockSocialSignInForTesting = (): void => {
   pendingProvider = null
   adminFresh = null
+  adminSession = null
   fixtureIds.apple = DEMO_USER_ID
   fixtureIds.google = DEMO_USER_ID
 }
@@ -72,7 +85,6 @@ const removedAuthPaths = [
   '/api/auth/verify-email',
   '/api/auth/change-password'
 ] as const
-const ADMIN_SESSION_MS = 8 * 60 * 60_000
 const toAuthenticatedUser = (user: User) => ({
   id: user.id,
   name: user.name,
@@ -80,14 +92,11 @@ const toAuthenticatedUser = (user: User) => ({
   targetLevel: user.targetLevel,
   ...(user.role === 'ADMIN'
     ? {
-        adminSessionExpiresAt: new Date(
-          Date.now() + ADMIN_SESSION_MS
-        ).toISOString(),
+        adminSessionExpiresAt: adminSessionExpiresAt(user.id),
         adminFreshUntil:
           adminFresh?.userId === user.id && adminFresh.until > Date.now()
             ? new Date(adminFresh.until).toISOString()
-            : null,
-        adminServerTime: new Date().toISOString()
+            : null
       }
     : {})
 })
@@ -158,7 +167,11 @@ export const authHandlers = [
   http.get('*/api/v1/me', () => {
     try {
       return HttpResponse.json(createCurrentPrincipalResponse(), {
-        headers: { 'Cache-Control': 'private, no-store' }
+        // Like the real server; the client reads its clock from Date.
+        headers: {
+          'Cache-Control': 'private, no-store',
+          Date: new Date().toUTCString()
+        }
       })
     } catch (error: unknown) {
       const response = toErrorResponse(error)
@@ -289,6 +302,7 @@ export const authHandlers = [
     try {
       pendingProvider = null
       adminFresh = null
+      adminSession = null
       mockDatabase.logout()
       return HttpResponse.json({ success: true as const })
     } catch (error: unknown) {

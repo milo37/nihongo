@@ -10,6 +10,10 @@ import {
   ReauthReturnNotice
 } from '@nihongo/browser/app/reauth/components/ReauthReturnNotice'
 import { queryClient } from '@nihongo/browser/libs/queryClient'
+import {
+  recordServerDate,
+  resetServerClockForTesting
+} from '@nihongo/browser/libs/serverClock'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { DEMO_ADMIN_ID } from '@mocks/data/users'
 import {
@@ -155,40 +159,34 @@ describe('본인 확인 복귀 알림', () => {
 })
 
 describe('관리자 본인 확인 남은 시간', () => {
-  it('서버 시각 기준으로 계산해 브라우저 시계 차이를 무시한다', () => {
-    const user = {
-      adminFreshUntil: '2026-11-08T10:30:00.000Z',
-      adminServerTime: '2026-11-08T10:00:00.000Z'
-    }
+  afterEach(() => resetServerClockForTesting())
+
+  it('/me Date 헤더의 서버 시각으로 계산해 브라우저 시계 차이를 무시한다', () => {
+    const user = { adminFreshUntil: '2026-11-08T10:30:00.000Z' }
     // The browser clock runs 2 hours ahead of the server.
     const receivedAt = Date.parse('2026-11-08T12:00:00.000Z')
-    expect(adminFreshRemainingMs(user, receivedAt, receivedAt)).toBe(
-      30 * 60_000
+    recordServerDate('Sun, 08 Nov 2026 10:00:00 GMT', receivedAt)
+    expect(adminFreshRemainingMs(user, receivedAt)).toBe(30 * 60_000)
+    expect(adminFreshRemainingMs(user, receivedAt + 26 * 60_000)).toBe(
+      4 * 60_000
     )
-    expect(
-      adminFreshRemainingMs(user, receivedAt, receivedAt + 26 * 60_000)
-    ).toBe(4 * 60_000)
-    expect(
-      adminFreshRemainingMs(user, receivedAt, receivedAt + 31 * 60_000)
-    ).toBe(0)
-    expect(
-      adminFreshRemainingMs({ adminFreshUntil: null }, receivedAt, receivedAt)
-    ).toBe(0)
+    expect(adminFreshRemainingMs(user, receivedAt + 31 * 60_000)).toBe(0)
+    expect(adminFreshRemainingMs({ adminFreshUntil: null }, receivedAt)).toBe(0)
     expect(adminFreshRemainingMs(null, receivedAt)).toBe(0)
+    // No readable Date header: fall back to the browser clock.
+    recordServerDate(null, receivedAt)
+    expect(adminFreshRemainingMs(user, receivedAt)).toBe(0)
   })
 
-  it('Mock /me는 관리자에게만 서버 시각을 주고 본인 확인 뒤 30분 창을 연다', async () => {
+  it('Mock /me는 서버 시각을 사용자에 넣지 않고 Date 헤더로 주며 본인 확인 뒤 30분 창을 연다', async () => {
     const admin = mockDatabase.loginAs('ADMIN')
     const before = await getCurrentUser()
     expect(before?.adminFreshUntil).toBeNull()
-    expect(typeof before?.adminServerTime).toBe('string')
+    expect(before).not.toHaveProperty('adminServerTime')
     grantMockAdminFreshForTesting(admin.id)
     const after = await getCurrentUser()
-    expect(adminFreshRemainingMs(after, Date.now())).toBeGreaterThan(
-      29 * 60_000
-    )
-    mockDatabase.loginAs('USER')
-    const learner = await getCurrentUser()
-    expect(learner).not.toHaveProperty('adminServerTime')
+    expect(adminFreshRemainingMs(after)).toBeGreaterThan(29 * 60_000)
+    // Reading the clock from Date keeps the user value the same on re-read.
+    expect(await getCurrentUser()).toEqual(after)
   })
 })
