@@ -19,10 +19,10 @@ export const assertSsoBootstrapMigrationHistory = (
     )
     .digest('hex')
   if (
-    expected.length !== 5 ||
-    expected.at(-1)?.name !== '20261109090000_add_tag_key_subject_status' ||
+    expected.length !== 6 ||
+    expected.at(-1)?.name !== '20261110090000_admin_fresh_window_30_minutes' ||
     orderedDigest !==
-      '4c837ceabcc52839c21ac952dd26d7a97726f1ac2f7c1cc1bf373ac77eecbce5' ||
+      '9aac758740c759a5725353ca17d81cebbcc163efaf4368e50e24bc20daf490d4' ||
     applied.length !== expected.length ||
     applied.some(
       (row, index) =>

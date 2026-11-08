@@ -1,4 +1,5 @@
 import { adminSessionFreshSql } from '../auth/adminFreshSql.js'
+import { ADMIN_FRESH_WINDOW_SQL } from '../auth/adminFreshWindow.js'
 import { randomUUID } from 'node:crypto'
 import type { Prisma } from '../generated/prisma/client.js'
 import type { BegunOperationRow } from './adminRepositoryCommon.js'
@@ -157,7 +158,7 @@ const hasAuthority = async (
        AND session."expiresAt" > clock_timestamp()
        AND session."createdAt" + INTERVAL '30 days' > clock_timestamp()
        AND (NOT $4::boolean
-         OR session."createdAt" + INTERVAL '5 minutes' > clock_timestamp())`,
+         OR session."createdAt" + ${ADMIN_FRESH_WINDOW_SQL} > clock_timestamp())`,
     operation.actorUserId,
     operation.sessionId,
     operation.generation,

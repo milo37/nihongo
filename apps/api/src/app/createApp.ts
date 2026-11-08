@@ -69,7 +69,6 @@ import type {
 import { createQuestionReportGuard } from '../admin/questionReportGuard.js'
 import type { QuestionReportRateLimiter } from '../admin/questionReportRateLimiter.js'
 import type { QuestionReportService } from '../admin/questionReportService.js'
-import type { AdminReauthenticationService } from '../admin/adminReauthenticationService.js'
 import { createAdminQuestionRoutes } from '../routes/adminQuestions.js'
 import { createAdminQuestionCommandRoutes } from '../routes/adminQuestionCommands.js'
 import { createAdminQuestionReportRoutes } from '../routes/adminQuestionReports.js'
@@ -149,10 +148,6 @@ interface CreateApiAppDependencies {
     reports?: {
       rateLimiter: QuestionReportRateLimiter
       service: QuestionReportService
-    }
-    reauthentication?: {
-      rateLimiter: AdminCommandRateLimiter
-      service: AdminReauthenticationService
     }
     importResultReader?: (
       importId: string

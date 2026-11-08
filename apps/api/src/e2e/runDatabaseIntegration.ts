@@ -1248,7 +1248,8 @@ const migrationDiagnosticNames = [
   '20261106090000_remove_phase_names',
   '20261107090000_first_admin_production',
   '20261108090000_remove_tag_applicability_and_snapshots',
-  '20261109090000_add_tag_key_subject_status'
+  '20261109090000_add_tag_key_subject_status',
+  '20261110090000_admin_fresh_window_30_minutes'
 ] as const
 
 const sanitizeMigrationDatabaseError = (error: unknown) => {

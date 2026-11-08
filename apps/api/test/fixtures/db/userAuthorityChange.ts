@@ -2,6 +2,7 @@ import type {
   Prisma,
   PrismaClient
 } from '../../../src/generated/prisma/client.js'
+import { ADMIN_FRESH_WINDOW_SQL } from '../../../src/auth/adminFreshWindow.js'
 
 /**
  * TEST-only User authority change (#504 P7 PR5a).
@@ -53,7 +54,7 @@ const actorHoldsFreshAdmin = async (
          AND session."authorityGeneration" = actor."authorityGeneration"
          AND session."expiresAt" > checked.at
          AND session."createdAt" + INTERVAL '30 days' > checked.at
-         AND session."createdAt" + INTERVAL '5 minutes' > checked.at
+         AND session."createdAt" + ${ADMIN_FRESH_WINDOW_SQL} > checked.at
        ${lock ? 'FOR UPDATE OF session' : ''}`,
       actorUserId,
       actorSessionId,

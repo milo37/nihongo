@@ -1,4 +1,5 @@
 import { prismaAdapter } from '@better-auth/prisma-adapter'
+import { ADMIN_FRESH_WINDOW_SECONDS } from '@nihongo/contracts/auth/admin-fresh-sso'
 import { betterAuth } from 'better-auth'
 import type { ApiEnvironment } from '../config/env.js'
 import type { PrismaClient } from '../generated/prisma/client.js'
@@ -60,7 +61,9 @@ export const createAuthRuntime = ({
     session: {
       expiresIn: ONE_WEEK_SECONDS,
       updateAge: ONE_DAY_SECONDS,
-      freshAge: 5 * 60,
+      // No forwarded better-auth route uses this check (the gateway answers
+      // 404); it only mirrors the ADMIN_FRESH window.
+      freshAge: ADMIN_FRESH_WINDOW_SECONDS,
       cookieCache: { enabled: false }
     },
     account: {
