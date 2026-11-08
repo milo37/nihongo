@@ -171,9 +171,13 @@ again.
 
 ## Rollback
 
-- Migrations are forward-only; the previous API image must accept the new
-  schema (already a deploy rule). To undo a schema change, add a reverse
+- Migrations are forward-only. To undo a schema change, add a reverse
   migration (backend) and deploy it.
+- A release that adds a migration cannot be undone by going back to the
+  previous image: its readiness check refuses a database with more migrations
+  than it knows (`assertMigrationCompatibility`), so `deploy.sh`'s automatic
+  rollback does not become ready either. Fix forward: deploy a corrected
+  release on top of the new schema.
 - Data loss or a broken migration: restore the `pre-migrate` dump with
   `recovery.v1.md` path A (the damaged database is kept under another name).
 - Roles: before any user data exists, `DROP OWNED BY` and `DROP ROLE` reverse

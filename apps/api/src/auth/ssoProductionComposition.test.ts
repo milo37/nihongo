@@ -114,7 +114,6 @@ const fixture = (overrides: Record<string, string> = {}) => {
         // Recent sign-in: inside the 8 hour ADMIN session limit.
         createdAt: new Date(Date.now() - 60_000),
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60_000),
-        checkedAt: new Date(),
         isFresh: sql.includes('"SsoAdminFreshProof"')
           ? fresh && elapsed < ADMIN_FRESH_WINDOW_MS
           : true
