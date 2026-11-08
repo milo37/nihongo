@@ -1,29 +1,34 @@
 /** Admin question import screen; kept out of the shared Korean chunk. */
 export const koAdminImportResources = {
-  eyebrow: 'ATOMIC IMPORT',
   title: '문제 초안 가져오기',
   description:
-    '먼저 쓰기 없는 검증을 수행한 뒤, 동일 항목과 validation digest에 한해서만 전체 적용합니다.',
-  fileLabel: 'JSON 파일',
-  fileHint: '최대 2 MiB · 최대 100개 · UTF-8 strict JSON',
+    "① 파일을 골라 검사합니다(아직 저장하지 않아요). ② 문제가 없으면 '가져오기'를 눌러 모든 문제를 초안으로 한 번에 만듭니다. 하나라도 실패하면 아무것도 만들지 않아요.",
+  fileLabel: '가져올 파일 (.json)',
+  fileHint: '2MB 이하, 문제 100개까지',
+  chooseFile: '파일 선택',
+  noFileChosen: '선택한 파일 없음',
   readingFile: '파일을 안전하게 읽고 있습니다…',
-  fileSizeError: '파일은 1 byte 이상 2 MiB 이하여야 합니다.',
+  fileSizeError: '빈 파일이거나 2MB보다 커요. 2MB 이하 파일을 골라 주세요.',
   fileFormatError:
-    '중복 JSON 키가 없고 canonical import request 형식인 UTF-8 JSON 파일이 필요합니다.',
-  validate: '쓰기 없이 검증',
-  valid: '검증 통과',
-  invalid: '검증 오류',
+    '가져오기 형식에 맞지 않는 파일이에요. 문제 가져오기 안내서의 형식으로 만든 파일인지 확인해 주세요.',
+  validate: '검사하기',
+  resultTitle: '검사 결과',
+  resultCountLabel: '검사한 문제',
+  issueCountLabel: '오류',
+  valid: '검사 통과',
+  invalid: '고칠 곳이 있어요',
   resultCount: '{{formattedCount}}개',
-  apply: '동일 검증 결과 원자 적용',
-  applied: '{{formattedCount}}개 초안을 원자적으로 만들었습니다.',
+  apply: '{{formattedCount}}개 초안으로 가져오기',
+  applied:
+    '{{formattedCount}}개 문제를 초안으로 만들었어요. 문제 관리에서 검토해 주세요.',
   error: '가져오기 요청을 처리하지 못했습니다.',
-  issueLabel: '{{code}} · 항목 {{item}} · {{field}}',
+  issueLabel: '{{item}}번 문제 · {{field}} · {{code}}',
   recovery: {
     checking:
       '적용 응답을 받지 못해 같은 가져오기 ID로 적용 결과를 확인하고 있습니다.',
     notApplied:
-      '이 가져오기는 적용되지 않았습니다. 다시 적용해도 초안이 중복으로 만들어지지 않습니다.',
+      '가져오기가 되지 않았어요. 다시 눌러도 문제가 두 번 만들어지지 않아요.',
     failed:
-      '적용 결과를 확인하지 못했습니다. 다시 적용하면 같은 가져오기 ID로 처리되어 초안이 중복으로 만들어지지 않습니다.'
+      '결과를 확인하지 못했어요. 다시 눌러도 문제가 두 번 만들어지지 않아요.'
   }
 } as const

@@ -810,7 +810,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
         '/api/v1/admin/questions/import-validation'
       )
       await winner
-        .getByRole('button', { name: '쓰기 없이 검증', exact: true })
+        .getByRole('button', { name: '검사하기', exact: true })
         .click()
       expect(
         adminImportValidationResponseSchema.parse(
@@ -823,7 +823,7 @@ test('A1-A8: one owned draft, one PATCH winner, same-author fresh return, explic
         '/api/v1/admin/questions/import-application'
       )
       await winner
-        .getByRole('button', { name: '동일 검증 결과 원자 적용', exact: true })
+        .getByRole('button', { name: '1개 초안으로 가져오기', exact: true })
         .click()
       const appliedResponse = await applyResponse
       const { importId } = applyQuestionImportRequestSchema.parse(

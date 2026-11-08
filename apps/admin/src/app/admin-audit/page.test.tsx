@@ -227,7 +227,7 @@ it('loads the exact cursor by keyboard and focuses the first appended safe recor
     firstItem.occurredAt
   )
   expect(
-    screen.getByText('요청 fixture-request · 환경 운영')
+    screen.getByText('요청 번호 fixture-request · 운영')
   ).toBeInTheDocument()
   expect(screen.queryByText(firstItem.contentDigest)).not.toBeInTheDocument()
   expect(screen.queryByText('NONE_V1')).not.toBeInTheDocument()

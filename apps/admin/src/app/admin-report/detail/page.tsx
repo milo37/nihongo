@@ -15,6 +15,7 @@ import {
   cardClass
 } from '@app/admin-report/components/ReportProcessPanel'
 import { PageContainer } from '@nihongo/browser/common/components/PageContainer'
+import { useReportLocationLabel } from '@app/admin-report/useReportLocationLabel'
 
 export const AdminReportDetailPage = (): ReactElement => {
   const { reportId = '' } = useParams()
@@ -104,6 +105,7 @@ const ReportContentCard = ({
   report: AdminReportDetail
 }): ReactElement => {
   const { t } = useAdminPresentation()
+  const locationLabel = useReportLocationLabel()
   return (
     <section className={cardClass} aria-labelledby="report-content">
       <h2 id="report-content" className="text-lg font-bold">
@@ -114,7 +116,7 @@ const ReportContentCard = ({
       </p>
       <dl className="mt-4 grid gap-2 text-sm sm:grid-cols-[8rem_1fr]">
         <dt className="text-muted">{t('userReport.detail.location')}</dt>
-        <dd className="break-all">{report.location}</dd>
+        <dd className="break-words">{locationLabel(report.location)}</dd>
         {report.questionId ? (
           <>
             <dt className="text-muted">{t('userReport.detail.target')}</dt>

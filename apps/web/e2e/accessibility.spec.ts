@@ -2819,7 +2819,7 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
   )
   await expect(page.locator('main')).toBeFocused()
   await expect(
-    page.getByRole('heading', { name: '문제 버전 워크플로', exact: true })
+    page.getByRole('heading', { name: '버전과 승인 단계', exact: true })
   ).toBeVisible()
   const preview = page.getByRole('region', {
     name: '학습자 공개 화면 미리보기',

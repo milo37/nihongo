@@ -176,7 +176,6 @@ export const jaAdminResources = {
     updatedAt: '更新日時',
     details: '詳細',
     rowVersion: 'rowVersion',
-    selectedFile: '選択中: {{fileName}}',
     retryAfter: '{{message}} {{seconds}}秒後にもう一度お試しください。',
     retryAfterMinutes: '{{message}} {{minutes}}分後にもう一度お試しください。',
     pausedTitle: 'オフラインでは最新状態を確認できません',
@@ -414,7 +413,6 @@ export const jaAdminResources = {
     fieldInvalid: 'この入力値を確認してください。'
   },
   questionList: {
-    eyebrow: 'ADMIN QUESTION CMS',
     title: '問題管理',
     description:
       '有効な問題の代表バージョンを管理します。作成中・レビュー中のバージョンがあれば優先して表示し、公開版の有無は別に表示します。一覧には正解と解説を表示しません。',
@@ -621,10 +619,9 @@ export const jaAdminResources = {
       error:
         '問題を登録できませんでした。入力内容を確認して、もう一度お試しください。'
     },
-    eyebrow: 'CREATE DRAFT',
     title: '新しい問題の下書きを作成',
     description:
-      '作成結果は必ず新しい下書きバージョンになります。フォームから公開状態を直接指定することはできません。',
+      '新しい問題は下書きとして保存されます。確認・承認を経て学習者に公開されます。',
     submit: '下書きを作成',
     error: '問題を作成できませんでした。'
   },
@@ -803,9 +800,9 @@ export const jaAdminResources = {
     noPreviousVersion: '比較する前のバージョンはありません。',
     actions: '現在のバージョンの操作',
 
-    title: '問題バージョンワークフロー',
+    title: 'バージョンと承認ステップ',
     description:
-      '行バージョンが競合した場合もローカル編集内容は保持され、再読み込み後に差分を確認できます。',
+      '別の場所で先に変更された場合も、入力中の内容はそのまま残し、再読み込み後に変更点をお見せします。',
     loading: '管理者用問題の詳細を読み込んでいます…',
     loadErrorTitle: '問題詳細を読み込めませんでした',
     cachedError:
@@ -817,7 +814,7 @@ export const jaAdminResources = {
     newDraft: '新しい下書きバージョンを作成',
     archive: '問題をアーカイブ',
     dirtyLock:
-      '未保存の編集内容があるため、バージョン切り替えとワークフロー操作をロックしました。先に下書きを保存してください。',
+      '未保存の編集内容があるため、バージョン切り替えと承認ステップの操作をロックしました。先に下書きを保存してください。',
     diffTitle: '前のバージョンとの差分',
     diffLoading: '差分を計算しています…',
     diffError: '差分を読み込めませんでした。',
@@ -873,38 +870,43 @@ export const jaAdminResources = {
     commandComplete: '{{command}}を完了しました。'
   },
   import: {
-    eyebrow: 'ATOMIC IMPORT',
     title: '問題の下書きをインポート',
     description:
-      '最初に書き込みなしで検証し、同一項目とvalidation digestに対してのみ全件を適用します。',
-    fileLabel: 'JSONファイル',
-    fileHint: '最大2 MiB · 最大100件 · UTF-8 strict JSON',
+      '①ファイルを選んでチェックします（まだ保存しません）。②問題がなければ「インポート」を押して、すべての問題を下書きとして一度に作成します。1件でも失敗した場合は何も作成しません。',
+    fileLabel: 'インポートするファイル（.json）',
+    fileHint: '2MB以下、問題100件まで',
+    chooseFile: 'ファイルを選択',
+    noFileChosen: 'ファイルが選択されていません',
     readingFile: 'ファイルを安全に読み込んでいます…',
-    fileSizeError: 'ファイルは1 byte以上2 MiB以下にしてください。',
+    fileSizeError:
+      '空のファイルか、2MBを超えています。2MB以下のファイルを選んでください。',
     fileFormatError:
-      'JSONキーの重複がなく、canonical import request形式のUTF-8 JSONファイルが必要です。',
-    validate: '書き込みなしで検証',
-    valid: '検証成功',
-    invalid: '検証エラー',
+      'インポート形式に合わないファイルです。問題インポートの手順書の形式で作成したファイルか確認してください。',
+    validate: 'チェックする',
+    resultTitle: 'チェック結果',
+    resultCountLabel: 'チェックした問題',
+    issueCountLabel: 'エラー',
+    valid: 'チェック通過',
+    invalid: '修正が必要な箇所があります',
     resultCount: '{{formattedCount}}件',
-    apply: '同じ検証結果を一括適用',
-    applied: '{{formattedCount}}件の下書きを一括作成しました。',
+    apply: '{{formattedCount}}件を下書きとしてインポート',
+    applied:
+      '{{formattedCount}}件の問題を下書きとして作成しました。問題管理で確認してください。',
     error: 'インポート要求を処理できませんでした。',
-    issueLabel: '{{code}} · 項目{{item}} · {{field}}',
+    issueLabel: '{{item}}件目 · {{field}} · {{code}}',
     recovery: {
       checking:
         '適用の応答を受け取れなかったため、同じインポートIDで適用結果を確認しています。',
       notApplied:
-        'このインポートは適用されていません。再度適用しても下書きが重複して作成されることはありません。',
+        'インポートされませんでした。もう一度押しても問題が二重に作成されることはありません。',
       failed:
-        '適用結果を確認できませんでした。再度適用すると同じインポートIDで処理され、下書きが重複して作成されることはありません。'
+        '結果を確認できませんでした。もう一度押しても問題が二重に作成されることはありません。'
     }
   },
   audit: {
-    eyebrow: 'ADMIN AUDIT',
     title: '管理者監査ログ',
     description:
-      '機密性のある問題本文ではなく、許可された状態とdigestの証跡のみ表示します。',
+      '誰がいつどの操作をしたかを表示します。問題本文は表示しません。',
     cachedError:
       '最新の監査ログを確認できませんでした。現在のログは保持されます。',
     retry: '監査ログを再確認',
@@ -914,7 +916,7 @@ export const jaAdminResources = {
     emptyDescription: '記録された管理者コマンドはまだありません。',
     stateChange: '状態変更',
     changedFields: '変更フィールド',
-    requestEnvironment: 'リクエスト {{requestId}} · 環境 {{environment}}',
+    requestEnvironment: 'リクエスト番号 {{requestId}} · {{environment}}',
     moreLoading: '以前の監査ログを読み込んでいます…',
     more: '以前の監査ログをさらに表示'
   },
@@ -938,12 +940,10 @@ export const jaAdminResources = {
     appErrorError: 'アプリの不具合報告を受け付けられませんでした。'
   },
   reportList: {
-    eyebrow: 'QUESTION REPORTS · TECHNICAL MODE',
-    title: '問題報告キュー',
+    title: '問題報告',
     description:
-      '一覧では報告の説明を表示しません。詳細画面でのみプレーンテキストとして確認します。',
-    invalidQuery:
-      'URLの報告検索条件が許容範囲外です。安全な初期条件を使用します。',
+      '一覧では報告の説明を表示しません。説明は報告を開いて確認してください。',
+    invalidQuery: '検索条件を読み取れなかったため、初期条件で表示しています。',
     status: '処理状態',
     allStatuses: 'すべての状態',
     reason: '報告理由',
@@ -1085,6 +1085,26 @@ export const jaAdminResources = {
         'メモ欄を他の管理者が保存した最新のメモに置き換えました。自分のメモは下に別途残しています。',
       myDraft: '自分のメモ',
       restoreDraft: '自分のメモを戻す'
+    },
+    location: {
+      question: '{{screen}} · {{ordinal}}問目',
+      unknown: 'その他の画面（{{raw}}）',
+      screens: {
+        home: 'トップ画面',
+        login: 'ログイン',
+        dashboard: '学習ホーム',
+        practiceSetup: '演習の設定',
+        practiceSession: '問題演習',
+        result: '結果画面',
+        wrongNoteCenter: '復習',
+        wrongNoteDetail: '解説を見る',
+        bookmarks: 'ブックマーク',
+        legal: '規約・ポリシー',
+        accountData: 'アカウントデータ案内',
+        support: 'サポート案内',
+        forbidden: 'アクセス権限なし',
+        page: 'その他の画面'
+      }
     },
     statuses: {
       RECEIVED: '受付済み',

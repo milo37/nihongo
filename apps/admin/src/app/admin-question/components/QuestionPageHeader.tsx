@@ -2,13 +2,11 @@ import { Link } from 'react-router'
 import type { ReactElement, RefObject } from 'react'
 import { WideScreenNotice } from '@app/admin/components/WideScreenNotice'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
-import { Eyebrow } from '@nihongo/browser/common/components/Eyebrow'
 
 type QuestionPageHeaderProps = {
   returnPath: string
   currentLabel: string
   currentClassName?: string
-  eyebrow: string
   title: string
   description: string
   headingRef?: RefObject<HTMLHeadingElement | null>
@@ -19,7 +17,6 @@ export const QuestionPageHeader = ({
   returnPath,
   currentLabel,
   currentClassName,
-  eyebrow,
   title,
   description,
   headingRef
@@ -44,14 +41,13 @@ export const QuestionPageHeader = ({
         </ol>
       </nav>
 
-      <header className="mb-8 mt-6 border-b border-line pb-8">
-        <Eyebrow>{eyebrow}</Eyebrow>
+      <header className="mb-8 mt-4 border-b border-line pb-8">
         <h1
           ref={headingRef}
           className={
             headingRef
-              ? 'mt-2 rounded-sm text-balance text-3xl font-black tracking-tight sm:text-4xl'
-              : 'mt-2 text-balance text-3xl font-black tracking-tight sm:text-4xl'
+              ? 'rounded-sm text-balance text-3xl font-black tracking-tight sm:text-4xl'
+              : 'text-balance text-3xl font-black tracking-tight sm:text-4xl'
           }
           tabIndex={headingRef ? -1 : undefined}
         >
