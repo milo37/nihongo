@@ -8,8 +8,11 @@ import {
   getButtonClassName
 } from '@nihongo/browser/common/components/Button'
 import { Icon } from '@nihongo/browser/common/components/Icon'
+import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
+import { resolveUiLocale } from '@nihongo/browser/i18n/types'
+import { useStartNextSet } from '@app/practice/result/useStartNextSet'
 
-// Outlined buttons add a border; fix every button at 48px (ux2 §2-4).
+// Outlined buttons add a border; fix both buttons at 48px (ux2 §2-4).
 const SAME_HEIGHT = 'h-12'
 
 type ResultActionsProps = {
@@ -25,7 +28,12 @@ type ResultActionsProps = {
   showRetry: boolean
 }
 
-/** '다음에 할 일': one filled button, the rest outlined, all 48px; no links. */
+/**
+ * '다음에 할 일': two buttons only (subtract table 10). [틀린 문제만 다시
+ * 풀기] when something was wrong, then [다음 10문제]; both 48px. The button
+ * that works is filled: a member's retry, else the next set. A guest's
+ * locked retry stays outlined.
+ */
 export const ResultActions = ({
   incorrectCount,
   isGuest,
@@ -37,25 +45,11 @@ export const ResultActions = ({
   session,
   showRetry
 }: ResultActionsProps): ReactElement => {
-  const { t } = useTranslation('result')
+  const { i18n, t } = useTranslation('result')
   const { t: authT } = useTranslation('auth')
   const guestAction = useGuestAction()
-  const linkButton = (
-    to: string,
-    label: string,
-    variant: 'primary' | 'outline' = 'outline'
-  ): ReactElement => (
-    <Link
-      className={getButtonClassName({
-        variant,
-        size: 'lg',
-        className: SAME_HEIGHT
-      })}
-      to={to}
-    >
-      {label}
-    </Link>
-  )
+  const nextSet = useStartNextSet(session, isGuest)
+  const isNextSetPrimary = isGuest || !showRetry
   return (
     <section
       className="study-result-actions mt-10"
@@ -78,16 +72,8 @@ export const ResultActions = ({
           </Link>
         </div>
       ) : null}
-      {/* The L20 box's login is the one filled button; the rest outlined. */}
       {/* Stacked full width under 640px, one row at text width above. */}
       <div className="study-result-buttons flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-        {isGuest
-          ? linkButton(
-              '/practice',
-              t('newPractice'),
-              isGuestDone ? 'outline' : 'primary'
-            )
-          : null}
         {isGuest && incorrectCount > 0 ? (
           // Locked, not hidden: pressing it says why (G4).
           <Button
@@ -114,20 +100,24 @@ export const ResultActions = ({
             {t('actions.retryIncorrect')}
           </Button>
         ) : null}
-        {isGuest
-          ? null
-          : linkButton(
-              '/practice',
-              t('newPractice'),
-              showRetry ? 'outline' : 'primary'
-            )}
-        {isGuest
-          ? null
-          : linkButton(
-              `/wrong-notes?level=${session.level}&subject=${session.subject}&view=UNREVIEWED`,
-              t('actions.openWrongNotes')
-            )}
-        {linkButton('/bookmarks', t('navigation.openBookmarks'))}
+        {/* A guest with no tries left has only the login above. */}
+        {isGuestDone ? null : (
+          <Button
+            className={SAME_HEIGHT}
+            size="lg"
+            variant={isNextSetPrimary ? 'primary' : 'outline'}
+            isLoading={nextSet.isStarting}
+            loadingLabel={t('actions.nextSetStarting')}
+            onClick={nextSet.start}
+          >
+            {t('actions.nextSet', {
+              formattedCount: formatNumber(
+                nextSet.count,
+                resolveUiLocale(i18n.resolvedLanguage)
+              )
+            })}
+          </Button>
+        )}
       </div>
     </section>
   )

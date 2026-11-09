@@ -659,12 +659,12 @@ const answerEveryQuestionWithFirstOption = async (
   await expect(page.locator('main h1')).toBeFocused()
   const isSingleReview =
     created.session.mode === 'WRONG_NOTE' && created.session.actualCount === 1
-  const questionMap = page.locator('.study-question-map')
-  await expect(questionMap).toHaveCount(1)
+  // The number sheet opens from the top bar's "1 / N" (direction §6-4).
+  const sheetTrigger = page.getByRole('button', { name: /^문제 바로가기 /u })
   if (isSingleReview) {
     expect(created.questions).toHaveLength(1)
     await expect(page.locator('.study-review-session')).toBeVisible()
-    await expect(questionMap).toBeHidden()
+    await expect(sheetTrigger).toHaveCount(0)
     await expect(
       page.getByRole('link', { name: '해설로 돌아가기', exact: true })
     ).toBeVisible()
@@ -673,15 +673,11 @@ const answerEveryQuestionWithFirstOption = async (
     ).toBeVisible()
   } else {
     await expect(page.locator('.study-review-session')).toHaveCount(0)
-    await expect(questionMap).toBeVisible()
+    await expect(sheetTrigger).toBeVisible()
   }
   const draftPath = `/api/v1/study-sessions/${created.session.id}/draft-answers`
   for (const [index, item] of created.questions.entries()) {
     const ordinal = index + 1
-    const jump = page.getByRole('button', {
-      name: `${ordinal}번 문제, 미응답`,
-      exact: true
-    })
     const options = page.locator(
       `input[type="radio"][name="question-${item.question.id}"]`
     )
@@ -707,12 +703,12 @@ const answerEveryQuestionWithFirstOption = async (
     await page.clock.pauseAt(clockTime)
     await page.clock.setSystemTime(clockTime)
     try {
-      if (isSingleReview) {
-        await expect(jump).toHaveCount(0)
-      } else {
-        await expect(jump).toHaveCount(1)
-        if (ordinal > 1) await jump.click()
-        await expect(jump).toHaveAttribute('data-current', 'true')
+      if (!isSingleReview) {
+        if (ordinal > 1)
+          await page.getByRole('button', { name: '다음', exact: true }).click()
+        await expect(sheetTrigger).toHaveText(
+          `${ordinal} / ${created.questions.length}`
+        )
       }
       await expect(options).toHaveCount(4)
       await expect(page.locator('main h1')).toBeFocused()
@@ -990,12 +986,8 @@ const submitCurrentSessionThroughUi = async (
     'POST',
     `/api/v1/study-sessions/${sessionId}/submission`
   )
+  // Every question is answered, so there is no confirm dialog (subtract #9).
   await page.getByRole('button', { name: '답안 제출', exact: true }).click()
-  const dialog = page.getByRole('dialog', { name: '답안을 제출할까요?' })
-  await expect(dialog).toBeVisible()
-  await dialog
-    .getByRole('button', { name: '제출하고 결과 보기', exact: true })
-    .click()
   const response = await submittedResponse
   expect(response.status()).toBe(201)
   expect(response.fromServiceWorker()).toBe(mode === 'mock')
@@ -1153,7 +1145,16 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   ).toBeVisible()
   await chooseLocale('ko')
 
-  await page.getByRole('link', { name: '오답노트 보기', exact: true }).click()
+  // The result screen keeps two buttons only (subtract table 10), so open
+  // the same wrong-note view in-app (no reload) as the old link did.
+  await page.evaluate(() => {
+    window.history.pushState(
+      null,
+      '',
+      '/wrong-notes?level=N5&subject=VOCABULARY&view=UNREVIEWED'
+    )
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  })
   await expect(page).toHaveURL(
     (url) =>
       url.pathname === '/wrong-notes' &&

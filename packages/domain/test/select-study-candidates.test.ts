@@ -3,6 +3,7 @@ import {
   selectBookmarkStudyCandidates,
   selectDailyReviewStudyCandidates,
   selectRandomStudyCandidates,
+  selectToReviewStudyCandidates,
   selectWeaknessStudyCandidates,
   selectWrongNoteStudyCandidates,
   StudySelectionError
@@ -87,6 +88,31 @@ describe('select study candidates', () => {
       'q2',
       'q3'
     ])
+  })
+
+  it('ranks questions to review from the oldest wrong answer (JLP-812)', () => {
+    const selected = selectToReviewStudyCandidates(
+      [
+        {
+          questionId: 'q3',
+          questionVersionId: 'v3',
+          lastWrongAt: at('2026-08-02T00:00:00.000Z')
+        },
+        {
+          questionId: 'q2',
+          questionVersionId: 'v2',
+          lastWrongAt: at('2026-08-01T00:00:00.000Z')
+        },
+        {
+          questionId: 'q1',
+          questionVersionId: 'v1',
+          lastWrongAt: at('2026-08-01T00:00:00.000Z')
+        }
+      ],
+      2
+    )
+
+    expect(selected.map(({ questionId }) => questionId)).toEqual(['q1', 'q2'])
   })
 
   it('ranks due DAILY_REVIEW candidates by instant, status, and ID', () => {

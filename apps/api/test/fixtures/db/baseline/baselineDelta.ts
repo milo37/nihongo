@@ -346,11 +346,23 @@ const withBaselineProofBound = (
       }
     : row
 
+/** JLP-815: nihongo_app also updates "User"."targetLevel". */
+const withBaselineTargetLevelAcl = (
+  row: Record<string, unknown>
+): Record<string, unknown> =>
+  row.table === 'User' && row.name === 'targetLevel'
+    ? {
+        ...row,
+        acl: String(row.acl).replace('nihongo_app=rw/', 'nihongo_app=r/')
+      }
+    : row
+
 /**
  * Undoes the forward migrations' catalog changes the baseline comparison
  * cannot see: the renamed enum label, the replaced function bodies (checked
  * exactly by forwardFunctionSources against the baseline file), the objects
- * JLP-733 drops or adds, removed from both sides, and the #683 proof bound.
+ * JLP-733 drops or adds, removed from both sides, the #683 proof bound and
+ * the JLP-815 target level grant.
  */
 export const withoutForwardChanges = (
   catalog: SchemaCatalog
@@ -369,15 +381,17 @@ export const withoutForwardChanges = (
         : row
     ),
   tables: catalog.tables.filter(({ name }) => name !== DROPPED_TABLE),
-  columns: catalog.columns.filter(
-    (row) =>
-      row.table !== DROPPED_TABLE &&
-      !(
-        row.table === 'QuestionVersionTag' &&
-        DROPPED_SNAPSHOT_COLUMNS.has(String(row.name))
-      ) &&
-      !(row.table === 'Tag' && ADDED_TAG_COLUMNS.has(String(row.name)))
-  ),
+  columns: catalog.columns
+    .filter(
+      (row) =>
+        row.table !== DROPPED_TABLE &&
+        !(
+          row.table === 'QuestionVersionTag' &&
+          DROPPED_SNAPSHOT_COLUMNS.has(String(row.name))
+        ) &&
+        !(row.table === 'Tag' && ADDED_TAG_COLUMNS.has(String(row.name)))
+    )
+    .map(withBaselineTargetLevelAcl),
   constraints: catalog.constraints
     .filter((row) => !isDroppedTagSnapshot(row) && !isAddedTagObject(row))
     .map(withBaselineProofBound),

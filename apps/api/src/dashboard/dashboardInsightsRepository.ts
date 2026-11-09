@@ -490,10 +490,15 @@ export const createDashboardInsightsReviewQuery = (
         AND version."id" = question."currentPublishedVersionId"
       WHERE ${currentPredicate}
     ),
+    -- JLP-812: "to review" is NEW and AGAIN, whatever the schedule says,
+    -- like DAILY_REVIEW and the review list.
     queue_counts AS MATERIALIZED (
       SELECT
         COUNT(*) FILTER (
-          WHERE current_notes."nextReviewAt" <= ${observedAt}
+          WHERE current_notes."status" IN (
+            'NEW'::"WrongNoteStatus",
+            'AGAIN'::"WrongNoteStatus"
+          )
         )::bigint AS "dueCount",
         COUNT(*) FILTER (
           WHERE current_notes."wrongCount" >= 2
@@ -505,9 +510,12 @@ export const createDashboardInsightsReviewQuery = (
         current_notes."level",
         current_notes."subject",
         COUNT(*)::bigint AS "dueCount",
-        MIN(current_notes."nextReviewAt") AS "earliestDueAt"
+        MIN(current_notes."lastWrongAt") AS "earliestDueAt"
       FROM current_notes
-      WHERE current_notes."nextReviewAt" <= ${observedAt}
+      WHERE current_notes."status" IN (
+        'NEW'::"WrongNoteStatus",
+        'AGAIN'::"WrongNoteStatus"
+      )
       GROUP BY current_notes."level", current_notes."subject"
     ),
     repeated_candidate AS MATERIALIZED (

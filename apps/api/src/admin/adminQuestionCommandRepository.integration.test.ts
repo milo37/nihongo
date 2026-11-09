@@ -623,6 +623,7 @@ const readActualLearnerContracts = async (
     publicQuestion,
     publicQuestions,
     bookmarks,
+    storedBookmark,
     wrongNote,
     studySession,
     studyResult
@@ -640,16 +641,29 @@ const readActualLearnerContracts = async (
       page: 1,
       pageSize: 20
     }),
+    client.bookmark.findUnique({
+      where: { userId_questionId: { userId: learnerId, questionId } },
+      select: { id: true, createdAt: true }
+    }),
     wrongNoteService.getWrongNote(learnerId, questionId),
     studySessionRepository.findOwnedById(studySessionId, owner, observedAt),
     studySubmissionRepository.findOwnedResult(studySessionId, owner, observedAt)
   ])
+  // JLP-815: a bookmark of a question that is no longer public stays stored
+  // but is not listed, so the page holds the bookmark or nothing.
   const bookmark = bookmarks.items[0]
-  if (bookmarks.total !== 1 || !bookmark || !studySession) {
+  if (
+    bookmarks.total > 1 ||
+    bookmarks.items.length !== bookmarks.total ||
+    !storedBookmark ||
+    !studySession
+  ) {
     throw new Error('Actual learner contract fixture is incomplete.')
   }
   return {
     bookmark,
+    bookmarkTotal: bookmarks.total,
+    storedBookmark,
     publicQuestion,
     publicQuestions,
     studyResult,
@@ -2151,7 +2165,7 @@ describe('ADMIN command TEST database integration', () => {
     })
     expect(learnerContractsAfterReplacement.bookmark).toMatchObject({
       id: learnerSnapshot.bookmarkId,
-      createdAt: learnerContractsBeforeReplacement.bookmark.createdAt,
+      createdAt: learnerContractsBeforeReplacement.storedBookmark.createdAt,
       availability: 'AVAILABLE',
       question: { questionVersionId: replacement.versionId }
     })
@@ -2370,15 +2384,15 @@ describe('ADMIN command TEST database integration', () => {
         ({ id }) => id === initial.questionId
       )
     ).toBe(false)
-    expect(learnerContractsAfterArchive.bookmark).toMatchObject({
-      id: learnerSnapshot.bookmarkId,
-      createdAt: learnerContractsBeforeReplacement.bookmark.createdAt,
-      availability: 'ARCHIVED',
-      question: { questionVersionId: replacement.versionId }
-    })
-    expect(learnerContractsAfterArchive.bookmark.question).not.toMatchObject({
-      questionVersionId: openCandidateId
-    })
+    // JLP-815: the archived question's bookmark is kept but not listed.
+    expect(learnerContractsAfterArchive.bookmark).toBeUndefined()
+    expect(learnerContractsAfterArchive.bookmarkTotal).toBe(0)
+    expect(learnerContractsAfterArchive.storedBookmark).toEqual(
+      learnerContractsBeforeReplacement.storedBookmark
+    )
+    expect(learnerContractsAfterArchive.storedBookmark.id).toBe(
+      learnerSnapshot.bookmarkId
+    )
     expect(learnerContractsAfterArchive.wrongNote).toMatchObject({
       lastWrongQuestionVersionId: initial.versionId,
       currentReviewQuestionVersionId: initial.versionId,
@@ -2535,12 +2549,15 @@ describe('ADMIN command TEST database integration', () => {
         ({ id }) => id === retirementTarget.questionId
       )
     ).toBe(false)
-    expect(retirementContractsAfter.bookmark).toMatchObject({
-      id: retirementLearnerSnapshot.bookmarkId,
-      createdAt: retirementContractsBefore.bookmark.createdAt,
-      availability: 'ARCHIVED',
-      question: { questionVersionId: retirementTarget.versionId }
-    })
+    // JLP-815: the retired question's bookmark is kept but not listed.
+    expect(retirementContractsAfter.bookmark).toBeUndefined()
+    expect(retirementContractsAfter.bookmarkTotal).toBe(0)
+    expect(retirementContractsAfter.storedBookmark).toEqual(
+      retirementContractsBefore.storedBookmark
+    )
+    expect(retirementContractsAfter.storedBookmark.id).toBe(
+      retirementLearnerSnapshot.bookmarkId
+    )
     expect(retirementContractsAfter.wrongNote).toMatchObject({
       lastWrongQuestionVersionId: retirementTarget.versionId,
       currentReviewQuestionVersionId: retirementTarget.versionId,
