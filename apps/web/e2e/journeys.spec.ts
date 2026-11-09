@@ -1145,7 +1145,16 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   ).toBeVisible()
   await chooseLocale('ko')
 
-  await page.getByRole('link', { name: '오답노트 보기', exact: true }).click()
+  // The result screen keeps two buttons only (subtract table 10), so open
+  // the same wrong-note view in-app (no reload) as the old link did.
+  await page.evaluate(() => {
+    window.history.pushState(
+      null,
+      '',
+      '/wrong-notes?level=N5&subject=VOCABULARY&view=UNREVIEWED'
+    )
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  })
   await expect(page).toHaveURL(
     (url) =>
       url.pathname === '/wrong-notes' &&
