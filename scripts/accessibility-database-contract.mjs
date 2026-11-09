@@ -70,7 +70,7 @@ export const accessibilityExpectedTableDeltas = {
   QuestionReport: 0,
   QuestionVersion: 0,
   QuestionVersionTag: 0,
-  RateLimit: 28,
+  RateLimit: 31,
   ReviewEvent: 10,
   ReviewSchedule: 10,
   Session: 2,
@@ -114,6 +114,9 @@ export const accessibilityExpectedRateLimitCategories = {
   // scan starts no guest session, so the per-IP day counter stays empty (#737).
   'application:guest-allowance-read': 1,
   'application:guest-study-create-day': 0,
+  // The first screen shows today's question (D, #801): the guest home and
+  // the learner home read it, one row per rate-limit key (3 measured).
+  'application:daily-question-read': 3,
   'application:study-draft-save': 1,
   'application:study-mutation-ip': 2,
   'application:study-read': 2,
