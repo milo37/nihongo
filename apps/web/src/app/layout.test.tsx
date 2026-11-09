@@ -69,9 +69,11 @@ it.each(['ko', 'ja'] as const)(
     expect(
       within(screen.getByRole('banner')).queryByRole('combobox')
     ).not.toBeInTheDocument()
+    // A guest sees a [로그인] text button that opens the same menu.
     const account = screen.getByRole('button', {
-      name: appI18n.t('navigation:accountMenu.label')
+      name: appI18n.t('navigation:login')
     })
+    expect(account).toHaveTextContent(appI18n.t('navigation:login'))
     expect(account).toHaveAttribute('aria-haspopup', 'menu')
     await userEvent.click(account)
     expect(account).toHaveAttribute('aria-expanded', 'true')

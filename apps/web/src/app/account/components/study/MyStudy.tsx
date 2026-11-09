@@ -74,7 +74,7 @@ export const MyStudy = (): ReactElement => {
                   {commonT(`taxonomy.subjects.${stat.subject}`)}
                 </span>
                 {stat.answeredCount === 0 ? (
-                  <span className="text-xs text-muted">
+                  <span className="text-caption text-muted">
                     {t('study.noRecord')}
                   </span>
                 ) : (

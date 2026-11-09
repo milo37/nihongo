@@ -27,7 +27,7 @@ export const ReviewListItem = ({
         to={`/wrong-notes/${item.questionId}?returnTo=${encodeURIComponent(returnTo)}`}
       >
         <span className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="text-xs font-semibold text-muted">
+          <span className="text-caption font-semibold text-muted">
             {item.level} · {commonT(`taxonomy.subjects.${item.subject}`)}
           </span>
           <span

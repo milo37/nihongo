@@ -1,6 +1,5 @@
 import { useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
 import type { ReactElement, ReactNode } from 'react'
 import {
   ACCOUNT_FEEDBACK_KEY,
@@ -74,7 +73,9 @@ export const AccountSettings = (): ReactElement => {
             ) : undefined
           }
         >
-          <p className="text-xs text-muted">{t('settings.signInMethod')}</p>
+          <p className="text-caption text-muted">
+            {t('settings.signInMethod')}
+          </p>
           {flow.capabilities.isPending ? (
             <p role="status">{authT('sso.checkingAccount')}</p>
           ) : !caps ? (
@@ -98,12 +99,14 @@ export const AccountSettings = (): ReactElement => {
                 <Badge variant="success">{t('settings.connected')}</Badge>
               </p>
               {!google.reauthAvailable ? (
-                <p className="text-xs">
+                <p className="text-caption">
                   {authT('sso.unavailableProvider', { provider: 'Google' })}
                 </p>
               ) : null}
               {isUnlinkBlocked ? (
-                <p className="text-xs text-muted">{t('settings.onlyMethod')}</p>
+                <p className="text-caption text-muted">
+                  {t('settings.onlyMethod')}
+                </p>
               ) : null}
             </>
           )}
@@ -147,7 +150,7 @@ export const AccountSettings = (): ReactElement => {
             {t('danger.description')}
           </p>
           {caps && !caps.canDelete ? (
-            <p id={deleteReasonId} className="mt-1 text-xs">
+            <p id={deleteReasonId} className="mt-1 text-caption">
               {authT('sso.openAdminWork')}
             </p>
           ) : null}
@@ -171,12 +174,6 @@ export const AccountSettings = (): ReactElement => {
           {authT('sso.recheck')}
         </Button>
       ) : null}
-      <Link
-        className="justify-self-start text-sm text-link underline"
-        to="/account/data"
-      >
-        {t('dataGuide')}
-      </Link>
       <TwoStepConfirmDialog
         flow={flow}
         returnFocusRef={trigger}

@@ -95,7 +95,7 @@ const DraftStatusNotice = ({
     <div
       className={
         isCompactDraftStatus
-          ? 'mt-2 text-xs leading-5 text-muted'
+          ? 'mt-2 text-caption leading-5 text-muted'
           : 'mt-4 rounded-lg border border-info-line bg-info-soft px-4 py-3 text-sm font-semibold leading-6 text-info-strong'
       }
       role="status"

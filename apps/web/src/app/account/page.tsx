@@ -39,7 +39,7 @@ export const AccountPage = (): ReactElement => {
           <h1 className="break-words text-[28px] font-bold leading-tight">
             {user.name}
           </h1>
-          <p className="mt-1 text-xs text-muted">
+          <p className="mt-1 text-caption text-muted">
             {navigationT('accountMenu.signedInWith')}
           </p>
         </div>

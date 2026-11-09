@@ -28,7 +28,7 @@ export const PracticeNavigationGuardDialog = ({
       initialFocusRef={keepRef}
       footer={
         <>
-          <Button ref={keepRef} variant="secondary" onClick={onContinue}>
+          <Button ref={keepRef} variant="ghost" onClick={onContinue}>
             {t('session.exitGuest.keep')}
           </Button>
           <Button onClick={onLeave}>{t('session.exitGuest.leave')}</Button>
@@ -93,7 +93,7 @@ export const PracticeSubmitDialog = ({
       footer={
         <>
           <Button
-            variant="secondary"
+            variant="ghost"
             disabled={isContinueDisabled}
             onClick={() => onOpenChange(false)}
           >

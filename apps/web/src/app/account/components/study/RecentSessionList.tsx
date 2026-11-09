@@ -31,11 +31,13 @@ export const RecentSessionList = ({
                   <span className="flex flex-wrap items-center gap-2 text-sm font-semibold">
                     {session.level} ·{' '}
                     {commonT(`taxonomy.subjects.${session.subject}`)}
-                    <Badge>
-                      {commonT(`taxonomy.studyModes.${session.mode}`)}
-                    </Badge>
+                    {session.mode === 'RANDOM' ? null : (
+                      <Badge>
+                        {commonT(`taxonomy.studyModes.${session.mode}`)}
+                      </Badge>
+                    )}
                   </span>
-                  <span className="mt-1 block text-xs text-muted">
+                  <span className="mt-1 block text-caption text-muted">
                     {formatDateTime(session.submittedAt, locale, {
                       month: 'numeric',
                       day: 'numeric'
@@ -46,7 +48,7 @@ export const RecentSessionList = ({
                   <span className="block text-sm font-semibold tabular-nums">
                     {session.correctCount} / {session.totalCount}
                   </span>
-                  <span className="block text-xs text-muted tabular-nums">
+                  <span className="block text-caption text-muted tabular-nums">
                     {Math.round(session.correctRate)}%
                   </span>
                 </span>
