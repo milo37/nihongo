@@ -35,6 +35,9 @@ const MemberReview = (): ReactElement => {
   const locale = resolveUiLocale(i18n.resolvedLanguage)
   const date = (value: string): string =>
     formatDateTime(value, locale, { month: 'long', day: 'numeric' })
+  // 'ja' gives 11/10 in either UI language.
+  const shortDate = (value: string): string =>
+    formatDateTime(value, 'ja', { month: 'numeric', day: 'numeric' })
   const tabs = useRef(new Map<WrongNoteReviewState, HTMLButtonElement>())
   const rowLinks = useRef(new Map<string, HTMLAnchorElement>())
   const center = useReviewListController(rowLinks)
@@ -72,7 +75,7 @@ const MemberReview = (): ReactElement => {
   )
 
   return (
-    <section className="mx-auto w-full max-w-[1088px] px-4 py-6 sm:px-6 sm:py-10">
+    <section className="mx-auto w-full max-w-[1040px] px-4 py-6 sm:px-6 sm:py-10 lg:px-0">
       <h1 className="text-2xl font-bold text-ink">{t('title')}</h1>
       <div
         role="tablist"
@@ -188,6 +191,7 @@ const MemberReview = (): ReactElement => {
                     key={item.questionId}
                     item={item}
                     formatDate={date}
+                    formatShortDate={shortDate}
                     returnTo={center.returnTo}
                     linkRef={(node) => {
                       if (node) rowLinks.current.set(item.questionId, node)
