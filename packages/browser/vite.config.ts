@@ -157,6 +157,39 @@ export const createBrowserViteConfig = (root: string, admin = false) =>
         }
       }
     }
+    // The admin dev server has no public folder and prefixes its base to the
+    // already-based /admin/ icon links. Serve the approved brand files under
+    // the base and undo the doubled prefix; builds keep brandAssets above.
+    const adminDevBrandAssets: Plugin = {
+      name: 'nihongo-admin-dev-brand-assets',
+      apply: 'serve',
+      configureServer(server) {
+        server.middlewares.use((request, response, next) => {
+          const requestPath = request.url?.split('?')[0] ?? ''
+          const fileName = approvedBrandAssetPaths.find(
+            (asset) => requestPath === `/admin/${asset}`
+          )
+          if (!fileName) return next()
+          void readFile(path.join(workspaceRoot, 'apps/web/public', fileName))
+            .then((source) => {
+              response.setHeader(
+                'Content-Type',
+                fileName.endsWith('.svg')
+                  ? 'image/svg+xml'
+                  : fileName.endsWith('.ico')
+                    ? 'image/x-icon'
+                    : 'image/png'
+              )
+              response.end(source)
+            })
+            .catch(next)
+        })
+      },
+      transformIndexHtml: {
+        order: 'post' as const,
+        handler: (html: string) => html.replaceAll('"/admin/admin/', '"/admin/')
+      }
+    }
     const sharedConfig = createSharedViteConfig(root, admin)
     return {
       ...sharedConfig,
@@ -164,6 +197,7 @@ export const createBrowserViteConfig = (root: string, admin = false) =>
       plugins: [
         ...sharedConfig.plugins,
         brandAssets,
+        ...(admin ? [adminDevBrandAssets] : []),
         buildBoundary,
         {
           name: 'nihongo-release-metadata',
