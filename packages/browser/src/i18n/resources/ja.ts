@@ -661,25 +661,16 @@ export const jaCoreResources = {
       },
       exitGuest: {
         title: '解答をやめますか？',
-        description: 'やめると、この解答は保存されません。',
-        countNotBack: '今日の体験回数は戻りません。',
+        description: '離れると解いた答えが消えます。',
         keep: '解き続ける',
         leave: 'やめる'
-      },
-      navigationGuard: {
-        title: 'ひと休みしますか？',
-        description:
-          '今の回答と解答時間を保存して移動します。あとで続きから解けます。',
-        continue: '続けて解く',
-        saveAndLeave: '保存して移動'
       },
       header: {
         backToSetup: '学習に戻る',
         backToExplanation: '解説に戻る',
 
         progressSummary:
-          '現在{{current}}番 / 実際{{total}}問 · 回答済み{{answered}}問',
-        elapsedTime: '経過時間'
+          '現在{{current}}番 / 実際{{total}}問 · 回答済み{{answered}}問'
       },
       draft: {
         retryShort: '再試行',
@@ -730,23 +721,14 @@ export const jaCoreResources = {
           'レガシーセッションでは選んだモードの問題が不足したため、ランダム問題も含めています。',
         canonicalNoFallback: '選択したモードは自動で変更しません。'
       },
-      keyboardHelp: '解答のヒント',
-      guide: {
-        title: '解答の案内',
-        beforeSubmit: '回答は提出前まで変更できます。',
-        afterSubmit: '正解と解説は提出後に確認できます。'
-      },
       progressLabel: '回答済み {{percent}}%',
       question: {
+        passageBackToTop: '本文をもう一度見る',
         passageLabel: '文章',
         numberLabel: '{{ordinal}}番の問題。',
-        answerLegend: '答えの選択肢',
-        keyboardHint:
-          '数字1〜4で回答を選び、← →キーで問題を移動し、最後の問題ではCtrl+⏎または⌘+⏎で提出確認を開けます。'
+        answerLegend: '答えの選択肢'
       },
       bookmark: {
-        add: 'ブックマーク',
-        remove: 'ブックマーク解除',
         addLabel: '{{ordinal}}番の問題をブックマークに追加',
         removeLabel: '{{ordinal}}番の問題のブックマークを解除',
         legacyReadOnly:
@@ -775,7 +757,7 @@ export const jaCoreResources = {
         frozenDescription:
           '以前送信した回答をそのまま再提出します。結果を確認するまで回答は変更できません。',
         unansweredDescription:
-          'まだ答えていない問題が{{unanswered}}問あります。未回答は不正解として扱われます。',
+          '未回答の{{unanswered}}問は不正解として扱います。',
         completeDescription:
           'すべての問題に回答しました。提出後は回答を変更できません。',
         continue: '続けて解く',
@@ -873,9 +855,6 @@ export const jaCoreResources = {
         '問題がアーカイブされたか、再出題できる固定バージョンが残っていません。',
       unsupported:
         'この結果形式では間違えた問題の再出題に対応していません。新しい問題で学習を続けてください。',
-      allCorrectTitle: '解き直す問題はありません',
-      allCorrectDescription:
-        'すべて正解しました。新しい問題で学習を続けましょう。',
       offline:
         'オフラインです。接続が戻ると同じ再出題キーでリクエストを続けます。',
       errorTitle: '再出題セッションを作成できませんでした。',
@@ -1123,6 +1102,40 @@ export const jaCoreResources = {
     }
   },
   wrongNote: {
+    title: '間違いノート',
+    rule: '間違えた問題はここに集まります。解き直して正解すると「復習した問題」に移ります。',
+    levelLabel: '級',
+    levelAll: 'すべて',
+    start: '復習を始める',
+    startEmpty: '復習する問題がありません。一覧を更新しました。',
+    startError: '復習を始められませんでした。もう一度押してください。',
+    loadError: '間違いノートを読み込めませんでした。',
+    retry: '再読み込み',
+    tabs: {
+      toReview: '復習する問題 {{formattedCount}}',
+      reviewed: '復習した問題 {{formattedCount}}'
+    },
+    card: {
+      wrongCount: '{{count}}回まちがい',
+      reviewedMeta: '{{date}}に正解'
+    },
+    empty: {
+      levelNone: '{{level}}の問題はありません。',
+      startNew: '新しい問題を解く',
+      showAll: 'すべて見る',
+      never: {
+        title: 'まだ間違えた問題はありません',
+        body: '問題を解いて間違えるとここに集まります。'
+      },
+      allDone: {
+        title: '復習する問題をすべて解きました',
+        body: 'ほかの問題でまた間違えると、ここに集まります。'
+      },
+      noReviewed: {
+        title: 'まだ復習した問題はありません',
+        body: '復習する問題を解き直して正解すると、ここに移ります。'
+      }
+    },
     integration: {
       title: '復習',
       range: '復習の範囲',
@@ -1323,6 +1336,11 @@ export const jaCoreResources = {
       }
     },
     detail: {
+      versionChanged: '問題が修正されました。解き直すと修正後の問題が出ます。',
+      correctAnswer: '正解',
+      noAnswer: '未選択',
+      myAnswer: '自分の答え',
+      back: '間違いノートへ',
       title: '最後に間違えた問題の詳細',
       snapshotNotice:
         '以下の問題・選択肢・解説は、最後に間違えた時点の問題バージョンです。',
@@ -1543,6 +1561,13 @@ export const jaCoreResources = {
     }
   },
   account: {
+    targetLevel: {
+      label: '目標レベル',
+      hint: '練習はこのレベルから始まります。',
+      unset: '未設定',
+      saved: '目標レベルを変更しました。',
+      error: '保存できませんでした。少し待ってからもう一度選んでください。'
+    },
     title: 'マイページ',
     guestDescription: 'マイページでは学習記録とアカウントを管理できます。',
     study: {
@@ -1565,7 +1590,7 @@ export const jaCoreResources = {
       seeInReview: '復習で見る',
       fewData: '問題を解くほど分析が正確になります。',
       emptyTitle: 'まだ解いた問題がありません',
-      emptyDescription: '問題を解くと、正答率と苦手な科目をここに表示します。',
+      emptyDescription: '問題を解くと、科目別の正答率がここに表示されます。',
       emptyAction: '最初の学習を始める',
       error: '学習記録を読み込めませんでした。',
       retry: 'もう一度試す',

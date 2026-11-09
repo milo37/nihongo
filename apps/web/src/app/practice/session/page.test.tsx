@@ -914,9 +914,7 @@ describe('PracticeSessionPage', () => {
     await waitFor(() => expect(submit).toBeEnabled())
     await user.click(submit)
     const dialog = await screen.findByRole('dialog')
-    expect(dialog).toHaveTextContent(
-      '아직 답하지 않은 문제가 1개 있어요. 미응답은 오답으로 처리돼요.'
-    )
+    expect(dialog).toHaveTextContent('안 푼 문제 1개는 틀린 걸로 쳐요.')
     await user.click(within(dialog).getByRole('button', { name: '계속 풀기' }))
     await waitFor(() =>
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -1033,9 +1031,7 @@ describe('PracticeSessionPage', () => {
     const dialog = await screen.findByRole('dialog', {
       name: '풀이를 그만둘까요?'
     })
-    expect(
-      within(dialog).getByText('나가면 이 풀이는 저장되지 않아요.')
-    ).toBeVisible()
+    expect(within(dialog).getByText('나가면 푼 답이 사라져요.')).toBeVisible()
     expect(
       within(dialog).getByRole('button', { name: '계속 풀기' })
     ).toHaveFocus()
