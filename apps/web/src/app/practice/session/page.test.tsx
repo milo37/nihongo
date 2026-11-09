@@ -423,7 +423,7 @@ describe('PracticeSessionPage', () => {
     const secondOption = screen.getByRole('radio', {
       name: `2. ${second.text}`
     })
-    await user.click(firstOption)
+    // Unanswered, so submitting asks first (subtract #9).
     const submit = screen.getByRole('button', { name: '답안 제출' })
     await waitFor(() => expect(submit).toBeEnabled())
     await user.click(submit)
@@ -432,7 +432,7 @@ describe('PracticeSessionPage', () => {
     ).toBeInTheDocument()
     const selectionBefore = readDraftSelection(question.sessionQuestionId)
     fireEvent.keyDown(window, { key: '2' })
-    expect(firstOption).toBeChecked()
+    expect(firstOption).not.toBeChecked()
     expect(secondOption).not.toBeChecked()
     expect(readDraftSelection(question.sessionQuestionId)).toBe(selectionBefore)
   })
@@ -571,9 +571,13 @@ describe('PracticeSessionPage', () => {
         () => expect(useAppStore.getState().draftSaveState).toBe('saving'),
         { timeout: 4000 }
       )
+      // Saving is quiet (direction §6-4).
       expect(
-        screen.getByText('학습 기록을 저장하고 있어요…')
-      ).toBeInTheDocument()
+        document.querySelector('[data-save-state="saving"]')
+      ).not.toBeVisible()
+      expect(
+        screen.queryByText('학습 기록을 저장하고 있어요…')
+      ).not.toBeInTheDocument()
       expect(
         screen.queryByText('학습 기록이 자동으로 저장됐어요')
       ).not.toBeInTheDocument()
@@ -598,15 +602,16 @@ describe('PracticeSessionPage', () => {
     expect(screen.queryByText('답안이 저장되었습니다.')).not.toBeInTheDocument()
     expect(radio).toBeChecked()
     await user.click(retry)
-    const saved = await screen.findByText(
-      '학습 기록이 자동으로 저장됐어요',
-      {},
+    await waitFor(
+      () =>
+        expect(
+          screen.queryByText('학습 기록을 저장하지 못했어요')
+        ).not.toBeInTheDocument(),
       { timeout: 6000 }
     )
-    expect(saved.closest('.study-inline-save-current')).toHaveAttribute(
-      'aria-live',
-      'off'
-    )
+    expect(
+      screen.queryByText('학습 기록이 자동으로 저장됐어요')
+    ).not.toBeInTheDocument()
     expect(document.querySelector('.study-save-toast')).toBeNull()
     expect(
       screen.queryByText(/^서버에 저장했어요. 마지막 저장/)
@@ -659,22 +664,17 @@ describe('PracticeSessionPage', () => {
       expect(back).toHaveAttribute('href', '/practice')
       expect(back).toHaveTextContent(/^$/)
       expect(back.querySelectorAll('svg')).toHaveLength(1)
-      const statusRow = document.querySelector('.study-inline-save')
-      expect(statusRow).not.toBeNull()
-      expect(
-        statusRow?.previousElementSibling?.querySelector('fieldset')
-      ).toContainElement(firstRadio)
-      expect(statusRow?.nextElementSibling).toHaveClass('study-keyboard-help')
-      expect(
-        screen.getByText(savedLabel).closest('[aria-live]')
-      ).toHaveAttribute('aria-live', 'off')
+      // Routine saving is quiet; only a failure shows a line (direction §6-4).
+      expect(document.querySelector('.study-inline-save')).toBeNull()
+      expect(screen.queryByText(savedLabel)).not.toBeInTheDocument()
       await user.click(firstRadio)
-      await screen.findByText(savedLabel, {}, { timeout: 4000 })
+      await waitFor(
+        () => expect(useAppStore.getState().draftSaveState).toBe('saved'),
+        { timeout: 4000 }
+      )
+      expect(screen.queryByText(savedLabel)).not.toBeInTheDocument()
       expect(document.querySelector('.study-save-toast')).toBeNull()
       expect(firstRadio).toHaveFocus()
-      expect(
-        within(statusRow as HTMLElement).queryByRole('button')
-      ).not.toBeInTheDocument()
       const revision =
         useAppStore.getState().draftWorkingCopy?.confirmedBase.revision ?? -1
       await user.click(secondRadio)
@@ -687,16 +687,17 @@ describe('PracticeSessionPage', () => {
         },
         { timeout: 6000 }
       )
-      expect(document.querySelectorAll('.study-inline-save')).toHaveLength(1)
-      expect(document.querySelector('.study-inline-save')).toBe(statusRow)
-      expect(document.querySelector('.study-save-toast')).toBeNull()
       expect(secondRadio).toHaveFocus()
       expect(
         (await getStudyDraftAnswers(payload.session.id)).data.answers[0]
           ?.selectedOptionId
       ).toBe(second.id)
       act(() => useAppStore.getState().setDraftSaveState('offline'))
-      expect(screen.queryByText(savedLabel)).not.toBeInTheDocument()
+      const statusRow = document.querySelector('.study-inline-save')
+      expect(statusRow).not.toBeNull()
+      expect(
+        statusRow?.previousElementSibling?.querySelector('fieldset')
+      ).toContainElement(firstRadio)
       expect(
         screen.getByText(
           locale === 'ko'
@@ -729,9 +730,7 @@ describe('PracticeSessionPage', () => {
         locale === 'ko' ? '작업본 저장 다시 시도' : '作業内容の保存を再試行'
       )
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-      expect(
-        within(statusRow as HTMLElement).queryByRole('button')
-      ).not.toBeInTheDocument()
+      expect(document.querySelector('.study-inline-save')).toBeNull()
       expect(screen.queryByText(savedLabel)).not.toBeInTheDocument()
       expect(secondRadio).toBeDisabled()
     },
@@ -839,14 +838,32 @@ describe('PracticeSessionPage', () => {
     })
     await waitFor(() => expect(firstRadio).toBeEnabled())
     expect(screen.getByRole('button', { name: '이전' })).toBeDisabled()
-    const jump = screen.getByRole('navigation', { name: '문제 바로가기' })
+    // The number sheet opens from the top bar's "1 / 3" (direction §6-4).
+    const openSheet = async (position: string): Promise<HTMLElement> => {
+      await user.click(
+        screen.getByRole('button', { name: `문제 바로가기 ${position}` })
+      )
+      return within(await screen.findByRole('dialog')).getByRole('navigation', {
+        name: '문제 바로가기'
+      })
+    }
+    let jump = await openSheet('1 / 3')
     expect(
       within(jump).getByRole('button', { name: '1번 문제, 미응답' })
     ).toHaveAttribute('aria-current', 'step')
+    await user.click(screen.getByRole('button', { name: '대화상자 닫기' }))
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    )
     await user.click(firstRadio)
+    jump = await openSheet('1 / 3')
     expect(
       within(jump).getByRole('button', { name: '1번 문제, 답변함' })
     ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '대화상자 닫기' }))
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    )
     await user.click(screen.getByRole('button', { name: '다음' }))
     await waitFor(() =>
       expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
@@ -854,6 +871,7 @@ describe('PracticeSessionPage', () => {
       )
     )
     expect(screen.getByRole('button', { name: '이전' })).toBeEnabled()
+    jump = await openSheet('2 / 3')
     expect(
       within(jump).getByRole('button', { name: '2번 문제, 미응답' })
     ).toHaveAttribute('aria-current', 'step')
@@ -962,13 +980,10 @@ describe('PracticeSessionPage', () => {
       await user.click(radio)
       const submit = screen.getByRole('button', { name: '답안 제출' })
       await waitFor(() => expect(submit).toBeEnabled())
+      // All answered: no confirm dialog (subtract #9).
       await user.click(submit)
-      await user.click(
-        within(await screen.findByRole('dialog')).getByRole('button', {
-          name: '제출하고 결과 보기'
-        })
-      )
       expect(await screen.findByText('제출 결과 도착')).toBeInTheDocument()
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
       expect(submitted).toMatchObject({
         answers: [expect.objectContaining({ selectedOptionId: option.id })]
       })
@@ -1022,16 +1037,34 @@ describe('PracticeSessionPage', () => {
       within(dialog).getByText('나가면 이 풀이는 저장되지 않아요.')
     ).toBeVisible()
     expect(
-      within(dialog).getByText('오늘 체험 횟수는 돌아오지 않아요.')
-    ).toBeVisible()
-    expect(
       within(dialog).getByRole('button', { name: '계속 풀기' })
     ).toHaveFocus()
     await user.click(within(dialog).getByRole('button', { name: '나가기' }))
     expect(await screen.findByText('학습 설정 도착')).toBeInTheDocument()
   })
 
-  it('편집 중 뒤로 가기는 이탈 Dialog를 열고 계속 풀기로 남는다', async () => {
+  it('회원이 풀이 중 나가면 묻지 않고 저장한 뒤 이동한다 (subtract #7)', async () => {
+    const user = userEvent.setup()
+    await loginAsUser()
+    const payload = await startSession(1)
+    const option = payload.questions[0]?.options[0]
+    if (!option) throw new Error('Public option required')
+    renderSession(payload.session.id)
+    const radio = await screen.findByRole('radio', {
+      name: `1. ${option.text}`
+    })
+    await waitFor(() => expect(radio).toBeEnabled())
+    await user.click(radio)
+    await user.click(screen.getByRole('link', { name: '학습으로 돌아가기' }))
+    expect(await screen.findByText('학습 설정 도착')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(
+      (await getStudyDraftAnswers(payload.session.id)).data.answers[0]
+        ?.selectedOptionId
+    ).toBe(option.id)
+  })
+
+  it('회원 나가기 저장이 실패하면 머물며 한 줄 오류를 보인다 (subtract #7)', async () => {
     const user = userEvent.setup()
     await loginAsUser()
     const payload = await startSession(1)
@@ -1042,27 +1075,24 @@ describe('PracticeSessionPage', () => {
       name: `1. ${option.text}`
     })
     await waitFor(() => expect(radio).toBeEnabled())
+    mockServer.use(
+      http.put('*/api/v1/study-sessions/:sessionId/draft-answers', () =>
+        HttpResponse.json(
+          { code: 'SERVER_ERROR', message: 'synthetic draft failure' },
+          { status: 500 }
+        )
+      )
+    )
+    await user.click(radio)
     await user.click(screen.getByRole('link', { name: '학습으로 돌아가기' }))
-    const dialog = await screen.findByRole('dialog', {
-      name: '잠시 쉬어 갈까요?'
-    })
+    expect(
+      await screen.findByText('작업본을 저장하지 못해 현재 화면에 머물러요.')
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(router.state.location.pathname).toBe(
       `/practice/session/${payload.session.id}`
     )
-    await user.click(within(dialog).getByRole('button', { name: '계속 풀기' }))
-    await waitFor(() =>
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    )
-    expect(router.state.location.pathname).toBe(
-      `/practice/session/${payload.session.id}`
-    )
-    await user.click(screen.getByRole('link', { name: '학습으로 돌아가기' }))
-    await user.click(
-      within(
-        await screen.findByRole('dialog', { name: '잠시 쉬어 갈까요?' })
-      ).getByRole('button', { name: '저장하고 이동' })
-    )
-    expect(await screen.findByText('학습 설정 도착')).toBeInTheDocument()
+    await waitFor(() => expect(radio).toBeEnabled())
   })
 
   it('보관된 제출 시도가 있으면 beforeunload를 막고 없으면 막지 않는다', async () => {
