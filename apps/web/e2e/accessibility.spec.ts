@@ -1327,7 +1327,7 @@ const login = async (
             listResumableStudySessionsQuerySchema.parse(
               Object.fromEntries(new URL(response.url()).searchParams)
             )
-          ).toEqual({ page: 1, pageSize: 5, status: 'IN_PROGRESS' })
+          ).toEqual({ page: 1, pageSize: 1, status: 'IN_PROGRESS' })
           expect(
             await response.request().headerValue('X-Nihongo-Practice-Contract')
           ).toBe('2')
@@ -1339,7 +1339,7 @@ const login = async (
             items: [],
             total: 0,
             page: 1,
-            pageSize: 5
+            pageSize: 1
           })
         })
       await Promise.all([resumableResponse, page.goto(callback.href)])
@@ -1846,7 +1846,7 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
   await expect(modeOptions).toHaveJSProperty('open', true)
   // A guest choosing a locked mode keeps RANDOM and gets a toast (U4 L11).
   const modeSelect = modeOptions.getByRole('combobox', { name: '출제 모드' })
-  await modeSelect.selectOption('WEAKNESS')
+  await modeSelect.selectOption('DAILY_REVIEW')
   await expect(modeSelect).toHaveValue('RANDOM')
   const practiceLogin = page
     .getByRole('region', { name: '알림' })

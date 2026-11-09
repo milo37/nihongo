@@ -361,7 +361,8 @@ const openPracticeModes = async (page: Page) => {
   await expect(modeSelect).toHaveCount(1)
   await expect(modeSelect).toBeVisible()
   await expect(modeSelect).toHaveAccessibleName('출제 모드')
-  await expect(modeSelect.locator('option')).toHaveCount(5)
+  // Random or the review set only (subtract table 3).
+  await expect(modeSelect.locator('option')).toHaveCount(2)
   return modeSelect
 }
 
@@ -425,7 +426,7 @@ const loginThroughUi = async (page: Page): Promise<void> => {
       listResumableStudySessionsQuerySchema.parse(
         Object.fromEntries(new URL(response.url()).searchParams)
       )
-    ).toEqual({ page: 1, pageSize: 5, status: 'IN_PROGRESS' })
+    ).toEqual({ page: 1, pageSize: 1, status: 'IN_PROGRESS' })
     expect(
       await response.request().headerValue('X-Nihongo-Practice-Contract')
     ).toBe('2')
@@ -433,7 +434,7 @@ const loginThroughUi = async (page: Page): Promise<void> => {
     const sessions = listResumableStudySessionsResponseSchema.parse(
       await readCanonicalResponse(response)
     )
-    expect(sessions).toEqual({ items: [], total: 0, page: 1, pageSize: 5 })
+    expect(sessions).toEqual({ items: [], total: 0, page: 1, pageSize: 1 })
   })
   const startedResponse = waitForApiResponse(
     page,
@@ -890,13 +891,12 @@ const startVocabularySessionThroughUi = async (
   await settleJourneyPage(page)
   for (const [label, parameter, value] of [
     ['N5', 'level', 'N5'],
-    ['어휘', 'subject', 'VOCABULARY'],
-    ['5문제', 'count', '5']
+    ['어휘', 'subject', 'VOCABULARY']
   ] as const) {
     const radio = page.getByRole('radio', { name: label, exact: true })
     const choice = page.locator('label.choice-option').filter({ has: radio })
     await expect(choice).toHaveCount(1)
-    // A default choice (target level, VOCABULARY, 10) stays out of the URL.
+    // A default choice (target level, VOCABULARY) stays out of the URL.
     const isDefault =
       (await radio.isChecked()) &&
       new URL(page.url()).searchParams.get(parameter) === null
@@ -912,9 +912,8 @@ const startVocabularySessionThroughUi = async (
   await expect(
     page.locator('input[name="practice-subject"][value="VOCABULARY"]')
   ).toBeChecked()
-  await expect(
-    page.locator('input[name="practice-count"][value="5"]')
-  ).toBeChecked()
+  // A member always gets one set of 10; there is no count choice.
+  await expect(page.locator('input[name="practice-count"]')).toHaveCount(0)
   const studyMode = await openPracticeModes(page)
   await expect(studyMode).toHaveValue('RANDOM')
   const originalNow = await freezePracticeClock(page)
@@ -937,7 +936,7 @@ const startVocabularySessionThroughUi = async (
     '/api/v1/study-sessions'
   )
   await page
-    .getByRole('button', { name: 'N5 어휘 · 5문제 시작', exact: true })
+    .getByRole('button', { name: 'N5 어휘 · 10문제 시작', exact: true })
     .click()
   const response = await createdResponse
   expect(response.status()).toBe(201)
@@ -945,18 +944,21 @@ const startVocabularySessionThroughUi = async (
   expect(response.headers()['x-nihongo-practice-contract']).toBe('2')
   expect(
     createStudySessionV2BodySchema.parse(response.request().postDataJSON())
-  ).toEqual({ level: 'N5', subject: 'VOCABULARY', count: 5, mode: 'RANDOM' })
+  ).toEqual({ level: 'N5', subject: 'VOCABULARY', count: 10, mode: 'RANDOM' })
   const created = createStudySessionV2ResponseSchema.parse(
     await response.json()
   )
+  // Asks for 10; the isolated seed may hold fewer N5 vocabulary questions,
+  // and the server then gives what it has.
+  expect(created.session.actualCount).toBeGreaterThan(0)
+  expect(created.session.actualCount).toBeLessThanOrEqual(10)
   expect(created.session).toMatchObject({
-    actualCount: 5,
     level: 'N5',
     mode: 'RANDOM',
     practiceContractVersion: 2,
     subject: 'VOCABULARY'
   })
-  expect(created.questions).toHaveLength(5)
+  expect(created.questions).toHaveLength(created.session.actualCount)
   await expect(page).toHaveURL(
     new RegExp(`/practice/session/${created.session.id}$`, 'u')
   )
@@ -966,7 +968,7 @@ const startVocabularySessionThroughUi = async (
     revision: 0,
     currentOrdinal: 1
   })
-  expect(draft.answers).toHaveLength(5)
+  expect(draft.answers).toHaveLength(created.session.actualCount)
   expect(
     draft.answers.every(({ selectedOptionId }) => selectedOptionId === null)
   ).toBe(true)
@@ -1027,7 +1029,7 @@ test('guest SSO boundary and authenticated practice transition match the active 
   await expect(page.getByText('오늘 체험 2회 중 2회 남았어요.')).toBeVisible()
   // Locked, not disabled: choosing one explains sign-in (U4 L11).
   const studyMode = await openPracticeModes(page)
-  for (const value of ['WEAKNESS', 'BOOKMARK', 'DAILY_REVIEW', 'WRONG_NOTE']) {
+  for (const value of ['DAILY_REVIEW']) {
     const option = studyMode.locator(`option[value="${value}"]`)
     await expect(option).toBeEnabled()
     await expect(option).toContainText('로그인 필요')
@@ -1063,7 +1065,7 @@ test('guest SSO boundary and authenticated practice transition match the active 
   await expect(recommendationRegion(page)).toHaveCount(0)
   await settleJourneyPage(page)
   const memberStudyMode = await openPracticeModes(page)
-  for (const value of ['WEAKNESS', 'BOOKMARK', 'DAILY_REVIEW', 'WRONG_NOTE']) {
+  for (const value of ['DAILY_REVIEW']) {
     const option = memberStudyMode.locator(`option[value="${value}"]`)
     await expect(option).toBeEnabled()
     await expect(option).not.toContainText('로그인 필요')

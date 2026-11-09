@@ -7,22 +7,17 @@ import type {
 // Practice setup choices and the URL parsers that fall back to their defaults.
 export const levels: JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1']
 export const subjects: QuestionSubject[] = ['VOCABULARY', 'GRAMMAR', 'READING']
-export const counts = [5, 10, 20] as const
-// One list; for guests every mode but RANDOM is locked (U4 L11, L17).
-export const modes: readonly StudyMode[] = [
-  'RANDOM',
-  'WEAKNESS',
-  'WRONG_NOTE',
-  'BOOKMARK',
-  'DAILY_REVIEW'
-]
+// Random or the wrong answers due for review (subtract table 3). Bookmarks
+// start from the bookmark screen. For guests DAILY_REVIEW is locked.
+export const modes: readonly StudyMode[] = ['RANDOM', 'DAILY_REVIEW']
 
-/** Level when the URL names none and the learner has no target level. */
+/** Level when the URL names none and there is no target or last level. */
 export const FALLBACK_LEVEL: JlptLevel = 'N5'
-export const DEFAULT_SUBJECT: QuestionSubject = 'VOCABULARY'
-export const DEFAULT_COUNT = 10
+export const FALLBACK_SUBJECT: QuestionSubject = 'VOCABULARY'
+/** A member always gets one set of 10 (subtract table 4). */
+export const MEMBER_COUNT = 10
 
-/** The URL level, else the default (the learner's target level or N5). */
+/** The URL level, else the default (target level, last level or N5). */
 export const getInitialLevel = (
   value: string | null,
   defaultLevel: JlptLevel = FALLBACK_LEVEL
@@ -32,24 +27,15 @@ export const getInitialLevel = (
     : defaultLevel
 }
 
-export const getInitialSubject = (value: string | null): QuestionSubject => {
+export const getInitialSubject = (
+  value: string | null,
+  defaultSubject: QuestionSubject = FALLBACK_SUBJECT
+): QuestionSubject => {
   return subjects.includes(value as QuestionSubject)
     ? (value as QuestionSubject)
-    : DEFAULT_SUBJECT
-}
-
-export const getInitialCount = (value: string | null): 5 | 10 | 20 => {
-  const numberValue = Number(value)
-  return counts.includes(numberValue as 5 | 10 | 20)
-    ? (numberValue as 5 | 10 | 20)
-    : DEFAULT_COUNT
+    : defaultSubject
 }
 
 export const getRequestedMode = (value: string | null): StudyMode => {
   return modes.find((item) => item === value) ?? 'RANDOM'
-}
-
-export const getResumablePage = (value: string | null): number => {
-  const page = Number(value)
-  return Number.isSafeInteger(page) && page > 0 ? page : 1
 }

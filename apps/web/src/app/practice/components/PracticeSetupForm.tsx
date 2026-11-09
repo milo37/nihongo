@@ -11,7 +11,6 @@ import type {
 } from '@nihongo/browser/common/types/domain'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
-import { GUEST_SESSION_QUESTION_LIMIT } from '@nihongo/contracts/study/guest-limits'
 
 // Renders the <b>…</b> marks in a translated line as bold text.
 export const withBold = (text: string): ReactNode[] =>
@@ -25,11 +24,10 @@ type PracticeSetupFormProps = {
   /** Null until the default level is known. */
   level: JlptLevel | null
   subject: QuestionSubject
-  count: 5 | 10 | 20
+  count: number
   mode: StudyMode
   levels: readonly JlptLevel[]
   subjects: readonly QuestionSubject[]
-  counts: readonly number[]
   modes: readonly StudyMode[]
   isReady: boolean
   isGuest: boolean
@@ -43,7 +41,6 @@ type PracticeSetupFormProps = {
   feedback: ReactNode
   onLevelChange: (level: JlptLevel) => void
   onSubjectChange: (subject: QuestionSubject) => void
-  onCountChange: (count: number) => void
   onModeChange: (mode: StudyMode) => void
   onStart: () => void
 }
@@ -200,7 +197,7 @@ const ModeOptions = ({
           {modes.map((value) => (
             <option key={value} value={value}>
               {isGuest && value !== 'RANDOM'
-                ? `${t(`setup.modes.${value}.label`)} 🔒 ${t('setup.memberLocked')}`
+                ? `${t(`setup.modes.${value}.label`)} · ${t('setup.memberLocked')}`
                 : t(`setup.modes.${value}.label`)}
             </option>
           ))}
@@ -220,7 +217,6 @@ export const PracticeSetupForm = ({
   mode,
   levels,
   subjects,
-  counts,
   modes,
   isReady,
   isGuest,
@@ -233,13 +229,10 @@ export const PracticeSetupForm = ({
   feedback,
   onLevelChange,
   onSubjectChange,
-  onCountChange,
   onModeChange,
   onStart
 }: PracticeSetupFormProps): ReactElement => {
-  const { i18n, t } = useTranslation('practice')
-  const locale = resolveUiLocale(i18n.resolvedLanguage)
-  const formatCount = (value: number): string => formatNumber(value, locale)
+  const { t } = useTranslation('practice')
 
   return (
     <form
@@ -259,45 +252,16 @@ export const PracticeSetupForm = ({
         disabled={isCreating}
         onSubjectChange={onSubjectChange}
       />
-      <div className="practice-settings">
-        <ChoiceRadioGroup
-          appearance="segmented"
-          className="choice-levels"
-          name="practice-level"
-          legend={t('setup.steps.level')}
-          value={level}
-          disabled={isCreating}
-          options={levels.map((value) => ({ value, label: value }))}
-          onValueChange={onLevelChange}
-        />
-        <ChoiceRadioGroup
-          appearance="segmented"
-          name="practice-count"
-          legend={t('setup.steps.count')}
-          value={String(count)}
-          disabled={isCreating}
-          options={counts.map((value) => ({
-            value: String(value),
-            label:
-              isGuest && value !== GUEST_SESSION_QUESTION_LIMIT ? (
-                <>
-                  {t('setup.questionCount', {
-                    formattedCount: formatCount(value)
-                  })}
-                  <span className="practice-locked-mark" aria-hidden="true">
-                    🔒
-                  </span>
-                  <span className="sr-only">{t('setup.memberLocked')}</span>
-                </>
-              ) : (
-                t('setup.questionCount', {
-                  formattedCount: formatCount(value)
-                })
-              )
-          }))}
-          onValueChange={(value) => onCountChange(Number(value))}
-        />
-      </div>
+      <ChoiceRadioGroup
+        appearance="segmented"
+        className="choice-levels"
+        name="practice-level"
+        legend={t('setup.steps.level')}
+        value={level}
+        disabled={isCreating}
+        options={levels.map((value) => ({ value, label: value }))}
+        onValueChange={onLevelChange}
+      />
 
       {feedback ? (
         <div className="practice-setup-feedback">{feedback}</div>
