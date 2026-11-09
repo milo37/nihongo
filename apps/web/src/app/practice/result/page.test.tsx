@@ -486,10 +486,8 @@ describe('approved general result navigation', () => {
       )
     ).toBeVisible()
     expect(router.state.location.pathname).toMatch(/^\/practice\/result\//u)
-    // The box replaces the primary; new practice stays a button (ux2 §2-4).
-    const newPractice = screen.getByRole('link', { name: '새 문제 풀기' })
-    expect(newPractice.className).toContain('border-line-interactive')
-    expect(newPractice.className).not.toContain('bg-brand')
+    // No tries left: no [다음 5문제], the box's login is the way on.
+    expect(screen.queryByRole('button', { name: '다음 5문제' })).toBeNull()
     view.unmount()
     fixture.client.clear()
   })
@@ -725,10 +723,7 @@ describe('approved general result navigation', () => {
     ).toBeInTheDocument()
     expect(screen.queryByText('해설 확인하기')).toBeNull()
     expect(screen.queryByText('오늘은 여기까지')).toBeNull()
-    expect(screen.getByRole('link', { name: '오답노트 보기' })).toHaveAttribute(
-      'href',
-      '/wrong-notes?level=N5&subject=VOCABULARY&view=UNREVIEWED'
-    )
+    expect(screen.queryByRole('link', { name: '오답노트 보기' })).toBeNull()
     expect(
       screen.getByRole('button', { name: '오답만 다시 풀기' })
     ).toBeEnabled()
@@ -736,7 +731,7 @@ describe('approved general result navigation', () => {
     fixture.client.clear()
   })
 
-  it('모두 맞힌 결과는 재풀이 대신 새 문제 안내를 보여 준다', async () => {
+  it('모두 맞힌 결과는 안내 상자 없이 다음 10문제(주) 하나만 보여 준다', async () => {
     const fixture = await createFixture()
     const allCorrect: StudyResult = {
       ...fixture.result,
@@ -757,10 +752,16 @@ describe('approved general result navigation', () => {
       )
     )
     const { view } = fixture.mount()
-    expect(await screen.findByText('다시 풀 오답이 없어요')).toBeVisible()
+    const next = await screen.findByRole('button', { name: '다음 10문제' })
+    expect(next.className).toContain('bg-brand')
+    const actions = next.closest<HTMLElement>('.study-result-actions')
     expect(
-      screen.queryByRole('button', { name: '오답만 다시 풀기' })
-    ).not.toBeInTheDocument()
+      Array.from(actions!.querySelectorAll('a, button')).map((element) =>
+        element.textContent?.trim()
+      )
+    ).toEqual(['다음 10문제'])
+    expect(screen.queryByText('다시 풀 오답이 없어요')).toBeNull()
+    expect(screen.queryByRole('link', { name: '새 문제 풀기' })).toBeNull()
     view.unmount()
     fixture.client.clear()
   })
@@ -797,7 +798,7 @@ describe('approved general result navigation', () => {
     }
   )
 
-  it('회원 다음에 할 일은 오답 다시 풀기(주) → 새 문제·오답노트·책갈피(테두리 버튼)다 (ux2 §2-4)', async () => {
+  it('회원 다음에 할 일은 오답 다시 풀기(주)와 다음 10문제(테두리) 두 개뿐이다 (빼기 표 10)', async () => {
     const actionsOf = (element: HTMLElement): HTMLElement => {
       const actions = element.closest<HTMLElement>('.study-result-actions')
       if (!actions) throw new Error('결과 동작 영역이 필요합니다.')
@@ -816,25 +817,44 @@ describe('approved general result navigation', () => {
     expect(
       within(actions).getByRole('heading', { level: 2, name: '다음에 할 일' })
     ).toBeVisible()
-    expect(names(actions)).toEqual([
-      '오답만 다시 풀기',
-      '새 문제 풀기',
-      '오답노트 보기',
-      '책갈피 보기'
-    ])
+    expect(names(actions)).toEqual(['오답만 다시 풀기', '다음 10문제'])
     expect(retry.className).toContain('bg-brand')
-    for (const name of ['새 문제 풀기', '오답노트 보기', '책갈피 보기']) {
-      const link = within(actions).getByRole('link', { name })
-      expect(link.className).toContain('border-line-interactive')
-      expect(link.className).toContain('min-h-12')
-      expect(link.className).not.toContain('bg-brand')
-    }
-    expect(actions.querySelector('.note-link')).toBeNull()
+    const next = within(actions).getByRole('button', { name: '다음 10문제' })
+    expect(next.className).toContain('border-line-interactive')
+    expect(next.className).toContain('h-12')
+    expect(next.className).not.toContain('bg-brand')
+    expect(within(actions).queryByRole('link')).toBeNull()
     memberView.view.unmount()
     member.client.clear()
   })
 
-  it('게스트 다음에 할 일은 새 문제(주) → 잠긴 다시 풀기·책갈피(테두리 버튼)다 (ux2 §2-4)', async () => {
+  it('다음 10문제는 한 번 눌러 같은 급수·과목의 새 랜덤 학습을 시작한다', async () => {
+    const member = await createFixture()
+    const { router, view } = member.mount()
+    let body: unknown = null
+    mockServer.use(
+      http.post('*/api/v1/study-sessions', async ({ request }) => {
+        body = await request.clone().json()
+        return undefined
+      })
+    )
+    await userEvent
+      .setup()
+      .click(await screen.findByRole('button', { name: '다음 10문제' }))
+    await waitFor(() =>
+      expect(router.state.location.pathname).toMatch(/^\/practice\/session\//u)
+    )
+    expect(body).toEqual({
+      level: 'N5',
+      subject: 'VOCABULARY',
+      count: 10,
+      mode: 'RANDOM'
+    })
+    view.unmount()
+    member.client.clear()
+  })
+
+  it('게스트 다음에 할 일은 잠긴 다시 풀기(테두리)와 다음 5문제(주) 두 개뿐이다 (빼기 표 10)', async () => {
     const actionsOf = (element: HTMLElement): HTMLElement => {
       const actions = element.closest<HTMLElement>('.study-result-actions')
       if (!actions) throw new Error('결과 동작 영역이 필요합니다.')
@@ -851,17 +871,16 @@ describe('approved general result navigation', () => {
     })
     const guestActions = actionsOf(guestRetry)
     expect(names(guestActions)).toEqual([
-      '새 문제 풀기',
       '오답만 다시 풀기로그인 필요',
-      '책갈피 보기'
+      '다음 5문제'
     ])
-    expect(
-      within(guestActions).getByRole('link', { name: '새 문제 풀기' }).className
-    ).toContain('bg-brand')
     expect(guestRetry.className).toContain('border-line-interactive')
+    expect(guestRetry.className).not.toContain('bg-brand')
+    expect(
+      within(guestActions).getByRole('button', { name: '다음 5문제' }).className
+    ).toContain('bg-brand')
     // The lock is a Lucide icon, not an emoji.
     expect(guestRetry.querySelector('svg')).not.toBeNull()
-    expect(guestActions.querySelector('.note-link')).toBeNull()
     guestView.view.unmount()
     guest.client.clear()
   })

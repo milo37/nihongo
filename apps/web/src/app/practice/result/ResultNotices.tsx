@@ -101,16 +101,8 @@ export const ResultRetryNotice = ({
   if (incorrectCount > 0 && !canRequestCanonicalRetry) {
     return <WarningNotice spaced>{t('retry.unsupported')}</WarningNotice>
   }
-  if (incorrectCount === 0) {
-    return (
-      <EmptyState
-        className="mt-4 rounded-lg border border-success-line bg-success-soft"
-        title={t('retry.allCorrectTitle')}
-        description={t('retry.allCorrectDescription')}
-        action={newPracticeLink}
-      />
-    )
-  }
+  // All correct: no notice; [다음 10문제] alone is the way on (subtract table 10).
+  if (incorrectCount === 0) return null
   if (isRetryPaused) {
     return (
       <WarningNotice spaced live>

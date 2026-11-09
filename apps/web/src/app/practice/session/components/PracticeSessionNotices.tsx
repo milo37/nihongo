@@ -12,6 +12,7 @@ type PracticeSessionNoticesProps = {
   draftController: PracticeDraftController
   hasUnresolvedConflictCheck: boolean
   isCompactDraftStatus: boolean
+  isFirstQuestion: boolean
   isInlineDraftStatus: boolean
   isSessionError: boolean
   isSessionPaused: boolean
@@ -133,10 +134,7 @@ const SupplyNotice = ({
   const { formatCount } = usePracticeNumberFormat()
   const { session, requestedCount, actualCount } = sessionData
   return (
-    <div
-      className="mt-5 rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm text-warning-strong"
-      role="status"
-    >
+    <p className="mb-4 text-[13px] leading-5 text-muted" role="status">
       {actualCount < requestedCount
         ? t('session.supply.canonicalPartial', {
             actual: formatCount(actualCount),
@@ -144,7 +142,7 @@ const SupplyNotice = ({
             requested: formatCount(requestedCount)
           })
         : t('session.supply.canonicalNoFallback')}
-    </div>
+    </p>
   )
 }
 
@@ -153,6 +151,7 @@ export const PracticeSessionNotices = ({
   draftController,
   hasUnresolvedConflictCheck,
   isCompactDraftStatus,
+  isFirstQuestion,
   isInlineDraftStatus,
   isSessionError,
   isSessionPaused,
@@ -196,7 +195,7 @@ export const PracticeSessionNotices = ({
         </p>
       ) : null}
 
-      {actualCount < requestedCount || usedFallback ? (
+      {isFirstQuestion && (actualCount < requestedCount || usedFallback) ? (
         <SupplyNotice sessionData={sessionData} />
       ) : null}
     </>

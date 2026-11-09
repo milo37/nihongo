@@ -7,7 +7,7 @@ import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 
 it.each(['ko', 'ja'] as const)(
-  'keeps states quiet, removes stale success and reserves every localized state (%s)',
+  'hides routine saving and shows only a failure line (%s)',
   (locale) => {
     writeUiLocalePreference(locale)
     const retry = vi.fn()
@@ -17,55 +17,25 @@ it.each(['ko', 'ja'] as const)(
       </I18nProvider>
     )
     const { rerender, container } = render(view('synced'))
-    const row = container.querySelector('.study-inline-save')
-    const measures = container.querySelector('.study-inline-save-measures')
-    expect(measures).toHaveAttribute('aria-hidden', 'true')
-    expect(measures?.children).toHaveLength(6)
-    const copy =
-      locale === 'ko'
-        ? [
-            '학습 기록이 자동으로 저장됐어요',
-            '학습 기록을 저장할 준비 중이에요',
-            '학습 기록을 저장하고 있어요…',
-            '학습 기록을 저장하지 못했어요',
-            '오프라인 · 이 기기에 임시 보관 중'
-          ]
-        : [
-            '学習記録を自動保存しました',
-            '学習記録の保存待ちです',
-            '学習記録を保存しています…',
-            '学習記録を保存できませんでした',
-            'オフライン・この端末に一時保存中'
-          ]
-    const statuses = ['synced', 'dirty', 'saving', 'error', 'offline'] as const
-    for (const [index, status] of statuses.entries()) {
+    for (const status of ['synced', 'savedAt', 'dirty', 'saving'] as const) {
       rerender(view(status))
-      expect(screen.getByText(copy[index] ?? '')).toBeInTheDocument()
-      expect(container.querySelector('.study-inline-save')).toBe(row)
-      expect(container.querySelector('.study-inline-save-measures')).toBe(
-        measures
-      )
-      if (status !== 'synced')
-        expect(screen.queryByText(copy[0] ?? '')).not.toBeInTheDocument()
-      if (status === 'error' || status === 'offline') {
-        expect(screen.getByRole('status')).toHaveAttribute(
-          'aria-live',
-          'polite'
-        )
-        expect(screen.getAllByRole('button')).toHaveLength(1)
-      } else {
-        expect(screen.queryByRole('status')).not.toBeInTheDocument()
-        expect(
-          container.querySelector('.study-inline-save-current')
-        ).toHaveAttribute('aria-live', 'off')
-        expect(screen.queryByRole('button')).not.toBeInTheDocument()
-      }
+      const quiet = container.querySelector('[data-save-state]')
+      expect(quiet).toHaveAttribute('data-save-state', status)
+      expect(quiet).not.toBeVisible()
+      expect(quiet).toBeEmptyDOMElement()
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    }
+    const failure =
+      locale === 'ko'
+        ? ['학습 기록을 저장하지 못했어요', '오프라인 · 이 기기에 임시 보관 중']
+        : ['学習記録を保存できませんでした', 'オフライン・この端末に一時保存中']
+    for (const [index, status] of (['error', 'offline'] as const).entries()) {
+      rerender(view(status))
+      expect(screen.getByText(failure[index] ?? '')).toBeInTheDocument()
+      expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite')
+      expect(screen.getAllByRole('button')).toHaveLength(1)
     }
     rerender(view(null))
-    expect(container.querySelector('.study-inline-save')).toBe(row)
-    expect(
-      container.querySelector('.study-inline-save-current')
-    ).toBeEmptyDOMElement()
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
   }
