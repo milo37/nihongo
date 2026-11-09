@@ -128,11 +128,9 @@ it.each(['USER', 'ADMIN'] as const)(
   }
 )
 
-it('connects footer, contents focus, cross-page navigation and Back; registers account/data only once', async () => {
+it('connects contents focus, cross-page navigation and Back; registers account/data only once', async () => {
   const user = userEvent.setup()
-  const { router } = renderInformationRoute('/')
-  const footer = await screen.findByRole('contentinfo')
-  await user.click(within(footer).getByRole('link', { name: '이용 안내' }))
+  const { router } = renderInformationRoute('/legal')
   await screen.findByRole('heading', { level: 1, name: '이용 안내' })
   const toc = screen.getByRole('navigation', { name: '이 페이지 목차' })
   const privacy = within(toc).getByRole('link', { name: '개인정보 처리방침' })

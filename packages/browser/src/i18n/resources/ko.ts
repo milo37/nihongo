@@ -140,6 +140,7 @@ export const koResources = {
     practice: '문제풀이',
     wrongNotes: '복습',
     bookmarks: '책갈피',
+    my: '마이',
     dashboard: '대시보드',
     adminQuestions: '문제 관리',
     login: '로그인',
@@ -652,25 +653,16 @@ export const koResources = {
       },
       exitGuest: {
         title: '풀이를 그만둘까요?',
-        description: '나가면 이 풀이는 저장되지 않아요.',
-        countNotBack: '오늘 체험 횟수는 돌아오지 않아요.',
+        description: '나가면 푼 답이 사라져요.',
         keep: '계속 풀기',
         leave: '나가기'
-      },
-      navigationGuard: {
-        title: '잠시 쉬어 갈까요?',
-        description:
-          '현재 답과 풀이 시간을 저장한 뒤 이동해요. 나중에 이어서 풀 수 있어요.',
-        continue: '계속 풀기',
-        saveAndLeave: '저장하고 이동'
       },
       header: {
         backToSetup: '학습으로 돌아가기',
         backToExplanation: '해설로 돌아가기',
 
         progressSummary:
-          '현재 {{current}}번 / 실제 {{total}}문제 · 답변 완료 {{answered}}문제',
-        elapsedTime: '경과 시간'
+          '현재 {{current}}번 / 실제 {{total}}문제 · 답변 완료 {{answered}}문제'
       },
       draft: {
         retryShort: '다시 시도',
@@ -719,23 +711,14 @@ export const koResources = {
           '레거시 세션에서 선택한 모드의 문제가 부족해 랜덤 문제를 함께 제공해요.',
         canonicalNoFallback: '서버 권위 세션은 다른 모드로 대체하지 않아요.'
       },
-      keyboardHelp: '풀이 도움말',
-      guide: {
-        title: '풀이 안내',
-        beforeSubmit: '답은 제출 전까지 바꿀 수 있어요.',
-        afterSubmit: '정답과 해설은 제출 후 확인해요.'
-      },
       progressLabel: '답변 완료 {{percent}}%',
       question: {
+        passageBackToTop: '지문 다시 보기',
         passageLabel: '지문',
         numberLabel: '{{ordinal}}번 문제.',
-        answerLegend: '정답 보기',
-        keyboardHint:
-          '숫자 1–4로 답을 선택하고, ← → 키로 문제를 이동하며, 마지막 문제에서 Ctrl+⏎ 또는 ⌘+⏎로 제출 확인을 열 수 있어요.'
+        answerLegend: '정답 보기'
       },
       bookmark: {
-        add: '책갈피',
-        remove: '책갈피 해제',
         addLabel: '{{ordinal}}번 문제 책갈피 추가',
         removeLabel: '{{ordinal}}번 문제 책갈피 해제',
         legacyReadOnly: '이전 계약 세션에서는 책갈피를 변경할 수 없어요.',
@@ -761,8 +744,7 @@ export const koResources = {
         title: '답안을 제출할까요?',
         frozenDescription:
           '이전에 전송한 답안을 그대로 다시 제출해요. 결과를 확인할 때까지 답안은 변경할 수 없어요.',
-        unansweredDescription:
-          '아직 답하지 않은 문제가 {{unanswered}}개 있어요. 미응답은 오답으로 처리돼요.',
+        unansweredDescription: '안 푼 문제 {{unanswered}}개는 틀린 걸로 쳐요.',
         completeDescription:
           '모든 문제에 답했어요. 제출 후에는 답을 수정할 수 없어요.',
         continue: '계속 풀기',
@@ -859,9 +841,6 @@ export const koResources = {
         '문제가 보관 처리됐거나 재출제 가능한 고정 버전이 남아 있지 않아요.',
       unsupported:
         '이 결과 형식에서는 오답 재출제를 지원하지 않아요. 새 문제 풀기로 학습을 이어가 주세요.',
-      allCorrectTitle: '다시 풀 오답이 없어요',
-      allCorrectDescription:
-        '모든 문제를 맞혔어요. 새 문제로 학습을 이어가세요.',
       offline: '오프라인이에요. 연결되면 같은 재출제 키로 요청을 이어가요.',
       errorTitle: '오답 재출제 세션을 만들지 못했어요.',
       errorDescription:
@@ -1109,6 +1088,40 @@ export const koResources = {
     }
   },
   wrongNote: {
+    title: '오답노트',
+    rule: "틀린 문제는 여기 모여요. 다시 풀어서 맞히면 '복습한 문제'로 옮겨요.",
+    levelLabel: '급수',
+    levelAll: '전체',
+    start: '복습 시작',
+    startEmpty: '복습할 문제가 없어요. 목록을 새로 불러왔어요.',
+    startError: '복습을 시작하지 못했어요. 다시 눌러 주세요.',
+    loadError: '오답노트를 불러오지 못했어요.',
+    retry: '다시 불러오기',
+    tabs: {
+      toReview: '복습할 문제 {{formattedCount}}',
+      reviewed: '복습한 문제 {{formattedCount}}'
+    },
+    card: {
+      wrongCount: '{{count}}번 틀림',
+      reviewedMeta: '{{date}}에 맞힘'
+    },
+    empty: {
+      levelNone: '{{level}} 문제는 없어요.',
+      startNew: '새 문제 풀기',
+      showAll: '전체 보기',
+      never: {
+        title: '아직 틀린 문제가 없어요',
+        body: '문제를 풀다 틀리면 여기 모여요.'
+      },
+      allDone: {
+        title: '복습할 문제를 다 풀었어요',
+        body: '다른 문제를 풀다 또 틀리면 다시 여기 모여요.'
+      },
+      noReviewed: {
+        title: '아직 복습한 문제가 없어요',
+        body: '복습할 문제를 다시 풀어서 맞히면 여기로 옮겨요.'
+      }
+    },
     integration: {
       title: '복습',
       range: '복습 범위',
@@ -1306,6 +1319,11 @@ export const koResources = {
       }
     },
     detail: {
+      versionChanged: '문제가 고쳐졌어요. 다시 풀면 고친 문제가 나와요.',
+      correctAnswer: '정답',
+      noAnswer: '안 고름',
+      myAnswer: '내 답',
+      back: '오답노트로',
       title: '마지막 오답 문제 상세',
       snapshotNotice:
         '아래 문제·보기·해설은 마지막으로 틀렸을 때 고정된 문제 버전이에요.',
@@ -1516,6 +1534,13 @@ export const koResources = {
     }
   },
   account: {
+    targetLevel: {
+      label: '목표 급수',
+      hint: '연습을 시작할 때 이 급수로 시작해요.',
+      unset: '정하지 않음',
+      saved: '목표 급수를 바꿨어요.',
+      error: '저장하지 못했어요. 잠시 뒤 다시 골라 주세요.'
+    },
     title: '마이페이지',
     guestDescription: '마이페이지에서 학습 기록과 계정을 관리할 수 있어요.',
     study: {
@@ -1538,7 +1563,7 @@ export const koResources = {
       seeInReview: '복습에서 보기',
       fewData: '문제를 더 풀수록 분석이 정확해져요.',
       emptyTitle: '아직 푼 문제가 없어요',
-      emptyDescription: '문제를 풀면 정답률과 약한 과목을 여기서 보여 드려요.',
+      emptyDescription: '문제를 풀면 과목별 정답률이 여기 나와요.',
       emptyAction: '첫 학습 시작',
       error: '학습 기록을 불러오지 못했어요.',
       retry: '다시 시도',
