@@ -817,6 +817,8 @@ const recommendationRegion = (page: Page) =>
 const myStudyRegion = (page: Page) =>
   page.getByRole('region', { name: '내 학습', exact: true })
 
+const myStudyLoadingCopy = '학습 기록을 불러오고 있어요.'
+
 // On My page a failed stats re-read keeps the last summary without an alert;
 // the next successful read refreshes it (JLP-812: My page reads only stats).
 const assertFaultRecovery = async (
@@ -827,6 +829,9 @@ const assertFaultRecovery = async (
   const path = '/api/v1/dashboard'
   const startIndex = ledger.entries.length
   const failureCount = fault === 'network' ? 2 : fault === 'rate-limit' ? 3 : 1
+  // The baseline must be the loaded summary, never the loading copy.
+  await expect(myStudyRegion(page)).toBeVisible()
+  await expect(myStudyRegion(page)).not.toContainText(myStudyLoadingCopy)
   const summaryBefore = await myStudyRegion(page).innerText()
   const removeFault = await armDashboardFault(page, fault)
   try {
@@ -1452,7 +1457,11 @@ test('network, rate-limit, and malformed responses require explicit recovery wit
   expect(landingReads[0]?.startSequence).toBeGreaterThan(
     signIn[0]?.finishSequence ?? -1
   )
+  const initialStats = waitForApiResponse(page, 'GET', '/api/v1/dashboard')
   await openMyPage(page)
+  getDashboardStatsResponseSchema.parse(
+    await readCanonicalResponse(await initialStats)
+  )
   await expect(myStudyRegion(page)).toBeVisible()
   for (const fault of [
     'network',
