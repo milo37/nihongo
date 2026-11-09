@@ -854,6 +854,36 @@ describe('approved general result navigation', () => {
     member.client.clear()
   })
 
+  it('다음 10문제가 거절되면 결과 화면에 머물며 이유를 그 자리에서 알린다', async () => {
+    const member = await createFixture()
+    const { router, view } = member.mount()
+    mockServer.use(
+      http.post('*/api/v1/study-sessions', () =>
+        HttpResponse.json(
+          {
+            code: 'NO_ELIGIBLE_QUESTIONS',
+            message: '문제가 없습니다.',
+            requestId: crypto.randomUUID(),
+            retryable: false
+          },
+          { status: 404 }
+        )
+      )
+    )
+    const resultPath = router.state.location.pathname
+    await userEvent
+      .setup()
+      .click(await screen.findByRole('button', { name: '다음 10문제' }))
+    expect(
+      await screen.findByText(
+        "지금 조건으로는 '랜덤 문제'에서 풀 수 있는 문제가 없어요."
+      )
+    ).toBeVisible()
+    expect(router.state.location.pathname).toBe(resultPath)
+    view.unmount()
+    member.client.clear()
+  })
+
   it('게스트 다음에 할 일은 잠긴 다시 풀기(테두리)와 다음 5문제(주) 두 개뿐이다 (빼기 표 10)', async () => {
     const actionsOf = (element: HTMLElement): HTMLElement => {
       const actions = element.closest<HTMLElement>('.study-result-actions')

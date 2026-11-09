@@ -2,6 +2,8 @@ import { useTranslation } from 'react-i18next'
 import { Link, useLocation } from 'react-router'
 import type { ReactElement, ReactNode } from 'react'
 import { SignInCard } from '@app/login/components/SignInCard'
+import { Icon } from '@nihongo/browser/common/components/Icon'
+import type { IconName } from '@nihongo/browser/common/components/Icon'
 import { getRouteLabelKey } from '@nihongo/browser/i18n/routePresentation'
 
 export type GuestGateScreen =
@@ -11,12 +13,13 @@ export type GuestGateScreen =
   | 'review'
   | 'wrongNote'
 
-const icons: Record<GuestGateScreen, string> = {
-  account: '👤',
-  bookmarks: '★',
-  dashboard: '▦',
-  review: '↻',
-  wrongNote: '↻'
+// Lucide icons, matching the navigation tabs (G).
+const icons: Record<GuestGateScreen, IconName> = {
+  account: 'user-round',
+  bookmarks: 'bookmark',
+  dashboard: 'house',
+  review: 'rotate-ccw',
+  wrongNote: 'rotate-ccw'
 }
 
 const screenFor = (pathname: string): GuestGateScreen =>
@@ -57,7 +60,7 @@ export const GuestGate = ({
       </h1>
       <SignInCard
         headingLevel="h2"
-        icon={icons[shown]}
+        icon={<Icon name={icons[shown]} className="size-7" />}
         title={t('guestGate.title')}
         description={
           shown === 'account'

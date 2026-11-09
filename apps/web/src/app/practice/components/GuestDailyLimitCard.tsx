@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { Icon } from '@nihongo/browser/common/components/Icon'
 import type { ReactElement } from 'react'
 import { GUEST_DAILY_SESSION_LIMIT } from '@nihongo/contracts/study/guest-limits'
 import { SsoProviderButton } from '@app/login/components/SsoProviderButton'
@@ -23,7 +24,7 @@ export const GuestDailyLimitCard = ({
       aria-labelledby="practice-guest-limit-title"
     >
       <span className="practice-guest-limit-icon" aria-hidden="true">
-        ⏰
+        <Icon name="alarm-clock" />
       </span>
       <div className="min-w-0">
         <h2 id="practice-guest-limit-title">{t('setup.dailyLimit.title')}</h2>

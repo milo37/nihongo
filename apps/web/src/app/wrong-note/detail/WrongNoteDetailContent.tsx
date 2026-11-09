@@ -66,13 +66,17 @@ export const WrongNoteDetailContent = ({
               </span>
               {isMine ? (
                 <strong>
-                  <span aria-hidden="true">✕ </span>
+                  <span className="review-answer-mark" aria-hidden="true">
+                    ✕{' '}
+                  </span>
                   <span>{t('detail.myAnswer')}</span>
                 </strong>
               ) : null}
               {option.isCorrect ? (
                 <strong className="text-success-strong">
-                  <span aria-hidden="true">○ </span>
+                  <span className="review-answer-mark" aria-hidden="true">
+                    ○{' '}
+                  </span>
                   <span>{t('detail.correctAnswer')}</span>
                   {previousAnswer.status === 'selected' &&
                   previousAnswer.optionId === option.id ? (
@@ -100,8 +104,10 @@ export const WrongNoteDetailContent = ({
           {t('detail.review.archived')}
         </p>
       ) : null}
-      {data.currentReviewQuestionVersionId !==
-        data.question.questionVersionId &&
+      {/* null means no review version is pinned yet (just answered wrong),
+          which is not a change. */}
+      {data.currentReviewQuestionVersionId !== null &&
+      data.currentReviewQuestionVersionId !== data.question.questionVersionId &&
       data.wrongNote.reviewAvailability !== 'ARCHIVED' ? (
         <p className="review-notice">{t('detail.versionChanged')}</p>
       ) : null}

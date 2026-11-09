@@ -25,6 +25,10 @@
   .home-today-grid {
     grid-template-columns: 1fr 1fr;
   }
+  /* No question today: the start card takes the whole row (G, #801). */
+  .home-today-grid > :only-child {
+    grid-column: 1 / -1;
+  }
 }
 .home-hero {
   display: flex;
@@ -103,6 +107,26 @@
   border-radius: 999px;
   font-size: 13px;
   font-weight: 700;
+}
+.home-daily-option[aria-pressed='true'] {
+  /* The pick is shown by the state border, ✓/✕ and the text line below. */
+  box-shadow: none;
+}
+.home-daily-option-mark {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.home-daily-option[data-state='correct'] .home-daily-option-mark,
+.home-daily-option[data-state='correct'] .home-daily-option-label {
+  color: rgb(var(--color-success-strong));
+  border-color: rgb(var(--color-success));
+}
+.home-daily-option[data-state='wrong'] .home-daily-option-mark,
+.home-daily-option[data-state='wrong'] .home-daily-option-label {
+  color: rgb(var(--color-danger));
+  border-color: rgb(var(--color-danger));
 }
 .home-daily-option[data-state='correct'] {
   border: 2px solid rgb(var(--color-success));

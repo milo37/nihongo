@@ -44,7 +44,7 @@ export const dailyQuestionHandlers = [
             requestId,
             retryable: false
           },
-          422
+          404
         )
       }
       const fingerprint = getQuestionVersionFingerprint(source)

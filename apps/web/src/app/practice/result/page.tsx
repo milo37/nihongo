@@ -182,6 +182,26 @@ const PracticeResultPageContent = (): ReactElement => {
           result={studyResult}
           session={session}
         />
+        {/* What to do next sits right under the score (G, #792 design). */}
+        <ResultActions
+          incorrectCount={result.incorrectItems.length}
+          isGuest={isGuest}
+          isGuestDone={result.isGuestDone}
+          isRetryDisabled={result.isResultSourceUnavailable}
+          isRetryLoading={
+            createRetrySession.isPending || result.isRetrySourceRefreshing
+          }
+          onRetry={result.handleRetryIncorrect}
+          retryLoadingLabel={
+            result.isRetrySourceRefreshing
+              ? t('retry.checking')
+              : createRetrySession.isPaused
+                ? t('retry.waitingConnection')
+                : t('retry.creating')
+          }
+          session={session}
+          showRetry={result.canShowRetryButton}
+        />
 
         <ResultRetryNotice
           canRequestCanonicalRetry={result.canRequestCanonicalRetry}
@@ -214,25 +234,6 @@ const PracticeResultPageContent = (): ReactElement => {
             />
           )}
         </div>
-        <ResultActions
-          incorrectCount={result.incorrectItems.length}
-          isGuest={isGuest}
-          isGuestDone={result.isGuestDone}
-          isRetryDisabled={result.isResultSourceUnavailable}
-          isRetryLoading={
-            createRetrySession.isPending || result.isRetrySourceRefreshing
-          }
-          onRetry={result.handleRetryIncorrect}
-          retryLoadingLabel={
-            result.isRetrySourceRefreshing
-              ? t('retry.checking')
-              : createRetrySession.isPaused
-                ? t('retry.waitingConnection')
-                : t('retry.creating')
-          }
-          session={session}
-          showRetry={result.canShowRetryButton}
-        />
       </div>
 
       <RetryNavigationDialog
