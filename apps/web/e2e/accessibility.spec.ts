@@ -1515,6 +1515,9 @@ const submitSessionThroughUi = async (
   await settlePage(page)
   await setLocale(page, 'ko')
 
+  const sheetTrigger = page.getByRole('button', { name: /^문제 바로가기 /u })
+  await focusByTab(page, sheetTrigger)
+  await page.keyboard.press('Enter')
   const lastQuestionJump = page.getByRole('button', {
     name: `${session.session.actualCount}번 문제, 미응답`
   })
@@ -2124,8 +2127,12 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     )
   ).toHaveAttribute('role', 'status')
   await setLocale(page, 'ko')
-  await expect(page.locator('button.ui-question-jump')).toHaveCount(
-    readingFixture.actualCount
+  // Question numbers live in a sheet opened from the top bar (direction §6-4).
+  const readingSheetTrigger = page.getByRole('button', {
+    name: /^문제 바로가기 /u
+  })
+  await expect(readingSheetTrigger).toHaveText(
+    `1 / ${readingFixture.actualCount}`
   )
   const readingPassage = page.getByRole('article', { name: '지문' })
   const firstAnswer = page.getByRole('radio').first()
@@ -2150,9 +2157,13 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await focusByTab(page, firstAnswer)
   await page.keyboard.press('Space')
   await expect(firstAnswer).toBeChecked()
-  await expect(
-    page.locator('.ui-question-jump[data-answered="true"]').first()
-  ).toBeVisible()
+  await expect
+    .poll(() =>
+      page
+        .locator('main progress')
+        .evaluate((element) => (element as HTMLProgressElement).value)
+    )
+    .toBe(1)
   await expect(page.locator('[data-save-state]')).toHaveAttribute(
     'data-save-state',
     /^(saved|savedAt)$/u,
@@ -2177,6 +2188,10 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
       () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
     )
   ).toBe(true)
+  await readingSheetTrigger.click()
+  await expect(page.locator('button.ui-question-jump')).toHaveCount(
+    readingFixture.actualCount
+  )
   await expect
     .poll(() =>
       page
@@ -2185,6 +2200,8 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
         .evaluate((element) => getComputedStyle(element).borderStyle)
     )
     .toBe('double')
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
   await expect
     .poll(() =>
       page
