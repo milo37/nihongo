@@ -72,7 +72,7 @@ const MemberReview = (): ReactElement => {
   )
 
   return (
-    <section className="mx-auto w-full max-w-[1088px] px-4 py-6 sm:px-6 sm:py-10">
+    <section className="mx-auto w-full max-w-[1040px] px-4 py-6 sm:px-6 sm:py-10 lg:px-0">
       <h1 className="text-2xl font-bold text-ink">{t('title')}</h1>
       <div
         role="tablist"
