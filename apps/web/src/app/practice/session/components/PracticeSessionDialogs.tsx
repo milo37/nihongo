@@ -7,68 +7,39 @@ import type { SubmissionConnectivityCode } from '@app/practice/hooks/useSubmissi
 import { usePracticeNumberFormat } from '@app/practice/hooks/usePracticeNumberFormat'
 
 type PracticeNavigationGuardDialogProps = {
-  isGuest: boolean
-  isSaving: boolean
   onContinue: () => void
   onLeave: () => void
-  onSaveAndLeave: () => void
   open: boolean
 }
 
+/** Asked of a guest only: leaving drops this try (subtract #8, U4 G3). */
 export const PracticeNavigationGuardDialog = ({
-  isGuest,
-  isSaving,
   onContinue,
   onLeave,
-  onSaveAndLeave,
   open
 }: PracticeNavigationGuardDialogProps): ReactElement => {
   const { t } = useTranslation('practice')
   const keepRef = useRef<HTMLButtonElement>(null)
-  // A guest cannot resume, so leaving drops this try (U4 G3).
-  const copy = isGuest ? 'session.exitGuest' : 'session.navigationGuard'
   return (
     <Dialog
       open={open}
-      title={t(`${copy}.title`)}
-      description={t(`${copy}.description`)}
+      title={t('session.exitGuest.title')}
+      description={t('session.exitGuest.description')}
       initialFocusRef={keepRef}
       footer={
         <>
-          <Button
-            ref={keepRef}
-            variant="secondary"
-            disabled={isSaving}
-            onClick={onContinue}
-          >
-            {t(
-              isGuest
-                ? 'session.exitGuest.keep'
-                : 'session.navigationGuard.continue'
-            )}
+          <Button ref={keepRef} variant="secondary" onClick={onContinue}>
+            {t('session.exitGuest.keep')}
           </Button>
-          {isGuest ? (
-            <Button onClick={onLeave}>{t('session.exitGuest.leave')}</Button>
-          ) : (
-            <Button isLoading={isSaving} onClick={onSaveAndLeave}>
-              {t('session.navigationGuard.saveAndLeave')}
-            </Button>
-          )}
+          <Button onClick={onLeave}>{t('session.exitGuest.leave')}</Button>
         </>
       }
-      preventClose={isSaving}
       onOpenChange={(nextOpen) => {
-        if (!nextOpen && !isSaving) {
+        if (!nextOpen) {
           onContinue()
         }
       }}
-    >
-      {isGuest ? (
-        <p className="text-sm leading-6 text-muted">
-          {t('session.exitGuest.countNotBack')}
-        </p>
-      ) : null}
-    </Dialog>
+    />
   )
 }
 

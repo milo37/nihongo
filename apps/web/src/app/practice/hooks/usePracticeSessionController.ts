@@ -75,7 +75,6 @@ export const usePracticeSessionController = ({
   const [isPreparingSubmission, setPreparingSubmission] = useState(false)
   const [isSubmissionNavigationStarted, setSubmissionNavigationStarted] =
     useState(false)
-  const [isSavingBeforeNavigation, setSavingBeforeNavigation] = useState(false)
   const submissionConnectivityMessage = useSubmissionConnectivity()
   const sessionQuery = useGetStudySession(
     sessionId,
@@ -359,28 +358,39 @@ export const usePracticeSessionController = ({
     onSelectOption: handleSelectOption,
     onPrevious: movePrevious,
     onNext: moveNext,
-    onSubmit: () => setSubmitDialogRequestedOpen(true),
+    onSubmit: () => requestSubmission(),
     submitEnabled: canRequestSubmission
   })
 
-  const handleSaveAndLeave = async (): Promise<void> => {
-    if (submissionNavigationBlocker.state !== 'blocked') {
+  // A member leaves without a prompt: save first, stay with one error line if that fails.
+  const isMemberLeaving =
+    isNavigationPromptBlocked &&
+    isV2Session &&
+    role !== 'GUEST' &&
+    !mustReplayFrozenSubmission
+  const memberLeaveStartedRef = useRef(false)
+  const { flush: flushDraft } = draftController
+  useEffect(() => {
+    if (!isMemberLeaving) {
+      memberLeaveStartedRef.current = false
       return
     }
-    setSavingBeforeNavigation(true)
+    if (memberLeaveStartedRef.current) return
+    memberLeaveStartedRef.current = true
     setDraftActionMessage(null)
-    try {
-      await draftController.flush()
-      allowSubmissionNavigationRef.current = true
-      submissionNavigationBlocker.proceed()
-    } catch (error: unknown) {
-      if (!isAuthTransitionSupersededError(error)) {
-        setDraftActionMessage('saveBeforeLeaveFailed')
+    void (async (): Promise<void> => {
+      try {
+        await flushDraft()
+        allowSubmissionNavigationRef.current = true
+        submissionNavigationBlocker.proceed?.()
+      } catch (error: unknown) {
+        submissionNavigationBlocker.reset?.()
+        if (!isAuthTransitionSupersededError(error)) {
+          setDraftActionMessage('saveBeforeLeaveFailed')
+        }
       }
-    } finally {
-      setSavingBeforeNavigation(false)
-    }
-  }
+    })()
+  }, [flushDraft, isMemberLeaving, submissionNavigationBlocker])
 
   // A guest's work is not kept, so leaving needs no save first (U4 G3).
   const leaveWithoutSaving = (): void => {
@@ -464,7 +474,13 @@ export const usePracticeSessionController = ({
           assertCurrentStudySubmissionV2Action(input)
           completeSubmissionNavigation()
         },
-        onError: handleSubmissionFailure
+        onError: (error) => {
+          // A direct submit has no dialog yet; open it to show the failure.
+          if (!isAuthTransitionSupersededError(error)) {
+            setSubmitDialogRequestedOpen(true)
+          }
+          handleSubmissionFailure(error)
+        }
       })
     } catch (error: unknown) {
       if (!isAuthTransitionSupersededError(error)) {
@@ -473,6 +489,15 @@ export const usePracticeSessionController = ({
     } finally {
       setPreparingSubmission(false)
     }
+  }
+
+  // All answered: submit at once. Otherwise confirm the unanswered count first.
+  const requestSubmission = (): void => {
+    if (unansweredCount > 0) {
+      setSubmitDialogRequestedOpen(true)
+      return
+    }
+    void handleSubmit()
   }
 
   const handleSubmitDialogOpenChange = (open: boolean): void => {
@@ -508,9 +533,11 @@ export const usePracticeSessionController = ({
     isSessionRefreshUnavailable ||
     bookmark.hasPendingMutation ||
     bookmark.isQueryUnavailable
+  // Only a guest is asked: leaving drops their answers (subtract #8).
   const isNavigationGuardOpen =
     submissionNavigationBlocker.state === 'blocked' &&
     isV2Session &&
+    role === 'GUEST' &&
     !mustReplayFrozenSubmission
 
   return {
@@ -524,7 +551,6 @@ export const usePracticeSessionController = ({
     draftController,
     elapsedSeconds,
     handleBookmark,
-    handleSaveAndLeave,
     leaveWithoutSaving,
     handleSelectOption,
     handleSubmit,
@@ -543,7 +569,6 @@ export const usePracticeSessionController = ({
     isPreparingSubmission,
     isQuestionNavigationLocked,
     isRetiredSession,
-    isSavingBeforeNavigation,
     isSessionNotFound,
     isSessionOffline,
     isSessionRefreshUnavailable,
@@ -555,7 +580,7 @@ export const usePracticeSessionController = ({
     movePrevious,
     moveToOrdinal: draftController.moveToOrdinal,
     mustReplayFrozenSubmission,
-    openSubmitDialog: () => setSubmitDialogRequestedOpen(true),
+    requestSubmission,
     questions,
     retryDraftSave,
     role,

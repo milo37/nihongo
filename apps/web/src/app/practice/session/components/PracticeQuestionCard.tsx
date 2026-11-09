@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement, ReactNode, RefObject } from 'react'
 import { Icon } from '@nihongo/browser/common/components/Icon'
@@ -6,9 +7,8 @@ import type { StudyQuestionView } from '@app/practice/adapters/studySessionView'
 import { usePracticeNumberFormat } from '@app/practice/hooks/usePracticeNumberFormat'
 
 type PracticeQuestionCardProps = {
-  bookmarkButton: ReactNode
+  actions: ReactNode
   bookmarkStatus: ReactNode
-  elapsedSeconds: number
   headingRef: RefObject<HTMLHeadingElement | null>
   isOptionsDisabled: boolean
   onSelectOption: (optionId: string) => void
@@ -18,20 +18,32 @@ type PracticeQuestionCardProps = {
   selectedOptionId: string | undefined
 }
 
-/** Reading passage, scrollable beside the question on wide screens. */
-const QuestionPassage = ({ passage }: { passage: string }): ReactElement => {
+// Whole option is the target: radio hidden, number circle filled when chosen (direction §6-3).
+// Reuses the shipped .study-answer-options look; `!` beats its unlayered input rule.
+const OPTION_GROUP_CLASS =
+  'study-answer-options [&_legend]:sr-only [&_input]:absolute! [&_input]:opacity-0! [&_label]:items-center'
+
+/** Passage card: as tall as its text; sticky beside the question on wide screens. */
+const QuestionPassage = ({
+  passage,
+  passageRef
+}: {
+  passage: string
+  passageRef: RefObject<HTMLElement | null>
+}): ReactElement => {
   const { t } = useTranslation('practice')
   return (
     <article
+      ref={passageRef}
       aria-label={t('session.question.passageLabel')}
-      className="scroll-mt-24 border-b border-line bg-surface-muted p-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-brand sm:p-7 lg:max-h-[680px] lg:overflow-y-auto lg:border-b-0 lg:border-r"
+      className="scroll-mt-4 rounded-card border border-line bg-surface px-5 py-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand sm:p-7 lg:sticky lg:top-6 lg:max-h-[680px] lg:overflow-y-auto"
       tabIndex={0}
     >
-      <p className="text-[13px] font-semibold text-muted">
+      <p className="mb-3 text-[13px] font-bold text-muted">
         {t('session.question.passageLabel')}
       </p>
       <p
-        className="mt-5 whitespace-pre-line text-base leading-8 text-ink"
+        className="whitespace-pre-line text-[17px] leading-[1.9] tracking-[0.02em] text-ink"
         lang="ja"
       >
         {passage}
@@ -40,34 +52,31 @@ const QuestionPassage = ({ passage }: { passage: string }): ReactElement => {
   )
 }
 
-/** Collapsible keyboard hints with the elapsed time. */
-const KeyboardHelp = ({
-  elapsedSeconds
-}: {
-  elapsedSeconds: number
-}): ReactElement => {
-  const { t } = useTranslation('practice')
-  const { formatDuration } = usePracticeNumberFormat()
-  return (
-    <details className="study-keyboard-help mt-4 text-sm leading-6 text-muted">
-      <summary className="note-link cursor-pointer">
-        {t('session.keyboardHelp')}
-      </summary>
-      <p className="mb-2">
-        {t('session.header.elapsedTime')}{' '}
-        <span className="font-mono tabular-nums">
-          {formatDuration(elapsedSeconds)}
-        </span>
-      </p>
-      <p>{t('session.question.keyboardHint')}</p>
-    </details>
-  )
+/** True once the passage has scrolled fully out of view (one-column layout). */
+const usePassageOutOfView = (
+  passageRef: RefObject<HTMLElement | null>,
+  hasPassage: boolean
+): boolean => {
+  const [isOut, setOut] = useState(false)
+  useEffect(() => {
+    const passage = passageRef.current
+    if (!hasPassage || !passage || typeof IntersectionObserver === 'undefined')
+      return
+    const observer = new IntersectionObserver(([entry]) => {
+      setOut(entry ? !entry.isIntersecting : false)
+    })
+    observer.observe(passage)
+    return () => {
+      observer.disconnect()
+      setOut(false)
+    }
+  }, [hasPassage, passageRef])
+  return isOut
 }
 
 export const PracticeQuestionCard = ({
-  bookmarkButton,
+  actions,
   bookmarkStatus,
-  elapsedSeconds,
   headingRef,
   isOptionsDisabled,
   onSelectOption,
@@ -78,41 +87,72 @@ export const PracticeQuestionCard = ({
 }: PracticeQuestionCardProps): ReactElement => {
   const { t } = useTranslation('practice')
   const { formatCount } = usePracticeNumberFormat()
+  const passageRef = useRef<HTMLElement>(null)
+  const isPassageOut = usePassageOutOfView(
+    passageRef,
+    Boolean(question.passage)
+  )
+
+  const showPassage = (): void => {
+    const reduceMotion = window.matchMedia?.(
+      '(prefers-reduced-motion: reduce)'
+    ).matches
+    passageRef.current?.scrollIntoView({
+      behavior: reduceMotion ? 'auto' : 'smooth',
+      block: 'start'
+    })
+    passageRef.current?.focus({ preventScroll: true })
+  }
 
   return (
     <div
-      className={[
-        'study-question mt-4 border-line',
-        question.subject === 'READING'
-          ? 'lg:grid lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]'
-          : ''
-      ].join(' ')}
+      className={
+        question.passage
+          ? 'grid items-start gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-12'
+          : undefined
+      }
     >
-      {question.passage ? <QuestionPassage passage={question.passage} /> : null}
+      {question.passage ? (
+        <QuestionPassage passage={question.passage} passageRef={passageRef} />
+      ) : null}
 
-      <article className="study-question-content min-w-0 py-4 sm:py-6">
-        {/* Tags can name the answer, so they appear only after submission. */}
-        <div className="flex items-start justify-end gap-4">
-          {bookmarkButton}
-        </div>
+      {/* Tags can name the answer, so they appear only after submission. */}
+      <article className="min-w-0">
         {bookmarkStatus}
 
-        <h1
-          ref={headingRef}
-          className="mt-4 rounded-sm text-2xl font-semibold leading-[1.7]"
-          tabIndex={-1}
-        >
-          <span className="mb-2 block text-sm font-medium text-muted">
-            {t('session.question.numberLabel', {
-              ordinal: formatCount(questionNumber)
-            })}{' '}
-          </span>
-          <span lang="ja">{question.questionText}</span>
-        </h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1
+            ref={headingRef}
+            className="min-w-0 rounded-sm [text-wrap:wrap]"
+            tabIndex={-1}
+          >
+            <span className="mb-2 block text-[13px] font-bold text-brand">
+              {t('session.question.numberLabel', {
+                ordinal: formatCount(questionNumber)
+              })}{' '}
+            </span>
+            <span
+              className="block text-lg font-bold leading-[1.6] lg:text-xl"
+              lang="ja"
+            >
+              {question.questionText}
+            </span>
+          </h1>
+          {isPassageOut ? (
+            <button
+              className="note-link min-h-11 shrink-0 gap-1 text-[13px]"
+              type="button"
+              onClick={showPassage}
+            >
+              <Icon className="size-4 rotate-90" name="chevron-left" />
+              {t('session.question.passageLabel')}
+            </button>
+          ) : null}
+        </div>
 
-        <div className="mt-4">
+        <div className="mt-5">
           <RadioGroup
-            className="learning-options study-answer-options"
+            className={OPTION_GROUP_CLASS}
             disabled={isOptionsDisabled}
             name={`question-${question.id}`}
             legend={t('session.question.answerLegend')}
@@ -120,13 +160,17 @@ export const PracticeQuestionCard = ({
             options={question.options.map((option) => ({
               value: option.id,
               label: (
-                <span className="study-answer-label">
-                  <span lang="ja">
-                    {option.label}. {option.text}
+                <span className="flex items-center gap-3 font-normal">
+                  <span
+                    aria-hidden="true"
+                    className="grid size-7 shrink-0 place-items-center rounded-full bg-surface-muted text-sm font-bold group-has-[:checked]:bg-brand group-has-[:checked]:text-on-accent"
+                  >
+                    {option.label}
                   </span>
-                  {selectedOptionId === option.id ? (
-                    <Icon className="size-5 shrink-0" name="check" />
-                  ) : null}
+                  <span className="min-w-0 leading-[1.6]" lang="ja">
+                    <span className="sr-only">{option.label}. </span>
+                    {option.text}
+                  </span>
                 </span>
               )
             }))}
@@ -134,7 +178,7 @@ export const PracticeQuestionCard = ({
           />
         </div>
         {saveStatus}
-        <KeyboardHelp elapsedSeconds={elapsedSeconds} />
+        {actions}
       </article>
     </div>
   )

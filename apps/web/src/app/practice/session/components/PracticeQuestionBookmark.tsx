@@ -1,6 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
+import { Icon } from '@nihongo/browser/common/components/Icon'
 import type { PracticeSessionBookmark } from '@app/practice/hooks/usePracticeSessionBookmark'
 import { usePracticeNumberFormat } from '@app/practice/hooks/usePracticeNumberFormat'
 import type { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
@@ -21,9 +22,8 @@ export const PracticeQuestionBookmarkButton = ({
   const { t } = useTranslation('practice')
   const { formatCount } = usePracticeNumberFormat()
   return (
-    <Button
-      className="shrink-0 aria-disabled:cursor-wait aria-disabled:opacity-70"
-      variant="outline"
+    <button
+      className="inline-flex size-11 shrink-0 items-center justify-center rounded-control text-ink hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand aria-disabled:cursor-wait aria-disabled:opacity-70 aria-pressed:text-brand aria-pressed:[&_svg]:fill-current"
       type="button"
       // Focus stays here while busy (a toast closed with Esc returns to it).
       aria-disabled={isDisabled || undefined}
@@ -39,8 +39,8 @@ export const PracticeQuestionBookmarkButton = ({
         if (!isDisabled) onToggle()
       }}
     >
-      {isBookmarked ? t('session.bookmark.remove') : t('session.bookmark.add')}
-    </Button>
+      <Icon name="bookmark" />
+    </button>
   )
 }
 
