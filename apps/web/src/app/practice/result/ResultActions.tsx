@@ -30,8 +30,9 @@ type ResultActionsProps = {
 
 /**
  * '다음에 할 일': two buttons only (subtract table 10). [틀린 문제만 다시
- * 풀기] when something was wrong, then [다음 10문제]; the first one shown
- * is filled, both 48px.
+ * 풀기] when something was wrong, then [다음 10문제]; both 48px. The button
+ * that works is filled: a member's retry, else the next set. A guest's
+ * locked retry stays outlined.
  */
 export const ResultActions = ({
   incorrectCount,
@@ -48,7 +49,7 @@ export const ResultActions = ({
   const { t: authT } = useTranslation('auth')
   const guestAction = useGuestAction()
   const nextSet = useStartNextSet(session, isGuest)
-  const hasRetry = isGuest ? incorrectCount > 0 : showRetry
+  const isNextSetPrimary = isGuest || !showRetry
   return (
     <section
       className="study-result-actions mt-10"
@@ -78,7 +79,7 @@ export const ResultActions = ({
           <Button
             className={SAME_HEIGHT}
             size="lg"
-            variant={isGuestDone ? 'outline' : 'primary'}
+            variant="outline"
             onClick={() =>
               guestAction(t('locked.retry'), { sessionNotKept: true })
             }
@@ -104,7 +105,7 @@ export const ResultActions = ({
           <Button
             className={SAME_HEIGHT}
             size="lg"
-            variant={hasRetry ? 'outline' : 'primary'}
+            variant={isNextSetPrimary ? 'primary' : 'outline'}
             isLoading={nextSet.isStarting}
             loadingLabel={t('actions.nextSetStarting')}
             onClick={nextSet.start}
