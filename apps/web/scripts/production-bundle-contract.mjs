@@ -31,14 +31,23 @@ export const bundleCeilings = Object.freeze({
   // Measured web: 96 files, 31 initial, gzip 252,715, raw 806,482, total raw
   // 1,475,941. Loading more of it lazily was tried and grew the initial
   // set (32 files, gzip 252,797): shared code split into extra chunks.
-  emittedFileCount: 97,
+  // D first screen (JLP-812, #801): the start card and today's question move
+  // practice setup code into the home module, so Toast and FieldError split
+  // out of the practice chunk into their own files (same code, more files).
+  // 98 measured with C2. God approved +1 on 2026-11-09; revert on the
+  // post-deploy card 'shrink the first-screen bundle'.
+  emittedFileCount: 98,
   // The header account menu, with its logout dialog, loads on every page
   // (bundle 1 #734): two more initial chunks, about 5.5 KB gzip.
   // U12 (JLP-791): the shared global error handler now raises offline and
   // sign-out toasts, so Toast becomes its own shared initial chunk (+1
   // file; it must be ready before the first event, so it cannot load lazily).
   // #761 + U4 together (#767 c9af0ed5): 32 initial files measured.
-  initialAssetCount: 32,
+  // D first screen (JLP-812, #801): Toast and FieldError split out of the
+  // practice chunk (same code, more files): 33 measured. God approved +1 on
+  // 2026-11-09; sizes unchanged; revert on the post-deploy card 'shrink the
+  // first-screen bundle'.
+  initialAssetCount: 33,
   // #755 on dev ef36052b (U5 shared re-verification notice + #752 storage
   // guard): web initial gzip 252,166 measured. The notice sits in the global
   // error handler and must show on the first frame after the return, so it
