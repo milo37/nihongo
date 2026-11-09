@@ -141,6 +141,7 @@ export const jaCoreResources = {
     practice: '問題演習',
     wrongNotes: '復習',
     bookmarks: 'ブックマーク',
+    my: 'マイページ',
     dashboard: 'ダッシュボード',
     adminQuestions: '問題管理',
     login: 'ログイン',
