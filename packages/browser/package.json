@@ -60,7 +60,6 @@
     "./common/components/Pagination": "./src/common/components/Pagination.tsx",
     "./common/components/RadioGroup": "./src/common/components/RadioGroup.tsx",
     "./common/components/Select": "./src/common/components/Select.tsx",
-    "./common/components/SideNavigation": "./src/common/components/SideNavigation.tsx",
     "./common/components/TextLink": "./src/common/components/TextLink.tsx",
     "./common/components/Textarea": "./src/common/components/Textarea.tsx",
     "./common/components/Toast": "./src/common/components/Toast.tsx",
