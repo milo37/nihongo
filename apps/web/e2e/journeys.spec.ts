@@ -1018,6 +1018,11 @@ const submitCurrentSessionThroughUi = async (
   await expect(
     page.getByRole('heading', { name: heading, exact: true })
   ).toBeVisible()
+  // The grading reveal renders with the result (not after a single review).
+  if (await page.locator('.grading-reveal').count()) {
+    await page.getByRole('button', { name: '결과 보기', exact: true }).click()
+    await expect(page.locator('.grading-reveal')).toHaveCount(0)
+  }
   await restorePracticeClock(page, originalNow)
   return submitted
 }
