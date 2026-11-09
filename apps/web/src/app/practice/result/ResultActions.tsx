@@ -11,6 +11,7 @@ import { Icon } from '@nihongo/browser/common/components/Icon'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 import { useStartNextSet } from '@app/practice/result/useStartNextSet'
+import { PracticeSetupFeedback } from '@app/practice/components/PracticeSetupFeedback'
 
 // Outlined buttons add a border; fix both buttons at 48px (ux2 §2-4).
 const SAME_HEIGHT = 'h-12'
@@ -118,6 +119,16 @@ export const ResultActions = ({
             })}
           </Button>
         )}
+      </div>
+      {/* A refused next set says why here, in place (G, #792 QA). */}
+      <div className="mt-3" aria-live="polite">
+        <PracticeSetupFeedback
+          accountRestricted={nextSet.accountRestricted}
+          hasCreateError={nextSet.hasCreateError}
+          mode="RANDOM"
+          noEligibleQuestions={nextSet.noEligibleQuestions}
+          onSelectRandom={nextSet.start}
+        />
       </div>
     </section>
   )

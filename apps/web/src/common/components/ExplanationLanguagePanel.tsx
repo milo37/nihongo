@@ -16,7 +16,7 @@ export const ExplanationLanguagePanel = ({
   explanationJa,
   explanationKo
 }: ExplanationLanguagePanelProps): ReactElement => {
-  const { t } = useTranslation('common')
+  const { t, i18n } = useTranslation('common')
 
   if (!hasJapaneseExplanation(explanationJa)) {
     return (
@@ -24,9 +24,12 @@ export const ExplanationLanguagePanel = ({
         <p className="break-words leading-7 text-muted" lang="ko">
           {explanationKo}
         </p>
-        <p className="mt-3 text-sm font-semibold text-subtle">
-          {t('explanation.japaneseUnavailable')}
-        </p>
+        {/* Only Japanese readers need to know why the text is Korean. */}
+        {i18n.resolvedLanguage === 'ja' ? (
+          <p className="mt-3 text-sm font-semibold text-subtle">
+            {t('explanation.japaneseUnavailable')}
+          </p>
+        ) : null}
       </div>
     )
   }

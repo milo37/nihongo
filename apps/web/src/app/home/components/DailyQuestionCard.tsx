@@ -56,33 +56,49 @@ const DailyQuestionBody = ({
         {question.options.map((option) => {
           const isCorrect = picked !== null && option.id === correct?.id
           const isWrongPick = picked === option.id && option.id !== correct?.id
+          // After a pick the label circle shows ✓/✕ and a small line names
+          // it, so short options stay on one line (G, #801 design).
+          const mark = isCorrect ? 'correct' : isWrongPick ? 'wrong' : null
           return (
             <button
               key={option.id}
               type="button"
               className="home-daily-option"
-              data-state={
-                isCorrect ? 'correct' : isWrongPick ? 'wrong' : undefined
-              }
+              data-state={mark ?? undefined}
               aria-pressed={picked === option.id}
               aria-disabled={picked !== null}
               onClick={() => pick(option.id)}
             >
-              <span className="home-daily-option-label">{option.label}</span>
-              <span className="min-w-0 text-left" lang="ja">
-                {option.text}
+              <span
+                className="home-daily-option-label"
+                aria-hidden={mark ? true : undefined}
+              >
+                {mark ? (
+                  <Icon
+                    name={mark === 'correct' ? 'check' : 'x'}
+                    className="size-4"
+                  />
+                ) : (
+                  option.label
+                )}
               </span>
-              {isCorrect ? (
-                <span className="ml-auto flex items-center">
-                  <Icon name="check" />
-                  <span className="sr-only">{t('today.dailyAnswer')}</span>
+              <span className="min-w-0 text-left">
+                <span className="block" lang="ja">
+                  {mark ? (
+                    <span className="sr-only">{option.label}. </span>
+                  ) : null}
+                  {option.text}
                 </span>
-              ) : isWrongPick ? (
-                <span className="ml-auto flex items-center">
-                  <Icon name="x" />
-                  <span className="sr-only">{t('today.dailyYourAnswer')}</span>
-                </span>
-              ) : null}
+                {mark ? (
+                  <span className="home-daily-option-mark">
+                    {t(
+                      mark === 'correct'
+                        ? 'today.dailyAnswer'
+                        : 'today.dailyYourAnswer'
+                    )}
+                  </span>
+                ) : null}
+              </span>
             </button>
           )
         })}
@@ -102,7 +118,7 @@ const DailyQuestionBody = ({
               <span className="sr-only">{t('today.dailyExplanation')}: </span>
               {showJa ? explanationJa : question.explanationKo}
             </p>
-            {explanationJa ? null : (
+            {explanationJa || i18n.resolvedLanguage !== 'ja' ? null : (
               <p className="mt-3 text-sm font-semibold text-subtle">
                 {tCommon('explanation.japaneseUnavailable')}
               </p>
@@ -152,9 +168,23 @@ export const DailyQuestionCard = ({
           </Button>
         </div>
       ) : (
-        <p className="mt-4 text-[15px] text-muted" role="status">
-          {t('today.dailyLoading')}
-        </p>
+        // A card skeleton holds the height, so the card does not jump when
+        // the question arrives (G, #801 design).
+        <div className="mt-3" role="status">
+          <span className="sr-only">{t('today.dailyLoading')}</span>
+          <div
+            aria-hidden="true"
+            className="ui-skeleton h-[70px] rounded-control bg-surface-muted"
+          />
+          <div aria-hidden="true" className="mt-5 grid grid-cols-2 gap-2">
+            {[0, 1, 2, 3].map((index) => (
+              <div
+                key={index}
+                className="ui-skeleton h-[52px] rounded-control bg-surface-muted"
+              />
+            ))}
+          </div>
+        </div>
       )}
     </section>
   )

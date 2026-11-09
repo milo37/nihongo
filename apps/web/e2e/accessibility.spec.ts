@@ -2417,7 +2417,8 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
       ).toHaveAttribute('lang', 'ja')
     } else {
       await expect(explanationTabs).toHaveCount(0)
-      await expect(fallbackNotice).toBeVisible()
+      // The missing-Japanese notice shows only on the Japanese screen (G).
+      await expect(fallbackNotice).toHaveCount(0)
     }
     reviewedQuestionIds.push(item.question.id)
   }

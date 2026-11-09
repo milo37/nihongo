@@ -134,7 +134,7 @@ const MemberReview = (): ReactElement => {
                   aria-pressed={selected}
                   className={`relative min-h-9 rounded-full border px-3 text-sm before:absolute before:-inset-1 before:content-[''] focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand ${
                     selected
-                      ? 'border-brand-strong bg-brand-soft font-bold text-ink'
+                      ? 'border-brand-strong bg-brand-soft font-bold text-ink shadow-none'
                       : 'border-line bg-surface font-semibold text-muted'
                   }`}
                   onClick={() => center.setQuery({ level })}

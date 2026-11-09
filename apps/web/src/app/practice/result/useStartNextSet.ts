@@ -5,12 +5,19 @@ import { MEMBER_COUNT } from '@app/practice/practiceSetupOptions'
 import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
 import { GUEST_SESSION_QUESTION_LIMIT } from '@nihongo/contracts/study/guest-limits'
 import { useAppStore } from '@nihongo/browser/store/index'
+import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
+import {
+  isAccountRestrictedApiError,
+  isGuestLimitReachedApiError,
+  isNoEligibleQuestionsApiError
+} from '@libs/apiError'
 
 /**
  * [다음 10문제] (subtract table 10): one press starts a new random set at
- * the same level and subject. If the server refuses (no questions left,
- * a guest's daily limit), the setup screen opens with that scope and says
- * why.
+ * the same level and subject. If the server refuses, the reason shows
+ * right under the button (no questions left, account restricted, failure);
+ * a guest's daily limit opens the setup screen, whose card says when the
+ * tries come back.
  */
 export const useStartNextSet = (
   session: StudySessionView['session'],
@@ -35,15 +42,24 @@ export const useStartNextSet = (
           beginPractice(next.id, next.startedAt)
           void navigate(`/practice/session/${next.id}`)
         },
-        onError: () => {
-          void navigate(
-            `/practice?level=${session.level}&subject=${session.subject}`
-          )
+        onError: (error) => {
+          if (isGuestLimitReachedApiError(error)) {
+            void navigate(
+              `/practice?level=${session.level}&subject=${session.subject}`
+            )
+          }
         }
       }
     )
   }
+  const error = createSession.isError ? createSession.error : null
   return {
+    accountRestricted: error !== null && isAccountRestrictedApiError(error),
+    noEligibleQuestions: error !== null && isNoEligibleQuestionsApiError(error),
+    hasCreateError:
+      error !== null &&
+      !isGuestLimitReachedApiError(error) &&
+      !isAuthTransitionSupersededError(error),
     count,
     isStarting: createSession.isPending || createSession.isPaused,
     start

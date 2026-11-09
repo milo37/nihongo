@@ -14,12 +14,15 @@ interface QuestionReportDialogProps {
   readonly questionVersionId: string
   /** 1-based question number on the current screen. */
   readonly ordinal: number
+  /** 'link' renders a small text link, for screens where reporting is rare. */
+  readonly trigger?: 'button' | 'link'
 }
 
 export const QuestionReportDialog = ({
   questionId,
   questionVersionId,
-  ordinal
+  ordinal,
+  trigger = 'button'
 }: QuestionReportDialogProps): ReactElement => {
   const { t } = useAdminPresentation()
   const { pathname } = useLocation()
@@ -28,14 +31,25 @@ export const QuestionReportDialog = ({
 
   return (
     <>
-      <Button
-        ref={triggerRef}
-        size="sm"
-        variant="outline"
-        onClick={() => setOpen(true)}
-      >
-        {t('questionReportDialog.trigger')}
-      </Button>
+      {trigger === 'link' ? (
+        <button
+          ref={triggerRef}
+          type="button"
+          className="inline-flex min-h-11 items-center text-sm font-semibold text-muted underline underline-offset-4 hover:text-ink"
+          onClick={() => setOpen(true)}
+        >
+          {t('questionReportDialog.trigger')}
+        </button>
+      ) : (
+        <Button
+          ref={triggerRef}
+          size="sm"
+          variant="outline"
+          onClick={() => setOpen(true)}
+        >
+          {t('questionReportDialog.trigger')}
+        </Button>
+      )}
       <ReportDialog
         copy={{
           title: t('questionReportDialog.title'),
