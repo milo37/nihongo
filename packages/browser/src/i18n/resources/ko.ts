@@ -798,7 +798,6 @@ export const koResources = {
     navigation: {
       label: '해설 문항',
       question: '문제 {{formattedOrdinal}}',
-      openBookmarks: '책갈피 보기',
       emptyTitle: '확인할 문제가 없어요',
       emptyDescription: '학습 설정으로 돌아가 새 문제를 풀어 보세요.'
     },
@@ -848,7 +847,8 @@ export const koResources = {
     actions: {
       retryIncorrect: '오답만 다시 풀기',
       loginChoice: '로그인',
-      openWrongNotes: '오답노트 보기'
+      nextSet: '다음 {{formattedCount}}문제',
+      nextSetStarting: '새 문제를 준비하는 중…'
     },
     retry: {
       checking: '결과 확인 중…',
