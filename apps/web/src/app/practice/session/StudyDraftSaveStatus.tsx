@@ -31,8 +31,11 @@ export const StudyDraftSaveStatus = ({
       : states.find((value) => value === status)
   const canRetry = hasRetry(state)
   const shouldAnnounce = canRetry || state === 'reconciled'
-  const iconName =
-    state === 'saved' ? 'check' : canRetry ? 'circle-alert' : 'rotate-ccw'
+  const iconName = canRetry ? 'circle-alert' : 'rotate-ccw'
+  // Saving is quiet: only a failure or a merged copy shows a line (direction §6-4).
+  if (!shouldAnnounce) {
+    return <div hidden data-save-state={status ?? 'detailed'} />
+  }
   return (
     <div className="study-inline-save" data-save-state={status ?? 'detailed'}>
       {/* Measure every localized state in the same grid cell, including wrapped retry.
