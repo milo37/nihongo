@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
-import '@app/practice/result/gradingReveal.css'
+// Inline so it ships in the result chunk (the bundle contract keeps CSS files initial-only).
+import revealStyles from '@app/practice/result/gradingReveal.css?inline'
 
 type GradingRevealProps = {
   /** Correctness in question order. */
@@ -98,6 +99,7 @@ export const GradingReveal = ({
         } else if (event.key === 'Escape') onClose()
       }}
     >
+      <style>{revealStyles}</style>
       <h2 className="grading-reveal-title">
         {t(phase === 'checking' ? 'grading.checking' : 'grading.done')}
       </h2>
