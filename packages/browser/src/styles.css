@@ -566,12 +566,6 @@
   margin-bottom: 40px;
 }
 
-.practice-settings {
-  display: grid;
-  grid-template-columns: minmax(0, 5fr) minmax(0, 3fr);
-  gap: 24px;
-}
-
 .practice-mode-options {
   margin-top: 20px;
   font-size: 14px;
@@ -682,10 +676,6 @@
     gap: 12px;
   }
 }
-/* Locked count chips (L16) are grey; 🔒 says why. */
-.choice-surface:has(.practice-locked-mark) {
-  background: rgb(var(--color-surface-muted));
-}
 .practice-guest-limit-icon {
   display: inline-flex;
   width: 44px;
@@ -736,8 +726,7 @@
   background: rgb(var(--color-surface));
 }
 
-.practice-recent-record,
-.practice-resume-record {
+.practice-recent-record {
   display: flex;
   align-items: center;
   gap: 20px;
@@ -781,35 +770,10 @@
   color: rgb(var(--color-muted));
 }
 
-.practice-other-toggle {
-  min-height: 44px;
-  margin-left: auto;
-  font-size: 13px;
-  color: rgb(var(--color-link));
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
-
-.practice-other-sessions {
-  margin-top: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid rgb(var(--color-line));
-}
-
-.practice-other-sessions > h3,
 .practice-resume-heading {
   margin-bottom: 12px;
   font-size: 18px;
   font-weight: 600;
-}
-
-.practice-other-sessions li {
-  padding: 12px 0;
-  border-top: 1px solid rgb(var(--color-line));
-}
-
-.practice-other-sessions nav {
-  margin-top: 12px;
 }
 
 .practice-resume-status {
@@ -929,10 +893,6 @@
     font-size: 15px;
     margin-bottom: 10px;
   }
-  .practice-settings {
-    grid-template-columns: 1fr;
-    gap: 18px;
-  }
   .practice-mode-options {
     margin-top: 12px;
   }
@@ -961,8 +921,7 @@
     padding: 16px;
     gap: 12px;
   }
-  .practice-recent-record,
-  .practice-resume-record {
+  .practice-recent-record {
     flex-wrap: wrap;
     gap: 12px;
   }
