@@ -1157,6 +1157,16 @@ export class MockDatabase {
     return clone(user)
   }
 
+  // JLP-815: in memory only, like other fixture identity fields.
+  setTargetLevel(userId: string, targetLevel: JlptLevel): JlptLevel {
+    const user = this.userById.get(userId)
+    if (!user) {
+      throw new MockDatabaseError('AUTH_REQUIRED', 401, '로그인이 필요합니다.')
+    }
+    this.userById.set(userId, { ...user, targetLevel })
+    return targetLevel
+  }
+
   loginAs(
     role: Extract<UserRole, 'USER' | 'ADMIN'>,
     fixtureUserId?: string
@@ -3812,6 +3822,9 @@ export class MockDatabase {
     this.storage.removeItem(ADMIN_CMS_STORAGE_KEY)
     this.storage.removeItem(ADMIN_CMS_MIRROR_STORAGE_KEY)
     this.currentUserId = null
+    for (const user of mockSeedData.users) {
+      this.userById.set(user.id, clone(user))
+    }
     this.restrictedUserIds.clear()
     this.userReports = []
     this.useLegacyQuestionSourcesForLearnerProjection = true

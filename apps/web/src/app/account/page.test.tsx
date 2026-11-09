@@ -1,5 +1,6 @@
 import { accountMutationRequest } from '@app/account/accountFlowErrors'
 import { commitCanonicalAuth } from '@nihongo/browser/app/login/authSession'
+import { authQueries } from '@nihongo/browser/app/login/queries/authQueries'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import { Suspense } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
@@ -13,7 +14,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
-import { http, HttpResponse } from 'msw'
+import { getResponse, http, HttpResponse } from 'msw'
 import { apiClient } from '@nihongo/browser/api/config'
 import { startAccountSso } from '@api/auth/startAccountSso'
 import { accountRoutes } from '@app/account/router'
@@ -26,6 +27,7 @@ import { ProtectedRouteProvider } from '@nihongo/browser/provider/ProtectedRoute
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { useAppStore } from '@nihongo/browser/store/index'
+import { handlers } from '@mocks/handlers'
 import { mockServer } from '@/test/server'
 
 const renderAccount = (entry = '/account') => {
@@ -170,6 +172,99 @@ describe('마이페이지 계정 설정', () => {
     ).not.toBeInTheDocument()
     release()
     expect(await screen.findByText('연결됨')).toBeInTheDocument()
+  })
+
+  it('목표 급수를 고르면 PUT 한 번 뒤 /me를 다시 읽어 새 급수를 쓴다', async () => {
+    mockDatabase.loginAs('USER')
+    const requests: string[] = []
+    const record = ({ request }: { request: Request }) => {
+      const { pathname } = new URL(request.url)
+      if (pathname.endsWith('/v1/me') || pathname.endsWith('/me/target-level'))
+        requests.push(`${request.method} ${pathname}`)
+    }
+    mockServer.events.on('request:start', record)
+    try {
+      renderAccount()
+      const select = await screen.findByRole('combobox', {
+        name: '목표 급수'
+      })
+      expect(select).toHaveValue('N2')
+      requests.length = 0
+      await userEvent.selectOptions(select, 'N3')
+      await waitFor(() =>
+        expect(useAppStore.getState().currentUser?.targetLevel).toBe('N3')
+      )
+      // The canonical refresh drops the cached /me, so the mounted auth
+      // observer may read it once more; every read comes after the PUT.
+      expect(requests[0]).toBe('PUT /api/v1/me/target-level')
+      expect(requests.slice(1)).toContain('GET /api/v1/me')
+      expect(
+        requests.slice(1).every((entry) => entry === 'GET /api/v1/me')
+      ).toBe(true)
+      expect(select).toHaveValue('N3')
+      expect(select).toBeEnabled()
+      expect(screen.getByRole('status', { name: '' })).toHaveTextContent(
+        '목표 급수를 바꿨어요.'
+      )
+    } finally {
+      mockServer.events.removeListener('request:start', record)
+    }
+  })
+
+  it('목표 급수 저장 뒤 /me를 다시 읽는 사이 로그아웃되면 이전 사용자를 되살리지 않는다', async () => {
+    mockDatabase.loginAs('USER')
+    let armed = false
+    let loggedOut = false
+    mockServer.use(
+      http.put('*/api/v1/me/target-level', () => {
+        armed = true
+      }),
+      http.get('*/api/v1/me', async ({ request }) => {
+        if (!armed) return
+        armed = false
+        // This read answers with the old user, but a logout is confirmed
+        // while it is in flight.
+        const stale = await getResponse(handlers, request)
+        mockDatabase.logout()
+        await commitCanonicalAuth(queryClient, null, {
+          forceClear: true,
+          forcePracticeReset: true
+        })
+        loggedOut = true
+        return stale
+      })
+    )
+    renderAccount()
+    const select = await screen.findByRole('combobox', { name: '목표 급수' })
+    await userEvent.selectOptions(select, 'N3')
+    await waitFor(() => expect(loggedOut).toBe(true))
+    await waitFor(() => expect(queryClient.isMutating()).toBe(0))
+    expect(useAppStore.getState().currentUser).toBeNull()
+    expect(
+      queryClient.getQueryData(authQueries.currentUser().queryKey)
+    ).toBeNull()
+  })
+
+  it('목표 급수 저장이 실패하면 값을 그대로 두고 오류를 알린다', async () => {
+    mockDatabase.loginAs('USER')
+    mockServer.use(
+      http.put('*/api/v1/me/target-level', () =>
+        HttpResponse.json(
+          { code: 'SERVICE_UNAVAILABLE', message: 'down' },
+          { status: 503 }
+        )
+      )
+    )
+    renderAccount()
+    const select = await screen.findByRole('combobox', {
+      name: '목표 급수'
+    })
+    await userEvent.selectOptions(select, 'N1')
+    expect(
+      await screen.findByText('저장하지 못했어요. 잠시 뒤 다시 골라 주세요.')
+    ).toBeInTheDocument()
+    expect(select).toHaveAttribute('aria-invalid', 'true')
+    expect(useAppStore.getState().currentUser?.targetLevel).toBe('N2')
   })
 
   it('Google 연결 상태와 유일한 방법 안내를 보여 주고 해제 버튼은 두지 않는다', async () => {
