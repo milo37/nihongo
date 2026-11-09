@@ -11,6 +11,10 @@ import {
   listReviewQueueQuerySchema,
   listReviewQueueResponseSchema
 } from '@nihongo/contracts/wrong-note/list-review-queue'
+import {
+  listReviewListQuerySchema,
+  listReviewListResponseSchema
+} from '@nihongo/contracts/wrong-note/list-review-list'
 import { updateWrongNoteMemoBodySchema } from '@nihongo/contracts/wrong-note/update-wrong-note-memo'
 import { assertNoReviewCenterForbiddenKeys } from '@nihongo/contracts/testing/review-center-conformance'
 import { Client } from 'pg'
@@ -31,6 +35,10 @@ import {
   createWrongNoteReviewCenterService,
   type WrongNoteReviewCenterService
 } from './wrongNoteReviewCenterService.js'
+import {
+  createPrismaWrongNoteReviewListRepository,
+  createWrongNoteReviewListService
+} from './wrongNoteReviewList.js'
 import { createPrismaWrongNoteReviewQueueRepository } from './wrongNoteReviewQueueRepository.js'
 import { createWrongNoteReviewQueueService } from './wrongNoteReviewQueueService.js'
 import { createPrismaWrongNoteTargetedReviewRepository } from './wrongNoteTargetedReviewRepository.js'
@@ -684,6 +692,90 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
       nextReviewAt: dueAt.toISOString(),
       hasMemo: false
     })
+
+    // JLP-812: the same note in two states, before its schedule is due.
+    const reviewList = createWrongNoteReviewListService(
+      createPrismaWrongNoteReviewListRepository(database.client)
+    )
+    const toReview = listReviewListResponseSchema.parse(
+      await reviewList.listReviewList(
+        fixture.userId,
+        listReviewListQuerySchema.parse({ level: 'N5' })
+      )
+    )
+    expect(toReview).toMatchObject({
+      state: 'TO_REVIEW',
+      total: 1,
+      counts: { toReview: 1, reviewed: 0 },
+      oldestToReview: { level: 'N5', subject: 'VOCABULARY' },
+      items: [
+        {
+          questionId: fixture.questionId,
+          currentQuestionVersionId: fixture.questionVersionId,
+          reviewState: 'TO_REVIEW',
+          wrongCount: 1,
+          lastReviewedAt: null
+        }
+      ]
+    })
+    expect(
+      listReviewListResponseSchema.parse(
+        await reviewList.listReviewList(
+          fixture.userId,
+          listReviewListQuerySchema.parse({ state: 'REVIEWED' })
+        )
+      )
+    ).toMatchObject({
+      items: [],
+      total: 0,
+      counts: { toReview: 1, reviewed: 0 }
+    })
+    expect(
+      listReviewListResponseSchema.parse(
+        await reviewList.listReviewList(
+          fixture.userId,
+          listReviewListQuerySchema.parse({ level: 'N4' })
+        )
+      )
+    ).toMatchObject({
+      items: [],
+      total: 0,
+      counts: { toReview: 0, reviewed: 0 },
+      oldestToReview: null
+    })
+
+    // DAILY_REVIEW takes questions to review without waiting for the
+    // schedule (JLP-812). Roll back after selection: nothing is written.
+    const rollback = new Error('roll back after selection')
+    let dailySelected: unknown
+    await expect(
+      createStudySessionService(
+        createPrismaStudySessionRepository(database.client, {
+          afterSelectionLocked: async (selected) => {
+            dailySelected = selected
+            throw rollback
+          },
+          delay: async () => undefined,
+          jitterMilliseconds: () => 0,
+          random: () => 0
+        }),
+        () => SUBMITTED_AT
+      ).create(
+        createStudySessionV2BodySchema.parse({
+          level: 'N5',
+          subject: 'VOCABULARY',
+          mode: 'DAILY_REVIEW',
+          count: 10
+        }),
+        { kind: 'USER', userId: fixture.userId }
+      )
+    ).rejects.toThrow()
+    expect(dailySelected).toEqual([
+      {
+        questionId: fixture.questionId,
+        questionVersionId: fixture.questionVersionId
+      }
+    ])
 
     const beyondLast = listReviewQueueResponseSchema.parse(
       await queueService.listReviewQueue(

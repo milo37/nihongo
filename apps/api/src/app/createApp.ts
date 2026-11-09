@@ -46,6 +46,7 @@ import type { StudySubmissionService } from '../study/studySubmissionService.js'
 import { createStudySubmissionRoutes } from '../routes/studySubmissions.js'
 import type { WrongNoteService } from '../wrong-note/wrongNoteService.js'
 import type { WrongNoteReviewCenterService } from '../wrong-note/wrongNoteReviewCenterService.js'
+import type { WrongNoteReviewListService } from '../wrong-note/wrongNoteReviewList.js'
 import type { WrongNoteReviewQueueService } from '../wrong-note/wrongNoteReviewQueueService.js'
 import type { DashboardService } from '../dashboard/dashboardService.js'
 import type { DashboardInsightsService } from '../dashboard/dashboardInsightsService.js'
@@ -58,6 +59,7 @@ import type { BookmarkService } from '../bookmark/bookmarkService.js'
 import { createBookmarkRoutes } from '../routes/bookmarks.js'
 import type { StudyResultRetryService } from '../study/studyResultRetryService.js'
 import { createStudyResultRetryRoutes } from '../routes/studyResultRetries.js'
+import { createReviewListRoutes } from '../routes/reviewList.js'
 import { createReviewQueueRoutes } from '../routes/reviewQueue.js'
 import type { WrongNoteTargetedReviewService } from '../wrong-note/wrongNoteTargetedReviewService.js'
 import { createTargetedReviewSessionRoutes } from '../routes/targetedReviewSessions.js'
@@ -190,6 +192,8 @@ interface CreateApiAppDependencies {
     reviewCenterEnabled: boolean
     reviewCenterService: WrongNoteReviewCenterService
     reviewQueueService?: WrongNoteReviewQueueService
+    /** Two-state wrong notes (JLP-812). */
+    reviewListService?: WrongNoteReviewListService
     targetedReviewService?: WrongNoteTargetedReviewService
     wrongNoteService: WrongNoteService
   }
@@ -816,6 +820,21 @@ export const createApiApp = ({
             principalService: auth.principalService,
             rateLimiter: learning.rateLimiter,
             reviewQueueService: learning.reviewQueueService
+          })
+        )
+      }
+      if (
+        learning.reviewCenterEnabled &&
+        study !== undefined &&
+        learning.reviewListService
+      ) {
+        app.route(
+          '/api/v1/review-list',
+          createReviewListRoutes({
+            environment: auth.environment,
+            principalService: auth.principalService,
+            rateLimiter: learning.rateLimiter,
+            reviewListService: learning.reviewListService
           })
         )
       }

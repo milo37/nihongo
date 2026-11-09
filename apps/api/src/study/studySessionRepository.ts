@@ -3,8 +3,8 @@ import type { ReviewSelectionFilter } from '@nihongo/contracts/study/create-stud
 import { GUEST_DAILY_SESSION_LIMIT } from '@nihongo/contracts/study/guest-limits'
 import {
   selectBookmarkStudyCandidates,
-  selectDailyReviewStudyCandidates,
   selectRandomStudyCandidates,
+  selectToReviewStudyCandidates,
   selectWeaknessStudyCandidates,
   selectWrongNoteStudyCandidates
 } from '@nihongo/domain/selection/select-study-candidates'
@@ -21,10 +21,7 @@ import type {
   QuestionOptionRecord,
   QuestionTagRecord
 } from '../question/questionRepository.js'
-import {
-  createCurrentReviewCandidatePredicate,
-  reviewQueueStatusOrder
-} from '../review/currentReviewCandidateQuery.js'
+import { createCurrentReviewCandidatePredicate } from '../review/currentReviewCandidateQuery.js'
 import {
   MAX_TRANSACTION_ATTEMPTS,
   RETRY_BASE_DELAY_MS,
@@ -375,8 +372,7 @@ type WrongNoteCandidateRow = SelectedQuestion & {
 }
 
 type DailyReviewCandidateRow = SelectedQuestion & {
-  nextReviewAt: Date
-  status: 'NEW' | 'REVIEWING' | 'AGAIN' | 'SOLVED'
+  lastWrongAt: Date
   wrongNoteId: string
 }
 
@@ -543,7 +539,8 @@ const loadWrongNoteCandidates = async (
       ON version."questionId" = question."id"
       AND version."id" = question."currentPublishedVersionId"
     WHERE note."userId" = ${userId}::uuid
-      AND note."status" IN ('NEW', 'REVIEWING', 'AGAIN')
+      -- JLP-812: only questions to review (NEW, AGAIN).
+      AND note."status" IN ('NEW', 'AGAIN')
       AND ${createCurrentReviewCandidatePredicate({
         userId,
         level: input.level,
@@ -560,6 +557,8 @@ const loadWrongNoteCandidates = async (
     LIMIT ${input.requestedCount}
   `)
 
+// JLP-812: questions to review (NEW, AGAIN), oldest wrong answer first. The
+// review schedule is no longer read.
 const loadDailyReviewCandidates = async (
   transaction: Prisma.TransactionClient,
   input: CreateStudySessionInput,
@@ -570,17 +569,15 @@ const loadDailyReviewCandidates = async (
       note."id" AS "wrongNoteId",
       note."questionId",
       version."id" AS "questionVersionId",
-      schedule."nextReviewAt",
-      note."status"
-    FROM "ReviewSchedule" AS schedule
-    JOIN "WrongNote" AS note
-      ON note."id" = schedule."wrongNoteId"
+      note."lastWrongAt"
+    FROM "WrongNote" AS note
     JOIN "Question" AS question
       ON question."id" = note."questionId"
     JOIN "QuestionVersion" AS version
       ON version."questionId" = question."id"
       AND version."id" = question."currentPublishedVersionId"
     WHERE note."userId" = ${userId}::uuid
+      AND note."status" IN ('NEW', 'AGAIN')
       AND ${createCurrentReviewCandidatePredicate({
         userId,
         level: input.level,
@@ -590,10 +587,8 @@ const loadDailyReviewCandidates = async (
           : {}),
         ...(input.reviewFilter?.tag ? { tag: input.reviewFilter.tag } : {})
       })}
-      AND schedule."nextReviewAt" <= ${input.startedAt}
     ORDER BY
-      schedule."nextReviewAt" ASC,
-      ${reviewQueueStatusOrder} ASC,
+      note."lastWrongAt" ASC,
       note."questionId" ASC
     LIMIT ${input.requestedCount}
   `)
@@ -703,7 +698,7 @@ const selectStudyQuestions = async (
     if (owner?.kind !== 'USER') {
       return []
     }
-    return selectDailyReviewStudyCandidates(
+    return selectToReviewStudyCandidates(
       await loadDailyReviewCandidates(transaction, input, owner.id),
       input.requestedCount
     ).map(({ questionId, questionVersionId }) => ({
@@ -815,33 +810,17 @@ const updateReviewPointers = async (
   }
 
   const questionIds = ordered.map(({ questionId }) => questionId)
-  const lockedNotes =
-    input.mode === 'DAILY_REVIEW'
-      ? await transaction.$queryRaw<
-          Array<{ id: string; questionId: string }>
-        >(Prisma.sql`
-          SELECT note."id", note."questionId"
-          FROM "WrongNote" AS note
-          JOIN "ReviewSchedule" AS schedule
-            ON schedule."wrongNoteId" = note."id"
-          WHERE note."userId" = ${userId}::uuid
-            AND note."questionId" IN (${Prisma.join(questionIds)})
-            AND note."status" IN ('NEW', 'REVIEWING', 'AGAIN', 'SOLVED')
-            AND schedule."nextReviewAt" <= ${input.startedAt}
-          ORDER BY note."questionId" ASC
-          FOR UPDATE OF note, schedule
-        `)
-      : await transaction.$queryRaw<
-          Array<{ id: string; questionId: string }>
-        >(Prisma.sql`
-          SELECT note."id", note."questionId"
-          FROM "WrongNote" AS note
-          WHERE note."userId" = ${userId}::uuid
-            AND note."questionId" IN (${Prisma.join(questionIds)})
-            AND note."status" IN ('NEW', 'REVIEWING', 'AGAIN')
-          ORDER BY note."questionId" ASC
-          FOR UPDATE OF note
-        `)
+  const lockedNotes = await transaction.$queryRaw<
+    Array<{ id: string; questionId: string }>
+  >(Prisma.sql`
+    SELECT note."id", note."questionId"
+    FROM "WrongNote" AS note
+    WHERE note."userId" = ${userId}::uuid
+      AND note."questionId" IN (${Prisma.join(questionIds)})
+      AND note."status" IN ('NEW', 'AGAIN')
+    ORDER BY note."questionId" ASC
+    FOR UPDATE OF note
+  `)
   if (lockedNotes.length !== selected.length) {
     throw new StudySelectionChangedError(
       'Selected review candidate changed during session creation.'
