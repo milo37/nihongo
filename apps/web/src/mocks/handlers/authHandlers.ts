@@ -17,6 +17,10 @@ import {
 import { z } from 'zod'
 import { getCurrentPrincipalResponseSchema } from '@nihongo/contracts/auth/get-current-principal'
 import {
+  updateTargetLevelBodySchema,
+  updateTargetLevelResponseSchema
+} from '@nihongo/contracts/auth/update-target-level'
+import {
   signInSocialRequestSchema,
   ssoProviderIdSchema,
   type SsoProviderId
@@ -177,6 +181,28 @@ export const authHandlers = [
       const response = toErrorResponse(error)
       response.headers.set('Cache-Control', 'private, no-store')
       return response
+    }
+  }),
+  // JLP-815: members only; the next /me returns the same value.
+  http.put('*/api/v1/me/target-level', async ({ request }) => {
+    try {
+      const user = mockDatabase.getCurrentUser()
+      if (!user) {
+        throw new MockHttpError(
+          401,
+          'AUTHENTICATION_REQUIRED',
+          '로그인이 필요한 기능입니다.'
+        )
+      }
+      const input = await parseJsonBody(request, updateTargetLevelBodySchema)
+      return HttpResponse.json(
+        updateTargetLevelResponseSchema.parse({
+          targetLevel: mockDatabase.setTargetLevel(user.id, input.targetLevel)
+        }),
+        { headers: { 'Cache-Control': 'private, no-store' } }
+      )
+    } catch (error: unknown) {
+      return toErrorResponse(error)
     }
   }),
   http.delete('*/api/v1/guest-principal', ({ request, cookies }) => {

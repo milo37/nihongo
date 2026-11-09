@@ -179,6 +179,9 @@ export const bookmarkHandlers = [
       const requestedIds = query.questionIds ? new Set(query.questionIds) : null
       const items = mockDatabase
         .listCanonicalBookmarkSources(userId)
+        // Like the server (JLP-815): a bookmark whose question is no longer
+        // public stays stored but is not listed or counted.
+        .filter((source) => source.availability === 'AVAILABLE')
         .map(toContractBookmarkSummary)
         .filter(
           (bookmark) =>
