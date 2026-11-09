@@ -1,4 +1,4 @@
-import type { koResources } from './ko'
+import type { koCoreResources } from './ko'
 
 export type LocaleCatalog<T> = {
   [Key in keyof T]: T[Key] extends string ? string : LocaleCatalog<T[Key]>
@@ -1709,4 +1709,4 @@ export const jaCoreResources = {
   a11y: {
     japaneseContent: '日本語学習コンテンツ'
   }
-} as const satisfies LocaleCatalog<Omit<typeof koResources, 'admin'>>
+} as const satisfies LocaleCatalog<typeof koCoreResources>

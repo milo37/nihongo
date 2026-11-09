@@ -1,22 +1,6 @@
-import { koAdminAuditResources } from './ko-admin-audit'
-import { koAdminCommonResources } from './ko-admin-common'
-import { koAdminCreateResources } from './ko-admin-create'
-import { koAdminEditorResources } from './ko-admin-editor'
-import { koAdminEnumsResources } from './ko-admin-enums'
-import { koAdminErrorsResources } from './ko-admin-errors'
-import { koAdminIdleLockResources } from './ko-admin-idle-lock'
-import { koAdminImportResources } from './ko-admin-import'
-import { koAdminListResources } from './ko-admin-list'
-import { koAdminMembersResources } from './ko-admin-members'
-import { koAdminNavResources } from './ko-admin-nav'
-import { koAdminQuestionListResources } from './ko-admin-question'
-import { koAdminQuestionDetailResources } from './ko-admin-question-detail'
-import { koAdminReauthResources } from './ko-admin-reauth'
-import { koAdminReportResources } from './ko-admin-report'
-import { koAdminSharedListResources } from './ko-admin-shared-list'
 import { questionTypeLabels } from './ko-question-types'
 
-export const koResources = {
+export const koCoreResources = {
   common: {
     appName: '하루마루',
     tagline: '풀고, 남기고, 다시',
@@ -1637,44 +1621,6 @@ export const koResources = {
       privacyLink: '개인정보 처리방침 보기',
       manageLink: '마이페이지에서 계정 관리하기'
     }
-  },
-  admin: {
-    name: '관리자',
-    reauth: koAdminReauthResources,
-    grid: koAdminListResources,
-    adminList: koAdminSharedListResources,
-    nav: koAdminNavResources,
-    members: koAdminMembersResources,
-    idleLock: koAdminIdleLockResources,
-    common: koAdminCommonResources,
-    enums: koAdminEnumsResources,
-    errors: koAdminErrorsResources,
-    questionList: koAdminQuestionListResources,
-    create: koAdminCreateResources,
-    editor: koAdminEditorResources,
-    questionDetail: koAdminQuestionDetailResources,
-    import: koAdminImportResources,
-    audit: koAdminAuditResources,
-    questionReportDialog: {
-      trigger: '문제 신고',
-      title: '문제 신고',
-      description: '신고 내용은 관리자만 확인해요.',
-      details: '설명',
-      descriptionRequired: '신고 설명을 입력해 주세요.',
-      cancel: '취소',
-      submit: '신고 접수',
-      sent: '신고를 보냈어요.',
-      error: '문제 신고를 접수하지 못했어요.',
-      offline: '오프라인이에요. 작성한 설명은 그대로 남아 있어요.',
-      appErrorTrigger: '앱 오류 제보',
-      errorScreenTrigger: '오류 제보',
-      appErrorTitle: '앱 오류 제보',
-      appErrorDescription:
-        '어떤 화면에서 무엇을 하다가 문제가 생겼는지 적어 주세요. 제보 내용은 관리자만 확인해요.',
-      appErrorSent: '오류 제보를 보냈어요.',
-      appErrorError: '앱 오류 제보를 접수하지 못했어요.'
-    },
-    userReport: koAdminReportResources
   },
   errors: {
     forbidden: {
