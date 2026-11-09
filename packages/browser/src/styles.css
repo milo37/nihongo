@@ -2173,6 +2173,13 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
   font-size: 0.875rem;
   color: rgb(var(--color-success-strong));
 }
+.review-options li.is-mine {
+  border-color: rgb(var(--color-danger));
+  background: rgb(var(--color-danger-soft));
+}
+.review-options li.is-mine strong {
+  color: rgb(var(--color-danger));
+}
 .review-explanation {
   margin-top: 28px;
   padding: 24px 0;

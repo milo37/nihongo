@@ -1,7 +1,9 @@
 import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
-import type { ReactElement } from 'react'
+import type { KeyboardEvent, ReactElement } from 'react'
+import { jlptLevelSchema } from '@nihongo/contracts/common/enum'
+import type { WrongNoteReviewState } from '@nihongo/contracts/wrong-note/list-review-list'
 import {
   Button,
   getButtonClassName
@@ -10,12 +12,12 @@ import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import { Pagination } from '@nihongo/browser/common/components/Pagination'
+import { AccountRestrictedNotice } from '@common/components/AccountRestrictedNotice'
 import { GuestReview } from '@app/wrong-note/center/GuestReview'
-import { RecentResultsDisclosure } from '@app/wrong-note/center/RecentResultsDisclosure'
-import { ReviewQueueFilters } from '@app/wrong-note/center/ReviewQueueFilters'
-import { ReviewQueueItem } from '@app/wrong-note/center/ReviewQueueItem'
-import { useReviewCenterController } from '@app/wrong-note/hooks/useReviewCenterController'
-import { createReviewQueueSearch } from '@app/wrong-note/reviewQueueSearch'
+import { ReviewListItem } from '@app/wrong-note/center/ReviewListItem'
+import { useReviewListController } from '@app/wrong-note/hooks/useReviewListController'
+import { useStartReview } from '@app/wrong-note/hooks/useStartReview'
+import { createReviewListSearch } from '@app/wrong-note/reviewListSearch'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 import {
@@ -23,151 +25,211 @@ import {
   formatNumber
 } from '@nihongo/browser/libs/localeFormatters'
 import { useTrackWrongNoteOpened } from '@/analytics/client'
-import { AppErrorReportButton } from '@app/question-report/components/AppErrorReportDialog'
+
+const STATES: readonly WrongNoteReviewState[] = ['TO_REVIEW', 'REVIEWED']
+const TAB_KEYS = { TO_REVIEW: 'toReview', REVIEWED: 'reviewed' } as const
 
 const MemberReview = (): ReactElement => {
   useTrackWrongNoteOpened('REVIEW_CENTER')
   const { i18n, t } = useTranslation('wrongNote')
-  const { t: commonT } = useTranslation('common')
   const locale = resolveUiLocale(i18n.resolvedLanguage)
-  const count = (value: number): string => formatNumber(value, locale)
   const date = (value: string): string =>
-    formatDateTime(value, locale, { dateStyle: 'medium' })
-  const resultHeading = useRef<HTMLHeadingElement>(null)
-  const heading = useRef<HTMLHeadingElement>(null)
+    formatDateTime(value, locale, { month: 'long', day: 'numeric' })
+  const tabs = useRef(new Map<WrongNoteReviewState, HTMLButtonElement>())
   const rowLinks = useRef(new Map<string, HTMLAnchorElement>())
-  const center = useReviewCenterController({
-    heading,
-    resultHeading,
-    rowLinks
-  })
-  const { correcting, isEmptyPlaceholder, query, queue } = center
+  const center = useReviewListController(rowLinks)
+  const { counts, empty, list, query } = center
+  const review = useStartReview(() => void list.refetch())
+  const canStart =
+    query.state === 'TO_REVIEW' && Boolean(list.data?.counts.toReview)
+  const isLoading =
+    (list.isPending || !counts || center.correcting) &&
+    list.fetchStatus !== 'paused' &&
+    !list.isError
+
+  const onTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>): void => {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+    event.preventDefault()
+    const next = query.state === 'TO_REVIEW' ? 'REVIEWED' : 'TO_REVIEW'
+    center.setQuery({ state: next })
+    tabs.current.get(next)?.focus()
+  }
+
+  const startButton = (className: string): ReactElement => (
+    <Button
+      className={className}
+      disabled={!list.data?.oldestToReview || list.isFetching}
+      isLoading={review.isPending}
+      onClick={() => review.start(list.data?.oldestToReview ?? null)}
+    >
+      {t('start')}
+    </Button>
+  )
+  const startNew = (
+    <Link className={getButtonClassName()} to="/practice">
+      {t('empty.startNew')}
+    </Link>
+  )
 
   return (
-    <section className="review-hub">
-      <h1 ref={heading} className="review-title" tabIndex={-1}>
-        {t('integration.title')}
-      </h1>
-      <ReviewQueueFilters
-        expanded={center.expanded}
-        hasAdvancedFilters={center.hasAdvancedFilters}
-        onChange={(key, value) => center.setValue(key, value)}
-        onReset={center.reset}
-        onToggleAdvanced={center.toggleAdvanced}
-        query={query}
-        visibleTags={center.visibleTags}
-      />
-      {queue.fetchStatus === 'paused' ? (
-        <p className="review-notice" role="status">
-          {t('center.states.offline')}
-        </p>
-      ) : null}
-      {((queue.isPending || isEmptyPlaceholder) &&
-        queue.fetchStatus !== 'paused') ||
-      correcting ? (
-        <LoadingState
-          message={t(
-            correcting
-              ? 'center.states.correctingPage'
-              : 'center.states.loading'
-          )}
-        />
-      ) : null}
-      {queue.isError ? (
-        <ErrorState
-          title={t(
-            queue.data ? 'center.states.stale' : 'center.states.errorTitle'
-          )}
-          description={t('center.states.errorDescription')}
-          action={
-            <div className="flex flex-wrap gap-2">
-              <Button onClick={center.retry}>{commonT('actions.retry')}</Button>
-              <AppErrorReportButton />
-            </div>
-          }
-        />
-      ) : null}
-      {queue.data && !isEmptyPlaceholder && !correcting ? (
-        <>
-          <div className="review-results-heading">
-            <h2 ref={resultHeading} tabIndex={-1}>
-              {t('integration.count', {
-                formattedCount: count(queue.data.total)
+    <section className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
+      <h1 className="text-2xl font-bold text-ink">{t('title')}</h1>
+      <div
+        role="tablist"
+        aria-label={t('title')}
+        className="mt-4 grid grid-cols-2 border-b border-line"
+      >
+        {STATES.map((state) => {
+          const selected = query.state === state
+          return (
+            <button
+              key={state}
+              ref={(node) => {
+                if (node) tabs.current.set(state, node)
+                else tabs.current.delete(state)
+              }}
+              id={`review-tab-${state}`}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              aria-controls="review-panel"
+              tabIndex={selected ? 0 : -1}
+              className={`-mb-px min-h-12 border-b-[3px] text-[15px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand ${
+                selected
+                  ? 'border-brand font-bold text-ink'
+                  : 'border-transparent font-semibold text-muted'
+              }`}
+              onClick={() => center.setQuery({ state })}
+              onKeyDown={onTabKeyDown}
+            >
+              {t(`tabs.${TAB_KEYS[state]}`, {
+                count: counts?.[TAB_KEYS[state]] ?? 0,
+                formattedCount: formatNumber(
+                  counts?.[TAB_KEYS[state]] ?? 0,
+                  locale
+                )
               })}
-            </h2>
-            <p>{t(`integration.sort.${query.sort}`)}</p>
+            </button>
+          )
+        })}
+      </div>
+      <div
+        id="review-panel"
+        role="tabpanel"
+        aria-labelledby={`review-tab-${query.state}`}
+      >
+        <p className="mt-3 text-sm text-muted">{t('rule')}</p>
+        {center.showLevels ? (
+          <div
+            role="group"
+            aria-label={t('levelLabel')}
+            className="mt-4 flex flex-wrap gap-2"
+          >
+            {[undefined, ...jlptLevelSchema.options].map((level) => {
+              const selected = query.level === level
+              return (
+                <button
+                  key={level ?? 'all'}
+                  type="button"
+                  aria-pressed={selected}
+                  className={`relative min-h-9 rounded-full border px-3 text-sm before:absolute before:-inset-1 before:content-[''] focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand ${
+                    selected
+                      ? 'border-brand-strong bg-brand-soft font-bold text-ink'
+                      : 'border-line bg-surface font-semibold text-muted'
+                  }`}
+                  onClick={() => center.setQuery({ level })}
+                >
+                  {level ?? t('levelAll')}
+                </button>
+              )
+            })}
           </div>
-          {queue.data.items.length ? (
-            <ol className="review-items" aria-busy={queue.isFetching}>
-              {queue.data.items.map((item) => (
-                <ReviewQueueItem
-                  key={item.questionId}
-                  item={item}
-                  returnTo={center.returnTo}
-                  linkRef={(node) => {
-                    if (node) rowLinks.current.set(item.questionId, node)
-                    else rowLinks.current.delete(item.questionId)
-                  }}
-                />
-              ))}
-            </ol>
-          ) : (
-            <EmptyState
-              title={t(`integration.${center.emptyVariant}.title`)}
-              description={t(`integration.${center.emptyVariant}.description`)}
-              action={
-                <div className="review-empty-actions">
-                  {center.hasFilters ? (
-                    <Button onClick={center.reset}>
-                      {t('integration.reset')}
-                    </Button>
-                  ) : !center.allEmpty ? (
-                    <Button
-                      variant="outline"
-                      onClick={() =>
-                        center.setValue(
-                          'view',
-                          query.view === 'DUE' ? 'UNREVIEWED' : 'DUE',
-                          true
-                        )
-                      }
-                    >
-                      {t(
-                        query.view === 'DUE'
-                          ? 'integration.views.UNREVIEWED'
-                          : 'integration.views.DUE'
-                      )}
-                    </Button>
-                  ) : null}
-                  <Link className={getButtonClassName()} to="/practice">
-                    {t('integration.start')}
-                  </Link>
-                </div>
-              }
-            />
-          )}
-          {queue.data.total > 0 ? (
-            <Pagination
-              currentPage={queue.data.page}
-              totalPages={center.totalPages}
-              requestedPage={query.page}
-              disabled={
-                queue.isFetching ||
-                queue.isError ||
-                queue.isPlaceholderData ||
-                queue.fetchStatus === 'paused'
-              }
-              className="review-pagination"
-              onPageChange={(page) => center.setValue('page', page)}
-              getPageHref={(page) =>
-                `?${createReviewQueueSearch({ ...query, page }).toString()}`
-              }
-              label={t('center.results.pagination')}
-            />
-          ) : null}
-        </>
-      ) : null}
-      <RecentResultsDisclosure formatCount={count} formatDate={date} />
+        ) : null}
+        {canStart ? startButton('mt-4 min-h-12 w-full sm:hidden') : null}
+        {list.fetchStatus === 'paused' ? (
+          <p className="mt-4 text-sm font-semibold text-muted" role="status">
+            {t('center.states.offline')}
+          </p>
+        ) : null}
+        {review.notice === 'accountRestricted' ? (
+          <AccountRestrictedNotice className="mt-4" focusOnMount />
+        ) : review.notice ? (
+          <p className="mt-4 text-sm font-semibold text-danger" role="alert">
+            {t(review.notice === 'empty' ? 'startEmpty' : 'startError')}
+          </p>
+        ) : null}
+        {isLoading ? (
+          <LoadingState message={t('center.states.loading')} />
+        ) : null}
+        {list.isError ? (
+          <ErrorState
+            className="mt-6"
+            title={t('loadError')}
+            description={t('center.states.errorDescription')}
+            action={
+              <Button onClick={() => void list.refetch()}>{t('retry')}</Button>
+            }
+          />
+        ) : null}
+        {list.data && !isLoading && !list.isError ? (
+          <>
+            {canStart ? (
+              <div className="mt-6 hidden justify-end sm:flex">
+                {startButton('min-h-10')}
+              </div>
+            ) : null}
+            {list.data.items.length ? (
+              <ol className="mt-2" aria-busy={list.isFetching}>
+                {list.data.items.map((item) => (
+                  <ReviewListItem
+                    key={item.questionId}
+                    item={item}
+                    formatDate={date}
+                    returnTo={center.returnTo}
+                    linkRef={(node) => {
+                      if (node) rowLinks.current.set(item.questionId, node)
+                      else rowLinks.current.delete(item.questionId)
+                    }}
+                  />
+                ))}
+              </ol>
+            ) : empty === 'levelNone' ? (
+              <div className="mt-8 flex flex-col items-start gap-3">
+                <p className="text-base text-ink">
+                  {t('empty.levelNone', { level: query.level })}
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => center.setQuery({ level: undefined })}
+                >
+                  {t('empty.showAll')}
+                </Button>
+              </div>
+            ) : empty ? (
+              <EmptyState
+                className="mt-8"
+                title={t(`empty.${empty}.title`)}
+                description={t(`empty.${empty}.body`)}
+                action={empty === 'noReviewed' ? startButton('') : startNew}
+              />
+            ) : null}
+            {center.totalPages > 1 ? (
+              <Pagination
+                currentPage={list.data.page}
+                totalPages={center.totalPages}
+                requestedPage={query.page}
+                disabled={list.isFetching || list.isPlaceholderData}
+                className="mt-6"
+                onPageChange={(page) => center.setQuery({ page })}
+                getPageHref={(page) =>
+                  `?${createReviewListSearch({ ...query, page }).toString()}`
+                }
+                label={t('center.results.pagination')}
+              />
+            ) : null}
+          </>
+        ) : null}
+      </div>
     </section>
   )
 }

@@ -53,6 +53,10 @@ import { createPrismaWrongNoteReviewCenterRepository } from '../wrong-note/wrong
 import { createWrongNoteReviewCenterService } from '../wrong-note/wrongNoteReviewCenterService.js'
 import { createPrismaWrongNoteReviewQueueRepository } from '../wrong-note/wrongNoteReviewQueueRepository.js'
 import { createWrongNoteReviewQueueService } from '../wrong-note/wrongNoteReviewQueueService.js'
+import {
+  createPrismaWrongNoteReviewListRepository,
+  createWrongNoteReviewListService
+} from '../wrong-note/wrongNoteReviewList.js'
 import { createPrismaWrongNoteTargetedReviewRepository } from '../wrong-note/wrongNoteTargetedReviewRepository.js'
 import { createWrongNoteTargetedReviewService } from '../wrong-note/wrongNoteTargetedReviewService.js'
 import { createPrismaDashboardRepository } from '../dashboard/dashboardRepository.js'
@@ -495,6 +499,9 @@ export const createBrowserApi = async ({
         reviewCenterEnabled: true,
         reviewCenterService: createWrongNoteReviewCenterService(
           createPrismaWrongNoteReviewCenterRepository(database.client)
+        ),
+        reviewListService: createWrongNoteReviewListService(
+          createPrismaWrongNoteReviewListRepository(database.client)
         ),
         reviewQueueService: createWrongNoteReviewQueueService(
           createPrismaWrongNoteReviewQueueRepository(database.client)

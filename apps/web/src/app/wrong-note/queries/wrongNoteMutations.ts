@@ -1,8 +1,6 @@
 import { mutationOptions } from '@tanstack/react-query'
 import { isApiError } from '@nihongo/browser/api/config'
 import { createTargetedReviewSession } from '@api/wrong-note/createTargetedReviewSession'
-import { updateWrongNoteMemoV1 } from '@api/wrong-note/updateWrongNoteMemoV1'
-import type { ParsedUpdateWrongNoteMemoBody } from '@api/wrong-note/updateWrongNoteMemoV1/schema'
 import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
 import {
   clearTargetedReviewAttempt,
@@ -11,8 +9,6 @@ import {
 } from '@nihongo/browser/app/wrong-note/targetedReviewAttemptStorage'
 import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
 import { createObjectAuthBoundActionFence } from '@nihongo/browser/libs/authTransitionFence'
-
-export type UpdateMemoActionInput = ParsedUpdateWrongNoteMemoBody
 
 export interface CreateTargetedReviewActionInput {
   readonly principalScope: string
@@ -24,17 +20,12 @@ export interface CreateTargetedReviewActionResult {
   readonly session: ReturnType<typeof toCanonicalStudySessionView>
 }
 
-const memoActionFence =
-  createObjectAuthBoundActionFence<UpdateMemoActionInput>()
 const targetedActionFence =
   createObjectAuthBoundActionFence<CreateTargetedReviewActionInput>()
 const targetedAttemptByInput = new WeakMap<
   CreateTargetedReviewActionInput,
   TargetedReviewAttempt
 >()
-
-export const assertCurrentMemoAction = (input: UpdateMemoActionInput): void =>
-  memoActionFence.assertCurrent(input)
 
 export const assertCurrentTargetedReviewAction = (
   input: CreateTargetedReviewActionInput
@@ -94,23 +85,6 @@ export const requestTargetedReviewAction = async (
 }
 
 export const wrongNoteMutations = {
-  updateMemo: (questionId: string) =>
-    mutationOptions({
-      mutationKey: [
-        ...serverStateQueryKeys.wrongNote.memo(questionId),
-        'update'
-      ] as const,
-      networkMode: 'always',
-      meta: { localErrorUi: true },
-      onMutate: (input: UpdateMemoActionInput) =>
-        memoActionFence.capture(input),
-      mutationFn: async (input: UpdateMemoActionInput) => {
-        assertCurrentMemoAction(input)
-        const memo = await updateWrongNoteMemoV1(questionId, input)
-        assertCurrentMemoAction(input)
-        return memo
-      }
-    }),
   createTargetedReview: () =>
     mutationOptions({
       mutationKey: [

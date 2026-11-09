@@ -1,6 +1,5 @@
 import { commitCanonicalAuth } from '@nihongo/browser/app/login/authSession'
 import { submitStudyAnswers } from '@/test/studySubmission'
-import { appI18n } from '@nihongo/browser/i18n/config'
 import { createStudySessionV2 } from '@api/study/createStudySessionV2'
 import { submitStudySessionV2 } from '@api/study/submitStudySessionV2'
 import { getStudyDraftAnswers } from '@api/study/getStudyDraftAnswers'
@@ -183,8 +182,10 @@ describe('detail page error semantics', () => {
         name: '\uC0C1\uC138 \uB2E4\uC2DC \uD655\uC778'
       })
     )
+    // The question text is the detail page's title (JLP-812).
     const detailHeading = await screen.findByRole('heading', {
-      name: appI18n.t('wrongNote:integration.detail')
+      level: 1,
+      name: detail.question.questionText
     })
     await vi.waitFor(() => expect(detailHeading).toHaveFocus())
     expect(requestCount).toBe(2)
