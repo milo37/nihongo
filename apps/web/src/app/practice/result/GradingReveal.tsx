@@ -1,5 +1,4 @@
 import { useEffect, useId, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import type { CSSProperties, ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
@@ -49,7 +48,7 @@ export const GradingReveal = ({
     instant ? 'done' : 'checking'
   )
   const timers = useRef<number[]>([])
-  const root = useRef<HTMLDivElement>(null)
+  const root = useRef<HTMLDialogElement>(null)
   const closeButton = useRef<HTMLButtonElement>(null)
   const titleId = useId()
   const isDone = phase === 'done'
@@ -87,23 +86,23 @@ export const GradingReveal = ({
     if (isDone) closeButton.current?.focus()
   }, [isDone])
 
-  // Modal: everything behind the overlay is inert while it is open.
+  // Native modal: the top layer makes everything behind it inert.
   useEffect(() => {
-    const background = Array.from(document.body.children).filter(
-      (node) => node !== root.current && !node.hasAttribute('inert')
-    )
-    background.forEach((node) => node.setAttribute('inert', ''))
-    return () => background.forEach((node) => node.removeAttribute('inert'))
+    const dialog = root.current
+    if (!dialog) return
+    if (typeof dialog.showModal === 'function') dialog.showModal()
+    else dialog.setAttribute('open', '')
+    return () => {
+      if (typeof dialog.close === 'function') dialog.close()
+    }
   }, [])
 
   const formatNumber = (value: number): string =>
     new Intl.NumberFormat(i18n.resolvedLanguage).format(value)
 
-  return createPortal(
-    <div
+  return (
+    <dialog
       ref={root}
-      role="dialog"
-      aria-modal="true"
       aria-labelledby={titleId}
       className="grading-reveal"
       data-done={isDone || undefined}
@@ -112,6 +111,8 @@ export const GradingReveal = ({
       onPointerDown={(event) => {
         if (!isDone && !(event.target as Element).closest('button')) finish()
       }}
+      // Escape is handled in onKeyDown (skip first, then close).
+      onCancel={(event) => event.preventDefault()}
       onKeyDown={(event) => {
         if (!isDone) {
           event.preventDefault()
@@ -191,7 +192,6 @@ export const GradingReveal = ({
           {t('grading.showResult')}
         </Button>
       ) : null}
-    </div>,
-    document.body
+    </dialog>
   )
 }
