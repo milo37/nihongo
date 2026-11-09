@@ -19,6 +19,11 @@ import {
   listReviewQueueResponseSchema
 } from '@nihongo/contracts/wrong-note/list-review-queue'
 import {
+  listReviewListErrorSchema,
+  listReviewListQuerySchema,
+  listReviewListResponseSchema
+} from '@nihongo/contracts/wrong-note/list-review-list'
+import {
   createUpdateWrongNoteMemoResponseSchema,
   updateWrongNoteMemoBodySchema,
   updateWrongNoteMemoErrorSchema,
@@ -448,6 +453,29 @@ export const reviewCenterHandlers = [
       return errorResponse(
         listReviewQueueErrorSchema,
         normalizeError(error, requestId, '복습 대기열을 불러오지 못했습니다.')
+      )
+    }
+  }),
+  http.get('*/api/v1/review-list', ({ request }) => {
+    const requestId = crypto.randomUUID()
+    try {
+      consumeReviewCenterRateLimit('wrong-note-review-list', 120)
+      const query = parseSearchParams(
+        request,
+        listReviewListQuerySchema,
+        '오답노트 조회 조건이 올바르지 않습니다.'
+      )
+      const userId = requireUserId('오답노트를 보려면 로그인이 필요합니다.')
+      const response = listReviewListResponseSchema.parse(
+        mockDatabase.listCanonicalReviewList(userId, query)
+      )
+      return HttpResponse.json(response, {
+        headers: responseHeaders(requestId)
+      })
+    } catch (error: unknown) {
+      return errorResponse(
+        listReviewListErrorSchema,
+        normalizeError(error, requestId, '오답노트를 불러오지 못했습니다.')
       )
     }
   }),

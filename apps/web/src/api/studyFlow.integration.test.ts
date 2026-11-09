@@ -121,6 +121,40 @@ describe('MSW 학습 API 흐름', () => {
     ).toBe(true)
   })
 
+  it('방금 틀린 문제로 바로 복습(DAILY_REVIEW)을 시작한다', async () => {
+    await signInMockAccount()
+    const {
+      data: { session, questions }
+    } = await createStudySessionV2({
+      level: 'N4',
+      subject: 'GRAMMAR',
+      mode: 'RANDOM',
+      count: 3
+    })
+    const draft = (await getStudyDraftAnswers(session.id)).data
+    await submitStudySessionV2(
+      session.id,
+      {
+        answers: draft.answers,
+        durationSec: 0,
+        expectedDraftRevision: draft.revision
+      },
+      crypto.randomUUID()
+    )
+    // Like the server (#789): NEW and AGAIN notes are due at once.
+    const { data: review } = await createStudySessionV2({
+      level: 'N4',
+      subject: 'GRAMMAR',
+      mode: 'DAILY_REVIEW',
+      count: 10
+    })
+    const wrongIds = new Set(questions.map(({ question }) => question.id))
+    expect(review.session.actualCount).toBe(questions.length)
+    expect(
+      review.questions.every(({ question }) => wrongIds.has(question.id))
+    ).toBe(true)
+  })
+
   it('세션에 속하지 않은 답안은 검증 오류로 분류한다', async () => {
     await signInMockAccount()
     const input = {

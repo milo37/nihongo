@@ -48,6 +48,12 @@ import {
   type ParsedListReviewQueueQuery,
   type ReviewQueueItem
 } from '@nihongo/contracts/wrong-note/list-review-queue'
+import {
+  toWrongNoteReviewState,
+  type ListReviewListResponse,
+  type ParsedListReviewListQuery,
+  type ReviewListItem
+} from '@nihongo/contracts/wrong-note/list-review-list'
 import type { ReviewEventHistoryItem } from '@nihongo/contracts/wrong-note/list-review-events'
 import type { UserMemo } from '@nihongo/contracts/wrong-note/user-memo'
 import {
@@ -106,8 +112,8 @@ import {
 import { toVersionedContractStudySessionPayload } from '@mocks/adapters/studySessionContractAdapter'
 import {
   selectBookmarkStudyCandidates,
-  selectDailyReviewStudyCandidates,
   selectRandomStudyCandidates,
+  selectToReviewStudyCandidates,
   selectWeaknessStudyCandidates,
   selectWrongNoteStudyCandidates
 } from '@mocks/adapters/studyCandidateSelection'
@@ -2713,6 +2719,73 @@ export class MockDatabase {
     })
   }
 
+  listCanonicalReviewList(
+    userId: string,
+    query: ParsedListReviewListQuery
+  ): ListReviewListResponse {
+    this.assertCanonicalReadOwner(userId)
+    const currentQuestions =
+      this.buildLearnerQuestionReadModel().currentBySourceId
+    const candidates = this.reconstructCanonicalWrongNotes(userId).flatMap(
+      (note): ReviewListItem[] => {
+        const question = currentQuestions.get(note.sourceQuestionId)
+        if (
+          !question ||
+          question.status !== 'PUBLISHED' ||
+          (query.level !== undefined && question.level !== query.level)
+        ) {
+          return []
+        }
+        const characters = [...question.questionText]
+        return [
+          {
+            questionId: getCanonicalQuestionId(question),
+            currentQuestionVersionId: getCanonicalQuestionVersionId(question),
+            level: question.level,
+            subject: question.subject,
+            questionType: question.questionType,
+            questionPreview:
+              characters.length <= 160
+                ? question.questionText
+                : `${characters.slice(0, 157).join('')}...`,
+            reviewState: toWrongNoteReviewState(note.status),
+            wrongCount: note.wrongCount,
+            lastWrongAt: note.lastWrongAt,
+            lastReviewedAt: note.lastReviewedAt
+          }
+        ]
+      }
+    )
+    const byState = (state: ReviewListItem['reviewState']) =>
+      candidates.filter((item) => item.reviewState === state)
+    const toReview = byState('TO_REVIEW')
+    const reviewed = byState('REVIEWED')
+    const latest =
+      (key: 'lastWrongAt' | 'lastReviewedAt') =>
+      (left: ReviewListItem, right: ReviewListItem): number =>
+        (right[key] ?? '').localeCompare(left[key] ?? '') ||
+        left.questionId.localeCompare(right.questionId)
+    const selected =
+      query.state === 'TO_REVIEW'
+        ? toReview.toSorted(latest('lastWrongAt'))
+        : reviewed.toSorted(latest('lastReviewedAt'))
+    const oldest = toReview.toSorted(latest('lastWrongAt')).at(-1)
+    const offset = (query.page - 1) * query.pageSize
+
+    return clone({
+      items: selected.slice(offset, offset + query.pageSize),
+      page: query.page,
+      pageSize: query.pageSize,
+      total: selected.length,
+      state: query.state,
+      counts: { toReview: toReview.length, reviewed: reviewed.length },
+      oldestToReview: oldest
+        ? { level: oldest.level, subject: oldest.subject }
+        : null,
+      observedAt: this.now()
+    })
+  }
+
   getCanonicalUserMemo(
     userId: string,
     contractQuestionId: string
@@ -4057,45 +4130,38 @@ export class MockDatabase {
         })
       }
 
-      const observedAtMs = Date.parse(observedAt)
+      // Same as the server (#789): every NEW or AGAIN note is due now; the
+      // review date no longer gates the start.
       const sourceByContractQuestionId = new Map<string, string>()
       const candidates = new Map<
         string,
-        {
-          questionId: string
-          questionVersionId: string
-          nextReviewAt: Date
-          status: WrongNoteStatus
-        }
+        { questionId: string; questionVersionId: string; lastWrongAt: Date }
       >()
       for (const note of canonicalNotes.values()) {
         const question = eligibleById.get(note.sourceQuestionId)
-        const nextReviewAtMs = Date.parse(note.nextReviewAt)
-        if (question && nextReviewAtMs <= observedAtMs) {
+        if (question && (note.status === 'NEW' || note.status === 'AGAIN')) {
           const contractQuestionId = getCanonicalQuestionId(question)
           sourceByContractQuestionId.set(contractQuestionId, question.id)
           candidates.set(contractQuestionId, {
             ...toPin(question),
             questionId: contractQuestionId,
-            nextReviewAt: new Date(nextReviewAtMs),
-            status: note.status
+            lastWrongAt: new Date(note.lastWrongAt)
           })
         }
       }
-      return selectDailyReviewStudyCandidates(
-        [...candidates.values()],
-        count
-      ).map(({ questionId }) => {
-        const sourceQuestionId = sourceByContractQuestionId.get(questionId)
-        if (!sourceQuestionId) {
-          throw new MockDatabaseError(
-            'PERSISTENCE_FAILED',
-            500,
-            'DAILY_REVIEW 후보의 stable Question ID를 복원할 수 없습니다.'
-          )
+      return selectToReviewStudyCandidates([...candidates.values()], count).map(
+        ({ questionId }) => {
+          const sourceQuestionId = sourceByContractQuestionId.get(questionId)
+          if (!sourceQuestionId) {
+            throw new MockDatabaseError(
+              'PERSISTENCE_FAILED',
+              500,
+              'DAILY_REVIEW 후보의 stable Question ID를 복원할 수 없습니다.'
+            )
+          }
+          return sourceQuestionId
         }
-        return sourceQuestionId
-      })
+      )
     })()
 
     const questions = selectedQuestionIds.flatMap((questionId) => {

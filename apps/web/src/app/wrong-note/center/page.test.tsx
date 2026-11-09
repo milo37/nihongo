@@ -8,8 +8,14 @@ import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { listReviewQueueResultSchema } from '@api/wrong-note/listReviewQueue/schema'
+import type { ListReviewListResponse } from '@nihongo/contracts/wrong-note/list-review-list'
+import { listReviewListResultSchema } from '@api/wrong-note/listReviewList/schema'
 import { WrongNoteReviewCenterPage } from '@app/wrong-note/center/page'
+import {
+  getSafeWrongNoteReturnTo,
+  toReviewListSearch
+} from '@app/wrong-note/wrongNoteReturnTo'
+import { appI18n } from '@nihongo/browser/i18n/config'
 import { mockServer } from '@/test/server'
 
 const auth = vi.hoisted(() => ({
@@ -19,39 +25,48 @@ const auth = vi.hoisted(() => ({
 vi.mock('@nihongo/browser/provider/ProtectedRouteProvider', () => ({
   useAuth: () => ({ ...auth, isReady: true })
 }))
-// The approved baseline has no contracts/testing export; validate a local fixture.
-const queue = listReviewQueueResultSchema.parse({
-  items: [
-    {
-      questionId: crypto.randomUUID(),
-      currentQuestionVersionId: crypto.randomUUID(),
-      level: 'N5',
-      subject: 'VOCABULARY',
-      questionType: 'KANJI_READING',
-      questionPreview: '「川」의 읽는 법은 어느 것입니까.',
-      tags: ['한자 읽기'],
-      status: 'AGAIN',
-      wrongCount: 2,
-      correctStreak: 0,
-      lastWrongAt: '2026-08-21T02:00:00.000Z',
-      lastReviewedAt: '2026-08-21T02:00:00.000Z',
-      nextReviewAt: '2026-08-22T02:00:00.000Z',
-      hasMemo: true
-    }
-  ],
-  page: 1,
-  pageSize: 20,
-  total: 1,
-  counts: { due: 1, unreviewed: 0, repeated: 1, solved: 0 },
-  availableTags: ['한자 읽기'],
-  observedAt: '2026-08-22T03:00:00.000Z'
-})
-const empty = {
-  ...queue,
-  items: [],
-  total: 0,
-  counts: { due: 0, unreviewed: 0, repeated: 0, solved: 0 }
-}
+
+const t = (key: string, options?: Record<string, unknown>): string =>
+  appI18n.t(`wrongNote:${key}`, options)
+
+const toReviewItem = {
+  questionId: crypto.randomUUID(),
+  currentQuestionVersionId: crypto.randomUUID(),
+  level: 'N5',
+  subject: 'VOCABULARY',
+  questionType: 'KANJI_READING',
+  questionPreview: '「川」의 읽는 법은 어느 것입니까.',
+  reviewState: 'TO_REVIEW',
+  wrongCount: 3,
+  lastWrongAt: '2026-11-06T02:00:00.000Z',
+  lastReviewedAt: null
+} as const
+const reviewedItem = {
+  ...toReviewItem,
+  questionId: crypto.randomUUID(),
+  questionPreview: '「山」의 읽는 법은 어느 것입니까.',
+  reviewState: 'REVIEWED',
+  wrongCount: 1,
+  lastReviewedAt: '2026-11-08T02:00:00.000Z'
+} as const
+
+const page = (
+  state: 'TO_REVIEW' | 'REVIEWED',
+  counts: { toReview: number; reviewed: number },
+  items: unknown[] = []
+): ListReviewListResponse =>
+  listReviewListResultSchema.parse({
+    items,
+    page: 1,
+    pageSize: 20,
+    total: state === 'TO_REVIEW' ? counts.toReview : counts.reviewed,
+    state,
+    counts,
+    oldestToReview:
+      counts.toReview > 0 ? { level: 'N4', subject: 'GRAMMAR' } : null,
+    observedAt: '2026-11-09T03:00:00.000Z'
+  })
+
 const mount = (
   initialEntry = '/wrong-notes',
   state?: { reviewFocus: string }
@@ -59,368 +74,210 @@ const mount = (
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
   })
+  const [pathname, search] = initialEntry.split('?')
   const router = createMemoryRouter(
-    [{ path: '/wrong-notes', element: <WrongNoteReviewCenterPage /> }],
+    [
+      { path: '/wrong-notes', element: <WrongNoteReviewCenterPage /> },
+      { path: '/practice/session/:id', element: <h1>세션 도착</h1> }
+    ],
     {
       initialEntries: [
-        {
-          pathname: initialEntry.split('?')[0],
-          search: initialEntry.includes('?')
-            ? `?${initialEntry.split('?')[1]}`
-            : '',
-          state
-        }
+        { pathname: pathname!, search: search ? `?${search}` : '', state }
       ]
     }
   )
-  const rendered = render(
+  render(
     <QueryClientProvider client={client}>
       <RouterProvider router={router} />
     </QueryClientProvider>
   )
-  return { client, router, ...rendered }
+  return { router }
 }
-const serve = (): void => {
+
+type Responder = (query: URLSearchParams) => ListReviewListResponse
+const serve = (respond: Responder): URLSearchParams[] => {
+  const seen: URLSearchParams[] = []
   mockServer.use(
-    http.get('*/api/v1/review-queue', () => HttpResponse.json(queue))
+    http.get('*/api/v1/review-list', ({ request }) => {
+      const query = new URL(request.url).searchParams
+      seen.push(query)
+      return HttpResponse.json(respond(query))
+    })
   )
+  return seen
 }
+const serveDefault = (): URLSearchParams[] =>
+  serve((query) =>
+    query.get('state') === 'REVIEWED'
+      ? page('REVIEWED', { toReview: 1, reviewed: 1 }, [reviewedItem])
+      : page('TO_REVIEW', { toReview: 1, reviewed: 1 }, [toReviewItem])
+  )
 
 afterEach(() => {
   onlineManager.setOnline(true)
   auth.role = 'USER'
   vi.restoreAllMocks()
 })
-describe('approved integrated review', () => {
-  it('uses native range and URL filters without offering a bulk session', async () => {
-    const seen: string[] = []
+
+describe('wrong note in two states', () => {
+  it('shows two tabs, one rule line, level chips and the to-review list', async () => {
+    serveDefault()
+    const { router } = mount('/wrong-notes?view=DUE&owner=x')
+    await screen.findByText(toReviewItem.questionPreview)
+    expect(router.state.location.search).toBe('')
+    const tabs = screen.getAllByRole('tab')
+    expect(tabs).toHaveLength(2)
+    expect(tabs[0]).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByText(t('rule'))).toBeVisible()
+    expect(screen.getByRole('button', { name: t('levelAll') })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+    const row = screen.getByText(toReviewItem.questionPreview).closest('li')
+    if (!row) throw new Error('Row required')
+    expect(
+      within(row).getByText(t('card.wrongCount', { count: 3 }))
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    expect(
+      screen.getAllByRole('button', { name: t('start') })
+    ).not.toHaveLength(0)
+  })
+
+  it('switches tabs with the arrow key and keeps the level in the URL', async () => {
+    const seen = serveDefault()
+    const user = userEvent.setup()
+    const { router } = mount('/wrong-notes?level=N5')
+    await screen.findByText(toReviewItem.questionPreview)
+    screen.getAllByRole('tab')[0]!.focus()
+    await user.keyboard('{ArrowRight}')
+    await screen.findByText(reviewedItem.questionPreview)
+    expect(router.state.location.search).toBe('?state=REVIEWED&level=N5')
+    expect(screen.getAllByRole('tab')[1]).toHaveFocus()
+    expect(
+      seen.some(
+        (query) =>
+          query.get('state') === 'REVIEWED' && query.get('level') === 'N5'
+      )
+    ).toBe(true)
+    expect(screen.queryByRole('button', { name: t('start') })).toBeNull()
+  })
+
+  it('keeps tab counts unfiltered when a level chip is picked', async () => {
+    const seen = serve((query) =>
+      query.get('level') === 'N1'
+        ? page('TO_REVIEW', { toReview: 0, reviewed: 0 })
+        : page('TO_REVIEW', { toReview: 4, reviewed: 2 }, [toReviewItem])
+    )
+    const user = userEvent.setup()
+    const { router } = mount()
+    await screen.findByText(toReviewItem.questionPreview)
+    await user.click(screen.getByRole('button', { name: 'N1' }))
+    expect(
+      await screen.findByText(t('empty.levelNone', { level: 'N1' }))
+    ).toBeVisible()
+    expect(router.state.location.search).toBe('?level=N1')
+    expect(screen.getByRole('button', { name: 'N1' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+    expect(screen.getAllByRole('tab')[0]).toHaveTextContent(
+      t('tabs.toReview', { count: 4, formattedCount: '4' })
+    )
+    expect(seen.some((query) => !query.has('level'))).toBe(true)
+    await user.click(screen.getByRole('button', { name: t('empty.showAll') }))
+    await waitFor(() => expect(router.state.location.search).toBe(''))
+  })
+
+  it.each([
+    ['never', 'TO_REVIEW', { toReview: 0, reviewed: 0 }],
+    ['allDone', 'TO_REVIEW', { toReview: 0, reviewed: 2 }],
+    ['noReviewed', 'REVIEWED', { toReview: 2, reviewed: 0 }]
+  ] as const)('shows the %s empty screen', async (variant, state, counts) => {
+    serve(() => page(state, counts))
+    mount(state === 'REVIEWED' ? '/wrong-notes?state=REVIEWED' : '/wrong-notes')
+    expect(
+      await screen.findByRole('heading', { name: t(`empty.${variant}.title`) })
+    ).toBeVisible()
+    expect(screen.queryByRole('group')).not.toBeInTheDocument()
+    if (variant === 'noReviewed')
+      expect(screen.getByRole('button', { name: t('start') })).toBeEnabled()
+    else
+      expect(
+        screen.getByRole('link', { name: t('empty.startNew') })
+      ).toHaveAttribute('href', '/practice')
+  })
+
+  it('starts DAILY_REVIEW on the oldest wrong answer level and subject', async () => {
+    serveDefault()
+    const bodies: unknown[] = []
     mockServer.use(
-      http.get('*/api/v1/review-queue', ({ request }) => {
-        seen.push(new URL(request.url).search)
-        return HttpResponse.json(queue)
+      http.post('*/api/v1/study-sessions', async ({ request }) => {
+        bodies.push(await request.json())
+        return HttpResponse.json(
+          {
+            code: 'NO_ELIGIBLE_QUESTIONS',
+            message: 'none',
+            requestId: crypto.randomUUID(),
+            retryable: false
+          },
+          { status: 404 }
+        )
       })
     )
-    const { router } = mount('/wrong-notes?level=N5&page=1&owner=x')
-    await screen.findByText(queue.items[0]!.questionPreview)
-    expect(router.state.location.search).toBe('?level=N5')
-    await userEvent.selectOptions(
-      screen.getByRole('combobox', { name: '복습 범위' }),
-      'SOLVED'
-    )
+    const user = userEvent.setup()
+    mount()
+    await screen.findByText(toReviewItem.questionPreview)
+    await user.click(screen.getAllByRole('button', { name: t('start') })[0]!)
+    expect(await screen.findByRole('alert')).toHaveTextContent(t('startEmpty'))
+    expect(bodies).toEqual([
+      { level: 'N4', subject: 'GRAMMAR', mode: 'DAILY_REVIEW', count: 10 }
+    ])
+  })
+
+  it('returns focus to the row the learner opened', async () => {
+    serveDefault()
+    mount('/wrong-notes', { reviewFocus: toReviewItem.questionId })
     await waitFor(() =>
-      expect(router.state.location.search).toBe('?view=SOLVED&level=N5')
-    )
-    expect(seen.some((url) => url.includes('view=SOLVED'))).toBe(true)
-    expect(screen.getByRole('link', { name: /해설 보기/u })).toHaveAttribute(
-      'href',
-      expect.stringContaining(
-        encodeURIComponent('/wrong-notes?view=SOLVED&level=N5')
-      )
-    )
-    expect(
-      screen.queryByRole('button', { name: /복습 시작/u })
-    ).not.toBeInTheDocument()
-    expect(
-      screen.queryByRole('link', { name: /전체.*기록/u })
-    ).not.toBeInTheDocument()
-  })
-  it('retains advanced disclosure and focused control after filter changes', async () => {
-    serve()
-    mount()
-    await screen.findByText(queue.items[0]!.questionPreview)
-    await userEvent.click(screen.getByText('상세 조건'))
-    const sort = screen.getByRole('combobox', { name: '정렬' })
-    sort.focus()
-    await userEvent.selectOptions(sort, 'MOST_WRONG')
-    await waitFor(() => expect(sort).toHaveValue('MOST_WRONG'))
-    expect(sort).toHaveFocus()
-    expect(screen.getByText('상세 조건').closest('details')).toHaveAttribute(
-      'open'
+      expect(
+        screen.getByText(toReviewItem.questionPreview).closest('a')
+      ).toHaveFocus()
     )
   })
-  it('does not label a zero due queue as zero lifetime wrong notes', async () => {
-    mockServer.use(
-      http.get('*/api/v1/review-queue', () => HttpResponse.json(empty)),
-      http.get('*/api/v1/wrong-notes', () =>
-        HttpResponse.json({
-          items: [],
-          total: 1,
-          page: 1,
-          pageSize: 20,
-          availableTags: []
-        })
-      )
-    )
-    mount()
-    expect(await screen.findByText('지금 복습할 문제가 없어요.')).toBeVisible()
-    expect(
-      screen.queryByText('아직 복습할 문제가 없어요.')
-    ).not.toBeInTheDocument()
-  })
-  it('uses successful unfiltered history zero for the first-study empty state', async () => {
-    mockServer.use(
-      http.get('*/api/v1/review-queue', () => HttpResponse.json(empty)),
-      http.get('*/api/v1/wrong-notes', () =>
-        HttpResponse.json({
-          items: [],
-          total: 0,
-          page: 1,
-          pageSize: 20,
-          availableTags: []
-        })
-      )
-    )
-    mount()
-    expect(await screen.findByText('아직 복습할 문제가 없어요.')).toBeVisible()
-  })
-  it('restores the originating row after a fresh queue read', async () => {
-    serve()
-    mount('/wrong-notes', { reviewFocus: queue.items[0]!.questionId })
-    await waitFor(() =>
-      expect(screen.getByRole('link', { name: /해설 보기/u })).toHaveFocus()
-    )
-  })
-  it('marks a queue row that has a memo with a text badge', async () => {
-    serve()
-    mount()
-    const row = (
-      await screen.findByRole('link', { name: /해설 보기/u })
-    ).closest('li')
-    if (!row) throw new Error('Queue row required')
-    expect(within(row).getByText('메모')).toBeInTheDocument()
-  })
-  it('falls back to result count when the originating row leaves the view', async () => {
-    serve()
-    mount('/wrong-notes', { reviewFocus: 'absent-question' })
-    await waitFor(() =>
-      expect(screen.getByRole('heading', { name: '1문제' })).toHaveFocus()
-    )
-  })
-  it('shows offline state instead of a perpetual loading spinner', async () => {
+
+  it('shows the offline state instead of a perpetual skeleton', async () => {
     act(() => onlineManager.setOnline(false))
     mount()
-    expect(
-      await screen.findByText(/현재 URL 조건으로 복습 대기열을 자동으로/u)
-    ).toBeVisible()
-    expect(
-      screen.queryByText('복습 대기열을 불러오고 있어요…')
-    ).not.toBeInTheDocument()
+    expect(await screen.findByText(t('center.states.offline'))).toBeVisible()
   })
-  it('offers a guest login without making member queue requests', async () => {
+
+  it('offers a guest login without making member list requests', () => {
     auth.role = 'GUEST'
     const requests = vi.fn()
-    mockServer.use(http.get('*/api/v1/review-queue', requests))
+    mockServer.use(http.get('*/api/v1/review-list', requests))
     mount()
-    expect(screen.getByText('틀린 문제를 모아 복습할 수 있어요.')).toBeVisible()
     expect(
       screen.getByRole('button', { name: 'Google로 계속하기' })
     ).toBeEnabled()
-    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
     expect(requests).not.toHaveBeenCalled()
   })
 })
 
-it('uses the real queue page, retains conditions and focuses the selected number rather than the count heading', async () => {
-  const items = Array.from({ length: 41 }, (_, index) => ({
-    ...queue.items[0]!,
-    questionId: crypto.randomUUID(),
-    currentQuestionVersionId: crypto.randomUUID(),
-    questionPreview:
-      index === 0
-        ? queue.items[0]!.questionPreview
-        : `복습 목록 테스트 문제 ${index}`
-  }))
-  mockServer.use(
-    http.get('*/api/v1/review-queue', ({ request }) => {
-      const page = Number(new URL(request.url).searchParams.get('page'))
-      return HttpResponse.json(
-        listReviewQueueResultSchema.parse({
-          ...queue,
-          items: items.slice((page - 1) * 20, page * 20),
-          page,
-          total: 41,
-          counts: { ...queue.counts, due: 41, repeated: 41 }
-        })
-      )
-    })
-  )
-  const { router } = mount('/wrong-notes?level=N5')
-  await screen.findByText(queue.items[0]!.questionPreview)
-  await userEvent.click(screen.getByRole('link', { name: '다음 페이지' }))
-  await waitFor(() =>
-    expect(screen.getByRole('link', { current: 'page' })).toHaveTextContent('2')
-  )
-  expect(screen.getByRole('link', { current: 'page' })).toHaveFocus()
-  expect(router.state.location.search).toBe('?level=N5&page=2')
-  expect(
-    screen.getAllByRole('link', { name: /해설 보기/u })[0]
-  ).toHaveAttribute(
-    'href',
-    expect.stringContaining(encodeURIComponent('/wrong-notes?level=N5&page=2'))
-  )
-  const level = screen.getByRole('combobox', { name: '급수' })
-  level.focus()
-  await act(async () => {
-    await router.navigate(-1)
+describe('review list search', () => {
+  it('maps old four-way links onto the two tabs', () => {
+    expect(toReviewListSearch(new URLSearchParams('status=SOLVED'))).toBe(
+      'state=REVIEWED'
+    )
+    expect(
+      toReviewListSearch(new URLSearchParams('view=REPEATED&level=N3&tag=x'))
+    ).toBe('level=N3')
+    expect(getSafeWrongNoteReturnTo('/wrong-notes?state=REVIEWED')).toBe(
+      '/wrong-notes?state=REVIEWED'
+    )
+    expect(getSafeWrongNoteReturnTo('https://evil.example/wrong-notes')).toBe(
+      '/wrong-notes'
+    )
+    expect(getSafeWrongNoteReturnTo('/dashboard')).toBe('/wrong-notes')
   })
-  await waitFor(() =>
-    expect(screen.getByRole('link', { current: 'page' })).toHaveTextContent('1')
-  )
-  expect(level).toHaveFocus()
-  await userEvent.selectOptions(level, 'N4')
-  await waitFor(() => expect(router.state.location.search).toBe('?level=N4'))
-  expect(level).toHaveFocus()
 })
-it('shows a single real queue page and hides the pager for filtered zero', async () => {
-  serve()
-  const first = mount()
-  await screen.findByText(queue.items[0]!.questionPreview)
-  expect(screen.getByRole('link', { current: 'page' })).toHaveTextContent('1')
-  for (const label of [
-    '첫 페이지',
-    '이전 페이지',
-    '다음 페이지',
-    '마지막 페이지'
-  ])
-    expect(screen.getByRole('link', { name: label })).toHaveAttribute(
-      'aria-disabled',
-      'true'
-    )
-  first.unmount()
-  first.client.clear()
-  mockServer.use(
-    http.get('*/api/v1/review-queue', () => HttpResponse.json(empty))
-  )
-  mount('/wrong-notes?level=N1')
-  await screen.findByText('이 조건에 맞는 문제가 없어요.')
-  expect(
-    screen.queryByRole('navigation', { name: '복습 대기열 페이지' })
-  ).not.toBeInTheDocument()
-  expect(
-    within(
-      screen.getByRole('region', { name: '이 조건에 맞는 문제가 없어요.' })
-    ).getByRole('button', { name: '조건 초기화' })
-  ).toBeInTheDocument()
-})
-
-it.each(['success', 'error'] as const)(
-  'hides the previous due zero while unreviewed loads and preserves %s handling',
-  async (outcome) => {
-    const user = userEvent.setup()
-    const unreviewed = listReviewQueueResultSchema.parse({
-      ...queue,
-      items: Array.from({ length: 3 }, (_, index) => ({
-        ...queue.items[0]!,
-        questionId: crypto.randomUUID(),
-        currentQuestionVersionId: crypto.randomUUID(),
-        questionPreview: `필터 전환 테스트 문제 ${index + 1}`,
-        status: 'NEW',
-        wrongCount: 1,
-        lastReviewedAt: null,
-        nextReviewAt: '2026-08-23T03:00:00.000Z'
-      })),
-      total: 3,
-      counts: { due: 0, unreviewed: 3, repeated: 0, solved: 0 }
-    })
-    let releaseResponse!: () => void
-    const responseGate = new Promise<void>((resolve) => {
-      releaseResponse = resolve
-    })
-    let recordRequest!: () => void
-    const requested = new Promise<void>((resolve) => {
-      recordRequest = resolve
-    })
-    const seen: Record<string, string>[] = []
-    let failResponse = outcome === 'error'
-    mockServer.use(
-      http.get('*/api/v1/review-queue', async ({ request }) => {
-        const params = Object.fromEntries(new URL(request.url).searchParams)
-        seen.push(params)
-        if (params.view === 'DUE') {
-          return HttpResponse.json({ ...empty, counts: unreviewed.counts })
-        }
-        recordRequest()
-        await responseGate
-        return failResponse
-          ? HttpResponse.json(
-              {
-                code: 'SERVICE_UNAVAILABLE',
-                message: 'synthetic queue failure',
-                retryable: true
-              },
-              { status: 503 }
-            )
-          : HttpResponse.json(unreviewed)
-      })
-    )
-    const view = mount('/wrong-notes?level=N5&subject=VOCABULARY')
-    try {
-      await screen.findByRole('heading', { name: '0문제' })
-      const range = screen.getByRole('combobox', { name: '복습 범위' })
-      range.focus()
-      await user.selectOptions(range, 'UNREVIEWED')
-      await requested
-      expect(range).toHaveValue('UNREVIEWED')
-      expect(range).toHaveFocus()
-      expect(view.router.state.location.search).toBe(
-        '?view=UNREVIEWED&level=N5&subject=VOCABULARY'
-      )
-      expect(seen.at(-1)).toEqual({
-        view: 'UNREVIEWED',
-        level: 'N5',
-        subject: 'VOCABULARY',
-        sort: 'NEXT_REVIEW',
-        page: '1',
-        pageSize: '20'
-      })
-      expect(
-        view.client.getQueryCache().findAll({
-          queryKey: ['wrong-note', 'review-queue']
-        })
-      ).toHaveLength(2)
-      expect(
-        screen.queryByRole('heading', { name: '0문제' })
-      ).not.toBeInTheDocument()
-      expect(
-        screen.queryByRole('region', {
-          name: '이 조건에 맞는 문제가 없어요.'
-        })
-      ).not.toBeInTheDocument()
-      expect(screen.getByRole('status')).toHaveTextContent(
-        '복습 대기열을 불러오고 있어요…'
-      )
-      await act(async () => releaseResponse())
-      if (outcome === 'error') {
-        const error = await screen.findByRole('alert')
-        expect(error).toHaveTextContent('복습 대기열을 불러오지 못했어요')
-        expect(
-          screen.queryByRole('heading', { name: '0문제' })
-        ).not.toBeInTheDocument()
-        expect(screen.queryByRole('status')).not.toBeInTheDocument()
-        failResponse = false
-        await user.click(within(error).getByRole('button'))
-      }
-      await screen.findByRole('heading', { name: '3문제' })
-      expect(screen.getAllByRole('link', { name: /해설 보기/u })).toHaveLength(
-        3
-      )
-      expect(
-        screen.queryByRole('heading', { name: '0문제' })
-      ).not.toBeInTheDocument()
-      expect(screen.queryByRole('status')).not.toBeInTheDocument()
-      expect(range).toHaveValue('UNREVIEWED')
-      expect(view.router.state.location.search).toBe(
-        '?view=UNREVIEWED&level=N5&subject=VOCABULARY'
-      )
-      if (outcome === 'error') {
-        await waitFor(() =>
-          expect(screen.getByRole('heading', { level: 1 })).toHaveFocus()
-        )
-      } else expect(range).toHaveFocus()
-    } finally {
-      releaseResponse()
-      view.unmount()
-      view.client.clear()
-    }
-  }
-)

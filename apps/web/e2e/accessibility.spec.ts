@@ -863,7 +863,9 @@ const scanCurrentPage = async (
               ? 'option-reorder-control'
               : element.matches(selectors.tableSortIndicator)
                 ? 'table-sort-indicator'
-                : null,
+                : element.matches(selectors.answerMark)
+                  ? 'answer-mark'
+                  : null,
         axeFindingDispositionSelectors
       )
       if (!kind) continue
@@ -1942,54 +1944,11 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
 
   // Exercise My page before this learner creates an unfinished session.
   await page.setViewportSize({ height: 900, width: 1280 })
-  await page.goto('/wrong-notes')
-  await settlePage(page)
-  await setLocale(page, 'ko')
-  const recentResults = page
-    .locator('summary')
-    .filter({ hasText: /^최근 결과 다시 보기$/u })
-  const recentPanel = recentResults.locator('..')
-  await expect(recentPanel).toHaveJSProperty('open', false)
-  const recentResponse = page.waitForResponse(
-    (response) =>
-      response.status() === 200 &&
-      response.request().method() === 'GET' &&
-      new URL(response.url()).pathname === '/api/v1/dashboard'
-  )
-  await focusByTab(page, recentResults)
-  await page.keyboard.press('Enter')
-  expect((await recentResponse).headers()['cache-control']).toBe(
-    'private, no-store'
-  )
-  await expect(recentPanel).toHaveJSProperty('open', true)
-  await expect(recentPanel).toContainText(
-    /결과·해설|아직 마친 학습이 없어요\./u
-  )
-  for (const locale of locales) {
-    await setLocale(page, locale)
-    await scanCurrentPage(page, testInfo, 'learner-recent-results-open', locale)
-  }
-  await setLocale(page, 'ko')
-  const cachedRecentResults = await recentPanel.innerText()
-  await flushTransportEvidence(transport)
-  const requestsBeforeStatsOffline = transport.requests.length
-  await context.setOffline(true)
-  await invalidateDashboardWhileOffline(page, 'stats')
-  await waitForDashboardQueryState(page, 'stats', 'paused')
-  await expect(recentPanel).toHaveText(cachedRecentResults, {
-    useInnerText: true
-  })
-  await flushTransportEvidence(transport)
-  expect(transport.requests).toHaveLength(requestsBeforeStatsOffline)
-  await context.setOffline(false)
-  await waitForDashboardQueryState(page, 'stats', 'idle')
-  await focusByTab(page, recentResults)
-  await page.keyboard.press('Space')
-  await expect(recentPanel).toHaveJSProperty('open', false)
   await waitForApiTransportQuiet(transport)
 
   await page.goto('/account')
   await settlePage(page)
+  await setLocale(page, 'ko')
   await waitForDashboardQueryState(page, 'stats', 'idle')
   // My page shows only the stats summary (JLP-812): no recommendations.
   const myStudyRegion = page.getByRole('region', {
@@ -2593,7 +2552,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
           },
           localeState: 'answered reading selection preserved',
           offline:
-            'recent results and My page summary retained; stats query paused without requests',
+            'My page summary retained; stats query paused without requests',
           partial: `requested ${readingFixture.requestedCount} reading questions, received ${readingFixture.actualCount} without fallback`,
           retry: 'dashboard stats 503x2 then explicit retry 200',
           submit: 'UI dialog and result navigation passed'

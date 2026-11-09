@@ -46,8 +46,7 @@ const METADATA_RAW_WRAPPER_NAMES = new Set([
   'delWithMetadata'
 ])
 const LEGACY_WRONG_NOTE_MUTATION_PATHS = new Set([
-  'api/wrong-note/reviewWrongNote/index.ts',
-  'api/wrong-note/updateWrongNoteMemo/index.ts'
+  'api/wrong-note/reviewWrongNote/index.ts'
 ])
 
 const isPathInside = (parent, candidate) => {
