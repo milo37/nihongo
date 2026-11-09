@@ -44,8 +44,16 @@ import { createStudyDraftService } from './study/studyDraftService.js'
 import { startApiListener } from './lifecycle/startApiListener.js'
 import { createPrismaBookmarkRepository } from './bookmark/bookmarkRepository.js'
 import { createBookmarkService } from './bookmark/bookmarkService.js'
+import {
+  createPrismaTargetLevelRepository,
+  createTargetLevelService
+} from './member/targetLevel.js'
 import { createPrismaStudyResultRetryRepository } from './study/studyResultRetryRepository.js'
 import { createStudyResultRetryService } from './study/studyResultRetryService.js'
+import {
+  createPrismaWrongNoteReviewListRepository,
+  createWrongNoteReviewListService
+} from './wrong-note/wrongNoteReviewList.js'
 import { createPrismaWrongNoteReviewQueueRepository } from './wrong-note/wrongNoteReviewQueueRepository.js'
 import { createWrongNoteReviewQueueService } from './wrong-note/wrongNoteReviewQueueService.js'
 import { createPrismaWrongNoteTargetedReviewRepository } from './wrong-note/wrongNoteTargetedReviewRepository.js'
@@ -151,6 +159,9 @@ const wrongNoteService = createWrongNoteService(
 const wrongNoteReviewCenterService = createWrongNoteReviewCenterService(
   createPrismaWrongNoteReviewCenterRepository(database.client)
 )
+const wrongNoteReviewListService = createWrongNoteReviewListService(
+  createPrismaWrongNoteReviewListRepository(database.client)
+)
 const wrongNoteReviewQueueService = createWrongNoteReviewQueueService(
   createPrismaWrongNoteReviewQueueRepository(database.client)
 )
@@ -167,6 +178,9 @@ const bookmarkService = createBookmarkService(
   createPrismaBookmarkRepository(database.client, {
     migrationProfile: runtimeMigrationProfile
   })
+)
+const targetLevelService = createTargetLevelService(
+  createPrismaTargetLevelRepository(database.client)
 )
 const adminQuestionReader = createAdminQuestionService(
   createPrismaAdminQuestionRepository(database.client)
@@ -269,8 +283,10 @@ const app = createApiApp({
     rateLimiter: applicationRateLimiter,
     reviewCenterEnabled: true,
     reviewCenterService: wrongNoteReviewCenterService,
+    reviewListService: wrongNoteReviewListService,
     reviewQueueService: wrongNoteReviewQueueService,
     targetedReviewService: wrongNoteTargetedReviewService,
+    targetLevelService,
     wrongNoteService
   },
   questionReader,

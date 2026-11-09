@@ -27,6 +27,11 @@ export interface DailyReviewStudyCandidate extends StudyCandidatePin {
   readonly status: DailyReviewCandidateStatus
 }
 
+/** A wrong note waiting for review, NEW or AGAIN (JLP-812). */
+export interface ToReviewStudyCandidate extends StudyCandidatePin {
+  readonly lastWrongAt: Date
+}
+
 export interface WeaknessStudyCandidate extends StudyCandidatePin {
   readonly answeredCount: number
   readonly incorrectCount: number
@@ -199,6 +204,22 @@ export const selectDailyReviewStudyCandidates = (
     }
     return left.questionId.localeCompare(right.questionId)
   })
+
+/**
+ * DAILY_REVIEW in two states (JLP-812): the oldest wrong answers first, so a
+ * question just answered wrong does not come straight back.
+ */
+export const selectToReviewStudyCandidates = (
+  candidates: readonly ToReviewStudyCandidate[],
+  requestedCount: number
+): ToReviewStudyCandidate[] =>
+  selectRankedCandidates(
+    candidates,
+    requestedCount,
+    (left, right) =>
+      left.lastWrongAt.getTime() - right.lastWrongAt.getTime() ||
+      left.questionId.localeCompare(right.questionId)
+  )
 
 export const selectWeaknessStudyCandidates = (
   candidates: readonly WeaknessStudyCandidate[],

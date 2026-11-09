@@ -48,7 +48,8 @@ test('the current migration profile is exactly the repository migrations for eve
       '20261107090000_first_admin_production',
       '20261108090000_remove_tag_applicability_and_snapshots',
       '20261109090000_add_tag_key_subject_status',
-      '20261110090000_admin_fresh_window_30_minutes'
+      '20261110090000_admin_fresh_window_30_minutes',
+      '20261111090000_grant_user_target_level_update'
     ]
   )
   assert.deepEqual(contract.migrationProfiles.current.environments, [
@@ -57,7 +58,7 @@ test('the current migration profile is exactly the repository migrations for eve
     'PRODUCTION'
   ])
   assert.deepEqual(deriveMigrationProfile(releaseManifest, 'current'), {
-    count: 6,
+    count: 7,
     digestSha256: contract.migrationProfiles.current.expectedDigestSha256,
     name: 'current'
   })

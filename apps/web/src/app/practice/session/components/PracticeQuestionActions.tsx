@@ -4,6 +4,7 @@ import { Button } from '@nihongo/browser/common/components/Button'
 
 type PracticeQuestionActionsProps = {
   canSubmit: boolean
+  hidePrevious: boolean
   isFirstQuestion: boolean
   isLastQuestion: boolean
   isLocked: boolean
@@ -15,6 +16,7 @@ type PracticeQuestionActionsProps = {
 
 export const PracticeQuestionActions = ({
   canSubmit,
+  hidePrevious,
   isFirstQuestion,
   isLastQuestion,
   isLocked,
@@ -25,18 +27,24 @@ export const PracticeQuestionActions = ({
 }: PracticeQuestionActionsProps): ReactElement => {
   const { t } = useTranslation('practice')
   return (
-    <div className="study-question-actions mt-5 grid grid-cols-[1fr_2fr] gap-3 sm:flex sm:items-center sm:justify-between">
-      <Button
-        variant="outline"
-        disabled={isFirstQuestion || isLocked}
-        onClick={onPrevious}
-      >
-        {t('session.navigation.previous')}
-      </Button>
+    // Fixed bar under 1024px; under the options on a wide screen (direction §6-3).
+    <div className="fixed inset-x-0 bottom-0 z-20 flex items-center gap-3 border-t border-line bg-surface px-4 py-3 lg:static lg:mt-8 lg:justify-between lg:border-0 lg:bg-transparent lg:p-0">
+      {/* A single review question has nowhere to go back to. */}
+      {hidePrevious ? null : (
+        <Button
+          className="shrink-0"
+          variant="ghost"
+          disabled={isFirstQuestion || isLocked}
+          onClick={onPrevious}
+        >
+          {t('session.navigation.previous')}
+        </Button>
+      )}
 
       {isLastQuestion ? (
         <Button
           ref={submitButtonRef}
+          className="min-h-[52px] flex-1 lg:flex-none lg:px-8"
           aria-keyshortcuts="Control+Enter Meta+Enter"
           disabled={!canSubmit}
           onClick={onSubmit}
@@ -44,7 +52,11 @@ export const PracticeQuestionActions = ({
           {t('session.navigation.submit')}
         </Button>
       ) : (
-        <Button disabled={isLocked} onClick={onNext}>
+        <Button
+          className="min-h-[52px] flex-1 lg:flex-none lg:px-8"
+          disabled={isLocked}
+          onClick={onNext}
+        >
           {t('session.navigation.next')}
         </Button>
       )}
