@@ -6,32 +6,20 @@ import {
 } from '@nihongo/contracts/admin/content-operations'
 import { describe, expect, it } from 'vitest'
 import {
-  buildQuestionImportFiles,
-  questionImportDirectory
+  questionImportDirectory,
+  questionImportFileNames
 } from './questionImportFiles.js'
 import { parseTagList } from '../src/content/tagList.js'
 
-const generated = buildQuestionImportFiles()
-/** Reviewed content written by hand, not generated from seed data (JLP-801). */
-const handWrittenFileNames = [
-  'n4-b2.v1.json',
-  'n5-b2.v1.json',
-  'n5n4-sentence-order.v1.json'
-]
-const importFileNames = [...Object.keys(generated), ...handWrittenFileNames]
+const importFileNames = questionImportFileNames
 const readImportFile = (name: string): unknown =>
   JSON.parse(readFileSync(join(questionImportDirectory, name), 'utf8'))
 
 describe('question import files (#633)', () => {
-  it('match the in-code originals', () => {
+  it('are the five level files (JLP-816)', () => {
     expect(readdirSync(questionImportDirectory).sort()).toEqual(
       [...importFileNames].sort()
     )
-    for (const [name, value] of Object.entries(generated)) {
-      expect(readImportFile(name), name).toEqual(
-        JSON.parse(JSON.stringify(value))
-      )
-    }
   })
 
   it('are valid import requests of at most 100 unique items', () => {
@@ -51,7 +39,7 @@ describe('question import files (#633)', () => {
         count += 1
       }
     }
-    expect(count).toBe(65 + 308 + 110)
+    expect(count).toBe(250)
   })
 
   it('use one or two active tags.v2.json keys of the item subject (#646)', () => {
