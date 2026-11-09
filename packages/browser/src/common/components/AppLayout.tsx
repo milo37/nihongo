@@ -5,7 +5,6 @@ import { AppLink as Link } from './AppLink'
 import { getAppPath } from '../../libs/appNavigation'
 import type { ReactElement, ReactNode, RefObject } from 'react'
 import { AppShell } from './AppShell'
-import { SideNavigation } from './SideNavigation'
 import { Icon } from './Icon'
 import { IconButton } from './IconButton'
 import { LocaleSwitcher } from './LocaleSwitcher'
@@ -56,8 +55,8 @@ const focusHashTarget = (hash: string): boolean => {
 
 type NavigationItem = {
   to: string
-  label: 'learningStart' | 'wrongNotes' | 'bookmarks'
-  icon: 'house' | 'rotate-ccw' | 'bookmark'
+  label: 'learningStart' | 'wrongNotes' | 'bookmarks' | 'my'
+  icon: 'house' | 'rotate-ccw' | 'bookmark' | 'user-round'
   active: boolean
 }
 
@@ -108,19 +107,24 @@ const RouteAnnouncer = ({
   )
 }
 
-const MobileNavigation = ({
+// The same four links: in the top bar from 640px, as bottom tabs below it.
+const PrimaryNavigation = ({
+  variant,
   items,
   onNavigate
 }: {
+  variant: 'top' | 'bottom'
   items: readonly NavigationItem[]
   onNavigate: () => void
 }): ReactElement => {
   const { t } = useTranslation('navigation')
   return (
     <nav
-      id="mobile-navigation"
-      className="app-mobile-navigation"
-      aria-label={t('mobilePrimary')}
+      id={variant === 'top' ? 'primary-navigation' : 'mobile-navigation'}
+      className={
+        variant === 'top' ? 'app-primary-navigation' : 'app-mobile-navigation'
+      }
+      aria-label={t(variant === 'top' ? 'primary' : 'mobilePrimary')}
     >
       {items.map((item) => (
         <Link
@@ -227,7 +231,6 @@ export const AppLayout = ({
   headerStatus
 }: AppLayoutProps): ReactElement => {
   const { t: commonT } = useTranslation('common')
-  const { t: navigationT } = useTranslation('navigation')
   const { locale } = useUiLocale()
   const { isReady } = useAuth()
   const routeLocation = useLocation()
@@ -376,6 +379,12 @@ export const AppLayout = ({
       label: 'bookmarks',
       icon: 'bookmark',
       active: location.pathname.startsWith('/bookmarks')
+    },
+    {
+      to: '/account',
+      label: 'my',
+      icon: 'user-round',
+      active: location.pathname.startsWith('/account')
     }
   ]
   const showNavigation = learnerNavigation && !isFocusSession
@@ -405,20 +414,6 @@ export const AppLayout = ({
       className={shellClassName}
       surface={surface}
       beforeMain={<RouteAnnouncer announcement={routeAnnouncement} />}
-      sidebar={
-        showNavigation ? (
-          <SideNavigation
-            id="primary-navigation"
-            label={navigationT('primary')}
-            brand={<AppBrand className="app-brand" onClick={closeMenu} />}
-            items={navigationItems.map((item) => ({
-              ...item,
-              label: navigationT(item.label)
-            }))}
-            onNavigate={closeMenu}
-          />
-        ) : null
-      }
       header={
         !isFocusSession ? (
           <header className="app-shell-header">
@@ -427,6 +422,13 @@ export const AppLayout = ({
                 className="app-brand app-mobile-brand"
                 onClick={closeMenu}
               />
+              {showNavigation ? (
+                <PrimaryNavigation
+                  variant="top"
+                  items={navigationItems}
+                  onNavigate={closeMenu}
+                />
+              ) : null}
 
               <div className="app-shell-header-actions">
                 {headerStatus ? (
@@ -443,10 +445,19 @@ export const AppLayout = ({
           </header>
         ) : null
       }
-      footer={!isFocusSession ? <InformationFooter density="compact" /> : null}
+      // Learners find the information links at the bottom of 마이 (/account).
+      footer={
+        !isFocusSession && !learnerNavigation ? (
+          <InformationFooter density="compact" />
+        ) : null
+      }
       bottomNavigation={
         showNavigation ? (
-          <MobileNavigation items={navigationItems} onNavigate={closeMenu} />
+          <PrimaryNavigation
+            variant="bottom"
+            items={navigationItems}
+            onNavigate={closeMenu}
+          />
         ) : null
       }
       mainProps={{
