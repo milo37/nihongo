@@ -8,11 +8,16 @@ import {
   QuestionBatchResult,
   QuestionSelectionBar
 } from '@app/admin-question/components/QuestionBatchBar'
+import {
+  RetireByGroupDialog,
+  RetireByGroupResult
+} from '@app/admin-question/components/RetireByGroupDialog'
 import { QuestionListFilters } from '@app/admin-question/components/QuestionListFilters'
 import { QuestionListTable } from '@app/admin-question/components/QuestionListTable'
 import { useListAdminQuestions } from '@app/admin-question/hooks/useListAdminQuestions'
 import { useQuestionArchive } from '@app/admin-question/hooks/useQuestionArchive'
 import { useQuestionBatch } from '@app/admin-question/hooks/useQuestionBatch'
+import { useQuestionRetire } from '@app/admin-question/hooks/useQuestionRetire'
 import {
   PAGE_SIZES,
   useQuestionListSearch
@@ -60,6 +65,8 @@ export const AdminQuestionPage = (): ReactElement => {
   const batch = useQuestionBatch(questionList.data?.items ?? [])
   // The publish button is gone once the result replaces the selection bar.
   const batchResultHeading = useRef<HTMLHeadingElement>(null)
+  const retire = useQuestionRetire()
+  const retireResultHeading = useRef<HTMLHeadingElement>(null)
   const listTop = useRef<HTMLDivElement>(null)
 
   const data = questionList.isError ? undefined : questionList.data
@@ -105,6 +112,13 @@ export const AdminQuestionPage = (): ReactElement => {
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap gap-3">
+          <Button
+            variant="danger-outline"
+            className="min-h-12"
+            onClick={() => retire.show({ level, subject })}
+          >
+            {t('questionList.retire.open')}
+          </Button>
           <Link
             className="inline-flex min-h-12 items-center justify-center rounded-lg border border-line bg-surface px-5 py-3 font-semibold text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
             to="/questions/import"
@@ -138,6 +152,7 @@ export const AdminQuestionPage = (): ReactElement => {
         onReset={filters.resetFilters}
       />
 
+      <RetireByGroupResult retire={retire} headingRef={retireResultHeading} />
       <QuestionBatchResult batch={batch} headingRef={batchResultHeading} />
 
       <div className="mt-6">
@@ -222,6 +237,10 @@ export const AdminQuestionPage = (): ReactElement => {
 
       <ArchiveQuestionDialog archive={archive} />
       <BatchActionDialog batch={batch} fallbackFocusRef={batchResultHeading} />
+      <RetireByGroupDialog
+        retire={retire}
+        fallbackFocusRef={retireResultHeading}
+      />
     </section>
   )
 }

@@ -356,6 +356,26 @@ export const jaAdminResources = {
     edit: '編集',
     details: '詳細を見る',
     archive: '公開終了・アーカイブ',
+    retire: {
+      open: '級・科目ごとにまとめて非公開',
+      title: '級・科目ごとにまとめて非公開',
+      description:
+        '公開中の問題を学習者の画面から外します。問題は削除せず、新しいバージョンを公開すると再び公開されます。',
+      choose: '選択',
+      pick: '級と科目を選ぶと対象の数を表示します。',
+      counting: '対象を数えています…',
+      countFailed: '対象の数を読み込めませんでした。',
+      retry: 'もう一度数える',
+      none: '{{level}} {{subject}}に公開中の問題はありません。',
+      count: '{{level}} {{subject}}で公開中の問題{{count}}問を非公開にします。',
+      body: '100問ずつ送信し、100問ごとにすべて反映されるか、すべて取り消されます。編集中の新しいバージョンがある問題は対象外です。',
+      confirm: '{{count}}問を非公開',
+      confirming: '非公開にしています…',
+      notDone: '非公開にしていません。',
+      all: '{{level}} {{subject}}の問題{{count}}問を非公開にしました。',
+      partial:
+        '{{count}}問を非公開にして止まりました。残りの{{rest}}問は公開中のままです。一覧を更新してからもう一度お試しください。'
+    },
     batch: {
       selectColumn: '一括選択',
       selectRow: '問題{{questionId}}を選択',

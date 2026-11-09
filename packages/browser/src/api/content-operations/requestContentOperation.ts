@@ -37,8 +37,11 @@ import {
   approveQuestionVersionBatchResponseSchema,
   publishQuestionVersionBatchRequestSchema,
   publishQuestionVersionBatchResponseSchema,
+  retireQuestionVersionBatchRequestSchema,
+  retireQuestionVersionBatchResponseSchema,
   type ApproveQuestionVersionBatchResponse,
-  type PublishQuestionVersionBatchResponse
+  type PublishQuestionVersionBatchResponse,
+  type RetireQuestionVersionBatchResponse
 } from '@nihongo/contracts/admin/review'
 import type { z } from 'zod'
 import { errorStatusByCode } from '@nihongo/contracts/common/error'
@@ -226,6 +229,25 @@ const assertApproveQuestionVersionBatchResponse = (
   return response
 }
 
+// All or nothing: every requested version comes back retired, in order.
+const assertRetireQuestionVersionBatchResponse = (
+  rawRequest: unknown,
+  rawResponse: unknown
+): RetireQuestionVersionBatchResponse => {
+  const response = retireQuestionVersionBatchResponseSchema.parse(rawResponse)
+  const request = retireQuestionVersionBatchRequestSchema.parse(rawRequest)
+  if (
+    response.items.length !== request.items.length ||
+    response.items.some(
+      (item, index) =>
+        item.questionVersionId !== request.items[index]?.questionVersionId
+    )
+  ) {
+    throw new Error('batch retire result가 request order와 다릅니다.')
+  }
+  return response
+}
+
 const assertCorrelatedResponse = async (
   operation: Exclude<ContentOperation, 'reauthenticateAdmin'>,
   params: unknown,
@@ -274,6 +296,8 @@ const assertCorrelatedResponse = async (
       return assertPublishQuestionVersionBatchResponse(body, response)
     case 'approveQuestionVersionBatch':
       return assertApproveQuestionVersionBatchResponse(body, response)
+    case 'retireQuestionVersionBatch':
+      return assertRetireQuestionVersionBatchResponse(body, response)
     case 'validateQuestionImport':
       return assertAdminImportValidationForRequest(
         sha256TextPort,
