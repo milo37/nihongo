@@ -4136,20 +4136,19 @@ export class MockDatabase {
           })
         }
       }
-      return selectToReviewStudyCandidates(
-        [...candidates.values()],
-        count
-      ).map(({ questionId }) => {
-        const sourceQuestionId = sourceByContractQuestionId.get(questionId)
-        if (!sourceQuestionId) {
-          throw new MockDatabaseError(
-            'PERSISTENCE_FAILED',
-            500,
-            'DAILY_REVIEW 후보의 stable Question ID를 복원할 수 없습니다.'
-          )
+      return selectToReviewStudyCandidates([...candidates.values()], count).map(
+        ({ questionId }) => {
+          const sourceQuestionId = sourceByContractQuestionId.get(questionId)
+          if (!sourceQuestionId) {
+            throw new MockDatabaseError(
+              'PERSISTENCE_FAILED',
+              500,
+              'DAILY_REVIEW 후보의 stable Question ID를 복원할 수 없습니다.'
+            )
+          }
+          return sourceQuestionId
         }
-        return sourceQuestionId
-      })
+      )
     })()
 
     const questions = selectedQuestionIds.flatMap((questionId) => {
