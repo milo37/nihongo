@@ -44,6 +44,10 @@ import { createStudyDraftService } from './study/studyDraftService.js'
 import { startApiListener } from './lifecycle/startApiListener.js'
 import { createPrismaBookmarkRepository } from './bookmark/bookmarkRepository.js'
 import { createBookmarkService } from './bookmark/bookmarkService.js'
+import {
+  createPrismaTargetLevelRepository,
+  createTargetLevelService
+} from './member/targetLevel.js'
 import { createPrismaStudyResultRetryRepository } from './study/studyResultRetryRepository.js'
 import { createStudyResultRetryService } from './study/studyResultRetryService.js'
 import { createPrismaWrongNoteReviewQueueRepository } from './wrong-note/wrongNoteReviewQueueRepository.js'
@@ -168,6 +172,9 @@ const bookmarkService = createBookmarkService(
     migrationProfile: runtimeMigrationProfile
   })
 )
+const targetLevelService = createTargetLevelService(
+  createPrismaTargetLevelRepository(database.client)
+)
 const adminQuestionReader = createAdminQuestionService(
   createPrismaAdminQuestionRepository(database.client)
 )
@@ -271,6 +278,7 @@ const app = createApiApp({
     reviewCenterService: wrongNoteReviewCenterService,
     reviewQueueService: wrongNoteReviewQueueService,
     targetedReviewService: wrongNoteTargetedReviewService,
+    targetLevelService,
     wrongNoteService
   },
   questionReader,

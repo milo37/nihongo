@@ -59,6 +59,10 @@
       "types": "./dist/auth/get-current-principal.d.ts",
       "import": "./dist/auth/get-current-principal.js"
     },
+    "./auth/update-target-level": {
+      "types": "./dist/auth/update-target-level.d.ts",
+      "import": "./dist/auth/update-target-level.js"
+    },
     "./common/date": {
       "types": "./dist/common/date.d.ts",
       "import": "./dist/common/date.js"

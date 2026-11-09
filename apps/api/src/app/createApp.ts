@@ -56,6 +56,8 @@ import type { StudyDraftService } from '../study/studyDraftService.js'
 import { createStudyDraftRoutes } from '../routes/studyDrafts.js'
 import type { BookmarkService } from '../bookmark/bookmarkService.js'
 import { createBookmarkRoutes } from '../routes/bookmarks.js'
+import type { TargetLevelService } from '../member/targetLevel.js'
+import { createTargetLevelRoutes } from '../routes/targetLevel.js'
 import type { StudyResultRetryService } from '../study/studyResultRetryService.js'
 import { createStudyResultRetryRoutes } from '../routes/studyResultRetries.js'
 import { createReviewQueueRoutes } from '../routes/reviewQueue.js'
@@ -191,6 +193,7 @@ interface CreateApiAppDependencies {
     reviewCenterService: WrongNoteReviewCenterService
     reviewQueueService?: WrongNoteReviewQueueService
     targetedReviewService?: WrongNoteTargetedReviewService
+    targetLevelService?: TargetLevelService
     wrongNoteService: WrongNoteService
   }
   enableTestRoutes?: boolean
@@ -789,6 +792,17 @@ export const createApiApp = ({
             environment: auth.environment,
             principalService: auth.principalService,
             rateLimiter: learning.rateLimiter
+          })
+        )
+      }
+      if (learning.targetLevelService) {
+        app.route(
+          '/api/v1/me/target-level',
+          createTargetLevelRoutes({
+            environment: auth.environment,
+            principalService: auth.principalService,
+            rateLimiter: learning.rateLimiter,
+            targetLevelService: learning.targetLevelService
           })
         )
       }
