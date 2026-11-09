@@ -423,7 +423,10 @@ export const usePracticeSessionController = ({
     }
     setSubmitDialogRequestedOpen(false)
     resetPractice()
-    void navigate(`/practice/result/${sessionId}`)
+    // The result page plays the grading reveal once for a fresh submit.
+    void navigate(`/practice/result/${sessionId}`, {
+      state: { gradingReveal: true }
+    })
   }
 
   const handleSubmissionFailure = (error: unknown): void => {

@@ -814,6 +814,12 @@ export const koResources = {
       score: '{{total}}문제 중 {{correct}}개 맞음',
       meta: '정답률 {{accuracy}} · {{duration}}'
     },
+    grading: {
+      checking: '채점하고 있어요',
+      done: '채점 결과',
+      skipHint: '누르면 바로 볼 수 있어요',
+      showResult: '결과 보기'
+    },
     nextActions: {
       title: '다음에 할 일'
     },
