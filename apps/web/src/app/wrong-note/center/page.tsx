@@ -72,7 +72,7 @@ const MemberReview = (): ReactElement => {
   )
 
   return (
-    <section className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
+    <section className="mx-auto w-full max-w-[1088px] px-4 py-6 sm:px-6 sm:py-10">
       <h1 className="text-2xl font-bold text-ink">{t('title')}</h1>
       <div
         role="tablist"
@@ -179,7 +179,10 @@ const MemberReview = (): ReactElement => {
               </div>
             ) : null}
             {list.data.items.length ? (
-              <ol className="mt-2" aria-busy={list.isFetching}>
+              <ol
+                className="mt-2 overflow-hidden rounded-card border border-line bg-surface"
+                aria-busy={list.isFetching}
+              >
                 {list.data.items.map((item) => (
                   <ReviewListItem
                     key={item.questionId}
