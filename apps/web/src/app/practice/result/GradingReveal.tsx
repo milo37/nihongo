@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import type { CSSProperties, ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
@@ -50,6 +51,7 @@ export const GradingReveal = ({
   const timers = useRef<number[]>([])
   const root = useRef<HTMLDivElement>(null)
   const closeButton = useRef<HTMLButtonElement>(null)
+  const titleId = useId()
   const isDone = phase === 'done'
 
   const finish = (): void => {
@@ -61,7 +63,9 @@ export const GradingReveal = ({
 
   useEffect(() => {
     // After the page has moved focus to the result heading.
-    const focusFrame = window.requestAnimationFrame(() => root.current?.focus())
+    const focusFrame = window.requestAnimationFrame(() =>
+      (closeButton.current ?? root.current)?.focus()
+    )
     if (instant) return () => window.cancelAnimationFrame(focusFrame)
     const { gap, total } = getRevealSchedule(count)
     const later = (run: () => void, ms: number): void => {
@@ -83,12 +87,24 @@ export const GradingReveal = ({
     if (isDone) closeButton.current?.focus()
   }, [isDone])
 
+  // Modal: everything behind the overlay is inert while it is open.
+  useEffect(() => {
+    const background = Array.from(document.body.children).filter(
+      (node) => node !== root.current && !node.hasAttribute('inert')
+    )
+    background.forEach((node) => node.setAttribute('inert', ''))
+    return () => background.forEach((node) => node.removeAttribute('inert'))
+  }, [])
+
   const formatNumber = (value: number): string =>
     new Intl.NumberFormat(i18n.resolvedLanguage).format(value)
 
-  return (
+  return createPortal(
     <div
       ref={root}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
       className="grading-reveal"
       data-done={isDone || undefined}
       data-perfect={(isDone && correct === count) || undefined}
@@ -101,10 +117,15 @@ export const GradingReveal = ({
           event.preventDefault()
           finish()
         } else if (event.key === 'Escape') onClose()
+        else if (event.key === 'Tab') {
+          // The close button is the only stop: keep focus on it.
+          event.preventDefault()
+          closeButton.current?.focus()
+        }
       }}
     >
       <style>{revealStyles}</style>
-      <h2 className="grading-reveal-title">
+      <h2 id={titleId} className="grading-reveal-title">
         {t(phase === 'checking' ? 'grading.checking' : 'grading.done')}
       </h2>
       <p className="grading-reveal-hint">
@@ -170,6 +191,7 @@ export const GradingReveal = ({
           {t('grading.showResult')}
         </Button>
       ) : null}
-    </div>
+    </div>,
+    document.body
   )
 }

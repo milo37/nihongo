@@ -67,3 +67,24 @@ it('skips the motion when reduced motion is preferred', () => {
   expect(document.querySelector('[data-perfect]')).not.toBeNull()
   expect(screen.getByText('2문제 중 2개 맞음')).toBeInTheDocument()
 })
+
+it('is a modal: labelled dialog, inert background, Tab stays on the button', () => {
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn().mockReturnValue({ matches: true } as MediaQueryList)
+  )
+  const { container, unmount } = render(
+    <GradingReveal outcomes={outcomes} onClose={vi.fn()} />
+  )
+  const dialog = screen.getByRole('dialog', { name: '채점 결과' })
+  expect(dialog).toHaveAttribute('aria-modal', 'true')
+  expect(container).toHaveAttribute('inert')
+  act(() => vi.advanceTimersToNextFrame())
+  const close = screen.getByRole('button', { name: '결과 보기' })
+  expect(close).toHaveFocus()
+  fireEvent.keyDown(close, { key: 'Tab' })
+  fireEvent.keyDown(close, { key: 'Tab', shiftKey: true })
+  expect(close).toHaveFocus()
+  unmount()
+  expect(container).not.toHaveAttribute('inert')
+})
