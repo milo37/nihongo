@@ -91,6 +91,10 @@
       "types": "./dist/dashboard/get-dashboard-insights.d.ts",
       "import": "./dist/dashboard/get-dashboard-insights.js"
     },
+    "./question/get-daily-question": {
+      "types": "./dist/question/get-daily-question.d.ts",
+      "import": "./dist/question/get-daily-question.js"
+    },
     "./question/get-question": {
       "types": "./dist/question/get-question.d.ts",
       "import": "./dist/question/get-question.js"

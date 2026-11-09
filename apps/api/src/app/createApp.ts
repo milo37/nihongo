@@ -26,6 +26,7 @@ import {
   toHttpStatusClass
 } from '../observability/httpLog.js'
 import { createHealthRoutes } from '../routes/health.js'
+import { createDailyQuestionRoutes } from '../routes/dailyQuestion.js'
 import { createQuestionRoutes } from '../routes/questions.js'
 import { AuthGatewayError, type AuthGateway } from '../auth/authGateway.js'
 import type { ApiEnvironment } from '../config/env.js'
@@ -33,6 +34,7 @@ import type { GuestPrincipalService } from '../auth/guestPrincipalService.js'
 import type { PrincipalService } from '../auth/principalService.js'
 import { createWriteSecurity } from '../middleware/writeSecurity.js'
 import { createPrincipalRoutes } from '../routes/principal.js'
+import type { DailyQuestionReader } from '../question/dailyQuestion.js'
 import type { QuestionReader } from '../question/questionService.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import type { StudySessionService } from '../study/studySessionService.js'
@@ -129,6 +131,8 @@ interface CreateApiAppDependencies {
   checkReadiness: () => Promise<void>
   logger: StructuredLogger
   questionReader: QuestionReader
+  /** Today's question (JLP-815); mounted with questionReadSecurity. */
+  dailyQuestionReader?: DailyQuestionReader
   releaseId?: string
   webAssetsDirectory?: string
   adminAssetsDirectory?: string
@@ -403,6 +407,7 @@ export const createApiApp = ({
   logger,
   learning,
   questionReader,
+  dailyQuestionReader,
   questionReadSecurity,
   questionReports,
   userReports,
@@ -870,6 +875,17 @@ export const createApiApp = ({
         )
       }
     }
+  }
+
+  if (dailyQuestionReader && questionReadSecurity) {
+    app.route(
+      '/api/v1/daily-question',
+      createDailyQuestionRoutes({
+        dailyQuestionReader,
+        environment: questionReadSecurity.environment,
+        rateLimiter: questionReadSecurity.rateLimiter
+      })
+    )
   }
 
   app.route(

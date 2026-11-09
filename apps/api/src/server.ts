@@ -20,6 +20,10 @@ import { createShutdownCoordinator } from './lifecycle/shutdownCoordinator.js'
 import { createJsonLogger } from './observability/logger.js'
 import { createPrismaQuestionRepository } from './question/questionRepository.js'
 import { createQuestionService } from './question/questionService.js'
+import {
+  createDailyQuestionService,
+  createPrismaDailyQuestionRepository
+} from './question/dailyQuestion.js'
 import { createApplicationRateLimiter } from './middleware/applicationRateLimiter.js'
 import { createPrismaStudySessionRepository } from './study/studySessionRepository.js'
 import { createStudySessionService } from './study/studySessionService.js'
@@ -129,6 +133,9 @@ const questionReader = createQuestionService(
   createPrismaQuestionRepository(database.client, {
     migrationProfile: runtimeMigrationProfile
   })
+)
+const dailyQuestionReader = createDailyQuestionService(
+  createPrismaDailyQuestionRepository(database.client)
 )
 const studySessionService = createStudySessionService(
   createPrismaStudySessionRepository(database.client)
@@ -275,6 +282,7 @@ const app = createApiApp({
     wrongNoteService
   },
   questionReader,
+  dailyQuestionReader,
   questionReadSecurity: {
     environment,
     rateLimiter: applicationRateLimiter
