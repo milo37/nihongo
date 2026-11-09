@@ -3,6 +3,8 @@ import {
   approveQuestionVersionBatchResponseSchema,
   publishQuestionVersionBatchRequestSchema,
   publishQuestionVersionBatchResponseSchema,
+  retireQuestionVersionBatchRequestSchema,
+  retireQuestionVersionBatchResponseSchema,
   type PublishQuestionVersionBatchRequest
 } from '@nihongo/contracts/admin/review'
 import { createHash } from 'node:crypto'
@@ -581,6 +583,34 @@ export const createAdminQuestionCommandRoutes = ({
       return context.json(response)
     }
   )
+
+  routes.post('/question-versions/retirement-batch', guard, async (context) => {
+    assertEmptyQuery(context.get('rawRequestTarget'))
+    const request = retireQuestionVersionBatchRequestSchema.parse(
+      await parseBody(
+        context.req.raw,
+        'retireQuestionVersionBatch',
+        retireQuestionVersionBatchRequestSchema,
+        '일괄 게시 내리기 요청이 올바르지 않습니다.'
+      )
+    )
+    const raw = await commandService.retireVersionBatch(
+      authority(context),
+      request
+    )
+    // The batch has committed as a whole; a mismatch here is after commit.
+    const response = retireQuestionVersionBatchResponseSchema.parse(
+      assertCommittedResponse(() =>
+        assertBatchCorrelated(
+          request,
+          raw,
+          retireQuestionVersionBatchResponseSchema
+        )
+      )
+    )
+    noStore(context)
+    return context.json(response)
+  })
 
   routes.post('/question-versions/approval-batch', guard, async (context) => {
     assertEmptyQuery(context.get('rawRequestTarget'))

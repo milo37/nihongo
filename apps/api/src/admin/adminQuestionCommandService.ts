@@ -24,7 +24,9 @@ import type {
   ApproveQuestionVersionBatchRequest,
   ApproveQuestionVersionBatchResponse,
   PublishQuestionVersionBatchRequest,
-  PublishQuestionVersionBatchResponse
+  PublishQuestionVersionBatchResponse,
+  RetireQuestionVersionBatchRequest,
+  RetireQuestionVersionBatchResponse
 } from '@nihongo/contracts/admin/review'
 import { ApplicationError } from '../errors/applicationError.js'
 import {
@@ -102,6 +104,11 @@ export interface AdminQuestionPublicationCommandService {
     authority: AdminCommandAuthority,
     request: PublishQuestionVersionBatchRequest
   ) => Promise<PublishQuestionVersionBatchResponse>
+  /** One transaction: every item is retired or none is (JLP-816). */
+  retireVersionBatch: (
+    authority: AdminCommandAuthority,
+    request: RetireQuestionVersionBatchRequest
+  ) => Promise<RetireQuestionVersionBatchResponse>
 }
 
 export interface AdminQuestionWorkflowCommandService {
@@ -353,6 +360,8 @@ export const createAdminQuestionPublicationCommandService = (
     execute(() => repository.retireVersion(authority, versionId, request)),
   archiveQuestion: (authority, questionId, request) =>
     execute(() => repository.archiveQuestion(authority, questionId, request)),
+  retireVersionBatch: (authority, request) =>
+    execute(() => repository.retireVersionBatch(authority, request)),
   publishVersionBatch: (authority, request) =>
     execute(async () => {
       const items: PublishQuestionVersionBatchResponse['items'][number][] = []

@@ -152,6 +152,38 @@ export const approveQuestionVersionBatchResponseSchema = z
     { path: ['approvedCount'], message: 'approvedCount가 결과와 달라요.' }
   )
 
+export const retireQuestionVersionBatchRequestSchema =
+  publishQuestionVersionBatchRequestSchema
+
+/**
+ * All or nothing (JLP-816): every item is the current PUBLISHED version of an
+ * ACTIVE question and all are retired in one transaction. The question stays
+ * ACTIVE and can be republished with a new version. An error response means
+ * nothing was retired; reload the list and retry.
+ */
+export const retireQuestionVersionBatchResponseSchema = z
+  .object({
+    retiredCount: z.number().int().min(1).max(100),
+    items: z
+      .array(
+        z
+          .object({
+            questionId: opaqueIdSchema,
+            questionVersionId: opaqueIdSchema,
+            questionRowVersion: rowVersionSchema,
+            rowVersion: rowVersionSchema
+          })
+          .strict()
+      )
+      .min(1)
+      .max(100)
+  })
+  .strict()
+  .refine((response) => response.retiredCount === response.items.length, {
+    path: ['retiredCount'],
+    message: 'retiredCount가 결과와 달라요.'
+  })
+
 export type QuestionReviewStage = z.output<typeof questionReviewStageSchema>
 export type AutoValidationResult = z.output<typeof autoValidationResultSchema>
 export type PublishQuestionVersionBatchRequest = z.input<
@@ -165,4 +197,10 @@ export type ApproveQuestionVersionBatchRequest = z.input<
 >
 export type ApproveQuestionVersionBatchResponse = z.output<
   typeof approveQuestionVersionBatchResponseSchema
+>
+export type RetireQuestionVersionBatchRequest = z.input<
+  typeof retireQuestionVersionBatchRequestSchema
+>
+export type RetireQuestionVersionBatchResponse = z.output<
+  typeof retireQuestionVersionBatchResponseSchema
 >

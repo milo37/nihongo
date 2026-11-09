@@ -214,6 +214,16 @@ export const operationManifest = [
     slice2Route: false
   },
   {
+    operation: 'retireQuestionVersionBatch',
+    operationId: 'admin.retireQuestionVersionBatch',
+    method: 'POST',
+    path: '/api/v1/admin/question-versions/retirement-batch',
+    successStatus: 200,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: true,
+    slice2Route: false
+  },
+  {
     operation: 'validateQuestionImport',
     operationId: 'admin.validateQuestionImport',
     method: 'POST',
@@ -352,6 +362,7 @@ const ADMIN_SLICE_5_OPERATIONS = new Set<AdminOperation>([
   'requestContentReviewBatch',
   'publishQuestionVersionBatch',
   'approveQuestionVersionBatch',
+  'retireQuestionVersionBatch',
   'validateQuestionImport',
   'applyQuestionImport',
   'exportAdminQuestions',
@@ -392,12 +403,14 @@ export const slice4CacheInvalidationContractByOperation = {
   publishQuestionVersion: slice4CacheInvalidationContract,
   publishQuestionVersionBatch: slice4CacheInvalidationContract,
   retireQuestionVersion: slice4CacheInvalidationContract,
+  retireQuestionVersionBatch: slice4CacheInvalidationContract,
   archiveAdminQuestion: slice4CacheInvalidationContract
 } as const satisfies Readonly<
   Record<
     | 'publishQuestionVersion'
     | 'publishQuestionVersionBatch'
     | 'retireQuestionVersion'
+    | 'retireQuestionVersionBatch'
     | 'archiveAdminQuestion',
     typeof slice4CacheInvalidationContract
   >
@@ -499,8 +512,8 @@ export const dormantAfterSlice5OperationManifest = operationManifest.filter(
 )
 
 export const assertOperationManifest = (): void => {
-  if (operationManifest.length !== 30) {
-    throw new Error('operation manifest는 정확히 30개여야 합니다.')
+  if (operationManifest.length !== 31) {
+    throw new Error('operation manifest는 정확히 31개여야 합니다.')
   }
   if (slice2ReadOperationManifest.length !== 8) {
     throw new Error('Route manifest는 정확히 8개여야 합니다.')
@@ -509,27 +522,27 @@ export const assertOperationManifest = (): void => {
     slice3ACommandOperationManifest.length !== 5 ||
     slice3RRemediationOperationManifest.length !== 3 ||
     activeThroughSlice3AOperationManifest.length !== 13 ||
-    dormantAfterSlice3AOperationManifest.length !== 17 ||
+    dormantAfterSlice3AOperationManifest.length !== 18 ||
     activeThroughSlice3RA1OperationManifest.length !== 14 ||
-    dormantAfterSlice3RA1OperationManifest.length !== 16 ||
+    dormantAfterSlice3RA1OperationManifest.length !== 17 ||
     activeThroughSlice3RA2OperationManifest.length !== 16 ||
-    dormantAfterSlice3RA2OperationManifest.length !== 14 ||
+    dormantAfterSlice3RA2OperationManifest.length !== 15 ||
     slice4OperationManifest.length !== 3 ||
     activeThroughSlice4OperationManifest.length !== 19 ||
-    dormantAfterSlice4OperationManifest.length !== 11 ||
-    slice5OperationManifest.length !== 11 ||
-    activeThroughSlice5OperationManifest.length !== 30 ||
+    dormantAfterSlice4OperationManifest.length !== 12 ||
+    slice5OperationManifest.length !== 12 ||
+    activeThroughSlice5OperationManifest.length !== 31 ||
     dormantAfterSlice5OperationManifest.length !== 0
   ) {
     throw new Error(
-      'Manifest는 Slice 3A historical 13/17, Slice 3R-A1 14/16, Slice 3R-A2 16/14, Slice 4 19/11, Slice 5 30/0 경계를 유지해야 합니다.'
+      'Manifest는 Slice 3A historical 13/18, Slice 3R-A1 14/17, Slice 3R-A2 16/15, Slice 4 19/12, Slice 5 31/0 경계를 유지해야 합니다.'
     )
   }
   const operations = new Set(operationManifest.map((entry) => entry.operation))
   const operationIds = new Set(
     operationManifest.map((entry) => entry.operationId)
   )
-  if (operations.size !== 30 || operationIds.size !== 30) {
+  if (operations.size !== 31 || operationIds.size !== 31) {
     throw new Error('operation/operationId는 각각 고유해야 합니다.')
   }
   if (slice2ReadOperationManifest.some((entry) => entry.method !== 'GET')) {
@@ -537,7 +550,7 @@ export const assertOperationManifest = (): void => {
   }
   if (
     new Set(slice4CacheInvalidationTargets).size !== 14 ||
-    Object.keys(slice4CacheInvalidationContractByOperation).length !== 4
+    Object.keys(slice4CacheInvalidationContractByOperation).length !== 5
   ) {
     throw new Error(
       'Slice 4 cache invalidation 계약은 네 operation과 중복 없는 14개 target이어야 합니다.'

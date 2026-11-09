@@ -91,9 +91,9 @@ describe('operation and Slice 2 conformance manifests', () => {
     }
   })
 
-  it('closes exactly 30 operations with exactly eight active GET reads', () => {
+  it('closes exactly 31 operations with exactly eight active GET reads', () => {
     expect(() => assertOperationManifest()).not.toThrow()
-    expect(operationManifest).toHaveLength(30)
+    expect(operationManifest).toHaveLength(31)
     expect(slice2ReadOperationManifest).toHaveLength(8)
     expect(
       slice2ReadOperationManifest.every((entry) => entry.method === 'GET')
@@ -189,7 +189,7 @@ describe('operation and Slice 2 conformance manifests', () => {
         .map((entry) => entry.operation)
     )
     expect(activeThroughSlice3AOperationManifest).toHaveLength(13)
-    expect(dormantAfterSlice3AOperationManifest).toHaveLength(17)
+    expect(dormantAfterSlice3AOperationManifest).toHaveLength(18)
     expect(
       dormantAfterSlice3AOperationManifest.map((entry) => entry.operation)
     ).toEqual(
@@ -202,7 +202,7 @@ describe('operation and Slice 2 conformance manifests', () => {
     )
 
     expect(activeThroughSlice3RA1OperationManifest).toHaveLength(14)
-    expect(dormantAfterSlice3RA1OperationManifest).toHaveLength(16)
+    expect(dormantAfterSlice3RA1OperationManifest).toHaveLength(17)
     expect(
       activeThroughSlice3RA1OperationManifest.map((entry) => entry.operation)
     ).toEqual(
@@ -226,7 +226,7 @@ describe('operation and Slice 2 conformance manifests', () => {
     )
 
     expect(activeThroughSlice3RA2OperationManifest).toHaveLength(16)
-    expect(dormantAfterSlice3RA2OperationManifest).toHaveLength(14)
+    expect(dormantAfterSlice3RA2OperationManifest).toHaveLength(15)
     expect(
       activeThroughSlice3RA2OperationManifest.map((entry) => entry.operation)
     ).toEqual(
@@ -277,7 +277,7 @@ describe('operation and Slice 2 conformance manifests', () => {
       ]
     ])
     expect(activeThroughSlice4OperationManifest).toHaveLength(19)
-    expect(dormantAfterSlice4OperationManifest).toHaveLength(11)
+    expect(dormantAfterSlice4OperationManifest).toHaveLength(12)
     expect(
       activeThroughSlice4OperationManifest.map((entry) => entry.operation)
     ).toEqual(
@@ -322,6 +322,14 @@ describe('operation and Slice 2 conformance manifests', () => {
         'admin.approveQuestionVersionBatch',
         'POST',
         '/api/v1/admin/question-versions/approval-batch',
+        200,
+        true
+      ],
+      [
+        'retireQuestionVersionBatch',
+        'admin.retireQuestionVersionBatch',
+        'POST',
+        '/api/v1/admin/question-versions/retirement-batch',
         200,
         true
       ],
@@ -390,7 +398,7 @@ describe('operation and Slice 2 conformance manifests', () => {
         true
       ]
     ])
-    expect(activeThroughSlice5OperationManifest).toHaveLength(30)
+    expect(activeThroughSlice5OperationManifest).toHaveLength(31)
     expect(dormantAfterSlice5OperationManifest).toHaveLength(0)
     expect(
       activeThroughSlice5OperationManifest.map((entry) => entry.operation)
@@ -419,6 +427,7 @@ describe('operation and Slice 2 conformance manifests', () => {
       'publishQuestionVersion',
       'publishQuestionVersionBatch',
       'retireQuestionVersion',
+      'retireQuestionVersionBatch',
       'archiveAdminQuestion'
     ])
     Object.values(slice4CacheInvalidationContractByOperation).forEach(
@@ -453,7 +462,7 @@ describe('operation and Slice 2 conformance manifests', () => {
     expect(Object.keys(operationSchemas)).toEqual(
       operationManifest.map((entry) => entry.operation)
     )
-    expect(operationSchemaManifest).toHaveLength(30)
+    expect(operationSchemaManifest).toHaveLength(31)
     operationSchemaManifest.forEach((entry) => {
       expect(entry.schemas).toBe(operationSchemas[entry.operation])
       expect(
@@ -468,12 +477,12 @@ describe('operation and Slice 2 conformance manifests', () => {
     })
   })
 
-  it('fixes the canonical Slice 2 route order and 22 deferred operations', () => {
+  it('fixes the canonical Slice 2 route order and 23 deferred operations', () => {
     expect(() => assertSlice2ConformanceManifest()).not.toThrow()
     expect(
       slice2ReadConformanceManifest.map((entry) => entry.operation)
     ).toEqual(slice2ExpectedOperations)
-    expect(deferredOperationManifest).toHaveLength(22)
+    expect(deferredOperationManifest).toHaveLength(23)
     expect(
       slice2ReadConformanceManifest.every(
         (entry) =>
@@ -486,7 +495,7 @@ describe('operation and Slice 2 conformance manifests', () => {
 
   it('classifies every operation into the exact retryability surface matrix', () => {
     expect(() => assertErrorPolicyManifest()).not.toThrow()
-    expect(operationErrorConformanceManifest).toHaveLength(30)
+    expect(operationErrorConformanceManifest).toHaveLength(31)
     expect(
       operationErrorConformanceManifest.reduce<Record<string, number>>(
         (counts, entry) => ({
@@ -497,7 +506,7 @@ describe('operation and Slice 2 conformance manifests', () => {
       )
     ).toEqual({
       GET_READ: 10,
-      KEYLESS_MUTATION: 16,
+      KEYLESS_MUTATION: 17,
       VALIDATION_WRITE_ZERO: 1,
       APPLY_IMPORT: 1,
       EXPORT: 1,
@@ -513,7 +522,7 @@ describe('operation and Slice 2 conformance manifests', () => {
     })
   })
 
-  it('enforces wire retryability for all 30 named operation error schemas', () => {
+  it('enforces wire retryability for all 31 named operation error schemas', () => {
     operationErrorConformanceManifest.forEach((entry) => {
       const schema = operationSchemas[entry.operation].error
       expect(
