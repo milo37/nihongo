@@ -142,14 +142,14 @@ it('keeps guest start available while disclosing example data', () => {
       </MemoryRouter>
     </QueryClientProvider>
   )
+  // No count choice: a guest always gets the 5-question set.
   expect(
-    screen.getByRole('radio', {
-      // Locked for guests: the name ends with "로그인 필요".
+    screen.queryByRole('radio', {
       name: new RegExp(
         `^${appI18n.t('practice:setup.questionCount', { formattedCount: 20 })}`
       )
     })
-  ).toBeVisible()
+  ).toBeNull()
   expect(
     screen.getByRole('button', {
       name: appI18n.t('home:quickDrill.start', {
@@ -217,7 +217,8 @@ it.each(['ko', 'ja'] as const)(
       </MemoryRouter>
     )
     const form = screen.getByRole('form')
-    expect(form.querySelectorAll('fieldset')).toHaveLength(3)
+    // Subject and level only: no count choice (subtract table 4).
+    expect(form.querySelectorAll('fieldset')).toHaveLength(2)
     const n5 = within(form).getByRole('radio', { name: 'N5' })
     fireEvent.click(n5)
     expect(n5).toBeChecked()
