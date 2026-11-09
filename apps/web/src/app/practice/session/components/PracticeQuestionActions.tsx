@@ -32,7 +32,7 @@ export const PracticeQuestionActions = ({
       {/* A single review question has nowhere to go back to. */}
       {hidePrevious ? null : (
         <Button
-          className="shrink-0 disabled:bg-transparent"
+          className="shrink-0 disabled:bg-transparent!"
           variant="ghost"
           disabled={isFirstQuestion || isLocked}
           onClick={onPrevious}
