@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { ReactElement } from 'react'
+import type { CSSProperties, ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 // Inline so it ships in the result chunk (the bundle contract keeps CSS files initial-only).
 import revealStyles from '@app/practice/result/gradingReveal.css?inline'
@@ -22,6 +22,10 @@ export const getRevealSchedule = (count: number) => {
     total: LEAD_MS + Math.max(count - 1, 0) * gap + FLIP_MS
   }
 }
+
+/** Tiles per row: n in one row up to the max, else rows split evenly (design rule). */
+export const getRevealColumns = (count: number, max: number): number =>
+  count <= max ? count : Math.ceil(count / Math.ceil(count / max))
 
 const prefersReducedMotion = (): boolean =>
   typeof window.matchMedia === 'function' &&
@@ -113,7 +117,12 @@ export const GradingReveal = ({
       ) : null}
       <ol
         className="grading-reveal-grid"
-        data-count={count}
+        style={
+          {
+            '--cols': getRevealColumns(count, 5),
+            '--cols-wide': getRevealColumns(count, 10)
+          } as CSSProperties
+        }
         aria-hidden={!isDone || undefined}
       >
         {outcomes.map((isCorrect, index) => {

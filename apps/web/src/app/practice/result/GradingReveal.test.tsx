@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import { appI18n } from '@nihongo/browser/i18n/config'
 import {
   GradingReveal,
+  getRevealColumns,
   getRevealSchedule
 } from '@app/practice/result/GradingReveal'
 
@@ -21,6 +22,13 @@ it('stays under 2.5 seconds for 1 to 20 questions', () => {
   for (let count = 1; count <= 20; count += 1) {
     expect(getRevealSchedule(count).total).toBeLessThanOrEqual(2500)
   }
+})
+
+it('splits rows evenly: phone 5 per row, wide 10 (design rule)', () => {
+  const phone = [5, 7, 10, 20].map((n) => getRevealColumns(n, 5))
+  const wide = [5, 10, 15, 20].map((n) => getRevealColumns(n, 10))
+  expect(phone).toEqual([5, 4, 5, 5])
+  expect(wide).toEqual([5, 10, 8, 10])
 })
 
 it('flips tiles in order, then announces the score once', () => {
