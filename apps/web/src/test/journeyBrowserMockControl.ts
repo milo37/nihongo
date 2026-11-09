@@ -84,13 +84,13 @@ export const completeMockGoogleActorCallback = async (
   }
 }
 
-export type DashboardInsightsFault = 'malformed' | 'network' | 'rate-limit'
+export type DashboardStatsFault = 'malformed' | 'network' | 'rate-limit'
 
-const dashboardInsightsPath = '*/api/v1/dashboard/insights'
+const dashboardStatsPath = '*/api/v1/dashboard'
 
 const createRateLimitFailure = () =>
   http.get(
-    dashboardInsightsPath,
+    dashboardStatsPath,
     () => {
       const requestId = crypto.randomUUID()
       return HttpResponse.json(
@@ -105,7 +105,7 @@ const createRateLimitFailure = () =>
           headers: {
             'Cache-Control': 'private, no-store',
             'Retry-After': '0',
-            'X-Nihongo-Test-Fault': 'dashboard-insights-429',
+            'X-Nihongo-Test-Fault': 'dashboard-stats-429',
             'X-Request-Id': requestId
           }
         }
@@ -114,16 +114,14 @@ const createRateLimitFailure = () =>
     { once: true }
   )
 
-export const armDashboardInsightsFault = (
-  fault: DashboardInsightsFault
-): void => {
+export const armDashboardStatsFault = (fault: DashboardStatsFault): void => {
   assertMockTestMode()
   if (fault === 'network') {
     worker.use(
-      http.get(dashboardInsightsPath, () => HttpResponse.error(), {
+      http.get(dashboardStatsPath, () => HttpResponse.error(), {
         once: true
       }),
-      http.get(dashboardInsightsPath, () => HttpResponse.error(), {
+      http.get(dashboardStatsPath, () => HttpResponse.error(), {
         once: true
       })
     )
@@ -141,14 +139,14 @@ export const armDashboardInsightsFault = (
 
   worker.use(
     http.get(
-      dashboardInsightsPath,
+      dashboardStatsPath,
       () =>
         HttpResponse.json(
           { malformed: true },
           {
             headers: {
               'Cache-Control': 'private, no-store',
-              'X-Nihongo-Test-Fault': 'dashboard-insights-malformed'
+              'X-Nihongo-Test-Fault': 'dashboard-stats-malformed'
             }
           }
         ),
