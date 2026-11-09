@@ -18,6 +18,14 @@ import { createApplicationRateLimiter } from '../middleware/applicationRateLimit
 import { createJsonLogger } from '../observability/logger.js'
 import { createPrismaQuestionRepository } from '../question/questionRepository.js'
 import { createQuestionService } from '../question/questionService.js'
+import {
+  createDailyQuestionService,
+  createPrismaDailyQuestionRepository
+} from '../question/dailyQuestion.js'
+import {
+  createPrismaTargetLevelRepository,
+  createTargetLevelService
+} from '../member/targetLevel.js'
 import { createPrismaGuestAllowanceReader } from '../study/guestAllowance.js'
 import { createGuestIpDailyCounter } from '../study/guestIpDailyCounter.js'
 import { createPrismaStudyDraftRepository } from '../study/studyDraftRepository.js'
@@ -1568,6 +1576,9 @@ const createSsoBrowserApiFixture = async (
         ),
         reviewQueueService: wrongNoteReviewQueueService,
         targetedReviewService: wrongNoteTargetedReviewService,
+        targetLevelService: createTargetLevelService(
+          createPrismaTargetLevelRepository(database.client)
+        ),
         wrongNoteService
       },
       auth: {
@@ -1584,6 +1595,9 @@ const createSsoBrowserApiFixture = async (
       ...(environment.RELEASE_ID === undefined
         ? {}
         : { releaseId: environment.RELEASE_ID }),
+      dailyQuestionReader: createDailyQuestionService(
+        createPrismaDailyQuestionRepository(database.client)
+      ),
       questionReader: createQuestionService(
         createPrismaQuestionRepository(database.client, {
           migrationProfile: 'current'

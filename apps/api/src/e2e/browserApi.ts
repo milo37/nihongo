@@ -29,6 +29,14 @@ import { createJsonLogger, type LogLevel } from '../observability/logger.js'
 import { createApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createPrismaQuestionRepository } from '../question/questionRepository.js'
 import { createQuestionService } from '../question/questionService.js'
+import {
+  createDailyQuestionService,
+  createPrismaDailyQuestionRepository
+} from '../question/dailyQuestion.js'
+import {
+  createPrismaTargetLevelRepository,
+  createTargetLevelService
+} from '../member/targetLevel.js'
 import { createPrismaGuestAllowanceReader } from '../study/guestAllowance.js'
 import { createGuestIpDailyCounter } from '../study/guestIpDailyCounter.js'
 import { createPrismaStudySessionRepository } from '../study/studySessionRepository.js'
@@ -442,6 +450,9 @@ export const createBrowserApi = async ({
         parseBrowserApiLogLevel(source.BROWSER_API_LOG_LEVEL)
       ),
       ...(environment.RELEASE_ID ? { releaseId: environment.RELEASE_ID } : {}),
+      dailyQuestionReader: createDailyQuestionService(
+        createPrismaDailyQuestionRepository(database.client)
+      ),
       questionReader: createQuestionService(
         createPrismaQuestionRepository(database.client, {
           migrationProfile: 'current'
@@ -497,6 +508,9 @@ export const createBrowserApi = async ({
         ),
         targetedReviewService: createWrongNoteTargetedReviewService(
           createPrismaWrongNoteTargetedReviewRepository(database.client)
+        ),
+        targetLevelService: createTargetLevelService(
+          createPrismaTargetLevelRepository(database.client)
         ),
         wrongNoteService: createWrongNoteService(
           createPrismaWrongNoteRepository(database.client)
