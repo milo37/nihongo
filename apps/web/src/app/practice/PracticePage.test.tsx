@@ -69,8 +69,35 @@ describe('PracticePage setup', () => {
 
     cleanup()
     renderPractice('?level=N4&subject=READING&count=5')
+    // A member always gets one set of 10; the old count link is ignored.
     expect(
-      await screen.findByRole('button', { name: 'N4 독해 · 5문제 시작' })
+      await screen.findByRole('button', { name: 'N4 독해 · 10문제 시작' })
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: '문제 수' })).toBeNull()
+  })
+
+  it('목표 급수가 없으면 이 기기에서 마지막에 시작한 급수·과목을 기본으로 쓴다', async () => {
+    const router = renderPractice('?level=N3&subject=GRAMMAR')
+    const start = await screen.findByRole('button', {
+      name: 'N3 문법 · 5문제 시작'
+    })
+    await waitFor(() => expect(start).toBeEnabled())
+    await userEvent.setup().click(start)
+    expect(await screen.findByText('학습 세션 도착')).toBeInTheDocument()
+    expect(router.state.location.pathname).toMatch(/^\/practice\/session\//u)
+
+    cleanup()
+    renderPractice('')
+    expect(
+      await screen.findByRole('button', { name: 'N3 문법 · 5문제 시작' })
+    ).toBeInTheDocument()
+
+    // A target level still wins over the last level; the subject stays.
+    cleanup()
+    mockDatabase.loginAs('USER')
+    renderPractice('')
+    expect(
+      await screen.findByRole('button', { name: 'N2 문법 · 10문제 시작' })
     ).toBeInTheDocument()
   })
 
@@ -124,8 +151,8 @@ describe('PracticePage setup', () => {
     expect(router.state.location.pathname).toMatch(/^\/practice\/session\//u)
   })
 
-  it('게스트가 공유 주소로 잠긴 수·방식을 열면 5문제·무작위로 보여 주고 안내한다 (L12)', async () => {
-    const search = '?level=N5&subject=VOCABULARY&count=20&mode=BOOKMARK'
+  it('게스트가 공유 주소로 잠긴 방식을 열면 5문제·무작위로 보여 주고 안내한다 (L12)', async () => {
+    const search = '?level=N5&subject=VOCABULARY&count=20&mode=DAILY_REVIEW'
     renderPractice(search)
     const note = await screen.findByText(
       '문항 수·출제 방식은 로그인하면 고를 수 있어요.'
@@ -142,7 +169,7 @@ describe('PracticePage setup', () => {
     ).toHaveValue('RANDOM')
   })
 
-  it('게스트가 잠긴 문제 수·출제 방식을 누르면 선택은 그대로 두고 토스트로 안내한다 (L11·L16)', async () => {
+  it('게스트가 잠긴 출제 방식을 고르면 선택은 그대로 두고 토스트로 안내한다 (L11·L16)', async () => {
     const router = renderPractice('?level=N5&subject=VOCABULARY')
     const user = userEvent.setup()
     await waitFor(() =>
@@ -150,22 +177,20 @@ describe('PracticePage setup', () => {
         screen.getByRole('button', { name: 'N5 어휘 · 5문제 시작' })
       ).toBeEnabled()
     )
-    const twenty = screen.getByRole('radio', { name: /^20문제/u })
+    // Random or the review set only; no count choice (subtract table 3·4).
+    expect(screen.queryByRole('group', { name: '문제 수' })).toBeNull()
+    const modeSelect = screen.getByRole('combobox', {
+      name: '출제 모드',
+      hidden: true
+    })
     expect(
-      within(twenty.closest('label') as HTMLElement).getByText('로그인 필요')
-    ).toBeInTheDocument()
-    await user.click(twenty)
-    const toasts = screen.getByRole('region', { name: '알림' })
-    expect(
-      within(toasts).getByText('10문제·20문제는 로그인하면 풀 수 있어요.')
-    ).toBeVisible()
-    expect(screen.getByRole('radio', { name: '5문제' })).toBeChecked()
-    expect(router.state.location.search).not.toContain('count')
+      within(modeSelect)
+        .getAllByRole('option', { hidden: true })
+        .map((option) => option.textContent)
+    ).toEqual(['랜덤 문제', '복습할 문제 · 로그인 필요'])
 
-    await user.selectOptions(
-      screen.getByRole('combobox', { name: '출제 모드', hidden: true }),
-      'WEAKNESS'
-    )
+    await user.selectOptions(modeSelect, 'DAILY_REVIEW')
+    const toasts = screen.getByRole('region', { name: '알림' })
     expect(
       within(toasts).getByText('무작위 외 출제 방식은 로그인하면 쓸 수 있어요.')
     ).toBeVisible()
@@ -326,7 +351,9 @@ describe('PracticePage setup', () => {
       )
     )
     mockDatabase.loginAs('USER')
-    const router = renderPractice('?level=N5&subject=VOCABULARY&mode=WEAKNESS')
+    const router = renderPractice(
+      '?level=N5&subject=VOCABULARY&mode=DAILY_REVIEW'
+    )
     const user = userEvent.setup()
     const start = await screen.findByRole('button', {
       name: 'N5 어휘 · 10문제 시작'
@@ -335,7 +362,7 @@ describe('PracticePage setup', () => {
     await user.click(start)
     expect(
       await screen.findByText(
-        "지금 조건으로는 '약점 추천'에서 풀 수 있는 문제가 없어요."
+        "지금 조건으로는 '복습할 문제'에서 풀 수 있는 문제가 없어요."
       )
     ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '랜덤 문제 선택' }))
@@ -346,7 +373,7 @@ describe('PracticePage setup', () => {
     )
     expect(
       screen.queryByText(
-        "지금 조건으로는 '약점 추천'에서 풀 수 있는 문제가 없어요."
+        "지금 조건으로는 '복습할 문제'에서 풀 수 있는 문제가 없어요."
       )
     ).not.toBeInTheDocument()
   })
@@ -354,11 +381,11 @@ describe('PracticePage setup', () => {
   it('이용이 제한된 계정이면 일반 오류 대신 제한 안내를 보여 준다', async () => {
     const restricted = mockDatabase.loginAs('USER')
     mockDatabase.setAccountRestricted(restricted.id, true)
-    const router = renderPractice('?level=N5&subject=VOCABULARY&count=5', {
+    const router = renderPractice('?level=N5&subject=VOCABULARY', {
       globalErrors: true
     })
     const start = await screen.findByRole('button', {
-      name: 'N5 어휘 · 5문제 시작'
+      name: 'N5 어휘 · 10문제 시작'
     })
     await waitFor(() => expect(start).toBeEnabled())
     await userEvent.setup().click(start)

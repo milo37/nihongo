@@ -570,7 +570,7 @@ export const jaCoreResources = {
           description: '保存した問題だけをまとめて解き直します。'
         },
         DAILY_REVIEW: {
-          label: '今日の復習',
+          label: '復習する問題',
           description:
             'サーバーの予定に従い、今日復習する間違いを順番に解きます。'
         }
