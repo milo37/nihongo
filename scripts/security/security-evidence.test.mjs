@@ -89,27 +89,14 @@ const createRequestLedgerEntries = (name, pathName) => {
       }
     ]
   if (name.startsWith('dashboard-')) {
-    return Array.from({ length: 21 }, (_, triggerIndex) => {
-      const sequence = triggerIndex * 4
-      return [
-        {
-          finishSequence: sequence + 2,
-          method: 'GET',
-          path: '/api/v1/dashboard',
-          provenance,
-          startSequence: sequence + 1,
-          status: 200
-        },
-        {
-          finishSequence: sequence + 4,
-          method: 'GET',
-          path: '/api/v1/dashboard/insights',
-          provenance,
-          startSequence: sequence + 3,
-          status: 200
-        }
-      ]
-    }).flat()
+    return Array.from({ length: 21 }, (_, triggerIndex) => ({
+      finishSequence: triggerIndex * 2 + 2,
+      method: 'GET',
+      path: '/api/v1/dashboard',
+      provenance,
+      startSequence: triggerIndex * 2 + 1,
+      status: 200
+    }))
   }
   if (name.startsWith('admin-lifecycle-')) {
     return adminLedgerOperations.map(
@@ -953,9 +940,9 @@ test('dashboard ledgers require ordered sequential user journeys', () => {
           })
       ],
       [
-        'duplicated read kind',
+        'removed insights read',
         (entries) => {
-          entries[1].path = '/api/v1/dashboard'
+          entries[1].path = '/api/v1/dashboard/insights'
         }
       ],
       [

@@ -4,9 +4,10 @@ import { AccountSettings } from '@app/account/components/AccountSettings'
 import { Avatar } from '@app/account/components/Avatar'
 import { MyStudy } from '@app/account/components/study/MyStudy'
 import { GuestGate } from '@app/login/components/GuestGate'
+import { InformationFooter } from '@nihongo/browser/common/components/InformationFooter'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 
-// My page: profile, study summary, recommendations and account settings.
+// My page: profile, study summary, account settings, then terms and help.
 export const AccountPage = (): ReactElement => {
   const { t: navigationT } = useTranslation('navigation')
   const { t: authT } = useTranslation('auth')
@@ -19,8 +20,14 @@ export const AccountPage = (): ReactElement => {
       </section>
     )
   }
+  // Guests reach terms and help here too: the shell has no footer (C2).
   if (!user) {
-    return <GuestGate screen="account" />
+    return (
+      <>
+        <GuestGate screen="account" />
+        <InformationFooter />
+      </>
+    )
   }
   return (
     <div className="account-page">
@@ -37,6 +44,7 @@ export const AccountPage = (): ReactElement => {
       </header>
       <MyStudy />
       <AccountSettings />
+      <InformationFooter />
     </div>
   )
 }

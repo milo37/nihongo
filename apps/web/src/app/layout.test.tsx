@@ -36,7 +36,7 @@ beforeEach(() => {
 afterEach(() => useAppStore.setState({ isMobileMenuOpen: false }))
 
 it.each(['ko', 'ja'] as const)(
-  'keeps approved brand, three destinations and account locale/Escape (%s)',
+  'keeps approved brand, four destinations and account locale/Escape (%s)',
   async (locale) => {
     await appI18n.changeLanguage(locale)
     render(
@@ -56,7 +56,10 @@ it.each(['ko', 'ja'] as const)(
       within(primary)
         .getAllByRole('link')
         .map((a) => a.getAttribute('href'))
-    ).toEqual(['/practice', '/wrong-notes', '/bookmarks'])
+    ).toEqual(['/practice', '/wrong-notes', '/bookmarks', '/account'])
+    expect(
+      within(primary).getByRole('link', { name: appI18n.t('navigation:my') })
+    ).toBeInTheDocument()
     expect(
       within(primary).getByRole('link', {
         name: appI18n.t('navigation:learningStart')
@@ -99,30 +102,15 @@ it.each(['ko', 'ja'] as const)(
   }
 )
 
-it.each(['ko', 'ja'] as const)(
-  'keeps three information entry destinations in document flow (%s)',
-  async (locale) => {
-    await appI18n.changeLanguage(locale)
-    render(
-      <MemoryRouter initialEntries={['/login']}>
-        <Layout />
-      </MemoryRouter>
-    )
-    const footer = screen.getByRole('contentinfo')
-    const nav = within(footer).getByRole('navigation', {
-      name: appI18n.t('common:footer.informationLabel')
-    })
-    expect(
-      within(nav)
-        .getAllByRole('link')
-        .map((a) => a.getAttribute('href'))
-    ).toEqual(['/legal', '/support', '/account/data'])
-    expect(
-      screen.getByRole('main').compareDocumentPosition(footer) &
-        Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy()
-  }
-)
+// The information links moved to the bottom of 마이 (direction §1-1).
+it('renders no shell footer for learners', () => {
+  render(
+    <MemoryRouter initialEntries={['/login']}>
+      <Layout />
+    </MemoryRouter>
+  )
+  expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument()
+})
 
 it.each(['ko', 'ja'] as const)(
   'shares active learning context for member entry and preserves admin access (%s)',
@@ -219,7 +207,7 @@ it('keeps review session/result navigation in review context', () => {
   expect(document.title).toContain(appI18n.t('common:appName'))
 })
 
-it('composes desktop navigation outside the utility header without duplicating destination IDs', () => {
+it('puts the desktop links in the top bar without duplicating destination IDs', () => {
   render(
     <MemoryRouter initialEntries={['/bookmarks']}>
       <Layout />
@@ -228,13 +216,7 @@ it('composes desktop navigation outside the utility header without duplicating d
   const sidebar = screen.getByRole('navigation', {
     name: appI18n.t('navigation:primary')
   })
-  expect(sidebar.closest('.app-side-navigation')).not.toBeNull()
-  expect(screen.getByRole('banner').contains(sidebar)).toBe(false)
-  expect(
-    within(screen.getByRole('banner')).queryByRole('link', {
-      name: appI18n.t('navigation:learningStart')
-    })
-  ).not.toBeInTheDocument()
+  expect(screen.getByRole('banner').contains(sidebar)).toBe(true)
   expect(document.querySelectorAll('#primary-navigation')).toHaveLength(1)
   expect(document.querySelectorAll('#mobile-navigation')).toHaveLength(1)
   expect(

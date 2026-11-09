@@ -140,6 +140,7 @@ export const koResources = {
     practice: '문제풀이',
     wrongNotes: '복습',
     bookmarks: '책갈피',
+    my: '마이',
     dashboard: '대시보드',
     adminQuestions: '문제 관리',
     login: '로그인',

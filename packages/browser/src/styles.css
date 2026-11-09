@@ -55,7 +55,7 @@
   --focus-width: 3px;
   --focus-offset: 3px;
   --focus-inset-offset: -2px;
-  --mobile-navigation-height: 68px;
+  --mobile-navigation-height: 72px;
   --font-sans:
     Pretendard, -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR',
     'Noto Sans JP', sans-serif;
@@ -126,10 +126,10 @@
   display: flex;
   align-items: center;
   gap: 32px;
-  max-width: 1184px;
-  min-height: 72px;
+  max-width: 1120px;
+  min-height: 64px;
   margin-inline: auto;
-  padding-inline: 32px;
+  padding-inline: 40px;
 }
 
 /* Explicit width avoids the Tailwind outline color/width name collision. */
@@ -176,7 +176,7 @@
   min-height: 44px;
   color: rgb(var(--color-muted));
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 600;
   border-bottom: 3px solid transparent;
   padding-top: 3px;
 }
@@ -700,23 +700,6 @@
   color: rgb(var(--color-muted));
 }
 
-.practice-shortcuts {
-  display: flex;
-  justify-content: center;
-  gap: 24px;
-  margin-top: 20px;
-}
-
-.practice-shortcuts > a {
-  color: rgb(var(--color-muted));
-  font-size: 14px;
-}
-
-.practice-shortcuts svg {
-  width: 17px;
-  height: 17px;
-}
-
 .practice-resumable {
   margin-bottom: 36px;
 }
@@ -798,7 +781,8 @@
   font-size: 13px;
 }
 
-@media (max-width: 760px) {
+/* Learner navigation (direction §1-1): bottom tabs under 640px. */
+@media (max-width: 639.98px) {
   body:has(.app-mobile-navigation) .app-global-banner {
     bottom: calc(
       var(--mobile-navigation-height) + env(safe-area-inset-bottom) + 1rem
@@ -810,11 +794,47 @@
     );
   }
   .app-shell-header-inner {
-    min-height: 62px;
+    min-height: 56px;
+  }
+  .app-primary-navigation {
+    display: none;
+  }
+  .app-mobile-navigation {
+    display: flex;
+    position: fixed;
+    inset: auto 0 0;
+    z-index: var(--z-header);
+    align-items: stretch;
+    height: calc(var(--mobile-navigation-height) + env(safe-area-inset-bottom));
+    padding: 0 4px env(safe-area-inset-bottom);
+    border-top: 1px solid rgb(var(--color-line));
+    background: rgb(var(--color-surface));
+  }
+  .app-mobile-navigation .app-nav-link {
+    flex: 1 1 0;
+    flex-direction: column;
+    min-width: 0;
+    padding: 0 4px;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.3;
+    border: 0;
+  }
+  .app-mobile-navigation .app-nav-link[aria-current='page'] {
+    color: rgb(var(--color-brand));
+  }
+  .app-mobile-navigation .app-nav-icon {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-shell-header-inner {
     padding-inline: 20px;
     gap: 12px;
   }
-  .app-primary-navigation,
   .app-desktop-locale {
     display: none;
   }
@@ -822,36 +842,6 @@
     display: block;
     padding: 8px 12px;
     border-top: 1px solid rgb(var(--color-line));
-  }
-  .app-mobile-navigation {
-    display: flex;
-    position: fixed;
-    inset: auto 0 0;
-    z-index: var(--z-header);
-    align-items: center;
-    justify-content: space-around;
-    height: calc(var(--mobile-navigation-height) + env(safe-area-inset-bottom));
-    padding: 6px 20px calc(6px + env(safe-area-inset-bottom));
-    border-top: 1px solid rgb(var(--color-line));
-    background: rgb(var(--color-surface));
-  }
-  .app-mobile-navigation .app-nav-link {
-    flex-direction: column;
-    min-width: 58px;
-    min-height: 48px;
-    padding: 4px 10px;
-    gap: 3px;
-    font-size: 11px;
-    line-height: 1.3;
-    border: 0;
-    border-radius: var(--radius-control);
-  }
-  .app-mobile-navigation .app-nav-link[aria-current='page'] {
-    background: rgb(var(--color-brand-soft));
-  }
-  .app-mobile-navigation .app-nav-icon {
-    width: 21px;
-    height: 21px;
   }
   .information-footer {
     padding-bottom: 24px;
@@ -908,17 +898,6 @@
   .practice-start-button {
     min-height: 50px;
     font-size: 14px;
-  }
-  .practice-shortcuts {
-    justify-content: space-between;
-    gap: 8px;
-    margin-top: 24px;
-    padding-top: 20px;
-    border-top: 1px solid rgb(var(--color-line));
-  }
-  .practice-shortcuts > a {
-    font-size: 13px;
-    padding-inline: 0;
   }
   .practice-resumable {
     margin-bottom: 26px;
@@ -1439,7 +1418,9 @@
       );
       width: auto;
     }
+  }
 
+  @media (max-width: 639.98px) {
     body:has(.app-mobile-navigation) .ui-toast-region {
       bottom: calc(
         var(--mobile-navigation-height) + env(safe-area-inset-bottom) + 12px +
@@ -2402,17 +2383,13 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
   }
 }
 
-/* JLP-500 approved shared shell and list navigation. */
-.app-shell {
-  flex-direction: row;
-}
+/* JLP-500 shared shell; the side rail became the top bar (direction §1-1). */
 .app-shell-body {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   min-height: 100svh;
   min-width: 0;
-  margin-left: 216px;
 }
 .app-shell-body > main {
   flex: 1 0 auto;
@@ -2435,60 +2412,8 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
   max-width: 760px;
   margin-inline: 0;
 }
-.app-shell-header-inner {
-  max-width: none;
-  padding-inline: 40px;
-  justify-content: flex-end;
-}
-.app-mobile-brand {
-  display: none;
-}
-.app-side-navigation {
-  display: flex;
-  flex-direction: column;
-  position: fixed;
-  inset: 0 auto 0 0;
-  z-index: var(--z-header);
-  width: 216px;
-  padding: 24px 20px;
-  overflow-y: auto;
-  background: rgb(var(--color-surface));
-  border-right: 1px solid rgb(var(--color-line));
-}
-.app-side-brand {
-  padding-inline: 8px;
-  margin-bottom: 36px;
-}
-.app-side-brand .app-brand {
-  flex-wrap: wrap;
-  font-size: 19px;
-}
-.app-primary-navigation {
-  display: grid;
-  align-self: auto;
-  gap: 8px;
-  margin-right: 0;
-}
-.app-primary-navigation .app-nav-icon {
-  display: block;
-  flex-shrink: 0;
-}
-.app-primary-navigation .app-nav-link {
-  justify-content: flex-start;
-  gap: 12px;
-  min-height: 48px;
-  padding: 12px 16px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-control);
-}
 .app-primary-navigation .app-nav-link:hover {
-  background: rgb(var(--color-surface-muted));
-}
-.app-primary-navigation .app-nav-link[aria-current='page'] {
-  background: rgb(var(--selection-background));
-  border-color: rgb(var(--selection-border));
-  color: rgb(var(--selection-text));
-  font-weight: 700;
+  color: rgb(var(--color-ink));
 }
 .app-shell-body > .information-footer {
   width: calc(100% - 80px);
@@ -2499,13 +2424,7 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
 .app-shell[data-surface='learning'] .app-shell-body > .information-footer {
   max-width: 800px;
 }
-.app-shell-focus .app-shell-body {
-  margin-left: 0;
-}
-/* Admin keeps its own menu: no learner rail column, brand moves to the header. */
-.app-shell-no-rail .app-shell-body {
-  margin-left: 0;
-}
+/* Admin keeps its own menu and has no learner links in the top bar. */
 .app-shell-no-rail .app-shell-body > main {
   width: 100%;
   max-width: none;
@@ -2648,29 +2567,8 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
   }
 }
 @media (max-width: 760px) {
-  .app-shell {
-    flex-direction: column;
-  }
-  .app-side-navigation {
-    display: none;
-  }
-  .app-shell-body {
-    margin-left: 0;
-  }
   .app-shell-body > main {
     width: calc(100% - 40px);
-  }
-  .app-shell-header-inner {
-    padding-inline: 20px;
-    min-height: 62px;
-  }
-  .app-mobile-brand {
-    display: inline-flex;
-  }
-  .app-mobile-navigation .app-nav-link[aria-current='page'] {
-    background: rgb(var(--selection-background));
-    color: rgb(var(--selection-text));
-    box-shadow: inset 0 0 0 1px rgb(var(--selection-border));
   }
   .app-shell-body > .information-footer {
     width: calc(100% - 40px);
@@ -2693,7 +2591,7 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
   outline: var(--focus-width) solid rgb(var(--focus-color));
   outline-offset: var(--focus-offset);
 }
-@media (max-width: 760px) {
+@media (max-width: 639.98px) {
   .app-shell:not(.app-shell-focus) .app-shell-body {
     min-height: calc(
       100svh - var(--mobile-navigation-height) - env(safe-area-inset-bottom)
