@@ -27,15 +27,14 @@ const DailyQuestionBody = ({
   data: GetDailyQuestionResponse
 }): ReactElement => {
   const { t, i18n } = useTranslation('home')
+  const { t: tCommon } = useTranslation('common')
   const { question, date } = data
+  const explanationJa = question.explanationJa?.trim()
+  const showJa = i18n.resolvedLanguage === 'ja' && Boolean(explanationJa)
   const [picked, setPicked] = useState(() => readDailyAnswer(date, question.id))
   const correct = question.options.find(
     (option) => option.id === question.correctOptionId
   )
-  const explanation =
-    i18n.resolvedLanguage === 'ja' && question.explanationJa
-      ? question.explanationJa
-      : question.explanationKo
   const pick = (optionId: string): void => {
     if (picked) return
     setPicked(optionId)
@@ -96,10 +95,18 @@ const DailyQuestionBody = ({
                 ? t('today.dailyCorrect')
                 : t('today.dailyIncorrect', { label: correct?.label })}
             </p>
-            <p className="mt-2 text-[15px] leading-7 text-muted">
+            <p
+              className="mt-2 break-words text-[15px] leading-7 text-muted"
+              lang={showJa ? 'ja' : 'ko'}
+            >
               <span className="sr-only">{t('today.dailyExplanation')}: </span>
-              {explanation}
+              {showJa ? explanationJa : question.explanationKo}
             </p>
+            {explanationJa ? null : (
+              <p className="mt-3 text-sm font-semibold text-subtle">
+                {tCommon('explanation.japaneseUnavailable')}
+              </p>
+            )}
           </div>
         ) : null}
       </div>

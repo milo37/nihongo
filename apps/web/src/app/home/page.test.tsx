@@ -15,6 +15,7 @@ import {
   Routes
 } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { getResponse, http, HttpResponse } from 'msw'
 import { vi } from 'vitest'
 import type { ReactElement } from 'react'
 const render = (ui: ReactElement) =>
@@ -30,6 +31,8 @@ const render = (ui: ReactElement) =>
 import { appI18n } from '@nihongo/browser/i18n/config'
 import { HomePage, LearningHome } from '@app/home/page'
 import { ToastProvider } from '@nihongo/browser/common/components/Toast'
+import { dailyQuestionHandlers } from '@/mocks/handlers/dailyQuestionHandlers'
+import { mockServer } from '@/test/server'
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
@@ -248,3 +251,36 @@ it("answers today's question in place, without a record, and keeps it on reopen"
     )
   ).toBeVisible()
 })
+
+it.each([
+  [null, '일본어 해설이 없어 한국어 해설을 표시해요.'],
+  ['日本語の解説', null]
+])(
+  "shows the Korean-explanation notice on today's question when Japanese is missing (%s)",
+  async (explanationJa, notice) => {
+    await appI18n.changeLanguage('ja')
+    mockServer.use(
+      http.get('*/api/v1/daily-question', async ({ request }) => {
+        const response = await getResponse(dailyQuestionHandlers, request)
+        const body = (await response!.json()) as {
+          question: Record<string, unknown>
+        }
+        body.question.explanationJa = explanationJa
+        return HttpResponse.json(body)
+      })
+    )
+    const user = userEvent.setup()
+    renderHome()
+    const daily = await screen.findByRole('region', {
+      name: appI18n.t('home:today.dailyLabel')
+    })
+    await user.click((await within(daily).findAllByRole('button'))[0]!)
+    const noticeText = appI18n.t('common:explanation.japaneseUnavailable')
+    if (notice) {
+      expect(await within(daily).findByText(noticeText)).toBeVisible()
+    } else {
+      expect(await within(daily).findByText(/日本語の解説/u)).toBeVisible()
+      expect(within(daily).queryByText(noticeText)).toBeNull()
+    }
+  }
+)
