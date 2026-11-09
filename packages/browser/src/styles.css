@@ -3,26 +3,27 @@
 
 :root {
   color-scheme: light;
-  --color-canvas: 252 252 252;
-  --color-ink: 53 43 32;
-  --color-muted: 113 100 83;
-  --color-subtle: 113 100 83;
-  --color-link: 151 64 0;
+  /* B' soft indigo (direction-20261109 §B', JLP-813). */
+  --color-canvas: 246 247 250;
+  --color-ink: 31 37 56;
+  --color-muted: 84 92 112;
+  --color-subtle: 100 107 126;
+  --color-link: 76 92 160;
   --color-inverse: 255 255 255;
-  --color-brand: 198 83 0;
-  --color-brand-strong: 168 70 0;
-  --color-brand-active: 141 57 0;
-  --color-brand-soft: 255 242 210;
+  --color-brand: 76 92 160;
+  --color-brand-strong: 60 74 134;
+  --color-brand-active: 48 59 107;
+  --color-brand-soft: 237 240 249;
   --color-surface: 255 255 255;
   --color-surface-raised: 255 255 255;
   --color-surface-muted: 247 247 247;
   --color-surface-sunken: 242 242 242;
   --color-hover-surface: 247 247 247;
   --color-disabled-background: 242 242 242;
-  --color-disabled-text: 117 104 84;
-  --color-line: 229 229 229;
-  --color-line-strong: 166 126 75;
-  --color-line-interactive: 170 129 78;
+  --color-disabled-text: 102 109 128;
+  --color-line: 225 229 238;
+  --color-line-strong: 100 107 126;
+  --color-line-interactive: 128 137 160;
   --color-line-invalid: 161 45 56;
   --color-success: 35 101 73;
   --color-success-strong: 35 101 73;
@@ -36,17 +37,17 @@
   --color-danger-strong: 161 45 56;
   --color-danger-soft: 255 243 243;
   --color-danger-line: 161 45 56;
-  --color-info: 151 64 0;
-  --color-info-strong: 151 64 0;
-  --color-info-soft: 255 242 210;
-  --color-info-line: 166 126 75;
-  --selection-background: 255 231 186;
-  --selection-text: 53 43 32;
-  --selection-border: 168 70 0;
+  --color-info: 76 92 160;
+  --color-info-strong: 60 74 134;
+  --color-info-soft: 237 240 249;
+  --color-info-line: 128 137 160;
+  --selection-background: 214 221 245;
+  --selection-text: 31 37 56;
+  --selection-border: 60 74 134;
   --color-overlay: 32 36 43;
   --color-on-accent: 255 255 255;
   --page-background: var(--color-canvas);
-  --focus-color: 198 83 0;
+  --focus-color: 76 92 160;
   --focus-width: 3px;
   --focus-offset: 3px;
   --focus-inset-offset: -2px;
@@ -82,7 +83,8 @@
   --radius-panel: 1rem;
   --radius-pill: 999px;
   --shadow-control: 0 1px 2px rgb(15 23 42 / 0.05);
-  --shadow-card: 0 18px 48px rgb(30 41 59 / 0.08);
+  --shadow-card:
+    0 1px 2px rgb(31 37 56 / 0.03), 0 6px 20px rgb(31 37 56 / 0.05);
   --shadow-elevated: 0 24px 64px rgb(15 23 42 / 0.16);
   --z-base: 0;
   --z-dropdown: 30;
