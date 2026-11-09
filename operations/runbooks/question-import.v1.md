@@ -11,10 +11,10 @@ runbook. The API starts without tags; the import refuses unknown tags.
 
 ## Inputs (in the repository)
 
-| What            | File                                                                                                                                |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Tag list (18)   | `content/taxonomy/tags.v2.json`                                                                                                     |
-| Questions (250) | `content/question-imports/n5.v1.json`, `n4.v1.json`, `n3.v1.json`, `n2.v1.json`, `n1.v1.json` (50 each, #785); 100 per file at most |
+| What            | File                                                                                                                                                                                           |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tag list (18)   | `content/taxonomy/tags.v2.json`                                                                                                                                                                |
+| Questions (500) | `content/question-imports/n5.v1.json`, `n4.v1.json`, `n3.v1.json`, `n2.v1.json`, `n1.v1.json` (50 each, #785) and `n5.add.v1.json` … `n1.add.v1.json` (50 each, JLP-816); 100 per file at most |
 
 Use the files of the release that is deployed (`/opt/harumaru/current-release`).
 
