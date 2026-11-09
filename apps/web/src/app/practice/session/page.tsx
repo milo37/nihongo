@@ -272,7 +272,7 @@ export const PracticeSessionPage = (): ReactElement => {
   const question = session.currentQuestion
   return (
     <section
-      className={`learning-note study-session ${reviewContext ? 'study-review-session' : ''} w-full pb-28`}
+      className={`learning-note study-session ${reviewContext ? 'study-review-session' : ''} w-full`}
     >
       <PracticeSessionHeader
         answeredCount={session.answeredCount}
