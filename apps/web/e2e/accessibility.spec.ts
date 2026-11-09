@@ -1645,6 +1645,11 @@ const submitSessionThroughUi = async (
     new RegExp(`/practice/result/${session.session.id}$`, 'u')
   )
   await settlePage(page)
+  // The grading reveal renders with the result (not after a single review).
+  if (await page.locator('.grading-reveal').count()) {
+    await page.getByRole('button', { name: '결과 보기', exact: true }).click()
+    await expect(page.locator('.grading-reveal')).toHaveCount(0)
+  }
   await restorePracticeMonotonicClock(page)
   return { requestBody, result }
 }

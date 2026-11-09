@@ -827,6 +827,12 @@ export const jaCoreResources = {
       score: '{{total}}問中 {{correct}}問正解',
       meta: '正答率 {{accuracy}} · {{duration}}'
     },
+    grading: {
+      checking: '採点しています',
+      done: '採点結果',
+      skipHint: 'タップするとすぐに見られます',
+      showResult: '結果を見る'
+    },
     nextActions: {
       title: '次にやること'
     },
