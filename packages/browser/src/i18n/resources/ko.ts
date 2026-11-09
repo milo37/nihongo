@@ -353,6 +353,32 @@ export const koResources = {
     }
   },
   home: {
+    today: {
+      memberGreeting: '{{name}}님, 오늘도 가볍게',
+      memberGreetingNoName: '오늘도 가볍게',
+      memberLead: '한 세트 10문제면 충분해요.',
+      guestGreeting: 'JLPT 문제, 하루 10문제씩 가볍게',
+      guestLead: 'N5부터 N1까지. 회원가입 없이 바로 풀 수 있어요.',
+      lastStudy: '지난번 공부',
+      firstStudy: '처음이라면',
+      startTitle: '{{level}} {{subject}}',
+      startMeta: '{{formattedCount}}문제 · {{minutes}}분 정도',
+      startMember: '바로 풀기',
+      startGuest: '로그인 없이 풀어 보기',
+      change: '바꾸기',
+      changeLabel: '급수와 과목 바꾸기',
+      dailyLabel: '오늘의 한 문제',
+      dailyMeta: '{{level}} · {{subject}}',
+      dailyOptionsLabel: '보기',
+      dailyCorrect: '정답이에요',
+      dailyIncorrect: '아쉬워요. 정답은 {{label}}번이에요',
+      dailyYourAnswer: '내 답',
+      dailyAnswer: '정답',
+      dailyExplanation: '해설',
+      dailyLoading: '오늘의 문제를 불러오는 중이에요',
+      dailyError: '오늘의 문제를 불러오지 못했어요.',
+      dailyRetry: '다시 불러오기'
+    },
     approved: {
       vocabulary: '어휘',
       title: '오늘의 일본어 학습',

@@ -41,6 +41,10 @@
   --color-info-strong: 60 74 134;
   --color-info-soft: 237 240 249;
   --color-info-line: 128 137 160;
+  /* Start card gradient, 135deg; white text stays opaque (B'-1). */
+  --color-hero-from: 84 100 168;
+  --color-hero-to: 106 104 166;
+  --text-hero-size: 28px;
   --selection-background: 214 221 245;
   --selection-text: 31 37 56;
   --selection-border: 60 74 134;

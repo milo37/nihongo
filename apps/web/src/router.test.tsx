@@ -131,7 +131,11 @@ describe('application router boundaries', () => {
       .mockImplementation(() => undefined)
     const router = renderRoutes('/')
     expect(
-      await screen.findByRole('heading', { name: '학습' }, { timeout: 3000 })
+      await screen.findByRole(
+        'heading',
+        { name: 'JLPT 문제, 하루 10문제씩 가볍게' },
+        { timeout: 3000 }
+      )
     ).toBeInTheDocument()
 
     const navigation = screen.getByRole('navigation', { name: '주요 메뉴' })
@@ -280,7 +284,7 @@ describe('application router boundaries', () => {
       .mockImplementation(() => undefined)
     const router = renderRoutes('/')
     await screen.findByRole('heading', {
-      name: '학습'
+      name: 'JLPT 문제, 하루 10문제씩 가볍게'
     })
 
     await act(async () => {
@@ -295,7 +299,7 @@ describe('application router boundaries', () => {
       await router.navigate(-1)
     })
     await screen.findByRole('heading', {
-      name: '학습'
+      name: 'JLPT 문제, 하루 10문제씩 가볍게'
     })
 
     expect(scrollTo).not.toHaveBeenCalled()

@@ -1,0 +1,129 @@
+/* Inlined by app/home/page.tsx (?inline), so it stays out of the first-load CSS. */
+/* 학습 홈 (direction §1-2): greeting, start card, today's question. */
+.home-today {
+  display: grid;
+  gap: 24px;
+  max-width: 1040px;
+  padding-block: 32px 48px;
+}
+.home-today-greeting h1 {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+.home-today-greeting p {
+  margin-top: 6px;
+  color: rgb(var(--color-muted));
+  font-size: 15px;
+}
+.home-today-grid {
+  display: grid;
+  gap: 20px;
+  align-items: start;
+}
+@media (min-width: 1024px) {
+  .home-today-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.home-hero {
+  display: flex;
+  flex-direction: column;
+  padding: 28px;
+  border-radius: var(--radius-card);
+  background: linear-gradient(
+    135deg,
+    rgb(var(--color-hero-from)),
+    rgb(var(--color-hero-to))
+  );
+  color: rgb(255 255 255);
+  box-shadow: var(--shadow-card);
+}
+.home-hero-title {
+  margin: 6px 0 4px;
+  font-size: var(--text-hero-size);
+  font-weight: 800;
+  line-height: 1.3;
+}
+.home-hero .home-hero-start {
+  min-height: 56px;
+  border-color: rgb(255 255 255);
+  border-radius: 999px;
+  background: rgb(255 255 255);
+  color: rgb(var(--color-brand-strong));
+}
+.home-hero .home-hero-start:hover:not(:disabled) {
+  background: rgb(var(--color-brand-soft));
+}
+.home-hero-change {
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 8px;
+  padding-inline: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.home-hero :focus-visible {
+  outline-color: rgb(255 255 255);
+}
+.home-daily-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 8px 12px;
+  border: 1px solid rgb(var(--color-line-interactive));
+  border-radius: var(--radius-control);
+  background: rgb(var(--color-surface));
+  color: rgb(var(--color-ink));
+  font-size: 16px;
+}
+.home-daily-option:hover:not([aria-disabled='true']) {
+  border-color: rgb(var(--color-line-strong));
+  background: rgb(var(--color-surface-muted));
+}
+.home-daily-option[aria-disabled='true'] {
+  cursor: default;
+}
+.home-daily-option:focus-visible {
+  outline: var(--focus-width) solid rgb(var(--focus-color));
+  outline-offset: var(--focus-offset);
+}
+.home-daily-option-label {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid rgb(var(--color-line-interactive));
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.home-daily-option[data-state='correct'] {
+  border: 2px solid rgb(var(--color-success));
+  background: rgb(var(--color-success-soft));
+}
+.home-daily-option[data-state='wrong'] {
+  border: 2px solid rgb(var(--color-danger));
+  background: rgb(var(--color-danger-soft));
+}
+@media (max-width: 639.98px) {
+  .home-today {
+    padding-block: 22px 32px;
+    gap: 20px;
+  }
+  .home-today-greeting h1 {
+    font-size: 21px;
+  }
+  .home-hero {
+    padding: 22px;
+  }
+  .home-daily {
+    padding: 20px;
+  }
+}

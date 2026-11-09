@@ -355,6 +355,32 @@ export const jaCoreResources = {
     }
   },
   home: {
+    today: {
+      memberGreeting: '{{name}}さん、今日も気軽に',
+      memberGreetingNoName: '今日も気軽に',
+      memberLead: '1セット10問で十分です。',
+      guestGreeting: 'JLPTの問題を、1日10問ずつ気軽に',
+      guestLead: 'N5からN1まで。会員登録なしですぐに解けます。',
+      lastStudy: '前回の学習',
+      firstStudy: 'はじめてなら',
+      startTitle: '{{level}} {{subject}}',
+      startMeta: '{{formattedCount}}問 · 約{{minutes}}分',
+      startMember: 'すぐに解く',
+      startGuest: 'ログインせずに解いてみる',
+      change: '変更',
+      changeLabel: 'レベルと科目を変更',
+      dailyLabel: '今日の1問',
+      dailyMeta: '{{level}} · {{subject}}',
+      dailyOptionsLabel: '選択肢',
+      dailyCorrect: '正解です',
+      dailyIncorrect: '残念。正解は{{label}}番です',
+      dailyYourAnswer: '自分の答え',
+      dailyAnswer: '正解',
+      dailyExplanation: '解説',
+      dailyLoading: '今日の問題を読み込んでいます',
+      dailyError: '今日の問題を読み込めませんでした。',
+      dailyRetry: 'もう一度読み込む'
+    },
     approved: {
       vocabulary: '語彙',
       title: '今日の日本語学習',
