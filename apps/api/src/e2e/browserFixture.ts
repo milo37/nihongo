@@ -43,6 +43,10 @@ import { createPrismaStudyResultRetryRepository } from '../study/studyResultRetr
 import { createStudyResultRetryService } from '../study/studyResultRetryService.js'
 import { createPrismaWrongNoteReviewQueueRepository } from '../wrong-note/wrongNoteReviewQueueRepository.js'
 import { createWrongNoteReviewQueueService } from '../wrong-note/wrongNoteReviewQueueService.js'
+import {
+  createPrismaWrongNoteReviewListRepository,
+  createWrongNoteReviewListService
+} from '../wrong-note/wrongNoteReviewList.js'
 import { createPrismaWrongNoteTargetedReviewRepository } from '../wrong-note/wrongNoteTargetedReviewRepository.js'
 import { createWrongNoteTargetedReviewService } from '../wrong-note/wrongNoteTargetedReviewService.js'
 import { createAdminReadGuard } from '../admin/adminReadGuard.js'
@@ -1559,6 +1563,9 @@ const createSsoBrowserApiFixture = async (
         rateLimiter,
         reviewCenterEnabled: true,
         reviewCenterService: wrongNoteReviewCenterService,
+        reviewListService: createWrongNoteReviewListService(
+          createPrismaWrongNoteReviewListRepository(database.client)
+        ),
         reviewQueueService: wrongNoteReviewQueueService,
         targetedReviewService: wrongNoteTargetedReviewService,
         wrongNoteService

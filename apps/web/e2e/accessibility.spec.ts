@@ -863,7 +863,9 @@ const scanCurrentPage = async (
               ? 'option-reorder-control'
               : element.matches(selectors.tableSortIndicator)
                 ? 'table-sort-indicator'
-                : null,
+                : element.matches(selectors.answerMark)
+                  ? 'answer-mark'
+                  : null,
         axeFindingDispositionSelectors
       )
       if (!kind) continue
@@ -1946,6 +1948,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
 
   await page.goto('/account')
   await settlePage(page)
+  await setLocale(page, 'ko')
   await waitForDashboardQueryState(page, 'stats', 'idle')
   // My page shows only the stats summary (JLP-812): no recommendations.
   const myStudyRegion = page.getByRole('region', {
@@ -2549,7 +2552,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
           },
           localeState: 'answered reading selection preserved',
           offline:
-            'recent results and My page summary retained; stats query paused without requests',
+            'My page summary retained; stats query paused without requests',
           partial: `requested ${readingFixture.requestedCount} reading questions, received ${readingFixture.actualCount} without fallback`,
           retry: 'dashboard stats 503x2 then explicit retry 200',
           submit: 'UI dialog and result navigation passed'
