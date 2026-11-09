@@ -6,6 +6,7 @@ export const REAUTH_KEEP_MS = 10 * 60_000
 /** Screens that keep input across the same-tab trip to Google. */
 export type ReauthKeepScreen =
   | 'question-list'
+  | 'question-retire'
   | 'report-detail'
   | 'member-detail'
   | 'question-edit'
