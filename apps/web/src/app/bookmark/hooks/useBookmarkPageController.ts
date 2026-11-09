@@ -121,8 +121,8 @@ export const useBookmarkPageController = () => {
   ])
 
   const groupByScope = new Map<string, BookmarkPracticeGroup>()
+  // The server lists only questions that are still public (JLP-815).
   for (const bookmark of bookmarksQuery.data?.items ?? []) {
-    if (bookmark.availability !== 'AVAILABLE') continue
     const { question } = bookmark
     const groupKey = `${question.level}:${question.subject}`
     if (!groupByScope.has(groupKey)) {

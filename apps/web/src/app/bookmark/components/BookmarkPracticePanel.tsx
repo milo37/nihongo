@@ -70,11 +70,6 @@ export const BookmarkPracticePanel = ({
             </Button>
           ))}
         </div>
-        {groups.length === 0 ? (
-          <p className="mt-5 text-sm font-bold text-amber-800" role="status">
-            {t('practice.allArchived')}
-          </p>
-        ) : null}
         {isOffline ? (
           <p
             className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-900"

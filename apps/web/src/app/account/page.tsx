@@ -3,11 +3,13 @@ import type { ReactElement } from 'react'
 import { AccountSettings } from '@app/account/components/AccountSettings'
 import { Avatar } from '@app/account/components/Avatar'
 import { MyStudy } from '@app/account/components/study/MyStudy'
+import { TargetLevelSetting } from '@app/account/components/TargetLevelSetting'
 import { GuestGate } from '@app/login/components/GuestGate'
 import { InformationFooter } from '@nihongo/browser/common/components/InformationFooter'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 
-// My page: profile, study summary, account settings, then terms and help.
+// My page: profile, target level, study summary, account settings, then
+// terms and help.
 export const AccountPage = (): ReactElement => {
   const { t: navigationT } = useTranslation('navigation')
   const { t: authT } = useTranslation('auth')
@@ -42,6 +44,7 @@ export const AccountPage = (): ReactElement => {
           </p>
         </div>
       </header>
+      <TargetLevelSetting targetLevel={user.targetLevel} />
       <MyStudy />
       <AccountSettings />
       <InformationFooter />
