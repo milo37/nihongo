@@ -70,7 +70,10 @@ describe('review list contract (JLP-812)', () => {
   it.each([
     ['an item of the other tab', { items: [item(1), item(2, true)] }],
     ['a total that is not the tab count', { total: 3 }],
-    ['a start without questions to review', { counts: { toReview: 0, reviewed: 1 }, total: 0, items: [] }],
+    [
+      'a start without questions to review',
+      { counts: { toReview: 0, reviewed: 1 }, total: 0, items: [] }
+    ],
     ['no start with questions to review', { oldestToReview: null }],
     ['the same question twice', { items: [item(1), item(1)] }]
   ])('rejects %s', (_label, change) => {
