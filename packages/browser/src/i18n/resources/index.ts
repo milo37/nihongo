@@ -1,7 +1,18 @@
 import { jaCoreResources } from './ja'
 import type { LocaleCatalog } from './ja'
 import { jaAdminResources } from './ja-admin'
-import { koResources } from './ko'
+import { koCoreResources } from './ko'
+import { koAdminResources } from './ko-admin'
+
+// Whole catalogs in the original key order; the app loads the admin part on
+// demand (config.ts), these are for checks and tests.
+const { errors: koErrors, a11y: koA11y, ...koNamespaces } = koCoreResources
+export const koResources = {
+  ...koNamespaces,
+  admin: koAdminResources,
+  errors: koErrors,
+  a11y: koA11y
+} as const
 
 const { errors, a11y, ...jaNamespaces } = jaCoreResources
 export const jaResources = {
@@ -16,4 +27,5 @@ export const i18nResources = {
   ja: jaResources
 } as const
 
-export { koResources }
+export { jaAdminLearnerResources } from './ja-admin-learner'
+export { koAdminLearnerResources } from './ko-admin-learner'
