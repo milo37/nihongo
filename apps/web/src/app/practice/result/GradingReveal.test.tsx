@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, expect, it, onTestFinished, vi } from 'vitest'
 import { appI18n } from '@nihongo/browser/i18n/config'
 import {
   GradingReveal,
@@ -68,23 +68,30 @@ it('skips the motion when reduced motion is preferred', () => {
   expect(screen.getByText('2문제 중 2개 맞음')).toBeInTheDocument()
 })
 
-it('is a modal: labelled dialog, inert background, Tab stays on the button', () => {
+it('is a native modal dialog, labelled, and Tab stays on the button', () => {
   vi.stubGlobal(
     'matchMedia',
     vi.fn().mockReturnValue({ matches: true } as MediaQueryList)
   )
-  const { container, unmount } = render(
-    <GradingReveal outcomes={outcomes} onClose={vi.fn()} />
-  )
+  const showModal = vi.fn(function (this: HTMLDialogElement) {
+    this.setAttribute('open', '')
+  })
+  // jsdom has no showModal; stand one in for this test only.
+  Object.defineProperty(HTMLDialogElement.prototype, 'showModal', {
+    configurable: true,
+    value: showModal
+  })
+  onTestFinished(() => {
+    Reflect.deleteProperty(HTMLDialogElement.prototype, 'showModal')
+  })
+  render(<GradingReveal outcomes={outcomes} onClose={vi.fn()} />)
   const dialog = screen.getByRole('dialog', { name: '채점 결과' })
-  expect(dialog).toHaveAttribute('aria-modal', 'true')
-  expect(container).toHaveAttribute('inert')
+  expect(dialog.tagName).toBe('DIALOG')
+  expect(showModal).toHaveBeenCalledTimes(1)
   act(() => vi.advanceTimersToNextFrame())
   const close = screen.getByRole('button', { name: '결과 보기' })
   expect(close).toHaveFocus()
   fireEvent.keyDown(close, { key: 'Tab' })
   fireEvent.keyDown(close, { key: 'Tab', shiftKey: true })
   expect(close).toHaveFocus()
-  unmount()
-  expect(container).not.toHaveAttribute('inert')
 })
