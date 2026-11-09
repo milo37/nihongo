@@ -1285,7 +1285,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   ).then(async (response) =>
     getDashboardStatsResponseSchema.parse(await readCanonicalResponse(response))
   )
-  const home = page.locator('.app-side-brand a[href="/"]')
+  const home = page.locator('header .app-brand[href="/"]')
   await expect(home).toHaveCount(1)
   await expect(home).toBeVisible()
   await home.click()

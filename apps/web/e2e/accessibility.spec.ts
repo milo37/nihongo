@@ -1764,7 +1764,7 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
   await expect(page.getByRole('menu')).toHaveCount(0)
   const mobileNavigation = page.locator('#mobile-navigation')
   await expect(mobileNavigation).toHaveAccessibleName(/\S/u)
-  await expect(mobileNavigation.getByRole('link')).toHaveCount(3)
+  await expect(mobileNavigation.getByRole('link')).toHaveCount(4)
   const mobilePracticeLink = mobileNavigation.locator('a[href="/practice"]')
   await focusByTab(page, mobilePracticeLink)
   await attachFocusedElementEvidence(

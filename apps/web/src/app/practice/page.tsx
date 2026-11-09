@@ -1,6 +1,5 @@
 import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
 import type { ReactElement } from 'react'
 import {
   CancelResumableDialog,
@@ -17,37 +16,12 @@ import {
 import { ResumablePractice } from '@app/practice/components/ResumablePractice'
 import { usePracticeSetupController } from '@app/practice/hooks/usePracticeSetupController'
 import { levels, modes, subjects } from '@app/practice/practiceSetupOptions'
-import { getButtonClassName } from '@nihongo/browser/common/components/Button'
-import { Icon } from '@nihongo/browser/common/components/Icon'
 
 const subjectLabelKeys = {
   VOCABULARY: 'approved.vocabulary',
   GRAMMAR: 'subjects.grammar.label',
   READING: 'subjects.reading.label'
 } as const
-
-/** Links to the wrong-note review and bookmark lists. */
-const PracticeShortcuts = (): ReactElement => {
-  const { t } = useTranslation('practice')
-  return (
-    <nav className="practice-shortcuts" aria-label={t('setup.shortcutsLabel')}>
-      <Link
-        className={getButtonClassName({ variant: 'ghost' })}
-        to="/wrong-notes"
-      >
-        <Icon name="rotate-ccw" />
-        {t('setup.reviewShortcut')}
-      </Link>
-      <Link
-        className={getButtonClassName({ variant: 'ghost' })}
-        to="/bookmarks"
-      >
-        <Icon name="bookmark" />
-        {t('setup.bookmarkShortcut')}
-      </Link>
-    </nav>
-  )
-}
 
 export const PracticePage = (): ReactElement => {
   const { t, i18n } = useTranslation('practice')
@@ -139,7 +113,6 @@ export const PracticePage = (): ReactElement => {
           />
         }
       />
-      <PracticeShortcuts />
 
       <CancelResumableDialog
         open={setup.cancelSessionId !== null}
