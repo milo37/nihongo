@@ -18,6 +18,10 @@ interface DailyReviewStudyCandidate extends StudyCandidatePin {
   readonly status: DailyReviewCandidateStatus
 }
 
+interface ToReviewStudyCandidate extends StudyCandidatePin {
+  readonly lastWrongAt: Date
+}
+
 interface WrongNoteStudyCandidate extends StudyCandidatePin {
   readonly lastWrongAt: Date
   readonly wrongCount: number
@@ -166,6 +170,20 @@ export const selectDailyReviewStudyCandidates = (
     }
     return left.questionId.localeCompare(right.questionId)
   })
+
+// DAILY_REVIEW in two states (JLP-812, server #789): the oldest wrong
+// answers first, so a question just answered wrong does not come straight back.
+export const selectToReviewStudyCandidates = (
+  candidates: readonly ToReviewStudyCandidate[],
+  requestedCount: number
+): ToReviewStudyCandidate[] =>
+  selectRankedCandidates(
+    candidates,
+    requestedCount,
+    (left, right) =>
+      left.lastWrongAt.getTime() - right.lastWrongAt.getTime() ||
+      left.questionId.localeCompare(right.questionId)
+  )
 
 export const selectWeaknessStudyCandidates = (
   candidates: readonly WeaknessStudyCandidate[],

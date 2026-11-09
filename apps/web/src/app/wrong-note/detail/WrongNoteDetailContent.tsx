@@ -58,18 +58,14 @@ export const WrongNoteDetailContent = ({
             <li
               key={option.id}
               className={
-                option.isCorrect
-                  ? 'is-correct border-success'
-                  : isMine
-                    ? 'border-danger'
-                    : ''
+                option.isCorrect ? 'is-correct' : isMine ? 'is-mine' : ''
               }
             >
               <span lang="ja">
                 {option.label}. {option.text}
               </span>
               {isMine ? (
-                <strong className="text-danger">
+                <strong>
                   <span aria-hidden="true">✕ </span>
                   <span>{t('detail.myAnswer')}</span>
                 </strong>

@@ -112,8 +112,8 @@ import {
 import { toVersionedContractStudySessionPayload } from '@mocks/adapters/studySessionContractAdapter'
 import {
   selectBookmarkStudyCandidates,
-  selectDailyReviewStudyCandidates,
   selectRandomStudyCandidates,
+  selectToReviewStudyCandidates,
   selectWeaknessStudyCandidates,
   selectWrongNoteStudyCandidates
 } from '@mocks/adapters/studyCandidateSelection'
@@ -4117,32 +4117,26 @@ export class MockDatabase {
         })
       }
 
-      const observedAtMs = Date.parse(observedAt)
+      // Same as the server (#789): every NEW or AGAIN note is due now; the
+      // review date no longer gates the start.
       const sourceByContractQuestionId = new Map<string, string>()
       const candidates = new Map<
         string,
-        {
-          questionId: string
-          questionVersionId: string
-          nextReviewAt: Date
-          status: WrongNoteStatus
-        }
+        { questionId: string; questionVersionId: string; lastWrongAt: Date }
       >()
       for (const note of canonicalNotes.values()) {
         const question = eligibleById.get(note.sourceQuestionId)
-        const nextReviewAtMs = Date.parse(note.nextReviewAt)
-        if (question && nextReviewAtMs <= observedAtMs) {
+        if (question && (note.status === 'NEW' || note.status === 'AGAIN')) {
           const contractQuestionId = getCanonicalQuestionId(question)
           sourceByContractQuestionId.set(contractQuestionId, question.id)
           candidates.set(contractQuestionId, {
             ...toPin(question),
             questionId: contractQuestionId,
-            nextReviewAt: new Date(nextReviewAtMs),
-            status: note.status
+            lastWrongAt: new Date(note.lastWrongAt)
           })
         }
       }
-      return selectDailyReviewStudyCandidates(
+      return selectToReviewStudyCandidates(
         [...candidates.values()],
         count
       ).map(({ questionId }) => {
