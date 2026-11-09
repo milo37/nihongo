@@ -70,7 +70,7 @@ export const accessibilityExpectedTableDeltas = {
   QuestionReport: 0,
   QuestionVersion: 0,
   QuestionVersionTag: 0,
-  RateLimit: 29,
+  RateLimit: 28,
   ReviewEvent: 10,
   ReviewSchedule: 10,
   Session: 2,
@@ -100,8 +100,8 @@ export const accessibilityExpectedTableDeltas = {
 export const accessibilityExpectedRateLimitCategories = {
   'application:bookmark-list': 1,
   'application:bookmark-write': 1,
-  // Only My page reads insights; the learning home no longer does (#745).
-  'application:dashboard-insights-read': 1,
+  // No page reads insights any more: My page reads only the stats (JLP-812).
+  'application:dashboard-insights-read': 0,
   'application:dashboard-read': 1,
   'application:keyed:ADMIN_READ:ACTOR': 1,
   'application:keyed:ADMIN_READ:IP': 1,

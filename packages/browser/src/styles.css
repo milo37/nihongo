@@ -971,6 +971,14 @@
   padding: 0;
 }
 
+/* Under 1024px the answer bar is fixed to the bottom; keep the last option above it. */
+@media (max-width: 1023.98px) {
+  .study-session,
+  .app-shell-focus .study-session {
+    padding-bottom: calc(112px + env(safe-area-inset-bottom));
+  }
+}
+
 .app-shell-focus .study-session-layout {
   max-width: 1120px;
   margin-inline: auto;

@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Navigate, useOutletContext, useParams } from 'react-router'
 import type { ReactElement, RefObject } from 'react'
@@ -28,28 +28,36 @@ import {
 type SessionController = ReturnType<typeof usePracticeSessionController>
 type SessionQuestion = NonNullable<SessionController['currentQuestion']>
 
-/** The current question with its bookmark, timer and draft save status. */
+/** The current question with its bookmark status, actions and draft save status. */
 const CurrentQuestionCard = ({
   session,
   question,
-  headingRef
+  headingRef,
+  isReview,
+  submitButtonRef
 }: {
   session: SessionController
   question: SessionQuestion
   headingRef: RefObject<HTMLHeadingElement | null>
+  isReview: boolean
+  submitButtonRef: RefObject<HTMLButtonElement | null>
 }): ReactElement => {
-  const isBookmarked = session.bookmark.isBookmarked(question.id)
   const inlineSaveStatus = session.isInlineDraftStatus
     ? session.draftController.status.code
     : null
   return (
     <PracticeQuestionCard
-      bookmarkButton={
-        <PracticeQuestionBookmarkButton
-          isBookmarked={isBookmarked}
-          isDisabled={session.isBookmarkDisabled}
-          onToggle={session.handleBookmark}
-          questionNumber={session.safeQuestionIndex + 1}
+      actions={
+        <PracticeQuestionActions
+          canSubmit={session.canRequestSubmission}
+          hidePrevious={isReview}
+          isFirstQuestion={session.safeQuestionIndex === 0}
+          isLastQuestion={session.isLastQuestion}
+          isLocked={session.isQuestionNavigationLocked}
+          onNext={session.moveNext}
+          onPrevious={session.movePrevious}
+          onSubmit={session.requestSubmission}
+          submitButtonRef={submitButtonRef}
         />
       }
       bookmarkStatus={
@@ -59,7 +67,6 @@ const CurrentQuestionCard = ({
           role={session.role}
         />
       }
-      elapsedSeconds={session.elapsedSeconds}
       headingRef={headingRef}
       isOptionsDisabled={
         session.isSubmitDialogOpen || session.isQuestionNavigationLocked
@@ -116,17 +123,15 @@ export const PracticeSessionPage = (): ReactElement => {
   const { sessionId = '' } = useParams()
   const headingRef = useRef<HTMLHeadingElement>(null)
   const submitButtonRef = useRef<HTMLButtonElement>(null)
+  const [isQuestionSheetOpen, setQuestionSheetOpen] = useState(false)
   const session = usePracticeSessionController({ headingRef, sessionId })
   const refetchSession = (): void => void session.sessionQuery.refetch()
 
   const navigationPrompt = (
     <PracticeNavigationGuardDialog
       open={session.isNavigationGuardOpen}
-      isGuest={session.role === 'GUEST'}
-      isSaving={session.isSavingBeforeNavigation}
       onContinue={session.cancelNavigation}
       onLeave={session.leaveWithoutSaving}
-      onSaveAndLeave={() => void session.handleSaveAndLeave()}
     />
   )
 
@@ -264,60 +269,66 @@ export const PracticeSessionPage = (): ReactElement => {
     )
   }
 
+  const question = session.currentQuestion
   return (
     <section
-      className={`learning-note study-page study-session ${reviewContext ? 'study-review-session' : ''} mx-auto w-full px-4 py-5 sm:px-6 lg:py-7 ${session.currentQuestion.passage ? 'study-session-reading max-w-6xl' : 'max-w-[760px]'}`}
+      className={`learning-note study-session ${reviewContext ? 'study-review-session' : ''} w-full`}
     >
       <PracticeSessionHeader
         answeredCount={session.answeredCount}
+        bookmarkButton={
+          <PracticeQuestionBookmarkButton
+            isBookmarked={session.bookmark.isBookmarked(question.id)}
+            isDisabled={session.isBookmarkDisabled}
+            onToggle={session.handleBookmark}
+            questionNumber={session.safeQuestionIndex + 1}
+          />
+        }
         currentNumber={session.safeQuestionIndex + 1}
         isBackDisabled={session.isBackNavigationDisabled}
+        isQuestionSheetDisabled={session.isQuestionNavigationLocked}
+        onOpenQuestionSheet={() => setQuestionSheetOpen(true)}
         reviewContext={reviewContext}
         session={session.sessionQuery.data.session}
         total={session.questions.length}
       />
 
-      <div className="study-session-layout">
-        <div className="study-session-main">
-          <PracticeSessionNotices
-            draftActionMessage={session.draftActionMessage}
-            draftController={session.draftController}
-            hasUnresolvedConflictCheck={session.hasUnresolvedConflictCheck}
-            isCompactDraftStatus={session.isCompactDraftStatus}
-            isInlineDraftStatus={session.isInlineDraftStatus}
-            isSessionError={session.sessionQuery.isError}
-            isSessionPaused={session.sessionQuery.fetchStatus === 'paused'}
-            isV2Session={session.isV2Session}
-            onRetryDraftSave={session.retryDraftSave}
-            onRetrySession={refetchSession}
-            sessionData={session.sessionQuery.data}
-          />
+      <div
+        className={`mx-auto w-full px-4 pt-5 sm:px-6 ${question.passage ? 'max-w-6xl' : 'max-w-[760px]'}`}
+      >
+        <PracticeSessionNotices
+          draftActionMessage={session.draftActionMessage}
+          draftController={session.draftController}
+          hasUnresolvedConflictCheck={session.hasUnresolvedConflictCheck}
+          isCompactDraftStatus={session.isCompactDraftStatus}
+          isFirstQuestion={session.safeQuestionIndex === 0}
+          isInlineDraftStatus={session.isInlineDraftStatus}
+          isSessionError={session.sessionQuery.isError}
+          isSessionPaused={session.sessionQuery.fetchStatus === 'paused'}
+          isV2Session={session.isV2Session}
+          onRetryDraftSave={session.retryDraftSave}
+          onRetrySession={refetchSession}
+          sessionData={session.sessionQuery.data}
+        />
 
-          <CurrentQuestionCard
-            session={session}
-            question={session.currentQuestion}
-            headingRef={headingRef}
-          />
-
-          <PracticeQuestionActions
-            canSubmit={session.canRequestSubmission}
-            isFirstQuestion={session.safeQuestionIndex === 0}
-            isLastQuestion={session.isLastQuestion}
-            isLocked={session.isQuestionNavigationLocked}
-            onNext={session.moveNext}
-            onPrevious={session.movePrevious}
-            onSubmit={session.openSubmitDialog}
-            submitButtonRef={submitButtonRef}
-          />
-        </div>
-        <PracticeQuestionNavigator
-          currentIndex={session.safeQuestionIndex}
-          isDisabled={session.isQuestionNavigationLocked}
-          onJump={session.moveToOrdinal}
-          questions={session.questions}
-          selectedAnswers={session.displayedSelectedAnswers}
+        <CurrentQuestionCard
+          session={session}
+          question={question}
+          headingRef={headingRef}
+          isReview={Boolean(reviewContext)}
+          submitButtonRef={submitButtonRef}
         />
       </div>
+
+      <PracticeQuestionNavigator
+        currentIndex={session.safeQuestionIndex}
+        isDisabled={session.isQuestionNavigationLocked}
+        onJump={session.moveToOrdinal}
+        onOpenChange={setQuestionSheetOpen}
+        open={isQuestionSheetOpen && !session.isQuestionNavigationLocked}
+        questions={session.questions}
+        selectedAnswers={session.displayedSelectedAnswers}
+      />
 
       <SessionSubmitDialog session={session} returnFocusRef={submitButtonRef} />
 

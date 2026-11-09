@@ -811,7 +811,6 @@ export const jaCoreResources = {
     navigation: {
       label: '解説する問題',
       question: '問題 {{formattedOrdinal}}',
-      openBookmarks: 'ブックマークを見る',
       emptyTitle: '確認する問題がありません',
       emptyDescription: '学習設定に戻り、新しい問題を解いてください。'
     },
@@ -862,7 +861,8 @@ export const jaCoreResources = {
     actions: {
       retryIncorrect: '間違えた問題だけ解き直す',
       loginChoice: 'ログイン',
-      openWrongNotes: '間違いノートを見る'
+      nextSet: '次の{{formattedCount}}問',
+      nextSetStarting: '新しい問題を準備しています…'
     },
     retry: {
       checking: '結果を確認中…',

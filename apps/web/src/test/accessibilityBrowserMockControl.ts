@@ -3,15 +3,15 @@ import { worker } from '@mocks/browser'
 import { DEMO_ADMIN_ID, DEMO_USER_ID } from '@mocks/data/users'
 import { setMockSsoAccountForTesting } from '@mocks/handlers/authHandlers'
 
-const createDashboardInsightsFailure = () =>
+const createDashboardStatsFailure = () =>
   http.get(
-    '*/api/v1/dashboard/insights',
+    '*/api/v1/dashboard',
     () => {
       const requestId = crypto.randomUUID()
       return HttpResponse.json(
         {
           code: 'SERVICE_UNAVAILABLE',
-          message: 'Dashboard insights browser fault injection',
+          message: 'Dashboard stats browser fault injection',
           requestId,
           retryable: true
         },
@@ -19,7 +19,7 @@ const createDashboardInsightsFailure = () =>
           status: 503,
           headers: {
             'Cache-Control': 'private, no-store',
-            'X-Nihongo-Test-Fault': 'dashboard-insights-503',
+            'X-Nihongo-Test-Fault': 'dashboard-stats-503',
             'X-Request-Id': requestId
           }
         }
@@ -28,11 +28,11 @@ const createDashboardInsightsFailure = () =>
     { once: true }
   )
 
-export const armAccessibilityDashboardInsightsFailure = (): void => {
+export const armAccessibilityDashboardStatsFailure = (): void => {
   // QueryClient retries one retryable 5xx response. Two one-shot failures leave
   // a stable cached-data error state; the explicit UI retry then reaches the
   // canonical handler again.
-  worker.use(createDashboardInsightsFailure(), createDashboardInsightsFailure())
+  worker.use(createDashboardStatsFailure(), createDashboardStatsFailure())
 }
 
 export const selectAccessibilityMockActor = (role: 'ADMIN' | 'USER') => {
