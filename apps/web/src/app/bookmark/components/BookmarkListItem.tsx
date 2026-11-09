@@ -32,7 +32,6 @@ export const BookmarkListItem = ({
   const questionTypeLabel = commonT(
     `taxonomy.questionTypes.${question.questionType}`
   )
-  const isArchived = bookmark.availability === 'ARCHIVED'
   // Two topic labels at most: the question type, then the first tag.
   const topics = [
     questionTypeLabel,
@@ -56,26 +55,18 @@ export const BookmarkListItem = ({
         <>
           {question.level} · {commonT(`taxonomy.subjects.${question.subject}`)}
           <span className="ms-2 font-normal">{topics.join(' · ')}</span>
-          {isArchived ? (
-            <span className="ms-2 rounded-full border border-warning bg-warning-soft px-2 py-0.5 font-bold text-warning">
-              {t('availability.archived')}
-            </span>
-          ) : null}
         </>
       }
       text={question.questionTextPreview}
       sub={
-        <>
-          {isArchived ? `${t('availability.archivedDescription')} · ` : null}
-          <time dateTime={bookmark.createdAt}>
-            {t('savedOn', {
-              date: formatDateTime(bookmark.createdAt, locale, {
-                month: 'long',
-                day: 'numeric'
-              })
-            })}
-          </time>
-        </>
+        <time dateTime={bookmark.createdAt}>
+          {t('savedOn', {
+            date: formatDateTime(bookmark.createdAt, locale, {
+              month: 'long',
+              day: 'numeric'
+            })
+          })}
+        </time>
       }
       end={
         <span

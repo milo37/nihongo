@@ -172,6 +172,61 @@ describe('마이페이지 계정 설정', () => {
     expect(await screen.findByText('연결됨')).toBeInTheDocument()
   })
 
+  it('목표 급수를 고르면 PUT 한 번 뒤 /me를 다시 읽어 새 급수를 쓴다', async () => {
+    mockDatabase.loginAs('USER')
+    const requests: string[] = []
+    const record = ({ request }: { request: Request }) => {
+      const { pathname } = new URL(request.url)
+      if (pathname.endsWith('/v1/me') || pathname.endsWith('/me/target-level'))
+        requests.push(`${request.method} ${pathname}`)
+    }
+    mockServer.events.on('request:start', record)
+    try {
+      renderAccount()
+      // Until the copy-v2 key PR lands, the label renders as its key.
+      const select = await screen.findByRole('combobox', {
+        name: 'targetLevel.label'
+      })
+      expect(select).toHaveValue('N2')
+      requests.length = 0
+      await userEvent.selectOptions(select, 'N3')
+      await waitFor(() =>
+        expect(useAppStore.getState().currentUser?.targetLevel).toBe('N3')
+      )
+      expect(requests).toEqual([
+        'PUT /api/v1/me/target-level',
+        'GET /api/v1/me'
+      ])
+      expect(select).toHaveValue('N3')
+      expect(select).toBeEnabled()
+      expect(screen.getByRole('status', { name: '' })).toHaveTextContent(
+        'targetLevel.saved'
+      )
+    } finally {
+      mockServer.events.removeListener('request:start', record)
+    }
+  })
+
+  it('목표 급수 저장이 실패하면 값을 그대로 두고 오류를 알린다', async () => {
+    mockDatabase.loginAs('USER')
+    mockServer.use(
+      http.put('*/api/v1/me/target-level', () =>
+        HttpResponse.json(
+          { code: 'SERVICE_UNAVAILABLE', message: 'down' },
+          { status: 503 }
+        )
+      )
+    )
+    renderAccount()
+    const select = await screen.findByRole('combobox', {
+      name: 'targetLevel.label'
+    })
+    await userEvent.selectOptions(select, 'N1')
+    expect(await screen.findByText('targetLevel.error')).toBeInTheDocument()
+    expect(select).toHaveAttribute('aria-invalid', 'true')
+    expect(useAppStore.getState().currentUser?.targetLevel).toBe('N2')
+  })
+
   it('Google 연결 상태와 유일한 방법 안내를 보여 주고 해제 버튼은 두지 않는다', async () => {
     mockDatabase.loginAs('USER')
     renderAccount()
