@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { RefObject } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
@@ -8,13 +8,17 @@ import { useListResumableStudySessions } from '@app/practice/hooks/useListResuma
 import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
 import {
   FALLBACK_LEVEL,
-  getInitialCount,
+  FALLBACK_SUBJECT,
+  MEMBER_COUNT,
   getInitialLevel,
   getInitialSubject,
   getRequestedMode,
-  getResumablePage,
   levels
 } from '@app/practice/practiceSetupOptions'
+import {
+  readLastPracticeChoice,
+  saveLastPracticeChoice
+} from '@app/practice/lastPracticeChoice'
 import {
   asGuestAllowance,
   guestAllowanceQueries
@@ -31,9 +35,10 @@ import {
   isNoEligibleQuestionsApiError
 } from '@libs/apiError'
 
-type SetupSearchKey = 'count' | 'level' | 'mode' | 'resumePage' | 'subject'
+type SetupSearchKey = 'level' | 'mode' | 'subject'
 
-const RESUMABLE_PAGE_SIZE = 5
+// Only the most recent saved session is offered (subtract table 6).
+const RESUMABLE_PAGE_SIZE = 1
 // setTimeout's limit; a reset is at most a day away.
 const MAX_TIMER_MS = 2 ** 31 - 1
 
@@ -46,7 +51,11 @@ export const usePracticeSetupController = (
   const { isReady, role, user } = useAuth()
   const beginPractice = useAppStore((state) => state.beginPractice)
   const [cancelSessionId, setCancelSessionId] = useState<string | null>(null)
-  const defaultLevel = user?.targetLevel ?? FALLBACK_LEVEL
+  // Read once: starting a practice saves the next default for later visits.
+  const [lastChoice] = useState(readLastPracticeChoice)
+  // The target level wins, then the last level on this device (table 2).
+  const defaultLevel = user?.targetLevel ?? lastChoice?.level ?? FALLBACK_LEVEL
+  const defaultSubject = lastChoice?.subject ?? FALLBACK_SUBJECT
   const urlLevel = searchParams.get('level')
   // Without a URL level the default waits for the signed-in user, so it is
   // set once (no N5 first, then the target level).
@@ -54,66 +63,38 @@ export const usePracticeSetupController = (
     isReady || levels.some((value) => value === urlLevel)
       ? getInitialLevel(urlLevel, defaultLevel)
       : null
-  const subject = getInitialSubject(searchParams.get('subject'))
+  const subject = getInitialSubject(searchParams.get('subject'), defaultSubject)
   const isGuest = isReady && role === 'GUEST'
-  const requestedCount = getInitialCount(searchParams.get('count'))
   const requestedMode = getRequestedMode(searchParams.get('mode'))
-  // Guests only try short random sessions; a shared link asking for more
-  // keeps its level and subject and says why the rest changed (L12).
-  const count = isGuest ? GUEST_SESSION_QUESTION_LIMIT : requestedCount
+  // Guests only try short random sessions; a shared link asking for review
+  // keeps its level and subject and says why the mode changed (L12).
+  const count = isGuest ? GUEST_SESSION_QUESTION_LIMIT : MEMBER_COUNT
   const mode = isGuest ? 'RANDOM' : requestedMode
-  const isUrlLockedForGuest =
-    isGuest &&
-    ((searchParams.has('count') &&
-      requestedCount !== GUEST_SESSION_QUESTION_LIMIT) ||
-      requestedMode !== 'RANDOM')
+  const isUrlLockedForGuest = isGuest && requestedMode !== 'RANDOM'
   const queryClient = useQueryClient()
   const guestAllowance = useQuery({
     ...guestAllowanceQueries.get(),
     enabled: isGuest
   })
-  const resumablePage = getResumablePage(searchParams.get('resumePage'))
-  const updateSearchParam = useCallback(
-    (
-      key: SetupSearchKey,
-      value: number | string,
-      defaultValue: number | string,
-      replace = false
-    ): void => {
-      const next = new URLSearchParams(searchParams)
-      if (value === defaultValue) next.delete(key)
-      else next.set(key, String(value))
-      setSearchParams(next, { replace })
-    },
-    [searchParams, setSearchParams]
-  )
-  const getSearchParamHref = (
+  const updateSearchParam = (
     key: SetupSearchKey,
     value: number | string,
     defaultValue: number | string
-  ): string => {
+  ): void => {
     const next = new URLSearchParams(searchParams)
     if (value === defaultValue) next.delete(key)
     else next.set(key, String(value))
-    return `?${next.toString()}`
+    setSearchParams(next)
   }
   const createSession = useCreateStudySession()
   const principalScope = getStudyDraftPrincipalScope(user)
   // Guests have no saved work to resume (G1).
   const canLoadResumableSessions = isReady && user !== null
   const resumableSessions = useListResumableStudySessions(
-    resumablePage,
+    1,
     RESUMABLE_PAGE_SIZE,
     canLoadResumableSessions
   )
-  const resumablePageCount = resumableSessions.data
-    ? Math.max(
-        1,
-        Math.ceil(
-          resumableSessions.data.total / resumableSessions.data.pageSize
-        )
-      )
-    : resumablePage
   const cancelSession = useCancelStudySession(principalScope)
   const isCreatingSession = createSession.isPending || createSession.isPaused
   const noEligibleQuestions =
@@ -139,26 +120,6 @@ export const usePracticeSetupController = (
     resumableSessions.isError || resumableSessions.fetchStatus === 'paused'
   const isResumableInteractionLocked =
     isResumableSourceUnavailable || resumableSessions.isFetching
-
-  useEffect(() => {
-    if (
-      !resumableSessions.data ||
-      resumableSessions.data.page !== resumablePage
-    ) {
-      return
-    }
-    if (resumablePage > resumablePageCount) {
-      const timerId = window.setTimeout(() => {
-        updateSearchParam('resumePage', resumablePageCount, 1, true)
-      }, 0)
-      return () => window.clearTimeout(timerId)
-    }
-  }, [
-    resumablePage,
-    resumablePageCount,
-    resumableSessions.data,
-    updateSearchParam
-  ])
 
   useEffect(() => {
     if (!isGuestDailyLimitReached || !guestResetsAt) return
@@ -191,6 +152,7 @@ export const usePracticeSetupController = (
       {
         onSuccess: ({ session }, input) => {
           assertCurrentCreateStudySessionAction(input)
+          saveLastPracticeChoice({ level: input.level, subject: input.subject })
           beginPractice(session.id, session.startedAt)
           void navigate(`/practice/session/${session.id}`)
         }
@@ -200,7 +162,7 @@ export const usePracticeSetupController = (
 
   // Changing any setup choice clears the previous start error before the URL updates.
   const changeSetting = (
-    key: Exclude<SetupSearchKey, 'resumePage'>,
+    key: SetupSearchKey,
     value: number | string,
     defaultValue: number | string
   ): void => {
@@ -224,10 +186,9 @@ export const usePracticeSetupController = (
     canLoadResumableSessions,
     changeSetting,
     defaultLevel,
+    defaultSubject,
     confirmCancel,
     count,
-    getResumablePageHref: (page: number) =>
-      getSearchParamHref('resumePage', page, 1),
     handleStart,
     hasCancelError:
       cancelSession.isError &&
@@ -246,12 +207,8 @@ export const usePracticeSetupController = (
     loginHref,
     mode,
     noEligibleQuestions,
-    resumablePage,
-    resumablePageCount,
     resumableSessions,
     setCancelSessionId,
-    setResumablePage: (page: number) =>
-      updateSearchParam('resumePage', page, 1),
     subject
   }
 }

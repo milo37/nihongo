@@ -16,14 +16,7 @@ import {
 } from '@nihongo/contracts/study/guest-limits'
 import { ResumablePractice } from '@app/practice/components/ResumablePractice'
 import { usePracticeSetupController } from '@app/practice/hooks/usePracticeSetupController'
-import {
-  DEFAULT_COUNT,
-  DEFAULT_SUBJECT,
-  counts,
-  levels,
-  modes,
-  subjects
-} from '@app/practice/practiceSetupOptions'
+import { levels, modes, subjects } from '@app/practice/practiceSetupOptions'
 import { getButtonClassName } from '@nihongo/browser/common/components/Button'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 
@@ -100,13 +93,9 @@ export const PracticePage = (): ReactElement => {
       <ResumablePractice
         query={resumableSessions}
         canLoad={setup.canLoadResumableSessions}
-        requestedPage={setup.resumablePage}
-        pageCount={setup.resumablePageCount}
         sourceUnavailable={setup.isResumableSourceUnavailable}
         interactionLocked={setup.isResumableInteractionLocked}
         headingRef={resumableHeadingRef}
-        getPageHref={setup.getResumablePageHref}
-        onPageChange={setup.setResumablePage}
         onCancel={setup.setCancelSessionId}
       />
       <PracticeSetupForm
@@ -116,7 +105,6 @@ export const PracticePage = (): ReactElement => {
         mode={mode}
         levels={levels}
         subjects={subjects}
-        counts={counts}
         modes={modes}
         isReady={setup.isReady}
         isGuest={setup.isGuest}
@@ -127,20 +115,11 @@ export const PracticePage = (): ReactElement => {
         subjectLabel={subjectLabel}
         startLabel={startLabel}
         onSubjectChange={(option) =>
-          setup.changeSetting('subject', option, DEFAULT_SUBJECT)
+          setup.changeSetting('subject', option, setup.defaultSubject)
         }
         onLevelChange={(option) =>
           setup.changeSetting('level', option, setup.defaultLevel)
         }
-        onCountChange={(option) => {
-          if (
-            option !== GUEST_SESSION_QUESTION_LIMIT &&
-            guestAction(t('setup.locked.count'))
-          ) {
-            return
-          }
-          setup.changeSetting('count', option, DEFAULT_COUNT)
-        }}
         onModeChange={(option) => {
           if (option !== 'RANDOM' && guestAction(t('setup.locked.mode'))) {
             return

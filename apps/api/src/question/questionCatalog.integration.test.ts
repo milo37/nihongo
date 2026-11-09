@@ -1,5 +1,6 @@
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { apiFailureSchema } from '@nihongo/contracts/common/error'
+import { getDailyQuestionResponseSchema } from '@nihongo/contracts/question/get-daily-question'
 import { getQuestionResponseSchema } from '@nihongo/contracts/question/get-question'
 import { listQuestionsResponseSchema } from '@nihongo/contracts/question/list-questions'
 import { spacedTagQuestionListCase } from '@nihongo/contracts/testing/question-read-conformance'
@@ -24,6 +25,11 @@ import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { Prisma } from '../generated/prisma/client.js'
 import { createApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createJsonLogger } from '../observability/logger.js'
+import {
+  createDailyQuestionService,
+  createPrismaDailyQuestionRepository,
+  toDayNumber
+} from './dailyQuestion.js'
 import { createPrismaQuestionRepository } from './questionRepository.js'
 import { createQuestionService } from './questionService.js'
 
@@ -64,10 +70,14 @@ const applicationRateLimiter = createApplicationRateLimiter({
   client: database.client,
   keySecret: environment.GUEST_COOKIE_SECRET
 })
+const dailyQuestionRepository = createPrismaDailyQuestionRepository(
+  database.client
+)
 const app = createApiApp({
   checkReadiness: database.checkReadiness,
   logger: createJsonLogger('silent'),
   questionReader,
+  dailyQuestionReader: createDailyQuestionService(dailyQuestionRepository),
   questionReadSecurity: {
     environment,
     rateLimiter: applicationRateLimiter
@@ -78,11 +88,15 @@ const QUESTION_RATE_LIMIT_PREFIXES = [
   'application:question-list-read:',
   'application:question-detail-read:'
 ] as const
+const DAILY_QUESTION_RATE_LIMIT_PREFIX = 'application:daily-question-read:'
 
 const resetQuestionRateLimits = async (): Promise<void> => {
   await database.client.rateLimit.deleteMany({
     where: {
-      OR: QUESTION_RATE_LIMIT_PREFIXES.map((prefix) => ({
+      OR: [
+        ...QUESTION_RATE_LIMIT_PREFIXES,
+        DAILY_QUESTION_RATE_LIMIT_PREFIX
+      ].map((prefix) => ({
         key: { startsWith: prefix }
       }))
     }
@@ -243,6 +257,50 @@ describe('question catalog PostgreSQL integration', () => {
     expect(
       versions.every(({ _count }) => _count.options === 4 && _count.tags >= 1)
     ).toBe(true)
+  })
+
+  it('오늘의 한 문제는 날짜마다 md5 순서로 돌고 독해·다른 급수는 고르지 않는다 (JLP-815)', async () => {
+    const candidates = buildAllQuestionSeeds()
+      .filter(({ level, subject }) => level === 'N5' && subject !== 'READING')
+      .map(({ questionId }) => questionId)
+      .toSorted((left, right) => {
+        const leftHash = createHash('md5').update(left).digest('hex')
+        const rightHash = createHash('md5').update(right).digest('hex')
+        return leftHash === rightHash
+          ? left.localeCompare(right)
+          : leftHash.localeCompare(rightHash)
+      })
+    expect(candidates.length).toBeGreaterThan(1)
+
+    const day = toDayNumber('2026-11-10')
+    const picked: string[] = []
+    for (let offset = 0; offset < candidates.length; offset += 1) {
+      const record = await dailyQuestionRepository.findDaily('N5', day + offset)
+      expect(record?.level).toBe('N5')
+      expect(record?.subject).not.toBe('READING')
+      picked.push(record!.id)
+    }
+    expect(picked).toEqual(
+      candidates.map(
+        (_, offset) => candidates[(day + offset) % candidates.length]
+      )
+    )
+    // One full turn shows every candidate once.
+    expect(new Set(picked).size).toBe(candidates.length)
+    await expect(
+      dailyQuestionRepository.findDaily('N5', day)
+    ).resolves.toMatchObject({ id: picked[0] })
+
+    const response = await app.request('/api/v1/daily-question?level=N5')
+    expect(response.status).toBe(200)
+    expect(response.headers.get('cache-control')).toMatch(
+      /^public, max-age=\d+$/
+    )
+    const body = getDailyQuestionResponseSchema.parse(await response.json())
+    expect(candidates).toContain(body.question.id)
+    expect(body.question.options.map(({ id }) => id)).toContain(
+      body.question.correctOptionId
+    )
   })
 
   it('real Hono list/detail이 canonical public DTO와 header를 반환한다', async () => {

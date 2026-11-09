@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
-import { DEFAULT_COUNT } from '@app/practice/practiceSetupOptions'
+import { MEMBER_COUNT } from '@app/practice/practiceSetupOptions'
 import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
 import { GUEST_SESSION_QUESTION_LIMIT } from '@nihongo/contracts/study/guest-limits'
 import { useAppStore } from '@nihongo/browser/store/index'
@@ -19,7 +19,7 @@ export const useStartNextSet = (
   const navigate = useNavigate()
   const beginPractice = useAppStore((state) => state.beginPractice)
   const createSession = useCreateStudySession()
-  const count = isGuest ? GUEST_SESSION_QUESTION_LIMIT : DEFAULT_COUNT
+  const count = isGuest ? GUEST_SESSION_QUESTION_LIMIT : MEMBER_COUNT
   const start = (): void => {
     if (createSession.isPending) return
     createSession.mutate(

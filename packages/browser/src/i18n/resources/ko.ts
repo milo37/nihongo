@@ -563,8 +563,8 @@ export const koResources = {
           description: '저장한 문제만 모아 다시 풀어요.'
         },
         DAILY_REVIEW: {
-          label: '오늘의 복습',
-          description: '서버 일정상 오늘 복습할 오답을 순서대로 풀어요.'
+          label: '복습할 문제',
+          description: '오늘 다시 풀 차례인 틀린 문제가 나와요.'
         }
       },
       guestResumeHint: '로그인하면 풀던 문제를 이어서 풀 수 있어요.',
