@@ -20,8 +20,14 @@ export const AccountPage = (): ReactElement => {
       </section>
     )
   }
+  // Guests reach terms and help here too: the shell has no footer (C2).
   if (!user) {
-    return <GuestGate screen="account" />
+    return (
+      <>
+        <GuestGate screen="account" />
+        <InformationFooter />
+      </>
+    )
   }
   return (
     <div className="account-page">
