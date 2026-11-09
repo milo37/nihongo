@@ -7,6 +7,8 @@ import { Icon } from '@nihongo/browser/common/components/Icon'
 type ReviewListItemProps = {
   item: ReviewListEntry
   formatDate: (value: string) => string
+  /** Phone reviewed column: month/day only, e.g. 11/10. */
+  formatShortDate: (value: string) => string
   linkRef: (node: HTMLAnchorElement | null) => void
   returnTo: string
 }
@@ -15,6 +17,7 @@ type ReviewListItemProps = {
 export const ReviewListItem = ({
   item,
   formatDate,
+  formatShortDate,
   linkRef,
   returnTo
 }: ReviewListItemProps): ReactElement => {
@@ -28,7 +31,7 @@ export const ReviewListItem = ({
     <li className="border-t border-line first:border-t-0">
       <Link
         ref={linkRef}
-        className="grid h-[52px] grid-cols-[58px_minmax(0,1fr)_auto_16px] items-center gap-2 px-3 hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand lg:h-14 lg:grid-cols-[150px_minmax(0,1fr)_120px_110px_20px] lg:gap-5 lg:px-6"
+        className="grid h-[52px] grid-cols-[66px_minmax(0,1fr)_auto_16px] items-center gap-2 px-3 hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand lg:h-14 lg:grid-cols-[150px_minmax(0,1fr)_120px_110px_20px] lg:gap-5 lg:px-6"
         to={`/wrong-notes/${item.questionId}?returnTo=${encodeURIComponent(returnTo)}`}
       >
         <span className="min-w-0 truncate text-caption font-semibold leading-tight text-muted lg:text-sm">
@@ -59,7 +62,7 @@ export const ReviewListItem = ({
           <span className="flex items-center justify-end gap-1 whitespace-nowrap text-[13px] font-bold text-success-strong lg:invisible">
             <span aria-hidden="true">○</span>
             <span aria-hidden="true">
-              {formatDate(item.lastReviewedAt ?? item.lastWrongAt)}
+              {formatShortDate(item.lastReviewedAt ?? item.lastWrongAt)}
             </span>
             <span className="sr-only">{reviewedMeta}</span>
           </span>
