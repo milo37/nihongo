@@ -332,6 +332,32 @@ describe.sequential('Dashboard insights PostgreSQL projection', () => {
     })
     expect(response.stats.overall.attemptedCount).toBe(6)
     expect(response.reviewQueueCounts.repeated).toBeGreaterThanOrEqual(1)
+    // JLP-812: due means NEW or AGAIN on a public question, before any
+    // review schedule date (the fixture's schedules are all in the future).
+    const toReviewCount = await database.client.wrongNote.count({
+      where: {
+        userId: ownerUserId,
+        status: { in: ['NEW', 'AGAIN'] },
+        question: {
+          lifecycleStatus: 'ACTIVE',
+          currentPublishedVersion: { is: { status: 'PUBLISHED' } }
+        }
+      }
+    })
+    expect(toReviewCount).toBeGreaterThan(0)
+    expect(response.reviewQueueCounts.due).toBe(toReviewCount)
+    expect(
+      response.recommendations
+        .filter((recommendation) => recommendation.kind === 'DUE_REVIEW')
+        .reduce(
+          (total, recommendation) =>
+            total +
+            (recommendation.kind === 'DUE_REVIEW'
+              ? recommendation.reason.dueCount
+              : 0),
+          0
+        )
+    ).toBeGreaterThan(0)
 
     const levelTotal = response.stats.byLevel.reduce(
       (total, stat) => total + stat.attemptedCount,
