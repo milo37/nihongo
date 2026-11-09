@@ -1,7 +1,7 @@
 # Question import v1 (STAGING and PRODUCTION)
 
-How to put the reviewed question set (250 questions, 18 tags) on a new
-environment after its first deploy: load the tag list, import the five files,
+How to put the reviewed question set (500 questions, 18 tags) on a new
+environment after its first deploy: load the tag list, import the ten files,
 then request review, approve and publish in bulk from the admin question list.
 The same path ran end to end on an empty local database (see "Local
 rehearsal").
@@ -11,10 +11,10 @@ runbook. The API starts without tags; the import refuses unknown tags.
 
 ## Inputs (in the repository)
 
-| What            | File                                                                                                                                |
-| --------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| Tag list (18)   | `content/taxonomy/tags.v2.json`                                                                                                     |
-| Questions (250) | `content/question-imports/n5.v1.json`, `n4.v1.json`, `n3.v1.json`, `n2.v1.json`, `n1.v1.json` (50 each, #785); 100 per file at most |
+| What            | File                                                                                                                                                                                           |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tag list (18)   | `content/taxonomy/tags.v2.json`                                                                                                                                                                |
+| Questions (500) | `content/question-imports/n5.v1.json`, `n4.v1.json`, `n3.v1.json`, `n2.v1.json`, `n1.v1.json` (50 each, #785) and `n5.add.v1.json` … `n1.add.v1.json` (50 each, JLP-816); 100 per file at most |
 
 Use the files of the release that is deployed (`/opt/harumaru/current-release`).
 
@@ -45,7 +45,7 @@ docker compose --profile operator run --rm --no-deps -T \
   as in `first-admin.v1.md`, and read the line with
   `aws ssm get-command-invocation`.
 
-## 2. Import the five files (admin, browser)
+## 2. Import the ten files (admin, browser)
 
 As the first admin, open `/admin/questions/import`. For each file, in the
 order of the table above:
@@ -62,8 +62,8 @@ fix step 1 and validate again. A file is applied whole or not at all.
 
 ## 3. Request review, approve, publish (admin, browser)
 
-Open `/admin/questions` and set **한 페이지에** to **100개씩** (three pages:
-100, 100, 50). On each page:
+Open `/admin/questions` and set **한 페이지에** to **100개씩** (five pages of
+100). On each page:
 
 | Step           | Select                                                        | Press                                         | Calls per page                  |
 | -------------- | ------------------------------------------------------------- | --------------------------------------------- | ------------------------------- |
@@ -71,7 +71,7 @@ Open `/admin/questions` and set **한 페이지에** to **100개씩** (three pag
 | Approve        | same                                                          | **검수 중 N개 승인** → **N개 승인**           | 1                               |
 | Publish        | same                                                          | **승인된 N개 공개** → **N개 공개**            | 1                               |
 
-Do all three pages of one step before the next step. Each dialog lists the
+Do all five pages of one step before the next step. Each dialog lists the
 result per question; expect no failures.
 
 ### Rate limit
@@ -82,18 +82,19 @@ batches share one limit: **10 calls per 15 minutes**, per admin and per IP
 
 | Work                                   | Calls  |
 | -------------------------------------- | ------ |
-| Import apply (5 files)                 | 5      |
-| Review request (250 drafts, 20 a call) | 13     |
-| Approve (3 pages)                      | 3      |
-| Publish (3 pages)                      | 3      |
-| **Total**                              | **24** |
+| Import apply (10 files)                | 10     |
+| Review request (500 drafts, 20 a call) | 25     |
+| Approve (5 pages)                      | 5      |
+| Publish (5 pages)                      | 5      |
+| **Total**                              | **45** |
 
-That is three 15-minute windows, about 35 minutes:
+That is five 15-minute windows, about 60 minutes or more:
 
-1. Import apply 5 + review request page 1 (5).
-2. Wait 15 minutes. Review request pages 2 and 3 (5 + 3) + approve pages 1
-   and 2 (2).
-3. Wait 15 minutes. Approve page 3 (1) + publish 3.
+1. Import apply 10.
+2. Wait 15 minutes. Review request pages 1 and 2 (5 + 5).
+3. Wait 15 minutes. Review request pages 3 and 4 (5 + 5).
+4. Wait 15 minutes. Review request page 5 (5) + approve pages 1–5 (5).
+5. Wait 15 minutes. Publish pages 1–5 (5).
 
 At the limit the dialog shows **요청이 너무 많습니다** (HTTP 429), and the
 review request marks the batches it did not send as not sent. Wait 15
@@ -103,11 +104,11 @@ with Google again (fresh sign-in).
 
 ## Check
 
-- `/admin/questions` with the filter **공개본 있음** shows 250.
+- `/admin/questions` with the filter **공개본 있음** shows 500.
 - A learner account starts an N5 vocabulary session and gets questions.
 - On the host (optional):
   `docker compose exec -T postgres psql -U postgres -d nihongo -c 'SELECT count(*) FROM "Question" WHERE "currentPublishedVersionId" IS NOT NULL'`
-  returns 250, and `SELECT count(*) FROM "Tag"` returns 18.
+  returns 500, and `SELECT count(*) FROM "Tag"` returns 18.
 
 ## If something fails
 
