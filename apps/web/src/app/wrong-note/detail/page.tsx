@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import { Link, useParams, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
 import { isNotFoundApiError } from '@libs/apiError'
-import { WrongNoteMemoSection } from '@app/wrong-note/components/WrongNoteMemoSection'
 import { TargetedReviewAction } from '@app/wrong-note/detail/TargetedReviewAction'
 import { WrongNoteDetailContent } from '@app/wrong-note/detail/WrongNoteDetailContent'
 import { Button } from '@nihongo/browser/common/components/Button'
@@ -13,7 +12,7 @@ import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrinc
 import { useGetWrongNote } from '@app/wrong-note/hooks/useGetWrongNote'
 import { useTargetedReviewStart } from '@app/wrong-note/hooks/useTargetedReviewStart'
 import { useWrongNotePreviousAnswer } from '@app/wrong-note/hooks/useWrongNotePreviousAnswer'
-import { getSafeWrongNoteReturnTo } from '@app/wrong-note/reviewQueueSearch'
+import { getSafeWrongNoteReturnTo } from '@app/wrong-note/wrongNoteReturnTo'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { useTrackWrongNoteOpened } from '@/analytics/client'
 import { AppErrorReportButton } from '@app/question-report/components/AppErrorReportDialog'
@@ -107,13 +106,12 @@ export const WrongNoteDetailPage = (): ReactElement => {
         to={returnTo}
         state={{ reviewFocus: questionId }}
       >
-        {t('integration.back')}
+        {t('detail.back')}
       </Link>
       <WrongNoteDetailContent
         data={wrongNoteQuery.data}
         previousAnswer={previousAnswer}
         headingRef={headingRef}
-        memo={<WrongNoteMemoSection key={questionId} questionId={questionId} />}
         action={
           <TargetedReviewAction
             data={wrongNoteQuery.data}

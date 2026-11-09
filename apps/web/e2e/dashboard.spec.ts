@@ -264,33 +264,6 @@ const assertCanonicalDashboardAggregate = (
   }
 }
 
-const checkRecentResultsDisclosure = async (page: Page): Promise<void> => {
-  await page.goto('/wrong-notes')
-  const recentResults = page
-    .locator('summary')
-    .filter({ hasText: /^최근 결과 다시 보기$/u })
-  await expect(recentResults).toBeVisible()
-  await expect(recentResults.locator('..')).toHaveJSProperty('open', false)
-  const dashboardResponsePromise = waitForResponse(
-    page,
-    'GET',
-    '/api/v1/dashboard'
-  )
-  await recentResults.click()
-  const dashboardResponse = await dashboardResponsePromise
-  expect(dashboardResponse.status()).toBe(200)
-  expect(dashboardResponse.headers()['cache-control']).toBe('private, no-store')
-  expectExpectedApiTransport(dashboardResponse)
-  const stats = getDashboardStatsResponseSchema.parse(
-    JSON.parse(await dashboardResponse.text()) as unknown
-  )
-  expect(stats.recentStudySessions).toEqual([])
-  await expect(recentResults.locator('..')).toHaveJSProperty('open', true)
-  await expect(
-    page.getByText('아직 마친 학습이 없어요.', { exact: true })
-  ).toBeVisible()
-}
-
 // The account page loads the all-time stats and the recommendations.
 const openDashboardSections = async (
   page: Page,
@@ -374,7 +347,6 @@ test('current stats and learning routes preserve contracts before an explicit re
   })
 
   await login(page)
-  await checkRecentResultsDisclosure(page)
 
   const initialDashboardStartIndex = ledger.entries.length
   const insights = await openDashboardSections(page, ledger)

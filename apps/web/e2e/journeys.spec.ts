@@ -13,7 +13,6 @@ import {
   saveStudyDraftAnswersBodySchema,
   saveStudyDraftAnswersResponseSchema
 } from '@nihongo/contracts/study/save-study-draft-answers'
-import { getDashboardStatsResponseSchema } from '@nihongo/contracts/dashboard/get-dashboard-stats'
 import { getDashboardInsightsResponseSchema } from '@nihongo/contracts/dashboard/get-dashboard-insights'
 import {
   listResumableStudySessionsQuerySchema,
@@ -270,15 +269,14 @@ const userJourneyRequestContract = [
     statuses: successfulStatuses(15)
   },
   { method: 'GET', path: '/api/v1/study-sessions/:id/result', statuses: [200] },
-  { method: 'GET', path: '/api/v1/review-queue', statuses: [200, 200] },
+  { method: 'GET', path: '/api/v1/review-list', statuses: [200, 200] },
   { method: 'GET', path: '/api/v1/wrong-notes/:id', statuses: [200, 200] },
-  { method: 'GET', path: '/api/v1/wrong-notes/:id/memo', statuses: [200] },
   {
     method: 'GET',
     path: '/api/v1/wrong-notes/:id/review-events',
     statuses: [200]
   },
-  { method: 'GET', path: '/api/v1/dashboard', statuses: [200, 200] },
+  { method: 'GET', path: '/api/v1/dashboard', statuses: [200] },
   { method: 'POST', path: '/api/v1/study-sessions', statuses: [201] },
   {
     method: 'POST',
@@ -1154,26 +1152,18 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   await chooseLocale('ko')
 
   await page.getByRole('link', { name: '오답노트 보기', exact: true }).click()
+  // Old four-way links land on the default to-review tab (JLP-812).
   await expect(page).toHaveURL(
-    (url) =>
-      url.pathname === '/wrong-notes' &&
-      url.searchParams.get('view') === 'UNREVIEWED'
+    (url) => url.pathname === '/wrong-notes' && url.search === ''
   )
-  await expect(
-    page.getByRole('heading', { name: '복습', exact: true })
-  ).toBeVisible()
-  await expect(
-    page.getByRole('combobox', { name: '복습 범위', exact: true })
-  ).toHaveValue('UNREVIEWED')
-  await expect(
-    page.getByRole('heading', { name: '3문제', exact: true })
-  ).toBeVisible()
+  await expect(page.getByRole('tab', { selected: true })).toHaveCount(1)
+  await expect(page.getByRole('combobox')).toHaveCount(0)
+  await expect(page.locator('#review-panel ol > li')).toHaveCount(3)
   const returnTo = new URL(page.url()).pathname + new URL(page.url()).search
   const detail = page.locator(
-    `.review-item-link[href^="/wrong-notes/${incorrect.question.id}?"]`
+    `#review-panel a[href^="/wrong-notes/${incorrect.question.id}?"]`
   )
   await expect(detail).toHaveCount(1)
-  await expect(detail).toContainText('해설 보기')
   await detail.click()
   await expect(page).toHaveURL(
     (url) =>
@@ -1181,10 +1171,11 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
       url.searchParams.get('returnTo') === returnTo
   )
   await expect(
-    page.getByRole('heading', { name: '해설 보기', exact: true })
-  ).toBeVisible()
-  await expect(
-    page.getByText(incorrect.question.questionText, { exact: true })
+    page.getByRole('heading', {
+      level: 1,
+      name: incorrect.question.questionText,
+      exact: true
+    })
   ).toBeVisible()
 
   const targetedInitialDraft = page
@@ -1276,26 +1267,6 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   const dashboardStartIndex = ledger.entries.length
   await page.getByRole('link', { name: '복습 목록으로', exact: true }).click()
   await expect(page).toHaveURL((url) => url.pathname + url.search === returnTo)
-  const summaryResponse = waitForApiResponse(
-    page,
-    'GET',
-    '/api/v1/dashboard'
-  ).then(async (response) =>
-    getDashboardStatsResponseSchema.parse(await readCanonicalResponse(response))
-  )
-  await page.locator('details.review-recent-results > summary').click()
-  const summary = await summaryResponse
-  expect(summary).toMatchObject({ totalAnsweredCount: 6, wrongNoteCount: 3 })
-  expect(summary.recentStudySessions.map(({ id }) => id).toSorted()).toEqual(
-    [created.session.id, targeted.session.id].toSorted()
-  )
-  for (const sessionId of [created.session.id, targeted.session.id]) {
-    await expect(
-      page.locator(
-        `details.review-recent-results a[href="/practice/result/${sessionId}"]`
-      )
-    ).toBeVisible()
-  }
   const finalInsightsResponse = waitForApiResponse(
     page,
     'GET',
@@ -1404,11 +1375,11 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
     '/api/v1/dashboard/insights',
     dashboardStartIndex
   )
-  // The review page reads the summary once, then My page reads it fresh and
-  // starts insights only after that read settles.
-  expect(dashboardSummaryEntries).toHaveLength(2)
+  // The review page no longer reads the summary (JLP-812); My page reads it
+  // and starts insights only after that read settles.
+  expect(dashboardSummaryEntries).toHaveLength(1)
   expect(dashboardInsightEntries).toHaveLength(1)
-  expect(requireFinished(dashboardSummaryEntries[1])).toBeLessThan(
+  expect(requireFinished(dashboardSummaryEntries[0])).toBeLessThan(
     dashboardInsightEntries[0]?.startSequence ?? -1
   )
   for (const entry of [

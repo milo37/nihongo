@@ -48,6 +48,12 @@ import {
   type ParsedListReviewQueueQuery,
   type ReviewQueueItem
 } from '@nihongo/contracts/wrong-note/list-review-queue'
+import {
+  toWrongNoteReviewState,
+  type ListReviewListResponse,
+  type ParsedListReviewListQuery,
+  type ReviewListItem
+} from '@nihongo/contracts/wrong-note/list-review-list'
 import type { ReviewEventHistoryItem } from '@nihongo/contracts/wrong-note/list-review-events'
 import type { UserMemo } from '@nihongo/contracts/wrong-note/user-memo'
 import {
@@ -2700,6 +2706,73 @@ export class MockDatabase {
       },
       availableTags,
       observedAt
+    })
+  }
+
+  listCanonicalReviewList(
+    userId: string,
+    query: ParsedListReviewListQuery
+  ): ListReviewListResponse {
+    this.assertCanonicalReadOwner(userId)
+    const currentQuestions =
+      this.buildLearnerQuestionReadModel().currentBySourceId
+    const candidates = this.reconstructCanonicalWrongNotes(userId).flatMap(
+      (note): ReviewListItem[] => {
+        const question = currentQuestions.get(note.sourceQuestionId)
+        if (
+          !question ||
+          question.status !== 'PUBLISHED' ||
+          (query.level !== undefined && question.level !== query.level)
+        ) {
+          return []
+        }
+        const characters = [...question.questionText]
+        return [
+          {
+            questionId: getCanonicalQuestionId(question),
+            currentQuestionVersionId: getCanonicalQuestionVersionId(question),
+            level: question.level,
+            subject: question.subject,
+            questionType: question.questionType,
+            questionPreview:
+              characters.length <= 160
+                ? question.questionText
+                : `${characters.slice(0, 157).join('')}...`,
+            reviewState: toWrongNoteReviewState(note.status),
+            wrongCount: note.wrongCount,
+            lastWrongAt: note.lastWrongAt,
+            lastReviewedAt: note.lastReviewedAt
+          }
+        ]
+      }
+    )
+    const byState = (state: ReviewListItem['reviewState']) =>
+      candidates.filter((item) => item.reviewState === state)
+    const toReview = byState('TO_REVIEW')
+    const reviewed = byState('REVIEWED')
+    const latest =
+      (key: 'lastWrongAt' | 'lastReviewedAt') =>
+      (left: ReviewListItem, right: ReviewListItem): number =>
+        (right[key] ?? '').localeCompare(left[key] ?? '') ||
+        left.questionId.localeCompare(right.questionId)
+    const selected =
+      query.state === 'TO_REVIEW'
+        ? toReview.toSorted(latest('lastWrongAt'))
+        : reviewed.toSorted(latest('lastReviewedAt'))
+    const oldest = toReview.toSorted(latest('lastWrongAt')).at(-1)
+    const offset = (query.page - 1) * query.pageSize
+
+    return clone({
+      items: selected.slice(offset, offset + query.pageSize),
+      page: query.page,
+      pageSize: query.pageSize,
+      total: selected.length,
+      state: query.state,
+      counts: { toReview: toReview.length, reviewed: reviewed.length },
+      oldestToReview: oldest
+        ? { level: oldest.level, subject: oldest.subject }
+        : null,
+      observedAt: this.now()
     })
   }
 
