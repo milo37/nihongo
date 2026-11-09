@@ -12,6 +12,10 @@ import {
   type UpdateQuestionVersionRequest,
   type WithdrawQuestionApprovalRequest
 } from '@nihongo/contracts/admin/content-operations'
+import type {
+  RetireQuestionVersionBatchRequest,
+  RetireQuestionVersionBatchResponse
+} from '@nihongo/contracts/admin/review'
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 import {
   type AuditEnvironment,
@@ -175,6 +179,11 @@ export interface AdminQuestionPublicationCommandRepository {
     questionId: string,
     request: ArchiveAdminQuestionRequest
   ) => Promise<AdminQuestionMutationResult>
+  /** All or nothing: retires every current published version in one transaction (JLP-816). */
+  retireVersionBatch: (
+    authority: AdminCommandAuthority,
+    request: RetireQuestionVersionBatchRequest
+  ) => Promise<RetireQuestionVersionBatchResponse>
   /** Current question row version for a batch item; null if the version is missing. */
   readPublicationTarget: (versionId: string) => Promise<{
     readonly questionRowVersion: number
@@ -1265,6 +1274,156 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
       }
     }
 
+  const retireVersionBatch: AdminQuestionPublicationCommandRepository['retireVersionBatch'] =
+    async (authority, request) => {
+      const targets: Array<VersionTargetRow | null> = []
+      try {
+        for (const { questionVersionId } of request.items) {
+          targets.push(await loadVersionTarget(client, questionVersionId))
+        }
+      } catch (error: unknown) {
+        throw mapPreflightError(error)
+      }
+
+      try {
+        return await client.$transaction(
+          async (transaction) => {
+            const begun = await beginOperation(transaction, {
+              auditEnvironment,
+              authority,
+              command: 'RETIREMENT',
+              referencedUserIds: uniqueSorted([
+                authority.actorId,
+                ...targets.flatMap((target) => [
+                  target?.questionCreatedByUserId ?? null,
+                  target?.versionCreatedByUserId ?? null
+                ])
+              ])
+            })
+            const commandTargets = request.items.map(
+              ({ expectedRowVersion }, index) => {
+                const target = targets[index]
+                if (!target) {
+                  throw repositoryFailure(
+                    'RESOURCE_NOT_FOUND',
+                    '문제 버전을 찾을 수 없습니다.'
+                  )
+                }
+                if (target.versionRowVersion !== expectedRowVersion) {
+                  throw repositoryFailure(
+                    'VERSION_CONFLICT',
+                    '다른 요청이 먼저 버전을 변경했습니다.'
+                  )
+                }
+                if (
+                  target.questionLifecycleStatus !== 'ACTIVE' ||
+                  target.versionStatus !== 'PUBLISHED' ||
+                  target.questionCurrentPublishedVersionId !== target.versionId
+                ) {
+                  throw repositoryFailure(
+                    'INVALID_STATE_TRANSITION',
+                    '현재 공개 중인 활성 문제 버전만 게시를 내릴 수 있습니다.'
+                  )
+                }
+                return target
+              }
+            )
+            const operation = await armOperation(transaction, begun, {
+              questions: commandTargets.map((target) => ({
+                id: target.questionId,
+                rowVersion: target.questionRowVersion,
+                state: target.questionLifecycleStatus
+              })),
+              versions: commandTargets.map((target) => ({
+                id: target.versionId,
+                rowVersion: target.versionRowVersion,
+                state: target.versionStatus
+              })),
+              reports: [],
+              tags: []
+            })
+            for (const target of commandTargets) {
+              await transaction.$executeRawUnsafe(
+                `UPDATE "Question"
+                 SET "currentPublishedVersionId" = NULL,
+                     "rowVersion" = $2, "updatedAt" = $3
+                 WHERE "id" = $1`,
+                target.questionId,
+                target.questionRowVersion + 1,
+                operation.occurredAt
+              )
+              await transaction.$executeRawUnsafe(
+                `UPDATE "QuestionVersion"
+                 SET "status" = 'RETIRED',
+                     "retirementKind" = 'PUBLISHED_RETIREMENT',
+                     "retiredAt" = $2, "rowVersion" = $3, "updatedAt" = $2
+                 WHERE "id" = $1`,
+                target.versionId,
+                operation.occurredAt,
+                target.versionRowVersion + 1
+              )
+              await insertReview(transaction, {
+                action: 'RETIRED',
+                actorId: authority.actorId,
+                comment: null,
+                counterpart: null,
+                fromState: 'PUBLISHED',
+                occurredAt: operation.occurredAt,
+                operationId: operation.operationId,
+                questionId: target.questionId,
+                reason: 'PUBLISHED_RETIREMENT',
+                requestId: authority.requestId,
+                toState: 'RETIRED',
+                versionId: target.versionId
+              })
+              await insertAudit(transaction, {
+                actorId: authority.actorId,
+                afterRowVersion: target.versionRowVersion + 1,
+                afterState: 'RETIRED',
+                beforeRowVersion: target.versionRowVersion,
+                beforeState: 'PUBLISHED',
+                changedFields: [
+                  'VERSION_STATUS',
+                  'CURRENT_PUBLISHED_VERSION_ID'
+                ],
+                command: 'RETIREMENT',
+                environment: auditEnvironment,
+                occurredAt: operation.occurredAt,
+                operationId: operation.operationId,
+                requestId: authority.requestId,
+                targetId: target.versionId,
+                targetType: 'QUESTION_VERSION'
+              })
+            }
+            await finishOperation(transaction, operation.operationId)
+            return {
+              retiredCount: commandTargets.length,
+              items: commandTargets.map((target) => ({
+                questionId: target.questionId,
+                questionVersionId: target.versionId,
+                questionRowVersion: target.questionRowVersion + 1,
+                rowVersion: target.versionRowVersion + 1
+              }))
+            }
+          },
+          {
+            isolationLevel: Prisma.TransactionIsolationLevel.ReadCommitted,
+            // Up to 100 items run in this one transaction.
+            timeout: 30_000
+          }
+        )
+      } catch (error: unknown) {
+        const authorityFailure = await classifyAuthorityFailure(
+          client,
+          'retireQuestionVersionBatch',
+          authority,
+          error
+        )
+        if (authorityFailure) throw authorityFailure
+        throw mapTransactionError('retireQuestionVersionBatch', error)
+      }
+    }
+
   const archiveQuestion: AdminQuestionPublicationCommandRepository['archiveQuestion'] =
     async (authority, questionId, request) => {
       let target: QuestionTargetRow | null
@@ -1495,6 +1654,7 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
     ...activeRepository,
     publishVersion,
     retireVersion,
+    retireVersionBatch,
     archiveQuestion,
     readPublicationTarget
   }

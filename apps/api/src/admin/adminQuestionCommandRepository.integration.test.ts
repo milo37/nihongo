@@ -1459,6 +1459,145 @@ describe('ADMIN command TEST database integration', () => {
     })
   })
 
+  it('retires a batch all or nothing with one RETIREMENT audit per item (JLP-816)', async () => {
+    if (!commandService) throw new Error('Command service is unavailable.')
+
+    const published = async (suffix: string) => {
+      const approved = await prepareApprovedQuestion(suffix)
+      const result = await commandService!.publishVersion(
+        authority(authorId, authorToken),
+        approved.versionId,
+        publishQuestionVersionRequestSchema.parse({
+          expectedRowVersion: approved.versionRowVersion,
+          expectedQuestionRowVersion: approved.questionRowVersion
+        })
+      )
+      return {
+        questionId: approved.questionId,
+        questionRowVersion: result.questionRowVersion,
+        versionId: approved.versionId,
+        versionRowVersion: result.versionRowVersion ?? 0
+      }
+    }
+    const first = await published(`retire-a-${randomUUID()}`)
+    const second = await published(`retire-b-${randomUUID()}`)
+    const third = await published(`retire-c-${randomUUID()}`)
+    const notPublished = await prepareApprovedQuestion(
+      `retire-d-${randomUUID()}`
+    )
+    const item = (target: {
+      versionId: string
+      versionRowVersion: number
+    }) => ({
+      questionVersionId: target.versionId,
+      expectedRowVersion: target.versionRowVersion
+    })
+    const readStatuses = async () => {
+      const rows = await adminClient.query<{ id: string; status: string }>(
+        `SELECT "id", "status"::text AS "status" FROM "QuestionVersion"
+           WHERE "id" = ANY($1::uuid[])`,
+        [[first.versionId, second.versionId, third.versionId]]
+      )
+      return Object.fromEntries(rows.rows.map((row) => [row.id, row.status]))
+    }
+    const allPublished = {
+      [first.versionId]: 'PUBLISHED',
+      [second.versionId]: 'PUBLISHED',
+      [third.versionId]: 'PUBLISHED'
+    }
+
+    // One bad item rolls back the whole batch, including the valid first item.
+    for (const [bad, code] of [
+      [
+        { ...item(second), expectedRowVersion: second.versionRowVersion + 1 },
+        'VERSION_CONFLICT'
+      ],
+      [item(notPublished), 'INVALID_STATE_TRANSITION'],
+      [
+        { questionVersionId: randomUUID(), expectedRowVersion: 1 },
+        'RESOURCE_NOT_FOUND'
+      ]
+    ] as const) {
+      const failed = authority(authorId, authorToken)
+      await expect(
+        commandService.retireVersionBatch(failed, {
+          items: [item(first), bad]
+        })
+      ).rejects.toMatchObject({ code, adminDisposition: 'DEFINITE_ROLLBACK' })
+      expect(await readStatuses()).toEqual(allPublished)
+      const audits = await adminClient.query(
+        `SELECT 1 FROM "AdminAuditLog" WHERE "requestId" = $1`,
+        [failed.requestId]
+      )
+      expect(audits.rowCount).toBe(0)
+    }
+
+    const batchAuthority = authority(authorId, authorToken)
+    const response = await commandService.retireVersionBatch(batchAuthority, {
+      items: [item(first), item(second), item(third)]
+    })
+    expect(response).toEqual({
+      retiredCount: 3,
+      items: [first, second, third].map((target) => ({
+        questionId: target.questionId,
+        questionVersionId: target.versionId,
+        questionRowVersion: target.questionRowVersion + 1,
+        rowVersion: target.versionRowVersion + 1
+      }))
+    })
+    expect(await readStatuses()).toEqual({
+      [first.versionId]: 'RETIRED',
+      [second.versionId]: 'RETIRED',
+      [third.versionId]: 'RETIRED'
+    })
+    // Hidden, not archived: the question stays ACTIVE without a published version.
+    const questions = await adminClient.query<{
+      lifecycleStatus: string
+      currentPublishedVersionId: string | null
+    }>(
+      `SELECT "lifecycleStatus"::text AS "lifecycleStatus",
+              "currentPublishedVersionId"
+         FROM "Question" WHERE "id" = ANY($1::uuid[])`,
+      [[first.questionId, second.questionId, third.questionId]]
+    )
+    expect(questions.rows).toEqual(
+      Array.from({ length: 3 }, () => ({
+        lifecycleStatus: 'ACTIVE',
+        currentPublishedVersionId: null
+      }))
+    )
+    const evidence = await adminClient.query<{
+      command: string
+      operationId: string
+      targetId: string
+    }>(
+      `SELECT "command"::text AS "command", "operationId"::text AS "operationId",
+              "targetId"::text AS "targetId"
+         FROM "AdminAuditLog" WHERE "requestId" = $1`,
+      [batchAuthority.requestId]
+    )
+    expect(evidence.rows.map((row) => row.command)).toEqual([
+      'RETIREMENT',
+      'RETIREMENT',
+      'RETIREMENT'
+    ])
+    expect(new Set(evidence.rows.map((row) => row.operationId)).size).toBe(1)
+    expect(evidence.rows.map((row) => row.targetId).sort()).toEqual(
+      [first.versionId, second.versionId, third.versionId].sort()
+    )
+    const reviews = await adminClient.query<{ action: string; reason: string }>(
+      `SELECT "action"::text AS "action", "reason" FROM "ContentReview"
+         WHERE "requestId" = $1`,
+      [batchAuthority.requestId]
+    )
+    expect(reviews.rows).toEqual(
+      Array.from({ length: 3 }, () => ({
+        action: 'RETIRED',
+        reason: 'PUBLISHED_RETIREMENT'
+      }))
+    )
+  })
+
   it('lets a single operator approve, withdraw and publish their own version (JLP-704)', async () => {
     if (!commandService) throw new Error('Command service is unavailable.')
     const own = authority(authorId, authorToken)

@@ -132,3 +132,42 @@ describe('approveVersionBatch (#709)', () => {
     ).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' })
   })
 })
+
+describe('retireVersionBatch (JLP-816)', () => {
+  it('sends the whole batch to one repository call', async () => {
+    const calls: unknown[] = []
+    const service = createAdminQuestionPublicationCommandService({
+      retireVersionBatch: async (_authority: unknown, request: unknown) => {
+        calls.push(request)
+        return {
+          retiredCount: 1,
+          items: [
+            {
+              questionId: 'q1',
+              questionVersionId: 'v1',
+              questionRowVersion: 2,
+              rowVersion: 2
+            }
+          ]
+        }
+      }
+    } as unknown as AdminQuestionPublicationCommandRepository)
+
+    await expect(
+      service.retireVersionBatch(authority, { items: items('v1') })
+    ).resolves.toMatchObject({ retiredCount: 1 })
+    expect(calls).toEqual([{ items: items('v1') }])
+  })
+
+  it('fails the whole batch with the item failure code', async () => {
+    const service = createAdminQuestionPublicationCommandService({
+      retireVersionBatch: async () => {
+        throw failure('INVALID_STATE_TRANSITION')
+      }
+    } as unknown as AdminQuestionPublicationCommandRepository)
+
+    await expect(
+      service.retireVersionBatch(authority, { items: items('v1', 'v2') })
+    ).rejects.toMatchObject({ code: 'INVALID_STATE_TRANSITION' })
+  })
+})

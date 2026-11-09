@@ -1242,6 +1242,31 @@ export const approveQuestionVersionBatchErrorSchema =
     approveQuestionVersionBatchErrorCodeSchema
   )
 
+/** All or nothing: an item failure fails the whole request (JLP-816). */
+export const retireQuestionVersionBatchErrorCodeSchema = z.enum([
+  'AUTHENTICATION_REQUIRED',
+  'AUTH_SESSION_EXPIRED',
+  'ADMIN_REQUIRED',
+  'FRESH_ASSURANCE_REQUIRED',
+  'FORBIDDEN',
+  'INVALID_JSON',
+  'INVALID_REQUEST',
+  'REQUEST_TOO_LARGE',
+  'VALIDATION_ERROR',
+  'RESOURCE_NOT_FOUND',
+  'VERSION_CONFLICT',
+  'INVALID_STATE_TRANSITION',
+  'UNTRUSTED_ORIGIN',
+  'RATE_LIMITED',
+  'INTERNAL_SERVER_ERROR',
+  'SERVICE_UNAVAILABLE'
+])
+export const retireQuestionVersionBatchErrorSchema =
+  createContentOperationErrorSchema(
+    'retireQuestionVersionBatch',
+    retireQuestionVersionBatchErrorCodeSchema
+  )
+
 export const requestContentReviewBatchErrorCodeSchema = z.enum([
   'AUTHENTICATION_REQUIRED',
   'AUTH_SESSION_EXPIRED',
