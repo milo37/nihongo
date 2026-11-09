@@ -118,9 +118,13 @@ const assertManifestShape = (
     case 'CHANGE_REQUEST':
     case 'APPROVAL':
     case 'APPROVAL_WITHDRAWAL':
-    case 'RETIREMENT':
       if (q !== 1 || v !== 1 || r !== 0 || t !== 0)
         invalid('Single-version target manifest is invalid.')
+      return
+    case 'RETIREMENT':
+      // One current version per question; up to 100 in a batch (JLP-816).
+      if (!between(q, 1, 100) || v !== q || r !== 0 || t !== 0)
+        invalid('RETIREMENT target manifest is invalid.')
       return
     case 'PUBLICATION':
       if (q !== 1 || !between(v, 1, 2) || r !== 0 || t !== 0)
@@ -349,10 +353,15 @@ export const armAdminOperation = async (
       )
     }
   } else if (command === 'RETIREMENT') {
-    const current = questions[0]?.currentPublishedVersionId ?? null
+    const published = new Set(
+      versions.filter((row) => row.status === 'PUBLISHED').map((row) => row.id)
+    )
     if (
-      current === null ||
-      !versions.some((row) => row.id === current && row.status === 'PUBLISHED')
+      questions.some(
+        (row) =>
+          row.currentPublishedVersionId === null ||
+          !published.has(row.currentPublishedVersionId)
+      )
     ) {
       throw violation(
         '23514',

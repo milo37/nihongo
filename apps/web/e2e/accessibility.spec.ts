@@ -2294,7 +2294,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     { available, item }
   ] of explanationAvailability.entries()) {
     const questionControl = resultNavigation.getByRole('button', {
-      name: `문제 ${index + 1} · 미응답`,
+      name: `문제 ${index + 1}, 미응답`,
       exact: true
     })
     await focusByTab(page, questionControl)
@@ -2359,7 +2359,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     submitted.result.items.map((item) => item.question.id)
   )
   const firstResultQuestion = resultNavigation.getByRole('button', {
-    name: '문제 1 · 미응답',
+    name: '문제 1, 미응답',
     exact: true
   })
   await focusByTab(page, firstResultQuestion)
@@ -2422,15 +2422,14 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   const removeBookmarkTrigger = page.locator(
     `[id="bookmark-remove-${targetQuestion.question.id}"]`
   )
-  await expect(removeBookmarkTrigger).toHaveAccessibleName('책갈피 해제')
-  const bookmarkedArticle = page.locator('article').filter({
+  await expect(removeBookmarkTrigger).toHaveAccessibleName('책갈피 빼기')
+  const bookmarkedRow = page.locator('li').filter({
     has: removeBookmarkTrigger
   })
-  await expect(bookmarkedArticle).toHaveCount(1)
-  await expect(bookmarkedArticle.locator('summary')).toBeVisible()
-  await expect(bookmarkedArticle.locator('summary')).toContainText(
-    savedQuestion.question.questionTextPreview
-  )
+  await expect(bookmarkedRow).toHaveCount(1)
+  await expect(
+    bookmarkedRow.getByText(savedQuestion.question.questionTextPreview.trim())
+  ).toBeVisible()
   const deleteBookmarkResponsePromise = page.waitForResponse((response) => {
     const request = response.request()
     return (

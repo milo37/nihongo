@@ -5,57 +5,54 @@ import type { StudyResultView } from '@app/practice/adapters/studyResultView'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
 import { useResultNumberFormat } from '@app/practice/hooks/useResultNumberFormat'
 import { Badge } from '@nihongo/browser/common/components/Badge'
-import { getButtonClassName } from '@nihongo/browser/common/components/Button'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
+
+const SCORE_SLOT = '\u0000'
 
 type ResultSummaryProps = {
   headingRef: RefObject<HTMLHeadingElement | null>
+  incorrectCount: number
   isGuest: boolean
+  /** A guest's last try today: the L20 box holds the login button. */
+  isGuestDone: boolean
   result: StudyResultView
   session: StudySessionView['session']
 }
 
+/** One block: the score with rate and time, then a one-line note. */
 export const ResultSummary = ({
   headingRef,
+  incorrectCount,
   isGuest,
+  isGuestDone,
   result,
   session
 }: ResultSummaryProps): ReactElement => {
   const { t } = useTranslation('result')
   const { t: commonT } = useTranslation('common')
   const { formatCount, formatDuration, locale } = useResultNumberFormat()
-  const metrics = [
-    {
-      id: 'total',
-      label: t('metrics.total'),
-      value: formatCount(result.totalCount)
-    },
-    {
-      id: 'correct',
-      label: t('metrics.correct'),
-      value: formatCount(result.correctCount)
-    },
-    {
-      id: 'incorrect',
-      label: t('metrics.incorrect'),
-      value: formatCount(result.incorrectCount)
-    },
-    {
-      id: 'accuracy',
-      label: t('metrics.accuracy'),
-      value: `${formatNumber(result.correctRate, locale, {
+  const unansweredCount = result.items.filter(
+    (item) => item.selectedOptionId === null
+  ).length
+  const details = [
+    t('summary.meta', {
+      accuracy: `${formatNumber(result.correctRate, locale, {
         maximumFractionDigits: 2
-      })}%`
-    },
-    {
-      id: 'duration',
-      label: t('metrics.duration'),
-      value: formatDuration(result.durationSec)
-    }
+      })}%`,
+      duration: formatDuration(result.durationSec)
+    }),
+    ...(unansweredCount > 0
+      ? [`${t('items.unanswered')} ${formatCount(unansweredCount)}`]
+      : [])
   ]
+  // Only the correct count is large; split the sentence around it.
+  const [scoreBefore = '', scoreAfter = ''] = t('summary.score', {
+    total: formatCount(result.totalCount),
+    correct: SCORE_SLOT
+  }).split(SCORE_SLOT)
 
   return (
-    <div className="study-result-summary border-b border-line pb-6">
+    <div className="study-result-summary">
       <div className="flex flex-wrap gap-2">
         <Badge variant="brand">{session.level}</Badge>
         <Badge>{commonT(`taxonomy.subjects.${session.subject}`)}</Badge>
@@ -67,41 +64,37 @@ export const ResultSummary = ({
       >
         {t('name')}
       </h1>
-      <p className="mt-2 text-sm leading-6 text-muted">{t('description')}</p>
-
-      <p className="mt-5 text-lg font-bold">
-        {t('outcomes', {
-          correct: formatCount(result.correctCount),
-          wrong: formatCount(
-            result.items.filter(
-              (item) => !item.isCorrect && item.selectedOptionId !== null
-            ).length
-          ),
-          unanswered: formatCount(
-            result.items.filter((item) => item.selectedOptionId === null).length
-          )
-        })}
+      <p className="mt-4 flex flex-wrap items-baseline gap-3 text-xl font-bold text-muted">
+        <span>
+          {scoreBefore}
+          <strong className="text-[34px] font-black leading-none text-ink sm:text-[40px]">
+            {formatCount(result.correctCount)}
+          </strong>
+          {scoreAfter}
+        </span>
+        <span className="text-sm font-normal">{details.join(' · ')}</span>
       </p>
-      <p className="mt-2 text-sm leading-6 text-muted">{t('outcomesNote')}</p>
-      <div className="mt-5 flex flex-wrap gap-3">
-        <a className={getButtonClassName()} href="#result-explanations">
-          {t('reviewExplanations')}
-        </a>
-        <Link
-          className="note-link"
-          to={isGuest ? '/' : '/dashboard?view=learning'}
-        >
-          {t('finish')}
-        </Link>
-      </div>
-      <dl className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-5">
-        {metrics.map(({ id, label, value }) => (
-          <div key={id} className="min-w-0">
-            <dt className="text-xs text-muted">{label}</dt>
-            <dd className="mt-1 font-semibold">{value}</dd>
-          </div>
-        ))}
-      </dl>
+      {/* One login place: beside this line, or in the L20 box. */}
+      {isGuest || incorrectCount > 0 ? (
+        <p className="mt-2 text-sm leading-6 text-muted">
+          {isGuest
+            ? t('status.guest')
+            : t('status.savedWrongCount', {
+                formattedCount: formatCount(incorrectCount)
+              })}
+          {isGuest && !isGuestDone ? (
+            <Link
+              className="note-link ms-2"
+              to={`/login?redirect=${encodeURIComponent('/practice')}`}
+            >
+              {t('actions.loginChoice')}
+            </Link>
+          ) : null}
+        </p>
+      ) : null}
+      {unansweredCount > 0 ? (
+        <p className="mt-1 text-sm leading-6 text-muted">{t('outcomesNote')}</p>
+      ) : null}
     </div>
   )
 }

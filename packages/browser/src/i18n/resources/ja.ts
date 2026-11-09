@@ -815,10 +815,13 @@ export const jaCoreResources = {
       emptyDescription: '学習設定に戻り、新しい問題を解いてください。'
     },
     name: '学習結果',
-    finish: '今日はここまで',
-    reviewExplanations: '解説を確認する',
-    outcomes:
-      '正解{{correct}} · 選択した不正解{{wrong}} · 未回答{{unanswered}}',
+    summary: {
+      score: '{{total}}問中 {{correct}}問正解',
+      meta: '正答率 {{accuracy}} · {{duration}}'
+    },
+    nextActions: {
+      title: '次にやること'
+    },
     outcomesNote:
       '未回答も採点では不正解に含まれます。解説を確認し、必要なときに解き直しましょう。',
     loading: '採点結果を読み込んでいます…',
@@ -840,13 +843,8 @@ export const jaCoreResources = {
         '再出題する元の結果がないか、現在のアカウントではアクセスできません。'
     },
     newPractice: '新しい問題を解く',
-    description: '正解と解説を確認し、間違えた問題を次の復習につなげましょう。',
     metrics: {
-      total: '全体',
-      correct: '正解',
-      incorrect: '不正解',
       accuracy: '正答率',
-      duration: '所要時間',
       durationValue: '{{minutes}}分{{seconds}}秒'
     },
     guestDone: '今日の体験はここまでです。ログインすると続けて解けます。',
@@ -1496,11 +1494,9 @@ export const jaCoreResources = {
     },
     eyebrow: 'BOOKMARKS',
     title: 'ブックマーク',
-    count: '全{{formattedCount}}件',
-    preview: {
-      expand: '問題のプレビューを開く',
-      description: '保存した問題のプレビューです。'
-    },
+    listCount: '{{formattedCount}}問',
+    sortSaved: '保存した順',
+    savedOn: '{{date}}に保存',
     description: 'もう一度解きたい問題を集めました。',
     empty: {
       firstTitle: '保存した問題はありません',
@@ -1531,7 +1527,7 @@ export const jaCoreResources = {
       archivedDescription:
         '公開が終了したため、新しい学習セッションには含まれません。'
     },
-    remove: 'ブックマークを解除',
+    remove: 'ブックマークから外す',
     removeDialog: {
       title: 'ブックマークを解除しますか？',
       description:

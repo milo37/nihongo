@@ -803,9 +803,13 @@ export const koResources = {
       emptyDescription: '학습 설정으로 돌아가 새 문제를 풀어 보세요.'
     },
     name: '학습 결과',
-    finish: '오늘은 여기까지',
-    reviewExplanations: '해설 확인하기',
-    outcomes: '정답 {{correct}} · 선택 오답 {{wrong}} · 미응답 {{unanswered}}',
+    summary: {
+      score: '{{total}}문제 중 {{correct}}개 맞음',
+      meta: '정답률 {{accuracy}} · {{duration}}'
+    },
+    nextActions: {
+      title: '다음에 할 일'
+    },
     outcomesNote:
       '미응답도 채점에서는 오답으로 포함돼요. 해설을 확인하고 필요할 때 다시 풀어 보세요.',
     loading: '채점 결과를 불러오고 있어요…',
@@ -827,13 +831,8 @@ export const koResources = {
         '재출제할 원본 결과가 없거나 현재 계정에서 접근할 수 없어요.'
     },
     newPractice: '새 문제 풀기',
-    description: '정답과 해설을 확인하고 틀린 문제를 다음 복습으로 연결하세요.',
     metrics: {
-      total: '전체',
-      correct: '정답',
-      incorrect: '오답',
       accuracy: '정답률',
-      duration: '소요 시간',
       durationValue: '{{minutes}}분 {{seconds}}초'
     },
     guestDone: '오늘 체험은 여기까지예요. 로그인하면 계속 풀 수 있어요.',
@@ -1473,11 +1472,9 @@ export const koResources = {
     },
     eyebrow: 'BOOKMARKS',
     title: '책갈피',
-    count: '전체 {{formattedCount}}개',
-    preview: {
-      expand: '문항 미리보기 펼치기',
-      description: '저장된 문항 미리보기예요.'
-    },
+    listCount: '{{formattedCount}}문제',
+    sortSaved: '저장한 순',
+    savedOn: '{{date}} 저장',
     description: '다시 풀고 싶은 문제를 모아뒀어요.',
     empty: {
       firstTitle: '저장한 문제가 없어요',
@@ -1504,7 +1501,7 @@ export const koResources = {
       archived: '보관된 문제',
       archivedDescription: '공개가 종료되어 새 학습 세션에는 포함되지 않아요.'
     },
-    remove: '책갈피 해제',
+    remove: '책갈피 빼기',
     removeDialog: {
       title: '책갈피를 해제할까요?',
       description:

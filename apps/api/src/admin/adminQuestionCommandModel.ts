@@ -12,6 +12,7 @@ export type LifecycleOperation =
 export type PublicationOperation =
   | 'publishQuestionVersion'
   | 'retireQuestionVersion'
+  | 'retireQuestionVersionBatch'
   | 'archiveAdminQuestion'
 export type AdminQuestionDomainOperation =
   | ContentOperation
@@ -136,5 +137,6 @@ export const FRESH_OPERATIONS = new Set<AdminQuestionDomainOperation>([
   'withdrawQuestionApproval',
   'publishQuestionVersion',
   'retireQuestionVersion',
+  'retireQuestionVersionBatch',
   'archiveAdminQuestion'
 ])

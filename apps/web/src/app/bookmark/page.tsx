@@ -7,6 +7,7 @@ import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import { Pagination } from '@nihongo/browser/common/components/Pagination'
 import { BookmarkListItem } from '@app/bookmark/components/BookmarkListItem'
+import { StudyList, StudyListHeader } from '@common/components/StudyList'
 import {
   BookmarkEmptyPage,
   BookmarkListNotices,
@@ -20,33 +21,22 @@ import { AppErrorReportButton } from '@app/question-report/components/AppErrorRe
 
 type BookmarkController = ReturnType<typeof useBookmarkPageController>
 
+// The count lives in the list header line, not beside the title (ux2 §1-1).
 const BookmarkHeading = ({
-  headingRef,
-  total,
-  formatCount
+  headingRef
 }: {
   headingRef: RefObject<HTMLHeadingElement | null>
-  total: number
-  formatCount: (value: number) => string
 }): ReactElement => {
   const { t } = useTranslation('bookmark')
   return (
     <div>
-      <div className="bookmark-title-line">
-        <h1
-          ref={headingRef}
-          className="bookmark-title rounded-sm focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
-          tabIndex={-1}
-        >
-          {t('title')}
-        </h1>
-        <output
-          className="bookmark-count"
-          aria-label={t('count', { formattedCount: formatCount(total) })}
-        >
-          {formatCount(total)}
-        </output>
-      </div>
+      <h1
+        ref={headingRef}
+        className="bookmark-title rounded-sm focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
+        tabIndex={-1}
+      >
+        {t('title')}
+      </h1>
       <p className="bookmark-description">{t('description')}</p>
     </div>
   )
@@ -55,6 +45,7 @@ const BookmarkHeading = ({
 type BookmarkItemsProps = {
   bookmarks: BookmarkController
   items: NonNullable<BookmarkController['bookmarksQuery']['data']>['items']
+  total: number
   locale: ReturnType<typeof resolveUiLocale>
   formatCount: (value: number) => string
   removalTriggerRef: RefObject<HTMLButtonElement | null>
@@ -63,6 +54,7 @@ type BookmarkItemsProps = {
 const BookmarkItems = ({
   bookmarks,
   items,
+  total,
   locale,
   formatCount,
   removalTriggerRef
@@ -71,7 +63,15 @@ const BookmarkItems = ({
   const { bookmarksQuery, displayedPage, pendingRemovalQuestionId } = bookmarks
   return (
     <>
-      <div className="bookmark-items" aria-busy={bookmarksQuery.isFetching}>
+      <StudyList
+        busy={bookmarksQuery.isFetching}
+        header={
+          <StudyListHeader
+            count={t('listCount', { formattedCount: formatCount(total) })}
+            aside={t('sortSaved')}
+          />
+        }
+      >
         {items.map((bookmark) => (
           <BookmarkListItem
             key={bookmark.questionId}
@@ -90,31 +90,36 @@ const BookmarkItems = ({
             }}
           />
         ))}
-      </div>
+      </StudyList>
 
-      <p
-        className="sr-only"
-        role="status"
-        aria-atomic="true"
-        aria-live="polite"
-      >
-        {bookmarksQuery.isFetching
-          ? t('pagination.refreshing')
-          : t('pagination.status', {
-              page: formatCount(displayedPage),
-              pageCount: formatCount(bookmarks.pageCount)
-            })}
-      </p>
-      <Pagination
-        className="mt-8"
-        currentPage={displayedPage}
-        requestedPage={bookmarks.page}
-        disabled={bookmarks.isBookmarkNavigationLocked}
-        getPageHref={bookmarks.getPageHref}
-        label={t('pagination.label')}
-        totalPages={bookmarks.pageCount}
-        onPageChange={bookmarks.setPage}
-      />
+      {/* One page needs no pagination (ux2 §1-4). */}
+      {bookmarks.pageCount > 1 ? (
+        <>
+          <p
+            className="sr-only"
+            role="status"
+            aria-atomic="true"
+            aria-live="polite"
+          >
+            {bookmarksQuery.isFetching
+              ? t('pagination.refreshing')
+              : t('pagination.status', {
+                  page: formatCount(displayedPage),
+                  pageCount: formatCount(bookmarks.pageCount)
+                })}
+          </p>
+          <Pagination
+            className="mt-6"
+            currentPage={displayedPage}
+            requestedPage={bookmarks.page}
+            disabled={bookmarks.isBookmarkNavigationLocked}
+            getPageHref={bookmarks.getPageHref}
+            label={t('pagination.label')}
+            totalPages={bookmarks.pageCount}
+            onPageChange={bookmarks.setPage}
+          />
+        </>
+      ) : null}
     </>
   )
 }
@@ -173,11 +178,7 @@ export const BookmarkPage = (): ReactElement => {
   return (
     <section className="bookmark-page">
       <div className="bookmark-heading">
-        <BookmarkHeading
-          headingRef={headingRef}
-          total={total}
-          formatCount={formatCount}
-        />
+        <BookmarkHeading headingRef={headingRef} />
         {items.length > 0 ? (
           <BookmarkPracticePanel
             formatCount={formatCount}
@@ -214,6 +215,7 @@ export const BookmarkPage = (): ReactElement => {
         <BookmarkItems
           bookmarks={bookmarks}
           items={items}
+          total={total}
           locale={locale}
           formatCount={formatCount}
           removalTriggerRef={removalTriggerRef}

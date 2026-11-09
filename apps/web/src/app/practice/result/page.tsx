@@ -27,26 +27,18 @@ import { AppErrorReportButton } from '@app/question-report/components/AppErrorRe
 type ResultController = ReturnType<typeof usePracticeResultController>
 type ResultItem = NonNullable<ResultController['selectedItem']>
 
-/** Question navigation beside the selected question's detail and actions. */
+/** Question navigation above the selected question's detail. */
 const SelectedResultItem = ({
   result,
   items,
-  item,
-  session
+  item
 }: {
   result: ResultController
   items: readonly ResultItem[]
   item: ResultItem
-  session: NonNullable<ResultController['sessionQuery']['data']>['session']
 }): ReactElement => {
   const { t } = useTranslation('result')
-  const { bookmark, createRetrySession } = result
-  const isGuest = result.role === 'GUEST'
-  const retryLoadingLabel = result.isRetrySourceRefreshing
-    ? t('retry.checking')
-    : createRetrySession.isPaused
-      ? t('retry.waitingConnection')
-      : t('retry.creating')
+  const { bookmark } = result
   return (
     <div className="study-result-layout">
       <ResultQuestionNavigation
@@ -58,7 +50,7 @@ const SelectedResultItem = ({
         key={item.question.id}
         item={item}
         ordinal={result.selectedIndex + 1}
-        canReport={!isGuest}
+        canReport={result.role !== 'GUEST'}
         isBookmarked={result.selectedIsBookmarked}
         bookmarkDisabled={
           bookmark.isUnavailable || result.isResultSourceUnavailable
@@ -73,21 +65,6 @@ const SelectedResultItem = ({
             : null
         }
         onToggleBookmark={result.toggleSelectedBookmark}
-        actions={
-          <ResultActions
-            incorrectCount={result.incorrectItems.length}
-            isGuest={isGuest}
-            isGuestDone={result.isGuestDone}
-            isRetryDisabled={result.isResultSourceUnavailable}
-            isRetryLoading={
-              createRetrySession.isPending || result.isRetrySourceRefreshing
-            }
-            onRetry={result.handleRetryIncorrect}
-            retryLoadingLabel={retryLoadingLabel}
-            session={session}
-            showRetry={result.canShowRetryButton}
-          />
-        }
       />
     </div>
   )
@@ -199,7 +176,9 @@ const PracticeResultPageContent = (): ReactElement => {
         ) : null}
         <ResultSummary
           headingRef={summaryHeadingRef}
+          incorrectCount={result.incorrectItems.length}
           isGuest={isGuest}
+          isGuestDone={result.isGuestDone}
           result={studyResult}
           session={session}
         />
@@ -214,10 +193,10 @@ const PracticeResultPageContent = (): ReactElement => {
           retryMessage={result.retryMessage}
         />
 
-        <div className="study-explanations mt-7 space-y-5">
+        <div className="study-explanations mt-10 space-y-4">
           <h2
             id="result-explanations"
-            className="scroll-mt-24 text-2xl font-black"
+            className="scroll-mt-24 text-xl font-bold"
           >
             {t('items.title')}
           </h2>
@@ -227,7 +206,6 @@ const PracticeResultPageContent = (): ReactElement => {
               result={result}
               items={studyResult.items}
               item={selectedItem}
-              session={session}
             />
           ) : (
             <EmptyState
@@ -236,6 +214,25 @@ const PracticeResultPageContent = (): ReactElement => {
             />
           )}
         </div>
+        <ResultActions
+          incorrectCount={result.incorrectItems.length}
+          isGuest={isGuest}
+          isGuestDone={result.isGuestDone}
+          isRetryDisabled={result.isResultSourceUnavailable}
+          isRetryLoading={
+            createRetrySession.isPending || result.isRetrySourceRefreshing
+          }
+          onRetry={result.handleRetryIncorrect}
+          retryLoadingLabel={
+            result.isRetrySourceRefreshing
+              ? t('retry.checking')
+              : createRetrySession.isPaused
+                ? t('retry.waitingConnection')
+                : t('retry.creating')
+          }
+          session={session}
+          showRetry={result.canShowRetryButton}
+        />
       </div>
 
       <RetryNavigationDialog

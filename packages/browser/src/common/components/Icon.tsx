@@ -22,8 +22,17 @@ export type IconName =
   | 'upload'
   | 'history'
   | 'x'
+  | 'minus'
+  | 'lock'
 const paths: Record<IconName, ReactElement> = {
   x: <path d="M18 6 6 18M6 6l12 12" />,
+  minus: <path d="M5 12h14" />,
+  lock: (
+    <>
+      <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </>
+  ),
   upload: (
     <>
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />

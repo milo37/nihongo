@@ -184,6 +184,11 @@ const SLICE_5_ADMIN_COMMAND_PATHS = [
   },
   {
     method: 'POST',
+    operation: 'retireQuestionVersionBatch',
+    pattern: /^\/api\/v1\/admin\/question-versions\/retirement-batch$/u
+  },
+  {
+    method: 'POST',
     operation: 'validateQuestionImport',
     pattern: /^\/api\/v1\/admin\/questions\/import-validation$/u
   },

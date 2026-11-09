@@ -4,7 +4,7 @@ import {
   QueryClient,
   QueryClientProvider
 } from '@tanstack/react-query'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { HttpResponse, http } from 'msw'
 import { createMemoryRouter, RouterProvider } from 'react-router'
@@ -148,7 +148,7 @@ const renderLastPageDelete = async (
   expect(router.state.location.search).toBe('?page=2')
   await screen.findByText(lastItem.question.questionTextPreview)
   expect(screen.getByText('2 / 2 페이지')).toBeInTheDocument()
-  const removalTrigger = screen.getByRole('button', { name: '책갈피 해제' })
+  const removalTrigger = screen.getByRole('button', { name: '책갈피 빼기' })
   if (activation === 'keyboard') {
     removalTrigger.focus()
     await user.keyboard('{Enter}')
@@ -192,7 +192,7 @@ describe('BookmarkPage pagination settlement', () => {
     onlineManager.setOnline(true)
   })
 
-  it('전체 건수와 긴 미리보기 펼침을 제공하고 읽기만으로 변경하지 않는다', async () => {
+  it('목록 머리줄에 건수, 행은 펼침 없는 2줄 미리보기·저장 날짜·해제 버튼이고 읽기만으로 변경하지 않는다 (ux2 §4)', async () => {
     const preview = '長い文を最後まで読む。'.repeat(12)
     const item = createBookmark(1, preview)
     let readCount = 0
@@ -214,21 +214,27 @@ describe('BookmarkPage pagination settlement', () => {
     )
     const fixture = renderBookmarkPage()
     const interaction = userEvent.setup()
-    const summary = (await screen.findByText(preview)).closest('summary')
-    if (!summary) throw new Error('미리보기 summary가 필요합니다.')
-    const details = summary.closest('details')
-    expect(screen.getByRole('status', { name: '전체 21개' })).toHaveTextContent(
-      '21'
-    )
-    expect(screen.getByText(preview)).toBeInTheDocument()
-    expect(details).not.toHaveAttribute('open')
-    await interaction.click(summary)
-    expect(details).toHaveAttribute('open')
-    expect(details?.querySelector('p')).toHaveTextContent(
-      '저장된 문항 미리보기예요.'
-    )
-    await interaction.click(summary)
-    expect(details).not.toHaveAttribute('open')
+    const text = await screen.findByText(preview)
+    expect(text).toHaveAttribute('lang', 'ja')
+    expect(text.className).toContain('line-clamp-2')
+    expect(screen.getByText('21문제')).toBeVisible()
+    expect(screen.getByText('저장한 순')).toBeVisible()
+    expect(screen.queryByText('저장된 문항 미리보기예요.')).toBeNull()
+    const row = text.closest('li')
+    if (!row) throw new Error('목록 행이 필요합니다.')
+    expect(row.querySelector('details')).toBeNull()
+    expect(within(row).queryByRole('link')).toBeNull()
+    expect(within(row).getByText(/저장$/u)).toBeVisible()
+    const remove = within(row).getByRole('button', { name: '책갈피 빼기' })
+    // The tip repeats the name, so it is not read twice.
+    expect(remove).not.toHaveAttribute('aria-describedby')
+    await interaction.hover(remove)
+    const tip = within(row).getByText('책갈피 빼기', { selector: 'span' })
+    expect(tip).toHaveAttribute('aria-hidden', 'true')
+    await interaction.keyboard('{Escape}')
+    expect(
+      within(row).queryByText('책갈피 빼기', { selector: 'span' })
+    ).toBeNull()
     expect(readCount).toBe(1)
     dispose(fixture.client, fixture.unmount)
   })
@@ -449,7 +455,7 @@ describe('BookmarkPage pagination settlement', () => {
     const fixture = renderBookmarkPage()
     const interaction = userEvent.setup()
     const trigger = await screen.findByRole('button', {
-      name: '책갈피 해제'
+      name: '책갈피 빼기'
     })
 
     await interaction.click(trigger)
@@ -482,7 +488,7 @@ describe('BookmarkPage pagination settlement', () => {
     expect(
       screen.getByText('책갈피 해제를 완료하지 못해 이전 상태로 복원했어요.')
     ).toBeVisible()
-    const restoredTrigger = screen.getByRole('button', { name: '책갈피 해제' })
+    const restoredTrigger = screen.getByRole('button', { name: '책갈피 빼기' })
     expect(restoredTrigger).not.toBe(fixture.removalTrigger)
     await waitFor(() => expect(restoredTrigger).toHaveFocus())
     dispose(fixture.client, fixture.unmount)
@@ -502,7 +508,7 @@ describe('BookmarkPage pagination settlement', () => {
     )
     const fixture = renderBookmarkPage()
     const user = userEvent.setup()
-    const trigger = await screen.findByRole('button', { name: '책갈피 해제' })
+    const trigger = await screen.findByRole('button', { name: '책갈피 빼기' })
     await user.click(trigger)
     await user.click(screen.getByRole('button', { name: '계속 보관' }))
     await waitFor(() => expect(trigger).toHaveFocus())
@@ -516,8 +522,11 @@ describe('BookmarkPage pagination settlement', () => {
 
     await act(async () => fixture.settlement.resolve('REMOVE'))
 
+    // Back on page 1 of 1, where the pager is hidden (ux2 §1-4).
     await waitFor(() =>
-      expect(screen.getByText('1 / 1 페이지')).toBeInTheDocument()
+      expect(
+        screen.queryByRole('navigation', { name: '책갈피 페이지' })
+      ).not.toBeInTheDocument()
     )
     expect(
       screen.queryByText(fixture.lastItem.question.questionTextPreview)
@@ -549,7 +558,7 @@ describe('BookmarkPage pagination settlement', () => {
     expect(
       screen.getByText('책갈피 해제를 완료하지 못해 이전 상태로 복원했어요.')
     ).toBeVisible()
-    const restoredTrigger = screen.getByRole('button', { name: '책갈피 해제' })
+    const restoredTrigger = screen.getByRole('button', { name: '책갈피 빼기' })
     expect(restoredTrigger).not.toBe(fixture.removalTrigger)
     await waitFor(() => expect(restoredTrigger).toHaveFocus())
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -567,17 +576,9 @@ it('displays one real bookmark page without adding unsupported filters', async (
   )
   const fixture = renderBookmarkPage()
   await screen.findByText(item.question.questionTextPreview)
-  expect(screen.getByRole('link', { current: 'page' })).toHaveTextContent('1')
-  for (const label of [
-    '첫 페이지',
-    '이전 페이지',
-    '다음 페이지',
-    '마지막 페이지'
-  ])
-    expect(screen.getByRole('link', { name: label })).toHaveAttribute(
-      'aria-disabled',
-      'true'
-    )
+  expect(
+    screen.queryByRole('navigation', { name: '책갈피 페이지' })
+  ).not.toBeInTheDocument()
   expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
   dispose(fixture.client, fixture.unmount)
 })

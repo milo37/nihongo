@@ -1085,7 +1085,6 @@
 
 .study-result {
   display: block;
-  max-width: 1120px;
 }
 
 .study-result-summary h1 {
@@ -1094,8 +1093,11 @@
   font-weight: 750;
 }
 
-.study-result-actions {
-  margin-top: 28px;
+/* Result status icon (ux2 §2-1); shape and colour are utilities. */
+.result-status-icon svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 3;
 }
 
 .study-answer-options label {
@@ -1147,25 +1149,13 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: start;
   gap: 20px;
-  margin-bottom: 28px;
-}
-
-.bookmark-title-line {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
+  margin-bottom: 32px;
 }
 
 .bookmark-title {
   font-size: 30px;
   line-height: 1.3;
   font-weight: 750;
-}
-
-.bookmark-count {
-  font-size: 20px;
-  font-weight: 500;
-  color: rgb(var(--color-muted));
 }
 
 .bookmark-description {
@@ -1178,14 +1168,12 @@
   position: relative;
 }
 
-.bookmark-practice > summary,
-.bookmark-preview > summary {
+.bookmark-practice > summary {
   cursor: pointer;
   list-style: none;
 }
 
-.bookmark-practice > summary::-webkit-details-marker,
-.bookmark-preview > summary::-webkit-details-marker {
+.bookmark-practice > summary::-webkit-details-marker {
   display: none;
 }
 
@@ -1209,113 +1197,6 @@
 }
 .study-session-layout > .study-question-map {
   margin-top: 0;
-}
-
-.bookmark-items {
-  border-top: 1px solid rgb(var(--color-line));
-}
-
-.bookmark-item {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 100px 44px;
-  align-items: center;
-  gap: 20px;
-  min-width: 0;
-  padding: 17px 18px;
-  border-bottom: 1px solid rgb(var(--color-line));
-}
-
-.bookmark-item:hover {
-  background: rgb(var(--color-hover-surface));
-}
-
-.bookmark-content {
-  min-width: 0;
-}
-
-.bookmark-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 10px;
-  margin-bottom: 7px;
-  font-size: 12px;
-  color: rgb(var(--color-muted));
-}
-
-.bookmark-meta strong {
-  font-weight: 650;
-}
-
-.bookmark-archive,
-.bookmark-archive-description {
-  color: rgb(var(--color-warning));
-}
-
-.bookmark-preview > summary {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  border-radius: var(--radius-control);
-  font-size: 16px;
-  font-weight: 500;
-  line-height: 1.75;
-}
-
-.bookmark-preview > summary > span {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-}
-
-.bookmark-preview[open] > summary > span {
-  -webkit-line-clamp: unset;
-}
-
-.bookmark-preview > summary > svg {
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  margin-top: 4px;
-  color: rgb(var(--color-muted));
-}
-
-.bookmark-preview[open] > summary > svg {
-  transform: rotate(180deg);
-}
-
-.bookmark-preview > summary:focus-visible {
-  outline: var(--focus-width) solid rgb(var(--focus-color));
-  outline-offset: var(--focus-offset);
-}
-
-.bookmark-preview-note,
-.bookmark-archive-description {
-  margin-top: 10px;
-  font-size: 13px;
-}
-
-.bookmark-preview-note,
-.bookmark-added {
-  color: rgb(var(--color-muted));
-}
-
-.bookmark-added {
-  font-size: 12px;
-}
-
-.bookmark-remove {
-  width: 44px;
-  min-height: 44px;
-  padding: 10px;
-}
-
-.bookmark-remove > svg {
-  fill: currentColor;
 }
 
 @media (max-width: 1000px) and (min-width: 761px) {
@@ -1357,35 +1238,16 @@
     padding: 22px 20px 28px;
   }
   .bookmark-heading {
-    gap: 12px;
-    margin-bottom: 22px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
   }
-  .bookmark-count {
-    font-size: 17px;
-  }
+
   .bookmark-description {
     font-size: 14px;
   }
   .bookmark-practice > summary {
-    padding: 10px 12px;
-  }
-  .bookmark-item {
-    grid-template-columns: minmax(0, 1fr) 44px;
-    align-items: start;
-    gap: 10px;
-    padding: 16px 0;
-    padding-inline-end: calc(var(--focus-width) + var(--focus-offset));
-  }
-  .bookmark-meta {
-    gap: 4px 8px;
-    font-size: 11px;
-    margin-bottom: 6px;
-  }
-  .bookmark-added {
-    display: none;
-  }
-  .bookmark-remove {
-    margin-top: 22px;
+    width: 100%;
   }
 }
 
@@ -2007,49 +1869,6 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
   justify-content: flex-start;
 }
 
-.study-result-actions > div {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-}
-
-.study-result-actions button {
-  width: 100%;
-  min-height: 56px;
-  border-radius: var(--radius-control);
-}
-
-/* Result buttons (polish §3): under 640px the primary and secondary stack
-   full width with the links below; from 640px one row at text width. */
-.study-result-actions .study-result-buttons {
-  align-items: stretch;
-  gap: 8px;
-}
-
-.study-result-buttons > .ui-button {
-  width: 100%;
-  min-height: 56px;
-}
-
-.study-result-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-@media (min-width: 640px) {
-  .study-result-actions .study-result-buttons {
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .study-result-buttons > .ui-button {
-    width: auto;
-  }
-}
-
 .study-result-item {
   content-visibility: visible;
 }
@@ -2527,22 +2346,27 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
   gap: 8px;
 }
 
-/* Approved R7 general-result navigation and selected explanation only. */
-.study-result-layout {
-  display: grid;
-  grid-template-columns: 190px minmax(0, 1fr);
-  gap: 40px;
-  align-items: start;
-}
+/* Question buttons in a row above the selected question (ux2 §2):
+   they scroll sideways under 640px and wrap from 640px. */
 .study-result-questions {
-  display: grid;
-  gap: 4px;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: calc(var(--focus-width) + var(--focus-offset));
+  margin: calc(-1 * (var(--focus-width) + var(--focus-offset)));
+  margin-bottom: 12px;
 }
 .study-result-question {
-  justify-content: flex-start;
+  flex: none;
   padding: 8px 12px;
-  text-align: start;
+  border: 1px solid rgb(var(--color-line));
+  font-size: 14px;
   white-space: nowrap;
+}
+@media (min-width: 640px) {
+  .study-result-questions {
+    flex-wrap: wrap;
+  }
 }
 .study-result-detail {
   min-width: 0;
@@ -2559,6 +2383,9 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
   gap: 12px;
 }
 .study-result-detail-heading > p {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 13px;
   font-weight: 600;
 }
@@ -2597,29 +2424,8 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
   font-weight: 600;
 }
 @media (max-width: 760px) {
-  .study-result-layout {
-    display: block;
-  }
-  .study-result-questions {
-    display: flex;
-    overflow-x: auto;
-    gap: 6px;
-    padding: calc(var(--focus-width) + var(--focus-offset));
-    margin: calc(-1 * (var(--focus-width) + var(--focus-offset)));
-    margin-bottom: 14px;
-  }
-  .study-result-question {
-    flex: 0 0 auto;
-    min-width: 94px;
-    justify-content: center;
-    border: 1px solid rgb(var(--color-line));
-    font-size: 13px;
-  }
   .study-result-detail {
     padding: 18px 16px;
-  }
-  .study-result-detail .study-result-actions > .flex {
-    display: grid;
   }
 }
 
@@ -2650,6 +2456,11 @@ main > section:has(fieldset .grid-cols-5) fieldset .grid-cols-5 {
 }
 .app-shell-body > main > .practice-setup-page {
   max-width: 800px;
+}
+/* One 760px column, like the list rule (ux2 §1-1). */
+.app-shell-body > main > :is(.study-result, .bookmark-page) {
+  max-width: 760px;
+  margin-inline: 0;
 }
 .app-shell-header-inner {
   max-width: none;
