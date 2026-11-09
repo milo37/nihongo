@@ -5,12 +5,7 @@ import {
   isSsoAuthorizationURLForProvider,
   signInSocialResponseSchema
 } from '@nihongo/contracts/auth/sign-in-social'
-import { getDashboardInsightsResponseSchema } from '@nihongo/contracts/dashboard/get-dashboard-insights'
 import { getDashboardStatsResponseSchema } from '@nihongo/contracts/dashboard/get-dashboard-stats'
-import {
-  createStudySessionV2BodySchema,
-  createStudySessionV2ResponseSchema
-} from '@nihongo/contracts/study/create-study-session'
 import type { BrowserContext, Page, Request, Response } from '@playwright/test'
 import {
   assertAndAttachLedger,
@@ -36,10 +31,8 @@ interface TimingStatistics {
   readonly p95: number
 }
 
-const canonicalDashboardPaths = [
-  '/api/v1/dashboard',
-  '/api/v1/dashboard/insights'
-] as const
+// My page reads only the all-time stats (JLP-812).
+const canonicalDashboardPaths = ['/api/v1/dashboard'] as const
 
 const browserPerformanceBaselineP95Milliseconds = {
   mock: 952.266,
@@ -48,12 +41,6 @@ const browserPerformanceBaselineP95Milliseconds = {
 const browserPerformanceRatioLimit = 8
 const browserPerformanceAbsoluteCeilingMilliseconds = 10_000
 const browserPerformanceSampleCount = 20
-
-const subjectLabels = {
-  VOCABULARY: '문자·어휘',
-  GRAMMAR: '문법',
-  READING: '독해'
-} as const
 
 const parseBrowserMode = (): BrowserMode => {
   const mode = process.env.DASHBOARD_BROWSER_MODE
@@ -222,23 +209,18 @@ const selectCanonicalDashboardLedger = (
 
 const assertCanonicalDashboardLedger = (ledger: RequestLedger): void => {
   assertExactRequestMultiset(ledger, [
-    { method: 'GET', path: '/api/v1/dashboard', statuses: [200] },
-    { method: 'GET', path: '/api/v1/dashboard/insights', statuses: [200] }
+    { method: 'GET', path: '/api/v1/dashboard', statuses: [200] }
   ])
   const expectedProvenance = isMockBrowser
     ? 'canonical-mock-service-worker'
     : 'canonical-real-network'
   expect(ledger.entries.map(({ provenance }) => provenance)).toEqual([
-    expectedProvenance,
     expectedProvenance
   ])
-  // The account page reads insights only after the stats read settles.
   expect(ledger.entries.map(({ path }) => path)).toEqual(
     canonicalDashboardPaths
   )
-  const [stats, insights] = ledger.entries
-  expect(stats!.finishSequence).not.toBeNull()
-  expect(stats!.finishSequence!).toBeLessThan(insights!.startSequence)
+  expect(ledger.entries[0]!.finishSequence).not.toBeNull()
 }
 
 const assertCanonicalDashboardAggregate = (
@@ -250,16 +232,11 @@ const assertCanonicalDashboardAggregate = (
       method: 'GET',
       path: '/api/v1/dashboard',
       statuses: Array.from({ length: triggerCount }, () => 200)
-    },
-    {
-      method: 'GET',
-      path: '/api/v1/dashboard/insights',
-      statuses: Array.from({ length: triggerCount }, () => 200)
     }
   ])
   for (let index = 0; index < triggerCount; index += 1) {
     assertCanonicalDashboardLedger({
-      entries: ledger.entries.slice(index * 2, index * 2 + 2)
+      entries: ledger.entries.slice(index, index + 1)
     })
   }
 }
@@ -291,29 +268,19 @@ const checkRecentResultsDisclosure = async (page: Page): Promise<void> => {
   ).toBeVisible()
 }
 
-// The account page loads the all-time stats and the recommendations.
+// The account page loads only the all-time stats; it has no recommendations.
 const openDashboardSections = async (
   page: Page,
   ledger: RequestLedger
-): Promise<z.infer<typeof getDashboardInsightsResponseSchema>> => {
+): Promise<void> => {
   const startIndex = ledger.entries.length
   const statsResponsePromise = waitForResponse(page, 'GET', '/api/v1/dashboard')
-  const insightsResponsePromise = waitForResponse(
-    page,
-    'GET',
-    '/api/v1/dashboard/insights'
-  )
   await page.goto('/account')
   await expect(page).toHaveURL((url) => url.pathname === '/account')
-  const [statsResponse, insightsResponse] = await Promise.all([
-    statsResponsePromise,
-    insightsResponsePromise
-  ])
-  for (const response of [statsResponse, insightsResponse]) {
-    expect(response.status()).toBe(200)
-    expect(response.headers()['cache-control']).toBe('private, no-store')
-    expectExpectedApiTransport(response)
-  }
+  const statsResponse = await statsResponsePromise
+  expect(statsResponse.status()).toBe(200)
+  expect(statsResponse.headers()['cache-control']).toBe('private, no-store')
+  expectExpectedApiTransport(statsResponse)
   const stats = getDashboardStatsResponseSchema.parse(
     JSON.parse(await statsResponse.text()) as unknown
   )
@@ -321,17 +288,10 @@ const openDashboardSections = async (
   await expect(
     page.getByText('아직 푼 문제가 없어요', { exact: true })
   ).toBeVisible()
-  const insights = getDashboardInsightsResponseSchema.parse(
-    JSON.parse(await insightsResponse.text()) as unknown
-  )
   await expect(
     page.getByRole('region', { name: '추천 학습', exact: true })
-  ).toBeVisible()
-  await expect(
-    page.getByText('목표 급수의 다음 문제를 풀어 보세요', { exact: true })
-  ).toBeVisible()
+  ).toHaveCount(0)
   await waitForLedgerToQuiesce(ledger, startIndex)
-  return insights
 }
 
 const measureDashboardNavigation = async (
@@ -345,14 +305,14 @@ const measureDashboardNavigation = async (
     .poll(
       () => selectCanonicalDashboardLedger(ledger, startIndex).entries.length
     )
-    .toBe(2)
+    .toBe(1)
   const measuredLedger = selectCanonicalDashboardLedger(ledger, startIndex)
   await waitForLedgerToSettle(measuredLedger)
   assertCanonicalDashboardLedger(measuredLedger)
   return roundMilliseconds(performance.now() - startedAt)
 }
 
-test('current stats and learning routes preserve contracts before an explicit recommendation action', async ({
+test('current stats and learning routes preserve contracts without dashboard insights reads', async ({
   context,
   page
 }, testInfo) => {
@@ -377,7 +337,7 @@ test('current stats and learning routes preserve contracts before an explicit re
   await checkRecentResultsDisclosure(page)
 
   const initialDashboardStartIndex = ledger.entries.length
-  const insights = await openDashboardSections(page, ledger)
+  await openDashboardSections(page, ledger)
 
   await expect
     .poll(
@@ -385,7 +345,7 @@ test('current stats and learning routes preserve contracts before an explicit re
         selectCanonicalDashboardLedger(ledger, initialDashboardStartIndex)
           .entries.length
     )
-    .toBe(2)
+    .toBe(1)
   const initialDashboardLedger = selectCanonicalDashboardLedger(
     ledger,
     initialDashboardStartIndex
@@ -394,53 +354,6 @@ test('current stats and learning routes preserve contracts before an explicit re
   assertCanonicalDashboardLedger(initialDashboardLedger)
   expect(legacyDashboardRequestCount).toBe(0)
 
-  expect(insights.personalizationFallbackReason).toBe(
-    'NO_PERSONALIZED_EVIDENCE'
-  )
-  expect(insights.recommendations).toEqual([
-    {
-      action: {
-        count: 5,
-        kind: 'START_SESSION',
-        level: 'N2',
-        mode: 'RANDOM',
-        subject: 'VOCABULARY'
-      },
-      kind: 'TARGET_LEVEL_PRACTICE',
-      rank: 1,
-      reason: {
-        catalogCount: 5,
-        code: 'TARGET_LEVEL_RECENT_GAP',
-        lastStudiedAt: null,
-        level: 'N2',
-        nonRecentCount: 5,
-        subject: 'VOCABULARY'
-      }
-    }
-  ])
-  const recommendation = insights.recommendations.find(
-    ({ kind }) => kind === 'TARGET_LEVEL_PRACTICE'
-  )
-  if (!recommendation) {
-    throw new Error('Fresh learner target-level recommendation is missing.')
-  }
-  if (recommendation.reason.code !== 'TARGET_LEVEL_RECENT_GAP') {
-    throw new Error('Target-level recommendation must explain the recent gap.')
-  }
-  const { action } = recommendation
-  expect(action.kind).toBe('START_SESSION')
-  if (action.kind !== 'START_SESSION') {
-    throw new Error('Target-level recommendation action must start a session.')
-  }
-
-  await expect(
-    page.getByText('목표 급수의 다음 문제를 풀어 보세요', { exact: true })
-  ).toBeVisible()
-  await expect(
-    page.getByText(
-      '개인화 근거가 아직 충분하지 않아 목표 급수의 일반 연습을 함께 추천해요.'
-    )
-  ).toBeVisible()
   expect(sessionPostRequests).toHaveLength(0)
 
   const performanceSamples: number[] = []
@@ -511,65 +424,9 @@ test('current stats and learning routes preserve contracts before an explicit re
   expect(passed).toBe(true)
   expect(legacyDashboardRequestCount).toBe(0)
 
-  const actionSummary = `일반 연습 · ${action.level} ${subjectLabels[action.subject]} · ${action.count}문제`
-  const actionButton = page.getByRole('button', {
-    exact: true,
-    name: '목표 급수의 다음 문제를 풀어 보세요 시작'
-  })
-  await expect(page.getByText(actionSummary, { exact: true })).toBeVisible()
-  await expect(actionButton).toBeVisible()
-  expect(sessionPostRequests).toHaveLength(0)
-
-  const sessionResponsePromise = waitForResponse(
-    page,
-    'POST',
-    '/api/v1/study-sessions'
-  )
-  await actionButton.focus()
-  await expect(actionButton).toBeFocused()
-  await page.keyboard.press('Enter')
-  const sessionResponse = await sessionResponsePromise
-  const sessionRequest = sessionResponse.request()
-
-  expect(sessionPostRequests).toHaveLength(1)
-  expect(sessionRequest).toBe(sessionPostRequests[0])
-  expect(sessionRequest.headers()['x-nihongo-practice-contract']).toBe('2')
-  expect(
-    createStudySessionV2BodySchema.parse(sessionRequest.postDataJSON())
-  ).toEqual({
-    count: action.count,
-    level: action.level,
-    mode: action.mode,
-    subject: action.subject
-  })
-  expect(sessionResponse.status()).toBe(201)
-  expect(sessionResponse.headers()['x-nihongo-practice-contract']).toBe('2')
-  expectExpectedApiTransport(sessionResponse)
-
-  const created = createStudySessionV2ResponseSchema.parse(
-    JSON.parse(await sessionResponse.text()) as unknown
-  )
-  expect(created.session).toMatchObject({
-    actualCount: expect.any(Number),
-    fallbackReason: null,
-    level: action.level,
-    mode: action.mode,
-    practiceContractVersion: 2,
-    requestedCount: action.count,
-    subject: action.subject,
-    usedFallback: false
-  })
-  expect(created.session.actualCount).toBeGreaterThan(0)
-  expect(created.session.actualCount).toBe(
-    Math.min(action.count, recommendation.reason.catalogCount)
-  )
-  expect(created.questions).toHaveLength(created.session.actualCount)
-  await expect(page).toHaveURL((url) => {
-    return url.pathname === `/practice/session/${created.session.id}`
-  })
-
   expect(legacyDashboardRequestCount).toBe(0)
-  expect(sessionPostRequests).toHaveLength(1)
+  // My page offers no session start, so no session is created here.
+  expect(sessionPostRequests).toHaveLength(0)
   expect(transport.unexpectedResponses).toEqual([])
   expect(transport.failedRequests).toEqual([])
 })

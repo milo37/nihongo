@@ -14,7 +14,6 @@ import {
   saveStudyDraftAnswersResponseSchema
 } from '@nihongo/contracts/study/save-study-draft-answers'
 import { getDashboardStatsResponseSchema } from '@nihongo/contracts/dashboard/get-dashboard-stats'
-import { getDashboardInsightsResponseSchema } from '@nihongo/contracts/dashboard/get-dashboard-insights'
 import {
   listResumableStudySessionsQuerySchema,
   listResumableStudySessionsResponseSchema
@@ -257,7 +256,6 @@ const userJourneyRequestContract = [
     path: '/api/v1/study-sessions',
     statuses: successfulStatuses(3)
   },
-  { method: 'GET', path: '/api/v1/dashboard/insights', statuses: [200] },
   { method: 'GET', path: '/api/v1/bookmarks', statuses: successfulStatuses(3) },
   {
     method: 'GET',
@@ -300,7 +298,6 @@ const userJourneyRequestContract = [
 const resilienceRequestContract = [
   ...ssoRequestContract,
   ...accountPageRequestContract,
-  { method: 'GET', path: '/api/v1/dashboard', statuses: [200] },
   {
     method: 'GET',
     path: '/api/v1/me',
@@ -309,7 +306,7 @@ const resilienceRequestContract = [
   { method: 'GET', path: '/api/v1/study-sessions', statuses: [200] },
   {
     method: 'GET',
-    path: '/api/v1/dashboard/insights',
+    path: '/api/v1/dashboard',
     statuses: [
       200,
       'NETWORK_ERROR',
@@ -513,7 +510,7 @@ const queryClientModulePath =
   '/@fs' +
   new URL(import.meta.resolve('@nihongo/browser/libs/queryClient')).pathname
 
-const invalidateDashboardInsights = async (page: Page): Promise<void> => {
+const invalidateDashboardStats = async (page: Page): Promise<void> => {
   await page.evaluate(async (modulePath) => {
     const { queryClient } = (await import(/* @vite-ignore */ modulePath)) as {
       queryClient: {
@@ -525,7 +522,7 @@ const invalidateDashboardInsights = async (page: Page): Promise<void> => {
     }
     await queryClient.invalidateQueries({
       exact: true,
-      queryKey: ['dashboard', 'get-insights']
+      queryKey: ['dashboard', 'get-stats']
     })
   }, queryClientModulePath)
 }
@@ -556,16 +553,16 @@ const armDashboardFault = async (
     await page.evaluate(async (faultKind) => {
       const modulePath = '/src/test/journeyBrowserMockControl.ts'
       const control = (await import(/* @vite-ignore */ modulePath)) as {
-        armDashboardInsightsFault: (value: DashboardFault) => void
+        armDashboardStatsFault: (value: DashboardFault) => void
       }
-      control.armDashboardInsightsFault(faultKind)
+      control.armDashboardStatsFault(faultKind)
     }, fault)
     return async () => undefined
   }
 
   const failureCount = fault === 'network' ? 2 : fault === 'rate-limit' ? 3 : 1
   let remaining = failureCount
-  const pattern = '**/api/v1/dashboard/insights'
+  const pattern = '**/api/v1/dashboard'
   const handler = async (route: Route): Promise<void> => {
     if (remaining <= 0) {
       await route.continue()
@@ -582,7 +579,7 @@ const armDashboardFault = async (
         contentType: 'application/json',
         headers: {
           'Cache-Control': 'private, no-store',
-          'X-Nihongo-Test-Fault': 'dashboard-insights-malformed'
+          'X-Nihongo-Test-Fault': 'dashboard-stats-malformed'
         },
         status: 200
       })
@@ -600,7 +597,7 @@ const armDashboardFault = async (
       headers: {
         'Cache-Control': 'private, no-store',
         'Retry-After': '0',
-        'X-Nihongo-Test-Fault': 'dashboard-insights-429',
+        'X-Nihongo-Test-Fault': 'dashboard-stats-429',
         'X-Request-Id': requestId
       },
       status: 429
@@ -817,25 +814,37 @@ const openMyPage = async (page: Page): Promise<void> => {
 const recommendationRegion = (page: Page) =>
   page.getByRole('region', { name: '추천 학습', exact: true })
 
-// On the account page a failed insights read hides the recommendations
-// without an alert; the next successful read shows them again.
+const myStudyRegion = (page: Page) =>
+  page.getByRole('region', { name: '내 학습', exact: true })
+
+// On My page a failed stats re-read keeps the last summary without an alert;
+// the next successful read refreshes it (JLP-812: My page reads only stats).
 const assertFaultRecovery = async (
   page: Page,
   ledger: RequestLedger,
   fault: DashboardFault
 ): Promise<void> => {
-  const path = '/api/v1/dashboard/insights'
+  const path = '/api/v1/dashboard'
   const startIndex = ledger.entries.length
+  const failureCount = fault === 'network' ? 2 : fault === 'rate-limit' ? 3 : 1
+  const summaryBefore = await myStudyRegion(page).innerText()
   const removeFault = await armDashboardFault(page, fault)
   try {
-    await invalidateDashboardInsights(page)
-    await expect(recommendationRegion(page)).toBeHidden()
+    await invalidateDashboardStats(page)
+    await expect
+      .poll(() => ledgerEntriesFor(ledger, 'GET', path, startIndex).length, {
+        timeout: 20_000
+      })
+      .toBe(failureCount)
+    await waitForLedgerToQuiesce(ledger, startIndex)
+    await expect(myStudyRegion(page)).toHaveText(summaryBefore, {
+      useInnerText: true
+    })
     await expect(page.locator('main [role="alert"]')).toHaveCount(0)
   } finally {
     await removeFault()
   }
   const failedEntries = ledgerEntriesFor(ledger, 'GET', path, startIndex)
-  const failureCount = fault === 'network' ? 2 : fault === 'rate-limit' ? 3 : 1
   expect(failedEntries).toHaveLength(failureCount)
   expect(failedEntries.map(({ status }) => status)).toEqual(
     fault === 'network'
@@ -855,14 +864,14 @@ const assertFaultRecovery = async (
   const recovered = waitForApiResponse(page, 'GET', path).then(
     async (response) => {
       expect(response.headers()['x-nihongo-test-fault']).toBeUndefined()
-      getDashboardInsightsResponseSchema.parse(
+      getDashboardStatsResponseSchema.parse(
         await readCanonicalResponse(response)
       )
     }
   )
-  await invalidateDashboardInsights(page)
+  await invalidateDashboardStats(page)
   await recovered
-  await expect(recommendationRegion(page)).toBeVisible()
+  await expect(myStudyRegion(page)).toBeVisible()
   await waitForLedgerToQuiesce(ledger)
   const entries = ledgerEntriesFor(ledger, 'GET', path, startIndex)
   expect(entries).toHaveLength(failureCount + 1)
@@ -1296,14 +1305,12 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
       )
     ).toBeVisible()
   }
-  const finalInsightsResponse = waitForApiResponse(
+  const finalStatsResponse = waitForApiResponse(
     page,
     'GET',
-    '/api/v1/dashboard/insights'
+    '/api/v1/dashboard'
   ).then(async (response) =>
-    getDashboardInsightsResponseSchema.parse(
-      await readCanonicalResponse(response)
-    )
+    getDashboardStatsResponseSchema.parse(await readCanonicalResponse(response))
   )
   const home = page.locator('.app-side-brand a[href="/"]')
   await expect(home).toHaveCount(1)
@@ -1311,9 +1318,10 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   await home.click()
   await expect(page).toHaveURL(/\/dashboard\?view=learning$/u)
   await openMyPage(page)
-  const insights = await finalInsightsResponse
-  expect(insights.stats.overall.attemptedCount).toBe(6)
-  await expect(recommendationRegion(page)).toBeVisible()
+  const finalStats = await finalStatsResponse
+  expect(finalStats.totalAnsweredCount).toBe(6)
+  await expect(myStudyRegion(page)).toBeVisible()
+  await expect(recommendationRegion(page)).toHaveCount(0)
   await waitForLedgerToQuiesce(ledger)
 
   const signInEntries = ledgerEntriesFor(
@@ -1398,23 +1406,9 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
     '/api/v1/dashboard',
     dashboardStartIndex
   )
-  const dashboardInsightEntries = ledgerEntriesFor(
-    ledger,
-    'GET',
-    '/api/v1/dashboard/insights',
-    dashboardStartIndex
-  )
-  // The review page reads the summary once, then My page reads it fresh and
-  // starts insights only after that read settles.
+  // The review page reads the summary once, then My page reads it fresh.
   expect(dashboardSummaryEntries).toHaveLength(2)
-  expect(dashboardInsightEntries).toHaveLength(1)
-  expect(requireFinished(dashboardSummaryEntries[1])).toBeLessThan(
-    dashboardInsightEntries[0]?.startSequence ?? -1
-  )
-  for (const entry of [
-    ...dashboardSummaryEntries,
-    ...dashboardInsightEntries
-  ]) {
+  for (const entry of dashboardSummaryEntries) {
     expect(requireFinished(entry)).toBeGreaterThan(entry.startSequence)
     expect(requireFinished(submissionEntries[1])).toBeLessThan(
       entry.startSequence
@@ -1459,7 +1453,7 @@ test('network, rate-limit, and malformed responses require explicit recovery wit
     signIn[0]?.finishSequence ?? -1
   )
   await openMyPage(page)
-  await expect(recommendationRegion(page)).toBeVisible()
+  await expect(myStudyRegion(page)).toBeVisible()
   for (const fault of [
     'network',
     'rate-limit',

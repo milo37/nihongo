@@ -1568,21 +1568,21 @@ const submitSessionThroughUi = async (
   return { requestBody, result }
 }
 
-const armDashboardInsightsFailure = async (
+const armDashboardStatsFailure = async (
   page: Page
 ): Promise<() => Promise<void>> => {
   if (isMockBrowser) {
     await page.evaluate(async () => {
       const modulePath = '/src/test/accessibilityBrowserMockControl.ts'
       const control = (await import(/* @vite-ignore */ modulePath)) as {
-        armAccessibilityDashboardInsightsFailure: () => void
+        armAccessibilityDashboardStatsFailure: () => void
       }
-      control.armAccessibilityDashboardInsightsFailure()
+      control.armAccessibilityDashboardStatsFailure()
     })
     return async () => undefined
   }
 
-  const routePattern = '**/api/v1/dashboard/insights'
+  const routePattern = '**/api/v1/dashboard'
   let failuresRemaining = 2
   const failTwice = async (route: Route): Promise<void> => {
     if (failuresRemaining <= 0) {
@@ -1594,14 +1594,14 @@ const armDashboardInsightsFailure = async (
     await route.fulfill({
       body: JSON.stringify({
         code: 'SERVICE_UNAVAILABLE',
-        message: 'Dashboard insights browser fault injection',
+        message: 'Dashboard stats browser fault injection',
         requestId,
         retryable: true
       }),
       contentType: 'application/json',
       headers: {
         'Cache-Control': 'private, no-store',
-        'X-Nihongo-Test-Fault': 'dashboard-insights-503',
+        'X-Nihongo-Test-Fault': 'dashboard-stats-503',
         'X-Request-Id': requestId
       },
       status: 503
@@ -1615,7 +1615,7 @@ const queryClientModulePath =
   '/@fs' +
   new URL(import.meta.resolve('@nihongo/browser/libs/queryClient')).pathname
 
-const invalidateDashboardInsights = async (page: Page): Promise<void> => {
+const invalidateDashboardStats = async (page: Page): Promise<void> => {
   await page.evaluate(async (modulePath) => {
     const { queryClient } = (await import(/* @vite-ignore */ modulePath)) as {
       queryClient: {
@@ -1627,14 +1627,14 @@ const invalidateDashboardInsights = async (page: Page): Promise<void> => {
     }
     await queryClient.invalidateQueries({
       exact: true,
-      queryKey: ['dashboard', 'get-insights']
+      queryKey: ['dashboard', 'get-stats']
     })
   }, queryClientModulePath)
 }
 
 const invalidateDashboardWhileOffline = async (
   page: Page,
-  query: 'stats' | 'insights'
+  query: 'stats'
 ): Promise<void> => {
   await page.evaluate(
     async ({ kind, modulePath }) => {
@@ -1657,7 +1657,7 @@ const invalidateDashboardWhileOffline = async (
 
 const waitForDashboardQueryState = async (
   page: Page,
-  query: 'stats' | 'insights',
+  query: 'stats',
   fetchStatus: 'idle' | 'paused'
 ): Promise<void> => {
   await expect
@@ -1937,7 +1937,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     page.getByRole('heading', { name: '学習結果が見つかりません' })
   ).toBeVisible()
 
-  // Exercise recommendations before this learner creates an unfinished session.
+  // Exercise My page before this learner creates an unfinished session.
   await page.setViewportSize({ height: 900, width: 1280 })
   await page.goto('/wrong-notes')
   await settlePage(page)
@@ -1987,51 +1987,65 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
 
   await page.goto('/account')
   await settlePage(page)
-  await waitForDashboardQueryState(page, 'insights', 'idle')
-  const recommendationRegion = page.getByRole('region', {
+  await waitForDashboardQueryState(page, 'stats', 'idle')
+  // My page shows only the stats summary (JLP-812): no recommendations.
+  const myStudyRegion = page.getByRole('region', {
     exact: true,
-    name: '추천 학습'
+    name: '내 학습'
   })
-  const recommendationStart = recommendationRegion.getByRole('button').first()
-  await expect(recommendationRegion).toBeVisible()
+  await expect(myStudyRegion).toBeVisible()
   await expect(
-    page.getByRole('region', { exact: true, name: '내 학습' })
-  ).toBeVisible()
+    page.getByRole('region', { exact: true, name: '추천 학습' })
+  ).toHaveCount(0)
   for (const locale of locales) {
     await setLocale(page, locale)
     await scanCurrentPage(page, testInfo, 'learner-account', locale)
   }
   await setLocale(page, 'ko')
-  await focusByTab(page, recommendationStart)
+  const cachedMyStudy = await myStudyRegion.innerText()
   await flushTransportEvidence(transport)
-  const requestsBeforeInsightsOffline = transport.requests.length
+  const requestsBeforeAccountOffline = transport.requests.length
   await context.setOffline(true)
-  await invalidateDashboardWhileOffline(page, 'insights')
-  await waitForDashboardQueryState(page, 'insights', 'paused')
-  // A paused refetch keeps the last recommendations on screen.
-  await expect(recommendationStart).toBeVisible()
+  await invalidateDashboardWhileOffline(page, 'stats')
+  await waitForDashboardQueryState(page, 'stats', 'paused')
+  // A paused refetch keeps the last summary on screen.
+  await expect(myStudyRegion).toHaveText(cachedMyStudy, { useInnerText: true })
   await flushTransportEvidence(transport)
-  expect(transport.requests).toHaveLength(requestsBeforeInsightsOffline)
+  expect(transport.requests).toHaveLength(requestsBeforeAccountOffline)
   await context.setOffline(false)
-  await waitForDashboardQueryState(page, 'insights', 'idle')
-  await expect(recommendationStart).toBeVisible()
+  await waitForDashboardQueryState(page, 'stats', 'idle')
   await waitForApiTransportQuiet(transport)
 
-  // A failed read hides the section without an alert; the next read restores it.
-  const removeDashboardFault = await armDashboardInsightsFailure(page)
-  await invalidateDashboardInsights(page)
-  await expect(recommendationRegion).toBeHidden()
+  // A failed re-read keeps the last summary without an alert; the next read
+  // succeeds.
+  const removeDashboardFault = await armDashboardStatsFailure(page)
+  let failedStatsReads = 0
+  const countFailedStatsRead = (response: Response): void => {
+    if (
+      response.status() === 503 &&
+      response.request().method() === 'GET' &&
+      new URL(response.url()).pathname === '/api/v1/dashboard'
+    ) {
+      failedStatsReads += 1
+    }
+  }
+  page.on('response', countFailedStatsRead)
+  await invalidateDashboardStats(page)
+  // The query retries one retryable 5xx, so both injected failures are read.
+  await expect.poll(() => failedStatsReads, { timeout: 20_000 }).toBe(2)
+  page.off('response', countFailedStatsRead)
+  await expect(myStudyRegion).toHaveText(cachedMyStudy, { useInnerText: true })
   await expect(page.locator('main [role="alert"]')).toHaveCount(0)
   await removeDashboardFault()
   const successfulRetryResponse = page.waitForResponse(
     (response) =>
       response.status() === 200 &&
       response.request().method() === 'GET' &&
-      new URL(response.url()).pathname === '/api/v1/dashboard/insights'
+      new URL(response.url()).pathname === '/api/v1/dashboard'
   )
-  await invalidateDashboardInsights(page)
+  await invalidateDashboardStats(page)
   await successfulRetryResponse
-  await expect(recommendationRegion).toBeVisible()
+  await expect(myStudyRegion).toHaveText(cachedMyStudy, { useInnerText: true })
   expect(
     getApiExchanges(transport, 'POST', '/api/v1/study-sessions').requests
   ).toHaveLength(0)
@@ -2562,9 +2576,9 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
           },
           localeState: 'answered reading selection preserved',
           offline:
-            'recent results retained; recommendation query paused without requests',
+            'recent results and My page summary retained; stats query paused without requests',
           partial: `requested ${readingFixture.requestedCount} reading questions, received ${readingFixture.actualCount} without fallback`,
-          retry: 'dashboard insights 503x2 then explicit retry 200',
+          retry: 'dashboard stats 503x2 then explicit retry 200',
           submit: 'UI dialog and result navigation passed'
         },
         null,
@@ -2604,13 +2618,13 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
       { method: 'GET', pathname: missingResultPath, status: 404 },
       {
         method: 'GET',
-        pathname: '/api/v1/dashboard/insights',
+        pathname: '/api/v1/dashboard',
         provenance: 'injected-test-fault',
         status: 503
       },
       {
         method: 'GET',
-        pathname: '/api/v1/dashboard/insights',
+        pathname: '/api/v1/dashboard',
         provenance: 'injected-test-fault',
         status: 503
       }
