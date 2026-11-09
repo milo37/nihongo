@@ -53,7 +53,8 @@ const EXPECTED_MIGRATIONS = [
   '20261107090000_first_admin_production',
   '20261108090000_remove_tag_applicability_and_snapshots',
   '20261109090000_add_tag_key_subject_status',
-  '20261110090000_admin_fresh_window_30_minutes'
+  '20261110090000_admin_fresh_window_30_minutes',
+  '20261111090000_grant_user_target_level_update'
 ] as const
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',

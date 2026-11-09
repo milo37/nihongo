@@ -273,8 +273,14 @@ export const createPrismaBookmarkRepository = (
       async () =>
         await client.$transaction(
           async (transaction) => {
+            // JLP-815: a bookmark whose question is no longer public stays
+            // stored but is not listed or counted.
             const where = {
               userId: input.userId,
+              question: {
+                lifecycleStatus: 'ACTIVE',
+                currentPublishedVersion: { is: { status: 'PUBLISHED' } }
+              },
               ...(input.questionIds
                 ? { questionId: { in: input.questionIds } }
                 : {})
