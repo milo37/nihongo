@@ -7,6 +7,8 @@ export const serverStateQueryKeys = {
       ['admin-content', 'questions', 'detail', questionId] as const
   },
   bookmark: { all: () => ['bookmark'] as const },
+  // Public and the same for everyone, so sign-in changes need not clear it.
+  dailyQuestion: (level: string) => ['daily-question', level] as const,
   study: {
     all: () => ['study'] as const,
     sessions: () => ['study', 'sessions'] as const,

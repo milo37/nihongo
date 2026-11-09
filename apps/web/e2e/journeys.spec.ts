@@ -276,6 +276,8 @@ const userJourneyRequestContract = [
     statuses: [200]
   },
   { method: 'GET', path: '/api/v1/dashboard', statuses: [200] },
+  // Today's question on the learning home, once per level shown (D, #801).
+  { method: 'GET', path: '/api/v1/daily-question', statuses: [200, 200] },
   { method: 'POST', path: '/api/v1/study-sessions', statuses: [201] },
   {
     method: 'POST',
@@ -303,6 +305,8 @@ const resilienceRequestContract = [
     statuses: successfulStatuses(mode === 'mock' ? 3 : 2)
   },
   { method: 'GET', path: '/api/v1/study-sessions', statuses: [200] },
+  // Today's question on the learning home (D, #801).
+  { method: 'GET', path: '/api/v1/daily-question', statuses: [200] },
   {
     method: 'GET',
     path: '/api/v1/dashboard',
@@ -1099,6 +1103,8 @@ test('guest SSO boundary and authenticated practice transition match the active 
       statuses: successfulStatuses(mode === 'mock' ? 6 : 5)
     },
     { method: 'GET', path: '/api/v1/guest-allowance', statuses: [200] },
+    // The first screen shows today's question (D, #801).
+    { method: 'GET', path: '/api/v1/daily-question', statuses: [200] },
     { method: 'GET', path: '/api/v1/study-sessions', statuses: [200] }
   ])
 })

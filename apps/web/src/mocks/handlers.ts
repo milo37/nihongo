@@ -5,6 +5,7 @@ import { dashboardInsightsV1Handlers } from '@mocks/handlers/dashboardInsightsV1
 import { dashboardV1Handlers } from '@mocks/handlers/dashboardV1Handlers'
 import { operationsHandlers } from '@mocks/handlers/operationsHandlers'
 import { questionHandlers } from '@mocks/handlers/questionHandlers'
+import { dailyQuestionHandlers } from '@mocks/handlers/dailyQuestionHandlers'
 import { reportHandlers } from '@mocks/handlers/reportHandlers'
 import { reviewCenterHandlers } from '@mocks/handlers/reviewCenterHandlers'
 import { studyDraftV2Handlers } from '@mocks/handlers/studyDraftV2Handlers'
@@ -17,6 +18,7 @@ import { guestAllowanceHandlers } from '@mocks/handlers/guestAllowanceHandlers'
 export const handlers = [
   ...authHandlers,
   ...questionHandlers,
+  ...dailyQuestionHandlers,
   ...studyDraftV2Handlers,
   ...studyResultRetryHandlers,
   ...studySessionHandlers,

@@ -125,6 +125,69 @@ const measureContrast = (element: Element) => {
   }
 }
 
+// This function is serialized into the browser. The first-screen hero has a
+// two-stop gradient that axe cannot read, so its text is measured against
+// each stop and the worst stop is the result. A solid fill between the text
+// and the hero (the white start button) is used as the background instead.
+const measureGradientContrast = (element: Element) => {
+  type Rgb = readonly [number, number, number]
+  const parse = (raw: string): Rgb[] =>
+    [...raw.matchAll(/rgba?\(([^)]+)\)/gu)].map((match) => {
+      const parts = (match[1] ?? '').split(/[\s,/]+/u).filter(Boolean)
+      if (parts.length > 3 && Number(parts[3]) !== 1) {
+        throw new Error(`Translucent hero color: ${raw}`)
+      }
+      return [Number(parts[0]), Number(parts[1]), Number(parts[2])]
+    })
+  const hero = element.closest('.home-hero')
+  if (!hero) throw new Error('Hero gradient measurement outside the hero')
+  let backgrounds: Rgb[] = []
+  for (
+    let current: Element | null = element;
+    current && current !== hero;
+    current = current.parentElement
+  ) {
+    const style = getComputedStyle(current)
+    if (Number(style.opacity) !== 1 || style.backgroundImage !== 'none') {
+      throw new Error('Hero text layers need opacity 1 and no images')
+    }
+    const fill = style.backgroundColor
+    if (fill === 'rgba(0, 0, 0, 0)' || fill === 'transparent') continue
+    backgrounds = parse(fill)
+    break
+  }
+  if (!backgrounds.length) {
+    backgrounds = parse(getComputedStyle(hero).backgroundImage)
+  }
+  if (backgrounds.length < 1) throw new Error('No hero background stops')
+  const [foreground] = parse(getComputedStyle(element).color)
+  if (!foreground) throw new Error('No hero text color')
+  const luminance = (color: Rgb): number => {
+    const linear = color.map((channel) => {
+      const normalized = channel / 255
+      return normalized <= 0.04045
+        ? normalized / 12.92
+        : ((normalized + 0.055) / 1.055) ** 2.4
+    })
+    return (
+      0.2126 * (linear[0] ?? 0) +
+      0.7152 * (linear[1] ?? 0) +
+      0.0722 * (linear[2] ?? 0)
+    )
+  }
+  const fg = luminance(foreground)
+  const ratios = backgrounds.map((background) => {
+    const bg = luminance(background)
+    return (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05)
+  })
+  return {
+    ratio: Math.min(...ratios),
+    rawForeground: getComputedStyle(element).color,
+    rawBackgrounds: backgrounds.map((color) => `rgb(${color.join(' ')})`),
+    stopRatios: ratios
+  }
+}
+
 interface BrowserActor {
   readonly role: 'ADMIN' | 'USER'
   readonly userId?: string
@@ -857,19 +920,28 @@ const scanCurrentPage = async (
       const target = page.locator(selector).first()
       const kind = await target.evaluate(
         (element, selectors) =>
-          element.closest(selectors.paginationCurrent)
-            ? 'pagination-current-text'
-            : element.matches(selectors.optionReorderControl)
-              ? 'option-reorder-control'
-              : element.matches(selectors.tableSortIndicator)
-                ? 'table-sort-indicator'
-                : element.matches(selectors.answerMark)
-                  ? 'answer-mark'
-                  : null,
+          element.closest(selectors.heroGradient)
+            ? 'hero-gradient-text'
+            : element.closest(selectors.paginationCurrent)
+              ? 'pagination-current-text'
+              : element.matches(selectors.optionReorderControl)
+                ? 'option-reorder-control'
+                : element.matches(selectors.tableSortIndicator)
+                  ? 'table-sort-indicator'
+                  : element.matches(selectors.answerMark)
+                    ? 'answer-mark'
+                    : null,
         axeFindingDispositionSelectors
       )
       if (!kind) continue
-      const measurement = { kind, ...(await target.evaluate(measureContrast)) }
+      const measurement = {
+        kind,
+        ...(await target.evaluate(
+          kind === 'hero-gradient-text'
+            ? measureGradientContrast
+            : measureContrast
+        ))
+      }
       // Preserve raw colors and state before an assertion can abort the scan.
       await testInfo.attach(
         `contrast-${toArtifactSlug(label)}-${incompleteDispositions.length}`,
@@ -879,7 +951,11 @@ const scanCurrentPage = async (
         }
       )
 
-      const threshold = measurement.kind === 'pagination-current-text' ? 4.5 : 3
+      const threshold =
+        measurement.kind === 'pagination-current-text' ||
+        measurement.kind === 'hero-gradient-text'
+          ? 4.5
+          : 3
       expect(
         measurement.ratio,
         `${measurement.kind} computed contrast for ${selector}`

@@ -200,7 +200,7 @@ test('rejects a repeated Google callback consumption', () => {
 })
 
 test('current two-actor rate-limit model is exact and rejects cardinality drift', () => {
-  assert.equal(Object.keys(accessibilityExpectedRateLimitCategories).length, 26)
+  assert.equal(Object.keys(accessibilityExpectedRateLimitCategories).length, 27)
   assert.equal(
     accessibilityExpectedRateLimitCategories['application:study-read'],
     2
@@ -222,9 +222,9 @@ test('current two-actor rate-limit model is exact and rejects cardinality drift'
       (sum, count) => sum + count,
       0
     ),
-    26
+    29
   )
-  assert.equal(accessibilityExpectedTableDeltas.RateLimit, 26)
+  assert.equal(accessibilityExpectedTableDeltas.RateLimit, 29)
   for (const category of [
     'application:study-read',
     'application:dashboard-read'
@@ -279,10 +279,10 @@ test('rate-limit failure diagnostics expose allowed category counts without row 
     { key: sentinel, count: 44 }
   )
   const diagnostic = readAccessibilityRateLimitDiagnostic(before, after)
-  assert.equal(diagnostic.expectedTotal, 26)
+  assert.equal(diagnostic.expectedTotal, 29)
   assert.equal(diagnostic.before.total, 1)
-  assert.equal(diagnostic.after.total, 29)
-  assert.equal(diagnostic.newKeys.total, 28)
+  assert.equal(diagnostic.after.total, 32)
+  assert.equal(diagnostic.newKeys.total, 31)
   assert.equal(diagnostic.newKeys.categories['application:study-read'], 2)
   assert.equal(diagnostic.newKeys.unknown, 1)
   assert.equal(diagnostic.newKeys.invalidShape, 1)
@@ -294,7 +294,7 @@ test('rate-limit failure diagnostics expose allowed category counts without row 
     (error) => {
       assert.match(
         error.message,
-        /new rate-limit key count: expected 26, received 28/u
+        /new rate-limit key count: expected 29, received 31/u
       )
       assert.ok(error.message.includes('rate-limit-diagnostic='))
       assert.equal(error.message.includes(sentinel), false)
@@ -333,7 +333,7 @@ test('rate-limit failure diagnostics expose allowed category counts without row 
     (error) => {
       assert.match(
         error.message,
-        /RateLimit count delta: expected 26, received 27/u
+        /RateLimit count delta: expected 29, received 30/u
       )
       assert.ok(error.message.includes('rate-limit-diagnostic='))
       assert.equal(error.message.includes(sentinel), false)
