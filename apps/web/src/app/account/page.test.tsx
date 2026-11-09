@@ -279,8 +279,8 @@ describe('마이페이지 계정 설정', () => {
     ).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '로그아웃' })).toBeEnabled()
     expect(
-      screen.getByRole('link', { name: '계정과 데이터 처리 안내' })
-    ).toHaveAttribute('href', '/account/data')
+      screen.queryByRole('link', { name: '계정과 데이터 처리 안내' })
+    ).not.toBeInTheDocument()
     expect(document.body).not.toHaveTextContent('Apple')
   })
   it('서버가 Apple을 남겨 해제를 허용해도 마지막 노출 수단 Google은 보호한다', async () => {

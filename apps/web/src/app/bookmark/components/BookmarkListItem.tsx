@@ -33,11 +33,11 @@ export const BookmarkListItem = ({
     `taxonomy.questionTypes.${question.questionType}`
   )
   // Two topic labels at most: the question type, then the first tag.
+  // Tag labels exist in Korean only, so the Japanese screen shows the type.
+  const tagLabels = locale === 'ko' ? question.tags.map((tag) => tag.label) : []
   const topics = [
     questionTypeLabel,
-    ...question.tags
-      .map((tag) => tag.label)
-      .filter((label) => label !== questionTypeLabel)
+    ...tagLabels.filter((label) => label !== questionTypeLabel)
   ].slice(0, 2)
   // Shown on hover and keyboard focus; Esc hides it (WCAG 1.4.13).
   const [isTipOpen, setIsTipOpen] = useState(false)
@@ -96,7 +96,7 @@ export const BookmarkListItem = ({
           {isTipOpen ? (
             <span
               aria-hidden="true"
-              className="absolute right-0 top-full z-10 whitespace-nowrap rounded-control bg-ink px-2 py-1 text-xs text-on-accent"
+              className="absolute right-0 top-full z-10 whitespace-nowrap rounded-control bg-ink px-2 py-1 text-caption text-on-accent"
             >
               {t('remove')}
             </span>

@@ -39,7 +39,7 @@ export const PracticeSessionHeader = ({
     <header
       className={`border-b border-line bg-surface ${reviewContext ? 'study-session-context' : ''}`}
     >
-      <div className="mx-auto flex h-14 max-w-6xl items-center gap-1 px-2">
+      <div className="mx-auto flex h-14 max-w-6xl lg:h-16 items-center gap-1 px-2">
         <Link
           className="note-link size-11 shrink-0 justify-center"
           aria-label={t(

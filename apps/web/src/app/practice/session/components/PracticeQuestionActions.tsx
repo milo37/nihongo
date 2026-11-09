@@ -28,11 +28,11 @@ export const PracticeQuestionActions = ({
   const { t } = useTranslation('practice')
   return (
     // Fixed bar under 1024px; under the options on a wide screen (direction §6-3).
-    <div className="fixed inset-x-0 bottom-0 z-20 flex items-center gap-3 border-t border-line bg-surface px-4 py-3 lg:static lg:mt-8 lg:justify-between lg:border-0 lg:bg-transparent lg:p-0">
+    <div className="fixed inset-x-0 bottom-0 z-20 flex items-center gap-3 border-t border-line bg-surface px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] lg:static lg:mt-8 lg:justify-between lg:border-0 lg:bg-transparent lg:p-0">
       {/* A single review question has nowhere to go back to. */}
       {hidePrevious ? null : (
         <Button
-          className="shrink-0"
+          className="shrink-0 disabled:bg-transparent!"
           variant="ghost"
           disabled={isFirstQuestion || isLocked}
           onClick={onPrevious}

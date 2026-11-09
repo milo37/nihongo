@@ -82,8 +82,8 @@ const DailyQuestionBody = ({
                   option.label
                 )}
               </span>
-              <span className="min-w-0 text-left">
-                <span className="block" lang="ja">
+              <span className="home-daily-option-text">
+                <span lang="ja">
                   {mark ? (
                     <span className="sr-only">{option.label}. </span>
                   ) : null}
@@ -174,7 +174,7 @@ export const DailyQuestionCard = ({
           <span className="sr-only">{t('today.dailyLoading')}</span>
           <div
             aria-hidden="true"
-            className="ui-skeleton h-[70px] rounded-control bg-surface-muted"
+            className="ui-skeleton h-[140px] rounded-control bg-surface-muted sm:h-[105px]"
           />
           <div aria-hidden="true" className="mt-5 grid grid-cols-2 gap-2">
             {[0, 1, 2, 3].map((index) => (

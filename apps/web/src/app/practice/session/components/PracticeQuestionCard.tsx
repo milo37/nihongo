@@ -36,14 +36,14 @@ const QuestionPassage = ({
     <article
       ref={passageRef}
       aria-label={t('session.question.passageLabel')}
-      className="scroll-mt-4 rounded-card border border-line bg-surface px-5 py-5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand sm:p-7 lg:sticky lg:top-6 lg:max-h-[680px] lg:overflow-y-auto"
+      className="scroll-mt-4 rounded-card border border-line bg-surface px-5 py-[22px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand lg:sticky lg:top-6 lg:max-h-[calc(100vh-140px)] lg:overflow-y-auto lg:px-9 lg:py-8"
       tabIndex={0}
     >
       <p className="mb-3 text-[13px] font-bold text-muted">
         {t('session.question.passageLabel')}
       </p>
       <p
-        className="whitespace-pre-line text-[17px] leading-[1.9] tracking-[0.02em] text-ink"
+        className="whitespace-pre-line text-[17px] leading-[1.9] lg:text-[18px] tracking-[0.02em] text-ink"
         lang="ja"
       >
         {passage}
@@ -108,7 +108,7 @@ export const PracticeQuestionCard = ({
     <div
       className={
         question.passage
-          ? 'grid items-start gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-12'
+          ? 'grid items-start gap-8 lg:grid-cols-2 lg:gap-12'
           : undefined
       }
     >
@@ -150,7 +150,7 @@ export const PracticeQuestionCard = ({
           ) : null}
         </div>
 
-        <div className="mt-5">
+        <div className="mt-5 lg:mt-6">
           <RadioGroup
             className={OPTION_GROUP_CLASS}
             disabled={isOptionsDisabled}
@@ -163,7 +163,7 @@ export const PracticeQuestionCard = ({
                 <span className="flex items-center gap-3 font-normal">
                   <span
                     aria-hidden="true"
-                    className="grid size-7 shrink-0 place-items-center rounded-full bg-surface-muted text-sm font-bold group-has-[:checked]:bg-brand group-has-[:checked]:text-on-accent"
+                    className="grid size-7.5 shrink-0 place-items-center rounded-full bg-surface-muted text-sm font-bold group-has-[:checked]:bg-brand group-has-[:checked]:text-on-accent"
                   >
                     {option.label}
                   </span>

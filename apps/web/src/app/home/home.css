@@ -112,9 +112,18 @@
   /* The pick is shown by the state border, ✓/✕ and the text line below. */
   box-shadow: none;
 }
+/* Short answers keep the 정답/내 답 line on the same row (no 52→66px jump). */
+.home-daily-option-text {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0 12px;
+  min-width: 0;
+  text-align: left;
+}
 .home-daily-option-mark {
-  display: block;
-  margin-top: 2px;
   font-size: 13px;
   font-weight: 700;
 }
