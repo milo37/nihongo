@@ -5,6 +5,7 @@ import {
   frontendErrorReporter,
   installGlobalFrontendErrorReporting
 } from '@nihongo/browser/observability/frontendErrorReporter'
+import { loadAdminResources } from '@nihongo/browser/i18n/config'
 import { getRouteLabelKey } from '@nihongo/browser/i18n/routePresentation'
 import { AdminApp } from '@/App'
 import '@nihongo/browser/styles.css'
@@ -16,7 +17,8 @@ installGlobalFrontendErrorReporting(frontendErrorReporter, () =>
 )
 
 const startApplication = async (): Promise<void> => {
-  await unregisterMockServiceWorker()
+  // The learner app starts with a small part of the admin copy (JLP-758).
+  await Promise.all([unregisterMockServiceWorker(), loadAdminResources()])
   createRoot(rootElement).render(
     <StrictMode>
       <AdminApp />

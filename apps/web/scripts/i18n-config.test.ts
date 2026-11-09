@@ -1,5 +1,10 @@
 import { createHash } from 'node:crypto'
-import { jaResources, koResources } from '@nihongo/browser/i18n/resources/index'
+import {
+  jaAdminLearnerResources,
+  jaResources,
+  koAdminLearnerResources,
+  koResources
+} from '@nihongo/browser/i18n/resources/index'
 import { expect, it, vi } from 'vitest'
 
 it.each(['ko', 'ja'] as const)(
@@ -10,9 +15,19 @@ it.each(['ko', 'ja'] as const)(
       JSON.stringify({ version: 1, locale })
     )
     vi.resetModules()
-    const { appI18n } = await import('@nihongo/browser/i18n/config')
+    const { appI18n, loadAdminResources } = await import(
+      '@nihongo/browser/i18n/config'
+    )
     expect(appI18n.isInitialized).toBe(true)
-    expect(appI18n.getDataByLanguage('ja')).toEqual(jaResources)
+    // Startup carries only the admin copy the learner app shows (JLP-758).
+    expect(appI18n.getDataByLanguage('ja')).toEqual({
+      ...jaResources,
+      admin: jaAdminLearnerResources
+    })
+    expect(appI18n.getDataByLanguage('ko')).toEqual({
+      ...koResources,
+      admin: koAdminLearnerResources
+    })
     expect(Object.keys(appI18n.getDataByLanguage('ja') ?? {})).toEqual(
       Object.keys(jaResources)
     )
@@ -43,6 +58,9 @@ it.each(['ko', 'ja'] as const)(
       fetch.mockRestore()
       online.mockRestore()
     }
+    await loadAdminResources()
+    expect(appI18n.getDataByLanguage('ja')).toEqual(jaResources)
+    expect(appI18n.getDataByLanguage('ko')).toEqual(koResources)
   }
 )
 
