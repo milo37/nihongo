@@ -1273,6 +1273,11 @@
     animation: ui-toast-in 180ms ease-out;
   }
 
+  /* Korean breaks between words, so a balanced line never splits "3개를". */
+  .ui-toast p:lang(ko) {
+    word-break: keep-all;
+  }
+
   .ui-toast-success {
     --ui-toast-tone: var(--color-success);
   }

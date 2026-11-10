@@ -153,12 +153,12 @@ export const Toast = ({
         {variantIcons[variant]}
       </span>
       <div className="min-w-0 py-0.5">
-        <p className="break-words text-sm font-semibold leading-6">
+        <p className="break-words text-balance text-sm font-semibold leading-6">
           <span className="sr-only">{t(variantLabelKeys[variant])}: </span>
           {title}
         </p>
         {description ? (
-          <p className="mt-0.5 break-words text-[13px] leading-5 text-muted">
+          <p className="mt-0.5 break-words text-balance text-[13px] leading-5 text-muted">
             {description}
           </p>
         ) : null}
