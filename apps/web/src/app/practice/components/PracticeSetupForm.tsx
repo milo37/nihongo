@@ -11,25 +11,16 @@ import type {
 } from '@nihongo/browser/common/types/domain'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
-import { GUEST_SESSION_QUESTION_LIMIT } from '@nihongo/contracts/study/guest-limits'
 
 // Renders the <b>…</b> marks in a translated line as bold text.
-export const withBold = (text: string): ReactNode[] =>
-  text
-    .split(/(<b>.*?<\/b>)/u)
-    .map((part, index) =>
-      part.startsWith('<b>') ? <b key={index}>{part.slice(3, -4)}</b> : part
-    )
-
 type PracticeSetupFormProps = {
   /** Null until the default level is known. */
   level: JlptLevel | null
   subject: QuestionSubject
-  count: 5 | 10 | 20
+  count: number
   mode: StudyMode
   levels: readonly JlptLevel[]
   subjects: readonly QuestionSubject[]
-  counts: readonly number[]
   modes: readonly StudyMode[]
   isReady: boolean
   isGuest: boolean
@@ -43,7 +34,6 @@ type PracticeSetupFormProps = {
   feedback: ReactNode
   onLevelChange: (level: JlptLevel) => void
   onSubjectChange: (subject: QuestionSubject) => void
-  onCountChange: (count: number) => void
   onModeChange: (mode: StudyMode) => void
   onStart: () => void
 }
@@ -143,14 +133,13 @@ const StartSummary = ({
         {startLabel}
       </Button>
       {isGuest ? (
-        guestAllowance ? (
+        // Only after a first try: a fresh guest reads the rule up top.
+        guestAllowance &&
+        guestAllowance.remaining < guestAllowance.dailyLimit ? (
           <p className="practice-supply-note">
-            {withBold(
-              t('setup.guestLeft', {
-                total: formatNumber(guestAllowance.dailyLimit, locale),
-                remaining: formatNumber(guestAllowance.remaining, locale)
-              })
-            )}
+            {t('setup.guestLeft', {
+              remaining: formatNumber(guestAllowance.remaining, locale)
+            })}
           </p>
         ) : null
       ) : (
@@ -161,19 +150,18 @@ const StartSummary = ({
 }
 
 /**
- * Collapsible mode picker. For a guest every mode but RANDOM is marked
- * locked yet still choosable: choosing one explains why and keeps RANDOM.
+ * Collapsible mode picker, members only: every mode but RANDOM reads the
+ * member's wrong notes, so a guest has nothing to pick (JLP-823, no locks).
  */
 const ModeOptions = ({
   mode,
   modes,
   isReady,
-  isGuest,
   isCreating,
   onModeChange
 }: Pick<
   PracticeSetupFormProps,
-  'mode' | 'modes' | 'isReady' | 'isGuest' | 'isCreating' | 'onModeChange'
+  'mode' | 'modes' | 'isReady' | 'isCreating' | 'onModeChange'
 >): ReactElement => {
   const { t } = useTranslation('practice')
   return (
@@ -199,9 +187,7 @@ const ModeOptions = ({
         >
           {modes.map((value) => (
             <option key={value} value={value}>
-              {isGuest && value !== 'RANDOM'
-                ? `${t(`setup.modes.${value}.label`)} 🔒 ${t('setup.memberLocked')}`
-                : t(`setup.modes.${value}.label`)}
+              {t(`setup.modes.${value}.label`)}
             </option>
           ))}
         </Select>
@@ -220,7 +206,6 @@ export const PracticeSetupForm = ({
   mode,
   levels,
   subjects,
-  counts,
   modes,
   isReady,
   isGuest,
@@ -233,13 +218,10 @@ export const PracticeSetupForm = ({
   feedback,
   onLevelChange,
   onSubjectChange,
-  onCountChange,
   onModeChange,
   onStart
 }: PracticeSetupFormProps): ReactElement => {
-  const { i18n, t } = useTranslation('practice')
-  const locale = resolveUiLocale(i18n.resolvedLanguage)
-  const formatCount = (value: number): string => formatNumber(value, locale)
+  const { t } = useTranslation('practice')
 
   return (
     <form
@@ -259,45 +241,16 @@ export const PracticeSetupForm = ({
         disabled={isCreating}
         onSubjectChange={onSubjectChange}
       />
-      <div className="practice-settings">
-        <ChoiceRadioGroup
-          appearance="segmented"
-          className="choice-levels"
-          name="practice-level"
-          legend={t('setup.steps.level')}
-          value={level}
-          disabled={isCreating}
-          options={levels.map((value) => ({ value, label: value }))}
-          onValueChange={onLevelChange}
-        />
-        <ChoiceRadioGroup
-          appearance="segmented"
-          name="practice-count"
-          legend={t('setup.steps.count')}
-          value={String(count)}
-          disabled={isCreating}
-          options={counts.map((value) => ({
-            value: String(value),
-            label:
-              isGuest && value !== GUEST_SESSION_QUESTION_LIMIT ? (
-                <>
-                  {t('setup.questionCount', {
-                    formattedCount: formatCount(value)
-                  })}
-                  <span className="practice-locked-mark" aria-hidden="true">
-                    🔒
-                  </span>
-                  <span className="sr-only">{t('setup.memberLocked')}</span>
-                </>
-              ) : (
-                t('setup.questionCount', {
-                  formattedCount: formatCount(value)
-                })
-              )
-          }))}
-          onValueChange={(value) => onCountChange(Number(value))}
-        />
-      </div>
+      <ChoiceRadioGroup
+        appearance="segmented"
+        className="choice-levels"
+        name="practice-level"
+        legend={t('setup.steps.level')}
+        value={level}
+        disabled={isCreating}
+        options={levels.map((value) => ({ value, label: value }))}
+        onValueChange={onLevelChange}
+      />
 
       {feedback ? (
         <div className="practice-setup-feedback">{feedback}</div>
@@ -315,14 +268,15 @@ export const PracticeSetupForm = ({
         guestAllowance={guestAllowance}
         hasResumableSession={hasResumableSession}
       />
-      <ModeOptions
-        mode={mode}
-        modes={modes}
-        isReady={isReady}
-        isGuest={isGuest}
-        isCreating={isCreating}
-        onModeChange={onModeChange}
-      />
+      {isGuest ? null : (
+        <ModeOptions
+          mode={mode}
+          modes={modes}
+          isReady={isReady}
+          isCreating={isCreating}
+          onModeChange={onModeChange}
+        />
+      )}
     </form>
   )
 }

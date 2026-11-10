@@ -1,7 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
-import type { ReactElement } from 'react'
-import { Progress } from '@common/components/Progress'
+import type { ReactElement, ReactNode } from 'react'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 import type { PracticeNavigationContext } from '@app/layout'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
@@ -9,17 +8,24 @@ import { usePracticeNumberFormat } from '@app/practice/hooks/usePracticeNumberFo
 
 type PracticeSessionHeaderProps = {
   answeredCount: number
+  bookmarkButton: ReactNode
   currentNumber: number
   isBackDisabled: boolean
+  isQuestionSheetDisabled: boolean
+  onOpenQuestionSheet: () => void
   reviewContext: PracticeNavigationContext['reviewReturnContext']
   session: StudySessionView['session']
   total: number
 }
 
+/** Top bar: back, "N1 Reading 1 / 3" (opens the number sheet), bookmark, progress. */
 export const PracticeSessionHeader = ({
   answeredCount,
+  bookmarkButton,
   currentNumber,
   isBackDisabled,
+  isQuestionSheetDisabled,
+  onOpenQuestionSheet,
   reviewContext,
   session,
   total
@@ -27,15 +33,15 @@ export const PracticeSessionHeader = ({
   const { t } = useTranslation('practice')
   const { t: commonT } = useTranslation('common')
   const { formatCount } = usePracticeNumberFormat()
-  const progressValue = Math.round((answeredCount / total) * 100)
+  const position = `${formatCount(currentNumber)} / ${formatCount(total)}`
 
   return (
     <header
-      className={reviewContext ? 'study-session-context' : 'study-focus-header'}
+      className={`border-b border-line bg-surface ${reviewContext ? 'study-session-context' : ''}`}
     >
-      <div className="study-focus-header-inner">
+      <div className="mx-auto flex h-14 max-w-6xl lg:h-16 items-center gap-1 px-2">
         <Link
-          className="note-link size-11 justify-center"
+          className="note-link size-11 shrink-0 justify-center"
           aria-label={t(
             reviewContext
               ? 'session.header.backToExplanation'
@@ -55,28 +61,39 @@ export const PracticeSessionHeader = ({
         >
           <Icon name="chevron-left" />
         </Link>
-        <div>
-          <p className="study-session-title">
+        <p className="flex min-w-0 flex-1 items-center justify-center gap-1.5 text-base font-bold">
+          <span className="truncate">
             {session.level} {commonT(`taxonomy.subjects.${session.subject}`)}
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <span className="text-sm text-muted">
-              {commonT(`taxonomy.studyModes.${session.mode}`)}
-            </span>
-          </div>
-          <div className="mt-3">
-            <Progress
-              label={t('session.header.progressSummary', {
-                answered: formatCount(answeredCount),
-                current: formatCount(currentNumber),
-                total: formatCount(total)
-              })}
-              value={progressValue}
-              showValue={false}
-            />
-          </div>
+          </span>
+          {total > 1 ? (
+            <button
+              className="min-h-11 shrink-0 rounded-control px-1 tabular-nums underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+              type="button"
+              aria-haspopup="dialog"
+              aria-label={`${t('session.navigation.jumpLabel')} ${position}`}
+              disabled={isQuestionSheetDisabled}
+              onClick={onOpenQuestionSheet}
+            >
+              {position}
+            </button>
+          ) : (
+            <span className="shrink-0 tabular-nums">{position}</span>
+          )}
+        </p>
+        <div className="flex size-11 shrink-0 items-center justify-center">
+          {bookmarkButton}
         </div>
       </div>
+      <progress
+        className="ui-progress block h-1 w-full"
+        aria-label={t('session.header.progressSummary', {
+          answered: formatCount(answeredCount),
+          current: formatCount(currentNumber),
+          total: formatCount(total)
+        })}
+        max={total}
+        value={answeredCount}
+      />
     </header>
   )
 }

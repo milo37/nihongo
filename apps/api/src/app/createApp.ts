@@ -26,6 +26,7 @@ import {
   toHttpStatusClass
 } from '../observability/httpLog.js'
 import { createHealthRoutes } from '../routes/health.js'
+import { createDailyQuestionRoutes } from '../routes/dailyQuestion.js'
 import { createQuestionRoutes } from '../routes/questions.js'
 import { AuthGatewayError, type AuthGateway } from '../auth/authGateway.js'
 import type { ApiEnvironment } from '../config/env.js'
@@ -33,6 +34,7 @@ import type { GuestPrincipalService } from '../auth/guestPrincipalService.js'
 import type { PrincipalService } from '../auth/principalService.js'
 import { createWriteSecurity } from '../middleware/writeSecurity.js'
 import { createPrincipalRoutes } from '../routes/principal.js'
+import type { DailyQuestionReader } from '../question/dailyQuestion.js'
 import type { QuestionReader } from '../question/questionService.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import type { StudySessionService } from '../study/studySessionService.js'
@@ -44,7 +46,7 @@ import type { StudySubmissionService } from '../study/studySubmissionService.js'
 import { createStudySubmissionRoutes } from '../routes/studySubmissions.js'
 import type { WrongNoteService } from '../wrong-note/wrongNoteService.js'
 import type { WrongNoteReviewCenterService } from '../wrong-note/wrongNoteReviewCenterService.js'
-import type { WrongNoteReviewQueueService } from '../wrong-note/wrongNoteReviewQueueService.js'
+import type { WrongNoteReviewListService } from '../wrong-note/wrongNoteReviewList.js'
 import type { DashboardService } from '../dashboard/dashboardService.js'
 import type { DashboardInsightsService } from '../dashboard/dashboardInsightsService.js'
 import { createWrongNoteRoutes } from '../routes/wrongNotes.js'
@@ -54,9 +56,13 @@ import type { StudyDraftService } from '../study/studyDraftService.js'
 import { createStudyDraftRoutes } from '../routes/studyDrafts.js'
 import type { BookmarkService } from '../bookmark/bookmarkService.js'
 import { createBookmarkRoutes } from '../routes/bookmarks.js'
+import type { TargetLevelService } from '../member/targetLevel.js'
+import { createTargetLevelRoutes } from '../routes/targetLevel.js'
 import type { StudyResultRetryService } from '../study/studyResultRetryService.js'
 import { createStudyResultRetryRoutes } from '../routes/studyResultRetries.js'
-import { createReviewQueueRoutes } from '../routes/reviewQueue.js'
+import { createGuestResultImportRoutes } from '../routes/guestResultImport.js'
+import type { GuestResultImportService } from '../study/guestResultImport.js'
+import { createReviewListRoutes } from '../routes/reviewList.js'
 import type { WrongNoteTargetedReviewService } from '../wrong-note/wrongNoteTargetedReviewService.js'
 import { createTargetedReviewSessionRoutes } from '../routes/targetedReviewSessions.js'
 import type { AdminQuestionReader } from '../admin/adminQuestionService.js'
@@ -127,6 +133,8 @@ interface CreateApiAppDependencies {
   checkReadiness: () => Promise<void>
   logger: StructuredLogger
   questionReader: QuestionReader
+  /** Today's question (JLP-815); mounted with questionReadSecurity. */
+  dailyQuestionReader?: DailyQuestionReader
   releaseId?: string
   webAssetsDirectory?: string
   adminAssetsDirectory?: string
@@ -173,6 +181,8 @@ interface CreateApiAppDependencies {
     draftService?: StudyDraftService
     guestAllowanceReader?: GuestAllowanceReader
     guestIpDailyCounter?: GuestIpDailyCounter
+    /** Moves the guest's last result to the member at login (JLP-823). */
+    guestResultImportService?: GuestResultImportService
     rateLimiter: ApplicationRateLimiter
     retryService?: StudyResultRetryService
     service: StudySessionService
@@ -185,8 +195,10 @@ interface CreateApiAppDependencies {
     rateLimiter: ApplicationRateLimiter
     reviewCenterEnabled: boolean
     reviewCenterService: WrongNoteReviewCenterService
-    reviewQueueService?: WrongNoteReviewQueueService
+    /** Two-state wrong notes (JLP-812). */
+    reviewListService?: WrongNoteReviewListService
     targetedReviewService?: WrongNoteTargetedReviewService
+    targetLevelService?: TargetLevelService
     wrongNoteService: WrongNoteService
   }
   enableTestRoutes?: boolean
@@ -399,6 +411,7 @@ export const createApiApp = ({
   logger,
   learning,
   questionReader,
+  dailyQuestionReader,
   questionReadSecurity,
   questionReports,
   userReports,
@@ -744,9 +757,25 @@ export const createApiApp = ({
             accountRestrictionReader,
             environment: auth.environment,
             guestPrincipalService: auth.guestPrincipalService,
+            ...(study.guestIpDailyCounter
+              ? { guestIpDailyCounter: study.guestIpDailyCounter }
+              : {}),
             principalService: auth.principalService,
             rateLimiter: study.rateLimiter,
             studyResultRetryService: study.retryService
+          })
+        )
+      }
+      if (study.guestResultImportService) {
+        app.route(
+          '/api/v1/me/guest-result-import',
+          createGuestResultImportRoutes({
+            accountRestrictionReader,
+            environment: auth.environment,
+            guestPrincipalService: auth.guestPrincipalService,
+            guestResultImportService: study.guestResultImportService,
+            principalService: auth.principalService,
+            rateLimiter: study.rateLimiter
           })
         )
       }
@@ -787,6 +816,17 @@ export const createApiApp = ({
           })
         )
       }
+      if (learning.targetLevelService) {
+        app.route(
+          '/api/v1/me/target-level',
+          createTargetLevelRoutes({
+            environment: auth.environment,
+            principalService: auth.principalService,
+            rateLimiter: learning.rateLimiter,
+            targetLevelService: learning.targetLevelService
+          })
+        )
+      }
       app.route(
         '/api/v1/wrong-notes',
         createWrongNoteRoutes({
@@ -802,15 +842,15 @@ export const createApiApp = ({
       if (
         learning.reviewCenterEnabled &&
         study !== undefined &&
-        learning.reviewQueueService
+        learning.reviewListService
       ) {
         app.route(
-          '/api/v1/review-queue',
-          createReviewQueueRoutes({
+          '/api/v1/review-list',
+          createReviewListRoutes({
             environment: auth.environment,
             principalService: auth.principalService,
             rateLimiter: learning.rateLimiter,
-            reviewQueueService: learning.reviewQueueService
+            reviewListService: learning.reviewListService
           })
         )
       }
@@ -851,6 +891,17 @@ export const createApiApp = ({
         )
       }
     }
+  }
+
+  if (dailyQuestionReader && questionReadSecurity) {
+    app.route(
+      '/api/v1/daily-question',
+      createDailyQuestionRoutes({
+        dailyQuestionReader,
+        environment: questionReadSecurity.environment,
+        rateLimiter: questionReadSecurity.rateLimiter
+      })
+    )
   }
 
   app.route(

@@ -136,7 +136,9 @@ describe('현재 Google SSO 로그인', () => {
       })
     ).toHaveAttribute('href', '/legal#privacy')
     expect(
-      screen.getByText(/하루 2번, 5문제씩 풀 수 있어요\. 기록은 남지 않아요\./)
+      screen.getByText(
+        /하루 3번, 한 번에 10문제씩 풀 수 있어요\. 기록은 남지 않아요\./
+      )
     ).toBeInTheDocument()
   })
 
@@ -164,6 +166,8 @@ describe('현재 Google SSO 로그인', () => {
       expect(router.state.location.search).toBe(
         '?level=N2&subject=GRAMMAR&count=10&resumePage=2'
       )
+      // The first signed-in render asks once to move the guest result.
+      expect(sessionStorage.getItem('harumaru:guest-carry:v1')).toBe('1')
       expect(useAppStore.getState().currentUser).toMatchObject({
         id: DEMO_USER_ID,
         role: 'USER'
@@ -279,18 +283,18 @@ describe('현재 Google SSO 로그인', () => {
     await user.dblClick(google)
     await waitFor(() => expect(starts).toBe(1))
     expect(google).toBeDisabled()
-    expect(google).toHaveAccessibleName('Google로 이동하고 있어요.')
+    expect(google).toHaveAccessibleName('Google로 이동하는 중…')
     expect(google).toHaveAttribute('aria-busy', 'true')
     expect(google.querySelectorAll('.ui-spinner')).toHaveLength(1)
     expect(google.querySelector('img')).toBeNull()
-    expect(getAnnouncedStatus()).toHaveTextContent('Google로 이동하고 있어요.')
+    expect(getAnnouncedStatus()).toHaveTextContent('Google로 이동하는 중…')
     expect(getAnnouncedStatus()).toHaveClass('sr-only')
     expect(getAnnouncedStatus().closest('[aria-busy]')).toBeNull()
     await act(async () => {
       respond?.()
     })
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      '지금은 Google 로그인을 이용할 수 없어요.'
+      '지금은 Google로 로그인할 수 없어요.'
     )
     expect(google).toBeEnabled()
     expect(google).toHaveAccessibleName('Google로 계속하기')
@@ -347,7 +351,7 @@ describe('현재 Google SSO 로그인', () => {
       )
       expect(
         await screen.findByText(
-          '로그인 방법이 변경되었어요. 연결한 계정으로 계속해 주세요.'
+          '로그인 방법이 Google로 바뀌었어요. Google 계정으로 계속해 주세요.'
         )
       ).toBeInTheDocument()
       await waitFor(() =>
@@ -409,7 +413,7 @@ describe('현재 Google SSO 로그인', () => {
           label="Google로 계속하기"
           disabled
           isLoading={isLoading}
-          loadingLabel="Google로 이동하고 있어요."
+          loadingLabel="Google로 이동하는 중…"
           onClick={() => undefined}
         />
       </I18nProvider>
@@ -422,7 +426,7 @@ describe('현재 Google SSO 로그인', () => {
     expect(button.querySelector('img')).not.toBeNull()
     expect(screen.getByRole('status')).toBeEmptyDOMElement()
     rerender(view(true))
-    expect(button).toHaveAccessibleName('Google로 이동하고 있어요.')
+    expect(button).toHaveAccessibleName('Google로 이동하는 중…')
     expect(button).toHaveAttribute('aria-busy', 'true')
     expect(button.querySelectorAll('.ui-spinner')).toHaveLength(1)
     expect(getAnnouncedStatus()).toHaveClass('sr-only')
@@ -477,7 +481,7 @@ describe('관리자 ADMIN_FRESH 소비', () => {
     )
     expect(router.state.location.pathname).toBe('/login')
     expect(
-      screen.queryByRole('button', { name: 'Google로 본인 확인' })
+      screen.queryByRole('button', { name: 'Google로 확인하기' })
     ).not.toBeInTheDocument()
   })
 

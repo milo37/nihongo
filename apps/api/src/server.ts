@@ -20,6 +20,10 @@ import { createShutdownCoordinator } from './lifecycle/shutdownCoordinator.js'
 import { createJsonLogger } from './observability/logger.js'
 import { createPrismaQuestionRepository } from './question/questionRepository.js'
 import { createQuestionService } from './question/questionService.js'
+import {
+  createDailyQuestionService,
+  createPrismaDailyQuestionRepository
+} from './question/dailyQuestion.js'
 import { createApplicationRateLimiter } from './middleware/applicationRateLimiter.js'
 import { createPrismaStudySessionRepository } from './study/studySessionRepository.js'
 import { createStudySessionService } from './study/studySessionService.js'
@@ -40,10 +44,20 @@ import { createStudyDraftService } from './study/studyDraftService.js'
 import { startApiListener } from './lifecycle/startApiListener.js'
 import { createPrismaBookmarkRepository } from './bookmark/bookmarkRepository.js'
 import { createBookmarkService } from './bookmark/bookmarkService.js'
+import {
+  createPrismaTargetLevelRepository,
+  createTargetLevelService
+} from './member/targetLevel.js'
 import { createPrismaStudyResultRetryRepository } from './study/studyResultRetryRepository.js'
+import {
+  createGuestResultImportService,
+  createPrismaGuestResultImportRepository
+} from './study/guestResultImport.js'
 import { createStudyResultRetryService } from './study/studyResultRetryService.js'
-import { createPrismaWrongNoteReviewQueueRepository } from './wrong-note/wrongNoteReviewQueueRepository.js'
-import { createWrongNoteReviewQueueService } from './wrong-note/wrongNoteReviewQueueService.js'
+import {
+  createPrismaWrongNoteReviewListRepository,
+  createWrongNoteReviewListService
+} from './wrong-note/wrongNoteReviewList.js'
 import { createPrismaWrongNoteTargetedReviewRepository } from './wrong-note/wrongNoteTargetedReviewRepository.js'
 import { createWrongNoteTargetedReviewService } from './wrong-note/wrongNoteTargetedReviewService.js'
 import { createAdminReadRateLimiter } from './admin/adminReadRateLimiter.js'
@@ -126,6 +140,9 @@ const questionReader = createQuestionService(
     migrationProfile: runtimeMigrationProfile
   })
 )
+const dailyQuestionReader = createDailyQuestionService(
+  createPrismaDailyQuestionRepository(database.client)
+)
 const studySessionService = createStudySessionService(
   createPrismaStudySessionRepository(database.client)
 )
@@ -144,8 +161,8 @@ const wrongNoteService = createWrongNoteService(
 const wrongNoteReviewCenterService = createWrongNoteReviewCenterService(
   createPrismaWrongNoteReviewCenterRepository(database.client)
 )
-const wrongNoteReviewQueueService = createWrongNoteReviewQueueService(
-  createPrismaWrongNoteReviewQueueRepository(database.client)
+const wrongNoteReviewListService = createWrongNoteReviewListService(
+  createPrismaWrongNoteReviewListRepository(database.client)
 )
 const wrongNoteTargetedReviewService = createWrongNoteTargetedReviewService(
   createPrismaWrongNoteTargetedReviewRepository(database.client)
@@ -160,6 +177,9 @@ const bookmarkService = createBookmarkService(
   createPrismaBookmarkRepository(database.client, {
     migrationProfile: runtimeMigrationProfile
   })
+)
+const targetLevelService = createTargetLevelService(
+  createPrismaTargetLevelRepository(database.client)
 )
 const adminQuestionReader = createAdminQuestionService(
   createPrismaAdminQuestionRepository(database.client)
@@ -262,11 +282,13 @@ const app = createApiApp({
     rateLimiter: applicationRateLimiter,
     reviewCenterEnabled: true,
     reviewCenterService: wrongNoteReviewCenterService,
-    reviewQueueService: wrongNoteReviewQueueService,
+    reviewListService: wrongNoteReviewListService,
     targetedReviewService: wrongNoteTargetedReviewService,
+    targetLevelService,
     wrongNoteService
   },
   questionReader,
+  dailyQuestionReader,
   questionReadSecurity: {
     environment,
     rateLimiter: applicationRateLimiter
@@ -282,6 +304,9 @@ const app = createApiApp({
       keySecret: environment.GUEST_COOKIE_SECRET,
       rateLimiter: applicationRateLimiter
     }),
+    guestResultImportService: createGuestResultImportService(
+      createPrismaGuestResultImportRepository(database.client)
+    ),
     rateLimiter: applicationRateLimiter,
     retryService: studyResultRetryService,
     service: studySessionService,

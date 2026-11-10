@@ -32,7 +32,7 @@ export const Badge = ({
   return (
     <span
       className={classNames(
-        'inline-flex max-w-full items-center rounded-control border px-2 py-0.5 text-xs font-semibold leading-5',
+        'inline-flex max-w-full items-center rounded-control border px-2 py-0.5 text-caption font-semibold leading-5',
         '[overflow-wrap:anywhere]',
         variantClassNames[variant],
         className

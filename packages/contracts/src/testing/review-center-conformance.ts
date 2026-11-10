@@ -9,11 +9,6 @@ import {
   encodeReviewEventCursor,
   type ListReviewEventsResponse
 } from '../wrong-note/list-review-events.js'
-import { listReviewQueueOperationId } from '../wrong-note/list-review-queue.js'
-import type {
-  ListReviewQueueResponse,
-  ReviewQueueItem
-} from '../wrong-note/list-review-queue.js'
 import { updateWrongNoteMemoOperationId } from '../wrong-note/update-wrong-note-memo.js'
 import type { UserMemo } from '../wrong-note/user-memo.js'
 import type {
@@ -50,16 +45,6 @@ const REPLAY_HEADER = {
 } as const satisfies PracticeRouteConditionalHeaderExpectation
 
 export const reviewCenterRouteConformanceCases = [
-  {
-    operationId: listReviewQueueOperationId,
-    method: 'GET',
-    path: '/api/v1/review-queue',
-    successStatuses: [200],
-    responseBody: 'JSON',
-    requiredResponseHeaders: COMMON_JSON_HEADERS,
-    conditionalResponseHeaders: [],
-    forbiddenResponseHeaders: []
-  },
   {
     operationId: getWrongNoteMemoOperationId,
     method: 'GET',
@@ -120,7 +105,7 @@ export const reviewCenterRouteConformanceCases = [
   }
 ] as const satisfies readonly PracticeRouteConformanceCase[]
 
-type ReviewCenterPayloadKind = 'QUEUE' | 'MEMO' | 'HISTORY' | 'TARGETED_SESSION'
+type ReviewCenterPayloadKind = 'MEMO' | 'HISTORY' | 'TARGETED_SESSION'
 
 const commonForbiddenKeys = [
   'userId',
@@ -173,17 +158,6 @@ const commonForbiddenKeys = [
 ] as const
 
 const forbiddenKeysByKind = {
-  QUEUE: [
-    ...commonForbiddenKeys,
-    'question',
-    'correctOptionId',
-    'selectedOptionId',
-    'isCorrect',
-    'explanationKo',
-    'explanationJa',
-    'memo',
-    'text'
-  ],
   MEMO: [
     ...commonForbiddenKeys,
     'question',
@@ -259,25 +233,13 @@ export const assertNoReviewCenterForbiddenKeys = (
 const id = (index: number): string =>
   `018f6b7a-1f4b-7d5e-8a91-${index.toString(16).padStart(12, '0')}`
 
-const queueItem = {
+const wrongNoteRef = {
   questionId: id(10),
-  currentQuestionVersionId: id(11),
-  level: 'N5',
-  subject: 'VOCABULARY',
-  questionType: 'KANJI_READING',
-  questionPreview: '「川」의 읽는 법은 어느 것입니까.',
-  tags: ['한자 읽기'],
-  status: 'AGAIN',
-  wrongCount: 2,
-  correctStreak: 0,
-  lastWrongAt: '2026-08-21T02:00:00.000Z',
-  lastReviewedAt: '2026-08-21T02:00:00.000Z',
-  nextReviewAt: '2026-08-22T02:00:00.000Z',
-  hasMemo: true
-} satisfies ReviewQueueItem
+  currentQuestionVersionId: id(11)
+} as const
 
 const memo = {
-  questionId: queueItem.questionId,
+  questionId: wrongNoteRef.questionId,
   text: '川은 かわ라고 읽는다.',
   createdAt: '2026-08-21T02:30:00.000Z',
   updatedAt: '2026-08-21T02:30:00.000Z'
@@ -286,7 +248,7 @@ const memo = {
 const olderEvent = {
   id: id(30),
   source: 'STUDY_SUBMIT',
-  questionVersionId: queueItem.currentQuestionVersionId,
+  questionVersionId: wrongNoteRef.currentQuestionVersionId,
   selectedOptionId: null,
   isCorrect: false,
   elapsedSec: 12,
@@ -303,7 +265,7 @@ const olderEvent = {
 const newerEvent = {
   id: id(31),
   source: 'WRONG_NOTE_REVIEW',
-  questionVersionId: queueItem.currentQuestionVersionId,
+  questionVersionId: wrongNoteRef.currentQuestionVersionId,
   selectedOptionId: id(21),
   isCorrect: false,
   elapsedSec: 8,
@@ -333,15 +295,6 @@ const targetedSession = {
 } as const satisfies VersionedStudySessionPayload
 
 export const reviewCenterConformanceFixture = {
-  queue: {
-    items: [queueItem],
-    page: 1,
-    pageSize: 20,
-    total: 1,
-    counts: { due: 1, unreviewed: 0, repeated: 1, solved: 0 },
-    availableTags: ['한자 읽기'],
-    observedAt: '2026-08-22T03:00:00.000Z'
-  } satisfies ListReviewQueueResponse,
   memo,
   history: {
     items: [newerEvent, olderEvent],
@@ -352,7 +305,7 @@ export const reviewCenterConformanceFixture = {
     occurredAt: olderEvent.occurredAt,
     id: olderEvent.id
   }),
-  targetedQuestionId: queueItem.questionId,
+  targetedQuestionId: wrongNoteRef.questionId,
   targetedCanonicalMaterial:
     'study-targeted-review-v1\n018f6b7a-1f4b-7d5e-8a91-00000000000a',
   targetedSha256:

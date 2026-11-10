@@ -1,13 +1,8 @@
 import { useRef } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen, waitFor } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
+import { render, screen, waitFor } from '@testing-library/react'
 import { HttpResponse, http } from 'msw'
-import {
-  createMemoryRouter,
-  RouterProvider,
-  useSearchParams
-} from 'react-router'
+import { createMemoryRouter, RouterProvider } from 'react-router'
 import { afterEach, expect, it } from 'vitest'
 import { listResumableStudySessionsResponseSchema } from '@nihongo/contracts/study/list-resumable-study-sessions'
 import { ResumablePractice } from '@app/practice/components/ResumablePractice'
@@ -21,30 +16,19 @@ afterEach(() => {
   clients.forEach((client) => client.clear())
   clients.length = 0
 })
+// The setup screen asks for the most recent session only (page 1, size 1).
 const Harness = () => {
-  const [search, setSearch] = useSearchParams()
-  const page = Number(search.get('resumePage') ?? 1)
-  const query = useListResumableStudySessions(page, 5)
+  const query = useListResumableStudySessions(1, 1)
   const heading = useRef<HTMLHeadingElement>(null)
-  const nextSearch = (nextPage: number): URLSearchParams => {
-    const next = new URLSearchParams(search)
-    if (nextPage === 1) next.delete('resumePage')
-    else next.set('resumePage', String(nextPage))
-    return next
-  }
   return (
     <ResumablePractice
       query={query}
       canLoad
-      requestedPage={page}
-      pageCount={Math.max(1, Math.ceil((query.data?.total ?? 0) / 5))}
       sourceUnavailable={query.isError || query.fetchStatus === 'paused'}
       interactionLocked={
         query.isFetching || query.isError || query.fetchStatus === 'paused'
       }
       headingRef={heading}
-      getPageHref={(next) => `?${nextSearch(next).toString()}`}
-      onPageChange={(next) => setSearch(nextSearch(next))}
       onCancel={() => undefined}
     />
   )
@@ -76,12 +60,14 @@ const mount = (total: number, legacy = false) => {
   }
   mockServer.use(
     http.get('*/api/v1/study-sessions', ({ request }) => {
-      const page = Number(new URL(request.url).searchParams.get('page'))
+      const params = new URL(request.url).searchParams
+      const page = Number(params.get('page'))
+      const pageSize = Number(params.get('pageSize'))
       const body = listResumableStudySessionsResponseSchema.parse({
-        items: items.slice((page - 1) * 5, page * 5),
+        items: items.slice((page - 1) * pageSize, page * pageSize),
         total,
         page,
-        pageSize: 5
+        pageSize
       })
       return HttpResponse.json(body, {
         headers: {
@@ -129,39 +115,30 @@ it('does not resume or cancel an older local-only session', async () => {
     })
   ).not.toBeInTheDocument()
 })
-it('preserves a single resumable banner without adding a one-item list pager', async () => {
-  mount(1)
-  expect(
-    await screen.findByRole('link', {
-      name: appI18n.t('practice:setup.resume.action')
-    })
-  ).toHaveAttribute('href', expect.stringContaining('/practice/session/'))
-  expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
-  expect(
-    screen.queryByRole('button', {
-      name: appI18n.t('practice:setup.resume.otherAction')
-    })
-  ).not.toBeInTheDocument()
-})
-it.each([2, 5])(
-  'shows one real page only in the expanded multiple-session list (%s)',
+it.each([1, 6])(
+  'shows only the most recent session with no list, pager or more button (%s saved)',
   async (total) => {
     mount(total)
-    await userEvent.click(
-      await screen.findByRole('button', {
-        name: appI18n.t('practice:setup.resume.otherAction')
+    expect(
+      await screen.findByRole('link', {
+        name: appI18n.t('practice:setup.resume.action')
       })
-    )
-    const nav = screen.getByRole('navigation', {
-      name: appI18n.t('practice:setup.resume.paginationLabel')
-    })
-    expect(nav.querySelector('[aria-current="page"]')).toHaveTextContent('1')
-    expect(nav.querySelectorAll('[aria-disabled="true"]')).toHaveLength(4)
+    ).toHaveAttribute('href', expect.stringContaining('/practice/session/'))
     expect(
       screen.getAllByRole('link', {
         name: appI18n.t('practice:setup.resume.action')
       })
-    ).toHaveLength(total)
+    ).toHaveLength(1)
+    expect(
+      screen.getByRole('button', {
+        name: appI18n.t('practice:setup.resume.cancel')
+      })
+    ).toBeVisible()
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
+    expect(
+      // The old "more" list button is gone (JLP-812).
+      screen.queryByRole('button', { name: /^(더 보기|もっと見る)$/u })
+    ).not.toBeInTheDocument()
   }
 )
 it('hides the source after a confirmed empty response without inventing one page', async () => {
@@ -173,27 +150,4 @@ it('hides the source after a confirmed empty response without inventing one page
   )
   expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
   expect(screen.queryByRole('link')).not.toBeInTheDocument()
-})
-it('keeps new-study settings through list paging and Back while focusing only the user-selected page', async () => {
-  const { router } = mount(6)
-  await userEvent.click(
-    await screen.findByRole('button', {
-      name: appI18n.t('practice:setup.resume.otherAction')
-    })
-  )
-  await userEvent.click(screen.getByRole('link', { name: '다음 페이지' }))
-  await waitFor(() =>
-    expect(screen.getByRole('link', { current: 'page' })).toHaveTextContent('2')
-  )
-  expect(screen.getByRole('link', { current: 'page' })).toHaveFocus()
-  expect(router.state.location.search).toBe(
-    '?level=N5&mode=RANDOM&resumePage=2'
-  )
-  await act(async () => {
-    await router.navigate(-1)
-  })
-  await waitFor(() =>
-    expect(screen.getByRole('link', { current: 'page' })).toHaveTextContent('1')
-  )
-  expect(router.state.location.search).toBe('?level=N5&mode=RANDOM')
 })

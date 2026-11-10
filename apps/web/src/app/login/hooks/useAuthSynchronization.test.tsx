@@ -252,7 +252,7 @@ describe('canonical auth synchronization', () => {
     renderProbe(createClient())
     expect(
       await screen.findByRole('heading', {
-        name: '로그인 상태를 확인할 수 없어요'
+        name: '로그인을 확인하지 못했어요'
       })
     ).toBeInTheDocument()
     expect(screen.queryByText('현재 역할: USER')).not.toBeInTheDocument()
@@ -304,11 +304,12 @@ it('reuses the real desktop/mobile shell during auth error and restores main foc
   )
   renderShellProbe(createClient())
   await screen.findByRole('heading', {
-    name: '로그인 상태를 확인할 수 없어요'
+    name: '로그인을 확인하지 못했어요'
   })
-  expect(document.querySelector('.app-side-navigation')).toBeInTheDocument()
+  expect(document.querySelector('#primary-navigation')).toBeInTheDocument()
   expect(document.querySelector('.app-mobile-navigation')).toBeInTheDocument()
-  expect(screen.getByRole('contentinfo')).toBeInTheDocument()
+  // Learners reach the information links from 마이, not a shell footer.
+  expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument()
   expect(document.querySelector('main#main-content')).toBeInTheDocument()
   expect(screen.queryByText('현재 역할: USER')).not.toBeInTheDocument()
   expect(useAppStore.getState().currentUser?.id).toBe(currentUser.id)
@@ -319,13 +320,14 @@ it('reuses the real desktop/mobile shell during auth error and restores main foc
     expect(document.getElementById('main-content')).toHaveFocus()
   )
   expect(
-    screen.queryByRole('heading', { name: '로그인 상태를 확인할 수 없어요' })
+    screen.queryByRole('heading', { name: '로그인을 확인하지 못했어요' })
   ).not.toBeInTheDocument()
 })
 it('keeps the default Layout Outlet when no body override is supplied', async () => {
   mockDatabase.logout()
   renderShellProbe(createClient())
   expect(await screen.findByText('현재 역할: GUEST')).toBeInTheDocument()
-  expect(document.querySelector('.app-side-navigation')).toBeInTheDocument()
-  expect(screen.getByRole('contentinfo')).toBeInTheDocument()
+  expect(document.querySelector('#primary-navigation')).toBeInTheDocument()
+  // Learners reach the information links from 마이, not a shell footer.
+  expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument()
 })

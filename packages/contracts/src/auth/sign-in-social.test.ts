@@ -4,8 +4,10 @@ import {
   isSsoAuthorizationURLForProvider,
   signInSocialRequestSchema,
   signInSocialResponseSchema,
-  ssoCallbackOutcomeSchema
+  ssoCallbackOutcomeSchema,
+  ssoReviewListStates
 } from './sign-in-social.js'
+import { wrongNoteReviewStateSchema } from '../wrong-note/list-review-list.js'
 
 const validURL = () => {
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth')
@@ -19,6 +21,9 @@ const validURL = () => {
 }
 
 describe('agreed SSO transport', () => {
+  it('keeps the wrong-note return states equal to the review-list contract', () => {
+    expect([...ssoReviewListStates]).toEqual(wrongNoteReviewStateSchema.options)
+  })
   it('allows only user-selected Apple and Google and fixed Apple code form_post', () => {
     expect(
       signInSocialRequestSchema.parse({ provider: 'apple' }).provider
@@ -104,19 +109,19 @@ describe('agreed SSO transport', () => {
   })
   it.each([
     '/dashboard?view=learning&count=5&resumePage=2',
-    '/wrong-notes?view=UNREVIEWED&questionType=KANJI_READING&tag=example&page=2',
+    '/wrong-notes?state=REVIEWED&level=N5&page=2',
     '/practice/result/session-id?question=question-id'
   ])('retains actual UI filters: %s', (value) => {
     expect(safeSsoReturnPath(value)).toBe(value)
   })
   it('canonicalizes a finite detail-to-review-list returnTo', () => {
-    const nested = '/wrong-notes/history?status=NEW&page=2'
+    const nested = '/wrong-notes/history?status=SOLVED&page=2'
     const result = safeSsoReturnPath(
       '/wrong-notes/question-id?returnTo=' + encodeURIComponent(nested)
     )
     expect(
       new URL(result, 'https://app.test').searchParams.get('returnTo')
-    ).toBe('/wrong-notes?view=UNREVIEWED&page=2')
+    ).toBe('/wrong-notes?state=REVIEWED&page=2')
     expect(
       new URL(
         safeSsoReturnPath('/wrong-notes/question-id?returnTo=%2Fdashboard'),

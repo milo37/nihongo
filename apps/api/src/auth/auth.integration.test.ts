@@ -30,6 +30,10 @@ import {
 } from './principalService.js'
 import { GUEST_COOKIE_NAME } from '../routes/principal.js'
 import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
+import {
+  createPrismaTargetLevelRepository,
+  createTargetLevelService
+} from '../member/targetLevel.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({
@@ -791,5 +795,54 @@ describe(
         ).toBeNull()
       }
     )
+
+    it('JLP-815 nihongo_app stores only the member target level', async () => {
+      if (!isCurrentSourceIntegration) return
+      const session = await createSsoSessionFixture({
+        owner: fixtureDatabase.client,
+        gateway: database.client,
+        secret: environment.BETTER_AUTH_SECRET,
+        role: 'USER'
+      })
+      createdUserIds.add(session.userId)
+      const before = await fixtureDatabase.client.user.findUniqueOrThrow({
+        where: { id: session.userId },
+        select: { name: true, updatedAt: true }
+      })
+      const targetLevelService = createTargetLevelService(
+        createPrismaTargetLevelRepository(database.client)
+      )
+
+      await expect(
+        targetLevelService.update(session.userId, 'N3')
+      ).resolves.toEqual({ targetLevel: 'N3' })
+      const principalResponse = await app.request('/api/v1/me', {
+        headers: { Cookie: session.cookie }
+      })
+      expect(await principalResponse.json()).toMatchObject({
+        kind: 'USER',
+        user: { id: session.userId, targetLevel: 'N3' }
+      })
+      await expect(
+        fixtureDatabase.client.user.findUniqueOrThrow({
+          where: { id: session.userId },
+          select: { name: true, updatedAt: true }
+        })
+      ).resolves.toEqual(before)
+
+      // The grant is one column: any other User column stays closed.
+      await expect(
+        database.client.$executeRaw`
+          UPDATE "User" SET "name" = 'renamed'
+          WHERE "id" = ${session.userId}::uuid
+        `
+      ).rejects.toMatchObject({
+        code: 'P2010',
+        message: expect.stringMatching(/permission denied/u)
+      })
+      await expect(
+        targetLevelService.update(randomUUID(), 'N1')
+      ).rejects.toMatchObject({ code: 'AUTHENTICATION_REQUIRED' })
+    })
   }
 )

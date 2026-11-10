@@ -229,11 +229,18 @@ export const createReviewFacts = async (
   input: {
     readonly answerIdBySessionQuestionId: ReadonlyMap<string, string>
     readonly effectiveSubmittedAt: Date
-    readonly gradedAnswers: ReturnType<
-      typeof gradePinnedStudySubmission
-    >['answers']
+    readonly gradedAnswers: readonly Pick<
+      ReturnType<typeof gradePinnedStudySubmission>['answers'][number],
+      | 'isCorrect'
+      | 'questionVersionId'
+      | 'selectedOptionId'
+      | 'studySessionQuestionId'
+    >[]
     readonly mode: AtomicSession['mode']
-    readonly questions: readonly AtomicQuestion[]
+    readonly questions: readonly Pick<
+      AtomicQuestion,
+      'questionId' | 'studySessionQuestionId'
+    >[]
     readonly sessionId: string
     readonly userId: string
     readonly wrongNotes: readonly LockedWrongNoteRow[]

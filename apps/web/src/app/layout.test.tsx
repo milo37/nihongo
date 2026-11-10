@@ -36,7 +36,7 @@ beforeEach(() => {
 afterEach(() => useAppStore.setState({ isMobileMenuOpen: false }))
 
 it.each(['ko', 'ja'] as const)(
-  'keeps approved brand, three destinations and account locale/Escape (%s)',
+  'keeps approved brand, four destinations and account locale/Escape (%s)',
   async (locale) => {
     await appI18n.changeLanguage(locale)
     render(
@@ -49,14 +49,15 @@ it.each(['ko', 'ja'] as const)(
         name: appI18n.t('common:appName')
       })
     ).toHaveAttribute('href', '/')
-    const primary = screen.getByRole('navigation', {
-      name: appI18n.t('navigation:primary')
-    })
+    const primary = topNavigation()
     expect(
       within(primary)
         .getAllByRole('link')
         .map((a) => a.getAttribute('href'))
-    ).toEqual(['/practice', '/wrong-notes', '/bookmarks'])
+    ).toEqual(['/practice', '/wrong-notes', '/bookmarks', '/account'])
+    expect(
+      within(primary).getByRole('link', { name: appI18n.t('navigation:my') })
+    ).toBeInTheDocument()
     expect(
       within(primary).getByRole('link', {
         name: appI18n.t('navigation:learningStart')
@@ -66,9 +67,11 @@ it.each(['ko', 'ja'] as const)(
     expect(
       within(screen.getByRole('banner')).queryByRole('combobox')
     ).not.toBeInTheDocument()
+    // A guest sees a [로그인] text button that opens the same menu.
     const account = screen.getByRole('button', {
-      name: appI18n.t('navigation:accountMenu.label')
+      name: appI18n.t('navigation:login')
     })
+    expect(account).toHaveTextContent(appI18n.t('navigation:login'))
     expect(account).toHaveAttribute('aria-haspopup', 'menu')
     await userEvent.click(account)
     expect(account).toHaveAttribute('aria-expanded', 'true')
@@ -99,30 +102,21 @@ it.each(['ko', 'ja'] as const)(
   }
 )
 
-it.each(['ko', 'ja'] as const)(
-  'keeps three information entry destinations in document flow (%s)',
-  async (locale) => {
-    await appI18n.changeLanguage(locale)
-    render(
-      <MemoryRouter initialEntries={['/login']}>
-        <Layout />
-      </MemoryRouter>
-    )
-    const footer = screen.getByRole('contentinfo')
-    const nav = within(footer).getByRole('navigation', {
-      name: appI18n.t('common:footer.informationLabel')
-    })
-    expect(
-      within(nav)
-        .getAllByRole('link')
-        .map((a) => a.getAttribute('href'))
-    ).toEqual(['/legal', '/support', '/account/data'])
-    expect(
-      screen.getByRole('main').compareDocumentPosition(footer) &
-        Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy()
-  }
-)
+// The information links moved to the bottom of 마이 (direction §1-1).
+// The top bar and the bottom tabs share one name; CSS shows one at a time.
+const topNavigation = (): HTMLElement =>
+  screen
+    .getAllByRole('navigation', { name: appI18n.t('navigation:primary') })
+    .find((nav) => nav.id === 'primary-navigation') as HTMLElement
+
+it('renders no shell footer for learners', () => {
+  render(
+    <MemoryRouter initialEntries={['/login']}>
+      <Layout />
+    </MemoryRouter>
+  )
+  expect(screen.queryByRole('contentinfo')).not.toBeInTheDocument()
+})
 
 it.each(['ko', 'ja'] as const)(
   'shares active learning context for member entry and preserves admin access (%s)',
@@ -135,10 +129,8 @@ it.each(['ko', 'ja'] as const)(
         <Layout />
       </MemoryRouter>
     )
-    for (const label of ['primary', 'mobilePrimary'] as const) {
-      const nav = screen.getByRole('navigation', {
-        name: appI18n.t(`navigation:${label}`)
-      })
+    for (const id of ['primary-navigation', 'mobile-navigation']) {
+      const nav = document.getElementById(id) as HTMLElement
       expect(
         within(nav).getByRole('link', {
           name: appI18n.t('navigation:learningStart')
@@ -168,7 +160,7 @@ it.each(['ko', 'ja'] as const)(
     ).toHaveAttribute('href', '/account')
     expect(
       within(menu).queryByRole('link', {
-        name: appI18n.t('navigation:adminQuestions')
+        name: appI18n.t('navigation:routes.adminQuestions')
       })
     ).not.toBeInTheDocument()
     await userEvent.keyboard('{End}')
@@ -209,9 +201,7 @@ it('keeps review session/result navigation in review context', () => {
       <Layout />
     </MemoryRouter>
   )
-  const nav = screen.getByRole('navigation', {
-    name: appI18n.t('navigation:primary')
-  })
+  const nav = topNavigation()
   expect(
     within(nav).getByRole('link', { name: appI18n.t('navigation:wrongNotes') })
   ).toHaveAttribute('aria-current', 'page')
@@ -219,22 +209,14 @@ it('keeps review session/result navigation in review context', () => {
   expect(document.title).toContain(appI18n.t('common:appName'))
 })
 
-it('composes desktop navigation outside the utility header without duplicating destination IDs', () => {
+it('puts the desktop links in the top bar without duplicating destination IDs', () => {
   render(
     <MemoryRouter initialEntries={['/bookmarks']}>
       <Layout />
     </MemoryRouter>
   )
-  const sidebar = screen.getByRole('navigation', {
-    name: appI18n.t('navigation:primary')
-  })
-  expect(sidebar.closest('.app-side-navigation')).not.toBeNull()
-  expect(screen.getByRole('banner').contains(sidebar)).toBe(false)
-  expect(
-    within(screen.getByRole('banner')).queryByRole('link', {
-      name: appI18n.t('navigation:learningStart')
-    })
-  ).not.toBeInTheDocument()
+  const sidebar = topNavigation()
+  expect(screen.getByRole('banner').contains(sidebar)).toBe(true)
   expect(document.querySelectorAll('#primary-navigation')).toHaveLength(1)
   expect(document.querySelectorAll('#mobile-navigation')).toHaveLength(1)
   expect(
@@ -249,9 +231,7 @@ it('keeps an ordinary result in learning context rather than switching it to rev
       <Layout />
     </MemoryRouter>
   )
-  const sidebar = screen.getByRole('navigation', {
-    name: appI18n.t('navigation:primary')
-  })
+  const sidebar = topNavigation()
   expect(
     within(sidebar).getByRole('link', {
       name: appI18n.t('navigation:learningStart')

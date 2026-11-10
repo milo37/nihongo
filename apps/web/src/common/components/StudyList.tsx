@@ -54,7 +54,7 @@ export const StudyListRow = ({
   const body = (
     <>
       <div className="grid min-w-0 flex-1 gap-1">
-        <p className="text-xs font-semibold text-muted">{meta}</p>
+        <p className="text-caption font-semibold text-muted">{meta}</p>
         <p
           className="line-clamp-2 text-base leading-relaxed sm:text-[17px]"
           lang="ja"

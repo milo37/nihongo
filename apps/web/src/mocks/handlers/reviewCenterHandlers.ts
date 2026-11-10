@@ -13,11 +13,12 @@ import {
   listReviewEventsQuerySchema,
   listReviewEventsResponseSchema
 } from '@nihongo/contracts/wrong-note/list-review-events'
+
 import {
-  listReviewQueueErrorSchema,
-  listReviewQueueQuerySchema,
-  listReviewQueueResponseSchema
-} from '@nihongo/contracts/wrong-note/list-review-queue'
+  listReviewListErrorSchema,
+  listReviewListQuerySchema,
+  listReviewListResponseSchema
+} from '@nihongo/contracts/wrong-note/list-review-list'
 import {
   createUpdateWrongNoteMemoResponseSchema,
   updateWrongNoteMemoBodySchema,
@@ -426,28 +427,26 @@ export const reviewCenterHandlers = [
       }
     }
   ),
-  http.get('*/api/v1/review-queue', ({ request }) => {
+  http.get('*/api/v1/review-list', ({ request }) => {
     const requestId = crypto.randomUUID()
     try {
-      consumeReviewCenterRateLimit('wrong-note-review-queue', 120)
+      consumeReviewCenterRateLimit('wrong-note-review-list', 120)
       const query = parseSearchParams(
         request,
-        listReviewQueueQuerySchema,
-        '복습 대기열 조회 조건이 올바르지 않습니다.'
+        listReviewListQuerySchema,
+        '오답노트 조회 조건이 올바르지 않습니다.'
       )
-      const userId = requireUserId(
-        '복습 대기열을 조회하려면 로그인이 필요합니다.'
-      )
-      const response = listReviewQueueResponseSchema.parse(
-        mockDatabase.listCanonicalReviewQueue(userId, query)
+      const userId = requireUserId('오답노트를 보려면 로그인이 필요합니다.')
+      const response = listReviewListResponseSchema.parse(
+        mockDatabase.listCanonicalReviewList(userId, query)
       )
       return HttpResponse.json(response, {
         headers: responseHeaders(requestId)
       })
     } catch (error: unknown) {
       return errorResponse(
-        listReviewQueueErrorSchema,
-        normalizeError(error, requestId, '복습 대기열을 불러오지 못했습니다.')
+        listReviewListErrorSchema,
+        normalizeError(error, requestId, '오답노트를 불러오지 못했습니다.')
       )
     }
   }),

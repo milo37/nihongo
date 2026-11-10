@@ -14,7 +14,6 @@ import {
   saveStudyDraftAnswersResponseSchema
 } from '@nihongo/contracts/study/save-study-draft-answers'
 import { getDashboardStatsResponseSchema } from '@nihongo/contracts/dashboard/get-dashboard-stats'
-import { getDashboardInsightsResponseSchema } from '@nihongo/contracts/dashboard/get-dashboard-insights'
 import {
   listResumableStudySessionsQuerySchema,
   listResumableStudySessionsResponseSchema
@@ -31,6 +30,7 @@ import type { JSHandle, Page, Response, Route } from '@playwright/test'
 import { getCurrentPrincipalResponseSchema } from '@nihongo/contracts/auth/get-current-principal'
 import { ssoAccountCapabilitiesSchema } from '@nihongo/contracts/auth/sso-account-management'
 import { getWrongNoteResponseSchema } from '@nihongo/contracts/wrong-note/get-wrong-note'
+import { importGuestResultResponseSchema } from '@nihongo/contracts/study/import-guest-result'
 import {
   isSsoAuthorizationURLForProvider,
   signInSocialResponseSchema
@@ -236,7 +236,9 @@ const ssoRequestContract = [
         method: 'GET',
         path: '/api/auth/callback/google',
         statuses: [303]
-      }
+      },
+  // The first signed-in render moves the guest's last result once (JLP-823).
+  { method: 'POST', path: '/api/v1/me/guest-result-import', statuses: [200] }
 ] as const satisfies readonly RequestLedgerContractEntry[]
 
 // Opening My page reads the sign-in methods and the all-time stats once.
@@ -257,7 +259,6 @@ const userJourneyRequestContract = [
     path: '/api/v1/study-sessions',
     statuses: successfulStatuses(3)
   },
-  { method: 'GET', path: '/api/v1/dashboard/insights', statuses: [200] },
   { method: 'GET', path: '/api/v1/bookmarks', statuses: successfulStatuses(3) },
   {
     method: 'GET',
@@ -270,15 +271,22 @@ const userJourneyRequestContract = [
     statuses: successfulStatuses(15)
   },
   { method: 'GET', path: '/api/v1/study-sessions/:id/result', statuses: [200] },
-  { method: 'GET', path: '/api/v1/review-queue', statuses: [200, 200] },
+  // The review page twice, and the member first screen's 'to review' line
+  // on each of its two visits (JLP-823).
+  {
+    method: 'GET',
+    path: '/api/v1/review-list',
+    statuses: successfulStatuses(4)
+  },
   { method: 'GET', path: '/api/v1/wrong-notes/:id', statuses: [200, 200] },
-  { method: 'GET', path: '/api/v1/wrong-notes/:id/memo', statuses: [200] },
   {
     method: 'GET',
     path: '/api/v1/wrong-notes/:id/review-events',
     statuses: [200]
   },
-  { method: 'GET', path: '/api/v1/dashboard', statuses: [200, 200] },
+  { method: 'GET', path: '/api/v1/dashboard', statuses: [200] },
+  // Today's question on the learning home, once per level shown (D, #801).
+  { method: 'GET', path: '/api/v1/daily-question', statuses: [200, 200] },
   { method: 'POST', path: '/api/v1/study-sessions', statuses: [201] },
   {
     method: 'POST',
@@ -300,16 +308,19 @@ const userJourneyRequestContract = [
 const resilienceRequestContract = [
   ...ssoRequestContract,
   ...accountPageRequestContract,
-  { method: 'GET', path: '/api/v1/dashboard', statuses: [200] },
   {
     method: 'GET',
     path: '/api/v1/me',
     statuses: successfulStatuses(mode === 'mock' ? 3 : 2)
   },
   { method: 'GET', path: '/api/v1/study-sessions', statuses: [200] },
+  // Today's question on the learning home (D, #801).
+  { method: 'GET', path: '/api/v1/daily-question', statuses: [200] },
+  // The member first screen's 'to review' line (JLP-823).
+  { method: 'GET', path: '/api/v1/review-list', statuses: [200] },
   {
     method: 'GET',
-    path: '/api/v1/dashboard/insights',
+    path: '/api/v1/dashboard',
     statuses: [
       200,
       'NETWORK_ERROR',
@@ -360,8 +371,9 @@ const openPracticeModes = async (page: Page) => {
   const modeSelect = disclosure.locator('select[name="practice-mode"]')
   await expect(modeSelect).toHaveCount(1)
   await expect(modeSelect).toBeVisible()
-  await expect(modeSelect).toHaveAccessibleName('출제 모드')
-  await expect(modeSelect.locator('option')).toHaveCount(5)
+  await expect(modeSelect).toHaveAccessibleName('출제 방식')
+  // Random or the review set only (subtract table 3).
+  await expect(modeSelect.locator('option')).toHaveCount(2)
   return modeSelect
 }
 
@@ -425,7 +437,7 @@ const loginThroughUi = async (page: Page): Promise<void> => {
       listResumableStudySessionsQuerySchema.parse(
         Object.fromEntries(new URL(response.url()).searchParams)
       )
-    ).toEqual({ page: 1, pageSize: 5, status: 'IN_PROGRESS' })
+    ).toEqual({ page: 1, pageSize: 1, status: 'IN_PROGRESS' })
     expect(
       await response.request().headerValue('X-Nihongo-Practice-Contract')
     ).toBe('2')
@@ -433,7 +445,7 @@ const loginThroughUi = async (page: Page): Promise<void> => {
     const sessions = listResumableStudySessionsResponseSchema.parse(
       await readCanonicalResponse(response)
     )
-    expect(sessions).toEqual({ items: [], total: 0, page: 1, pageSize: 5 })
+    expect(sessions).toEqual({ items: [], total: 0, page: 1, pageSize: 1 })
   })
   const startedResponse = waitForApiResponse(
     page,
@@ -441,7 +453,12 @@ const loginThroughUi = async (page: Page): Promise<void> => {
     '/api/auth/sign-in/social'
   )
   const providerURL = /^https:\/\/accounts\.google\.com\//u
-  if (mode === 'real') await page.route(providerURL, (route) => route.abort())
+  // Answer the provider with a blank page: an aborted navigation lands on
+  // Chromium's error page late enough to interrupt the callback below.
+  if (mode === 'real')
+    await page.route(providerURL, (route) =>
+      route.fulfill({ contentType: 'text/html', body: '<!doctype html>' })
+    )
   try {
     const completeSignIn = async (): Promise<void> => {
       if (mode === 'mock') {
@@ -476,6 +493,7 @@ const loginThroughUi = async (page: Page): Promise<void> => {
         ).toBe(true)
         const state = new URL(redirected.url()).searchParams.get('state')
         if (!state) throw new Error('Google TEST authorization omitted state.')
+        await page.waitForURL(providerURL)
         await page.goto(
           `/api/auth/callback/google?${new URLSearchParams({ state, code: 'sso-browser-test-code' })}`
         )
@@ -512,7 +530,7 @@ const queryClientModulePath =
   '/@fs' +
   new URL(import.meta.resolve('@nihongo/browser/libs/queryClient')).pathname
 
-const invalidateDashboardInsights = async (page: Page): Promise<void> => {
+const invalidateDashboardStats = async (page: Page): Promise<void> => {
   await page.evaluate(async (modulePath) => {
     const { queryClient } = (await import(/* @vite-ignore */ modulePath)) as {
       queryClient: {
@@ -524,7 +542,7 @@ const invalidateDashboardInsights = async (page: Page): Promise<void> => {
     }
     await queryClient.invalidateQueries({
       exact: true,
-      queryKey: ['dashboard', 'get-insights']
+      queryKey: ['dashboard', 'get-stats']
     })
   }, queryClientModulePath)
 }
@@ -555,16 +573,16 @@ const armDashboardFault = async (
     await page.evaluate(async (faultKind) => {
       const modulePath = '/src/test/journeyBrowserMockControl.ts'
       const control = (await import(/* @vite-ignore */ modulePath)) as {
-        armDashboardInsightsFault: (value: DashboardFault) => void
+        armDashboardStatsFault: (value: DashboardFault) => void
       }
-      control.armDashboardInsightsFault(faultKind)
+      control.armDashboardStatsFault(faultKind)
     }, fault)
     return async () => undefined
   }
 
   const failureCount = fault === 'network' ? 2 : fault === 'rate-limit' ? 3 : 1
   let remaining = failureCount
-  const pattern = '**/api/v1/dashboard/insights'
+  const pattern = '**/api/v1/dashboard'
   const handler = async (route: Route): Promise<void> => {
     if (remaining <= 0) {
       await route.continue()
@@ -581,7 +599,7 @@ const armDashboardFault = async (
         contentType: 'application/json',
         headers: {
           'Cache-Control': 'private, no-store',
-          'X-Nihongo-Test-Fault': 'dashboard-insights-malformed'
+          'X-Nihongo-Test-Fault': 'dashboard-stats-malformed'
         },
         status: 200
       })
@@ -599,7 +617,7 @@ const armDashboardFault = async (
       headers: {
         'Cache-Control': 'private, no-store',
         'Retry-After': '0',
-        'X-Nihongo-Test-Fault': 'dashboard-insights-429',
+        'X-Nihongo-Test-Fault': 'dashboard-stats-429',
         'X-Request-Id': requestId
       },
       status: 429
@@ -658,29 +676,25 @@ const answerEveryQuestionWithFirstOption = async (
   await expect(page.locator('main h1')).toBeFocused()
   const isSingleReview =
     created.session.mode === 'WRONG_NOTE' && created.session.actualCount === 1
-  const questionMap = page.locator('.study-question-map')
-  await expect(questionMap).toHaveCount(1)
+  // The number sheet opens from the top bar's "1 / N" (direction §6-4).
+  const sheetTrigger = page.getByRole('button', { name: /^문제 번호 /u })
   if (isSingleReview) {
     expect(created.questions).toHaveLength(1)
     await expect(page.locator('.study-review-session')).toBeVisible()
-    await expect(questionMap).toBeHidden()
+    await expect(sheetTrigger).toHaveCount(0)
     await expect(
       page.getByRole('link', { name: '해설로 돌아가기', exact: true })
     ).toBeVisible()
     await expect(
-      page.getByRole('button', { name: '답안 제출', exact: true })
+      page.getByRole('button', { name: '제출하기', exact: true })
     ).toBeVisible()
   } else {
     await expect(page.locator('.study-review-session')).toHaveCount(0)
-    await expect(questionMap).toBeVisible()
+    await expect(sheetTrigger).toBeVisible()
   }
   const draftPath = `/api/v1/study-sessions/${created.session.id}/draft-answers`
   for (const [index, item] of created.questions.entries()) {
     const ordinal = index + 1
-    const jump = page.getByRole('button', {
-      name: `${ordinal}번 문제, 미응답`,
-      exact: true
-    })
     const options = page.locator(
       `input[type="radio"][name="question-${item.question.id}"]`
     )
@@ -706,12 +720,12 @@ const answerEveryQuestionWithFirstOption = async (
     await page.clock.pauseAt(clockTime)
     await page.clock.setSystemTime(clockTime)
     try {
-      if (isSingleReview) {
-        await expect(jump).toHaveCount(0)
-      } else {
-        await expect(jump).toHaveCount(1)
-        if (ordinal > 1) await jump.click()
-        await expect(jump).toHaveAttribute('data-current', 'true')
+      if (!isSingleReview) {
+        if (ordinal > 1)
+          await page.getByRole('button', { name: '다음', exact: true }).click()
+        await expect(sheetTrigger).toHaveText(
+          `${ordinal} / ${created.questions.length}`
+        )
       }
       await expect(options).toHaveCount(4)
       await expect(page.locator('main h1')).toBeFocused()
@@ -816,25 +830,42 @@ const openMyPage = async (page: Page): Promise<void> => {
 const recommendationRegion = (page: Page) =>
   page.getByRole('region', { name: '추천 학습', exact: true })
 
-// On the account page a failed insights read hides the recommendations
-// without an alert; the next successful read shows them again.
+const myStudyRegion = (page: Page) =>
+  page.getByRole('region', { name: '내 학습', exact: true })
+
+const myStudyLoadingCopy = '불러오는 중…'
+
+// On My page a failed stats re-read keeps the last summary without an alert;
+// the next successful read refreshes it (JLP-812: My page reads only stats).
 const assertFaultRecovery = async (
   page: Page,
   ledger: RequestLedger,
   fault: DashboardFault
 ): Promise<void> => {
-  const path = '/api/v1/dashboard/insights'
+  const path = '/api/v1/dashboard'
   const startIndex = ledger.entries.length
+  const failureCount = fault === 'network' ? 2 : fault === 'rate-limit' ? 3 : 1
+  // The baseline must be the loaded summary, never the loading copy.
+  await expect(myStudyRegion(page)).toBeVisible()
+  await expect(myStudyRegion(page)).not.toContainText(myStudyLoadingCopy)
+  const summaryBefore = await myStudyRegion(page).innerText()
   const removeFault = await armDashboardFault(page, fault)
   try {
-    await invalidateDashboardInsights(page)
-    await expect(recommendationRegion(page)).toBeHidden()
+    await invalidateDashboardStats(page)
+    await expect
+      .poll(() => ledgerEntriesFor(ledger, 'GET', path, startIndex).length, {
+        timeout: 20_000
+      })
+      .toBe(failureCount)
+    await waitForLedgerToQuiesce(ledger, startIndex)
+    await expect(myStudyRegion(page)).toHaveText(summaryBefore, {
+      useInnerText: true
+    })
     await expect(page.locator('main [role="alert"]')).toHaveCount(0)
   } finally {
     await removeFault()
   }
   const failedEntries = ledgerEntriesFor(ledger, 'GET', path, startIndex)
-  const failureCount = fault === 'network' ? 2 : fault === 'rate-limit' ? 3 : 1
   expect(failedEntries).toHaveLength(failureCount)
   expect(failedEntries.map(({ status }) => status)).toEqual(
     fault === 'network'
@@ -854,14 +885,14 @@ const assertFaultRecovery = async (
   const recovered = waitForApiResponse(page, 'GET', path).then(
     async (response) => {
       expect(response.headers()['x-nihongo-test-fault']).toBeUndefined()
-      getDashboardInsightsResponseSchema.parse(
+      getDashboardStatsResponseSchema.parse(
         await readCanonicalResponse(response)
       )
     }
   )
-  await invalidateDashboardInsights(page)
+  await invalidateDashboardStats(page)
   await recovered
-  await expect(recommendationRegion(page)).toBeVisible()
+  await expect(myStudyRegion(page)).toBeVisible()
   await waitForLedgerToQuiesce(ledger)
   const entries = ledgerEntriesFor(ledger, 'GET', path, startIndex)
   expect(entries).toHaveLength(failureCount + 1)
@@ -894,13 +925,12 @@ const startVocabularySessionThroughUi = async (
   await settleJourneyPage(page)
   for (const [label, parameter, value] of [
     ['N5', 'level', 'N5'],
-    ['어휘', 'subject', 'VOCABULARY'],
-    ['5문제', 'count', '5']
+    ['문자·어휘', 'subject', 'VOCABULARY']
   ] as const) {
     const radio = page.getByRole('radio', { name: label, exact: true })
     const choice = page.locator('label.choice-option').filter({ has: radio })
     await expect(choice).toHaveCount(1)
-    // A default choice (target level, VOCABULARY, 10) stays out of the URL.
+    // A default choice (target level, VOCABULARY) stays out of the URL.
     const isDefault =
       (await radio.isChecked()) &&
       new URL(page.url()).searchParams.get(parameter) === null
@@ -916,9 +946,8 @@ const startVocabularySessionThroughUi = async (
   await expect(
     page.locator('input[name="practice-subject"][value="VOCABULARY"]')
   ).toBeChecked()
-  await expect(
-    page.locator('input[name="practice-count"][value="5"]')
-  ).toBeChecked()
+  // A member always gets one set of 10; there is no count choice.
+  await expect(page.locator('input[name="practice-count"]')).toHaveCount(0)
   const studyMode = await openPracticeModes(page)
   await expect(studyMode).toHaveValue('RANDOM')
   const originalNow = await freezePracticeClock(page)
@@ -941,7 +970,7 @@ const startVocabularySessionThroughUi = async (
     '/api/v1/study-sessions'
   )
   await page
-    .getByRole('button', { name: 'N5 어휘 · 5문제 시작', exact: true })
+    .getByRole('button', { name: 'N5 문자·어휘 10문제 시작', exact: true })
     .click()
   const response = await createdResponse
   expect(response.status()).toBe(201)
@@ -949,18 +978,21 @@ const startVocabularySessionThroughUi = async (
   expect(response.headers()['x-nihongo-practice-contract']).toBe('2')
   expect(
     createStudySessionV2BodySchema.parse(response.request().postDataJSON())
-  ).toEqual({ level: 'N5', subject: 'VOCABULARY', count: 5, mode: 'RANDOM' })
+  ).toEqual({ level: 'N5', subject: 'VOCABULARY', count: 10, mode: 'RANDOM' })
   const created = createStudySessionV2ResponseSchema.parse(
     await response.json()
   )
+  // Asks for 10; the isolated seed may hold fewer N5 vocabulary questions,
+  // and the server then gives what it has.
+  expect(created.session.actualCount).toBeGreaterThan(0)
+  expect(created.session.actualCount).toBeLessThanOrEqual(10)
   expect(created.session).toMatchObject({
-    actualCount: 5,
     level: 'N5',
     mode: 'RANDOM',
     practiceContractVersion: 2,
     subject: 'VOCABULARY'
   })
-  expect(created.questions).toHaveLength(5)
+  expect(created.questions).toHaveLength(created.session.actualCount)
   await expect(page).toHaveURL(
     new RegExp(`/practice/session/${created.session.id}$`, 'u')
   )
@@ -970,7 +1002,7 @@ const startVocabularySessionThroughUi = async (
     revision: 0,
     currentOrdinal: 1
   })
-  expect(draft.answers).toHaveLength(5)
+  expect(draft.answers).toHaveLength(created.session.actualCount)
   expect(
     draft.answers.every(({ selectedOptionId }) => selectedOptionId === null)
   ).toBe(true)
@@ -981,19 +1013,15 @@ const submitCurrentSessionThroughUi = async (
   page: Page,
   sessionId: string,
   originalNow: JSHandle<() => number>,
-  heading: '학습 결과' | '복습 완료' = '학습 결과'
+  heading: '결과' | '복습 결과' = '결과'
 ): Promise<SubmitStudySessionV2Response> => {
   const submittedResponse = waitForApiResponse(
     page,
     'POST',
     `/api/v1/study-sessions/${sessionId}/submission`
   )
-  await page.getByRole('button', { name: '답안 제출', exact: true }).click()
-  const dialog = page.getByRole('dialog', { name: '답안을 제출할까요?' })
-  await expect(dialog).toBeVisible()
-  await dialog
-    .getByRole('button', { name: '제출하고 결과 보기', exact: true })
-    .click()
+  // Every question is answered, so there is no confirm dialog (subtract #9).
+  await page.getByRole('button', { name: '제출하기', exact: true }).click()
   const response = await submittedResponse
   expect(response.status()).toBe(201)
   expect(response.fromServiceWorker()).toBe(mode === 'mock')
@@ -1007,6 +1035,11 @@ const submitCurrentSessionThroughUi = async (
   await expect(
     page.getByRole('heading', { name: heading, exact: true })
   ).toBeVisible()
+  // The grading reveal renders with the result (not after a single review).
+  if (await page.locator('.grading-reveal').count()) {
+    await page.getByRole('button', { name: '결과 보기', exact: true }).click()
+    await expect(page.locator('.grading-reveal')).toHaveCount(0)
+  }
   await restorePracticeClock(page, originalNow)
   return submitted
 }
@@ -1030,16 +1063,11 @@ test('guest SSO boundary and authenticated practice transition match the active 
   await guestPrincipal
   await settleJourneyPage(page)
   await expect(
-    page.getByText(/^로그인 없이 하루 2번, 5문제씩 풀어 볼 수 있어요\./u)
+    page.getByText(/^로그인 없이 하루 3번, 한 번에 10문제씩 풀 수 있어요\./u)
   ).toBeVisible()
-  await expect(page.getByText('오늘 체험 2회 중 2회 남았어요.')).toBeVisible()
-  // Locked, not disabled: choosing one explains sign-in (U4 L11).
-  const studyMode = await openPracticeModes(page)
-  for (const value of ['WEAKNESS', 'BOOKMARK', 'DAILY_REVIEW', 'WRONG_NOTE']) {
-    const option = studyMode.locator(`option[value="${value}"]`)
-    await expect(option).toBeEnabled()
-    await expect(option).toContainText('로그인 필요')
-  }
+  // A fresh guest reads the rule only; no count line, no locks (JLP-823).
+  await expect(page.getByText(/더 풀 수 있어요/u)).toHaveCount(0)
+  await expect(page.locator('select[name="practice-mode"]')).toHaveCount(0)
   for (const path of [
     '/login?mode=signup#retired-token',
     '/reset-password#retired-token',
@@ -1051,7 +1079,7 @@ test('guest SSO boundary and authenticated practice transition match the active 
     )
     await expect(
       page.getByText(
-        '로그인 방법이 변경되었어요. 연결한 계정으로 계속해 주세요.',
+        '로그인 방법이 Google로 바뀌었어요. Google 계정으로 계속해 주세요.',
         { exact: true }
       )
     ).toBeVisible()
@@ -1071,11 +1099,9 @@ test('guest SSO boundary and authenticated practice transition match the active 
   await expect(recommendationRegion(page)).toHaveCount(0)
   await settleJourneyPage(page)
   const memberStudyMode = await openPracticeModes(page)
-  for (const value of ['WEAKNESS', 'BOOKMARK', 'DAILY_REVIEW', 'WRONG_NOTE']) {
-    const option = memberStudyMode.locator(`option[value="${value}"]`)
-    await expect(option).toBeEnabled()
-    await expect(option).not.toContainText('로그인 필요')
-  }
+  await expect(
+    memberStudyMode.locator('option[value="DAILY_REVIEW"]')
+  ).toBeEnabled()
   await expect(page.getByText(/^로그인 없이 하루/u)).toHaveCount(0)
   await waitForLedgerToQuiesce(ledger)
   assertCanonicalLedger(ledger)
@@ -1092,9 +1118,86 @@ test('guest SSO boundary and authenticated practice transition match the active 
       statuses: successfulStatuses(mode === 'mock' ? 6 : 5)
     },
     { method: 'GET', path: '/api/v1/guest-allowance', statuses: [200] },
+    // The first screen shows today's question (D, #801).
+    { method: 'GET', path: '/api/v1/daily-question', statuses: [200] },
+    // After login the member first screen reads its 'to review' line (JLP-823).
+    { method: 'GET', path: '/api/v1/review-list', statuses: [200] },
     { method: 'GET', path: '/api/v1/study-sessions', statuses: [200] }
   ])
 })
+
+// The mock does not move guest sessions; the real server does. Registered
+// only for real so the mock evidence keeps its exact test count.
+if (mode === 'real')
+  test('guest result moves to the wrong notes on sign-in (JLP-823 D1)', async ({
+    page
+  }) => {
+    test.setTimeout(120_000)
+    await prepareJourney(page, '203.0.113.246')
+    await page.goto('/practice')
+    await settleJourneyPage(page)
+    const created = waitForApiResponse(page, 'POST', '/api/v1/study-sessions')
+    await page.locator('main button[type="submit"]:visible').first().click()
+    const sessionId = createStudySessionV2ResponseSchema.parse(
+      await (await created).json()
+    ).session.id
+    await expect(page).toHaveURL(
+      new RegExp(`/practice/session/${sessionId}`, 'u')
+    )
+    const answers = page.locator(
+      'main input[type="radio"]:not([name^="practice-"])'
+    )
+    const next = page.locator('main button').filter({ hasText: /^다음$/u })
+    for (;;) {
+      await answers.first().waitFor({ state: 'attached' })
+      await answers.first().check({ force: true })
+      if (!((await next.count()) > 0 && (await next.first().isEnabled()))) break
+      await next.first().click()
+    }
+    await page
+      .locator('button')
+      .filter({ hasText: /^제출하기$/u })
+      .locator('visible=true')
+      .first()
+      .evaluate((button: HTMLButtonElement) => button.click())
+    const confirm = page.getByRole('dialog')
+    if (await confirm.count())
+      await confirm
+        .getByRole('button')
+        .last()
+        .evaluate((button: HTMLButtonElement) => button.click())
+    await expect(page).toHaveURL(
+      new RegExp(`/practice/result/${sessionId}`, 'u')
+    )
+    await settleJourneyPage(page)
+    await page.goto('/login')
+    await settleJourneyPage(page)
+    const imported = waitForApiResponse(
+      page,
+      'POST',
+      '/api/v1/me/guest-result-import'
+    )
+    await loginThroughUi(page)
+    const moved = importGuestResultResponseSchema.parse(
+      await readCanonicalResponse(await imported)
+    )
+    expect(moved.importedSessionId).toBe(sessionId)
+    // Every first option across a whole set: some are wrong.
+    expect(moved.wrongAnswerCount).toBeGreaterThan(0)
+    await expect(
+      page
+        .getByRole('region', { name: '알림' })
+        .getByText(
+          `방금 푼 틀린 문제 ${moved.wrongAnswerCount}개를 오답노트에 모았어요.`
+        )
+    ).toBeVisible()
+    const reviewList = waitForApiResponse(page, 'GET', '/api/v1/review-list')
+    await page.locator('#primary-navigation a[href="/wrong-notes"]').click()
+    const listed = (await readCanonicalResponse(await reviewList)) as {
+      total: number
+    }
+    expect(listed.total).toBeGreaterThanOrEqual(moved.wrongAnswerCount)
+  })
 
 test('USER completes one setup-to-dashboard journey with an exact mutation ledger', async ({
   context,
@@ -1137,7 +1240,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   const persisted = await reloadedResult
   expect(persisted).toEqual(primarySubmission)
   await expect(
-    page.getByRole('heading', { name: '학습 결과', exact: true })
+    page.getByRole('heading', { name: '결과', exact: true })
   ).toBeVisible()
   const chooseLocale = async (value: 'ko' | 'ja'): Promise<void> => {
     await page.locator('#account-menu-button').click()
@@ -1147,31 +1250,27 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   }
   await chooseLocale('ja')
   await expect(
-    page.getByRole('heading', { name: '学習結果', exact: true })
+    page.getByRole('heading', { name: '結果', exact: true })
   ).toBeVisible()
   await chooseLocale('ko')
 
-  await page.getByRole('link', { name: '오답노트 보기', exact: true }).click()
+  // The result screen keeps two buttons only (subtract table 10), so open
+  // the review list in-app (no reload).
+  await page.evaluate(() => {
+    window.history.pushState(null, '', '/wrong-notes')
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  })
   await expect(page).toHaveURL(
-    (url) =>
-      url.pathname === '/wrong-notes' &&
-      url.searchParams.get('view') === 'UNREVIEWED'
+    (url) => url.pathname === '/wrong-notes' && url.search === ''
   )
-  await expect(
-    page.getByRole('heading', { name: '복습', exact: true })
-  ).toBeVisible()
-  await expect(
-    page.getByRole('combobox', { name: '복습 범위', exact: true })
-  ).toHaveValue('UNREVIEWED')
-  await expect(
-    page.getByRole('heading', { name: '3문제', exact: true })
-  ).toBeVisible()
+  await expect(page.getByRole('tab', { selected: true })).toHaveCount(1)
+  await expect(page.getByRole('combobox')).toHaveCount(0)
+  await expect(page.locator('#review-panel ol > li')).toHaveCount(3)
   const returnTo = new URL(page.url()).pathname + new URL(page.url()).search
   const detail = page.locator(
-    `.review-item-link[href^="/wrong-notes/${incorrect.question.id}?"]`
+    `#review-panel a[href^="/wrong-notes/${incorrect.question.id}?"]`
   )
   await expect(detail).toHaveCount(1)
-  await expect(detail).toContainText('해설 보기')
   await detail.click()
   await expect(page).toHaveURL(
     (url) =>
@@ -1179,10 +1278,11 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
       url.searchParams.get('returnTo') === returnTo
   )
   await expect(
-    page.getByRole('heading', { name: '해설 보기', exact: true })
-  ).toBeVisible()
-  await expect(
-    page.getByText(incorrect.question.questionText, { exact: true })
+    page.getByRole('heading', {
+      level: 1,
+      name: incorrect.question.questionText,
+      exact: true
+    })
   ).toBeVisible()
 
   const targetedInitialDraft = page
@@ -1204,7 +1304,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
     `/api/v1/wrong-notes/${incorrect.question.id}/review-session`
   )
   await page
-    .getByRole('button', { name: '이 문제만 다시 풀기', exact: true })
+    .getByRole('button', { name: '이 문제 다시 풀기', exact: true })
     .click()
   const targetedResponse = await targetedResponsePromise
   expect(targetedResponse.status()).toBe(201)
@@ -1244,7 +1344,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
     page,
     targeted.session.id,
     targetedOriginalNow,
-    '복습 완료'
+    '복습 결과'
   )
   expect(targetedSubmission).toMatchObject({
     correctCount: 0,
@@ -1252,7 +1352,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
     totalCount: 1
   })
   await expect(
-    page.getByRole('heading', { name: '다시 확인해 볼까요?', exact: true })
+    page.getByRole('heading', { name: '아쉽게 틀렸어요.', exact: true })
   ).toBeVisible()
   const completed = await completionState
   expect(completed.wrongNote).toMatchObject({
@@ -1260,58 +1360,33 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
     status: 'AGAIN',
     wrongCount: 2
   })
-  const nextReviewDate = await page.evaluate(
-    (iso) =>
-      new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium' }).format(
-        new Date(iso)
-      ),
-    completed.wrongNote.nextReviewAt
-  )
   await expect(page.locator('.review-feedback p')).toHaveText(
-    `같은 문제를 다시 틀렸어요. 해설을 읽고 다시 복습해요. 다음 복습: ${nextReviewDate}`
+    "아직 '복습할 문제'에 있어요. 해설을 읽고 다시 풀어 봐요."
+  )
+  await expect(page.locator('.review-current-status')).toHaveText(
+    '오답노트복습할 문제'
   )
 
   const dashboardStartIndex = ledger.entries.length
   await page.getByRole('link', { name: '복습 목록으로', exact: true }).click()
   await expect(page).toHaveURL((url) => url.pathname + url.search === returnTo)
-  const summaryResponse = waitForApiResponse(
+  const finalStatsResponse = waitForApiResponse(
     page,
     'GET',
     '/api/v1/dashboard'
   ).then(async (response) =>
     getDashboardStatsResponseSchema.parse(await readCanonicalResponse(response))
   )
-  await page.locator('details.review-recent-results > summary').click()
-  const summary = await summaryResponse
-  expect(summary).toMatchObject({ totalAnsweredCount: 6, wrongNoteCount: 3 })
-  expect(summary.recentStudySessions.map(({ id }) => id).toSorted()).toEqual(
-    [created.session.id, targeted.session.id].toSorted()
-  )
-  for (const sessionId of [created.session.id, targeted.session.id]) {
-    await expect(
-      page.locator(
-        `details.review-recent-results a[href="/practice/result/${sessionId}"]`
-      )
-    ).toBeVisible()
-  }
-  const finalInsightsResponse = waitForApiResponse(
-    page,
-    'GET',
-    '/api/v1/dashboard/insights'
-  ).then(async (response) =>
-    getDashboardInsightsResponseSchema.parse(
-      await readCanonicalResponse(response)
-    )
-  )
-  const home = page.locator('.app-side-brand a[href="/"]')
+  const home = page.locator('header .app-brand[href="/"]')
   await expect(home).toHaveCount(1)
   await expect(home).toBeVisible()
   await home.click()
   await expect(page).toHaveURL(/\/dashboard\?view=learning$/u)
   await openMyPage(page)
-  const insights = await finalInsightsResponse
-  expect(insights.stats.overall.attemptedCount).toBe(6)
-  await expect(recommendationRegion(page)).toBeVisible()
+  const finalStats = await finalStatsResponse
+  expect(finalStats.totalAnsweredCount).toBe(6)
+  await expect(myStudyRegion(page)).toBeVisible()
+  await expect(recommendationRegion(page)).toHaveCount(0)
   await waitForLedgerToQuiesce(ledger)
 
   const signInEntries = ledgerEntriesFor(
@@ -1396,23 +1471,9 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
     '/api/v1/dashboard',
     dashboardStartIndex
   )
-  const dashboardInsightEntries = ledgerEntriesFor(
-    ledger,
-    'GET',
-    '/api/v1/dashboard/insights',
-    dashboardStartIndex
-  )
-  // The review page reads the summary once, then My page reads it fresh and
-  // starts insights only after that read settles.
-  expect(dashboardSummaryEntries).toHaveLength(2)
-  expect(dashboardInsightEntries).toHaveLength(1)
-  expect(requireFinished(dashboardSummaryEntries[1])).toBeLessThan(
-    dashboardInsightEntries[0]?.startSequence ?? -1
-  )
-  for (const entry of [
-    ...dashboardSummaryEntries,
-    ...dashboardInsightEntries
-  ]) {
+  // The review page no longer reads the summary (JLP-812); My page reads it once.
+  expect(dashboardSummaryEntries).toHaveLength(1)
+  for (const entry of dashboardSummaryEntries) {
     expect(requireFinished(entry)).toBeGreaterThan(entry.startSequence)
     expect(requireFinished(submissionEntries[1])).toBeLessThan(
       entry.startSequence
@@ -1456,8 +1517,12 @@ test('network, rate-limit, and malformed responses require explicit recovery wit
   expect(landingReads[0]?.startSequence).toBeGreaterThan(
     signIn[0]?.finishSequence ?? -1
   )
+  const initialStats = waitForApiResponse(page, 'GET', '/api/v1/dashboard')
   await openMyPage(page)
-  await expect(recommendationRegion(page)).toBeVisible()
+  getDashboardStatsResponseSchema.parse(
+    await readCanonicalResponse(await initialStats)
+  )
+  await expect(myStudyRegion(page)).toBeVisible()
   for (const fault of [
     'network',
     'rate-limit',

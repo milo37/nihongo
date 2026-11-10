@@ -44,15 +44,10 @@ it.each([0, -1, Number.NaN])('hides a nonexistent total %s', (total) => {
 it('keeps one real page with all four movement controls disabled', async () => {
   const change = vi.fn()
   render(<Pagination currentPage={1} totalPages={1} onPageChange={change} />)
-  for (const label of [
-    '첫 페이지',
-    '이전 페이지',
-    '다음 페이지',
-    '마지막 페이지'
-  ])
+  for (const label of ['첫 쪽', '앞쪽', '다음 쪽', '마지막 쪽'])
     expect(screen.getByRole('button', { name: label })).toBeDisabled()
   await userEvent.click(
-    screen.getByRole('button', { name: '1페이지, 현재 페이지' })
+    screen.getByRole('button', { name: '1쪽, 지금 보는 쪽' })
   )
   expect(change).not.toHaveBeenCalled()
 })
@@ -62,10 +57,10 @@ it('uses movement targets and locks every control while the source is unavailabl
     <Pagination currentPage={4} totalPages={7} onPageChange={change} />
   )
   for (const [label, target] of [
-    ['첫 페이지', 1],
-    ['이전 페이지', 3],
-    ['다음 페이지', 5],
-    ['마지막 페이지', 7]
+    ['첫 쪽', 1],
+    ['앞쪽', 3],
+    ['다음 쪽', 5],
+    ['마지막 쪽', 7]
   ] as const) {
     await userEvent.click(screen.getByRole('button', { name: label }))
     expect(change).toHaveBeenLastCalledWith(target)
@@ -91,7 +86,7 @@ it('preserves modifier-link destinations and suppresses ordinary current-page na
       />
     </MemoryRouter>
   )
-  const next = screen.getByRole('link', { name: '다음 페이지' })
+  const next = screen.getByRole('link', { name: '다음 쪽' })
   expect(next).toHaveAttribute('href', '/?view=SOLVED&page=3')
   // Observe the component's uncancelled modifier click, then contain jsdom navigation.
   let modifierWasAllowed = false
@@ -129,11 +124,11 @@ it('focuses the new current number after a user action, preserving unrelated res
     )
   }
   render(<Harness />)
-  const next = screen.getByRole('button', { name: '다음 페이지' })
+  const next = screen.getByRole('button', { name: '다음 쪽' })
   next.focus()
   await userEvent.keyboard('{Enter}')
   expect(
-    screen.getByRole('button', { name: '2페이지, 현재 페이지' })
+    screen.getByRole('button', { name: '2쪽, 지금 보는 쪽' })
   ).toHaveFocus()
   await userEvent.click(screen.getByRole('button', { name: 'restore' }))
   expect(screen.getByRole('button', { name: 'restore' })).toHaveFocus()
@@ -148,7 +143,7 @@ it('waits for the response and cancels a pending page focus when URL intent is r
       onPageChange={change}
     />
   )
-  await userEvent.click(screen.getByRole('button', { name: '다음 페이지' }))
+  await userEvent.click(screen.getByRole('button', { name: '다음 쪽' }))
   view.rerender(
     <Pagination
       currentPage={1}
@@ -158,7 +153,7 @@ it('waits for the response and cancels a pending page focus when URL intent is r
       disabled
     />
   )
-  expect(screen.getByRole('button', { name: '다음 페이지' })).toHaveFocus()
+  expect(screen.getByRole('button', { name: '다음 쪽' })).toHaveFocus()
   view.rerender(
     <Pagination
       currentPage={1}
@@ -176,7 +171,7 @@ it('waits for the response and cancels a pending page focus when URL intent is r
     />
   )
   expect(
-    screen.getByRole('button', { name: '2페이지, 현재 페이지' })
+    screen.getByRole('button', { name: '2쪽, 지금 보는 쪽' })
   ).not.toHaveFocus()
 })
 it.each([
@@ -213,10 +208,10 @@ it.each([
     const controls = screen.getAllByRole('button')
     expect(
       controls.slice(0, 2).map((control) => control.getAttribute('aria-label'))
-    ).toEqual(['첫 페이지', '이전 페이지'])
+    ).toEqual(['첫 쪽', '앞쪽'])
     expect(
       controls.slice(-2).map((control) => control.getAttribute('aria-label'))
-    ).toEqual(['다음 페이지', '마지막 페이지'])
+    ).toEqual(['다음 쪽', '마지막 쪽'])
   }
 )
 it('preserves DOM order, current focus and URL intent across viewport changes', () => {

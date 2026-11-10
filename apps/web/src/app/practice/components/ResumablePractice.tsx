@@ -1,4 +1,3 @@
-import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement, RefObject } from 'react'
@@ -9,7 +8,6 @@ import {
 import { Icon } from '@nihongo/browser/common/components/Icon'
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
-import { Pagination } from '@nihongo/browser/common/components/Pagination'
 import type { useListResumableStudySessions } from '@app/practice/hooks/useListResumableStudySessions'
 import {
   formatDateTime,
@@ -23,26 +21,20 @@ type ResumableSession = NonNullable<ResumableQuery['data']>['items'][number]
 type ResumablePracticeProps = {
   query: ResumableQuery
   canLoad: boolean
-  requestedPage: number
-  pageCount: number
   sourceUnavailable: boolean
   interactionLocked: boolean
   headingRef: RefObject<HTMLHeadingElement | null>
-  getPageHref: (page: number) => string
-  onPageChange: (page: number) => void
   onCancel: (sessionId: string) => void
 }
 
 type ResumableRecordProps = {
   item: ResumableSession
-  recent?: boolean
   interactionLocked: boolean
   onCancel: (sessionId: string) => void
 }
 
 const ResumableRecord = ({
   item,
-  recent = false,
   interactionLocked,
   onCancel
 }: ResumableRecordProps): ReactElement => {
@@ -53,9 +45,7 @@ const ResumableRecord = ({
     item.practiceContractVersion === 2 && item.resumeAvailability === 'SERVER'
 
   return (
-    <div
-      className={recent ? 'practice-recent-record' : 'practice-resume-record'}
-    >
+    <div className="practice-recent-record">
       <div className="practice-resume-info">
         <h3>
           {item.level} {commonT(`taxonomy.subjects.${item.subject}`)}
@@ -87,9 +77,7 @@ const ResumableRecord = ({
         {canResume ? (
           <>
             <Link
-              className={getButtonClassName({
-                variant: recent ? 'primary' : 'outline'
-              })}
+              className={getButtonClassName({})}
               to={`/practice/session/${item.id}`}
             >
               {t('setup.resume.action')}
@@ -178,131 +166,18 @@ const ResumableStatusNotices = ({
   )
 }
 
-/** The most recent session, with a toggle that reveals the other sessions. */
-const RecentResumable = ({
-  item,
-  total,
-  showOthers,
-  interactionLocked,
-  onToggleOthers,
-  onCancel
-}: {
-  item: ResumableSession
-  total: number | undefined
-  showOthers: boolean
-  interactionLocked: boolean
-  onToggleOthers: () => void
-  onCancel: (sessionId: string) => void
-}): ReactElement => {
-  const { t } = useTranslation('practice')
-  return (
-    <div
-      className={`practice-recent${total === 1 ? ' practice-recent-single' : ''}`}
-    >
-      <ResumableRecord
-        item={item}
-        recent
-        interactionLocked={interactionLocked}
-        onCancel={onCancel}
-      />
-      {total !== undefined && total > 1 ? (
-        <Button
-          className="practice-other-toggle"
-          variant="ghost"
-          aria-expanded={showOthers}
-          aria-controls="other-resumable-practices"
-          onClick={onToggleOthers}
-        >
-          {t('setup.resume.otherAction')}
-        </Button>
-      ) : null}
-    </div>
-  )
-}
-
-/** Paged list of the sessions other than the most recent one. */
-const OtherResumables = ({
-  items,
-  data,
-  hidden,
-  busy,
-  headingRef,
-  requestedPage,
-  pageCount,
-  interactionLocked,
-  getPageHref,
-  onPageChange,
-  onCancel
-}: {
-  items: readonly ResumableSession[]
-  data: ResumableQuery['data']
-  hidden: boolean
-  busy: boolean
-  headingRef: RefObject<HTMLHeadingElement | null>
-  requestedPage: number
-  pageCount: number
-  interactionLocked: boolean
-  getPageHref: (page: number) => string
-  onPageChange: (page: number) => void
-  onCancel: (sessionId: string) => void
-}): ReactElement => {
-  const { t } = useTranslation('practice')
-  return (
-    <div
-      className="practice-other-sessions"
-      id="other-resumable-practices"
-      hidden={hidden}
-    >
-      <h3 ref={headingRef} tabIndex={-1}>
-        {t('setup.resume.otherTitle')}
-      </h3>
-      <ul aria-busy={busy}>
-        {items.map((item) => (
-          <li key={item.id}>
-            <ResumableRecord
-              item={item}
-              interactionLocked={interactionLocked}
-              onCancel={onCancel}
-            />
-          </li>
-        ))}
-      </ul>
-      {data && data.total > 1 ? (
-        <Pagination
-          currentPage={data.page}
-          requestedPage={requestedPage}
-          disabled={interactionLocked}
-          getPageHref={getPageHref}
-          label={t('setup.resume.paginationLabel')}
-          totalPages={pageCount}
-          onPageChange={onPageChange}
-        />
-      ) : null}
-    </div>
-  )
-}
-
+/** The most recent saved session only: no list or pages (subtract table 6). */
 export const ResumablePractice = ({
   query,
   canLoad,
-  requestedPage,
-  pageCount,
   sourceUnavailable,
   interactionLocked,
   headingRef,
-  getPageHref,
-  onPageChange,
   onCancel
 }: ResumablePracticeProps): ReactElement | null => {
   const { t } = useTranslation('practice')
-  const [showOthers, setShowOthers] = useState(false)
-  const otherHeadingRef = useRef<HTMLHeadingElement>(null)
   const data = query.data
-  const confirmedFirstPage =
-    requestedPage === 1 && data?.page === 1 && !query.isPlaceholderData
-  const recent = confirmedFirstPage ? data?.items[0] : undefined
-  const otherItems = recent ? (data?.items.slice(1) ?? []) : (data?.items ?? [])
-  const listVisible = showOthers || !confirmedFirstPage
+  const recent = query.isPlaceholderData ? undefined : data?.items[0]
   const confirmedEmpty =
     query.isSuccess &&
     data?.total === 0 &&
@@ -311,13 +186,6 @@ export const ResumablePractice = ({
     !query.isFetching
 
   if (!canLoad || confirmedEmpty) return null
-
-  const toggleOthers = (): void => {
-    setShowOthers(!showOthers)
-    if (!showOthers) {
-      window.setTimeout(() => otherHeadingRef.current?.focus(), 0)
-    }
-  }
 
   return (
     <section
@@ -356,34 +224,15 @@ export const ResumablePractice = ({
         )
       ) : query.isError && !data ? (
         <ResumableError query={query} description={t('setup.resume.error')} />
-      ) : (
-        <>
-          {recent ? (
-            <RecentResumable
-              item={recent}
-              total={data?.total}
-              showOthers={showOthers}
-              interactionLocked={interactionLocked}
-              onToggleOthers={toggleOthers}
-              onCancel={onCancel}
-            />
-          ) : null}
-
-          <OtherResumables
-            items={otherItems}
-            data={data}
-            hidden={!listVisible}
-            busy={query.isFetching}
-            headingRef={otherHeadingRef}
-            requestedPage={requestedPage}
-            pageCount={pageCount}
+      ) : recent ? (
+        <div className="practice-recent practice-recent-single">
+          <ResumableRecord
+            item={recent}
             interactionLocked={interactionLocked}
-            getPageHref={getPageHref}
-            onPageChange={onPageChange}
             onCancel={onCancel}
           />
-        </>
-      )}
+        </div>
+      ) : null}
     </section>
   )
 }

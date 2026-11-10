@@ -70,7 +70,7 @@ export const accessibilityExpectedTableDeltas = {
   QuestionReport: 0,
   QuestionVersion: 0,
   QuestionVersionTag: 0,
-  RateLimit: 29,
+  RateLimit: 32,
   ReviewEvent: 10,
   ReviewSchedule: 10,
   Session: 2,
@@ -100,8 +100,8 @@ export const accessibilityExpectedTableDeltas = {
 export const accessibilityExpectedRateLimitCategories = {
   'application:bookmark-list': 1,
   'application:bookmark-write': 1,
-  // Only My page reads insights; the learning home no longer does (#745).
-  'application:dashboard-insights-read': 1,
+  // No page reads insights any more: My page reads only the stats (JLP-812).
+  'application:dashboard-insights-read': 0,
   'application:dashboard-read': 1,
   'application:keyed:ADMIN_READ:ACTOR': 1,
   'application:keyed:ADMIN_READ:IP': 1,
@@ -114,6 +114,9 @@ export const accessibilityExpectedRateLimitCategories = {
   // scan starts no guest session, so the per-IP day counter stays empty (#737).
   'application:guest-allowance-read': 1,
   'application:guest-study-create-day': 0,
+  // The first screen shows today's question (D, #801): the guest home and
+  // the learner home read it, one row per rate-limit key (3 measured).
+  'application:daily-question-read': 3,
   'application:study-draft-save': 1,
   'application:study-mutation-ip': 2,
   'application:study-read': 2,
@@ -121,15 +124,21 @@ export const accessibilityExpectedRateLimitCategories = {
   'application:study-submit': 2,
   'application:wrong-note-detail': 1,
   'application:wrong-note-history': 1,
-  'application:wrong-note-list': 1,
-  'application:wrong-note-memo-read': 1,
-  'application:wrong-note-review-queue': 1,
+  // The review page and the member first screen (its 'to review' line,
+  // JLP-823) read /v1/review-list, which shares the review-queue limit; the
+  // old list and memo reads are gone (JLP-812).
+  'application:wrong-note-list': 0,
+  'application:wrong-note-memo-read': 0,
+  'application:wrong-note-review-queue': 2,
   // Two isolated actor IPs each start Google and consume one callback.
   'application:auth:/api/auth/sign-in/social': 2,
   'application:auth:/api/auth/callback/google': 2,
   // The learner My page scan reads the account sign-in methods once; the
   // gateway rate-limits every SSO account path as auth:<path> (#735).
-  'application:auth:/api/auth/sso/accounts': 1
+  'application:auth:/api/auth/sso/accounts': 1,
+  // Each Google sign-in then moves the guest's last result once, keyed per
+  // IP (JLP-823); the two actors are two keys.
+  'application:guest-result-import': 2
 }
 
 const sorted = (values) =>

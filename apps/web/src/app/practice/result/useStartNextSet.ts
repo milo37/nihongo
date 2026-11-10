@@ -1,0 +1,67 @@
+import { useNavigate } from 'react-router'
+import type { StudySessionView } from '@app/practice/adapters/studySessionView'
+import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
+import { MEMBER_COUNT } from '@app/practice/practiceSetupOptions'
+import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
+import { GUEST_SESSION_QUESTION_LIMIT } from '@nihongo/contracts/study/guest-limits'
+import { useAppStore } from '@nihongo/browser/store/index'
+import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
+import {
+  isAccountRestrictedApiError,
+  isGuestLimitReachedApiError,
+  isNoEligibleQuestionsApiError
+} from '@libs/apiError'
+
+/**
+ * [다음 10문제] (subtract table 10): one press starts a new random set at
+ * the same level and subject. If the server refuses, the reason shows
+ * right under the button (no questions left, account restricted, failure);
+ * a guest's daily limit opens the setup screen, whose card says when the
+ * tries come back.
+ */
+export const useStartNextSet = (
+  session: StudySessionView['session'],
+  isGuest: boolean
+) => {
+  const navigate = useNavigate()
+  const beginPractice = useAppStore((state) => state.beginPractice)
+  const createSession = useCreateStudySession()
+  const count = isGuest ? GUEST_SESSION_QUESTION_LIMIT : MEMBER_COUNT
+  const start = (): void => {
+    if (createSession.isPending) return
+    createSession.mutate(
+      {
+        level: session.level,
+        subject: session.subject,
+        count,
+        mode: 'RANDOM'
+      },
+      {
+        onSuccess: ({ session: next }, input) => {
+          assertCurrentCreateStudySessionAction(input)
+          beginPractice(next.id, next.startedAt)
+          void navigate(`/practice/session/${next.id}`)
+        },
+        onError: (error) => {
+          if (isGuestLimitReachedApiError(error)) {
+            void navigate(
+              `/practice?level=${session.level}&subject=${session.subject}`
+            )
+          }
+        }
+      }
+    )
+  }
+  const error = createSession.isError ? createSession.error : null
+  return {
+    accountRestricted: error !== null && isAccountRestrictedApiError(error),
+    noEligibleQuestions: error !== null && isNoEligibleQuestionsApiError(error),
+    hasCreateError:
+      error !== null &&
+      !isGuestLimitReachedApiError(error) &&
+      !isAuthTransitionSupersededError(error),
+    count,
+    isStarting: createSession.isPending || createSession.isPaused,
+    start
+  }
+}

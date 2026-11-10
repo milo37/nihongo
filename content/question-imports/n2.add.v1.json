@@ -1,0 +1,1654 @@
+{
+  "items": [
+    {
+      "clientItemId": "n2-a2-vocabulary-01",
+      "content": {
+        "level": "N2",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "時間が ないので、説明の 一部を「省略」した。「省略」の 読み方は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 省略 = しょうりゃく(생략)\n「省」는 여기서 しょう, 「略」은 りゃく입니다. せいりゃく는 「省」를 反省의 せい로 잘못 읽은 것, しょうりょく는 「略」을 りょく로 잘못 읽은 것, しょりゃく는 しょう의 장음을 빠뜨린 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "しょうりょく"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "せいりゃく"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "しょりゃく"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "しょうりゃく"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-vocabulary-02",
+      "content": {
+        "level": "N2",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "今日は 波が「穏やか」で、船は ほとんど 揺れなかった。「穏やか」の 読み方は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 穏やか = おだやか(평온하다, 잔잔하다)\nなごやか는 「和やか」(화기애애하다), すこやか는 「健やか」(건강하다), ゆるやか는 「緩やか」(완만하다)의 읽기라 「穏」을 그렇게 읽지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ゆるやか"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "なごやか"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "すこやか"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "おだやか"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-vocabulary-03",
+      "content": {
+        "level": "N2",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "HARD",
+        "questionText": "老後に 備えて、少しずつ お金を「蓄えて」いる。「蓄えて」の 読み方は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 蓄える = たくわえる(모아 두다, 저축하다)\nととのえて는 「整えて」(정돈하다), たずさえて는 「携えて」(지니다), かかえて는 「抱えて」(껴안다)의 읽기입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ととのえて"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "たくわえて"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "かかえて"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "たずさえて"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-vocabulary-04",
+      "content": {
+        "level": "N2",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "この 交差点では、事故が「頻繁」に 起きて いる。「頻繁」の 読み方は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 頻繁 = ひんぱん(빈번)\n「頻」은 ひん, 「繁」은 はん이 연탁(반탁음)되어 ぱん이 됩니다. ひんばん은 탁음, びんぱん은 「頻」을 탁음으로, ひんはん은 반탁음을 빠뜨린 잘못된 읽기입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "びんぱん"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ひんはん"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ひんぱん"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ひんばん"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-vocabulary-05",
+      "content": {
+        "level": "N2",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "NORMAL",
+        "questionText": "お湯で 洗ったら、セーターが「ちぢんで」しまった。「ちぢんで」を 漢字で 書くと どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: ちぢむ = 縮む(줄어들다)\n「縮」는 縮小의 그 한자입니다. 「縦」(たて, 세로), 「緒」(お, 끈), 「細」(ほそい, 가늘다)는 모양이 비슷한 실사변 한자로, ちぢむ로 읽지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "縮んで"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "緒んで"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "縦んで"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "細んで"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-vocabulary-06",
+      "content": {
+        "level": "N2",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "NORMAL",
+        "questionText": "最近は、紙の 新聞を 読む 人が 減る「けいこう」に ある。「けいこう」を 漢字で 書くと どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: けいこう = 傾向(경향)\n「傾(기울 경)」과 「向(향할 향)」으로 씁니다. 頃向은 「頃(무렵)」, 径向은 「径(지름길)」을 잘못 쓴 것이고, 傾候는 「候(기후 후)」를 써서 こう 소리만 맞춘 틀린 표기입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "頃向"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "傾向"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "傾候"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "径向"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-vocabulary-07",
+      "content": {
+        "level": "N2",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "EASY",
+        "questionText": "この 工場では、自動車の 部品を「せいぞう」して いる。「せいぞう」を 漢字で 書くと どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: せいぞう = 製造(제조)\n「製(지을 제)」와 「造(만들 조)」로 씁니다. 制造는 「制(억제할 제)」, 製増는 「増(더할 증)」, 製像은 「像(모양 상)」을 잘못 쓴 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "製造"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "製増"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "制造"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "製像"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-vocabulary-08",
+      "content": {
+        "level": "N2",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "HARD",
+        "questionText": "親の 意見に「さからって」、一人で 留学を 決めた。「さからって」を 漢字で 書くと どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: さからう = 逆らう(거스르다, 반항하다)\n「逆(거스를 역)」을 씁니다. 違는 「違う(ちがう)」, 返은 「返る(かえる)」, 迎은 「迎える(むかえる)」에 쓰는 한자라 さからう로 읽지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "迎らって"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "返らって"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "違らって"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "逆らって"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-vocabulary-09",
+      "content": {
+        "level": "N2",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "NORMAL",
+        "questionText": "締め切りに 間に合わせる ため、昨夜は（　）で 作業を 続けた。（　）に 入る ことばは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 徹夜 = 철야, 밤샘\n마감 때문에 밤새 작업했다는 뜻이므로 「徹夜で」가 맞습니다. 「夜景」은 야경, 「夜行」은 밤에 다니는 열차·버스, 「今夜」는 오늘 밤이라 「昨夜は」와 맞지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "夜行"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "徹夜"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "夜景"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "今夜"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-vocabulary-10",
+      "content": {
+        "level": "N2",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "EASY",
+        "questionText": "まだ 使える 机を 捨てるのは（　）ので、知り合いに 譲る ことに した。（　）に 入る ことばは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: もったいない = 아깝다\n쓸 수 있는 물건을 버리기 아까워서 남에게 주었으므로 「もったいない」입니다. 「やかましい」는 시끄럽다, 「情けない」는 한심하다, 「そそっかしい」는 덜렁대다라 버리는 일과 맞지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "やかましい"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "情けない"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "もったいない"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "そそっかしい"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-vocabulary-11",
+      "content": {
+        "level": "N2",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "NORMAL",
+        "questionText": "その 映画の 評価は、見た 人に よって 大きく（　）。（　）に 入る ことばは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 評価が 分かれる = 평가가 갈리다\n사람마다 평가가 다르다는 뜻이므로 「分かれる」입니다. 「離れる」는 거리가 멀어지다, 「外れる」는 빠지다·빗나가다, 「崩れる」는 무너지다라 평가에 쓰지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "分かれる"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "外れる"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "崩れる"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "離れる"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-vocabulary-12",
+      "content": {
+        "level": "N2",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "NORMAL",
+        "questionText": "試験まで あと 三日しか ないので、毎晩（　）勉強して いる。（　）に 入る ことばは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 必死に = 필사적으로\n시험이 사흘밖에 안 남아 열심히 공부하는 상황이므로 「必死に」입니다. 「ぼんやり」(멍하니)와 「のんびり」(느긋하게)는 급한 상황과 반대이고, 「うっかり」(깜빡)는 실수할 때 씁니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adverb-phrase"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "うっかり"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ぼんやり"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "必死に"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "のんびり"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-vocabulary-13",
+      "content": {
+        "level": "N2",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "「新しい 店の 準備は 着々と 進んで いる。」と 意味が いちばん 近い ものは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 着々と ≒ 順調に(착착, 순조롭게)\n「着々と」는 일이 차례대로 막힘없이 진행되는 모습입니다. 「急に 進み 始めた」는 갑자기 시작된 것, 「なかなか 進まない」와 「遅れて いる」는 반대 뜻입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adverb-phrase"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "新しい 店の 準備は なかなか 進まない。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "新しい 店の 準備は 予定より 遅れて いる。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "新しい 店の 準備は 順調に 進んで いる。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "新しい 店の 準備は 急に 進み 始めた。"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-vocabulary-14",
+      "content": {
+        "level": "N2",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "「兄の 話は いつも 大げさだ。」と 意味が いちばん 近い ものは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 大げさ ≒ 실제보다 부풀려서 말함(과장)\n「長くて 退屈」는 길이·지루함, 「わかりやすい」는 이해하기 쉬움, 「大きな 声」는 목소리 크기로, 과장과는 다른 뜻입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "兄の 話は いつも 長くて 退屈だ。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "兄は いつも 実際より 大きく 話す。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "兄は いつも 大きな 声で 話す。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "兄の 話は いつも わかりやすい。"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-vocabulary-15",
+      "content": {
+        "level": "N2",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "EASY",
+        "questionText": "「けがが 軽いと 聞いて、胸を なで下ろした。」と 意味が いちばん 近い ものは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 胸を なで下ろす ≒ ほっと する(안심하다)\n걱정하던 일이 괜찮아 안심했다는 관용 표현입니다. 「驚いた」는 놀람, 「がっかりした」는 실망, 「緊張した」는 긴장으로 안심과 다릅니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adverb-phrase"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "けがが 軽いと 聞いて、驚いた。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "けがが 軽いと 聞いて、がっかりした。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "けがが 軽いと 聞いて、緊張した。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "けがが 軽いと 聞いて、ほっと した。"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-vocabulary-16",
+      "content": {
+        "level": "N2",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "「会議の 前に 資料を 一通り 読んだ。」と 意味が いちばん 近い ものは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 一通り ≒ 처음부터 끝까지 대강\n「一通り」는 전체를 대충 한 번 훑는 것입니다. 「何度も 丁寧に」는 여러 번 꼼꼼히, 「一部だけ」는 일부분만이라 반대 방향이고, 「一人で」는 혼자서라는 뜻으로 관계없습니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adverb-phrase"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "会議の 前に 資料を 何度も 丁寧に 読んだ。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "会議の 前に 資料を 一人で 読んだ。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "会議の 前に 資料を 最初から 最後まで ざっと 読んだ。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "会議の 前に 資料の 一部だけを 読んだ。"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-vocabulary-17",
+      "content": {
+        "level": "N2",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「手間」の 使い方として いちばん よい ものは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 手間 = (일에 드는) 수고, 품\n「手間が かかる」로 씁니다. 걸리는 거리·시간은 「距離·道のり」, 씻는 것은 「手」, 아는 사람이 많은 것은 「顔が 広い」입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "駅までは 歩いて 十分の 手間だ。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "食事の 前に、手間を きれいに 洗う。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "彼は 手間が 広くて、知り合いが 多い。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "この 料理は 手間が かかるが、その 分 おいしい。"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-vocabulary-18",
+      "content": {
+        "level": "N2",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「盛ん」の 使い方として いちばん よい ものは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 盛ん = (활동이) 활발하다, 성하다\n산업·운동·활동에 씁니다. 바람이 센 것은 「強い」, 목소리는 「大きな·元気な」, 어질러진 방은 「汚い」를 씁니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "この 地域は 昔から 米作りが 盛んだ。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "今日は 風が 盛んで、傘が させない。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "先生の 質問に、盛んな 声で 答えた。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "散らかって いた 盛んな 部屋を 片付けた。"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-vocabulary-19",
+      "content": {
+        "level": "N2",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「せめて」の 使い方として いちばん よい ものは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: せめて = 적어도, 최소한(바람·희망)\n뒤에 「〜たい·〜てほしい」 같은 바람이 옵니다. 비가 내리기 시작한 것은 「とうとう」, 생각보다 재미있던 것은 「意外に」, 범인이었던 것은 「やはり」가 맞습니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adverb-phrase"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "忙しくても、せめて 週に 一度は 家族に 電話したい。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "調べて みると、せめて 彼が 犯人だった。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "この 本は 思ったより せめて 面白かった。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "夕方に なって、雨が せめて 降り出した。"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-vocabulary-20",
+      "content": {
+        "level": "N2",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "HARD",
+        "questionText": "「打ち明ける」の 使い方として いちばん よい ものは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 打ち明ける = (숨기던 일을) 털어놓다\n마음속 이야기를 남에게 말할 때 씁니다. 창문·상자는 「開ける」, 가게가 새로 생기는 것은 「開店する·オープンする」입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "駅前に 新しい パン屋が 打ち明けた。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "長い 間 悩んで いた ことを、親友に 打ち明けた。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "部屋の 窓を 打ち明けて、空気を 入れ替えた。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "箱を 打ち明けて、中身を 確かめた。"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-grammar-01",
+      "content": {
+        "level": "N2",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "この かばんは 値段の（　）、丈夫で 長く 使える。",
+        "passage": null,
+        "explanationKo": "핵심: 명사の + わりに = ~에 비해서(예상과 다름)\n싼 값에 비해 튼튼하다는 뜻이므로 「わりに」입니다. 「うちに」는 ~하는 동안에, 「ように」는 ~하도록, 「たびに」는 ~할 때마다라 「値段の」와 이어도 뜻이 통하지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.contrast-connect"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "たびに"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "うちに"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "わりに"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ように"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-grammar-02",
+      "content": {
+        "level": "N2",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "運転免許は 取った（　）、もう 何年も 車を 運転して いない。",
+        "passage": null,
+        "explanationKo": "핵심: 〜ものの = ~하기는 했지만\n면허를 땄지만 운전하지 않는다는 역접이므로 「ものの」입니다. 「ものなら」는 ~할 수 있다면(가정), 「ものだから」는 ~해서(이유), 「ものか」는 ~할까 보냐(강한 부정)라 앞뒤가 이어지지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.contrast-connect"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ものなら"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ものの"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ものだから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ものか"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-grammar-03",
+      "content": {
+        "level": "N2",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "寝不足の まま 運転すると、大きな 事故を 起こし（　）。",
+        "passage": null,
+        "explanationKo": "핵심: ます형 + かねない = ~할지도 모른다(나쁜 가능성)\n수면 부족 운전은 사고를 낼 위험이 있다는 뜻이라 「かねない」입니다. 「かねる」는 ~하기 어렵다(정중한 거절), 「がたい」는 ~하기 힘들다, 「っこない」는 절대 ~할 리 없다라 뜻이 반대가 됩니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.guess-hearsay"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "っこない"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "がたい"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "かねる"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "かねない"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-grammar-04",
+      "content": {
+        "level": "N2",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "台風が 近づいて いるので、明日の 遠足は 中止せ（　）。",
+        "passage": null,
+        "explanationKo": "핵심: ない형 + ざるを得ない = ~하지 않을 수 없다(어쩔 수 없이 함)\n태풍 때문에 어쩔 수 없이 중지한다는 뜻입니다. 「ずに済む」는 ~하지 않고 끝나다(중지 안 해도 됨)라 앞 이유와 맞지 않고, 「ずにはおかない」는 반드시 ~하고야 만다(강한 의지·작용), 「ずじまいだ」는 결국 ~하지 못하고 끝났다(과거)입니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.must-will"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ずじまいだ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ざるを得ない"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ずに済む"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ずにはおかない"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-grammar-05",
+      "content": {
+        "level": "N2",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "お客様の ご要望（　）、旅行の プランを 作り直しました。",
+        "passage": null,
+        "explanationKo": "핵심: 〜に沿って = ~에 따라서, ~에 맞춰서\n요청에 맞춰 플랜을 다시 만들었다는 뜻입니다. 「に反して」는 ~에 반하여, 「に比べて」는 ~에 비해, 「に限って」는 ~만은(하필)이라 고객 요청에 맞춘다는 뜻이 되지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.particle"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "に沿って"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "に反して"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "に比べて"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "に限って"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-grammar-06",
+      "content": {
+        "level": "N2",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "新製品の 発売（　）、記者会見が 開かれた。",
+        "passage": null,
+        "explanationKo": "핵심: 〜に先立って = ~에 앞서\n발매 전에 기자회견을 열었다는 뜻입니다. 「に応じて」는 ~에 따라(대응), 「にわたって」는 ~에 걸쳐(기간·범위 전체), 「にかけて」는 ~에 걸쳐(A から B にかけて)라 「発売」 하나와 쓰지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.time-change"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "に応じて"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "にわたって"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "に先立って"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "にかけて"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-grammar-07",
+      "content": {
+        "level": "N2",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "EASY",
+        "questionText": "検査の 結果が わかり（　）、すぐに ご連絡いたします。",
+        "passage": null,
+        "explanationKo": "핵심: ます형 + 次第 = ~하는 대로 곧\n결과가 나오는 대로 바로 연락한다는 뜻입니다. 「ながら」와 「つつ」는 ~하면서(동시 진행), 「かけ」는 ~하다 만(도중)이라 「すぐに ご連絡」와 맞지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.time-change"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "つつ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "次第"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "かけ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ながら"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-grammar-08",
+      "content": {
+        "level": "N2",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "実物を 見て（　）、買うか どうか 決められない。",
+        "passage": null,
+        "explanationKo": "핵심: 〜てからでないと = ~한 후가 아니면(먼저 ~해야)\n실물을 본 다음이 아니면 정할 수 없다는 조건입니다. 「からこそ」는 ~이기 때문에야말로, 「からには」는 ~한 이상, 「からといって」는 ~라고 해서라 뒤의 「決められない」와 뜻이 이어지지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.condition"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "からには"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "からといって"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "からこそ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "からでないと"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-grammar-09",
+      "content": {
+        "level": "N2",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "自分が 大きな 失敗を した ことが ある（　）、後輩の 気持ちが よく わかるのだ。",
+        "passage": null,
+        "explanationKo": "핵심: 〜からこそ = ~이기 때문에(바로 그래서)\n실패해 본 경험이 바로 후배 마음을 아는 이유라는 강조입니다. 「からして」는 ~부터가(예시), 「ばかりか」는 ~뿐 아니라, 「どころか」는 ~는커녕이라 이유를 나타내지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.cause-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "からして"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "どころか"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ばかりか"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "からこそ"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-grammar-10",
+      "content": {
+        "level": "N2",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "値段が 高い（　）、品質が いいとは 限らない。",
+        "passage": null,
+        "explanationKo": "핵심: 〜からといって 〜とは 限らない = ~라고 해서 반드시 ~인 것은 아니다\n뒤의 「とは 限らない」와 짝을 이룹니다. 「からには」는 ~한 이상(의지·당연), 「ことから」는 ~라는 점에서(근거), 「おかげで」는 ~덕분에라 「限らない」와 이어지지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.contrast-connect"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "おかげで"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ことから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "からには"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "からといって"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-grammar-11",
+      "content": {
+        "level": "N2",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "駅前の 開発が 進み、この 辺りの 家賃は 上がる（　）。",
+        "passage": null,
+        "explanationKo": "핵심: 사전형 + 一方だ = 계속 ~하기만 한다(한 방향 변화)\n집세가 계속 오르기만 한다는 뜻입니다. 「次第だ」는 ~에 달렸다, 「ことだ」는 ~하는 게 좋다(충고), 「ものだ」는 ~하는 법이다(일반론)라 개발에 따른 변화를 나타내지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.time-change"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ことだ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "次第だ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "一方だ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ものだ"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-grammar-12",
+      "content": {
+        "level": "N2",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "HARD",
+        "questionText": "新しい 道路の 建設（　）、住民の 間で 議論が 続いて いる。",
+        "passage": null,
+        "explanationKo": "핵심: 〜をめぐって = ~을 둘러싸고(논쟁·대립)\n도로 건설을 둘러싸고 논의가 이어진다는 뜻입니다. 「をこめて」는 (마음을) 담아, 「をもとに」는 ~을 바탕으로, 「をとおして」는 ~을 통해서라 「議論が 続いて いる」의 대상을 나타내지 못합니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.particle"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "をとおして"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "をめぐって"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "をこめて"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "をもとに"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-grammar-13",
+      "content": {
+        "level": "N2",
+        "subject": "GRAMMAR",
+        "questionType": "TEXT_GRAMMAR",
+        "difficulty": "NORMAL",
+        "questionText": "文章の（　）に 入る いちばん よい ものは どれですか。",
+        "passage": "最近は、仕事の 連絡に 夜遅くまで すぐ 返事を する 人が 増えて いる。相手を 待たせないのは 確かに 便利だ。（　）、休む 時間が 減れば、かえって 仕事の 質が 下がる おそれも ある。",
+        "explanationKo": "핵심: その反面 = 그 반면(좋은 점 뒤에 나쁜 점)\n「便利だ」라는 장점 뒤에 일의 질이 떨어진다는 단점이 오므로 「その反面」입니다. 「そのうえ」는 같은 방향의 내용을 더할 때, 「したがって」는 앞 내용의 결과, 「すなわち」는 바꿔 말할 때 씁니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.contrast-connect"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "その反面"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "したがって"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "すなわち"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "そのうえ"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-grammar-14",
+      "content": {
+        "level": "N2",
+        "subject": "GRAMMAR",
+        "questionType": "TEXT_GRAMMAR",
+        "difficulty": "NORMAL",
+        "questionText": "文章の（　）に 入る いちばん よい ものは どれですか。",
+        "passage": "祖母は 山あいの 村で 生まれ育った。祖母の 言葉には 独特の 言い回しが 多く、子どもの ころの 私には 半分も わからなかった。方言を 学んだ 今（　）、その 言葉の 温かさが よく わかる。",
+        "explanationKo": "핵심: 今 だからこそ = 지금이기에 비로소\n방언을 배운 지금이라서 그 따뜻함을 안다는 이유 강조입니다. 「それなのに」는 그런데도(불만), 「それにしても」는 그렇다 쳐도, 「そうかといって」는 그렇다고 해서라 「わかる」로 이어지는 이유가 되지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.cause-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "それにしても"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "それなのに"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "だからこそ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "そうかといって"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-grammar-15",
+      "content": {
+        "level": "N2",
+        "subject": "GRAMMAR",
+        "questionType": "TEXT_GRAMMAR",
+        "difficulty": "NORMAL",
+        "questionText": "文章の（　）に 入る いちばん よい ものは どれですか。",
+        "passage": "子どもの ころ、私は 毎週 日曜日に 書道教室に（　）。当時は 嫌で たまらなかったが、今では 続けさせて くれた 両親に 感謝して いる。",
+        "explanationKo": "핵심: 사역수동 通わされる = (억지로) 다니게 되다\n싫었지만 부모님이 시켜서 다녔다는 뜻이므로 사역수동 「通わされた」입니다. 「通わせた」는 내가 남을 다니게 한 것, 「通わせてあげた」는 내가 남에게 다니게 해 준 것, 「通われてしまった」는 남이 다녀서 곤란했다는 수동이라 주어 「私」와 맞지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.conjugation"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "通わされた"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "通わせてあげた"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "通わせた"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "通われてしまった"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-grammar-16",
+      "content": {
+        "level": "N2",
+        "subject": "GRAMMAR",
+        "questionType": "SENTENCE_ORDER",
+        "difficulty": "NORMAL",
+        "questionText": "急いで いる ＿＿ ＿＿ ＿＿ ★ ものだ。　★に 入る ものは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 〜に限って = 하필 ~할 때만\n바른 문장: 急いで いる 時に 限って 電車が 遅れる ものだ。 「急いで いる」는 「時に」를 꾸미고 「限って」가 붙으며, 「電車が」는 「遅れる」의 주어입니다. ★(네 번째)에는 「遅れる」가 들어갑니다. 순서: 「時に」 → 「限って」 → 「電車が」 → 「遅れる」.",
+        "explanationJa": null,
+        "tagNames": ["grammar.scope-emphasis"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "遅れる"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "限って"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "時に"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "電車が"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-grammar-17",
+      "content": {
+        "level": "N2",
+        "subject": "GRAMMAR",
+        "questionType": "SENTENCE_ORDER",
+        "difficulty": "NORMAL",
+        "questionText": "実際に ★ ＿＿ ＿＿ ＿＿ 判断できない。　★に 入る ものは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 〜ないことには = ~하지 않고서는(~해야 비로소)\n바른 문장: 実際に 使って みない ことには よいか どうか 判断できない。 「使って みない」 뒤에 「ことには」가 붙고, 「よいか どうか」는 「判断できない」의 대상입니다. ★(첫 번째)에는 「使って」가 들어갑니다. 순서: 「使って」 → 「みない」 → 「ことには」 → 「よいか どうか」.",
+        "explanationJa": null,
+        "tagNames": ["grammar.condition"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "よいか どうか"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "みない"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ことには"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "使って"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-grammar-18",
+      "content": {
+        "level": "N2",
+        "subject": "GRAMMAR",
+        "questionType": "SENTENCE_ORDER",
+        "difficulty": "HARD",
+        "questionText": "彼は 三年前に ＿＿ ★ ＿＿ ＿＿ 故郷に 帰って いない。　★に 入る ものは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 〜て以来 = ~한 이후로 (계속)\n바른 문장: 彼は 三年前に 東京へ 出て 以来 一度も 故郷に 帰って いない。 「東京へ 出て」에 「以来」가 붙고, 「一度も」는 부정 「帰って いない」 앞에 옵니다. ★(두 번째)에는 「出て」가 들어갑니다. 순서: 「東京へ」 → 「出て」 → 「以来」 → 「一度も」.",
+        "explanationJa": null,
+        "tagNames": ["grammar.time-change"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "以来"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "東京へ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "出て"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "一度も"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-grammar-19",
+      "content": {
+        "level": "N2",
+        "subject": "GRAMMAR",
+        "questionType": "SENTENCE_ORDER",
+        "difficulty": "NORMAL",
+        "questionText": "あの 映画の 最後の 場面は、＿＿ ＿＿ ＿＿ ★ いられない。　★に 入る ものは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 〜ずにはいられない = ~하지 않고는 못 배기다\n바른 문장: あの 映画の 最後の 場面は、何度 見ても 涙を 流さずには いられない。 「何度 見ても」가 양보, 「涙を 流さずには いられない」가 이어집니다. ★(네 번째)에는 「流さずには」가 들어갑니다. 순서: 「何度」 → 「見ても」 → 「涙を」 → 「流さずには」.",
+        "explanationJa": null,
+        "tagNames": ["grammar.must-will"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "流さずには"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "何度"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "見ても"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "涙を"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-grammar-20",
+      "content": {
+        "level": "N2",
+        "subject": "GRAMMAR",
+        "questionType": "SENTENCE_ORDER",
+        "difficulty": "NORMAL",
+        "questionText": "この 小説は、作者の ＿＿ ＿＿ ★ ＿＿ 書かれて いる。　★に 入る ものは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 〜をもとに = ~을 바탕으로\n바른 문장: この 小説は、作者の 子どもの ころの 体験を もとに 書かれて いる。 「子どもの ころの」가 「体験」을 꾸미고 「体験を もとに」가 「書かれて いる」로 이어집니다. ★(세 번째)에는 「体験を」가 들어갑니다. 순서: 「子どもの」 → 「ころの」 → 「体験を」 → 「もとに」.",
+        "explanationJa": null,
+        "tagNames": ["grammar.particle"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ころの"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "体験を"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "もとに"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "子どもの"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-reading-01",
+      "content": {
+        "level": "N2",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "NORMAL",
+        "questionText": "筆者が「もう少し 大事に 使おう」と 思うのは なぜか。",
+        "passage": "近所に、古い 電気製品を 直して くれる 小さな 店が ある。先日、十年 使って いる 扇風機が 動かなく なったので、だめで もともとと 思って 持って 行った。店主は 中を 開けて しばらく 調べた 後、「部品を 一つ 替えれば、まだ 十分 使えますよ」と 言った。修理代は、新しい ものを 買う 値段の 半分にも ならなかった。\n今は、壊れたら 買い替えるのが 当たり前に なって いる。新しい 製品の ほうが 性能も よく、修理を 頼むより 手間も かからない。しかし、直して 使い続けると、物に 対する 気持ちが 少し 変わる ように 思う。直して もらった 扇風機を 見る たびに 店主の 丁寧な 手つきを 思い出し、もう少し 大事に 使おうと いう 気に なるのだ。\n物を 長く 使う ことは、ごみを 減らす だけでなく、物との 付き合い方を 考え直す きっかけにも なるのでは ないだろうか。",
+        "explanationKo": "핵심: 고친 선풍기를 볼 때마다 가게 주인의 정성스러운 손놀림이 떠올라서\n돈이 없다는 말은 없고, 수리비는 새 제품의 절반도 안 됐으며(비싸지 않음), 성능은 새 제품이 더 좋다고 했습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "修理代が 思ったより 高かったから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "直して くれた 店主の 様子を 思い出すから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "新しい 扇風機を 買う お金が ないから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "古い 扇風機の ほうが 性能が よいから"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-reading-02",
+      "content": {
+        "level": "N2",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "NORMAL",
+        "questionText": "筆者の 考えに 合う ものは どれか。",
+        "passage": "近所に、古い 電気製品を 直して くれる 小さな 店が ある。先日、十年 使って いる 扇風機が 動かなく なったので、だめで もともとと 思って 持って 行った。店主は 中を 開けて しばらく 調べた 後、「部品を 一つ 替えれば、まだ 十分 使えますよ」と 言った。修理代は、新しい ものを 買う 値段の 半分にも ならなかった。\n今は、壊れたら 買い替えるのが 当たり前に なって いる。新しい 製品の ほうが 性能も よく、修理を 頼むより 手間も かからない。しかし、直して 使い続けると、物に 対する 気持ちが 少し 変わる ように 思う。直して もらった 扇風機を 見る たびに 店主の 丁寧な 手つきを 思い出し、もう少し 大事に 使おうと いう 気に なるのだ。\n物を 長く 使う ことは、ごみを 減らす だけでなく、物との 付き合い方を 考え直す きっかけにも なるのでは ないだろうか。",
+        "explanationKo": "핵심: 고쳐 쓰면 물건과의 관계(사귀는 방식)를 다시 생각하게 된다\n바로 새것으로 바꾸는 것은 요즘의 당연한 풍조로 소개했을 뿐 필자의 주장이 아니고, 수리를 권하지 않는다는 말이나 전기제품을 사지 말라는 말은 없습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.opinion"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "壊れた 物は、すぐに 新しい ものに 替えた ほうが よい。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "物を 直して 使う ことで、物との 向き合い方が 変わる。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ごみを 減らす ために、電気製品は 買わない ほうが よい。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "修理は 手間が かかるので、人には 勧められない。"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-reading-03",
+      "content": {
+        "level": "N2",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "NORMAL",
+        "questionText": "筆者が 入った 食堂の 点数が 低かった 主な 理由は 何か。",
+        "passage": "店や 商品を 選ぶ とき、インターネット上の 星の 数や 点数を 参考に する 人は 多い。私も 旅先で 食事を する 店を 探す ときには、まず 評価の 高い 順に 並べて みる。数字は 一目で 比べられるので、とても 便利だ。\nただ、数字には 表れない ことも ある。以前、評価が 平均より かなり 低い 小さな 食堂に、ほかに 開いて いる 店が なくて 仕方なく 入った ことが ある。ところが、料理は 素朴ながら 丁寧に 作られて いて、店の 人との 会話も 楽しかった。後で 書き込みを 読むと、低い 点数の 多くは「駅から 遠い」「席が 狭い」と いう 理由だった。\n点数は、多くの 人の 感想を 一つに まとめた ものに すぎない。何を 大切に するかは 人に よって 違う。数字を 見る ときは、その 裏に ある 理由まで 確かめる ことが 必要だろう。",
+        "explanationKo": "핵심: 낮은 점수의 이유는 「駅から 遠い」「席が 狭い」\n요리는 소박하지만 정성스러웠고, 가게 사람과의 대화도 즐거웠다고 했으며, 가격 이야기는 나오지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "料理の 味が よくなかったから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "店の 人の 態度が 悪かったから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "料理の 値段が 高すぎたから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "店の 場所や 席の 広さに 不満を 持つ 人が いたから"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-reading-04",
+      "content": {
+        "level": "N2",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "NORMAL",
+        "questionText": "筆者が いちばん 言いたい ことは 何か。",
+        "passage": "店や 商品を 選ぶ とき、インターネット上の 星の 数や 点数を 参考に する 人は 多い。私も 旅先で 食事を する 店を 探す ときには、まず 評価の 高い 順に 並べて みる。数字は 一目で 比べられるので、とても 便利だ。\nただ、数字には 表れない ことも ある。以前、評価が 平均より かなり 低い 小さな 食堂に、ほかに 開いて いる 店が なくて 仕方なく 入った ことが ある。ところが、料理は 素朴ながら 丁寧に 作られて いて、店の 人との 会話も 楽しかった。後で 書き込みを 読むと、低い 点数の 多くは「駅から 遠い」「席が 狭い」と いう 理由だった。\n点数は、多くの 人の 感想を 一つに まとめた ものに すぎない。何を 大切に するかは 人に よって 違う。数字を 見る ときは、その 裏に ある 理由まで 確かめる ことが 必要だろう。",
+        "explanationKo": "핵심: 숫자 뒤에 있는 이유까지 확인해야 한다\n필자도 평가를 참고하며 편리하다고 했으므로 보지 말라는 뜻이 아니고, 낮은 평가의 가게가 더 좋다고 일반화하지 않았으며, 역에서 가까운 가게를 고르라는 말도 없습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.opinion"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "インターネットの 評価は 信用できないので、見ない ほうが よい。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "評価の 低い 店の ほうが、実際には よい 店が 多い。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "点数だけでなく、その 理由も 見て 判断する べきだ。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "旅先では、駅から 近い 店を 選ぶ ほうが よい。"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-reading-05",
+      "content": {
+        "level": "N2",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "EASY",
+        "questionText": "この 制度を 試す 目的は 何か。",
+        "passage": "社員各位\n総務部\n時差出勤制度の 試行に ついて\n来月 一日から 三か月間、時差出勤制度を 試行します。通勤時間帯の 混雑を 避け、各自が 働きやすい 時間を 選べる ように する ことが 目的です。\n1．出勤時刻は、7時30分・8時30分・9時30分・10時30分の 中から 選んで ください。勤務時間は、休憩 1時間を 除いて 8時間です。\n2．選んだ 時刻は、毎月 20日までに 上司に 届け出て ください。翌月の 一か月間は、その 時刻で 勤務します。\n3．ただし、毎週 月曜日は 全体会議が あるため、全員 9時30分までに 出勤して ください。\n4．試行期間の 終了後に アンケートを 行い、正式に 実施するか どうかを 決めます。",
+        "explanationKo": "핵심: 목적 = 출퇴근 혼잡을 피하고 각자 일하기 좋은 시간을 고르게 함\n근무 시간은 어느 시각이든 8시간으로 줄지 않고, 월요일 9시 30분 출근은 제도의 예외 규칙이며, 설문은 시행 후 정식 실시를 정하기 위한 절차입니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "混雑を 避けて、自分に 合った 時間に 働ける ように する ため"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "月曜日の 全体会議に 全員が 出られる ように する ため"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "社員の 一日の 勤務時間を 短く する ため"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "社員に アンケートに 答えて もらう ため"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-reading-06",
+      "content": {
+        "level": "N2",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "NORMAL",
+        "questionText": "この お知らせの 内容と 合う ものは どれか。",
+        "passage": "社員各位\n総務部\n時差出勤制度の 試行に ついて\n来月 一日から 三か月間、時差出勤制度を 試行します。通勤時間帯の 混雑を 避け、各自が 働きやすい 時間を 選べる ように する ことが 目的です。\n1．出勤時刻は、7時30分・8時30分・9時30分・10時30分の 中から 選んで ください。勤務時間は、休憩 1時間を 除いて 8時間です。\n2．選んだ 時刻は、毎月 20日までに 上司に 届け出て ください。翌月の 一か月間は、その 時刻で 勤務します。\n3．ただし、毎週 月曜日は 全体会議が あるため、全員 9時30分までに 出勤して ください。\n4．試行期間の 終了後に アンケートを 行い、正式に 実施するか どうかを 決めます。",
+        "explanationKo": "핵심: 매월 20일까지 신고한 시각으로 다음 한 달 근무 → 한 달 단위로 바꿀 수 있음\n매일 고르는 것이 아니라 한 달 동안 같은 시각이고, 월요일은 전원 9시 30분까지 출근해야 하며, 정식 실시 여부는 설문 후에 정합니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "出勤時刻は、一か月ごとに 変える ことが できる。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "出勤時刻は、毎日 自由に 選ぶ ことが できる。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "月曜日も、選んだ 時刻に 出勤すれば よい。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "試行期間が 終われば、必ず 正式に 実施される。"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-reading-07",
+      "content": {
+        "level": "N2",
+        "subject": "READING",
+        "questionType": "LONG_READING",
+        "difficulty": "HARD",
+        "questionText": "筆者が ピアノを やめようと 思ったのは なぜか。",
+        "passage": "四十歳を 過ぎてから、ピアノを 習い始めた。子どもの ころ、近所の 友達が 習って いるのを うらやましく 思って いたが、家に そんな 余裕は なかった。仕事も 落ち着き、ようやく 自分の ために 時間を 使える ように なった とき、真っ先に 思い浮かんだのが ピアノだった。\nところが、始めて みると 思った 以上に 難しかった。右手と 左手が 別々に 動かない。前の 週に 弾けた ところが、次の 週には もう 弾けなく なって いる。仕事の 帰りに 教室へ 寄り、家でも 夜 遅くまで 練習したが、なかなか 結果は 出なかった。同じ 教室に 通う 小学生が、半年で 私を 追い越して いった ときには、さすがに 落ち込んだ。若い ころに 始めて いれば と、何度 思ったか わからない。三か月ほど たった ころ、私は 先生に「もう やめようかと 思って います」と 打ち明けた。\n先生は 少し 考えてから、こう 言った。「子どもは 理由を 考えずに 指を 動かして 覚えます。大人は、なぜ ここで 音が 強く なるのか、作曲家は 何を 伝えたかったのかを 考えながら 弾く ことが できます。速さでは かなわなくても、一曲を 深く 味わう 力は、大人の ほうが ずっと 上なんですよ。」\nその 言葉を きっかけに、私は 練習の 仕方を 変えた。毎日 決まった 時間 弾く ことに こだわらず、一つの 曲に ついて 作曲家の 生涯を 調べたり、いろいろな 演奏家の 録音を 聞き比べたり する ように した。自分が その 曲の どこに ひかれるのかを 言葉に して、小さな ノートに 書きとめる ことも 始めた。すると、同じ 曲でも、弾く たびに 新しい 発見が ある。指は 相変わらず 思う ように 動かないが、練習が 苦痛では なく なった。\n今では、上手に なる ことだけが 習い事の 目的では ないと 考えて いる。もちろん、うまく 弾けた ときの 喜びは 大きい。しかし、誰かと 競う 必要も、試験に 合格する 必要も ない 大人の 学びには、結果を 急がず、学ぶ 過程 そのものを 楽しむ 自由が ある。それは、時間に 追われて いた 子どもの ころには 持てなかった ものだろう。来年の 発表会では、短い 曲を 一曲 弾く つもりだ。間違えても かまわない。その 曲を どれだけ 好きに なれたかを、音で 伝えられれば それで いいと 思って いる。",
+        "explanationKo": "핵심: 손이 따로 안 움직이고 초등학생에게 추월당해 실력이 늘지 않는다고 낙담해서\n일은 오히려 「落ち着き」(안정되어) 시작했고, 선생님은 그만두려 할 때 격려한 사람이며, 친구가 부러웠던 것은 어린 시절 이야기로 비교당했다는 말은 없습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "子どもの 生徒に 追い越されるなど、上達の 遅さに 落ち込んだから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "仕事が 忙しく なって、練習する 時間が なく なったから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "先生に、大人は なかなか 上達しないと 言われたから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "子どもの ころから 習って いた 友達と 比べられたから"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-reading-08",
+      "content": {
+        "level": "N2",
+        "subject": "READING",
+        "questionType": "LONG_READING",
+        "difficulty": "HARD",
+        "questionText": "筆者の 考えに 合う ものは どれか。",
+        "passage": "四十歳を 過ぎてから、ピアノを 習い始めた。子どもの ころ、近所の 友達が 習って いるのを うらやましく 思って いたが、家に そんな 余裕は なかった。仕事も 落ち着き、ようやく 自分の ために 時間を 使える ように なった とき、真っ先に 思い浮かんだのが ピアノだった。\nところが、始めて みると 思った 以上に 難しかった。右手と 左手が 別々に 動かない。前の 週に 弾けた ところが、次の 週には もう 弾けなく なって いる。仕事の 帰りに 教室へ 寄り、家でも 夜 遅くまで 練習したが、なかなか 結果は 出なかった。同じ 教室に 通う 小学生が、半年で 私を 追い越して いった ときには、さすがに 落ち込んだ。若い ころに 始めて いれば と、何度 思ったか わからない。三か月ほど たった ころ、私は 先生に「もう やめようかと 思って います」と 打ち明けた。\n先生は 少し 考えてから、こう 言った。「子どもは 理由を 考えずに 指を 動かして 覚えます。大人は、なぜ ここで 音が 強く なるのか、作曲家は 何を 伝えたかったのかを 考えながら 弾く ことが できます。速さでは かなわなくても、一曲を 深く 味わう 力は、大人の ほうが ずっと 上なんですよ。」\nその 言葉を きっかけに、私は 練習の 仕方を 変えた。毎日 決まった 時間 弾く ことに こだわらず、一つの 曲に ついて 作曲家の 生涯を 調べたり、いろいろな 演奏家の 録音を 聞き比べたり する ように した。自分が その 曲の どこに ひかれるのかを 言葉に して、小さな ノートに 書きとめる ことも 始めた。すると、同じ 曲でも、弾く たびに 新しい 発見が ある。指は 相変わらず 思う ように 動かないが、練習が 苦痛では なく なった。\n今では、上手に なる ことだけが 習い事の 目的では ないと 考えて いる。もちろん、うまく 弾けた ときの 喜びは 大きい。しかし、誰かと 競う 必要も、試験に 合格する 必要も ない 大人の 学びには、結果を 急がず、学ぶ 過程 そのものを 楽しむ 自由が ある。それは、時間に 追われて いた 子どもの ころには 持てなかった ものだろう。来年の 発表会では、短い 曲を 一曲 弾く つもりだ。間違えても かまわない。その 曲を どれだけ 好きに なれたかを、音で 伝えられれば それで いいと 思って いる。",
+        "explanationKo": "핵심: 경쟁·시험이 없는 어른의 배움은 결과를 서두르지 않고 과정을 즐길 자유가 있음\n「若い ころに 始めて いれば」는 한때의 생각일 뿐 결론이 아니고, 매일 정해진 시간 연습에는 「こだわらず」(얽매이지 않게) 되었으며, 발표회는 「間違えても かまわない」라고 했습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.opinion"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "大人は、毎日 決まった 時間 練習する ことが いちばん 大切だ。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "発表会では、間違えずに 弾く ことが 何より 大切だ。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "大人の 学びは、結果を 急がず、学ぶ 過程を 楽しめる ところに よさが ある。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "楽器は、子どもの うちに 始めなければ 上達しない。"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-reading-09",
+      "content": {
+        "level": "N2",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "キムさんは、ベッド 1台、椅子 2脚、洗濯機 1台を 処分したい。市の 粗大ごみに 出す ために 必要な 処理券は 全部で いくらか。",
+        "passage": "みどり市　粗大ごみの 出し方\n■粗大ごみとは：一辺が 50cmを 超える 家具・寝具・自転車など\n■申し込み：収集日の 一週間前までに、電話（粗大ごみ受付センター）または 市の ホームページで 申し込んで ください。\n■手数料（1点あたり）\n・椅子、ストーブ、自転車　500円\n・机、布団（1組）、カーペット　800円\n・たんす、ベッド、ソファ　1,200円\n※手数料は、コンビニなどで「粗大ごみ処理券」を 買って 支払います。処理券に 申し込みの ときの 受付番号を 書いて、ごみに 貼って ください。\n※収集日の 朝 8時までに、申し込みの ときに 決めた 場所に 出して ください。\n※エアコン・テレビ・冷蔵庫・洗濯機は 市では 収集しません。購入した 店に ご相談 ください。",
+        "explanationKo": "핵심: 침대 1,200엔 + 의자 500엔×2 = 2,200엔(세탁기는 시에서 수거 안 함)\n1,200엔은 침대만 계산한 것, 1,700엔은 의자를 한 개만 센 것, 3,400엔은 시에서 받지 않는 세탁기까지 1,200엔으로 더한 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "3,400円"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "1,200円"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "1,700円"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "2,200円"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n2-a2-reading-10",
+      "content": {
+        "level": "N2",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "粗大ごみを 出す 手順として 正しい ものは どれか。",
+        "passage": "みどり市　粗大ごみの 出し方\n■粗大ごみとは：一辺が 50cmを 超える 家具・寝具・自転車など\n■申し込み：収集日の 一週間前までに、電話（粗大ごみ受付センター）または 市の ホームページで 申し込んで ください。\n■手数料（1点あたり）\n・椅子、ストーブ、自転車　500円\n・机、布団（1組）、カーペット　800円\n・たんす、ベッド、ソファ　1,200円\n※手数料は、コンビニなどで「粗大ごみ処理券」を 買って 支払います。処理券に 申し込みの ときの 受付番号を 書いて、ごみに 貼って ください。\n※収集日の 朝 8時までに、申し込みの ときに 決めた 場所に 出して ください。\n※エアコン・テレビ・冷蔵庫・洗濯機は 市では 収集しません。購入した 店に ご相談 ください。",
+        "explanationKo": "핵심: 신청 → 처리권 구입 → 접수번호를 써서 붙임\n신청은 수거일 1주일 전까지 반드시 해야 하고, 아침 8시「까지」 신청 때 정한 장소에 내놓아야 하며, 수수료는 편의점 등에서 처리권을 사서 냅니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "手数料は、収集の ときに 係の 人に 直接 払う。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "申し込んで から 処理券を 買い、受付番号を 書いて 貼る。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "処理券を 貼れば、申し込みを しなくても 収集日に 出せる。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "収集日の 朝 8時を 過ぎてから、好きな 場所に 出す。"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    }
+  ]
+}

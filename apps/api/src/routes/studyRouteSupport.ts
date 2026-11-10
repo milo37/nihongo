@@ -5,6 +5,7 @@ import type { PrincipalService } from '../auth/principalService.js'
 import type { ApiEnvironment } from '../config/env.js'
 import { ApplicationError } from '../errors/applicationError.js'
 import type { ExistingStudyOwner } from '../study/studySessionRepository.js'
+import { nextGuestDayStart } from '../study/guestDay.js'
 import { GUEST_COOKIE_NAME } from './principal.js'
 import { appendAuthHeaders } from './routeSupport.js'
 
@@ -76,3 +77,13 @@ export const resolveExistingStudyOwner = async ({
     rawGuestCookie
   }
 }
+
+/** The hidden per-IP guest limit; guests see the same daily-limit card. */
+export const guestIpLimitReached = (at: Date): ApplicationError =>
+  new ApplicationError({
+    code: 'GUEST_LIMIT_REACHED',
+    message:
+      '오늘 이 네트워크에서 비회원으로 풀 수 있는 횟수를 모두 썼습니다. 더 풀려면 로그인해 주세요.',
+    details: { resetsAt: nextGuestDayStart(at).toISOString() },
+    retryable: false
+  })

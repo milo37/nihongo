@@ -38,6 +38,27 @@ export const koAdminQuestionListResources = {
   edit: '수정',
   details: '상세 보기',
   archive: '공개 중단·보관',
+  retire: {
+    open: '급수·과목별 한꺼번에 비공개',
+    title: '급수·과목별로 한꺼번에 비공개',
+    description:
+      '공개 중인 문제를 학습자 화면에서 내립니다. 문제는 지우지 않고, 새 버전을 게시하면 다시 공개됩니다.',
+    choose: '선택',
+    pick: '급수와 과목을 고르면 대상 개수를 보여 드립니다.',
+    counting: '대상을 세는 중…',
+    countFailed: '대상 개수를 불러오지 못했습니다.',
+    retry: '다시 세기',
+    none: '{{level}} {{subject}}에 공개 중인 문제가 없습니다.',
+    count:
+      '{{level}} {{subject}}에서 공개 중인 문제 {{count}}개를 비공개로 바꿉니다.',
+    body: '100개씩 나눠 보내며, 100개 묶음마다 모두 되거나 모두 안 됩니다. 편집 중인 새 버전이 있는 문제는 대상에서 빠집니다.',
+    confirm: '{{count}}개 비공개',
+    confirming: '비공개로 바꾸는 중…',
+    notDone: '비공개로 바꾸지 않았습니다.',
+    all: '{{level}} {{subject}} 문제 {{count}}개를 비공개로 바꿨습니다.',
+    partial:
+      '{{count}}개를 비공개로 바꾸고 멈췄습니다. 남은 {{rest}}개는 그대로 공개 중입니다. 목록을 새로 본 뒤 다시 시도해 주세요.'
+  },
   batch: {
     selectColumn: '일괄 선택',
     selectRow: '{{questionId}} 문제 선택',

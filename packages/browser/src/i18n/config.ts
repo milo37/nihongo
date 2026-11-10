@@ -1,28 +1,39 @@
-import type { LocaleCatalog } from './resources/ja'
 import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import { DEFAULT_UI_LOCALE, UI_LOCALES } from './types'
 import { readUiLocalePreference } from '../libs/localeStorage'
 
-// Both resources are ready before first render, including immediate offline switching.
-const [{ koResources }, { jaCoreResources }, { jaAdminResources }] =
-  await Promise.all([
-    import('./resources/ko'),
-    import('./resources/ja'),
-    import('./resources/ja-admin'),
-    // Keep the Korean admin copy in its own chunks while preloading every locale.
-    import('./resources/ko-admin-form'),
-    import('./resources/ko-admin-report'),
-    import('./resources/ko-admin-question')
-  ])
-const { errors, a11y, ...jaNamespaces } = jaCoreResources
-const jaResources = {
-  ...jaNamespaces,
-  admin: jaAdminResources,
-  errors,
-  a11y
-} as const satisfies LocaleCatalog<typeof koResources>
-const i18nResources = { ko: koResources, ja: jaResources }
+// Both locales are ready before first render, including immediate offline
+// switching. The admin namespace starts with only what the learner app shows
+// (report dialogs, API errors, re-verification); the admin app adds the rest
+// with loadAdminResources() before it renders (JLP-758).
+const [
+  { koCoreResources },
+  { jaCoreResources },
+  { koAdminLearnerResources },
+  { jaAdminLearnerResources }
+] = await Promise.all([
+  import('./resources/ko'),
+  import('./resources/ja'),
+  import('./resources/ko-admin-learner'),
+  import('./resources/ja-admin-learner')
+])
+const { errors: koErrors, a11y: koA11y, ...koNamespaces } = koCoreResources
+const { errors: jaErrors, a11y: jaA11y, ...jaNamespaces } = jaCoreResources
+const i18nResources = {
+  ko: {
+    ...koNamespaces,
+    admin: koAdminLearnerResources,
+    errors: koErrors,
+    a11y: koA11y
+  },
+  ja: {
+    ...jaNamespaces,
+    admin: jaAdminLearnerResources,
+    errors: jaErrors,
+    a11y: jaA11y
+  }
+}
 const initialLocale = readUiLocalePreference()
 
 void i18n.use(initReactI18next).init({
@@ -43,5 +54,15 @@ void i18n.use(initReactI18next).init({
     useSuspense: false
   }
 })
+
+/** Adds the whole admin copy in both locales; the admin app awaits it once. */
+export const loadAdminResources = async (): Promise<void> => {
+  const [{ koAdminResources }, { jaAdminResources }] = await Promise.all([
+    import('./resources/ko-admin'),
+    import('./resources/ja-admin')
+  ])
+  i18n.addResourceBundle('ko', 'admin', koAdminResources, true, true)
+  i18n.addResourceBundle('ja', 'admin', jaAdminResources, true, true)
+}
 
 export const appI18n = i18n

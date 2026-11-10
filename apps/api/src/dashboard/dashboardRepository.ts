@@ -188,8 +188,12 @@ export const createPrismaDashboardRepository = (
           >(Prisma.sql`
             SELECT
               COUNT(*)::bigint AS "totalCount",
+              -- JLP-812: "reviewed" counts every right answer after a miss.
               COUNT(*) FILTER (
-                WHERE note."status" = 'SOLVED'::"WrongNoteStatus"
+                WHERE note."status" IN (
+                  'REVIEWING'::"WrongNoteStatus",
+                  'SOLVED'::"WrongNoteStatus"
+                )
               )::bigint AS "solvedCount"
             FROM "WrongNote" AS note
             WHERE note."userId" = ${input.userId}::uuid`)

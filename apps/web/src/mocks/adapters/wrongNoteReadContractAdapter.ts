@@ -3,8 +3,6 @@ import { normalizeQuestionTagText } from '@nihongo/contracts/question/get-questi
 import {
   compareWrongNoteTagLabels,
   trimWrongNoteTagLabel,
-  type ListWrongNotesResponse,
-  type ParsedListWrongNotesQuery,
   type WrongNoteSummary
 } from '@nihongo/contracts/wrong-note/list-wrong-notes'
 import {
@@ -150,76 +148,3 @@ export const toContractWrongNoteDetail = (
   lastWrongQuestionVersionId: record.lastWrongQuestionVersionId,
   currentReviewQuestionVersionId: record.currentReviewQuestionVersionId
 })
-
-const compareRecords = (
-  left: MockCanonicalWrongNoteRecord,
-  right: MockCanonicalWrongNoteRecord,
-  sort: ParsedListWrongNotesQuery['sort']
-): number => {
-  if (sort === 'MOST_WRONG') {
-    return (
-      right.wrongCount - left.wrongCount ||
-      right.lastWrongAt.localeCompare(left.lastWrongAt) ||
-      left.wrongNoteId.localeCompare(right.wrongNoteId)
-    )
-  }
-  if (sort === 'OLDEST') {
-    return (
-      left.lastWrongAt.localeCompare(right.lastWrongAt) ||
-      left.wrongNoteId.localeCompare(right.wrongNoteId)
-    )
-  }
-
-  return (
-    right.lastWrongAt.localeCompare(left.lastWrongAt) ||
-    left.wrongNoteId.localeCompare(right.wrongNoteId)
-  )
-}
-
-export const toContractWrongNoteList = (
-  records: readonly MockCanonicalWrongNoteRecord[],
-  query: ParsedListWrongNotesQuery
-): ListWrongNotesResponse => {
-  const tagsByRecord = new Map(
-    records.map((record) => [
-      record.wrongNoteId,
-      toValidatedSortedTagLabels(record.lastWrongQuestion.tags)
-    ])
-  )
-  const availableTags = [
-    ...new Set([...tagsByRecord.values()].flat())
-  ].toSorted(compareWrongNoteTagLabels)
-  const matches = records.filter((record) => {
-    const tags = tagsByRecord.get(record.wrongNoteId)
-    if (!tags) {
-      throw new MockWrongNoteReadIntegrityError(
-        'Historical tag projection is missing for a canonical WrongNote.'
-      )
-    }
-
-    return (
-      (!query.level || record.lastWrongQuestion.level === query.level) &&
-      (!query.subject || record.lastWrongQuestion.subject === query.subject) &&
-      (!query.status || record.status === query.status) &&
-      (!query.tag || tags.includes(query.tag))
-    )
-  })
-  const sorted = matches.toSorted((left, right) =>
-    compareRecords(left, right, query.sort)
-  )
-  const offset = (BigInt(query.page) - 1n) * BigInt(query.pageSize)
-  const items =
-    offset >= BigInt(sorted.length)
-      ? []
-      : sorted
-          .slice(Number(offset), Number(offset) + query.pageSize)
-          .map(toContractWrongNoteSummary)
-
-  return {
-    items,
-    page: query.page,
-    pageSize: query.pageSize,
-    total: sorted.length,
-    availableTags
-  }
-}

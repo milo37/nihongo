@@ -1,6 +1,5 @@
 import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
 import type { ReactElement } from 'react'
 import {
   CancelResumableDialog,
@@ -9,23 +8,13 @@ import {
 import { PracticeSetupForm } from '@app/practice/components/PracticeSetupForm'
 import { GuestDailyLimitCard } from '@app/practice/components/GuestDailyLimitCard'
 import { GuestUrlLockedNotice } from '@app/practice/components/GuestSetupNotices'
-import { useGuestAction } from '@app/login/hooks/useGuestAction'
 import {
   GUEST_DAILY_SESSION_LIMIT,
   GUEST_SESSION_QUESTION_LIMIT
 } from '@nihongo/contracts/study/guest-limits'
 import { ResumablePractice } from '@app/practice/components/ResumablePractice'
 import { usePracticeSetupController } from '@app/practice/hooks/usePracticeSetupController'
-import {
-  DEFAULT_COUNT,
-  DEFAULT_SUBJECT,
-  counts,
-  levels,
-  modes,
-  subjects
-} from '@app/practice/practiceSetupOptions'
-import { getButtonClassName } from '@nihongo/browser/common/components/Button'
-import { Icon } from '@nihongo/browser/common/components/Icon'
+import { levels, modes, subjects } from '@app/practice/practiceSetupOptions'
 
 const subjectLabelKeys = {
   VOCABULARY: 'approved.vocabulary',
@@ -33,36 +22,12 @@ const subjectLabelKeys = {
   READING: 'subjects.reading.label'
 } as const
 
-/** Links to the wrong-note review and bookmark lists. */
-const PracticeShortcuts = (): ReactElement => {
-  const { t } = useTranslation('practice')
-  return (
-    <nav className="practice-shortcuts" aria-label={t('setup.shortcutsLabel')}>
-      <Link
-        className={getButtonClassName({ variant: 'ghost' })}
-        to="/wrong-notes"
-      >
-        <Icon name="rotate-ccw" />
-        {t('setup.reviewShortcut')}
-      </Link>
-      <Link
-        className={getButtonClassName({ variant: 'ghost' })}
-        to="/bookmarks"
-      >
-        <Icon name="bookmark" />
-        {t('setup.bookmarkShortcut')}
-      </Link>
-    </nav>
-  )
-}
-
 export const PracticePage = (): ReactElement => {
   const { t, i18n } = useTranslation('practice')
   const { t: homeT } = useTranslation('home')
   const resumableHeadingRef = useRef<HTMLHeadingElement>(null)
   const setupHeadingRef = useRef<HTMLHeadingElement>(null)
   const setup = usePracticeSetupController(resumableHeadingRef)
-  const guestAction = useGuestAction()
   const { count, level, mode, resumableSessions, subject } = setup
   const subjectLabel = homeT(subjectLabelKeys[subject])
   const startLabel = level
@@ -100,13 +65,9 @@ export const PracticePage = (): ReactElement => {
       <ResumablePractice
         query={resumableSessions}
         canLoad={setup.canLoadResumableSessions}
-        requestedPage={setup.resumablePage}
-        pageCount={setup.resumablePageCount}
         sourceUnavailable={setup.isResumableSourceUnavailable}
         interactionLocked={setup.isResumableInteractionLocked}
         headingRef={resumableHeadingRef}
-        getPageHref={setup.getResumablePageHref}
-        onPageChange={setup.setResumablePage}
         onCancel={setup.setCancelSessionId}
       />
       <PracticeSetupForm
@@ -116,7 +77,6 @@ export const PracticePage = (): ReactElement => {
         mode={mode}
         levels={levels}
         subjects={subjects}
-        counts={counts}
         modes={modes}
         isReady={setup.isReady}
         isGuest={setup.isGuest}
@@ -127,26 +87,12 @@ export const PracticePage = (): ReactElement => {
         subjectLabel={subjectLabel}
         startLabel={startLabel}
         onSubjectChange={(option) =>
-          setup.changeSetting('subject', option, DEFAULT_SUBJECT)
+          setup.changeSetting('subject', option, setup.defaultSubject)
         }
         onLevelChange={(option) =>
           setup.changeSetting('level', option, setup.defaultLevel)
         }
-        onCountChange={(option) => {
-          if (
-            option !== GUEST_SESSION_QUESTION_LIMIT &&
-            guestAction(t('setup.locked.count'))
-          ) {
-            return
-          }
-          setup.changeSetting('count', option, DEFAULT_COUNT)
-        }}
-        onModeChange={(option) => {
-          if (option !== 'RANDOM' && guestAction(t('setup.locked.mode'))) {
-            return
-          }
-          setup.changeSetting('mode', option, 'RANDOM')
-        }}
+        onModeChange={(option) => setup.changeSetting('mode', option, 'RANDOM')}
         onStart={setup.handleStart}
         feedback={
           <PracticeSetupFeedback
@@ -160,7 +106,6 @@ export const PracticePage = (): ReactElement => {
           />
         }
       />
-      <PracticeShortcuts />
 
       <CancelResumableDialog
         open={setup.cancelSessionId !== null}

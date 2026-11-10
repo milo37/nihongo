@@ -22,15 +22,6 @@ export const TargetedReviewAction = ({
   const isArchived = reviewAvailability === 'ARCHIVED'
   return (
     <>
-      {data.question.questionVersionId ? (
-        <div className="mb-3">
-          <QuestionReportDialog
-            questionId={data.question.id}
-            questionVersionId={data.question.questionVersionId}
-            ordinal={1}
-          />
-        </div>
-      ) : null}
       {reviewAvailability === 'AVAILABLE' || targeted.hasRecoveryAttempt ? (
         <>
           <Button
@@ -82,6 +73,16 @@ export const TargetedReviewAction = ({
       >
         {targeted.noticeCode ? t(`detail.targeted.${targeted.noticeCode}`) : ''}
       </p>
+      {/* Reporting is rare here: a small text link under the action (G). */}
+      {data.question.questionVersionId ? (
+        <QuestionReportDialog
+          questionId={data.question.id}
+          questionVersionId={data.question.questionVersionId}
+          ordinal={1}
+          trigger="link"
+          triggerLabel={t('detail.report')}
+        />
+      ) : null}
     </>
   )
 }

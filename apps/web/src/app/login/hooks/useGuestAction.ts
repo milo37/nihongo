@@ -6,7 +6,7 @@ import { useAppNavigate } from '@nihongo/browser/libs/appNavigation'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 
 type GuestActionOptions = {
-  /** On a session or result screen: signing in does not carry it over. */
+  /** On a session or result screen: come back to setup after sign-in. */
   sessionNotKept?: boolean
 }
 
@@ -29,14 +29,11 @@ export const useGuestAction = (): ((
   return useCallback(
     (title, { sessionNotKept = false } = {}) => {
       if (role !== 'GUEST') return false
-      // A guest result is gone after sign-in, so come back to setup.
+      // The last guest result moves to the wrong notes; start fresh.
       const redirect = sessionNotKept ? '/practice' : here
       addToast({
         key: 'guest-action',
         title,
-        ...(sessionNotKept
-          ? { description: t('guestToast.sessionNotKept') }
-          : {}),
         action: {
           label: t('guestToast.login'),
           onClick: () =>

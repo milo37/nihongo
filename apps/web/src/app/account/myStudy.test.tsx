@@ -148,8 +148,6 @@ const renderAccount = () => {
   )
 }
 
-const studySection = () => screen.getByRole('region', { name: '내 학습' })
-
 describe('마이페이지 내 학습', () => {
   beforeAll(async () => {
     await import('@app/account/page')
@@ -158,71 +156,63 @@ describe('마이페이지 내 학습', () => {
     mockDatabase.loginAs('USER')
   })
 
-  it('전체 기간 숫자·과목 막대·7일·최근 학습·자주 틀린 문제와 추천을 보여 준다', async () => {
+  it('과목별 푼 문제 수·정답률 3줄과 최근 학습만 보여 주고 분석·추천은 읽지 않는다', async () => {
     useStats(fullStats)
-    renderAccount()
-    expect(await screen.findByText('푼 문제')).toBeInTheDocument()
-    expect(screen.getByText('푼 문제').parentElement).toHaveTextContent(
-      '25문제'
-    )
-    const section = studySection()
-    expect(within(section).getByText('64')).toBeInTheDocument()
-    expect(within(section).getByText('해결 1 · 4개 중')).toBeInTheDocument()
-    expect(
-      within(section).getByRole('img', { name: '독해 40%' })
-    ).toBeInTheDocument()
-    expect(
-      within(section).getByText('가장 약한 과목: 독해')
-    ).toBeInTheDocument()
-    expect(
-      within(section).getByRole('link', { name: '독해 학습 시작 →' })
-    ).toHaveAttribute('href', '/practice?subject=READING')
-    expect(
-      within(section).getByRole('img', {
-        name: '7일 중 5일 학습, 합계 82문제'
+    let insightReads = 0
+    mockServer.use(
+      http.get('*/api/v1/dashboard/insights', () => {
+        insightReads += 1
+        return HttpResponse.json({})
       })
-    ).toBeInTheDocument()
+    )
+    renderAccount()
+    const section = await screen.findByRole('region', { name: '내 학습' })
+    const rows = await within(section).findAllByRole('listitem')
+    expect(rows[0]).toHaveTextContent('문자·어휘10문제 · 정답률 80%')
+    expect(rows[1]).toHaveTextContent('문법10문제 · 정답률 60%')
+    expect(rows[2]).toHaveTextContent('독해5문제 · 정답률 40%')
+    expect(
+      within(section).getByRole('link', { name: /N3 · 문법/u })
+    ).toHaveTextContent('10문제 중 8개 맞음')
+    // The login method shows once, in the account settings (v2.1 §6).
+    expect(screen.queryByText('Google 계정으로 로그인 중')).toBeNull()
     expect(
       within(section).getByRole('link', { name: /N3 · 문법/u })
     ).toHaveAttribute(
       'href',
       '/practice/result/019d0000-0000-7000-8000-0000000000a1'
     )
-    expect(
-      within(section).getByRole('link', { name: /あたらしい/u })
-    ).toHaveAttribute(
+    expect(within(section).queryByText(/가장 약한 과목/u)).toBeNull()
+    expect(within(section).queryByText('자주 틀린 문제')).toBeNull()
+    expect(within(section).queryByText('최근 7일')).toBeNull()
+    expect(screen.queryByRole('heading', { name: '추천 학습' })).toBeNull()
+    expect(insightReads).toBe(0)
+    expect(screen.getByRole('link', { name: '안내' })).toHaveAttribute(
       'href',
-      '/wrong-notes/019d0000-0000-7000-8000-0000000000b1'
+      '/legal'
     )
-    expect(within(section).getByText('4번 틀림')).toBeInTheDocument()
-    expect(
-      await screen.findByRole('heading', { name: '추천 학습' })
-    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '도움말' })).toHaveAttribute(
+      'href',
+      '/support'
+    )
   })
 
-  it('푼 문제가 없으면 첫 학습 안내와 서버의 대체 추천을 보여 준다', async () => {
+  it('푼 문제가 없으면 첫 학습 안내를 보여 준다', async () => {
     useStats(emptyStats)
     renderAccount()
     expect(await screen.findByText('아직 푼 문제가 없어요')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '첫 학습 시작' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '첫 문제 풀기' })).toHaveAttribute(
       'href',
       '/'
     )
-    expect(
-      await screen.findByRole('heading', { name: '추천 학습' })
-    ).toBeInTheDocument()
   })
 
-  it('적은 데이터는 안내를 보이고 약한 과목 표시를 숨긴다', async () => {
+  it('안 푼 과목은 기록 없음으로 보여 준다', async () => {
     useStats(fewStats)
     renderAccount()
-    expect(
-      await screen.findByText('문제를 더 풀수록 분석이 정확해져요.')
-    ).toBeInTheDocument()
-    const section = studySection()
-    expect(within(section).getAllByText('아직 기록 없음')).toHaveLength(2)
-    expect(within(section).queryByText(/가장 약한 과목/u)).toBeNull()
-    expect(within(section).queryByText('자주 틀린 문제')).toBeNull()
+    const section = await screen.findByRole('region', { name: '내 학습' })
+    expect(await within(section).findAllByText('기록 없음')).toHaveLength(2)
+    expect(within(section).getByText('문법')).toBeInTheDocument()
   })
 
   it('통계 실패는 내 학습 안에서만 알리고 다시 시도하며 계정 영역은 그대로 둔다', async () => {
@@ -243,28 +233,5 @@ describe('마이페이지 내 학습', () => {
       within(section).getByRole('button', { name: '다시 시도' })
     )
     expect(reads()).toBeGreaterThan(before)
-  })
-
-  it('추천만 실패하면 알림 없이 추천 영역을 숨긴다', async () => {
-    useStats(fullStats)
-    mockServer.use(
-      http.get('*/api/v1/dashboard/insights', () =>
-        HttpResponse.json(
-          {
-            code: 'INTERNAL_SERVER_ERROR',
-            message: '실패',
-            requestId: crypto.randomUUID(),
-            retryable: false
-          },
-          { status: 500 }
-        )
-      )
-    )
-    renderAccount()
-    await screen.findByText('푼 문제')
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(
-      screen.queryByRole('heading', { name: '추천 학습' })
-    ).not.toBeInTheDocument()
   })
 })

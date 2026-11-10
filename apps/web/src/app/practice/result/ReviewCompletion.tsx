@@ -10,15 +10,14 @@ import {
   getButtonClassName
 } from '@nihongo/browser/common/components/Button'
 import { ExplanationLanguagePanel } from '@common/components/ExplanationLanguagePanel'
+import { toWrongNoteReviewState } from '@nihongo/contracts/wrong-note/list-review-list'
+import type { WrongNoteReviewState } from '@nihongo/contracts/wrong-note/list-review-list'
 import { ReviewStatus } from '@app/wrong-note/components/ReviewStatus'
 import { useGetWrongNote } from '@app/wrong-note/hooks/useGetWrongNote'
 import { readReviewReturnContext } from '@app/wrong-note/reviewReturnContext'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
-import {
-  formatDateTime,
-  formatNumber
-} from '@nihongo/browser/libs/localeFormatters'
+import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 
 /** 24px outline icon drawn in the current text colour. */
 const OutlineIcon = ({
@@ -42,26 +41,20 @@ const OutlineIcon = ({
 )
 
 type WrongNoteQuery = ReturnType<typeof useGetWrongNote>
-type WrongNoteStatus = NonNullable<
-  WrongNoteQuery['data']
->['wrongNote']['status']
 
 /** Correct/wrong headline, the confirmed review state and a status retry. */
 const ReviewFeedback = ({
   item,
-  status,
-  next,
+  state,
   fresh,
   current
 }: {
   item: StudyResultItemView
-  status: WrongNoteStatus | undefined
-  next: string | null | undefined
+  state: WrongNoteReviewState | undefined
   fresh: boolean
   current: WrongNoteQuery
 }): ReactElement => {
-  const { i18n, t } = useTranslation('wrongNote')
-  const locale = resolveUiLocale(i18n.resolvedLanguage)
+  const { t } = useTranslation('wrongNote')
   const pending = current.isPending || current.isFetching
   return (
     <div
@@ -78,13 +71,8 @@ const ReviewFeedback = ({
             : 'integration.complete.wrong'
         )}
       </h2>
-      {status ? (
-        <p>
-          {t(`integration.complete.states.${status}`)}
-          {next
-            ? ` ${t('integration.complete.next', { date: formatDateTime(next, locale, { dateStyle: 'medium' }) })}`
-            : ''}
-        </p>
+      {state ? (
+        <p>{t(`integration.complete.states.${state}`)}</p>
       ) : (
         <p role="status">
           {t(
@@ -183,7 +171,7 @@ export const ReviewCompletion = ({
     !current.isError &&
     current.fetchStatus !== 'paused'
   const status = fresh ? current.data?.wrongNote.status : undefined
-  const next = fresh ? current.data?.wrongNote.nextReviewAt : undefined
+  const state = status ? toWrongNoteReviewState(status) : undefined
   return (
     <section className="review-document review-completion">
       <header>
@@ -197,15 +185,14 @@ export const ReviewCompletion = ({
       </header>
       <ReviewFeedback
         item={item}
-        status={status}
-        next={next}
+        state={state}
         fresh={fresh}
         current={current}
       />
       <div className="review-current-status">
         <span>{t('integration.complete.current')}</span>
-        {status ? (
-          <ReviewStatus status={status} />
+        {state ? (
+          <ReviewStatus state={state} />
         ) : (
           <span>{t('integration.complete.unconfirmed')}</span>
         )}

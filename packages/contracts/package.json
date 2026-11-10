@@ -59,6 +59,10 @@
       "types": "./dist/auth/get-current-principal.d.ts",
       "import": "./dist/auth/get-current-principal.js"
     },
+    "./auth/update-target-level": {
+      "types": "./dist/auth/update-target-level.d.ts",
+      "import": "./dist/auth/update-target-level.js"
+    },
     "./common/date": {
       "types": "./dist/common/date.d.ts",
       "import": "./dist/common/date.js"
@@ -91,6 +95,10 @@
       "types": "./dist/dashboard/get-dashboard-insights.d.ts",
       "import": "./dist/dashboard/get-dashboard-insights.js"
     },
+    "./question/get-daily-question": {
+      "types": "./dist/question/get-daily-question.d.ts",
+      "import": "./dist/question/get-daily-question.js"
+    },
     "./question/get-question": {
       "types": "./dist/question/get-question.d.ts",
       "import": "./dist/question/get-question.js"
@@ -102,6 +110,10 @@
     "./study/create-study-session": {
       "types": "./dist/study/create-study-session.d.ts",
       "import": "./dist/study/create-study-session.js"
+    },
+    "./study/import-guest-result": {
+      "types": "./dist/study/import-guest-result.d.ts",
+      "import": "./dist/study/import-guest-result.js"
     },
     "./study/guest-limits": {
       "types": "./dist/study/guest-limits.d.ts",
@@ -179,9 +191,9 @@
       "types": "./dist/wrong-note/list-review-events.d.ts",
       "import": "./dist/wrong-note/list-review-events.js"
     },
-    "./wrong-note/list-review-queue": {
-      "types": "./dist/wrong-note/list-review-queue.d.ts",
-      "import": "./dist/wrong-note/list-review-queue.js"
+    "./wrong-note/list-review-list": {
+      "types": "./dist/wrong-note/list-review-list.d.ts",
+      "import": "./dist/wrong-note/list-review-list.js"
     },
     "./wrong-note/list-wrong-notes": {
       "types": "./dist/wrong-note/list-wrong-notes.d.ts",

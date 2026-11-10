@@ -32,13 +32,6 @@ import {
   reviewEventHistoryItemSchema
 } from '../src/wrong-note/list-review-events.js'
 import {
-  compareReviewQueueItems,
-  listReviewQueueErrorCodeSchema,
-  listReviewQueueQuerySchema,
-  listReviewQueueResponseSchema,
-  reviewQueueItemSchema
-} from '../src/wrong-note/list-review-queue.js'
-import {
   createUpdateWrongNoteMemoResponseSchema,
   updateWrongNoteMemoBodySchema,
   updateWrongNoteMemoErrorCodeSchema,
@@ -110,111 +103,6 @@ describe('Review center contracts', () => {
         questionIds: [id(1)]
       }).success
     ).toBe(false)
-  })
-
-  it('queue query default·filter·safe integer 경계를 strict하게 고정한다', () => {
-    expect(
-      listReviewQueueQuerySchema.parse({
-        level: 'N5',
-        subject: 'VOCABULARY',
-        questionType: 'KANJI_READING',
-        tag: ' 한자 읽기 ',
-        page: '2',
-        pageSize: '10'
-      })
-    ).toEqual({
-      view: 'DUE',
-      level: 'N5',
-      subject: 'VOCABULARY',
-      questionType: 'KANJI_READING',
-      tag: '한자 읽기',
-      sort: 'NEXT_REVIEW',
-      page: 2,
-      pageSize: 10
-    })
-
-    expect(
-      listReviewQueueQuerySchema.parse({
-        view: 'SOLVED',
-        sort: 'RECENT'
-      })
-    ).toMatchObject({ view: 'SOLVED', sort: 'RECENT' })
-
-    for (const invalid of [
-      { page: String(Number.MAX_SAFE_INTEGER + 1) },
-      { pageSize: 101 },
-      { view: 'ALL' },
-      { sort: 'OLDEST' },
-      { userId: id(99) }
-    ]) {
-      expect(listReviewQueueQuerySchema.safeParse(invalid).success).toBe(false)
-    }
-  })
-
-  it('queue page·state·tag·count와 beyond-last page를 exact하게 검증한다', () => {
-    const fixture = reviewCenterConformanceFixture.queue
-    expect(listReviewQueueResponseSchema.parse(fixture)).toEqual(fixture)
-    expect(
-      listReviewQueueResponseSchema.parse({
-        ...fixture,
-        items: [],
-        page: 2
-      })
-    ).toMatchObject({ items: [], page: 2, total: 1 })
-
-    for (const invalid of [
-      { ...fixture, items: [] },
-      {
-        ...fixture,
-        counts: { ...fixture.counts, due: Number.MAX_SAFE_INTEGER + 1 }
-      },
-      {
-        ...fixture,
-        items: [{ ...fixture.items[0], status: 'SOLVED', correctStreak: 1 }]
-      },
-      {
-        ...fixture,
-        items: [fixture.items[0], fixture.items[0]],
-        total: 2
-      },
-      {
-        ...fixture,
-        availableTags: ['한자 읽기', 'N5 어휘']
-      },
-      {
-        ...fixture,
-        availableTags: ['N5 어휘']
-      },
-      {
-        ...fixture,
-        items: [{ ...fixture.items[0], memo: 'private' }]
-      }
-    ]) {
-      expect(listReviewQueueResponseSchema.safeParse(invalid).success).toBe(
-        false
-      )
-    }
-  })
-
-  it('queue comparator가 NEXT_REVIEW·MOST_WRONG·RECENT tie-break를 고정한다', () => {
-    const left = reviewQueueItemSchema.parse(
-      reviewCenterConformanceFixture.queue.items[0]
-    )
-    const later = reviewQueueItemSchema.parse({
-      ...left,
-      questionId: id(90),
-      currentQuestionVersionId: id(91),
-      nextReviewAt: '2026-08-23T02:00:00.000Z',
-      lastWrongAt: '2026-08-22T01:00:00.000Z',
-      lastReviewedAt: '2026-08-22T02:00:00.000Z',
-      wrongCount: 3
-    })
-
-    expect(compareReviewQueueItems(left, later, 'NEXT_REVIEW')).toBeLessThan(0)
-    expect(compareReviewQueueItems(left, later, 'MOST_WRONG')).toBeGreaterThan(
-      0
-    )
-    expect(compareReviewQueueItems(left, later, 'RECENT')).toBeGreaterThan(0)
   })
 
   it('memo는 ECMAScript trim·Unicode code point 2000 경계와 delete null을 고정한다', () => {
@@ -541,14 +429,6 @@ describe('Review center contracts', () => {
   })
 
   it('operation별 closed error union을 exact하게 소유한다', () => {
-    expect(listReviewQueueErrorCodeSchema.options).toEqual([
-      'AUTHENTICATION_REQUIRED',
-      'AUTH_SESSION_EXPIRED',
-      'VALIDATION_ERROR',
-      'RATE_LIMITED',
-      'INTERNAL_SERVER_ERROR',
-      'SERVICE_UNAVAILABLE'
-    ])
     expect(getWrongNoteMemoErrorCodeSchema.options).toEqual([
       'AUTHENTICATION_REQUIRED',
       'AUTH_SESSION_EXPIRED',

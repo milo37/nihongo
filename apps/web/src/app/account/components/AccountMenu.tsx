@@ -94,8 +94,8 @@ export const AccountMenu = ({
         ref={trigger}
         id="account-menu-button"
         type="button"
-        className={user ? 'account-menu-trigger' : 'account-menu-icon'}
-        aria-label={t('accountMenu.label')}
+        className={user ? 'account-menu-trigger' : 'account-menu-login'}
+        aria-label={user ? t('accountMenu.label') : undefined}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
@@ -117,7 +117,7 @@ export const AccountMenu = ({
             />
           </>
         ) : (
-          <Icon name="user-round" className="size-5" />
+          t('login')
         )}
       </button>
       {open ? (
@@ -132,7 +132,7 @@ export const AccountMenu = ({
               <p className="break-words text-sm font-semibold">
                 {user ? user.name : t('accountMenu.guestTitle')}
               </p>
-              <p className="text-xs text-muted">
+              <p className="text-caption text-muted">
                 {user
                   ? t('accountMenu.signedInWith')
                   : t('accountMenu.guestDescription')}

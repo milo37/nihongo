@@ -55,7 +55,8 @@ const PLAYWRIGHT_EXPECTED_TEST_COUNTS = {
   'accessibility-mock': 3,
   'accessibility-real': 4,
   'journey-mock': 5,
-  'journey-real': 5
+  // Real only: the guest result move after sign-in (JLP-823).
+  'journey-real': 6
 }
 const ADMIN_LIFECYCLE_LEDGER_CONTRACT = [
   ['POST', '/api/v1/admin/questions/import-validation', 200],
@@ -473,24 +474,19 @@ export const assertPlaywrightRequestLedger = (ledger, summaryLabel) => {
     }
   }
   if (ledger.label === `${dashboardPrefix}-${mode}-request-ledger`) {
-    if (ledger.entries.length !== 42) {
+    // My page reads only the stats, once per visit (JLP-812).
+    if (ledger.entries.length !== 21) {
       throw new Error('SECURITY_EVIDENCE_SCHEMA_INVALID')
     }
-    for (let index = 0; index < ledger.entries.length; index += 2) {
-      const pair = ledger.entries.slice(index, index + 2)
-      const paths = pair.map(({ path: pathName }) => pathName)
+    for (let index = 0; index < ledger.entries.length; index += 1) {
+      const entry = ledger.entries[index]
       if (
-        JSON.stringify(paths) !==
-          JSON.stringify(['/api/v1/dashboard', '/api/v1/dashboard/insights']) ||
-        pair.some(
-          ({ method, provenance, status }) =>
-            method !== 'GET' ||
-            provenance !== canonicalProvenance ||
-            status !== 200
-        ) ||
-        pair[0].finishSequence >= pair[1].startSequence ||
+        entry.path !== '/api/v1/dashboard' ||
+        entry.method !== 'GET' ||
+        entry.provenance !== canonicalProvenance ||
+        entry.status !== 200 ||
         (index > 0 &&
-          ledger.entries[index - 1].finishSequence >= pair[0].startSequence)
+          ledger.entries[index - 1].finishSequence >= entry.startSequence)
       ) {
         throw new Error('SECURITY_EVIDENCE_SCHEMA_INVALID')
       }

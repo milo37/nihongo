@@ -25,10 +25,10 @@ import type { ApiVariables } from '../middleware/requestContext.js'
 import type { StudySessionService } from '../study/studySessionService.js'
 import type { CreateStudyOwner } from '../study/studySessionRepository.js'
 import type { GuestIpDailyCounter } from '../study/guestIpDailyCounter.js'
-import { nextGuestDayStart } from '../study/guestDay.js'
 import { GUEST_COOKIE_NAME } from './principal.js'
 import { appendAuthHeaders, toFieldErrors } from './routeSupport.js'
 import {
+  guestIpLimitReached,
   resolveExistingStudyOwner,
   assertPracticeContractHeader
 } from './studyRouteSupport.js'
@@ -46,15 +46,6 @@ interface StudySessionRouteDependencies {
 }
 
 type StudySessionRouteEnvironment = { Variables: ApiVariables }
-
-const guestIpLimitReached = (at: Date): ApplicationError =>
-  new ApplicationError({
-    code: 'GUEST_LIMIT_REACHED',
-    message:
-      '오늘 이 네트워크에서 비회원으로 풀 수 있는 횟수를 모두 썼습니다. 더 풀려면 로그인해 주세요.',
-    details: { resetsAt: nextGuestDayStart(at).toISOString() },
-    retryable: false
-  })
 
 export const createStudySessionRoutes = ({
   accountRestrictionReader,

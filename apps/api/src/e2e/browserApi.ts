@@ -29,6 +29,14 @@ import { createJsonLogger, type LogLevel } from '../observability/logger.js'
 import { createApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createPrismaQuestionRepository } from '../question/questionRepository.js'
 import { createQuestionService } from '../question/questionService.js'
+import {
+  createDailyQuestionService,
+  createPrismaDailyQuestionRepository
+} from '../question/dailyQuestion.js'
+import {
+  createPrismaTargetLevelRepository,
+  createTargetLevelService
+} from '../member/targetLevel.js'
 import { createPrismaGuestAllowanceReader } from '../study/guestAllowance.js'
 import { createGuestIpDailyCounter } from '../study/guestIpDailyCounter.js'
 import { createPrismaStudySessionRepository } from '../study/studySessionRepository.js'
@@ -38,13 +46,19 @@ import { createStudySubmissionService } from '../study/studySubmissionService.js
 import { createPrismaStudyDraftRepository } from '../study/studyDraftRepository.js'
 import { createStudyDraftService } from '../study/studyDraftService.js'
 import { createPrismaStudyResultRetryRepository } from '../study/studyResultRetryRepository.js'
+import {
+  createGuestResultImportService,
+  createPrismaGuestResultImportRepository
+} from '../study/guestResultImport.js'
 import { createStudyResultRetryService } from '../study/studyResultRetryService.js'
 import { createPrismaWrongNoteRepository } from '../wrong-note/wrongNoteRepository.js'
 import { createWrongNoteService } from '../wrong-note/wrongNoteService.js'
 import { createPrismaWrongNoteReviewCenterRepository } from '../wrong-note/wrongNoteReviewCenterRepository.js'
 import { createWrongNoteReviewCenterService } from '../wrong-note/wrongNoteReviewCenterService.js'
-import { createPrismaWrongNoteReviewQueueRepository } from '../wrong-note/wrongNoteReviewQueueRepository.js'
-import { createWrongNoteReviewQueueService } from '../wrong-note/wrongNoteReviewQueueService.js'
+import {
+  createPrismaWrongNoteReviewListRepository,
+  createWrongNoteReviewListService
+} from '../wrong-note/wrongNoteReviewList.js'
 import { createPrismaWrongNoteTargetedReviewRepository } from '../wrong-note/wrongNoteTargetedReviewRepository.js'
 import { createWrongNoteTargetedReviewService } from '../wrong-note/wrongNoteTargetedReviewService.js'
 import { createPrismaDashboardRepository } from '../dashboard/dashboardRepository.js'
@@ -438,6 +452,9 @@ export const createBrowserApi = async ({
         parseBrowserApiLogLevel(source.BROWSER_API_LOG_LEVEL)
       ),
       ...(environment.RELEASE_ID ? { releaseId: environment.RELEASE_ID } : {}),
+      dailyQuestionReader: createDailyQuestionService(
+        createPrismaDailyQuestionRepository(database.client)
+      ),
       questionReader: createQuestionService(
         createPrismaQuestionRepository(database.client, {
           migrationProfile: 'current'
@@ -457,6 +474,9 @@ export const createBrowserApi = async ({
           keySecret: environment.GUEST_COOKIE_SECRET,
           rateLimiter
         }),
+        guestResultImportService: createGuestResultImportService(
+          createPrismaGuestResultImportRepository(database.client)
+        ),
         rateLimiter,
         retryService: createStudyResultRetryService(
           createPrismaStudyResultRetryRepository(database.client)
@@ -485,11 +505,14 @@ export const createBrowserApi = async ({
         reviewCenterService: createWrongNoteReviewCenterService(
           createPrismaWrongNoteReviewCenterRepository(database.client)
         ),
-        reviewQueueService: createWrongNoteReviewQueueService(
-          createPrismaWrongNoteReviewQueueRepository(database.client)
+        reviewListService: createWrongNoteReviewListService(
+          createPrismaWrongNoteReviewListRepository(database.client)
         ),
         targetedReviewService: createWrongNoteTargetedReviewService(
           createPrismaWrongNoteTargetedReviewRepository(database.client)
+        ),
+        targetLevelService: createTargetLevelService(
+          createPrismaTargetLevelRepository(database.client)
         ),
         wrongNoteService: createWrongNoteService(
           createPrismaWrongNoteRepository(database.client)

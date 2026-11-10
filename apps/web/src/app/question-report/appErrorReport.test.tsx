@@ -41,13 +41,15 @@ const renderAt = (path: string, element: ReactElement) => {
 
 const submitAppError = async (description: string) => {
   const user = userEvent.setup()
-  const dialog = await screen.findByRole('dialog', { name: '앱 오류 제보' })
+  const dialog = await screen.findByRole('dialog', { name: '오류 알리기' })
   expect(within(dialog).queryByRole('combobox')).toBeNull()
-  const textbox = within(dialog).getByRole('textbox', { name: /설명/u })
+  const textbox = within(dialog).getByRole('textbox', {
+    name: /어디가 이상한가요/u
+  })
   // The contract caps the description at 1,000 characters.
   expect(textbox).toHaveAttribute('maxLength', '1000')
   await user.type(textbox, description)
-  await user.click(within(dialog).getByRole('button', { name: '신고 접수' }))
+  await user.click(within(dialog).getByRole('button', { name: '보내기' }))
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
 }
 
@@ -61,9 +63,7 @@ describe('APP_ERROR report entry points', () => {
     // The signed-in trigger shows the member avatar and name.
     await waitFor(() => expect(account).toHaveClass('account-menu-trigger'))
     await userEvent.click(account)
-    await userEvent.click(
-      screen.getByRole('menuitem', { name: '앱 오류 제보' })
-    )
+    await userEvent.click(screen.getByRole('menuitem', { name: '오류 알리기' }))
     await submitAppError('대시보드 숫자가 비어 있습니다.')
     expect(mockDatabase.peekUserReports()).toEqual([
       expect.objectContaining({
@@ -83,7 +83,7 @@ describe('APP_ERROR report entry points', () => {
       <AppErrorReportButton />
     )
     await userEvent.click(
-      await screen.findByRole('button', { name: '오류 제보' })
+      await screen.findByRole('button', { name: '오류 알리기' })
     )
     await submitAppError('오답 상세를 불러오지 못했습니다.')
     expect(mockDatabase.peekUserReports()).toEqual([
@@ -93,13 +93,15 @@ describe('APP_ERROR report entry points', () => {
         questionVersionId: null
       })
     ])
-    expect(await screen.findByText('오류 제보를 보냈어요.')).toBeInTheDocument()
+    expect(
+      await screen.findByText('알려 주셔서 고마워요. 확인할게요.')
+    ).toBeInTheDocument()
   })
 
   it('hides the error screen button from guests', async () => {
     renderAt('/dashboard', <AppErrorReportButton />)
     await waitFor(() =>
-      expect(screen.queryByRole('button', { name: '오류 제보' })).toBeNull()
+      expect(screen.queryByRole('button', { name: '오류 알리기' })).toBeNull()
     )
   })
 })

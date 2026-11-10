@@ -5,6 +5,8 @@ import {
   screen,
   within
 } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { LAST_PRACTICE_CHOICE_KEY } from '@app/practice/lastPracticeChoice'
 import {
   createMemoryRouter,
   MemoryRouter,
@@ -13,6 +15,7 @@ import {
   Routes
 } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { getResponse, http, HttpResponse } from 'msw'
 import { vi } from 'vitest'
 import type { ReactElement } from 'react'
 const render = (ui: ReactElement) =>
@@ -26,8 +29,13 @@ const render = (ui: ReactElement) =>
     </QueryClientProvider>
   )
 import { appI18n } from '@nihongo/browser/i18n/config'
-import { HomePage } from '@app/home/page'
+import { HomePage, LearningHome } from '@app/home/page'
 import { ToastProvider } from '@nihongo/browser/common/components/Toast'
+import { dailyQuestionHandlers } from '@/mocks/handlers/dailyQuestionHandlers'
+import { mockServer } from '@/test/server'
+import { mockGuestAllowance } from '@mocks/handlers/guestAllowanceHandlers'
+import * as reviewListApi from '@api/wrong-note/listReviewList'
+import { ReviewDueLine } from '@app/dashboard/components/ReviewDueLine'
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
@@ -117,199 +125,228 @@ it.each([
   }
 )
 
-it('retains guest filters at the home entry without a member redirect', async () => {
-  mocks.auth.mockReturnValue({ isReady: true, role: 'GUEST', user: null })
-  const search = '?level=N5&subject=READING&count=20&mode=RANDOM'
-  const router = createMemoryRouter([{ path: '/', element: <HomePage /> }], {
-    initialEntries: [`/${search}`]
-  })
-  const view = render(<RouterProvider router={router} />)
-  expect(await screen.findByRole('radio', { name: 'N5' })).toBeChecked()
-  expect(screen.getByRole('radio', { name: '독해' })).toBeChecked()
-  expect(router.state.location.pathname).toBe('/')
-  expect(router.state.location.search).toBe(search)
-  view.unmount()
-  router.dispose()
-})
-
-it('keeps guest start available while disclosing example data', () => {
-  mocks.auth.mockReturnValue({ isReady: true, role: 'GUEST', user: null })
-  const client = new QueryClient()
+const renderHome = (initial = '/', memberLine?: ReactElement) =>
   render(
-    <QueryClientProvider client={client}>
-      <MemoryRouter>
-        <HomePage />
-      </MemoryRouter>
-    </QueryClientProvider>
-  )
-  expect(
-    screen.getByRole('radio', {
-      // Locked for guests: the name ends with "로그인 필요".
-      name: new RegExp(
-        `^${appI18n.t('practice:setup.questionCount', { formattedCount: 20 })}`
-      )
-    })
-  ).toBeVisible()
-  expect(
-    screen.getByRole('button', {
-      name: appI18n.t('home:quickDrill.start', {
-        level: 'N5',
-        subject: appI18n.t('home:approved.vocabulary'),
-        formattedCount: 5
-      })
-    })
-  ).toBeEnabled()
-})
-
-it('discloses example data in Japanese without obsolete verification claims', async () => {
-  await appI18n.changeLanguage('ja')
-  mocks.auth.mockReturnValue({ isReady: true, role: 'GUEST', user: null })
-  const client = new QueryClient()
-  render(
-    <QueryClientProvider client={client}>
-      <MemoryRouter>
-        <HomePage />
-      </MemoryRouter>
-    </QueryClientProvider>
-  )
-  expect(screen.getByRole('form')).toBeVisible()
-  expect(screen.queryByText(/独立検証中/)).not.toBeInTheDocument()
-  client.clear()
-})
-it.each(['ko', 'ja'] as const)(
-  'hides development notice and demo login in real mode (%s)',
-  async (locale) => {
-    await appI18n.changeLanguage(locale)
-    mocks.mockMode = false
-    mocks.auth.mockReturnValue({ isReady: true, role: 'GUEST', user: null })
-    const client = new QueryClient()
-    render(
-      <QueryClientProvider client={client}>
-        <MemoryRouter>
-          <HomePage />
-        </MemoryRouter>
-      </QueryClientProvider>
-    )
-    expect(
-      screen.queryByText(/개발용 예시 데이터|開発用のサンプルデータ/)
-    ).not.toBeInTheDocument()
-    expect(
-      screen.queryByRole('link', { name: /데모 계정|デモアカウント/ })
-    ).not.toBeInTheDocument()
-    expect(
-      screen.getByRole('button', {
-        name: locale === 'ko' ? 'N5 어휘 · 5문제 시작' : 'N5 語彙 · 5問を始める'
-      })
-    ).toBeEnabled()
-    client.clear()
-  }
-)
-
-it.each(['ko', 'ja'] as const)(
-  'submits one continuous form with the selected scope (%s)',
-  async (locale) => {
-    await appI18n.changeLanguage(locale)
-    mocks.auth.mockReturnValue({ isReady: true, role: 'GUEST', user: null })
-    mocks.mutate.mockClear()
-    render(
-      <MemoryRouter>
-        <HomePage />
-      </MemoryRouter>
-    )
-    const form = screen.getByRole('form')
-    expect(form.querySelectorAll('fieldset')).toHaveLength(3)
-    const n5 = within(form).getByRole('radio', { name: 'N5' })
-    fireEvent.click(n5)
-    expect(n5).toBeChecked()
-    expect(within(form).getByRole('radio', { name: 'N3' })).not.toBeChecked()
-    const subject = within(form)
-      .getAllByRole('radio')
-      .find((button) =>
-        button
-          .closest('label')
-          ?.textContent?.includes(locale === 'ko' ? '독해' : '読解')
-      )
-    expect(subject).toBeDefined()
-    fireEvent.click(subject!)
-    expect(subject).toBeChecked()
-    expect(n5).toBeChecked()
-    fireEvent.submit(form)
-    expect(mocks.mutate).toHaveBeenCalledTimes(1)
-    expect(mocks.mutate).toHaveBeenCalledWith(
-      { level: 'N5', subject: 'READING', count: 5, mode: 'RANDOM' },
-      expect.objectContaining({ onSuccess: expect.any(Function) })
-    )
-  }
-)
-
-it('keeps the chosen level while a request has failed and allows retry', () => {
-  mocks.auth.mockReturnValue({ isReady: true, role: 'GUEST', user: null })
-  mocks.failed = true
-  render(
-    <MemoryRouter>
-      <HomePage />
+    <MemoryRouter initialEntries={[initial]}>
+      <LearningHome memberLine={memberLine} />
     </MemoryRouter>
   )
-  fireEvent.click(screen.getByRole('radio', { name: 'N5' }))
-  fireEvent.submit(screen.getByRole('form'))
+
+it.each([
+  [
+    'ko',
+    '오늘은 N5 문자·어휘 10문제 풀어 볼까요?',
+    '급수 바꾸기',
+    '과목 바꾸기',
+    '바로 풀기'
+  ],
+  [
+    'ja',
+    '今日は N5 文字・語彙 を 10問解いてみませんか？',
+    'レベルを変える',
+    '科目を変える',
+    'すぐに解く'
+  ]
+] as const)(
+  'asks a guest one sentence with N5 vocabulary and one start button (%s)',
+  async (locale, sentence, levelLabel, subjectLabel, start) => {
+    await appI18n.changeLanguage(locale)
+    mocks.auth.mockReturnValue({ isReady: true, role: 'GUEST', user: null })
+    renderHome()
+    expect(
+      screen.getByRole('heading', { level: 1, name: sentence })
+    ).toBeVisible()
+    expect(
+      screen.getByText(
+        appI18n.t('home:today.guestGreeting', { total: 3, count: 10 })
+      )
+    ).toBeVisible()
+    expect(screen.getByRole('combobox', { name: levelLabel })).toHaveValue('N5')
+    expect(screen.getByRole('combobox', { name: subjectLabel })).toHaveValue(
+      'VOCABULARY'
+    )
+    fireEvent.click(screen.getByRole('button', { name: start }))
+    expect(mocks.mutate).toHaveBeenCalledWith(
+      { level: 'N5', subject: 'VOCABULARY', count: 10, mode: 'RANDOM' },
+      expect.anything()
+    )
+    // Guests keep things only after logging in: one quiet line, no lock.
+    expect(
+      screen.getByRole('link', {
+        name: appI18n.t('home:today.guestMoreAction')
+      })
+    ).toHaveAttribute('href', '/login?redirect=%2F')
+    expect(screen.getByText(appI18n.t('home:today.guestMore'))).toBeVisible()
+  }
+)
+
+it.each([
+  ['ko', '내일 또 N5 문자·어휘 10문제 풀어요', '오늘 3번을 다 풀었어요'],
+  [
+    'ja',
+    '明日また N5 文字・語彙 を 10問解きましょう',
+    '今日の3回をすべて解きました'
+  ]
+] as const)(
+  'tells a guest at the daily limit about tomorrow (%s)',
+  async (locale, sentence, limitTitle) => {
+    await appI18n.changeLanguage(locale)
+    mockGuestAllowance.setRemaining(0)
+    mocks.auth.mockReturnValue({ isReady: true, role: 'GUEST', user: null })
+    renderHome()
+    expect(
+      await screen.findByRole('heading', { name: limitTitle })
+    ).toBeVisible()
+    expect(
+      screen.getByRole('heading', { level: 1, name: sentence })
+    ).toBeVisible()
+  }
+)
+
+it('starts a member from the last level and subject, changed by the underlined words', async () => {
+  localStorage.setItem(
+    LAST_PRACTICE_CHOICE_KEY,
+    JSON.stringify({ level: 'N3', subject: 'GRAMMAR' })
+  )
+  mocks.auth.mockReturnValue({
+    isReady: true,
+    role: 'USER',
+    user: { id: 'member', name: '데모', targetLevel: null }
+  })
+  const user = userEvent.setup()
+  renderHome('/dashboard?view=learning')
+  expect(screen.getByText('데모님, 왔네요')).toBeVisible()
+  expect(
+    screen.getByRole('heading', {
+      level: 1,
+      name: '오늘은 N3 문법 10문제 풀어 볼까요?'
+    })
+  ).toBeVisible()
+  await user.selectOptions(
+    screen.getByRole('combobox', { name: '급수 바꾸기' }),
+    'N1'
+  )
+  await user.selectOptions(
+    screen.getByRole('combobox', { name: '과목 바꾸기' }),
+    'READING'
+  )
+  fireEvent.click(screen.getByRole('button', { name: '바로 풀기' }))
+  expect(mocks.mutate).toHaveBeenCalledWith(
+    { level: 'N1', subject: 'READING', count: 10, mode: 'RANDOM' },
+    expect.anything()
+  )
+  expect(screen.queryByText(appI18n.t('home:today.guestMore'))).toBeNull()
+})
+
+it('tells a member how many wrong answers wait and starts the same review as the wrong-note page', async () => {
+  vi.spyOn(reviewListApi, 'listReviewList').mockResolvedValue({
+    counts: { toReview: 4, reviewed: 1 },
+    oldestToReview: { level: 'N4', subject: 'GRAMMAR' }
+  } as never)
+  renderHome('/dashboard?view=learning', <ReviewDueLine />)
+  expect(await screen.findByText('복습할 문제도 4개 남아 있어요')).toBeVisible()
+  fireEvent.click(screen.getByRole('button', { name: '복습' }))
+  expect(mocks.mutate).toHaveBeenCalledWith(
+    { level: 'N4', subject: 'GRAMMAR', mode: 'DAILY_REVIEW', count: 10 },
+    expect.anything()
+  )
+})
+
+it('shows nothing about review when no wrong answers wait', async () => {
+  const list = vi.spyOn(reviewListApi, 'listReviewList').mockResolvedValue({
+    counts: { toReview: 0, reviewed: 3 },
+    oldestToReview: null
+  } as never)
+  renderHome('/dashboard?view=learning', <ReviewDueLine />)
+  await vi.waitFor(() => expect(list).toHaveBeenCalled())
+  expect(screen.queryByRole('button', { name: '복습' })).toBeNull()
+})
+
+it('shows the start error in place and allows another try', () => {
+  mocks.auth.mockReturnValue({ isReady: true, role: 'GUEST', user: null })
+  mocks.failed = true
+  renderHome()
   expect(screen.getByRole('alert')).toBeVisible()
-  expect(screen.getByRole('radio', { name: 'N5' })).toBeChecked()
-  fireEvent.submit(screen.getByRole('form'))
+  const start = screen.getByRole('button', { name: '바로 풀기' })
+  fireEvent.click(start)
+  fireEvent.click(start)
   expect(mocks.mutate).toHaveBeenCalledTimes(2)
 })
+
 it('announces loading and prevents duplicate start requests', () => {
   mocks.auth.mockReturnValue({ isReady: true, role: 'GUEST', user: null })
   mocks.pending = true
-  render(
-    <MemoryRouter>
-      <HomePage />
-    </MemoryRouter>
-  )
-  const submit = screen.getByRole('button')
-  expect(submit).toBeDisabled()
-  expect(submit).toHaveAttribute('aria-busy', 'true')
-  expect(submit).toHaveAccessibleName(appI18n.t('home:approved.loading'))
-  expect(submit.querySelector('svg')).toBeNull()
-  expect(
-    screen
-      .getAllByRole('radio')
-      .every(
-        (radio) =>
-          radio.hasAttribute('disabled') || radio.closest('fieldset')?.disabled
-      )
-  ).toBe(true)
-  fireEvent.submit(screen.getByRole('form'))
+  renderHome()
+  const start = screen.getByRole('button', {
+    name: appI18n.t('home:approved.loading')
+  })
+  expect(start).toBeDisabled()
+  expect(start).toHaveAttribute('aria-busy', 'true')
+  fireEvent.click(start)
   expect(mocks.mutate).not.toHaveBeenCalled()
+  // The words cannot change while a set is being made.
+  expect(screen.getByRole('combobox', { name: '급수 바꾸기' })).toBeDisabled()
+})
+
+it("answers today's question in place, without a record, and keeps it on reopen", async () => {
+  mocks.auth.mockReturnValue({ isReady: true, role: 'GUEST', user: null })
+  const user = userEvent.setup()
+  const first = renderHome()
+  const daily = await screen.findByRole('region', { name: '오늘의 한 문제' })
+  const options = await within(daily).findAllByRole('button')
+  expect(options).toHaveLength(4)
+  expect(within(daily).getByText(/^N5 · /u)).toBeVisible()
+  await user.click(options[0]!)
+  expect(
+    await within(daily).findByText(
+      /^(정답이에요|아쉬워요. 정답은 [1-4]번이에요)$/u
+    )
+  ).toBeVisible()
+  expect(
+    options.every((option) => option.getAttribute('aria-disabled') === 'true')
+  ).toBe(true)
+  expect(options[0]).toHaveAttribute('aria-pressed', 'true')
+  expect(mocks.mutate).not.toHaveBeenCalled()
+  first.unmount()
+
+  renderHome()
+  const reopened = await screen.findByRole('region', { name: '오늘의 한 문제' })
+  expect(
+    await within(reopened).findByText(
+      /^(정답이에요|아쉬워요. 정답은 [1-4]번이에요)$/u
+    )
+  ).toBeVisible()
 })
 
 it.each([
-  ['ko', 'N5', 'VOCABULARY', '어휘', 'N5 어휘 · 5문제 시작'],
-  ['ko', 'N3', 'GRAMMAR', '문법', 'N3 문법 · 5문제 시작'],
-  ['ko', 'N1', 'READING', '독해', 'N1 독해 · 5문제 시작'],
-  ['ja', 'N5', 'VOCABULARY', '語彙', 'N5 語彙 · 5問を始める'],
-  ['ja', 'N3', 'GRAMMAR', '文法', 'N3 文法 · 5問を始める'],
-  ['ja', 'N1', 'READING', '読解', 'N1 読解 · 5問を始める']
-] as const)(
-  'shows and submits the same current scope without a CTA icon (%s %s %s)',
-  async (locale, level, subject, subjectLabel, label) => {
-    await appI18n.changeLanguage(locale)
-    mocks.auth.mockReturnValue({ isReady: true, role: 'GUEST', user: null })
-    render(
-      <MemoryRouter>
-        <HomePage />
-      </MemoryRouter>
+  [null, '일본어 해설이 아직 없어서 한국어 해설을 보여 드려요.'],
+  ['日本語の解説', null]
+])(
+  "shows the Korean-explanation notice on today's question when Japanese is missing (%s)",
+  async (explanationJa, notice) => {
+    await appI18n.changeLanguage('ja')
+    mockServer.use(
+      http.get('*/api/v1/daily-question', async ({ request }) => {
+        const response = await getResponse(dailyQuestionHandlers, request)
+        const body = (await response!.json()) as {
+          question: Record<string, unknown>
+        }
+        body.question.explanationJa = explanationJa
+        return HttpResponse.json(body)
+      })
     )
-    fireEvent.click(screen.getByRole('radio', { name: level }))
-    fireEvent.click(screen.getByRole('radio', { name: subjectLabel }))
-    const start = screen.getByRole('button', { name: label })
-    expect(start).toHaveTextContent(label)
-    expect(start).toHaveAttribute('aria-label', label)
-    expect(start.querySelector('svg')).toBeNull()
-    expect(screen.getByRole('radio', { name: level })).toBeChecked()
-    fireEvent.click(start)
-    expect(mocks.mutate).toHaveBeenCalledWith(
-      { level, subject, count: 5, mode: 'RANDOM' },
-      expect.objectContaining({ onSuccess: expect.any(Function) })
-    )
+    const user = userEvent.setup()
+    renderHome()
+    const daily = await screen.findByRole('region', {
+      name: appI18n.t('home:today.dailyLabel')
+    })
+    await user.click((await within(daily).findAllByRole('button'))[0]!)
+    const noticeText = appI18n.t('common:explanation.japaneseUnavailable')
+    if (notice) {
+      expect(await within(daily).findByText(noticeText)).toBeVisible()
+    } else {
+      expect(await within(daily).findByText(/日本語の解説/u)).toBeVisible()
+      expect(within(daily).queryByText(noticeText)).toBeNull()
+    }
   }
 )

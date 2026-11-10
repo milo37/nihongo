@@ -15,10 +15,6 @@ import {
   listReviewEventsResponseSchema
 } from '@nihongo/contracts/wrong-note/list-review-events'
 import {
-  listWrongNotesQuerySchema,
-  listWrongNotesResponseSchema
-} from '@nihongo/contracts/wrong-note/list-wrong-notes'
-import {
   createUpdateWrongNoteMemoResponseSchema,
   updateWrongNoteMemoBodySchema,
   updateWrongNoteMemoParamsSchema,
@@ -135,41 +131,6 @@ export const createWrongNoteRoutes = ({
     '*',
     createClientIpMiddleware(environment.AUTH_TRUSTED_PROXY_CIDRS)
   )
-
-  routes.get('/', async (context) => {
-    await rateLimiter.consume({
-      clientIp: context.get('clientIp'),
-      operation: 'wrong-note-list',
-      windowMs: 60_000,
-      max: 120
-    })
-
-    let query
-    try {
-      query = listWrongNotesQuerySchema.parse(context.req.query())
-    } catch (error: unknown) {
-      if (error instanceof z.ZodError) {
-        throw new ApplicationError({
-          code: 'VALIDATION_ERROR',
-          message: '오답 노트 조회 조건이 올바르지 않습니다.',
-          fieldErrors: toFieldErrors(error),
-          retryable: false
-        })
-      }
-      throw error
-    }
-
-    const userId = await requireAuthenticatedUserId(
-      context,
-      principalService,
-      environment
-    )
-    const response = listWrongNotesResponseSchema.parse(
-      await wrongNoteService.listWrongNotes(userId, query)
-    )
-    context.header('Cache-Control', 'private, no-store')
-    return context.json(response)
-  })
 
   if (reviewCenterEnabled) {
     routes.get('/:questionId/memo', async (context) => {

@@ -1,12 +1,6 @@
 import { isApiError } from '@nihongo/browser/api/config'
 
-export const isNotFoundApiError = (error: unknown): boolean => {
-  return (
-    error instanceof Error &&
-    'isNotFoundError' in error &&
-    error.isNotFoundError === true
-  )
-}
+export { isNotFoundApiError } from '@nihongo/browser/util/apiError'
 
 export const isAuthenticationBoundaryApiError = (error: unknown): boolean =>
   isApiError(error) && (error.status === 401 || error.status === 404)

@@ -1,5 +1,10 @@
 import { createHash } from 'node:crypto'
-import { jaResources, koResources } from '@nihongo/browser/i18n/resources/index'
+import {
+  jaAdminLearnerResources,
+  jaResources,
+  koAdminLearnerResources,
+  koResources
+} from '@nihongo/browser/i18n/resources/index'
 import { expect, it, vi } from 'vitest'
 
 it.each(['ko', 'ja'] as const)(
@@ -10,9 +15,19 @@ it.each(['ko', 'ja'] as const)(
       JSON.stringify({ version: 1, locale })
     )
     vi.resetModules()
-    const { appI18n } = await import('@nihongo/browser/i18n/config')
+    const { appI18n, loadAdminResources } = await import(
+      '@nihongo/browser/i18n/config'
+    )
     expect(appI18n.isInitialized).toBe(true)
-    expect(appI18n.getDataByLanguage('ja')).toEqual(jaResources)
+    // Startup carries only the admin copy the learner app shows (JLP-758).
+    expect(appI18n.getDataByLanguage('ja')).toEqual({
+      ...jaResources,
+      admin: jaAdminLearnerResources
+    })
+    expect(appI18n.getDataByLanguage('ko')).toEqual({
+      ...koResources,
+      admin: koAdminLearnerResources
+    })
     expect(Object.keys(appI18n.getDataByLanguage('ja') ?? {})).toEqual(
       Object.keys(jaResources)
     )
@@ -43,6 +58,9 @@ it.each(['ko', 'ja'] as const)(
       fetch.mockRestore()
       online.mockRestore()
     }
+    await loadAdminResources()
+    expect(appI18n.getDataByLanguage('ja')).toEqual(jaResources)
+    expect(appI18n.getDataByLanguage('ko')).toEqual(koResources)
   }
 )
 
@@ -50,11 +68,11 @@ it('matches approved Japanese additions and preserves admin keys, values and ord
   expect(Object.keys(jaResources)).toEqual(Object.keys(koResources))
   expect(
     createHash('sha256').update(JSON.stringify(koResources)).digest('hex')
-  ).toBe('9a35352d987bfb631417cb48f244f899c7349cd1d55d03b59b602f277a1414ce')
+  ).toBe('e07ac668b6fb7f7cbabf699589f3a6ef84290f97e8dbcd4095f42f696c2aabaa')
   expect(
     createHash('sha256').update(JSON.stringify(jaResources)).digest('hex')
-  ).toBe('3da46e4669bc6f2827b3369e7430c0531b7604381bab6e4aae142c4c7d1cbc1c')
+  ).toBe('951654a782accb1dafb5a51dd83d2fc795f56233300bc1c7dc81fefd22745740')
   expect(
     createHash('sha256').update(JSON.stringify(jaResources.admin)).digest('hex')
-  ).toBe('ac623917787060d4b91a722e22b618d7217cf1b428c2db79d362b1454342b795')
+  ).toBe('4747e7aa789d6381ca56019e32835ce0e37aafb0b056ed80cc2d03de54cd1403')
 })

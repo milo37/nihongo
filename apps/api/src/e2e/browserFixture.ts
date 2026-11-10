@@ -18,6 +18,14 @@ import { createApplicationRateLimiter } from '../middleware/applicationRateLimit
 import { createJsonLogger } from '../observability/logger.js'
 import { createPrismaQuestionRepository } from '../question/questionRepository.js'
 import { createQuestionService } from '../question/questionService.js'
+import {
+  createDailyQuestionService,
+  createPrismaDailyQuestionRepository
+} from '../question/dailyQuestion.js'
+import {
+  createPrismaTargetLevelRepository,
+  createTargetLevelService
+} from '../member/targetLevel.js'
 import { createPrismaGuestAllowanceReader } from '../study/guestAllowance.js'
 import { createGuestIpDailyCounter } from '../study/guestIpDailyCounter.js'
 import { createPrismaStudyDraftRepository } from '../study/studyDraftRepository.js'
@@ -40,9 +48,15 @@ import { createDashboardService } from '../dashboard/dashboardService.js'
 import { createPrismaDashboardInsightsRepository } from '../dashboard/dashboardInsightsRepository.js'
 import { createDashboardInsightsService } from '../dashboard/dashboardInsightsService.js'
 import { createPrismaStudyResultRetryRepository } from '../study/studyResultRetryRepository.js'
+import {
+  createGuestResultImportService,
+  createPrismaGuestResultImportRepository
+} from '../study/guestResultImport.js'
 import { createStudyResultRetryService } from '../study/studyResultRetryService.js'
-import { createPrismaWrongNoteReviewQueueRepository } from '../wrong-note/wrongNoteReviewQueueRepository.js'
-import { createWrongNoteReviewQueueService } from '../wrong-note/wrongNoteReviewQueueService.js'
+import {
+  createPrismaWrongNoteReviewListRepository,
+  createWrongNoteReviewListService
+} from '../wrong-note/wrongNoteReviewList.js'
 import { createPrismaWrongNoteTargetedReviewRepository } from '../wrong-note/wrongNoteTargetedReviewRepository.js'
 import { createWrongNoteTargetedReviewService } from '../wrong-note/wrongNoteTargetedReviewService.js'
 import { createAdminReadGuard } from '../admin/adminReadGuard.js'
@@ -1430,9 +1444,6 @@ const createSsoBrowserApiFixture = async (
     const wrongNoteReviewCenterService = createWrongNoteReviewCenterService(
       createPrismaWrongNoteReviewCenterRepository(database.client)
     )
-    const wrongNoteReviewQueueService = createWrongNoteReviewQueueService(
-      createPrismaWrongNoteReviewQueueRepository(database.client)
-    )
     const wrongNoteTargetedReviewService = createWrongNoteTargetedReviewService(
       createPrismaWrongNoteTargetedReviewRepository(database.client)
     )
@@ -1559,8 +1570,13 @@ const createSsoBrowserApiFixture = async (
         rateLimiter,
         reviewCenterEnabled: true,
         reviewCenterService: wrongNoteReviewCenterService,
-        reviewQueueService: wrongNoteReviewQueueService,
+        reviewListService: createWrongNoteReviewListService(
+          createPrismaWrongNoteReviewListRepository(database.client)
+        ),
         targetedReviewService: wrongNoteTargetedReviewService,
+        targetLevelService: createTargetLevelService(
+          createPrismaTargetLevelRepository(database.client)
+        ),
         wrongNoteService
       },
       auth: {
@@ -1577,6 +1593,9 @@ const createSsoBrowserApiFixture = async (
       ...(environment.RELEASE_ID === undefined
         ? {}
         : { releaseId: environment.RELEASE_ID }),
+      dailyQuestionReader: createDailyQuestionService(
+        createPrismaDailyQuestionRepository(database.client)
+      ),
       questionReader: createQuestionService(
         createPrismaQuestionRepository(database.client, {
           migrationProfile: 'current'
@@ -1596,6 +1615,9 @@ const createSsoBrowserApiFixture = async (
           keySecret: environment.GUEST_COOKIE_SECRET,
           rateLimiter
         }),
+        guestResultImportService: createGuestResultImportService(
+          createPrismaGuestResultImportRepository(database.client)
+        ),
         retryService: studyResultRetryService,
         submissionService: studySubmissionService,
         rateLimiter,

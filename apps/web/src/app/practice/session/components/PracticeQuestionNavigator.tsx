@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
+import { Dialog } from '@nihongo/browser/common/components/Dialog'
 import type { StudyQuestionView } from '@app/practice/adapters/studySessionView'
 import { usePracticeNumberFormat } from '@app/practice/hooks/usePracticeNumberFormat'
 
@@ -7,14 +8,19 @@ type PracticeQuestionNavigatorProps = {
   currentIndex: number
   isDisabled: boolean
   onJump: (ordinal: number) => void
+  onOpenChange: (open: boolean) => void
+  open: boolean
   questions: StudyQuestionView[]
   selectedAnswers: Record<string, string>
 }
 
+/** Number sheet opened from the top bar's "1 / 3". */
 export const PracticeQuestionNavigator = ({
   currentIndex,
   isDisabled,
   onJump,
+  onOpenChange,
+  open,
   questions,
   selectedAnswers
 }: PracticeQuestionNavigatorProps): ReactElement => {
@@ -22,15 +28,14 @@ export const PracticeQuestionNavigator = ({
   const { formatCount } = usePracticeNumberFormat()
 
   return (
-    <aside className="study-question-guide study-question-map text-sm leading-7 text-muted">
-      <h2 className="font-semibold text-ink">
-        {t('session.navigation.jumpLabel')}
-      </h2>
-      <nav
-        className="study-question-jump mt-8"
-        aria-label={t('session.navigation.jumpLabel')}
-      >
-        <ol className="flex flex-wrap justify-center gap-2">
+    <Dialog
+      open={open}
+      size="sm"
+      title={t('session.navigation.jumpLabel')}
+      onOpenChange={onOpenChange}
+    >
+      <nav aria-label={t('session.navigation.jumpLabel')}>
+        <ol className="flex flex-wrap gap-2">
           {questions.map((question, index) => (
             <li key={question.id}>
               <button
@@ -48,6 +53,7 @@ export const PracticeQuestionNavigator = ({
                 data-answered={Boolean(selectedAnswers[question.id])}
                 onClick={() => {
                   onJump(index + 1)
+                  onOpenChange(false)
                 }}
               >
                 {formatCount(index + 1)}
@@ -56,9 +62,6 @@ export const PracticeQuestionNavigator = ({
           ))}
         </ol>
       </nav>
-      <h2 className="font-semibold text-ink">{t('session.guide.title')}</h2>
-      <p className="mt-3">{t('session.guide.beforeSubmit')}</p>
-      <p>{t('session.guide.afterSubmit')}</p>
-    </aside>
+    </Dialog>
   )
 }

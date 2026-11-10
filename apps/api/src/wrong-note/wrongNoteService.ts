@@ -1,12 +1,6 @@
 import type { GetWrongNoteResponse } from '@nihongo/contracts/wrong-note/get-wrong-note'
-import {
-  trimWrongNoteTagLabel,
-  type ListWrongNotesResponse,
-  type ParsedListWrongNotesQuery
-} from '@nihongo/contracts/wrong-note/list-wrong-notes'
 import { ApplicationError } from '../errors/applicationError.js'
 import {
-  toListWrongNotesResponse,
   toWrongNoteDetail,
   WrongNoteMapperIntegrityError
 } from './wrongNoteMapper.js'
@@ -21,10 +15,6 @@ export interface WrongNoteService {
     userId: string,
     questionId: string
   ) => Promise<GetWrongNoteResponse>
-  listWrongNotes: (
-    userId: string,
-    query: ParsedListWrongNotesQuery
-  ) => Promise<ListWrongNotesResponse>
 }
 
 const throwMappedError = (error: unknown): never => {
@@ -74,20 +64,5 @@ export const createWrongNoteService = (
         })
       }
       return toWrongNoteDetail(record)
-    }),
-  listWrongNotes: (userId, query) =>
-    withMappedErrors(async () => {
-      const result = await repository.listOwned({
-        userId,
-        ...query,
-        ...(query.tag ? { tag: trimWrongNoteTagLabel(query.tag) } : {})
-      })
-      return toListWrongNotesResponse(
-        result.items,
-        result.availableTagLabels,
-        query.page,
-        query.pageSize,
-        result.total
-      )
     })
 })

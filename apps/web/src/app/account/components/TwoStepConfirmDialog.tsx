@@ -34,7 +34,7 @@ const StepMarker = ({
   >
     <span
       className={[
-        'grid size-7 shrink-0 place-items-center rounded-full text-xs font-bold',
+        'grid size-7 shrink-0 place-items-center rounded-full text-caption font-bold',
         state === 'done'
           ? 'bg-success text-on-accent'
           : state === 'current'
@@ -140,19 +140,22 @@ export const TwoStepConfirmDialog = ({
               <p className="whitespace-pre-line">{t('danger.description')}</p>
             )}
             {isConfirm && !isUnlink ? (
-              <Link className="text-link text-xs underline" to="/account/data">
+              <Link
+                className="text-link text-caption underline"
+                to="/account/data"
+              >
                 {t('dataGuide')}
               </Link>
             ) : null}
             {!isConfirm ? (
-              <p className="text-xs text-muted">
+              <p className="text-caption text-muted">
                 {flow.canVerify
                   ? authT('reauth.returnNote')
                   : authT('sso.unavailableProvider', { provider })}
               </p>
             ) : null}
             {!isConfirm ? (
-              <p className="text-xs text-muted">
+              <p className="text-caption text-muted">
                 {authT('reauth.scopeAccount')}
               </p>
             ) : null}

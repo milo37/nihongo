@@ -45,7 +45,10 @@ import {
   readBoundedMockJsonObject
 } from '@mocks/handlers/shared'
 import { MockDatabaseError, mockDatabase } from '@mocks/repository/mockDatabase'
-import { GUEST_SESSION_QUESTION_LIMIT } from '@nihongo/contracts/study/guest-limits'
+import {
+  GUEST_DAILY_SESSION_LIMIT,
+  GUEST_SESSION_QUESTION_LIMIT
+} from '@nihongo/contracts/study/guest-limits'
 import { mockGuestAllowance } from '@mocks/handlers/guestAllowanceHandlers'
 
 const JSON_CONTENT_TYPE_PATTERN = /^application\/json(?:\s*;|$)/iu
@@ -453,8 +456,7 @@ export const studySessionHandlers = [
       if (guestLimits && mockGuestAllowance.remaining() === 0) {
         return createCreateErrorResponse({
           code: 'GUEST_LIMIT_REACHED',
-          message:
-            '비회원은 하루 2번까지 풀 수 있습니다. 더 풀려면 로그인해 주세요.',
+          message: `비회원은 하루 ${GUEST_DAILY_SESSION_LIMIT}번까지 풀 수 있습니다. 더 풀려면 로그인해 주세요.`,
           details: { resetsAt: mockGuestAllowance.resetsAt() },
           requestId,
           retryable: false

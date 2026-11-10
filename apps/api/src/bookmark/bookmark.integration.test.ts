@@ -316,6 +316,86 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
     ).resolves.toBe(1)
   })
 
+  it('JLP-815 공개를 내린 문제의 Bookmark는 목록과 개수에서 빠지고 행은 남는다', async () => {
+    if (!isCurrentSourceIntegration) return
+    const ownerId = await createUser('hidden-owner')
+    const [visible, hidden] = await readPublishedQuestions()
+    if (!visible || !hidden) {
+      throw new Error('Bookmark hidden fixture가 필요합니다.')
+    }
+    await bookmarkService.create(ownerId, visible.id)
+    await bookmarkService.create(ownerId, hidden.id)
+    const before =
+      await fixtureDatabase.client.questionVersion.findUniqueOrThrow({
+        where: { id: hidden.questionVersionId },
+        select: { rowVersion: true, updatedAt: true }
+      })
+    const questionBefore =
+      await fixtureDatabase.client.question.findUniqueOrThrow({
+        where: { id: hidden.id },
+        select: { rowVersion: true, updatedAt: true }
+      })
+    // The admin retirement's two row changes (adminQuestionCommandRepository),
+    // written by the fixture owner and undone below.
+    const retiredAt = new Date()
+    await fixtureDatabase.client.$transaction([
+      fixtureDatabase.client.$executeRaw`
+        UPDATE "Question"
+        SET "currentPublishedVersionId" = NULL,
+            "rowVersion" = "rowVersion" + 1, "updatedAt" = ${retiredAt}
+        WHERE "id" = ${hidden.id}::uuid
+      `,
+      fixtureDatabase.client.$executeRaw`
+        UPDATE "QuestionVersion"
+        SET "status" = 'RETIRED', "retirementKind" = 'PUBLISHED_RETIREMENT',
+            "retiredAt" = ${retiredAt},
+            "rowVersion" = "rowVersion" + 1, "updatedAt" = ${retiredAt}
+        WHERE "id" = ${hidden.questionVersionId}::uuid
+      `
+    ])
+    try {
+      await expect(
+        bookmarkService.list(ownerId, { page: 1, pageSize: 20 })
+      ).resolves.toMatchObject({
+        items: [{ questionId: visible.id, availability: 'AVAILABLE' }],
+        total: 1
+      })
+      await expect(
+        bookmarkService.list(ownerId, {
+          page: 1,
+          pageSize: 20,
+          questionIds: [hidden.id]
+        })
+      ).resolves.toMatchObject({ items: [], total: 0 })
+      await expect(
+        database.client.bookmark.count({
+          where: { userId: ownerId, questionId: hidden.id }
+        })
+      ).resolves.toBe(1)
+    } finally {
+      await fixtureDatabase.client.$transaction([
+        fixtureDatabase.client.$executeRaw`
+          UPDATE "QuestionVersion"
+          SET "status" = 'PUBLISHED', "retirementKind" = NULL,
+              "retiredAt" = NULL,
+              "rowVersion" = ${before.rowVersion},
+              "updatedAt" = ${before.updatedAt}
+          WHERE "id" = ${hidden.questionVersionId}::uuid
+        `,
+        fixtureDatabase.client.$executeRaw`
+          UPDATE "Question"
+          SET "currentPublishedVersionId" = ${hidden.questionVersionId}::uuid,
+              "rowVersion" = ${questionBefore.rowVersion},
+              "updatedAt" = ${questionBefore.updatedAt}
+          WHERE "id" = ${hidden.id}::uuid
+        `
+      ])
+    }
+    await expect(
+      bookmarkService.list(ownerId, { page: 1, pageSize: 20 })
+    ).resolves.toMatchObject({ total: 2 })
+  })
+
   it(
     isCurrentSourceIntegration
       ? '기존 Bookmark snapshot을 보존하고 불완전한 archive를 원자 거부한다'
@@ -443,15 +523,8 @@ describe.sequential('Bookmark PostgreSQL integration', () => {
           pageSize: 20
         })
         const repeated = await bookmarkService.create(ownerId, question.id)
-        expect(listed.items).toEqual([
-          expect.objectContaining({
-            availability: 'ARCHIVED',
-            questionId: question.id,
-            question: expect.objectContaining({
-              questionVersionId: question.questionVersionId
-            })
-          })
-        ])
+        // JLP-815: the archived bookmark is kept but no longer listed.
+        expect(listed).toMatchObject({ items: [], total: 0 })
         expect(repeated).toMatchObject({
           created: false,
           bookmark: {

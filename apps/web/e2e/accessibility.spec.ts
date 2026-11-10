@@ -125,6 +125,69 @@ const measureContrast = (element: Element) => {
   }
 }
 
+// This function is serialized into the browser. The first-screen hero has a
+// two-stop gradient that axe cannot read, so its text is measured against
+// each stop and the worst stop is the result. A solid fill between the text
+// and the hero (the white start button) is used as the background instead.
+const measureGradientContrast = (element: Element) => {
+  type Rgb = readonly [number, number, number]
+  const parse = (raw: string): Rgb[] =>
+    [...raw.matchAll(/rgba?\(([^)]+)\)/gu)].map((match) => {
+      const parts = (match[1] ?? '').split(/[\s,/]+/u).filter(Boolean)
+      if (parts.length > 3 && Number(parts[3]) !== 1) {
+        throw new Error(`Translucent hero color: ${raw}`)
+      }
+      return [Number(parts[0]), Number(parts[1]), Number(parts[2])]
+    })
+  const hero = element.closest('.home-hero')
+  if (!hero) throw new Error('Hero gradient measurement outside the hero')
+  let backgrounds: Rgb[] = []
+  for (
+    let current: Element | null = element;
+    current && current !== hero;
+    current = current.parentElement
+  ) {
+    const style = getComputedStyle(current)
+    if (Number(style.opacity) !== 1 || style.backgroundImage !== 'none') {
+      throw new Error('Hero text layers need opacity 1 and no images')
+    }
+    const fill = style.backgroundColor
+    if (fill === 'rgba(0, 0, 0, 0)' || fill === 'transparent') continue
+    backgrounds = parse(fill)
+    break
+  }
+  if (!backgrounds.length) {
+    backgrounds = parse(getComputedStyle(hero).backgroundImage)
+  }
+  if (backgrounds.length < 1) throw new Error('No hero background stops')
+  const [foreground] = parse(getComputedStyle(element).color)
+  if (!foreground) throw new Error('No hero text color')
+  const luminance = (color: Rgb): number => {
+    const linear = color.map((channel) => {
+      const normalized = channel / 255
+      return normalized <= 0.04045
+        ? normalized / 12.92
+        : ((normalized + 0.055) / 1.055) ** 2.4
+    })
+    return (
+      0.2126 * (linear[0] ?? 0) +
+      0.7152 * (linear[1] ?? 0) +
+      0.0722 * (linear[2] ?? 0)
+    )
+  }
+  const fg = luminance(foreground)
+  const ratios = backgrounds.map((background) => {
+    const bg = luminance(background)
+    return (Math.max(fg, bg) + 0.05) / (Math.min(fg, bg) + 0.05)
+  })
+  return {
+    ratio: Math.min(...ratios),
+    rawForeground: getComputedStyle(element).color,
+    rawBackgrounds: backgrounds.map((color) => `rgb(${color.join(' ')})`),
+    stopRatios: ratios
+  }
+}
+
 interface BrowserActor {
   readonly role: 'ADMIN' | 'USER'
   readonly userId?: string
@@ -857,17 +920,28 @@ const scanCurrentPage = async (
       const target = page.locator(selector).first()
       const kind = await target.evaluate(
         (element, selectors) =>
-          element.closest(selectors.paginationCurrent)
-            ? 'pagination-current-text'
-            : element.matches(selectors.optionReorderControl)
-              ? 'option-reorder-control'
-              : element.matches(selectors.tableSortIndicator)
-                ? 'table-sort-indicator'
-                : null,
+          element.closest(selectors.heroGradient)
+            ? 'hero-gradient-text'
+            : element.closest(selectors.paginationCurrent)
+              ? 'pagination-current-text'
+              : element.matches(selectors.optionReorderControl)
+                ? 'option-reorder-control'
+                : element.matches(selectors.tableSortIndicator)
+                  ? 'table-sort-indicator'
+                  : element.matches(selectors.answerMark)
+                    ? 'answer-mark'
+                    : null,
         axeFindingDispositionSelectors
       )
       if (!kind) continue
-      const measurement = { kind, ...(await target.evaluate(measureContrast)) }
+      const measurement = {
+        kind,
+        ...(await target.evaluate(
+          kind === 'hero-gradient-text'
+            ? measureGradientContrast
+            : measureContrast
+        ))
+      }
       // Preserve raw colors and state before an assertion can abort the scan.
       await testInfo.attach(
         `contrast-${toArtifactSlug(label)}-${incompleteDispositions.length}`,
@@ -877,7 +951,11 @@ const scanCurrentPage = async (
         }
       )
 
-      const threshold = measurement.kind === 'pagination-current-text' ? 4.5 : 3
+      const threshold =
+        measurement.kind === 'pagination-current-text' ||
+        measurement.kind === 'hero-gradient-text'
+          ? 4.5
+          : 3
       expect(
         measurement.ratio,
         `${measurement.kind} computed contrast for ${selector}`
@@ -988,8 +1066,8 @@ const scanRouteLocales = async (
       )
       await expect(page.locator('main .auth-notice[role="status"]')).toHaveText(
         locale === 'ko'
-          ? '로그인 방법이 변경되었어요. 연결한 계정으로 계속해 주세요.'
-          : 'ログイン方法が変更されました。連携したアカウントで続けてください。'
+          ? '로그인 방법이 Google로 바뀌었어요. Google 계정으로 계속해 주세요.'
+          : 'ログイン方法がGoogleに変わりました。Googleアカウントで続けてください。'
       )
       await expect(
         page.locator('main button[data-provider="google"]')
@@ -1327,7 +1405,7 @@ const login = async (
             listResumableStudySessionsQuerySchema.parse(
               Object.fromEntries(new URL(response.url()).searchParams)
             )
-          ).toEqual({ page: 1, pageSize: 5, status: 'IN_PROGRESS' })
+          ).toEqual({ page: 1, pageSize: 1, status: 'IN_PROGRESS' })
           expect(
             await response.request().headerValue('X-Nihongo-Practice-Contract')
           ).toBe('2')
@@ -1339,7 +1417,7 @@ const login = async (
             items: [],
             total: 0,
             page: 1,
-            pageSize: 5
+            pageSize: 1
           })
         })
       await Promise.all([resumableResponse, page.goto(callback.href)])
@@ -1515,12 +1593,15 @@ const submitSessionThroughUi = async (
   await settlePage(page)
   await setLocale(page, 'ko')
 
+  const sheetTrigger = page.getByRole('button', { name: /^문제 번호 /u })
+  await focusByTab(page, sheetTrigger)
+  await page.keyboard.press('Enter')
   const lastQuestionJump = page.getByRole('button', {
-    name: `${session.session.actualCount}번 문제, 미응답`
+    name: `${session.session.actualCount}번, 아직 안 풂`
   })
   await focusByTab(page, lastQuestionJump)
   await page.keyboard.press('Enter')
-  const submitButton = page.getByRole('button', { name: '답안 제출' })
+  const submitButton = page.getByRole('button', { name: '제출하기' })
   await focusByTab(page, submitButton)
   const responsePromise = page.waitForResponse((response) => {
     const request = response.request()
@@ -1532,14 +1613,14 @@ const submitSessionThroughUi = async (
   })
   await page.keyboard.press('Enter')
   const dialog = page.getByRole('dialog', {
-    name: '답안을 제출할까요?'
+    name: '제출할까요?'
   })
   await expect(dialog).toBeVisible()
   const confirm = dialog.getByRole('button', {
     name: '제출하고 결과 보기'
   })
   await expect(
-    dialog.getByRole('heading', { name: '답안을 제출할까요?' })
+    dialog.getByRole('heading', { name: '제출할까요?' })
   ).toBeFocused()
   await focusByTab(page, confirm)
   await page.keyboard.press('Enter')
@@ -1564,25 +1645,30 @@ const submitSessionThroughUi = async (
     new RegExp(`/practice/result/${session.session.id}$`, 'u')
   )
   await settlePage(page)
+  // The grading reveal renders with the result (not after a single review).
+  if (await page.locator('.grading-reveal').count()) {
+    await page.getByRole('button', { name: '결과 보기', exact: true }).click()
+    await expect(page.locator('.grading-reveal')).toHaveCount(0)
+  }
   await restorePracticeMonotonicClock(page)
   return { requestBody, result }
 }
 
-const armDashboardInsightsFailure = async (
+const armDashboardStatsFailure = async (
   page: Page
 ): Promise<() => Promise<void>> => {
   if (isMockBrowser) {
     await page.evaluate(async () => {
       const modulePath = '/src/test/accessibilityBrowserMockControl.ts'
       const control = (await import(/* @vite-ignore */ modulePath)) as {
-        armAccessibilityDashboardInsightsFailure: () => void
+        armAccessibilityDashboardStatsFailure: () => void
       }
-      control.armAccessibilityDashboardInsightsFailure()
+      control.armAccessibilityDashboardStatsFailure()
     })
     return async () => undefined
   }
 
-  const routePattern = '**/api/v1/dashboard/insights'
+  const routePattern = '**/api/v1/dashboard'
   let failuresRemaining = 2
   const failTwice = async (route: Route): Promise<void> => {
     if (failuresRemaining <= 0) {
@@ -1594,14 +1680,14 @@ const armDashboardInsightsFailure = async (
     await route.fulfill({
       body: JSON.stringify({
         code: 'SERVICE_UNAVAILABLE',
-        message: 'Dashboard insights browser fault injection',
+        message: 'Dashboard stats browser fault injection',
         requestId,
         retryable: true
       }),
       contentType: 'application/json',
       headers: {
         'Cache-Control': 'private, no-store',
-        'X-Nihongo-Test-Fault': 'dashboard-insights-503',
+        'X-Nihongo-Test-Fault': 'dashboard-stats-503',
         'X-Request-Id': requestId
       },
       status: 503
@@ -1615,7 +1701,7 @@ const queryClientModulePath =
   '/@fs' +
   new URL(import.meta.resolve('@nihongo/browser/libs/queryClient')).pathname
 
-const invalidateDashboardInsights = async (page: Page): Promise<void> => {
+const invalidateDashboardStats = async (page: Page): Promise<void> => {
   await page.evaluate(async (modulePath) => {
     const { queryClient } = (await import(/* @vite-ignore */ modulePath)) as {
       queryClient: {
@@ -1627,14 +1713,14 @@ const invalidateDashboardInsights = async (page: Page): Promise<void> => {
     }
     await queryClient.invalidateQueries({
       exact: true,
-      queryKey: ['dashboard', 'get-insights']
+      queryKey: ['dashboard', 'get-stats']
     })
   }, queryClientModulePath)
 }
 
 const invalidateDashboardWhileOffline = async (
   page: Page,
-  query: 'stats' | 'insights'
+  query: 'stats'
 ): Promise<void> => {
   await page.evaluate(
     async ({ kind, modulePath }) => {
@@ -1657,7 +1743,7 @@ const invalidateDashboardWhileOffline = async (
 
 const waitForDashboardQueryState = async (
   page: Page,
-  query: 'stats' | 'insights',
+  query: 'stats',
   fetchStatus: 'idle' | 'paused'
 ): Promise<void> => {
   await expect
@@ -1759,7 +1845,7 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
   await expect(page.getByRole('menu')).toHaveCount(0)
   const mobileNavigation = page.locator('#mobile-navigation')
   await expect(mobileNavigation).toHaveAccessibleName(/\S/u)
-  await expect(mobileNavigation.getByRole('link')).toHaveCount(3)
+  await expect(mobileNavigation.getByRole('link')).toHaveCount(4)
   const mobilePracticeLink = mobileNavigation.locator('a[href="/practice"]')
   await focusByTab(page, mobilePracticeLink)
   await attachFocusedElementEvidence(
@@ -1831,27 +1917,14 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
     },
     {
       minimumTarget: page.getByRole('button', {
-        name: 'N5 어휘 · 5문제 시작',
+        name: 'N5 문자·어휘 10문제 시작',
         exact: true
       })
     }
   )
-  const modeOptions = page.locator('.practice-mode-options')
-  await expect(modeOptions).toHaveJSProperty('open', false)
-  await focusByTab(page, modeOptions.locator('summary'))
-  await page.keyboard.press('Enter')
-  await expect(modeOptions).toHaveJSProperty('open', true)
-  // A guest choosing a locked mode keeps RANDOM and gets a toast (U4 L11).
-  const modeSelect = modeOptions.getByRole('combobox', { name: '출제 모드' })
-  await modeSelect.selectOption('WEAKNESS')
-  await expect(modeSelect).toHaveValue('RANDOM')
-  const practiceLogin = page
-    .getByRole('region', { name: '알림' })
-    .getByRole('button', { name: '로그인', exact: true })
-  await practiceLogin.focus()
-  await page.keyboard.press('Enter')
-  await expect(page).toHaveURL(/\/login\?redirect=/u)
-  await expect(page.locator('main')).toBeFocused()
+  // No locked choices for a guest: the member-only mode picker is absent
+  // rather than locked (JLP-823).
+  await expect(page.locator('.practice-mode-options')).toHaveCount(0)
 
   await page.setViewportSize({ height: 900, width: 1280 })
   await scanRoutes(page, testInfo, [
@@ -1900,7 +1973,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await settlePage(page)
   await setLocale(page, 'ko')
   await expect(
-    page.getByRole('heading', { name: '저장한 문제가 없어요' })
+    page.getByRole('heading', { name: '책갈피에 담은 문제가 없어요' })
   ).toBeVisible()
   await flushTransportEvidence(transport)
   const emptyBookmarkExchange = getApiExchanges(
@@ -1920,7 +1993,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   const emptyLocaleRequestsBefore = transport.requests.length
   await setLocale(page, 'ja')
   await expect(
-    page.getByRole('heading', { name: '保存した問題はありません' })
+    page.getByRole('heading', { name: 'ブックマークに入れた問題はありません' })
   ).toBeVisible()
   await flushTransportEvidence(transport)
   expect(transport.requests).toHaveLength(emptyLocaleRequestsBefore)
@@ -1930,108 +2003,79 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await settlePage(page)
   await setLocale(page, 'ko')
   await expect(
-    page.getByRole('heading', { name: '학습 결과를 찾을 수 없어요' })
+    page.getByRole('heading', { name: '결과를 찾을 수 없어요' })
   ).toBeVisible()
   await setLocale(page, 'ja')
   await expect(
-    page.getByRole('heading', { name: '学習結果が見つかりません' })
+    page.getByRole('heading', { name: '結果が見つかりません' })
   ).toBeVisible()
 
-  // Exercise recommendations before this learner creates an unfinished session.
+  // Exercise My page before this learner creates an unfinished session.
   await page.setViewportSize({ height: 900, width: 1280 })
-  await page.goto('/wrong-notes')
-  await settlePage(page)
-  await setLocale(page, 'ko')
-  const recentResults = page
-    .locator('summary')
-    .filter({ hasText: /^최근 결과 다시 보기$/u })
-  const recentPanel = recentResults.locator('..')
-  await expect(recentPanel).toHaveJSProperty('open', false)
-  const recentResponse = page.waitForResponse(
-    (response) =>
-      response.status() === 200 &&
-      response.request().method() === 'GET' &&
-      new URL(response.url()).pathname === '/api/v1/dashboard'
-  )
-  await focusByTab(page, recentResults)
-  await page.keyboard.press('Enter')
-  expect((await recentResponse).headers()['cache-control']).toBe(
-    'private, no-store'
-  )
-  await expect(recentPanel).toHaveJSProperty('open', true)
-  await expect(recentPanel).toContainText(
-    /결과·해설|아직 마친 학습이 없어요\./u
-  )
-  for (const locale of locales) {
-    await setLocale(page, locale)
-    await scanCurrentPage(page, testInfo, 'learner-recent-results-open', locale)
-  }
-  await setLocale(page, 'ko')
-  const cachedRecentResults = await recentPanel.innerText()
-  await flushTransportEvidence(transport)
-  const requestsBeforeStatsOffline = transport.requests.length
-  await context.setOffline(true)
-  await invalidateDashboardWhileOffline(page, 'stats')
-  await waitForDashboardQueryState(page, 'stats', 'paused')
-  await expect(recentPanel).toHaveText(cachedRecentResults, {
-    useInnerText: true
-  })
-  await flushTransportEvidence(transport)
-  expect(transport.requests).toHaveLength(requestsBeforeStatsOffline)
-  await context.setOffline(false)
-  await waitForDashboardQueryState(page, 'stats', 'idle')
-  await focusByTab(page, recentResults)
-  await page.keyboard.press('Space')
-  await expect(recentPanel).toHaveJSProperty('open', false)
   await waitForApiTransportQuiet(transport)
 
   await page.goto('/account')
   await settlePage(page)
-  await waitForDashboardQueryState(page, 'insights', 'idle')
-  const recommendationRegion = page.getByRole('region', {
+  await setLocale(page, 'ko')
+  await waitForDashboardQueryState(page, 'stats', 'idle')
+  // My page shows only the stats summary (JLP-812): no recommendations.
+  const myStudyRegion = page.getByRole('region', {
     exact: true,
-    name: '추천 학습'
+    name: '내 학습'
   })
-  const recommendationStart = recommendationRegion.getByRole('button').first()
-  await expect(recommendationRegion).toBeVisible()
+  await expect(myStudyRegion).toBeVisible()
   await expect(
-    page.getByRole('region', { exact: true, name: '내 학습' })
-  ).toBeVisible()
+    page.getByRole('region', { exact: true, name: '추천 학습' })
+  ).toHaveCount(0)
   for (const locale of locales) {
     await setLocale(page, locale)
     await scanCurrentPage(page, testInfo, 'learner-account', locale)
   }
   await setLocale(page, 'ko')
-  await focusByTab(page, recommendationStart)
+  const cachedMyStudy = await myStudyRegion.innerText()
   await flushTransportEvidence(transport)
-  const requestsBeforeInsightsOffline = transport.requests.length
+  const requestsBeforeAccountOffline = transport.requests.length
   await context.setOffline(true)
-  await invalidateDashboardWhileOffline(page, 'insights')
-  await waitForDashboardQueryState(page, 'insights', 'paused')
-  // A paused refetch keeps the last recommendations on screen.
-  await expect(recommendationStart).toBeVisible()
+  await invalidateDashboardWhileOffline(page, 'stats')
+  await waitForDashboardQueryState(page, 'stats', 'paused')
+  // A paused refetch keeps the last summary on screen.
+  await expect(myStudyRegion).toHaveText(cachedMyStudy, { useInnerText: true })
   await flushTransportEvidence(transport)
-  expect(transport.requests).toHaveLength(requestsBeforeInsightsOffline)
+  expect(transport.requests).toHaveLength(requestsBeforeAccountOffline)
   await context.setOffline(false)
-  await waitForDashboardQueryState(page, 'insights', 'idle')
-  await expect(recommendationStart).toBeVisible()
+  await waitForDashboardQueryState(page, 'stats', 'idle')
   await waitForApiTransportQuiet(transport)
 
-  // A failed read hides the section without an alert; the next read restores it.
-  const removeDashboardFault = await armDashboardInsightsFailure(page)
-  await invalidateDashboardInsights(page)
-  await expect(recommendationRegion).toBeHidden()
+  // A failed re-read keeps the last summary without an alert; the next read
+  // succeeds.
+  const removeDashboardFault = await armDashboardStatsFailure(page)
+  let failedStatsReads = 0
+  const countFailedStatsRead = (response: Response): void => {
+    if (
+      response.status() === 503 &&
+      response.request().method() === 'GET' &&
+      new URL(response.url()).pathname === '/api/v1/dashboard'
+    ) {
+      failedStatsReads += 1
+    }
+  }
+  page.on('response', countFailedStatsRead)
+  await invalidateDashboardStats(page)
+  // The query retries one retryable 5xx, so both injected failures are read.
+  await expect.poll(() => failedStatsReads, { timeout: 20_000 }).toBe(2)
+  page.off('response', countFailedStatsRead)
+  await expect(myStudyRegion).toHaveText(cachedMyStudy, { useInnerText: true })
   await expect(page.locator('main [role="alert"]')).toHaveCount(0)
   await removeDashboardFault()
   const successfulRetryResponse = page.waitForResponse(
     (response) =>
       response.status() === 200 &&
       response.request().method() === 'GET' &&
-      new URL(response.url()).pathname === '/api/v1/dashboard/insights'
+      new URL(response.url()).pathname === '/api/v1/dashboard'
   )
-  await invalidateDashboardInsights(page)
+  await invalidateDashboardStats(page)
   await successfulRetryResponse
-  await expect(recommendationRegion).toBeVisible()
+  await expect(myStudyRegion).toHaveText(cachedMyStudy, { useInnerText: true })
   expect(
     getApiExchanges(transport, 'POST', '/api/v1/study-sessions').requests
   ).toHaveLength(0)
@@ -2044,7 +2088,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await expect(
     page
       .locator('p[aria-live="polite"][aria-atomic="true"]')
-      .filter({ hasText: '복습 화면으로 이동했어요.' })
+      .filter({ hasText: '오답노트 화면이에요.' })
   ).toBeAttached()
   await waitForApiTransportQuiet(transport)
 
@@ -2098,20 +2142,24 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await setLocale(page, 'ko')
   await expect(
     page.getByText(
-      `요청한 ${readingFixture.requestedCount}문제 중 일반 연습 모드로 출제 가능한 ${readingFixture.actualCount}문제만 제공해요. 다른 모드로 대체하지 않았어요.`,
+      `${readingFixture.requestedCount}문제를 골랐지만 지금 풀 수 있는 문제가 ${readingFixture.actualCount}문제라 ${readingFixture.actualCount}문제만 나왔어요.`,
       { exact: true }
     )
   ).toHaveAttribute('role', 'status')
   await setLocale(page, 'ja')
   await expect(
     page.getByText(
-      `指定した${readingFixture.requestedCount}問のうち、通常練習モードで出題可能な${readingFixture.actualCount}問だけを提供します。別のモードには変更していません。`,
+      `${readingFixture.requestedCount}問を選びましたが、今解ける問題が${readingFixture.actualCount}問なので${readingFixture.actualCount}問だけ出ました。`,
       { exact: true }
     )
   ).toHaveAttribute('role', 'status')
   await setLocale(page, 'ko')
-  await expect(page.locator('button.ui-question-jump')).toHaveCount(
-    readingFixture.actualCount
+  // Question numbers live in a sheet opened from the top bar (direction §6-4).
+  const readingSheetTrigger = page.getByRole('button', {
+    name: /^문제 번호 /u
+  })
+  await expect(readingSheetTrigger).toHaveText(
+    `1 / ${readingFixture.actualCount}`
   )
   const readingPassage = page.getByRole('article', { name: '지문' })
   const firstAnswer = page.getByRole('radio').first()
@@ -2136,9 +2184,13 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await focusByTab(page, firstAnswer)
   await page.keyboard.press('Space')
   await expect(firstAnswer).toBeChecked()
-  await expect(
-    page.locator('.ui-question-jump[data-answered="true"]').first()
-  ).toBeVisible()
+  await expect
+    .poll(() =>
+      page
+        .locator('main progress')
+        .evaluate((element) => (element as HTMLProgressElement).value)
+    )
+    .toBe(1)
   await expect(page.locator('[data-save-state]')).toHaveAttribute(
     'data-save-state',
     /^(saved|savedAt)$/u,
@@ -2163,6 +2215,10 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
       () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
     )
   ).toBe(true)
+  await readingSheetTrigger.click()
+  await expect(page.locator('button.ui-question-jump')).toHaveCount(
+    readingFixture.actualCount
+  )
   await expect
     .poll(() =>
       page
@@ -2171,6 +2227,8 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
         .evaluate((element) => getComputedStyle(element).borderStyle)
     )
     .toBe('double')
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
   await expect
     .poll(() =>
       page
@@ -2283,7 +2341,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   expect(availableExplanations).toHaveLength(1)
   expect(unavailableExplanations).toHaveLength(4)
   const resultNavigation = page.getByRole('navigation', {
-    name: '해설 문항',
+    name: '문제 번호',
     exact: true
   })
   const selectedArticle = page.locator('#selected-result-question')
@@ -2294,7 +2352,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     { available, item }
   ] of explanationAvailability.entries()) {
     const questionControl = resultNavigation.getByRole('button', {
-      name: `문제 ${index + 1}, 미응답`,
+      name: `${index + 1}번, 안 풂`,
       exact: true
     })
     await focusByTab(page, questionControl)
@@ -2321,7 +2379,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
       exact: true
     })
     const fallbackNotice = selectedArticle.getByText(
-      '일본어 해설이 없어 한국어 해설을 표시해요.',
+      '일본어 해설이 아직 없어서 한국어 해설을 보여 드려요.',
       { exact: true }
     )
     if (available) {
@@ -2351,7 +2409,8 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
       ).toHaveAttribute('lang', 'ja')
     } else {
       await expect(explanationTabs).toHaveCount(0)
-      await expect(fallbackNotice).toBeVisible()
+      // The missing-Japanese notice shows only on the Japanese screen (G).
+      await expect(fallbackNotice).toHaveCount(0)
     }
     reviewedQuestionIds.push(item.question.id)
   }
@@ -2359,7 +2418,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     submitted.result.items.map((item) => item.question.id)
   )
   const firstResultQuestion = resultNavigation.getByRole('button', {
-    name: '문제 1, 미응답',
+    name: '1번, 안 풂',
     exact: true
   })
   await focusByTab(page, firstResultQuestion)
@@ -2386,7 +2445,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     )
   })
   const bookmarkTrigger = page.getByRole('button', {
-    name: '1번 문제 책갈피 추가',
+    name: '1번 문제를 책갈피에 담기',
     exact: true
   })
   await focusByTab(page, bookmarkTrigger)
@@ -2401,7 +2460,10 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   expect(createdBookmark.questionId).toBe(targetQuestion.question.id)
   expect(createBookmarkResponse.headers().location).toBe(bookmarkPath)
   await expect(
-    page.getByRole('button', { name: '1번 문제 책갈피 해제', exact: true })
+    page.getByRole('button', {
+      name: '1번 문제를 책갈피에서 빼기',
+      exact: true
+    })
   ).toHaveAttribute('aria-pressed', 'true')
   await waitForApiTransportQuiet(transport)
 
@@ -2440,16 +2502,16 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await focusByTab(page, removeBookmarkTrigger)
   await page.keyboard.press('Enter')
   const removeDialog = page.getByRole('dialog', {
-    name: '책갈피를 해제할까요?',
+    name: '책갈피에서 뺄까요?',
     exact: true
   })
   await expect(removeDialog).toBeVisible()
-  await removeDialog.getByRole('button', { name: '해제 확인' }).click()
+  await removeDialog.getByRole('button', { name: '빼기' }).click()
   const deleteBookmarkResponse = await deleteBookmarkResponsePromise
   expect(deleteBookmarkResponse.status()).toBe(204)
   expect(deleteBookmarkResponse.fromServiceWorker()).toBe(isMockBrowser)
   await expect(
-    page.getByRole('heading', { name: '저장한 문제가 없어요' })
+    page.getByRole('heading', { name: '책갈피에 담은 문제가 없어요' })
   ).toBeVisible()
   await waitForApiTransportQuiet(transport)
 
@@ -2466,11 +2528,11 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await expect(
     reportDialog.locator('[name="report-description"]')
   ).toBeFocused()
-  const reportSubmit = reportDialog.getByRole('button', { name: '신고 접수' })
+  const reportSubmit = reportDialog.getByRole('button', { name: '보내기' })
   await reportSubmit.focus()
   await page.keyboard.press('Enter')
   await expect(
-    reportDialog.getByText('신고 설명을 입력해 주세요.', { exact: true })
+    reportDialog.getByText('내용을 적어 주세요.', { exact: true })
   ).toHaveAttribute('role', 'alert')
   await expect(
     reportDialog.locator('[name="report-description"]')
@@ -2562,9 +2624,9 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
           },
           localeState: 'answered reading selection preserved',
           offline:
-            'recent results retained; recommendation query paused without requests',
+            'My page summary retained; stats query paused without requests',
           partial: `requested ${readingFixture.requestedCount} reading questions, received ${readingFixture.actualCount} without fallback`,
-          retry: 'dashboard insights 503x2 then explicit retry 200',
+          retry: 'dashboard stats 503x2 then explicit retry 200',
           submit: 'UI dialog and result navigation passed'
         },
         null,
@@ -2604,13 +2666,13 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
       { method: 'GET', pathname: missingResultPath, status: 404 },
       {
         method: 'GET',
-        pathname: '/api/v1/dashboard/insights',
+        pathname: '/api/v1/dashboard',
         provenance: 'injected-test-fault',
         status: 503
       },
       {
         method: 'GET',
-        pathname: '/api/v1/dashboard/insights',
+        pathname: '/api/v1/dashboard',
         provenance: 'injected-test-fault',
         status: 503
       }
@@ -2839,7 +2901,7 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
   await expect(
     page
       .locator('p[aria-live="polite"][aria-atomic="true"]')
-      .filter({ hasText: '문제 상세 화면으로 이동했어요.' })
+      .filter({ hasText: '문제 상세 화면이에요.' })
   ).toBeAttached()
   await settlePage(page)
   await waitForApiTransportQuiet(transport)

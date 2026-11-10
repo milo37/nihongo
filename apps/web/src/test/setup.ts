@@ -23,14 +23,15 @@ import {
 } from '@nihongo/browser/libs/storage'
 import { UI_LOCALE_STORAGE_KEY } from '@nihongo/browser/libs/localeStorage'
 import { resetMockSocialSignInForTesting } from '@mocks/handlers/authHandlers'
+import { mockGuestResultImport } from '@mocks/handlers/guestResultImportHandlers'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { resetReportRateLimitForTesting } from '@mocks/handlers/reportHandlers'
-import { resetDashboardInsightsRateLimitForTesting } from '@mocks/handlers/dashboardInsightsV1Handlers'
 import { resetQuestionReadRateLimitForTesting } from '@mocks/handlers/questionHandlers'
 import { useAppStore } from '@nihongo/browser/store/index'
 import { clearMockGuestPrincipalCookie, mockServer } from '@/test/server'
 import { mockGuestAllowance } from '@mocks/handlers/guestAllowanceHandlers'
 import { clearGuestDraftsForTesting } from '@app/practice/draft/guestLocalDraft'
+import { LAST_PRACTICE_CHOICE_KEY } from '@app/practice/lastPracticeChoice'
 
 const resetTestState = async (): Promise<void> => {
   await clearMockGuestPrincipalCookie()
@@ -41,11 +42,11 @@ const resetTestState = async (): Promise<void> => {
   closeAllStudyDraftRevisionChannels()
   queryClient.clear()
   resetReportRateLimitForTesting()
-  resetDashboardInsightsRateLimitForTesting()
   resetQuestionReadRateLimitForTesting()
   resetMockSocialSignInForTesting()
   mockDatabase.reset()
   mockGuestAllowance.reset({ enforce: false })
+  mockGuestResultImport.reset()
   clearGuestDraftsForTesting()
   useAppStore.setState({
     currentUser: null,
@@ -67,6 +68,7 @@ const resetTestState = async (): Promise<void> => {
   cachedStorage.removeItem(QUESTION_REPORT_RATE_LIMIT_MIRROR_STORAGE_KEY)
   cachedStorage.removeItem(UI_LOCALE_STORAGE_KEY)
   cachedSessionStorage.removeItem(PRACTICE_STORE_KEY)
+  cachedStorage.removeItem(LAST_PRACTICE_CHOICE_KEY)
   clearStorageCache()
   await appI18n.changeLanguage('ko')
   document.documentElement.lang = 'ko'
