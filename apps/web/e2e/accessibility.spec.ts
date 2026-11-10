@@ -1917,7 +1917,7 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
     },
     {
       minimumTarget: page.getByRole('button', {
-        name: 'N5 문자·어휘 5문제 시작',
+        name: 'N5 어휘 · 5문제 시작',
         exact: true
       })
     }

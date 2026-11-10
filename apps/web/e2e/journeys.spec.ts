@@ -908,7 +908,7 @@ const startVocabularySessionThroughUi = async (
   await settleJourneyPage(page)
   for (const [label, parameter, value] of [
     ['N5', 'level', 'N5'],
-    ['문자·어휘', 'subject', 'VOCABULARY']
+    ['어휘', 'subject', 'VOCABULARY']
   ] as const) {
     const radio = page.getByRole('radio', { name: label, exact: true })
     const choice = page.locator('label.choice-option').filter({ has: radio })
@@ -953,7 +953,7 @@ const startVocabularySessionThroughUi = async (
     '/api/v1/study-sessions'
   )
   await page
-    .getByRole('button', { name: 'N5 문자·어휘 10문제 시작', exact: true })
+    .getByRole('button', { name: 'N5 어휘 · 10문제 시작', exact: true })
     .click()
   const response = await createdResponse
   expect(response.status()).toBe(201)
@@ -1046,15 +1046,15 @@ test('guest SSO boundary and authenticated practice transition match the active 
   await guestPrincipal
   await settleJourneyPage(page)
   await expect(
-    page.getByText(/^로그인 없이 하루 2번, 한 번에 5문제씩 풀 수 있어요\./u)
+    page.getByText(/^로그인 없이 하루 2번, 5문제씩 풀어 볼 수 있어요\./u)
   ).toBeVisible()
-  await expect(page.getByText('오늘 2번 중 2번 남았어요.')).toBeVisible()
+  await expect(page.getByText('오늘 체험 2회 중 2회 남았어요.')).toBeVisible()
   // Locked, not disabled: choosing one explains sign-in (U4 L11).
   const studyMode = await openPracticeModes(page)
   for (const value of ['DAILY_REVIEW']) {
     const option = studyMode.locator(`option[value="${value}"]`)
     await expect(option).toBeEnabled()
-    await expect(option).toContainText('로그인하면 사용')
+    await expect(option).toContainText('로그인 필요')
   }
   for (const path of [
     '/login?mode=signup#retired-token',
@@ -1090,7 +1090,7 @@ test('guest SSO boundary and authenticated practice transition match the active 
   for (const value of ['DAILY_REVIEW']) {
     const option = memberStudyMode.locator(`option[value="${value}"]`)
     await expect(option).toBeEnabled()
-    await expect(option).not.toContainText('로그인하면 사용')
+    await expect(option).not.toContainText('로그인 필요')
   }
   await expect(page.getByText(/^로그인 없이 하루/u)).toHaveCount(0)
   await waitForLedgerToQuiesce(ledger)

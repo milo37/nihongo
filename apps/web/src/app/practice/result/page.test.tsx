@@ -442,17 +442,17 @@ describe('approved general result navigation', () => {
     await userEvent.setup().click(bookmark)
     const toasts = screen.getByRole('region', { name: '알림' })
     expect(
-      within(toasts).getByText('책갈피는 로그인하면 쓸 수 있어요.')
+      within(toasts).getByText('책갈피는 로그인하면 저장할 수 있어요.')
     ).toBeVisible()
     expect(
-      within(toasts).getByText('지금 풀던 문제는 로그인 뒤에 이어지지 않아요.')
+      within(toasts).getByText('로그인하면 지금 풀이는 이어지지 않아요.')
     ).toBeVisible()
     expect(bookmark).toHaveAttribute('aria-pressed', 'false')
     expect(router.state.location.pathname).toMatch(/^\/practice\/result\//u)
     expect(
       screen.queryByRole('button', { name: /문제 신고/u })
     ).not.toBeInTheDocument()
-    const line = screen.getByText(/로그인하면 틀린 문제가 오답노트에 모여요/u)
+    const line = screen.getByText(/로그인하면 오답이 오답노트에 저장돼요/u)
     expect(line).toBeVisible()
     // One login place, right beside the line (design review #767).
     expect(within(line).getByRole('link', { name: '로그인' })).toHaveAttribute(
@@ -470,7 +470,7 @@ describe('approved general result navigation', () => {
     const { router, view } = fixture.mount()
     expect(
       await screen.findByText(
-        '오늘 무료 횟수를 다 썼어요. 로그인하면 계속 풀 수 있어요.'
+        '오늘 체험은 여기까지예요. 로그인하면 계속 풀 수 있어요.'
       )
     ).toBeVisible()
     // The L20 box holds the only login link, as the one filled button.
@@ -908,7 +908,7 @@ describe('approved general result navigation', () => {
     })
     const guestActions = actionsOf(guestRetry)
     expect(names(guestActions)).toEqual([
-      '틀린 문제만 다시 풀기로그인하면 사용',
+      '틀린 문제만 다시 풀기로그인 필요',
       '다음 5문제'
     ])
     expect(guestRetry.className).toContain('border-line-interactive')

@@ -78,7 +78,7 @@ describe('application router boundaries', () => {
       `${router.state.location.pathname}${router.state.location.search}`
     ).toBe(entry)
     expect(
-      screen.getByText('오답노트는 로그인하면 쓸 수 있어요.')
+      screen.getByText('오답노트는 로그인하면 볼 수 있어요.')
     ).toBeVisible()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })

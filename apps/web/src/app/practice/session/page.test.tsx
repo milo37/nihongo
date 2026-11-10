@@ -754,10 +754,10 @@ describe('PracticeSessionPage', () => {
     // A toast with [로그인]; nothing moves and the button stays unpressed (L7).
     const toasts = await screen.findByRole('region', { name: '알림' })
     expect(
-      within(toasts).getByText('책갈피는 로그인하면 쓸 수 있어요.')
+      within(toasts).getByText('책갈피는 로그인하면 저장할 수 있어요.')
     ).toBeVisible()
     expect(
-      within(toasts).getByText('지금 풀던 문제는 로그인 뒤에 이어지지 않아요.')
+      within(toasts).getByText('로그인하면 지금 풀이는 이어지지 않아요.')
     ).toBeVisible()
     expect(bookmark).toHaveAttribute('aria-pressed', 'false')
     expect(screen.queryByRole('link', { name: '로그인 선택' })).toBeNull()
@@ -765,7 +765,7 @@ describe('PracticeSessionPage', () => {
     // Leaving the session still asks first.
     await user.click(
       within(
-        await screen.findByRole('dialog', { name: '그만 풀까요?' })
+        await screen.findByRole('dialog', { name: '풀이를 그만둘까요?' })
       ).getByRole('button', { name: '나가기' })
     )
     expect(await screen.findByText('로그인 화면 도착')).toBeInTheDocument()
@@ -1008,11 +1008,9 @@ describe('PracticeSessionPage', () => {
     await waitFor(() => expect(radio).toBeEnabled())
     await user.click(screen.getByRole('link', { name: '학습 화면으로' }))
     const dialog = await screen.findByRole('dialog', {
-      name: '그만 풀까요?'
+      name: '풀이를 그만둘까요?'
     })
-    expect(
-      within(dialog).getByText('나가면 지금 푼 답은 저장되지 않아요.')
-    ).toBeVisible()
+    expect(within(dialog).getByText('나가면 푼 답이 사라져요.')).toBeVisible()
     expect(
       within(dialog).getByRole('button', { name: '계속 풀기' })
     ).toHaveFocus()

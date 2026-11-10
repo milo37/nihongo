@@ -135,9 +135,9 @@ describe('마이페이지 계정 설정', () => {
       })
     ).toBeInTheDocument()
     expect(
-      screen.getByText('로그인하면 학습 기록과 계정을 여기서 볼 수 있어요.')
+      screen.getByText('마이페이지에서 학습 기록과 계정을 관리할 수 있어요.')
     ).toBeVisible()
-    expect(screen.getByRole('link', { name: '학습 화면으로' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '학습으로' })).toHaveAttribute(
       'href',
       '/practice'
     )
@@ -269,16 +269,15 @@ describe('마이페이지 계정 설정', () => {
     expect(useAppStore.getState().currentUser?.targetLevel).toBe('N2')
   })
 
-  it('Google 로그인 상태를 보여 주고 해제 버튼과 안내는 두지 않는다 (C2)', async () => {
+  it('Google 연결 상태와 유일한 방법 안내를 보여 주고 해제 버튼은 두지 않는다', async () => {
     mockDatabase.loginAs('USER')
     renderAccount()
     expect(
       await screen.findByText('Google 계정으로 로그인 중')
     ).toBeInTheDocument()
-    // Unlinking is hidden (C2), and so is the note about it.
     expect(
-      screen.queryByText('유일한 로그인 방법이라 연결을 해제할 수 없어요.')
-    ).not.toBeInTheDocument()
+      await screen.findByText('유일한 로그인 방법이라 연결을 해제할 수 없어요.')
+    ).toBeInTheDocument()
     expect(
       screen.queryByRole('button', { name: '연결 해제' })
     ).not.toBeInTheDocument()
@@ -296,7 +295,7 @@ describe('마이페이지 계정 설정', () => {
     )
     const posts = vi.spyOn(apiClient, 'post')
     renderAccount()
-    await screen.findByText('Google 계정으로 로그인 중')
+    await screen.findByText('유일한 로그인 방법이라 연결을 해제할 수 없어요.')
     expect(
       screen.queryByRole('button', { name: '연결 해제' })
     ).not.toBeInTheDocument()
@@ -353,7 +352,7 @@ describe('마이페이지 계정 설정', () => {
     )
     expect(screen.queryByLabelText(/비밀번호|이메일/)).not.toBeInTheDocument()
   })
-  it('일본어에도 같은 로그인 상태를 보여 주고 해제 안내는 두지 않는다', async () => {
+  it('일본어에도 같은 연결 상태와 유일한 방법 안내를 제공한다', async () => {
     writeUiLocalePreference('ja')
     mockDatabase.loginAs('USER')
     renderAccount()
@@ -361,8 +360,10 @@ describe('마이페이지 계정 설정', () => {
       await screen.findByText('Googleアカウントでログイン中')
     ).toBeInTheDocument()
     expect(
-      screen.queryByText('唯一のログイン方法のため、連携を解除できません。')
-    ).not.toBeInTheDocument()
+      await screen.findByText(
+        '唯一のログイン方法のため、連携を解除できません。'
+      )
+    ).toBeInTheDocument()
     await waitFor(() =>
       expect(screen.getByRole('button', { name: '退会する' })).toBeEnabled()
     )

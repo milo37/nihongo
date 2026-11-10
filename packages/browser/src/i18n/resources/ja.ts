@@ -128,7 +128,7 @@ export const jaCoreResources = {
       myPage: 'マイページ',
       language: '言語',
       guestTitle: 'ログインしていません',
-      guestDescription: 'ログインすると解いた記録が残ります'
+      guestDescription: 'ログインすると学習記録が残ります'
     },
     account: 'アカウント',
     mobilePrimary: 'メニュー',
@@ -383,57 +383,58 @@ export const jaCoreResources = {
       dailyRetry: 'もう一度読み込む'
     },
     approved: {
-      vocabulary: '文字・語彙',
-      title: '今日も日本語をひとセット',
-      description: 'レベルと科目を選ぶだけですぐ始められます。',
-      selected: '選んだ学習',
+      vocabulary: '語彙',
+      title: '今日の日本語学習',
+      description: '科目とレベルを選んで始めましょう。',
+      selected: '選択した学習',
       maximum: '最大10問',
-      loading: '読み込み中…'
+      loading: '読み込み中'
     },
     hero: {
-      titleLine1: '間違えた問題は',
-      titleLine2: '正解するまでもう一度',
+      titleLine1: '間違えた問題を',
+      titleLine2: '最後まで解決する学習',
       description:
         '級と科目を選んですぐに問題を解きましょう。提出した間違いは自動で整理され、2回連続で正解するまで復習が続きます。',
-      openSetup: '学習を始める',
-      accountLogin: 'ログイン',
-      myDashboard: 'マイページ'
+      openSetup: '学習設定を開く',
+      accountLogin: 'アカウントにログイン',
+      myDashboard: '学習ダッシュボード'
     },
     quickDrill: {
-      title: '10問すぐ解く',
-      defaultMode: 'ランダム出題',
-      levelLegend: 'レベル',
-      subjectLegend: '科目',
-      start: '{{level}} {{subject}} {{formattedCount}}問を始める',
+      title: '10問すぐに解く',
+      defaultMode: 'デフォルト RANDOM',
+      levelLegend: 'JLPTレベル',
+      subjectLegend: '学習科目',
+      start: '{{level}} {{subject}} · {{formattedCount}}問を始める',
       error:
-        '学習を始められませんでした。インターネット接続を確認して、もう一度お試しください。',
-      countNote: '用意された問題が10問より少ないときは、ある分だけ出ます。'
+        'セッションを作成できませんでした。ネットワーク状態と選択条件を確認し、もう一度お試しください。',
+      countNote: '問題が10問未満の場合は、用意された問題数だけ出題します。'
     },
     subjects: {
       vocabulary: {
         label: '文字・語彙',
-        description: '漢字の読み方、表記、合う言葉'
+        description: '漢字の読みと文脈語彙'
       },
       grammar: {
         label: '文法',
-        description: '文法の選択、文の組み立て'
+        description: '形式選択と文の組み立て'
       },
       reading: {
         label: '読解',
-        description: '短い文、案内文の読解'
+        description: '短文から情報検索まで'
       }
     },
     loop: {
-      title: '解いたあとは復習まで続きます',
+      title: '問題を解く瞬間から復習までつながります',
       items: {
         wrongNote: {
-          title: '間違いノートに自動で入る',
-          description: '間違えた問題と間違えた回数が自動で集まります。'
+          title: '自動間違いノート',
+          description:
+            '間違えた回数と復習状態を記録し、見直すべき問題を逃しません。'
         },
         weakness: {
-          title: '苦手を見つける',
+          title: '弱点分析',
           description:
-            '科目別の正答率とよく間違える問題から、次に解くものをお知らせします。'
+            '科目別正答率と繰り返した間違いから、次の学習方針を決めます。'
         },
         mastery: {
           title: '2回連続正解',
@@ -446,16 +447,16 @@ export const jaCoreResources = {
   auth: {
     guestGate: {
       title: 'ログインが必要です',
-      bookmarks: 'ブックマークに入れた問題をまとめて見て、もう一度解けます。',
-      review: '間違えた問題を集めてもう一度解けます。',
-      wrongNote: '間違いノートはログインすると使えます。',
-      dashboard: 'ログインすると解いた記録と正答率が見られます。',
-      toStudy: '学習画面へ'
+      bookmarks: 'ブックマークした問題をまとめて見直し、もう一度解けます。',
+      review: '間違えた問題をまとめて復習できます。',
+      wrongNote: '間違いノートはログインすると見られます。',
+      dashboard: '学習記録と進み具合を確認できます。',
+      toStudy: '学習へ'
     },
     guestToast: {
       login: 'ログイン',
-      bookmark: 'ブックマークはログインすると使えます。',
-      sessionNotKept: '今解いている問題は、ログイン後には続きません。'
+      bookmark: 'ブックマークはログインすると保存できます。',
+      sessionNotKept: 'ログインすると、今の解答は引き継がれません。'
     },
     reauth: {
       name: '本人確認',
@@ -478,10 +479,8 @@ export const jaCoreResources = {
       checkingAccount: 'アカウントを確認中…',
       openAdminWork: '進行中の管理作業があるため、現在は退会できません。',
       title: 'ログイン',
-      description:
-        'Googleアカウントでログインすると、解いた記録がずっと残ります。',
-      guestHint:
-        'ログインしなくても1日{{total}}回、1回{{count}}問ずつ解けます。記録は残りません。',
+      description: 'Googleアカウントで学習記録を引き継ぎましょう。',
+      guestHint: '1日{{total}}回、{{count}}問ずつ解けます。記録は残りません。',
       guestLink: 'ログインせずに解いてみる',
       checkingSession: 'ログインを確認中…',
       redirecting: '{{provider}}に移動中…',
@@ -516,7 +515,7 @@ export const jaCoreResources = {
         'ログイン方法が変更されました。連携したアカウントで続けてください。',
       continueGoogle: 'Googleで続ける',
       cancelledProvider:
-        '{{provider}}のログインを取り消しました。もう一度試すか、ログインせずに解いてみることができます。',
+        '{{provider}}でのログインをキャンセルしました。もう一度試すか、ログインせずに学習できます。',
       failedProvider:
         '{{provider}}でログインできませんでした。もう一度お試しください。',
       unavailableProvider:
@@ -533,7 +532,7 @@ export const jaCoreResources = {
       modeSummary: '出題方式',
       shortcutsLabel: 'もう一度解く',
       guestHint:
-        'ログインしなくても1日{{total}}回、1回{{count}}問ずつ解けます。',
+        'ログインしなくても、1日{{total}}回、{{count}}問ずつ解いてみられます。',
       reviewShortcut: '間違えた問題をもう一度解く',
       bookmarkShortcut: 'ブックマーク',
       title: '学習',
@@ -591,20 +590,19 @@ export const jaCoreResources = {
           description: '復習する問題を、前に間違えたものから10問出します。'
         }
       },
-      guestResumeHint:
-        'ログインすると、途中でやめた問題をあとで続きから解けます。',
-      memberLocked: 'ログインすると使えます',
+      guestResumeHint: 'ログインすると、解きかけの問題を続きから解けます。',
+      memberLocked: 'ログインが必要',
       locked: {
-        count: '10問・20問はログインすると選べます。',
-        mode: 'ランダム以外の出題方法はログインすると選べます。'
+        count: '10問・20問はログインすると解けます。',
+        mode: 'ランダム以外の出題方法は、ログインすると使えます。'
       },
-      guestLeft: '今日は<b>{{total}}回中あと{{remaining}}回</b>です。',
+      guestLeft: '今日の体験は<b>{{total}}回中あと{{remaining}}回</b>です。',
       dailyLimit: {
-        title: '今日の無料回数を使い切りました',
+        title: '今日の体験はすべて使いました',
         description:
-          'ログインすると回数の制限なく解けて、記録も残ります。ログインしない場合は、明日0時（日本時間）からまた{{total}}回解けます。'
+          'ログインすると問題数の制限なく解けて、記録も残ります。体験は明日0時（日本時間）にまた{{total}}回使えます。'
       },
-      urlLocked: '問題数と出題方法はログインすると選べます。',
+      urlLocked: '問題数・出題方法はログインすると選べます。',
       availableCountNote: '問題が足りないときは、ある分だけ出ます。',
       noEligibleTitle:
         '現在の条件では「{{mode}}」で出題できる問題がありません。',
@@ -626,7 +624,7 @@ export const jaCoreResources = {
     session: {
       loading: {
         questions: '問題を準備しています…',
-        guestOwnership: '問題を準備中…',
+        guestOwnership: 'ゲストセッションの所有権を確認しています…',
         resultRedirect: '結果に移動中…',
         draft: '保存した答えを読み込み中…'
       },
@@ -670,8 +668,8 @@ export const jaCoreResources = {
         openSetup: '新しく始める'
       },
       exitGuest: {
-        title: '解くのをやめますか？',
-        description: '離れると、今解いた答えは保存されません。',
+        title: '解答をやめますか？',
+        description: '離れると解いた答えが消えます。',
         keep: '解き続ける',
         leave: 'やめる'
       },
@@ -840,14 +838,14 @@ export const jaCoreResources = {
       accuracy: '正答率',
       durationValue: '{{minutes}}分{{seconds}}秒'
     },
-    guestDone: '今日の無料回数を使い切りました。ログインすると続けて解けます。',
-    memberLocked: 'ログインすると使えます',
+    guestDone: '今日の体験はここまでです。ログインすると続けて解けます。',
+    memberLocked: 'ログインが必要',
     locked: {
       retry: '間違えた問題の解き直しは、ログインすると使えます。'
     },
     status: {
       guest:
-        'ログインすると、間違えた問題が間違いノートに集まります。今の結果はログイン後には続きません。',
+        'ログインすると、間違えた問題が間違いノートに保存されます。今の結果は引き継がれません。',
       savedWrongCount:
         '間違えた{{formattedCount}}問を間違いノートに入れました。'
     },
@@ -1164,7 +1162,7 @@ export const jaCoreResources = {
       versionChanged:
         '最後に間違えた時点の問題の解説です。解き直しには最新の問題を使います。',
       guest: {
-        result: '今解いた結果'
+        result: 'この端末で直前に終えた学習結果'
       },
       empty: {
         title: 'まだ復習する問題はありません。',
@@ -1559,8 +1557,7 @@ export const jaCoreResources = {
       error: '保存できませんでした。少し待ってからもう一度選んでください。'
     },
     title: 'マイページ',
-    guestDescription:
-      'ログインすると、学習記録とアカウントをここで見られます。',
+    guestDescription: 'マイページでは学習記録とアカウントを管理できます。',
     study: {
       title: '学習の記録',
       period: '全期間',
@@ -1627,7 +1624,8 @@ export const jaCoreResources = {
   errors: {
     forbidden: {
       memberDescription: 'このアカウントでは見られない画面です。',
-      guestDescription: 'ログインすると見られます。',
+      guestDescription:
+        'この画面にアクセスできるアカウントでログインしてください。',
       accountAction: 'ログインする',
       title: '見られない画面です',
       description: '運営者だけが見られる画面です。',

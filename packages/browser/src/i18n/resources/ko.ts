@@ -110,8 +110,8 @@ export const koCoreResources = {
       signedInWith: 'Google 계정으로 로그인 중',
       myPage: '마이페이지',
       language: '언어',
-      guestTitle: '로그인 전이에요',
-      guestDescription: '로그인하면 푼 기록이 남아요'
+      guestTitle: '로그인하지 않았어요',
+      guestDescription: '로그인하면 학습 기록이 남아요'
     },
     account: '계정',
     mobilePrimary: '메뉴',
@@ -355,7 +355,7 @@ export const koCoreResources = {
       dailyLabel: '오늘의 한 문제',
       dailyMeta: '{{level}} · {{subject}}',
       dailyOptionsLabel: '보기',
-      dailyCorrect: '맞았어요',
+      dailyCorrect: '정답이에요',
       dailyIncorrect: '아쉬워요. 정답은 {{label}}번이에요',
       dailyYourAnswer: '내 답',
       dailyAnswer: '정답',
@@ -365,57 +365,58 @@ export const koCoreResources = {
       dailyRetry: '다시 불러오기'
     },
     approved: {
-      vocabulary: '문자·어휘',
-      title: '오늘도 일본어 한 세트',
-      description: '급수와 과목만 고르면 바로 시작해요.',
-      selected: '고른 학습',
+      vocabulary: '어휘',
+      title: '오늘의 일본어 학습',
+      description: '과목과 급수를 고르고 시작하세요.',
+      selected: '선택한 학습',
       maximum: '최대 10문제',
-      loading: '불러오는 중…'
+      loading: '불러오는 중'
     },
     hero: {
-      titleLine1: '틀린 문제는',
-      titleLine2: '맞힐 때까지 다시',
+      titleLine1: '틀린 문제를',
+      titleLine2: '끝까지 해결하는 학습',
       description:
         '급수와 과목을 고르고 바로 문제를 푸세요. 제출한 오답은 자동으로 정리되고, 두 번 연속 맞힐 때까지 복습 흐름이 이어져요.',
-      openSetup: '학습 시작하기',
-      accountLogin: '로그인',
-      myDashboard: '마이페이지'
+      openSetup: '학습 설정 열기',
+      accountLogin: '계정 로그인',
+      myDashboard: '내 학습 대시보드'
     },
     quickDrill: {
       title: '10문제 바로 풀기',
-      defaultMode: '랜덤 출제',
-      levelLegend: '급수',
-      subjectLegend: '과목',
-      start: '{{level}} {{subject}} {{formattedCount}}문제 시작',
+      defaultMode: '기본 RANDOM',
+      levelLegend: 'JLPT 급수',
+      subjectLegend: '학습 과목',
+      start: '{{level}} {{subject}} · {{formattedCount}}문제 시작',
       error:
-        '학습을 시작하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.',
-      countNote: '준비된 문제가 10개보다 적으면 있는 만큼 나와요.'
+        '세션을 만들지 못했어요. 네트워크 상태와 선택 조건을 확인한 뒤 다시 시도해 주세요.',
+      countNote: '문제가 10개보다 적으면 준비된 문제 수만큼 출제해요.'
     },
     subjects: {
       vocabulary: {
         label: '문자·어휘',
-        description: '한자 읽기, 표기, 알맞은 단어'
+        description: '한자 읽기와 문맥 어휘'
       },
       grammar: {
         label: '문법',
-        description: '문법 고르기, 문장 만들기'
+        description: '형식 선택과 문장 구성'
       },
       reading: {
         label: '독해',
-        description: '짧은 글, 안내문 읽기'
+        description: '짧은 글부터 정보 검색까지'
       }
     },
     loop: {
-      title: '풀고 나면 복습까지 이어져요',
+      title: '문제를 푸는 순간부터 복습까지 연결돼요',
       items: {
         wrongNote: {
-          title: '오답노트에 자동 저장',
-          description: '틀린 문제와 틀린 횟수가 저절로 모여요.'
+          title: '자동 오답노트',
+          description:
+            '틀린 횟수와 복습 상태를 기록해 다시 볼 문제를 놓치지 않아요.'
         },
         weakness: {
-          title: '약한 곳 찾기',
+          title: '약점 분석',
           description:
-            '과목별 정답률과 자주 틀린 문제로 다음에 풀 것을 알려 드려요.'
+            '과목별 정답률과 반복 오답을 기반으로 다음 학습 방향을 잡아요.'
         },
         mastery: {
           title: '2회 연속 정답',
@@ -428,16 +429,16 @@ export const koCoreResources = {
   auth: {
     guestGate: {
       title: '로그인이 필요해요',
-      bookmarks: '책갈피에 담은 문제를 모아 보고 다시 풀 수 있어요.',
-      review: '틀린 문제를 모아 다시 풀 수 있어요.',
-      wrongNote: '오답노트는 로그인하면 쓸 수 있어요.',
-      dashboard: '로그인하면 푼 기록과 정답률을 볼 수 있어요.',
-      toStudy: '학습 화면으로'
+      bookmarks: '책갈피한 문제를 모아 보고 다시 풀 수 있어요.',
+      review: '틀린 문제를 모아 복습할 수 있어요.',
+      wrongNote: '오답노트는 로그인하면 볼 수 있어요.',
+      dashboard: '학습 기록과 진도를 볼 수 있어요.',
+      toStudy: '학습으로'
     },
     guestToast: {
       login: '로그인',
-      bookmark: '책갈피는 로그인하면 쓸 수 있어요.',
-      sessionNotKept: '지금 풀던 문제는 로그인 뒤에 이어지지 않아요.'
+      bookmark: '책갈피는 로그인하면 저장할 수 있어요.',
+      sessionNotKept: '로그인하면 지금 풀이는 이어지지 않아요.'
     },
     reauth: {
       name: '본인 확인',
@@ -459,9 +460,9 @@ export const koCoreResources = {
       checkingAccount: '계정을 확인하는 중…',
       openAdminWork: '진행 중인 관리자 작업이 있어 지금은 탈퇴할 수 없어요.',
       title: '로그인',
-      description: 'Google 계정으로 로그인하면 푼 기록이 계속 남아요.',
+      description: 'Google 계정으로 학습 기록을 이어가세요.',
       guestHint:
-        '로그인 없이도 하루 {{total}}번, 한 번에 {{count}}문제씩 풀 수 있어요. 기록은 남지 않아요.',
+        '하루 {{total}}번, {{count}}문제씩 풀 수 있어요. 기록은 남지 않아요.',
       guestLink: '로그인 없이 풀어 보기',
       checkingSession: '로그인 확인 중…',
       redirecting: '{{provider}}로 이동하는 중…',
@@ -492,7 +493,7 @@ export const koCoreResources = {
         '로그인 방법이 변경되었어요. 연결한 계정으로 계속해 주세요.',
       continueGoogle: 'Google로 계속하기',
       cancelledProvider:
-        '{{provider}} 로그인을 취소했어요. 다시 시도하거나 로그인 없이 풀어 볼 수 있어요.',
+        '{{provider}} 로그인을 취소했어요. 다시 시도하거나 로그인 없이 학습할 수 있어요.',
       failedProvider: '{{provider}} 로그인에 실패했어요. 다시 시도해 주세요.',
       unavailableProvider:
         '지금은 {{provider}}로 로그인할 수 없어요. 잠시 뒤에 다시 시도해 주세요.',
@@ -508,7 +509,7 @@ export const koCoreResources = {
       modeSummary: '출제 방식',
       shortcutsLabel: '다시 풀기',
       guestHint:
-        '로그인 없이 하루 {{total}}번, 한 번에 {{count}}문제씩 풀 수 있어요.',
+        '로그인 없이 하루 {{total}}번, {{count}}문제씩 풀어 볼 수 있어요.',
       reviewShortcut: '틀린 문제 다시 풀기',
       bookmarkShortcut: '책갈피',
       title: '학습',
@@ -564,19 +565,19 @@ export const koCoreResources = {
           description: '복습할 문제를 오래전에 틀린 것부터 10문제 내요.'
         }
       },
-      guestResumeHint: '로그인하면 풀다 만 문제를 나중에 이어 풀 수 있어요.',
-      memberLocked: '로그인하면 사용',
+      guestResumeHint: '로그인하면 풀던 문제를 이어서 풀 수 있어요.',
+      memberLocked: '로그인 필요',
       locked: {
-        count: '10문제·20문제는 로그인하면 고를 수 있어요.',
-        mode: '랜덤 말고 다른 출제 방식은 로그인하면 고를 수 있어요.'
+        count: '10문제·20문제는 로그인하면 풀 수 있어요.',
+        mode: '무작위 외 출제 방식은 로그인하면 쓸 수 있어요.'
       },
-      guestLeft: '오늘 <b>{{total}}번 중 {{remaining}}번</b> 남았어요.',
+      guestLeft: '오늘 체험 <b>{{total}}회 중 {{remaining}}회</b> 남았어요.',
       dailyLimit: {
-        title: '오늘 무료 횟수를 다 썼어요',
+        title: '오늘 체험을 다 썼어요',
         description:
-          '로그인하면 횟수 제한 없이 풀고 기록도 남아요. 로그인 없이는 내일 0시(한국 시간)부터 다시 {{total}}번 풀 수 있어요.'
+          '로그인하면 문제 수 제한 없이 풀고 기록도 남아요. 체험은 내일 0시(한국 시간)에 다시 {{total}}회 생겨요.'
       },
-      urlLocked: '문제 수와 출제 방식은 로그인하면 고를 수 있어요.',
+      urlLocked: '문항 수·출제 방식은 로그인하면 고를 수 있어요.',
       availableCountNote: '문제가 모자라면 있는 만큼만 나와요.',
       noEligibleTitle:
         "지금 조건으로는 '{{mode}}'에서 풀 수 있는 문제가 없어요.",
@@ -598,7 +599,7 @@ export const koCoreResources = {
     session: {
       loading: {
         questions: '문제를 준비하고 있어요…',
-        guestOwnership: '문제를 준비하는 중…',
+        guestOwnership: '게스트 세션 소유권을 확인하고 있어요…',
         resultRedirect: '결과로 이동하는 중…',
         draft: '저장한 답을 불러오는 중…'
       },
@@ -640,8 +641,8 @@ export const koCoreResources = {
         openSetup: '새로 시작하기'
       },
       exitGuest: {
-        title: '그만 풀까요?',
-        description: '나가면 지금 푼 답은 저장되지 않아요.',
+        title: '풀이를 그만둘까요?',
+        description: '나가면 푼 답이 사라져요.',
         keep: '계속 풀기',
         leave: '나가기'
       },
@@ -801,14 +802,14 @@ export const koCoreResources = {
       accuracy: '정답률',
       durationValue: '{{minutes}}분 {{seconds}}초'
     },
-    guestDone: '오늘 무료 횟수를 다 썼어요. 로그인하면 계속 풀 수 있어요.',
-    memberLocked: '로그인하면 사용',
+    guestDone: '오늘 체험은 여기까지예요. 로그인하면 계속 풀 수 있어요.',
+    memberLocked: '로그인 필요',
     locked: {
       retry: '틀린 문제 다시 풀기는 로그인하면 쓸 수 있어요.'
     },
     status: {
       guest:
-        '로그인하면 틀린 문제가 오답노트에 모여요. 지금 결과는 로그인 뒤에 이어지지 않아요.',
+        '로그인하면 오답이 오답노트에 저장돼요. 지금 결과는 이어지지 않아요.',
       savedWrongCount: '틀린 {{formattedCount}}문제를 오답노트에 담았어요.'
     },
     actions: {
@@ -1121,7 +1122,7 @@ export const koCoreResources = {
       versionChanged:
         '이 해설은 마지막으로 틀린 문제 버전이에요. 다시 풀 때는 최신 문제가 나와요.',
       guest: {
-        result: '방금 푼 결과'
+        result: '이 기기에서 방금 마친 학습 결과'
       },
       empty: {
         title: '아직 복습할 문제가 없어요.',
@@ -1503,7 +1504,7 @@ export const koCoreResources = {
       error: '저장하지 못했어요. 잠시 뒤 다시 골라 주세요.'
     },
     title: '마이페이지',
-    guestDescription: '로그인하면 학습 기록과 계정을 여기서 볼 수 있어요.',
+    guestDescription: '마이페이지에서 학습 기록과 계정을 관리할 수 있어요.',
     study: {
       title: '내 학습',
       period: '전체',
@@ -1569,7 +1570,7 @@ export const koCoreResources = {
   errors: {
     forbidden: {
       memberDescription: '이 계정으로는 볼 수 없는 화면이에요.',
-      guestDescription: '로그인하면 볼 수 있어요.',
+      guestDescription: '이 화면을 볼 수 있는 계정으로 로그인해 주세요.',
       accountAction: '로그인하기',
       title: '볼 수 없는 화면이에요',
       description: '운영자만 볼 수 있는 화면이에요.',
