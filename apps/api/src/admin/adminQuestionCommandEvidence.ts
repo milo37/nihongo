@@ -14,6 +14,7 @@ import {
   type ArmableOperation
 } from './adminOperationArm.js'
 import { beginAdminOperation } from './adminOperationAuthority.js'
+import { operatorActorOf } from './operatorAdminAuthority.js'
 
 import {
   type QuestionVersionStatus,
@@ -100,6 +101,7 @@ export const beginOperation = async (
   const operation = await beginAdminOperation(transaction, {
     auditEnvironment: input.auditEnvironment,
     command: input.command,
+    operatorActorId: operatorActorOf(input.authority),
     rawSessionToken: input.authority.rawSessionToken,
     referencedUserIds: input.referencedUserIds
   })

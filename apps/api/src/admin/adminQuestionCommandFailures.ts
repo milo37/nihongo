@@ -21,6 +21,7 @@ import {
   CONTENT_OPERATIONS,
   FRESH_OPERATIONS
 } from './adminQuestionCommandModel.js'
+import { operatorActorOf } from './operatorAdminAuthority.js'
 
 export class AdminQuestionCommandRepositoryError extends Error {
   readonly code: StableErrorCode
@@ -319,6 +320,16 @@ export const createAuthorityFailureClassifier =
       !AUTHORITY_FAILURE_MESSAGES.has(identity.message)
     ) {
       return null
+    }
+    // An operator command has no Session to probe: its actor stopped being
+    // an ACTIVE ADMIN (JLP-828).
+    if (operatorActorOf(authority) !== null) {
+      return new AdminQuestionCommandRepositoryError({
+        code: 'ADMIN_REQUIRED',
+        message: '관리자 권한이 필요합니다.',
+        disposition: 'DEFINITE_ROLLBACK',
+        cause: error
+      })
     }
 
     let rows: AuthorityProbeRow[]

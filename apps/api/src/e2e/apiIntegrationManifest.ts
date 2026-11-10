@@ -264,6 +264,22 @@ export const apiIntegrationManifest = [
     isolation: 'dedicated schema'
   },
   {
+    // Last in the shard: it publishes the 500 question set (JLP-828).
+    path: 'src/content/questionSetPublish.integration.test.ts',
+    executionOwner: 'shard',
+    shard: 'current-app-role',
+    order: 29,
+    databaseState: 'current-canonical-65',
+    connectionRole: 'application',
+    requiredEnvironment: [
+      'DATABASE_URL',
+      'API_INTEGRATION_FIXTURE_DATABASE_URL',
+      'TEST_APP_FIXTURE_DATABASE_URL'
+    ],
+    seedPolicy: 'canonical-once',
+    isolation: 'dedicated schema'
+  },
+  {
     path: 'src/study/studySessionCleanup.integration.test.ts',
     executionOwner: 'shard',
     shard: 'current-app-role',
