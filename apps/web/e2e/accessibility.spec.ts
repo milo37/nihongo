@@ -1066,8 +1066,8 @@ const scanRouteLocales = async (
       )
       await expect(page.locator('main .auth-notice[role="status"]')).toHaveText(
         locale === 'ko'
-          ? '로그인 방법이 변경되었어요. 연결한 계정으로 계속해 주세요.'
-          : 'ログイン方法が変更されました。連携したアカウントで続けてください。'
+          ? '로그인 방법이 Google로 바뀌었어요. Google 계정으로 계속해 주세요.'
+          : 'ログイン方法がGoogleに変わりました。Googleアカウントで続けてください。'
       )
       await expect(
         page.locator('main button[data-provider="google"]')

@@ -1067,7 +1067,7 @@ test('guest SSO boundary and authenticated practice transition match the active 
     )
     await expect(
       page.getByText(
-        '로그인 방법이 변경되었어요. 연결한 계정으로 계속해 주세요.',
+        '로그인 방법이 Google로 바뀌었어요. Google 계정으로 계속해 주세요.',
         { exact: true }
       )
     ).toBeVisible()
