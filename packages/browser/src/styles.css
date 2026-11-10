@@ -473,6 +473,28 @@
 .choice-subjects .choice-label {
   white-space: nowrap;
 }
+.choice-subjects .choice-label svg {
+  flex-shrink: 0;
+}
+/* "文字・語彙" plus its icon needs about 94px; a 320 chip has 78 (E12). */
+@media (max-width: 360px) {
+  .choice-subjects .choice-surface:lang(ja) {
+    padding-inline: 2px;
+  }
+  .choice-subjects .choice-label:lang(ja) {
+    gap: 3px;
+    font-size: 12px;
+  }
+  .choice-subjects .choice-label:lang(ja) svg {
+    width: 16px;
+    height: 16px;
+  }
+  /* "間違いノート" and "ブックマーク" stay on one line (E13). */
+  .app-mobile-navigation .app-nav-link:lang(ja) {
+    padding-inline: 2px;
+    font-size: 11px;
+  }
+}
 
 .choice-label {
   display: inline-flex;
