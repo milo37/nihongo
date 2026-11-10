@@ -3,7 +3,6 @@ import { questionTypeLabels } from './ko-question-types'
 export const koCoreResources = {
   common: {
     appName: '하루마루',
-    tagline: '풀고, 틀리고, 다시 풀고',
     locale: {
       label: '언어',
       ko: '한국어',
@@ -50,22 +49,7 @@ export const koCoreResources = {
         BOOKMARK: '책갈피',
         DAILY_REVIEW: '복습할 문제'
       },
-      questionTypes: { ...questionTypeLabels },
-      wrongNoteStatuses: {
-        NEW: '새 오답',
-        REVIEWING: '복습 중',
-        AGAIN: '다시 학습',
-        SOLVED: '해결'
-      },
-      availability: {
-        AVAILABLE: '풀 수 있음',
-        ARCHIVED: '지금은 풀 수 없음'
-      },
-      roles: {
-        GUEST: '비회원',
-        USER: '회원',
-        ADMIN: '관리자'
-      }
+      questionTypes: { ...questionTypeLabels }
     },
     pagination: {
       firstLabel: '첫 쪽',
@@ -88,20 +72,12 @@ export const koCoreResources = {
       restored: '인터넷에 다시 연결됐어요.'
     },
     footer: {
-      originalContent: '모든 문제는 하루마루가 직접 만들었어요.',
-      scope: '듣기 문제와 실제 JLPT 기출문제는 없어요.',
-      release: '· {{release}}',
       groups: {
         guidance: '안내',
         help: '도움말',
         account: '계정'
       },
-      informationLabel: '하루마루 안내',
-      terms: '이용약관',
-      privacy: '개인정보 처리방침',
-      copyright: '저작권',
-      questionReport: '문제 신고하기',
-      contact: '문의'
+      informationLabel: '하루마루 안내'
     }
   },
   navigation: {
@@ -117,8 +93,6 @@ export const koCoreResources = {
     mobilePrimary: '메뉴',
 
     skipToContent: '본문으로 건너뛰기',
-    menuOpen: '메뉴 열기',
-    menuClose: '메뉴 닫기',
     primary: '메뉴',
     learningStart: '학습',
     practice: '문제 풀기',
@@ -126,7 +100,6 @@ export const koCoreResources = {
     bookmarks: '책갈피',
     my: '마이',
     dashboard: '학습',
-    adminQuestions: '문제 관리',
     login: '로그인',
     routeChanged: '{{route}} 화면이에요.',
     documentTitle: '{{route}} | 하루마루',
@@ -371,28 +344,11 @@ export const koCoreResources = {
       vocabulary: '문자·어휘',
       title: '오늘도 일본어 한 세트',
       description: '급수와 과목만 고르면 바로 시작해요.',
-      selected: '고른 학습',
-      maximum: '최대 10문제',
       loading: '불러오는 중…'
-    },
-    hero: {
-      titleLine1: '틀린 문제는',
-      titleLine2: '맞힐 때까지 다시',
-      description:
-        '급수와 과목을 고르고 바로 문제를 푸세요. 제출한 오답은 자동으로 정리되고, 두 번 연속 맞힐 때까지 복습 흐름이 이어져요.',
-      openSetup: '학습 시작하기',
-      accountLogin: '로그인',
-      myDashboard: '마이페이지'
     },
     quickDrill: {
       title: '10문제 바로 풀기',
-      defaultMode: '랜덤 출제',
-      levelLegend: '급수',
-      subjectLegend: '과목',
-      start: '{{level}} {{subject}} {{formattedCount}}문제 시작',
-      error:
-        '학습을 시작하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.',
-      countNote: '준비된 문제가 10개보다 적으면 있는 만큼 나와요.'
+      start: '{{level}} {{subject}} {{formattedCount}}문제 시작'
     },
     subjects: {
       vocabulary: {
@@ -406,25 +362,6 @@ export const koCoreResources = {
       reading: {
         label: '독해',
         description: '짧은 글, 안내문 읽기'
-      }
-    },
-    loop: {
-      title: '풀고 나면 복습까지 이어져요',
-      items: {
-        wrongNote: {
-          title: '오답노트에 자동 저장',
-          description: '틀린 문제와 틀린 횟수가 저절로 모여요.'
-        },
-        weakness: {
-          title: '약한 곳 찾기',
-          description:
-            '과목별 정답률과 자주 틀린 문제로 다음에 풀 것을 알려 드려요.'
-        },
-        mastery: {
-          title: '2회 연속 정답',
-          description:
-            '한 번의 우연이 아니라 두 번 연속 맞힐 때 해결한 문제로 전환해요.'
-        }
       }
     }
   },
@@ -518,17 +455,12 @@ export const koCoreResources = {
       formTitle: '무엇을 풀까요?',
       newTitle: '새로 풀기',
       modeSummary: '출제 방식',
-      shortcutsLabel: '다시 풀기',
       guestHint:
         '로그인 없이 하루 {{total}}번, 한 번에 {{count}}문제씩 풀 수 있어요.',
-      reviewShortcut: '틀린 문제 다시 풀기',
-      bookmarkShortcut: '책갈피',
       title: '학습',
       description: '준비된 문제가 고른 수보다 적으면 있는 만큼만 나와요.',
       resume: {
         title: '풀던 문제 이어서',
-        otherTitle: '풀던 다른 학습',
-        otherAction: '더 보기',
         description: '저장된 답은 24시간 동안 남아 있어요.',
         refreshing: '새로고침 중…',
         loading: '풀던 문제를 찾는 중…',
@@ -537,20 +469,17 @@ export const koCoreResources = {
           '인터넷 연결이 끊겨서 마지막으로 불러온 목록을 보여 드려요. 연결될 때까지 버리기와 쪽 넘기기는 할 수 없어요.',
         stale: '목록을 새로 불러오지 못했어요. 마지막으로 불러온 목록이에요.',
         error: '풀던 문제 목록을 불러오지 못했어요.',
-        empty: '풀던 문제가 없어요. 아래에서 새로 시작해 보세요.',
         summary: '{{formattedCount}}문제 중 {{formattedOrdinal}}번까지',
         lastSaved: '{{date}}에 저장',
         notSaved: '아직 푼 문제 없음',
         legacyUnavailable:
           '이 학습은 더 이어 풀 수 없어요. 새로 시작해 주세요.',
         action: '이어 풀기',
-        cancel: '버리기',
-        paginationLabel: '풀던 문제 쪽'
+        cancel: '버리기'
       },
       steps: {
         level: '급수',
         subject: '과목',
-        count: '문제 수',
         mode: '출제 방식'
       },
       questionCount: '{{formattedCount}}문제',
@@ -594,8 +523,6 @@ export const koCoreResources = {
       selectRandom: '랜덤으로 바꾸기',
       createError:
         '학습을 시작하지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요.',
-      authorityNote: '고른 조건에 맞는 문제만 나와요.',
-      start: '시작하기',
       cancelDialog: {
         title: '풀던 문제를 버릴까요?',
         description: '저장한 답이 지워지고 다시 이어 풀 수 없어요.',
@@ -806,7 +733,6 @@ export const koCoreResources = {
     },
     newPractice: '새 문제 풀기',
     metrics: {
-      accuracy: '정답률',
       durationValue: '{{minutes}}분 {{seconds}}초'
     },
     status: {
@@ -870,47 +796,6 @@ export const koCoreResources = {
       stay: '기다리기'
     }
   },
-  dashboard: {
-    name: '내 학습',
-    loading: '불러오는 중…',
-    offline: {
-      title: '인터넷 연결이 끊겼어요',
-      description: '연결되면 학습 기록을 다시 불러올게요.'
-    },
-    title: '내 학습',
-    greeting: '{{name}}님, 목표 급수는 {{level}}',
-    learnerFallback: '회원',
-    targetUnset: '아직 안 정함',
-    basisNote: '전체 기록이에요.',
-    startToday: '오늘 학습 시작',
-    summary: {
-      loading: '불러오는 중…',
-      offlineTitle: '인터넷 연결이 끊겼어요',
-      offlineDescription: '연결되면 다시 불러올게요.',
-      staleTitle: '최신 기록을 불러오지 못했어요',
-      staleDescription: '마지막으로 불러온 기록을 보여 드려요.',
-      cachedOffline:
-        '인터넷 연결이 끊겨 마지막으로 불러온 기록을 보여 드려요. 연결되면 다시 불러올게요.',
-      retry: '다시 불러오기',
-      errorTitle: '학습 기록을 불러오지 못했어요',
-      errorDescription: '[다시 불러오기]를 눌러 주세요.',
-      emptyTitle: '아직 푼 문제가 없어요',
-      emptyDescription: '문제를 풀면 과목별 정답률이 여기 나와요.',
-      emptyAction: '첫 문제 풀기',
-      totalAnswered: '푼 문제',
-      correctRate: '정답률',
-      wrongNotes: '틀린 문제',
-      solvedWrongNotes: '해결한 오답',
-      questionUnit: '문제',
-      itemUnit: '개',
-      subjectAccuracy: '과목별 정답률',
-      subjectAccuracyLabel: '{{subject}} 정답률',
-      recentSessions: '최근 학습',
-      recentSessionResult: '{{total}}문제 중 {{correct}}개 맞음',
-      sessionAccuracy: '정답률 {{rate}}%',
-      noRecentSessions: '최근에 푼 학습이 없어요.'
-    }
-  },
   wrongNote: {
     title: '오답노트',
     rule: "틀린 문제는 여기 모여요. 다시 풀어서 맞히면 '복습한 문제'로 옮겨요.",
@@ -948,31 +833,12 @@ export const koCoreResources = {
     },
     integration: {
       title: '복습',
-      range: '복습 범위',
-      views: {
-        DUE: '지금 복습',
-        UNREVIEWED: '아직 복습 안 한 문제',
-        REPEATED: '반복해서 틀린 문제',
-        SOLVED: '해결한 문제'
-      },
       status: {
         TO_REVIEW: '복습할 문제',
         REVIEWED: '복습한 문제'
       },
-      advanced: '상세 조건',
-      applied: ' · 적용 중',
-      sort: {
-        NEXT_REVIEW: '복습 예정순',
-        MOST_WRONG: '많이 틀린 순',
-        RECENT: '최근 오답순'
-      },
-      reset: '조건 초기화',
       count: '{{formattedCount}}문제',
-      detail: '해설 보기',
       back: '복습 목록으로',
-      start: '새 학습 시작',
-      versionChanged:
-        '이 해설은 마지막으로 틀린 문제 버전이에요. 다시 풀 때는 최신 문제가 나와요.',
       guest: {
         result: '방금 푼 결과'
       },
@@ -983,22 +849,6 @@ export const koCoreResources = {
       filtered: {
         title: '이 조건에 맞는 문제가 없어요.',
         description: '급수나 과목을 바꾸어 보세요.'
-      },
-      dueEmpty: {
-        title: '지금 복습할 문제가 없어요.',
-        description: '다른 복습 범위의 문제를 확인할 수 있어요.'
-      },
-      rangeEmpty: {
-        title: '이 범위에 문제가 없어요.',
-        description: '다른 복습 범위를 선택해 주세요.'
-      },
-      recent: {
-        title: '최근 결과 다시 보기',
-        loading: '최근 결과를 불러오는 중…',
-        error: '최근 결과를 불러오지 못했어요.',
-        result: '결과·해설',
-        limit: '최근에 마친 학습을 최대 5개까지 볼 수 있어요.',
-        empty: '아직 마친 학습이 없어요.'
       },
       complete: {
         title: '복습 결과',
@@ -1019,119 +869,15 @@ export const koCoreResources = {
       }
     },
     name: '오답노트',
-    history: {
-      eyebrow: 'WRONG NOTE',
-      title: '전체 오답 기록',
-      description:
-        '마지막으로 틀린 문제 버전과 그때의 상태를 그대로 보관한 기록이에요.',
-      backToCenter: '복습 센터로 돌아가기',
-      filters: {
-        level: '급수',
-        allLevels: '전체 급수',
-        subject: '과목',
-        allSubjects: '전체 과목',
-        status: '상태',
-        allStatuses: '전체 상태',
-        tag: '태그',
-        allTags: '전체 태그',
-        sort: '정렬',
-        recent: '최근 오답순',
-        mostWrong: '많이 틀린 순',
-        oldest: '오래된 순'
-      },
-      states: {
-        offline:
-          '오프라인이에요. 연결이 복구되면 현재 URL 조건으로 전체 오답 기록을 자동으로 다시 불러와요.',
-        loading: '오답노트를 불러오고 있어요…',
-        refreshing: '오답노트 페이지를 갱신하고 있어요…',
-        errorTitle: '오답노트를 불러오지 못했어요',
-        errorDescription: '잠시 후 다시 시도해 주세요.',
-        stale:
-          '전체 오답 기록의 최신 상태를 확인하지 못했어요. 현재까지 불러온 기록은 유지돼요.',
-        retryStale: '전체 오답 기록 다시 확인',
-        correctingPage: '유효한 오답노트 페이지로 이동하고 있어요…',
-        emptyTitle: '아직 조건에 맞는 오답이 없어요',
-        emptyDescription: '문제를 풀고 틀린 항목은 자동으로 이곳에 저장돼요.',
-        start: '첫 문제 풀기'
-      },
-      results: {
-        count: '오답 {{formattedCount}}개',
-        resetFilters: '필터 초기화',
-        wrongCount: '{{formattedCount}}회 오답',
-        questionType: '문제 유형',
-        lastWrong: '마지막 오답',
-        archived: '보관된 문제 · 재풀이 불가',
-        available: '현재 출제 가능 · 상세에서 단일 복습 가능',
-        detail: '상세 보기'
-      }
-    },
     center: {
-      eyebrow: 'REVIEW CENTER',
       title: '오답 복습',
       description: '틀린 문제를 다시 풀고, 익숙해진 문제는 해결로 옮겨 보세요.',
-      history: '전체 오답 기록',
-      views: {
-        DUE: '복습 예정',
-        UNREVIEWED: '아직 복습 전',
-        REPEATED: '반복 오답',
-        SOLVED: '해결'
-      },
-      filters: {
-        level: '급수',
-        allLevels: '전체 급수',
-        subject: '과목',
-        allSubjects: '전체 과목',
-        questionType: '문제 유형',
-        allQuestionTypes: '전체 유형',
-        tag: '태그',
-        allTags: '전체 태그',
-        sort: '정렬',
-        more: '상세 필터 열기',
-        less: '상세 필터 닫기',
-        active: '상세 조건 {{formattedCount}}개 적용 중',
-        nextReview: '다음 복습순',
-        mostWrong: '많이 틀린 순',
-        recent: '최근 오답순'
-      },
-      batch: {
-        count: '묶음 문제 수',
-        countOption: '{{formattedCount}}문제',
-        loading: '복습 세션 준비 중…',
-        start: '조건에 맞는 오늘의 복습 시작',
-        offline:
-          '오프라인에서는 복습 세션을 만들 수 없어요. 연결 후 같은 조건으로 다시 시도해 주세요.',
-        noEligible: '현재 조건으로 출제 가능한 복습 문제가 없어요.',
-        error: '복습 세션을 만들지 못했어요. 입력과 연결 상태를 확인해 주세요.'
-      },
       states: {
         offline: '인터넷 연결이 끊겼어요. 연결되면 다시 불러올게요.',
         loading: '불러오는 중…',
-        refreshing: '불러오는 중…',
-        errorTitle: '오답노트를 불러오지 못했어요',
-        errorDescription: '인터넷 연결을 확인하고 다시 시도해 주세요.',
-        stale:
-          '최신 목록을 불러오지 못했어요. 다시 불러올 때까지 복습은 시작할 수 없어요.',
-        retryStale: '다시 불러오기',
-        correctingPage: '있는 쪽으로 이동하는 중…'
+        errorDescription: '인터넷 연결을 확인하고 다시 시도해 주세요.'
       },
       results: {
-        count: '조건에 맞는 오답 {{formattedCount}}개',
-        observedAt: '서버 기준 시각 {{date}}',
-        resetFilters: '필터 초기화',
-        dueEmptyTitle: '지금 예정된 복습이 없어요',
-        filteredEmptyTitle: '조건에 맞는 오답이 없어요',
-        dueEmptyDescription:
-          '전체 기록을 돌아보거나 새로운 문제를 풀어 다음 복습을 준비하세요.',
-        filteredEmptyDescription:
-          '필터를 바꾸거나 전체 오답 기록을 확인해 보세요.',
-        history: '전체 기록',
-        setup: '학습 설정',
-        hasMemo: '메모',
-        wrong: '오답',
-        wrongCount: '{{formattedCount}}회',
-        streak: '연속 정답',
-        nextReview: '다음 복습',
-        detail: '상세·메모·복습 기록',
         pagination: '오답노트 쪽'
       }
     },
@@ -1208,89 +954,7 @@ export const koCoreResources = {
           '전에 시작한 다시 풀기가 끝났어요. 이 문제는 지금 풀 수 없어요.',
         endedAvailable:
           '전에 시작한 다시 풀기가 끝났어요. 다시 누르면 새로 시작해요.'
-      },
-      timelineSection: {
-        title: '복습 타임라인',
-        description:
-          '최신 기록부터 표시하며 상태와 횟수 변화는 텍스트로 함께 제공해요.'
       }
-    },
-    memo: {
-      title: '내 메모',
-      privateHint: '나만 볼 수 있어요',
-      emptyLead: '왜 틀렸는지 한 줄 남겨 두면 복습할 때 바로 떠올라요.',
-      write: '메모 쓰기',
-      edit: '수정',
-      delete: '삭제',
-      label: '내 메모',
-      count: '{{current}} / {{maximum}}',
-      over: '{{current}} / {{maximum}} · {{excess}}자를 줄여 주세요',
-      clearHint: "메모를 지우려면 '삭제'를 눌러 주세요.",
-      cancel: '취소',
-      save: '저장',
-      retrySave: '다시 저장',
-      saving: '저장 중…',
-      savedAt: '{{time}} 저장',
-      saved: '메모를 저장했어요.',
-      deleted: '메모를 삭제했어요.',
-      saveError:
-        '저장하지 못했어요. 쓴 내용은 그대로 있어요. 연결을 확인하고 다시 저장해 주세요.',
-      saveOffline:
-        '오프라인이라 저장하지 못했어요. 쓴 내용은 그대로 있어요. 연결되면 다시 저장해 주세요.',
-      deleteError: '삭제하지 못했어요. 연결을 확인하고 다시 시도해 주세요.',
-      offline:
-        '오프라인이라 지금은 수정할 수 없어요. 연결되면 다시 시도해 주세요.',
-      loading: '메모를 불러오고 있어요…',
-      loadError: '메모를 불러오지 못했어요.',
-      loadOffline:
-        '오프라인이라 메모를 불러올 수 없어요. 연결되면 다시 불러와요.',
-      retryLoad: '다시 불러오기',
-      deleteDialog: {
-        title: '메모를 삭제할까요?',
-        description: '삭제한 메모는 되돌릴 수 없어요.',
-        cancel: '취소',
-        confirm: '삭제',
-        deleting: '삭제 중…'
-      }
-    },
-    timeline: {
-      sources: {
-        STUDY_SUBMIT: '표준 학습 제출',
-        WRONG_NOTE_REVIEW: '오답 복습 제출',
-        VERSION_REBASE: '문제 버전 전환'
-      },
-      outcomes: {
-        none: '정답 판정 없음',
-        correct: '정답',
-        incorrect: '오답'
-      },
-      loadingOffline:
-        '오프라인에서는 복습 기록을 불러올 수 없습니다. 연결되면 자동으로 다시 불러옵니다.',
-      loading: '복습 기록을 불러오고 있어요…',
-      loadError: '복습 기록을 불러오지 못했어요.',
-      stale:
-        '복습 기록의 최신 상태를 확인하지 못했어요. 현재까지 불러온 기록은 유지돼요.',
-      retryStale: '복습 기록 다시 확인',
-      emptyOffline: '오프라인입니다. 연결되면 복습 기록을 다시 확인합니다.',
-      empty: '아직 복습 이벤트가 없어요.',
-      cachedOffline:
-        '오프라인이에요. 현재 기록을 유지하며 연결되면 중단된 요청을 이어가요.',
-      statusChange: '상태 변화',
-      recordStart: '기록 시작',
-      wrongCount: '오답 횟수',
-      streak: '연속 정답',
-      elapsed: '풀이 시간',
-      noRecord: '기록 없음',
-      seconds: '{{formattedCount}}초',
-      questionVersion: '문제 버전',
-      algorithm: '알고리즘',
-      algorithmVersion: 'version {{version}}',
-      moreError:
-        '이전 기록을 더 불러오지 못했습니다. 현재까지 불러온 기록은 유지됩니다.',
-      waitingConnection: '연결 대기 중…',
-      loadingMore: '이전 기록 불러오는 중…',
-      loadMore: '이전 기록 더 보기',
-      complete: '첫 오답 기록까지 모두 확인했어요.'
     }
   },
   bookmark: {
@@ -1335,11 +999,6 @@ export const koCoreResources = {
       offline: '인터넷 연결이 끊겼어요. 연결되면 다시 눌러 주세요.',
       startError: '시작하지 못했어요. 잠시 뒤에 다시 시도해 주세요.'
     },
-    availability: {
-      available: '풀 수 있음',
-      archived: '지금은 풀 수 없음',
-      archivedDescription: '고치는 중이거나 내린 문제라 풀기에 나오지 않아요.'
-    },
     remove: '책갈피 빼기',
     removeDialog: {
       title: '책갈피에서 뺄까요?',
@@ -1365,22 +1024,10 @@ export const koCoreResources = {
     study: {
       title: '내 학습',
       recentRowResult: '{{total}}문제 중 {{correct}}개 맞음',
-      period: '전체',
-      total: '푼 문제',
       totalUnit: '문제',
       rate: '정답률',
-      wrongNotes: '틀린 문제',
-      wrongSolved: '해결 {{solved}} · {{total}}개 중',
-      bySubject: '과목별 정답률',
-      weakest: '가장 약한 과목: {{subject}}',
-      startSubject: '{{subject}} 풀기',
       noRecord: '기록 없음',
-      week: '최근 7일',
       recent: '최근 학습',
-      repeated: '자주 틀린 문제',
-      wrongTimes: '{{count}}번 틀림',
-      seeInReview: '오답노트에서 보기',
-      fewData: '문제를 많이 풀수록 더 정확해져요.',
       emptyTitle: '아직 푼 문제가 없어요',
       emptyDescription: '문제를 풀면 과목별 정답률이 여기 나와요.',
       emptyAction: '첫 문제 풀기',
@@ -1392,7 +1039,6 @@ export const koCoreResources = {
       title: '계정',
       signInMethod: '로그인 방법',
       connected: '로그인 중',
-      onlyMethod: '유일한 로그인 방법이라 연결을 해제할 수 없어요.',
       logoutDescription: '이 기기에서 로그아웃해요. 학습 기록은 그대로 남아요.'
     },
     danger: {

@@ -7,7 +7,6 @@ export type LocaleCatalog<T> = {
 export const jaCoreResources = {
   common: {
     appName: '하루마루',
-    tagline: '解いて、間違えて、もう一度',
     locale: {
       label: '言語',
       ko: '한국어',
@@ -67,21 +66,6 @@ export const jaCoreResources = {
         MEDIUM_READING: '中文読解',
         LONG_READING: '長文読解',
         INFO_RETRIEVAL: '情報検索'
-      },
-      wrongNoteStatuses: {
-        NEW: '新しい間違い',
-        REVIEWING: '復習中',
-        AGAIN: 'もう一度学習',
-        SOLVED: '解決済み'
-      },
-      availability: {
-        AVAILABLE: '解ける',
-        ARCHIVED: '今は解けない'
-      },
-      roles: {
-        GUEST: 'ゲスト',
-        USER: '会員',
-        ADMIN: '管理者'
       }
     },
     pagination: {
@@ -105,20 +89,12 @@ export const jaCoreResources = {
       restored: 'インターネットにまた接続しました。'
     },
     footer: {
-      originalContent: '問題はすべて하루마루のオリジナルです。',
-      scope: '聴解問題と実際のJLPT過去問はありません。',
-      release: '· {{release}}',
       groups: {
         guidance: 'ご案内',
         help: 'ヘルプ',
         account: 'アカウント'
       },
-      informationLabel: '하루마루について',
-      terms: '利用規約',
-      privacy: 'プライバシーポリシー',
-      copyright: '著作権',
-      questionReport: '問題を報告する',
-      contact: 'お問い合わせ'
+      informationLabel: '하루마루について'
     }
   },
   navigation: {
@@ -134,8 +110,6 @@ export const jaCoreResources = {
     mobilePrimary: 'メニュー',
 
     skipToContent: '本文へスキップ',
-    menuOpen: 'メニューを開く',
-    menuClose: 'メニューを閉じる',
     primary: 'メニュー',
     learningStart: '学習',
     practice: '問題を解く',
@@ -143,7 +117,6 @@ export const jaCoreResources = {
     bookmarks: 'ブックマーク',
     my: 'マイページ',
     dashboard: '学習',
-    adminQuestions: '問題管理',
     login: 'ログイン',
     routeChanged: '{{route}}の画面です。',
     documentTitle: '{{route}} | 하루마루',
@@ -388,28 +361,11 @@ export const jaCoreResources = {
       vocabulary: '文字・語彙',
       title: '今日も日本語をひとセット',
       description: 'レベルと科目を選ぶだけですぐ始められます。',
-      selected: '選んだ学習',
-      maximum: '最大10問',
       loading: '読み込み中…'
-    },
-    hero: {
-      titleLine1: '間違えた問題は',
-      titleLine2: '正解するまでもう一度',
-      description:
-        '級と科目を選んですぐに問題を解きましょう。提出した間違いは自動で整理され、2回連続で正解するまで復習が続きます。',
-      openSetup: '学習を始める',
-      accountLogin: 'ログイン',
-      myDashboard: 'マイページ'
     },
     quickDrill: {
       title: '10問すぐ解く',
-      defaultMode: 'ランダム出題',
-      levelLegend: 'レベル',
-      subjectLegend: '科目',
-      start: '{{level}} {{subject}} {{formattedCount}}問を始める',
-      error:
-        '学習を始められませんでした。インターネット接続を確認して、もう一度お試しください。',
-      countNote: '用意された問題が10問より少ないときは、ある分だけ出ます。'
+      start: '{{level}} {{subject}} {{formattedCount}}問を始める'
     },
     subjects: {
       vocabulary: {
@@ -423,25 +379,6 @@ export const jaCoreResources = {
       reading: {
         label: '読解',
         description: '短い文、案内文の読解'
-      }
-    },
-    loop: {
-      title: '解いたあとは復習まで続きます',
-      items: {
-        wrongNote: {
-          title: '間違いノートに自動で入る',
-          description: '間違えた問題と間違えた回数が自動で集まります。'
-        },
-        weakness: {
-          title: '苦手を見つける',
-          description:
-            '科目別の正答率とよく間違える問題から、次に解くものをお知らせします。'
-        },
-        mastery: {
-          title: '2回連続正解',
-          description:
-            '一度の偶然ではなく、2回連続で正解したときに解決済みへ切り替えます。'
-        }
       }
     }
   },
@@ -542,18 +479,13 @@ export const jaCoreResources = {
       formTitle: '何を解きますか？',
       newTitle: '新しく解く',
       modeSummary: '出題方式',
-      shortcutsLabel: 'もう一度解く',
       guestHint:
         'ログインしなくても1日{{total}}回、1回{{count}}問ずつ解けます。',
-      reviewShortcut: '間違えた問題をもう一度解く',
-      bookmarkShortcut: 'ブックマーク',
       title: '学習',
       description:
         '用意された問題が選んだ数より少ないときは、ある分だけ出ます。',
       resume: {
         title: '続きから解く',
-        otherTitle: 'ほかの解きかけの学習',
-        otherAction: 'もっと見る',
         description: '保存した答えは24時間残ります。',
         refreshing: '更新中…',
         loading: '解きかけの問題を探しています…',
@@ -563,20 +495,17 @@ export const jaCoreResources = {
           'インターネット接続が切れたため、最後に読み込んだ一覧を表示しています。つながるまで、やめる操作とページ移動はできません。',
         stale: '一覧を更新できませんでした。最後に読み込んだ一覧です。',
         error: '解きかけの問題の一覧を読み込めませんでした。',
-        empty: '解きかけの問題はありません。下から新しく始めてみてください。',
         summary: '{{formattedCount}}問中{{formattedOrdinal}}問目まで',
         lastSaved: '{{date}}に保存',
         notSaved: 'まだ解いた問題はありません',
         legacyUnavailable:
           'この学習はもう続けられません。新しく始めてください。',
         action: '続きから解く',
-        cancel: 'やめる',
-        paginationLabel: '解きかけの問題のページ'
+        cancel: 'やめる'
       },
       steps: {
         level: 'レベル',
         subject: '科目',
-        count: '問題数',
         mode: '出題方法'
       },
       questionCount: '{{formattedCount}}問',
@@ -622,8 +551,6 @@ export const jaCoreResources = {
       selectRandom: 'ランダムに変える',
       createError:
         '学習を始められませんでした。インターネット接続を確認して、もう一度お試しください。',
-      authorityNote: '選んだ条件に合う問題だけ出ます。',
-      start: '始める',
       cancelDialog: {
         title: '解きかけの問題をやめますか？',
         description: '保存した答えが消えて、続きから解けなくなります。',
@@ -845,7 +772,6 @@ export const jaCoreResources = {
     },
     newPractice: '新しい問題を解く',
     metrics: {
-      accuracy: '正答率',
       durationValue: '{{minutes}}分{{seconds}}秒'
     },
     status: {
@@ -914,47 +840,6 @@ export const jaCoreResources = {
       stay: '待つ'
     }
   },
-  dashboard: {
-    name: '自分の学習',
-    loading: '読み込み中…',
-    offline: {
-      title: 'インターネット接続が切れました',
-      description: 'つながったら学習記録をもう一度読み込みます。'
-    },
-    title: '自分の学習',
-    greeting: '{{name}}さん、目標レベルは{{level}}',
-    learnerFallback: '会員',
-    targetUnset: 'まだ決めていません',
-    basisNote: '全期間の記録です。',
-    startToday: '今日の学習を始める',
-    summary: {
-      loading: '読み込み中…',
-      offlineTitle: 'インターネット接続が切れました',
-      offlineDescription: 'つながったらもう一度読み込みます。',
-      staleTitle: '最新の記録を読み込めませんでした',
-      staleDescription: '最後に読み込んだ記録を表示しています。',
-      cachedOffline:
-        'インターネット接続が切れたため、最後に読み込んだ記録を表示しています。つながったらもう一度読み込みます。',
-      retry: 'もう一度読み込む',
-      errorTitle: '学習記録を読み込めませんでした',
-      errorDescription: '［もう一度読み込む］を押してください。',
-      emptyTitle: 'まだ解いた問題がありません',
-      emptyDescription: '問題を解くと、科目別の正答率がここに出ます。',
-      emptyAction: '最初の問題を解く',
-      totalAnswered: '解いた問題',
-      correctRate: '正答率',
-      wrongNotes: '間違えた問題',
-      solvedWrongNotes: '解決した間違い',
-      questionUnit: '問',
-      itemUnit: '件',
-      subjectAccuracy: '科目別正答率',
-      subjectAccuracyLabel: '{{subject}}の正答率',
-      recentSessions: '最近の学習',
-      recentSessionResult: '{{total}}問中{{correct}}問正解',
-      sessionAccuracy: '正答率 {{rate}}%',
-      noRecentSessions: '最近解いた学習はありません。'
-    }
-  },
   wrongNote: {
     title: '間違いノート',
     rule: '間違えた問題はここに集まります。解き直して正解すると「復習した問題」に移ります。',
@@ -992,31 +877,12 @@ export const jaCoreResources = {
     },
     integration: {
       title: '復習',
-      range: '復習の範囲',
-      views: {
-        DUE: '今の復習',
-        UNREVIEWED: 'まだ復習していない問題',
-        REPEATED: '繰り返し間違えた問題',
-        SOLVED: '解決した問題'
-      },
       status: {
         TO_REVIEW: '復習する問題',
         REVIEWED: '復習した問題'
       },
-      advanced: '詳細条件',
-      applied: ' · 適用中',
-      sort: {
-        NEXT_REVIEW: '復習予定順',
-        MOST_WRONG: '間違いが多い順',
-        RECENT: '最近の間違い順'
-      },
-      reset: '条件をリセット',
       count: '{{formattedCount}}問',
-      detail: '解説を見る',
       back: '復習一覧へ',
-      start: '新しく学習する',
-      versionChanged:
-        '最後に間違えた時点の問題の解説です。解き直しには最新の問題を使います。',
       guest: {
         result: '今解いた結果'
       },
@@ -1027,22 +893,6 @@ export const jaCoreResources = {
       filtered: {
         title: 'この条件に合う問題はありません。',
         description: '級や科目を変更してください。'
-      },
-      dueEmpty: {
-        title: '今復習する問題はありません。',
-        description: 'ほかの範囲の問題を確認できます。'
-      },
-      rangeEmpty: {
-        title: 'この範囲に問題はありません。',
-        description: 'ほかの復習範囲を選択してください。'
-      },
-      recent: {
-        title: '最近の結果をもう一度見る',
-        loading: '最近の結果を読み込み中…',
-        error: '最近の結果を読み込めませんでした。',
-        result: '結果・解説',
-        limit: '最近終了した学習を最大5件確認できます。',
-        empty: 'まだ終了した学習はありません。'
       },
       complete: {
         title: '復習の結果',
@@ -1064,124 +914,18 @@ export const jaCoreResources = {
       }
     },
     name: '間違いノート',
-    history: {
-      eyebrow: 'WRONG NOTE',
-      title: 'すべての間違い記録',
-      description:
-        '最後に間違えた問題バージョンと当時の状態を保存する履歴アーカイブです。',
-      backToCenter: '復習センターへ戻る',
-      filters: {
-        level: 'レベル',
-        allLevels: 'すべてのレベル',
-        subject: '科目',
-        allSubjects: 'すべての科目',
-        status: '状態',
-        allStatuses: 'すべての状態',
-        tag: 'タグ',
-        allTags: 'すべてのタグ',
-        sort: '並び順',
-        recent: '最近の間違い順',
-        mostWrong: '間違い回数順',
-        oldest: '古い順'
-      },
-      states: {
-        offline:
-          'オフラインです。接続が戻ると現在のURL条件で全記録を自動的に再読み込みします。',
-        loading: '間違いノートを読み込んでいます…',
-        refreshing: '間違いノートのページを更新しています…',
-        errorTitle: '間違いノートを読み込めませんでした',
-        errorDescription: 'しばらく後にもう一度お試しください。',
-        stale:
-          '全記録の最新状態を確認できませんでした。現在までに読み込んだ記録は保持します。',
-        retryStale: '全記録を再確認',
-        correctingPage: '有効な間違いノートのページへ移動しています…',
-        emptyTitle: '条件に合う間違いはまだありません',
-        emptyDescription:
-          '問題を解いて間違えた項目は自動的にここへ保存されます。',
-        start: '最初の問題を解く'
-      },
-      results: {
-        count: '間違い {{formattedCount}}件',
-        resetFilters: 'フィルターをリセット',
-        wrongCount: '{{formattedCount}}回間違い',
-        questionType: '問題の種類',
-        lastWrong: '最後の間違い',
-        archived: 'アーカイブ済み · 解き直し不可',
-        available: '現在出題可能 · 詳細から単独復習可能',
-        detail: '詳細を見る'
-      }
-    },
     center: {
-      eyebrow: 'REVIEW CENTER',
       title: '間違いノートの復習',
       description:
         '間違えた問題をもう一度解いて、身についた問題を解決済みにしましょう。',
-      history: 'すべての間違い記録',
-      views: {
-        DUE: '復習予定',
-        UNREVIEWED: '未復習',
-        REPEATED: '繰り返しの間違い',
-        SOLVED: '解決済み'
-      },
-      filters: {
-        level: 'レベル',
-        allLevels: 'すべてのレベル',
-        subject: '科目',
-        allSubjects: 'すべての科目',
-        questionType: '問題の種類',
-        allQuestionTypes: 'すべての種類',
-        tag: 'タグ',
-        allTags: 'すべてのタグ',
-        sort: '並び順',
-        more: '詳細フィルターを開く',
-        less: '詳細フィルターを閉じる',
-        active: '詳細条件 {{formattedCount}}件を適用中',
-        nextReview: '次の復習順',
-        mostWrong: '間違い回数順',
-        recent: '最近の間違い順'
-      },
-      batch: {
-        count: 'まとめる問題数',
-        countOption: '{{formattedCount}}問',
-        loading: '復習セッションを準備中…',
-        start: '条件に合う今日の復習を開始',
-        offline:
-          'オフラインでは復習セッションを作成できません。接続後に同じ条件でもう一度お試しください。',
-        noEligible: '現在の条件で出題可能な復習問題はありません。',
-        error:
-          '復習セッションを作成できませんでした。入力と接続状態を確認してください。'
-      },
       states: {
         offline:
           'インターネット接続が切れました。つながったらもう一度読み込みます。',
         loading: '読み込み中…',
-        refreshing: '読み込み中…',
-        errorTitle: '間違いノートを読み込めませんでした',
         errorDescription:
-          'インターネット接続を確認して、もう一度お試しください。',
-        stale:
-          '最新の一覧を読み込めませんでした。もう一度読み込むまで復習は始められません。',
-        retryStale: 'もう一度読み込む',
-        correctingPage: 'あるページに移動中…'
+          'インターネット接続を確認して、もう一度お試しください。'
       },
       results: {
-        count: '条件に合う間違い {{formattedCount}}件',
-        observedAt: 'サーバー基準時刻 {{date}}',
-        resetFilters: 'フィルターをリセット',
-        dueEmptyTitle: '今予定されている復習はありません',
-        filteredEmptyTitle: '条件に合う間違いはありません',
-        dueEmptyDescription:
-          '全記録を振り返るか、新しい問題を解いて次の復習を準備しましょう。',
-        filteredEmptyDescription:
-          'フィルターを変更するか、すべての間違い記録を確認してください。',
-        history: 'すべての記録',
-        setup: '学習設定',
-        hasMemo: 'メモ',
-        wrong: '間違い',
-        wrongCount: '{{formattedCount}}回',
-        streak: '連続正解',
-        nextReview: '次の復習',
-        detail: '詳細・メモ・復習記録',
         pagination: '間違いノートのページ'
       }
     },
@@ -1259,91 +1003,7 @@ export const jaCoreResources = {
           '前に始めた解き直しは終わりました。この問題は今は解けません。',
         endedAvailable:
           '前に始めた解き直しは終わりました。もう一度押すと新しく始めます。'
-      },
-      timelineSection: {
-        title: '復習タイムライン',
-        description:
-          '新しい記録から表示し、状態と回数の変化をテキストでも示します。'
       }
-    },
-    memo: {
-      title: '自分のメモ',
-      privateHint: '自分だけが見られます',
-      emptyLead:
-        'なぜ間違えたかを一行残しておくと、復習のときすぐに思い出せます。',
-      write: 'メモを書く',
-      edit: '編集',
-      delete: '削除',
-      label: '自分のメモ',
-      count: '{{current}} / {{maximum}}',
-      over: '{{current}} / {{maximum}} · {{excess}}文字減らしてください',
-      clearHint: 'メモを消すには「削除」を押してください。',
-      cancel: 'キャンセル',
-      save: '保存',
-      retrySave: 'もう一度保存',
-      saving: '保存中…',
-      savedAt: '{{time}} 保存',
-      saved: 'メモを保存しました。',
-      deleted: 'メモを削除しました。',
-      saveError:
-        '保存できませんでした。入力した内容はそのまま残っています。接続を確認してもう一度保存してください。',
-      saveOffline:
-        'オフラインのため保存できませんでした。入力した内容はそのまま残っています。接続後にもう一度保存してください。',
-      deleteError:
-        '削除できませんでした。接続を確認してもう一度お試しください。',
-      offline:
-        'オフラインのため今は編集できません。接続後にもう一度お試しください。',
-      loading: 'メモを読み込んでいます…',
-      loadError: 'メモを読み込めませんでした。',
-      loadOffline:
-        'オフラインのためメモを読み込めません。接続が戻ると再読み込みします。',
-      retryLoad: '再読み込み',
-      deleteDialog: {
-        title: 'メモを削除しますか？',
-        description: '削除したメモは元に戻せません。',
-        cancel: 'キャンセル',
-        confirm: '削除',
-        deleting: '削除中…'
-      }
-    },
-    timeline: {
-      sources: {
-        STUDY_SUBMIT: '通常学習の提出',
-        WRONG_NOTE_REVIEW: '間違い復習の提出',
-        VERSION_REBASE: '問題バージョンの切り替え'
-      },
-      outcomes: {
-        none: '正誤判定なし',
-        correct: '正解',
-        incorrect: '不正解'
-      },
-      loadingOffline:
-        'オフラインでは復習記録を読み込めません。接続が戻ると自動的に再読み込みします。',
-      loading: '復習記録を読み込んでいます…',
-      loadError: '復習記録を読み込めませんでした。',
-      stale:
-        '復習記録の最新状態を確認できませんでした。現在までに読み込んだ記録は保持します。',
-      retryStale: '復習記録を再確認',
-      emptyOffline: 'オフラインです。接続が戻ると復習記録を再確認します。',
-      empty: '復習イベントはまだありません。',
-      cachedOffline:
-        'オフラインです。現在の記録を保持し、接続が戻ると中断したリクエストを続けます。',
-      statusChange: '状態の変化',
-      recordStart: '記録開始',
-      wrongCount: '間違い回数',
-      streak: '連続正解',
-      elapsed: '解答時間',
-      noRecord: '記録なし',
-      seconds: '{{formattedCount}}秒',
-      questionVersion: '問題バージョン',
-      algorithm: 'アルゴリズム',
-      algorithmVersion: 'version {{version}}',
-      moreError:
-        '以前の記録をさらに読み込めませんでした。現在までに読み込んだ記録は保持します。',
-      waitingConnection: '接続待ち…',
-      loadingMore: '以前の記録を読み込み中…',
-      loadMore: '以前の記録をもっと見る',
-      complete: '最初の間違い記録まですべて確認しました。'
     }
   },
   bookmark: {
@@ -1393,11 +1053,6 @@ export const jaCoreResources = {
       startError:
         '始められませんでした。しばらくしてからもう一度お試しください。'
     },
-    availability: {
-      available: '解ける',
-      archived: '今は解けない',
-      archivedDescription: '修正中か取り下げた問題なので、出題されません。'
-    },
     remove: 'ブックマークから外す',
     removeDialog: {
       title: 'ブックマークから外しますか？',
@@ -1423,22 +1078,10 @@ export const jaCoreResources = {
     study: {
       title: '学習の記録',
       recentRowResult: '{{total}}問中{{correct}}問正解',
-      period: '全期間',
-      total: '解いた問題',
       totalUnit: '問',
       rate: '正答率',
-      wrongNotes: '間違えた問題',
-      wrongSolved: '解決 {{solved}}・{{total}}件中',
-      bySubject: '科目別の正答率',
-      weakest: 'いちばん苦手な科目：{{subject}}',
-      startSubject: '{{subject}}を解く',
       noRecord: '記録なし',
-      week: '直近7日',
       recent: '最近の学習',
-      repeated: 'よく間違える問題',
-      wrongTimes: '{{count}}回間違い',
-      seeInReview: '間違いノートで見る',
-      fewData: '問題を解くほど正確になります。',
       emptyTitle: 'まだ解いた問題がありません',
       emptyDescription: '問題を解くと、科目別の正答率がここに表示されます。',
       emptyAction: '最初の問題を解く',
@@ -1450,7 +1093,6 @@ export const jaCoreResources = {
       title: 'アカウント',
       signInMethod: 'ログイン方法',
       connected: 'ログイン中',
-      onlyMethod: '唯一のログイン方法のため、連携を解除できません。',
       logoutDescription:
         'この端末からログアウトします。学習記録はそのまま残ります。'
     },
