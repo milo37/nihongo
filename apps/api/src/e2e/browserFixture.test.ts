@@ -449,6 +449,7 @@ describe('Google CMS browser TEST handoff', () => {
       ['POST', '/api/v1/study-sessions/:sessionId/submission'],
       ['GET', '/api/v1/study-sessions/:sessionId/result'],
       ['POST', '/api/v1/study-sessions/:sessionId/retry'],
+      ['POST', '/api/v1/me/guest-result-import'],
       ['GET', '/api/v1/dashboard'],
       ['GET', '/api/v1/dashboard/insights'],
       ['GET', '/api/v1/bookmarks'],

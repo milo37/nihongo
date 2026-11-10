@@ -70,7 +70,7 @@ export const accessibilityExpectedTableDeltas = {
   QuestionReport: 0,
   QuestionVersion: 0,
   QuestionVersionTag: 0,
-  RateLimit: 29,
+  RateLimit: 30,
   ReviewEvent: 10,
   ReviewSchedule: 10,
   Session: 2,
@@ -124,11 +124,12 @@ export const accessibilityExpectedRateLimitCategories = {
   'application:study-submit': 2,
   'application:wrong-note-detail': 1,
   'application:wrong-note-history': 1,
-  // The review page reads /v1/review-list, which shares the review-queue
-  // limit; the old list and memo reads are gone (JLP-812).
+  // The review page and the member first screen (its 'to review' line,
+  // JLP-823) read /v1/review-list, which shares the review-queue limit; the
+  // old list and memo reads are gone (JLP-812).
   'application:wrong-note-list': 0,
   'application:wrong-note-memo-read': 0,
-  'application:wrong-note-review-queue': 1,
+  'application:wrong-note-review-queue': 2,
   // Two isolated actor IPs each start Google and consume one callback.
   'application:auth:/api/auth/sign-in/social': 2,
   'application:auth:/api/auth/callback/google': 2,

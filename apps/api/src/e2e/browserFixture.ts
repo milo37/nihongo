@@ -48,6 +48,10 @@ import { createDashboardService } from '../dashboard/dashboardService.js'
 import { createPrismaDashboardInsightsRepository } from '../dashboard/dashboardInsightsRepository.js'
 import { createDashboardInsightsService } from '../dashboard/dashboardInsightsService.js'
 import { createPrismaStudyResultRetryRepository } from '../study/studyResultRetryRepository.js'
+import {
+  createGuestResultImportService,
+  createPrismaGuestResultImportRepository
+} from '../study/guestResultImport.js'
 import { createStudyResultRetryService } from '../study/studyResultRetryService.js'
 import {
   createPrismaWrongNoteReviewListRepository,
@@ -1611,6 +1615,9 @@ const createSsoBrowserApiFixture = async (
           keySecret: environment.GUEST_COOKIE_SECRET,
           rateLimiter
         }),
+        guestResultImportService: createGuestResultImportService(
+          createPrismaGuestResultImportRepository(database.client)
+        ),
         retryService: studyResultRetryService,
         submissionService: studySubmissionService,
         rateLimiter,

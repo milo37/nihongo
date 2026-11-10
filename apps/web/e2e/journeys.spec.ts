@@ -268,7 +268,13 @@ const userJourneyRequestContract = [
     statuses: successfulStatuses(15)
   },
   { method: 'GET', path: '/api/v1/study-sessions/:id/result', statuses: [200] },
-  { method: 'GET', path: '/api/v1/review-list', statuses: [200, 200] },
+  // The review page twice, and the member first screen's 'to review' line
+  // on each of its two visits (JLP-823).
+  {
+    method: 'GET',
+    path: '/api/v1/review-list',
+    statuses: successfulStatuses(4)
+  },
   { method: 'GET', path: '/api/v1/wrong-notes/:id', statuses: [200, 200] },
   {
     method: 'GET',
@@ -307,6 +313,8 @@ const resilienceRequestContract = [
   { method: 'GET', path: '/api/v1/study-sessions', statuses: [200] },
   // Today's question on the learning home (D, #801).
   { method: 'GET', path: '/api/v1/daily-question', statuses: [200] },
+  // The member first screen's 'to review' line (JLP-823).
+  { method: 'GET', path: '/api/v1/review-list', statuses: [200] },
   {
     method: 'GET',
     path: '/api/v1/dashboard',
@@ -1110,6 +1118,8 @@ test('guest SSO boundary and authenticated practice transition match the active 
     { method: 'GET', path: '/api/v1/guest-allowance', statuses: [200] },
     // The first screen shows today's question (D, #801).
     { method: 'GET', path: '/api/v1/daily-question', statuses: [200] },
+    // After login the member first screen reads its 'to review' line (JLP-823).
+    { method: 'GET', path: '/api/v1/review-list', statuses: [200] },
     { method: 'GET', path: '/api/v1/study-sessions', statuses: [200] }
   ])
 })

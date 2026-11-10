@@ -36,6 +36,7 @@ const RATE_POLICIES: readonly (readonly [string, number])[] = [
     'study-result-retry',
     'study-submit',
     'target-level-write',
+    'guest-result-import',
     'wrong-note-detail',
     'wrong-note-history',
     'wrong-note-list',
