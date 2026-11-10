@@ -22,6 +22,7 @@
 
 - `Publish` 실패: 이미지가 없으니 서버는 그대로입니다. 팀이 고쳐 다시 main에 올립니다.
 - `Deploy to STAGING` 실패: `deploy.sh`가 직전 release로 되돌리거나(롤백), 새 API를 띄우기 전에 멈춥니다. 로그의 결과 줄을 팀(DevOps)이 보고 고칩니다. 다시 배포하려면 Actions에서 **가장 최신 Release image 실행만** **Re-run failed jobs**를 누릅니다(사람 붙여넣기 없음). 옛 실행을 다시 돌리면 배포 단계는 건너뜁니다.
+- 같은 SHA를 다시 돌려도(Re-run, 수동 실행) ECR에 이미 있는 태그는 다시 만들거나 올리지 않고 배포로 넘어갑니다(태그는 덮어쓸 수 없음, immutable).
 - 데이터를 되살려야 할 때만 [recovery.v1.md](recovery.v1.md)를 씁니다.
 
 ## 2. 켜는 조건 (한 번)
@@ -40,7 +41,8 @@
 빈 DB에 첫 배포가 끝난 뒤 한 번만 합니다. 평소 배포에는 필요 없습니다.
 
 1. 첫 관리자: [first-admin.v1.md](first-admin.v1.md)
-2. 태그 18과 문제 500(가져오기·검수·승인·공개): [question-import.v1.md](question-import.v1.md)
+2. 태그 18: [question-import.v1.md](question-import.v1.md) 1단계
+3. 문제 500 가져오기·검수 요청·승인·공개: 팀이 부록 B 명령 두 번(dry run → confirm). 관리자 화면 클릭·재로그인 없음
 
 ## 4. PRODUCTION (예정)
 
@@ -57,7 +59,7 @@
 | 자동 배포 켤 때(1회)     | AWS에 로그인해 STAGING `instance_id`·`site_url` 두 값을 확인해 팀장에게 전달(값은 비밀 아님). 저장소 변수 등록은 팀장이 해도 됩니다. |
 | 인프라가 바뀔 때만       | `terraform plan` 확인 후 `apply`(AWS 로그인·MFA)                                                                                     |
 | 비밀값이 새로 생길 때만  | SSM SecureString 등록(값은 채팅·파일에 남기지 않음)                                                                                  |
-| 환경을 처음 채울 때(1회) | 관리자 Google 계정 로그인 1번(팀이 대신 못 할 때만). DB 비우기·문제 검수·승인·공개는 팀이 실행하고 사장님은 승인만 합니다.           |
+| 환경을 처음 채울 때(1회) | 관리자 Google 계정 로그인 1번(첫 관리자 만들 때). DB 비우기·문제 500 공개(부록 B)는 팀이 실행하고 사장님은 승인만 합니다.            |
 | PRODUCTION 전(1회)       | 도메인 구입, AWS 유료 전환, CloudFront 요금제 가입, Google OAuth 주소 등록, 경보 메일 구독 확인                                      |
 | PRODUCTION 배포마다      | Actions의 **Approve** 버튼 1번(구현 뒤)                                                                                              |
 
@@ -82,3 +84,21 @@ curl -s -o /dev/null -w '%{http_code}\n' "$(terraform output -raw site_url)/heal
 
 - 기대: `Success`, 그리고 `200`. `aws ssm wait`는 약 100초에서 끝나므로 `InProgress`가 나오면 마지막 두 줄만 다시 실행합니다.
 - 서버 안에서 직접(Session Manager, `sudo -i`): `cd /opt/harumaru && /opt/harumaru/bin/deploy.sh <SHA>` → 마지막 줄 `deployed <SHA>`.
+
+## 부록 B. 문제 500 한 번에 공개 (환경을 처음 채울 때, 팀 실행)
+
+관리자 화면으로 하면 호출 45번(15분에 10번 제한)과 30분마다 재로그인이 필요해 약 75분 걸립니다. 대신 서버 운영 명령 `api/dist/content/questionSetPublishCommand.js`(#837)를 SSM으로 돌립니다. 사장님 로그인은 필요 없습니다.
+
+전제: 그 명령이 들어간 release가 배포됨, 태그 18 적재([question-import.v1.md](question-import.v1.md) 1단계), ACTIVE 관리자가 정확히 1명([first-admin.v1.md](first-admin.v1.md)). 명령은 그 관리자 이름으로 감사 기록을 남깁니다.
+
+`aws login`된 터미널, `infra/aws`(해당 환경 state)에서:
+
+```sh
+bash scripts/question-set-publish.sh dry-run   # 쓰기 없음, 계획만
+bash scripts/question-set-publish.sh confirm   # 가져오기 → 검수 요청 → 승인 → 공개
+```
+
+- 스크립트는 `files/question-set-publish.sh`를 `AWS-RunShellScript`로 보냅니다(cloud-init이 설치하지 않으므로 terraform 변경 없음). 서버에서 배포된 SHA(`/opt/harumaru/current-release`)의 `content/question-imports/` 10개 파일을 내려받아(이미지에는 `content/`가 없음) 읽기 전용으로 붙이고, 관리자 화면과 같은 앱 로그인(`api.env`의 `DATABASE_URL`, 명령줄이 아닌 환경으로 전달)으로 실행합니다.
+- 출력은 `status …`와 JSON 한 줄뿐입니다(이메일·비밀값·URL 없음). dry run 기대: `"event":"question_set_dry_run"`, 빈 `conflicts`·`issues`. confirm 기대: `"event":"question_set_published"`, 처음이면 `published` 500.
+- 다시 돌려도 안전합니다: 이미 공개된 문제는 `skippedPublished`로 세고, 중간에 끊겼으면 남은 단계부터 이어 갑니다. 내용이 다른 같은 문제가 있으면 `conflicts`로 멈춥니다.
+- `question_set_publish_failed`면 `code`를 보고 고친 뒤 dry run부터 다시 합니다. 확인은 [question-import.v1.md](question-import.v1.md) "Check"와 같습니다(공개본 500, Tag 18).

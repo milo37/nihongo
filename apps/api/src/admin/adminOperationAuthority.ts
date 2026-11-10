@@ -64,6 +64,8 @@ interface CapturedOperation {
   readonly actorUserId: string
   readonly capturedAt: number
   readonly generation: number
+  /** A server operator command (JLP-828): no Session, no SSO fresh proof. */
+  readonly operator: boolean
   readonly rawSessionToken: string
   readonly requiresFresh: boolean
   readonly sessionId: string
@@ -143,6 +145,18 @@ const hasAuthority = async (
     readonly generation: number | null
   }
 ): Promise<boolean> => {
+  if (operation.operator) {
+    const actors = await transaction.$queryRawUnsafe<Array<{ ok: number }>>(
+      `SELECT 1 AS ok FROM "User" AS actor
+       WHERE actor."id" = $1::uuid
+         AND actor."role" = 'ADMIN'
+         AND actor."accountStatus" = 'ACTIVE'
+         AND ($2::integer IS NULL OR actor."authorityGeneration" = $2::integer)`,
+      operation.actorUserId,
+      operation.generation
+    )
+    return actors.length === 1
+  }
   const rows = await transaction.$queryRawUnsafe<Array<{ ok: number }>>(
     `SELECT 1 AS ok
      FROM "User" AS actor
@@ -178,17 +192,22 @@ export const beginAdminOperation = async (
   input: {
     readonly auditEnvironment: AuditEnvironment
     readonly command: string
+    /** Set only for an operator authority (operatorAdminAuthority.ts). */
+    readonly operatorActorId?: string | null
     readonly rawSessionToken: string
     readonly referencedUserIds: readonly string[]
   }
 ): Promise<BegunOperationRow> => {
-  const principal = await transaction.$queryRawUnsafe<
-    Array<{ sessionId: string; userId: string }>
-  >(
-    `SELECT principal."sessionId", principal."userId"
+  const operator = Boolean(input.operatorActorId)
+  const principal = operator
+    ? [{ sessionId: '', userId: input.operatorActorId as string }]
+    : await transaction.$queryRawUnsafe<
+        Array<{ sessionId: string; userId: string }>
+      >(
+        `SELECT principal."sessionId", principal."userId"
      FROM (${v1PrincipalQuery('$1')}) AS principal`,
-    input.rawSessionToken
-  )
+        input.rawSessionToken
+      )
   const actor = principal.length === 1 ? principal[0] : undefined
   if (!actor) return raise(transaction, '42501', STALE_AUTHORITY)
 
@@ -226,20 +245,23 @@ export const beginAdminOperation = async (
   if (lockedUsers.length !== canonicalUserIds.length)
     await raise(transaction, '42501', 'A referenced User is unavailable.')
 
-  const session = await transaction.$queryRawUnsafe<unknown[]>(
-    `SELECT 1 FROM "Session"
+  if (!operator) {
+    const session = await transaction.$queryRawUnsafe<unknown[]>(
+      `SELECT 1 FROM "Session"
      WHERE "id" = $1::uuid AND "userId" = $2::uuid
      FOR UPDATE`,
-    actor.sessionId,
-    actor.userId
-  )
-  if (session.length !== 1)
-    await raise(transaction, '42501', 'Operation Session is unavailable.')
+      actor.sessionId,
+      actor.userId
+    )
+    if (session.length !== 1)
+      await raise(transaction, '42501', 'Operation Session is unavailable.')
+  }
 
   const requiresFresh = FRESH_COMMANDS.has(input.command)
   const authority = {
     actorUserId: actor.userId,
     generation: null,
+    operator,
     rawSessionToken: input.rawSessionToken,
     requiresFresh,
     sessionId: actor.sessionId
