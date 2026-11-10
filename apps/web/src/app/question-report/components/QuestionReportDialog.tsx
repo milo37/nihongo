@@ -16,13 +16,16 @@ interface QuestionReportDialogProps {
   readonly ordinal: number
   /** 'link' renders a small text link, for screens where reporting is rare. */
   readonly trigger?: 'button' | 'link'
+  /** Screen-specific trigger text; the dialog copy stays the same. */
+  readonly triggerLabel?: string
 }
 
 export const QuestionReportDialog = ({
   questionId,
   questionVersionId,
   ordinal,
-  trigger = 'button'
+  trigger = 'button',
+  triggerLabel
 }: QuestionReportDialogProps): ReactElement => {
   const { t } = useAdminPresentation()
   const { pathname } = useLocation()
@@ -38,7 +41,7 @@ export const QuestionReportDialog = ({
           className="inline-flex min-h-11 items-center text-sm font-semibold text-muted underline underline-offset-4 hover:text-ink"
           onClick={() => setOpen(true)}
         >
-          {t('questionReportDialog.trigger')}
+          {triggerLabel ?? t('questionReportDialog.trigger')}
         </button>
       ) : (
         <Button
@@ -47,7 +50,7 @@ export const QuestionReportDialog = ({
           variant="outline"
           onClick={() => setOpen(true)}
         >
-          {t('questionReportDialog.trigger')}
+          {triggerLabel ?? t('questionReportDialog.trigger')}
         </Button>
       )}
       <ReportDialog

@@ -173,6 +173,11 @@ describe('마이페이지 내 학습', () => {
     expect(rows[2]).toHaveTextContent('독해5문제 · 정답률 40%')
     expect(
       within(section).getByRole('link', { name: /N3 · 문법/u })
+    ).toHaveTextContent('10문제 중 8개 맞음')
+    // The login method shows once, in the account settings (v2.1 §6).
+    expect(screen.queryByText('Google 계정으로 로그인 중')).toBeNull()
+    expect(
+      within(section).getByRole('link', { name: /N3 · 문법/u })
     ).toHaveAttribute(
       'href',
       '/practice/result/019d0000-0000-7000-8000-0000000000a1'

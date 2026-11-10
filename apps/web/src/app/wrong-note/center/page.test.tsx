@@ -139,6 +139,10 @@ describe('wrong note in two states', () => {
       within(row).getByText(t('card.wrongCount', { count: 3 }))
     ).toBeInTheDocument()
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    // PC column heads sit outside the list and stay out of the a11y tree.
+    const head = screen.getByText(t('list.head.wrongCount')).parentElement
+    expect(head).toHaveAttribute('aria-hidden', 'true')
+    expect(head).toHaveTextContent(t('list.head.wrongDate'))
     expect(
       screen.getAllByRole('button', { name: t('start') })
     ).not.toHaveLength(0)
@@ -154,6 +158,8 @@ describe('wrong note in two states', () => {
     await screen.findByText(reviewedItem.questionPreview)
     expect(router.state.location.search).toBe('?state=REVIEWED&level=N5')
     expect(screen.getAllByRole('tab')[1]).toHaveFocus()
+    expect(screen.getByText(t('list.head.reviewedDate'))).toBeInTheDocument()
+    expect(screen.queryByText(t('list.head.wrongCount'))).toBeNull()
     expect(
       seen.some(
         (query) =>

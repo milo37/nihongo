@@ -599,7 +599,8 @@ export const jaCoreResources = {
         },
         DAILY_REVIEW: {
           label: '復習する問題を解く',
-          description: '復習する問題を、前に間違えたものから10問出します。'
+          description: '復習する問題を、前に間違えたものから10問出します。',
+          empty: '復習する問題がありません。ほかの方法で解いてみてください。'
         }
       },
       guestResumeHint:
@@ -1184,7 +1185,17 @@ export const jaCoreResources = {
         pagination: '間違いノートのページ'
       }
     },
+    list: {
+      head: {
+        levelSubject: '級・科目',
+        question: '問題',
+        wrongCount: '間違えた回数',
+        wrongDate: '間違えた日',
+        reviewedDate: '正解した日'
+      }
+    },
     detail: {
+      report: '問題がおかしい',
       versionChanged: '問題が修正されました。解き直すと修正後の問題が出ます。',
       correctAnswer: '正解',
       noAnswer: '未選択',
@@ -1411,6 +1422,7 @@ export const jaCoreResources = {
     title: 'マイページ',
     study: {
       title: '学習の記録',
+      recentRowResult: '{{total}}問中{{correct}}問正解',
       period: '全期間',
       total: '解いた問題',
       totalUnit: '問',

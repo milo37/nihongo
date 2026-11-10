@@ -182,24 +182,42 @@ const MemberReview = (): ReactElement => {
               </div>
             ) : null}
             {list.data.items.length ? (
-              <ol
-                className="mt-2 overflow-hidden rounded-card border border-line bg-surface"
-                aria-busy={list.isFetching}
-              >
-                {list.data.items.map((item) => (
-                  <ReviewListItem
-                    key={item.questionId}
-                    item={item}
-                    formatDate={date}
-                    formatShortDate={shortDate}
-                    returnTo={center.returnTo}
-                    linkRef={(node) => {
-                      if (node) rowLinks.current.set(item.questionId, node)
-                      else rowLinks.current.delete(item.questionId)
-                    }}
-                  />
-                ))}
-              </ol>
+              <div className="mt-2 overflow-hidden rounded-card border border-line bg-surface">
+                {/* PC column heads; each row already reads in full, so the
+                    heads are for sighted users only. */}
+                <div
+                  aria-hidden="true"
+                  className="hidden h-10 grid-cols-[150px_minmax(0,1fr)_120px_110px_20px] items-center gap-5 border-b border-line px-6 text-caption font-semibold text-muted lg:grid"
+                >
+                  <span>{t('list.head.levelSubject')}</span>
+                  <span>{t('list.head.question')}</span>
+                  <span className="text-right">
+                    {query.state === 'TO_REVIEW'
+                      ? t('list.head.wrongCount')
+                      : null}
+                  </span>
+                  <span className="text-right">
+                    {query.state === 'TO_REVIEW'
+                      ? t('list.head.wrongDate')
+                      : t('list.head.reviewedDate')}
+                  </span>
+                </div>
+                <ol aria-busy={list.isFetching}>
+                  {list.data.items.map((item) => (
+                    <ReviewListItem
+                      key={item.questionId}
+                      item={item}
+                      formatDate={date}
+                      formatShortDate={shortDate}
+                      returnTo={center.returnTo}
+                      linkRef={(node) => {
+                        if (node) rowLinks.current.set(item.questionId, node)
+                        else rowLinks.current.delete(item.questionId)
+                      }}
+                    />
+                  ))}
+                </ol>
+              </div>
             ) : empty === 'levelNone' ? (
               <div className="mt-8 flex flex-col items-start gap-3">
                 <p className="text-base text-ink">

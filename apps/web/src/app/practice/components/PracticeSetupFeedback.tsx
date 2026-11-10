@@ -32,12 +32,20 @@ export const PracticeSetupFeedback = ({
           className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"
           role="alert"
         >
-          <p className="font-bold">
-            {t('setup.noEligibleTitle', {
-              mode: t(`setup.modes.${mode}.label`)
-            })}
-          </p>
-          <p className="mt-1 leading-6">{t('setup.noEligibleDescription')}</p>
+          {mode === 'DAILY_REVIEW' ? (
+            <p className="font-bold">{t('setup.modes.DAILY_REVIEW.empty')}</p>
+          ) : (
+            <>
+              <p className="font-bold">
+                {t('setup.noEligibleTitle', {
+                  mode: t(`setup.modes.${mode}.label`)
+                })}
+              </p>
+              <p className="mt-1 leading-6">
+                {t('setup.noEligibleDescription')}
+              </p>
+            </>
+          )}
           {mode !== 'RANDOM' ? (
             <Button
               className="mt-3"

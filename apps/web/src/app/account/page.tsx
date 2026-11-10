@@ -11,7 +11,6 @@ import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 // My page: profile, target level, study summary, account settings, then
 // terms and help.
 export const AccountPage = (): ReactElement => {
-  const { t: navigationT } = useTranslation('navigation')
   const { t: authT } = useTranslation('auth')
   const { isReady, user } = useAuth()
   // Until /me answers, a signed-in member must not see the sign-in card.
@@ -39,9 +38,6 @@ export const AccountPage = (): ReactElement => {
           <h1 className="break-words text-[28px] font-bold leading-tight">
             {user.name}
           </h1>
-          <p className="mt-1 text-caption text-muted">
-            {navigationT('accountMenu.signedInWith')}
-          </p>
         </div>
       </header>
       <TargetLevelSetting targetLevel={user.targetLevel} />

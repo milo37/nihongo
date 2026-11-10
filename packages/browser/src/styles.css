@@ -469,6 +469,11 @@
   font-size: 15px;
 }
 
+/* "문자·어휘" stays on one line even at 320 (design, JLP-804). */
+.choice-subjects .choice-label {
+  white-space: nowrap;
+}
+
 .choice-label {
   display: inline-flex;
   align-items: center;
@@ -1508,6 +1513,7 @@
 
 /* Guest body copy: keep Korean words intact (designer E6, JLP-823). */
 .auth-description:lang(ko),
+.guest-gate :is(h1, h2):lang(ko),
 .practice-guest-hint:lang(ko) {
   word-break: keep-all;
   overflow-wrap: anywhere;
