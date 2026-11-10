@@ -13,7 +13,17 @@ import { createStudySessionV2 } from '@api/study/createStudySessionV2'
 import { getStudyDraftAnswers } from '@api/study/getStudyDraftAnswers'
 import { submitStudySessionV2 } from '@api/study/submitStudySessionV2'
 import type { SubmitStudySessionV2Request } from '@api/study/submitStudySessionV2/schema'
-import { listWrongNotesV1 } from '@api/wrong-note/listWrongNotesV1'
+import { listReviewList } from '@api/wrong-note/listReviewList'
+
+/** Every saved wrong note, in both review states. */
+const listSavedWrongNotes = async () => {
+  const pages = await Promise.all(
+    (['TO_REVIEW', 'REVIEWED'] as const).map((state) =>
+      listReviewList({ state, pageSize: 100 })
+    )
+  )
+  return { items: pages.flatMap((page) => page.items) }
+}
 
 describe('MSW 학습 API 흐름', () => {
   afterEach(async () => {
@@ -83,7 +93,7 @@ describe('MSW 학습 API 흐름', () => {
       code: 'RATE_LIMITED',
       status: 429
     })
-    const wrongNotes = await listWrongNotesV1({ pageSize: 100 })
+    const wrongNotes = await listSavedWrongNotes()
     const savedQuestionIds = new Set(
       wrongNotes.items.map(({ questionId }) => questionId)
     )
@@ -95,7 +105,7 @@ describe('MSW 학습 API 흐름', () => {
     await logoutUser()
     setMockSsoAccountForTesting('apple', DEMO_ADMIN_ID)
     await signInMockAccount('apple')
-    const otherWrongNotes = await listWrongNotesV1({ pageSize: 100 })
+    const otherWrongNotes = await listSavedWrongNotes()
     expect(
       otherWrongNotes.items.every(
         ({ questionId }) => !savedQuestionIds.has(questionId)
@@ -110,9 +120,7 @@ describe('MSW 학습 API 흐름', () => {
     await signInMockAccount('google')
     expect((await getCurrentUser())?.id).toBe(user?.id)
     expect(
-      (await listWrongNotesV1({ pageSize: 100 })).items.map(
-        ({ questionId }) => questionId
-      )
+      (await listSavedWrongNotes()).items.map(({ questionId }) => questionId)
     ).toEqual(wrongNotes.items.map(({ questionId }) => questionId))
     expect(
       (await listBookmark({ page: 1, pageSize: 100 })).items.some(

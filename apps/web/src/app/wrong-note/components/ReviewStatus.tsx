@@ -1,11 +1,11 @@
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
-import type { WrongNoteStatus } from '@nihongo/browser/common/types/domain'
+import type { WrongNoteReviewState } from '@nihongo/contracts/wrong-note/list-review-list'
 
 export const ReviewStatus = ({
-  status
+  state
 }: {
-  status: WrongNoteStatus
+  state: WrongNoteReviewState
 }): ReactElement => {
   const { t } = useTranslation('wrongNote')
   return (
@@ -19,15 +19,10 @@ export const ReviewStatus = ({
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        {status === 'SOLVED' ? (
+        {state === 'REVIEWED' ? (
           <>
             <circle cx="12" cy="12" r="10" />
             <path d="m8 12 3 3 5-6" />
-          </>
-        ) : status === 'NEW' ? (
-          <>
-            <circle cx="12" cy="12" r="10" />
-            <path d="M9 9a3 3 0 0 1 6 0c0 2-3 2-3 4m0 4h.01" />
           </>
         ) : (
           <>
@@ -35,7 +30,7 @@ export const ReviewStatus = ({
           </>
         )}
       </svg>
-      {t(`integration.status.${status}`)}
+      {t(`integration.status.${state}`)}
     </span>
   )
 }

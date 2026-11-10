@@ -951,10 +951,8 @@ export const koCoreResources = {
         SOLVED: '해결한 문제'
       },
       status: {
-        NEW: '새 오답',
-        AGAIN: '다시 복습',
-        REVIEWING: '복습 중',
-        SOLVED: '해결함'
+        TO_REVIEW: '복습할 문제',
+        REVIEWED: '복습한 문제'
       },
       advanced: '상세 조건',
       applied: ' · 적용 중',
@@ -1002,13 +1000,9 @@ export const koCoreResources = {
         correct: '맞혔어요!',
         wrong: '아쉽게 틀렸어요.',
         states: {
-          NEW: '아직 복습하지 않은 문제예요.',
-          REVIEWING: '한 번 맞혔어요. 복습 중인 문제로 남겨둘게요.',
-          SOLVED:
-            '연속으로 맞혀 해결한 문제예요. 복습 시점이 되면 다시 나와요.',
-          AGAIN: '같은 문제를 다시 틀렸어요. 해설을 읽고 다시 복습해요.'
+          REVIEWED: "맞혀서 '복습한 문제'로 옮겼어요.",
+          TO_REVIEW: "아직 '복습할 문제'에 있어요. 해설을 읽고 다시 풀어 봐요."
         },
-        next: '다음 복습: {{date}}',
         checking: '채점했어요. 오답노트에 반영하는 중이에요.',
         unknown:
           '채점은 됐지만 오답노트에 반영됐는지 확인하지 못했어요. 다시 제출할 필요는 없어요.',

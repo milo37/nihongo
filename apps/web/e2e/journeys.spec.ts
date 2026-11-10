@@ -1275,15 +1275,11 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
     status: 'AGAIN',
     wrongCount: 2
   })
-  const nextReviewDate = await page.evaluate(
-    (iso) =>
-      new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium' }).format(
-        new Date(iso)
-      ),
-    completed.wrongNote.nextReviewAt
-  )
   await expect(page.locator('.review-feedback p')).toHaveText(
-    `같은 문제를 다시 틀렸어요. 해설을 읽고 다시 복습해요. 다음 복습: ${nextReviewDate}`
+    "아직 '복습할 문제'에 있어요. 해설을 읽고 다시 풀어 봐요."
+  )
+  await expect(page.locator('.review-current-status')).toHaveText(
+    '오답노트복습할 문제'
   )
 
   const dashboardStartIndex = ledger.entries.length

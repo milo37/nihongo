@@ -13,11 +13,7 @@ import {
   listReviewEventsQuerySchema,
   listReviewEventsResponseSchema
 } from '@nihongo/contracts/wrong-note/list-review-events'
-import {
-  listReviewQueueErrorSchema,
-  listReviewQueueQuerySchema,
-  listReviewQueueResponseSchema
-} from '@nihongo/contracts/wrong-note/list-review-queue'
+
 import {
   listReviewListErrorSchema,
   listReviewListQuerySchema,
@@ -431,31 +427,6 @@ export const reviewCenterHandlers = [
       }
     }
   ),
-  http.get('*/api/v1/review-queue', ({ request }) => {
-    const requestId = crypto.randomUUID()
-    try {
-      consumeReviewCenterRateLimit('wrong-note-review-queue', 120)
-      const query = parseSearchParams(
-        request,
-        listReviewQueueQuerySchema,
-        '복습 대기열 조회 조건이 올바르지 않습니다.'
-      )
-      const userId = requireUserId(
-        '복습 대기열을 조회하려면 로그인이 필요합니다.'
-      )
-      const response = listReviewQueueResponseSchema.parse(
-        mockDatabase.listCanonicalReviewQueue(userId, query)
-      )
-      return HttpResponse.json(response, {
-        headers: responseHeaders(requestId)
-      })
-    } catch (error: unknown) {
-      return errorResponse(
-        listReviewQueueErrorSchema,
-        normalizeError(error, requestId, '복습 대기열을 불러오지 못했습니다.')
-      )
-    }
-  }),
   http.get('*/api/v1/review-list', ({ request }) => {
     const requestId = crypto.randomUUID()
     try {
