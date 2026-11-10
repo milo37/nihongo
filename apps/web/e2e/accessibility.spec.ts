@@ -1593,15 +1593,15 @@ const submitSessionThroughUi = async (
   await settlePage(page)
   await setLocale(page, 'ko')
 
-  const sheetTrigger = page.getByRole('button', { name: /^문제 바로가기 /u })
+  const sheetTrigger = page.getByRole('button', { name: /^문제 번호 /u })
   await focusByTab(page, sheetTrigger)
   await page.keyboard.press('Enter')
   const lastQuestionJump = page.getByRole('button', {
-    name: `${session.session.actualCount}번 문제, 미응답`
+    name: `${session.session.actualCount}번, 아직 안 풂`
   })
   await focusByTab(page, lastQuestionJump)
   await page.keyboard.press('Enter')
-  const submitButton = page.getByRole('button', { name: '답안 제출' })
+  const submitButton = page.getByRole('button', { name: '제출하기' })
   await focusByTab(page, submitButton)
   const responsePromise = page.waitForResponse((response) => {
     const request = response.request()
@@ -1613,14 +1613,14 @@ const submitSessionThroughUi = async (
   })
   await page.keyboard.press('Enter')
   const dialog = page.getByRole('dialog', {
-    name: '답안을 제출할까요?'
+    name: '제출할까요?'
   })
   await expect(dialog).toBeVisible()
   const confirm = dialog.getByRole('button', {
     name: '제출하고 결과 보기'
   })
   await expect(
-    dialog.getByRole('heading', { name: '답안을 제출할까요?' })
+    dialog.getByRole('heading', { name: '제출할까요?' })
   ).toBeFocused()
   await focusByTab(page, confirm)
   await page.keyboard.press('Enter')
@@ -1917,7 +1917,7 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
     },
     {
       minimumTarget: page.getByRole('button', {
-        name: 'N5 어휘 · 5문제 시작',
+        name: 'N5 문자·어휘 5문제 시작',
         exact: true
       })
     }
@@ -1928,7 +1928,7 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
   await page.keyboard.press('Enter')
   await expect(modeOptions).toHaveJSProperty('open', true)
   // A guest choosing a locked mode keeps RANDOM and gets a toast (U4 L11).
-  const modeSelect = modeOptions.getByRole('combobox', { name: '출제 모드' })
+  const modeSelect = modeOptions.getByRole('combobox', { name: '출제 방식' })
   await modeSelect.selectOption('DAILY_REVIEW')
   await expect(modeSelect).toHaveValue('RANDOM')
   const practiceLogin = page
@@ -1986,7 +1986,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await settlePage(page)
   await setLocale(page, 'ko')
   await expect(
-    page.getByRole('heading', { name: '저장한 문제가 없어요' })
+    page.getByRole('heading', { name: '책갈피에 담은 문제가 없어요' })
   ).toBeVisible()
   await flushTransportEvidence(transport)
   const emptyBookmarkExchange = getApiExchanges(
@@ -2006,7 +2006,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   const emptyLocaleRequestsBefore = transport.requests.length
   await setLocale(page, 'ja')
   await expect(
-    page.getByRole('heading', { name: '保存した問題はありません' })
+    page.getByRole('heading', { name: 'ブックマークに入れた問題はありません' })
   ).toBeVisible()
   await flushTransportEvidence(transport)
   expect(transport.requests).toHaveLength(emptyLocaleRequestsBefore)
@@ -2016,11 +2016,11 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await settlePage(page)
   await setLocale(page, 'ko')
   await expect(
-    page.getByRole('heading', { name: '학습 결과를 찾을 수 없어요' })
+    page.getByRole('heading', { name: '결과를 찾을 수 없어요' })
   ).toBeVisible()
   await setLocale(page, 'ja')
   await expect(
-    page.getByRole('heading', { name: '学習結果が見つかりません' })
+    page.getByRole('heading', { name: '結果が見つかりません' })
   ).toBeVisible()
 
   // Exercise My page before this learner creates an unfinished session.
@@ -2101,7 +2101,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await expect(
     page
       .locator('p[aria-live="polite"][aria-atomic="true"]')
-      .filter({ hasText: '복습 화면으로 이동했어요.' })
+      .filter({ hasText: '오답노트 화면이에요.' })
   ).toBeAttached()
   await waitForApiTransportQuiet(transport)
 
@@ -2155,21 +2155,21 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await setLocale(page, 'ko')
   await expect(
     page.getByText(
-      `요청한 ${readingFixture.requestedCount}문제 중 일반 연습 모드로 출제 가능한 ${readingFixture.actualCount}문제만 제공해요. 다른 모드로 대체하지 않았어요.`,
+      `${readingFixture.requestedCount}문제를 골랐지만 지금 풀 수 있는 문제가 ${readingFixture.actualCount}문제라 ${readingFixture.actualCount}문제만 나왔어요.`,
       { exact: true }
     )
   ).toHaveAttribute('role', 'status')
   await setLocale(page, 'ja')
   await expect(
     page.getByText(
-      `指定した${readingFixture.requestedCount}問のうち、通常練習モードで出題可能な${readingFixture.actualCount}問だけを提供します。別のモードには変更していません。`,
+      `${readingFixture.requestedCount}問を選びましたが、今解ける問題が${readingFixture.actualCount}問なので${readingFixture.actualCount}問だけ出ました。`,
       { exact: true }
     )
   ).toHaveAttribute('role', 'status')
   await setLocale(page, 'ko')
   // Question numbers live in a sheet opened from the top bar (direction §6-4).
   const readingSheetTrigger = page.getByRole('button', {
-    name: /^문제 바로가기 /u
+    name: /^문제 번호 /u
   })
   await expect(readingSheetTrigger).toHaveText(
     `1 / ${readingFixture.actualCount}`
@@ -2354,7 +2354,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   expect(availableExplanations).toHaveLength(1)
   expect(unavailableExplanations).toHaveLength(4)
   const resultNavigation = page.getByRole('navigation', {
-    name: '해설 문항',
+    name: '문제 번호',
     exact: true
   })
   const selectedArticle = page.locator('#selected-result-question')
@@ -2365,7 +2365,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     { available, item }
   ] of explanationAvailability.entries()) {
     const questionControl = resultNavigation.getByRole('button', {
-      name: `문제 ${index + 1}, 미응답`,
+      name: `${index + 1}번, 안 풂`,
       exact: true
     })
     await focusByTab(page, questionControl)
@@ -2392,7 +2392,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
       exact: true
     })
     const fallbackNotice = selectedArticle.getByText(
-      '일본어 해설이 없어 한국어 해설을 표시해요.',
+      '일본어 해설이 아직 없어서 한국어 해설을 보여 드려요.',
       { exact: true }
     )
     if (available) {
@@ -2431,7 +2431,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     submitted.result.items.map((item) => item.question.id)
   )
   const firstResultQuestion = resultNavigation.getByRole('button', {
-    name: '문제 1, 미응답',
+    name: '1번, 안 풂',
     exact: true
   })
   await focusByTab(page, firstResultQuestion)
@@ -2458,7 +2458,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     )
   })
   const bookmarkTrigger = page.getByRole('button', {
-    name: '1번 문제 책갈피 추가',
+    name: '1번 문제를 책갈피에 담기',
     exact: true
   })
   await focusByTab(page, bookmarkTrigger)
@@ -2473,7 +2473,10 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   expect(createdBookmark.questionId).toBe(targetQuestion.question.id)
   expect(createBookmarkResponse.headers().location).toBe(bookmarkPath)
   await expect(
-    page.getByRole('button', { name: '1번 문제 책갈피 해제', exact: true })
+    page.getByRole('button', {
+      name: '1번 문제를 책갈피에서 빼기',
+      exact: true
+    })
   ).toHaveAttribute('aria-pressed', 'true')
   await waitForApiTransportQuiet(transport)
 
@@ -2512,16 +2515,16 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await focusByTab(page, removeBookmarkTrigger)
   await page.keyboard.press('Enter')
   const removeDialog = page.getByRole('dialog', {
-    name: '책갈피를 해제할까요?',
+    name: '책갈피에서 뺄까요?',
     exact: true
   })
   await expect(removeDialog).toBeVisible()
-  await removeDialog.getByRole('button', { name: '해제 확인' }).click()
+  await removeDialog.getByRole('button', { name: '빼기' }).click()
   const deleteBookmarkResponse = await deleteBookmarkResponsePromise
   expect(deleteBookmarkResponse.status()).toBe(204)
   expect(deleteBookmarkResponse.fromServiceWorker()).toBe(isMockBrowser)
   await expect(
-    page.getByRole('heading', { name: '저장한 문제가 없어요' })
+    page.getByRole('heading', { name: '책갈피에 담은 문제가 없어요' })
   ).toBeVisible()
   await waitForApiTransportQuiet(transport)
 
@@ -2538,11 +2541,11 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await expect(
     reportDialog.locator('[name="report-description"]')
   ).toBeFocused()
-  const reportSubmit = reportDialog.getByRole('button', { name: '신고 접수' })
+  const reportSubmit = reportDialog.getByRole('button', { name: '보내기' })
   await reportSubmit.focus()
   await page.keyboard.press('Enter')
   await expect(
-    reportDialog.getByText('신고 설명을 입력해 주세요.', { exact: true })
+    reportDialog.getByText('내용을 적어 주세요.', { exact: true })
   ).toHaveAttribute('role', 'alert')
   await expect(
     reportDialog.locator('[name="report-description"]')
@@ -2911,7 +2914,7 @@ test('admin routes pass KO/JA axe and responsive content checks', async ({
   await expect(
     page
       .locator('p[aria-live="polite"][aria-atomic="true"]')
-      .filter({ hasText: '문제 상세 화면으로 이동했어요.' })
+      .filter({ hasText: '문제 상세 화면이에요.' })
   ).toBeAttached()
   await settlePage(page)
   await waitForApiTransportQuiet(transport)

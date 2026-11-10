@@ -255,20 +255,20 @@ describe('wrong-note approved R9 readonly workflow', () => {
   it('keeps missing history distinct from an unanswered attempt', async () => {
     await renderReadonlyDetail('missing')
     expect(
-      await screen.findByText('내 이전 답: 기록 확인 불가')
+      await screen.findByText('내가 고른 답을 불러올 수 없어요')
     ).toBeInTheDocument()
     expect(
       screen.queryByText(appI18n.t('wrongNote:detail.noAnswer'))
     ).not.toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: '이 문제만 다시 풀기' })
+      screen.getByRole('button', { name: '이 문제 다시 풀기' })
     ).toBeInTheDocument()
   })
 
   it('reports a history read error while preserving the question and explanation', async () => {
     const { question, detail } = await renderReadonlyDetail('error')
     expect(
-      await screen.findByText('내 이전 답을 불러오지 못했어요.')
+      await screen.findByText('내가 고른 답을 불러오지 못했어요.')
     ).toBeInTheDocument()
     expect(
       screen.getByRole('heading', { name: question.questionText })
@@ -282,7 +282,7 @@ describe('wrong-note approved R9 readonly workflow', () => {
 
 describe('wrong-note restricted account', () => {
   const restrictedMessage =
-    '임시로 이용이 제한된 계정이에요. 새 학습과 신고는 제한이 풀린 뒤 이용할 수 있어요.'
+    '지금은 이용이 잠시 제한된 계정이에요. 제한이 풀리면 다시 학습하고 신고할 수 있어요.'
 
   it('제한된 계정이 단일 복습을 시작하면 제한 안내를 보여 주고 머문다', async () => {
     const user = userEvent.setup()
@@ -311,20 +311,20 @@ describe('wrong-note restricted account', () => {
     await user.click(screen.getByRole('button', { name: '문제 신고' }))
     const dialog = await screen.findByRole('dialog')
     await user.type(
-      within(dialog).getByRole('textbox', { name: /설명/u }),
+      within(dialog).getByRole('textbox', { name: /어디가 이상한가요/u }),
       '보기 문구를 확인해 주세요.'
     )
-    await user.click(within(dialog).getByRole('button', { name: '신고 접수' }))
+    await user.click(within(dialog).getByRole('button', { name: '보내기' }))
     const notice = await within(dialog).findByText(restrictedMessage)
     expect(notice).toBeVisible()
     expect(notice).toHaveClass('bg-amber-50')
     expect(notice).not.toHaveClass('text-red-700')
     expect(
-      within(dialog).queryByText('문제 신고를 접수하지 못했어요.')
+      within(dialog).queryByText('보내지 못했어요. 다시 시도해 주세요.')
     ).toBeNull()
-    expect(within(dialog).getByRole('textbox', { name: /설명/u })).toHaveValue(
-      '보기 문구를 확인해 주세요.'
-    )
+    expect(
+      within(dialog).getByRole('textbox', { name: /어디가 이상한가요/u })
+    ).toHaveValue('보기 문구를 확인해 주세요.')
   })
 })
 
@@ -337,12 +337,14 @@ describe('wrong-note question report', () => {
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).queryByRole('combobox')).toBeNull()
     await user.type(
-      within(dialog).getByRole('textbox', { name: /설명/u }),
+      within(dialog).getByRole('textbox', { name: /어디가 이상한가요/u }),
       '정답 표시가 이상합니다.'
     )
-    await user.click(within(dialog).getByRole('button', { name: '신고 접수' }))
+    await user.click(within(dialog).getByRole('button', { name: '보내기' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
-    expect(await screen.findByText('신고를 보냈어요.')).toBeInTheDocument()
+    expect(
+      await screen.findByText('신고를 보냈어요. 고마워요!')
+    ).toBeInTheDocument()
     expect(mockDatabase.peekUserReports()).toEqual([
       expect.objectContaining({
         kind: 'QUESTION',

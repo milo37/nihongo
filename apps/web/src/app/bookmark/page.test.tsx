@@ -143,11 +143,11 @@ const renderLastPageDelete = async (
   )
   const user = userEvent.setup()
 
-  await screen.findByText('1 / 2 페이지')
-  await user.click(screen.getByRole('link', { name: '다음 페이지' }))
+  await screen.findByText('1 / 2쪽')
+  await user.click(screen.getByRole('link', { name: '다음 쪽' }))
   expect(router.state.location.search).toBe('?page=2')
   await screen.findByText(lastItem.question.questionTextPreview)
-  expect(screen.getByText('2 / 2 페이지')).toBeInTheDocument()
+  expect(screen.getByText('2 / 2쪽')).toBeInTheDocument()
   const removalTrigger = screen.getByRole('button', { name: '책갈피 빼기' })
   if (activation === 'keyboard') {
     removalTrigger.focus()
@@ -156,9 +156,9 @@ const renderLastPageDelete = async (
     await user.click(removalTrigger)
   }
   expect(
-    screen.getByRole('heading', { name: '책갈피를 해제할까요?' })
+    screen.getByRole('heading', { name: '책갈피에서 뺄까요?' })
   ).toBeVisible()
-  const confirm = screen.getByRole('button', { name: '해제 확인' })
+  const confirm = screen.getByRole('button', { name: '빼기' })
   if (activation === 'keyboard') {
     await user.tab({ shift: true })
     expect(confirm).toHaveFocus()
@@ -166,7 +166,7 @@ const renderLastPageDelete = async (
   } else {
     await user.click(confirm)
   }
-  await screen.findByText('이 페이지가 비었어요')
+  await screen.findByText('이 쪽에는 문제가 없어요')
   expect(removalTrigger.isConnected).toBe(false)
 
   return {
@@ -218,13 +218,13 @@ describe('BookmarkPage pagination settlement', () => {
     expect(text).toHaveAttribute('lang', 'ja')
     expect(text.className).toContain('line-clamp-2')
     expect(screen.getByText('21문제')).toBeVisible()
-    expect(screen.getByText('저장한 순')).toBeVisible()
+    expect(screen.getByText('담은 순')).toBeVisible()
     expect(screen.queryByText('저장된 문항 미리보기예요.')).toBeNull()
     const row = text.closest('li')
     if (!row) throw new Error('목록 행이 필요합니다.')
     expect(row.querySelector('details')).toBeNull()
     expect(within(row).queryByRole('link')).toBeNull()
-    expect(within(row).getByText(/저장$/u)).toBeVisible()
+    expect(within(row).getByText(/에 담음$/u)).toBeVisible()
     const remove = within(row).getByRole('button', { name: '책갈피 빼기' })
     // The tip repeats the name, so it is not read twice.
     expect(remove).not.toHaveAttribute('aria-describedby')
@@ -245,12 +245,10 @@ describe('BookmarkPage pagination settlement', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: '오프라인에서 책갈피를 기다리고 있어요'
+        name: '인터넷 연결이 끊겼어요'
       })
     ).toBeInTheDocument()
-    expect(
-      screen.queryByText('책갈피를 불러오고 있어요…')
-    ).not.toBeInTheDocument()
+    expect(screen.queryByText('불러오는 중…')).not.toBeInTheDocument()
     dispose(fixture.client, fixture.unmount)
   })
 
@@ -287,7 +285,7 @@ describe('BookmarkPage pagination settlement', () => {
     expect(await screen.findByText('캐시에 남은 책갈피')).toBeVisible()
     expect(
       await screen.findByText(
-        '책갈피의 최신 상태를 확인하지 못했어요. 현재 목록은 유지돼요.'
+        '최신 목록을 불러오지 못했어요. 지금 보이는 목록은 그대로 둘게요.'
       )
     ).toBeVisible()
     expect(screen.getByRole('button', { name: '다시 시도' })).toBeEnabled()
@@ -315,17 +313,17 @@ describe('BookmarkPage pagination settlement', () => {
 
     const fixture = renderBookmarkPage(client)
 
-    expect(await screen.findByText('1 / 2 페이지')).toBeVisible()
+    expect(await screen.findByText('1 / 2쪽')).toBeVisible()
     expect(
       screen.getByText(
-        '오프라인이에요. 현재 목록을 유지하며 연결되면 중단된 요청을 이어가요.'
+        '인터넷 연결이 끊겼어요. 지금 목록은 그대로 두고, 연결되면 이어서 불러올게요.'
       )
     ).toBeVisible()
-    expect(screen.getByRole('link', { name: '이전 페이지' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '앞쪽' })).toHaveAttribute(
       'aria-disabled',
       'true'
     )
-    expect(screen.getByRole('link', { name: '다음 페이지' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '다음 쪽' })).toHaveAttribute(
       'aria-disabled',
       'true'
     )
@@ -353,18 +351,16 @@ describe('BookmarkPage pagination settlement', () => {
     )
     const fixture = renderBookmarkPage()
     const interaction = userEvent.setup()
-    const next = await screen.findByRole('link', { name: '다음 페이지' })
+    const next = await screen.findByRole('link', { name: '다음 쪽' })
 
     await interaction.click(next)
     expect(fixture.router.state.location.search).toBe('?page=2')
-    expect(screen.getByRole('link', { name: '다음 페이지' })).toBe(next)
+    expect(screen.getByRole('link', { name: '다음 쪽' })).toBe(next)
     expect(next).toHaveFocus()
     expect(
       screen.getByText(items[0]?.question.questionTextPreview ?? '')
     ).toBeVisible()
-    expect(
-      screen.getByText('책갈피 페이지를 갱신하고 있어요…')
-    ).toHaveAttribute('role', 'status')
+    expect(screen.getByText('불러오는 중…')).toHaveAttribute('role', 'status')
     expect(
       screen
         .getByText(items[0]?.question.questionTextPreview ?? '')
@@ -376,13 +372,11 @@ describe('BookmarkPage pagination settlement', () => {
     expect(
       await screen.findByText(items[20]?.question.questionTextPreview ?? '')
     ).toBeVisible()
-    expect(screen.getByRole('link', { name: '다음 페이지' })).toBe(next)
+    expect(screen.getByRole('link', { name: '다음 쪽' })).toBe(next)
     expect(screen.getByRole('link', { current: 'page' })).toHaveFocus()
     expect(next).toHaveAttribute('aria-disabled', 'true')
-    expect(
-      screen.queryByText('책갈피 페이지를 갱신하고 있어요…')
-    ).not.toBeInTheDocument()
-    expect(screen.getByText('2 / 2 페이지')).toBeInTheDocument()
+    expect(screen.queryByText('불러오는 중…')).not.toBeInTheDocument()
+    expect(screen.getByText('2 / 2쪽')).toBeInTheDocument()
     expect(screen.getByRole('link', { current: 'page' })).toHaveTextContent('2')
     dispose(fixture.client, fixture.unmount)
   })
@@ -419,11 +413,11 @@ describe('BookmarkPage pagination settlement', () => {
     )
     const fixture = renderBookmarkPage()
     const interaction = userEvent.setup()
-    const next = await screen.findByRole('link', { name: '다음 페이지' })
+    const next = await screen.findByRole('link', { name: '다음 쪽' })
 
     await interaction.click(next)
     expect(fixture.router.state.location.search).toBe('?page=2')
-    expect(screen.getByRole('link', { name: '다음 페이지' })).toBe(next)
+    expect(screen.getByRole('link', { name: '다음 쪽' })).toBe(next)
     expect(next).toHaveFocus()
 
     await act(async () => pageTwoGate.resolve())
@@ -431,7 +425,7 @@ describe('BookmarkPage pagination settlement', () => {
       name: '책갈피를 불러오지 못했어요'
     })
     expect(errorHeading).toHaveFocus()
-    expect(screen.queryByRole('link', { name: '다음 페이지' })).toBeNull()
+    expect(screen.queryByRole('link', { name: '다음 쪽' })).toBeNull()
     dispose(fixture.client, fixture.unmount)
   })
 
@@ -460,9 +454,9 @@ describe('BookmarkPage pagination settlement', () => {
 
     await interaction.click(trigger)
     expect(
-      screen.getByRole('heading', { name: '책갈피를 해제할까요?' })
+      screen.getByRole('heading', { name: '책갈피에서 뺄까요?' })
     ).toBeVisible()
-    await interaction.click(screen.getByRole('button', { name: '계속 보관' }))
+    await interaction.click(screen.getByRole('button', { name: '그대로 두기' }))
 
     await waitFor(() => expect(trigger).toHaveFocus())
     expect(deleteCount).toBe(0)
@@ -471,10 +465,8 @@ describe('BookmarkPage pagination settlement', () => {
 
   it('마지막 페이지 delete 실패 중에는 page를 유지하고 rollback 항목을 복원한다', async () => {
     const fixture = await renderLastPageDelete()
-    expect(
-      screen.queryByText('책갈피 해제를 처리하고 있어요…')
-    ).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '처리 중…' })).toBeDisabled()
+    expect(screen.queryByText('빼는 중…')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '잠시만요…' })).toBeDisabled()
     expect(
       screen.getByRole('dialog').querySelectorAll('.ui-spinner')
     ).toHaveLength(1)
@@ -484,9 +476,9 @@ describe('BookmarkPage pagination settlement', () => {
     expect(
       await screen.findByText(fixture.lastItem.question.questionTextPreview)
     ).toBeInTheDocument()
-    expect(screen.getByText('2 / 2 페이지')).toBeInTheDocument()
+    expect(screen.getByText('2 / 2쪽')).toBeInTheDocument()
     expect(
-      screen.getByText('책갈피 해제를 완료하지 못해 이전 상태로 복원했어요.')
+      screen.getByText('책갈피에서 빼지 못했어요. 다시 시도해 주세요.')
     ).toBeVisible()
     const restoredTrigger = screen.getByRole('button', { name: '책갈피 빼기' })
     expect(restoredTrigger).not.toBe(fixture.removalTrigger)
@@ -510,7 +502,7 @@ describe('BookmarkPage pagination settlement', () => {
     const user = userEvent.setup()
     const trigger = await screen.findByRole('button', { name: '책갈피 빼기' })
     await user.click(trigger)
-    await user.click(screen.getByRole('button', { name: '계속 보관' }))
+    await user.click(screen.getByRole('button', { name: '그대로 두기' }))
     await waitFor(() => expect(trigger).toHaveFocus())
     expect(deleteRequests).toBe(0)
     expect(screen.getByText(item.question.questionTextPreview)).toBeVisible()
@@ -525,7 +517,7 @@ describe('BookmarkPage pagination settlement', () => {
     // Back on page 1 of 1, where the pager is hidden (ux2 §1-4).
     await waitFor(() =>
       expect(
-        screen.queryByRole('navigation', { name: '책갈피 페이지' })
+        screen.queryByRole('navigation', { name: '책갈피 쪽' })
       ).not.toBeInTheDocument()
     )
     expect(
@@ -542,7 +534,7 @@ describe('BookmarkPage pagination settlement', () => {
     expect(
       await screen.findByText(fixture.replacement.question.questionTextPreview)
     ).toBeInTheDocument()
-    expect(screen.getByText('2 / 2 페이지')).toBeInTheDocument()
+    expect(screen.getByText('2 / 2쪽')).toBeInTheDocument()
     dispose(fixture.client, fixture.unmount)
   })
 
@@ -554,9 +546,9 @@ describe('BookmarkPage pagination settlement', () => {
     expect(
       await screen.findByText(fixture.lastItem.question.questionTextPreview)
     ).toBeVisible()
-    expect(screen.getByText('2 / 2 페이지')).toBeInTheDocument()
+    expect(screen.getByText('2 / 2쪽')).toBeInTheDocument()
     expect(
-      screen.getByText('책갈피 해제를 완료하지 못해 이전 상태로 복원했어요.')
+      screen.getByText('책갈피에서 빼지 못했어요. 다시 시도해 주세요.')
     ).toBeVisible()
     const restoredTrigger = screen.getByRole('button', { name: '책갈피 빼기' })
     expect(restoredTrigger).not.toBe(fixture.removalTrigger)
@@ -577,7 +569,7 @@ it('displays one real bookmark page without adding unsupported filters', async (
   const fixture = renderBookmarkPage()
   await screen.findByText(item.question.questionTextPreview)
   expect(
-    screen.queryByRole('navigation', { name: '책갈피 페이지' })
+    screen.queryByRole('navigation', { name: '책갈피 쪽' })
   ).not.toBeInTheDocument()
   expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
   dispose(fixture.client, fixture.unmount)
@@ -615,7 +607,7 @@ it('학습 그룹 두 개 중 실행 버튼만 진행을 표시하고 다른 그
   const fixture = renderBookmarkPage()
   const user = userEvent.setup()
   await screen.findByText(first.question.questionTextPreview)
-  await user.click(screen.getByText('다시 풀기'))
+  await user.click(screen.getByText('책갈피 문제 풀기'))
   const firstGroup = screen.getByRole('button', { name: /N5.*어휘/ })
   const secondGroup = screen.getByRole('button', { name: /N4.*어휘/ })
   const secondLabel = secondGroup.textContent
@@ -647,17 +639,15 @@ it('이용이 제한된 계정이면 BOOKMARK 학습 시작 오류 대신 제한
   const fixture = renderBookmarkPage()
   const user = userEvent.setup()
   await screen.findByText(first.question.questionTextPreview)
-  await user.click(screen.getByText('다시 풀기'))
+  await user.click(screen.getByText('책갈피 문제 풀기'))
   await user.click(screen.getByRole('button', { name: /N5.*어휘/ }))
   expect(
     await screen.findByText(
-      '임시로 이용이 제한된 계정이에요. 새 학습과 신고는 제한이 풀린 뒤 이용할 수 있어요.'
+      '지금은 이용이 잠시 제한된 계정이에요. 제한이 풀리면 다시 학습하고 신고할 수 있어요.'
     )
   ).toHaveAttribute('role', 'alert')
   expect(
-    screen.queryByText(
-      '책갈피 학습을 시작하지 못했어요. 잠시 후 다시 시도해 주세요.'
-    )
+    screen.queryByText('시작하지 못했어요. 잠시 뒤에 다시 시도해 주세요.')
   ).toBeNull()
   dispose(fixture.client, fixture.unmount)
 })

@@ -16,7 +16,7 @@ const TestRadioGroup = (): ReactElement => {
   return (
     <RadioGroup
       name="answer"
-      legend="정답 보기"
+      legend="보기"
       options={options}
       value={value}
       onValueChange={setValue}

@@ -49,9 +49,7 @@ it.each(['ko', 'ja'] as const)(
         name: appI18n.t('common:appName')
       })
     ).toHaveAttribute('href', '/')
-    const primary = screen.getByRole('navigation', {
-      name: appI18n.t('navigation:primary')
-    })
+    const primary = topNavigation()
     expect(
       within(primary)
         .getAllByRole('link')
@@ -105,6 +103,12 @@ it.each(['ko', 'ja'] as const)(
 )
 
 // The information links moved to the bottom of 마이 (direction §1-1).
+// The top bar and the bottom tabs share one name; CSS shows one at a time.
+const topNavigation = (): HTMLElement =>
+  screen
+    .getAllByRole('navigation', { name: appI18n.t('navigation:primary') })
+    .find((nav) => nav.id === 'primary-navigation') as HTMLElement
+
 it('renders no shell footer for learners', () => {
   render(
     <MemoryRouter initialEntries={['/login']}>
@@ -125,10 +129,8 @@ it.each(['ko', 'ja'] as const)(
         <Layout />
       </MemoryRouter>
     )
-    for (const label of ['primary', 'mobilePrimary'] as const) {
-      const nav = screen.getByRole('navigation', {
-        name: appI18n.t(`navigation:${label}`)
-      })
+    for (const id of ['primary-navigation', 'mobile-navigation']) {
+      const nav = document.getElementById(id) as HTMLElement
       expect(
         within(nav).getByRole('link', {
           name: appI18n.t('navigation:learningStart')
@@ -199,9 +201,7 @@ it('keeps review session/result navigation in review context', () => {
       <Layout />
     </MemoryRouter>
   )
-  const nav = screen.getByRole('navigation', {
-    name: appI18n.t('navigation:primary')
-  })
+  const nav = topNavigation()
   expect(
     within(nav).getByRole('link', { name: appI18n.t('navigation:wrongNotes') })
   ).toHaveAttribute('aria-current', 'page')
@@ -215,9 +215,7 @@ it('puts the desktop links in the top bar without duplicating destination IDs', 
       <Layout />
     </MemoryRouter>
   )
-  const sidebar = screen.getByRole('navigation', {
-    name: appI18n.t('navigation:primary')
-  })
+  const sidebar = topNavigation()
   expect(screen.getByRole('banner').contains(sidebar)).toBe(true)
   expect(document.querySelectorAll('#primary-navigation')).toHaveLength(1)
   expect(document.querySelectorAll('#mobile-navigation')).toHaveLength(1)
@@ -233,9 +231,7 @@ it('keeps an ordinary result in learning context rather than switching it to rev
       <Layout />
     </MemoryRouter>
   )
-  const sidebar = screen.getByRole('navigation', {
-    name: appI18n.t('navigation:primary')
-  })
+  const sidebar = topNavigation()
   expect(
     within(sidebar).getByRole('link', {
       name: appI18n.t('navigation:learningStart')

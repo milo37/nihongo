@@ -253,7 +253,7 @@ it("answers today's question in place, without a record, and keeps it on reopen"
 })
 
 it.each([
-  [null, '일본어 해설이 없어 한국어 해설을 표시해요.'],
+  [null, '일본어 해설이 아직 없어서 한국어 해설을 보여 드려요.'],
   ['日本語の解説', null]
 ])(
   "shows the Korean-explanation notice on today's question when Japanese is missing (%s)",

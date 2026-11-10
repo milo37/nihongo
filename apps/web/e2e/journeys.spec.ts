@@ -360,7 +360,7 @@ const openPracticeModes = async (page: Page) => {
   const modeSelect = disclosure.locator('select[name="practice-mode"]')
   await expect(modeSelect).toHaveCount(1)
   await expect(modeSelect).toBeVisible()
-  await expect(modeSelect).toHaveAccessibleName('출제 모드')
+  await expect(modeSelect).toHaveAccessibleName('출제 방식')
   // Random or the review set only (subtract table 3).
   await expect(modeSelect.locator('option')).toHaveCount(2)
   return modeSelect
@@ -660,7 +660,7 @@ const answerEveryQuestionWithFirstOption = async (
   const isSingleReview =
     created.session.mode === 'WRONG_NOTE' && created.session.actualCount === 1
   // The number sheet opens from the top bar's "1 / N" (direction §6-4).
-  const sheetTrigger = page.getByRole('button', { name: /^문제 바로가기 /u })
+  const sheetTrigger = page.getByRole('button', { name: /^문제 번호 /u })
   if (isSingleReview) {
     expect(created.questions).toHaveLength(1)
     await expect(page.locator('.study-review-session')).toBeVisible()
@@ -669,7 +669,7 @@ const answerEveryQuestionWithFirstOption = async (
       page.getByRole('link', { name: '해설로 돌아가기', exact: true })
     ).toBeVisible()
     await expect(
-      page.getByRole('button', { name: '답안 제출', exact: true })
+      page.getByRole('button', { name: '제출하기', exact: true })
     ).toBeVisible()
   } else {
     await expect(page.locator('.study-review-session')).toHaveCount(0)
@@ -816,7 +816,7 @@ const recommendationRegion = (page: Page) =>
 const myStudyRegion = (page: Page) =>
   page.getByRole('region', { name: '내 학습', exact: true })
 
-const myStudyLoadingCopy = '학습 기록을 불러오고 있어요.'
+const myStudyLoadingCopy = '불러오는 중…'
 
 // On My page a failed stats re-read keeps the last summary without an alert;
 // the next successful read refreshes it (JLP-812: My page reads only stats).
@@ -908,7 +908,7 @@ const startVocabularySessionThroughUi = async (
   await settleJourneyPage(page)
   for (const [label, parameter, value] of [
     ['N5', 'level', 'N5'],
-    ['어휘', 'subject', 'VOCABULARY']
+    ['문자·어휘', 'subject', 'VOCABULARY']
   ] as const) {
     const radio = page.getByRole('radio', { name: label, exact: true })
     const choice = page.locator('label.choice-option').filter({ has: radio })
@@ -953,7 +953,7 @@ const startVocabularySessionThroughUi = async (
     '/api/v1/study-sessions'
   )
   await page
-    .getByRole('button', { name: 'N5 어휘 · 10문제 시작', exact: true })
+    .getByRole('button', { name: 'N5 문자·어휘 10문제 시작', exact: true })
     .click()
   const response = await createdResponse
   expect(response.status()).toBe(201)
@@ -996,7 +996,7 @@ const submitCurrentSessionThroughUi = async (
   page: Page,
   sessionId: string,
   originalNow: JSHandle<() => number>,
-  heading: '학습 결과' | '복습 완료' = '학습 결과'
+  heading: '결과' | '복습 결과' = '결과'
 ): Promise<SubmitStudySessionV2Response> => {
   const submittedResponse = waitForApiResponse(
     page,
@@ -1004,7 +1004,7 @@ const submitCurrentSessionThroughUi = async (
     `/api/v1/study-sessions/${sessionId}/submission`
   )
   // Every question is answered, so there is no confirm dialog (subtract #9).
-  await page.getByRole('button', { name: '답안 제출', exact: true }).click()
+  await page.getByRole('button', { name: '제출하기', exact: true }).click()
   const response = await submittedResponse
   expect(response.status()).toBe(201)
   expect(response.fromServiceWorker()).toBe(mode === 'mock')
@@ -1046,15 +1046,15 @@ test('guest SSO boundary and authenticated practice transition match the active 
   await guestPrincipal
   await settleJourneyPage(page)
   await expect(
-    page.getByText(/^로그인 없이 하루 2번, 5문제씩 풀어 볼 수 있어요\./u)
+    page.getByText(/^로그인 없이 하루 2번, 한 번에 5문제씩 풀 수 있어요\./u)
   ).toBeVisible()
-  await expect(page.getByText('오늘 체험 2회 중 2회 남았어요.')).toBeVisible()
+  await expect(page.getByText('오늘 2번 중 2번 남았어요.')).toBeVisible()
   // Locked, not disabled: choosing one explains sign-in (U4 L11).
   const studyMode = await openPracticeModes(page)
   for (const value of ['DAILY_REVIEW']) {
     const option = studyMode.locator(`option[value="${value}"]`)
     await expect(option).toBeEnabled()
-    await expect(option).toContainText('로그인 필요')
+    await expect(option).toContainText('로그인하면 사용')
   }
   for (const path of [
     '/login?mode=signup#retired-token',
@@ -1090,7 +1090,7 @@ test('guest SSO boundary and authenticated practice transition match the active 
   for (const value of ['DAILY_REVIEW']) {
     const option = memberStudyMode.locator(`option[value="${value}"]`)
     await expect(option).toBeEnabled()
-    await expect(option).not.toContainText('로그인 필요')
+    await expect(option).not.toContainText('로그인하면 사용')
   }
   await expect(page.getByText(/^로그인 없이 하루/u)).toHaveCount(0)
   await waitForLedgerToQuiesce(ledger)
@@ -1155,7 +1155,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   const persisted = await reloadedResult
   expect(persisted).toEqual(primarySubmission)
   await expect(
-    page.getByRole('heading', { name: '학습 결과', exact: true })
+    page.getByRole('heading', { name: '결과', exact: true })
   ).toBeVisible()
   const chooseLocale = async (value: 'ko' | 'ja'): Promise<void> => {
     await page.locator('#account-menu-button').click()
@@ -1165,7 +1165,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   }
   await chooseLocale('ja')
   await expect(
-    page.getByRole('heading', { name: '学習結果', exact: true })
+    page.getByRole('heading', { name: '結果', exact: true })
   ).toBeVisible()
   await chooseLocale('ko')
 
@@ -1219,7 +1219,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
     `/api/v1/wrong-notes/${incorrect.question.id}/review-session`
   )
   await page
-    .getByRole('button', { name: '이 문제만 다시 풀기', exact: true })
+    .getByRole('button', { name: '이 문제 다시 풀기', exact: true })
     .click()
   const targetedResponse = await targetedResponsePromise
   expect(targetedResponse.status()).toBe(201)
@@ -1259,7 +1259,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
     page,
     targeted.session.id,
     targetedOriginalNow,
-    '복습 완료'
+    '복습 결과'
   )
   expect(targetedSubmission).toMatchObject({
     correctCount: 0,
@@ -1267,7 +1267,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
     totalCount: 1
   })
   await expect(
-    page.getByRole('heading', { name: '다시 확인해 볼까요?', exact: true })
+    page.getByRole('heading', { name: '아쉽게 틀렸어요.', exact: true })
   ).toBeVisible()
   const completed = await completionState
   expect(completed.wrongNote).toMatchObject({
