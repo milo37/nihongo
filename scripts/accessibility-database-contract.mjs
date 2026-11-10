@@ -70,7 +70,7 @@ export const accessibilityExpectedTableDeltas = {
   QuestionReport: 0,
   QuestionVersion: 0,
   QuestionVersionTag: 0,
-  RateLimit: 29,
+  RateLimit: 30,
   ReviewEvent: 10,
   ReviewSchedule: 10,
   Session: 2,
