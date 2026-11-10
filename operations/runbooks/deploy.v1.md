@@ -22,6 +22,7 @@
 
 - `Publish` 실패: 이미지가 없으니 서버는 그대로입니다. 팀이 고쳐 다시 main에 올립니다.
 - `Deploy to STAGING` 실패: `deploy.sh`가 직전 release로 되돌리거나(롤백), 새 API를 띄우기 전에 멈춥니다. 로그의 결과 줄을 팀(DevOps)이 보고 고칩니다. 다시 배포하려면 Actions에서 **가장 최신 Release image 실행만** **Re-run failed jobs**를 누릅니다(사람 붙여넣기 없음). 옛 실행을 다시 돌리면 배포 단계는 건너뜁니다.
+- 같은 SHA를 다시 돌려도(Re-run, 수동 실행) ECR에 이미 있는 태그는 다시 만들거나 올리지 않고 배포로 넘어갑니다(태그는 덮어쓸 수 없음, immutable).
 - 데이터를 되살려야 할 때만 [recovery.v1.md](recovery.v1.md)를 씁니다.
 
 ## 2. 켜는 조건 (한 번)
