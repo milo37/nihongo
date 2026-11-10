@@ -457,7 +457,7 @@ export const koCoreResources = {
     },
     sso: {
       checkingAccount: '계정을 확인하는 중…',
-      openAdminWork: '진행 중인 관리자 작업이 있어 지금은 탈퇴할 수 없어요.',
+      openAdminWork: '관리 작업이 남아 있어서 지금은 탈퇴할 수 없어요.',
       title: '로그인',
       description: 'Google 계정으로 로그인하면 푼 기록이 계속 남아요.',
       guestHint:
@@ -469,7 +469,7 @@ export const koCoreResources = {
       unavailable: '지금은 로그인할 수 없어요. 잠시 뒤에 다시 시도해 주세요.',
       sessionExpired: '로그인이 끝났어요. 다시 로그인해 주세요.',
       migrationIncomplete:
-        '기존 학습 기록을 연결하지 못했어요. 로그인 방법 전환 안내를 확인해 주세요.',
+        '로그인 방법을 불러오지 못했어요. 학습 기록은 그대로 있어요.',
       cancel: '취소',
       recheck: '다시 확인',
       logoutTitle: '로그아웃할까요?',
@@ -489,7 +489,7 @@ export const koCoreResources = {
       deletionComplete: '탈퇴했어요. 그동안 이용해 주셔서 고마워요.',
       unlinked: '연결을 해제했어요.',
       legacyMethod:
-        '로그인 방법이 변경되었어요. 연결한 계정으로 계속해 주세요.',
+        '로그인 방법이 Google로 바뀌었어요. Google 계정으로 계속해 주세요.',
       continueGoogle: 'Google로 계속하기',
       cancelledProvider:
         '{{provider}} 로그인을 취소했어요. 다시 시도하거나 로그인 없이 풀어 볼 수 있어요.',

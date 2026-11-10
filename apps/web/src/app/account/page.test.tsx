@@ -326,7 +326,7 @@ describe('마이페이지 계정 설정', () => {
     const deletion = await screen.findByRole('button', { name: '회원 탈퇴' })
     await waitFor(() => expect(deletion).toBeDisabled())
     expect(deletion).toHaveAccessibleDescription(
-      '진행 중인 관리자 작업이 있어 지금은 탈퇴할 수 없어요.'
+      '관리 작업이 남아 있어서 지금은 탈퇴할 수 없어요.'
     )
     expect(
       screen.getByText(
@@ -345,7 +345,7 @@ describe('마이페이지 계정 설정', () => {
     )
     renderAccount()
     await screen.findByText(
-      '기존 학습 기록을 연결하지 못했어요. 로그인 방법 전환 안내를 확인해 주세요.'
+      '로그인 방법을 불러오지 못했어요. 학습 기록은 그대로 있어요.'
     )
     expect(screen.queryByLabelText(/비밀번호|이메일/)).not.toBeInTheDocument()
   })

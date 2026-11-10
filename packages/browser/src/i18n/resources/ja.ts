@@ -476,7 +476,7 @@ export const jaCoreResources = {
     },
     sso: {
       checkingAccount: 'アカウントを確認中…',
-      openAdminWork: '進行中の管理作業があるため、現在は退会できません。',
+      openAdminWork: '管理の作業が残っているため、今は退会できません。',
       title: 'ログイン',
       description:
         'Googleアカウントでログインすると、解いた記録がずっと残ります。',
@@ -491,7 +491,7 @@ export const jaCoreResources = {
         '今はログインできません。しばらくしてからもう一度お試しください。',
       sessionExpired: 'ログインが切れました。もう一度ログインしてください。',
       migrationIncomplete:
-        'これまでの学習記録を連携できませんでした。ログイン方法の移行案内をご確認ください。',
+        'ログイン方法を読み込めませんでした。学習記録はそのままです。',
       cancel: 'キャンセル',
       recheck: 'もう一度確認',
       logoutTitle: 'ログアウトしますか？',
@@ -513,7 +513,7 @@ export const jaCoreResources = {
         '退会しました。これまでご利用いただきありがとうございました。',
       unlinked: '連携を解除しました。',
       legacyMethod:
-        'ログイン方法が変更されました。連携したアカウントで続けてください。',
+        'ログイン方法がGoogleに変わりました。Googleアカウントで続けてください。',
       continueGoogle: 'Googleで続ける',
       cancelledProvider:
         '{{provider}}のログインを取り消しました。もう一度試すか、ログインせずに解いてみることができます。',
