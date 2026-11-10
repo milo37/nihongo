@@ -67,7 +67,7 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
-    "typescript": "5.8.3",
+    "typescript": "6.0.3",
     "vitest": "4.1.12"
   }
 }
