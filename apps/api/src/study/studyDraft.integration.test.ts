@@ -1,3 +1,4 @@
+import { GUEST_SESSION_QUESTION_LIMIT } from '@nihongo/contracts/study/guest-limits'
 import { randomUUID } from 'node:crypto'
 import { writeSync } from 'node:fs'
 import { apiFailureSchema } from '@nihongo/contracts/common/error'
@@ -275,7 +276,7 @@ const createGuestV2Session = async (): Promise<{
       level: 'N5',
       subject: 'VOCABULARY',
       mode: 'RANDOM',
-      count: 5
+      count: GUEST_SESSION_QUESTION_LIMIT
     })
   })
   expect(response.status).toBe(201)
