@@ -3,7 +3,7 @@
 #   bash scripts/question-set-publish.sh dry-run   # reports only
 #   bash scripts/question-set-publish.sh confirm   # imports, reviews, approves, publishes
 # Sends files/question-set-publish.sh to the host (SSM AWS-RunShellScript),
-# waits, and prints the status and the command's JSON line only.
+# waits (at most 31 minutes), and prints the status and the command's JSON line only.
 set -euo pipefail
 mode="${1:-}"
 case "$mode" in dry-run|confirm) ;; *) echo "usage: $0 dry-run|confirm" >&2; exit 2 ;; esac
@@ -19,10 +19,18 @@ cid="$(aws ssm send-command --instance-ids "$iid" --document-name AWS-RunShellSc
   --comment "question-set-publish $mode" --parameters "$params" \
   --query Command.CommandId --output text)"
 echo "command $cid"
+# executionTimeout is 1800 s: wait that long plus a minute, then give up.
+tries=0
 while :; do
   st="$(aws ssm get-command-invocation --command-id "$cid" --instance-id "$iid" \
     --query Status --output text 2>/dev/null || true)"
-  case "$st" in Pending|InProgress|Delayed|"") sleep 10 ;; *) break ;; esac
+  case "$st" in Pending|InProgress|Delayed|"") ;; *) break ;; esac
+  tries=$((tries + 1))
+  if [ "$tries" -ge 186 ]; then
+    echo "still ${st:-unknown} after 31 minutes; command $cid" >&2
+    exit 1
+  fi
+  sleep 10
 done
 echo "status $st"
 for field in StandardOutputContent StandardErrorContent; do
