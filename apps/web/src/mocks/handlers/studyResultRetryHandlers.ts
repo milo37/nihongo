@@ -7,7 +7,9 @@ import {
   createResultRetrySessionResponseSchema,
   type CreateResultRetrySessionError
 } from '@nihongo/contracts/study/create-result-retry-session'
+import { GUEST_DAILY_SESSION_LIMIT } from '@nihongo/contracts/study/guest-limits'
 import { http, HttpResponse } from 'msw'
+import { mockGuestAllowance } from '@mocks/handlers/guestAllowanceHandlers'
 import { inspectMockGuestProof } from '@mocks/guestPrincipal'
 import {
   hasTrustedMockWriteOrigin,
@@ -217,6 +219,17 @@ export const studyResultRetryHandlers = [
           })
         }
 
+        // Guests: a retry counts as one of today's tries (JLP-823).
+        const guestLimits = !currentUser && mockGuestAllowance.isEnforced()
+        if (guestLimits && mockGuestAllowance.remaining() === 0) {
+          return createErrorResponse({
+            code: 'GUEST_LIMIT_REACHED',
+            message: `비회원은 하루 ${GUEST_DAILY_SESSION_LIMIT}번까지 풀 수 있습니다. 더 풀려면 로그인해 주세요.`,
+            details: { resetsAt: mockGuestAllowance.resetsAt() },
+            requestId,
+            retryable: false
+          })
+        }
         const created = mockDatabase.createCanonicalResultRetry({
           guestPrincipalId:
             !currentUser && guestProof.kind === 'VERIFIED'
@@ -228,6 +241,7 @@ export const studyResultRetryHandlers = [
         const response = createResultRetrySessionResponseSchema.parse(
           created.response
         )
+        if (guestLimits && !created.replayed) mockGuestAllowance.record()
         return HttpResponse.json(response, {
           status: 201,
           headers: {

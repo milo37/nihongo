@@ -1,7 +1,9 @@
+import { GUEST_DAILY_SESSION_LIMIT } from '@nihongo/contracts/study/guest-limits'
 import type { VersionedStudySessionPayload } from '@nihongo/contracts/study/study-session'
 import { ApplicationError } from '../errors/applicationError.js'
 import {
   GuestCredentialExpiredError,
+  GuestDailyLimitReachedError,
   NoEligibleQuestionsError,
   type ExistingStudyOwner
 } from './studySessionRepository.js'
@@ -32,6 +34,14 @@ const throwMappedError = (error: unknown): never => {
     throw new ApplicationError({
       code: 'GUEST_SESSION_EXPIRED',
       message: '게스트 세션이 만료됐습니다.',
+      retryable: false
+    })
+  }
+  if (error instanceof GuestDailyLimitReachedError) {
+    throw new ApplicationError({
+      code: 'GUEST_LIMIT_REACHED',
+      message: `비회원은 하루 ${GUEST_DAILY_SESSION_LIMIT}번까지 풀 수 있습니다. 더 풀려면 로그인해 주세요.`,
+      details: { resetsAt: error.resetsAt.toISOString() },
       retryable: false
     })
   }

@@ -1,3 +1,7 @@
+import {
+  GUEST_DAILY_SESSION_LIMIT,
+  GUEST_SESSION_QUESTION_LIMIT
+} from '@nihongo/contracts/study/guest-limits'
 import { randomUUID } from 'node:crypto'
 import { createStudySessionV2ResponseSchema } from '@nihongo/contracts/study/create-study-session'
 import { getStudySessionV2ResponseSchema } from '@nihongo/contracts/study/get-study-session'
@@ -41,6 +45,9 @@ import {
 import { createStudySessionService } from './studySessionService.js'
 import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
+// The fixture has 5 published N5 vocabulary questions; a guest asks for
+// GUEST_SESSION_QUESTION_LIMIT and gets every one without a fallback.
+const FIXTURE_N5_VOCABULARY_POOL = 5
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({
   nodeEnvironment: environment.NODE_ENV,
@@ -446,7 +453,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
       level: 'N5',
       subject: 'VOCABULARY',
       mode: 'RANDOM',
-      count: 5
+      count: GUEST_SESSION_QUESTION_LIMIT
     })
     const payload = createStudySessionV2ResponseSchema.parse(
       await response.json()
@@ -463,8 +470,8 @@ describe('StudySession PostgreSQL vertical slice', () => {
     expect(response.headers.get('X-Nihongo-Practice-Contract')).toBe('2')
     expect(payload.session).toMatchObject({
       practiceContractVersion: 2,
-      requestedCount: 5,
-      actualCount: 5,
+      requestedCount: GUEST_SESSION_QUESTION_LIMIT,
+      actualCount: FIXTURE_N5_VOCABULARY_POOL,
       usedFallback: false,
       fallbackReason: null,
       status: 'IN_PROGRESS'
@@ -478,7 +485,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
       where: { id: payload.session.id },
       include: { questions: true, guestPrincipal: true }
     })
-    expect(stored.questions).toHaveLength(5)
+    expect(stored.questions).toHaveLength(FIXTURE_N5_VOCABULARY_POOL)
     expect(stored.guestPrincipal?.tokenDigest).toMatch(/^[0-9a-f]{64}$/)
     expect(cookie).not.toContain(stored.guestPrincipal?.tokenDigest ?? '')
 
@@ -617,7 +624,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
       level: 'N5',
       subject: 'VOCABULARY',
       mode: 'RANDOM',
-      count: 5
+      count: GUEST_SESSION_QUESTION_LIMIT
     })
     const guestPayload = createStudySessionV2ResponseSchema.parse(
       await guestCreate.json()
@@ -677,11 +684,11 @@ describe('StudySession PostgreSQL vertical slice', () => {
     expect(response.status).toBe(201)
     expect(payload.session).toMatchObject({
       requestedCount: 20,
-      actualCount: 5,
+      actualCount: FIXTURE_N5_VOCABULARY_POOL,
       usedFallback: false,
       fallbackReason: null
     })
-    expect(payload.questions).toHaveLength(5)
+    expect(payload.questions).toHaveLength(FIXTURE_N5_VOCABULARY_POOL)
   })
 
   it('미지원 모드·explicit IDs·owner 주입은 422, guest 오답 모드는 401로 막는다', async () => {
@@ -813,7 +820,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
         level: 'N1',
         subject: 'READING',
         mode: 'RANDOM',
-        count: 5
+        count: GUEST_SESSION_QUESTION_LIMIT
       })
 
       expect(response.status).toBe(404)
@@ -845,7 +852,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
       level: 'N4',
       subject: 'GRAMMAR',
       mode: 'RANDOM',
-      count: 5
+      count: GUEST_SESSION_QUESTION_LIMIT
     })
     const firstPayload = createStudySessionV2ResponseSchema.parse(
       await first.json()
@@ -857,7 +864,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
       level: 'N4',
       subject: 'GRAMMAR',
       mode: 'RANDOM',
-      count: 5
+      count: GUEST_SESSION_QUESTION_LIMIT
     })
     const secondPayload = createStudySessionV2ResponseSchema.parse(
       await second.json()
@@ -893,7 +900,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
       level: 'N4',
       subject: 'READING',
       mode: 'RANDOM',
-      count: 5
+      count: GUEST_SESSION_QUESTION_LIMIT
     })
     const firstPayload = createStudySessionV2ResponseSchema.parse(
       await first.json()
@@ -917,7 +924,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
         level: 'N4',
         subject: 'READING',
         mode: 'RANDOM',
-        count: 5
+        count: GUEST_SESSION_QUESTION_LIMIT
       },
       staleCookie
     )
@@ -955,7 +962,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
         level: 'N3',
         subject: 'READING',
         mode: 'RANDOM',
-        count: 5
+        count: GUEST_SESSION_QUESTION_LIMIT
       })
       const payload = createStudySessionV2ResponseSchema.parse(
         await response.json()
@@ -1116,7 +1123,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
             level: 'N5',
             subject: 'VOCABULARY',
             mode: 'RANDOM',
-            count: 5
+            count: GUEST_SESSION_QUESTION_LIMIT
           },
           { kind: 'NEW_GUEST', credential }
         )
@@ -1223,8 +1230,8 @@ describe('StudySession PostgreSQL vertical slice', () => {
         }
 
         expect(created.payload.session).toMatchObject({
-          actualCount: 5,
-          requestedCount: 5,
+          actualCount: FIXTURE_N5_VOCABULARY_POOL,
+          requestedCount: GUEST_SESSION_QUESTION_LIMIT,
           status: 'IN_PROGRESS'
         })
         expect(
@@ -1355,7 +1362,10 @@ describe('StudySession PostgreSQL vertical slice', () => {
     // Two sessions just before Korea-time midnight belong to the day before.
     await start(new Date(dayStart.getTime() - 2))
     await start(new Date(dayStart.getTime() - 1))
-    await start(dayStart)
+    // JLP-823: all but one of today's sets are used before the race.
+    for (let index = 0; index < GUEST_DAILY_SESSION_LIMIT - 1; index += 1) {
+      await start(new Date(dayStart.getTime() + index))
+    }
 
     const results = await Promise.allSettled([
       start(new Date(dayStart.getTime() + 1_000)),
@@ -1378,7 +1388,7 @@ describe('StudySession PostgreSQL vertical slice', () => {
       await database.client.studySession.count({
         where: { guestPrincipalId: owner.guestPrincipalId }
       })
-    ).toBe(4)
+    ).toBe(2 + GUEST_DAILY_SESSION_LIMIT)
 
     // The allowance read sees the same count and resets at the next midnight.
     const reader = createPrismaGuestAllowanceReader({
@@ -1397,14 +1407,14 @@ describe('StudySession PostgreSQL vertical slice', () => {
     })
     await expect(
       reader.read({ at, clientIp, guest: null })
-    ).resolves.toMatchObject({ remaining: 2 })
+    ).resolves.toMatchObject({ remaining: GUEST_DAILY_SESSION_LIMIT })
     await expect(
       reader.read({
         at,
         clientIp,
         guest: { ...owner, tokenDigest: 'f'.repeat(64) }
       })
-    ).resolves.toMatchObject({ remaining: 2 })
+    ).resolves.toMatchObject({ remaining: GUEST_DAILY_SESSION_LIMIT })
   })
 
   it('owner scoped GET에서 만료 상태를 영속하고 foreign user는 404다', async () => {

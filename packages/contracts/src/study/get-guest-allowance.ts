@@ -49,7 +49,7 @@ export const guestAllowanceExamples = {
     kind: 'GUEST',
     sessionQuestionCount: GUEST_SESSION_QUESTION_LIMIT,
     dailyLimit: GUEST_DAILY_SESSION_LIMIT,
-    remaining: 2,
+    remaining: GUEST_DAILY_SESSION_LIMIT,
     resetsAt: exampleResetsAt
   },
   one: {

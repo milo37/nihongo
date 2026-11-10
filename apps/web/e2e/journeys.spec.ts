@@ -1054,9 +1054,9 @@ test('guest SSO boundary and authenticated practice transition match the active 
   await guestPrincipal
   await settleJourneyPage(page)
   await expect(
-    page.getByText(/^로그인 없이 하루 2번, 한 번에 5문제씩 풀 수 있어요\./u)
+    page.getByText(/^로그인 없이 하루 3번, 한 번에 10문제씩 풀 수 있어요\./u)
   ).toBeVisible()
-  await expect(page.getByText('오늘 2번 중 2번 남았어요.')).toBeVisible()
+  await expect(page.getByText('오늘 3번 중 3번 남았어요.')).toBeVisible()
   // Locked, not disabled: choosing one explains sign-in (U4 L11).
   const studyMode = await openPracticeModes(page)
   for (const value of ['DAILY_REVIEW']) {
