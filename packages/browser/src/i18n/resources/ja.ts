@@ -454,8 +454,12 @@ export const jaCoreResources = {
     },
     guestToast: {
       login: 'ログイン',
-      bookmark: 'ブックマークはログインすると使えます。',
-      sessionNotKept: '今解いている問題は、ログイン後には続きません。'
+      bookmark: 'ブックマークはログインすると使えます。'
+    },
+    guestCarry: {
+      done: 'さっき間違えた{{formattedCount}}問を間違いノートに集めました。',
+      failed:
+        'さっきの問題を間違いノートに移せませんでした。次に間違えた問題から集まります。'
     },
     reauth: {
       name: '本人確認',

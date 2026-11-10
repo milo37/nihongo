@@ -756,9 +756,7 @@ describe('PracticeSessionPage', () => {
     expect(
       within(toasts).getByText('책갈피는 로그인하면 쓸 수 있어요.')
     ).toBeVisible()
-    expect(
-      within(toasts).getByText('지금 풀던 문제는 로그인 뒤에 이어지지 않아요.')
-    ).toBeVisible()
+    expect(within(toasts).queryByText(/이어지지 않아요/u)).toBeNull()
     expect(bookmark).toHaveAttribute('aria-pressed', 'false')
     expect(screen.queryByRole('link', { name: '로그인 선택' })).toBeNull()
     await user.click(within(toasts).getByRole('button', { name: '로그인' }))

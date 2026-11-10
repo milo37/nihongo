@@ -1,5 +1,6 @@
 import { mutationOptions } from '@tanstack/react-query'
 import { signInSocial } from '@api/auth/signInSocial'
+import { markGuestCarryPending } from '@app/login/guestCarryMarker'
 import type { SignInSocialRequest } from '@api/auth/signInSocial/schema'
 import { AuthFlowError } from '@nihongo/browser/app/login/authFlowErrors'
 import { authQueries } from '@nihongo/browser/app/login/queries/authQueries'
@@ -13,6 +14,7 @@ export const authMutations = {
       networkMode: 'always',
       mutationFn: async (input: SignInSocialRequest) => {
         try {
+          markGuestCarryPending()
           const response = await signInSocial(input)
           if (!__NIHONGO_PRODUCTION_BUILD__ && isMockApiMode) {
             const { completeMockSocialSignIn } = await import(

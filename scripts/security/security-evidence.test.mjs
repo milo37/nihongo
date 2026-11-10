@@ -302,7 +302,7 @@ test('safe Playwright reporter hashes identity and ignores title, errors, output
   })
   const requestLedgerAttachments = createJourneyAttachments('real')
   reporter.onBegin()
-  for (let index = 0; index < 5; index += 1) {
+  for (let index = 0; index < 6; index += 1) {
     reporter.onTestEnd(
       {
         location: {
@@ -339,12 +339,12 @@ test('safe Playwright reporter hashes identity and ignores title, errors, output
     createJourneyAttachmentNames('real').toSorted()
   )
   assert.deepEqual(value.counts, {
-    passed: 5,
+    passed: 6,
     failed: 0,
     skipped: 0,
     timedOut: 0,
     interrupted: 0,
-    total: 5
+    total: 6
   })
   const manifest = await verifyArtifactDirectory({
     directory,
@@ -461,7 +461,7 @@ test('all six safe suites retain exact current counts and approved attachments',
     for (const [suite, count] of [
       ['admin-dashboard', mode === 'real' ? 4 : 1],
       ['accessibility', mode === 'real' ? 4 : 3],
-      ['journey', 5]
+      ['journey', mode === 'real' ? 6 : 5]
     ]) {
       const label = `${suite}-${mode}`
       labels.push(label)
@@ -1237,7 +1237,7 @@ test('real-only browser evidence requires all three exact suites', async () => {
     for (const [suite, count] of [
       ['admin-dashboard', 4],
       ['accessibility', 4],
-      ['journey', 5]
+      ['journey', 6]
     ]) {
       const label = `${suite}-real`
       const reporter = new PlaywrightEvidenceReporter({
@@ -1317,13 +1317,13 @@ test('CI uploads only verified real and Mock browser summaries', async () => {
 
 for (const mode of ['real', 'mock']) {
   test(
-    'journey ' +
-      mode +
-      ' requires all five tests and exact five source ledgers',
+    'journey ' + mode + ' requires all its tests and exact five source ledgers',
     async () => {
       const directory = await mkdtemp(path.join(tmpdir(), 'journey-five-'))
       const label = 'journey-' + mode
-      const makeSummary = (count = 5) => ({
+      // Real adds the guest result move after sign-in (JLP-823).
+      const expectedCount = mode === 'real' ? 6 : 5
+      const makeSummary = (count = expectedCount) => ({
         schemaVersion: 2,
         kind: 'nihongo.playwright-safe-summary',
         label,
@@ -1364,7 +1364,7 @@ for (const mode of ['real', 'mock']) {
       }
       try {
         await assert.doesNotReject(() => verify(makeSummary()))
-        for (const count of [0, 2, 3, 4, 6]) {
+        for (const count of [0, 2, 3, expectedCount - 1, expectedCount + 1]) {
           await assert.rejects(
             () => verify(makeSummary(count)),
             /SECURITY_EVIDENCE_SCHEMA_INVALID/u

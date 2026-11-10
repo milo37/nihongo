@@ -55,7 +55,8 @@ const PLAYWRIGHT_EXPECTED_TEST_COUNTS = {
   'accessibility-mock': 3,
   'accessibility-real': 4,
   'journey-mock': 5,
-  'journey-real': 5
+  // Real only: the guest result move after sign-in (JLP-823).
+  'journey-real': 6
 }
 const ADMIN_LIFECYCLE_LEDGER_CONTRACT = [
   ['POST', '/api/v1/admin/questions/import-validation', 200],

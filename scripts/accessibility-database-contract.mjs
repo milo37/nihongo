@@ -70,7 +70,7 @@ export const accessibilityExpectedTableDeltas = {
   QuestionReport: 0,
   QuestionVersion: 0,
   QuestionVersionTag: 0,
-  RateLimit: 30,
+  RateLimit: 32,
   ReviewEvent: 10,
   ReviewSchedule: 10,
   Session: 2,
@@ -135,7 +135,10 @@ export const accessibilityExpectedRateLimitCategories = {
   'application:auth:/api/auth/callback/google': 2,
   // The learner My page scan reads the account sign-in methods once; the
   // gateway rate-limits every SSO account path as auth:<path> (#735).
-  'application:auth:/api/auth/sso/accounts': 1
+  'application:auth:/api/auth/sso/accounts': 1,
+  // Each Google sign-in then moves the guest's last result once, keyed per
+  // IP (JLP-823); the two actors are two keys.
+  'application:guest-result-import': 2
 }
 
 const sorted = (values) =>

@@ -7,6 +7,7 @@ import { dashboardRoutes } from '@app/dashboard/router'
 import { ForbiddenPage } from '@nihongo/browser/app/forbidden/page'
 import { homeRoutes } from '@app/home/router'
 import { Layout } from '@app/layout'
+import { GuestResultCarry } from '@app/login/components/GuestResultCarry'
 import { AppErrorReportButton } from '@app/question-report/components/AppErrorReportDialog'
 import { loginRoutes } from '@app/login/router'
 import { NotFoundPage } from '@nihongo/browser/app/not-found/page'
@@ -38,6 +39,7 @@ export const appRoutes: RouteObject[] = [
         renderAuthError={(content) => <Layout>{content}</Layout>}
       >
         <AuthErrorHandlerProvider />
+        <GuestResultCarry />
         <Layout />
       </ProtectedRouteProvider>
     ),

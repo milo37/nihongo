@@ -444,9 +444,7 @@ describe('approved general result navigation', () => {
     expect(
       within(toasts).getByText('책갈피는 로그인하면 쓸 수 있어요.')
     ).toBeVisible()
-    expect(
-      within(toasts).getByText('지금 풀던 문제는 로그인 뒤에 이어지지 않아요.')
-    ).toBeVisible()
+    expect(within(toasts).queryByText(/이어지지 않아요/u)).toBeNull()
     expect(bookmark).toHaveAttribute('aria-pressed', 'false')
     expect(router.state.location.pathname).toMatch(/^\/practice\/result\//u)
     expect(
