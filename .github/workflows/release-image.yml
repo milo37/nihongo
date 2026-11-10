@@ -47,18 +47,58 @@ jobs:
           aws ecr get-login-password \
             | docker login --username AWS --password-stdin "${ECR_REPOSITORY_URL%%/*}"
 
-      - name: Build
+      # ECR tags are immutable. A second run of the same SHA (Re-run, or a
+      # manual dispatch after a host-side deploy) keeps the tags that already
+      # exist instead of failing on them, and goes on to Deploy to STAGING.
+      - name: Find tags already in ECR
+        id: existing
         run: |
-          docker build --build-arg RELEASE_ID="$GITHUB_SHA" \
-            --tag "$ECR_REPOSITORY_URL:$GITHUB_SHA" .
-          docker build --target migrate --build-arg RELEASE_ID="$GITHUB_SHA" \
-            --tag "$ECR_REPOSITORY_URL:$GITHUB_SHA-migrate" .
+          repo="${ECR_REPOSITORY_URL#*/}"
+          for kind in migrate runtime; do
+            tag="$GITHUB_SHA"
+            [ "$kind" = migrate ] && tag="$GITHUB_SHA-migrate"
+            if err=$(aws ecr describe-images --repository-name "$repo" \
+                --image-ids "imageTag=$tag" --query 'imageDetails[0].imageDigest' \
+                --output text 2>&1 >/dev/null); then
+              echo "$kind=true" >> "$GITHUB_OUTPUT"
+              echo "::notice::$tag is already in ECR; it is not built or pushed again"
+            elif printf '%s' "$err" | grep -q ImageNotFoundException; then
+              echo "$kind=false" >> "$GITHUB_OUTPUT"
+            else
+              # The repository is public: no AWS error text in the log.
+              echo "::error::could not check $tag in ECR"
+              exit 1
+            fi
+          done
+
+      - name: Build
+        if: steps.existing.outputs.migrate != 'true' || steps.existing.outputs.runtime != 'true'
+        env:
+          HAS_MIGRATE: ${{ steps.existing.outputs.migrate }}
+          HAS_RUNTIME: ${{ steps.existing.outputs.runtime }}
+        run: |
+          if [ "$HAS_RUNTIME" != true ]; then
+            docker build --build-arg RELEASE_ID="$GITHUB_SHA" \
+              --tag "$ECR_REPOSITORY_URL:$GITHUB_SHA" .
+          fi
+          if [ "$HAS_MIGRATE" != true ]; then
+            docker build --target migrate --build-arg RELEASE_ID="$GITHUB_SHA" \
+              --tag "$ECR_REPOSITORY_URL:$GITHUB_SHA-migrate" .
+          fi
 
       # Migrate first: a runtime tag never exists without its migrate image.
       - name: Push
+        if: steps.existing.outputs.migrate != 'true' || steps.existing.outputs.runtime != 'true'
+        env:
+          HAS_MIGRATE: ${{ steps.existing.outputs.migrate }}
+          HAS_RUNTIME: ${{ steps.existing.outputs.runtime }}
         run: |
-          docker push "$ECR_REPOSITORY_URL:$GITHUB_SHA-migrate"
-          docker push "$ECR_REPOSITORY_URL:$GITHUB_SHA"
+          if [ "$HAS_MIGRATE" != true ]; then
+            docker push "$ECR_REPOSITORY_URL:$GITHUB_SHA-migrate"
+          fi
+          if [ "$HAS_RUNTIME" != true ]; then
+            docker push "$ECR_REPOSITORY_URL:$GITHUB_SHA"
+          fi
 
   deploy-staging:
     name: Deploy to STAGING
