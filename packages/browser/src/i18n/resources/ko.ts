@@ -457,7 +457,7 @@ export const koCoreResources = {
     },
     sso: {
       checkingAccount: '계정을 확인하는 중…',
-      openAdminWork: '진행 중인 관리자 작업이 있어 지금은 탈퇴할 수 없어요.',
+      openAdminWork: '관리 작업이 남아 있어서 지금은 탈퇴할 수 없어요.',
       title: '로그인',
       description: 'Google 계정으로 로그인하면 푼 기록이 계속 남아요.',
       guestHint:
@@ -469,7 +469,7 @@ export const koCoreResources = {
       unavailable: '지금은 로그인할 수 없어요. 잠시 뒤에 다시 시도해 주세요.',
       sessionExpired: '로그인이 끝났어요. 다시 로그인해 주세요.',
       migrationIncomplete:
-        '기존 학습 기록을 연결하지 못했어요. 로그인 방법 전환 안내를 확인해 주세요.',
+        '로그인 방법을 불러오지 못했어요. 학습 기록은 그대로 있어요.',
       cancel: '취소',
       recheck: '다시 확인',
       logoutTitle: '로그아웃할까요?',
@@ -489,7 +489,7 @@ export const koCoreResources = {
       deletionComplete: '탈퇴했어요. 그동안 이용해 주셔서 고마워요.',
       unlinked: '연결을 해제했어요.',
       legacyMethod:
-        '로그인 방법이 변경되었어요. 연결한 계정으로 계속해 주세요.',
+        '로그인 방법이 Google로 바뀌었어요. Google 계정으로 계속해 주세요.',
       continueGoogle: 'Google로 계속하기',
       cancelledProvider:
         '{{provider}} 로그인을 취소했어요. 다시 시도하거나 로그인 없이 풀어 볼 수 있어요.',
@@ -693,8 +693,7 @@ export const koCoreResources = {
       },
       supply: {
         canonicalPartial:
-          '{{requested}}문제를 골랐지만 지금 풀 수 있는 문제가 {{actual}}문제라 {{actual}}문제만 나왔어요.',
-        canonicalNoFallback: '서버 권위 세션은 다른 모드로 대체하지 않아요.'
+          '{{requested}}문제를 골랐지만 지금 풀 수 있는 문제가 {{actual}}문제라 {{actual}}문제만 나왔어요.'
       },
       progressLabel: '{{percent}}% 답함',
       question: {
@@ -904,156 +903,7 @@ export const koCoreResources = {
       recentSessions: '최근 학습',
       recentSessionResult: '{{total}}문제 중 {{correct}}개 맞음',
       sessionAccuracy: '정답률 {{rate}}%',
-      noRecentSessions: '최근에 푼 학습이 없어요.',
-      wrongCount: '{{formattedCount}}회 오답'
-    },
-    insights: {
-      loading: '최근 90일 인사이트를 불러오고 있어요…',
-      offlineTitle: '오프라인에서 최근 인사이트를 기다리고 있어요',
-      offlineDescription:
-        '연결되면 최근 90일 학습 인사이트를 자동으로 다시 확인해요.',
-      errorTitle: '학습 인사이트를 불러오지 못했어요',
-      errorDescription:
-        '기존 누적 통계는 그대로 확인할 수 있어요. 최근 90일 분석만 다시 요청해 주세요.',
-      retry: '최근 인사이트 다시 시도',
-      eyebrow: 'LAST 90 DAYS',
-      title: '약점과 다음 학습 추천',
-      window:
-        '{{formattedDays}}일 기록 · 최소 {{formattedAttempts}}회 표본 · {{observedAt}} 기준',
-      ruleBased: '규칙 기반 추천',
-      staleTitle: '최신 인사이트로 갱신하지 못했어요',
-      staleDescription: '현재 화면에는 마지막으로 확인한 결과를 유지해요.',
-      cachedOffline:
-        '오프라인이라 마지막으로 확인한 추천을 표시해요. 연결될 때까지 추천 실행은 잠겨요.',
-      recentAttempts: '최근 풀이',
-      recentAccuracy: '최근 정답률',
-      averageTime: '평균 풀이 시간',
-      dueReview: '복습 예정',
-      repeatedWrong: '반복 오답',
-      questionUnit: '문제',
-      byLevel: '급수별 정답률',
-      chartDescription: '막대와 같은 수치를 아래 표에서도 확인할 수 있어요.',
-      chartLoading: '급수별 정답률 차트를 불러오는 중이에요…',
-      levelTableLabel: '최근 90일 급수별 정답률 상세 표',
-      levelTableTitle: '급수별 상세 수치',
-      subjectTableLabel: '최근 90일 과목별 정답률 상세 표',
-      subjectTableTitle: '과목별 통계',
-      detailsSummary: '유형·태그 세부 통계 보기',
-      detailsLabel: '세부 통계 종류',
-      questionType: '문제 유형',
-      questionTypeTableLabel: '최근 90일 문제 유형별 정답률 상세 표',
-      questionTypeTableTitle: '문제 유형별 통계',
-      tag: '태그',
-      tagTableLabel: '최근 90일 태그별 정답률 상세 표',
-      tagTableTitle: '태그별 통계',
-      noTags: '관측된 태그가 없어요.',
-      tagTruncated:
-        '태그 전체 {{formattedTotal}}개 중 최대 {{formattedLimit}}개를 표시해요.',
-      emptyTitle: '최근 90일 학습 기록이 없어요',
-      emptyDescription:
-        '문제를 풀면 급수·과목·유형·태그별 정확도와 평균 풀이 시간이 표시돼요. 표본이 없는 값은 0%가 아니라 ‘표본 없음’으로 구분해요.',
-      weaknesses: '분석된 약점',
-      count: '{{formattedCount}}개',
-      noWeaknessTitle: '분석 기준을 충족한 약점이 없어요',
-      noWeaknessDescription:
-        '같은 분류에서 최소 {{formattedAttempts}}회 표본이 쌓이고 오답이 있어야 약점으로 표시해요.',
-      recommendations: '다음 학습 추천',
-      actionLoading: '추천 학습 준비 중…',
-      actionAriaLabel: '{{action}}: {{summary}}',
-      table: {
-        caption: '{{title}} 표',
-        category: '구분',
-        attempted: '풀이',
-        correct: '정답',
-        accuracy: '정답률',
-        averageTime: '평균 시간',
-        recent: '최근 학습',
-        attemptCount: '{{formattedCount}}회'
-      },
-      projection: {
-        noSample: '표본 없음',
-        noLearningRecord: '학습 기록 없음',
-        seconds: '{{value}}초',
-        weaknessDetail:
-          '{{attempted}}회 중 {{incorrect}}회 오답 · 정답률 {{accuracy}} · 최근 {{days}}일',
-        weaknessScore: '약점 점수 {{score}}',
-        targetedSummary: '반복 오답 1문제 집중 복습',
-        openSetupSummary: '연습 조건 설정 열기',
-        sessionSummary:
-          '{{mode}} · {{level}} {{subject}} · {{formattedCount}}문제',
-        startMode: '{{mode}} 시작하기',
-        startTargeted: '이 문제만 복습하기',
-        openSetup: '연습 조건 설정 열기',
-        recommendation: {
-          DUE_REVIEW: {
-            title: '오늘 복습부터 시작하세요',
-            reason:
-              '{{level}} {{subject}} 복습 예정 문제가 {{formattedCount}}개 있어요. 가장 이른 예정 시각: {{date}}'
-          },
-          REPEATED_WRONG: {
-            title: '반복해서 틀린 문제를 다시 확인하세요',
-            reasonPrefix: '“',
-            reasonSuffix:
-              '” 문제를 {{formattedCount}}회 틀렸어요. 마지막 오답: {{date}}'
-          },
-          RECENT_LOW_ACCURACY_TYPE: {
-            title: '최근 정확도가 낮은 유형을 연습하세요',
-            reason:
-              '{{level}} {{subject}}의 {{questionType}} 유형에서 {{attempted}}회 중 {{incorrect}}회 틀렸어요(정답률 {{accuracy}}).'
-          },
-          STALE_WEAK_SUBJECT: {
-            title: '오래 쉬었던 약한 과목을 다시 잡아보세요',
-            reason:
-              '{{level}} {{subject}}의 마지막 약점 근거가 {{days}}일 전이에요. {{attempted}}회 중 {{incorrect}}회 틀렸어요.'
-          },
-          TARGET_LEVEL_PRACTICE: {
-            title: '목표 급수의 다음 문제를 풀어 보세요',
-            reason:
-              '{{level}} {{subject}} 문제 {{catalogCount}}개 중 {{nonRecentCount}}개가 최근 3개 세션 밖에 있어 우선 연습할 수 있어요.'
-          },
-          PRACTICE_SETUP_TARGET: {
-            title: '목표 급수를 먼저 설정해 주세요',
-            reason:
-              '목표 급수가 정해지면 현재 공개된 문제 안에서 다음 연습을 추천해요.'
-          },
-          PRACTICE_SETUP_CATALOG: {
-            title: '연습 조건을 다시 선택해 주세요',
-            reason:
-              '현재 목표 급수에 공개된 문제가 없어 다른 급수나 과목을 선택해야 해요.'
-          }
-        },
-        personalization: {
-          NO_PERSONALIZED_EVIDENCE:
-            '개인화 근거가 아직 충분하지 않아 목표 급수의 일반 연습을 함께 추천해요.',
-          TARGET_LEVEL_NOT_SET: '목표 급수가 없어 연습 조건 설정을 안내해요.',
-          NO_TARGET_CATALOG:
-            '현재 목표 급수에 공개된 문제가 없어 연습 조건 설정을 안내해요.'
-        }
-      },
-      actionNotice: {
-        sessionExhausted:
-          '추천 시점 이후 출제 가능한 문제가 없어 이 학습을 시작하지 못했어요. 요청한 모드는 다른 모드로 바꾸지 않았으며 최신 추천을 확인하는 중이에요.',
-        sessionRefreshed:
-          '요청한 모드는 다른 모드로 바꾸지 않았으며 최신 추천을 새로 확인했어요.',
-        sessionRefreshFailed:
-          '요청한 모드는 다른 모드로 바꾸지 않았어요. 최신 추천을 불러오지 못해 이 추천은 잠시 비활성화했어요. 최근 인사이트를 다시 시도해 주세요.',
-        sessionFailed:
-          '추천 학습을 시작하지 못했어요. 다른 모드로 자동 변경하지 않았어요. 같은 추천을 다시 시도해 주세요.',
-        targetedEnded:
-          '이전에 만든 단일 복습 세션이 이미 종료됐어요. 다른 학습으로 바꾸지 않고 최신 추천을 확인하는 중이에요.',
-        targetedEndedRefreshed:
-          '종료된 단일 복습을 다른 학습으로 바꾸지 않고 최신 추천을 새로 확인했어요.',
-        targetedEndedRefreshFailed:
-          '종료된 단일 복습을 다른 학습으로 바꾸지 않았어요. 최신 추천을 불러오지 못해 이 추천은 잠시 비활성화했어요. 최근 인사이트를 다시 시도해 주세요.',
-        targetedUnavailable:
-          '추천한 문제가 더 이상 복습 가능하지 않아요. 다른 학습으로 자동 변경하지 않았으며 최신 추천을 확인하는 중이에요.',
-        targetedRefreshed:
-          '다른 학습으로 자동 변경하지 않았으며 최신 추천을 새로 확인했어요.',
-        targetedRefreshFailed:
-          '다른 학습으로 자동 변경하지 않았어요. 최신 추천을 불러오지 못해 이 추천은 잠시 비활성화했어요. 최근 인사이트를 다시 시도해 주세요.',
-        targetedFailed:
-          '단일 복습을 시작하지 못했어요. 다른 학습으로 자동 변경하지 않았어요. 같은 추천을 다시 시도해 주세요.'
-      }
+      noRecentSessions: '최근에 푼 학습이 없어요.'
     }
   },
   wrongNote: {
@@ -1523,14 +1373,10 @@ export const koCoreResources = {
       retry: '다시 시도',
       loading: '불러오는 중…'
     },
-    recommend: {
-      title: '추천 학습',
-      start: '시작'
-    },
     settings: {
       title: '계정',
       signInMethod: '로그인 방법',
-      connected: 'Google 계정으로 로그인 중',
+      connected: '로그인 중',
       onlyMethod: '유일한 로그인 방법이라 연결을 해제할 수 없어요.',
       logoutDescription: '이 기기에서 로그아웃해요. 학습 기록은 그대로 남아요.'
     },

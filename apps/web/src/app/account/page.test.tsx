@@ -171,9 +171,7 @@ describe('마이페이지 계정 설정', () => {
       screen.queryByRole('button', { name: /Google로 계속하기/u })
     ).not.toBeInTheDocument()
     release()
-    expect(
-      await screen.findByText('Google 계정으로 로그인 중')
-    ).toBeInTheDocument()
+    expect(await screen.findByText('로그인 중')).toBeInTheDocument()
   })
 
   it('목표 급수를 고르면 PUT 한 번 뒤 /me를 다시 읽어 새 급수를 쓴다', async () => {
@@ -272,9 +270,7 @@ describe('마이페이지 계정 설정', () => {
   it('Google 로그인 상태를 보여 주고 해제 버튼과 안내는 두지 않는다 (C2)', async () => {
     mockDatabase.loginAs('USER')
     renderAccount()
-    expect(
-      await screen.findByText('Google 계정으로 로그인 중')
-    ).toBeInTheDocument()
+    expect(await screen.findByText('로그인 중')).toBeInTheDocument()
     // Unlinking is hidden (C2), and so is the note about it.
     expect(
       screen.queryByText('유일한 로그인 방법이라 연결을 해제할 수 없어요.')
@@ -296,7 +292,7 @@ describe('마이페이지 계정 설정', () => {
     )
     const posts = vi.spyOn(apiClient, 'post')
     renderAccount()
-    await screen.findByText('Google 계정으로 로그인 중')
+    await screen.findByText('로그인 중')
     expect(
       screen.queryByRole('button', { name: '연결 해제' })
     ).not.toBeInTheDocument()
@@ -330,7 +326,7 @@ describe('마이페이지 계정 설정', () => {
     const deletion = await screen.findByRole('button', { name: '회원 탈퇴' })
     await waitFor(() => expect(deletion).toBeDisabled())
     expect(deletion).toHaveAccessibleDescription(
-      '진행 중인 관리자 작업이 있어 지금은 탈퇴할 수 없어요.'
+      '관리 작업이 남아 있어서 지금은 탈퇴할 수 없어요.'
     )
     expect(
       screen.getByText(
@@ -349,7 +345,7 @@ describe('마이페이지 계정 설정', () => {
     )
     renderAccount()
     await screen.findByText(
-      '기존 학습 기록을 연결하지 못했어요. 로그인 방법 전환 안내를 확인해 주세요.'
+      '로그인 방법을 불러오지 못했어요. 학습 기록은 그대로 있어요.'
     )
     expect(screen.queryByLabelText(/비밀번호|이메일/)).not.toBeInTheDocument()
   })
@@ -357,9 +353,7 @@ describe('마이페이지 계정 설정', () => {
     writeUiLocalePreference('ja')
     mockDatabase.loginAs('USER')
     renderAccount()
-    expect(
-      await screen.findByText('Googleアカウントでログイン中')
-    ).toBeInTheDocument()
+    expect(await screen.findByText('ログイン中')).toBeInTheDocument()
     expect(
       screen.queryByText('唯一のログイン方法のため、連携を解除できません。')
     ).not.toBeInTheDocument()
@@ -605,7 +599,7 @@ describe('마이페이지 계정 설정', () => {
     mockDatabase.loginAs('USER')
     const posts = vi.spyOn(apiClient, 'post')
     const router = renderAccount('/login?ssoAccountFresh=REAUTHENTICATED')
-    await screen.findByText('Google 계정으로 로그인 중')
+    await screen.findByText('로그인 중')
     await waitFor(() => expect(router.state.location.search).toBe(''))
     expect(router.state.location.pathname).toBe('/account')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -680,7 +674,7 @@ describe('마이페이지 계정 설정', () => {
     const router = renderAccount(
       '/login?reauth=unlink:kakao&ssoAccountFresh=REAUTHENTICATED'
     )
-    await screen.findByText('Google 계정으로 로그인 중')
+    await screen.findByText('로그인 중')
     await waitFor(() => expect(router.state.location.search).toBe(''))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
@@ -688,7 +682,7 @@ describe('마이페이지 계정 설정', () => {
     const actor = mockDatabase.loginAs('USER')
     const posts = vi.spyOn(apiClient, 'post')
     const router = renderAccount()
-    await screen.findByText('Google 계정으로 로그인 중')
+    await screen.findByText('로그인 중')
     queryClient.setQueryData(['bookmarks', 'private'], { owner: actor.id })
     await act(async () => {
       await router.navigate('/login?ssoAccountFresh=CANCELLED')
