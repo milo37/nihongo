@@ -1,4 +1,7 @@
-import { importGuestResultBodySchema } from '@nihongo/contracts/study/import-guest-result'
+import {
+  importGuestResultBodySchema,
+  importGuestResultResponseSchema
+} from '@nihongo/contracts/study/import-guest-result'
 import { deleteCookie, getCookie } from 'hono/cookie'
 import { Hono } from 'hono'
 import { z } from 'zod'
@@ -107,7 +110,7 @@ export const createGuestResultImportRoutes = ({
       })
     }
     context.header('Cache-Control', 'private, no-store')
-    return context.json(response)
+    return context.json(importGuestResultResponseSchema.parse(response))
   })
 
   return routes
