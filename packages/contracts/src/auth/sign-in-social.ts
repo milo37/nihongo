@@ -3,7 +3,9 @@ import {
   getAdminQuestionReportParamsSchema,
   listAdminQuestionReportsQuerySchema
 } from '../admin/content-future.js'
-import { listReviewListQuerySchema } from '../wrong-note/list-review-list.js'
+import { jlptLevelSchema } from '../common/enum.js'
+import { pageRequestSchema } from '../common/pagination.js'
+import type { WrongNoteReviewState } from '../wrong-note/list-review-list.js'
 
 // Contracts intentionally compile with ES-only libs. These local structural
 // types describe the standard Web URL API without adding Node/DOM dependencies
@@ -61,6 +63,21 @@ const FILTER_KEYS = new Set([
 ])
 // The wrong-note list page reads only these (JLP-812 review-list).
 const REVIEW_KEYS = new Set(['state', 'level', 'page'])
+/**
+ * Same states and query as listReviewListQuerySchema, kept here so the login
+ * chunk does not pull in the review-list contract (first-screen budget).
+ * The contract test keeps the two in step.
+ */
+export const ssoReviewListStates = [
+  'TO_REVIEW',
+  'REVIEWED'
+] as const satisfies readonly WrongNoteReviewState[]
+const reviewListReturnQuerySchema = pageRequestSchema
+  .extend({
+    state: z.enum(ssoReviewListStates).default('TO_REVIEW'),
+    level: jlptLevelSchema.optional()
+  })
+  .strict()
 const BUSINESS_PATH =
   /^\/(?:$|dashboard$|bookmarks$|practice(?:\/(?:session|result)\/[A-Za-z0-9-]+)?$|wrong-notes(?:\/(?:history|[A-Za-z0-9-]+))?$|admin\/questions(?:\/[A-Za-z0-9/-]+)?$)/u
 const hasControlOrSpace = (value: string): boolean =>
@@ -112,9 +129,9 @@ const reviewReturnPath = (value: string): string | null => {
     params.delete('status')
   }
   if ([...params.keys()].some((key) => !REVIEW_KEYS.has(key))) return null
-  let query = listReviewListQuerySchema.parse({ pageSize: 20 })
+  let query = reviewListReturnQuerySchema.parse({ pageSize: 20 })
   for (const [key, value] of params) {
-    const candidate = listReviewListQuerySchema.safeParse({
+    const candidate = reviewListReturnQuerySchema.safeParse({
       ...query,
       [key]: value
     })

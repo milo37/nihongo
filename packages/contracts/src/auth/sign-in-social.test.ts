@@ -4,8 +4,10 @@ import {
   isSsoAuthorizationURLForProvider,
   signInSocialRequestSchema,
   signInSocialResponseSchema,
-  ssoCallbackOutcomeSchema
+  ssoCallbackOutcomeSchema,
+  ssoReviewListStates
 } from './sign-in-social.js'
+import { wrongNoteReviewStateSchema } from '../wrong-note/list-review-list.js'
 
 const validURL = () => {
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth')
@@ -19,6 +21,9 @@ const validURL = () => {
 }
 
 describe('agreed SSO transport', () => {
+  it('keeps the wrong-note return states equal to the review-list contract', () => {
+    expect([...ssoReviewListStates]).toEqual(wrongNoteReviewStateSchema.options)
+  })
   it('allows only user-selected Apple and Google and fixed Apple code form_post', () => {
     expect(
       signInSocialRequestSchema.parse({ provider: 'apple' }).provider
