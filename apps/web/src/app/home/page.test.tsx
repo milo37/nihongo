@@ -132,12 +132,18 @@ const renderHome = (initial = '/', memberLine?: ReactElement) =>
   )
 
 it.each([
-  ['ko', '오늘은 N5 문자·어휘 5문제 풀어 볼까요?', '급수', '과목', '바로 풀기'],
+  [
+    'ko',
+    '오늘은 N5 문자·어휘 5문제 풀어 볼까요?',
+    '급수 바꾸기',
+    '과목 바꾸기',
+    '바로 풀기'
+  ],
   [
     'ja',
     '今日は N5 文字・語彙 を 5問解いてみませんか？',
-    'レベル',
-    '科目',
+    'レベルを変える',
+    '科目を変える',
     'すぐに解く'
   ]
 ] as const)(
@@ -150,7 +156,9 @@ it.each([
       screen.getByRole('heading', { level: 1, name: sentence })
     ).toBeVisible()
     expect(
-      screen.getByText(appI18n.t('home:today.guestGreeting'))
+      screen.getByText(
+        appI18n.t('home:today.guestGreeting', { total: 2, count: 5 })
+      )
     ).toBeVisible()
     expect(screen.getByRole('combobox', { name: levelLabel })).toHaveValue('N5')
     expect(screen.getByRole('combobox', { name: subjectLabel })).toHaveValue(
@@ -163,9 +171,11 @@ it.each([
     )
     // Guests keep things only after logging in: one quiet line, no lock.
     expect(
-      screen.getByRole('link', { name: appI18n.t('common:actions.login') })
+      screen.getByRole('link', {
+        name: appI18n.t('home:today.guestMoreAction')
+      })
     ).toHaveAttribute('href', '/login?redirect=%2F')
-    expect(screen.getByText(appI18n.t('home:today.keepLogin'))).toBeVisible()
+    expect(screen.getByText(appI18n.t('home:today.guestMore'))).toBeVisible()
   }
 )
 
@@ -181,16 +191,19 @@ it('starts a member from the last level and subject, changed by the underlined w
   })
   const user = userEvent.setup()
   renderHome('/dashboard?view=learning')
-  expect(screen.getByText('데모님, 오늘도 가볍게')).toBeVisible()
+  expect(screen.getByText('데모님, 왔네요')).toBeVisible()
   expect(
     screen.getByRole('heading', {
       level: 1,
       name: '오늘은 N3 문법 10문제 풀어 볼까요?'
     })
   ).toBeVisible()
-  await user.selectOptions(screen.getByRole('combobox', { name: '급수' }), 'N1')
   await user.selectOptions(
-    screen.getByRole('combobox', { name: '과목' }),
+    screen.getByRole('combobox', { name: '급수 바꾸기' }),
+    'N1'
+  )
+  await user.selectOptions(
+    screen.getByRole('combobox', { name: '과목 바꾸기' }),
     'READING'
   )
   fireEvent.click(screen.getByRole('button', { name: '바로 풀기' }))
@@ -198,28 +211,31 @@ it('starts a member from the last level and subject, changed by the underlined w
     { level: 'N1', subject: 'READING', count: 10, mode: 'RANDOM' },
     expect.anything()
   )
-  expect(screen.queryByText(appI18n.t('home:today.keepLogin'))).toBeNull()
+  expect(screen.queryByText(appI18n.t('home:today.guestMore'))).toBeNull()
 })
 
-it('tells a member how many wrong answers wait, with a link to review', async () => {
+it('tells a member how many wrong answers wait and starts the same review as the wrong-note page', async () => {
   vi.spyOn(reviewListApi, 'listReviewList').mockResolvedValue({
-    counts: { toReview: 4, reviewed: 1 }
+    counts: { toReview: 4, reviewed: 1 },
+    oldestToReview: { level: 'N4', subject: 'GRAMMAR' }
   } as never)
   renderHome('/dashboard?view=learning', <ReviewDueLine />)
-  expect(await screen.findByText('복습할 문제 4개')).toBeVisible()
-  expect(screen.getByRole('link', { name: '복습' })).toHaveAttribute(
-    'href',
-    '/wrong-notes'
+  expect(await screen.findByText('복습할 문제도 4개 남아 있어요')).toBeVisible()
+  fireEvent.click(screen.getByRole('button', { name: '복습' }))
+  expect(mocks.mutate).toHaveBeenCalledWith(
+    { level: 'N4', subject: 'GRAMMAR', mode: 'DAILY_REVIEW', count: 10 },
+    expect.anything()
   )
 })
 
 it('shows nothing about review when no wrong answers wait', async () => {
   const list = vi.spyOn(reviewListApi, 'listReviewList').mockResolvedValue({
-    counts: { toReview: 0, reviewed: 3 }
+    counts: { toReview: 0, reviewed: 3 },
+    oldestToReview: null
   } as never)
   renderHome('/dashboard?view=learning', <ReviewDueLine />)
   await vi.waitFor(() => expect(list).toHaveBeenCalled())
-  expect(screen.queryByRole('link', { name: '복습' })).toBeNull()
+  expect(screen.queryByRole('button', { name: '복습' })).toBeNull()
 })
 
 it('shows the start error in place and allows another try', () => {
@@ -245,7 +261,7 @@ it('announces loading and prevents duplicate start requests', () => {
   fireEvent.click(start)
   expect(mocks.mutate).not.toHaveBeenCalled()
   // The words cannot change while a set is being made.
-  expect(screen.getByRole('combobox', { name: '급수' })).toBeDisabled()
+  expect(screen.getByRole('combobox', { name: '급수 바꾸기' })).toBeDisabled()
 })
 
 it("answers today's question in place, without a record, and keeps it on reopen", async () => {

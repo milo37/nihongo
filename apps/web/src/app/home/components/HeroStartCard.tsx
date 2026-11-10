@@ -9,8 +9,16 @@ import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { usePracticeSetupController } from '@app/practice/hooks/usePracticeSetupController'
 import { levels, subjects } from '@app/practice/practiceSetupOptions'
+import {
+  GUEST_DAILY_SESSION_LIMIT,
+  GUEST_SESSION_QUESTION_LIMIT
+} from '@nihongo/contracts/study/guest-limits'
 import { GuestDailyLimitCard } from '@app/practice/components/GuestDailyLimitCard'
 import { PracticeSetupFeedback } from '@app/practice/components/PracticeSetupFeedback'
+
+const LEVEL_SLOT = '[[level]]'
+const SUBJECT_SLOT = '[[subject]]'
+const BREAK_SLOT = '[[br]]'
 
 const subjectKeys = {
   VOCABULARY: 'subjects.vocabulary.label',
@@ -67,7 +75,6 @@ export const HeroStartCard = ({
   memberLine?: ReactNode
 }): ReactElement => {
   const { t, i18n } = useTranslation('home')
-  const { t: commonT } = useTranslation('common')
   const { user } = useAuth()
   const resumableHeadingRef = useRef<HTMLHeadingElement>(null)
   const setup = usePracticeSetupController(resumableHeadingRef)
@@ -76,26 +83,32 @@ export const HeroStartCard = ({
   const locale = resolveUiLocale(i18n.resolvedLanguage)
   const { isGuest } = setup
   const pickDisabled = !setup.isReady || setup.isCreatingSession
-  // The copy holds <level/>, <subject/> and <br/> where the pickers and the
-  // line break go (no Trans: it would add an HTML parser to the bundle).
-  const sentence = t('today.say', {
-    formattedCount: formatNumber(count, locale)
-  }).split(/(<level\/>|<subject\/>|<br\/>)/u)
+  // The pickers go where {{level}} and {{subject}} are and the line breaks
+  // before the count, after any particle (no Trans: it would add an HTML
+  // parser to the bundle).
+  const sentence = t('today.prompt', {
+    level: LEVEL_SLOT,
+    subject: SUBJECT_SLOT,
+    formattedCount: BREAK_SLOT + formatNumber(count, locale)
+  }).split(/(\[\[level\]\]|\[\[subject\]\]|\[\[br\]\])/u)
   return (
     <div className="home-band-start">
       <p className="home-hello">
         {isGuest
-          ? t('today.guestGreeting')
+          ? t('today.guestGreeting', {
+              total: GUEST_DAILY_SESSION_LIMIT,
+              count: GUEST_SESSION_QUESTION_LIMIT
+            })
           : user?.name
             ? t('today.memberGreeting', { name: user.name })
             : t('today.memberGreetingNoName')}
       </p>
       <h1 className="home-say" tabIndex={-1}>
         {sentence.map((part, index) =>
-          part === '<level/>' ? (
+          part === LEVEL_SLOT ? (
             <PickWord
               key={index}
-              label={t('today.levelLabel')}
+              label={t('today.pickLevel')}
               value={level}
               disabled={pickDisabled}
               options={levels.map((value) => ({ value, label: value }))}
@@ -107,10 +120,10 @@ export const HeroStartCard = ({
                 )
               }
             />
-          ) : part === '<subject/>' ? (
+          ) : part === SUBJECT_SLOT ? (
             <PickWord
               key={index}
-              label={t('today.subjectLabel')}
+              label={t('today.pickSubject')}
               value={subject}
               disabled={pickDisabled}
               options={subjects.map((value) => ({
@@ -125,7 +138,7 @@ export const HeroStartCard = ({
                 )
               }
             />
-          ) : part === '<br/>' ? (
+          ) : part === BREAK_SLOT ? (
             <br key={index} />
           ) : (
             part
@@ -145,7 +158,7 @@ export const HeroStartCard = ({
           loadingLabel={t('approved.loading')}
           onClick={setup.handleStart}
         >
-          {t('today.startMember')}
+          {isGuest ? t('today.startGuest') : t('today.startMember')}
           <Icon name="arrow-right" className="size-5" />
         </Button>
       )}
@@ -159,9 +172,9 @@ export const HeroStartCard = ({
       {isGuest ? (
         <p className="home-more">
           <Icon name="bookmark" className="home-more-icon" />
-          {t('today.keepLogin')}
+          {t('today.guestMore')}
           <Link to={setup.loginHref}>
-            {commonT('actions.login')}
+            {t('today.guestMoreAction')}
             <Icon name="chevron-right" className="size-4" />
           </Link>
         </p>

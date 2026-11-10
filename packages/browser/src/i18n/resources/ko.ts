@@ -339,15 +339,19 @@ export const koCoreResources = {
   },
   home: {
     today: {
-      memberGreeting: '{{name}}님, 오늘도 가볍게',
-      memberGreetingNoName: '오늘도 가볍게',
-      guestGreeting: 'JLPT 문제, 하루 10문제씩 가볍게',
-      say: '오늘은 <level/> <subject/><br/>{{formattedCount}}문제 풀어 볼까요?',
-      levelLabel: '급수',
-      subjectLabel: '과목',
-      dueLabel: '복습할 문제 {{count}}개',
-      dueLink: '복습',
-      keepLogin: '남겨 두고 싶을 때만',
+      memberGreeting: '{{name}}님, 왔네요',
+      memberGreetingNoName: '왔네요',
+      guestGreeting:
+        '로그인 없이 하루 {{total}}번, {{count}}문제씩 풀 수 있어요',
+      dueLabel: '복습할 문제도 {{count}}개 남아 있어요',
+      prompt:
+        '오늘은 {{level}} {{subject}} {{formattedCount}}문제 풀어 볼까요?',
+      pickLevel: '급수 바꾸기',
+      pickSubject: '과목 바꾸기',
+      dueAction: '복습',
+      guestMore: '남겨 두고 싶을 때만',
+      guestMoreAction: '로그인',
+      startGuest: '바로 풀기',
       startMember: '바로 풀기',
       dailyLabel: '오늘의 한 문제',
       dailyMeta: '{{level}} · {{subject}}',
