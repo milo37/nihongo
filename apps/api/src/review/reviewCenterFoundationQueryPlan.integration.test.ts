@@ -18,11 +18,6 @@ import {
   createReviewEventHistoryBatchQuery
 } from '../wrong-note/wrongNoteReviewCenterRepository.js'
 import {
-  createReviewQueueAvailableTagsQuery,
-  createReviewQueueCountsQuery,
-  createReviewQueueItemsQuery
-} from '../wrong-note/wrongNoteReviewQueueRepository.js'
-import {
   createTargetedReviewExistingRecordQuery,
   createTargetedReviewQuestionLockQuery,
   createTargetedReviewWrongNoteLockQuery
@@ -65,9 +60,6 @@ interface ReviewCenterPlans {
   readonly memoRead: ExplainRow[]
   readonly reconciliationEvents: ExplainRow[]
   readonly reconciliationNotes: ExplainRow[]
-  readonly reviewQueueAvailableTags: ExplainRow[]
-  readonly reviewQueueCounts: ExplainRow[]
-  readonly reviewQueueItems: ExplainRow[]
   readonly targetedCleanup: ExplainRow[]
   readonly targetedExistingRecord: ExplainRow[]
   readonly targetedQuestionLock: ExplainRow[]
@@ -828,36 +820,6 @@ describe('Review-center populated query plans', () => {
 
     try {
       await database.client.$transaction(async (transaction) => {
-        const reviewQueueInput = {
-          userId: fixture.targetUserId,
-          view: 'DUE' as const,
-          level: 'N5' as const,
-          subject: 'VOCABULARY' as const,
-          questionType: fixture.questionType,
-          tag: fixture.tag,
-          sort: 'NEXT_REVIEW' as const,
-          page: 1,
-          pageSize: 100,
-          observedAt: new Date(PLAN_NOW.getTime() + 24 * 60 * 60 * 1_000)
-        }
-        const reviewQueueCounts = await transaction.$queryRaw<ExplainRow[]>(
-          Prisma.sql`
-            EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
-            ${createReviewQueueCountsQuery(reviewQueueInput)}
-          `
-        )
-        const reviewQueueAvailableTags = await transaction.$queryRaw<
-          ExplainRow[]
-        >(Prisma.sql`
-            EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
-            ${createReviewQueueAvailableTagsQuery(reviewQueueInput)}
-          `)
-        const reviewQueueItems = await transaction.$queryRaw<ExplainRow[]>(
-          Prisma.sql`
-            EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
-            ${createReviewQueueItemsQuery(reviewQueueInput, 0)}
-          `
-        )
         const memoRead = await transaction.$queryRaw<ExplainRow[]>(Prisma.sql`
           EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
           ${createOwnedMemoReadQuery(fixture.targetUserId, fixture.questionId)}
@@ -1027,9 +989,6 @@ describe('Review-center populated query plans', () => {
           historyCursor,
           reconciliationNotes,
           reconciliationEvents,
-          reviewQueueCounts,
-          reviewQueueAvailableTags,
-          reviewQueueItems,
           targetedCleanup,
           targetedExistingRecord,
           targetedQuestionLock,
@@ -1100,33 +1059,6 @@ describe('Review-center populated query plans', () => {
       expectPlanBuffersAtMost(plan, 512)
     }
     expectRelationExecuted(plans.historyInitial, 'StudyAnswer')
-
-    for (const plan of [
-      plans.reviewQueueCounts,
-      plans.reviewQueueAvailableTags,
-      plans.reviewQueueItems
-    ]) {
-      expectNoSequentialScan(plan, 'WrongNote')
-      expectBoundedRelationRows(plan, 'WrongNote', 128)
-      expectBoundedRelationRows(plan, 'ReviewSchedule', 128)
-      expectPlanBuffersAtMost(plan, 4_096)
-    }
-    expect(readRootPlan(plans.reviewQueueCounts)['Actual Rows']).toBe(1)
-    expect(
-      readRootPlan(plans.reviewQueueItems)['Actual Rows']
-    ).toBeLessThanOrEqual(100)
-    if (!isCurrentSourceIntegration) {
-      expect(readIndexNames(plans.reviewQueueItems)).toContain(
-        'WrongNote_userId_questionId_key'
-      )
-    }
-    if (isCurrentSourceIntegration) {
-      expectRelationExecuted(plans.reviewQueueItems, 'QuestionVersionTag')
-    } else {
-      expect(readIndexNames(plans.reviewQueueItems)).toContain(
-        'QuestionVersionTag_questionVersionId_tagId_key'
-      )
-    }
 
     expect(readIndexNames(plans.reconciliationNotes)).toContain(
       'WrongNote_pkey'

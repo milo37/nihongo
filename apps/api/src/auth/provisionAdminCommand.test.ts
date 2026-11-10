@@ -6,7 +6,6 @@ import { createStudySessionV2ResponseSchema } from '@nihongo/contracts/study/cre
 import { saveStudyDraftAnswersResponseSchema } from '@nihongo/contracts/study/save-study-draft-answers'
 import { studyResultSchema } from '@nihongo/contracts/study/study-result'
 import { createBookmarkResponseSchema } from '@nihongo/contracts/bookmark/create-bookmark'
-import { listReviewQueueResponseSchema } from '@nihongo/contracts/wrong-note/list-review-queue'
 import { createTargetedReviewSessionResponseSchema } from '@nihongo/contracts/wrong-note/create-targeted-review-session'
 import { createApiErrorHandler } from '../app/createApp.js'
 import { createAdminReadGuard } from '../admin/adminReadGuard.js'
@@ -19,7 +18,6 @@ import { createJsonLogger } from '../observability/logger.js'
 import { createStudySessionRoutes } from '../routes/studySessions.js'
 import { createStudyDraftRoutes } from '../routes/studyDrafts.js'
 import { createStudySubmissionRoutes } from '../routes/studySubmissions.js'
-import { createReviewQueueRoutes } from '../routes/reviewQueue.js'
 import { createTargetedReviewSessionRoutes } from '../routes/targetedReviewSessions.js'
 import { createBookmarkRoutes } from '../routes/bookmarks.js'
 import type { PrincipalService } from './principalService.js'
@@ -28,7 +26,6 @@ import type { StudySessionService } from '../study/studySessionService.js'
 import type { StudyDraftService } from '../study/studyDraftService.js'
 import type { StudySubmissionService } from '../study/studySubmissionService.js'
 import type { BookmarkService } from '../bookmark/bookmarkService.js'
-import type { WrongNoteReviewQueueService } from '../wrong-note/wrongNoteReviewQueueService.js'
 import type { WrongNoteTargetedReviewService } from '../wrong-note/wrongNoteTargetedReviewService.js'
 import { unrestrictedAccountReader } from '../account/accountRestriction.js'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -623,7 +620,6 @@ describe('ADMIN learner access and CMS role boundaries', () => {
   const session = createStudySessionV2ResponseSchema.parse(practice.session)
   const draft = saveStudyDraftAnswersResponseSchema.parse(practice.draft)
   const bookmark = createBookmarkResponseSchema.parse(practice.bookmark)
-  const queue = listReviewQueueResponseSchema.parse(review.queue)
   const targeted = createTargetedReviewSessionResponseSchema.parse(
     review.targetedSession
   )
@@ -716,9 +712,6 @@ describe('ADMIN learner access and CMS role boundaries', () => {
       guestProofExpiresAt: null,
       response: result
     })
-    const listReviewQueue = vi
-      .fn<WrongNoteReviewQueueService['listReviewQueue']>()
-      .mockResolvedValue(queue)
     const createTargetedReviewSession = vi
       .fn<WrongNoteTargetedReviewService['createTargetedReviewSession']>()
       .mockResolvedValue({ replayed: false, response: targeted })
@@ -762,13 +755,6 @@ describe('ADMIN learner access and CMS role boundaries', () => {
         ...common,
         guestPrincipalService,
         studySubmissionService: { submit, getResult: unexpected }
-      })
-    )
-    app.route(
-      '/api/v1/review-queue',
-      createReviewQueueRoutes({
-        ...common,
-        reviewQueueService: { listReviewQueue }
       })
     )
     app.route(
@@ -825,7 +811,6 @@ describe('ADMIN learner access and CMS role boundaries', () => {
       create,
       save,
       submit,
-      listReviewQueue,
       createTargetedReviewSession,
       createBookmark,
       guestPrincipalService,
@@ -881,15 +866,6 @@ describe('ADMIN learner access and CMS role boundaries', () => {
       submitBody,
       owner
     )
-    const reviewed = await h.request('GET', '/api/v1/review-queue')
-    expect(reviewed.status).toBe(200)
-    expect(await reviewed.json()).toEqual(queue)
-    expect(h.listReviewQueue).toHaveBeenCalledWith(actorId, {
-      page: 1,
-      pageSize: 20,
-      view: 'DUE',
-      sort: 'NEXT_REVIEW'
-    })
     const targetedReview = await h.request(
       'POST',
       '/api/v1/wrong-notes/' + review.targetedQuestionId + '/review-session',

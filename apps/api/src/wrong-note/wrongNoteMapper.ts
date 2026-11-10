@@ -2,7 +2,6 @@ import type { GetWrongNoteResponse } from '@nihongo/contracts/wrong-note/get-wro
 import {
   compareWrongNoteTagLabels,
   trimWrongNoteTagLabel,
-  type ListWrongNotesResponse,
   type WrongNoteSummary
 } from '@nihongo/contracts/wrong-note/list-wrong-notes'
 import { toPublicPracticeQuestion } from '../question/questionMapper.js'
@@ -106,10 +105,6 @@ const toWrongNoteSummaryFromQuestion = (
   }
 }
 
-export const toWrongNoteSummary = (
-  record: WrongNoteReadRecord
-): WrongNoteSummary => toWrongNoteSummaryFromQuestion(record, record.question)
-
 const toReviewedQuestion = (question: HistoricalReviewedQuestionRecord) => {
   if (question.correctOptionId === null) {
     throw new WrongNoteMapperIntegrityError(
@@ -150,19 +145,3 @@ export const toWrongNoteDetail = (
     currentReviewQuestionVersionId: record.currentReviewQuestionVersionId
   }
 }
-
-export const toListWrongNotesResponse = (
-  records: readonly WrongNoteReadRecord[],
-  availableTagLabels: readonly string[],
-  page: number,
-  pageSize: number,
-  total: number
-): ListWrongNotesResponse => ({
-  items: records.map(toWrongNoteSummary),
-  page,
-  pageSize,
-  total,
-  availableTags: toDistinctSortedTagLabels(
-    availableTagLabels.map((label) => ({ label }))
-  )
-})

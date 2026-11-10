@@ -191,10 +191,6 @@
       "types": "./dist/wrong-note/list-review-list.d.ts",
       "import": "./dist/wrong-note/list-review-list.js"
     },
-    "./wrong-note/list-review-queue": {
-      "types": "./dist/wrong-note/list-review-queue.d.ts",
-      "import": "./dist/wrong-note/list-review-queue.js"
-    },
     "./wrong-note/list-wrong-notes": {
       "types": "./dist/wrong-note/list-wrong-notes.d.ts",
       "import": "./dist/wrong-note/list-wrong-notes.js"
