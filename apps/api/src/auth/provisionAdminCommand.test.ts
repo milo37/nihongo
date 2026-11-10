@@ -7,6 +7,7 @@ import { saveStudyDraftAnswersResponseSchema } from '@nihongo/contracts/study/sa
 import { studyResultSchema } from '@nihongo/contracts/study/study-result'
 import { createBookmarkResponseSchema } from '@nihongo/contracts/bookmark/create-bookmark'
 import { createTargetedReviewSessionResponseSchema } from '@nihongo/contracts/wrong-note/create-targeted-review-session'
+import { listReviewListResponseSchema } from '@nihongo/contracts/wrong-note/list-review-list'
 import { createApiErrorHandler } from '../app/createApp.js'
 import { createAdminReadGuard } from '../admin/adminReadGuard.js'
 import { createAdminCommandGuard } from '../admin/adminCommandGuard.js'
@@ -18,6 +19,7 @@ import { createJsonLogger } from '../observability/logger.js'
 import { createStudySessionRoutes } from '../routes/studySessions.js'
 import { createStudyDraftRoutes } from '../routes/studyDrafts.js'
 import { createStudySubmissionRoutes } from '../routes/studySubmissions.js'
+import { createReviewListRoutes } from '../routes/reviewList.js'
 import { createTargetedReviewSessionRoutes } from '../routes/targetedReviewSessions.js'
 import { createBookmarkRoutes } from '../routes/bookmarks.js'
 import type { PrincipalService } from './principalService.js'
@@ -26,6 +28,7 @@ import type { StudySessionService } from '../study/studySessionService.js'
 import type { StudyDraftService } from '../study/studyDraftService.js'
 import type { StudySubmissionService } from '../study/studySubmissionService.js'
 import type { BookmarkService } from '../bookmark/bookmarkService.js'
+import type { WrongNoteReviewListService } from '../wrong-note/wrongNoteReviewList.js'
 import type { WrongNoteTargetedReviewService } from '../wrong-note/wrongNoteTargetedReviewService.js'
 import { unrestrictedAccountReader } from '../account/accountRestriction.js'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -620,6 +623,16 @@ describe('ADMIN learner access and CMS role boundaries', () => {
   const session = createStudySessionV2ResponseSchema.parse(practice.session)
   const draft = saveStudyDraftAnswersResponseSchema.parse(practice.draft)
   const bookmark = createBookmarkResponseSchema.parse(practice.bookmark)
+  const reviewListPage = listReviewListResponseSchema.parse({
+    items: [],
+    page: 1,
+    pageSize: 20,
+    total: 0,
+    state: 'TO_REVIEW',
+    counts: { toReview: 0, reviewed: 0 },
+    oldestToReview: null,
+    observedAt: '2026-08-22T03:00:00.000Z'
+  })
   const targeted = createTargetedReviewSessionResponseSchema.parse(
     review.targetedSession
   )
@@ -712,6 +725,9 @@ describe('ADMIN learner access and CMS role boundaries', () => {
       guestProofExpiresAt: null,
       response: result
     })
+    const listReviewList = vi
+      .fn<WrongNoteReviewListService['listReviewList']>()
+      .mockResolvedValue(reviewListPage)
     const createTargetedReviewSession = vi
       .fn<WrongNoteTargetedReviewService['createTargetedReviewSession']>()
       .mockResolvedValue({ replayed: false, response: targeted })
@@ -755,6 +771,13 @@ describe('ADMIN learner access and CMS role boundaries', () => {
         ...common,
         guestPrincipalService,
         studySubmissionService: { submit, getResult: unexpected }
+      })
+    )
+    app.route(
+      '/api/v1/review-list',
+      createReviewListRoutes({
+        ...common,
+        reviewListService: { listReviewList }
       })
     )
     app.route(
@@ -811,6 +834,7 @@ describe('ADMIN learner access and CMS role boundaries', () => {
       create,
       save,
       submit,
+      listReviewList,
       createTargetedReviewSession,
       createBookmark,
       guestPrincipalService,
@@ -866,6 +890,14 @@ describe('ADMIN learner access and CMS role boundaries', () => {
       submitBody,
       owner
     )
+    const reviewed = await h.request('GET', '/api/v1/review-list')
+    expect(reviewed.status).toBe(200)
+    expect(await reviewed.json()).toEqual(reviewListPage)
+    expect(h.listReviewList).toHaveBeenCalledWith(actorId, {
+      page: 1,
+      pageSize: 20,
+      state: 'TO_REVIEW'
+    })
     const targetedReview = await h.request(
       'POST',
       '/api/v1/wrong-notes/' + review.targetedQuestionId + '/review-session',
