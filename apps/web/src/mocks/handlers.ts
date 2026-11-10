@@ -13,6 +13,7 @@ import { studySessionHandlers } from '@mocks/handlers/studySessionHandlers'
 import { wrongNoteHandlers } from '@mocks/handlers/wrongNoteHandlers'
 import { wrongNoteV1Handlers } from '@mocks/handlers/wrongNoteV1Handlers'
 import { guestAllowanceHandlers } from '@mocks/handlers/guestAllowanceHandlers'
+import { guestResultImportHandlers } from '@mocks/handlers/guestResultImportHandlers'
 
 export const handlers = [
   ...authHandlers,
@@ -22,6 +23,7 @@ export const handlers = [
   ...studyResultRetryHandlers,
   ...studySessionHandlers,
   ...guestAllowanceHandlers,
+  ...guestResultImportHandlers,
   ...reportHandlers,
   ...reviewCenterHandlers,
   ...wrongNoteV1Handlers,

@@ -166,6 +166,8 @@ describe('현재 Google SSO 로그인', () => {
       expect(router.state.location.search).toBe(
         '?level=N2&subject=GRAMMAR&count=10&resumePage=2'
       )
+      // The first signed-in render asks once to move the guest result.
+      expect(sessionStorage.getItem('harumaru:guest-carry:v1')).toBe('1')
       expect(useAppStore.getState().currentUser).toMatchObject({
         id: DEMO_USER_ID,
         role: 'USER'

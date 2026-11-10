@@ -23,6 +23,7 @@ import {
 } from '@nihongo/browser/libs/storage'
 import { UI_LOCALE_STORAGE_KEY } from '@nihongo/browser/libs/localeStorage'
 import { resetMockSocialSignInForTesting } from '@mocks/handlers/authHandlers'
+import { mockGuestResultImport } from '@mocks/handlers/guestResultImportHandlers'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { resetReportRateLimitForTesting } from '@mocks/handlers/reportHandlers'
 import { resetQuestionReadRateLimitForTesting } from '@mocks/handlers/questionHandlers'
@@ -45,6 +46,7 @@ const resetTestState = async (): Promise<void> => {
   resetMockSocialSignInForTesting()
   mockDatabase.reset()
   mockGuestAllowance.reset({ enforce: false })
+  mockGuestResultImport.reset()
   clearGuestDraftsForTesting()
   useAppStore.setState({
     currentUser: null,

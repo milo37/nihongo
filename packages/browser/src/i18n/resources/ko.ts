@@ -437,8 +437,12 @@ export const koCoreResources = {
     },
     guestToast: {
       login: '로그인',
-      bookmark: '책갈피는 로그인하면 쓸 수 있어요.',
-      sessionNotKept: '지금 풀던 문제는 로그인 뒤에 이어지지 않아요.'
+      bookmark: '책갈피는 로그인하면 쓸 수 있어요.'
+    },
+    guestCarry: {
+      done: '방금 푼 틀린 문제 {{formattedCount}}개를 오답노트에 모았어요.',
+      failed:
+        '방금 푼 문제를 오답노트로 옮기지 못했어요. 다음에 틀린 문제부터 모여요.'
     },
     reauth: {
       name: '본인 확인',
