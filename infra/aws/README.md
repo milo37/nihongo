@@ -51,11 +51,9 @@ aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUT
 
 ## 배포 흐름
 
-1. `main` 병합 → `.github/workflows/release-image.yml`(arm64)이 OIDC 역할로 `ECR:<SHA>`(런타임)와 `ECR:<SHA>-migrate`(Dockerfile `migrate` 단계, Prisma CLI와 migration만)를 push. 저장소 변수 `AWS_DEPLOY_ROLE_ARN`·`ECR_REPOSITORY_URL`·`AWS_REGION`을 넣기 전에는 건너뜁니다.
-2. `aws ssm send-command --document-name harumaru-<env>-deploy --parameters releaseId=<SHA>`
-3. 호스트의 `deploy.sh`: 비밀값 갱신 → 두 이미지 pull → postgres 기동 → `provision-db.sh`(DB 역할 생성·검증) → `migrate.sh`(S3에 `pg_dump` 스냅샷 → `prisma migrate deploy` 1회성 컨테이너) → `register-capability.sh`(빈 DB면 `DatabaseCapability` 등록, 있으면 확인만, 어긋나면 중단) → api 재시작 → `/health/ready`의 `x-release-id` 확인 → 실패하면 직전 이미지로 롤백
+**배포 절차는 [operations/runbooks/deploy.v1.md](../../operations/runbooks/deploy.v1.md) 하나에 있습니다.** 기본은 자동입니다: `main` 병합 → `release-image.yml`이 `ECR:<SHA>`·`ECR:<SHA>-migrate` push → 같은 워크플로의 `Deploy to STAGING`이 OIDC 역할로 `harumaru-staging-deploy`(releaseId=그 SHA) 실행 → `/health/ready` 200 확인. PRODUCTION은 GitHub environment 승인 버튼으로 할 예정입니다(아직 없음). 수동 `send-command`는 그 문서의 부록(비상·학습용)에만 있습니다.
 
-절차·롤백은 [operations/runbooks/production-database.v1.md](../../operations/runbooks/production-database.v1.md)에 있습니다. 태그 적재와 문제 가져오기는 첫 배포 뒤 운영자가 따로 합니다: 첫 관리자 → [question-import.v1.md](../../operations/runbooks/question-import.v1.md)(태그 18 → 250문제 → 일괄 검수 요청·승인·공개, 약 35분).
+호스트의 `deploy.sh`: 비밀값 갱신 → 두 이미지 pull → postgres 기동 → `provision-db.sh`(DB 역할 생성·검증) → `migrate.sh`(S3에 `pg_dump` 스냅샷 → `prisma migrate deploy` 1회성 컨테이너) → `register-capability.sh`(빈 DB면 `DatabaseCapability` 등록, 있으면 확인만, 어긋나면 중단) → api 재시작 → `/health/ready`의 `x-release-id` 확인 → 실패하면 직전 이미지로 롤백. 자세한 내용과 롤백은 [production-database.v1.md](../../operations/runbooks/production-database.v1.md)에 있습니다. 환경을 처음 채울 때만 첫 관리자 → [question-import.v1.md](../../operations/runbooks/question-import.v1.md)(태그 18 → 500문제 → 일괄 검수 요청·승인·공개)를 한 번 합니다.
 
 **로컬 확인:** 빈 DB 첫 배포를 PRODUCTION과 STAGING(#649 뒤) 모두 로컬에서 끝까지 확인했습니다. STAGING도 capability 행은 `PRODUCTION`으로 들어갑니다(런북 'Local rehearsal').
 
@@ -133,5 +131,5 @@ EC2와 백업 버킷은 CloudFront나 IAM으로만 접근됩니다. WAF는 IP별
 
 1. SNS·Budgets·Cost Anomaly 메일 구독 확인
 2. CloudFront 콘솔에서 배포를 **Free 정액 요금제**에 가입(Terraform 미지원). 계정이 AWS Free plan이면 가입할 수 없으므로 유료 전환 뒤에 합니다.
-3. 비밀값 SSM 등록 → Google OAuth 클라이언트에 `output google_oauth_redirect_uri` 등록 → 첫 배포
+3. 비밀값 SSM 등록 → Google OAuth 클라이언트에 `output google_oauth_redirect_uri` 등록 → 첫 배포([deploy.v1.md](../../operations/runbooks/deploy.v1.md): 저장소 변수 2개를 넣으면 다음 `main` 병합부터 자동)
 4. 백업 되살리기 시험: [operations/runbooks/recovery.v1.md](../../operations/runbooks/recovery.v1.md)의 'STAGING 첫 배포 직후' 절

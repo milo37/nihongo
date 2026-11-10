@@ -4,6 +4,10 @@ name: Release image
 # Skipped until the repository variables AWS_DEPLOY_ROLE_ARN (terraform output
 # github_deploy_role_arn), ECR_REPOSITORY_URL and AWS_REGION are set. The role
 # trusts main only (infra/aws/github.tf).
+# Then deploys the same SHA to STAGING through the host's SSM deploy document
+# (the role may send only that document to that one instance) and waits for
+# /health/ready. Skipped until STAGING_INSTANCE_ID (terraform output
+# instance_id) and STAGING_SITE_URL (output site_url) are set as well.
 on:
   push:
     branches: [main]
@@ -55,3 +59,90 @@ jobs:
         run: |
           docker push "$ECR_REPOSITORY_URL:$GITHUB_SHA-migrate"
           docker push "$ECR_REPOSITORY_URL:$GITHUB_SHA"
+
+  deploy-staging:
+    name: Deploy to STAGING
+    needs: publish
+    if: github.ref == 'refs/heads/main' && vars.STAGING_INSTANCE_ID != '' && vars.STAGING_SITE_URL != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # One deploy at a time: a running deploy is never cancelled. GitHub keeps
+    # only the newest waiting run in the group, so a SHA that is still waiting
+    # when a newer merge arrives is cancelled and STAGING goes to the newest.
+    concurrency:
+      group: staging-deploy
+      cancel-in-progress: false
+    env:
+      INSTANCE_ID: ${{ vars.STAGING_INSTANCE_ID }}
+      SITE_URL: ${{ vars.STAGING_SITE_URL }}
+      DEPLOY_DOCUMENT: harumaru-staging-deploy
+    steps:
+      # Re-running an old run must not put STAGING back on an older SHA:
+      # deploy only while this SHA is still the tip of main.
+      - name: Check this SHA is the tip of main
+        id: tip
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tip=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github.sha' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/commits/main")
+          if [ "$tip" = "$GITHUB_SHA" ]; then
+            echo "latest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "latest=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::skipped: $GITHUB_SHA is not the tip of main ($tip); re-run the newest run instead"
+          fi
+
+      - name: Assume the deploy role (OIDC, no stored keys)
+        if: steps.tip.outputs.latest == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # The repository is public: print the status and the known result lines
+      # of deploy.sh only, never the whole command output.
+      - name: Run the deploy document on the host
+        if: steps.tip.outputs.latest == 'true'
+        run: |
+          cid=$(aws ssm send-command --instance-ids "$INSTANCE_ID" \
+            --document-name "$DEPLOY_DOCUMENT" --parameters "releaseId=$GITHUB_SHA" \
+            --comment "release-image $GITHUB_RUN_ID" \
+            --query Command.CommandId --output text)
+          echo "command $cid"
+          deadline=$((SECONDS + 1500))
+          while :; do
+            st=$(aws ssm get-command-invocation --command-id "$cid" --instance-id "$INSTANCE_ID" \
+              --query Status --output text 2>/dev/null || true)
+            case "$st" in
+              Pending|InProgress|Delayed|"") ;;
+              *) break ;;
+            esac
+            if [ "$SECONDS" -ge "$deadline" ]; then echo "::error::deploy still $st after 25 minutes"; exit 1; fi
+            sleep 15
+          done
+          echo "status $st"
+          # One field per call: a text query of both fields joins them with a
+          # tab, which would hide the first stderr line from the filter.
+          for field in StandardOutputContent StandardErrorContent; do
+            aws ssm get-command-invocation --command-id "$cid" --instance-id "$INSTANCE_ID" \
+              --query "$field" --output text
+          done | grep -E '^(deployed [0-9a-f]{40}|refusing: |health check failed|rolled back|another deploy is running|release must be)' || true
+          [ "$st" = Success ] || { echo "::error::deploy $st"; exit 1; }
+
+      - name: Wait for /health/ready 200 with this release
+        if: steps.tip.outputs.latest == 'true'
+        run: |
+          for _ in $(seq 1 30); do
+            : > headers.txt
+            code=$(curl -sS -o /dev/null -D headers.txt -w '%{http_code}' "$SITE_URL/health/ready" || true)
+            release=$(tr -d '\r' < headers.txt | awk 'tolower($1)=="x-release-id:"{print $2}')
+            if [ "$code" = 200 ] && { [ -z "$release" ] || [ "$release" = "$GITHUB_SHA" ]; }; then
+              echo "ready 200 release ${release:-not shown by the edge}"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::$SITE_URL/health/ready gave $code (release ${release:-none})"
+          exit 1
