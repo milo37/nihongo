@@ -31,6 +31,7 @@ export const createResultRetrySessionErrorCodeSchema = z.enum([
   'AUTH_SESSION_EXPIRED',
   'ACCOUNT_RESTRICTED',
   'GUEST_SESSION_EXPIRED',
+  'GUEST_LIMIT_REACHED',
   'INVALID_JSON',
   'INVALID_REQUEST',
   'INVALID_CSRF',

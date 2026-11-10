@@ -464,10 +464,11 @@ describe('study result retry integration', () => {
   it('guest는 RANDOM target만 만들고 foreign owner는 같은 404로 닫는다', async () => {
     const guestOwner = await createGuestOwner()
     const source = await createSubmittedSource(guestOwner, new Set([1]))
+    const retryKey = randomUUID()
     const created = await createStudyResultRetryService(
       retryRepository,
       () => new Date()
-    ).create(source.created.session.id, randomUUID(), guestOwner)
+    ).create(source.created.session.id, retryKey, guestOwner)
     expect(created.response.session).toMatchObject({
       mode: 'RANDOM',
       practiceContractVersion: 2,
@@ -487,6 +488,31 @@ describe('study result retry integration', () => {
       message: '재출제할 학습 결과를 찾을 수 없습니다.',
       retryable: false
     })
+
+    // JLP-823: a guest retry is one of the 3 daily sets. Source, retry and a
+    // second source use all 3, so the next retry is refused; a replay is not.
+    // The first submission renews the guest 1s ahead; stay after it.
+    const secondStartedAt = new Date(Date.now() + 5_000)
+    const second = await createSubmittedSource(
+      guestOwner,
+      new Set([1]),
+      secondStartedAt
+    )
+    await expect(
+      createStudyResultRetryService(
+        retryRepository,
+        () => new Date(secondStartedAt.getTime() + 5_000)
+      ).create(second.created.session.id, randomUUID(), guestOwner)
+    ).rejects.toMatchObject({
+      code: 'GUEST_LIMIT_REACHED',
+      retryable: false,
+      details: { resetsAt: expect.any(String) }
+    })
+    const replayed = await createStudyResultRetryService(
+      retryRepository
+    ).create(source.created.session.id, retryKey, guestOwner)
+    expect(replayed.replayed).toBe(true)
+    expect(replayed.response.session.id).toBe(created.response.session.id)
   })
 
   it('correct-only는 404이고 archived 오답은 partial actualCount로 제외한다', async () => {

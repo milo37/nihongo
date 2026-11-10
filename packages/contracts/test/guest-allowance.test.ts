@@ -12,7 +12,7 @@ describe('guest allowance contract (#737)', () => {
     }
   )
 
-  it.each([-1, 0.5, 3])('rejects remaining %s', (remaining) => {
+  it.each([-1, 0.5, 4])('rejects remaining %s', (remaining) => {
     expect(
       getGuestAllowanceResponseSchema.safeParse({
         ...guestAllowanceExamples.one,

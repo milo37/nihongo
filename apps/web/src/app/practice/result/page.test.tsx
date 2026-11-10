@@ -484,8 +484,8 @@ describe('approved general result navigation', () => {
       )
     ).toBeVisible()
     expect(router.state.location.pathname).toMatch(/^\/practice\/result\//u)
-    // No tries left: no [다음 5문제], the box's login is the way on.
-    expect(screen.queryByRole('button', { name: '다음 5문제' })).toBeNull()
+    // No tries left: no [다음 10문제], the box's login is the way on.
+    expect(screen.queryByRole('button', { name: '다음 10문제' })).toBeNull()
     view.unmount()
     fixture.client.clear()
   })
@@ -889,7 +889,7 @@ describe('approved general result navigation', () => {
     member.client.clear()
   })
 
-  it('게스트 다음에 할 일은 잠긴 다시 풀기(테두리)와 다음 5문제(주) 두 개뿐이다 (빼기 표 10)', async () => {
+  it('게스트 다음에 할 일은 잠긴 다시 풀기(테두리)와 다음 10문제(주) 두 개뿐이다 (빼기 표 10)', async () => {
     const actionsOf = (element: HTMLElement): HTMLElement => {
       const actions = element.closest<HTMLElement>('.study-result-actions')
       if (!actions) throw new Error('결과 동작 영역이 필요합니다.')
@@ -907,12 +907,13 @@ describe('approved general result navigation', () => {
     const guestActions = actionsOf(guestRetry)
     expect(names(guestActions)).toEqual([
       '틀린 문제만 다시 풀기로그인하면 사용',
-      '다음 5문제'
+      '다음 10문제'
     ])
     expect(guestRetry.className).toContain('border-line-interactive')
     expect(guestRetry.className).not.toContain('bg-brand')
     expect(
-      within(guestActions).getByRole('button', { name: '다음 5문제' }).className
+      within(guestActions).getByRole('button', { name: '다음 10문제' })
+        .className
     ).toContain('bg-brand')
     // The lock is a Lucide icon, not an emoji.
     expect(guestRetry.querySelector('svg')).not.toBeNull()

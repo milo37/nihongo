@@ -757,6 +757,9 @@ export const createApiApp = ({
             accountRestrictionReader,
             environment: auth.environment,
             guestPrincipalService: auth.guestPrincipalService,
+            ...(study.guestIpDailyCounter
+              ? { guestIpDailyCounter: study.guestIpDailyCounter }
+              : {}),
             principalService: auth.principalService,
             rateLimiter: study.rateLimiter,
             studyResultRetryService: study.retryService

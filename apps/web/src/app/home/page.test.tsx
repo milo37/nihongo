@@ -134,14 +134,14 @@ const renderHome = (initial = '/', memberLine?: ReactElement) =>
 it.each([
   [
     'ko',
-    '오늘은 N5 문자·어휘 5문제 풀어 볼까요?',
+    '오늘은 N5 문자·어휘 10문제 풀어 볼까요?',
     '급수 바꾸기',
     '과목 바꾸기',
     '바로 풀기'
   ],
   [
     'ja',
-    '今日は N5 文字・語彙 を 5問解いてみませんか？',
+    '今日は N5 文字・語彙 を 10問解いてみませんか？',
     'レベルを変える',
     '科目を変える',
     'すぐに解く'
@@ -157,7 +157,7 @@ it.each([
     ).toBeVisible()
     expect(
       screen.getByText(
-        appI18n.t('home:today.guestGreeting', { total: 2, count: 5 })
+        appI18n.t('home:today.guestGreeting', { total: 3, count: 10 })
       )
     ).toBeVisible()
     expect(screen.getByRole('combobox', { name: levelLabel })).toHaveValue('N5')
@@ -166,7 +166,7 @@ it.each([
     )
     fireEvent.click(screen.getByRole('button', { name: start }))
     expect(mocks.mutate).toHaveBeenCalledWith(
-      { level: 'N5', subject: 'VOCABULARY', count: 5, mode: 'RANDOM' },
+      { level: 'N5', subject: 'VOCABULARY', count: 10, mode: 'RANDOM' },
       expect.anything()
     )
     // Guests keep things only after logging in: one quiet line, no lock.

@@ -1,3 +1,4 @@
+import { GUEST_DAILY_SESSION_LIMIT_PER_IP } from '@nihongo/contracts/study/guest-limits'
 import { Hono, type MiddlewareHandler } from 'hono'
 import { describe, expect, it, vi } from 'vitest'
 import type { AccountRestrictionReader } from '../account/accountRestriction.js'
@@ -13,19 +14,21 @@ import {
 } from '../middleware/requestContext.js'
 import { createJsonLogger } from '../observability/logger.js'
 import type { UserReportService } from '../report/userReportService.js'
+import type { GuestIpDailyCounter } from '../study/guestIpDailyCounter.js'
 import type { StudyResultRetryService } from '../study/studyResultRetryService.js'
 import type { StudySessionService } from '../study/studySessionService.js'
 import type { WrongNoteTargetedReviewService } from '../wrong-note/wrongNoteTargetedReviewService.js'
 import { createStudyResultRetryRoutes } from './studyResultRetries.js'
 import { createStudySessionRoutes } from './studySessions.js'
 import { createTargetedReviewSessionRoutes } from './targetedReviewSessions.js'
+import { GUEST_COOKIE_NAME } from './principal.js'
 import { createUserReportRoutes } from './userReports.js'
 
 const sessionId = '0468c832-f5de-42b5-82be-6a9a511a3098'
 const questionId = '4ed52fae-8952-44df-9ec1-2298c893e061'
 const idempotencyKey = 'fddf0156-6aa7-40d3-9cd4-3371c97b3fc3'
 
-const fixture = () => {
+const fixture = (guestIpDailyCounter?: GuestIpDailyCounter) => {
   const environment = {
     NODE_ENV: 'test',
     AUTH_TRUSTED_PROXY_CIDRS: []
@@ -93,6 +96,7 @@ const fixture = () => {
       accountRestrictionReader,
       environment,
       guestPrincipalService,
+      ...(guestIpDailyCounter ? { guestIpDailyCounter } : {}),
       principalService,
       rateLimiter,
       studyResultRetryService: {
@@ -125,7 +129,7 @@ const fixture = () => {
       } as unknown as UserReportService
     })
   )
-  return { app, isRestricted, reached }
+  return { app, guestPrincipalService, isRestricted, reached }
 }
 
 interface JsonRequest {
@@ -213,7 +217,7 @@ describe('account restriction (#484)', () => {
     expect(reached).toHaveBeenCalledOnce()
   })
 
-  it('asks a guest to sign in before a result retry (#737)', async () => {
+  it('asks a visitor without a guest cookie to sign in before a result retry', async () => {
     const { app, isRestricted, reached } = fixture()
     const [path, init] = requests['result retry session']
     const response = await app.request(path, init)
@@ -224,6 +228,47 @@ describe('account restriction (#484)', () => {
     })
     expect(isRestricted).not.toHaveBeenCalled()
     expect(reached).not.toHaveBeenCalled()
+  })
+
+  it('lets a guest retry a result as one daily set (JLP-823)', async () => {
+    const counter = {
+      used: vi.fn(async () => 0),
+      record: vi.fn(async () => undefined)
+    }
+    const { app, guestPrincipalService, isRestricted, reached } =
+      fixture(counter)
+    const [path, init] = requests['result retry session']
+    const cookie = guestPrincipalService.prepareCredential().cookieValue
+    const response = await app.request(path, {
+      ...init,
+      headers: { ...init.headers, Cookie: `${GUEST_COOKIE_NAME}=${cookie}` }
+    })
+
+    expect(response.status).toBe(202)
+    expect(reached).toHaveBeenCalledOnce()
+    expect(counter.used).toHaveBeenCalledOnce()
+    expect(isRestricted).not.toHaveBeenCalled()
+  })
+
+  it('refuses a guest retry at the hidden per-IP limit (JLP-823)', async () => {
+    const counter = {
+      used: vi.fn(async () => GUEST_DAILY_SESSION_LIMIT_PER_IP),
+      record: vi.fn(async () => undefined)
+    }
+    const { app, guestPrincipalService, reached } = fixture(counter)
+    const [path, init] = requests['result retry session']
+    const cookie = guestPrincipalService.prepareCredential().cookieValue
+    const response = await app.request(path, {
+      ...init,
+      headers: { ...init.headers, Cookie: `${GUEST_COOKIE_NAME}=${cookie}` }
+    })
+
+    expect(await response.json()).toMatchObject({
+      code: 'GUEST_LIMIT_REACHED',
+      details: { resetsAt: expect.any(String) }
+    })
+    expect(reached).not.toHaveBeenCalled()
+    expect(counter.record).not.toHaveBeenCalled()
   })
 
   it('still lets a restricted member read their own reports', async () => {
