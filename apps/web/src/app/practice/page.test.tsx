@@ -136,9 +136,8 @@ it.each([1, 6])(
     ).toBeVisible()
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
     expect(
-      screen.queryByRole('button', {
-        name: appI18n.t('practice:setup.resume.otherAction')
-      })
+      // The old "more" list button is gone (JLP-812).
+      screen.queryByRole('button', { name: /^(더 보기|もっと見る)$/u })
     ).not.toBeInTheDocument()
   }
 )

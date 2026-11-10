@@ -160,7 +160,7 @@ it.each(['ko', 'ja'] as const)(
     ).toHaveAttribute('href', '/account')
     expect(
       within(menu).queryByRole('link', {
-        name: appI18n.t('navigation:adminQuestions')
+        name: appI18n.t('navigation:routes.adminQuestions')
       })
     ).not.toBeInTheDocument()
     await userEvent.keyboard('{End}')
