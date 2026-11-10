@@ -14,13 +14,14 @@
 
 - 결과는 GitHub Actions의 Release image 실행 화면에서 봅니다. 초록이면 STAGING에 그 SHA가 떠 있습니다.
 - 저장소가 공개라 로그에는 상태와 `deploy.sh` 결과 줄(`deployed <SHA>`, `refusing: …`, `health check failed …`, `rolled back …`)만 남습니다.
-- 한 번에 하나만 배포합니다(concurrency `staging-deploy`). 새 SHA는 앞 배포가 끝날 때까지 기다립니다.
+- 한 번에 하나만 배포합니다(concurrency `staging-deploy`). 진행 중인 배포는 끊지 않습니다. 기다리는 배포는 하나만 남아서, 연달아 병합하면 중간 SHA의 배포는 취소되고 STAGING은 가장 새 SHA로 갑니다(의도된 동작).
+- 배포 전에 그 SHA가 지금 `main` 끝인지 확인하고, 아니면 배포를 건너뜁니다(옛 실행을 다시 돌려 STAGING이 옛 SHA로 돌아가는 것을 막음).
 - 서버 안에서 `deploy.sh`가 하는 일(DB 역할 확인 → 배포 전 백업 → migration → capability → API 교체 → health → 실패 시 직전 release로 롤백)은 [production-database.v1.md](production-database.v1.md) "Deploy order"에 있습니다.
 
 ### 실패했을 때
 
 - `Publish` 실패: 이미지가 없으니 서버는 그대로입니다. 팀이 고쳐 다시 main에 올립니다.
-- `Deploy to STAGING` 실패: `deploy.sh`가 직전 release로 되돌리거나(롤백), 새 API를 띄우기 전에 멈춥니다. 로그의 결과 줄을 팀(DevOps)이 보고 고칩니다. 같은 SHA를 다시 배포하려면 Actions에서 그 실행의 **Re-run failed jobs**를 누릅니다(사람 붙여넣기 없음).
+- `Deploy to STAGING` 실패: `deploy.sh`가 직전 release로 되돌리거나(롤백), 새 API를 띄우기 전에 멈춥니다. 로그의 결과 줄을 팀(DevOps)이 보고 고칩니다. 다시 배포하려면 Actions에서 **가장 최신 Release image 실행만** **Re-run failed jobs**를 누릅니다(사람 붙여넣기 없음). 옛 실행을 다시 돌리면 배포 단계는 건너뜁니다.
 - 데이터를 되살려야 할 때만 [recovery.v1.md](recovery.v1.md)를 씁니다.
 
 ## 2. 켜는 조건 (한 번)
@@ -56,7 +57,7 @@
 | 자동 배포 켤 때(1회)     | AWS에 로그인해 STAGING `instance_id`·`site_url` 두 값을 확인해 팀장에게 전달(값은 비밀 아님). 저장소 변수 등록은 팀장이 해도 됩니다. |
 | 인프라가 바뀔 때만       | `terraform plan` 확인 후 `apply`(AWS 로그인·MFA)                                                                                     |
 | 비밀값이 새로 생길 때만  | SSM SecureString 등록(값은 채팅·파일에 남기지 않음)                                                                                  |
-| 환경을 처음 채울 때(1회) | 관리자 Google 계정으로 로그인, 문제 가져오기 화면에서 검수·승인·공개                                                                 |
+| 환경을 처음 채울 때(1회) | 관리자 Google 계정 로그인 1번(팀이 대신 못 할 때만). DB 비우기·문제 검수·승인·공개는 팀이 실행하고 사장님은 승인만 합니다.           |
 | PRODUCTION 전(1회)       | 도메인 구입, AWS 유료 전환, CloudFront 요금제 가입, Google OAuth 주소 등록, 경보 메일 구독 확인                                      |
 | PRODUCTION 배포마다      | Actions의 **Approve** 버튼 1번(구현 뒤)                                                                                              |
 

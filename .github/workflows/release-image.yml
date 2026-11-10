@@ -66,7 +66,9 @@ jobs:
     if: github.ref == 'refs/heads/main' && vars.STAGING_INSTANCE_ID != '' && vars.STAGING_SITE_URL != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    # One deploy at a time; a newer main SHA waits instead of cancelling.
+    # One deploy at a time: a running deploy is never cancelled. GitHub keeps
+    # only the newest waiting run in the group, so a SHA that is still waiting
+    # when a newer merge arrives is cancelled and STAGING goes to the newest.
     concurrency:
       group: staging-deploy
       cancel-in-progress: false
@@ -75,7 +77,25 @@ jobs:
       SITE_URL: ${{ vars.STAGING_SITE_URL }}
       DEPLOY_DOCUMENT: harumaru-staging-deploy
     steps:
+      # Re-running an old run must not put STAGING back on an older SHA:
+      # deploy only while this SHA is still the tip of main.
+      - name: Check this SHA is the tip of main
+        id: tip
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tip=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github.sha' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/commits/main")
+          if [ "$tip" = "$GITHUB_SHA" ]; then
+            echo "latest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "latest=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::skipped: $GITHUB_SHA is not the tip of main ($tip); re-run the newest run instead"
+          fi
+
       - name: Assume the deploy role (OIDC, no stored keys)
+        if: steps.tip.outputs.latest == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
@@ -84,6 +104,7 @@ jobs:
       # The repository is public: print the status and the known result lines
       # of deploy.sh only, never the whole command output.
       - name: Run the deploy document on the host
+        if: steps.tip.outputs.latest == 'true'
         run: |
           cid=$(aws ssm send-command --instance-ids "$INSTANCE_ID" \
             --document-name "$DEPLOY_DOCUMENT" --parameters "releaseId=$GITHUB_SHA" \
@@ -111,6 +132,7 @@ jobs:
           [ "$st" = Success ] || { echo "::error::deploy $st"; exit 1; }
 
       - name: Wait for /health/ready 200 with this release
+        if: steps.tip.outputs.latest == 'true'
         run: |
           for _ in $(seq 1 30); do
             : > headers.txt
