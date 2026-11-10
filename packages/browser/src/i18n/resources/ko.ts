@@ -573,7 +573,8 @@ export const koCoreResources = {
         },
         DAILY_REVIEW: {
           label: '복습할 문제 풀기',
-          description: '복습할 문제를 오래전에 틀린 것부터 10문제 내요.'
+          description: '복습할 문제를 오래전에 틀린 것부터 10문제 내요.',
+          empty: '복습할 문제가 없어요. 다른 방식으로 풀어 보세요.'
         }
       },
       guestResumeHint: '로그인하면 풀다 만 문제를 나중에 이어 풀 수 있어요.',
@@ -1134,7 +1135,17 @@ export const koCoreResources = {
         pagination: '오답노트 쪽'
       }
     },
+    list: {
+      head: {
+        levelSubject: '급수·과목',
+        question: '문제',
+        wrongCount: '틀린 횟수',
+        wrongDate: '틀린 날',
+        reviewedDate: '맞힌 날'
+      }
+    },
     detail: {
+      report: '문제가 이상해요',
       versionChanged: '문제가 고쳐졌어요. 다시 풀면 고친 문제가 나와요.',
       correctAnswer: '정답',
       noAnswer: '안 고름',
@@ -1353,6 +1364,7 @@ export const koCoreResources = {
     title: '마이페이지',
     study: {
       title: '내 학습',
+      recentRowResult: '{{total}}문제 중 {{correct}}개 맞음',
       period: '전체',
       total: '푼 문제',
       totalUnit: '문제',

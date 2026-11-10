@@ -80,6 +80,7 @@ export const TargetedReviewAction = ({
           questionVersionId={data.question.questionVersionId}
           ordinal={1}
           trigger="link"
+          triggerLabel={t('detail.report')}
         />
       ) : null}
     </>

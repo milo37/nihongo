@@ -108,7 +108,14 @@ export const HeroStartCard = ({
             ? t('today.memberGreeting', { name: user.name })
             : t('today.memberGreetingNoName')}
       </p>
-      <h1 className="home-say" tabIndex={-1}>
+      <h1
+        className={
+          setup.isGuestDailyLimitReached
+            ? 'home-say home-say-limit'
+            : 'home-say'
+        }
+        tabIndex={-1}
+      >
         {sentence.map((part, index) =>
           part === LEVEL_SLOT ? (
             <PickWord

@@ -308,7 +308,7 @@ describe('wrong-note restricted account', () => {
     const { principal } = await renderReadonlyDetail()
     if (!principal) throw new Error('Signed-in principal required')
     mockDatabase.setAccountRestricted(principal.id, true)
-    await user.click(screen.getByRole('button', { name: '문제 신고' }))
+    await user.click(screen.getByRole('button', { name: '문제가 이상해요' }))
     const dialog = await screen.findByRole('dialog')
     await user.type(
       within(dialog).getByRole('textbox', { name: /어디가 이상한가요/u }),
@@ -333,7 +333,7 @@ describe('wrong-note question report', () => {
     const user = userEvent.setup()
     const track = vi.spyOn(analyticsClient, 'track')
     const { question, detail } = await renderReadonlyDetail()
-    await user.click(screen.getByRole('button', { name: '문제 신고' }))
+    await user.click(screen.getByRole('button', { name: '문제가 이상해요' }))
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).queryByRole('combobox')).toBeNull()
     await user.type(

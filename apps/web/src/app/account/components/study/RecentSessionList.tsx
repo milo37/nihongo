@@ -46,7 +46,10 @@ export const RecentSessionList = ({
                 </span>
                 <span className="shrink-0 text-right">
                   <span className="block text-sm font-semibold tabular-nums">
-                    {session.correctCount} / {session.totalCount}
+                    {t('study.recentRowResult', {
+                      total: session.totalCount,
+                      correct: session.correctCount
+                    })}
                   </span>
                   <span className="block text-caption text-muted tabular-nums">
                     {Math.round(session.correctRate)}%

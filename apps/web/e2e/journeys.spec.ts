@@ -453,7 +453,12 @@ const loginThroughUi = async (page: Page): Promise<void> => {
     '/api/auth/sign-in/social'
   )
   const providerURL = /^https:\/\/accounts\.google\.com\//u
-  if (mode === 'real') await page.route(providerURL, (route) => route.abort())
+  // Answer the provider with a blank page: an aborted navigation lands on
+  // Chromium's error page late enough to interrupt the callback below.
+  if (mode === 'real')
+    await page.route(providerURL, (route) =>
+      route.fulfill({ contentType: 'text/html', body: '<!doctype html>' })
+    )
   try {
     const completeSignIn = async (): Promise<void> => {
       if (mode === 'mock') {
@@ -488,6 +493,7 @@ const loginThroughUi = async (page: Page): Promise<void> => {
         ).toBe(true)
         const state = new URL(redirected.url()).searchParams.get('state')
         if (!state) throw new Error('Google TEST authorization omitted state.')
+        await page.waitForURL(providerURL)
         await page.goto(
           `/api/auth/callback/google?${new URLSearchParams({ state, code: 'sso-browser-test-code' })}`
         )

@@ -469,6 +469,33 @@
   font-size: 15px;
 }
 
+/* "문자·어휘" stays on one line even at 320 (design, JLP-804). */
+.choice-subjects .choice-label {
+  white-space: nowrap;
+}
+.choice-subjects .choice-label svg {
+  flex-shrink: 0;
+}
+/* "文字・語彙" plus its icon needs about 94px; a 320 chip has 78 (E12). */
+@media (max-width: 360px) {
+  .choice-subjects .choice-surface:lang(ja) {
+    padding-inline: 2px;
+  }
+  .choice-subjects .choice-label:lang(ja) {
+    gap: 3px;
+    font-size: 12px;
+  }
+  .choice-subjects .choice-label:lang(ja) svg {
+    width: 16px;
+    height: 16px;
+  }
+  /* "間違いノート" and "ブックマーク" stay on one line (E13). */
+  .app-mobile-navigation .app-nav-link:lang(ja) {
+    padding-inline: 2px;
+    font-size: 11px;
+  }
+}
+
 .choice-label {
   display: inline-flex;
   align-items: center;
@@ -683,6 +710,9 @@
   margin: 0;
   font-size: 18px;
   font-weight: 700;
+}
+.practice-guest-limit p:lang(ja) {
+  word-break: auto-phrase;
 }
 .practice-guest-limit p {
   margin: 8px 0 20px;
@@ -1508,6 +1538,7 @@
 
 /* Guest body copy: keep Korean words intact (designer E6, JLP-823). */
 .auth-description:lang(ko),
+.guest-gate :is(h1, h2):lang(ko),
 .practice-guest-hint:lang(ko) {
   word-break: keep-all;
   overflow-wrap: anywhere;

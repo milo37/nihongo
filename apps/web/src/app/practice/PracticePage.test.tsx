@@ -353,7 +353,7 @@ describe('PracticePage setup', () => {
     await user.click(start)
     expect(
       await screen.findByText(
-        "지금 조건으로는 '복습할 문제 풀기'에서 풀 수 있는 문제가 없어요."
+        '복습할 문제가 없어요. 다른 방식으로 풀어 보세요.'
       )
     ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '랜덤으로 바꾸기' }))
@@ -363,9 +363,7 @@ describe('PracticePage setup', () => {
       ).toBeNull()
     )
     expect(
-      screen.queryByText(
-        "지금 조건으로는 '복습할 문제 풀기'에서 풀 수 있는 문제가 없어요."
-      )
+      screen.queryByText('복습할 문제가 없어요. 다른 방식으로 풀어 보세요.')
     ).not.toBeInTheDocument()
   })
 
