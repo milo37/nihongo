@@ -3,7 +3,7 @@ import {
   getAdminQuestionReportParamsSchema,
   listAdminQuestionReportsQuerySchema
 } from '../admin/content-future.js'
-import { listReviewQueueQuerySchema } from '../wrong-note/list-review-queue.js'
+import { listReviewListQuerySchema } from '../wrong-note/list-review-list.js'
 
 // Contracts intentionally compile with ES-only libs. These local structural
 // types describe the standard Web URL API without adding Node/DOM dependencies
@@ -39,6 +39,7 @@ export const ssoCallbackOutcomeSchema = z.enum([
 ])
 
 const FILTER_KEYS = new Set([
+  'state',
   'level',
   'subject',
   'type',
@@ -58,15 +59,8 @@ const FILTER_KEYS = new Set([
   'question',
   'returnTo'
 ])
-const REVIEW_KEYS = new Set([
-  'view',
-  'level',
-  'subject',
-  'questionType',
-  'tag',
-  'sort',
-  'page'
-])
+// The wrong-note list page reads only these (JLP-812 review-list).
+const REVIEW_KEYS = new Set(['state', 'level', 'page'])
 const BUSINESS_PATH =
   /^\/(?:$|dashboard$|bookmarks$|practice(?:\/(?:session|result)\/[A-Za-z0-9-]+)?$|wrong-notes(?:\/(?:history|[A-Za-z0-9-]+))?$|admin\/questions(?:\/[A-Za-z0-9/-]+)?$)/u
 const hasControlOrSpace = (value: string): boolean =>
@@ -113,28 +107,22 @@ const reviewReturnPath = (value: string): string | null => {
     return null
   const params = new URLSearchParams(url.search)
   if (url.pathname === '/wrong-notes/history') {
-    const status = params.get('status')
-    if (status === 'SOLVED') params.set('view', 'SOLVED')
-    else if (status === 'NEW') params.set('view', 'UNREVIEWED')
-    else if (status === 'AGAIN') params.set('view', 'REPEATED')
+    // Old history links: answered-right notes are now the REVIEWED list.
+    if (params.get('status') === 'SOLVED') params.set('state', 'REVIEWED')
     params.delete('status')
   }
   if ([...params.keys()].some((key) => !REVIEW_KEYS.has(key))) return null
-  let query = listReviewQueueQuerySchema.parse({ pageSize: 20 })
+  let query = listReviewListQuerySchema.parse({ pageSize: 20 })
   for (const [key, value] of params) {
-    const candidate = listReviewQueueQuerySchema.safeParse({
+    const candidate = listReviewListQuerySchema.safeParse({
       ...query,
       [key]: value
     })
     if (candidate.success) query = candidate.data
   }
   const canonical = new URLSearchParams()
-  if (query.view !== 'DUE') canonical.set('view', query.view)
+  if (query.state !== 'TO_REVIEW') canonical.set('state', query.state)
   if (query.level) canonical.set('level', query.level)
-  if (query.subject) canonical.set('subject', query.subject)
-  if (query.questionType) canonical.set('questionType', query.questionType)
-  if (query.tag) canonical.set('tag', query.tag)
-  if (query.sort !== 'NEXT_REVIEW') canonical.set('sort', query.sort)
   if (query.page !== 1) canonical.set('page', String(query.page))
   const search = canonical.toString()
   return `/wrong-notes${search ? `?${search}` : ''}`

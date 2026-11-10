@@ -440,8 +440,8 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
 
   it(
     isCurrentSourceIntegration
-      ? '비인가 Tag rename을 42501로 거부하고 exact historical tag filter와 owner isolation을 유지한다'
-      : 'exact tag filter는 Tag rename 뒤 새 이름을 따르고 owner isolation을 유지한다',
+      ? '비인가 Tag rename을 42501로 거부한다'
+      : 'legacy 권한에서는 Tag rename이 된다',
     async () => {
       const target = await database.client.wrongNote.findFirstOrThrow({
         where: { userId: ownerUserId },
@@ -495,73 +495,19 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
           data: { label: renamedLabel, normalizedName: renamedLabel }
         })
       }
-
-      // JLP-733: tag names are read from the live Tag, so a rename applies
-      // to history too.
-      const filterLabel = isCurrentSourceIntegration
-        ? historicalTag.tag.label
-        : renamedLabel
-      const exact = await wrongNoteService.listWrongNotes(ownerUserId, {
-        page: 1,
-        pageSize: 100,
-        sort: 'RECENT',
-        tag: filterLabel
-      })
-      const different = await wrongNoteService.listWrongNotes(ownerUserId, {
-        page: 1,
-        pageSize: 100,
-        sort: 'RECENT',
-        tag: `${filterLabel}-different`
-      })
-      const outsider = await wrongNoteService.listWrongNotes(outsiderUserId, {
-        page: 1,
-        pageSize: 100,
-        sort: 'RECENT',
-        tag: filterLabel
-      })
-
-      expect(
-        exact.items.some(({ questionId }) => questionId === target.questionId)
-      ).toBe(true)
-      expect(exact.availableTags).toContain(filterLabel)
-      expect(exact.availableTags).not.toContain(
-        isCurrentSourceIntegration ? renamedLabel : historicalTag.tag.label
-      )
-      expect(different.total).toBe(0)
-      expect(outsider.total).toBe(0)
-      expect(outsider.availableTags).toEqual([])
     }
   )
 
   it(
     isCurrentSourceIntegration
-      ? 'list pagination/sorts와 archive 거부 뒤 historical detail은 lastWrong version을 유지한다'
-      : 'list pagination/sorts와 archived historical detail은 lastWrong version을 유지한다',
+      ? 'archive 거부 뒤 historical detail은 lastWrong version을 유지한다'
+      : 'archived historical detail은 lastWrong version을 유지한다',
     async () => {
-      const mostWrong = await wrongNoteService.listWrongNotes(ownerUserId, {
-        page: 1,
-        pageSize: 1,
-        sort: 'MOST_WRONG'
+      const target = await database.client.wrongNote.findFirstOrThrow({
+        where: { userId: ownerUserId },
+        orderBy: [{ wrongCount: 'desc' }, { id: 'asc' }],
+        select: { questionId: true }
       })
-      const recent = await wrongNoteService.listWrongNotes(ownerUserId, {
-        page: 1,
-        pageSize: 100,
-        sort: 'RECENT'
-      })
-      const oldest = await wrongNoteService.listWrongNotes(ownerUserId, {
-        page: 1,
-        pageSize: 100,
-        sort: 'OLDEST'
-      })
-      const beyondLast = await wrongNoteService.listWrongNotes(ownerUserId, {
-        page: Number.MAX_SAFE_INTEGER,
-        pageSize: 100,
-        sort: 'RECENT'
-      })
-      const target = mostWrong.items[0]
-      if (!target) {
-        throw new Error('WrongNote fixture is required.')
-      }
       const targetWrongNote = await database.client.wrongNote.findUniqueOrThrow(
         {
           where: {
@@ -581,36 +527,6 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
           createdAt: memoObservedAt,
           updatedAt: memoObservedAt
         }
-      })
-      const listWithMemoFact = await wrongNoteService.listWrongNotes(
-        ownerUserId,
-        {
-          page: 1,
-          pageSize: 100,
-          sort: 'RECENT'
-        }
-      )
-      expect(mostWrong.items).toHaveLength(1)
-      expect(mostWrong.total).toBeGreaterThan(1)
-      expect(recent.items.map(({ lastWrongAt }) => lastWrongAt)).toEqual(
-        recent.items
-          .map(({ lastWrongAt }) => lastWrongAt)
-          .toSorted()
-          .toReversed()
-      )
-      expect(recent.items.every(({ hasMemo }) => hasMemo === false)).toBe(true)
-      expect(
-        listWithMemoFact.items.find(
-          ({ questionId }) => questionId === target.questionId
-        )?.hasMemo
-      ).toBe(false)
-      expect(oldest.items.map(({ lastWrongAt }) => lastWrongAt)).toEqual(
-        oldest.items.map(({ lastWrongAt }) => lastWrongAt).toSorted()
-      )
-      expect(beyondLast).toMatchObject({
-        items: [],
-        total: recent.total,
-        availableTags: recent.availableTags
       })
 
       let expectedReviewAvailability: 'ARCHIVED' | 'AVAILABLE'

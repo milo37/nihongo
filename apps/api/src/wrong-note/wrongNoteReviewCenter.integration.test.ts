@@ -8,10 +8,6 @@ import {
   type ReviewEventHistoryItem
 } from '@nihongo/contracts/wrong-note/list-review-events'
 import {
-  listReviewQueueQuerySchema,
-  listReviewQueueResponseSchema
-} from '@nihongo/contracts/wrong-note/list-review-queue'
-import {
   listReviewListQuerySchema,
   listReviewListResponseSchema
 } from '@nihongo/contracts/wrong-note/list-review-list'
@@ -39,8 +35,6 @@ import {
   createPrismaWrongNoteReviewListRepository,
   createWrongNoteReviewListService
 } from './wrongNoteReviewList.js'
-import { createPrismaWrongNoteReviewQueueRepository } from './wrongNoteReviewQueueRepository.js'
-import { createWrongNoteReviewQueueService } from './wrongNoteReviewQueueService.js'
 import { createPrismaWrongNoteTargetedReviewRepository } from './wrongNoteTargetedReviewRepository.js'
 import { createWrongNoteTargetedReviewService } from './wrongNoteTargetedReviewService.js'
 import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
@@ -643,56 +637,8 @@ afterAll(async () => {
 })
 
 describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
-  it('fixed snapshot queue와 filtered DAILY가 due 경계에서 같은 current question 순서를 고정한다', async () => {
+  it('review-list 2가지 상태와 filtered DAILY가 같은 current question을 고정한다', async () => {
     const dueAt = new Date(SUBMITTED_AT.getTime() + DAY_MILLISECONDS)
-    const queueQuery = listReviewQueueQuerySchema.parse({
-      view: 'DUE',
-      level: 'N5',
-      subject: 'VOCABULARY',
-      sort: 'NEXT_REVIEW',
-      page: 1,
-      pageSize: 100
-    })
-    const futureQueueService = createWrongNoteReviewQueueService(
-      createPrismaWrongNoteReviewQueueRepository(database.client),
-      () => SUBMITTED_AT
-    )
-    const beforeDue = listReviewQueueResponseSchema.parse(
-      await futureQueueService.listReviewQueue(fixture.userId, queueQuery)
-    )
-    expect(beforeDue).toMatchObject({
-      items: [],
-      total: 0,
-      counts: { due: 0, unreviewed: 1, repeated: 0, solved: 0 },
-      observedAt: SUBMITTED_AT.toISOString()
-    })
-
-    const queueService = createWrongNoteReviewQueueService(
-      createPrismaWrongNoteReviewQueueRepository(database.client),
-      () => dueAt
-    )
-    const due = listReviewQueueResponseSchema.parse(
-      await queueService.listReviewQueue(fixture.userId, queueQuery)
-    )
-    assertNoReviewCenterForbiddenKeys('QUEUE', due)
-    expect(due).toMatchObject({
-      total: 1,
-      counts: { due: 1, unreviewed: 1, repeated: 0, solved: 0 },
-      observedAt: dueAt.toISOString()
-    })
-    expect(due.items).toHaveLength(1)
-    const queueItem = due.items[0]
-    if (!queueItem) {
-      throw new Error('due review queue item이 필요합니다.')
-    }
-    expect(queueItem).toMatchObject({
-      questionId: fixture.questionId,
-      currentQuestionVersionId: fixture.questionVersionId,
-      status: 'NEW',
-      nextReviewAt: dueAt.toISOString(),
-      hasMemo: false
-    })
-
     // JLP-812: the same note in two states, before its schedule is due.
     const reviewList = createWrongNoteReviewListService(
       createPrismaWrongNoteReviewListRepository(database.client)
@@ -777,52 +723,6 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
       }
     ])
 
-    const beyondLast = listReviewQueueResponseSchema.parse(
-      await queueService.listReviewQueue(
-        fixture.userId,
-        listReviewQueueQuerySchema.parse({
-          ...queueQuery,
-          page: Number.MAX_SAFE_INTEGER
-        })
-      )
-    )
-    expect(beyondLast).toMatchObject({ items: [], total: 1 })
-
-    let mutationCount = 0
-    const snapshotRepository = createPrismaWrongNoteReviewQueueRepository(
-      database.client,
-      {
-        afterCountsLoaded: async () => {
-          mutationCount += 1
-          await database.client.userMemo.create({
-            data: {
-              id: randomUUID(),
-              wrongNoteId: fixture.wrongNoteId,
-              text: 'snapshot writer',
-              createdAt: dueAt,
-              updatedAt: dueAt
-            }
-          })
-        }
-      }
-    )
-    const snapshotQueueService = createWrongNoteReviewQueueService(
-      snapshotRepository,
-      () => dueAt
-    )
-    const sameSnapshot = listReviewQueueResponseSchema.parse(
-      await snapshotQueueService.listReviewQueue(fixture.userId, queueQuery)
-    )
-    expect(mutationCount).toBe(1)
-    expect(sameSnapshot.items[0]?.hasMemo).toBe(false)
-    const refreshed = listReviewQueueResponseSchema.parse(
-      await queueService.listReviewQueue(fixture.userId, queueQuery)
-    )
-    expect(refreshed.items[0]?.hasMemo).toBe(true)
-    await database.client.userMemo.delete({
-      where: { wrongNoteId: fixture.wrongNoteId }
-    })
-
     const originalQuestion = await database.client.question.findUniqueOrThrow({
       where: { id: fixture.questionId },
       select: {
@@ -834,66 +734,40 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
       }
     })
     try {
-      const unreviewed = listReviewQueueResponseSchema.parse(
-        await queueService.listReviewQueue(
-          fixture.userId,
-          listReviewQueueQuerySchema.parse({
-            ...queueQuery,
-            view: 'UNREVIEWED'
-          })
-        )
-      )
-      expect(unreviewed).toMatchObject({ total: 1 })
-
       await setQueueFixtureState(fixture, {
         kind: 'AGAIN',
         occurredAt: dueAt
       })
-      const repeatedQueueService = createWrongNoteReviewQueueService(
-        createPrismaWrongNoteReviewQueueRepository(database.client),
-        () => new Date(dueAt.getTime() + DAY_MILLISECONDS)
-      )
-      const repeated = listReviewQueueResponseSchema.parse(
-        await repeatedQueueService.listReviewQueue(
-          fixture.userId,
-          listReviewQueueQuerySchema.parse({
-            ...queueQuery,
-            view: 'REPEATED'
-          })
+      expect(
+        listReviewListResponseSchema.parse(
+          await reviewList.listReviewList(
+            fixture.userId,
+            listReviewListQuerySchema.parse({ level: 'N5' })
+          )
         )
-      )
-      expect(repeated).toMatchObject({
+      ).toMatchObject({
         total: 1,
-        counts: { due: 1, unreviewed: 0, repeated: 1, solved: 0 },
-        items: [{ status: 'AGAIN' }]
+        counts: { toReview: 1, reviewed: 0 },
+        items: [{ reviewState: 'TO_REVIEW', wrongCount: 2 }]
       })
 
       await setQueueFixtureState(fixture, {
         kind: 'SOLVED',
         occurredAt: dueAt
       })
-      const solvedQueueService = createWrongNoteReviewQueueService(
-        createPrismaWrongNoteReviewQueueRepository(database.client),
-        () => new Date(dueAt.getTime() + 7 * DAY_MILLISECONDS)
-      )
-      const dueSolved = listReviewQueueResponseSchema.parse(
-        await solvedQueueService.listReviewQueue(fixture.userId, queueQuery)
-      )
-      const solved = listReviewQueueResponseSchema.parse(
-        await solvedQueueService.listReviewQueue(
-          fixture.userId,
-          listReviewQueueQuerySchema.parse({
-            ...queueQuery,
-            view: 'SOLVED'
-          })
-        )
-      )
-      expect(dueSolved).toMatchObject({
-        total: 1,
-        counts: { due: 1, unreviewed: 0, repeated: 1, solved: 1 },
-        items: [{ status: 'SOLVED' }]
+      const reviewedQuery = listReviewListQuerySchema.parse({
+        state: 'REVIEWED',
+        level: 'N5'
       })
-      expect(solved).toMatchObject({ total: 1, items: [{ status: 'SOLVED' }] })
+      expect(
+        listReviewListResponseSchema.parse(
+          await reviewList.listReviewList(fixture.userId, reviewedQuery)
+        )
+      ).toMatchObject({
+        total: 1,
+        counts: { toReview: 0, reviewed: 1 },
+        items: [{ reviewState: 'REVIEWED' }]
+      })
 
       const archiveTime = new Date(dueAt.getTime() + 1_000)
       if (isCurrentSourceIntegration) {
@@ -937,20 +811,20 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
           }
         })
       }
-      const archived = listReviewQueueResponseSchema.parse(
-        await solvedQueueService.listReviewQueue(fixture.userId, queueQuery)
+      const archived = listReviewListResponseSchema.parse(
+        await reviewList.listReviewList(fixture.userId, reviewedQuery)
       )
       expect(archived).toMatchObject(
         isCurrentSourceIntegration
           ? {
               total: 1,
-              counts: { due: 1, unreviewed: 0, repeated: 1, solved: 1 },
-              items: [{ status: 'SOLVED' }]
+              counts: { toReview: 0, reviewed: 1 },
+              items: [{ reviewState: 'REVIEWED' }]
             }
           : {
               items: [],
               total: 0,
-              counts: { due: 0, unreviewed: 0, repeated: 0, solved: 0 }
+              counts: { toReview: 0, reviewed: 0 }
             }
       )
     } finally {
@@ -985,21 +859,6 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
           'current-version parity fixture의 canonical tag가 필요합니다.'
         )
       }
-      const filteredQuery = listReviewQueueQuerySchema.parse({
-        ...queueQuery,
-        questionType: currentVersion.questionType,
-        tag: currentTag
-      })
-      const currentQueue = listReviewQueueResponseSchema.parse(
-        await queueService.listReviewQueue(fixture.userId, filteredQuery)
-      )
-      expect(currentQueue.items).toEqual([
-        expect.objectContaining({
-          questionId: fixture.questionId,
-          currentQuestionVersionId: currentVersion.id,
-          tags: expect.arrayContaining([currentTag])
-        })
-      ])
       expect(
         await database.client.wrongNote.findUniqueOrThrow({
           where: { id: fixture.wrongNoteId },
@@ -1034,7 +893,7 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
         )
         expect(session.session).toMatchObject({
           mode,
-          actualCount: currentQueue.total,
+          actualCount: 1,
           usedFallback: false,
           fallbackReason: null
         })
@@ -1181,22 +1040,19 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
                 operation: (client: typeof transaction) => Promise<Result>
               ): Promise<Result> => await operation(transaction)
             } as unknown as typeof database.client
-            const currentQueueService = createWrongNoteReviewQueueService(
-              createPrismaWrongNoteReviewQueueRepository(queueClient),
-              () => dueAt
-            )
-            const currentQueue = listReviewQueueResponseSchema.parse(
-              await currentQueueService.listReviewQueue(
+            const currentReviewList = listReviewListResponseSchema.parse(
+              await createWrongNoteReviewListService(
+                createPrismaWrongNoteReviewListRepository(queueClient)
+              ).listReviewList(
                 fixture.userId,
-                queueQuery
+                listReviewListQuerySchema.parse({ level: 'N5' })
               )
             )
-            expect(currentQueue.items).toEqual([
+            expect(currentReviewList.items).toEqual([
               expect.objectContaining({
                 questionId: fixture.questionId,
                 currentQuestionVersionId: currentVersionId,
-                questionPreview: currentPreview,
-                tags: [currentTag]
+                questionPreview: currentPreview
               })
             ])
             expect(
@@ -1206,29 +1062,6 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
               })
             ).toEqual({ lastWrongQuestionVersionId: fixture.questionVersionId })
 
-            const oldTagQueue = listReviewQueueResponseSchema.parse(
-              await currentQueueService.listReviewQueue(
-                fixture.userId,
-                listReviewQueueQuerySchema.parse({
-                  ...queueQuery,
-                  questionType: historicalVersion.questionType,
-                  tag: historicalTag
-                })
-              )
-            )
-            expect(oldTagQueue).toMatchObject({ total: 0, items: [] })
-
-            const filteredQuery = listReviewQueueQuerySchema.parse({
-              ...queueQuery,
-              questionType: historicalVersion.questionType,
-              tag: currentTag
-            })
-            const filteredQueue = listReviewQueueResponseSchema.parse(
-              await currentQueueService.listReviewQueue(
-                fixture.userId,
-                filteredQuery
-              )
-            )
             const studyService = createStudySessionService(
               createPrismaStudySessionRepository(studyClient, {
                 delay: async () => undefined,
@@ -1257,7 +1090,7 @@ describe.sequential('Slice 2 WrongNote review-center PostgreSQL', () => {
               )
               expect(session.session).toMatchObject({
                 mode,
-                actualCount: filteredQueue.total,
+                actualCount: 1,
                 usedFallback: false,
                 fallbackReason: null
               })

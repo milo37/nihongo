@@ -104,19 +104,19 @@ describe('agreed SSO transport', () => {
   })
   it.each([
     '/dashboard?view=learning&count=5&resumePage=2',
-    '/wrong-notes?view=UNREVIEWED&questionType=KANJI_READING&tag=example&page=2',
+    '/wrong-notes?state=REVIEWED&level=N5&page=2',
     '/practice/result/session-id?question=question-id'
   ])('retains actual UI filters: %s', (value) => {
     expect(safeSsoReturnPath(value)).toBe(value)
   })
   it('canonicalizes a finite detail-to-review-list returnTo', () => {
-    const nested = '/wrong-notes/history?status=NEW&page=2'
+    const nested = '/wrong-notes/history?status=SOLVED&page=2'
     const result = safeSsoReturnPath(
       '/wrong-notes/question-id?returnTo=' + encodeURIComponent(nested)
     )
     expect(
       new URL(result, 'https://app.test').searchParams.get('returnTo')
-    ).toBe('/wrong-notes?view=UNREVIEWED&page=2')
+    ).toBe('/wrong-notes?state=REVIEWED&page=2')
     expect(
       new URL(
         safeSsoReturnPath('/wrong-notes/question-id?returnTo=%2Fdashboard'),

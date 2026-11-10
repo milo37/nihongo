@@ -54,8 +54,6 @@ import {
   createPrismaWrongNoteReviewListRepository,
   createWrongNoteReviewListService
 } from './wrong-note/wrongNoteReviewList.js'
-import { createPrismaWrongNoteReviewQueueRepository } from './wrong-note/wrongNoteReviewQueueRepository.js'
-import { createWrongNoteReviewQueueService } from './wrong-note/wrongNoteReviewQueueService.js'
 import { createPrismaWrongNoteTargetedReviewRepository } from './wrong-note/wrongNoteTargetedReviewRepository.js'
 import { createWrongNoteTargetedReviewService } from './wrong-note/wrongNoteTargetedReviewService.js'
 import { createAdminReadRateLimiter } from './admin/adminReadRateLimiter.js'
@@ -161,9 +159,6 @@ const wrongNoteReviewCenterService = createWrongNoteReviewCenterService(
 )
 const wrongNoteReviewListService = createWrongNoteReviewListService(
   createPrismaWrongNoteReviewListRepository(database.client)
-)
-const wrongNoteReviewQueueService = createWrongNoteReviewQueueService(
-  createPrismaWrongNoteReviewQueueRepository(database.client)
 )
 const wrongNoteTargetedReviewService = createWrongNoteTargetedReviewService(
   createPrismaWrongNoteTargetedReviewRepository(database.client)
@@ -284,7 +279,6 @@ const app = createApiApp({
     reviewCenterEnabled: true,
     reviewCenterService: wrongNoteReviewCenterService,
     reviewListService: wrongNoteReviewListService,
-    reviewQueueService: wrongNoteReviewQueueService,
     targetedReviewService: wrongNoteTargetedReviewService,
     targetLevelService,
     wrongNoteService

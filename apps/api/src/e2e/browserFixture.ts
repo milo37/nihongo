@@ -49,8 +49,6 @@ import { createPrismaDashboardInsightsRepository } from '../dashboard/dashboardI
 import { createDashboardInsightsService } from '../dashboard/dashboardInsightsService.js'
 import { createPrismaStudyResultRetryRepository } from '../study/studyResultRetryRepository.js'
 import { createStudyResultRetryService } from '../study/studyResultRetryService.js'
-import { createPrismaWrongNoteReviewQueueRepository } from '../wrong-note/wrongNoteReviewQueueRepository.js'
-import { createWrongNoteReviewQueueService } from '../wrong-note/wrongNoteReviewQueueService.js'
 import {
   createPrismaWrongNoteReviewListRepository,
   createWrongNoteReviewListService
@@ -1442,9 +1440,6 @@ const createSsoBrowserApiFixture = async (
     const wrongNoteReviewCenterService = createWrongNoteReviewCenterService(
       createPrismaWrongNoteReviewCenterRepository(database.client)
     )
-    const wrongNoteReviewQueueService = createWrongNoteReviewQueueService(
-      createPrismaWrongNoteReviewQueueRepository(database.client)
-    )
     const wrongNoteTargetedReviewService = createWrongNoteTargetedReviewService(
       createPrismaWrongNoteTargetedReviewRepository(database.client)
     )
@@ -1574,7 +1569,6 @@ const createSsoBrowserApiFixture = async (
         reviewListService: createWrongNoteReviewListService(
           createPrismaWrongNoteReviewListRepository(database.client)
         ),
-        reviewQueueService: wrongNoteReviewQueueService,
         targetedReviewService: wrongNoteTargetedReviewService,
         targetLevelService: createTargetLevelService(
           createPrismaTargetLevelRepository(database.client)

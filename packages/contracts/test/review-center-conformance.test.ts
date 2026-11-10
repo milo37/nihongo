@@ -6,7 +6,6 @@ import {
 } from '../src/wrong-note/create-targeted-review-session.js'
 import { createGetWrongNoteMemoResponseSchema } from '../src/wrong-note/get-wrong-note-memo.js'
 import { listReviewEventsResponseSchema } from '../src/wrong-note/list-review-events.js'
-import { listReviewQueueResponseSchema } from '../src/wrong-note/list-review-queue.js'
 import {
   assertNoReviewCenterForbiddenKeys,
   findReviewCenterForbiddenKeyPaths,
@@ -15,8 +14,8 @@ import {
 } from '../src/testing/review-center-conformance.js'
 
 describe('Review center conformance', () => {
-  it('6개 operation의 method·path·status·header 소유권을 고정한다', () => {
-    expect(reviewCenterRouteConformanceCases).toHaveLength(6)
+  it('5개 operation의 method·path·status·header 소유권을 고정한다', () => {
+    expect(reviewCenterRouteConformanceCases).toHaveLength(5)
     expect(
       reviewCenterRouteConformanceCases.map((item) => ({
         operationId: item.operationId,
@@ -25,12 +24,6 @@ describe('Review center conformance', () => {
         successStatuses: item.successStatuses
       }))
     ).toEqual([
-      {
-        operationId: 'wrongNote.listReviewQueue',
-        method: 'GET',
-        path: '/api/v1/review-queue',
-        successStatuses: [200]
-      },
       {
         operationId: 'wrongNote.getWrongNoteMemo',
         method: 'GET',
@@ -77,7 +70,7 @@ describe('Review center conformance', () => {
       })
     }
 
-    const targeted = reviewCenterRouteConformanceCases[4]
+    const targeted = reviewCenterRouteConformanceCases[3]
     expect(targeted?.requiredResponseHeaders).toContainEqual({
       name: 'X-Nihongo-Practice-Contract',
       expectedValue: '2',
@@ -100,9 +93,6 @@ describe('Review center conformance', () => {
 
   it('operation fixture가 shared schema를 통과하고 금지 key가 0이다', () => {
     const fixture = reviewCenterConformanceFixture
-    expect(listReviewQueueResponseSchema.parse(fixture.queue)).toEqual(
-      fixture.queue
-    )
     expect(
       createGetWrongNoteMemoResponseSchema(fixture.memo.questionId).parse(
         fixture.memo
@@ -126,23 +116,18 @@ describe('Review center conformance', () => {
     ).toEqual(fixture.filteredCreateBody)
 
     const targetedQuestion = fixture.targetedSession.questions[0]?.question
-    const queueItem = fixture.queue.items[0]
     const latestEvent = fixture.history.items[0]
     const firstEvent = fixture.history.items.at(-1)
     if (
       targetedQuestion === undefined ||
-      queueItem === undefined ||
       latestEvent === undefined ||
       firstEvent === undefined
     ) {
       throw new Error('Review center conformance fixture가 비어 있습니다.')
     }
-    expect(queueItem.questionId).toBe(targetedQuestion.id)
-    expect(queueItem.currentQuestionVersionId).toBe(
+    expect(fixture.memo.questionId).toBe(targetedQuestion.id)
+    expect(latestEvent.questionVersionId).toBe(
       targetedQuestion.questionVersionId
-    )
-    expect(queueItem.tags).toEqual(
-      targetedQuestion.tags.map(({ label }) => label)
     )
     expect(
       targetedQuestion.options.some(
@@ -150,19 +135,8 @@ describe('Review center conformance', () => {
       )
     ).toBe(true)
     expect(latestEvent.isCorrect).toBe(false)
-    expect(queueItem.status).toBe(latestEvent.nextStatus)
-    expect(queueItem.correctStreak).toBe(latestEvent.nextCorrectStreak)
-    expect(queueItem.wrongCount).toBe(latestEvent.wrongCountAfter)
-    expect(queueItem.lastWrongAt).toBe(latestEvent.occurredAt)
-    expect(queueItem.lastReviewedAt).toBe(latestEvent.occurredAt)
-    expect(queueItem.nextReviewAt <= fixture.queue.observedAt).toBe(true)
-    expect(fixture.queue.counts.due).toBe(fixture.queue.total)
-    expect(fixture.queue.availableTags).toEqual(queueItem.tags)
     expect(
       firstEvent.occurredAt <= fixture.targetedSession.session.startedAt
-    ).toBe(true)
-    expect(
-      fixture.queue.observedAt <= fixture.targetedSession.session.startedAt
     ).toBe(true)
     expect(
       fixture.targetedSession.session.startedAt <
@@ -170,7 +144,6 @@ describe('Review center conformance', () => {
     ).toBe(true)
 
     for (const [kind, value] of [
-      ['QUEUE', fixture.queue],
       ['MEMO', fixture.memo],
       ['HISTORY', fixture.history],
       ['TARGETED_SESSION', fixture.targetedSession]
@@ -195,37 +168,32 @@ describe('Review center conformance', () => {
       })
     ).toEqual(['$.memo'])
 
-    const leakedQueue = {
-      ...reviewCenterConformanceFixture.queue,
-      items: [
-        {
-          ...reviewCenterConformanceFixture.queue.items[0],
-          correctOptionId: 'answer',
-          explanationKo: '해설',
-          userId: 'owner',
-          private: {
-            requestHash: 'hash',
-            sessionToken: 'token',
-            auditMetadata: { reviewedByUserId: 'admin' }
-          }
-        }
-      ]
+    const leakedMemo = {
+      ...reviewCenterConformanceFixture.memo,
+      correctOptionId: 'answer',
+      explanationKo: '해설',
+      userId: 'owner',
+      private: {
+        requestHash: 'hash',
+        sessionToken: 'token',
+        auditMetadata: { reviewedByUserId: 'admin' }
+      }
     }
-    expect(findReviewCenterForbiddenKeyPaths('QUEUE', leakedQueue)).toEqual([
-      '$.items[0].correctOptionId',
-      '$.items[0].explanationKo',
-      '$.items[0].userId',
-      '$.items[0].private.requestHash',
-      '$.items[0].private.sessionToken',
-      '$.items[0].private.auditMetadata',
-      '$.items[0].private.auditMetadata.reviewedByUserId'
+    expect(findReviewCenterForbiddenKeyPaths('MEMO', leakedMemo)).toEqual([
+      '$.correctOptionId',
+      '$.explanationKo',
+      '$.userId',
+      '$.private.requestHash',
+      '$.private.sessionToken',
+      '$.private.auditMetadata',
+      '$.private.auditMetadata.reviewedByUserId'
     ])
-    expect(() =>
-      assertNoReviewCenterForbiddenKeys('QUEUE', leakedQueue)
-    ).toThrow('QUEUE payload')
+    expect(() => assertNoReviewCenterForbiddenKeys('MEMO', leakedMemo)).toThrow(
+      'MEMO payload'
+    )
 
     expect(
-      findReviewCenterForbiddenKeyPaths('QUEUE', {
+      findReviewCenterForbiddenKeyPaths('HISTORY', {
         schedule: { id: 'private' },
         events: [{ id: 'private' }],
         question: { questionText: 'full private question' }

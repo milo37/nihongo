@@ -1,7 +1,4 @@
-import type {
-  ParsedListWrongNotesQuery,
-  WrongNoteSummary
-} from '@nihongo/contracts/wrong-note/list-wrong-notes'
+import type { WrongNoteSummary } from '@nihongo/contracts/wrong-note/list-wrong-notes'
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 
 interface HistoricalQuestionTagRecord {
@@ -62,28 +59,11 @@ export interface WrongNoteDetailRecord
   readonly question: HistoricalReviewedQuestionRecord
 }
 
-interface ListOwnedWrongNotesInput extends ParsedListWrongNotesQuery {
-  readonly userId: string
-}
-
-interface ListOwnedWrongNotesResult {
-  readonly availableTagLabels: readonly string[]
-  readonly items: readonly WrongNoteReadRecord[]
-  readonly total: number
-}
-
-interface AvailableTagLabelRow {
-  readonly label: string
-}
-
 export interface WrongNoteRepository {
   findOwnedDetail: (
     userId: string,
     questionId: string
   ) => Promise<WrongNoteDetailRecord | null>
-  listOwned: (
-    input: ListOwnedWrongNotesInput
-  ) => Promise<ListOwnedWrongNotesResult>
 }
 
 export class WrongNoteRepositoryUnavailableError extends Error {
@@ -139,18 +119,6 @@ const questionAvailabilitySelect = {
   currentPublishedVersion: { select: { status: true } }
 } satisfies Prisma.QuestionSelect
 
-const summaryVersionSelect = {
-  id: true,
-  level: true,
-  subject: true,
-  questionType: true,
-  questionText: true,
-  tags: {
-    orderBy: [{ tag: { label: 'asc' } }, { tagId: 'asc' }],
-    select: { tagId: true, tag: { select: { label: true } } }
-  }
-} satisfies Prisma.QuestionVersionSelect
-
 const detailVersionSelect = {
   id: true,
   level: true,
@@ -174,9 +142,6 @@ type WrongNoteBaseRow = Prisma.WrongNoteGetPayload<{
 type QuestionAvailabilityRow = Prisma.QuestionGetPayload<{
   select: typeof questionAvailabilitySelect
 }>
-type WrongNoteSummaryVersionRow = Prisma.QuestionVersionGetPayload<{
-  select: typeof summaryVersionSelect
-}>
 type WrongNoteDetailVersionRow = Prisma.QuestionVersionGetPayload<{
   select: typeof detailVersionSelect
 }>
@@ -191,34 +156,6 @@ const toTags = (
     id: tagId,
     label: tag.label
   }))
-
-const toSummaryRecord = (
-  row: WrongNoteBaseRow,
-  question: QuestionAvailabilityRow,
-  version: WrongNoteSummaryVersionRow
-): WrongNoteReadRecord => ({
-  id: row.id,
-  questionId: row.questionId,
-  currentReviewQuestionVersionId: row.currentReviewQuestionVersionId,
-  wrongCount: row.wrongCount,
-  correctStreak: row.correctStreak,
-  status: row.status,
-  lastWrongAt: row.lastWrongAt,
-  lastReviewedAt: row.lastReviewedAt,
-  nextReviewAt: row.schedule?.nextReviewAt ?? null,
-  questionLifecycleStatus: question.lifecycleStatus,
-  currentPublishedVersionStatus:
-    question.currentPublishedVersion?.status ?? null,
-  question: {
-    id: row.questionId,
-    questionVersionId: version.id,
-    level: version.level,
-    subject: version.subject,
-    questionType: version.questionType,
-    questionText: version.questionText,
-    tags: toTags(version.tags)
-  }
-})
 
 const toDetailRecord = (
   row: WrongNoteBaseRow,
@@ -258,37 +195,6 @@ const toDetailRecord = (
   }
 })
 
-const toOrderBy = (
-  sort: ParsedListWrongNotesQuery['sort']
-): Prisma.WrongNoteOrderByWithRelationInput[] => {
-  switch (sort) {
-    case 'MOST_WRONG':
-      return [{ wrongCount: 'desc' }, { lastWrongAt: 'desc' }, { id: 'asc' }]
-    case 'OLDEST':
-      return [{ lastWrongAt: 'asc' }, { id: 'asc' }]
-    case 'RECENT':
-      return [{ lastWrongAt: 'desc' }, { id: 'asc' }]
-  }
-}
-
-const toBaseWhere = (
-  input: ListOwnedWrongNotesInput
-): Prisma.WrongNoteWhereInput => {
-  const versionFilter: Prisma.QuestionVersionWhereInput = {
-    ...(input.level ? { level: input.level } : {}),
-    ...(input.subject ? { subject: input.subject } : {}),
-    ...(input.tag ? { tags: { some: { tag: { label: input.tag } } } } : {})
-  }
-
-  return {
-    userId: input.userId,
-    ...(input.status ? { status: input.status } : {}),
-    ...(Object.keys(versionFilter).length > 0
-      ? { lastWrongQuestionVersion: versionFilter }
-      : {})
-  }
-}
-
 const runReadOnlySnapshot = async <Result>(
   client: PrismaClient,
   operation: (transaction: Prisma.TransactionClient) => Promise<Result>
@@ -300,15 +206,6 @@ const runReadOnlySnapshot = async <Result>(
     },
     { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead }
   )
-
-const assertSafeTotal = (total: number): number => {
-  if (!Number.isSafeInteger(total) || total < 0) {
-    throw new WrongNoteRepositoryIntegrityError(
-      'WrongNote pagination total exceeds the safe integer range.'
-    )
-  }
-  return total
-}
 
 export const createPrismaWrongNoteRepository = (
   client: PrismaClient
@@ -342,75 +239,6 @@ export const createPrismaWrongNoteRepository = (
           )
         }
         return toDetailRecord(row, question, version, tags)
-      })
-    ),
-  listOwned: (input) =>
-    executeRepositoryOperation(async () =>
-      runReadOnlySnapshot(client, async (transaction) => {
-        const where = toBaseWhere(input)
-        const total = assertSafeTotal(
-          await transaction.wrongNote.count({ where })
-        )
-        const offset = (BigInt(input.page) - 1n) * BigInt(input.pageSize)
-        const rows =
-          offset >= BigInt(total)
-            ? []
-            : await transaction.wrongNote.findMany({
-                where,
-                orderBy: toOrderBy(input.sort),
-                skip: Number(offset),
-                take: input.pageSize,
-                select: wrongNoteBaseSelect
-              })
-        const questionIds = rows.map(({ questionId }) => questionId)
-        const versionIds = rows.map(
-          ({ lastWrongQuestionVersionId }) => lastWrongQuestionVersionId
-        )
-        const questions =
-          questionIds.length === 0
-            ? []
-            : await transaction.question.findMany({
-                where: { id: { in: questionIds } },
-                select: questionAvailabilitySelect
-              })
-        const versions =
-          versionIds.length === 0
-            ? []
-            : await transaction.questionVersion.findMany({
-                where: { id: { in: versionIds } },
-                select: summaryVersionSelect
-              })
-        const questionsById = new Map(
-          questions.map((question) => [question.id, question])
-        )
-        const versionsById = new Map(
-          versions.map((version) => [version.id, version])
-        )
-        const tagRows = await transaction.$queryRaw<AvailableTagLabelRow[]>(
-          Prisma.sql`
-            SELECT DISTINCT tag."label" AS "label"
-            FROM "WrongNote" AS note
-            JOIN "QuestionVersionTag" AS version_tag
-              ON version_tag."questionVersionId" =
-                note."lastWrongQuestionVersionId"
-            JOIN "Tag" AS tag ON tag."id" = version_tag."tagId"
-            WHERE note."userId" = ${input.userId}::uuid`
-        )
-
-        return {
-          items: rows.map((row) => {
-            const question = questionsById.get(row.questionId)
-            const version = versionsById.get(row.lastWrongQuestionVersionId)
-            if (!question || !version) {
-              throw new WrongNoteRepositoryIntegrityError(
-                'WrongNote references a missing question projection.'
-              )
-            }
-            return toSummaryRecord(row, question, version)
-          }),
-          total,
-          availableTagLabels: tagRows.map(({ label }) => label)
-        }
       })
     )
 })
