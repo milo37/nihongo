@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { Trans, useTranslation } from 'react-i18next'
+import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ChangeEvent, ReactElement, ReactNode } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
@@ -76,6 +76,11 @@ export const HeroStartCard = ({
   const locale = resolveUiLocale(i18n.resolvedLanguage)
   const { isGuest } = setup
   const pickDisabled = !setup.isReady || setup.isCreatingSession
+  // The copy holds <level/>, <subject/> and <br/> where the pickers and the
+  // line break go (no Trans: it would add an HTML parser to the bundle).
+  const sentence = t('today.say', {
+    formattedCount: formatNumber(count, locale)
+  }).split(/(<level\/>|<subject\/>|<br\/>)/u)
   return (
     <div className="home-band-start">
       <p className="home-hello">
@@ -86,47 +91,46 @@ export const HeroStartCard = ({
             : t('today.memberGreetingNoName')}
       </p>
       <h1 className="home-say" tabIndex={-1}>
-        <Trans
-          t={t}
-          i18nKey="today.say"
-          values={{ formattedCount: formatNumber(count, locale) }}
-          components={{
-            level: (
-              <PickWord
-                label={t('today.levelLabel')}
-                value={level}
-                disabled={pickDisabled}
-                options={levels.map((value) => ({ value, label: value }))}
-                onChange={(event) =>
-                  setup.changeSetting(
-                    'level',
-                    event.currentTarget.value,
-                    setup.defaultLevel
-                  )
-                }
-              />
-            ),
-            subject: (
-              <PickWord
-                label={t('today.subjectLabel')}
-                value={subject}
-                disabled={pickDisabled}
-                options={subjects.map((value) => ({
-                  value,
-                  label: t(subjectKeys[value])
-                }))}
-                onChange={(event) =>
-                  setup.changeSetting(
-                    'subject',
-                    event.currentTarget.value,
-                    setup.defaultSubject
-                  )
-                }
-              />
-            ),
-            br: <br />
-          }}
-        />
+        {sentence.map((part, index) =>
+          part === '<level/>' ? (
+            <PickWord
+              key={index}
+              label={t('today.levelLabel')}
+              value={level}
+              disabled={pickDisabled}
+              options={levels.map((value) => ({ value, label: value }))}
+              onChange={(event) =>
+                setup.changeSetting(
+                  'level',
+                  event.currentTarget.value,
+                  setup.defaultLevel
+                )
+              }
+            />
+          ) : part === '<subject/>' ? (
+            <PickWord
+              key={index}
+              label={t('today.subjectLabel')}
+              value={subject}
+              disabled={pickDisabled}
+              options={subjects.map((value) => ({
+                value,
+                label: t(subjectKeys[value])
+              }))}
+              onChange={(event) =>
+                setup.changeSetting(
+                  'subject',
+                  event.currentTarget.value,
+                  setup.defaultSubject
+                )
+              }
+            />
+          ) : part === '<br/>' ? (
+            <br key={index} />
+          ) : (
+            part
+          )
+        )}
       </h1>
       {setup.isGuestDailyLimitReached ? (
         <div className="home-band-limit">
