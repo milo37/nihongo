@@ -6,6 +6,10 @@ then request review, approve and publish in bulk from the admin question list.
 The same path ran end to end on an empty local database (see "Local
 rehearsal").
 
+Default for steps 2 and 3: the operator command in `deploy.v1.md` appendix B
+(`scripts/question-set-publish.sh`, no admin sign-in, minutes). The browser path
+below stays as the fallback.
+
 Order after the first deploy: first admin (`first-admin.v1.md`), then this
 runbook. The API starts without tags; the import refuses unknown tags.
 

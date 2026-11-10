@@ -8,6 +8,8 @@
 #   $(...) and `...` are never run, and unknown keys are refused;
 # - render-origin-env.sh (PRODUCTION, #40) writes the Cloudflare token literally
 #   and refuses an empty value or one with whitespace.
+# - question-set-publish.sh (JLP-828) fetches the ten files of the deployed SHA
+#   and gives the command the api.env URL through the environment only.
 set -euo pipefail
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
@@ -160,3 +162,33 @@ for bad in "" "None" "two words"; do
   fi
 done
 echo "ok render-origin-env: token written literally, empty or spaced values refused"
+
+# 6. question-set-publish.sh: the ten files of the deployed SHA, the app URL by
+# environment (never argv), confirm only in confirm mode.
+mkdir -p "$work/qs/path" "$work/qs/opt" "$work/qs/run"
+sed -e "s|/opt/harumaru/bin/render-env.sh|true|" -e "s|/run/harumaru|$work/qs/run|g" \
+  -e "s|/opt/harumaru|$work/qs/opt|g" files/question-set-publish.sh > "$work/qs/run.sh"
+sha=0123456789abcdef0123456789abcdef01234567
+printf '%s\n' "$sha" > "$work/qs/opt/current-release"
+app_url='postgresql://nihongo_production_app_login:p$(id)w@db:5432/nihongo'
+printf 'DATABASE_URL=%s\n' "$app_url" > "$work/qs/run/api.env"
+cat > "$work/qs/path/curl" <<EOF
+#!/bin/bash
+printf '%s\n' "\${@: -3:1}" >> "$work/qs/urls"; printf '{}' > "\${@: -1}"
+EOF
+cat > "$work/qs/path/docker" <<EOF
+#!/bin/bash
+printf '%s\n' "\$*" > "$work/qs/argv"; printf '%s\n' "\$DATABASE_URL" > "$work/qs/env"
+EOF
+chmod +x "$work/qs/path/curl" "$work/qs/path/docker"
+qs() { PATH="$work/qs/path:$PATH" QUESTION_SET_MODE="$1" bash "$work/qs/run.sh"; }
+qs dry-run
+[[ "$(wc -l < "$work/qs/urls")" -eq 10 ]] && ! grep -v "/$sha/content/question-imports/" "$work/qs/urls" \
+  || { echo "question set files not fetched at the release SHA" >&2; exit 1; }
+[[ "$(ls "$work/qs/opt/content/question-set-$sha" | wc -l)" -eq 10 ]] || { echo "question set dir is not ten files" >&2; exit 1; }
+[[ "$(cat "$work/qs/env")" == "$app_url" ]] || { echo "DATABASE_URL did not reach docker literally" >&2; exit 1; }
+! grep -qE 'p\$\(id\)w|QUESTION_SET_CONFIRM' "$work/qs/argv" || { echo "dry run argv has the URL or the confirm" >&2; exit 1; }
+qs confirm
+grep -q -- '-e QUESTION_SET_CONFIRM=PUBLISH_QUESTION_SET' "$work/qs/argv" || { echo "confirm mode without the confirm" >&2; exit 1; }
+if qs other 2>/dev/null; then echo "question-set-publish accepted an unknown mode" >&2; exit 1; fi
+echo "ok question-set-publish: ten files at the release SHA, URL by environment, confirm only on confirm"
