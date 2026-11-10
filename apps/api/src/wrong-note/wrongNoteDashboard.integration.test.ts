@@ -408,6 +408,10 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
   let ownerUserId: string
   let foreignUserId: string
   let outsiderUserId: string
+  // Only a WRONG_NOTE start sets currentReviewQuestionVersionId, so the
+  // detail tests read that note. Picking the highest wrongCount tied on
+  // random ids and sometimes chose a never-reviewed note (JLP-828).
+  let reviewedQuestionId: string
 
   beforeAll(async () => {
     ownerUserId = await createUser('owner')
@@ -429,7 +433,9 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
     for (const [subject, submittedAt, correct] of plan) {
       await submitRandomSession(owner, subject, new Date(submittedAt), correct)
     }
-    await submitWrongNoteSession(owner, new Date('2026-08-16T03:00:00.000Z'))
+    reviewedQuestionId = (
+      await submitWrongNoteSession(owner, new Date('2026-08-16T03:00:00.000Z'))
+    ).questionId
     await submitRandomSession(
       { kind: 'USER', userId: foreignUserId },
       'VOCABULARY',
@@ -444,8 +450,7 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
       : 'legacy 권한에서는 Tag rename이 된다',
     async () => {
       const target = await database.client.wrongNote.findFirstOrThrow({
-        where: { userId: ownerUserId },
-        orderBy: [{ wrongCount: 'desc' }, { id: 'asc' }],
+        where: { userId: ownerUserId, questionId: reviewedQuestionId },
         select: {
           questionId: true,
           lastWrongQuestionVersion: {
@@ -504,8 +509,7 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
       : 'archived historical detail은 lastWrong version을 유지한다',
     async () => {
       const target = await database.client.wrongNote.findFirstOrThrow({
-        where: { userId: ownerUserId },
-        orderBy: [{ wrongCount: 'desc' }, { id: 'asc' }],
+        where: { userId: ownerUserId, questionId: reviewedQuestionId },
         select: { questionId: true }
       })
       const targetWrongNote = await database.client.wrongNote.findUniqueOrThrow(
