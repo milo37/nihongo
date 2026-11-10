@@ -346,6 +346,8 @@ export const koCoreResources = {
       dueLabel: '복습할 문제도 {{count}}개 남아 있어요',
       prompt:
         '오늘은 {{level}} {{subject}} {{formattedCount}}문제 풀어 볼까요?',
+      promptLimit:
+        '내일 또 {{level}} {{subject}} {{formattedCount}}문제 풀어요',
       pickLevel: '급수 바꾸기',
       pickSubject: '과목 바꾸기',
       dueAction: '복습',

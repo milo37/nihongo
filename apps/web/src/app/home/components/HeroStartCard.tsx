@@ -87,7 +87,11 @@ export const HeroStartCard = ({
   // The pickers go where {{level}} and {{subject}} are and the line breaks
   // before the count, after any particle (no Trans: it would add an HTML
   // parser to the bundle).
-  const sentence = t('today.prompt', {
+  // A guest who used up today's tries is asked about tomorrow (E7).
+  const promptKey = setup.isGuestDailyLimitReached
+    ? 'today.promptLimit'
+    : 'today.prompt'
+  const sentence = t(promptKey, {
     level: LEVEL_SLOT,
     subject: SUBJECT_SLOT,
     formattedCount: BREAK_SLOT + formatNumber(count, locale)

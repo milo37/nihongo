@@ -363,6 +363,8 @@ export const jaCoreResources = {
       dueLabel: '復習する問題も{{count}}問残っています',
       prompt:
         '今日は{{level}} {{subject}}を{{formattedCount}}問解いてみませんか？',
+      promptLimit:
+        '明日また{{level}} {{subject}}を{{formattedCount}}問解きましょう',
       pickLevel: 'レベルを変える',
       pickSubject: '科目を変える',
       dueAction: '復習する',
