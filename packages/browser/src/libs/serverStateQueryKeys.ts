@@ -33,7 +33,6 @@ export const serverStateQueryKeys = {
     details: () => ['wrong-note', 'detail'] as const,
     detail: (questionId: string) =>
       ['wrong-note', 'detail', questionId] as const,
-    reviewQueues: () => ['wrong-note', 'review-queue'] as const,
     memos: () => ['wrong-note', 'memo'] as const,
     memo: (questionId: string) => ['wrong-note', 'memo', questionId] as const,
     reviewEvents: () => ['wrong-note', 'review-events'] as const,
