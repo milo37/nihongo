@@ -1127,75 +1127,78 @@ test('guest SSO boundary and authenticated practice transition match the active 
   ])
 })
 
-test('guest result moves to the wrong notes on sign-in (JLP-823 D1)', async ({
-  page
-}) => {
-  // The mock does not move guest sessions; the real server does.
-  test.skip(mode === 'mock', 'Real server owns the guest result move.')
-  test.setTimeout(120_000)
-  await prepareJourney(page, '203.0.113.246')
-  await page.goto('/practice')
-  await settleJourneyPage(page)
-  const created = waitForApiResponse(page, 'POST', '/api/v1/study-sessions')
-  await page.locator('main button[type="submit"]:visible').first().click()
-  const sessionId = createStudySessionV2ResponseSchema.parse(
-    await (await created).json()
-  ).session.id
-  await expect(page).toHaveURL(
-    new RegExp(`/practice/session/${sessionId}`, 'u')
-  )
-  const answers = page.locator(
-    'main input[type="radio"]:not([name^="practice-"])'
-  )
-  const next = page.locator('main button').filter({ hasText: /^다음$/u })
-  for (;;) {
-    await answers.first().waitFor({ state: 'attached' })
-    await answers.first().check({ force: true })
-    if (!((await next.count()) > 0 && (await next.first().isEnabled()))) break
-    await next.first().click()
-  }
-  await page
-    .locator('button')
-    .filter({ hasText: /^제출하기$/u })
-    .locator('visible=true')
-    .first()
-    .evaluate((button: HTMLButtonElement) => button.click())
-  const confirm = page.getByRole('dialog')
-  if (await confirm.count())
-    await confirm
-      .getByRole('button')
-      .last()
-      .evaluate((button: HTMLButtonElement) => button.click())
-  await expect(page).toHaveURL(new RegExp(`/practice/result/${sessionId}`, 'u'))
-  await settleJourneyPage(page)
-  await page.goto('/login')
-  await settleJourneyPage(page)
-  const imported = waitForApiResponse(
-    page,
-    'POST',
-    '/api/v1/me/guest-result-import'
-  )
-  await loginThroughUi(page)
-  const moved = importGuestResultResponseSchema.parse(
-    await readCanonicalResponse(await imported)
-  )
-  expect(moved.importedSessionId).toBe(sessionId)
-  // Every first option across a whole set: some are wrong.
-  expect(moved.wrongAnswerCount).toBeGreaterThan(0)
-  await expect(
+// The mock does not move guest sessions; the real server does. Registered
+// only for real so the mock evidence keeps its exact test count.
+if (mode === 'real')
+  test('guest result moves to the wrong notes on sign-in (JLP-823 D1)', async ({
     page
-      .getByRole('region', { name: '알림' })
-      .getByText(
-        `방금 푼 틀린 문제 ${moved.wrongAnswerCount}개를 오답노트에 모았어요.`
-      )
-  ).toBeVisible()
-  const reviewList = waitForApiResponse(page, 'GET', '/api/v1/review-list')
-  await page.locator('#primary-navigation a[href="/wrong-notes"]').click()
-  const listed = (await readCanonicalResponse(await reviewList)) as {
-    total: number
-  }
-  expect(listed.total).toBeGreaterThanOrEqual(moved.wrongAnswerCount)
-})
+  }) => {
+    test.setTimeout(120_000)
+    await prepareJourney(page, '203.0.113.246')
+    await page.goto('/practice')
+    await settleJourneyPage(page)
+    const created = waitForApiResponse(page, 'POST', '/api/v1/study-sessions')
+    await page.locator('main button[type="submit"]:visible').first().click()
+    const sessionId = createStudySessionV2ResponseSchema.parse(
+      await (await created).json()
+    ).session.id
+    await expect(page).toHaveURL(
+      new RegExp(`/practice/session/${sessionId}`, 'u')
+    )
+    const answers = page.locator(
+      'main input[type="radio"]:not([name^="practice-"])'
+    )
+    const next = page.locator('main button').filter({ hasText: /^다음$/u })
+    for (;;) {
+      await answers.first().waitFor({ state: 'attached' })
+      await answers.first().check({ force: true })
+      if (!((await next.count()) > 0 && (await next.first().isEnabled()))) break
+      await next.first().click()
+    }
+    await page
+      .locator('button')
+      .filter({ hasText: /^제출하기$/u })
+      .locator('visible=true')
+      .first()
+      .evaluate((button: HTMLButtonElement) => button.click())
+    const confirm = page.getByRole('dialog')
+    if (await confirm.count())
+      await confirm
+        .getByRole('button')
+        .last()
+        .evaluate((button: HTMLButtonElement) => button.click())
+    await expect(page).toHaveURL(
+      new RegExp(`/practice/result/${sessionId}`, 'u')
+    )
+    await settleJourneyPage(page)
+    await page.goto('/login')
+    await settleJourneyPage(page)
+    const imported = waitForApiResponse(
+      page,
+      'POST',
+      '/api/v1/me/guest-result-import'
+    )
+    await loginThroughUi(page)
+    const moved = importGuestResultResponseSchema.parse(
+      await readCanonicalResponse(await imported)
+    )
+    expect(moved.importedSessionId).toBe(sessionId)
+    // Every first option across a whole set: some are wrong.
+    expect(moved.wrongAnswerCount).toBeGreaterThan(0)
+    await expect(
+      page
+        .getByRole('region', { name: '알림' })
+        .getByText(
+          `방금 푼 틀린 문제 ${moved.wrongAnswerCount}개를 오답노트에 모았어요.`
+        )
+    ).toBeVisible()
+    const reviewList = waitForApiResponse(page, 'GET', '/api/v1/review-list')
+    await page.locator('#primary-navigation a[href="/wrong-notes"]').click()
+    const listed = (await readCanonicalResponse(await reviewList)) as {
+      total: number
+    }
+    expect(listed.total).toBeGreaterThanOrEqual(moved.wrongAnswerCount)
+  })
 
 test('USER completes one setup-to-dashboard journey with an exact mutation ledger', async ({
   context,
