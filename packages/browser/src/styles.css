@@ -689,6 +689,9 @@
   font-size: 18px;
   font-weight: 700;
 }
+.practice-guest-limit p:lang(ja) {
+  word-break: auto-phrase;
+}
 .practice-guest-limit p {
   margin: 8px 0 20px;
   color: rgb(var(--color-muted));
