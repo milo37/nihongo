@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { Trans, useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
-import type { ChangeEvent, ReactElement } from 'react'
+import type { ChangeEvent, ReactElement, ReactNode } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
@@ -11,7 +11,6 @@ import { usePracticeSetupController } from '@app/practice/hooks/usePracticeSetup
 import { levels, subjects } from '@app/practice/practiceSetupOptions'
 import { GuestDailyLimitCard } from '@app/practice/components/GuestDailyLimitCard'
 import { PracticeSetupFeedback } from '@app/practice/components/PracticeSetupFeedback'
-import { ReviewDueLine } from '@app/home/components/ReviewDueLine'
 
 const subjectKeys = {
   VOCABULARY: 'subjects.vocabulary.label',
@@ -62,7 +61,11 @@ const PickWord = ({
  * whose level and subject are underlined pickers, one [바로 풀기], then one
  * quiet line (members: what is left to review; guests: log in to keep).
  */
-export const HeroStartCard = (): ReactElement => {
+export const HeroStartCard = ({
+  memberLine
+}: {
+  memberLine?: ReactNode
+}): ReactElement => {
   const { t, i18n } = useTranslation('home')
   const { t: commonT } = useTranslation('common')
   const { user } = useAuth()
@@ -159,7 +162,7 @@ export const HeroStartCard = (): ReactElement => {
           </Link>
         </p>
       ) : setup.isReady ? (
-        <ReviewDueLine />
+        memberLine
       ) : null}
     </div>
   )

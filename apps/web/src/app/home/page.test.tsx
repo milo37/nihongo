@@ -34,6 +34,7 @@ import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { dailyQuestionHandlers } from '@/mocks/handlers/dailyQuestionHandlers'
 import { mockServer } from '@/test/server'
 import * as reviewListApi from '@api/wrong-note/listReviewList'
+import { ReviewDueLine } from '@app/dashboard/components/ReviewDueLine'
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
@@ -123,10 +124,10 @@ it.each([
   }
 )
 
-const renderHome = (initial = '/') =>
+const renderHome = (initial = '/', memberLine?: ReactElement) =>
   render(
     <MemoryRouter initialEntries={[initial]}>
-      <LearningHome />
+      <LearningHome memberLine={memberLine} />
     </MemoryRouter>
   )
 
@@ -204,7 +205,7 @@ it('tells a member how many wrong answers wait, with a link to review', async ()
   vi.spyOn(reviewListApi, 'listReviewList').mockResolvedValue({
     counts: { toReview: 4, reviewed: 1 }
   } as never)
-  renderHome('/dashboard?view=learning')
+  renderHome('/dashboard?view=learning', <ReviewDueLine />)
   expect(await screen.findByText('복습할 문제 4개')).toBeVisible()
   expect(screen.getByRole('link', { name: '복습' })).toHaveAttribute(
     'href',
@@ -216,7 +217,7 @@ it('shows nothing about review when no wrong answers wait', async () => {
   const list = vi.spyOn(reviewListApi, 'listReviewList').mockResolvedValue({
     counts: { toReview: 0, reviewed: 3 }
   } as never)
-  renderHome('/dashboard?view=learning')
+  renderHome('/dashboard?view=learning', <ReviewDueLine />)
   await vi.waitFor(() => expect(list).toHaveBeenCalled())
   expect(screen.queryByRole('link', { name: '복습' })).toBeNull()
 })

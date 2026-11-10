@@ -1,5 +1,5 @@
 import { Navigate, useLocation } from 'react-router'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { readLastPracticeChoice } from '@app/practice/lastPracticeChoice'
 import { FALLBACK_LEVEL } from '@app/practice/practiceSetupOptions'
@@ -13,7 +13,12 @@ import homeCss from '@app/home/home.css?inline'
  * today's question (on wide screens a sheet on the band's right). Guests and
  * members see the same screen with different words.
  */
-export const LearningHome = (): ReactElement => {
+export const LearningHome = ({
+  memberLine
+}: {
+  /** The member line under [바로 풀기]; the member route passes it in. */
+  memberLine?: ReactNode
+}): ReactElement => {
   const { user } = useAuth()
   // Same rule as the start sentence: target level, else the last one, else N5.
   const level =
@@ -24,7 +29,7 @@ export const LearningHome = (): ReactElement => {
         {homeCss}
       </style>
       <div className="home-band">
-        <HeroStartCard />
+        <HeroStartCard memberLine={memberLine} />
         <DailyQuestionCard level={level} />
       </div>
     </section>
