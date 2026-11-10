@@ -42,12 +42,7 @@ import {
 import type { ParsedSubmitStudySessionV2Body } from '@nihongo/contracts/study/submit-study-session'
 import type { ParsedSaveStudyDraftAnswersBody } from '@nihongo/contracts/study/save-study-draft-answers'
 import type { ReviewSelectionFilter } from '@nihongo/contracts/study/create-study-session'
-import {
-  compareReviewQueueItems,
-  type ListReviewQueueResponse,
-  type ParsedListReviewQueueQuery,
-  type ReviewQueueItem
-} from '@nihongo/contracts/wrong-note/list-review-queue'
+
 import {
   toWrongNoteReviewState,
   type ListReviewListResponse,
@@ -61,7 +56,6 @@ import {
   createTargetedReviewSessionResponseForQuestionSchema,
   type CreateTargetedReviewSessionResponse
 } from '@nihongo/contracts/wrong-note/create-targeted-review-session'
-import { compareWrongNoteTagLabels } from '@nihongo/contracts/wrong-note/list-wrong-notes'
 import type {
   ListResumableStudySessionsResponse,
   ResumableStudySessionSummary
@@ -2593,13 +2587,6 @@ export class MockDatabase {
     return { replayed: false, response: clone(response) }
   }
 
-  listCanonicalWrongNoteRecords(
-    userId: string
-  ): MockCanonicalWrongNoteRecord[] {
-    this.assertCanonicalReadOwner(userId)
-    return clone(this.reconstructCanonicalWrongNotes(userId))
-  }
-
   getCanonicalWrongNoteRecord(
     userId: string,
     contractQuestionId: string
@@ -2618,105 +2605,6 @@ export class MockDatabase {
     }
 
     return clone(matches[0])
-  }
-
-  listCanonicalReviewQueue(
-    userId: string,
-    query: ParsedListReviewQueueQuery
-  ): ListReviewQueueResponse {
-    this.assertCanonicalReadOwner(userId)
-    const observedAt = this.now()
-    const observedAtMs = Date.parse(observedAt)
-    const currentQuestions =
-      this.buildLearnerQuestionReadModel().currentBySourceId
-    const allCandidates = this.reconstructCanonicalWrongNotes(userId).flatMap(
-      (note): ReviewQueueItem[] => {
-        const question = currentQuestions.get(note.sourceQuestionId)
-        if (!question || question.status !== 'PUBLISHED') {
-          return []
-        }
-        const tags = [...new Set(question.tags)].toSorted(
-          compareWrongNoteTagLabels
-        )
-        const characters = [...question.questionText]
-        const questionPreview =
-          characters.length <= 160
-            ? question.questionText
-            : `${characters.slice(0, 157).join('')}...`
-        return [
-          {
-            questionId: getCanonicalQuestionId(question),
-            currentQuestionVersionId: getCanonicalQuestionVersionId(question),
-            level: question.level,
-            subject: question.subject,
-            questionType: question.questionType,
-            questionPreview,
-            tags,
-            status: note.status,
-            wrongCount: note.wrongCount,
-            correctStreak: note.correctStreak,
-            lastWrongAt: note.lastWrongAt,
-            lastReviewedAt: note.lastReviewedAt,
-            nextReviewAt: note.nextReviewAt,
-            hasMemo: this.canonicalUserMemoByWrongNoteId.has(note.wrongNoteId)
-          }
-        ]
-      }
-    )
-    const matchesBase = (item: ReviewQueueItem, includeTag: boolean): boolean =>
-      (query.level === undefined || item.level === query.level) &&
-      (query.subject === undefined || item.subject === query.subject) &&
-      (query.questionType === undefined ||
-        item.questionType === query.questionType) &&
-      (!includeTag || query.tag === undefined || item.tags.includes(query.tag))
-    const base = allCandidates.filter((item) => matchesBase(item, true))
-    const isDue = (item: ReviewQueueItem): boolean =>
-      Date.parse(item.nextReviewAt) <= observedAtMs
-    const matchesView = (item: ReviewQueueItem): boolean => {
-      switch (query.view) {
-        case 'DUE':
-          return isDue(item)
-        case 'UNREVIEWED':
-          return item.lastReviewedAt === null
-        case 'REPEATED':
-          return item.wrongCount >= 2
-        case 'SOLVED':
-          return item.status === 'SOLVED'
-      }
-    }
-    const selected = base
-      .filter(matchesView)
-      .toSorted((left, right) =>
-        compareReviewQueueItems(left, right, query.sort)
-      )
-    const offset = (BigInt(query.page) - 1n) * BigInt(query.pageSize)
-    const items =
-      offset >= BigInt(selected.length)
-        ? []
-        : selected.slice(Number(offset), Number(offset) + query.pageSize)
-    const availableTags = [
-      ...new Set(
-        allCandidates
-          .filter((item) => matchesBase(item, false))
-          .flatMap(({ tags }) => tags)
-      )
-    ].toSorted(compareWrongNoteTagLabels)
-
-    return clone({
-      items,
-      page: query.page,
-      pageSize: query.pageSize,
-      total: selected.length,
-      counts: {
-        due: base.filter(isDue).length,
-        unreviewed: base.filter(({ lastReviewedAt }) => lastReviewedAt === null)
-          .length,
-        repeated: base.filter(({ wrongCount }) => wrongCount >= 2).length,
-        solved: base.filter(({ status }) => status === 'SOLVED').length
-      },
-      availableTags,
-      observedAt
-    })
   }
 
   listCanonicalReviewList(

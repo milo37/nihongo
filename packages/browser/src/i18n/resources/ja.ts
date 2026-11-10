@@ -1144,10 +1144,8 @@ export const jaCoreResources = {
         SOLVED: '解決した問題'
       },
       status: {
-        NEW: '新しい間違い',
-        AGAIN: 'もう一度復習',
-        REVIEWING: '復習中',
-        SOLVED: '解決済み'
+        TO_REVIEW: '復習する問題',
+        REVIEWED: '復習した問題'
       },
       advanced: '詳細条件',
       applied: ' · 適用中',
@@ -1195,13 +1193,10 @@ export const jaCoreResources = {
         correct: '正解です！',
         wrong: '残念、不正解です。',
         states: {
-          NEW: 'まだ復習していない問題です。',
-          REVIEWING: '一度正解しました。復習中の問題として残ります。',
-          SOLVED:
-            '連続して正解し、解決した問題です。復習時期にまた表示されます。',
-          AGAIN: '同じ問題をもう一度間違えました。解説を読んで復習しましょう。'
+          REVIEWED: '正解したので「復習した問題」に移しました。',
+          TO_REVIEW:
+            'まだ「復習する問題」にあります。解説を読んでもう一度解いてみましょう。'
         },
-        next: '次の復習は{{date}}です。',
         checking: '採点しました。間違いノートに反映しています。',
         unknown:
           '採点はできましたが、間違いノートへの反映を確認できませんでした。もう一度提出する必要はありません。',
