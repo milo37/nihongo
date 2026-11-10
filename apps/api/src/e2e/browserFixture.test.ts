@@ -479,11 +479,33 @@ describe('Google CMS browser TEST handoff', () => {
     expect(f.gatewayDisconnect).not.toHaveBeenCalled()
   })
 
-  it.each(['/api/v1/dashboard', '/api/v1/dashboard/insights'])(
-    'keeps the USER learning route %s authenticated',
-    async (path) => {
+  // JLP-823: saving (records, wrong notes, bookmarks, target level) is for
+  // members; a visitor without a session gets 401 on every one of them.
+  const questionId = '4ed52fae-8952-44df-9ec1-2298c893e061'
+  const writeInit = {
+    headers: {
+      'Content-Type': 'application/json',
+      Origin: 'http://127.0.0.1:4200'
+    }
+  }
+  it.each([
+    ['GET', '/api/v1/dashboard', undefined],
+    ['GET', '/api/v1/dashboard/insights', undefined],
+    ['GET', '/api/v1/bookmarks', undefined],
+    ['PUT', `/api/v1/bookmarks/${questionId}`, {}],
+    ['DELETE', `/api/v1/bookmarks/${questionId}`, undefined],
+    ['GET', '/api/v1/review-list', undefined],
+    ['GET', `/api/v1/wrong-notes/${questionId}`, undefined],
+    ['PUT', '/api/v1/me/target-level', { targetLevel: 'N3' }]
+  ] as const)(
+    'keeps the member route %s %s authenticated',
+    async (method, path, body) => {
       const created = await createSsoBrowserApiTestFixture(options())
-      const response = await created.app.request(path)
+      const response = await created.app.request(path, {
+        method,
+        ...(method === 'GET' ? {} : writeInit),
+        ...(body === undefined ? {} : { body: JSON.stringify(body) })
+      })
       expect(response.status).toBe(401)
       expect(response.headers.get('cache-control')).toBe('private, no-store')
       expect(await response.json()).toMatchObject({

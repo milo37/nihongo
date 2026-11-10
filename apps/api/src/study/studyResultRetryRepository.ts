@@ -8,6 +8,7 @@ import {
 } from '@nihongo/domain/selection/select-result-retry-candidates'
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 import {
+  assertGuestDailySessionLimit,
   GuestCredentialExpiredError,
   NoEligibleQuestionsError,
   loadStudySessionRecord,
@@ -420,6 +421,14 @@ const createRetryInTransaction = async (
   }
   const requestedCount = sourceResult.incorrectCount
   await lockRetryCandidates(transaction, selected)
+  // A guest retry is one of the guest's daily sets (JLP-823).
+  if (input.owner.kind === 'GUEST') {
+    await assertGuestDailySessionLimit(
+      transaction,
+      input.owner.guestPrincipalId,
+      input.observedAt
+    )
+  }
 
   const expiresAt = new Date(input.observedAt.getTime() + RETRY_SESSION_TTL_MS)
   const targetExpiresAt =

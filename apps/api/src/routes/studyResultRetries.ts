@@ -4,6 +4,7 @@ import {
   createResultRetrySessionParamsSchema,
   createResultRetrySessionResponseSchema
 } from '@nihongo/contracts/study/create-result-retry-session'
+import { GUEST_DAILY_SESSION_LIMIT_PER_IP } from '@nihongo/contracts/study/guest-limits'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import {
@@ -18,14 +19,20 @@ import type { ApplicationRateLimiter } from '../middleware/applicationRateLimite
 import { createClientIpMiddleware } from '../middleware/clientIp.js'
 import { readBoundedJsonObject } from '../middleware/boundedJson.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
+import type { GuestIpDailyCounter } from '../study/guestIpDailyCounter.js'
 import type { StudyResultRetryService } from '../study/studyResultRetryService.js'
 import { toFieldErrors } from './routeSupport.js'
-import { resolveExistingStudyOwner } from './studyRouteSupport.js'
+import {
+  guestIpLimitReached,
+  resolveExistingStudyOwner
+} from './studyRouteSupport.js'
 
 interface StudyResultRetryRouteDependencies {
   accountRestrictionReader: AccountRestrictionReader
   environment: ApiEnvironment
   guestPrincipalService: GuestPrincipalService
+  guestIpDailyCounter?: GuestIpDailyCounter
+  now?: () => Date
   principalService: PrincipalService
   rateLimiter: ApplicationRateLimiter
   studyResultRetryService: StudyResultRetryService
@@ -37,6 +44,8 @@ export const createStudyResultRetryRoutes = ({
   accountRestrictionReader,
   environment,
   guestPrincipalService,
+  guestIpDailyCounter,
+  now = () => new Date(),
   principalService,
   rateLimiter,
   studyResultRetryService
@@ -123,21 +132,29 @@ export const createStudyResultRetryRoutes = ({
       guestPrincipalService,
       principalService
     })
-    // A retry is a new session; guests only start limited random ones (#737).
-    if (owner.kind !== 'USER') {
-      throw new ApplicationError({
-        code: 'AUTHENTICATION_REQUIRED',
-        message: '오답을 다시 풀려면 로그인이 필요합니다.',
-        retryable: false
-      })
+    // A guest retry is one of the guest's daily sets (JLP-823): the
+    // repository counts it, and the hidden per-IP limit applies as well.
+    if (owner.kind === 'USER') {
+      await assertAccountNotRestricted(accountRestrictionReader, owner.userId)
+    } else {
+      const checkedAt = now()
+      if (
+        guestIpDailyCounter &&
+        (await guestIpDailyCounter.used(context.get('clientIp'), checkedAt)) >=
+          GUEST_DAILY_SESSION_LIMIT_PER_IP
+      ) {
+        throw guestIpLimitReached(checkedAt)
+      }
     }
-    await assertAccountNotRestricted(accountRestrictionReader, owner.userId)
 
     const created = await studyResultRetryService.create(
       params.sessionId,
       headers['idempotency-key'],
       owner
     )
+    if (owner.kind !== 'USER' && !created.replayed) {
+      await guestIpDailyCounter?.record(context.get('clientIp'), now())
+    }
     const response = createResultRetrySessionResponseSchema.parse(
       created.response
     )

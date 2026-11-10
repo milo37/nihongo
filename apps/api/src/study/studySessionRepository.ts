@@ -405,10 +405,11 @@ const findExistingGuest = async (
 }
 
 /**
- * A guest may start GUEST_DAILY_SESSION_LIMIT sessions per Korea-time day.
+ * A guest may start GUEST_DAILY_SESSION_LIMIT sessions per Korea-time day;
+ * result retries count too (JLP-823).
  * The row lock makes two concurrent starts of one guest count one by one.
  */
-const assertGuestDailySessionLimit = async (
+export const assertGuestDailySessionLimit = async (
   transaction: Prisma.TransactionClient,
   guestPrincipalId: string,
   startedAt: Date
