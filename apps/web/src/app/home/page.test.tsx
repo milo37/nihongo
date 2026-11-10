@@ -33,6 +33,7 @@ import { HomePage, LearningHome } from '@app/home/page'
 import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { dailyQuestionHandlers } from '@/mocks/handlers/dailyQuestionHandlers'
 import { mockServer } from '@/test/server'
+import * as reviewListApi from '@api/wrong-note/listReviewList'
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
@@ -130,51 +131,44 @@ const renderHome = (initial = '/') =>
   )
 
 it.each([
-  [
-    'ko',
-    '처음이라면',
-    'N5 문자·어휘',
-    '5문제 · 3분 정도',
-    '로그인 없이 풀어 보기'
-  ],
+  ['ko', '오늘은 N5 문자·어휘 5문제 풀어 볼까요?', '급수', '과목', '바로 풀기'],
   [
     'ja',
-    'はじめてなら',
-    'N5 文字・語彙',
-    '5問 · 約3分',
-    'ログインせずに解いてみる'
+    '今日は N5 文字・語彙 を 5問解いてみませんか？',
+    'レベル',
+    '科目',
+    'すぐに解く'
   ]
 ] as const)(
-  'greets a guest with one start card on N5 vocabulary (%s)',
-  async (locale, label, title, meta, start) => {
+  'asks a guest one sentence with N5 vocabulary and one start button (%s)',
+  async (locale, sentence, levelLabel, subjectLabel, start) => {
     await appI18n.changeLanguage(locale)
     mocks.auth.mockReturnValue({ isReady: true, role: 'GUEST', user: null })
     renderHome()
     expect(
-      screen.getByRole('heading', {
-        level: 1,
-        name: appI18n.t('home:today.guestGreeting')
-      })
+      screen.getByRole('heading', { level: 1, name: sentence })
     ).toBeVisible()
-    const hero = screen.getByRole('region', { name: title })
-    expect(within(hero).getByText(label)).toBeVisible()
-    expect(within(hero).getByText(meta)).toBeVisible()
-    fireEvent.click(within(hero).getByRole('button', { name: start }))
+    expect(
+      screen.getByText(appI18n.t('home:today.guestGreeting'))
+    ).toBeVisible()
+    expect(screen.getByRole('combobox', { name: levelLabel })).toHaveValue('N5')
+    expect(screen.getByRole('combobox', { name: subjectLabel })).toHaveValue(
+      'VOCABULARY'
+    )
+    fireEvent.click(screen.getByRole('button', { name: start }))
     expect(mocks.mutate).toHaveBeenCalledWith(
       { level: 'N5', subject: 'VOCABULARY', count: 5, mode: 'RANDOM' },
       expect.anything()
     )
+    // Guests keep things only after logging in: one quiet line, no lock.
     expect(
-      within(hero).getByRole('link', {
-        name: appI18n.t('home:today.changeLabel')
-      })
-    ).toHaveAttribute('href', '/practice')
-    // One filled button and a text link: no row of outlined buttons.
-    expect(within(hero).getAllByRole('button')).toHaveLength(1)
+      screen.getByRole('link', { name: appI18n.t('common:actions.login') })
+    ).toHaveAttribute('href', '/login?redirect=%2F')
+    expect(screen.getByText(appI18n.t('home:today.keepLogin'))).toBeVisible()
   }
 )
 
-it('starts a member from the last level and subject in one press', () => {
+it('starts a member from the last level and subject, changed by the underlined words', async () => {
   localStorage.setItem(
     LAST_PRACTICE_CHOICE_KEY,
     JSON.stringify({ level: 'N3', subject: 'GRAMMAR' })
@@ -184,18 +178,47 @@ it('starts a member from the last level and subject in one press', () => {
     role: 'USER',
     user: { id: 'member', name: '데모', targetLevel: null }
   })
+  const user = userEvent.setup()
   renderHome('/dashboard?view=learning')
+  expect(screen.getByText('데모님, 오늘도 가볍게')).toBeVisible()
   expect(
-    screen.getByRole('heading', { level: 1, name: '데모님, 오늘도 가볍게' })
+    screen.getByRole('heading', {
+      level: 1,
+      name: '오늘은 N3 문법 10문제 풀어 볼까요?'
+    })
   ).toBeVisible()
-  const hero = screen.getByRole('region', { name: 'N3 문법' })
-  expect(within(hero).getByText('지난번 공부')).toBeVisible()
-  expect(within(hero).getByText('10문제 · 5분 정도')).toBeVisible()
-  fireEvent.click(within(hero).getByRole('button', { name: '바로 풀기' }))
+  await user.selectOptions(screen.getByRole('combobox', { name: '급수' }), 'N1')
+  await user.selectOptions(
+    screen.getByRole('combobox', { name: '과목' }),
+    'READING'
+  )
+  fireEvent.click(screen.getByRole('button', { name: '바로 풀기' }))
   expect(mocks.mutate).toHaveBeenCalledWith(
-    { level: 'N3', subject: 'GRAMMAR', count: 10, mode: 'RANDOM' },
+    { level: 'N1', subject: 'READING', count: 10, mode: 'RANDOM' },
     expect.anything()
   )
+  expect(screen.queryByText(appI18n.t('home:today.keepLogin'))).toBeNull()
+})
+
+it('tells a member how many wrong answers wait, with a link to review', async () => {
+  vi.spyOn(reviewListApi, 'listReviewList').mockResolvedValue({
+    counts: { toReview: 4, reviewed: 1 }
+  } as never)
+  renderHome('/dashboard?view=learning')
+  expect(await screen.findByText('복습할 문제 4개')).toBeVisible()
+  expect(screen.getByRole('link', { name: '복습' })).toHaveAttribute(
+    'href',
+    '/wrong-notes'
+  )
+})
+
+it('shows nothing about review when no wrong answers wait', async () => {
+  const list = vi.spyOn(reviewListApi, 'listReviewList').mockResolvedValue({
+    counts: { toReview: 0, reviewed: 3 }
+  } as never)
+  renderHome('/dashboard?view=learning')
+  await vi.waitFor(() => expect(list).toHaveBeenCalled())
+  expect(screen.queryByRole('link', { name: '복습' })).toBeNull()
 })
 
 it('shows the start error in place and allows another try', () => {
@@ -203,7 +226,7 @@ it('shows the start error in place and allows another try', () => {
   mocks.failed = true
   renderHome()
   expect(screen.getByRole('alert')).toBeVisible()
-  const start = screen.getByRole('button', { name: '로그인 없이 풀어 보기' })
+  const start = screen.getByRole('button', { name: '바로 풀기' })
   fireEvent.click(start)
   fireEvent.click(start)
   expect(mocks.mutate).toHaveBeenCalledTimes(2)
@@ -213,13 +236,15 @@ it('announces loading and prevents duplicate start requests', () => {
   mocks.auth.mockReturnValue({ isReady: true, role: 'GUEST', user: null })
   mocks.pending = true
   renderHome()
-  const hero = screen.getByRole('region', { name: 'N5 문자·어휘' })
-  const start = within(hero).getByRole('button')
+  const start = screen.getByRole('button', {
+    name: appI18n.t('home:approved.loading')
+  })
   expect(start).toBeDisabled()
   expect(start).toHaveAttribute('aria-busy', 'true')
-  expect(start).toHaveAccessibleName(appI18n.t('home:approved.loading'))
   fireEvent.click(start)
   expect(mocks.mutate).not.toHaveBeenCalled()
+  // The words cannot change while a set is being made.
+  expect(screen.getByRole('combobox', { name: '급수' })).toBeDisabled()
 })
 
 it("answers today's question in place, without a record, and keeps it on reopen", async () => {

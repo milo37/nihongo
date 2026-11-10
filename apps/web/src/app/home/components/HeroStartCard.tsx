@@ -1,14 +1,17 @@
 import { useRef } from 'react'
-import { useTranslation } from 'react-i18next'
+import { Trans, useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
-import type { ReactElement } from 'react'
+import type { ChangeEvent, ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
+import { Icon } from '@nihongo/browser/common/components/Icon'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
+import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { usePracticeSetupController } from '@app/practice/hooks/usePracticeSetupController'
-import { readLastPracticeChoice } from '@app/practice/lastPracticeChoice'
+import { levels, subjects } from '@app/practice/practiceSetupOptions'
 import { GuestDailyLimitCard } from '@app/practice/components/GuestDailyLimitCard'
 import { PracticeSetupFeedback } from '@app/practice/components/PracticeSetupFeedback'
+import { ReviewDueLine } from '@app/home/components/ReviewDueLine'
 
 const subjectKeys = {
   VOCABULARY: 'subjects.vocabulary.label',
@@ -17,49 +20,126 @@ const subjectKeys = {
 } as const
 
 /**
- * The big start card: last level and subject (or N5 문자·어휘 the first
- * time), one filled button that starts a set, and a small [바꾸기] link to
- * the full setup (direction §1-2, subtract table 1).
+ * An underlined word in the sentence that opens a native picker. The select
+ * sits invisibly on top of the word, so the word keeps its own width.
+ */
+const PickWord = ({
+  label,
+  value,
+  options,
+  onChange,
+  disabled
+}: {
+  label: string
+  value: string
+  options: readonly { value: string; label: string }[]
+  onChange: (event: ChangeEvent<HTMLSelectElement>) => void
+  disabled: boolean
+}): ReactElement => (
+  <span className="home-pick">
+    <span className="home-pick-word" aria-hidden="true">
+      {options.find((option) => option.value === value)?.label ?? value}
+      <Icon name="chevron-right" className="home-pick-icon" />
+    </span>
+    <select
+      className="home-pick-select"
+      aria-label={label}
+      value={value}
+      disabled={disabled}
+      onChange={onChange}
+    >
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+  </span>
+)
+
+/**
+ * 첫 화면 B (JLP-823): one sentence "오늘은 N5 문자·어휘 10문제 풀어 볼까요?"
+ * whose level and subject are underlined pickers, one [바로 풀기], then one
+ * quiet line (members: what is left to review; guests: log in to keep).
  */
 export const HeroStartCard = (): ReactElement => {
   const { t, i18n } = useTranslation('home')
+  const { t: commonT } = useTranslation('common')
+  const { user } = useAuth()
   const resumableHeadingRef = useRef<HTMLHeadingElement>(null)
   const setup = usePracticeSetupController(resumableHeadingRef)
-  const hasHistory = readLastPracticeChoice() !== null
-  const { count, level, subject } = setup
+  const { count, subject } = setup
+  const level = setup.level ?? setup.defaultLevel
   const locale = resolveUiLocale(i18n.resolvedLanguage)
+  const { isGuest } = setup
+  const pickDisabled = !setup.isReady || setup.isCreatingSession
   return (
-    <section className="home-hero" aria-labelledby="home-hero-title">
-      <p className="text-[15px] font-semibold">
-        {hasHistory ? t('today.lastStudy') : t('today.firstStudy')}
+    <div className="home-band-start">
+      <p className="home-hello">
+        {isGuest
+          ? t('today.guestGreeting')
+          : user?.name
+            ? t('today.memberGreeting', { name: user.name })
+            : t('today.memberGreetingNoName')}
       </p>
-      <h2 id="home-hero-title" className="home-hero-title">
-        {t('today.startTitle', {
-          level: level ?? setup.defaultLevel,
-          subject: t(subjectKeys[subject])
-        })}
-      </h2>
-      <p className="text-[15px]">
-        {t('today.startMeta', {
-          formattedCount: formatNumber(count, locale),
-          minutes: formatNumber(Math.ceil(count / 2), locale)
-        })}
-      </p>
+      <h1 className="home-say" tabIndex={-1}>
+        <Trans
+          t={t}
+          i18nKey="today.say"
+          values={{ formattedCount: formatNumber(count, locale) }}
+          components={{
+            level: (
+              <PickWord
+                label={t('today.levelLabel')}
+                value={level}
+                disabled={pickDisabled}
+                options={levels.map((value) => ({ value, label: value }))}
+                onChange={(event) =>
+                  setup.changeSetting(
+                    'level',
+                    event.currentTarget.value,
+                    setup.defaultLevel
+                  )
+                }
+              />
+            ),
+            subject: (
+              <PickWord
+                label={t('today.subjectLabel')}
+                value={subject}
+                disabled={pickDisabled}
+                options={subjects.map((value) => ({
+                  value,
+                  label: t(subjectKeys[value])
+                }))}
+                onChange={(event) =>
+                  setup.changeSetting(
+                    'subject',
+                    event.currentTarget.value,
+                    setup.defaultSubject
+                  )
+                }
+              />
+            ),
+            br: <br />
+          }}
+        />
+      </h1>
       {setup.isGuestDailyLimitReached ? (
-        <div className="mt-5">
+        <div className="home-band-limit">
           <GuestDailyLimitCard redirect="/" />
         </div>
       ) : (
         <Button
-          className="home-hero-start mt-6"
+          className="home-go"
           size="lg"
-          fullWidth
-          disabled={!setup.isReady || !level}
+          disabled={!setup.isReady || !setup.level}
           isLoading={setup.isCreatingSession}
           loadingLabel={t('approved.loading')}
           onClick={setup.handleStart}
         >
-          {setup.isGuest ? t('today.startGuest') : t('today.startMember')}
+          {t('today.startMember')}
+          <Icon name="arrow-right" className="size-5" />
         </Button>
       )}
       <PracticeSetupFeedback
@@ -69,13 +149,18 @@ export const HeroStartCard = (): ReactElement => {
         noEligibleQuestions={setup.noEligibleQuestions}
         onSelectRandom={() => setup.changeSetting('mode', 'RANDOM', 'RANDOM')}
       />
-      <Link
-        className="home-hero-change"
-        to="/practice"
-        aria-label={t('today.changeLabel')}
-      >
-        {t('today.change')}
-      </Link>
-    </section>
+      {isGuest ? (
+        <p className="home-more">
+          <Icon name="bookmark" className="home-more-icon" />
+          {t('today.keepLogin')}
+          <Link to={setup.loginHref}>
+            {commonT('actions.login')}
+            <Icon name="chevron-right" className="size-4" />
+          </Link>
+        </p>
+      ) : setup.isReady ? (
+        <ReviewDueLine />
+      ) : null}
+    </div>
   )
 }

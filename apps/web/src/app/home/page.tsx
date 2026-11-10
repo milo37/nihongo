@@ -1,5 +1,4 @@
 import { Navigate, useLocation } from 'react-router'
-import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { readLastPracticeChoice } from '@app/practice/lastPracticeChoice'
@@ -10,36 +9,22 @@ import { DailyQuestionCard } from '@app/home/components/DailyQuestionCard'
 import homeCss from '@app/home/home.css?inline'
 
 /**
- * 학습 홈 (direction §1-2): greeting, the big start card, then today's
- * question. Two columns on wide screens, one below. Guests and members see
- * the same screen with different words.
+ * 첫 화면 B (JLP-823): a soft band with one sentence and [바로 풀기], then
+ * today's question (on wide screens a sheet on the band's right). Guests and
+ * members see the same screen with different words.
  */
 export const LearningHome = (): ReactElement => {
-  const { t } = useTranslation('home')
-  const { role, user } = useAuth()
-  const isGuest = role === 'GUEST'
-  // Same rule as the start card: target level, else the last one, else N5.
+  const { user } = useAuth()
+  // Same rule as the start sentence: target level, else the last one, else N5.
   const level =
     user?.targetLevel ?? readLastPracticeChoice()?.level ?? FALLBACK_LEVEL
   return (
-    <section className="home-today">
+    <section className="home-b">
       <style href="harumaru-home" precedence="default">
         {homeCss}
       </style>
-      <header className="home-today-greeting">
-        <h1 tabIndex={-1}>
-          {isGuest
-            ? t('today.guestGreeting')
-            : user?.name
-              ? t('today.memberGreeting', { name: user.name })
-              : t('today.memberGreetingNoName')}
-        </h1>
-        <p>{isGuest ? t('today.guestLead') : t('today.memberLead')}</p>
-      </header>
-      <div className="home-today-grid">
-        <div className="home-today-main">
-          <HeroStartCard />
-        </div>
+      <div className="home-band">
+        <HeroStartCard />
         <DailyQuestionCard level={level} />
       </div>
     </section>
