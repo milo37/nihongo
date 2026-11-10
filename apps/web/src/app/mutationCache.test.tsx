@@ -77,7 +77,6 @@ describe('mutation cache contracts', () => {
     )
     seedCache(client, [...wrongNoteQueries.allKey(), 'seed'])
     seedCache(client, dashboardQueries.stats().queryKey)
-    seedCache(client, dashboardQueries.insights().queryKey)
 
     const { result } = renderHook(
       () =>
@@ -107,7 +106,6 @@ describe('mutation cache contracts', () => {
     expectInvalidated(client, studySessionQueries.session(sessionId).queryKey)
     expectInvalidated(client, [...wrongNoteQueries.allKey(), 'seed'])
     expectInvalidated(client, dashboardQueries.stats().queryKey)
-    expectInvalidated(client, dashboardQueries.insights().queryKey)
   })
 
   it('mutateAsync는 병렬 cache invalidation이 모두 끝날 때까지 pending을 유지한다', async () => {
@@ -188,12 +186,10 @@ describe('mutation cache contracts', () => {
     const sessionKey = studySessionQueries.session('missing-session').queryKey
     const wrongKey = [...wrongNoteQueries.allKey(), 'seed'] as const
     const dashboardStatsKey = dashboardQueries.stats().queryKey
-    const dashboardInsightsKey = dashboardQueries.insights().queryKey
 
     seedCache(client, sessionKey)
     seedCache(client, wrongKey)
     seedCache(client, dashboardStatsKey)
-    seedCache(client, dashboardInsightsKey)
 
     const { result } = renderHook(
       () =>
@@ -217,9 +213,6 @@ describe('mutation cache contracts', () => {
     expect(client.getQueryState(sessionKey)?.isInvalidated).toBe(false)
     expect(client.getQueryState(wrongKey)?.isInvalidated).toBe(false)
     expect(client.getQueryState(dashboardStatsKey)?.isInvalidated).toBe(false)
-    expect(client.getQueryState(dashboardInsightsKey)?.isInvalidated).toBe(
-      false
-    )
     expect(
       client.getQueryData(serverStateQueryKeys.study.result('missing-session'))
     ).toBeUndefined()

@@ -726,8 +726,7 @@ export const jaCoreResources = {
       },
       supply: {
         canonicalPartial:
-          '{{requested}}問を選びましたが、今解ける問題が{{actual}}問なので{{actual}}問だけ出ました。',
-        canonicalNoFallback: '選択したモードは自動で変更しません。'
+          '{{requested}}問を選びましたが、今解ける問題が{{actual}}問なので{{actual}}問だけ出ました。'
       },
       progressLabel: '{{percent}}% 回答',
       question: {
@@ -947,156 +946,7 @@ export const jaCoreResources = {
       recentSessions: '最近の学習',
       recentSessionResult: '{{total}}問中{{correct}}問正解',
       sessionAccuracy: '正答率 {{rate}}%',
-      noRecentSessions: '最近解いた学習はありません。',
-      wrongCount: '{{formattedCount}}回間違い'
-    },
-    insights: {
-      loading: '直近90日のインサイトを読み込んでいます…',
-      offlineTitle: 'オフラインで最近のインサイトを待っています',
-      offlineDescription:
-        '接続が戻ると、直近90日の学習インサイトを自動で再確認します。',
-      errorTitle: '学習インサイトを読み込めませんでした',
-      errorDescription:
-        '既存の累計統計はそのまま確認できます。直近90日の分析のみ再度リクエストしてください。',
-      retry: '最近のインサイトを再試行',
-      eyebrow: 'LAST 90 DAYS',
-      title: '弱点と次の学習提案',
-      window:
-        '{{formattedDays}}日分 · 最低{{formattedAttempts}}回のサンプル · {{observedAt}}時点',
-      ruleBased: 'ルールベースの提案',
-      staleTitle: '最新のインサイトに更新できませんでした',
-      staleDescription: '画面には最後に確認した結果を保持しています。',
-      cachedOffline:
-        'オフラインのため、最後に確認した提案を表示します。接続が戻るまで提案は実行できません。',
-      recentAttempts: '最近の解答',
-      recentAccuracy: '最近の正答率',
-      averageTime: '平均解答時間',
-      dueReview: '復習予定',
-      repeatedWrong: '繰り返しの間違い',
-      questionUnit: '問',
-      byLevel: 'レベル別正答率',
-      chartDescription: '棒と同じ数値を下の表でも確認できます。',
-      chartLoading: 'レベル別正答率グラフを読み込んでいます…',
-      levelTableLabel: '直近90日のレベル別正答率詳細表',
-      levelTableTitle: 'レベル別の詳細値',
-      subjectTableLabel: '直近90日の科目別正答率詳細表',
-      subjectTableTitle: '科目別統計',
-      detailsSummary: '種類・タグの詳細統計を見る',
-      detailsLabel: '詳細統計の種類',
-      questionType: '問題の種類',
-      questionTypeTableLabel: '直近90日の問題種類別正答率詳細表',
-      questionTypeTableTitle: '問題種類別統計',
-      tag: 'タグ',
-      tagTableLabel: '直近90日のタグ別正答率詳細表',
-      tagTableTitle: 'タグ別統計',
-      noTags: '観測されたタグはありません。',
-      tagTruncated:
-        '全{{formattedTotal}}タグのうち最大{{formattedLimit}}件を表示します。',
-      emptyTitle: '直近90日の学習記録がありません',
-      emptyDescription:
-        '問題を解くと、レベル・科目・種類・タグ別の正確さと平均解答時間が表示されます。サンプルがない値は0%ではなく「サンプルなし」として区別します。',
-      weaknesses: '分析された弱点',
-      count: '{{formattedCount}}件',
-      noWeaknessTitle: '分析基準を満たす弱点はありません',
-      noWeaknessDescription:
-        '同じ分類で最低{{formattedAttempts}}回のサンプルが蓄積され、間違いがある場合に弱点として表示します。',
-      recommendations: '次の学習提案',
-      actionLoading: 'おすすめ学習を準備中…',
-      actionAriaLabel: '{{action}}: {{summary}}',
-      table: {
-        caption: '{{title}}の表',
-        category: '区分',
-        attempted: '解答',
-        correct: '正解',
-        accuracy: '正答率',
-        averageTime: '平均時間',
-        recent: '最近の学習',
-        attemptCount: '{{formattedCount}}回'
-      },
-      projection: {
-        noSample: 'サンプルなし',
-        noLearningRecord: '学習記録なし',
-        seconds: '{{value}}秒',
-        weaknessDetail:
-          '{{attempted}}回中{{incorrect}}回間違い · 正答率{{accuracy}} · 直近{{days}}日',
-        weaknessScore: '弱点スコア {{score}}',
-        targetedSummary: '繰り返し間違えた1問を集中復習',
-        openSetupSummary: '練習条件の設定を開く',
-        sessionSummary:
-          '{{mode}} · {{level}} {{subject}} · {{formattedCount}}問',
-        startMode: '{{mode}}を開始',
-        startTargeted: 'この問題だけ復習',
-        openSetup: '練習条件の設定を開く',
-        recommendation: {
-          DUE_REVIEW: {
-            title: '今日の復習から始めましょう',
-            reason:
-              '{{level}} {{subject}}の復習予定が{{formattedCount}}問あります。最も早い予定時刻は{{date}}です。'
-          },
-          REPEATED_WRONG: {
-            title: '繰り返し間違えた問題を確認しましょう',
-            reasonPrefix: '「',
-            reasonSuffix:
-              '」を{{formattedCount}}回間違えました。最後に間違えたのは{{date}}です。'
-          },
-          RECENT_LOW_ACCURACY_TYPE: {
-            title: '最近正答率が低い種類を練習しましょう',
-            reason:
-              '{{level}} {{subject}}の{{questionType}}で{{attempted}}回中{{incorrect}}回間違えました。正答率は{{accuracy}}です。'
-          },
-          STALE_WEAK_SUBJECT: {
-            title: 'しばらく離れていた弱い科目を復習しましょう',
-            reason:
-              '{{level}} {{subject}}の最後の弱点根拠は{{days}}日前です。{{attempted}}回中{{incorrect}}回間違えました。'
-          },
-          TARGET_LEVEL_PRACTICE: {
-            title: '目標レベルの次の問題を解きましょう',
-            reason:
-              '{{level}} {{subject}}の{{catalogCount}}問中{{nonRecentCount}}問は直近3セッション外にあり、優先して練習できます。'
-          },
-          PRACTICE_SETUP_TARGET: {
-            title: 'まず目標レベルを設定してください',
-            reason:
-              '目標レベルを設定すると、現在公開中の問題から次の練習を提案します。'
-          },
-          PRACTICE_SETUP_CATALOG: {
-            title: '練習条件を選び直してください',
-            reason:
-              '現在の目標レベルには公開中の問題がないため、別のレベルや科目を選ぶ必要があります。'
-          }
-        },
-        personalization: {
-          NO_PERSONALIZED_EVIDENCE:
-            '個別化の根拠がまだ十分でないため、目標レベルの一般練習も提案します。',
-          TARGET_LEVEL_NOT_SET:
-            '目標レベルがないため、練習条件の設定をご案内します。',
-          NO_TARGET_CATALOG:
-            '現在の目標レベルには公開中の問題がないため、練習条件の設定をご案内します。'
-        }
-      },
-      actionNotice: {
-        sessionExhausted:
-          '提案後に出題可能な問題がなくなったため、この学習を開始できませんでした。指定モードは変更せず、最新の提案を確認しています。',
-        sessionRefreshed: '指定モードは変更せず、最新の提案を確認しました。',
-        sessionRefreshFailed:
-          '指定モードは変更していません。最新の提案を読み込めなかったため、この提案を一時的に無効にしました。最近のインサイトを再試行してください。',
-        sessionFailed:
-          'おすすめ学習を開始できませんでした。別のモードには自動変更していません。同じ提案をもう一度お試しください。',
-        targetedEnded:
-          '以前作成した単独復習セッションは終了済みです。別の学習には変更せず、最新の提案を確認しています。',
-        targetedEndedRefreshed:
-          '終了した単独復習を別の学習に変更せず、最新の提案を確認しました。',
-        targetedEndedRefreshFailed:
-          '終了した単独復習を別の学習に変更していません。最新の提案を読み込めなかったため、この提案を一時的に無効にしました。最近のインサイトを再試行してください。',
-        targetedUnavailable:
-          '提案した問題は復習できなくなりました。別の学習には自動変更せず、最新の提案を確認しています。',
-        targetedRefreshed:
-          '別の学習には自動変更せず、最新の提案を確認しました。',
-        targetedRefreshFailed:
-          '別の学習には自動変更していません。最新の提案を読み込めなかったため、この提案を一時的に無効にしました。最近のインサイトを再試行してください。',
-        targetedFailed:
-          '単独復習を開始できませんでした。別の学習には自動変更していません。同じ提案をもう一度お試しください。'
-      }
+      noRecentSessions: '最近解いた学習はありません。'
     }
   },
   wrongNote: {
@@ -1585,10 +1435,6 @@ export const jaCoreResources = {
       error: '学習記録を読み込めませんでした。',
       retry: 'もう一度試す',
       loading: '読み込み中…'
-    },
-    recommend: {
-      title: 'おすすめ学習',
-      start: '始める'
     },
     settings: {
       title: 'アカウント',

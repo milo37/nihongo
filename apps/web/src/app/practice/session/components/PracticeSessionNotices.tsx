@@ -128,20 +128,19 @@ const SupplyNotice = ({
   sessionData
 }: {
   sessionData: StudySessionView
-}): ReactElement => {
+}): ReactElement | null => {
   const { t } = useTranslation('practice')
   const { t: commonT } = useTranslation('common')
   const { formatCount } = usePracticeNumberFormat()
   const { session, requestedCount, actualCount } = sessionData
+  if (actualCount >= requestedCount) return null
   return (
     <p className="mb-4 text-[13px] leading-5 text-muted" role="status">
-      {actualCount < requestedCount
-        ? t('session.supply.canonicalPartial', {
-            actual: formatCount(actualCount),
-            mode: commonT(`taxonomy.studyModes.${session.mode}`),
-            requested: formatCount(requestedCount)
-          })
-        : t('session.supply.canonicalNoFallback')}
+      {t('session.supply.canonicalPartial', {
+        actual: formatCount(actualCount),
+        mode: commonT(`taxonomy.studyModes.${session.mode}`),
+        requested: formatCount(requestedCount)
+      })}
     </p>
   )
 }
