@@ -1922,22 +1922,9 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
       })
     }
   )
-  const modeOptions = page.locator('.practice-mode-options')
-  await expect(modeOptions).toHaveJSProperty('open', false)
-  await focusByTab(page, modeOptions.locator('summary'))
-  await page.keyboard.press('Enter')
-  await expect(modeOptions).toHaveJSProperty('open', true)
-  // A guest choosing a locked mode keeps RANDOM and gets a toast (U4 L11).
-  const modeSelect = modeOptions.getByRole('combobox', { name: '출제 방식' })
-  await modeSelect.selectOption('DAILY_REVIEW')
-  await expect(modeSelect).toHaveValue('RANDOM')
-  const practiceLogin = page
-    .getByRole('region', { name: '알림' })
-    .getByRole('button', { name: '로그인', exact: true })
-  await practiceLogin.focus()
-  await page.keyboard.press('Enter')
-  await expect(page).toHaveURL(/\/login\?redirect=/u)
-  await expect(page.locator('main')).toBeFocused()
+  // No locked choices for a guest: the member-only mode picker is absent
+  // rather than locked (JLP-823).
+  await expect(page.locator('.practice-mode-options')).toHaveCount(0)
 
   await page.setViewportSize({ height: 900, width: 1280 })
   await scanRoutes(page, testInfo, [

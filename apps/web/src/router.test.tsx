@@ -69,7 +69,7 @@ describe('application router boundaries', () => {
     expect(
       await screen.findByRole(
         'heading',
-        { level: 2, name: '로그인이 필요해요' },
+        { level: 2, name: '틀린 문제가 여기에 모여요' },
         { timeout: 3000 }
       )
     ).toBeInTheDocument()
@@ -78,7 +78,9 @@ describe('application router boundaries', () => {
       `${router.state.location.pathname}${router.state.location.search}`
     ).toBe(entry)
     expect(
-      screen.getByText('오답노트는 로그인하면 쓸 수 있어요.')
+      screen.getByText(
+        '로그인하고 풀면 틀린 문제가 저절로 모여요. 풀기는 로그인 없이도 돼요.'
+      )
     ).toBeVisible()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
@@ -95,11 +97,12 @@ describe('application router boundaries', () => {
     expect(router.state.location.pathname).toBe('/wrong-notes')
     const main = screen.getByRole('main')
     expect(
-      within(main).getByRole('heading', { level: 2, name: '로그인이 필요해요' })
+      within(main).getByRole('heading', {
+        level: 2,
+        name: '틀린 문제가 여기에 모여요'
+      })
     ).toBeVisible()
-    expect(
-      within(main).getByRole('button', { name: 'Google로 계속하기' })
-    ).toBeEnabled()
+    expect(within(main).getByRole('button', { name: '로그인' })).toBeEnabled()
     expect(within(main).queryByRole('combobox')).not.toBeInTheDocument()
   })
 

@@ -41,6 +41,8 @@ type SignInCardProps = {
   headingLevel?: 'h1' | 'h2'
   icon?: ReactNode
   footer?: ReactNode
+  /** The Google button's words; '로그인' on a tab's card (GuestGate). */
+  buttonLabel?: string
 }
 
 // One Google sign-in card for /login and the signed-out account page.
@@ -53,7 +55,8 @@ export const SignInCard = ({
   onStart,
   headingLevel: Heading = 'h1',
   icon,
-  footer
+  footer,
+  buttonLabel
 }: SignInCardProps): ReactElement => {
   const { t } = useTranslation('auth')
   const start = useStartSocialSignIn()
@@ -102,7 +105,7 @@ export const SignInCard = ({
       >
         <SsoProviderButton
           provider="google"
-          label={t('sso.continueGoogle')}
+          label={buttonLabel ?? t('sso.continueGoogle')}
           disabled={busy}
           isLoading={busy}
           loadingLabel={t('sso.redirecting', { provider: 'Google' })}

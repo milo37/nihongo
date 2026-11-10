@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { isApiError } from '@nihongo/browser/api/config'
 import type { RefObject } from 'react'
 import {
   useBlocker,
@@ -253,8 +254,13 @@ export const usePracticeResultController = ({
   const isRetryAccountRestricted = isAccountRestrictedApiError(
     createRetrySession.error
   )
+  // The limit card answers a guest's refused retry; no error line too.
   const hasRetryRequestError =
     createRetrySession.isError &&
+    !(
+      isApiError(createRetrySession.error) &&
+      createRetrySession.error.code === 'GUEST_LIMIT_REACHED'
+    ) &&
     !isRetryAccountRestricted &&
     !isStudyResultNotReadyApiError(createRetrySession.error) &&
     !isAuthTransitionSupersededError(createRetrySession.error)

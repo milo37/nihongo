@@ -57,6 +57,12 @@ export const useCreateResultRetrySession = () => {
     onError: (error, input) => {
       handleResultRetryActionError(error, input)
     },
+    // A guest's retry is one of the day's tries (JLP-823): the remaining
+    // count changes on success and on GUEST_LIMIT_REACHED.
+    onSettled: () =>
+      queryClient.invalidateQueries({
+        queryKey: serverStateQueryKeys.study.guestAllowance()
+      }),
     onSuccess: async (created, input) => {
       assertCurrentResultRetryAction(input)
       if (!created.replayed) {

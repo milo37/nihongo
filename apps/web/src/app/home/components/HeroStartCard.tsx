@@ -75,6 +75,7 @@ export const HeroStartCard = ({
   memberLine?: ReactNode
 }): ReactElement => {
   const { t, i18n } = useTranslation('home')
+  const { t: practiceT } = useTranslation('practice')
   const { user } = useAuth()
   const resumableHeadingRef = useRef<HTMLHeadingElement>(null)
   const setup = usePracticeSetupController(resumableHeadingRef)
@@ -162,6 +163,16 @@ export const HeroStartCard = ({
           <Icon name="arrow-right" className="size-5" />
         </Button>
       )}
+      {isGuest &&
+      !setup.isGuestDailyLimitReached &&
+      setup.guestAllowance &&
+      setup.guestAllowance.remaining < setup.guestAllowance.dailyLimit ? (
+        <p className="home-left">
+          {practiceT('setup.guestLeft', {
+            remaining: formatNumber(setup.guestAllowance.remaining, locale)
+          })}
+        </p>
+      ) : null}
       <PracticeSetupFeedback
         accountRestricted={setup.accountRestricted}
         hasCreateError={setup.hasCreateError}

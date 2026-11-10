@@ -116,6 +116,8 @@ const normalizeError = (
   }
 }
 
+class GuestLimitReachedError extends Error {}
+
 export const studyResultRetryHandlers = [
   http.post(
     '*/api/v1/study-sessions/:sessionId/retry',
@@ -219,18 +221,15 @@ export const studyResultRetryHandlers = [
           })
         }
 
-        // Guests: a retry counts as one of today's tries (JLP-823).
+        // Guests: a new retry counts as one of today's tries (JLP-823); a
+        // replay of one already made is answered first, as on the server.
         const guestLimits = !currentUser && mockGuestAllowance.isEnforced()
-        if (guestLimits && mockGuestAllowance.remaining() === 0) {
-          return createErrorResponse({
-            code: 'GUEST_LIMIT_REACHED',
-            message: `비회원은 하루 ${GUEST_DAILY_SESSION_LIMIT}번까지 풀 수 있습니다. 더 풀려면 로그인해 주세요.`,
-            details: { resetsAt: mockGuestAllowance.resetsAt() },
-            requestId,
-            retryable: false
-          })
-        }
         const created = mockDatabase.createCanonicalResultRetry({
+          beforeCreate: () => {
+            if (guestLimits && mockGuestAllowance.remaining() === 0) {
+              throw new GuestLimitReachedError()
+            }
+          },
           guestPrincipalId:
             !currentUser && guestProof.kind === 'VERIFIED'
               ? guestProof.id
@@ -252,6 +251,15 @@ export const studyResultRetryHandlers = [
           }
         })
       } catch (error: unknown) {
+        if (error instanceof GuestLimitReachedError) {
+          return createErrorResponse({
+            code: 'GUEST_LIMIT_REACHED',
+            message: `비회원은 하루 ${GUEST_DAILY_SESSION_LIMIT}번까지 풀 수 있습니다. 더 풀려면 로그인해 주세요.`,
+            details: { resetsAt: mockGuestAllowance.resetsAt() },
+            requestId,
+            retryable: false
+          })
+        }
         return createErrorResponse(normalizeError(error, requestId))
       }
     }

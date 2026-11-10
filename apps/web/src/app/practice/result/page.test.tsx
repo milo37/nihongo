@@ -450,42 +450,53 @@ describe('approved general result navigation', () => {
     expect(
       screen.queryByRole('button', { name: /문제 신고/u })
     ).not.toBeInTheDocument()
-    const line = screen.getByText(/로그인하면 틀린 문제가 오답노트에 모여요/u)
-    expect(line).toBeVisible()
-    // One login place, right beside the line (design review #767).
-    expect(within(line).getByRole('link', { name: '로그인' })).toHaveAttribute(
-      'href',
-      '/login?redirect=%2Fpractice'
-    )
-    expect(screen.getAllByRole('link', { name: '로그인' })).toHaveLength(1)
+    // One login place: the keep line under the score (copy v2.1 §3).
+    expect(
+      screen.getByText('틀린 2문제, 오답노트에 모아 둘까요?')
+    ).toBeVisible()
+    expect(
+      screen.getByText('로그인하면 방금 푼 문제가 오답노트에 들어가요.')
+    ).toBeVisible()
+    expect(
+      screen.getByRole('link', { name: '로그인하고 모으기' })
+    ).toHaveAttribute('href', '/login?redirect=%2Fwrong-notes')
+    expect(screen.getAllByRole('link', { name: /로그인/u })).toHaveLength(1)
     view.unmount()
     fixture.client.clear()
   })
 
-  it('게스트의 오답만 다시 풀기는 잠금 표시이고 누르면 토스트, 마지막 체험이면 오늘은 여기까지 상자 (G4·L20)', async () => {
-    mockGuestAllowance.setRemaining(0)
+  it('게스트도 틀린 문제만 다시 풀 수 있다 (JLP-823)', async () => {
     const fixture = await createFixture({ role: 'GUEST', mixed: false })
     const { router, view } = fixture.mount()
-    expect(
-      await screen.findByText(
-        '오늘 무료 횟수를 다 썼어요. 로그인하면 계속 풀 수 있어요.'
-      )
-    ).toBeVisible()
-    // The L20 box holds the only login link, as the one filled button.
-    const logins = screen.getAllByRole('link', { name: '로그인' })
-    expect(logins).toHaveLength(1)
-    expect(logins[0]!.className).toContain('bg-brand')
-    expect(logins[0]!.className).toContain('h-12')
-    const retry = screen.getByRole('button', { name: /틀린 문제만 다시 풀기/u })
+    const retry = await screen.findByRole('button', {
+      name: '틀린 문제만 다시 풀기'
+    })
+    await waitFor(() => expect(retry).toBeEnabled())
     await userEvent.setup().click(retry)
+    await waitFor(() =>
+      expect(router.state.location.pathname).toMatch(/^\/practice\/session\//u)
+    )
+    view.unmount()
+    fixture.client.clear()
+  })
+
+  it('게스트의 마지막 시도 결과는 버튼 자리에 한도 카드만 둔다 (JLP-823)', async () => {
+    mockGuestAllowance.setRemaining(0)
+    const fixture = await createFixture({ role: 'GUEST', mixed: false })
+    const { view } = fixture.mount()
+    const card = (
+      await screen.findByRole('heading', { name: '오늘 3번을 다 풀었어요' })
+    ).closest('section') as HTMLElement
     expect(
-      within(screen.getByRole('region', { name: '알림' })).getByText(
-        '틀린 문제 다시 풀기는 로그인하면 쓸 수 있어요.'
-      )
-    ).toBeVisible()
-    expect(router.state.location.pathname).toMatch(/^\/practice\/result\//u)
-    // No tries left: no [다음 10문제], the box's login is the way on.
+      within(card).getByRole('button', { name: 'Google로 로그인' })
+    ).toBeEnabled()
+    expect(within(card).getByText('내일 0시에 다시 3번')).toBeVisible()
+    // A retry would be one more try, and the keep line gives way to the card.
+    expect(
+      screen.queryByRole('button', { name: /틀린 문제만 다시 풀기/u })
+    ).toBeNull()
     expect(screen.queryByRole('button', { name: '다음 10문제' })).toBeNull()
+    expect(screen.queryByRole('link', { name: '로그인하고 모으기' })).toBeNull()
     view.unmount()
     fixture.client.clear()
   })
@@ -889,48 +900,60 @@ describe('approved general result navigation', () => {
     member.client.clear()
   })
 
-  it('게스트 다음에 할 일은 잠긴 다시 풀기(테두리)와 다음 10문제(주) 두 개뿐이다 (빼기 표 10)', async () => {
-    const actionsOf = (element: HTMLElement): HTMLElement => {
-      const actions = element.closest<HTMLElement>('.study-result-actions')
-      if (!actions) throw new Error('결과 동작 영역이 필요합니다.')
-      return actions
-    }
-    const names = (actions: HTMLElement): string[] =>
-      Array.from(actions.querySelectorAll<HTMLElement>('a, button')).map(
-        (element) => element.textContent?.trim() ?? ''
-      )
+  it('게스트 다음에 할 일은 다시 풀기(테두리)와 다음 10문제(주) 두 개뿐이다 (빼기 표 10)', async () => {
     const guest = await createFixture({ role: 'GUEST', mixed: false })
     const guestView = guest.mount()
     const guestRetry = await screen.findByRole('button', {
-      name: /틀린 문제만 다시 풀기/u
+      name: '틀린 문제만 다시 풀기'
     })
-    const guestActions = actionsOf(guestRetry)
-    expect(names(guestActions)).toEqual([
-      '틀린 문제만 다시 풀기로그인하면 사용',
-      '다음 10문제'
-    ])
+    const guestActions = guestRetry.closest<HTMLElement>(
+      '.study-result-actions'
+    )
+    if (!guestActions) throw new Error('결과 동작 영역이 필요합니다.')
+    expect(
+      Array.from(guestActions.querySelectorAll<HTMLElement>('a, button')).map(
+        (element) => element.textContent?.trim() ?? ''
+      )
+    ).toEqual(['틀린 문제만 다시 풀기', '다음 10문제'])
     expect(guestRetry.className).toContain('border-line-interactive')
     expect(guestRetry.className).not.toContain('bg-brand')
     expect(
       within(guestActions).getByRole('button', { name: '다음 10문제' })
         .className
     ).toContain('bg-brand')
-    // The lock is a Lucide icon, not an emoji.
-    expect(guestRetry.querySelector('svg')).not.toBeNull()
+    expect(guestRetry.querySelector('svg')).toBeNull()
     guestView.view.unmount()
     guest.client.clear()
   })
 
-  it('게스트 요약 안내 옆 로그인 링크는 로그인 선택으로 보낸다', async () => {
+  it('게스트가 다 맞히면 다음부터 모인다는 한 줄과 로그인 링크만 둔다', async () => {
     const fixture = await createFixture({ role: 'GUEST' })
+    const allCorrect = {
+      ...fixture.result,
+      correctCount: fixture.result.totalCount,
+      incorrectCount: 0,
+      correctRate: 100,
+      items: fixture.result.items.map((item) => ({
+        ...item,
+        selectedOptionId: item.question.correctOptionId,
+        isCorrect: true,
+        wrongNoteStatus: null
+      }))
+    }
+    mockServer.use(
+      http.get(`*/api/v1/study-sessions/${fixture.sessionId}/result`, () =>
+        HttpResponse.json(allCorrect)
+      )
+    )
     const { view } = fixture.mount()
-    expect(await screen.findByRole('link', { name: '로그인' })).toHaveAttribute(
+    const line = await screen.findByText(
+      /^로그인하면 다음부터 틀린 문제가 오답노트에 모여요\./u
+    )
+    expect(within(line).getByRole('link', { name: '로그인' })).toHaveAttribute(
       'href',
       '/login?redirect=%2Fpractice'
     )
-    expect(
-      screen.queryByRole('link', { name: '오답노트 보기' })
-    ).not.toBeInTheDocument()
+    expect(screen.queryByText(/모아 둘까요/u)).toBeNull()
     view.unmount()
     fixture.client.clear()
   })

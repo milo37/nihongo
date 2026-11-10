@@ -481,6 +481,8 @@ export interface CreateCanonicalResultRetryInput {
   readonly guestPrincipalId: string | null
   readonly idempotencyKey: string
   readonly sourceSessionId: string
+  /** Runs after the replay check, before a new retry is made; may throw. */
+  readonly beforeCreate?: () => void
 }
 
 export interface CreateCanonicalResultRetryResult {
@@ -2127,6 +2129,8 @@ export class MockDatabase {
       )
       return { replayed: true, response: clone(existingRecord.response) }
     }
+    // Only a new retry may be refused (a guest's daily tries, JLP-823).
+    input.beforeCreate?.()
 
     if (source.session.status !== 'SUBMITTED') {
       throw new MockDatabaseError(
