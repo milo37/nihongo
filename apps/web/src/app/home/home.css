@@ -111,6 +111,8 @@
 .home-more a,
 .home-more .home-more-action {
   display: inline-flex;
+  flex: none;
+  white-space: nowrap;
   align-items: center;
   min-height: 44px;
   margin-left: auto;
@@ -119,7 +121,6 @@
   font-weight: 700;
 }
 .home-more .home-more-action {
-  min-height: 44px;
   padding-inline: 8px;
   background: transparent;
   box-shadow: none;
