@@ -60,6 +60,8 @@ import type { TargetLevelService } from '../member/targetLevel.js'
 import { createTargetLevelRoutes } from '../routes/targetLevel.js'
 import type { StudyResultRetryService } from '../study/studyResultRetryService.js'
 import { createStudyResultRetryRoutes } from '../routes/studyResultRetries.js'
+import { createGuestResultImportRoutes } from '../routes/guestResultImport.js'
+import type { GuestResultImportService } from '../study/guestResultImport.js'
 import { createReviewListRoutes } from '../routes/reviewList.js'
 import type { WrongNoteTargetedReviewService } from '../wrong-note/wrongNoteTargetedReviewService.js'
 import { createTargetedReviewSessionRoutes } from '../routes/targetedReviewSessions.js'
@@ -179,6 +181,8 @@ interface CreateApiAppDependencies {
     draftService?: StudyDraftService
     guestAllowanceReader?: GuestAllowanceReader
     guestIpDailyCounter?: GuestIpDailyCounter
+    /** Moves the guest's last result to the member at login (JLP-823). */
+    guestResultImportService?: GuestResultImportService
     rateLimiter: ApplicationRateLimiter
     retryService?: StudyResultRetryService
     service: StudySessionService
@@ -756,6 +760,19 @@ export const createApiApp = ({
             principalService: auth.principalService,
             rateLimiter: study.rateLimiter,
             studyResultRetryService: study.retryService
+          })
+        )
+      }
+      if (study.guestResultImportService) {
+        app.route(
+          '/api/v1/me/guest-result-import',
+          createGuestResultImportRoutes({
+            accountRestrictionReader,
+            environment: auth.environment,
+            guestPrincipalService: auth.guestPrincipalService,
+            guestResultImportService: study.guestResultImportService,
+            principalService: auth.principalService,
+            rateLimiter: study.rateLimiter
           })
         )
       }

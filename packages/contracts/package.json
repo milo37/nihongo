@@ -111,6 +111,10 @@
       "types": "./dist/study/create-study-session.d.ts",
       "import": "./dist/study/create-study-session.js"
     },
+    "./study/import-guest-result": {
+      "types": "./dist/study/import-guest-result.d.ts",
+      "import": "./dist/study/import-guest-result.js"
+    },
     "./study/guest-limits": {
       "types": "./dist/study/guest-limits.d.ts",
       "import": "./dist/study/guest-limits.js"

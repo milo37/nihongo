@@ -12,6 +12,10 @@ import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { Prisma } from '../generated/prisma/client.js'
 import type { ExistingStudyOwner } from './studySessionRepository.js'
 import { createPrismaStudyDraftRepository } from './studyDraftRepository.js'
+import {
+  createGuestResultImportService,
+  createPrismaGuestResultImportRepository
+} from './guestResultImport.js'
 import { createPrismaStudyResultRetryRepository } from './studyResultRetryRepository.js'
 import { createStudyResultRetryService } from './studyResultRetryService.js'
 import { createPrismaStudySessionRepository } from './studySessionRepository.js'
@@ -927,4 +931,90 @@ describe('study result retry integration', () => {
       })
     }
   )
+
+  it('JLP-823 moves the guest last set to the member with the submission wrong-note rule', async () => {
+    const memberId = await createUser('import')
+    // The member already answered every pool question wrong once.
+    await createSubmittedSource(
+      { kind: 'USER', userId: memberId },
+      new Set([1, 2, 3, 4, 5])
+    )
+    const guestOwner = await createGuestOwner()
+    const guestStartedAt = new Date(Date.now() + 5_000)
+    const source = await createSubmittedSource(
+      guestOwner,
+      new Set([1]),
+      guestStartedAt
+    )
+    const retry = await createStudyResultRetryService(
+      retryRepository,
+      () => new Date(guestStartedAt.getTime() + 2_000)
+    ).create(source.created.session.id, randomUUID(), guestOwner)
+    const wrongQuestion =
+      await database.client.studySessionQuestion.findFirstOrThrow({
+        where: { studySessionId: source.created.session.id, ordinal: 1 },
+        select: { questionId: true }
+      })
+
+    const importService = createGuestResultImportService(
+      createPrismaGuestResultImportRepository(database.client)
+    )
+    const guest = {
+      id: guestOwner.guestPrincipalId,
+      tokenDigest: guestOwner.tokenDigest
+    }
+    const observedAt = new Date(guestStartedAt.getTime() + 10_000)
+    await expect(
+      importService.importLast({ guest, observedAt, userId: memberId })
+    ).resolves.toEqual({
+      importedSessionId: source.created.session.id,
+      wrongAnswerCount: 1
+    })
+
+    await expect(
+      database.client.studySession.findUniqueOrThrow({
+        where: { id: source.created.session.id },
+        select: { userId: true, guestPrincipalId: true, status: true }
+      })
+    ).resolves.toEqual({
+      userId: memberId,
+      guestPrincipalId: null,
+      status: 'SUBMITTED'
+    })
+    // The guest retry of that set cannot be a member set and is gone.
+    await expect(
+      database.client.studySession.count({
+        where: { id: retry.response.session.id }
+      })
+    ).resolves.toBe(0)
+    await expect(
+      database.client.wrongNote.findUniqueOrThrow({
+        where: {
+          userId_questionId: {
+            userId: memberId,
+            questionId: wrongQuestion.questionId
+          }
+        },
+        select: { status: true, wrongCount: true }
+      })
+    ).resolves.toEqual({ status: 'AGAIN', wrongCount: 2 })
+    await expect(
+      database.client.reviewEvent.count({
+        where: {
+          userId: memberId,
+          studySessionId: source.created.session.id,
+          source: 'STUDY_SUBMIT'
+        }
+      })
+    ).resolves.toBeGreaterThanOrEqual(1)
+
+    // Once moved there is nothing left for this guest.
+    await expect(
+      importService.importLast({
+        guest,
+        observedAt: new Date(observedAt.getTime() + 1_000),
+        userId: memberId
+      })
+    ).resolves.toEqual({ importedSessionId: null, wrongAnswerCount: 0 })
+  })
 })

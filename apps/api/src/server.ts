@@ -49,6 +49,10 @@ import {
   createTargetLevelService
 } from './member/targetLevel.js'
 import { createPrismaStudyResultRetryRepository } from './study/studyResultRetryRepository.js'
+import {
+  createGuestResultImportService,
+  createPrismaGuestResultImportRepository
+} from './study/guestResultImport.js'
 import { createStudyResultRetryService } from './study/studyResultRetryService.js'
 import {
   createPrismaWrongNoteReviewListRepository,
@@ -300,6 +304,9 @@ const app = createApiApp({
       keySecret: environment.GUEST_COOKIE_SECRET,
       rateLimiter: applicationRateLimiter
     }),
+    guestResultImportService: createGuestResultImportService(
+      createPrismaGuestResultImportRepository(database.client)
+    ),
     rateLimiter: applicationRateLimiter,
     retryService: studyResultRetryService,
     service: studySessionService,
