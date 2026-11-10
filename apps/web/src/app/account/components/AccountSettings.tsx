@@ -10,8 +10,6 @@ import { TwoStepConfirmDialog } from '@app/account/components/TwoStepConfirmDial
 import { Badge } from '@nihongo/browser/common/components/Badge'
 import { Button } from '@nihongo/browser/common/components/Button'
 
-const VISIBLE_PROVIDERS: readonly string[] = ['google']
-
 const SettingRow = ({
   children,
   action
@@ -35,15 +33,8 @@ export const AccountSettings = (): ReactElement => {
   const logoutButton = useRef<HTMLButtonElement>(null)
   const [logoutOpen, setLogoutOpen] = useState(false)
   const { caps } = flow
+  // Unlinking is not offered (C2): Google is the only sign-in method shown.
   const google = caps?.providers.find((p) => p.provider === 'google')
-  // Only Google is offered, so it stays the last usable method even when the
-  // server still holds another provider.
-  const isUnlinkBlocked =
-    !google ||
-    !google.canUnlink ||
-    (caps?.providers ?? []).filter(
-      (p) => VISIBLE_PROVIDERS.includes(p.provider) && p.reauthAvailable
-    ).length <= 1
   const deleteReasonId = headingId + '-delete-reason'
   const controlsDisabled = flow.busy || flow.uncertain
   return (
@@ -57,22 +48,7 @@ export const AccountSettings = (): ReactElement => {
         {t('settings.title')}
       </h2>
       <div className="divide-y divide-line rounded-panel border border-line bg-surface p-4 sm:p-6">
-        <SettingRow
-          action={
-            google && !isUnlinkBlocked ? (
-              <Button
-                variant="outline"
-                disabled={controlsDisabled}
-                onClick={(event) => {
-                  trigger.current = event.currentTarget
-                  flow.request({ kind: 'unlink', provider: 'google' })
-                }}
-              >
-                {authT('sso.unlinkAction')}
-              </Button>
-            ) : undefined
-          }
-        >
+        <SettingRow>
           <p className="text-caption text-muted">
             {t('settings.signInMethod')}
           </p>
@@ -101,11 +77,6 @@ export const AccountSettings = (): ReactElement => {
               {!google.reauthAvailable ? (
                 <p className="text-caption">
                   {authT('sso.unavailableProvider', { provider: 'Google' })}
-                </p>
-              ) : null}
-              {isUnlinkBlocked ? (
-                <p className="text-caption text-muted">
-                  {t('settings.onlyMethod')}
                 </p>
               ) : null}
             </>

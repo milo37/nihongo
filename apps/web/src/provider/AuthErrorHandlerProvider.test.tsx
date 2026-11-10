@@ -52,7 +52,7 @@ describe('AuthErrorHandlerProvider', () => {
 
     const banner = screen.getByRole('alert')
     expect(banner).toHaveTextContent(
-      '네트워크 연결이 원활하지 않아요. 다시 시도해 주세요.'
+      '인터넷 연결이 불안정해요. 다시 시도해 주세요.'
     )
     expect(
       document.documentElement.style.getPropertyValue('--global-banner-offset')
@@ -79,12 +79,10 @@ describe('AuthErrorHandlerProvider', () => {
 
     act(() => window.dispatchEvent(new Event('offline')))
     expect(toasts()).toHaveLength(1)
-    expect(toasts()[0]).toHaveTextContent(
-      '오프라인이에요. 연결을 확인해 주세요.'
-    )
+    expect(toasts()[0]).toHaveTextContent('인터넷 연결이 끊겼어요.')
     expect(toasts()[0]).toHaveAttribute('data-variant', 'warning')
     expect(document.getElementById(TOAST_ANNOUNCER_ID)).toHaveTextContent(
-      '주의: 오프라인이에요. 연결을 확인해 주세요.'
+      '확인 필요: 인터넷 연결이 끊겼어요.'
     )
 
     await user.click(screen.getByRole('button', { name: '알림 닫기' }))
@@ -94,7 +92,7 @@ describe('AuthErrorHandlerProvider', () => {
     act(() => window.dispatchEvent(new Event('online')))
     expect(toasts()).toHaveLength(1)
     expect(toasts()[0]).toHaveAttribute('data-variant', 'success')
-    expect(toasts()[0]).toHaveTextContent('다시 연결됐어요.')
+    expect(toasts()[0]).toHaveTextContent('인터넷에 다시 연결됐어요.')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 

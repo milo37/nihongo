@@ -28,14 +28,15 @@ it.each([false, true])(
       </I18nProvider>
     )
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      '이 페이지를 볼 권한이 없어요'
+      '볼 수 없는 화면이에요'
+    )
+    expect(screen.getByRole('link', { name: '학습 화면으로' })).toHaveAttribute(
+      'href',
+      '/practice'
     )
     expect(
-      screen.getByRole('link', { name: '학습으로 돌아가기' })
-    ).toHaveAttribute('href', '/practice')
-    expect(
       screen.getByRole('link', {
-        name: member ? '계정 확인' : '로그인으로 이동'
+        name: member ? '로그인하기' : '로그인하기'
       })
     ).toHaveAttribute('href', '/login')
   }
@@ -51,11 +52,12 @@ it('keeps an unknown route distinct from a rendering error with a safe learning 
     </I18nProvider>
   )
   expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-    '요청한 페이지가 없어요'
+    '없는 페이지예요'
   )
-  expect(
-    screen.getByRole('link', { name: '학습으로 돌아가기' })
-  ).toHaveAttribute('href', '/practice')
+  expect(screen.getByRole('link', { name: '학습 화면으로' })).toHaveAttribute(
+    'href',
+    '/practice'
+  )
 })
 it('renders a shell-independent fallback without disclosing the thrown error', async () => {
   const ThrowingShell = () => {
@@ -86,9 +88,10 @@ it('renders a shell-independent fallback without disclosing the thrown error', a
     expect(document.body).not.toHaveTextContent(
       'private-fixture-token-and-internal-message'
     )
-    expect(
-      screen.getByRole('link', { name: '학습으로 돌아가기' })
-    ).toHaveAttribute('href', '/practice')
+    expect(screen.getByRole('link', { name: '학습 화면으로' })).toHaveAttribute(
+      'href',
+      '/practice'
+    )
     expect(document.querySelector('.app-shell')).not.toBeInTheDocument()
   } finally {
     consoleError.mockRestore()

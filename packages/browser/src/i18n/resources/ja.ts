@@ -7,7 +7,7 @@ export type LocaleCatalog<T> = {
 export const jaCoreResources = {
   common: {
     appName: '하루마루',
-    tagline: '解いて、残して、もう一度',
+    tagline: '解いて、間違えて、もう一度',
     locale: {
       label: '言語',
       ko: '한국어',
@@ -15,30 +15,30 @@ export const jaCoreResources = {
     },
     explanation: {
       languageLabel: '解説の言語',
-      japaneseUnavailable: '日本語の解説がないため、韓国語の解説を表示します。'
+      japaneseUnavailable:
+        '日本語の解説がまだないので、韓国語の解説を表示します。'
     },
     loading: {
-      content: 'コンテンツを読み込んでいます…',
-      page: 'ページを読み込んでいます…',
-      auth: 'ログイン状態を確認しています…',
-      mockNotice: 'Mockアカウント情報を読み込んでいます…',
-      processing: '処理中…'
+      content: '読み込み中…',
+      page: '読み込み中…',
+      auth: 'ログインを確認中…',
+      processing: '少々お待ちください…'
     },
     actions: {
-      goPractice: '学習に戻る',
+      goPractice: '学習画面へ',
       retry: 'もう一度試す',
       close: '閉じる',
-      closeDialog: 'ダイアログを閉じる',
+      closeDialog: '閉じる',
       closeNotification: '通知を閉じる',
-      goHome: 'ホームへ移動',
-      goLogin: 'ログインへ移動',
-      goRandomPractice: 'RANDOM学習へ移動',
+      goHome: '最初の画面へ',
+      goLogin: 'ログインする',
+      goRandomPractice: 'ランダムで解く',
       login: 'ログイン'
     },
     state: {
       accountRestricted:
-        '一時的に利用が制限されているアカウントです。新しい学習と報告は、制限が解除された後にご利用いただけます。',
-      requestFailed: 'リクエストを完了できませんでした'
+        '今はこのアカウントの利用が一時的に制限されています。制限が解けると、また学習や報告ができます。',
+      requestFailed: 'うまくいきませんでした'
     },
     required: '（必須）',
     taxonomy: {
@@ -48,11 +48,11 @@ export const jaCoreResources = {
         READING: '読解'
       },
       studyModes: {
-        RANDOM: '通常練習',
-        WRONG_NOTE: '間違い',
-        WEAKNESS: '弱点練習',
+        RANDOM: 'ランダム',
+        WRONG_NOTE: '間違えた問題',
+        WEAKNESS: '苦手な問題',
         BOOKMARK: 'ブックマーク',
-        DAILY_REVIEW: '今日の復習'
+        DAILY_REVIEW: '復習する問題'
       },
       questionTypes: {
         KANJI_READING: '漢字の読み',
@@ -75,19 +75,19 @@ export const jaCoreResources = {
         SOLVED: '解決済み'
       },
       availability: {
-        AVAILABLE: '現在出題可能',
-        ARCHIVED: 'アーカイブ済み'
+        AVAILABLE: '解ける',
+        ARCHIVED: '今は解けない'
       },
       roles: {
         GUEST: 'ゲスト',
-        USER: '学習者',
+        USER: '会員',
         ADMIN: '管理者'
       }
     },
     pagination: {
       firstLabel: '最初のページ',
       lastLabel: '最後のページ',
-      label: 'ページ移動',
+      label: 'ページ',
       previous: '前へ',
       previousLabel: '前のページ',
       next: '次へ',
@@ -99,25 +99,25 @@ export const jaCoreResources = {
       region: '通知',
       info: 'お知らせ',
       success: '完了',
-      warning: '注意',
+      warning: '確認してください',
       loggedOut: 'ログアウトしました。',
-      offline: 'オフラインです。接続を確認してください。',
-      restored: '再接続しました。'
+      offline: 'インターネット接続が切れました。',
+      restored: 'インターネットにまた接続しました。'
     },
     footer: {
-      originalContent: 'オリジナル問題で学習します。',
-      scope: '聴解と実際のJLPT過去問題は含まれません。',
+      originalContent: '問題はすべて하루마루のオリジナルです。',
+      scope: '聴解問題と実際のJLPT過去問はありません。',
       release: '· {{release}}',
       groups: {
-        guidance: '利用案内',
+        guidance: 'ご案内',
         help: 'ヘルプ',
-        account: 'アカウントとデータ'
+        account: 'アカウント'
       },
-      informationLabel: 'サービス情報',
-      terms: '利用条件',
-      privacy: 'プライバシー',
+      informationLabel: '하루마루について',
+      terms: '利用規約',
+      privacy: 'プライバシーポリシー',
       copyright: '著作権',
-      questionReport: '問題報告',
+      questionReport: '問題を報告する',
       contact: 'お問い合わせ'
     }
   },
@@ -128,42 +128,42 @@ export const jaCoreResources = {
       myPage: 'マイページ',
       language: '言語',
       guestTitle: 'ログインしていません',
-      guestDescription: 'ログインすると学習記録が残ります'
+      guestDescription: 'ログインすると解いた記録が残ります'
     },
     account: 'アカウント',
-    mobilePrimary: 'モバイルのメインメニュー',
+    mobilePrimary: 'メニュー',
 
     skipToContent: '本文へスキップ',
     menuOpen: 'メニューを開く',
     menuClose: 'メニューを閉じる',
-    primary: 'メインメニュー',
+    primary: 'メニュー',
     learningStart: '学習',
-    practice: '問題演習',
-    wrongNotes: '復習',
+    practice: '問題を解く',
+    wrongNotes: '間違いノート',
     bookmarks: 'ブックマーク',
     my: 'マイページ',
-    dashboard: 'ダッシュボード',
+    dashboard: '学習',
     adminQuestions: '問題管理',
     login: 'ログイン',
-    routeChanged: '{{route}}画面に移動しました。',
+    routeChanged: '{{route}}の画面です。',
     documentTitle: '{{route}} | 하루마루',
     metaDescription:
-      'JLPT N5からN1までの問題を解き、間違いを繰り返し学習する하루마루',
+      'JLPT N5〜N1の問題を解いて、間違えた問題はもう一度解いてみる하루마루',
     routes: {
       home: '学習',
       login: 'ログイン',
       dashboard: '学習',
       practiceSetup: '学習',
-      practiceSession: '問題演習',
-      result: '学習結果',
-      wrongNoteCenter: '復習',
-      wrongNoteHistory: '間違い履歴',
-      wrongNoteDetail: '解説を見る',
+      practiceSession: '問題を解く',
+      result: '結果',
+      wrongNoteCenter: '間違いノート',
+      wrongNoteHistory: '間違えた問題すべて',
+      wrongNoteDetail: '解説',
       bookmarks: 'ブックマーク',
-      legal: '法的情報',
+      legal: '規約・ポリシー',
       account: 'マイページ',
-      accountData: 'アカウントデータ案内',
-      support: 'サポート案内',
+      accountData: '自分のデータ',
+      support: 'ヘルプ',
       adminQuestionNew: '問題登録',
       adminQuestionImport: '問題インポート',
       adminQuestionDetail: '問題詳細',
@@ -171,7 +171,7 @@ export const jaCoreResources = {
       adminAudit: '管理者監査ログ',
       adminReportDetail: 'バグレポートの詳細',
       adminReports: 'バグレポート',
-      forbidden: 'アクセス権限なし',
+      forbidden: '見られない画面',
       page: 'ページ'
     }
   },
@@ -383,61 +383,57 @@ export const jaCoreResources = {
       dailyRetry: 'もう一度読み込む'
     },
     approved: {
-      vocabulary: '語彙',
-      title: '今日の日本語学習',
-      description: '科目とレベルを選んで始めましょう。',
-      selected: '選択した学習',
+      vocabulary: '文字・語彙',
+      title: '今日も日本語をひとセット',
+      description: 'レベルと科目を選ぶだけですぐ始められます。',
+      selected: '選んだ学習',
       maximum: '最大10問',
-      loading: '読み込み中'
+      loading: '読み込み中…'
     },
-    eyebrow: 'JLPT N5–N1 · VOCABULARY / GRAMMAR / READING',
     hero: {
-      titleLine1: '間違えた問題を',
-      titleLine2: '最後まで解決する学習',
+      titleLine1: '間違えた問題は',
+      titleLine2: '正解するまでもう一度',
       description:
         '級と科目を選んですぐに問題を解きましょう。提出した間違いは自動で整理され、2回連続で正解するまで復習が続きます。',
-      openSetup: '学習設定を開く',
-      accountLogin: 'アカウントにログイン',
-      myDashboard: '学習ダッシュボード'
+      openSetup: '学習を始める',
+      accountLogin: 'ログイン',
+      myDashboard: 'マイページ'
     },
     quickDrill: {
-      eyebrow: 'QUICK DRILL',
-      title: '10問すぐに解く',
-      defaultMode: 'デフォルト RANDOM',
-      levelLegend: 'JLPTレベル',
-      subjectLegend: '学習科目',
-      start: '{{level}} {{subject}} · {{formattedCount}}問を始める',
+      title: '10問すぐ解く',
+      defaultMode: 'ランダム出題',
+      levelLegend: 'レベル',
+      subjectLegend: '科目',
+      start: '{{level}} {{subject}} {{formattedCount}}問を始める',
       error:
-        'セッションを作成できませんでした。ネットワーク状態と選択条件を確認し、もう一度お試しください。',
-      countNote: '問題が10問未満の場合は、用意された問題数だけ出題します。'
+        '学習を始められませんでした。インターネット接続を確認して、もう一度お試しください。',
+      countNote: '用意された問題が10問より少ないときは、ある分だけ出ます。'
     },
     subjects: {
       vocabulary: {
         label: '文字・語彙',
-        description: '漢字の読みと文脈語彙'
+        description: '漢字の読み方、表記、合う言葉'
       },
       grammar: {
         label: '文法',
-        description: '形式選択と文の組み立て'
+        description: '文法の選択、文の組み立て'
       },
       reading: {
         label: '読解',
-        description: '短文から情報検索まで'
+        description: '短い文、案内文の読解'
       }
     },
     loop: {
-      eyebrow: 'LEARNING LOOP',
-      title: '問題を解く瞬間から復習までつながります',
+      title: '解いたあとは復習まで続きます',
       items: {
         wrongNote: {
-          title: '自動間違いノート',
-          description:
-            '間違えた回数と復習状態を記録し、見直すべき問題を逃しません。'
+          title: '間違いノートに自動で入る',
+          description: '間違えた問題と間違えた回数が自動で集まります。'
         },
         weakness: {
-          title: '弱点分析',
+          title: '苦手を見つける',
           description:
-            '科目別正答率と繰り返した間違いから、次の学習方針を決めます。'
+            '科目別の正答率とよく間違える問題から、次に解くものをお知らせします。'
         },
         mastery: {
           title: '2回連続正解',
@@ -450,379 +446,365 @@ export const jaCoreResources = {
   auth: {
     guestGate: {
       title: 'ログインが必要です',
-      bookmarks: 'ブックマークした問題をまとめて見直し、もう一度解けます。',
-      review: '間違えた問題をまとめて復習できます。',
-      wrongNote: '間違いノートはログインすると見られます。',
-      dashboard: '学習記録と進み具合を確認できます。',
-      toStudy: '学習へ'
+      bookmarks: 'ブックマークに入れた問題をまとめて見て、もう一度解けます。',
+      review: '間違えた問題を集めてもう一度解けます。',
+      wrongNote: '間違いノートはログインすると使えます。',
+      dashboard: 'ログインすると解いた記録と正答率が見られます。',
+      toStudy: '学習画面へ'
     },
     guestToast: {
       login: 'ログイン',
-      bookmark: 'ブックマークはログインすると保存できます。',
-      sessionNotKept: 'ログインすると、今の解答は引き継がれません。'
+      bookmark: 'ブックマークはログインすると使えます。',
+      sessionNotKept: '今解いている問題は、ログイン後には続きません。'
     },
     reauth: {
       name: '本人確認',
-      description: 'Googleでもう一度ログインして確認します。',
-      go: 'Googleで本人確認',
+      description: '安全のため、Googleでもう一度ログインしてください。',
+      go: 'Googleで確認する',
       redirecting: 'Googleに移動中…',
-      returnNote: '確認が終わると、この画面に戻ります。',
-      scopeAccount: '連携解除と退会は、毎回本人確認を行います。',
+      returnNote: '確認が終わるとこの画面に戻ります。',
+      scopeAccount: '退会の前には必ず本人確認をします。',
       stepDone: '完了',
       account: {
-        returned: '本人確認が完了しました。最後のステップを確認してください。',
+        returned: '本人確認が終わりました。最後にもう一度確認してください。',
         failed: '本人確認を完了できませんでした。もう一度お試しください。',
-        cancelled:
-          '本人確認をキャンセルしました。必要な場合はもう一度お試しください。',
+        cancelled: '本人確認を取り消しました。',
         wrongAccount:
-          '最初にログインしたGoogleアカウントでもう一度お試しください。',
-        invalid: '確認リクエストの期限が切れました。もう一度お試しください。'
+          '登録したときのGoogleアカウントでもう一度お試しください。',
+        invalid: '時間が過ぎたため確認が終わりました。もう一度お試しください。'
       }
     },
     sso: {
-      checkingAccount: 'アカウントの状態を確認しています。',
+      checkingAccount: 'アカウントを確認中…',
       openAdminWork: '進行中の管理作業があるため、現在は退会できません。',
       title: 'ログイン',
-      description: 'Googleアカウントで学習記録を引き継ぎましょう。',
-      guestHint: '1日{{total}}回、{{count}}問ずつ解けます。記録は残りません。',
+      description:
+        'Googleアカウントでログインすると、解いた記録がずっと残ります。',
+      guestHint:
+        'ログインしなくても1日{{total}}回、1回{{count}}問ずつ解けます。記録は残りません。',
       guestLink: 'ログインせずに解いてみる',
-      checkingSession: 'ログイン状態を確認しています。',
-      redirecting: '{{provider}}に移動しています。',
+      checkingSession: 'ログインを確認中…',
+      redirecting: '{{provider}}に移動中…',
       expired:
-        'ログインのリクエストが期限切れになりました。もう一度お試しください。',
+        '時間が過ぎたためログインが取り消されました。最初からやり直してください。',
       unavailable:
-        '現在ログインを利用できません。しばらくしてからお試しください。',
-      sessionExpired:
-        'ログインの有効期限が切れました。もう一度ログインしてください。',
+        '今はログインできません。しばらくしてからもう一度お試しください。',
+      sessionExpired: 'ログインが切れました。もう一度ログインしてください。',
       migrationIncomplete:
         'これまでの学習記録を連携できませんでした。ログイン方法の移行案内をご確認ください。',
       cancel: 'キャンセル',
       recheck: 'もう一度確認',
       logoutTitle: 'ログアウトしますか？',
-      logoutDescription:
-        '하루마루からログアウトします。アカウントの連携は維持されます。',
+      logoutDescription: 'ログアウトしても解いた記録はそのまま残ります。',
       logoutAction: 'ログアウト',
-      loggingOut: 'ログアウトしています。',
+      loggingOut: 'ログアウト中…',
       logoutUnknown:
-        'ログアウトの状態を確認できませんでした。もう一度ご確認ください。',
+        'ログアウトできたか確認できませんでした。ページを再読み込みしてください。',
       unlinkTitle: '{{provider}}との連携を解除しますか？',
       unlinkDescription:
         '連携を解除した後は、連携済みの別のログイン方法でログインしてください。学習記録は維持されます。退会は別の操作です。',
       unlinkAction: '連携を解除',
       lastMethodTitle: '最後のログイン方法は解除できません。',
       deleteTitle: '退会しますか？',
-      processing: '処理しています。',
-      actionFailed:
-        'リクエストを完了できませんでした。もう一度ご確認ください。',
-      deletionAccepted: '退会のリクエストを受け付けました。',
-      deletionComplete: '退会が完了しました。',
+      processing: '少々お待ちください…',
+      actionFailed: 'うまくいきませんでした。もう一度お試しください。',
+      deletionAccepted: '退会の申し込みを受け付けました。',
+      deletionComplete:
+        '退会しました。これまでご利用いただきありがとうございました。',
       unlinked: '連携を解除しました。',
       legacyMethod:
         'ログイン方法が変更されました。連携したアカウントで続けてください。',
       continueGoogle: 'Googleで続ける',
       cancelledProvider:
-        '{{provider}}でのログインをキャンセルしました。もう一度試すか、ログインせずに学習できます。',
+        '{{provider}}のログインを取り消しました。もう一度試すか、ログインせずに解いてみることができます。',
       failedProvider:
         '{{provider}}でログインできませんでした。もう一度お試しください。',
       unavailableProvider:
-        '現在、{{provider}}でのログインは利用できません。しばらくしてからお試しください。',
+        '今は{{provider}}でログインできません。しばらくしてからもう一度お試しください。',
       consentNotice:
         '続行すると、<terms>利用規約</terms>と<privacy>個人情報処理方針</privacy>を確認したものとみなします。14歳未満の方は登録できません。'
     }
   },
   practice: {
-    name: '問題演習',
+    name: '問題を解く',
     setup: {
-      formTitle: 'どの科目を学習しますか？',
-      newTitle: '新しく始める',
+      formTitle: '何を解きますか？',
+      newTitle: '新しく解く',
       modeSummary: '出題方式',
-      shortcutsLabel: 'もう一度学ぶ',
+      shortcutsLabel: 'もう一度解く',
       guestHint:
-        'ログインしなくても、1日{{total}}回、{{count}}問ずつ解いてみられます。',
-      reviewShortcut: '間違えた問題を復習',
+        'ログインしなくても1日{{total}}回、1回{{count}}問ずつ解けます。',
+      reviewShortcut: '間違えた問題をもう一度解く',
       bookmarkShortcut: 'ブックマーク',
-
-      eyebrow: 'PRACTICE SETUP',
       title: '学習',
       description:
-        '出題可能な問題が不足する場合は、用意できる数だけを提供し、実際の問題数をお知らせします。',
-      currentRole: '現在のロール: {{role}}',
+        '用意された問題が選んだ数より少ないときは、ある分だけ出ます。',
       resume: {
         title: '続きから解く',
-        otherTitle: 'ほかの進行中の学習',
-        otherAction: 'ほかの進行中の学習を見る',
-        description: '最近保存した学習から再開できます。',
-        refreshing: '一覧を更新中…',
-        loading: '保存済みの下書きを確認しています…',
+        otherTitle: 'ほかの解きかけの学習',
+        otherAction: 'もっと見る',
+        description: '保存した答えは24時間残ります。',
+        refreshing: '更新中…',
+        loading: '解きかけの問題を探しています…',
         offline:
-          'オフラインです。接続が戻ると再開セッションの一覧を自動で再確認します。',
+          'インターネット接続が切れました。つながったらもう一度読み込みます。',
         cachedOffline:
-          'オフラインのため、最後に確認した一覧を表示します。接続が戻るまでキャンセルとページ移動はできません。',
-        stale:
-          '最新の再開セッション一覧に更新できませんでした。最後に確認した一覧を保持します。',
-        error: '再開できる一覧を読み込めませんでした。',
-        empty:
-          '保存された進行中の下書きはありません。下から新しい学習を始めてください。',
-        summary: '{{formattedCount}}問中、{{formattedOrdinal}}問目',
-        lastSaved: '最終保存 {{date}}',
-        notSaved: 'まだサーバーに保存されていません',
+          'インターネット接続が切れたため、最後に読み込んだ一覧を表示しています。つながるまで、やめる操作とページ移動はできません。',
+        stale: '一覧を更新できませんでした。最後に読み込んだ一覧です。',
+        error: '解きかけの問題の一覧を読み込めませんでした。',
+        empty: '解きかけの問題はありません。下から新しく始めてみてください。',
+        summary: '{{formattedCount}}問中{{formattedOrdinal}}問目まで',
+        lastSaved: '{{date}}に保存',
+        notSaved: 'まだ解いた問題はありません',
         legacyUnavailable:
-          '以前の学習セッションは終了しました。新しい学習を始めてください。',
+          'この学習はもう続けられません。新しく始めてください。',
         action: '続きから解く',
-        cancel: 'セッションをキャンセル',
-        paginationLabel: '再開セッションのページ'
+        cancel: 'やめる',
+        paginationLabel: '解きかけの問題のページ'
       },
       steps: {
         level: 'レベル',
         subject: '科目',
         count: '問題数',
-        mode: '出題モード'
+        mode: '出題方法'
       },
       questionCount: '{{formattedCount}}問',
       modes: {
         RANDOM: {
-          label: 'ランダム問題',
-          description: '選択したレベルと科目からランダムに出題します。'
+          label: 'ランダム',
+          description: '選んだレベルと科目からランダムに出ます。'
         },
         WRONG_NOTE: {
           label: '間違えた問題',
-          description: 'まだ解決していない間違いを優先して出題します。'
+          description: '復習する問題から出ます。'
         },
         WEAKNESS: {
-          label: '弱点おすすめ',
-          description: '最近の提出で安定してよく間違えた問題を優先します。'
+          label: '苦手な問題',
+          description: '最近よく間違える問題から出ます。'
         },
         BOOKMARK: {
           label: 'ブックマーク',
-          description: '保存した問題だけをまとめて解き直します。'
+          description: 'ブックマークに入れた問題だけ出ます。'
         },
         DAILY_REVIEW: {
-          label: '復習する問題',
-          description:
-            'サーバーの予定に従い、今日復習する間違いを順番に解きます。'
+          label: '復習する問題を解く',
+          description: '復習する問題を、前に間違えたものから10問出します。'
         }
       },
-      guestResumeHint: 'ログインすると、解きかけの問題を続きから解けます。',
-      memberLocked: 'ログインが必要',
+      guestResumeHint:
+        'ログインすると、途中でやめた問題をあとで続きから解けます。',
+      memberLocked: 'ログインすると使えます',
       locked: {
-        count: '10問・20問はログインすると解けます。',
-        mode: 'ランダム以外の出題方法は、ログインすると使えます。'
+        count: '10問・20問はログインすると選べます。',
+        mode: 'ランダム以外の出題方法はログインすると選べます。'
       },
-      guestLeft: '今日の体験は<b>{{total}}回中あと{{remaining}}回</b>です。',
+      guestLeft: '今日は<b>{{total}}回中あと{{remaining}}回</b>です。',
       dailyLimit: {
-        title: '今日の体験はすべて使いました',
+        title: '今日の無料回数を使い切りました',
         description:
-          'ログインすると問題数の制限なく解けて、記録も残ります。体験は明日0時（日本時間）にまた{{total}}回使えます。'
+          'ログインすると回数の制限なく解けて、記録も残ります。ログインしない場合は、明日0時（日本時間）からまた{{total}}回解けます。'
       },
-      urlLocked: '問題数・出題方法はログインすると選べます。',
-      availableCountNote: '問題が不足する場合は、用意できる数を提供します。',
+      urlLocked: '問題数と出題方法はログインすると選べます。',
+      availableCountNote: '問題が足りないときは、ある分だけ出ます。',
       noEligibleTitle:
         '現在の条件では「{{mode}}」で出題できる問題がありません。',
       noEligibleDescription:
-        'レベル・科目・モードを変更するか、ランダム問題を選んでください。別のモードに自動で切り替わることはありません。',
-      selectRandom: 'ランダム問題を選択',
+        'レベル・科目・出題方法を変えるか、ランダムで解いてみてください。',
+      selectRandom: 'ランダムに変える',
       createError:
-        'セッションを作成できませんでした。ネットワーク状態と選択条件を確認し、もう一度お試しください。',
-      authorityNote:
-        'サーバー管理の出題モードは候補が不足しても、別のモードへ自動変更しません。',
-      start: '学習を開始',
+        '学習を始められませんでした。インターネット接続を確認して、もう一度お試しください。',
+      authorityNote: '選んだ条件に合う問題だけ出ます。',
+      start: '始める',
       cancelDialog: {
-        title: '進行中のセッションをキャンセルしますか？',
-        description:
-          'キャンセルするとサーバーの下書きが削除され、このセッションでは回答の保存や提出ができなくなります。',
-        keep: 'そのまま保存',
-        confirm: 'セッションをキャンセル',
-        error:
-          'セッションをキャンセルできませんでした。状態を更新してからもう一度お試しください。'
+        title: '解きかけの問題をやめますか？',
+        description: '保存した答えが消えて、続きから解けなくなります。',
+        keep: 'そのままにする',
+        confirm: 'やめる',
+        error: 'やめられませんでした。もう一度お試しください。'
       }
     },
     session: {
       loading: {
         questions: '問題を準備しています…',
-        guestOwnership: 'ゲストセッションの所有権を確認しています…',
-        resultRedirect: '提出結果へ移動しています…',
-        draft: 'サーバーの作業内容を確認しています…'
+        guestOwnership: '問題を準備中…',
+        resultRedirect: '結果に移動中…',
+        draft: '保存した答えを読み込み中…'
       },
       recovery: {
-        title: '以前の提出結果を確認する必要があります',
+        title: '採点結果を確認しています',
         pendingDescription:
-          '応答が失われた可能性があるため、このセッションから移動したり回答を変更したりできません。接続が戻るとセッション状態を自動で再確認します。',
+          '提出した答えが採点されたか確認中のため、今は答えを変えたり画面を離れたりできません。インターネットにつながったらすぐ確認します。',
         failedDescription:
-          '応答が失われた可能性があるため、このセッションから移動したり回答を変更したりできません。ネットワークを確認してセッションを再読み込みし、同じ回答で続けてください。',
-        retry: 'セッション状態を再確認',
-        checkingStatus:
-          'セッション状態を読み込んでいます。結果を確認するまでこの画面にとどまってください。',
+          '提出した答えが採点されたか確認できませんでした。インターネット接続を確認して［もう一度確認］を押してください。答えはそのまま残っています。',
+        retry: 'もう一度確認',
+        checkingStatus: '確認中です。この画面のまましばらくお待ちください。',
         connectedStatus:
-          'ネットワークに接続しています。セッション状態を再確認してください。'
+          'インターネットにつながりました。［もう一度確認］を押してください。'
       },
       errors: {
-        sessionLoadTitle: '学習セッションを読み込めませんでした',
+        sessionLoadTitle: '問題を読み込めませんでした',
         sessionLoadDescription:
-          'セッションのURLを確認するか、新しい学習を開始してください。',
+          'アドレスが正しいか確認するか、新しく始めてください。',
         offlineSessionDescription:
-          'オフラインです。接続が戻ると学習セッションを自動的に再確認します。',
+          'インターネット接続が切れました。つながったらもう一度読み込みます。',
         cachedOfflineDescription:
-          'オフラインです。現在の問題と回答は保持しますが、接続が戻るまで変更や提出はできません。',
+          'インターネット接続が切れました。今の画面はそのままですが、つながるまで答えの変更や提出はできません。',
         staleSessionDescription:
-          '学習セッションの最新状態を確認できませんでした。現在の問題と回答は保持し、再確認するまで変更や提出はできません。',
-        retrySession: '学習セッションを再確認',
-        draftLoadTitle: 'サーバーの作業内容を読み込めませんでした',
+          '最新の状態を読み込めませんでした。解いた答えはそのままですが、もう一度確認するまで答えの変更や提出はできません。',
+        retrySession: 'もう一度読み込む',
+        draftLoadTitle: '保存した答えを読み込めませんでした',
         draftLoadDescription:
-          '安全に再開するため、最新の回答を確認する必要があります。接続を確認して再試行してください。',
-        emptyTitle: '出題する問題がありません',
-        emptyDescription: '別のレベル、科目、出題モードを選んでください。'
+          '続きから解くには、まず保存した答えを読み込む必要があります。インターネット接続を確認して、もう一度お試しください。',
+        emptyTitle: '解ける問題がありません',
+        emptyDescription: 'レベル、科目、出題方法を変えてみてください。'
       },
       terminal: {
-        notFoundTitle: '学習セッションが見つかりません',
+        notFoundTitle: 'この学習が見つかりません',
         notFoundDescription:
-          '終了したか、アクセスできない学習です。新しい学習を始めてください。',
-        retiredTitle: '以前の学習セッションは終了しました',
-        retiredDescription:
-          '以前の学習記録は続けられません。新しい学習を始めてください。',
-        expiredTitle: '期限切れの学習セッションです',
-        cancelledTitle: 'キャンセルされた学習セッションです',
-        description:
-          '新しいRANDOM学習を開始してください。このセッションには回答を提出できません。',
-        openSetup: '学習設定へ移動'
+          'もう終わったか、開けない学習です。新しく始めてください。',
+        retiredTitle: 'この学習は終わりました',
+        retiredDescription: '続きからは解けません。新しく始めてください。',
+        expiredTitle: '24時間が過ぎて終わった学習です',
+        cancelledTitle: 'やめた学習です',
+        description: 'この学習にはもう答えられません。新しく始めてください。',
+        openSetup: '新しく始める'
       },
       exitGuest: {
-        title: '解答をやめますか？',
-        description: '離れると解いた答えが消えます。',
+        title: '解くのをやめますか？',
+        description: '離れると、今解いた答えは保存されません。',
         keep: '解き続ける',
         leave: 'やめる'
       },
       header: {
-        backToSetup: '学習に戻る',
+        backToSetup: '学習画面へ',
         backToExplanation: '解説に戻る',
 
-        progressSummary:
-          '現在{{current}}番 / 実際{{total}}問 · 回答済み{{answered}}問'
+        progressSummary: '{{current}}/{{total}}問 · {{answered}}問回答'
       },
       draft: {
         retryShort: '再試行',
         inline: {
           reconciled:
-            '最新の保存記録を読み込みました。回答を確認してください。',
-          saved: '学習記録を自動保存しました',
-          saving: '学習記録を保存しています…',
-          error: '学習記録を保存できませんでした',
-          dirty: '学習記録の保存待ちです',
-          offline: 'オフライン・この端末に一時保存中'
+            '別の場所で解いた答えを読み込みました。答えを確認してください。',
+          saved: '自動保存しました',
+          saving: '保存中…',
+          error: '保存できませんでした',
+          dirty: '保存待ち',
+          offline: '接続なし · この端末にだけ保存中'
         },
         status: {
           reconciled:
-            '最新の保存記録を読み込みました。回答を確認してください。',
+            '別の場所で解いた答えを読み込みました。答えを確認してください。',
           remoteDeferred:
-            '別のタブの保存を検知しました。現在の保存と最新のサーバー記録を確認しています。',
-          conflictPending: '最新のサーバー記録を確認しています。',
-          dirty: '変更内容をこのタブに一時保存しました。',
-          saving: '変更内容をサーバーに保存しています。',
-          savedAt: 'サーバーに保存しました。最終保存 {{time}}',
-          saved: '回答をサーバーに保存しました。',
+            'ほかのウィンドウでもこの問題を解いています。どちらの答えが新しいか確認しています。',
+          conflictPending: '最新の答えを確認しています。',
+          dirty: '変えた答えをこのウィンドウに一時的に残しました。',
+          saving: '保存中…',
+          savedAt: '{{time}}に保存しました。',
+          saved: '保存しました。',
           offline:
-            'オフラインです。変更内容はこの端末だけに一時保存し、接続後に再保存します。',
-          conflict: '最新のサーバー記録を確認しています。',
-          error: '保存できませんでした。選んだ回答は保持され、再試行できます。',
-          synced: 'サーバーに保存した回答と一致しています。'
+            'インターネット接続が切れました。答えはこの端末に残しておき、つながったら保存します。',
+          conflict: '最新の答えを確認しています。',
+          error:
+            '保存できませんでした。選んだ答えはそのままです。もう一度お試しください。',
+          synced: 'すべて保存しました。'
         },
         conflictCheckPending:
-          '最新のサーバー作業内容を確認している間、回答の保存と提出を一時停止します。',
-        retry: '作業内容の保存を再試行',
+          '最新の答えを確認する間、保存と提出を少し止めます。',
+        retry: 'もう一度保存',
         notices: {
           saveBeforeLeaveFailed:
-            '作業内容を保存できなかったため、この画面にとどまります。',
+            '答えを保存できなかったので、画面を離れませんでした。',
           conflictRefreshComplete:
-            '最新のサーバー作業内容を確認しました。内容を確認してから再提出してください。',
-          sessionRefreshFailed: '最新のセッション状態を確認できませんでした。',
+            '最新の答えを読み込みました。確認してからもう一度提出してください。',
+          sessionRefreshFailed: '最新の状態を読み込めませんでした。',
           submissionPreparationFailed:
-            'サーバーの作業内容を保存できなかったため、提出しませんでした。',
+            '答えを保存できなかったので、提出しませんでした。',
           retrySaveFailed:
-            '作業内容を再保存できませんでした。接続を確認してもう一度お試しください。'
+            'もう一度保存できませんでした。インターネット接続を確認してください。'
         }
       },
       supply: {
         canonicalPartial:
-          '指定した{{requested}}問のうち、{{mode}}モードで出題可能な{{actual}}問だけを提供します。別のモードには変更していません。',
-        legacyFallback:
-          'レガシーセッションでは選んだモードの問題が不足したため、ランダム問題も含めています。',
+          '{{requested}}問を選びましたが、今解ける問題が{{actual}}問なので{{actual}}問だけ出ました。',
         canonicalNoFallback: '選択したモードは自動で変更しません。'
       },
-      progressLabel: '回答済み {{percent}}%',
+      progressLabel: '{{percent}}% 回答',
       question: {
         passageBackToTop: '本文をもう一度見る',
         passageLabel: '文章',
         numberLabel: '{{ordinal}}番の問題。',
-        answerLegend: '答えの選択肢'
+        answerLegend: '選択肢'
       },
       bookmark: {
-        addLabel: '{{ordinal}}番の問題をブックマークに追加',
-        removeLabel: '{{ordinal}}番の問題のブックマークを解除',
-        legacyReadOnly:
-          '以前の契約セッションではブックマークを変更できません。',
+        addLabel: '{{ordinal}}番の問題をブックマークに入れる',
+        removeLabel: '{{ordinal}}番の問題をブックマークから外す',
+        legacyReadOnly: 'この学習ではブックマークを変えられません。',
         removed: 'ブックマークから外しました。',
-        removeRollback: 'ブックマークを解除できなかったため元に戻しました。',
-        saved: 'ブックマークに保存しました。',
-        saveRollback: 'ブックマークに保存できなかったため元に戻しました。',
+        removeRollback:
+          'ブックマークから外せませんでした。もう一度お試しください。',
+        saved: 'ブックマークに入れました。',
+        saveRollback:
+          'ブックマークに入れられませんでした。もう一度お試しください。',
         offlineQueued:
-          'オフラインです。接続が戻るとブックマークの変更を再試行します。',
+          'インターネット接続が切れました。つながったらブックマークに反映します。',
         statusLoadOffline:
-          'オフラインのため、ブックマークの状態を確認できません。接続が戻ると自動的に再確認します。',
-        statusLoadFailed: 'ブックマークの状態を確認できませんでした。',
+          'インターネット接続が切れたため、ブックマークを確認できません。つながったらもう一度確認します。',
+        statusLoadFailed: 'ブックマークを確認できませんでした。',
         retryStatus: '再確認'
       },
       navigation: {
         previous: '前へ',
         next: '次へ',
-        submit: '回答を提出',
-        jumpLabel: '問題へ移動',
-        jumpQuestionAnswered: '{{ordinal}}番の問題、回答済み',
-        jumpQuestionUnanswered: '{{ordinal}}番の問題、未回答'
+        submit: '提出する',
+        jumpLabel: '問題番号',
+        jumpQuestionAnswered: '{{ordinal}}番、回答済み',
+        jumpQuestionUnanswered: '{{ordinal}}番、まだ解いていない'
       },
       submit: {
-        title: '回答を提出しますか？',
+        title: '提出しますか？',
         frozenDescription:
-          '以前送信した回答をそのまま再提出します。結果を確認するまで回答は変更できません。',
+          'さっき送った答えをそのままもう一度提出します。結果が出るまで答えは変えられません。',
         unansweredDescription:
-          '未回答の{{unanswered}}問は不正解として扱います。',
+          'まだ解いていない問題が{{unanswered}}問あります。解いていない問題は不正解として採点されます。',
         completeDescription:
-          'すべての問題に回答しました。提出後は回答を変更できません。',
+          'すべての問題を解きました。提出すると答えは変えられません。',
         continue: '続けて解く',
         confirm: '提出して結果を見る',
         frozenFailure:
-          '結果を確認できませんでした。ネットワークを確認して、同じ回答でもう一度お試しください。',
+          '結果を受け取れませんでした。インターネット接続を確認して、もう一度お試しください。答えはそのままです。',
         requestFailure:
-          '提出リクエストを処理できませんでした。入力とセッション状態を確認してもう一度お試しください。',
+          '提出できませんでした。しばらくしてからもう一度お試しください。',
         connectivity: {
           offline:
-            'オフラインです。接続が戻ると同じ回答でもう一度お試しください。',
+            'インターネット接続が切れました。つながったらもう一度提出してください。',
           restored:
-            'ネットワーク接続が戻りました。同じ回答でもう一度お試しいただけます。'
+            'インターネットにまたつながりました。今もう一度提出できます。'
         }
       },
       conflict: {
-        title: '別の端末の作業と競合しました',
+        title: 'ほかの端末で解いた答えと違います',
         description:
-          '{{conflicts}}件の変更内容が異なります。自動では上書きせず、選んだ記録を基準に続けます。',
-        useServer: 'サーバーの記録を使用',
-        keepLocal: '自分の変更を保持',
+          '{{conflicts}}問の答えが違います。どちらの答えを残すか選んでください。',
+        useServer: '保存された答えを使う',
+        keepLocal: 'この画面の答えを使う',
         detail:
-          'サーバーに保存された回答を選ぶと、このタブの競合する変更は破棄されます。自分の変更を選ぶと、最新の回答に再保存します。'
+          '「保存された答えを使う」を選ぶと、この画面で変えた答えは消えます。「この画面の答えを使う」を選ぶと、この画面の答えで保存します。'
       }
     }
   },
   result: {
     retired: {
-      title: '以前の学習結果は終了しました',
-      description:
-        '以前の学習結果は確認できません。新しい学習を始めてください。'
+      title: 'この結果はもう見られません',
+      description: '新しく解いてみてください。'
     },
     navigation: {
-      label: '解説する問題',
-      question: '問題 {{formattedOrdinal}}',
-      emptyTitle: '確認する問題がありません',
-      emptyDescription: '学習設定に戻り、新しい問題を解いてください。'
+      label: '問題番号',
+      question: '{{formattedOrdinal}}番',
+      emptyTitle: '見る問題がありません',
+      emptyDescription: '学習画面で新しい問題を解いてみてください。'
     },
-    name: '学習結果',
+    name: '結果',
     summary: {
       score: '{{total}}問中 {{correct}}問正解',
       meta: '正答率 {{accuracy}} · {{duration}}'
@@ -836,41 +818,38 @@ export const jaCoreResources = {
     nextActions: {
       title: '次にやること'
     },
-    outcomesNote:
-      '未回答も採点では不正解に含まれます。解説を確認し、必要なときに解き直しましょう。',
-    loading: '採点結果を読み込んでいます…',
+    outcomesNote: '解いていない問題も不正解として採点されます。',
+    loading: '採点結果を読み込み中…',
     error: {
-      title: '学習結果を読み込めませんでした',
-      description: 'ネットワークの状態を確認して、もう一度お試しください。',
-      offlineTitle: 'オフラインで学習結果を待っています',
-      offlineDescription:
-        '接続が戻ると、学習結果とセッション状態を自動で再確認します。',
+      title: '結果を読み込めませんでした',
+      description: 'インターネット接続を確認して、もう一度お試しください。',
+      offlineTitle: 'インターネット接続が切れました',
+      offlineDescription: 'つながったら結果をもう一度読み込みます。',
       cachedOffline:
-        'オフラインのため、最後に確認した学習結果を表示します。接続が戻るまで結果に基づく操作はできません。',
+        'インターネット接続が切れたため、最後に読み込んだ結果を表示しています。つながるまで解き直しはできません。',
       staleDescription:
-        '最新の結果に更新できなかったため、最後に確認した結果を表示します。再確認するまで結果に基づく操作はできません。'
+        '最新の結果を読み込めなかったため、最後に読み込んだ結果を表示しています。もう一度読み込むまで解き直しはできません。'
     },
     notFound: {
-      title: '学習結果が見つかりません',
-      description: '未提出のセッション、または期限切れの学習記録です。',
-      retrySourceDescription:
-        '再出題する元の結果がないか、現在のアカウントではアクセスできません。'
+      title: '結果が見つかりません',
+      description: 'まだ提出していないか、期間が過ぎた学習です。',
+      retrySourceDescription: '解き直す元の結果が見つかりません。'
     },
     newPractice: '新しい問題を解く',
     metrics: {
       accuracy: '正答率',
       durationValue: '{{minutes}}分{{seconds}}秒'
     },
-    guestDone: '今日の体験はここまでです。ログインすると続けて解けます。',
-    memberLocked: 'ログインが必要',
+    guestDone: '今日の無料回数を使い切りました。ログインすると続けて解けます。',
+    memberLocked: 'ログインすると使えます',
     locked: {
       retry: '間違えた問題の解き直しは、ログインすると使えます。'
     },
     status: {
       guest:
-        'ログインすると、間違えた問題が間違いノートに保存されます。今の結果は引き継がれません。',
+        'ログインすると、間違えた問題が間違いノートに集まります。今の結果はログイン後には続きません。',
       savedWrongCount:
-        '間違えた{{formattedCount}}問を間違いノートに反映しました。'
+        '間違えた{{formattedCount}}問を間違いノートに入れました。'
     },
     actions: {
       retryIncorrect: '間違えた問題だけ解き直す',
@@ -879,110 +858,97 @@ export const jaCoreResources = {
       nextSetStarting: '新しい問題を準備しています…'
     },
     retry: {
-      checking: '結果を確認中…',
-      waitingConnection: '接続待ち…',
-      creating: '再出題中…',
-      noEligibleTitle: '現在解き直せる問題はありません',
-      noEligibleDescription:
-        '問題がアーカイブされたか、再出題できる固定バージョンが残っていません。',
+      checking: '確認中…',
+      waitingConnection: '接続を待っています…',
+      creating: '準備中…',
+      noEligibleTitle: '今解き直せる間違えた問題はありません',
+      noEligibleDescription: '間違えた問題が今は解けない状態です。',
       unsupported:
-        'この結果形式では間違えた問題の再出題に対応していません。新しい問題で学習を続けてください。',
+        'この結果では間違えた問題だけを解き直すことはできません。新しい問題を解いてみてください。',
       offline:
-        'オフラインです。接続が戻ると同じ再出題キーでリクエストを続けます。',
-      errorTitle: '再出題セッションを作成できませんでした。',
+        'インターネット接続が切れました。つながったらすぐ続けて準備します。',
+      errorTitle: '解き直しを始められませんでした。',
       errorDescription:
-        'ネットワークの状態を確認して、同じボタンでもう一度お試しください。',
+        'インターネット接続を確認して、同じボタンをもう一度押してください。',
       priorEnded:
-        '以前作成した再出題セッションは終了済みです。もう一度押すと新しいセッションを作成します。',
-      sourceRefreshing: '元の学習結果の現在の状態を再確認しています。'
+        '前に始めた解き直しは終わりました。もう一度押すと新しく始めます。',
+      sourceRefreshing: '結果をもう一度確認しています。'
     },
     items: {
       title: '問題別の結果',
       correct: '正解',
       incorrect: '不正解',
       ordinal: '{{formattedOrdinal}}番',
-      selectedAnswer: '選んだ答え',
+      selectedAnswer: '自分の答え',
       unanswered: '未回答',
       correctAnswer: '正解',
-      correctAnswerUnavailable: '正解情報なし',
+      correctAnswerUnavailable: '正解を読み込めませんでした',
       explanation: '解説'
     },
     bookmark: {
-      offline: 'オフラインです。接続が戻るとブックマークの変更を再試行します。',
+      offline:
+        'インターネット接続が切れました。つながったらブックマークに反映します。',
       loadOffline:
-        'オフラインのため、ブックマークの状態を確認できません。接続が戻ると自動的に再確認します。',
-      loadError: 'ブックマークの状態を確認できませんでした。',
+        'インターネット接続が切れたため、ブックマークを確認できません。つながったらもう一度確認します。',
+      loadError: 'ブックマークを確認できませんでした。',
       retry: '再確認',
       add: 'ブックマーク',
-      addLabel: '{{formattedOrdinal}}番の問題をブックマークに追加',
-      remove: 'ブックマーク解除',
-      removeLabel: '{{formattedOrdinal}}番の問題のブックマークを解除',
-      unavailable: 'この結果ではブックマークを変更できません。',
+      addLabel: '{{formattedOrdinal}}番の問題をブックマークに入れる',
+      remove: 'ブックマークから外す',
+      removeLabel: '{{formattedOrdinal}}番の問題をブックマークから外す',
+      unavailable: 'この結果ではブックマークを変えられません。',
       removed: 'ブックマークから外しました。',
-      removeFailed: 'ブックマークを解除できなかったため元に戻しました。',
-      saved: 'ブックマークに保存しました。',
-      saveFailed: 'ブックマークに保存できなかったため元に戻しました。'
+      removeFailed:
+        'ブックマークから外せませんでした。もう一度お試しください。',
+      saved: 'ブックマークに入れました。',
+      saveFailed: 'ブックマークに入れられませんでした。もう一度お試しください。'
     },
     blocker: {
-      title: '再出題リクエストを処理しています',
-      description:
-        '結果を確認した後、新しい学習セッションへ自動で移動します。しばらくこの画面にとどまってください。',
-      stay: 'この画面にとどまる'
+      title: '間違えた問題を解き直す準備をしています',
+      description: '準備ができたらすぐ問題画面に進みます。少々お待ちください。',
+      stay: '待つ'
     }
   },
   dashboard: {
-    name: '学習ダッシュボード',
-    loading: '学習ダッシュボードを読み込んでいます…',
+    name: '自分の学習',
+    loading: '読み込み中…',
     offline: {
-      title: 'オフラインでダッシュボードを待っています',
-      description:
-        '接続が戻ると、累計統計と最近のインサイトを自動で再読み込みします。'
+      title: 'インターネット接続が切れました',
+      description: 'つながったら学習記録をもう一度読み込みます。'
     },
-    eyebrow: 'DASHBOARD',
-    title: '学習の流れを確認しましょう',
-    greeting: '{{name}}さんの目標レベルは{{level}}です。',
-    learnerFallback: '学習者',
-    targetUnset: '未設定',
-    basisNote: '累計値は全期間、直近7日の日付はUTCを基準にしています。',
-    startToday: '今日の学習を開始',
+    title: '自分の学習',
+    greeting: '{{name}}さん、目標レベルは{{level}}',
+    learnerFallback: '会員',
+    targetUnset: 'まだ決めていません',
+    basisNote: '全期間の記録です。',
+    startToday: '今日の学習を始める',
     summary: {
-      loading: '累計学習統計を読み込んでいます…',
-      offlineTitle: 'オフラインで累計統計を待っています',
-      offlineDescription: '接続が戻ると、累計学習統計を自動で再確認します。',
-      staleTitle: '最新の累計統計に更新できませんでした',
-      staleDescription: '画面には最後に確認した結果を保持しています。',
+      loading: '読み込み中…',
+      offlineTitle: 'インターネット接続が切れました',
+      offlineDescription: 'つながったらもう一度読み込みます。',
+      staleTitle: '最新の記録を読み込めませんでした',
+      staleDescription: '最後に読み込んだ記録を表示しています。',
       cachedOffline:
-        'オフラインのため、最後に確認した累計統計を表示します。接続が戻ると自動的に再確認します。',
-      retry: '累計統計を再試行',
-      errorTitle: '累計ダッシュボードを読み込めませんでした',
-      errorDescription:
-        '直近90日のインサイトは別に確認できます。累計統計のみ再度リクエストしてください。',
-      emptyTitle: 'まだ学習記録がありません',
-      emptyDescription:
-        '最初の問題を解くと、正答率、弱い科目、直近7日の学習量がここに表示されます。',
-      emptyAction: '最初の学習を開始',
-      totalAnswered: '解答総数',
-      correctRate: '全体正答率',
-      wrongNotes: '累計の間違い',
+        'インターネット接続が切れたため、最後に読み込んだ記録を表示しています。つながったらもう一度読み込みます。',
+      retry: 'もう一度読み込む',
+      errorTitle: '学習記録を読み込めませんでした',
+      errorDescription: '［もう一度読み込む］を押してください。',
+      emptyTitle: 'まだ解いた問題がありません',
+      emptyDescription: '問題を解くと、科目別の正答率がここに出ます。',
+      emptyAction: '最初の問題を解く',
+      totalAnswered: '解いた問題',
+      correctRate: '正答率',
+      wrongNotes: '間違えた問題',
       solvedWrongNotes: '解決した間違い',
-      weakestSubject: '最も弱い科目',
-      analysisPending: '分析待ち',
       questionUnit: '問',
       itemUnit: '件',
       subjectAccuracy: '科目別正答率',
       subjectAccuracyLabel: '{{subject}}の正答率',
-      recentSevenDays: '直近7日の学習量',
-      recentSevenDaysLabel: '直近7日の問題解答数',
-      chartDescription:
-        'グラフの数値と日付も示し、色や棒の高さだけに依存しません。',
-      recentSessions: '最近の学習記録',
-      recentSessionResult: '{{correct}}/{{total}}正解',
+      recentSessions: '最近の学習',
+      recentSessionResult: '{{total}}問中{{correct}}問正解',
       sessionAccuracy: '正答率 {{rate}}%',
-      noRecentSessions: '最近のセッションはありません。',
-      repeatedWrong: '繰り返し間違えた問題',
-      openReviewCenter: '復習センターで見る',
-      wrongCount: '{{formattedCount}}回間違い',
-      noRepeatedWrong: '繰り返し間違えた問題はありません。'
+      noRecentSessions: '最近解いた学習はありません。',
+      wrongCount: '{{formattedCount}}回間違い'
     },
     insights: {
       loading: '直近90日のインサイトを読み込んでいます…',
@@ -1198,7 +1164,7 @@ export const jaCoreResources = {
       versionChanged:
         '最後に間違えた時点の問題の解説です。解き直しには最新の問題を使います。',
       guest: {
-        result: 'この端末で直前に終えた学習結果'
+        result: '今解いた結果'
       },
       empty: {
         title: 'まだ復習する問題はありません。',
@@ -1225,9 +1191,9 @@ export const jaCoreResources = {
         empty: 'まだ終了した学習はありません。'
       },
       complete: {
-        title: '復習完了',
-        correct: '今回は正解しました。',
-        wrong: 'もう一度確認しましょう。',
+        title: '復習の結果',
+        correct: '正解です！',
+        wrong: '残念、不正解です。',
         states: {
           NEW: 'まだ復習していない問題です。',
           REVIEWING: '一度正解しました。復習中の問題として残ります。',
@@ -1236,14 +1202,14 @@ export const jaCoreResources = {
           AGAIN: '同じ問題をもう一度間違えました。解説を読んで復習しましょう。'
         },
         next: '次の復習は{{date}}です。',
-        checking: '採点済みです。現在の復習状態を確認しています。',
+        checking: '採点しました。間違いノートに反映しています。',
         unknown:
-          '採点済みですが、現在の状態と次の予定を確認できませんでした。再提出せずに状態だけを確認できます。',
-        retryStatus: '復習状態を再確認',
-        current: '現在の復習状態',
-        selected: '今回の回答',
-        unanswered: '回答を選択しませんでした。',
-        unconfirmed: '未確認'
+          '採点はできましたが、間違いノートへの反映を確認できませんでした。もう一度提出する必要はありません。',
+        retryStatus: 'もう一度確認',
+        current: '間違いノート',
+        selected: '自分の答え',
+        unanswered: '答えを選びませんでした。',
+        unconfirmed: '確認できません'
       }
     },
     name: '間違いノート',
@@ -1336,15 +1302,16 @@ export const jaCoreResources = {
       },
       states: {
         offline:
-          'オフラインです。接続が戻ると現在のURL条件で復習キューを自動的に再読み込みします。',
-        loading: '復習キューを読み込んでいます…',
-        refreshing: '復習キューのページを更新しています…',
-        errorTitle: '復習キューを読み込めませんでした',
-        errorDescription: '接続状態を確認して、もう一度お試しください。',
+          'インターネット接続が切れました。つながったらもう一度読み込みます。',
+        loading: '読み込み中…',
+        refreshing: '読み込み中…',
+        errorTitle: '間違いノートを読み込めませんでした',
+        errorDescription:
+          'インターネット接続を確認して、もう一度お試しください。',
         stale:
-          '復習キューの最新状態を確認できませんでした。現在の結果は保持し、最新性を確認するまでまとめて復習を開始できません。',
-        retryStale: '復習キューを再確認',
-        correctingPage: '有効な復習キューのページへ移動しています…'
+          '最新の一覧を読み込めませんでした。もう一度読み込むまで復習は始められません。',
+        retryStale: 'もう一度読み込む',
+        correctingPage: 'あるページに移動中…'
       },
       results: {
         count: '条件に合う間違い {{formattedCount}}件',
@@ -1364,7 +1331,7 @@ export const jaCoreResources = {
         streak: '連続正解',
         nextReview: '次の復習',
         detail: '詳細・メモ・復習記録',
-        pagination: '復習キューのページ'
+        pagination: '間違いノートのページ'
       }
     },
     detail: {
@@ -1377,12 +1344,12 @@ export const jaCoreResources = {
       snapshotNotice:
         '以下の問題・選択肢・解説は、最後に間違えた時点の問題バージョンです。',
       previousAnswer: {
-        selected: '前回の回答',
-        unanswered: '前回の回答: 未回答',
-        unavailable: '前回の回答: 記録を確認できません',
-        loading: '前回の回答を確認しています…',
-        error: '前回の回答を読み込めませんでした。',
-        paused: '接続が戻ると前回の回答を確認します。'
+        selected: '自分が選んだ答え',
+        unanswered: '自分が選んだ答え：なし（未回答）',
+        unavailable: '自分が選んだ答えを読み込めません',
+        loading: '自分が選んだ答えを読み込み中…',
+        error: '自分が選んだ答えを読み込めませんでした。',
+        paused: 'インターネットにつながったら、自分が選んだ答えを読み込みます。'
       },
       correct: '正解',
       explanation: '解説',
@@ -1395,46 +1362,42 @@ export const jaCoreResources = {
         nextReview: '次の復習',
         lastReview: '最近の復習',
         noRecord: '記録なし',
-        archived: 'アーカイブ済み: 現在出題可能な問題バージョンがありません。',
+        archived: 'この問題は今は解けません。',
         available: '現在出題可能な問題バージョンで単独復習を開始できます。'
       },
       states: {
-        coldOfflineTitle: 'オフラインでは詳細を読み込めません',
-        coldOfflineDescription:
-          '接続が戻るとこの問題を自動的に再読み込みします。',
-        loading: '間違いの詳細を読み込んでいます…',
-        notFoundTitle: '間違い記録が見つかりません',
-        notFoundDescription:
-          '削除されたか、現在のアカウントに保存されていない問題です。',
-        loadErrorTitle: '間違いの詳細を読み込めませんでした',
+        coldOfflineTitle: 'インターネット接続が切れていて読み込めません',
+        coldOfflineDescription: 'つながったらもう一度読み込みます。',
+        loading: '読み込み中…',
+        notFoundTitle: 'この問題が見つかりません',
+        notFoundDescription: '消えたか、自分の間違いノートにない問題です。',
+        loadErrorTitle: '読み込めませんでした',
         loadErrorDescription:
-          'ネットワークの状態を確認して、もう一度お試しください。',
+          'インターネット接続を確認して、もう一度お試しください。',
         backHistory: 'すべての間違い記録へ戻る',
         backDashboard: '学習ダッシュボードへ戻る',
-        backCenter: '復習センターへ戻る',
+        backCenter: '間違いノートへ',
         cachedOffline:
-          'オフラインです。保存済みの詳細を表示し、接続後にサーバー状態を再確認します。',
-        stale:
-          '詳細の最新状態を確認できませんでした。表示中の内容と編集中のメモは保持します。',
-        retry: '詳細を再確認'
+          'インターネット接続が切れました。保存された内容を表示し、つながったらもう一度確認します。',
+        stale: '最新の内容を読み込めませんでした。表示中の内容はそのままです。',
+        retry: 'もう一度読み込む'
       },
       targeted: {
-        waitingConnection: '接続待ち…',
-        loading: '単独復習を準備中…',
-        recover: '既存の単独復習を復元',
-        start: 'この問題だけ解き直す',
+        waitingConnection: '接続を待っています…',
+        loading: '準備中…',
+        recover: '解きかけの続きを解く',
+        start: 'この問題をもう一度解く',
         archivedRecovery:
-          '問題はアーカイブ済みですが、以前作成した単独復習セッションは同じリクエストキーで復元できます。',
+          'この問題は今は解けませんが、前に始めたものは続きから解けます。',
         offline:
-          'オフラインです。接続が戻ると同じリクエストキーで単独復習の作成を続けます。',
-        unavailable: '現在出題可能な問題バージョンがありません。',
-        error:
-          '単独復習セッションを作成できませんでした。もう一度お試しください。',
-        archivedOnly: 'アーカイブ済みの問題では記録とメモだけ確認できます。',
+          'インターネット接続が切れました。つながったらすぐ続けて準備します。',
+        unavailable: 'この問題は今は解けません。',
+        error: '解き直しを始められませんでした。もう一度押してください。',
+        archivedOnly: '今は解けない問題なので、記録だけ見られます。',
         endedArchived:
-          '以前作成した単独復習セッションは終了済みです。アーカイブ済みの問題では新しい単独復習を開始できません。',
+          '前に始めた解き直しは終わりました。この問題は今は解けません。',
         endedAvailable:
-          '以前作成した単独復習セッションは終了済みです。もう一度押すと新しいセッションを作成します。'
+          '前に始めた解き直しは終わりました。もう一度押すと新しく始めます。'
       },
       timelineSection: {
         title: '復習タイムライン',
@@ -1524,71 +1487,66 @@ export const jaCoreResources = {
   },
   bookmark: {
     name: 'ブックマーク',
-    loading: 'ブックマークを読み込んでいます…',
+    loading: '読み込み中…',
     error: {
       title: 'ブックマークを読み込めませんでした',
-      description: 'しばらく後にもう一度お試しください。',
-      offlineTitle: 'オフラインでブックマークを待機しています',
-      offlineDescription:
-        '接続が戻るとブックマーク一覧を自動的に再読み込みします。',
+      description: 'しばらくしてからもう一度お試しください。',
+      offlineTitle: 'インターネット接続が切れました',
+      offlineDescription: 'つながったらブックマークをもう一度読み込みます。',
       cachedOffline:
-        'オフラインです。現在の一覧を保持し、接続が戻ると中断したリクエストを続けます。',
+        'インターネット接続が切れました。今の一覧はそのままにして、つながったら続けて読み込みます。',
       staleDescription:
-        'ブックマークの最新状態を確認できませんでした。現在の一覧は保持します。'
+        '最新の一覧を読み込めませんでした。今見えている一覧はそのままにします。'
     },
     status: {
-      removing: 'ブックマークの解除を処理しています…',
-      removed: 'ブックマークを解除しました。',
+      removing: '外しています…',
+      removed: 'ブックマークから外しました。',
       restoreFailed:
-        'ブックマークを解除できなかったため、以前の状態に戻しました。',
-      offline: 'オフラインです。接続が戻るとブックマークの変更を再試行します。'
+        'ブックマークから外せませんでした。もう一度お試しください。',
+      offline:
+        'インターネット接続が切れました。つながったらブックマークに反映します。'
     },
-    eyebrow: 'BOOKMARKS',
     title: 'ブックマーク',
     listCount: '{{formattedCount}}問',
-    sortSaved: '保存した順',
-    savedOn: '{{date}}に保存',
-    description: 'もう一度解きたい問題を集めました。',
+    sortSaved: '入れた順',
+    savedOn: '{{date}}に入れた',
+    description: 'もう一度見たい問題を集めておく場所です。',
     empty: {
-      firstTitle: '保存した問題はありません',
-      pageTitle: 'このページは空です',
+      firstTitle: 'ブックマークに入れた問題はありません',
+      pageTitle: 'このページには問題がありません',
       firstDescription:
-        '問題演習画面でブックマークすると、ここにまとめて表示されます。',
-      pageDescription: '前のページでブックマークを確認してください。',
+        '問題を解くときにブックマークを押すと、ここに集まります。',
+      pageDescription: '前のページを見てみてください。',
       start: '問題を解きに行く',
       previousPage: '前のページ'
     },
     practice: {
-      title: 'もう一度解く',
-      description:
-        '同じレベルと科目の現在公開中の問題を、保存した順に出題します。',
-      groupAction: '{{level}} · {{subject}} · 最大{{formattedCount}}問を解く',
-      allArchived:
-        'このページのブックマークはすべてアーカイブ済みで、現在は出題できません。',
-      noneAvailable:
-        '選択した範囲には現在出題可能なブックマーク問題がありません。',
-      refresh: 'ブックマーク一覧を更新',
-      offline: 'オフラインです。接続が戻るとBOOKMARK学習の作成を再試行します。',
+      title: 'ブックマークの問題を解く',
+      description: 'レベル・科目ごとに、入れた順で出ます。',
+      groupAction: '{{level}} {{subject}}を解く（最大{{formattedCount}}問）',
+      allArchived: 'このページの問題は、どれも今は解けません。',
+      noneAvailable: '今解けるブックマークの問題はありません。',
+      refresh: '更新',
+      offline:
+        'インターネット接続が切れました。つながったらもう一度押してください。',
       startError:
-        'BOOKMARK学習を開始できませんでした。しばらく後にもう一度お試しください。'
+        '始められませんでした。しばらくしてからもう一度お試しください。'
     },
     availability: {
-      available: '出題可能',
-      archived: 'アーカイブ済み',
-      archivedDescription:
-        '公開が終了したため、新しい学習セッションには含まれません。'
+      available: '解ける',
+      archived: '今は解けない',
+      archivedDescription: '修正中か取り下げた問題なので、出題されません。'
     },
     remove: 'ブックマークから外す',
     removeDialog: {
-      title: 'ブックマークを解除しますか？',
-      description:
-        'この問題はブックマーク一覧から削除されます。問題演習画面からもう一度保存できます。',
-      cancel: 'ブックマークを残す',
-      confirm: '解除を確定'
+      title: 'ブックマークから外しますか？',
+      description: '問題を解くときにまた入れられます。',
+      cancel: 'そのままにする',
+      confirm: '外す'
     },
     pagination: {
       label: 'ブックマークのページ',
-      refreshing: 'ブックマークのページを更新しています…',
+      refreshing: '読み込み中…',
       status: '{{page}} / {{pageCount}}ページ'
     }
   },
@@ -1601,32 +1559,32 @@ export const jaCoreResources = {
       error: '保存できませんでした。少し待ってからもう一度選んでください。'
     },
     title: 'マイページ',
-    guestDescription: 'マイページでは学習記録とアカウントを管理できます。',
+    guestDescription:
+      'ログインすると、学習記録とアカウントをここで見られます。',
     study: {
       title: '学習の記録',
       period: '全期間',
       total: '解いた問題',
       totalUnit: '問',
       rate: '正答率',
-      wrongNotes: '間違いノート',
+      wrongNotes: '間違えた問題',
       wrongSolved: '解決 {{solved}}・{{total}}件中',
       bySubject: '科目別の正答率',
       weakest: 'いちばん苦手な科目：{{subject}}',
-      startSubject: '{{subject}}の学習を始める',
-      noRecord: 'まだ記録なし',
+      startSubject: '{{subject}}を解く',
+      noRecord: '記録なし',
       week: '直近7日',
-      weekSummary: '7日中{{days}}日学習、合計{{count}}問',
       recent: '最近の学習',
       repeated: 'よく間違える問題',
       wrongTimes: '{{count}}回間違い',
-      seeInReview: '復習で見る',
-      fewData: '問題を解くほど分析が正確になります。',
+      seeInReview: '間違いノートで見る',
+      fewData: '問題を解くほど正確になります。',
       emptyTitle: 'まだ解いた問題がありません',
       emptyDescription: '問題を解くと、科目別の正答率がここに表示されます。',
-      emptyAction: '最初の学習を始める',
+      emptyAction: '最初の問題を解く',
       error: '学習記録を読み込めませんでした。',
       retry: 'もう一度試す',
-      loading: '学習記録を読み込んでいます。'
+      loading: '読み込み中…'
     },
     recommend: {
       title: 'おすすめ学習',
@@ -1635,7 +1593,7 @@ export const jaCoreResources = {
     settings: {
       title: 'アカウント',
       signInMethod: 'ログイン方法',
-      connected: '連携済み',
+      connected: 'Googleアカウントでログイン中',
       onlyMethod: '唯一のログイン方法のため、連携を解除できません。',
       logoutDescription:
         'この端末からログアウトします。学習記録はそのまま残ります。'
@@ -1647,7 +1605,7 @@ export const jaCoreResources = {
       action: '退会する'
     },
     confirm: {
-      stepDelete: '退会の最終確認',
+      stepDelete: '最終確認',
       stepUnlink: '連携解除の最終確認',
       deleteDescription: {
         scope:
@@ -1658,55 +1616,47 @@ export const jaCoreResources = {
           'Googleアカウントは削除されません。Googleアカウント設定の「サードパーティ製アプリとの接続」から、ハルマルとの接続を直接解除できます。'
       }
     },
-    dataGuide: 'アカウントとデータの取り扱い',
+    dataGuide: '自分のデータはどう扱われますか？',
     data: {
       description:
-        'ログアウトはアプリのセッションを終了し、連携解除はログイン方法を削除し、退会はアプリアカウントの削除処理を申請します。',
+        'ログアウトすると、この端末からだけ出ます。退会すると、アカウントと学習記録が消えます。',
       privacyLink: 'プライバシーポリシーを見る',
-      manageLink: 'マイページでアカウントを管理する'
+      manageLink: 'マイページへ'
     }
   },
   errors: {
     forbidden: {
-      memberDescription: '現在のアカウントではこの画面にアクセスできません。',
-      guestDescription:
-        'この画面にアクセスできるアカウントでログインしてください。',
-      accountAction: 'アカウントを確認',
-      eyebrow: '403 · アクセス権限なし',
-      title: 'このページを表示する権限がありません',
-      description:
-        '管理者アカウントが必要な画面です。デモ管理者でログインしてください。',
-      action: 'ログイン選択へ移動'
+      memberDescription: 'このアカウントでは見られない画面です。',
+      guestDescription: 'ログインすると見られます。',
+      accountAction: 'ログインする',
+      title: '見られない画面です',
+      description: '運営者だけが見られる画面です。',
+      action: '最初の画面へ'
     },
     notFound: {
-      eyebrow: '404 · 見つかりません',
-      title: '指定されたページはありません',
-      description: 'URLを確認するか、ホームからやり直してください。'
+      title: 'ないページです',
+      description: 'アドレスを確認するか、最初の画面からやり直してください。'
     },
     route: {
-      eyebrow: 'ページエラー',
       title: '画面を読み込めませんでした',
-      fallback: '予期しないエラーが発生しました。'
+      fallback: '思わぬ問題が起きました。ページを再読み込みしてください。'
     },
     authStatus: {
-      title: 'ログイン状態を確認できません',
-      description:
-        'サーバーでログイン状態を確認できませんでした。保存済みのアカウント情報は権限判定に使用していません。',
-      offlineTitle: 'オフラインではログイン状態を確認できません',
-      offlineDescription:
-        '接続が復旧したらログイン状態を再確認します。保存済みのアカウント情報は権限判定に使用していません。'
+      title: 'ログインを確認できませんでした',
+      description: 'しばらくしてからもう一度お試しください。',
+      offlineTitle: 'インターネット接続が切れました',
+      offlineDescription: 'つながったらログインをもう一度確認します。'
     },
     banner: {
       generic:
-        'リクエストを処理できませんでした。しばらく後にもう一度お試しください。',
-      network: 'ネットワーク接続が不安定です。もう一度お試しください。',
-      response: '応答形式が正しくありません。もう一度お試しください。',
-      validation: '入力内容を確認し、もう一度お試しください。',
-      server:
-        'サーバーリクエストを処理できませんでした。しばらく後にもう一度お試しください。'
+        'うまくいきませんでした。しばらくしてからもう一度お試しください。',
+      network: 'インターネット接続が不安定です。もう一度お試しください。',
+      response: '問題が起きました。もう一度お試しください。',
+      validation: '入力した内容を確認してください。',
+      server: '問題が起きました。しばらくしてからもう一度お試しください。'
     }
   },
   a11y: {
-    japaneseContent: '日本語学習コンテンツ'
+    japaneseContent: '日本語の文'
   }
 } as const satisfies LocaleCatalog<typeof koCoreResources>

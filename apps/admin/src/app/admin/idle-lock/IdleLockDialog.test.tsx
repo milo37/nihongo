@@ -43,7 +43,7 @@ const renderLocked = async () => {
   act(() => vi.advanceTimersByTime(1000))
   expect(screen.getByRole('heading', { name: title })).toBeInTheDocument()
   expect(
-    screen.queryByRole('button', { name: '대화상자 닫기' })
+    screen.queryByRole('button', { name: '창 닫기' })
   ).not.toBeInTheDocument()
   await act(async () => {
     fireEvent.click(screen.getByRole('button', { name: '다시 확인' }))

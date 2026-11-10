@@ -107,13 +107,13 @@ describe('detail page error semantics', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: '오답 상세를 불러오지 못했어요'
+        name: '불러오지 못했어요'
       })
     ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '다시 시도' }))
     expect(
       await screen.findByRole('heading', {
-        name: '오답을 찾을 수 없어요'
+        name: '이 문제를 찾을 수 없어요'
       })
     ).toBeInTheDocument()
     expect(requestCount).toBe(2)
@@ -175,11 +175,11 @@ describe('detail page error semantics', () => {
     )
 
     await screen.findByRole('heading', {
-      name: '상세의 최신 상태를 확인하지 못했어요. 표시 중인 내용과 작성 중인 메모는 유지돼요.'
+      name: '최신 내용을 불러오지 못했어요. 보이는 내용은 그대로 있어요.'
     })
     await user.click(
       screen.getByRole('button', {
-        name: '\uC0C1\uC138 \uB2E4\uC2DC \uD655\uC778'
+        name: '다시 불러오기'
       })
     )
     // The question text is the detail page's title (JLP-812).
@@ -219,7 +219,7 @@ describe('detail page error semantics', () => {
     )
     expect(
       await screen.findByRole('heading', {
-        name: '학습 결과를 찾을 수 없어요'
+        name: '결과를 찾을 수 없어요'
       })
     ).toBeInTheDocument()
     expect(
@@ -300,7 +300,7 @@ describe('detail page error semantics', () => {
     )
     expect(
       await screen.findByRole('heading', {
-        name: '학습 결과를 불러오지 못했어요'
+        name: '결과를 불러오지 못했어요'
       })
     ).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: '다시 시도' }))
@@ -309,11 +309,11 @@ describe('detail page error semantics', () => {
       expect(sessionRequestCount).toBe(2)
     })
     expect(
-      screen.queryByRole('heading', { name: '학습 결과' })
+      screen.queryByRole('heading', { name: '결과' })
     ).not.toBeInTheDocument()
     releaseSession()
     const summaryHeading = await screen.findByRole('heading', {
-      name: '학습 결과'
+      name: '결과'
     })
     await waitFor(() => expect(summaryHeading).toHaveFocus())
     expect(resultRequestCount).toBe(2)
@@ -363,12 +363,12 @@ describe('detail page error semantics', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: '학습 결과를 불러오지 못했어요'
+        name: '결과를 불러오지 못했어요'
       })
     ).toBeInTheDocument()
     expect(
       screen.queryByRole('heading', {
-        name: '학습 결과를 찾을 수 없어요'
+        name: '결과를 찾을 수 없어요'
       })
     ).not.toBeInTheDocument()
     expect(requests.result).toBeGreaterThan(0)
@@ -388,7 +388,7 @@ describe('detail page error semantics', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: '학습 결과를 찾을 수 없어요'
+        name: '결과를 찾을 수 없어요'
       })
     ).toBeInTheDocument()
     expect(requests.result).toBeGreaterThan(0)

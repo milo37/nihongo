@@ -164,7 +164,7 @@ describe('Dialog', () => {
           <Dialog
             open={open}
             fallbackFocusRef={fallbackFocusRef}
-            title="세션 취소"
+            title="버리기"
             footer={
               <button
                 type="button"
@@ -185,7 +185,7 @@ describe('Dialog', () => {
 
     await user.click(screen.getByRole('button', { name: '세션 취소 열기' }))
     await waitFor(() =>
-      expect(screen.getByRole('heading', { name: '세션 취소' })).toHaveFocus()
+      expect(screen.getByRole('heading', { name: '버리기' })).toHaveFocus()
     )
     await user.click(screen.getByRole('button', { name: '취소 완료' }))
 

@@ -10,7 +10,7 @@ describe('StudyList (ux2 §1)', () => {
   it('링크 행은 행 전체가 링크 하나이고, 아닌 행은 끝 칸 버튼만 누른다', () => {
     render(
       <MemoryRouter>
-        <StudyList header={<StudyListHeader count="2문제" aside="저장한 순" />}>
+        <StudyList header={<StudyListHeader count="2문제" aside="담은 순" />}>
           <StudyListRow
             meta="N2 · 문법"
             text="強い 雨（　）、多くの 人が 来た。"
@@ -28,7 +28,7 @@ describe('StudyList (ux2 §1)', () => {
       </MemoryRouter>
     )
     expect(screen.getByText('2문제')).toBeVisible()
-    expect(screen.getByText('저장한 순')).toBeVisible()
+    expect(screen.getByText('담은 순')).toBeVisible()
     const [linkRow, plainRow] = screen.getAllByRole('listitem')
     const link = within(linkRow!).getByRole('link', {
       name: '해설 보기: 強い 雨'

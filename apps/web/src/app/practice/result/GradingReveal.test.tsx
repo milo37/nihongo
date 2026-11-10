@@ -43,8 +43,8 @@ it('flips tiles in order, then announces the score once', () => {
   act(() => vi.advanceTimersByTime(getRevealSchedule(5).total))
   expect(document.querySelectorAll('[data-open]')).toHaveLength(5)
   expect(screen.getByText('5문제 중 3개 맞음')).toBeInTheDocument()
-  expect(screen.getByText('1번 정답')).toBeInTheDocument()
-  expect(screen.getByText('2번 오답')).toBeInTheDocument()
+  expect(screen.getByText('1번 맞음')).toBeInTheDocument()
+  expect(screen.getByText('2번 틀림')).toBeInTheDocument()
 })
 
 it('opens everything at once on any key and closes from the button', () => {

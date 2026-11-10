@@ -87,7 +87,7 @@ it('USER is rejected before an admin list request', async () => {
     .mockImplementation(() => undefined)
   renderRoutes()
   expect(
-    await screen.findByRole('heading', { name: '요청한 페이지가 없어요' })
+    await screen.findByRole('heading', { name: '없는 페이지예요' })
   ).toBeVisible()
   expect(replace).not.toHaveBeenCalled()
   expect(list).not.toHaveBeenCalled()
@@ -108,10 +108,10 @@ it('ADMIN loads the existing table at the /admin basename with the local create/
   expect(region).toHaveAttribute('tabindex', '0')
   expect(screen.getByRole('navigation', { name: '관리자 메뉴' })).toBeVisible()
   expect(
-    screen.queryByRole('navigation', { name: '주요 메뉴' })
+    screen.queryByRole('navigation', { name: '메뉴' })
   ).not.toBeInTheDocument()
   expect(
-    screen.queryByRole('navigation', { name: '모바일 주요 메뉴' })
+    screen.queryByRole('navigation', { name: '메뉴' })
   ).not.toBeInTheDocument()
   expect(
     within(region).getByRole('table', { name: /JLPT 관리자 문제 목록/ })

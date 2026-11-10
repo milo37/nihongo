@@ -182,7 +182,7 @@ describe('마이페이지 내 학습', () => {
     expect(within(section).queryByText('최근 7일')).toBeNull()
     expect(screen.queryByRole('heading', { name: '추천 학습' })).toBeNull()
     expect(insightReads).toBe(0)
-    expect(screen.getByRole('link', { name: '이용 안내' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '안내' })).toHaveAttribute(
       'href',
       '/legal'
     )
@@ -196,7 +196,7 @@ describe('마이페이지 내 학습', () => {
     useStats(emptyStats)
     renderAccount()
     expect(await screen.findByText('아직 푼 문제가 없어요')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: '첫 학습 시작' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: '첫 문제 풀기' })).toHaveAttribute(
       'href',
       '/'
     )
@@ -206,9 +206,7 @@ describe('마이페이지 내 학습', () => {
     useStats(fewStats)
     renderAccount()
     const section = await screen.findByRole('region', { name: '내 학습' })
-    expect(await within(section).findAllByText('아직 기록 없음')).toHaveLength(
-      2
-    )
+    expect(await within(section).findAllByText('기록 없음')).toHaveLength(2)
     expect(within(section).getByText('문법')).toBeInTheDocument()
   })
 

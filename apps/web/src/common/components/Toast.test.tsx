@@ -47,9 +47,9 @@ describe('Toast (U12 §3)', () => {
     expect(announcer).toHaveAttribute('aria-live', 'polite')
     expect(announcer).toBeEmptyDOMElement()
     act(() => {
-      add({ title: '책갈피에 저장했어요.', variant: 'success' })
+      add({ title: '책갈피에 담았어요.', variant: 'success' })
     })
-    expect(announcer).toHaveTextContent('성공: 책갈피에 저장했어요.')
+    expect(announcer).toHaveTextContent('완료: 책갈피에 담았어요.')
     const [card] = cards()
     expect(card).not.toHaveAttribute('role')
     expect(card).not.toHaveAttribute('aria-live')
@@ -65,7 +65,7 @@ describe('Toast (U12 §3)', () => {
     act(() => {
       add({ title: '저장', variant: 'success' })
       add({
-        title: '로그인 필요',
+        title: '로그인하면 사용',
         action: { label: '로그인', onClick: () => undefined }
       })
       add({ title: '오프라인', variant: 'warning', persistent: true })
@@ -74,7 +74,7 @@ describe('Toast (U12 §3)', () => {
     act(() => vi.advanceTimersByTime(5_000))
     expect(cards().map((card) => card.textContent)).toEqual([
       expect.stringContaining('오프라인'),
-      expect.stringContaining('로그인 필요')
+      expect.stringContaining('로그인하면 사용')
     ])
     act(() => vi.advanceTimersByTime(3_000))
     expect(cards()).toHaveLength(1)
@@ -86,7 +86,7 @@ describe('Toast (U12 §3)', () => {
     vi.useFakeTimers()
     renderToasts()
     act(() => {
-      add({ key: 'bookmark', title: '책갈피에 저장했어요.' })
+      add({ key: 'bookmark', title: '책갈피에 담았어요.' })
     })
     act(() => vi.advanceTimersByTime(4_000))
     act(() => {
@@ -122,7 +122,7 @@ describe('Toast (U12 §3)', () => {
     opener.focus()
     const onClick = vi.fn()
     act(() => {
-      add({ title: '로그인 필요', action: { label: '로그인', onClick } })
+      add({ title: '로그인하면 사용', action: { label: '로그인', onClick } })
     })
     // The toast does not take focus.
     expect(opener).toHaveFocus()

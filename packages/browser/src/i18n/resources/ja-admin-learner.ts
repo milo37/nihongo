@@ -109,20 +109,21 @@ export const jaAdminLearnerResources = {
   questionReportDialog: {
     trigger: '問題を報告',
     title: '問題を報告',
-    description: '報告内容は管理者のみ確認します。',
-    details: '説明',
-    descriptionRequired: '報告の説明を入力してください。',
+    description: '送っていただいた内容は運営者だけが見ます。',
+    details: 'どこがおかしいですか？',
+    descriptionRequired: '内容を書いてください。',
     cancel: 'キャンセル',
-    submit: '報告を送信',
-    sent: '報告を送信しました。',
-    error: '問題の報告を受け付けられませんでした。',
-    offline: 'オフラインです。入力した説明は保持されます。',
-    appErrorTrigger: 'アプリの不具合を報告',
-    errorScreenTrigger: '不具合を報告',
-    appErrorTitle: 'アプリの不具合を報告',
+    submit: '送る',
+    sent: '報告を送りました。ありがとうございます！',
+    error: '送れませんでした。もう一度お試しください。',
+    offline:
+      'インターネット接続が切れました。書いた内容はそのまま残っています。',
+    appErrorTrigger: '不具合を知らせる',
+    errorScreenTrigger: '不具合を知らせる',
+    appErrorTitle: '不具合を知らせる',
     appErrorDescription:
-      'どの画面で何をしていたときに問題が起きたかを入力してください。報告内容は管理者のみが確認します。',
-    appErrorSent: 'エラー報告を送信しました。',
-    appErrorError: 'アプリの不具合報告を受け付けられませんでした。'
+      'どの画面で何をしていたときに問題が起きたか書いてください。運営者だけが見ます。',
+    appErrorSent: '知らせていただきありがとうございます。確認します。',
+    appErrorError: '送れませんでした。もう一度お試しください。'
   }
 } as const satisfies LocaleCatalog<typeof koAdminLearnerResources>
