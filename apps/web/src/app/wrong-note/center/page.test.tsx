@@ -256,9 +256,7 @@ describe('wrong note in two states', () => {
     const requests = vi.fn()
     mockServer.use(http.get('*/api/v1/review-list', requests))
     mount()
-    expect(
-      screen.getByRole('button', { name: 'Google로 계속하기' })
-    ).toBeEnabled()
+    expect(screen.getByRole('button', { name: '로그인' })).toBeEnabled()
     expect(screen.queryByRole('tab')).not.toBeInTheDocument()
     expect(requests).not.toHaveBeenCalled()
   })

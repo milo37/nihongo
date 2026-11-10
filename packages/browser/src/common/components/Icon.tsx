@@ -24,18 +24,16 @@ export type IconName =
   | 'x'
   | 'minus'
   | 'lock'
-  | 'alarm-clock'
+  | 'moon'
+  | 'inbox'
 const paths: Record<IconName, ReactElement> = {
   x: <path d="M18 6 6 18M6 6l12 12" />,
   minus: <path d="M5 12h14" />,
-  'alarm-clock': (
+  moon: <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />,
+  inbox: (
     <>
-      <circle cx="12" cy="13" r="8" />
-      <path d="M12 9v4l2 2" />
-      <path d="M5 3 2 6" />
-      <path d="m22 6-3-3" />
-      <path d="M6.38 18.7 4 21" />
-      <path d="M17.64 18.67 20 21" />
+      <path d="M22 12h-6l-2 3h-4l-2-3H2" />
+      <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
     </>
   ),
   lock: (

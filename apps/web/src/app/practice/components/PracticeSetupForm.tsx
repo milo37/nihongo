@@ -13,13 +13,6 @@ import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 
 // Renders the <b>…</b> marks in a translated line as bold text.
-export const withBold = (text: string): ReactNode[] =>
-  text
-    .split(/(<b>.*?<\/b>)/u)
-    .map((part, index) =>
-      part.startsWith('<b>') ? <b key={index}>{part.slice(3, -4)}</b> : part
-    )
-
 type PracticeSetupFormProps = {
   /** Null until the default level is known. */
   level: JlptLevel | null
@@ -140,14 +133,13 @@ const StartSummary = ({
         {startLabel}
       </Button>
       {isGuest ? (
-        guestAllowance ? (
+        // Only after a first try: a fresh guest reads the rule up top.
+        guestAllowance &&
+        guestAllowance.remaining < guestAllowance.dailyLimit ? (
           <p className="practice-supply-note">
-            {withBold(
-              t('setup.guestLeft', {
-                total: formatNumber(guestAllowance.dailyLimit, locale),
-                remaining: formatNumber(guestAllowance.remaining, locale)
-              })
-            )}
+            {t('setup.guestLeft', {
+              remaining: formatNumber(guestAllowance.remaining, locale)
+            })}
           </p>
         ) : null
       ) : (
@@ -158,19 +150,18 @@ const StartSummary = ({
 }
 
 /**
- * Collapsible mode picker. For a guest every mode but RANDOM is marked
- * locked yet still choosable: choosing one explains why and keeps RANDOM.
+ * Collapsible mode picker, members only: every mode but RANDOM reads the
+ * member's wrong notes, so a guest has nothing to pick (JLP-823, no locks).
  */
 const ModeOptions = ({
   mode,
   modes,
   isReady,
-  isGuest,
   isCreating,
   onModeChange
 }: Pick<
   PracticeSetupFormProps,
-  'mode' | 'modes' | 'isReady' | 'isGuest' | 'isCreating' | 'onModeChange'
+  'mode' | 'modes' | 'isReady' | 'isCreating' | 'onModeChange'
 >): ReactElement => {
   const { t } = useTranslation('practice')
   return (
@@ -196,9 +187,7 @@ const ModeOptions = ({
         >
           {modes.map((value) => (
             <option key={value} value={value}>
-              {isGuest && value !== 'RANDOM'
-                ? `${t(`setup.modes.${value}.label`)} · ${t('setup.memberLocked')}`
-                : t(`setup.modes.${value}.label`)}
+              {t(`setup.modes.${value}.label`)}
             </option>
           ))}
         </Select>
@@ -279,14 +268,15 @@ export const PracticeSetupForm = ({
         guestAllowance={guestAllowance}
         hasResumableSession={hasResumableSession}
       />
-      <ModeOptions
-        mode={mode}
-        modes={modes}
-        isReady={isReady}
-        isGuest={isGuest}
-        isCreating={isCreating}
-        onModeChange={onModeChange}
-      />
+      {isGuest ? null : (
+        <ModeOptions
+          mode={mode}
+          modes={modes}
+          isReady={isReady}
+          isCreating={isCreating}
+          onModeChange={onModeChange}
+        />
+      )}
     </form>
   )
 }

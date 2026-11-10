@@ -346,6 +346,8 @@ export const koCoreResources = {
       dueLabel: '복습할 문제도 {{count}}개 남아 있어요',
       prompt:
         '오늘은 {{level}} {{subject}} {{formattedCount}}문제 풀어 볼까요?',
+      promptLimit:
+        '내일 또 {{level}} {{subject}} {{formattedCount}}문제 풀어요',
       pickLevel: '급수 바꾸기',
       pickSubject: '과목 바꾸기',
       dueAction: '복습',
@@ -428,12 +430,17 @@ export const koCoreResources = {
   },
   auth: {
     guestGate: {
-      title: '로그인이 필요해요',
-      bookmarks: '책갈피에 담은 문제를 모아 보고 다시 풀 수 있어요.',
-      review: '틀린 문제를 모아 다시 풀 수 있어요.',
-      wrongNote: '오답노트는 로그인하면 쓸 수 있어요.',
-      dashboard: '로그인하면 푼 기록과 정답률을 볼 수 있어요.',
-      toStudy: '학습 화면으로'
+      wrongNote: '틀린 문제가 여기에 모여요',
+      wrongNoteBody:
+        '로그인하고 풀면 틀린 문제가 저절로 모여요. 풀기는 로그인 없이도 돼요.',
+      bookmarks: '다시 보고 싶은 문제를 담아 둘 수 있어요',
+      bookmarksBody:
+        '로그인하면 문제를 풀 때 책갈피에 담을 수 있어요. 풀기는 로그인 없이도 돼요.',
+      dashboard: '푼 기록이 여기에 남아요',
+      dashboardBody:
+        '로그인하면 과목별 정답률과 목표 급수를 볼 수 있어요. 풀기는 로그인 없이도 돼요.',
+      login: '로그인',
+      toStudy: '그냥 풀러 가기'
     },
     guestToast: {
       login: '로그인',
@@ -570,16 +577,12 @@ export const koCoreResources = {
         }
       },
       guestResumeHint: '로그인하면 풀다 만 문제를 나중에 이어 풀 수 있어요.',
-      memberLocked: '로그인하면 사용',
-      locked: {
-        count: '10문제·20문제는 로그인하면 고를 수 있어요.',
-        mode: '랜덤 말고 다른 출제 방식은 로그인하면 고를 수 있어요.'
-      },
-      guestLeft: '오늘 <b>{{total}}번 중 {{remaining}}번</b> 남았어요.',
+      guestLeft: '오늘 {{remaining}}번 더 풀 수 있어요',
       dailyLimit: {
-        title: '오늘 무료 횟수를 다 썼어요',
-        description:
-          '로그인하면 횟수 제한 없이 풀고 기록도 남아요. 로그인 없이는 내일 0시(한국 시간)부터 다시 {{total}}번 풀 수 있어요.'
+        title: '오늘 {{total}}번을 다 풀었어요',
+        description: '로그인하면 계속 풀고, 틀린 문제도 모아 둘 수 있어요.',
+        login: 'Google로 로그인',
+        reset: '내일 0시에 다시 {{total}}번'
       },
       urlLocked: '문제 수와 출제 방식은 로그인하면 고를 수 있어요.',
       availableCountNote: '문제가 모자라면 있는 만큼만 나와요.',
@@ -805,19 +808,15 @@ export const koCoreResources = {
       accuracy: '정답률',
       durationValue: '{{minutes}}분 {{seconds}}초'
     },
-    guestDone: '오늘 무료 횟수를 다 썼어요. 로그인하면 계속 풀 수 있어요.',
-    memberLocked: '로그인하면 사용',
-    locked: {
-      retry: '틀린 문제 다시 풀기는 로그인하면 쓸 수 있어요.'
-    },
     status: {
-      guest:
-        '로그인하면 틀린 문제가 오답노트에 모여요. 지금 결과는 로그인 뒤에 이어지지 않아요.',
+      guest: '틀린 {{formattedCount}}문제, 오답노트에 모아 둘까요?',
+      guestDetail: '로그인하면 방금 푼 문제가 오답노트에 들어가요.',
+      guestAction: '로그인하고 모으기',
+      guestAllCorrect: '로그인하면 다음부터 틀린 문제가 오답노트에 모여요.',
       savedWrongCount: '틀린 {{formattedCount}}문제를 오답노트에 담았어요.'
     },
     actions: {
       retryIncorrect: '틀린 문제만 다시 풀기',
-      loginChoice: '로그인',
       nextSet: '다음 {{formattedCount}}문제',
       nextSetStarting: '새 문제를 준비하는 중…'
     },
@@ -1352,7 +1351,6 @@ export const koCoreResources = {
       error: '저장하지 못했어요. 잠시 뒤 다시 골라 주세요.'
     },
     title: '마이페이지',
-    guestDescription: '로그인하면 학습 기록과 계정을 여기서 볼 수 있어요.',
     study: {
       title: '내 학습',
       period: '전체',

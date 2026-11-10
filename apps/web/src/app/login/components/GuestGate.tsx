@@ -22,6 +22,15 @@ const icons: Record<GuestGateScreen, IconName> = {
   wrongNote: 'rotate-ccw'
 }
 
+// What gathers on each tab (copy v2.1 §5): My page shows the dashboard's.
+const copyKeys = {
+  account: 'dashboard',
+  bookmarks: 'bookmarks',
+  dashboard: 'dashboard',
+  review: 'wrongNote',
+  wrongNote: 'wrongNote'
+} as const satisfies Record<GuestGateScreen, string>
+
 const screenFor = (pathname: string): GuestGateScreen =>
   pathname === '/bookmarks'
     ? 'bookmarks'
@@ -40,9 +49,9 @@ type GuestGateProps = {
 }
 
 /**
- * A member-only screen opened by a guest (U4 R4): explains the screen and
- * offers Google sign-in back to this path, instead of a silent redirect.
- * Not an error, so no red and no alert role.
+ * A member-only screen opened by a guest (U4 R4, card C): says what gathers
+ * here, then [로그인] back to this path and [그냥 풀러 가기] to the first
+ * screen. No lock: not an error, so no red and no alert role.
  */
 export const GuestGate = ({
   screen,
@@ -50,9 +59,9 @@ export const GuestGate = ({
 }: GuestGateProps): ReactElement => {
   const { t } = useTranslation('auth')
   const { t: navigationT } = useTranslation('navigation')
-  const { t: accountT } = useTranslation('account')
   const location = useLocation()
   const shown = screen ?? screenFor(location.pathname)
+  const key = copyKeys[shown]
   return (
     <section className="auth-page guest-gate-page">
       <h1 className="sr-only">
@@ -61,16 +70,13 @@ export const GuestGate = ({
       <SignInCard
         headingLevel="h2"
         icon={<Icon name={icons[shown]} className="size-7" />}
-        title={t('guestGate.title')}
-        description={
-          shown === 'account'
-            ? accountT('guestDescription')
-            : t(`guestGate.${shown}`)
-        }
+        title={t(`guestGate.${key}`)}
+        description={t(`guestGate.${key}Body`)}
+        buttonLabel={t('guestGate.login')}
         redirect={`${location.pathname}${location.search}`}
         footer={
           <p className="guest-gate-links">
-            <Link to="/practice">{t('guestGate.toStudy')}</Link>
+            <Link to="/">{t('guestGate.toStudy')}</Link>
             {children}
           </p>
         }

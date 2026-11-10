@@ -363,6 +363,8 @@ export const jaCoreResources = {
       dueLabel: '復習する問題も{{count}}問残っています',
       prompt:
         '今日は{{level}} {{subject}}を{{formattedCount}}問解いてみませんか？',
+      promptLimit:
+        '明日また{{level}} {{subject}}を{{formattedCount}}問解きましょう',
       pickLevel: 'レベルを変える',
       pickSubject: '科目を変える',
       dueAction: '復習する',
@@ -445,12 +447,17 @@ export const jaCoreResources = {
   },
   auth: {
     guestGate: {
-      title: 'ログインが必要です',
-      bookmarks: 'ブックマークに入れた問題をまとめて見て、もう一度解けます。',
-      review: '間違えた問題を集めてもう一度解けます。',
-      wrongNote: '間違いノートはログインすると使えます。',
-      dashboard: 'ログインすると解いた記録と正答率が見られます。',
-      toStudy: '学習画面へ'
+      wrongNote: '間違えた問題がここに集まります',
+      wrongNoteBody:
+        'ログインして解くと、間違えた問題が自動で集まります。解くだけならログインなしでもできます。',
+      bookmarks: 'もう一度見たい問題を入れておけます',
+      bookmarksBody:
+        'ログインすると、問題を解くときにブックマークに入れられます。解くだけならログインなしでもできます。',
+      dashboard: '解いた記録がここに残ります',
+      dashboardBody:
+        'ログインすると、科目別の正答率と目標レベルが見られます。解くだけならログインなしでもできます。',
+      login: 'ログイン',
+      toStudy: 'そのまま解きに行く'
     },
     guestToast: {
       login: 'ログイン',
@@ -597,16 +604,13 @@ export const jaCoreResources = {
       },
       guestResumeHint:
         'ログインすると、途中でやめた問題をあとで続きから解けます。',
-      memberLocked: 'ログインすると使えます',
-      locked: {
-        count: '10問・20問はログインすると選べます。',
-        mode: 'ランダム以外の出題方法はログインすると選べます。'
-      },
-      guestLeft: '今日は<b>{{total}}回中あと{{remaining}}回</b>です。',
+      guestLeft: '今日はあと{{remaining}}回解けます',
       dailyLimit: {
-        title: '今日の無料回数を使い切りました',
+        title: '今日の{{total}}回をすべて解きました',
         description:
-          'ログインすると回数の制限なく解けて、記録も残ります。ログインしない場合は、明日0時（日本時間）からまた{{total}}回解けます。'
+          'ログインすると続けて解けて、間違えた問題も集めておけます。',
+        login: 'Googleでログイン',
+        reset: '明日0時にまた{{total}}回'
       },
       urlLocked: '問題数と出題方法はログインすると選べます。',
       availableCountNote: '問題が足りないときは、ある分だけ出ます。',
@@ -843,20 +847,17 @@ export const jaCoreResources = {
       accuracy: '正答率',
       durationValue: '{{minutes}}分{{seconds}}秒'
     },
-    guestDone: '今日の無料回数を使い切りました。ログインすると続けて解けます。',
-    memberLocked: 'ログインすると使えます',
-    locked: {
-      retry: '間違えた問題の解き直しは、ログインすると使えます。'
-    },
     status: {
-      guest:
-        'ログインすると、間違えた問題が間違いノートに集まります。今の結果はログイン後には続きません。',
+      guest: '間違えた{{formattedCount}}問、間違いノートに集めておきますか？',
+      guestDetail: 'ログインすると、今解いた問題が間違いノートに入ります。',
+      guestAction: 'ログインして集める',
+      guestAllCorrect:
+        'ログインすると、次から間違えた問題が間違いノートに集まります。',
       savedWrongCount:
         '間違えた{{formattedCount}}問を間違いノートに入れました。'
     },
     actions: {
       retryIncorrect: '間違えた問題だけ解き直す',
-      loginChoice: 'ログイン',
       nextSet: '次の{{formattedCount}}問',
       nextSetStarting: '新しい問題を準備しています…'
     },
@@ -1408,8 +1409,6 @@ export const jaCoreResources = {
       error: '保存できませんでした。少し待ってからもう一度選んでください。'
     },
     title: 'マイページ',
-    guestDescription:
-      'ログインすると、学習記録とアカウントをここで見られます。',
     study: {
       title: '学習の記録',
       period: '全期間',

@@ -5,6 +5,8 @@ import type { StudyResultView } from '@app/practice/adapters/studyResultView'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
 import { useResultNumberFormat } from '@app/practice/hooks/useResultNumberFormat'
 import { Badge } from '@nihongo/browser/common/components/Badge'
+import { getButtonClassName } from '@nihongo/browser/common/components/Button'
+import { Icon } from '@nihongo/browser/common/components/Icon'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 
 const SCORE_SLOT = '\u0000'
@@ -13,7 +15,7 @@ type ResultSummaryProps = {
   headingRef: RefObject<HTMLHeadingElement | null>
   incorrectCount: number
   isGuest: boolean
-  /** A guest's last try today: the L20 box holds the login button. */
+  /** A guest's last try today: the limit card holds the login button. */
   isGuestDone: boolean
   result: StudyResultView
   session: StudySessionView['session']
@@ -30,6 +32,7 @@ export const ResultSummary = ({
 }: ResultSummaryProps): ReactElement => {
   const { t } = useTranslation('result')
   const { t: commonT } = useTranslation('common')
+  const { t: authT } = useTranslation('auth')
   const { formatCount, formatDuration, locale } = useResultNumberFormat()
   const unansweredCount = result.items.filter(
     (item) => item.selectedOptionId === null
@@ -74,22 +77,45 @@ export const ResultSummary = ({
         </span>
         <span className="text-sm font-normal">{details.join(' · ')}</span>
       </p>
-      {/* One login place: beside this line, or in the L20 box. */}
-      {isGuest || incorrectCount > 0 ? (
-        <p className="mt-2 text-sm leading-6 text-muted">
-          {isGuest
-            ? t('status.guest')
-            : t('status.savedWrongCount', {
+      {/* One login place: this line, or the limit card on the last try. */}
+      {isGuest ? (
+        isGuestDone ? null : incorrectCount > 0 ? (
+          <div className="result-guest-keep">
+            <p className="result-guest-keep-title">
+              {t('status.guest', {
                 formattedCount: formatCount(incorrectCount)
               })}
-          {isGuest && !isGuestDone ? (
+            </p>
+            <p className="result-guest-keep-detail">
+              {t('status.guestDetail')}
+            </p>
+            <Link
+              className={getButtonClassName({
+                variant: 'outline',
+                className: 'result-guest-keep-action'
+              })}
+              to={`/login?redirect=${encodeURIComponent('/wrong-notes')}`}
+            >
+              <Icon name="inbox" className="size-5" />
+              {t('status.guestAction')}
+            </Link>
+          </div>
+        ) : (
+          <p className="mt-2 text-sm leading-6 text-muted">
+            {t('status.guestAllCorrect')}
             <Link
               className="note-link ms-2"
               to={`/login?redirect=${encodeURIComponent('/practice')}`}
             >
-              {t('actions.loginChoice')}
+              {authT('guestToast.login')}
             </Link>
-          ) : null}
+          </p>
+        )
+      ) : incorrectCount > 0 ? (
+        <p className="mt-2 text-sm leading-6 text-muted">
+          {t('status.savedWrongCount', {
+            formattedCount: formatCount(incorrectCount)
+          })}
         </p>
       ) : null}
       {unansweredCount > 0 ? (

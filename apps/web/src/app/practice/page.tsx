@@ -8,7 +8,6 @@ import {
 import { PracticeSetupForm } from '@app/practice/components/PracticeSetupForm'
 import { GuestDailyLimitCard } from '@app/practice/components/GuestDailyLimitCard'
 import { GuestUrlLockedNotice } from '@app/practice/components/GuestSetupNotices'
-import { useGuestAction } from '@app/login/hooks/useGuestAction'
 import {
   GUEST_DAILY_SESSION_LIMIT,
   GUEST_SESSION_QUESTION_LIMIT
@@ -29,7 +28,6 @@ export const PracticePage = (): ReactElement => {
   const resumableHeadingRef = useRef<HTMLHeadingElement>(null)
   const setupHeadingRef = useRef<HTMLHeadingElement>(null)
   const setup = usePracticeSetupController(resumableHeadingRef)
-  const guestAction = useGuestAction()
   const { count, level, mode, resumableSessions, subject } = setup
   const subjectLabel = homeT(subjectLabelKeys[subject])
   const startLabel = level
@@ -94,12 +92,7 @@ export const PracticePage = (): ReactElement => {
         onLevelChange={(option) =>
           setup.changeSetting('level', option, setup.defaultLevel)
         }
-        onModeChange={(option) => {
-          if (option !== 'RANDOM' && guestAction(t('setup.locked.mode'))) {
-            return
-          }
-          setup.changeSetting('mode', option, 'RANDOM')
-        }}
+        onModeChange={(option) => setup.changeSetting('mode', option, 'RANDOM')}
         onStart={setup.handleStart}
         feedback={
           <PracticeSetupFeedback

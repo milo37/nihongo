@@ -33,6 +33,7 @@ import { HomePage, LearningHome } from '@app/home/page'
 import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { dailyQuestionHandlers } from '@/mocks/handlers/dailyQuestionHandlers'
 import { mockServer } from '@/test/server'
+import { mockGuestAllowance } from '@mocks/handlers/guestAllowanceHandlers'
 import * as reviewListApi from '@api/wrong-note/listReviewList'
 import { ReviewDueLine } from '@app/dashboard/components/ReviewDueLine'
 
@@ -176,6 +177,29 @@ it.each([
       })
     ).toHaveAttribute('href', '/login?redirect=%2F')
     expect(screen.getByText(appI18n.t('home:today.guestMore'))).toBeVisible()
+  }
+)
+
+it.each([
+  ['ko', '내일 또 N5 문자·어휘 10문제 풀어요', '오늘 3번을 다 풀었어요'],
+  [
+    'ja',
+    '明日また N5 文字・語彙 を 10問解きましょう',
+    '今日の3回をすべて解きました'
+  ]
+] as const)(
+  'tells a guest at the daily limit about tomorrow (%s)',
+  async (locale, sentence, limitTitle) => {
+    await appI18n.changeLanguage(locale)
+    mockGuestAllowance.setRemaining(0)
+    mocks.auth.mockReturnValue({ isReady: true, role: 'GUEST', user: null })
+    renderHome()
+    expect(
+      await screen.findByRole('heading', { name: limitTitle })
+    ).toBeVisible()
+    expect(
+      screen.getByRole('heading', { level: 1, name: sentence })
+    ).toBeVisible()
   }
 )
 

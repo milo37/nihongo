@@ -1059,14 +1059,9 @@ test('guest SSO boundary and authenticated practice transition match the active 
   await expect(
     page.getByText(/^로그인 없이 하루 3번, 한 번에 10문제씩 풀 수 있어요\./u)
   ).toBeVisible()
-  await expect(page.getByText('오늘 3번 중 3번 남았어요.')).toBeVisible()
-  // Locked, not disabled: choosing one explains sign-in (U4 L11).
-  const studyMode = await openPracticeModes(page)
-  for (const value of ['DAILY_REVIEW']) {
-    const option = studyMode.locator(`option[value="${value}"]`)
-    await expect(option).toBeEnabled()
-    await expect(option).toContainText('로그인하면 사용')
-  }
+  // A fresh guest reads the rule only; no count line, no locks (JLP-823).
+  await expect(page.getByText(/더 풀 수 있어요/u)).toHaveCount(0)
+  await expect(page.locator('select[name="practice-mode"]')).toHaveCount(0)
   for (const path of [
     '/login?mode=signup#retired-token',
     '/reset-password#retired-token',
@@ -1098,11 +1093,9 @@ test('guest SSO boundary and authenticated practice transition match the active 
   await expect(recommendationRegion(page)).toHaveCount(0)
   await settleJourneyPage(page)
   const memberStudyMode = await openPracticeModes(page)
-  for (const value of ['DAILY_REVIEW']) {
-    const option = memberStudyMode.locator(`option[value="${value}"]`)
-    await expect(option).toBeEnabled()
-    await expect(option).not.toContainText('로그인하면 사용')
-  }
+  await expect(
+    memberStudyMode.locator('option[value="DAILY_REVIEW"]')
+  ).toBeEnabled()
   await expect(page.getByText(/^로그인 없이 하루/u)).toHaveCount(0)
   await waitForLedgerToQuiesce(ledger)
   assertCanonicalLedger(ledger)

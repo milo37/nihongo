@@ -75,6 +75,7 @@ export const HeroStartCard = ({
   memberLine?: ReactNode
 }): ReactElement => {
   const { t, i18n } = useTranslation('home')
+  const { t: practiceT } = useTranslation('practice')
   const { user } = useAuth()
   const resumableHeadingRef = useRef<HTMLHeadingElement>(null)
   const setup = usePracticeSetupController(resumableHeadingRef)
@@ -86,7 +87,11 @@ export const HeroStartCard = ({
   // The pickers go where {{level}} and {{subject}} are and the line breaks
   // before the count, after any particle (no Trans: it would add an HTML
   // parser to the bundle).
-  const sentence = t('today.prompt', {
+  // A guest who used up today's tries is asked about tomorrow (E7).
+  const promptKey = setup.isGuestDailyLimitReached
+    ? 'today.promptLimit'
+    : 'today.prompt'
+  const sentence = t(promptKey, {
     level: LEVEL_SLOT,
     subject: SUBJECT_SLOT,
     formattedCount: BREAK_SLOT + formatNumber(count, locale)
@@ -162,6 +167,16 @@ export const HeroStartCard = ({
           <Icon name="arrow-right" className="size-5" />
         </Button>
       )}
+      {isGuest &&
+      !setup.isGuestDailyLimitReached &&
+      setup.guestAllowance &&
+      setup.guestAllowance.remaining < setup.guestAllowance.dailyLimit ? (
+        <p className="home-left">
+          {practiceT('setup.guestLeft', {
+            remaining: formatNumber(setup.guestAllowance.remaining, locale)
+          })}
+        </p>
+      ) : null}
       <PracticeSetupFeedback
         accountRestricted={setup.accountRestricted}
         hasCreateError={setup.hasCreateError}
@@ -170,14 +185,17 @@ export const HeroStartCard = ({
         onSelectRandom={() => setup.changeSetting('mode', 'RANDOM', 'RANDOM')}
       />
       {isGuest ? (
-        <p className="home-more">
-          <Icon name="bookmark" className="home-more-icon" />
-          {t('today.guestMore')}
-          <Link to={setup.loginHref}>
-            {t('today.guestMoreAction')}
-            <Icon name="chevron-right" className="size-4" />
-          </Link>
-        </p>
+        // The limit card already holds the login.
+        setup.isGuestDailyLimitReached ? null : (
+          <p className="home-more">
+            <Icon name="bookmark" className="home-more-icon" />
+            {t('today.guestMore')}
+            <Link to={setup.loginHref}>
+              {t('today.guestMoreAction')}
+              <Icon name="chevron-right" className="size-4" />
+            </Link>
+          </p>
+        )
       ) : setup.isReady ? (
         memberLine
       ) : null}

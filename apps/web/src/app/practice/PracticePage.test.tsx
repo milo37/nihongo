@@ -166,52 +166,30 @@ describe('PracticePage setup', () => {
       name: 'N5 문자·어휘 10문제 시작'
     })
     await waitFor(() => expect(start).toBeEnabled())
+    // Guests have no mode picker: the review set needs wrong notes.
     expect(
-      screen.getByRole('combobox', { name: '출제 방식', hidden: true })
-    ).toHaveValue('RANDOM')
+      screen.queryByRole('combobox', { name: '출제 방식', hidden: true })
+    ).toBeNull()
   })
 
-  it('게스트가 잠긴 출제 방식을 고르면 선택은 그대로 두고 토스트로 안내한다 (L11·L16)', async () => {
-    const router = renderPractice('?level=N5&subject=VOCABULARY')
-    const user = userEvent.setup()
+  it('게스트에게는 잠긴 선택지가 없다: 출제 방식 칸도 문제 수 칸도 없다 (JLP-823)', async () => {
+    renderPractice('?level=N5&subject=VOCABULARY')
     await waitFor(() =>
       expect(
         screen.getByRole('button', { name: 'N5 문자·어휘 10문제 시작' })
       ).toBeEnabled()
     )
-    // Random or the review set only; no count choice (subtract table 3·4).
     expect(screen.queryByRole('group', { name: '문제 수' })).toBeNull()
-    const modeSelect = screen.getByRole('combobox', {
-      name: '출제 방식',
-      hidden: true
-    })
     expect(
-      within(modeSelect)
-        .getAllByRole('option', { hidden: true })
-        .map((option) => option.textContent)
-    ).toEqual(['랜덤', '복습할 문제 풀기 · 로그인하면 사용'])
-
-    await user.selectOptions(modeSelect, 'DAILY_REVIEW')
-    const toasts = screen.getByRole('region', { name: '알림' })
-    expect(
-      within(toasts).getByText(
-        '랜덤 말고 다른 출제 방식은 로그인하면 고를 수 있어요.'
-      )
-    ).toBeVisible()
-    expect(
-      screen.getByRole('combobox', { name: '출제 방식', hidden: true })
-    ).toHaveValue('RANDOM')
-    // Nothing moves on its own; [로그인] does.
-    expect(router.state.location.pathname).toBe('/practice')
-    expect(within(toasts).getByRole('button', { name: '로그인' })).toBeVisible()
+      screen.queryByRole('combobox', { name: '출제 방식', hidden: true })
+    ).toBeNull()
+    expect(screen.queryByText(/로그인하면 사용/u)).toBeNull()
   })
 
-  it('게스트에게 남은 체험 횟수를 서버 값으로 보여 주고, 0회면 시작 대신 로그인 카드를 둔다 (L18·L19)', async () => {
+  it('게스트가 한 번이라도 풀면 남은 횟수를 보이고, 0회면 시작 대신 한도 카드를 둔다 (JLP-823)', async () => {
     mockGuestAllowance.setRemaining(1)
     const first = renderPractice('?level=N5&subject=VOCABULARY')
-    expect(await screen.findByText(/남았어요/u)).toHaveTextContent(
-      '오늘 3번 중 1번 남았어요.'
-    )
+    expect(await screen.findByText('오늘 1번 더 풀 수 있어요')).toBeVisible()
     expect(
       screen.getByText(
         /^로그인 없이 하루 3번, 한 번에 10문제씩 풀 수 있어요\./u
@@ -223,9 +201,18 @@ describe('PracticePage setup', () => {
 
     mockGuestAllowance.setRemaining(0)
     renderPractice('?level=N5&subject=VOCABULARY')
+    const card = (
+      await screen.findByRole('heading', { name: '오늘 3번을 다 풀었어요' })
+    ).closest('section') as HTMLElement
     expect(
-      await screen.findByRole('heading', { name: '오늘 무료 횟수를 다 썼어요' })
+      within(card).getByText(
+        '로그인하면 계속 풀고, 틀린 문제도 모아 둘 수 있어요.'
+      )
     ).toBeVisible()
+    expect(
+      within(card).getByRole('button', { name: 'Google로 로그인' })
+    ).toBeEnabled()
+    expect(within(card).getByText('내일 0시에 다시 3번')).toBeVisible()
     expect(
       screen.queryByRole('button', { name: /문제 시작/u })
     ).not.toBeInTheDocument()
@@ -261,7 +248,7 @@ describe('PracticePage setup', () => {
     await waitFor(() => expect(start).toBeEnabled())
     await userEvent.setup().click(start)
     expect(
-      await screen.findByRole('heading', { name: '오늘 무료 횟수를 다 썼어요' })
+      await screen.findByRole('heading', { name: '오늘 3번을 다 풀었어요' })
     ).toBeVisible()
     expect(router.state.location.pathname).toBe('/practice')
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
@@ -291,12 +278,12 @@ describe('PracticePage setup', () => {
     await waitFor(() => expect(start).toBeEnabled())
     await userEvent.setup().click(start)
     expect(
-      await screen.findByRole('heading', { name: '오늘 무료 횟수를 다 썼어요' })
+      await screen.findByRole('heading', { name: '오늘 3번을 다 풀었어요' })
     ).toBeVisible()
     await waitFor(
       () =>
         expect(
-          screen.queryByRole('heading', { name: '오늘 무료 횟수를 다 썼어요' })
+          screen.queryByRole('heading', { name: '오늘 3번을 다 풀었어요' })
         ).not.toBeInTheDocument(),
       { timeout: 4_000 }
     )

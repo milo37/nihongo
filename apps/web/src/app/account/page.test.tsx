@@ -131,19 +131,18 @@ describe('마이페이지 계정 설정', () => {
     expect(
       await screen.findByRole('heading', {
         level: 2,
-        name: '로그인이 필요해요'
+        name: '푼 기록이 여기에 남아요'
       })
     ).toBeInTheDocument()
     expect(
-      screen.getByText('로그인하면 학습 기록과 계정을 여기서 볼 수 있어요.')
+      screen.getByText(
+        '로그인하면 과목별 정답률과 목표 급수를 볼 수 있어요. 풀기는 로그인 없이도 돼요.'
+      )
     ).toBeVisible()
-    expect(screen.getByRole('link', { name: '학습 화면으로' })).toHaveAttribute(
-      'href',
-      '/practice'
-    )
     expect(
-      screen.getByRole('button', { name: 'Google로 계속하기' })
-    ).toBeEnabled()
+      screen.getByRole('link', { name: '그냥 풀러 가기' })
+    ).toHaveAttribute('href', '/')
+    expect(screen.getByRole('button', { name: '로그인' })).toBeEnabled()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(
       get.mock.calls.filter((call) => String(call[0]).startsWith('/auth/sso'))
