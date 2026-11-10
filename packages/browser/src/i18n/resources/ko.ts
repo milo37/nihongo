@@ -1382,7 +1382,7 @@ export const koCoreResources = {
     settings: {
       title: '계정',
       signInMethod: '로그인 방법',
-      connected: 'Google 계정으로 로그인 중',
+      connected: '로그인 중',
       onlyMethod: '유일한 로그인 방법이라 연결을 해제할 수 없어요.',
       logoutDescription: '이 기기에서 로그아웃해요. 학습 기록은 그대로 남아요.'
     },

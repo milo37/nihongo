@@ -1439,7 +1439,7 @@ export const jaCoreResources = {
     settings: {
       title: 'アカウント',
       signInMethod: 'ログイン方法',
-      connected: 'Googleアカウントでログイン中',
+      connected: 'ログイン中',
       onlyMethod: '唯一のログイン方法のため、連携を解除できません。',
       logoutDescription:
         'この端末からログアウトします。学習記録はそのまま残ります。'
