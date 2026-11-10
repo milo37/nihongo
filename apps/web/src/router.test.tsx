@@ -20,9 +20,16 @@ import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { queryClient } from '@nihongo/browser/libs/queryClient'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 
-// Compile the existing lazy result route before the focus-only assertions.
+// Compile every lazy page this file opens before any test starts its wait.
+// The first test to open a lazy route otherwise pays the cold module
+// transform inside its wait, which a slow CI runner can push past the limit.
 beforeAll(async () => {
-  await import('@app/practice/result/page')
+  await Promise.all([
+    import('@app/home/page'),
+    import('@app/practice/page'),
+    import('@app/practice/session/page'),
+    import('@app/practice/result/page')
+  ])
 })
 
 const DelayedHashTarget = (): ReactElement => {
