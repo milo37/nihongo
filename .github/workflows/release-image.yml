@@ -102,9 +102,12 @@ jobs:
             sleep 15
           done
           echo "status $st"
-          aws ssm get-command-invocation --command-id "$cid" --instance-id "$INSTANCE_ID" \
-            --query '[StandardOutputContent,StandardErrorContent]' --output text \
-            | grep -E '^(deployed [0-9a-f]{40}|refusing: |health check failed|rolled back|another deploy is running|release must be)' || true
+          # One field per call: a text query of both fields joins them with a
+          # tab, which would hide the first stderr line from the filter.
+          for field in StandardOutputContent StandardErrorContent; do
+            aws ssm get-command-invocation --command-id "$cid" --instance-id "$INSTANCE_ID" \
+              --query "$field" --output text
+          done | grep -E '^(deployed [0-9a-f]{40}|refusing: |health check failed|rolled back|another deploy is running|release must be)' || true
           [ "$st" = Success ] || { echo "::error::deploy $st"; exit 1; }
 
       - name: Wait for /health/ready 200 with this release
