@@ -181,14 +181,17 @@ export const HeroStartCard = ({
         onSelectRandom={() => setup.changeSetting('mode', 'RANDOM', 'RANDOM')}
       />
       {isGuest ? (
-        <p className="home-more">
-          <Icon name="bookmark" className="home-more-icon" />
-          {t('today.guestMore')}
-          <Link to={setup.loginHref}>
-            {t('today.guestMoreAction')}
-            <Icon name="chevron-right" className="size-4" />
-          </Link>
-        </p>
+        // The limit card already holds the login.
+        setup.isGuestDailyLimitReached ? null : (
+          <p className="home-more">
+            <Icon name="bookmark" className="home-more-icon" />
+            {t('today.guestMore')}
+            <Link to={setup.loginHref}>
+              {t('today.guestMoreAction')}
+              <Icon name="chevron-right" className="size-4" />
+            </Link>
+          </p>
+        )
       ) : setup.isReady ? (
         memberLine
       ) : null}
