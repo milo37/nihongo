@@ -46,6 +46,10 @@ import { createStudySubmissionService } from '../study/studySubmissionService.js
 import { createPrismaStudyDraftRepository } from '../study/studyDraftRepository.js'
 import { createStudyDraftService } from '../study/studyDraftService.js'
 import { createPrismaStudyResultRetryRepository } from '../study/studyResultRetryRepository.js'
+import {
+  createGuestResultImportService,
+  createPrismaGuestResultImportRepository
+} from '../study/guestResultImport.js'
 import { createStudyResultRetryService } from '../study/studyResultRetryService.js'
 import { createPrismaWrongNoteRepository } from '../wrong-note/wrongNoteRepository.js'
 import { createWrongNoteService } from '../wrong-note/wrongNoteService.js'
@@ -470,6 +474,9 @@ export const createBrowserApi = async ({
           keySecret: environment.GUEST_COOKIE_SECRET,
           rateLimiter
         }),
+        guestResultImportService: createGuestResultImportService(
+          createPrismaGuestResultImportRepository(database.client)
+        ),
         rateLimiter,
         retryService: createStudyResultRetryService(
           createPrismaStudyResultRetryRepository(database.client)
