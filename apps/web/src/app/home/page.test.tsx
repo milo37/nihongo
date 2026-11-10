@@ -134,14 +134,14 @@ it.each([
     'ko',
     '처음이라면',
     'N5 문자·어휘',
-    '5문제 · 3분 정도',
+    '10문제 · 5분 정도',
     '로그인 없이 풀어 보기'
   ],
   [
     'ja',
     'はじめてなら',
     'N5 文字・語彙',
-    '5問 · 約3分',
+    '10問 · 約5分',
     'ログインせずに解いてみる'
   ]
 ] as const)(
@@ -161,7 +161,7 @@ it.each([
     expect(within(hero).getByText(meta)).toBeVisible()
     fireEvent.click(within(hero).getByRole('button', { name: start }))
     expect(mocks.mutate).toHaveBeenCalledWith(
-      { level: 'N5', subject: 'VOCABULARY', count: 5, mode: 'RANDOM' },
+      { level: 'N5', subject: 'VOCABULARY', count: 10, mode: 'RANDOM' },
       expect.anything()
     )
     expect(

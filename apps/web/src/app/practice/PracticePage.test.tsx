@@ -52,10 +52,10 @@ const renderPractice = (search: string, { globalErrors = false } = {}) => {
 }
 
 describe('PracticePage setup', () => {
-  it('게스트의 기본값은 N5 어휘이고 문제 수는 게스트 한도 5문제다', async () => {
+  it('게스트의 기본값은 N5 어휘이고 문제 수는 게스트 한도 10문제다', async () => {
     renderPractice('')
     expect(
-      await screen.findByRole('button', { name: 'N5 문자·어휘 5문제 시작' })
+      await screen.findByRole('button', { name: 'N5 문자·어휘 10문제 시작' })
     ).toBeInTheDocument()
   })
 
@@ -79,7 +79,7 @@ describe('PracticePage setup', () => {
   it('목표 급수가 없으면 이 기기에서 마지막에 시작한 급수·과목을 기본으로 쓴다', async () => {
     const router = renderPractice('?level=N3&subject=GRAMMAR')
     const start = await screen.findByRole('button', {
-      name: 'N3 문법 5문제 시작'
+      name: 'N3 문법 10문제 시작'
     })
     await waitFor(() => expect(start).toBeEnabled())
     await userEvent.setup().click(start)
@@ -89,7 +89,7 @@ describe('PracticePage setup', () => {
     cleanup()
     renderPractice('')
     expect(
-      await screen.findByRole('button', { name: 'N3 문법 5문제 시작' })
+      await screen.findByRole('button', { name: 'N3 문법 10문제 시작' })
     ).toBeInTheDocument()
 
     // A target level still wins over the last level; the subject stays.
@@ -143,7 +143,7 @@ describe('PracticePage setup', () => {
   it('선택한 조건으로 세션을 만들고 학습 화면으로 이동한다', async () => {
     const router = renderPractice('?level=N5&subject=VOCABULARY&count=5')
     const start = await screen.findByRole('button', {
-      name: 'N5 문자·어휘 5문제 시작'
+      name: 'N5 문자·어휘 10문제 시작'
     })
     await waitFor(() => expect(start).toBeEnabled())
     await userEvent.setup().click(start)
@@ -151,7 +151,7 @@ describe('PracticePage setup', () => {
     expect(router.state.location.pathname).toMatch(/^\/practice\/session\//u)
   })
 
-  it('게스트가 공유 주소로 잠긴 방식을 열면 5문제·무작위로 보여 주고 안내한다 (L12)', async () => {
+  it('게스트가 공유 주소로 잠긴 방식을 열면 10문제·무작위로 보여 주고 안내한다 (L12)', async () => {
     const search = '?level=N5&subject=VOCABULARY&count=20&mode=DAILY_REVIEW'
     renderPractice(search)
     const note = await screen.findByText(
@@ -163,7 +163,7 @@ describe('PracticePage setup', () => {
       `/login?redirect=${encodeURIComponent(`/practice${search}`)}`
     )
     const start = screen.getByRole('button', {
-      name: 'N5 문자·어휘 5문제 시작'
+      name: 'N5 문자·어휘 10문제 시작'
     })
     await waitFor(() => expect(start).toBeEnabled())
     expect(
@@ -176,7 +176,7 @@ describe('PracticePage setup', () => {
     const user = userEvent.setup()
     await waitFor(() =>
       expect(
-        screen.getByRole('button', { name: 'N5 문자·어휘 5문제 시작' })
+        screen.getByRole('button', { name: 'N5 문자·어휘 10문제 시작' })
       ).toBeEnabled()
     )
     // Random or the review set only; no count choice (subtract table 3·4).
@@ -210,10 +210,12 @@ describe('PracticePage setup', () => {
     mockGuestAllowance.setRemaining(1)
     const first = renderPractice('?level=N5&subject=VOCABULARY')
     expect(await screen.findByText(/남았어요/u)).toHaveTextContent(
-      '오늘 2번 중 1번 남았어요.'
+      '오늘 3번 중 1번 남았어요.'
     )
     expect(
-      screen.getByText(/^로그인 없이 하루 2번, 한 번에 5문제씩 풀 수 있어요\./u)
+      screen.getByText(
+        /^로그인 없이 하루 3번, 한 번에 10문제씩 풀 수 있어요\./u
+      )
     ).toBeVisible()
     first.dispose()
     cleanup()
@@ -254,7 +256,7 @@ describe('PracticePage setup', () => {
       globalErrors: true
     })
     const start = await screen.findByRole('button', {
-      name: 'N5 문자·어휘 5문제 시작'
+      name: 'N5 문자·어휘 10문제 시작'
     })
     await waitFor(() => expect(start).toBeEnabled())
     await userEvent.setup().click(start)
@@ -284,7 +286,7 @@ describe('PracticePage setup', () => {
       )
     )
     renderPractice('?level=N5&subject=VOCABULARY', { globalErrors: true })
-    const name = 'N5 문자·어휘 5문제 시작'
+    const name = 'N5 문자·어휘 10문제 시작'
     const start = await screen.findByRole('button', { name })
     await waitFor(() => expect(start).toBeEnabled())
     await userEvent.setup().click(start)
