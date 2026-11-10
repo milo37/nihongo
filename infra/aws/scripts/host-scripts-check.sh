@@ -183,9 +183,12 @@ EOF
 chmod +x "$work/qs/path/curl" "$work/qs/path/docker"
 qs() { PATH="$work/qs/path:$PATH" QUESTION_SET_MODE="$1" bash "$work/qs/run.sh"; }
 qs dry-run
-[[ "$(wc -l < "$work/qs/urls")" -eq 10 ]] && ! grep -v "/$sha/content/question-imports/" "$work/qs/urls" \
-  || { echo "question set files not fetched at the release SHA" >&2; exit 1; }
-[[ "$(ls "$work/qs/opt/content/question-set-$sha" | wc -l)" -eq 10 ]] || { echo "question set dir is not ten files" >&2; exit 1; }
+qs_files='n5.v1.json n4.v1.json n3.v1.json n2.v1.json n1.v1.json n5.add.v1.json n4.add.v1.json n3.add.v1.json n2.add.v1.json n1.add.v1.json'
+expected_urls="$(for f in $qs_files; do printf 'https://raw.githubusercontent.com/milo37/nihongo/%s/content/question-imports/%s\n' "$sha" "$f"; done)"
+[[ "$(cat "$work/qs/urls")" == "$expected_urls" ]] \
+  || { echo "question set files not the ten names at the release SHA, in order" >&2; exit 1; }
+[[ "$(ls "$work/qs/opt/content/question-set-$sha" | sort)" == "$(printf '%s\n' $qs_files | sort)" ]] \
+  || { echo "question set dir is not exactly the ten files" >&2; exit 1; }
 [[ "$(cat "$work/qs/env")" == "$app_url" ]] || { echo "DATABASE_URL did not reach docker literally" >&2; exit 1; }
 ! grep -qE 'p\$\(id\)w|QUESTION_SET_CONFIRM' "$work/qs/argv" || { echo "dry run argv has the URL or the confirm" >&2; exit 1; }
 qs confirm
