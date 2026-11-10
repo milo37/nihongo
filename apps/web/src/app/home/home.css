@@ -88,6 +88,7 @@
   border-radius: 999px;
   background: rgb(var(--color-brand-active));
   font-size: 17px;
+  font-weight: 600;
 }
 .home-band-limit {
   width: 100%;
@@ -101,6 +102,7 @@
   margin-top: 14px;
   color: rgb(var(--color-ink));
   font-size: 15px;
+  text-wrap: balance;
 }
 .home-more-icon {
   flex: none;
@@ -146,6 +148,10 @@
   .home-say {
     margin-top: 12px;
     font-size: 48px;
+  }
+  /* Japanese runs wider: keep "今日は N5 文字・語彙を" on one line. */
+  .home-say:lang(ja) {
+    font-size: 44px;
   }
   .home-band-start .home-go {
     width: auto;
