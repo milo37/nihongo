@@ -137,7 +137,7 @@ describe('application router boundaries', () => {
     expect(
       await screen.findByRole(
         'heading',
-        { name: 'JLPT 문제, 하루 10문제씩 가볍게' },
+        { name: /^오늘은 N5 문자·어휘/u },
         { timeout: 3000 }
       )
     ).toBeInTheDocument()
@@ -290,7 +290,7 @@ describe('application router boundaries', () => {
       .mockImplementation(() => undefined)
     const router = renderRoutes('/')
     await screen.findByRole('heading', {
-      name: 'JLPT 문제, 하루 10문제씩 가볍게'
+      name: /^오늘은 N5 문자·어휘/u
     })
 
     await act(async () => {
@@ -305,7 +305,7 @@ describe('application router boundaries', () => {
       await router.navigate(-1)
     })
     await screen.findByRole('heading', {
-      name: 'JLPT 문제, 하루 10문제씩 가볍게'
+      name: /^오늘은 N5 문자·어휘/u
     })
 
     expect(scrollTo).not.toHaveBeenCalled()
