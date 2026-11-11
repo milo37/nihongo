@@ -57,3 +57,12 @@ condition = "AND"
 targetRules = ["cloudflare-api-key"]
 commits = ["a7cdabb2f3f67bce4c259ee3bac6b629527ef068"]
 paths = ['''^infra/aws/scripts/render-check\.sh$''']
+
+# A fake auth value in the masking test of one commit of #868; the test now
+# uses a value the rule allowlist recognises.
+[[allowlists]]
+description = "failure summary test fake auth value (#868)"
+condition = "AND"
+targetRules = ["sensitive-assignment"]
+commits = ["fff900130f8d4066272c277b2603013d13ad94a9"]
+paths = ['''^apps/api/src/e2e/failureSummary\.test\.ts$''']

@@ -7,7 +7,7 @@ import {
 const environment = {
   DATABASE_URL:
     'postgresql://nihongo:ci_only_password@127.0.0.1:5432/nihongo_test?schema=s1',
-  BETTER_AUTH_SECRET: 'auth-secret-value-1234567890',
+  BETTER_AUTH_SECRET: 'fake-auth-value-1234567890',
   GUEST_COOKIE_SECRET: 'cookie-secret-abcdef',
   NODE_ENV: 'test'
 }
@@ -35,7 +35,7 @@ describe('masked failure summary (CCD-664)', () => {
       'ci_only_password'
     ],
     ['connect failed: postgres://user:pw@db.internal:5432/x', 'pw@db'],
-    ['secret leaked auth-secret-value-1234567890 here', 'auth-secret-value'],
+    ['secret leaked fake-auth-value-1234567890 here', 'fake-auth-value'],
     ['cookie-secret-abcdef was echoed', 'cookie-secret-abcdef'],
     ['header Authorization: Bearer abc.def.ghi', 'abc.def.ghi'],
     ['token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxIn0.sig in body', 'eyJhbGci'],
@@ -44,7 +44,17 @@ describe('masked failure summary (CCD-664)', () => {
     ['raw VGhpcyBpcyBhIHNlY3JldCB2YWx1ZTEyMw== seen', 'VGhpcyBpcyBhIHNl'],
     ['set API_KEY=shhh-value and retried', 'shhh-value'],
     ['body {"password":"hunter2-pass"} rejected', 'hunter2-pass'],
-    ['tokenDigest: abcdefabcdef was stale', 'abcdefabcdef']
+    ['tokenDigest: abcdefabcdef was stale', 'abcdefabcdef'],
+    ['echo fake-auth\u200b-value-1234567890 split', 'value-1234567890'],
+    ['echo fake\u2060-auth-value-1234567890 joined', 'auth-value'],
+    ['query q=fake%2Dauth%2Dvalue%2D1234567890 sent', '1234567890'],
+    ['query q=fake%252Dauth%252Dvalue%252D1234567890 sent', '1234567890'],
+    ['dsn nihongo:ci_only_password@127.0.0.1:5432 refused', 'ci_only'],
+    ['dsn user:pw@db.internal refused', 'pw@db'],
+    ['config apiKey=Ab1Cd2Ef3Gh4 rejected', 'Ab1Cd2Ef3Gh4'],
+    ['config privateKey: abcdefgh rejected', 'abcdefgh'],
+    ['config credential=plainvalue rejected', 'plainvalue'],
+    ['password: "correct horse battery staple"', 'battery staple']
   ])('masks %s', (message, secret) => {
     const summary = summarize(message)
     expect(summary).not.toContain(secret)
