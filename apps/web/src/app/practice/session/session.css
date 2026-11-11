@@ -71,8 +71,10 @@ label:has(input:checked) .study-option-text {
   .study-session-sheet .study-session-sheet-phone {
     display: none;
   }
+  /* Fills the space between close and "13 / 20", squares up to 28px. */
   .study-session-sheet .study-session-sheet-pc {
     display: block;
+    width: 100%;
     max-width: 560px;
   }
   .study-question-text {
