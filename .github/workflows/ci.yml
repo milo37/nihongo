@@ -266,15 +266,49 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Playwright system package key
+        id: playwright_debs_key
+        if: ${{ needs.plan.outputs.browser == 'true' }}
+        run: |
+          version=$(pnpm exec playwright --version | awk '{print $2}')
+          test -n "$version"
+          echo "key=playwright-debs-${ImageOS}-${ImageVersion}-${version}" >> "$GITHUB_OUTPUT"
+
+      # The Ubuntu apt mirrors are the part that fails on runner DNS. Keep the
+      # .deb files the first successful install downloaded, keyed by runner image
+      # and Playwright version, and install exactly those offline next time.
+      - name: Restore Playwright system packages
+        id: playwright_debs
+        if: ${{ needs.plan.outputs.browser == 'true' }}
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/playwright-debs
+          key: ${{ steps.playwright_debs_key.outputs.key }}
+
       - name: Install Playwright Chromium
         if: ${{ needs.plan.outputs.browser == 'true' }}
         timeout-minutes: 30
+        env:
+          DEBS_CACHED: ${{ steps.playwright_debs.outputs.cache-hit }}
         # Runner DNS to the Ubuntu apt mirrors fails now and then; retry the whole install with backoff.
         run: |
-          echo 'Acquire::Retries "3";' | sudo tee /etc/apt/apt.conf.d/80-ci-retries >/dev/null
+          debs="$HOME/.cache/playwright-debs"
+          shopt -s nullglob
+          if [ "$DEBS_CACHED" = "true" ]; then
+            cached_debs=("$debs"/*.deb)
+            if [ "${#cached_debs[@]}" -gt 0 ]; then sudo dpkg -i "${cached_debs[@]}"; fi
+            install_args="chromium"
+          else
+            echo 'Acquire::Retries "3";' | sudo tee /etc/apt/apt.conf.d/80-ci-retries >/dev/null
+            echo 'APT::Keep-Downloaded-Packages "true";' | sudo tee /etc/apt/apt.conf.d/81-ci-keep-debs >/dev/null
+            sudo find /var/cache/apt/archives -maxdepth 1 -name '*.deb' -delete
+            install_args="--with-deps chromium"
+          fi
+          installed=false
           for attempt in 1 2 3; do
-            if pnpm exec playwright install --with-deps chromium; then
-              exit 0
+            if pnpm exec playwright install $install_args; then
+              installed=true
+              break
             fi
             if [ "$attempt" -lt 3 ]; then
               delay=$((attempt * 30))
@@ -282,7 +316,21 @@ jobs:
               sleep "$delay"
             fi
           done
-          exit 1
+          test "$installed" = true
+          if [ "$DEBS_CACHED" != "true" ]; then
+            mkdir -p "$debs"
+            new_debs=(/var/cache/apt/archives/*.deb)
+            if [ "${#new_debs[@]}" -gt 0 ]; then cp "${new_debs[@]}" "$debs"/; fi
+          fi
+          echo "system packages: $(ls "$debs" | wc -l) cached=${DEBS_CACHED:-false}"
+          dpkg-query -W -f='${Package} ${Version}\n' 'fonts-*' | sort
+
+      - name: Save Playwright system packages
+        if: ${{ needs.plan.outputs.browser == 'true' && steps.playwright_debs.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/playwright-debs
+          key: ${{ steps.playwright_debs_key.outputs.key }}
 
       - name: Database and API performance
         id: database_performance
