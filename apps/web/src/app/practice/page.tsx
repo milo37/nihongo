@@ -41,7 +41,7 @@ export const PracticePage = (): ReactElement => {
         {setupCss}
       </style>
       <div className="practice-setup-heading">
-        <h1 ref={setupHeadingRef} tabIndex={-1}>
+        <h1 ref={setupHeadingRef} className="outline-none" tabIndex={-1}>
           {t('setup.title')}
         </h1>
       </div>

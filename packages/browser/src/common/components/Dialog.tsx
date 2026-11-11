@@ -248,7 +248,7 @@ export const Dialog = ({
           <div className="min-w-0">
             <h2
               ref={titleRef}
-              className="ui-dialog-title scroll-mt-24 text-balance text-xl font-bold"
+              className="ui-dialog-title scroll-mt-24 text-balance text-xl font-bold outline-none"
               id={titleId}
               tabIndex={-1}
             >

@@ -175,7 +175,7 @@ export const ReviewCompletion = ({
   return (
     <section className="review-document review-completion">
       <header>
-        <h1 className="review-title" tabIndex={-1} ref={heading}>
+        <h1 className="review-title outline-none" tabIndex={-1} ref={heading}>
           {t('integration.complete.title')}
         </h1>
         <p className="review-document-meta">
