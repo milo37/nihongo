@@ -14,8 +14,12 @@ export type ProgressCellState =
   | 'ng'
   | 'skip'
 
-/** Below this side a square drops its number; "3 / 10" says it (B4 §11). */
+/**
+ * Below these sides a square drops its number; "13 / 20" says it
+ * (B4 §11): 20px for one digit, 24px for two.
+ */
 const MIN_NUMBERED = 20
+const MIN_NUMBERED_TWO_DIGITS = 24
 
 /** Squares per row; a square is always a tenth of the sheet width. */
 const ROW = 10
@@ -39,7 +43,7 @@ type ProgressSheetProps = {
   readonly animate?: boolean
   /** Show only this ten-square row (phone solve screen, 11-20 of 20). */
   readonly rowOf?: number
-  /** All squares in one row at this side (PC solve screen). */
+  /** All squares in one row, filling the width up to this side (PC solve). */
   readonly singleRowCellSize?: number
   /** One row of the shown squares filling the width, up to this side. */
   readonly maxCellSize?: number
@@ -66,8 +70,7 @@ export const ProgressSheet = ({
       className={['progress-sheet', className].filter(Boolean).join(' ')}
       columns={single ? states.length : fit ? Math.min(ROW, shown) : ROW}
       rows={single || fit ? 1 : Math.max(1, Math.ceil(shown / ROW))}
-      cellSize={singleRowCellSize}
-      maxCellSize={maxCellSize}
+      maxCellSize={singleRowCellSize ?? maxCellSize}
       count={shown}
       indexOffset={start}
       renderCell={(cell) => {
@@ -100,7 +103,10 @@ export const ProgressSheet = ({
                 height={cell.c - 6}
               />
             ) : null}
-            {cell.c < MIN_NUMBERED ? null : (
+            {cell.c <
+            (cell.index >= 9
+              ? MIN_NUMBERED_TWO_DIGITS
+              : MIN_NUMBERED) ? null : (
               <text
                 className={
                   state === 'current'
