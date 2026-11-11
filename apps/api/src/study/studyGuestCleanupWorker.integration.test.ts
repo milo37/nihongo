@@ -667,6 +667,54 @@ describe('guest cleanup worker boundary', () => {
     })
   })
 
+  it('removes expired auth rate keys a week after their window (JLP-841)', async () => {
+    const clock = await fixture.query<{ now_ms: string }>(
+      'SELECT floor(EXTRACT(EPOCH FROM clock_timestamp()) * 1000)::bigint AS now_ms'
+    )
+    const now = BigInt(clock.rows[0]?.now_ms ?? '0')
+    const digest = randomUUID().replaceAll('-', '').padEnd(64, 'c')
+    const expired = (now - 604_860_000n - 5_000n).toString()
+    const rows = {
+      gateway: [`application:auth:/api/auth/sign-in/social:${digest}`, expired],
+      gatewayDeletion: [
+        `application:auth:/api/auth/sso/delete-account:${digest}`,
+        expired
+      ],
+      betterAuth: ['203.0.113.7|/sign-out', expired],
+      recentGateway: [
+        `application:auth:/api/auth/callback/google:${digest}`,
+        (now - 604_860_000n + 60_000n).toString()
+      ],
+      malformedGateway: [`application:auth:/elsewhere:${digest}`, expired]
+    } as const
+    const rowIds = Object.fromEntries(
+      Object.keys(rows).map((name) => [name, randomUUID()])
+    ) as Record<keyof typeof rows, string>
+    ids.push(...Object.values(rowIds))
+    for (const [name, [key, lastRequest]] of Object.entries(rows))
+      await fixture.query(
+        'INSERT INTO "RateLimit" ("id", "key", "count", "lastRequest") VALUES ($1,$2,1,$3)',
+        [rowIds[name as keyof typeof rows], key, lastRequest]
+      )
+
+    try {
+      await cleanup(10, false)
+      const remaining = await fixture.query<{ id: string }>(
+        'SELECT "id" FROM "RateLimit" WHERE "id" = ANY($1::uuid[])',
+        [Object.values(rowIds)]
+      )
+      expect(remaining.rows.map(({ id }) => id).sort()).toEqual(
+        [rowIds.recentGateway, rowIds.malformedGateway].sort()
+      )
+    } finally {
+      // The next test counts every id in `ids`.
+      await fixture.query(
+        'DELETE FROM "RateLimit" WHERE "id" = ANY($1::uuid[])',
+        [Object.values(rowIds)]
+      )
+    }
+  })
+
   it('previews without changes and removes only known expired rate keys', async () => {
     const clock = await fixture.query<{ now_ms: string }>(
       'SELECT floor(EXTRACT(EPOCH FROM clock_timestamp()) * 1000)::bigint AS now_ms'
