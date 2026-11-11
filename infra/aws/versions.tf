@@ -12,8 +12,10 @@ terraform {
     }
   }
 
-  # State stays local until an account exists. Move it to an S3 backend with
-  # lockfile support before a second operator or CI runs plan/apply.
+  # One S3 state per environment (README "state"). Partial configuration:
+  # terraform init -backend-config=backends/<env>.s3.tfbackend \
+  #   -backend-config=bucket=harumaru-tfstate-<account id>
+  backend "s3" {}
 }
 
 provider "aws" {

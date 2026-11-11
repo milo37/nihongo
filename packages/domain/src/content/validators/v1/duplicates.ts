@@ -68,15 +68,16 @@ const trigramSet = (value: string): Set<string> => {
   return trigrams
 }
 
-const jaccard = (left: string, right: string): readonly [number, number] => {
-  const leftTokens = trigramSet(left)
-  const rightTokens = trigramSet(right)
+const jaccard = (
+  leftTokens: ReadonlySet<string>,
+  rightTokens: ReadonlySet<string>
+): readonly [number, number] => {
   let intersection = 0
   for (const token of leftTokens) {
     if (rightTokens.has(token)) intersection += 1
   }
-  const union = new Set([...leftTokens, ...rightTokens]).size
-  return [intersection, union]
+  // |A ∪ B| = |A| + |B| - |A ∩ B|, without building the union.
+  return [intersection, leftTokens.size + rightTokens.size - intersection]
 }
 
 const levenshtein = (left: string, right: string): number => {
@@ -131,25 +132,47 @@ const toScore = (
   matchesThreshold: numerator * 10000 >= DUPLICATE_RULES[ruleId] * denominator
 })
 
-export const scoreNearDuplicate = (
-  left: OriginalQuestionContentV1 | PersistedQuestionSemanticV1,
-  right: OriginalQuestionContentV1 | PersistedQuestionSemanticV1
+/**
+ * The per-item part of near-duplicate scoring. Preparing each item once keeps
+ * an all-pairs scan from normalizing and splitting every text again for each
+ * pair (CCD-664); the scores are the same.
+ */
+export interface PreparedNearDuplicateV1 {
+  readonly hasPassage: boolean
+  readonly question: string
+  readonly questionLength: number
+  readonly questionPassageTrigrams: ReadonlySet<string>
+  readonly passageTrigrams: ReadonlySet<string>
+}
+
+export const prepareNearDuplicate = (
+  content: OriginalQuestionContentV1 | PersistedQuestionSemanticV1
+): PreparedNearDuplicateV1 => {
+  const question = normalizeDuplicateText(content.questionText)
+  const passage =
+    content.passage === null ? '' : normalizeDuplicateText(content.passage)
+  return {
+    hasPassage: content.passage !== null,
+    question,
+    questionLength: toCodePoints(question).length,
+    questionPassageTrigrams: trigramSet(`${question}\u0000${passage}`),
+    passageTrigrams: trigramSet(passage)
+  }
+}
+
+export const scorePreparedNearDuplicate = (
+  left: PreparedNearDuplicateV1,
+  right: PreparedNearDuplicateV1
 ): readonly DuplicateScoreV1[] => {
-  const leftQuestion = normalizeDuplicateText(left.questionText)
-  const rightQuestion = normalizeDuplicateText(right.questionText)
-  const leftPassage =
-    left.passage === null ? '' : normalizeDuplicateText(left.passage)
-  const rightPassage =
-    right.passage === null ? '' : normalizeDuplicateText(right.passage)
   const [questionPassageNumerator, questionPassageDenominator] = jaccard(
-    `${leftQuestion}\u0000${leftPassage}`,
-    `${rightQuestion}\u0000${rightPassage}`
+    left.questionPassageTrigrams,
+    right.questionPassageTrigrams
   )
   const maximumQuestionLength = Math.max(
-    toCodePoints(leftQuestion).length,
-    toCodePoints(rightQuestion).length
+    left.questionLength,
+    right.questionLength
   )
-  const questionDistance = levenshtein(leftQuestion, rightQuestion)
+  const questionDistance = levenshtein(left.question, right.question)
   const questionEditNumerator =
     maximumQuestionLength === 0 ? 1 : maximumQuestionLength - questionDistance
   const questionEditDenominator =
@@ -168,10 +191,10 @@ export const scoreNearDuplicate = (
     )
   ]
 
-  if (left.passage !== null && right.passage !== null) {
+  if (left.hasPassage && right.hasPassage) {
     const [passageNumerator, passageDenominator] = jaccard(
-      leftPassage,
-      rightPassage
+      left.passageTrigrams,
+      right.passageTrigrams
     )
     scores.push(
       toScore(
@@ -184,6 +207,15 @@ export const scoreNearDuplicate = (
 
   return scores
 }
+
+export const scoreNearDuplicate = (
+  left: OriginalQuestionContentV1 | PersistedQuestionSemanticV1,
+  right: OriginalQuestionContentV1 | PersistedQuestionSemanticV1
+): readonly DuplicateScoreV1[] =>
+  scorePreparedNearDuplicate(
+    prepareNearDuplicate(left),
+    prepareNearDuplicate(right)
+  )
 
 export interface IntraBundleDuplicateResultV1 {
   readonly exactPairs: readonly {
@@ -213,25 +245,33 @@ export const inspectIntraBundleDuplicates = (
     score: DuplicateScoreV1
   }> = []
 
+  const identities = ordered.map(({ content }) =>
+    canonicalDuplicateIdentity(content)
+  )
+  const prepared = ordered.map(({ content }) => prepareNearDuplicate(content))
   for (let leftIndex = 0; leftIndex < ordered.length; leftIndex += 1) {
     const left = ordered[leftIndex]
-    if (!left) continue
-    const leftIdentity = canonicalDuplicateIdentity(left.content)
+    const leftPrepared = prepared[leftIndex]
+    if (!left || !leftPrepared) continue
     for (
       let rightIndex = leftIndex + 1;
       rightIndex < ordered.length;
       rightIndex += 1
     ) {
       const right = ordered[rightIndex]
-      if (!right) continue
-      if (leftIdentity === canonicalDuplicateIdentity(right.content)) {
+      const rightPrepared = prepared[rightIndex]
+      if (!right || !rightPrepared) continue
+      if (identities[leftIndex] === identities[rightIndex]) {
         exactPairs.push({
           leftContentKey: left.contentKey,
           rightContentKey: right.contentKey
         })
         continue
       }
-      for (const score of scoreNearDuplicate(left.content, right.content)) {
+      for (const score of scorePreparedNearDuplicate(
+        leftPrepared,
+        rightPrepared
+      )) {
         if (!score.matchesThreshold) continue
         warnings.push({
           contentKey: left.contentKey,
