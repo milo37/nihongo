@@ -243,7 +243,9 @@ it('starts a member from the last level and subject, changed by the underlined w
     { level: 'N1', subject: 'READING', count: 10, mode: 'RANDOM' },
     expect.anything()
   )
-  expect(screen.queryByText(appI18n.t('home:today.guestMore'))).toBeNull()
+  // A member sees no guest rule line and no tries count.
+  expect(screen.queryByText(/로그인 없이 하루/u)).toBeNull()
+  expect(screen.queryByText(/번 남음/u)).toBeNull()
 })
 
 it('tells a member how many wrong answers wait and starts the same review as the wrong-note page', async () => {
