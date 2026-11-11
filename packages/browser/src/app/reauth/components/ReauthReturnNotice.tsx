@@ -86,7 +86,7 @@ const ReturnCheck = ({
       aria-live="polite"
       data-reauth-result={key}
       className={classNames(
-        'app-global-banner reauth-return-notice fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-[560px] items-start justify-between gap-3 max-[480px]:flex-col max-[480px]:items-stretch max-[480px]:gap-1 rounded-xl border border-l-4 border-line bg-surface px-4 py-3 text-sm text-ink shadow-soft',
+        'app-global-banner reauth-return-notice outline-none fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-[560px] items-start justify-between gap-3 max-[480px]:flex-col max-[480px]:items-stretch max-[480px]:gap-1 rounded-xl border border-l-4 border-line bg-surface px-4 py-3 text-sm text-ink shadow-soft',
         toneClassNames[tone]
       )}
       onMouseEnter={() => setPaused(true)}
