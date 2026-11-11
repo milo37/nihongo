@@ -82,7 +82,11 @@ export const ssoAccountCapabilitiesSchema = z
     linkableProviders: providerList,
     unlinkRequiresFresh: z.boolean(),
     canDelete: z.boolean(),
-    deletionBlockedReason: z.literal('OPEN_ADMIN_WORK').nullable(),
+    // JLP-845: LAST_ACTIVE_ADMIN shows the disabled button early; the 409 on
+    // deletion still covers a race.
+    deletionBlockedReason: z
+      .enum(['OPEN_ADMIN_WORK', 'LAST_ACTIVE_ADMIN'])
+      .nullable(),
     deleteRequiresFresh: z.literal(true),
     freshVerified: z.boolean()
   })

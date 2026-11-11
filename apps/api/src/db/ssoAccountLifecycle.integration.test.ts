@@ -946,6 +946,34 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         ).rows
       ).toEqual([{ status: 'DELETION_PENDING', request: 'DELETION_PENDING' }])
     })
+    // The account capabilities show the last ACTIVE ADMIN cannot delete.
+    await h.rollback(async () => {
+      const admin = await h.fixture('google', 'ADMIN')
+      const capabilities = async () =>
+        (await gateway(
+          'SELECT "sso_account_capabilities"($1,$2,NULL) AS result',
+          [admin.token, ['google']]
+        )) as { canDelete: boolean; deletionBlockedReason: string | null }
+      await h.owner.query('SET session_replication_role = replica')
+      try {
+        await h.owner.query(
+          `UPDATE "User" SET "role"='USER'
+           WHERE "role"='ADMIN' AND "accountStatus"='ACTIVE' AND id<>$1`,
+          [admin.userId]
+        )
+      } finally {
+        await h.owner.query('SET session_replication_role = origin')
+      }
+      expect(await capabilities()).toMatchObject({
+        canDelete: false,
+        deletionBlockedReason: 'LAST_ACTIVE_ADMIN'
+      })
+      await h.fixture('google', 'ADMIN')
+      expect(await capabilities()).toMatchObject({
+        canDelete: true,
+        deletionBlockedReason: null
+      })
+    })
   })
   it('#57: 다른 runtime 역할은 삭제 queue와 User 삭제가 거부되고, nihongo_app도 완료 상태만 바꾸거나 확인 없는 User를 지울 수 없다', async () => {
     await h.rollback(async () => {
