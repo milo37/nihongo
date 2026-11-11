@@ -1,7 +1,8 @@
 import { summarizeBundleCoverage } from '@nihongo/domain/content/validators/v1/coverage'
 import {
   canonicalDuplicateIdentity,
-  scoreNearDuplicate,
+  prepareNearDuplicate,
+  scorePreparedNearDuplicate,
   type DuplicateScoreV1
 } from '@nihongo/domain/content/validators/v1/duplicates'
 import {
@@ -26,6 +27,7 @@ const inspectDuplicates = (items: readonly AnalysisItem[]) => {
   const identities = items.map(({ content }) =>
     canonicalDuplicateIdentity(content)
   )
+  const prepared = items.map(({ content }) => prepareNearDuplicate(content))
   for (let leftIndex = 0; leftIndex < items.length; leftIndex += 1) {
     const left = items[leftIndex]
     if (!left) continue
@@ -48,7 +50,13 @@ const inspectDuplicates = (items: readonly AnalysisItem[]) => {
         }
         continue
       }
-      for (const score of scoreNearDuplicate(left.content, right.content)) {
+      const leftPrepared = prepared[leftIndex]
+      const rightPrepared = prepared[rightIndex]
+      if (!leftPrepared || !rightPrepared) continue
+      for (const score of scorePreparedNearDuplicate(
+        leftPrepared,
+        rightPrepared
+      )) {
         if (!score.matchesThreshold) continue
         nearCandidateCount += 1
         if (candidates.length < MAX_REPORTED_CANDIDATES) {
