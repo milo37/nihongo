@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactElement } from 'react'
 import type { SheetCell } from '@common/components/manuscript/ManuscriptSheet'
 
-export type Grade = 'ok' | 'ng'
+export type Grade = 'ok' | 'ng' | 'skip'
 
 type GradeMarkProps = {
   readonly cell: Pick<SheetCell, 'x' | 'y' | 'c'>
@@ -15,7 +15,7 @@ const delay = (delayMs: number | undefined): CSSProperties | undefined =>
 
 /**
  * Correct: an ink circle from 12 o'clock. Wrong: a pale fill and a red
- * slash. Shape and colour both differ. No vector-effect here: it breaks the
+ * slash. Unanswered: a short grey dash. Shape and colour all differ. No vector-effect here: it breaks the
  * pathLength drawing.
  */
 export const GradeMark = ({
@@ -34,6 +34,17 @@ export const GradeMark = ({
         style={delay(delayMs)}
         pathLength={1}
         d={`M${cx} ${cy - r}a${r} ${r} 0 1 1 0 ${2 * r}a${r} ${r} 0 1 1 0 ${-2 * r}`}
+      />
+    )
+  }
+  if (grade === 'skip') {
+    const half = 0.2 * c
+    return (
+      <path
+        className={animated ? 'grade-skip manuscript-pen' : 'grade-skip'}
+        style={delay(delayMs)}
+        pathLength={1}
+        d={`M${cx - half} ${cy}H${cx + half}`}
       />
     )
   }

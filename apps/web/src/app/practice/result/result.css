@@ -1,18 +1,11 @@
 /* B4 result screen (HANDOFF §2, §4, §6). Loaded with the result page only. */
-.study-result-summary .result-b4-title {
-  font-size: 14px;
-  line-height: 1.4;
-  font-weight: 700;
-  color: rgb(var(--color-muted));
-}
 .result-b4-meta {
-  margin-top: 2px;
+  margin-top: 4px;
   font-size: 13px;
   color: rgb(var(--color-muted));
   font-feature-settings: 'tnum';
 }
-.result-b4-score {
-  margin-top: 6px;
+.study-result-summary .result-b4-score {
   font-size: 30px;
   font-weight: 800;
   letter-spacing: -0.03em;
@@ -52,6 +45,45 @@
 }
 .study-result-sheet {
   margin: 18px 0 20px;
+}
+
+/* A guest's offer: one ruled line, the sentence and [로그인 ›] (B4 §4). */
+.study-result-summary .result-guest-keep {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 0;
+  padding-block: 4px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.result-guest-keep > span {
+  flex: 1;
+  min-width: 0;
+}
+.study-result-summary .result-guest-keep .result-guest-keep-action {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  margin: 0;
+  color: rgb(var(--color-link));
+  font-weight: 700;
+  white-space: nowrap;
+}
+.result-guest-keep-action:focus-visible {
+  outline: var(--focus-width) solid rgb(var(--focus-color));
+  outline-offset: var(--focus-offset);
+}
+
+/* The chosen question: no card, a top rule only (B4 has no round boxes). */
+.study-result .study-result-detail {
+  padding: 20px 0 0;
+  border: 0;
+  border-top: 1px solid rgb(var(--color-line));
+  border-radius: 0;
+  background: transparent;
 }
 
 /* Every answered question as a row: number, Japanese line, mark. */
@@ -99,7 +131,7 @@
 }
 
 @media (min-width: 1024px) {
-  .result-b4-score {
+  .study-result-summary .result-b4-score {
     font-size: 40px;
   }
   .result-b4-number {

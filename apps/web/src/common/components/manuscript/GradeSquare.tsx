@@ -6,7 +6,7 @@ import { ManuscriptStyles } from '@common/components/manuscript/ManuscriptSheet'
 const CELL = { x: 0, y: 0, c: 24 }
 
 /**
- * One manuscript square holding a still grade mark (blank when ungraded).
+ * One manuscript square holding a still grade mark .
  * Decorative: callers say correct or wrong in text.
  */
 export const GradeSquare = ({

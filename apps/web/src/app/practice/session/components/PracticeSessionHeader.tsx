@@ -66,13 +66,15 @@ export const PracticeSessionHeader = ({
         >
           <Icon name="x" />
         </Link>
-        {/* Phone: the ten-square row holding this question. PC: one row
-            (28px squares, 20 fit in 560). The progress element below speaks. */}
+        {/* Phone: the row of up to ten holding this question, filling the
+            space up to 28px squares (numbers drop under 20px). PC: one row
+            of 28px squares, 20 fit in 560. The progress element speaks. */}
         <div className="study-session-sheet">
           <ProgressSheet
             className="study-session-sheet-phone"
             states={progressStates}
             rowOf={currentNumber - 1}
+            maxCellSize={28}
           />
           <ProgressSheet
             className="study-session-sheet-pc"

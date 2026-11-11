@@ -27,6 +27,15 @@
 .study-session .study-answer-options label:has(input:disabled) {
   background: transparent;
 }
+/* The shared group rings any focus (a tap too); here only the keyboard
+   gets the ring. The choice itself is the filled number square. */
+.study-session .study-answer-options label:focus-within {
+  outline: none;
+}
+.study-session .study-answer-options label:has(input:focus-visible) {
+  outline: var(--focus-width) solid rgb(var(--focus-color));
+  outline-offset: var(--focus-offset);
+}
 .study-option-number {
   border: 1.5px solid rgb(var(--color-sheet-line));
   border-radius: 2px;

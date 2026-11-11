@@ -45,7 +45,8 @@
   fill: rgb(var(--color-ink));
 }
 .grade-ok,
-.grade-ng {
+.grade-ng,
+.grade-skip {
   fill: none;
   stroke-linecap: round;
 }
@@ -56,6 +57,10 @@
 .grade-ng {
   stroke: rgb(var(--grade-ng));
   stroke-width: 3.2;
+}
+.grade-skip {
+  stroke: rgb(var(--color-muted));
+  stroke-width: 2;
 }
 .grade-ng-fill {
   fill: rgb(var(--grade-ng-fill));

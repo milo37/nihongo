@@ -2,8 +2,20 @@ import type { ReactElement } from 'react'
 import { ManuscriptSheet } from '@common/components/manuscript/ManuscriptSheet'
 import { GradeMark } from '@common/components/manuscript/GradeMark'
 
-/** todo: number only. current: ink box. answered: ink dot. ok/ng: graded. */
-export type ProgressCellState = 'todo' | 'current' | 'answered' | 'ok' | 'ng'
+/**
+ * todo: number only. current: ink box. answered: ink dot. ok/ng: graded.
+ * skip: left unanswered, a grey dash (B4 §11).
+ */
+export type ProgressCellState =
+  | 'todo'
+  | 'current'
+  | 'answered'
+  | 'ok'
+  | 'ng'
+  | 'skip'
+
+/** Below this side a square drops its number; "3 / 10" says it (B4 §11). */
+const MIN_NUMBERED = 20
 
 /** Squares per row; a square is always a tenth of the sheet width. */
 const ROW = 10
@@ -29,6 +41,8 @@ type ProgressSheetProps = {
   readonly rowOf?: number
   /** All squares in one row at this side (PC solve screen). */
   readonly singleRowCellSize?: number
+  /** One row of the shown squares filling the width, up to this side. */
+  readonly maxCellSize?: number
   readonly className?: string
 }
 
@@ -38,6 +52,7 @@ export const ProgressSheet = ({
   animate = false,
   rowOf,
   singleRowCellSize,
+  maxCellSize,
   className
 }: ProgressSheetProps): ReactElement => {
   const timing = gradeTiming(states.length)
@@ -45,12 +60,14 @@ export const ProgressSheet = ({
   const shown =
     rowOf === undefined ? states.length : Math.min(ROW, states.length - start)
   const single = singleRowCellSize !== undefined
+  const fit = maxCellSize !== undefined
   return (
     <ManuscriptSheet
       className={['progress-sheet', className].filter(Boolean).join(' ')}
-      columns={single ? states.length : ROW}
-      rows={single ? 1 : Math.max(1, Math.ceil(shown / ROW))}
+      columns={single ? states.length : fit ? Math.min(ROW, shown) : ROW}
+      rows={single || fit ? 1 : Math.max(1, Math.ceil(shown / ROW))}
       cellSize={singleRowCellSize}
+      maxCellSize={maxCellSize}
       count={shown}
       indexOffset={start}
       renderCell={(cell) => {
@@ -58,7 +75,7 @@ export const ProgressSheet = ({
         if (state === undefined) return null
         const cx = cell.x + cell.c / 2
         const cy = cell.y + cell.c / 2
-        if (state === 'ok' || state === 'ng') {
+        if (state === 'ok' || state === 'ng' || state === 'skip') {
           return (
             <GradeMark
               cell={cell}
@@ -83,17 +100,19 @@ export const ProgressSheet = ({
                 height={cell.c - 6}
               />
             ) : null}
-            <text
-              className={
-                state === 'current'
-                  ? 'progress-sheet-number is-current'
-                  : 'progress-sheet-number'
-              }
-              x={cx}
-              y={cy}
-            >
-              {cell.index + 1}
-            </text>
+            {cell.c < MIN_NUMBERED ? null : (
+              <text
+                className={
+                  state === 'current'
+                    ? 'progress-sheet-number is-current'
+                    : 'progress-sheet-number'
+                }
+                x={cx}
+                y={cy}
+              >
+                {cell.index + 1}
+              </text>
+            )}
           </>
         )
       }}

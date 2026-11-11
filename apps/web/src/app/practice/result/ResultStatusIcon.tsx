@@ -11,7 +11,7 @@ export const getResultStatus = (item: StudyResultItemView): ResultStatus =>
       ? 'unanswered'
       : 'incorrect'
 
-/** The B4 square mark: ○ correct, slash wrong, blank unanswered. */
+/** The B4 square mark: ○ correct, slash wrong, grey dash unanswered. */
 export const ResultStatusIcon = ({
   status
 }: {
@@ -20,6 +20,6 @@ export const ResultStatusIcon = ({
   <GradeSquare
     className="result-status-icon"
     status={status}
-    grade={status === 'correct' ? 'ok' : status === 'incorrect' ? 'ng' : null}
+    grade={status === 'correct' ? 'ok' : status === 'incorrect' ? 'ng' : 'skip'}
   />
 )

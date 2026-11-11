@@ -4,7 +4,6 @@ import type { ReactElement, RefObject } from 'react'
 import type { StudyResultView } from '@app/practice/adapters/studyResultView'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
 import { useResultNumberFormat } from '@app/practice/hooks/useResultNumberFormat'
-import { getButtonClassName } from '@nihongo/browser/common/components/Button'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import {
@@ -55,10 +54,10 @@ export const ResultSummary = ({
       ? [`${t('items.unanswered')} ${formatCount(unansweredCount)}`]
       : [])
   ]
-  // Unanswered items keep their number: not graded, so no mark.
+  // Unanswered items get the grey dash, never the blank 'todo' square.
   const gradeStates = result.items.map(
     (item): ProgressCellState =>
-      item.isCorrect ? 'ok' : item.selectedOptionId === null ? 'todo' : 'ng'
+      item.isCorrect ? 'ok' : item.selectedOptionId === null ? 'skip' : 'ng'
   )
   // Only the correct count is large; split the sentence around it.
   const [scoreBefore = '', scoreAfter = ''] = t('summary.score', {
@@ -68,17 +67,8 @@ export const ResultSummary = ({
 
   return (
     <div className="study-result-summary">
-      <h1 ref={headingRef} className="result-b4-title" tabIndex={-1}>
-        {t('name')}
-      </h1>
-      <p className="result-b4-meta">
-        {[
-          session.level,
-          commonT(`taxonomy.subjects.${session.subject}`),
-          ...details
-        ].join(' · ')}
-      </p>
-      <p className="result-b4-score">
+      {/* The score sentence is the heading (B4 §11). */}
+      <h1 ref={headingRef} className="result-b4-score" tabIndex={-1}>
         {scoreBefore}
         <b
           className={
@@ -112,6 +102,13 @@ export const ResultSummary = ({
           </svg>
         </b>
         {scoreAfter}
+      </h1>
+      <p className="result-b4-meta">
+        {[
+          session.level,
+          commonT(`taxonomy.subjects.${session.subject}`),
+          ...details
+        ].join(' · ')}
       </p>
       <ProgressSheet
         className="study-result-sheet"
@@ -121,26 +118,21 @@ export const ResultSummary = ({
       {/* One login place: this line, or the limit card on the last try. */}
       {isGuest ? (
         isGuestDone ? null : incorrectCount > 0 ? (
-          <div className="result-guest-keep">
-            <p className="result-guest-keep-title">
+          // One ruled line: the offer, then [로그인 ›] (B4 §4).
+          <p className="result-guest-keep">
+            <span>
               {t('status.guest', {
                 formattedCount: formatCount(incorrectCount)
               })}
-            </p>
-            <p className="result-guest-keep-detail">
-              {t('status.guestDetail')}
-            </p>
+            </span>
             <Link
-              className={getButtonClassName({
-                variant: 'outline',
-                className: 'result-guest-keep-action'
-              })}
+              className="result-guest-keep-action"
               to={`/login?redirect=${encodeURIComponent('/wrong-notes')}`}
             >
-              <Icon name="inbox" className="size-5" />
-              {t('status.guestAction')}
+              {authT('guestToast.login')}
+              <Icon name="chevron-right" className="size-4" />
             </Link>
-          </div>
+          </p>
         ) : (
           <p className="mt-2 text-sm leading-6 text-muted">
             {t('status.guestAllCorrect')}

@@ -237,10 +237,8 @@ const PracticeResultPageContent = (): ReactElement => {
         />
 
         <div className="study-explanations mt-10 space-y-4">
-          <h2
-            id="result-explanations"
-            className="scroll-mt-24 text-xl font-bold"
-          >
+          {/* Named for screen readers only; the B4 page shows no subheads. */}
+          <h2 id="result-explanations" className="sr-only">
             {t('items.title')}
           </h2>
           <ResultBookmarkNotices bookmark={bookmark} isGuest={isGuest} />

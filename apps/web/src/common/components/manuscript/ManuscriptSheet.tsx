@@ -17,6 +17,8 @@ type ManuscriptSheetProps = {
   readonly fallbackWidth?: number
   /** Fixed square side; otherwise width ÷ columns. */
   readonly cellSize?: number
+  /** Largest square side when it follows the width. */
+  readonly maxCellSize?: number
   /** Index of the row that gets the centre band (판심) before it. */
   readonly bandBeforeRow?: number
   /** Squares drawn; the last row may be short (left aligned). */
@@ -45,9 +47,10 @@ export const getSheetGeometry = (
   columns: number,
   rows: number,
   bandBeforeRow?: number,
-  cellSize?: number
+  cellSize?: number,
+  maxCellSize = Infinity
 ) => {
-  const c = cellSize ?? width / columns
+  const c = cellSize ?? Math.min(width / columns, maxCellSize)
   const b = Math.round(c / 3)
   const band = bandBeforeRow === undefined ? 0 : Math.round(0.8 * c) + b
   const rowTop = (row: number): number =>
@@ -94,6 +97,7 @@ export const ManuscriptSheet = ({
   rows,
   fallbackWidth = 350,
   cellSize,
+  maxCellSize,
   bandBeforeRow,
   count = columns * rows,
   indexOffset = 0,
@@ -102,7 +106,14 @@ export const ManuscriptSheet = ({
   style
 }: ManuscriptSheetProps): ReactElement => {
   const [ref, measured] = useMeasuredWidth(fallbackWidth)
-  const g = getSheetGeometry(measured, columns, rows, bandBeforeRow, cellSize)
+  const g = getSheetGeometry(
+    measured,
+    columns,
+    rows,
+    bandBeforeRow,
+    cellSize,
+    maxCellSize
+  )
   const inRow = (row: number): number =>
     Math.max(0, Math.min(columns, count - row * columns))
   const cells: SheetCell[] = []

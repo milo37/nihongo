@@ -50,6 +50,35 @@ describe('ProgressSheet (B4 manuscript strip)', () => {
     expect(container.querySelector('.manuscript-pen')).toBeNull()
   })
 
+  it('marks an unanswered question with a grey dash, no number', () => {
+    const { container } = render(<ProgressSheet states={['ok', 'skip']} />)
+    expect(container.querySelectorAll('.grade-skip')).toHaveLength(1)
+    expect(container.querySelectorAll('text')).toHaveLength(0)
+  })
+
+  it('fills the width with the shown squares, at most 28px each', () => {
+    // fallbackWidth 350 (jsdom): five squares stop at 28, not 35.
+    const { container } = render(
+      <ProgressSheet
+        states={Array<ProgressCellState>(5).fill('todo')}
+        rowOf={0}
+        maxCellSize={28}
+      />
+    )
+    expect(container.querySelector('svg')).toHaveAttribute('width', '140')
+    expect(container.querySelectorAll('text')).toHaveLength(5)
+  })
+
+  it('drops the numbers when a square is under 20px', () => {
+    const { container } = render(
+      <ProgressSheet
+        states={Array<ProgressCellState>(20).fill('todo')}
+        singleRowCellSize={18}
+      />
+    )
+    expect(container.querySelectorAll('text')).toHaveLength(0)
+  })
+
   it('animates the red pen on the B4 timing and stays decorative', () => {
     const { container } = render(
       <ProgressSheet states={['ok', 'ng']} animate />
