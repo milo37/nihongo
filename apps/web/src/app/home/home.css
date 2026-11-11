@@ -201,6 +201,11 @@
 .home-daily-option[aria-disabled='true'] {
   cursor: default;
 }
+/* The pick shows as the ✓/✕ square and the 내 답 line, not the shared
+   4px pressed box (same as result.css). */
+.home-daily-option[aria-pressed='true'] {
+  box-shadow: none;
+}
 .home-daily-option:focus-visible {
   outline: var(--focus-width) solid rgb(var(--focus-color));
   outline-offset: var(--focus-offset);

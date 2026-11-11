@@ -35,7 +35,12 @@ export const WrongNoteDetailContent = ({
           {data.question.passage}
         </div>
       ) : null}
-      <h1 ref={headingRef} className="review-question" lang="ja" tabIndex={-1}>
+      <h1
+        ref={headingRef}
+        className="review-question outline-none"
+        lang="ja"
+        tabIndex={-1}
+      >
         {data.question.questionText}
       </h1>
       {previousAnswer.status === 'unanswered' ? (

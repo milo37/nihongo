@@ -68,7 +68,11 @@ export const ResultSummary = ({
   return (
     <div className="study-result-summary">
       {/* The score sentence is the heading (B4 §11). */}
-      <h1 ref={headingRef} className="result-b4-score" tabIndex={-1}>
+      <h1
+        ref={headingRef}
+        className="result-b4-score outline-none"
+        tabIndex={-1}
+      >
         {scoreBefore}
         <b
           className={
