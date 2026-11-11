@@ -189,6 +189,87 @@ export const writeCanonicalEvidence = async ({ filePath, value }) => {
 
 const dashboardPrefix = 'dashboard'
 
+const assertSafeLedgerEntry = (entry) => {
+  if (
+    !exactKeys(entry, [
+      'finishSequence',
+      'method',
+      'path',
+      'provenance',
+      'startSequence',
+      'status'
+    ])
+  ) {
+    throw new Error('SECURITY_EVIDENCE_LEDGER_ENTRY_SHAPE_INVALID')
+  }
+  if (
+    typeof entry.method !== 'string' ||
+    !SAFE_LEDGER_METHOD.has(entry.method)
+  ) {
+    throw new Error('SECURITY_EVIDENCE_LEDGER_METHOD_INVALID')
+  }
+  if (
+    typeof entry.path !== 'string' ||
+    !SAFE_LEDGER_PATH_PATTERN.test(entry.path)
+  ) {
+    throw new Error('SECURITY_EVIDENCE_LEDGER_PATH_INVALID')
+  }
+  if (RAW_UUID_PATH_PATTERN.test(entry.path)) {
+    throw new Error('SECURITY_EVIDENCE_LEDGER_RAW_ID_INVALID')
+  }
+  if (!Number.isSafeInteger(entry.startSequence) || entry.startSequence < 1) {
+    throw new Error('SECURITY_EVIDENCE_LEDGER_START_SEQUENCE_INVALID')
+  }
+  if (
+    !Number.isSafeInteger(entry.finishSequence) ||
+    entry.finishSequence <= entry.startSequence
+  ) {
+    throw new Error('SECURITY_EVIDENCE_LEDGER_FINISH_SEQUENCE_INVALID')
+  }
+  if (
+    entry.status !== 'NETWORK_ERROR' &&
+    (!Number.isSafeInteger(entry.status) ||
+      entry.status < 100 ||
+      entry.status > 599)
+  ) {
+    throw new Error('SECURITY_EVIDENCE_LEDGER_STATUS_INVALID')
+  }
+  if (
+    typeof entry.provenance !== 'string' ||
+    !SAFE_LEDGER_PROVENANCE.has(entry.provenance)
+  ) {
+    throw new Error('SECURITY_EVIDENCE_LEDGER_PROVENANCE_INVALID')
+  }
+}
+
+// Failure-only diagnostic: keeps just the entries that pass the same per-entry checks as the
+// summary and replaces any other entry with its error code, so nothing unchecked leaves the run.
+const MAX_DIAGNOSTIC_LEDGER_ENTRIES = 500
+export const projectLedgerDiagnosticEntries = (entries) =>
+  (Array.isArray(entries) ? entries : [])
+    .slice(0, MAX_DIAGNOSTIC_LEDGER_ENTRIES)
+    .map((entry) => {
+      try {
+        assertSafeLedgerEntry(entry)
+        return {
+          finishSequence: entry.finishSequence,
+          method: entry.method,
+          path: entry.path,
+          provenance: entry.provenance,
+          startSequence: entry.startSequence,
+          status: entry.status
+        }
+      } catch (error) {
+        return {
+          invalid:
+            error instanceof Error &&
+            /^SECURITY_EVIDENCE_[A-Z0-9_]+$/u.test(error.message)
+              ? error.message
+              : 'SECURITY_EVIDENCE_LEDGER_ENTRY_SHAPE_INVALID'
+        }
+      }
+    })
+
 export const assertPlaywrightRequestLedger = (ledger, summaryLabel) => {
   if (
     !exactKeys(ledger, ['label', 'entries']) ||
@@ -207,56 +288,7 @@ export const assertPlaywrightRequestLedger = (ledger, summaryLabel) => {
   }
   const sequences = new Set()
   for (const entry of ledger.entries) {
-    if (
-      !exactKeys(entry, [
-        'finishSequence',
-        'method',
-        'path',
-        'provenance',
-        'startSequence',
-        'status'
-      ])
-    ) {
-      throw new Error('SECURITY_EVIDENCE_LEDGER_ENTRY_SHAPE_INVALID')
-    }
-    if (
-      typeof entry.method !== 'string' ||
-      !SAFE_LEDGER_METHOD.has(entry.method)
-    ) {
-      throw new Error('SECURITY_EVIDENCE_LEDGER_METHOD_INVALID')
-    }
-    if (
-      typeof entry.path !== 'string' ||
-      !SAFE_LEDGER_PATH_PATTERN.test(entry.path)
-    ) {
-      throw new Error('SECURITY_EVIDENCE_LEDGER_PATH_INVALID')
-    }
-    if (RAW_UUID_PATH_PATTERN.test(entry.path)) {
-      throw new Error('SECURITY_EVIDENCE_LEDGER_RAW_ID_INVALID')
-    }
-    if (!Number.isSafeInteger(entry.startSequence) || entry.startSequence < 1) {
-      throw new Error('SECURITY_EVIDENCE_LEDGER_START_SEQUENCE_INVALID')
-    }
-    if (
-      !Number.isSafeInteger(entry.finishSequence) ||
-      entry.finishSequence <= entry.startSequence
-    ) {
-      throw new Error('SECURITY_EVIDENCE_LEDGER_FINISH_SEQUENCE_INVALID')
-    }
-    if (
-      entry.status !== 'NETWORK_ERROR' &&
-      (!Number.isSafeInteger(entry.status) ||
-        entry.status < 100 ||
-        entry.status > 599)
-    ) {
-      throw new Error('SECURITY_EVIDENCE_LEDGER_STATUS_INVALID')
-    }
-    if (
-      typeof entry.provenance !== 'string' ||
-      !SAFE_LEDGER_PROVENANCE.has(entry.provenance)
-    ) {
-      throw new Error('SECURITY_EVIDENCE_LEDGER_PROVENANCE_INVALID')
-    }
+    assertSafeLedgerEntry(entry)
     if (
       sequences.has(entry.startSequence) ||
       sequences.has(entry.finishSequence)

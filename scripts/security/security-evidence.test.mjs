@@ -502,6 +502,94 @@ test('all six safe suites retain exact current counts and approved attachments',
   assert.equal(manifest.files.length, 6)
 })
 
+test('reporter writes failure-only ledger diagnostics with only per-entry safe fields', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'ledger-diagnostic-'))
+  const evidence = path.join(root, 'evidence')
+  const diagnostics = path.join(root, 'diagnostics')
+  try {
+    assert.throws(
+      () =>
+        new PlaywrightEvidenceReporter({
+          outputDirectory: evidence,
+          diagnosticDirectory: evidence,
+          label: 'admin-real'
+        }),
+      /PLAYWRIGHT_EVIDENCE_REPORTER_OPTIONS_INVALID/u
+    )
+    const entry = (startSequence, provenance) => ({
+      finishSequence: startSequence + 1,
+      method: 'GET',
+      path: '/api/v1/admin/questions',
+      provenance,
+      startSequence,
+      status: provenance === 'network-failure' ? 'NETWORK_ERROR' : 200
+    })
+    const reporter = new PlaywrightEvidenceReporter({
+      outputDirectory: evidence,
+      diagnosticDirectory: diagnostics,
+      label: 'admin-real'
+    })
+    reporter.onBegin()
+    reporter.onTestEnd(
+      {
+        location: { file: '/private/admin-cms.spec.ts', line: 1 },
+        titlePath: () => ['admin', 'ledger']
+      },
+      {
+        status: 'passed',
+        duration: 10,
+        retry: 0,
+        attachments: [
+          {
+            name: 'admin-cms-real-request-ledger',
+            contentType: 'application/json',
+            body: Buffer.from(
+              JSON.stringify({
+                entries: [
+                  entry(1, 'canonical-real-network'),
+                  entry(3, 'network-failure'),
+                  {
+                    ...entry(5, 'canonical-real-network'),
+                    cookie: 'fixture-secret'
+                  }
+                ]
+              })
+            )
+          }
+        ]
+      }
+    )
+    await assert.rejects(
+      reporter.onEnd({ status: 'passed' }),
+      /admin-cms-real-request-ledger=SECURITY_EVIDENCE_LEDGER_ENTRY_SHAPE_INVALID/u
+    )
+    await assert.rejects(readFile(path.join(evidence, 'admin-real.json')))
+    const content = await readFile(
+      path.join(diagnostics, 'admin-real-invalid-ledgers.json'),
+      'utf8'
+    )
+    assert.doesNotMatch(content, /fixture-secret|cookie/u)
+    const value = JSON.parse(content)
+    assert.equal(value.kind, 'nihongo.playwright-invalid-ledger-diagnostic')
+    assert.equal(value.ledgers.length, 1)
+    assert.equal(value.ledgers[0].name, 'admin-cms-real-request-ledger')
+    assert.deepEqual(value.ledgers[0].entries, [
+      entry(1, 'canonical-real-network'),
+      entry(3, 'network-failure'),
+      { invalid: 'SECURITY_EVIDENCE_LEDGER_ENTRY_SHAPE_INVALID' }
+    ])
+
+    const plain = new PlaywrightEvidenceReporter({
+      outputDirectory: path.join(root, 'plain'),
+      label: 'admin-real'
+    })
+    plain.onBegin()
+    await plain.onEnd({ status: 'passed' })
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('dashboard reporter retains exact ledger and performance evidence', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'dashboard-reporter-'))
   const reporter = new PlaywrightEvidenceReporter({
@@ -1280,7 +1368,7 @@ test('real-only browser evidence requires all three exact suites', async () => {
   }
 })
 
-test('CI uploads only verified real and Mock browser summaries', async () => {
+test('CI uploads only verified browser summaries and failure-only ledger diagnostics', async () => {
   const [normal, candidate] = await Promise.all([
     readFile(path.resolve('.github/workflows/ci.yml'), 'utf8'),
     readFile(path.resolve('.github/workflows/candidate.yml'), 'utf8')
@@ -1303,7 +1391,15 @@ test('CI uploads only verified real and Mock browser summaries', async () => {
         with:
           name: playwright-safe-evidence-mock-\${{ github.run_id }}-\${{ github.run_attempt }}
           if-no-files-found: error
-          path: \${{ env.PLAYWRIGHT_MOCK_EVIDENCE_DIR }}/`
+          path: \${{ env.PLAYWRIGHT_MOCK_EVIDENCE_DIR }}/`,
+    `Upload rejected request ledger diagnostics
+        if: \${{ !cancelled() && (steps.real_browser.outcome == 'failure' || steps.mock_browser.outcome == 'failure') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-ledger-diagnostic-\${{ github.run_id }}-\${{ github.run_attempt }}
+          if-no-files-found: ignore
+          retention-days: 7
+          path: \${{ env.PLAYWRIGHT_DIAGNOSTIC_DIR }}/`
   ])
   for (const upload of uploads) {
     assert.doesNotMatch(
