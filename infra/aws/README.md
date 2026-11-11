@@ -55,6 +55,8 @@ aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUT
 
 호스트의 `deploy.sh`: 비밀값 갱신 → 두 이미지 pull → postgres 기동 → `provision-db.sh`(DB 역할 생성·검증) → `migrate.sh`(S3에 `pg_dump` 스냅샷 → `prisma migrate deploy` 1회성 컨테이너) → `register-capability.sh`(빈 DB면 `DatabaseCapability` 등록, 있으면 확인만, 어긋나면 중단) → api 재시작 → `/health/ready`의 `x-release-id` 확인 → 실패하면 직전 이미지로 롤백. 자세한 내용과 롤백은 [production-database.v1.md](../../operations/runbooks/production-database.v1.md)에 있습니다. 환경을 처음 채울 때만 첫 관리자 → [question-import.v1.md](../../operations/runbooks/question-import.v1.md)(태그 18 → 500문제 → 일괄 검수 요청·승인·공개)를 한 번 합니다.
 
+**CSP(JLP-788):** API가 모든 응답에 `Content-Security-Policy`를 붙이고, STAGING·PRODUCTION 모두 기본으로 막습니다(enforce). `CSP_MODE=report-only`를 명시할 때만 보고만 하고(브라우저 콘솔), 그 밖의 값이면 API가 시작하지 않습니다.
+
 **로컬 확인:** 빈 DB 첫 배포를 PRODUCTION과 STAGING(#649 뒤) 모두 로컬에서 끝까지 확인했습니다. STAGING도 capability 행은 `PRODUCTION`으로 들어갑니다(런북 'Local rehearsal').
 
 ## #57 계정 삭제 실행 경로

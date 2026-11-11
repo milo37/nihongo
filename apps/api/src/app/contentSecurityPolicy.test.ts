@@ -4,6 +4,10 @@ import { join } from 'node:path'
 import { Hono } from 'hono'
 import { secureHeaders } from 'hono/secure-headers'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import {
+  EnvironmentValidationError,
+  parseApiEnvironment
+} from '../config/env.js'
 import { createJsonLogger } from '../observability/logger.js'
 import type { QuestionReader } from '../question/questionService.js'
 import {
@@ -17,6 +21,14 @@ const policy =
   "font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; " +
   "frame-ancestors 'none'; form-action 'self'"
 const releaseId = '1'.repeat(40)
+const environmentInput = {
+  NODE_ENV: 'test',
+  DATABASE_URL:
+    'postgresql://nihongo_test_app_login:placeholder@localhost/unused_test?schema=public',
+  BETTER_AUTH_SECRET: 'test-auth-placeholder-only-1234567890',
+  GUEST_COOKIE_SECRET: 'test-guest-placeholder-only-1234567890',
+  AUTH_EMAIL_FROM: 'test@example.test'
+}
 let web: string
 
 beforeEach(() => {
@@ -82,33 +94,29 @@ describe('Content-Security-Policy (JLP-788)', () => {
     }
   })
 
-  it('reports only on STAGING unless CSP_MODE says otherwise', () => {
-    expect(
-      resolveContentSecurityPolicyMode({ DEPLOYMENT_ENVIRONMENT: 'STAGING' })
-    ).toBe('report-only')
+  // The mode no longer reads DEPLOYMENT_ENVIRONMENT, so STAGING enforces too.
+  it('enforces unless CSP_MODE asks for report-only', () => {
     expect(resolveContentSecurityPolicyMode({})).toBe('enforce')
-    for (const deployment of [
-      'PRODUCTION',
-      'DEVELOPMENT',
-      'LOCAL',
-      'TEST'
-    ] as const)
-      expect(
-        resolveContentSecurityPolicyMode({
-          DEPLOYMENT_ENVIRONMENT: deployment
+    expect(resolveContentSecurityPolicyMode({ CSP_MODE: 'enforce' })).toBe(
+      'enforce'
+    )
+    expect(resolveContentSecurityPolicyMode({ CSP_MODE: 'report-only' })).toBe(
+      'report-only'
+    )
+  })
+
+  it('reads an empty CSP_MODE as unset and refuses to start on a typo', () => {
+    const mode = (CSP_MODE?: string) =>
+      resolveContentSecurityPolicyMode(
+        parseApiEnvironment({
+          ...environmentInput,
+          ...(CSP_MODE === undefined ? {} : { CSP_MODE })
         })
-      ).toBe('enforce')
-    expect(
-      resolveContentSecurityPolicyMode({
-        CSP_MODE: 'enforce',
-        DEPLOYMENT_ENVIRONMENT: 'STAGING'
-      })
-    ).toBe('enforce')
-    expect(
-      resolveContentSecurityPolicyMode({
-        CSP_MODE: 'report-only',
-        DEPLOYMENT_ENVIRONMENT: 'PRODUCTION'
-      })
-    ).toBe('report-only')
+      )
+    expect(mode()).toBe('enforce')
+    expect(mode('')).toBe('enforce')
+    expect(mode('report-only')).toBe('report-only')
+    for (const typo of ['report_only', 'Enforce', 'off'])
+      expect(() => mode(typo)).toThrow(EnvironmentValidationError)
   })
 })
