@@ -5,6 +5,7 @@ export const koCoreResources = {
     appName: '하루마루',
     locale: {
       label: '언어',
+      change: '언어 변경',
       ko: '한국어',
       ja: '日本語'
     },
@@ -85,7 +86,6 @@ export const koCoreResources = {
       label: '계정 메뉴',
       signedInWith: 'Google 계정으로 로그인 중',
       myPage: '마이페이지',
-      language: '언어',
       guestTitle: '로그인 전이에요',
       guestDescription: '로그인하면 푼 기록이 남아요'
     },
