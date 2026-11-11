@@ -59,6 +59,12 @@ label:has(input:checked) .study-option-text {
   word-break: keep-all;
 }
 
+/* Jump window: current = ink 2px square like the strip; the shared 4px
+   answered underline is heavy for a 44px square (design-858). */
+.ui-question-jump[data-answered='true'] {
+  text-decoration-thickness: 2px;
+}
+
 @media (min-width: 1024px) {
   .study-session-bar,
   .study-session-meta {
