@@ -117,32 +117,42 @@ The restored `DatabaseCapability` row stays current because postgres always gets
 
 ## Re-apply account erasure (AWS only)
 
-The restored database has no record of erasure requests made after the dump,
-so those accounts are active again. The API logs each request as
-`{"event":"auth.account_erasure.requested","userId":…,"occurredAt":…}`, and
+The restored database has no record of erasure changes made after the dump:
+accounts that asked for erasure are active again, and accounts that restored
+themselves during the 7-day grace period are pending erasure again. The API
+logs each change as `{"event":"auth.account_erasure.requested","userId":…,"occurredAt":…}`
+or `{"event":"auth.account_erasure.cancelled","userId":…,"occurredAt":…}`, and
 the log group keeps 30 days, as long as the dumps.
 
-On the operator's machine, list the user ids requested since one hour before
-the dump time (`<dump epoch>` = the UTC stamp in the dump key, in seconds):
+On the operator's machine, take each user's last erasure event since one hour
+before the dump time (`<dump epoch>` = the UTC stamp in the dump key, in
+seconds):
 
 ```sh
 qid="$(aws logs start-query --log-group-name /harumaru/<env>/api \
   --start-time $(( <dump epoch> - 3600 )) --end-time "$(date +%s)" \
-  --query-string 'filter event = "auth.account_erasure.requested" | stats count(*) by userId' \
+  --query-string 'filter event in ["auth.account_erasure.requested", "auth.account_erasure.cancelled"] | stats latest(event) as last by userId' \
   --query queryId --output text)"
 sleep 10
 aws logs get-query-results --query-id "$qid" \
-  --query 'results[] | [?field==`userId`].value' --output text \
-  | tr '\t' '\n' > erasure-reapply-<stamp>.txt
+  --query 'results[*].[[?field==`userId`].value | [0], [?field==`last`].value | [0]]' \
+  --output text > erasure-events-<stamp>.txt
+awk '$2 == "auth.account_erasure.requested" { print $1 }' erasure-events-<stamp>.txt > erasure-reapply-<stamp>.txt
+awk '$2 == "auth.account_erasure.cancelled" { print $1 }' erasure-events-<stamp>.txt > erasure-restore-<stamp>.txt
 ```
 
 Check the status is `Complete` (`aws logs get-query-results --query-id "$qid"
---query status`) and keep the file until the step below is done. The ids are
-random UUIDs, not names or emails.
+--query status`) and keep the files until the steps below are done. The ids are
+random UUIDs, not names or emails. A user who asked and then restored within
+the window is only in the restore file, so a restored request is never
+re-applied.
 
-Re-apply with the #702 command (after the deploy). Until #702 ships, hand the
-file to the backend owner to re-apply, and tell those users their erasure is
-being redone.
+- `erasure-reapply-<stamp>.txt`: re-apply with the #702 command (after the
+  deploy). Until #702 ships, hand the file to the backend owner to re-apply,
+  and tell those users their erasure is being redone.
+- `erasure-restore-<stamp>.txt`: these accounts must not be erased. Before the
+  erasure schedule's next run, hand the file to the backend owner to cancel
+  their pending erasure again (or pause the schedule until that is done).
 
 ## Volume snapshot (AWS only)
 
