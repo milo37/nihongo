@@ -386,11 +386,11 @@ test('quality and regression start from the same plan in isolated jobs', () => {
     assert.ok(step.includes(`if: \${{ needs.plan.outputs.${flag} == 'true' }}`))
     assert.equal(workflow.split(`run: ${command}\n`).length - 1, 1)
   }
-  assert.ok(
-    namedWorkflowStep(regression, 'Install Playwright Chromium').includes(
-      "if: ${{ needs.plan.outputs.browser == 'true' }}"
-    )
-  )
+  const install = namedWorkflowStep(regression, 'Install Playwright Chromium')
+  assert.ok(install.includes("if: ${{ needs.plan.outputs.browser == 'true' }}"))
+  assert.ok(install.includes('Acquire::Retries'))
+  assert.ok(install.includes('for attempt in 1 2 3; do'))
+  assert.ok(install.includes('timeout-minutes: 30'))
 })
 
 test('real browser summaries are isolated, verified before upload and cleaned on failure', () => {
