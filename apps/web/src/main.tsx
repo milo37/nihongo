@@ -9,6 +9,14 @@ import {
 import { getRouteLabelKey } from '@nihongo/browser/i18n/routePresentation'
 import { AppProvider } from '@provider/index'
 import '@/styles.css'
+// Shared by several lazy routes, so they ride in the main stylesheet: a CSS
+// file of its own for a shared chunk is not allowed by the bundle contract,
+// and inline <style> is blocked by the CSP (style-src 'self').
+import '@app/home/home.css'
+import '@common/components/manuscript/manuscript.css'
+import '@app/practice/setup.css'
+import '@app/practice/session/session.css'
+import '@app/practice/result/result.css'
 
 const rootElement = document.getElementById('root')
 

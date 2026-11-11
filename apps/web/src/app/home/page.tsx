@@ -6,7 +6,6 @@ import { FALLBACK_LEVEL } from '@app/practice/practiceSetupOptions'
 import { HeroStartCard } from '@app/home/components/HeroStartCard'
 import { DailyQuestionCard } from '@app/home/components/DailyQuestionCard'
 // Inlined into this lazy chunk: the home styles stay out of the first-load CSS.
-import homeCss from '@app/home/home.css?inline'
 
 /**
  * 첫 화면 B (JLP-823): a soft band with one sentence and [바로 풀기], then
@@ -25,9 +24,6 @@ export const LearningHome = ({
     user?.targetLevel ?? readLastPracticeChoice()?.level ?? FALLBACK_LEVEL
   return (
     <section className="home-b">
-      <style href="harumaru-home" precedence="default">
-        {homeCss}
-      </style>
       <div className="home-band">
         <HeroStartCard memberLine={memberLine} />
         <DailyQuestionCard level={level} />
