@@ -352,6 +352,42 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       await h.owner.query('SET CONSTRAINTS ALL IMMEDIATE')
     })
   })
+  it('refuses the deletion of the last ACTIVE ADMIN and allows it once another ADMIN exists (JLP-841)', async () => {
+    await h.rollback(async () => {
+      // Other files may leave ADMINs behind; this transaction rolls back.
+      await h.fixtureMutation(
+        `UPDATE "User" SET "role" = 'USER'
+         WHERE "role" = 'ADMIN' AND "accountStatus" = 'ACTIVE'`
+      )
+      const admin = await h.fixture('google', 'ADMIN')
+      const proof = await verifyFresh(admin)
+      expect(
+        await gateway(
+          'SELECT "request_sso_account_erasure"($1,$2,$3) AS result',
+          [admin.token, proof, digest()]
+        )
+      ).toEqual({ code: 'SSO_LAST_ADMIN_DELETION_BLOCKED' })
+      expect(
+        (
+          await h.owner.query(
+            `SELECT "accountStatus"::text AS status,
+               (SELECT count(*)::int FROM "SsoAccountErasureRequest" WHERE "userId" = $1) AS requests
+             FROM "User" WHERE id = $1`,
+            [admin.userId]
+          )
+        ).rows
+      ).toEqual([{ status: 'ACTIVE', requests: 0 }])
+
+      await h.fixture('google', 'ADMIN')
+      expect(
+        await gateway(
+          'SELECT "request_sso_account_erasure"($1,$2,$3) AS result',
+          [admin.token, proof, digest()]
+        )
+      ).toMatchObject({ appStatus: 'DELETION_PENDING', userId: admin.userId })
+    })
+  })
+
   it('erases a requested account end to end with the tokenless adapter (#670)', async () => {
     await h.rollback(async () => {
       const worker = createSsoAccountErasureWorker(h.appClient)
