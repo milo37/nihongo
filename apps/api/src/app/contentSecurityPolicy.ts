@@ -29,15 +29,13 @@ const createContentSecurityPolicy = (): ContentSecurityPolicy => ({
 export type ContentSecurityPolicyMode = 'report-only' | 'enforce'
 
 /**
- * CSP_MODE switches the policy between reporting and blocking. Unset, STAGING
- * reports only (violations show in the browser console) and every other
- * environment enforces.
+ * CSP_MODE switches the policy between reporting and blocking. Unset, every
+ * environment enforces; report-only (violations show in the browser console)
+ * only when CSP_MODE says so.
  */
 export const resolveContentSecurityPolicyMode = (
-  environment: Pick<ApiEnvironment, 'CSP_MODE' | 'DEPLOYMENT_ENVIRONMENT'>
-): ContentSecurityPolicyMode =>
-  environment.CSP_MODE ??
-  (environment.DEPLOYMENT_ENVIRONMENT === 'STAGING' ? 'report-only' : 'enforce')
+  environment: Pick<ApiEnvironment, 'CSP_MODE'>
+): ContentSecurityPolicyMode => environment.CSP_MODE ?? 'enforce'
 
 export const contentSecurityPolicyHeaders = (
   mode: ContentSecurityPolicyMode

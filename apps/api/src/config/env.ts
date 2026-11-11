@@ -214,7 +214,7 @@ const apiEnvironmentSchema = z
     AUTH_EMAIL_WEBHOOK_URL: z.url().optional(),
     AUTH_EMAIL_WEBHOOK_SECRET: secretSchema.optional(),
     AUTH_TRUSTED_PROXY_CIDRS: trustedProxyListSchema,
-    // JLP-788: unset means report-only on STAGING, enforce elsewhere.
+    // JLP-788: unset or empty enforces everywhere.
     CSP_MODE: z.enum(['report-only', 'enforce']).optional()
   })
   .strict()
@@ -461,7 +461,7 @@ export const parseApiEnvironment = (
     AUTH_TRUSTED_PROXY_CIDRS:
       source.AUTH_TRUSTED_PROXY_CIDRS ??
       (canUseDevelopmentDefaults ? '127.0.0.1/32,::1/128' : undefined),
-    CSP_MODE: source.CSP_MODE
+    CSP_MODE: source.CSP_MODE === '' ? undefined : source.CSP_MODE
   })
 
   if (parsed.success) {
