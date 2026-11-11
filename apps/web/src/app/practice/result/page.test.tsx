@@ -31,6 +31,7 @@ import {
   readStoredSubmissionAttempt,
   writeStoredSubmissionAttempt
 } from '@nihongo/browser/app/practice/submissionAttemptStorage'
+import { GUEST_SESSION_QUESTION_LIMIT } from '@nihongo/contracts/study/guest-limits'
 
 const originalScrollIntoView = Object.getOwnPropertyDescriptor(
   HTMLElement.prototype,
@@ -916,12 +917,16 @@ describe('approved general result navigation', () => {
       Array.from(guestActions.querySelectorAll<HTMLElement>('a, button')).map(
         (element) => element.textContent?.trim() ?? ''
       )
-    ).toEqual(['틀린 문제만 다시 풀기', '다음 10문제'])
+    ).toEqual([
+      '틀린 문제만 다시 풀기',
+      `다음 ${GUEST_SESSION_QUESTION_LIMIT}문제`
+    ])
     expect(guestRetry.className).toContain('border-line-interactive')
     expect(guestRetry.className).not.toContain('bg-brand')
     expect(
-      within(guestActions).getByRole('button', { name: '다음 10문제' })
-        .className
+      within(guestActions).getByRole('button', {
+        name: `다음 ${GUEST_SESSION_QUESTION_LIMIT}문제`
+      }).className
     ).toContain('bg-brand')
     expect(guestRetry.querySelector('svg')).toBeNull()
     guestView.view.unmount()

@@ -1923,8 +1923,7 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
     },
     {
       minimumTarget: page.getByRole('button', {
-        name: 'N5 문자·어휘 10문제 시작',
-        exact: true
+        name: /^N5 문자·어휘 \d+문제 시작$/u
       })
     }
   )
