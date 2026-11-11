@@ -1168,7 +1168,7 @@ test('workflow and command budgets preserve the three protected contexts', () =>
     'portable',
     'release_smoke'
   ])
-  assert.equal(steps(normal).length, 52)
+  assert.equal(steps(normal).length, 54)
   assert.deepEqual(jobs(candidate), ['candidate'])
   assert.equal(steps(candidate).length, 10)
   for (const name of [
@@ -1180,7 +1180,7 @@ test('workflow and command budgets preserve the three protected contexts', () =>
   }
   assert.doesNotMatch(normal, /phase ?[0-9]/iu)
   assert.doesNotMatch(normal + candidate, /previous-results|download-artifact/u)
-  assert.equal(normal.split('uses: actions/upload-artifact@v4').length - 1, 2)
+  assert.equal(normal.split('uses: actions/upload-artifact@v4').length - 1, 3)
   assert.doesNotMatch(candidate, /upload-artifact/u)
   assert.doesNotMatch(normal + candidate, /run:\s+[^\n]*phase[0-9]/iu)
   assert.equal(
