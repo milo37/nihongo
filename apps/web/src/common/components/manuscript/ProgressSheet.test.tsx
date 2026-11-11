@@ -79,6 +79,20 @@ describe('ProgressSheet (B4 manuscript strip)', () => {
     expect(container.querySelectorAll('text')).toHaveLength(0)
   })
 
+  it('drops two-digit numbers under 24px but keeps one digit at 20px+', () => {
+    // fallbackWidth 350 (jsdom), 16 squares in one row: 21.9px each.
+    const { container } = render(
+      <ProgressSheet
+        states={Array<ProgressCellState>(16).fill('todo')}
+        singleRowCellSize={28}
+      />
+    )
+    const numbers = [...container.querySelectorAll('text')].map(
+      (node) => node.textContent
+    )
+    expect(numbers).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9'])
+  })
+
   it('animates the red pen on the B4 timing and stays decorative', () => {
     const { container } = render(
       <ProgressSheet states={['ok', 'ng']} animate />

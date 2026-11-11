@@ -103,7 +103,10 @@ describe('PracticePage setup', () => {
     renderPractice('')
     expect(
       await screen.findByRole('button', {
-        name: `N3 문법 ${GUEST_SESSION_QUESTION_LIMIT}문제 시작`
+        name: new RegExp(
+          `^N3 문법 ${GUEST_SESSION_QUESTION_LIMIT}문제 시작`,
+          'u'
+        )
       })
     ).toBeInTheDocument()
 
@@ -206,12 +209,11 @@ describe('PracticePage setup', () => {
   it('게스트가 한 번이라도 풀면 남은 횟수를 보이고, 0회면 시작 대신 한도 카드를 둔다 (JLP-823)', async () => {
     mockGuestAllowance.setRemaining(1)
     const first = renderPractice('?level=N5&subject=VOCABULARY')
-    expect(await screen.findByText('오늘 1번 더 풀 수 있어요')).toBeVisible()
+    // The count sits inside the start button; no rule line (plan-notes §4).
     expect(
-      screen.getByText(
-        /^로그인 없이 하루 3번, 한 번에 \d+문제씩 풀 수 있어요\./u
-      )
+      await screen.findByRole('button', { name: /문제 시작 1번 남음$/u })
     ).toBeVisible()
+    expect(screen.queryByText(/로그인 없이 하루/u)).toBeNull()
     first.dispose()
     cleanup()
     queryClient.clear()
@@ -290,7 +292,10 @@ describe('PracticePage setup', () => {
       )
     )
     renderPractice('?level=N5&subject=VOCABULARY', { globalErrors: true })
-    const name = `N5 문자·어휘 ${GUEST_SESSION_QUESTION_LIMIT}문제 시작`
+    const name = new RegExp(
+      `^N5 문자·어휘 ${GUEST_SESSION_QUESTION_LIMIT}문제 시작`,
+      'u'
+    )
     const start = await screen.findByRole('button', { name })
     await waitFor(() => expect(start).toBeEnabled())
     await userEvent.setup().click(start)

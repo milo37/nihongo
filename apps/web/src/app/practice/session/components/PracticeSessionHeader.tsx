@@ -67,8 +67,9 @@ export const PracticeSessionHeader = ({
           <Icon name="x" />
         </Link>
         {/* Phone: the row of up to ten holding this question, filling the
-            space up to 28px squares (numbers drop under 20px). PC: one row
-            of 28px squares, 20 fit in 560. The progress element speaks. */}
+            space up to 28px squares. PC: one row of every square, filling
+            the space up to 28px (20 fit in 560). Numbers drop under 20px,
+            two-digit ones under 24px. The progress element speaks. */}
         <div className="study-session-sheet">
           <ProgressSheet
             className="study-session-sheet-phone"

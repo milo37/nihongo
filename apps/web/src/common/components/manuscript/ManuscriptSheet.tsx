@@ -50,7 +50,12 @@ export const getSheetGeometry = (
   cellSize?: number,
   maxCellSize = Infinity
 ) => {
-  const c = cellSize ?? Math.min(width / columns, maxCellSize)
+  // A fitted square is whole pixels so every 1px rule lands on a pixel.
+  const c =
+    cellSize ??
+    (maxCellSize === Infinity
+      ? width / columns
+      : Math.floor(Math.min(width / columns, maxCellSize)))
   const b = Math.round(c / 3)
   const band = bandBeforeRow === undefined ? 0 : Math.round(0.8 * c) + b
   const rowTop = (row: number): number =>

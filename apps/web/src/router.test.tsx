@@ -159,7 +159,9 @@ describe('application router boundaries', () => {
     await vi.waitFor(() => {
       expect(router.state.location.pathname).toBe('/practice')
       expect(router.state.navigation.state).toBe('idle')
-      expect(screen.getByRole('heading', { name: '학습' })).toBeInTheDocument()
+      expect(
+        screen.getByRole('heading', { name: '무엇을 풀까요?' })
+      ).toBeInTheDocument()
     })
 
     await vi.waitFor(() => {
@@ -278,7 +280,7 @@ describe('application router boundaries', () => {
       .mockImplementation(() => undefined)
     const router = renderRoutes('/practice')
     await screen.findByRole('heading', {
-      name: '학습'
+      name: '무엇을 풀까요?'
     })
     const main = document.querySelector('#main-content')
     expect(main).not.toHaveFocus()
@@ -307,7 +309,7 @@ describe('application router boundaries', () => {
       await router.navigate('/practice')
     })
     await screen.findByRole('heading', {
-      name: '학습'
+      name: '무엇을 풀까요?'
     })
     scrollTo.mockClear()
 
@@ -339,7 +341,7 @@ describe('application router boundaries', () => {
       .mockImplementation(() => undefined)
     const router = renderRoutes('/practice')
     await screen.findByRole('heading', {
-      name: '학습'
+      name: '무엇을 풀까요?'
     })
 
     await act(async () => {
@@ -400,7 +402,7 @@ describe('application router boundaries', () => {
       .mockImplementation(() => undefined)
     const router = renderRoutes('/practice')
     await screen.findByRole('heading', {
-      name: '학습'
+      name: '무엇을 풀까요?'
     })
 
     await act(async () => {
@@ -416,7 +418,7 @@ describe('application router boundaries', () => {
       await router.navigate('/practice')
     })
     await screen.findByRole('heading', {
-      name: '학습'
+      name: '무엇을 풀까요?'
     })
     await vi.waitFor(() =>
       expect(document.querySelector('#main-content')).toHaveFocus()

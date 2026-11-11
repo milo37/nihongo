@@ -1,4 +1,8 @@
 import { useTranslation } from 'react-i18next'
+import {
+  ButtonTriesLeft,
+  getGuestTriesLeft
+} from '@app/practice/components/ButtonTriesLeft'
 import type { ReactElement, ReactNode } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { ChoiceRadioGroup } from '@common/components/ChoiceRadioGroup'
@@ -73,9 +77,16 @@ const SubjectChoice = ({
             <span className="subject-glyph" lang="ja" aria-hidden="true">
               {subjectGlyphs[value]}
             </span>
-            {value === 'VOCABULARY'
-              ? homeT('approved.vocabulary')
-              : commonT(`taxonomy.subjects.${value}`)}
+            <span className="subject-text">
+              <span>
+                {value === 'VOCABULARY'
+                  ? homeT('approved.vocabulary')
+                  : commonT(`taxonomy.subjects.${value}`)}
+              </span>
+              <span className="subject-description">
+                {homeT(subjectDescriptionKeys[value])}
+              </span>
+            </span>
           </>
         )
       }))}
@@ -83,6 +94,13 @@ const SubjectChoice = ({
     />
   )
 }
+
+// One line under each subject (plan-notes §5).
+const subjectDescriptionKeys = {
+  VOCABULARY: 'subjects.vocabulary.description',
+  GRAMMAR: 'subjects.grammar.description',
+  READING: 'subjects.reading.description'
+} as const
 
 /** Live summary of the choice, the start button and the supply note. */
 const StartSummary = ({
@@ -113,6 +131,7 @@ const StartSummary = ({
   const { t: homeT } = useTranslation('home')
   const locale = resolveUiLocale(i18n.resolvedLanguage)
   if (isGuestDailyLimitReached) return null
+  const triesLeft = getGuestTriesLeft(isGuest, guestAllowance)
   return (
     <div className="practice-start-summary">
       <p className="sr-only" aria-live="polite">
@@ -127,7 +146,7 @@ const StartSummary = ({
         variant={hasResumableSession ? 'outline' : 'primary'}
         fullWidth
         type="submit"
-        aria-label={isCreating ? homeT('approved.loading') : startLabel}
+        aria-label={isCreating ? homeT('approved.loading') : undefined}
         disabled={!isReady}
         isLoading={isCreating}
         loadingLabel={homeT('approved.loading')}
@@ -135,18 +154,11 @@ const StartSummary = ({
         size="lg"
       >
         {startLabel}
+        {triesLeft === undefined ? null : (
+          <ButtonTriesLeft remaining={triesLeft} />
+        )}
       </Button>
-      {isGuest ? (
-        // Only after a first try: a fresh guest reads the rule up top.
-        guestAllowance &&
-        guestAllowance.remaining < guestAllowance.dailyLimit ? (
-          <p className="practice-supply-note">
-            {t('setup.guestLeft', {
-              remaining: formatNumber(guestAllowance.remaining, locale)
-            })}
-          </p>
-        ) : null
-      ) : (
+      {isGuest ? null : (
         <p className="practice-supply-note">{t('setup.availableCountNote')}</p>
       )}
     </div>
@@ -232,15 +244,18 @@ export const PracticeSetupForm = ({
   return (
     <form
       className="practice-selection"
-      aria-labelledby="practice-start-title"
+      // The page h1 already asks "무엇을 풀까요?"; a second heading only
+      // when a resumable set sits above (plan-notes §5).
+      aria-labelledby={hasResumableSession ? 'practice-start-title' : undefined}
+      aria-label={hasResumableSession ? undefined : t('setup.formTitle')}
       onSubmit={(event) => {
         event.preventDefault()
         onStart()
       }}
     >
-      <h2 id="practice-start-title">
-        {t(hasResumableSession ? 'setup.newTitle' : 'setup.formTitle')}
-      </h2>
+      {hasResumableSession ? (
+        <h2 id="practice-start-title">{t('setup.newTitle')}</h2>
+      ) : null}
       <SubjectChoice
         subject={subject}
         subjects={subjects}

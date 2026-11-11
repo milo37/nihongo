@@ -209,6 +209,7 @@ const PracticeResultPageContent = (): ReactElement => {
         <ResultActions
           isGuest={isGuest}
           isGuestDone={result.isGuestDone}
+          guestTriesLeft={result.guestTriesLeft}
           isRetryDisabled={result.isResultSourceUnavailable}
           isRetryLoading={
             createRetrySession.isPending || result.isRetrySourceRefreshing

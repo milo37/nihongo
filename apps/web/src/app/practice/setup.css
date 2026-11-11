@@ -43,6 +43,20 @@
   font-size: 24px;
   font-weight: 700;
 }
+.subject-text {
+  display: grid;
+  gap: 2px;
+  text-align: start;
+}
+.subject-description {
+  color: rgb(var(--color-muted));
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+.subject-description:lang(ja) {
+  line-break: strict;
+}
 .choice-option:has(input:checked) .subject-glyph {
   border-color: rgb(var(--color-brand));
   background: rgb(var(--color-brand));

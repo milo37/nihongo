@@ -186,3 +186,10 @@
     column-gap: clamp(64px, 7.5vw, 96px);
   }
 }
+
+/* Japanese lines break between phrases, never inside a word (B4 §8). */
+.study-result [lang='ja'],
+.study-result :lang(ja) {
+  word-break: normal;
+  line-break: strict;
+}
