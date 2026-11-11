@@ -19,6 +19,7 @@ import {
 } from '@app/practice/session/components/PracticeSessionDialogs'
 import { PracticeSessionHeader } from '@app/practice/session/components/PracticeSessionHeader'
 import { PracticeSessionNotices } from '@app/practice/session/components/PracticeSessionNotices'
+import sessionCss from '@app/practice/session/session.css?inline'
 import {
   SessionLoadError,
   SessionRecoveryState,
@@ -274,8 +275,18 @@ export const PracticeSessionPage = (): ReactElement => {
     <section
       className={`learning-note study-session ${reviewContext ? 'study-review-session' : ''} w-full`}
     >
+      <style href="harumaru-session" precedence="default">
+        {sessionCss}
+      </style>
       <PracticeSessionHeader
         answeredCount={session.answeredCount}
+        progressStates={session.questions.map((item, index) =>
+          index === session.safeQuestionIndex
+            ? 'current'
+            : session.displayedSelectedAnswers[item.id]
+              ? 'answered'
+              : 'todo'
+        )}
         bookmarkButton={
           <PracticeQuestionBookmarkButton
             isBookmarked={session.bookmark.isBookmarked(question.id)}

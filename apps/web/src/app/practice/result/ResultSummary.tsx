@@ -4,11 +4,13 @@ import type { ReactElement, RefObject } from 'react'
 import type { StudyResultView } from '@app/practice/adapters/studyResultView'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
 import { useResultNumberFormat } from '@app/practice/hooks/useResultNumberFormat'
-import { Badge } from '@nihongo/browser/common/components/Badge'
 import { getButtonClassName } from '@nihongo/browser/common/components/Button'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
-import { ProgressSheet } from '@common/components/manuscript/ProgressSheet'
+import {
+  gradeTiming,
+  ProgressSheet
+} from '@common/components/manuscript/ProgressSheet'
 import type { ProgressCellState } from '@common/components/manuscript/ProgressSheet'
 
 const SCORE_SLOT = '\u0000'
@@ -66,26 +68,50 @@ export const ResultSummary = ({
 
   return (
     <div className="study-result-summary">
-      <div className="flex flex-wrap gap-2">
-        <Badge variant="brand">{session.level}</Badge>
-        <Badge>{commonT(`taxonomy.subjects.${session.subject}`)}</Badge>
-      </div>
-      <h1
-        ref={headingRef}
-        className="mt-3 rounded-sm text-2xl font-black sm:text-3xl"
-        tabIndex={-1}
-      >
+      <h1 ref={headingRef} className="result-b4-title" tabIndex={-1}>
         {t('name')}
       </h1>
-      <p className="mt-4 flex flex-wrap items-baseline gap-3 text-xl font-bold text-muted">
-        <span>
-          {scoreBefore}
-          <strong className="text-[34px] font-black leading-none text-ink sm:text-[40px]">
-            {formatCount(result.correctCount)}
-          </strong>
-          {scoreAfter}
-        </span>
-        <span className="text-sm font-normal">{details.join(' · ')}</span>
+      <p className="result-b4-meta">
+        {[
+          session.level,
+          commonT(`taxonomy.subjects.${session.subject}`),
+          ...details
+        ].join(' · ')}
+      </p>
+      <p className="result-b4-score">
+        {scoreBefore}
+        <b
+          className={
+            result.correctCount >= 10
+              ? 'result-b4-number is-wide'
+              : 'result-b4-number'
+          }
+        >
+          {formatCount(result.correctCount)}
+          {/* The teacher's red circle on the score only (B4 §4). */}
+          <svg
+            className="result-b4-ring"
+            viewBox="0 0 24 22"
+            preserveAspectRatio="none"
+            aria-hidden="true"
+            focusable="false"
+          >
+            <path
+              className={animateGrading ? 'manuscript-pen' : undefined}
+              style={
+                animateGrading
+                  ? {
+                      animationDelay: `${gradeTiming(result.items.length).scoreCircleMs}ms`,
+                      animationDuration: '400ms'
+                    }
+                  : undefined
+              }
+              pathLength={1}
+              d="M15.5 3.2C9 1.6 3 5.6 3.4 11.6c.4 5.6 7 8.4 12.2 6.2 4.6-2 5.6-7.6 2.4-11.4"
+            />
+          </svg>
+        </b>
+        {scoreAfter}
       </p>
       <ProgressSheet
         className="study-result-sheet"

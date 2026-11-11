@@ -7,6 +7,7 @@ import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { usePracticeResultController } from '@app/practice/hooks/usePracticeResultController'
+import resultCss from '@app/practice/result/result.css?inline'
 import { ResultActions } from '@app/practice/result/ResultActions'
 import {
   ResultBookmarkNotices,
@@ -184,6 +185,9 @@ const PracticeResultPageContent = (): ReactElement => {
 
   return (
     <section className="learning-note study-page study-result mx-auto max-w-[760px] px-4 py-10 sm:px-6 lg:py-14">
+      <style href="harumaru-result" precedence="default">
+        {resultCss}
+      </style>
       <div className="study-result-main">
         {result.isResultSourceUnavailable ? (
           <ResultSourceNotice

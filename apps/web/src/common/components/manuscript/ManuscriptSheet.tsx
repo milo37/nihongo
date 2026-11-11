@@ -19,10 +19,21 @@ type ManuscriptSheetProps = {
   readonly cellSize?: number
   /** Index of the row that gets the centre band (판심) before it. */
   readonly bandBeforeRow?: number
+  /** Squares drawn; the last row may be short (left aligned). */
+  readonly count?: number
+  /** Added to each cell index (a window into a longer strip). */
+  readonly indexOffset?: number
   readonly renderCell?: (cell: SheetCell) => ReactNode
   readonly className?: string
   readonly style?: CSSProperties
 }
+
+/** Sheet and grade-mark styles; React hoists and dedupes them by href. */
+export const ManuscriptStyles = (): ReactElement => (
+  <style href="harumaru-manuscript" precedence="default">
+    {manuscriptCss}
+  </style>
+)
 
 /** Fish-tail marks (어미) at both ends of the centre band, 12 × 14. */
 const TAIL_LEFT = 'M0 0H12V14H0L5 7Z'
@@ -84,17 +95,21 @@ export const ManuscriptSheet = ({
   fallbackWidth = 350,
   cellSize,
   bandBeforeRow,
+  count = columns * rows,
+  indexOffset = 0,
   renderCell,
   className,
   style
 }: ManuscriptSheetProps): ReactElement => {
   const [ref, measured] = useMeasuredWidth(fallbackWidth)
   const g = getSheetGeometry(measured, columns, rows, bandBeforeRow, cellSize)
+  const inRow = (row: number): number =>
+    Math.max(0, Math.min(columns, count - row * columns))
   const cells: SheetCell[] = []
   for (let row = 0; row < rows; row += 1) {
-    for (let column = 0; column < columns; column += 1) {
+    for (let column = 0; column < inRow(row); column += 1) {
       cells.push({
-        index: row * columns + column,
+        index: indexOffset + row * columns + column,
         x: column * g.c,
         y: g.rowTop(row),
         c: g.c
@@ -109,10 +124,7 @@ export const ManuscriptSheet = ({
       style={style}
       aria-hidden="true"
     >
-      {/* React hoists and dedupes this by href (same as the home styles). */}
-      <style href="harumaru-manuscript" precedence="default">
-        {manuscriptCss}
-      </style>
+      <ManuscriptStyles />
       <svg
         width={g.width}
         height={g.height}
@@ -122,15 +134,17 @@ export const ManuscriptSheet = ({
         <g className="manuscript-sheet-rules">
           {Array.from({ length: rows }, (_, row) => {
             const top = g.rowTop(row)
+            const squares = inRow(row)
+            if (squares === 0) return null
             return (
               <g key={row}>
                 <rect
                   x={0.5}
                   y={top + 0.5}
-                  width={g.width - 1}
+                  width={Math.round(squares * g.c) - 1}
                   height={g.c - 1}
                 />
-                {Array.from({ length: columns - 1 }, (_, column) => {
+                {Array.from({ length: squares - 1 }, (_, column) => {
                   const x = Math.round((column + 1) * g.c) + 0.5
                   return (
                     <line key={column} x1={x} y1={top} x2={x} y2={top + g.c} />

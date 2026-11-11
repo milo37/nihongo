@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react'
 import type { StudyResultItemView } from '@app/practice/adapters/studyResultView'
-import { Icon } from '@nihongo/browser/common/components/Icon'
+import { GradeMark } from '@common/components/manuscript/GradeMark'
+import { ManuscriptStyles } from '@common/components/manuscript/ManuscriptSheet'
 
 export type ResultStatus = 'correct' | 'incorrect' | 'unanswered'
 
@@ -11,27 +12,37 @@ export const getResultStatus = (item: StudyResultItemView): ResultStatus =>
       ? 'unanswered'
       : 'incorrect'
 
-const statusIcons = {
-  incorrect: 'x',
-  unanswered: 'minus'
-} as const
+const CELL = { x: 0, y: 0, c: 24 }
 
-const statusClassNames: Record<ResultStatus, string> = {
-  correct: 'border-[3px] border-current text-success',
-  incorrect: 'bg-danger text-on-accent',
-  unanswered: 'border border-dashed border-current text-muted'
-}
-
-/** Colour and shape (hollow ○, filled ✕, dashed –); the name is in text. */
+/**
+ * One manuscript square: an ink circle (correct), a pale fill with a red
+ * slash (incorrect) or left blank (unanswered). Never animated; the status
+ * name is in text next to it.
+ */
 export const ResultStatusIcon = ({
   status
 }: {
   status: ResultStatus
 }): ReactElement => (
-  <span
-    className={`result-status-icon inline-grid size-5 shrink-0 place-items-center rounded-full ${statusClassNames[status]}`}
-    data-status={status}
-  >
-    {status === 'correct' ? null : <Icon name={statusIcons[status]} />}
-  </span>
+  <>
+    <ManuscriptStyles />
+    <svg
+      className="result-status-icon"
+      data-status={status}
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {status === 'unanswered' ? null : (
+        <GradeMark cell={CELL} grade={status === 'correct' ? 'ok' : 'ng'} />
+      )}
+      <rect
+        className="result-status-icon-rule"
+        x={0.5}
+        y={0.5}
+        width={23}
+        height={23}
+      />
+    </svg>
+  </>
 )

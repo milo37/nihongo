@@ -718,10 +718,12 @@ describe('approved general result navigation', () => {
     const score = (
       await screen.findByText('3문제 중', { exact: false })
     ).closest('p')
-    expect(score).toHaveTextContent(
-      '3문제 중 1개 맞음정답률 33.33% · 0분 0초 · 안 풂 1'
+    expect(score).toHaveTextContent(/^3문제 중 1개 맞음$/u)
+    expect(score?.querySelector('b')).toHaveTextContent(/^1$/u)
+    // Rate, time and unanswered sit once in the line above the score (B4).
+    expect(score?.previousElementSibling).toHaveTextContent(
+      /정답률 33\.33% · 0분 0초 · 안 풂 1$/u
     )
-    expect(score?.querySelector('strong')).toHaveTextContent(/^1$/u)
     expect(
       screen.getByText('안 푼 문제도 틀린 것으로 채점돼요.', {
         exact: false

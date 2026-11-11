@@ -5,6 +5,8 @@ import { Icon } from '@nihongo/browser/common/components/Icon'
 import type { PracticeNavigationContext } from '@app/layout'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
 import { usePracticeNumberFormat } from '@app/practice/hooks/usePracticeNumberFormat'
+import { ProgressSheet } from '@common/components/manuscript/ProgressSheet'
+import type { ProgressCellState } from '@common/components/manuscript/ProgressSheet'
 
 type PracticeSessionHeaderProps = {
   answeredCount: number
@@ -13,12 +15,14 @@ type PracticeSessionHeaderProps = {
   isBackDisabled: boolean
   isQuestionSheetDisabled: boolean
   onOpenQuestionSheet: () => void
+  /** One state per question for the manuscript strip (B4 §3). */
+  progressStates: readonly ProgressCellState[]
   reviewContext: PracticeNavigationContext['reviewReturnContext']
   session: StudySessionView['session']
   total: number
 }
 
-/** Top bar: back, "N1 Reading 1 / 3" (opens the number sheet), bookmark, progress. */
+/** Top bar: close, the manuscript strip, "3 / 10" (opens the number sheet), bookmark. */
 export const PracticeSessionHeader = ({
   answeredCount,
   bookmarkButton,
@@ -26,6 +30,7 @@ export const PracticeSessionHeader = ({
   isBackDisabled,
   isQuestionSheetDisabled,
   onOpenQuestionSheet,
+  progressStates,
   reviewContext,
   session,
   total
@@ -39,7 +44,7 @@ export const PracticeSessionHeader = ({
     <header
       className={`border-b border-line bg-surface ${reviewContext ? 'study-session-context' : ''}`}
     >
-      <div className="mx-auto flex h-14 max-w-6xl lg:h-16 items-center gap-1 px-2">
+      <div className="study-session-bar mx-auto flex h-14 max-w-6xl lg:h-16 items-center gap-1 px-2">
         <Link
           className="note-link size-11 shrink-0 justify-center"
           aria-label={t(
@@ -59,12 +64,23 @@ export const PracticeSessionHeader = ({
               : '/practice'
           }
         >
-          <Icon name="chevron-left" />
+          <Icon name="x" />
         </Link>
-        <p className="flex min-w-0 flex-1 items-center justify-center gap-1.5 text-base font-bold">
-          <span className="truncate">
-            {session.level} {commonT(`taxonomy.subjects.${session.subject}`)}
-          </span>
+        {/* Phone: the ten-square row holding this question. PC: one row
+            (28px squares, 20 fit in 560). The progress element below speaks. */}
+        <div className="study-session-sheet">
+          <ProgressSheet
+            className="study-session-sheet-phone"
+            states={progressStates}
+            rowOf={currentNumber - 1}
+          />
+          <ProgressSheet
+            className="study-session-sheet-pc"
+            states={progressStates}
+            singleRowCellSize={28}
+          />
+        </div>
+        <p className="flex shrink-0 items-center text-base font-bold">
           {total > 1 ? (
             <button
               className="min-h-11 shrink-0 rounded-control px-1 tabular-nums underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
@@ -84,8 +100,11 @@ export const PracticeSessionHeader = ({
           {bookmarkButton}
         </div>
       </div>
+      <p className="study-session-meta mx-auto max-w-6xl px-4">
+        {session.level} · {commonT(`taxonomy.subjects.${session.subject}`)}
+      </p>
       <progress
-        className="ui-progress block h-1 w-full"
+        className="sr-only"
         aria-label={t('session.header.progressSummary', {
           answered: formatCount(answeredCount),
           current: formatCount(currentNumber),

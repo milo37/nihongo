@@ -1,0 +1,85 @@
+/* B4 solve screen (HANDOFF §3, §4, §6). Loaded with the session page only. */
+.study-session-sheet {
+  flex: 1;
+  min-width: 0;
+  padding-inline: 6px;
+}
+.study-session-sheet-pc {
+  display: none;
+}
+.study-session-meta {
+  padding-top: 14px;
+  font-size: 13px;
+  color: rgb(var(--color-muted));
+}
+
+/* Options are ruled rows; the choice fills the number square (no card). */
+.study-session .study-answer-options label,
+.study-session .study-answer-options label:has(input:checked) {
+  min-height: 64px;
+  padding: 12px 4px;
+  border: 0;
+  border-bottom: 1px solid rgb(var(--color-line));
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.study-session .study-answer-options label:has(input:disabled) {
+  background: transparent;
+}
+.study-option-number {
+  border: 1.5px solid rgb(var(--color-sheet-line));
+  border-radius: 2px;
+  color: rgb(var(--color-ink));
+  font-feature-settings: 'tnum';
+}
+label:has(input:checked) .study-option-number {
+  border-color: rgb(var(--color-brand));
+  background: rgb(var(--color-brand));
+  color: rgb(var(--color-on-accent));
+}
+.study-session .study-answer-options label span.study-option-text {
+  font-size: 18px;
+}
+label:has(input:checked) .study-option-text {
+  font-weight: 700;
+}
+.study-question-text {
+  font-size: 22px;
+  line-height: 1.6;
+  word-break: keep-all;
+}
+
+@media (min-width: 1024px) {
+  .study-session-bar,
+  .study-session-meta {
+    max-width: 720px;
+  }
+  .study-session-sheet {
+    display: flex;
+    justify-content: center;
+  }
+  .study-session-sheet .study-session-sheet-phone {
+    display: none;
+  }
+  .study-session-sheet .study-session-sheet-pc {
+    display: block;
+    max-width: 560px;
+  }
+  .study-question-text {
+    font-size: 30px;
+  }
+  .study-session .study-answer-options .choice-options,
+  .study-session .study-answer-options > div {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 24px;
+  }
+  .study-session .study-answer-options label,
+  .study-session .study-answer-options label:has(input:checked) {
+    min-height: 72px;
+  }
+  .study-session .study-answer-options label span.study-option-text {
+    font-size: 21px;
+  }
+}
