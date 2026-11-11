@@ -43,7 +43,7 @@ export const AccountSettings = (): ReactElement => {
         ref={heading}
         id={headingId}
         tabIndex={-1}
-        className="text-xl font-semibold"
+        className="text-xl font-semibold outline-none"
       >
         {t('settings.title')}
       </h2>

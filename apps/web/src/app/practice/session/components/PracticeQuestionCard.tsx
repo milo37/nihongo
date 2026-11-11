@@ -123,7 +123,7 @@ export const PracticeQuestionCard = ({
         <div className="flex items-start justify-between gap-3">
           <h1
             ref={headingRef}
-            className="min-w-0 rounded-sm [text-wrap:wrap]"
+            className="min-w-0 rounded-sm outline-none [text-wrap:wrap]"
             tabIndex={-1}
           >
             <span className="mb-2 block text-[13px] font-bold text-muted">

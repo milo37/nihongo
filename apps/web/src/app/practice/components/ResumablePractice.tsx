@@ -197,8 +197,8 @@ export const ResumablePractice = ({
         id="resumable-practice-title"
         className={
           data?.items.length
-            ? 'practice-resume-heading sr-only focus:not-sr-only'
-            : 'practice-resume-heading'
+            ? 'practice-resume-heading sr-only outline-none focus:not-sr-only'
+            : 'practice-resume-heading outline-none'
         }
         tabIndex={-1}
       >

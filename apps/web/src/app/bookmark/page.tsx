@@ -32,7 +32,7 @@ const BookmarkHeading = ({
     <div>
       <h1
         ref={headingRef}
-        className="bookmark-title rounded-sm focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
+        className="bookmark-title outline-none"
         tabIndex={-1}
       >
         {t('title')}

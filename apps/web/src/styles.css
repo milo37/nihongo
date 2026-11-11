@@ -112,8 +112,7 @@
   color: rgb(var(--color-brand-strong));
 }
 .operations-navigation a:focus-visible,
-.operations-table-of-contents a:focus-visible,
-.operations-section:focus-visible {
+.operations-table-of-contents a:focus-visible {
   outline: var(--focus-width) solid rgb(var(--focus-color));
   outline-offset: var(--focus-offset);
 }
