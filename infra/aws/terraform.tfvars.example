@@ -12,9 +12,13 @@ alert_email            = "owner@example.com"
 # create_cost_anomaly_monitor = false
 # budget_filter_by_environment = true        # both stacks once PRODUCTION exists
 # manage_cost_allocation_tag  = true         # exactly one stack (STAGING)
-# STAGING kept stopped between uses (owner decision):
-# host_stop_schedule_expression = "cron(0 1 * * ? *)"
-# deploy_role_can_start_host    = true
+# STAGING kept stopped between uses (owner decision): one daily window 04:40-05:50 JST.
+# host_start_schedule_expression    = "cron(40 4 * * ? *)"
+# erasure_schedule_expression       = "cron(0 5 * * ? *)"
+# guest_cleanup_schedule_expression = "cron(30 5 * * ? *)"
+# host_stop_schedule_expression     = "cron(50 5 * * ? *)"
+# deploy_role_can_start_host        = true
+# host_kept_stopped                 = true
 
 # PRODUCTION needs origin_domain_name (validation). After buying the domain
 # (Cloudflare DNS, see README) and issuing a us-east-1 ACM certificate:
