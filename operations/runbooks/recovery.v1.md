@@ -150,9 +150,31 @@ re-applied.
 - `erasure-reapply-<stamp>.txt`: re-apply with the #702 command (after the
   deploy). Until #702 ships, hand the file to the backend owner to re-apply,
   and tell those users their erasure is being redone.
-- `erasure-restore-<stamp>.txt`: these accounts must not be erased. Before the
-  erasure schedule's next run, hand the file to the backend owner to cancel
-  their pending erasure again (or pause the schedule until that is done).
+- `erasure-restore-<stamp>.txt`: these accounts must not be erased. Pause the
+  erasure schedule (`erasure_schedule_enabled = false`) until this is done,
+  copy the file to the host and cancel each pending erasure again with the same
+  database path as the in-app restore (after the deploy, so the #893 migration
+  is applied):
+
+  ```sh
+  cd /opt/harumaru
+  while read -r uid; do
+    printf '%s: ' "$uid"
+    docker compose exec -T postgres psql -X --username postgres --dbname nihongo \
+      -v ON_ERROR_STOP=1 -v uid="$uid" <<'SQL'
+  BEGIN;
+  SET LOCAL ROLE nihongo_app;
+  UPDATE "User" SET "accountStatus" = 'ACTIVE'
+    WHERE "id" = :'uid' AND "accountStatus" = 'DELETION_PENDING';
+  COMMIT;
+  SQL
+  done < erasure-restore-<stamp>.txt
+  ```
+
+  `UPDATE 1` restored the account; `UPDATE 0` means it was already active or
+  already erased. Change no other column: the trigger rejects it. SQLSTATE
+  `55000` means its erasure has already started and cannot be undone; hand that
+  id to the backend owner. Then turn the schedule back on.
 
 ## Volume snapshot (AWS only)
 
