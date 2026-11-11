@@ -85,6 +85,14 @@ const browserRealContractPaths = new Set([
   'scripts/accessibility-database-contract.test.mjs'
 ])
 
+// Screen and shared-package changes, and the user-journey paths below, need both browser suites on dev PRs
+// so a UI regression shows before main integration (#886).
+const userJourneyPathPattern =
+  /(?:^|\/)(?:auth|storage|study|practice|submission)(?:\/|\.|-)/iu
+const browserScreenPathPattern = /^(?:apps\/web|apps\/admin|packages)\//u
+const isBrowserScreenPath = (file) =>
+  browserScreenPathPattern.test(file) || userJourneyPathPattern.test(file)
+
 // Injected test faults need real and Mock provenance proof on dev PRs.
 const browserFaultProvenancePaths = new Set([
   'apps/web/e2e/accessibility.spec.ts',
@@ -209,11 +217,7 @@ export const classifyChangedFiles = (changedFiles) => {
       fail('CI_CLASSIFICATION_UNCLASSIFIED_PATH')
     }
 
-    if (
-      /(?:^|\/)(?:auth|storage|study|practice|submission)(?:\/|\.|-)/iu.test(
-        file
-      )
-    ) {
+    if (userJourneyPathPattern.test(file)) {
       selection.web = true
       selection.api = true
       selection.database = true
@@ -256,8 +260,9 @@ export const selectChecks = ({ eventName, ref, event, changedFiles }) => {
       }
     }
     const selection = classifyChangedFiles(changedFiles)
-    selection.browser_mock = selection.files.some((file) =>
-      browserFaultProvenancePaths.has(file)
+    selection.browser_mock = selection.files.some(
+      (file) =>
+        browserFaultProvenancePaths.has(file) || isBrowserScreenPath(file)
     )
     selection.browser =
       selection.browser_mock ||

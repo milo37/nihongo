@@ -136,6 +136,8 @@ jobs:
           site-url: ${{ vars.STAGING_SITE_URL }}
           deploy-document: harumaru-staging-deploy
           start-if-stopped: ${{ vars.STAGING_START_IF_STOPPED == 'true' }}
+          # Kept stopped between uses: 3 hours for checks after each deploy.
+          stop-after-minutes: ${{ vars.STAGING_START_IF_STOPPED == 'true' && '180' || '0' }}
           github-token: ${{ github.token }}
 
   deploy-production:
