@@ -29,11 +29,16 @@ mkdirSync(dirname(fixtureWrapper), { recursive: true })
 copyFileSync(wrapper, fixtureWrapper)
 after(() => rmSync(fixtureRoot, { recursive: true, force: true }))
 
-const run = (entry, args) => {
+// A full-inventory analysis starts tsx and reads every approved source; the
+// all-pairs duplicate scan is the slowest (about 2s locally, and shared CI
+// runners measured about 3x slower). The limit only stops a hung child, so it
+// keeps a wide margin over the slowest command (CCD-664).
+const analysisTimeoutMs = 60_000
+const run = (entry, args, timeout = 15_000) => {
   const result = spawnSync(process.execPath, [entry, ...args], {
     cwd: tmpdir(),
     encoding: 'utf8',
-    timeout: 15_000,
+    timeout,
     maxBuffer: 256 * 1024
   })
   assert.equal(result.error, undefined)
@@ -58,7 +63,7 @@ for (const command of ['check', 'validate', 'coverage', 'duplicates']) {
       packageScripts[`content:${command}`],
       `node scripts/content/run-retained-validator.mjs ${command}`
     )
-    const result = run(wrapper, [command])
+    const result = run(wrapper, [command], analysisTimeoutMs)
     assert.equal(result.status, 0, result.stderr)
     assert.equal(result.stderr, '')
     assert.ok(Buffer.byteLength(result.stdout) <= 128 * 1024)

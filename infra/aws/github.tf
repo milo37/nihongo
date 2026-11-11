@@ -6,6 +6,9 @@ resource "aws_iam_openid_connect_provider" "github" {
 }
 
 locals {
+  # A job with `environment: production` gets sub = ...:environment:production,
+  # not the ref. PRODUCTION trusts only that, so only an approved job deploys.
+  github_deploy_subject    = var.github_deploy_environment != "" ? "repo:${var.github_repository}:environment:${var.github_deploy_environment}" : "repo:${var.github_repository}:ref:${var.github_deploy_ref}"
   github_oidc_provider_arn = var.create_github_oidc_provider ? aws_iam_openid_connect_provider.github[0].arn : "arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/token.actions.githubusercontent.com"
 }
 
@@ -24,7 +27,7 @@ data "aws_iam_policy_document" "github_assume" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repository}:ref:${var.github_deploy_ref}"]
+      values   = [local.github_deploy_subject]
     }
   }
 }
@@ -42,18 +45,42 @@ data "aws_iam_policy_document" "github_deploy" {
     resources = ["*"]
   }
 
-  statement {
-    sid = "EcrPush"
-    actions = [
-      "ecr:BatchCheckLayerAvailability",
-      "ecr:BatchGetImage",
-      "ecr:CompleteLayerUpload",
-      "ecr:DescribeImages",
-      "ecr:InitiateLayerUpload",
-      "ecr:PutImage",
-      "ecr:UploadLayerPart",
-    ]
-    resources = [aws_ecr_repository.api.arn]
+  # Only the stack that owns the api repository pushes release images.
+  dynamic "statement" {
+    for_each = var.create_ecr_repository ? [1] : []
+    content {
+      sid = "EcrPush"
+      actions = [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:BatchGetImage",
+        "ecr:CompleteLayerUpload",
+        "ecr:DescribeImages",
+        "ecr:InitiateLayerUpload",
+        "ecr:PutImage",
+        "ecr:UploadLayerPart",
+      ]
+      resources = [local.ecr_repository_arn]
+    }
+  }
+
+  # STAGING kept stopped between uses (host_stop_schedule_expression): the
+  # deploy job starts this one host first and waits for its SSM agent.
+  dynamic "statement" {
+    for_each = var.deploy_role_can_start_host ? [1] : []
+    content {
+      sid       = "StartHost"
+      actions   = ["ec2:StartInstances"]
+      resources = [aws_instance.host.arn]
+    }
+  }
+
+  dynamic "statement" {
+    for_each = var.deploy_role_can_start_host ? [1] : []
+    content {
+      sid       = "SeeHostState"
+      actions   = ["ec2:DescribeInstances", "ssm:DescribeInstanceInformation"]
+      resources = ["*"]
+    }
   }
 
   # Deploy = run the host's deploy document on this one instance.

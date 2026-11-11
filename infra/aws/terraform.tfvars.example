@@ -4,6 +4,18 @@ alert_email            = "owner@example.com"
 # monthly_budget_jpy   = 5000 (default; tax included, converted to USD in main.tf)
 # budget_stop_ec2_enabled = true  # after switching to the paid plan (default false: alerts only)
 
+# Two stacks in one account (README "STAGING과 PRODUCTION 두 스택"):
+# STAGING keeps the defaults below; PRODUCTION sets
+# github_deploy_environment  = "production"  # required: only the approved job deploys
+# create_ecr_repository      = false         # reads STAGING's harumaru/api
+# create_github_oidc_provider = false
+# create_cost_anomaly_monitor = false
+# budget_filter_by_environment = true        # both stacks once PRODUCTION exists
+# manage_cost_allocation_tag  = true         # exactly one stack (STAGING)
+# STAGING kept stopped between uses (owner decision):
+# host_stop_schedule_expression = "cron(0 1 * * ? *)"
+# deploy_role_can_start_host    = true
+
 # PRODUCTION needs origin_domain_name (validation). After buying the domain
 # (Cloudflare DNS, see README) and issuing a us-east-1 ACM certificate:
 # origin_domain_name  = "origin.harumaru.app"
