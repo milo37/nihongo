@@ -51,7 +51,7 @@ export const ErrorState = ({
       <Heading
         ref={headingRef}
         className={classNames(
-          'rounded-sm text-balance font-bold',
+          'rounded-sm text-balance font-bold outline-none',
           density === 'regular' && 'text-lg'
         )}
         id={titleId}
