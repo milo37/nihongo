@@ -21,7 +21,13 @@ export const authMutations = {
               '@api/auth/completeMockSocialSignIn'
             )
             advanceAuthTransitionEpoch()
-            await completeMockSocialSignIn(input.provider)
+            const completed = await completeMockSocialSignIn(input.provider)
+            if ('restoreAvailable' in completed) {
+              const { markMockRestoreOffered } = await import(
+                '@app/login/mockRestoreMarker'
+              )
+              markMockRestoreOffered()
+            }
           }
           return response
         } catch (error: unknown) {

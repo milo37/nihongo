@@ -531,11 +531,57 @@ describe('마이페이지 계정 설정', () => {
     await user.dblClick(
       within(dialog).getByRole('button', { name: '회원 탈퇴' })
     )
-    await screen.findByText('탈퇴 신청을 받았어요.')
+    // JLP-845: the notice carries the erasure date, 7 days on.
+    await screen.findByText(
+      /^탈퇴 신청을 받았어요\. \d+월 \d+일 .+시에 모두 삭제돼요\. 그 전에 다시 로그인하면 되살릴 수 있어요\.$/u
+    )
     expect(router.state.location.pathname).toBe('/login')
     expect(countPosts(posts, '/auth/sso/delete-account')).toBe(1)
     expect(useAppStore.getState().currentUser).toBeNull()
     expect(queryClient.getQueryData(['bookmarks', 'private'])).toBeUndefined()
+  })
+  it('JLP-845 ⑦ 마지막 관리자 409는 창을 두고 알린 뒤 [회원 탈퇴]를 끈다', async () => {
+    freshActor()
+    mockServer.use(
+      http.post('*/api/auth/sso/delete-account', () =>
+        HttpResponse.json(
+          { code: 'SSO_LAST_ADMIN_DELETION_BLOCKED' },
+          { status: 409 }
+        )
+      )
+    )
+    const user = userEvent.setup()
+    const posts = vi.spyOn(apiClient, 'post')
+    renderAccount()
+    const dialog = await openDeleteDialog(user)
+    const confirm = within(dialog).getByRole('button', { name: '회원 탈퇴' })
+    await user.click(confirm)
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      '관리자가 한 명뿐이라 지금은 탈퇴할 수 없어요. 다른 회원을 관리자로 먼저 지정한 뒤 다시 시도해 주세요.'
+    )
+    expect(confirm).toBeDisabled()
+    expect(within(dialog).getByRole('button', { name: '취소' })).toBeEnabled()
+    expect(countPosts(posts, '/auth/sso/delete-account')).toBe(1)
+    expect(useAppStore.getState().currentUser).not.toBeNull()
+  })
+  it('JLP-845 ⑥ 마지막 활성 관리자는 [회원 탈퇴]가 미리 꺼지고 이유와 이어진다', async () => {
+    mockDatabase.loginAs('USER')
+    const caps = mockDatabase.ssoAccounts.capabilities()
+    mockServer.use(
+      http.get('*/api/auth/sso/accounts', () =>
+        HttpResponse.json({
+          ...caps,
+          canDelete: false,
+          deletionBlockedReason: 'LAST_ACTIVE_ADMIN'
+        })
+      )
+    )
+    renderAccount()
+    const deletion = await screen.findByRole('button', { name: '회원 탈퇴' })
+    await waitFor(() => expect(deletion).toBeDisabled())
+    expect(deletion).toHaveAccessibleDescription(
+      '관리자가 한 명뿐이라 지금은 탈퇴할 수 없어요. 다른 회원을 관리자로 먼저 지정한 뒤 다시 시도해 주세요.'
+    )
   })
   it('403 fresh 요구는 이동이나 탈퇴 반복 없이 ① 본인 확인으로 되돌린다', async () => {
     linkedActor()

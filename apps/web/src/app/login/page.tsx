@@ -12,7 +12,7 @@ import {
   ACCOUNT_REAUTH_PARAM
 } from '@app/account/hooks/useSsoAccountManagement'
 import { RestoreCard } from '@app/login/components/RestoreCard'
-import type { RestoreFailure } from '@app/login/components/RestoreCard'
+import type { RestoreFailure } from '@app/login/hooks/useAccountRestore'
 import { SignInCard } from '@app/login/components/SignInCard'
 import { formatErasureDate } from '@app/login/erasureDate'
 import type { SignInNotice } from '@app/login/components/SignInCard'
@@ -25,7 +25,7 @@ import {
   appDocumentNavigation,
   useAppNavigate
 } from '@nihongo/browser/libs/appNavigation'
-import { useUiLocale } from '@nihongo/browser/provider/I18nProvider'
+import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 
 type Notice =
@@ -80,8 +80,9 @@ const noticeKeys: Record<
 // Shows the account deletion result once, only right after this browser
 // requested it; ordinary visitors never query the deletion receipt.
 const useDeletionNotice = (active: boolean): string | null => {
-  const { t } = useTranslation('auth')
-  const { locale } = useUiLocale()
+  const { t, i18n } = useTranslation('auth')
+  // Lazy routes read the locale here, not from I18nProvider (one chunk).
+  const locale = resolveUiLocale(i18n.resolvedLanguage)
   const { receipt } = useSsoAccountDeletion(active)
   if (!active) return null
   if (receipt.isPending) return t('sso.checkingAccount')
