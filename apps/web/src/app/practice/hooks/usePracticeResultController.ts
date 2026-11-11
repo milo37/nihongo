@@ -28,6 +28,7 @@ import {
   asGuestAllowance,
   guestAllowanceQueries
 } from '@app/practice/queries/guestAllowanceQueries'
+import { getGuestTriesLeft } from '@app/practice/components/ButtonTriesLeft'
 import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
 
 export type ResultRetryStatusCode = 'priorEnded' | 'sourceRefreshing'
@@ -61,6 +62,10 @@ export const usePracticeResultController = ({
   // The guest just used the last try for today (L20).
   const isGuestDone =
     role === 'GUEST' && asGuestAllowance(guestAllowance.data)?.remaining === 0
+  const guestTriesLeft = getGuestTriesLeft(
+    role === 'GUEST',
+    asGuestAllowance(guestAllowance.data)
+  )
   const principalScope = getStudyDraftPrincipalScope(user)
   const requireFreshGuestOwnerProbe = isAuthReady && role === 'GUEST'
   const resultQuery = useGetStudyResult(
@@ -353,6 +358,7 @@ export const usePracticeResultController = ({
     canRequestCanonicalRetry,
     canShowRetryButton,
     isGuestDone,
+    guestTriesLeft,
     createRetrySession,
     handleRetryIncorrect,
     hasNoEligibleRetry,

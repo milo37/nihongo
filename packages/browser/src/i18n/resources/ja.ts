@@ -341,8 +341,7 @@ export const jaCoreResources = {
       pickLevel: 'レベルを変える',
       pickSubject: '科目を変える',
       dueAction: '復習する',
-      guestMore: '残しておきたいときだけ',
-      guestMoreAction: 'ログイン',
+      guestLeftShort: 'あと{{remaining}}回',
       startGuest: 'すぐに解く',
       startMember: 'すぐに解く',
       dailyLabel: '今日の1問',
@@ -364,21 +363,20 @@ export const jaCoreResources = {
       loading: '読み込み中…'
     },
     quickDrill: {
-      title: '10問すぐ解く',
       start: '{{level}} {{subject}} {{formattedCount}}問を始める'
     },
     subjects: {
       vocabulary: {
         label: '文字・語彙',
-        description: '漢字の読み方、表記、合う言葉'
+        description: '漢字の読み・表記・意味'
       },
       grammar: {
         label: '文法',
-        description: '文法の選択、文の組み立て'
+        description: '助詞・活用・文作り'
       },
       reading: {
         label: '読解',
-        description: '短い文、案内文の読解'
+        description: '文章・案内文を読んで答える'
       }
     }
   },
@@ -479,9 +477,7 @@ export const jaCoreResources = {
       formTitle: '何を解きますか？',
       newTitle: '新しく解く',
       modeSummary: '出題方式',
-      guestHint:
-        'ログインしなくても1日{{total}}回、1回{{count}}問ずつ解けます。',
-      title: '学習',
+      title: '何を解きますか？',
       description:
         '用意された問題が選んだ数より少ないときは、ある分だけ出ます。',
       resume: {
@@ -533,9 +529,6 @@ export const jaCoreResources = {
           empty: '復習する問題がありません。ほかの方法で解いてみてください。'
         }
       },
-      guestResumeHint:
-        'ログインすると、途中でやめた問題をあとで続きから解けます。',
-      guestLeft: '今日はあと{{remaining}}回解けます',
       dailyLimit: {
         title: '今日の{{total}}回をすべて解きました',
         description:
@@ -777,8 +770,6 @@ export const jaCoreResources = {
     },
     status: {
       guest: '間違えた{{formattedCount}}問、間違いノートに集めておきますか？',
-      guestDetail: 'ログインすると、今解いた問題が間違いノートに入ります。',
-      guestAction: 'ログインして集める',
       guestAllCorrect:
         'ログインすると、次から間違えた問題が間違いノートに集まります。',
       savedWrongCount:
@@ -864,8 +855,8 @@ export const jaCoreResources = {
       startNew: '新しい問題を解く',
       showAll: 'すべて見る',
       never: {
-        title: 'まだ間違えた問題はありません',
-        body: '問題を解いて間違えるとここに集まります。'
+        title:
+          'まだ間違えた問題はありません。解いて間違えるとここに集まります。'
       },
       allDone: {
         title: '復習する問題をすべて解きました',

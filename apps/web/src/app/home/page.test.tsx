@@ -179,13 +179,8 @@ it.each([
       },
       expect.anything()
     )
-    // Guests keep things only after logging in: one quiet line, no lock.
-    expect(
-      screen.getByRole('link', {
-        name: appI18n.t('home:today.guestMoreAction')
-      })
-    ).toHaveAttribute('href', '/login?redirect=%2F')
-    expect(screen.getByText(appI18n.t('home:today.guestMore'))).toBeVisible()
+    // No "keep it with a login" line on the first screen (plan-notes §4).
+    expect(document.querySelector('.home-more')).toBeNull()
   }
 )
 

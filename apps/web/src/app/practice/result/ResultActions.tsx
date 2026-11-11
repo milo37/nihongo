@@ -7,12 +7,15 @@ import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 import { useStartNextSet } from '@app/practice/result/useStartNextSet'
 import { PracticeSetupFeedback } from '@app/practice/components/PracticeSetupFeedback'
+import { ButtonTriesLeft } from '@app/practice/components/ButtonTriesLeft'
 
 // Outlined buttons add a border; fix both buttons at 48px (ux2 §2-4).
 const SAME_HEIGHT = 'h-12'
 
 type ResultActionsProps = {
   isGuest: boolean
+  /** A guest's tries left, inside [다음 N문제] (plan-notes §5). */
+  guestTriesLeft?: number
   /** A guest's last try today (L20). */
   isGuestDone: boolean
   isRetryDisabled: boolean
@@ -31,6 +34,7 @@ type ResultActionsProps = {
  * 48px, the same for members and guests (B4 §11).
  */
 export const ResultActions = ({
+  guestTriesLeft,
   isGuest,
   isGuestDone,
   isRetryDisabled,
@@ -72,6 +76,9 @@ export const ResultActions = ({
                 resolveUiLocale(i18n.resolvedLanguage)
               )
             })}
+            {guestTriesLeft === undefined ? null : (
+              <ButtonTriesLeft remaining={guestTriesLeft} />
+            )}
           </Button>
           {showRetry ? (
             <Button
