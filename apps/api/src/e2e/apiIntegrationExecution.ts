@@ -8,6 +8,7 @@ import { readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { apiIntegrationManifest } from './apiIntegrationManifest.js'
+import { summarizeFailureMessage } from './failureSummary.js'
 
 export const assertSsoBootstrapMigrationHistory = (
   expected: readonly { name: string; checksum: string }[],
@@ -721,11 +722,28 @@ export const runApiIntegrationManifestVitestFile = async ({
             .filter(({ status }) => status === 'failed')
             .map(({ fullName }) => fullName ?? 'unnamed test')
       )
+      // CCD-664: the masked first failure line of each test, so a flaky
+      // failure can be diagnosed from the CI log alone.
+      const failureSummaries = (result.testResults ?? []).flatMap(
+        ({ assertionResults = [] }) =>
+          assertionResults
+            .filter(({ status }) => status === 'failed')
+            .map(
+              ({ fullName, failureMessages }) =>
+                `${fullName ?? 'unnamed test'}: ${summarizeFailureMessage(
+                  failureMessages?.[0],
+                  { ...process.env, ...environment }
+                )}`
+            )
+      )
       throw Object.assign(
         new Error(
           `Integration process failed: ${testFile}; ` +
             `failed=${result.numFailedTests ?? 'unknown'}; ` +
-            `tests=${preserveSanitizedReport ? 'redacted' : failedTests.join(' | ') || 'unavailable'}.`
+            `tests=${preserveSanitizedReport ? 'redacted' : failedTests.join(' | ') || 'unavailable'}` +
+            (preserveSanitizedReport || failureSummaries.length === 0
+              ? '.'
+              : `; failures=${failureSummaries.join(' | ')}.`)
         ),
         // Test names come from the test source, never from a failure, so the
         // database runner can print them (JLP-833).
