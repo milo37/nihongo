@@ -9,3 +9,13 @@ playwright-report
 test-results
 docs/
 apps/api/src/generated/
+
+# 로컬 개발 도구 설정: 저장소에 올리지 않습니다.
+.agents/
+.claude/
+.codex/
+.cursor/
+AGENTS.md
+CLAUDE.md
+CLAUDE.local.md
+team/

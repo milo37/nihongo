@@ -1,8 +1,12 @@
 .git
 .github
+.agents
+.claude
 .codex
 .cursor
-.agents
+AGENTS.md
+CLAUDE.md
+team
 .nihongo-checkpoints
 .DS_Store
 .pnpm-store
