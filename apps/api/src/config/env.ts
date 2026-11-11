@@ -213,7 +213,9 @@ const apiEnvironmentSchema = z
     AUTH_EMAIL_DELIVERY_MODE: emailDeliveryModeSchema.default('test-sink'),
     AUTH_EMAIL_WEBHOOK_URL: z.url().optional(),
     AUTH_EMAIL_WEBHOOK_SECRET: secretSchema.optional(),
-    AUTH_TRUSTED_PROXY_CIDRS: trustedProxyListSchema
+    AUTH_TRUSTED_PROXY_CIDRS: trustedProxyListSchema,
+    // JLP-788: unset means report-only on STAGING, enforce elsewhere.
+    CSP_MODE: z.enum(['report-only', 'enforce']).optional()
   })
   .strict()
   .superRefine((environment, context) => {
@@ -458,7 +460,8 @@ export const parseApiEnvironment = (
     AUTH_EMAIL_WEBHOOK_SECRET: source.AUTH_EMAIL_WEBHOOK_SECRET,
     AUTH_TRUSTED_PROXY_CIDRS:
       source.AUTH_TRUSTED_PROXY_CIDRS ??
-      (canUseDevelopmentDefaults ? '127.0.0.1/32,::1/128' : undefined)
+      (canUseDevelopmentDefaults ? '127.0.0.1/32,::1/128' : undefined),
+    CSP_MODE: source.CSP_MODE
   })
 
   if (parsed.success) {
