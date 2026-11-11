@@ -155,7 +155,28 @@ jobs:
     concurrency:
       group: production-deploy
       cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+      actions: read
     steps:
+      # GitHub creates a missing environment on first use with no protection,
+      # and the PRODUCTION role checks only the environment name. Refuse to
+      # deploy unless `production` has a required reviewer.
+      - name: Check the production environment requires a reviewer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          reviewers=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/environments/production" \
+            | jq '[.protection_rules[]? | select(.type == "required_reviewers") | .reviewers[]?] | length')
+          if [ "${reviewers:-0}" -lt 1 ]; then
+            echo "::error::environment production has no required reviewer; set it before PRODUCTION deploys"
+            exit 1
+          fi
+          echo "required reviewers: $reviewers"
+
       - name: Check out the deploy action
         uses: actions/checkout@v4
         with:

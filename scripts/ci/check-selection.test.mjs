@@ -129,6 +129,10 @@ test('agent tooling, PR templates and scanner config select no checks', () => {
   assert.equal(selection.browser, false)
   assert.equal(selection.portable, false)
   assert.equal(classifyChangedFiles(['.github/workflows/ci.yml']).code, true)
+  // Local actions run inside workflows: same checks as a workflow change.
+  const action = classifyChangedFiles(['.github/actions/ssm-deploy/action.yml'])
+  assert.equal(action.code, true)
+  assert.equal(action.portable, true)
 })
 
 test('unclassified and unsafe paths fail closed', () => {
