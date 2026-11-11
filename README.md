@@ -1,49 +1,83 @@
 # 하루마루
 
-하루마루는 JLPT N5~N1 문자·어휘, 문법, 독해를 짧게 풀고 오답노트로
-반복 학습하는 한국어 중심 웹앱입니다. 문제와 해설은 자체 제작하며,
-실제 JLPT 기출문제나 상용 교재 문항을 복제하지 않습니다.
+[한국어](README.md) · [日本語](README.ja.md)
+
+**하루마루**는 JLPT N5~N1을 준비하는 한국어 사용자를 위한 웹 학습 서비스입니다.
+가볍게 들어와 몇 문제 풀고, 틀린 문제는 오답노트로 다시 보는 흐름에 집중했습니다.
+문제와 해설은 모두 직접 만들었고, 실제 JLPT 기출이나 시판 교재 문항은 쓰지 않습니다.
+
+- 서비스 주소: https://harumaru.app (2026년 11월 공개 예정)
 
 ## 주요 기능
 
-- 급수·과목·문제 수를 선택하는 문제풀이와 제출 후 채점·해설
-- 오답·약점·책갈피를 활용한 복습과 문제별 메모
-- 학습 기록, 정답률, 과목별 통계를 보여 주는 대시보드
-- 관리자 문제 검색·등록·수정·삭제 화면
-- 한국어·일본어 UI와 모바일 대응 화면
-- 로딩·오류·빈 결과·오프라인·접근 권한 상태 처리
+| 영역                  | 내용                                                                                                                        |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| 문제 풀이             | 급수(N5~N1)와 과목(문자·어휘, 문법, 독해)을 골라 5·10·20문제를 풉니다. 제출하면 빨간펜으로 채점하는 연출과 해설이 나옵니다. |
+| 비회원 체험           | 로그인 없이 하루 3번, 5문제씩 풀 수 있습니다. 로그인하면 마지막 결과를 계정으로 옮깁니다.                                   |
+| 오답노트              | 틀린 문제가 자동으로 모이고, 다시 풀어 맞히면 '복습한 문제'로 옮겨집니다. 문제별 메모를 남길 수 있습니다.                   |
+| 책갈피·오늘의 한 문제 | 다시 볼 문제를 저장하고, 첫 화면에서 하루 한 문제를 바로 풀 수 있습니다.                                                    |
+| 관리자                | 문제 작성 → 검수 요청 → 승인 → 공개 단계, JSON 일괄 가져오기, 문제 신고 처리, 회원 관리를 제공합니다.                       |
+| 화면                  | 한국어·일본어 UI, 휴대폰·PC 대응, 키보드 조작과 화면 읽기 프로그램을 고려했습니다.                                          |
 
-## 인증 정책
+로그인은 Google 계정만 지원합니다. 서비스는 비밀번호를 저장하지 않습니다.
 
-공개 회원 인증 정책은 **Google 전용**입니다.
-자체 이메일·비밀번호 가입은 폐기했으며, Apple 로그인은 보류합니다.
+## 기술 스택
+
+| 구분      | 사용 기술                                                                                                    |
+| --------- | ------------------------------------------------------------------------------------------------------------ |
+| Web       | React 19, TypeScript, Vite, React Router, TanStack Query, Zustand, Tailwind CSS 4, React Hook Form, Zod, MSW |
+| API       | Node.js 22, Hono, Prisma 7, PostgreSQL 18, Better Auth(Google OAuth)                                         |
+| 공유 코드 | `packages/contracts`(요청·응답 계약, Zod), `packages/domain`(도메인 규칙)                                    |
+| 테스트    | Vitest, Playwright(실제 브라우저·접근성 검사), API·DB 통합 테스트                                            |
+| 인프라    | AWS(CloudFront·WAF, EC2, S3, ECR, SSM, CloudWatch, Budgets), Terraform, Docker Compose, Caddy                |
+| CI/CD     | GitHub Actions, GitHub OIDC(고정 액세스 키 없음), gitleaks 비밀값 검사, Dependabot                           |
+
+## 구조
+
+```text
+사용자 ─ HTTPS ─▶ CloudFront + WAF ─▶ EC2 (Docker Compose)
+                                       ├─ Caddy (CloudFront 전용 헤더 확인)
+                                       ├─ API (Hono) ── 화면 정적 파일도 제공
+                                       └─ PostgreSQL 18 ──▶ S3 백업
+
+GitHub Actions ─▶ ECR (이미지) ─▶ SSM Run Command로 배포
+비밀값: SSM Parameter Store / 경보: CloudWatch·Budgets
+```
+
+- 서버 상태는 API(개발·테스트에서는 MSW)에서 오고, 화면에서는 `API 함수 → Query Factory → 도메인 훅 → 컴포넌트` 순서로만 다룹니다.
+- 인증과 권한은 서버가 판단합니다. 화면 상태(Zustand)에는 로그인 사용자 최소 정보만 둡니다.
+- 브라우저 코드가 서버 전용 코드(Prisma, 저장소, 비밀값)를 가져오지 못하게 아키텍처 검사로 막습니다.
+
+## 보안
+
+- 모든 학습 데이터 조회·수정은 DB에서 요청한 사용자 것만 고릅니다.
+- 관리자 기능은 요청마다 DB에서 권한을 확인하고, 관리 작업은 30분 안에 다시 로그인해야 합니다.
+- 쓰기 요청은 같은 출처만 받고, 쿠키는 `HttpOnly`·`Secure`·`SameSite=Lax`입니다.
+- 기능별 요청 제한, WAF 규칙, CloudFront만 접근할 수 있는 서버 포트를 둡니다.
+- 비밀값은 저장소에 두지 않습니다. PR은 gitleaks 비밀값 검사를 통과해야 병합할 수 있습니다.
 
 ## 저장소 구조
 
 ```text
 .
 ├── apps/
-│   ├── web/             # Vite·React UI, API 소비, MSW, UI 테스트
-│   │   └── src/
-│   │       ├── api/     # HTTP 함수와 전송 계약 검증
-│   │       ├── app/     # 화면·도메인 훅·Query Factory
-│   │       ├── i18n/    # 한국어·일본어 리소스
-│   │       ├── mocks/   # 개발·테스트용 Mock API
-│   │       └── store/   # 클라이언트 상태
-│   └── api/             # Hono API·인증·학습·문항 도메인
+│   ├── web/          # 학습자 화면 (Vite·React)
+│   ├── admin/        # 관리자 화면 (Vite·React, /admin)
+│   └── api/          # API, 인증, 학습·문제 도메인, DB 마이그레이션
 ├── packages/
-│   ├── contracts/       # 공유 전송 계약
-│   └── domain/          # 서버 도메인 로직
-├── infra/               # PostgreSQL 초기화 구성
-├── operations/          # 환경·복구 계약과 운영 절차
-├── scripts/             # 아키텍처·보안·운영 검사 도구
-├── team/                # 개발 역할과 Git 운영 문서
-└── .github/workflows/   # 자동 검사 정의
+│   ├── browser/      # 학습자·관리자 화면 공용 UI
+│   ├── contracts/    # 공유 요청·응답 계약
+│   └── domain/       # 도메인 규칙
+├── content/          # 문제 가져오기 파일, 태그, 품질 규칙
+├── infra/            # Terraform(AWS), 로컬 PostgreSQL 초기화
+├── operations/       # 운영 절차(배포, 복구, 관리자, 문제 공개)
+├── scripts/          # 아키텍처·보안·운영 검사
+└── .github/          # CI·배포 워크플로
 ```
 
-## 로컬 Mock 실행
+## 로컬 실행 (Mock)
 
-Node.js **22.23.0**, pnpm **10.2.1**을 사용합니다. 아래 명령은 모두 저장소 루트에서 실행합니다.
+Node.js **22.23.0**, pnpm **10.2.1**을 사용합니다. 저장소 루트에서 실행합니다.
 
 ```bash
 pnpm install --frozen-lockfile
@@ -51,72 +85,10 @@ cp apps/web/.env.example apps/web/.env
 pnpm run dev:web
 ```
 
-Web 개발 주소는 `http://localhost:5173`입니다.
-`dev:web`은 공유 contracts·domain을 빌드한 뒤 Web 개발 서버만 시작합니다.
-Mock 모드에서는 로컬 API 서버나 PostgreSQL을 시작할 필요가 없습니다.
+`http://localhost:5173`에서 열립니다. Mock 모드는 API 서버나 DB 없이 MSW로 동작합니다.
+`VITE_API_MODE=mock|real`로 고르며, 개발·테스트 기본값은 `mock`이고 프로덕션 빌드는 `real`만 허용합니다.
 
-API 모드는 `apps/web/.env`의 `VITE_API_MODE=mock|real`로 선택합니다.
-개발·테스트의 기본값은 `mock`, 프로덕션 빌드의 기본값은 `real`입니다.
-프로덕션 빌드에서는 `mock`을 허용하지 않습니다.
-실제 API·DB 연결은 [API 환경 예시](apps/api/.env.example)와
-[컨테이너 구성](compose.yaml)을 확인한 뒤 별도 환경에서 준비합니다.
-
-## 실제 API·DB 로컬 실행
-
-루트·API의 `.env.example`과 API의 `.env.test.example`을 각각 `.env`·`.env.test`로 복사합니다.
-루트의 `POSTGRES_PASSWORD`와 `{TEST,DEVELOPMENT}_*_PASSWORD` 6개는 서로 다른 24자 이상 URL-safe 값으로 설정하고 API 연결 URL에 대응시킵니다.
-이 로컬 구성은 production provisioning의 대체물이 아닙니다.
-
-**지속형 기술 runtime: 55433, 별도 project·volume**
-API는 `DATABASE_URL` 하나(`nihongo_{test,development}_app_login` → `nihongo_app`)로 실행하고, migration은 `MIGRATION_DATABASE_URL`(`nihongo_{test,development}_migration_login` → `nihongo_migration`)로만 실행합니다.
-provisioning은 `nihongo_owner`·`nihongo_migration`·`nihongo_app`·`nihongo_guest_cleanup_worker`와 TEST·DEVELOPMENT login 6개를 만들고, `public` schema와 DB 소유자를 `nihongo_migration`으로 둡니다(baseline이 schema를 `nihongo_owner`로 넘김).
-migration은 `20261105090000_baseline`과 forward migration `20261106090000_remove_phase_names`, `20261107090000_first_admin_production`, `20261108090000_remove_tag_applicability_and_snapshots`, `20261109090000_add_tag_key_subject_status`, `20261110090000_admin_fresh_window_30_minutes`, `20261111090000_grant_user_target_level_update` 일곱 개입니다.
-
-**DEVELOPMENT DB 재생성(데이터 보존 없음)**
-baseline 이전 볼륨은 역할 이름과 migration 이력이 달라 그대로 쓸 수 없습니다. 볼륨을 지우고 새로 만듭니다.
-project·volume 이름이 `nihongo-local`·`nihongo-local-postgres-data`로 바뀌어 이전 이름의 로컬 데이터는 보이지 않습니다. 아래 절차로 새로 만듭니다.
-아래 `down -v`는 이 project의 볼륨 데이터를 영구 삭제합니다.
-
-```bash
-docker compose --project-name nihongo-local --profile local-db down -v
-docker compose --project-name nihongo-local --profile local-db up -d --wait postgres-local
-NODE_ENV=test pnpm run db:migrate:deploy
-pnpm run db:seed:test
-pnpm run db:migrate:deploy
-pnpm run db:seed:dev
-```
-
-`up`은 새 볼륨에서만 provisioning을 실행하고, healthcheck는 provisioning 검증이 끝난 뒤에만 통과합니다.
-
-provisioning은 guest cleanup login의 CONNECT까지 줍니다. migrate·seed 뒤 남는 단계는 DB capability 등록 하나입니다.
-capability 등록(activation)에는 `--set=environment=TEST` 또는 `--set=environment=DEVELOPMENT`를 사용하며 명시적 후속 승인 전에는 실행 금지입니다.
-이 단계는 `DatabaseCapability`에 접속한 server 주소·port를 기록하고 API startup이 같은 값을 확인하므로, API와 같은 경로(host에서 `-h 127.0.0.1 -p 55433`)로 실행합니다.
-container 안 접속(socket 또는 container의 127.0.0.1)은 다른 주소가 기록되어 API startup이 42501로 실패합니다.
-host에 PostgreSQL 18 client(`psql`)가 필요합니다. 다시 실행하면 같은 행을 현재 접속 주소로 갱신합니다(API의 capability 등록과 같은 SQL).
-
-```bash
-# 아래 one-way local write는 명시적 후속 승인 후에만 실행합니다(저장소 루트, 루트 .env 사용).
-set -a; . ./.env; set +a
-PGPASSWORD="$TEST_MIGRATION_PASSWORD" PGOPTIONS="-c role=nihongo_migration" \
-  psql -h 127.0.0.1 -p "${LOCAL_POSTGRES_PORT:-55433}" --username nihongo_test_migration_login \
-  --dbname nihongo_test --set=environment=TEST --file=infra/postgres/init/local-database-activate.psql
-PGPASSWORD="$DEVELOPMENT_MIGRATION_PASSWORD" PGOPTIONS="-c role=nihongo_migration" \
-  psql -h 127.0.0.1 -p "${LOCAL_POSTGRES_PORT:-55433}" --username nihongo_development_migration_login \
-  --dbname nihongo_dev --set=environment=DEVELOPMENT --file=infra/postgres/init/local-database-activate.psql
-```
-
-기술 startup은 activation 전에는 의도적으로 실패합니다.
-승인된 activation 뒤 TEST는 `DOTENV_CONFIG_PATH=.env.test pnpm run dev:api`, DEVELOPMENT는 `pnpm run dev:api`로 시작하고 `curl http://127.0.0.1:3001/health/ready`가 `{"status":"ready"}`인지 확인합니다.
-
-**임시 통합 runner: 55432, 위 runtime과 volume 공유 금지**
-API `.env.test`의 `DB_INTEGRATION_DATABASE_URL`·`API_INTEGRATION_DATABASE_URL`은 기본 55432 연결을 유지합니다.
-
-```bash
-docker compose up -d --wait postgres
-pnpm run test:api-regression
-```
-
-runner는 wrapper login이 하나라도 이미 존재하면 안전하게 중단합니다.
+실제 API와 PostgreSQL을 로컬에서 띄우는 방법은 [로컬 실제 API·DB 실행](operations/runbooks/local-database.v1.md)을 봅니다.
 
 ## 검사 명령
 
@@ -129,17 +101,10 @@ pnpm run test
 pnpm run build
 ```
 
-Web 테스트와 production bundle 계약 검사는 따로 실행할 수 있습니다.
+## 운영 문서
 
-```bash
-pnpm --filter @nihongo/web run test
-pnpm --filter @nihongo/web run test:bundle
-```
-
-일반 Web 테스트는 Vitest, bundle 계약 검사는 별도 Node 테스트 경로를 사용합니다.
-
-## 상세 문서
-
-- [개발 역할·작업 인계](team/README.md)
-- [브랜치·커밋·PR·main 통합 규칙](team/git-workflow.md)
-- [복구 절차와 운영 준비 조건](operations/runbooks/recovery.v1.md)
+- [배포](operations/runbooks/deploy.v1.md)
+- [백업 되살리기](operations/runbooks/recovery.v1.md)
+- [첫 관리자 지정](operations/runbooks/first-admin.v1.md)
+- [문제 가져오기·공개](operations/runbooks/question-import.v1.md)
+- [AWS 구성](infra/aws/README.md) · [월 비용](infra/aws/COST.md)

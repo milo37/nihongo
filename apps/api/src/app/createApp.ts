@@ -109,6 +109,10 @@ import {
   isCanonicalAdminConsoleCommandRequest,
   isCanonicalAdminConsoleReadRequest
 } from './protectedRouteExclusion.js'
+import {
+  contentSecurityPolicyHeaders,
+  type ContentSecurityPolicyMode
+} from './contentSecurityPolicy.js'
 import { installStaticWeb } from './staticWeb.js'
 
 // Development/test only: production serves the web apps from the same origin.
@@ -131,6 +135,8 @@ interface CreateApiAppDependencies {
   /** #484 restriction lookup; required in production when learner routes are wired. */
   accountRestrictionReader?: AccountRestrictionReader
   checkReadiness: () => Promise<void>
+  /** JLP-788: defaults to enforce. */
+  contentSecurityPolicyMode?: ContentSecurityPolicyMode
   logger: StructuredLogger
   questionReader: QuestionReader
   /** Today's question (JLP-815); mounted with questionReadSecurity. */
@@ -408,6 +414,7 @@ export const createApiApp = ({
   admin,
   auth,
   checkReadiness,
+  contentSecurityPolicyMode,
   logger,
   learning,
   questionReader,
@@ -443,7 +450,12 @@ export const createApiApp = ({
       : (questionReports ?? (adminEnabled ? admin.reports : undefined))
 
   app.use('*', requestContext)
-  app.use('*', secureHeaders())
+  app.use(
+    '*',
+    secureHeaders(
+      contentSecurityPolicyHeaders(contentSecurityPolicyMode ?? 'enforce')
+    )
+  )
   app.use('*', createRequestLogger(logger))
 
   app.use('*', async (context, next) => {

@@ -19,6 +19,8 @@ on:
 permissions:
   contents: read
   id-token: write
+  # Reads the environment's protection rules (first step).
+  actions: read
 
 concurrency:
   group: caddy-image-${{ github.sha }}
@@ -37,6 +39,23 @@ jobs:
     env:
       CADDY_ECR_REPOSITORY_URL: ${{ vars.CADDY_ECR_REPOSITORY_URL }}
     steps:
+      # Same guard as Deploy to PRODUCTION: GitHub creates a missing
+      # environment with no protection, and the PRODUCTION role checks only
+      # the environment name. Refuse before taking the role.
+      - name: Check the production environment requires a reviewer
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          reviewers=$(curl -fsS -H "Authorization: Bearer $GH_TOKEN" \
+            -H 'Accept: application/vnd.github+json' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/environments/production" \
+            | jq '[.protection_rules[]? | select(.type == "required_reviewers") | .reviewers[]?] | length')
+          if [ "${reviewers:-0}" -lt 1 ]; then
+            echo "::error::environment production has no required reviewer; set it before PRODUCTION uses this role"
+            exit 1
+          fi
+          echo "required reviewers: $reviewers"
+
       - name: Check out
         uses: actions/checkout@v4
         with:

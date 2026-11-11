@@ -386,11 +386,23 @@ test('quality and regression start from the same plan in isolated jobs', () => {
     assert.ok(step.includes(`if: \${{ needs.plan.outputs.${flag} == 'true' }}`))
     assert.equal(workflow.split(`run: ${command}\n`).length - 1, 1)
   }
-  assert.ok(
-    namedWorkflowStep(regression, 'Install Playwright Chromium').includes(
-      "if: ${{ needs.plan.outputs.browser == 'true' }}"
+  const install = namedWorkflowStep(regression, 'Install Playwright Chromium')
+  assert.ok(install.includes("if: ${{ needs.plan.outputs.browser == 'true' }}"))
+  assert.ok(install.includes('Acquire::Retries'))
+  assert.ok(install.includes('for attempt in 1 2 3; do'))
+  assert.ok(install.includes('timeout-minutes: 30'))
+  assert.ok(install.includes('sudo dpkg -i "${cached_debs[@]}"'))
+  for (const name of [
+    'Playwright system package key',
+    'Restore Playwright system packages',
+    'Save Playwright system packages'
+  ]) {
+    assert.ok(
+      namedWorkflowStep(regression, name).includes(
+        "needs.plan.outputs.browser == 'true'"
+      )
     )
-  )
+  }
 })
 
 test('real browser summaries are isolated, verified before upload and cleaned on failure', () => {
@@ -1132,7 +1144,7 @@ test('workflow and command budgets preserve the three protected contexts', () =>
     'portable',
     'release_smoke'
   ])
-  assert.equal(steps(normal).length, 49)
+  assert.equal(steps(normal).length, 52)
   assert.deepEqual(jobs(candidate), ['candidate'])
   assert.equal(steps(candidate).length, 10)
   for (const name of [

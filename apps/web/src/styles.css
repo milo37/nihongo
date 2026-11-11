@@ -1,4 +1,5 @@
 @import '@nihongo/browser/styles.css';
+@source not "../../admin";
 
 /* Learner tokens: B4 manuscript paper (design-b4/HANDOFF.md §1-2). Set here,
    not in the shared sheet, so the admin app keeps its own look. */

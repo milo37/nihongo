@@ -64,10 +64,16 @@ const RATE_POLICIES: readonly (readonly [string, number])[] = [
   ['application:guest-study-create-day:', 86_400_000]
 ]
 
-/** Window of a known rate key, or NULL for keys cleanup must not touch. */
+/**
+ * Window of a known rate key, or NULL for keys cleanup must not touch.
+ * Better Auth rows (`<ip>|/<path>`) and the auth gateway rows
+ * (`application:auth:/api/auth/<path>:<digest>`) all use one-minute windows.
+ */
 const rateWindow = (key: Prisma.Sql): Prisma.Sql => Prisma.sql`(
   CASE
-    WHEN ${key} ~ '^(no-trusted-ip|[0-9a-fA-F:.]+)[|]/(sign-in/email|sign-up/email|request-password-reset|send-verification-email)$'
+    WHEN ${key} ~ '^(no-trusted-ip|[0-9a-fA-F:.]+)[|]/[a-z0-9/-]+$'
+      THEN 60000::bigint
+    WHEN ${key} ~ '^application:auth:/api/auth/[a-z0-9/-]+:[0-9a-f]{64}$'
       THEN 60000::bigint
     ELSE (
       SELECT policy.window_ms FROM (VALUES ${Prisma.join(

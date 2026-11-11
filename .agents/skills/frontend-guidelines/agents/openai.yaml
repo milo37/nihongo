@@ -1,4 +1,0 @@
-interface:
-  display_name: "Frontend Guidelines"
-  short_description: "Vite·React Router 프론트엔드 구조와 품질 규칙 적용"
-  default_prompt: "Use $frontend-guidelines to implement this Vite frontend change according to the project conventions."

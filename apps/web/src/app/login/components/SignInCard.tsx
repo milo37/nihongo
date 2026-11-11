@@ -86,7 +86,11 @@ export const SignInCard = ({
           {icon}
         </span>
       ) : null}
-      <Heading ref={headingRef} tabIndex={headingRef ? -1 : undefined}>
+      <Heading
+        ref={headingRef}
+        className="outline-none"
+        tabIndex={headingRef ? -1 : undefined}
+      >
         {title}
       </Heading>
       <p className="auth-description">{description}</p>

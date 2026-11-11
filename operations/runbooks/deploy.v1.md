@@ -46,11 +46,11 @@
 
 ## 4. PRODUCTION (승인 버튼, 켜기 전)
 
-- 잡 **Deploy to PRODUCTION**(`release-image.yml`)은 STAGING이 그 SHA로 떠 있을 때만(`deploy-staging` 결과 `deployed=true`) 대기 상태가 되고, GitHub environment `production`의 승인을 기다립니다. 사장님은 Actions 실행 화면(또는 알림)에서 **Review deployments → production → Approve**만 누릅니다. 거절하거나 두면 PRODUCTION은 그대로입니다.
+- 잡 **Deploy to PRODUCTION**(`release-image.yml`)은 STAGING이 그 SHA로 떠 있을 때만(`deploy-staging` 결과 `deployed=true`) 대기 상태가 되고, GitHub environment `production`의 승인을 기다립니다. 운영자는 Actions 실행 화면(또는 알림)에서 **Review deployments → production → Approve**만 누릅니다. 거절하거나 두면 PRODUCTION은 그대로입니다.
 - 승인 뒤 STAGING과 같은 단계(`.github/actions/ssm-deploy`): main 끝 SHA 확인 → PRODUCTION 역할 → 문서 `harumaru-production-deploy`(releaseId = 그 SHA) → `/health/ready` 200. 이미지는 STAGING이 쓴 `<SHA>`·`<SHA>-migrate` 그대로입니다(재빌드 없음, ECR 공유).
 - 옛 실행을 승인해도 main 끝이 아니면 배포하지 않습니다. 승인 대기가 여럿이면 concurrency `production-deploy`로 가장 새 것만 남습니다.
 - PRODUCTION 역할은 environment `production`의 잡만 믿습니다(`infra/aws` `github_deploy_environment`). 그래서 승인 없이 PRODUCTION에 배포하는 길이 없습니다. Caddy 이미지 빌드(`caddy-image.yml`)도 같은 역할이라 그 잡도 승인을 거칩니다.
-- 켜는 순서(바꾸면 안 됨): **① environment `production` 보호 먼저** — 저장소 Settings → Environments에서 만들고 Required reviewers = 사장님 계정, Deployment branches = `main`, "Prevent self-review" 끔(병합 실행자가 사장님 계정이라 켜면 승인할 사람이 없음). **② 그 다음에 저장소 변수** `PRODUCTION_AWS_DEPLOY_ROLE_ARN`·`PRODUCTION_INSTANCE_ID`·`PRODUCTION_SITE_URL`(PRODUCTION terraform output, 비밀 아님). 변수가 없으면 잡은 건너뜁니다.
+- 켜는 순서(바꾸면 안 됨): **① environment `production` 보호 먼저** — 저장소 Settings → Environments에서 만들고 Required reviewers = 운영자 계정, Deployment branches = `main`, "Prevent self-review" 끔(병합 실행자가 운영자 계정이라 켜면 승인할 사람이 없음). **② 그 다음에 저장소 변수** `PRODUCTION_AWS_DEPLOY_ROLE_ARN`·`PRODUCTION_INSTANCE_ID`·`PRODUCTION_SITE_URL`(PRODUCTION terraform output, 비밀 아님). 변수가 없으면 잡은 건너뜁니다.
 - 이유: GitHub는 없는 environment를 처음 쓸 때 **보호 규칙 없이** 자동으로 만들고, PRODUCTION 역할은 environment 이름만 봅니다. 변수를 먼저 넣으면 승인 없이 배포될 수 있습니다. 그래서 잡은 시작하자마자 `production`에 필수 검토자가 있는지 API로 확인하고, 없으면 AWS 역할을 받기 전에 실패합니다.
 - STAGING을 평소 정지해 두는 경우(`infra/aws` `host_stop_schedule_expression`): 저장소 변수 `STAGING_START_IF_STOPPED = true`면 STAGING 배포 잡이 먼저 서버를 켜고 SSM 에이전트가 붙을 때까지(최대 5분) 기다립니다.
 
@@ -63,7 +63,7 @@
 | 자동 배포 켤 때(1회)     | AWS에 로그인해 STAGING `instance_id`·`site_url` 두 값을 확인해 팀장에게 전달(값은 비밀 아님). 저장소 변수 등록은 팀장이 해도 됩니다. |
 | 인프라가 바뀔 때만       | `terraform plan` 확인 후 `apply`(AWS 로그인·MFA)                                                                                     |
 | 비밀값이 새로 생길 때만  | SSM SecureString 등록(값은 채팅·파일에 남기지 않음)                                                                                  |
-| 환경을 처음 채울 때(1회) | 관리자 Google 계정 로그인 1번(첫 관리자 만들 때). DB 비우기·문제 500 공개(부록 B)는 팀이 실행하고 사장님은 승인만 합니다.            |
+| 환경을 처음 채울 때(1회) | 관리자 Google 계정 로그인 1번(첫 관리자 만들 때). DB 비우기·문제 500 공개(부록 B)는 팀이 실행하고 운영자는 승인만 합니다.            |
 | PRODUCTION 전(1회)       | 도메인 구입, AWS 유료 전환, CloudFront 요금제 가입, Google OAuth 주소 등록, 경보 메일 구독 확인                                      |
 | PRODUCTION 배포마다      | Actions의 **Approve** 버튼 1번                                                                                                       |
 
@@ -91,14 +91,14 @@ curl -s -o /dev/null -w '%{http_code}\n' "$(terraform output -raw site_url)/heal
 
 ## 부록 B. 문제 500 한 번에 공개 (환경을 처음 채울 때, 팀 실행)
 
-관리자 화면으로 하면 호출 45번(15분에 10번 제한)과 30분마다 재로그인이 필요해 약 75분 걸립니다. 대신 서버 운영 명령 `api/dist/content/questionSetPublishCommand.js`(#837)를 SSM으로 돌립니다. 사장님 로그인은 필요 없습니다.
+관리자 화면으로 하면 호출 45번(15분에 10번 제한)과 30분마다 재로그인이 필요해 약 75분 걸립니다. 대신 서버 운영 명령 `api/dist/content/questionSetPublishCommand.js`(#837)를 SSM으로 돌립니다. 운영자 로그인은 필요 없습니다.
 
 전제: 그 명령이 들어간 release가 배포됨, 태그 18 적재([question-import.v1.md](question-import.v1.md) 1단계), ACTIVE 관리자가 정확히 1명([first-admin.v1.md](first-admin.v1.md)). 명령은 그 관리자 이름으로 감사 기록을 남깁니다.
 
 누가·어디서(제한):
 
 - 이 명령은 관리자 화면과 달리 SSO 재인증 없이 승인·공개까지 합니다. 그래서 **서버에서 SSM Run Command로만** 돌립니다. HTTP 경로는 없고, 서버 밖(로컬·CI)에서 DB에 붙여 돌리지 않습니다.
-- 실행하는 사람은 그 환경에 SSM 명령을 보낼 AWS 권한이 있는 팀(DevOps)뿐이고, 사장님 승인을 받은 뒤 한 번 돌립니다(dry run → confirm). GitHub Actions 배포 역할은 `AWS-RunShellScript`를 보낼 수 없습니다(`RunDeployOnHost`는 배포 문서만).
+- 실행하는 사람은 그 환경에 SSM 명령을 보낼 AWS 권한이 있는 팀(DevOps)뿐이고, 운영자 승인을 받은 뒤 한 번 돌립니다(dry run → confirm). GitHub Actions 배포 역할은 `AWS-RunShellScript`를 보낼 수 없습니다(`RunDeployOnHost`는 배포 문서만).
 - 실행 기록: SSM 명령 기록(comment `question-set-publish <mode>`)과 출력 JSON의 `runId`로 묶인 감사 행.
 
 `aws login`된 터미널, `infra/aws`(해당 환경 state)에서:

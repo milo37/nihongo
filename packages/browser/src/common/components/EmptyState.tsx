@@ -49,7 +49,7 @@ export const EmptyState = ({
       ) : null}
       <Heading
         ref={headingRef}
-        className="rounded-sm text-balance text-xl font-bold text-ink"
+        className="rounded-sm text-balance text-xl font-bold text-ink outline-none"
         tabIndex={autoFocus ? -1 : undefined}
       >
         {title}

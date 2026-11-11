@@ -3,6 +3,7 @@ import type { Server } from 'node:http'
 import { fileURLToPath } from 'node:url'
 import { serve } from '@hono/node-server'
 import { createPrismaAccountRestrictionReader } from './account/accountRestriction.js'
+import { resolveContentSecurityPolicyMode } from './app/contentSecurityPolicy.js'
 import { createApiApp } from './app/createApp.js'
 import { createSsoAuthentication } from './auth/createSsoAuthentication.js'
 import {
@@ -221,6 +222,7 @@ const userReportService = createUserReportService(
   createPrismaUserReportRepository(database.client)
 )
 const app = createApiApp({
+  contentSecurityPolicyMode: resolveContentSecurityPolicyMode(environment),
   accountRestrictionReader: createPrismaAccountRestrictionReader(
     database.client
   ),

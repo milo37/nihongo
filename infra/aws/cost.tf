@@ -43,7 +43,8 @@ resource "aws_budgets_budget" "monthly" {
 }
 
 # Over budget: stop the only compute. CloudFront then returns 5xx; data stays on EBS.
-# Off by default (Free plan); budget_stop_ec2_enabled = true turns it on.
+# Off by default; budget_stop_ec2_enabled = true turns it on (STAGING since the
+# paid switch, 2026-11-12).
 data "aws_iam_policy_document" "budgets_assume" {
   statement {
     actions = ["sts:AssumeRole"]

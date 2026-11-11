@@ -257,8 +257,10 @@ test('dotenv examples keep technical and runner targets separate', async () => {
   )
 })
 
-test('README documents both mutually exclusive local workflows', async () => {
-  const readme = await readRepositoryFile('README.md')
+test('local database runbook documents both mutually exclusive local workflows', async () => {
+  const readme = await readRepositoryFile(
+    'operations/runbooks/local-database.v1.md'
+  )
   const activation = await readRepositoryFile(
     'infra/postgres/init/local-database-activate.psql'
   )
