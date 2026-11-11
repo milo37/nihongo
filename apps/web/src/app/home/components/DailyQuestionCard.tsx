@@ -1,8 +1,12 @@
+import { GradeSquare } from '@common/components/manuscript/GradeSquare'
+import {
+  ManuscriptSheet,
+  SheetTail
+} from '@common/components/manuscript/ManuscriptSheet'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
-import { Icon } from '@nihongo/browser/common/components/Icon'
 import type { JlptLevel } from '@nihongo/browser/common/types/domain'
 import { useGetDailyQuestion } from '@app/home/hooks/useGetDailyQuestion'
 import { readDailyAnswer, saveDailyAnswer } from '@app/home/dailyAnswer'
@@ -15,7 +19,51 @@ const subjectKeys = {
   READING: 'subjects.reading.label'
 } as const
 
-const CARD_CLASS = 'home-daily rounded-card border border-line bg-surface p-6'
+const CARD_CLASS = 'home-daily'
+
+/** Up to three rows of manuscript squares; longer questions stay plain text. */
+const SHEET_MAX_ROWS = 3
+
+/** One character per square (B4 §3); spaces between words are dropped. */
+const QuestionSheet = ({ text }: { text: string }): ReactElement => {
+  const characters = Array.from(text.replace(/\s+/gu, ''))
+  const sheet = (columns: number, className: string): ReactElement | null => {
+    const rows = Math.max(2, Math.ceil(characters.length / columns))
+    if (rows > SHEET_MAX_ROWS) return null
+    return (
+      <ManuscriptSheet
+        className={className}
+        columns={columns}
+        rows={rows}
+        renderCell={(cell) =>
+          characters[cell.index] ? (
+            <text
+              className="home-daily-char"
+              x={cell.x + cell.c / 2}
+              y={cell.y + cell.c / 2}
+            >
+              {characters[cell.index]}
+            </text>
+          ) : null
+        }
+      />
+    )
+  }
+  const wide = sheet(15, 'home-daily-sheet home-daily-sheet-wide')
+  const narrow = sheet(12, 'home-daily-sheet home-daily-sheet-narrow')
+  return (
+    <>
+      {wide}
+      {narrow}
+      <p
+        className={wide && narrow ? 'sr-only' : 'home-daily-question'}
+        lang="ja"
+      >
+        {text}
+      </p>
+    </>
+  )
+}
 
 /**
  * '오늘의 한 문제': label row, body, result line. Later the body becomes a
@@ -42,12 +90,7 @@ const DailyQuestionBody = ({
   }
   return (
     <>
-      <p
-        className="mt-3 text-[22px] font-semibold leading-[1.6] text-ink"
-        lang="ja"
-      >
-        {question.questionText}
-      </p>
+      <QuestionSheet text={question.questionText} />
       <div
         role="group"
         aria-label={t('today.dailyOptionsLabel')}
@@ -74,10 +117,7 @@ const DailyQuestionBody = ({
                 aria-hidden={mark ? true : undefined}
               >
                 {mark ? (
-                  <Icon
-                    name={mark === 'correct' ? 'check' : 'x'}
-                    className="size-4"
-                  />
+                  <GradeSquare grade={mark === 'correct' ? 'ok' : 'ng'} />
                 ) : (
                   option.label
                 )}
@@ -141,18 +181,20 @@ export const DailyQuestionCard = ({
   if (daily.isError && isNoEligibleQuestionsApiError(daily.error)) return null
   return (
     <section className={CARD_CLASS} aria-labelledby="home-daily-title">
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 id="home-daily-title" className="text-[15px] font-bold text-brand">
+      <div className="home-daily-head">
+        <SheetTail side="left" />
+        <h2 id="home-daily-title" className="home-daily-title">
           {t('today.dailyLabel')}
         </h2>
         {daily.data ? (
-          <span className="text-[13px] font-semibold text-muted">
+          <span className="home-daily-meta">
             {t('today.dailyMeta', {
               level: daily.data.level,
               subject: t(subjectKeys[daily.data.question.subject])
             })}
           </span>
         ) : null}
+        <SheetTail side="right" />
       </div>
       {daily.data ? (
         <DailyQuestionBody key={daily.data.question.id} data={daily.data} />

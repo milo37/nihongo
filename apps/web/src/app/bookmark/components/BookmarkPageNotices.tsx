@@ -1,3 +1,4 @@
+import { EmptySheet } from '@common/components/manuscript/EmptySheet'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement } from 'react'
@@ -71,7 +72,7 @@ export const BookmarkEmptyPage = ({
 }: BookmarkEmptyPageProps): ReactElement => {
   const { t } = useTranslation('bookmark')
   const isFirstPage = displayedPage === 1
-  return (
+  const empty = (
     <EmptyState
       title={isFirstPage ? t('empty.firstTitle') : t('empty.pageTitle')}
       description={
@@ -94,6 +95,12 @@ export const BookmarkEmptyPage = ({
         )
       }
     />
+  )
+  // The first empty page gets the blank manuscript paper (B4).
+  return isFirstPage ? (
+    <EmptySheet word="ブックマーク">{empty}</EmptySheet>
+  ) : (
+    empty
   )
 }
 

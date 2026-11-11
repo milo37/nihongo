@@ -69,11 +69,21 @@ describe('PracticePage setup', () => {
 
     cleanup()
     renderPractice('?level=N4&subject=READING&count=5')
-    // A member always gets one set of 10; the old count link is ignored.
+    // A member starts at 10 each visit; the old count link is ignored.
     expect(
       await screen.findByRole('button', { name: 'N4 독해 10문제 시작' })
     ).toBeInTheDocument()
-    expect(screen.queryByRole('group', { name: '문제 수' })).toBeNull()
+    const countGroup = screen.getByRole('group', { name: '문제 수' })
+    expect(
+      within(countGroup).getByRole('radio', { name: '10문제' })
+    ).toBeChecked()
+    // Picking 20 follows through to the start button (B4 §9).
+    await userEvent
+      .setup()
+      .click(within(countGroup).getByRole('radio', { name: '20문제' }))
+    expect(
+      screen.getByRole('button', { name: 'N4 독해 20문제 시작' })
+    ).toBeInTheDocument()
   })
 
   it('목표 급수가 없으면 이 기기에서 마지막에 시작한 급수·과목을 기본으로 쓴다', async () => {

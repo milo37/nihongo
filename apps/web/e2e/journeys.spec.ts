@@ -946,8 +946,11 @@ const startVocabularySessionThroughUi = async (
   await expect(
     page.locator('input[name="practice-subject"][value="VOCABULARY"]')
   ).toBeChecked()
-  // A member always gets one set of 10; there is no count choice.
-  await expect(page.locator('input[name="practice-count"]')).toHaveCount(0)
+  // A member picks 5, 10 or 20 (B4 §9); each visit starts at 10.
+  await expect(page.locator('input[name="practice-count"]')).toHaveCount(3)
+  await expect(
+    page.locator('input[name="practice-count"][value="10"]')
+  ).toBeChecked()
   const studyMode = await openPracticeModes(page)
   await expect(studyMode).toHaveValue('RANDOM')
   const originalNow = await freezePracticeClock(page)

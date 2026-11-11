@@ -20,6 +20,8 @@ type ResultActionsProps = {
   onRetry: () => void
   retryLoadingLabel: string
   session: StudySessionView['session']
+  /** Size of the set just played (members repeat it). */
+  requestedCount?: number
   showRetry: boolean
 }
 
@@ -37,10 +39,11 @@ export const ResultActions = ({
   onRetry,
   retryLoadingLabel,
   session,
+  requestedCount,
   showRetry
 }: ResultActionsProps): ReactElement => {
   const { i18n, t } = useTranslation('result')
-  const nextSet = useStartNextSet(session, isGuest)
+  const nextSet = useStartNextSet(session, isGuest, requestedCount)
   const isNextSetPrimary = isGuest || !showRetry
   return (
     <section

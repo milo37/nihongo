@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ChangeEvent, ReactElement, ReactNode } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
+import { ProgressSheet } from '@common/components/manuscript/ProgressSheet'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
@@ -98,16 +99,6 @@ export const HeroStartCard = ({
   }).split(/(\[\[level\]\]|\[\[subject\]\]|\[\[br\]\])/u)
   return (
     <div className="home-band-start">
-      <p className="home-hello">
-        {isGuest
-          ? t('today.guestGreeting', {
-              total: GUEST_DAILY_SESSION_LIMIT,
-              count: GUEST_SESSION_QUESTION_LIMIT
-            })
-          : user?.name
-            ? t('today.memberGreeting', { name: user.name })
-            : t('today.memberGreetingNoName')}
-      </p>
       <h1
         className={
           setup.isGuestDailyLimitReached
@@ -157,6 +148,13 @@ export const HeroStartCard = ({
           )
         )}
       </h1>
+      {setup.isGuestDailyLimitReached ? null : (
+        // Today's set as empty squares (decorative; the sentence says it).
+        <ProgressSheet
+          className="home-strip"
+          states={Array.from({ length: count }, () => 'todo' as const)}
+        />
+      )}
       {setup.isGuestDailyLimitReached ? (
         <div className="home-band-limit">
           <GuestDailyLimitCard redirect="/" />
@@ -174,6 +172,24 @@ export const HeroStartCard = ({
           <Icon name="arrow-right" className="size-5" />
         </Button>
       )}
+      <p className="home-hello">
+        {isGuest ? (
+          // Three tries a day drawn as three empty squares (decorative).
+          <span className="home-hello-tries" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </span>
+        ) : null}
+        {isGuest
+          ? t('today.guestGreeting', {
+              total: GUEST_DAILY_SESSION_LIMIT,
+              count: GUEST_SESSION_QUESTION_LIMIT
+            })
+          : user?.name
+            ? t('today.memberGreeting', { name: user.name })
+            : t('today.memberGreetingNoName')}
+      </p>
       {isGuest &&
       !setup.isGuestDailyLimitReached &&
       setup.guestAllowance &&

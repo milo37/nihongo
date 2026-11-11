@@ -3,7 +3,6 @@ import type { ReactElement, ReactNode } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { ChoiceRadioGroup } from '@common/components/ChoiceRadioGroup'
 import { Select } from '@nihongo/browser/common/components/Select'
-import { Icon } from '@nihongo/browser/common/components/Icon'
 import type {
   JlptLevel,
   QuestionSubject,
@@ -11,6 +10,7 @@ import type {
 } from '@nihongo/browser/common/types/domain'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
+import { MEMBER_COUNT_CHOICES } from '@app/practice/practiceSetupOptions'
 
 // Renders the <b>…</b> marks in a translated line as bold text.
 type PracticeSetupFormProps = {
@@ -35,13 +35,15 @@ type PracticeSetupFormProps = {
   onLevelChange: (level: JlptLevel) => void
   onSubjectChange: (subject: QuestionSubject) => void
   onModeChange: (mode: StudyMode) => void
+  onCountChange: (count: number) => void
   onStart: () => void
 }
 
-const subjectIcons = {
-  VOCABULARY: 'languages',
-  GRAMMAR: 'text-cursor-input',
-  READING: 'book-open'
+/** One kanji per subject in a square (B4 §4); the name follows in text. */
+const subjectGlyphs = {
+  VOCABULARY: '字',
+  GRAMMAR: '文',
+  READING: '読'
 } as const
 
 /** Subject picker with an icon per subject. */
@@ -68,7 +70,9 @@ const SubjectChoice = ({
         value,
         label: (
           <>
-            <Icon className="size-5" name={subjectIcons[value]} />
+            <span className="subject-glyph" lang="ja" aria-hidden="true">
+              {subjectGlyphs[value]}
+            </span>
             {value === 'VOCABULARY'
               ? homeT('approved.vocabulary')
               : commonT(`taxonomy.subjects.${value}`)}
@@ -219,9 +223,11 @@ export const PracticeSetupForm = ({
   onLevelChange,
   onSubjectChange,
   onModeChange,
+  onCountChange,
   onStart
 }: PracticeSetupFormProps): ReactElement => {
-  const { t } = useTranslation('practice')
+  const { t, i18n } = useTranslation('practice')
+  const locale = resolveUiLocale(i18n.resolvedLanguage)
 
   return (
     <form
@@ -251,6 +257,24 @@ export const PracticeSetupForm = ({
         options={levels.map((value) => ({ value, label: value }))}
         onValueChange={onLevelChange}
       />
+      {/* Members pick the set size; guests always get the guest set. */}
+      {isGuest ? null : (
+        <ChoiceRadioGroup
+          appearance="segmented"
+          className="choice-counts"
+          name="practice-count"
+          legend={t('setup.steps.count')}
+          value={String(count)}
+          disabled={isCreating}
+          options={MEMBER_COUNT_CHOICES.map((value) => ({
+            value: String(value),
+            label: t('setup.questionCount', {
+              formattedCount: formatNumber(value, locale)
+            })
+          }))}
+          onValueChange={(value) => onCountChange(Number(value))}
+        />
+      )}
 
       {feedback ? (
         <div className="practice-setup-feedback">{feedback}</div>

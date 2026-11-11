@@ -221,6 +221,7 @@ const PracticeResultPageContent = (): ReactElement => {
                 ? t('retry.waitingConnection')
                 : t('retry.creating')
           }
+          requestedCount={sessionView.requestedCount}
           session={session}
           showRetry={result.canShowRetryButton}
         />

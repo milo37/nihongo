@@ -930,7 +930,11 @@ const scanCurrentPage = async (
                   ? 'table-sort-indicator'
                   : element.matches(selectors.answerMark)
                     ? 'answer-mark'
-                    : null,
+                    : element.matches(selectors.manuscriptGlyph)
+                      ? 'manuscript-glyph'
+                      : element.matches(selectors.resultScore)
+                        ? 'result-score'
+                        : null,
         axeFindingDispositionSelectors
       )
       if (!kind) continue
@@ -953,7 +957,9 @@ const scanCurrentPage = async (
 
       const threshold =
         measurement.kind === 'pagination-current-text' ||
-        measurement.kind === 'hero-gradient-text'
+        measurement.kind === 'hero-gradient-text' ||
+        measurement.kind === 'manuscript-glyph' ||
+        measurement.kind === 'result-score'
           ? 4.5
           : 3
       expect(

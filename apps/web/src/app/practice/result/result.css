@@ -97,17 +97,6 @@
   text-overflow: ellipsis;
   font-family: var(--font-ja);
 }
-.result-status-icon {
-  display: block;
-  flex: none;
-  width: 24px;
-  height: 24px;
-}
-.result-status-icon-rule {
-  fill: none;
-  stroke: rgb(var(--color-sheet-line));
-  stroke-width: 1;
-}
 
 @media (min-width: 1024px) {
   .result-b4-score {
@@ -134,5 +123,34 @@
   .result-status-icon {
     width: 26px;
     height: 26px;
+  }
+}
+
+/* PC: what to do now on the left, the answered list beside it (B4 §6). */
+@media (min-width: 1024px) {
+  .app-shell .app-shell-body > main > .study-result {
+    max-width: 1056px;
+    margin-inline: auto;
+    padding-top: clamp(56px, 12vh, 120px);
+  }
+  .study-result .study-result-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.82fr);
+    column-gap: 64px;
+    align-items: start;
+  }
+  .study-result .study-result-main > * {
+    grid-column: 1;
+  }
+  .study-result .study-result-main > .study-explanations {
+    grid-column: 2;
+    grid-row: 1 / span 8;
+    margin-top: 0;
+  }
+}
+@media (min-width: 1120px) {
+  .study-result .study-result-main {
+    grid-template-columns: minmax(0, 528fr) minmax(0, 432fr);
+    column-gap: clamp(64px, 7.5vw, 96px);
   }
 }
