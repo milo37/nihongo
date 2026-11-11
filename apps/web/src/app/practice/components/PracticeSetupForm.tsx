@@ -1,9 +1,12 @@
 import { useTranslation } from 'react-i18next'
+import {
+  ButtonTriesLeft,
+  getGuestTriesLeft
+} from '@app/practice/components/ButtonTriesLeft'
 import type { ReactElement, ReactNode } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { ChoiceRadioGroup } from '@common/components/ChoiceRadioGroup'
 import { Select } from '@nihongo/browser/common/components/Select'
-import { Icon } from '@nihongo/browser/common/components/Icon'
 import type {
   JlptLevel,
   QuestionSubject,
@@ -11,6 +14,7 @@ import type {
 } from '@nihongo/browser/common/types/domain'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
+import { MEMBER_COUNT_CHOICES } from '@app/practice/practiceSetupOptions'
 
 // Renders the <b>…</b> marks in a translated line as bold text.
 type PracticeSetupFormProps = {
@@ -35,13 +39,15 @@ type PracticeSetupFormProps = {
   onLevelChange: (level: JlptLevel) => void
   onSubjectChange: (subject: QuestionSubject) => void
   onModeChange: (mode: StudyMode) => void
+  onCountChange: (count: number) => void
   onStart: () => void
 }
 
-const subjectIcons = {
-  VOCABULARY: 'languages',
-  GRAMMAR: 'text-cursor-input',
-  READING: 'book-open'
+/** One kanji per subject in a square (B4 §4); the name follows in text. */
+const subjectGlyphs = {
+  VOCABULARY: '字',
+  GRAMMAR: '文',
+  READING: '読'
 } as const
 
 /** Subject picker with an icon per subject. */
@@ -68,10 +74,19 @@ const SubjectChoice = ({
         value,
         label: (
           <>
-            <Icon className="size-5" name={subjectIcons[value]} />
-            {value === 'VOCABULARY'
-              ? homeT('approved.vocabulary')
-              : commonT(`taxonomy.subjects.${value}`)}
+            <span className="subject-glyph" lang="ja" aria-hidden="true">
+              {subjectGlyphs[value]}
+            </span>
+            <span className="subject-text">
+              <span>
+                {value === 'VOCABULARY'
+                  ? homeT('approved.vocabulary')
+                  : commonT(`taxonomy.subjects.${value}`)}
+              </span>
+              <span className="subject-description">
+                {homeT(subjectDescriptionKeys[value])}
+              </span>
+            </span>
           </>
         )
       }))}
@@ -79,6 +94,13 @@ const SubjectChoice = ({
     />
   )
 }
+
+// One line under each subject (plan-notes §5).
+const subjectDescriptionKeys = {
+  VOCABULARY: 'subjects.vocabulary.description',
+  GRAMMAR: 'subjects.grammar.description',
+  READING: 'subjects.reading.description'
+} as const
 
 /** Live summary of the choice, the start button and the supply note. */
 const StartSummary = ({
@@ -109,6 +131,7 @@ const StartSummary = ({
   const { t: homeT } = useTranslation('home')
   const locale = resolveUiLocale(i18n.resolvedLanguage)
   if (isGuestDailyLimitReached) return null
+  const triesLeft = getGuestTriesLeft(isGuest, guestAllowance)
   return (
     <div className="practice-start-summary">
       <p className="sr-only" aria-live="polite">
@@ -123,7 +146,7 @@ const StartSummary = ({
         variant={hasResumableSession ? 'outline' : 'primary'}
         fullWidth
         type="submit"
-        aria-label={isCreating ? homeT('approved.loading') : startLabel}
+        aria-label={isCreating ? homeT('approved.loading') : undefined}
         disabled={!isReady}
         isLoading={isCreating}
         loadingLabel={homeT('approved.loading')}
@@ -131,18 +154,11 @@ const StartSummary = ({
         size="lg"
       >
         {startLabel}
+        {triesLeft === undefined ? null : (
+          <ButtonTriesLeft remaining={triesLeft} />
+        )}
       </Button>
-      {isGuest ? (
-        // Only after a first try: a fresh guest reads the rule up top.
-        guestAllowance &&
-        guestAllowance.remaining < guestAllowance.dailyLimit ? (
-          <p className="practice-supply-note">
-            {t('setup.guestLeft', {
-              remaining: formatNumber(guestAllowance.remaining, locale)
-            })}
-          </p>
-        ) : null
-      ) : (
+      {isGuest ? null : (
         <p className="practice-supply-note">{t('setup.availableCountNote')}</p>
       )}
     </div>
@@ -219,22 +235,27 @@ export const PracticeSetupForm = ({
   onLevelChange,
   onSubjectChange,
   onModeChange,
+  onCountChange,
   onStart
 }: PracticeSetupFormProps): ReactElement => {
-  const { t } = useTranslation('practice')
+  const { t, i18n } = useTranslation('practice')
+  const locale = resolveUiLocale(i18n.resolvedLanguage)
 
   return (
     <form
       className="practice-selection"
-      aria-labelledby="practice-start-title"
+      // The page h1 already asks "무엇을 풀까요?"; a second heading only
+      // when a resumable set sits above (plan-notes §5).
+      aria-labelledby={hasResumableSession ? 'practice-start-title' : undefined}
+      aria-label={hasResumableSession ? undefined : t('setup.formTitle')}
       onSubmit={(event) => {
         event.preventDefault()
         onStart()
       }}
     >
-      <h2 id="practice-start-title">
-        {t(hasResumableSession ? 'setup.newTitle' : 'setup.formTitle')}
-      </h2>
+      {hasResumableSession ? (
+        <h2 id="practice-start-title">{t('setup.newTitle')}</h2>
+      ) : null}
       <SubjectChoice
         subject={subject}
         subjects={subjects}
@@ -251,6 +272,24 @@ export const PracticeSetupForm = ({
         options={levels.map((value) => ({ value, label: value }))}
         onValueChange={onLevelChange}
       />
+      {/* Members pick the set size; guests always get the guest set. */}
+      {isGuest ? null : (
+        <ChoiceRadioGroup
+          appearance="segmented"
+          className="choice-counts"
+          name="practice-count"
+          legend={t('setup.steps.count')}
+          value={String(count)}
+          disabled={isCreating}
+          options={MEMBER_COUNT_CHOICES.map((value) => ({
+            value: String(value),
+            label: t('setup.questionCount', {
+              formattedCount: formatNumber(value, locale)
+            })
+          }))}
+          onValueChange={(value) => onCountChange(Number(value))}
+        />
+      )}
 
       {feedback ? (
         <div className="practice-setup-feedback">{feedback}</div>

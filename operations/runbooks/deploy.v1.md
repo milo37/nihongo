@@ -91,6 +91,12 @@ curl -s -o /dev/null -w '%{http_code}\n' "$(terraform output -raw site_url)/heal
 
 전제: 그 명령이 들어간 release가 배포됨, 태그 18 적재([question-import.v1.md](question-import.v1.md) 1단계), ACTIVE 관리자가 정확히 1명([first-admin.v1.md](first-admin.v1.md)). 명령은 그 관리자 이름으로 감사 기록을 남깁니다.
 
+누가·어디서(제한):
+
+- 이 명령은 관리자 화면과 달리 SSO 재인증 없이 승인·공개까지 합니다. 그래서 **서버에서 SSM Run Command로만** 돌립니다. HTTP 경로는 없고, 서버 밖(로컬·CI)에서 DB에 붙여 돌리지 않습니다.
+- 실행하는 사람은 그 환경에 SSM 명령을 보낼 AWS 권한이 있는 팀(DevOps)뿐이고, 사장님 승인을 받은 뒤 한 번 돌립니다(dry run → confirm). GitHub Actions 배포 역할은 `AWS-RunShellScript`를 보낼 수 없습니다(`RunDeployOnHost`는 배포 문서만).
+- 실행 기록: SSM 명령 기록(comment `question-set-publish <mode>`)과 출력 JSON의 `runId`로 묶인 감사 행.
+
 `aws login`된 터미널, `infra/aws`(해당 환경 state)에서:
 
 ```sh
@@ -98,6 +104,7 @@ bash scripts/question-set-publish.sh dry-run   # 쓰기 없음, 계획만
 bash scripts/question-set-publish.sh confirm   # 가져오기 → 검수 요청 → 승인 → 공개
 ```
 
+- 스크립트는 SSM 상태를 최대 31분(서버 쪽 제한 30분 + 1분) 기다리고, 넘으면 command id를 찍고 실패로 끝납니다. 그때는 같은 id로 `aws ssm get-command-invocation`을 확인합니다.
 - 스크립트는 `files/question-set-publish.sh`를 `AWS-RunShellScript`로 보냅니다(cloud-init이 설치하지 않으므로 terraform 변경 없음). 서버에서 배포된 SHA(`/opt/harumaru/current-release`)의 `content/question-imports/` 10개 파일을 내려받아(이미지에는 `content/`가 없음) 읽기 전용으로 붙이고, 관리자 화면과 같은 앱 로그인(`api.env`의 `DATABASE_URL`, 명령줄이 아닌 환경으로 전달)으로 실행합니다.
 - 출력은 `status …`와 JSON 한 줄뿐입니다(이메일·비밀값·URL 없음). dry run 기대: `"event":"question_set_dry_run"`, 빈 `conflicts`·`issues`. confirm 기대: `"event":"question_set_published"`, 처음이면 `published` 500.
 - 다시 돌려도 안전합니다: 이미 공개된 문제는 `skippedPublished`로 세고, 중간에 끊겼으면 남은 단계부터 이어 갑니다. 내용이 다른 같은 문제가 있으면 `conflicts`로 멈춥니다.

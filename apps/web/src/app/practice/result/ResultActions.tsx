@@ -7,12 +7,15 @@ import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 import { useStartNextSet } from '@app/practice/result/useStartNextSet'
 import { PracticeSetupFeedback } from '@app/practice/components/PracticeSetupFeedback'
+import { ButtonTriesLeft } from '@app/practice/components/ButtonTriesLeft'
 
 // Outlined buttons add a border; fix both buttons at 48px (ux2 §2-4).
 const SAME_HEIGHT = 'h-12'
 
 type ResultActionsProps = {
   isGuest: boolean
+  /** A guest's tries left, inside [다음 N문제] (plan-notes §5). */
+  guestTriesLeft?: number
   /** A guest's last try today (L20). */
   isGuestDone: boolean
   isRetryDisabled: boolean
@@ -20,16 +23,18 @@ type ResultActionsProps = {
   onRetry: () => void
   retryLoadingLabel: string
   session: StudySessionView['session']
+  /** Size of the set just played (members repeat it). */
+  requestedCount?: number
   showRetry: boolean
 }
 
 /**
- * '다음에 할 일': two buttons only (subtract table 10). [틀린 문제만 다시
- * 풀기] when something was wrong, then [다음 10문제]; both 48px. A member's
- * retry is filled; a guest's next set is, since each retry is one of the
- * day's tries (JLP-823).
+ * '다음에 할 일': two buttons only (subtract table 10). [다음 N문제] first
+ * and filled, then [틀린 문제만 다시 풀기] when something was wrong; both
+ * 48px, the same for members and guests (B4 §11).
  */
 export const ResultActions = ({
+  guestTriesLeft,
   isGuest,
   isGuestDone,
   isRetryDisabled,
@@ -37,17 +42,17 @@ export const ResultActions = ({
   onRetry,
   retryLoadingLabel,
   session,
+  requestedCount,
   showRetry
 }: ResultActionsProps): ReactElement => {
   const { i18n, t } = useTranslation('result')
-  const nextSet = useStartNextSet(session, isGuest)
-  const isNextSetPrimary = isGuest || !showRetry
+  const nextSet = useStartNextSet(session, isGuest, requestedCount)
   return (
     <section
       className="study-result-actions mt-10"
       aria-labelledby="result-next-steps"
     >
-      <h2 id="result-next-steps" className="mb-4 text-xl font-bold">
+      <h2 id="result-next-steps" className="sr-only">
         {t('nextActions.title')}
       </h2>
       {isGuestDone ? (
@@ -57,23 +62,10 @@ export const ResultActions = ({
       ) : (
         /* Stacked full width under 640px, one row at text width above. */
         <div className="study-result-buttons flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          {showRetry ? (
-            <Button
-              className={SAME_HEIGHT}
-              size="lg"
-              variant={isGuest ? 'outline' : 'primary'}
-              disabled={isRetryDisabled}
-              isLoading={isRetryLoading}
-              loadingLabel={retryLoadingLabel}
-              onClick={onRetry}
-            >
-              {t('actions.retryIncorrect')}
-            </Button>
-          ) : null}
           <Button
             className={SAME_HEIGHT}
             size="lg"
-            variant={isNextSetPrimary ? 'primary' : 'outline'}
+            variant="primary"
             isLoading={nextSet.isStarting}
             loadingLabel={t('actions.nextSetStarting')}
             onClick={nextSet.start}
@@ -84,7 +76,23 @@ export const ResultActions = ({
                 resolveUiLocale(i18n.resolvedLanguage)
               )
             })}
+            {guestTriesLeft === undefined ? null : (
+              <ButtonTriesLeft remaining={guestTriesLeft} />
+            )}
           </Button>
+          {showRetry ? (
+            <Button
+              className={SAME_HEIGHT}
+              size="lg"
+              variant="outline"
+              disabled={isRetryDisabled}
+              isLoading={isRetryLoading}
+              loadingLabel={retryLoadingLabel}
+              onClick={onRetry}
+            >
+              {t('actions.retryIncorrect')}
+            </Button>
+          ) : null}
         </div>
       )}
       {/* A refused next set says why here, in place (G, #792 QA). */}

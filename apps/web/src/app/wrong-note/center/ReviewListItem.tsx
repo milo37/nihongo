@@ -1,3 +1,4 @@
+import { GradeSquare } from '@common/components/manuscript/GradeSquare'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement } from 'react'
@@ -49,7 +50,8 @@ export const ReviewListItem = ({
         </span>
         {toReview ? (
           <span className="flex items-center justify-end gap-1 whitespace-nowrap text-[13px] font-bold text-danger">
-            <Icon name="x" className="size-3.5" />
+            {/* Wrong is the slash square everywhere (B4 §4). */}
+            <GradeSquare grade="ng" className="review-list-grade" />
             {/* Phones show the number only; the full text stays for screen readers. */}
             <span aria-hidden="true" className="lg:hidden">
               {item.wrongCount}

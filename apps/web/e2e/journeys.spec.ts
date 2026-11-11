@@ -927,7 +927,10 @@ const startVocabularySessionThroughUi = async (
     ['N5', 'level', 'N5'],
     ['문자·어휘', 'subject', 'VOCABULARY']
   ] as const) {
-    const radio = page.getByRole('radio', { name: label, exact: true })
+    // A subject's name also carries its one-line description (B4 ④).
+    const radio = page.getByRole('radio', {
+      name: new RegExp(`^${label}(?: |$)`, 'u')
+    })
     const choice = page.locator('label.choice-option').filter({ has: radio })
     await expect(choice).toHaveCount(1)
     // A default choice (target level, VOCABULARY) stays out of the URL.
@@ -946,8 +949,11 @@ const startVocabularySessionThroughUi = async (
   await expect(
     page.locator('input[name="practice-subject"][value="VOCABULARY"]')
   ).toBeChecked()
-  // A member always gets one set of 10; there is no count choice.
-  await expect(page.locator('input[name="practice-count"]')).toHaveCount(0)
+  // A member picks 5, 10 or 20 (B4 §9); each visit starts at 10.
+  await expect(page.locator('input[name="practice-count"]')).toHaveCount(3)
+  await expect(
+    page.locator('input[name="practice-count"][value="10"]')
+  ).toBeChecked()
   const studyMode = await openPracticeModes(page)
   await expect(studyMode).toHaveValue('RANDOM')
   const originalNow = await freezePracticeClock(page)
@@ -970,7 +976,7 @@ const startVocabularySessionThroughUi = async (
     '/api/v1/study-sessions'
   )
   await page
-    .getByRole('button', { name: 'N5 문자·어휘 10문제 시작', exact: true })
+    .getByRole('button', { name: /^N5 문자·어휘 \d+문제 시작$/u })
     .click()
   const response = await createdResponse
   expect(response.status()).toBe(201)
@@ -1032,8 +1038,11 @@ const submitCurrentSessionThroughUi = async (
   await expect(page).toHaveURL(
     new RegExp(`/practice/result/${sessionId}$`, 'u')
   )
+  // A normal result is headed by its score sentence (B4 §11).
   await expect(
-    page.getByRole('heading', { name: heading, exact: true })
+    heading === '결과'
+      ? page.getByRole('heading', { level: 1, name: /문제 중 .*맞음/u })
+      : page.getByRole('heading', { name: heading, exact: true })
   ).toBeVisible()
   // The grading reveal renders with the result (not after a single review).
   if (await page.locator('.grading-reveal').count()) {
@@ -1063,10 +1072,12 @@ test('guest SSO boundary and authenticated practice transition match the active 
   await guestPrincipal
   await settleJourneyPage(page)
   await expect(
-    page.getByText(/^로그인 없이 하루 3번, 한 번에 10문제씩 풀 수 있어요\./u)
+    page.getByRole('heading', { level: 1, name: '무엇을 풀까요?' })
   ).toBeVisible()
-  // A fresh guest reads the rule only; no count line, no locks (JLP-823).
-  await expect(page.getByText(/더 풀 수 있어요/u)).toHaveCount(0)
+  // A fresh guest gets no rule line here and no tries count in the start
+  // button (plan-notes §4); no locks (JLP-823).
+  await expect(page.getByText(/로그인 없이 하루/u)).toHaveCount(0)
+  await expect(page.getByText(/번 남음/u)).toHaveCount(0)
   await expect(page.locator('select[name="practice-mode"]')).toHaveCount(0)
   for (const path of [
     '/login?mode=signup#retired-token',
@@ -1240,7 +1251,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   const persisted = await reloadedResult
   expect(persisted).toEqual(primarySubmission)
   await expect(
-    page.getByRole('heading', { name: '결과', exact: true })
+    page.getByRole('heading', { level: 1, name: /문제 중 .*맞음/u })
   ).toBeVisible()
   const chooseLocale = async (value: 'ko' | 'ja'): Promise<void> => {
     await page.locator('#account-menu-button').click()
@@ -1250,7 +1261,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   }
   await chooseLocale('ja')
   await expect(
-    page.getByRole('heading', { name: '結果', exact: true })
+    page.getByRole('heading', { level: 1, name: /問中 .*問正解/u })
   ).toBeVisible()
   await chooseLocale('ko')
 

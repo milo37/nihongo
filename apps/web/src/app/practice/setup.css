@@ -1,0 +1,158 @@
+/* B4 learn screen (HANDOFF §4, §6, §9). Loaded with the practice page only. */
+
+/* No card: the page sits on the paper-white canvas. */
+.practice-setup-page .practice-selection {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+/* Subjects: ruled rows, each with its kanji square. */
+.practice-setup-page .choice-subjects .choice-options {
+  grid-template-columns: 1fr;
+  gap: 0;
+}
+.practice-setup-page .choice-subjects .choice-surface {
+  justify-content: flex-start;
+  gap: 14px;
+  min-height: 72px;
+  padding: 12px 2px;
+  border: 0;
+  border-bottom: 1px solid rgb(var(--color-line));
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 16px;
+}
+.practice-setup-page .choice-subjects .choice-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+}
+.subject-glyph {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1.5px solid rgb(var(--color-muted));
+  border-radius: 2px;
+  color: rgb(var(--color-ink));
+  font-family: var(--font-ja);
+  font-size: 24px;
+  font-weight: 700;
+}
+.subject-text {
+  display: grid;
+  gap: 2px;
+  text-align: start;
+}
+.subject-description {
+  color: rgb(var(--color-muted));
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+.subject-description:lang(ja) {
+  line-break: strict;
+}
+.choice-option:has(input:checked) .subject-glyph {
+  border-color: rgb(var(--color-brand));
+  background: rgb(var(--color-brand));
+  color: rgb(var(--color-on-accent));
+}
+.practice-setup-page
+  .choice-subjects
+  .choice-option:has(input:checked)
+  .choice-surface {
+  font-weight: 700;
+}
+
+/* Levels and counts: manuscript squares, 1px rules between, no outer box. */
+.practice-setup-page .choice-levels .choice-options,
+.practice-setup-page .choice-counts .choice-options {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0;
+  border-block: 1px solid rgb(var(--color-sheet-line));
+}
+.practice-setup-page .choice-counts .choice-options {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: 60%;
+}
+.practice-setup-page .choice-levels .choice-surface,
+.practice-setup-page .choice-counts .choice-surface {
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid rgb(var(--color-sheet-line));
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: 16px;
+  font-feature-settings: 'tnum';
+}
+.practice-setup-page .choice-levels .choice-option:last-child .choice-surface,
+.practice-setup-page .choice-counts .choice-option:last-child .choice-surface {
+  border-right: 0;
+}
+.practice-setup-page
+  .choice-option
+  > input:checked:not(:disabled)
+  + .choice-surface {
+  border-color: rgb(var(--color-sheet-line));
+  background: rgb(var(--color-brand));
+  box-shadow: none;
+  color: rgb(var(--color-on-accent));
+}
+.practice-setup-page
+  .choice-subjects
+  .choice-option
+  > input:checked:not(:disabled)
+  + .choice-surface {
+  border-color: rgb(var(--color-line));
+  background: transparent;
+  color: rgb(var(--color-ink));
+}
+.practice-setup-page .choice-counts {
+  margin-top: 24px;
+}
+
+@media (min-width: 1024px) {
+  /* Two columns: subjects on the left, level, count and start beside. */
+  .app-shell .app-shell-body > main > .practice-setup-page {
+    max-width: 1056px;
+    padding-top: clamp(56px, 12vh, 120px);
+  }
+  .practice-setup-page .practice-selection {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.82fr);
+    column-gap: 64px;
+    align-items: start;
+  }
+  .practice-setup-page .practice-selection > * {
+    grid-column: 2;
+  }
+  .practice-setup-page .practice-selection > h2,
+  .practice-setup-page .practice-selection > .choice-subjects {
+    grid-column: 1;
+  }
+  .practice-setup-page .practice-selection > .choice-subjects {
+    grid-row: 2 / span 8;
+  }
+  .practice-setup-page .choice-levels .choice-surface,
+  .practice-setup-page .choice-counts .choice-surface {
+    min-height: 52px;
+  }
+  .subject-glyph {
+    width: 52px;
+    height: 52px;
+    font-size: 28px;
+  }
+}
+@media (min-width: 1120px) {
+  .practice-setup-page .practice-selection {
+    grid-template-columns: minmax(0, 528fr) minmax(0, 432fr);
+    column-gap: clamp(64px, 7.5vw, 96px);
+  }
+}

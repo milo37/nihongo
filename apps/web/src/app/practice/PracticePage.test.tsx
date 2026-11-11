@@ -18,6 +18,7 @@ import { queryClient } from '@nihongo/browser/libs/queryClient'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { ProtectedRouteProvider } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { AuthErrorHandlerProvider } from '@nihongo/browser/provider/AuthErrorHandlerProvider'
+import { GUEST_SESSION_QUESTION_LIMIT } from '@nihongo/contracts/study/guest-limits'
 
 const renderPractice = (search: string, { globalErrors = false } = {}) => {
   const router = createMemoryRouter(
@@ -52,10 +53,12 @@ const renderPractice = (search: string, { globalErrors = false } = {}) => {
 }
 
 describe('PracticePage setup', () => {
-  it('게스트의 기본값은 N5 어휘이고 문제 수는 게스트 한도 10문제다', async () => {
+  it('게스트의 기본값은 N5 어휘이고 문제 수는 게스트 한도다', async () => {
     renderPractice('')
     expect(
-      await screen.findByRole('button', { name: 'N5 문자·어휘 10문제 시작' })
+      await screen.findByRole('button', {
+        name: `N5 문자·어휘 ${GUEST_SESSION_QUESTION_LIMIT}문제 시작`
+      })
     ).toBeInTheDocument()
   })
 
@@ -69,11 +72,21 @@ describe('PracticePage setup', () => {
 
     cleanup()
     renderPractice('?level=N4&subject=READING&count=5')
-    // A member always gets one set of 10; the old count link is ignored.
+    // A member starts at 10 each visit; the old count link is ignored.
     expect(
       await screen.findByRole('button', { name: 'N4 독해 10문제 시작' })
     ).toBeInTheDocument()
-    expect(screen.queryByRole('group', { name: '문제 수' })).toBeNull()
+    const countGroup = screen.getByRole('group', { name: '문제 수' })
+    expect(
+      within(countGroup).getByRole('radio', { name: '10문제' })
+    ).toBeChecked()
+    // Picking 20 follows through to the start button (B4 §9).
+    await userEvent
+      .setup()
+      .click(within(countGroup).getByRole('radio', { name: '20문제' }))
+    expect(
+      screen.getByRole('button', { name: 'N4 독해 20문제 시작' })
+    ).toBeInTheDocument()
   })
 
   it('목표 급수가 없으면 이 기기에서 마지막에 시작한 급수·과목을 기본으로 쓴다', async () => {
@@ -89,7 +102,12 @@ describe('PracticePage setup', () => {
     cleanup()
     renderPractice('')
     expect(
-      await screen.findByRole('button', { name: 'N3 문법 10문제 시작' })
+      await screen.findByRole('button', {
+        name: new RegExp(
+          `^N3 문법 ${GUEST_SESSION_QUESTION_LIMIT}문제 시작`,
+          'u'
+        )
+      })
     ).toBeInTheDocument()
 
     // A target level still wins over the last level; the subject stays.
@@ -151,7 +169,7 @@ describe('PracticePage setup', () => {
     expect(router.state.location.pathname).toMatch(/^\/practice\/session\//u)
   })
 
-  it('게스트가 공유 주소로 잠긴 방식을 열면 10문제·무작위로 보여 주고 안내한다 (L12)', async () => {
+  it('게스트가 공유 주소로 잠긴 방식을 열면 게스트 한도 문제 수·무작위로 보여 주고 안내한다 (L12)', async () => {
     const search = '?level=N5&subject=VOCABULARY&count=20&mode=DAILY_REVIEW'
     renderPractice(search)
     const note = await screen.findByText(
@@ -163,7 +181,7 @@ describe('PracticePage setup', () => {
       `/login?redirect=${encodeURIComponent(`/practice${search}`)}`
     )
     const start = screen.getByRole('button', {
-      name: 'N5 문자·어휘 10문제 시작'
+      name: `N5 문자·어휘 ${GUEST_SESSION_QUESTION_LIMIT}문제 시작`
     })
     await waitFor(() => expect(start).toBeEnabled())
     // Guests have no mode picker: the review set needs wrong notes.
@@ -176,7 +194,9 @@ describe('PracticePage setup', () => {
     renderPractice('?level=N5&subject=VOCABULARY')
     await waitFor(() =>
       expect(
-        screen.getByRole('button', { name: 'N5 문자·어휘 10문제 시작' })
+        screen.getByRole('button', {
+          name: `N5 문자·어휘 ${GUEST_SESSION_QUESTION_LIMIT}문제 시작`
+        })
       ).toBeEnabled()
     )
     expect(screen.queryByRole('group', { name: '문제 수' })).toBeNull()
@@ -189,12 +209,11 @@ describe('PracticePage setup', () => {
   it('게스트가 한 번이라도 풀면 남은 횟수를 보이고, 0회면 시작 대신 한도 카드를 둔다 (JLP-823)', async () => {
     mockGuestAllowance.setRemaining(1)
     const first = renderPractice('?level=N5&subject=VOCABULARY')
-    expect(await screen.findByText('오늘 1번 더 풀 수 있어요')).toBeVisible()
+    // The count sits inside the start button; no rule line (plan-notes §4).
     expect(
-      screen.getByText(
-        /^로그인 없이 하루 3번, 한 번에 10문제씩 풀 수 있어요\./u
-      )
+      await screen.findByRole('button', { name: /문제 시작 1번 남음$/u })
     ).toBeVisible()
+    expect(screen.queryByText(/로그인 없이 하루/u)).toBeNull()
     first.dispose()
     cleanup()
     queryClient.clear()
@@ -273,7 +292,10 @@ describe('PracticePage setup', () => {
       )
     )
     renderPractice('?level=N5&subject=VOCABULARY', { globalErrors: true })
-    const name = 'N5 문자·어휘 10문제 시작'
+    const name = new RegExp(
+      `^N5 문자·어휘 ${GUEST_SESSION_QUESTION_LIMIT}문제 시작`,
+      'u'
+    )
     const start = await screen.findByRole('button', { name })
     await waitFor(() => expect(start).toBeEnabled())
     await userEvent.setup().click(start)

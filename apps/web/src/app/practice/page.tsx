@@ -5,13 +5,10 @@ import {
   CancelResumableDialog,
   PracticeSetupFeedback
 } from '@app/practice/components/PracticeSetupFeedback'
+import setupCss from '@app/practice/setup.css?inline'
 import { PracticeSetupForm } from '@app/practice/components/PracticeSetupForm'
 import { GuestDailyLimitCard } from '@app/practice/components/GuestDailyLimitCard'
 import { GuestUrlLockedNotice } from '@app/practice/components/GuestSetupNotices'
-import {
-  GUEST_DAILY_SESSION_LIMIT,
-  GUEST_SESSION_QUESTION_LIMIT
-} from '@nihongo/contracts/study/guest-limits'
 import { ResumablePractice } from '@app/practice/components/ResumablePractice'
 import { usePracticeSetupController } from '@app/practice/hooks/usePracticeSetupController'
 import { levels, modes, subjects } from '@app/practice/practiceSetupOptions'
@@ -23,7 +20,7 @@ const subjectLabelKeys = {
 } as const
 
 export const PracticePage = (): ReactElement => {
-  const { t, i18n } = useTranslation('practice')
+  const { t } = useTranslation('practice')
   const { t: homeT } = useTranslation('home')
   const resumableHeadingRef = useRef<HTMLHeadingElement>(null)
   const setupHeadingRef = useRef<HTMLHeadingElement>(null)
@@ -40,21 +37,13 @@ export const PracticePage = (): ReactElement => {
 
   return (
     <section className="practice-setup-page">
+      <style href="harumaru-setup" precedence="default">
+        {setupCss}
+      </style>
       <div className="practice-setup-heading">
         <h1 ref={setupHeadingRef} tabIndex={-1}>
           {t('setup.title')}
         </h1>
-        {setup.isGuest ? (
-          <p className="practice-guest-hint">
-            {t('setup.guestHint', {
-              total: GUEST_DAILY_SESSION_LIMIT,
-              count: GUEST_SESSION_QUESTION_LIMIT
-            })}
-            {/* Japanese puts no space between sentences. */}
-            {i18n.resolvedLanguage === 'ja' ? '' : ' '}
-            {t('setup.guestResumeHint')}
-          </p>
-        ) : null}
       </div>
       {setup.isGuestDailyLimitReached ? (
         <GuestDailyLimitCard redirect="/practice" />
@@ -93,6 +82,7 @@ export const PracticePage = (): ReactElement => {
           setup.changeSetting('level', option, setup.defaultLevel)
         }
         onModeChange={(option) => setup.changeSetting('mode', option, 'RANDOM')}
+        onCountChange={setup.changeCount}
         onStart={setup.handleStart}
         feedback={
           <PracticeSetupFeedback

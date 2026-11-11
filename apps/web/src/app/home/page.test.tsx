@@ -36,6 +36,7 @@ import { mockServer } from '@/test/server'
 import { mockGuestAllowance } from '@mocks/handlers/guestAllowanceHandlers'
 import * as reviewListApi from '@api/wrong-note/listReviewList'
 import { ReviewDueLine } from '@app/dashboard/components/ReviewDueLine'
+import { GUEST_SESSION_QUESTION_LIMIT } from '@nihongo/contracts/study/guest-limits'
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
@@ -135,14 +136,14 @@ const renderHome = (initial = '/', memberLine?: ReactElement) =>
 it.each([
   [
     'ko',
-    '오늘은 N5 문자·어휘 10문제 풀어 볼까요?',
+    `오늘은 N5 문자·어휘 ${GUEST_SESSION_QUESTION_LIMIT}문제 풀어 볼까요?`,
     '급수 바꾸기',
     '과목 바꾸기',
     '바로 풀기'
   ],
   [
     'ja',
-    '今日は N5 文字・語彙 を 10問解いてみませんか？',
+    `今日は N5 文字・語彙 を ${GUEST_SESSION_QUESTION_LIMIT}問解いてみませんか？`,
     'レベルを変える',
     '科目を変える',
     'すぐに解く'
@@ -158,7 +159,10 @@ it.each([
     ).toBeVisible()
     expect(
       screen.getByText(
-        appI18n.t('home:today.guestGreeting', { total: 3, count: 10 })
+        appI18n.t('home:today.guestGreeting', {
+          total: 3,
+          count: GUEST_SESSION_QUESTION_LIMIT
+        })
       )
     ).toBeVisible()
     expect(screen.getByRole('combobox', { name: levelLabel })).toHaveValue('N5')
@@ -167,24 +171,28 @@ it.each([
     )
     fireEvent.click(screen.getByRole('button', { name: start }))
     expect(mocks.mutate).toHaveBeenCalledWith(
-      { level: 'N5', subject: 'VOCABULARY', count: 10, mode: 'RANDOM' },
+      {
+        level: 'N5',
+        subject: 'VOCABULARY',
+        count: GUEST_SESSION_QUESTION_LIMIT,
+        mode: 'RANDOM'
+      },
       expect.anything()
     )
-    // Guests keep things only after logging in: one quiet line, no lock.
-    expect(
-      screen.getByRole('link', {
-        name: appI18n.t('home:today.guestMoreAction')
-      })
-    ).toHaveAttribute('href', '/login?redirect=%2F')
-    expect(screen.getByText(appI18n.t('home:today.guestMore'))).toBeVisible()
+    // No "keep it with a login" line on the first screen (plan-notes §4).
+    expect(document.querySelector('.home-more')).toBeNull()
   }
 )
 
 it.each([
-  ['ko', '내일 또 N5 문자·어휘 10문제 풀어요', '오늘 3번을 다 풀었어요'],
+  [
+    'ko',
+    `내일 또 N5 문자·어휘 ${GUEST_SESSION_QUESTION_LIMIT}문제 풀어요`,
+    '오늘 3번을 다 풀었어요'
+  ],
   [
     'ja',
-    '明日また N5 文字・語彙 を 10問解きましょう',
+    `明日また N5 文字・語彙 を ${GUEST_SESSION_QUESTION_LIMIT}問解きましょう`,
     '今日の3回をすべて解きました'
   ]
 ] as const)(
@@ -235,7 +243,9 @@ it('starts a member from the last level and subject, changed by the underlined w
     { level: 'N1', subject: 'READING', count: 10, mode: 'RANDOM' },
     expect.anything()
   )
-  expect(screen.queryByText(appI18n.t('home:today.guestMore'))).toBeNull()
+  // A member sees no guest rule line and no tries count.
+  expect(screen.queryByText(/로그인 없이 하루/u)).toBeNull()
+  expect(screen.queryByText(/번 남음/u)).toBeNull()
 })
 
 it('tells a member how many wrong answers wait and starts the same review as the wrong-note page', async () => {

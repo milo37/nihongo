@@ -1,8 +1,8 @@
 import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
 import type { ChangeEvent, ReactElement, ReactNode } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
+import { ProgressSheet } from '@common/components/manuscript/ProgressSheet'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
@@ -15,6 +15,10 @@ import {
 } from '@nihongo/contracts/study/guest-limits'
 import { GuestDailyLimitCard } from '@app/practice/components/GuestDailyLimitCard'
 import { PracticeSetupFeedback } from '@app/practice/components/PracticeSetupFeedback'
+import {
+  ButtonTriesLeft,
+  getGuestTriesLeft
+} from '@app/practice/components/ButtonTriesLeft'
 
 const LEVEL_SLOT = '[[level]]'
 const SUBJECT_SLOT = '[[subject]]'
@@ -75,7 +79,6 @@ export const HeroStartCard = ({
   memberLine?: ReactNode
 }): ReactElement => {
   const { t, i18n } = useTranslation('home')
-  const { t: practiceT } = useTranslation('practice')
   const { user } = useAuth()
   const resumableHeadingRef = useRef<HTMLHeadingElement>(null)
   const setup = usePracticeSetupController(resumableHeadingRef)
@@ -83,6 +86,7 @@ export const HeroStartCard = ({
   const level = setup.level ?? setup.defaultLevel
   const locale = resolveUiLocale(i18n.resolvedLanguage)
   const { isGuest } = setup
+  const guestTriesLeft = getGuestTriesLeft(isGuest, setup.guestAllowance)
   const pickDisabled = !setup.isReady || setup.isCreatingSession
   // The pickers go where {{level}} and {{subject}} are and the line breaks
   // before the count, after any particle (no Trans: it would add an HTML
@@ -98,16 +102,6 @@ export const HeroStartCard = ({
   }).split(/(\[\[level\]\]|\[\[subject\]\]|\[\[br\]\])/u)
   return (
     <div className="home-band-start">
-      <p className="home-hello">
-        {isGuest
-          ? t('today.guestGreeting', {
-              total: GUEST_DAILY_SESSION_LIMIT,
-              count: GUEST_SESSION_QUESTION_LIMIT
-            })
-          : user?.name
-            ? t('today.memberGreeting', { name: user.name })
-            : t('today.memberGreetingNoName')}
-      </p>
       <h1
         className={
           setup.isGuestDailyLimitReached
@@ -157,6 +151,13 @@ export const HeroStartCard = ({
           )
         )}
       </h1>
+      {setup.isGuestDailyLimitReached ? null : (
+        // Today's set as empty squares (decorative; the sentence says it).
+        <ProgressSheet
+          className="home-strip"
+          states={Array.from({ length: count }, () => 'todo' as const)}
+        />
+      )}
       {setup.isGuestDailyLimitReached ? (
         <div className="home-band-limit">
           <GuestDailyLimitCard redirect="/" />
@@ -172,18 +173,35 @@ export const HeroStartCard = ({
         >
           {isGuest ? t('today.startGuest') : t('today.startMember')}
           <Icon name="arrow-right" className="size-5" />
+          {guestTriesLeft === undefined ? null : (
+            <ButtonTriesLeft remaining={guestTriesLeft} />
+          )}
         </Button>
       )}
-      {isGuest &&
-      !setup.isGuestDailyLimitReached &&
-      setup.guestAllowance &&
-      setup.guestAllowance.remaining < setup.guestAllowance.dailyLimit ? (
-        <p className="home-left">
-          {practiceT('setup.guestLeft', {
-            remaining: formatNumber(setup.guestAllowance.remaining, locale)
-          })}
+      {isGuest ? (
+        // Only before the first try today; after it, the count sits in the
+        // button (plan-notes §4).
+        guestTriesLeft === undefined && !setup.isGuestDailyLimitReached ? (
+          <p className="home-hello">
+            {/* Three tries a day drawn as three empty squares (decorative). */}
+            <span className="home-hello-tries" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </span>
+            {t('today.guestGreeting', {
+              total: GUEST_DAILY_SESSION_LIMIT,
+              count: GUEST_SESSION_QUESTION_LIMIT
+            })}
+          </p>
+        ) : null
+      ) : (
+        <p className="home-hello">
+          {user?.name
+            ? t('today.memberGreeting', { name: user.name })
+            : t('today.memberGreetingNoName')}
         </p>
-      ) : null}
+      )}
       <PracticeSetupFeedback
         accountRestricted={setup.accountRestricted}
         hasCreateError={setup.hasCreateError}
@@ -191,21 +209,7 @@ export const HeroStartCard = ({
         noEligibleQuestions={setup.noEligibleQuestions}
         onSelectRandom={() => setup.changeSetting('mode', 'RANDOM', 'RANDOM')}
       />
-      {isGuest ? (
-        // The limit card already holds the login.
-        setup.isGuestDailyLimitReached ? null : (
-          <p className="home-more">
-            <Icon name="bookmark" className="home-more-icon" />
-            {t('today.guestMore')}
-            <Link to={setup.loginHref}>
-              {t('today.guestMoreAction')}
-              <Icon name="chevron-right" className="size-4" />
-            </Link>
-          </p>
-        )
-      ) : setup.isReady ? (
-        memberLine
-      ) : null}
+      {!isGuest && setup.isReady ? memberLine : null}
     </div>
   )
 }

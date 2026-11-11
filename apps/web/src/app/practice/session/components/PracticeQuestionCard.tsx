@@ -126,15 +126,12 @@ export const PracticeQuestionCard = ({
             className="min-w-0 rounded-sm [text-wrap:wrap]"
             tabIndex={-1}
           >
-            <span className="mb-2 block text-[13px] font-bold text-brand">
+            <span className="mb-2 block text-[13px] font-bold text-muted">
               {t('session.question.numberLabel', {
                 ordinal: formatCount(questionNumber)
               })}{' '}
             </span>
-            <span
-              className="block text-lg font-bold leading-[1.6] lg:text-xl"
-              lang="ja"
-            >
+            <span className="study-question-text block font-bold" lang="ja">
               {question.questionText}
             </span>
           </h1>
@@ -163,11 +160,14 @@ export const PracticeQuestionCard = ({
                 <span className="flex items-center gap-3 font-normal">
                   <span
                     aria-hidden="true"
-                    className="grid size-7.5 shrink-0 place-items-center rounded-full bg-surface-muted text-sm font-bold group-has-[:checked]:bg-brand group-has-[:checked]:text-on-accent"
+                    className="study-option-number grid size-7.5 shrink-0 place-items-center text-sm font-bold"
                   >
                     {option.label}
                   </span>
-                  <span className="min-w-0 leading-[1.6]" lang="ja">
+                  <span
+                    className="study-option-text min-w-0 leading-[1.6]"
+                    lang="ja"
+                  >
                     <span className="sr-only">{option.label}. </span>
                     {option.text}
                   </span>

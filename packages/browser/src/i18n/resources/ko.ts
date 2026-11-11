@@ -324,8 +324,7 @@ export const koCoreResources = {
       pickLevel: '급수 바꾸기',
       pickSubject: '과목 바꾸기',
       dueAction: '복습',
-      guestMore: '남겨 두고 싶을 때만',
-      guestMoreAction: '로그인',
+      guestLeftShort: '{{remaining}}번 남음',
       startGuest: '바로 풀기',
       startMember: '바로 풀기',
       dailyLabel: '오늘의 한 문제',
@@ -347,21 +346,20 @@ export const koCoreResources = {
       loading: '불러오는 중…'
     },
     quickDrill: {
-      title: '10문제 바로 풀기',
       start: '{{level}} {{subject}} {{formattedCount}}문제 시작'
     },
     subjects: {
       vocabulary: {
         label: '문자·어휘',
-        description: '한자 읽기, 표기, 알맞은 단어'
+        description: '한자 읽기·표기·뜻'
       },
       grammar: {
         label: '문법',
-        description: '문법 고르기, 문장 만들기'
+        description: '조사·활용·문장 만들기'
       },
       reading: {
         label: '독해',
-        description: '짧은 글, 안내문 읽기'
+        description: '글·안내문 읽고 답하기'
       }
     }
   },
@@ -455,9 +453,7 @@ export const koCoreResources = {
       formTitle: '무엇을 풀까요?',
       newTitle: '새로 풀기',
       modeSummary: '출제 방식',
-      guestHint:
-        '로그인 없이 하루 {{total}}번, 한 번에 {{count}}문제씩 풀 수 있어요.',
-      title: '학습',
+      title: '무엇을 풀까요?',
       description: '준비된 문제가 고른 수보다 적으면 있는 만큼만 나와요.',
       resume: {
         title: '풀던 문제 이어서',
@@ -480,7 +476,8 @@ export const koCoreResources = {
       steps: {
         level: '급수',
         subject: '과목',
-        mode: '출제 방식'
+        mode: '출제 방식',
+        count: '문제 수'
       },
       questionCount: '{{formattedCount}}문제',
       modes: {
@@ -506,8 +503,6 @@ export const koCoreResources = {
           empty: '복습할 문제가 없어요. 다른 방식으로 풀어 보세요.'
         }
       },
-      guestResumeHint: '로그인하면 풀다 만 문제를 나중에 이어 풀 수 있어요.',
-      guestLeft: '오늘 {{remaining}}번 더 풀 수 있어요',
       dailyLimit: {
         title: '오늘 {{total}}번을 다 풀었어요',
         description: '로그인하면 계속 풀고, 틀린 문제도 모아 둘 수 있어요.',
@@ -737,8 +732,6 @@ export const koCoreResources = {
     },
     status: {
       guest: '틀린 {{formattedCount}}문제, 오답노트에 모아 둘까요?',
-      guestDetail: '로그인하면 방금 푼 문제가 오답노트에 들어가요.',
-      guestAction: '로그인하고 모으기',
       guestAllCorrect: '로그인하면 다음부터 틀린 문제가 오답노트에 모여요.',
       savedWrongCount: '틀린 {{formattedCount}}문제를 오답노트에 담았어요.'
     },
@@ -819,8 +812,7 @@ export const koCoreResources = {
       startNew: '새 문제 풀기',
       showAll: '전체 보기',
       never: {
-        title: '아직 틀린 문제가 없어요',
-        body: '문제를 풀다 틀리면 여기 모여요.'
+        title: '아직 틀린 문제가 없어요. 풀다 틀리면 여기 모여요.'
       },
       allDone: {
         title: '복습할 문제를 다 풀었어요',

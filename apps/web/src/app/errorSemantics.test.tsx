@@ -309,11 +309,12 @@ describe('detail page error semantics', () => {
       expect(sessionRequestCount).toBe(2)
     })
     expect(
-      screen.queryByRole('heading', { name: '결과' })
+      screen.queryByRole('heading', { level: 1, name: /문제 중/u })
     ).not.toBeInTheDocument()
     releaseSession()
     const summaryHeading = await screen.findByRole('heading', {
-      name: '결과'
+      level: 1,
+      name: /문제 중 .*맞음/u
     })
     await waitFor(() => expect(summaryHeading).toHaveFocus())
     expect(resultRequestCount).toBe(2)

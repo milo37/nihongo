@@ -53,6 +53,8 @@ export const usePracticeSetupController = (
   const [cancelSessionId, setCancelSessionId] = useState<string | null>(null)
   // Read once: starting a practice saves the next default for later visits.
   const [lastChoice] = useState(readLastPracticeChoice)
+  // A member picks 5, 10 or 20 each visit; not remembered (B4 §9).
+  const [memberCount, setMemberCount] = useState(MEMBER_COUNT)
   // The target level wins, then the last level on this device (table 2).
   const defaultLevel = user?.targetLevel ?? lastChoice?.level ?? FALLBACK_LEVEL
   const defaultSubject = lastChoice?.subject ?? FALLBACK_SUBJECT
@@ -68,7 +70,7 @@ export const usePracticeSetupController = (
   const requestedMode = getRequestedMode(searchParams.get('mode'))
   // Guests only try short random sessions; a shared link asking for review
   // keeps its level and subject and says why the mode changed (L12).
-  const count = isGuest ? GUEST_SESSION_QUESTION_LIMIT : MEMBER_COUNT
+  const count = isGuest ? GUEST_SESSION_QUESTION_LIMIT : memberCount
   const mode = isGuest ? 'RANDOM' : requestedMode
   const isUrlLockedForGuest = isGuest && requestedMode !== 'RANDOM'
   const queryClient = useQueryClient()
@@ -189,6 +191,7 @@ export const usePracticeSetupController = (
     defaultSubject,
     confirmCancel,
     count,
+    changeCount: setMemberCount,
     handleStart,
     hasCancelError:
       cancelSession.isError &&
