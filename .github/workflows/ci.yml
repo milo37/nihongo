@@ -268,7 +268,21 @@ jobs:
 
       - name: Install Playwright Chromium
         if: ${{ needs.plan.outputs.browser == 'true' }}
-        run: pnpm exec playwright install --with-deps chromium
+        timeout-minutes: 30
+        # Runner DNS to the Ubuntu apt mirrors fails now and then; retry the whole install with backoff.
+        run: |
+          echo 'Acquire::Retries "3";' | sudo tee /etc/apt/apt.conf.d/80-ci-retries >/dev/null
+          for attempt in 1 2 3; do
+            if pnpm exec playwright install --with-deps chromium; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              delay=$((attempt * 30))
+              echo "::warning::Playwright install attempt ${attempt} failed; retrying in ${delay}s"
+              sleep "$delay"
+            fi
+          done
+          exit 1
 
       - name: Database and API performance
         id: database_performance
