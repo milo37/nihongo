@@ -26,18 +26,18 @@
 
 ## 파일
 
-| 파일                      | 내용                                                                                                                      |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `compute.tf`              | EC2, EIP, 보안그룹, 인스턴스 역할(SSM 경로 읽기, ECR pull, 백업 PutObject만), 데이터 볼륨, DLM 주간 스냅샷                |
-| `edge.tf`                 | CloudFront 배포, origin 비밀 헤더(값은 SSM에도 저장), WAF web ACL(us-east-1)                                              |
-| `registry.tf`             | ECR(태그 불변, push 시 스캔, 릴리스 10개 보존: `<SHA>`·`<SHA>-migrate`). 계정에 1개, STAGING이 만들고 PRODUCTION은 읽기만 |
-| `backup.tf`               | 백업 버킷(공개 차단, SSE, TLS 강제, 30일 수명주기)                                                                        |
-| `monitoring.tf`           | SNS 메일, 경보 8개(상태 검사+자동 복구, CPU, CPU 크레딧, 메모리, 디스크, CloudFront 5xx, 백업 누락, 예약 시작 실패), 예약 작업 실패 알림(EventBridge 규칙), 로그 그룹 30일       |
-| `cost.tf`                 | 월 5,000엔(세포함)을 USD로 환산한 Budgets, 50/80/100% 실제·100% 예측 알림, 100% 초과 시 EC2 정지(기본 꺼짐), Cost Anomaly |
-| `github.tf`               | GitHub Actions OIDC 역할(STAGING `main`만·ECR push, PRODUCTION environment `production`만, 배포 문서 실행만)              |
-| `operations.tf`           | 배포 SSM 문서, #57 계정 삭제·#694 비회원 정리 SSM 문서와 예약(둘 다 매시, 기본 **DISABLED**)                              |
-| `files/`, `templates/`    | 호스트 compose, Caddyfile, 배포·환경·백업·삭제 스크립트, cloud-init                                                       |
-| `scripts/render-check.sh` | CI에서 cloud-init·compose·Caddyfile을 두 origin 모드로 렌더링해 검사                                                      |
+| 파일                      | 내용                                                                                                                                                                       |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `compute.tf`              | EC2, EIP, 보안그룹, 인스턴스 역할(SSM 경로 읽기, ECR pull, 백업 PutObject만), 데이터 볼륨, DLM 주간 스냅샷                                                                 |
+| `edge.tf`                 | CloudFront 배포, origin 비밀 헤더(값은 SSM에도 저장), WAF web ACL(us-east-1)                                                                                               |
+| `registry.tf`             | ECR(태그 불변, push 시 스캔, 릴리스 10개 보존: `<SHA>`·`<SHA>-migrate`). 계정에 1개, STAGING이 만들고 PRODUCTION은 읽기만                                                  |
+| `backup.tf`               | 백업 버킷(공개 차단, SSE, TLS 강제, 30일 수명주기)                                                                                                                         |
+| `monitoring.tf`           | SNS 메일, 경보 8개(상태 검사+자동 복구, CPU, CPU 크레딧, 메모리, 디스크, CloudFront 5xx, 백업 누락, 예약 시작 실패), 예약 작업 실패 알림(EventBridge 규칙), 로그 그룹 30일 |
+| `cost.tf`                 | 월 5,000엔(세포함)을 USD로 환산한 Budgets, 50/80/100% 실제·100% 예측 알림, 100% 초과 시 EC2 정지(기본 꺼짐), Cost Anomaly                                                  |
+| `github.tf`               | GitHub Actions OIDC 역할(STAGING `main`만·ECR push, PRODUCTION environment `production`만, 배포 문서 실행만)                                                               |
+| `operations.tf`           | 배포 SSM 문서, #57 계정 삭제·#694 비회원 정리 SSM 문서와 예약(둘 다 매시, 기본 **DISABLED**)                                                                               |
+| `files/`, `templates/`    | 호스트 compose, Caddyfile, 배포·환경·백업·삭제 스크립트, cloud-init                                                                                                        |
+| `scripts/render-check.sh` | CI에서 cloud-init·compose·Caddyfile을 두 origin 모드로 렌더링해 검사                                                                                                       |
 
 ## 비밀값
 
