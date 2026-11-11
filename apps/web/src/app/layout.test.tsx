@@ -36,7 +36,7 @@ beforeEach(() => {
 afterEach(() => useAppStore.setState({ isMobileMenuOpen: false }))
 
 it.each(['ko', 'ja'] as const)(
-  'keeps approved brand, four destinations and account locale/Escape (%s)',
+  'keeps approved brand, four destinations, language button and account Escape (%s)',
   async (locale) => {
     await appI18n.changeLanguage(locale)
     render(
@@ -82,19 +82,14 @@ it.each(['ko', 'ja'] as const)(
     expect(login).toHaveAttribute('href', '/login')
     expect(login).toHaveFocus()
     expect(within(menu).getAllByRole('menuitem')).toHaveLength(1)
-    const other = locale === 'ko' ? 'ja' : 'ko'
-    await userEvent.keyboard('{ArrowDown}')
+    // Language moved out of the account menu to its own top bar button.
+    expect(within(menu).queryByRole('menuitemradio')).not.toBeInTheDocument()
+    expect(menu.querySelector('[role="separator"]')).toBeNull()
     expect(
-      within(menu).getByRole('menuitemradio', {
-        name: appI18n.t(`common:locale.${locale}`)
+      within(screen.getByRole('banner')).getByRole('button', {
+        name: appI18n.t('common:locale.change')
       })
-    ).toHaveAttribute('aria-checked', 'true')
-    await userEvent.click(
-      within(menu).getByRole('menuitemradio', {
-        name: appI18n.t(`common:locale.${other}`)
-      })
-    )
-    expect(mocks.setLocale).toHaveBeenCalledWith(other)
+    ).toHaveAttribute('aria-haspopup', 'menu')
     await userEvent.keyboard('{Escape}')
     expect(account).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()

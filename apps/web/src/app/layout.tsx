@@ -8,6 +8,7 @@ import { readReviewReturnContext } from '@app/wrong-note/reviewReturnContext'
 import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
 import { getRouteIndexingPolicy } from '@app/seo/routeIndexingPolicy'
 import { AccountMenu } from '@app/account/components/AccountMenu'
+import { LocaleMenu } from '@app/account/components/LocaleMenu'
 import { AppErrorReportMenuDialog } from '@app/question-report/components/AppErrorReportDialog'
 export type { PracticeNavigationContext } from '@nihongo/browser/common/components/AppLayout'
 
@@ -35,16 +36,19 @@ export const Layout = ({
         reviewReturnContext={reviewReturnContext}
         robots={getRouteIndexingPolicy(pathname)}
         accountMenu={
-          <AccountMenu
-            reportErrorLabel={t('questionReportDialog.appErrorTrigger')}
-            onReportError={() => {
-              accountMenuButtonRef.current = document.getElementById(
-                'account-menu-button'
-              )
-              setHasErrorReport(true)
-              setErrorReportOpen(true)
-            }}
-          />
+          <div className="header-menus">
+            <LocaleMenu />
+            <AccountMenu
+              reportErrorLabel={t('questionReportDialog.appErrorTrigger')}
+              onReportError={() => {
+                accountMenuButtonRef.current = document.getElementById(
+                  'account-menu-button'
+                )
+                setHasErrorReport(true)
+                setErrorReportOpen(true)
+              }}
+            />
+          </div>
         }
       >
         {children}

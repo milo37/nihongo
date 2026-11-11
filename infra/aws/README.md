@@ -63,7 +63,7 @@ aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUT
 
 - `harumaru-<env>-erase-deletion-pending` SSM 문서가 `erase-deletion-pending.sh`를 실행합니다. 이 스크립트는 배포된 이미지로 `node api/dist/auth/ssoAccountErasureCommand.js`(= `auth:erase-deletion-pending:compiled`)를 한 번 돌립니다. 종료 코드 0이면 남은 일이 없고, 1이면 실패했거나 일이 남았습니다.
 - 수동 실행: `aws ssm send-command --document-name harumaru-<env>-erase-deletion-pending --instance-ids <id>`
-- 예약: EventBridge Scheduler가 매시 정각(JST)에 실행합니다. 기본값은 `state = DISABLED`이고, apply 때 `erasure_schedule_enabled = true`로 켭니다(#670). STAGING도 같은 PRODUCTION 값으로 돕니다.
+- 예약: EventBridge Scheduler가 `erasure_schedule_expression`대로 실행합니다. PRODUCTION은 기본값인 매시 정각(JST), STAGING은 평소 정지라 하루 한 번 창(05:00 JST, 아래 'STAGING 평소 정지')입니다. 기본값은 `state = DISABLED`이고, apply 때 `erasure_schedule_enabled = true`로 켭니다(#670).
 - 스크립트는 이 명령에만 `ACCOUNT_ERASURE_ENVIRONMENT=PRODUCTION`, `ACCOUNT_ERASURE_CONFIRM=ERASE_DELETION_PENDING_ACCOUNTS`, `PRODUCTION_DATABASE_URL`(SSM)을 환경 변수로 넘깁니다(명령줄 인자에는 나타나지 않음).
 - STAGING 호스트도 DB는 PRODUCTION 형태(capability `PRODUCTION`)라 같은 값으로 돌고, 실제 대상은 `PRODUCTION_DATABASE_URL`과 정확히 같은지로 묶입니다.
 - #696부터 앱이 provider 토큰을 보관하지 않으므로 provider 정리는 `NOT_HELD`로 완료 처리되고 앱 데이터를 지웁니다.
@@ -71,7 +71,7 @@ aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUT
 ## #694 비회원 데이터 정리
 
 - `harumaru-<env>-guest-cleanup` SSM 문서가 `guest-cleanup.sh`로 배포된 이미지의 `studyGuestCleanupRuntime.js`를 한 번 돌립니다. 만료 7일 지난 비회원 기록·임시저장, 비회원 식별자, 끝난 재요청 기록, 제한 창이 끝나고 7일 지난 요청 제한 기록을 지웁니다. 한 번에 최대 1,000행이고, 남으면 종료 코드 1입니다.
-- 예약은 매시 30분(Asia/Tokyo)이고 기본 `DISABLED`입니다. `guest_cleanup_schedule_enabled = true`로 켭니다. 절차는 [operations/runbooks/guest-cleanup-worker.v1.md](../../operations/runbooks/guest-cleanup-worker.v1.md) 'AWS host'.
+- 예약은 `guest_cleanup_schedule_expression`대로 PRODUCTION은 매시 30분, STAGING은 하루 한 번 05:30(Asia/Tokyo)이고 기본 `DISABLED`입니다. `guest_cleanup_schedule_enabled = true`로 켭니다. 절차는 [operations/runbooks/guest-cleanup-worker.v1.md](../../operations/runbooks/guest-cleanup-worker.v1.md) 'AWS host'.
 - 회원의 만료 임시저장 정리(`studyDraftCleanupCommand`)는 아직 운영 환경을 거부해서 여기 없습니다(BE 변경, 배포 이후 #699).
 
 ## state와 두 스택 (JLP-835)
@@ -93,7 +93,7 @@ terraform init -backend-config=backends/staging.s3.tfbackend -backend-config=buc
 - 이동(`moved`): ECR이 계정에 1개가 되면서 `aws_ecr_repository.api` → `api[0]`, `aws_ecr_lifecycle_policy.api` → `api[0]`. 실제 변경 없음.
 - PRODUCTION tfvars: `github_deploy_environment = "production"`(없으면 validation 거부), `create_ecr_repository = false`, `create_github_oidc_provider = false`, `create_cost_anomaly_monitor = false`(계정당 1개). 예시는 `terraform.tfvars.example`.
 - 예산: 필터가 없으면 각 스택 예산이 **계정 전체**를 셉니다. PRODUCTION을 만들 때 두 스택 모두 `budget_filter_by_environment = true`, STAGING에 `manage_cost_allocation_tag = true`(태그 `Environment` 활성화, 계정 설정). 활성화 뒤의 비용부터 태그가 붙고 최대 24시간 걸리므로 **PRODUCTION apply 하루 전**에 STAGING에서 먼저 켭니다. 한도는 스택마다 `monthly_budget_jpy`로 따로 정합니다. 태그 없는 비용(일부 데이터 전송 등)은 어느 예산에도 안 들어가므로 계정 전체는 Cost Anomaly 메일로 봅니다.
-- STAGING 평소 정지(선택): `host_stop_schedule_expression`(예: 매일 10시 JST `cron(0 1 * * ? *)`)이 EventBridge Scheduler로 호스트를 멈추고, `deploy_role_can_start_host = true`면 배포 잡이 먼저 켭니다(저장소 변수 `STAGING_START_IF_STOPPED = true`). 정지 중에도 EIP·EBS 약 $6.5/월. PRODUCTION에는 쓸 수 없습니다(validation).
+- STAGING 평소 정지(선택, 2026-11-12 STAGING 적용): 저장소 변수 `STAGING_START_IF_STOPPED = true`면 배포 잡이 서버를 켜고(`deploy_role_can_start_host = true`), 배포 문서의 `stopAfterMinutes`로 **배포 뒤 3시간에 서버가 스스로 정지**합니다(다음 배포가 오면 다시 3시간). 안전망으로 `host_stop_schedule_expression`이 매일 정지합니다. 탈퇴·손님 정리 예약은 매시로 두면 꺼진 서버에 전달되지 않아 실패 알림이 계속 오므로, STAGING은 하루 한 번 창으로 모읍니다: `host_start_schedule_expression` 04:40 시작 → `erasure_schedule_expression` 05:00 → `guest_cleanup_schedule_expression` 05:30 → `host_stop_schedule_expression` 05:50 정지(JST). `host_kept_stopped = true`면 백업 누락·CloudFront 5xx 경보는 남지만 알림을 보내지 않습니다(꺼진 동안 거짓 경보). 호스트 백업 타이머는 cloud-init이 처음 한 번만 쓰므로 창으로 옮기는 것은 다음 호스트 교체 때 합니다. 정지 중에도 EIP·EBS 약 $6.4/월. PRODUCTION에는 쓸 수 없습니다(validation).
 
 ## 비용 방어
 

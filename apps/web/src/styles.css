@@ -282,3 +282,84 @@ section.practice-guest-limit,
   font-weight: 500;
   line-height: 1;
 }
+
+/* Top bar language menu, 4px left of the login button or avatar. */
+.header-menus {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+.locale-menu {
+  position: relative;
+}
+.locale-menu-trigger {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  color: rgb(var(--color-muted));
+}
+.locale-menu-trigger:hover,
+.locale-menu-trigger[aria-expanded='true'] {
+  background: rgb(var(--color-surface-muted));
+  color: rgb(var(--color-ink));
+}
+/* The ring hugs the icon (a 32px circle), not the 44px touch area. */
+.locale-menu-trigger:focus-visible {
+  outline: none;
+}
+.locale-menu-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+}
+.locale-menu-trigger:focus-visible .locale-menu-icon {
+  outline: var(--focus-width) solid rgb(var(--focus-color));
+  outline-offset: var(--focus-offset);
+}
+.locale-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  min-width: 168px;
+  padding: 4px;
+  border: 1px solid rgb(var(--color-line));
+  border-radius: var(--radius-card);
+  background: rgb(var(--color-surface));
+  box-shadow: var(--shadow-elevated);
+  z-index: var(--z-dropdown);
+}
+.locale-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px 0 8px;
+  border-radius: var(--radius-control);
+  color: rgb(var(--color-ink));
+  font-size: 14px;
+  text-align: left;
+}
+.locale-menu-item:hover {
+  background: rgb(var(--color-hover-surface));
+}
+.locale-menu-item[aria-checked='true'] {
+  font-weight: 700;
+}
+.locale-menu-item:focus-visible {
+  outline: var(--focus-width) solid rgb(var(--focus-color));
+  outline-offset: calc(var(--focus-width) * -1);
+}
+.locale-menu-check {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  color: rgb(var(--color-brand));
+}
