@@ -753,8 +753,7 @@ test('protected branch pushes always run core regression but keep expensive extr
 
 test('dev pull requests keep affected checks while omitting browser execution', () => {
   for (const file of [
-    'apps/web/src/main.tsx',
-    'apps/api/src/study/submissionService.ts',
+    'apps/api/src/db/readiness.ts',
     '.github/workflows/ci.yml',
     'README.md'
   ]) {
@@ -770,6 +769,32 @@ test('dev pull requests keep affected checks while omitting browser execution', 
   }
 })
 
+test('dev pull requests run Real and Mock browser execution for screen and user-journey paths', () => {
+  for (const file of [
+    'apps/web/src/main.tsx',
+    'apps/web/e2e/dashboard.spec.ts',
+    'apps/admin/src/main.tsx',
+    'packages/contracts/src/index.ts',
+    'apps/api/src/study/submissionService.ts'
+  ]) {
+    const selection = selectChecks({
+      eventName: 'pull_request',
+      ref: 'refs/pull/1/merge',
+      event: pullRequestEvent(),
+      changedFiles: ['README.md', file]
+    })
+    assert.deepEqual(
+      selection,
+      {
+        ...classifyChangedFiles(['README.md', file]),
+        browser: true,
+        browser_mock: true
+      },
+      file
+    )
+  }
+})
+
 test('dev pull requests select browser execution for the browser runtime paths', () => {
   for (const file of [
     'playwright.config.ts',
@@ -779,10 +804,10 @@ test('dev pull requests select browser execution for the browser runtime paths',
       eventName: 'pull_request',
       ref: 'refs/pull/1/merge',
       event: pullRequestEvent(),
-      changedFiles: ['apps/web/src/main.tsx', file]
+      changedFiles: ['README.md', file]
     })
     assert.deepEqual(selection, {
-      ...classifyChangedFiles(['apps/web/src/main.tsx', file]),
+      ...classifyChangedFiles(['README.md', file]),
       browser: true
     })
   }
@@ -804,7 +829,7 @@ test('dev pull requests select real browser execution for the accessibility data
   }
 })
 
-test('dev pull requests add Mock browser execution only for injected fault paths', () => {
+test('dev pull requests add Mock browser execution for injected fault paths but not runtime-only paths', () => {
   for (const file of [
     'apps/web/e2e/accessibility.spec.ts',
     'apps/web/src/test/accessibilityBrowserMockControl.ts'
@@ -819,9 +844,8 @@ test('dev pull requests add Mock browser execution only for injected fault paths
     assert.equal(selection.browser_mock, true, file)
   }
   for (const file of [
-    'apps/web/src/main.tsx',
-    'apps/web/e2e/dashboard.spec.ts',
-    'playwright.config.ts'
+    'playwright.config.ts',
+    'scripts/accessibility-database-contract.mjs'
   ]) {
     const selection = selectChecks({
       eventName: 'pull_request',
@@ -1144,7 +1168,7 @@ test('workflow and command budgets preserve the three protected contexts', () =>
     'portable',
     'release_smoke'
   ])
-  assert.equal(steps(normal).length, 52)
+  assert.equal(steps(normal).length, 54)
   assert.deepEqual(jobs(candidate), ['candidate'])
   assert.equal(steps(candidate).length, 10)
   for (const name of [
@@ -1156,7 +1180,7 @@ test('workflow and command budgets preserve the three protected contexts', () =>
   }
   assert.doesNotMatch(normal, /phase ?[0-9]/iu)
   assert.doesNotMatch(normal + candidate, /previous-results|download-artifact/u)
-  assert.equal(normal.split('uses: actions/upload-artifact@v4').length - 1, 2)
+  assert.equal(normal.split('uses: actions/upload-artifact@v4').length - 1, 3)
   assert.doesNotMatch(candidate, /upload-artifact/u)
   assert.doesNotMatch(normal + candidate, /run:\s+[^\n]*phase[0-9]/iu)
   assert.equal(

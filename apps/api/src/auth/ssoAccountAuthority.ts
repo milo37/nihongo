@@ -601,6 +601,17 @@ export const accountCapabilities = async (
       actor
     )
     const deletionBlocked = blocked[0]?.blocked === true
+    // JLP-845: the only ACTIVE ADMIN cannot request erasure (#889 refuses it).
+    const lastAdmin =
+      context.role === 'ADMIN' &&
+      (
+        await transaction.$queryRawUnsafe<Array<{ last: boolean }>>(
+          `SELECT NOT EXISTS (SELECT 1 FROM "User"
+             WHERE "role" = 'ADMIN' AND "accountStatus" = 'ACTIVE'
+               AND "id" <> $1::uuid) AS last`,
+          actor
+        )
+      )[0]?.last === true
     const linkable = await transaction.$queryRawUnsafe<
       Array<{ value: unknown }>
     >(
@@ -615,8 +626,12 @@ export const accountCapabilities = async (
     return {
       providers: providers[0]?.value,
       unlinkRequiresFresh: context.role === 'ADMIN',
-      canDelete: !deletionBlocked,
-      deletionBlockedReason: deletionBlocked ? 'OPEN_ADMIN_WORK' : null,
+      canDelete: !deletionBlocked && !lastAdmin,
+      deletionBlockedReason: deletionBlocked
+        ? 'OPEN_ADMIN_WORK'
+        : lastAdmin
+          ? 'LAST_ACTIVE_ADMIN'
+          : null,
       linkableProviders: linkable[0]?.value,
       deleteRequiresFresh: true,
       freshVerified: await accountFreshProofIsValid(

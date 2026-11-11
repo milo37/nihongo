@@ -373,6 +373,42 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       await h.owner.query('SET CONSTRAINTS ALL IMMEDIATE')
     })
   })
+  it('refuses the deletion of the last ACTIVE ADMIN and allows it once another ADMIN exists (JLP-841)', async () => {
+    await h.rollback(async () => {
+      // Other files may leave ADMINs behind; this transaction rolls back.
+      await h.fixtureMutation(
+        `UPDATE "User" SET "role" = 'USER'
+         WHERE "role" = 'ADMIN' AND "accountStatus" = 'ACTIVE'`
+      )
+      const admin = await h.fixture('google', 'ADMIN')
+      const proof = await verifyFresh(admin)
+      expect(
+        await gateway(
+          'SELECT "request_sso_account_erasure"($1,$2,$3) AS result',
+          [admin.token, proof, digest()]
+        )
+      ).toEqual({ code: 'SSO_LAST_ADMIN_DELETION_BLOCKED' })
+      expect(
+        (
+          await h.owner.query(
+            `SELECT "accountStatus"::text AS status,
+               (SELECT count(*)::int FROM "SsoAccountErasureRequest" WHERE "userId" = $1) AS requests
+             FROM "User" WHERE id = $1`,
+            [admin.userId]
+          )
+        ).rows
+      ).toEqual([{ status: 'ACTIVE', requests: 0 }])
+
+      await h.fixture('google', 'ADMIN')
+      expect(
+        await gateway(
+          'SELECT "request_sso_account_erasure"($1,$2,$3) AS result',
+          [admin.token, proof, digest()]
+        )
+      ).toMatchObject({ appStatus: 'DELETION_PENDING', userId: admin.userId })
+    })
+  })
+
   it('erases a requested account end to end with the tokenless adapter (#670)', async () => {
     await h.rollback(async () => {
       const worker = createSsoAccountErasureWorker(h.appClient)
@@ -945,6 +981,34 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
           )
         ).rows
       ).toEqual([{ status: 'DELETION_PENDING', request: 'DELETION_PENDING' }])
+    })
+    // The account capabilities show the last ACTIVE ADMIN cannot delete.
+    await h.rollback(async () => {
+      const admin = await h.fixture('google', 'ADMIN')
+      const capabilities = async () =>
+        (await gateway(
+          'SELECT "sso_account_capabilities"($1,$2,NULL) AS result',
+          [admin.token, ['google']]
+        )) as { canDelete: boolean; deletionBlockedReason: string | null }
+      await h.owner.query('SET session_replication_role = replica')
+      try {
+        await h.owner.query(
+          `UPDATE "User" SET "role"='USER'
+           WHERE "role"='ADMIN' AND "accountStatus"='ACTIVE' AND id<>$1`,
+          [admin.userId]
+        )
+      } finally {
+        await h.owner.query('SET session_replication_role = origin')
+      }
+      expect(await capabilities()).toMatchObject({
+        canDelete: false,
+        deletionBlockedReason: 'LAST_ACTIVE_ADMIN'
+      })
+      await h.fixture('google', 'ADMIN')
+      expect(await capabilities()).toMatchObject({
+        canDelete: true,
+        deletionBlockedReason: null
+      })
     })
   })
   it('#57: 다른 runtime 역할은 삭제 queue와 User 삭제가 거부되고, nihongo_app도 완료 상태만 바꾸거나 확인 없는 User를 지울 수 없다', async () => {

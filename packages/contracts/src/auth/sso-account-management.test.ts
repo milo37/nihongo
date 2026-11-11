@@ -195,6 +195,20 @@ describe('SSO account transport', () => {
         deletionScheduledAt: scheduled
       }).declined
     ).toBe(true)
+    expect(
+      ssoAccountCapabilitiesSchema.parse({
+        ...capabilities,
+        canDelete: false,
+        deletionBlockedReason: 'LAST_ACTIVE_ADMIN'
+      }).deletionBlockedReason
+    ).toBe('LAST_ACTIVE_ADMIN')
+    expect(
+      ssoAccountCapabilitiesSchema.safeParse({
+        ...capabilities,
+        canDelete: true,
+        deletionBlockedReason: 'LAST_ACTIVE_ADMIN'
+      }).success
+    ).toBe(false)
     for (const code of [
       'SSO_ACCOUNT_RESTORE_UNAVAILABLE',
       'SSO_ACCOUNT_RESTORE_TOO_LATE'
