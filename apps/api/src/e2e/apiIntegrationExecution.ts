@@ -593,13 +593,14 @@ export const assertApiIntegrationVitestFileResult = ({
   }
   if (
     expectedPath === ssoAccountLifecycleDbTestFile &&
-    result.numTotalTests !== 11
+    result.numTotalTests !== 12
   ) {
     // #504 P7 PR5a adds the API link and unlink trigger case; #57 the
     // erasure role refusal case; #670 the tokenless end-to-end erasure;
-    // JLP-845 the grace-period restore and its refusal.
+    // JLP-841 the last ACTIVE ADMIN refusal; JLP-845 the grace-period
+    // restore and its refusal.
     throw new Error(
-      'SSO account lifecycle requires exactly eleven passing tests.'
+      'SSO account lifecycle requires exactly twelve passing tests.'
     )
   }
   const resultPaths = (result.testResults ?? [])

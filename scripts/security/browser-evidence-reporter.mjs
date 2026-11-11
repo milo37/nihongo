@@ -3,6 +3,7 @@ import path from 'node:path'
 import {
   assertPlaywrightPerformanceMeasurement,
   assertPlaywrightRequestLedger,
+  projectLedgerDiagnosticEntries,
   writeCanonicalEvidence
 } from './security-evidence.mjs'
 
@@ -33,11 +34,22 @@ export default class PlaywrightEvidenceReporter {
     ) {
       throw new Error('PLAYWRIGHT_EVIDENCE_REPORTER_OPTIONS_INVALID')
     }
+    if (
+      options.diagnosticDirectory !== undefined &&
+      (typeof options.diagnosticDirectory !== 'string' ||
+        options.diagnosticDirectory === '' ||
+        path.resolve(options.diagnosticDirectory) ===
+          path.resolve(options.outputDirectory))
+    ) {
+      throw new Error('PLAYWRIGHT_EVIDENCE_REPORTER_OPTIONS_INVALID')
+    }
     this.outputDirectory = options.outputDirectory
+    this.diagnosticDirectory = options.diagnosticDirectory
     this.label = options.label
     this.performanceMeasurements = []
     this.requestLedgers = []
     this.invalidSafeAttachments = new Map()
+    this.invalidLedgerDiagnostics = []
     this.startedAt = 0
     this.tests = []
   }
@@ -51,6 +63,7 @@ export default class PlaywrightEvidenceReporter {
     this.performanceMeasurements = []
     this.requestLedgers = []
     this.invalidSafeAttachments = new Map()
+    this.invalidLedgerDiagnostics = []
     this.tests = []
   }
 
@@ -80,6 +93,7 @@ export default class PlaywrightEvidenceReporter {
       const isRequestLedger = REQUEST_LEDGER_ATTACHMENT.test(attachmentName)
       const isPerformance = PERFORMANCE_ATTACHMENT.test(attachmentName)
       if (!isRequestLedger && !isPerformance) continue
+      let payload
       try {
         if (
           attachment.contentType !== 'application/json' ||
@@ -87,7 +101,7 @@ export default class PlaywrightEvidenceReporter {
         ) {
           throw new Error('invalid attachment transport')
         }
-        const payload = JSON.parse(attachment.body.toString('utf8'))
+        payload = JSON.parse(attachment.body.toString('utf8'))
         if (isRequestLedger && Object.hasOwn(payload, 'label')) {
           throw new Error('SECURITY_EVIDENCE_LEDGER_SOURCE_INVALID')
         }
@@ -106,12 +120,36 @@ export default class PlaywrightEvidenceReporter {
             ? error.message
             : 'SECURITY_EVIDENCE_ATTACHMENT_INVALID'
         this.invalidSafeAttachments.set(attachmentName, errorCode)
+        if (isRequestLedger) {
+          this.invalidLedgerDiagnostics.push({
+            entries: projectLedgerDiagnosticEntries(payload?.entries),
+            errorCode,
+            name: attachmentName
+          })
+        }
       }
     }
   }
 
   async onEnd(result) {
     if (this.invalidSafeAttachments.size > 0) {
+      if (
+        this.diagnosticDirectory &&
+        this.invalidLedgerDiagnostics.length > 0
+      ) {
+        await writeCanonicalEvidence({
+          filePath: path.join(
+            this.diagnosticDirectory,
+            `${this.label}-invalid-ledgers.json`
+          ),
+          value: {
+            schemaVersion: 1,
+            kind: 'nihongo.playwright-invalid-ledger-diagnostic',
+            label: this.label,
+            ledgers: this.invalidLedgerDiagnostics
+          }
+        })
+      }
       throw new Error(
         `PLAYWRIGHT_EVIDENCE_SAFE_ATTACHMENT_INVALID:${[
           ...this.invalidSafeAttachments

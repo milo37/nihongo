@@ -192,6 +192,28 @@ variable "host_stop_schedule_expression" {
   }
 }
 
+variable "host_start_schedule_expression" {
+  description = "STAGING only: start the host on this schedule (Asia/Tokyo), for example cron(40 4 * * ? *), so the daily erasure and guest cleanup reach a host kept stopped. Empty = no schedule."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.host_start_schedule_expression == "" || var.deployment_environment == "STAGING"
+    error_message = "Only STAGING may be started on a schedule."
+  }
+}
+
+variable "host_kept_stopped" {
+  description = "STAGING only: the host is stopped between uses, so the backup-missing and CloudFront 5xx alarms stay but send nothing."
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !var.host_kept_stopped || var.deployment_environment == "STAGING"
+    error_message = "Only STAGING may be kept stopped."
+  }
+}
+
 variable "deploy_role_can_start_host" {
   description = "Let the GitHub deploy role start this host before a deploy (STAGING kept stopped between uses)."
   type        = bool
