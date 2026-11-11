@@ -36,9 +36,11 @@ resource "aws_cloudfront_distribution" "site" {
   enabled         = true
   is_ipv6_enabled = true
   comment         = local.name
-  price_class     = "PriceClass_200"
-  aliases         = var.domain_name != "" ? [var.domain_name] : []
-  web_acl_id      = aws_wafv2_web_acl.edge.arn
+  # The flat-rate plans serve from every edge location; signing STAGING up
+  # (2026-11-12) left PriceClass_All, so the code matches it (no cost effect).
+  price_class = "PriceClass_All"
+  aliases     = var.domain_name != "" ? [var.domain_name] : []
+  web_acl_id  = aws_wafv2_web_acl.edge.arn
 
   origin {
     origin_id   = "api"

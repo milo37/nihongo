@@ -102,16 +102,16 @@ EC2와 백업 버킷은 CloudFront나 IAM으로만 접근됩니다. WAF는 IP별
 - CloudFront Free 정액 요금제에 못 들어가면 WAF 요금(약 1,620엔, 세포함)이 더해져 예산을 넘습니다. COST.md를 보세요.
 - 예산은 크레딧을 빼기 전 사용액으로 판정합니다(`include_credit = false`). 크레딧이 남아 있는 동안에도 실제 사용량이 보이게 하려는 것입니다.
 
-## AWS Free plan 동안 운용 (사용자 결정 2026-11-05, JLP-716)
+## 계정 플랜과 크레딧 (2026-11-12, JLP-834)
 
-계정은 일반 가입(서울)의 Free plan입니다. 공개 직전에 유료 플랜으로 바꾸고, 그때까지는 크레딧으로 STAGING만 시험 배포합니다.
+계정은 **유료(PAID) 플랜**입니다(2026-11-12 전환). Free plan 때 받은 크레딧 $118.11(2027-05-05 만료)은 그대로 이어져 먼저 쓰이고, 다 쓰면 현금 청구가 시작됩니다. 잔액은 Billing 콘솔 Credits에서 봅니다.
 
-- Free plan 계정은 CloudFront 정액 요금제에 가입할 수 없습니다. 그래서 CloudFront는 종량제와 WAF로 돌고(코드 변경 없음), 비용은 크레딧에서 빠집니다. 월 약 $31, 세전 약 4,940엔입니다(COST.md).
-- 이 사용액은 예산 한도 $28.69보다 많습니다. Free plan은 현금 청구가 없으므로 이 기간에는 EC2 자동 정지를 끄고 알림만 받습니다(사용자 결정 2026-11-06, 기본값 `budget_stop_ec2_enabled = false`). 정지를 켜 두면 매달 말 무렵 사이트가 멈춥니다.
-- Free plan은 가입 6개월 뒤나 크레딧이 떨어지면 계정이 닫힙니다(90일 안에 전환하지 않으면 데이터 삭제). 크레딧 잔액은 Billing 콘솔에서 확인합니다.
-- 사람 로그인은 MFA를 건 IAM 관리 사용자 1명이고, 루트는 쓰지 않습니다. IAM Identity Center는 AWS Organizations가 필요하고, Organizations에 들어가면 계정이 자동으로 유료 전환되므로 지금은 쓰지 않습니다. 배포는 원래대로 GitHub OIDC 역할입니다.
-- 유료 전환 시점은 공개 직전입니다. 전환한 뒤 아래 'apply 뒤 수동 단계' 2번(정액 요금제 가입)을 하고, 필요하면 Identity Center로 옮깁니다. 남은 크레딧은 이어집니다.
-- 유료 전환 때 EC2 자동 정지를 다시 켭니다: `terraform.tfvars`에 `budget_stop_ec2_enabled = true`를 넣고 plan에서 `aws_iam_role.budget_action`, 정책 연결, `aws_budgets_budget_action.stop_ec2` 3개 추가만 있는지 확인한 뒤 apply합니다. 끌 때는 값을 지우면 3개가 삭제되고 예산·알림은 그대로입니다.
+- STAGING 배포는 CloudFront **Free 정액 요금제**에 가입했습니다(WAF 포함, 초과 과금 없음). 월 약 $21.88, 세포함 약 3,810엔으로 예산 한도 $28.69 안입니다(COST.md).
+- 정액 가입 뒤 배포의 price class가 `PriceClass_All`이 되어 있어 코드도 그 값으로 맞췄습니다(`edge.tf`). 정액 요금제에서는 price class가 요금에 영향이 없고, 다른 값으로 되돌리면 plan에 CloudFront 변경이 생깁니다.
+- EC2 자동 정지를 켭니다: STAGING `terraform.tfvars`에 `budget_stop_ec2_enabled = true`. plan은 `aws_iam_role.budget_action`, 정책 연결, `aws_budgets_budget_action.stop_ec2` **3개 추가만**이어야 합니다. 끌 때는 값을 지우면 3개가 삭제되고 예산·알림은 그대로입니다.
+- 예산은 크레딧을 빼기 전 사용액으로 판정하므로(`include_credit = false`) 크레딧이 남아 있어도 한도를 넘으면 정지합니다.
+- 사람 로그인은 MFA를 건 IAM 관리 사용자 1명이고, 루트는 쓰지 않습니다. 계정이 유료라 IAM Identity Center(AWS Organizations 필요)로 옮길 수 있지만 지금은 옮기지 않습니다.
+- PRODUCTION이 생기면 예산이 계정 전체를 세지 않도록 "state와 두 스택"의 예산 필터를 먼저 켭니다.
 
 ## DNS (Cloudflare, Route 53 없음)
 
@@ -151,6 +151,6 @@ EC2와 백업 버킷은 CloudFront나 IAM으로만 접근됩니다. WAF는 IP별
 ## apply 뒤 수동 단계
 
 1. SNS·Budgets·Cost Anomaly 메일 구독 확인
-2. CloudFront 콘솔에서 배포를 **Free 정액 요금제**에 가입(Terraform 미지원). 계정이 AWS Free plan이면 가입할 수 없으므로 유료 전환 뒤에 합니다.
+2. CloudFront 콘솔에서 배포를 **Free 정액 요금제**에 가입(Terraform 미지원, 계정이 유료여야 함). STAGING은 2026-11-12에 가입했습니다.
 3. 비밀값 SSM 등록 → Google OAuth 클라이언트에 `output google_oauth_redirect_uri` 등록 → 첫 배포([deploy.v1.md](../../operations/runbooks/deploy.v1.md): 저장소 변수 2개를 넣으면 다음 `main` 병합부터 자동)
 4. 백업 되살리기 시험: [operations/runbooks/recovery.v1.md](../../operations/runbooks/recovery.v1.md)의 'STAGING 첫 배포 직후' 절

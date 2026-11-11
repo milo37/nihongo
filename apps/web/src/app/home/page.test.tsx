@@ -309,7 +309,7 @@ it("answers today's question in place, without a record, and keeps it on reopen"
   await user.click(options[0]!)
   expect(
     await within(daily).findByText(
-      /^(정답이에요|아쉬워요. 정답은 [1-4]번이에요)$/u
+      /^(맞았어요|아쉬워요. 정답은 [1-4]번이에요)$/u
     )
   ).toBeVisible()
   expect(
@@ -323,7 +323,7 @@ it("answers today's question in place, without a record, and keeps it on reopen"
   const reopened = await screen.findByRole('region', { name: '오늘의 한 문제' })
   expect(
     await within(reopened).findByText(
-      /^(정답이에요|아쉬워요. 정답은 [1-4]번이에요)$/u
+      /^(맞았어요|아쉬워요. 정답은 [1-4]번이에요)$/u
     )
   ).toBeVisible()
 })
