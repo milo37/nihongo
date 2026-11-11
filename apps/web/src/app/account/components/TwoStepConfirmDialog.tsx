@@ -95,7 +95,11 @@ export const TwoStepConfirmDialog = ({
           {flow.uncertain ? null : isConfirm ? (
             <Button
               variant="danger"
-              disabled={flow.busy}
+              // Design ⑦: the last administrator's refusal stays; only
+              // [취소] is left, so the same request is not sent again.
+              disabled={
+                flow.busy || flow.feedback === 'lastAdminDeletionBlocked'
+              }
               isLoading={flow.busy}
               loadingLabel={authT('sso.processing')}
               onClick={flow.confirm}
