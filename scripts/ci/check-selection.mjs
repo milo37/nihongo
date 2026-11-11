@@ -142,7 +142,7 @@ export const classifyChangedFiles = (changedFiles) => {
       continue
     }
     if (
-      /^(?:\.github\/workflows\/|scripts\/ci\/|pnpm-workspace\.yaml$|tsconfig|eslint|prettier|\.prettier|\.node|\.nvm|\.npm|\.env|vite|vitest|playwright)/u.test(
+      /^(?:\.github\/(?:workflows|actions)\/|scripts\/ci\/|pnpm-workspace\.yaml$|tsconfig|eslint|prettier|\.prettier|\.node|\.nvm|\.npm|\.env|vite|vitest|playwright)/u.test(
         file
       )
     ) {

@@ -5,7 +5,8 @@ name: Caddy image
 # repository. Skipped until the repository variables
 # PRODUCTION_AWS_DEPLOY_ROLE_ARN (PRODUCTION terraform output
 # github_deploy_role_arn), CADDY_ECR_REPOSITORY_URL (output
-# caddy_ecr_repository_url) and AWS_REGION are set. The role trusts main only.
+# caddy_ecr_repository_url) and AWS_REGION are set. The role trusts the
+# environment `production` only, so the job waits for its approval.
 # The pushed digest goes into terraform.tfvars as caddy_dns_image.
 on:
   push:
@@ -27,6 +28,9 @@ jobs:
   publish:
     name: Publish the Caddy DNS-01 image
     if: vars.PRODUCTION_AWS_DEPLOY_ROLE_ARN != '' && vars.CADDY_ECR_REPOSITORY_URL != '' && vars.AWS_REGION != ''
+    # The PRODUCTION role trusts only jobs of the environment `production`, so
+    # this job also waits for its approval (rare: Caddy changes only).
+    environment: production
     # The host is Graviton (t4g), so the image is built natively on arm64.
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
