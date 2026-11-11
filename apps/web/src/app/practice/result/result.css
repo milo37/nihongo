@@ -193,3 +193,16 @@
   word-break: normal;
   line-break: strict;
 }
+
+/* Bookmarked shows as the filled orange icon, as on the solve screen; no
+   pale-orange fill that reads like a wrong mark (design-858). */
+.study-result-detail .ui-button[aria-pressed='true']:not(:disabled) {
+  background: transparent;
+  color: rgb(var(--color-ink));
+  border-color: rgb(var(--color-line-strong));
+  box-shadow: none;
+}
+.study-result-detail .ui-button[aria-pressed='true'] svg {
+  color: rgb(var(--color-brand));
+  fill: currentColor;
+}
