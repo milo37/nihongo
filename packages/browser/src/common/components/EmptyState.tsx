@@ -5,7 +5,8 @@ import { classNames } from './classNames'
 type EmptyStateProps = {
   autoFocus?: boolean
   title: string
-  description: string
+  /** Omit for a one-sentence empty state. */
+  description?: string
   action?: ReactNode
   icon?: ReactNode
   headingLevel?: 2 | 3
@@ -53,9 +54,11 @@ export const EmptyState = ({
       >
         {title}
       </Heading>
-      <p className="mt-3 max-w-prose text-pretty leading-7 text-muted">
-        {description}
-      </p>
+      {description ? (
+        <p className="mt-3 max-w-prose text-pretty leading-7 text-muted">
+          {description}
+        </p>
+      ) : null}
       {action ? <div className="mt-6">{action}</div> : null}
     </section>
   )

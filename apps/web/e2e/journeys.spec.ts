@@ -927,7 +927,10 @@ const startVocabularySessionThroughUi = async (
     ['N5', 'level', 'N5'],
     ['문자·어휘', 'subject', 'VOCABULARY']
   ] as const) {
-    const radio = page.getByRole('radio', { name: label, exact: true })
+    // A subject's name also carries its one-line description (B4 ④).
+    const radio = page.getByRole('radio', {
+      name: new RegExp(`^${label}(?: |$)`, 'u')
+    })
     const choice = page.locator('label.choice-option').filter({ has: radio })
     await expect(choice).toHaveCount(1)
     // A default choice (target level, VOCABULARY) stays out of the URL.
@@ -1069,10 +1072,12 @@ test('guest SSO boundary and authenticated practice transition match the active 
   await guestPrincipal
   await settleJourneyPage(page)
   await expect(
-    page.getByText(/^로그인 없이 하루 3번, 한 번에 \d+문제씩 풀 수 있어요\./u)
+    page.getByRole('heading', { level: 1, name: '무엇을 풀까요?' })
   ).toBeVisible()
-  // A fresh guest reads the rule only; no count line, no locks (JLP-823).
-  await expect(page.getByText(/더 풀 수 있어요/u)).toHaveCount(0)
+  // A fresh guest gets no rule line here and no tries count in the start
+  // button (plan-notes §4); no locks (JLP-823).
+  await expect(page.getByText(/로그인 없이 하루/u)).toHaveCount(0)
+  await expect(page.getByText(/번 남음/u)).toHaveCount(0)
   await expect(page.locator('select[name="practice-mode"]')).toHaveCount(0)
   for (const path of [
     '/login?mode=signup#retired-token',

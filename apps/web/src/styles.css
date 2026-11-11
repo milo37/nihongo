@@ -250,3 +250,32 @@ html:lang(ja) .operations-section p {
     font-size: 0.9375rem;
   }
 }
+
+/* B4 §8: the guest limit card and the guest login notice sit between two
+   1px rules; no box, no icon circle. */
+section.practice-guest-limit,
+.auth-panel.guest-gate {
+  padding: 24px 0;
+  border: 0;
+  border-block: 1px solid rgb(var(--color-line));
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.practice-guest-limit .practice-guest-limit-icon,
+.guest-gate .guest-gate-icon {
+  display: none;
+}
+.auth-page.guest-gate-page {
+  padding-top: 24px;
+}
+
+/* "| 2번 남음" inside a guest's start button (B4 guest-5 images). */
+.button-tries-left {
+  margin-left: 6px;
+  padding-left: 12px;
+  border-left: 1px solid currentColor;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1;
+}

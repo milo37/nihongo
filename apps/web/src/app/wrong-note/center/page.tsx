@@ -235,7 +235,10 @@ const MemberReview = (): ReactElement => {
               <EmptySheet word="間違いノート">
                 <EmptyState
                   title={t(`empty.${empty}.title`)}
-                  description={t(`empty.${empty}.body`)}
+                  description={
+                    // 'never' is one sentence (plan-notes §4).
+                    empty === 'never' ? undefined : t(`empty.${empty}.body`)
+                  }
                   action={empty === 'noReviewed' ? startButton('') : startNew}
                 />
               </EmptySheet>

@@ -919,14 +919,15 @@ describe('approved general result navigation', () => {
         (element) => element.textContent?.trim() ?? ''
       )
     ).toEqual([
-      `다음 ${GUEST_SESSION_QUESTION_LIMIT}문제`,
+      // The guest's tries left ride inside the button (plan-notes §5).
+      `다음 ${GUEST_SESSION_QUESTION_LIMIT}문제2번 남음`,
       '틀린 문제만 다시 풀기'
     ])
     expect(guestRetry.className).toContain('border-line-interactive')
     expect(guestRetry.className).not.toContain('bg-brand')
     expect(
       within(guestActions).getByRole('button', {
-        name: `다음 ${GUEST_SESSION_QUESTION_LIMIT}문제`
+        name: new RegExp(`^다음 ${GUEST_SESSION_QUESTION_LIMIT}문제`, 'u')
       }).className
     ).toContain('bg-brand')
     expect(guestRetry.querySelector('svg')).toBeNull()
