@@ -1,0 +1,95 @@
+/* Manuscript paper (B4 §3-5). Rules stay 1px; grade marks never get
+   vector-effect (it breaks the pathLength red-pen drawing). */
+.manuscript-sheet {
+  width: 100%;
+  line-height: 0;
+}
+.manuscript-sheet svg {
+  display: block;
+  overflow: visible;
+}
+.manuscript-sheet-rules rect,
+.manuscript-sheet-rules line {
+  fill: none;
+  stroke: rgb(var(--color-sheet-line));
+  stroke-width: 1;
+  shape-rendering: crispEdges;
+}
+.manuscript-sheet-mark,
+.manuscript-tail path {
+  fill: rgb(var(--color-sheet-mark));
+}
+.manuscript-sheet text {
+  dominant-baseline: central;
+  text-anchor: middle;
+  font-feature-settings: 'tnum';
+}
+.progress-sheet-number {
+  fill: rgb(var(--color-sheet-line));
+  font-size: 13px;
+  font-weight: 700;
+}
+.progress-sheet-number.is-current {
+  fill: rgb(var(--color-ink));
+  font-weight: 800;
+}
+.progress-sheet-current {
+  fill: none;
+  stroke: rgb(var(--color-ink));
+  stroke-width: 2;
+}
+.progress-sheet-dot {
+  fill: rgb(var(--color-ink));
+}
+.grade-ok,
+.grade-ng {
+  fill: none;
+  stroke-linecap: round;
+}
+.grade-ok {
+  stroke: rgb(var(--grade-ok));
+  stroke-width: 2;
+}
+.grade-ng {
+  stroke: rgb(var(--grade-ng));
+  stroke-width: 3.2;
+}
+.grade-ng-fill {
+  fill: rgb(var(--grade-ng-fill));
+}
+.manuscript-pen {
+  stroke-dasharray: 1 2;
+  stroke-dashoffset: 1;
+  visibility: hidden;
+  animation: manuscript-pen 0.18s cubic-bezier(0.3, 0.6, 0.4, 1) forwards;
+}
+@keyframes manuscript-pen {
+  from {
+    visibility: visible;
+    stroke-dashoffset: 1;
+  }
+  to {
+    visibility: visible;
+    stroke-dashoffset: 0;
+  }
+}
+.manuscript-fill {
+  opacity: 0;
+  animation: manuscript-fill 0.18s linear forwards;
+}
+@keyframes manuscript-fill {
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .manuscript-pen {
+    animation: none;
+    stroke-dashoffset: 0;
+    visibility: visible;
+  }
+  .manuscript-fill {
+    animation: none;
+    opacity: 1;
+  }
+}

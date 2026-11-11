@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import type { ReactElement } from 'react'
@@ -7,7 +7,6 @@ import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { usePracticeResultController } from '@app/practice/hooks/usePracticeResultController'
-import { GradingReveal } from '@app/practice/result/GradingReveal'
 import { ResultActions } from '@app/practice/result/ResultActions'
 import {
   ResultBookmarkNotices,
@@ -79,24 +78,22 @@ const PracticeResultPageContent = (): ReactElement => {
   const { resultQuery, sessionQuery } = result
   const location = useLocation()
   const navigate = useNavigate()
-  // Played once right after submit; the state is dropped so Back or reload skip it.
-  const [isRevealOpen, setRevealOpen] = useState(() =>
+  // The red pen plays once right after submit; the state is dropped at once
+  // so Back or reload show the finished marks.
+  const [animateGrading] = useState(() =>
     Boolean(
       (location.state as { gradingReveal?: boolean } | null)?.gradingReveal
     )
   )
-  const outcomes = useMemo(
-    () => resultQuery.data?.items.map((item) => item.isCorrect) ?? [],
-    [resultQuery.data]
-  )
-  const closeReveal = (): void => {
-    setRevealOpen(false)
+  useEffect(() => {
+    if (!animateGrading) return
     void navigate(`${location.pathname}${location.search}`, {
       replace: true,
       state: null
     })
-    window.requestAnimationFrame(() => summaryHeadingRef.current?.focus())
-  }
+    // Run once on mount; the replaced entry keeps the same path.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const autoFocusOnPush = result.navigationType !== 'POP'
   const isGuest = result.role === 'GUEST'
 
@@ -200,6 +197,7 @@ const PracticeResultPageContent = (): ReactElement => {
           incorrectCount={result.incorrectItems.length}
           isGuest={isGuest}
           isGuestDone={result.isGuestDone}
+          animateGrading={animateGrading}
           result={studyResult}
           session={session}
         />
@@ -260,9 +258,6 @@ const PracticeResultPageContent = (): ReactElement => {
         open={result.isRetryBlocked}
         onStay={result.stayOnResult}
       />
-      {isRevealOpen && outcomes.length ? (
-        <GradingReveal outcomes={outcomes} onClose={closeReveal} />
-      ) : null}
     </section>
   )
 }

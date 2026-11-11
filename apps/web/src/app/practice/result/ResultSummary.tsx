@@ -8,10 +8,14 @@ import { Badge } from '@nihongo/browser/common/components/Badge'
 import { getButtonClassName } from '@nihongo/browser/common/components/Button'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
+import { ProgressSheet } from '@common/components/manuscript/ProgressSheet'
+import type { ProgressCellState } from '@common/components/manuscript/ProgressSheet'
 
 const SCORE_SLOT = '\u0000'
 
 type ResultSummaryProps = {
+  /** Play the red pen once (right after submit). */
+  animateGrading?: boolean
   headingRef: RefObject<HTMLHeadingElement | null>
   incorrectCount: number
   isGuest: boolean
@@ -23,6 +27,7 @@ type ResultSummaryProps = {
 
 /** One block: the score with rate and time, then a one-line note. */
 export const ResultSummary = ({
+  animateGrading = false,
   headingRef,
   incorrectCount,
   isGuest,
@@ -48,6 +53,11 @@ export const ResultSummary = ({
       ? [`${t('items.unanswered')} ${formatCount(unansweredCount)}`]
       : [])
   ]
+  // Unanswered items keep their number: not graded, so no mark.
+  const gradeStates = result.items.map(
+    (item): ProgressCellState =>
+      item.isCorrect ? 'ok' : item.selectedOptionId === null ? 'todo' : 'ng'
+  )
   // Only the correct count is large; split the sentence around it.
   const [scoreBefore = '', scoreAfter = ''] = t('summary.score', {
     total: formatCount(result.totalCount),
@@ -77,6 +87,11 @@ export const ResultSummary = ({
         </span>
         <span className="text-sm font-normal">{details.join(' · ')}</span>
       </p>
+      <ProgressSheet
+        className="study-result-sheet"
+        states={gradeStates}
+        animate={animateGrading}
+      />
       {/* One login place: this line, or the limit card on the last try. */}
       {isGuest ? (
         isGuestDone ? null : incorrectCount > 0 ? (
