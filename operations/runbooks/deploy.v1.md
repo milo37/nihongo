@@ -52,7 +52,7 @@
 - PRODUCTION 역할은 environment `production`의 잡만 믿습니다(`infra/aws` `github_deploy_environment`). 그래서 승인 없이 PRODUCTION에 배포하는 길이 없습니다. Caddy 이미지 빌드(`caddy-image.yml`)도 같은 역할이라 그 잡도 승인을 거칩니다.
 - 켜는 순서(바꾸면 안 됨): **① environment `production` 보호 먼저** — 저장소 Settings → Environments에서 만들고 Required reviewers = 운영자 계정, Deployment branches = `main`, "Prevent self-review" 끔(병합 실행자가 운영자 계정이라 켜면 승인할 사람이 없음). **② 그 다음에 저장소 변수** `PRODUCTION_AWS_DEPLOY_ROLE_ARN`·`PRODUCTION_INSTANCE_ID`·`PRODUCTION_SITE_URL`(PRODUCTION terraform output, 비밀 아님). 변수가 없으면 잡은 건너뜁니다.
 - 이유: GitHub는 없는 environment를 처음 쓸 때 **보호 규칙 없이** 자동으로 만들고, PRODUCTION 역할은 environment 이름만 봅니다. 변수를 먼저 넣으면 승인 없이 배포될 수 있습니다. 그래서 잡은 시작하자마자 `production`에 필수 검토자가 있는지 API로 확인하고, 없으면 AWS 역할을 받기 전에 실패합니다.
-- STAGING을 평소 정지해 두는 경우(`infra/aws` `host_stop_schedule_expression`): 저장소 변수 `STAGING_START_IF_STOPPED = true`면 STAGING 배포 잡이 먼저 서버를 켜고 SSM 에이전트가 붙을 때까지(최대 5분) 기다립니다.
+- STAGING을 평소 정지해 두는 경우(`infra/aws` README "STAGING 평소 정지"): 저장소 변수 `STAGING_START_IF_STOPPED = true`면 STAGING 배포 잡이 먼저 서버를 켜고 SSM 에이전트가 붙을 때까지(최대 5분) 기다린 뒤 배포하고, 배포 3시간 뒤 서버가 스스로 정지합니다(결과 줄 `host stops in 180 minutes`). 더 쓰려면 같은 SHA의 Release image를 다시 실행하면 3시간이 다시 시작됩니다. 꺼져 있는 동안 사이트는 CloudFront 504입니다.
 
 ## 사람만 하는 일
 
