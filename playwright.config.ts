@@ -5,6 +5,7 @@ const outputLabel = process.env.PLAYWRIGHT_OUTPUT_LABEL ?? 'real'
 const safeEvidenceDirectory =
   process.env.PLAYWRIGHT_EVIDENCE_DIR ??
   'test-results/browser-evidence/playwright'
+const ledgerDiagnosticDirectory = process.env.PLAYWRIGHT_DIAGNOSTIC_DIR
 
 if (!baseURL) {
   throw new Error(
@@ -21,7 +22,11 @@ export default defineConfig({
     ['list'],
     [
       './scripts/security/browser-evidence-reporter.mjs',
-      { label: outputLabel, outputDirectory: safeEvidenceDirectory }
+      {
+        label: outputLabel,
+        outputDirectory: safeEvidenceDirectory,
+        diagnosticDirectory: ledgerDiagnosticDirectory
+      }
     ]
   ],
   retries: 0,

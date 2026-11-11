@@ -759,17 +759,18 @@ const setLocale = async (page: Page, locale: UiLocale): Promise<void> => {
       localeSettingsPages.set(page, settingsPage)
     }
   }
-  // The learner app keeps the language in its account menu; the admin app
+  // The learner app has a language menu in the top bar; the admin app
   // keeps the default menu with a language select.
   const webMenuButton = settingsPage.locator(
-    '#account-menu-button[aria-haspopup="menu"]'
+    '.locale-menu-trigger[aria-haspopup="menu"]'
   )
   if ((await webMenuButton.count()) > 0) {
     await webMenuButton.click()
+    // Choosing closes the menu and returns focus to the button.
     await settingsPage
       .locator(`[role="menuitemradio"][lang="${locale}"]`)
       .click()
-    await settingsPage.keyboard.press('Escape')
+    await expect(webMenuButton).toHaveAttribute('aria-expanded', 'false')
   } else {
     const localeSelect = settingsPage.locator(
       'select[name="ui-locale"]:visible'
@@ -1894,7 +1895,7 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
   await page.reload()
   await settlePage(page)
   await expect(page.locator('html')).toHaveAttribute('lang', 'ja')
-  await page.locator('#account-menu-button').click()
+  await page.locator('.locale-menu-trigger').click()
   await expect(
     page.locator('[role="menuitemradio"][lang="ja"]')
   ).toHaveAttribute('aria-checked', 'true')

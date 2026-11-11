@@ -244,6 +244,7 @@ jobs:
       AUTH_TRUSTED_PROXY_CIDRS: 127.0.0.1/32,::1/128
       PLAYWRIGHT_EVIDENCE_DIR: test-results/browser-evidence/playwright-${{ github.run_id }}-${{ github.run_attempt }}
       PLAYWRIGHT_MOCK_EVIDENCE_DIR: test-results/browser-evidence/playwright-mock-${{ github.run_id }}-${{ github.run_attempt }}
+      PLAYWRIGHT_DIAGNOSTIC_DIR: test-results/browser-diagnostics/playwright-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -423,6 +424,27 @@ jobs:
           rm -rf -- "$expected" test-results/playwright-raw
           test ! -e "$expected"
           test ! -e test-results/playwright-raw
+
+      # Failure-only: request ledgers the evidence check rejected, reduced to entries that pass the
+      # per-entry safety checks (method, normalized path, status, provenance, sequence).
+      - name: Upload rejected request ledger diagnostics
+        if: ${{ !cancelled() && (steps.real_browser.outcome == 'failure' || steps.mock_browser.outcome == 'failure') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-ledger-diagnostic-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: ignore
+          retention-days: 7
+          path: ${{ env.PLAYWRIGHT_DIAGNOSTIC_DIR }}/
+
+      - name: Clean request ledger diagnostics
+        if: ${{ always() && (needs.plan.outputs.browser == 'true' || needs.plan.outputs.browser_mock == 'true') }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="test-results/browser-diagnostics/playwright-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          test "$PLAYWRIGHT_DIAGNOSTIC_DIR" = "$expected"
+          rm -rf -- "$expected"
+          test ! -e "$expected"
 
       - name: Verify selected regression acceptance
         if: ${{ always() }}
