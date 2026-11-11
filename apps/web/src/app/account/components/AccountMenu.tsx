@@ -7,8 +7,6 @@ import { LogoutDialog } from '@app/account/components/LogoutDialog'
 import { getButtonClassName } from '@nihongo/browser/common/components/Button'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 import type { IconName } from '@nihongo/browser/common/components/Icon'
-import { UI_LOCALES } from '@nihongo/browser/i18n/types'
-import { useUiLocale } from '@nihongo/browser/provider/I18nProvider'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 
 type AccountMenuProps = {
@@ -17,7 +15,7 @@ type AccountMenuProps = {
   reportErrorLabel: string
 }
 
-const ITEM_SELECTOR = '[role="menuitem"],[role="menuitemradio"]'
+const ITEM_SELECTOR = '[role="menuitem"]'
 
 const ItemIcon = ({ name }: { name: IconName }): ReactElement => (
   <Icon name={name} className="size-5 shrink-0 text-muted" />
@@ -30,10 +28,8 @@ export const AccountMenu = ({
   reportErrorLabel
 }: AccountMenuProps): ReactElement => {
   const { t } = useTranslation('navigation')
-  const { t: commonT } = useTranslation('common')
   const { t: authT } = useTranslation('auth')
   const { user } = useAuth()
-  const { locale, setLocale } = useUiLocale()
   const { pathname } = useLocation()
   const [open, setOpen] = useState(false)
   const [logoutOpen, setLogoutOpen] = useState(false)
@@ -43,7 +39,6 @@ export const AccountMenu = ({
   const trigger = useRef<HTMLButtonElement>(null)
   const panel = useRef<HTMLDivElement>(null)
   const menuId = useId()
-  const languageId = useId()
   if (closedPath !== pathname) {
     setClosedPath(pathname)
     setOpen(false)
@@ -158,9 +153,9 @@ export const AccountMenu = ({
                 {t('login')}
               </Link>
             )}
-            <div role="separator" className="account-menu-separator" />
             {user ? (
               <>
+                <div role="separator" className="account-menu-separator" />
                 <Link
                   role="menuitem"
                   to="/account"
@@ -182,34 +177,6 @@ export const AccountMenu = ({
                   <ItemIcon name="circle-alert" />
                   {reportErrorLabel}
                 </button>
-                <div role="separator" className="account-menu-separator" />
-              </>
-            ) : null}
-            <div
-              role="group"
-              aria-labelledby={languageId}
-              className="flex min-h-11 items-center justify-between gap-3 px-3"
-            >
-              <span id={languageId} className="text-sm text-muted">
-                {t('accountMenu.language')}
-              </span>
-              <span className="account-menu-segment">
-                {UI_LOCALES.map((value) => (
-                  <button
-                    key={value}
-                    role="menuitemradio"
-                    type="button"
-                    lang={value}
-                    aria-checked={locale === value}
-                    onClick={() => setLocale(value)}
-                  >
-                    {commonT(`locale.${value}`)}
-                  </button>
-                ))}
-              </span>
-            </div>
-            {user ? (
-              <>
                 <div role="separator" className="account-menu-separator" />
                 <button
                   role="menuitem"

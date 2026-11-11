@@ -9,6 +9,7 @@ export const jaCoreResources = {
     appName: '하루마루',
     locale: {
       label: '言語',
+      change: '言語を変更',
       ko: '한국어',
       ja: '日本語'
     },
@@ -102,7 +103,6 @@ export const jaCoreResources = {
       label: 'アカウントメニュー',
       signedInWith: 'Googleアカウントでログイン中',
       myPage: 'マイページ',
-      language: '言語',
       guestTitle: 'ログインしていません',
       guestDescription: 'ログインすると解いた記録が残ります'
     },
