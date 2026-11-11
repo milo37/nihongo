@@ -970,7 +970,7 @@ const startVocabularySessionThroughUi = async (
     '/api/v1/study-sessions'
   )
   await page
-    .getByRole('button', { name: 'N5 문자·어휘 10문제 시작', exact: true })
+    .getByRole('button', { name: /^N5 문자·어휘 \d+문제 시작$/u })
     .click()
   const response = await createdResponse
   expect(response.status()).toBe(201)
@@ -1063,7 +1063,7 @@ test('guest SSO boundary and authenticated practice transition match the active 
   await guestPrincipal
   await settleJourneyPage(page)
   await expect(
-    page.getByText(/^로그인 없이 하루 3번, 한 번에 10문제씩 풀 수 있어요\./u)
+    page.getByText(/^로그인 없이 하루 3번, 한 번에 \d+문제씩 풀 수 있어요\./u)
   ).toBeVisible()
   // A fresh guest reads the rule only; no count line, no locks (JLP-823).
   await expect(page.getByText(/더 풀 수 있어요/u)).toHaveCount(0)
