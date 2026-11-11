@@ -571,6 +571,7 @@ type SsoAccountErasureRequestResult =
         | 'AUTHENTICATION_REQUIRED'
         | 'SSO_FRESH_REQUIRED'
         | 'SSO_ACCOUNT_DELETION_BLOCKED'
+        | 'SSO_LAST_ADMIN_DELETION_BLOCKED'
     }
   | {
       readonly appStatus: 'DELETION_PENDING'
@@ -595,6 +596,14 @@ export const requestSsoAccountErasure = async (
     )
     const first = await accountSessionContext(transaction, rawToken)
     if (!first) return { code: 'AUTHENTICATION_REQUIRED' }
+    // An ADMIN locks every ACTIVE ADMIN in id order first, so two admins
+    // leaving at once cannot both pass the last-admin check below.
+    if (first.role === 'ADMIN')
+      await transaction.$queryRawUnsafe(
+        `SELECT 1 FROM "User"
+         WHERE "role" = 'ADMIN' AND "accountStatus" = 'ACTIVE'
+         ORDER BY "id" FOR UPDATE`
+      )
     await transaction.$queryRawUnsafe(
       `SELECT 1 FROM "User" WHERE "id" = $1::uuid FOR UPDATE`,
       first.userId
@@ -611,6 +620,19 @@ export const requestSsoAccountErasure = async (
       actor.userId
     )
     if (blocked.length > 0) return { code: 'SSO_ACCOUNT_DELETION_BLOCKED' }
+    // JLP-841: the service must keep one ACTIVE ADMIN.
+    const lastAdmin = await transaction.$queryRawUnsafe<unknown[]>(
+      `SELECT 1 FROM "User" AS self
+       WHERE self."id" = $1::uuid
+         AND self."role" = 'ADMIN' AND self."accountStatus" = 'ACTIVE'
+         AND NOT EXISTS (
+           SELECT 1 FROM "User" AS other
+           WHERE other."role" = 'ADMIN' AND other."accountStatus" = 'ACTIVE'
+             AND other."id" <> self."id"
+         )`,
+      actor.userId
+    )
+    if (lastAdmin.length > 0) return { code: 'SSO_LAST_ADMIN_DELETION_BLOCKED' }
     if (!/^[0-9a-f]{64}$/u.test(receiptDigest))
       await raise(transaction, '22023', 'Invalid private erasure receipt.')
     await transaction.$queryRawUnsafe(
