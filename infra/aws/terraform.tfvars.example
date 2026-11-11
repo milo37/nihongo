@@ -2,7 +2,7 @@
 deployment_environment = "PRODUCTION"
 alert_email            = "owner@example.com"
 # monthly_budget_jpy   = 5000 (default; tax included, converted to USD in main.tf)
-# budget_stop_ec2_enabled = true  # after switching to the paid plan (default false: alerts only)
+# budget_stop_ec2_enabled = true  # the account is paid since 2026-11-12 (default false: alerts only)
 
 # Two stacks in one account (README "STAGING과 PRODUCTION 두 스택"):
 # STAGING keeps the defaults below; PRODUCTION sets
