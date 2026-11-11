@@ -12,15 +12,38 @@ resource "aws_ssm_document" "deploy" {
         type           = "String"
         allowedPattern = "^[0-9a-f]{40}$"
       }
-    }
-    mainSteps = [{
-      action = "aws:runShellScript"
-      name   = "deploy"
-      inputs = {
-        timeoutSeconds = "900"
-        runCommand     = ["/opt/harumaru/bin/deploy.sh {{ releaseId }}"]
+      # STAGING kept stopped between uses: stop the host this many minutes
+      # after a deploy (a later deploy moves it). 0 = leave it running.
+      stopAfterMinutes = {
+        type           = "String"
+        default        = "0"
+        allowedPattern = "^(0|[1-9][0-9]{0,3})$"
       }
-    }]
+    }
+    mainSteps = [
+      {
+        action = "aws:runShellScript"
+        name   = "deploy"
+        inputs = {
+          timeoutSeconds = "900"
+          runCommand     = ["/opt/harumaru/bin/deploy.sh {{ releaseId }}"]
+        }
+      },
+      {
+        action = "aws:runShellScript"
+        name   = "stopLater"
+        inputs = {
+          timeoutSeconds = "60"
+          runCommand = [
+            "minutes={{ stopAfterMinutes }}",
+            "[ \"$minutes\" -gt 0 ] || exit 0",
+            "shutdown -c 2>/dev/null || true",
+            "shutdown -h \"+$minutes\"",
+            "echo \"host stops in $minutes minutes\"",
+          ]
+        }
+      },
+    ]
   })
 }
 
@@ -154,6 +177,8 @@ resource "aws_scheduler_schedule" "guest_cleanup" {
 
 # STAGING between uses (owner decision b): stop the host on a schedule. The
 # deploy job starts it again (deploy_role_can_start_host). Empty = no schedule.
+# With host_start_schedule_expression the host also wakes once a day so the
+# erasure and guest cleanup schedules (set to the same window) reach it.
 data "aws_iam_policy_document" "host_stop" {
   count = var.host_stop_schedule_expression != "" ? 1 : 0
   statement {
@@ -188,6 +213,48 @@ resource "aws_scheduler_schedule" "host_stop" {
   target {
     arn      = "arn:${data.aws_partition.current.partition}:scheduler:::aws-sdk:ec2:stopInstances"
     role_arn = aws_iam_role.host_stop[0].arn
+    input    = jsonencode({ InstanceIds = [aws_instance.host.id] })
+
+    retry_policy {
+      maximum_retry_attempts = 0
+    }
+  }
+}
+
+data "aws_iam_policy_document" "host_start" {
+  count = var.host_start_schedule_expression != "" ? 1 : 0
+  statement {
+    actions   = ["ec2:StartInstances"]
+    resources = [aws_instance.host.arn]
+  }
+}
+
+resource "aws_iam_role" "host_start" {
+  count              = var.host_start_schedule_expression != "" ? 1 : 0
+  name               = "${local.name}-host-start"
+  assume_role_policy = data.aws_iam_policy_document.scheduler_assume.json
+}
+
+resource "aws_iam_role_policy" "host_start" {
+  count  = var.host_start_schedule_expression != "" ? 1 : 0
+  name   = "start-host"
+  role   = aws_iam_role.host_start[0].id
+  policy = data.aws_iam_policy_document.host_start[0].json
+}
+
+resource "aws_scheduler_schedule" "host_start" {
+  count                        = var.host_start_schedule_expression != "" ? 1 : 0
+  name                         = "${local.name}-host-start"
+  schedule_expression          = var.host_start_schedule_expression
+  schedule_expression_timezone = "Asia/Tokyo"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  target {
+    arn      = "arn:${data.aws_partition.current.partition}:scheduler:::aws-sdk:ec2:startInstances"
+    role_arn = aws_iam_role.host_start[0].arn
     input    = jsonencode({ InstanceIds = [aws_instance.host.id] })
 
     retry_policy {

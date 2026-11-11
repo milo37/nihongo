@@ -113,6 +113,7 @@ resource "aws_cloudwatch_metric_alarm" "edge_5xx" {
   threshold           = 10
   comparison_operator = "GreaterThanThreshold"
   treat_missing_data  = "notBreaching"
+  actions_enabled     = !var.host_kept_stopped
   alarm_actions       = [aws_sns_topic.alerts_us_east_1.arn]
 }
 
@@ -129,6 +130,7 @@ resource "aws_cloudwatch_metric_alarm" "backup_missing" {
   threshold           = 1
   comparison_operator = "LessThanThreshold"
   treat_missing_data  = "breaching"
+  actions_enabled     = !var.host_kept_stopped
   alarm_actions       = [aws_sns_topic.alerts.arn]
 }
 
