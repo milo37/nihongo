@@ -151,3 +151,47 @@ resource "aws_scheduler_schedule" "guest_cleanup" {
     }
   }
 }
+
+# STAGING between uses (owner decision b): stop the host on a schedule. The
+# deploy job starts it again (deploy_role_can_start_host). Empty = no schedule.
+data "aws_iam_policy_document" "host_stop" {
+  count = var.host_stop_schedule_expression != "" ? 1 : 0
+  statement {
+    actions   = ["ec2:StopInstances"]
+    resources = [aws_instance.host.arn]
+  }
+}
+
+resource "aws_iam_role" "host_stop" {
+  count              = var.host_stop_schedule_expression != "" ? 1 : 0
+  name               = "${local.name}-host-stop"
+  assume_role_policy = data.aws_iam_policy_document.scheduler_assume.json
+}
+
+resource "aws_iam_role_policy" "host_stop" {
+  count  = var.host_stop_schedule_expression != "" ? 1 : 0
+  name   = "stop-host"
+  role   = aws_iam_role.host_stop[0].id
+  policy = data.aws_iam_policy_document.host_stop[0].json
+}
+
+resource "aws_scheduler_schedule" "host_stop" {
+  count                        = var.host_stop_schedule_expression != "" ? 1 : 0
+  name                         = "${local.name}-host-stop"
+  schedule_expression          = var.host_stop_schedule_expression
+  schedule_expression_timezone = "Asia/Tokyo"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  target {
+    arn      = "arn:${data.aws_partition.current.partition}:scheduler:::aws-sdk:ec2:stopInstances"
+    role_arn = aws_iam_role.host_stop[0].arn
+    input    = jsonencode({ InstanceIds = [aws_instance.host.id] })
+
+    retry_policy {
+      maximum_retry_attempts = 0
+    }
+  }
+}

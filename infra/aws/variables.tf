@@ -152,6 +152,52 @@ variable "github_deploy_ref" {
   default     = "refs/heads/main"
 }
 
+variable "github_deploy_environment" {
+  description = "GitHub environment whose jobs may assume the deploy role (sub environment:<name>). Empty = trust github_deploy_ref. PRODUCTION must set it (production)."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.deployment_environment != "PRODUCTION" || var.github_deploy_environment != ""
+    error_message = "PRODUCTION must trust a GitHub environment (github_deploy_environment = \"production\"), so only an approved job deploys."
+  }
+}
+
+variable "create_ecr_repository" {
+  description = "One api repository per account. STAGING true (creates harumaru/api and pushes releases); PRODUCTION false (reads it, deploys the same images)."
+  type        = bool
+  default     = true
+}
+
+variable "budget_filter_by_environment" {
+  description = "Count only cost tagged Environment=<this environment>. Set true in both stacks once PRODUCTION exists; needs the cost allocation tag active."
+  type        = bool
+  default     = false
+}
+
+variable "manage_cost_allocation_tag" {
+  description = "Activate the Environment cost allocation tag (account-wide). Exactly one stack sets true."
+  type        = bool
+  default     = false
+}
+
+variable "host_stop_schedule_expression" {
+  description = "STAGING only: stop the host on this schedule (Asia/Tokyo), for example cron(0 1 * * ? *). Empty = always on."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.host_stop_schedule_expression == "" || var.deployment_environment == "STAGING"
+    error_message = "Only STAGING may be stopped on a schedule."
+  }
+}
+
+variable "deploy_role_can_start_host" {
+  description = "Let the GitHub deploy role start this host before a deploy (STAGING kept stopped between uses)."
+  type        = bool
+  default     = false
+}
+
 variable "create_github_oidc_provider" {
   description = "Set false if the account already has the token.actions.githubusercontent.com provider."
   type        = bool

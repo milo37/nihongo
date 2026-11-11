@@ -30,11 +30,11 @@
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
 | `compute.tf`              | EC2, EIP, 보안그룹, 인스턴스 역할(SSM 경로 읽기, ECR pull, 백업 PutObject만), 데이터 볼륨, DLM 주간 스냅샷                |
 | `edge.tf`                 | CloudFront 배포, origin 비밀 헤더(값은 SSM에도 저장), WAF web ACL(us-east-1)                                              |
-| `registry.tf`             | ECR(태그 불변, push 시 스캔, 릴리스 10개 보존: `<SHA>`·`<SHA>-migrate`)                                                   |
+| `registry.tf`             | ECR(태그 불변, push 시 스캔, 릴리스 10개 보존: `<SHA>`·`<SHA>-migrate`). 계정에 1개, STAGING이 만들고 PRODUCTION은 읽기만 |
 | `backup.tf`               | 백업 버킷(공개 차단, SSE, TLS 강제, 30일 수명주기)                                                                        |
 | `monitoring.tf`           | SNS 메일, 경보 7개(상태 검사+자동 복구, CPU, CPU 크레딧, 메모리, 디스크, CloudFront 5xx, 백업 누락), 로그 그룹 30일       |
 | `cost.tf`                 | 월 5,000엔(세포함)을 USD로 환산한 Budgets, 50/80/100% 실제·100% 예측 알림, 100% 초과 시 EC2 정지(기본 꺼짐), Cost Anomaly |
-| `github.tf`               | GitHub Actions OIDC 역할(`main`만, ECR push와 배포 문서 실행만)                                                           |
+| `github.tf`               | GitHub Actions OIDC 역할(STAGING `main`만·ECR push, PRODUCTION environment `production`만, 배포 문서 실행만)              |
 | `operations.tf`           | 배포 SSM 문서, #57 계정 삭제·#694 비회원 정리 SSM 문서와 예약(둘 다 매시, 기본 **DISABLED**)                              |
 | `files/`, `templates/`    | 호스트 compose, Caddyfile, 배포·환경·백업·삭제 스크립트, cloud-init                                                       |
 | `scripts/render-check.sh` | CI에서 cloud-init·compose·Caddyfile을 두 origin 모드로 렌더링해 검사                                                      |
@@ -71,6 +71,27 @@ aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUT
 - `harumaru-<env>-guest-cleanup` SSM 문서가 `guest-cleanup.sh`로 배포된 이미지의 `studyGuestCleanupRuntime.js`를 한 번 돌립니다. 만료 7일 지난 비회원 기록·임시저장, 비회원 식별자, 끝난 재요청 기록, 제한 창이 끝나고 7일 지난 요청 제한 기록을 지웁니다. 한 번에 최대 1,000행이고, 남으면 종료 코드 1입니다.
 - 예약은 매시 30분(Asia/Tokyo)이고 기본 `DISABLED`입니다. `guest_cleanup_schedule_enabled = true`로 켭니다. 절차는 [operations/runbooks/guest-cleanup-worker.v1.md](../../operations/runbooks/guest-cleanup-worker.v1.md) 'AWS host'.
 - 회원의 만료 임시저장 정리(`studyDraftCleanupCommand`)는 아직 운영 환경을 거부해서 여기 없습니다(BE 변경, 배포 이후 #699).
+
+## state와 두 스택 (JLP-835)
+
+STAGING과 PRODUCTION은 같은 계정에 같은 코드를 각자의 state로 올립니다. state는 S3 backend(버전 관리, `use_lockfile`)에 환경별 key로 둡니다. 비밀 헤더 값이 state에 있으므로 버킷은 비공개·암호화·버전 관리로 만듭니다.
+
+```sh
+# 한 번(계정당): 버킷. 이름은 harumaru-tfstate-<계정 ID>
+b=harumaru-tfstate-$(aws sts get-caller-identity --query Account --output text)
+aws s3api create-bucket --bucket "$b" --create-bucket-configuration LocationConstraint=ap-northeast-2
+aws s3api put-bucket-versioning --bucket "$b" --versioning-configuration Status=Enabled
+aws s3api put-public-access-block --bucket "$b" --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true
+aws s3api put-bucket-encryption --bucket "$b" --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
+# 환경마다(작업 폴더를 환경별로 따로 두거나, 바꿀 때 -reconfigure)
+terraform init -backend-config=backends/staging.s3.tfbackend -backend-config=bucket="$b"   # 처음엔 -migrate-state
+```
+
+- **지금 STAGING은 로컬 state입니다.** 이 코드 뒤 첫 `terraform init`은 `-migrate-state`로 로컬 state를 S3 `staging/terraform.tfstate`로 옮깁니다. 그 뒤 `terraform plan`에서 아래 "이동"만 나오는지 확인합니다.
+- 이동(`moved`): ECR이 계정에 1개가 되면서 `aws_ecr_repository.api` → `api[0]`, `aws_ecr_lifecycle_policy.api` → `api[0]`. 실제 변경 없음.
+- PRODUCTION tfvars: `github_deploy_environment = "production"`(없으면 validation 거부), `create_ecr_repository = false`, `create_github_oidc_provider = false`, `create_cost_anomaly_monitor = false`(계정당 1개). 예시는 `terraform.tfvars.example`.
+- 예산: 필터가 없으면 각 스택 예산이 **계정 전체**를 셉니다. PRODUCTION을 만들 때 두 스택 모두 `budget_filter_by_environment = true`, STAGING에 `manage_cost_allocation_tag = true`(태그 `Environment` 활성화, 계정 설정). 활성화 뒤의 비용부터 태그가 붙고 최대 24시간 걸리므로 **PRODUCTION apply 하루 전**에 STAGING에서 먼저 켭니다. 한도는 스택마다 `monthly_budget_jpy`로 따로 정합니다. 태그 없는 비용(일부 데이터 전송 등)은 어느 예산에도 안 들어가므로 계정 전체는 Cost Anomaly 메일로 봅니다.
+- STAGING 평소 정지(선택): `host_stop_schedule_expression`(예: 매일 10시 JST `cron(0 1 * * ? *)`)이 EventBridge Scheduler로 호스트를 멈추고, `deploy_role_can_start_host = true`면 배포 잡이 먼저 켭니다(저장소 변수 `STAGING_START_IF_STOPPED = true`). 정지 중에도 EIP·EBS 약 $6.5/월. PRODUCTION에는 쓸 수 없습니다(validation).
 
 ## 비용 방어
 

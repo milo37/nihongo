@@ -1,4 +1,8 @@
+# One api repository per account: STAGING creates it and pushes every release;
+# PRODUCTION (create_ecr_repository = false) reads it and deploys the same
+# <SHA> images STAGING already ran, without a rebuild.
 resource "aws_ecr_repository" "api" {
+  count                = var.create_ecr_repository ? 1 : 0
   name                 = "${var.project}/api"
   image_tag_mutability = "IMMUTABLE"
 
@@ -16,7 +20,8 @@ resource "aws_ecr_repository" "api" {
 # rule when it evaluates a lower one, so rule 2 counts both kinds: 20 keeps the
 # last 10 releases of the app image (rollback targets).
 resource "aws_ecr_lifecycle_policy" "api" {
-  repository = aws_ecr_repository.api.name
+  count      = var.create_ecr_repository ? 1 : 0
+  repository = aws_ecr_repository.api[0].name
   policy = jsonencode({
     rules = [
       {
@@ -42,6 +47,27 @@ resource "aws_ecr_lifecycle_policy" "api" {
       },
     ]
   })
+}
+
+data "aws_ecr_repository" "api" {
+  count = var.create_ecr_repository ? 0 : 1
+  name  = "${var.project}/api"
+}
+
+locals {
+  ecr_repository_arn = var.create_ecr_repository ? aws_ecr_repository.api[0].arn : data.aws_ecr_repository.api[0].arn
+  ecr_repository_url = var.create_ecr_repository ? aws_ecr_repository.api[0].repository_url : data.aws_ecr_repository.api[0].repository_url
+}
+
+# Existing STAGING state: the repository and its policy only gained an index.
+moved {
+  from = aws_ecr_repository.api
+  to   = aws_ecr_repository.api[0]
+}
+
+moved {
+  from = aws_ecr_lifecycle_policy.api
+  to   = aws_ecr_lifecycle_policy.api[0]
 }
 
 # PRODUCTION only (origin_domain_name set, #40): Caddy with the Cloudflare DNS
