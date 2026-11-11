@@ -28,7 +28,7 @@ resource "aws_cloudwatch_log_group" "api" {
   retention_in_days = 30
 }
 
-# Ten standard alarms are free per month; this file defines seven.
+# Ten standard alarms are free per month; this file defines eight.
 resource "aws_cloudwatch_metric_alarm" "status_check" {
   alarm_name          = "${local.name}-status-check"
   alarm_description   = "Instance or system status check failed; recover the instance."
@@ -129,5 +129,100 @@ resource "aws_cloudwatch_metric_alarm" "backup_missing" {
   threshold           = 1
   comparison_operator = "LessThanThreshold"
   treat_missing_data  = "breaching"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+}
+
+# JLP-843: tell someone when a scheduled erasure or guest cleanup run does not
+# succeed. Run Command reports each run as an invocation event; anything that is
+# not still running and not Success goes to the alerts topic.
+locals {
+  scheduled_job_documents = [
+    aws_ssm_document.erase_deletion_pending.name,
+    aws_ssm_document.guest_cleanup.name,
+  ]
+}
+
+resource "aws_cloudwatch_event_rule" "scheduled_job_failed" {
+  name        = "${local.name}-scheduled-job-failed"
+  description = "Account erasure or guest cleanup run ended without Success."
+  event_pattern = jsonencode({
+    source        = ["aws.ssm"]
+    "detail-type" = ["EC2 Command Invocation Status-change Notification"]
+    detail = {
+      "document-name" = local.scheduled_job_documents
+      status          = [{ "anything-but" = ["Pending", "InProgress", "Delayed", "Cancelling", "Success"] }]
+    }
+  })
+}
+
+resource "aws_cloudwatch_event_target" "scheduled_job_failed" {
+  rule = aws_cloudwatch_event_rule.scheduled_job_failed.name
+  arn  = aws_sns_topic.alerts.arn
+
+  input_transformer {
+    input_paths = {
+      document = "$.detail.document-name"
+      status   = "$.detail.status"
+      instance = "$.detail.instance-id"
+      command  = "$.detail.command-id"
+      time     = "$.time"
+    }
+    input_template = "\"${var.deployment_environment} scheduled job <document> ended <status> at <time> on <instance>. Output: aws ssm get-command-invocation --command-id <command> --instance-id <instance>\""
+  }
+}
+
+# Replacing the topic policy drops the default one, so the account-owner
+# statement (CloudWatch alarms publish under it) is restated here as AWS writes it.
+data "aws_iam_policy_document" "alerts_topic" {
+  statement {
+    sid       = "AccountOwner"
+    actions   = ["SNS:Publish", "SNS:Subscribe", "SNS:GetTopicAttributes", "SNS:SetTopicAttributes", "SNS:AddPermission", "SNS:RemovePermission", "SNS:DeleteTopic", "SNS:ListSubscriptionsByTopic"]
+    resources = [aws_sns_topic.alerts.arn]
+    principals {
+      type        = "AWS"
+      identifiers = ["*"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceOwner"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+  }
+
+  statement {
+    sid       = "ScheduledJobFailedRule"
+    actions   = ["SNS:Publish"]
+    resources = [aws_sns_topic.alerts.arn]
+    principals {
+      type        = "Service"
+      identifiers = ["events.amazonaws.com"]
+    }
+    condition {
+      test     = "ArnEquals"
+      variable = "aws:SourceArn"
+      values   = [aws_cloudwatch_event_rule.scheduled_job_failed.arn]
+    }
+  }
+}
+
+resource "aws_sns_topic_policy" "alerts" {
+  arn    = aws_sns_topic.alerts.arn
+  policy = data.aws_iam_policy_document.alerts_topic.json
+}
+
+# A run that never reaches Run Command (Scheduler role or target error) leaves
+# no invocation event, so watch the Scheduler side too.
+resource "aws_cloudwatch_metric_alarm" "scheduler_target_error" {
+  alarm_name          = "${local.name}-scheduler-target-error"
+  alarm_description   = "EventBridge Scheduler could not start a scheduled job (erasure, guest cleanup or host stop)."
+  namespace           = "AWS/Scheduler"
+  metric_name         = "TargetErrorCount"
+  dimensions          = { ScheduleGroup = "default" }
+  statistic           = "Sum"
+  period              = 3600
+  evaluation_periods  = 1
+  threshold           = 0
+  comparison_operator = "GreaterThanThreshold"
+  treat_missing_data  = "notBreaching"
   alarm_actions       = [aws_sns_topic.alerts.arn]
 }
