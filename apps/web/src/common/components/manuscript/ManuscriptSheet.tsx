@@ -1,6 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties, ReactElement, ReactNode } from 'react'
-import manuscriptCss from '@common/components/manuscript/manuscript.css?inline'
 
 /** One square's place in px: left, top and side. */
 export type SheetCell = {
@@ -29,13 +28,6 @@ type ManuscriptSheetProps = {
   readonly className?: string
   readonly style?: CSSProperties
 }
-
-/** Sheet and grade-mark styles; React hoists and dedupes them by href. */
-export const ManuscriptStyles = (): ReactElement => (
-  <style href="harumaru-manuscript" precedence="default">
-    {manuscriptCss}
-  </style>
-)
 
 /** Fish-tail marks (어미) at both ends of the centre band, 12 × 14. */
 const TAIL_LEFT = 'M0 0H12V14H0L5 7Z'
@@ -140,7 +132,6 @@ export const ManuscriptSheet = ({
       style={style}
       aria-hidden="true"
     >
-      <ManuscriptStyles />
       <svg
         width={g.width}
         height={g.height}

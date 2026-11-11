@@ -5,7 +5,6 @@ import {
   CancelResumableDialog,
   PracticeSetupFeedback
 } from '@app/practice/components/PracticeSetupFeedback'
-import setupCss from '@app/practice/setup.css?inline'
 import { PracticeSetupForm } from '@app/practice/components/PracticeSetupForm'
 import { GuestDailyLimitCard } from '@app/practice/components/GuestDailyLimitCard'
 import { GuestUrlLockedNotice } from '@app/practice/components/GuestSetupNotices'
@@ -37,9 +36,6 @@ export const PracticePage = (): ReactElement => {
 
   return (
     <section className="practice-setup-page">
-      <style href="harumaru-setup" precedence="default">
-        {setupCss}
-      </style>
       <div className="practice-setup-heading">
         <h1 ref={setupHeadingRef} className="outline-none" tabIndex={-1}>
           {t('setup.title')}
