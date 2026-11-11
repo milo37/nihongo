@@ -9,9 +9,8 @@ import {
 import { getRouteLabelKey } from '@nihongo/browser/i18n/routePresentation'
 import { AppProvider } from '@provider/index'
 import '@/styles.css'
-// Shared by several lazy routes, so they ride in the main stylesheet: a CSS
-// file of its own for a shared chunk is not allowed by the bundle contract,
-// and inline <style> is blocked by the CSP (style-src 'self').
+// Route styles ride in the main stylesheet: the bundle contract takes no CSS
+// file for a lazy route, and the CSP (style-src 'self') blocks inline <style>.
 import '@app/home/home.css'
 import '@common/components/manuscript/manuscript.css'
 import '@app/practice/setup.css'
