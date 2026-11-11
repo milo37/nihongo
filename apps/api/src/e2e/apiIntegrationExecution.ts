@@ -721,10 +721,15 @@ export const runApiIntegrationManifestVitestFile = async ({
             .filter(({ status }) => status === 'failed')
             .map(({ fullName }) => fullName ?? 'unnamed test')
       )
-      throw new Error(
-        `Integration process failed: ${testFile}; ` +
-          `failed=${result.numFailedTests ?? 'unknown'}; ` +
-          `tests=${preserveSanitizedReport ? 'redacted' : failedTests.join(' | ') || 'unavailable'}.`
+      throw Object.assign(
+        new Error(
+          `Integration process failed: ${testFile}; ` +
+            `failed=${result.numFailedTests ?? 'unknown'}; ` +
+            `tests=${preserveSanitizedReport ? 'redacted' : failedTests.join(' | ') || 'unavailable'}.`
+        ),
+        // Test names come from the test source, never from a failure, so the
+        // database runner can print them (JLP-833).
+        preserveSanitizedReport ? {} : { failedTests }
       )
     }
     const result = JSON.parse(

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { getApiIntegrationPathsByOwner } from './apiIntegrationManifest.js'
 import {
   getPostSeedErrorCode,
+  getPostSeedFailedTests,
   runPostSeedDiagnostic,
   type PostSeedDiagnostic,
   type PostSeedOperation
@@ -186,5 +187,55 @@ describe('post-reseed finite diagnostics', () => {
       )
     }
     expect(executed).toEqual(['COUNT', 'FILE', 'CLEANUP'])
+  })
+
+  it('FILE failure names the failed tests but never the failure text (JLP-833)', async () => {
+    const events: PostSeedDiagnostic[] = []
+    const error = Object.assign(new Error('private message'), {
+      failedTests: ['suite keeps the fence', 'suite rolls back']
+    })
+    await expect(
+      runPostSeedDiagnostic(
+        'FILE',
+        async () => Promise.reject(error),
+        (event) => events.push(event),
+        file
+      )
+    ).rejects.toBe(error)
+    expect(events.at(-1)).toEqual({
+      stage: 'FILE_FAILED',
+      file,
+      errorCode: 'UNKNOWN_REDACTED',
+      failedTests: ['suite keeps the fence', 'suite rolls back']
+    })
+    expect(JSON.stringify(events)).not.toContain('private message')
+  })
+
+  it('omits failed tests outside a FILE failure or when they are not names', async () => {
+    const events: PostSeedDiagnostic[] = []
+    const error = Object.assign(new Error('private message'), {
+      failedTests: ['suite keeps the fence']
+    })
+    await expect(
+      runPostSeedDiagnostic(
+        'COUNT',
+        async () => Promise.reject(error),
+        (event) => events.push(event)
+      )
+    ).rejects.toBe(error)
+    expect(events.at(-1)).toEqual({
+      stage: 'COUNT_FAILED',
+      errorCode: 'UNKNOWN_REDACTED'
+    })
+    expect(getPostSeedFailedTests({ failedTests: [1] })).toBeUndefined()
+    expect(getPostSeedFailedTests({ failedTests: [] })).toBeUndefined()
+    expect(
+      getPostSeedFailedTests(
+        Object.create({ failedTests: ['inherited'] }) as unknown
+      )
+    ).toBeUndefined()
+    expect(
+      getPostSeedFailedTests({ failedTests: ['x'.repeat(400)] })?.[0]
+    ).toHaveLength(300)
   })
 })
