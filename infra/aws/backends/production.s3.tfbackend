@@ -1,0 +1,5 @@
+# terraform init -backend-config=backends/production.s3.tfbackend -backend-config=bucket=harumaru-tfstate-<account id>
+key          = "production/terraform.tfstate"
+region       = "ap-northeast-2"
+encrypt      = true
+use_lockfile = true

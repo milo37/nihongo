@@ -5,6 +5,16 @@ resource "aws_budgets_budget" "monthly" {
   limit_unit   = "USD"
   time_unit    = "MONTHLY"
 
+  # Two stacks in one account: each budget counts only its own environment's
+  # tagged cost. Needs the Environment cost allocation tag active (below).
+  dynamic "cost_filter" {
+    for_each = var.budget_filter_by_environment ? [1] : []
+    content {
+      name   = "TagKeyValue"
+      values = [format("user:Environment$%s", var.deployment_environment)]
+    }
+  }
+
   # Gross usage before credits: with credits (Free plan, promotions) the net
   # cost stays 0 and the alerts and the EC2 stop would never fire.
   cost_types {
@@ -113,4 +123,13 @@ resource "aws_ce_anomaly_subscription" "daily" {
       values        = [tostring(var.cost_anomaly_threshold_usd)]
     }
   }
+}
+
+# Account-wide switch: exactly one stack sets manage_cost_allocation_tag = true.
+# Cost Explorer tags cost from activation on (it can take up to 24 hours), so
+# activate before a filtered budget relies on it.
+resource "aws_ce_cost_allocation_tag" "environment" {
+  count   = var.manage_cost_allocation_tag ? 1 : 0
+  tag_key = "Environment"
+  status  = "Active"
 }
