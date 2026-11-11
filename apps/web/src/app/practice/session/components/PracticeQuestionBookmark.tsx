@@ -23,7 +23,7 @@ export const PracticeQuestionBookmarkButton = ({
   const { formatCount } = usePracticeNumberFormat()
   return (
     <button
-      className="inline-flex size-11 shrink-0 items-center justify-center rounded-control text-ink hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand aria-disabled:cursor-wait aria-disabled:opacity-70 aria-pressed:text-brand aria-pressed:[&_svg]:fill-current"
+      className="inline-flex size-11 shrink-0 items-center justify-center rounded-control text-ink shadow-none hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand aria-disabled:cursor-wait aria-disabled:opacity-70 aria-pressed:text-brand aria-pressed:[&_svg]:fill-current"
       type="button"
       // Focus stays here while busy (a toast closed with Esc returns to it).
       aria-disabled={isDisabled || undefined}
