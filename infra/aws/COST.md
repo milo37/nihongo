@@ -38,7 +38,7 @@
 | EBS 스냅샷                            | $0.05/GB-월                                                            | 증분 약 3 GB (추정)                                                                      |  0.15 |    24 |
 | S3 백업                               | $0.025/GB-월 (Price List AmazonS3)                                     | 약 0.6 GB (30일 × 약 20 MB, 추정)                                                        |  0.02 |     2 |
 | ECR                                   | $0.10/GB-월 (Price List AmazonECR)                                     | 10개 × 약 150 MB (추정)                                                                  |  0.15 |    24 |
-| CloudWatch                            | 지표 $0.30, 경보 $0.10, 로그 수집 $0.76/GB                             | 사용자 지표 3개, 경보 7개, 로그 5 GB 미만 → 월 무료 한도(지표 10, 경보 10, 로그 5 GB) 안 |     0 |     0 |
+| CloudWatch                            | 지표 $0.30, 경보 $0.10, 로그 수집 $0.76/GB                             | 사용자 지표 3개, 경보 8개, EventBridge 규칙 1개(AWS 이벤트 무료), 로그 5 GB 미만 → 월 무료 한도(지표 10, 경보 10, 로그 5 GB) 안 |     0 |     0 |
 | CloudFront + WAF                      | Free 정액 $0 (공식 문서)                                               | 100만 요청, 100 GB 한도                                                                  |     0 |     0 |
 | SSM Parameter Store 표준, Run Command | 무료                                                                   | 파라미터 7개                                                                             |     0 |     0 |
 | Budgets (action 0~1개)                | 매달 action budget-day 62일 무료 이후 $0.10/일 (Price List AWSBudgets) | 꺼 두면 0일, 켜면 31일                                                                   |     0 |     0 |
