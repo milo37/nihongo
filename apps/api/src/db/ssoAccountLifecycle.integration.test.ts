@@ -9,6 +9,10 @@ import {
   tokenlessSsoProviderRevokeAdapter
 } from '../auth/ssoProviderRevoke.js'
 import { bridgedQuery } from '../../test/fixtures/db/ownedSessionSql.js'
+import {
+  findRestorableErasure,
+  restoreSsoAccount
+} from '../auth/accountErasureAuthority.js'
 import { createSsoDbHarness, digest } from './ssoTestFixture.js'
 import type { SsoFixture } from './ssoTestFixture.js'
 let h: ReturnType<typeof createSsoDbHarness>
@@ -37,6 +41,18 @@ const deletionPendingUser = async (): Promise<string> => {
   }
   return f.userId
 }
+// JLP-845: an API request waits out a 7-day grace period; tests move it past.
+const pastGrace = async (receipt: string) => {
+  await h.owner.query(
+    `UPDATE "SsoAccountErasureRequest"
+     SET "createdAt" = "createdAt" - interval '8 days'
+     WHERE "receiptDigest" = $1`,
+    [receipt]
+  )
+}
+const scheduledAt = expect.stringMatching(
+  /^\d{4}-\d{2}-\d{2}T\d{2}:00:00\.000Z$/u
+)
 const verifyFresh = async (f: SsoFixture) => {
   const context = await gateway(
     'SELECT "prepare_sso_account_fresh"($1,$2) AS result',
@@ -236,6 +252,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         )
       ).toEqual({
         appStatus: 'DELETION_PENDING',
+        deletionScheduledAt: scheduledAt,
         providerCleanup: [{ provider: 'google', status: 'PENDING' }],
         // #669: the repository logs this id and strips it from the response.
         userId: f.userId
@@ -269,6 +286,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         ])
       ).toEqual({
         appStatus: 'DELETION_PENDING',
+        deletionScheduledAt: scheduledAt,
         providerCleanup: [{ provider: 'google', status: 'PENDING' }]
       })
       expect(
@@ -279,6 +297,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
           )
         ).rows[0]?.count
       ).toBe(1)
+      await pastGrace(receipt)
       const claims = (
         await h.roleQuery<{
           result: Array<{ id: string; leaseToken: string }>
@@ -321,6 +340,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         ])
       ).toEqual({
         appStatus: 'DELETION_PENDING',
+        deletionScheduledAt: scheduledAt,
         providerCleanup: [{ provider: 'google', status: 'FAILED' }]
       })
       expect(await recordCleanup('COMPLETED')).toBe(true)
@@ -339,6 +359,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         ])
       ).toEqual({
         appStatus: 'DELETED',
+        deletionScheduledAt: scheduledAt,
         providerCleanup: [{ provider: 'google', status: 'COMPLETED' }]
       })
       expect(
@@ -367,6 +388,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
           [receipt]
         )
       ).rows[0]!
+      await pastGrace(receipt)
       const providers = await runSsoProviderRevokeBatch(
         worker,
         tokenlessSsoProviderRevokeAdapter,
@@ -388,6 +410,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         ])
       ).toEqual({
         appStatus: 'DELETED',
+        deletionScheduledAt: scheduledAt,
         providerCleanup: [{ provider: 'google', status: 'COMPLETED' }]
       })
       expect(
@@ -418,6 +441,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
             [receipt]
           )
         ).rows[0]!
+        await pastGrace(receipt)
         return { ...f, id }
       }
       const a = await request(),
@@ -769,6 +793,159 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         [id]
       )
     }
+  })
+  it('JLP-845: a request waits 7 days, and a restore cancels it and keeps learning', async () => {
+    await h.rollback(async () => {
+      const worker = createSsoAccountErasureWorker(h.appClient)
+      const f = await h.fixture('google', 'USER')
+      await h.learningFixture(f.userId)
+      const learning = async () =>
+        (
+          await h.owner.query<{ sessions: number; notes: number }>(
+            'SELECT (SELECT count(*)::int FROM "StudySession" WHERE "userId"=$1) AS sessions,(SELECT count(*)::int FROM "WrongNote" WHERE "userId"=$1) AS notes',
+            [f.userId]
+          )
+        ).rows[0]!
+      const before = await learning()
+      const receipt = digest()
+      await gateway(
+        'SELECT "request_sso_account_erasure"($1,$2,$3) AS result',
+        [f.token, await verifyFresh(f), receipt]
+      )
+      const { id } = (
+        await h.owner.query<{ id: string }>(
+          'SELECT id FROM "SsoAccountErasureRequest" WHERE "receiptDigest"=$1',
+          [receipt]
+        )
+      ).rows[0]!
+      // In the grace period neither the cleanup claim nor the queue sees it.
+      expect(
+        (await worker.claimProviderCleanups(100, 300, 'TEST')).map((r) => r.id)
+      ).not.toContain(id)
+      expect((await worker.list(100, 'TEST')).map((r) => r.id)).not.toContain(
+        id
+      )
+      const restore = await findRestorableErasure(
+        h.appClient,
+        'google',
+        f.subject
+      )
+      expect(restore).toEqual({
+        userId: f.userId,
+        requestId: id,
+        authorityGeneration: expect.any(Number),
+        deletionScheduledAt: scheduledAt
+      })
+      expect(await findRestorableErasure(h.appClient, 'google', 'other')).toBe(
+        null
+      )
+      // A proof for an older generation is refused.
+      expect(
+        await restoreSsoAccount(h.appClient, {
+          ...restore!,
+          authorityGeneration: restore!.authorityGeneration - 1
+        })
+      ).toEqual({ code: 'SSO_ACCOUNT_RESTORE_UNAVAILABLE' })
+      expect(await restoreSsoAccount(h.appClient, restore!)).toEqual({
+        userId: f.userId,
+        role: 'USER',
+        authorityGeneration: restore!.authorityGeneration + 1
+      })
+      expect(
+        (
+          await h.owner.query(
+            'SELECT u."accountStatus"::text AS status,r."appStatus" AS request,r."userId" AS linked,(SELECT count(*)::int FROM "Session" WHERE "userId"=u.id) AS sessions FROM "User" u, "SsoAccountErasureRequest" r WHERE u.id=$1 AND r.id=$2',
+            [f.userId, id]
+          )
+        ).rows
+      ).toEqual([
+        { status: 'ACTIVE', request: 'CANCELLED', linked: null, sessions: 0 }
+      ])
+      expect(await learning()).toEqual(before)
+      expect(
+        await gateway('SELECT "sso_account_erasure_status"($1) AS result', [
+          receipt
+        ])
+      ).toEqual({
+        appStatus: 'CANCELLED',
+        deletionScheduledAt: null,
+        providerCleanup: [{ provider: 'google', status: 'PENDING' }]
+      })
+      // The proof works once.
+      expect(await restoreSsoAccount(h.appClient, restore!)).toEqual({
+        code: 'SSO_ACCOUNT_RESTORE_UNAVAILABLE'
+      })
+      // A cancelled request never joins the queue, even past the grace period.
+      await pastGrace(receipt)
+      expect(
+        (await worker.claimProviderCleanups(100, 300, 'TEST')).map((r) => r.id)
+      ).not.toContain(id)
+      const run = await runSsoAccountErasureBatch(worker, 'TEST', 100)
+      expect([
+        ...run.completedIds,
+        ...run.failedIds,
+        ...run.providerCleanupPendingIds
+      ]).not.toContain(id)
+      expect(
+        (
+          await h.owner.query(
+            'SELECT count(*)::int AS users FROM "User" WHERE id=$1',
+            [f.userId]
+          )
+        ).rows[0]?.users
+      ).toBe(1)
+    })
+  })
+  it('JLP-845: restore is refused once erasure starts, and only the member restore may cancel', async () => {
+    await h.rollback(async () => {
+      const f = await h.fixture('google', 'USER')
+      const receipt = digest()
+      await gateway(
+        'SELECT "request_sso_account_erasure"($1,$2,$3) AS result',
+        [f.token, await verifyFresh(f), receipt]
+      )
+      const restore = (await findRestorableErasure(
+        h.appClient,
+        'google',
+        f.subject
+      ))!
+      // nihongo_app cannot cancel a request or reactivate a User directly
+      // while the request is not cancellable.
+      await h.rejects(
+        'nihongo_app',
+        `UPDATE "SsoAccountErasureRequest" SET "appStatus"='CANCELLED' WHERE id=$1`,
+        [restore.requestId],
+        '42501'
+      )
+      await pastGrace(receipt)
+      const claims = (
+        await h.roleQuery<{ result: Array<{ id: string }> }>(
+          'nihongo_app',
+          'SELECT "claim_sso_provider_cleanups"(100,300,\'TEST\') AS result'
+        )
+      ).rows[0]!.result
+      expect(claims.map((c) => c.id)).toContain(restore.requestId)
+      expect(
+        await findRestorableErasure(h.appClient, 'google', f.subject)
+      ).toBe(null)
+      expect(await restoreSsoAccount(h.appClient, restore)).toEqual({
+        code: 'SSO_ACCOUNT_RESTORE_TOO_LATE'
+      })
+      await h.rejects(
+        'nihongo_app',
+        `UPDATE "User" SET "accountStatus"='ACTIVE' WHERE id=$1`,
+        [f.userId],
+        '55000'
+      )
+      expect(
+        (
+          await h.owner.query(
+            'SELECT u."accountStatus"::text AS status,r."appStatus" AS request FROM "User" u JOIN "SsoAccountErasureRequest" r ON r."userId"=u.id WHERE u.id=$1',
+            [f.userId]
+          )
+        ).rows
+      ).toEqual([{ status: 'DELETION_PENDING', request: 'DELETION_PENDING' }])
+    })
   })
   it('#57: 다른 runtime 역할은 삭제 queue와 User 삭제가 거부되고, nihongo_app도 완료 상태만 바꾸거나 확인 없는 User를 지울 수 없다', async () => {
     await h.rollback(async () => {

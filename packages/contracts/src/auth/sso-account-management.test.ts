@@ -6,7 +6,12 @@ import {
   ssoAccountCapabilitiesSchema,
   ssoAccountDeletionSchema,
   unlinkSsoAccountRequestSchema,
-  deleteSsoAccountRequestSchema
+  deleteSsoAccountRequestSchema,
+  declineSsoAccountRestoreResponseSchema,
+  restoreSsoAccountRequestSchema,
+  restoreSsoAccountResponseSchema,
+  ssoAccountErrorCodeSchema,
+  ssoAccountRestoreStateSchema
 } from './sso-account-management.js'
 const capabilities = {
   providers: [
@@ -140,6 +145,61 @@ describe('SSO account transport', () => {
         userId: 'private'
       }).success
     ).toBe(false)
+  })
+  it('JLP-845: carries the scheduled erasure time and the restore state', () => {
+    const scheduled = '2026-11-19T10:00:00.000Z'
+    const cleanup = [{ provider: 'google', status: 'PENDING' }]
+    expect(
+      ssoAccountDeletionSchema.parse({
+        appStatus: 'DELETION_PENDING',
+        deletionScheduledAt: scheduled,
+        providerCleanup: cleanup
+      }).deletionScheduledAt
+    ).toBe(scheduled)
+    expect(
+      ssoAccountDeletionSchema.parse({
+        appStatus: 'CANCELLED',
+        deletionScheduledAt: null,
+        providerCleanup: cleanup
+      }).appStatus
+    ).toBe('CANCELLED')
+    for (const invalid of [
+      { appStatus: 'CANCELLED', deletionScheduledAt: scheduled },
+      { appStatus: 'DELETION_PENDING', deletionScheduledAt: null },
+      { appStatus: 'DELETION_PENDING', deletionScheduledAt: 'tomorrow' }
+    ])
+      expect(
+        ssoAccountDeletionSchema.safeParse({
+          ...invalid,
+          providerCleanup: cleanup
+        }).success
+      ).toBe(false)
+    expect(
+      ssoAccountRestoreStateSchema.parse({ deletionScheduledAt: scheduled })
+    ).toEqual({ deletionScheduledAt: scheduled })
+    expect(
+      ssoAccountRestoreStateSchema.safeParse({
+        deletionScheduledAt: scheduled,
+        userId: 'private'
+      }).success
+    ).toBe(false)
+    expect(
+      restoreSsoAccountRequestSchema.safeParse({ userId: 'x' }).success
+    ).toBe(false)
+    expect(restoreSsoAccountResponseSchema.parse({ restored: true })).toEqual({
+      restored: true
+    })
+    expect(
+      declineSsoAccountRestoreResponseSchema.parse({
+        declined: true,
+        deletionScheduledAt: scheduled
+      }).declined
+    ).toBe(true)
+    for (const code of [
+      'SSO_ACCOUNT_RESTORE_UNAVAILABLE',
+      'SSO_ACCOUNT_RESTORE_TOO_LATE'
+    ])
+      expect(ssoAccountErrorCodeSchema.parse(code)).toBe(code)
   })
   it('has no client identity, role, proof or token mutation fields', () => {
     expect(unlinkSsoAccountRequestSchema.parse({ provider: 'apple' })).toEqual({

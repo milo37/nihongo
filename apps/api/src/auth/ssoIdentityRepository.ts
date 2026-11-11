@@ -8,6 +8,10 @@ import {
   type OwnedSessionClient
 } from './ownedSessionAuthority.js'
 import type { SsoVerifiedIdentity } from './ssoProtocol.js'
+import {
+  findRestorableErasure,
+  type RestorableErasure
+} from './accountErasureAuthority.js'
 
 const mappingSchema = z.discriminatedUnion('outcome', [
   z
@@ -47,11 +51,72 @@ export type SsoIdentityResult =
   | {
       kind: 'TRANSITION_REQUIRED' | 'IDENTITY_CONFLICT' | 'ACCOUNT_UNAVAILABLE'
     }
+  // JLP-845: no session; the member may restore the account in the grace period.
+  | { kind: 'RESTORE_AVAILABLE'; restore: RestorableErasure }
 export interface SsoIdentityPort {
   signIn: (
     identity: SsoVerifiedIdentity,
     metadata: { ipAddress: string; userAgent: string }
   ) => Promise<SsoIdentityResult>
+}
+
+/** Issues and confirms one remembered Session for an ACTIVE User. */
+export const issueConfirmedSsoSession = async (
+  client: OwnedSessionClient,
+  authority: {
+    userId: string
+    authorityGeneration: number
+    role: 'USER' | 'ADMIN'
+    accountStatus: 'ACTIVE'
+  },
+  metadata: { ipAddress: string; userAgent: string }
+): Promise<Extract<SsoIdentityResult, { kind: 'SESSION_CONFIRMED' }>> => {
+  const sessionId = randomUUID()
+  const token = randomBytes(32).toString('base64url')
+  const compensate = async (): Promise<void> => {
+    try {
+      await signOutOwnedSession(client, token)
+    } catch {
+      /* Never deliver an unconfirmed cookie. */
+    }
+  }
+  try {
+    const session = await issueOwnedSession(client, {
+      userId: authority.userId,
+      authorityGeneration: authority.authorityGeneration,
+      role: authority.role,
+      accountStatus: authority.accountStatus,
+      sessionId,
+      token,
+      ipAddress: metadata.ipAddress,
+      userAgent: metadata.userAgent.slice(0, 512),
+      remember: true
+    })
+    if (
+      session.id !== sessionId ||
+      session.authorityGeneration !== authority.authorityGeneration ||
+      session.expiresAt <= session.createdAt
+    )
+      throw new Error('SSO session issuance mismatch.')
+    const confirmed = await confirmOwnedSession(client, {
+      token,
+      sessionId,
+      userId: authority.userId,
+      authorityGeneration: authority.authorityGeneration,
+      role: authority.role,
+      accountStatus: authority.accountStatus
+    })
+    if (!confirmed) throw new Error('SSO session confirmation unavailable.')
+    return {
+      kind: 'SESSION_CONFIRMED',
+      token,
+      createdAt: session.createdAt,
+      expiresAt: session.expiresAt
+    }
+  } catch {
+    await compensate()
+    throw new Error('SSO session unavailable.')
+  }
 }
 
 export const createSsoIdentityRepository = (
@@ -69,52 +134,15 @@ export const createSsoIdentityRepository = (
     if (rows.length !== 1)
       throw new Error('SSO identity resolution unavailable.')
     const authority = mappingSchema.parse(rows[0]?.result)
-    if (authority.outcome !== 'RESOLVED') return { kind: authority.outcome }
-    const sessionId = randomUUID()
-    const token = randomBytes(32).toString('base64url')
-    const compensate = async (): Promise<void> => {
-      try {
-        await signOutOwnedSession(client, token)
-      } catch {
-        /* Never deliver an unconfirmed cookie. */
-      }
-    }
-    try {
-      const session = await issueOwnedSession(client, {
-        userId: authority.userId,
-        authorityGeneration: authority.authorityGeneration,
-        role: authority.role,
-        accountStatus: authority.accountStatus,
-        sessionId,
-        token,
-        ipAddress: metadata.ipAddress,
-        userAgent: metadata.userAgent.slice(0, 512),
-        remember: true
-      })
-      if (
-        session.id !== sessionId ||
-        session.authorityGeneration !== authority.authorityGeneration ||
-        session.expiresAt <= session.createdAt
+    if (authority.outcome === 'ACCOUNT_UNAVAILABLE') {
+      const restore = await findRestorableErasure(
+        client,
+        identity.provider,
+        identity.accountId
       )
-        throw new Error('SSO session issuance mismatch.')
-      const confirmed = await confirmOwnedSession(client, {
-        token,
-        sessionId,
-        userId: authority.userId,
-        authorityGeneration: authority.authorityGeneration,
-        role: authority.role,
-        accountStatus: authority.accountStatus
-      })
-      if (!confirmed) throw new Error('SSO session confirmation unavailable.')
-      return {
-        kind: 'SESSION_CONFIRMED',
-        token,
-        createdAt: session.createdAt,
-        expiresAt: session.expiresAt
-      }
-    } catch {
-      await compensate()
-      throw new Error('SSO session unavailable.')
+      if (restore) return { kind: 'RESTORE_AVAILABLE', restore }
     }
+    if (authority.outcome !== 'RESOLVED') return { kind: authority.outcome }
+    return issueConfirmedSsoSession(client, authority, metadata)
   }
 })

@@ -109,16 +109,41 @@ const ssoProviderCleanupSchema = z
     status: z.enum(['PENDING', 'COMPLETED', 'FAILED'])
   })
   .strict()
-/** HTTP202 accepts erasure; DELETED covers app data only, while provider cleanup remains independent. */
+/**
+ * HTTP202 accepts erasure; DELETED covers app data only, while provider cleanup
+ * remains independent. JLP-845: erasure runs at `deletionScheduledAt` (the first
+ * hour after the 7-day grace period); CANCELLED means the member restored the
+ * account, and has no scheduled time.
+ */
 export const ssoAccountDeletionSchema = z
   .object({
-    appStatus: z.enum(['DELETION_PENDING', 'DELETED']),
+    appStatus: z.enum(['DELETION_PENDING', 'DELETED', 'CANCELLED']),
+    // Optional only so older clients and mocks still parse; the API always sends it.
+    deletionScheduledAt: z.iso.datetime().nullable().optional(),
     providerCleanup: z
       .array(ssoProviderCleanupSchema)
       .min(1)
       .max(2)
       .refine((v) => new Set(v.map((p) => p.provider)).size === v.length)
   })
+  .strict()
+  .refine(
+    (v) => (v.appStatus === 'CANCELLED') === (v.deletionScheduledAt === null)
+  )
+/**
+ * JLP-845: signing in to a DELETION_PENDING account returns to
+ * `/login?sso=RESTORE_AVAILABLE` with a short-lived restore cookie. GET reads
+ * the scheduled time; POST restores (200, new session) or declines.
+ */
+export const ssoAccountRestoreStateSchema = z
+  .object({ deletionScheduledAt: z.iso.datetime() })
+  .strict()
+export const restoreSsoAccountRequestSchema = z.object({}).strict()
+export const restoreSsoAccountResponseSchema = z
+  .object({ restored: z.literal(true) })
+  .strict()
+export const declineSsoAccountRestoreResponseSchema = z
+  .object({ declined: z.literal(true), deletionScheduledAt: z.iso.datetime() })
   .strict()
 export const ssoAccountErrorCodeSchema = z.enum([
   'AUTHENTICATION_REQUIRED',
@@ -128,13 +153,25 @@ export const ssoAccountErrorCodeSchema = z.enum([
   'SSO_FRESH_REQUIRED',
   'SSO_ACCOUNT_DELETION_BLOCKED',
   'SSO_DELETION_RECEIPT_UNAVAILABLE',
-  'SSO_ACCOUNT_OPERATION_UNAVAILABLE'
+  'SSO_ACCOUNT_OPERATION_UNAVAILABLE',
+  // JLP-845: no valid restore cookie (404); erasure already started (409).
+  'SSO_ACCOUNT_RESTORE_UNAVAILABLE',
+  'SSO_ACCOUNT_RESTORE_TOO_LATE'
 ])
 export type AccountSsoPurpose = z.output<typeof accountSsoPurposeSchema>
 export type SsoAccountCapabilities = z.output<
   typeof ssoAccountCapabilitiesSchema
 >
 export type SsoAccountDeletion = z.output<typeof ssoAccountDeletionSchema>
+export type SsoAccountRestoreState = z.output<
+  typeof ssoAccountRestoreStateSchema
+>
+export type RestoreSsoAccountResponse = z.output<
+  typeof restoreSsoAccountResponseSchema
+>
+export type DeclineSsoAccountRestoreResponse = z.output<
+  typeof declineSsoAccountRestoreResponseSchema
+>
 export type UnlinkSsoAccountResponse = z.output<
   typeof unlinkSsoAccountResponseSchema
 >
@@ -146,4 +183,7 @@ export type UnlinkSsoAccountRequest = z.input<
 >
 export type DeleteSsoAccountRequest = z.input<
   typeof deleteSsoAccountRequestSchema
+>
+export type RestoreSsoAccountRequest = z.input<
+  typeof restoreSsoAccountRequestSchema
 >

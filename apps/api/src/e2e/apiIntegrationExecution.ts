@@ -20,10 +20,10 @@ export const assertSsoBootstrapMigrationHistory = (
     )
     .digest('hex')
   if (
-    expected.length !== 7 ||
-    expected.at(-1)?.name !== '20261111090000_grant_user_target_level_update' ||
+    expected.length !== 8 ||
+    expected.at(-1)?.name !== '20261112090000_account_erasure_grace_restore' ||
     orderedDigest !==
-      '785d94ff2e016f25c3e92f9aa2ea42a5a52321b27753597279edac33f0844846' ||
+      '06da389253b90d06b1a43f3fec749c733880a02ea1d9de50de73f915cad8126e' ||
     applied.length !== expected.length ||
     applied.some(
       (row, index) =>
@@ -593,12 +593,13 @@ export const assertApiIntegrationVitestFileResult = ({
   }
   if (
     expectedPath === ssoAccountLifecycleDbTestFile &&
-    result.numTotalTests !== 9
+    result.numTotalTests !== 11
   ) {
     // #504 P7 PR5a adds the API link and unlink trigger case; #57 the
-    // erasure role refusal case; #670 the tokenless end-to-end erasure.
+    // erasure role refusal case; #670 the tokenless end-to-end erasure;
+    // JLP-845 the grace-period restore and its refusal.
     throw new Error(
-      'SSO account lifecycle requires exactly nine passing tests.'
+      'SSO account lifecycle requires exactly eleven passing tests.'
     )
   }
   const resultPaths = (result.testResults ?? [])

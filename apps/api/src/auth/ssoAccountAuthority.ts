@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from '../generated/prisma/client.js'
 import { reauthenticationTokenDigest } from './adminFreshAuthority.js'
+import { erasureDueSql } from './erasureGrace.js'
 
 /**
  * SSO account fresh, link, unlink and provider cleanup in the API transaction
@@ -725,6 +726,8 @@ export const claimProviderCleanups = async (
          WHERE r."id" IN (
            SELECT c."id" FROM "SsoAccountErasureRequest" c
            WHERE c."appStatus" = 'DELETION_PENDING'
+             -- JLP-845: provider cleanup starts only after the grace period.
+             AND ${erasureDueSql('c')}
              AND EXISTS (SELECT 1 FROM "User" u
                WHERE u."id" = c."userId"
                  AND u."accountStatus" = 'DELETION_PENDING')

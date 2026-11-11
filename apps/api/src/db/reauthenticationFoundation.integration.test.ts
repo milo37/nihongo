@@ -1528,7 +1528,37 @@ describe('Reauthentication DB foundation', () => {
         await adminClient.query(pendingSql, [...pendingValues])
       }
       await adminClient.query('RESET ROLE')
-      await expectRoleFailure('nihongo_app', ...setStatus('ACTIVE'), '42501')
+      // JLP-845: back to ACTIVE is the member's restore, refused once the
+      // erasure has started (a provider cleanup claim) ...
+      await adminClient.query(
+        `UPDATE "SsoAccountErasureRequest"
+         SET "leaseToken" = gen_random_uuid(),
+           "leaseExpiresAt" = clock_timestamp() + INTERVAL '5 minutes'
+         WHERE "userId" = $1`,
+        [userId]
+      )
+      await expectRoleFailure('nihongo_app', ...setStatus('ACTIVE'), '55000')
+      await adminClient.query(
+        `UPDATE "SsoAccountErasureRequest"
+         SET "leaseToken" = NULL, "leaseExpiresAt" = NULL WHERE "userId" = $1`,
+        [userId]
+      )
+      // ... and otherwise cancels the request in the same statement.
+      await adminClient.query('SET LOCAL ROLE "nihongo_app"')
+      {
+        const [activeSql, activeValues] = setStatus('ACTIVE')
+        await adminClient.query(activeSql, [...activeValues])
+      }
+      await adminClient.query('RESET ROLE')
+      expect(
+        (
+          await adminClient.query(
+            `SELECT "appStatus", "userId" FROM "SsoAccountErasureRequest"
+             WHERE "receiptDigest" = $1`,
+            ['b'.repeat(64)]
+          )
+        ).rows
+      ).toEqual([{ appStatus: 'CANCELLED', userId: null }])
       // A second request for a non-ACTIVE User is refused.
       const otherUserId = randomUUID()
       await insertCredentialUser(otherUserId, 'USER')

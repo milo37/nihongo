@@ -5,6 +5,7 @@ import {
   accountFreshProofIsValid,
   accountSessionContext
 } from './ssoAccountAuthority.js'
+import { deletionScheduledAtSql, erasureDueSql } from './erasureGrace.js'
 
 /**
  * Account erasure in the API transaction (#504 P7 PR4a).
@@ -29,6 +30,15 @@ export type ErasureEnvironment = 'TEST' | 'DEVELOPMENT' | 'PRODUCTION'
 const TEST_ERASURE_SETTING = 'nihongo.test_erasure_user'
 
 const OPEN_VERSION_STATUSES = `('DRAFT','IN_REVIEW','CHANGES_REQUESTED','APPROVED')`
+
+/** Not started: no provider cleanup claim yet and every provider PENDING. */
+const ERASURE_NOT_STARTED = `r."leaseToken" IS NULL
+  AND r."leaseExpiresAt" IS NULL
+  AND r."activeProvider" IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM jsonb_array_elements(r."providerCleanup") AS x
+    WHERE x->>'status' IS DISTINCT FROM 'PENDING'
+  )`
 
 const raise = async (
   client: Pick<PrismaClient, '$executeRawUnsafe'>,
@@ -446,12 +456,14 @@ export const completeSsoAccountErasure = async (
     await transaction.$queryRawUnsafe<
       Array<{
         appStatus: string
+        due: boolean
         pending: boolean
         ready: boolean
         userId: string | null
       }>
     >(
       `SELECT r."userId", r."appStatus", ${ALL_PROVIDERS_COMPLETED} AS ready,
+         ${erasureDueSql('r')} AS due,
          EXISTS (
            SELECT 1 FROM "User" AS target
            WHERE target."id" = r."userId"
@@ -464,7 +476,8 @@ export const completeSsoAccountErasure = async (
   )[0]
   if (!locked) return false
   if (locked.appStatus === 'DELETED') return locked.ready
-  if (!locked.userId || !locked.ready || !locked.pending) return false
+  if (!locked.userId || !locked.ready || !locked.pending || !locked.due)
+    return false
   if (!(await eraseConfirmedUser(transaction, locked.userId, environment)))
     return false
   await transaction.$executeRawUnsafe(
@@ -494,11 +507,13 @@ export const listSsoAccountErasures = async (
        SELECT r."id", r."appStatus", r."providerCleanup", r."createdAt",
          r."appStatus" = 'DELETION_PENDING' AS pending
        FROM "SsoAccountErasureRequest" AS r
-       WHERE r."appStatus" = 'DELETION_PENDING'
-         OR EXISTS (
+       -- JLP-845: a request joins the queue once its grace period ends; a
+       -- CANCELLED (restored) request never does.
+       WHERE (r."appStatus" = 'DELETION_PENDING' AND ${erasureDueSql('r')})
+         OR (r."appStatus" = 'DELETED' AND EXISTS (
            SELECT 1 FROM jsonb_array_elements(r."providerCleanup") AS x
            WHERE x->>'status' IS DISTINCT FROM 'COMPLETED'
-         )
+         ))
        ORDER BY r."appStatus" = 'DELETION_PENDING' DESC, r."createdAt", r."id"
        LIMIT $1::integer
      ) AS q`,
@@ -515,7 +530,9 @@ export const ssoAccountErasureStatus = async (
   await client.$queryRawUnsafe(`SELECT "require_runtime_ready"() AS ready`)
   const rows = await client.$queryRawUnsafe<Array<{ result: unknown }>>(
     `SELECT jsonb_build_object(
-         'appStatus', r."appStatus", 'providerCleanup', r."providerCleanup"
+         'appStatus', r."appStatus", 'providerCleanup', r."providerCleanup",
+         'deletionScheduledAt', CASE WHEN r."appStatus" = 'CANCELLED' THEN NULL
+           ELSE ${deletionScheduledAtSql('r')} END
        ) AS result
      FROM "SsoAccountErasureRequest" AS r
      WHERE r."receiptDigest" = $1 AND r."receiptExpiresAt" > clock_timestamp()`,
@@ -574,6 +591,7 @@ type SsoAccountErasureRequestResult =
     }
   | {
       readonly appStatus: 'DELETION_PENDING'
+      readonly deletionScheduledAt: string
       readonly providerCleanup: unknown
       readonly userId: string
     }
@@ -619,12 +637,13 @@ export const requestSsoAccountErasure = async (
     )
     // The request trigger replaces the cleanup list, expiry and state.
     const inserted = await transaction.$queryRawUnsafe<
-      Array<{ providerCleanup: unknown }>
+      Array<{ deletionScheduledAt: string; providerCleanup: unknown }>
     >(
-      `INSERT INTO "SsoAccountErasureRequest" (
+      `INSERT INTO "SsoAccountErasureRequest" AS r (
          "userId", "receiptDigest", "providerCleanup", "receiptExpiresAt"
        ) VALUES ($1::uuid, $2, '[]'::jsonb, clock_timestamp())
-       RETURNING "providerCleanup"`,
+       RETURNING r."providerCleanup",
+         ${deletionScheduledAtSql('r')} AS "deletionScheduledAt"`,
       actor.userId,
       receiptDigest
     )
@@ -645,7 +664,114 @@ export const requestSsoAccountErasure = async (
     )
     return {
       appStatus: 'DELETION_PENDING',
+      deletionScheduledAt: inserted[0]!.deletionScheduledAt,
       providerCleanup: inserted[0]?.providerCleanup,
       userId: actor.userId
     }
+  })
+
+export interface RestorableErasure {
+  readonly authorityGeneration: number
+  readonly deletionScheduledAt: string
+  readonly requestId: string
+  readonly userId: string
+}
+
+/**
+ * JLP-845: the DELETION_PENDING User of a verified provider identity whose
+ * erasure has not started, or null. Called only after resolve_sso_identity
+ * returned ACCOUNT_UNAVAILABLE for that identity.
+ */
+export const findRestorableErasure = async (
+  client: Pick<PrismaClient, '$queryRawUnsafe'>,
+  provider: string,
+  accountId: string
+): Promise<RestorableErasure | null> => {
+  const rows = await client.$queryRawUnsafe<RestorableErasure[]>(
+    `SELECT u."id"::text AS "userId", u."authorityGeneration",
+       r."id"::text AS "requestId",
+       ${deletionScheduledAtSql('r')} AS "deletionScheduledAt"
+     FROM "Account" AS a
+     JOIN "User" AS u ON u."id" = a."userId"
+     JOIN "SsoAccountErasureRequest" AS r ON r."userId" = u."id"
+     WHERE a."providerId" = $1 AND a."accountId" = $2
+       AND u."accountStatus" = 'DELETION_PENDING' AND u."deletedAt" IS NULL
+       AND r."appStatus" = 'DELETION_PENDING'
+       AND ${ERASURE_NOT_STARTED}`,
+    provider,
+    accountId
+  )
+  return rows.length === 1 ? rows[0]! : null
+}
+
+export type RestoreSsoAccountResult =
+  | {
+      readonly code:
+        | 'SSO_ACCOUNT_RESTORE_UNAVAILABLE'
+        | 'SSO_ACCOUNT_RESTORE_TOO_LATE'
+    }
+  | {
+      readonly authorityGeneration: number
+      readonly role: 'USER' | 'ADMIN'
+      readonly userId: string
+    }
+
+/**
+ * JLP-845: restores the member's own DELETION_PENDING account. The restore
+ * proof names the request and the authority generation it was issued for, so
+ * it works once: the restore steps the generation. The User trigger cancels
+ * the request in the same statement and refuses once erasure has started.
+ */
+export const restoreSsoAccount = async (
+  client: Pick<PrismaClient, '$transaction'>,
+  proof: Omit<RestorableErasure, 'deletionScheduledAt'>
+): Promise<RestoreSsoAccountResult> =>
+  client.$transaction(async (transaction) => {
+    await transaction.$queryRawUnsafe(
+      `SELECT "require_runtime_ready"() AS ready`
+    )
+    // Same lock order as erasure: the User, then its request.
+    const users = await transaction.$queryRawUnsafe<
+      Array<{ accountStatus: string; authorityGeneration: number }>
+    >(
+      `SELECT "accountStatus"::text AS "accountStatus", "authorityGeneration"
+       FROM "User" WHERE "id" = $1::uuid AND "deletedAt" IS NULL FOR UPDATE`,
+      proof.userId
+    )
+    const user = users[0]
+    if (!user) return { code: 'SSO_ACCOUNT_RESTORE_TOO_LATE' }
+    if (
+      user.accountStatus !== 'DELETION_PENDING' ||
+      user.authorityGeneration !== proof.authorityGeneration
+    )
+      return { code: 'SSO_ACCOUNT_RESTORE_UNAVAILABLE' }
+    const requests = await transaction.$queryRawUnsafe<
+      Array<{ appStatus: string; notStarted: boolean }>
+    >(
+      `SELECT r."appStatus", ${ERASURE_NOT_STARTED} AS "notStarted"
+       FROM "SsoAccountErasureRequest" AS r
+       WHERE r."id" = $1::uuid AND r."userId" = $2::uuid
+       FOR UPDATE OF r`,
+      proof.requestId,
+      proof.userId
+    )
+    const request = requests[0]
+    if (!request || request.appStatus !== 'DELETION_PENDING')
+      return { code: 'SSO_ACCOUNT_RESTORE_UNAVAILABLE' }
+    if (!request.notStarted) return { code: 'SSO_ACCOUNT_RESTORE_TOO_LATE' }
+    const restored = await transaction.$queryRawUnsafe<
+      Array<{ authorityGeneration: number; role: 'USER' | 'ADMIN' }>
+    >(
+      `UPDATE "User" SET "accountStatus" = 'ACTIVE'
+       WHERE "id" = $1::uuid AND "accountStatus" = 'DELETION_PENDING'
+       RETURNING "authorityGeneration", "role"::text AS "role"`,
+      proof.userId
+    )
+    if (restored.length !== 1)
+      await raise(
+        transaction,
+        '23514',
+        'Account restore did not restore one User.'
+      )
+    return { userId: proof.userId, ...restored[0]! }
   })
