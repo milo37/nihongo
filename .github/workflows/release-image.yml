@@ -37,7 +37,7 @@ jobs:
       ECR_REPOSITORY_URL: ${{ vars.ECR_REPOSITORY_URL }}
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
@@ -121,7 +121,7 @@ jobs:
       deployed: ${{ steps.deploy.outputs.deployed }}
     steps:
       - name: Check out the deploy action
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           sparse-checkout: .github/actions
@@ -180,7 +180,7 @@ jobs:
           echo "required reviewers: $reviewers"
 
       - name: Check out the deploy action
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
           sparse-checkout: .github/actions
