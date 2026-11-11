@@ -1254,9 +1254,8 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
     page.getByRole('heading', { level: 1, name: /문제 중 .*맞음/u })
   ).toBeVisible()
   const chooseLocale = async (value: 'ko' | 'ja'): Promise<void> => {
-    await page.locator('#account-menu-button').click()
+    await page.locator('.locale-menu-trigger').click()
     await page.locator(`[role="menuitemradio"][lang="${value}"]`).click()
-    await page.keyboard.press('Escape')
     await expect(page.locator('html')).toHaveAttribute('lang', value)
   }
   await chooseLocale('ja')
