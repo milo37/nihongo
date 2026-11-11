@@ -37,8 +37,11 @@
   --selection-background: 251 227 220;
   --selection-text: 31 32 35;
   --selection-border: 200 64 42;
-  /* Ink focus ring stays visible on brand-filled buttons. */
-  --focus-color: 31 32 35;
+  /* A thin vermilion pen line, like the sheet marks. The 2px gap keeps it
+     visible on brand-filled buttons; vermilion on white is about 5:1. */
+  --focus-color: 200 64 42;
+  --focus-width: 2px;
+  --focus-offset: 2px;
   --color-sheet-line: 226 144 124;
   --color-sheet-mark: var(--color-brand);
   --grade-ok: var(--color-ink);
