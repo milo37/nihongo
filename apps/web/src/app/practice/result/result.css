@@ -1,0 +1,188 @@
+/* B4 result screen (HANDOFF §2, §4, §6). Loaded with the result page only. */
+.result-b4-meta {
+  margin-top: 4px;
+  font-size: 13px;
+  color: rgb(var(--color-muted));
+  font-feature-settings: 'tnum';
+}
+.study-result-summary .result-b4-score {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.3;
+  word-break: keep-all;
+}
+.result-b4-number {
+  position: relative;
+  display: inline-block;
+  margin: 0 10px 0 14px;
+  color: rgb(var(--color-brand));
+  font-size: 44px;
+  letter-spacing: -0.04em;
+  font-feature-settings: 'tnum';
+}
+.result-b4-number.is-wide {
+  margin-right: 14px;
+}
+.result-b4-ring {
+  position: absolute;
+  left: -18px;
+  top: -1px;
+  width: 64px;
+  height: 60px;
+  overflow: visible;
+  pointer-events: none;
+}
+.result-b4-number.is-wide .result-b4-ring {
+  left: -13px;
+  width: 86px;
+}
+.result-b4-ring path {
+  fill: none;
+  stroke: rgb(var(--color-brand));
+  stroke-width: 1.2;
+  stroke-linecap: round;
+}
+.study-result-sheet {
+  margin: 18px 0 20px;
+}
+
+/* A guest's offer: one ruled line, the sentence and [로그인 ›] (B4 §4). */
+.study-result-summary .result-guest-keep {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 0;
+  padding-block: 4px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+.result-guest-keep > span {
+  flex: 1;
+  min-width: 0;
+}
+.study-result-summary .result-guest-keep .result-guest-keep-action {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  margin: 0;
+  color: rgb(var(--color-link));
+  font-weight: 700;
+  white-space: nowrap;
+}
+.result-guest-keep-action:focus-visible {
+  outline: var(--focus-width) solid rgb(var(--focus-color));
+  outline-offset: var(--focus-offset);
+}
+
+/* The chosen question: no card, a top rule only (B4 has no round boxes). */
+.study-result .study-result-detail {
+  padding: 20px 0 0;
+  border: 0;
+  border-top: 1px solid rgb(var(--color-line));
+  border-radius: 0;
+  background: transparent;
+}
+
+/* Every answered question as a row: number, Japanese line, mark. */
+.study-result .study-result-questions {
+  display: block;
+  overflow: visible;
+  margin: 0 0 16px;
+  padding: 0;
+  border-top: 1px solid rgb(var(--color-line));
+}
+.study-result .study-result-question {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 24px;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 1px solid rgb(var(--color-line));
+  border-radius: 0;
+  font-size: 15px;
+  font-weight: 400;
+  text-align: start;
+  white-space: nowrap;
+}
+.study-result
+  .study-result-questions
+  .study-result-question[aria-pressed='true']:not(:disabled) {
+  border-color: rgb(var(--color-line));
+  background: rgb(var(--color-hover-surface));
+  box-shadow: none;
+  color: rgb(var(--color-ink));
+  font-weight: 700;
+}
+.result-row-number {
+  color: rgb(var(--color-muted));
+  font-size: 13px;
+  font-feature-settings: 'tnum';
+}
+.result-row-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: var(--font-ja);
+}
+
+@media (min-width: 1024px) {
+  .study-result-summary .result-b4-score {
+    font-size: 40px;
+  }
+  .result-b4-number {
+    font-size: 60px;
+  }
+  .result-b4-ring {
+    left: -24px;
+    top: 2px;
+    width: 84px;
+    height: 78px;
+  }
+  .result-b4-number.is-wide .result-b4-ring {
+    left: -17px;
+    width: 113px;
+  }
+  .study-result .study-result-question {
+    grid-template-columns: 22px minmax(0, 1fr) 26px;
+    min-height: 56px;
+    font-size: 16px;
+  }
+  .result-status-icon {
+    width: 26px;
+    height: 26px;
+  }
+}
+
+/* PC: what to do now on the left, the answered list beside it (B4 §6). */
+@media (min-width: 1024px) {
+  .app-shell .app-shell-body > main > .study-result {
+    max-width: 1056px;
+    margin-inline: auto;
+    padding-top: clamp(56px, 12vh, 120px);
+  }
+  .study-result .study-result-main {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.82fr);
+    column-gap: 64px;
+    align-items: start;
+  }
+  .study-result .study-result-main > * {
+    grid-column: 1;
+  }
+  .study-result .study-result-main > .study-explanations {
+    grid-column: 2;
+    grid-row: 1 / span 8;
+    margin-top: 0;
+  }
+}
+@media (min-width: 1120px) {
+  .study-result .study-result-main {
+    grid-template-columns: minmax(0, 528fr) minmax(0, 432fr);
+    column-gap: clamp(64px, 7.5vw, 96px);
+  }
+}

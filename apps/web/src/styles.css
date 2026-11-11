@@ -1,15 +1,70 @@
 @import '@nihongo/browser/styles.css';
 
-/* Learner shape tokens (direction-20261109 §2 B). The admin app keeps the
-   shared shapes and follows the colors only. */
+/* Learner tokens: B4 manuscript paper (design-b4/HANDOFF.md §1-2). Set here,
+   not in the shared sheet, so the admin app keeps its own look. */
 :root {
-  --radius-control: 0.875rem;
-  --radius-card: 1.25rem;
-  --radius-button: 999px;
+  --color-canvas: 255 255 255;
+  --color-ink: 31 32 35;
+  --color-muted: 91 93 99;
+  --color-subtle: 91 93 99;
+  --color-line: 236 235 233;
+  --color-line-strong: 145 147 152;
+  --color-line-interactive: 145 147 152;
+  --color-line-invalid: 168 52 32;
+  --color-brand: 200 64 42;
+  --color-brand-strong: 168 52 32;
+  --color-brand-active: 140 43 26;
+  --color-brand-soft: 251 227 220;
+  --color-link: 168 52 32;
+  --color-surface-muted: 247 246 244;
+  --color-hover-surface: 247 246 244;
+  --color-surface-sunken: 241 240 237;
+  --color-disabled-background: 241 240 237;
+  --color-disabled-text: 117 119 124;
+  /* Correct is ink, never green (shape and color both differ from wrong). */
+  --color-success: 31 32 35;
+  --color-success-strong: 31 32 35;
+  --color-success-line: 31 32 35;
+  --color-success-soft: 244 244 242;
+  --color-danger: 168 52 32;
+  --color-danger-strong: 168 52 32;
+  --color-danger-line: 168 52 32;
+  --color-danger-soft: 251 227 220;
+  --color-info: 168 52 32;
+  --color-info-strong: 168 52 32;
+  --color-info-soft: 251 227 220;
+  --color-info-line: 145 147 152;
+  --selection-background: 251 227 220;
+  --selection-text: 31 32 35;
+  --selection-border: 200 64 42;
+  /* Ink focus ring stays visible on brand-filled buttons. */
+  --focus-color: 31 32 35;
+  --color-sheet-line: 226 144 124;
+  --color-sheet-mark: var(--color-brand);
+  --grade-ok: var(--color-ink);
+  --grade-ng: var(--color-brand);
+  --grade-ng-fill: var(--color-brand-soft);
+  /* Device fonts only, no web fonts (bundle limits stay). --font-sans keeps
+     the shared value. */
+  --font-ja:
+    'Hiragino Kaku Gothic ProN', 'Hiragino Sans', 'Yu Gothic', Meiryo,
+    'Noto Sans JP', sans-serif;
+  --radius-control: 0.25rem;
+  --radius-card: 0.25rem;
+  --radius-panel: 0.25rem;
+  --radius-button: 0.25rem;
+  --shadow-card: none;
+  --shadow-control: none;
   --text-caption-size: 0.8125rem;
 }
 .ui-button {
   border-radius: var(--radius-button);
+}
+/* B4 logo: hand-drawn brand circle + 하루마루, drawn at 1:1 (24px circle,
+   19px wordmark). */
+.app-brand-lockup {
+  width: 96px;
+  min-width: 96px;
 }
 
 .operations-information {

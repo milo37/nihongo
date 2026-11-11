@@ -1,38 +1,30 @@
 /* Inlined by app/home/page.tsx (?inline), so it stays out of the first-load CSS. */
-/* 첫 화면 B (JLP-823): one sentence on a soft indigo band, then today's question. */
-.app-shell:has(.home-b) .app-shell-header {
-  background: rgb(var(--color-brand-soft));
-  border-bottom-color: transparent;
-}
+/* B4 first screen (HANDOFF §3, §6): one sentence, the empty strip, one
+   button; today's question as manuscript paper beside it on PC. */
 .home-b {
   padding-bottom: 48px;
 }
 .home-band {
   display: grid;
-  gap: 22px;
+  gap: 32px;
 }
-/* Full-bleed band without horizontal overflow. */
 .home-band-start {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding-block: 20px 30px;
-  background: rgb(var(--color-brand-soft));
-  box-shadow: 0 0 0 100vmax rgb(var(--color-brand-soft));
-  clip-path: inset(0 -100vmax);
-}
-.home-hello {
-  color: rgb(var(--color-brand-strong));
-  font-size: 15px;
-  font-weight: 600;
+  padding-top: 24px;
 }
 .home-say {
-  margin-top: 8px;
   color: rgb(var(--color-ink));
-  font-size: 30px;
+  font-size: 28px;
   font-weight: 800;
-  line-height: 1.38;
-  letter-spacing: -0.025em;
+  line-height: 1.36;
+  letter-spacing: -0.03em;
+  word-break: keep-all;
+}
+.home-say:lang(ja) {
+  word-break: normal;
+  line-break: strict;
 }
 .home-say:focus {
   outline: none;
@@ -47,13 +39,13 @@
   align-items: center;
   gap: 2px;
   padding-bottom: 1px;
-  border-bottom: 2px dotted rgb(var(--color-brand) / 0.55);
-  color: rgb(var(--color-brand-active));
+  border-bottom: 2px solid rgb(var(--color-brand));
+  color: rgb(var(--color-brand));
   line-height: 1.15;
 }
 .home-pick-icon {
-  width: 0.62em;
-  height: 0.62em;
+  width: 0.5em;
+  height: 0.5em;
   margin-left: 2px;
   color: rgb(var(--color-brand));
   transform: rotate(90deg);
@@ -76,23 +68,38 @@
   outline: var(--focus-width) solid rgb(var(--focus-color));
   outline-offset: var(--focus-offset);
 }
-.home-pick:hover .home-pick-word {
-  border-bottom-style: solid;
+.home-strip {
+  margin-top: 22px;
 }
 .home-band-start .home-go {
   width: 100%;
   min-height: 56px;
-  margin-top: 22px;
+  margin-top: 24px;
   gap: 8px;
-  border-color: rgb(var(--color-brand-active));
-  border-radius: 999px;
-  background: rgb(var(--color-brand-active));
   font-size: 17px;
-  font-weight: 600;
+  font-weight: 700;
 }
 .home-band-limit {
   width: 100%;
   margin-top: 22px;
+}
+.home-hello {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  color: rgb(var(--color-muted));
+  font-size: 13px;
+}
+.home-hello-tries {
+  display: inline-flex;
+  flex: none;
+  gap: 4px;
+}
+.home-hello-tries span {
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid rgb(var(--color-brand));
 }
 .home-left {
   margin-top: 10px;
@@ -106,109 +113,95 @@
   width: 100%;
   margin-top: 14px;
   color: rgb(var(--color-ink));
-  font-size: 15px;
-  text-wrap: balance;
+  font-size: 14px;
 }
 .home-more-icon {
   flex: none;
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 18px;
   color: rgb(var(--color-brand));
 }
-.home-more a,
-.home-more .home-more-action {
+.home-more a {
   display: inline-flex;
   flex: none;
   white-space: nowrap;
   align-items: center;
   min-height: 44px;
   margin-left: auto;
-  color: rgb(var(--color-brand-strong));
-  font-size: 14px;
+  color: rgb(var(--color-link));
   font-weight: 700;
-}
-.home-more .home-more-action {
-  padding-inline: 8px;
-  background: transparent;
-  box-shadow: none;
 }
 .home-more a:focus-visible {
   outline: var(--focus-width) solid rgb(var(--focus-color));
   outline-offset: var(--focus-offset);
 }
-.home-band .home-daily {
-  padding: 0;
-  border: 0;
-  background: transparent;
+
+/* Today's question: a ruled head with fish tails, then the sheet. */
+.home-daily-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  border-block: 1px solid rgb(var(--color-sheet-line));
 }
-@media (min-width: 1024px) {
-  .home-band {
-    grid-template-columns: minmax(0, 1fr) 440px;
-    column-gap: 64px;
-    align-items: end;
-  }
-  .home-band-start {
-    padding-block: 56px 64px;
-  }
+.home-daily-title {
+  flex: 1;
+  color: rgb(var(--color-ink));
+  font-size: 16px;
+  font-weight: 700;
+}
+.home-daily-meta {
+  color: rgb(var(--color-muted));
+  font-size: 13px;
+}
+.home-daily-sheet {
+  margin-top: 10px;
+}
+.home-daily-char {
+  color: rgb(var(--color-ink));
+  font-family: var(--font-ja);
+  font-size: 15px;
+  font-weight: 600;
+}
+.home-daily-sheet-narrow {
+  display: none;
+}
+.home-daily-question {
+  margin-top: 12px;
+  font-family: var(--font-ja);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.6;
+}
+@media (max-width: 359px) {
   .home-say {
-    margin-top: 12px;
-    font-size: 48px;
+    font-size: 24px;
   }
-  /* Japanese runs wider: keep "今日は N5 文字・語彙を" on one line. */
-  .home-say:lang(ja) {
-    font-size: 44px;
+  .home-daily-sheet-wide {
+    display: none;
   }
-  /* "明日また N5 文字・語彙を" is one character longer (E7). */
-  .home-say-limit:lang(ja) {
-    font-size: 42px;
+  .home-daily-sheet-narrow {
+    display: block;
   }
-  .home-band-start .home-go {
-    width: auto;
-    min-height: 60px;
-    margin-top: 30px;
-    padding-inline: 34px;
-    font-size: 18px;
+  .home-daily-char {
+    font-size: 14px;
   }
-  .home-band-limit {
-    max-width: 420px;
-  }
-  .home-more {
-    width: auto;
-    margin-top: 20px;
-  }
-  .home-more a {
-    margin-left: 12px;
-  }
-  /* Today's question is a sheet resting on the band's lower edge. */
-  .home-band .home-daily {
-    position: relative;
-    margin-bottom: -120px;
-    padding: 26px 28px;
-    border-radius: 20px;
-    background: rgb(var(--color-surface));
-    box-shadow:
-      0 1px 2px rgb(31 37 56 / 0.04),
-      0 12px 32px rgb(31 37 56 / 0.07);
-  }
-  .home-b {
-    padding-bottom: 168px;
-  }
+}
+.home-daily [role='group'] {
+  gap: 0 12px;
 }
 .home-daily-option {
   display: flex;
   align-items: center;
   gap: 10px;
   min-height: 52px;
-  padding: 8px 12px;
-  border: 1px solid rgb(var(--color-line-interactive));
-  border-radius: var(--radius-control);
-  background: rgb(var(--color-surface));
+  padding: 8px 2px;
+  border-bottom: 1px solid rgb(var(--color-line));
   color: rgb(var(--color-ink));
   font-size: 16px;
 }
 .home-daily-option:hover:not([aria-disabled='true']) {
-  border-color: rgb(var(--color-line-strong));
-  background: rgb(var(--color-surface-muted));
+  background: rgb(var(--color-hover-surface));
 }
 .home-daily-option[aria-disabled='true'] {
   cursor: default;
@@ -221,18 +214,12 @@
   display: inline-grid;
   flex: none;
   place-items: center;
-  width: 26px;
-  height: 26px;
-  border: 1px solid rgb(var(--color-line-interactive));
-  border-radius: 999px;
-  font-size: 13px;
+  min-width: 24px;
+  color: rgb(var(--color-brand));
+  font-size: 14px;
   font-weight: 700;
 }
-.home-daily-option[aria-pressed='true'] {
-  /* The pick is shown by the state border, ✓/✕ and the text line below. */
-  box-shadow: none;
-}
-/* Short answers keep the 정답/내 답 line on the same row (no 52→66px jump). */
+/* Short answers keep the 정답/내 답 line on the same row. */
 .home-daily-option-text {
   display: flex;
   flex: 1;
@@ -241,27 +228,53 @@
   justify-content: space-between;
   gap: 0 12px;
   min-width: 0;
+  font-family: var(--font-ja);
   text-align: left;
 }
 .home-daily-option-mark {
+  color: rgb(var(--color-muted));
+  font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 700;
 }
-.home-daily-option[data-state='correct'] .home-daily-option-mark,
-.home-daily-option[data-state='correct'] .home-daily-option-label {
-  color: rgb(var(--color-success-strong));
-  border-color: rgb(var(--color-success));
-}
-.home-daily-option[data-state='wrong'] .home-daily-option-mark,
-.home-daily-option[data-state='wrong'] .home-daily-option-label {
+.home-daily-option[data-state='wrong'] .home-daily-option-mark {
   color: rgb(var(--color-danger));
-  border-color: rgb(var(--color-danger));
 }
-.home-daily-option[data-state='correct'] {
-  border: 2px solid rgb(var(--color-success));
-  background: rgb(var(--color-success-soft));
+
+@media (min-width: 1024px) {
+  .home-band {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 0.82fr);
+    column-gap: 64px;
+    align-items: start;
+    max-width: 1056px;
+    margin-inline: auto;
+    padding-top: clamp(56px, 12vh, 120px);
+  }
+  .home-band-start {
+    padding-top: 0;
+  }
+  .home-say {
+    font-size: 44px;
+    line-height: 1.32;
+  }
+  .home-strip {
+    margin-top: 36px;
+  }
+  .home-band-start .home-go {
+    min-height: 58px;
+    margin-top: 40px;
+    font-size: 18px;
+  }
+  .home-hello {
+    font-size: 15px;
+  }
+  .home-daily-char {
+    font-size: 18px;
+  }
 }
-.home-daily-option[data-state='wrong'] {
-  border: 2px solid rgb(var(--color-danger));
-  background: rgb(var(--color-danger-soft));
+@media (min-width: 1120px) {
+  .home-band {
+    grid-template-columns: minmax(0, 528fr) minmax(0, 432fr);
+    column-gap: clamp(64px, 7.5vw, 96px);
+  }
 }

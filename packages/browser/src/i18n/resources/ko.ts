@@ -480,7 +480,8 @@ export const koCoreResources = {
       steps: {
         level: '급수',
         subject: '과목',
-        mode: '출제 방식'
+        mode: '출제 방식',
+        count: '문제 수'
       },
       questionCount: '{{formattedCount}}문제',
       modes: {

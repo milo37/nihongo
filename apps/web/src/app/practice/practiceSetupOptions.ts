@@ -16,6 +16,8 @@ export const FALLBACK_LEVEL: JlptLevel = 'N5'
 export const FALLBACK_SUBJECT: QuestionSubject = 'VOCABULARY'
 /** A member always gets one set of 10 (subtract table 4). */
 export const MEMBER_COUNT = 10
+/** Set sizes a member can pick on the learn screen (default ten). */
+export const MEMBER_COUNT_CHOICES: readonly number[] = [5, 10, 20]
 
 /** The URL level, else the default (target level, last level or N5). */
 export const getInitialLevel = (

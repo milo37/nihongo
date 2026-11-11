@@ -506,7 +506,8 @@ export const jaCoreResources = {
       steps: {
         level: 'レベル',
         subject: '科目',
-        mode: '出題方法'
+        mode: '出題方法',
+        count: '問題数'
       },
       questionCount: '{{formattedCount}}問',
       modes: {

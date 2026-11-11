@@ -946,8 +946,11 @@ const startVocabularySessionThroughUi = async (
   await expect(
     page.locator('input[name="practice-subject"][value="VOCABULARY"]')
   ).toBeChecked()
-  // A member always gets one set of 10; there is no count choice.
-  await expect(page.locator('input[name="practice-count"]')).toHaveCount(0)
+  // A member picks 5, 10 or 20 (B4 §9); each visit starts at 10.
+  await expect(page.locator('input[name="practice-count"]')).toHaveCount(3)
+  await expect(
+    page.locator('input[name="practice-count"][value="10"]')
+  ).toBeChecked()
   const studyMode = await openPracticeModes(page)
   await expect(studyMode).toHaveValue('RANDOM')
   const originalNow = await freezePracticeClock(page)
@@ -1032,8 +1035,11 @@ const submitCurrentSessionThroughUi = async (
   await expect(page).toHaveURL(
     new RegExp(`/practice/result/${sessionId}$`, 'u')
   )
+  // A normal result is headed by its score sentence (B4 §11).
   await expect(
-    page.getByRole('heading', { name: heading, exact: true })
+    heading === '결과'
+      ? page.getByRole('heading', { level: 1, name: /문제 중 .*맞음/u })
+      : page.getByRole('heading', { name: heading, exact: true })
   ).toBeVisible()
   // The grading reveal renders with the result (not after a single review).
   if (await page.locator('.grading-reveal').count()) {
@@ -1240,7 +1246,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   const persisted = await reloadedResult
   expect(persisted).toEqual(primarySubmission)
   await expect(
-    page.getByRole('heading', { name: '결과', exact: true })
+    page.getByRole('heading', { level: 1, name: /문제 중 .*맞음/u })
   ).toBeVisible()
   const chooseLocale = async (value: 'ko' | 'ja'): Promise<void> => {
     await page.locator('#account-menu-button').click()
@@ -1250,7 +1256,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   }
   await chooseLocale('ja')
   await expect(
-    page.getByRole('heading', { name: '結果', exact: true })
+    page.getByRole('heading', { level: 1, name: /問中 .*問正解/u })
   ).toBeVisible()
   await chooseLocale('ko')
 

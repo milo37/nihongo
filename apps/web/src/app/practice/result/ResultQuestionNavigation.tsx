@@ -76,8 +76,11 @@ export const ResultQuestionNavigation = ({
             aria-controls="selected-result-question"
             onClick={() => onSelect(item.question.id)}
           >
+            <span className="result-row-number">{index + 1}</span>
+            <span className="result-row-text" lang="ja">
+              {item.question.questionText}
+            </span>
             <ResultStatusIcon status={status} />
-            <span>{label}</span>
           </Button>
         )
       })}

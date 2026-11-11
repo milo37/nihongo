@@ -451,16 +451,17 @@ describe('approved general result navigation', () => {
     expect(
       screen.queryByRole('button', { name: /문제 신고/u })
     ).not.toBeInTheDocument()
-    // One login place: the keep line under the score (copy v2.1 §3).
+    // One login place: one ruled line under the score (B4 §4).
     expect(
       screen.getByText('틀린 2문제, 오답노트에 모아 둘까요?')
     ).toBeVisible()
     expect(
-      screen.getByText('로그인하면 방금 푼 문제가 오답노트에 들어가요.')
-    ).toBeVisible()
-    expect(
-      screen.getByRole('link', { name: '로그인하고 모으기' })
-    ).toHaveAttribute('href', '/login?redirect=%2Fwrong-notes')
+      screen.queryByText('로그인하면 방금 푼 문제가 오답노트에 들어가요.')
+    ).toBeNull()
+    expect(screen.getByRole('link', { name: '로그인' })).toHaveAttribute(
+      'href',
+      '/login?redirect=%2Fwrong-notes'
+    )
     expect(screen.getAllByRole('link', { name: /로그인/u })).toHaveLength(1)
     view.unmount()
     fixture.client.clear()
@@ -496,8 +497,8 @@ describe('approved general result navigation', () => {
     expect(
       screen.queryByRole('button', { name: /틀린 문제만 다시 풀기/u })
     ).toBeNull()
-    expect(screen.queryByRole('button', { name: '다음 10문제' })).toBeNull()
-    expect(screen.queryByRole('link', { name: '로그인하고 모으기' })).toBeNull()
+    expect(screen.queryByRole('button', { name: /^다음 \d+문제$/u })).toBeNull()
+    expect(document.querySelector('.result-guest-keep')).toBeNull()
     view.unmount()
     fixture.client.clear()
   })
@@ -716,13 +717,14 @@ describe('approved general result navigation', () => {
   it('요약은 점수·정답률·시간·미응답을 한 번만 보이고, 해설 확인·오늘은 여기까지가 없다 (ux2 §2-2·2-3)', async () => {
     const fixture = await createFixture()
     const { view } = fixture.mount()
-    const score = (
-      await screen.findByText('3문제 중', { exact: false })
-    ).closest('p')
-    expect(score).toHaveTextContent(
-      '3문제 중 1개 맞음정답률 33.33% · 0분 0초 · 안 풂 1'
+    // The score sentence is the page heading (B4 §11).
+    const score = await screen.findByRole('heading', { level: 1 })
+    expect(score).toHaveTextContent(/^3문제 중 1개 맞음$/u)
+    expect(score.querySelector('b')).toHaveTextContent(/^1$/u)
+    // Rate, time and unanswered sit once in the line under the score (B4).
+    expect(score.nextElementSibling).toHaveTextContent(
+      /정답률 33\.33% · 0분 0초 · 안 풂 1$/u
     )
-    expect(score?.querySelector('strong')).toHaveTextContent(/^1$/u)
     expect(
       screen.getByText('안 푼 문제도 틀린 것으로 채점돼요.', {
         exact: false
@@ -815,7 +817,7 @@ describe('approved general result navigation', () => {
     }
   )
 
-  it('회원 다음에 할 일은 오답 다시 풀기(주)와 다음 10문제(테두리) 두 개뿐이다 (빼기 표 10)', async () => {
+  it('회원 다음에 할 일은 다음 10문제(주)와 오답 다시 풀기(테두리) 두 개뿐이다 (B4 §11)', async () => {
     const actionsOf = (element: HTMLElement): HTMLElement => {
       const actions = element.closest<HTMLElement>('.study-result-actions')
       if (!actions) throw new Error('결과 동작 영역이 필요합니다.')
@@ -831,15 +833,16 @@ describe('approved general result navigation', () => {
       name: '틀린 문제만 다시 풀기'
     })
     const actions = actionsOf(retry)
+    // The subhead stays for screen readers only.
     expect(
       within(actions).getByRole('heading', { level: 2, name: '다음에 할 일' })
-    ).toBeVisible()
-    expect(names(actions)).toEqual(['틀린 문제만 다시 풀기', '다음 10문제'])
-    expect(retry.className).toContain('bg-brand')
+    ).toHaveClass('sr-only')
+    expect(names(actions)).toEqual(['다음 10문제', '틀린 문제만 다시 풀기'])
+    expect(retry.className).toContain('border-line-interactive')
+    expect(retry.className).not.toContain('bg-brand')
     const next = within(actions).getByRole('button', { name: '다음 10문제' })
-    expect(next.className).toContain('border-line-interactive')
+    expect(next.className).toContain('bg-brand')
     expect(next.className).toContain('h-12')
-    expect(next.className).not.toContain('bg-brand')
     expect(within(actions).queryByRole('link')).toBeNull()
     memberView.view.unmount()
     member.client.clear()
@@ -901,7 +904,7 @@ describe('approved general result navigation', () => {
     member.client.clear()
   })
 
-  it('게스트 다음에 할 일은 다시 풀기(테두리)와 다음 10문제(주) 두 개뿐이다 (빼기 표 10)', async () => {
+  it('게스트 다음에 할 일도 다음 N문제(주)와 다시 풀기(테두리) 두 개뿐이다 (B4 §11)', async () => {
     const guest = await createFixture({ role: 'GUEST', mixed: false })
     const guestView = guest.mount()
     const guestRetry = await screen.findByRole('button', {
@@ -916,8 +919,8 @@ describe('approved general result navigation', () => {
         (element) => element.textContent?.trim() ?? ''
       )
     ).toEqual([
-      '틀린 문제만 다시 풀기',
-      `다음 ${GUEST_SESSION_QUESTION_LIMIT}문제`
+      `다음 ${GUEST_SESSION_QUESTION_LIMIT}문제`,
+      '틀린 문제만 다시 풀기'
     ])
     expect(guestRetry.className).toContain('border-line-interactive')
     expect(guestRetry.className).not.toContain('bg-brand')

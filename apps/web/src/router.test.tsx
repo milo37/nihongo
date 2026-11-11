@@ -407,7 +407,8 @@ describe('application router boundaries', () => {
       await router.navigate(`/practice/result/${sessionPayload.session.id}`)
     })
     const firstResultHeading = await screen.findByRole('heading', {
-      name: '결과'
+      level: 1,
+      name: /문제 중 .*맞음/u
     })
     await vi.waitFor(() => expect(firstResultHeading).toHaveFocus())
 
@@ -426,7 +427,8 @@ describe('application router boundaries', () => {
       await router.navigate(-1)
     })
     const restoredResultHeading = await screen.findByRole('heading', {
-      name: '결과'
+      level: 1,
+      name: /문제 중 .*맞음/u
     })
     expect(restoredResultHeading).not.toHaveFocus()
     expect(scrollTo).not.toHaveBeenCalled()
