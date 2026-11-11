@@ -560,7 +560,9 @@ describe('마이페이지 계정 설정', () => {
       '관리자가 한 명뿐이라 지금은 탈퇴할 수 없어요. 다른 회원을 관리자로 먼저 지정한 뒤 다시 시도해 주세요.'
     )
     expect(confirm).toBeDisabled()
-    expect(within(dialog).getByRole('button', { name: '취소' })).toBeEnabled()
+    const cancel = within(dialog).getByRole('button', { name: '취소' })
+    expect(cancel).toBeEnabled()
+    await waitFor(() => expect(cancel).toHaveFocus())
     expect(countPosts(posts, '/auth/sso/delete-account')).toBe(1)
     expect(useAppStore.getState().currentUser).not.toBeNull()
   })

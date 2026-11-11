@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement, RefObject } from 'react'
@@ -62,7 +62,16 @@ export const TwoStepConfirmDialog = ({
   const { t } = useTranslation('account')
   const { t: authT } = useTranslation('auth')
   const cancel = useRef<HTMLButtonElement>(null)
+  const alert = useRef<HTMLParagraphElement>(null)
   const dialog = flow.dialog
+  const lastAdminBlocked = flow.feedback === 'lastAdminDeletionBlocked'
+  // Design ⑦: on a phone the alert sits below the scrolled body. Bring it
+  // into view and leave focus on [취소], the only action left.
+  useEffect(() => {
+    if (!lastAdminBlocked) return
+    cancel.current?.focus({ preventScroll: true })
+    alert.current?.scrollIntoView?.({ block: 'nearest' })
+  }, [lastAdminBlocked])
   const isUnlink = dialog?.kind === 'unlink'
   const isConfirm = dialog?.step === 'confirm'
   const provider = 'Google'
@@ -97,9 +106,7 @@ export const TwoStepConfirmDialog = ({
               variant="danger"
               // Design ⑦: the last administrator's refusal stays; only
               // [취소] is left, so the same request is not sent again.
-              disabled={
-                flow.busy || flow.feedback === 'lastAdminDeletionBlocked'
-              }
+              disabled={flow.busy || lastAdminBlocked}
               isLoading={flow.busy}
               loadingLabel={authT('sso.processing')}
               onClick={flow.confirm}
@@ -180,7 +187,11 @@ export const TwoStepConfirmDialog = ({
                 {authT(ACCOUNT_FEEDBACK_KEY[flow.feedback])}
               </p>
             ) : (
-              <p className="auth-notice auth-error mt-4" role="alert">
+              <p
+                ref={alert}
+                className="auth-notice auth-error mt-4"
+                role="alert"
+              >
                 {authT(ACCOUNT_FEEDBACK_KEY[flow.feedback])}
               </p>
             )
