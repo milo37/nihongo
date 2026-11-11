@@ -47,5 +47,5 @@ body:
     id: links
     attributes:
       label: 연결
-      description: 상위 이슈, Munder 카드, 시안 링크
-      placeholder: '상위 #66 · Munder JLP-548'
+      description: 상위 이슈, 시안 링크
+      placeholder: '상위 #66'
