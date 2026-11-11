@@ -1504,7 +1504,11 @@ describe('Reauthentication DB foundation', () => {
             oneDay: boolean
           }>(
             `SELECT "appStatus", "providerCleanup" AS cleanup,
-               "receiptExpiresAt" <= clock_timestamp() + INTERVAL '1 day' AS "oneDay"
+               -- timestamp(3) rounds to the nearest millisecond, so the
+               -- stored expiry can be up to half a millisecond after this
+               -- later clock read (JLP-833).
+               "receiptExpiresAt" <= clock_timestamp()
+                 + INTERVAL '1 day 1 millisecond' AS "oneDay"
              FROM "SsoAccountErasureRequest" WHERE "userId" = $1`,
             [userId]
           )

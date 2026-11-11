@@ -1078,54 +1078,66 @@ afterAll(async () => {
   await Promise.all([adminClient.end(), adminControlClient.end()])
 })
 
-describe('SSO fresh and retired password boundary with real SQL invariants', () => {
-  it('retired password 재인증 POST는404/no-cookie/no-auth-write로 종료한다', async () => {
-    const fixture = await createFixture('google')
-    const app = createTestHonoApp()
-    const before = await readWriteSnapshot()
-    const response = await app.request(
-      'http://localhost:3001/api/v1/admin/reauthentication',
-      {
-        method: 'POST',
-        headers: new Headers({
-          ...Object.fromEntries(fixture.headers),
-          'Content-Type': 'application/json'
-        }),
-        body: JSON.stringify({ password })
-      }
-    )
-    expect(response.status).toBe(404)
-    expect(apiFailureSchema.parse(await response.json())).toMatchObject({
-      code: 'RESOURCE_NOT_FOUND',
-      retryable: false
-    })
-    expect(response.headers.get('Cache-Control')).toBe('private, no-store')
-    expect(response.headers.getSetCookie()).toHaveLength(0)
-    expect(await readWriteSnapshot()).toEqual(before)
-  })
+// Every test shares adminClient. A test that outlives Vitest's 5 second
+// default keeps running beside the next one, and their SET ROLE and BEGIN
+// interleave on that one connection (JLP-833). The child process test alone
+// waits up to 10 seconds, so every test gets the same generous limit.
+const testTimeoutMs = 60_000
 
-  it('real SSO complete는 canonical cookie 순서와 exact active replacement/audit/fence를 보존한다', async () => {
-    const fixture = await createFixture('google')
-    expect(await makeSessionStaleForTesting(fixture.sessionId)).toBe(1)
-    const completed = await completeSsoFresh(fixture)
-    expect(completed.response.headers.get('Cache-Control')).toBe(
-      'private, no-store'
-    )
-    const assurance = await adminClient.query<{ valid: boolean }>(
-      `SELECT "expiresAt" = "completedAt" + ${ADMIN_FRESH_WINDOW_SQL} AS valid
+describe('SSO fresh and retired password boundary with real SQL invariants', () => {
+  it(
+    'retired password 재인증 POST는404/no-cookie/no-auth-write로 종료한다',
+    async () => {
+      const fixture = await createFixture('google')
+      const app = createTestHonoApp()
+      const before = await readWriteSnapshot()
+      const response = await app.request(
+        'http://localhost:3001/api/v1/admin/reauthentication',
+        {
+          method: 'POST',
+          headers: new Headers({
+            ...Object.fromEntries(fixture.headers),
+            'Content-Type': 'application/json'
+          }),
+          body: JSON.stringify({ password })
+        }
+      )
+      expect(response.status).toBe(404)
+      expect(apiFailureSchema.parse(await response.json())).toMatchObject({
+        code: 'RESOURCE_NOT_FOUND',
+        retryable: false
+      })
+      expect(response.headers.get('Cache-Control')).toBe('private, no-store')
+      expect(response.headers.getSetCookie()).toHaveLength(0)
+      expect(await readWriteSnapshot()).toEqual(before)
+    },
+    testTimeoutMs
+  )
+
+  it(
+    'real SSO complete는 canonical cookie 순서와 exact active replacement/audit/fence를 보존한다',
+    async () => {
+      const fixture = await createFixture('google')
+      expect(await makeSessionStaleForTesting(fixture.sessionId)).toBe(1)
+      const completed = await completeSsoFresh(fixture)
+      expect(completed.response.headers.get('Cache-Control')).toBe(
+        'private, no-store'
+      )
+      const assurance = await adminClient.query<{ valid: boolean }>(
+        `SELECT "expiresAt" = "completedAt" + ${ADMIN_FRESH_WINDOW_SQL} AS valid
        FROM "SsoAdminFreshProof"
        WHERE "completedSessionId" = $1 AND "context"->>'intentId' = $2`,
-      [completed.fixture.sessionId, completed.context.intentId]
-    )
-    expect(assurance.rows).toEqual([{ valid: true }])
-    const proof = await adminClient.query<{
-      auditBeforeState: string
-      auditCount: number
-      intentState: string
-      oldSessionCount: number
-      replacementCount: number
-    }>(
-      `SELECT
+        [completed.fixture.sessionId, completed.context.intentId]
+      )
+      expect(assurance.rows).toEqual([{ valid: true }])
+      const proof = await adminClient.query<{
+        auditBeforeState: string
+        auditCount: number
+        intentState: string
+        oldSessionCount: number
+        replacementCount: number
+      }>(
+        `SELECT
          (SELECT COUNT(*)::int FROM "Session" WHERE "id" = $1)
            AS "oldSessionCount",
          (SELECT COUNT(*)::int
@@ -1143,781 +1155,812 @@ describe('SSO fresh and retired password boundary with real SQL invariants', () 
          (SELECT "beforeState" FROM "AdminAuditLog"
           WHERE "requestId" = (SELECT "requestId" FROM "ReauthenticationIntent" WHERE "id" = $2) AND "command" = 'REAUTHENTICATION')
            AS "auditBeforeState"`,
-      [fixture.sessionId, completed.context.intentId]
-    )
-    expect(proof.rows).toEqual([
-      {
-        auditBeforeState: 'SESSION_STALE',
-        auditCount: 1,
-        intentState: 'FINALIZED',
-        oldSessionCount: 0,
-        replacementCount: 1
-      }
-    ])
-  })
-
-  it('real createApiApp·production repository가 A2 재인증 명시 재시도, SoD, 동시성, 최종 fresh fence를 원자적으로 보장한다', async () => {
-    const author = await createSsoFixture()
-    const reviewer = await createSsoFixture()
-    const commandService = createCommandService()
-    const target = await prepareA2InReviewVersion({
-      author,
-      commandService
-    })
-    expect(target).toMatchObject({
-      questionRowVersion: 1,
-      versionRowVersion: 2
-    })
-    const approvalPath = `/api/v1/admin/question-versions/${target.versionId}/approval`
-    const withdrawalPath = `/api/v1/admin/question-versions/${target.versionId}/approval-withdrawal`
-    const app = createTestHonoApp({ commandService })
-
-    const beforeSelfApproval = await readA2Evidence(target.versionId)
-    // JLP-704 allows self-approval; a self change request is still rejected.
-    const selfApproval = await requestA2Command({
-      app,
-      body: { expectedRowVersion: 2, reason: '작성자 자체 변경 요청 거부' },
-      fixture: author,
-      pathname: `/api/v1/admin/question-versions/${target.versionId}/change-request`
-    })
-    expect(selfApproval.response.status).toBe(409)
-    expect(
-      apiFailureSchema.parse(await selfApproval.response.json())
-    ).toMatchObject({
-      code: 'SEPARATION_OF_DUTIES_VIOLATION',
-      requestId: selfApproval.requestId,
-      retryable: false
-    })
-    expect(selfApproval.response.headers.getSetCookie()).toHaveLength(0)
-    expect(await readA2Evidence(target.versionId)).toEqual(beforeSelfApproval)
-    expect(await readA2IntentCount([selfApproval.requestId])).toBe(0)
-
-    expect(await makeSessionStaleForTesting(reviewer.sessionId)).toBe(1)
-    const staleApproval = await requestA2Command({
-      app,
-      body: { expectedRowVersion: 2, comment: 'stale 요청은 기록 금지' },
-      fixture: reviewer,
-      pathname: approvalPath
-    })
-    expect(staleApproval.response.status).toBe(401)
-    expect(
-      apiFailureSchema.parse(await staleApproval.response.json())
-    ).toMatchObject({
-      code: 'FRESH_ASSURANCE_REQUIRED',
-      requestId: staleApproval.requestId,
-      retryable: false
-    })
-    expect(staleApproval.response.headers.getSetCookie()).toHaveLength(0)
-    expect(await readA2Evidence(target.versionId)).toEqual(beforeSelfApproval)
-    expect(await readA2IntentCount([staleApproval.requestId])).toBe(0)
-
-    const reauthentication = await completeSsoFresh(reviewer)
-    const replacementCookies = reauthentication.cookies
-    expect(replacementCookies).toHaveLength(3)
-    const replacementCookie = toRequestCookieHeader(replacementCookies)
-
-    // Reauthentication rotates authority only. It must never replay the failed command.
-    expect(await readA2Evidence(target.versionId)).toEqual(beforeSelfApproval)
-
-    const revokedOldCookieApproval = await requestA2Command({
-      app,
-      body: { expectedRowVersion: 2, comment: '폐기된 cookie 요청' },
-      fixture: reviewer,
-      pathname: approvalPath
-    })
-    expect(revokedOldCookieApproval.response.status).toBe(401)
-    expect(
-      apiFailureSchema.parse(await revokedOldCookieApproval.response.json())
-    ).toMatchObject({
-      code: 'AUTH_SESSION_EXPIRED',
-      requestId: revokedOldCookieApproval.requestId,
-      retryable: false
-    })
-    // The rotated cookie's 401 must not clear the replacement cookie.
-    expect(revokedOldCookieApproval.response.headers.getSetCookie()).toEqual([])
-    for (const pathname of ['/api/v1/admin/questions', '/api/v1/me']) {
-      const revokedOldCookieRead = await app.request(
-        `http://localhost:3001${pathname}`,
-        { headers: new Headers(reviewer.headers) }
+        [fixture.sessionId, completed.context.intentId]
       )
-      expect(revokedOldCookieRead.status).toBe(
-        pathname === '/api/v1/me' ? 200 : 401
-      )
-      if (pathname === '/api/v1/me') {
-        expect(await revokedOldCookieRead.json()).toEqual({ kind: 'GUEST' })
-      }
-      expect(revokedOldCookieRead.headers.getSetCookie()).toEqual([])
-    }
-    expect(await readA2Evidence(target.versionId)).toEqual(beforeSelfApproval)
-    expect(await readA2IntentCount([revokedOldCookieApproval.requestId])).toBe(
-      0
-    )
-
-    const approvalRequestId = randomUUID()
-    const approval = await requestA2Command({
-      app,
-      body: approveQuestionVersionRequestSchema.parse({
-        expectedRowVersion: 2,
-        comment: 'A2 승인 근거'
-      }),
-      cookie: replacementCookie,
-      fixture: reviewer,
-      pathname: approvalPath,
-      requestId: approvalRequestId
-    })
-    expect(approval.response.status).toBe(200)
-    expect(
-      adminQuestionMutationResultSchema.parse(await approval.response.json())
-    ).toMatchObject({
-      questionId: target.questionId,
-      questionRowVersion: 1,
-      questionVersionId: target.versionId,
-      versionRowVersion: 3,
-      versionStatus: 'APPROVED'
-    })
-    expect(approval.response.headers.getSetCookie()).toHaveLength(0)
-
-    const approvedEvidence = await readA2Evidence(target.versionId)
-    expect(approvedEvidence.version).toEqual({
-      questionRowVersion: 1,
-      rowVersion: 3,
-      status: 'APPROVED'
-    })
-    expect(approvedEvidence.reviews).toHaveLength(1)
-    expect(approvedEvidence.audits).toHaveLength(1)
-    const approvalReview = approvedEvidence.reviews[0]
-    const approvalAudit = approvedEvidence.audits[0]
-    expect(approvalReview).toMatchObject({
-      action: 'APPROVED',
-      actorUserId: reviewer.userId,
-      comment: 'A2 승인 근거',
-      counterpartActorId: author.userId,
-      fromState: 'IN_REVIEW',
-      reason: null,
-      requestId: approvalRequestId,
-      toState: 'APPROVED'
-    })
-    expect(approvalAudit).toMatchObject({
-      afterRowVersion: 3,
-      afterState: 'APPROVED',
-      beforeRowVersion: 2,
-      beforeState: 'IN_REVIEW',
-      changedFields: ['VERSION_STATUS'],
-      command: 'APPROVAL',
-      contentDigestValid: true,
-      metadata: { kind: 'NONE_V1' },
-      requestId: approvalRequestId
-    })
-    expect(approvalReview?.operationId).toBe(approvalAudit?.operationId)
-    expect(await readA2IntentCount([approvalRequestId])).toBe(0)
-
-    const withdrawalRequestIds = [randomUUID(), randomUUID()] as const
-    const withdrawalResponses = await Promise.all(
-      withdrawalRequestIds.map((requestId, index) =>
-        requestA2Command({
-          app,
-          body: withdrawQuestionApprovalRequestSchema.parse({
-            expectedRowVersion: 3,
-            reason: '승인 근거 재검토',
-            comment: `A2 동시 철회 ${index + 1}`
-          }),
-          cookie: replacementCookie,
-          fixture: reviewer,
-          pathname: withdrawalPath,
-          requestId
-        })
-      )
-    )
-    expect(
-      withdrawalResponses.map(({ response }) => response.status).sort()
-    ).toEqual([200, 409])
-    expect(
-      withdrawalResponses.every(
-        ({ response }) => response.headers.getSetCookie().length === 0
-      )
-    ).toBe(true)
-    const withdrawalWinnerIndex = withdrawalResponses.findIndex(
-      ({ response }) => response.status === 200
-    )
-    const withdrawalLoserIndex = withdrawalResponses.findIndex(
-      ({ response }) => response.status === 409
-    )
-    if (withdrawalWinnerIndex < 0 || withdrawalLoserIndex < 0) {
-      throw new Error('A2 withdrawal winner/loser is unavailable.')
-    }
-    const withdrawalWinner = withdrawalResponses[withdrawalWinnerIndex]!
-    const withdrawalLoser = withdrawalResponses[withdrawalLoserIndex]!
-    expect(
-      adminQuestionMutationResultSchema.parse(
-        await withdrawalWinner.response.json()
-      )
-    ).toMatchObject({
-      questionId: target.questionId,
-      questionRowVersion: 1,
-      questionVersionId: target.versionId,
-      versionRowVersion: 4,
-      versionStatus: 'CHANGES_REQUESTED'
-    })
-    expect(
-      apiFailureSchema.parse(await withdrawalLoser.response.json())
-    ).toMatchObject({
-      code: 'VERSION_CONFLICT',
-      requestId: withdrawalLoser.requestId,
-      retryable: false
-    })
-
-    const withdrawnEvidence = await readA2Evidence(target.versionId)
-    expect(withdrawnEvidence.version).toEqual({
-      questionRowVersion: 1,
-      rowVersion: 4,
-      status: 'CHANGES_REQUESTED'
-    })
-    expect(withdrawnEvidence.reviews).toHaveLength(2)
-    expect(withdrawnEvidence.audits).toHaveLength(2)
-    const withdrawalReview = withdrawnEvidence.reviews[1]
-    const withdrawalAudit = withdrawnEvidence.audits[1]
-    expect(withdrawalReview).toMatchObject({
-      action: 'APPROVAL_WITHDRAWN',
-      actorUserId: reviewer.userId,
-      counterpartActorId: author.userId,
-      fromState: 'APPROVED',
-      reason: '승인 근거 재검토',
-      requestId: withdrawalWinner.requestId,
-      toState: 'CHANGES_REQUESTED'
-    })
-    expect(withdrawalReview?.comment).toBe(
-      `A2 동시 철회 ${withdrawalWinnerIndex + 1}`
-    )
-    expect(withdrawalAudit).toMatchObject({
-      afterRowVersion: 4,
-      afterState: 'CHANGES_REQUESTED',
-      beforeRowVersion: 3,
-      beforeState: 'APPROVED',
-      changedFields: ['VERSION_STATUS'],
-      command: 'APPROVAL_WITHDRAWAL',
-      contentDigestValid: true,
-      metadata: { kind: 'NONE_V1' },
-      requestId: withdrawalWinner.requestId
-    })
-    expect(withdrawalReview?.operationId).toBe(withdrawalAudit?.operationId)
-    expect(
-      withdrawnEvidence.reviews.some(
-        ({ requestId }) => requestId === withdrawalLoser.requestId
-      )
-    ).toBe(false)
-    expect(
-      withdrawnEvidence.audits.some(
-        ({ requestId }) => requestId === withdrawalLoser.requestId
-      )
-    ).toBe(false)
-    expect(
-      await readA2IntentCount([
-        withdrawalWinner.requestId,
-        withdrawalLoser.requestId
+      expect(proof.rows).toEqual([
+        {
+          auditBeforeState: 'SESSION_STALE',
+          auditCount: 1,
+          intentState: 'FINALIZED',
+          oldSessionCount: 0,
+          replacementCount: 1
+        }
       ])
-    ).toBe(0)
+    },
+    testTimeoutMs
+  )
 
-    const rereview = await commandService.requestReview(
-      {
-        actorId: author.userId,
-        rawSessionToken: author.token,
-        requestId: randomUUID()
-      },
-      target.versionId,
-      requestContentReviewRequestSchema.parse({
-        expectedRowVersion: 4,
-        comment: '최종 fresh fence 검증용 재검수'
+  it(
+    'real createApiApp·production repository가 A2 재인증 명시 재시도, SoD, 동시성, 최종 fresh fence를 원자적으로 보장한다',
+    async () => {
+      const author = await createSsoFixture()
+      const reviewer = await createSsoFixture()
+      const commandService = createCommandService()
+      const target = await prepareA2InReviewVersion({
+        author,
+        commandService
       })
-    )
-    expect(rereview).toMatchObject({
-      questionRowVersion: 1,
-      versionRowVersion: 5,
-      versionStatus: 'IN_REVIEW'
-    })
-    const beforeLateFreshFailure = await readA2Evidence(target.versionId)
-    const replacementRawToken = await loadActiveSessionToken(reviewer.userId)
-    let lateFreshApprovalPromise:
-      | ReturnType<typeof requestA2Command>
-      | undefined
-    await adminClient.query('BEGIN')
-    try {
-      // SHARE permits the repository preflight but blocks its ContentReview
-      // INSERT. The version UPDATE has already run when this wait is observed.
-      await adminClient.query('LOCK TABLE "ContentReview" IN SHARE MODE')
-      const blockingBackend = await adminClient.query<{ pid: number }>(
-        'SELECT pg_backend_pid() AS pid'
-      )
-      const blockingBackendPid = blockingBackend.rows[0]?.pid
-      if (blockingBackendPid === undefined) {
-        throw new Error('A2 blocker backend pid is unavailable.')
-      }
-      expect(
-        await moveSessionNearFreshCutoffForTesting(replacementRawToken, 1_000)
-      ).toBe(1)
-      lateFreshApprovalPromise = requestA2Command({
+      expect(target).toMatchObject({
+        questionRowVersion: 1,
+        versionRowVersion: 2
+      })
+      const approvalPath = `/api/v1/admin/question-versions/${target.versionId}/approval`
+      const withdrawalPath = `/api/v1/admin/question-versions/${target.versionId}/approval-withdrawal`
+      const app = createTestHonoApp({ commandService })
+
+      const beforeSelfApproval = await readA2Evidence(target.versionId)
+      // JLP-704 allows self-approval; a self change request is still rejected.
+      const selfApproval = await requestA2Command({
         app,
-        body: { expectedRowVersion: 5, comment: 'DB fresh fence에서 거부' },
-        cookie: replacementCookie,
+        body: { expectedRowVersion: 2, reason: '작성자 자체 변경 요청 거부' },
+        fixture: author,
+        pathname: `/api/v1/admin/question-versions/${target.versionId}/change-request`
+      })
+      expect(selfApproval.response.status).toBe(409)
+      expect(
+        apiFailureSchema.parse(await selfApproval.response.json())
+      ).toMatchObject({
+        code: 'SEPARATION_OF_DUTIES_VIOLATION',
+        requestId: selfApproval.requestId,
+        retryable: false
+      })
+      expect(selfApproval.response.headers.getSetCookie()).toHaveLength(0)
+      expect(await readA2Evidence(target.versionId)).toEqual(beforeSelfApproval)
+      expect(await readA2IntentCount([selfApproval.requestId])).toBe(0)
+
+      expect(await makeSessionStaleForTesting(reviewer.sessionId)).toBe(1)
+      const staleApproval = await requestA2Command({
+        app,
+        body: { expectedRowVersion: 2, comment: 'stale 요청은 기록 금지' },
         fixture: reviewer,
         pathname: approvalPath
       })
-      await waitForBlockedContentReviewInsert(blockingBackendPid)
-      await waitForSessionFreshCutoff(replacementRawToken)
-      await adminClient.query('COMMIT')
-    } catch (error: unknown) {
-      await adminClient.query('ROLLBACK').catch(() => undefined)
-      await lateFreshApprovalPromise?.catch(() => undefined)
-      throw error
-    }
-    if (!lateFreshApprovalPromise) {
-      throw new Error('A2 late-fresh request was not started.')
-    }
-    const lateFreshApproval = await lateFreshApprovalPromise
-    expect(lateFreshApproval.response.status).toBe(401)
-    expect(
-      apiFailureSchema.parse(await lateFreshApproval.response.json())
-    ).toMatchObject({
-      code: 'FRESH_ASSURANCE_REQUIRED',
-      requestId: lateFreshApproval.requestId,
-      retryable: false
-    })
-    expect(lateFreshApproval.response.headers.getSetCookie()).toHaveLength(0)
-    expect(await readA2Evidence(target.versionId)).toEqual(
-      beforeLateFreshFailure
-    )
-    expect(await readA2IntentCount([lateFreshApproval.requestId])).toBe(0)
-  }, 60_000)
-
-  it('real createApiApp가 Slice 4 게시·퇴역·보관과 DB 증거를 하나의 canonical 경로로 commit한다', async () => {
-    const author = await createSsoFixture()
-    const reviewer = await createSsoFixture()
-    const commandService = createCommandService()
-    const target = await prepareA2InReviewVersion({ author, commandService })
-    const approved = await commandService.approveVersion(
-      {
-        actorId: reviewer.userId,
-        rawSessionToken: reviewer.token,
-        requestId: randomUUID()
-      },
-      target.versionId,
-      approveQuestionVersionRequestSchema.parse({
-        expectedRowVersion: target.versionRowVersion,
-        comment: 'Slice 4 실제 DB 게시 승인'
+      expect(staleApproval.response.status).toBe(401)
+      expect(
+        apiFailureSchema.parse(await staleApproval.response.json())
+      ).toMatchObject({
+        code: 'FRESH_ASSURANCE_REQUIRED',
+        requestId: staleApproval.requestId,
+        retryable: false
       })
-    )
-    if (approved.versionRowVersion === null) {
-      throw new Error('Slice 4 approved version rowVersion is unavailable.')
-    }
-    expect(approved).toMatchObject({
-      questionRowVersion: 1,
-      versionRowVersion: 3,
-      versionStatus: 'APPROVED'
-    })
+      expect(staleApproval.response.headers.getSetCookie()).toHaveLength(0)
+      expect(await readA2Evidence(target.versionId)).toEqual(beforeSelfApproval)
+      expect(await readA2IntentCount([staleApproval.requestId])).toBe(0)
 
-    const app = createTestHonoApp({ commandService })
-    const publicationRequest = publishQuestionVersionRequestSchema.parse({
-      expectedQuestionRowVersion: approved.questionRowVersion,
-      expectedRowVersion: approved.versionRowVersion
-    })
-    const publication = await requestA2Command({
-      app,
-      body: publicationRequest,
-      fixture: reviewer,
-      pathname: `/api/v1/admin/question-versions/${target.versionId}/publication`
-    })
-    expect(publication.response.status).toBe(200)
-    const published = adminQuestionMutationResultSchema.parse(
-      await publication.response.json()
-    )
-    expect(published).toMatchObject({
-      lifecycleStatus: 'ACTIVE',
-      questionId: target.questionId,
-      questionRowVersion: 2,
-      questionVersionId: target.versionId,
-      versionRowVersion: 4,
-      versionStatus: 'PUBLISHED'
-    })
-    expect(publication.response.headers.get('Cache-Control')).toBe(
-      'private, no-store'
-    )
-    expect(publication.response.headers.get('X-Request-Id')).toBe(
-      publication.requestId
-    )
-    expect(publication.response.headers.getSetCookie()).toHaveLength(0)
-    if (published.versionRowVersion === null) {
-      throw new Error('Slice 4 published version rowVersion is unavailable.')
-    }
+      const reauthentication = await completeSsoFresh(reviewer)
+      const replacementCookies = reauthentication.cookies
+      expect(replacementCookies).toHaveLength(3)
+      const replacementCookie = toRequestCookieHeader(replacementCookies)
 
-    const retirementRequest = retireQuestionVersionRequestSchema.parse({
-      expectedQuestionRowVersion: published.questionRowVersion,
-      expectedRowVersion: published.versionRowVersion
-    })
-    const retirement = await requestA2Command({
-      app,
-      body: retirementRequest,
-      fixture: reviewer,
-      pathname: `/api/v1/admin/question-versions/${target.versionId}/retirement`
-    })
-    expect(retirement.response.status).toBe(200)
-    const retired = adminQuestionMutationResultSchema.parse(
-      await retirement.response.json()
-    )
-    expect(retired).toMatchObject({
-      lifecycleStatus: 'ACTIVE',
-      questionId: target.questionId,
-      questionRowVersion: 3,
-      questionVersionId: target.versionId,
-      versionRowVersion: 5,
-      versionStatus: 'RETIRED'
-    })
-    expect(retirement.response.headers.get('Cache-Control')).toBe(
-      'private, no-store'
-    )
-    expect(retirement.response.headers.get('X-Request-Id')).toBe(
-      retirement.requestId
-    )
-    expect(retirement.response.headers.getSetCookie()).toHaveLength(0)
+      // Reauthentication rotates authority only. It must never replay the failed command.
+      expect(await readA2Evidence(target.versionId)).toEqual(beforeSelfApproval)
 
-    const archiveRequest = archiveAdminQuestionRequestSchema.parse({
-      expectedOpenCandidateRowVersion: null,
-      expectedOpenCandidateVersionId: null,
-      expectedQuestionRowVersion: retired.questionRowVersion
-    })
-    const archive = await requestA2Command({
-      app,
-      body: archiveRequest,
-      fixture: reviewer,
-      pathname: `/api/v1/admin/questions/${target.questionId}/archive`
-    })
-    expect(archive.response.status).toBe(200)
-    expect(
-      adminQuestionMutationResultSchema.parse(await archive.response.json())
-    ).toMatchObject({
-      lifecycleStatus: 'ARCHIVED',
-      questionId: target.questionId,
-      questionRowVersion: 4,
-      questionVersionId: null,
-      versionRowVersion: null,
-      versionStatus: null
-    })
-    expect(archive.response.headers.get('Cache-Control')).toBe(
-      'private, no-store'
-    )
-    expect(archive.response.headers.get('X-Request-Id')).toBe(archive.requestId)
-    expect(archive.response.headers.getSetCookie()).toHaveLength(0)
+      const revokedOldCookieApproval = await requestA2Command({
+        app,
+        body: { expectedRowVersion: 2, comment: '폐기된 cookie 요청' },
+        fixture: reviewer,
+        pathname: approvalPath
+      })
+      expect(revokedOldCookieApproval.response.status).toBe(401)
+      expect(
+        apiFailureSchema.parse(await revokedOldCookieApproval.response.json())
+      ).toMatchObject({
+        code: 'AUTH_SESSION_EXPIRED',
+        requestId: revokedOldCookieApproval.requestId,
+        retryable: false
+      })
+      // The rotated cookie's 401 must not clear the replacement cookie.
+      expect(revokedOldCookieApproval.response.headers.getSetCookie()).toEqual(
+        []
+      )
+      for (const pathname of ['/api/v1/admin/questions', '/api/v1/me']) {
+        const revokedOldCookieRead = await app.request(
+          `http://localhost:3001${pathname}`,
+          { headers: new Headers(reviewer.headers) }
+        )
+        expect(revokedOldCookieRead.status).toBe(
+          pathname === '/api/v1/me' ? 200 : 401
+        )
+        if (pathname === '/api/v1/me') {
+          expect(await revokedOldCookieRead.json()).toEqual({ kind: 'GUEST' })
+        }
+        expect(revokedOldCookieRead.headers.getSetCookie()).toEqual([])
+      }
+      expect(await readA2Evidence(target.versionId)).toEqual(beforeSelfApproval)
+      expect(
+        await readA2IntentCount([revokedOldCookieApproval.requestId])
+      ).toBe(0)
 
-    const mutationRequestIds = [
-      publication.requestId,
-      retirement.requestId,
-      archive.requestId
-    ]
-    const evidence = await readSlice4State(target.questionId, target.versionId)
-    expect(evidence.question).toEqual({
-      currentPublishedVersionId: null,
-      lifecycleStatus: 'ARCHIVED',
-      rowVersion: 4
-    })
-    expect(evidence.version).toEqual({
-      retirementKind: 'PUBLISHED_RETIREMENT',
-      rowVersion: 5,
-      status: 'RETIRED'
-    })
-    expect(
-      evidence.audits
-        .filter(({ requestId }) => mutationRequestIds.includes(requestId))
-        .map((audit) => ({
-          afterRowVersion: audit.afterRowVersion,
-          afterState: audit.afterState,
-          beforeRowVersion: audit.beforeRowVersion,
-          beforeState: audit.beforeState,
-          changedFields: audit.changedFields,
-          command: audit.command,
-          contentDigestValid: audit.contentDigestValid,
-          metadata: audit.metadata,
-          requestId: audit.requestId,
-          targetId: audit.targetId
-        }))
-    ).toEqual([
-      {
+      const approvalRequestId = randomUUID()
+      const approval = await requestA2Command({
+        app,
+        body: approveQuestionVersionRequestSchema.parse({
+          expectedRowVersion: 2,
+          comment: 'A2 승인 근거'
+        }),
+        cookie: replacementCookie,
+        fixture: reviewer,
+        pathname: approvalPath,
+        requestId: approvalRequestId
+      })
+      expect(approval.response.status).toBe(200)
+      expect(
+        adminQuestionMutationResultSchema.parse(await approval.response.json())
+      ).toMatchObject({
+        questionId: target.questionId,
+        questionRowVersion: 1,
+        questionVersionId: target.versionId,
+        versionRowVersion: 3,
+        versionStatus: 'APPROVED'
+      })
+      expect(approval.response.headers.getSetCookie()).toHaveLength(0)
+
+      const approvedEvidence = await readA2Evidence(target.versionId)
+      expect(approvedEvidence.version).toEqual({
+        questionRowVersion: 1,
+        rowVersion: 3,
+        status: 'APPROVED'
+      })
+      expect(approvedEvidence.reviews).toHaveLength(1)
+      expect(approvedEvidence.audits).toHaveLength(1)
+      const approvalReview = approvedEvidence.reviews[0]
+      const approvalAudit = approvedEvidence.audits[0]
+      expect(approvalReview).toMatchObject({
+        action: 'APPROVED',
+        actorUserId: reviewer.userId,
+        comment: 'A2 승인 근거',
+        counterpartActorId: author.userId,
+        fromState: 'IN_REVIEW',
+        reason: null,
+        requestId: approvalRequestId,
+        toState: 'APPROVED'
+      })
+      expect(approvalAudit).toMatchObject({
+        afterRowVersion: 3,
+        afterState: 'APPROVED',
+        beforeRowVersion: 2,
+        beforeState: 'IN_REVIEW',
+        changedFields: ['VERSION_STATUS'],
+        command: 'APPROVAL',
+        contentDigestValid: true,
+        metadata: { kind: 'NONE_V1' },
+        requestId: approvalRequestId
+      })
+      expect(approvalReview?.operationId).toBe(approvalAudit?.operationId)
+      expect(await readA2IntentCount([approvalRequestId])).toBe(0)
+
+      const withdrawalRequestIds = [randomUUID(), randomUUID()] as const
+      const withdrawalResponses = await Promise.all(
+        withdrawalRequestIds.map((requestId, index) =>
+          requestA2Command({
+            app,
+            body: withdrawQuestionApprovalRequestSchema.parse({
+              expectedRowVersion: 3,
+              reason: '승인 근거 재검토',
+              comment: `A2 동시 철회 ${index + 1}`
+            }),
+            cookie: replacementCookie,
+            fixture: reviewer,
+            pathname: withdrawalPath,
+            requestId
+          })
+        )
+      )
+      expect(
+        withdrawalResponses.map(({ response }) => response.status).sort()
+      ).toEqual([200, 409])
+      expect(
+        withdrawalResponses.every(
+          ({ response }) => response.headers.getSetCookie().length === 0
+        )
+      ).toBe(true)
+      const withdrawalWinnerIndex = withdrawalResponses.findIndex(
+        ({ response }) => response.status === 200
+      )
+      const withdrawalLoserIndex = withdrawalResponses.findIndex(
+        ({ response }) => response.status === 409
+      )
+      if (withdrawalWinnerIndex < 0 || withdrawalLoserIndex < 0) {
+        throw new Error('A2 withdrawal winner/loser is unavailable.')
+      }
+      const withdrawalWinner = withdrawalResponses[withdrawalWinnerIndex]!
+      const withdrawalLoser = withdrawalResponses[withdrawalLoserIndex]!
+      expect(
+        adminQuestionMutationResultSchema.parse(
+          await withdrawalWinner.response.json()
+        )
+      ).toMatchObject({
+        questionId: target.questionId,
+        questionRowVersion: 1,
+        questionVersionId: target.versionId,
+        versionRowVersion: 4,
+        versionStatus: 'CHANGES_REQUESTED'
+      })
+      expect(
+        apiFailureSchema.parse(await withdrawalLoser.response.json())
+      ).toMatchObject({
+        code: 'VERSION_CONFLICT',
+        requestId: withdrawalLoser.requestId,
+        retryable: false
+      })
+
+      const withdrawnEvidence = await readA2Evidence(target.versionId)
+      expect(withdrawnEvidence.version).toEqual({
+        questionRowVersion: 1,
+        rowVersion: 4,
+        status: 'CHANGES_REQUESTED'
+      })
+      expect(withdrawnEvidence.reviews).toHaveLength(2)
+      expect(withdrawnEvidence.audits).toHaveLength(2)
+      const withdrawalReview = withdrawnEvidence.reviews[1]
+      const withdrawalAudit = withdrawnEvidence.audits[1]
+      expect(withdrawalReview).toMatchObject({
+        action: 'APPROVAL_WITHDRAWN',
+        actorUserId: reviewer.userId,
+        counterpartActorId: author.userId,
+        fromState: 'APPROVED',
+        reason: '승인 근거 재검토',
+        requestId: withdrawalWinner.requestId,
+        toState: 'CHANGES_REQUESTED'
+      })
+      expect(withdrawalReview?.comment).toBe(
+        `A2 동시 철회 ${withdrawalWinnerIndex + 1}`
+      )
+      expect(withdrawalAudit).toMatchObject({
         afterRowVersion: 4,
-        afterState: 'PUBLISHED',
+        afterState: 'CHANGES_REQUESTED',
         beforeRowVersion: 3,
         beforeState: 'APPROVED',
-        changedFields: ['VERSION_STATUS', 'CURRENT_PUBLISHED_VERSION_ID'],
-        command: 'PUBLICATION',
+        changedFields: ['VERSION_STATUS'],
+        command: 'APPROVAL_WITHDRAWAL',
         contentDigestValid: true,
         metadata: { kind: 'NONE_V1' },
-        requestId: publication.requestId,
-        targetId: target.versionId
-      },
-      {
-        afterRowVersion: 5,
-        afterState: 'RETIRED',
-        beforeRowVersion: 4,
-        beforeState: 'PUBLISHED',
-        changedFields: ['VERSION_STATUS', 'CURRENT_PUBLISHED_VERSION_ID'],
-        command: 'RETIREMENT',
-        contentDigestValid: true,
-        metadata: { kind: 'NONE_V1' },
-        requestId: retirement.requestId,
-        targetId: target.versionId
-      },
-      {
-        afterRowVersion: 4,
-        afterState: 'ARCHIVED',
-        beforeRowVersion: 3,
-        beforeState: 'ACTIVE',
-        changedFields: ['LIFECYCLE_STATUS'],
-        command: 'QUESTION_ARCHIVE',
-        contentDigestValid: true,
-        metadata: {
-          abandonedCandidateCount: 0,
-          kind: 'QUESTION_ARCHIVE_V1',
-          retiredPublishedCount: 0
-        },
-        requestId: archive.requestId,
-        targetId: target.questionId
-      }
-    ])
-    expect(
-      evidence.reviews
-        .filter(({ requestId }) => mutationRequestIds.includes(requestId))
-        .map((review) => ({
-          action: review.action,
-          actorUserId: review.actorUserId,
-          counterpartActorId: review.counterpartActorId,
-          fromState: review.fromState,
-          reason: review.reason,
-          requestId: review.requestId,
-          toState: review.toState
-        }))
-    ).toEqual([
-      {
-        action: 'PUBLISHED',
-        actorUserId: reviewer.userId,
-        counterpartActorId: reviewer.userId,
-        fromState: 'APPROVED',
-        reason: null,
-        requestId: publication.requestId,
-        toState: 'PUBLISHED'
-      },
-      {
-        action: 'RETIRED',
-        actorUserId: reviewer.userId,
-        counterpartActorId: null,
-        fromState: 'PUBLISHED',
-        reason: 'PUBLISHED_RETIREMENT',
-        requestId: retirement.requestId,
-        toState: 'RETIRED'
-      }
-    ])
-    expect(await readA2IntentCount(mutationRequestIds)).toBe(0)
-  }, 60_000)
-
-  it('Slice 4 게시는 쓰기 후 fresh fence 만료 시 전체를 rollback한다', async () => {
-    const author = await createSsoFixture()
-    const reviewer = await createSsoFixture()
-    const commandService = createCommandService()
-    const target = await prepareA2InReviewVersion({ author, commandService })
-    const approved = await commandService.approveVersion(
-      {
-        actorId: reviewer.userId,
-        rawSessionToken: reviewer.token,
-        requestId: randomUUID()
-      },
-      target.versionId,
-      approveQuestionVersionRequestSchema.parse({
-        expectedRowVersion: target.versionRowVersion,
-        comment: 'Slice 4 final fresh fence 준비'
+        requestId: withdrawalWinner.requestId
       })
-    )
-    if (approved.versionRowVersion === null) {
-      throw new Error('Slice 4 approved version rowVersion is unavailable.')
-    }
-    const app = createTestHonoApp({ commandService })
-    const beforeLateFreshFailure = await readSlice4State(
-      target.questionId,
-      target.versionId
-    )
-    let lateFreshPublicationPromise:
-      | ReturnType<typeof requestA2Command>
-      | undefined
-
-    await adminClient.query('BEGIN')
-    try {
-      await adminClient.query('LOCK TABLE "ContentReview" IN SHARE MODE')
-      const blockingBackend = await adminClient.query<{ pid: number }>(
-        'SELECT pg_backend_pid() AS pid'
-      )
-      const blockingBackendPid = blockingBackend.rows[0]?.pid
-      if (blockingBackendPid === undefined) {
-        throw new Error('Slice 4 blocker backend pid is unavailable.')
-      }
+      expect(withdrawalReview?.operationId).toBe(withdrawalAudit?.operationId)
       expect(
-        await moveSessionNearFreshCutoffForTesting(reviewer.token, 1_000)
-      ).toBe(1)
-      lateFreshPublicationPromise = requestA2Command({
+        withdrawnEvidence.reviews.some(
+          ({ requestId }) => requestId === withdrawalLoser.requestId
+        )
+      ).toBe(false)
+      expect(
+        withdrawnEvidence.audits.some(
+          ({ requestId }) => requestId === withdrawalLoser.requestId
+        )
+      ).toBe(false)
+      expect(
+        await readA2IntentCount([
+          withdrawalWinner.requestId,
+          withdrawalLoser.requestId
+        ])
+      ).toBe(0)
+
+      const rereview = await commandService.requestReview(
+        {
+          actorId: author.userId,
+          rawSessionToken: author.token,
+          requestId: randomUUID()
+        },
+        target.versionId,
+        requestContentReviewRequestSchema.parse({
+          expectedRowVersion: 4,
+          comment: '최종 fresh fence 검증용 재검수'
+        })
+      )
+      expect(rereview).toMatchObject({
+        questionRowVersion: 1,
+        versionRowVersion: 5,
+        versionStatus: 'IN_REVIEW'
+      })
+      const beforeLateFreshFailure = await readA2Evidence(target.versionId)
+      const replacementRawToken = await loadActiveSessionToken(reviewer.userId)
+      let lateFreshApprovalPromise:
+        | ReturnType<typeof requestA2Command>
+        | undefined
+      await adminClient.query('BEGIN')
+      try {
+        // SHARE permits the repository preflight but blocks its ContentReview
+        // INSERT. The version UPDATE has already run when this wait is observed.
+        await adminClient.query('LOCK TABLE "ContentReview" IN SHARE MODE')
+        const blockingBackend = await adminClient.query<{ pid: number }>(
+          'SELECT pg_backend_pid() AS pid'
+        )
+        const blockingBackendPid = blockingBackend.rows[0]?.pid
+        if (blockingBackendPid === undefined) {
+          throw new Error('A2 blocker backend pid is unavailable.')
+        }
+        expect(
+          await moveSessionNearFreshCutoffForTesting(replacementRawToken, 1_000)
+        ).toBe(1)
+        lateFreshApprovalPromise = requestA2Command({
+          app,
+          body: { expectedRowVersion: 5, comment: 'DB fresh fence에서 거부' },
+          cookie: replacementCookie,
+          fixture: reviewer,
+          pathname: approvalPath
+        })
+        await waitForBlockedContentReviewInsert(blockingBackendPid)
+        await waitForSessionFreshCutoff(replacementRawToken)
+        await adminClient.query('COMMIT')
+      } catch (error: unknown) {
+        await adminClient.query('ROLLBACK').catch(() => undefined)
+        await lateFreshApprovalPromise?.catch(() => undefined)
+        throw error
+      }
+      if (!lateFreshApprovalPromise) {
+        throw new Error('A2 late-fresh request was not started.')
+      }
+      const lateFreshApproval = await lateFreshApprovalPromise
+      expect(lateFreshApproval.response.status).toBe(401)
+      expect(
+        apiFailureSchema.parse(await lateFreshApproval.response.json())
+      ).toMatchObject({
+        code: 'FRESH_ASSURANCE_REQUIRED',
+        requestId: lateFreshApproval.requestId,
+        retryable: false
+      })
+      expect(lateFreshApproval.response.headers.getSetCookie()).toHaveLength(0)
+      expect(await readA2Evidence(target.versionId)).toEqual(
+        beforeLateFreshFailure
+      )
+      expect(await readA2IntentCount([lateFreshApproval.requestId])).toBe(0)
+    },
+    testTimeoutMs
+  )
+
+  it(
+    'real createApiApp가 Slice 4 게시·퇴역·보관과 DB 증거를 하나의 canonical 경로로 commit한다',
+    async () => {
+      const author = await createSsoFixture()
+      const reviewer = await createSsoFixture()
+      const commandService = createCommandService()
+      const target = await prepareA2InReviewVersion({ author, commandService })
+      const approved = await commandService.approveVersion(
+        {
+          actorId: reviewer.userId,
+          rawSessionToken: reviewer.token,
+          requestId: randomUUID()
+        },
+        target.versionId,
+        approveQuestionVersionRequestSchema.parse({
+          expectedRowVersion: target.versionRowVersion,
+          comment: 'Slice 4 실제 DB 게시 승인'
+        })
+      )
+      if (approved.versionRowVersion === null) {
+        throw new Error('Slice 4 approved version rowVersion is unavailable.')
+      }
+      expect(approved).toMatchObject({
+        questionRowVersion: 1,
+        versionRowVersion: 3,
+        versionStatus: 'APPROVED'
+      })
+
+      const app = createTestHonoApp({ commandService })
+      const publicationRequest = publishQuestionVersionRequestSchema.parse({
+        expectedQuestionRowVersion: approved.questionRowVersion,
+        expectedRowVersion: approved.versionRowVersion
+      })
+      const publication = await requestA2Command({
         app,
-        body: publishQuestionVersionRequestSchema.parse({
-          expectedQuestionRowVersion: approved.questionRowVersion,
-          expectedRowVersion: approved.versionRowVersion
-        }),
+        body: publicationRequest,
         fixture: reviewer,
         pathname: `/api/v1/admin/question-versions/${target.versionId}/publication`
       })
-      await waitForBlockedContentReviewInsert(blockingBackendPid)
-      await waitForSessionFreshCutoff(reviewer.token)
-      await adminClient.query('COMMIT')
-    } catch (error: unknown) {
-      await adminClient.query('ROLLBACK').catch(() => undefined)
-      await lateFreshPublicationPromise?.catch(() => undefined)
-      throw error
-    }
-    if (!lateFreshPublicationPromise) {
-      throw new Error('Slice 4 late-fresh publication was not started.')
-    }
-    const lateFreshPublication = await lateFreshPublicationPromise
-    expect(lateFreshPublication.response.status).toBe(401)
-    expect(
-      apiFailureSchema.parse(await lateFreshPublication.response.json())
-    ).toMatchObject({
-      code: 'FRESH_ASSURANCE_REQUIRED',
-      requestId: lateFreshPublication.requestId,
-      retryable: false
-    })
-    expect(lateFreshPublication.response.headers.getSetCookie()).toHaveLength(0)
-    expect(await readSlice4State(target.questionId, target.versionId)).toEqual(
-      beforeLateFreshFailure
-    )
-    expect(await readA2IntentCount([lateFreshPublication.requestId])).toBe(0)
-  }, 60_000)
+      expect(publication.response.status).toBe(200)
+      const published = adminQuestionMutationResultSchema.parse(
+        await publication.response.json()
+      )
+      expect(published).toMatchObject({
+        lifecycleStatus: 'ACTIVE',
+        questionId: target.questionId,
+        questionRowVersion: 2,
+        questionVersionId: target.versionId,
+        versionRowVersion: 4,
+        versionStatus: 'PUBLISHED'
+      })
+      expect(publication.response.headers.get('Cache-Control')).toBe(
+        'private, no-store'
+      )
+      expect(publication.response.headers.get('X-Request-Id')).toBe(
+        publication.requestId
+      )
+      expect(publication.response.headers.getSetCookie()).toHaveLength(0)
+      if (published.versionRowVersion === null) {
+        throw new Error('Slice 4 published version rowVersion is unavailable.')
+      }
 
-  it('guard 통과 후 authority/fresh 상실은 A2 target 오류보다 먼저 선형화된다', async () => {
-    const missingAuthor = await createSsoFixture()
-    const roleLossReviewer = await createSsoFixture()
-    const authorityOperator = await createSsoFixture()
-    const setupService = createCommandService()
-    const missingEvidenceTarget = await prepareA2InReviewVersion({
-      author: missingAuthor,
-      commandService: setupService
-    })
-    const beforeMissingFailure = await readA2Evidence(
-      missingEvidenceTarget.versionId
-    )
-    const missingBarrier = createVersionPreflightBarrierCommandService()
-    const missingApp = createTestHonoApp({
-      commandService: missingBarrier.commandService
-    })
-    const missingRequest = requestA2Command({
-      app: missingApp,
-      body: { expectedRowVersion: 1, comment: '권한 상실 우선순위' },
-      fixture: roleLossReviewer,
-      pathname: `/api/v1/admin/question-versions/${randomUUID()}/approval`
-    })
-    await missingBarrier.waitForPreflight()
-    try {
-      await bridgedQuery(
-        gatewayClientA,
-        `SELECT "change_user_authority"(
+      const retirementRequest = retireQuestionVersionRequestSchema.parse({
+        expectedQuestionRowVersion: published.questionRowVersion,
+        expectedRowVersion: published.versionRowVersion
+      })
+      const retirement = await requestA2Command({
+        app,
+        body: retirementRequest,
+        fixture: reviewer,
+        pathname: `/api/v1/admin/question-versions/${target.versionId}/retirement`
+      })
+      expect(retirement.response.status).toBe(200)
+      const retired = adminQuestionMutationResultSchema.parse(
+        await retirement.response.json()
+      )
+      expect(retired).toMatchObject({
+        lifecycleStatus: 'ACTIVE',
+        questionId: target.questionId,
+        questionRowVersion: 3,
+        questionVersionId: target.versionId,
+        versionRowVersion: 5,
+        versionStatus: 'RETIRED'
+      })
+      expect(retirement.response.headers.get('Cache-Control')).toBe(
+        'private, no-store'
+      )
+      expect(retirement.response.headers.get('X-Request-Id')).toBe(
+        retirement.requestId
+      )
+      expect(retirement.response.headers.getSetCookie()).toHaveLength(0)
+
+      const archiveRequest = archiveAdminQuestionRequestSchema.parse({
+        expectedOpenCandidateRowVersion: null,
+        expectedOpenCandidateVersionId: null,
+        expectedQuestionRowVersion: retired.questionRowVersion
+      })
+      const archive = await requestA2Command({
+        app,
+        body: archiveRequest,
+        fixture: reviewer,
+        pathname: `/api/v1/admin/questions/${target.questionId}/archive`
+      })
+      expect(archive.response.status).toBe(200)
+      expect(
+        adminQuestionMutationResultSchema.parse(await archive.response.json())
+      ).toMatchObject({
+        lifecycleStatus: 'ARCHIVED',
+        questionId: target.questionId,
+        questionRowVersion: 4,
+        questionVersionId: null,
+        versionRowVersion: null,
+        versionStatus: null
+      })
+      expect(archive.response.headers.get('Cache-Control')).toBe(
+        'private, no-store'
+      )
+      expect(archive.response.headers.get('X-Request-Id')).toBe(
+        archive.requestId
+      )
+      expect(archive.response.headers.getSetCookie()).toHaveLength(0)
+
+      const mutationRequestIds = [
+        publication.requestId,
+        retirement.requestId,
+        archive.requestId
+      ]
+      const evidence = await readSlice4State(
+        target.questionId,
+        target.versionId
+      )
+      expect(evidence.question).toEqual({
+        currentPublishedVersionId: null,
+        lifecycleStatus: 'ARCHIVED',
+        rowVersion: 4
+      })
+      expect(evidence.version).toEqual({
+        retirementKind: 'PUBLISHED_RETIREMENT',
+        rowVersion: 5,
+        status: 'RETIRED'
+      })
+      expect(
+        evidence.audits
+          .filter(({ requestId }) => mutationRequestIds.includes(requestId))
+          .map((audit) => ({
+            afterRowVersion: audit.afterRowVersion,
+            afterState: audit.afterState,
+            beforeRowVersion: audit.beforeRowVersion,
+            beforeState: audit.beforeState,
+            changedFields: audit.changedFields,
+            command: audit.command,
+            contentDigestValid: audit.contentDigestValid,
+            metadata: audit.metadata,
+            requestId: audit.requestId,
+            targetId: audit.targetId
+          }))
+      ).toEqual([
+        {
+          afterRowVersion: 4,
+          afterState: 'PUBLISHED',
+          beforeRowVersion: 3,
+          beforeState: 'APPROVED',
+          changedFields: ['VERSION_STATUS', 'CURRENT_PUBLISHED_VERSION_ID'],
+          command: 'PUBLICATION',
+          contentDigestValid: true,
+          metadata: { kind: 'NONE_V1' },
+          requestId: publication.requestId,
+          targetId: target.versionId
+        },
+        {
+          afterRowVersion: 5,
+          afterState: 'RETIRED',
+          beforeRowVersion: 4,
+          beforeState: 'PUBLISHED',
+          changedFields: ['VERSION_STATUS', 'CURRENT_PUBLISHED_VERSION_ID'],
+          command: 'RETIREMENT',
+          contentDigestValid: true,
+          metadata: { kind: 'NONE_V1' },
+          requestId: retirement.requestId,
+          targetId: target.versionId
+        },
+        {
+          afterRowVersion: 4,
+          afterState: 'ARCHIVED',
+          beforeRowVersion: 3,
+          beforeState: 'ACTIVE',
+          changedFields: ['LIFECYCLE_STATUS'],
+          command: 'QUESTION_ARCHIVE',
+          contentDigestValid: true,
+          metadata: {
+            abandonedCandidateCount: 0,
+            kind: 'QUESTION_ARCHIVE_V1',
+            retiredPublishedCount: 0
+          },
+          requestId: archive.requestId,
+          targetId: target.questionId
+        }
+      ])
+      expect(
+        evidence.reviews
+          .filter(({ requestId }) => mutationRequestIds.includes(requestId))
+          .map((review) => ({
+            action: review.action,
+            actorUserId: review.actorUserId,
+            counterpartActorId: review.counterpartActorId,
+            fromState: review.fromState,
+            reason: review.reason,
+            requestId: review.requestId,
+            toState: review.toState
+          }))
+      ).toEqual([
+        {
+          action: 'PUBLISHED',
+          actorUserId: reviewer.userId,
+          counterpartActorId: reviewer.userId,
+          fromState: 'APPROVED',
+          reason: null,
+          requestId: publication.requestId,
+          toState: 'PUBLISHED'
+        },
+        {
+          action: 'RETIRED',
+          actorUserId: reviewer.userId,
+          counterpartActorId: null,
+          fromState: 'PUBLISHED',
+          reason: 'PUBLISHED_RETIREMENT',
+          requestId: retirement.requestId,
+          toState: 'RETIRED'
+        }
+      ])
+      expect(await readA2IntentCount(mutationRequestIds)).toBe(0)
+    },
+    testTimeoutMs
+  )
+
+  it(
+    'Slice 4 게시는 쓰기 후 fresh fence 만료 시 전체를 rollback한다',
+    async () => {
+      const author = await createSsoFixture()
+      const reviewer = await createSsoFixture()
+      const commandService = createCommandService()
+      const target = await prepareA2InReviewVersion({ author, commandService })
+      const approved = await commandService.approveVersion(
+        {
+          actorId: reviewer.userId,
+          rawSessionToken: reviewer.token,
+          requestId: randomUUID()
+        },
+        target.versionId,
+        approveQuestionVersionRequestSchema.parse({
+          expectedRowVersion: target.versionRowVersion,
+          comment: 'Slice 4 final fresh fence 준비'
+        })
+      )
+      if (approved.versionRowVersion === null) {
+        throw new Error('Slice 4 approved version rowVersion is unavailable.')
+      }
+      const app = createTestHonoApp({ commandService })
+      const beforeLateFreshFailure = await readSlice4State(
+        target.questionId,
+        target.versionId
+      )
+      let lateFreshPublicationPromise:
+        | ReturnType<typeof requestA2Command>
+        | undefined
+
+      await adminClient.query('BEGIN')
+      try {
+        await adminClient.query('LOCK TABLE "ContentReview" IN SHARE MODE')
+        const blockingBackend = await adminClient.query<{ pid: number }>(
+          'SELECT pg_backend_pid() AS pid'
+        )
+        const blockingBackendPid = blockingBackend.rows[0]?.pid
+        if (blockingBackendPid === undefined) {
+          throw new Error('Slice 4 blocker backend pid is unavailable.')
+        }
+        expect(
+          await moveSessionNearFreshCutoffForTesting(reviewer.token, 1_000)
+        ).toBe(1)
+        lateFreshPublicationPromise = requestA2Command({
+          app,
+          body: publishQuestionVersionRequestSchema.parse({
+            expectedQuestionRowVersion: approved.questionRowVersion,
+            expectedRowVersion: approved.versionRowVersion
+          }),
+          fixture: reviewer,
+          pathname: `/api/v1/admin/question-versions/${target.versionId}/publication`
+        })
+        await waitForBlockedContentReviewInsert(blockingBackendPid)
+        await waitForSessionFreshCutoff(reviewer.token)
+        await adminClient.query('COMMIT')
+      } catch (error: unknown) {
+        await adminClient.query('ROLLBACK').catch(() => undefined)
+        await lateFreshPublicationPromise?.catch(() => undefined)
+        throw error
+      }
+      if (!lateFreshPublicationPromise) {
+        throw new Error('Slice 4 late-fresh publication was not started.')
+      }
+      const lateFreshPublication = await lateFreshPublicationPromise
+      expect(lateFreshPublication.response.status).toBe(401)
+      expect(
+        apiFailureSchema.parse(await lateFreshPublication.response.json())
+      ).toMatchObject({
+        code: 'FRESH_ASSURANCE_REQUIRED',
+        requestId: lateFreshPublication.requestId,
+        retryable: false
+      })
+      expect(lateFreshPublication.response.headers.getSetCookie()).toHaveLength(
+        0
+      )
+      expect(
+        await readSlice4State(target.questionId, target.versionId)
+      ).toEqual(beforeLateFreshFailure)
+      expect(await readA2IntentCount([lateFreshPublication.requestId])).toBe(0)
+    },
+    testTimeoutMs
+  )
+
+  it(
+    'guard 통과 후 authority/fresh 상실은 A2 target 오류보다 먼저 선형화된다',
+    async () => {
+      const missingAuthor = await createSsoFixture()
+      const roleLossReviewer = await createSsoFixture()
+      const authorityOperator = await createSsoFixture()
+      const setupService = createCommandService()
+      const missingEvidenceTarget = await prepareA2InReviewVersion({
+        author: missingAuthor,
+        commandService: setupService
+      })
+      const beforeMissingFailure = await readA2Evidence(
+        missingEvidenceTarget.versionId
+      )
+      const missingBarrier = createVersionPreflightBarrierCommandService()
+      const missingApp = createTestHonoApp({
+        commandService: missingBarrier.commandService
+      })
+      const missingRequest = requestA2Command({
+        app: missingApp,
+        body: { expectedRowVersion: 1, comment: '권한 상실 우선순위' },
+        fixture: roleLossReviewer,
+        pathname: `/api/v1/admin/question-versions/${randomUUID()}/approval`
+      })
+      await missingBarrier.waitForPreflight()
+      try {
+        await bridgedQuery(
+          gatewayClientA,
+          `SELECT "change_user_authority"(
           $1, $2, 1, 'USER', 'ACTIVE', 'TEST'
         )`,
-        [authorityOperator.token, roleLossReviewer.userId]
+          [authorityOperator.token, roleLossReviewer.userId]
+        )
+      } finally {
+        missingBarrier.releasePreflight()
+      }
+      const missingResult = await missingRequest
+      expect(missingResult.response.status).toBe(403)
+      expect(
+        apiFailureSchema.parse(await missingResult.response.json())
+      ).toMatchObject({
+        code: 'ADMIN_REQUIRED',
+        requestId: missingResult.requestId,
+        retryable: false
+      })
+      expect(await readA2Evidence(missingEvidenceTarget.versionId)).toEqual(
+        beforeMissingFailure
       )
-    } finally {
-      missingBarrier.releasePreflight()
-    }
-    const missingResult = await missingRequest
-    expect(missingResult.response.status).toBe(403)
-    expect(
-      apiFailureSchema.parse(await missingResult.response.json())
-    ).toMatchObject({
-      code: 'ADMIN_REQUIRED',
-      requestId: missingResult.requestId,
-      retryable: false
-    })
-    expect(await readA2Evidence(missingEvidenceTarget.versionId)).toEqual(
-      beforeMissingFailure
-    )
-    expect(await readA2IntentCount([missingResult.requestId])).toBe(0)
+      expect(await readA2IntentCount([missingResult.requestId])).toBe(0)
 
-    const invalidStateAuthor = await createSsoFixture()
-    const staleReviewer = await createSsoFixture()
-    const invalidStateTarget = await prepareA2InReviewVersion({
-      author: invalidStateAuthor,
-      commandService: setupService
-    })
-    const beforeInvalidStateFailure = await readA2Evidence(
-      invalidStateTarget.versionId
-    )
-    const invalidStateBarrier = createVersionPreflightBarrierCommandService()
-    const invalidStateApp = createTestHonoApp({
-      commandService: invalidStateBarrier.commandService
-    })
-    const invalidStateRequest = requestA2Command({
-      app: invalidStateApp,
-      body: {
-        expectedRowVersion: invalidStateTarget.versionRowVersion,
-        reason: 'fresh 상실 우선순위'
-      },
-      fixture: staleReviewer,
-      pathname: `/api/v1/admin/question-versions/${invalidStateTarget.versionId}/approval-withdrawal`
-    })
-    await invalidStateBarrier.waitForPreflight()
-    try {
-      expect(await makeSessionStaleForTesting(staleReviewer.sessionId)).toBe(1)
-    } finally {
-      invalidStateBarrier.releasePreflight()
-    }
-    const invalidStateResult = await invalidStateRequest
-    expect(invalidStateResult.response.status).toBe(401)
-    expect(
-      apiFailureSchema.parse(await invalidStateResult.response.json())
-    ).toMatchObject({
-      code: 'FRESH_ASSURANCE_REQUIRED',
-      requestId: invalidStateResult.requestId,
-      retryable: false
-    })
-    expect(invalidStateResult.response.headers.getSetCookie()).toHaveLength(0)
-    expect(await readA2Evidence(invalidStateTarget.versionId)).toEqual(
-      beforeInvalidStateFailure
-    )
-    expect(await readA2IntentCount([invalidStateResult.requestId])).toBe(0)
-  }, 60_000)
-
-  it('retired password/error/change/reset HTTP는404이고 pending·audit·fence·cookie 없이 old ACTIVE를 보존한다', async () => {
-    const fixture = await createFixture()
-    const app = createTestHonoApp()
-    const headers = new Headers(fixture.headers)
-    headers.set('Content-Type', 'application/json')
-    const before = await readWriteSnapshot()
-    for (const pathname of [
-      '/api/v1/admin/reauthentication',
-      '/api/auth/sign-in/email',
-      '/api/auth/change-password',
-      '/api/auth/request-password-reset',
-      '/api/auth/reset-password'
-    ]) {
-      const response = await app.request(`http://localhost:3001${pathname}`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ password: `${password}-wrong` })
+      const invalidStateAuthor = await createSsoFixture()
+      const staleReviewer = await createSsoFixture()
+      const invalidStateTarget = await prepareA2InReviewVersion({
+        author: invalidStateAuthor,
+        commandService: setupService
       })
-      expect(response.status).toBe(404)
-      expect(await response.json()).toMatchObject({
-        code: pathname.startsWith('/api/auth/')
-          ? 'AUTH_ROUTE_NOT_FOUND'
-          : 'RESOURCE_NOT_FOUND'
+      const beforeInvalidStateFailure = await readA2Evidence(
+        invalidStateTarget.versionId
+      )
+      const invalidStateBarrier = createVersionPreflightBarrierCommandService()
+      const invalidStateApp = createTestHonoApp({
+        commandService: invalidStateBarrier.commandService
       })
-      expect(response.headers.getSetCookie()).toHaveLength(0)
-      expect(await readWriteSnapshot()).toEqual(before)
-    }
+      const invalidStateRequest = requestA2Command({
+        app: invalidStateApp,
+        body: {
+          expectedRowVersion: invalidStateTarget.versionRowVersion,
+          reason: 'fresh 상실 우선순위'
+        },
+        fixture: staleReviewer,
+        pathname: `/api/v1/admin/question-versions/${invalidStateTarget.versionId}/approval-withdrawal`
+      })
+      await invalidStateBarrier.waitForPreflight()
+      try {
+        expect(await makeSessionStaleForTesting(staleReviewer.sessionId)).toBe(
+          1
+        )
+      } finally {
+        invalidStateBarrier.releasePreflight()
+      }
+      const invalidStateResult = await invalidStateRequest
+      expect(invalidStateResult.response.status).toBe(401)
+      expect(
+        apiFailureSchema.parse(await invalidStateResult.response.json())
+      ).toMatchObject({
+        code: 'FRESH_ASSURANCE_REQUIRED',
+        requestId: invalidStateResult.requestId,
+        retryable: false
+      })
+      expect(invalidStateResult.response.headers.getSetCookie()).toHaveLength(0)
+      expect(await readA2Evidence(invalidStateTarget.versionId)).toEqual(
+        beforeInvalidStateFailure
+      )
+      expect(await readA2IntentCount([invalidStateResult.requestId])).toBe(0)
+    },
+    testTimeoutMs
+  )
 
-    const proof = await adminClient.query<{
-      auditCount: number
-      intentCount: number
-      oldActiveCount: number
-    }>(
-      `SELECT
+  it(
+    'retired password/error/change/reset HTTP는404이고 pending·audit·fence·cookie 없이 old ACTIVE를 보존한다',
+    async () => {
+      const fixture = await createFixture()
+      const app = createTestHonoApp()
+      const headers = new Headers(fixture.headers)
+      headers.set('Content-Type', 'application/json')
+      const before = await readWriteSnapshot()
+      for (const pathname of [
+        '/api/v1/admin/reauthentication',
+        '/api/auth/sign-in/email',
+        '/api/auth/change-password',
+        '/api/auth/request-password-reset',
+        '/api/auth/reset-password'
+      ]) {
+        const response = await app.request(`http://localhost:3001${pathname}`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ password: `${password}-wrong` })
+        })
+        expect(response.status).toBe(404)
+        expect(await response.json()).toMatchObject({
+          code: pathname.startsWith('/api/auth/')
+            ? 'AUTH_ROUTE_NOT_FOUND'
+            : 'RESOURCE_NOT_FOUND'
+        })
+        expect(response.headers.getSetCookie()).toHaveLength(0)
+        expect(await readWriteSnapshot()).toEqual(before)
+      }
+
+      const proof = await adminClient.query<{
+        auditCount: number
+        intentCount: number
+        oldActiveCount: number
+      }>(
+        `SELECT
          (SELECT COUNT(*)::int FROM "Session"
           WHERE "id" = $1 AND "authorizationState" = 'ACTIVE')
            AS "oldActiveCount",
@@ -1926,241 +1969,256 @@ describe('SSO fresh and retired password boundary with real SQL invariants', () 
          (SELECT COUNT(*)::int FROM "AdminAuditLog"
           WHERE "requestId" = $2 AND "command" = 'REAUTHENTICATION')
            AS "auditCount"`,
-      [fixture.sessionId, fixture.requestId]
-    )
-    expect(proof.rows).toEqual([
-      {
-        auditCount: 0,
-        intentCount: 0,
-        oldActiveCount: 1
-      }
-    ])
-  })
-
-  it('production guard/Hono는 logout·role-loss·classifier fault를 exact 401/403/503과 write 0으로 매핑한다', async () => {
-    const post = async (
-      fixture: Awaited<ReturnType<typeof createFixture>>,
-      principalService?: PrincipalService
-    ) => {
-      const app = createTestHonoApp({
-        ...(principalService ? { principalService } : {}),
-        commandService: createCommandService()
-      })
-      const headers = new Headers(fixture.headers)
-      headers.set('Content-Type', 'application/json')
-      const before = await readWriteSnapshot()
-      const response = await app.request(
-        `http://localhost:3001/api/v1/admin/question-versions/${randomUUID()}/approval`,
-        {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ expectedRowVersion: 1 })
-        }
+        [fixture.sessionId, fixture.requestId]
       )
-      const after = await readWriteSnapshot()
-      expect(after).toEqual(before)
-      return response
-    }
+      expect(proof.rows).toEqual([
+        {
+          auditCount: 0,
+          intentCount: 0,
+          oldActiveCount: 1
+        }
+      ])
+    },
+    testTimeoutMs
+  )
 
-    const logoutTarget = await createFixture()
-    await signOutOwnedSession(applicationRuntime.client, logoutTarget.token)
-    const logoutResponse = await post(logoutTarget)
-    expect(logoutResponse.status).toBe(401)
-    expect(
-      approveQuestionVersionErrorSchema.parse(await logoutResponse.json())
-    ).toMatchObject({
-      code: 'AUTH_SESSION_EXPIRED',
-      requestId: logoutTarget.requestId,
-      retryable: false
-    })
-    expect(logoutResponse.headers.getSetCookie()).toEqual([])
+  it(
+    'production guard/Hono는 logout·role-loss·classifier fault를 exact 401/403/503과 write 0으로 매핑한다',
+    async () => {
+      const post = async (
+        fixture: Awaited<ReturnType<typeof createFixture>>,
+        principalService?: PrincipalService
+      ) => {
+        const app = createTestHonoApp({
+          ...(principalService ? { principalService } : {}),
+          commandService: createCommandService()
+        })
+        const headers = new Headers(fixture.headers)
+        headers.set('Content-Type', 'application/json')
+        const before = await readWriteSnapshot()
+        const response = await app.request(
+          `http://localhost:3001/api/v1/admin/question-versions/${randomUUID()}/approval`,
+          {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ expectedRowVersion: 1 })
+          }
+        )
+        const after = await readWriteSnapshot()
+        expect(after).toEqual(before)
+        return response
+      }
 
-    const roleTarget = await createFixture()
-    const operator = await createFixture()
-    await bridgedQuery(
-      gatewayClientA,
-      `SELECT "change_user_authority"(
+      const logoutTarget = await createFixture()
+      await signOutOwnedSession(applicationRuntime.client, logoutTarget.token)
+      const logoutResponse = await post(logoutTarget)
+      expect(logoutResponse.status).toBe(401)
+      expect(
+        approveQuestionVersionErrorSchema.parse(await logoutResponse.json())
+      ).toMatchObject({
+        code: 'AUTH_SESSION_EXPIRED',
+        requestId: logoutTarget.requestId,
+        retryable: false
+      })
+      expect(logoutResponse.headers.getSetCookie()).toEqual([])
+
+      const roleTarget = await createFixture()
+      const operator = await createFixture()
+      await bridgedQuery(
+        gatewayClientA,
+        `SELECT "change_user_authority"(
         $1, $2, 1, 'USER', 'ACTIVE', 'TEST'
       )`,
-      [operator.token, roleTarget.userId]
-    )
-    const roleResponse = await post(roleTarget)
-    expect(roleResponse.status).toBe(403)
-    expect(
-      approveQuestionVersionErrorSchema.parse(await roleResponse.json())
-    ).toMatchObject({
-      code: 'ADMIN_REQUIRED',
-      requestId: roleTarget.requestId,
-      retryable: false
-    })
-    expect(roleResponse.headers.getSetCookie()).toEqual([])
+        [operator.token, roleTarget.userId]
+      )
+      const roleResponse = await post(roleTarget)
+      expect(roleResponse.status).toBe(403)
+      expect(
+        approveQuestionVersionErrorSchema.parse(await roleResponse.json())
+      ).toMatchObject({
+        code: 'ADMIN_REQUIRED',
+        requestId: roleTarget.requestId,
+        retryable: false
+      })
+      expect(roleResponse.headers.getSetCookie()).toEqual([])
 
-    const classifierTarget = await createFixture()
-    await signOutOwnedSession(applicationRuntime.client, classifierTarget.token)
-    const classifierFailureQuery = async <QueryResult>(
-      query: string,
-      ...values: unknown[]
-    ): Promise<QueryResult> => {
-      if (query.includes('classify_admin_authority')) {
-        throw new Error('injected classifier failure')
+      const classifierTarget = await createFixture()
+      await signOutOwnedSession(
+        applicationRuntime.client,
+        classifierTarget.token
+      )
+      const classifierFailureQuery = async <QueryResult>(
+        query: string,
+        ...values: unknown[]
+      ): Promise<QueryResult> => {
+        if (query.includes('classify_admin_authority')) {
+          throw new Error('injected classifier failure')
+        }
+        return await applicationRuntime.client.$queryRawUnsafe<QueryResult>(
+          query,
+          ...values
+        )
       }
-      return await applicationRuntime.client.$queryRawUnsafe<QueryResult>(
-        query,
-        ...values
+      const classifierFailurePrincipal = createOwnedPrincipalService({
+        client: {
+          $queryRawUnsafe: classifierFailureQuery
+        } as unknown as Pick<PrismaClient, '$queryRawUnsafe'>,
+        isProduction: environment.NODE_ENV === 'production',
+        refreshClient: applicationRuntime.client,
+        secret: environment.BETTER_AUTH_SECRET
+      })
+      const classifierResponse = await post(
+        classifierTarget,
+        classifierFailurePrincipal
       )
-    }
-    const classifierFailurePrincipal = createOwnedPrincipalService({
-      client: {
-        $queryRawUnsafe: classifierFailureQuery
-      } as unknown as Pick<PrismaClient, '$queryRawUnsafe'>,
-      isProduction: environment.NODE_ENV === 'production',
-      refreshClient: applicationRuntime.client,
-      secret: environment.BETTER_AUTH_SECRET
-    })
-    const classifierResponse = await post(
-      classifierTarget,
-      classifierFailurePrincipal
-    )
-    expect(classifierResponse.status).toBe(503)
-    expect(
-      approveQuestionVersionErrorSchema.parse(await classifierResponse.json())
-    ).toMatchObject({
-      code: 'SERVICE_UNAVAILABLE',
-      requestId: classifierTarget.requestId,
-      retryable: true
-    })
-    expect(classifierResponse.headers.get('Retry-After')).toBe('5')
-    expect(classifierResponse.headers.getSetCookie()).toHaveLength(0)
-  })
+      expect(classifierResponse.status).toBe(503)
+      expect(
+        approveQuestionVersionErrorSchema.parse(await classifierResponse.json())
+      ).toMatchObject({
+        code: 'SERVICE_UNAVAILABLE',
+        requestId: classifierTarget.requestId,
+        retryable: true
+      })
+      expect(classifierResponse.headers.get('Retry-After')).toBe('5')
+      expect(classifierResponse.headers.getSetCookie()).toHaveLength(0)
+    },
+    testTimeoutMs
+  )
 
-  it('finalize와 logout/role-change 경합은 옛 Session을 남기지 않고 revoked authority로 선형화된다', async () => {
-    const logoutTarget = await createFixture()
-    const logoutStage = await prepareAndStage(logoutTarget)
-    const [logoutFinalize, logout] = await Promise.allSettled([
-      ownedSessionSql(
-        gatewayClientA,
-        `SELECT * FROM "finalize_reauthentication"($1, $2)`,
-        [logoutStage.intentId, logoutStage.newToken]
-      ),
-      signOutOwnedSession(applicationRuntime.client, logoutTarget.token).then(
-        (result) => ({ rows: [{ result }] })
-      )
-    ])
-    expect(logout.status).toBe('fulfilled')
-    if (logout.status === 'fulfilled') {
-      expect(logout.value.rows).toEqual([{ result: true }])
-    }
-    if (logoutFinalize.status === 'rejected') {
-      expect(['40001', '42501']).toContain(
-        (logoutFinalize.reason as { code?: unknown }).code
-      )
-    }
-    // #504 P7 PR4b-1 (fence option A): the old Session is gone either way. If
-    // finalize won, the replacement stays; the old token no longer reaches it.
-    expect(
-      (
-        await adminClient.query<{
-          activeCount: number
-          oldSessionCount: number
-        }>(
-          `SELECT
+  it(
+    'finalize와 logout/role-change 경합은 옛 Session을 남기지 않고 revoked authority로 선형화된다',
+    async () => {
+      const logoutTarget = await createFixture()
+      const logoutStage = await prepareAndStage(logoutTarget)
+      const [logoutFinalize, logout] = await Promise.allSettled([
+        ownedSessionSql(
+          gatewayClientA,
+          `SELECT * FROM "finalize_reauthentication"($1, $2)`,
+          [logoutStage.intentId, logoutStage.newToken]
+        ),
+        signOutOwnedSession(applicationRuntime.client, logoutTarget.token).then(
+          (result) => ({ rows: [{ result }] })
+        )
+      ])
+      expect(logout.status).toBe('fulfilled')
+      if (logout.status === 'fulfilled') {
+        expect(logout.value.rows).toEqual([{ result: true }])
+      }
+      if (logoutFinalize.status === 'rejected') {
+        expect(['40001', '42501']).toContain(
+          (logoutFinalize.reason as { code?: unknown }).code
+        )
+      }
+      // #504 P7 PR4b-1 (fence option A): the old Session is gone either way. If
+      // finalize won, the replacement stays; the old token no longer reaches it.
+      expect(
+        (
+          await adminClient.query<{
+            activeCount: number
+            oldSessionCount: number
+          }>(
+            `SELECT
              (SELECT COUNT(*)::int FROM "Session" WHERE "id" = $2)
                AS "oldSessionCount",
              (SELECT COUNT(*)::int FROM "Session"
               WHERE "userId" = $1 AND "authorizationState" = 'ACTIVE')
                AS "activeCount"`,
-          [logoutTarget.userId, logoutTarget.sessionId]
-        )
-      ).rows
-    ).toEqual([
-      {
-        activeCount: logoutFinalize.status === 'fulfilled' ? 1 : 0,
-        oldSessionCount: 0
-      }
-    ])
+            [logoutTarget.userId, logoutTarget.sessionId]
+          )
+        ).rows
+      ).toEqual([
+        {
+          activeCount: logoutFinalize.status === 'fulfilled' ? 1 : 0,
+          oldSessionCount: 0
+        }
+      ])
 
-    const authorityTarget = await createFixture()
-    const authorityStage = await prepareAndStage(authorityTarget)
-    const operator = await createFixture()
-    const [authorityFinalize, authorityChange] = await Promise.allSettled([
-      ownedSessionSql(
-        gatewayClientA,
-        `SELECT * FROM "finalize_reauthentication"($1, $2)`,
-        [authorityStage.intentId, authorityStage.newToken]
-      ),
-      bridgedQuery(
-        gatewayClientB,
-        `SELECT "change_user_authority"(
+      const authorityTarget = await createFixture()
+      const authorityStage = await prepareAndStage(authorityTarget)
+      const operator = await createFixture()
+      const [authorityFinalize, authorityChange] = await Promise.allSettled([
+        ownedSessionSql(
+          gatewayClientA,
+          `SELECT * FROM "finalize_reauthentication"($1, $2)`,
+          [authorityStage.intentId, authorityStage.newToken]
+        ),
+        bridgedQuery(
+          gatewayClientB,
+          `SELECT "change_user_authority"(
           $1, $2, 1, 'USER', 'ACTIVE', 'TEST'
         ) AS generation`,
-        [operator.token, authorityTarget.userId]
-      )
-    ])
-    expect(authorityChange.status).toBe('fulfilled')
-    if (authorityChange.status === 'fulfilled') {
-      expect(authorityChange.value.rows).toEqual([{ generation: 2 }])
-    }
-    if (authorityFinalize.status === 'rejected') {
-      expect(['40001', '42501']).toContain(
-        (authorityFinalize.reason as { code?: unknown }).code
-      )
-    }
-    expect(
-      (
-        await adminClient.query<{
-          activeCount: number
-          generation: number
-          role: string
-        }>(
-          `SELECT target_user."authorityGeneration" AS generation,
+          [operator.token, authorityTarget.userId]
+        )
+      ])
+      expect(authorityChange.status).toBe('fulfilled')
+      if (authorityChange.status === 'fulfilled') {
+        expect(authorityChange.value.rows).toEqual([{ generation: 2 }])
+      }
+      if (authorityFinalize.status === 'rejected') {
+        expect(['40001', '42501']).toContain(
+          (authorityFinalize.reason as { code?: unknown }).code
+        )
+      }
+      expect(
+        (
+          await adminClient.query<{
+            activeCount: number
+            generation: number
+            role: string
+          }>(
+            `SELECT target_user."authorityGeneration" AS generation,
              target_user."role"::text AS role,
              (SELECT COUNT(*)::int FROM "Session"
               WHERE "userId" = target_user."id"
                 AND "authorizationState" = 'ACTIVE') AS "activeCount"
            FROM "User" AS target_user WHERE target_user."id" = $1`,
-          [authorityTarget.userId]
-        )
-      ).rows
-    ).toEqual([{ activeCount: 0, generation: 2, role: 'USER' }])
-  })
+            [authorityTarget.userId]
+          )
+        ).rows
+      ).toEqual([{ activeCount: 0, generation: 2, role: 'USER' }])
+    },
+    testTimeoutMs
+  )
 
-  it('staged child process를 SIGKILL한 뒤 새 startup maintenance가 orphan을 제거한다', async () => {
-    const fixture = await createFixture()
-    const staged = await spawnStagedCrashWorker(fixture)
-    let forceKillCount = 0
-    await stopOwnedProcesses(
-      [{ child: staged.child, label: 'test-reauthentication-crash-worker' }],
-      {
-        forceKillTimeoutMs: 1_000,
-        gracefulTimeoutMs: 50,
-        onForceKill: () => {
-          forceKillCount += 1
+  it(
+    'staged child process를 SIGKILL한 뒤 새 startup maintenance가 orphan을 제거한다',
+    async () => {
+      const fixture = await createFixture()
+      const staged = await spawnStagedCrashWorker(fixture)
+      let forceKillCount = 0
+      await stopOwnedProcesses(
+        [{ child: staged.child, label: 'test-reauthentication-crash-worker' }],
+        {
+          forceKillTimeoutMs: 1_000,
+          gracefulTimeoutMs: 50,
+          onForceKill: () => {
+            forceKillCount += 1
+          }
         }
-      }
-    )
-    expect(forceKillCount).toBe(1)
-    await adminClient.query(`SET session_replication_role = replica`)
-    try {
-      await adminClient.query(
-        `UPDATE "ReauthenticationIntent"
+      )
+      expect(forceKillCount).toBe(1)
+      await adminClient.query(`SET session_replication_role = replica`)
+      try {
+        await adminClient.query(
+          `UPDATE "ReauthenticationIntent"
          SET "createdAt" = clock_timestamp() - INTERVAL '4 minutes',
              "expiresAt" = clock_timestamp() - INTERVAL '1 minute'
          WHERE "id" = $1`,
-        [staged.intentId]
-      )
-    } finally {
-      await adminClient.query(`SET session_replication_role = origin`)
-    }
+          [staged.intentId]
+        )
+      } finally {
+        await adminClient.query(`SET session_replication_role = origin`)
+      }
 
-    await runStartupMaintenanceWorker()
-    expect(
-      (
-        await adminClient.query<{
-          intentCount: number
-          oldActiveCount: number
-          pendingCount: number
-        }>(
-          `SELECT
+      await runStartupMaintenanceWorker()
+      expect(
+        (
+          await adminClient.query<{
+            intentCount: number
+            oldActiveCount: number
+            pendingCount: number
+          }>(
+            `SELECT
              (SELECT COUNT(*)::int FROM "ReauthenticationIntent"
               WHERE "id" = $1) AS "intentCount",
              (SELECT COUNT(*)::int FROM "Session"
@@ -2169,9 +2227,11 @@ describe('SSO fresh and retired password boundary with real SQL invariants', () 
              (SELECT COUNT(*)::int FROM "Session"
               WHERE "id" = $3 AND "authorizationState" = 'ACTIVE')
                AS "oldActiveCount"`,
-          [staged.intentId, staged.newSessionId, fixture.sessionId]
-        )
-      ).rows
-    ).toEqual([{ intentCount: 0, oldActiveCount: 1, pendingCount: 0 }])
-  })
+            [staged.intentId, staged.newSessionId, fixture.sessionId]
+          )
+        ).rows
+      ).toEqual([{ intentCount: 0, oldActiveCount: 1, pendingCount: 0 }])
+    },
+    testTimeoutMs
+  )
 })
