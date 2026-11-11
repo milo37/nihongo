@@ -13,7 +13,7 @@ output "google_oauth_redirect_uri" {
 }
 
 output "ecr_repository_url" {
-  value = aws_ecr_repository.api.repository_url
+  value = local.ecr_repository_url
 }
 
 output "github_deploy_role_arn" {

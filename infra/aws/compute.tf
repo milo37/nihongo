@@ -62,7 +62,7 @@ data "aws_iam_policy_document" "host" {
     sid     = "EcrPull"
     actions = ["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer", "ecr:BatchCheckLayerAvailability"]
     # PRODUCTION adds its origin proxy image (aws_ecr_repository.caddy, #40).
-    resources = concat([aws_ecr_repository.api.arn], aws_ecr_repository.caddy[*].arn)
+    resources = concat([local.ecr_repository_arn], aws_ecr_repository.caddy[*].arn)
   }
 
   statement {
@@ -121,7 +121,7 @@ resource "aws_instance" "host" {
     compose_version = var.compose_version
     compose_sha256  = var.compose_sha256
     log_group       = aws_cloudwatch_log_group.api.name
-    ecr_repository  = aws_ecr_repository.api.repository_url
+    ecr_repository  = local.ecr_repository_url
     backup_bucket   = aws_s3_bucket.backup.bucket
     compose_yaml = base64encode(templatefile("${path.module}/files/compose.yaml.tftpl", {
       postgres_image   = var.postgres_image
