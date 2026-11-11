@@ -66,13 +66,34 @@ describe('Mock 계정 repository 소유 경계', () => {
     }
     repository.prepare(fresh)
     repository.complete(fresh, actor.id)
-    expect(repository.deleteAccount()).toEqual({
+    const accepted = repository.deleteAccount()
+    expect(accepted).toEqual({
       appStatus: 'DELETION_PENDING',
+      deletionScheduledAt: expect.any(String),
       providerCleanup: [{ provider: 'google', status: 'PENDING' }]
     })
+    // JLP-845: the first whole hour after 7 days.
+    const scheduled = Date.parse(accepted.deletionScheduledAt ?? '')
+    expect(scheduled - Date.now()).toBeGreaterThan(7 * 24 * 60 * 60 * 1000)
+    expect(new Date(scheduled).getUTCMinutes()).toBe(0)
     expect(current).toBeNull()
     expect(repository.deletion().appStatus).toBe('DELETION_PENDING')
     repository.newSession()
     expect(() => repository.deletion()).toThrow()
+    // A sign-in in the grace period offers restore once; decline keeps it.
+    expect(repository.erasurePending(actor.id)).toBe(true)
+    expect(() => repository.restoreState()).toThrow()
+    repository.offerRestore(actor.id)
+    expect(repository.restoreState()).toEqual({
+      deletionScheduledAt: accepted.deletionScheduledAt
+    })
+    expect(repository.decline()).toEqual({
+      declined: true,
+      deletionScheduledAt: accepted.deletionScheduledAt
+    })
+    expect(() => repository.restore()).toThrow()
+    repository.offerRestore(actor.id)
+    expect(repository.restore()).toBe(actor.id)
+    expect(repository.erasurePending(actor.id)).toBe(false)
   })
 })
