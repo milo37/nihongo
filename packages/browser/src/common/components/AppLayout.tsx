@@ -462,8 +462,9 @@ export const AppLayout = ({
       }
       mainProps={{
         ref: mainRef,
-        className:
-          'focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus-inset focus-visible:outline-brand',
+        // main is only where focus lands after a page move (screen readers
+        // start reading from here); it is not a control, so it draws no ring.
+        className: 'outline-none',
         id: 'main-content',
         tabIndex: -1
       }}

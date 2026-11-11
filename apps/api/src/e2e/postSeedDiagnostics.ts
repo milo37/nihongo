@@ -20,6 +20,7 @@ export interface PostSeedDiagnostic {
   readonly stage: `${PostSeedOperation}_${PostSeedState}`
   readonly file?: string
   readonly errorCode?: PostSeedErrorCode
+  readonly failedTests?: readonly string[]
 }
 
 export const getPostSeedErrorCode = (error: unknown): PostSeedErrorCode => {
@@ -28,6 +29,23 @@ export const getPostSeedErrorCode = (error: unknown): PostSeedErrorCode => {
   const code: unknown =
     descriptor && 'value' in descriptor ? descriptor.value : undefined
   return errorCodes.find((allowed) => allowed === code) ?? 'UNKNOWN_REDACTED'
+}
+
+/** Names of the failed tests of a FILE failure, never the failure text. */
+export const getPostSeedFailedTests = (
+  error: unknown
+): readonly string[] | undefined => {
+  if (error === null || typeof error !== 'object') return undefined
+  const descriptor = Object.getOwnPropertyDescriptor(error, 'failedTests')
+  const names: unknown =
+    descriptor && 'value' in descriptor ? descriptor.value : undefined
+  if (
+    !Array.isArray(names) ||
+    names.length === 0 ||
+    !names.every((name) => typeof name === 'string')
+  )
+    return undefined
+  return names.slice(0, 20).map((name: string) => name.slice(0, 300))
 }
 
 export const runPostSeedDiagnostic = async <T>(
@@ -43,10 +61,15 @@ export const runPostSeedDiagnostic = async <T>(
       ? file
       : undefined
   const emit = (state: PostSeedState, error?: unknown): void => {
+    const failedTests =
+      state === 'FAILED' && approvedFile !== undefined
+        ? getPostSeedFailedTests(error)
+        : undefined
     report({
       stage: `${operation}_${state}`,
       ...(approvedFile === undefined ? {} : { file: approvedFile }),
-      ...(state === 'FAILED' ? { errorCode: getPostSeedErrorCode(error) } : {})
+      ...(state === 'FAILED' ? { errorCode: getPostSeedErrorCode(error) } : {}),
+      ...(failedTests === undefined ? {} : { failedTests })
     })
   }
   emit('BEGIN')
