@@ -1025,7 +1025,7 @@ export const koCoreResources = {
       hint: "홈의 '오늘의 한 문제'와 연습을 이 급수로 시작해요.",
       unset: '정하지 않음',
       saveAction: '저장',
-      saved: '목표 급수를 {{level}}로 바꿨어요',
+      saved: '목표 급수를 바꿨어요. 이제 {{level}} 문제로 시작해요.',
       error: '저장하지 못했어요. 잠시 뒤 다시 저장해 주세요.'
     },
     title: '마이페이지',

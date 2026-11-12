@@ -218,9 +218,13 @@ describe('마이페이지 계정 설정', () => {
       expect(select).toBeEnabled()
       expect(save).toBeDisabled()
       // JLP-861: the result is a toast, read out by the toast live region.
-      expect(await screen.findByText('목표 급수를 N3로 바꿨어요')).toBeVisible()
+      expect(
+        await screen.findByText(
+          '목표 급수를 바꿨어요. 이제 N3 문제로 시작해요.'
+        )
+      ).toBeVisible()
       expect(document.getElementById(TOAST_ANNOUNCER_ID)).toHaveTextContent(
-        '목표 급수를 N3로 바꿨어요'
+        '목표 급수를 바꿨어요. 이제 N3 문제로 시작해요.'
       )
       expect(
         screen.getByText("홈의 '오늘의 한 문제'와 연습을 이 급수로 시작해요.")

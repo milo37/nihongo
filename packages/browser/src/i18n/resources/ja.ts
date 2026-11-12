@@ -1080,7 +1080,7 @@ export const jaCoreResources = {
       hint: 'ホームの「今日の1問」と練習を、このレベルから始めます。',
       unset: '未設定',
       saveAction: '保存',
-      saved: '目標レベルを{{level}}に変更しました',
+      saved: '目標レベルを{{level}}に変更しました。',
       error: '保存できませんでした。少し待ってからもう一度保存してください。'
     },
     title: 'マイページ',
