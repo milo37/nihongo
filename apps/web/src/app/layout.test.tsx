@@ -207,6 +207,18 @@ it('leaves ordinary sessions with page-owned focus header and main skip target',
   expect(screen.getByRole('main')).toHaveAttribute('tabindex', '-1')
 })
 
+it('hides the bottom tabs in a wrong-note retry session (JLP-854)', () => {
+  mocks.review = true
+  render(
+    <MemoryRouter initialEntries={['/practice/session/session']}>
+      <Layout />
+    </MemoryRouter>
+  )
+  // The tabs would cover the fixed submit bar under 1024px.
+  expect(document.querySelector('#mobile-navigation')).toBeNull()
+  expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
+})
+
 it('keeps review session/result navigation in review context', () => {
   mocks.review = true
   render(
