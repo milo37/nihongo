@@ -2,10 +2,11 @@ import { useTranslation } from 'react-i18next'
 import { AppLink as Link } from './AppLink'
 import type { ReactElement } from 'react'
 
+// JLP-850: same names and order as the top tabs of the three pages.
 const informationLinks = [
   { to: '/legal', key: 'guidance' },
-  { to: '/support', key: 'help' },
-  { to: '/account/data', key: 'account' }
+  { to: '/account/data', key: 'account' },
+  { to: '/support', key: 'help' }
 ] as const
 
 type InformationFooterProps = {

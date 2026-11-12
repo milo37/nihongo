@@ -91,9 +91,9 @@ export const jaCoreResources = {
     },
     footer: {
       groups: {
-        guidance: 'ご案内',
-        help: 'ヘルプ',
-        account: 'アカウント'
+        guidance: '利用案内',
+        help: '報告・お問い合わせ',
+        account: 'アカウント・データ'
       },
       informationLabel: '하루마루について'
     }
@@ -1077,9 +1077,10 @@ export const jaCoreResources = {
   account: {
     targetLevel: {
       label: '目標レベル',
-      hint: '練習はこのレベルから始まります。',
+      hint: 'ホームの「今日の1問」と練習を、このレベルから始めます。',
       unset: '未設定',
-      saved: '目標レベルを変更しました。',
+      saved:
+        '目標レベルを変更しました。これからホームと練習は{{level}}の問題から始まります。',
       error: '保存できませんでした。少し待ってからもう一度選んでください。'
     },
     title: 'マイページ',
@@ -1126,8 +1127,7 @@ export const jaCoreResources = {
     data: {
       description:
         'ログアウトすると、この端末からだけ出ます。退会すると、アカウントと学習記録が消えます。',
-      privacyLink: 'プライバシーポリシーを見る',
-      manageLink: 'マイページへ'
+      privacyLink: 'プライバシーポリシーを見る'
     }
   },
   errors: {

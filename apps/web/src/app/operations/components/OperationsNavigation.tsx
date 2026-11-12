@@ -2,10 +2,10 @@ import { Link } from 'react-router'
 import type { TFunction } from 'i18next'
 import type { ReactElement } from 'react'
 import { operationsNavigationLinks } from '@app/operations/operationsContent'
-import type { OperationsInformationPageKind } from '@app/operations/operationsContent'
+import type { OperationsNavigationKey } from '@app/operations/operationsContent'
 
 type OperationsNavigationProps = {
-  page: OperationsInformationPageKind
+  page: OperationsNavigationKey
   translate: TFunction<'operations'>
 }
 

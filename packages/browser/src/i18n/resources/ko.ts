@@ -74,9 +74,9 @@ export const koCoreResources = {
     },
     footer: {
       groups: {
-        guidance: '안내',
-        help: '도움말',
-        account: '계정'
+        guidance: '이용 안내',
+        help: '신고·문의',
+        account: '계정·데이터'
       },
       informationLabel: '하루마루 안내'
     }
@@ -1022,9 +1022,10 @@ export const koCoreResources = {
   account: {
     targetLevel: {
       label: '목표 급수',
-      hint: '연습을 시작할 때 이 급수로 시작해요.',
+      hint: "홈의 '오늘의 한 문제'와 연습을 이 급수로 시작해요.",
       unset: '정하지 않음',
-      saved: '목표 급수를 바꿨어요.',
+      saved:
+        '목표 급수를 바꿨어요. 이제 홈과 연습이 {{level}} 문제로 시작해요.',
       error: '저장하지 못했어요. 잠시 뒤 다시 골라 주세요.'
     },
     title: '마이페이지',
@@ -1070,8 +1071,7 @@ export const koCoreResources = {
     data: {
       description:
         '로그아웃하면 이 기기에서만 나가요. 회원 탈퇴를 하면 계정과 학습 기록이 지워져요.',
-      privacyLink: '개인정보 처리방침 보기',
-      manageLink: '마이페이지로'
+      privacyLink: '개인정보 처리방침 보기'
     }
   },
   errors: {

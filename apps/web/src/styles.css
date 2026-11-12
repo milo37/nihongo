@@ -92,6 +92,10 @@
 }
 .operations-navigation ul {
   gap: 0 24px;
+  /* JLP-850: one row of tabs; a narrow screen scrolls it sideways. */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  white-space: nowrap;
 }
 .operations-navigation a {
   display: flex;
@@ -102,7 +106,6 @@
   color: rgb(var(--color-muted));
   font-size: 0.875rem;
   text-decoration: none;
-  overflow-wrap: anywhere;
 }
 .operations-navigation a[aria-current='page'] {
   color: rgb(var(--color-ink));
@@ -119,6 +122,10 @@
 .operations-table-of-contents a:focus-visible {
   outline: var(--focus-width) solid rgb(var(--focus-color));
   outline-offset: var(--focus-offset);
+}
+/* The tab row scrolls, so its ring sits inside each tab to stay unclipped. */
+.operations-navigation a:focus-visible {
+  outline-offset: calc(var(--focus-width) * -1);
 }
 .operations-heading {
   margin-bottom: 28px;
@@ -354,6 +361,26 @@ section.practice-guest-limit,
 .locale-menu-item:focus-visible {
   outline: var(--focus-width) solid rgb(var(--focus-color));
   outline-offset: calc(var(--focus-width) * -1);
+}
+/* JLP-849: a tap or click focuses the menu box; it shows no ring. */
+.locale-menu-panel:focus,
+.locale-menu-panel:focus-visible,
+.account-menu-panel [role='menu']:focus,
+.account-menu-panel [role='menu']:focus-visible {
+  outline: none;
+}
+/* Account menu rows match the language menu: the keyboard ring sits inside
+   the row so the panel edge never clips it. */
+.account-menu-panel .account-menu-item:hover {
+  background: rgb(var(--color-hover-surface));
+}
+.account-menu-panel .account-menu-item:focus-visible {
+  outline: var(--focus-width) solid rgb(var(--focus-color));
+  outline-offset: calc(var(--focus-width) * -1);
+  background: rgb(var(--color-hover-surface));
+}
+.account-menu-panel .account-menu-item:active {
+  background: rgb(var(--color-line));
 }
 .locale-menu-check {
   display: grid;

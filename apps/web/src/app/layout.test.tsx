@@ -80,7 +80,7 @@ it.each(['ko', 'ja'] as const)(
       name: appI18n.t('navigation:login')
     })
     expect(login).toHaveAttribute('href', '/login')
-    expect(login).toHaveFocus()
+    expect(menu).toHaveFocus()
     expect(within(menu).getAllByRole('menuitem')).toHaveLength(1)
     // Language moved out of the account menu to its own top bar button.
     expect(within(menu).queryByRole('menuitemradio')).not.toBeInTheDocument()
@@ -139,6 +139,9 @@ it.each(['ko', 'ja'] as const)(
     expect(account).toHaveTextContent('하루')
     await userEvent.click(account)
     const menu = screen.getByRole('menu')
+    // JLP-849: a click focuses the menu box; only the keyboard opens on an item.
+    expect(menu).toHaveFocus()
+    expect(menu).toHaveClass('gap-1')
     expect(
       within(menu)
         .getAllByRole('menuitem')
@@ -172,6 +175,21 @@ it.each(['ko', 'ja'] as const)(
     ).toHaveFocus()
     await userEvent.click(document.body)
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    account.focus()
+    await userEvent.keyboard('{Enter}')
+    expect(
+      within(screen.getByRole('menu')).getByRole('menuitem', {
+        name: appI18n.t('navigation:accountMenu.myPage')
+      })
+    ).toHaveFocus()
+    await userEvent.keyboard('{Escape}')
+    await userEvent.click(account)
+    await userEvent.keyboard('{ArrowUp}')
+    expect(
+      within(screen.getByRole('menu')).getByRole('menuitem', {
+        name: appI18n.t('auth:sso.logoutAction')
+      })
+    ).toHaveFocus()
   }
 )
 
@@ -263,4 +281,25 @@ it('adds no header status wrapper when the app has none', () => {
     </MemoryRouter>
   )
   expect(document.querySelector('.app-shell-header-status')).toBeNull()
+})
+
+// JLP-850: the account data guide is one of the three information pages,
+// so the bottom tab 'My' lights only on My itself.
+it.each([
+  ['/account', true],
+  ['/account/data', false],
+  ['/legal', false]
+])('lights the My tab on %s: %s', (path, active) => {
+  mocks.role = 'USER'
+  mocks.user = { id: 'user-1', name: '하루', role: 'USER' }
+  render(
+    <MemoryRouter initialEntries={[path]}>
+      <Layout />
+    </MemoryRouter>
+  )
+  const my = within(
+    document.getElementById('mobile-navigation') as HTMLElement
+  ).getByRole('link', { name: appI18n.t('navigation:my') })
+  if (active) expect(my).toHaveAttribute('aria-current', 'page')
+  else expect(my).not.toHaveAttribute('aria-current')
 })

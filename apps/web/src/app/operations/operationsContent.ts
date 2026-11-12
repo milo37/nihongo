@@ -31,3 +31,6 @@ export const operationsNavigationLinks = [
   { to: '/account/data', key: 'account' },
   { to: operationsPages.support.path, key: 'support' }
 ] as const
+
+export type OperationsNavigationKey =
+  (typeof operationsNavigationLinks)[number]['key']
