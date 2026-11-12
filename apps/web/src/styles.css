@@ -363,3 +363,10 @@ section.practice-guest-limit,
   height: 20px;
   color: rgb(var(--color-brand));
 }
+
+/* JLP-845 restore offer: no session yet, so the only ways on are its two
+   buttons and the logo (the bottom tabs and the login button go). */
+.app-shell:has(.auth-restore)
+  :is(#primary-navigation, #mobile-navigation, .account-menu) {
+  display: none;
+}

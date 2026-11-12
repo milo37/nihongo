@@ -27,6 +27,7 @@ export type AccountIntent =
 export type AccountDialog = AccountIntent & { step: 'verify' | 'confirm' }
 export type AccountFeedback =
   | 'actionFailed'
+  | 'lastAdminDeletionBlocked'
   | 'lastMethodTitle'
   | 'openAdminWork'
   | 'reauthCancelled'
@@ -37,6 +38,7 @@ export type AccountFeedback =
 /** The `auth` text key for each account feedback. */
 export const ACCOUNT_FEEDBACK_KEY: Record<AccountFeedback, string> = {
   actionFailed: 'sso.actionFailed',
+  lastAdminDeletionBlocked: 'sso.lastAdminDeletionBlocked',
   lastMethodTitle: 'sso.lastMethodTitle',
   openAdminWork: 'sso.openAdminWork',
   reauthCancelled: 'reauth.account.cancelled',
@@ -183,7 +185,9 @@ export const useSsoAccountManagement = () => {
             ? 'lastMethodTitle'
             : error.code === 'SSO_ACCOUNT_DELETION_BLOCKED'
               ? 'openAdminWork'
-              : 'actionFailed'
+              : error.code === 'SSO_LAST_ADMIN_DELETION_BLOCKED'
+                ? 'lastAdminDeletionBlocked'
+                : 'actionFailed'
       )
       void capabilities.refetch()
       return

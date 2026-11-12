@@ -69,12 +69,15 @@ const isAllowedOperation = (method: string, pathname: string): boolean =>
       pathname === '/api/auth/sign-in/social' ||
       pathname === '/api/auth/callback/apple' ||
       pathname === SSO_ACCOUNT_PATHS.unlink ||
-      pathname === SSO_ACCOUNT_PATHS.deletion)) ||
+      pathname === SSO_ACCOUNT_PATHS.deletion ||
+      pathname === SSO_ACCOUNT_PATHS.restore ||
+      pathname === SSO_ACCOUNT_PATHS.restoreDecline)) ||
   (method === 'GET' &&
     (pathname === '/api/auth/callback/google' ||
       pathname === '/api/auth/sso/admin-fresh/complete' ||
       pathname === SSO_ACCOUNT_PATHS.capabilities ||
       pathname === SSO_ACCOUNT_PATHS.status ||
+      pathname === SSO_ACCOUNT_PATHS.restore ||
       pathname === SSO_ACCOUNT_PATHS.freshComplete ||
       pathname === SSO_ACCOUNT_PATHS.linkComplete))
 

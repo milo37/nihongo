@@ -12,6 +12,7 @@ type OperationalLogEvent =
   | 'auth.email.delivery_failed'
   | 'auth.reauthentication.maintenance_failed'
   | 'auth.account_erasure.requested'
+  | 'auth.account_erasure.cancelled'
 
 interface LogContext {
   readonly [key: string]: unknown
@@ -98,6 +99,11 @@ const contextSchemaByEvent = {
     .strict(),
   // #669: the only User id in the logs, so a restore can re-apply erasures.
   'auth.account_erasure.requested': z
+    .object({ userId: z.uuid(), occurredAt: z.iso.datetime() })
+    .strict(),
+  // JLP-845: the member restored the account; re-apply after a restore skips
+  // a User whose latest event is this one.
+  'auth.account_erasure.cancelled': z
     .object({ userId: z.uuid(), occurredAt: z.iso.datetime() })
     .strict()
 } as const
