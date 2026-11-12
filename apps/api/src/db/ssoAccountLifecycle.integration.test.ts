@@ -830,6 +830,118 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       )
     }
   })
+  it('JLP-852: a year without sign-in requests the erasure, then erases after 7 days', async () => {
+    await h.rollback(async () => {
+      // Other files may leave ADMINs behind; this transaction rolls back.
+      await h.fixtureMutation(
+        `UPDATE "User" SET "role" = 'USER'
+         WHERE "role" = 'ADMIN' AND "accountStatus" = 'ACTIVE'`
+      )
+      const worker = createSsoAccountErasureWorker(h.appClient)
+      const inactive = await h.fixture('google', 'USER')
+      const recent = await h.fixture('google', 'USER')
+      const admin = await h.fixture('google', 'ADMIN')
+      await h.learningFixture(inactive.userId)
+      // Session issuance stamps the sign-in time.
+      expect(
+        (
+          await h.owner.query<{ fresh: boolean }>(
+            `SELECT count(*) = 3
+               AND bool_and("lastLoginAt" > clock_timestamp() - interval '1 minute') AS fresh
+             FROM "UserSignIn" WHERE "userId" = ANY($1::uuid[])`,
+            [[inactive.userId, recent.userId, admin.userId]]
+          )
+        ).rows[0]?.fresh
+      ).toBe(true)
+      const signedInAgo = async (userId: string, age: string) =>
+        h.owner.query(
+          `UPDATE "UserSignIn" SET "lastLoginAt" = clock_timestamp() - $2::interval
+           WHERE "userId" = $1`,
+          [userId, age]
+        )
+      await signedInAgo(inactive.userId, '1 year 1 day')
+      await signedInAgo(recent.userId, '364 days')
+      await signedInAgo(admin.userId, '2 years')
+      // A member without a sign-in row counts from the User creation time.
+      const unstamped = await h.fixture('google', 'USER')
+      await h.owner.query('DELETE FROM "UserSignIn" WHERE "userId" = $1', [
+        unstamped.userId
+      ])
+      // The last ACTIVE ADMIN is skipped, like a member's own request.
+      expect(await worker.requestInactive(100, 'TEST')).toEqual({
+        requestedUserIds: [inactive.userId],
+        failedUserIds: [],
+        limitReached: false
+      })
+      const state = async () =>
+        (
+          await h.owner.query<{
+            id: string
+            status: string
+            requests: number
+            sessions: number
+          }>(
+            `SELECT u.id, u."accountStatus"::text AS status,
+               (SELECT count(*)::int FROM "SsoAccountErasureRequest" r
+                WHERE r."userId" = u.id AND r."appStatus" = 'DELETION_PENDING') AS requests,
+               (SELECT count(*)::int FROM "Session" s WHERE s."userId" = u.id) AS sessions
+             FROM "User" u WHERE u.id = ANY($1::uuid[]) ORDER BY u.id`,
+            [[inactive.userId, recent.userId, admin.userId]]
+          )
+        ).rows
+      expect(await state()).toEqual(
+        [
+          {
+            id: inactive.userId,
+            status: 'DELETION_PENDING',
+            requests: 1,
+            sessions: 0
+          },
+          { id: recent.userId, status: 'ACTIVE', requests: 0, sessions: 1 },
+          { id: admin.userId, status: 'ACTIVE', requests: 0, sessions: 1 }
+        ].toSorted((a, b) => (a.id < b.id ? -1 : 1))
+      )
+      // The 7-day grace of a member's own request applies: a sign-in restores.
+      expect(
+        await findRestorableErasure(h.appClient, 'google', inactive.subject)
+      ).toMatchObject({
+        userId: inactive.userId,
+        deletionScheduledAt: scheduledAt
+      })
+      // Another ADMIN lifts the last-admin rule; a second run finds no one else.
+      await h.fixture('google', 'ADMIN')
+      expect(
+        (await worker.requestInactive(100, 'TEST')).requestedUserIds
+      ).toEqual([admin.userId])
+      expect(
+        (await worker.requestInactive(100, 'TEST')).requestedUserIds
+      ).toEqual([])
+      // After the grace period the hourly run erases the member and learning.
+      await h.owner.query(
+        `UPDATE "SsoAccountErasureRequest"
+         SET "createdAt" = "createdAt" - interval '8 days'
+         WHERE "userId" = $1`,
+        [inactive.userId]
+      )
+      await runSsoProviderRevokeBatch(
+        worker,
+        tokenlessSsoProviderRevokeAdapter,
+        'TEST',
+        100,
+        300
+      )
+      await runSsoAccountErasureBatch(worker, 'TEST', 100)
+      expect(
+        (
+          await h.owner.query(
+            'SELECT (SELECT count(*)::int FROM "User" WHERE id=$1) AS users,(SELECT count(*)::int FROM "StudySession" WHERE "userId"=$1) AS sessions,(SELECT count(*)::int FROM "WrongNote" WHERE "userId"=$1) AS notes,(SELECT count(*)::int FROM "UserSignIn" WHERE "userId"=$1) AS "signIns"',
+            [inactive.userId]
+          )
+        ).rows
+      ).toEqual([{ users: 0, sessions: 0, notes: 0, signIns: 0 }])
+      await h.owner.query('SET CONSTRAINTS ALL IMMEDIATE')
+    })
+  })
   it('JLP-845: a request waits 7 days, and a restore cancels it and keeps learning', async () => {
     await h.rollback(async () => {
       const worker = createSsoAccountErasureWorker(h.appClient)

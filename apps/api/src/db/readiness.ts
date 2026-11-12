@@ -46,13 +46,20 @@ export const loadExpectedMigrationManifest = (
   return migrations
 }
 
+const compareMigrationNames = (left: string, right: string): number =>
+  left.localeCompare(right)
+
+/**
+ * The database must hold every repository migration, in the same order with
+ * the same checksum. JLP-857: it may also hold newer migrations after them, so
+ * the previous image still becomes ready after deploy.sh rolls the image back
+ * and keeps the migration a release applied. A missing, reordered, renamed or
+ * changed migration still fails closed.
+ */
 export const assertMigrationCompatibility = (
   expected: readonly ExpectedMigration[],
   applied: readonly AppliedMigration[]
 ): void => {
-  const expectedByName = new Map(
-    expected.map((migration) => [migration.name, migration])
-  )
   const activeByName = new Map<string, AppliedMigration[]>()
 
   for (const migration of applied) {
@@ -74,17 +81,32 @@ export const assertMigrationCompatibility = (
     activeByName.set(migration.migrationName, active)
   }
 
-  if (activeByName.size !== expectedByName.size) {
+  if (activeByName.size < expected.length) {
     throw new Error('Database migration count does not match the repository.')
   }
 
-  for (const [name, expectedMigration] of expectedByName) {
+  const activeNames = [...activeByName.keys()].toSorted(compareMigrationNames)
+  const expectedNames = expected
+    .map(({ name }) => name)
+    .toSorted(compareMigrationNames)
+
+  expectedNames.forEach((name, index) => {
     const active = activeByName.get(name)
+    const expectedMigration = expected.find(
+      (migration) => migration.name === name
+    )
 
     if (
+      activeNames[index] !== name ||
       active?.length !== 1 ||
-      active[0]?.checksum !== expectedMigration.checksum
+      active[0]?.checksum !== expectedMigration?.checksum
     ) {
+      throw new Error('Database migration state is not compatible.')
+    }
+  })
+
+  for (const name of activeNames.slice(expectedNames.length)) {
+    if (activeByName.get(name)?.length !== 1) {
       throw new Error('Database migration state is not compatible.')
     }
   }
