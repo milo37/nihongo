@@ -283,6 +283,9 @@ describe('마이페이지 내 학습', () => {
       screen.getByRole('combobox', { name: '목표 급수' }),
       'N3'
     )
+    // JLP-861: picking alone keeps the N2 title; saving changes it.
+    expect(screen.getByRole('region', { name: 'N2 학습' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: '저장' }))
     const section = await screen.findByRole('region', { name: 'N3 학습' })
     expect(
       await within(section).findByText('아직 N3 문제를 풀지 않았어요')

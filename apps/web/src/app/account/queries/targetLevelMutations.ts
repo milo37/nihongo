@@ -7,6 +7,9 @@ export const targetLevelMutations = {
     mutationOptions({
       mutationKey: ['target-level', 'update'] as const,
       retry: false,
+      // JLP-861: the select's own error line is the only failure message;
+      // auth failures still reach the shared handler.
+      meta: { localErrorUi: true },
       mutationFn: (input: UpdateTargetLevelBody) => updateTargetLevel(input)
     })
 }

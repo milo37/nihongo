@@ -1079,9 +1079,9 @@ export const jaCoreResources = {
       label: '目標レベル',
       hint: 'ホームの「今日の1問」と練習を、このレベルから始めます。',
       unset: '未設定',
-      saved:
-        '目標レベルを変更しました。これからホームと練習は{{level}}の問題から始まります。',
-      error: '保存できませんでした。少し待ってからもう一度選んでください。'
+      saveAction: '保存',
+      saved: '目標レベルを{{level}}に変更しました。',
+      error: '保存できませんでした。少し待ってからもう一度保存してください。'
     },
     title: 'マイページ',
     study: {
@@ -1109,7 +1109,6 @@ export const jaCoreResources = {
     settings: {
       title: 'アカウント',
       signInMethod: 'ログイン方法',
-      connected: 'ログイン中',
       logoutDescription:
         'この端末からログアウトします。学習記録はそのまま残ります。'
     },
