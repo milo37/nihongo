@@ -5,6 +5,8 @@ import { Icon } from '@nihongo/browser/common/components/Icon'
 import { RadioGroup } from '@nihongo/browser/common/components/RadioGroup'
 import type { StudyQuestionView } from '@app/practice/adapters/studySessionView'
 import { usePracticeNumberFormat } from '@app/practice/hooks/usePracticeNumberFormat'
+import { passageParagraphs } from '@app/practice/session/passageParagraphs'
+import { SheetTail } from '@common/components/manuscript/ManuscriptSheet'
 import { jaTextProps } from '@common/libs/jaSpacing'
 
 type PracticeQuestionCardProps = {
@@ -24,7 +26,11 @@ type PracticeQuestionCardProps = {
 const OPTION_GROUP_CLASS =
   'study-answer-options [&_legend]:sr-only [&_input]:absolute! [&_input]:opacity-0! [&_label]:items-center'
 
-/** Passage card: as tall as its text; sticky beside the question on wide screens. */
+/**
+ * Passage: as tall as its text; sticky beside the question on wide screens.
+ * JLP-865 r2: no box, so it shares the question's left line; one head row
+ * (the tail mark is the only red) and one block per source line.
+ */
 const QuestionPassage = ({
   passage,
   passageRef
@@ -37,18 +43,34 @@ const QuestionPassage = ({
     <article
       ref={passageRef}
       aria-label={t('session.question.passageLabel')}
-      className="scroll-mt-4 rounded-card border border-line bg-surface px-5 py-[22px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand lg:sticky lg:top-6 lg:max-h-[calc(100vh-140px)] lg:overflow-y-auto lg:px-9 lg:py-8"
+      className="scroll-mt-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand lg:sticky lg:top-6 lg:max-h-[calc(100vh-140px)] lg:overflow-y-auto"
       tabIndex={0}
     >
-      <p className="mb-3 text-[13px] font-bold text-muted">
+      <p className="study-passage-head">
+        <SheetTail side="left" />
         {t('session.question.passageLabel')}
       </p>
-      <p
-        className="whitespace-pre-line text-[17px] leading-[1.9] lg:text-[18px] tracking-[0.02em] text-ink"
+      <div
+        className="study-passage-text tracking-[0.02em] text-ink"
         {...jaTextProps(passage)}
       >
-        {passage}
-      </p>
+        {passageParagraphs(passage).map((paragraph, index) => (
+          <p
+            key={`${index}-${paragraph.text}`}
+            data-indent={paragraph.indent || undefined}
+          >
+            {paragraph.segments.map((segment, part) =>
+              part % 2 === 1 ? (
+                <span key={part} className="whitespace-nowrap">
+                  {segment}
+                </span>
+              ) : (
+                segment
+              )
+            )}
+          </p>
+        ))}
+      </div>
     </article>
   )
 }
