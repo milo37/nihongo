@@ -380,3 +380,10 @@ test('rejects another principal with identical operation cardinality without exp
     }
   )
 })
+
+test('accepts sign-in rows without an exact count (JLP-852)', () => {
+  const { after, before } = createSnapshots()
+  after.tables.UserSignIn.count += 2
+  after.tables.UserSignIn.fingerprint = 'f'.repeat(64)
+  assert.doesNotThrow(() => assertAccessibilitySnapshotContract(before, after))
+})

@@ -19,6 +19,7 @@ import type { SsoTransaction, SsoVerifiedIdentity } from './ssoProtocol.js'
 import {
   completeSsoAccountErasure,
   listSsoAccountErasures,
+  requestInactiveAccountErasures,
   requestSsoAccountErasure,
   restoreSsoAccount,
   ssoAccountErasureStatus,
@@ -296,6 +297,16 @@ export const createSsoAccountErasureWorker = (
     if (result === undefined) throw new Error('SSO erasure queue unavailable.')
     return erasureQueueSchema.parse(result)
   },
+  // JLP-852: members past a year without sign-in join the erasure queue.
+  requestInactive: async (
+    batchSize: number,
+    environment: SsoAccountErasureEnvironment
+  ) =>
+    requestInactiveAccountErasures(
+      client,
+      z.number().int().min(1).max(100).parse(batchSize),
+      ssoAccountErasureEnvironmentSchema.parse(environment)
+    ),
   claimProviderCleanups: async (
     batchSize: number,
     leaseSeconds: number,
