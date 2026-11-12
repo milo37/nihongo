@@ -7,9 +7,16 @@ const database = vi.hoisted(() => ({
 }))
 const erasure = vi.hoisted(() => ({
   createWorker: vi.fn(),
+  requestInactive: vi.fn(),
   runBatch: vi.fn(),
   runRevoke: vi.fn()
 }))
+const worker = { requestInactive: erasure.requestInactive }
+const noInactiveWork = {
+  requestedUserIds: [],
+  failedUserIds: [],
+  limitReached: false
+}
 const noProviderWork = {
   revoked: 0,
   notHeld: 0,
@@ -76,7 +83,8 @@ beforeEach(() => {
     client: {},
     disconnect: database.disconnect
   })
-  erasure.createWorker.mockReturnValue({})
+  erasure.createWorker.mockReturnValue(worker)
+  erasure.requestInactive.mockResolvedValue(noInactiveWork)
   erasure.runRevoke.mockResolvedValue(noProviderWork)
   stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true)
   stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
@@ -161,13 +169,13 @@ describe('SSO account erasure one-shot command', () => {
       runSsoAccountErasureCommand(input('PRODUCTION'))
     ).resolves.toBe(0)
     expect(erasure.runRevoke).toHaveBeenCalledWith(
-      {},
+      worker,
       tokenlessSsoProviderRevokeAdapter,
       'PRODUCTION',
       20,
       300
     )
-    expect(erasure.runBatch).toHaveBeenCalledWith({}, 'PRODUCTION', 20)
+    expect(erasure.runBatch).toHaveBeenCalledWith(worker, 'PRODUCTION', 20)
     expect(stderr).not.toHaveBeenCalled()
   })
 
@@ -184,7 +192,7 @@ describe('SSO account erasure one-shot command', () => {
         DEPLOYMENT_ENVIRONMENT: 'STAGING'
       })
     ).resolves.toBe(0)
-    expect(erasure.runBatch).toHaveBeenCalledWith({}, 'PRODUCTION', 20)
+    expect(erasure.runBatch).toHaveBeenCalledWith(worker, 'PRODUCTION', 20)
   })
 
   it('passes PRODUCTION and the injected adapter to the worker and returns zero only with no unfinished request', async () => {
@@ -203,13 +211,13 @@ describe('SSO account erasure one-shot command', () => {
       'nihongo_app'
     )
     expect(erasure.runRevoke).toHaveBeenCalledWith(
-      {},
+      worker,
       revoke,
       'PRODUCTION',
       20,
       300
     )
-    expect(erasure.runBatch).toHaveBeenCalledWith({}, 'PRODUCTION', 20)
+    expect(erasure.runBatch).toHaveBeenCalledWith(worker, 'PRODUCTION', 20)
     expect(database.disconnect).toHaveBeenCalledOnce()
     expect(stderr).not.toHaveBeenCalled()
   })
@@ -259,6 +267,59 @@ describe('SSO account erasure one-shot command', () => {
     })
     await expect(runSsoAccountErasureCommand(input())).resolves.toBe(1)
     expect(stdout).toHaveBeenCalledOnce()
+  })
+
+  it('JLP-852: requests the erasure of inactive members first and logs each one', async () => {
+    const other = '22222222-2222-4222-8222-222222222222'
+    erasure.requestInactive.mockResolvedValueOnce({
+      requestedUserIds: [id, other],
+      failedUserIds: [],
+      limitReached: false
+    })
+    erasure.runBatch.mockResolvedValueOnce({
+      completedIds: [],
+      providerCleanupPendingIds: [],
+      failedIds: [],
+      batchLimitReached: false
+    })
+    await expect(runSsoAccountErasureCommand(input())).resolves.toBe(0)
+    expect(erasure.requestInactive).toHaveBeenCalledWith(20, 'TEST')
+    expect(erasure.requestInactive.mock.invocationCallOrder[0]).toBeLessThan(
+      erasure.runRevoke.mock.invocationCallOrder[0]!
+    )
+    const lines = stdout.mock.calls.map(([line]) => JSON.parse(String(line)))
+    expect(lines).toEqual([
+      {
+        event: 'auth.account_erasure.requested',
+        userId: id,
+        occurredAt: expect.any(String),
+        reason: 'INACTIVE'
+      },
+      {
+        event: 'auth.account_erasure.requested',
+        userId: other,
+        occurredAt: expect.any(String),
+        reason: 'INACTIVE'
+      },
+      expect.objectContaining({
+        event: 'auth.account_erasure.ran',
+        inactive: { requested: 2, failed: 0, limitReached: false }
+      })
+    ])
+  })
+
+  it.each([
+    { ...noInactiveWork, failedUserIds: [id] },
+    { ...noInactiveWork, limitReached: true }
+  ])('JLP-852: returns one for unfinished inactive work', async (inactive) => {
+    erasure.requestInactive.mockResolvedValueOnce(inactive)
+    erasure.runBatch.mockResolvedValueOnce({
+      completedIds: [],
+      providerCleanupPendingIds: [],
+      failedIds: [],
+      batchLimitReached: false
+    })
+    await expect(runSsoAccountErasureCommand(input())).resolves.toBe(1)
   })
 
   it('fails closed without exposing connection details', async () => {

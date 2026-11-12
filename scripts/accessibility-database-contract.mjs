@@ -49,6 +49,7 @@ export const accessibilityDatabaseTables = [
   'UserAccountRestrictionEvent',
   'UserMemo',
   'UserReport',
+  'UserSignIn',
   'Verification',
   'WrongNote',
   '_prisma_migrations'
@@ -96,13 +97,19 @@ export const accessibilityExpectedTableDeltas = {
   UserAccountRestrictionEvent: 0,
   UserMemo: 0,
   UserReport: 1,
+  // JLP-852: a sign-in adds the member's row once and later only updates it,
+  // so the delta depends on which fixture members signed in before.
+  UserSignIn: 0,
   Verification: 0,
   WrongNote: 10,
   _prisma_migrations: 0
 }
 
 /** Append-only tables whose delta is a minimum, not an exact count. */
-export const accessibilityMinimumDeltaTables = new Set(['AdminAccessLog'])
+export const accessibilityMinimumDeltaTables = new Set([
+  'AdminAccessLog',
+  'UserSignIn'
+])
 
 export const accessibilityExpectedRateLimitCategories = {
   'application:bookmark-list': 1,

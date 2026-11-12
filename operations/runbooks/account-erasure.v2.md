@@ -9,8 +9,16 @@ Replaces `account-erasure-worker.v1.md`: since #504 P7 the separate
 
 The one-shot `auth:erase-deletion-pending:compiled`
 (`apps/api/src/auth/ssoAccountErasureCommand.ts`) connects with `DATABASE_URL`
-as `nihongo_app` and runs two phases:
+as `nihongo_app` and runs two phases, after one request step:
 
+0. Inactive members (JLP-852): an ACTIVE member whose last sign-in
+   (`UserSignIn.lastLoginAt`, or the User creation time without a row) is a
+   year old gets the same erasure request a member's own deletion makes
+   (`DELETION_PENDING`, one `auth.account_erasure.requested` line with
+   `"reason":"INACTIVE"`), so erasure follows after the 7-day grace and a
+   sign-in in that week restores the account. Open admin work and the last
+   ACTIVE ADMIN are skipped. A database restored from a dump needs no
+   re-apply for these: the next run finds the same members again.
 1. Provider revoke: lease pending provider cleanups, record a durable dispatch
    marker before each provider call, and record completion afterwards. An
    unknown remote outcome keeps the marker, so lease expiry cannot authorize a

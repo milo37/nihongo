@@ -19,8 +19,9 @@ Rehearsed locally against the host compose file; not yet run on AWS.
    `20261109090000_add_tag_key_subject_status`,
    `20261110090000_admin_fresh_window_30_minutes`,
    `20261111090000_grant_user_target_level_update`,
-   `20261112090000_account_erasure_grace_restore` and
-   `20261113090000_admin_access_log` migrations with the
+   `20261112090000_account_erasure_grace_restore`,
+   `20261113090000_admin_access_log` and
+   `20261114090000_user_last_login` migrations with the
    `nihongo_{test,development}_migration_login` wrapper (role
    `nihongo_migration`).
 3. Persistent local provisioning grants the guest login CONNECT on its own

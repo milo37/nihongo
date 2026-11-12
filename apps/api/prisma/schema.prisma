@@ -285,6 +285,7 @@ model User {
   ssoAccountFreshTransactions SsoAccountFreshTransaction[]
   ssoAccountFreshProofs       SsoAccountFreshProof[]
   ssoAccountErasureRequest    SsoAccountErasureRequest?
+  signIn                      UserSignIn?
   idempotencyRecords          IdempotencyRecord[]
   userReports                 UserReport[]
   accountRestriction          UserAccountRestriction?
@@ -1065,4 +1066,14 @@ model UserAccountRestrictionEvent {
 
   @@index([userId, createdAt])
   @@index([actorUserId])
+}
+
+/// JLP-852: the last Session issuance of a member; a year without one erases
+/// the member. A member without a row counts from the User creation time.
+model UserSignIn {
+  userId      String   @id @db.Uuid
+  lastLoginAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([lastLoginAt])
 }

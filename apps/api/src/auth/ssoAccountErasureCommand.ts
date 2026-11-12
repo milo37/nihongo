@@ -14,6 +14,7 @@ import {
   ssoAccountErasureEnvironmentSchema,
   type SsoAccountErasureRunResult
 } from './ssoAccountRepository.js'
+import type { InactiveErasureRunResult } from './accountErasureAuthority.js'
 import {
   runSsoProviderRevokeBatch,
   tokenlessSsoProviderRevokeAdapter,
@@ -67,10 +68,16 @@ export const runSsoAccountErasureCommand = async (
     // SET ROLE and the DB capability are checked again before queue access.
     const input = parseSsoAccountErasureCommandInput(source)
     const database = createRoleDatabaseRuntime(input.databaseUrl, 'nihongo_app')
+    let inactive: InactiveErasureRunResult
     let providers: SsoProviderRevokeRunResult
     let result: SsoAccountErasureRunResult
     try {
       const worker = createSsoAccountErasureWorker(database.client)
+      // JLP-852: a year without sign-in starts the same 7-day erasure.
+      inactive = await worker.requestInactive(
+        input.batchSize,
+        input.environment
+      )
       providers = await runSsoProviderRevokeBatch(
         worker,
         revoke,
@@ -86,10 +93,28 @@ export const runSsoAccountErasureCommand = async (
     } finally {
       await database.disconnect()
     }
+    // #669: the same event a member's own request logs, so a restore can
+    // re-apply this erasure too.
+    for (const userId of inactive.requestedUserIds)
+      process.stdout.write(
+        `${JSON.stringify({ event: 'auth.account_erasure.requested', userId, occurredAt: new Date().toISOString(), reason: 'INACTIVE' })}\n`
+      )
     process.stdout.write(
-      `${JSON.stringify({ event: 'auth.account_erasure.ran', batchSize: input.batchSize, providers, ...result })}\n`
+      `${JSON.stringify({
+        event: 'auth.account_erasure.ran',
+        batchSize: input.batchSize,
+        inactive: {
+          requested: inactive.requestedUserIds.length,
+          failed: inactive.failedUserIds.length,
+          limitReached: inactive.limitReached
+        },
+        providers,
+        ...result
+      })}\n`
     )
-    return providers.failed > 0 ||
+    return inactive.failedUserIds.length > 0 ||
+      inactive.limitReached ||
+      providers.failed > 0 ||
       providers.unavailable > 0 ||
       providers.deferred > 0 ||
       providers.claimLimitReached ||
