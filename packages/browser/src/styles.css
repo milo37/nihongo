@@ -2437,7 +2437,7 @@ html:lang(ja) .auth-consent {
   flex: 0 0 20px;
   object-fit: contain;
 }
-.auth-sso-button:hover:enabled {
+.auth-sso-button:hover:enabled:not([aria-disabled='true']) {
   background: rgb(var(--color-surface-muted));
 }
 .auth-sso-button:focus-visible {
