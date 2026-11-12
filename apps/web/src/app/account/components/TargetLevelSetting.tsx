@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { ChangeEvent, ReactElement } from 'react'
 import type { JlptLevel } from '@nihongo/browser/common/types/domain'
 import { LEVELS } from '@nihongo/browser/common/types/domain'
+import { Icon } from '@nihongo/browser/common/components/Icon'
 import { Select } from '@nihongo/browser/common/components/Select'
 import { useUpdateTargetLevel } from '@app/account/hooks/useUpdateTargetLevel'
 
@@ -47,8 +48,17 @@ export const TargetLevelSetting = ({
             onChange={handleChange}
           />
         </div>
-        <p className="sr-only" role="status">
-          {update.isSuccess ? t('targetLevel.saved') : ''}
+        {/* JLP-848: a visible check line until the next change starts. The
+            live region stays mounted so the new text is announced. */}
+        <p role="status">
+          {update.isSuccess ? (
+            <span className="mt-3 flex items-start gap-2 text-sm text-ink">
+              <Icon name="check" className="size-5 shrink-0 text-brand" />
+              {t('targetLevel.saved', {
+                level: update.variables.targetLevel
+              })}
+            </span>
+          ) : null}
         </p>
       </div>
     </section>

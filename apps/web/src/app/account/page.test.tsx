@@ -202,9 +202,16 @@ describe('마이페이지 계정 설정', () => {
       ).toBe(true)
       expect(select).toHaveValue('N3')
       expect(select).toBeEnabled()
-      expect(screen.getByRole('status', { name: '' })).toHaveTextContent(
-        '목표 급수를 바꿨어요.'
+      // JLP-848: the saved line is visible, with a check, until the next change.
+      const saved = screen.getByRole('status', { name: '' })
+      expect(saved).toHaveTextContent(
+        '목표 급수를 바꿨어요. 이제 홈과 연습이 N3 문제로 시작해요.'
       )
+      expect(saved).not.toHaveClass('sr-only')
+      expect(saved.querySelector('svg')).not.toBeNull()
+      expect(
+        screen.getByText("홈의 '오늘의 한 문제'와 연습을 이 급수로 시작해요.")
+      ).toBeVisible()
     } finally {
       mockServer.events.removeListener('request:start', record)
     }

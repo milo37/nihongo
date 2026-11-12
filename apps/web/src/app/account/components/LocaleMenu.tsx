@@ -10,13 +10,15 @@ const ITEM_SELECTOR = '[role="menuitemradio"]'
 
 // Top bar language menu (WAI-ARIA menu button). Opens on the current
 // language; arrows wrap, Home/End jump, Escape and outside clicks close
-// without a change. The choice stays in this browser only.
+// without a change. The choice stays in this browser only. JLP-849: a tap or
+// click focuses the menu box, not the current language (iOS Safari rings
+// any item focused by script); a keyboard open focuses the current language.
 export const LocaleMenu = (): ReactElement => {
   const { t } = useTranslation('common')
   const { locale, setLocale } = useUiLocale()
   const { pathname } = useLocation()
   // Which item gets focus when the menu opens; null means closed.
-  const [openAt, setOpenAt] = useState<'current' | 'last' | null>(null)
+  const [openAt, setOpenAt] = useState<'current' | 'last' | 'menu' | null>(null)
   const [closedPath, setClosedPath] = useState(pathname)
   const trigger = useRef<HTMLButtonElement>(null)
   const panel = useRef<HTMLDivElement>(null)
@@ -37,7 +39,8 @@ export const LocaleMenu = (): ReactElement => {
       openAt === 'last'
         ? list.at(-1)
         : list.find((item) => item.getAttribute('aria-checked') === 'true')
-    start?.focus()
+    if (openAt === 'menu') panel.current?.focus()
+    else start?.focus()
     const closeOutside = (event: PointerEvent): void => {
       const target = event.target as Node
       if (
@@ -61,7 +64,8 @@ export const LocaleMenu = (): ReactElement => {
       list[(next + list.length) % list.length]?.focus()
     }
     if (event.key === 'ArrowDown') move(index + 1)
-    else if (event.key === 'ArrowUp') move(index - 1)
+    else if (event.key === 'ArrowUp')
+      move(index < 0 ? list.length - 1 : index - 1)
     else if (event.key === 'Home') move(0)
     else if (event.key === 'End') move(list.length - 1)
     else if (event.key === 'Escape') {
@@ -79,7 +83,10 @@ export const LocaleMenu = (): ReactElement => {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
-        onClick={() => setOpenAt(open ? null : 'current')}
+        onClick={(event) =>
+          // Enter and Space fire a click with detail 0.
+          setOpenAt(open ? null : event.detail === 0 ? 'current' : 'menu')
+        }
         onKeyDown={(event) => {
           if (open) return
           if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -97,6 +104,7 @@ export const LocaleMenu = (): ReactElement => {
           ref={panel}
           id={menuId}
           role="menu"
+          tabIndex={-1}
           aria-label={t('locale.label')}
           className="locale-menu-panel"
           onKeyDown={onMenuKeyDown}

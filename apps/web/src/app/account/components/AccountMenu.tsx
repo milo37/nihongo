@@ -23,6 +23,9 @@ const ItemIcon = ({ name }: { name: IconName }): ReactElement => (
 
 // Header account menu (WAI-ARIA menu button). Arrow keys move between items,
 // Escape closes and returns focus to the trigger, and an outside click closes.
+// JLP-849: only a keyboard open focuses the first item. A tap or click
+// focuses the menu box instead, because iOS Safari draws the keyboard ring
+// on any item focused by script.
 export const AccountMenu = ({
   onReportError,
   reportErrorLabel
@@ -31,38 +34,42 @@ export const AccountMenu = ({
   const { t: authT } = useTranslation('auth')
   const { user } = useAuth()
   const { pathname } = useLocation()
-  const [open, setOpen] = useState(false)
+  // Where focus goes when the menu opens; null means closed.
+  const [openAt, setOpenAt] = useState<'first' | 'menu' | null>(null)
+  const open = openAt !== null
   const [logoutOpen, setLogoutOpen] = useState(false)
   // Mounted after first use so the closing dialog can still restore focus.
   const [hasLogout, setHasLogout] = useState(false)
   const [closedPath, setClosedPath] = useState(pathname)
   const trigger = useRef<HTMLButtonElement>(null)
   const panel = useRef<HTMLDivElement>(null)
+  const menu = useRef<HTMLDivElement>(null)
   const menuId = useId()
   if (closedPath !== pathname) {
     setClosedPath(pathname)
-    setOpen(false)
+    setOpenAt(null)
   }
   const items = (): HTMLElement[] =>
     Array.from(
       panel.current?.querySelectorAll<HTMLElement>(ITEM_SELECTOR) ?? []
     )
   useEffect(() => {
-    if (!open) return
-    items()[0]?.focus()
+    if (!openAt) return
+    if (openAt === 'first') items()[0]?.focus()
+    else menu.current?.focus()
     const closeOutside = (event: PointerEvent): void => {
       const target = event.target as Node
       if (
         !panel.current?.contains(target) &&
         !trigger.current?.contains(target)
       )
-        setOpen(false)
+        setOpenAt(null)
     }
     document.addEventListener('pointerdown', closeOutside)
     return () => document.removeEventListener('pointerdown', closeOutside)
-  }, [open])
+  }, [openAt])
   const close = (returnFocus: boolean): void => {
-    setOpen(false)
+    setOpenAt(null)
     if (returnFocus) trigger.current?.focus()
   }
   const onMenuKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
@@ -73,7 +80,8 @@ export const AccountMenu = ({
       list[(next + list.length) % list.length]?.focus()
     }
     if (event.key === 'ArrowDown') move(index + 1)
-    else if (event.key === 'ArrowUp') move(index - 1)
+    else if (event.key === 'ArrowUp')
+      move(index < 0 ? list.length - 1 : index - 1)
     else if (event.key === 'Home') move(0)
     else if (event.key === 'End') move(list.length - 1)
     else if (event.key === 'Escape') {
@@ -82,7 +90,7 @@ export const AccountMenu = ({
     } else if (event.key === 'Tab') close(false)
   }
   const itemClassName =
-    'flex min-h-11 w-full items-center gap-3 rounded-control px-3 text-left text-sm hover:bg-surface-muted focus-visible:bg-surface-muted'
+    'account-menu-item flex min-h-11 w-full items-center gap-3 rounded-control px-3 text-left text-sm'
   return (
     <div className="account-menu">
       <button
@@ -94,11 +102,14 @@ export const AccountMenu = ({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
-        onClick={() => setOpen((value) => !value)}
+        onClick={(event) =>
+          // Enter and Space fire a click with detail 0.
+          setOpenAt(open ? null : event.detail === 0 ? 'first' : 'menu')
+        }
         onKeyDown={(event) => {
           if (event.key === 'ArrowDown' && !open) {
             event.preventDefault()
-            setOpen(true)
+            setOpenAt('first')
           }
         }}
       >
@@ -135,10 +146,12 @@ export const AccountMenu = ({
             </div>
           </div>
           <div
+            ref={menu}
             id={menuId}
             role="menu"
+            tabIndex={-1}
             aria-labelledby="account-menu-button"
-            className="grid"
+            className="grid gap-1"
           >
             {user ? null : (
               <Link
