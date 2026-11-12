@@ -264,3 +264,24 @@ it('adds no header status wrapper when the app has none', () => {
   )
   expect(document.querySelector('.app-shell-header-status')).toBeNull()
 })
+
+// JLP-850: the account data guide is one of the three information pages,
+// so the bottom tab 'My' lights only on My itself.
+it.each([
+  ['/account', true],
+  ['/account/data', false],
+  ['/legal', false]
+])('lights the My tab on %s: %s', (path, active) => {
+  mocks.role = 'USER'
+  mocks.user = { id: 'user-1', name: '하루', role: 'USER' }
+  render(
+    <MemoryRouter initialEntries={[path]}>
+      <Layout />
+    </MemoryRouter>
+  )
+  const my = within(
+    document.getElementById('mobile-navigation') as HTMLElement
+  ).getByRole('link', { name: appI18n.t('navigation:my') })
+  if (active) expect(my).toHaveAttribute('aria-current', 'page')
+  else expect(my).not.toHaveAttribute('aria-current')
+})

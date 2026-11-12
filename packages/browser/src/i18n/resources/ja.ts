@@ -91,9 +91,9 @@ export const jaCoreResources = {
     },
     footer: {
       groups: {
-        guidance: 'ご案内',
-        help: 'ヘルプ',
-        account: 'アカウント'
+        guidance: '利用案内',
+        help: '報告・お問い合わせ',
+        account: 'アカウント・データ'
       },
       informationLabel: '하루마루について'
     }
@@ -1126,8 +1126,7 @@ export const jaCoreResources = {
     data: {
       description:
         'ログアウトすると、この端末からだけ出ます。退会すると、アカウントと学習記録が消えます。',
-      privacyLink: 'プライバシーポリシーを見る',
-      manageLink: 'マイページへ'
+      privacyLink: 'プライバシーポリシーを見る'
     }
   },
   errors: {

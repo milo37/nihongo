@@ -2,35 +2,36 @@ import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement } from 'react'
 import { DELETE_PARAGRAPHS } from '@app/account/components/TwoStepConfirmDialog'
-import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
+import { OperationsNavigation } from '@app/operations/components/OperationsNavigation'
 
 // Static guide: what sign-out, unlink and deletion do with account data. It
 // makes no account requests, so signed-out visitors see no error state.
+// JLP-850: the same frame as the other two information pages (top tabs,
+// heading, sections); the bottom tab bar leads back to My.
 export const AccountDataPage = (): ReactElement => {
   const { t } = useTranslation('account')
-  const { user } = useAuth()
+  const { t: operationsT } = useTranslation('operations')
   return (
-    <section className="auth-page">
-      <div className="auth-panel grid gap-4 text-sm leading-7">
+    <div className="operations-information">
+      <OperationsNavigation page="account" translate={operationsT} />
+      <header className="operations-heading">
         <h1>{t('dataGuide')}</h1>
-        <p className="text-muted">{t('data.description')}</p>
-        <h2 className="mt-2 text-base font-semibold">{t('danger.title')}</h2>
+        <p>{t('data.description')}</p>
+      </header>
+      <section className="operations-section" aria-labelledby="deletion-title">
+        <h2 id="deletion-title">{t('danger.title')}</h2>
         {DELETE_PARAGRAPHS.map((key) => (
           <p key={key}>{t(`confirm.deleteDescription.${key}`)}</p>
         ))}
         <p>
-          <Link className="text-link underline" to="/legal#privacy">
+          <Link
+            className="inline-flex min-h-11 items-center text-link underline"
+            to="/legal#privacy"
+          >
             {t('data.privacyLink')}
           </Link>
         </p>
-        {user ? (
-          <p>
-            <Link className="text-link underline" to="/account">
-              {t('data.manageLink')}
-            </Link>
-          </p>
-        ) : null}
-      </div>
-    </section>
+      </section>
+    </div>
   )
 }

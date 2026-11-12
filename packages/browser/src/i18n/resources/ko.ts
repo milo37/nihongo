@@ -74,9 +74,9 @@ export const koCoreResources = {
     },
     footer: {
       groups: {
-        guidance: '안내',
-        help: '도움말',
-        account: '계정'
+        guidance: '이용 안내',
+        help: '신고·문의',
+        account: '계정·데이터'
       },
       informationLabel: '하루마루 안내'
     }
@@ -1070,8 +1070,7 @@ export const koCoreResources = {
     data: {
       description:
         '로그아웃하면 이 기기에서만 나가요. 회원 탈퇴를 하면 계정과 학습 기록이 지워져요.',
-      privacyLink: '개인정보 처리방침 보기',
-      manageLink: '마이페이지로'
+      privacyLink: '개인정보 처리방침 보기'
     }
   },
   errors: {
