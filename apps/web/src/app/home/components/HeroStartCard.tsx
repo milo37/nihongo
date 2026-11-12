@@ -6,7 +6,6 @@ import { ProgressSheet } from '@common/components/manuscript/ProgressSheet'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
-import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { usePracticeSetupController } from '@app/practice/hooks/usePracticeSetupController'
 import { levels, subjects } from '@app/practice/practiceSetupOptions'
 import {
@@ -79,7 +78,6 @@ export const HeroStartCard = ({
   memberLine?: ReactNode
 }): ReactElement => {
   const { t, i18n } = useTranslation('home')
-  const { user } = useAuth()
   const resumableHeadingRef = useRef<HTMLHeadingElement>(null)
   const setup = usePracticeSetupController(resumableHeadingRef)
   const { count, subject } = setup
@@ -183,25 +181,13 @@ export const HeroStartCard = ({
         // button (plan-notes §4).
         guestTriesLeft === undefined && !setup.isGuestDailyLimitReached ? (
           <p className="home-hello">
-            {/* Three tries a day drawn as three empty squares (decorative). */}
-            <span className="home-hello-tries" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-            </span>
             {t('today.guestGreeting', {
               total: GUEST_DAILY_SESSION_LIMIT,
               count: GUEST_SESSION_QUESTION_LIMIT
             })}
           </p>
         ) : null
-      ) : (
-        <p className="home-hello">
-          {user?.name
-            ? t('today.memberGreeting', { name: user.name })
-            : t('today.memberGreetingNoName')}
-        </p>
-      )}
+      ) : null}
       <PracticeSetupFeedback
         accountRestricted={setup.accountRestricted}
         hasCreateError={setup.hasCreateError}
