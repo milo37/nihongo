@@ -1,8 +1,8 @@
 import { Suspense } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { http, HttpResponse } from 'msw'
+import { getResponse, http, HttpResponse } from 'msw'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
 import type { GetDashboardStatsResponse } from '@nihongo/contracts/dashboard/get-dashboard-stats'
 import { accountRoutes } from '@app/account/router'
@@ -10,6 +10,9 @@ import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { queryClient } from '@nihongo/browser/libs/queryClient'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { ProtectedRouteProvider } from '@nihongo/browser/provider/ProtectedRouteProvider'
+import { toContractDashboardStats } from '@mocks/adapters/dashboardContractAdapter'
+import { handlers } from '@mocks/handlers'
+import type { MockCanonicalDashboardSessionRecord } from '@mocks/repository/mockDatabase'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { subscribeApiError } from '@nihongo/browser/libs/errorBus'
 import { mockServer } from '@/test/server'
@@ -100,11 +103,14 @@ const emptyStats: GetDashboardStatsResponse = {
   dailyStudyCountLast7Days: days([0, 0, 0, 0, 0, 0, 0])
 }
 
+const statsLevels: (string | null)[] = []
+
 const useStats = (stats: GetDashboardStatsResponse | 'error') => {
   let reads = 0
   mockServer.use(
-    http.get('*/api/v1/dashboard', () => {
+    http.get('*/api/v1/dashboard', ({ request }) => {
       reads += 1
+      statsLevels.push(new URL(request.url).searchParams.get('level'))
       return stats === 'error'
         ? HttpResponse.json(
             {
@@ -154,6 +160,7 @@ describe('마이페이지 내 학습', () => {
   })
   beforeEach(() => {
     mockDatabase.loginAs('USER')
+    statsLevels.length = 0
   })
 
   it('과목별 푼 문제 수·정답률 3줄과 최근 학습만 보여 주고 분석·추천은 읽지 않는다', async () => {
@@ -166,7 +173,7 @@ describe('마이페이지 내 학습', () => {
       })
     )
     renderAccount()
-    const section = await screen.findByRole('region', { name: '내 학습' })
+    const section = await screen.findByRole('region', { name: 'N2 학습' })
     const rows = await within(section).findAllByRole('listitem')
     // JLP-851: the tier word is read after each rate; the mark and the bar
     // are decorative.
@@ -231,7 +238,7 @@ describe('마이페이지 내 학습', () => {
       }))
     })
     renderAccount()
-    const section = await screen.findByRole('region', { name: '내 학습' })
+    const section = await screen.findByRole('region', { name: 'N2 학습' })
     const links = await within(section).findAllByRole('link', {
       name: /N3 · 문법/u
     })
@@ -245,22 +252,124 @@ describe('마이페이지 내 학습', () => {
     )
   })
 
-  it('푼 문제가 없으면 첫 학습 안내를 보여 준다', async () => {
+  it('목표 급수 기록이 없으면 그 급수로 첫 학습 안내를 보여 준다', async () => {
     useStats(emptyStats)
     renderAccount()
-    expect(await screen.findByText('아직 푼 문제가 없어요')).toBeInTheDocument()
+    expect(
+      await screen.findByText('아직 N2 문제를 풀지 않았어요')
+    ).toBeInTheDocument()
+    expect(
+      screen.getByText('N2 문제를 풀면 과목별 정답률이 여기 나와요.')
+    ).toBeInTheDocument()
     // No 0% in a tier colour.
     expect(screen.queryByText('0%')).toBeNull()
-    expect(screen.getByRole('link', { name: '첫 문제 풀기' })).toHaveAttribute(
+    // Home starts at the target level, so the link carries no level.
+    expect(screen.getByRole('link', { name: 'N2 문제 풀기' })).toHaveAttribute(
       'href',
       '/'
     )
   })
 
+  it('JLP-853: 목표 급수 기록만 읽고, 급수를 바꾸면 같은 화면에서 새 급수로 다시 읽는다', async () => {
+    useStats(fullStats)
+    renderAccount()
+    expect(
+      await screen.findByRole('region', { name: 'N2 학습' })
+    ).toBeInTheDocument()
+    await screen.findByText('64%')
+    expect(statsLevels).toEqual(['N2'])
+    useStats(emptyStats)
+    await userEvent.selectOptions(
+      screen.getByRole('combobox', { name: '목표 급수' }),
+      'N3'
+    )
+    const section = await screen.findByRole('region', { name: 'N3 학습' })
+    expect(
+      await within(section).findByText('아직 N3 문제를 풀지 않았어요')
+    ).toBeInTheDocument()
+    expect(statsLevels.at(-1)).toBe('N3')
+  })
+
+  it('JLP-853: N2·N3 기록이 섞여 있으면 목표 급수 N2 기록만 센다', async () => {
+    const session = (
+      index: number,
+      level: MockCanonicalDashboardSessionRecord['level'],
+      subject: MockCanonicalDashboardSessionRecord['subject'],
+      correctCount: number
+    ): MockCanonicalDashboardSessionRecord => ({
+      id: `019d0000-0000-7000-8000-0000000000d${index}`,
+      level,
+      subject,
+      mode: 'RANDOM',
+      totalCount: 10,
+      correctCount,
+      durationSec: 60,
+      submittedAt: `2026-11-0${index + 1}T09:00:00.000Z`
+    })
+    const record = {
+      observedAt: '2026-11-07T12:00:00.000Z',
+      sessions: [
+        session(0, 'N2', 'VOCABULARY', 9),
+        session(1, 'N3', 'VOCABULARY', 1),
+        session(2, 'N3', 'GRAMMAR', 2),
+        session(3, 'N2', 'GRAMMAR', 7)
+      ],
+      wrongNotes: []
+    }
+    // The mock answers with the same level filter as the API.
+    mockServer.use(
+      http.get('*/api/v1/dashboard', ({ request }) => {
+        const level = new URL(request.url).searchParams.get('level')
+        statsLevels.push(level)
+        return HttpResponse.json(
+          toContractDashboardStats(
+            record,
+            level === 'N2' || level === 'N3' ? { level } : {}
+          )
+        )
+      })
+    )
+    renderAccount()
+    const section = await screen.findByRole('region', { name: 'N2 학습' })
+    // N2 only: 20 answered, 16 correct; N3 rows and sessions are left out.
+    expect(await within(section).findByText('80%')).toBeInTheDocument()
+    expect(within(section).getByText('20')).toBeInTheDocument()
+    const rows = within(section).getAllByRole('listitem')
+    expect(rows[0]).toHaveTextContent('문자·어휘10문제정답률90%높음')
+    expect(rows[1]).toHaveTextContent('문법10문제정답률70%보통')
+    expect(
+      within(section).getAllByRole('link', { name: /^N2 · / })
+    ).toHaveLength(2)
+    expect(within(section).queryByRole('link', { name: /^N3 · / })).toBeNull()
+    expect(statsLevels).toEqual(['N2'])
+  })
+
+  it('JLP-853: 목표 급수가 없으면 N5 기록으로 보여 준다', async () => {
+    mockServer.use(
+      http.get('*/api/v1/me', async ({ request }) => {
+        const response = await getResponse(handlers, request)
+        if (!response) throw new Error('no /me handler')
+        const body = (await response.json()) as {
+          user: Record<string, unknown> | null
+        }
+        return HttpResponse.json({
+          ...body,
+          user: body.user ? { ...body.user, targetLevel: null } : null
+        })
+      })
+    )
+    useStats(fullStats)
+    renderAccount()
+    expect(
+      await screen.findByRole('region', { name: 'N5 학습' })
+    ).toBeInTheDocument()
+    await waitFor(() => expect(statsLevels).toEqual(['N5']))
+  })
+
   it('안 푼 과목은 기록 없음으로 보여 준다', async () => {
     useStats(fewStats)
     renderAccount()
-    const section = await screen.findByRole('region', { name: '내 학습' })
+    const section = await screen.findByRole('region', { name: 'N2 학습' })
     expect(await within(section).findAllByText('기록 없음')).toHaveLength(2)
     expect(within(section).getByText('문법')).toBeInTheDocument()
   })
@@ -270,7 +379,7 @@ describe('마이페이지 내 학습', () => {
     const banner: unknown[] = []
     const unsubscribe = subscribeApiError((error) => banner.push(error))
     renderAccount()
-    const section = await screen.findByRole('region', { name: '내 학습' })
+    const section = await screen.findByRole('region', { name: 'N2 학습' })
     const alert = await within(section).findByRole('alert')
     expect(alert).toHaveTextContent('학습 기록을 불러오지 못했어요.')
     expect(alert).toHaveClass('auth-error')
