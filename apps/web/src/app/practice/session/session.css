@@ -15,6 +15,27 @@
   color: rgb(var(--color-ink));
 }
 
+/* JLP-865 r2: the passage head is one row, tail mark + label over a gray
+   line; the text has no rules and indents prose lines only. */
+.study-passage-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid rgb(var(--color-line));
+  color: rgb(var(--color-ink));
+  font-size: 16px;
+  font-weight: 700;
+}
+.study-passage-text {
+  font-size: 17px;
+  line-height: 32px;
+}
+.study-passage-text p[data-indent] {
+  text-indent: 1em;
+}
+
 /* Options are ruled rows; the choice fills the number square (no card). */
 .study-session .study-answer-options label,
 .study-session .study-answer-options label:has(input:checked) {
@@ -70,6 +91,14 @@ label:has(input:checked) .study-option-text {
   .study-session-bar,
   .study-session-meta {
     max-width: 720px;
+  }
+  /* JLP-865: with a passage the meta starts on the passage's left line. */
+  .study-session-meta[data-wide] {
+    max-width: 72rem;
+  }
+  .study-passage-text {
+    font-size: 18px;
+    line-height: 34px;
   }
   .study-session-sheet {
     display: flex;

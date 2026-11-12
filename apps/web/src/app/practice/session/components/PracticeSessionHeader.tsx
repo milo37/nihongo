@@ -16,6 +16,8 @@ type PracticeSessionHeaderProps = {
   answeredCount: number
   bookmarkButton: ReactNode
   currentNumber: number
+  /** JLP-865: on PC the meta line starts on the passage's left line. */
+  hasPassage: boolean
   isBackDisabled: boolean
   isQuestionSheetDisabled: boolean
   onOpenQuestionSheet: () => void
@@ -31,6 +33,7 @@ export const PracticeSessionHeader = ({
   answeredCount,
   bookmarkButton,
   currentNumber,
+  hasPassage,
   isBackDisabled,
   isQuestionSheetDisabled,
   onOpenQuestionSheet,
@@ -112,7 +115,10 @@ export const PracticeSessionHeader = ({
           {bookmarkButton}
         </div>
       </div>
-      <p className="study-session-meta mx-auto max-w-6xl px-4">
+      <p
+        className={`study-session-meta mx-auto max-w-6xl px-4 ${hasPassage ? 'sm:px-6' : ''}`}
+        data-wide={hasPassage || undefined}
+      >
         {session.level} · {commonT(`taxonomy.subjects.${session.subject}`)}
       </p>
       <progress

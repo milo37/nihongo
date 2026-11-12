@@ -51,6 +51,7 @@ const header = (mode: Mode) => (
     answeredCount={0}
     bookmarkButton={null}
     currentNumber={1}
+    hasPassage={false}
     isBackDisabled={false}
     isQuestionSheetDisabled={false}
     onOpenQuestionSheet={() => undefined}
