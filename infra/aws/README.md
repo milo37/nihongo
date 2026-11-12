@@ -139,6 +139,28 @@ EC2와 백업 버킷은 CloudFront나 IAM으로만 접근됩니다. WAF는 IP별
   4. 전체 apply: 50 to add, 0 change, 0 destroy(기본값 기준 합계 56). `caddy_dns_image` 없이 plan하면 precondition이 멈춥니다.
   5. 확인: 호스트에서 `sudo docker compose -f /opt/harumaru/compose.yaml logs proxy | grep -i 'certificate obtained'`, 밖에서 `curl -sI https://harumaru.app/health/ready`.
 
+## 전체 내리기 (JLP-835)
+
+서비스를 접을 때만 씁니다. 운영자가 정하고, 데이터를 남길지 먼저 정합니다. 탈퇴 유예 중인 계정이 있으면 `erase-deletion-pending`을 한 번 돌린 뒤 내립니다.
+
+1. **PRODUCTION 먼저, STAGING 나중.** API ECR 리포, GitHub OIDC provider, Cost Anomaly 모니터, `Environment` 비용 태그는 STAGING 스택이 만든 계정 공용 자원입니다. PRODUCTION은 이것을 읽기만 하므로 먼저 내려야 막히지 않습니다.
+2. **남길 데이터를 받아 둡니다.** 마지막 `pg_dump`(백업 버킷 `postgres/`)를 운영자 PC로 내려받습니다. 버킷은 아래 3에서 비워야 지워집니다.
+3. **Terraform이 지우지 못하는 것부터 정리합니다**(환경마다).
+   - 데이터 EBS는 `prevent_destroy`라 `destroy`가 멈춥니다. `terraform state rm aws_ebs_volume.data` 뒤 볼륨은 콘솔에서 지웁니다(남기면 10 GB 약 $0.91/월).
+   - 백업 버킷(`harumaru-<env>-backup-<계정>`)과 감사 버킷(`harumaru-audit-<계정>`, STAGING 스택)은 `force_destroy`가 없어 버전까지 비워야 지워집니다. CloudTrail 기록을 남기려면 감사 버킷만 `terraform state rm aws_s3_bucket.audit[0]` 하고 둡니다.
+   - ECR 리포(`harumaru/api`, `harumaru/caddy`)는 이미지가 있으면 지워지지 않으니 이미지를 먼저 지웁니다.
+   - CloudFront Free 정액 요금제에 가입한 배포는 요금제를 먼저 해지해야 지워질 수 있습니다. `destroy`가 CloudFront에서 멈추면 콘솔에서 해지하고 다시 실행합니다.
+4. `terraform destroy`(PRODUCTION 작업 폴더, PRODUCTION tfvars) → 같은 순서로 STAGING. plan의 destroy 수를 확인하고 실행합니다. EIP도 이때 반납됩니다.
+5. **Terraform 밖에서 만든 것.**
+   - SSM 비밀값: `/harumaru/<env>/` 아래 운영자가 넣은 값(`secret_parameter_names`, `legal_parameter_names`)은 `aws ssm delete-parameters`로 지웁니다.
+   - DLM이 만든 주간 스냅샷(`harumaru-<env>-weekly`, 환경마다 최대 4개)은 정책이 지워져도 남습니다. EC2 → 스냅샷에서 지웁니다.
+   - us-east-1 ACM 인증서(무료)는 CloudFront가 지워진 뒤 지울 수 있습니다.
+   - Cloudflare DNS 3개(`harumaru.app` CNAME, `origin.harumaru.app` A, ACM 검증 CNAME)는 운영자가 Cloudflare 화면에서 지웁니다. API 토큰은 PROD EIP로 IP 필터가 걸려 있으므로 토큰도 그때 지웁니다. 도메인은 자동 갱신을 끄지 않으면 매년 청구됩니다.
+   - Google OAuth 클라이언트, GitHub 저장소 변수(`PRODUCTION_*`, `STAGING_*`)도 지웁니다.
+6. **state 버킷**(`harumaru-tfstate-<계정>`)은 마지막에 비우고 지웁니다. 다시 올릴 가능성이 있으면 남깁니다.
+
+**남는 비용.** 위를 모두 지우면 AWS는 0입니다. 남기는 것을 고르면 대략 이렇습니다(세전, 월): 데이터 EBS 10 GB $0.91, 스냅샷 약 3 GB $0.15, 백업 S3 약 0.6 GB $0.02, 감사 S3 최대 약 1.5 GB $0.04, ECR 이미지 $0.10/GB, state 버킷 몇 센트. EIP는 반납하지 않으면 정지 중에도 $3.65입니다. 도메인 갱신비는 Cloudflare에서 따로 청구됩니다.
+
 ## 검증
 
 - 자격 증명 없이 할 수 있는 것: `terraform fmt -check -recursive`, `terraform init -backend=false && terraform validate`, `tflint`, `bash scripts/render-check.sh`
