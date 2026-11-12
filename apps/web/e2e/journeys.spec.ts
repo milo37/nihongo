@@ -26,7 +26,13 @@ import type {
 
 import process from 'node:process'
 import { expect, test } from '@playwright/test'
-import type { JSHandle, Page, Response, Route } from '@playwright/test'
+import type {
+  JSHandle,
+  Page,
+  Response,
+  Route,
+  TestInfo
+} from '@playwright/test'
 import { getCurrentPrincipalResponseSchema } from '@nihongo/contracts/auth/get-current-principal'
 import { ssoAccountCapabilitiesSchema } from '@nihongo/contracts/auth/sso-account-management'
 import { getWrongNoteResponseSchema } from '@nihongo/contracts/wrong-note/get-wrong-note'
@@ -547,22 +553,58 @@ const invalidateDashboardStats = async (page: Page): Promise<void> => {
   }, queryClientModulePath)
 }
 
-const assertCanonicalLedger = (ledger: RequestLedger): void => {
+const forbiddenLedgerPath = (path: string): boolean =>
+  /^\/api\/(?:study\/session|dashboard\/stats|wrong-note)/u.test(path) ||
+  /^\/api\/auth\/(?:sign-in\/email|sign-up\/email|verify-email|forget-password|reset-password)/u.test(
+    path
+  )
+
+// JLP-788: before failing, attach only the offending entries (the same six
+// safe fields as the ledger evidence) so CI can upload them as a diagnostic.
+const assertCanonicalLedger = async (
+  ledger: RequestLedger,
+  testInfo: Pick<TestInfo, 'attach'>,
+  label: string
+): Promise<void> => {
+  const offending = ledger.entries.filter(
+    ({ path, provenance, status }) =>
+      status === 'NETWORK_ERROR' ||
+      provenance !== canonicalProvenance ||
+      forbiddenLedgerPath(path)
+  )
+  if (offending.length > 0) {
+    await testInfo.attach(`${label}-ledger-diagnostic`, {
+      body: JSON.stringify({
+        entries: offending.map(
+          ({
+            finishSequence,
+            method,
+            path,
+            provenance,
+            startSequence,
+            status
+          }) => ({
+            finishSequence,
+            method,
+            path,
+            provenance,
+            startSequence,
+            status
+          })
+        )
+      }),
+      contentType: 'application/json'
+    })
+  }
   expect(
     ledger.entries.every(
       ({ provenance, status }) =>
         status !== 'NETWORK_ERROR' && provenance === canonicalProvenance
     )
   ).toBe(true)
-  expect(
-    ledger.entries.some(
-      ({ path }) =>
-        /^\/api\/(?:study\/session|dashboard\/stats|wrong-note)/u.test(path) ||
-        /^\/api\/auth\/(?:sign-in\/email|sign-up\/email|verify-email|forget-password|reset-password)/u.test(
-          path
-        )
-    )
-  ).toBe(false)
+  expect(ledger.entries.some(({ path }) => forbiddenLedgerPath(path))).toBe(
+    false
+  )
 }
 
 const armDashboardFault = async (
@@ -1115,7 +1157,7 @@ test('guest SSO boundary and authenticated practice transition match the active 
   ).toBeEnabled()
   await expect(page.getByText(/^로그인 없이 하루/u)).toHaveCount(0)
   await waitForLedgerToQuiesce(ledger)
-  assertCanonicalLedger(ledger)
+  await assertCanonicalLedger(ledger, testInfo, `guest-auth-${mode}`)
   await assertAndAttachLedger(
     ledger,
     testInfo,
@@ -1493,7 +1535,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
     draftEntries[5]?.startSequence ?? -1
   )
 
-  assertCanonicalLedger(ledger)
+  await assertCanonicalLedger(ledger, testInfo, `user-journey-${mode}`)
   await assertAndAttachLedger(
     ledger,
     testInfo,

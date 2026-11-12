@@ -133,7 +133,7 @@ EC2와 백업 버킷은 CloudFront나 IAM으로만 접근됩니다. WAF는 IP별
 - 토큰: Cloudflare API 토큰은 권한 **Zone · DNS · Edit**, 대상 **harumaru.app 한 zone**, **Client IP 필터 = EIP**로 만듭니다. SSM `/harumaru/production/CLOUDFLARE_API_TOKEN`(SecureString)에만 두고, 부팅 때 `harumaru-origin-env.service`(`render-origin-env.sh`)가 tmpfs `/run/harumaru/origin.env`로 꺼내 proxy에 넘깁니다. 바꿀 때는 SSM 값을 고친 뒤 호스트에서 `sudo /opt/harumaru/bin/render-origin-env.sh && cd /opt/harumaru && sudo docker compose up -d --force-recreate proxy`.
 - 저장: ACME 계정과 인증서는 Docker 볼륨 `caddy-data`(`/data`)에 남아 재시작해도 다시 발급하지 않습니다(발급 한도 주 5회/같은 이름).
 - 첫 PRODUCTION apply 순서(이 변경이 main에 들어간 뒤, 워크플로가 main에서만 돕니다):
-  1. 리포·push 권한·EIP만 먼저: `terraform apply -target=aws_iam_role_policy.github_caddy_push -target=aws_ecr_lifecycle_policy.caddy -target=aws_eip.host` → 6 to add(계정에 GitHub OIDC 공급자가 이미 있어 `create_github_oidc_provider = false`면 5), 0 change, 0 destroy.
+  1. 리포·push 권한·EIP만 먼저: `terraform apply -target=aws_iam_role_policy.github_caddy_push -target=aws_ecr_lifecycle_policy.caddy -target=aws_eip.host` → 6 to add(계정에 GitHub OIDC 공급자가 이미 있어 `create_github_oidc_provider = false`면 5), 0 change, 0 destroy. `caddy-push` 정책에 `ecr:GetAuthorizationToken`도 있어 이 단계만으로 Caddy 이미지를 push할 수 있습니다(배포 정책 `deploy`는 서버와 함께 전체 apply 때 생김).
   2. Cloudflare: 위 조건으로 토큰을 만들고 SSM에 넣습니다(값은 채팅·파일에 남기지 않음). `origin.harumaru.app` A → EIP(DNS only)도 이때 만듭니다.
   3. GitHub 저장소 변수 `PRODUCTION_AWS_DEPLOY_ROLE_ARN`(`output github_deploy_role_arn`)·`CADDY_ECR_REPOSITORY_URL`(`output caddy_ecr_repository_url`)을 넣고 Actions에서 "Caddy image"를 main으로 실행합니다. 요약에 나온 `caddy_dns_image = "...@sha256:..."` 줄을 `terraform.tfvars`에 붙입니다.
   4. 전체 apply: 50 to add, 0 change, 0 destroy(기본값 기준 합계 56). `caddy_dns_image` 없이 plan하면 precondition이 멈춥니다.

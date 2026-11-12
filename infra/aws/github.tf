@@ -112,6 +112,14 @@ resource "aws_iam_role_policy" "github_deploy" {
 data "aws_iam_policy_document" "github_caddy_push" {
   count = local.origin_tls ? 1 : 0
 
+  # Repeated from the deploy policy: on the first apply (-target) that policy
+  # does not exist yet, and docker login needs this before any push.
+  statement {
+    sid       = "EcrAuth"
+    actions   = ["ecr:GetAuthorizationToken"]
+    resources = ["*"]
+  }
+
   statement {
     sid = "EcrPushCaddy"
     actions = [
