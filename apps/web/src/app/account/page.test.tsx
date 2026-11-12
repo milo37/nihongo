@@ -552,7 +552,7 @@ describe('마이페이지 계정 설정', () => {
     const dialog = await openDeleteDialog(user)
     await user.click(within(dialog).getByRole('button', { name: '회원 탈퇴' }))
     await screen.findByText(
-      '탈퇴 신청을 받았어요. 7일 뒤 모두 삭제돼요. 그 전에 다시 로그인하면 정확한 날짜를 확인하거나 계정을 되살릴 수 있어요.'
+      '탈퇴 신청을 받았어요. 7일 뒤 모두 삭제돼요. 그 전에 다시 로그인하면 되살릴 수 있어요.'
     )
     expect(router.state.location.pathname).toBe('/login')
     expect(useAppStore.getState().currentUser).toBeNull()
