@@ -51,7 +51,9 @@ const formatCalendarDate = (value: Date): string =>
 export const getDashboardStatsQuerySchema = z
   .object({
     from: calendarDateSchema.optional(),
-    to: calendarDateSchema.optional()
+    to: calendarDateSchema.optional(),
+    // JLP-853: only the sessions and wrong notes of this JLPT level.
+    level: jlptLevelSchema.optional()
   })
   .strict()
   .superRefine((range, context) => {

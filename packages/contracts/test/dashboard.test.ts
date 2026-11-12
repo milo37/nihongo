@@ -53,6 +53,9 @@ describe('dashboard contracts', () => {
         to: '2024-12-31'
       })
     ).toEqual({ from: '2024-01-01', to: '2024-12-31' })
+    expect(getDashboardStatsQuerySchema.parse({ level: 'N2' })).toEqual({
+      level: 'N2'
+    })
 
     for (const invalid of [
       { from: '2026-08-01' },
@@ -60,7 +63,9 @@ describe('dashboard contracts', () => {
       { from: '2026-08-02', to: '2026-08-01' },
       { from: '2024-01-01', to: '2025-01-01' },
       { from: '2025-02-29', to: '2025-03-01' },
-      { from: '2026-08-01', to: '2026-08-02', userId: id(90) }
+      { from: '2026-08-01', to: '2026-08-02', userId: id(90) },
+      { level: 'N6' },
+      { level: 'n2' }
     ]) {
       expect(getDashboardStatsQuerySchema.safeParse(invalid).success).toBe(
         false

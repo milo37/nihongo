@@ -49,7 +49,8 @@ const normalizeDashboardWindow = (
       ? addUtcDays(startOfUtcDate(query.to), 1)
       : null,
     dailyFromInclusive: addUtcDays(anchorStart, -6),
-    dailyToExclusive: addUtcDays(anchorStart, 1)
+    dailyToExclusive: addUtcDays(anchorStart, 1),
+    level: query.level ?? null
   }
 }
 
