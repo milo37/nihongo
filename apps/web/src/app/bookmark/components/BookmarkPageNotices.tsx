@@ -1,4 +1,3 @@
-import { EmptySheet } from '@common/components/manuscript/EmptySheet'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement } from 'react'
@@ -72,8 +71,15 @@ export const BookmarkEmptyPage = ({
 }: BookmarkEmptyPageProps): ReactElement => {
   const { t } = useTranslation('bookmark')
   const isFirstPage = displayedPage === 1
-  const empty = (
+  // JLP-855: no manuscript paper; the first page keeps its message at the
+  // start edge as before.
+  return (
     <EmptyState
+      className={
+        isFirstPage
+          ? 'items-start! mx-0! px-0! text-start! [&>h2]:text-pretty [&:lang(ko)>h2]:break-keep'
+          : undefined
+      }
       title={isFirstPage ? t('empty.firstTitle') : t('empty.pageTitle')}
       description={
         isFirstPage ? t('empty.firstDescription') : t('empty.pageDescription')
@@ -95,12 +101,6 @@ export const BookmarkEmptyPage = ({
         )
       }
     />
-  )
-  // The first empty page gets the blank manuscript paper (B4).
-  return isFirstPage ? (
-    <EmptySheet word="ブックマーク">{empty}</EmptySheet>
-  ) : (
-    empty
   )
 }
 

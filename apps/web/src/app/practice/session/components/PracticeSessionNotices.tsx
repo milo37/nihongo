@@ -6,6 +6,7 @@ import type { StudySessionView } from '@app/practice/adapters/studySessionView'
 import type { PracticeDraftController } from '@app/practice/hooks/usePracticeDraftController'
 import type { DraftActionNoticeCode } from '@app/practice/hooks/usePracticeSessionController'
 import { usePracticeNumberFormat } from '@app/practice/hooks/usePracticeNumberFormat'
+import { getSetReturnPath } from '@app/practice/setReturnPath'
 
 type PracticeSessionNoticesProps = {
   draftActionMessage: DraftActionNoticeCode | null
@@ -134,6 +135,9 @@ const SupplyNotice = ({
   const { formatCount } = usePracticeNumberFormat()
   const { session, requestedCount, actualCount } = sessionData
   if (actualCount >= requestedCount) return null
+  // JLP-858: a wrong-note or bookmark set takes what its list holds; the
+  // learner never chose a count, so only a chosen-size set explains a gap.
+  if (getSetReturnPath(session.mode)) return null
   return (
     <p className="mb-4 text-[13px] leading-5 text-muted" role="status">
       {t('session.supply.canonicalPartial', {

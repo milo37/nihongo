@@ -357,8 +357,9 @@ export const AppLayout = ({
     setMobileMenuOpen(false)
   }
 
-  const isFocusSession =
-    location.pathname.startsWith('/practice/session/') && !isReviewSurface
+  // JLP-854: a wrong-note retry is a session too; the bottom tabs would cover
+  // its fixed submit bar under 1024px.
+  const isFocusSession = location.pathname.startsWith('/practice/session/')
   const isLearningActive =
     (isLearningEntry || isPracticeSurface) && !isReviewSurface
   const navigationItems: readonly NavigationItem[] = [

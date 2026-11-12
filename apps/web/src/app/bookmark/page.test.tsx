@@ -562,6 +562,24 @@ describe('BookmarkPage pagination settlement', () => {
   })
 })
 
+it('빈 책갈피는 원고지 없이 문구와 문제 풀러 가기만 보인다 (JLP-855)', async () => {
+  mockServer.use(
+    http.get('*/api/v1/bookmarks', () =>
+      HttpResponse.json({ items: [], page: 1, pageSize: 20, total: 0 })
+    )
+  )
+  const fixture = renderBookmarkPage()
+  expect(
+    await screen.findByRole('heading', { name: '책갈피에 담은 문제가 없어요' })
+  ).toBeVisible()
+  expect(screen.getByRole('link', { name: '문제 풀러 가기' })).toHaveAttribute(
+    'href',
+    '/practice'
+  )
+  expect(document.querySelector('.manuscript-sheet')).toBeNull()
+  dispose(fixture.client, fixture.unmount)
+})
+
 it('displays one real bookmark page without adding unsupported filters', async () => {
   const item = createBookmark(1)
   mockServer.use(

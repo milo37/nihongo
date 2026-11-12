@@ -1,4 +1,3 @@
-import { EmptySheet } from '@common/components/manuscript/EmptySheet'
 import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
@@ -232,16 +231,16 @@ const MemberReview = (): ReactElement => {
                 </Button>
               </div>
             ) : empty ? (
-              <EmptySheet word="間違いノート">
-                <EmptyState
-                  title={t(`empty.${empty}.title`)}
-                  description={
-                    // 'never' is one sentence (plan-notes §4).
-                    empty === 'never' ? undefined : t(`empty.${empty}.body`)
-                  }
-                  action={empty === 'noReviewed' ? startButton('') : startNew}
-                />
-              </EmptySheet>
+              // JLP-855: no manuscript paper, message at the start edge.
+              <EmptyState
+                className="items-start! mx-0! px-0! text-start! [&>h2]:text-pretty [&:lang(ko)>h2]:break-keep"
+                title={t(`empty.${empty}.title`)}
+                description={
+                  // 'never' is one sentence (plan-notes §4).
+                  empty === 'never' ? undefined : t(`empty.${empty}.body`)
+                }
+                action={empty === 'noReviewed' ? startButton('') : startNew}
+              />
             ) : null}
             {center.totalPages > 1 ? (
               <Pagination
