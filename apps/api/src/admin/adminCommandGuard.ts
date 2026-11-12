@@ -9,6 +9,10 @@ import type { ApiEnvironment } from '../config/env.js'
 import { ApplicationError } from '../errors/applicationError.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
 import {
+  recordAdminAccessOrRefuse,
+  type AdminAccessRecorder
+} from './adminAccessLog.js'
+import {
   type AdminCommandRateLimitGroup,
   type AdminCommandRateLimiter
 } from './adminCommandRateLimiter.js'
@@ -189,13 +193,16 @@ export const createAdminCommandGuard = ({
   environment,
   operationResolver = getCanonicalSlice3Operation,
   principalService,
-  rateLimiter
+  rateLimiter,
+  recordAccess
 }: {
   assertCapability: () => void | Promise<void>
   environment: ApiEnvironment
   operationResolver?: typeof getCanonicalSlice3Operation
   principalService: PrincipalService
   rateLimiter: AdminCommandRateLimiter
+  /** JLP-842: the administrator access record, kept 13 months. */
+  recordAccess?: AdminAccessRecorder | undefined
 }) => {
   const clientIpAuthority = createClientIpAuthority(
     environment.AUTH_TRUSTED_PROXY_CIDRS
@@ -325,6 +332,13 @@ export const createAdminCommandGuard = ({
       actorId: resolution.user.id,
       clientIp,
       group
+    })
+    await recordAdminAccessOrRefuse(recordAccess, {
+      actorId: resolution.user.id,
+      clientIp,
+      method: context.req.method,
+      path: context.req.path,
+      requestId: context.get('requestId')
     })
 
     context.set('adminActorId', resolution.user.id)

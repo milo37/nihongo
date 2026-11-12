@@ -3,7 +3,8 @@ import { Prisma } from '../generated/prisma/client.js'
 /**
  * Expired guest data removal (JLP-534, #504 P3). Runs inside one transaction
  * as the application role; the SQL mirrors the former
- * `guest_cleanup_batch` function.
+ * `guest_cleanup_batch` function. JLP-842 adds the administrator access
+ * records older than 13 months (the table trigger refuses younger ones).
  */
 export interface GuestCleanupBatchResult {
   deletedCount: number
@@ -15,7 +16,14 @@ type Transaction = Pick<Prisma.TransactionClient, '$queryRaw' | '$executeRaw'>
 
 const RETENTION = Prisma.sql`INTERVAL '7 days'`
 const REPLAY_OPERATIONS = Prisma.sql`('STUDY_SUBMIT', 'STUDY_DRAFT_SAVE', 'STUDY_RETRY_CREATE', 'STUDY_TARGETED_REVIEW_CREATE')`
-const KIND_ORDER = ['draft', 'session', 'principal', 'idempotency', 'rate']
+const KIND_ORDER = [
+  'draft',
+  'session',
+  'principal',
+  'idempotency',
+  'rate',
+  'adminAccess'
+]
 
 const RATE_POLICIES: readonly (readonly [string, number])[] = [
   ...[
@@ -120,12 +128,17 @@ const expiredRate = (now: Date) => Prisma.sql`
   AND r."lastRequest" <= floor(EXTRACT(EPOCH FROM ${now}::timestamptz) * 1000)::bigint
     - 604800000 - ${rateWindow(Prisma.sql`r."key"`)}`
 
+// One year of retention plus a month of margin (JLP-842).
+const expiredAdminAccess = (now: Date) => Prisma.sql`
+  a."occurredAt" <= ${now}::timestamptz - INTERVAL '13 months'`
+
 const candidates = (now: Date) => Prisma.sql`
   SELECT 'draft'::text AS kind, s."id" FROM "StudySession" s WHERE ${draftSession(now)}
   UNION ALL SELECT 'session', s."id" FROM "StudySession" s WHERE ${closedSession(now)}
   UNION ALL SELECT 'principal', g."id" FROM "GuestPrincipal" g WHERE ${expiredPrincipal(now)}
   UNION ALL SELECT 'idempotency', i."id" FROM "IdempotencyRecord" i WHERE ${expiredReplay(now)}
-  UNION ALL SELECT 'rate', r."id" FROM "RateLimit" r WHERE ${expiredRate(now)}`
+  UNION ALL SELECT 'rate', r."id" FROM "RateLimit" r WHERE ${expiredRate(now)}
+  UNION ALL SELECT 'adminAccess', a."id" FROM "AdminAccessLog" a WHERE ${expiredAdminAccess(now)}`
 
 const countCandidates = async (
   transaction: Transaction,
@@ -195,6 +208,11 @@ const deleteCandidate = async (
     if (!locked) return 0
     return await transaction.$executeRaw`
       DELETE FROM "IdempotencyRecord" i WHERE i."id" = ${id}::uuid AND ${expiredReplay(now)}`
+  }
+  if (kind === 'adminAccess') {
+    // An insert-only record: no writer holds it, so no row lock is needed.
+    return await transaction.$executeRaw`
+      DELETE FROM "AdminAccessLog" a WHERE a."id" = ${id}::uuid AND ${expiredAdminAccess(now)}`
   }
   const [locked] = await transaction.$queryRaw<unknown[]>`
     SELECT 1 FROM "RateLimit" r WHERE r."id" = ${id}::uuid AND ${expiredRate(now)}

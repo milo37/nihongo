@@ -728,6 +728,20 @@ model AdminAuditLog {
   @@index([targetType, targetId])
 }
 
+/// JLP-842: one row per admin request, kept 13 months unchanged (trigger).
+model AdminAccessLog {
+  id         String   @id @default(dbgenerated("public.gen_random_uuid()")) @db.Uuid
+  actorId    String   @db.Uuid
+  clientIp   String   @db.VarChar(64)
+  method     String   @db.VarChar(8)
+  path       String   @db.VarChar(512)
+  requestId  String   @db.Uuid
+  occurredAt DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+
+  @@index([occurredAt])
+  @@index([actorId, occurredAt(sort: Desc)])
+}
+
 model QuestionReport {
   id                   String                           @id @default(dbgenerated("public.gen_random_uuid()")) @db.Uuid
   questionId           String                           @db.Uuid
