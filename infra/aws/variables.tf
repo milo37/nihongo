@@ -163,6 +163,23 @@ variable "github_deploy_environment" {
   }
 }
 
+variable "create_account_trail" {
+  description = "One CloudTrail per account for the operator access record (JLP-842). STAGING true; PRODUCTION false (same account, the trail already covers it)."
+  type        = bool
+  default     = false
+}
+
+variable "audit_log_retention_days" {
+  description = "Days the trail's log files stay in the audit bucket. The access-record rule asks for at least one year."
+  type        = number
+  default     = 400
+
+  validation {
+    condition     = var.audit_log_retention_days >= 366
+    error_message = "audit_log_retention_days must keep logs at least one year (>= 366)."
+  }
+}
+
 variable "create_ecr_repository" {
   description = "One api repository per account. STAGING true (creates harumaru/api and pushes releases); PRODUCTION false (reads it, deploys the same images)."
   type        = bool
