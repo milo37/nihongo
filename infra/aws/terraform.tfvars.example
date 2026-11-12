@@ -27,3 +27,7 @@ alert_email            = "owner@example.com"
 # acm_certificate_arn = "arn:aws:acm:us-east-1:123456789012:certificate/..."
 # Origin proxy with the Cloudflare DNS provider (README "origin 인증서"):
 # caddy_dns_image     = "123456789012.dkr.ecr.ap-northeast-2.amazonaws.com/harumaru/caddy@sha256:..."
+
+# JLP-842: one CloudTrail per account (operator access record, kept 400 days).
+# STAGING true, PRODUCTION false.
+# create_account_trail = true
