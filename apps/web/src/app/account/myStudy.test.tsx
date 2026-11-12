@@ -10,7 +10,9 @@ import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { queryClient } from '@nihongo/browser/libs/queryClient'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { ProtectedRouteProvider } from '@nihongo/browser/provider/ProtectedRouteProvider'
+import { toContractDashboardStats } from '@mocks/adapters/dashboardContractAdapter'
 import { handlers } from '@mocks/handlers'
+import type { MockCanonicalDashboardSessionRecord } from '@mocks/repository/mockDatabase'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { subscribeApiError } from '@nihongo/browser/libs/errorBus'
 import { mockServer } from '@/test/server'
@@ -286,6 +288,60 @@ describe('마이페이지 내 학습', () => {
       await within(section).findByText('아직 N3 문제를 풀지 않았어요')
     ).toBeInTheDocument()
     expect(statsLevels.at(-1)).toBe('N3')
+  })
+
+  it('JLP-853: N2·N3 기록이 섞여 있으면 목표 급수 N2 기록만 센다', async () => {
+    const session = (
+      index: number,
+      level: MockCanonicalDashboardSessionRecord['level'],
+      subject: MockCanonicalDashboardSessionRecord['subject'],
+      correctCount: number
+    ): MockCanonicalDashboardSessionRecord => ({
+      id: `019d0000-0000-7000-8000-0000000000d${index}`,
+      level,
+      subject,
+      mode: 'RANDOM',
+      totalCount: 10,
+      correctCount,
+      durationSec: 60,
+      submittedAt: `2026-11-0${index + 1}T09:00:00.000Z`
+    })
+    const record = {
+      observedAt: '2026-11-07T12:00:00.000Z',
+      sessions: [
+        session(0, 'N2', 'VOCABULARY', 9),
+        session(1, 'N3', 'VOCABULARY', 1),
+        session(2, 'N3', 'GRAMMAR', 2),
+        session(3, 'N2', 'GRAMMAR', 7)
+      ],
+      wrongNotes: []
+    }
+    // The mock answers with the same level filter as the API.
+    mockServer.use(
+      http.get('*/api/v1/dashboard', ({ request }) => {
+        const level = new URL(request.url).searchParams.get('level')
+        statsLevels.push(level)
+        return HttpResponse.json(
+          toContractDashboardStats(
+            record,
+            level === 'N2' || level === 'N3' ? { level } : {}
+          )
+        )
+      })
+    )
+    renderAccount()
+    const section = await screen.findByRole('region', { name: 'N2 학습' })
+    // N2 only: 20 answered, 16 correct; N3 rows and sessions are left out.
+    expect(await within(section).findByText('80%')).toBeInTheDocument()
+    expect(within(section).getByText('20')).toBeInTheDocument()
+    const rows = within(section).getAllByRole('listitem')
+    expect(rows[0]).toHaveTextContent('문자·어휘10문제정답률90%높음')
+    expect(rows[1]).toHaveTextContent('문법10문제정답률70%보통')
+    expect(
+      within(section).getAllByRole('link', { name: /^N2 · / })
+    ).toHaveLength(2)
+    expect(within(section).queryByRole('link', { name: /^N3 · / })).toBeNull()
+    expect(statsLevels).toEqual(['N2'])
   })
 
   it('JLP-853: 목표 급수가 없으면 N5 기록으로 보여 준다', async () => {
