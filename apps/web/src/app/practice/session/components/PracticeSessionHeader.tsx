@@ -5,6 +5,10 @@ import { Icon } from '@nihongo/browser/common/components/Icon'
 import type { PracticeNavigationContext } from '@app/layout'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
 import { usePracticeNumberFormat } from '@app/practice/hooks/usePracticeNumberFormat'
+import {
+  getSetReturnPath,
+  setReturnLabelKey
+} from '@app/practice/setReturnPath'
 import { ProgressSheet } from '@common/components/manuscript/ProgressSheet'
 import type { ProgressCellState } from '@common/components/manuscript/ProgressSheet'
 
@@ -39,6 +43,9 @@ export const PracticeSessionHeader = ({
   const { t: commonT } = useTranslation('common')
   const { formatCount } = usePracticeNumberFormat()
   const position = `${formatCount(currentNumber)} / ${formatCount(total)}`
+  // JLP-856: ✕ goes back to the list the set came from; a random set goes
+  // to the practice setup as before.
+  const returnPath = getSetReturnPath(session.mode)
 
   return (
     <header
@@ -47,11 +54,13 @@ export const PracticeSessionHeader = ({
       <div className="study-session-bar mx-auto flex h-14 max-w-6xl lg:h-16 items-center gap-1 px-2">
         <Link
           className="note-link size-11 shrink-0 justify-center"
-          aria-label={t(
+          aria-label={
             reviewContext
-              ? 'session.header.backToExplanation'
-              : 'session.header.backToSetup'
-          )}
+              ? t('session.header.backToExplanation')
+              : returnPath
+                ? t(setReturnLabelKey[returnPath], { ns: 'result' })
+                : t('session.header.backToSetup')
+          }
           aria-disabled={isBackDisabled}
           onClick={(event) => {
             if (isBackDisabled) {
@@ -61,7 +70,7 @@ export const PracticeSessionHeader = ({
           to={
             reviewContext
               ? `/wrong-notes/${reviewContext.questionId}?returnTo=${encodeURIComponent(reviewContext.returnTo)}`
-              : '/practice'
+              : (returnPath ?? '/practice')
           }
         >
           <Icon name="x" />
