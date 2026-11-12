@@ -38,16 +38,18 @@ export const AccountSettings = (): ReactElement => {
   const deleteReasonId = headingId + '-delete-reason'
   const controlsDisabled = flow.busy || flow.uncertain
   return (
-    <section className="grid gap-4" aria-labelledby={headingId}>
+    <section className="account-section grid gap-4" aria-labelledby={headingId}>
       <h2
         ref={heading}
         id={headingId}
         tabIndex={-1}
-        className="text-xl font-semibold outline-none"
+        className="text-lg font-bold outline-none"
       >
         {t('settings.title')}
       </h2>
-      <div className="divide-y divide-line rounded-panel border border-line bg-surface p-4 sm:p-6">
+      {/* JLP-851: rows under the heading with no card; only the deletion
+          box below keeps its red border. */}
+      <div className="divide-y divide-line">
         <SettingRow>
           <p className="text-caption text-muted">
             {t('settings.signInMethod')}

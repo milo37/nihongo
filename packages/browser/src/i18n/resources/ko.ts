@@ -1041,7 +1041,14 @@ export const koCoreResources = {
       emptyAction: '첫 문제 풀기',
       error: '학습 기록을 불러오지 못했어요.',
       retry: '다시 시도',
-      loading: '불러오는 중…'
+      loading: '불러오는 중…',
+      tier: {
+        high: '높음',
+        mid: '보통',
+        low: '낮음'
+      },
+      recentMore:
+        '최근 5번까지 보여요. 틀린 문제는 <notes>오답노트</notes>에 모여 있어요.'
     },
     settings: {
       title: '계정',
