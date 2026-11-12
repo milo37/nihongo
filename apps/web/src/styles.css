@@ -355,6 +355,26 @@ section.practice-guest-limit,
   outline: var(--focus-width) solid rgb(var(--focus-color));
   outline-offset: calc(var(--focus-width) * -1);
 }
+/* JLP-849: a tap or click focuses the menu box; it shows no ring. */
+.locale-menu-panel:focus,
+.locale-menu-panel:focus-visible,
+.account-menu-panel [role='menu']:focus,
+.account-menu-panel [role='menu']:focus-visible {
+  outline: none;
+}
+/* Account menu rows match the language menu: the keyboard ring sits inside
+   the row so the panel edge never clips it. */
+.account-menu-panel .account-menu-item:hover {
+  background: rgb(var(--color-hover-surface));
+}
+.account-menu-panel .account-menu-item:focus-visible {
+  outline: var(--focus-width) solid rgb(var(--focus-color));
+  outline-offset: calc(var(--focus-width) * -1);
+  background: rgb(var(--color-hover-surface));
+}
+.account-menu-panel .account-menu-item:active {
+  background: rgb(var(--color-line));
+}
 .locale-menu-check {
   display: grid;
   flex: none;
