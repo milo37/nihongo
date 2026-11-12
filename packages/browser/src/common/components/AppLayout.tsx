@@ -384,7 +384,11 @@ export const AppLayout = ({
       to: '/account',
       label: 'my',
       icon: 'user-round',
-      active: location.pathname.startsWith('/account')
+      // JLP-850: the account data guide is one of the three information
+      // pages, which light no bottom tab.
+      active:
+        location.pathname.startsWith('/account') &&
+        !location.pathname.startsWith('/account/data')
     }
   ]
   const showNavigation = learnerNavigation && !isFocusSession

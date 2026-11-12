@@ -92,6 +92,10 @@
 }
 .operations-navigation ul {
   gap: 0 24px;
+  /* JLP-850: one row of tabs; a narrow screen scrolls it sideways. */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  white-space: nowrap;
 }
 .operations-navigation a {
   display: flex;
@@ -102,7 +106,6 @@
   color: rgb(var(--color-muted));
   font-size: 0.875rem;
   text-decoration: none;
-  overflow-wrap: anywhere;
 }
 .operations-navigation a[aria-current='page'] {
   color: rgb(var(--color-ink));
@@ -119,6 +122,10 @@
 .operations-table-of-contents a:focus-visible {
   outline: var(--focus-width) solid rgb(var(--focus-color));
   outline-offset: var(--focus-offset);
+}
+/* The tab row scrolls, so its ring sits inside each tab to stay unclipped. */
+.operations-navigation a:focus-visible {
+  outline-offset: calc(var(--focus-width) * -1);
 }
 .operations-heading {
   margin-bottom: 28px;

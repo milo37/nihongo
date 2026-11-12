@@ -187,14 +187,16 @@ describe('마이페이지 내 학습', () => {
     expect(within(section).queryByText('최근 7일')).toBeNull()
     expect(screen.queryByRole('heading', { name: '추천 학습' })).toBeNull()
     expect(insightReads).toBe(0)
-    expect(screen.getByRole('link', { name: '안내' })).toHaveAttribute(
-      'href',
-      '/legal'
-    )
-    expect(screen.getByRole('link', { name: '도움말' })).toHaveAttribute(
-      'href',
-      '/support'
-    )
+    // JLP-850: the footer uses the top tab names and order.
+    expect(
+      within(screen.getByRole('contentinfo'))
+        .getAllByRole('link')
+        .map((link) => [link.textContent, link.getAttribute('href')])
+    ).toEqual([
+      ['이용 안내', '/legal'],
+      ['계정·데이터', '/account/data'],
+      ['신고·문의', '/support']
+    ])
   })
 
   it('푼 문제가 없으면 첫 학습 안내를 보여 준다', async () => {

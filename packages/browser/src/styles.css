@@ -392,16 +392,26 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-start;
-  gap: 0 20px;
-  margin: 0;
+  gap: 0 4px;
+  /* JLP-850: each link pads 8px for a 44px target; the negative margin keeps
+     the first label on the content's left line. */
+  margin: 0 -8px;
   padding: 0;
   list-style: none;
+}
+
+/* A narrow row wraps between links, never inside one. */
+.information-footer-links li {
+  white-space: nowrap;
 }
 
 .information-footer a {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  min-width: 44px;
   min-height: 44px;
+  padding: 0 8px;
   font-size: var(--text-caption-size);
   color: rgb(var(--color-muted));
 }
@@ -879,7 +889,7 @@
     padding-bottom: 24px;
   }
   .information-footer-links {
-    gap: 0 16px;
+    gap: 0;
   }
   .practice-setup-page {
     padding: 22px 20px 28px;
@@ -2306,6 +2316,10 @@ html:lang(ja) .auth-consent {
   border: 1px solid rgb(var(--color-line));
   border-radius: var(--radius-panel);
   background: rgb(var(--color-surface));
+}
+/* The footer sits inside My's column, so it shares its left line. */
+.account-page > .information-footer {
+  width: 100%;
 }
 .account-page {
   display: grid;

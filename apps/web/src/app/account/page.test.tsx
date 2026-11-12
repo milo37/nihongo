@@ -781,6 +781,18 @@ describe('마이페이지 계정 설정', () => {
         '보내 주신 문제 신고는 설명을 지우고 계정과 연결을 끊은 채 남아요.'
       )
     ).toBeInTheDocument()
+    // JLP-850: the same top tabs as the other information pages, with no
+    // link back to My (the bottom tab bar does that).
+    const tabs = screen.getByRole('navigation', { name: '서비스 안내' })
+    expect(
+      within(tabs).getByRole('link', { name: '계정·데이터' })
+    ).toHaveAttribute('aria-current', 'page')
+    expect(
+      screen.getByRole('link', { name: '개인정보 처리방침 보기' })
+    ).toHaveClass('min-h-11')
+    expect(
+      screen.queryByRole('link', { name: '마이페이지로' })
+    ).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(screen.queryByRole('status')).not.toBeInTheDocument()
     expect(reads()).toBe(0)
