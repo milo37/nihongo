@@ -105,7 +105,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       '20261110090000_admin_fresh_window_30_minutes',
       '20261111090000_grant_user_target_level_update',
       '20261112090000_account_erasure_grace_restore',
-      '20261113090000_admin_access_log'
+      '20261113090000_admin_access_log',
+      '20261114090000_user_last_login'
     ])
     expect(
       actual.rows.map(({ name, checksum }) => ({ name, checksum }))
@@ -311,6 +312,14 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
             ? gatewayQuery(sql, ...values)
             : appSession.$queryRawUnsafe(sql, ...values)
       } as unknown as PrismaClient)
+      // JLP-852: a sign-in changes only the sign-in time of its User.
+      const usersWithoutSignInTime = async () =>
+        (
+          await h.owner.query<{ fingerprint: string }>(
+            `SELECT md5(string_agg((to_jsonb(u) - 'lastLoginAt')::text, E'\n' ORDER BY u.id)) AS fingerprint FROM "User" u`
+          )
+        ).rows[0]?.fingerprint
+      const usersBeforeSignIn = await usersWithoutSignInTime()
       const newAuthorizations = new Set<string>()
       const tokens = new Set<string>()
       for (const attempt of [1, 2]) {
@@ -366,7 +375,20 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
             (row) => !newAuthorizations.has(`${row.kind}:${row.id}`)
           )
         ).toEqual(authorizationBefore)
-        expect(await h.snapshot()).toEqual(beforeSignIn)
+        const afterSignIn = await h.snapshot()
+        expect({ ...afterSignIn, User: afterSignIn.User?.count }).toEqual({
+          ...beforeSignIn,
+          User: beforeSignIn.User?.count
+        })
+        expect(await usersWithoutSignInTime()).toBe(usersBeforeSignIn)
+        expect(
+          (
+            await h.owner.query<{ stamped: boolean }>(
+              'SELECT "lastLoginAt" >= $2::timestamptz AS stamped FROM "User" WHERE id=$1',
+              [learner.userId, signedIn.createdAt]
+            )
+          ).rows[0]?.stamped
+        ).toBe(true)
       }
       await h.owner.query('SET CONSTRAINTS ALL IMMEDIATE')
     })

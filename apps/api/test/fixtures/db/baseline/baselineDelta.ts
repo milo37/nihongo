@@ -361,6 +361,15 @@ const withBaselineTargetLevelAcl = (
 const ADDED_TABLE = 'AdminAccessLog'
 const ADDED_FUNCTION = 'protect_admin_access_log'
 
+/** JLP-852: the last sign-in column of User, its NOT NULL and its index. */
+const ADDED_LAST_LOGIN_OBJECTS = new Set([
+  'lastLoginAt',
+  'User_lastLoginAt_not_null',
+  'User_lastLoginAt_idx'
+])
+const isAddedLastLogin = (row: Record<string, unknown>): boolean =>
+  row.table === 'User' && ADDED_LAST_LOGIN_OBJECTS.has(String(row.name))
+
 /**
  * JLP-845: the grace-period restore replaces two trigger function bodies,
  * allows CANCELLED and adds one check on SsoAccountErasureRequest.
@@ -393,8 +402,8 @@ const withBaselineErasureStatus = (
  * cannot see: the renamed enum label, the replaced function bodies (checked
  * exactly by forwardFunctionSources against the baseline file), the objects
  * JLP-733 drops or adds, removed from both sides, the #683 proof bound,
- * the JLP-815 target level grant, the JLP-845 restore objects and the JLP-842
- * access record table.
+ * the JLP-815 target level grant, the JLP-845 restore objects, the JLP-842
+ * access record table and the JLP-852 last sign-in column.
  */
 export const withoutForwardChanges = (
   catalog: SchemaCatalog
@@ -424,7 +433,8 @@ export const withoutForwardChanges = (
           row.table === 'QuestionVersionTag' &&
           DROPPED_SNAPSHOT_COLUMNS.has(String(row.name))
         ) &&
-        !(row.table === 'Tag' && ADDED_TAG_COLUMNS.has(String(row.name)))
+        !(row.table === 'Tag' && ADDED_TAG_COLUMNS.has(String(row.name))) &&
+        !isAddedLastLogin(row)
     )
     .map(withBaselineTargetLevelAcl),
   constraints: catalog.constraints
@@ -433,7 +443,8 @@ export const withoutForwardChanges = (
         !isDroppedTagSnapshot(row) &&
         !isAddedTagObject(row) &&
         row.name !== GRACE_ADDED_CHECK &&
-        row.table !== ADDED_TABLE
+        row.table !== ADDED_TABLE &&
+        !isAddedLastLogin(row)
     )
     .map(withBaselineProofBound)
     .map(withBaselineErasureStatus),
@@ -441,7 +452,8 @@ export const withoutForwardChanges = (
     (row) =>
       !isDroppedTagSnapshot(row) &&
       !isAddedTagObject(row) &&
-      row.table !== ADDED_TABLE
+      row.table !== ADDED_TABLE &&
+      !isAddedLastLogin(row)
   ),
   triggers: catalog.triggers.filter(
     (row) =>

@@ -947,8 +947,9 @@ describe('Reauthentication DB foundation', () => {
     // of Session and ReauthenticationIntent with their grants.
     // #504 P7 PR5a: the API SSO link adds Account 1 (updatedAt insert only)
     // and the unlink DELETE on Account.
+    // JLP-852: the sign-in time adds User 1 (read, and set at issuance).
     expect(catalog.rows).toEqual([
-      { sensitiveColumnAclCount: 45, sensitiveTableAclCount: 5 }
+      { sensitiveColumnAclCount: 46, sensitiveTableAclCount: 5 }
     ])
   })
 

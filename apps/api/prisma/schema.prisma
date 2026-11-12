@@ -265,6 +265,8 @@ model User {
   accountStatus               UserAccountStatus             @default(ACTIVE)
   authorityGeneration         Int                           @default(dbgenerated("1"))
   deletedAt                   DateTime?                     @db.Timestamptz(3)
+  /// JLP-852: set when a session is issued; a year without it erases the member.
+  lastLoginAt                 DateTime                      @default(now()) @db.Timestamptz(3)
   createdAt                   DateTime                      @default(now()) @db.Timestamptz(3)
   updatedAt                   DateTime                      @updatedAt @db.Timestamptz(3)
   sessions                    Session[]
@@ -292,6 +294,7 @@ model User {
   restrictionEventActions     UserAccountRestrictionEvent[] @relation("RestrictionEventActor")
 
   @@index([role, accountStatus])
+  @@index([lastLoginAt])
 }
 
 model Session {

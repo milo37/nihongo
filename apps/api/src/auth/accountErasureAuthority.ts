@@ -1,11 +1,15 @@
-import { createHash, randomUUID } from 'node:crypto'
+import { createHash, randomBytes, randomUUID } from 'node:crypto'
 import type { Prisma, PrismaClient } from '../generated/prisma/client.js'
 import { adminAuditContentDigest } from '../admin/adminRepositoryCommon.js'
 import {
   accountFreshProofIsValid,
   accountSessionContext
 } from './ssoAccountAuthority.js'
-import { deletionScheduledAtSql, erasureDueSql } from './erasureGrace.js'
+import {
+  deletionScheduledAtSql,
+  erasureDueSql,
+  INACTIVE_ERASURE_AFTER
+} from './erasureGrace.js'
 
 /**
  * Account erasure in the API transaction (#504 P7 PR4a).
@@ -520,6 +524,109 @@ export const listSsoAccountErasures = async (
     batchLimit
   )
   return rows[0]?.result
+}
+
+/**
+ * JLP-852: an ACTIVE member past a year without sign-in, under the rules of a
+ * member's own request: no open admin work and never the last ACTIVE ADMIN.
+ * A skipped member stays out of the search, so it never fills the batch.
+ */
+const INACTIVE_ERASURE_CANDIDATE = `u."accountStatus" = 'ACTIVE'
+  AND u."deletedAt" IS NULL
+  AND u."lastLoginAt" <= clock_timestamp() - ${INACTIVE_ERASURE_AFTER}
+  AND NOT EXISTS (
+    SELECT 1 FROM "QuestionVersion" AS version
+    WHERE version."createdByActorId" = u."id"
+      AND version."status" IN ${OPEN_VERSION_STATUSES}
+  )
+  AND NOT (u."role" = 'ADMIN' AND NOT EXISTS (
+    SELECT 1 FROM "User" AS other
+    WHERE other."role" = 'ADMIN' AND other."accountStatus" = 'ACTIVE'
+      AND other."id" <> u."id"
+  ))`
+
+export interface InactiveErasureRunResult {
+  requestedUserIds: string[]
+  failedUserIds: string[]
+  limitReached: boolean
+}
+
+/**
+ * JLP-852: records the erasure request of each member past a year without
+ * sign-in, as requestSsoAccountErasure does for the member's own request,
+ * one transaction each. Nobody holds the receipt of such a request.
+ */
+export const requestInactiveAccountErasures = async (
+  client: Queryable & Pick<PrismaClient, '$transaction'>,
+  batchLimit: number,
+  environment: ErasureEnvironment
+): Promise<InactiveErasureRunResult> => {
+  await requireCapability(client, environment)
+  if (!Number.isInteger(batchLimit) || batchLimit < 1 || batchLimit > 100)
+    await raise(client, '22023', 'Invalid erasure batch limit.')
+  const candidates = await client.$queryRawUnsafe<Array<{ id: string }>>(
+    `SELECT u."id" FROM "User" AS u
+     WHERE ${INACTIVE_ERASURE_CANDIDATE}
+     ORDER BY u."lastLoginAt", u."id"
+     LIMIT $1::integer`,
+    batchLimit
+  )
+  const result: InactiveErasureRunResult = {
+    requestedUserIds: [],
+    failedUserIds: [],
+    limitReached: candidates.length >= batchLimit
+  }
+  for (const { id } of candidates) {
+    const requested = await client
+      .$transaction(async (transaction) => {
+        await transaction.$queryRawUnsafe(
+          `SELECT "require_runtime_ready"() AS ready`
+        )
+        // The lock order of a member's own request: ACTIVE ADMINs, the User,
+        // then its Accounts.
+        await transaction.$queryRawUnsafe(
+          `SELECT 1 FROM "User"
+           WHERE "role" = 'ADMIN' AND "accountStatus" = 'ACTIVE'
+           ORDER BY "id" FOR UPDATE`
+        )
+        const still = await transaction.$queryRawUnsafe<unknown[]>(
+          `SELECT 1 FROM "User" AS u
+           WHERE u."id" = $1::uuid AND ${INACTIVE_ERASURE_CANDIDATE}
+           FOR UPDATE OF u`,
+          id
+        )
+        if (still.length === 0) return false
+        await transaction.$queryRawUnsafe(
+          `SELECT 1 FROM "Account" WHERE "userId" = $1::uuid ORDER BY "id" FOR UPDATE`,
+          id
+        )
+        await transaction.$executeRawUnsafe(
+          `INSERT INTO "SsoAccountErasureRequest" (
+             "userId", "receiptDigest", "providerCleanup", "receiptExpiresAt"
+           ) VALUES ($1::uuid, $2, '[]'::jsonb, clock_timestamp())`,
+          id,
+          createHash('sha256').update(randomBytes(32)).digest('hex')
+        )
+        await transaction.$executeRawUnsafe(
+          `UPDATE "User" SET "accountStatus" = 'DELETION_PENDING'
+           WHERE "id" = $1::uuid`,
+          id
+        )
+        await transaction.$executeRawUnsafe(
+          `DELETE FROM "SsoAccountFreshProof" WHERE "userId" = $1::uuid`,
+          id
+        )
+        await transaction.$executeRawUnsafe(
+          `DELETE FROM "SsoAccountFreshTransaction" WHERE "userId" = $1::uuid`,
+          id
+        )
+        return true
+      })
+      .catch(() => null)
+    if (requested === true) result.requestedUserIds.push(id)
+    else if (requested === null) result.failedUserIds.push(id)
+  }
+  return result
 }
 
 /** sso_account_erasure_status: the receipt status, or null. */
