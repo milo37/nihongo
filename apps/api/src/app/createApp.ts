@@ -66,6 +66,7 @@ import { createReviewListRoutes } from '../routes/reviewList.js'
 import type { WrongNoteTargetedReviewService } from '../wrong-note/wrongNoteTargetedReviewService.js'
 import { createTargetedReviewSessionRoutes } from '../routes/targetedReviewSessions.js'
 import type { AdminQuestionReader } from '../admin/adminQuestionService.js'
+import type { AdminAccessRecorder } from '../admin/adminAccessLog.js'
 import type { AdminReadRateLimiter } from '../admin/adminReadRateLimiter.js'
 import { createAdminReadGuard } from '../admin/adminReadGuard.js'
 import { createAdminCommandGuard } from '../admin/adminCommandGuard.js'
@@ -173,6 +174,8 @@ interface CreateApiAppDependencies {
     members?: AdminMemberService
     rateLimiter: AdminReadRateLimiter
     reader: AdminQuestionReader
+    /** JLP-842: the administrator access record of every admin request. */
+    recordAccess?: AdminAccessRecorder
   }
   questionReports?: {
     rateLimiter: QuestionReportRateLimiter
@@ -637,7 +640,8 @@ export const createApiApp = ({
             assertCapability: admin.assertCapability,
             environment: auth.environment,
             principalService: auth.principalService,
-            rateLimiter: admin.rateLimiter
+            rateLimiter: admin.rateLimiter,
+            recordAccess: admin.recordAccess
           }),
           reader: admin.reader
         })
@@ -650,7 +654,8 @@ export const createApiApp = ({
               assertCapability: admin.assertCapability,
               environment: auth.environment,
               principalService: auth.principalService,
-              rateLimiter: admin.rateLimiter
+              rateLimiter: admin.rateLimiter,
+              recordAccess: admin.recordAccess
             }),
             readResult: admin.importResultReader
           })
@@ -661,7 +666,8 @@ export const createApiApp = ({
           assertCapability: admin.assertCapability,
           environment: auth.environment,
           principalService: auth.principalService,
-          rateLimiter: admin.rateLimiter
+          rateLimiter: admin.rateLimiter,
+          recordAccess: admin.recordAccess
         })
         app.route(
           '/api/v1/admin',
@@ -680,7 +686,8 @@ export const createApiApp = ({
           assertCapability: admin.assertCapability,
           environment: auth.environment,
           principalService: auth.principalService,
-          rateLimiter: admin.rateLimiter
+          rateLimiter: admin.rateLimiter,
+          recordAccess: admin.recordAccess
         })
         app.route(
           '/api/v1/admin',
@@ -702,7 +709,8 @@ export const createApiApp = ({
               assertCapability: admin.assertCapability,
               environment: auth.environment,
               principalService: auth.principalService,
-              rateLimiter: admin.rateLimiter
+              rateLimiter: admin.rateLimiter,
+              recordAccess: admin.recordAccess
             }),
             service: admin.reports.service
           })
@@ -717,7 +725,8 @@ export const createApiApp = ({
               assertCapability: admin.assertCapability,
               environment: auth.environment,
               principalService: auth.principalService,
-              rateLimiter: admin.commands.rateLimiter
+              rateLimiter: admin.commands.rateLimiter,
+              recordAccess: admin.recordAccess
             }),
             ...(admin.commands.workflowService
               ? { workflowCommandService: admin.commands.workflowService }
@@ -953,7 +962,8 @@ export const createApiApp = ({
               assertCapability: admin.assertCapability,
               environment: auth.environment,
               principalService: auth.principalService,
-              rateLimiter: admin.rateLimiter
+              rateLimiter: admin.rateLimiter,
+              recordAccess: admin.recordAccess
             })
           }
         : {})

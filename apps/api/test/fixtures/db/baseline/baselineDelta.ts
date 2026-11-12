@@ -357,12 +357,16 @@ const withBaselineTargetLevelAcl = (
       }
     : row
 
+/** JLP-842: the administrator access record table and its trigger. */
+const ADDED_TABLE = 'AdminAccessLog'
+const ADDED_FUNCTION = 'protect_admin_access_log'
+
 /**
  * Undoes the forward migrations' catalog changes the baseline comparison
  * cannot see: the renamed enum label, the replaced function bodies (checked
  * exactly by forwardFunctionSources against the baseline file), the objects
- * JLP-733 drops or adds, removed from both sides, the #683 proof bound and
- * the JLP-815 target level grant.
+ * JLP-733 drops or adds, removed from both sides, the #683 proof bound,
+ * the JLP-815 target level grant and the JLP-842 access record table.
  */
 export const withoutForwardChanges = (
   catalog: SchemaCatalog
@@ -380,11 +384,14 @@ export const withoutForwardChanges = (
           }
         : row
     ),
-  tables: catalog.tables.filter(({ name }) => name !== DROPPED_TABLE),
+  tables: catalog.tables.filter(
+    ({ name }) => name !== DROPPED_TABLE && name !== ADDED_TABLE
+  ),
   columns: catalog.columns
     .filter(
       (row) =>
         row.table !== DROPPED_TABLE &&
+        row.table !== ADDED_TABLE &&
         !(
           row.table === 'QuestionVersionTag' &&
           DROPPED_SNAPSHOT_COLUMNS.has(String(row.name))
@@ -393,17 +400,30 @@ export const withoutForwardChanges = (
     )
     .map(withBaselineTargetLevelAcl),
   constraints: catalog.constraints
-    .filter((row) => !isDroppedTagSnapshot(row) && !isAddedTagObject(row))
+    .filter(
+      (row) =>
+        !isDroppedTagSnapshot(row) &&
+        !isAddedTagObject(row) &&
+        row.table !== ADDED_TABLE
+    )
     .map(withBaselineProofBound),
   indexes: catalog.indexes.filter(
-    (row) => !isDroppedTagSnapshot(row) && !isAddedTagObject(row)
+    (row) =>
+      !isDroppedTagSnapshot(row) &&
+      !isAddedTagObject(row) &&
+      row.table !== ADDED_TABLE
   ),
   triggers: catalog.triggers.filter(
     (row) =>
-      row.table !== DROPPED_TABLE && !DROPPED_TRIGGERS.has(String(row.name))
+      row.table !== DROPPED_TABLE &&
+      row.table !== ADDED_TABLE &&
+      !DROPPED_TRIGGERS.has(String(row.name))
   ),
   functions: catalog.functions
-    .filter(({ name }) => !DROPPED_FUNCTIONS.has(String(name)))
+    .filter(
+      ({ name }) =>
+        !DROPPED_FUNCTIONS.has(String(name)) && name !== ADDED_FUNCTION
+    )
     .map((row) =>
       forwardFunctions.has(String(row.name))
         ? { ...row, source: '(replaced by the forward migration)' }

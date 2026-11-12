@@ -17,8 +17,9 @@ Rehearsed locally against the host compose file; not yet run on AWS.
    `20261107090000_first_admin_production`,
    `20261108090000_remove_tag_applicability_and_snapshots`,
    `20261109090000_add_tag_key_subject_status`,
-   `20261110090000_admin_fresh_window_30_minutes` and
-   `20261111090000_grant_user_target_level_update` migrations with the
+   `20261110090000_admin_fresh_window_30_minutes`,
+   `20261111090000_grant_user_target_level_update` and
+   `20261113090000_admin_access_log` migrations with the
    `nihongo_{test,development}_migration_login` wrapper (role
    `nihongo_migration`).
 3. Persistent local provisioning grants the guest login CONNECT on its own
@@ -92,6 +93,8 @@ Do not log database URLs, guest IDs, cookies or keys.
   `harumaru-<env>-guest-cleanup` at minute 30 of every hour (Asia/Tokyo), no
   retries, created DISABLED. One run deletes at most 1,000 rows, so an hourly
   run keeps up with far more guests than a daily one.
+- The same run also deletes administrator access records (`AdminAccessLog`,
+  JLP-842) older than 13 months; the table trigger refuses any younger delete.
 - Switch on: `guest_cleanup_schedule_enabled = true` in `terraform.tfvars`, plan
   shows only the schedule state change, apply (owner approval, same as the
   account erasure schedule).
