@@ -33,4 +33,15 @@ describe('passageParagraphs (JLP-865)', () => {
       { text: 'はじめまして。キムです。', indent: true }
     ])
   })
+
+  it('keeps a source full-width indent without adding another', () => {
+    expect(
+      passageParagraphs(
+        '受講料：4,000円\n\u3000※一部の回のみ、教材費がかかります。'
+      )
+    ).toEqual([
+      { text: '受講料：4,000円', indent: false },
+      { text: '\u3000※一部の回のみ、教材費がかかります。', indent: false }
+    ])
+  })
 })

@@ -4,8 +4,9 @@ export type PassageParagraph = {
 }
 
 // A line that opens with a list mark, a bracket or a number is part of a
-// notice or a list, so it sits on the left line with no indent.
-const NO_INDENT_START = /^[■・●○※【(（0-9０-９\u2460-\u2473]/u
+// notice or a list, so it sits on the left line with no indent. A line the
+// source already indents with a full-width space keeps that space instead.
+const NO_INDENT_START = /^[\u3000■・●○※【(（0-9０-９\u2460-\u2473]/u
 
 /**
  * JLP-865: one block per source line, no blank lines between. Only prose
@@ -17,8 +18,8 @@ export const passageParagraphs = (
 ): readonly PassageParagraph[] =>
   passage
     .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
+    .map((line) => line.trimEnd().replace(/^[ \t]+/u, ''))
+    .filter((line) => line.trim().length > 0)
     .map((text) => ({
       text,
       indent: text.includes('。') && !NO_INDENT_START.test(text)
