@@ -1096,7 +1096,14 @@ export const jaCoreResources = {
       emptyAction: '最初の問題を解く',
       error: '学習記録を読み込めませんでした。',
       retry: 'もう一度試す',
-      loading: '読み込み中…'
+      loading: '読み込み中…',
+      tier: {
+        high: '高い',
+        mid: '普通',
+        low: '低い'
+      },
+      recentMore:
+        '最近の5回まで表示します。間違えた問題は<notes>間違いノート</notes>に集まっています。'
     },
     settings: {
       title: 'アカウント',

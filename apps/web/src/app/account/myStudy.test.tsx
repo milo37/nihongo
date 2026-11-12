@@ -168,9 +168,27 @@ describe('마이페이지 내 학습', () => {
     renderAccount()
     const section = await screen.findByRole('region', { name: '내 학습' })
     const rows = await within(section).findAllByRole('listitem')
-    expect(rows[0]).toHaveTextContent('문자·어휘10문제 · 정답률 80%')
-    expect(rows[1]).toHaveTextContent('문법10문제 · 정답률 60%')
-    expect(rows[2]).toHaveTextContent('독해5문제 · 정답률 40%')
+    // JLP-851: the tier word is read after each rate; the mark and the bar
+    // are decorative.
+    expect(rows[0]).toHaveTextContent('문자·어휘10문제정답률80%높음')
+    expect(rows[1]).toHaveTextContent('문법10문제정답률60%보통')
+    expect(rows[2]).toHaveTextContent('독해5문제정답률40%낮음')
+    const bars = rows
+      .slice(0, 3)
+      .map((row) => row.querySelector<HTMLElement>('[aria-hidden] > span'))
+    expect(bars.map((bar) => bar?.style.width)).toEqual(['80%', '60%', '40%'])
+    expect(bars.map((bar) => bar?.className.match(/bg-[\w-]+/u)?.[0])).toEqual([
+      'bg-ink',
+      'bg-warning',
+      'bg-brand-strong'
+    ])
+    // One summary line: the server totals, the rate in its tier colour.
+    const total = within(section).getByText('64%')
+    expect(total).toHaveClass('text-warning')
+    expect(total.parentElement).toHaveTextContent('정답률64%보통')
+    expect(within(section).getByText('25')).toBeInTheDocument()
+    // One recent session: no 'last five' line.
+    expect(within(section).queryByRole('link', { name: '오답노트' })).toBeNull()
     expect(
       within(section).getByRole('link', { name: /N3 · 문법/u })
     ).toHaveTextContent('10문제 중 8개 맞음')
@@ -199,10 +217,40 @@ describe('마이페이지 내 학습', () => {
     ])
   })
 
+  it('최근 학습이 5개면 아래 한 줄과 오답노트 링크를 보인다', async () => {
+    const [first] = fullStats.recentStudySessions
+    if (!first) throw new Error('fixture')
+    useStats({
+      ...fullStats,
+      recentStudySessions: [20, 16, 15, 12, 11].map((correct, index) => ({
+        ...first,
+        id: `019d0000-0000-7000-8000-0000000000c${index}`,
+        totalCount: 20,
+        correctCount: correct,
+        correctRate: correct * 5
+      }))
+    })
+    renderAccount()
+    const section = await screen.findByRole('region', { name: '내 학습' })
+    const links = await within(section).findAllByRole('link', {
+      name: /N3 · 문법/u
+    })
+    expect(
+      links.map((link) => link.textContent?.replace(/^.*맞음/u, ''))
+    ).toEqual(['100%높음', '80%높음', '75%보통', '60%보통', '55%낮음'])
+    const more = within(section).getByRole('link', { name: '오답노트' })
+    expect(more).toHaveAttribute('href', '/wrong-notes')
+    expect(more.closest('p')).toHaveTextContent(
+      '최근 5번까지 보여요. 틀린 문제는 오답노트에 모여 있어요.'
+    )
+  })
+
   it('푼 문제가 없으면 첫 학습 안내를 보여 준다', async () => {
     useStats(emptyStats)
     renderAccount()
     expect(await screen.findByText('아직 푼 문제가 없어요')).toBeInTheDocument()
+    // No 0% in a tier colour.
+    expect(screen.queryByText('0%')).toBeNull()
     expect(screen.getByRole('link', { name: '첫 문제 풀기' })).toHaveAttribute(
       'href',
       '/'

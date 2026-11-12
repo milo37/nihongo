@@ -282,6 +282,27 @@ section.practice-guest-limit,
 /* JLP-850: a guest's My footer follows the gate panel's column, so its
    first label sits on the panel's left line (the member footer does the
    same inside .account-page). */
+/* JLP-851: My reads like one sheet. The target level sits right under the
+   name; each later section opens with 32px, a 1px line and 24px. */
+.account-page > header + section {
+  margin-top: 20px;
+}
+.account-page > .account-section {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid rgb(var(--color-line));
+}
+.account-page > .information-footer {
+  margin-top: 32px;
+}
+/* The wrong notes link inside the 'last five' line: 44px tall to press,
+   without moving the line box. */
+.account-recent-more a {
+  padding: 14px 0;
+}
+.account-recent-more:lang(ko) {
+  word-break: keep-all;
+}
 .guest-gate-page + .information-footer {
   width: 100%;
   max-width: 440px;

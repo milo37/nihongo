@@ -2323,7 +2323,7 @@ html:lang(ja) .auth-consent {
 }
 .account-page {
   display: grid;
-  gap: 32px;
+  gap: 0;
   width: 100%;
   max-width: 880px;
   margin: 0 auto;
@@ -2385,7 +2385,6 @@ html:lang(ja) .auth-consent {
     font-size: 24px;
   }
   .account-page {
-    gap: 24px;
     padding-block: 24px;
   }
   .account-card {

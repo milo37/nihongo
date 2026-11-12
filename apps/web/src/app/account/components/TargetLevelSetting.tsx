@@ -27,12 +27,13 @@ export const TargetLevelSetting = ({
     update.mutate({ targetLevel: value })
   }
   return (
-    // Same heading-over-card rhythm as the study and account sections.
-    <section className="grid gap-4" aria-labelledby={headingId}>
-      <h2 id={headingId} className="text-xl font-semibold">
+    // JLP-851: right under the name, a small name tag over the select; no
+    // heading or card. The select keeps its own (hidden) label.
+    <section className="grid gap-1.5" aria-labelledby={headingId}>
+      <p id={headingId} className="text-[13px] text-muted">
         {t('targetLevel.label')}
-      </h2>
-      <div className="account-card">
+      </p>
+      <div>
         <div className="sm:max-w-80">
           <Select
             name="targetLevel"
