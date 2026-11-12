@@ -7,9 +7,10 @@ import {
 } from '@app/account/hooks/useSsoAccountManagement'
 import { LogoutDialog } from '@app/account/components/LogoutDialog'
 import { TwoStepConfirmDialog } from '@app/account/components/TwoStepConfirmDialog'
-import { Badge } from '@nihongo/browser/common/components/Badge'
 import { Button } from '@nihongo/browser/common/components/Button'
 
+// JLP-860: text on top, the button under it on the left (the My study empty
+// state's rule), so the description can use the full width.
 const SettingRow = ({
   children,
   action
@@ -17,11 +18,14 @@ const SettingRow = ({
   children: ReactNode
   action?: ReactNode
 }): ReactElement => (
-  <div className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0">
+  <div className="py-4 first:pt-0 last:pb-0">
     <div className="min-w-0 break-words text-sm leading-6">{children}</div>
-    {action ? <div className="shrink-0">{action}</div> : null}
+    {action ? <div className="mt-3">{action}</div> : null}
   </div>
 )
+
+// Logout and deletion share one button size.
+const ROW_BUTTON_CLASS = 'min-w-32'
 
 export const AccountSettings = (): ReactElement => {
   const { t } = useTranslation('account')
@@ -47,8 +51,8 @@ export const AccountSettings = (): ReactElement => {
       >
         {t('settings.title')}
       </h2>
-      {/* JLP-851: rows under the heading with no card; only the deletion
-          box below keeps its red border. */}
+      {/* JLP-851, JLP-860: rows under the heading with no card or box;
+          deletion keeps only its red title and red outline button. */}
       <div className="divide-y divide-line">
         <SettingRow>
           <p className="text-caption text-muted">
@@ -72,9 +76,16 @@ export const AccountSettings = (): ReactElement => {
             <p role="status">{authT('sso.migrationIncomplete')}</p>
           ) : (
             <>
-              <p className="mt-1 flex flex-wrap items-center gap-2 text-base font-semibold">
+              <p className="mt-1 flex items-center gap-2 text-base font-semibold">
+                {/* Google's own G mark, unchanged; the word stays as text. */}
+                <img
+                  src="/auth/google-mark.svg"
+                  alt=""
+                  aria-hidden="true"
+                  width={20}
+                  height={20}
+                />
                 Google
-                <Badge variant="success">{t('settings.connected')}</Badge>
               </p>
               {!google.reauthAvailable ? (
                 <p className="text-caption">
@@ -88,6 +99,7 @@ export const AccountSettings = (): ReactElement => {
           action={
             <Button
               ref={logoutButton}
+              className={ROW_BUTTON_CLASS}
               variant="outline"
               disabled={flow.busy}
               onClick={() => setLogoutOpen(true)}
@@ -99,11 +111,10 @@ export const AccountSettings = (): ReactElement => {
           <p className="font-semibold">{authT('sso.logoutAction')}</p>
           <p className="text-muted">{t('settings.logoutDescription')}</p>
         </SettingRow>
-      </div>
-      <div className="rounded-panel border border-danger/40 bg-surface p-4 sm:p-6">
         <SettingRow
           action={
             <Button
+              className={ROW_BUTTON_CLASS}
               variant="danger-outline"
               disabled={controlsDisabled || !caps?.canDelete}
               aria-describedby={
