@@ -279,6 +279,13 @@ section.practice-guest-limit,
 .auth-page.guest-gate-page {
   padding-top: 24px;
 }
+/* JLP-850: a guest's My footer follows the gate panel's column, so its
+   first label sits on the panel's left line (the member footer does the
+   same inside .account-page). */
+.guest-gate-page + .information-footer {
+  width: 100%;
+  max-width: 440px;
+}
 
 /* "| 2번 남음" inside a guest's start button (B4 guest-5 images). */
 .button-tries-left {
