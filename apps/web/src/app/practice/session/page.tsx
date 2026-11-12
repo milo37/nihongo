@@ -276,6 +276,7 @@ export const PracticeSessionPage = (): ReactElement => {
     >
       <PracticeSessionHeader
         answeredCount={session.answeredCount}
+        hasPassage={Boolean(question.passage)}
         progressStates={session.questions.map((item, index) =>
           index === session.safeQuestionIndex
             ? 'current'

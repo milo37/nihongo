@@ -31,3 +31,17 @@ export const jaTextProps = (
   text: string | null | undefined
 ): { lang: 'ja'; 'data-ja-spaced'?: true } =>
   isJaSpaced(text) ? { lang: 'ja', 'data-ja-spaced': true } : { lang: 'ja' }
+
+// JLP-865: WebKit with keep-all can break between a bracket or mark and its
+// neighbour (a line ending in 「, or starting with 。」）) even with
+// line-break: strict. These pieces are kept on one line: an opening bracket
+// with the next letter, a closing mark or ー run with the letter before it,
+// and a fill-in blank with the marks after it. Each piece is a few letters
+// long. A full-width space after a mark joins the piece, so the piece wraps
+// whole instead of pushing the space past the line end.
+const HELD_PIECE =
+  /(（\u3000）[」』）】、。]*|[「『（【]+[^\s「『（【]|[^\s」』）】、。ー][」』）】、。ー]+\u3000?)/u
+
+/** The text split for display: odd entries are pieces to keep unbroken. */
+export const jaLineSegments = (text: string): readonly string[] =>
+  text.split(HELD_PIECE)

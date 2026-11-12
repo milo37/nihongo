@@ -1,4 +1,4 @@
-import { isJaSpaced, jaTextProps } from '@common/libs/jaSpacing'
+import { isJaSpaced, jaLineSegments, jaTextProps } from '@common/libs/jaSpacing'
 
 describe('isJaSpaced (JLP-864, JLP-868)', () => {
   it('treats Japanese with spaces between words as spaced', () => {
@@ -53,5 +53,43 @@ describe('isJaSpaced (JLP-864, JLP-868)', () => {
       'data-ja-spaced': true
     })
     expect(jaTextProps('日本の映画')).toEqual({ lang: 'ja' })
+  })
+})
+
+describe('jaLineSegments (JLP-865)', () => {
+  it('holds brackets and marks with their neighbours', () => {
+    expect(jaLineSegments('ざっしを「よみました」。「よみました」を')).toEqual([
+      'ざっしを',
+      '「よ',
+      'みまし',
+      'た」。',
+      '',
+      '「よ',
+      'みまし',
+      'た」',
+      'を'
+    ])
+  })
+
+  it('holds a fill-in blank with the 。 after it', () => {
+    expect(jaLineSegments('水を 飲む（　）。前より')).toEqual([
+      '水を 飲む',
+      '（　）。',
+      '前より'
+    ])
+  })
+
+  it('holds ー and a full-width space after a mark', () => {
+    expect(jaLineSegments('タクシーで 行く。\u3000★に入る')).toEqual([
+      'タク',
+      'シー',
+      'で 行',
+      'く。\u3000',
+      '★に入る'
+    ])
+  })
+
+  it('leaves text without marks whole', () => {
+    expect(jaLineSegments('日本の 映画')).toEqual(['日本の 映画'])
   })
 })

@@ -23,6 +23,14 @@ import { appI18n } from '@nihongo/browser/i18n/config'
 import { mockServer } from '@/test/server'
 import { analyticsClient } from '@/analytics/client'
 
+// Japanese text keeps marks with their letters in small spans (JLP-865), so
+// match the element whose whole text is the option, not one text node.
+const fullText =
+  (text: string) =>
+  (_: string, element: Element | null): boolean =>
+    element?.textContent === text &&
+    ![...element.children].some((child) => child.textContent === text)
+
 const returnTo = '/wrong-notes?state=REVIEWED&level=N5'
 
 const renderReadonlyDetail = async (
@@ -155,7 +163,7 @@ describe('wrong-note approved R9 readonly workflow', () => {
     ).toBeInTheDocument()
     for (const option of question.options) {
       expect(
-        screen.getByText(`${option.label}. ${option.text}`)
+        screen.getByText(fullText(`${option.label}. ${option.text}`))
       ).toBeInTheDocument()
     }
     expect(screen.getByText(detail.question.explanationKo)).toBeInTheDocument()
@@ -236,7 +244,9 @@ describe('wrong-note approved R9 readonly workflow', () => {
     if (!row || !wrongOption)
       throw new Error('Historical wrong option row required')
     expect(
-      within(row).getByText(`${wrongOption.label}. ${wrongOption.text}`)
+      within(row).getByText(
+        fullText(`${wrongOption.label}. ${wrongOption.text}`)
+      )
     ).toBeInTheDocument()
     expect(
       screen.getByText(appI18n.t('wrongNote:detail.correctAnswer'))
