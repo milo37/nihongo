@@ -61,6 +61,7 @@ import {
 } from './wrong-note/wrongNoteReviewList.js'
 import { createPrismaWrongNoteTargetedReviewRepository } from './wrong-note/wrongNoteTargetedReviewRepository.js'
 import { createWrongNoteTargetedReviewService } from './wrong-note/wrongNoteTargetedReviewService.js'
+import { createPrismaAdminAccessRecorder } from './admin/adminAccessLog.js'
 import { createAdminReadRateLimiter } from './admin/adminReadRateLimiter.js'
 import { createPrismaAdminQuestionRepository } from './admin/adminQuestionRepository.js'
 import { createAdminQuestionService } from './admin/adminQuestionService.js'
@@ -244,7 +245,8 @@ const app = createApiApp({
       createPrismaAdminMemberRepository(database.client)
     ),
     rateLimiter: adminReadRateLimiter,
-    reader: adminQuestionReader
+    reader: adminQuestionReader,
+    recordAccess: createPrismaAdminAccessRecorder(database.client)
   },
   ...(questionReportRateLimiter && userReportService
     ? {

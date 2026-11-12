@@ -6,6 +6,10 @@ import type { PrincipalService } from '../auth/principalService.js'
 import type { ApiEnvironment } from '../config/env.js'
 import { ApplicationError } from '../errors/applicationError.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
+import {
+  recordAdminAccessOrRefuse,
+  type AdminAccessRecorder
+} from './adminAccessLog.js'
 import type { AdminReadRateLimiter } from './adminReadRateLimiter.js'
 
 type AdminRouteEnvironment = { Variables: ApiVariables }
@@ -39,12 +43,15 @@ export const createAdminReadGuard = ({
   assertCapability,
   environment,
   principalService,
-  rateLimiter
+  rateLimiter,
+  recordAccess
 }: {
   assertCapability: () => void | Promise<void>
   environment: ApiEnvironment
   principalService: PrincipalService
   rateLimiter: AdminReadRateLimiter
+  /** JLP-842: the administrator access record, kept 13 months. */
+  recordAccess?: AdminAccessRecorder | undefined
 }) => {
   const clientIpAuthority = createClientIpAuthority(
     environment.AUTH_TRUSTED_PROXY_CIDRS
@@ -121,12 +128,17 @@ export const createAdminReadGuard = ({
       } catch {
         peerAddress = undefined
       }
-      await rateLimiter.consume({
+      const clientIp = clientIpAuthority.resolve(
+        peerAddress,
+        context.req.header('X-Forwarded-For') ?? null
+      )
+      await rateLimiter.consume({ actorId: resolution.user.id, clientIp })
+      await recordAdminAccessOrRefuse(recordAccess, {
         actorId: resolution.user.id,
-        clientIp: clientIpAuthority.resolve(
-          peerAddress,
-          context.req.header('X-Forwarded-For') ?? null
-        )
+        clientIp,
+        method: context.req.method,
+        path: context.req.path,
+        requestId: context.get('requestId')
       })
     }
 

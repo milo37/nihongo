@@ -11,6 +11,7 @@ import {
   getPostgresSchema
 } from '../db/databaseOptions.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
+import { createPrismaAdminAccessRecorder } from '../admin/adminAccessLog.js'
 import { runGuestCleanupBatch } from './studyGuestCleanupBatch.js'
 import { verifyStudyGuestCleanupRole } from './studyGuestCleanupRole.js'
 import { createPrismaStudyDraftRepository } from './studyDraftRepository.js'
@@ -786,5 +787,76 @@ describe('guest cleanup worker boundary', () => {
         )
       ).rowCount
     ).toBe(2)
+  })
+
+  it('keeps administrator access records 13 months and then removes them (JLP-842)', async () => {
+    const actorId = randomUUID()
+    const requestId = randomUUID()
+    await createPrismaAdminAccessRecorder(application.client)({
+      actorId,
+      clientIp: '203.0.113.9',
+      method: 'GET',
+      path: `/api/v1/admin/members/${randomUUID()}`,
+      requestId
+    })
+    const recorded = await fixture.query<{
+      id: string
+      clientIp: string
+      fresh: boolean
+    }>(
+      `SELECT "id", "clientIp", "occurredAt" > clock_timestamp() - INTERVAL '1 minute' AS fresh
+       FROM "AdminAccessLog" WHERE "requestId" = $1 AND "actorId" = $2`,
+      [requestId, actorId]
+    )
+    expect(recorded.rows).toEqual([
+      { id: expect.any(String), clientIp: '203.0.113.9', fresh: true }
+    ])
+    const youngId = recorded.rows[0]!.id
+    const oldId = randomUUID()
+    const edgeId = randomUUID()
+    await fixture.query(
+      `INSERT INTO "AdminAccessLog"
+         ("id", "actorId", "clientIp", "method", "path", "requestId", "occurredAt")
+       VALUES
+         ($1, $3, 'unresolved', 'GET', '/admin', $4,
+           clock_timestamp() - INTERVAL '13 months 1 day'),
+         ($2, $3, 'unresolved', 'GET', '/admin', $4,
+           clock_timestamp() - INTERVAL '12 months 28 days')`,
+      [oldId, edgeId, actorId, randomUUID()]
+    )
+
+    // The application role reads only the id and time, never changes a row
+    // and cannot delete one younger than 13 months.
+    await expect(
+      application.client.$queryRawUnsafe(
+        'SELECT "actorId" FROM "AdminAccessLog" LIMIT 1'
+      )
+    ).rejects.toThrow(/permission denied/u)
+    await expect(
+      application.client.$executeRawUnsafe(
+        `UPDATE "AdminAccessLog" SET "occurredAt" = "occurredAt" WHERE "id" = '${youngId}'`
+      )
+    ).rejects.toThrow(/permission denied/u)
+    await expect(
+      application.client.$executeRawUnsafe(
+        `DELETE FROM "AdminAccessLog" WHERE "id" = '${youngId}'`
+      )
+    ).rejects.toThrow(/kept for 13 months/u)
+    // Not even the database administrator changes a record.
+    await expect(
+      fixture.query(
+        'UPDATE "AdminAccessLog" SET "path" = \'/changed\' WHERE "id" = $1',
+        [edgeId]
+      )
+    ).rejects.toThrow(/kept for 13 months/u)
+
+    await cleanup(10, false)
+    const remaining = await fixture.query<{ id: string }>(
+      'SELECT "id" FROM "AdminAccessLog" WHERE "id" = ANY($1::uuid[])',
+      [[youngId, oldId, edgeId]]
+    )
+    expect(remaining.rows.map(({ id }) => id).sort()).toEqual(
+      [youngId, edgeId].sort()
+    )
   })
 })

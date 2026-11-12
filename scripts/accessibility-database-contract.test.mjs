@@ -59,6 +59,17 @@ test('rejects an unaccounted StudySessionQuestion write', () => {
   )
 })
 
+test('accepts more admin access rows but rejects none (JLP-842)', () => {
+  const { after, before } = createSnapshots()
+  after.tables.AdminAccessLog.count += 7
+  assert.doesNotThrow(() => assertAccessibilitySnapshotContract(before, after))
+  after.tables.AdminAccessLog.count = before.tables.AdminAccessLog.count
+  assert.throws(
+    () => assertAccessibilitySnapshotContract(before, after),
+    /AdminAccessLog count delta: expected at least 1/u
+  )
+})
+
 test('rejects a zero-delta content mutation by fingerprint', () => {
   const { after, before } = createSnapshots()
   after.tables.Question.fingerprint = fingerprint('ffff')

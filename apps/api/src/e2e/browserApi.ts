@@ -67,6 +67,7 @@ import { createPrismaDashboardInsightsRepository } from '../dashboard/dashboardI
 import { createDashboardInsightsService } from '../dashboard/dashboardInsightsService.js'
 import { createPrismaBookmarkRepository } from '../bookmark/bookmarkRepository.js'
 import { createBookmarkService } from '../bookmark/bookmarkService.js'
+import { createPrismaAdminAccessRecorder } from '../admin/adminAccessLog.js'
 import { createAdminReadRateLimiter } from '../admin/adminReadRateLimiter.js'
 import { createPrismaAdminQuestionRepository } from '../admin/adminQuestionRepository.js'
 import { createAdminQuestionService } from '../admin/adminQuestionService.js'
@@ -549,7 +550,8 @@ export const createBrowserApi = async ({
         }),
         reader: createAdminQuestionService(
           createPrismaAdminQuestionRepository(database.client)
-        )
+        ),
+        recordAccess: createPrismaAdminAccessRecorder(database.client)
       }
     })
     return {
