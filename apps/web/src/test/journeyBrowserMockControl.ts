@@ -11,7 +11,10 @@ import {
   DEMO_USER_ID
 } from '@mocks/data/users'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
+import { authQueries } from '@nihongo/browser/app/login/queries/authQueries'
 import { queryClient } from '@nihongo/browser/libs/queryClient'
+import { useAppStore } from '@nihongo/browser/store/index'
+import type { JlptLevel } from '@nihongo/browser/common/types/domain'
 import { mockGuestAllowance } from '@mocks/handlers/guestAllowanceHandlers'
 
 const assertMockTestMode = (): void => {
@@ -28,6 +31,24 @@ export const resetJourneyMockState = async (): Promise<void> => {
   mockDatabase.reset()
   mockGuestAllowance.reset()
   queryClient.clear()
+}
+
+// JLP-853: My page counts only the target level. The Mock learner's seed
+// target is N2, so a journey that studies N5 aligns it here. No request is
+// made, and the Mock keeps this only until the next page load.
+export const setJourneyLearnerTargetLevel = (level: JlptLevel): void => {
+  assertMockTestMode()
+  const user = mockDatabase.getCurrentUser()
+  const current = useAppStore.getState().currentUser
+  if (!user || !current || current.id !== user.id) {
+    throw new Error('Journey Mock learner is not signed in.')
+  }
+  mockDatabase.setTargetLevel(user.id, level)
+  // Screens read the user from the cached /me answer and the store.
+  queryClient.setQueryData(authQueries.currentUser().queryKey, (cached) =>
+    cached ? { ...cached, targetLevel: level } : cached
+  )
+  useAppStore.getState().setCurrentUser({ ...current, targetLevel: level })
 }
 
 export const completeMockGoogleCallback = async (): Promise<void> => {
