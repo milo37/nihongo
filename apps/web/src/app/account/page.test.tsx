@@ -25,7 +25,10 @@ import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { AuthErrorHandlerProvider } from '@nihongo/browser/provider/AuthErrorHandlerProvider'
 import { ProtectedRouteProvider } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
-import { ToastProvider } from '@nihongo/browser/common/components/Toast'
+import {
+  TOAST_ANNOUNCER_ID,
+  ToastProvider
+} from '@nihongo/browser/common/components/Toast'
 import { useAppStore } from '@nihongo/browser/store/index'
 import { handlers } from '@mocks/handlers'
 import { mockServer } from '@/test/server'
@@ -170,10 +173,10 @@ describe('마이페이지 계정 설정', () => {
       screen.queryByRole('button', { name: /Google로 계속하기/u })
     ).not.toBeInTheDocument()
     release()
-    expect(await screen.findByText('로그인 중')).toBeInTheDocument()
+    expect(await screen.findByText('Google')).toBeInTheDocument()
   })
 
-  it('목표 급수를 고르면 PUT 한 번 뒤 /me를 다시 읽어 새 급수를 쓴다', async () => {
+  it('목표 급수는 고르기만 하면 요청이 없고, 저장 1번에 PUT 한 번 뒤 /me를 다시 읽는다 (JLP-861)', async () => {
     mockDatabase.loginAs('USER')
     const requests: string[] = []
     const record = ({ request }: { request: Request }) => {
@@ -188,8 +191,16 @@ describe('마이페이지 계정 설정', () => {
         name: '목표 급수'
       })
       expect(select).toHaveValue('N2')
+      const save = screen.getByRole('button', { name: '저장' })
+      // The saved level is already chosen, so there is nothing to save.
+      expect(save).toBeDisabled()
       requests.length = 0
+      await userEvent.selectOptions(select, 'N1')
       await userEvent.selectOptions(select, 'N3')
+      expect(select).toHaveValue('N3')
+      expect(save).toBeEnabled()
+      expect(requests).toEqual([])
+      await userEvent.click(save)
       await waitFor(() =>
         expect(useAppStore.getState().currentUser?.targetLevel).toBe('N3')
       )
@@ -200,15 +211,17 @@ describe('마이페이지 계정 설정', () => {
       expect(
         requests.slice(1).every((entry) => entry === 'GET /api/v1/me')
       ).toBe(true)
+      expect(requests.filter((entry) => entry.startsWith('PUT'))).toHaveLength(
+        1
+      )
       expect(select).toHaveValue('N3')
       expect(select).toBeEnabled()
-      // JLP-848: the saved line is visible, with a check, until the next change.
-      const saved = screen.getByRole('status', { name: '' })
-      expect(saved).toHaveTextContent(
-        '목표 급수를 바꿨어요. 이제 홈과 연습이 N3 문제로 시작해요.'
+      expect(save).toBeDisabled()
+      // JLP-861: the result is a toast, read out by the toast live region.
+      expect(await screen.findByText('목표 급수를 N3로 바꿨어요')).toBeVisible()
+      expect(document.getElementById(TOAST_ANNOUNCER_ID)).toHaveTextContent(
+        '목표 급수를 N3로 바꿨어요'
       )
-      expect(saved).not.toHaveClass('sr-only')
-      expect(saved.querySelector('svg')).not.toBeNull()
       expect(
         screen.getByText("홈의 '오늘의 한 문제'와 연습을 이 급수로 시작해요.")
       ).toBeVisible()
@@ -243,6 +256,7 @@ describe('마이페이지 계정 설정', () => {
     renderAccount()
     const select = await screen.findByRole('combobox', { name: '목표 급수' })
     await userEvent.selectOptions(select, 'N3')
+    await userEvent.click(screen.getByRole('button', { name: '저장' }))
     await waitFor(() => expect(loggedOut).toBe(true))
     await waitFor(() => expect(queryClient.isMutating()).toBe(0))
     expect(useAppStore.getState().currentUser).toBeNull()
@@ -266,17 +280,27 @@ describe('마이페이지 계정 설정', () => {
       name: '목표 급수'
     })
     await userEvent.selectOptions(select, 'N1')
+    const save = screen.getByRole('button', { name: '저장' })
+    await userEvent.click(save)
     expect(
-      await screen.findByText('저장하지 못했어요. 잠시 뒤 다시 골라 주세요.')
+      await screen.findByText('저장하지 못했어요. 잠시 뒤 다시 저장해 주세요.')
     ).toBeInTheDocument()
     expect(select).toHaveAttribute('aria-invalid', 'true')
+    // The pick stays and can be saved again.
+    expect(select).toHaveValue('N1')
+    expect(save).toBeEnabled()
     expect(useAppStore.getState().currentUser?.targetLevel).toBe('N2')
   })
 
   it('Google 로그인 상태를 보여 주고 해제 버튼과 안내는 두지 않는다 (C2)', async () => {
     mockDatabase.loginAs('USER')
     renderAccount()
-    expect(await screen.findByText('로그인 중')).toBeInTheDocument()
+    const google = await screen.findByText('Google')
+    // JLP-860: Google's G mark before the word, and no signed-in badge.
+    expect(
+      google.querySelector('img[src="/auth/google-mark.svg"]')
+    ).toHaveAttribute('alt', '')
+    expect(screen.queryByText('로그인 중')).not.toBeInTheDocument()
     // Unlinking is hidden (C2), and so is the note about it.
     expect(
       screen.queryByText('유일한 로그인 방법이라 연결을 해제할 수 없어요.')
@@ -298,7 +322,7 @@ describe('마이페이지 계정 설정', () => {
     )
     const posts = vi.spyOn(apiClient, 'post')
     renderAccount()
-    await screen.findByText('로그인 중')
+    await screen.findByText('Google')
     expect(
       screen.queryByRole('button', { name: '연결 해제' })
     ).not.toBeInTheDocument()
@@ -359,7 +383,8 @@ describe('마이페이지 계정 설정', () => {
     writeUiLocalePreference('ja')
     mockDatabase.loginAs('USER')
     renderAccount()
-    expect(await screen.findByText('ログイン中')).toBeInTheDocument()
+    expect(await screen.findByText('Google')).toBeInTheDocument()
+    expect(screen.queryByText('ログイン中')).not.toBeInTheDocument()
     expect(
       screen.queryByText('唯一のログイン方法のため、連携を解除できません。')
     ).not.toBeInTheDocument()
@@ -670,7 +695,7 @@ describe('마이페이지 계정 설정', () => {
     mockDatabase.loginAs('USER')
     const posts = vi.spyOn(apiClient, 'post')
     const router = renderAccount('/login?ssoAccountFresh=REAUTHENTICATED')
-    await screen.findByText('로그인 중')
+    await screen.findByText('Google')
     await waitFor(() => expect(router.state.location.search).toBe(''))
     expect(router.state.location.pathname).toBe('/account')
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
@@ -745,7 +770,7 @@ describe('마이페이지 계정 설정', () => {
     const router = renderAccount(
       '/login?reauth=unlink:kakao&ssoAccountFresh=REAUTHENTICATED'
     )
-    await screen.findByText('로그인 중')
+    await screen.findByText('Google')
     await waitFor(() => expect(router.state.location.search).toBe(''))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
@@ -753,7 +778,7 @@ describe('마이페이지 계정 설정', () => {
     const actor = mockDatabase.loginAs('USER')
     const posts = vi.spyOn(apiClient, 'post')
     const router = renderAccount()
-    await screen.findByText('로그인 중')
+    await screen.findByText('Google')
     queryClient.setQueryData(['bookmarks', 'private'], { owner: actor.id })
     await act(async () => {
       await router.navigate('/login?ssoAccountFresh=CANCELLED')
