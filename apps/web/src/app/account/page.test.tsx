@@ -294,6 +294,12 @@ describe('마이페이지 계정 설정', () => {
     expect(select).toHaveValue('N1')
     expect(save).toBeEnabled()
     expect(useAppStore.getState().currentUser?.targetLevel).toBe('N2')
+    // One failure, one message: the shared error toast stays out (JLP-861).
+    expect(
+      queryClient
+        .getMutationCache()
+        .find({ mutationKey: ['target-level', 'update'] })?.meta
+    ).toEqual({ localErrorUi: true })
   })
 
   it('Google 로그인 상태를 보여 주고 해제 버튼과 안내는 두지 않는다 (C2)', async () => {
