@@ -5,6 +5,7 @@ import { Icon } from '@nihongo/browser/common/components/Icon'
 import { RadioGroup } from '@nihongo/browser/common/components/RadioGroup'
 import type { StudyQuestionView } from '@app/practice/adapters/studySessionView'
 import { usePracticeNumberFormat } from '@app/practice/hooks/usePracticeNumberFormat'
+import { jaTextProps } from '@common/libs/jaSpacing'
 
 type PracticeQuestionCardProps = {
   actions: ReactNode
@@ -44,7 +45,7 @@ const QuestionPassage = ({
       </p>
       <p
         className="whitespace-pre-line text-[17px] leading-[1.9] lg:text-[18px] tracking-[0.02em] text-ink"
-        lang="ja"
+        {...jaTextProps(passage)}
       >
         {passage}
       </p>
@@ -131,7 +132,10 @@ export const PracticeQuestionCard = ({
                 ordinal: formatCount(questionNumber)
               })}{' '}
             </span>
-            <span className="study-question-text block font-bold" lang="ja">
+            <span
+              className="study-question-text block font-bold"
+              {...jaTextProps(question.questionText)}
+            >
               {question.questionText}
             </span>
           </h1>
@@ -166,7 +170,7 @@ export const PracticeQuestionCard = ({
                   </span>
                   <span
                     className="study-option-text min-w-0 leading-[1.6]"
-                    lang="ja"
+                    {...jaTextProps(option.text)}
                   >
                     <span className="sr-only">{option.label}. </span>
                     {option.text}

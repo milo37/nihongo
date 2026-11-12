@@ -3,6 +3,7 @@ import type { ReactElement, ReactNode, RefObject } from 'react'
 import { ExplanationLanguagePanel } from '@common/components/ExplanationLanguagePanel'
 import type { WrongNoteDetailView } from '@app/wrong-note/adapters/wrongNoteView'
 import type { WrongNotePreviousAnswer } from '@app/wrong-note/adapters/wrongNotePreviousAnswer'
+import { jaTextProps } from '@common/libs/jaSpacing'
 
 type WrongNoteDetailContentProps = {
   action?: ReactNode
@@ -31,14 +32,14 @@ export const WrongNoteDetailContent = ({
         </span>
       </p>
       {data.question.passage ? (
-        <div className="review-passage" lang="ja">
+        <div className="review-passage" {...jaTextProps(data.question.passage)}>
           {data.question.passage}
         </div>
       ) : null}
       <h1
         ref={headingRef}
         className="review-question outline-none"
-        lang="ja"
+        {...jaTextProps(data.question.questionText)}
         tabIndex={-1}
       >
         {data.question.questionText}
@@ -66,7 +67,7 @@ export const WrongNoteDetailContent = ({
                 option.isCorrect ? 'is-correct' : isMine ? 'is-mine' : ''
               }
             >
-              <span lang="ja">
+              <span {...jaTextProps(option.text)}>
                 {option.label}. {option.text}
               </span>
               {isMine ? (

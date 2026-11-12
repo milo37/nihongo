@@ -157,14 +157,15 @@ it.each([
     expect(
       screen.getByRole('heading', { level: 1, name: sentence })
     ).toBeVisible()
-    expect(
-      screen.getByText(
-        appI18n.t('home:today.guestGreeting', {
-          total: 3,
-          count: GUEST_SESSION_QUESTION_LIMIT
-        })
-      )
-    ).toBeVisible()
+    const rule = screen.getByText(
+      appI18n.t('home:today.guestGreeting', {
+        total: 3,
+        count: GUEST_SESSION_QUESTION_LIMIT
+      })
+    )
+    expect(rule).toBeVisible()
+    // JLP-859: the rule line is text only, without the three squares.
+    expect(rule.children).toHaveLength(0)
     expect(screen.getByRole('combobox', { name: levelLabel })).toHaveValue('N5')
     expect(screen.getByRole('combobox', { name: subjectLabel })).toHaveValue(
       'VOCABULARY'
@@ -223,7 +224,8 @@ it('starts a member from the last level and subject, changed by the underlined w
   })
   const user = userEvent.setup()
   renderHome('/dashboard?view=learning')
-  expect(screen.getByText('데모님, 왔네요')).toBeVisible()
+  // JLP-859: no greeting line above the daily question.
+  expect(screen.queryByText(/왔네요/u)).toBeNull()
   expect(
     screen.getByRole('heading', {
       level: 1,

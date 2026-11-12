@@ -7,10 +7,12 @@
 .study-session-sheet-pc {
   display: none;
 }
+/* JLP-862: the level and subject read as the set's label above the question. */
 .study-session-meta {
   padding-top: 14px;
-  font-size: 13px;
-  color: rgb(var(--color-muted));
+  font-size: 17px;
+  font-weight: 700;
+  color: rgb(var(--color-ink));
 }
 
 /* Options are ruled rows; the choice fills the number square (no card). */
@@ -56,7 +58,6 @@ label:has(input:checked) .study-option-text {
 .study-question-text {
   font-size: 22px;
   line-height: 1.6;
-  word-break: keep-all;
 }
 
 /* Jump window: current = ink 2px square like the strip; the shared 4px

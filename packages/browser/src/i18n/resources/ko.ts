@@ -312,8 +312,6 @@ export const koCoreResources = {
   },
   home: {
     today: {
-      memberGreeting: '{{name}}님, 왔네요',
-      memberGreetingNoName: '왔네요',
       guestGreeting:
         '로그인 없이 하루 {{total}}번, {{count}}문제씩 풀 수 있어요',
       dueLabel: '복습할 문제도 {{count}}개 남아 있어요',
@@ -1026,9 +1024,9 @@ export const koCoreResources = {
       label: '목표 급수',
       hint: "홈의 '오늘의 한 문제'와 연습을 이 급수로 시작해요.",
       unset: '정하지 않음',
-      saved:
-        '목표 급수를 바꿨어요. 이제 홈과 연습이 {{level}} 문제로 시작해요.',
-      error: '저장하지 못했어요. 잠시 뒤 다시 골라 주세요.'
+      saveAction: '저장',
+      saved: '목표 급수를 바꿨어요. 이제 {{level}} 문제로 시작해요.',
+      error: '저장하지 못했어요. 잠시 뒤 다시 저장해 주세요.'
     },
     title: '마이페이지',
     study: {
@@ -1055,7 +1053,6 @@ export const koCoreResources = {
     settings: {
       title: '계정',
       signInMethod: '로그인 방법',
-      connected: '로그인 중',
       logoutDescription: '이 기기에서 로그아웃해요. 학습 기록은 그대로 남아요.'
     },
     danger: {
