@@ -590,6 +590,75 @@ test('reporter writes failure-only ledger diagnostics with only per-entry safe f
   }
 })
 
+test('reporter writes a spec ledger-check diagnostic without touching the evidence', async () => {
+  const root = await mkdtemp(path.join(tmpdir(), 'ledger-check-diagnostic-'))
+  const evidence = path.join(root, 'evidence')
+  const diagnostics = path.join(root, 'diagnostics')
+  try {
+    const entry = {
+      finishSequence: 4,
+      method: 'POST',
+      path: '/api/v1/study/sessions',
+      provenance: 'network-failure',
+      startSequence: 3,
+      status: 'NETWORK_ERROR'
+    }
+    const reporter = new PlaywrightEvidenceReporter({
+      outputDirectory: evidence,
+      diagnosticDirectory: diagnostics,
+      label: 'journey-real'
+    })
+    reporter.onBegin()
+    reporter.onTestEnd(
+      {
+        location: { file: '/private/journeys.spec.ts', line: 1 },
+        titlePath: () => ['journey', 'ledger']
+      },
+      {
+        status: 'failed',
+        duration: 10,
+        retry: 0,
+        attachments: [
+          {
+            name: 'user-journey-real-ledger-diagnostic',
+            contentType: 'application/json',
+            body: Buffer.from(
+              JSON.stringify({
+                entries: [entry, { ...entry, cookie: 'fixture-secret' }]
+              })
+            )
+          }
+        ]
+      }
+    )
+    await reporter.onEnd({ status: 'failed' })
+    const content = await readFile(
+      path.join(diagnostics, 'journey-real-ledger-check-failures.json'),
+      'utf8'
+    )
+    assert.doesNotMatch(content, /fixture-secret|cookie/u)
+    const value = JSON.parse(content)
+    assert.equal(value.kind, 'nihongo.playwright-ledger-check-diagnostic')
+    assert.deepEqual(value.ledgers, [
+      {
+        entries: [
+          entry,
+          { invalid: 'SECURITY_EVIDENCE_LEDGER_ENTRY_SHAPE_INVALID' }
+        ],
+        name: 'user-journey-real-ledger-diagnostic'
+      }
+    ])
+    const summary = await readFile(
+      path.join(evidence, 'journey-real.json'),
+      'utf8'
+    )
+    assert.doesNotMatch(summary, /ledger-diagnostic|study\/sessions/u)
+    assert.equal(JSON.parse(summary).counts.failed, 1)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('dashboard reporter retains exact ledger and performance evidence', async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'dashboard-reporter-'))
   const reporter = new PlaywrightEvidenceReporter({
