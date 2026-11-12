@@ -9,6 +9,11 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    # Majors wait until after release (operator decision 2026-11-12); security
+    # updates are separate and still open PRs.
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
 
   - package-ecosystem: github-actions
     directory: /
@@ -16,3 +21,8 @@ updates:
       interval: weekly
     target-branch: dev
     open-pull-requests-limit: 5
+    # Majors wait until after release (operator decision 2026-11-12); security
+    # updates are separate and still open PRs.
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']

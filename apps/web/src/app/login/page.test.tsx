@@ -282,7 +282,9 @@ describe('현재 Google SSO 로그인', () => {
     })
     await user.dblClick(google)
     await waitFor(() => expect(starts).toBe(1))
-    expect(google).toBeDisabled()
+    expect(google).toHaveAttribute('aria-disabled', 'true')
+    // JLP-846: the busy button keeps keyboard focus.
+    expect(google).toHaveFocus()
     expect(google).toHaveAccessibleName('Google로 이동하는 중…')
     expect(google).toHaveAttribute('aria-busy', 'true')
     expect(google.querySelectorAll('.ui-spinner')).toHaveLength(1)

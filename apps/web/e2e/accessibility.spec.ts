@@ -1913,6 +1913,11 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
   expect(transport.requests).toHaveLength(requestsBeforeCrossTabSwitch)
   await secondPage.close()
 
+  // JLP-844: the home manuscript strip once pushed the body to 370px here.
+  await verifyViewport(page, testInfo, '/', 'guest-home-320', {
+    height: 568,
+    width: 320
+  })
   await verifyViewport(
     page,
     testInfo,

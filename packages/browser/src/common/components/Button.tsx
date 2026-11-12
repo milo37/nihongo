@@ -1,5 +1,10 @@
 import { useTranslation } from 'react-i18next'
-import type { ComponentPropsWithRef, ReactElement, ReactNode } from 'react'
+import type {
+  ComponentPropsWithRef,
+  MouseEvent,
+  ReactElement,
+  ReactNode
+} from 'react'
 import { classNames } from './classNames'
 
 export type ButtonVariant =
@@ -61,6 +66,8 @@ export const getButtonClassName = ({
     'touch-manipulation transition-[background-color,border-color,color,box-shadow,transform] duration-150',
     'focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand',
     'disabled:cursor-not-allowed disabled:border-line disabled:bg-disabled-background disabled:text-disabled-text',
+    // Busy buttons stay focusable (aria-disabled), so they need the same look.
+    'aria-disabled:cursor-not-allowed aria-disabled:border-line aria-disabled:bg-disabled-background aria-disabled:text-disabled-text',
     variantClassNames[variant],
     sizeClassNames[size],
     fullWidth && 'w-full',
@@ -78,17 +85,30 @@ export const Button = ({
   size = 'md',
   type = 'button',
   variant = 'primary',
+  onClick,
   ...props
 }: ButtonProps): ReactElement => {
   const { t } = useTranslation('common')
+  // JLP-846: a busy button keeps keyboard focus. Native disabled would drop
+  // focus to the page, so while loading it is aria-disabled and ignores
+  // activation (click, Enter, Space and form submit all arrive as a click).
+  const blockClick = (event: MouseEvent<HTMLButtonElement>): void => {
+    if (isLoading) {
+      event.preventDefault()
+      return
+    }
+    onClick?.(event)
+  }
 
   return (
     <button
       className={getButtonClassName({ variant, size, fullWidth, className })}
       type={type}
-      disabled={disabled || isLoading}
+      disabled={disabled && !isLoading}
+      aria-disabled={isLoading || undefined}
       aria-busy={isLoading || undefined}
       {...props}
+      onClick={blockClick}
     >
       {isLoading ? (
         <>
