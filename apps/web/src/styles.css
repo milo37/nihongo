@@ -295,7 +295,8 @@ section.practice-guest-limit,
 /* The wrong notes link inside the 'last five' line: 44px tall to press,
    without moving the line box. */
 .account-recent-more a {
-  padding: 14px 0;
+  padding: 15px 0;
+  white-space: nowrap;
 }
 .account-recent-more:lang(ko) {
   word-break: keep-all;

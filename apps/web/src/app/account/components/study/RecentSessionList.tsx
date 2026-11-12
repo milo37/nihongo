@@ -80,7 +80,7 @@ export const RecentSessionList = ({
       {/* The contract keeps the newest five; say so only when the list is
           full, and point to the wrong notes that keep every miss. */}
       {sessions.length >= 5 ? (
-        <p className="account-recent-more mt-1 text-[13px] leading-[1.7] text-muted">
+        <p className="account-recent-more mt-3 text-[13px] leading-[1.7] text-muted">
           {before}
           {linkText ? (
             <Link className="text-link underline" to="/wrong-notes">
