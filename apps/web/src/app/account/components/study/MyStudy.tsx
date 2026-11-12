@@ -2,6 +2,7 @@ import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement } from 'react'
+import type { JlptLevel } from '@nihongo/browser/common/types/domain'
 import { useGetDashboardStats } from '@app/dashboard/hooks/useGetDashboardStats'
 import {
   getRateTier,
@@ -25,19 +26,20 @@ const Skeleton = (): ReactElement => (
 
 // "내 학습": one summary line, answered count and correct rate per subject,
 // then recent study. JLP-851: rates carry a tier colour, mark and bar.
-export const MyStudy = (): ReactElement => {
+// JLP-853: everything counts only the given level (the target level).
+export const MyStudy = ({ level }: { level: JlptLevel }): ReactElement => {
   const { t, i18n } = useTranslation('account')
   const { t: commonT } = useTranslation('common')
   const locale = resolveUiLocale(i18n.resolvedLanguage)
   const headingId = useId()
   // Opening My page always shows a current read.
-  const stats = useGetDashboardStats({ myPage: true })
+  const stats = useGetDashboardStats({ level, myPage: true })
   const data = stats.data
   const totalTier = data ? getRateTier(data.correctRate) : 'high'
   return (
     <section className="account-section grid gap-4" aria-labelledby={headingId}>
       <h2 id={headingId} className="text-lg font-bold">
-        {t('study.title')}
+        {t('study.title', { level })}
       </h2>
       {stats.isPending ? (
         <>
@@ -62,12 +64,12 @@ export const MyStudy = (): ReactElement => {
         </div>
       ) : data.totalAnsweredCount === 0 ? (
         <div>
-          <p className="font-semibold">{t('study.emptyTitle')}</p>
+          <p className="font-semibold">{t('study.emptyTitle', { level })}</p>
           <p className="mt-1 text-sm text-muted">
-            {t('study.emptyDescription')}
+            {t('study.emptyDescription', { level })}
           </p>
           <Link className={getButtonClassName({ className: 'mt-4' })} to="/">
-            {t('study.emptyAction')}
+            {t('study.emptyAction', { level })}
           </Link>
         </div>
       ) : (

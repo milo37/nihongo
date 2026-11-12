@@ -546,8 +546,9 @@ const invalidateDashboardStats = async (page: Page): Promise<void> => {
         }) => Promise<void>
       }
     }
+    // JLP-853: My page keys its stats by level under this prefix.
     await queryClient.invalidateQueries({
-      exact: true,
+      exact: false,
       queryKey: ['dashboard', 'get-stats']
     })
   }, queryClientModulePath)
@@ -624,7 +625,8 @@ const armDashboardFault = async (
 
   const failureCount = fault === 'network' ? 2 : fault === 'rate-limit' ? 3 : 1
   let remaining = failureCount
-  const pattern = '**/api/v1/dashboard'
+  // JLP-853: My page adds ?level=, which a glob would not match.
+  const pattern = (url: URL): boolean => url.pathname === '/api/v1/dashboard'
   const handler = async (route: Route): Promise<void> => {
     if (remaining <= 0) {
       await route.continue()
@@ -873,7 +875,7 @@ const recommendationRegion = (page: Page) =>
   page.getByRole('region', { name: '추천 학습', exact: true })
 
 const myStudyRegion = (page: Page) =>
-  page.getByRole('region', { name: '내 학습', exact: true })
+  page.getByRole('region', { name: /^N[1-5] 학습$/u })
 
 const myStudyLoadingCopy = '불러오는 중…'
 
