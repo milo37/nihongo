@@ -312,8 +312,6 @@ export const koCoreResources = {
   },
   home: {
     today: {
-      memberGreeting: '{{name}}님, 왔네요',
-      memberGreetingNoName: '왔네요',
       guestGreeting:
         '로그인 없이 하루 {{total}}번, {{count}}문제씩 풀 수 있어요',
       dueLabel: '복습할 문제도 {{count}}개 남아 있어요',

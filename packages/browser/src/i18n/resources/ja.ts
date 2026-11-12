@@ -330,8 +330,6 @@ export const jaCoreResources = {
   },
   home: {
     today: {
-      memberGreeting: '{{name}}さん、おかえりなさい',
-      memberGreetingNoName: 'おかえりなさい',
       guestGreeting: 'ログインなしで1日{{total}}回、{{count}}問ずつ解けます',
       dueLabel: '復習する問題も{{count}}問残っています',
       prompt:
