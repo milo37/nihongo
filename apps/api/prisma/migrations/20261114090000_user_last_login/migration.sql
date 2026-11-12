@@ -1,9 +1,10 @@
 -- The last sign-in time of each member (JLP-852, operator decision,
 -- 2026-11-12): a member who has not signed in for a year is erased with the
 -- study records, through the existing erasure request and its 7-day grace.
--- Additions only; no existing table, function, trigger or grant changes, so
--- the previous API still passes its runtime role check against this schema
--- (a deploy rollback keeps the migration).
+-- Additions only; no existing table, function, trigger or grant changes. A
+-- deploy rollback keeps this migration: the previous API still passes its
+-- runtime role check, and its readiness accepts a newer migration after its
+-- own ones once that rule (JLP-857) is in the previous image.
 --   1. "UserSignIn": one row per member, the time of the last Session
 --      issuance. It goes with the User row on erasure.
 --   2. Every existing member gets a row with the time this migration runs,
