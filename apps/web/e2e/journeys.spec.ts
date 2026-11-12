@@ -955,6 +955,7 @@ const startVocabularySessionThroughUi = async (
 ): Promise<{
   created: CreateStudySessionV2Response
   originalNow: JSHandle<() => number>
+  targetLevel: string
 }> => {
   const bootstrap = waitForApiResponse(page, 'GET', '/api/v1/me')
   const resumable = waitForApiResponse(page, 'GET', '/api/v1/study-sessions')
@@ -963,6 +964,10 @@ const startVocabularySessionThroughUi = async (
     await readCanonicalResponse(await bootstrap)
   )
   expect(principal.kind).toBe('USER')
+  if (principal.kind !== 'USER')
+    throw new Error('Journey principal is not a USER.')
+  // JLP-853: My page counts this level only; no target level counts as N5.
+  const targetLevel = principal.user.targetLevel ?? 'N5'
   listResumableStudySessionsResponseSchema.parse(
     await readCanonicalResponse(await resumable)
   )
@@ -1056,7 +1061,7 @@ const startVocabularySessionThroughUi = async (
   expect(
     draft.answers.every(({ selectedOptionId }) => selectedOptionId === null)
   ).toBe(true)
-  return { created, originalNow }
+  return { created, originalNow, targetLevel }
 }
 
 const submitCurrentSessionThroughUi = async (
@@ -1265,7 +1270,8 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   await page.goto('/login')
   await settleJourneyPage(page)
   await loginThroughUi(page)
-  const { created, originalNow } = await startVocabularySessionThroughUi(page)
+  const { created, originalNow, targetLevel } =
+    await startVocabularySessionThroughUi(page)
   await answerEveryQuestionWithFirstOption(page, created, ledger)
   const primarySubmission = await submitCurrentSessionThroughUi(
     page,
@@ -1428,9 +1434,13 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
     page,
     'GET',
     '/api/v1/dashboard'
-  ).then(async (response) =>
-    getDashboardStatsResponseSchema.parse(await readCanonicalResponse(response))
-  )
+  ).then(async (response) => {
+    // JLP-853: My page asks for the target level's records only.
+    expect(new URL(response.url()).searchParams.get('level')).toBe(targetLevel)
+    return getDashboardStatsResponseSchema.parse(
+      await readCanonicalResponse(response)
+    )
+  })
   const home = page.locator('header .app-brand[href="/"]')
   await expect(home).toHaveCount(1)
   await expect(home).toBeVisible()
@@ -1438,7 +1448,8 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   await expect(page).toHaveURL(/\/dashboard\?view=learning$/u)
   await openMyPage(page)
   const finalStats = await finalStatsResponse
-  expect(finalStats.totalAnsweredCount).toBe(6)
+  // The journey answers six N5 questions.
+  expect(finalStats.totalAnsweredCount).toBe(targetLevel === 'N5' ? 6 : 0)
   await expect(myStudyRegion(page)).toBeVisible()
   await expect(recommendationRegion(page)).toHaveCount(0)
   await waitForLedgerToQuiesce(ledger)
