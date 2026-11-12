@@ -71,6 +71,7 @@ const migrationPaths = [
   'apps/api/prisma/migrations/20261109090000_add_tag_key_subject_status/migration.sql',
   'apps/api/prisma/migrations/20261110090000_admin_fresh_window_30_minutes/migration.sql',
   'apps/api/prisma/migrations/20261111090000_grant_user_target_level_update/migration.sql',
+  'apps/api/prisma/migrations/20261112090000_account_erasure_grace_restore/migration.sql',
   'apps/api/prisma/migrations/20261113090000_admin_access_log/migration.sql'
 ]
 

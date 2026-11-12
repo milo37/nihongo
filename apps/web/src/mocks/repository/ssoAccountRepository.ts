@@ -26,6 +26,10 @@ export class MockSsoAccountRepository {
     input: AccountSsoRequest
   } | null = null
   private receipt: SsoAccountDeletion | null = null
+  // JLP-845: a requested erasure waits 7 days; a sign-in meanwhile offers
+  // restore (the real server keeps this proof in a short-lived cookie).
+  private erasure: { userId: string; scheduledAt: string } | null = null
+  private restorable: string | null = null
   constructor(
     private readonly current: () => User | null,
     private readonly signOut: () => void
@@ -33,6 +37,8 @@ export class MockSsoAccountRepository {
   reset(): void {
     this.links.clear()
     this.receipt = null
+    this.erasure = null
+    this.restorable = null
     this.clearProof()
   }
   clearProof(): void {
@@ -137,8 +143,13 @@ export class MockSsoAccountRepository {
     const actor = this.actor()
     if (this.fresh !== actor.id)
       throw new MockSsoAccountError(403, 'SSO_FRESH_REQUIRED')
+    // The first whole hour after the 7-day grace period, like the server.
+    const scheduled = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    scheduled.setUTCMinutes(60, 0, 0)
+    this.erasure = { userId: actor.id, scheduledAt: scheduled.toISOString() }
     this.receipt = {
       appStatus: 'DELETION_PENDING',
+      deletionScheduledAt: this.erasure.scheduledAt,
       providerCleanup: [...this.connected(actor.id)].map((provider) => ({
         provider,
         status: 'PENDING'
@@ -147,6 +158,33 @@ export class MockSsoAccountRepository {
     this.clearProof()
     this.signOut()
     return structuredClone(this.receipt)
+  }
+  erasurePending(userId: string): boolean {
+    return this.erasure?.userId === userId
+  }
+  offerRestore(userId: string): void {
+    this.restorable = this.erasurePending(userId) ? userId : null
+  }
+  private restoreOffer(): { userId: string; scheduledAt: string } {
+    if (!this.erasure || this.restorable !== this.erasure.userId)
+      throw new MockSsoAccountError(404, 'SSO_ACCOUNT_RESTORE_UNAVAILABLE')
+    return this.erasure
+  }
+  restoreState() {
+    return { deletionScheduledAt: this.restoreOffer().scheduledAt }
+  }
+  /** Returns the restored user id; the caller signs it in. */
+  restore(): string {
+    const { userId } = this.restoreOffer()
+    this.erasure = null
+    this.restorable = null
+    this.receipt = null
+    return userId
+  }
+  decline() {
+    const { scheduledAt } = this.restoreOffer()
+    this.restorable = null
+    return { declined: true, deletionScheduledAt: scheduledAt } as const
   }
   deletion(): SsoAccountDeletion {
     if (!this.receipt)

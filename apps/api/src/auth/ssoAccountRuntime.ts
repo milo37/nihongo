@@ -6,7 +6,11 @@ import {
   unlinkSsoAccountRequestSchema,
   ssoAccountCapabilitiesSchema,
   ssoAccountDeletionSchema,
-  unlinkSsoAccountResponseSchema
+  unlinkSsoAccountResponseSchema,
+  declineSsoAccountRestoreResponseSchema,
+  restoreSsoAccountRequestSchema,
+  restoreSsoAccountResponseSchema,
+  ssoAccountRestoreStateSchema
 } from '@nihongo/contracts/auth/sso-account-management'
 import type {
   AccountSsoPurpose,
@@ -27,8 +31,16 @@ import {
 import type { SsoProvider, SsoTransactionStore } from './ssoProtocol.js'
 import {
   createExpiredSessionCookies,
+  createSessionCookie,
   readSessionToken
 } from './sessionCookie.js'
+import type { RestorableErasure } from './accountErasureAuthority.js'
+import {
+  RESTORE_PROOF_SECONDS,
+  createRestoreProof,
+  readRestoreProof
+} from './ssoAccountRestoreProof.js'
+import { INTERNAL_CLIENT_IP_HEADER } from './clientIp.js'
 
 export const SSO_ACCOUNT_PATHS = {
   capabilities: '/api/auth/sso/accounts',
@@ -36,10 +48,15 @@ export const SSO_ACCOUNT_PATHS = {
   deletion: '/api/auth/sso/delete-account',
   status: '/api/auth/sso/deletion',
   freshComplete: '/api/auth/sso/account-fresh/complete',
-  linkComplete: '/api/auth/sso/account-link/complete'
+  linkComplete: '/api/auth/sso/account-link/complete',
+  // JLP-845: restore a DELETION_PENDING account in its grace period.
+  restore: '/api/auth/sso/restore',
+  restoreDecline: '/api/auth/sso/restore/decline'
 } as const
 export interface SsoAccountRuntime {
   clearOnLogin: () => readonly string[]
+  /** JLP-845: the restore proof cookie set on the sign-in redirect. */
+  restoreCookie: (restore: RestorableErasure) => string
   start: (request: Request, payload: unknown) => Promise<Response>
   callback: (
     request: Request,
@@ -59,11 +76,13 @@ const TOKEN = /^[A-Za-z0-9_-]{43}$/u
 export const createSsoAccountRuntime = ({
   environment,
   providers,
-  port
+  port,
+  now = Date.now
 }: {
   environment: ApiEnvironment
   providers: Partial<Record<SsoProviderId, SsoProvider>>
   port: SsoAccountPort
+  now?: () => number
 }): SsoAccountRuntime => {
   const production = environment.NODE_ENV === 'production'
   const secure =
@@ -71,10 +90,10 @@ export const createSsoAccountRuntime = ({
   const available = (['apple', 'google'] as const).filter(
     (provider) => providers[provider] !== undefined
   )
-  const name = (kind: 'fresh' | 'link' | 'receipt') =>
+  const name = (kind: 'fresh' | 'link' | 'receipt' | 'restore') =>
     `${secure ? '__Host-' : ''}nihongo.sso_account_${kind}`
   const cookie = (
-    kind: 'fresh' | 'link' | 'receipt',
+    kind: 'fresh' | 'link' | 'receipt' | 'restore',
     value: string | null,
     maxAge = 300
   ) =>
@@ -90,6 +109,19 @@ export const createSsoAccountRuntime = ({
     const value =
       values.length === 1 && values[0]?.length === 2 ? values[0][1] : undefined
     return value && TOKEN.test(value) ? value : null
+  }
+  const restoreProof = (request: Request) => {
+    const values = (request.headers.get('Cookie') ?? '')
+      .split(';')
+      .map((v) => v.trim().split('='))
+      .filter(([key]) => key === name('restore'))
+    return readRestoreProof(
+      environment.BETTER_AUTH_SECRET,
+      values.length === 1 && values[0]?.length === 2
+        ? (values[0][1] ?? null)
+        : null,
+      now()
+    )
   }
   const token = (request: Request) =>
     readSessionToken({
@@ -116,7 +148,8 @@ export const createSsoAccountRuntime = ({
         ? 401
         : code === 'SSO_FRESH_REQUIRED'
           ? 403
-          : code === 'SSO_DELETION_RECEIPT_UNAVAILABLE'
+          : code === 'SSO_DELETION_RECEIPT_UNAVAILABLE' ||
+              code === 'SSO_ACCOUNT_RESTORE_UNAVAILABLE'
             ? 404
             : code === 'SSO_ACCOUNT_OPERATION_UNAVAILABLE'
               ? 503
@@ -158,8 +191,15 @@ export const createSsoAccountRuntime = ({
     clearOnLogin: () => [
       cookie('fresh', null),
       cookie('link', null),
-      cookie('receipt', null)
+      cookie('receipt', null),
+      cookie('restore', null)
     ],
+    restoreCookie: (restore) =>
+      cookie(
+        'restore',
+        createRestoreProof(environment.BETTER_AUTH_SECRET, restore, now()),
+        RESTORE_PROOF_SECONDS
+      ),
     start: async (request, payload) => {
       const parsed = accountSsoRequestSchema.safeParse(payload)
       if (!parsed.success) return json({ code: 'INVALID_AUTH_PAYLOAD' }, 400)
@@ -304,6 +344,77 @@ export const createSsoAccountRuntime = ({
           return status
             ? json(ssoAccountDeletionSchema.parse(status))
             : error('SSO_DELETION_RECEIPT_UNAVAILABLE')
+        }
+        if (path === SSO_ACCOUNT_PATHS.restore && request.method === 'GET') {
+          const restore = restoreProof(request)
+          return restore
+            ? json(
+                ssoAccountRestoreStateSchema.parse({
+                  deletionScheduledAt: restore.deletionScheduledAt
+                })
+              )
+            : json({ code: 'SSO_ACCOUNT_RESTORE_UNAVAILABLE' }, 404, [
+                cookie('restore', null)
+              ])
+        }
+        if (
+          path === SSO_ACCOUNT_PATHS.restoreDecline &&
+          request.method === 'POST'
+        ) {
+          if (!restoreSsoAccountRequestSchema.safeParse(payload).success)
+            return json({ code: 'INVALID_AUTH_PAYLOAD' }, 400)
+          const restore = restoreProof(request)
+          // Nothing changes: the erasure stays scheduled.
+          return restore
+            ? json(
+                declineSsoAccountRestoreResponseSchema.parse({
+                  declined: true,
+                  deletionScheduledAt: restore.deletionScheduledAt
+                }),
+                200,
+                [cookie('restore', null)]
+              )
+            : json({ code: 'SSO_ACCOUNT_RESTORE_UNAVAILABLE' }, 404, [
+                cookie('restore', null)
+              ])
+        }
+        if (path === SSO_ACCOUNT_PATHS.restore && request.method === 'POST') {
+          if (!restoreSsoAccountRequestSchema.safeParse(payload).success)
+            return json({ code: 'INVALID_AUTH_PAYLOAD' }, 400)
+          const restore = restoreProof(request)
+          if (!restore)
+            return json({ code: 'SSO_ACCOUNT_RESTORE_UNAVAILABLE' }, 404, [
+              cookie('restore', null)
+            ])
+          const result = await port.restore(restore, {
+            ipAddress:
+              request.headers.get(INTERNAL_CLIENT_IP_HEADER) ?? 'unresolved',
+            userAgent: request.headers.get('User-Agent') ?? ''
+          })
+          if ('code' in result)
+            return json(
+              { code: result.code },
+              result.code === 'SSO_ACCOUNT_RESTORE_TOO_LATE' ? 409 : 404,
+              [cookie('restore', null)]
+            )
+          return json(
+            restoreSsoAccountResponseSchema.parse({ restored: true }),
+            200,
+            [
+              createSessionCookie({
+                expiresAt: result.expiresAt,
+                isProduction: production,
+                rememberMe: true,
+                now: result.createdAt,
+                secret: environment.BETTER_AUTH_SECRET,
+                token: result.token
+              }),
+              cookie('fresh', null),
+              cookie('link', null),
+              cookie('receipt', null),
+              cookie('restore', null)
+            ]
+          )
         }
         const current = token(request)
         if (!current) return error('AUTHENTICATION_REQUIRED')

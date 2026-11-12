@@ -1,6 +1,9 @@
 import type {
+  DeclineSsoAccountRestoreResponse,
+  RestoreSsoAccountResponse,
   SsoAccountCapabilities,
   SsoAccountDeletion,
+  SsoAccountRestoreState,
   UnlinkSsoAccountResponse
 } from '@nihongo/contracts/auth/sso-account-management'
 import {
@@ -123,6 +126,9 @@ const accountRead = (
   operation: () =>
     | SsoAccountCapabilities
     | SsoAccountDeletion
+    | SsoAccountRestoreState
+    | RestoreSsoAccountResponse
+    | DeclineSsoAccountRestoreResponse
     | UnlinkSsoAccountResponse,
   status = 200
 ) => {
@@ -141,6 +147,20 @@ export const authHandlers = [
   ),
   http.get('*/api/auth/sso/deletion', () =>
     accountRead(() => mockDatabase.ssoAccounts.deletion())
+  ),
+  http.get('*/api/auth/sso/restore', () =>
+    accountRead(() => mockDatabase.ssoAccounts.restoreState())
+  ),
+  http.post('*/api/auth/sso/restore', () =>
+    accountRead(() => {
+      const userId = mockDatabase.ssoAccounts.restore()
+      const user = demoUsers.find((candidate) => candidate.id === userId)
+      mockDatabase.loginAs(user?.role === 'ADMIN' ? 'ADMIN' : 'USER', userId)
+      return { restored: true }
+    })
+  ),
+  http.post('*/api/auth/sso/restore/decline', () =>
+    accountRead(() => mockDatabase.ssoAccounts.decline())
   ),
   http.post('*/api/auth/sso/unlink', async ({ request }) => {
     try {
@@ -304,6 +324,14 @@ export const authHandlers = [
       pendingProvider = null
       const fixture = demoUsers.find((user) => user.id === fixtureIds[provider])
       if (!fixture) throw new Error('Missing Mock identity fixture.')
+      // JLP-845: an account in its erasure grace period gets no session.
+      if (mockDatabase.ssoAccounts.erasurePending(fixture.id)) {
+        mockDatabase.ssoAccounts.offerRestore(fixture.id)
+        return HttpResponse.json(
+          { restoreAvailable: true },
+          { headers: { 'Cache-Control': 'private, no-store' } }
+        )
+      }
       mockDatabase.ssoAccounts.noteLogin(provider, fixture.id)
       mockDatabase.loginAs(
         fixture.role === 'ADMIN' ? 'ADMIN' : 'USER',

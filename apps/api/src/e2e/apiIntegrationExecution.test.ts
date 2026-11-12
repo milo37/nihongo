@@ -80,7 +80,7 @@ describe('SSO bootstrap migration history', () => {
       migration_name: name,
       checksum
     }))
-    expect(expected).toHaveLength(8)
+    expect(expected).toHaveLength(9)
     expect(() =>
       assertSsoBootstrapMigrationHistory(expected, applied)
     ).not.toThrow()
@@ -1287,7 +1287,7 @@ describe('fixed account lifecycle TEST slice', () => {
     expect(clean).not.toHaveProperty('BETTER_AUTH_SECRET')
   })
 
-  const report = (count = 10) => ({
+  const report = (count = 12) => ({
     numTotalTests: count,
     numPassedTests: count,
     numFailedTests: 0,
@@ -1296,7 +1296,7 @@ describe('fixed account lifecycle TEST slice', () => {
     testResults: [{ name: ssoAccountLifecycleTestFile }]
   })
   it('rejects partial success and extra cases rather than accepting a non-empty file', () => {
-    for (const count of [1, 2, 3, 4, 5, 6, 7, 8, 9, 11])
+    for (const count of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13])
       expect(() =>
         assertApiIntegrationVitestFileResult({
           result: report(count),
@@ -1333,7 +1333,7 @@ describe('fixed account lifecycle TEST slice', () => {
         await writeFile(rawPath, JSON.stringify(report()))
       }
     })
-    expect(count).toBe(10)
+    expect(count).toBe(12)
     await expect(stat(rawPath)).rejects.toThrow()
   })
   it('retains only a wholly safe original first error line', () => {

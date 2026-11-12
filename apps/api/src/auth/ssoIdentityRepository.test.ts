@@ -30,12 +30,19 @@ const identity = {
   name: '학습자'
 }
 const metadata = { ipAddress: '127.0.0.1', userAgent: 'test' }
+const restorable = {
+  userId,
+  authorityGeneration: 8,
+  requestId: '33333333-3333-4333-8333-333333333333',
+  deletionScheduledAt: '2026-11-19T10:00:00.000Z'
+}
 const fixture = (
   options: {
     confirmed?: boolean
     issueThrows?: boolean
     mapping?: unknown
     malformedSession?: boolean
+    restorable?: boolean
   } = {}
 ) => {
   const calls: Array<{ sql: string; values: unknown[] }> = []
@@ -54,6 +61,9 @@ const fixture = (
             }
           }
         ]
+      // JLP-845: the restore lookup after ACCOUNT_UNAVAILABLE.
+      if (sql.includes('"SsoAccountErasureRequest"'))
+        return options.restorable ? [restorable] : []
       throw new Error('unexpected query')
     }
   )
@@ -114,14 +124,28 @@ describe('SSO stable identity and confirmed session', () => {
     }
   )
   it.each([
-    'TRANSITION_REQUIRED',
-    'IDENTITY_CONFLICT',
-    'ACCOUNT_UNAVAILABLE'
-  ] as const)('does not issue a session for %s', async (outcome) => {
+    ['TRANSITION_REQUIRED', 1],
+    ['IDENTITY_CONFLICT', 1],
+    ['ACCOUNT_UNAVAILABLE', 2]
+  ] as const)('does not issue a session for %s', async (outcome, calls) => {
     const f = fixture({ mapping: { outcome } })
     expect(await f.repo.signIn(identity, metadata)).toEqual({ kind: outcome })
-    expect(f.calls).toHaveLength(1)
+    expect(f.calls).toHaveLength(calls)
     expect(issueMock).not.toHaveBeenCalled()
+  })
+  it('JLP-845: offers restore, not a session, for a pending erasure in its grace period', async () => {
+    const f = fixture({
+      mapping: { outcome: 'ACCOUNT_UNAVAILABLE' },
+      restorable: true
+    })
+    expect(await f.repo.signIn(identity, metadata)).toEqual({
+      kind: 'RESTORE_AVAILABLE',
+      restore: restorable
+    })
+    // Looked up by the verified provider identity only.
+    expect(f.calls[1]?.values).toEqual(['google', identity.accountId])
+    expect(issueMock).not.toHaveBeenCalled()
+    expect(confirmMock).not.toHaveBeenCalled()
   })
   it('rejects missing authority or injected role fields before using them', async () => {
     const f = fixture({

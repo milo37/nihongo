@@ -15,6 +15,7 @@ import {
   SSO_ACCOUNT_PATHS
 } from './ssoAccountRuntime.js'
 import type { SsoProvider, SsoTransaction } from './ssoProtocol.js'
+import type { SsoIdentityResult } from './ssoIdentityRepository.js'
 import type {
   SsoAccountPort,
   SsoAccountContext
@@ -61,7 +62,14 @@ const capabilities: SsoAccountCapabilities = {
 }
 const deletion: SsoAccountDeletion = {
   appStatus: 'DELETION_PENDING',
+  deletionScheduledAt: '2026-11-19T10:00:00.000Z',
   providerCleanup: [{ provider: 'google', status: 'PENDING' }]
+}
+const restore = {
+  userId: uid,
+  requestId: '33333333-3333-4333-8333-333333333333',
+  authorityGeneration: 4,
+  deletionScheduledAt: '2026-11-19T10:00:00.000Z'
 }
 const fixture = () => {
   const transactions = new Map<
@@ -76,7 +84,12 @@ const fixture = () => {
     wrongIdentity: false,
     stale: false,
     fail: false,
-    allowLogin: false
+    allowLogin: false,
+    restorable: false,
+    restoreCode: null as
+      | null
+      | 'SSO_ACCOUNT_RESTORE_UNAVAILABLE'
+      | 'SSO_ACCOUNT_RESTORE_TOO_LATE'
   }
   let receiptDigest = ''
   const port = {
@@ -165,6 +178,16 @@ const fixture = () => {
     ),
     erasureStatus: vi.fn(async (digest: string) =>
       digest === receiptDigest ? deletion : null
+    ),
+    restore: vi.fn<SsoAccountPort['restore']>(async () =>
+      controls.restoreCode
+        ? { code: controls.restoreCode }
+        : {
+            kind: 'SESSION_CONFIRMED',
+            token: privateToken,
+            createdAt: new Date(),
+            expiresAt: new Date(Date.now() + 86400000)
+          }
     )
   } satisfies SsoAccountPort
   const provider = (id: SsoProviderId): SsoProvider => ({
@@ -197,7 +220,8 @@ const fixture = () => {
   })
   const providers = { apple: provider('apple'), google: provider('google') }
   const runtime = createSsoAccountRuntime({ environment, providers, port })
-  const signIn = vi.fn(async () => {
+  const signIn = vi.fn(async (): Promise<SsoIdentityResult> => {
+    if (controls.restorable) return { kind: 'RESTORE_AVAILABLE', restore }
     if (!controls.allowLogin)
       throw new Error('Account purposes cannot create ordinary LOGIN sessions.')
     return {
@@ -498,6 +522,197 @@ describe('SSO account HTTP runtime without DB or external network', () => {
     expect(absent.status).toBe(404)
     expect(await absent.json()).toEqual({
       code: 'SSO_DELETION_RECEIPT_UNAVAILABLE'
+    })
+  })
+  describe('JLP-845 restore in the grace period', () => {
+    const signInPending = async (f: ReturnType<typeof fixture>) => {
+      f.controls.restorable = true
+      const start = await f.gateway.handle(
+        f.request(
+          '/api/auth/sign-in/social',
+          'POST',
+          { provider: 'google', callbackURL: '/bookmarks' },
+          ''
+        )
+      )
+      const body = (await start.json()) as { url: string }
+      const state = new URL(body.url).searchParams.get('state')!
+      return f.gateway.handle(
+        new Request(
+          'http://localhost:3001/api/auth/callback/google?' +
+            new URLSearchParams({ state, code: 'synthetic-login-code' }),
+          { headers: { Cookie: pairs(start) } }
+        )
+      )
+    }
+    const restoreCookie = (response: Response) =>
+      response.headers
+        .getSetCookie()
+        .find(
+          (v) =>
+            v.startsWith('nihongo.sso_account_restore=') &&
+            !v.includes('Max-Age=0')
+        )
+        ?.split(';')[0]
+
+    it('signing in to a pending account issues no session, only a restore proof', async () => {
+      const f = fixture()
+      const callback = await signInPending(f)
+      expect(callback.status).toBe(303)
+      const location = new URL(callback.headers.get('Location')!)
+      expect(location.pathname).toBe('/login')
+      expect(location.searchParams.get('sso')).toBe('RESTORE_AVAILABLE')
+      expect(location.searchParams.get('redirect')).toBe('/bookmarks')
+      const cookies = callback.headers.getSetCookie()
+      expect(
+        cookies.some(
+          (v) => v.includes('session_token=') && !v.includes('Max-Age=0')
+        )
+      ).toBe(false)
+      const proof = cookies.find((v) =>
+        v.startsWith('nihongo.sso_account_restore=')
+      )!
+      expect(proof).toContain('HttpOnly')
+      expect(proof).toContain('Max-Age=600')
+      expect(proof).not.toContain(uid)
+      const state = await f.gateway.handle(
+        f.request(
+          SSO_ACCOUNT_PATHS.restore,
+          'GET',
+          {},
+          restoreCookie(callback)!
+        )
+      )
+      expect(state.status).toBe(200)
+      expect(await state.json()).toEqual({
+        deletionScheduledAt: restore.deletionScheduledAt
+      })
+    })
+
+    it('restore issues a session and clears the proof', async () => {
+      const f = fixture()
+      const proof = restoreCookie(await signInPending(f))!
+      const r = await f.gateway.handle(
+        f.request(SSO_ACCOUNT_PATHS.restore, 'POST', {}, proof)
+      )
+      expect(r.status).toBe(200)
+      expect(await r.json()).toEqual({ restored: true })
+      expect(f.port.restore).toHaveBeenCalledExactlyOnceWith(
+        restore,
+        expect.objectContaining({ userAgent: '' })
+      )
+      const cookies = r.headers.getSetCookie()
+      expect(
+        cookies.some(
+          (v) => v.includes('session_token=') && !v.includes('Max-Age=0')
+        )
+      ).toBe(true)
+      expect(
+        cookies.some(
+          (v) =>
+            v.startsWith('nihongo.sso_account_restore=;') &&
+            v.includes('Max-Age=0')
+        )
+      ).toBe(true)
+    })
+
+    it.each([
+      ['SSO_ACCOUNT_RESTORE_TOO_LATE', 409],
+      ['SSO_ACCOUNT_RESTORE_UNAVAILABLE', 404]
+    ] as const)(
+      'restore refusal %s gives %i and no session',
+      async (code, status) => {
+        const f = fixture()
+        const proof = restoreCookie(await signInPending(f))!
+        f.controls.restoreCode = code
+        const r = await f.gateway.handle(
+          f.request(SSO_ACCOUNT_PATHS.restore, 'POST', {}, proof)
+        )
+        expect(r.status).toBe(status)
+        expect(await r.json()).toEqual({ code })
+        expect(
+          r.headers
+            .getSetCookie()
+            .some(
+              (v) => v.includes('session_token=') && !v.includes('Max-Age=0')
+            )
+        ).toBe(false)
+      }
+    )
+
+    it('decline keeps the schedule, clears the proof and calls no restore', async () => {
+      const f = fixture()
+      const proof = restoreCookie(await signInPending(f))!
+      const r = await f.gateway.handle(
+        f.request(SSO_ACCOUNT_PATHS.restoreDecline, 'POST', {}, proof)
+      )
+      expect(r.status).toBe(200)
+      expect(await r.json()).toEqual({
+        declined: true,
+        deletionScheduledAt: restore.deletionScheduledAt
+      })
+      expect(f.port.restore).not.toHaveBeenCalled()
+    })
+
+    it('a missing, forged or expired proof is refused', async () => {
+      const f = fixture()
+      const proof = restoreCookie(await signInPending(f))!
+      const [body, mac] = proof.split('=')[1]!.split('.') as [string, string]
+      const forged = JSON.parse(Buffer.from(body, 'base64url').toString('utf8'))
+      forged.userId = '44444444-4444-4444-8444-444444444444'
+      for (const cookie of [
+        '',
+        'nihongo.sso_account_restore=' +
+          Buffer.from(JSON.stringify(forged)).toString('base64url') +
+          '.' +
+          mac
+      ]) {
+        for (const [path, method] of [
+          [SSO_ACCOUNT_PATHS.restore, 'GET'],
+          [SSO_ACCOUNT_PATHS.restore, 'POST'],
+          [SSO_ACCOUNT_PATHS.restoreDecline, 'POST']
+        ] as const) {
+          const r = await f.gateway.handle(f.request(path, method, {}, cookie))
+          expect(r.status).toBe(404)
+          expect(await r.json()).toEqual({
+            code: 'SSO_ACCOUNT_RESTORE_UNAVAILABLE'
+          })
+        }
+      }
+      expect(f.port.restore).not.toHaveBeenCalled()
+      const later = createSsoAccountRuntime({
+        environment,
+        providers: {},
+        port: f.port,
+        now: () => Date.now() + 601_000
+      })
+      const expired = await later.handle(
+        f.request(SSO_ACCOUNT_PATHS.restore, 'POST', {}, proof),
+        SSO_ACCOUNT_PATHS.restore,
+        {}
+      )
+      expect(expired.status).toBe(404)
+    })
+
+    it('restore writes need a trusted origin and an empty body', async () => {
+      const f = fixture()
+      const proof = restoreCookie(await signInPending(f))!
+      await expect(
+        f.gateway.handle(
+          f.request(
+            SSO_ACCOUNT_PATHS.restore,
+            'POST',
+            {},
+            proof,
+            'https://evil.example'
+          )
+        )
+      ).rejects.toBeInstanceOf(AuthGatewayError)
+      const r = await f.gateway.handle(
+        f.request(SSO_ACCOUNT_PATHS.restore, 'POST', { userId: uid }, proof)
+      )
+      expect(r.status).toBe(400)
+      expect(f.port.restore).not.toHaveBeenCalled()
     })
   })
   it('unknown server outcome exposes no database error or success cookies', async () => {

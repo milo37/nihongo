@@ -362,11 +362,39 @@ const ADDED_TABLE = 'AdminAccessLog'
 const ADDED_FUNCTION = 'protect_admin_access_log'
 
 /**
+ * JLP-845: the grace-period restore replaces two trigger function bodies,
+ * allows CANCELLED and adds one check on SsoAccountErasureRequest.
+ */
+const GRACE_FUNCTIONS = new Set([
+  'limit_sso_account_erasure_request_update',
+  'validate_user_change'
+])
+const GRACE_ADDED_CHECK = 'SsoAccountErasureRequest_cancelled_unlinked_check'
+const BASELINE_STATUS_CHECK = `CHECK"appStatus"::text=ANYARRAY['DELETION_PENDING'::charactervarying,'DELETED'::charactervarying]`
+const GRACE_STATUS_CHECK = `CHECK"appStatus"::text=ANYARRAY['DELETION_PENDING'::charactervarying,'DELETED'::charactervarying,'CANCELLED'::charactervarying]`
+const withBaselineErasureStatus = (
+  row: Record<string, unknown>
+): Record<string, unknown> =>
+  row.table === 'SsoAccountErasureRequest' &&
+  row.name === 'SsoAccountErasureRequest_appStatus_check'
+    ? {
+        ...row,
+        // Compared in deparse-neutral form; only the exact JLP-845
+        // definition maps back to the baseline one.
+        definition:
+          comparableCheck(row.definition) === GRACE_STATUS_CHECK
+            ? BASELINE_STATUS_CHECK
+            : row.definition
+      }
+    : row
+
+/**
  * Undoes the forward migrations' catalog changes the baseline comparison
  * cannot see: the renamed enum label, the replaced function bodies (checked
  * exactly by forwardFunctionSources against the baseline file), the objects
  * JLP-733 drops or adds, removed from both sides, the #683 proof bound,
- * the JLP-815 target level grant and the JLP-842 access record table.
+ * the JLP-815 target level grant, the JLP-845 restore objects and the JLP-842
+ * access record table.
  */
 export const withoutForwardChanges = (
   catalog: SchemaCatalog
@@ -404,9 +432,11 @@ export const withoutForwardChanges = (
       (row) =>
         !isDroppedTagSnapshot(row) &&
         !isAddedTagObject(row) &&
+        row.name !== GRACE_ADDED_CHECK &&
         row.table !== ADDED_TABLE
     )
-    .map(withBaselineProofBound),
+    .map(withBaselineProofBound)
+    .map(withBaselineErasureStatus),
   indexes: catalog.indexes.filter(
     (row) =>
       !isDroppedTagSnapshot(row) &&
@@ -425,7 +455,8 @@ export const withoutForwardChanges = (
         !DROPPED_FUNCTIONS.has(String(name)) && name !== ADDED_FUNCTION
     )
     .map((row) =>
-      forwardFunctions.has(String(row.name))
+      forwardFunctions.has(String(row.name)) ||
+      GRACE_FUNCTIONS.has(String(row.name))
         ? { ...row, source: '(replaced by the forward migration)' }
         : row
     )

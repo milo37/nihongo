@@ -56,11 +56,18 @@ export const createSsoAuthentication = ({
   const accountRuntime = createSsoAccountRuntime({
     environment,
     providers,
-    port: createSsoAccountRepository(gatewayClient, (userId) =>
-      logger?.info('auth.account_erasure.requested', {
-        userId,
-        occurredAt: new Date().toISOString()
-      })
+    port: createSsoAccountRepository(
+      gatewayClient,
+      (userId) =>
+        logger?.info('auth.account_erasure.requested', {
+          userId,
+          occurredAt: new Date().toISOString()
+        }),
+      (userId) =>
+        logger?.info('auth.account_erasure.cancelled', {
+          userId,
+          occurredAt: new Date().toISOString()
+        })
     )
   })
   const social = createSsoPublicRuntime({
