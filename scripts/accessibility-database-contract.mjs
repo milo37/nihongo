@@ -11,6 +11,7 @@ const SHA256_PATTERN = /^[a-f0-9]{64}$/u
 
 export const accessibilityDatabaseTables = [
   'Account',
+  'AdminAccessLog',
   'AdminAuditLog',
   'AuthorityRevocationEvidence',
   'Bookmark',
@@ -55,6 +56,9 @@ export const accessibilityDatabaseTables = [
 
 export const accessibilityExpectedTableDeltas = {
   Account: 0,
+  // One row per admin request (JLP-842); the admin scans make several, and
+  // the exact number follows the admin screens' requests, so only a minimum.
+  AdminAccessLog: 1,
   AdminAuditLog: 0,
   Bookmark: 0,
   ContentReview: 0,
@@ -96,6 +100,9 @@ export const accessibilityExpectedTableDeltas = {
   WrongNote: 10,
   _prisma_migrations: 0
 }
+
+/** Append-only tables whose delta is a minimum, not an exact count. */
+export const accessibilityMinimumDeltaTables = new Set(['AdminAccessLog'])
 
 export const accessibilityExpectedRateLimitCategories = {
   'application:bookmark-list': 1,
@@ -316,6 +323,14 @@ const assertSnapshotContract = (before, after) => {
     const final = after.tables[tableName]
     if (!baseline || !final) fail(`missing ${tableName} snapshot`)
     const expectedDelta = accessibilityExpectedTableDeltas[tableName]
+    if (accessibilityMinimumDeltaTables.has(tableName)) {
+      if (final.count - baseline.count < expectedDelta) {
+        fail(
+          `${tableName} count delta: expected at least ${expectedDelta}, received ${final.count - baseline.count}`
+        )
+      }
+      continue
+    }
     assertEqual(
       final.count - baseline.count,
       expectedDelta,
