@@ -1033,11 +1033,12 @@ const createSsoBrowserApiFixture = async (
         )
           throw failure()
         // T1: successful SAVE and Bookmark B are committed; the HTTP201 is held.
+        // JLP-852: a sign-in sets User.lastLoginAt, so the User digest leaves it out.
         const saved = await owner.query<SaveBookmarkRow>(
           `SELECT study.id AS "studyId", question.id AS "sessionQuestionId",
               question."questionId", question."questionVersionId" AS "versionId",
               answer."selectedOptionId" AS "optionId", bookmark.id AS "bookmarkId",
-              md5(to_jsonb(target)::text) AS "userDigest",
+              md5((to_jsonb(target) - 'lastLoginAt')::text) AS "userDigest",
               md5(to_jsonb(account)::text) AS "accountDigest",
               md5(to_jsonb(study)::text) AS "studyDigest",
               (SELECT md5(coalesce(string_agg(to_jsonb(pin)::text, E'\\n' ORDER BY pin.ordinal), ''))
@@ -1251,7 +1252,7 @@ const createSsoBrowserApiFixture = async (
         const rows = await owner.query<FinalReconciliationRow>(
           `SELECT ${reconciliationCountsSql},
             EXISTS (SELECT 1 FROM "User" target WHERE target.id = $1::uuid
-              AND md5(to_jsonb(target)::text) = $8) AS "userUnchanged",
+              AND md5((to_jsonb(target) - 'lastLoginAt')::text) = $8) AS "userUnchanged",
             EXISTS (SELECT 1 FROM "Account" account WHERE account."userId" = $1::uuid
               AND md5(to_jsonb(account)::text) = $9) AS "accountUnchanged",
             EXISTS (SELECT 1 FROM "Session" session WHERE session.id = $2::uuid

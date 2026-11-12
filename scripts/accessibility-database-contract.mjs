@@ -215,6 +215,16 @@ const withClient = async (databaseUrl, operation) => {
 
 const quoteIdentifier = (value) => `"${value.replaceAll('"', '""')}"`
 
+// JLP-852: a sign-in sets User.lastLoginAt; every other User column and every
+// other table keeps the exact zero-delta comparison.
+const snapshotExcludedColumns = Object.freeze({ User: ['lastLoginAt'] })
+
+export const snapshotRowJsonSql = (tableName) =>
+  [
+    'to_jsonb(source_row)',
+    ...(snapshotExcludedColumns[tableName] ?? []).map((column) => `'${column}'`)
+  ].join(' - ')
+
 const readTableSnapshot = async (client, schemaName, tableName) => {
   const result = await client.query(
     `SELECT COUNT(*)::int AS "count",
@@ -229,7 +239,7 @@ const readTableSnapshot = async (client, schemaName, tableName) => {
          'hex'
        ) AS "fingerprint"
      FROM (
-       SELECT to_jsonb(source_row)::text AS "rowJson"
+       SELECT (${snapshotRowJsonSql(tableName)})::text AS "rowJson"
        FROM ${quoteIdentifier(schemaName)}.${quoteIdentifier(tableName)} AS source_row
      ) AS snapshot_rows`
   )

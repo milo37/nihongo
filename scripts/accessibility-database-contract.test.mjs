@@ -8,7 +8,8 @@ import {
   readAccessibilityRateLimitDiagnostic,
   accessibilityDatabaseTables,
   accessibilityExpectedTableDeltas,
-  accessibilityExpectedRateLimitCategories
+  accessibilityExpectedRateLimitCategories,
+  snapshotRowJsonSql
 } from './accessibility-database-contract.mjs'
 
 const fingerprint = (suffix) => suffix.padStart(64, '0')
@@ -379,4 +380,13 @@ test('rejects another principal with identical operation cardinality without exp
       return true
     }
   )
+})
+
+test('JLP-852: the User snapshot leaves out only the sign-in time', () => {
+  assert.equal(
+    snapshotRowJsonSql('User'),
+    "to_jsonb(source_row) - 'lastLoginAt'"
+  )
+  for (const tableName of ['Session', 'Account', 'StudySession'])
+    assert.equal(snapshotRowJsonSql(tableName), 'to_jsonb(source_row)')
 })
