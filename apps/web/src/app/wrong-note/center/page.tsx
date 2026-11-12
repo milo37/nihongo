@@ -233,7 +233,7 @@ const MemberReview = (): ReactElement => {
             ) : empty ? (
               // JLP-855: no manuscript paper, message at the start edge.
               <EmptyState
-                className="items-start! px-0! text-start! [&>h2]:text-pretty [&:lang(ko)>h2]:break-keep"
+                className="items-start! mx-0! px-0! text-start! [&>h2]:text-pretty [&:lang(ko)>h2]:break-keep"
                 title={t(`empty.${empty}.title`)}
                 description={
                   // 'never' is one sentence (plan-notes §4).
