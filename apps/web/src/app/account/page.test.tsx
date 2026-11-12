@@ -540,6 +540,23 @@ describe('마이페이지 계정 설정', () => {
     expect(useAppStore.getState().currentUser).toBeNull()
     expect(queryClient.getQueryData(['bookmarks', 'private'])).toBeUndefined()
   })
+  it('JLP-847 접수 확인 조회가 실패해도 날짜 없이 접수 안내를 보인다', async () => {
+    freshActor()
+    mockServer.use(
+      http.get('*/api/auth/sso/deletion', () =>
+        HttpResponse.json({ code: 'INTERNAL_ERROR' }, { status: 500 })
+      )
+    )
+    const user = userEvent.setup()
+    const router = renderAccount()
+    const dialog = await openDeleteDialog(user)
+    await user.click(within(dialog).getByRole('button', { name: '회원 탈퇴' }))
+    await screen.findByText(
+      '탈퇴 신청을 받았어요. 7일 뒤 모두 삭제돼요. 그 전에 다시 로그인하면 되살릴 수 있어요.'
+    )
+    expect(router.state.location.pathname).toBe('/login')
+    expect(useAppStore.getState().currentUser).toBeNull()
+  })
   it('JLP-845 ⑦ 마지막 관리자 409는 창을 두고 알린 뒤 [회원 탈퇴]를 끈다', async () => {
     freshActor()
     mockServer.use(

@@ -471,6 +471,8 @@ export const jaCoreResources = {
       actionFailed: 'うまくいきませんでした。もう一度お試しください。',
       deletionAccepted:
         '退会の申し込みを受け付けました。{{date}}にすべて削除されます。それまでにもう一度ログインすると元に戻せます。',
+      deletionAcceptedNoDate:
+        '退会の申し込みを受け付けました。7日後にすべて削除されます。それまでにもう一度ログインすると元に戻せます。',
       unlinked: '連携を解除しました。',
       legacyMethod:
         'ログイン方法がGoogleに変わりました。Googleアカウントで続けてください。',

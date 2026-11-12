@@ -60,8 +60,9 @@ export const jaAdminResources = {
     gridLabel: '会員一覧',
     loading: '会員情報を読み込んでいます。',
     loadError: '会員一覧を読み込めませんでした',
-    empty: 'まだ会員がいません。',
-    noMatch: 'このメールアドレスで登録した会員はいません。',
+    empty: 'まだ会員がいません。管理者アカウントはこの一覧に表示されません。',
+    noMatch:
+      'このメールアドレスで登録した会員はいません。管理者アカウントはこの一覧に表示されません。',
     never: '学習記録なし',
     openDetail: '詳細',
     search: {

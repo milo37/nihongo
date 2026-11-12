@@ -447,6 +447,8 @@ export const koCoreResources = {
       actionFailed: '처리하지 못했어요. 다시 시도해 주세요.',
       deletionAccepted:
         '탈퇴 신청을 받았어요. {{date}}에 모두 삭제돼요. 그 전에 다시 로그인하면 되살릴 수 있어요.',
+      deletionAcceptedNoDate:
+        '탈퇴 신청을 받았어요. 7일 뒤 모두 삭제돼요. 그 전에 다시 로그인하면 되살릴 수 있어요.',
       unlinked: '연결을 해제했어요.',
       legacyMethod:
         '로그인 방법이 Google로 바뀌었어요. Google 계정으로 계속해 주세요.',
