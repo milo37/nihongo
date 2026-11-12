@@ -82,9 +82,11 @@ export const RecentSessionList = ({
       {sessions.length >= 5 ? (
         <p className="account-recent-more mt-1 text-[13px] leading-[1.7] text-muted">
           {before}
-          <Link className="text-link underline" to="/wrong-notes">
-            {linkText}
-          </Link>
+          {linkText ? (
+            <Link className="text-link underline" to="/wrong-notes">
+              {linkText}
+            </Link>
+          ) : null}
           {after}
         </p>
       ) : null}

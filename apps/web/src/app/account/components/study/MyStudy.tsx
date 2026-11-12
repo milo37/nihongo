@@ -79,9 +79,9 @@ export const MyStudy = (): ReactElement => {
               </span>{' '}
               <span className="text-sm text-muted">{t('study.totalUnit')}</span>
             </span>
-            <span aria-hidden="true" className="self-center text-line">
-              │
-            </span>
+            {/* A drawn rule, not a glyph: axe checks text contrast even
+                when it is aria-hidden. */}
+            <span aria-hidden="true" className="h-6 w-px self-center bg-line" />
             <span className="inline-flex items-baseline gap-1.5">
               <span className="text-sm text-muted">{t('study.rate')}</span>
               <span

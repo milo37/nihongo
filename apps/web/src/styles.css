@@ -279,9 +279,6 @@ section.practice-guest-limit,
 .auth-page.guest-gate-page {
   padding-top: 24px;
 }
-/* JLP-850: a guest's My footer follows the gate panel's column, so its
-   first label sits on the panel's left line (the member footer does the
-   same inside .account-page). */
 /* JLP-851: My reads like one sheet. The target level sits right under the
    name; each later section opens with 32px, a 1px line and 24px. */
 .account-page > header + section {
@@ -303,6 +300,9 @@ section.practice-guest-limit,
 .account-recent-more:lang(ko) {
   word-break: keep-all;
 }
+/* JLP-850: a guest's My footer follows the gate panel's column, so its
+   first label sits on the panel's left line (the member footer does the
+   same inside .account-page). */
 .guest-gate-page + .information-footer {
   width: 100%;
   max-width: 440px;
