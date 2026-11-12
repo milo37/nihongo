@@ -6,8 +6,10 @@ export const koAdminMembersResources = {
   gridLabel: '가입자 목록',
   loading: '가입자 정보를 불러오는 중입니다.',
   loadError: '가입자 목록을 불러오지 못했습니다',
-  empty: '아직 가입자가 없습니다.',
-  noMatch: '이 이메일로 가입한 사람이 없습니다.',
+  // The list holds learners only (role USER), so say where admins went.
+  empty: '아직 가입자가 없습니다. 관리자 계정은 이 목록에 나오지 않습니다.',
+  noMatch:
+    '이 이메일로 가입한 사람이 없습니다. 관리자 계정은 이 목록에 나오지 않습니다.',
   never: '학습 기록 없음',
   openDetail: '상세',
   search: {

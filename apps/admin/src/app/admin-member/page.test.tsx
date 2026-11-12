@@ -128,7 +128,9 @@ it('searches by exact email and rejects a malformed address locally', async () =
   await userEvent.type(field, ' Learner@Example.test ')
   await userEvent.click(screen.getByRole('button', { name: '찾기' }))
   expect(
-    await screen.findByText('이 이메일로 가입한 사람이 없습니다.')
+    await screen.findByText(
+      '이 이메일로 가입한 사람이 없습니다. 관리자 계정은 이 목록에 나오지 않습니다.'
+    )
   ).toBeVisible()
   expect(list).toHaveBeenLastCalledWith(
     expect.objectContaining({ email: 'learner@example.test' })
