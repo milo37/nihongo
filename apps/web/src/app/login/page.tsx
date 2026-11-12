@@ -86,6 +86,9 @@ const useDeletionNotice = (active: boolean): string | null => {
   const { receipt } = useSsoAccountDeletion(active)
   if (!active) return null
   if (receipt.isPending) return t('sso.checkingAccount')
+  // JLP-847: the request was already accepted; a failed receipt read only
+  // loses the date, so still confirm it without one.
+  if (receipt.isError) return t('sso.deletionAcceptedNoDate')
   // JLP-845: erasure waits 7 days, so the notice carries its date.
   const scheduledAt = receipt.data?.deletionScheduledAt
   return scheduledAt
