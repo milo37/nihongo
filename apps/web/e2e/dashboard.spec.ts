@@ -259,7 +259,7 @@ const openDashboardSections = async (
   )
   expect(stats.totalAnsweredCount).toBe(0)
   await expect(
-    page.getByText('아직 푼 문제가 없어요', { exact: true })
+    page.getByText('아직 N2 문제를 풀지 않았어요', { exact: true })
   ).toBeVisible()
   await expect(
     page.getByRole('region', { name: '추천 학습', exact: true })

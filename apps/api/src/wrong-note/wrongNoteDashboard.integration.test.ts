@@ -772,5 +772,31 @@ describe.sequential('Slice 5 WrongNote/Dashboard PostgreSQL reads', () => {
       foreignFixture?.sessionId
     ])
     expect(foreign.repeatedWrongQuestions).toHaveLength(1)
+
+    // JLP-853: every owner fixture is N5, so N5 keeps the whole snapshot and
+    // another level empties every session and wrong-note value.
+    await expect(
+      dashboardService.getDashboardStats(ownerUserId, {
+        from: '2026-08-10',
+        to: '2026-08-16',
+        level: 'N5'
+      })
+    ).resolves.toEqual(full)
+    const otherLevel = await dashboardService.getDashboardStats(ownerUserId, {
+      from: '2026-08-10',
+      to: '2026-08-16',
+      level: 'N1'
+    })
+    expect(otherLevel).toMatchObject({
+      totalAnsweredCount: 0,
+      correctCount: 0,
+      wrongNoteCount: 0,
+      solvedWrongNoteCount: 0,
+      recentStudySessions: [],
+      repeatedWrongQuestions: []
+    })
+    expect(
+      otherLevel.dailyStudyCountLast7Days.map(({ count }) => count)
+    ).toEqual([0, 0, 0, 0, 0, 0, 0])
   })
 })

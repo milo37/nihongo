@@ -13,6 +13,7 @@ export interface DashboardReadWindow {
   readonly activityToExclusive: Date | null
   readonly dailyFromInclusive: Date
   readonly dailyToExclusive: Date
+  readonly level: DashboardRepeatedWrongQuestion['level'] | null
   readonly userId: string
 }
 
@@ -109,6 +110,25 @@ const toActivityRangeSql = (input: DashboardReadWindow): Prisma.Sql =>
         AND session."submittedAt" < ${input.activityToExclusive}`
     : Prisma.sql``
 
+// JLP-853: a session counts for its own level; a wrong note for the level of
+// the question version it was last missed on.
+const toSessionLevelSql = (input: DashboardReadWindow): Prisma.Sql =>
+  input.level
+    ? Prisma.sql`
+        AND session."level" = ${input.level}::"JlptLevel"`
+    : Prisma.sql``
+
+const toNoteLevelSql = (input: DashboardReadWindow): Prisma.Sql =>
+  input.level
+    ? Prisma.sql`
+        AND EXISTS (
+          SELECT 1 FROM "QuestionVersion" AS note_version
+          WHERE note_version."questionId" = note."questionId"
+            AND note_version."id" = note."lastWrongQuestionVersionId"
+            AND note_version."level" = ${input.level}::"JlptLevel"
+        )`
+    : Prisma.sql``
+
 export const createPrismaDashboardRepository = (
   client: PrismaClient
 ): DashboardRepository => ({
@@ -118,6 +138,8 @@ export const createPrismaDashboardRepository = (
         async (transaction) => {
           await transaction.$executeRaw`SET TRANSACTION READ ONLY`
           const activityRange = toActivityRangeSql(input)
+          const sessionLevel = toSessionLevelSql(input)
+          const noteLevel = toNoteLevelSql(input)
           const subjectStats = await transaction.$queryRaw<
             DashboardSubjectAggregateRecord[]
           >(Prisma.sql`
@@ -132,6 +154,7 @@ export const createPrismaDashboardRepository = (
               AND session."status" = 'SUBMITTED'::"StudySessionStatus"
               AND session."submittedAt" IS NOT NULL
               ${activityRange}
+              ${sessionLevel}
             GROUP BY session."subject"
             ORDER BY CASE session."subject"
               WHEN 'VOCABULARY'::"QuestionSubject" THEN 1
@@ -159,6 +182,7 @@ export const createPrismaDashboardRepository = (
               AND session."status" = 'SUBMITTED'::"StudySessionStatus"
               AND session."submittedAt" IS NOT NULL
               ${activityRange}
+              ${sessionLevel}
             ORDER BY session."submittedAt" DESC, session."id" ASC
             LIMIT 5`)
 
@@ -178,6 +202,7 @@ export const createPrismaDashboardRepository = (
               AND session."status" = 'SUBMITTED'::"StudySessionStatus"
               AND session."submittedAt" IS NOT NULL
               ${activityRange}
+              ${sessionLevel}
               AND session."submittedAt" >= ${input.dailyFromInclusive}
               AND session."submittedAt" < ${input.dailyToExclusive}
             GROUP BY 1
@@ -196,7 +221,8 @@ export const createPrismaDashboardRepository = (
                 )
               )::bigint AS "solvedCount"
             FROM "WrongNote" AS note
-            WHERE note."userId" = ${input.userId}::uuid`)
+            WHERE note."userId" = ${input.userId}::uuid
+              ${noteLevel}`)
           const noteCounts = noteCountRows[0]
           if (!noteCounts) {
             throw new DashboardRepositoryIntegrityError(
@@ -220,6 +246,7 @@ export const createPrismaDashboardRepository = (
               ON version."questionId" = note."questionId"
               AND version."id" = note."lastWrongQuestionVersionId"
             WHERE note."userId" = ${input.userId}::uuid
+              ${noteLevel}
             ORDER BY
               note."wrongCount" DESC,
               note."lastWrongAt" DESC,
