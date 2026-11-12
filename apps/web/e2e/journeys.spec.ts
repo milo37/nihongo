@@ -1061,9 +1061,14 @@ const startVocabularySessionThroughUi = async (
 
 // JLP-854: under 1024px the submit bar is fixed to the bottom; in a
 // wrong-note retry the bottom tabs once covered it. At 390px nothing may sit
-// on the submit button, then the journey goes on at its own viewport.
-const assertRetrySubmitUncoveredOnPhone = async (page: Page): Promise<void> => {
+// on the submit button (enabled or not), then the journey goes on at its own
+// viewport. The width changes only while no request is in flight.
+const assertRetrySubmitUncoveredOnPhone = async (
+  page: Page,
+  ledger: RequestLedger
+): Promise<void> => {
   const viewport = page.viewportSize()
+  await waitForLedgerToQuiesce(ledger)
   await page.setViewportSize({ width: 390, height: 844 })
   try {
     const submit = page.getByRole('button', { name: '제출하기', exact: true })
@@ -1079,6 +1084,7 @@ const assertRetrySubmitUncoveredOnPhone = async (page: Page): Promise<void> => {
     ).toBe(true)
   } finally {
     if (viewport) await page.setViewportSize(viewport)
+    await waitForLedgerToQuiesce(ledger)
   }
 }
 
@@ -1408,9 +1414,9 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   })
   expect(targetedDraft.answers).toHaveLength(1)
   expect(targetedDraft.answers[0]?.selectedOptionId).toBeNull()
+  await assertRetrySubmitUncoveredOnPhone(page, ledger)
   const targetedOriginalNow = await freezePracticeClock(page)
   await answerEveryQuestionWithFirstOption(page, targeted, ledger)
-  await assertRetrySubmitUncoveredOnPhone(page)
   const completionState = waitForApiResponse(
     page,
     'GET',
