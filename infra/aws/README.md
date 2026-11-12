@@ -141,7 +141,7 @@ EC2와 백업 버킷은 CloudFront나 IAM으로만 접근됩니다. WAF는 IP별
 
 ## 전체 내리기 (JLP-835)
 
-서비스를 접을 때만 씁니다. 운영자가 정하고, 데이터를 남길지 먼저 정합니다. 탈퇴 유예 중인 계정이 있으면 `erase-deletion-pending`을 한 번 돌린 뒤 내립니다.
+서비스를 접을 때만 씁니다. 운영자가 정하고, 데이터를 남길지 먼저 정합니다. `erase-deletion-pending`은 7일 유예가 끝난 탈퇴 요청만 지우므로, 유예 중인 계정은 남아 마지막 `pg_dump`에 들어갑니다. 데이터를 남기려면 마지막 요청의 유예가 끝나 지워진 뒤 dump를 받고, 남기지 않을 때만 바로 내립니다. 이전 dump에도 탈퇴 전 데이터가 들어 있습니다.
 
 1. **PRODUCTION 먼저, STAGING 나중.** API ECR 리포, GitHub OIDC provider, Cost Anomaly 모니터, `Environment` 비용 태그는 STAGING 스택이 만든 계정 공용 자원입니다. PRODUCTION은 이것을 읽기만 하므로 먼저 내려야 막히지 않습니다.
 2. **남길 데이터를 받아 둡니다.** 마지막 `pg_dump`(백업 버킷 `postgres/`)를 운영자 PC로 내려받습니다. 버킷은 아래 3에서 비워야 지워집니다.
@@ -156,7 +156,7 @@ EC2와 백업 버킷은 CloudFront나 IAM으로만 접근됩니다. WAF는 IP별
    - DLM이 만든 주간 스냅샷(`harumaru-<env>-weekly`, 환경마다 최대 4개)은 정책이 지워져도 남습니다. EC2 → 스냅샷에서 지웁니다.
    - us-east-1 ACM 인증서(무료)는 CloudFront가 지워진 뒤 지울 수 있습니다.
    - Cloudflare DNS 3개(`harumaru.app` CNAME, `origin.harumaru.app` A, ACM 검증 CNAME)는 운영자가 Cloudflare 화면에서 지웁니다. API 토큰은 PROD EIP로 IP 필터가 걸려 있으므로 토큰도 그때 지웁니다. 도메인은 자동 갱신을 끄지 않으면 매년 청구됩니다.
-   - Google OAuth 클라이언트, GitHub 저장소 변수(`PRODUCTION_*`, `STAGING_*`)도 지웁니다.
+   - Google OAuth 클라이언트, GitHub 저장소 변수(`PRODUCTION_*`, `STAGING_*`, `AWS_DEPLOY_ROLE_ARN`, `AWS_REGION`, `ECR_REPOSITORY_URL`, `CADDY_ECR_REPOSITORY_URL`)도 지웁니다.
 6. **state 버킷**(`harumaru-tfstate-<계정>`)은 마지막에 비우고 지웁니다. 다시 올릴 가능성이 있으면 남깁니다.
 
 **남는 비용.** 위를 모두 지우면 AWS는 0입니다. 남기는 것을 고르면 대략 이렇습니다(세전, 월): 데이터 EBS 10 GB $0.91, 스냅샷 약 3 GB $0.15, 백업 S3 약 0.6 GB $0.02, 감사 S3 최대 약 1.5 GB $0.04, ECR 이미지 $0.10/GB, state 버킷 몇 센트. EIP는 반납하지 않으면 정지 중에도 $3.65입니다. 도메인 갱신비는 Cloudflare에서 따로 청구됩니다.
