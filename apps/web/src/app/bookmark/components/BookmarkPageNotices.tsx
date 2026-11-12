@@ -75,7 +75,11 @@ export const BookmarkEmptyPage = ({
   // start edge as before.
   return (
     <EmptyState
-      className={isFirstPage ? 'items-start! px-0! text-start!' : undefined}
+      className={
+        isFirstPage
+          ? 'items-start! px-0! text-start! [&>h2]:text-pretty [&:lang(ko)>h2]:break-keep'
+          : undefined
+      }
       title={isFirstPage ? t('empty.firstTitle') : t('empty.pageTitle')}
       description={
         isFirstPage ? t('empty.firstDescription') : t('empty.pageDescription')

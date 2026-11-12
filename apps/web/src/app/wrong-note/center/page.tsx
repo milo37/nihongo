@@ -233,14 +233,14 @@ const MemberReview = (): ReactElement => {
             ) : empty ? (
               // JLP-855: no manuscript paper, message at the start edge.
               <EmptyState
-                  className="items-start! px-0! text-start!"
-                  title={t(`empty.${empty}.title`)}
-                  description={
-                    // 'never' is one sentence (plan-notes §4).
-                    empty === 'never' ? undefined : t(`empty.${empty}.body`)
-                  }
-                  action={empty === 'noReviewed' ? startButton('') : startNew}
-                />
+                className="items-start! px-0! text-start! [&>h2]:text-pretty [&:lang(ko)>h2]:break-keep"
+                title={t(`empty.${empty}.title`)}
+                description={
+                  // 'never' is one sentence (plan-notes §4).
+                  empty === 'never' ? undefined : t(`empty.${empty}.body`)
+                }
+                action={empty === 'noReviewed' ? startButton('') : startNew}
+              />
             ) : null}
             {center.totalPages > 1 ? (
               <Pagination
