@@ -206,6 +206,8 @@ describe('wrong note in two states', () => {
       await screen.findByRole('heading', { name: t(`empty.${variant}.title`) })
     ).toBeVisible()
     expect(screen.queryByRole('group')).not.toBeInTheDocument()
+    // JLP-855: no manuscript paper around the message.
+    expect(document.querySelector('.manuscript-sheet')).toBeNull()
     if (variant === 'noReviewed')
       expect(screen.getByRole('button', { name: t('start') })).toBeEnabled()
     else

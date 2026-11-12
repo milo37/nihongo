@@ -112,45 +112,10 @@
   stroke: rgb(var(--color-sheet-line));
   stroke-width: 1;
 }
-.empty-sheet-layout {
-  display: grid;
-  gap: 28px;
-  margin-top: 24px;
-}
-.empty-sheet-char {
-  color: rgb(var(--color-brand));
-  font-family: var(--font-ja);
-  font-size: 16px;
-  font-weight: 700;
-}
-.empty-sheet-band line,
 .manuscript-sheet-band line {
   stroke-dasharray: 2 3;
-}
-@media (min-width: 1024px) {
-  /* The message on the left, the blank paper beside it (B4 §6). */
-  .empty-sheet-layout {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 0.82fr);
-    column-gap: clamp(64px, 7.5vw, 96px);
-    align-items: start;
-  }
-  .empty-sheet-layout > .empty-sheet {
-    grid-column: 2;
-    grid-row: 1;
-  }
-  .empty-sheet-layout > .empty-sheet-message {
-    grid-column: 1;
-    grid-row: 1;
-  }
-  .empty-sheet-char {
-    font-size: 20px;
-  }
 }
 .review-list-grade {
   width: 18px;
   height: 18px;
-}
-.empty-sheet-message > * {
-  align-items: flex-start;
-  text-align: start;
 }
