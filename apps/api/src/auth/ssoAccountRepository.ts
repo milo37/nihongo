@@ -20,8 +20,15 @@ import {
   completeSsoAccountErasure,
   listSsoAccountErasures,
   requestSsoAccountErasure,
-  ssoAccountErasureStatus
+  restoreSsoAccount,
+  ssoAccountErasureStatus,
+  type RestorableErasure
 } from './accountErasureAuthority.js'
+import type { OwnedSessionClient } from './ownedSessionAuthority.js'
+import {
+  issueConfirmedSsoSession,
+  type SsoIdentityResult
+} from './ssoIdentityRepository.js'
 import {
   accountCapabilities,
   beginProviderCleanup,
@@ -107,6 +114,16 @@ export interface SsoAccountPort {
     receipt: string
   ) => Promise<AccountResult<SsoAccountDeletion>>
   erasureStatus: (receipt: string) => Promise<SsoAccountDeletion | null>
+  /** JLP-845: restores the account of a restore proof and issues a Session. */
+  restore: (
+    proof: RestorableErasure,
+    metadata: { ipAddress: string; userAgent: string }
+  ) => Promise<
+    | {
+        code: 'SSO_ACCOUNT_RESTORE_UNAVAILABLE' | 'SSO_ACCOUNT_RESTORE_TOO_LATE'
+      }
+    | Extract<SsoIdentityResult, { kind: 'SESSION_CONFIRMED' }>
+  >
 }
 const transactionSchema = z
   .object({
@@ -120,10 +137,12 @@ const transactionSchema = z
   .refine((v) => v.provider === v.context.provider)
 const errorSchema = z.object({ code: ssoAccountErrorCodeSchema }).strict()
 export const createSsoAccountRepository = (
-  client: Pick<PrismaClient, '$queryRawUnsafe' | '$transaction'>,
+  client: OwnedSessionClient,
   // Runs after the request commits; #669 keeps the User id outside the
   // database so a restore can re-apply erasures requested after its dump.
-  onErasureRequested?: (userId: string) => void
+  onErasureRequested?: (userId: string) => void,
+  // JLP-845: runs after a restore commits, so that re-apply skips the User.
+  onErasureCancelled?: (userId: string) => void
 ): SsoAccountPort => {
   return {
     prepare: async (token, provider, purpose, proof) => {
@@ -208,6 +227,16 @@ export const createSsoAccountRepository = (
     erasureStatus: async (receipt) => {
       const raw = await ssoAccountErasureStatus(client, receipt)
       return raw === null ? null : ssoAccountDeletionSchema.parse(raw)
+    },
+    restore: async (proof, metadata) => {
+      const restored = await restoreSsoAccount(client, proof)
+      if ('code' in restored) return restored
+      onErasureCancelled?.(restored.userId)
+      return issueConfirmedSsoSession(
+        client,
+        { ...restored, accountStatus: 'ACTIVE' },
+        metadata
+      )
     }
   }
 }
@@ -224,7 +253,8 @@ const erasureQueueSchema = z
     z
       .object({
         id: z.uuid(),
-        ...ssoAccountDeletionSchema.shape
+        appStatus: ssoAccountDeletionSchema.shape.appStatus,
+        providerCleanup: ssoAccountDeletionSchema.shape.providerCleanup
       })
       .strict()
   )
