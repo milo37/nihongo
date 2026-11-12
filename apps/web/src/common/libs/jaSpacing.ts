@@ -1,13 +1,30 @@
 /**
- * JLP-864: Japanese written with spaces between words (分かち書き) reads
+ * JLP-864/868: Japanese written with spaces between words (分かち書き) reads
  * the spaces as word edges, so a line may only break at them. Text written
  * without spaces keeps ordinary Japanese breaking. Decided from the string
  * at render time, so content that drops its spaces switches by itself.
- * Only an ASCII space between two characters counts; the full-width space
- * (U+3000) inside a fill-in blank is not a word space.
+ *
+ * Only a half-width space with a word character on both sides counts: kana,
+ * kanji, ー, 々, or the ＿＿/★ marks of a word-order item. Spaces next to
+ * numbers or symbols (`13:30～15:00`, `1回 150円`) do not, and neither does
+ * the full-width space of a fill-in blank. A notice that spaces only its heading still
+ * reads as unspaced: the text counts as spaced only when the pieces between
+ * word spaces stay short (word-spaced N5/N4 text averages under 12 Japanese
+ * letters a piece; a spaced heading over a prose notice averages over 80).
  */
-export const isJaSpaced = (text: string | null | undefined): boolean =>
-  text ? /\S \S/u.test(text) : false
+const JA_LETTERS = 'ぁ-ゖァ-ヺー一-鿿々'
+const WORD_CHAR = `[${JA_LETTERS}＿★]`
+const WORD_SPACE = new RegExp(`${WORD_CHAR} (?=${WORD_CHAR})`, 'gu')
+const JA_LETTER = new RegExp(`[${JA_LETTERS}]`, 'gu')
+const MAX_LETTERS_PER_PIECE = 20
+
+export const isJaSpaced = (text: string | null | undefined): boolean => {
+  if (!text) return false
+  const spaces = text.match(WORD_SPACE)?.length ?? 0
+  if (spaces === 0) return false
+  const letters = text.match(JA_LETTER)?.length ?? 0
+  return letters / (spaces + 1) <= MAX_LETTERS_PER_PIECE
+}
 
 /** Props for a Japanese text element; the CSS reads data-ja-spaced. */
 export const jaTextProps = (
