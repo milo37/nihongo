@@ -85,9 +85,25 @@ it('switches with Enter, keeps it after a reload, and only closes on the current
   expect(document.documentElement.lang).toBe('ja')
   await userEvent.click(button())
   expect(item('日本語')).toHaveAttribute('aria-checked', 'true')
-  await userEvent.keyboard(' ')
+  await userEvent.keyboard('{ArrowUp} ')
   expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   expect(document.documentElement.lang).toBe('ja')
+})
+
+// JLP-849: iOS Safari rings any item focused by script, so a tap or click
+// focuses the menu box; the arrows still reach the items from there.
+it('focuses the menu box, not an item, when opened by a click', async () => {
+  renderLayout()
+  await userEvent.click(button())
+  const menu = screen.getByRole('menu', { name: '언어' })
+  expect(menu).toHaveFocus()
+  expect(menu).toHaveAttribute('tabindex', '-1')
+  await userEvent.keyboard('{ArrowUp}')
+  expect(item('日本語')).toHaveFocus()
+  await userEvent.keyboard('{Escape}')
+  await userEvent.click(button())
+  await userEvent.keyboard('{ArrowDown}')
+  expect(item('한국어')).toHaveFocus()
 })
 
 it('closes on an outside click and on Tab, and never opens with the account menu', async () => {
