@@ -426,3 +426,18 @@ section.practice-guest-limit,
   :is(#primary-navigation, #mobile-navigation, .account-menu) {
   display: none;
 }
+
+/* JLP-866: Japanese content uses the Japanese font list, so kanji keep
+   their Japanese shapes (Windows otherwise draws them with a Korean font).
+   The page itself (html lang) is left alone. */
+body [lang='ja'] {
+  font-family: var(--font-ja);
+  line-break: strict;
+}
+/* JLP-864: text written with spaces between words breaks only at them;
+   text without spaces keeps ordinary Japanese breaking (strict above).
+   A word longer than the line still wraps, so nothing overflows. */
+body [lang='ja'][data-ja-spaced] {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}

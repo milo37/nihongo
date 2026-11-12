@@ -56,7 +56,6 @@ label:has(input:checked) .study-option-text {
 .study-question-text {
   font-size: 22px;
   line-height: 1.6;
-  word-break: keep-all;
 }
 
 /* Jump window: current = ink 2px square like the strip; the shared 4px

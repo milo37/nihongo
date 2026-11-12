@@ -12,6 +12,7 @@ import {
 } from '@app/practice/result/ResultStatusIcon'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
+import { jaTextProps } from '@common/libs/jaSpacing'
 
 type ResultQuestionDetailProps = {
   readonly item: StudyResultItemView
@@ -102,7 +103,7 @@ const ResultAnswerComparison = ({
         <dt className={item.isCorrect ? 'text-success' : 'text-danger'}>
           {t('items.selectedAnswer')}
         </dt>
-        <dd lang={selectedOption ? 'ja' : undefined}>
+        <dd {...(selectedOption ? jaTextProps(selectedOption.text) : {})}>
           {selectedOption
             ? `${selectedOption.label}. ${selectedOption.text}`
             : t('items.unanswered')}
@@ -110,7 +111,7 @@ const ResultAnswerComparison = ({
       </div>
       <div>
         <dt className="text-success">{t('items.correctAnswer')}</dt>
-        <dd lang={correctOption ? 'ja' : undefined}>
+        <dd {...(correctOption ? jaTextProps(correctOption.text) : {})}>
           {correctOption
             ? `${correctOption.label}. ${correctOption.text}`
             : t('items.correctAnswerUnavailable')}
@@ -174,14 +175,17 @@ export const ResultQuestionDetail = ({
         <p className="mt-3 text-sm text-muted">{item.tags.join(' · ')}</p>
       ) : null}
       {item.question.passage ? (
-        <div className="study-result-passage" lang="ja">
+        <div
+          className="study-result-passage"
+          {...jaTextProps(item.question.passage)}
+        >
           {item.question.passage}
         </div>
       ) : null}
       <h2
         id="selected-result-question-title"
         className="study-result-question-copy"
-        lang="ja"
+        {...jaTextProps(item.question.questionText)}
       >
         {item.question.questionText}
       </h2>
