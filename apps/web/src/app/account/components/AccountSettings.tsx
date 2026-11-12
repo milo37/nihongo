@@ -122,7 +122,11 @@ export const AccountSettings = (): ReactElement => {
           </p>
           {caps && !caps.canDelete ? (
             <p id={deleteReasonId} className="mt-1 text-caption">
-              {authT('sso.openAdminWork')}
+              {authT(
+                caps.deletionBlockedReason === 'LAST_ACTIVE_ADMIN'
+                  ? 'sso.lastAdminDeletionBlocked'
+                  : 'sso.openAdminWork'
+              )}
             </p>
           ) : null}
         </SettingRow>

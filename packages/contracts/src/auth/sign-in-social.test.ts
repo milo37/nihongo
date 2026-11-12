@@ -96,8 +96,13 @@ describe('agreed SSO transport', () => {
       }).success
     ).toBe(false)
   })
-  it('shares exactly the three callback failure outcomes', () => {
-    for (const outcome of ['CANCELLED', 'FAILED', 'INVALID_CALLBACK']) {
+  it('shares the three callback failures and the restore outcome', () => {
+    for (const outcome of [
+      'CANCELLED',
+      'FAILED',
+      'INVALID_CALLBACK',
+      'RESTORE_AVAILABLE'
+    ]) {
       expect(ssoCallbackOutcomeSchema.parse(outcome)).toBe(outcome)
     }
     expect(

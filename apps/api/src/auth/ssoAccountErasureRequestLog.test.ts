@@ -20,6 +20,7 @@ describe('erasure request log (#669)', () => {
   it('reports the User id once the request is accepted', async () => {
     request.mockResolvedValue({
       appStatus: 'DELETION_PENDING',
+      deletionScheduledAt: '2026-11-19T10:00:00.000Z',
       providerCleanup: [{ provider: 'google', status: 'PENDING' }],
       userId: USER_ID
     })
@@ -29,6 +30,7 @@ describe('erasure request log (#669)', () => {
       repo.requestErasure('private', 'proof', 'd'.repeat(64))
     ).resolves.toEqual({
       appStatus: 'DELETION_PENDING',
+      deletionScheduledAt: '2026-11-19T10:00:00.000Z',
       providerCleanup: [{ provider: 'google', status: 'PENDING' }]
     })
     expect(requested).toHaveBeenCalledExactlyOnceWith(USER_ID)

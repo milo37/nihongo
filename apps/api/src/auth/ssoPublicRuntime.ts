@@ -220,6 +220,22 @@ export const createSsoPublicRuntime = ({
             request.headers.get(INTERNAL_CLIENT_IP_HEADER) ?? 'unresolved',
           userAgent: request.headers.get('User-Agent') ?? ''
         })
+        if (resolved.kind === 'RESTORE_AVAILABLE' && accountRuntime) {
+          // JLP-845: no session; the login page offers restore or keeps the
+          // scheduled erasure.
+          const response = redirect(
+            provider,
+            `/login?${new URLSearchParams({
+              sso: 'RESTORE_AVAILABLE',
+              redirect: safeSsoReturnPath(verified.callbackURL)
+            })}`
+          )
+          response.headers.append(
+            'Set-Cookie',
+            accountRuntime.restoreCookie(resolved.restore)
+          )
+          return response
+        }
         if (resolved.kind !== 'SESSION_CONFIRMED')
           return failure(provider, 'FAILED', verified.callbackURL)
         return redirect(

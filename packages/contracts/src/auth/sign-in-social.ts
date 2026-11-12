@@ -37,7 +37,9 @@ export type SsoProviderId = z.output<typeof ssoProviderIdSchema>
 export const ssoCallbackOutcomeSchema = z.enum([
   'CANCELLED',
   'FAILED',
-  'INVALID_CALLBACK'
+  'INVALID_CALLBACK',
+  // JLP-845: the account waits out its erasure grace period and can be restored.
+  'RESTORE_AVAILABLE'
 ])
 
 const FILTER_KEYS = new Set([
