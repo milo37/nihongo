@@ -461,7 +461,7 @@ describe('마이페이지 계정 설정', () => {
     })
     await user.dblClick(verify)
     await waitFor(() => expect(requests).toBe(1))
-    expect(verify).toBeDisabled()
+    expect(verify).toHaveAttribute('aria-disabled', 'true')
     expect(verify).toHaveAccessibleName('Google로 이동하는 중…')
     expect(verify.querySelectorAll('.ui-spinner')).toHaveLength(1)
     await act(async () => finish?.())

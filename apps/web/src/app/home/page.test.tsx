@@ -290,7 +290,7 @@ it('announces loading and prevents duplicate start requests', () => {
   const start = screen.getByRole('button', {
     name: appI18n.t('home:approved.loading')
   })
-  expect(start).toBeDisabled()
+  expect(start).toHaveAttribute('aria-disabled', 'true')
   expect(start).toHaveAttribute('aria-busy', 'true')
   fireEvent.click(start)
   expect(mocks.mutate).not.toHaveBeenCalled()

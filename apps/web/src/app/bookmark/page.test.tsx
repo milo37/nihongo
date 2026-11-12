@@ -466,7 +466,10 @@ describe('BookmarkPage pagination settlement', () => {
   it('마지막 페이지 delete 실패 중에는 page를 유지하고 rollback 항목을 복원한다', async () => {
     const fixture = await renderLastPageDelete()
     expect(screen.queryByText('빼는 중…')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: '잠시만요…' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: '잠시만요…' })).toHaveAttribute(
+      'aria-disabled',
+      'true'
+    )
     expect(
       screen.getByRole('dialog').querySelectorAll('.ui-spinner')
     ).toHaveLength(1)
@@ -615,7 +618,7 @@ it('학습 그룹 두 개 중 실행 버튼만 진행을 표시하고 다른 그
   await waitFor(() => expect(requests).toBe(1))
   expect(firstGroup.querySelectorAll('.ui-spinner')).toHaveLength(1)
   expect(firstGroup).toHaveAttribute('aria-busy', 'true')
-  expect(firstGroup).toBeDisabled()
+  expect(firstGroup).toHaveAttribute('aria-disabled', 'true')
   expect(secondGroup).toBeDisabled()
   expect(secondGroup.querySelector('.ui-spinner')).toBeNull()
   expect(secondGroup).toHaveTextContent(secondLabel!)

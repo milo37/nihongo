@@ -6,6 +6,9 @@
 }
 .home-band {
   display: grid;
+  /* JLP-844: minmax(0) so the column never grows to the manuscript sheet's
+     350px first draw; the sheet then measures the real width (320px phones). */
+  grid-template-columns: minmax(0, 1fr);
   gap: 32px;
 }
 .home-band-start {

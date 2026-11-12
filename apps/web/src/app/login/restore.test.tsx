@@ -148,7 +148,10 @@ describe('JLP-845 탈퇴 유예 계정 되살리기', () => {
         screen.getByRole('button', { name: '그대로 탈퇴하기' })
       ).toBeDisabled()
     )
-    expect(screen.getByRole('button', { name: /잠시만요/u })).toBeDisabled()
+    const busy = screen.getByRole('button', { name: /잠시만요/u })
+    expect(busy).toHaveAttribute('aria-disabled', 'true')
+    // JLP-846: focus stays on the pressed button while it is busy.
+    expect(busy).toHaveFocus()
     release()
     // ③ failure goes back to the sign-in card with an alert.
     expect(await screen.findByRole('alert')).toHaveTextContent(
