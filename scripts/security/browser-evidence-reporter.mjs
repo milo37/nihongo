@@ -19,6 +19,10 @@ const VALID_STATUS = new Set([
 const REQUEST_LEDGER_ATTACHMENT =
   /^(?:admin-(?:cms-real-request-ledger|(?:guest|user)-denial)|(?:admin-lifecycle|dashboard|guest-auth|user-journey|resilience)-(?:real|mock)-request-ledger|journey-(?:real|mock)-(?:ko|ja)-handoff)$/u
 const PERFORMANCE_ATTACHMENT = /^dashboard-(?:real|mock)-performance$/u
+// JLP-788: a spec attaches the entries that failed its own ledger check. Only
+// a diagnostic: it never enters the evidence and never changes the verdict.
+const LEDGER_CHECK_DIAGNOSTIC_ATTACHMENT =
+  /^(?:guest-auth|user-journey)-(?:real|mock)-ledger-diagnostic$/u
 const LEGACY_DASHBOARD_ATTACHMENT =
   /^[a-z]+[0-9]+-dashboard-(?:real|mock)-(?:request-ledger|performance)$/u
 
@@ -50,6 +54,7 @@ export default class PlaywrightEvidenceReporter {
     this.requestLedgers = []
     this.invalidSafeAttachments = new Map()
     this.invalidLedgerDiagnostics = []
+    this.ledgerCheckDiagnostics = []
     this.startedAt = 0
     this.tests = []
   }
@@ -64,6 +69,7 @@ export default class PlaywrightEvidenceReporter {
     this.requestLedgers = []
     this.invalidSafeAttachments = new Map()
     this.invalidLedgerDiagnostics = []
+    this.ledgerCheckDiagnostics = []
     this.tests = []
   }
 
@@ -88,6 +94,23 @@ export default class PlaywrightEvidenceReporter {
           attachmentName,
           'SECURITY_EVIDENCE_LEGACY_ATTACHMENT_FORBIDDEN'
         )
+        continue
+      }
+      if (LEDGER_CHECK_DIAGNOSTIC_ATTACHMENT.test(attachmentName)) {
+        let entries
+        try {
+          entries =
+            attachment.contentType === 'application/json' &&
+            Buffer.isBuffer(attachment.body)
+              ? JSON.parse(attachment.body.toString('utf8'))?.entries
+              : undefined
+        } catch {
+          entries = undefined
+        }
+        this.ledgerCheckDiagnostics.push({
+          entries: projectLedgerDiagnosticEntries(entries),
+          name: attachmentName
+        })
         continue
       }
       const isRequestLedger = REQUEST_LEDGER_ATTACHMENT.test(attachmentName)
@@ -132,6 +155,20 @@ export default class PlaywrightEvidenceReporter {
   }
 
   async onEnd(result) {
+    if (this.diagnosticDirectory && this.ledgerCheckDiagnostics.length > 0) {
+      await writeCanonicalEvidence({
+        filePath: path.join(
+          this.diagnosticDirectory,
+          `${this.label}-ledger-check-failures.json`
+        ),
+        value: {
+          schemaVersion: 1,
+          kind: 'nihongo.playwright-ledger-check-diagnostic',
+          label: this.label,
+          ledgers: this.ledgerCheckDiagnostics
+        }
+      })
+    }
     if (this.invalidSafeAttachments.size > 0) {
       if (
         this.diagnosticDirectory &&
