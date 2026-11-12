@@ -1675,7 +1675,9 @@ const armDashboardStatsFailure = async (
     return async () => undefined
   }
 
-  const routePattern = '**/api/v1/dashboard'
+  // JLP-853: My page adds ?level=, which a glob would not match.
+  const routePattern = (url: URL): boolean =>
+    url.pathname === '/api/v1/dashboard'
   let failuresRemaining = 2
   const failTwice = async (route: Route): Promise<void> => {
     if (failuresRemaining <= 0) {
@@ -1718,8 +1720,9 @@ const invalidateDashboardStats = async (page: Page): Promise<void> => {
         }) => Promise<void>
       }
     }
+    // JLP-853: My page keys its stats by level under this prefix.
     await queryClient.invalidateQueries({
-      exact: true,
+      exact: false,
       queryKey: ['dashboard', 'get-stats']
     })
   }, queryClientModulePath)
@@ -1740,7 +1743,7 @@ const invalidateDashboardWhileOffline = async (
         }
       }
       void queryClient.invalidateQueries({
-        exact: true,
+        exact: false,
         queryKey: ['dashboard', `get-${kind}`]
       })
     },
@@ -1762,19 +1765,27 @@ const waitForDashboardQueryState = async (
               /* @vite-ignore */ modulePath
             )) as {
               queryClient: {
-                getQueryState: (queryKey: readonly string[]) =>
-                  | {
-                      data: unknown
-                      fetchStatus: string
-                      status: string
-                    }
-                  | undefined
+                getQueryCache: () => {
+                  find: (filters: {
+                    exact: boolean
+                    queryKey: readonly string[]
+                  }) =>
+                    | {
+                        state: {
+                          data: unknown
+                          fetchStatus: string
+                          status: string
+                        }
+                      }
+                    | undefined
+                }
               }
             }
-            const state = queryClient.getQueryState([
-              'dashboard',
-              `get-${kind}`
-            ])
+            // JLP-853: My page keys its stats by level under this prefix.
+            const state = queryClient.getQueryCache().find({
+              exact: false,
+              queryKey: ['dashboard', `get-${kind}`]
+            })?.state
             return state
               ? {
                   fetchStatus: state.fetchStatus,
@@ -2031,8 +2042,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   await waitForDashboardQueryState(page, 'stats', 'idle')
   // My page shows only the stats summary (JLP-812): no recommendations.
   const myStudyRegion = page.getByRole('region', {
-    exact: true,
-    name: '내 학습'
+    name: /^N[1-5] 학습$/u
   })
   await expect(myStudyRegion).toBeVisible()
   await expect(
