@@ -110,9 +110,18 @@ export const toContractDashboardStats = (
   record: MockCanonicalDashboardRecord,
   query: ParsedGetDashboardStatsQuery
 ): GetDashboardStatsResponse => {
-  const activitySessions = record.sessions.filter((session) =>
-    isInActivityRange(session.submittedAt, query)
+  // JLP-853: a session counts for its own level; a wrong note for the level
+  // it was last missed on (same as the API).
+  const activitySessions = record.sessions.filter(
+    (session) =>
+      isInActivityRange(session.submittedAt, query) &&
+      (!query.level || session.level === query.level)
   )
+  const wrongNotes = query.level
+    ? record.wrongNotes.filter(
+        (note) => note.lastWrongQuestion.level === query.level
+      )
+    : record.wrongNotes
   const subjectStats = SUBJECTS.map((subject) => {
     const sessions = activitySessions.filter(
       (session) => session.subject === subject
@@ -178,10 +187,9 @@ export const toContractDashboardStats = (
     totalAnsweredCount: toSafeCount(totalAnswered, 'totalAnsweredCount'),
     correctCount: toSafeCount(correct, 'correctCount'),
     correctRate: calculateRate(correct, totalAnswered),
-    wrongNoteCount: record.wrongNotes.length,
-    solvedWrongNoteCount: record.wrongNotes.filter(
-      ({ status }) => status === 'SOLVED'
-    ).length,
+    wrongNoteCount: wrongNotes.length,
+    solvedWrongNoteCount: wrongNotes.filter(({ status }) => status === 'SOLVED')
+      .length,
     weakestSubject,
     subjectStats,
     recentStudySessions: activitySessions
@@ -197,7 +205,7 @@ export const toContractDashboardStats = (
       date,
       count: toSafeCount(dailyCountByDate.get(date) ?? 0n, `daily.${date}`)
     })),
-    repeatedWrongQuestions: record.wrongNotes
+    repeatedWrongQuestions: wrongNotes
       .toSorted(
         (left, right) =>
           right.wrongCount - left.wrongCount ||

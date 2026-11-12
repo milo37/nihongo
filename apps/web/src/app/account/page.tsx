@@ -4,6 +4,7 @@ import { AccountSettings } from '@app/account/components/AccountSettings'
 import { Avatar } from '@app/account/components/Avatar'
 import { MyStudy } from '@app/account/components/study/MyStudy'
 import { TargetLevelSetting } from '@app/account/components/TargetLevelSetting'
+import { FALLBACK_LEVEL } from '@app/practice/practiceSetupOptions'
 import { GuestGate } from '@app/login/components/GuestGate'
 import { InformationFooter } from '@nihongo/browser/common/components/InformationFooter'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
@@ -41,7 +42,8 @@ export const AccountPage = (): ReactElement => {
         </div>
       </header>
       <TargetLevelSetting targetLevel={user.targetLevel} />
-      <MyStudy />
+      {/* JLP-853: the target level's records; no target counts as N5. */}
+      <MyStudy level={user.targetLevel ?? FALLBACK_LEVEL} />
       <AccountSettings />
       <InformationFooter />
     </div>
