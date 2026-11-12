@@ -7,7 +7,7 @@
         "subject": "VOCABULARY",
         "questionType": "KANJI_READING",
         "difficulty": "NORMAL",
-        "questionText": "新しい 制度の「導入」が 決まった。「導入」の 読み方は どれですか。",
+        "questionText": "新しい制度の「導入」が決まった。「導入」の読み方はどれですか。",
         "passage": null,
         "explanationKo": "핵심: 導入 = どうにゅう(도입)\nどうにゅ는 끝의 장음이 빠졌고, とうにゅう는 탁음이 빠졌고, どうじゅう는 「入」의 읽기가 아닙니다.",
         "explanationJa": null,
@@ -40,7 +40,7 @@
         "subject": "VOCABULARY",
         "questionType": "KANJI_READING",
         "difficulty": "NORMAL",
-        "questionText": "会社の 経費を「削減」する ことに なった。「削減」の 読み方は どれですか。",
+        "questionText": "会社の経費を「削減」することになった。「削減」の読み方はどれですか。",
         "passage": null,
         "explanationKo": "핵심: 削減 = さくげん(삭감)\n「削」은 さく, 「減」은 げん(탁음)입니다. しょう는 「削」의 읽기가 아니고, けん은 탁음이 빠졌습니다.",
         "explanationJa": null,
@@ -73,7 +73,7 @@
         "subject": "VOCABULARY",
         "questionType": "KANJI_READING",
         "difficulty": "NORMAL",
-        "questionText": "予定を「柔軟」に 変更する。「柔軟」の 読み方は どれですか。",
+        "questionText": "予定を「柔軟」に変更する。「柔軟」の読み方はどれですか。",
         "passage": null,
         "explanationKo": "핵심: 柔軟 = じゅうなん(유연)\n「柔」는 じゅう, 「軟」은 なん입니다. にゅう·ねん은 이 한자들의 읽기가 아닙니다.",
         "explanationJa": null,
@@ -106,7 +106,7 @@
         "subject": "VOCABULARY",
         "questionType": "KANJI_READING",
         "difficulty": "NORMAL",
-        "questionText": "風で 髪が「乱れて」しまった。「乱れて」の 読み方は どれですか。",
+        "questionText": "風で髪が「乱れて」しまった。「乱れて」の読み方はどれですか。",
         "passage": null,
         "explanationKo": "핵심: 乱れる = みだれる(흐트러지다)\nたおれる는 倒れる(쓰러지다), くずれる는 崩れる(무너지다), ゆれる는 揺れる(흔들리다)입니다.",
         "explanationJa": null,
@@ -139,7 +139,7 @@
         "subject": "VOCABULARY",
         "questionType": "KANJI_READING",
         "difficulty": "EASY",
-        "questionText": "留学で「貴重」な 経験を した。「貴重」の 読み方は どれですか。",
+        "questionText": "留学で「貴重」な経験をした。「貴重」の読み方はどれですか。",
         "passage": null,
         "explanationKo": "핵심: 貴重 = きちょう(귀중)\n「重」은 여기서 ちょう로 읽습니다. きじゅう는 다른 읽기, きっちょう는 촉음이 붙었고, ぎちょう는 탁음이 붙었습니다.",
         "explanationJa": null,
@@ -172,7 +172,7 @@
         "subject": "VOCABULARY",
         "questionType": "ORTHOGRAPHY",
         "difficulty": "HARD",
-        "questionText": "地震に「そなえて」水を 買って おく。「そなえて」を 漢字で 書くと どれですか。",
+        "questionText": "地震に「そなえて」水を買っておく。「そなえて」を漢字で書くとどれですか。",
         "passage": null,
         "explanationKo": "핵심: そなえる(대비하다) = 備える\n供える도 そなえる지만 「(신·제단에) 바치다」라는 뜻입니다. 添える는 そえる, 構える는 かまえる입니다.",
         "explanationJa": null,
@@ -205,7 +205,7 @@
         "subject": "VOCABULARY",
         "questionType": "ORTHOGRAPHY",
         "difficulty": "NORMAL",
-        "questionText": "会議の 時間を「えんちょう」する。「えんちょう」を 漢字で 書くと どれですか。",
+        "questionText": "会議の時間を「えんちょう」する。「えんちょう」を漢字で書くとどれですか。",
         "passage": null,
         "explanationKo": "핵심: えんちょう = 延長(연장)\n延(늘이다) + 長(길다)입니다. 調(조절), 帳(장부)는 뜻이 다르고, 遠(멀다)은 えん으로 읽지만 연장의 「연」이 아닙니다.",
         "explanationJa": null,
@@ -238,7 +238,7 @@
         "subject": "VOCABULARY",
         "questionType": "ORTHOGRAPHY",
         "difficulty": "NORMAL",
-        "questionText": "事故の「げんいん」を 調べる。「げんいん」を 漢字で 書くと どれですか。",
+        "questionText": "事故の「げんいん」を調べる。「げんいん」を漢字で書くとどれですか。",
         "passage": null,
         "explanationKo": "핵심: げんいん = 原因(원인)\n元·源도 げん으로 읽지만 원인은 原을 씁니다. 員(いん)은 사람(회원 등)을 뜻합니다.",
         "explanationJa": null,
@@ -271,7 +271,7 @@
         "subject": "VOCABULARY",
         "questionType": "CONTEXT_VOCABULARY",
         "difficulty": "NORMAL",
-        "questionText": "彼の 説明は（　）で、何を 言いたいのか よく わからなかった。（　）に 入る ことばは どれですか。",
+        "questionText": "彼の説明は（　）で、何を言いたいのかよくわからなかった。（　）に入ることばはどれですか。",
         "passage": null,
         "explanationKo": "핵심: あいまい = 애매하다\n무슨 말인지 몰랐으니 설명이 애매했던 것입니다. 明確(명확), 正確(정확), 率直(솔직)는 이해가 안 된 이유가 되지 않습니다.",
         "explanationJa": null,
@@ -304,7 +304,7 @@
         "subject": "VOCABULARY",
         "questionType": "CONTEXT_VOCABULARY",
         "difficulty": "NORMAL",
-        "questionText": "雨の 日が 続いて、洗濯物が なかなか（　）。（　）に 入る ことばは どれですか。",
+        "questionText": "雨の日が続いて、洗濯物がなかなか（　）。（　）に入ることばはどれですか。",
         "passage": null,
         "explanationKo": "핵심: 乾く(かわく) = 마르다\n빨래는 「마르다」(乾く)입니다. 冷える(식다), 溶ける(녹다), 枯れる(시들다)는 빨래에 쓰지 않습니다.",
         "explanationJa": null,
@@ -337,7 +337,7 @@
         "subject": "VOCABULARY",
         "questionType": "CONTEXT_VOCABULARY",
         "difficulty": "NORMAL",
-        "questionText": "試験の 結果を 見て、彼は すっかり（　）して しまった。（　）に 入る ことばは どれですか。",
+        "questionText": "試験の結果を見て、彼はすっかり（　）してしまった。（　）に入ることばはどれですか。",
         "passage": null,
         "explanationKo": "핵심: がっかりする = 실망하다\n결과를 보고 「すっかり」(완전히) 기운이 빠진 것은 がっかり입니다. うっかり(깜빡), しっかり(단단히), ぐっすり(푹 자다)는 맞지 않습니다.",
         "explanationJa": null,
@@ -370,7 +370,7 @@
         "subject": "VOCABULARY",
         "questionType": "CONTEXT_VOCABULARY",
         "difficulty": "NORMAL",
-        "questionText": "予算が 足りないので、計画を（　）せざるを 得ない。（　）に 入る ことばは どれですか。",
+        "questionText": "予算が足りないので、計画を（　）せざるを得ない。（　）に入ることばはどれですか。",
         "passage": null,
         "explanationKo": "핵심: 縮小(しゅくしょう) = 축소\n예산이 모자라면 계획을 줄여야 합니다. 拡大(확대), 増加(증가), 発展(발전)은 반대 방향입니다.",
         "explanationJa": null,
@@ -403,7 +403,7 @@
         "subject": "VOCABULARY",
         "questionType": "CONTEXT_VOCABULARY",
         "difficulty": "EASY",
-        "questionText": "この アプリは 操作が（　）で、初めての 人でも すぐ 使える。（　）に 入る ことばは どれですか。",
+        "questionText": "このアプリは操作が（　）で、初めての人でもすぐ使える。（　）に入ることばはどれですか。",
         "passage": null,
         "explanationKo": "핵심: 単純(たんじゅん) = 단순\n처음 쓰는 사람도 바로 쓸 수 있는 이유는 조작이 단순하기 때문입니다. 複雑(복잡), 面倒(귀찮음), 深刻(심각)는 반대 뜻입니다.",
         "explanationJa": null,
@@ -436,27 +436,27 @@
         "subject": "VOCABULARY",
         "questionType": "PARAPHRASE",
         "difficulty": "NORMAL",
-        "questionText": "「彼は たびたび 遅刻する。」と 意味が いちばん 近い ものは どれですか。",
+        "questionText": "「彼はたびたび遅刻する。」と意味がいちばん近いものはどれですか。",
         "passage": null,
-        "explanationKo": "핵심: たびたび = 何度も(여러 번)\nたびたび는 횟수가 많다는 뜻입니다. 一度だけ(한 번만)는 횟수가 적고, 最近 〜ように なった(최근 ~하게 됐다)는 시기 이야기이고, 少しだけ(조금만)는 늦은 시간의 길이라 뜻이 다릅니다.",
+        "explanationKo": "핵심: たびたび = 何度も(여러 번)\nたびたび는 횟수가 많다는 뜻입니다. 一度だけ(한 번만)는 횟수가 적고, 最近〜ようになった(최근 ~하게 됐다)는 시기 이야기이고, 少しだけ(조금만)는 늦은 시간의 길이라 뜻이 다릅니다.",
         "explanationJa": null,
         "tagNames": ["vocab.adverb-phrase"],
         "options": [
           {
             "clientOptionKey": "option-1",
-            "text": "彼は 一度だけ 遅刻した。"
+            "text": "彼は一度だけ遅刻した。"
           },
           {
             "clientOptionKey": "option-2",
-            "text": "彼は 何度も 遅刻する。"
+            "text": "彼は何度も遅刻する。"
           },
           {
             "clientOptionKey": "option-3",
-            "text": "彼は 最近 遅刻する ように なった。"
+            "text": "彼は最近遅刻するようになった。"
           },
           {
             "clientOptionKey": "option-4",
-            "text": "彼は 少しだけ 遅刻する。"
+            "text": "彼は少しだけ遅刻する。"
           }
         ],
         "correctOptionKey": "option-2"
@@ -469,7 +469,7 @@
         "subject": "VOCABULARY",
         "questionType": "PARAPHRASE",
         "difficulty": "NORMAL",
-        "questionText": "「この 件は 至急 対応して ください。」と 意味が いちばん 近い ものは どれですか。",
+        "questionText": "「この件は至急対応してください。」と意味がいちばん近いものはどれですか。",
         "passage": null,
         "explanationKo": "핵심: 至急(しきゅう) = すぐに(급히)\n丁寧に(정성껏), 慎重に(신중히), 全員で(모두 함께)는 빠르기와 관계가 없습니다.",
         "explanationJa": null,
@@ -477,19 +477,19 @@
         "options": [
           {
             "clientOptionKey": "option-1",
-            "text": "この 件は すぐに 対応して ください。"
+            "text": "この件はすぐに対応してください。"
           },
           {
             "clientOptionKey": "option-2",
-            "text": "この 件は 丁寧に 対応して ください。"
+            "text": "この件は丁寧に対応してください。"
           },
           {
             "clientOptionKey": "option-3",
-            "text": "この 件は 慎重に 対応して ください。"
+            "text": "この件は慎重に対応してください。"
           },
           {
             "clientOptionKey": "option-4",
-            "text": "この 件は 全員で 対応して ください。"
+            "text": "この件は全員で対応してください。"
           }
         ],
         "correctOptionKey": "option-1"
@@ -502,7 +502,7 @@
         "subject": "VOCABULARY",
         "questionType": "PARAPHRASE",
         "difficulty": "NORMAL",
-        "questionText": "「夜の 町は ひっそりして いた。」と 意味が いちばん 近い ものは どれですか。",
+        "questionText": "「夜の町はひっそりしていた。」と意味がいちばん近いものはどれですか。",
         "passage": null,
         "explanationKo": "핵심: ひっそり = 静か(조용하고 인기척이 없음)\n散らかる(어질러지다), 明るい(밝다)는 뜻이 다르고, にぎやか(북적임)는 반대입니다.",
         "explanationJa": null,
@@ -510,19 +510,19 @@
         "options": [
           {
             "clientOptionKey": "option-1",
-            "text": "夜の 町は 散らかって いた。"
+            "text": "夜の町は散らかっていた。"
           },
           {
             "clientOptionKey": "option-2",
-            "text": "夜の 町は 静かだった。"
+            "text": "夜の町は静かだった。"
           },
           {
             "clientOptionKey": "option-3",
-            "text": "夜の 町は 明るかった。"
+            "text": "夜の町は明るかった。"
           },
           {
             "clientOptionKey": "option-4",
-            "text": "夜の 町は にぎやかだった。"
+            "text": "夜の町はにぎやかだった。"
           }
         ],
         "correctOptionKey": "option-2"
@@ -535,27 +535,27 @@
         "subject": "VOCABULARY",
         "questionType": "PARAPHRASE",
         "difficulty": "EASY",
-        "questionText": "「彼の 態度に 腹が 立った。」と 意味が いちばん 近い ものは どれですか。",
+        "questionText": "「彼の態度に腹が立った。」と意味がいちばん近いものはどれですか。",
         "passage": null,
-        "explanationKo": "핵심: 腹が 立つ = 怒る(화가 나다)\n笑う(웃다), 驚く(놀라다), 安心する(안심하다)는 화나다와 다릅니다.",
+        "explanationKo": "핵심: 腹が立つ = 怒る(화가 나다)\n笑う(웃다), 驚く(놀라다), 安心する(안심하다)는 화나다와 다릅니다.",
         "explanationJa": null,
         "tagNames": ["vocab.verb"],
         "options": [
           {
             "clientOptionKey": "option-1",
-            "text": "彼の 態度に 笑った。"
+            "text": "彼の態度に笑った。"
           },
           {
             "clientOptionKey": "option-2",
-            "text": "彼の 態度に 怒った。"
+            "text": "彼の態度に怒った。"
           },
           {
             "clientOptionKey": "option-3",
-            "text": "彼の 態度に 驚いた。"
+            "text": "彼の態度に驚いた。"
           },
           {
             "clientOptionKey": "option-4",
-            "text": "彼の 態度に 安心した。"
+            "text": "彼の態度に安心した。"
           }
         ],
         "correctOptionKey": "option-2"
@@ -568,27 +568,27 @@
         "subject": "VOCABULARY",
         "questionType": "WORD_USAGE",
         "difficulty": "HARD",
-        "questionText": "「見直す」の 使い方として いちばん よい ものは どれですか。",
+        "questionText": "「見直す」の使い方としていちばんよいものはどれですか。",
         "passage": null,
-        "explanationKo": "핵심: 見直す = 다시 살펴보다\n우연히 본 것은 見かける, 경치를 바라보는 것은 眺める, 아이를 돌보는 것은 面倒を 見る입니다.",
+        "explanationKo": "핵심: 見直す = 다시 살펴보다\n우연히 본 것은 見かける, 경치를 바라보는 것은 眺める, 아이를 돌보는 것은 面倒を見る입니다.",
         "explanationJa": null,
         "tagNames": ["vocab.verb"],
         "options": [
           {
             "clientOptionKey": "option-1",
-            "text": "駅で 偶然 友だちを 見直して、声を かけた。"
+            "text": "駅で偶然友だちを見直して、声をかけた。"
           },
           {
             "clientOptionKey": "option-2",
-            "text": "一度 書いた 報告書を 見直して、間違いを 直した。"
+            "text": "一度書いた報告書を見直して、間違いを直した。"
           },
           {
             "clientOptionKey": "option-3",
-            "text": "窓から 外の 景色を ゆっくり 見直して いた。"
+            "text": "窓から外の景色をゆっくり見直していた。"
           },
           {
             "clientOptionKey": "option-4",
-            "text": "出かける 間、子どもの 面倒を 見直して ください。"
+            "text": "出かける間、子どもの面倒を見直してください。"
           }
         ],
         "correctOptionKey": "option-2"
@@ -601,7 +601,7 @@
         "subject": "VOCABULARY",
         "questionType": "WORD_USAGE",
         "difficulty": "NORMAL",
-        "questionText": "「さっぱり」の 使い方として いちばん よい ものは どれですか。",
+        "questionText": "「さっぱり」の使い方としていちばんよいものはどれですか。",
         "passage": null,
         "explanationKo": "핵심: さっぱり + 부정 = 전혀 ~않다\n부정과 함께 「전혀」입니다. 맵다는 とても, 늘 제시간은 いつも, 계속 내리는 비는 ずっと를 씁니다.",
         "explanationJa": null,
@@ -609,19 +609,19 @@
         "options": [
           {
             "clientOptionKey": "option-1",
-            "text": "この スープは さっぱり 辛くて、飲めない。"
+            "text": "このスープはさっぱり辛くて、飲めない。"
           },
           {
             "clientOptionKey": "option-2",
-            "text": "彼は さっぱり 時間どおりに 来る。"
+            "text": "彼はさっぱり時間どおりに来る。"
           },
           {
             "clientOptionKey": "option-3",
-            "text": "説明を 聞いたが、さっぱり わからなかった。"
+            "text": "説明を聞いたが、さっぱりわからなかった。"
           },
           {
             "clientOptionKey": "option-4",
-            "text": "雨が さっぱり 降り続いて いる。"
+            "text": "雨がさっぱり降り続いている。"
           }
         ],
         "correctOptionKey": "option-3"
@@ -634,7 +634,7 @@
         "subject": "VOCABULARY",
         "questionType": "WORD_USAGE",
         "difficulty": "NORMAL",
-        "questionText": "「保つ」の 使い方として いちばん よい ものは どれですか。",
+        "questionText": "「保つ」の使い方としていちばんよいものはどれですか。",
         "passage": null,
         "explanationKo": "핵심: 保つ(たもつ) = (상태를) 유지하다\n우산은 持つ, 약속 시간은 守る, 편지는 送る를 씁니다. 保つ는 건강·온도·질서 같은 상태에 씁니다.",
         "explanationJa": null,
@@ -642,19 +642,19 @@
         "options": [
           {
             "clientOptionKey": "option-1",
-            "text": "雨なので 傘を 保って 出かけた。"
+            "text": "雨なので傘を保って出かけた。"
           },
           {
             "clientOptionKey": "option-2",
-            "text": "約束の 時間を 保って 会場に 着いた。"
+            "text": "約束の時間を保って会場に着いた。"
           },
           {
             "clientOptionKey": "option-3",
-            "text": "健康を 保つ ために、毎朝 歩いて いる。"
+            "text": "健康を保つために、毎朝歩いている。"
           },
           {
             "clientOptionKey": "option-4",
-            "text": "友だちに 手紙を 保った。"
+            "text": "友だちに手紙を保った。"
           }
         ],
         "correctOptionKey": "option-3"
@@ -667,9 +667,9 @@
         "subject": "GRAMMAR",
         "questionType": "GRAMMAR_SELECT",
         "difficulty": "NORMAL",
-        "questionText": "お休みの（　）、お電話して 申し訳ありません。",
+        "questionText": "お休みの（　）、お電話して申し訳ありません。",
         "passage": null,
-        "explanationKo": "핵심: 〜の ところ = ~하신 중에(상대 사정을 배려하는 말)\n「お休みの ところ」는 쉬는 중에 방해해 미안하다는 표현입니다. ばかりに(~탓에)는 나쁜 결과의 원인, ものの(~지만)는 역접, うえに(게다가)는 첨가라 사과 인사와 이어지지 않습니다.",
+        "explanationKo": "핵심: 〜のところ = ~하신 중에(상대 사정을 배려하는 말)\n「お休みのところ」는 쉬는 중에 방해해 미안하다는 표현입니다. ばかりに(~탓에)는 나쁜 결과의 원인, ものの(~지만)는 역접, うえに(게다가)는 첨가라 사과 인사와 이어지지 않습니다.",
         "explanationJa": null,
         "tagNames": ["grammar.contrast-connect"],
         "options": [
@@ -700,7 +700,7 @@
         "subject": "GRAMMAR",
         "questionType": "GRAMMAR_SELECT",
         "difficulty": "NORMAL",
-        "questionText": "雨が 降って いる（　）、試合は 予定どおり 行われた。",
+        "questionText": "雨が降っている（　）、試合は予定どおり行われた。",
         "passage": null,
         "explanationKo": "핵심: にもかかわらず = ~에도 불구하고\n비 ↔ 예정대로 진행으로 앞뒤가 반대입니다. ばかりか(~뿐 아니라), からには(~한 이상), ことから(~라는 점에서)는 맞지 않습니다.",
         "explanationJa": null,
@@ -733,7 +733,7 @@
         "subject": "GRAMMAR",
         "questionType": "GRAMMAR_SELECT",
         "difficulty": "NORMAL",
-        "questionText": "試合に 出ると 決めた（　）、毎日 練習するしか ない。",
+        "questionText": "試合に出ると決めた（　）、毎日練習するしかない。",
         "passage": null,
         "explanationKo": "핵심: からには = ~한 이상(당연히 ~해야)\n뒤에 「~할 수밖에 없다」(しかない) 같은 각오가 오는 짝은 からには입니다. ものの(~지만), わりに(~치고), とたん(~하자마자)은 뜻이 맞지 않습니다.",
         "explanationJa": null,
@@ -766,7 +766,7 @@
         "subject": "GRAMMAR",
         "questionType": "GRAMMAR_SELECT",
         "difficulty": "NORMAL",
-        "questionText": "玄関の ドアを 開けた（　）、猫が 飛び込んで きた。",
+        "questionText": "玄関のドアを開けた（　）、猫が飛び込んできた。",
         "passage": null,
         "explanationKo": "핵심: た형 + とたん = ~하자마자\n문을 열자마자 고양이가 뛰어든 것입니다. うちに는 た형에 붙지 않고, あげく·末に는 오래 애쓴 끝의 결과에 씁니다.",
         "explanationJa": null,
@@ -799,7 +799,7 @@
         "subject": "GRAMMAR",
         "questionType": "GRAMMAR_SELECT",
         "difficulty": "NORMAL",
-        "questionText": "この 本は 子ども向け（　）、大人が 読んでも 十分 楽しめる。",
+        "questionText": "この本は子ども向け（　）、大人が読んでも十分楽しめる。",
         "passage": null,
         "explanationKo": "핵심: とはいえ = ~라고는 해도\n어린이용이라고는 해도 어른도 즐길 수 있다는 역접입니다. だけに(~인 만큼 더욱)와 からこそ(~이기 때문에야말로)는 앞을 이유로 삼아 역접이 되지 않고, ものなら(~할 수 있다면)는 동사 가능형에 붙어 명사 뒤에 오지 않습니다.",
         "explanationJa": null,
@@ -832,9 +832,9 @@
         "subject": "GRAMMAR",
         "questionType": "GRAMMAR_SELECT",
         "difficulty": "NORMAL",
-        "questionText": "部長の 話に よると、来月から 新しい システムが 導入される（　）。",
+        "questionText": "部長の話によると、来月から新しいシステムが導入される（　）。",
         "passage": null,
-        "explanationKo": "핵심: 〜に よると 〜ということだ = ~라고 한다(전언)\n「~에 따르면」에는 들은 말을 전하는 ということだ가 짝입니다. わけがない(~일 리 없다), ことはない(~할 필요 없다), ものか(~할까 보냐)는 전언이 아닙니다.",
+        "explanationKo": "핵심: 〜によると〜ということだ = ~라고 한다(전언)\n「~에 따르면」에는 들은 말을 전하는 ということだ가 짝입니다. わけがない(~일 리 없다), ことはない(~할 필요 없다), ものか(~할까 보냐)는 전언이 아닙니다.",
         "explanationJa": null,
         "tagNames": ["grammar.guess-hearsay"],
         "options": [
@@ -865,7 +865,7 @@
         "subject": "GRAMMAR",
         "questionType": "GRAMMAR_SELECT",
         "difficulty": "NORMAL",
-        "questionText": "彼は 一日も 練習を 休まなかったそうだ。合格した（　）。",
+        "questionText": "彼は一日も練習を休まなかったそうだ。合格した（　）。",
         "passage": null,
         "explanationKo": "핵심: わけだ = (그러니) ~한 것이다\n하루도 쉬지 않았으니 합격은 당연한 결과입니다. はずがない(~일 리 없다), わけではない(~인 것은 아니다), ものか(~할까 보냐)는 앞 내용과 반대입니다.",
         "explanationJa": null,
@@ -898,7 +898,7 @@
         "subject": "GRAMMAR",
         "questionType": "GRAMMAR_SELECT",
         "difficulty": "NORMAL",
-        "questionText": "経験が（　）につれて、仕事の スピードも 上がって きた。",
+        "questionText": "経験が（　）につれて、仕事のスピードも上がってきた。",
         "passage": null,
         "explanationKo": "핵심: 사전형 + につれて = ~함에 따라\nにつれて 앞은 사전형입니다. た형·て형·ます형 어간은 붙지 않습니다.",
         "explanationJa": null,
@@ -931,7 +931,7 @@
         "subject": "GRAMMAR",
         "questionType": "GRAMMAR_SELECT",
         "difficulty": "NORMAL",
-        "questionText": "この 問題は 専門家（　）解決するのが 難しいそうだ。",
+        "questionText": "この問題は専門家（　）解決するのが難しいそうだ。",
         "passage": null,
         "explanationKo": "핵심: でさえ = ~조차\n전문가조차 어렵다는 강조입니다. ほど(~만큼)는 비교 기준이 필요하고, なら(~라면)는 「전문가라면 어렵다」가 되어 앞뒤가 반대이고, こそ(~야말로)는 좋은 쪽을 강조해 「어렵다」와 맞지 않습니다.",
         "explanationJa": null,
@@ -964,27 +964,27 @@
         "subject": "GRAMMAR",
         "questionType": "GRAMMAR_SELECT",
         "difficulty": "EASY",
-        "questionText": "彼女は 歌（　）、ダンスも 上手だ。",
+        "questionText": "彼女は歌（　）、ダンスも上手だ。",
         "passage": null,
-        "explanationKo": "핵심: Aは もちろん Bも = A는 물론 B도\n뒤의 「ダンスも」와 짝이 되는 것은 はもちろん입니다. に対して(~에 대해), にとって(~에게 있어), によって(~에 따라)는 맞지 않습니다.",
+        "explanationKo": "핵심: Aはもちろん Bも = A는 물론 B도\n뒤의 「ダンスも」와 짝이 되는 것은 はもちろん입니다. に対して(~에 대해), にとって(~에게 있어), によって(~에 따라)는 맞지 않습니다.",
         "explanationJa": null,
         "tagNames": ["grammar.scope-emphasis"],
         "options": [
           {
             "clientOptionKey": "option-1",
-            "text": "に 対して"
+            "text": "に対して"
           },
           {
             "clientOptionKey": "option-2",
-            "text": "に とって"
+            "text": "にとって"
           },
           {
             "clientOptionKey": "option-3",
-            "text": "は もちろん"
+            "text": "はもちろん"
           },
           {
             "clientOptionKey": "option-4",
-            "text": "に よって"
+            "text": "によって"
           }
         ],
         "correctOptionKey": "option-3"
@@ -997,7 +997,7 @@
         "subject": "GRAMMAR",
         "questionType": "GRAMMAR_SELECT",
         "difficulty": "NORMAL",
-        "questionText": "この 町は 春（　）、一年中 観光客で にぎわって いる。",
+        "questionText": "この町は春（　）、一年中観光客でにぎわっている。",
         "passage": null,
         "explanationKo": "핵심: に限らず = ~뿐만 아니라\n봄뿐 아니라 일 년 내내라는 뜻입니다. に対して(~에 대해), にかけて(~에 걸쳐, 끝 시점 필요), に沿って(~에 따라)는 맞지 않습니다.",
         "explanationJa": null,
@@ -1005,19 +1005,19 @@
         "options": [
           {
             "clientOptionKey": "option-1",
-            "text": "に 対して"
+            "text": "に対して"
           },
           {
             "clientOptionKey": "option-2",
-            "text": "に かけて"
+            "text": "にかけて"
           },
           {
             "clientOptionKey": "option-3",
-            "text": "に 沿って"
+            "text": "に沿って"
           },
           {
             "clientOptionKey": "option-4",
-            "text": "に 限らず"
+            "text": "に限らず"
           }
         ],
         "correctOptionKey": "option-4"
@@ -1030,7 +1030,7 @@
         "subject": "GRAMMAR",
         "questionType": "GRAMMAR_SELECT",
         "difficulty": "NORMAL",
-        "questionText": "この 部屋は 駅から 遠い（　）、家賃も 高い。",
+        "questionText": "この部屋は駅から遠い（　）、家賃も高い。",
         "passage": null,
         "explanationKo": "핵심: うえに = ~한 데다가(뒤에 も로 더함)\n멀다 + 「家賃も」 비싸다로 나쁜 점을 더하는 うえに입니다. かわりに(~대신)는 좋고 나쁜 점을 맞바꿀 때, ものの(~지만)는 앞뒤가 반대일 때 쓰므로 「も」(첨가)와 맞지 않고, とたんに(~하자마자)는 동작이 이어질 때 씁니다.",
         "explanationJa": null,
@@ -1063,7 +1063,7 @@
         "subject": "GRAMMAR",
         "questionType": "GRAMMAR_SELECT",
         "difficulty": "NORMAL",
-        "questionText": "この 料理は 見た目（　）、味は とても いい。",
+        "questionText": "この料理は見た目（　）、味はとてもいい。",
         "passage": null,
         "explanationKo": "핵심: Aはともかく = A는 어쨌든(제쳐 두고)\n겉모습은 제쳐 두고 맛은 좋다는 뜻입니다. だけあって(~인 만큼), ばかりか·に加えて(~뿐 아니라)는 「は」 대비와 맞지 않습니다.",
         "explanationJa": null,
@@ -1071,11 +1071,11 @@
         "options": [
           {
             "clientOptionKey": "option-1",
-            "text": "は ともかく"
+            "text": "はともかく"
           },
           {
             "clientOptionKey": "option-2",
-            "text": "だけ あって"
+            "text": "だけあって"
           },
           {
             "clientOptionKey": "option-3",
@@ -1083,7 +1083,7 @@
           },
           {
             "clientOptionKey": "option-4",
-            "text": "に 加えて"
+            "text": "に加えて"
           }
         ],
         "correctOptionKey": "option-1"
@@ -1096,7 +1096,7 @@
         "subject": "GRAMMAR",
         "questionType": "GRAMMAR_SELECT",
         "difficulty": "EASY",
-        "questionText": "あんなに 練習したのだから、負ける（　）。",
+        "questionText": "あんなに練習したのだから、負ける（　）。",
         "passage": null,
         "explanationKo": "핵심: はずがない = ~할 리가 없다\n그렇게 연습했으니 질 리 없다는 확신입니다. わけだ(~인 셈), ことだ(~해야 한다), ものだ(~하는 법)는 맞지 않습니다.",
         "explanationJa": null,
@@ -1129,9 +1129,9 @@
         "subject": "GRAMMAR",
         "questionType": "GRAMMAR_SELECT",
         "difficulty": "EASY",
-        "questionText": "先生に（　）、作文を 書き直した。",
+        "questionText": "先生に（　）、作文を書き直した。",
         "passage": null,
-        "explanationKo": "핵심: 〜に 言われる = ~에게 (지적을) 듣다(수동)\n선생님에게 지적을 받아 고친 것이므로 수동형입니다. 言って(말하고), 言わせて(말하게 하고), 言わされて(억지로 말하고)는 주어가 맞지 않습니다.",
+        "explanationKo": "핵심: 〜に言われる = ~에게 (지적을) 듣다(수동)\n선생님에게 지적을 받아 고친 것이므로 수동형입니다. 言って(말하고), 言わせて(말하게 하고), 言わされて(억지로 말하고)는 주어가 맞지 않습니다.",
         "explanationJa": null,
         "tagNames": ["grammar.conjugation"],
         "options": [
@@ -1162,9 +1162,9 @@
         "subject": "GRAMMAR",
         "questionType": "SENTENCE_ORDER",
         "difficulty": "NORMAL",
-        "questionText": "この 仕事は ＿＿ ＿＿ ★ ＿＿ 終わりそうに ない。　★に 入る ものは どれですか。",
+        "questionText": "この仕事は ＿＿ ＿＿ ★ ＿＿ 終わりそうにない。　★に入るものはどれですか。",
         "passage": null,
-        "explanationKo": "핵심: どんなに 〜ても = 아무리 ~해도\n바른 문장: この 仕事は どんなに 急いで も 今日中には 終わりそうに ない。 「どんなに」 뒤에 「急いで」, 「も」가 붙습니다. ★ 자리는 「も」입니다.",
+        "explanationKo": "핵심: どんなに〜ても = 아무리 ~해도\n바른 문장: この仕事はどんなに急いでも今日中には終わりそうにない。「どんなに」 뒤에 「急いで」, 「も」가 붙습니다. ★ 자리는 「も」입니다.",
         "explanationJa": null,
         "tagNames": ["grammar.contrast-connect"],
         "options": [
@@ -1195,9 +1195,9 @@
         "subject": "GRAMMAR",
         "questionType": "SENTENCE_ORDER",
         "difficulty": "NORMAL",
-        "questionText": "彼女は ＿＿ ＿＿ ★ ＿＿、料理も 上手だ。　★に 入る ものは どれですか。",
+        "questionText": "彼女は ＿＿ ＿＿ ★ ＿＿、料理も上手だ。　★に入るものはどれですか。",
         "passage": null,
-        "explanationKo": "핵심: Aばかりでなく Bも = A뿐 아니라 B도\n바른 문장: 彼女は 歌が うまい ばかり でなく、料理も 上手だ。 ★ 자리는 「ばかり」입니다.",
+        "explanationKo": "핵심: Aばかりでなく Bも = A뿐 아니라 B도\n바른 문장: 彼女は歌がうまいばかりでなく、料理も上手だ。 ★ 자리는 「ばかり」입니다.",
         "explanationJa": null,
         "tagNames": ["grammar.scope-emphasis"],
         "options": [
@@ -1228,9 +1228,9 @@
         "subject": "GRAMMAR",
         "questionType": "SENTENCE_ORDER",
         "difficulty": "NORMAL",
-        "questionText": "大雨で 川の 水が ＿＿ ＿＿ ★ ＿＿、住民は 避難した。　★に 入る ものは どれですか。",
+        "questionText": "大雨で川の水が ＿＿ ＿＿ ★ ＿＿、住民は避難した。　★に入るものはどれですか。",
         "passage": null,
-        "explanationKo": "핵심: 사전형 + おそれが ある = ~할 우려가 있다\n바른 문장: 大雨で 川の 水が あふれる おそれが あった ので、住民は 避難した。 「あふれる おそれが あった」가 붙고 이유 「ので」로 이어집니다. ★ 자리는 「あった」입니다.",
+        "explanationKo": "핵심: 사전형 + おそれがある = ~할 우려가 있다\n바른 문장: 大雨で川の水があふれるおそれがあったので、住民は避難した。「あふれるおそれがあった」가 붙고 이유 「ので」로 이어집니다. ★ 자리는 「あった」입니다.",
         "explanationJa": null,
         "tagNames": ["grammar.guess-hearsay"],
         "options": [
@@ -1261,9 +1261,9 @@
         "subject": "GRAMMAR",
         "questionType": "SENTENCE_ORDER",
         "difficulty": "NORMAL",
-        "questionText": "親に ＿＿ ＿＿ ★ ＿＿、留学を あきらめた。　★に 入る ものは どれですか。",
+        "questionText": "親に ＿＿ ＿＿ ★ ＿＿、留学をあきらめた。　★に入るものはどれですか。",
         "passage": null,
-        "explanationKo": "핵심: 〜ことも あって = ~한 것도 있어서(이유 하나)\n바른 문장: 親に 反対された ことも あって、留学を あきらめた。 ★ 자리는 「も」입니다.",
+        "explanationKo": "핵심: 〜こともあって = ~한 것도 있어서(이유 하나)\n바른 문장: 親に反対されたこともあって、留学をあきらめた。 ★ 자리는 「も」입니다.",
         "explanationJa": null,
         "tagNames": ["grammar.cause-purpose"],
         "options": [
@@ -1294,9 +1294,9 @@
         "subject": "GRAMMAR",
         "questionType": "SENTENCE_ORDER",
         "difficulty": "NORMAL",
-        "questionText": "留学 ＿＿ ＿＿ ★ ＿＿ 興味を 持つように なった。　★に 入る ものは どれですか。",
+        "questionText": "留学 ＿＿ ＿＿ ★ ＿＿ 興味を持つようになった。　★に入るものはどれですか。",
         "passage": null,
-        "explanationKo": "핵심: 〜を きっかけに = ~을 계기로\n바른 문장: 留学 した ことを きっかけに 歴史に 興味を 持つように なった。 「〜ことを きっかけに」가 붙고, 「歴史に」는 「興味を 持つ」 앞입니다. ★ 자리는 「きっかけに」입니다.",
+        "explanationKo": "핵심: 〜をきっかけに = ~을 계기로\n바른 문장: 留学したことをきっかけに歴史に興味を持つようになった。「〜ことをきっかけに」가 붙고, 「歴史に」는 「興味を持つ」 앞입니다. ★ 자리는 「きっかけに」입니다.",
         "explanationJa": null,
         "tagNames": ["grammar.cause-purpose"],
         "options": [
@@ -1327,27 +1327,27 @@
         "subject": "READING",
         "questionType": "MEDIUM_READING",
         "difficulty": "NORMAL",
-        "questionText": "筆者の 考えに 合う ものは どれか。",
-        "passage": "近年、スマートフォンの 普及に 伴い、知りたい 情報は ほぼ 瞬時に 手に 入るように なった。わからない 言葉に 出くわしても、検索すれば たちまち 意味が 表示される。その 便利さは 否定しようが ない。しかし、答えが 即座に 得られる ことに 慣れて しまうと、自ら 考えを めぐらせる 機会が 失われかねない。答えに たどり着くまでの 遠回りの 中にこそ、思いがけない 発見が 潜んで いるのでは ないだろうか。",
-        "explanationKo": "핵심: 「遠回りの 中にこそ、思いがけない 発見が 潜んで いる」\n필자는 편리함은 인정하면서 돌아가는 과정에 뜻밖의 발견이 있다고 말합니다. 쓰지 말라는 주장은 없고(편리함은 「否定しようが ない」), 바로 찾아야 한다는 것은 필자가 걱정하는 쪽이며, 길 이야기는 글에 없습니다.",
+        "questionText": "筆者の考えに合うものはどれか。",
+        "passage": "近年、スマートフォンの普及に伴い、知りたい情報はほぼ瞬時に手に入るようになった。わからない言葉に出くわしても、検索すればたちまち意味が表示される。その便利さは否定しようがない。しかし、答えが即座に得られることに慣れてしまうと、自ら考えをめぐらせる機会が失われかねない。答えにたどり着くまでの遠回りの中にこそ、思いがけない発見が潜んでいるのではないだろうか。",
+        "explanationKo": "핵심: 「遠回りの中にこそ、思いがけない発見が潜んでいる」\n필자는 편리함은 인정하면서 돌아가는 과정에 뜻밖의 발견이 있다고 말합니다. 쓰지 말라는 주장은 없고(편리함은 「否定しようがない」), 바로 찾아야 한다는 것은 필자가 걱정하는 쪽이며, 길 이야기는 글에 없습니다.",
         "explanationJa": null,
         "tagNames": ["reading.opinion"],
         "options": [
           {
             "clientOptionKey": "option-1",
-            "text": "スマートフォンは 不便なので 使わない ほうが いい。"
+            "text": "スマートフォンは不便なので使わないほうがいい。"
           },
           {
             "clientOptionKey": "option-2",
-            "text": "わからない 言葉は すぐに 調べるべきだ。"
+            "text": "わからない言葉はすぐに調べるべきだ。"
           },
           {
             "clientOptionKey": "option-3",
-            "text": "答えを 探す 途中で、新しい ことに 気づく ことが ある。"
+            "text": "答えを探す途中で、新しいことに気づくことがある。"
           },
           {
             "clientOptionKey": "option-4",
-            "text": "道に 迷わない ことが いちばん 大切だ。"
+            "text": "道に迷わないことがいちばん大切だ。"
           }
         ],
         "correctOptionKey": "option-3"
@@ -1360,27 +1360,27 @@
         "subject": "READING",
         "questionType": "MEDIUM_READING",
         "difficulty": "NORMAL",
-        "questionText": "「遠回り」とは、ここでは どういう 意味か。",
-        "passage": "近年、スマートフォンの 普及に 伴い、知りたい 情報は ほぼ 瞬時に 手に 入るように なった。わからない 言葉に 出くわしても、検索すれば たちまち 意味が 表示される。その 便利さは 否定しようが ない。しかし、答えが 即座に 得られる ことに 慣れて しまうと、自ら 考えを めぐらせる 機会が 失われかねない。答えに たどり着くまでの 遠回りの 中にこそ、思いがけない 発見が 潜んで いるのでは ないだろうか。",
-        "explanationKo": "핵심: 遠回り = 답에 바로 가지 않는 과정\n「即座に 得られる」와 대비해 「自ら 考えを めぐらせる」 시간을 뜻합니다. 실제로 먼 길을 걷는 뜻이 아니고, 같은 말을 여러 번 검색하는 것도 아니며, 길을 묻는 이야기는 글에 없습니다.",
+        "questionText": "「遠回り」とは、ここではどういう意味か。",
+        "passage": "近年、スマートフォンの普及に伴い、知りたい情報はほぼ瞬時に手に入るようになった。わからない言葉に出くわしても、検索すればたちまち意味が表示される。その便利さは否定しようがない。しかし、答えが即座に得られることに慣れてしまうと、自ら考えをめぐらせる機会が失われかねない。答えにたどり着くまでの遠回りの中にこそ、思いがけない発見が潜んでいるのではないだろうか。",
+        "explanationKo": "핵심: 遠回り = 답에 바로 가지 않는 과정\n「即座に得られる」와 대비해 「自ら考えをめぐらせる」 시간을 뜻합니다. 실제로 먼 길을 걷는 뜻이 아니고, 같은 말을 여러 번 검색하는 것도 아니며, 길을 묻는 이야기는 글에 없습니다.",
         "explanationJa": null,
         "tagNames": ["reading.detail"],
         "options": [
           {
             "clientOptionKey": "option-1",
-            "text": "遠くの 道を 歩いて 行く こと"
+            "text": "遠くの道を歩いて行くこと"
           },
           {
             "clientOptionKey": "option-2",
-            "text": "同じ 言葉を 何度も 調べる こと"
+            "text": "同じ言葉を何度も調べること"
           },
           {
             "clientOptionKey": "option-3",
-            "text": "すぐに 答えを 見ずに、自分で 考える こと"
+            "text": "すぐに答えを見ずに、自分で考えること"
           },
           {
             "clientOptionKey": "option-4",
-            "text": "スマートフォンを 使わずに 道を 聞く こと"
+            "text": "スマートフォンを使わずに道を聞くこと"
           }
         ],
         "correctOptionKey": "option-3"
@@ -1393,8 +1393,8 @@
         "subject": "READING",
         "questionType": "INFO_RETRIEVAL",
         "difficulty": "NORMAL",
-        "questionText": "70歳の 人が 証明書を 持って、水泳帽を 持たずに 行った。いくら 必要か。",
-        "passage": "市民プール ご利用案内　■営業時間：9時〜21時（最終入場は 20時まで）　■休館日：毎週水曜日（ただし 祝日に 当たる 場合は 翌日）　■料金：一般 400円、中学生以下 200円。65歳以上の 方は、年齢を 確認できる 証明書を ご提示いただいた 場合に 限り 無料と なります。　■水泳帽の 着用を 義務付けて おります。お持ちで ない 方は 受付にて お買い求め ください（300円）。",
+        "questionText": "70歳の人が証明書を持って、水泳帽を持たずに行った。いくら必要か。",
+        "passage": "市民プール ご利用案内\n■営業時間：9時〜21時（最終入場は20時まで）\n■休館日：毎週水曜日（ただし祝日に当たる場合は翌日）\n■料金：一般 400円、中学生以下 200円。65歳以上の方は、年齢を確認できる証明書をご提示いただいた場合に限り無料となります。\n■水泳帽の着用を義務付けております。お持ちでない方は受付にてお買い求めください（300円）。",
         "explanationKo": "핵심: 65세 이상 무료(증명서 제시 시) + 수영모 300엔\n입장료는 증명서가 있어 무료이고, 수영모를 사야 하므로 300엔입니다. 0엔은 모자값을 빠뜨렸고, 400·700엔은 어른 요금을 낸 계산입니다.",
         "explanationJa": null,
         "tagNames": ["reading.condition-match"],
@@ -1426,9 +1426,9 @@
         "subject": "READING",
         "questionType": "INFO_RETRIEVAL",
         "difficulty": "NORMAL",
-        "questionText": "水曜日が 祝日の 週に、プールが 休みに なるのは 何曜日か。",
-        "passage": "市民プール ご利用案内　■営業時間：9時〜21時（最終入場は 20時まで）　■休館日：毎週水曜日（ただし 祝日に 当たる 場合は 翌日）　■料金：一般 400円、中学生以下 200円。65歳以上の 方は、年齢を 確認できる 証明書を ご提示いただいた 場合に 限り 無料と なります。　■水泳帽の 着用を 義務付けて おります。お持ちで ない 方は 受付にて お買い求め ください（300円）。",
-        "explanationKo": "핵심: 「祝日に 当たる 場合は 翌日」\n휴관일 수요일이 공휴일이면 다음 날인 목요일에 쉽니다. 수요일은 공휴일이라 문을 열고, 화요일에 쉰다는 근거는 없으며, 휴관일이 옮겨질 뿐 없어지지 않으므로 「休みは ない」도 틀립니다.",
+        "questionText": "水曜日が祝日の週に、プールが休みになるのは何曜日か。",
+        "passage": "市民プール ご利用案内\n■営業時間：9時〜21時（最終入場は20時まで）\n■休館日：毎週水曜日（ただし祝日に当たる場合は翌日）\n■料金：一般 400円、中学生以下 200円。65歳以上の方は、年齢を確認できる証明書をご提示いただいた場合に限り無料となります。\n■水泳帽の着用を義務付けております。お持ちでない方は受付にてお買い求めください（300円）。",
+        "explanationKo": "핵심: 「祝日に当たる場合は翌日」\n휴관일 수요일이 공휴일이면 다음 날인 목요일에 쉽니다. 수요일은 공휴일이라 문을 열고, 화요일에 쉰다는 근거는 없으며, 휴관일이 옮겨질 뿐 없어지지 않으므로 「休みはない」도 틀립니다.",
         "explanationJa": null,
         "tagNames": ["reading.detail"],
         "options": [
@@ -1442,7 +1442,7 @@
           },
           {
             "clientOptionKey": "option-3",
-            "text": "休みは ない"
+            "text": "休みはない"
           },
           {
             "clientOptionKey": "option-4",
@@ -1459,27 +1459,27 @@
         "subject": "READING",
         "questionType": "MEDIUM_READING",
         "difficulty": "NORMAL",
-        "questionText": "鈴木さんが この メールで いちばん 伝えたい ことは 何か。",
-        "passage": "山田様　先日は ご多忙の ところ、打ち合わせの お時間を 頂戴し、誠に ありがとうございました。さて、ご依頼いただいて おりました 見積書の 件ですが、一部の 部品の 価格が 確定して おらず、当初 お約束して おりました 日程より 二日ほど 遅れ、来週水曜日の ご送付と なる 見込みです。ご迷惑を おかけし、大変 申し訳ございません。なお、納品日に つきましては 変更ございませんので、ご安心 ください。　鈴木",
-        "explanationKo": "핵심: 「見積書の 件 … 来週水曜日の ご送付と なる 見込み」\n견적서가 이틀쯤 늦어진다는 알림입니다. 납품일은 변경 없음이라고 했고, 회의 날짜 변경·가격 인상 이야기는 없습니다.",
+        "questionText": "鈴木さんがこのメールでいちばん伝えたいことは何か。",
+        "passage": "山田様\n先日はご多忙のところ、打ち合わせのお時間を頂戴し、誠にありがとうございました。さて、ご依頼いただいておりました見積書の件ですが、一部の部品の価格が確定しておらず、当初お約束しておりました日程より二日ほど遅れ、来週水曜日のご送付となる見込みです。ご迷惑をおかけし、大変申し訳ございません。なお、納品日につきましては変更ございませんので、ご安心ください。\n鈴木",
+        "explanationKo": "핵심: 「見積書の件 … 来週水曜日のご送付となる見込み」\n견적서가 이틀쯤 늦어진다는 알림입니다. 납품일은 변경 없음이라고 했고, 회의 날짜 변경·가격 인상 이야기는 없습니다.",
         "explanationJa": null,
         "tagNames": ["reading.detail"],
         "options": [
           {
             "clientOptionKey": "option-1",
-            "text": "納品日が 遅れる こと"
+            "text": "納品日が遅れること"
           },
           {
             "clientOptionKey": "option-2",
-            "text": "打ち合わせの 日を 変えたい こと"
+            "text": "打ち合わせの日を変えたいこと"
           },
           {
             "clientOptionKey": "option-3",
-            "text": "部品の 価格が 上がった こと"
+            "text": "部品の価格が上がったこと"
           },
           {
             "clientOptionKey": "option-4",
-            "text": "見積書を 送るのが 遅れる こと"
+            "text": "見積書を送るのが遅れること"
           }
         ],
         "correctOptionKey": "option-4"
@@ -1492,27 +1492,27 @@
         "subject": "READING",
         "questionType": "MEDIUM_READING",
         "difficulty": "NORMAL",
-        "questionText": "見積書が 遅れる 理由は 何か。",
-        "passage": "山田様　先日は ご多忙の ところ、打ち合わせの お時間を 頂戴し、誠に ありがとうございました。さて、ご依頼いただいて おりました 見積書の 件ですが、一部の 部品の 価格が 確定して おらず、当初 お約束して おりました 日程より 二日ほど 遅れ、来週水曜日の ご送付と なる 見込みです。ご迷惑を おかけし、大変 申し訳ございません。なお、納品日に つきましては 変更ございませんので、ご安心 ください。　鈴木",
-        "explanationKo": "핵심: 「部品の 価格が 確定して おらず」= 이유\n〜ておらず(~하지 않아서)가 이유를 나타냅니다. 회의 연장·의뢰 지연 이야기는 없고, 납품일은 바뀌지 않았습니다.",
+        "questionText": "見積書が遅れる理由は何か。",
+        "passage": "山田様\n先日はご多忙のところ、打ち合わせのお時間を頂戴し、誠にありがとうございました。さて、ご依頼いただいておりました見積書の件ですが、一部の部品の価格が確定しておらず、当初お約束しておりました日程より二日ほど遅れ、来週水曜日のご送付となる見込みです。ご迷惑をおかけし、大変申し訳ございません。なお、納品日につきましては変更ございませんので、ご安心ください。\n鈴木",
+        "explanationKo": "핵심: 「部品の価格が確定しておらず」= 이유\n〜ておらず(~하지 않아서)가 이유를 나타냅니다. 회의 연장·의뢰 지연 이야기는 없고, 납품일은 바뀌지 않았습니다.",
         "explanationJa": null,
         "tagNames": ["reading.reason-purpose"],
         "options": [
           {
             "clientOptionKey": "option-1",
-            "text": "打ち合わせが 長引いたから"
+            "text": "打ち合わせが長引いたから"
           },
           {
             "clientOptionKey": "option-2",
-            "text": "一部の 部品の 価格が まだ 決まって いないから"
+            "text": "一部の部品の価格がまだ決まっていないから"
           },
           {
             "clientOptionKey": "option-3",
-            "text": "山田さんの 依頼が 遅かったから"
+            "text": "山田さんの依頼が遅かったから"
           },
           {
             "clientOptionKey": "option-4",
-            "text": "納品日が 変わったから"
+            "text": "納品日が変わったから"
           }
         ],
         "correctOptionKey": "option-2"
@@ -1525,27 +1525,27 @@
         "subject": "READING",
         "questionType": "MEDIUM_READING",
         "difficulty": "NORMAL",
-        "questionText": "森林が なくなると、なぜ 洪水が 起こりやすく なるのか。",
-        "passage": "森林は 二酸化炭素を 吸収するのみ ならず、降った 雨を 土の 中に 蓄え、時間を かけて 川へと 送り出す 役割も 担って いる。それゆえ、森林が 失われれば、大雨の 際に 雨水が 一気に 川へ 流れ込み、洪水を 招きかねない。森林の 保全は、自然環境の ためだけで なく、私たちの 暮らしそのものを 守る ことに ほかならないのである。",
-        "explanationKo": "핵심: 「雨水が 一気に 川へ 流れ込み」\n숲은 빗물을 땅에 모아 천천히 흘려보내므로, 숲이 없으면 빗물이 한꺼번에 강으로 흘러듭니다. 이산화탄소·강우량 증가는 홍수 이유로 쓰이지 않았고, 강물이 준다는 것은 반대입니다.",
+        "questionText": "森林がなくなると、なぜ洪水が起こりやすくなるのか。",
+        "passage": "森林は二酸化炭素を吸収するのみならず、降った雨を土の中に蓄え、時間をかけて川へと送り出す役割も担っている。それゆえ、森林が失われれば、大雨の際に雨水が一気に川へ流れ込み、洪水を招きかねない。森林の保全は、自然環境のためだけでなく、私たちの暮らしそのものを守ることにほかならないのである。",
+        "explanationKo": "핵심: 「雨水が一気に川へ流れ込み」\n숲은 빗물을 땅에 모아 천천히 흘려보내므로, 숲이 없으면 빗물이 한꺼번에 강으로 흘러듭니다. 이산화탄소·강우량 증가는 홍수 이유로 쓰이지 않았고, 강물이 준다는 것은 반대입니다.",
         "explanationJa": null,
         "tagNames": ["reading.reason-purpose"],
         "options": [
           {
             "clientOptionKey": "option-1",
-            "text": "雨水が 一度に 川へ 流れ込むから"
+            "text": "雨水が一度に川へ流れ込むから"
           },
           {
             "clientOptionKey": "option-2",
-            "text": "二酸化炭素が 増えるから"
+            "text": "二酸化炭素が増えるから"
           },
           {
             "clientOptionKey": "option-3",
-            "text": "雨が 多く 降るように なるから"
+            "text": "雨が多く降るようになるから"
           },
           {
             "clientOptionKey": "option-4",
-            "text": "川の 水が 少なく なるから"
+            "text": "川の水が少なくなるから"
           }
         ],
         "correctOptionKey": "option-1"
@@ -1558,27 +1558,27 @@
         "subject": "READING",
         "questionType": "MEDIUM_READING",
         "difficulty": "NORMAL",
-        "questionText": "筆者が 最も 言いたい ことは 何か。",
-        "passage": "森林は 二酸化炭素を 吸収するのみ ならず、降った 雨を 土の 中に 蓄え、時間を かけて 川へと 送り出す 役割も 担って いる。それゆえ、森林が 失われれば、大雨の 際に 雨水が 一気に 川へ 流れ込み、洪水を 招きかねない。森林の 保全は、自然環境の ためだけで なく、私たちの 暮らしそのものを 守る ことに ほかならないのである。",
-        "explanationKo": "핵심: 마지막 문장 = 주장\n「暮らしそのものを 守る ことに ほかならない」(바로 생활을 지키는 일이다)가 결론입니다. 숲은 이산화탄소를 흡수하고, 강에 가지 말라는 말은 없으며, 숲 없이 막을 수 있다는 것은 반대입니다.",
+        "questionText": "筆者が最も言いたいことは何か。",
+        "passage": "森林は二酸化炭素を吸収するのみならず、降った雨を土の中に蓄え、時間をかけて川へと送り出す役割も担っている。それゆえ、森林が失われれば、大雨の際に雨水が一気に川へ流れ込み、洪水を招きかねない。森林の保全は、自然環境のためだけでなく、私たちの暮らしそのものを守ることにほかならないのである。",
+        "explanationKo": "핵심: 마지막 문장 = 주장\n「暮らしそのものを守ることにほかならない」(바로 생활을 지키는 일이다)가 결론입니다. 숲은 이산화탄소를 흡수하고, 강에 가지 말라는 말은 없으며, 숲 없이 막을 수 있다는 것은 반대입니다.",
         "explanationJa": null,
         "tagNames": ["reading.opinion"],
         "options": [
           {
             "clientOptionKey": "option-1",
-            "text": "森を 守る ことは、人々の 生活を 守る ことに なる。"
+            "text": "森を守ることは、人々の生活を守ることになる。"
           },
           {
             "clientOptionKey": "option-2",
-            "text": "森林は 二酸化炭素を 出して いる。"
+            "text": "森林は二酸化炭素を出している。"
           },
           {
             "clientOptionKey": "option-3",
-            "text": "大雨の 日は 川に 近づかない ほうが いい。"
+            "text": "大雨の日は川に近づかないほうがいい。"
           },
           {
             "clientOptionKey": "option-4",
-            "text": "森林が なくても 洪水は 防げる。"
+            "text": "森林がなくても洪水は防げる。"
           }
         ],
         "correctOptionKey": "option-1"
@@ -1591,27 +1591,27 @@
         "subject": "READING",
         "questionType": "MEDIUM_READING",
         "difficulty": "NORMAL",
-        "questionText": "日記を 続ける うちに、筆者は どう 変わったか。",
-        "passage": "三年前から、毎朝 十分間だけ 日記を つけて いる。始めた ばかりの ころは 書く ことが 思い浮かばず、天気に ついての 記述ばかりが 続いた。ところが、続けて いる うちに、日々の ささいな 出来事や 自分の 心の 動きに 目が 向くように なった。書くべき ことが あるから 書くのでは ない。書こうと するからこそ、見えて くる ものが あるのだろう。",
-        "explanationKo": "핵심: 「ささいな 出来事や 自分の 心の 動きに 目が 向くように なった」\n目が 向く = 눈길이 가다(알아차리다). 날씨만 쓴 것은 처음 일이고, 쓰는 시간은 10분 그대로이며, 쓸 게 없어졌다는 말은 없습니다.",
+        "questionText": "日記を続けるうちに、筆者はどう変わったか。",
+        "passage": "三年前から、毎朝十分間だけ日記をつけている。始めたばかりのころは書くことが思い浮かばず、天気についての記述ばかりが続いた。ところが、続けているうちに、日々のささいな出来事や自分の心の動きに目が向くようになった。書くべきことがあるから書くのではない。書こうとするからこそ、見えてくるものがあるのだろう。",
+        "explanationKo": "핵심: 「ささいな出来事や自分の心の動きに目が向くようになった」\n目が向く = 눈길이 가다(알아차리다). 날씨만 쓴 것은 처음 일이고, 쓰는 시간은 10분 그대로이며, 쓸 게 없어졌다는 말은 없습니다.",
         "explanationJa": null,
         "tagNames": ["reading.detail"],
         "options": [
           {
             "clientOptionKey": "option-1",
-            "text": "天気に くわしく なった。"
+            "text": "天気にくわしくなった。"
           },
           {
             "clientOptionKey": "option-2",
-            "text": "小さな 出来事や 自分の 気持ちに 気づくように なった。"
+            "text": "小さな出来事や自分の気持ちに気づくようになった。"
           },
           {
             "clientOptionKey": "option-3",
-            "text": "毎朝 長い 時間 書くように なった。"
+            "text": "毎朝長い時間書くようになった。"
           },
           {
             "clientOptionKey": "option-4",
-            "text": "書く ことが なくなった。"
+            "text": "書くことがなくなった。"
           }
         ],
         "correctOptionKey": "option-2"
@@ -1624,27 +1624,27 @@
         "subject": "READING",
         "questionType": "MEDIUM_READING",
         "difficulty": "NORMAL",
-        "questionText": "筆者の 考えに 合う ものは どれか。",
-        "passage": "三年前から、毎朝 十分間だけ 日記を つけて いる。始めた ばかりの ころは 書く ことが 思い浮かばず、天気に ついての 記述ばかりが 続いた。ところが、続けて いる うちに、日々の ささいな 出来事や 自分の 心の 動きに 目が 向くように なった。書くべき ことが あるから 書くのでは ない。書こうと するからこそ、見えて くる ものが あるのだろう。",
-        "explanationKo": "핵심: 「書こうと するからこそ、見えて くる ものが ある」\n쓸 거리가 있어서 쓰는 게 아니라 쓰려고 하니 보인다는 것이 결론입니다. 쓸 거리가 있는 날만 쓰면 된다는 것은 필자가 부정한 생각이고, 날씨만 쓴 것은 처음 시절의 일이며, 길게 쓸수록 좋다는 말은 없습니다(10분만 씀).",
+        "questionText": "筆者の考えに合うものはどれか。",
+        "passage": "三年前から、毎朝十分間だけ日記をつけている。始めたばかりのころは書くことが思い浮かばず、天気についての記述ばかりが続いた。ところが、続けているうちに、日々のささいな出来事や自分の心の動きに目が向くようになった。書くべきことがあるから書くのではない。書こうとするからこそ、見えてくるものがあるのだろう。",
+        "explanationKo": "핵심: 「書こうとするからこそ、見えてくるものがある」\n쓸 거리가 있어서 쓰는 게 아니라 쓰려고 하니 보인다는 것이 결론입니다. 쓸 거리가 있는 날만 쓰면 된다는 것은 필자가 부정한 생각이고, 날씨만 쓴 것은 처음 시절의 일이며, 길게 쓸수록 좋다는 말은 없습니다(10분만 씀).",
         "explanationJa": null,
         "tagNames": ["reading.opinion"],
         "options": [
           {
             "clientOptionKey": "option-1",
-            "text": "書く ことが ある 日だけ 日記を 書けば いい。"
+            "text": "書くことがある日だけ日記を書けばいい。"
           },
           {
             "clientOptionKey": "option-2",
-            "text": "書こうと する ことで、見えて くる ものが ある。"
+            "text": "書こうとすることで、見えてくるものがある。"
           },
           {
             "clientOptionKey": "option-3",
-            "text": "日記には 天気の ことを 書くのが いい。"
+            "text": "日記には天気のことを書くのがいい。"
           },
           {
             "clientOptionKey": "option-4",
-            "text": "日記は 長く 書くほど いい。"
+            "text": "日記は長く書くほどいい。"
           }
         ],
         "correctOptionKey": "option-2"
