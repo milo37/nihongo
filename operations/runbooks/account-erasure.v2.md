@@ -11,7 +11,8 @@ The one-shot `auth:erase-deletion-pending:compiled`
 (`apps/api/src/auth/ssoAccountErasureCommand.ts`) connects with `DATABASE_URL`
 as `nihongo_app` and runs two phases, after one request step:
 
-0. Inactive members (JLP-852): an ACTIVE member whose `User.lastLoginAt` is a
+0. Inactive members (JLP-852): an ACTIVE member whose last sign-in
+   (`UserSignIn.lastLoginAt`, or the User creation time without a row) is a
    year old gets the same erasure request a member's own deletion makes
    (`DELETION_PENDING`, one `auth.account_erasure.requested` line with
    `"reason":"INACTIVE"`), so erasure follows after the 7-day grace and a

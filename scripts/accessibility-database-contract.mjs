@@ -49,6 +49,7 @@ export const accessibilityDatabaseTables = [
   'UserAccountRestrictionEvent',
   'UserMemo',
   'UserReport',
+  'UserSignIn',
   'Verification',
   'WrongNote',
   '_prisma_migrations'
@@ -96,13 +97,19 @@ export const accessibilityExpectedTableDeltas = {
   UserAccountRestrictionEvent: 0,
   UserMemo: 0,
   UserReport: 1,
+  // JLP-852: a sign-in adds the member's row once and later only updates it,
+  // so the delta depends on which fixture members signed in before.
+  UserSignIn: 0,
   Verification: 0,
   WrongNote: 10,
   _prisma_migrations: 0
 }
 
 /** Append-only tables whose delta is a minimum, not an exact count. */
-export const accessibilityMinimumDeltaTables = new Set(['AdminAccessLog'])
+export const accessibilityMinimumDeltaTables = new Set([
+  'AdminAccessLog',
+  'UserSignIn'
+])
 
 export const accessibilityExpectedRateLimitCategories = {
   'application:bookmark-list': 1,
@@ -215,16 +222,6 @@ const withClient = async (databaseUrl, operation) => {
 
 const quoteIdentifier = (value) => `"${value.replaceAll('"', '""')}"`
 
-// JLP-852: a sign-in sets User.lastLoginAt; every other User column and every
-// other table keeps the exact zero-delta comparison.
-const snapshotExcludedColumns = Object.freeze({ User: ['lastLoginAt'] })
-
-export const snapshotRowJsonSql = (tableName) =>
-  [
-    'to_jsonb(source_row)',
-    ...(snapshotExcludedColumns[tableName] ?? []).map((column) => `'${column}'`)
-  ].join(' - ')
-
 const readTableSnapshot = async (client, schemaName, tableName) => {
   const result = await client.query(
     `SELECT COUNT(*)::int AS "count",
@@ -239,7 +236,7 @@ const readTableSnapshot = async (client, schemaName, tableName) => {
          'hex'
        ) AS "fingerprint"
      FROM (
-       SELECT (${snapshotRowJsonSql(tableName)})::text AS "rowJson"
+       SELECT to_jsonb(source_row)::text AS "rowJson"
        FROM ${quoteIdentifier(schemaName)}.${quoteIdentifier(tableName)} AS source_row
      ) AS snapshot_rows`
   )

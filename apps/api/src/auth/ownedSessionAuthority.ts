@@ -181,8 +181,9 @@ export const issueOwnedSession = async (
     // JLP-852: a sign-in starts a new year before inactive erasure. A Session
     // lasts at most 30 days, so a daily member signs in again within a month.
     await transaction.$executeRawUnsafe(
-      `UPDATE "User" SET "lastLoginAt" = clock_timestamp()
-       WHERE "id" = $1::uuid`,
+      `INSERT INTO "UserSignIn" ("userId", "lastLoginAt")
+       VALUES ($1::uuid, clock_timestamp())
+       ON CONFLICT ("userId") DO UPDATE SET "lastLoginAt" = EXCLUDED."lastLoginAt"`,
       input.userId
     )
     return session

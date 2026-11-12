@@ -533,7 +533,11 @@ export const listSsoAccountErasures = async (
  */
 const INACTIVE_ERASURE_CANDIDATE = `u."accountStatus" = 'ACTIVE'
   AND u."deletedAt" IS NULL
-  AND u."lastLoginAt" <= clock_timestamp() - ${INACTIVE_ERASURE_AFTER}
+  AND COALESCE(
+    (SELECT sign_in."lastLoginAt" FROM "UserSignIn" AS sign_in
+     WHERE sign_in."userId" = u."id"),
+    u."createdAt"
+  ) <= clock_timestamp() - ${INACTIVE_ERASURE_AFTER}
   AND NOT EXISTS (
     SELECT 1 FROM "QuestionVersion" AS version
     WHERE version."createdByActorId" = u."id"
@@ -567,7 +571,7 @@ export const requestInactiveAccountErasures = async (
   const candidates = await client.$queryRawUnsafe<Array<{ id: string }>>(
     `SELECT u."id" FROM "User" AS u
      WHERE ${INACTIVE_ERASURE_CANDIDATE}
-     ORDER BY u."lastLoginAt", u."id"
+     ORDER BY u."id"
      LIMIT $1::integer`,
     batchLimit
   )

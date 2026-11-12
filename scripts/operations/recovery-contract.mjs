@@ -260,7 +260,7 @@ export const verifyRecoveryContract = (
     current.selection !== 'all-release-manifest-entries' ||
     current.expectedCount !== 10 ||
     current.expectedDigestSha256 !==
-      '86567a4a28ccc4d1f22e499efa836ecc4863df656762f991728a19c8f3467f05' ||
+      'e09b7545fc2a4c8695e5b34839066039a099e90b91b0dcc07247fb1278741638' ||
     current.externalRecoveryClaimAllowed !== false
   ) {
     throw new Error('Current migration profile is invalid.')
@@ -340,7 +340,7 @@ export const deriveMigrationProfile = (releaseManifest, profileName) => {
     name: profileName
   }
   const expectedDigest =
-    '86567a4a28ccc4d1f22e499efa836ecc4863df656762f991728a19c8f3467f05'
+    'e09b7545fc2a4c8695e5b34839066039a099e90b91b0dcc07247fb1278741638'
   if (profile.digestSha256 !== expectedDigest) {
     throw new Error('Recovery migration profile inventory mismatch.')
   }

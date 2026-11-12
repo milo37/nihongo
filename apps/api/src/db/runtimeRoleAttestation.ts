@@ -201,9 +201,7 @@ const ATTESTATION_QUERY = `
                ('User', 'accountStatus'),
                ('User', 'authorityGeneration'),
                -- JLP-815: the member's own target level.
-               ('User', 'targetLevel'),
-               -- JLP-852: the sign-in time a Session issuance sets.
-               ('User', 'lastLoginAt')
+               ('User', 'targetLevel')
              ) THEN 'INSERT,REFERENCES'
            WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
                ('AuthorityRevocationEvidence', 'expiresAt'),

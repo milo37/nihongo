@@ -846,21 +846,27 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       expect(
         (
           await h.owner.query<{ fresh: boolean }>(
-            `SELECT bool_and("lastLoginAt" > clock_timestamp() - interval '1 minute') AS fresh
-             FROM "User" WHERE id = ANY($1::uuid[])`,
+            `SELECT count(*) = 3
+               AND bool_and("lastLoginAt" > clock_timestamp() - interval '1 minute') AS fresh
+             FROM "UserSignIn" WHERE "userId" = ANY($1::uuid[])`,
             [[inactive.userId, recent.userId, admin.userId]]
           )
         ).rows[0]?.fresh
       ).toBe(true)
       const signedInAgo = async (userId: string, age: string) =>
         h.owner.query(
-          `UPDATE "User" SET "lastLoginAt" = clock_timestamp() - $2::interval
-           WHERE id = $1`,
+          `UPDATE "UserSignIn" SET "lastLoginAt" = clock_timestamp() - $2::interval
+           WHERE "userId" = $1`,
           [userId, age]
         )
       await signedInAgo(inactive.userId, '1 year 1 day')
       await signedInAgo(recent.userId, '364 days')
       await signedInAgo(admin.userId, '2 years')
+      // A member without a sign-in row counts from the User creation time.
+      const unstamped = await h.fixture('google', 'USER')
+      await h.owner.query('DELETE FROM "UserSignIn" WHERE "userId" = $1', [
+        unstamped.userId
+      ])
       // The last ACTIVE ADMIN is skipped, like a member's own request.
       expect(await worker.requestInactive(100, 'TEST')).toEqual({
         requestedUserIds: [inactive.userId],
@@ -928,11 +934,11 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       expect(
         (
           await h.owner.query(
-            'SELECT (SELECT count(*)::int FROM "User" WHERE id=$1) AS users,(SELECT count(*)::int FROM "StudySession" WHERE "userId"=$1) AS sessions,(SELECT count(*)::int FROM "WrongNote" WHERE "userId"=$1) AS notes',
+            'SELECT (SELECT count(*)::int FROM "User" WHERE id=$1) AS users,(SELECT count(*)::int FROM "StudySession" WHERE "userId"=$1) AS sessions,(SELECT count(*)::int FROM "WrongNote" WHERE "userId"=$1) AS notes,(SELECT count(*)::int FROM "UserSignIn" WHERE "userId"=$1) AS "signIns"',
             [inactive.userId]
           )
         ).rows
-      ).toEqual([{ users: 0, sessions: 0, notes: 0 }])
+      ).toEqual([{ users: 0, sessions: 0, notes: 0, signIns: 0 }])
       await h.owner.query('SET CONSTRAINTS ALL IMMEDIATE')
     })
   })
