@@ -7,6 +7,7 @@ import type { StudyQuestionView } from '@app/practice/adapters/studySessionView'
 import { usePracticeNumberFormat } from '@app/practice/hooks/usePracticeNumberFormat'
 import { passageParagraphs } from '@app/practice/session/passageParagraphs'
 import { SheetTail } from '@common/components/manuscript/ManuscriptSheet'
+import { JaText } from '@common/components/JaText'
 import { jaTextProps } from '@common/libs/jaSpacing'
 
 type PracticeQuestionCardProps = {
@@ -59,15 +60,7 @@ const QuestionPassage = ({
             key={`${index}-${paragraph.text}`}
             data-indent={paragraph.indent || undefined}
           >
-            {paragraph.segments.map((segment, part) =>
-              part % 2 === 1 ? (
-                <span key={part} className="whitespace-nowrap">
-                  {segment}
-                </span>
-              ) : (
-                segment
-              )
-            )}
+            <JaText text={paragraph.text} />
           </p>
         ))}
       </div>
@@ -158,7 +151,7 @@ export const PracticeQuestionCard = ({
               className="study-question-text block font-bold"
               {...jaTextProps(question.questionText)}
             >
-              {question.questionText}
+              <JaText text={question.questionText} />
             </span>
           </h1>
           {isPassageOut ? (
@@ -195,7 +188,7 @@ export const PracticeQuestionCard = ({
                     {...jaTextProps(option.text)}
                   >
                     <span className="sr-only">{option.label}. </span>
-                    {option.text}
+                    <JaText text={option.text} />
                   </span>
                 </span>
               )

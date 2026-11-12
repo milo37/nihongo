@@ -12,6 +12,7 @@ import {
 } from '@app/practice/result/ResultStatusIcon'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
+import { JaText } from '@common/components/JaText'
 import { jaTextProps } from '@common/libs/jaSpacing'
 
 type ResultQuestionDetailProps = {
@@ -104,17 +105,25 @@ const ResultAnswerComparison = ({
           {t('items.selectedAnswer')}
         </dt>
         <dd {...(selectedOption ? jaTextProps(selectedOption.text) : {})}>
-          {selectedOption
-            ? `${selectedOption.label}. ${selectedOption.text}`
-            : t('items.unanswered')}
+          {selectedOption ? (
+            <>
+              {selectedOption.label}. <JaText text={selectedOption.text} />
+            </>
+          ) : (
+            t('items.unanswered')
+          )}
         </dd>
       </div>
       <div>
         <dt className="text-success">{t('items.correctAnswer')}</dt>
         <dd {...(correctOption ? jaTextProps(correctOption.text) : {})}>
-          {correctOption
-            ? `${correctOption.label}. ${correctOption.text}`
-            : t('items.correctAnswerUnavailable')}
+          {correctOption ? (
+            <>
+              {correctOption.label}. <JaText text={correctOption.text} />
+            </>
+          ) : (
+            t('items.correctAnswerUnavailable')
+          )}
         </dd>
       </div>
     </dl>
@@ -179,7 +188,7 @@ export const ResultQuestionDetail = ({
           className="study-result-passage"
           {...jaTextProps(item.question.passage)}
         >
-          {item.question.passage}
+          <JaText text={item.question.passage} />
         </div>
       ) : null}
       <h2
@@ -187,7 +196,7 @@ export const ResultQuestionDetail = ({
         className="study-result-question-copy"
         {...jaTextProps(item.question.questionText)}
       >
-        {item.question.questionText}
+        <JaText text={item.question.questionText} />
       </h2>
       <ResultAnswerComparison item={item} />
       <section

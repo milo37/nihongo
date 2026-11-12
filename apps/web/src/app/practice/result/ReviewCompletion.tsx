@@ -18,6 +18,7 @@ import { readReviewReturnContext } from '@app/wrong-note/reviewReturnContext'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
+import { JaText } from '@common/components/JaText'
 import { jaTextProps } from '@common/libs/jaSpacing'
 
 /** 24px outline icon drawn in the current text colour. */
@@ -126,7 +127,11 @@ const AnswerComparison = ({
           {t('integration.complete.selected')}
         </dt>
         <dd {...(selected ? jaTextProps(selected.text) : {})}>
-          {selected?.text ?? t('integration.complete.unanswered')}
+          {selected ? (
+            <JaText text={selected.text} />
+          ) : (
+            t('integration.complete.unanswered')
+          )}
         </dd>
       </div>
       <div>
@@ -137,7 +142,11 @@ const AnswerComparison = ({
           {t('detail.correct')}
         </dt>
         <dd {...(correct ? jaTextProps(correct.text) : {})}>
-          {correct?.text ?? t('integration.complete.unconfirmed')}
+          {correct ? (
+            <JaText text={correct.text} />
+          ) : (
+            t('integration.complete.unconfirmed')
+          )}
         </dd>
       </div>
     </dl>
@@ -200,14 +209,14 @@ export const ReviewCompletion = ({
       </div>
       {item.question.passage ? (
         <div className="review-passage" {...jaTextProps(item.question.passage)}>
-          {item.question.passage}
+          <JaText text={item.question.passage} />
         </div>
       ) : null}
       <h2
         className="review-question"
         {...jaTextProps(item.question.questionText)}
       >
-        {item.question.questionText}
+        <JaText text={item.question.questionText} />
       </h2>
       <AnswerComparison item={item} />
       <section

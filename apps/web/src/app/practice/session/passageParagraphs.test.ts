@@ -30,21 +30,7 @@ describe('passageParagraphs (JLP-865)', () => {
 
   it('keeps a one-line passage as one indented paragraph', () => {
     expect(passageParagraphs('はじめまして。キムです。')).toEqual([
-      {
-        text: 'はじめまして。キムです。',
-        indent: true,
-        segments: ['はじめまして。キムです。']
-      }
+      { text: 'はじめまして。キムです。', indent: true }
     ])
-  })
-
-  it('splits out each fill-in blank with its 。 or 、', () => {
-    expect(
-      passageParagraphs('水を 飲む（\u3000）。前より いいです。')[0]?.segments
-    ).toEqual(['水を 飲む', '（\u3000）。', '前より いいです。'])
-    expect(
-      passageParagraphs('膝の痛み（\u3000）、雨の日（\u3000）以外は')[0]
-        ?.segments
-    ).toEqual(['膝の痛み', '（\u3000）、', '雨の日', '（\u3000）', '以外は'])
   })
 })
