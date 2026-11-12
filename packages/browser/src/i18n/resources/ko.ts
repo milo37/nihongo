@@ -753,7 +753,9 @@ export const koCoreResources = {
     actions: {
       retryIncorrect: '틀린 문제만 다시 풀기',
       nextSet: '다음 {{formattedCount}}문제',
-      nextSetStarting: '새 문제를 준비하는 중…'
+      nextSetStarting: '새 문제를 준비하는 중…',
+      backToWrongNotes: '오답노트로',
+      backToBookmarks: '책갈피로'
     },
     retry: {
       checking: '확인하는 중…',
