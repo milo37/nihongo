@@ -361,6 +361,11 @@ const withBaselineTargetLevelAcl = (
 const ADDED_TABLE = 'AdminAccessLog'
 const ADDED_FUNCTION = 'protect_admin_access_log'
 
+/** JLP-852: the last sign-in table. */
+const ADDED_SIGN_IN_TABLE = 'UserSignIn'
+const isAddedSignIn = (row: Record<string, unknown>): boolean =>
+  row.table === ADDED_SIGN_IN_TABLE
+
 /**
  * JLP-845: the grace-period restore replaces two trigger function bodies,
  * allows CANCELLED and adds one check on SsoAccountErasureRequest.
@@ -393,8 +398,8 @@ const withBaselineErasureStatus = (
  * cannot see: the renamed enum label, the replaced function bodies (checked
  * exactly by forwardFunctionSources against the baseline file), the objects
  * JLP-733 drops or adds, removed from both sides, the #683 proof bound,
- * the JLP-815 target level grant, the JLP-845 restore objects and the JLP-842
- * access record table.
+ * the JLP-815 target level grant, the JLP-845 restore objects, the JLP-842
+ * access record table and the JLP-852 last sign-in table.
  */
 export const withoutForwardChanges = (
   catalog: SchemaCatalog
@@ -413,7 +418,10 @@ export const withoutForwardChanges = (
         : row
     ),
   tables: catalog.tables.filter(
-    ({ name }) => name !== DROPPED_TABLE && name !== ADDED_TABLE
+    ({ name }) =>
+      name !== DROPPED_TABLE &&
+      name !== ADDED_TABLE &&
+      name !== ADDED_SIGN_IN_TABLE
   ),
   columns: catalog.columns
     .filter(
@@ -424,7 +432,8 @@ export const withoutForwardChanges = (
           row.table === 'QuestionVersionTag' &&
           DROPPED_SNAPSHOT_COLUMNS.has(String(row.name))
         ) &&
-        !(row.table === 'Tag' && ADDED_TAG_COLUMNS.has(String(row.name)))
+        !(row.table === 'Tag' && ADDED_TAG_COLUMNS.has(String(row.name))) &&
+        !isAddedSignIn(row)
     )
     .map(withBaselineTargetLevelAcl),
   constraints: catalog.constraints
@@ -433,7 +442,8 @@ export const withoutForwardChanges = (
         !isDroppedTagSnapshot(row) &&
         !isAddedTagObject(row) &&
         row.name !== GRACE_ADDED_CHECK &&
-        row.table !== ADDED_TABLE
+        row.table !== ADDED_TABLE &&
+        !isAddedSignIn(row)
     )
     .map(withBaselineProofBound)
     .map(withBaselineErasureStatus),
@@ -441,7 +451,8 @@ export const withoutForwardChanges = (
     (row) =>
       !isDroppedTagSnapshot(row) &&
       !isAddedTagObject(row) &&
-      row.table !== ADDED_TABLE
+      row.table !== ADDED_TABLE &&
+      !isAddedSignIn(row)
   ),
   triggers: catalog.triggers.filter(
     (row) =>

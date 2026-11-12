@@ -1,13 +1,21 @@
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router'
 import type { ReactElement } from 'react'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
 import { GuestDailyLimitCard } from '@app/practice/components/GuestDailyLimitCard'
-import { Button } from '@nihongo/browser/common/components/Button'
+import {
+  Button,
+  getButtonClassName
+} from '@nihongo/browser/common/components/Button'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 import { useStartNextSet } from '@app/practice/result/useStartNextSet'
 import { PracticeSetupFeedback } from '@app/practice/components/PracticeSetupFeedback'
 import { ButtonTriesLeft } from '@app/practice/components/ButtonTriesLeft'
+import {
+  getSetReturnPath,
+  setReturnLabelKey
+} from '@app/practice/setReturnPath'
 
 // Outlined buttons add a border; fix both buttons at 48px (ux2 §2-4).
 const SAME_HEIGHT = 'h-12'
@@ -47,6 +55,9 @@ export const ResultActions = ({
 }: ResultActionsProps): ReactElement => {
   const { i18n, t } = useTranslation('result')
   const nextSet = useStartNextSet(session, isGuest, requestedCount)
+  // JLP-856: a wrong-note or bookmark set goes back to its list instead of
+  // offering a random next set.
+  const returnPath = isGuest ? null : getSetReturnPath(session.mode)
   return (
     <section
       className="study-result-actions mt-10"
@@ -62,24 +73,36 @@ export const ResultActions = ({
       ) : (
         /* Stacked full width under 640px, one row at text width above. */
         <div className="study-result-buttons flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-          <Button
-            className={SAME_HEIGHT}
-            size="lg"
-            variant="primary"
-            isLoading={nextSet.isStarting}
-            loadingLabel={t('actions.nextSetStarting')}
-            onClick={nextSet.start}
-          >
-            {t('actions.nextSet', {
-              formattedCount: formatNumber(
-                nextSet.count,
-                resolveUiLocale(i18n.resolvedLanguage)
-              )
-            })}
-            {guestTriesLeft === undefined ? null : (
-              <ButtonTriesLeft remaining={guestTriesLeft} />
-            )}
-          </Button>
+          {returnPath ? (
+            <Link
+              className={getButtonClassName({
+                className: SAME_HEIGHT,
+                size: 'lg'
+              })}
+              to={returnPath}
+            >
+              {t(setReturnLabelKey[returnPath])}
+            </Link>
+          ) : (
+            <Button
+              className={SAME_HEIGHT}
+              size="lg"
+              variant="primary"
+              isLoading={nextSet.isStarting}
+              loadingLabel={t('actions.nextSetStarting')}
+              onClick={nextSet.start}
+            >
+              {t('actions.nextSet', {
+                formattedCount: formatNumber(
+                  nextSet.count,
+                  resolveUiLocale(i18n.resolvedLanguage)
+                )
+              })}
+              {guestTriesLeft === undefined ? null : (
+                <ButtonTriesLeft remaining={guestTriesLeft} />
+              )}
+            </Button>
+          )}
           {showRetry ? (
             <Button
               className={SAME_HEIGHT}

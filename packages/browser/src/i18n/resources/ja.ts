@@ -794,7 +794,9 @@ export const jaCoreResources = {
     actions: {
       retryIncorrect: '間違えた問題だけ解き直す',
       nextSet: '次の{{formattedCount}}問',
-      nextSetStarting: '新しい問題を準備しています…'
+      nextSetStarting: '新しい問題を準備しています…',
+      backToWrongNotes: '間違いノートへ',
+      backToBookmarks: 'ブックマークへ'
     },
     retry: {
       checking: '確認中…',

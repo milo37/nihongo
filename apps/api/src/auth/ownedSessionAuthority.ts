@@ -178,6 +178,14 @@ export const issueOwnedSession = async (
         '42501',
         'V1 Session lost authority before issuance completed.'
       )
+    // JLP-852: a sign-in starts a new year before inactive erasure. A Session
+    // lasts at most 30 days, so a daily member signs in again within a month.
+    await transaction.$executeRawUnsafe(
+      `INSERT INTO "UserSignIn" ("userId", "lastLoginAt")
+       VALUES ($1::uuid, clock_timestamp())
+       ON CONFLICT ("userId") DO UPDATE SET "lastLoginAt" = EXCLUDED."lastLoginAt"`,
+      input.userId
+    )
     return session
   })
 
