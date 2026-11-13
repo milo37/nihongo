@@ -6,7 +6,6 @@ import { parseApiEnvironment } from '../config/env.js'
 import { ApplicationError } from '../errors/applicationError.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createJsonLogger } from '../observability/logger.js'
-import type { QuestionReader } from '../question/questionService.js'
 import { createApiApp } from './createApp.js'
 
 const origin = 'https://app.example.test'
@@ -66,7 +65,6 @@ const fixture = (limited = false) => {
       (line) => lines.push(JSON.parse(line) as Record<string, unknown>),
       { deploymentEnvironment: 'TEST', releaseId: 'a'.repeat(40) }
     ),
-    questionReader: {} as QuestionReader,
     questionReadSecurity: { environment, rateLimiter }
   })
   const reported = () =>

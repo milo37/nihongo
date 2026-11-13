@@ -54,7 +54,6 @@ import { ssoTransactionDigest } from '../auth/ssoProtocol.js'
 import { parseApiEnvironment } from '../config/env.js'
 import { createJsonLogger } from '../observability/logger.js'
 import type { PrismaClient } from '../generated/prisma/client.js'
-import type { QuestionReader } from '../question/questionService.js'
 import { createRoleDatabaseRuntime } from './database.js'
 import {
   createPostgresStartupOptions,
@@ -961,10 +960,6 @@ const createTestHonoApp = ({
   const readRateLimiter: AdminReadRateLimiter = {
     consume: async () => undefined
   }
-  const questionReader: QuestionReader = {
-    getQuestion: async () => Promise.reject(new Error('not used')),
-    listQuestions: async () => ({ items: [], page: 1, pageSize: 20, total: 0 })
-  }
 
   return createApiApp({
     admin: {
@@ -996,8 +991,7 @@ const createTestHonoApp = ({
       principalService
     },
     checkReadiness: async () => undefined,
-    logger: createJsonLogger('silent'),
-    questionReader
+    logger: createJsonLogger('silent')
   })
 }
 

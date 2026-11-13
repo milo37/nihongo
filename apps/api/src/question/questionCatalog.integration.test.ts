@@ -1,18 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
-import { apiFailureSchema } from '@nihongo/contracts/common/error'
 import { getDailyQuestionResponseSchema } from '@nihongo/contracts/question/get-daily-question'
-import { getQuestionResponseSchema } from '@nihongo/contracts/question/get-question'
-import { listQuestionsResponseSchema } from '@nihongo/contracts/question/list-questions'
-import { spacedTagQuestionListCase } from '@nihongo/contracts/testing/question-read-conformance'
-import {
-  afterAll,
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi
-} from 'vitest'
+import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
   buildAllQuestionSeeds,
   seedQuestionCatalog,
@@ -31,7 +19,6 @@ import {
   toDayNumber
 } from './dailyQuestion.js'
 import { createPrismaQuestionRepository } from './questionRepository.js'
-import { createQuestionService } from './questionService.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({
@@ -63,9 +50,7 @@ const database = createDatabaseRuntime(
 const fixtureDatabase = fixtureDatabaseUrl
   ? createDatabaseRuntime(fixtureDatabaseUrl)
   : database
-const questionReader = createQuestionService(
-  createPrismaQuestionRepository(database.client)
-)
+const questionRepository = createPrismaQuestionRepository(database.client)
 const applicationRateLimiter = createApplicationRateLimiter({
   client: database.client,
   keySecret: environment.GUEST_COOKIE_SECRET
@@ -76,7 +61,6 @@ const dailyQuestionRepository = createPrismaDailyQuestionRepository(
 const app = createApiApp({
   checkReadiness: database.checkReadiness,
   logger: createJsonLogger('silent'),
-  questionReader,
   dailyQuestionReader: createDailyQuestionService(dailyQuestionRepository),
   questionReadSecurity: {
     environment,
@@ -84,50 +68,14 @@ const app = createApiApp({
   }
 })
 
-const QUESTION_RATE_LIMIT_PREFIXES = [
-  'application:question-list-read:',
-  'application:question-detail-read:'
-] as const
 const DAILY_QUESTION_RATE_LIMIT_PREFIX = 'application:daily-question-read:'
 
 const resetQuestionRateLimits = async (): Promise<void> => {
   await database.client.rateLimit.deleteMany({
     where: {
-      OR: [
-        ...QUESTION_RATE_LIMIT_PREFIXES,
-        DAILY_QUESTION_RATE_LIMIT_PREFIX
-      ].map((prefix) => ({
-        key: { startsWith: prefix }
-      }))
+      key: { startsWith: DAILY_QUESTION_RATE_LIMIT_PREFIX }
     }
   })
-}
-
-const FORBIDDEN_KEYS = new Set([
-  'correctOptionId',
-  'isCorrect',
-  'explanationKo',
-  'explanationJa',
-  'status',
-  'sourceType',
-  'createdByUserId',
-  'rowVersion'
-])
-
-const collectKeys = (value: unknown, keys: Set<string>): void => {
-  if (Array.isArray(value)) {
-    value.forEach((item) => collectKeys(item, keys))
-    return
-  }
-
-  if (typeof value !== 'object' || value === null) {
-    return
-  }
-
-  for (const [key, nested] of Object.entries(value)) {
-    keys.add(key)
-    collectKeys(nested, keys)
-  }
 }
 
 interface RawDatabaseErrorIdentity {
@@ -301,198 +249,6 @@ describe('question catalog PostgreSQL integration', () => {
     expect(body.question.options.map(({ id }) => id)).toContain(
       body.question.correctOptionId
     )
-  })
-
-  it('real Hono list/detail이 canonical public DTO와 header를 반환한다', async () => {
-    const seed = buildAllQuestionSeeds()[0]
-
-    if (!seed) {
-      throw new Error('Question seed fixture가 필요합니다.')
-    }
-
-    const [listResponse, detailResponse] = await Promise.all([
-      app.request('/api/v1/questions?level=N5&subject=VOCABULARY&pageSize=2'),
-      app.request('/api/v1/questions/' + seed.questionId)
-    ])
-    const list = listQuestionsResponseSchema.parse(await listResponse.json())
-    const detail = getQuestionResponseSchema.parse(await detailResponse.json())
-    const keys = new Set<string>()
-    collectKeys({ list, detail }, keys)
-
-    expect(listResponse.status).toBe(200)
-    expect(detailResponse.status).toBe(200)
-    expect(listResponse.headers.get('Cache-Control')).toBe('private, no-store')
-    expect(detailResponse.headers.get('Cache-Control')).toBe(
-      'private, no-store'
-    )
-    expect(list.total).toBe(5)
-    expect(detail.id).toBe(seed.questionId)
-    expect(detail.questionVersionId).toBe(seed.versionId)
-    expect(detail.options.map(({ id }) => id)).toEqual(
-      seed.options.map(({ id }) => id)
-    )
-
-    for (const forbiddenKey of FORBIDDEN_KEYS) {
-      expect(keys.has(forbiddenKey)).toBe(false)
-    }
-
-    const rateLimitRows = await database.client.rateLimit.findMany({
-      where: {
-        OR: QUESTION_RATE_LIMIT_PREFIXES.map((prefix) => ({
-          key: { startsWith: prefix }
-        }))
-      },
-      select: { count: true, key: true }
-    })
-    expect(rateLimitRows).toHaveLength(2)
-    expect(
-      rateLimitRows.map(({ key }) =>
-        QUESTION_RATE_LIMIT_PREFIXES.find((prefix) => key.startsWith(prefix))
-      )
-    ).toEqual(expect.arrayContaining([...QUESTION_RATE_LIMIT_PREFIXES]))
-    expect(rateLimitRows.every(({ count }) => count === 1)).toBe(true)
-  })
-
-  it.each([
-    ['list', 'question-list-read'],
-    ['detail', 'question-detail-read']
-  ] as const)(
-    'question %s 제한은 검증보다 먼저 count하고 60초 경계에서 원자적으로 reset한다',
-    async (_label, operation) => {
-      const seed = buildAllQuestionSeeds()[0]
-      if (!seed) {
-        throw new Error('Question seed fixture가 필요합니다.')
-      }
-
-      const isList = operation === 'question-list-read'
-      const rateLimitPrefix = QUESTION_RATE_LIMIT_PREFIXES[isList ? 0 : 1]
-      const otherRateLimitPrefix = QUESTION_RATE_LIMIT_PREFIXES[isList ? 1 : 0]
-      const deniedPath = isList
-        ? '/api/v1/questions?page=0'
-        : '/api/v1/questions/not-a-uuid'
-      const allowedPath = isList
-        ? '/api/v1/questions'
-        : '/api/v1/questions/' + seed.questionId
-      let now = 1_000
-      const rateLimiter = createApplicationRateLimiter({
-        client: database.client,
-        keySecret: environment.GUEST_COOKIE_SECRET,
-        now: () => now
-      })
-      const getQuestion = vi.fn(questionReader.getQuestion)
-      const listQuestions = vi.fn(questionReader.listQuestions)
-      const rateLimitedApp = createApiApp({
-        checkReadiness: async () => undefined,
-        logger: createJsonLogger('silent'),
-        questionReader: { getQuestion, listQuestions },
-        questionReadSecurity: { environment, rateLimiter }
-      })
-      const limitInput = {
-        clientIp: 'unresolved',
-        max: 120,
-        operation,
-        windowMs: 60_000
-      } as const
-
-      for (let index = 0; index < limitInput.max; index += 1) {
-        await rateLimiter.consume(limitInput)
-      }
-
-      const beforeDenial = await database.client.rateLimit.findFirstOrThrow({
-        where: { key: { startsWith: rateLimitPrefix } },
-        select: { count: true, lastRequest: true }
-      })
-      now = 12_345
-
-      const denied = await rateLimitedApp.request(deniedPath)
-      const denial = apiFailureSchema.parse(await denied.json())
-      const afterDenial = await database.client.rateLimit.findFirstOrThrow({
-        where: { key: { startsWith: rateLimitPrefix } },
-        select: { count: true, lastRequest: true }
-      })
-      const expectedRetryAfterSeconds = Math.max(
-        1,
-        Math.ceil(
-          Number(
-            beforeDenial.lastRequest + BigInt(limitInput.windowMs) - BigInt(now)
-          ) / 1_000
-        )
-      )
-
-      expect(beforeDenial.count).toBe(limitInput.max)
-      expect(denied.status).toBe(429)
-      expect(denied.headers.get('Retry-After')).toBe(
-        String(expectedRetryAfterSeconds)
-      )
-      expect(denial).toMatchObject({ code: 'RATE_LIMITED', retryable: true })
-      expect(listQuestions).not.toHaveBeenCalled()
-      expect(getQuestion).not.toHaveBeenCalled()
-      expect(afterDenial.count).toBe(beforeDenial.count)
-      expect(afterDenial.lastRequest).toBe(beforeDenial.lastRequest)
-      await expect(
-        database.client.rateLimit.count({
-          where: { key: { startsWith: otherRateLimitPrefix } }
-        })
-      ).resolves.toBe(0)
-
-      now = Number(beforeDenial.lastRequest) + limitInput.windowMs
-      const allowed = await rateLimitedApp.request(allowedPath)
-      const resetRow = await database.client.rateLimit.findFirstOrThrow({
-        where: { key: { startsWith: rateLimitPrefix } },
-        select: { count: true, lastRequest: true }
-      })
-
-      expect(allowed.status).toBe(200)
-      expect(listQuestions).toHaveBeenCalledTimes(isList ? 1 : 0)
-      expect(getQuestion).toHaveBeenCalledTimes(isList ? 0 : 1)
-      expect(resetRow).toEqual({ count: 1, lastRequest: BigInt(now) })
-    }
-  )
-
-  it('type·tag filter와 out-of-range pagination을 적용한다', async () => {
-    const [byTypeResponse, byTagResponse, emptyPageResponse] =
-      await Promise.all([
-        app.request('/api/v1/questions?type=KANJI_READING&pageSize=100'),
-        app.request(
-          '/api/v1/questions?tag=' +
-            encodeURIComponent(String(spacedTagQuestionListCase.query.tag)) +
-            '&pageSize=100'
-        ),
-        app.request('/api/v1/questions?page=999&pageSize=20')
-      ])
-    const byType = listQuestionsResponseSchema.parse(
-      await byTypeResponse.json()
-    )
-    const byTag = listQuestionsResponseSchema.parse(await byTagResponse.json())
-    const emptyPage = listQuestionsResponseSchema.parse(
-      await emptyPageResponse.json()
-    )
-
-    expect(byType.items.length).toBeGreaterThan(0)
-    expect(
-      byType.items.every(({ questionType }) => questionType === 'KANJI_READING')
-    ).toBe(true)
-    expect(byTag.total).toBe(spacedTagQuestionListCase.expectedTotal)
-    expect(byTag.items.map(({ id }) => id)).toEqual(
-      spacedTagQuestionListCase.expectedQuestionIds
-    )
-    expect(
-      byTag.items.every(({ tags }) =>
-        tags.some(({ label }) => label === '한자 읽기')
-      )
-    ).toBe(true)
-    expect(emptyPage.items).toEqual([])
-    expect(emptyPage.total).toBe(65)
-  })
-
-  it('invalid ID는 422, 없는 문제는 404로 숨긴다', async () => {
-    const [invalid, missing] = await Promise.all([
-      app.request('/api/v1/questions/not-a-uuid'),
-      app.request('/api/v1/questions/' + randomUUID())
-    ])
-
-    expect(invalid.status).toBe(422)
-    expect(missing.status).toBe(404)
   })
 
   it(
@@ -1138,8 +894,9 @@ describe('question catalog PostgreSQL integration', () => {
     await expect(
       verifyExistingQuestionSeed(database.client, seed)
     ).resolves.toBeUndefined()
-    const response = await app.request('/api/v1/questions/' + seed.questionId)
-    expect(response.status).toBe(200)
+    await expect(
+      questionRepository.findPublishedById(seed.questionId)
+    ).resolves.not.toBeNull()
   })
 
   it('권한 없는 v2 pointer transaction은 전부 rollback하고 v1 snapshot을 보존한다', async () => {

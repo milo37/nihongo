@@ -16,7 +16,6 @@ import {
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { createApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createJsonLogger } from '../observability/logger.js'
-import type { QuestionReader } from '../question/questionService.js'
 import { createAdminProvisioner } from '../../test/fixtures/auth/adminProvisioning.js'
 import { createAuthGateway } from './authGateway.js'
 import { createAuthRuntime } from './createAuth.js'
@@ -111,10 +110,6 @@ const technicalAuthRateLimiter = createApplicationRateLimiter({
   client: database.client,
   keySecret: environment.GUEST_COOKIE_SECRET
 })
-const questionReader: QuestionReader = {
-  getQuestion: async () => Promise.reject(new Error('Not used.')),
-  listQuestions: async () => ({ items: [], page: 1, pageSize: 20, total: 0 })
-}
 const app = createApiApp({
   auth: {
     environment,
@@ -137,8 +132,7 @@ const app = createApiApp({
     principalService
   },
   checkReadiness: database.checkReadiness,
-  logger: createJsonLogger('silent'),
-  questionReader
+  logger: createJsonLogger('silent')
 })
 const origin = environment.TRUSTED_ORIGINS[0]
 

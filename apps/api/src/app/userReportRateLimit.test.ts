@@ -6,7 +6,6 @@ import type { PrincipalService } from '../auth/principalService.js'
 import { parseApiEnvironment } from '../config/env.js'
 import { ApplicationError } from '../errors/applicationError.js'
 import { createJsonLogger } from '../observability/logger.js'
-import type { QuestionReader } from '../question/questionService.js'
 import type { UserReportService } from '../report/userReportService.js'
 import { createApiApp } from './createApp.js'
 
@@ -72,7 +71,6 @@ const fixture = (limited: boolean) => {
     },
     checkReadiness: async () => undefined,
     logger: createJsonLogger('error', () => undefined),
-    questionReader: {} as QuestionReader,
     userReports: {
       rateLimiter,
       service: { createReport } as unknown as UserReportService

@@ -8,7 +8,6 @@ import type { PrincipalService } from '../auth/principalService.js'
 import { parseApiEnvironment } from '../config/env.js'
 import { ApplicationError } from '../errors/applicationError.js'
 import { createJsonLogger } from '../observability/logger.js'
-import type { QuestionReader } from '../question/questionService.js'
 import { createApiApp } from './createApp.js'
 
 const userId = '11111111-1111-4111-8111-111111111111'
@@ -89,7 +88,6 @@ const fixture = ({
     },
     checkReadiness: async () => undefined,
     logger: createJsonLogger('error', () => undefined),
-    questionReader: {} as QuestionReader,
     ...(reportsWired
       ? {
           questionReports: {

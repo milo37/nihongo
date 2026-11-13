@@ -31,8 +31,6 @@ import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { createApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createJsonLogger } from '../observability/logger.js'
-import { createPrismaQuestionRepository } from '../question/questionRepository.js'
-import { createQuestionService } from '../question/questionService.js'
 import { GUEST_COOKIE_NAME } from '../routes/principal.js'
 import {
   createPrismaStudyDraftRepository,
@@ -185,9 +183,6 @@ const app = createApiApp({
   },
   checkReadiness: database.checkReadiness,
   logger: createJsonLogger('silent'),
-  questionReader: createQuestionService(
-    createPrismaQuestionRepository(database.client)
-  ),
   study: {
     draftService: createStudyDraftService(studyDraftRepository),
     rateLimiter: noOpRateLimiter,

@@ -1,7 +1,7 @@
 import {
   comparePublicQuestionTags,
   normalizeQuestionTagText,
-  type GetQuestionResponse
+  type PublicPracticeQuestion
 } from '@nihongo/contracts/question/get-question'
 import type { PublicQuestionSummary } from '@nihongo/contracts/question/list-questions'
 import type {
@@ -120,7 +120,7 @@ export const toContractPracticeQuestion = (
   question: PracticeQuestion,
   versionFingerprint = '1',
   identity = getQuestionContractIdentity(question)
-): GetQuestionResponse => ({
+): PublicPracticeQuestion => ({
   id: identity?.questionId ?? getContractQuestionId(question.id),
   questionVersionId:
     identity?.questionVersionId ??
