@@ -69,28 +69,57 @@ describe('ProgressSheet (B4 manuscript strip)', () => {
     expect(container.querySelectorAll('text')).toHaveLength(5)
   })
 
-  it('drops the numbers when a square is under 20px', () => {
+  it('drops the numbers when a square is under 17px', () => {
     const { container } = render(
       <ProgressSheet
         states={Array<ProgressCellState>(20).fill('todo')}
-        singleRowCellSize={18}
+        singleRowCellSize={16}
       />
     )
     expect(container.querySelectorAll('text')).toHaveLength(0)
   })
 
-  it('drops two-digit numbers under 24px but keeps one digit at 20px+', () => {
-    // fallbackWidth 350 (jsdom), 16 squares in one row: 21.9px each.
+  it('keeps two-digit numbers under 24px, set smaller (JLP-869)', () => {
+    // fallbackWidth 350 (jsdom), 16 squares in one row: 21px each.
     const { container } = render(
       <ProgressSheet
         states={Array<ProgressCellState>(16).fill('todo')}
         singleRowCellSize={28}
       />
     )
-    const numbers = [...container.querySelectorAll('text')].map(
-      (node) => node.textContent
+    const texts = [...container.querySelectorAll('text')]
+    expect(texts.map((node) => node.textContent)).toEqual(
+      Array.from({ length: 16 }, (_, index) => String(index + 1))
     )
-    expect(numbers).toEqual(['1', '2', '3', '4', '5', '6', '7', '8', '9'])
+    expect(texts[8]).not.toHaveClass('is-small')
+    expect(texts[9]).toHaveClass('is-small')
+  })
+
+  it('fills a current square under 24px and keeps its two-digit number', () => {
+    // Squares of 20px, as in the 390px phone row at 10 / 10.
+    const states = Array<ProgressCellState>(10).fill('answered')
+    states[9] = 'current'
+    const { container } = render(
+      <ProgressSheet states={states} rowOf={9} maxCellSize={20} />
+    )
+    const number = container.querySelector('.progress-sheet-number.is-current')
+    expect(number).toHaveTextContent('10')
+    expect(number).toHaveClass('is-small', 'is-on-fill')
+    const box = container.querySelector('.progress-sheet-current')
+    expect(box).toHaveAttribute('width', '18')
+    expect(box).toHaveClass('is-filled')
+  })
+
+  it('fills the current square when no number fits', () => {
+    const states = Array<ProgressCellState>(10).fill('todo')
+    states[4] = 'current'
+    const { container } = render(
+      <ProgressSheet states={states} rowOf={4} maxCellSize={14} />
+    )
+    expect(container.querySelectorAll('text')).toHaveLength(0)
+    expect(container.querySelector('.progress-sheet-current')).toHaveClass(
+      'is-filled'
+    )
   })
 
   it('animates the red pen on the B4 timing and stays decorative', () => {
