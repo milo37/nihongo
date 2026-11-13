@@ -29,7 +29,67 @@ const extractBalancedBlocks = (source, marker) => {
   return blocks
 }
 
+const removeBalancedBlocks = (source, marker) => {
+  let result = source
+  for (;;) {
+    const match = marker.exec(result)
+    if (!match || match.index === undefined) return result
+    const start = result.indexOf('{', match.index)
+    if (start < 0) return result
+    let depth = 0
+    let end = -1
+    for (let index = start; index < result.length; index += 1) {
+      if (result[index] === '{') depth += 1
+      if (result[index] === '}') depth -= 1
+      if (depth === 0) {
+        end = index
+        break
+      }
+    }
+    if (end < 0) return result
+    result = result.slice(0, match.index) + result.slice(end + 1)
+  }
+}
+
+const reducedMotionMarker = /@media\s*\(prefers-reduced-motion:\s*reduce\)/iu
+
+// JLP-870: the minifier turned a shorthand with no animation name
+// ('animation: 300ms ... both') into 'animation:none' and the question push
+// vanished in production. Only reduced motion may switch an animation off.
+const validateAnimations = (css) => {
+  const motionCss = removeBalancedBlocks(css, reducedMotionMarker)
+  if (/animation:\s*none/iu.test(motionCss)) {
+    throw new Error(
+      'Built CSS switches an animation off outside reduced motion (a shorthand with no name?)'
+    )
+  }
+
+  const pushRules = [
+    ...motionCss.matchAll(/\.study-push\[data-push\]\s*\{([^}]*)\}/giu)
+  ].map((match) => match[1])
+  if (
+    !pushRules.some((rule) =>
+      /animation-duration:\s*(?:0?\.3s|300ms)/iu.test(rule)
+    )
+  ) {
+    throw new Error('Built CSS lost the 300ms question push duration')
+  }
+
+  const reducedMotionBlocks = extractBalancedBlocks(css, reducedMotionMarker)
+  if (
+    !reducedMotionBlocks.some((block) =>
+      /\.study-push\[data-push\]\s*\{[^}]*animation:\s*none/iu.test(block)
+    )
+  ) {
+    throw new Error(
+      'Built CSS no longer stops the question push for reduced motion'
+    )
+  }
+}
+
 export const validateBuiltCssContract = (css) => {
+  validateAnimations(css)
+
   if (!/\.ui-tab\s*\{[^}]*border-block-end:/u.test(css)) {
     throw new Error('Built CSS is missing the shared tab selection indicator')
   }
