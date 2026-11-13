@@ -29,6 +29,7 @@ const RATE_POLICIES: readonly (readonly [string, number])[] = [
   ...[
     'bookmark-list',
     'bookmark-write',
+    'client-error-report',
     'daily-question-read',
     'dashboard-insights-read',
     'dashboard-read',
