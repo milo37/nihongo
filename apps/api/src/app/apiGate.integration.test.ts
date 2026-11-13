@@ -11,8 +11,6 @@ import { createSsoIdentityRepository } from '../auth/ssoIdentityRepository.js'
 import { createSsoPublicRuntime } from '../auth/ssoPublicRuntime.js'
 import { createSsoTransactionStore } from '../auth/ssoTransactionRepository.js'
 import type { SsoVerifiedIdentity } from '../auth/ssoProtocol.js'
-import { createAuthEmailDispatcher } from '../auth/emailDispatcher.js'
-import { InMemoryAuthEmailPort } from '../auth/emailPort.js'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
 import { createOwnedAuthFacade } from '../auth/authFacade.js'
 import { createOwnedPrincipalService } from '../auth/principalService.js'
@@ -52,11 +50,6 @@ const createAdminConnection = (): Client =>
   })
 
 const adminClient = createAdminConnection()
-const emailPort = new InMemoryAuthEmailPort()
-const emailDispatcher = createAuthEmailDispatcher({
-  concurrency: 1,
-  emailPort
-})
 let applicationRuntime: DatabaseRuntime
 let authGatewayRuntime: RoleDatabaseRuntime
 let app: ReturnType<typeof createApiApp>
@@ -327,7 +320,6 @@ beforeAll(async () => {
 
   const ownedAuthFacade = createOwnedAuthFacade({
     client: applicationRuntime!.client,
-    emailDispatcher,
     environment
   })
   const rateLimiter = createApplicationRateLimiter({
@@ -407,7 +399,6 @@ beforeAll(async () => {
 }, 30_000)
 
 afterAll(async () => {
-  emailDispatcher.abort()
   await Promise.all([
     applicationRuntime?.disconnect(),
     authGatewayRuntime?.disconnect(),
@@ -569,10 +560,9 @@ describe('Technical API gate', () => {
     '/api/auth/reset-password',
     '/api/auth/set-password'
   ])(
-    'retired credential route %s rejects without cookies, mail or writes',
+    'retired credential route %s rejects without cookies or writes',
     async (path) => {
       const before = await readWriteCounts()
-      const mailCount = emailPort.messages.length
       for (const [pathname, body, cookie] of [
         [
           path,
@@ -597,7 +587,6 @@ describe('Technical API gate', () => {
         })
         expect(response.headers.get('Set-Cookie')).toBeNull()
         expect(await readWriteCounts()).toEqual(before)
-        expect(emailPort.messages).toHaveLength(mailCount)
         const logs = apiLogLines.join('\n')
         for (const value of [
           'retired@example.test',

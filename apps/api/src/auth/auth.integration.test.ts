@@ -20,8 +20,6 @@ import type { QuestionReader } from '../question/questionService.js'
 import { createAdminProvisioner } from '../../test/fixtures/auth/adminProvisioning.js'
 import { createAuthGateway } from './authGateway.js'
 import { createAuthRuntime } from './createAuth.js'
-import { createAuthEmailDispatcher } from './emailDispatcher.js'
-import { InMemoryAuthEmailPort } from './emailPort.js'
 import { createGuestPrincipalService } from './guestPrincipalService.js'
 import { createOwnedAuthFacade } from './authFacade.js'
 import {
@@ -88,13 +86,10 @@ const erasureWorkerClient = appFixtureDatabaseUrl
       )
     })
   : undefined
-const emailPort = new InMemoryAuthEmailPort()
-const emailDispatcher = createAuthEmailDispatcher({ emailPort })
 const auth = isCurrentSourceIntegration
   ? undefined
   : createAuthRuntime({
       client: database.client,
-      emailDispatcher,
       environment
     })
 const guestPrincipalService = createGuestPrincipalService({
@@ -129,7 +124,6 @@ const app = createApiApp({
           environment,
           ownedAuthFacade: createOwnedAuthFacade({
             client: database.client,
-            emailDispatcher,
             environment
           }),
           technicalRateLimiter: technicalAuthRateLimiter
@@ -267,7 +261,6 @@ afterAll(async () => {
     where: { createdAt: { gte: new Date(Date.now() - 60 * 60 * 1_000) } }
   })
   await database.client.rateLimit.deleteMany()
-  await emailDispatcher.drain()
   if (erasureWorkerClient) {
     await erasureWorkerClient.end()
   }
@@ -365,7 +358,6 @@ describe(
           where: { userId: session.userId }
         })
       ).toBe(1)
-      expect(emailPort.messages).toHaveLength(0)
       const signOut = await postAuth('/api/auth/sign-out', {}, session.cookie)
       await expectCookieOnlySuccess(signOut)
       expect(
