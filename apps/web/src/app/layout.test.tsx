@@ -54,16 +54,12 @@ it.each(['ko', 'ja'] as const)(
       within(primary)
         .getAllByRole('link')
         .map((a) => a.getAttribute('href'))
-    ).toEqual(['/', '/wrong-notes', '/bookmarks', '/account'])
+    ).toEqual(['/practice', '/wrong-notes', '/bookmarks', '/account'])
     expect(
       within(primary).getByRole('link', { name: appI18n.t('navigation:my') })
     ).toBeInTheDocument()
-    expect(
-      within(primary).getByRole('link', {
-        name: appI18n.t('navigation:learningStart')
-      })
-    ).toHaveAttribute('aria-current', 'page')
-    expect(primary.querySelectorAll('[aria-current="page"]')).toHaveLength(1)
+    // JLP-873: home lights no tab; the logo is the way home.
+    expect(primary.querySelectorAll('[aria-current]')).toHaveLength(0)
     expect(
       within(screen.getByRole('banner')).queryByRole('combobox')
     ).not.toBeInTheDocument()
@@ -114,7 +110,7 @@ it('renders no shell footer for learners', () => {
 })
 
 it.each(['ko', 'ja'] as const)(
-  'shares active learning context for member entry and preserves admin access (%s)',
+  'lights no tab on the member home and preserves admin access (%s)',
   async (locale) => {
     await appI18n.changeLanguage(locale)
     mocks.role = 'ADMIN'
@@ -124,14 +120,10 @@ it.each(['ko', 'ja'] as const)(
         <Layout />
       </MemoryRouter>
     )
+    // JLP-873: the member home lights no tab either.
     for (const id of ['primary-navigation', 'mobile-navigation']) {
       const nav = document.getElementById(id) as HTMLElement
-      expect(
-        within(nav).getByRole('link', {
-          name: appI18n.t('navigation:learningStart')
-        })
-      ).toHaveAttribute('aria-current', 'page')
-      expect(nav.querySelectorAll('[aria-current="page"]')).toHaveLength(1)
+      expect(nav.querySelectorAll('[aria-current]')).toHaveLength(0)
     }
     const account = screen.getByRole('button', {
       name: appI18n.t('navigation:accountMenu.label')
@@ -264,24 +256,39 @@ it('keeps an ordinary result in learning context rather than switching it to rev
   ).toHaveAttribute('aria-current', 'page')
 })
 it.each([
-  ['ko', '홈'],
-  ['ja', 'ホーム']
+  ['ko', '학습', '하루마루'],
+  ['ja', '学習', '하루마루']
 ] as const)(
-  'names the first tab home, links it to / and keeps it lit on the practice setup (JLP-873, %s)',
-  async (locale, label) => {
+  'reaches home by the logo, lights no tab there and lights 학습 on the practice setup (JLP-873, %s)',
+  async (locale, label, appName) => {
     await appI18n.changeLanguage(locale)
+    for (const path of ['/', '/dashboard?view=learning']) {
+      const { unmount } = render(
+        <MemoryRouter initialEntries={[path]}>
+          <Layout />
+        </MemoryRouter>
+      )
+      for (const id of ['primary-navigation', 'mobile-navigation']) {
+        const nav = document.getElementById(id) as HTMLElement
+        expect(nav.querySelector('[aria-current]')).toBeNull()
+      }
+      expect(screen.getByRole('link', { name: appName })).toHaveAttribute(
+        'href',
+        '/'
+      )
+      unmount()
+    }
     render(
       <MemoryRouter initialEntries={['/practice']}>
         <Layout />
       </MemoryRouter>
     )
     for (const id of ['primary-navigation', 'mobile-navigation']) {
-      const home = within(document.getElementById(id) as HTMLElement).getByRole(
-        'link',
-        { name: label }
-      )
-      expect(home).toHaveAttribute('href', '/')
-      expect(home).toHaveAttribute('aria-current', 'page')
+      const learning = within(
+        document.getElementById(id) as HTMLElement
+      ).getByRole('link', { name: label })
+      expect(learning).toHaveAttribute('href', '/practice')
+      expect(learning).toHaveAttribute('aria-current', 'page')
     }
   }
 )

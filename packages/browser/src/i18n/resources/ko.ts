@@ -94,7 +94,7 @@ export const koCoreResources = {
 
     skipToContent: '본문으로 건너뛰기',
     primary: '메뉴',
-    learningStart: '홈',
+    learningStart: '학습',
     practice: '문제 풀기',
     wrongNotes: '오답노트',
     bookmarks: '책갈피',

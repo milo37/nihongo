@@ -1864,13 +1864,13 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
   const mobileNavigation = page.locator('#mobile-navigation')
   await expect(mobileNavigation).toHaveAccessibleName(/\S/u)
   await expect(mobileNavigation.getByRole('link')).toHaveCount(4)
-  // JLP-873: the first tab is 홈 and goes to '/'; start on practice setup so
-  // the tab moves somewhere and stays current there.
-  await page.goto('/practice')
-  await settlePage(page)
-  const mobileHomeLink = mobileNavigation.locator('a[href="/"]')
-  await expect(mobileHomeLink).toHaveAttribute('aria-current', 'page')
-  await focusByTab(page, mobileHomeLink)
+  // JLP-873: home lights no tab; the logo goes home.
+  await expect(mobileNavigation.locator('[aria-current]')).toHaveCount(0)
+  await expect(
+    page.locator('header a.app-brand[href="/"]')
+  ).toHaveAccessibleName('하루마루')
+  const mobilePracticeLink = mobileNavigation.locator('a[href="/practice"]')
+  await focusByTab(page, mobilePracticeLink)
   await attachFocusedElementEvidence(
     page,
     testInfo,
@@ -1878,8 +1878,8 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
     44
   )
   await page.keyboard.press('Enter')
-  await expect(page).toHaveURL(/\/$/u)
-  await expect(mobileHomeLink).toHaveAttribute('aria-current', 'page')
+  await expect(page).toHaveURL(/\/practice$/u)
+  await expect(mobilePracticeLink).toHaveAttribute('aria-current', 'page')
   await expect(page.locator('main')).toBeFocused()
 
   await page.goto('/login?redirect=%2Fdashboard#credentials')

@@ -111,7 +111,7 @@ export const jaCoreResources = {
 
     skipToContent: '本文へスキップ',
     primary: 'メニュー',
-    learningStart: 'ホーム',
+    learningStart: '学習',
     practice: '問題を解く',
     wrongNotes: '間違いノート',
     bookmarks: 'ブックマーク',

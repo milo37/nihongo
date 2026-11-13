@@ -360,16 +360,17 @@ export const AppLayout = ({
   // JLP-854: a wrong-note retry is a session too; the bottom tabs would cover
   // its fixed submit bar under 1024px.
   const isFocusSession = location.pathname.startsWith('/practice/session/')
-  const isLearningActive =
+  const isLearningSurface =
     (isLearningEntry || isPracticeSurface) && !isReviewSurface
+  // JLP-873: home is reached by the logo and lights no tab; 학습 lights on
+  // the practice setup and its results only.
+  const isLearningTabActive = isPracticeSurface && !isReviewSurface
   const navigationItems: readonly NavigationItem[] = [
     {
-      // JLP-873: the first tab is 'home' and always goes to /; it stays lit on
-      // the practice setup and results, which belong to the home area.
-      to: '/',
+      to: '/practice',
       label: 'learningStart',
       icon: 'house',
-      active: isLearningActive
+      active: isLearningTabActive
     },
     {
       to: '/wrong-notes',
@@ -402,7 +403,7 @@ export const AppLayout = ({
       : 'app-shell-no-rail'
   const surface = isReviewSurface
     ? 'review'
-    : isLearningActive
+    : isLearningSurface
       ? 'learning'
       : 'general'
   const content =

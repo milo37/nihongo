@@ -1181,11 +1181,13 @@ test('guest SSO boundary and authenticated practice transition match the active 
     await settleJourneyPage(page)
   }
   await loginThroughUi(page)
-  // JLP-873: the first tab is 홈 and goes to '/', which sends a member to
-  // the learning home; practice setup is opened by its address.
-  await page.locator('#primary-navigation a[href="/"]').click()
+  // JLP-873: the member home lights no tab; 학습 goes to practice setup.
   await expect(page).toHaveURL(/\/dashboard\?view=learning$/u)
-  await page.goto('/practice')
+  await expect(page.locator('#primary-navigation [aria-current]')).toHaveCount(
+    0
+  )
+  await expect(page.locator('header a.app-brand[href="/"]')).toHaveCount(1)
+  await page.locator('#primary-navigation a[href="/practice"]').click()
   await expect(page).toHaveURL(/\/practice$/u)
   await expect(recommendationRegion(page)).toHaveCount(0)
   await settleJourneyPage(page)
@@ -1206,16 +1208,14 @@ test('guest SSO boundary and authenticated practice transition match the active 
     {
       method: 'GET',
       path: '/api/v1/me',
-      // JLP-873: one more for the page load of /practice after the 홈 tab.
-      statuses: successfulStatuses(mode === 'mock' ? 7 : 6)
+      statuses: successfulStatuses(mode === 'mock' ? 6 : 5)
     },
     { method: 'GET', path: '/api/v1/guest-allowance', statuses: [200] },
     // The first screen shows today's question (D, #801).
     { method: 'GET', path: '/api/v1/daily-question', statuses: [200] },
     // After login the member first screen reads its 'to review' line (JLP-823).
     { method: 'GET', path: '/api/v1/review-list', statuses: [200] },
-    // Member home and practice setup each read the resumable sets (JLP-873).
-    { method: 'GET', path: '/api/v1/study-sessions', statuses: [200, 200] }
+    { method: 'GET', path: '/api/v1/study-sessions', statuses: [200] }
   ])
 })
 
