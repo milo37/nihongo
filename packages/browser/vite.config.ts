@@ -23,6 +23,9 @@ const approvedBrandAssetPaths = [
   'icons/icon-512.png'
 ] as const
 
+// JLP-511: crawler files for the learner site only; the admin build has none.
+const learnerCrawlerFilePaths = ['robots.txt', 'sitemap.xml'] as const
+
 const workspaceRoot = path.resolve(import.meta.dirname, '../..')
 
 export const createSharedViteConfig = (root: string, admin = false) => {
@@ -157,6 +160,21 @@ export const createBrowserViteConfig = (root: string, admin = false) =>
         }
       }
     }
+    const learnerCrawlerFiles: Plugin = {
+      name: 'nihongo-learner-crawler-files',
+      apply: 'build',
+      async generateBundle() {
+        for (const fileName of learnerCrawlerFilePaths) {
+          this.emitFile({
+            type: 'asset',
+            fileName,
+            source: await readFile(
+              path.join(workspaceRoot, 'apps/web/public', fileName)
+            )
+          })
+        }
+      }
+    }
     // The admin dev server has no public folder and prefixes its base to the
     // already-based /admin/ icon links. Serve the approved brand files under
     // the base and undo the doubled prefix; builds keep brandAssets above.
@@ -197,7 +215,7 @@ export const createBrowserViteConfig = (root: string, admin = false) =>
       plugins: [
         ...sharedConfig.plugins,
         brandAssets,
-        ...(admin ? [adminDevBrandAssets] : []),
+        ...(admin ? [adminDevBrandAssets] : [learnerCrawlerFiles]),
         buildBoundary,
         {
           name: 'nihongo-release-metadata',
