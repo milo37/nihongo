@@ -56,7 +56,7 @@ const focusHashTarget = (hash: string): boolean => {
 type NavigationItem = {
   to: string
   label: 'learningStart' | 'wrongNotes' | 'bookmarks' | 'my'
-  icon: 'house' | 'rotate-ccw' | 'bookmark' | 'user-round'
+  icon: 'book-open' | 'rotate-ccw' | 'bookmark' | 'user-round'
   active: boolean
 }
 
@@ -194,7 +194,8 @@ const DefaultAccountMenu = ({
               {user ? user.name : t('login')}
             </Link>
             {role !== 'GUEST' ? (
-              <Link to="/dashboard?view=learning" onClick={onClose}>
+              // JLP-873: same place as the 학습 tab; the logo is the way home.
+              <Link to="/practice" onClick={onClose}>
                 {t('learningStart')}
               </Link>
             ) : null}
@@ -369,7 +370,8 @@ export const AppLayout = ({
     {
       to: '/practice',
       label: 'learningStart',
-      icon: 'house',
+      // JLP-873: a house read as home; home is the logo now.
+      icon: 'book-open',
       active: isLearningTabActive
     },
     {
