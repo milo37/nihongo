@@ -595,10 +595,15 @@
     box-shadow: none;
     color: rgb(var(--color-ink));
   }
-  /* Hover and press look the same in and out, so no box stays behind. */
-  .ui-button.ui-button-toggle-icon:not(:disabled):hover,
+  /* Hover and press look the same in and out, so no box stays behind.
+     Hover only where a pointer hovers: on touch it would stick after a tap. */
   .ui-button.ui-button-toggle-icon:not(:disabled):active {
     background: rgb(var(--color-surface-muted));
+  }
+  @media (hover: hover) {
+    .ui-button.ui-button-toggle-icon:not(:disabled):hover {
+      background: rgb(var(--color-surface-muted));
+    }
   }
 }
 
