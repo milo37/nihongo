@@ -10,12 +10,17 @@ import { SheetTail } from '@common/components/manuscript/ManuscriptSheet'
 import { JaText } from '@common/components/JaText'
 import { jaTextProps } from '@common/libs/jaSpacing'
 
+/** JLP-870 push: which way this card's blocks slide, in or out. */
+export type QuestionPush = 'in-next' | 'in-prev' | 'out-next' | 'out-prev'
+
 type PracticeQuestionCardProps = {
   actions: ReactNode
   bookmarkStatus: ReactNode
   headingRef: RefObject<HTMLHeadingElement | null>
   isOptionsDisabled: boolean
   onSelectOption: (optionId: string) => void
+  /** Slide the passage and question blocks; the action bar never moves. */
+  push?: QuestionPush | undefined
   question: StudyQuestionView
   questionNumber: number
   saveStatus: ReactNode
@@ -34,17 +39,20 @@ const OPTION_GROUP_CLASS =
  */
 const QuestionPassage = ({
   passage,
-  passageRef
+  passageRef,
+  push
 }: {
   passage: string
   passageRef: RefObject<HTMLElement | null>
+  push: QuestionPush | undefined
 }): ReactElement => {
   const { t } = useTranslation('practice')
   return (
     <article
       ref={passageRef}
       aria-label={t('session.question.passageLabel')}
-      className="scroll-mt-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand lg:sticky lg:top-6 lg:max-h-[calc(100vh-140px)] lg:overflow-y-auto"
+      className="study-push scroll-mt-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand lg:sticky lg:top-6 lg:max-h-[calc(100vh-140px)] lg:overflow-y-auto"
+      data-push={push}
       tabIndex={0}
     >
       <p className="study-passage-head">
@@ -78,8 +86,14 @@ const usePassageOutOfView = (
     const passage = passageRef.current
     if (!hasPassage || !passage || typeof IntersectionObserver === 'undefined')
       return
+    // Only scrolling counts: a push slide (JLP-870) moves the passage off
+    // to the side, which is not scrolling past it.
     const observer = new IntersectionObserver(([entry]) => {
-      setOut(entry ? !entry.isIntersecting : false)
+      const box = entry?.boundingClientRect
+      const view = entry?.rootBounds
+      setOut(
+        box && view ? box.bottom <= view.top || box.top >= view.bottom : false
+      )
     })
     observer.observe(passage)
     return () => {
@@ -96,6 +110,7 @@ export const PracticeQuestionCard = ({
   headingRef,
   isOptionsDisabled,
   onSelectOption,
+  push,
   question,
   questionNumber,
   saveStatus,
@@ -129,74 +144,82 @@ export const PracticeQuestionCard = ({
       }
     >
       {question.passage ? (
-        <QuestionPassage passage={question.passage} passageRef={passageRef} />
+        <QuestionPassage
+          passage={question.passage}
+          passageRef={passageRef}
+          push={push}
+        />
       ) : null}
 
       {/* Tags can name the answer, so they appear only after submission. */}
       <article className="min-w-0">
-        {bookmarkStatus}
+        {/* The action bar stays outside: it is fixed on phones, and a
+            transform on its ancestor would carry it along (JLP-870). */}
+        <div className="study-push" data-push={push}>
+          {bookmarkStatus}
 
-        <div className="flex items-start justify-between gap-3">
-          <h1
-            ref={headingRef}
-            className="min-w-0 rounded-sm outline-none [text-wrap:wrap]"
-            tabIndex={-1}
-          >
-            <span className="mb-2 block text-[13px] font-bold text-muted">
-              {t('session.question.numberLabel', {
-                ordinal: formatCount(questionNumber)
-              })}{' '}
-            </span>
-            <span
-              className="study-question-text block font-bold"
-              {...jaTextProps(question.questionText)}
+          <div className="flex items-start justify-between gap-3">
+            <h1
+              ref={headingRef}
+              className="min-w-0 rounded-sm outline-none [text-wrap:wrap]"
+              tabIndex={-1}
             >
-              <JaText text={question.questionText} />
-            </span>
-          </h1>
-          {isPassageOut ? (
-            <button
-              className="note-link min-h-11 shrink-0 gap-1 text-[13px]"
-              type="button"
-              onClick={showPassage}
-            >
-              <Icon className="size-4 rotate-90" name="chevron-left" />
-              {t('session.question.passageLabel')}
-            </button>
-          ) : null}
-        </div>
+              <span className="mb-2 block text-[13px] font-bold text-muted">
+                {t('session.question.numberLabel', {
+                  ordinal: formatCount(questionNumber)
+                })}{' '}
+              </span>
+              <span
+                className="study-question-text block font-bold"
+                {...jaTextProps(question.questionText)}
+              >
+                <JaText text={question.questionText} />
+              </span>
+            </h1>
+            {isPassageOut ? (
+              <button
+                className="note-link min-h-11 shrink-0 gap-1 text-[13px]"
+                type="button"
+                onClick={showPassage}
+              >
+                <Icon className="size-4 rotate-90" name="chevron-left" />
+                {t('session.question.passageLabel')}
+              </button>
+            ) : null}
+          </div>
 
-        <div className="mt-5 lg:mt-6">
-          <RadioGroup
-            className={OPTION_GROUP_CLASS}
-            disabled={isOptionsDisabled}
-            name={`question-${question.id}`}
-            legend={t('session.question.answerLegend')}
-            value={selectedOptionId ?? ''}
-            options={question.options.map((option) => ({
-              value: option.id,
-              label: (
-                <span className="flex items-center gap-3 font-normal">
-                  <span
-                    aria-hidden="true"
-                    className="study-option-number grid size-7.5 shrink-0 place-items-center text-sm font-bold"
-                  >
-                    {option.label}
+          <div className="mt-5 lg:mt-6">
+            <RadioGroup
+              className={OPTION_GROUP_CLASS}
+              disabled={isOptionsDisabled}
+              name={`question-${question.id}`}
+              legend={t('session.question.answerLegend')}
+              value={selectedOptionId ?? ''}
+              options={question.options.map((option) => ({
+                value: option.id,
+                label: (
+                  <span className="flex items-center gap-3 font-normal">
+                    <span
+                      aria-hidden="true"
+                      className="study-option-number grid size-7.5 shrink-0 place-items-center text-sm font-bold"
+                    >
+                      {option.label}
+                    </span>
+                    <span
+                      className="study-option-text min-w-0 leading-[1.6]"
+                      {...jaTextProps(option.text)}
+                    >
+                      <span className="sr-only">{option.label}. </span>
+                      <JaText text={option.text} />
+                    </span>
                   </span>
-                  <span
-                    className="study-option-text min-w-0 leading-[1.6]"
-                    {...jaTextProps(option.text)}
-                  >
-                    <span className="sr-only">{option.label}. </span>
-                    <JaText text={option.text} />
-                  </span>
-                </span>
-              )
-            }))}
-            onValueChange={onSelectOption}
-          />
+                )
+              }))}
+              onValueChange={onSelectOption}
+            />
+          </div>
+          {saveStatus}
         </div>
-        {saveStatus}
         {actions}
       </article>
     </div>

@@ -870,6 +870,52 @@ describe('PracticeSessionPage', () => {
     )
   })
 
+  it('다음 이동 때 앞 문제는 가린 채 밀려 나가고 새 문제 제목에 초점이 간다 (JLP-870)', async ({
+    onTestFinished
+  }) => {
+    onTestFinished(() => {
+      vi.unstubAllGlobals()
+    })
+    vi.stubGlobal(
+      'matchMedia',
+      (query: string): Pick<MediaQueryList, 'matches'> => ({
+        matches: query.includes('no-preference')
+      })
+    )
+    const user = userEvent.setup()
+    const payload = await startSession(3)
+    renderSession(payload.session.id)
+    await screen.findByRole('heading', { level: 1 })
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '다음' })).toBeEnabled()
+    )
+    await user.click(screen.getByRole('button', { name: '다음' }))
+    const heading = await screen.findByRole('heading', { level: 1 })
+    await waitFor(() => expect(heading).toHaveTextContent('2번 문제.'))
+    await waitFor(() => expect(heading).toHaveFocus())
+    // One heading and one answer group for assistive tech; the leaving
+    // copy is hidden and inert.
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(screen.getAllByRole('radio')).toHaveLength(
+      payload.questions[1]?.options.length ?? 0
+    )
+    const leaving = document.querySelector('.study-push-leaving')
+    expect(leaving).toHaveAttribute('aria-hidden', 'true')
+    expect(leaving).toHaveAttribute('inert')
+    expect(leaving?.textContent).toContain('1번 문제.')
+    expect(
+      document.querySelector('.study-push[data-push="in-next"]')
+    ).not.toBeNull()
+    // The action bar is never inside a moving block.
+    expect(
+      screen.getByRole('button', { name: '다음' }).closest('.study-push')
+    ).toBeNull()
+    if (leaving) fireEvent.animationEnd(leaving)
+    await waitFor(() =>
+      expect(document.querySelector('.study-push-leaving')).toBeNull()
+    )
+  })
+
   it('미응답 수를 확인한 뒤 제출하면 결과 경로로 이동한다', async () => {
     // Server drafts are members only (guests keep answers locally).
     await loginAsUser()
