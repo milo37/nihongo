@@ -5,14 +5,10 @@ import {
   Button,
   getButtonClassName
 } from '@nihongo/browser/common/components/Button'
-import { Icon } from '@nihongo/browser/common/components/Icon'
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import type { useListResumableStudySessions } from '@app/practice/hooks/useListResumableStudySessions'
-import {
-  formatDateTime,
-  formatNumber
-} from '@nihongo/browser/libs/localeFormatters'
+import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 
 type ResumableQuery = ReturnType<typeof useListResumableStudySessions>
@@ -47,25 +43,19 @@ const ResumableRecord = ({
   return (
     <div className="practice-recent-record">
       <div className="practice-resume-info">
+        {/* On a narrow phone the text wraps between level and subject, never
+            inside the subject (JLP-872). */}
         <h3>
-          {item.level} {commonT(`taxonomy.subjects.${item.subject}`)}
+          {item.level}{' '}
+          <span className="whitespace-nowrap">
+            {commonT(`taxonomy.subjects.${item.subject}`)}
+          </span>
         </h3>
         <p className="practice-resume-progress">
           {t('setup.resume.summary', {
             formattedCount: formatNumber(item.actualCount, locale),
             formattedOrdinal: formatNumber(item.currentOrdinal ?? 1, locale)
           })}
-        </p>
-        <p className="practice-resume-context">
-          {t(`setup.modes.${item.mode}.label`)} ·{' '}
-          {item.draftSavedAt
-            ? t('setup.resume.lastSaved', {
-                date: formatDateTime(item.draftSavedAt, locale, {
-                  dateStyle: 'medium',
-                  timeStyle: 'short'
-                })
-              })
-            : t('setup.resume.notSaved')}
         </p>
         {item.resumeAvailability === 'LEGACY_LOCAL_ONLY' && !canResume ? (
           <p className="practice-resume-warning">
@@ -76,12 +66,13 @@ const ResumableRecord = ({
       <div className="practice-resume-actions">
         {canResume ? (
           <>
+            {/* JLP-872: an outline button, so the start button stays the
+                only filled one on the screen. */}
             <Link
-              className={getButtonClassName({})}
+              className={getButtonClassName({ variant: 'outline' })}
               to={`/practice/session/${item.id}`}
             >
               {t('setup.resume.action')}
-              <Icon name="arrow-right" />
             </Link>
             <Button
               className="practice-resume-cancel"

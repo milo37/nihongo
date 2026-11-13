@@ -23,6 +23,7 @@ import type {
   RequestLedgerEntry,
   RequestLedgerContractEntry
 } from './request-ledger'
+import { moveQuestionAndSettle } from './questionPush'
 
 import process from 'node:process'
 import { expect, test } from '@playwright/test'
@@ -766,7 +767,9 @@ const answerEveryQuestionWithFirstOption = async (
     try {
       if (!isSingleReview) {
         if (ordinal > 1)
-          await page.getByRole('button', { name: '다음', exact: true }).click()
+          await moveQuestionAndSettle(page, () =>
+            page.getByRole('button', { name: '다음', exact: true }).click()
+          )
         await expect(sheetTrigger).toHaveText(
           `${ordinal} / ${created.questions.length}`
         )
@@ -1178,6 +1181,12 @@ test('guest SSO boundary and authenticated practice transition match the active 
     await settleJourneyPage(page)
   }
   await loginThroughUi(page)
+  // JLP-873: the member home lights no tab; 학습 goes to practice setup.
+  await expect(page).toHaveURL(/\/dashboard\?view=learning$/u)
+  await expect(page.locator('#primary-navigation [aria-current]')).toHaveCount(
+    0
+  )
+  await expect(page.locator('header a.app-brand[href="/"]')).toHaveCount(1)
   await page.locator('#primary-navigation a[href="/practice"]').click()
   await expect(page).toHaveURL(/\/practice$/u)
   await expect(recommendationRegion(page)).toHaveCount(0)
@@ -1236,7 +1245,7 @@ if (mode === 'real')
       await answers.first().waitFor({ state: 'attached' })
       await answers.first().check({ force: true })
       if (!((await next.count()) > 0 && (await next.first().isEnabled()))) break
-      await next.first().click()
+      await moveQuestionAndSettle(page, () => next.first().click())
     }
     await page
       .locator('button')
