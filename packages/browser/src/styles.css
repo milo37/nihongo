@@ -586,6 +586,27 @@
   box-shadow: inset 0 0 0 1px rgb(var(--selection-border));
 }
 
+/* JLP-878: an icon toggle (the result's [책갈피]) shows its state by the
+   icon alone, so no pressed box; forced colors keep their Highlight border. */
+@media (forced-colors: none) {
+  .ui-button.ui-button-toggle-icon[aria-pressed='true']:not(:disabled) {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+    color: rgb(var(--color-ink));
+  }
+  /* Hover and press look the same in and out, so no box stays behind.
+     Hover only where a pointer hovers: on touch it would stick after a tap. */
+  .ui-button.ui-button-toggle-icon:not(:disabled):active {
+    background: rgb(var(--color-surface-muted));
+  }
+  @media (hover: hover) {
+    .ui-button.ui-button-toggle-icon:not(:disabled):hover {
+      background: rgb(var(--color-surface-muted));
+    }
+  }
+}
+
 .practice-setup-page {
   width: 100%;
   max-width: 840px;
