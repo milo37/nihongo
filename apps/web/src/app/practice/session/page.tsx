@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Navigate, useOutletContext, useParams } from 'react-router'
 import type { ReactElement, RefObject } from 'react'
@@ -12,6 +12,7 @@ import {
 } from '@app/practice/session/components/PracticeQuestionBookmark'
 import { PracticeQuestionActions } from '@app/practice/session/components/PracticeQuestionActions'
 import { PracticeQuestionCard } from '@app/practice/session/components/PracticeQuestionCard'
+import type { QuestionPush } from '@app/practice/session/components/PracticeQuestionCard'
 import { PracticeQuestionNavigator } from '@app/practice/session/components/PracticeQuestionNavigator'
 import {
   PracticeNavigationGuardDialog,
@@ -24,6 +25,8 @@ import {
   SessionRecoveryState,
   SessionSetupLinkError
 } from '@app/practice/session/components/PracticeSessionStateScreens'
+import { useQuestionPush } from '@app/practice/session/useQuestionPush'
+import type { QuestionPushMove } from '@app/practice/session/useQuestionPush'
 
 type SessionController = ReturnType<typeof usePracticeSessionController>
 type SessionQuestion = NonNullable<SessionController['currentQuestion']>
@@ -34,12 +37,14 @@ const CurrentQuestionCard = ({
   question,
   headingRef,
   isReview,
+  push,
   submitButtonRef
 }: {
   session: SessionController
   question: SessionQuestion
   headingRef: RefObject<HTMLHeadingElement | null>
   isReview: boolean
+  push: QuestionPush | undefined
   submitButtonRef: RefObject<HTMLButtonElement | null>
 }): ReactElement => {
   const inlineSaveStatus = session.isInlineDraftStatus
@@ -72,6 +77,7 @@ const CurrentQuestionCard = ({
         session.isSubmitDialogOpen || session.isQuestionNavigationLocked
       }
       onSelectOption={session.handleSelectOption}
+      push={push}
       question={question}
       questionNumber={session.safeQuestionIndex + 1}
       saveStatus={
@@ -85,6 +91,61 @@ const CurrentQuestionCard = ({
       }
       selectedOptionId={session.displayedSelectedAnswers[question.id]}
     />
+  )
+}
+
+const ignoreSelect = (): void => undefined
+
+/**
+ * JLP-870: the question being pushed out, drawn over the new one's place.
+ * Hidden from assistive tech and input; gone when its slide ends. It has no
+ * h1 and no radios: its hidden inputs become unnamed checkboxes (they keep
+ * the chosen look, which reads input:checked), so the document holds one
+ * heading and one answer group throughout.
+ */
+const LeavingQuestionCard = ({
+  move,
+  question,
+  selectedOptionId
+}: {
+  move: QuestionPushMove
+  question: SessionQuestion
+  selectedOptionId: string | undefined
+}): ReactElement => {
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const copyRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    for (const input of copyRef.current?.querySelectorAll('input') ?? []) {
+      input.type = 'checkbox'
+      input.removeAttribute('name')
+      input.removeAttribute('id')
+    }
+    for (const label of copyRef.current?.querySelectorAll('label') ?? []) {
+      label.removeAttribute('for')
+    }
+  }, [])
+  return (
+    <div
+      ref={copyRef}
+      className="study-push-leaving"
+      aria-hidden="true"
+      inert
+      onAnimationEnd={move.finish}
+    >
+      <PracticeQuestionCard
+        actions={null}
+        bookmarkStatus={null}
+        headingRef={headingRef}
+        isDecorative
+        isOptionsDisabled
+        onSelectOption={ignoreSelect}
+        push={`out-${move.direction ?? 'next'}`}
+        question={question}
+        questionNumber={(move.from ?? 0) + 1}
+        saveStatus={null}
+        selectedOptionId={selectedOptionId}
+      />
+    </div>
   )
 }
 
@@ -125,6 +186,12 @@ export const PracticeSessionPage = (): ReactElement => {
   const submitButtonRef = useRef<HTMLButtonElement>(null)
   const [isQuestionSheetOpen, setQuestionSheetOpen] = useState(false)
   const session = usePracticeSessionController({ headingRef, sessionId })
+  const push = useQuestionPush(
+    session.safeQuestionIndex,
+    Boolean(session.currentQuestion) &&
+      session.sessionQuery.data?.session.status === 'IN_PROGRESS' &&
+      (!session.isV2Session || session.draftController.isReady)
+  )
   const refetchSession = (): void => void session.sessionQuery.refetch()
 
   const navigationPrompt = (
@@ -270,6 +337,7 @@ export const PracticeSessionPage = (): ReactElement => {
   }
 
   const question = session.currentQuestion
+  const leaving = push.from === null ? undefined : session.questions[push.from]
   return (
     <section
       className={`learning-note study-session ${reviewContext ? 'study-review-session' : ''} w-full`}
@@ -319,13 +387,27 @@ export const PracticeSessionPage = (): ReactElement => {
           sessionData={session.sessionQuery.data}
         />
 
-        <CurrentQuestionCard
-          session={session}
-          question={question}
-          headingRef={headingRef}
-          isReview={Boolean(reviewContext)}
-          submitButtonRef={submitButtonRef}
-        />
+        <div className="relative">
+          {leaving ? (
+            <LeavingQuestionCard
+              key={`leaving-${push.key}`}
+              move={push}
+              question={leaving}
+              selectedOptionId={session.displayedSelectedAnswers[leaving.id]}
+            />
+          ) : null}
+          <CurrentQuestionCard
+            key={push.key}
+            session={session}
+            question={question}
+            headingRef={headingRef}
+            isReview={Boolean(reviewContext)}
+            push={
+              leaving && push.direction ? `in-${push.direction}` : undefined
+            }
+            submitButtonRef={submitButtonRef}
+          />
+        </div>
       </div>
 
       <PracticeQuestionNavigator

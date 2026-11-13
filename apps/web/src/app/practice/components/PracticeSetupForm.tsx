@@ -112,8 +112,7 @@ const StartSummary = ({
   isGuest,
   isCreating,
   isGuestDailyLimitReached,
-  guestAllowance,
-  hasResumableSession
+  guestAllowance
 }: Pick<
   PracticeSetupFormProps,
   | 'level'
@@ -125,7 +124,6 @@ const StartSummary = ({
   | 'isCreating'
   | 'isGuestDailyLimitReached'
   | 'guestAllowance'
-  | 'hasResumableSession'
 >): ReactElement | null => {
   const { i18n, t } = useTranslation('practice')
   const { t: homeT } = useTranslation('home')
@@ -143,7 +141,8 @@ const StartSummary = ({
       </p>
       <Button
         className="practice-start-button"
-        variant={hasResumableSession ? 'outline' : 'primary'}
+        // JLP-872: starting a new set is always the one filled button.
+        variant="primary"
         fullWidth
         type="submit"
         aria-label={isCreating ? homeT('approved.loading') : undefined}
@@ -305,7 +304,6 @@ export const PracticeSetupForm = ({
         isCreating={isCreating}
         isGuestDailyLimitReached={isGuestDailyLimitReached}
         guestAllowance={guestAllowance}
-        hasResumableSession={hasResumableSession}
       />
       {isGuest ? null : (
         <ModeOptions

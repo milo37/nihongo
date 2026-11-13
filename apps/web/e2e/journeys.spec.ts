@@ -23,6 +23,7 @@ import type {
   RequestLedgerEntry,
   RequestLedgerContractEntry
 } from './request-ledger'
+import { moveQuestionAndSettle } from './questionPush'
 
 import process from 'node:process'
 import { expect, test } from '@playwright/test'
@@ -766,7 +767,9 @@ const answerEveryQuestionWithFirstOption = async (
     try {
       if (!isSingleReview) {
         if (ordinal > 1)
-          await page.getByRole('button', { name: '다음', exact: true }).click()
+          await moveQuestionAndSettle(page, () =>
+            page.getByRole('button', { name: '다음', exact: true }).click()
+          )
         await expect(sheetTrigger).toHaveText(
           `${ordinal} / ${created.questions.length}`
         )
@@ -1242,7 +1245,7 @@ if (mode === 'real')
       await answers.first().waitFor({ state: 'attached' })
       await answers.first().check({ force: true })
       if (!((await next.count()) > 0 && (await next.first().isEnabled()))) break
-      await next.first().click()
+      await moveQuestionAndSettle(page, () => next.first().click())
     }
     await page
       .locator('button')

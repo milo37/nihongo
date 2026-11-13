@@ -130,3 +130,58 @@ label:has(input:checked) .study-option-text {
     font-size: 21px;
   }
 }
+
+/* JLP-870: moving between questions pushes the old one out and brings the
+   new one in, full width, 300ms. Only the passage and question blocks move;
+   the header, the notices and the action bar (fixed on phones) stay put. */
+.study-session {
+  overflow-x: clip;
+}
+.study-push-leaving {
+  position: absolute;
+  inset: 0 0 auto;
+  pointer-events: none;
+}
+.study-push[data-push] {
+  animation: 300ms cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+.study-push[data-push='in-next'] {
+  animation-name: study-push-from-right;
+}
+.study-push[data-push='in-prev'] {
+  animation-name: study-push-from-left;
+}
+.study-push[data-push='out-next'] {
+  animation-name: study-push-to-left;
+}
+.study-push[data-push='out-prev'] {
+  animation-name: study-push-to-right;
+}
+@keyframes study-push-from-right {
+  from {
+    transform: translateX(100vw);
+  }
+}
+@keyframes study-push-from-left {
+  from {
+    transform: translateX(-100vw);
+  }
+}
+@keyframes study-push-to-left {
+  to {
+    transform: translateX(-100vw);
+  }
+}
+@keyframes study-push-to-right {
+  to {
+    transform: translateX(100vw);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .study-push[data-push] {
+    animation: none;
+  }
+  .study-push-leaving {
+    display: none;
+  }
+}
