@@ -11,22 +11,49 @@ const CONSENT_LINKS = {
   privacy: '/legal#privacy'
 } as const
 
-// Turns the <terms>…</terms> and <privacy>…</privacy> marks in the consent
-// text into links. (react-i18next's Trans would add an HTML parser package
-// to the production bundle.)
-const linkConsent = (text: string): ReactNode[] =>
-  text
-    .split(/(<(?:terms|privacy)>.*?<\/(?:terms|privacy)>)/u)
-    .map((part, index) => {
-      const match = /^<(terms|privacy)>(.*)<\/\1>$/u.exec(part)
-      if (!match) return part
-      const name = match[1] as keyof typeof CONSENT_LINKS
-      return (
-        <Link key={index} to={CONSENT_LINKS[name]}>
-          {match[2]}
+type ConsentLinkName = keyof typeof CONSENT_LINKS
+
+const consentLinkNames = Object.keys(CONSENT_LINKS) as ConsentLinkName[]
+
+/**
+ * Turns the <terms>…</terms> and <privacy>…</privacy> marks in the consent
+ * text into links with plain string search, no regular expression, so every
+ * browser reads it the same way. A mark without its end is dropped, never
+ * shown. (react-i18next's Trans would add an HTML parser to the bundle.)
+ */
+export const linkConsent = (text: string): ReactNode[] => {
+  const parts: ReactNode[] = []
+  let rest = text
+  while (rest) {
+    const next = consentLinkNames
+      .map((name) => ({ name, start: rest.indexOf(`<${name}>`) }))
+      .filter(({ start }) => start >= 0)
+      .sort((left, right) => left.start - right.start)[0]
+    if (!next) {
+      parts.push(rest)
+      break
+    }
+    const open = `<${next.name}>`
+    const close = `</${next.name}>`
+    const end = rest.indexOf(close, next.start + open.length)
+    if (next.start > 0) parts.push(rest.slice(0, next.start))
+    const label = rest.slice(
+      next.start + open.length,
+      end < 0 ? undefined : end
+    )
+    parts.push(
+      end < 0 ? (
+        label
+      ) : (
+        <Link key={parts.length} to={CONSENT_LINKS[next.name]}>
+          {label}
         </Link>
       )
-    })
+    )
+    rest = end < 0 ? '' : rest.slice(end + close.length)
+  }
+  return parts
+}
 
 export type SignInNotice = { message: string; tone: 'error' | 'info' }
 

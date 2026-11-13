@@ -979,9 +979,14 @@ describe('approved general result navigation', () => {
     await userEvent.setup().click(button)
     const toasts = await screen.findByRole('region', { name: '알림' })
     expect(await within(toasts).findByText('책갈피에 담았어요.')).toBeVisible()
-    expect(
-      screen.getByRole('button', { name: '2번 문제를 책갈피에서 빼기' })
-    ).toHaveAttribute('aria-pressed', 'true')
+    const saved = screen.getByRole('button', {
+      name: '2번 문제를 책갈피에서 빼기'
+    })
+    expect(saved).toHaveAttribute('aria-pressed', 'true')
+    // JLP-878: the words stay; only the ribbon fills, with no pressed box.
+    expect(saved).toHaveTextContent(/^책갈피$/u)
+    expect(saved).toHaveClass('ui-button-toggle-icon')
+    expect(saved.className).toContain('aria-pressed:[&_svg]:fill-current')
     view.unmount()
     fixture.client.clear()
   })

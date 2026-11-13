@@ -54,7 +54,9 @@ const ResultManageButtons = ({
   return (
     <div className="flex flex-wrap gap-2">
       <Button
-        className="aria-disabled:cursor-wait aria-disabled:opacity-70"
+        // JLP-878: the words stay '책갈피'; the ribbon fills in brand red
+        // when it is in, and the button draws no pressed box.
+        className="ui-button-toggle-icon aria-disabled:cursor-wait aria-disabled:opacity-70 aria-pressed:[&_svg]:fill-current aria-pressed:[&_svg]:text-brand"
         variant="ghost"
         disabled={!item.question.questionVersionId}
         // Focus stays here while busy (a toast closed with Esc returns to it).
@@ -70,7 +72,7 @@ const ResultManageButtons = ({
         }}
       >
         <Icon name="bookmark" />
-        {isBookmarked ? t('bookmark.remove') : t('bookmark.add')}
+        {t('bookmark.add')}
       </Button>
       {canReport &&
       item.question.questionVersionId &&
