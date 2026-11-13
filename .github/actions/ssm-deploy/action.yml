@@ -53,7 +53,7 @@ runs:
 
     - name: Assume the deploy role (OIDC, no stored keys)
       if: steps.tip.outputs.latest == 'true'
-      uses: aws-actions/configure-aws-credentials@v4
+      uses: aws-actions/configure-aws-credentials@v6
       with:
         role-to-assume: ${{ inputs.role-arn }}
         aws-region: ${{ inputs.aws-region }}
