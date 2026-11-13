@@ -17,8 +17,8 @@ export type ProgressCellState =
 /**
  * Below this side a square drops its number; "13 / 20" says it (B4 §11).
  * JLP-869: under FULL_SIZE a two-digit number is set smaller and the current
- * box sits on the square's own rules, so "10" fits where "9" does. A current
- * square with no room for its number is filled instead of left empty.
+ * square is filled in ink with its number in the paper colour, so "10" fits
+ * where "9" does; with no room for the number it is a small filled square.
  */
 const MIN_NUMBERED = 17
 const FULL_SIZE = 24
@@ -97,15 +97,16 @@ export const ProgressSheet = ({
         const isCurrent = state === 'current'
         const number = cell.index + 1
         const hasNumber = cell.c >= MIN_NUMBERED
-        const inset = hasNumber && cell.c < FULL_SIZE ? 1 : 3
+        const isFilled = cell.c < FULL_SIZE
+        const inset = hasNumber && isFilled ? 1 : 3
         return (
           <>
             {isCurrent ? (
               <rect
                 className={
-                  hasNumber
-                    ? 'progress-sheet-current'
-                    : 'progress-sheet-current is-filled'
+                  isFilled
+                    ? 'progress-sheet-current is-filled'
+                    : 'progress-sheet-current'
                 }
                 x={cell.x + inset}
                 y={cell.y + inset}
@@ -118,7 +119,8 @@ export const ProgressSheet = ({
                 className={[
                   'progress-sheet-number',
                   isCurrent ? 'is-current' : '',
-                  number >= 10 && cell.c < FULL_SIZE ? 'is-small' : ''
+                  isCurrent && isFilled ? 'is-on-fill' : '',
+                  number >= 10 && isFilled ? 'is-small' : ''
                 ]
                   .filter(Boolean)
                   .join(' ')}

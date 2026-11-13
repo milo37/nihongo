@@ -95,19 +95,19 @@ describe('ProgressSheet (B4 manuscript strip)', () => {
     expect(texts[9]).toHaveClass('is-small')
   })
 
-  it('shows the current two-digit number in a 20px square', () => {
+  it('fills a current square under 24px and keeps its two-digit number', () => {
     // Squares of 20px, as in the 390px phone row at 10 / 10.
     const states = Array<ProgressCellState>(10).fill('answered')
     states[9] = 'current'
     const { container } = render(
       <ProgressSheet states={states} rowOf={9} maxCellSize={20} />
     )
-    expect(
-      container.querySelector('.progress-sheet-number.is-current')
-    ).toHaveTextContent('10')
+    const number = container.querySelector('.progress-sheet-number.is-current')
+    expect(number).toHaveTextContent('10')
+    expect(number).toHaveClass('is-small', 'is-on-fill')
     const box = container.querySelector('.progress-sheet-current')
     expect(box).toHaveAttribute('width', '18')
-    expect(box).not.toHaveClass('is-filled')
+    expect(box).toHaveClass('is-filled')
   })
 
   it('fills the current square when no number fits', () => {
