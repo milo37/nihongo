@@ -73,7 +73,8 @@ const migrationPaths = [
   'apps/api/prisma/migrations/20261111090000_grant_user_target_level_update/migration.sql',
   'apps/api/prisma/migrations/20261112090000_account_erasure_grace_restore/migration.sql',
   'apps/api/prisma/migrations/20261113090000_admin_access_log/migration.sql',
-  'apps/api/prisma/migrations/20261114090000_user_last_login/migration.sql'
+  'apps/api/prisma/migrations/20261114090000_user_last_login/migration.sql',
+  'apps/api/prisma/migrations/20261115090000_drop_retired_verification/migration.sql'
 ]
 
 const readRepositoryFile = async (relativePath) =>

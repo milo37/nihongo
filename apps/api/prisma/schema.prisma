@@ -139,10 +139,6 @@ enum AuthorityRevocationReason {
   SESSION_INVALIDATED
 }
 
-enum AuthVerificationPurpose {
-  PASSWORD_RESET_V1
-}
-
 enum JlptLevel {
   N5
   N4
@@ -269,7 +265,6 @@ model User {
   updatedAt                   DateTime                      @updatedAt @db.Timestamptz(3)
   sessions                    Session[]
   accounts                    Account[]
-  resetVerifications          Verification[]                @relation("PasswordResetUser")
   createdQuestions            Question[]                    @relation("QuestionCreator")
   createdQuestionVersions     QuestionVersion[]             @relation("QuestionVersionCreator")
   contentReviewActors         ContentReview[]               @relation("ContentReviewActor")
@@ -397,24 +392,6 @@ model Account {
 
   @@unique([providerId, accountId])
   @@index([userId])
-}
-
-model Verification {
-  id                 String                   @id @default(uuid()) @db.Uuid
-  identifier         String
-  value              String
-  expiresAt          DateTime                 @db.Timestamptz(3)
-  createdAt          DateTime                 @default(now()) @db.Timestamptz(3)
-  updatedAt          DateTime                 @updatedAt @db.Timestamptz(3)
-  purpose            AuthVerificationPurpose?
-  resetUserId        String?                  @db.Uuid
-  capturedGeneration Int?
-  tokenSelector      String?                  @unique @db.VarChar(64)
-  resetUser          User?                    @relation("PasswordResetUser", fields: [resetUserId], references: [id], onDelete: Restrict, onUpdate: NoAction)
-
-  @@unique([purpose, resetUserId])
-  @@index([identifier, expiresAt])
-  @@index([expiresAt])
 }
 
 model RateLimit {
