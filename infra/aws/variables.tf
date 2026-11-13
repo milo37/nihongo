@@ -282,7 +282,12 @@ variable "compose_sha256" {
 }
 
 variable "postgres_image" {
-  description = "Same major/minor as compose.yaml."
+  description = "Same major/minor as compose.yaml, pinned by digest (the multi-arch index CI also uses, #746)."
   type        = string
-  default     = "postgres:18.4-alpine"
+  default     = "postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15"
+
+  validation {
+    condition     = can(regex("@sha256:[0-9a-f]{64}$", var.postgres_image))
+    error_message = "postgres_image must be pinned by digest (...@sha256:<64 hex>)."
+  }
 }
