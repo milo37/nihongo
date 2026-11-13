@@ -226,6 +226,3 @@ volumes; release `aeb65e4e`, the current migrations):
   saved API log, filtered like the Logs Insights query (event, time from dump −
   1 h, distinct `userId`), gave a file with exactly that user's id; the other
   user was not listed. The query itself runs on AWS only.
-
-`operations/recovery-contract.v1.json` and `pnpm recovery:verify` are older
-provider-neutral TEST checks. They are not part of this procedure.
