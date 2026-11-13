@@ -56,7 +56,7 @@ const focusHashTarget = (hash: string): boolean => {
 type NavigationItem = {
   to: string
   label: 'learningStart' | 'wrongNotes' | 'bookmarks' | 'my'
-  icon: 'house' | 'rotate-ccw' | 'bookmark' | 'user-round'
+  icon: 'book-open' | 'rotate-ccw' | 'bookmark' | 'user-round'
   active: boolean
 }
 
@@ -68,14 +68,21 @@ const AppBrand = ({
   onClick: () => void
 }): ReactElement => {
   const { t } = useTranslation('common')
+  const { t: navigationT } = useTranslation('navigation')
+  // JLP-873: the logo is the only way home, so its name says so.
   return (
-    <Link className={className} to="/" onClick={onClick}>
+    <Link
+      className={className}
+      to="/"
+      aria-label={`${t('appName')} ${navigationT('routes.home')}`}
+      onClick={onClick}
+    >
       <img
         className="app-brand-lockup"
         src="/brand/harumaru-lockup.svg"
         width={770}
         height={210}
-        alt={t('appName')}
+        alt=""
       />
     </Link>
   )
@@ -194,7 +201,8 @@ const DefaultAccountMenu = ({
               {user ? user.name : t('login')}
             </Link>
             {role !== 'GUEST' ? (
-              <Link to="/dashboard?view=learning" onClick={onClose}>
+              // JLP-873: same place as the 학습 tab; the logo is the way home.
+              <Link to="/practice" onClick={onClose}>
                 {t('learningStart')}
               </Link>
             ) : null}
@@ -360,14 +368,18 @@ export const AppLayout = ({
   // JLP-854: a wrong-note retry is a session too; the bottom tabs would cover
   // its fixed submit bar under 1024px.
   const isFocusSession = location.pathname.startsWith('/practice/session/')
-  const isLearningActive =
+  const isLearningSurface =
     (isLearningEntry || isPracticeSurface) && !isReviewSurface
+  // JLP-873: home is reached by the logo and lights no tab; 학습 lights on
+  // the practice setup and its results only.
+  const isLearningTabActive = isPracticeSurface && !isReviewSurface
   const navigationItems: readonly NavigationItem[] = [
     {
       to: '/practice',
       label: 'learningStart',
-      icon: 'house',
-      active: isLearningActive
+      // JLP-873: a house read as home; home is the logo now.
+      icon: 'book-open',
+      active: isLearningTabActive
     },
     {
       to: '/wrong-notes',
@@ -400,7 +412,7 @@ export const AppLayout = ({
       : 'app-shell-no-rail'
   const surface = isReviewSurface
     ? 'review'
-    : isLearningActive
+    : isLearningSurface
       ? 'learning'
       : 'general'
   const content =

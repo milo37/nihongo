@@ -1181,6 +1181,12 @@ test('guest SSO boundary and authenticated practice transition match the active 
     await settleJourneyPage(page)
   }
   await loginThroughUi(page)
+  // JLP-873: the member home lights no tab; 학습 goes to practice setup.
+  await expect(page).toHaveURL(/\/dashboard\?view=learning$/u)
+  await expect(page.locator('#primary-navigation [aria-current]')).toHaveCount(
+    0
+  )
+  await expect(page.locator('header a.app-brand[href="/"]')).toHaveCount(1)
   await page.locator('#primary-navigation a[href="/practice"]').click()
   await expect(page).toHaveURL(/\/practice$/u)
   await expect(recommendationRegion(page)).toHaveCount(0)
