@@ -106,9 +106,9 @@ export const koCoreResources = {
     metaDescription:
       'JLPT N5~N1 문제를 풀고, 틀린 문제는 다시 풀어 보는 하루마루',
     routes: {
-      home: '학습',
+      home: '홈',
       login: '로그인',
-      dashboard: '학습',
+      dashboard: '홈',
       practiceSetup: '학습',
       practiceSession: '문제 풀기',
       result: '결과',

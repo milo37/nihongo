@@ -1864,6 +1864,11 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
   const mobileNavigation = page.locator('#mobile-navigation')
   await expect(mobileNavigation).toHaveAccessibleName(/\S/u)
   await expect(mobileNavigation.getByRole('link')).toHaveCount(4)
+  // JLP-873: home lights no tab; the logo goes home.
+  await expect(mobileNavigation.locator('[aria-current]')).toHaveCount(0)
+  await expect(
+    page.locator('header a.app-brand[href="/"]')
+  ).toHaveAccessibleName('하루마루 홈')
   const mobilePracticeLink = mobileNavigation.locator('a[href="/practice"]')
   await focusByTab(page, mobilePracticeLink)
   await attachFocusedElementEvidence(
