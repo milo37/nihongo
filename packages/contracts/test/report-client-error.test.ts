@@ -4,7 +4,6 @@ import { reportClientErrorRequestSchema } from '../src/observability/report-clie
 const report = {
   schemaVersion: 1,
   occurredAt: '2026-11-13T12:00:00.000+09:00',
-  deploymentEnvironment: 'PRODUCTION',
   releaseId: 'b'.repeat(40),
   source: 'ROUTE_RENDER',
   routeKey: 'routes.wrongNoteDetail'
@@ -27,7 +26,8 @@ describe('reportClientErrorRequestSchema (JLP-762)', () => {
     ['a stack', { ...report, stack: 'at x' }],
     ['a path as route', { ...report, routeKey: '/wrong-notes/1' }],
     ['a non-uuid request id', { ...report, requestId: 'abc' }],
-    ['schema version 2', { ...report, schemaVersion: 2 }]
+    ['schema version 2', { ...report, schemaVersion: 2 }],
+    ['an environment', { ...report, deploymentEnvironment: 'PRODUCTION' }]
   ])('rejects %s', (_label, value) => {
     expect(reportClientErrorRequestSchema.safeParse(value).success).toBe(false)
   })

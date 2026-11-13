@@ -33,7 +33,6 @@ const environment = parseApiEnvironment({
 const report = {
   schemaVersion: 1,
   occurredAt: '2026-11-13T12:00:00.000Z',
-  deploymentEnvironment: 'PRODUCTION',
   releaseId: 'b'.repeat(40),
   source: 'UNEXPECTED_API_ERROR',
   routeKey: 'routes.practiceSession',
@@ -98,7 +97,6 @@ describe('POST /api/v1/client-errors (JLP-762)', () => {
         event: 'client.error.reported',
         deploymentEnvironment: 'TEST',
         releaseId: 'a'.repeat(40),
-        clientDeploymentEnvironment: 'PRODUCTION',
         clientReleaseId: 'b'.repeat(40),
         occurredAt: report.occurredAt,
         source: 'UNEXPECTED_API_ERROR',
@@ -133,7 +131,11 @@ describe('POST /api/v1/client-errors (JLP-762)', () => {
     ['an unknown field', { ...report, message: 'TypeError: x is undefined' }],
     ['an unknown source', { ...report, source: 'CONSOLE' }],
     ['a free-text route', { ...report, routeKey: '/practice/session/1' }],
-    ['a short release id', { ...report, releaseId: 'abc' }]
+    ['a short release id', { ...report, releaseId: 'abc' }],
+    [
+      'a screen-side environment',
+      { ...report, deploymentEnvironment: 'PRODUCTION' }
+    ]
   ])('rejects %s with 422 and logs nothing', async (_label, body) => {
     const { app, reported } = fixture()
     const response = await post(app, body)

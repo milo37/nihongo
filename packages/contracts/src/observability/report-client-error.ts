@@ -4,7 +4,9 @@ import { z } from 'zod'
  * POST /api/v1/client-errors (JLP-762). The web and admin screens report an
  * unexpected error; the API writes one line to its own log (CloudWatch) and
  * keeps nothing else. No sign-in, no cookie needed, 204 with no body.
- * Only labels travel: no message, stack, URL or user data.
+ * Only labels travel: no message, stack, URL or user data. The screen does
+ * not send an environment: one image runs on STAGING and PRODUCTION, so the
+ * log line carries the API's own environment.
  */
 export const clientErrorSourceSchema = z.enum([
   'WINDOW_ERROR',
@@ -18,13 +20,6 @@ export const reportClientErrorRequestSchema = z
   .object({
     schemaVersion: z.literal(1),
     occurredAt: z.string().datetime({ offset: true }),
-    deploymentEnvironment: z.enum([
-      'LOCAL',
-      'TEST',
-      'DEVELOPMENT',
-      'STAGING',
-      'PRODUCTION'
-    ]),
     /** The screen bundle's release; differs from the API's on a stale tab. */
     releaseId: z.string().regex(/^[0-9a-f]{40}$/u),
     source: clientErrorSourceSchema,

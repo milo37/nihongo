@@ -58,7 +58,6 @@ export const createClientErrorRoutes = ({
     }
 
     logger.warn('client.error.reported', {
-      clientDeploymentEnvironment: report.deploymentEnvironment,
       clientReleaseId: report.releaseId,
       occurredAt: report.occurredAt,
       source: report.source,

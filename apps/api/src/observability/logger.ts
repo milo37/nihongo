@@ -108,10 +108,9 @@ const contextSchemaByEvent = {
     .object({ userId: z.uuid(), occurredAt: z.iso.datetime() })
     .strict(),
   // JLP-762: a screen error the browser reported. The line's own environment
-  // and release are the API's; the client's carry a client prefix.
+  // and release are the API's; the screen's release is clientReleaseId.
   'client.error.reported': z
     .object({
-      clientDeploymentEnvironment: metadataSchema.shape.deploymentEnvironment,
       clientReleaseId: metadataSchema.shape.releaseId,
       occurredAt: z.iso.datetime({ offset: true }),
       source: z.enum([
