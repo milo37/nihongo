@@ -363,13 +363,9 @@ const readCanonicalResponse = async (response: Response): Promise<unknown> => {
   return response.json() as Promise<unknown>
 }
 
-// JLP-870: while a question is pushed out, its hidden inert copy is still in
-// the DOM; only the question being shown counts.
-const SHOWN_QUESTION_HEADING = 'main h1:not(.study-push-leaving *)'
-
 const settleJourneyPage = async (page: Page): Promise<void> => {
   await page.waitForLoadState('networkidle')
-  await expect(page.locator(SHOWN_QUESTION_HEADING)).toHaveCount(1)
+  await expect(page.locator('main h1')).toHaveCount(1)
 }
 
 const openPracticeModes = async (page: Page) => {
@@ -721,7 +717,7 @@ const answerEveryQuestionWithFirstOption = async (
     'data-save-state',
     'synced'
   )
-  await expect(page.locator(SHOWN_QUESTION_HEADING)).toBeFocused()
+  await expect(page.locator('main h1')).toBeFocused()
   const isSingleReview =
     created.session.mode === 'WRONG_NOTE' && created.session.actualCount === 1
   // The number sheet opens from the top bar's "1 / N" (direction §6-4).
@@ -776,7 +772,7 @@ const answerEveryQuestionWithFirstOption = async (
         )
       }
       await expect(options).toHaveCount(4)
-      await expect(page.locator(SHOWN_QUESTION_HEADING)).toBeFocused()
+      await expect(page.locator('main h1')).toBeFocused()
       await expect(firstAnswer).toBeEnabled()
       await expect(firstAnswer).not.toBeChecked()
       expect(item.question.options[0]).toBeDefined()
@@ -1233,7 +1229,7 @@ if (mode === 'real')
       new RegExp(`/practice/session/${sessionId}`, 'u')
     )
     const answers = page.locator(
-      'main input[type="radio"]:not([name^="practice-"]):not(.study-push-leaving *)'
+      'main input[type="radio"]:not([name^="practice-"])'
     )
     const next = page.locator('main button').filter({ hasText: /^다음$/u })
     for (;;) {
