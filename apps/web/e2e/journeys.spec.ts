@@ -42,7 +42,6 @@ import {
   isSsoAuthorizationURLForProvider,
   signInSocialResponseSchema
 } from '@nihongo/contracts/auth/sign-in-social'
-import { listQuestionsResponseSchema } from '@nihongo/contracts/question/list-questions'
 import {
   assertAndAttachLedger,
   assertExactRequestMultiset,
@@ -160,19 +159,6 @@ for (const locale of ['ko', 'ja'] as const) {
       // The schema accepts the real nullable level and Mock N2; neither implies N5.
       expect(
         principal.user.id.length > 0 && principal.user.name.length > 0
-      ).toBe(true)
-      const catalog = await browserJson(
-        page,
-        '/api/v1/questions?level=N5&subject=VOCABULARY&page=1&pageSize=5'
-      )
-      expect(catalog.status).toBe(200)
-      const questions = listQuestionsResponseSchema.parse(catalog.body)
-      expect(questions.items.length > 0).toBe(true)
-      expect(
-        questions.items.every(
-          (question) =>
-            question.level === 'N5' && question.subject === 'VOCABULARY'
-        )
       ).toBe(true)
       await waitForLedgerToQuiesce(ledger)
       const authLedger = selectRequestLedger(

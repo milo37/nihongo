@@ -30,7 +30,6 @@ import type { GuestPrincipalService } from '../auth/guestPrincipalService.js'
 import type { PrincipalService } from '../auth/principalService.js'
 import { parseApiEnvironment } from '../config/env.js'
 import { createJsonLogger } from '../observability/logger.js'
-import type { QuestionReader } from '../question/questionService.js'
 
 const requireEnvironmentValue = (name: string): string => {
   const value = process.env[name]
@@ -654,16 +653,6 @@ const apiEnvironment = parseApiEnvironment({
   GUEST_COOKIE_SECRET: 'b'.repeat(32)
 })
 
-const questionReader: QuestionReader = {
-  getQuestion: async () => Promise.reject(new Error('not used')),
-  listQuestions: async (query) => ({
-    items: [],
-    page: query.page,
-    pageSize: query.pageSize,
-    total: 0
-  })
-}
-
 const guestPrincipalService: GuestPrincipalService = {
   clear: vi.fn(),
   create: vi.fn(),
@@ -866,8 +855,7 @@ beforeAll(async () => {
       principalService
     },
     checkReadiness: async () => undefined,
-    logger: createJsonLogger('silent'),
-    questionReader
+    logger: createJsonLogger('silent')
   })
   baselineDomainTableCounts = await readDomainTableCounts()
 }, 30_000)

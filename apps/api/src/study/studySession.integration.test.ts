@@ -31,8 +31,6 @@ import { Prisma } from '../generated/prisma/client.js'
 import { createApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createJsonLogger } from '../observability/logger.js'
-import { createPrismaQuestionRepository } from '../question/questionRepository.js'
-import { createQuestionService } from '../question/questionService.js'
 import { GUEST_COOKIE_NAME } from '../routes/principal.js'
 import { createPrismaGuestAllowanceReader } from './guestAllowance.js'
 import { startOfGuestDay } from './guestDay.js'
@@ -151,9 +149,6 @@ const app = createApiApp({
   },
   checkReadiness: database.checkReadiness,
   logger: createJsonLogger('silent'),
-  questionReader: createQuestionService(
-    createPrismaQuestionRepository(database.client)
-  ),
   study: {
     rateLimiter: noOpRateLimiter,
     service: createStudySessionService(repository)

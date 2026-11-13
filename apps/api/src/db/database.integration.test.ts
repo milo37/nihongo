@@ -2,8 +2,6 @@ import { afterAll, describe, expect, it } from 'vitest'
 import { createApiApp } from '../app/createApp.js'
 import { parseApiEnvironment } from '../config/env.js'
 import { createJsonLogger } from '../observability/logger.js'
-import { createPrismaQuestionRepository } from '../question/questionRepository.js'
-import { createQuestionService } from '../question/questionService.js'
 import { createDatabaseRuntime } from './database.js'
 import { assertSafeTestDatabase } from './databaseTargetGuard.js'
 
@@ -22,10 +20,7 @@ const database = createDatabaseRuntime(
 )
 const app = createApiApp({
   checkReadiness: database.checkReadiness,
-  logger: createJsonLogger('silent'),
-  questionReader: createQuestionService(
-    createPrismaQuestionRepository(database.client)
-  )
+  logger: createJsonLogger('silent')
 })
 
 afterAll(async () => {

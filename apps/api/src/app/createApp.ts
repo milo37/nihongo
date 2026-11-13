@@ -28,7 +28,6 @@ import {
 import { createHealthRoutes } from '../routes/health.js'
 import { createClientErrorRoutes } from '../routes/clientErrors.js'
 import { createDailyQuestionRoutes } from '../routes/dailyQuestion.js'
-import { createQuestionRoutes } from '../routes/questions.js'
 import { AuthGatewayError, type AuthGateway } from '../auth/authGateway.js'
 import type { ApiEnvironment } from '../config/env.js'
 import type { GuestPrincipalService } from '../auth/guestPrincipalService.js'
@@ -36,7 +35,6 @@ import type { PrincipalService } from '../auth/principalService.js'
 import { createWriteSecurity } from '../middleware/writeSecurity.js'
 import { createPrincipalRoutes } from '../routes/principal.js'
 import type { DailyQuestionReader } from '../question/dailyQuestion.js'
-import type { QuestionReader } from '../question/questionService.js'
 import type { ApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import type { StudySessionService } from '../study/studySessionService.js'
 import { createStudySessionRoutes } from '../routes/studySessions.js'
@@ -140,7 +138,6 @@ interface CreateApiAppDependencies {
   /** JLP-788: defaults to enforce. */
   contentSecurityPolicyMode?: ContentSecurityPolicyMode
   logger: StructuredLogger
-  questionReader: QuestionReader
   /** Today's question (JLP-815); mounted with questionReadSecurity. */
   dailyQuestionReader?: DailyQuestionReader
   releaseId?: string
@@ -421,7 +418,6 @@ export const createApiApp = ({
   contentSecurityPolicyMode,
   logger,
   learning,
-  questionReader,
   dailyQuestionReader,
   questionReadSecurity,
   questionReports,
@@ -936,22 +932,6 @@ export const createApiApp = ({
       })
     )
   }
-
-  app.route(
-    '/api/v1/questions',
-    createQuestionRoutes({
-      questionReader,
-      questionReadSecurity,
-      ...(auth
-        ? {
-            members: {
-              environment: auth.environment,
-              principalService: auth.principalService
-            }
-          }
-        : {})
-    })
-  )
 
   if (enableTestRoutes) {
     app.get('/__test/error', () => {

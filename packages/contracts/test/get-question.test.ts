@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   comparePublicQuestionTags,
-  getQuestionErrorSchema,
-  getQuestionParamsSchema,
-  getQuestionResponseSchema,
-  normalizeQuestionTagText
+  normalizeQuestionTagText,
+  publicPracticeQuestionSchema
 } from '../src/question/get-question.js'
 
 const QUESTION_ID = '018f6b7a-1f4b-7d5e-8a91-4c27df9c10a1'
@@ -32,7 +30,7 @@ const response = {
   ]
 }
 
-describe('getQuestion contract', () => {
+describe('public practice question contract', () => {
   it('태그를 locale 비의존 NFKC·whitespace·소문자로 정규화한다', () => {
     expect(normalizeQuestionTagText(' Ｉ  İ ')).toBe('i i̇')
   })
@@ -46,16 +44,13 @@ describe('getQuestion contract', () => {
     ).toBeGreaterThan(0)
   })
 
-  it('UUID path parameter와 public response를 검증한다', () => {
-    expect(getQuestionParamsSchema.parse({ questionId: QUESTION_ID })).toEqual({
-      questionId: QUESTION_ID
-    })
-    expect(getQuestionResponseSchema.parse(response)).toEqual(response)
+  it('public response를 검증한다', () => {
+    expect(publicPracticeQuestionSchema.parse(response)).toEqual(response)
   })
 
   it('정답·해설·관리자 필드가 섞인 payload를 거부한다', () => {
     expect(
-      getQuestionResponseSchema.safeParse({
+      publicPracticeQuestionSchema.safeParse({
         ...response,
         correctOptionId: response.options[0]?.id,
         explanationKo: '정답 해설',
@@ -64,7 +59,7 @@ describe('getQuestion contract', () => {
     ).toBe(false)
 
     expect(
-      getQuestionResponseSchema.safeParse({
+      publicPracticeQuestionSchema.safeParse({
         ...response,
         options: response.options.map((option, index) => ({
           ...option,
@@ -77,7 +72,7 @@ describe('getQuestion contract', () => {
   it('독해 문제는 비어 있지 않은 passage를 요구한다', () => {
     for (const passage of [null, '   ']) {
       expect(
-        getQuestionResponseSchema.safeParse({
+        publicPracticeQuestionSchema.safeParse({
           ...response,
           subject: 'READING',
           questionType: 'SHORT_READING',
@@ -87,7 +82,7 @@ describe('getQuestion contract', () => {
     }
 
     expect(
-      getQuestionResponseSchema.safeParse({
+      publicPracticeQuestionSchema.safeParse({
         ...response,
         subject: 'READING',
         questionType: 'SHORT_READING',
@@ -98,7 +93,7 @@ describe('getQuestion contract', () => {
 
   it('보기 순서와 ID 및 태그 identity 중복을 거부한다', () => {
     expect(
-      getQuestionResponseSchema.safeParse({
+      publicPracticeQuestionSchema.safeParse({
         ...response,
         options: response.options.map((option, index) => ({
           ...option,
@@ -108,7 +103,7 @@ describe('getQuestion contract', () => {
     ).toBe(false)
 
     expect(
-      getQuestionResponseSchema.safeParse({
+      publicPracticeQuestionSchema.safeParse({
         ...response,
         options: response.options.map((option) => ({
           ...option,
@@ -118,20 +113,9 @@ describe('getQuestion contract', () => {
     ).toBe(false)
 
     expect(
-      getQuestionResponseSchema.safeParse({
+      publicPracticeQuestionSchema.safeParse({
         ...response,
         tags: [response.tags[0], response.tags[0]]
-      }).success
-    ).toBe(false)
-  })
-
-  it('operation별 오류 code 외의 값을 거부한다', () => {
-    expect(
-      getQuestionErrorSchema.safeParse({
-        code: 'ADMIN_REQUIRED',
-        message: '관리자 권한이 필요합니다.',
-        requestId: QUESTION_ID,
-        retryable: false
       }).success
     ).toBe(false)
   })

@@ -9,7 +9,6 @@ import {
   parseApiEnvironment
 } from '../config/env.js'
 import { createJsonLogger } from '../observability/logger.js'
-import type { QuestionReader } from '../question/questionService.js'
 import {
   resolveContentSecurityPolicyMode,
   type ContentSecurityPolicyMode
@@ -45,7 +44,6 @@ const app = (contentSecurityPolicyMode?: ContentSecurityPolicyMode) =>
     checkReadiness: async () => undefined,
     ...(contentSecurityPolicyMode ? { contentSecurityPolicyMode } : {}),
     logger: createJsonLogger('error', () => undefined),
-    questionReader: {} as QuestionReader,
     releaseId,
     webAssetsDirectory: web
   })
