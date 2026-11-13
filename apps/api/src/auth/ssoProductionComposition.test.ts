@@ -55,10 +55,6 @@ const input = {
   GOOGLE_CLIENT_SECRET: 'placeholder',
   APPLE_CLIENT_ID: 'test-apple',
   APPLE_CLIENT_SECRET: 'placeholder',
-  AUTH_EMAIL_FROM: 'placeholder@example.test',
-  AUTH_EMAIL_DELIVERY_MODE: 'webhook',
-  AUTH_EMAIL_WEBHOOK_URL: 'https://mail.example.test',
-  AUTH_EMAIL_WEBHOOK_SECRET: 'test-webhook-placeholder-only-1234567890',
   AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32'
 }
 const fixture = (overrides: Record<string, string> = {}) => {
@@ -311,14 +307,7 @@ describe('production-shaped SSO composition (fake DB ports)', () => {
   })
   it('starts without mail configuration and rejects all legacy routes before any DB or mail work', async () => {
     const f = fixture()
-    const {
-      AUTH_EMAIL_FROM: _from,
-      AUTH_EMAIL_DELIVERY_MODE: _delivery,
-      AUTH_EMAIL_WEBHOOK_URL: _url,
-      AUTH_EMAIL_WEBHOOK_SECRET: _secret,
-      ...noMail
-    } = input
-    expect(() => parseApiEnvironment(noMail)).not.toThrow()
+    expect(() => parseApiEnvironment(input)).not.toThrow()
     const before = f.gatewayQuery.mock.calls.length
     for (const path of [
       'sign-in/email',

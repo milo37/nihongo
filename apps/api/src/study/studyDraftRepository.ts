@@ -669,15 +669,13 @@ export const createPrismaStudyDraftRepository = (
             })
             const items: ResumableStudySessionSummary[] = sessions.map(
               (session) => {
-                if (
-                  session.practiceContractVersion !== 1 &&
-                  session.practiceContractVersion !== 2
-                ) {
+                // The query reads only version 2; v1 is never resumed (JLP-755).
+                if (session.practiceContractVersion !== 2) {
                   throw new StudyDraftRepositoryIntegrityError(
                     'Resumable session has an unsupported contract version.'
                   )
                 }
-                if (session.practiceContractVersion === 2 && !session.draft) {
+                if (!session.draft) {
                   throw new StudyDraftRepositoryIntegrityError(
                     'Version 2 resumable session has no draft.'
                   )
@@ -691,14 +689,11 @@ export const createPrismaStudyDraftRepository = (
                   actualCount: session.actualCount,
                   startedAt: session.startedAt.toISOString(),
                   expiresAt: session.expiresAt.toISOString(),
-                  practiceContractVersion: session.practiceContractVersion,
-                  draftRevision: session.draft?.revision ?? null,
-                  draftSavedAt: session.draft?.savedAt?.toISOString() ?? null,
-                  currentOrdinal: session.draft?.currentOrdinal ?? null,
-                  resumeAvailability:
-                    session.practiceContractVersion === 1
-                      ? 'LEGACY_LOCAL_ONLY'
-                      : 'SERVER'
+                  practiceContractVersion: 2,
+                  draftRevision: session.draft.revision,
+                  draftSavedAt: session.draft.savedAt?.toISOString() ?? null,
+                  currentOrdinal: session.draft.currentOrdinal,
+                  resumeAvailability: 'SERVER'
                 }
               }
             )

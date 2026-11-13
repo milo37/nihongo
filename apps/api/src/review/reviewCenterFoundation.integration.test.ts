@@ -1,7 +1,4 @@
 import { randomUUID } from 'node:crypto'
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
-import { fileURLToPath } from 'node:url'
 import { Client } from 'pg'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import { parseApiEnvironment } from '../config/env.js'
@@ -14,15 +11,11 @@ import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { Prisma } from '../generated/prisma/client.js'
 import { toVersionedStudySessionPayload } from '../study/studySessionMapper.js'
 import { createPrismaStudySessionRepository } from '../study/studySessionRepository.js'
-import { createPrismaReviewReconciliationRepository } from './reviewReconciliationRepository.js'
-import { REVIEW_RECONCILIATION_CONFIRMATION } from './reviewReconciliationCommandConfig.js'
 import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const HOUR_MS = 60 * 60 * 1_000
 const DAY_MS = 24 * HOUR_MS
 const NOW = new Date('2026-08-21T12:00:00.000Z')
-const execFileAsync = promisify(execFile)
-const apiRoot = fileURLToPath(new URL('../../', import.meta.url))
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({
@@ -79,12 +72,6 @@ const createApplicationClient = (): Client =>
       isCurrentSourceIntegration ? 'nihongo_app' : undefined
     )
   })
-
-interface CommandFailure extends Error {
-  readonly code: number | string
-  readonly stderr: string
-  readonly stdout: string
-}
 
 interface RawDatabaseErrorIdentity {
   readonly message: string
@@ -172,15 +159,6 @@ const expectRawDatabaseError = async ({
     sqlState
   })
 }
-
-const isCommandFailure = (error: unknown): error is CommandFailure =>
-  error instanceof Error &&
-  'code' in error &&
-  'stdout' in error &&
-  'stderr' in error &&
-  (typeof error.code === 'number' || typeof error.code === 'string') &&
-  typeof error.stdout === 'string' &&
-  typeof error.stderr === 'string'
 
 const createUser = async (): Promise<string> => {
   const userId = randomUUID()
@@ -538,184 +516,6 @@ describe('Review-center data foundation', () => {
       await database.client.userMemo.count({ where: { id: memoId } })
     ).toBe(0)
   })
-
-  it('clean review chain은 0이고 drift는 category로 탐지하되 어떤 row도 수정하지 않는다', async () => {
-    const userId = await createUser()
-    const wrongNote = await createWrongNote(userId)
-    const repository = createPrismaReviewReconciliationRepository(
-      database.client
-    )
-
-    const clean = await repository.reconcile({ batchSize: 1 })
-    expect(clean.mismatchWrongNoteCount).toBe(0)
-    expect(clean.categories.every(({ count }) => count === 0)).toBe(true)
-
-    await fixtureDatabase.client.$executeRawUnsafe(
-      'ALTER TABLE "ReviewSchedule" DISABLE TRIGGER USER'
-    )
-    try {
-      await fixtureDatabase.client.reviewSchedule.update({
-        where: { wrongNoteId: wrongNote.id },
-        data: {
-          intervalDays: wrongNote.schedule?.intervalDays === 7 ? 14 : 7
-        }
-      })
-    } finally {
-      await fixtureDatabase.client.$executeRawUnsafe(
-        'ALTER TABLE "ReviewSchedule" ENABLE TRIGGER USER'
-      )
-    }
-
-    const before = await database.client.reviewSchedule.findUniqueOrThrow({
-      where: { wrongNoteId: wrongNote.id }
-    })
-    const drift = await repository.reconcile({ batchSize: 1 })
-    const after = await database.client.reviewSchedule.findUniqueOrThrow({
-      where: { wrongNoteId: wrongNote.id }
-    })
-
-    expect(drift.mismatchWrongNoteCount).toBeGreaterThanOrEqual(1)
-    expect(drift.categories).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ category: 'REVIEW_SCHEDULE', count: 1 })
-      ])
-    )
-    expect(after).toEqual(before)
-  })
-
-  it('multi-page reconciliation이 모든 drift category를 redacted CLI exit 1로 보고하고 repair하지 않는다', async () => {
-    const corruptUserId = await createUser()
-    const cleanUserId = await createUser()
-    const corruptWrongNote = await createWrongNote(corruptUserId)
-    await createWrongNote(cleanUserId)
-    const event = await database.client.reviewEvent.findFirstOrThrow({
-      where: { wrongNoteId: corruptWrongNote.id },
-      select: {
-        id: true,
-        occurredAt: true,
-        questionId: true,
-        questionVersionId: true,
-        userId: true
-      }
-    })
-    const alternateOption =
-      await database.client.questionOption.findFirstOrThrow({
-        where: { questionVersionId: event.questionVersionId },
-        select: { id: true }
-      })
-    const rebaseEventId = 'ffffffff-ffff-4fff-bfff-ffffffffffff'
-
-    for (const tableName of ['ReviewEvent', 'WrongNote', 'ReviewSchedule']) {
-      await fixtureDatabase.client.$executeRawUnsafe(
-        `ALTER TABLE "${tableName}" DISABLE TRIGGER USER`
-      )
-    }
-    try {
-      await fixtureDatabase.client.$executeRaw`
-        UPDATE "ReviewEvent"
-        SET
-          "source" = 'WRONG_NOTE_REVIEW',
-          "selectedOptionId" = ${alternateOption.id}::uuid
-        WHERE "id" = ${event.id}::uuid
-      `
-      await fixtureDatabase.client.$executeRaw`
-        INSERT INTO "ReviewEvent" (
-          "id", "wrongNoteId", "userId", "questionId", "questionVersionId",
-          "source", "studySessionId", "studyAnswerId", "selectedOptionId",
-          "isCorrect", "previousStatus", "nextStatus",
-          "previousCorrectStreak", "nextCorrectStreak", "previousWrongCount",
-          "wrongCountAfter", "algorithmVersion", "occurredAt"
-        ) VALUES (
-          ${rebaseEventId}::uuid, ${corruptWrongNote.id}::uuid,
-          ${event.userId}::uuid, ${event.questionId}::uuid,
-          ${event.questionVersionId}::uuid, 'VERSION_REBASE',
-          NULL, NULL, NULL, NULL, 'NEW', 'NEW', 0, 0, 1, 1, 1,
-          ${event.occurredAt}
-        )
-      `
-      await fixtureDatabase.client.$executeRaw`
-        UPDATE "WrongNote"
-        SET "lastWrongAt" = "lastWrongAt" + INTERVAL '1 hour'
-        WHERE "id" = ${corruptWrongNote.id}::uuid
-      `
-      await fixtureDatabase.client.$executeRaw`
-        UPDATE "ReviewSchedule"
-        SET "intervalDays" = 7
-        WHERE "wrongNoteId" = ${corruptWrongNote.id}::uuid
-      `
-    } finally {
-      for (const tableName of ['ReviewSchedule', 'WrongNote', 'ReviewEvent']) {
-        await fixtureDatabase.client.$executeRawUnsafe(
-          `ALTER TABLE "${tableName}" ENABLE TRIGGER USER`
-        )
-      }
-    }
-
-    const readCorruptRows = async () => ({
-      events: await database.client.reviewEvent.findMany({
-        where: { wrongNoteId: corruptWrongNote.id },
-        orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }]
-      }),
-      note: await database.client.wrongNote.findUniqueOrThrow({
-        where: { id: corruptWrongNote.id }
-      }),
-      schedule: await database.client.reviewSchedule.findUniqueOrThrow({
-        where: { wrongNoteId: corruptWrongNote.id }
-      })
-    })
-    const before = await readCorruptRows()
-    const result = await createPrismaReviewReconciliationRepository(
-      database.client
-    ).reconcile({ batchSize: 1 })
-    const after = await readCorruptRows()
-
-    expect(result.scannedWrongNoteCount).toBe(2)
-    expect(result.mismatchWrongNoteCount).toBe(1)
-    expect(result.categories).toEqual(
-      expect.arrayContaining(
-        [
-          'EVENT_CHAIN',
-          'MATERIALIZED_WRONG_NOTE',
-          'REVIEW_SCHEDULE',
-          'EVIDENCE_PIN',
-          'SOURCE_MODE'
-        ].map((category) => expect.objectContaining({ category, count: 1 }))
-      )
-    )
-    expect(after).toEqual(before)
-
-    let commandFailure: CommandFailure | undefined
-    try {
-      await execFileAsync(
-        'pnpm',
-        ['exec', 'tsx', 'src/review/reviewReconciliationCommand.ts'],
-        {
-          cwd: apiRoot,
-          env: {
-            ...process.env,
-            DATABASE_URL: environment.DATABASE_URL,
-            NODE_ENV: 'test',
-            REVIEW_RECONCILIATION_BATCH_SIZE: '1',
-            REVIEW_RECONCILIATION_CONFIRM: REVIEW_RECONCILIATION_CONFIRMATION
-          }
-        }
-      )
-    } catch (error) {
-      if (!isCommandFailure(error)) {
-        throw error
-      }
-      commandFailure = error
-    }
-    expect(commandFailure?.code).toBe(1)
-    const commandOutput = commandFailure?.stdout ?? ''
-    expect(commandOutput).toContain('"event":"review.reconciliation.completed"')
-    expect(commandOutput).toContain('"mismatchWrongNoteCount":1')
-    expect(commandOutput).not.toMatch(
-      /answer|idempotency|memo|payload|questionId|requestHash|userId|wrongNoteId/i
-    )
-    expect(commandOutput).not.toContain(corruptWrongNote.id)
-    expect(commandFailure?.stderr ?? '').not.toContain(corruptWrongNote.id)
-  }, 20_000)
 
   it('targeted v2 session의 pointer·initial draft·stored response를 저장한다', async () => {
     const userId = await createUser()

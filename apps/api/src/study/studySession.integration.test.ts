@@ -11,8 +11,6 @@ import { createApiApp } from '../app/createApp.js'
 import { createAuthGateway } from '../auth/authGateway.js'
 import { createSsoSessionFixture } from '../../test/fixtures/db/ssoSession.js'
 import { createAuthRuntime } from '../auth/createAuth.js'
-import { createAuthEmailDispatcher } from '../auth/emailDispatcher.js'
-import { InMemoryAuthEmailPort } from '../auth/emailPort.js'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
 import { createOwnedAuthFacade } from '../auth/authFacade.js'
 import {
@@ -101,15 +99,10 @@ const erasureWorkerClient = appFixtureDatabaseUrl
       )
     })
   : undefined
-const emailPort = new InMemoryAuthEmailPort()
-const emailDispatcher = createAuthEmailDispatcher({
-  emailPort
-})
 const auth = isCurrentSourceIntegration
   ? undefined
   : createAuthRuntime({
       client: database.client,
-      emailDispatcher,
       environment
     })
 const guestPrincipalService = createGuestPrincipalService({
@@ -144,7 +137,6 @@ const app = createApiApp({
           environment,
           ownedAuthFacade: createOwnedAuthFacade({
             client: database.client,
-            emailDispatcher,
             environment
           }),
           technicalRateLimiter: technicalAuthRateLimiter
@@ -435,7 +427,6 @@ afterAll(async () => {
   await database.client.rateLimit.deleteMany({
     where: { key: { startsWith: 'application:slice3-integration:' } }
   })
-  await emailDispatcher.drain()
   if (erasureWorkerClient) {
     await erasureWorkerClient.end()
   }

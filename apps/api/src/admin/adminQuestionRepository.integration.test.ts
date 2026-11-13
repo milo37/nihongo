@@ -651,8 +651,7 @@ const apiEnvironment = parseApiEnvironment({
   TEST_APP_FIXTURE_DATABASE_URL: appFixtureDatabaseUrl,
   TRUSTED_ORIGINS: 'http://localhost:5173',
   BETTER_AUTH_SECRET: 'a'.repeat(32),
-  GUEST_COOKIE_SECRET: 'b'.repeat(32),
-  AUTH_EMAIL_FROM: 'auth@example.com'
+  GUEST_COOKIE_SECRET: 'b'.repeat(32)
 })
 
 const questionReader: QuestionReader = {
