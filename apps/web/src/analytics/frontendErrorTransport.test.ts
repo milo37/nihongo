@@ -7,7 +7,6 @@ const setup = () => {
   let clock = 0
   const fetchImpl = vi.fn<typeof fetch>(async () => new Response(null))
   const reporter = createFrontendErrorReporter({
-    deploymentEnvironment: 'LOCAL',
     releaseId,
     now: () => new Date('2026-11-13T12:00:00.000Z'),
     transport: createApiFrontendErrorTransport({
@@ -48,7 +47,6 @@ describe('createApiFrontendErrorTransport', () => {
     expect(JSON.parse(String(init?.body))).toEqual({
       schemaVersion: 1,
       occurredAt: '2026-11-13T12:00:00.000Z',
-      deploymentEnvironment: 'LOCAL',
       releaseId,
       source: 'WINDOW_ERROR',
       routeKey: 'routes.practiceSession'
