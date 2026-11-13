@@ -758,6 +758,7 @@
 
 .practice-recent-record {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
   width: 100%;
@@ -765,7 +766,7 @@
 }
 
 .practice-resume-info {
-  flex: 1;
+  flex: 1 1 7rem;
   min-width: 0;
 }
 
@@ -776,7 +777,7 @@
 
 .practice-resume-progress {
   margin-top: 2px;
-  text-wrap: balance;
+  white-space: nowrap;
   color: rgb(var(--color-muted));
   font-size: 13px;
 }
