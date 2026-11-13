@@ -57,7 +57,9 @@ const publicQuestionOptionSchema = z
 export const publicQuestionTagSchema = z
   .object({
     id: opaqueIdSchema,
-    label: nonBlankTextSchema
+    label: nonBlankTextSchema,
+    // #976: the Japanese name; null or absent means show `label`.
+    labelJa: nonBlankTextSchema.nullable().optional()
   })
   .strict()
 
