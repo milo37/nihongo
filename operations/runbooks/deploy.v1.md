@@ -49,15 +49,16 @@
 
 - 잡 **Deploy to PRODUCTION**(`release-image.yml`)은 STAGING이 그 SHA로 떠 있을 때만(`deploy-staging` 결과 `deployed=true`) 대기 상태가 되고, GitHub environment `production`의 승인을 기다립니다. 운영자는 Actions 실행 화면(또는 알림)에서 **Review deployments → production → Approve**만 누릅니다. 거절하거나 두면 PRODUCTION은 그대로입니다.
 - 승인 뒤 STAGING과 같은 단계(`.github/actions/ssm-deploy`): main 끝 SHA 확인 → PRODUCTION 역할 → 문서 `harumaru-production-deploy`(releaseId = 그 SHA) → `/health/ready` 200. 이미지는 STAGING이 쓴 `<SHA>`·`<SHA>-migrate` 그대로입니다(재빌드 없음, ECR 공유).
-- 옛 실행을 승인해도 main 끝이 아니면 배포하지 않습니다(로그 `skipped: <SHA> is not the tip of main`). 하지만 승인을 기다리는 실행은 concurrency `production-deploy`로 정리되지 않고 여럿이 함께 대기합니다(2026-11-13 확인: 이전 실행이 남아 있다가 승인됨, 배포는 건너뜀).
+- 옛 실행을 승인해도 main 끝이 아니면 배포하지 않습니다(로그 `skipped: <SHA> is not the tip of main`). 하지만 승인을 기다리는 이전 실행은 concurrency `production-deploy`를 계속 잡고 있어서, 새 실행의 PRODUCTION 잡은 승인 대기(`waiting`)가 아니라 `pending`으로 막힙니다. 이전 실행이 승인되거나 취소돼야 새 실행이 승인 대기로 넘어갑니다(2026-11-13 확인: 이전 실행이 먼저 승인됐고 배포는 건너뜀, 그 뒤 새 실행이 풀림).
 
 ### 승인 대기 실행은 하나만
 
-- main 병합으로 새 Release image 실행이 생기면, PRODUCTION 승인을 기다리는 **이전 실행은 팀(DevOps)이 즉시 취소**합니다. 운영자에게 승인을 요청하기 전에 대기 실행이 하나뿐인지, 그 SHA가 `main` 끝인지 확인하고 그 실행 주소만 전달합니다.
+- main 병합으로 새 Release image 실행이 생기면, PRODUCTION 승인을 기다리는 **이전 실행은 팀(DevOps)이 즉시 취소**합니다. 그래야 새 실행이 막히지 않고, 운영자가 옛 실행을 누를 일도 없습니다. 운영자에게 승인을 요청하기 전에 `waiting`·`pending` 실행을 모두 보고, 대기 실행이 하나뿐인지, 그 SHA가 `main` 끝인지 확인하고 그 실행 주소만 전달합니다.
 
 ```bash
-# 승인 대기 실행 목록: 새 SHA 하나만 남아야 함
+# 승인 대기·막힌 실행 목록: 둘을 합쳐 새 SHA 하나만 남아야 함
 gh run list -R milo37/nihongo -w release-image.yml --status waiting --json databaseId,headSha,createdAt
+gh run list -R milo37/nihongo -w release-image.yml --status pending --json databaseId,headSha,createdAt
 git ls-remote origin refs/heads/main          # 남은 실행의 headSha와 같아야 함
 gh run cancel <이전 실행 ID> -R milo37/nihongo  # main 끝이 아닌 대기 실행마다
 ```
