@@ -38,7 +38,7 @@ describe('createApiFrontendErrorTransport', () => {
 
     expect(fetchImpl).toHaveBeenCalledTimes(1)
     const [url, init] = fetchImpl.mock.calls[0]!
-    expect(url).toBe('/api/client-errors')
+    expect(url).toBe('/api/v1/client-errors')
     expect(init).toMatchObject({
       method: 'POST',
       credentials: 'same-origin',

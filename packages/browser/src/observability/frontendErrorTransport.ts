@@ -4,7 +4,7 @@ import type {
 } from './frontendErrorReporter'
 
 // JLP-762: screen errors go to our API, which writes them to the server log.
-export const FRONTEND_ERROR_ENDPOINT = '/client-errors'
+export const FRONTEND_ERROR_ENDPOINT = '/v1/client-errors'
 
 const MAX_REPORTS_PER_PAGE = 10
 const REPEAT_WINDOW_MS = 60_000

@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import type { AnalyticsEnvironment } from '@nihongo/contracts/analytics/events'
 import { routeLabelKeys, type RouteLabelKey } from '../i18n/routePresentation'
+import { isRealApiMode } from '../libs/apiMode'
+import { createApiFrontendErrorTransport } from './frontendErrorTransport'
 
 const frontendErrorEventSchema = z
   .object({
@@ -77,9 +79,15 @@ export const createFrontendErrorReporter = ({
   }
 })
 
+// Mock mode has no server to log to, so it sends nothing.
 export const frontendErrorReporter = createFrontendErrorReporter({
   deploymentEnvironment: 'LOCAL',
-  releaseId: __NIHONGO_RELEASE_ID__
+  releaseId: __NIHONGO_RELEASE_ID__,
+  transport: isRealApiMode
+    ? createApiFrontendErrorTransport({
+        baseUrl: import.meta.env.VITE_API_BASE_URL ?? '/api'
+      })
+    : undefined
 })
 
 export const installGlobalFrontendErrorReporting = (
