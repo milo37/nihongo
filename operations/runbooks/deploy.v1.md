@@ -4,13 +4,14 @@
 
 ## 1. 평소 흐름
 
-| 순서 | 무엇                                                                                                                                                   | 누가       |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
-| 1    | `dev`를 `main`에 통합(QA GO·CI 통과 뒤)                                                                                                                | 팀장       |
-| 2    | **Release image**(`.github/workflows/release-image.yml`, 잡 `Publish runtime and migrate images`)가 ECR에 `<SHA>`·`<SHA>-migrate`를 올림               | 자동       |
-| 3    | 같은 워크플로의 잡 **Deploy to STAGING**이 OIDC 역할로 SSM 문서 `harumaru-staging-deploy`(releaseId = 그 SHA)를 실행하고 `Success`를 기다림(최대 25분) | 자동       |
-| 4    | 같은 잡이 `<STAGING 주소>/health/ready`가 200인지(응답에 `x-release-id`가 있으면 그 SHA와 같은지) 최대 5분 확인                                        | 자동       |
-| 5    | PRODUCTION 배포: GitHub environment `production`의 **승인 버튼**을 누르면 같은 SHA를 배포(4절, 변수·environment를 넣기 전에는 건너뜀)                  | 사람(승인) |
+| 순서 | 무엇                                                                                                                                                         | 누가       |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
+| 1    | `dev`를 `main`에 통합(QA GO·CI 통과 뒤)                                                                                                                      | 팀장       |
+| 2    | **Release image**(`.github/workflows/release-image.yml`, 잡 `Publish runtime and migrate images`)가 ECR에 `<SHA>`·`<SHA>-migrate`를 올림                     | 자동       |
+| 3    | 같은 워크플로의 잡 **Deploy to STAGING**이 OIDC 역할로 SSM 문서 `harumaru-staging-deploy`(releaseId = 그 SHA)를 실행하고 `Success`를 기다림(최대 25분)       | 자동       |
+| 4    | 같은 잡이 `<STAGING 주소>/health/ready`가 200인지(응답에 `x-release-id`가 있으면 그 SHA와 같은지) 최대 5분 확인                                              | 자동       |
+| 5    | 병합 뒤 확인: STAGING `/health/ready` 200·`x-release-id` = 새 SHA, 그리고 **PRODUCTION 승인 대기 중인 이전 실행은 즉시 취소**(4절 "승인 대기 실행은 하나만") | 팀(DevOps) |
+| 6    | PRODUCTION 배포: GitHub environment `production`의 **승인 버튼**을 누르면 같은 SHA를 배포(4절, 변수·environment를 넣기 전에는 건너뜀)                        | 사람(승인) |
 
 - 결과는 GitHub Actions의 Release image 실행 화면에서 봅니다. 초록이면 STAGING에 그 SHA가 떠 있습니다.
 - 저장소가 공개라 로그에는 상태와 `deploy.sh` 결과 줄(`deployed <SHA>`, `refusing: …`, `health check failed …`, `rolled back …`)만 남습니다.
@@ -48,7 +49,19 @@
 
 - 잡 **Deploy to PRODUCTION**(`release-image.yml`)은 STAGING이 그 SHA로 떠 있을 때만(`deploy-staging` 결과 `deployed=true`) 대기 상태가 되고, GitHub environment `production`의 승인을 기다립니다. 운영자는 Actions 실행 화면(또는 알림)에서 **Review deployments → production → Approve**만 누릅니다. 거절하거나 두면 PRODUCTION은 그대로입니다.
 - 승인 뒤 STAGING과 같은 단계(`.github/actions/ssm-deploy`): main 끝 SHA 확인 → PRODUCTION 역할 → 문서 `harumaru-production-deploy`(releaseId = 그 SHA) → `/health/ready` 200. 이미지는 STAGING이 쓴 `<SHA>`·`<SHA>-migrate` 그대로입니다(재빌드 없음, ECR 공유).
-- 옛 실행을 승인해도 main 끝이 아니면 배포하지 않습니다. 승인 대기가 여럿이면 concurrency `production-deploy`로 가장 새 것만 남습니다.
+- 옛 실행을 승인해도 main 끝이 아니면 배포하지 않습니다(로그 `skipped: <SHA> is not the tip of main`). 하지만 승인을 기다리는 실행은 concurrency `production-deploy`로 정리되지 않고 여럿이 함께 대기합니다(2026-11-13 확인: 이전 실행이 남아 있다가 승인됨, 배포는 건너뜀).
+
+### 승인 대기 실행은 하나만
+
+- main 병합으로 새 Release image 실행이 생기면, PRODUCTION 승인을 기다리는 **이전 실행은 팀(DevOps)이 즉시 취소**합니다. 운영자에게 승인을 요청하기 전에 대기 실행이 하나뿐인지, 그 SHA가 `main` 끝인지 확인하고 그 실행 주소만 전달합니다.
+
+```bash
+# 승인 대기 실행 목록: 새 SHA 하나만 남아야 함
+gh run list -R milo37/nihongo -w release-image.yml --status waiting --json databaseId,headSha,createdAt
+git ls-remote origin refs/heads/main          # 남은 실행의 headSha와 같아야 함
+gh run cancel <이전 실행 ID> -R milo37/nihongo  # main 끝이 아닌 대기 실행마다
+```
+
 - PRODUCTION 역할은 environment `production`의 잡만 믿습니다(`infra/aws` `github_deploy_environment`). 그래서 승인 없이 PRODUCTION에 배포하는 길이 없습니다. Caddy 이미지 빌드(`caddy-image.yml`)도 같은 역할이라 그 잡도 승인을 거칩니다.
 - 켜는 순서(바꾸면 안 됨): **① environment `production` 보호 먼저** — 저장소 Settings → Environments에서 만들고 Required reviewers = 운영자 계정, Deployment branches = `main`, "Prevent self-review" 끔(병합 실행자가 운영자 계정이라 켜면 승인할 사람이 없음). **② 그 다음에 저장소 변수** `PRODUCTION_AWS_DEPLOY_ROLE_ARN`·`PRODUCTION_INSTANCE_ID`·`PRODUCTION_SITE_URL`(PRODUCTION terraform output, 비밀 아님). 변수가 없으면 잡은 건너뜁니다.
 - 이유: GitHub는 없는 environment를 처음 쓸 때 **보호 규칙 없이** 자동으로 만들고, PRODUCTION 역할은 environment 이름만 봅니다. 변수를 먼저 넣으면 승인 없이 배포될 수 있습니다. 그래서 잡은 시작하자마자 `production`에 필수 검토자가 있는지 API로 확인하고, 없으면 AWS 역할을 받기 전에 실패합니다.
@@ -65,7 +78,7 @@
 | 비밀값이 새로 생길 때만  | SSM SecureString 등록(값은 채팅·파일에 남기지 않음)                                                                                  |
 | 환경을 처음 채울 때(1회) | 관리자 Google 계정 로그인 1번(첫 관리자 만들 때). DB 비우기·문제 500 공개(부록 B)는 팀이 실행하고 운영자는 승인만 합니다.            |
 | PRODUCTION 전(1회)       | 도메인 구입, AWS 유료 전환, CloudFront 요금제 가입, Google OAuth 주소 등록, 경보 메일 구독 확인                                      |
-| PRODUCTION 배포마다      | Actions의 **Approve** 버튼 1번                                                                                                       |
+| PRODUCTION 배포마다      | 팀이 전달한 실행(대기 실행은 그것 하나)의 **Approve** 버튼 1번                                                                       |
 
 ---
 
