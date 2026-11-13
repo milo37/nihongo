@@ -54,7 +54,7 @@ it.each(['ko', 'ja'] as const)(
       within(primary)
         .getAllByRole('link')
         .map((a) => a.getAttribute('href'))
-    ).toEqual(['/practice', '/wrong-notes', '/bookmarks', '/account'])
+    ).toEqual(['/', '/wrong-notes', '/bookmarks', '/account'])
     expect(
       within(primary).getByRole('link', { name: appI18n.t('navigation:my') })
     ).toBeInTheDocument()
@@ -263,6 +263,28 @@ it('keeps an ordinary result in learning context rather than switching it to rev
     })
   ).toHaveAttribute('aria-current', 'page')
 })
+it.each([
+  ['ko', '홈'],
+  ['ja', 'ホーム']
+] as const)(
+  'names the first tab home, links it to / and keeps it lit on the practice setup (JLP-873, %s)',
+  async (locale, label) => {
+    await appI18n.changeLanguage(locale)
+    render(
+      <MemoryRouter initialEntries={['/practice']}>
+        <Layout />
+      </MemoryRouter>
+    )
+    for (const id of ['primary-navigation', 'mobile-navigation']) {
+      const home = within(document.getElementById(id) as HTMLElement).getByRole(
+        'link',
+        { name: label }
+      )
+      expect(home).toHaveAttribute('href', '/')
+      expect(home).toHaveAttribute('aria-current', 'page')
+    }
+  }
+)
 it('places an app-owned header status in the top bar just before the account menu', () => {
   render(
     <MemoryRouter initialEntries={['/practice']}>

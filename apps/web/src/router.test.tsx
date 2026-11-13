@@ -143,11 +143,12 @@ describe('application router boundaries', () => {
     const scrollTo = vi
       .spyOn(window, 'scrollTo')
       .mockImplementation(() => undefined)
-    const router = renderRoutes('/')
+    // JLP-873: the first tab is '홈' and goes to / from anywhere.
+    const router = renderRoutes('/practice')
     expect(
       await screen.findByRole(
         'heading',
-        { name: /^오늘은 N5 문자·어휘/u },
+        { name: '무엇을 풀까요?' },
         { timeout: 3000 }
       )
     ).toBeInTheDocument()
@@ -155,18 +156,18 @@ describe('application router boundaries', () => {
     const navigation = document.getElementById(
       'primary-navigation'
     ) as HTMLElement
-    await user.click(within(navigation).getByRole('link', { name: '학습' }))
+    await user.click(within(navigation).getByRole('link', { name: '홈' }))
     await vi.waitFor(() => {
-      expect(router.state.location.pathname).toBe('/practice')
+      expect(router.state.location.pathname).toBe('/')
       expect(router.state.navigation.state).toBe('idle')
       expect(
-        screen.getByRole('heading', { name: '무엇을 풀까요?' })
+        screen.getByRole('heading', { name: /^오늘은 N5 문자·어휘/u })
       ).toBeInTheDocument()
     })
 
     await vi.waitFor(() => {
       expect(document.querySelector('#main-content')).toHaveFocus()
-      expect(screen.getByText('학습 화면이에요.')).toBeInTheDocument()
+      expect(screen.getByText('홈 화면이에요.')).toBeInTheDocument()
     })
     expect(scrollTo).toHaveBeenCalledWith({
       top: 0,

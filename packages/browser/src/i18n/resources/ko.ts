@@ -94,7 +94,7 @@ export const koCoreResources = {
 
     skipToContent: '본문으로 건너뛰기',
     primary: '메뉴',
-    learningStart: '학습',
+    learningStart: '홈',
     practice: '문제 풀기',
     wrongNotes: '오답노트',
     bookmarks: '책갈피',
@@ -106,9 +106,9 @@ export const koCoreResources = {
     metaDescription:
       'JLPT N5~N1 문제를 풀고, 틀린 문제는 다시 풀어 보는 하루마루',
     routes: {
-      home: '학습',
+      home: '홈',
       login: '로그인',
-      dashboard: '학습',
+      dashboard: '홈',
       practiceSetup: '학습',
       practiceSession: '문제 풀기',
       result: '결과',

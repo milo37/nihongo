@@ -364,7 +364,9 @@ export const AppLayout = ({
     (isLearningEntry || isPracticeSurface) && !isReviewSurface
   const navigationItems: readonly NavigationItem[] = [
     {
-      to: '/practice',
+      // JLP-873: the first tab is 'home' and always goes to /; it stays lit on
+      // the practice setup and results, which belong to the home area.
+      to: '/',
       label: 'learningStart',
       icon: 'house',
       active: isLearningActive

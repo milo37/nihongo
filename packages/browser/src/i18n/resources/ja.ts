@@ -111,7 +111,7 @@ export const jaCoreResources = {
 
     skipToContent: '本文へスキップ',
     primary: 'メニュー',
-    learningStart: '学習',
+    learningStart: 'ホーム',
     practice: '問題を解く',
     wrongNotes: '間違いノート',
     bookmarks: 'ブックマーク',
@@ -123,9 +123,9 @@ export const jaCoreResources = {
     metaDescription:
       'JLPT N5〜N1の問題を解いて、間違えた問題はもう一度解いてみる하루마루',
     routes: {
-      home: '学習',
+      home: 'ホーム',
       login: 'ログイン',
-      dashboard: '学習',
+      dashboard: 'ホーム',
       practiceSetup: '学習',
       practiceSession: '問題を解く',
       result: '結果',
