@@ -6,6 +6,7 @@ import { createPrismaAdminQuestionWorkflowRepository } from '../admin/adminQuest
 import { createPrismaAdminQuestionCommandRepository } from '../admin/adminQuestionCommandRepository.js'
 import {
   createAdminQuestionCommandService,
+  createAdminQuestionPublicationCommandService,
   createAdminQuestionWorkflowCommandService
 } from '../admin/adminQuestionCommandService.js'
 import { createOperatorAdminAuthority } from '../admin/operatorAdminAuthority.js'
@@ -431,6 +432,67 @@ describe.sequential(
         skippedPublished: 2,
         conflicts: []
       })
+      expect(await contentRowCounts()).toEqual(counts)
+    }, 120_000)
+
+    it('leaves a question an admin reordered since the import to a person', async () => {
+      const question = await questionOf(4)
+      const authority = createOperatorAdminAuthority({
+        actorId: adminId,
+        requestId: randomUUID()
+      })
+      const repository = createPrismaAdminQuestionCommandRepository({
+        auditEnvironment: 'TEST',
+        client: database.client
+      })
+      const commands = {
+        ...createAdminQuestionCommandService(repository),
+        ...createAdminQuestionPublicationCommandService(repository),
+        ...createAdminQuestionWorkflowCommandService(
+          createPrismaAdminQuestionWorkflowRepository({
+            auditEnvironment: 'TEST',
+            client: database.client
+          })
+        )
+      }
+      const content = setItem(4).content
+      // Same fingerprint: only the option order changes.
+      const created = await commands.createVersion(authority, question.id, {
+        ...content,
+        options: content.options.toReversed(),
+        expectedQuestionRowVersion: question.rowVersion
+      } as Parameters<typeof commands.createVersion>[2])
+      const versionId = created.questionVersionId as string
+      const requested = await commands.requestReviewBatch(authority, {
+        items: [{ versionId, expectedRowVersion: 1 }]
+      })
+      const approved = await commands.approveVersionBatch(authority, {
+        items: [
+          {
+            questionVersionId: versionId,
+            expectedRowVersion: requested.items[0]!.versionRowVersion as number
+          }
+        ]
+      })
+      await commands.publishVersionBatch(authority, {
+        items: [
+          {
+            questionVersionId: versionId,
+            expectedRowVersion: approved.items[0]!.rowVersion as number
+          }
+        ]
+      })
+      expect((await questionOf(4)).currentPublishedVersionId).toBe(versionId)
+
+      const counts = await contentRowCounts()
+      const clientItemId = setItem(4).clientItemId
+      const report = await explain(
+        [{ clientItemId, explanationJa: '並べ替えた後の解説' }],
+        true
+      )
+      expect(report.conflicts).toEqual([
+        { clientItemId, reason: 'PUBLISHED_CONTENT_CHANGED' }
+      ])
       expect(await contentRowCounts()).toEqual(counts)
     }, 120_000)
 

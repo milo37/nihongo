@@ -82,6 +82,10 @@ interface VersionRow {
   readonly difficulty: string
   readonly explanationKo: string
   readonly explanationJa: string | null
+  readonly questionText: string
+  readonly passage: string | null
+  readonly optionTexts: string[]
+  readonly correctOptionText: string | null
   readonly tagCount: number
   readonly tagKeys: string[]
 }
@@ -135,6 +139,15 @@ const STATE_SQL = `SELECT version."contentFingerprint" AS "fingerprint",
     version."difficulty"::text AS "difficulty",
     version."explanationKo",
     version."explanationJa",
+    version."questionText",
+    version."passage",
+    COALESCE((
+      SELECT array_agg(option."text" ORDER BY option."ordinal", option."id")
+      FROM "QuestionOption" AS option
+      WHERE option."questionVersionId" = version."id"
+    ), ARRAY[]::text[]) AS "optionTexts",
+    (SELECT option."text" FROM "QuestionOption" AS option
+      WHERE option."id" = version."correctOptionId") AS "correctOptionText",
     (SELECT count(*)::int FROM "QuestionVersionTag" AS assignment
       WHERE assignment."questionVersionId" = version."id") AS "tagCount",
     COALESCE((
@@ -158,10 +171,20 @@ interface Entry {
   readonly request: CreateAdminQuestionVersionRequest
 }
 
-// The fingerprint covers the question text, passage and options. The new
-// version must also keep the level, difficulty, Korean explanation and tags,
-// so a version an admin changed since the import is left to a person.
+// The fingerprint normalizes text and sorts the options, so the new version
+// must also keep the exact question text, passage, option order, answer,
+// level, difficulty, Korean explanation and tags. A version an admin changed
+// since the import is left to a person.
 const keepsSetContent = (row: VersionRow, entry: Entry): boolean =>
+  row.questionText === entry.request.questionText &&
+  row.passage === entry.request.passage &&
+  JSON.stringify(row.optionTexts) ===
+    JSON.stringify(entry.request.options.map(({ text }) => text)) &&
+  row.correctOptionText ===
+    entry.request.options.find(
+      ({ clientOptionKey }) =>
+        clientOptionKey === entry.request.correctOptionKey
+    )?.text &&
   row.level === entry.request.level &&
   row.difficulty === entry.request.difficulty &&
   row.explanationKo === entry.request.explanationKo &&
