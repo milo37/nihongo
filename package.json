@@ -45,7 +45,6 @@
     "content:coverage": "node scripts/content/run-retained-validator.mjs coverage",
     "content:duplicates": "node scripts/content/run-retained-validator.mjs duplicates",
     "content:foundation-check": "pnpm --filter @nihongo/domain run build && pnpm --filter @nihongo/api run content:foundation-check && pnpm --filter @nihongo/api exec vitest run prisma/contentFoundationCheck.test.ts && pnpm --filter @nihongo/web exec vitest run src/mocks/data/questions/questions.test.ts && pnpm run check:architecture && pnpm --filter @nihongo/web run build && pnpm run test:database",
-    "review:reconcile": "pnpm --filter @nihongo/api run review:reconcile",
     "study:cleanup-expired-guests": "pnpm --filter @nihongo/api run study:cleanup-expired-guests",
     "study:cleanup-expired-drafts": "pnpm --filter @nihongo/api run study:cleanup-expired-drafts",
     "test": "pnpm --filter @nihongo/contracts run build && pnpm --filter @nihongo/domain run build && pnpm run test:static && pnpm -r --if-present run test && pnpm --filter @nihongo/web run test:request-ledger",
