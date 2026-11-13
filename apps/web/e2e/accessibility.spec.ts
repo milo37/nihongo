@@ -1980,11 +1980,7 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
     testInfo,
     'guest-locale-auth-boundary'
   )
-})
-
-test('every guest sign-in entry links the consent terms and privacy in KO/JA', async ({
-  page
-}) => {
+  // Every guest sign-in entry links the consent terms and privacy (JLP-877).
   const copy = {
     ko: { terms: '이용약관', privacy: '개인정보 처리방침' },
     ja: { terms: '利用規約', privacy: '個人情報処理方針' }
