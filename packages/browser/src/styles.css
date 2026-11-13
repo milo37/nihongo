@@ -746,54 +746,47 @@
   margin-bottom: 36px;
 }
 
+/* JLP-872: the set in progress is one ruled row, not a card; its text
+   wraps on a narrow phone and the buttons keep their size. */
 .practice-recent {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 12px 24px;
-  padding: 28px 24px;
-  border: 1px solid rgb(var(--color-line));
-  border-radius: 12px;
-  background: rgb(var(--color-surface));
+  padding: 12px 0;
+  border-top: 1px solid rgb(var(--color-line));
+  border-bottom: 1px solid rgb(var(--color-line));
 }
 
 .practice-recent-record {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 20px;
+  gap: 12px;
   width: 100%;
   min-width: 0;
 }
 
 .practice-resume-info {
-  flex: 1;
+  flex: 1 1 7rem;
   min-width: 0;
 }
 
 .practice-resume-info h3 {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 700;
 }
 
 .practice-resume-progress {
-  margin-top: 4px;
+  margin-top: 2px;
+  white-space: nowrap;
   color: rgb(var(--color-muted));
-  font-size: 14px;
-}
-
-.practice-resume-context {
-  margin-top: 4px;
-  color: rgb(var(--color-muted));
-  font-size: var(--text-caption-size);
+  font-size: 13px;
 }
 
 .practice-resume-actions {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
-  max-width: 100%;
 }
 
 .practice-resume-cancel {
@@ -943,23 +936,6 @@
   }
   .practice-resumable {
     margin-bottom: 26px;
-  }
-  .practice-recent {
-    padding: 16px;
-    gap: 12px;
-  }
-  .practice-recent-record {
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-  .practice-resume-info h3 {
-    font-size: 16px;
-  }
-  .practice-resume-actions {
-    width: 100%;
-  }
-  .practice-resume-actions > a {
-    flex: 1;
   }
 }
 
