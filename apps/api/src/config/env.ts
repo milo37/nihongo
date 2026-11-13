@@ -15,7 +15,6 @@ const deploymentEnvironmentSchema = z.enum([
   'STAGING',
   'PRODUCTION'
 ])
-const emailDeliveryModeSchema = z.enum(['test-sink', 'webhook'])
 const secretSchema = z.string().min(32)
 const postgresSchemaPattern = /^[a-z_][a-z0-9_]*$/
 const releaseIdSchema = z.string().regex(/^[0-9a-f]{40}$/u)
@@ -209,10 +208,6 @@ const apiEnvironmentSchema = z
     GOOGLE_CLIENT_SECRET: z.string().min(1).max(4096).optional(),
     APPLE_CLIENT_ID: z.string().trim().min(1).max(512).optional(),
     APPLE_CLIENT_SECRET: z.string().min(1).max(8192).optional(),
-    AUTH_EMAIL_FROM: z.email().default('retired@invalid.local'),
-    AUTH_EMAIL_DELIVERY_MODE: emailDeliveryModeSchema.default('test-sink'),
-    AUTH_EMAIL_WEBHOOK_URL: z.url().optional(),
-    AUTH_EMAIL_WEBHOOK_SECRET: secretSchema.optional(),
     AUTH_TRUSTED_PROXY_CIDRS: trustedProxyListSchema,
     // JLP-788: unset or empty enforces everywhere.
     CSP_MODE: z.enum(['report-only', 'enforce']).optional()
@@ -452,12 +447,6 @@ export const parseApiEnvironment = (
     GOOGLE_CLIENT_SECRET: source.GOOGLE_CLIENT_SECRET,
     APPLE_CLIENT_ID: source.APPLE_CLIENT_ID,
     APPLE_CLIENT_SECRET: source.APPLE_CLIENT_SECRET,
-    AUTH_EMAIL_FROM: source.AUTH_EMAIL_FROM,
-    AUTH_EMAIL_DELIVERY_MODE:
-      source.AUTH_EMAIL_DELIVERY_MODE ??
-      (canUseDevelopmentDefaults ? 'test-sink' : undefined),
-    AUTH_EMAIL_WEBHOOK_URL: source.AUTH_EMAIL_WEBHOOK_URL,
-    AUTH_EMAIL_WEBHOOK_SECRET: source.AUTH_EMAIL_WEBHOOK_SECRET,
     AUTH_TRUSTED_PROXY_CIDRS:
       source.AUTH_TRUSTED_PROXY_CIDRS ??
       (canUseDevelopmentDefaults ? '127.0.0.1/32,::1/128' : undefined),

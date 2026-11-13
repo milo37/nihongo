@@ -256,9 +256,7 @@ describe('SSO deterministic TEST environment', () => {
       PORT: 3001,
       BETTER_AUTH_URL: 'http://127.0.0.1:3001',
       TRUSTED_ORIGINS: ['http://127.0.0.1:5173'],
-      AUTH_TRUSTED_PROXY_CIDRS: ['127.0.0.1/32', '::1/128'],
-      AUTH_EMAIL_FROM: 'sso-db@example.test',
-      AUTH_EMAIL_DELIVERY_MODE: 'test-sink'
+      AUTH_TRUSTED_PROXY_CIDRS: ['127.0.0.1/32', '::1/128']
     })
     expect(parsed.BETTER_AUTH_SECRET.length).toBeGreaterThanOrEqual(32)
     expect(parsed.GUEST_COOKIE_SECRET.length).toBeGreaterThanOrEqual(32)
@@ -312,6 +310,8 @@ describe('SSO deterministic TEST environment', () => {
       'GOOGLE_CLIENT_SECRET',
       'APPLE_CLIENT_ID',
       'APPLE_CLIENT_SECRET',
+      'AUTH_EMAIL_FROM',
+      'AUTH_EMAIL_DELIVERY_MODE',
       'AUTH_EMAIL_WEBHOOK_URL',
       'AUTH_EMAIL_WEBHOOK_SECRET'
     ])

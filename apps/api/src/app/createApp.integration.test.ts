@@ -38,8 +38,7 @@ const authEnvironment = parseApiEnvironment({
     'postgresql://nihongo_test_app_login:password@127.0.0.1:55432/nihongo_test?schema=public',
   TRUSTED_ORIGINS: 'http://localhost:5173',
   BETTER_AUTH_SECRET: 'a'.repeat(32),
-  GUEST_COOKIE_SECRET: 'b'.repeat(32),
-  AUTH_EMAIL_FROM: 'auth@example.com'
+  GUEST_COOKIE_SECRET: 'b'.repeat(32)
 })
 
 const guestPrincipalService: GuestPrincipalService = {
