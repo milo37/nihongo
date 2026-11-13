@@ -17,6 +17,15 @@ data "aws_cloudfront_origin_request_policy" "all_viewer" {
   name = "Managed-AllViewer"
 }
 
+# With origin TLS, CloudFront uses the forwarded Host as the TLS SNI and checks
+# the origin certificate against it. The viewer Host is the site domain, but the
+# origin certificate covers only origin_domain_name, so every request got 502
+# (JLP-835 first PRODUCTION deploy). This policy sends the origin's own name as
+# Host instead. The API does not read Host (auth uses BETTER_AUTH_URL).
+data "aws_cloudfront_origin_request_policy" "all_viewer_except_host" {
+  name = "Managed-AllViewerExceptHostHeader"
+}
+
 # Only this distribution knows the value, so another account's distribution
 # pointed at the EIP gets 403 from the origin proxy and cannot bypass our WAF.
 # The value is in Terraform state (CloudFront config needs it), which is why
@@ -68,7 +77,7 @@ resource "aws_cloudfront_distribution" "site" {
     allowed_methods          = ["GET", "HEAD", "OPTIONS", "PUT", "POST", "PATCH", "DELETE"]
     cached_methods           = ["GET", "HEAD"]
     cache_policy_id          = data.aws_cloudfront_cache_policy.disabled.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer.id
+    origin_request_policy_id = local.origin_tls ? data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id : data.aws_cloudfront_origin_request_policy.all_viewer.id
     compress                 = true
   }
 
