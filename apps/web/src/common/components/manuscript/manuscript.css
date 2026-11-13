@@ -32,6 +32,9 @@
   font-size: 13px;
   font-weight: 700;
 }
+.progress-sheet-number.is-small {
+  font-size: 11px;
+}
 .progress-sheet-number.is-current {
   color: rgb(var(--color-ink));
   font-weight: 800;
@@ -40,6 +43,10 @@
   fill: none;
   stroke: rgb(var(--color-ink));
   stroke-width: 2;
+}
+.progress-sheet-current.is-filled {
+  fill: rgb(var(--color-ink));
+  stroke: none;
 }
 .progress-sheet-dot {
   fill: rgb(var(--color-ink));
