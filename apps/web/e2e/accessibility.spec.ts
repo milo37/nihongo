@@ -1868,7 +1868,7 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
   await expect(mobileNavigation.locator('[aria-current]')).toHaveCount(0)
   await expect(
     page.locator('header a.app-brand[href="/"]')
-  ).toHaveAccessibleName('하루마루')
+  ).toHaveAccessibleName('하루마루 홈')
   const mobilePracticeLink = mobileNavigation.locator('a[href="/practice"]')
   await focusByTab(page, mobilePracticeLink)
   await attachFocusedElementEvidence(

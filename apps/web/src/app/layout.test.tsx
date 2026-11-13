@@ -46,7 +46,7 @@ it.each(['ko', 'ja'] as const)(
     )
     expect(
       within(screen.getByRole('banner')).getByRole('link', {
-        name: appI18n.t('common:appName')
+        name: `${appI18n.t('common:appName')} ${appI18n.t('navigation:routes.home')}`
       })
     ).toHaveAttribute('href', '/')
     const primary = topNavigation()
@@ -256,8 +256,8 @@ it('keeps an ordinary result in learning context rather than switching it to rev
   ).toHaveAttribute('aria-current', 'page')
 })
 it.each([
-  ['ko', '학습', '하루마루'],
-  ['ja', '学習', '하루마루']
+  ['ko', '학습', '하루마루 홈'],
+  ['ja', '学習', '하루마루 ホーム']
 ] as const)(
   'reaches home by the logo, lights no tab there and lights 학습 on the practice setup (JLP-873, %s)',
   async (locale, label, appName) => {

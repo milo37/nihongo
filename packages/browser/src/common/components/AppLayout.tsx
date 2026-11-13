@@ -68,14 +68,21 @@ const AppBrand = ({
   onClick: () => void
 }): ReactElement => {
   const { t } = useTranslation('common')
+  const { t: navigationT } = useTranslation('navigation')
+  // JLP-873: the logo is the only way home, so its name says so.
   return (
-    <Link className={className} to="/" onClick={onClick}>
+    <Link
+      className={className}
+      to="/"
+      aria-label={`${t('appName')} ${navigationT('routes.home')}`}
+      onClick={onClick}
+    >
       <img
         className="app-brand-lockup"
         src="/brand/harumaru-lockup.svg"
         width={770}
         height={210}
-        alt={t('appName')}
+        alt=""
       />
     </Link>
   )
