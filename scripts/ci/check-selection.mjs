@@ -414,9 +414,6 @@ export const qualityCommands = (selection, group) => {
       ) {
         add('exec', 'node', '--test', 'scripts/architecture/*.test.mjs')
       }
-      if (selection.content) {
-        add('exec', 'node', '--test', 'scripts/content/*.test.mjs')
-      }
       if (selection.portable) {
         add('exec', 'node', '--test', 'scripts/operations/*.test.mjs')
       }

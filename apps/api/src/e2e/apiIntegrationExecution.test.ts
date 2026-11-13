@@ -158,11 +158,11 @@ describe('query-plan failure diagnostics', () => {
   it('reports only a fixed assertion class and allowlisted source lines', async () => {
     const text = await failedRun(
       report(
-        `AssertionError: ${secret}\n ❯ ${testFile}:231:5\n ❯ /workspace/apps/api/${testFile}:1165:9\n ❯ src/private/${secret}:123:4`
+        `AssertionError: ${secret}\n ❯ ${testFile}:231:5\n ❯ /workspace/apps/api/${testFile}:1100:9\n ❯ src/private/${secret}:123:4`
       )
     )
     expect(text).toContain('"diagnosticId":"ASSERTION_FAILED"')
-    expect(text).toContain('"locations":[231,1165]')
+    expect(text).toContain('"locations":[231,1100]')
     expect(text).not.toContain('src/private/')
   })
 
