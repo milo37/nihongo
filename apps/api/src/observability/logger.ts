@@ -9,7 +9,6 @@ type OperationalLogEvent =
   | 'api.shutdown.failed'
   | 'http.request.completed'
   | 'http.request.failed'
-  | 'auth.email.delivery_failed'
   | 'auth.reauthentication.maintenance_failed'
   | 'auth.account_erasure.requested'
   | 'auth.account_erasure.cancelled'
@@ -87,12 +86,6 @@ const contextSchemaByEvent = {
   'http.request.completed': httpContextSchema,
   'http.request.failed': httpContextSchema
     .extend({ errorCode: errorCodeSchema })
-    .strict(),
-  'auth.email.delivery_failed': z
-    .object({
-      purpose: z.enum(['EMAIL_VERIFICATION', 'PASSWORD_RESET']),
-      deliveryReason: z.enum(['ABORTED', 'DELIVERY_FAILED', 'QUEUE_FULL'])
-    })
     .strict(),
   'auth.reauthentication.maintenance_failed': z
     .object({ errorCode: z.literal('MAINTENANCE_FAILED') })

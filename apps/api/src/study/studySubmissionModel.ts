@@ -33,7 +33,7 @@ export interface SubmitStudySessionAtomicInput {
   readonly idempotencyKey: string
   readonly observedAt: Date
   readonly owner: ExistingStudyOwner
-  readonly practiceContractVersion?: 1 | 2
+  readonly practiceContractVersion?: 2
   readonly requestHash: string
   readonly sessionId: string
 }

@@ -617,8 +617,7 @@ describe('ADMIN learner access and CMS role boundaries', () => {
       'postgresql://nihongo_test_app_login:placeholder@localhost/nihongo_test?schema=public',
     TRUSTED_ORIGINS: origin,
     BETTER_AUTH_SECRET: 'a'.repeat(32),
-    GUEST_COOKIE_SECRET: 'b'.repeat(32),
-    AUTH_EMAIL_FROM: 'fixture@example.test'
+    GUEST_COOKIE_SECRET: 'b'.repeat(32)
   })
   const session = createStudySessionV2ResponseSchema.parse(practice.session)
   const draft = saveStudyDraftAnswersResponseSchema.parse(practice.draft)

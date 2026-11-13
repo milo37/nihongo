@@ -22,11 +22,6 @@ import {
   createTargetedReviewQuestionLockQuery,
   createTargetedReviewWrongNoteLockQuery
 } from '../wrong-note/wrongNoteTargetedReviewRepository.js'
-import {
-  createReviewReconciliationEventBatchQuery,
-  createReviewReconciliationNoteBatchQuery,
-  createPrismaReviewReconciliationRepository
-} from './reviewReconciliationRepository.js'
 import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 interface ExplainRow {
@@ -58,8 +53,6 @@ interface ReviewCenterPlans {
   readonly memoLookup: ExplainRow[]
   readonly memoOwnerLock: ExplainRow[]
   readonly memoRead: ExplainRow[]
-  readonly reconciliationEvents: ExplainRow[]
-  readonly reconciliationNotes: ExplainRow[]
   readonly targetedCleanup: ExplainRow[]
   readonly targetedExistingRecord: ExplainRow[]
   readonly targetedQuestionLock: ExplainRow[]
@@ -812,11 +805,10 @@ afterAll(async () => {
 })
 
 describe('Review-center populated query plans', () => {
-  it('memo/history/reconciliation/targeted cleanup이 bounded index plan을 선택한다', async () => {
+  it('memo/history/targeted cleanup이 bounded index plan을 선택한다', async () => {
     const fixture = await createPlanFixture()
     const rollbackSentinel = new Error('ROLLBACK_REVIEW_CENTER_PLANS')
     let plans: ReviewCenterPlans | undefined
-    let reconciliationNoteCount = 0
 
     try {
       await database.client.$transaction(async (transaction) => {
@@ -870,29 +862,6 @@ describe('Review-center populated query plans', () => {
             })}
           `
         )
-        const reconciliationNoteQuery =
-          createReviewReconciliationNoteBatchQuery({
-            batchSize: RECONCILIATION_LIMIT,
-            cursor: null
-          })
-        const reconciliationNotes = await transaction.$queryRaw<ExplainRow[]>(
-          Prisma.sql`
-            EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
-            ${reconciliationNoteQuery}
-          `
-        )
-        const reconciliationNoteRows = await transaction.$queryRaw<
-          { id: string }[]
-        >(reconciliationNoteQuery)
-        reconciliationNoteCount = reconciliationNoteRows.length
-        const reconciliationEvents = await transaction.$queryRaw<
-          ExplainRow[]
-        >(Prisma.sql`
-            EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
-            ${createReviewReconciliationEventBatchQuery(
-              reconciliationNoteRows.map(({ id }) => id)
-            )}
-          `)
         if (!isCurrentSourceIntegration) {
           await transaction.$executeRaw`
             CREATE TEMP TABLE "targeted_plan_catalog" (
@@ -987,8 +956,6 @@ describe('Review-center populated query plans', () => {
           historyOwnerRead,
           historyInitial,
           historyCursor,
-          reconciliationNotes,
-          reconciliationEvents,
           targetedCleanup,
           targetedExistingRecord,
           targetedQuestionLock,
@@ -1059,37 +1026,6 @@ describe('Review-center populated query plans', () => {
       expectPlanBuffersAtMost(plan, 512)
     }
     expectRelationExecuted(plans.historyInitial, 'StudyAnswer')
-
-    expect(readIndexNames(plans.reconciliationNotes)).toContain(
-      'WrongNote_pkey'
-    )
-    expectNoSequentialScan(plans.reconciliationNotes, 'WrongNote')
-    expectBoundedRelationRows(
-      plans.reconciliationNotes,
-      'WrongNote',
-      RECONCILIATION_LIMIT
-    )
-    expect(readRootPlan(plans.reconciliationNotes)['Actual Rows']).toBe(
-      RECONCILIATION_LIMIT
-    )
-    expect(reconciliationNoteCount).toBe(RECONCILIATION_LIMIT)
-    expect(
-      [...readIndexNames(plans.reconciliationEvents)].some((indexName) =>
-        [
-          'ReviewEvent_wrongNoteId_occurredAt_idx',
-          'ReviewEvent_wrongNoteId_occurredAt_id_idx'
-        ].includes(indexName)
-      )
-    ).toBe(true)
-    expectNoSequentialScan(plans.reconciliationEvents, 'ReviewEvent')
-    expectBoundedRelationRows(
-      plans.reconciliationEvents,
-      'ReviewEvent',
-      RECONCILIATION_LIMIT * 8 + HISTORY_CARDINALITY
-    )
-    expect(
-      readRootPlan(plans.reconciliationEvents)['Actual Rows']
-    ).toBeGreaterThan(0)
 
     expect(readIndexNames(plans.targetedCleanup)).toContain(
       'IdempotencyRecord_operation_expiresAt_id_idx'
@@ -1193,17 +1129,6 @@ describe('Review-center populated query plans', () => {
       ).toBe(true)
     }
 
-    const expectedReconciliationCount = await database.client.wrongNote.count()
-    const reconciliationResult =
-      await createPrismaReviewReconciliationRepository(
-        database.client
-      ).reconcile({ batchSize: RECONCILIATION_LIMIT })
-    expect(reconciliationResult.scannedWrongNoteCount).toBe(
-      expectedReconciliationCount
-    )
-    expect(reconciliationResult.scannedWrongNoteCount).toBeGreaterThan(
-      RECONCILIATION_LIMIT
-    )
     expect(fixture.sessionId).toMatch(/^[0-9a-f-]{36}$/u)
   }, 15_000)
 })
