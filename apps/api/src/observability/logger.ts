@@ -13,6 +13,7 @@ type OperationalLogEvent =
   | 'auth.reauthentication.maintenance_failed'
   | 'auth.account_erasure.requested'
   | 'auth.account_erasure.cancelled'
+  | 'client.error.reported'
 
 interface LogContext {
   readonly [key: string]: unknown
@@ -105,6 +106,24 @@ const contextSchemaByEvent = {
   // a User whose latest event is this one.
   'auth.account_erasure.cancelled': z
     .object({ userId: z.uuid(), occurredAt: z.iso.datetime() })
+    .strict(),
+  // JLP-762: a screen error the browser reported. The line's own environment
+  // and release are the API's; the screen's release is clientReleaseId.
+  'client.error.reported': z
+    .object({
+      clientReleaseId: metadataSchema.shape.releaseId,
+      occurredAt: z.iso.datetime({ offset: true }),
+      source: z.enum([
+        'WINDOW_ERROR',
+        'UNHANDLED_REJECTION',
+        'ROUTE_RENDER',
+        'UNEXPECTED_API_ERROR',
+        'API_RESPONSE_VALIDATION'
+      ]),
+      routeKey: z.string().regex(/^routes\.[A-Za-z]{1,48}$/u),
+      clientRequestId: requestIdSchema.optional(),
+      statusClass: statusClassSchema.optional()
+    })
     .strict()
 } as const
 
