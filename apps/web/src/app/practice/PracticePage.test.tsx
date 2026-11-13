@@ -158,6 +158,57 @@ describe('PracticePage setup', () => {
     ).toHaveAccessibleName('N4')
   })
 
+  it('풀던 세트가 있어도 시작이 유일한 채운 버튼이고 이어 풀기는 테두리 한 줄이다 (JLP-872)', async () => {
+    mockDatabase.loginAs('USER')
+    mockServer.use(
+      http.get('*/api/v1/study-sessions', () =>
+        HttpResponse.json(
+          {
+            items: [
+              {
+                id: crypto.randomUUID(),
+                level: 'N5',
+                subject: 'VOCABULARY',
+                mode: 'RANDOM',
+                status: 'IN_PROGRESS',
+                actualCount: 10,
+                startedAt: '2026-10-12T01:00:00Z',
+                expiresAt: '2026-10-14T01:00:00Z',
+                practiceContractVersion: 2,
+                draftRevision: 1,
+                draftSavedAt: '2026-10-12T01:05:00Z',
+                currentOrdinal: 3,
+                resumeAvailability: 'SERVER'
+              }
+            ],
+            total: 1,
+            page: 1,
+            pageSize: 1
+          },
+          {
+            headers: {
+              'Cache-Control': 'private, no-store',
+              'X-Nihongo-Practice-Contract': '2'
+            }
+          }
+        )
+      )
+    )
+    renderPractice('?level=N5&subject=VOCABULARY')
+    const resume = await screen.findByRole('link', { name: '이어 풀기' })
+    expect(screen.getByText('10문제 중 3번까지')).toBeInTheDocument()
+    // No mode and saved-time line; no arrow icon.
+    expect(screen.queryByText(/에 저장/u)).not.toBeInTheDocument()
+    expect(resume.querySelector('svg')).toBeNull()
+    expect(resume.className).toContain('border-line-interactive')
+    expect(resume.className).not.toContain('bg-brand')
+    const start = screen.getByRole('button', {
+      name: 'N5 문자·어휘 10문제 시작'
+    })
+    expect(start.className).toContain('bg-brand')
+    expect(screen.getByRole('button', { name: '버리기' })).toBeVisible()
+  })
+
   it('선택한 조건으로 세션을 만들고 학습 화면으로 이동한다', async () => {
     const router = renderPractice('?level=N5&subject=VOCABULARY&count=5')
     const start = await screen.findByRole('button', {
