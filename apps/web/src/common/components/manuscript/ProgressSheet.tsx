@@ -15,11 +15,13 @@ export type ProgressCellState =
   | 'skip'
 
 /**
- * Below these sides a square drops its number; "13 / 20" says it
- * (B4 §11): 20px for one digit, 24px for two.
+ * Below this side a square drops its number; "13 / 20" says it (B4 §11).
+ * JLP-869: under FULL_SIZE a two-digit number is set smaller and the current
+ * square is filled in ink with its number in the paper colour, so "10" fits
+ * where "9" does; with no room for the number it is a small filled square.
  */
-const MIN_NUMBERED = 20
-const MIN_NUMBERED_TWO_DIGITS = 24
+const MIN_NUMBERED = 17
+const FULL_SIZE = 24
 
 /** Squares per row; a square is always a tenth of the sheet width. */
 const ROW = 10
@@ -92,33 +94,42 @@ export const ProgressSheet = ({
             <circle className="progress-sheet-dot" cx={cx} cy={cy} r={3.2} />
           )
         }
+        const isCurrent = state === 'current'
+        const number = cell.index + 1
+        const hasNumber = cell.c >= MIN_NUMBERED
+        const isFilled = cell.c < FULL_SIZE
+        const inset = hasNumber && isFilled ? 1 : 3
         return (
           <>
-            {state === 'current' ? (
+            {isCurrent ? (
               <rect
-                className="progress-sheet-current"
-                x={cell.x + 3}
-                y={cell.y + 3}
-                width={cell.c - 6}
-                height={cell.c - 6}
+                className={
+                  isFilled
+                    ? 'progress-sheet-current is-filled'
+                    : 'progress-sheet-current'
+                }
+                x={cell.x + inset}
+                y={cell.y + inset}
+                width={cell.c - inset * 2}
+                height={cell.c - inset * 2}
               />
             ) : null}
-            {cell.c <
-            (cell.index >= 9
-              ? MIN_NUMBERED_TWO_DIGITS
-              : MIN_NUMBERED) ? null : (
+            {hasNumber ? (
               <text
-                className={
-                  state === 'current'
-                    ? 'progress-sheet-number is-current'
-                    : 'progress-sheet-number'
-                }
+                className={[
+                  'progress-sheet-number',
+                  isCurrent ? 'is-current' : '',
+                  isCurrent && isFilled ? 'is-on-fill' : '',
+                  number >= 10 && isFilled ? 'is-small' : ''
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
                 x={cx}
                 y={cy}
               >
-                {cell.index + 1}
+                {number}
               </text>
-            )}
+            ) : null}
           </>
         )
       }}
