@@ -26,6 +26,7 @@ import {
   toHttpStatusClass
 } from '../observability/httpLog.js'
 import { createHealthRoutes } from '../routes/health.js'
+import { createClientErrorRoutes } from '../routes/clientErrors.js'
 import { createDailyQuestionRoutes } from '../routes/dailyQuestion.js'
 import { createQuestionRoutes } from '../routes/questions.js'
 import { AuthGatewayError, type AuthGateway } from '../auth/authGateway.js'
@@ -736,6 +737,17 @@ export const createApiApp = ({
       }
     }
     app.use('/api/v1/*', createWriteSecurity(auth.environment))
+    if (questionReadSecurity) {
+      // JLP-762: screen errors, no sign-in; the same per-IP limiter.
+      app.route(
+        '/api/v1/client-errors',
+        createClientErrorRoutes({
+          environment: auth.environment,
+          logger,
+          rateLimiter: questionReadSecurity.rateLimiter
+        })
+      )
+    }
     app.route(
       '/api/v1',
       createPrincipalRoutes({
