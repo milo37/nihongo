@@ -18,6 +18,11 @@ type PracticeQuestionCardProps = {
   bookmarkStatus: ReactNode
   headingRef: RefObject<HTMLHeadingElement | null>
   isOptionsDisabled: boolean
+  /**
+   * JLP-870: the copy pushed out. No heading, passage landmark or passage
+   * button, so the document keeps one h1 and one article while it slides.
+   */
+  isDecorative?: boolean
   onSelectOption: (optionId: string) => void
   /** Slide the passage and question blocks; the action bar never moves. */
   push?: QuestionPush | undefined
@@ -29,6 +34,8 @@ type PracticeQuestionCardProps = {
 
 // Whole option is the target: radio hidden, number circle filled when chosen (direction §6-3).
 // Reuses the shipped .study-answer-options look; `!` beats its unlayered input rule.
+const HEADING_CLASS = 'min-w-0 rounded-sm outline-none [text-wrap:wrap]'
+
 const OPTION_GROUP_CLASS =
   'study-answer-options [&_legend]:sr-only [&_input]:absolute! [&_input]:opacity-0! [&_label]:items-center'
 
@@ -38,10 +45,12 @@ const OPTION_GROUP_CLASS =
  * (the tail mark is the only red) and one block per source line.
  */
 const QuestionPassage = ({
+  isDecorative,
   passage,
   passageRef,
   push
 }: {
+  isDecorative: boolean
   passage: string
   passageRef: RefObject<HTMLElement | null>
   push: QuestionPush | undefined
@@ -50,10 +59,11 @@ const QuestionPassage = ({
   return (
     <article
       ref={passageRef}
-      aria-label={t('session.question.passageLabel')}
+      aria-label={isDecorative ? undefined : t('session.question.passageLabel')}
+      role={isDecorative ? 'presentation' : undefined}
       className="study-push scroll-mt-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand lg:sticky lg:top-6 lg:max-h-[calc(100vh-140px)] lg:overflow-y-auto"
       data-push={push}
-      tabIndex={0}
+      tabIndex={isDecorative ? undefined : 0}
     >
       <p className="study-passage-head">
         <SheetTail side="left" />
@@ -109,6 +119,7 @@ export const PracticeQuestionCard = ({
   bookmarkStatus,
   headingRef,
   isOptionsDisabled,
+  isDecorative = false,
   onSelectOption,
   push,
   question,
@@ -121,7 +132,23 @@ export const PracticeQuestionCard = ({
   const passageRef = useRef<HTMLElement>(null)
   const isPassageOut = usePassageOutOfView(
     passageRef,
-    Boolean(question.passage)
+    Boolean(question.passage) && !isDecorative
+  )
+
+  const headingContent = (
+    <>
+      <span className="mb-2 block text-[13px] font-bold text-muted">
+        {t('session.question.numberLabel', {
+          ordinal: formatCount(questionNumber)
+        })}{' '}
+      </span>
+      <span
+        className="study-question-text block font-bold"
+        {...jaTextProps(question.questionText)}
+      >
+        <JaText text={question.questionText} />
+      </span>
+    </>
   )
 
   const showPassage = (): void => {
@@ -145,6 +172,7 @@ export const PracticeQuestionCard = ({
     >
       {question.passage ? (
         <QuestionPassage
+          isDecorative={isDecorative}
           passage={question.passage}
           passageRef={passageRef}
           push={push}
@@ -159,23 +187,13 @@ export const PracticeQuestionCard = ({
           {bookmarkStatus}
 
           <div className="flex items-start justify-between gap-3">
-            <h1
-              ref={headingRef}
-              className="min-w-0 rounded-sm outline-none [text-wrap:wrap]"
-              tabIndex={-1}
-            >
-              <span className="mb-2 block text-[13px] font-bold text-muted">
-                {t('session.question.numberLabel', {
-                  ordinal: formatCount(questionNumber)
-                })}{' '}
-              </span>
-              <span
-                className="study-question-text block font-bold"
-                {...jaTextProps(question.questionText)}
-              >
-                <JaText text={question.questionText} />
-              </span>
-            </h1>
+            {isDecorative ? (
+              <div className={HEADING_CLASS}>{headingContent}</div>
+            ) : (
+              <h1 ref={headingRef} className={HEADING_CLASS} tabIndex={-1}>
+                {headingContent}
+              </h1>
+            )}
             {isPassageOut ? (
               <button
                 className="note-link min-h-11 shrink-0 gap-1 text-[13px]"

@@ -903,6 +903,14 @@ describe('PracticeSessionPage', () => {
     expect(leaving).toHaveAttribute('aria-hidden', 'true')
     expect(leaving).toHaveAttribute('inert')
     expect(leaving?.textContent).toContain('1번 문제.')
+    // Even raw DOM queries find one h1 and only the shown question's radios.
+    expect(document.querySelectorAll('h1')).toHaveLength(1)
+    expect(
+      leaving?.querySelector('input[type="radio"], [name], [id]')
+    ).toBeNull()
+    expect(document.querySelectorAll('input[type="radio"]')).toHaveLength(
+      payload.questions[1]?.options.length ?? 0
+    )
     expect(
       document.querySelector('.study-push[data-push="in-next"]')
     ).not.toBeNull()

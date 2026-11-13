@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Navigate, useOutletContext, useParams } from 'react-router'
 import type { ReactElement, RefObject } from 'react'
@@ -98,7 +98,10 @@ const ignoreSelect = (): void => undefined
 
 /**
  * JLP-870: the question being pushed out, drawn over the new one's place.
- * Hidden from assistive tech and input; gone when its slide ends.
+ * Hidden from assistive tech and input; gone when its slide ends. It has no
+ * h1 and no radios: its hidden inputs become unnamed checkboxes (they keep
+ * the chosen look, which reads input:checked), so the document holds one
+ * heading and one answer group throughout.
  */
 const LeavingQuestionCard = ({
   move,
@@ -110,8 +113,20 @@ const LeavingQuestionCard = ({
   selectedOptionId: string | undefined
 }): ReactElement => {
   const headingRef = useRef<HTMLHeadingElement>(null)
+  const copyRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    for (const input of copyRef.current?.querySelectorAll('input') ?? []) {
+      input.type = 'checkbox'
+      input.removeAttribute('name')
+      input.removeAttribute('id')
+    }
+    for (const label of copyRef.current?.querySelectorAll('label') ?? []) {
+      label.removeAttribute('for')
+    }
+  }, [])
   return (
     <div
+      ref={copyRef}
       className="study-push-leaving"
       aria-hidden="true"
       inert
@@ -121,6 +136,7 @@ const LeavingQuestionCard = ({
         actions={null}
         bookmarkStatus={null}
         headingRef={headingRef}
+        isDecorative
         isOptionsDisabled
         onSelectOption={ignoreSelect}
         push={`out-${move.direction ?? 'next'}`}
