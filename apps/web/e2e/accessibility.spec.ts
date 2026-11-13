@@ -1982,6 +1982,39 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
   )
 })
 
+test('every guest sign-in entry links the consent terms and privacy in KO/JA', async ({
+  page
+}) => {
+  const copy = {
+    ko: { terms: '이용약관', privacy: '개인정보 처리방침' },
+    ja: { terms: '利用規約', privacy: '個人情報処理方針' }
+  } as const
+  for (const locale of ['ko', 'ja'] as const) {
+    await page.goto('/')
+    await page.evaluate((value) => {
+      localStorage.setItem(
+        'harumaru:ui-locale:v1',
+        JSON.stringify({ locale: value, version: 1 })
+      )
+    }, locale)
+    // /login, the tab gates (GuestGate) and the signed-out My page.
+    for (const path of ['/login', '/wrong-notes', '/bookmarks', '/account']) {
+      await page.goto(path)
+      await settlePage(page)
+      const consent = page.locator('main .auth-consent')
+      await expect(consent).toHaveCount(1)
+      await expect(consent.locator('a')).toHaveCount(2)
+      await expect(consent.locator('a[href="/legal#terms"]')).toHaveText(
+        copy[locale].terms
+      )
+      await expect(consent.locator('a[href="/legal#privacy"]')).toHaveText(
+        copy[locale].privacy
+      )
+      expect(await consent.textContent()).not.toMatch(/<\/?(?:terms|privacy)>/u)
+    }
+  }
+})
+
 test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors checks', async ({
   context,
   page
