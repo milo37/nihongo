@@ -134,17 +134,17 @@ const STATE_SQL = `SELECT version."contentFingerprint" AS "fingerprint",
   WHERE version."contentFingerprint" = ANY($1::varchar[])
   ORDER BY version."id"`
 
-const ACTOR_SQL = `SELECT "id" FROM "User"
+export const ACTOR_SQL = `SELECT "id" FROM "User"
   WHERE "role" = 'ADMIN' AND "accountStatus" = 'ACTIVE'
   ORDER BY "id"`
 
-const OPEN_STAGE: Readonly<Record<string, Stage>> = {
+export const OPEN_STAGE: Readonly<Record<string, Exclude<Stage, 'IMPORT'>>> = {
   DRAFT: 'REVIEW_REQUEST',
   IN_REVIEW: 'APPROVAL',
   APPROVED: 'PUBLICATION'
 }
 
-const chunk = <T>(items: readonly T[], size: number): T[][] => {
+export const chunk = <T>(items: readonly T[], size: number): T[][] => {
   const chunks: T[][] = []
   for (let index = 0; index < items.length; index += size)
     chunks.push(items.slice(index, index + size))

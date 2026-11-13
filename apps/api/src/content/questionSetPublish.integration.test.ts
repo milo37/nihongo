@@ -17,7 +17,13 @@ import {
   questionImportDirectory,
   questionImportFileNames
 } from '../../prisma/questionImportFiles.js'
+import { contentFingerprint } from '../admin/adminQuestionWorkflowImport.js'
 import { parseTagList, planTagLoad, type TagRow } from './tagList.js'
+import {
+  publishExplanationJa,
+  readExplanationJaFile,
+  type ExplanationJaFile
+} from './explanationJaPublish.js'
 import {
   publishQuestionSet,
   readQuestionSet,
@@ -46,6 +52,12 @@ const database = createDatabaseRuntime(environment.DATABASE_URL, {
 const fixtureDatabase = createDatabaseRuntime(fixtureDatabaseUrl)
 const tagListFile = fileURLToPath(
   new URL('../../../../content/taxonomy/tags.v2.json', import.meta.url)
+)
+const explanationJaFile = fileURLToPath(
+  new URL(
+    '../../../../content/translations/explanations-ja.v1.json',
+    import.meta.url
+  )
 )
 
 let files: QuestionSetFile[] = []
@@ -285,3 +297,186 @@ describe.sequential('question set publish operator command (JLP-828)', () => {
     expect(await contentRowCounts()).toEqual(before)
   }, 120_000)
 })
+
+describe.sequential(
+  'Japanese explanation publish operator command (#976)',
+  () => {
+    const explain = (
+      items: ExplanationJaFile['items'],
+      execute: boolean,
+      runId?: string
+    ) =>
+      publishExplanationJa({
+        auditEnvironment: 'TEST',
+        client: database.client,
+        execute,
+        explanations: { sha256: '0'.repeat(64), items },
+        files,
+        ...(runId ? { runId } : {})
+      })
+    const setItem = (index: number) => {
+      const item = files.flatMap((file) => file.items)[index]
+      if (!item) throw new Error('The set item is required.')
+      return item
+    }
+    const questionOf = async (index: number) => {
+      const version = await database.client.questionVersion.findFirstOrThrow({
+        where: {
+          contentFingerprint: contentFingerprint(setItem(index).content)
+        },
+        select: { questionId: true }
+      })
+      return database.client.question.findUniqueOrThrow({
+        where: { id: version.questionId },
+        select: { id: true, rowVersion: true, currentPublishedVersionId: true }
+      })
+    }
+
+    it('plans a new version for every question of the file without writing', async () => {
+      const before = await contentRowCounts()
+      const file = await readExplanationJaFile(explanationJaFile)
+      const report = await publishExplanationJa({
+        auditEnvironment: 'TEST',
+        client: database.client,
+        execute: false,
+        explanations: file,
+        files
+      })
+      expect(report).toMatchObject({
+        items: 500,
+        pending: {
+          CREATE: 500,
+          REVIEW_REQUEST: 0,
+          APPROVAL: 0,
+          PUBLICATION: 0
+        },
+        skippedPublished: 0,
+        conflicts: [],
+        failures: []
+      })
+      expect(await contentRowCounts()).toEqual(before)
+    })
+
+    it('writes nothing when an item is not in the set, even with confirmation', async () => {
+      const before = await contentRowCounts()
+      const report = await explain(
+        [
+          { clientItemId: setItem(0).clientItemId, explanationJa: '解説' },
+          { clientItemId: 'not-in-the-set', explanationJa: '解説' }
+        ],
+        true
+      )
+      expect(report.conflicts).toEqual([
+        { clientItemId: 'not-in-the-set', reason: 'NOT_IN_QUESTION_SET' }
+      ])
+      expect(report.created).toBe(0)
+      expect(await contentRowCounts()).toEqual(before)
+    })
+
+    it('publishes a new version with only the Japanese explanation changed', async () => {
+      const before = await questionOf(1)
+      const runId = randomUUID()
+      const items = [
+        {
+          clientItemId: setItem(1).clientItemId,
+          explanationJa: '一つ目の解説'
+        },
+        { clientItemId: setItem(2).clientItemId, explanationJa: '二つ目の解説' }
+      ]
+      const report = await explain(items, true, runId)
+      expect(report).toMatchObject({
+        created: 2,
+        reviewRequested: 2,
+        approved: 2,
+        published: 2,
+        conflicts: [],
+        failures: []
+      })
+      const after = await questionOf(1)
+      expect(after.currentPublishedVersionId).not.toBe(
+        before.currentPublishedVersionId
+      )
+      const [previous, next] = await Promise.all(
+        [before.currentPublishedVersionId, after.currentPublishedVersionId].map(
+          (id) =>
+            database.client.questionVersion.findUniqueOrThrow({
+              where: { id: id as string },
+              include: { options: { orderBy: { ordinal: 'asc' } } }
+            })
+        )
+      )
+      expect(next).toMatchObject({
+        versionNumber: previous!.versionNumber + 1,
+        explanationJa: '一つ目の解説',
+        explanationKo: previous!.explanationKo,
+        questionText: previous!.questionText,
+        contentFingerprint: previous!.contentFingerprint
+      })
+      expect(next!.options.map(({ text }) => text)).toEqual(
+        previous!.options.map(({ text }) => text)
+      )
+      const audits = await database.client.adminAuditLog.groupBy({
+        by: ['command'],
+        where: { requestId: runId },
+        _count: { _all: true }
+      })
+      expect(
+        Object.fromEntries(audits.map((row) => [row.command, row._count._all]))
+      ).toMatchObject({ QUESTION_VERSION_CREATE: 2, PUBLICATION: 2 })
+
+      const counts = await contentRowCounts()
+      expect(await explain(items, true)).toMatchObject({
+        created: 0,
+        published: 0,
+        skippedPublished: 2,
+        conflicts: []
+      })
+      expect(await contentRowCounts()).toEqual(counts)
+    }, 120_000)
+
+    it('continues an open version with the same text and leaves another to a person', async () => {
+      const question = await questionOf(3)
+      const commands = createAdminQuestionCommandService(
+        createPrismaAdminQuestionCommandRepository({
+          auditEnvironment: 'TEST',
+          client: database.client
+        })
+      )
+      await commands.createVersion(
+        createOperatorAdminAuthority({
+          actorId: adminId,
+          requestId: randomUUID()
+        }),
+        question.id,
+        {
+          ...setItem(3).content,
+          explanationJa: '途中の解説',
+          expectedQuestionRowVersion: question.rowVersion
+        } as Parameters<typeof commands.createVersion>[2]
+      )
+      const clientItemId = setItem(3).clientItemId
+      const counts = await contentRowCounts()
+      const other = await explain(
+        [{ clientItemId, explanationJa: '別の解説' }],
+        true
+      )
+      expect(other.conflicts).toEqual([
+        { clientItemId, reason: 'OPEN_VERSION_DRAFT' }
+      ])
+      expect(await contentRowCounts()).toEqual(counts)
+
+      const same = await explain(
+        [{ clientItemId, explanationJa: '途中の解説' }],
+        true
+      )
+      expect(same).toMatchObject({
+        pending: { CREATE: 0, REVIEW_REQUEST: 1 },
+        created: 0,
+        reviewRequested: 1,
+        approved: 1,
+        published: 1,
+        failures: []
+      })
+    }, 120_000)
+  }
+)
