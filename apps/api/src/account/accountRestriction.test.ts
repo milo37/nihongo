@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { createApiApp } from '../app/createApp.js'
 import type { ApiEnvironment } from '../config/env.js'
 import type { StructuredLogger } from '../observability/logger.js'
-import type { QuestionReader } from '../question/questionService.js'
 import type { StudySessionService } from '../study/studySessionService.js'
 import { ApplicationError } from '../errors/applicationError.js'
 import {
@@ -19,7 +18,6 @@ const base = (nodeEnvironment: string): Dependencies =>
     },
     checkReadiness: async () => undefined,
     logger: {} as StructuredLogger,
-    questionReader: {} as QuestionReader,
     study: {
       service: {} as StudySessionService
     }

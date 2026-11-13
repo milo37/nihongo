@@ -211,10 +211,6 @@
       "types": "./dist/wrong-note/user-memo.d.ts",
       "import": "./dist/wrong-note/user-memo.js"
     },
-    "./testing/question-read-conformance": {
-      "types": "./dist/testing/question-read-conformance.d.ts",
-      "import": "./dist/testing/question-read-conformance.js"
-    },
     "./testing/dashboard-insights-conformance": {
       "types": "./dist/testing/dashboard-insights-conformance.d.ts",
       "import": "./dist/testing/dashboard-insights-conformance.js"

@@ -310,7 +310,6 @@ export const assertPlaywrightRequestLedger = (ledger, summaryLabel) => {
         : 'GET /api/auth/callback/google'
     const expectedStatuses = new Map([
       ['GET /api/v1/me', 200],
-      ['GET /api/v1/questions', 200],
       ['POST /api/auth/sign-in/social', 200],
       [callbackKey, mode === 'mock' ? 200 : 303]
     ])
@@ -328,7 +327,6 @@ export const assertPlaywrightRequestLedger = (ledger, summaryLabel) => {
     if (
       !summaryLabel.startsWith('journey-') ||
       counts.get('GET /api/v1/me') < 2 ||
-      counts.get('GET /api/v1/questions') !== 1 ||
       counts.get('POST /api/auth/sign-in/social') !== 1 ||
       counts.get(callbackKey) !== 1
     ) {

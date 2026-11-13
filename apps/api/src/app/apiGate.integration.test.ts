@@ -26,8 +26,6 @@ import { assertSafeAdminCmsDatabase } from '../db/databaseTargetGuard.js'
 import { attestRuntimeRoles } from '../db/runtimeRoleAttestation.js'
 import { createApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createJsonLogger } from '../observability/logger.js'
-import { createPrismaQuestionRepository } from '../question/questionRepository.js'
-import { createQuestionService } from '../question/questionService.js'
 
 const requireEnvironmentValue = (name: string): string => {
   const value = process.env[name]
@@ -388,9 +386,6 @@ beforeAll(async () => {
     },
     checkReadiness: applicationRuntime.checkReadiness,
     logger: createJsonLogger('debug', (line) => apiLogLines.push(line)),
-    questionReader: createQuestionService(
-      createPrismaQuestionRepository(applicationRuntime.client)
-    ),
     questionReadSecurity: {
       environment,
       rateLimiter
@@ -493,7 +488,7 @@ describe('Technical API gate', () => {
 
   it.each([
     {
-      pathname: '/api/v1/questions',
+      pathname: '/api/v1/daily-question',
       expectedHeaders: [
         'Content-Type',
         'Idempotency-Key',

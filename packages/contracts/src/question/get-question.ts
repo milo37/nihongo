@@ -5,7 +5,6 @@ import {
   questionSubjectSchema,
   questionTypeSchema
 } from '../common/enum.js'
-import { createApiFailureSchema } from '../common/error.js'
 import { opaqueIdSchema } from '../common/id.js'
 
 const nonBlankTextSchema = z.string().trim().min(1)
@@ -46,12 +45,6 @@ export const comparePublicQuestionTags = (
 
   return compareUnicodeScalarValues(left.id, right.id)
 }
-
-export const getQuestionParamsSchema = z
-  .object({
-    questionId: opaqueIdSchema
-  })
-  .strict()
 
 const publicQuestionOptionSchema = z
   .object({
@@ -144,18 +137,6 @@ export const publicPracticeQuestionSchema = z
     })
   })
 
-export const getQuestionResponseSchema = publicPracticeQuestionSchema
-
-const getQuestionErrorCodeSchema = z.enum([
-  'INVALID_ID',
-  'RESOURCE_NOT_FOUND',
-  'RATE_LIMITED',
-  'INTERNAL_SERVER_ERROR',
-  'SERVICE_UNAVAILABLE'
-])
-
-export const getQuestionErrorSchema = createApiFailureSchema(
-  getQuestionErrorCodeSchema
-)
-export type GetQuestionResponse = z.output<typeof getQuestionResponseSchema>
-export type GetQuestionError = z.output<typeof getQuestionErrorSchema>
+export type PublicPracticeQuestion = z.output<
+  typeof publicPracticeQuestionSchema
+>

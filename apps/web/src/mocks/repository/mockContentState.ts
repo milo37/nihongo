@@ -35,8 +35,8 @@ import type { StableErrorCode } from '@nihongo/contracts/common/error'
 import { opaqueIdSchema } from '@nihongo/contracts/common/id'
 import {
   comparePublicQuestionTags,
-  getQuestionResponseSchema,
-  type GetQuestionResponse
+  publicPracticeQuestionSchema,
+  type PublicPracticeQuestion
 } from '@nihongo/contracts/question/get-question'
 import {
   getCanonicalQuestionId,
@@ -226,26 +226,26 @@ export interface MockLearnerReviewedQuestion {
   readonly correctOptionId: string
   readonly explanationJa: string | null
   readonly explanationKo: string
-  readonly question: GetQuestionResponse
+  readonly question: PublicPracticeQuestion
 }
 
 export interface MockLearnerProjection {
   readonly bookmarks: readonly {
     readonly availability: 'ARCHIVED' | 'AVAILABLE'
-    readonly question: GetQuestionResponse
+    readonly question: PublicPracticeQuestion
     readonly questionId: string
     readonly summaryVersionId: string
   }[]
-  readonly practiceCandidates: readonly GetQuestionResponse[]
-  readonly publicQuestions: readonly GetQuestionResponse[]
+  readonly practiceCandidates: readonly PublicPracticeQuestion[]
+  readonly publicQuestions: readonly PublicPracticeQuestion[]
   readonly studyResultQuestions: readonly MockLearnerReviewedQuestion[]
-  readonly studySessionQuestions: readonly GetQuestionResponse[]
+  readonly studySessionQuestions: readonly PublicPracticeQuestion[]
   readonly wrongNotes: readonly {
     readonly currentReviewQuestionVersionId: string | null
     readonly lastWrongQuestion: MockLearnerReviewedQuestion
     readonly questionId: string
     readonly reviewAvailability: 'ARCHIVED' | 'AVAILABLE'
-    readonly reviewCandidate: GetQuestionResponse | null
+    readonly reviewCandidate: PublicPracticeQuestion | null
   }[]
 }
 
@@ -314,8 +314,10 @@ const toQuestionReportMutation = (
     updatedAt: report.updatedAt
   })
 
-const toPublicQuestion = (version: MockContentVersion): GetQuestionResponse =>
-  getQuestionResponseSchema.parse({
+const toPublicQuestion = (
+  version: MockContentVersion
+): PublicPracticeQuestion =>
+  publicPracticeQuestionSchema.parse({
     id: version.questionId,
     questionVersionId: version.questionVersionId,
     level: version.level,

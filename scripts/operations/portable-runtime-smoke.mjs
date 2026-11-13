@@ -839,39 +839,6 @@ export const runLearnerCompatibilityProbe = async ({
   fixture,
   fetchResponse = fetch
 }) => {
-  const questionResponse = await fetchResponse(
-    origin +
-      '/api/v1/questions?tag=' +
-      encodeURIComponent(fixture.tagLabel) +
-      '&page=1&pageSize=20',
-    {
-      headers: { Cookie: sessionCookie },
-      method: 'GET',
-      redirect: 'manual',
-      signal: AbortSignal.timeout(10_000)
-    }
-  )
-  const questionList = await readExpectedJsonResponse(
-    questionResponse,
-    200,
-    'Learner compatibility question list'
-  )
-  assertExactKeys(
-    questionList,
-    ['items', 'page', 'pageSize', 'total'],
-    'Learner compatibility question page'
-  )
-  if (
-    questionList.page !== 1 ||
-    questionList.pageSize !== 20 ||
-    questionList.total !== 1 ||
-    !Array.isArray(questionList.items) ||
-    questionList.items.length !== 1
-  ) {
-    throw new Error('Learner compatibility question page is invalid.')
-  }
-  validateLearnerQuestionSummary(questionList.items[0], fixture)
-
   const bookmarkCreateResponse = await fetchResponse(
     origin + '/api/v1/bookmarks/' + fixture.questionId,
     {
@@ -928,9 +895,7 @@ export const runLearnerCompatibilityProbe = async ({
   return {
     bookmarkCreateStatus: bookmarkCreateResponse.status,
     bookmarkListStatus: bookmarkListResponse.status,
-    bookmarkRows: bookmarkList.items.length,
-    questionListStatus: questionResponse.status,
-    questionRows: questionList.items.length
+    bookmarkRows: bookmarkList.items.length
   }
 }
 
@@ -1270,21 +1235,13 @@ export const verifyPortableRuntimeSmokeEvidence = (evidence) => {
   }
   assertExactKeys(
     evidence.learnerCompatibility,
-    [
-      'bookmarkCreateStatus',
-      'bookmarkListStatus',
-      'bookmarkRows',
-      'questionListStatus',
-      'questionRows'
-    ],
+    ['bookmarkCreateStatus', 'bookmarkListStatus', 'bookmarkRows'],
     'Runtime learner compatibility evidence'
   )
   if (
     evidence.learnerCompatibility.bookmarkCreateStatus !== 201 ||
     evidence.learnerCompatibility.bookmarkListStatus !== 200 ||
-    evidence.learnerCompatibility.bookmarkRows !== 1 ||
-    evidence.learnerCompatibility.questionListStatus !== 200 ||
-    evidence.learnerCompatibility.questionRows !== 1
+    evidence.learnerCompatibility.bookmarkRows !== 1
   ) {
     throw new Error('Runtime learner compatibility evidence is invalid.')
   }

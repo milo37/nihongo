@@ -27,8 +27,6 @@ import { startApiListener } from '../lifecycle/startApiListener.js'
 import { stopServerGracefully } from '../lifecycle/gracefulShutdown.js'
 import { createJsonLogger, type LogLevel } from '../observability/logger.js'
 import { createApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
-import { createPrismaQuestionRepository } from '../question/questionRepository.js'
-import { createQuestionService } from '../question/questionService.js'
 import {
   createDailyQuestionService,
   createPrismaDailyQuestionRepository
@@ -455,11 +453,6 @@ export const createBrowserApi = async ({
       ...(environment.RELEASE_ID ? { releaseId: environment.RELEASE_ID } : {}),
       dailyQuestionReader: createDailyQuestionService(
         createPrismaDailyQuestionRepository(database.client)
-      ),
-      questionReader: createQuestionService(
-        createPrismaQuestionRepository(database.client, {
-          migrationProfile: 'current'
-        })
       ),
       questionReadSecurity: { environment, rateLimiter },
       study: {

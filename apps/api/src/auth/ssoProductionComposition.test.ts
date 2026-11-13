@@ -242,18 +242,7 @@ describe('production-shaped SSO composition (fake DB ports)', () => {
         } as never
       },
       checkReadiness: async () => undefined,
-      logger: createJsonLogger('error'),
-      questionReader: {
-        getQuestion: async () => {
-          throw new Error('not used')
-        },
-        listQuestions: async () => ({
-          items: [],
-          total: 0,
-          page: 1,
-          pageSize: 20
-        })
-      }
+      logger: createJsonLogger('error')
     })
     const response = await app.request('/api/v1/admin/questions', {
       headers: { Cookie: f.cookie }
@@ -370,18 +359,7 @@ describe('production-shaped SSO composition (fake DB ports)', () => {
         rateLimiter: { consume: async () => undefined }
       },
       checkReadiness: async () => undefined,
-      logger: createJsonLogger('error'),
-      questionReader: {
-        getQuestion: async () => {
-          throw new Error('unused')
-        },
-        listQuestions: async () => ({
-          items: [],
-          page: 1,
-          pageSize: 20,
-          total: 0
-        })
-      }
+      logger: createJsonLogger('error')
     })
     const read = await app.request(
       'https://app.example.test/api/v1/admin/questions',

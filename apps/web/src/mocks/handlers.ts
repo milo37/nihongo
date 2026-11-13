@@ -3,7 +3,6 @@ import { bookmarkHandlers } from '@mocks/handlers/bookmarkHandlers'
 import { dashboardHandlers } from '@mocks/handlers/dashboardHandlers'
 import { dashboardV1Handlers } from '@mocks/handlers/dashboardV1Handlers'
 import { operationsHandlers } from '@mocks/handlers/operationsHandlers'
-import { questionHandlers } from '@mocks/handlers/questionHandlers'
 import { dailyQuestionHandlers } from '@mocks/handlers/dailyQuestionHandlers'
 import { reportHandlers } from '@mocks/handlers/reportHandlers'
 import { reviewCenterHandlers } from '@mocks/handlers/reviewCenterHandlers'
@@ -17,7 +16,6 @@ import { guestResultImportHandlers } from '@mocks/handlers/guestResultImportHand
 
 export const handlers = [
   ...authHandlers,
-  ...questionHandlers,
   ...dailyQuestionHandlers,
   ...studyDraftV2Handlers,
   ...studyResultRetryHandlers,

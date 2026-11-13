@@ -16,8 +16,6 @@ import { createDatabaseRuntime } from '../db/database.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
 import { createApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createJsonLogger } from '../observability/logger.js'
-import { createPrismaQuestionRepository } from '../question/questionRepository.js'
-import { createQuestionService } from '../question/questionService.js'
 import {
   createDailyQuestionService,
   createPrismaDailyQuestionRepository
@@ -1595,11 +1593,6 @@ const createSsoBrowserApiFixture = async (
         : { releaseId: environment.RELEASE_ID }),
       dailyQuestionReader: createDailyQuestionService(
         createPrismaDailyQuestionRepository(database.client)
-      ),
-      questionReader: createQuestionService(
-        createPrismaQuestionRepository(database.client, {
-          migrationProfile: 'current'
-        })
       ),
       questionReadSecurity: { environment, rateLimiter },
       study: {

@@ -1,11 +1,8 @@
 import {
   comparePublicQuestionTags,
-  type GetQuestionResponse
+  type PublicPracticeQuestion
 } from '@nihongo/contracts/question/get-question'
-import type {
-  ListQuestionsResponse,
-  PublicQuestionSummary
-} from '@nihongo/contracts/question/list-questions'
+import type { PublicQuestionSummary } from '@nihongo/contracts/question/list-questions'
 import type {
   PublishedQuestionDetailRecord,
   PublishedQuestionSummaryRecord
@@ -45,7 +42,7 @@ export const toPublicQuestionSummary = (
 
 export const toPublicPracticeQuestion = (
   question: PublishedQuestionDetailRecord
-): GetQuestionResponse => ({
+): PublicPracticeQuestion => ({
   id: question.id,
   questionVersionId: question.questionVersionId,
   level: question.level,
@@ -60,16 +57,4 @@ export const toPublicPracticeQuestion = (
   })),
   difficulty: question.difficulty,
   tags: toSortedPublicTags(question.tags)
-})
-
-export const toListQuestionsResponse = (
-  questions: readonly PublishedQuestionSummaryRecord[],
-  page: number,
-  pageSize: number,
-  total: number
-): ListQuestionsResponse => ({
-  items: questions.map(toPublicQuestionSummary),
-  page,
-  pageSize,
-  total
 })

@@ -119,8 +119,7 @@ const createRequestLedgerEntries = (name, pathName) => {
       mock
         ? ['POST', '/api/_mock/auth/social/callback', 200]
         : ['GET', '/api/auth/callback/google', 303],
-      ['GET', '/api/v1/me', 200],
-      ['GET', '/api/v1/questions', 200]
+      ['GET', '/api/v1/me', 200]
     ]
     return operations.map(([method, operationPath, status], index) => ({
       finishSequence: index * 2 + 2,
@@ -1610,7 +1609,6 @@ test('both handoff sources reject missing, duplicated, forged and noncanonical r
         (entries) => entries.splice(1, 1),
         (entries) => entries.splice(2, 1),
         (entries) => entries.splice(3, 1),
-        (entries) => entries.splice(4, 1),
         (entries) => {
           entries[2].status = 500
         },
@@ -1625,7 +1623,7 @@ test('both handoff sources reject missing, duplicated, forged and noncanonical r
           entries[2].method = mode === 'real' ? 'POST' : 'GET'
         },
         (entries) => {
-          entries[4].path = '/api/v1/study-sessions'
+          entries[3].path = '/api/v1/study-sessions'
         },
         (entries) => {
           entries[0].path =

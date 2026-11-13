@@ -686,7 +686,7 @@ test('controlled TEST probe binds the exact actor, Google persistence, question 
       if (options.method === 'PUT')
         return Response.json(bookmark, { status: 201 })
       return Response.json({
-        items: [url.includes('/questions?') ? question : bookmark],
+        items: [bookmark],
         page: 1,
         pageSize: 20,
         total: 1
@@ -694,10 +694,10 @@ test('controlled TEST probe binds the exact actor, Google persistence, question 
     }
   }
   const result = await runStatefulAuthCompatibilityProbe(input)
-  assert.equal(httpCalls.length, 4)
+  assert.equal(httpCalls.length, 3)
   assert.equal(
-    new URL(httpCalls[1].url).searchParams.get('tag'),
-    fixture.tagLabel
+    new URL(httpCalls[1].url).pathname,
+    '/api/v1/bookmarks/' + fixture.questionId
   )
   assert.equal(nativeCalls.length, 2)
   assert.match(nativeCalls[0].options.input, /createSsoIdentityRepository/u)
@@ -896,9 +896,7 @@ test('portable runtime smoke evidence is closed and bound to TEST', () => {
     learnerCompatibility: {
       bookmarkCreateStatus: 201,
       bookmarkListStatus: 200,
-      bookmarkRows: 1,
-      questionListStatus: 200,
-      questionRows: 1
+      bookmarkRows: 1
     },
     statefulAuth: {
       accountRows: 1,

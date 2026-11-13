@@ -15,7 +15,6 @@ import type { GuestPrincipalService } from '../auth/guestPrincipalService.js'
 import type { PrincipalService } from '../auth/principalService.js'
 import { parseApiEnvironment } from '../config/env.js'
 import { createJsonLogger } from '../observability/logger.js'
-import type { QuestionReader } from '../question/questionService.js'
 import { createApiApp } from './createApp.js'
 
 const createTestLogger = () => {
@@ -25,11 +24,6 @@ const createTestLogger = () => {
     lines,
     logger: createJsonLogger('debug', (line) => lines.push(line))
   }
-}
-
-const questionReader: QuestionReader = {
-  getQuestion: async () => Promise.reject(new Error('Not used in this test.')),
-  listQuestions: async () => ({ items: [], page: 1, pageSize: 20, total: 0 })
 }
 
 const authEnvironment = parseApiEnvironment({
@@ -60,41 +54,9 @@ const principalService: PrincipalService = {
 }
 
 describe('Hono operational boundary', () => {
-  it('question read security dependency가 없으면 validation과 reader 전에 fail closed한다', async () => {
-    const { logger } = createTestLogger()
-    const gatedQuestionReader: QuestionReader = {
-      getQuestion: vi.fn(),
-      listQuestions: vi.fn()
-    }
-    const app = createApiApp({
-      checkReadiness: vi.fn().mockResolvedValue(undefined),
-      logger,
-      questionReader: gatedQuestionReader
-    })
-
-    const [queryResponse, idResponse] = await Promise.all([
-      app.request('/api/v1/questions?page=0'),
-      app.request('/api/v1/questions/not-a-uuid')
-    ])
-
-    for (const response of [queryResponse, idResponse]) {
-      const failure = apiFailureSchema.parse(await response.json())
-      expect(response.status).toBe(503)
-      expect(response.headers.get('Cache-Control')).toBe('private, no-store')
-      expect(response.headers.get('Retry-After')).toBe('5')
-      expect(response.headers.get('X-Request-Id')).toBe(failure.requestId)
-      expect(failure).toMatchObject({
-        code: 'SERVICE_UNAVAILABLE',
-        retryable: true
-      })
-    }
-    expect(gatedQuestionReader.listQuestions).not.toHaveBeenCalled()
-    expect(gatedQuestionReader.getQuestion).not.toHaveBeenCalled()
-  })
-
   it.each([
     {
-      pathname: '/api/v1/questions',
+      pathname: '/api/v1/daily-question',
       expectedHeaders: [
         'Content-Type',
         'Idempotency-Key',
@@ -130,8 +92,7 @@ describe('Hono operational boundary', () => {
           principalService
         },
         checkReadiness: vi.fn().mockResolvedValue(undefined),
-        logger,
-        questionReader
+        logger
       })
 
       const response = await app.request(pathname, {
@@ -177,8 +138,7 @@ describe('Hono operational boundary', () => {
           principalService
         },
         checkReadiness: vi.fn().mockResolvedValue(undefined),
-        logger,
-        questionReader
+        logger
       })
       const response = await app.request('/api/v1/admin/questions', {
         method,
@@ -207,8 +167,7 @@ describe('Hono operational boundary', () => {
         principalService
       },
       checkReadiness: vi.fn().mockResolvedValue(undefined),
-      logger,
-      questionReader
+      logger
     })
     const response = await app.request('/api/v1/%71uestion-reports', {
       headers: { Origin: 'http://localhost:5173' }
@@ -238,12 +197,6 @@ describe('Hono operational boundary', () => {
       const { logger } = createTestLogger()
       const checkReadiness = vi.fn().mockResolvedValue(undefined)
       const gateway: AuthGateway = { handle: vi.fn() }
-      const listQuestions = vi.fn().mockResolvedValue({
-        items: [],
-        page: 1,
-        pageSize: 20,
-        total: 0
-      })
       const app = createApiApp({
         auth: {
           environment: authEnvironment,
@@ -252,8 +205,7 @@ describe('Hono operational boundary', () => {
           principalService
         },
         checkReadiness,
-        logger,
-        questionReader: { ...questionReader, listQuestions }
+        logger
       })
 
       const response = await app.fetch(
@@ -271,7 +223,6 @@ describe('Hono operational boundary', () => {
       )
       expect(checkReadiness).not.toHaveBeenCalled()
       expect(gateway.handle).not.toHaveBeenCalled()
-      expect(listQuestions).not.toHaveBeenCalled()
     }
   )
 
@@ -283,12 +234,6 @@ describe('Hono operational boundary', () => {
     '/api/v1/%71uestion-reports/%ZZ'
   ])('adapter가 보존한 raw alias %s를 조기 차단한다', async (rawUrl) => {
     const { logger } = createTestLogger()
-    const listQuestions = vi.fn().mockResolvedValue({
-      items: [],
-      page: 1,
-      pageSize: 20,
-      total: 0
-    })
     const app = createApiApp({
       auth: {
         environment: authEnvironment,
@@ -297,18 +242,16 @@ describe('Hono operational boundary', () => {
         principalService
       },
       checkReadiness: vi.fn().mockResolvedValue(undefined),
-      logger,
-      questionReader: { ...questionReader, listQuestions }
+      logger
     })
 
     const response = await app.fetch(
-      new Request('http://localhost:3001/api/v1/questions'),
+      new Request('http://localhost:3001/api/v1/daily-question'),
       { incoming: { url: rawUrl } } as never
     )
 
     expect(response.status).toBe(404)
     expect(response.headers.get('Access-Control-Allow-Origin')).toBeNull()
-    expect(listQuestions).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -351,8 +294,7 @@ describe('Hono operational boundary', () => {
           principalService
         },
         checkReadiness,
-        logger,
-        questionReader
+        logger
       })
 
       const response = await app.fetch(new Request(canonicalUrl), {
@@ -383,8 +325,7 @@ describe('Hono operational boundary', () => {
         principalService
       },
       checkReadiness: vi.fn().mockResolvedValue(undefined),
-      logger,
-      questionReader
+      logger
     })
     const rawUrl = '/api/auth/foo/../reset-password'
 
@@ -411,7 +352,6 @@ describe('Hono operational boundary', () => {
     const app = createApiApp({
       checkReadiness: vi.fn().mockResolvedValue(undefined),
       logger,
-      questionReader,
       releaseId
     })
     const response = await app.request('/health/live', {
@@ -429,8 +369,7 @@ describe('Hono operational boundary', () => {
     const { logger } = createTestLogger()
     const app = createApiApp({
       checkReadiness: vi.fn().mockResolvedValue(undefined),
-      logger,
-      questionReader
+      logger
     })
     const response = await app.request('/health/live', {
       headers: { 'X-Request-Id': 'not-a-uuid' }
@@ -447,8 +386,7 @@ describe('Hono operational boundary', () => {
       checkReadiness: vi
         .fn()
         .mockRejectedValue(new Error('postgresql://secret@database')),
-      logger,
-      questionReader
+      logger
     })
     const response = await app.request('/health/ready')
     const payload = apiFailureSchema.parse(await response.json())
@@ -468,7 +406,6 @@ describe('Hono operational boundary', () => {
     const app = createApiApp({
       checkReadiness: vi.fn().mockResolvedValue(undefined),
       logger,
-      questionReader,
       enableTestRoutes: true
     })
     const response = await app.request('/__test/error')
@@ -493,8 +430,7 @@ describe('Hono operational boundary', () => {
         principalService
       },
       checkReadiness: vi.fn().mockResolvedValue(undefined),
-      logger,
-      questionReader
+      logger
     })
     const response = await app.request('/api/auth/sign-in/email', {
       method: 'POST',
@@ -591,7 +527,6 @@ describe('protected admin artifact and API composition', () => {
       releaseId,
       checkReadiness: async () => undefined,
       logger: createJsonLogger('silent'),
-      questionReader,
       auth: {
         environment: {
           ...authEnvironment,

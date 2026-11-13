@@ -34,6 +34,7 @@ const RATE_POLICIES: readonly (readonly [string, number])[] = [
     'dashboard-insights-read',
     'dashboard-read',
     'guest-allowance-read',
+    // Routes removed in JLP-896; kept so rows written before then still expire.
     'question-detail-read',
     'question-list-read',
     'study-cancel',

@@ -19,8 +19,6 @@ import { createOwnedAuthReadiness } from './auth/ownedAuthReadiness.js'
 import { stopServerGracefully } from './lifecycle/gracefulShutdown.js'
 import { createShutdownCoordinator } from './lifecycle/shutdownCoordinator.js'
 import { createJsonLogger } from './observability/logger.js'
-import { createPrismaQuestionRepository } from './question/questionRepository.js'
-import { createQuestionService } from './question/questionService.js'
 import {
   createDailyQuestionService,
   createPrismaDailyQuestionRepository
@@ -137,11 +135,6 @@ const guestPrincipalService = createGuestPrincipalService({
   secret: environment.GUEST_COOKIE_SECRET
 })
 const principalService = ssoAuthentication.principalService
-const questionReader = createQuestionService(
-  createPrismaQuestionRepository(database.client, {
-    migrationProfile: runtimeMigrationProfile
-  })
-)
 const dailyQuestionReader = createDailyQuestionService(
   createPrismaDailyQuestionRepository(database.client)
 )
@@ -291,7 +284,6 @@ const app = createApiApp({
     targetLevelService,
     wrongNoteService
   },
-  questionReader,
   dailyQuestionReader,
   questionReadSecurity: {
     environment,
