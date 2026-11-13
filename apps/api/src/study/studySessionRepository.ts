@@ -63,7 +63,7 @@ export interface CreateStudySessionInput {
   level: 'N5' | 'N4' | 'N3' | 'N2' | 'N1'
   mode: StudyMode
   owner: CreateStudyOwner
-  practiceContractVersion?: 1 | 2
+  practiceContractVersion?: 2
   requestedCount: number
   reviewFilter?: ReviewSelectionFilter
   startedAt: Date
@@ -870,11 +870,6 @@ export const createPrismaStudySessionRepository = (
 ): StudySessionRepository => {
   const create = (input: CreateStudySessionInput) =>
     executeRepositoryOperation(async () => {
-      if (input.practiceContractVersion === 1) {
-        throw new StudySessionRepositoryIntegrityError(
-          'Practice contract version 1 cannot be created.'
-        )
-      }
       for (let attempt = 1; attempt <= MAX_TRANSACTION_ATTEMPTS; attempt += 1) {
         try {
           return await client.$transaction(

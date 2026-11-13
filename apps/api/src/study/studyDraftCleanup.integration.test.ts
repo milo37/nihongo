@@ -112,7 +112,7 @@ const createSession = async ({
   userId
 }: {
   expiresAt: Date
-  practiceContractVersion: 1 | 2
+  practiceContractVersion: 2
   startedAt: Date
   userId: string
 }) =>
