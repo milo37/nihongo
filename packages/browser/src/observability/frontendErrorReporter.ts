@@ -1,36 +1,19 @@
 import { z } from 'zod'
-import type { AnalyticsEnvironment } from '@nihongo/contracts/analytics/events'
+import { reportClientErrorRequestSchema } from '@nihongo/contracts/observability/report-client-error'
 import { routeLabelKeys, type RouteLabelKey } from '../i18n/routePresentation'
+import { isRealApiMode } from '../libs/apiMode'
+import { createApiFrontendErrorTransport } from './frontendErrorTransport'
 
-const frontendErrorEventSchema = z
-  .object({
-    schemaVersion: z.literal(1),
-    occurredAt: z.string().datetime({ offset: true }),
-    deploymentEnvironment: z.enum([
-      'LOCAL',
-      'TEST',
-      'DEVELOPMENT',
-      'STAGING',
-      'PRODUCTION'
-    ]),
-    releaseId: z.string().regex(/^[0-9a-f]{40}$/u),
-    source: z.enum([
-      'WINDOW_ERROR',
-      'UNHANDLED_REJECTION',
-      'ROUTE_RENDER',
-      'UNEXPECTED_API_ERROR',
-      'API_RESPONSE_VALIDATION'
-    ]),
-    routeKey: z.enum(routeLabelKeys),
-    requestId: z.uuid().optional(),
-    statusClass: z.enum(['1xx', '2xx', '3xx', '4xx', '5xx']).optional()
-  })
-  .strict()
+// The shared contract (JLP-762), with the route key narrowed to known screens.
+// No environment: one image serves STAGING and PRODUCTION, so the API logs its own.
+const frontendErrorEventSchema = reportClientErrorRequestSchema.extend({
+  routeKey: z.enum(routeLabelKeys)
+})
 
 export type FrontendErrorEvent = z.output<typeof frontendErrorEventSchema>
 export type FrontendErrorInput = Omit<
   FrontendErrorEvent,
-  'schemaVersion' | 'occurredAt' | 'deploymentEnvironment' | 'releaseId'
+  'schemaVersion' | 'occurredAt' | 'releaseId'
 >
 
 export interface FrontendErrorTransport {
@@ -42,14 +25,12 @@ export interface FrontendErrorReporter {
 }
 
 interface CreateFrontendErrorReporterOptions {
-  readonly deploymentEnvironment: AnalyticsEnvironment
   readonly releaseId: string
   readonly transport?: FrontendErrorTransport
   readonly now?: () => Date
 }
 
 export const createFrontendErrorReporter = ({
-  deploymentEnvironment,
   releaseId: configuredReleaseId,
   transport,
   now = () => new Date()
@@ -59,7 +40,6 @@ export const createFrontendErrorReporter = ({
     const parsed = frontendErrorEventSchema.safeParse({
       schemaVersion: 1,
       occurredAt: now().toISOString(),
-      deploymentEnvironment,
       releaseId: configuredReleaseId,
       ...input
     })
@@ -77,9 +57,14 @@ export const createFrontendErrorReporter = ({
   }
 })
 
+// Mock mode has no server to log to, so it sends nothing.
 export const frontendErrorReporter = createFrontendErrorReporter({
-  deploymentEnvironment: 'LOCAL',
-  releaseId: __NIHONGO_RELEASE_ID__
+  releaseId: __NIHONGO_RELEASE_ID__,
+  transport: isRealApiMode
+    ? createApiFrontendErrorTransport({
+        baseUrl: import.meta.env.VITE_API_BASE_URL ?? '/api'
+      })
+    : undefined
 })
 
 export const installGlobalFrontendErrorReporting = (

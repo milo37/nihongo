@@ -87,6 +87,7 @@
     "./libs/socialAuthNavigation": "./src/libs/socialAuthNavigation.ts",
     "./libs/storage": "./src/libs/storage.ts",
     "./observability/frontendErrorReporter": "./src/observability/frontendErrorReporter.ts",
+    "./observability/frontendErrorTransport": "./src/observability/frontendErrorTransport.ts",
     "./provider/AuthErrorHandlerProvider": "./src/provider/AuthErrorHandlerProvider.tsx",
     "./provider/I18nProvider": "./src/provider/I18nProvider.tsx",
     "./provider/ProtectedRouteProvider": "./src/provider/ProtectedRouteProvider.tsx",

@@ -95,6 +95,10 @@
       "types": "./dist/dashboard/get-dashboard-insights.d.ts",
       "import": "./dist/dashboard/get-dashboard-insights.js"
     },
+    "./observability/report-client-error": {
+      "types": "./dist/observability/report-client-error.d.ts",
+      "import": "./dist/observability/report-client-error.js"
+    },
     "./question/get-daily-question": {
       "types": "./dist/question/get-daily-question.d.ts",
       "import": "./dist/question/get-daily-question.js"

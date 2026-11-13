@@ -77,9 +77,7 @@ const ssoTestProfile = {
   GUEST_COOKIE_SECRET: 'b'.repeat(32),
   BETTER_AUTH_URL: 'http://127.0.0.1:3001',
   TRUSTED_ORIGINS: 'http://127.0.0.1:5173',
-  AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32,::1/128',
-  AUTH_EMAIL_FROM: 'sso-db@example.test',
-  AUTH_EMAIL_DELIVERY_MODE: 'test-sink'
+  AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32,::1/128'
 } as const
 const ssoExcludedParentKeys = new Set([
   ...Object.keys(ssoTestProfile),
@@ -87,6 +85,9 @@ const ssoExcludedParentKeys = new Set([
   'GOOGLE_CLIENT_SECRET',
   'APPLE_CLIENT_ID',
   'APPLE_CLIENT_SECRET',
+  // Retired email sign-in (JLP-748): a parent value never reaches a test.
+  'AUTH_EMAIL_FROM',
+  'AUTH_EMAIL_DELIVERY_MODE',
   'AUTH_EMAIL_WEBHOOK_URL',
   'AUTH_EMAIL_WEBHOOK_SECRET'
 ])

@@ -25,10 +25,6 @@ const environment = parseApiEnvironment({
   BETTER_AUTH_URL: origin,
   BETTER_AUTH_SECRET: 'test-auth-placeholder-only-1234567890',
   GUEST_COOKIE_SECRET: 'test-guest-placeholder-only-1234567890',
-  AUTH_EMAIL_FROM: 'placeholder@example.test',
-  AUTH_EMAIL_DELIVERY_MODE: 'webhook',
-  AUTH_EMAIL_WEBHOOK_URL: 'https://mail.example.test',
-  AUTH_EMAIL_WEBHOOK_SECRET: 'test-webhook-placeholder-only-1234567890',
   AUTH_TRUSTED_PROXY_CIDRS: '127.0.0.1/32'
 })
 

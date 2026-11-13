@@ -4,14 +4,12 @@ import { betterAuth } from 'better-auth'
 import type { ApiEnvironment } from '../config/env.js'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import { INTERNAL_CLIENT_IP_HEADER } from './clientIp.js'
-import type { AuthEmailDispatcher } from './emailDispatcher.js'
 
 const ONE_DAY_SECONDS = 60 * 60 * 24
 const ONE_WEEK_SECONDS = ONE_DAY_SECONDS * 7
 
 interface CreateAuthRuntimeDependencies {
   client: PrismaClient
-  emailDispatcher?: AuthEmailDispatcher
   environment: ApiEnvironment
 }
 
@@ -76,13 +74,7 @@ export const createAuthRuntime = ({
       enabled: true,
       storage: 'database',
       window: 60,
-      max: 100,
-      customRules: {
-        '/sign-in/email': { window: 60, max: 5 },
-        '/sign-up/email': { window: 60, max: 5 },
-        '/request-password-reset': { window: 60, max: 3 },
-        '/send-verification-email': { window: 60, max: 3 }
-      }
+      max: 100
     },
     databaseHooks: {
       user: {

@@ -23,7 +23,6 @@ import {
   type OwnedStudySubmissionPreload,
   type StudySubmissionRepository,
   StudySessionNotEditableError,
-  StudySubmissionContractVersionMismatchError,
   StudySubmissionRepositoryUnavailableError,
   StudySubmissionRepositoryIntegrityError,
   FreshTransactionRetry
@@ -111,9 +110,6 @@ export const createPrismaStudySubmissionRepository = (
       }),
     submitAtomic: (input) =>
       withRepositoryErrors(async () => {
-        if (input.practiceContractVersion === 1) {
-          throw new StudySubmissionContractVersionMismatchError()
-        }
         for (
           let attempt = 1;
           attempt <= SERIALIZABLE_MAX_ATTEMPTS;
