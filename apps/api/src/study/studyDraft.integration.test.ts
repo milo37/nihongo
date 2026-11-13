@@ -11,8 +11,6 @@ import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
 import { createApiApp } from '../app/createApp.js'
 import { createAuthGateway } from '../auth/authGateway.js'
 import { createAuthRuntime } from '../auth/createAuth.js'
-import { createAuthEmailDispatcher } from '../auth/emailDispatcher.js'
-import { InMemoryAuthEmailPort } from '../auth/emailPort.js'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
 import { createOwnedAuthFacade } from '../auth/authFacade.js'
 import {
@@ -104,14 +102,10 @@ const erasureWorkerClient = appFixtureDatabaseUrl
       )
     })
   : undefined
-const emailDispatcher = createAuthEmailDispatcher({
-  emailPort: new InMemoryAuthEmailPort()
-})
 const auth = isCurrentSourceIntegration
   ? undefined
   : createAuthRuntime({
       client: database.client,
-      emailDispatcher,
       environment
     })
 const guestPrincipalService = createGuestPrincipalService({
@@ -177,7 +171,6 @@ const app = createApiApp({
           environment,
           ownedAuthFacade: createOwnedAuthFacade({
             client: database.client,
-            emailDispatcher,
             environment
           }),
           technicalRateLimiter: technicalAuthRateLimiter

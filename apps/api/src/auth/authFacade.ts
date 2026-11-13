@@ -4,7 +4,6 @@ import {
   signOutOwnedSession,
   type OwnedSessionClient
 } from './ownedSessionAuthority.js'
-import type { AuthEmailDispatcher } from './emailDispatcher.js'
 import {
   createExpiredSessionCookies,
   readSessionToken
@@ -53,7 +52,6 @@ export const createAuthFacade = ({
   environment
 }: {
   client: OwnedSessionClient
-  emailDispatcher: AuthEmailDispatcher
   environment: ApiEnvironment
 }): AuthFacade => {
   const isProduction = environment.NODE_ENV === 'production'

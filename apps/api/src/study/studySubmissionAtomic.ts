@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto'
 
 import {
-  canonicalizeStudySubmission,
   canonicalizeStudySubmissionV2,
   type OrderedSessionQuestionForSubmission
 } from '@nihongo/domain/submission/canonicalize-study-submission'
@@ -57,7 +56,7 @@ export const runAtomicSubmission = async (
   input: SubmitStudySessionAtomicInput,
   options: StudySubmissionRepositoryOptions
 ): Promise<RunAtomicSubmissionOutcome> => {
-  const practiceContractVersion = input.practiceContractVersion ?? 2
+  const practiceContractVersion = 2
   const guestProof =
     input.owner.kind === 'GUEST'
       ? await lockGuestProof(transaction, input.owner, input.observedAt)
@@ -191,20 +190,12 @@ export const runAtomicSubmission = async (
       ordinal,
       studySessionQuestionId
     }))
-  const exactCanonical =
-    practiceContractVersion === 2
-      ? canonicalizeStudySubmissionV2({
-          sessionId: input.sessionId,
-          orderedSessionQuestions,
-          answers: input.answers,
-          durationSec: input.durationSec
-        })
-      : canonicalizeStudySubmission({
-          sessionId: input.sessionId,
-          orderedSessionQuestions,
-          answers: input.answers,
-          durationSec: input.durationSec
-        })
+  const exactCanonical = canonicalizeStudySubmissionV2({
+    sessionId: input.sessionId,
+    orderedSessionQuestions,
+    answers: input.answers,
+    durationSec: input.durationSec
+  })
   if (hashStudySubmission(exactCanonical) !== input.requestHash) {
     throw new StudySubmissionRepositoryIntegrityError(
       'Submission canonical hash changed after the idempotency reservation.'
@@ -301,11 +292,9 @@ export const runAtomicSubmission = async (
       submissionHash: input.requestHash
     }
   })
-  if (practiceContractVersion === 2) {
-    await transaction.studyDraft.deleteMany({
-      where: { studySessionId: input.sessionId }
-    })
-  }
+  await transaction.studyDraft.deleteMany({
+    where: { studySessionId: input.sessionId }
+  })
 
   const resultRecord = await loadStudyResultRecord(
     transaction,

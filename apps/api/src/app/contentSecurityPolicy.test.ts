@@ -26,8 +26,7 @@ const environmentInput = {
   DATABASE_URL:
     'postgresql://nihongo_test_app_login:placeholder@localhost/unused_test?schema=public',
   BETTER_AUTH_SECRET: 'test-auth-placeholder-only-1234567890',
-  GUEST_COOKIE_SECRET: 'test-guest-placeholder-only-1234567890',
-  AUTH_EMAIL_FROM: 'test@example.test'
+  GUEST_COOKIE_SECRET: 'test-guest-placeholder-only-1234567890'
 }
 let web: string
 
