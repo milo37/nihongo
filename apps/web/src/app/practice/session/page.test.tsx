@@ -924,6 +924,53 @@ describe('PracticeSessionPage', () => {
     )
   })
 
+  it('자동 저장 중에도 [제출하기] 모양을 유지하고, 누르면 저장 뒤 제출한다 (#985)', async () => {
+    await loginAsUser()
+    const user = userEvent.setup()
+    const payload = await startSession(1)
+    const option = payload.questions[0]?.options[0]
+    if (!option) throw new Error('Public option required')
+    let finish: (() => void) | undefined
+    const responseGate = new Promise<void>((resolve) => {
+      finish = resolve
+    })
+    let saved = false
+    mockServer.use(
+      http.put(
+        '*/api/v1/study-sessions/:sessionId/draft-answers',
+        async () => {
+          await responseGate
+          saved = true
+          // Nothing returned: the default mock handler answers.
+        },
+        { once: true }
+      )
+    )
+    const router = renderSession(payload.session.id)
+    const radio = await screen.findByRole('radio', {
+      name: `1. ${option.text}`
+    })
+    await waitFor(() => expect(radio).toBeEnabled())
+    await user.click(radio)
+    const submit = screen.getByRole('button', { name: '제출하기' })
+    try {
+      await waitFor(
+        () => expect(useAppStore.getState().draftSaveState).toBe('saving'),
+        { timeout: 4000 }
+      )
+      expect(submit).toBeEnabled()
+      await user.click(submit)
+      expect(saved).toBe(false)
+    } finally {
+      finish?.()
+    }
+    expect(await screen.findByText('제출 결과 도착')).toBeInTheDocument()
+    expect(saved).toBe(true)
+    expect(router.state.location.pathname).toBe(
+      `/practice/result/${payload.session.id}`
+    )
+  })
+
   it('미응답 수를 확인한 뒤 제출하면 결과 경로로 이동한다', async () => {
     // Server drafts are members only (guests keep answers locally).
     await loginAsUser()
