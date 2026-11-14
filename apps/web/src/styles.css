@@ -277,14 +277,6 @@ section.practice-guest-limit,
   background: transparent;
   box-shadow: none;
 }
-/* Korean wraps between words; Japanese keeps its own rules (design #1031). */
-section.practice-guest-limit p {
-  word-break: keep-all;
-  overflow-wrap: anywhere;
-}
-section.practice-guest-limit p:lang(ja) {
-  word-break: normal;
-}
 .practice-guest-limit .practice-guest-limit-icon,
 .guest-gate .guest-gate-icon {
   display: none;
@@ -449,8 +441,10 @@ body [lang='ja'] {
 }
 /* JLP-864: text written with spaces between words breaks only at them;
    text without spaces keeps ordinary Japanese breaking (strict above).
-   A word longer than the line still wraps, so nothing overflows. */
-body [lang='ja'][data-ja-spaced] {
+   A word longer than the line still wraps, so nothing overflows. Korean
+   in the limit cards wraps between words the same way (design #1031). */
+body [lang='ja'][data-ja-spaced],
+.practice-guest-limit p:lang(ko) {
   word-break: keep-all;
   overflow-wrap: anywhere;
 }
