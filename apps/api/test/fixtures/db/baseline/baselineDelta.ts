@@ -320,13 +320,17 @@ const isDroppedTagSnapshot = (row: Record<string, unknown>): boolean =>
   row.table === DROPPED_TABLE ||
   (row.table === 'QuestionVersionTag' && /[Ss]napshot/u.test(String(row.name)))
 
-/** JLP-733: the tag list fields the second forward migration adds. */
+/**
+ * JLP-733: the tag list fields the second forward migration adds; #976 adds
+ * the Japanese name and its check.
+ */
 const ADDED_TYPE = 'TagStatus'
-const ADDED_TAG_COLUMNS = new Set(['key', 'subject', 'status'])
+const ADDED_TAG_COLUMNS = new Set(['key', 'subject', 'status', 'labelJa'])
 const ADDED_TAG_OBJECTS = new Set([
   'Tag_key_format_check',
   'Tag_list_fields_check',
-  'Tag_key_key'
+  'Tag_key_key',
+  'Tag_label_ja_check'
 ])
 const isAddedTagObject = (row: Record<string, unknown>): boolean =>
   row.table === 'Tag' && ADDED_TAG_OBJECTS.has(String(row.name))

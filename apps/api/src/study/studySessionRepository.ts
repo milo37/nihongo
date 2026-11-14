@@ -174,9 +174,16 @@ const executeRepositoryOperation = async <Result>(
 }
 
 const toTags = (
-  tags: readonly { tagId: string; tag: { label: string } }[]
+  tags: readonly {
+    tagId: string
+    tag: { label: string; labelJa: string | null }
+  }[]
 ): readonly QuestionTagRecord[] =>
-  tags.map(({ tag, tagId }) => ({ id: tagId, label: tag.label }))
+  tags.map(({ tag, tagId }) => ({
+    id: tagId,
+    label: tag.label,
+    labelJa: tag.labelJa
+  }))
 
 const toOptions = (
   options: readonly { id: string; label: string; text: string }[]
@@ -306,7 +313,7 @@ export const loadStudySessionRecord = async (
           select: {
             questionVersionId: true,
             tagId: true,
-            tag: { select: { label: true } }
+            tag: { select: { label: true, labelJa: true } }
           }
         })
   const versionsById = new Map(versions.map((version) => [version.id, version]))

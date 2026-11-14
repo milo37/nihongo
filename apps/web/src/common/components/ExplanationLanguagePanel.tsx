@@ -34,9 +34,12 @@ export const ExplanationLanguagePanel = ({
     )
   }
 
+  // #976: open on the screen's language; a language change starts over.
+  const screenLanguage = i18n.resolvedLanguage === 'ja' ? 'ja' : 'ko'
   return (
     <Tabs
-      defaultValue="ko"
+      key={screenLanguage}
+      defaultValue={screenLanguage}
       label={t('explanation.languageLabel')}
       tabs={[
         {

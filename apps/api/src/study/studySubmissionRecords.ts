@@ -115,7 +115,7 @@ export const loadStudyResultRecord = async (
           select: {
             questionVersionId: true,
             tagId: true,
-            tag: { select: { label: true } }
+            tag: { select: { label: true, labelJa: true } }
           }
         })
   const sessionQuestionIds = sessionQuestions.map(({ id }) => id)
@@ -157,11 +157,15 @@ export const loadStudyResultRecord = async (
   }
   const tagsByVersionId = new Map<
     string,
-    Array<{ id: string; label: string }>
+    Array<{ id: string; label: string; labelJa: string | null }>
   >()
   for (const tag of tags) {
     const versionTags = tagsByVersionId.get(tag.questionVersionId)
-    const value = { id: tag.tagId, label: tag.tag.label }
+    const value = {
+      id: tag.tagId,
+      label: tag.tag.label,
+      labelJa: tag.tag.labelJa
+    }
     if (versionTags) {
       versionTags.push(value)
     } else {

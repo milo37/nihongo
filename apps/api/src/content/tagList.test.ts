@@ -21,6 +21,7 @@ const row = (overrides: Partial<TagRow>): TagRow => ({
   normalizedName: '예시 어휘',
   subject: 'VOCABULARY',
   status: 'ACTIVE',
+  labelJa: null,
   ...overrides
 })
 
@@ -75,6 +76,23 @@ describe('tag list file', () => {
   it('rejects bytes that are not UTF-8 JSON', () => {
     expect(() => parseTagList(new Uint8Array([0xff]))).toThrow()
   })
+
+  it('reads the optional Japanese name (#976)', () => {
+    const list = parseTagList(
+      bytes({
+        schemaVersion: 2,
+        tags: [
+          { ...entry, labelJa: ' 例の語彙 ' },
+          { ...entry, key: 'vocab.other', label: '다른 어휘' }
+        ]
+      })
+    )
+    expect(list.tags.map(({ labelJa }) => labelJa)).toEqual(['例の語彙', null])
+    for (const labelJa of [' ', 'あ'.repeat(41)])
+      expect(() =>
+        parseTagList(bytes({ schemaVersion: 2, tags: [{ ...entry, labelJa }] }))
+      ).toThrow()
+  })
 })
 
 describe('tag load plan', () => {
@@ -100,6 +118,19 @@ describe('tag load plan', () => {
       planTagLoad(list, [row({ label: '옛 이름', normalizedName: '옛 이름' })])
         .steps
     ).toEqual([{ kind: 'update', id: row({}).id, tag: list.tags[0] }])
+  })
+
+  it('updates a keyed row whose Japanese name changed (#976)', () => {
+    const named = parseTagList(
+      bytes({ schemaVersion: 2, tags: [{ ...entry, labelJa: '例の語彙' }] })
+    )
+    expect(planTagLoad(named, [row({})]).steps).toEqual([
+      { kind: 'update', id: row({}).id, tag: named.tags[0] }
+    ])
+    expect(planTagLoad(named, [row({ labelJa: '例の語彙' })])).toMatchObject({
+      steps: [],
+      unchanged: 1
+    })
   })
 
   it('claims a row without a key by its name', () => {

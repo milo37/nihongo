@@ -140,7 +140,7 @@ describe.sequential('question set publish operator command (JLP-828)', () => {
       list,
       await fixtureDatabase.client.$queryRawUnsafe<TagRow[]>(
         `SELECT "id"::text AS "id", "key", "label", "normalizedName",
-           "subject"::text AS "subject", "status"::text AS "status"
+           "subject"::text AS "subject", "status"::text AS "status", "labelJa"
          FROM "Tag" ORDER BY "id"`
       )
     )
@@ -151,7 +151,8 @@ describe.sequential('question set publish operator command (JLP-828)', () => {
         label: step.tag.label,
         normalizedName: step.tag.normalizedName,
         subject: step.tag.subject,
-        status: step.tag.status
+        status: step.tag.status,
+        labelJa: step.tag.labelJa
       }
       if (step.kind === 'create')
         await fixtureDatabase.client.tag.create({ data })
@@ -161,6 +162,12 @@ describe.sequential('question set publish operator command (JLP-828)', () => {
           data
         })
     }
+    // #976: every tag of the list carries its Japanese name.
+    expect(
+      await database.client.tag.count({
+        where: { key: { not: null }, labelJa: { not: null } }
+      })
+    ).toBe(18)
   })
 
   it('plans without writing on a dry run', async () => {
