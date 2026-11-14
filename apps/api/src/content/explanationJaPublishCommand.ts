@@ -14,6 +14,7 @@ import { QuestionSetInputError, readQuestionSet } from './questionSetPublish.js'
 
 const inputSchema = z.object({
   QUESTION_SET_DIR: z.string().min(1),
+  QUESTION_SET_PREVIOUS_DIR: z.string().min(1).optional(),
   EXPLANATION_JA_FILE: z.string().min(1),
   EXPLANATION_JA_CONFIRM: z.literal('PUBLISH_EXPLANATION_JA').optional()
 })
@@ -28,7 +29,9 @@ const write = (
 /**
  * Publishes a new version of each question in EXPLANATION_JA_FILE with its
  * Japanese explanation, as the one ACTIVE ADMIN without a login (#976). The
- * set files in QUESTION_SET_DIR locate each question. Without
+ * set files in QUESTION_SET_DIR locate each question; the optional
+ * QUESTION_SET_PREVIOUS_DIR holds the set as it was published, for questions
+ * whose text the set changed since. Without
  * EXPLANATION_JA_CONFIRM it only plans. The target is checked like the tag list load; the commands run on the
  * application login like the admin screen. Prints one JSON line with no email,
  * secret or database URL.
@@ -41,6 +44,10 @@ export const runExplanationJaPublishCommand = async (
     const input = inputSchema.parse(source)
     const execute = input.EXPLANATION_JA_CONFIRM !== undefined
     const files = await readQuestionSet(input.QUESTION_SET_DIR)
+    const previousFiles =
+      input.QUESTION_SET_PREVIOUS_DIR === undefined
+        ? undefined
+        : await readQuestionSet(input.QUESTION_SET_PREVIOUS_DIR)
     const explanations = await readExplanationJaFile(input.EXPLANATION_JA_FILE)
     // Validates the deployment and database target only; the operator
     // client itself is never connected.
@@ -61,7 +68,8 @@ export const runExplanationJaPublishCommand = async (
       client: database.client,
       execute,
       explanations,
-      files
+      files,
+      previousFiles
     })
     const failed = report.conflicts.length > 0 || report.failures.length > 0
     write(failed ? process.stderr : process.stdout, {

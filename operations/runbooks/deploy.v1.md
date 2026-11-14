@@ -141,7 +141,7 @@ bash scripts/explanation-ja-publish.sh dry-run   # 쓰기 없음, 계획만
 bash scripts/explanation-ja-publish.sh confirm   # 새 버전 → 검수 요청 → 승인 → 공개
 ```
 
-- 서버에서 배포된 SHA의 `content/question-imports/` 10개 파일(문제 찾기용)과 `content/translations/explanations-ja.v1.json`을 내려받아 읽기 전용으로 붙이고, 앱 로그인(`api.env`의 `DATABASE_URL`, 환경으로 전달)으로 실행합니다. terraform 변경은 없습니다.
+- 서버에서 배포된 SHA의 `content/question-imports/` 10개 파일(문제 찾기용)과 `content/translations/explanations-ja.v1.json`, 그리고 #936 직전 커밋(f2e2e171)의 같은 10개 파일(그 문장으로 공개된 문제 찾기용, `QUESTION_SET_PREVIOUS_DIR`)을 내려받아 읽기 전용으로 붙이고, 앱 로그인(`api.env`의 `DATABASE_URL`, 환경으로 전달)으로 실행합니다. terraform 변경은 없습니다.
 - 출력은 `status …`와 JSON 한 줄뿐입니다. dry run 기대: `"event":"explanation_ja_dry_run"`, 빈 `conflicts`·`failures`. confirm 기대: `"event":"explanation_ja_published"`, 빈 `conflicts`·`failures`, 처음이면 `published`와 `items`가 같음.
 - 다시 돌려도 안전합니다: 이미 공개된 문제는 `skippedPublished`로 셉니다.
 - `explanation_ja_publish_failed`면 `code`(또는 `conflicts`·`failures`)를 보고 고친 뒤 dry run부터 다시 합니다.

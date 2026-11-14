@@ -177,6 +177,44 @@ describe('Hono operational boundary', () => {
     expect(response.headers.get('Access-Control-Allow-Origin')).toBeNull()
   })
 
+  // GHSA-h7mg-cq63-vhpq (#1003): before Hono 4.13.16 a path with an encoded
+  // line terminator skipped every wildcard middleware.
+  it.each(['%0A', '%0D', '%E2%80%A8', '%E2%80%A9'])(
+    'encoded line terminator %s 경로에도 wildcard middleware를 지킨다',
+    async (terminator) => {
+      const { logger } = createTestLogger()
+      const gateway: AuthGateway = { handle: vi.fn() }
+      const app = createApiApp({
+        auth: {
+          environment: authEnvironment,
+          gateway,
+          guestPrincipalService,
+          principalService
+        },
+        checkReadiness: vi.fn().mockResolvedValue(undefined),
+        logger
+      })
+
+      for (const pathname of [
+        `/api/v1/admin/questions${terminator}`,
+        `/api/v1/me${terminator}`,
+        `/health/ready${terminator}`
+      ]) {
+        const response = await app.request(pathname, {
+          headers: { Origin: 'http://localhost:5173' }
+        })
+        const failure = apiFailureSchema.parse(await response.json())
+
+        expect(response.status).toBe(404)
+        expect(failure.code).toBe('RESOURCE_NOT_FOUND')
+        expect(response.headers.get('X-Request-Id')).toBe(failure.requestId)
+        expect(response.headers.get('Content-Security-Policy')).not.toBeNull()
+        expect(response.headers.get('Cache-Control')).toBe('private, no-store')
+      }
+      expect(gateway.handle).not.toHaveBeenCalled()
+    }
+  )
+
   it.each([
     {
       canonicalUrl: 'http://localhost:3001/api/v1/admin/questions',
