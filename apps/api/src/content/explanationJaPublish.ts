@@ -105,6 +105,8 @@ interface PlannedItem {
   readonly questionRowVersion: number
   readonly versionId: string | null
   readonly rowVersion: number | null
+  /** The published version still has the text of the previous set. */
+  readonly fromPrevious: boolean
 }
 
 export interface ExplanationJaConflict {
@@ -125,6 +127,8 @@ export interface ExplanationJaReport {
   readonly fileSha256: string
   readonly items: number
   readonly pending: Readonly<Record<Stage, number>>
+  /** Planned items whose new version also takes the set's newer text. */
+  readonly pendingTextUpdates: number
   readonly created: number
   readonly reviewRequested: number
   readonly approved: number
@@ -172,8 +176,7 @@ const STATE_SQL = `SELECT version."contentFingerprint" AS "fingerprint",
   WHERE version."contentFingerprint" = ANY($1::varchar[])
   ORDER BY version."id"`
 
-interface Entry {
-  readonly clientItemId: string
+interface SetContent {
   readonly fingerprint: string
   /** The set item with only the explanations replaced, normalized. */
   readonly request: CreateAdminQuestionVersionRequest
@@ -181,12 +184,22 @@ interface Entry {
   readonly importedExplanationKo: string
 }
 
+interface Entry extends SetContent {
+  readonly clientItemId: string
+  /**
+   * The same item as it was published, when the set changed its text since
+   * (#936). Its question is found by this content and must still match it
+   * exactly; the new version then takes the newer text.
+   */
+  readonly previous?: SetContent | undefined
+}
+
 // The fingerprint normalizes text and sorts the options, so the new version
 // must also keep the exact question text, passage, option order, answer,
 // level, difficulty, Korean explanation and tags. A version an admin changed
 // since the import is left to a person. The Korean explanation may be the
 // imported one or the file's correction.
-const keepsSetContent = (row: VersionRow, entry: Entry): boolean =>
+const keepsSetContent = (row: VersionRow, entry: SetContent): boolean =>
   row.questionText === entry.request.questionText &&
   row.passage === entry.request.passage &&
   JSON.stringify(row.optionTexts) ===
@@ -217,10 +230,15 @@ const planItems = async (
   client: PrismaClient,
   entries: readonly Entry[]
 ): Promise<{ items: PlannedItem[]; conflicts: ExplanationJaConflict[] }> => {
-  const rows = await client.$queryRawUnsafe<VersionRow[]>(
-    STATE_SQL,
-    entries.map(({ fingerprint }) => fingerprint)
-  )
+  const rows = await client.$queryRawUnsafe<VersionRow[]>(STATE_SQL, [
+    ...new Set(
+      entries.flatMap(({ fingerprint, previous }) =>
+        previous === undefined
+          ? [fingerprint]
+          : [fingerprint, previous.fingerprint]
+      )
+    )
+  ])
   const byFingerprint = new Map<string, VersionRow[]>()
   for (const row of rows)
     byFingerprint.set(row.fingerprint, [
@@ -230,9 +248,18 @@ const planItems = async (
   const items: PlannedItem[] = []
   const conflicts: ExplanationJaConflict[] = []
   for (const entry of entries) {
-    const { clientItemId, fingerprint } = entry
+    const { clientItemId, fingerprint, previous } = entry
     const explanationJa = entry.request.explanationJa
-    const versions = byFingerprint.get(fingerprint) ?? []
+    const versions = [
+      ...new Map(
+        [
+          ...(byFingerprint.get(fingerprint) ?? []),
+          ...(previous === undefined
+            ? []
+            : (byFingerprint.get(previous.fingerprint) ?? []))
+        ].map((row) => [row.versionId, row])
+      ).values()
+    ]
     const conflict = (reason: string) =>
       conflicts.push({ clientItemId, reason })
     const questionIds = new Set(versions.map((row) => row.questionId))
@@ -243,14 +270,20 @@ const planItems = async (
       conflict(questionIds.size > 1 ? 'SEVERAL_QUESTIONS' : 'NOT_PUBLISHED')
       continue
     }
+    const keepsCurrent = keepsSetContent(published, entry)
     const target = {
       clientItemId,
       questionId: published.questionId,
-      questionRowVersion: published.questionRowVersion
+      questionRowVersion: published.questionRowVersion,
+      fromPrevious:
+        !keepsCurrent &&
+        previous !== undefined &&
+        keepsSetContent(published, previous)
     }
     if (
       published.explanationJa === explanationJa &&
-      published.explanationKo === entry.request.explanationKo
+      published.explanationKo === entry.request.explanationKo &&
+      (previous === undefined || keepsCurrent)
     ) {
       items.push({
         ...target,
@@ -295,7 +328,7 @@ const planItems = async (
       })
       continue
     }
-    if (!keepsSetContent(published, entry)) {
+    if (!keepsCurrent && !target.fromPrevious) {
       conflict('PUBLISHED_CONTENT_CHANGED')
       continue
     }
@@ -328,6 +361,7 @@ export const publishExplanationJa = async ({
   execute,
   explanations,
   files,
+  previousFiles,
   runId = randomUUID()
 }: {
   readonly auditEnvironment: 'TEST' | 'DEVELOPMENT' | 'PRODUCTION'
@@ -335,11 +369,18 @@ export const publishExplanationJa = async ({
   readonly execute: boolean
   readonly explanations: ExplanationJaFile
   readonly files: readonly QuestionSetFile[]
+  /** The set as it was published, when its text changed since (#936). */
+  readonly previousFiles?: readonly QuestionSetFile[] | undefined
   readonly runId?: string
 }): Promise<ExplanationJaReport> => {
-  const setItems = new Map(
-    files.flatMap((file) => file.items.map((item) => [item.clientItemId, item]))
-  )
+  const itemsOf = (set: readonly QuestionSetFile[] | undefined) =>
+    new Map(
+      (set ?? []).flatMap((file) =>
+        file.items.map((item) => [item.clientItemId, item])
+      )
+    )
+  const setItems = itemsOf(files)
+  const previousItems = itemsOf(previousFiles)
   const conflicts: ExplanationJaConflict[] = []
   const entries: Entry[] = []
   for (const {
@@ -353,34 +394,44 @@ export const publishExplanationJa = async ({
       continue
     }
     // Validates and normalizes like the admin screen before any write.
-    const imported = createAdminQuestionVersionRequestSchema.safeParse({
-      ...item.content,
-      explanationJa,
-      expectedQuestionRowVersion: 1
-    })
-    const parsed =
-      explanationKo === undefined
-        ? imported
-        : createAdminQuestionVersionRequestSchema.safeParse({
-            ...item.content,
-            explanationJa,
-            explanationKo,
-            expectedQuestionRowVersion: 1
-          })
-    if (
-      !imported.success ||
-      !parsed.success ||
-      parsed.data.explanationJa === null
-    ) {
+    const setContent = (
+      content: typeof item.content
+    ): SetContent | undefined => {
+      const imported = createAdminQuestionVersionRequestSchema.safeParse({
+        ...content,
+        explanationJa,
+        expectedQuestionRowVersion: 1
+      })
+      const parsed =
+        explanationKo === undefined
+          ? imported
+          : createAdminQuestionVersionRequestSchema.safeParse({
+              ...content,
+              explanationJa,
+              explanationKo,
+              expectedQuestionRowVersion: 1
+            })
+      return imported.success &&
+        parsed.success &&
+        parsed.data.explanationJa !== null
+        ? {
+            fingerprint: contentFingerprint(content),
+            request: parsed.data,
+            importedExplanationKo: imported.data.explanationKo
+          }
+        : undefined
+    }
+    const current = setContent(item.content)
+    const previousItem = previousItems.get(clientItemId)
+    const changed =
+      previousItem !== undefined &&
+      JSON.stringify(previousItem.content) !== JSON.stringify(item.content)
+    const previous = changed ? setContent(previousItem.content) : undefined
+    if (current === undefined || (changed && previous === undefined)) {
       conflicts.push({ clientItemId, reason: 'EXPLANATION_JA_INVALID' })
       continue
     }
-    entries.push({
-      clientItemId,
-      fingerprint: contentFingerprint(item.content),
-      request: parsed.data,
-      importedExplanationKo: imported.data.explanationKo
-    })
+    entries.push({ clientItemId, ...current, previous })
   }
 
   const admins = await client.$queryRawUnsafe<Array<{ id: string }>>(ACTOR_SQL)
@@ -395,6 +446,9 @@ export const publishExplanationJa = async ({
     APPROVAL: countStage(initial.items, 'APPROVAL'),
     PUBLICATION: countStage(initial.items, 'PUBLICATION')
   }
+  const pendingTextUpdates = initial.items.filter(
+    (item) => item.stage !== 'PUBLISHED' && item.fromPrevious
+  ).length
   const failures: ExplanationJaFailure[] = []
   const counts = { created: 0, reviewRequested: 0, approved: 0, published: 0 }
   const report = (): ExplanationJaReport => ({
@@ -403,6 +457,7 @@ export const publishExplanationJa = async ({
     fileSha256: explanations.sha256,
     items: explanations.items.length,
     pending,
+    pendingTextUpdates,
     ...counts,
     skippedPublished: countStage(initial.items, 'PUBLISHED'),
     conflicts,

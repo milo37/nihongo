@@ -4,7 +4,12 @@ import {
 } from '@nihongo/contracts/study/guest-limits'
 import { describe, expect, it, vi } from 'vitest'
 import { ApplicationError } from '../errors/applicationError.js'
-import { guestDayKey, startOfGuestDay } from './guestDay.js'
+import {
+  guestDailyIpClient,
+  guestDayKey,
+  guestIpScope,
+  startOfGuestDay
+} from './guestDay.js'
 import {
   GuestDailyLimitReachedError,
   type CreateStudyOwner,
@@ -23,6 +28,31 @@ describe('guest day (#737)', () => {
     )
     expect(guestDayKey(new Date('2026-11-08T14:59:59.999Z'))).toBe('2026-11-08')
     expect(guestDayKey(new Date('2026-11-08T15:00:00.000Z'))).toBe('2026-11-09')
+  })
+})
+
+describe('guest IP scope (#1007)', () => {
+  it('counts IPv6 by its /64 and keeps IPv4 as one address', () => {
+    expect(guestIpScope('203.0.113.7')).toBe('203.0.113.7')
+    expect(guestIpScope('::ffff:203.0.113.7')).toBe('203.0.113.7')
+    expect(guestIpScope('2001:db8:1:2:aaaa:bbbb:cccc:dddd')).toBe(
+      '2001:db8:1:2::/64'
+    )
+    expect(guestIpScope('2001:0DB8:0001:0002::1')).toBe('2001:db8:1:2::/64')
+    expect(guestIpScope('2001:db8::1')).toBe('2001:db8:0:0::/64')
+    expect(guestIpScope('fe80::1%eth0')).toBe('fe80:0:0:0::/64')
+    expect(guestIpScope('::1')).toBe('0:0:0:0::/64')
+  })
+
+  it('gives every address in one /64 the same daily key', () => {
+    const at = new Date('2026-11-14T03:00:00.000Z')
+    expect(guestDailyIpClient('2001:db8:1:2::1', at)).toBe(
+      guestDailyIpClient('2001:db8:1:2:ffff:ffff:ffff:ffff', at)
+    )
+    expect(guestDailyIpClient('2001:db8:1:2::1', at)).not.toBe(
+      guestDailyIpClient('2001:db8:1:3::1', at)
+    )
+    expect(guestDailyIpClient('203.0.113.7', at)).toBe('203.0.113.7|2026-11-14')
   })
 })
 
