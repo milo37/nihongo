@@ -41,5 +41,19 @@ export const useDocumentMetadata = ({
     robotsMeta.content = robots
     if (robotsNodes.length === 0) document.head.append(robotsMeta)
     robotsNodes.slice(1).forEach((node) => node.remove())
-  }, [i18n.resolvedLanguage, location.pathname, robots, t])
+
+    // #980: an indexed page names itself (no query or hash) as canonical.
+    const canonicalNodes = Array.from(
+      document.head.querySelectorAll<HTMLLinkElement>('link[rel="canonical"]')
+    )
+    if (robots === 'index,follow') {
+      const canonical = canonicalNodes[0] ?? document.createElement('link')
+      canonical.rel = 'canonical'
+      canonical.href = `${window.location.origin}${basename.replace(/\/$/u, '')}${location.pathname}`
+      if (canonicalNodes.length === 0) document.head.append(canonical)
+      canonicalNodes.slice(1).forEach((node) => node.remove())
+    } else {
+      canonicalNodes.forEach((node) => node.remove())
+    }
+  }, [basename, i18n.resolvedLanguage, location.pathname, robots, t])
 }
