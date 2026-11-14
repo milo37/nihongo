@@ -139,7 +139,9 @@ const dailyQuestionReader = createDailyQuestionService(
   createPrismaDailyQuestionRepository(database.client)
 )
 const studySessionService = createStudySessionService(
-  createPrismaStudySessionRepository(database.client)
+  createPrismaStudySessionRepository(database.client),
+  undefined,
+  logger
 )
 const studySubmissionService = createStudySubmissionService(
   createPrismaStudySubmissionRepository(database.client)
