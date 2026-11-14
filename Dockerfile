@@ -36,6 +36,11 @@ RUN test -f /release/api/dist/study/studyGuestCleanupRuntime.js && test -f /rele
 RUN cp -R apps/web/dist /release/web
 RUN cp -R apps/admin/dist /release/admin
 RUN node scripts/operations/release-manifest.mjs --mode create-oci-component --workspace /workspace --release-id "$RELEASE_ID" --api-directory /release/api --web-directory /release/web --admin-directory /release/admin --output /release/release-manifest.json
+# browser-build-manifest.json (module list, release ID) and .vite/ are build
+# evidence: the step above checks them and records them in release-manifest.json.
+# They are never served (#1004); plain rm fails the build if a name changes.
+RUN rm /release/web/browser-build-manifest.json /release/admin/browser-build-manifest.json \
+  && rm -r /release/web/.vite /release/admin/.vite
 
 # Production migrations (`docker build --target migrate`, pushed as <sha>-migrate).
 # Prisma CLI is a devDependency, so it never reaches the runtime image. BuildKit
