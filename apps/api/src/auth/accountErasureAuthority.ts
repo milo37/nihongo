@@ -153,6 +153,21 @@ const insertSystemAudit = async (
   )
 }
 
+// JLP-748: a later migration drops the retired email Verification table.
+// Erasure touches it only while it still exists, so this code runs before
+// and after that migration.
+const hasRetiredVerificationTable = async (
+  transaction: Transaction
+): Promise<boolean> => {
+  const rows = await transaction.$queryRawUnsafe<{ present: boolean }[]>(
+    `SELECT to_regclass('"Verification"') IS NOT NULL AS present`
+  )
+  return rows[0]?.present === true
+}
+
+const VERIFICATION_LOCK_STATEMENT = `SELECT 1 FROM "Verification" WHERE "resetUserId" = $1::uuid
+   ORDER BY "id" FOR UPDATE`
+
 /** The author tombstones and cleanup of the old User delete trigger. */
 const tombstoneErasedUser = async (
   transaction: Transaction,
@@ -337,16 +352,16 @@ const tombstoneErasedUser = async (
     `DELETE FROM "Session" WHERE "userId" = $1::uuid`,
     userId
   )
-  await transaction.$executeRawUnsafe(
-    `DELETE FROM "Verification" WHERE "resetUserId" = $1::uuid`,
-    userId
-  )
+  if (await hasRetiredVerificationTable(transaction))
+    await transaction.$executeRawUnsafe(
+      `DELETE FROM "Verification" WHERE "resetUserId" = $1::uuid`,
+      userId
+    )
 }
 
 const LOCK_STATEMENTS = [
-  // Canonical final-erasure lock order shared with reset/password/auth paths.
-  `SELECT 1 FROM "Verification" WHERE "resetUserId" = $1::uuid
-   ORDER BY "id" FOR UPDATE`,
+  // Canonical final-erasure lock order shared with reset/password/auth paths,
+  // after VERIFICATION_LOCK_STATEMENT while that table exists.
   `SELECT 1 FROM "Account" WHERE "userId" = $1::uuid ORDER BY "id" FOR UPDATE`,
   `SELECT 1 FROM "Session" WHERE "userId" = $1::uuid ORDER BY "id" FOR UPDATE`,
   `SELECT 1 FROM "Question"
@@ -388,6 +403,8 @@ const eraseConfirmedUser = async (
     userId
   )
   if (target.length !== 1) return false
+  if (await hasRetiredVerificationTable(transaction))
+    await transaction.$queryRawUnsafe(VERIFICATION_LOCK_STATEMENT, userId)
   for (const statement of LOCK_STATEMENTS)
     await transaction.$queryRawUnsafe(statement, userId)
 
