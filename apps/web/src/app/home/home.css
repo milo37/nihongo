@@ -202,8 +202,9 @@
   line-height: 1.6;
 }
 /* #1036: from 360px the wide sheet already shows the question, so the
-   sentence stays for screen readers only (the sr-only rules). */
-@media (min-width: 360px) {
+   sentence stays for screen readers only (the sr-only rules). Every width
+   above the narrow rule's 359px, so zoomed fractional widths have no gap. */
+@media (width > 359px) {
   .home-daily-question-narrow {
     position: absolute;
     width: 1px;
