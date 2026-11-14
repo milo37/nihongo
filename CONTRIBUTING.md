@@ -10,14 +10,17 @@
 type(area): what
 ```
 
-| 자리   | 값                                                        |
-| ------ | --------------------------------------------------------- |
-| `type` | `feat`, `fix`, `refactor`, `security`, `chore`, `content` |
-| `area` | `web`, `admin`, `api`, `infra`                            |
-| `what` | 무엇을 했는지 영어 소문자로 시작하는 짧은 한 줄           |
+| 자리   | 값                                                                  |
+| ------ | ------------------------------------------------------------------- |
+| `type` | `feat`, `fix`, `refactor`, `security`, `chore`, `content`           |
+| `area` | `web`, `admin`, `api`, `infra`                                      |
+| `what` | 무엇을 했는지 영어 소문자(고유명사 제외)로 시작하는 5단어 안팎 요약 |
 
-- PR 제목과 커밋 제목은 끝에 이슈 번호를 붙입니다: `fix(web): keep the question push in the production build (#123)`
-- 이슈 제목에는 번호를 붙이지 않습니다: `fix(web): keep the question push in the production build`
+- `what`은 5단어 안팎으로 짧게 씁니다. 이유·조건·상세는 제목에 넣지 않고 본문에 씁니다.
+  - 좋은 예: `feat(web): hide language menu`, `feat(web): Japanese explanations`
+  - 피할 예: `feat(web): hide the language menu until Japanese explanations are ready for every level`
+- PR 제목과 커밋 제목은 끝에 이슈 번호를 붙입니다: `fix(web): keep question push in build (#123)`
+- 이슈 제목에는 번호를 붙이지 않습니다: `fix(web): keep question push in build`
 - 제목·커밋·브랜치에 `JLP-` 카드 키나 `[FE]` 같은 접두어를 쓰지 않습니다. 카드와의 연결은 카드 쪽에 이슈 번호를 적어서 합니다(이슈 1개 ↔ 카드 1개).
 
 `type` 고르기:

@@ -26,12 +26,24 @@ interface I18nContextValue {
 
 type I18nProviderProps = {
   children: ReactNode
+  /** Shows this language whatever the browser saved, and ignores changes. */
+  fixedLocale?: UiLocale
 }
 
 const I18nContext = createContext<I18nContextValue | null>(null)
 
-export const I18nProvider = ({ children }: I18nProviderProps): ReactElement => {
-  const [locale, setLocaleState] = useState<UiLocale>(readUiLocalePreference)
+export const I18nProvider = ({
+  children,
+  fixedLocale
+}: I18nProviderProps): ReactElement => {
+  const [locale, setLocaleState] = useState<UiLocale>(() => {
+    const initialLocale = fixedLocale ?? readUiLocalePreference()
+    // i18n starts on the saved language; switch before the first render.
+    if (appI18n.resolvedLanguage !== initialLocale) {
+      void appI18n.changeLanguage(initialLocale)
+    }
+    return initialLocale
+  })
 
   const applyLocale = (nextLocale: UiLocale): void => {
     setLocaleState(nextLocale)
@@ -41,7 +53,7 @@ export const I18nProvider = ({ children }: I18nProviderProps): ReactElement => {
   }
 
   const setLocale = (nextLocale: UiLocale): void => {
-    if (nextLocale === locale) {
+    if (fixedLocale || nextLocale === locale) {
       return
     }
 
@@ -61,6 +73,10 @@ export const I18nProvider = ({ children }: I18nProviderProps): ReactElement => {
   }, [locale])
 
   useEffect(() => {
+    if (fixedLocale) {
+      return
+    }
+
     return subscribeStorageChanges((event) => {
       if (event.key !== null && event.key !== UI_LOCALE_STORAGE_KEY) {
         return
@@ -72,7 +88,7 @@ export const I18nProvider = ({ children }: I18nProviderProps): ReactElement => {
           : readFreshUiLocalePreference()
       applyLocale(nextLocale)
     })
-  }, [])
+  }, [fixedLocale])
 
   return (
     <I18nContext.Provider value={{ locale, setLocale }}>
