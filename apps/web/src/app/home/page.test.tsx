@@ -36,6 +36,9 @@ import { mockServer } from '@/test/server'
 import { mockGuestAllowance } from '@mocks/handlers/guestAllowanceHandlers'
 import * as reviewListApi from '@api/wrong-note/listReviewList'
 import { ReviewDueLine } from '@app/dashboard/components/ReviewDueLine'
+import { WeekLine } from '@app/dashboard/components/WeekLine'
+import * as resumableApi from '@api/study/listResumableStudySessions'
+import * as dashboardApi from '@api/dashboard/getDashboardStatsV1'
 import { GUEST_SESSION_QUESTION_LIMIT } from '@nihongo/contracts/study/guest-limits'
 
 const mocks = vi.hoisted(() => ({
@@ -126,10 +129,19 @@ it.each([
   }
 )
 
-const renderHome = (initial = '/', memberLine?: ReactElement) =>
+const renderHome = (
+  initial = '/',
+  memberLine?: ReactElement,
+  withWeekLine = false
+) =>
   render(
     <MemoryRouter initialEntries={[initial]}>
-      <LearningHome memberLine={memberLine} />
+      <LearningHome
+        memberLine={memberLine}
+        memberFootLine={
+          withWeekLine ? (level) => <WeekLine level={level} /> : undefined
+        }
+      />
     </MemoryRouter>
   )
 
@@ -139,14 +151,14 @@ it.each([
     `오늘은 N5 문자·어휘 ${GUEST_SESSION_QUESTION_LIMIT}문제 풀어 볼까요?`,
     '급수 바꾸기',
     '과목 바꾸기',
-    '바로 풀기'
+    '시작하기'
   ],
   [
     'ja',
     `今日は N5 文字・語彙 を ${GUEST_SESSION_QUESTION_LIMIT}問解いてみませんか？`,
     'レベルを変える',
     '科目を変える',
-    'すぐに解く'
+    '始める'
   ]
 ] as const)(
   'asks a guest one sentence with N5 vocabulary and one start button (%s)',
@@ -180,8 +192,21 @@ it.each([
       },
       expect.anything()
     )
-    // No "keep it with a login" line on the first screen (plan-notes §4).
-    expect(document.querySelector('.home-more')).toBeNull()
+    // #991: no count strip and no arrow; the sentence says the count.
+    expect(document.querySelector('.home-strip')).toBeNull()
+    expect(
+      screen.getByRole('button', { name: start }).querySelector('svg')
+    ).toBeNull()
+    // Under the button only the rule line (plan-notes §4); #995: the
+    // sign-in line sits at the foot, under today's question.
+    expect(document.querySelector('.home-band-start .home-more')).toBeNull()
+    const foot = document.querySelector('.home-foot') as HTMLElement
+    expect(foot).toHaveTextContent(appI18n.t('home:today.guestBenefit'))
+    expect(
+      within(foot).getByRole('link', {
+        name: appI18n.t('navigation:login')
+      })
+    ).toHaveAttribute('href', '/login?redirect=%2F')
   }
 )
 
@@ -209,6 +234,8 @@ it.each([
     expect(
       screen.getByRole('heading', { level: 1, name: sentence })
     ).toBeVisible()
+    // #995: the sign-in card is already there; no second sign-in line.
+    expect(document.querySelector('.home-foot')).toBeNull()
   }
 )
 
@@ -240,7 +267,7 @@ it('starts a member from the last level and subject, changed by the underlined w
     screen.getByRole('combobox', { name: '과목 바꾸기' }),
     'READING'
   )
-  fireEvent.click(screen.getByRole('button', { name: '바로 풀기' }))
+  fireEvent.click(screen.getByRole('button', { name: '시작하기' }))
   expect(mocks.mutate).toHaveBeenCalledWith(
     { level: 'N1', subject: 'READING', count: 10, mode: 'RANDOM' },
     expect.anything()
@@ -274,12 +301,86 @@ it('shows nothing about review when no wrong answers wait', async () => {
   expect(screen.queryByRole('button', { name: '복습' })).toBeNull()
 })
 
+it("keeps today's question on the level picked in the sentence (#992)", async () => {
+  mocks.auth.mockReturnValue({ isReady: true, role: 'GUEST', user: null })
+  const user = userEvent.setup()
+  renderHome()
+  const daily = await screen.findByRole('region', { name: '오늘의 한 문제' })
+  expect(await within(daily).findByText(/^N5 · /u)).toBeVisible()
+  await user.selectOptions(
+    screen.getByRole('combobox', { name: '급수 바꾸기' }),
+    'N2'
+  )
+  expect(await within(daily).findByText(/^N2 · /u)).toBeVisible()
+})
+
+const member = { id: 'member', name: '데모', targetLevel: 'N2' }
+const week = (counts: number[]) => ({
+  dailyStudyCountLast7Days: counts.map((count, index) => ({
+    date: `2026-11-0${index + 1}`,
+    count
+  }))
+})
+
+it('puts the unfinished set, then review, under [시작하기] for a member (#992)', async () => {
+  mocks.auth.mockReturnValue({ isReady: true, role: 'USER', user: member })
+  vi.spyOn(resumableApi, 'listResumableStudySessions').mockResolvedValue({
+    data: {
+      items: [
+        {
+          id: 'session-1',
+          level: 'N2',
+          subject: 'GRAMMAR',
+          actualCount: 10,
+          currentOrdinal: 4,
+          practiceContractVersion: 2,
+          resumeAvailability: 'SERVER'
+        }
+      ],
+      total: 1
+    }
+  } as never)
+  vi.spyOn(reviewListApi, 'listReviewList').mockResolvedValue({
+    counts: { toReview: 3, reviewed: 0 },
+    oldestToReview: { level: 'N2', subject: 'GRAMMAR' }
+  } as never)
+  vi.spyOn(dashboardApi, 'getDashboardStatsV1').mockResolvedValue(
+    week([0, 0, 0, 0, 0, 0, 0]) as never
+  )
+  renderHome('/dashboard?view=learning', <ReviewDueLine />, true)
+  const resume = await screen.findByText('풀던 N2 문법, 10문제 중 4번까지')
+  expect(
+    within(resume).getByRole('link', { name: '이어 풀기' })
+  ).toHaveAttribute('href', '/practice/session/session-1')
+  const review = await screen.findByText('복습할 문제도 3개 남아 있어요')
+  expect(
+    resume.compareDocumentPosition(review) & Node.DOCUMENT_POSITION_FOLLOWING
+  ).toBeTruthy()
+  // #995: no "0 questions" line.
+  expect(document.querySelector('.home-foot')).toBeNull()
+})
+
+it("counts this level's last 7 days at a member's foot and links to 마이 (#995)", async () => {
+  mocks.auth.mockReturnValue({ isReady: true, role: 'USER', user: member })
+  const stats = vi
+    .spyOn(dashboardApi, 'getDashboardStatsV1')
+    .mockResolvedValue(week([3, 0, 12, 5, 0, 10, 2]) as never)
+  renderHome('/dashboard?view=learning', undefined, true)
+  const line = await screen.findByText('최근 7일 동안 N2 32문제를 풀었어요')
+  expect(line).toHaveClass('home-foot')
+  expect(within(line).getByRole('link', { name: '마이' })).toHaveAttribute(
+    'href',
+    '/account'
+  )
+  expect(stats).toHaveBeenCalledWith({ level: 'N2' })
+})
+
 it('shows the start error in place and allows another try', () => {
   mocks.auth.mockReturnValue({ isReady: true, role: 'GUEST', user: null })
   mocks.failed = true
   renderHome()
   expect(screen.getByRole('alert')).toBeVisible()
-  const start = screen.getByRole('button', { name: '바로 풀기' })
+  const start = screen.getByRole('button', { name: '시작하기' })
   fireEvent.click(start)
   fireEvent.click(start)
   expect(mocks.mutate).toHaveBeenCalledTimes(2)
