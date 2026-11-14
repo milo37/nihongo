@@ -7,6 +7,7 @@ import { Button } from '@nihongo/browser/common/components/Button'
 import type { UiLocale } from '@nihongo/browser/i18n/types'
 import { formatDateTime } from '@nihongo/browser/libs/localeFormatters'
 import { StudyListRow } from '@common/components/StudyList'
+import { getTagLabelInLocale } from '@common/libs/tagLabel'
 
 type BookmarkListItemProps = {
   bookmark: BookmarkSummary
@@ -33,8 +34,11 @@ export const BookmarkListItem = ({
     `taxonomy.questionTypes.${question.questionType}`
   )
   // Two topic labels at most: the question type, then the first tag.
-  // Tag labels exist in Korean only, so the Japanese screen shows the type.
-  const tagLabels = locale === 'ko' ? question.tags.map((tag) => tag.label) : []
+  // A Japanese screen shows a tag only when it has a Japanese name (#976).
+  const tagLabels = question.tags.flatMap((tag) => {
+    const label = getTagLabelInLocale(tag, locale)
+    return label ? [label] : []
+  })
   const topics = [
     questionTypeLabel,
     ...tagLabels.filter((label) => label !== questionTypeLabel)

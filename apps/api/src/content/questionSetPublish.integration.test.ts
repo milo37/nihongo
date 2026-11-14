@@ -442,6 +442,40 @@ describe.sequential(
       expect(await contentRowCounts()).toEqual(counts)
     }, 120_000)
 
+    it('takes a corrected Korean explanation into the same new version', async () => {
+      const clientItemId = setItem(5).clientItemId
+      const items = [
+        {
+          clientItemId,
+          explanationJa: '韓国語も直した解説',
+          explanationKo: '고친 한국어 해설'
+        }
+      ]
+      expect(await explain(items, true)).toMatchObject({
+        created: 1,
+        published: 1,
+        conflicts: [],
+        failures: []
+      })
+      const question = await questionOf(5)
+      expect(
+        await database.client.questionVersion.findUniqueOrThrow({
+          where: { id: question.currentPublishedVersionId as string },
+          select: { explanationJa: true, explanationKo: true }
+        })
+      ).toEqual({
+        explanationJa: '韓国語も直した解説',
+        explanationKo: '고친 한국어 해설'
+      })
+      const counts = await contentRowCounts()
+      expect(await explain(items, true)).toMatchObject({
+        created: 0,
+        skippedPublished: 1,
+        conflicts: []
+      })
+      expect(await contentRowCounts()).toEqual(counts)
+    }, 120_000)
+
     it('leaves a question an admin reordered since the import to a person', async () => {
       const question = await questionOf(4)
       const authority = createOperatorAdminAuthority({
