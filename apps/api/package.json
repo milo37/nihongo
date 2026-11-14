@@ -25,6 +25,8 @@
     "content:load-tags:compiled": "node dist/content/tagLoadCommand.js",
     "content:publish-question-set": "pnpm run db:generate && tsx src/content/questionSetPublishCommand.ts",
     "content:publish-question-set:compiled": "node dist/content/questionSetPublishCommand.js",
+    "content:publish-explanation-ja": "pnpm run db:generate && tsx src/content/explanationJaPublishCommand.ts",
+    "content:publish-explanation-ja:compiled": "node dist/content/explanationJaPublishCommand.js",
     "auth:erase-deletion-pending": "pnpm run db:generate && tsx src/auth/ssoAccountErasureCommand.ts",
     "auth:erase-deletion-pending:compiled": "node dist/auth/ssoAccountErasureCommand.js",
     "content:foundation-check": "tsx prisma/contentFoundationCheck.ts",
