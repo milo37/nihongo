@@ -28,7 +28,6 @@ export const koCoreResources = {
       closeNotification: '알림 닫기',
       goHome: '처음으로',
       goLogin: '로그인하기',
-      goRandomPractice: '랜덤으로 풀기',
       login: '로그인'
     },
     state: {
@@ -489,8 +488,6 @@ export const koCoreResources = {
         stale: '목록을 새로 불러오지 못했어요. 마지막으로 불러온 목록이에요.',
         error: '풀던 문제 목록을 불러오지 못했어요.',
         summary: '{{formattedCount}}문제 중 {{formattedOrdinal}}번까지',
-        lastSaved: '{{date}}에 저장',
-        notSaved: '아직 푼 문제 없음',
         legacyUnavailable:
           '이 학습은 더 이어 풀 수 없어요. 새로 시작해 주세요.',
         action: '이어 풀기',
@@ -649,9 +646,7 @@ export const koCoreResources = {
         canonicalPartial:
           '{{requested}}문제를 골랐지만 지금 풀 수 있는 문제가 {{actual}}문제라 {{actual}}문제만 나왔어요.'
       },
-      progressLabel: '{{percent}}% 답함',
       question: {
-        passageBackToTop: '지문 다시 보기',
         passageLabel: '지문',
         numberLabel: '{{ordinal}}번 문제.',
         answerLegend: '보기'
@@ -695,15 +690,6 @@ export const koCoreResources = {
           offline: '인터넷 연결이 끊겼어요. 연결되면 다시 제출해 주세요.',
           restored: '인터넷에 다시 연결됐어요. 지금 다시 제출할 수 있어요.'
         }
-      },
-      conflict: {
-        title: '다른 기기에서 푼 답과 달라요',
-        description:
-          '{{conflicts}}문제의 답이 서로 달라요. 어느 쪽 답을 남길지 골라 주세요.',
-        useServer: '저장된 답 쓰기',
-        keepLocal: '이 화면의 답 쓰기',
-        detail:
-          "'저장된 답 쓰기'를 고르면 이 화면에서 바꾼 답은 사라져요. '이 화면의 답 쓰기'를 고르면 이 화면의 답으로 저장해요."
       }
     }
   },
@@ -722,12 +708,6 @@ export const koCoreResources = {
     summary: {
       score: '{{total}}문제 중 {{correct}}개 맞음',
       meta: '정답률 {{accuracy}} · {{duration}}'
-    },
-    grading: {
-      checking: '채점하고 있어요',
-      done: '채점 결과',
-      skipHint: '누르면 바로 볼 수 있어요',
-      showResult: '결과 보기'
     },
     nextActions: {
       title: '다음에 할 일'
@@ -915,8 +895,6 @@ export const koCoreResources = {
       myAnswer: '내 답',
       back: '오답노트로',
       title: '마지막 오답 문제 상세',
-      snapshotNotice:
-        '아래 문제·보기·해설은 마지막으로 틀렸을 때 고정된 문제 버전이에요.',
       previousAnswer: {
         selected: '내가 고른 답',
         unanswered: '내가 고른 답: 없음(안 풂)',
@@ -1010,7 +988,6 @@ export const koCoreResources = {
       title: '책갈피 문제 풀기',
       description: '급수·과목별로 담은 순서대로 나와요.',
       groupAction: '{{level}} {{subject}} 풀기 (최대 {{formattedCount}}문제)',
-      allArchived: '이 쪽의 문제는 모두 지금 풀 수 없어요.',
       noneAvailable: '지금 풀 수 있는 책갈피 문제가 없어요.',
       refresh: '새로고침',
       offline: '인터넷 연결이 끊겼어요. 연결되면 다시 눌러 주세요.',
