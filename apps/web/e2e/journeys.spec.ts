@@ -277,7 +277,9 @@ const userJourneyRequestContract = [
     path: '/api/v1/wrong-notes/:id/review-events',
     statuses: [200]
   },
-  { method: 'GET', path: '/api/v1/dashboard', statuses: [200] },
+  // The member first screen's last-7-days line on each of its two visits
+  // (#995), then My page once.
+  { method: 'GET', path: '/api/v1/dashboard', statuses: [200, 200, 200] },
   // Today's question on the learning home, once per level shown (D, #801).
   { method: 'GET', path: '/api/v1/daily-question', statuses: [200, 200] },
   { method: 'POST', path: '/api/v1/study-sessions', statuses: [201] },
