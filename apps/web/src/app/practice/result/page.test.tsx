@@ -935,6 +935,8 @@ describe('approved general result navigation', () => {
       name: '오늘은 여기까지 풀었어요'
     })
     expect(within(card).getByRole('link', { name: '오답노트' })).toBeVisible()
+    // The pressed button is gone; focus lands on the card's title.
+    expect(within(card).getByRole('heading')).toHaveFocus()
     expect(
       screen.queryByText('학습을 시작하지 못했어요', { exact: false })
     ).toBeNull()

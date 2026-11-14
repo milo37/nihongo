@@ -272,6 +272,14 @@ section.practice-guest-limit,
   background: transparent;
   box-shadow: none;
 }
+/* Korean wraps between words; Japanese keeps its own rules (design #1031). */
+section.practice-guest-limit p {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+section.practice-guest-limit p:lang(ja) {
+  word-break: normal;
+}
 .practice-guest-limit .practice-guest-limit-icon,
 .guest-gate .guest-gate-icon {
   display: none;
