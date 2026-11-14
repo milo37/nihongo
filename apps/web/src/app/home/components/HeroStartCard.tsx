@@ -99,94 +99,100 @@ export const HeroStartCard = ({
   }).split(/(\[\[level\]\]|\[\[subject\]\]|\[\[br\]\])/u)
   return (
     <div className="home-band-start">
-      <h1
-        className={
-          setup.isGuestDailyLimitReached
-            ? 'home-say home-say-limit'
-            : 'home-say'
-        }
-        tabIndex={-1}
-      >
-        {sentence.map((part, index) =>
-          part === LEVEL_SLOT ? (
-            <PickWord
-              key={index}
-              label={t('today.pickLevel')}
-              value={level}
-              disabled={pickDisabled}
-              options={levels.map((value) => ({ value, label: value }))}
-              onChange={(event) =>
-                setup.changeSetting(
-                  'level',
-                  event.currentTarget.value,
-                  setup.defaultLevel
-                )
-              }
-            />
-          ) : part === SUBJECT_SLOT ? (
-            <PickWord
-              key={index}
-              label={t('today.pickSubject')}
-              value={subject}
-              disabled={pickDisabled}
-              options={subjects.map((value) => ({
-                value,
-                label: t(subjectKeys[value])
-              }))}
-              onChange={(event) =>
-                setup.changeSetting(
-                  'subject',
-                  event.currentTarget.value,
-                  setup.defaultSubject
-                )
-              }
-            />
-          ) : part === BREAK_SLOT ? (
-            <br key={index} />
-          ) : (
-            part
-          )
-        )}
-      </h1>
-      {setup.isGuestDailyLimitReached ? (
-        <div className="home-band-limit">
-          <GuestDailyLimitCard redirect="/" />
-        </div>
-      ) : (
-        <Button
-          className="home-go"
-          size="lg"
-          disabled={!setup.isReady || !setup.level}
-          isLoading={setup.isCreatingSession}
-          loadingLabel={t('approved.loading')}
-          onClick={setup.handleStart}
+      {/* #1041: on PC the title and button share the first row with today's
+          question; the lines below start the second row. */}
+      <div className="home-start-top">
+        <h1
+          className={
+            setup.isGuestDailyLimitReached
+              ? 'home-say home-say-limit'
+              : 'home-say'
+          }
+          tabIndex={-1}
         >
-          {isGuest ? t('today.startGuest') : t('today.startMember')}
-          {guestTriesLeft === undefined ? null : (
-            <ButtonTriesLeft remaining={guestTriesLeft} />
+          {sentence.map((part, index) =>
+            part === LEVEL_SLOT ? (
+              <PickWord
+                key={index}
+                label={t('today.pickLevel')}
+                value={level}
+                disabled={pickDisabled}
+                options={levels.map((value) => ({ value, label: value }))}
+                onChange={(event) =>
+                  setup.changeSetting(
+                    'level',
+                    event.currentTarget.value,
+                    setup.defaultLevel
+                  )
+                }
+              />
+            ) : part === SUBJECT_SLOT ? (
+              <PickWord
+                key={index}
+                label={t('today.pickSubject')}
+                value={subject}
+                disabled={pickDisabled}
+                options={subjects.map((value) => ({
+                  value,
+                  label: t(subjectKeys[value])
+                }))}
+                onChange={(event) =>
+                  setup.changeSetting(
+                    'subject',
+                    event.currentTarget.value,
+                    setup.defaultSubject
+                  )
+                }
+              />
+            ) : part === BREAK_SLOT ? (
+              <br key={index} />
+            ) : (
+              part
+            )
           )}
-        </Button>
-      )}
-      {isGuest ? (
-        // Only before the first try today; after it, the count sits in the
-        // button (plan-notes §4).
-        guestTriesLeft === undefined && !setup.isGuestDailyLimitReached ? (
-          <p className="home-hello">
-            {t('today.guestGreeting', {
-              total: GUEST_DAILY_SESSION_LIMIT,
-              count: GUEST_SESSION_QUESTION_LIMIT
-            })}
-          </p>
-        ) : null
-      ) : null}
-      <PracticeSetupFeedback
-        accountRestricted={setup.accountRestricted}
-        hasCreateError={setup.hasCreateError}
-        mode={setup.mode}
-        noEligibleQuestions={setup.noEligibleQuestions}
-        onSelectRandom={() => setup.changeSetting('mode', 'RANDOM', 'RANDOM')}
-      />
-      {memberLines}
+        </h1>
+        {setup.isGuestDailyLimitReached ? (
+          <div className="home-band-limit">
+            <GuestDailyLimitCard redirect="/" />
+          </div>
+        ) : (
+          <Button
+            className="home-go"
+            size="lg"
+            disabled={!setup.isReady || !setup.level}
+            isLoading={setup.isCreatingSession}
+            loadingLabel={t('approved.loading')}
+            onClick={setup.handleStart}
+          >
+            {isGuest ? t('today.startGuest') : t('today.startMember')}
+            {guestTriesLeft === undefined ? null : (
+              <ButtonTriesLeft remaining={guestTriesLeft} />
+            )}
+          </Button>
+        )}
+      </div>
+      <div className="home-start-lines">
+        {isGuest ? (
+          // Only before the first try today; after it, the count sits in the
+          // button (plan-notes §4).
+          guestTriesLeft === undefined && !setup.isGuestDailyLimitReached ? (
+            <p className="home-hello">
+              {t('today.guestGreeting', {
+                total: GUEST_DAILY_SESSION_LIMIT,
+                count: GUEST_SESSION_QUESTION_LIMIT
+              })}
+            </p>
+          ) : null
+        ) : null}
+        <PracticeSetupFeedback
+          accountRestricted={setup.accountRestricted}
+          hasCreateError={setup.hasCreateError}
+          mode={setup.mode}
+          noEligibleQuestions={setup.noEligibleQuestions}
+          onSelectRandom={() => setup.changeSetting('mode', 'RANDOM', 'RANDOM')}
+        />
+        {memberLines}
+      </div>
     </div>
   )
 }

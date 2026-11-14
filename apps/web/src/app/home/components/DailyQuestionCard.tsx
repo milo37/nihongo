@@ -5,7 +5,7 @@ import {
 } from '@common/components/manuscript/ManuscriptSheet'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { CSSProperties, ReactElement } from 'react'
+import type { CSSProperties, ReactElement, ReactNode } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import type { JlptLevel } from '@nihongo/browser/common/types/domain'
 import { useGetDailyQuestion } from '@app/home/hooks/useGetDailyQuestion'
@@ -99,9 +99,11 @@ const QuestionSheet = ({
  * word or grammar card in the same frame (direction §1-2).
  */
 const DailyQuestionBody = ({
-  data
+  data,
+  head
 }: {
   data: GetDailyQuestionResponse
+  head: ReactNode
 }): ReactElement => {
   const { t, i18n } = useTranslation('home')
   const { t: tCommon } = useTranslation('common')
@@ -142,81 +144,87 @@ const DailyQuestionBody = ({
   }
   return (
     <>
-      <QuestionSheet text={question.questionText} writing={writing} />
-      <div
-        role="group"
-        aria-label={t('today.dailyOptionsLabel')}
-        className="mt-5 grid grid-cols-2 gap-2"
-      >
-        {question.options.map((option) => {
-          const isCorrect = picked !== null && option.id === correct?.id
-          const isWrongPick = picked === option.id && option.id !== correct?.id
-          // After a pick the label circle shows ✓/✕ and a small line names
-          // it, so short options stay on one line (G, #801 design).
-          const mark = isCorrect ? 'correct' : isWrongPick ? 'wrong' : null
-          return (
-            <button
-              key={option.id}
-              type="button"
-              className="home-daily-option"
-              data-state={mark ?? undefined}
-              aria-pressed={picked === option.id}
-              aria-disabled={picked !== null}
-              onClick={() => pick(option.id)}
-            >
-              <span
-                className="home-daily-option-label"
-                aria-hidden={mark ? true : undefined}
-              >
-                {mark ? (
-                  <GradeSquare grade={mark === 'correct' ? 'ok' : 'ng'} />
-                ) : (
-                  option.label
-                )}
-              </span>
-              <span className="home-daily-option-text">
-                <span lang="ja">
-                  {mark ? (
-                    <span className="sr-only">{option.label}. </span>
-                  ) : null}
-                  {option.text}
-                </span>
-                {mark ? (
-                  <span className="home-daily-option-mark">
-                    {t(
-                      mark === 'correct'
-                        ? 'today.dailyAnswer'
-                        : 'today.dailyYourAnswer'
-                    )}
-                  </span>
-                ) : null}
-              </span>
-            </button>
-          )
-        })}
+      <div className="home-daily-top">
+        {head}
+        <QuestionSheet text={question.questionText} writing={writing} />
       </div>
-      <div aria-live="polite">
-        {picked ? (
-          <div className="mt-5 border-t border-line pt-4">
-            <p className="font-bold text-ink">
-              {picked === correct?.id
-                ? t('today.dailyCorrect')
-                : t('today.dailyIncorrect', { label: correct?.label })}
-            </p>
-            <p
-              className="mt-2 break-words text-[15px] leading-7 text-muted"
-              lang={showJa ? 'ja' : 'ko'}
-            >
-              <span className="sr-only">{t('today.dailyExplanation')}: </span>
-              {showJa ? explanationJa : question.explanationKo}
-            </p>
-            {explanationJa || i18n.resolvedLanguage !== 'ja' ? null : (
-              <p className="mt-3 text-sm font-semibold text-subtle">
-                {tCommon('explanation.japaneseUnavailable')}
+      <div className="home-daily-rest">
+        <div
+          role="group"
+          aria-label={t('today.dailyOptionsLabel')}
+          className="mt-5 grid grid-cols-2 gap-2"
+        >
+          {question.options.map((option) => {
+            const isCorrect = picked !== null && option.id === correct?.id
+            const isWrongPick =
+              picked === option.id && option.id !== correct?.id
+            // After a pick the label circle shows ✓/✕ and a small line names
+            // it, so short options stay on one line (G, #801 design).
+            const mark = isCorrect ? 'correct' : isWrongPick ? 'wrong' : null
+            return (
+              <button
+                key={option.id}
+                type="button"
+                className="home-daily-option"
+                data-state={mark ?? undefined}
+                aria-pressed={picked === option.id}
+                aria-disabled={picked !== null}
+                onClick={() => pick(option.id)}
+              >
+                <span
+                  className="home-daily-option-label"
+                  aria-hidden={mark ? true : undefined}
+                >
+                  {mark ? (
+                    <GradeSquare grade={mark === 'correct' ? 'ok' : 'ng'} />
+                  ) : (
+                    option.label
+                  )}
+                </span>
+                <span className="home-daily-option-text">
+                  <span lang="ja">
+                    {mark ? (
+                      <span className="sr-only">{option.label}. </span>
+                    ) : null}
+                    {option.text}
+                  </span>
+                  {mark ? (
+                    <span className="home-daily-option-mark">
+                      {t(
+                        mark === 'correct'
+                          ? 'today.dailyAnswer'
+                          : 'today.dailyYourAnswer'
+                      )}
+                    </span>
+                  ) : null}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+        <div aria-live="polite">
+          {picked ? (
+            <div className="mt-5 border-t border-line pt-4">
+              <p className="font-bold text-ink">
+                {picked === correct?.id
+                  ? t('today.dailyCorrect')
+                  : t('today.dailyIncorrect', { label: correct?.label })}
               </p>
-            )}
-          </div>
-        ) : null}
+              <p
+                className="mt-2 break-words text-[15px] leading-7 text-muted"
+                lang={showJa ? 'ja' : 'ko'}
+              >
+                <span className="sr-only">{t('today.dailyExplanation')}: </span>
+                {showJa ? explanationJa : question.explanationKo}
+              </p>
+              {explanationJa || i18n.resolvedLanguage !== 'ja' ? null : (
+                <p className="mt-3 text-sm font-semibold text-subtle">
+                  {tCommon('explanation.japaneseUnavailable')}
+                </p>
+              )}
+            </div>
+          ) : null}
+        </div>
       </div>
     </>
   )
@@ -231,53 +239,66 @@ export const DailyQuestionCard = ({
   const daily = useGetDailyQuestion(level)
   // No question for this level today: leave the space empty.
   if (daily.isError && isNoEligibleQuestionsApiError(daily.error)) return null
+  const head = (
+    <div className="home-daily-head">
+      <SheetTail side="left" />
+      <h2 id="home-daily-title" className="home-daily-title">
+        {t('today.dailyLabel')}
+      </h2>
+      {daily.data ? (
+        <span className="home-daily-meta">
+          {t('today.dailyMeta', {
+            level: daily.data.level,
+            subject: t(subjectKeys[daily.data.question.subject])
+          })}
+        </span>
+      ) : null}
+      <SheetTail side="right" />
+    </div>
+  )
+  // #1041: on PC the head and sheet share the first row with the start
+  // title; the options start the second row with the lines on the left.
   return (
     <section className={CARD_CLASS} aria-labelledby="home-daily-title">
-      <div className="home-daily-head">
-        <SheetTail side="left" />
-        <h2 id="home-daily-title" className="home-daily-title">
-          {t('today.dailyLabel')}
-        </h2>
-        {daily.data ? (
-          <span className="home-daily-meta">
-            {t('today.dailyMeta', {
-              level: daily.data.level,
-              subject: t(subjectKeys[daily.data.question.subject])
-            })}
-          </span>
-        ) : null}
-        <SheetTail side="right" />
-      </div>
       {daily.data ? (
-        <DailyQuestionBody key={daily.data.question.id} data={daily.data} />
-      ) : daily.isError ? (
-        <div className="mt-4" role="alert">
-          <p className="text-[15px] text-muted">{t('today.dailyError')}</p>
-          <Button
-            className="mt-3"
-            variant="ghost"
-            onClick={() => void daily.refetch()}
-          >
-            {t('today.dailyRetry')}
-          </Button>
-        </div>
+        <DailyQuestionBody
+          key={daily.data.question.id}
+          data={daily.data}
+          head={head}
+        />
       ) : (
-        // A card skeleton holds the height, so the card does not jump when
-        // the question arrives (G, #801 design).
-        <div className="mt-3" role="status">
-          <span className="sr-only">{t('today.dailyLoading')}</span>
-          <div
-            aria-hidden="true"
-            className="ui-skeleton h-[140px] rounded-control bg-surface-muted sm:h-[105px]"
-          />
-          <div aria-hidden="true" className="mt-5 grid grid-cols-2 gap-2">
-            {[0, 1, 2, 3].map((index) => (
+        <div className="home-daily-top">
+          {head}
+          {daily.isError ? (
+            <div className="mt-4" role="alert">
+              <p className="text-[15px] text-muted">{t('today.dailyError')}</p>
+              <Button
+                className="mt-3"
+                variant="ghost"
+                onClick={() => void daily.refetch()}
+              >
+                {t('today.dailyRetry')}
+              </Button>
+            </div>
+          ) : (
+            // A card skeleton holds the height, so the card does not jump when
+            // the question arrives (G, #801 design).
+            <div className="mt-3" role="status">
+              <span className="sr-only">{t('today.dailyLoading')}</span>
               <div
-                key={index}
-                className="ui-skeleton h-[52px] rounded-control bg-surface-muted"
+                aria-hidden="true"
+                className="ui-skeleton h-[140px] rounded-control bg-surface-muted sm:h-[105px]"
               />
-            ))}
-          </div>
+              <div aria-hidden="true" className="mt-5 grid grid-cols-2 gap-2">
+                {[0, 1, 2, 3].map((index) => (
+                  <div
+                    key={index}
+                    className="ui-skeleton h-[52px] rounded-control bg-surface-muted"
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </section>
