@@ -36,7 +36,7 @@ beforeEach(() => {
 afterEach(() => useAppStore.setState({ isMobileMenuOpen: false }))
 
 it.each(['ko', 'ja'] as const)(
-  'keeps approved brand, four destinations, language button and account Escape (%s)',
+  'keeps approved brand, four destinations, language button and guest login link (%s)',
   async (locale) => {
     await appI18n.changeLanguage(locale)
     render(
@@ -63,33 +63,19 @@ it.each(['ko', 'ja'] as const)(
     expect(
       within(screen.getByRole('banner')).queryByRole('combobox')
     ).not.toBeInTheDocument()
-    // A guest sees a [로그인] text button that opens the same menu.
-    const account = screen.getByRole('button', {
-      name: appI18n.t('navigation:login')
-    })
-    expect(account).toHaveTextContent(appI18n.t('navigation:login'))
-    expect(account).toHaveAttribute('aria-haspopup', 'menu')
-    await userEvent.click(account)
-    expect(account).toHaveAttribute('aria-expanded', 'true')
-    const menu = screen.getByRole('menu')
-    const login = within(menu).getByRole('menuitem', {
+    // #994: a guest sees a [로그인] link straight to /login, not a menu.
+    const login = within(screen.getByRole('banner')).getByRole('link', {
       name: appI18n.t('navigation:login')
     })
     expect(login).toHaveAttribute('href', '/login')
-    expect(menu).toHaveFocus()
-    expect(within(menu).getAllByRole('menuitem')).toHaveLength(1)
-    // Language moved out of the account menu to its own top bar button.
-    expect(within(menu).queryByRole('menuitemradio')).not.toBeInTheDocument()
-    expect(menu.querySelector('[role="separator"]')).toBeNull()
+    expect(login).toHaveClass('account-menu-login')
+    expect(login).not.toHaveAttribute('aria-haspopup')
+    expect(document.getElementById('account-menu-button')).toBeNull()
     expect(
       within(screen.getByRole('banner')).getByRole('button', {
         name: appI18n.t('common:locale.change')
       })
     ).toHaveAttribute('aria-haspopup', 'menu')
-    await userEvent.keyboard('{Escape}')
-    expect(account).toHaveAttribute('aria-expanded', 'false')
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
-    expect(account).toHaveFocus()
   }
 )
 
@@ -99,6 +85,24 @@ const topNavigation = (): HTMLElement =>
   screen
     .getAllByRole('navigation', { name: appI18n.t('navigation:primary') })
     .find((nav) => nav.id === 'primary-navigation') as HTMLElement
+
+it.each([
+  ['/practice?level=N3', '/login?redirect=%2Fpractice%3Flevel%3DN3'],
+  ['/login?redirect=%2Fbookmarks', '/login'],
+  // QA #998: a guest's result is gone after sign-in; go to practice.
+  ['/practice/result/session-1', '/login?redirect=%2Fpractice']
+])('sends a guest from %s to %s so sign-in returns there', (from, href) => {
+  render(
+    <MemoryRouter initialEntries={[from]}>
+      <Layout />
+    </MemoryRouter>
+  )
+  expect(
+    within(screen.getByRole('banner')).getByRole('link', {
+      name: appI18n.t('navigation:login')
+    })
+  ).toHaveAttribute('href', href)
+})
 
 it('renders no shell footer for learners', () => {
   render(

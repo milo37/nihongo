@@ -85,9 +85,7 @@ export const koCoreResources = {
     accountMenu: {
       label: '계정 메뉴',
       signedInWith: 'Google 계정으로 로그인 중',
-      myPage: '마이페이지',
-      guestTitle: '로그인 전이에요',
-      guestDescription: '로그인하면 푼 기록이 남아요'
+      myPage: '마이페이지'
     },
     account: '계정',
     mobilePrimary: '메뉴',

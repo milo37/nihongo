@@ -102,9 +102,7 @@ export const jaCoreResources = {
     accountMenu: {
       label: 'アカウントメニュー',
       signedInWith: 'Googleアカウントでログイン中',
-      myPage: 'マイページ',
-      guestTitle: 'ログインしていません',
-      guestDescription: 'ログインすると解いた記録が残ります'
+      myPage: 'マイページ'
     },
     account: 'アカウント',
     mobilePrimary: 'メニュー',
