@@ -70,6 +70,11 @@
   width: 96px;
   min-width: 96px;
 }
+/* #1029: the ハルまる lockup is wider at the same height. */
+.app-brand-lockup-ja {
+  width: 101px;
+  min-width: 101px;
+}
 
 .operations-information {
   width: 100%;
