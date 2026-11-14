@@ -13,9 +13,13 @@ interface HealthRouteDependencies {
   checkReadiness: () => Promise<void>
   releaseId: string
   readinessTimeoutMs?: number
+  /** How long a ready or failed answer is reused (#1008). */
+  readinessCacheMs?: { ready: number; failed: number }
+  now?: () => number
 }
 
 const DEFAULT_READINESS_TIMEOUT_MS = 3_000
+const DEFAULT_READINESS_CACHE_MS = { ready: 5_000, failed: 2_000 }
 const releaseIdSchema = z.string().regex(/^[0-9a-f]{40}$/u)
 
 const waitForReadiness = async (
@@ -44,10 +48,41 @@ const waitForReadiness = async (
 export const createHealthRoutes = ({
   checkReadiness,
   releaseId,
-  readinessTimeoutMs = DEFAULT_READINESS_TIMEOUT_MS
+  readinessTimeoutMs = DEFAULT_READINESS_TIMEOUT_MS,
+  readinessCacheMs = DEFAULT_READINESS_CACHE_MS,
+  now = Date.now
 }: HealthRouteDependencies): Hono<{ Variables: ApiVariables }> => {
   const routes = new Hono<{ Variables: ApiVariables }>()
   const parsedReleaseId = releaseIdSchema.parse(releaseId)
+
+  // /health/ready is public, so the database check behind it runs at most
+  // once per cache window however many requests arrive (#1008). A new process
+  // has no answer yet and always checks, so a deploy still waits for its own
+  // database check.
+  let answer: { ready: boolean; error?: unknown; until: number } | undefined
+  let pending: Promise<void> | undefined
+  const readiness = async (): Promise<void> => {
+    if (answer === undefined || now() >= answer.until) {
+      pending ??= waitForReadiness(checkReadiness, readinessTimeoutMs)
+        .then(
+          () => {
+            answer = { ready: true, until: now() + readinessCacheMs.ready }
+          },
+          (error: unknown) => {
+            answer = {
+              ready: false,
+              error,
+              until: now() + readinessCacheMs.failed
+            }
+          }
+        )
+        .finally(() => {
+          pending = undefined
+        })
+      await pending
+    }
+    if (!answer?.ready) throw answer?.error
+  }
 
   routes.get('/live', (context) => {
     context.header('Cache-Control', 'no-store')
@@ -60,7 +95,7 @@ export const createHealthRoutes = ({
     context.header('X-Release-Id', parsedReleaseId)
 
     try {
-      await waitForReadiness(checkReadiness, readinessTimeoutMs)
+      await readiness()
     } catch (error: unknown) {
       throw new ApplicationError({
         code: 'SERVICE_UNAVAILABLE',
