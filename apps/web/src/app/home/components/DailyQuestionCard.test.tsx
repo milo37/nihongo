@@ -49,8 +49,12 @@ it('writes the question in on the first load and shows it whole on a press (#997
       chars.map((char) => (char as SVGElement).style.getPropertyValue('--i'))
     ).toEqual(chars.map((_, index) => String(index)))
   }
-  // The sentence for screen readers is never animated.
-  expect(daily.querySelector('p[lang="ja"]')).toHaveClass('sr-only')
+  // The plain sentence is never animated. Its class depends on today's mock
+  // question (sr-only or narrow-only), so the check does not.
+  const sentence = daily.querySelector('p[lang="ja"]')
+  expect(sentence).not.toBeNull()
+  expect(sentence?.closest('.home-daily-write')).toBeNull()
+  expect(sentence?.querySelector('.home-daily-char')).toBeNull()
 
   fireEvent.pointerDown(document.body)
   for (const sheet of sheets(daily)) {
