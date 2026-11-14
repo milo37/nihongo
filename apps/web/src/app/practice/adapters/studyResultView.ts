@@ -20,7 +20,11 @@ interface StudyResultQuestionView {
   options: PracticeQuestionOption[]
   difficulty: QuestionDifficulty
   tags: string[]
-  tagSummaries?: Array<{ id: string; label: string }> | null
+  tagSummaries?: Array<{
+    id: string
+    label: string
+    labelJa?: string | null
+  }> | null
 }
 
 export interface StudyResultItemView {
