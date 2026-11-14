@@ -170,6 +170,27 @@
   font-size: 15px;
   font-weight: 600;
 }
+/* #997: each square appears left to right, faint to dark, in the
+   manuscript-pen length and curve. Longhands keep the name in the build
+   (#953). The class leaves once it is written or on a press. */
+.home-daily-write .home-daily-char {
+  animation-name: daily-write;
+  animation-duration: 180ms;
+  animation-timing-function: cubic-bezier(0.3, 0.6, 0.4, 1);
+  animation-fill-mode: both;
+  animation-delay: calc(var(--i) * var(--step));
+}
+@keyframes daily-write {
+  from {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-daily-write .home-daily-char {
+    animation: none;
+  }
+}
 .home-daily-sheet-narrow {
   display: none;
 }

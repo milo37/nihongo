@@ -3,13 +3,18 @@ import {
   ManuscriptSheet,
   SheetTail
 } from '@common/components/manuscript/ManuscriptSheet'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { ReactElement } from 'react'
+import type { CSSProperties, ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import type { JlptLevel } from '@nihongo/browser/common/types/domain'
 import { useGetDailyQuestion } from '@app/home/hooks/useGetDailyQuestion'
 import { readDailyAnswer, saveDailyAnswer } from '@app/home/dailyAnswer'
+import {
+  dailyWriteIn,
+  WRITE_IN_CHAR_MS,
+  writeInStepMs
+} from '@app/home/dailyWriteIn'
 import { isNoEligibleQuestionsApiError } from '@libs/apiError'
 import type { GetDailyQuestionResponse } from '@api/question/getDailyQuestion/schema'
 
@@ -24,21 +29,40 @@ const CARD_CLASS = 'home-daily'
 /** Up to three rows of manuscript squares; longer questions stay plain text. */
 const SHEET_MAX_ROWS = 3
 
-/** One character per square (B4 §3); spaces between words are dropped. */
-const QuestionSheet = ({ text }: { text: string }): ReactElement => {
-  const characters = Array.from(text.replace(/\s+/gu, ''))
+const sheetCharacters = (text: string): string[] =>
+  Array.from(text.replace(/\s+/gu, ''))
+
+/**
+ * One character per square (B4 §3); spaces between words are dropped.
+ * #997: while `writing`, the squares fill in order like a pen passing.
+ */
+const QuestionSheet = ({
+  text,
+  writing
+}: {
+  text: string
+  writing: boolean
+}): ReactElement => {
+  const characters = sheetCharacters(text)
+  const sheetStyle = writing
+    ? ({ '--step': `${writeInStepMs(characters.length)}ms` } as CSSProperties)
+    : undefined
   const sheet = (columns: number, className: string): ReactElement | null => {
     const rows = Math.max(2, Math.ceil(characters.length / columns))
     if (rows > SHEET_MAX_ROWS) return null
     return (
       <ManuscriptSheet
-        className={className}
+        className={writing ? `${className} home-daily-write` : className}
+        style={sheetStyle}
         columns={columns}
         rows={rows}
         renderCell={(cell) =>
           characters[cell.index] ? (
             <text
               className="home-daily-char"
+              style={
+                writing ? ({ '--i': cell.index } as CSSProperties) : undefined
+              }
               x={cell.x + cell.c / 2}
               y={cell.y + cell.c / 2}
             >
@@ -80,6 +104,29 @@ const DailyQuestionBody = ({
   const explanationJa = question.explanationJa?.trim()
   const showJa = i18n.resolvedLanguage === 'ja' && Boolean(explanationJa)
   const [picked, setPicked] = useState(() => readDailyAnswer(date, question.id))
+  // #997: once per page load, and not on a day already answered (the answer
+  // and explanation are showing, so rewriting the question reads oddly).
+  const [writing, setWriting] = useState(
+    () => !dailyWriteIn.hasPlayed() && picked === null
+  )
+  useEffect(() => {
+    if (!writing) return
+    dailyWriteIn.markPlayed()
+    const count = sheetCharacters(question.questionText).length
+    // Any press or key while it writes shows it whole at once.
+    const finish = (): void => setWriting(false)
+    const timer = window.setTimeout(
+      finish,
+      WRITE_IN_CHAR_MS + writeInStepMs(count) * Math.max(0, count - 1)
+    )
+    window.addEventListener('pointerdown', finish, true)
+    window.addEventListener('keydown', finish, true)
+    return () => {
+      window.clearTimeout(timer)
+      window.removeEventListener('pointerdown', finish, true)
+      window.removeEventListener('keydown', finish, true)
+    }
+  }, [writing, question.questionText])
   const correct = question.options.find(
     (option) => option.id === question.correctOptionId
   )
@@ -90,7 +137,7 @@ const DailyQuestionBody = ({
   }
   return (
     <>
-      <QuestionSheet text={question.questionText} />
+      <QuestionSheet text={question.questionText} writing={writing} />
       <div
         role="group"
         aria-label={t('today.dailyOptionsLabel')}
