@@ -5,11 +5,8 @@ import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { usePracticeSetupController } from '@app/practice/hooks/usePracticeSetupController'
 import { HeroStartCard } from '@app/home/components/HeroStartCard'
 import { DailyQuestionCard } from '@app/home/components/DailyQuestionCard'
-import {
-  GuestBenefitLine,
-  ResumeLine,
-  WeekLine
-} from '@app/home/components/HomeLines'
+import type { JlptLevel } from '@nihongo/browser/common/types/domain'
+import { GuestBenefitLine, ResumeLine } from '@app/home/components/HomeLines'
 // Inlined into this lazy chunk: the home styles stay out of the first-load CSS.
 
 /**
@@ -21,10 +18,13 @@ import {
  * at the foot (guest: sign in to keep; member: this level's last 7 days).
  */
 export const LearningHome = ({
-  memberLine
+  memberLine,
+  memberFootLine
 }: {
   /** The member line under [시작하기]; the member route passes it in. */
   memberLine?: ReactNode
+  /** The member foot line for the picked level; the member route too. */
+  memberFootLine?: (level: JlptLevel) => ReactNode
 }): ReactElement => {
   const resumableHeadingRef = useRef<HTMLHeadingElement>(null)
   const setup = usePracticeSetupController(resumableHeadingRef)
@@ -46,7 +46,7 @@ export const LearningHome = ({
         />
         <DailyQuestionCard level={level} />
         {isMember ? (
-          <WeekLine level={level} />
+          memberFootLine?.(level)
         ) : setup.isGuest && !setup.isGuestDailyLimitReached ? (
           <GuestBenefitLine loginHref={setup.loginHref} />
         ) : null}

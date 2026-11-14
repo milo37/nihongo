@@ -36,6 +36,7 @@ import { mockServer } from '@/test/server'
 import { mockGuestAllowance } from '@mocks/handlers/guestAllowanceHandlers'
 import * as reviewListApi from '@api/wrong-note/listReviewList'
 import { ReviewDueLine } from '@app/dashboard/components/ReviewDueLine'
+import { WeekLine } from '@app/dashboard/components/WeekLine'
 import * as resumableApi from '@api/study/listResumableStudySessions'
 import * as dashboardApi from '@api/dashboard/getDashboardStatsV1'
 import { GUEST_SESSION_QUESTION_LIMIT } from '@nihongo/contracts/study/guest-limits'
@@ -128,10 +129,19 @@ it.each([
   }
 )
 
-const renderHome = (initial = '/', memberLine?: ReactElement) =>
+const renderHome = (
+  initial = '/',
+  memberLine?: ReactElement,
+  withWeekLine = false
+) =>
   render(
     <MemoryRouter initialEntries={[initial]}>
-      <LearningHome memberLine={memberLine} />
+      <LearningHome
+        memberLine={memberLine}
+        memberFootLine={
+          withWeekLine ? (level) => <WeekLine level={level} /> : undefined
+        }
+      />
     </MemoryRouter>
   )
 
@@ -337,7 +347,7 @@ it('puts the unfinished set, then review, under [시작하기] for a member (#99
   vi.spyOn(dashboardApi, 'getDashboardStatsV1').mockResolvedValue(
     week([0, 0, 0, 0, 0, 0, 0]) as never
   )
-  renderHome('/dashboard?view=learning', <ReviewDueLine />)
+  renderHome('/dashboard?view=learning', <ReviewDueLine />, true)
   const resume = await screen.findByText('풀던 N2 문법, 10문제 중 4번까지')
   expect(
     within(resume).getByRole('link', { name: '이어 풀기' })
@@ -355,7 +365,7 @@ it("counts this level's last 7 days at a member's foot and links to 마이 (#995
   const stats = vi
     .spyOn(dashboardApi, 'getDashboardStatsV1')
     .mockResolvedValue(week([3, 0, 12, 5, 0, 10, 2]) as never)
-  renderHome('/dashboard?view=learning')
+  renderHome('/dashboard?view=learning', undefined, true)
   const line = await screen.findByText('최근 7일 동안 N2 32문제를 풀었어요')
   expect(line).toHaveClass('home-foot')
   expect(within(line).getByRole('link', { name: '마이' })).toHaveAttribute(
