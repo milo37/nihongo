@@ -16,18 +16,19 @@ const inputSchema = z.object({
 })
 
 const ROWS_SQL = `SELECT "id"::text AS "id", "key", "label", "normalizedName",
-    "subject"::text AS "subject", "status"::text AS "status"
+    "subject"::text AS "subject", "status"::text AS "status", "labelJa"
   FROM "Tag" ORDER BY "id"`
 
 const UPDATE_SQL = `UPDATE "Tag" SET "key" = $2, "label" = $3,
     "normalizedName" = $4, "subject" = $5::"QuestionSubject",
-    "status" = $6::"TagStatus", "updatedAt" = clock_timestamp()
+    "status" = $6::"TagStatus", "labelJa" = $7,
+    "updatedAt" = clock_timestamp()
   WHERE "id" = $1::uuid`
 
 const INSERT_SQL = `INSERT INTO "Tag" ("id", "key", "label", "normalizedName",
-    "subject", "status", "updatedAt")
+    "subject", "status", "labelJa", "updatedAt")
   VALUES (gen_random_uuid(), $1, $2, $3, $4::"QuestionSubject",
-    $5::"TagStatus", clock_timestamp())`
+    $5::"TagStatus", $6, clock_timestamp())`
 
 const write = (
   stream: NodeJS.WriteStream,
@@ -101,7 +102,8 @@ export const runTagLoadCommand = async (
                 tag.label,
                 tag.normalizedName,
                 tag.subject,
-                tag.status
+                tag.status,
+                tag.labelJa
               ])
             : await database.query(UPDATE_SQL, [
                 step.id,
@@ -109,7 +111,8 @@ export const runTagLoadCommand = async (
                 tag.label,
                 tag.normalizedName,
                 tag.subject,
-                tag.status
+                tag.status,
+                tag.labelJa
               ])
         if (result.rowCount !== 1) {
           throw new Error('TAG_LOAD_RESULT_INVALID')

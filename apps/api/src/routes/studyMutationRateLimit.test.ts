@@ -406,7 +406,11 @@ describe('guest session starts per IP and Korea-time day (#737)', () => {
             difficulty: 'EASY',
             questionText: '日本',
             tags: [
-              { id: '77777777-7777-4777-8777-777777777777', label: '한자 읽기' }
+              {
+                id: '77777777-7777-4777-8777-777777777777',
+                label: '한자 읽기',
+                labelJa: null
+              }
             ],
             passage: null,
             options: ['1', '2', '3', '4'].map((label, index) => ({
