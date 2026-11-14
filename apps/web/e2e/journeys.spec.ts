@@ -277,7 +277,9 @@ const userJourneyRequestContract = [
     path: '/api/v1/wrong-notes/:id/review-events',
     statuses: [200]
   },
-  { method: 'GET', path: '/api/v1/dashboard', statuses: [200] },
+  // The member first screen's last-7-days line on each of its two visits
+  // (#995), then My page once.
+  { method: 'GET', path: '/api/v1/dashboard', statuses: [200, 200, 200] },
   // Today's question on the learning home, once per level shown (D, #801).
   { method: 'GET', path: '/api/v1/daily-question', statuses: [200, 200] },
   { method: 'POST', path: '/api/v1/study-sessions', statuses: [201] },
@@ -314,7 +316,9 @@ const resilienceRequestContract = [
   {
     method: 'GET',
     path: '/api/v1/dashboard',
+    // The first 200 is the member home's last-7-days line (#995).
     statuses: [
+      200,
       200,
       'NETWORK_ERROR',
       'NETWORK_ERROR',
@@ -1201,7 +1205,9 @@ test('guest SSO boundary and authenticated practice transition match the active 
     { method: 'GET', path: '/api/v1/daily-question', statuses: [200] },
     // After login the member first screen reads its 'to review' line (JLP-823).
     { method: 'GET', path: '/api/v1/review-list', statuses: [200] },
-    { method: 'GET', path: '/api/v1/study-sessions', statuses: [200] }
+    { method: 'GET', path: '/api/v1/study-sessions', statuses: [200] },
+    // ...and its last-7-days line for the picked level (#995).
+    { method: 'GET', path: '/api/v1/dashboard', statuses: [200] }
   ])
 })
 
@@ -1477,6 +1483,12 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   }
   await home.click()
   await expect(page).toHaveURL(/\/dashboard\?view=learning$/u)
+  // Let home finish loading before the account menu opens; a menu opened
+  // while home still renders can close under the click (#992 CI).
+  await expect(
+    page.getByRole('region', { name: '오늘의 한 문제', exact: true })
+  ).toBeVisible()
+  await waitForLedgerToQuiesce(ledger, dashboardStartIndex)
   await openMyPage(page)
   const finalStats = await finalStatsResponse
   expect(finalStats.totalAnsweredCount).toBe(6)
@@ -1566,8 +1578,9 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
     '/api/v1/dashboard',
     dashboardStartIndex
   )
-  // The review page no longer reads the summary (JLP-812); My page reads it once.
-  expect(dashboardSummaryEntries).toHaveLength(1)
+  // The review page no longer reads the summary (JLP-812); the member home's
+  // last-7-days line (#995) and My page read it once each.
+  expect(dashboardSummaryEntries).toHaveLength(2)
   for (const entry of dashboardSummaryEntries) {
     expect(requireFinished(entry)).toBeGreaterThan(entry.startSequence)
     expect(requireFinished(submissionEntries[1])).toBeLessThan(

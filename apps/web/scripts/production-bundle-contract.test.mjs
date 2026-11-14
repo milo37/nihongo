@@ -148,7 +148,7 @@ test('separates only the exact unchanged Vite approved static asset list', () =>
       .matchAll(/'([^']+)'/gu)
   ].map((match) => match[1])
   assert.deepEqual(approvedStaticAssetPaths, approvedPaths)
-  assert.equal(approvedPaths.length, 11)
+  assert.equal(approvedPaths.length, 7)
 })
 
 test('reports exact sorted missing and extra SSR asset paths', () => {

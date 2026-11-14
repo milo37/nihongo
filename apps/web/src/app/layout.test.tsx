@@ -49,6 +49,15 @@ it.each(['ko', 'ja'] as const)(
         name: `${appI18n.t('common:appName')} ${appI18n.t('navigation:routes.home')}`
       })
     ).toHaveAttribute('href', '/')
+    // #1029: Japanese screens draw the ハルまる lockup.
+    expect(
+      screen.getByRole('banner').querySelector('img.app-brand-lockup')
+    ).toHaveAttribute(
+      'src',
+      locale === 'ja'
+        ? '/brand/harumaru-lockup-ja.svg'
+        : '/brand/harumaru-lockup.svg'
+    )
     const primary = topNavigation()
     expect(
       within(primary)
@@ -261,7 +270,7 @@ it('keeps an ordinary result in learning context rather than switching it to rev
 })
 it.each([
   ['ko', '학습', '하루마루 홈'],
-  ['ja', '学習', '하루마루 ホーム']
+  ['ja', '学習', 'ハルまる ホーム']
 ] as const)(
   'reaches home by the logo, lights no tab there and lights 학습 on the practice setup (JLP-873, %s)',
   async (locale, label, appName) => {

@@ -6,16 +6,14 @@ import { defineConfig, loadEnv } from 'vite'
 import type { Plugin } from 'vite'
 import { resolveApiMode } from './src/libs/resolveApiMode.ts'
 import { resolveReleaseId } from './src/libs/resolveReleaseId.ts'
+import { renderPublicPageHtml } from './src/libs/publicPageHtml.ts'
+import { koCoreResources } from './src/i18n/resources/ko.ts'
 import { assertBrowserBuildGraph } from '../../scripts/operations/browser-artifact-check.mjs'
 
 const approvedBrandAssetPaths = [
   'auth/google-mark.svg',
-  'brand/harumaru-lockup-160.png',
-  'brand/harumaru-lockup-320.png',
   'brand/harumaru-lockup.svg',
-  'brand/harumaru-symbol-16.png',
-  'brand/harumaru-symbol-32.png',
-  'brand/harumaru-symbol.svg',
+  'brand/harumaru-lockup-ja.svg',
   'favicon.ico',
   'favicon.svg',
   'icons/icon-192.png',
@@ -28,6 +26,14 @@ const learnerCrawlerFilePaths = [
   'robots.txt',
   'sitemap.xml',
   'share-card.png'
+] as const
+
+// #981: page copies of index.html for the public pages besides the home page
+// (the sitemap list); the home page is index.html itself.
+const publicPageRoutes = [
+  { route: 'practiceSetup', path: '/practice' },
+  { route: 'legal', path: '/legal' },
+  { route: 'support', path: '/support' }
 ] as const
 
 const workspaceRoot = path.resolve(import.meta.dirname, '../..')
@@ -179,6 +185,53 @@ export const createBrowserViteConfig = (root: string, admin = false) =>
         }
       }
     }
+    const publicPageCopies: Plugin = {
+      name: 'nihongo-public-page-copies',
+      apply: (_config, { command, isPreview }) =>
+        command === 'build' || isPreview === true,
+      enforce: 'post',
+      generateBundle(_options, bundle) {
+        const index = bundle['index.html']
+        if (index?.type !== 'asset' || typeof index.source !== 'string') {
+          throw new Error('Public page copies need the built index.html.')
+        }
+        const { documentTitle, metaDescriptions, routes } =
+          koCoreResources.navigation
+        // The release check reads only the root index.html; every copy must
+        // carry the same release marker.
+        const releaseMarker = `<meta name="nihongo-release-id" content="${releaseId}">`
+        for (const { route, path: pagePath } of publicPageRoutes) {
+          const source = renderPublicPageHtml(index.source, {
+            path: pagePath,
+            title: documentTitle.replace('{{route}}', routes[route]),
+            description: metaDescriptions[route]
+          })
+          if (source.split(releaseMarker).length !== 2) {
+            throw new Error(`${pagePath} copy lost the release marker.`)
+          }
+          this.emitFile({
+            type: 'asset',
+            fileName: `${pagePath.slice(1)}/index.html`,
+            source
+          })
+        }
+      },
+      // vite preview falls back to the root index.html first; serve the copies
+      // the way the API static server does (a folder answers with index.html).
+      configurePreviewServer(server) {
+        server.middlewares.use((request, _response, next) => {
+          const [requestPath, query] = (request.url ?? '').split(/(?=\?)/u)
+          if (
+            publicPageRoutes.some(
+              ({ path: pagePath }) => pagePath === requestPath
+            )
+          ) {
+            request.url = `${requestPath}/index.html${query ?? ''}`
+          }
+          next()
+        })
+      }
+    }
     // The admin dev server has no public folder and prefixes its base to the
     // already-based /admin/ icon links. Serve the approved brand files under
     // the base and undo the doubled prefix; builds keep brandAssets above.
@@ -219,7 +272,9 @@ export const createBrowserViteConfig = (root: string, admin = false) =>
       plugins: [
         ...sharedConfig.plugins,
         brandAssets,
-        ...(admin ? [adminDevBrandAssets] : [learnerCrawlerFiles]),
+        ...(admin
+          ? [adminDevBrandAssets]
+          : [learnerCrawlerFiles, publicPageCopies]),
         buildBoundary,
         {
           name: 'nihongo-release-metadata',
