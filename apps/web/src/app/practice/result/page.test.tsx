@@ -458,11 +458,15 @@ describe('approved general result navigation', () => {
     expect(
       screen.queryByText('로그인하면 방금 푼 문제가 오답노트에 들어가요.')
     ).toBeNull()
-    expect(screen.getByRole('link', { name: '로그인' })).toHaveAttribute(
+    // The page's own; the top bar's [로그인] link (#994) is outside main.
+    const main = screen.getByRole('main')
+    expect(within(main).getByRole('link', { name: '로그인' })).toHaveAttribute(
       'href',
       '/login?redirect=%2Fwrong-notes'
     )
-    expect(screen.getAllByRole('link', { name: /로그인/u })).toHaveLength(1)
+    expect(within(main).getAllByRole('link', { name: /로그인/u })).toHaveLength(
+      1
+    )
     view.unmount()
     fixture.client.clear()
   })
