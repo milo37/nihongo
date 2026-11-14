@@ -1,6 +1,7 @@
 /* Part of the main stylesheet (imported in main.tsx). */
-/* B4 first screen (HANDOFF §3, §6): one sentence, the empty strip, one
-   button; today's question as manuscript paper beside it on PC. */
+/* B4 first screen (HANDOFF §3, §6): one sentence and one button; today's
+   question as manuscript paper beside it on PC. #992 rhythm: 28px under
+   the top bar, 28px sentence to button, 8px button to the first line. */
 .home-b {
   padding-bottom: 48px;
 }
@@ -15,7 +16,7 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  padding-top: 24px;
+  padding-top: 28px;
 }
 .home-say {
   color: rgb(var(--color-ink));
@@ -71,13 +72,10 @@
   outline: var(--focus-width) solid rgb(var(--focus-color));
   outline-offset: var(--focus-offset);
 }
-.home-strip {
-  margin-top: 22px;
-}
 .home-band-start .home-go {
   width: 100%;
   min-height: 56px;
-  margin-top: 24px;
+  margin-top: 28px;
   gap: 8px;
   font-size: 17px;
   font-weight: 700;
@@ -90,7 +88,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 12px;
+  margin-top: 8px;
   color: rgb(var(--color-muted));
   font-size: 13px;
 }
@@ -99,9 +97,19 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  margin-top: 14px;
+  margin-top: 8px;
   color: rgb(var(--color-ink));
   font-size: 14px;
+}
+.home-more + .home-more {
+  margin-top: 0;
+}
+/* #995: the foot line under a thin rule; 20px above the rule (the band's
+   32px gap less 12px), 14px below it. */
+.home-foot {
+  margin-top: -12px;
+  padding-top: 14px;
+  border-top: 1px solid rgb(var(--color-line));
 }
 .home-more-icon {
   flex: none;
@@ -238,10 +246,23 @@
   .home-band {
     grid-template-columns: minmax(0, 1fr) minmax(0, 0.82fr);
     column-gap: 64px;
+    /* #995: the foot line goes under the left column's lines; the second
+       row takes the rest of today's question's height. */
+    grid-template-rows: auto 1fr;
+    row-gap: 0;
     align-items: start;
     max-width: 1056px;
     margin-inline: auto;
-    padding-top: clamp(56px, 12vh, 120px);
+    padding-top: clamp(40px, 9vh, 96px);
+  }
+  .home-band > .home-daily {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+  }
+  .home-foot {
+    grid-column: 1;
+    grid-row: 2;
+    margin-top: 28px;
   }
   .home-band-start {
     padding-top: 0;
@@ -250,12 +271,9 @@
     font-size: 44px;
     line-height: 1.32;
   }
-  .home-strip {
-    margin-top: 36px;
-  }
   .home-band-start .home-go {
     min-height: 58px;
-    margin-top: 40px;
+    margin-top: 36px;
     font-size: 18px;
   }
   .home-hello {

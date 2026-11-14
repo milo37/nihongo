@@ -1,12 +1,10 @@
-import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ChangeEvent, ReactElement, ReactNode } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
-import { ProgressSheet } from '@common/components/manuscript/ProgressSheet'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
-import { usePracticeSetupController } from '@app/practice/hooks/usePracticeSetupController'
+import type { usePracticeSetupController } from '@app/practice/hooks/usePracticeSetupController'
 import { levels, subjects } from '@app/practice/practiceSetupOptions'
 import {
   GUEST_DAILY_SESSION_LIMIT,
@@ -69,17 +67,18 @@ const PickWord = ({
 
 /**
  * 첫 화면 B (JLP-823): one sentence "오늘은 N5 문자·어휘 10문제 풀어 볼까요?"
- * whose level and subject are underlined pickers, one [바로 풀기], then one
- * quiet line (members: what is left to review; guests: log in to keep).
+ * whose level and subject are underlined pickers, one [시작하기], then quiet
+ * lines (members: the unfinished set and what is left to review; guests:
+ * today's tries). #991: no count strip; the sentence says the count.
  */
 export const HeroStartCard = ({
-  memberLine
+  setup,
+  memberLines
 }: {
-  memberLine?: ReactNode
+  setup: ReturnType<typeof usePracticeSetupController>
+  memberLines?: ReactNode
 }): ReactElement => {
   const { t, i18n } = useTranslation('home')
-  const resumableHeadingRef = useRef<HTMLHeadingElement>(null)
-  const setup = usePracticeSetupController(resumableHeadingRef)
   const { count, subject } = setup
   const level = setup.level ?? setup.defaultLevel
   const locale = resolveUiLocale(i18n.resolvedLanguage)
@@ -149,13 +148,6 @@ export const HeroStartCard = ({
           )
         )}
       </h1>
-      {setup.isGuestDailyLimitReached ? null : (
-        // Today's set as empty squares (decorative; the sentence says it).
-        <ProgressSheet
-          className="home-strip"
-          states={Array.from({ length: count }, () => 'todo' as const)}
-        />
-      )}
       {setup.isGuestDailyLimitReached ? (
         <div className="home-band-limit">
           <GuestDailyLimitCard redirect="/" />
@@ -170,7 +162,6 @@ export const HeroStartCard = ({
           onClick={setup.handleStart}
         >
           {isGuest ? t('today.startGuest') : t('today.startMember')}
-          <Icon name="arrow-right" className="size-5" />
           {guestTriesLeft === undefined ? null : (
             <ButtonTriesLeft remaining={guestTriesLeft} />
           )}
@@ -195,7 +186,7 @@ export const HeroStartCard = ({
         noEligibleQuestions={setup.noEligibleQuestions}
         onSelectRandom={() => setup.changeSetting('mode', 'RANDOM', 'RANDOM')}
       />
-      {!isGuest && setup.isReady ? memberLine : null}
+      {memberLines}
     </div>
   )
 }
