@@ -93,9 +93,9 @@ data "aws_iam_policy_document" "edge_logs" {
       values   = [data.aws_caller_identity.current.account_id]
     }
     condition {
-      test     = "ArnLike"
+      test     = "ArnEquals"
       variable = "aws:SourceArn"
-      values   = ["arn:${data.aws_partition.current.partition}:logs:us-east-1:${data.aws_caller_identity.current.account_id}:delivery-source:*"]
+      values   = [aws_cloudwatch_log_delivery_source.edge[0].arn]
     }
   }
 
@@ -168,6 +168,7 @@ resource "aws_cloudwatch_metric_alarm" "waf_blocked_spike" {
   threshold           = var.waf_blocked_alarm_per_5min
   comparison_operator = "GreaterThanThreshold"
   treat_missing_data  = "notBreaching"
+  actions_enabled     = !var.host_kept_stopped
   alarm_actions       = [aws_sns_topic.alerts_us_east_1.arn]
 }
 
@@ -186,5 +187,6 @@ resource "aws_cloudwatch_metric_alarm" "waf_rate_limited" {
   threshold           = var.waf_rate_limited_alarm_per_5min
   comparison_operator = "GreaterThanThreshold"
   treat_missing_data  = "notBreaching"
+  actions_enabled     = !var.host_kept_stopped
   alarm_actions       = [aws_sns_topic.alerts_us_east_1.arn]
 }
