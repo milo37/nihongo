@@ -299,6 +299,14 @@
   display: contents;
 }
 
+/* #1031: a setup notice (set cap, no questions) keeps 12px from the start
+   button on phones, as on the result screen; PC has the row's 8px. */
+@media (max-width: 1023px) {
+  .home-start-lines > [role='alert'] {
+    margin-top: 12px;
+  }
+}
+
 @media (min-width: 1024px) {
   .home-band {
     grid-template-columns: minmax(0, 1fr) minmax(0, 0.82fr);
