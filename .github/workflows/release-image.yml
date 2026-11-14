@@ -42,13 +42,13 @@ jobs:
         uses: actions/checkout@v5
         with:
           persist-credentials: false
-          sparse-checkout: .github/scripts
+          sparse-checkout: .github/actions/release-gate
 
       - name: Wait for CI and Secret scan of this SHA
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_SHA: ${{ github.sha }}
-        run: bash .github/scripts/same-sha-checks.sh
+        run: bash .github/actions/release-gate/same-sha-checks.sh
 
   publish:
     name: Publish runtime and migrate images
