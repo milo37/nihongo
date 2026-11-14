@@ -178,6 +178,21 @@ describe('document robots metadata', () => {
     expect(expectRobots('index,follow')).toBe(node)
   })
 
+  it('gives the public practice page its own description (#981)', async () => {
+    const router = renderApp('/practice')
+    const description = () =>
+      document.head.querySelector<HTMLMetaElement>('meta[name="description"]')
+        ?.content
+    expect(description()).toBe(
+      appI18n.t('navigation:metaDescriptions.practiceSetup')
+    )
+    expect(description()).not.toBe(appI18n.t('navigation:metaDescription'))
+    await act(async () => {
+      await router.navigate('/login')
+    })
+    expect(description()).toBe(appI18n.t('navigation:metaDescription'))
+  })
+
   it('does not include query, fragment, actor or token fixtures in managed metadata', async () => {
     const router = renderApp(
       '/login?token=token-fixture&actor=actor-fixture#fragment-fixture'

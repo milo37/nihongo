@@ -103,6 +103,13 @@ export const koCoreResources = {
     documentTitle: '{{route}} | 하루마루',
     metaDescription:
       'JLPT N5~N1 문제를 풀고, 틀린 문제는 다시 풀어 보는 하루마루',
+    // #981: the public pages describe themselves; the rest use metaDescription.
+    metaDescriptions: {
+      practiceSetup:
+        'JLPT 급수와 과목만 고르면 문제 한 세트를 바로 풀 수 있어요.',
+      legal: '하루마루 이용약관과 개인정보 처리방침을 안내해요.',
+      support: '하루마루 문제 오류 신고와 문의 방법을 안내해요.'
+    },
     routes: {
       home: '홈',
       login: '로그인',
