@@ -175,7 +175,7 @@
    (#953). The class leaves once it is written or on a press. */
 .home-daily-write .home-daily-char {
   animation-name: daily-write;
-  animation-duration: 180ms;
+  animation-duration: 260ms;
   animation-timing-function: cubic-bezier(0.3, 0.6, 0.4, 1);
   animation-fill-mode: both;
   animation-delay: calc(var(--i) * var(--step));
