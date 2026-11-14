@@ -8,6 +8,8 @@ import {
   ssoReviewListStates
 } from './sign-in-social.js'
 import { wrongNoteReviewStateSchema } from '../wrong-note/list-review-list.js'
+import * as adminContent from '../admin/content-future.js'
+import * as reportRoute from '../admin/question-report-route.js'
 
 const validURL = () => {
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth')
@@ -220,4 +222,27 @@ describe('report-owned SSO return paths', () => {
   ])('keeps report and generic navigation boundaries closed: %s', (path) => {
     expect(safeSsoReturnPath(path)).toBe('/')
   })
+})
+
+describe('report route schemas shared with the admin API (#1053)', () => {
+  it('uses the very schemas the admin report API parses', () => {
+    expect(adminContent.listAdminQuestionReportsQuerySchema).toBe(
+      reportRoute.listAdminQuestionReportsQuerySchema
+    )
+    expect(adminContent.getAdminQuestionReportParamsSchema).toBe(
+      reportRoute.getAdminQuestionReportParamsSchema
+    )
+  })
+  it.each([
+    ['/practice/session/abc-123', '/practice/session/abc-123'],
+    ['/admin/reports?status=OPEN', '/admin/reports?status=OPEN'],
+    ['/admin/reports?status=OPEN&redirect=%2F%2Fevil.test', '/'],
+    ['/practice?redirect=%2F%2Fevil.test', '/'],
+    ['/\\evil.test', '/']
+  ])(
+    'keeps learner and admin report returns on one closed check: %s',
+    (path, expected) => {
+      expect(safeSsoReturnPath(path)).toBe(expected)
+    }
+  )
 })

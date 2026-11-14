@@ -2,7 +2,7 @@ import { z } from 'zod'
 import {
   getAdminQuestionReportParamsSchema,
   listAdminQuestionReportsQuerySchema
-} from '../admin/content-future.js'
+} from '../admin/question-report-route.js'
 import { jlptLevelSchema } from '../common/enum.js'
 import { pageRequestSchema } from '../common/pagination.js'
 import type { WrongNoteReviewState } from '../wrong-note/list-review-list.js'
