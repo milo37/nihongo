@@ -117,15 +117,26 @@
   height: 18px;
   color: rgb(var(--color-brand));
 }
-.home-more a {
+/* The line's action: a link, or the review line's ghost button drawn the
+   same (design review #1000). */
+.home-more :is(a, .home-more-action) {
   display: inline-flex;
   flex: none;
+  gap: 0;
   white-space: nowrap;
   align-items: center;
   min-height: 44px;
   margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
   color: rgb(var(--color-link));
+  font-size: inherit;
   font-weight: 700;
+}
+.home-more .home-more-action:hover:not([aria-disabled='true']) {
+  background: transparent;
 }
 .home-more a:focus-visible {
   outline: var(--focus-width) solid rgb(var(--focus-color));
