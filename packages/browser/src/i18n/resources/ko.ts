@@ -26,7 +26,6 @@ export const koCoreResources = {
       close: '닫기',
       closeDialog: '창 닫기',
       closeNotification: '알림 닫기',
-      goHome: '처음으로',
       goLogin: '로그인하기',
       login: '로그인'
     },
@@ -348,8 +347,6 @@ export const koCoreResources = {
     },
     approved: {
       vocabulary: '문자·어휘',
-      title: '오늘도 일본어 한 세트',
-      description: '급수와 과목만 고르면 바로 시작해요.',
       loading: '불러오는 중…'
     },
     quickDrill: {
@@ -867,8 +864,6 @@ export const koCoreResources = {
     },
     name: '오답노트',
     center: {
-      title: '오답 복습',
-      description: '틀린 문제를 다시 풀고, 익숙해진 문제는 해결로 옮겨 보세요.',
       states: {
         offline: '인터넷 연결이 끊겼어요. 연결되면 다시 불러올게요.',
         loading: '불러오는 중…',
@@ -906,17 +901,7 @@ export const koCoreResources = {
       correct: '정답',
       explanation: '해설',
       review: {
-        title: '복습 기록',
-        wrongCount: '틀린 횟수',
-        streak: '연속 정답',
-        count: '{{formattedCount}}회',
-        lastWrong: '최근 오답',
-        nextReview: '다음 복습',
-        lastReview: '최근 복습',
-        noRecord: '기록 없음',
-        archived: '이 문제는 지금 풀 수 없어요.',
-        available:
-          '현재 출제 가능한 문제 버전으로 단일 복습을 시작할 수 있어요.'
+        archived: '이 문제는 지금 풀 수 없어요.'
       },
       states: {
         coldOfflineTitle: '인터넷 연결이 끊겨 불러올 수 없어요',
@@ -926,8 +911,6 @@ export const koCoreResources = {
         notFoundDescription: '지워졌거나 내 오답노트에 없는 문제예요.',
         loadErrorTitle: '불러오지 못했어요',
         loadErrorDescription: '인터넷 연결을 확인하고 다시 시도해 주세요.',
-        backHistory: '전체 오답 기록으로 돌아가기',
-        backDashboard: '학습 대시보드로 돌아가기',
         backCenter: '오답노트로',
         cachedOffline:
           '인터넷 연결이 끊겼어요. 저장된 내용을 보여 드리고, 연결되면 다시 확인할게요.',
