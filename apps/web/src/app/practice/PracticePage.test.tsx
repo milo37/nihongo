@@ -476,7 +476,7 @@ describe('PracticePage setup', () => {
       hourCycle: 'h23'
     }).format(new Date(resetsAt))
     expect(card).toHaveTextContent(
-      `한 시간에 풀 수 있는 새 세트를 다 풀었어요. ${time}부터 다시 풀 수 있어요. 오답 노트 복습은 지금도 할 수 있어요.`
+      `한 시간에 풀 수 있는 새 세트를 다 풀었어요. ${time}부터 다시 풀 수 있어요. 오답노트 복습은 지금도 할 수 있어요.`
     )
     expect(
       within(card).getByRole('link', { name: '오답노트' })
@@ -512,7 +512,7 @@ describe('PracticePage setup', () => {
       name: '오늘은 여기까지 풀었어요'
     })
     expect(card).toHaveTextContent(
-      '오늘 풀 수 있는 새 세트를 다 풀었어요. 내일 또 풀어요. 오답 노트 복습은 지금도 할 수 있어요.'
+      '오늘 풀 수 있는 새 세트를 다 풀었어요. 내일 또 풀어요. 오답노트 복습은 지금도 할 수 있어요.'
     )
     expect(within(card).getByRole('link', { name: '오답노트' })).toBeVisible()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
