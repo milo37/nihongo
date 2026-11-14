@@ -102,9 +102,7 @@ export const jaCoreResources = {
     accountMenu: {
       label: 'アカウントメニュー',
       signedInWith: 'Googleアカウントでログイン中',
-      myPage: 'マイページ',
-      guestTitle: 'ログインしていません',
-      guestDescription: 'ログインすると解いた記録が残ります'
+      myPage: 'マイページ'
     },
     account: 'アカウント',
     mobilePrimary: 'メニュー',
@@ -340,8 +338,11 @@ export const jaCoreResources = {
       pickSubject: '科目を変える',
       dueAction: '復習する',
       guestLeftShort: 'あと{{remaining}}回',
-      startGuest: 'すぐに解く',
-      startMember: 'すぐに解く',
+      startGuest: '始める',
+      startMember: '始める',
+      resumeLabel: '途中の{{level}} {{subject}}、{{summary}}',
+      guestBenefit: 'ログインすると解いた記録が残ります',
+      weekLabel: 'この7日間で{{level}}の問題を{{formattedCount}}問解きました',
       dailyLabel: '今日の1問',
       dailyMeta: '{{level}} · {{subject}}',
       dailyOptionsLabel: '選択肢',

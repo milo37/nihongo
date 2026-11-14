@@ -85,9 +85,7 @@ export const koCoreResources = {
     accountMenu: {
       label: '계정 메뉴',
       signedInWith: 'Google 계정으로 로그인 중',
-      myPage: '마이페이지',
-      guestTitle: '로그인 전이에요',
-      guestDescription: '로그인하면 푼 기록이 남아요'
+      myPage: '마이페이지'
     },
     account: '계정',
     mobilePrimary: '메뉴',
@@ -323,8 +321,11 @@ export const koCoreResources = {
       pickSubject: '과목 바꾸기',
       dueAction: '복습',
       guestLeftShort: '{{remaining}}번 남음',
-      startGuest: '바로 풀기',
-      startMember: '바로 풀기',
+      startGuest: '시작하기',
+      startMember: '시작하기',
+      resumeLabel: '풀던 {{level}} {{subject}}, {{summary}}',
+      guestBenefit: '로그인하면 푼 기록이 남아요',
+      weekLabel: '최근 7일 동안 {{level}} {{formattedCount}}문제를 풀었어요',
       dailyLabel: '오늘의 한 문제',
       dailyMeta: '{{level}} · {{subject}}',
       dailyOptionsLabel: '보기',
