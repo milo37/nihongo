@@ -4,6 +4,7 @@ import type { MigrationCompatibilityProfile } from '../db/readiness.js'
 export interface QuestionTagRecord {
   id: string
   label: string
+  labelJa: string | null
 }
 
 export interface QuestionOptionRecord {
@@ -91,11 +92,15 @@ const isDatabaseUnavailableError = (error: unknown): boolean =>
     UNAVAILABLE_PRISMA_CODES.has(error.code))
 
 const toTags = (
-  tags: readonly { tagId: string; tag: { label: string } }[]
+  tags: readonly {
+    tagId: string
+    tag: { label: string; labelJa: string | null }
+  }[]
 ): readonly QuestionTagRecord[] =>
   tags.map(({ tag, tagId }) => ({
     id: tagId,
-    label: tag.label
+    label: tag.label,
+    labelJa: tag.labelJa
   }))
 
 const executeRepositoryOperation = async <Result>(
@@ -141,7 +146,10 @@ export const createPrismaQuestionRepository = (
               },
               tags: {
                 orderBy: { tag: { label: 'asc' } },
-                select: { tagId: true, tag: { select: { label: true } } }
+                select: {
+                  tagId: true,
+                  tag: { select: { label: true, labelJa: true } }
+                }
               }
             }
           }
@@ -213,7 +221,10 @@ export const createPrismaQuestionRepository = (
                 difficulty: true,
                 tags: {
                   orderBy: { tag: { label: 'asc' } },
-                  select: { tagId: true, tag: { select: { label: true } } }
+                  select: {
+                    tagId: true,
+                    tag: { select: { label: true, labelJa: true } }
+                  }
                 }
               }
             }

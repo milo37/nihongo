@@ -47,8 +47,6 @@
     "TRUSTED_ORIGINS",
     "LOG_LEVEL",
     "BETTER_AUTH_URL",
-    "AUTH_EMAIL_FROM",
-    "AUTH_EMAIL_DELIVERY_MODE",
     "AUTH_TRUSTED_PROXY_CIDRS",
     "CSP_MODE",
     "VITE_API_MODE",
@@ -59,9 +57,7 @@
     "DATABASE_URL",
     "PRODUCTION_DATABASE_URL",
     "BETTER_AUTH_SECRET",
-    "GUEST_COOKIE_SECRET",
-    "AUTH_EMAIL_WEBHOOK_URL",
-    "AUTH_EMAIL_WEBHOOK_SECRET"
+    "GUEST_COOKIE_SECRET"
   ],
   "variableScopes": {
     "releaseBuild": {
@@ -83,18 +79,10 @@
         "TRUSTED_ORIGINS",
         "LOG_LEVEL",
         "BETTER_AUTH_URL",
-        "AUTH_EMAIL_FROM",
-        "AUTH_EMAIL_DELIVERY_MODE",
         "AUTH_TRUSTED_PROXY_CIDRS",
         "CSP_MODE"
       ],
-      "secret": [
-        "DATABASE_URL",
-        "BETTER_AUTH_SECRET",
-        "GUEST_COOKIE_SECRET",
-        "AUTH_EMAIL_WEBHOOK_URL",
-        "AUTH_EMAIL_WEBHOOK_SECRET"
-      ],
+      "secret": ["DATABASE_URL", "BETTER_AUTH_SECRET", "GUEST_COOKIE_SECRET"],
       "forbidden": [
         "PRODUCTION_DATABASE_URL",
         "VITE_API_MODE",

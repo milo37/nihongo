@@ -453,7 +453,12 @@ export const createAdminQuestionService = (
             text
           })),
           difficulty: version.difficulty,
-          tags: version.tags.map(({ id, label }) => ({ id, label }))
+          // The admin preview keeps the Korean tag name.
+          tags: version.tags.map(({ id, label }) => ({
+            id,
+            label,
+            labelJa: null
+          }))
         }),
         adminAnswer: {
           correctOptionId: version.correctOptionId,

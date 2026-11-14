@@ -90,7 +90,10 @@ export const createPrismaDailyQuestionRepository = (
               },
               tags: {
                 orderBy: { tag: { label: 'asc' } },
-                select: { tagId: true, tag: { select: { label: true } } }
+                select: {
+                  tagId: true,
+                  tag: { select: { label: true, labelJa: true } }
+                }
               }
             }
           }
@@ -111,7 +114,8 @@ export const createPrismaDailyQuestionRepository = (
         options: version.options,
         tags: version.tags.map(({ tag, tagId }) => ({
           id: tagId,
-          label: tag.label
+          label: tag.label,
+          labelJa: tag.labelJa
         })),
         correctOptionId: version.correctOptionId,
         explanationKo: version.explanationKo,

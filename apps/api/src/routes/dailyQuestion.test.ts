@@ -51,7 +51,11 @@ const record: DailyQuestionRecord = {
     text
   })),
   tags: [
-    { id: '018f6b7a-1f4b-7d5e-8a91-4c27df9c10c1', label: 'vocab.basic-noun' }
+    {
+      id: '018f6b7a-1f4b-7d5e-8a91-4c27df9c10c1',
+      label: 'vocab.basic-noun',
+      labelJa: null
+    }
   ],
   correctOptionId: optionId(2),
   explanationKo: '핵심: 山 = やま(산)',

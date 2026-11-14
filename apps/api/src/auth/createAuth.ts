@@ -67,9 +67,6 @@ export const createAuthRuntime = ({
     account: {
       accountLinking: { enabled: false }
     },
-    verification: {
-      storeIdentifier: 'hashed'
-    },
     rateLimit: {
       enabled: true,
       storage: 'database',

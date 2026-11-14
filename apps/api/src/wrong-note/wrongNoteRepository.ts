@@ -4,6 +4,7 @@ import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 interface HistoricalQuestionTagRecord {
   readonly id: string
   readonly label: string
+  readonly labelJa: string | null
 }
 
 interface HistoricalQuestionOptionRecord {
@@ -148,13 +149,17 @@ type WrongNoteDetailVersionRow = Prisma.QuestionVersionGetPayload<{
 
 const toTags = (
   tags: readonly {
-    readonly tag: { readonly label: string }
+    readonly tag: {
+      readonly label: string
+      readonly labelJa: string | null
+    }
     readonly tagId: string
   }[]
 ): readonly HistoricalQuestionTagRecord[] =>
   tags.map(({ tag, tagId }) => ({
     id: tagId,
-    label: tag.label
+    label: tag.label,
+    labelJa: tag.labelJa
   }))
 
 const toDetailRecord = (
@@ -162,7 +167,10 @@ const toDetailRecord = (
   question: QuestionAvailabilityRow,
   version: WrongNoteDetailVersionRow,
   tags: readonly {
-    readonly tag: { readonly label: string }
+    readonly tag: {
+      readonly label: string
+      readonly labelJa: string | null
+    }
     readonly tagId: string
   }[]
 ): WrongNoteDetailRecord => ({
@@ -231,7 +239,10 @@ export const createPrismaWrongNoteRepository = (
         const tags = await transaction.questionVersionTag.findMany({
           where: { questionVersionId: row.lastWrongQuestionVersionId },
           orderBy: [{ tag: { label: 'asc' } }, { tagId: 'asc' }],
-          select: { tagId: true, tag: { select: { label: true } } }
+          select: {
+            tagId: true,
+            tag: { select: { label: true, labelJa: true } }
+          }
         })
         if (!question || !version) {
           throw new WrongNoteRepositoryIntegrityError(
