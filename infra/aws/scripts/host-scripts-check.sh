@@ -10,6 +10,8 @@
 #   and refuses an empty value or one with whitespace.
 # - question-set-publish.sh (JLP-828) fetches the ten files of the deployed SHA
 #   and gives the command the api.env URL through the environment only.
+# - explanation-ja-publish.sh (#976) does the same with the ten files plus the
+#   Japanese explanation file.
 set -euo pipefail
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
@@ -195,3 +197,31 @@ qs confirm
 grep -q -- '-e QUESTION_SET_CONFIRM=PUBLISH_QUESTION_SET' "$work/qs/argv" || { echo "confirm mode without the confirm" >&2; exit 1; }
 if qs other 2>/dev/null; then echo "question-set-publish accepted an unknown mode" >&2; exit 1; fi
 echo "ok question-set-publish: ten files at the release SHA, URL by environment, confirm only on confirm"
+
+# 7. explanation-ja-publish.sh: the ten set files and the explanation file of the
+# deployed SHA, the app URL by environment (never argv), confirm only in confirm mode.
+mkdir -p "$work/ej/opt" "$work/ej/run"
+sed -e "s|/opt/harumaru/bin/render-env.sh|true|" -e "s|/run/harumaru|$work/ej/run|g" \
+  -e "s|/opt/harumaru|$work/ej/opt|g" files/explanation-ja-publish.sh > "$work/ej/run.sh"
+printf '%s\n' "$sha" > "$work/ej/opt/current-release"
+printf 'DATABASE_URL=%s\n' "$app_url" > "$work/ej/run/api.env"
+: > "$work/qs/urls"
+ej() { PATH="$work/qs/path:$PATH" EXPLANATION_JA_MODE="$1" bash "$work/ej/run.sh"; }
+ej dry-run
+expected_urls="$(for f in $qs_files; do printf 'https://raw.githubusercontent.com/milo37/nihongo/%s/content/question-imports/%s\n' "$sha" "$f"; done
+printf 'https://raw.githubusercontent.com/milo37/nihongo/%s/content/translations/explanations-ja.v1.json\n' "$sha")"
+[[ "$(cat "$work/qs/urls")" == "$expected_urls" ]] \
+  || { echo "explanation files not the ten set files and the explanation file at the release SHA" >&2; exit 1; }
+ej_dir="$work/ej/opt/content/explanation-ja-$sha"
+[[ "$(ls "$ej_dir/set" | sort)" == "$(printf '%s\n' $qs_files | sort)" ]] \
+  || { echo "explanation set dir is not exactly the ten files" >&2; exit 1; }
+[[ "$(ls "$ej_dir")" == "$(printf 'explanations-ja.v1.json\nset')" ]] \
+  || { echo "explanation dir has more than the set and the explanation file" >&2; exit 1; }
+[[ "$(cat "$work/qs/env")" == "$app_url" ]] || { echo "DATABASE_URL did not reach docker literally" >&2; exit 1; }
+grep -q -- "-v $ej_dir:/run/explanation-ja:ro" "$work/qs/argv" || { echo "explanation dir not mounted read-only" >&2; exit 1; }
+grep -q 'api/dist/content/explanationJaPublishCommand.js' "$work/qs/argv" || { echo "not the explanation command" >&2; exit 1; }
+! grep -qE 'p\$\(id\)w|EXPLANATION_JA_CONFIRM' "$work/qs/argv" || { echo "dry run argv has the URL or the confirm" >&2; exit 1; }
+ej confirm
+grep -q -- '-e EXPLANATION_JA_CONFIRM=PUBLISH_EXPLANATION_JA' "$work/qs/argv" || { echo "confirm mode without the confirm" >&2; exit 1; }
+if ej other 2>/dev/null; then echo "explanation-ja-publish accepted an unknown mode" >&2; exit 1; fi
+echo "ok explanation-ja-publish: set and explanation files at the release SHA, URL by environment, confirm only on confirm"

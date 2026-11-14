@@ -7,8 +7,9 @@ body:
     attributes:
       value: |
         제목은 `type(area): what` 영어 한 줄로 씁니다(규칙 원본: CONTRIBUTING.md).
+        what은 5단어 안팎으로 짧게 쓰고, 이유·조건·상세는 본문에 씁니다.
         type: feat, fix, refactor, security, chore, content / area: web, admin, api, infra
-        예: `feat(admin): sort the member list by sign-up date`
+        예: `feat(web): hide language menu`
         `JLP-…`·`[P0]` 같은 접두어는 붙이지 않습니다. 본문은 한국어로 씁니다.
   - type: textarea
     id: why
