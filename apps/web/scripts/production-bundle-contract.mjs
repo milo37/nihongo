@@ -76,7 +76,7 @@ export const bundleCeilings = Object.freeze({
 export const approvedStaticAssetPaths = Object.freeze([
   'auth/google-mark.svg',
   'brand/harumaru-lockup.svg',
-  'brand/harumaru-symbol.svg',
+  'brand/harumaru-lockup-ja.svg',
   'favicon.ico',
   'favicon.svg',
   'icons/icon-192.png',

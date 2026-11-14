@@ -10,6 +10,7 @@ import { cachedStorage } from '@nihongo/browser/libs/storage'
 import { appI18n } from '@nihongo/browser/i18n/config'
 import { DailyQuestionCard } from '@app/home/components/DailyQuestionCard'
 import { dailyWriteIn } from '@app/home/dailyWriteIn'
+import { dailyQuestionQueries } from '@app/home/queries/dailyQuestionQueries'
 
 const renderCard = () =>
   render(
@@ -57,13 +58,13 @@ it('writes the question in on the first load and shows it whole on a press (#997
   }
 })
 
-it('finishes by itself within a second (#997)', async () => {
+it('finishes by itself within about 1.6 seconds (#997)', async () => {
   renderCard()
   const daily = await findDaily()
   expect(sheets(daily)[0]).toHaveClass('home-daily-write')
   await waitFor(
     () => expect(sheets(daily)[0]).not.toHaveClass('home-daily-write'),
-    { timeout: 1500 }
+    { timeout: 2500 }
   )
 })
 
@@ -77,6 +78,42 @@ it('stays still when home opens again in the same page load (#997)', async () =>
   for (const sheet of sheets(daily)) {
     expect(sheet).not.toHaveClass('home-daily-write')
   }
+})
+
+it('shows a question that fits only the wide sheet once on screen (#1036)', async () => {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } }
+  })
+  const first = render(
+    <QueryClientProvider client={client}>
+      <DailyQuestionCard level="N5" />
+    </QueryClientProvider>
+  )
+  await findDaily()
+  first.unmount()
+  // 40 squares: three rows of 15 fit, three rows of 12 do not.
+  const key = dailyQuestionQueries.get('N5').queryKey
+  const data = client.getQueryData(key)!
+  client.setQueryData(key, {
+    ...data,
+    question: { ...data.question, questionText: 'あ'.repeat(40) }
+  })
+  render(
+    <QueryClientProvider client={client}>
+      <DailyQuestionCard level="N5" />
+    </QueryClientProvider>
+  )
+  const daily = await findDaily()
+  expect(daily.querySelector('.home-daily-sheet-wide')).not.toBeNull()
+  expect(daily.querySelector('.home-daily-sheet-narrow')).toBeNull()
+  // Shown only under 360px, where the wide sheet is hidden; read once.
+  const sentences = daily.querySelectorAll('p[lang="ja"]')
+  expect(sentences).toHaveLength(1)
+  expect(sentences[0]).toHaveClass(
+    'home-daily-question',
+    'home-daily-question-narrow'
+  )
+  expect(sentences[0]).toHaveTextContent('あ'.repeat(40))
 })
 
 it('stays still on a day already answered (#997)', async () => {

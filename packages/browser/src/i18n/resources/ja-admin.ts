@@ -46,7 +46,7 @@ export const jaAdminResources = {
     clearSelection: '選択を解除'
   },
   nav: {
-    brand: '하루마루 管理',
+    brand: 'ハルまる 管理',
     questions: '問題',
     import: 'インポート',
     members: '会員',

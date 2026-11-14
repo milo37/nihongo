@@ -3,12 +3,13 @@
 // again. Nothing is stored.
 let played = false
 
-/** Write-in timing (design #997, the manuscript-pen tone). */
-export const WRITE_IN_CHAR_MS = 180
-const WRITE_IN_MAX_STEP_MS = 45
-const WRITE_IN_SPREAD_MS = 820
+/** Write-in timing (design #997, the manuscript-pen tone); CHAR_MS matches
+ *  animation-duration in home.css. */
+export const WRITE_IN_CHAR_MS = 260
+const WRITE_IN_MAX_STEP_MS = 70
+const WRITE_IN_SPREAD_MS = 1300
 
-/** Gap between squares: any length finishes within a second. */
+/** Gap between squares: any length finishes within about 1.6 seconds. */
 export const writeInStepMs = (characterCount: number): number =>
   characterCount > 1
     ? Math.min(WRITE_IN_MAX_STEP_MS, WRITE_IN_SPREAD_MS / (characterCount - 1))
