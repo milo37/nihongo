@@ -106,7 +106,7 @@ it('focuses the menu box, not an item, when opened by a click', async () => {
   expect(item('한국어')).toHaveFocus()
 })
 
-it('closes on an outside click and on Tab, and never opens with the account menu', async () => {
+it('closes on an outside click and on Tab', async () => {
   renderLayout()
   await userEvent.click(button())
   expect(screen.getByRole('menu')).toBeInTheDocument()
@@ -118,14 +118,4 @@ it('closes on an outside click and on Tab, and never opens with the account menu
   await userEvent.keyboard('{Enter}')
   await userEvent.tab()
   expect(screen.queryByRole('menu')).not.toBeInTheDocument()
-
-  const account = screen.getByRole('button', { name: '로그인' })
-  await userEvent.click(account)
-  expect(account).toHaveAttribute('aria-expanded', 'true')
-  await userEvent.click(button())
-  expect(account).toHaveAttribute('aria-expanded', 'false')
-  expect(screen.getAllByRole('menu')).toHaveLength(1)
-  await userEvent.click(account)
-  expect(button()).toHaveAttribute('aria-expanded', 'false')
-  expect(screen.getAllByRole('menu')).toHaveLength(1)
 })

@@ -1844,23 +1844,18 @@ test('guest routes pass KO/JA axe, keyboard focus, and mobile reflow checks', as
 
   await page.goto('/')
   await settlePage(page)
-  const menuButton = page.locator('#account-menu-button')
-  await focusByTab(page, menuButton)
+  // #994: a guest's [로그인] goes straight to /login, with no menu.
+  const loginLink = page.locator('header a.account-menu-login')
+  await focusByTab(page, loginLink)
   await attachFocusedElementEvidence(
     page,
     testInfo,
     'guest-mobile-account-trigger',
     44
   )
-  await expect(menuButton).toHaveAttribute('aria-haspopup', 'menu')
-  await page.keyboard.press('Enter')
-  await expect(menuButton).toHaveAttribute('aria-expanded', 'true')
-  await expect(page.getByRole('menu')).toBeVisible()
-  await expect(page.getByRole('menuitem').first()).toBeFocused()
-  await page.keyboard.press('Escape')
-  await expect(menuButton).toBeFocused()
-  await expect(menuButton).toHaveAttribute('aria-expanded', 'false')
-  await expect(page.getByRole('menu')).toHaveCount(0)
+  await expect(loginLink).toHaveAttribute('href', '/login')
+  await expect(loginLink).not.toHaveAttribute('aria-haspopup')
+  await expect(page.locator('#account-menu-button')).toHaveCount(0)
   const mobileNavigation = page.locator('#mobile-navigation')
   await expect(mobileNavigation).toHaveAccessibleName(/\S/u)
   await expect(mobileNavigation.getByRole('link')).toHaveCount(4)
