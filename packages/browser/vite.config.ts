@@ -13,7 +13,6 @@ import { assertBrowserBuildGraph } from '../../scripts/operations/browser-artifa
 const approvedBrandAssetPaths = [
   'auth/google-mark.svg',
   'brand/harumaru-lockup.svg',
-  'brand/harumaru-symbol-32.png',
   'brand/harumaru-symbol.svg',
   'favicon.ico',
   'favicon.svg',
