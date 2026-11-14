@@ -443,7 +443,7 @@ const createTargetedReviewInTransaction = async (
   })
   const tagRows = await transaction.questionVersionTag.findMany({
     where: { questionVersionId: target.questionVersionId },
-    select: { tagId: true, tag: { select: { label: true } } }
+    select: { tagId: true, tag: { select: { label: true, labelJa: true } } }
   })
   let response: CreateTargetedReviewSessionResponse
   try {
@@ -485,7 +485,8 @@ const createTargetedReviewInTransaction = async (
             tags: tagRows
               .map(({ tag, tagId }) => ({
                 id: tagId,
-                label: tag.label
+                label: tag.label,
+                labelJa: tag.labelJa
               }))
               .toSorted(comparePublicQuestionTags)
           }

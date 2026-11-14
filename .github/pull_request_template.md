@@ -14,9 +14,9 @@ Refs #
 
 <!--
 규칙 원본: CONTRIBUTING.md
-제목: `type(area): what (#이슈번호)` 영어 한 줄.
+제목: `type(area): what (#이슈번호)` 영어 한 줄. what은 5단어 안팎, 이유·조건·상세는 본문에.
   type: feat, fix, refactor, security, chore, content / area: web, admin, api, infra
-  예: `fix(web): keep the question push in the production build (#123)`
+  예: `feat(web): hide language menu (#123)`
 첫 줄은 `Refs #이슈번호`입니다. `Closes`/`Fixes`는 쓰지 않습니다.
 본문은 한국어로 씁니다. 제목·본문에 카드 키(JLP-…)를 쓰지 않습니다.
 변경: 무엇을 왜 바꿨는지 항목당 한 줄로 씁니다.

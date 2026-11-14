@@ -629,6 +629,7 @@ model Tag {
   key            String?              @unique
   subject        QuestionSubject?
   status         TagStatus?
+  labelJa        String?
   createdAt      DateTime             @default(now()) @db.Timestamptz(3)
   updatedAt      DateTime             @updatedAt @db.Timestamptz(3)
   versions       QuestionVersionTag[]

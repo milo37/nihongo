@@ -9,6 +9,7 @@ import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrinc
 import { getRouteIndexingPolicy } from '@app/seo/routeIndexingPolicy'
 import { AccountMenu } from '@app/account/components/AccountMenu'
 import { LocaleMenu } from '@app/account/components/LocaleMenu'
+import { isLanguageMenuShown } from '@common/libs/languageMenu'
 import { AppErrorReportMenuDialog } from '@app/question-report/components/AppErrorReportDialog'
 export type { PracticeNavigationContext } from '@nihongo/browser/common/components/AppLayout'
 
@@ -37,7 +38,7 @@ export const Layout = ({
         robots={getRouteIndexingPolicy(pathname)}
         accountMenu={
           <div className="header-menus">
-            <LocaleMenu />
+            {isLanguageMenuShown ? <LocaleMenu /> : null}
             <AccountMenu
               reportErrorLabel={t('questionReportDialog.appErrorTrigger')}
               onReportError={() => {

@@ -11,7 +11,9 @@ import {
 const historicalWrongNoteQuestionTagSchema = z
   .object({
     id: opaqueIdSchema,
-    label: wrongNoteTagLabelSchema
+    label: wrongNoteTagLabelSchema,
+    // #976: the Japanese name; null or absent means show `label`.
+    labelJa: wrongNoteTagLabelSchema.nullable().optional()
   })
   .strict()
 

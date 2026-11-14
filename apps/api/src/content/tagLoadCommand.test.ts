@@ -58,7 +58,8 @@ const existing = {
   label: '예시 문법',
   normalizedName: '예시 문법',
   subject: 'GRAMMAR',
-  status: 'ACTIVE'
+  status: 'ACTIVE',
+  labelJa: null
 }
 
 let stdout: MockInstance<typeof process.stdout.write>
