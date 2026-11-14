@@ -17,7 +17,7 @@
 - 저장소가 공개라 로그에는 상태와 `deploy.sh` 결과 줄(`deployed <SHA>`, `refusing: …`, `health check failed …`, `rolled back …`)만 남습니다.
 - 한 번에 하나만 배포합니다(concurrency `staging-deploy`). 진행 중인 배포는 끊지 않습니다. 기다리는 배포는 하나만 남아서, 연달아 병합하면 중간 SHA의 배포는 취소되고 STAGING은 가장 새 SHA로 갑니다(의도된 동작).
 - 배포 전에 그 SHA가 지금 `main` 끝인지 확인하고, 아니면 배포를 건너뜁니다(옛 실행을 다시 돌려 STAGING이 옛 SHA로 돌아가는 것을 막음).
-- `/health/ready`는 DB 확인 결과를 앱 프로세스 안에서 성공 5초·실패 2초 캐시합니다(#1008). 새로 뜬 프로세스는 첫 호출에서 DB를 직접 보므로 배포 확인(200 + 이 release ID)은 그대로이고, DB 장애가 503으로 보이기까지만 최대 5초 늦습니다.
+- `/health/ready`는 DB 확인 결과를 앱 프로세스 안에서 성공 5초·실패 2초 캐시합니다(#1008). 새로 뜬 프로세스는 첫 호출에서 DB를 직접 보므로 배포 확인(200 + 이 release ID)은 그대로입니다. DB 장애가 503으로 보이기까지 최대 5초(DB가 응답 없이 멈추면 확인 timeout 3초를 더해 약 8초) 늦고, 회복 뒤에도 503이 최대 2초 남습니다.
 - 서버 안에서 `deploy.sh`가 하는 일(DB 역할 확인 → 배포 전 백업 → migration → capability → API 교체 → health → 실패 시 직전 release로 롤백)은 [production-database.v1.md](production-database.v1.md) "Deploy order"에 있습니다.
 
 ### 실패했을 때
