@@ -120,7 +120,7 @@ describe('document robots metadata', () => {
     const node = expectRobots('index,follow')
 
     await act(async () => {
-      await router.navigate('/practice')
+      await router.navigate('/login')
     })
     expect(expectRobots('noindex,follow')).toBe(node)
     await act(async () => {
@@ -131,6 +131,23 @@ describe('document robots metadata', () => {
       await router.navigate(-1)
     })
     expect(expectRobots('noindex,follow')).toBe(node)
+  })
+
+  it('names an indexed page as canonical without its query, and drops it elsewhere (#980)', async () => {
+    const canonical = () =>
+      document.head.querySelectorAll<HTMLLinkElement>('link[rel="canonical"]')
+    const router = renderApp('/practice?level=N3#start')
+    expect(canonical()).toHaveLength(1)
+    expect(canonical()[0]?.href).toBe(`${window.location.origin}/practice`)
+    await act(async () => {
+      await router.navigate('/login')
+    })
+    expect(canonical()).toHaveLength(0)
+    await act(async () => {
+      await router.navigate('/')
+    })
+    expect(canonical()).toHaveLength(1)
+    expect(canonical()[0]?.href).toBe(`${window.location.origin}/`)
   })
 
   it('preserves translated title, description and html language without duplicating robots', async () => {

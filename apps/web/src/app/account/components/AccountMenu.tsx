@@ -4,7 +4,6 @@ import { Link, useLocation } from 'react-router'
 import type { KeyboardEvent, ReactElement } from 'react'
 import { Avatar } from '@app/account/components/Avatar'
 import { LogoutDialog } from '@app/account/components/LogoutDialog'
-import { getButtonClassName } from '@nihongo/browser/common/components/Button'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 import type { IconName } from '@nihongo/browser/common/components/Icon'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
@@ -26,6 +25,8 @@ const ItemIcon = ({ name }: { name: IconName }): ReactElement => (
 // JLP-849: only a keyboard open focuses the first item. A tap or click
 // focuses the menu box instead, because iOS Safari draws the keyboard ring
 // on any item focused by script.
+// #994: a guest gets a plain [로그인] link instead of a menu; it carries the
+// current screen as ?redirect= so sign-in returns there.
 export const AccountMenu = ({
   onReportError,
   reportErrorLabel
@@ -33,7 +34,7 @@ export const AccountMenu = ({
   const { t } = useTranslation('navigation')
   const { t: authT } = useTranslation('auth')
   const { user } = useAuth()
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   // Where focus goes when the menu opens; null means closed.
   const [openAt, setOpenAt] = useState<'first' | 'menu' | null>(null)
   const open = openAt !== null
@@ -89,6 +90,24 @@ export const AccountMenu = ({
       close(true)
     } else if (event.key === 'Tab') close(false)
   }
+  if (!user) {
+    // A guest's set and result are not kept after sign-in, so from those
+    // screens the way back is the practice page (as useGuestAction does).
+    const isGuestStudy = /^\/practice\/(?:session|result)\//u.test(pathname)
+    const loginHref =
+      pathname === '/' || pathname === '/login'
+        ? '/login'
+        : `/login?redirect=${encodeURIComponent(
+            isGuestStudy ? '/practice' : `${pathname}${search}`
+          )}`
+    return (
+      <div className="account-menu">
+        <Link to={loginHref} className="account-menu-login">
+          {t('login')}
+        </Link>
+      </div>
+    )
+  }
   const itemClassName =
     'account-menu-item flex min-h-11 w-full items-center gap-3 rounded-control px-3 text-left text-sm'
   return (
@@ -97,8 +116,8 @@ export const AccountMenu = ({
         ref={trigger}
         id="account-menu-button"
         type="button"
-        className={user ? 'account-menu-trigger' : 'account-menu-login'}
-        aria-label={user ? t('accountMenu.label') : undefined}
+        className="account-menu-trigger"
+        aria-label={t('accountMenu.label')}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
@@ -113,18 +132,12 @@ export const AccountMenu = ({
           }
         }}
       >
-        {user ? (
-          <>
-            <Avatar name={user.name} size="sm" />
-            <span className="account-menu-name">{user.name}</span>
-            <Icon
-              name="chevron-right"
-              className="account-menu-caret size-4 rotate-90"
-            />
-          </>
-        ) : (
-          t('login')
-        )}
+        <Avatar name={user.name} size="sm" />
+        <span className="account-menu-name">{user.name}</span>
+        <Icon
+          name="chevron-right"
+          className="account-menu-caret size-4 rotate-90"
+        />
       </button>
       {open ? (
         <div
@@ -133,15 +146,11 @@ export const AccountMenu = ({
           onKeyDown={onMenuKeyDown}
         >
           <div className="flex items-center gap-3 px-3 py-3">
-            {user ? <Avatar name={user.name} size="sm" /> : null}
+            <Avatar name={user.name} size="sm" />
             <div className="min-w-0">
-              <p className="break-words text-sm font-semibold">
-                {user ? user.name : t('accountMenu.guestTitle')}
-              </p>
+              <p className="break-words text-sm font-semibold">{user.name}</p>
               <p className="text-caption text-muted">
-                {user
-                  ? t('accountMenu.signedInWith')
-                  : t('accountMenu.guestDescription')}
+                {t('accountMenu.signedInWith')}
               </p>
             </div>
           </div>
@@ -153,63 +162,46 @@ export const AccountMenu = ({
             aria-labelledby="account-menu-button"
             className="grid gap-1"
           >
-            {user ? null : (
-              <Link
-                role="menuitem"
-                to="/login"
-                className={getButtonClassName({
-                  fullWidth: true,
-                  className: 'mx-1 mb-2 w-auto'
-                })}
-                onClick={() => close(false)}
-              >
-                {t('login')}
-              </Link>
-            )}
-            {user ? (
-              <>
-                <div role="separator" className="account-menu-separator" />
-                <Link
-                  role="menuitem"
-                  to="/account"
-                  className={itemClassName}
-                  onClick={() => close(false)}
-                >
-                  <ItemIcon name="user-round" />
-                  {t('accountMenu.myPage')}
-                </Link>
-                <button
-                  role="menuitem"
-                  type="button"
-                  className={itemClassName}
-                  onClick={() => {
-                    close(false)
-                    onReportError()
-                  }}
-                >
-                  <ItemIcon name="circle-alert" />
-                  {reportErrorLabel}
-                </button>
-                <div role="separator" className="account-menu-separator" />
-                <button
-                  role="menuitem"
-                  type="button"
-                  className={itemClassName}
-                  onClick={() => {
-                    close(false)
-                    setHasLogout(true)
-                    setLogoutOpen(true)
-                  }}
-                >
-                  <ItemIcon name="arrow-right" />
-                  {authT('sso.logoutAction')}
-                </button>
-              </>
-            ) : null}
+            <div role="separator" className="account-menu-separator" />
+            <Link
+              role="menuitem"
+              to="/account"
+              className={itemClassName}
+              onClick={() => close(false)}
+            >
+              <ItemIcon name="user-round" />
+              {t('accountMenu.myPage')}
+            </Link>
+            <button
+              role="menuitem"
+              type="button"
+              className={itemClassName}
+              onClick={() => {
+                close(false)
+                onReportError()
+              }}
+            >
+              <ItemIcon name="circle-alert" />
+              {reportErrorLabel}
+            </button>
+            <div role="separator" className="account-menu-separator" />
+            <button
+              role="menuitem"
+              type="button"
+              className={itemClassName}
+              onClick={() => {
+                close(false)
+                setHasLogout(true)
+                setLogoutOpen(true)
+              }}
+            >
+              <ItemIcon name="arrow-right" />
+              {authT('sso.logoutAction')}
+            </button>
           </div>
         </div>
       ) : null}
-      {user && hasLogout ? (
+      {hasLogout ? (
         <LogoutDialog
           open={logoutOpen}
           onOpenChange={setLogoutOpen}

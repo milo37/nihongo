@@ -330,6 +330,8 @@ export const usePracticeSessionController = ({
     }
   }
 
+  // #985: an autosave in flight does not grey the button; a press waits for
+  // that save through prepareSubmission before submitting.
   const canRequestSubmission =
     isLastQuestion &&
     !isSubmitDialogOpen &&
@@ -340,8 +342,7 @@ export const usePracticeSessionController = ({
     !isSubmissionActive &&
     !isSessionRefreshUnavailable &&
     draftController.isReady &&
-    sessionQuery.data?.session.status === 'IN_PROGRESS' &&
-    draftController.saveState !== 'saving'
+    sessionQuery.data?.session.status === 'IN_PROGRESS'
 
   usePracticeKeyboard({
     enabled:

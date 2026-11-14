@@ -9,7 +9,6 @@ import { resolveReleaseId } from './src/libs/resolveReleaseId.ts'
 import { assertBrowserBuildGraph } from '../../scripts/operations/browser-artifact-check.mjs'
 
 const approvedBrandAssetPaths = [
-  'auth/apple-mark.svg',
   'auth/google-mark.svg',
   'brand/harumaru-lockup-160.png',
   'brand/harumaru-lockup-320.png',
@@ -23,7 +22,12 @@ const approvedBrandAssetPaths = [
 ] as const
 
 // JLP-511: crawler files for the learner site only; the admin build has none.
-const learnerCrawlerFilePaths = ['robots.txt', 'sitemap.xml'] as const
+// #980: the share card that link previews fetch.
+const learnerCrawlerFilePaths = [
+  'robots.txt',
+  'sitemap.xml',
+  'share-card.png'
+] as const
 
 const workspaceRoot = path.resolve(import.meta.dirname, '../..')
 
