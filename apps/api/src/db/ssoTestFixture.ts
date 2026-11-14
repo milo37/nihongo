@@ -256,7 +256,6 @@ export const createSsoDbHarness = () => {
   const stableTables = [
     'User',
     'Account',
-    'Verification',
     'StudySession',
     'StudySessionQuestion',
     'StudyDraft',

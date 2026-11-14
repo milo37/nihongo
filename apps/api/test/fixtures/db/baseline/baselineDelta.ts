@@ -370,6 +370,13 @@ const ADDED_SIGN_IN_TABLE = 'UserSignIn'
 const isAddedSignIn = (row: Record<string, unknown>): boolean =>
   row.table === ADDED_SIGN_IN_TABLE
 
+/** #675: the retired email Verification table, its enum and its guard. */
+const RETIRED_VERIFICATION_TABLE = 'Verification'
+const RETIRED_VERIFICATION_TYPE = 'AuthVerificationPurpose'
+const RETIRED_VERIFICATION_FUNCTION = 'validate_verification_write'
+const isRetiredVerification = (row: Record<string, unknown>): boolean =>
+  row.table === RETIRED_VERIFICATION_TABLE
+
 /**
  * JLP-845: the grace-period restore replaces two trigger function bodies,
  * allows CANCELLED and adds one check on SsoAccountErasureRequest.
@@ -410,7 +417,9 @@ export const withoutForwardChanges = (
 ): SchemaCatalog => ({
   ...catalog,
   types: catalog.types
-    .filter(({ name }) => name !== ADDED_TYPE)
+    .filter(
+      ({ name }) => name !== ADDED_TYPE && name !== RETIRED_VERIFICATION_TYPE
+    )
     .map((row) =>
       Array.isArray(row.labels)
         ? {
@@ -425,7 +434,8 @@ export const withoutForwardChanges = (
     ({ name }) =>
       name !== DROPPED_TABLE &&
       name !== ADDED_TABLE &&
-      name !== ADDED_SIGN_IN_TABLE
+      name !== ADDED_SIGN_IN_TABLE &&
+      name !== RETIRED_VERIFICATION_TABLE
   ),
   columns: catalog.columns
     .filter(
@@ -437,7 +447,8 @@ export const withoutForwardChanges = (
           DROPPED_SNAPSHOT_COLUMNS.has(String(row.name))
         ) &&
         !(row.table === 'Tag' && ADDED_TAG_COLUMNS.has(String(row.name))) &&
-        !isAddedSignIn(row)
+        !isAddedSignIn(row) &&
+        !isRetiredVerification(row)
     )
     .map(withBaselineTargetLevelAcl),
   constraints: catalog.constraints
@@ -447,7 +458,8 @@ export const withoutForwardChanges = (
         !isAddedTagObject(row) &&
         row.name !== GRACE_ADDED_CHECK &&
         row.table !== ADDED_TABLE &&
-        !isAddedSignIn(row)
+        !isAddedSignIn(row) &&
+        !isRetiredVerification(row)
     )
     .map(withBaselineProofBound)
     .map(withBaselineErasureStatus),
@@ -456,18 +468,22 @@ export const withoutForwardChanges = (
       !isDroppedTagSnapshot(row) &&
       !isAddedTagObject(row) &&
       row.table !== ADDED_TABLE &&
-      !isAddedSignIn(row)
+      !isAddedSignIn(row) &&
+      !isRetiredVerification(row)
   ),
   triggers: catalog.triggers.filter(
     (row) =>
       row.table !== DROPPED_TABLE &&
       row.table !== ADDED_TABLE &&
+      !isRetiredVerification(row) &&
       !DROPPED_TRIGGERS.has(String(row.name))
   ),
   functions: catalog.functions
     .filter(
       ({ name }) =>
-        !DROPPED_FUNCTIONS.has(String(name)) && name !== ADDED_FUNCTION
+        !DROPPED_FUNCTIONS.has(String(name)) &&
+        name !== ADDED_FUNCTION &&
+        name !== RETIRED_VERIFICATION_FUNCTION
     )
     .map((row) =>
       forwardFunctions.has(String(row.name)) ||

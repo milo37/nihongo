@@ -9,7 +9,7 @@ README의 Mock 실행으로 충분하지 않을 때, 실제 API와 PostgreSQL을
 **지속형 기술 runtime: 55433, 별도 project·volume**
 API는 `DATABASE_URL` 하나(`nihongo_{test,development}_app_login` → `nihongo_app`)로 실행하고, migration은 `MIGRATION_DATABASE_URL`(`nihongo_{test,development}_migration_login` → `nihongo_migration`)로만 실행합니다.
 provisioning은 `nihongo_owner`·`nihongo_migration`·`nihongo_app`·`nihongo_guest_cleanup_worker`와 TEST·DEVELOPMENT login 6개를 만들고, `public` schema와 DB 소유자를 `nihongo_migration`으로 둡니다(baseline이 schema를 `nihongo_owner`로 넘김).
-migration은 `20261105090000_baseline`과 forward migration `20261106090000_remove_phase_names`, `20261107090000_first_admin_production`, `20261108090000_remove_tag_applicability_and_snapshots`, `20261109090000_add_tag_key_subject_status`, `20261110090000_admin_fresh_window_30_minutes`, `20261111090000_grant_user_target_level_update`, `20261112090000_account_erasure_grace_restore`, `20261113090000_admin_access_log`, `20261114090000_user_last_login`, `20261116090000_tag_label_ja` 열한 개입니다.
+migration은 `20261105090000_baseline`과 forward migration `20261106090000_remove_phase_names`, `20261107090000_first_admin_production`, `20261108090000_remove_tag_applicability_and_snapshots`, `20261109090000_add_tag_key_subject_status`, `20261110090000_admin_fresh_window_30_minutes`, `20261111090000_grant_user_target_level_update`, `20261112090000_account_erasure_grace_restore`, `20261113090000_admin_access_log`, `20261114090000_user_last_login`, `20261116090000_tag_label_ja`, `20261117090000_drop_retired_verification` 열두 개입니다.
 
 **DEVELOPMENT DB 재생성(데이터 보존 없음)**
 baseline 이전 볼륨은 역할 이름과 migration 이력이 달라 그대로 쓸 수 없습니다. 볼륨을 지우고 새로 만듭니다.
