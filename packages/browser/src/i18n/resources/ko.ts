@@ -147,7 +147,9 @@ export const koCoreResources = {
       legal: {
         title: '이용 안내',
         description:
-          '하루마루의 이용약관, 개인정보 처리방침, 문제 출처와 문의 방법을 안내합니다.'
+          '하루마루의 이용약관, 개인정보 처리방침, 문제 출처와 문의 방법을 안내합니다.',
+        // #1029: only Japanese explains the name; empty means no line.
+        nameNote: ''
       },
       support: {
         title: '문제 신고·문의 안내',

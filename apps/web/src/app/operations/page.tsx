@@ -44,6 +44,9 @@ export const OperationsInformationPage = ({
       <header className="operations-heading">
         <h1>{t(`pages.${page}.title`)}</h1>
         <p>{t(`pages.${page}.description`)}</p>
+        {page === 'legal' && t('pages.legal.nameNote') ? (
+          <p>{t('pages.legal.nameNote')}</p>
+        ) : null}
       </header>
       {page === 'legal' ? (
         <p className="operations-effective-date">
