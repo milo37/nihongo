@@ -75,14 +75,19 @@ const QuestionSheet = ({
   }
   const wide = sheet(15, 'home-daily-sheet home-daily-sheet-wide')
   const narrow = sheet(12, 'home-daily-sheet home-daily-sheet-narrow')
+  // The sheets are hidden from screen readers; this sentence is read once.
+  // #1036: with only the wide sheet, it shows only where that sheet does not.
+  const sentenceClass =
+    wide && narrow
+      ? 'sr-only'
+      : wide
+        ? 'home-daily-question home-daily-question-narrow'
+        : 'home-daily-question'
   return (
     <>
       {wide}
       {narrow}
-      <p
-        className={wide && narrow ? 'sr-only' : 'home-daily-question'}
-        lang="ja"
-      >
+      <p className={sentenceClass} lang="ja">
         {text}
       </p>
     </>
