@@ -79,6 +79,7 @@
     "./libs/errorBus": "./src/libs/errorBus.ts",
     "./libs/localeFormatters": "./src/libs/localeFormatters.ts",
     "./libs/localeStorage": "./src/libs/localeStorage.ts",
+    "./libs/publicPageHtml": "./src/libs/publicPageHtml.ts",
     "./libs/queryClient": "./src/libs/queryClient.ts",
     "./libs/resolveApiMode": "./src/libs/resolveApiMode.ts",
     "./libs/resolveReleaseId": "./src/libs/resolveReleaseId.ts",

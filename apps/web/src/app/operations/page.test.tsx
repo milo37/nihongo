@@ -319,3 +319,25 @@ it.each(cases)(
     expect(router.state.location.hash).toBe('#' + ids[0])
   }
 )
+
+it.each([
+  ['ja', '利用案内', 2],
+  ['ko', '이용 안내', 1]
+] as const)(
+  'explains the name ハルまる on the Japanese legal page only (#1029, %s)',
+  async (locale, title, lines) => {
+    expect(writeUiLocalePreference(locale)).toBe(true)
+    renderInformationRoute('/legal')
+    const heading = await screen.findByRole('heading', {
+      level: 1,
+      name: title
+    })
+    const header = heading.closest('header') as HTMLElement
+    expect(header.querySelectorAll('p')).toHaveLength(lines)
+    expect(
+      within(header).queryByText(
+        '「ハル」は韓国語で「一日」、「まる」は正解の「○」。'
+      ) !== null
+    ).toBe(locale === 'ja')
+  }
+)

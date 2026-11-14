@@ -69,7 +69,9 @@ const AppBrand = ({
 }): ReactElement => {
   const { t } = useTranslation('common')
   const { t: navigationT } = useTranslation('navigation')
+  const { locale } = useUiLocale()
   // JLP-873: the logo is the only way home, so its name says so.
+  // #1029: Japanese screens draw the name as ハルまる.
   return (
     <Link
       className={className}
@@ -77,13 +79,23 @@ const AppBrand = ({
       aria-label={`${t('appName')} ${navigationT('routes.home')}`}
       onClick={onClick}
     >
-      <img
-        className="app-brand-lockup"
-        src="/brand/harumaru-lockup.svg"
-        width={770}
-        height={210}
-        alt=""
-      />
+      {locale === 'ja' ? (
+        <img
+          className="app-brand-lockup app-brand-lockup-ja"
+          src="/brand/harumaru-lockup-ja.svg"
+          width={807}
+          height={208}
+          alt=""
+        />
+      ) : (
+        <img
+          className="app-brand-lockup"
+          src="/brand/harumaru-lockup.svg"
+          width={770}
+          height={210}
+          alt=""
+        />
+      )}
     </Link>
   )
 }

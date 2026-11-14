@@ -4,6 +4,14 @@ import { useHref, useLocation } from 'react-router'
 import { getAppPath } from '../../libs/appNavigation'
 import { getRouteLabelKey } from '../../i18n/routePresentation'
 
+// #981: the public pages describe themselves, with the same text the build
+// writes into their page copies (packages/browser/vite.config.ts).
+const pageDescriptionKeys = {
+  'routes.practiceSetup': 'metaDescriptions.practiceSetup',
+  'routes.legal': 'metaDescriptions.legal',
+  'routes.support': 'metaDescriptions.support'
+} as const
+
 type DocumentMetadataOptions = {
   readonly robots: 'index,follow' | 'noindex,follow'
 }
@@ -20,7 +28,8 @@ export const useDocumentMetadata = ({
   const { t, i18n } = useTranslation('navigation')
 
   useLayoutEffect(() => {
-    const route = t(getRouteLabelKey(location.pathname))
+    const routeKey = getRouteLabelKey(location.pathname)
+    const route = t(routeKey)
     document.title = t('documentTitle', { route })
 
     let description = document.querySelector<HTMLMetaElement>(
@@ -31,7 +40,11 @@ export const useDocumentMetadata = ({
       description.name = 'description'
       document.head.append(description)
     }
-    description.content = t('metaDescription')
+    description.content = t(
+      routeKey in pageDescriptionKeys
+        ? pageDescriptionKeys[routeKey as keyof typeof pageDescriptionKeys]
+        : 'metaDescription'
+    )
 
     const robotsNodes = Array.from(
       document.head.querySelectorAll<HTMLMetaElement>('meta[name="robots" i]')

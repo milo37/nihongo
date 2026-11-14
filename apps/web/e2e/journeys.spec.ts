@@ -1483,6 +1483,12 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   }
   await home.click()
   await expect(page).toHaveURL(/\/dashboard\?view=learning$/u)
+  // Let home finish loading before the account menu opens; a menu opened
+  // while home still renders can close under the click (#992 CI).
+  await expect(
+    page.getByRole('region', { name: '오늘의 한 문제', exact: true })
+  ).toBeVisible()
+  await waitForLedgerToQuiesce(ledger, dashboardStartIndex)
   await openMyPage(page)
   const finalStats = await finalStatsResponse
   expect(finalStats.totalAnsweredCount).toBe(6)
