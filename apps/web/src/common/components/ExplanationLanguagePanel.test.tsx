@@ -5,8 +5,9 @@ import { appI18n } from '@nihongo/browser/i18n/config'
 const explanationKo = '「山」은 やま라고 읽습니다.'
 const explanationJa = '「山」は「やま」と読みます。'
 
+// The panel is still mounted here, so the switch back is a React update.
 afterEach(async () => {
-  await appI18n.changeLanguage('ko')
+  await act(() => appI18n.changeLanguage('ko'))
 })
 
 it('opens on the Korean explanation on a Korean screen', async () => {
