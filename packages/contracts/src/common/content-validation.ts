@@ -213,22 +213,8 @@ export const contentQuestionSearchSchema = createContentTextSchema({
   maxScalars: 100
 })
 
-export const assertContentDateRange = (
-  from: string | undefined,
-  to: string | undefined
-): void => {
-  if (from === undefined || to === undefined) {
-    return
-  }
-
-  const fromTime = Date.parse(from)
-  const toTime = Date.parse(to)
-  const maximumRange = 366 * 24 * 60 * 60 * 1000
-
-  if (!(fromTime < toTime) || toTime - fromTime > maximumRange) {
-    throw new Error('date range는 From < To이고 최대 366일이어야 합니다.')
-  }
-}
+// Lives in date.ts so the admin report route check stays light (#1053).
+export { assertContentDateRange } from './date.js'
 
 export type CanonicalJsonValue =
   | null
