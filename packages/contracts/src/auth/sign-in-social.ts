@@ -3,7 +3,7 @@ import {
   getAdminQuestionReportParamsSchema,
   listAdminQuestionReportsQuerySchema
 } from '../admin/question-report-route.js'
-import { jlptLevelSchema } from '../common/enum.js'
+import type { JlptLevel } from '../common/enum.js'
 import { pageRequestSchema } from '../common/pagination.js'
 import type { WrongNoteReviewState } from '../wrong-note/list-review-list.js'
 
@@ -74,10 +74,22 @@ export const ssoReviewListStates = [
   'TO_REVIEW',
   'REVIEWED'
 ] as const satisfies readonly WrongNoteReviewState[]
+/**
+ * Same levels as jlptLevelSchema, kept here so the login chunk does not make
+ * the shared enum module a web file of its own (#1053, 98-file budget).
+ * The contract test keeps the two in step.
+ */
+export const ssoReturnLevels = [
+  'N5',
+  'N4',
+  'N3',
+  'N2',
+  'N1'
+] as const satisfies readonly JlptLevel[]
 const reviewListReturnQuerySchema = pageRequestSchema
   .extend({
     state: z.enum(ssoReviewListStates).default('TO_REVIEW'),
-    level: jlptLevelSchema.optional()
+    level: z.enum(ssoReturnLevels).optional()
   })
   .strict()
 const BUSINESS_PATH =

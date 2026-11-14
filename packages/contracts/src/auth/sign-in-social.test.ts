@@ -5,8 +5,10 @@ import {
   signInSocialRequestSchema,
   signInSocialResponseSchema,
   ssoCallbackOutcomeSchema,
+  ssoReturnLevels,
   ssoReviewListStates
 } from './sign-in-social.js'
+import { jlptLevelSchema } from '../common/enum.js'
 import { wrongNoteReviewStateSchema } from '../wrong-note/list-review-list.js'
 import * as adminContent from '../admin/content-future.js'
 import * as reportRoute from '../admin/question-report-route.js'
@@ -25,6 +27,9 @@ const validURL = () => {
 describe('agreed SSO transport', () => {
   it('keeps the wrong-note return states equal to the review-list contract', () => {
     expect([...ssoReviewListStates]).toEqual(wrongNoteReviewStateSchema.options)
+  })
+  it('keeps the wrong-note return levels equal to the level contract (#1053)', () => {
+    expect([...ssoReturnLevels]).toEqual(jlptLevelSchema.options)
   })
   it('allows only user-selected Apple and Google and fixed Apple code form_post', () => {
     expect(
