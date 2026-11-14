@@ -80,7 +80,6 @@ export const approvedStaticAssetPaths = Object.freeze([
   'brand/harumaru-lockup-320.png',
   'brand/harumaru-lockup.svg',
   'brand/harumaru-symbol-16.png',
-  'brand/harumaru-symbol-32.png',
   'brand/harumaru-symbol.svg',
   'favicon.ico',
   'favicon.svg',
