@@ -2,9 +2,10 @@ name: Deploy a release to one host through SSM
 description: >-
   Shared by Deploy to STAGING and Deploy to PRODUCTION (release-image.yml).
   Deploys only while this SHA is the tip of main, runs the host's deploy
-  document with releaseId = this SHA, and waits for /health/ready 200 with
-  this release. The repository is public: only the status and the known
-  deploy.sh result lines are printed.
+  document with releaseId = this SHA, and waits for /health/ready and
+  /health/live 200 with x-release-id exactly this SHA (#1009). The
+  repository is public: only the status and the known deploy.sh result lines
+  are printed.
 inputs:
   role-arn:
     description: OIDC deploy role of this environment.
@@ -131,23 +132,13 @@ runs:
         done | grep -E '^(deployed [0-9a-f]{40}|refusing: |health check failed|rolled back|another deploy is running|release must be|host stops in [0-9]+ minutes)' || true
         [ "$st" = Success ] || { echo "::error::deploy $st"; exit 1; }
 
-    - name: Wait for /health/ready 200 with this release
+    - name: Wait for ready and live 200 with this release
       id: health
       if: steps.tip.outputs.latest == 'true'
       shell: bash
       env:
         SITE_URL: ${{ inputs.site-url }}
+        RELEASE_SHA: ${{ github.sha }}
       run: |
-        for _ in $(seq 1 30); do
-          : > headers.txt
-          code=$(curl -sS -o /dev/null -D headers.txt -w '%{http_code}' "$SITE_URL/health/ready" || true)
-          release=$(tr -d '\r' < headers.txt | awk 'tolower($1)=="x-release-id:"{print $2}')
-          if [ "$code" = 200 ] && { [ -z "$release" ] || [ "$release" = "$GITHUB_SHA" ]; }; then
-            echo "ready 200 release ${release:-not shown by the edge}"
-            echo "deployed=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          sleep 10
-        done
-        echo "::error::$SITE_URL/health/ready gave $code (release ${release:-none})"
-        exit 1
+        bash "$GITHUB_ACTION_PATH/wait-release.sh"
+        echo "deployed=true" >> "$GITHUB_OUTPUT"

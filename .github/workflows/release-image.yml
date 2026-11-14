@@ -13,6 +13,9 @@ name: Release image
 # with the PRODUCTION role (which trusts only that environment). Skipped until
 # PRODUCTION_AWS_DEPLOY_ROLE_ARN, PRODUCTION_INSTANCE_ID and
 # PRODUCTION_SITE_URL are set (PRODUCTION terraform outputs).
+# Fail closed (#1009): neither deploy runs unless this SHA's own push runs of
+# CI and Secret scan succeeded, and a deploy counts only when ready and live
+# both answer with x-release-id exactly this SHA.
 on:
   push:
     branches: [main]
@@ -27,6 +30,26 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  same-sha-checks:
+    name: Same-SHA CI and secret scan passed
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Check out the gate script
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+
+      - name: Wait for CI and Secret scan of this SHA
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ github.sha }}
+        run: bash .github/scripts/same-sha-checks.sh
+
   publish:
     name: Publish runtime and migrate images
     if: vars.AWS_DEPLOY_ROLE_ARN != '' && vars.ECR_REPOSITORY_URL != '' && vars.AWS_REGION != ''
@@ -107,8 +130,10 @@ jobs:
 
   deploy-staging:
     name: Deploy to STAGING
-    needs: publish
-    if: github.ref == 'refs/heads/main' && vars.STAGING_INSTANCE_ID != '' && vars.STAGING_SITE_URL != ''
+    needs: [same-sha-checks, publish]
+    if: >-
+      github.ref == 'refs/heads/main' && needs.same-sha-checks.result == 'success' &&
+      needs.publish.result == 'success' && vars.STAGING_INSTANCE_ID != '' && vars.STAGING_SITE_URL != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     # One deploy at a time: a running deploy is never cancelled. GitHub keeps
@@ -142,12 +167,13 @@ jobs:
 
   deploy-production:
     name: Deploy to PRODUCTION
-    needs: deploy-staging
+    needs: [same-sha-checks, deploy-staging]
     # Only a SHA that STAGING runs now. The approval comes first (environment
     # protection: required reviewer, main only); the tip-of-main check runs
     # after it, so approving an old run deploys nothing.
     if: >-
-      github.ref == 'refs/heads/main' && needs.deploy-staging.outputs.deployed == 'true' &&
+      github.ref == 'refs/heads/main' && needs.same-sha-checks.result == 'success' &&
+      needs.deploy-staging.result == 'success' && needs.deploy-staging.outputs.deployed == 'true' &&
       vars.PRODUCTION_AWS_DEPLOY_ROLE_ARN != '' && vars.PRODUCTION_INSTANCE_ID != '' && vars.PRODUCTION_SITE_URL != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 30
