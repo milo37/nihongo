@@ -120,6 +120,12 @@ export const jaCoreResources = {
     documentTitle: '{{route}} | 하루마루',
     metaDescription:
       'JLPT N5〜N1の問題を解いて、間違えた問題はもう一度解いてみる하루마루',
+    metaDescriptions: {
+      practiceSetup:
+        'JLPTのレベルと科目を選ぶだけで、問題1セットをすぐに解けます。',
+      legal: '하루마루の利用規約とプライバシーポリシーのご案内です。',
+      support: '하루마루の問題の誤りの報告とお問い合わせ方法のご案内です。'
+    },
     routes: {
       home: 'ホーム',
       login: 'ログイン',
