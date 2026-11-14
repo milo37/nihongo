@@ -233,9 +233,9 @@ test('current two-actor rate-limit model is exact and rejects cardinality drift'
       (sum, count) => sum + count,
       0
     ),
-    32
+    33
   )
-  assert.equal(accessibilityExpectedTableDeltas.RateLimit, 32)
+  assert.equal(accessibilityExpectedTableDeltas.RateLimit, 33)
   for (const category of [
     'application:study-read',
     'application:dashboard-read'
@@ -290,10 +290,10 @@ test('rate-limit failure diagnostics expose allowed category counts without row 
     { key: sentinel, count: 44 }
   )
   const diagnostic = readAccessibilityRateLimitDiagnostic(before, after)
-  assert.equal(diagnostic.expectedTotal, 32)
+  assert.equal(diagnostic.expectedTotal, 33)
   assert.equal(diagnostic.before.total, 1)
-  assert.equal(diagnostic.after.total, 35)
-  assert.equal(diagnostic.newKeys.total, 34)
+  assert.equal(diagnostic.after.total, 36)
+  assert.equal(diagnostic.newKeys.total, 35)
   assert.equal(diagnostic.newKeys.categories['application:study-read'], 2)
   assert.equal(diagnostic.newKeys.unknown, 1)
   assert.equal(diagnostic.newKeys.invalidShape, 1)
@@ -305,7 +305,7 @@ test('rate-limit failure diagnostics expose allowed category counts without row 
     (error) => {
       assert.match(
         error.message,
-        /new rate-limit key count: expected 32, received 34/u
+        /new rate-limit key count: expected 33, received 35/u
       )
       assert.ok(error.message.includes('rate-limit-diagnostic='))
       assert.equal(error.message.includes(sentinel), false)
@@ -344,7 +344,7 @@ test('rate-limit failure diagnostics expose allowed category counts without row 
     (error) => {
       assert.match(
         error.message,
-        /RateLimit count delta: expected 32, received 33/u
+        /RateLimit count delta: expected 33, received 34/u
       )
       assert.ok(error.message.includes('rate-limit-diagnostic='))
       assert.equal(error.message.includes(sentinel), false)

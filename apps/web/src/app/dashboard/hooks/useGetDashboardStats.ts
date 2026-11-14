@@ -11,18 +11,22 @@ type DashboardStatsOptions = {
    * failure in the card instead of the shared error banner.
    */
   myPage?: boolean
+  /** Home (#995): a failure only hides the line, no shared error banner. */
+  quiet?: boolean
 }
 
 export const useGetDashboardStats = ({
   enabled = true,
   level,
-  myPage = false
+  myPage = false,
+  quiet = false
 }: DashboardStatsOptions = {}) => {
   return useQuery({
     ...dashboardQueries.stats({ level }),
     enabled,
     ...(myPage
       ? { refetchOnMount: 'always' as const, meta: { localErrorUi: true } }
-      : {})
+      : {}),
+    ...(quiet ? { meta: { localErrorUi: true } } : {})
   })
 }
