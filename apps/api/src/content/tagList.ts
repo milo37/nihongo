@@ -22,7 +22,13 @@ const tagEntrySchema = z.strictObject({
     .max(40)
     .refine((value) => normalizeTagKey(value) !== ''),
   subject: z.enum(['VOCABULARY', 'GRAMMAR', 'READING']),
-  status: z.enum(['ACTIVE', 'RETIRED'])
+  status: z.enum(['ACTIVE', 'RETIRED']),
+  // #976: the Japanese name; absent means the Korean label is shown.
+  labelJa: z
+    .string()
+    .max(40)
+    .refine((value) => value.trim() !== '')
+    .optional()
 })
 
 const tagListSchema = z
@@ -60,6 +66,7 @@ export interface TagListEntry {
   readonly normalizedName: string
   readonly subject: TagSubject
   readonly status: TagStatus
+  readonly labelJa: string | null
 }
 
 export interface TagList {
@@ -77,7 +84,8 @@ export const parseTagList = (bytes: Uint8Array): TagList => {
     tags: parsed.tags.map((tag) => ({
       ...tag,
       label: tag.label.trim(),
-      normalizedName: normalizeTagKey(tag.label)
+      normalizedName: normalizeTagKey(tag.label),
+      labelJa: tag.labelJa?.trim() ?? null
     }))
   }
 }
@@ -89,6 +97,7 @@ export interface TagRow {
   readonly normalizedName: string
   readonly subject: TagSubject | null
   readonly status: TagStatus | null
+  readonly labelJa: string | null
 }
 
 export type TagLoadStep =
@@ -133,7 +142,8 @@ export const planTagLoad = (
         keyed.label === tag.label &&
         keyed.normalizedName === tag.normalizedName &&
         keyed.subject === tag.subject &&
-        keyed.status === tag.status
+        keyed.status === tag.status &&
+        keyed.labelJa === tag.labelJa
       ) {
         unchanged += 1
       } else {

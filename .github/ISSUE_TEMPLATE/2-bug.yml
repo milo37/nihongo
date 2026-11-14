@@ -6,7 +6,10 @@ body:
   - type: markdown
     attributes:
       value: |
-        제목은 증상을 짧은 한국어 한 줄로 씁니다. 예: `복습 화면에서 다음 버튼이 눌리지 않음`
+        제목은 `fix(area): what` 영어 한 줄로 증상을 씁니다(규칙 원본: CONTRIBUTING.md).
+        what은 5단어 안팎으로 짧게 쓰고, 재현 조건·상세는 본문에 씁니다.
+        area: web, admin, api, infra / 예: `fix(web): review next button stuck`
+        본문은 한국어로 씁니다.
   - type: textarea
     id: symptom
     attributes:

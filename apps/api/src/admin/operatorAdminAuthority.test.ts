@@ -25,7 +25,7 @@ const sourceFiles = async (directory: string): Promise<string[]> => {
 }
 
 describe('operator admin authority (JLP-828)', () => {
-  it('is only made by the question set operator command, never over HTTP', async () => {
+  it('is only made by the content operator commands, never over HTTP', async () => {
     const makers: string[] = []
     const commandImporters: string[] = []
     for (const file of await sourceFiles(sourceRoot)) {
@@ -33,12 +33,15 @@ describe('operator admin authority (JLP-828)', () => {
       const path = relative(sourceRoot, file)
       if (source.includes('createOperatorAdminAuthority')) makers.push(path)
       if (
-        /from '[./]*\/?content\/questionSetPublish(Command)?\.js'/u.test(source)
+        /from '[./]*\/?content\/(questionSet|explanationJa)Publish(Command)?\.js'/u.test(
+          source
+        )
       )
         commandImporters.push(path)
     }
     expect(makers.toSorted()).toEqual([
       'admin/operatorAdminAuthority.ts',
+      'content/explanationJaPublish.ts',
       'content/questionSetPublish.ts'
     ])
     // Nothing in the server, its routes or middleware reaches the command.

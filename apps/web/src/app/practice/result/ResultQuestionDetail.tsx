@@ -11,6 +11,7 @@ import {
   ResultStatusIcon
 } from '@app/practice/result/ResultStatusIcon'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
+import { getTagLabel } from '@common/libs/tagLabel'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 import { JaText } from '@common/components/JaText'
 import { jaTextProps } from '@common/libs/jaSpacing'
@@ -146,6 +147,9 @@ export const ResultQuestionDetail = ({
   const locale = resolveUiLocale(i18n.resolvedLanguage)
   const formattedOrdinal = formatNumber(ordinal, locale)
   const status = getResultStatus(item)
+  const tagLabels =
+    item.question.tagSummaries?.map((tag) => getTagLabel(tag, locale)) ??
+    item.tags
 
   return (
     <article
@@ -182,8 +186,8 @@ export const ResultQuestionDetail = ({
           {bookmarkMessage.text}
         </p>
       ) : null}
-      {item.tags.length > 0 ? (
-        <p className="mt-3 text-sm text-muted">{item.tags.join(' · ')}</p>
+      {tagLabels.length > 0 ? (
+        <p className="mt-3 text-sm text-muted">{tagLabels.join(' · ')}</p>
       ) : null}
       {item.question.passage ? (
         <div
