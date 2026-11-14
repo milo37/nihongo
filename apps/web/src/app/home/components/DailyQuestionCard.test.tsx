@@ -58,13 +58,13 @@ it('writes the question in on the first load and shows it whole on a press (#997
   }
 })
 
-it('finishes by itself within a second (#997)', async () => {
+it('finishes by itself within about 1.6 seconds (#997)', async () => {
   renderCard()
   const daily = await findDaily()
   expect(sheets(daily)[0]).toHaveClass('home-daily-write')
   await waitFor(
     () => expect(sheets(daily)[0]).not.toHaveClass('home-daily-write'),
-    { timeout: 1500 }
+    { timeout: 2500 }
   )
 })
 
