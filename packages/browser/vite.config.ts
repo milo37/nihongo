@@ -24,7 +24,12 @@ const approvedBrandAssetPaths = [
 ] as const
 
 // JLP-511: crawler files for the learner site only; the admin build has none.
-const learnerCrawlerFilePaths = ['robots.txt', 'sitemap.xml'] as const
+// #980: the share card that link previews fetch.
+const learnerCrawlerFilePaths = [
+  'robots.txt',
+  'sitemap.xml',
+  'share-card.png'
+] as const
 
 const workspaceRoot = path.resolve(import.meta.dirname, '../..')
 
