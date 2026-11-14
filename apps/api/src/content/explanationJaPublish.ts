@@ -24,7 +24,10 @@ import {
   type QuestionSetFile
 } from './questionSetPublish.js'
 
-/** The Japanese explanation file planning hands over (#976). */
+/**
+ * The Japanese explanation file planning hands over (#976). An item may also
+ * carry a corrected Korean explanation, which the new version takes too.
+ */
 const explanationFileSchema = z
   .object({
     schemaVersion: z.literal(1),
@@ -33,7 +36,8 @@ const explanationFileSchema = z
         z
           .object({
             clientItemId: z.string().min(1),
-            explanationJa: z.string().min(1)
+            explanationJa: z.string().min(1),
+            explanationKo: z.string().min(1).optional()
           })
           .strict()
       )
@@ -43,7 +47,11 @@ const explanationFileSchema = z
 
 export interface ExplanationJaFile {
   readonly sha256: string
-  readonly items: ReadonlyArray<{ clientItemId: string; explanationJa: string }>
+  readonly items: ReadonlyArray<{
+    clientItemId: string
+    explanationJa: string
+    explanationKo?: string | undefined
+  }>
 }
 
 /** Reads the file; a duplicate clientItemId refuses the run. */
@@ -167,14 +175,17 @@ const STATE_SQL = `SELECT version."contentFingerprint" AS "fingerprint",
 interface Entry {
   readonly clientItemId: string
   readonly fingerprint: string
-  /** The set item with only explanationJa replaced, normalized. */
+  /** The set item with only the explanations replaced, normalized. */
   readonly request: CreateAdminQuestionVersionRequest
+  /** The set item's own Korean explanation, normalized. */
+  readonly importedExplanationKo: string
 }
 
 // The fingerprint normalizes text and sorts the options, so the new version
 // must also keep the exact question text, passage, option order, answer,
 // level, difficulty, Korean explanation and tags. A version an admin changed
-// since the import is left to a person.
+// since the import is left to a person. The Korean explanation may be the
+// imported one or the file's correction.
 const keepsSetContent = (row: VersionRow, entry: Entry): boolean =>
   row.questionText === entry.request.questionText &&
   row.passage === entry.request.passage &&
@@ -187,7 +198,8 @@ const keepsSetContent = (row: VersionRow, entry: Entry): boolean =>
     )?.text &&
   row.level === entry.request.level &&
   row.difficulty === entry.request.difficulty &&
-  row.explanationKo === entry.request.explanationKo &&
+  (row.explanationKo === entry.importedExplanationKo ||
+    row.explanationKo === entry.request.explanationKo) &&
   row.tagCount === entry.request.tagNames.length &&
   entry.request.tagNames.every((name) =>
     row.tagKeys.includes(normalizeContentTagKey(name))
@@ -236,7 +248,10 @@ const planItems = async (
       questionId: published.questionId,
       questionRowVersion: published.questionRowVersion
     }
-    if (published.explanationJa === explanationJa) {
+    if (
+      published.explanationJa === explanationJa &&
+      published.explanationKo === entry.request.explanationKo
+    ) {
       items.push({
         ...target,
         stage: 'PUBLISHED',
@@ -266,6 +281,7 @@ const planItems = async (
       if (
         !stage ||
         candidate.explanationJa !== explanationJa ||
+        candidate.explanationKo !== entry.request.explanationKo ||
         !keepsSetContent(candidate, entry)
       ) {
         conflict(`OPEN_VERSION_${candidate.status}`)
@@ -326,26 +342,44 @@ export const publishExplanationJa = async ({
   )
   const conflicts: ExplanationJaConflict[] = []
   const entries: Entry[] = []
-  for (const { clientItemId, explanationJa } of explanations.items) {
+  for (const {
+    clientItemId,
+    explanationJa,
+    explanationKo
+  } of explanations.items) {
     const item = setItems.get(clientItemId)
     if (!item) {
       conflicts.push({ clientItemId, reason: 'NOT_IN_QUESTION_SET' })
       continue
     }
     // Validates and normalizes like the admin screen before any write.
-    const parsed = createAdminQuestionVersionRequestSchema.safeParse({
+    const imported = createAdminQuestionVersionRequestSchema.safeParse({
       ...item.content,
       explanationJa,
       expectedQuestionRowVersion: 1
     })
-    if (!parsed.success || parsed.data.explanationJa === null) {
+    const parsed =
+      explanationKo === undefined
+        ? imported
+        : createAdminQuestionVersionRequestSchema.safeParse({
+            ...item.content,
+            explanationJa,
+            explanationKo,
+            expectedQuestionRowVersion: 1
+          })
+    if (
+      !imported.success ||
+      !parsed.success ||
+      parsed.data.explanationJa === null
+    ) {
       conflicts.push({ clientItemId, reason: 'EXPLANATION_JA_INVALID' })
       continue
     }
     entries.push({
       clientItemId,
       fingerprint: contentFingerprint(item.content),
-      request: parsed.data
+      request: parsed.data,
+      importedExplanationKo: imported.data.explanationKo
     })
   }
 
