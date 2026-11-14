@@ -551,6 +551,14 @@ export const jaCoreResources = {
         login: 'Googleでログイン',
         reset: '明日0時にまた{{total}}回'
       },
+      sessionCap: {
+        hourTitle: '少し休んでから解きましょう',
+        hourBody:
+          '1時間に解ける新しいセットの上限に達しました。{{time}}からまた解けます。間違いノートの復習は今もできます。',
+        dayTitle: '今日はここまでです',
+        dayBody:
+          '今日解ける新しいセットの上限に達しました。また明日解きましょう。間違いノートの復習は今もできます。'
+      },
       urlLocked: '問題数と出題方法はログインすると選べます。',
       availableCountNote: '問題が足りないときは、ある分だけ出ます。',
       noEligibleTitle:

@@ -30,6 +30,7 @@ import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTrans
 import { useAppStore } from '@nihongo/browser/store/index'
 import {
   getGuestLimitResetsAt,
+  getSessionCap,
   isAccountRestrictedApiError,
   isGuestLimitReachedApiError,
   isNoEligibleQuestionsApiError
@@ -113,10 +114,15 @@ export const usePracticeSetupController = (
   const guestResetsAt = guestLimitRejected
     ? getGuestLimitResetsAt(createSession.error)
     : guestAllowanceData?.resetsAt
+  const sessionCap = createSession.isError
+    ? getSessionCap(createSession.error)
+    : null
+  const sessionCapResetsAt = sessionCap?.resetsAt
   const resetCreateSession = createSession.reset
   const hasCreateError =
     createSession.isError &&
     !guestLimitRejected &&
+    !sessionCap &&
     !isAuthTransitionSupersededError(createSession.error)
   const isResumableSourceUnavailable =
     resumableSessions.isError || resumableSessions.fetchStatus === 'paused'
@@ -136,6 +142,15 @@ export const usePracticeSetupController = (
     return () => window.clearTimeout(timerId)
   }, [guestResetsAt, isGuestDailyLimitReached, queryClient, resetCreateSession])
 
+  // #1006: the cap card clears when new sets open again.
+  useEffect(() => {
+    if (!sessionCapResetsAt) return
+    const waitMs = Date.parse(sessionCapResetsAt) - Date.now()
+    if (!(waitMs > 0) || waitMs > MAX_TIMER_MS) return
+    const timerId = window.setTimeout(resetCreateSession, waitMs)
+    return () => window.clearTimeout(timerId)
+  }, [resetCreateSession, sessionCapResetsAt])
+
   useEffect(() => {
     if (resumableSessions.isError && !resumableSessions.data) {
       resumableHeadingRef.current?.focus()
@@ -145,7 +160,13 @@ export const usePracticeSetupController = (
   const loginHref = `/login?redirect=${encodeURIComponent(`${location.pathname}${location.search}`)}`
 
   const handleStart = (): void => {
-    if (!isReady || !level || isCreatingSession || isGuestDailyLimitReached) {
+    if (
+      !isReady ||
+      !level ||
+      isCreatingSession ||
+      isGuestDailyLimitReached ||
+      sessionCap
+    ) {
       return
     }
 
@@ -211,6 +232,7 @@ export const usePracticeSetupController = (
     mode,
     noEligibleQuestions,
     resumableSessions,
+    sessionCap,
     setCancelSessionId,
     subject
   }

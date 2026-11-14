@@ -29,8 +29,11 @@ type PracticeSetupFormProps = {
   isReady: boolean
   isGuest: boolean
   isCreating: boolean
-  /** Guest who used today's tries: no start button (L18 card shows above). */
-  isGuestDailyLimitReached: boolean
+  /**
+   * Guest who used today's tries, or a member at the set cap (#1006): no
+   * start button (the card shows above).
+   */
+  isStartBlocked: boolean
   guestAllowance: { remaining: number; dailyLimit: number } | null
   hasResumableSession: boolean
   subjectLabel: string
@@ -111,7 +114,7 @@ const StartSummary = ({
   isReady,
   isGuest,
   isCreating,
-  isGuestDailyLimitReached,
+  isStartBlocked,
   guestAllowance
 }: Pick<
   PracticeSetupFormProps,
@@ -122,13 +125,13 @@ const StartSummary = ({
   | 'isReady'
   | 'isGuest'
   | 'isCreating'
-  | 'isGuestDailyLimitReached'
+  | 'isStartBlocked'
   | 'guestAllowance'
 >): ReactElement | null => {
   const { i18n, t } = useTranslation('practice')
   const { t: homeT } = useTranslation('home')
   const locale = resolveUiLocale(i18n.resolvedLanguage)
-  if (isGuestDailyLimitReached) return null
+  if (isStartBlocked) return null
   const triesLeft = getGuestTriesLeft(isGuest, guestAllowance)
   return (
     <div className="practice-start-summary">
@@ -225,7 +228,7 @@ export const PracticeSetupForm = ({
   isReady,
   isGuest,
   isCreating,
-  isGuestDailyLimitReached,
+  isStartBlocked,
   guestAllowance,
   hasResumableSession,
   subjectLabel,
@@ -302,7 +305,7 @@ export const PracticeSetupForm = ({
         isReady={isReady}
         isGuest={isGuest}
         isCreating={isCreating}
-        isGuestDailyLimitReached={isGuestDailyLimitReached}
+        isStartBlocked={isStartBlocked}
         guestAllowance={guestAllowance}
       />
       {isGuest ? null : (

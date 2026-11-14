@@ -440,6 +440,84 @@ describe('PracticePage setup', () => {
     ).not.toBeInTheDocument()
   })
 
+  const refuseWithSessionCap = (code: string, resetsAt: string) =>
+    mockServer.use(
+      http.post('*/api/v1/study-sessions', () =>
+        HttpResponse.json(
+          {
+            code,
+            message: 'synthetic',
+            details: { resetsAt },
+            requestId: crypto.randomUUID(),
+            retryable: false
+          },
+          { status: 429, headers: { 'Retry-After': '2' } }
+        )
+      )
+    )
+
+  it('한 시간 세트 상한이면 다시 풀 시각과 오답노트를 안내하고 시각이 지나면 시작을 돌려준다 (#1006)', async () => {
+    mockDatabase.loginAs('USER')
+    const resetsAt = new Date(Date.now() + 1_500).toISOString()
+    refuseWithSessionCap('STUDY_HOURLY_LIMIT_REACHED', resetsAt)
+    const router = renderPractice('?level=N5&subject=VOCABULARY', {
+      globalErrors: true
+    })
+    const name = 'N5 문자·어휘 10문제 시작'
+    const start = await screen.findByRole('button', { name })
+    await waitFor(() => expect(start).toBeEnabled())
+    await userEvent.setup().click(start)
+    const card = await screen.findByRole('region', {
+      name: '잠깐 쉬었다 풀어요'
+    })
+    const time = new Intl.DateTimeFormat('ko-KR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23'
+    }).format(new Date(resetsAt))
+    expect(card).toHaveTextContent(
+      `한 시간에 풀 수 있는 새 세트를 다 풀었어요. ${time}부터 다시 풀 수 있어요. 오답 노트 복습은 지금도 할 수 있어요.`
+    )
+    expect(
+      within(card).getByRole('link', { name: '오답노트' })
+    ).toHaveAttribute('href', '/wrong-notes')
+    // No numbers, no error look, no shared banner, and no start button.
+    expect(card.textContent).not.toMatch(/20|60/u)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name })).not.toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/practice')
+    await waitFor(
+      () =>
+        expect(
+          screen.queryByRole('region', { name: '잠깐 쉬었다 풀어요' })
+        ).not.toBeInTheDocument(),
+      { timeout: 4_000 }
+    )
+    expect(await screen.findByRole('button', { name })).toBeEnabled()
+  })
+
+  it('하루 세트 상한이면 내일 또 풀자고 안내한다 (#1006)', async () => {
+    mockDatabase.loginAs('USER')
+    refuseWithSessionCap(
+      'STUDY_DAILY_LIMIT_REACHED',
+      new Date(Date.now() + 3_600_000).toISOString()
+    )
+    renderPractice('?level=N5&subject=VOCABULARY', { globalErrors: true })
+    const start = await screen.findByRole('button', {
+      name: 'N5 문자·어휘 10문제 시작'
+    })
+    await waitFor(() => expect(start).toBeEnabled())
+    await userEvent.setup().click(start)
+    const card = await screen.findByRole('region', {
+      name: '오늘은 여기까지 풀었어요'
+    })
+    expect(card).toHaveTextContent(
+      '오늘 풀 수 있는 새 세트를 다 풀었어요. 내일 또 풀어요. 오답 노트 복습은 지금도 할 수 있어요.'
+    )
+    expect(within(card).getByRole('link', { name: '오답노트' })).toBeVisible()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
   it('이용이 제한된 계정이면 일반 오류 대신 제한 안내를 보여 준다', async () => {
     const restricted = mockDatabase.loginAs('USER')
     mockDatabase.setAccountRestricted(restricted.id, true)

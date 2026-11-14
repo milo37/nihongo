@@ -25,6 +25,20 @@ export const getGuestLimitResetsAt = (error: unknown): string | undefined =>
     ? error.details?.resetsAt
     : undefined
 
+/** A member's new-set cap (#1006): which one, and when sets open again. */
+export type SessionCap = { kind: 'hour' | 'day'; resetsAt?: string }
+
+export const getSessionCap = (error: unknown): SessionCap | null => {
+  if (!isApiError(error)) return null
+  const kind =
+    error.code === 'STUDY_HOURLY_LIMIT_REACHED'
+      ? 'hour'
+      : error.code === 'STUDY_DAILY_LIMIT_REACHED'
+        ? 'day'
+        : null
+  return kind ? { kind, resetsAt: error.details?.resetsAt } : null
+}
+
 export const isNoEligibleQuestionsApiError = (error: unknown): boolean =>
   isApiError(error) && error.code === 'NO_ELIGIBLE_QUESTIONS'
 

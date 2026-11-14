@@ -523,6 +523,14 @@ export const koCoreResources = {
         login: 'Google로 로그인',
         reset: '내일 0시에 다시 {{total}}번'
       },
+      sessionCap: {
+        hourTitle: '잠깐 쉬었다 풀어요',
+        hourBody:
+          '한 시간에 풀 수 있는 새 세트를 다 풀었어요. {{time}}부터 다시 풀 수 있어요. 오답 노트 복습은 지금도 할 수 있어요.',
+        dayTitle: '오늘은 여기까지 풀었어요',
+        dayBody:
+          '오늘 풀 수 있는 새 세트를 다 풀었어요. 내일 또 풀어요. 오답 노트 복습은 지금도 할 수 있어요.'
+      },
       urlLocked: '문제 수와 출제 방식은 로그인하면 고를 수 있어요.',
       availableCountNote: '문제가 모자라면 있는 만큼만 나와요.',
       noEligibleTitle:
