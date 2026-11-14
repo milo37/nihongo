@@ -30,6 +30,7 @@ import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTrans
 import { useAppStore } from '@nihongo/browser/store/index'
 import {
   getGuestLimitResetsAt,
+  getSessionCap,
   isAccountRestrictedApiError,
   isGuestLimitReachedApiError,
   isNoEligibleQuestionsApiError
@@ -113,10 +114,14 @@ export const usePracticeSetupController = (
   const guestResetsAt = guestLimitRejected
     ? getGuestLimitResetsAt(createSession.error)
     : guestAllowanceData?.resetsAt
+  const sessionCap = createSession.isError
+    ? getSessionCap(createSession.error)
+    : null
   const resetCreateSession = createSession.reset
   const hasCreateError =
     createSession.isError &&
     !guestLimitRejected &&
+    !sessionCap &&
     !isAuthTransitionSupersededError(createSession.error)
   const isResumableSourceUnavailable =
     resumableSessions.isError || resumableSessions.fetchStatus === 'paused'
@@ -211,6 +216,7 @@ export const usePracticeSetupController = (
     mode,
     noEligibleQuestions,
     resumableSessions,
+    sessionCap,
     setCancelSessionId,
     subject
   }

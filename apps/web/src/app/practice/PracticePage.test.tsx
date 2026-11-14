@@ -440,6 +440,74 @@ describe('PracticePage setup', () => {
     ).not.toBeInTheDocument()
   })
 
+  const refuseWithSessionCap = (code: string, resetsAt: string) =>
+    mockServer.use(
+      http.post('*/api/v1/study-sessions', () =>
+        HttpResponse.json(
+          {
+            code,
+            message: 'synthetic',
+            details: { resetsAt },
+            requestId: crypto.randomUUID(),
+            retryable: false
+          },
+          { status: 429, headers: { 'Retry-After': '2' } }
+        )
+      )
+    )
+
+  it('한 시간 세트 상한이면 다시 풀 시각과 오답노트를 안내 상자로 알린다 (#1006)', async () => {
+    mockDatabase.loginAs('USER')
+    const resetsAt = new Date(Date.now() + 3_600_000).toISOString()
+    refuseWithSessionCap('STUDY_HOURLY_LIMIT_REACHED', resetsAt)
+    const router = renderPractice('?level=N5&subject=VOCABULARY', {
+      globalErrors: true
+    })
+    const name = 'N5 문자·어휘 10문제 시작'
+    const start = await screen.findByRole('button', { name })
+    await waitFor(() => expect(start).toBeEnabled())
+    await userEvent.setup().click(start)
+    const notice = await screen.findByRole('alert')
+    const title = within(notice).getByText('잠깐 쉬었다 풀어요')
+    await waitFor(() => expect(title).toHaveFocus())
+    const time = new Intl.DateTimeFormat('ko-KR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hourCycle: 'h23'
+    }).format(new Date(resetsAt))
+    expect(notice).toHaveTextContent(
+      `한 시간에 풀 수 있는 새 세트를 다 풀었어요. ${time}부터 다시 풀 수 있어요. 오답노트 복습은 지금도 할 수 있어요.`
+    )
+    expect(
+      within(notice).getByRole('link', { name: '오답노트' })
+    ).toHaveAttribute('href', '/wrong-notes')
+    // No numbers, and only this notice: no shared error banner.
+    expect(notice.textContent).not.toMatch(/20|60/u)
+    expect(screen.getAllByRole('alert')).toHaveLength(1)
+    expect(screen.getByRole('button', { name })).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/practice')
+  })
+
+  it('하루 세트 상한이면 내일 또 풀자고 안내한다 (#1006)', async () => {
+    mockDatabase.loginAs('USER')
+    refuseWithSessionCap(
+      'STUDY_DAILY_LIMIT_REACHED',
+      new Date(Date.now() + 3_600_000).toISOString()
+    )
+    renderPractice('?level=N5&subject=VOCABULARY', { globalErrors: true })
+    const start = await screen.findByRole('button', {
+      name: 'N5 문자·어휘 10문제 시작'
+    })
+    await waitFor(() => expect(start).toBeEnabled())
+    await userEvent.setup().click(start)
+    const notice = await screen.findByRole('alert')
+    expect(notice).toHaveTextContent(
+      '오늘은 여기까지 풀었어요오늘 풀 수 있는 새 세트를 다 풀었어요. 내일 또 풀어요. 오답노트 복습은 지금도 할 수 있어요.'
+    )
+    expect(within(notice).getByRole('link', { name: '오답노트' })).toBeVisible()
+    expect(screen.getAllByRole('alert')).toHaveLength(1)
+  })
+
   it('이용이 제한된 계정이면 일반 오류 대신 제한 안내를 보여 준다', async () => {
     const restricted = mockDatabase.loginAs('USER')
     mockDatabase.setAccountRestricted(restricted.id, true)

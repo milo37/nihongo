@@ -190,6 +190,7 @@ export const HeroStartCard = ({
           mode={setup.mode}
           noEligibleQuestions={setup.noEligibleQuestions}
           onSelectRandom={() => setup.changeSetting('mode', 'RANDOM', 'RANDOM')}
+          sessionCap={setup.sessionCap}
         />
         {memberLines}
       </div>

@@ -89,6 +89,7 @@ export const PracticePage = (): ReactElement => {
             onSelectRandom={() =>
               setup.changeSetting('mode', 'RANDOM', 'RANDOM')
             }
+            sessionCap={setup.sessionCap}
           />
         }
       />
