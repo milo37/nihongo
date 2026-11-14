@@ -11,7 +11,6 @@ import {
   GUEST_SESSION_QUESTION_LIMIT
 } from '@nihongo/contracts/study/guest-limits'
 import { GuestDailyLimitCard } from '@app/practice/components/GuestDailyLimitCard'
-import { SessionCapCard } from '@app/practice/components/SessionCapCard'
 import { PracticeSetupFeedback } from '@app/practice/components/PracticeSetupFeedback'
 import {
   ButtonTriesLeft,
@@ -156,10 +155,6 @@ export const HeroStartCard = ({
           <div className="home-band-limit">
             <GuestDailyLimitCard redirect="/" />
           </div>
-        ) : setup.sessionCap ? (
-          <div className="home-band-limit">
-            <SessionCapCard cap={setup.sessionCap} />
-          </div>
         ) : (
           <Button
             className="home-go"
@@ -195,6 +190,7 @@ export const HeroStartCard = ({
           mode={setup.mode}
           noEligibleQuestions={setup.noEligibleQuestions}
           onSelectRandom={() => setup.changeSetting('mode', 'RANDOM', 'RANDOM')}
+          sessionCap={setup.sessionCap}
         />
         {memberLines}
       </div>

@@ -3,7 +3,6 @@ import { Link } from 'react-router'
 import type { ReactElement } from 'react'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
 import { GuestDailyLimitCard } from '@app/practice/components/GuestDailyLimitCard'
-import { SessionCapCard } from '@app/practice/components/SessionCapCard'
 import {
   Button,
   getButtonClassName
@@ -84,7 +83,7 @@ export const ResultActions = ({
             >
               {t(setReturnLabelKey[returnPath])}
             </Link>
-          ) : nextSet.sessionCap ? null : (
+          ) : (
             <Button
               className={SAME_HEIGHT}
               size="lg"
@@ -121,15 +120,13 @@ export const ResultActions = ({
       )}
       {/* A refused next set says why here, in place (G, #792 QA). */}
       <div className="mt-3" aria-live="polite">
-        {nextSet.sessionCap ? (
-          <SessionCapCard cap={nextSet.sessionCap} />
-        ) : null}
         <PracticeSetupFeedback
           accountRestricted={nextSet.accountRestricted}
           hasCreateError={nextSet.hasCreateError}
           mode="RANDOM"
           noEligibleQuestions={nextSet.noEligibleQuestions}
           onSelectRandom={nextSet.start}
+          sessionCap={nextSet.sessionCap}
         />
       </div>
     </section>

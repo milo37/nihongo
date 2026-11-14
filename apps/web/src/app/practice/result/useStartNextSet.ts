@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
@@ -17,15 +16,12 @@ import {
   isNoEligibleQuestionsApiError
 } from '@libs/apiError'
 
-const MAX_TIMER_MS = 2 ** 31 - 1
-
 /**
  * [다음 10문제] (subtract table 10): one press starts a new random set at
  * the same level and subject. If the server refuses, the reason shows
  * right under the button (no questions left, account restricted, failure);
  * a guest's daily limit opens the setup screen, whose card says when the
- * tries come back. A member's set cap (#1006) shows its card here until
- * new sets open again.
+ * tries come back. A member's set cap (#1006) is said in the same place.
  */
 export const useStartNextSet = (
   session: StudySessionView['session'],
@@ -69,15 +65,6 @@ export const useStartNextSet = (
   }
   const error = createSession.isError ? createSession.error : null
   const sessionCap = error === null ? null : getSessionCap(error)
-  const sessionCapResetsAt = sessionCap?.resetsAt
-  const resetCreateSession = createSession.reset
-  useEffect(() => {
-    if (!sessionCapResetsAt) return
-    const waitMs = Date.parse(sessionCapResetsAt) - Date.now()
-    if (!(waitMs > 0) || waitMs > MAX_TIMER_MS) return
-    const timerId = window.setTimeout(resetCreateSession, waitMs)
-    return () => window.clearTimeout(timerId)
-  }, [resetCreateSession, sessionCapResetsAt])
   return {
     accountRestricted: error !== null && isAccountRestrictedApiError(error),
     noEligibleQuestions: error !== null && isNoEligibleQuestionsApiError(error),

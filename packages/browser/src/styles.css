@@ -713,7 +713,8 @@
   font-size: 18px;
   font-weight: 700;
 }
-.practice-guest-limit p:lang(ja) {
+.practice-guest-limit p:lang(ja),
+.practice-cap p:lang(ja) {
   word-break: auto-phrase;
 }
 .practice-guest-limit p {

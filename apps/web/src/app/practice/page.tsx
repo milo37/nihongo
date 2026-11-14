@@ -7,7 +7,6 @@ import {
 } from '@app/practice/components/PracticeSetupFeedback'
 import { PracticeSetupForm } from '@app/practice/components/PracticeSetupForm'
 import { GuestDailyLimitCard } from '@app/practice/components/GuestDailyLimitCard'
-import { SessionCapCard } from '@app/practice/components/SessionCapCard'
 import { GuestUrlLockedNotice } from '@app/practice/components/GuestSetupNotices'
 import { ResumablePractice } from '@app/practice/components/ResumablePractice'
 import { usePracticeSetupController } from '@app/practice/hooks/usePracticeSetupController'
@@ -44,8 +43,6 @@ export const PracticePage = (): ReactElement => {
       </div>
       {setup.isGuestDailyLimitReached ? (
         <GuestDailyLimitCard redirect="/practice" />
-      ) : setup.sessionCap ? (
-        <SessionCapCard cap={setup.sessionCap} />
       ) : null}
       {setup.isUrlLockedForGuest ? (
         <GuestUrlLockedNotice loginHref={setup.loginHref} />
@@ -69,9 +66,7 @@ export const PracticePage = (): ReactElement => {
         isReady={setup.isReady}
         isGuest={setup.isGuest}
         isCreating={setup.isCreatingSession}
-        isStartBlocked={
-          setup.isGuestDailyLimitReached || setup.sessionCap !== null
-        }
+        isGuestDailyLimitReached={setup.isGuestDailyLimitReached}
         guestAllowance={setup.guestAllowance}
         hasResumableSession={Boolean(resumableSessions.data?.items.length)}
         subjectLabel={subjectLabel}
@@ -94,6 +89,7 @@ export const PracticePage = (): ReactElement => {
             onSelectRandom={() =>
               setup.changeSetting('mode', 'RANDOM', 'RANDOM')
             }
+            sessionCap={setup.sessionCap}
           />
         }
       />

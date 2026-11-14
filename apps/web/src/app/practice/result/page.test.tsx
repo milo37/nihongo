@@ -908,7 +908,7 @@ describe('approved general result navigation', () => {
     member.client.clear()
   })
 
-  it('다음 10문제가 세트 상한에 걸리면 그 자리에 상한 카드를 보여 준다 (#1006)', async () => {
+  it('다음 10문제가 세트 상한에 걸리면 그 자리에 상한 안내를 보여 준다 (#1006)', async () => {
     const member = await createFixture()
     const { router, view } = member.mount()
     mockServer.use(
@@ -931,16 +931,15 @@ describe('approved general result navigation', () => {
     await userEvent
       .setup()
       .click(await screen.findByRole('button', { name: '다음 10문제' }))
-    const card = await screen.findByRole('region', {
-      name: '오늘은 여기까지 풀었어요'
-    })
-    expect(within(card).getByRole('link', { name: '오답노트' })).toBeVisible()
-    // The pressed button is gone; focus lands on the card's title.
-    expect(within(card).getByRole('heading')).toHaveFocus()
+    const notice = await screen.findByRole('alert')
+    const title = within(notice).getByText('오늘은 여기까지 풀었어요')
+    expect(within(notice).getByRole('link', { name: '오답노트' })).toBeVisible()
+    // It appears under the pressed button; focus moves to its title.
+    await waitFor(() => expect(title).toHaveFocus())
     expect(
       screen.queryByText('학습을 시작하지 못했어요', { exact: false })
     ).toBeNull()
-    expect(screen.queryByRole('button', { name: '다음 10문제' })).toBeNull()
+    expect(screen.getByRole('button', { name: '다음 10문제' })).toBeVisible()
     expect(router.state.location.pathname).toBe(resultPath)
     view.unmount()
     member.client.clear()

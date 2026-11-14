@@ -456,9 +456,9 @@ describe('PracticePage setup', () => {
       )
     )
 
-  it('한 시간 세트 상한이면 다시 풀 시각과 오답노트를 안내하고 시각이 지나면 시작을 돌려준다 (#1006)', async () => {
+  it('한 시간 세트 상한이면 다시 풀 시각과 오답노트를 안내 상자로 알린다 (#1006)', async () => {
     mockDatabase.loginAs('USER')
-    const resetsAt = new Date(Date.now() + 1_500).toISOString()
+    const resetsAt = new Date(Date.now() + 3_600_000).toISOString()
     refuseWithSessionCap('STUDY_HOURLY_LIMIT_REACHED', resetsAt)
     const router = renderPractice('?level=N5&subject=VOCABULARY', {
       globalErrors: true
@@ -467,33 +467,25 @@ describe('PracticePage setup', () => {
     const start = await screen.findByRole('button', { name })
     await waitFor(() => expect(start).toBeEnabled())
     await userEvent.setup().click(start)
-    const card = await screen.findByRole('region', {
-      name: '잠깐 쉬었다 풀어요'
-    })
+    const notice = await screen.findByRole('alert')
+    const title = within(notice).getByText('잠깐 쉬었다 풀어요')
+    await waitFor(() => expect(title).toHaveFocus())
     const time = new Intl.DateTimeFormat('ko-KR', {
       hour: '2-digit',
       minute: '2-digit',
       hourCycle: 'h23'
     }).format(new Date(resetsAt))
-    expect(card).toHaveTextContent(
+    expect(notice).toHaveTextContent(
       `한 시간에 풀 수 있는 새 세트를 다 풀었어요. ${time}부터 다시 풀 수 있어요. 오답노트 복습은 지금도 할 수 있어요.`
     )
     expect(
-      within(card).getByRole('link', { name: '오답노트' })
+      within(notice).getByRole('link', { name: '오답노트' })
     ).toHaveAttribute('href', '/wrong-notes')
-    // No numbers, no error look, no shared banner, and no start button.
-    expect(card.textContent).not.toMatch(/20|60/u)
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name })).not.toBeInTheDocument()
+    // No numbers, and only this notice: no shared error banner.
+    expect(notice.textContent).not.toMatch(/20|60/u)
+    expect(screen.getAllByRole('alert')).toHaveLength(1)
+    expect(screen.getByRole('button', { name })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/practice')
-    await waitFor(
-      () =>
-        expect(
-          screen.queryByRole('region', { name: '잠깐 쉬었다 풀어요' })
-        ).not.toBeInTheDocument(),
-      { timeout: 4_000 }
-    )
-    expect(await screen.findByRole('button', { name })).toBeEnabled()
   })
 
   it('하루 세트 상한이면 내일 또 풀자고 안내한다 (#1006)', async () => {
@@ -508,14 +500,12 @@ describe('PracticePage setup', () => {
     })
     await waitFor(() => expect(start).toBeEnabled())
     await userEvent.setup().click(start)
-    const card = await screen.findByRole('region', {
-      name: '오늘은 여기까지 풀었어요'
-    })
-    expect(card).toHaveTextContent(
-      '오늘 풀 수 있는 새 세트를 다 풀었어요. 내일 또 풀어요. 오답노트 복습은 지금도 할 수 있어요.'
+    const notice = await screen.findByRole('alert')
+    expect(notice).toHaveTextContent(
+      '오늘은 여기까지 풀었어요오늘 풀 수 있는 새 세트를 다 풀었어요. 내일 또 풀어요. 오답노트 복습은 지금도 할 수 있어요.'
     )
-    expect(within(card).getByRole('link', { name: '오답노트' })).toBeVisible()
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(within(notice).getByRole('link', { name: '오답노트' })).toBeVisible()
+    expect(screen.getAllByRole('alert')).toHaveLength(1)
   })
 
   it('이용이 제한된 계정이면 일반 오류 대신 제한 안내를 보여 준다', async () => {
