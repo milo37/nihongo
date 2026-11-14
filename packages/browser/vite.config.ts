@@ -9,7 +9,6 @@ import { resolveReleaseId } from './src/libs/resolveReleaseId.ts'
 import { assertBrowserBuildGraph } from '../../scripts/operations/browser-artifact-check.mjs'
 
 const approvedBrandAssetPaths = [
-  'auth/apple-mark.svg',
   'auth/google-mark.svg',
   'brand/harumaru-lockup-160.png',
   'brand/harumaru-lockup-320.png',
