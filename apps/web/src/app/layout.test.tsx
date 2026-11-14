@@ -88,7 +88,9 @@ const topNavigation = (): HTMLElement =>
 
 it.each([
   ['/practice?level=N3', '/login?redirect=%2Fpractice%3Flevel%3DN3'],
-  ['/login?redirect=%2Fbookmarks', '/login']
+  ['/login?redirect=%2Fbookmarks', '/login'],
+  // QA #998: a guest's result is gone after sign-in; go to practice.
+  ['/practice/result/session-1', '/login?redirect=%2Fpractice']
 ])('sends a guest from %s to %s so sign-in returns there', (from, href) => {
   render(
     <MemoryRouter initialEntries={[from]}>

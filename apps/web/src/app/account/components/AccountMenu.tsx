@@ -91,10 +91,15 @@ export const AccountMenu = ({
     } else if (event.key === 'Tab') close(false)
   }
   if (!user) {
+    // A guest's set and result are not kept after sign-in, so from those
+    // screens the way back is the practice page (as useGuestAction does).
+    const isGuestStudy = /^\/practice\/(?:session|result)\//u.test(pathname)
     const loginHref =
       pathname === '/' || pathname === '/login'
         ? '/login'
-        : `/login?redirect=${encodeURIComponent(`${pathname}${search}`)}`
+        : `/login?redirect=${encodeURIComponent(
+            isGuestStudy ? '/practice' : `${pathname}${search}`
+          )}`
     return (
       <div className="account-menu">
         <Link to={loginHref} className="account-menu-login">
