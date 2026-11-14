@@ -10,12 +10,13 @@ import { ADMIN_FRESH_WINDOW_SQL } from '../../../src/auth/adminFreshWindow.js'
  * change_user_authority (with its _pre_reauthentication body) had no
  * product caller; database tests use it to take authority away mid-flow. This
  * keeps it step for step: the same actor checks, the same lock order (both
- * Users, then the target's Verification and Account rows, then both Users'
- * Sessions), the same compare-and-swap and the same SQLSTATE and message on
- * failure. nihongo_app has no User role privilege: the marker set here names
- * the User and the new role and status, and the User trigger applies them only
- * in a TEST database with a TEST capability, then records the revocation,
- * steps the generation and deletes the Sessions as before.
+ * Users, then the target's Account rows, then both Users' Sessions; the
+ * Verification step left with that table in #675), the same compare-and-swap
+ * and the same SQLSTATE and message on failure. nihongo_app has no User role
+ * privilege: the marker set here names the User and the new role and status,
+ * and the User trigger applies them only in a TEST database with a TEST
+ * capability, then records the revocation, steps the generation and deletes
+ * the Sessions as before.
  */
 
 type Transaction = Prisma.TransactionClient
@@ -144,11 +145,6 @@ export const changeUserAuthorityForTest = async (
         '23514',
         'Target authority transition is stale or invalid.'
       )
-    await transaction.$queryRawUnsafe(
-      `SELECT 1 FROM "Verification" WHERE "resetUserId" = $1::uuid
-       ORDER BY "id" FOR UPDATE`,
-      input.targetUserId
-    )
     await transaction.$queryRawUnsafe(
       `SELECT 1 FROM "Account" WHERE "userId" = $1::uuid ORDER BY "id" FOR UPDATE`,
       input.targetUserId

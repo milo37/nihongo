@@ -99,7 +99,6 @@ const expectExpiredSessionCookies = (response: Response): void => {
 const readWriteCounts = async (): Promise<{
   account: number
   user: number
-  verification: number
   audit: number
   question: number
   rateLimit: number
@@ -110,7 +109,6 @@ const readWriteCounts = async (): Promise<{
   const result = await adminClient.query<{
     account: number
     user: number
-    verification: number
     audit: number
     question: number
     rateLimit: number
@@ -121,7 +119,6 @@ const readWriteCounts = async (): Promise<{
     `SELECT
        (SELECT COUNT(*)::int FROM "Account") AS account,
        (SELECT COUNT(*)::int FROM "User") AS "user",
-       (SELECT COUNT(*)::int FROM "Verification") AS verification,
        (SELECT COUNT(*)::int FROM "AdminAuditLog") AS audit,
        (SELECT COUNT(*)::int FROM "Question") AS question,
        (SELECT COUNT(*)::int FROM "RateLimit") AS "rateLimit",

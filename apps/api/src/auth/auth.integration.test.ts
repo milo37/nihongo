@@ -276,8 +276,7 @@ describe(
       const before = await Promise.all([
         fixtureDatabase.client.user.count(),
         fixtureDatabase.client.account.count(),
-        fixtureDatabase.client.session.count(),
-        fixtureDatabase.client.verification.count()
+        fixtureDatabase.client.session.count()
       ])
       const rejected = await postAuth('/api/auth/sign-up/email', {
         email: 'retired-escalation@example.test',
@@ -326,8 +325,7 @@ describe(
         await Promise.all([
           fixtureDatabase.client.user.count(),
           fixtureDatabase.client.account.count(),
-          fixtureDatabase.client.session.count(),
-          fixtureDatabase.client.verification.count()
+          fixtureDatabase.client.session.count()
         ])
       ).toEqual(before)
       const session = await createSsoSessionFixture({

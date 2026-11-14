@@ -50,7 +50,6 @@ export const accessibilityDatabaseTables = [
   'UserMemo',
   'UserReport',
   'UserSignIn',
-  'Verification',
   'WrongNote',
   '_prisma_migrations'
 ]
@@ -75,7 +74,7 @@ export const accessibilityExpectedTableDeltas = {
   QuestionReport: 0,
   QuestionVersion: 0,
   QuestionVersionTag: 0,
-  RateLimit: 32,
+  RateLimit: 33,
   ReviewEvent: 10,
   ReviewSchedule: 10,
   Session: 2,
@@ -100,7 +99,6 @@ export const accessibilityExpectedTableDeltas = {
   // JLP-852: a sign-in adds the member's row once and later only updates it,
   // so the delta depends on which fixture members signed in before.
   UserSignIn: 0,
-  Verification: 0,
   WrongNote: 10,
   _prisma_migrations: 0
 }
@@ -116,7 +114,9 @@ export const accessibilityExpectedRateLimitCategories = {
   'application:bookmark-write': 1,
   // No page reads insights any more: My page reads only the stats (JLP-812).
   'application:dashboard-insights-read': 0,
-  'application:dashboard-read': 1,
+  // My page and the member home's last-7-days line (#995) read the stats;
+  // the two scanned members are two keys.
+  'application:dashboard-read': 2,
   'application:keyed:ADMIN_READ:ACTOR': 1,
   'application:keyed:ADMIN_READ:IP': 1,
   'application:keyed:REPORT_ACTOR:ACTOR': 1,

@@ -62,6 +62,7 @@ const explanationJaFile = fileURLToPath(
 )
 
 let files: QuestionSetFile[] = []
+type SetItemContent = QuestionSetFile['items'][number]['content']
 let adminId = ''
 
 const createAdmin = async (): Promise<string> => {
@@ -580,6 +581,154 @@ describe.sequential(
         published: 1,
         failures: []
       })
+    }, 120_000)
+
+    // The set changed some text after it was published (#936). The published
+    // set, passed as the previous set, locates those questions.
+    const newerSet = (
+      index: number,
+      change: (content: SetItemContent) => SetItemContent
+    ): QuestionSetFile[] => {
+      const { clientItemId } = setItem(index)
+      return files.map((file) => ({
+        ...file,
+        items: file.items.map((item) =>
+          item.clientItemId === clientItemId
+            ? { ...item, content: change(item.content) }
+            : item
+        )
+      }))
+    }
+    const explainWith = (
+      items: ExplanationJaFile['items'],
+      newer: readonly QuestionSetFile[],
+      previousFiles?: readonly QuestionSetFile[]
+    ) =>
+      publishExplanationJa({
+        auditEnvironment: 'TEST',
+        client: database.client,
+        execute: true,
+        explanations: { sha256: '0'.repeat(64), items },
+        files: newer,
+        previousFiles
+      })
+    const publishedOf = async (index: number) =>
+      database.client.questionVersion.findUniqueOrThrow({
+        where: {
+          id: (await questionOf(index)).currentPublishedVersionId as string
+        },
+        select: { questionText: true, passage: true, explanationJa: true }
+      })
+
+    it('stops on newer text without the previous set, as before', async () => {
+      const newer = newerSet(6, (content) => ({
+        ...content,
+        questionText: `${content.questionText}（改）`
+      }))
+      const clientItemId = setItem(6).clientItemId
+      const counts = await contentRowCounts()
+      const report = await explainWith(
+        [{ clientItemId, explanationJa: '新しい文の解説' }],
+        newer
+      )
+      expect(report.conflicts).toEqual([
+        { clientItemId, reason: 'NOT_PUBLISHED' }
+      ])
+      expect(await contentRowCounts()).toEqual(counts)
+    }, 120_000)
+
+    it('takes the newer text into the new version when the published one is the previous set', async () => {
+      const newer = newerSet(6, (content) => ({
+        ...content,
+        questionText: `${content.questionText}（改）`
+      }))
+      const clientItemId = setItem(6).clientItemId
+      const items = [{ clientItemId, explanationJa: '新しい文の解説' }]
+      const planned = await publishExplanationJa({
+        auditEnvironment: 'TEST',
+        client: database.client,
+        execute: false,
+        explanations: { sha256: '0'.repeat(64), items },
+        files: newer,
+        previousFiles: files
+      })
+      expect(planned).toMatchObject({
+        pending: { CREATE: 1 },
+        pendingTextUpdates: 1,
+        conflicts: []
+      })
+      expect(await explainWith(items, newer, files)).toMatchObject({
+        created: 1,
+        published: 1,
+        conflicts: [],
+        failures: []
+      })
+      expect(await publishedOf(6)).toMatchObject({
+        questionText: `${setItem(6).content.questionText}（改）`,
+        explanationJa: '新しい文の解説'
+      })
+      const counts = await contentRowCounts()
+      expect(await explainWith(items, newer, files)).toMatchObject({
+        created: 0,
+        skippedPublished: 1,
+        pendingTextUpdates: 0,
+        conflicts: []
+      })
+      expect(await contentRowCounts()).toEqual(counts)
+    }, 120_000)
+
+    it('takes a newer passage that keeps the fingerprint', async () => {
+      const all = files.flatMap((file) => file.items)
+      const index = all.findIndex(
+        (item, at) => at > 8 && /[ \u3000]/u.test(item.content.passage ?? '')
+      )
+      expect(index).toBeGreaterThan(8)
+      const newer = newerSet(index, (content) => ({
+        ...content,
+        passage: (content.passage as string).replace(/[ \u3000]/u, '\n')
+      }))
+      const newerItem = newer
+        .flatMap((file) => file.items)
+        .find(({ clientItemId }) => clientItemId === all[index]!.clientItemId)!
+      expect(contentFingerprint(newerItem.content)).toBe(
+        contentFingerprint(all[index]!.content)
+      )
+      const clientItemId = all[index]!.clientItemId
+      const items = [{ clientItemId, explanationJa: '改行した文の解説' }]
+      const counts = await contentRowCounts()
+      expect((await explainWith(items, newer)).conflicts).toEqual([
+        { clientItemId, reason: 'PUBLISHED_CONTENT_CHANGED' }
+      ])
+      expect(await contentRowCounts()).toEqual(counts)
+
+      expect(await explainWith(items, newer, files)).toMatchObject({
+        created: 1,
+        published: 1,
+        conflicts: []
+      })
+      expect(await publishedOf(index)).toMatchObject({
+        passage: newerItem.content.passage,
+        explanationJa: '改行した文の解説'
+      })
+    }, 120_000)
+
+    it('still stops when the published version is neither the previous nor the newer set', async () => {
+      // Item 4 was reordered by an admin above.
+      const newer = newerSet(4, (content) => ({
+        ...content,
+        questionText: `${content.questionText}（改）`
+      }))
+      const clientItemId = setItem(4).clientItemId
+      const counts = await contentRowCounts()
+      const report = await explainWith(
+        [{ clientItemId, explanationJa: '並べ替えた後の解説' }],
+        newer,
+        files
+      )
+      expect(report.conflicts).toEqual([
+        { clientItemId, reason: 'PUBLISHED_CONTENT_CHANGED' }
+      ])
+      expect(await contentRowCounts()).toEqual(counts)
     }, 120_000)
   }
 )

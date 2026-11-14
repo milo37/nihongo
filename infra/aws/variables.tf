@@ -291,3 +291,32 @@ variable "postgres_image" {
     error_message = "postgres_image must be pinned by digest (...@sha256:<64 hex>)."
   }
 }
+
+variable "edge_logging_enabled" {
+  description = "CloudFront access logs to S3 in var.region plus WAF block alarms (#1005). null = on for PRODUCTION only."
+  type        = bool
+  default     = null
+}
+
+variable "edge_log_retention_days" {
+  description = "Days the CloudFront access logs stay in S3 (user decision 2026-11-14: 90)."
+  type        = number
+  default     = 90
+
+  validation {
+    condition     = var.edge_log_retention_days >= 1 && var.edge_log_retention_days <= 400
+    error_message = "edge_log_retention_days must be between 1 and 400."
+  }
+}
+
+variable "waf_blocked_alarm_per_5min" {
+  description = "WAF blocked requests (all rules) in 5 minutes above which the alarm fires."
+  type        = number
+  default     = 500
+}
+
+variable "waf_rate_limited_alarm_per_5min" {
+  description = "Requests blocked by the per-IP rate limit in 5 minutes above which the alarm fires."
+  type        = number
+  default     = 100
+}

@@ -282,8 +282,7 @@
   font-size: 15px;
   font-weight: 600;
 }
-.account-menu-login:hover,
-.account-menu-login[aria-expanded='true'] {
+.account-menu-login:hover {
   background: rgb(var(--color-surface-muted));
 }
 .account-menu-login:focus-visible {
