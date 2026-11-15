@@ -31,3 +31,21 @@ export const calendarDateSchema = z
   .string()
   .regex(CALENDAR_DATE_PATTERN)
   .refine(isCalendarDate, '유효한 달력 날짜여야 합니다.')
+
+/** From < To and at most 366 days apart; either end may be missing. */
+export const assertContentDateRange = (
+  from: string | undefined,
+  to: string | undefined
+): void => {
+  if (from === undefined || to === undefined) {
+    return
+  }
+
+  const fromTime = Date.parse(from)
+  const toTime = Date.parse(to)
+  const maximumRange = 366 * 24 * 60 * 60 * 1000
+
+  if (!(fromTime < toTime) || toTime - fromTime > maximumRange) {
+    throw new Error('date range는 From < To이고 최대 366일이어야 합니다.')
+  }
+}

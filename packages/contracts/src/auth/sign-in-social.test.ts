@@ -5,9 +5,13 @@ import {
   signInSocialRequestSchema,
   signInSocialResponseSchema,
   ssoCallbackOutcomeSchema,
+  ssoReturnLevels,
   ssoReviewListStates
 } from './sign-in-social.js'
+import { jlptLevelSchema } from '../common/enum.js'
 import { wrongNoteReviewStateSchema } from '../wrong-note/list-review-list.js'
+import * as adminContent from '../admin/content-future.js'
+import * as reportRoute from '../admin/question-report-route.js'
 
 const validURL = () => {
   const url = new URL('https://accounts.google.com/o/oauth2/v2/auth')
@@ -23,6 +27,9 @@ const validURL = () => {
 describe('agreed SSO transport', () => {
   it('keeps the wrong-note return states equal to the review-list contract', () => {
     expect([...ssoReviewListStates]).toEqual(wrongNoteReviewStateSchema.options)
+  })
+  it('keeps the wrong-note return levels equal to the level contract (#1053)', () => {
+    expect([...ssoReturnLevels]).toEqual(jlptLevelSchema.options)
   })
   it('allows only user-selected Apple and Google and fixed Apple code form_post', () => {
     expect(
@@ -220,4 +227,27 @@ describe('report-owned SSO return paths', () => {
   ])('keeps report and generic navigation boundaries closed: %s', (path) => {
     expect(safeSsoReturnPath(path)).toBe('/')
   })
+})
+
+describe('report route schemas shared with the admin API (#1053)', () => {
+  it('uses the very schemas the admin report API parses', () => {
+    expect(adminContent.listAdminQuestionReportsQuerySchema).toBe(
+      reportRoute.listAdminQuestionReportsQuerySchema
+    )
+    expect(adminContent.getAdminQuestionReportParamsSchema).toBe(
+      reportRoute.getAdminQuestionReportParamsSchema
+    )
+  })
+  it.each([
+    ['/practice/session/abc-123', '/practice/session/abc-123'],
+    ['/admin/reports?status=OPEN', '/admin/reports?status=OPEN'],
+    ['/admin/reports?status=OPEN&redirect=%2F%2Fevil.test', '/'],
+    ['/practice?redirect=%2F%2Fevil.test', '/'],
+    ['/\\evil.test', '/']
+  ])(
+    'keeps learner and admin report returns on one closed check: %s',
+    (path, expected) => {
+      expect(safeSsoReturnPath(path)).toBe(expected)
+    }
+  )
 })
