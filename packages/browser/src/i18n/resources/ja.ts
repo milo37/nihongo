@@ -30,9 +30,7 @@ export const jaCoreResources = {
       close: '閉じる',
       closeDialog: '閉じる',
       closeNotification: '通知を閉じる',
-      goHome: '最初の画面へ',
       goLogin: 'ログインする',
-      goRandomPractice: 'ランダムで解く',
       login: 'ログイン'
     },
     state: {
@@ -364,8 +362,6 @@ export const jaCoreResources = {
     },
     approved: {
       vocabulary: '文字・語彙',
-      title: '今日も日本語をひとセット',
-      description: 'レベルと科目を選ぶだけですぐ始められます。',
       loading: '読み込み中…'
     },
     quickDrill: {
@@ -514,8 +510,6 @@ export const jaCoreResources = {
         stale: '一覧を更新できませんでした。最後に読み込んだ一覧です。',
         error: '解きかけの問題の一覧を読み込めませんでした。',
         summary: '{{formattedCount}}問中{{formattedOrdinal}}問目まで',
-        lastSaved: '{{date}}に保存',
-        notSaved: 'まだ解いた問題はありません',
         legacyUnavailable:
           'この学習はもう続けられません。新しく始めてください。',
         action: '続きから解く',
@@ -680,9 +674,7 @@ export const jaCoreResources = {
         canonicalPartial:
           '{{requested}}問を選びましたが、今解ける問題が{{actual}}問なので{{actual}}問だけ出ました。'
       },
-      progressLabel: '{{percent}}% 回答',
       question: {
-        passageBackToTop: '本文をもう一度見る',
         passageLabel: '文章',
         numberLabel: '{{ordinal}}番の問題。',
         answerLegend: '選択肢'
@@ -732,15 +724,6 @@ export const jaCoreResources = {
           restored:
             'インターネットにまたつながりました。今もう一度提出できます。'
         }
-      },
-      conflict: {
-        title: 'ほかの端末で解いた答えと違います',
-        description:
-          '{{conflicts}}問の答えが違います。どちらの答えを残すか選んでください。',
-        useServer: '保存された答えを使う',
-        keepLocal: 'この画面の答えを使う',
-        detail:
-          '「保存された答えを使う」を選ぶと、この画面で変えた答えは消えます。「この画面の答えを使う」を選ぶと、この画面の答えで保存します。'
       }
     }
   },
@@ -759,12 +742,6 @@ export const jaCoreResources = {
     summary: {
       score: '{{total}}問中 {{correct}}問正解',
       meta: '正答率 {{accuracy}} · {{duration}}'
-    },
-    grading: {
-      checking: '採点しています',
-      done: '採点結果',
-      skipHint: 'タップするとすぐに見られます',
-      showResult: '結果を見る'
     },
     nextActions: {
       title: '次にやること'
@@ -931,9 +908,6 @@ export const jaCoreResources = {
     },
     name: '間違いノート',
     center: {
-      title: '間違いノートの復習',
-      description:
-        '間違えた問題をもう一度解いて、身についた問題を解決済みにしましょう。',
       states: {
         offline:
           'インターネット接続が切れました。つながったらもう一度読み込みます。',
@@ -962,8 +936,6 @@ export const jaCoreResources = {
       myAnswer: '自分の答え',
       back: '間違いノートへ',
       title: '最後に間違えた問題の詳細',
-      snapshotNotice:
-        '以下の問題・選択肢・解説は、最後に間違えた時点の問題バージョンです。',
       previousAnswer: {
         selected: '自分が選んだ答え',
         unanswered: '自分が選んだ答え：なし（未回答）',
@@ -975,16 +947,7 @@ export const jaCoreResources = {
       correct: '正解',
       explanation: '解説',
       review: {
-        title: '復習記録',
-        wrongCount: '間違えた回数',
-        streak: '連続正解',
-        count: '{{formattedCount}}回',
-        lastWrong: '最近の間違い',
-        nextReview: '次の復習',
-        lastReview: '最近の復習',
-        noRecord: '記録なし',
-        archived: 'この問題は今は解けません。',
-        available: '現在出題可能な問題バージョンで単独復習を開始できます。'
+        archived: 'この問題は今は解けません。'
       },
       states: {
         coldOfflineTitle: 'インターネット接続が切れていて読み込めません',
@@ -995,8 +958,6 @@ export const jaCoreResources = {
         loadErrorTitle: '読み込めませんでした',
         loadErrorDescription:
           'インターネット接続を確認して、もう一度お試しください。',
-        backHistory: 'すべての間違い記録へ戻る',
-        backDashboard: '学習ダッシュボードへ戻る',
         backCenter: '間違いノートへ',
         cachedOffline:
           'インターネット接続が切れました。保存された内容を表示し、つながったらもう一度確認します。',
@@ -1061,7 +1022,6 @@ export const jaCoreResources = {
       title: 'ブックマークの問題を解く',
       description: 'レベル・科目ごとに、入れた順で出ます。',
       groupAction: '{{level}} {{subject}}を解く（最大{{formattedCount}}問）',
-      allArchived: 'このページの問題は、どれも今は解けません。',
       noneAvailable: '今解けるブックマークの問題はありません。',
       refresh: '更新',
       offline:

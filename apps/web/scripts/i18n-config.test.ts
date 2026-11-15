@@ -68,10 +68,10 @@ it('matches approved Japanese additions and preserves admin keys, values and ord
   expect(Object.keys(jaResources)).toEqual(Object.keys(koResources))
   expect(
     createHash('sha256').update(JSON.stringify(koResources)).digest('hex')
-  ).toBe('1fc44c799d6fe60ebd34464bb01b1b4c18099a0def349f4b845b27b00dbeddae')
+  ).toBe('58bcd3dd38d064776377bae78d6de6f785cd179765ad741a37517c01a1e15ec9')
   expect(
     createHash('sha256').update(JSON.stringify(jaResources)).digest('hex')
-  ).toBe('12fe061da6d769d713f9a30f0ce3cb40f3d02b982d7f4874f584032a373657dc')
+  ).toBe('17a414ce9018506af1a0c7d87711d3e11ae623168bc6e3b1ee62f44a3db121b7')
   expect(
     createHash('sha256').update(JSON.stringify(jaResources.admin)).digest('hex')
   ).toBe('3a63e1082e78b671147ba079680dfe34f1c533d4969ccf5c182093475dd555c7')
