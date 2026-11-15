@@ -341,3 +341,28 @@ it.each([
     ).toBe(locale === 'ja')
   }
 )
+
+it.each([
+  ['ko', '이용 안내', ['기간: 제3조 ⑦과 같음', '⑤와 같이 마지막 이용 후']],
+  ['ja', '利用案内', ['期間：第3条⑦と同じ', '⑤と同様に最終利用から']]
+] as const)(
+  'keeps a clause reference inside its sentence (%s)',
+  async (locale, title, references) => {
+    expect(writeUiLocalePreference(locale)).toBe(true)
+    renderInformationRoute('/legal')
+    await screen.findByRole('heading', { level: 1, name: title })
+    const paragraphs = Array.from(
+      document.querySelectorAll('.operations-articles p'),
+      (paragraph) => paragraph.textContent ?? ''
+    )
+    for (const reference of references)
+      expect(
+        paragraphs.filter((text) => text.includes(reference))
+      ).toHaveLength(1)
+    // No paragraph starts at a reference, and clauses still split.
+    expect(
+      paragraphs.filter((text) => /^[①-⑳][과와의에을를とのにを]/u.test(text))
+    ).toEqual([])
+    expect(paragraphs.filter((text) => text.startsWith('⑦'))).not.toEqual([])
+  }
+)
