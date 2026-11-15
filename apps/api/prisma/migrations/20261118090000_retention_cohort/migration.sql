@@ -4,9 +4,10 @@
 -- migration: the previous API never reads the table.
 --   1. "RetentionCohort": one row per Korea-time first-set day and audience
 --      (MEMBER or GUEST) with the cohort size and how many of them started a
---      set again on the next day, on day 7, and on any day 1 to 7. A count
---      stays NULL until its day has passed, then it is written once.
---   2. nihongo_app may read the rows, add them and fill a NULL count.
+--      set again on the next day, on day 7, and on any day 1 to 7. The row
+--      is written once, after day 7 has passed, from one reading of the
+--      sets, so every count shares the same cohort.
+--   2. nihongo_app may read and add rows; it never changes or removes one.
 BEGIN;
 SELECT pg_catalog.set_config('app.target_schema', pg_catalog.current_schema(), true);
 SELECT pg_catalog.set_config('search_path', 'pg_catalog, pg_temp', true);
@@ -41,25 +42,23 @@ CREATE TABLE "RetentionCohort" (
     "cohortDate" date NOT NULL,
     audience text NOT NULL,
     "cohortSize" integer NOT NULL,
-    "day1Returned" integer,
-    "day7Returned" integer,
-    "week1Returned" integer,
+    "day1Returned" integer NOT NULL,
+    "day7Returned" integer NOT NULL,
+    "week1Returned" integer NOT NULL,
     "createdAt" timestamp(3) with time zone DEFAULT clock_timestamp() NOT NULL,
-    "updatedAt" timestamp(3) with time zone DEFAULT clock_timestamp() NOT NULL,
     CONSTRAINT "RetentionCohort_pkey" PRIMARY KEY ("cohortDate", audience),
     CONSTRAINT "RetentionCohort_audience_check"
       CHECK (audience IN ('MEMBER', 'GUEST')),
     CONSTRAINT "RetentionCohort_counts_check" CHECK (
       "cohortSize" >= 0
-      AND "day1Returned" BETWEEN 0 AND "cohortSize"
-      AND "day7Returned" BETWEEN 0 AND "cohortSize"
-      AND "week1Returned" BETWEEN 0 AND "cohortSize"
+      AND "day1Returned" BETWEEN 0 AND "week1Returned"
+      AND "day7Returned" BETWEEN 0 AND "week1Returned"
+      AND "week1Returned" <= "cohortSize"
     )
 );
 
 GRANT SELECT, INSERT ("cohortDate", audience, "cohortSize", "day1Returned",
-  "day7Returned", "week1Returned"),
-  UPDATE ("day1Returned", "day7Returned", "week1Returned", "updatedAt")
+  "day7Returned", "week1Returned")
   ON TABLE "RetentionCohort" TO nihongo_app;
 
 SET LOCAL ROLE "nihongo_migration";

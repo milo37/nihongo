@@ -1053,11 +1053,10 @@ model RetentionCohort {
   cohortDate    DateTime @db.Date
   audience      String
   cohortSize    Int
-  day1Returned  Int?
-  day7Returned  Int?
-  week1Returned Int?
+  day1Returned  Int
+  day7Returned  Int
+  week1Returned Int
   createdAt     DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
-  updatedAt     DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
 
   @@id([cohortDate, audience])
 }

@@ -12,10 +12,11 @@ import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 import { countRetentionCohorts } from './retentionCohort.js'
 
 const DAY_MS = 86_400_000
-// 2001-03-20 09:00 in Korea: the lookback is 2001-03-06 to 2001-03-19.
+// 2001-03-20 09:00 in Korea: cohorts 2001-03-06 to 2001-03-12 have passed
+// day 7 and are written.
 const NOW = new Date('2001-03-20T00:00:00.000Z')
 const FIRST_DAY = '2001-03-06'
-const LAST_DAY = '2001-03-19'
+const LAST_DAY = '2001-03-12'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({
@@ -128,9 +129,9 @@ interface CohortRow {
   cohortDate: string
   audience: string
   cohortSize: number
-  day1Returned: number | null
-  day7Returned: number | null
-  week1Returned: number | null
+  day1Returned: number
+  day7Returned: number
+  week1Returned: number
 }
 
 const readRows = async (): Promise<CohortRow[]> =>
@@ -141,18 +142,27 @@ const readRows = async (): Promise<CohortRow[]> =>
     WHERE "cohortDate" BETWEEN ${FIRST_DAY}::date AND '2001-03-20'::date
     ORDER BY "cohortDate", audience`
 
-const nonEmpty = (rows: CohortRow[]) =>
-  rows.filter(
-    (row) =>
-      row.cohortSize > 0 ||
-      ['2001-03-12', '2001-03-13', LAST_DAY].includes(row.cohortDate)
-  )
-
 const deleteRows = async () => {
   await fixtureDatabase.client.$executeRaw`
     DELETE FROM "RetentionCohort"
     WHERE "cohortDate" BETWEEN ${FIRST_DAY}::date AND '2001-03-20'::date`
 }
+
+const row = (
+  cohortDate: string,
+  audience: 'MEMBER' | 'GUEST',
+  cohortSize = 0,
+  day1Returned = 0,
+  day7Returned = 0,
+  week1Returned = 0
+): CohortRow => ({
+  cohortDate,
+  audience,
+  cohortSize,
+  day1Returned,
+  day7Returned,
+  week1Returned
+})
 
 let guestReturnSessionId = ''
 
@@ -172,20 +182,29 @@ beforeAll(async () => {
   const m3 = await createUser()
   await startSet({ userId: m3 }, '2001-03-01T03:00:00.000Z')
   await startSet({ userId: m3 }, '2001-03-12T03:00:00.000Z')
+  // Day 7 not passed yet: the 03-13 cohort waits for the next run.
   const m4 = await createUser()
-  await startSet({ userId: m4 }, '2001-03-18T03:00:00.000Z')
-  await startSet({ userId: m4 }, '2001-03-19T03:00:00.000Z')
-  const m5 = await createUser()
-  await startSet({ userId: m5 }, '2001-03-19T03:00:00.000Z')
-  // Today in Korea: not counted until the day has passed.
-  const m6 = await createUser()
-  await startSet({ userId: m6 }, '2001-03-19T15:30:00.000Z') // 03-20 00:30
+  await startSet({ userId: m4 }, '2001-03-13T03:00:00.000Z')
+  await startSet({ userId: m4 }, '2001-03-14T03:00:00.000Z')
   const g1 = await createGuest(new Date('2001-03-10T03:00:00.000Z'))
   await startSet({ guestPrincipalId: g1 }, '2001-03-10T03:00:00.000Z')
   guestReturnSessionId = await startSet(
     { guestPrincipalId: g1 },
     '2001-03-11T03:00:00.000Z'
   )
+  // A guest starts on 03-11, signs in and brings the result (the set moves
+  // to the member as guestResultImport does), then studies on 03-12.
+  const g2 = await createGuest(new Date('2001-03-11T03:00:00.000Z'))
+  const imported = await startSet(
+    { guestPrincipalId: g2 },
+    '2001-03-11T03:00:00.000Z'
+  )
+  const m5 = await createUser()
+  await fixtureDatabase.client.studySession.update({
+    where: { id: imported },
+    data: { userId: m5, guestPrincipalId: null }
+  })
+  await startSet({ userId: m5 }, '2001-03-12T03:00:00.000Z')
 })
 
 afterAll(async () => {
@@ -220,75 +239,50 @@ describe('#1042 daily retention count', () => {
       'day1Returned',
       'day7Returned',
       'week1Returned',
-      'createdAt',
-      'updatedAt'
+      'createdAt'
     ])
   })
 
-  it('counts next-day, day-7 and within-7-day returns once each day has passed', async () => {
+  it('writes each cohort once its day 7 has passed, from one reading', async () => {
     await expect(countRetentionCohorts(database.client, NOW)).resolves.toEqual({
-      written: 28
+      written: 14
     })
     const rows = await readRows()
-    expect(rows).toHaveLength(28)
     expect(rows.map(({ cohortDate }) => cohortDate).at(-1)).toBe(LAST_DAY)
-    expect(nonEmpty(rows)).toEqual([
-      row('2001-03-10', 'GUEST', 1, 1, 0, 1),
-      row('2001-03-10', 'MEMBER', 2, 1, 1, 2),
-      row('2001-03-12', 'GUEST', 0, 0, 0, 0),
-      row('2001-03-12', 'MEMBER', 0, 0, 0, 0),
-      row('2001-03-13', 'GUEST', 0, 0, null, null),
-      row('2001-03-13', 'MEMBER', 0, 0, null, null),
-      row('2001-03-18', 'MEMBER', 1, 1, null, null),
-      row(LAST_DAY, 'GUEST', 0, null, null, null),
-      row(LAST_DAY, 'MEMBER', 1, null, null, null)
+    const expected = new Map([
+      ['2001-03-10 GUEST', row('2001-03-10', 'GUEST', 1, 1, 0, 1)],
+      ['2001-03-10 MEMBER', row('2001-03-10', 'MEMBER', 2, 1, 1, 2)],
+      // The brought guest counts as a member, in size and returns alike.
+      ['2001-03-11 MEMBER', row('2001-03-11', 'MEMBER', 1, 1, 0, 1)]
     ])
+    expect(rows).toEqual(
+      rows.map(
+        ({ cohortDate, audience }) =>
+          expected.get(`${cohortDate} ${audience}`) ??
+          row(cohortDate, audience as 'MEMBER' | 'GUEST')
+      )
+    )
+    expect(rows).toHaveLength(14)
   })
 
-  it('keeps every number on a second run the same day', async () => {
+  it('keeps every row on a second run and on later runs', async () => {
     const before = await readRows()
     await expect(countRetentionCohorts(database.client, NOW)).resolves.toEqual({
       written: 0
     })
     expect(await readRows()).toEqual(before)
-  })
-
-  it('fills a count when its day passes and never rewrites a written one', async () => {
-    // Guest records go 7 days after they expire; the written count stays.
+    // Guest records go 7 days after they expire; the written row stays.
     await fixtureDatabase.client.studySession.delete({
       where: { id: guestReturnSessionId }
     })
-    await countRetentionCohorts(
-      database.client,
-      new Date(NOW.getTime() + DAY_MS)
-    )
-    const rows = await readRows()
-    expect(
-      rows.find((r) => r.cohortDate === '2001-03-10' && r.audience === 'GUEST')
-    ).toEqual(row('2001-03-10', 'GUEST', 1, 1, 0, 1))
-    expect(
-      rows.find((r) => r.cohortDate === LAST_DAY && r.audience === 'MEMBER')
-    ).toEqual(row(LAST_DAY, 'MEMBER', 1, 0, null, null))
-    expect(
-      rows.find((r) => r.cohortDate === '2001-03-20' && r.audience === 'MEMBER')
-    ).toEqual(row('2001-03-20', 'MEMBER', 1, null, null, null))
+    await expect(
+      countRetentionCohorts(database.client, new Date(NOW.getTime() + DAY_MS))
+    ).resolves.toEqual({ written: 2 })
+    const after = await readRows()
+    expect(after.slice(0, before.length)).toEqual(before)
+    expect(after.slice(before.length)).toEqual([
+      row('2001-03-13', 'GUEST'),
+      row('2001-03-13', 'MEMBER', 1, 1, 0, 1)
+    ])
   })
 })
-
-function row(
-  cohortDate: string,
-  audience: 'MEMBER' | 'GUEST',
-  cohortSize: number,
-  day1Returned: number | null,
-  day7Returned: number | null,
-  week1Returned: number | null
-): CohortRow {
-  return {
-    cohortDate,
-    audience,
-    cohortSize,
-    day1Returned,
-    day7Returned,
-    week1Returned
-  }
-}
