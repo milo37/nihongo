@@ -3,4 +3,5 @@ dist
 coverage
 .agents
 apps/web/public/mockServiceWorker.js
+apps/web/public/naver6dfc30d2bf1e08e72cef554be9f2cf75.html
 pnpm-lock.yaml
