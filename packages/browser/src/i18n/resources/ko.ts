@@ -1056,7 +1056,9 @@ export const koCoreResources = {
       description:
         '로그아웃하면 이 기기에서만 나가요. 회원 탈퇴를 하면 계정과 학습 기록이 지워져요.',
       privacyLink: '개인정보 처리방침 보기'
-    }
+    },
+    homeScreenHint:
+      'Safari 공유 버튼 → 홈 화면에 추가를 누르면 앱처럼 바로 열 수 있어요.'
   },
   errors: {
     forbidden: {

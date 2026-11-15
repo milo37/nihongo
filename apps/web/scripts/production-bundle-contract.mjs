@@ -85,6 +85,13 @@ export const approvedStaticAssetPaths = Object.freeze([
   'icons/icon-512.png'
 ])
 
+// #1045: the home screen service worker is a plain public file, not a Vite
+// chunk; it must sit at the site root to control the whole site.
+export const serviceWorkerPath = 'sw.js'
+
+const isChunkJavaScript = (file) =>
+  file.endsWith('.js') && file !== serviceWorkerPath
+
 export const allowedProductionModulePackages = Object.freeze([
   '@hookform/resolvers',
   '@tanstack/query-core',
@@ -787,7 +794,7 @@ const collectArtifactEvidence = async ({
     }
   }
   const javaScriptRows = payloadFiles.filter(({ path: file }) =>
-    file.endsWith('.js')
+    isChunkJavaScript(file)
   )
   const javaScriptPaths = new Set(javaScriptRows.map(({ path: file }) => file))
   if (
@@ -1245,7 +1252,9 @@ const assertArtifactEvidence = (value, artifact) => {
   ) {
     throw new Error('WEB_BUNDLE_EVIDENCE_INITIAL_GRAPH_INVALID')
   }
-  const javaScriptRows = rows.filter(({ path: file }) => file.endsWith('.js'))
+  const javaScriptRows = rows.filter(({ path: file }) =>
+    isChunkJavaScript(file)
+  )
   if (
     javaScriptRows.length !== outputFiles.size ||
     javaScriptRows.some(({ path: file }) => !outputFiles.has(file))

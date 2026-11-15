@@ -6,6 +6,7 @@ import { Suspense } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
 import {
   act,
+  cleanup,
   fireEvent,
   render,
   screen,
@@ -151,6 +152,23 @@ describe('마이페이지 계정 설정', () => {
       get.mock.calls.filter((call) => String(call[0]).startsWith('/auth/sso'))
     ).toHaveLength(0)
     expect(reads()).toBe(0)
+  })
+  it('iOS Safari에서만 홈 화면에 추가 한 줄을 보여 준다 (#1045)', async () => {
+    const hint =
+      'Safari 공유 버튼 → 홈 화면에 추가를 누르면 앱처럼 바로 열 수 있어요.'
+    renderAccount()
+    await screen.findByRole('heading', {
+      level: 2,
+      name: '푼 기록이 여기에 남아요'
+    })
+    expect(screen.queryByText(hint)).not.toBeInTheDocument()
+    cleanup()
+
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 18_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.1 Mobile/15E148 Safari/604.1'
+    )
+    renderAccount()
+    expect(await screen.findByText(hint)).toBeVisible()
   })
   it('로그인 회원이 새로고침하면 /me 응답 전에는 확인 중만 보이고 로그인 카드를 보이지 않는다', async () => {
     mockDatabase.loginAs('USER')

@@ -5,12 +5,13 @@ import { Avatar } from '@app/account/components/Avatar'
 import { MyStudy } from '@app/account/components/study/MyStudy'
 import { TargetLevelSetting } from '@app/account/components/TargetLevelSetting'
 import { FALLBACK_LEVEL } from '@app/practice/practiceSetupOptions'
+import { HomeScreenHint } from '@app/account/components/HomeScreenHint'
 import { GuestGate } from '@app/login/components/GuestGate'
 import { InformationFooter } from '@nihongo/browser/common/components/InformationFooter'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 
-// My page: profile, target level, study summary, account settings, then
-// terms and help.
+// My page: profile, target level, study summary, account settings, the iOS
+// home screen line, then terms and help.
 export const AccountPage = (): ReactElement => {
   const { t: authT } = useTranslation('auth')
   const { isReady, user } = useAuth()
@@ -27,6 +28,7 @@ export const AccountPage = (): ReactElement => {
     return (
       <>
         <GuestGate screen="account" />
+        <HomeScreenHint />
         <InformationFooter />
       </>
     )
@@ -45,6 +47,7 @@ export const AccountPage = (): ReactElement => {
       {/* JLP-853: the target level's records; no target counts as N5. */}
       <MyStudy level={user.targetLevel ?? FALLBACK_LEVEL} />
       <AccountSettings />
+      <HomeScreenHint />
       <InformationFooter />
     </div>
   )
