@@ -5,6 +5,11 @@ import {
   GUEST_SESSION_QUESTION_LIMIT
 } from '@nihongo/contracts/study/guest-limits'
 import { ApplicationError } from '../errors/applicationError.js'
+import type { StructuredLogger } from '../observability/logger.js'
+import {
+  crossedMemberDailyAlert,
+  MemberSessionCapReachedError
+} from './memberSessionCap.js'
 import {
   GuestCredentialExpiredError,
   GuestDailyLimitReachedError,
@@ -36,7 +41,8 @@ export interface StudySessionService {
 }
 
 const withRepositoryErrors = async <Result>(
-  operation: () => Promise<Result>
+  operation: () => Promise<Result>,
+  now: () => Date = () => new Date()
 ): Promise<Result> => {
   try {
     return await operation()
@@ -63,6 +69,23 @@ const withRepositoryErrors = async <Result>(
         retryable: false
       })
     }
+    if (error instanceof MemberSessionCapReachedError) {
+      const hourly = error.window === 'HOUR'
+      throw new ApplicationError({
+        code: hourly
+          ? 'STUDY_HOURLY_LIMIT_REACHED'
+          : 'STUDY_DAILY_LIMIT_REACHED',
+        message: hourly
+          ? '한 시간에 풀 수 있는 새 세트를 다 풀었어요. 잠시 뒤 다시 풀 수 있어요.'
+          : '오늘 풀 수 있는 새 세트를 다 풀었어요. 내일 또 풀어요.',
+        details: { resetsAt: error.resetsAt.toISOString() },
+        retryAfterSeconds: Math.max(
+          1,
+          Math.ceil((error.resetsAt.getTime() - now().getTime()) / 1_000)
+        ),
+        retryable: false
+      })
+    }
     if (error instanceof StudySessionRepositoryUnavailableError) {
       throw new ApplicationError({
         code: 'SERVICE_UNAVAILABLE',
@@ -77,7 +100,8 @@ const withRepositoryErrors = async <Result>(
 
 export const createStudySessionService = (
   repository: StudySessionRepository,
-  now: () => Date = () => new Date()
+  now: () => Date = () => new Date(),
+  logger?: Pick<StructuredLogger, 'warn'>
 ): StudySessionService => ({
   create: async (input, owner) => {
     // Guests only try short random sessions (#737).
@@ -111,12 +135,28 @@ export const createStudySessionService = (
         owner,
         practiceContractVersion: 2
       })
+      // A busy day is only logged for the operator (#1006).
+      const crossed =
+        created.memberDailyVolume === undefined
+          ? null
+          : crossedMemberDailyAlert(
+              created.memberDailyVolume,
+              created.session.actualCount
+            )
+      if (crossed !== null) {
+        logger?.warn('study.member_daily_volume_high', {
+          crossed,
+          sessionsToday: created.memberDailyVolume!.sessions + 1,
+          questionsToday:
+            created.memberDailyVolume!.questions + created.session.actualCount
+        })
+      }
       return {
         payload: toVersionedStudySessionPayload(created.session),
         practiceContractVersion: 2,
         issuedGuestCredential: created.issuedGuestCredential
       }
-    })
+    }, now)
   },
   get: (sessionId, owner) =>
     withRepositoryErrors(async () => {

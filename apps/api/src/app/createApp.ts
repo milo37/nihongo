@@ -385,6 +385,15 @@ export const createApiErrorHandler =
 
     if (
       operationFailure === null &&
+      (failure.code === 'STUDY_HOURLY_LIMIT_REACHED' ||
+        failure.code === 'STUDY_DAILY_LIMIT_REACHED') &&
+      error instanceof ApplicationError &&
+      error.retryAfterSeconds
+    ) {
+      context.header('Retry-After', String(error.retryAfterSeconds))
+    }
+    if (
+      operationFailure === null &&
       (failure.code === 'RATE_LIMITED' ||
         failure.code === 'SERVICE_UNAVAILABLE')
     ) {

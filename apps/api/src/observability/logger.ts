@@ -13,6 +13,7 @@ type OperationalLogEvent =
   | 'auth.account_erasure.requested'
   | 'auth.account_erasure.cancelled'
   | 'client.error.reported'
+  | 'study.member_daily_volume_high'
 
 interface LogContext {
   readonly [key: string]: unknown
@@ -116,6 +117,15 @@ const contextSchemaByEvent = {
       routeKey: z.string().regex(/^routes\.[A-Za-z]{1,48}$/u),
       clientRequestId: requestIdSchema.optional(),
       statusClass: statusClassSchema.optional()
+    })
+    .strict(),
+  // #1006: a member's busy day, for the operator. No user id here (#669);
+  // the day's StudySession rows show who it was.
+  'study.member_daily_volume_high': z
+    .object({
+      crossed: z.enum(['SESSIONS', 'QUESTIONS']),
+      sessionsToday: z.number().int().min(1),
+      questionsToday: z.number().int().min(1)
     })
     .strict()
 } as const
