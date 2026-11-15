@@ -1,6 +1,6 @@
 #!/bin/bash
 # #1042: one run of the daily return-rate count (retentionCohortCommand.js) from
-# the deployed image. Exit 0 = counts written; 1 = failed.
+# the deployed image. Exit 0 = counts written; 1 = failed or failedDays left.
 # The SSM document carries these lines itself (no cloud-init file), so a change
 # reaches running hosts with apply alone, without replacing user data.
 set -euo pipefail

@@ -77,11 +77,11 @@ aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUT
 
 ## #1042 재방문율 집계
 
-- `harumaru-<env>-retention-cohort` SSM 문서가 배포된 이미지로 `node api/dist/study/retentionCohortCommand.js`를 한 번 돌립니다(다음 날·7일 재방문율 집계). 종료 코드 0이면 집계를 썼고, 1이면 실패입니다. 실패하면 위 계정 삭제·비회원 정리와 같은 실패 알림으로 갑니다.
+- `harumaru-<env>-retention-cohort` SSM 문서가 배포된 이미지로 `node api/dist/study/retentionCohortCommand.js`를 한 번 돌립니다(다음 날·7일 재방문율 집계). 종료 코드 0이면 집계를 모두 썼고, 1이면 실패했거나 집계하지 못한 날(`failedDays`)이 있습니다. 실패하면 위 계정 삭제·비회원 정리와 같은 실패 알림으로 갑니다.
 - 스크립트(`files/retention-cohort.sh`)는 cloud-init 파일이 아니라 SSM 문서 안에 줄 단위로 들어 있습니다. 그래서 apply만으로 켜진 서버에 반영되고, user data가 바뀌지 않아 서버가 재시작되지 않습니다.
 - 이 명령에만 `RETENTION_ENVIRONMENT=PRODUCTION`, `RETENTION_CONFIRM=COUNT_RETENTION_COHORTS`, `PRODUCTION_DATABASE_URL`(SSM)을 환경 변수로 넘기고, DB 로그인은 API의 `DATABASE_URL`(`nihongo_app`)을 씁니다. STAGING도 DB가 PRODUCTION 형태라 같은 값입니다.
 - 예약: `retention_schedule_expression`(Asia/Seoul). PRODUCTION 기본 매일 00:05, STAGING은 하루 창 안의 05:15. 둘 다 비회원 정리(PRODUCTION 매시 30분, STAGING 05:30)보다 먼저 돌아야 합니다(D+8 집계가 정리 전 기록을 읽음). 기본 `DISABLED`이고, **집계 테이블 migration이 들어간 릴리스가 배포된 뒤에** `retention_schedule_enabled = true`로 켭니다.
-- 수동 실행: `aws ssm send-command --document-name harumaru-<env>-retention-cohort --instance-ids <id>`. 출력은 `study.retention_cohort.counted`(`written`) 또는 `study.retention_cohort.failed`.
+- 수동 실행: `aws ssm send-command --document-name harumaru-<env>-retention-cohort --instance-ids <id>`. 출력은 `study.retention_cohort.counted`(`nextDayWritten`, `weekWritten`, `failedDays`) 또는 `study.retention_cohort.failed`.
 
 ## state와 두 스택 (JLP-835)
 
