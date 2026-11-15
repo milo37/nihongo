@@ -370,6 +370,11 @@ const ADDED_SIGN_IN_TABLE = 'UserSignIn'
 const isAddedSignIn = (row: Record<string, unknown>): boolean =>
   row.table === ADDED_SIGN_IN_TABLE
 
+/** #1042: the daily return count table. */
+const ADDED_RETENTION_TABLE = 'RetentionCohort'
+const isAddedRetention = (row: Record<string, unknown>): boolean =>
+  row.table === ADDED_RETENTION_TABLE
+
 /** #675: the retired email Verification table, its enum and its guard. */
 const RETIRED_VERIFICATION_TABLE = 'Verification'
 const RETIRED_VERIFICATION_TYPE = 'AuthVerificationPurpose'
@@ -435,6 +440,7 @@ export const withoutForwardChanges = (
       name !== DROPPED_TABLE &&
       name !== ADDED_TABLE &&
       name !== ADDED_SIGN_IN_TABLE &&
+      name !== ADDED_RETENTION_TABLE &&
       name !== RETIRED_VERIFICATION_TABLE
   ),
   columns: catalog.columns
@@ -448,6 +454,7 @@ export const withoutForwardChanges = (
         ) &&
         !(row.table === 'Tag' && ADDED_TAG_COLUMNS.has(String(row.name))) &&
         !isAddedSignIn(row) &&
+        !isAddedRetention(row) &&
         !isRetiredVerification(row)
     )
     .map(withBaselineTargetLevelAcl),
@@ -459,6 +466,7 @@ export const withoutForwardChanges = (
         row.name !== GRACE_ADDED_CHECK &&
         row.table !== ADDED_TABLE &&
         !isAddedSignIn(row) &&
+        !isAddedRetention(row) &&
         !isRetiredVerification(row)
     )
     .map(withBaselineProofBound)
@@ -469,6 +477,7 @@ export const withoutForwardChanges = (
       !isAddedTagObject(row) &&
       row.table !== ADDED_TABLE &&
       !isAddedSignIn(row) &&
+      !isAddedRetention(row) &&
       !isRetiredVerification(row)
   ),
   triggers: catalog.triggers.filter(
