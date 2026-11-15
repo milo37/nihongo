@@ -188,6 +188,7 @@ const expectRows = (
 }
 
 let guestReturnSessionId = ''
+let guestFirstSessionId = ''
 let broughtSessionId = ''
 let broughtUserId = ''
 
@@ -211,7 +212,10 @@ beforeAll(async () => {
   await startSet({ userId: m4 }, '2001-03-13T03:00:00.000Z')
   await startSet({ userId: m4 }, '2001-03-14T03:00:00.000Z')
   const g1 = await createGuest(new Date('2001-03-10T03:00:00.000Z'))
-  await startSet({ guestPrincipalId: g1 }, '2001-03-10T03:00:00.000Z')
+  guestFirstSessionId = await startSet(
+    { guestPrincipalId: g1 },
+    '2001-03-10T03:00:00.000Z'
+  )
   guestReturnSessionId = await startSet(
     { guestPrincipalId: g1 },
     '2001-03-11T03:00:00.000Z'
@@ -283,6 +287,11 @@ describe('#1042 daily retention count', () => {
 
   it('reads each step at one moment when a guest result moves to a member', async () => {
     // Sign-in brings the last guest result, as guestResultImport does.
+    // The guest cleanup removes a guest's first-day set 7 days after it
+    // expires; the guest stays in its first cohort, not a later one.
+    await fixtureDatabase.client.studySession.delete({
+      where: { id: guestFirstSessionId }
+    })
     await fixtureDatabase.client.studySession.update({
       where: { id: broughtSessionId },
       data: { userId: broughtUserId, guestPrincipalId: null }

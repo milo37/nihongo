@@ -26,7 +26,10 @@ const koreaDay = (at: Date, daysBefore = 0): string =>
  * One reading of the sets for one cohort day: per audience, the people whose
  * first set started that day and how many started a set again on the next
  * day, on day 7 and on any day 1 to 7. Sets of `before` and later are left
- * out. A guest result brought in at sign-in counts for the member.
+ * out. A member's first day is its earliest set; a guest's is the day its
+ * guest record was made, which is its first set and outlives the 7-day
+ * deletion of its sets, so an old guest never looks new. A guest result
+ * brought in at sign-in counts for the member.
  */
 const cohortReading = (cohortDate: string, before: string) => Prisma.sql`
   WITH visits AS (
@@ -39,8 +42,11 @@ const cohortReading = (cohortDate: string, before: string) => Prisma.sql`
       AND ${KOREA_DAY} < ${before}::date
   ),
   cohort AS (
-    SELECT audience, who FROM visits GROUP BY audience, who
-    HAVING min(day) = ${cohortDate}::date
+    SELECT audience, who FROM visits WHERE audience = 'MEMBER'
+    GROUP BY audience, who HAVING min(day) = ${cohortDate}::date
+    UNION ALL
+    SELECT 'GUEST', g."id" FROM "GuestPrincipal" g
+    WHERE (g."createdAt" AT TIME ZONE 'Asia/Seoul')::date = ${cohortDate}::date
   )
   SELECT a.audience,
     count(c.who)::int AS size,
