@@ -277,9 +277,9 @@ variable "retention_schedule_enabled" {
 }
 
 variable "retention_schedule_expression" {
-  description = "Asia/Seoul. PRODUCTION 00:30 daily; STAGING uses its daily window."
+  description = "Asia/Seoul. PRODUCTION 00:05 daily, before the minute-30 guest cleanup; STAGING 05:15 in its window."
   type        = string
-  default     = "cron(30 0 * * ? *)"
+  default     = "cron(5 0 * * ? *)"
 }
 
 variable "compose_version" {
