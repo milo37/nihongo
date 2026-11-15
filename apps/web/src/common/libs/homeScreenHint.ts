@@ -1,13 +1,5 @@
-// #1045: add to home screen. The service worker has no fetch handler (see
-// public/sw.js), so registering it caches nothing. Only production builds
-// register it: dev and test builds run the mock API worker at the same scope.
-export const registerHomeScreenWorker = (): void => {
-  if (!__NIHONGO_PRODUCTION_BUILD__ || !('serviceWorker' in navigator)) return
-  // A failed registration only loses home screen install; the page still works.
-  navigator.serviceWorker
-    .register('/sw.js', { scope: '/', updateViaCache: 'none' })
-    .catch(() => undefined)
-}
+// #1045: which browsers see the iOS home screen line on the My page. Only
+// the My page imports this, so it stays in that page's lazy chunk.
 
 const IOS_DEVICE = /iPhone|iPad|iPod/u
 // Chrome, Firefox, Edge and in-app browsers on iOS cannot add to the home

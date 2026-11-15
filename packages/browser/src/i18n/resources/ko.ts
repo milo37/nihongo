@@ -1058,7 +1058,7 @@ export const koCoreResources = {
       privacyLink: '개인정보 처리방침 보기'
     },
     homeScreenHint:
-      'Safari 공유 버튼 → 홈 화면에 추가를 누르면 앱처럼 바로 열 수 있어요.'
+      'Safari 공유 버튼 → ‘홈 화면에 추가’를 누르면 앱처럼 바로 열 수 있어요.'
   },
   errors: {
     forbidden: {

@@ -155,7 +155,7 @@ describe('마이페이지 계정 설정', () => {
   })
   it('iOS Safari에서만 홈 화면에 추가 한 줄을 보여 준다 (#1045)', async () => {
     const hint =
-      'Safari 공유 버튼 → 홈 화면에 추가를 누르면 앱처럼 바로 열 수 있어요.'
+      'Safari 공유 버튼 → ‘홈 화면에 추가’를 누르면 앱처럼 바로 열 수 있어요.'
     renderAccount()
     await screen.findByRole('heading', {
       level: 2,

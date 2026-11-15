@@ -8,7 +8,7 @@ import {
 } from '@nihongo/browser/observability/frontendErrorReporter'
 import { getRouteLabelKey } from '@nihongo/browser/i18n/routePresentation'
 import { AppProvider } from '@provider/index'
-import { registerHomeScreenWorker } from '@common/libs/homeScreen'
+import { registerHomeScreenWorker } from '@common/libs/homeScreenWorker'
 import '@/styles.css'
 // Route styles ride in the main stylesheet: the bundle contract takes no CSS
 // file for a lazy route, and the CSP (style-src 'self') blocks inline <style>.
