@@ -1050,13 +1050,14 @@ model UserAccountRestrictionEvent {
 /// the member. A member without a row counts from the User creation time.
 /// #1042: daily return counts by Korea-time first-set day; numbers only.
 model RetentionCohort {
-  cohortDate    DateTime @db.Date
-  audience      String
-  cohortSize    Int
-  day1Returned  Int
-  day7Returned  Int
-  week1Returned Int
-  createdAt     DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  cohortDate     DateTime @db.Date
+  audience       String
+  cohortSize     Int
+  day1Returned   Int
+  weekCohortSize Int?
+  day7Returned   Int?
+  week1Returned  Int?
+  createdAt      DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
 
   @@id([cohortDate, audience])
 }

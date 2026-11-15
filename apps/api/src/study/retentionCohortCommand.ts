@@ -8,7 +8,10 @@ import {
   assertSafeDevelopmentDatabase,
   assertSafeTestDatabase
 } from '../db/databaseTargetGuard.js'
-import { countRetentionCohorts } from './retentionCohort.js'
+import {
+  countRetentionCohorts,
+  type RetentionCountResult
+} from './retentionCohort.js'
 
 export const parseRetentionCohortCommandInput = (source: NodeJS.ProcessEnv) => {
   const input = z
@@ -37,7 +40,7 @@ export const parseRetentionCohortCommandInput = (source: NodeJS.ProcessEnv) => {
   return input
 }
 
-/** #1042: one daily run; exit code 0 when the counts are written. */
+/** #1042: one daily run; exit code 1 when any cohort day failed. */
 export const runRetentionCohortCommand = async (
   source: NodeJS.ProcessEnv,
   now: () => Date = () => new Date()
@@ -48,17 +51,17 @@ export const runRetentionCohortCommand = async (
       migrationProfile: 'current',
       startupRole: 'nihongo_app'
     })
-    let written: number
+    let result: RetentionCountResult
     try {
       await database.checkReadiness()
-      ;({ written } = await countRetentionCohorts(database.client, now()))
+      result = await countRetentionCohorts(database.client, now())
     } finally {
       await database.disconnect()
     }
     process.stdout.write(
-      `${JSON.stringify({ event: 'study.retention_cohort.counted', written })}\n`
+      `${JSON.stringify({ event: 'study.retention_cohort.counted', ...result })}\n`
     )
-    return 0
+    return result.failedDays.length > 0 ? 1 : 0
   } catch {
     process.stderr.write(
       `${JSON.stringify({ event: 'study.retention_cohort.failed' })}\n`
