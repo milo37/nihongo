@@ -35,6 +35,11 @@ import { GUEST_COOKIE_NAME } from '../routes/principal.js'
 import { createPrismaGuestAllowanceReader } from './guestAllowance.js'
 import { startOfGuestDay } from './guestDay.js'
 import {
+  MEMBER_DAILY_RANDOM_SESSION_LIMIT,
+  MEMBER_HOURLY_RANDOM_SESSION_LIMIT,
+  MemberSessionCapReachedError
+} from './memberSessionCap.js'
+import {
   createPrismaStudySessionRepository,
   GuestDailyLimitReachedError
 } from './studySessionRepository.js'
@@ -1401,6 +1406,65 @@ describe('StudySession PostgreSQL vertical slice', () => {
         guest: { ...owner, tokenDigest: 'f'.repeat(64) }
       })
     ).resolves.toMatchObject({ remaining: GUEST_DAILY_SESSION_LIMIT })
+  })
+
+  it('회원 무작위 세트는 최근 60분 20개·한국 하루 60개까지, 동시 시작도 하나씩 센다 (#1006)', async () => {
+    const userId = await createFixtureUser('session-cap')
+    const owner = { kind: 'USER' as const, userId }
+    const minute = 60 * 1_000
+    const base = new Date(startOfGuestDay(new Date()).getTime() + 120 * minute)
+    const start = (startedAt: Date) =>
+      repository.createRandom({
+        owner,
+        level: 'N5',
+        subject: 'VOCABULARY',
+        requestedCount: 1,
+        practiceContractVersion: 2,
+        startedAt,
+        expiresAt: new Date(startedAt.getTime() + 24 * 60 * minute)
+      })
+    const at = (minutes: number, index = 0) =>
+      new Date(base.getTime() + minutes * minute + index)
+
+    for (
+      let index = 0;
+      index < MEMBER_HOURLY_RANDOM_SESSION_LIMIT - 1;
+      index += 1
+    )
+      await start(at(0, index))
+    const results = await Promise.allSettled([start(at(1)), start(at(1))])
+    expect(results.filter(({ status }) => status === 'fulfilled')).toHaveLength(
+      1
+    )
+    const rejected = results.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected'
+    )
+    expect(rejected?.reason).toMatchObject({
+      window: 'HOUR',
+      resetsAt: at(60)
+    })
+    // The oldest set leaves the last 60 minutes at base + 60 minutes.
+    await expect(start(at(59, 999))).rejects.toBeInstanceOf(
+      MemberSessionCapReachedError
+    )
+
+    // 20 sets so far; two more hours of 19 and one of 2 make 60 today.
+    for (let index = 0; index < 19; index += 1) await start(at(61, index))
+    for (let index = 0; index < 19; index += 1) await start(at(122, index))
+    for (let index = 0; index < 2; index += 1) await start(at(183, index))
+    const day = await start(at(184)).then(
+      () => null,
+      (error: unknown) => error
+    )
+    expect(day).toMatchObject({
+      window: 'DAY',
+      resetsAt: new Date(startOfGuestDay(base).getTime() + 24 * 60 * minute)
+    })
+    expect(
+      await database.client.studySession.count({
+        where: { userId, mode: 'RANDOM' }
+      })
+    ).toBe(MEMBER_DAILY_RANDOM_SESSION_LIMIT)
   })
 
   it('owner scoped GET에서 만료 상태를 영속하고 foreign user는 404다', async () => {

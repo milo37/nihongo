@@ -9,6 +9,8 @@ export const stableErrorCodeSchema = z.enum([
   'REAUTHENTICATION_FAILED',
   'GUEST_SESSION_EXPIRED',
   'GUEST_LIMIT_REACHED',
+  'STUDY_HOURLY_LIMIT_REACHED',
+  'STUDY_DAILY_LIMIT_REACHED',
   'INVALID_CSRF',
   'UNTRUSTED_ORIGIN',
   'FORBIDDEN',
@@ -59,6 +61,8 @@ export const errorStatusByCode = {
   REAUTHENTICATION_FAILED: 401,
   GUEST_SESSION_EXPIRED: 401,
   GUEST_LIMIT_REACHED: 403,
+  STUDY_HOURLY_LIMIT_REACHED: 429,
+  STUDY_DAILY_LIMIT_REACHED: 429,
   INVALID_CSRF: 403,
   UNTRUSTED_ORIGIN: 403,
   FORBIDDEN: 403,
@@ -106,9 +110,17 @@ const fieldErrorsSchema = z.record(
 )
 
 /**
- * Only on GUEST_LIMIT_REACHED, and always there: when the guest can start
- * again (next KST midnight, the same value as guest-allowance `resetsAt`).
+ * Only on the limit codes below, and always there: when a new set can start
+ * again. GUEST_LIMIT_REACHED and STUDY_DAILY_LIMIT_REACHED: the next KST
+ * midnight (for guests the same value as guest-allowance `resetsAt`).
+ * STUDY_HOURLY_LIMIT_REACHED: one hour after the oldest set of the last hour.
  */
+const LIMIT_CODES: ReadonlySet<string> = new Set([
+  'GUEST_LIMIT_REACHED',
+  'STUDY_HOURLY_LIMIT_REACHED',
+  'STUDY_DAILY_LIMIT_REACHED'
+])
+
 export const guestLimitDetailsSchema = z
   .object({ resetsAt: isoDateTimeSchema })
   .strict()
@@ -130,14 +142,14 @@ export const createApiFailureSchema = <CodeSchema extends ZodType<string>>(
     .strict()
     .superRefine((failure, context) => {
       const { code, details } = failure as { code: string; details?: unknown }
-      const isGuestLimit = code === 'GUEST_LIMIT_REACHED'
-      if (isGuestLimit !== (details !== undefined)) {
+      const isLimit = LIMIT_CODES.has(code)
+      if (isLimit !== (details !== undefined)) {
         context.addIssue({
           code: 'custom',
           path: ['details'],
-          message: isGuestLimit
-            ? 'GUEST_LIMIT_REACHED에는 details.resetsAt이 필요합니다.'
-            : 'details는 GUEST_LIMIT_REACHED에만 씁니다.'
+          message: isLimit
+            ? `${code}에는 details.resetsAt이 필요합니다.`
+            : 'details는 한도 오류에만 씁니다.'
         })
       }
     })

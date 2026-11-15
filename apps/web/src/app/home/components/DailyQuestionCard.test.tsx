@@ -12,13 +12,16 @@ import { DailyQuestionCard } from '@app/home/components/DailyQuestionCard'
 import { dailyWriteIn } from '@app/home/dailyWriteIn'
 import { dailyQuestionQueries } from '@app/home/queries/dailyQuestionQueries'
 
+// #1036: the mock picks today's question by the Korean date, and some fit
+// one sheet or none. Every test starts from one question that fits both
+// sheets, so the expectations hold on any day.
+const PINNED_QUESTION = 'きょうはいいてんきですね'
+
+let client: QueryClient
+
 const renderCard = () =>
   render(
-    <QueryClientProvider
-      client={
-        new QueryClient({ defaultOptions: { queries: { retry: false } } })
-      }
-    >
+    <QueryClientProvider client={client}>
       <DailyQuestionCard level="N5" />
     </QueryClientProvider>
   )
@@ -34,6 +37,13 @@ const sheets = (daily: HTMLElement) =>
 
 beforeEach(async () => {
   await appI18n.changeLanguage('ko')
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  const options = dailyQuestionQueries.get('N5')
+  const data = await client.fetchQuery(options)
+  client.setQueryData(options.queryKey, {
+    ...data,
+    question: { ...data.question, questionText: PINNED_QUESTION }
+  })
   dailyWriteIn.resetForTesting()
   cachedStorage.removeItem('harumaru:daily-answer:v1')
 })
@@ -41,7 +51,7 @@ beforeEach(async () => {
 it('writes the question in on the first load and shows it whole on a press (#997)', async () => {
   renderCard()
   const daily = await findDaily()
-  expect(sheets(daily).length).toBeGreaterThan(0)
+  expect(sheets(daily)).toHaveLength(2)
   for (const sheet of sheets(daily)) {
     expect(sheet).toHaveClass('home-daily-write')
     const chars = Array.from(sheet.querySelectorAll('.home-daily-char'))
@@ -81,16 +91,6 @@ it('stays still when home opens again in the same page load (#997)', async () =>
 })
 
 it('shows a question that fits only the wide sheet once on screen (#1036)', async () => {
-  const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } }
-  })
-  const first = render(
-    <QueryClientProvider client={client}>
-      <DailyQuestionCard level="N5" />
-    </QueryClientProvider>
-  )
-  await findDaily()
-  first.unmount()
   // 40 squares: three rows of 15 fit, three rows of 12 do not.
   const key = dailyQuestionQueries.get('N5').queryKey
   const data = client.getQueryData(key)!
@@ -98,11 +98,7 @@ it('shows a question that fits only the wide sheet once on screen (#1036)', asyn
     ...data,
     question: { ...data.question, questionText: 'あ'.repeat(40) }
   })
-  render(
-    <QueryClientProvider client={client}>
-      <DailyQuestionCard level="N5" />
-    </QueryClientProvider>
-  )
+  renderCard()
   const daily = await findDaily()
   expect(daily.querySelector('.home-daily-sheet-wide')).not.toBeNull()
   expect(daily.querySelector('.home-daily-sheet-narrow')).toBeNull()

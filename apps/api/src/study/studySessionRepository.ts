@@ -16,6 +16,10 @@ import {
 } from '../generated/prisma/client.js'
 import type { PreparedGuestCredential } from '../auth/guestPrincipalService.js'
 import { nextGuestDayStart, startOfGuestDay } from './guestDay.js'
+import {
+  assertMemberSessionCap,
+  type MemberDailyVolume
+} from './memberSessionCap.js'
 import type {
   PublishedQuestionDetailRecord,
   QuestionOptionRecord,
@@ -102,6 +106,8 @@ export interface StudySessionRepository {
   create: (input: CreateStudySessionInput) => Promise<{
     session: StudySessionRecord
     issuedGuestCredential: PreparedGuestCredential | null
+    /** A member's random sets today before this one (#1006). */
+    memberDailyVolume?: MemberDailyVolume
   }>
   createRandom: (input: CreateRandomStudySessionInput) => Promise<{
     session: StudySessionRecord
@@ -889,6 +895,14 @@ export const createPrismaStudySessionRepository = (
                   input.startedAt
                 )
               }
+              const memberDailyVolume =
+                input.owner.kind === 'USER' && input.mode === 'RANDOM'
+                  ? await assertMemberSessionCap(
+                      transaction,
+                      input.owner.userId,
+                      input.startedAt
+                    )
+                  : undefined
               const selectionOwner = toSelectionOwner(input, existingGuest)
               const selected = await selectStudyQuestions(
                 transaction,
@@ -1057,7 +1071,11 @@ export const createPrismaStudySessionRepository = (
                   'Created StudySession could not be projected.'
                 )
               }
-              return { session: created, issuedGuestCredential }
+              return {
+                session: created,
+                issuedGuestCredential,
+                ...(memberDailyVolume ? { memberDailyVolume } : {})
+              }
             },
             { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
           )
