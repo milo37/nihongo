@@ -90,6 +90,28 @@ resource "aws_ssm_document" "guest_cleanup" {
   })
 }
 
+# #1042 daily return-rate count (files/retention-cohort.sh). The document carries
+# the script lines itself, so running hosts get it with apply alone (no user data
+# change, no restart). DISABLED until retention_schedule_enabled is set, after
+# the release with its migration is deployed.
+resource "aws_ssm_document" "retention_cohort" {
+  name            = "${local.name}-retention-cohort"
+  document_type   = "Command"
+  document_format = "JSON"
+  content = jsonencode({
+    schemaVersion = "2.2"
+    description   = "Count next-day and 7-day return rates once."
+    mainSteps = [{
+      action = "aws:runShellScript"
+      name   = "count"
+      inputs = {
+        timeoutSeconds = "300"
+        runCommand     = split("\n", trimspace(file("${path.module}/files/retention-cohort.sh")))
+      }
+    }]
+  })
+}
+
 data "aws_iam_policy_document" "scheduler_assume" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -117,6 +139,7 @@ data "aws_iam_policy_document" "erasure_scheduler" {
       aws_instance.host.arn,
       aws_ssm_document.erase_deletion_pending.arn,
       aws_ssm_document.guest_cleanup.arn,
+      aws_ssm_document.retention_cohort.arn,
     ]
   }
 }
@@ -166,6 +189,30 @@ resource "aws_scheduler_schedule" "guest_cleanup" {
     role_arn = aws_iam_role.erasure_scheduler.arn
     input = jsonencode({
       DocumentName = aws_ssm_document.guest_cleanup.name
+      InstanceIds  = [aws_instance.host.id]
+    })
+
+    retry_policy {
+      maximum_retry_attempts = 0
+    }
+  }
+}
+
+resource "aws_scheduler_schedule" "retention_cohort" {
+  name                         = "${local.name}-retention-cohort"
+  state                        = var.retention_schedule_enabled ? "ENABLED" : "DISABLED"
+  schedule_expression          = var.retention_schedule_expression
+  schedule_expression_timezone = "Asia/Seoul"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  target {
+    arn      = "arn:${data.aws_partition.current.partition}:scheduler:::aws-sdk:ssm:sendCommand"
+    role_arn = aws_iam_role.erasure_scheduler.arn
+    input = jsonencode({
+      DocumentName = aws_ssm_document.retention_cohort.name
       InstanceIds  = [aws_instance.host.id]
     })
 

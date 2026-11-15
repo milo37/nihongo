@@ -16,6 +16,7 @@ alert_email            = "owner@example.com"
 # host_start_schedule_expression    = "cron(40 4 * * ? *)"
 # erasure_schedule_expression       = "cron(0 5 * * ? *)"
 # guest_cleanup_schedule_expression = "cron(30 5 * * ? *)"
+# retention_schedule_expression     = "cron(40 5 * * ? *)"
 # host_stop_schedule_expression     = "cron(50 5 * * ? *)"
 # deploy_role_can_start_host        = true
 # host_kept_stopped                 = true
