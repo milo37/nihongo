@@ -908,6 +908,43 @@ describe('approved general result navigation', () => {
     member.client.clear()
   })
 
+  it('다음 10문제가 세트 상한에 걸리면 그 자리에 상한 안내를 보여 준다 (#1006)', async () => {
+    const member = await createFixture()
+    const { router, view } = member.mount()
+    mockServer.use(
+      http.post('*/api/v1/study-sessions', () =>
+        HttpResponse.json(
+          {
+            code: 'STUDY_DAILY_LIMIT_REACHED',
+            message: 'synthetic',
+            details: {
+              resetsAt: new Date(Date.now() + 3_600_000).toISOString()
+            },
+            requestId: crypto.randomUUID(),
+            retryable: false
+          },
+          { status: 429 }
+        )
+      )
+    )
+    const resultPath = router.state.location.pathname
+    await userEvent
+      .setup()
+      .click(await screen.findByRole('button', { name: '다음 10문제' }))
+    const notice = await screen.findByRole('alert')
+    const title = within(notice).getByText('오늘은 여기까지 풀었어요')
+    expect(within(notice).getByRole('link', { name: '오답노트' })).toBeVisible()
+    // It appears under the pressed button; focus moves to its title.
+    await waitFor(() => expect(title).toHaveFocus())
+    expect(
+      screen.queryByText('학습을 시작하지 못했어요', { exact: false })
+    ).toBeNull()
+    expect(screen.getByRole('button', { name: '다음 10문제' })).toBeVisible()
+    expect(router.state.location.pathname).toBe(resultPath)
+    view.unmount()
+    member.client.clear()
+  })
+
   it('게스트 다음에 할 일도 다음 N문제(주)와 다시 풀기(테두리) 두 개뿐이다 (B4 §11)', async () => {
     const guest = await createFixture({ role: 'GUEST', mixed: false })
     const guestView = guest.mount()
