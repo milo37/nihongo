@@ -5,16 +5,17 @@ import {
 import type { PublicQuestionSummary } from '@nihongo/contracts/question/list-questions'
 import type {
   PublishedQuestionDetailRecord,
-  PublishedQuestionSummaryRecord
+  PublishedQuestionSummaryRecord,
+  QuestionTagRecord
 } from './questionRepository.js'
 
 const QUESTION_PREVIEW_MAX_LENGTH = 160
 
 const toSortedPublicTags = (
-  tags: readonly { readonly id: string; readonly label: string }[]
-): Array<{ id: string; label: string }> =>
+  tags: readonly QuestionTagRecord[]
+): QuestionTagRecord[] =>
   tags
-    .map(({ id, label }) => ({ id, label }))
+    .map(({ id, label, labelJa }) => ({ id, label, labelJa }))
     .toSorted(comparePublicQuestionTags)
 
 const createQuestionTextPreview = (questionText: string): string => {

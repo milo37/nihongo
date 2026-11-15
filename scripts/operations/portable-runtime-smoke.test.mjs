@@ -291,6 +291,34 @@ test('learner compatibility question validation is exact and privacy-safe', () =
   )
 })
 
+test('learner compatibility tags accept an optional Japanese name', () => {
+  const question = questionSummary()
+  for (const labelJa of ['名詞', null]) {
+    assert.doesNotThrow(() =>
+      validateLearnerQuestionSummary(
+        {
+          ...question,
+          tags: question.tags.map((tag) => ({ ...tag, labelJa }))
+        },
+        fixture
+      )
+    )
+  }
+  for (const labelJa of ['', '  ', 1]) {
+    assert.throws(
+      () =>
+        validateLearnerQuestionSummary(
+          {
+            ...question,
+            tags: question.tags.map((tag) => ({ ...tag, labelJa }))
+          },
+          fixture
+        ),
+      /contract is invalid/u
+    )
+  }
+})
+
 test('learner compatibility bookmark validation requires an exact canonical response', () => {
   const question = questionSummary()
   const bookmark = {
