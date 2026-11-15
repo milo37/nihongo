@@ -126,6 +126,7 @@ export const ResultActions = ({
           mode="RANDOM"
           noEligibleQuestions={nextSet.noEligibleQuestions}
           onSelectRandom={nextSet.start}
+          sessionCap={nextSet.sessionCap}
         />
       </div>
     </section>

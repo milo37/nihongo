@@ -10,6 +10,7 @@ import { GUEST_SESSION_QUESTION_LIMIT } from '@nihongo/contracts/study/guest-lim
 import { useAppStore } from '@nihongo/browser/store/index'
 import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
 import {
+  getSessionCap,
   isAccountRestrictedApiError,
   isGuestLimitReachedApiError,
   isNoEligibleQuestionsApiError
@@ -20,7 +21,7 @@ import {
  * the same level and subject. If the server refuses, the reason shows
  * right under the button (no questions left, account restricted, failure);
  * a guest's daily limit opens the setup screen, whose card says when the
- * tries come back.
+ * tries come back. A member's set cap (#1006) is said in the same place.
  */
 export const useStartNextSet = (
   session: StudySessionView['session'],
@@ -63,15 +64,18 @@ export const useStartNextSet = (
     )
   }
   const error = createSession.isError ? createSession.error : null
+  const sessionCap = error === null ? null : getSessionCap(error)
   return {
     accountRestricted: error !== null && isAccountRestrictedApiError(error),
     noEligibleQuestions: error !== null && isNoEligibleQuestionsApiError(error),
     hasCreateError:
       error !== null &&
       !isGuestLimitReachedApiError(error) &&
+      !sessionCap &&
       !isAuthTransitionSupersededError(error),
     count,
     isStarting: createSession.isPending || createSession.isPaused,
+    sessionCap,
     start
   }
 }

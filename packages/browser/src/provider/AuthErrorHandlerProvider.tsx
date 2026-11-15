@@ -181,7 +181,12 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
       }
 
       // A guest's daily limit: practice setup shows its own sign-in card.
-      if (error.code === 'GUEST_LIMIT_REACHED') {
+      // A member's set cap (#1006): the same place shows its own card.
+      if (
+        error.code === 'GUEST_LIMIT_REACHED' ||
+        error.code === 'STUDY_HOURLY_LIMIT_REACHED' ||
+        error.code === 'STUDY_DAILY_LIMIT_REACHED'
+      ) {
         return
       }
 
