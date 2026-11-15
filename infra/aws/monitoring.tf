@@ -134,19 +134,21 @@ resource "aws_cloudwatch_metric_alarm" "backup_missing" {
   alarm_actions       = [aws_sns_topic.alerts.arn]
 }
 
-# JLP-843: tell someone when a scheduled erasure or guest cleanup run does not
-# succeed. Run Command reports each run as an invocation event; anything that is
-# not still running and not Success goes to the alerts topic.
+# JLP-843: tell someone when a scheduled erasure, guest cleanup or return-rate
+# count (#1042) run does not succeed. Run Command reports each run as an
+# invocation event; anything that is not still running and not Success goes to
+# the alerts topic.
 locals {
   scheduled_job_documents = [
     aws_ssm_document.erase_deletion_pending.name,
     aws_ssm_document.guest_cleanup.name,
+    aws_ssm_document.retention_cohort.name,
   ]
 }
 
 resource "aws_cloudwatch_event_rule" "scheduled_job_failed" {
   name        = "${local.name}-scheduled-job-failed"
-  description = "Account erasure or guest cleanup run ended without Success."
+  description = "Account erasure, guest cleanup or return-rate count run ended without Success."
   event_pattern = jsonencode({
     source        = ["aws.ssm"]
     "detail-type" = ["EC2 Command Invocation Status-change Notification"]

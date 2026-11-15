@@ -4,7 +4,7 @@
 # - render-env.sh writes the migrate container's runtime/production URLs without
 #   passwords, leaves api.env intact, refuses missing Google OAuth values and
 #   writes the legal contact file (empty without its optional values);
-# - provision-db.sh, erase-deletion-pending.sh and guest-cleanup.sh treat SSM values as data, so
+# - provision-db.sh, erase-deletion-pending.sh, guest-cleanup.sh and retention-cohort.sh treat SSM values as data, so
 #   $(...) and `...` are never run, and unknown keys are refused;
 # - render-origin-env.sh (PRODUCTION, #40) writes the Cloudflare token literally
 #   and refuses an empty value or one with whitespace.
@@ -27,6 +27,7 @@ copy render-env.sh
 copy provision-db.sh
 copy erase-deletion-pending.sh
 copy guest-cleanup.sh
+copy retention-cohort.sh
 copy render-origin-env.sh
 printf 'AWS_REGION=x\nPARAM_PATH=/p\n' > "$work/etc/host.env"
 printf 'DEPLOYMENT_ENVIRONMENT=PRODUCTION\n' > "$work/etc/public.env"
@@ -42,6 +43,7 @@ cat > "$work/stub-docker" <<EOF
 #!/bin/bash
 printf '%s\n' "\$PRODUCTION_DATABASE_URL" > "$work/docker-saw"
 printf '%s\n' "\$GUEST_CLEANUP_ENVIRONMENT \$GUEST_CLEANUP_DRY_RUN \$GUEST_CLEANUP_CONFIRM" > "$work/docker-env"
+printf '%s\n' "\$RETENTION_ENVIRONMENT \$RETENTION_CONFIRM \${@: -1}" > "$work/docker-retention"
 exit 0
 EOF
 mkdir -p "$work/path"
@@ -151,6 +153,17 @@ rm -f "$work/docker-saw"
 [[ "$(cat "$work/docker-env")" == "PRODUCTION false CLEANUP_EXPIRED_GUEST_DATA" ]] \
   || { echo "guest cleanup settings changed: $(cat "$work/docker-env")" >&2; exit 1; }
 echo "ok guest-cleanup: SSM URL passed through literally, not a dry run"
+
+# 4b. retention-cohort.sh (#1042): the same URL reaches docker literally, with the
+# run settings; the SSM document embeds its lines, so none may hold "{{".
+rm -f "$work/docker-saw"
+"$work/bin/retention-cohort.sh"
+[[ ! -e "$marker" ]] || { echo "retention count ran an SSM value as shell code" >&2; exit 1; }
+[[ "$(cat "$work/docker-saw")" == "$url" ]] || { echo "retention count changed the URL" >&2; exit 1; }
+[[ "$(cat "$work/docker-retention")" == "PRODUCTION COUNT_RETENTION_COHORTS api/dist/study/retentionCohortCommand.js" ]] \
+  || { echo "retention count settings changed: $(cat "$work/docker-retention")" >&2; exit 1; }
+! grep -q '{{' files/retention-cohort.sh || { echo "retention-cohort.sh holds {{ (SSM parameter syntax)" >&2; exit 1; }
+echo "ok retention-cohort: SSM URL passed through literally, confirm set"
 
 # 5. render-origin-env.sh: the Cloudflare token reaches origin.env literally.
 token='cf_$(id)_`id`_token'

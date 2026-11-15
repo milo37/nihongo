@@ -15,6 +15,7 @@ alert_email            = "owner@example.com"
 # STAGING kept stopped between uses (owner decision): one daily window 04:40-05:50 JST.
 # host_start_schedule_expression    = "cron(40 4 * * ? *)"
 # erasure_schedule_expression       = "cron(0 5 * * ? *)"
+# retention_schedule_expression     = "cron(15 5 * * ? *)"
 # guest_cleanup_schedule_expression = "cron(30 5 * * ? *)"
 # host_stop_schedule_expression     = "cron(50 5 * * ? *)"
 # deploy_role_can_start_host        = true
