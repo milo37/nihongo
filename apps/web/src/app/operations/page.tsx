@@ -15,8 +15,12 @@ type OperationsInformationPageProps = {
 }
 
 // Circled numbers start the clauses of one article; each gets its own line.
+// A number followed by a particle ('제3조 ⑦과 같음', '⑤と同様に') points
+// at another clause mid-sentence, so it stays in its paragraph.
 const splitClauses = (body: string): string[] =>
-  body.split(/(?=[①-⑳])/).map((clause) => clause.trim())
+  body
+    .split(/(?=[①-⑳](?![과와의에을를とのにを]))/u)
+    .map((clause) => clause.trim())
 
 export const OperationsInformationPage = ({
   page,
