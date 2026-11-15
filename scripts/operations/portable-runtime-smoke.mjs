@@ -786,8 +786,23 @@ export const validateLearnerQuestionSummary = (question, fixture) => {
   ) {
     throw new Error('Learner compatibility question contract is invalid.')
   }
-  for (const tag of question.tags)
-    assertExactKeys(tag, ['id', 'label'], 'Learner compatibility tag')
+  for (const tag of question.tags) {
+    // labelJa (#1059) is optional: a Japanese tag name or null.
+    assertExactKeys(
+      tag,
+      Object.hasOwn(tag ?? {}, 'labelJa')
+        ? ['id', 'label', 'labelJa']
+        : ['id', 'label'],
+      'Learner compatibility tag'
+    )
+    if (
+      tag.labelJa !== undefined &&
+      tag.labelJa !== null &&
+      (typeof tag.labelJa !== 'string' || !tag.labelJa.trim())
+    ) {
+      throw new Error('Learner compatibility question contract is invalid.')
+    }
+  }
   const sortedTags = (tags) =>
     tags
       .toSorted((left, right) => left.id.localeCompare(right.id))
