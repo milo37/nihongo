@@ -10,7 +10,6 @@ import {
 import { opaqueIdSchema } from '../common/id.js'
 import {
   accountActorSnapshotSchema,
-  assertContentDateRange,
   canonicalizeJson,
   compareUnicodeScalars,
   createContentTextSchema,
@@ -26,6 +25,17 @@ import {
 } from '../common/content-validation.js'
 import { isApplicableQuestionContentType } from './content-read.js'
 import { createContentOperationErrorSchema } from './content-error-policy.js'
+import {
+  getAdminQuestionReportParamsSchema,
+  listAdminQuestionReportsQuerySchema,
+  questionReportReasonSchema,
+  questionReportStatusSchema
+} from './question-report-route.js'
+
+export {
+  getAdminQuestionReportParamsSchema,
+  listAdminQuestionReportsQuerySchema
+} from './question-report-route.js'
 
 const addIssue = (
   context: z.core.$RefinementCtx,
@@ -462,20 +472,6 @@ export const applyQuestionImportErrorSchema = createContentOperationErrorSchema(
   applyQuestionImportErrorCodeSchema
 )
 
-const questionReportReasonSchema = z.enum([
-  'ANSWER_ERROR',
-  'EXPLANATION_ERROR',
-  'TYPO_OR_GRAMMAR',
-  'AMBIGUOUS',
-  'LEVEL_OR_TAXONOMY',
-  'OTHER'
-])
-const questionReportStatusSchema = z.enum([
-  'OPEN',
-  'TRIAGED',
-  'RESOLVED',
-  'DISMISSED'
-])
 const questionReportResolutionOutcomeSchema = z.enum(['RESOLVED', 'DISMISSED'])
 
 const reportResolutionSchema = z
@@ -607,39 +603,6 @@ export const createQuestionReportRequestSchema = z
 export const createQuestionReportResponseSchema =
   questionReportMutationResultSchema
 
-const adminQuestionReportSortSchema = z.enum(['UPDATED_DESC', 'CREATED_DESC'])
-export const listAdminQuestionReportsQuerySchema = z
-  .object({
-    status: questionReportStatusSchema.optional(),
-    reason: questionReportReasonSchema.optional(),
-    questionId: opaqueIdSchema.optional(),
-    assigneeActorId: opaqueIdSchema.optional(),
-    createdFrom: isoDateTimeSchema.optional(),
-    createdTo: isoDateTimeSchema.optional(),
-    updatedFrom: isoDateTimeSchema.optional(),
-    updatedTo: isoDateTimeSchema.optional(),
-    sort: adminQuestionReportSortSchema.default('UPDATED_DESC'),
-    page: z.coerce
-      .number()
-      .int()
-      .min(1)
-      .max(Number.MAX_SAFE_INTEGER)
-      .default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(20)
-  })
-  .strict()
-  .superRefine((query, context) => {
-    try {
-      assertContentDateRange(query.createdFrom, query.createdTo)
-      assertContentDateRange(query.updatedFrom, query.updatedTo)
-    } catch (error) {
-      addIssue(
-        context,
-        [],
-        error instanceof Error ? error.message : 'invalid range'
-      )
-    }
-  })
 export const listAdminQuestionReportsResponseSchema = z
   .object({
     items: z.array(questionReportSummarySchema),
@@ -649,9 +612,6 @@ export const listAdminQuestionReportsResponseSchema = z
   })
   .strict()
 
-export const getAdminQuestionReportParamsSchema = z
-  .object({ reportId: opaqueIdSchema })
-  .strict()
 export const getAdminQuestionReportResponseSchema = questionReportDetailSchema
 export const triageAdminQuestionReportParamsSchema =
   getAdminQuestionReportParamsSchema
