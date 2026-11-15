@@ -481,8 +481,9 @@ describe('PracticePage setup', () => {
     expect(
       within(notice).getByRole('link', { name: '오답노트' })
     ).toHaveAttribute('href', '/wrong-notes')
-    // No numbers, and only this notice: no shared error banner.
-    expect(notice.textContent).not.toMatch(/20|60/u)
+    // No cap numbers (the reset time itself may hold them, so it is cut
+    // out first), and only this notice: no shared error banner.
+    expect(notice.textContent?.replace(time, '')).not.toMatch(/20|60/u)
     expect(screen.getAllByRole('alert')).toHaveLength(1)
     expect(screen.getByRole('button', { name })).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/practice')
