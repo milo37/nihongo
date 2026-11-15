@@ -32,6 +32,7 @@
     "content:foundation-check": "tsx prisma/contentFoundationCheck.ts",
     "study:cleanup-expired-guests": "pnpm run db:generate && tsx src/study/studySessionCleanupCommand.ts",
     "study:cleanup-expired-drafts": "pnpm run db:generate && tsx src/study/studyDraftCleanupCommand.ts",
+    "study:count-retention": "pnpm run db:generate && tsx src/study/retentionCohortCommand.ts",
     "report:redact-expired-descriptions": "pnpm run db:generate && tsx src/report/userReportRetentionCommand.ts",
     "db:generate": "prisma generate",
     "db:validate": "prisma validate",
@@ -41,6 +42,7 @@
     "db:migrate:test": "prisma migrate deploy --config prisma.test.config.ts",
     "db:seed:dev": "pnpm run db:generate && SEED_TARGET=development tsx prisma/seed.ts",
     "db:seed:test": "pnpm run db:generate && SEED_TARGET=test tsx prisma/seed.ts",
+    "study:count-retention:compiled": "node dist/study/retentionCohortCommand.js",
     "study:cleanup-expired-guests:compiled": "node dist/study/studyGuestCleanupRuntime.js"
   },
   "dependencies": {
