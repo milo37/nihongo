@@ -36,7 +36,9 @@ export const bundleCeilings = Object.freeze({
   // out of the practice chunk into their own files (same code, more files).
   // 98 measured with C2. God approved +1 on 2026-11-09; revert on the
   // post-deploy card 'shrink the first-screen bundle'.
-  emittedFileCount: 98,
+  // #31 Naver verification file (public, 67 bytes); user approved +1 on
+  // 2026-11-15.
+  emittedFileCount: 99,
   // The header account menu, with its logout dialog, loads on every page
   // (bundle 1 #734): two more initial chunks, about 5.5 KB gzip.
   // U12 (JLP-791): the shared global error handler now raises offline and
