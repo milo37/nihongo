@@ -7,15 +7,18 @@ import {
   questionImportFileNames
 } from '../../prisma/questionImportFiles.js'
 import {
+  EXPLANATION_JA_SET_FILE_NAMES,
   QUESTION_SET_FILE_NAMES,
   readQuestionSet
 } from './questionSetPublish.js'
 
 const directories: string[] = []
-const copySet = async (): Promise<string> => {
+const copySet = async (
+  names: readonly string[] = QUESTION_SET_FILE_NAMES
+): Promise<string> => {
   const directory = await mkdtemp(join(tmpdir(), 'question-set-'))
   directories.push(directory)
-  for (const name of QUESTION_SET_FILE_NAMES)
+  for (const name of names)
     await copyFile(join(questionImportDirectory, name), join(directory, name))
   return directory
 }
@@ -37,6 +40,21 @@ describe('question set files (JLP-828)', () => {
       750
     )
     for (const file of files) expect(file.sha256).toMatch(/^[0-9a-f]{64}$/u)
+  })
+
+  it('reads the 10 files of the Japanese explanation set (#1081)', async () => {
+    const files = await readQuestionSet(
+      await copySet(EXPLANATION_JA_SET_FILE_NAMES),
+      EXPLANATION_JA_SET_FILE_NAMES
+    )
+    expect(files.map(({ name }) => name)).toEqual(EXPLANATION_JA_SET_FILE_NAMES)
+    expect(files.reduce((total, file) => total + file.items.length, 0)).toBe(
+      500
+    )
+    await expect(readQuestionSet(await copySet())).resolves.toHaveLength(15)
+    await expect(
+      readQuestionSet(await copySet(), EXPLANATION_JA_SET_FILE_NAMES)
+    ).rejects.toMatchObject({ code: 'QUESTION_SET_FILES_INVALID' })
   })
 
   it('refuses a missing or an extra file', async () => {

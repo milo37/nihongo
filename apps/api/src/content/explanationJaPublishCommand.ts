@@ -10,7 +10,11 @@ import {
   publishExplanationJa,
   readExplanationJaFile
 } from './explanationJaPublish.js'
-import { QuestionSetInputError, readQuestionSet } from './questionSetPublish.js'
+import {
+  EXPLANATION_JA_SET_FILE_NAMES,
+  QuestionSetInputError,
+  readQuestionSet
+} from './questionSetPublish.js'
 
 const inputSchema = z.object({
   QUESTION_SET_DIR: z.string().min(1),
@@ -43,11 +47,17 @@ export const runExplanationJaPublishCommand = async (
   try {
     const input = inputSchema.parse(source)
     const execute = input.EXPLANATION_JA_CONFIRM !== undefined
-    const files = await readQuestionSet(input.QUESTION_SET_DIR)
+    const files = await readQuestionSet(
+      input.QUESTION_SET_DIR,
+      EXPLANATION_JA_SET_FILE_NAMES
+    )
     const previousFiles =
       input.QUESTION_SET_PREVIOUS_DIR === undefined
         ? undefined
-        : await readQuestionSet(input.QUESTION_SET_PREVIOUS_DIR)
+        : await readQuestionSet(
+            input.QUESTION_SET_PREVIOUS_DIR,
+            EXPLANATION_JA_SET_FILE_NAMES
+          )
     const explanations = await readExplanationJaFile(input.EXPLANATION_JA_FILE)
     // Validates the deployment and database target only; the operator
     // client itself is never connected.
