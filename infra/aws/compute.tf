@@ -167,7 +167,10 @@ resource "aws_instance" "host" {
   }
 
   lifecycle {
-    ignore_changes = [ami]
+    # cloud-init writes the host files only on an instance's first boot, so an
+    # in-place user data update only stops and starts the host and changes no
+    # file (#1042). A new host (-replace) still gets the current user data.
+    ignore_changes = [ami, user_data_base64]
 
     precondition {
       condition     = !local.origin_tls || var.caddy_dns_image != ""
