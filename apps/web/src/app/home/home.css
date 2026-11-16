@@ -39,36 +39,43 @@
   white-space: nowrap;
 }
 .home-pick-word {
+  /* #1075 v8 1a: a thin grey outline and ▾ say the word can be pressed;
+     the word keeps its colour, so the only red face is [시작하기]. */
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  padding-bottom: 1px;
-  border-bottom: 2px solid rgb(var(--color-brand));
+  gap: 0.04em;
+  margin: 0 0.04em;
+  padding: 0 0.14em 0 0.26em;
+  border: 1.5px solid rgb(var(--color-line-interactive));
+  border-radius: 0.3em;
   color: rgb(var(--color-brand));
-  line-height: 1.15;
+  line-height: 1.18;
+  white-space: nowrap;
 }
 .home-pick-icon {
-  width: 0.5em;
-  height: 0.5em;
-  margin-left: 2px;
-  color: rgb(var(--color-brand));
+  width: 0.55em;
+  height: 0.55em;
+  stroke-width: 3;
+  color: rgb(var(--color-muted));
   transform: rotate(90deg);
 }
-/* The real control: invisible, on top of the word, full size for touch. */
+/* The real control: invisible, on top of the word. The word is 31-36px
+   high, so the touch area grows up and down to 44px. */
 .home-pick-select {
   position: absolute;
-  inset: 0;
+  top: 50%;
+  left: 0;
   width: 100%;
-  min-height: 44px;
+  height: max(100%, 44px);
   opacity: 0;
   cursor: pointer;
   font-size: 16px;
+  transform: translateY(-50%);
 }
 .home-pick-select:disabled {
   cursor: default;
 }
 .home-pick:has(.home-pick-select:focus-visible) .home-pick-word {
-  border-radius: 4px;
   outline: var(--focus-width) solid rgb(var(--focus-color));
   outline-offset: var(--focus-offset);
 }
