@@ -174,7 +174,7 @@
         "difficulty": "NORMAL",
         "questionText": "ここに 「なまえ」を かいて ください。「なまえ」を かんじで かくと どれですか。",
         "passage": null,
-        "explanationKo": "핵심: なまえ = 名前(이름)\n各는 「名」와 모양이 비슷한 다른 글자, 夕는 「名」의 윗부분만 쓴 글자입니다. 箭는 「前」과 소리가 같은 다른 글자입니다.",
+        "explanationKo": "핵심: なまえ = 名前(이름)\n各는 「名」와 모양이 비슷한 다른 글자, 夕는 「名」의 윗부분만 쓴 글자입니다. 箭는 아래쪽에 「前」이 들어 있어 모양이 비슷한 다른 글자입니다.",
         "explanationJa": null,
         "tagNames": ["vocab.basic-noun"],
         "options": [
@@ -603,7 +603,7 @@
         "difficulty": "NORMAL",
         "questionText": "「すずしい」の つかいかたが いちばん よい 文は どれですか。",
         "passage": null,
-        "explanationKo": "핵심: すずしい = (날씨·바람이) 선선하다\n날씨가 선선해졌다는 문장이 맞습니다. 아이스크림처럼 만져서 찬 것은 つめたい, 옷 색·영화에는 すずしい를 쓰지 않습니다.",
+        "explanationKo": "핵심: すずしい = (날씨·바람이) 선선하다\n날씨가 선선해졌다는 문장이 맞습니다. 아이스크림처럼 만져서 찬 것은 つめたい, 사람·영화에는 すずしい를 쓰지 않습니다.",
         "explanationJa": null,
         "tagNames": ["vocab.adjective"],
         "options": [
@@ -617,7 +617,7 @@
           },
           {
             "clientOptionKey": "option-3",
-            "text": "あねは いつも すずしい いろの ふくを きます。"
+            "text": "あの せんせいは とても すずしいです。"
           },
           {
             "clientOptionKey": "option-4",
@@ -1162,27 +1162,27 @@
         "subject": "GRAMMAR",
         "questionType": "SENTENCE_ORDER",
         "difficulty": "NORMAL",
-        "questionText": "わたしは ＿＿ ＿＿ ★ ＿＿ たべました。　★に 入る ものは どれですか。",
+        "questionText": "＿＿ ＿＿ ★ ＿＿ あらいます。　★に 入る ものは どれですか。",
         "passage": null,
-        "explanationKo": "핵심: 때 + 사람と + いっしょに + 목적어を + 동사\n바른 문장: わたしは きのう ともだちと いっしょに すしを たべました。 「ともだちと いっしょに」가 한 덩어리이고 「すしを たべました」로 끝납니다. ★ 자리(세 번째)는 「いっしょに」입니다.",
+        "explanationKo": "핵심: 사전형 + まえに = ~하기 전에\n바른 문장: ごはんを たべる まえに てを あらいます。 「ごはんを たべる まえに」 뒤에 「てを あらいます」가 옵니다. ★ 자리(세 번째)는 「まえに」입니다.",
         "explanationJa": null,
-        "tagNames": ["grammar.particle"],
+        "tagNames": ["grammar.time-change"],
         "options": [
           {
             "clientOptionKey": "option-1",
-            "text": "いっしょに"
+            "text": "まえに"
           },
           {
             "clientOptionKey": "option-2",
-            "text": "すしを"
+            "text": "ごはんを"
           },
           {
             "clientOptionKey": "option-3",
-            "text": "きのう"
+            "text": "たべる"
           },
           {
             "clientOptionKey": "option-4",
-            "text": "ともだちと"
+            "text": "てを"
           }
         ],
         "correctOptionKey": "option-1"
@@ -1228,27 +1228,27 @@
         "subject": "GRAMMAR",
         "questionType": "SENTENCE_ORDER",
         "difficulty": "NORMAL",
-        "questionText": "あした ＿＿ ＿＿ ★ ＿＿ いきませんか。　★に 入る ものは どれですか。",
+        "questionText": "すみません、＿＿ ＿＿ ★ ＿＿ いいですか。　★に 入る ものは どれですか。",
         "passage": null,
-        "explanationKo": "핵심: 목적어を + ます형 줄기に + いく = ~하러 가다\n바른 문장: あした いっしょに こうえんへ さくらを みに いきませんか。 「さくらを みに」가 「いきませんか」 앞에 붙습니다. ★ 자리(세 번째)는 「さくらを」입니다.",
+        "explanationKo": "핵심: ~ても いいですか = ~해도 됩니까\n바른 문장: すみません、この へやの まどを あけても いいですか。 「この へやの」가 「まど」를 꾸미고 「あけても いいですか」로 끝납니다. ★ 자리(세 번째)는 「まどを」입니다.",
         "explanationJa": null,
-        "tagNames": ["grammar.cause-purpose"],
+        "tagNames": ["grammar.conjugation"],
         "options": [
           {
             "clientOptionKey": "option-1",
-            "text": "いっしょに"
+            "text": "この"
           },
           {
             "clientOptionKey": "option-2",
-            "text": "こうえんへ"
+            "text": "へやの"
           },
           {
             "clientOptionKey": "option-3",
-            "text": "さくらを"
+            "text": "まどを"
           },
           {
             "clientOptionKey": "option-4",
-            "text": "みに"
+            "text": "あけても"
           }
         ],
         "correctOptionKey": "option-3"

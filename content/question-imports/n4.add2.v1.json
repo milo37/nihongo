@@ -1131,7 +1131,7 @@
         "difficulty": "NORMAL",
         "questionText": "この 説明は ＿＿ ＿＿ ★ ＿＿ 分かりませんでした。　★に 入る ものは どれですか。",
         "passage": null,
-        "explanationKo": "핵심: 何度 ~ても = 몇 번 ~해도\n바른 문장: この 説明は 何度 読んで も 意味が 分かりませんでした。 「何度 読んでも」 뒤에 「意味が 分かりませんでした」가 옵니다. ★ 자리(세 번째)는 「も」입니다.",
+        "explanationKo": "핵심: 何度 ~ても = 몇 번 ~해도\n바른 문장: この 説明は 何度 読んで も ぜんぜん 分かりませんでした。 「何度 読んでも」 뒤에 「ぜんぜん 分かりませんでした」가 옵니다. ★ 자리(세 번째)는 「も」입니다.",
         "explanationJa": null,
         "tagNames": ["grammar.contrast-connect"],
         "options": [
@@ -1149,7 +1149,7 @@
           },
           {
             "clientOptionKey": "option-4",
-            "text": "意味が"
+            "text": "ぜんぜん"
           }
         ],
         "correctOptionKey": "option-1"
@@ -1197,13 +1197,13 @@
         "difficulty": "NORMAL",
         "questionText": "来月から ＿＿ ★ ＿＿ ＿＿ に なりました。　★に 入る ものは どれですか。",
         "passage": null,
-        "explanationKo": "핵심: 사전형 + ことに なる = ~하게 되다(정해지다)\n바른 문장: 来月から 毎朝 六時に 起きる ことに なりました。 「毎朝 六時に 起きる」가 「こと」 앞에 옵니다. ★ 자리(두 번째)는 「六時に」입니다.",
+        "explanationKo": "핵심: 사전형 + ことに なる = ~하게 되다(정해지다)\n바른 문장: 来月から 朝の 六時に 起きる ことに なりました。 「朝の 六時に 起きる」가 「こと」 앞에 옵니다. ★ 자리(두 번째)는 「六時に」입니다.",
         "explanationJa": null,
         "tagNames": ["grammar.must-will"],
         "options": [
           {
             "clientOptionKey": "option-1",
-            "text": "毎朝"
+            "text": "朝の"
           },
           {
             "clientOptionKey": "option-2",

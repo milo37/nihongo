@@ -1032,7 +1032,7 @@
         "difficulty": "NORMAL",
         "questionText": "来週発表される試験の結果が、気になって（　）。",
         "passage": null,
-        "explanationKo": "핵심: ~て ならない = 너무 ~해서 견딜 수 없다\n결과가 몹시 신경 쓰인다는 뜻입니다. 「気に なって いけない」는 「~하면 안 된다」로 읽히고, しまう·おく는 감정을 강하게 나타내지 못합니다.",
+        "explanationKo": "핵심: ~て ならない = 너무 ~해서 견딜 수 없다\n결과가 몹시 신경 쓰인다는 뜻입니다. 「気に なって いけない」는 「~하면 안 된다」로 읽히고, 「気になって みる」「気になって おく」는 쓰지 않는 말입니다.",
         "explanationJa": null,
         "tagNames": ["grammar.scope-emphasis"],
         "options": [
@@ -1046,7 +1046,7 @@
           },
           {
             "clientOptionKey": "option-3",
-            "text": "しまう"
+            "text": "みる"
           },
           {
             "clientOptionKey": "option-4",
