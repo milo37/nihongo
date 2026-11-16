@@ -306,12 +306,36 @@ it("keeps today's question on the level picked in the sentence (#992)", async ()
   const user = userEvent.setup()
   renderHome()
   const daily = await screen.findByRole('region', { name: '오늘의 한 문제' })
-  expect(await within(daily).findByText(/^N5 · /u)).toBeVisible()
+  // #1075: the head names the level only.
+  expect(await within(daily).findByText('N5', { exact: true })).toBeVisible()
   await user.selectOptions(
     screen.getByRole('combobox', { name: '급수 바꾸기' }),
     'N2'
   )
-  expect(await within(daily).findByText(/^N2 · /u)).toBeVisible()
+  expect(await within(daily).findByText('N2', { exact: true })).toBeVisible()
+})
+
+it('remembers a picked word at once, before any start (#1075)', async () => {
+  mocks.auth.mockReturnValue({ isReady: true, role: 'GUEST', user: null })
+  const user = userEvent.setup()
+  renderHome()
+  await user.selectOptions(
+    screen.getByRole('combobox', { name: '급수 바꾸기' }),
+    'N3'
+  )
+  expect(JSON.parse(localStorage.getItem(LAST_PRACTICE_CHOICE_KEY)!)).toEqual({
+    level: 'N3',
+    subject: 'VOCABULARY'
+  })
+  await user.selectOptions(
+    screen.getByRole('combobox', { name: '과목 바꾸기' }),
+    'GRAMMAR'
+  )
+  expect(JSON.parse(localStorage.getItem(LAST_PRACTICE_CHOICE_KEY)!)).toEqual({
+    level: 'N3',
+    subject: 'GRAMMAR'
+  })
+  expect(mocks.mutate).not.toHaveBeenCalled()
 })
 
 const member = { id: 'member', name: '데모', targetLevel: 'N2' }
@@ -408,7 +432,7 @@ it("answers today's question in place, without a record, and keeps it on reopen"
   const daily = await screen.findByRole('region', { name: '오늘의 한 문제' })
   const options = await within(daily).findAllByRole('button')
   expect(options).toHaveLength(4)
-  expect(within(daily).getByText(/^N5 · /u)).toBeVisible()
+  expect(within(daily).getByText('N5', { exact: true })).toBeVisible()
   await user.click(options[0]!)
   expect(
     await within(daily).findByText(

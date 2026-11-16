@@ -16,8 +16,11 @@ import { createPrismaAdminQuestionWorkflowRepository } from '../admin/adminQuest
 import { contentFingerprint } from '../admin/adminQuestionWorkflowImport.js'
 import { createOperatorAdminAuthority } from '../admin/operatorAdminAuthority.js'
 
-/** The fixed 500 question set, in import order (JLP-816, JLP-828). */
-export const QUESTION_SET_FILE_NAMES = [
+/**
+ * The 500 question set the Japanese explanations were written for (#976); its
+ * publish command reads these 10 files, also from the older published set.
+ */
+export const EXPLANATION_JA_SET_FILE_NAMES = [
   'n5.v1.json',
   'n4.v1.json',
   'n3.v1.json',
@@ -28,6 +31,16 @@ export const QUESTION_SET_FILE_NAMES = [
   'n3.add.v1.json',
   'n2.add.v1.json',
   'n1.add.v1.json'
+] as const
+
+/** The fixed 750 question set, in import order (JLP-816, JLP-828, #1081). */
+export const QUESTION_SET_FILE_NAMES = [
+  ...EXPLANATION_JA_SET_FILE_NAMES,
+  'n5.add2.v1.json',
+  'n4.add2.v1.json',
+  'n3.add2.v1.json',
+  'n2.add2.v1.json',
+  'n1.add2.v1.json'
 ] as const
 
 export interface QuestionSetFile {
@@ -42,17 +55,21 @@ export class QuestionSetInputError extends Error {
   }
 }
 
-/** Reads exactly the 10 set files; a missing or extra file refuses the run. */
+/**
+ * Reads exactly the named set files (the 15 by default); a missing or extra
+ * file refuses the run.
+ */
 export const readQuestionSet = async (
-  directory: string
+  directory: string,
+  names: readonly string[] = QUESTION_SET_FILE_NAMES
 ): Promise<QuestionSetFile[]> => {
   const present = (await readdir(directory)).toSorted()
-  const expected = [...QUESTION_SET_FILE_NAMES].toSorted()
+  const expected = [...names].toSorted()
   if (JSON.stringify(present) !== JSON.stringify(expected)) {
     throw new QuestionSetInputError('QUESTION_SET_FILES_INVALID')
   }
   const files: QuestionSetFile[] = []
-  for (const name of QUESTION_SET_FILE_NAMES) {
+  for (const name of names) {
     const bytes = await readFile(join(directory, name))
     const parsed = validateQuestionImportRequestSchema.safeParse(
       JSON.parse(bytes.toString('utf8'))

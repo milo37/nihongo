@@ -20,7 +20,8 @@ release="$(cat /opt/harumaru/current-release)"
 dir="/opt/harumaru/content/question-set-$release"
 install -d -m 755 "$dir"
 for file in n5.v1.json n4.v1.json n3.v1.json n2.v1.json n1.v1.json \
-  n5.add.v1.json n4.add.v1.json n3.add.v1.json n2.add.v1.json n1.add.v1.json; do
+  n5.add.v1.json n4.add.v1.json n3.add.v1.json n2.add.v1.json n1.add.v1.json \
+  n5.add2.v1.json n4.add2.v1.json n3.add2.v1.json n2.add2.v1.json n1.add2.v1.json; do
   curl -fsS "https://raw.githubusercontent.com/milo37/nihongo/$release/content/question-imports/$file" \
     -o "$dir/$file"
   chmod 644 "$dir/$file"

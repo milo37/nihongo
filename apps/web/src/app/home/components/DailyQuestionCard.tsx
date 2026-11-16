@@ -18,12 +18,6 @@ import {
 import { isNoEligibleQuestionsApiError } from '@libs/apiError'
 import type { GetDailyQuestionResponse } from '@api/question/getDailyQuestion/schema'
 
-const subjectKeys = {
-  VOCABULARY: 'subjects.vocabulary.label',
-  GRAMMAR: 'subjects.grammar.label',
-  READING: 'subjects.reading.label'
-} as const
-
 const CARD_CLASS = 'home-daily'
 
 /** Up to three rows of manuscript squares; longer questions stay plain text. */
@@ -246,12 +240,8 @@ export const DailyQuestionCard = ({
         {t('today.dailyLabel')}
       </h2>
       {daily.data ? (
-        <span className="home-daily-meta">
-          {t('today.dailyMeta', {
-            level: daily.data.level,
-            subject: t(subjectKeys[daily.data.question.subject])
-          })}
-        </span>
+        // #1075: the level only; the subject is already in the sentence.
+        <span className="home-daily-meta">{daily.data.level}</span>
       ) : null}
       <SheetTail side="right" />
     </div>
