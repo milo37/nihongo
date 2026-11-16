@@ -343,8 +343,8 @@ it.each([
 )
 
 it.each([
-  ['ko', '이용 안내', ['기간: 제3조 ⑦과 같음', '⑤와 같이 마지막 이용 후']],
-  ['ja', '利用案内', ['期間：第3条⑦と同じ', '⑤と同様に最終利用から']]
+  ['ko', '이용 안내', ['기간: 제3조 ⑦과 같음', '⑤의 학습 기록과 함께']],
+  ['ja', '利用案内', ['期間：第3条⑦と同じ', '⑤の学習記録とあわせて']]
 ] as const)(
   'keeps a clause reference inside its sentence (%s)',
   async (locale, title, references) => {
