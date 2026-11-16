@@ -16,7 +16,7 @@ import { createPrismaAdminQuestionWorkflowRepository } from '../admin/adminQuest
 import { contentFingerprint } from '../admin/adminQuestionWorkflowImport.js'
 import { createOperatorAdminAuthority } from '../admin/operatorAdminAuthority.js'
 
-/** The fixed 500 question set, in import order (JLP-816, JLP-828). */
+/** The fixed 750 question set, in import order (JLP-816, JLP-828, #1081). */
 export const QUESTION_SET_FILE_NAMES = [
   'n5.v1.json',
   'n4.v1.json',
@@ -27,7 +27,12 @@ export const QUESTION_SET_FILE_NAMES = [
   'n4.add.v1.json',
   'n3.add.v1.json',
   'n2.add.v1.json',
-  'n1.add.v1.json'
+  'n1.add.v1.json',
+  'n5.add2.v1.json',
+  'n4.add2.v1.json',
+  'n3.add2.v1.json',
+  'n2.add2.v1.json',
+  'n1.add2.v1.json'
 ] as const
 
 export interface QuestionSetFile {
@@ -42,7 +47,7 @@ export class QuestionSetInputError extends Error {
   }
 }
 
-/** Reads exactly the 10 set files; a missing or extra file refuses the run. */
+/** Reads exactly the 15 set files; a missing or extra file refuses the run. */
 export const readQuestionSet = async (
   directory: string
 ): Promise<QuestionSetFile[]> => {

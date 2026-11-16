@@ -26,15 +26,15 @@ afterEach(async () => {
 })
 
 describe('question set files (JLP-828)', () => {
-  it('names the same 10 files as the question import source', () => {
+  it('names the same 15 files as the question import source', () => {
     expect(QUESTION_SET_FILE_NAMES).toEqual(questionImportFileNames)
   })
 
-  it('reads the 500 questions with a SHA-256 per file', async () => {
+  it('reads the 750 questions with a SHA-256 per file', async () => {
     const files = await readQuestionSet(await copySet())
     expect(files.map(({ name }) => name)).toEqual(QUESTION_SET_FILE_NAMES)
     expect(files.reduce((total, file) => total + file.items.length, 0)).toBe(
-      500
+      750
     )
     for (const file of files) expect(file.sha256).toMatch(/^[0-9a-f]{64}$/u)
   })

@@ -25,7 +25,7 @@ const write = (
 }
 
 /**
- * Publishes the fixed 500 question set from QUESTION_SET_DIR as the one ACTIVE
+ * Publishes the fixed 750 question set from QUESTION_SET_DIR as the one ACTIVE
  * ADMIN, without a login (JLP-828). Without QUESTION_SET_CONFIRM it only
  * plans. The target is checked like the tag list load; the commands run on the
  * application login like the admin screen. Prints one JSON line with no email,
