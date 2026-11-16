@@ -38,7 +38,9 @@ export const bundleCeilings = Object.freeze({
   // post-deploy card 'shrink the first-screen bundle'.
   // #31 Naver verification file (public, 67 bytes); user approved +1 on
   // 2026-11-15.
-  emittedFileCount: 99,
+  // #1045 add to home screen: manifest.json, sw.js and the iOS home screen
+  // icon (operator decision 2026-11-16, PWA 3 files).
+  emittedFileCount: 102,
   // The header account menu, with its logout dialog, loads on every page
   // (bundle 1 #734): two more initial chunks, about 5.5 KB gzip.
   // U12 (JLP-791): the shared global error handler now raises offline and
@@ -84,6 +86,13 @@ export const approvedStaticAssetPaths = Object.freeze([
   'icons/icon-192.png',
   'icons/icon-512.png'
 ])
+
+// #1045: the home screen service worker is a plain public file, not a Vite
+// chunk; it must sit at the site root to control the whole site.
+export const serviceWorkerPath = 'sw.js'
+
+const isChunkJavaScript = (file) =>
+  file.endsWith('.js') && file !== serviceWorkerPath
 
 export const allowedProductionModulePackages = Object.freeze([
   '@hookform/resolvers',
@@ -787,7 +796,7 @@ const collectArtifactEvidence = async ({
     }
   }
   const javaScriptRows = payloadFiles.filter(({ path: file }) =>
-    file.endsWith('.js')
+    isChunkJavaScript(file)
   )
   const javaScriptPaths = new Set(javaScriptRows.map(({ path: file }) => file))
   if (
@@ -1245,7 +1254,9 @@ const assertArtifactEvidence = (value, artifact) => {
   ) {
     throw new Error('WEB_BUNDLE_EVIDENCE_INITIAL_GRAPH_INVALID')
   }
-  const javaScriptRows = rows.filter(({ path: file }) => file.endsWith('.js'))
+  const javaScriptRows = rows.filter(({ path: file }) =>
+    isChunkJavaScript(file)
+  )
   if (
     javaScriptRows.length !== outputFiles.size ||
     javaScriptRows.some(({ path: file }) => !outputFiles.has(file))

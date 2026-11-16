@@ -46,6 +46,13 @@ export const useDocumentMetadata = ({
         : 'metaDescription'
     )
 
+    // #1045: the name iOS gives the home screen icon follows the page
+    // language. Only the learner page carries the tag; admin has none.
+    const appleTitle = document.querySelector<HTMLMetaElement>(
+      'meta[name="apple-mobile-web-app-title"]'
+    )
+    if (appleTitle) appleTitle.content = t('common:appName')
+
     const robotsNodes = Array.from(
       document.head.querySelectorAll<HTMLMetaElement>('meta[name="robots" i]')
     )

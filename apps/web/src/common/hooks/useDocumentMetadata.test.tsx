@@ -178,6 +178,23 @@ describe('document robots metadata', () => {
     expect(expectRobots('index,follow')).toBe(node)
   })
 
+  it('names the iOS home screen icon in the page language (#1045)', async () => {
+    const appleTitle = document.createElement('meta')
+    appleTitle.name = 'apple-mobile-web-app-title'
+    appleTitle.content = '하루마루'
+    document.head.append(appleTitle)
+    try {
+      renderApp()
+      expect(appleTitle.content).toBe('하루마루')
+      await userEvent.click(
+        screen.getByRole('button', { name: 'Switch to Japanese' })
+      )
+      await waitFor(() => expect(appleTitle.content).toBe('ハルまる'))
+    } finally {
+      appleTitle.remove()
+    }
+  })
+
   it('gives the public practice page its own description (#981)', async () => {
     const router = renderApp('/practice')
     const description = () =>
