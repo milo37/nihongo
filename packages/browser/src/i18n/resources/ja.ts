@@ -1111,7 +1111,9 @@ export const jaCoreResources = {
       description:
         'ログアウトすると、この端末からだけ出ます。退会すると、アカウントと学習記録が消えます。',
       privacyLink: 'プライバシーポリシーを見る'
-    }
+    },
+    homeScreenHint:
+      'Safariの共有ボタン →「ホーム画面に追加」で、アプリのようにすぐ開けます。'
   },
   errors: {
     forbidden: {

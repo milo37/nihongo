@@ -297,6 +297,16 @@ section.practice-guest-limit,
 .account-page > .information-footer {
   margin-top: 32px;
 }
+/* #1045: the iOS home screen line opens its own section, apart from the
+   account buttons above it. */
+.account-page > .home-screen-hint {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid rgb(var(--color-line));
+}
+.home-screen-hint:lang(ko) {
+  word-break: keep-all;
+}
 /* The wrong notes link inside the 'last five' line: 44px tall to press,
    without moving the line box. */
 .account-recent-more a {
@@ -308,10 +318,17 @@ section.practice-guest-limit,
 }
 /* JLP-850: a guest's My footer follows the gate panel's column, so its
    first label sits on the panel's left line (the member footer does the
-   same inside .account-page). */
-.guest-gate-page + .information-footer {
+   same inside .account-page). #1045: the iOS home screen line sits in the
+   same column, between the panel and the footer. */
+.guest-gate-page ~ .information-footer {
   width: 100%;
   max-width: 440px;
+}
+.guest-gate-page + .home-screen-hint {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  padding-bottom: 24px;
 }
 
 /* "| 2번 남음" inside a guest's start button (B4 guest-5 images). */

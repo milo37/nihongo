@@ -1,0 +1,16 @@
+{
+  "id": "/",
+  "name": "하루마루",
+  "short_name": "하루마루",
+  "description": "JLPT N5부터 N1까지 문제를 풀고 오답을 반복 학습하는 하루마루",
+  "lang": "ko",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
