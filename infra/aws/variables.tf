@@ -270,6 +270,18 @@ variable "guest_cleanup_schedule_expression" {
   default = "cron(30 * * * ? *)"
 }
 
+variable "retention_schedule_enabled" {
+  description = "Daily return-rate count (#1042). Off until the release with its migration is deployed."
+  type        = bool
+  default     = false
+}
+
+variable "retention_schedule_expression" {
+  description = "Asia/Seoul. PRODUCTION 00:05 daily, before the minute-30 guest cleanup; STAGING 05:15 in its window."
+  type        = string
+  default     = "cron(5 0 * * ? *)"
+}
+
 variable "compose_version" {
   type    = string
   default = "v5.7.0"
