@@ -17,6 +17,7 @@ import {
 } from '@app/practice/practiceSetupOptions'
 import {
   readLastPracticeChoice,
+  rememberPracticeChoice,
   saveLastPracticeChoice
 } from '@app/practice/lastPracticeChoice'
 import {
@@ -175,6 +176,14 @@ export const usePracticeSetupController = (
   ): void => {
     createSession.reset()
     updateSearchParam(key, value, defaultValue)
+    // #1075: the next visit opens on this pick, even before a start.
+    if (key === 'level' || key === 'subject') {
+      rememberPracticeChoice({
+        level: level ?? defaultLevel,
+        subject,
+        [key]: String(value)
+      })
+    }
   }
 
   const confirmCancel = (): void => {
