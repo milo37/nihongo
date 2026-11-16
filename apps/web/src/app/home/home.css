@@ -36,6 +36,10 @@
 .home-pick {
   position: relative;
   display: inline-flex;
+  /* #1075: the word is 31-36px high; a 44px box makes its line at least as
+     tall, so when ja wraps the two pickers' touch areas never overlap. */
+  align-items: center;
+  min-height: 44px;
   white-space: nowrap;
 }
 .home-pick-word {
@@ -59,18 +63,14 @@
   color: rgb(var(--color-muted));
   transform: rotate(90deg);
 }
-/* The real control: invisible, on top of the word. The word is 31-36px
-   high, so the touch area grows up and down to 44px. */
+/* The real control: invisible, over the whole 44px box. */
 .home-pick-select {
   position: absolute;
-  top: 50%;
-  left: 0;
+  inset: 0;
   width: 100%;
-  height: max(100%, 44px);
   opacity: 0;
   cursor: pointer;
   font-size: 16px;
-  transform: translateY(-50%);
 }
 .home-pick-select:disabled {
   cursor: default;
