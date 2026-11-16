@@ -1,0 +1,1654 @@
+{
+  "items": [
+    {
+      "clientItemId": "n5-a3-vocabulary-01",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "EASY",
+        "questionText": "「毎朝」 パンと たまごを たべます。「毎朝」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 毎朝 = まいあさ(매일 아침)\n「毎」는 「まい」, 「朝」는 「あさ」입니다. まいにち는 「毎日」(매일)의 읽기이고, めいあさ·まいあざ는 없는 읽기입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "まいにち"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "まいあさ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "めいあさ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "まいあざ"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-vocabulary-02",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "EASY",
+        "questionText": "ぎんこうは この みちの 「右」に あります。「右」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 右 = みぎ(오른쪽)\nひだり는 「左」(왼쪽)의 읽기입니다. みき·いぎ는 「みぎ」와 소리가 비슷한 틀린 읽기입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "みぎ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ひだり"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "みき"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "いぎ"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-vocabulary-03",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "あしたの 「午後」は うちに います。「午後」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 午後 = ごご(오후)\n「午」도 「後」도 짧게 「ご」로 읽습니다. ごごう·ごうご는 장음을 잘못 넣은 것이고, こご는 탁음을 빠뜨린 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ごごう"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ごうご"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "こご"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ごご"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-vocabulary-04",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "この みせの くつは とても 「安い」です。「安い」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 安い = やすい(싸다)\nたかい는 「高い」(비싸다), やさしい는 「易しい・優しい」(쉽다·상냥하다)의 읽기입니다. あんい는 「安」의 음독 あん을 잘못 붙인 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "たかい"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "あんい"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "やさしい"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "やすい"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-vocabulary-05",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "EASY",
+        "questionText": "いえの ちかくに 大きな 「かわ」が あります。「かわ」を かんじで かくと どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: かわ = 川(강)\n州(주)는 川에 점이 들어간 다른 글자이고, 小는 ちいさい(작다), 三은 さん(셋)의 한자입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "州"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "川"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "小"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "三"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-vocabulary-06",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "NORMAL",
+        "questionText": "ここに 「なまえ」を かいて ください。「なまえ」を かんじで かくと どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: なまえ = 名前(이름)\n各는 「名」와 모양이 비슷한 다른 글자, 夕는 「名」의 윗부분만 쓴 글자입니다. 箭는 아래쪽에 「前」이 들어 있어 모양이 비슷한 다른 글자입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "各前"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "名箭"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "名前"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "夕前"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-vocabulary-07",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "NORMAL",
+        "questionText": "きょうは こうえんに 人が 「すくない」です。「すくない」を かんじで かくと どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: すくない = 少ない(적다)\n小는 ちいさい(작다)의 한자로, 점 하나가 없습니다. 夕(저녁)·歩(걷다)는 모양이 조금 닮은 다른 글자입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "小ない"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "夕ない"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "歩ない"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "少ない"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-vocabulary-08",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "ORTHOGRAPHY",
+        "difficulty": "NORMAL",
+        "questionText": "デパートで あたらしい シャツを 「かいました」。「かいました」を かんじで かくと どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: かう = 買う(사다)\n貝(조개)는 買의 아랫부분만 쓴 글자이고, 員(인원)·質(질)은 貝가 들어 있어 비슷해 보이는 다른 글자입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "貝いました"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "員いました"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "買いました"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "質いました"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-vocabulary-09",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "EASY",
+        "questionText": "のどが かわいたので、つめたい みずを（　）。（　）に 入る ことばは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: みずを のむ = 물을 마시다\n목이 말라서 하는 일은 「のむ」입니다. たべる는 먹다, あびる는 シャワーを あびる(샤워하다), はく는 くつを はく(신다)에 씁니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "たべました"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "あびました"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "のみました"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "はきました"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-vocabulary-10",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "NORMAL",
+        "questionText": "へやの（　）を しましたから、とても きれいに なりました。（　）に 入る ことばは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: へやの そうじ = 방 청소\n방이 깨끗해진 것은 청소를 했기 때문입니다. せんたく는 빨래(옷), りょうり는 요리, かいもの는 장보기라 「へやの」와 맞지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "せんたく"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "そうじ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "りょうり"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "かいもの"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-vocabulary-11",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "NORMAL",
+        "questionText": "ゆうびんきょくで てがみに はる（　）を かいました。（　）に 入る ことばは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: きって = 우표\n우체국에서 사서 편지에 붙이는 것은 きって입니다. くすり(약)·やさい(채소)·にく(고기)는 편지에 붙이지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "きって"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "くすり"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "やさい"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "にく"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-vocabulary-12",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "CONTEXT_VOCABULARY",
+        "difficulty": "NORMAL",
+        "questionText": "先生の はなしが はやくて わかりませんでした。もう すこし（　）はなして ください。（　）に 入る ことばは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: ゆっくり = 천천히\n말이 빨라서 못 알아들었으니 「천천히」 말해 달라는 부탁입니다. はやく는 더 빨리, みじかく는 짧게, たくさん은 많이라 앞 문장과 맞지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adverb-phrase"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ゆっくり"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "はやく"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "みじかく"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "たくさん"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-vocabulary-13",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "EASY",
+        "questionText": "「わたしは さかなが きらいです。」と だいたい おなじ いみの 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: きらい = すきでは ない(싫어하다)\n나머지 셋은 생선을 자주 먹는다·좋아한다·먹고 싶다는 뜻이라 「きらい」와 반대입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "わたしは さかなが すきでは ありません。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "わたしは さかなを よく たべます。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "わたしは さかなが すきです。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "わたしは さかなを たべたいです。"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-vocabulary-14",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "「けさ コーヒーを のみました。」と だいたい おなじ いみの 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: けさ = きょうの あさ(오늘 아침)\n「けさ(今朝)」는 오늘 아침입니다. 어제 아침은 「きのうの あさ」, 오늘 밤은 「こんばん」입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "きょうの あさ コーヒーを のみました。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "きのうの あさ コーヒーを のみました。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "きょうの よる コーヒーを のみました。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "きのうの よる コーヒーを のみました。"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-vocabulary-15",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "「この えいがは つまらなかったです。」と だいたい おなじ いみの 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: つまらない = おもしろく ない(재미없다)\n「とても おもしろかった」는 반대 뜻이고, 길지 않았다·짧았다는 영화의 길이 이야기라 뜻이 다릅니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "この えいがは とても おもしろかったです。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "この えいがは おもしろく なかったです。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "この えいがは ながく なかったです。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "この えいがは みじかかったです。"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-vocabulary-16",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "PARAPHRASE",
+        "difficulty": "NORMAL",
+        "questionText": "「ちちは いま 出かけて います。」と だいたい おなじ いみの 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 出かけて いる = 외출해서 집에 없다\n나머지 셋(집에서 자고 있다·집에 돌아왔다·집에서 기다리고 있다)은 모두 아버지가 집에 있다는 뜻입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ちちは いま うちで ねて います。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ちちは いま うちに かえりました。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ちちは いま うちで まって います。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ちちは いま うちに いません。"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-vocabulary-17",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「あびる」の つかいかたが いちばん よい 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: あびる = (샤워·물을) 뒤집어쓰다\n「シャワーを あびる」가 맞는 쓰임입니다. 물을 마시는 것은 のむ, 책은 よむ, 코트는 きる를 씁니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "のどが かわいたので、みずを あびました。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "へやで ほんを あびて います。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "さむいので、コートを あびて 出かけます。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "あさ シャワーを あびてから がっこうへ いきます。"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-vocabulary-18",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「せまい」の つかいかたが いちばん よい 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: せまい = (공간이) 좁다\n길이 좁아 큰 차가 못 지나간다는 문장이 맞습니다. 케이크는 맛·크기, 키는 ひくい(작다), 일이 많은 것은 おおい·いそがしい로 말합니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "この ケーキは せまくて おいしいです。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "あにの せは とても せまいです。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "この みちは せまいので、大きな 車は とおれません。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "きょうは しごとが せまくて つかれました。"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-vocabulary-19",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「すずしい」の つかいかたが いちばん よい 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: すずしい = (날씨·바람이) 선선하다\n날씨가 선선해졌다는 문장이 맞습니다. 아이스크림처럼 만져서 찬 것은 つめたい, 사람·영화에는 すずしい를 쓰지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "あきに なって、あさと よるが すずしく なりました。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "この アイスクリームは とても すずしいです。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "あの せんせいは とても すずしいです。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "きのう みた えいがは すずしかったです。"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-vocabulary-20",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "WORD_USAGE",
+        "difficulty": "NORMAL",
+        "questionText": "「出かける」の つかいかたが いちばん よい 文は どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 出かける = 외출하다, 나가다\n가족과 공원에 나간다는 문장이 맞습니다. 창문은 あける, 불은 つける, 신발은 はく를 씁니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "あついので、まどを 出かけて ください。"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "くらいので、でんきを 出かけましょう。"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "日よう日は かぞくと こうえんへ 出かけます。"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "あさ、くつを 出かけて がっこうへ いきます。"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-grammar-01",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "EASY",
+        "questionText": "この ケーキは だれ（　）つくりましたか。",
+        "passage": null,
+        "explanationKo": "핵심: だれが ~ましたか = 누가 ~했습니까\n만든 사람(주어)을 묻는 말이라 が입니다. を는 목적어, へ는 방향, で는 장소·수단을 나타내 「だれ」 뒤에 맞지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.particle"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "を"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "が"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "へ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "で"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-grammar-02",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "きょうは 雨です。（　）、あしたは はれるでしょう。",
+        "passage": null,
+        "explanationKo": "핵심: でも = 하지만(앞과 반대 내용)\n오늘은 비, 내일은 맑음으로 내용이 반대라 でも입니다. だから는 이유·결과, それから·そして는 이어지는 내용에 씁니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.contrast-connect"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "だから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "それから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "そして"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "でも"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-grammar-03",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "EASY",
+        "questionText": "「なにを のみますか。」「コーヒー（　）おねがいします。」",
+        "passage": null,
+        "explanationKo": "핵심: 명사 + を おねがいします = ~(을) 부탁합니다\n주문할 때는 「コーヒーを おねがいします」라고 합니다. が·に·で는 「おねがいします」 앞에서 주문하는 물건을 나타내지 못합니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.particle"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "が"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "を"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "に"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "で"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-grammar-04",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "あした ともだちが うちへ（　）。",
+        "passage": null,
+        "explanationKo": "핵심: あした + ます형 = 미래\n「あした」라서 아직 일어나지 않은 일인 きます입니다. きました·きませんでした는 과거, きて います는 이미 와 있다는 뜻이라 「あした」와 맞지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.time-change"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "きました"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "きます"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "きて います"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "きませんでした"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-grammar-05",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "EASY",
+        "questionText": "この へやに いすが いくつ（　）か。",
+        "passage": null,
+        "explanationKo": "핵심: 물건이 있다 = あります\n의자처럼 움직이지 않는 것에는 あります를 씁니다. います는 사람·동물, します·なります는 「있다」의 뜻이 아닙니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.conjugation"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "います"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "します"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "なります"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "あります"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-grammar-06",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "日よう日は こうえんへ さんぽ（　）いきます。",
+        "passage": null,
+        "explanationKo": "핵심: 명사 + に いく = ~하러 가다(목적)\n「さんぽに いく」는 산책하러 간다는 뜻입니다. を·で·が는 가는 목적을 나타내지 못합니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.cause-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "に"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "を"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "で"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "が"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-grammar-07",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "先週 かった 本は もう ぜんぶ（　）。",
+        "passage": null,
+        "explanationKo": "핵심: もう + 과거형 = 벌써 ~했다\n「もう ぜんぶ」는 이미 끝난 일이라 よみました입니다. よみます·よみましょう는 앞으로의 일이고, よんで いません은 「ぜんぶ」 다 읽었다는 말과 맞지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.time-change"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "よみます"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "よみました"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "よんで いません"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "よみましょう"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-grammar-08",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "わたしは あまい ものが あまり（　）。",
+        "passage": null,
+        "explanationKo": "핵심: あまり + 부정 = 그다지 ~하지 않다\n「あまり」 뒤에는 부정형이 옵니다. すきです·すきでした·すきに なりました는 모두 긍정이라 「あまり」와 이어지지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.scope-emphasis"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "すきです"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "すきでは ありません"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "すきでした"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "すきに なりました"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-grammar-09",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "きのうは あたまが いたかった（　）、がっこうを やすみました。",
+        "passage": null,
+        "explanationKo": "핵심: ~から = ~해서(이유)\n머리가 아팠던 것이 결석한 이유라 から입니다. が·けど는 「하지만」(반대), まで는 「~까지」라 이유를 나타내지 못합니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.cause-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "が"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "けど"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "から"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "まで"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-grammar-10",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "ばんごはんを たべた（　）、テレビを みます。",
+        "passage": null,
+        "explanationKo": "핵심: 동사 た형 + あとで = ~한 뒤에\n「たべた」(과거형) 뒤에는 あとで가 옵니다. まえに·ながら는 사전형·ます형 줄기에 붙고, ちゅう는 동사에 붙지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.time-change"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "まえに"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ながら"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "あとで"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ちゅう"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-grammar-11",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "わたしは あたらしい くつが（　）です。",
+        "passage": null,
+        "explanationKo": "핵심: 명사 + が ほしい = ~을 갖고 싶다\n물건을 원할 때는 「~が ほしいです」입니다. たい는 동사에 붙고, ほしがって·ほしく는 「です」 앞에 올 수 없는 꼴입니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.must-will"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ほしがって"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "たい"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ほしく"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ほしい"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-grammar-12",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "この みちを まっすぐ いく（　）、えきが あります。",
+        "passage": null,
+        "explanationKo": "핵심: 사전형 + と = ~하면(길 안내)\n「まっすぐ いくと、えきが あります」는 쭉 가면 역이 나온다는 뜻입니다. が·も·を는 조건을 나타내지 못합니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.condition"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "が"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "も"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "と"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "を"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-grammar-13",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "「いっしょに かえりませんか。」「すみません、まだ しごとが（　）。」",
+        "passage": null,
+        "explanationKo": "핵심: まだ 일이 있다 → 함께 못 감\n같이 돌아가자는 말을 거절하는 이유는 아직 일이 「있어서」입니다. ありませんから는 일이 없다는 뜻이라 거절 이유가 되지 않고, 과거형은 「まだ」와 맞지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.cause-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ありませんから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ありましたから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ありますから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ありませんでしたから"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-grammar-14",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "もう おそいですから、（　）ねましょう。",
+        "passage": null,
+        "explanationKo": "핵심: い형용사 → ~く + 동사 = ~하게\n동사 「ねる」를 꾸밀 때는 はやい를 はやく로 바꿉니다. はやい·はやかった는 동사 앞에서 쓰지 않고, はやいで는 없는 꼴입니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.conjugation"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "はやい"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "はやいで"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "はやかった"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "はやく"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-grammar-15",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "GRAMMAR_SELECT",
+        "difficulty": "NORMAL",
+        "questionText": "きのうは 雨で、こうえんには だれ（　）いませんでした。",
+        "passage": null,
+        "explanationKo": "핵심: だれも + 부정 = 아무도 ~없다\n「だれも いません」은 아무도 없다는 뜻입니다. だれが いませんでした·だれを·だれに는 이 문장에서 뜻이 통하지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.scope-emphasis"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "が"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "も"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "を"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "に"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-grammar-16",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "SENTENCE_ORDER",
+        "difficulty": "NORMAL",
+        "questionText": "＿＿ ＿＿ ★ ＿＿ あらいます。　★に 入る ものは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 사전형 + まえに = ~하기 전에\n바른 문장: ごはんを たべる まえに てを あらいます。 「ごはんを たべる まえに」 뒤에 「てを あらいます」가 옵니다. ★ 자리(세 번째)는 「まえに」입니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.time-change"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "まえに"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ごはんを"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "たべる"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "てを"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-grammar-17",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "SENTENCE_ORDER",
+        "difficulty": "NORMAL",
+        "questionText": "つくえの ＿＿ ★ ＿＿ ＿＿ あります。　★に 入る ものは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 장소に + 꾸밈말 + 명사が + 수량 + あります\n바른 문장: つくえの うえに あかい ペンが 二本 あります。 「あかい」가 「ペン」을 꾸미고, 수량 「二本」은 「あります」 바로 앞에 옵니다. ★ 자리(두 번째)는 「あかい」입니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.particle"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ペンが"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "あかい"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "うえに"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "二本"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-grammar-18",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "SENTENCE_ORDER",
+        "difficulty": "NORMAL",
+        "questionText": "すみません、＿＿ ＿＿ ★ ＿＿ いいですか。　★に 入る ものは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: ~ても いいですか = ~해도 됩니까\n바른 문장: すみません、この へやの まどを あけても いいですか。 「この へやの」가 「まど」를 꾸미고 「あけても いいですか」로 끝납니다. ★ 자리(세 번째)는 「まどを」입니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.conjugation"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "この"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "へやの"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "まどを"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "あけても"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-grammar-19",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "SENTENCE_ORDER",
+        "difficulty": "HARD",
+        "questionText": "あの ＿＿ ★ ＿＿ ＿＿ が 先生です。　★に 入る ものは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: めがねを かけて いる + 人 = 안경을 쓰고 있는 사람\n바른 문장: あの めがねを かけて いる 人が 先生です。 「めがねを かけて いる」가 「人」을 꾸밉니다. ★ 자리(두 번째)는 「かけて」입니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.conjugation"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "かけて"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "めがねを"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "いる"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "人"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-grammar-20",
+      "content": {
+        "level": "N5",
+        "subject": "GRAMMAR",
+        "questionType": "SENTENCE_ORDER",
+        "difficulty": "NORMAL",
+        "questionText": "きょうは ＿＿ ＿＿ ★ ＿＿ ねます。　★に 入る ものは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 이유(~から) + はやく + ねます\n바른 문장: きょうは しごとで つかれた から はやく ねます。 「しごとで つかれた から」가 이유이고 「はやく ねます」로 끝납니다. ★ 자리(세 번째)는 「から」입니다.",
+        "explanationJa": null,
+        "tagNames": ["grammar.cause-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "しごとで"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "つかれた"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "はやく"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "から"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-reading-01",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "あした 雨が ふったら、リさんは なにを しますか。",
+        "passage": "リさんへ\nあしたの テニスは、雨なら やめます。雨の ときは、わたしの うちで いっしょに ゲームを しましょう。10時に きて ください。\n山田",
+        "explanationKo": "핵심: 「雨の ときは、わたしの うちで いっしょに ゲームを しましょう」\n비가 오면 테니스는 그만두고 야마다 씨 집에서 게임을 합니다. 10시는 야마다 씨 집에 가는 시간이고, 역이나 자기 집 이야기는 없습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "こうえんで テニスを する"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "10時に えきへ いく"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "山田さんの うちで ゲームを する"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "じぶんの うちで ねる"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-reading-02",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "この 人は きょう ひるの まえに なにを しましたか。",
+        "passage": "わたしは まいあさ 7時に おきます。でも、きょうは 日よう日でしたから、9時に おきました。ひるまで へやの そうじを して、ごごは ともだちと えいがを みました。",
+        "explanationKo": "핵심: 「ひるまで へやの そうじを して」\n점심 전에는 방 청소를 했습니다. 영화는 오후에 봤고, 7시에 일어나는 것은 평일 이야기라 오늘(일요일)은 9시에 일어났습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ともだちと えいがを みた"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "へやの そうじを した"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "7時に おきた"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ともだちの うちへ いった"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-reading-03",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "きょう マイクさんは うちまで なんぷん かかりましたか。",
+        "passage": "マイクさんの うちは、がっこうから バスで 20ぷんです。でも、きょうは バスが なかなか こなかったので、あるいて かえりました。うちまで 50ぷん かかりました。",
+        "explanationKo": "핵심: 「うちまで 50ぷん かかりました」\n오늘은 걸어서 50분 걸렸습니다. 20분은 평소 버스 시간이고, 30분(차이)·70분(합계)은 글에 나오지 않습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "20ぷん"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "30ぷん"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "70ぷん"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "50ぷん"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-reading-04",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "きょうは どの へやを つかいますか。",
+        "passage": "みなさんへ\nこの へやの エアコンは こわれて います。あしたの ごご、なおしに きます。きょうは となりの 202の へやを つかって ください。\nかんりにん",
+        "explanationKo": "핵심: 「きょうは となりの 202の へやを つかって ください」\n이 방은 에어컨이 고장 나서 오늘은 옆 202호를 씁니다. 관리인의 방 이야기는 없고, 고치는 것은 이 방입니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "202の へや"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "この へや"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "かんりにんの へや"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "あした なおす へや"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-reading-05",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "チンさんは らいねん なにを したいですか。",
+        "passage": "わたしは チンです。ちゅうごくから 来ました。いま、日本語がっこうで べんきょうして います。すきな ことは りょうりです。らいねん、日本の 大学に 入りたいです。",
+        "explanationKo": "핵심: 「らいねん、日本の 大学に 入りたいです」\n내년 바람은 일본 대학 입학입니다. 요리는 좋아하는 일이고, 일본어 학교는 지금 다니는 곳입니다. 중국으로 돌아간다는 말은 없습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ちゅうごくへ かえる"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "りょうりを ならう"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "日本語がっこうに 入る"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "日本の 大学に 入る"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-reading-06",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "HARD",
+        "questionText": "花は ぜんぶで いくらでしたか。",
+        "passage": "きょうは ともだちの たんじょうびです。わたしは 花やで 花を かいました。あかい 花は 1本 150円、しろい 花は 1本 100円です。あかい 花を 2本と、しろい 花を 3本 かいました。",
+        "explanationKo": "핵심: 150円 × 2 + 100円 × 3 = 600円\n650엔은 빨간 꽃 3송이·흰 꽃 2송이로 바꿔 센 값, 750엔은 다섯 송이를 모두 150엔으로, 500엔은 모두 100엔으로 계산한 값입니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "650円"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "750円"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "500円"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "600円"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-reading-07",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "キムさんは どうして がっこうを やすみますか。",
+        "passage": "先生へ\nすみません。きょうは ねつが あるので、がっこうを やすみます。しゅくだいは あした もって いきます。\nキム",
+        "explanationKo": "핵심: 「ねつが あるので、がっこうを やすみます」\n쉬는 이유는 열이 나서입니다. 숙제는 내일 가져간다고 했고, 시험이나 선생님이 없다는 말은 없습니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "しゅくだいが ないから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ねつが あるから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "あした テストが あるから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "先生が いないから"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-reading-08",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "あしたの てんきは どうですか。",
+        "passage": "あしたは あさから ごごまで 雨ですが、よるは はれるでしょう。わたしは あしたの よる、ともだちと ほしを みに いきます。",
+        "explanationKo": "핵심: 「あさから ごごまで 雨ですが、よるは はれるでしょう」\n낮까지 비, 밤에는 맑습니다. 그래서 밤에 별을 보러 갑니다. 나머지는 비·맑음의 시간이 글과 다릅니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "あさから よるまで ずっと 雨"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "あさは はれで、よるは 雨"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "あさから ごごまで 雨で、よるは はれ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "あさから よるまで ずっと はれ"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-reading-09",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "HARD",
+        "questionText": "土よう日に、おとな 一人と 8さいの こども 二人で プールへ いきます。ぜんぶで いくらですか。",
+        "passage": "みどり市 プール\nあいて いる じかん：あさ 9時～よる 8時\nやすみ：水よう日\nおかね：おとな 400円　こども（12さいまで）200円\n※ 土よう日と 日よう日は、こどもは 100円です。",
+        "explanationKo": "핵심: 토요일 어린이 100엔 → 400円 + 100円 × 2 = 600円\n800엔은 평일 어린이 요금(200엔)으로 계산한 값, 500엔은 어린이를 한 명만 센 값, 1200엔은 어른 요금으로 세 명을 센 값입니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "600円"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "800円"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "500円"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "1200円"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-a3-reading-10",
+      "content": {
+        "level": "N5",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "パンを 1こ 100円で かいたいです。いつ いけば いいですか。",
+        "passage": "さくら パンや　おしらせ\n月よう日～金よう日：あさ 7時～よる 7時\n土よう日：あさ 8時～ごご 3時\n日よう日：やすみ\n※ 月よう日～金よう日の あさ 7時から 9時までは、パンが ぜんぶ 1こ 100円です。",
+        "explanationKo": "핵심: 100엔은 월~금 아침 7~9시만\n화요일 아침 8시가 조건에 맞습니다. 토요일은 할인 요일이 아니고, 수요일 오후 5시는 할인 시간이 아니며, 일요일은 쉬는 날입니다.",
+        "explanationJa": null,
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "火よう日の あさ 8時"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "土よう日の あさ 8時"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "水よう日の ごご 5時"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "日よう日の あさ 7時"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    }
+  ]
+}
