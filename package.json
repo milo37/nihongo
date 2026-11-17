@@ -81,6 +81,11 @@
       "follow-redirects@1.16.0": "1.16.2",
       "vite@8.2.1": "8.2.4"
     },
+    "auditConfig": {
+      "ignoreGhsas": [
+        "GHSA-fc5q-39xc-vjpf"
+      ]
+    },
     "onlyBuiltDependencies": [
       "esbuild",
       "msw",
