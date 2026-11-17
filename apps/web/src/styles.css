@@ -487,10 +487,28 @@ body [lang='ja'][data-ja-spaced],
 }
 .signup-consent-check input {
   flex: none;
+  appearance: none;
+  display: grid;
+  place-content: center;
   width: 22px;
   height: 22px;
   margin: 0;
-  accent-color: rgb(var(--color-brand));
+  border: 1.5px solid rgb(var(--color-line-interactive));
+  border-radius: 5px;
+  background: rgb(var(--color-surface));
+}
+.signup-consent-check input:checked {
+  border-color: rgb(var(--color-brand));
+  background: rgb(var(--color-brand));
+}
+.signup-consent-check input:checked::after {
+  content: '';
+  width: 6px;
+  height: 11px;
+  margin-top: -2px;
+  border: solid rgb(var(--color-on-accent));
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
 }
 .signup-consent-check a {
   color: rgb(var(--color-ink));
@@ -504,7 +522,12 @@ body [lang='ja'][data-ja-spaced],
   line-height: 19px;
   text-wrap: pretty;
 }
-.signup-consent:lang(ko) {
+/* Breaks only between words (ko) or at the comma (ja), as drawn. */
+.signup-consent h1 {
+  word-break: keep-all;
+  text-wrap: pretty;
+}
+.signup-consent-checks:lang(ko) {
   word-break: keep-all;
 }
 .signup-consent-error {
