@@ -567,7 +567,7 @@ const loginThroughUi = async (page: Page): Promise<void> => {
         url.search === '?view=learning'
     )
     await settleJourneyPage(page)
-    expect(principalResponses).toHaveLength(mode === 'mock' ? 2 : 1)
+    expect(principalResponses).toHaveLength(2)
     const identities: string[] = []
     for (const response of principalResponses) {
       const principal = getCurrentPrincipalResponseSchema.parse(
