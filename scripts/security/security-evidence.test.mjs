@@ -119,6 +119,12 @@ const createRequestLedgerEntries = (name, pathName) => {
       mock
         ? ['POST', '/api/_mock/auth/social/callback', 200]
         : ['GET', '/api/auth/callback/google', 303],
+      ...(mock
+        ? []
+        : [
+            ['GET', '/api/auth/sso/signup-consent', 200],
+            ['POST', '/api/auth/sso/signup-consent', 200]
+          ]),
       ['GET', '/api/v1/me', 200]
     ]
     return operations.map(([method, operationPath, status], index) => ({
@@ -1630,7 +1636,20 @@ test('both handoff sources reject missing, duplicated, forged and noncanonical r
             '/api/v1/study-sessions/018f6b7a-1f4b-7d5e-8a9b-123456789abc'
         },
         (entries) =>
-          entries.push({ ...entries[1], startSequence: 11, finishSequence: 12 })
+          entries.push({
+            ...entries[1],
+            startSequence: 21,
+            finishSequence: 22
+          }),
+        (entries) =>
+          entries.push({
+            ...entries[0],
+            method: 'POST',
+            path: '/api/auth/sso/signup-consent',
+            startSequence: 23,
+            finishSequence: 24
+          }),
+        (entries) => entries.splice(-2, 1)
       ]) {
         const candidate = structuredClone(valid)
         mutate(candidate.entries)
