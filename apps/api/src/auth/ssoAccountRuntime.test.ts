@@ -249,7 +249,7 @@ const fixture = () => {
     },
     identities: {
       signIn,
-      consentState: async () => 'PROCEED' as const,
+      consentState: async () => ({ state: 'PROCEED' as const }),
       signUpWithConsent: signIn
     },
     accountRuntime: runtime

@@ -1172,7 +1172,7 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       ).toEqual([{ users: 1, status: 'DELETION_PENDING' }])
     })
   })
-  it('#1085: sign-up waits for the consent, then the account and its consent commit together', async () => {
+  it('#1085: sign-up waits for the consent, then the account, its nickname (#1096) and its consent commit together', async () => {
     await h.rollback(async () => {
       const identities = createSsoIdentityRepository(h.appClient as never)
       const metadata = { ipAddress: '127.0.0.1', userAgent: 'consent-test' }
@@ -1185,6 +1185,13 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
             [email]
           )
         ).rows[0]!
+      const nameOf = async (email: string) =>
+        (
+          await h.owner.query<{ name: string }>(
+            'SELECT name FROM "User" WHERE email = $1',
+            [email]
+          )
+        ).rows[0]?.name
       // A new identity: nothing exists before the consent.
       const fresh = {
         provider: 'google' as const,
@@ -1192,20 +1199,26 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         email: `consent-${randomUUID()}@example.test`,
         name: 'Consent learner'
       }
-      expect(await identities.consentState(fresh)).toBe('NEW')
+      expect(await identities.consentState(fresh)).toEqual({ state: 'NEW' })
       expect(await facts(fresh.email)).toEqual({ users: 0, consents: 0 })
-      expect(await identities.signUpWithConsent(fresh, metadata)).toMatchObject(
-        { kind: 'SESSION_CONFIRMED' }
-      )
+      expect(
+        await identities.signUpWithConsent(fresh, ' 하루 마루 ', metadata)
+      ).toMatchObject({ kind: 'SESSION_CONFIRMED' })
       expect(await facts(fresh.email)).toEqual({ users: 1, consents: 1 })
-      expect(await identities.consentState(fresh)).toBe('PROCEED')
+      // The provider name is never stored; a later sign-in keeps the nickname.
+      expect(await nameOf(fresh.email)).toBe('하루 마루')
+      expect(await identities.signIn(fresh, metadata)).toMatchObject({
+        kind: 'SESSION_CONFIRMED'
+      })
+      expect(await nameOf(fresh.email)).toBe('하루 마루')
+      expect(await identities.consentState(fresh)).toEqual({ state: 'PROCEED' })
       // Its email under another provider subject stays the transition case.
       expect(
         await identities.consentState({
           ...fresh,
           accountId: `consent-${randomUUID()}`
         })
-      ).toBe('PROCEED')
+      ).toEqual({ state: 'PROCEED' })
       // An existing member without a consent confirms once; no second User.
       const member = await h.fixture('google', 'USER')
       const { email, name } = (
@@ -1220,11 +1233,18 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         email,
         name
       }
-      expect(await identities.consentState(existing)).toBe('EXISTING')
+      expect(await identities.consentState(existing)).toEqual({
+        state: 'EXISTING',
+        memberName: name
+      })
+      await expect(
+        identities.signUpWithConsent(existing, '하', metadata)
+      ).rejects.toThrow()
       expect(
-        await identities.signUpWithConsent(existing, metadata)
+        await identities.signUpWithConsent(existing, '마루', metadata)
       ).toMatchObject({ kind: 'SESSION_CONFIRMED' })
       expect(await facts(email)).toEqual({ users: 1, consents: 1 })
+      expect(await nameOf(email)).toBe('마루')
       expect(
         (
           await h.owner.query(
@@ -1235,7 +1255,9 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
           )
         ).rows
       ).toEqual([{ termsVersion: 'v1', age: true, terms: true }])
-      expect(await identities.consentState(existing)).toBe('PROCEED')
+      expect(await identities.consentState(existing)).toEqual({
+        state: 'PROCEED'
+      })
       // Rows never change, and they go with the User on erasure.
       await h.rejects(
         'nihongo_app',

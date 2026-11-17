@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto'
 import { z } from 'zod'
 import { SIGNUP_TERMS_VERSION } from '@nihongo/contracts/auth/signup-consent'
+import { nicknameSchema } from '@nihongo/contracts/auth/update-nickname'
 import type { PrismaClient } from '../generated/prisma/client.js'
 import {
   confirmOwnedSession,
@@ -62,15 +63,24 @@ export type SsoIdentityResult =
  * an email that already belongs to another account).
  */
 export type SsoConsentState = 'PROCEED' | 'NEW' | 'EXISTING'
+/** #1096: EXISTING also carries the member's current name (nickname). */
+export type SsoConsent =
+  | { state: 'PROCEED' | 'NEW' }
+  | { state: 'EXISTING'; memberName: string }
 export interface SsoIdentityPort {
   signIn: (
     identity: SsoVerifiedIdentity,
     metadata: { ipAddress: string; userAgent: string }
   ) => Promise<SsoIdentityResult>
-  consentState: (identity: SsoVerifiedIdentity) => Promise<SsoConsentState>
-  /** #1085: creates the account if needed and its consent in one commit. */
+  consentState: (identity: SsoVerifiedIdentity) => Promise<SsoConsent>
+  /**
+   * #1085: creates the account if needed and its consent in one commit.
+   * #1096: the account's name becomes the checked nickname, so a new
+   * member's provider name is never stored.
+   */
   signUpWithConsent: (
     identity: SsoVerifiedIdentity,
+    nickname: string,
     metadata: { ipAddress: string; userAgent: string }
   ) => Promise<SsoIdentityResult>
 }
@@ -160,6 +170,7 @@ export const createSsoIdentityRepository = (
         active: boolean
         consented: boolean
         taken: boolean
+        memberName: string | null
       }>
     >(
       `SELECT member."id" IS NOT NULL AS account,
@@ -169,7 +180,8 @@ export const createSsoIdentityRepository = (
            WHERE consent."userId" = member."id"
              AND consent."termsVersion" = $3) AS consented,
          EXISTS (SELECT 1 FROM "User" AS other
-           WHERE lower(other."email") = lower($4)) AS taken
+           WHERE lower(other."email") = lower($4)) AS taken,
+         member."name" AS "memberName"
        FROM (SELECT 1) AS one
        LEFT JOIN "Account" AS account
          ON account."providerId" = $1 AND account."accountId" = $2
@@ -182,15 +194,30 @@ export const createSsoIdentityRepository = (
     const row = rows[0]
     if (rows.length !== 1 || !row)
       throw new Error('SSO consent state unavailable.')
-    if (!row.account) return row.taken ? 'PROCEED' : 'NEW'
-    return row.active && !row.consented ? 'EXISTING' : 'PROCEED'
+    if (!row.account) return { state: row.taken ? 'PROCEED' : 'NEW' }
+    return row.active && !row.consented && row.memberName !== null
+      ? { state: 'EXISTING', memberName: row.memberName }
+      : { state: 'PROCEED' }
   },
-  signUpWithConsent: async (untrustedIdentity, metadata) => {
-    const identity = identitySchema.parse(untrustedIdentity)
-    // The account and its consent commit together; the Session follows.
+  signUpWithConsent: async (untrustedIdentity, untrustedNickname, metadata) => {
+    const nickname = nicknameSchema.parse(untrustedNickname)
+    const identity = identitySchema.parse({
+      ...untrustedIdentity,
+      name: nickname
+    })
+    // The account, its nickname and its consent commit together; the
+    // Session follows.
     const authority = await client.$transaction(async (transaction) => {
       const resolved = await resolveIdentity(transaction, identity)
-      if (resolved.outcome === 'RESOLVED')
+      if (resolved.outcome === 'RESOLVED') {
+        // A new account already has it; an existing member's is replaced
+        // (20261120090000_grant_user_name_update, "name" only).
+        await transaction.$executeRawUnsafe(
+          `UPDATE "User" SET "name" = $2
+           WHERE "id" = $1::uuid AND "name" IS DISTINCT FROM $2`,
+          resolved.userId,
+          nickname
+        )
         await transaction.$executeRawUnsafe(
           `INSERT INTO "UserConsent"
              ("userId", "termsVersion", "ageConfirmedAt", "termsConfirmedAt")
@@ -199,6 +226,7 @@ export const createSsoIdentityRepository = (
           resolved.userId,
           SIGNUP_TERMS_VERSION
         )
+      }
       return resolved
     })
     if (authority.outcome !== 'RESOLVED') return { kind: authority.outcome }

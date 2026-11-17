@@ -35,6 +35,10 @@ import {
   createPrismaTargetLevelRepository,
   createTargetLevelService
 } from '../member/targetLevel.js'
+import {
+  createNicknameService,
+  createPrismaNicknameRepository
+} from '../member/nickname.js'
 import { createPrismaGuestAllowanceReader } from '../study/guestAllowance.js'
 import { createGuestIpDailyCounter } from '../study/guestIpDailyCounter.js'
 import { createPrismaStudySessionRepository } from '../study/studySessionRepository.js'
@@ -507,6 +511,9 @@ export const createBrowserApi = async ({
         ),
         targetLevelService: createTargetLevelService(
           createPrismaTargetLevelRepository(database.client)
+        ),
+        nicknameService: createNicknameService(
+          createPrismaNicknameRepository(database.client)
         ),
         wrongNoteService: createWrongNoteService(
           createPrismaWrongNoteRepository(database.client)

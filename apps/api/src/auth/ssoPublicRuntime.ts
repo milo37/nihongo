@@ -15,6 +15,10 @@ import {
   signupConsentStateSchema
 } from '@nihongo/contracts/auth/signup-consent'
 import type { SignupConsentErrorCode } from '@nihongo/contracts/auth/signup-consent'
+import {
+  defaultNickname,
+  nicknameSchema
+} from '@nihongo/contracts/auth/update-nickname'
 import type { ApiEnvironment } from '../config/env.js'
 import { readLimitedAuthBody } from './authGateway.js'
 import { createAppleSsoProvider } from './ssoAppleProvider.js'
@@ -198,14 +202,28 @@ export const createSsoPublicRuntime = ({
               signupConsentStateSchema.parse({
                 kind: pending.kind,
                 expiresAt: new Date(pending.expiresAt * 1000).toISOString(),
-                redirect: pending.redirect
+                redirect: pending.redirect,
+                nicknameDefault: defaultNickname(pending.name)
               })
             )
           : consentError('SIGNUP_PENDING_EXPIRED')
       if (request.method !== 'POST')
         return json({ code: 'AUTH_ROUTE_NOT_FOUND' }, 404)
-      if (!signupConsentRequestSchema.safeParse(payload).success)
-        return json({ code: 'SIGNUP_CONSENT_REQUIRED' }, 400)
+      const consent = signupConsentRequestSchema.safeParse(payload)
+      if (!consent.success)
+        // #1096: the nickname error first, as the page focuses it first.
+        return json(
+          {
+            code: nicknameSchema.safeParse(
+              payload && typeof payload === 'object' && 'nickname' in payload
+                ? payload.nickname
+                : undefined
+            ).success
+              ? 'SIGNUP_CONSENT_REQUIRED'
+              : 'SIGNUP_NICKNAME_INVALID'
+          },
+          400
+        )
       if (!pending) return consentError('SIGNUP_PENDING_EXPIRED')
       let resolved: Awaited<ReturnType<SsoIdentityPort['signUpWithConsent']>>
       try {
@@ -216,6 +234,7 @@ export const createSsoPublicRuntime = ({
             email: pending.email,
             name: pending.name
           },
+          consent.data.nickname,
           {
             ipAddress:
               request.headers.get(INTERNAL_CLIENT_IP_HEADER) ?? 'unresolved',
@@ -344,7 +363,7 @@ export const createSsoPublicRuntime = ({
         if (verified.kind !== 'IDENTITY_VERIFIED')
           return failure(provider, verified.kind, verified.callbackURL)
         const consent = await identities.consentState(verified.identity)
-        if (consent !== 'PROCEED') {
+        if (consent.state !== 'PROCEED') {
           // #1085: no account and no session before the consent; the login
           // page opens the consent with this short encrypted pending.
           const returnPath = safeSsoReturnPath(verified.callbackURL)
@@ -364,8 +383,13 @@ export const createSsoPublicRuntime = ({
                   provider,
                   accountId: verified.identity.accountId,
                   email: verified.identity.email,
-                  name: verified.identity.name,
-                  kind: consent,
+                  // #1096: the prefill source; NEW keeps the provider name
+                  // only here, EXISTING the member's current name.
+                  name:
+                    consent.state === 'EXISTING'
+                      ? consent.memberName
+                      : verified.identity.name,
+                  kind: consent.state,
                   redirect: returnPath
                 },
                 now()

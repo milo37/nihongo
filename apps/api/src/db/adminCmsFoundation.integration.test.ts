@@ -61,7 +61,8 @@ const EXPECTED_MIGRATIONS = [
   '20261116090000_tag_label_ja',
   '20261117090000_drop_retired_verification',
   '20261118090000_retention_cohort',
-  '20261119090000_signup_consent'
+  '20261119090000_signup_consent',
+  '20261120090000_grant_user_name_update'
 ] as const
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',
