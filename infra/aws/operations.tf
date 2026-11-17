@@ -29,6 +29,26 @@ resource "aws_ssm_document" "deploy" {
           runCommand     = ["/opt/harumaru/bin/deploy.sh {{ releaseId }}"]
         }
       },
+      # Each deploy pulls a ~540 MB API image and nothing removed the old ones,
+      # so the 20 GB root disk filled up (STAGING, run 44024084136). Keep the
+      # live release and the newest other image (the rollback target after a
+      # success, the failed image after a failure); ECR keeps every tag. This
+      # step also runs after a failed deploy. Here and not in deploy.sh: host
+      # files change only on a new host (#1042). Images only, never volumes.
+      {
+        action = "aws:runShellScript"
+        name   = "pruneImages"
+        inputs = {
+          timeoutSeconds = "120"
+          runCommand = [
+            "source /etc/harumaru/host.env",
+            "live=$(cat /opt/harumaru/current-release 2>/dev/null || true)",
+            "[ -n \"$live\" ] || exit 0",
+            "docker image ls \"$ECR_REPOSITORY\" | awk 'NR > 1 {print $2}' | grep -E '^[0-9a-f]{40}$' | grep -vx \"$live\" | tail -n +2 | sed \"s|^|$ECR_REPOSITORY:|\" | xargs -r docker image rm >/dev/null || true",
+            "df -h / | awk 'NR==2 {print \"disk free \" $4 \" (\" $5 \" used)\"}'",
+          ]
+        }
+      },
       {
         action = "aws:runShellScript"
         name   = "stopLater"
