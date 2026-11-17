@@ -19,7 +19,8 @@ export interface DailyQuestionRecord extends PublishedQuestionDetailRecord {
 export interface DailyQuestionRepository {
   /**
    * The `dayNumber % count`-th learner-visible vocabulary or grammar question
-   * of the level, ordered by md5(question id); null when there is none.
+   * of the level whose text fits the manuscript sheet, ordered by md5(question
+   * id); null when there is none.
    */
   findDaily: (
     level: Level,
@@ -37,6 +38,22 @@ export interface DailyQuestionReader {
 const DAY_MS = 24 * 60 * 60 * 1_000
 const MAX_AGE_SECONDS = 3_600
 const UNAVAILABLE_PRISMA_CODES = new Set(['P1001', 'P1002', 'P2024'])
+
+/**
+ * #1087: the home card writes the question on a manuscript sheet of at most
+ * three rows, 36 squares on a phone. Longer questions fall back to plain
+ * text, so only questions that fit are candidates.
+ */
+export const DAILY_SHEET_MAX_CHARACTERS = 36
+/** The squares a question takes, counted as the web card counts them. */
+export const dailySheetLength = (text: string): number =>
+  Array.from(text.replace(/\s+/gu, '')).length
+/** JavaScript `\s` in a PostgreSQL bracket, so both sides drop the same spaces. */
+export const SHEET_SPACE_PATTERN =
+  '[\\t\\n\\v\\f\\r \\u00a0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000\\ufeff]'
+/** `dailySheetLength` in SQL; char_length counts code points like Array.from. */
+export const dailySheetLengthSql = (text: Prisma.Sql): Prisma.Sql =>
+  Prisma.sql`char_length(regexp_replace(${text}, ${SHEET_SPACE_PATTERN}, '', 'g'))`
 
 /** Days since 1970-01-01 of the Korea-time date, e.g. `2026-11-10`. */
 export const toDayNumber = (date: string): number =>
@@ -59,6 +76,8 @@ export const createPrismaDailyQuestionRepository = (
             AND v."status" = 'PUBLISHED'
             AND v."level"::text = ${level}
             AND v."subject"::text IN ('VOCABULARY', 'GRAMMAR')
+            AND ${dailySheetLengthSql(Prisma.sql`v."questionText"`)}
+              <= ${DAILY_SHEET_MAX_CHARACTERS}
         )
         SELECT "id"::text AS "id" FROM candidates
         WHERE position = ${dayNumber}::bigint % total`)
