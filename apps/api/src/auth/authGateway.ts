@@ -1,5 +1,6 @@
 import { SSO_ACCOUNT_PATHS } from './ssoAccountRuntime.js'
 import type { SsoAccountRuntime } from './ssoAccountRuntime.js'
+import { SIGNUP_CONSENT_PATHS } from '@nihongo/contracts/auth/signup-consent'
 import { z } from 'zod'
 import type { SsoPublicRuntime } from './ssoPublicRuntime.js'
 import type { ApiEnvironment } from '../config/env.js'
@@ -71,13 +72,16 @@ const isAllowedOperation = (method: string, pathname: string): boolean =>
       pathname === SSO_ACCOUNT_PATHS.unlink ||
       pathname === SSO_ACCOUNT_PATHS.deletion ||
       pathname === SSO_ACCOUNT_PATHS.restore ||
-      pathname === SSO_ACCOUNT_PATHS.restoreDecline)) ||
+      pathname === SSO_ACCOUNT_PATHS.restoreDecline ||
+      pathname === SIGNUP_CONSENT_PATHS.consent ||
+      pathname === SIGNUP_CONSENT_PATHS.cancel)) ||
   (method === 'GET' &&
     (pathname === '/api/auth/callback/google' ||
       pathname === '/api/auth/sso/admin-fresh/complete' ||
       pathname === SSO_ACCOUNT_PATHS.capabilities ||
       pathname === SSO_ACCOUNT_PATHS.status ||
       pathname === SSO_ACCOUNT_PATHS.restore ||
+      pathname === SIGNUP_CONSENT_PATHS.consent ||
       pathname === SSO_ACCOUNT_PATHS.freshComplete ||
       pathname === SSO_ACCOUNT_PATHS.linkComplete))
 
@@ -672,6 +676,37 @@ export const createAuthGateway = ({
 
       if (!isAllowedOperation(request.method, pathname)) {
         throw new AuthGatewayError(404, 'AUTH_ROUTE_NOT_FOUND')
+      }
+      if (
+        Object.values(SIGNUP_CONSENT_PATHS).some((path) => path === pathname)
+      ) {
+        // #1085: the pending sign-up consent; same guards as the SSO account
+        // routes.
+        if (requestUrl.search)
+          throw new AuthGatewayError(400, 'INVALID_AUTH_PAYLOAD')
+        if (request.method === 'POST')
+          assertTrustedWriteRequest(request, environment.TRUSTED_ORIGINS)
+        await technicalRateLimiter?.consume({
+          clientIp: request.headers.get('x-nihongo-client-ip') ?? 'unresolved',
+          max: 10,
+          operation: `auth:${pathname}`,
+          windowMs: 60_000
+        })
+        const result = !ssoRuntime
+          ? Response.json({ code: 'SSO_UNAVAILABLE' }, { status: 503 })
+          : await ssoRuntime.signupConsent(
+              request,
+              pathname,
+              request.method === 'POST'
+                ? await readLimitedJsonBody(
+                    request,
+                    MAX_TECHNICAL_AUTH_BODY_BYTES
+                  )
+                : {}
+            )
+        return appendPrivateNoStore(
+          appendDevelopmentCors(result, request, environment)
+        )
       }
       if (Object.values(SSO_ACCOUNT_PATHS).some((path) => path === pathname)) {
         if (requestUrl.search)

@@ -357,3 +357,20 @@ it.each([
   if (active) expect(my).toHaveAttribute('aria-current', 'page')
   else expect(my).not.toHaveAttribute('aria-current')
 })
+
+it('shows only the logo, as a picture, on the sign-up check (#1085)', async () => {
+  await appI18n.changeLanguage('ko')
+  render(
+    <MemoryRouter initialEntries={['/login?sso=CONSENT_REQUIRED']}>
+      <Layout />
+    </MemoryRouter>
+  )
+  const banner = screen.getByRole('banner')
+  expect(
+    within(banner).getByRole('img', { name: appI18n.t('common:appName') })
+  ).toBeInTheDocument()
+  expect(within(banner).queryByRole('link')).not.toBeInTheDocument()
+  expect(within(banner).queryByRole('button')).not.toBeInTheDocument()
+  expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
+  expect(document.title).toContain('가입 확인')
+})

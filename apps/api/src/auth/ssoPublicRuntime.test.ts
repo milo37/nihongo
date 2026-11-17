@@ -10,7 +10,10 @@ import type {
   SsoTransaction,
   SsoTransactionStore
 } from './ssoProtocol.js'
-import type { SsoIdentityResult } from './ssoIdentityRepository.js'
+import type {
+  SsoConsentState,
+  SsoIdentityResult
+} from './ssoIdentityRepository.js'
 
 const environment = parseApiEnvironment({
   NODE_ENV: 'test',
@@ -19,7 +22,11 @@ const environment = parseApiEnvironment({
   BETTER_AUTH_SECRET: 'test-auth-placeholder-only-1234567890',
   GUEST_COOKIE_SECRET: 'test-guest-placeholder-only-1234567890'
 })
-const fixture = (provider: SsoProviderId = 'google') => {
+const fixture = (
+  provider: SsoProviderId = 'google',
+  consent: SsoConsentState = 'PROCEED'
+) => {
+  let clock = Date.parse('2026-11-17T05:00:00Z')
   const transactions = new Map<string, SsoTransaction>()
   const store = {
     create: vi.fn(async (value: SsoTransaction) => {
@@ -80,11 +87,21 @@ const fixture = (provider: SsoProviderId = 'google') => {
       expiresAt: new Date('2026-10-26T00:00:00Z')
     })
   )
+  const consentState = vi.fn(async (): Promise<SsoConsentState> => consent)
+  const signUpWithConsent = vi.fn(
+    async (): Promise<SsoIdentityResult> => ({
+      kind: 'SESSION_CONFIRMED',
+      token: 'private-session-placeholder',
+      createdAt: new Date('2026-11-17T05:01:00Z'),
+      expiresAt: new Date('2026-11-24T05:01:00Z')
+    })
+  )
   const runtime = createSsoPublicRuntime({
     environment,
     providers: { [provider]: { authorizationURL, exchange } },
     store,
-    identities: { signIn }
+    identities: { signIn, consentState, signUpWithConsent },
+    now: () => clock
   })
   const rateLimiter = { consume: vi.fn(async () => undefined) }
   const facade = { handle: vi.fn(async () => Response.json({ success: true })) }
@@ -132,12 +149,41 @@ const fixture = (provider: SsoProviderId = 'google') => {
     start,
     callback,
     signIn,
+    consentState,
+    signUpWithConsent,
     exchange,
     facade,
     rateLimiter,
-    store
+    store,
+    advance: (milliseconds: number) => {
+      clock += milliseconds
+    }
   }
 }
+const pendingOf = (response: Response): string =>
+  response.headers
+    .getSetCookie()
+    .find((value) => value.startsWith('nihongo.sso_signup_pending='))!
+    .split(';')[0]!
+const consentRequest = (
+  method: 'GET' | 'POST',
+  cookie: string,
+  body?: unknown,
+  path = '/api/auth/sso/signup-consent'
+) =>
+  new Request(`http://localhost:3001${path}`, {
+    method,
+    headers: {
+      Cookie: cookie,
+      ...(method === 'POST'
+        ? {
+            Origin: 'http://localhost:5173',
+            'Content-Type': 'application/json'
+          }
+        : {})
+    },
+    ...(method === 'POST' ? { body: JSON.stringify(body) } : {})
+  })
 
 describe('public SSO HTTP boundary', () => {
   it.each(['apple', 'google'] as const)(
@@ -319,5 +365,136 @@ describe('public SSO HTTP boundary', () => {
     )
     expect(response.headers.get('Location')).toContain('sso=FAILED')
     expect(f.exchange).not.toHaveBeenCalled()
+  })
+})
+
+describe('sign-up consent before the account (#1085)', () => {
+  it.each(['NEW', 'EXISTING'] as const)(
+    'returns %s to the login page with a pending and no session',
+    async (kind) => {
+      const f = fixture('google', kind)
+      const { cookie, state } = await f.start()
+      const result = await f.gateway.handle(f.callback(cookie, state))
+      expect(result.status).toBe(303)
+      expect(result.headers.get('Location')).toBe(
+        'http://localhost:5173/login?sso=CONSENT_REQUIRED&redirect=%2Fbookmarks%3Flevel%3DN3'
+      )
+      const cookies = result.headers.getSetCookie()
+      expect(cookies.join('\n')).not.toContain('nihongo.session_token=')
+      const pending = cookies.find((v) =>
+        v.startsWith('nihongo.sso_signup_pending=')
+      )!
+      expect(pending).toContain('HttpOnly; SameSite=Lax; Max-Age=600')
+      // Encrypted: neither the email nor the name is readable.
+      const value = pending.split(';')[0]!.split('=')[1]!
+      expect(Buffer.from(value, 'base64url').toString('latin1')).not.toMatch(
+        /contact@example|provider-sub/u
+      )
+      expect(f.signIn).not.toHaveBeenCalled()
+      const read = await f.gateway.handle(
+        consentRequest('GET', pendingOf(result))
+      )
+      expect(read.status).toBe(200)
+      expect(await read.json()).toEqual({
+        kind,
+        expiresAt: '2026-11-17T05:10:00.000Z',
+        redirect: '/bookmarks?level=N3'
+      })
+    }
+  )
+
+  it('creates the account with its consent and sets the session on agree', async () => {
+    const f = fixture('google', 'NEW')
+    const { cookie, state } = await f.start()
+    const pending = pendingOf(await f.gateway.handle(f.callback(cookie, state)))
+    const missing = await f.gateway.handle(
+      consentRequest('POST', pending, { ageConfirmed: true })
+    )
+    expect(missing.status).toBe(400)
+    expect(await missing.json()).toEqual({ code: 'SIGNUP_CONSENT_REQUIRED' })
+    expect(f.signUpWithConsent).not.toHaveBeenCalled()
+    const agreed = await f.gateway.handle(
+      consentRequest('POST', pending, {
+        ageConfirmed: true,
+        termsConfirmed: true
+      })
+    )
+    expect(agreed.status).toBe(200)
+    expect(await agreed.json()).toEqual({
+      signedIn: true,
+      redirect: '/bookmarks?level=N3'
+    })
+    const cookies = agreed.headers.getSetCookie().join('\n')
+    expect(cookies).toContain('nihongo.session_token=')
+    expect(cookies).toContain('nihongo.sso_signup_pending=; Path=/')
+    expect(f.signUpWithConsent).toHaveBeenCalledWith(
+      {
+        provider: 'google',
+        accountId: 'provider-sub',
+        email: 'contact@example.test',
+        name: '학습자'
+      },
+      expect.objectContaining({ ipAddress: 'unresolved' })
+    )
+    expect(f.signIn).not.toHaveBeenCalled()
+  })
+
+  it('cancels with nothing stored and refuses a stale, forged or missing pending', async () => {
+    const f = fixture('google', 'NEW')
+    const { cookie, state } = await f.start()
+    const pending = pendingOf(await f.gateway.handle(f.callback(cookie, state)))
+    const cancelled = await f.gateway.handle(
+      consentRequest('POST', pending, {}, '/api/auth/sso/signup-consent/cancel')
+    )
+    expect(cancelled.status).toBe(200)
+    expect(await cancelled.json()).toEqual({ cancelled: true })
+    expect(cancelled.headers.get('Set-Cookie')).toContain(
+      'nihongo.sso_signup_pending=; Path=/'
+    )
+    const body = { ageConfirmed: true, termsConfirmed: true }
+    const forged = `${pending.slice(0, -4)}AAAA`
+    for (const value of [forged, '']) {
+      const response = await f.gateway.handle(
+        consentRequest('POST', value, body)
+      )
+      expect(response.status).toBe(404)
+      expect(await response.json()).toEqual({ code: 'SIGNUP_PENDING_EXPIRED' })
+    }
+    f.advance(600_000)
+    const late = await f.gateway.handle(consentRequest('POST', pending, body))
+    expect(late.status).toBe(404)
+    expect(await late.json()).toEqual({ code: 'SIGNUP_PENDING_EXPIRED' })
+    expect(f.signUpWithConsent).not.toHaveBeenCalled()
+    await expect(
+      f.gateway.handle(
+        new Request('http://localhost:3001/api/auth/sso/signup-consent', {
+          method: 'POST',
+          headers: {
+            Cookie: pending,
+            Origin: 'https://evil.example',
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(body)
+        })
+      )
+    ).rejects.toBeInstanceOf(AuthGatewayError)
+  })
+
+  it('answers 409 when the identity can no longer sign up', async () => {
+    const f = fixture('google', 'EXISTING')
+    f.signUpWithConsent.mockResolvedValueOnce({ kind: 'TRANSITION_REQUIRED' })
+    const { cookie, state } = await f.start()
+    const pending = pendingOf(await f.gateway.handle(f.callback(cookie, state)))
+    const response = await f.gateway.handle(
+      consentRequest('POST', pending, {
+        ageConfirmed: true,
+        termsConfirmed: true
+      })
+    )
+    expect(response.status).toBe(409)
+    expect(await response.json()).toEqual({ code: 'SIGNUP_UNAVAILABLE' })
+    expect(response.headers.get('Set-Cookie')).not.toContain(
+      'nihongo.session_token='
+    )
   })
 })

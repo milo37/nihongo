@@ -281,6 +281,7 @@ model User {
   ssoAccountFreshProofs       SsoAccountFreshProof[]
   ssoAccountErasureRequest    SsoAccountErasureRequest?
   signIn                      UserSignIn?
+  consents                    UserConsent[]
   idempotencyRecords          IdempotencyRecord[]
   userReports                 UserReport[]
   accountRestriction          UserAccountRestriction?
@@ -1068,4 +1069,16 @@ model UserSignIn {
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([lastLoginAt])
+}
+
+/// #1085: one sign-up consent per member and terms version; rows never change.
+model UserConsent {
+  userId           String   @db.Uuid
+  termsVersion     String
+  ageConfirmedAt   DateTime @db.Timestamptz(3)
+  termsConfirmedAt DateTime @db.Timestamptz(3)
+  createdAt        DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([userId, termsVersion])
 }

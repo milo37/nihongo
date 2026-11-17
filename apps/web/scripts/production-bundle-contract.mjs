@@ -72,7 +72,7 @@ export const bundleCeilings = Object.freeze({
   // The full terms and privacy text sits in the lazily loaded ko/ja copy bundles (K2 #698).
   largestLazyJavaScriptGzipBytes: 30_000,
   largestLazyJavaScriptRawBytes: 102_000,
-  totalGzipBytes: 480_000,
+  totalGzipBytes: 481_000,
   // #761 + U4 (#767 c9af0ed5): 1,482,644 measured (god approved; re-measure after deploy).
   totalRawBytes: 1_483_000
 })

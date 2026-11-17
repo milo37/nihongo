@@ -375,6 +375,11 @@ const ADDED_RETENTION_TABLE = 'RetentionCohort'
 const isAddedRetention = (row: Record<string, unknown>): boolean =>
   row.table === ADDED_RETENTION_TABLE
 
+/** #1085: the sign-up consent table. */
+const ADDED_CONSENT_TABLE = 'UserConsent'
+const isAddedConsent = (row: Record<string, unknown>): boolean =>
+  row.table === ADDED_CONSENT_TABLE
+
 /** #675: the retired email Verification table, its enum and its guard. */
 const RETIRED_VERIFICATION_TABLE = 'Verification'
 const RETIRED_VERIFICATION_TYPE = 'AuthVerificationPurpose'
@@ -415,7 +420,8 @@ const withBaselineErasureStatus = (
  * exactly by forwardFunctionSources against the baseline file), the objects
  * JLP-733 drops or adds, removed from both sides, the #683 proof bound,
  * the JLP-815 target level grant, the JLP-845 restore objects, the JLP-842
- * access record table and the JLP-852 last sign-in table.
+ * access record table, the JLP-852 last sign-in table, the #1042 return
+ * count table and the #1085 consent table.
  */
 export const withoutForwardChanges = (
   catalog: SchemaCatalog
@@ -441,6 +447,7 @@ export const withoutForwardChanges = (
       name !== ADDED_TABLE &&
       name !== ADDED_SIGN_IN_TABLE &&
       name !== ADDED_RETENTION_TABLE &&
+      name !== ADDED_CONSENT_TABLE &&
       name !== RETIRED_VERIFICATION_TABLE
   ),
   columns: catalog.columns
@@ -455,6 +462,7 @@ export const withoutForwardChanges = (
         !(row.table === 'Tag' && ADDED_TAG_COLUMNS.has(String(row.name))) &&
         !isAddedSignIn(row) &&
         !isAddedRetention(row) &&
+        !isAddedConsent(row) &&
         !isRetiredVerification(row)
     )
     .map(withBaselineTargetLevelAcl),
@@ -467,6 +475,7 @@ export const withoutForwardChanges = (
         row.table !== ADDED_TABLE &&
         !isAddedSignIn(row) &&
         !isAddedRetention(row) &&
+        !isAddedConsent(row) &&
         !isRetiredVerification(row)
     )
     .map(withBaselineProofBound)
@@ -478,6 +487,7 @@ export const withoutForwardChanges = (
       row.table !== ADDED_TABLE &&
       !isAddedSignIn(row) &&
       !isAddedRetention(row) &&
+      !isAddedConsent(row) &&
       !isRetiredVerification(row)
   ),
   triggers: catalog.triggers.filter(
