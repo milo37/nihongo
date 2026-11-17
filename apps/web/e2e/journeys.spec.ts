@@ -280,7 +280,9 @@ const userJourneyRequestContract = [
   {
     method: 'GET',
     path: '/api/v1/me',
-    statuses: successfulStatuses(mode === 'mock' ? 5 : 4)
+    // #1085: real mode loads the sign-up check page (one guest read), then
+    // finishes in the page like mock mode (confirm, then dashboard mount).
+    statuses: successfulStatuses(mode === 'mock' ? 5 : 6)
   },
   {
     method: 'GET',
@@ -341,7 +343,9 @@ const resilienceRequestContract = [
   {
     method: 'GET',
     path: '/api/v1/me',
-    statuses: successfulStatuses(mode === 'mock' ? 3 : 2)
+    // #1085: real mode loads the sign-up check page (one guest read), then
+    // finishes in the page like mock mode (confirm, then dashboard mount).
+    statuses: successfulStatuses(mode === 'mock' ? 3 : 4)
   },
   { method: 'GET', path: '/api/v1/study-sessions', statuses: [200] },
   // Today's question on the learning home (D, #801).
@@ -1263,7 +1267,9 @@ test('guest SSO boundary and authenticated practice transition match the active 
     {
       method: 'GET',
       path: '/api/v1/me',
-      statuses: successfulStatuses(mode === 'mock' ? 6 : 5)
+      // #1085: real mode loads the sign-up check page (one guest read), then
+      // finishes in the page like mock mode (confirm, then dashboard mount).
+      statuses: successfulStatuses(mode === 'mock' ? 6 : 7)
     },
     { method: 'GET', path: '/api/v1/guest-allowance', statuses: [200] },
     // The first screen shows today's question (D, #801).
