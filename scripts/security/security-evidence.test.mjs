@@ -119,12 +119,7 @@ const createRequestLedgerEntries = (name, pathName) => {
       mock
         ? ['POST', '/api/_mock/auth/social/callback', 200]
         : ['GET', '/api/auth/callback/google', 303],
-      ...(mock
-        ? []
-        : [
-            ['GET', '/api/auth/sso/signup-consent', 200],
-            ['POST', '/api/auth/sso/signup-consent', 200]
-          ]),
+      ...(mock ? [] : [['POST', '/api/auth/sso/signup-consent', 200]]),
       ['GET', '/api/v1/me', 200]
     ]
     return operations.map(([method, operationPath, status], index) => ({

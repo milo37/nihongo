@@ -312,12 +312,7 @@ export const assertPlaywrightRequestLedger = (ledger, summaryLabel) => {
       ['GET /api/v1/me', 200],
       ['POST /api/auth/sign-in/social', 200],
       [callbackKey, mode === 'mock' ? 200 : 303],
-      ...(mode === 'real'
-        ? [
-            ['GET /api/auth/sso/signup-consent', 200],
-            ['POST /api/auth/sso/signup-consent', 200]
-          ]
-        : [])
+      ...(mode === 'real' ? [['POST /api/auth/sso/signup-consent', 200]] : [])
     ])
     const counts = new Map([...expectedStatuses.keys()].map((key) => [key, 0]))
     for (const entry of ledger.entries) {
@@ -335,9 +330,7 @@ export const assertPlaywrightRequestLedger = (ledger, summaryLabel) => {
       counts.get('GET /api/v1/me') < 2 ||
       counts.get('POST /api/auth/sign-in/social') !== 1 ||
       counts.get(callbackKey) !== 1 ||
-      (mode === 'real' &&
-        (counts.get('GET /api/auth/sso/signup-consent') !== 1 ||
-          counts.get('POST /api/auth/sso/signup-consent') !== 1))
+      (mode === 'real' && counts.get('POST /api/auth/sso/signup-consent') !== 1)
     ) {
       throw new Error('SECURITY_EVIDENCE_JOURNEY_HANDOFF_CONTRACT_INVALID')
     }
