@@ -557,6 +557,76 @@ body [lang='ja'][data-ja-spaced],
   outline: var(--focus-width) solid rgb(var(--focus-color));
   outline-offset: var(--focus-offset);
 }
+/* #1096 r6 '닉네임': one 48px field above the boxes. The grey 2~12 line
+   turns red in the same place, so nothing below moves. */
+.nickname-field {
+  display: grid;
+  margin-top: 28px;
+}
+.nickname-field label {
+  margin-bottom: 10px;
+  color: rgb(var(--color-ink));
+  font-size: 15px;
+  font-weight: 600;
+}
+.nickname-field input {
+  min-width: 0;
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid rgb(var(--color-line-interactive));
+  border-radius: 4px;
+  background: rgb(var(--color-surface));
+  color: rgb(var(--color-ink));
+  font-size: 16px;
+}
+.nickname-field input[aria-invalid] {
+  padding: 0 13px;
+  border: 2px solid rgb(var(--color-danger));
+}
+.nickname-hint,
+.nickname-error {
+  margin-top: 8px;
+  color: rgb(var(--color-muted));
+  font-size: 13px;
+  line-height: 20px;
+}
+.nickname-error {
+  color: rgb(var(--color-danger));
+  font-size: 14px;
+}
+.nickname-field + .signup-consent-checks {
+  margin-top: 16px;
+}
+/* My page: [바꾸기] beside the name; editing keeps the same row. */
+.nickname-change,
+.nickname-cancel {
+  flex: none;
+  min-height: 44px;
+  padding: 0 4px;
+  color: rgb(var(--color-muted));
+  font-size: 14px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.nickname-edit {
+  flex: 1;
+  min-width: 0;
+}
+.nickname-edit .nickname-field {
+  margin-top: 0;
+}
+.nickname-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+.nickname-field input:focus-visible,
+.nickname-change:focus-visible,
+.nickname-cancel:focus-visible {
+  outline: var(--focus-width) solid rgb(var(--focus-color));
+  outline-offset: var(--focus-offset);
+}
 @media (max-width: 760px) {
   .auth-panel.signup-consent {
     padding: 24px 0 0;

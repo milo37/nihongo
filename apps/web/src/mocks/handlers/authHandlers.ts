@@ -24,6 +24,11 @@ import {
   updateTargetLevelResponseSchema
 } from '@nihongo/contracts/auth/update-target-level'
 import {
+  defaultNickname,
+  nicknameSchema,
+  updateNicknameBodySchema
+} from '@nihongo/contracts/auth/update-nickname'
+import {
   signInSocialRequestSchema,
   ssoProviderIdSchema,
   type SsoProviderId
@@ -166,13 +171,32 @@ export const authHandlers = [
       {
         kind: 'NEW',
         expiresAt: new Date(Date.now() + 600_000).toISOString(),
-        redirect: '/'
+        redirect: '/',
+        nicknameDefault: defaultNickname(
+          demoUsers.find((user) => user.id === DEMO_USER_ID)?.name ?? ''
+        )
       },
       { headers: { 'Cache-Control': 'private, no-store' } }
     )
   ),
-  http.post('*/api/auth/sso/signup-consent', () => {
-    mockDatabase.loginAs('USER', DEMO_USER_ID)
+  http.post('*/api/auth/sso/signup-consent', async ({ request }) => {
+    const body: unknown = await request.json()
+    const nickname = nicknameSchema.safeParse(
+      body !== null && typeof body === 'object'
+        ? Reflect.get(body, 'nickname')
+        : undefined
+    )
+    if (!nickname.success) {
+      return toErrorResponse(
+        new MockHttpError(
+          400,
+          'SIGNUP_NICKNAME_INVALID',
+          '닉네임을 2자 이상 입력해 주세요'
+        )
+      )
+    }
+    const user = mockDatabase.loginAs('USER', DEMO_USER_ID)
+    mockDatabase.setName(user.id, nickname.data)
     return HttpResponse.json({ signedIn: true, redirect: '/' })
   }),
   http.post('*/api/auth/sso/signup-consent/cancel', () =>
@@ -238,6 +262,25 @@ export const authHandlers = [
         updateTargetLevelResponseSchema.parse({
           targetLevel: mockDatabase.setTargetLevel(user.id, input.targetLevel)
         }),
+        { headers: { 'Cache-Control': 'private, no-store' } }
+      )
+    } catch (error: unknown) {
+      return toErrorResponse(error)
+    }
+  }),
+  http.put('*/api/v1/me/nickname', async ({ request }) => {
+    try {
+      const user = mockDatabase.getCurrentUser()
+      if (!user) {
+        throw new MockHttpError(
+          401,
+          'AUTHENTICATION_REQUIRED',
+          '로그인이 필요한 기능입니다.'
+        )
+      }
+      const input = await parseJsonBody(request, updateNicknameBodySchema)
+      return HttpResponse.json(
+        { nickname: mockDatabase.setName(user.id, input.nickname) },
         { headers: { 'Cache-Control': 'private, no-store' } }
       )
     } catch (error: unknown) {

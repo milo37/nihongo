@@ -16,14 +16,18 @@ import { mockServer } from '@/test/server'
 
 const noStore = { headers: { 'Cache-Control': 'private, no-store' } }
 const reads = { count: 0 }
-const pending = (kind: 'NEW' | 'EXISTING' = 'NEW') =>
+const pending = (
+  kind: 'NEW' | 'EXISTING' = 'NEW',
+  nicknameDefault = '데모 학습자'
+) =>
   http.get('*/api/auth/sso/signup-consent', () => {
     reads.count += 1
     return HttpResponse.json(
       {
         kind,
         expiresAt: new Date(Date.now() + 600_000).toISOString(),
-        redirect: '/wrong-notes'
+        redirect: '/wrong-notes',
+        nicknameDefault
       },
       noStore
     )
@@ -84,6 +88,9 @@ describe('#1085 가입 확인', () => {
       name: '가입하려면 아래 항목을 확인해 주세요.'
     })
     expect(heading).toHaveFocus()
+    const nickname = screen.getByRole('textbox', { name: '닉네임' })
+    expect(nickname).toHaveValue('데모 학습자')
+    expect(nickname).toHaveAccessibleDescription('2~12자로 정해 주세요.')
     const age = screen.getByRole('checkbox', {
       name: '만\u00a014세 이상이에요'
     })
@@ -144,6 +151,78 @@ describe('#1085 가입 확인', () => {
     expect(posts).toBe(0)
   })
 
+  it('닉네임이 비면 체크 오류와 함께 알리고 닉네임으로 간다', async () => {
+    let posts = 0
+    mockServer.use(
+      pending('NEW', ''),
+      http.post('*/api/auth/sso/signup-consent', () => {
+        posts += 1
+        return HttpResponse.json({ signedIn: true, redirect: '/' })
+      })
+    )
+    const user = userEvent.setup()
+    renderConsent()
+    const nickname = await screen.findByRole('textbox', { name: '닉네임' })
+    expect(nickname).toHaveValue('')
+    await user.type(nickname, ' 데 ')
+    expect(nickname).not.toHaveAttribute('aria-invalid')
+    await user.click(screen.getByRole('button', { name: '가입하기' }))
+    expect(nickname).toHaveAttribute('aria-invalid', 'true')
+    expect(nickname).toHaveAccessibleDescription(
+      '닉네임을 2자 이상 입력해 주세요'
+    )
+    expect(screen.getByText('필수 항목을 확인해 주세요')).toBeInTheDocument()
+    expect(nickname).toHaveFocus()
+    expect(posts).toBe(0)
+    await user.type(nickname, '모')
+    expect(nickname).not.toHaveAttribute('aria-invalid')
+    expect(nickname).toHaveAccessibleDescription('2~12자로 정해 주세요.')
+  })
+
+  it('13번째 글자는 들어가지 않는다(글자는 코드 포인트로 센다)', async () => {
+    mockServer.use(pending('NEW', ''))
+    const user = userEvent.setup()
+    renderConsent()
+    const nickname = await screen.findByRole('textbox', { name: '닉네임' })
+    await user.click(nickname)
+    await user.paste('가나다라마바사아자차카타파하')
+    expect(nickname).toHaveValue('가나다라마바사아자차카타')
+    await user.clear(nickname)
+    await user.paste('😀'.repeat(13))
+    expect(nickname).toHaveValue('😀'.repeat(12))
+    expect(nickname).not.toHaveAttribute('aria-invalid')
+  })
+
+  it('서버가 닉네임을 거절하면 같은 자리에 알린다', async () => {
+    mockServer.use(
+      pending(),
+      http.post('*/api/auth/sso/signup-consent', () =>
+        HttpResponse.json(
+          { code: 'SIGNUP_NICKNAME_INVALID', message: 'invalid' },
+          { status: 400 }
+        )
+      )
+    )
+    const user = userEvent.setup()
+    const router = renderConsent()
+    await user.click(
+      await screen.findByRole('checkbox', { name: '만\u00a014세 이상이에요' })
+    )
+    await user.click(
+      screen.getByRole('checkbox', {
+        name: /^이용약관\s?과 개인정보 처리방침\s?을 확인했어요$/u
+      })
+    )
+    await user.click(screen.getByRole('button', { name: '가입하기' }))
+    const nickname = screen.getByRole('textbox', { name: '닉네임' })
+    await waitFor(() =>
+      expect(nickname).toHaveAttribute('aria-invalid', 'true')
+    )
+    expect(nickname).toHaveFocus()
+    expect(router.state.location.search).toContain('sso=CONSENT_REQUIRED')
+    expect(screen.getByRole('button', { name: '가입하기' })).toBeEnabled()
+  })
+
   it('둘 다 체크하면 한 번만 보내고 회원으로 원래 경로에 간다', async () => {
     const bodies: unknown[] = []
     mockServer.use(
@@ -172,7 +251,9 @@ describe('#1085 가입 확인', () => {
     await user.dblClick(screen.getByRole('button', { name: '가입하기' }))
     expect(await screen.findByText('오답노트 도착')).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/wrong-notes')
-    expect(bodies).toEqual([{ ageConfirmed: true, termsConfirmed: true }])
+    expect(bodies).toEqual([
+      { nickname: '데모 학습자', ageConfirmed: true, termsConfirmed: true }
+    ])
     // The spent pending sign-up is not read again (it would be a 404).
     expect(reads.count).toBe(1)
   })
