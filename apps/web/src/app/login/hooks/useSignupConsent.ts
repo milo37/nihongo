@@ -33,13 +33,6 @@ export const useSignupConsent = (
 ) => {
   const navigate = useAppNavigate()
   const queryClient = useQueryClient()
-  const state = useQuery({
-    queryKey: STATE_KEY,
-    queryFn: getSignupConsent,
-    staleTime: Infinity,
-    retry: false,
-    refetchOnWindowFocus: false
-  })
   const agree = useMutation({
     retry: false,
     networkMode: 'always',
@@ -51,6 +44,16 @@ export const useSignupConsent = (
     mutationFn: cancelSignupConsent
   })
   const [leaving, setLeaving] = useState(false)
+  // Agree spends the pending sign-up; clearing the cache after it must not
+  // ask again (that read is a 404).
+  const state = useQuery({
+    queryKey: STATE_KEY,
+    queryFn: getSignupConsent,
+    enabled: agree.isIdle && !leaving,
+    staleTime: Infinity,
+    retry: false,
+    refetchOnWindowFocus: false
+  })
 
   useEffect(() => {
     // No pending sign-up (404) means its 10 minutes passed.

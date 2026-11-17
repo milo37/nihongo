@@ -15,9 +15,11 @@ import { ProtectedRouteProvider } from '@nihongo/browser/provider/ProtectedRoute
 import { mockServer } from '@/test/server'
 
 const noStore = { headers: { 'Cache-Control': 'private, no-store' } }
+const reads = { count: 0 }
 const pending = (kind: 'NEW' | 'EXISTING' = 'NEW') =>
-  http.get('*/api/auth/sso/signup-consent', () =>
-    HttpResponse.json(
+  http.get('*/api/auth/sso/signup-consent', () => {
+    reads.count += 1
+    return HttpResponse.json(
       {
         kind,
         expiresAt: new Date(Date.now() + 600_000).toISOString(),
@@ -25,7 +27,7 @@ const pending = (kind: 'NEW' | 'EXISTING' = 'NEW') =>
       },
       noStore
     )
-  )
+  })
 
 const renderConsent = (
   entry = '/login?sso=CONSENT_REQUIRED&redirect=%2Fwrong-notes'
@@ -67,6 +69,7 @@ describe('#1085 가입 확인', () => {
     await import('@app/login/page')
   })
   beforeEach(async () => {
+    reads.count = 0
     window.localStorage.removeItem('harumaru:ui-locale:v1')
     await appI18n.changeLanguage('ko')
     mockDatabase.logout()
@@ -170,6 +173,8 @@ describe('#1085 가입 확인', () => {
     expect(await screen.findByText('오답노트 도착')).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/wrong-notes')
     expect(bodies).toEqual([{ ageConfirmed: true, termsConfirmed: true }])
+    // The spent pending sign-up is not read again (it would be a 404).
+    expect(reads.count).toBe(1)
   })
 
   it('[취소]는 대기를 버리고 비회원으로 원래 경로에 가서 알린다', async () => {
@@ -191,6 +196,7 @@ describe('#1085 가입 확인', () => {
       )
     ).toBeInTheDocument()
     await waitFor(() => expect(cancels).toBe(1))
+    expect(reads.count).toBe(1)
   })
 
   it('대기 시간이 지났으면 로그인 화면에 알린다', async () => {
