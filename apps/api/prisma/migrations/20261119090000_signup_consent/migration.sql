@@ -5,12 +5,9 @@
 -- changes. A deploy rollback keeps this migration: the previous API never
 -- reads the table.
 --   1. "UserConsent": one row per member and terms version, with the time of
---      each confirmation and the optional event and offer notice consent
---      (whether, when given, when withdrawn). It goes with the User row on
---      erasure.
+--      each confirmation. It goes with the User row on erasure.
 --   2. No existing member gets a row: each confirms at the next sign-in.
---   3. nihongo_app may read the rows and add one; rows never change. A later
---      withdrawal API would need its own UPDATE grant.
+--   3. nihongo_app may read the rows and add one; rows never change.
 BEGIN;
 SELECT pg_catalog.set_config('app.target_schema', pg_catalog.current_schema(), true);
 SELECT pg_catalog.set_config('search_path', 'pg_catalog, pg_temp', true);
@@ -46,30 +43,17 @@ CREATE TABLE "UserConsent" (
     "termsVersion" text NOT NULL,
     "ageConfirmedAt" timestamp(3) with time zone NOT NULL,
     "termsConfirmedAt" timestamp(3) with time zone NOT NULL,
-    "marketingConsented" boolean DEFAULT false NOT NULL,
-    "marketingConsentedAt" timestamp(3) with time zone,
-    "marketingWithdrawnAt" timestamp(3) with time zone,
     "createdAt" timestamp(3) with time zone DEFAULT clock_timestamp() NOT NULL,
     CONSTRAINT "UserConsent_pkey" PRIMARY KEY ("userId", "termsVersion"),
     CONSTRAINT "UserConsent_userId_fkey" FOREIGN KEY ("userId")
       REFERENCES "User"(id) ON DELETE CASCADE,
     CONSTRAINT "UserConsent_termsVersion_check"
-      CHECK ("termsVersion" ~ '^[a-z0-9][a-z0-9.-]{0,31}$'),
-    -- Consented has its time; a withdrawal follows a consent and clears it.
-    CONSTRAINT "UserConsent_marketing_check" CHECK (
-      ("marketingConsented" AND "marketingConsentedAt" IS NOT NULL
-        AND "marketingWithdrawnAt" IS NULL)
-      OR (NOT "marketingConsented"
-        AND ("marketingWithdrawnAt" IS NULL
-          OR "marketingWithdrawnAt" >= "marketingConsentedAt"))
-    )
+      CHECK ("termsVersion" ~ '^[a-z0-9][a-z0-9.-]{0,31}$')
 );
 
 GRANT SELECT ("userId", "termsVersion", "ageConfirmedAt", "termsConfirmedAt",
-    "marketingConsented", "marketingConsentedAt", "marketingWithdrawnAt",
     "createdAt"),
-  INSERT ("userId", "termsVersion", "ageConfirmedAt", "termsConfirmedAt",
-    "marketingConsented", "marketingConsentedAt")
+  INSERT ("userId", "termsVersion", "ageConfirmedAt", "termsConfirmedAt")
   ON TABLE "UserConsent" TO nihongo_app;
 
 SET LOCAL ROLE "nihongo_migration";

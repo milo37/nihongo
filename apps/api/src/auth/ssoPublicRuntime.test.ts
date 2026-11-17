@@ -416,15 +416,13 @@ describe('sign-up consent before the account (#1085)', () => {
     const agreed = await f.gateway.handle(
       consentRequest('POST', pending, {
         ageConfirmed: true,
-        termsConfirmed: true,
-        marketingOptIn: true
+        termsConfirmed: true
       })
     )
     expect(agreed.status).toBe(200)
     expect(await agreed.json()).toEqual({
       signedIn: true,
-      redirect: '/bookmarks?level=N3',
-      marketingOptIn: true
+      redirect: '/bookmarks?level=N3'
     })
     const cookies = agreed.headers.getSetCookie().join('\n')
     expect(cookies).toContain('nihongo.session_token=')
@@ -436,7 +434,6 @@ describe('sign-up consent before the account (#1085)', () => {
         email: 'contact@example.test',
         name: '학습자'
       },
-      { marketingOptIn: true },
       expect.objectContaining({ ipAddress: 'unresolved' })
     )
     expect(f.signIn).not.toHaveBeenCalled()
@@ -454,11 +451,7 @@ describe('sign-up consent before the account (#1085)', () => {
     expect(cancelled.headers.get('Set-Cookie')).toContain(
       'nihongo.sso_signup_pending=; Path=/'
     )
-    const body = {
-      ageConfirmed: true,
-      termsConfirmed: true,
-      marketingOptIn: false
-    }
+    const body = { ageConfirmed: true, termsConfirmed: true }
     const forged = `${pending.slice(0, -4)}AAAA`
     for (const value of [forged, '']) {
       const response = await f.gateway.handle(
@@ -495,8 +488,7 @@ describe('sign-up consent before the account (#1085)', () => {
     const response = await f.gateway.handle(
       consentRequest('POST', pending, {
         ageConfirmed: true,
-        termsConfirmed: true,
-        marketingOptIn: true
+        termsConfirmed: true
       })
     )
     expect(response.status).toBe(409)

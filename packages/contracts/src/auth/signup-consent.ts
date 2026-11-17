@@ -7,8 +7,6 @@ import { z } from 'zod'
  * encrypted pending cookie and no session. GET reads the pending kind, POST
  * agrees (the account and its consent record are created together, then the
  * session cookie is set), cancel drops the cookie and leaves no record.
- * The optional event and offer notice consent is off unless the member
- * checks it; signing up never depends on it.
  */
 export const SIGNUP_CONSENT_PATHS = {
   consent: '/api/auth/sso/signup-consent',
@@ -30,16 +28,13 @@ export const signupConsentStateSchema = z
 export const signupConsentRequestSchema = z
   .object({
     ageConfirmed: z.literal(true),
-    termsConfirmed: z.literal(true),
-    // Optional: event and offer notices. Sent explicitly, false when unchecked.
-    marketingOptIn: z.boolean()
+    termsConfirmed: z.literal(true)
   })
   .strict()
 export const signupConsentResponseSchema = z
   .object({
     signedIn: z.literal(true),
-    redirect: z.string().startsWith('/').max(2048),
-    marketingOptIn: z.boolean()
+    redirect: z.string().startsWith('/').max(2048)
   })
   .strict()
 export const cancelSignupConsentRequestSchema = z.object({}).strict()
@@ -47,7 +42,7 @@ export const cancelSignupConsentResponseSchema = z
   .object({ cancelled: z.literal(true) })
   .strict()
 export const signupConsentErrorCodeSchema = z.enum([
-  // 400: both required boxes must be true and marketingOptIn a boolean.
+  // 400: both boxes must be true.
   'SIGNUP_CONSENT_REQUIRED',
   // 404: no pending cookie, or it passed its 10 minutes.
   'SIGNUP_PENDING_EXPIRED',

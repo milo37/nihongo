@@ -68,13 +68,9 @@ export interface SsoIdentityPort {
     metadata: { ipAddress: string; userAgent: string }
   ) => Promise<SsoIdentityResult>
   consentState: (identity: SsoVerifiedIdentity) => Promise<SsoConsentState>
-  /**
-   * #1085: creates the account if needed and its consent, with the optional
-   * event and offer notice choice, in one commit.
-   */
+  /** #1085: creates the account if needed and its consent in one commit. */
   signUpWithConsent: (
     identity: SsoVerifiedIdentity,
-    consent: { marketingOptIn: boolean },
     metadata: { ipAddress: string; userAgent: string }
   ) => Promise<SsoIdentityResult>
 }
@@ -189,7 +185,7 @@ export const createSsoIdentityRepository = (
     if (!row.account) return row.taken ? 'PROCEED' : 'NEW'
     return row.active && !row.consented ? 'EXISTING' : 'PROCEED'
   },
-  signUpWithConsent: async (untrustedIdentity, consent, metadata) => {
+  signUpWithConsent: async (untrustedIdentity, metadata) => {
     const identity = identitySchema.parse(untrustedIdentity)
     // The account and its consent commit together; the Session follows.
     const authority = await client.$transaction(async (transaction) => {
@@ -197,14 +193,11 @@ export const createSsoIdentityRepository = (
       if (resolved.outcome === 'RESOLVED')
         await transaction.$executeRawUnsafe(
           `INSERT INTO "UserConsent"
-             ("userId", "termsVersion", "ageConfirmedAt", "termsConfirmedAt",
-              "marketingConsented", "marketingConsentedAt")
-           VALUES ($1::uuid, $2, clock_timestamp(), clock_timestamp(),
-             $3::boolean, CASE WHEN $3::boolean THEN clock_timestamp() END)
+             ("userId", "termsVersion", "ageConfirmedAt", "termsConfirmedAt")
+           VALUES ($1::uuid, $2, clock_timestamp(), clock_timestamp())
            ON CONFLICT DO NOTHING`,
           resolved.userId,
-          SIGNUP_TERMS_VERSION,
-          consent.marketingOptIn
+          SIGNUP_TERMS_VERSION
         )
       return resolved
     })
