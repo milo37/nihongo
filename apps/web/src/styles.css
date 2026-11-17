@@ -564,7 +564,7 @@ body [lang='ja'][data-ja-spaced],
   margin-top: 28px;
 }
 .nickname-field label {
-  margin-bottom: 10px;
+  margin-bottom: 3px;
   color: rgb(var(--color-ink));
   font-size: 15px;
   font-weight: 600;
@@ -585,7 +585,7 @@ body [lang='ja'][data-ja-spaced],
 }
 .nickname-hint,
 .nickname-error {
-  margin-top: 8px;
+  margin-top: 5px;
   color: rgb(var(--color-muted));
   font-size: 13px;
   line-height: 20px;
@@ -621,10 +621,14 @@ body [lang='ja'][data-ja-spaced],
   gap: 12px;
   margin-top: 12px;
 }
-.nickname-field input:focus-visible,
 .nickname-change:focus-visible,
 .nickname-cancel:focus-visible {
   outline: var(--focus-width) solid rgb(var(--focus-color));
+  outline-offset: var(--focus-offset);
+}
+/* The field's ring is ink (r6/04), so only the error itself is red. */
+.nickname-field input:focus-visible {
+  outline: var(--focus-width) solid rgb(var(--color-ink));
   outline-offset: var(--focus-offset);
 }
 @media (max-width: 760px) {
