@@ -17,6 +17,17 @@ export const isNickname = (value: string): boolean => {
   )
 }
 
+// The contract's defaultNickname: the name cut to its first 12 characters,
+// or '' when that is no nickname. A longer stored name opens as 12, not as an
+// error that asks for 2 characters.
+export const toNickname = (name: string): string => {
+  const cut = Array.from(name.trim())
+    .slice(0, NICKNAME_MAX_CHARACTERS)
+    .join('')
+    .trim()
+  return isNickname(cut) ? cut : ''
+}
+
 type NicknameFieldProps = {
   id: string
   value: string

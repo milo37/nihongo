@@ -5,7 +5,11 @@ import { Button } from '@nihongo/browser/common/components/Button'
 import { useToast } from '@nihongo/browser/common/components/Toast'
 import { Avatar } from '@app/account/components/Avatar'
 import { useUpdateNickname } from '@app/account/hooks/useUpdateNickname'
-import { isNickname, NicknameField } from '@app/login/components/NicknameField'
+import {
+  isNickname,
+  NicknameField,
+  toNickname
+} from '@app/login/components/NicknameField'
 
 // Same reading time as the target level's saved message (JLP-861).
 const SAVED_TOAST_MS = 6000
@@ -74,7 +78,7 @@ export const NicknameSetting = ({ name }: { name: string }): ReactElement => {
             ref={changeButton}
             type="button"
             className="nickname-change"
-            onClick={() => setDraft(name)}
+            onClick={() => setDraft(toNickname(name))}
           >
             {t('nickname.change')}
           </button>
