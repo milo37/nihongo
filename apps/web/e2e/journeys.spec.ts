@@ -567,6 +567,8 @@ const loginThroughUi = async (page: Page): Promise<void> => {
         url.search === '?view=learning'
     )
     await settleJourneyPage(page)
+    // Both modes now finish in the page: the confirming refresh, then the
+    // dashboard mount re-reads the member (authQueries staleTime 0).
     expect(principalResponses).toHaveLength(2)
     const identities: string[] = []
     for (const response of principalResponses) {
