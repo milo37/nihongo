@@ -14,8 +14,11 @@ import { Prisma } from '../generated/prisma/client.js'
 import { createApplicationRateLimiter } from '../middleware/applicationRateLimiter.js'
 import { createJsonLogger } from '../observability/logger.js'
 import {
+  DAILY_SHEET_MAX_CHARACTERS,
   createDailyQuestionService,
   createPrismaDailyQuestionRepository,
+  dailySheetLength,
+  dailySheetLengthSql,
   toDayNumber
 } from './dailyQuestion.js'
 import { createPrismaQuestionRepository } from './questionRepository.js'
@@ -207,9 +210,15 @@ describe('question catalog PostgreSQL integration', () => {
     ).toBe(true)
   })
 
-  it('오늘의 한 문제는 날짜마다 md5 순서로 돌고 독해·다른 급수는 고르지 않는다 (JLP-815)', async () => {
-    const candidates = buildAllQuestionSeeds()
-      .filter(({ level, subject }) => level === 'N5' && subject !== 'READING')
+  it('오늘의 한 문제는 날짜마다 md5 순서로 돌고 독해·다른 급수·원고지를 넘는 문제는 고르지 않는다 (JLP-815, #1087)', async () => {
+    const levelQuestions = buildAllQuestionSeeds().filter(
+      ({ level, subject }) => level === 'N5' && subject !== 'READING'
+    )
+    const candidates = levelQuestions
+      .filter(
+        ({ questionText }) =>
+          dailySheetLength(questionText) <= DAILY_SHEET_MAX_CHARACTERS
+      )
       .map(({ questionId }) => questionId)
       .toSorted((left, right) => {
         const leftHash = createHash('md5').update(left).digest('hex')
@@ -219,6 +228,8 @@ describe('question catalog PostgreSQL integration', () => {
           : leftHash.localeCompare(rightHash)
       })
     expect(candidates.length).toBeGreaterThan(1)
+    // The seed has N5 questions longer than the sheet; they never come up.
+    expect(candidates.length).toBeLessThan(levelQuestions.length)
 
     const day = toDayNumber('2026-11-10')
     const picked: string[] = []
@@ -249,6 +260,24 @@ describe('question catalog PostgreSQL integration', () => {
     expect(body.question.options.map(({ id }) => id)).toContain(
       body.question.correctOptionId
     )
+  })
+
+  it('오늘의 한 문제 원고지 글자 수는 SQL과 웹 카드가 같게 센다 (#1087)', async () => {
+    const texts = [
+      'あ'.repeat(36),
+      'あ'.repeat(37),
+      `${'あ'.repeat(18)} ${'い'.repeat(18)}`,
+      `わたし\u3000は\tがくせい\nです。\u00a0\ufeff`,
+      `${'𠮷'.repeat(35)}野`,
+      `${'𠮷'.repeat(37)}`
+    ]
+    for (const text of texts) {
+      const rows = await database.client.$queryRaw<{ length: number }[]>(
+        Prisma.sql`SELECT ${dailySheetLengthSql(Prisma.sql`${text}::text`)}::int AS length`
+      )
+      expect(rows[0]?.length, JSON.stringify(text)).toBe(dailySheetLength(text))
+    }
+    expect(texts.map(dailySheetLength)).toEqual([36, 37, 36, 11, 36, 37])
   })
 
   it(
