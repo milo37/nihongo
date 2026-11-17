@@ -148,6 +148,16 @@ for (const locale of ['ko', 'ja'] as const) {
           }
         }, callback)
         expect(accepted).toBe(true)
+        // #1085: a new Google TEST identity is not a member until it agrees.
+        const pending = await browserJson(page, '/api/v1/me')
+        expect(getCurrentPrincipalResponseSchema.parse(pending.body).kind).toBe(
+          'GUEST'
+        )
+        const agreed = await browserJson(page, '/api/auth/sso/signup-consent', {
+          ageConfirmed: true,
+          termsConfirmed: true
+        })
+        expect(agreed.status).toBe(200)
       }
       const confirmed = await browserJson(page, '/api/v1/me')
       expect(confirmed.status).toBe(200)
@@ -178,7 +188,16 @@ for (const locale of ['ko', 'ja'] as const) {
               method: 'GET',
               path: '/api/auth/callback/google',
               statuses: [303]
-            }
+            },
+        ...(mode === 'mock'
+          ? []
+          : [
+              {
+                method: 'POST',
+                path: '/api/auth/sso/signup-consent',
+                statuses: [200]
+              } as const
+            ])
       ])
       for (const entry of ledger.entries) {
         expect(entry.provenance).toBe(
@@ -230,6 +249,22 @@ const ssoRequestContract = [
         path: '/api/auth/callback/google',
         statuses: [303]
       },
+  // #1085: the real callback stops at the sign-up check; the page reads the
+  // pending sign-up once and agrees once. The mock callback signs in at once.
+  ...(mode === 'mock'
+    ? []
+    : ([
+        {
+          method: 'GET',
+          path: '/api/auth/sso/signup-consent',
+          statuses: [200]
+        },
+        {
+          method: 'POST',
+          path: '/api/auth/sso/signup-consent',
+          statuses: [200]
+        }
+      ] as const)),
   // The first signed-in render moves the guest's last result once (JLP-823).
   { method: 'POST', path: '/api/v1/me/guest-result-import', statuses: [200] }
 ] as const satisfies readonly RequestLedgerContractEntry[]
@@ -397,6 +432,27 @@ const prepareJourney = async (page: Page, address: string): Promise<void> => {
   ).toBeEnabled()
 }
 
+/**
+ * #1085: a new identity answers the sign-up check before it is a member.
+ * Language-neutral: the two boxes, then the one submit button.
+ */
+const agreeSignupConsent = async (
+  page: Page,
+  expectMember: () => Promise<void>
+): Promise<void> => {
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === '/login' &&
+      url.searchParams.get('sso') === 'CONSENT_REQUIRED'
+  )
+  const boxes = page.locator('main .signup-consent input[type="checkbox"]')
+  await expect(boxes).toHaveCount(2)
+  for (const box of await boxes.all()) await box.check()
+  const member = expectMember()
+  await page.locator('main .signup-consent-submit').click()
+  await member
+}
+
 const loginThroughUi = async (page: Page): Promise<void> => {
   const origin = new URL(page.url()).origin
   const principalResponses: Response[] = []
@@ -411,11 +467,8 @@ const loginThroughUi = async (page: Page): Promise<void> => {
     }
   }
   page.on('response', collectPrincipal)
-  const google = page.locator('main button[data-provider="google"]')
-  await expect(google).toBeEnabled()
-  await expect(page.locator('input[name="password"]')).toHaveCount(0)
-  const principalResponse = waitForApiResponse(page, 'GET', '/api/v1/me').then(
-    async (response) => {
+  const expectUserPrincipal = (): Promise<void> =>
+    waitForApiResponse(page, 'GET', '/api/v1/me').then(async (response) => {
       const principal = getCurrentPrincipalResponseSchema.parse(
         await readCanonicalResponse(response)
       )
@@ -423,8 +476,14 @@ const loginThroughUi = async (page: Page): Promise<void> => {
       if (principal.kind !== 'USER')
         throw new Error('Canonical USER was not confirmed.')
       expect(principal.user.role).toBe('USER')
-    }
-  )
+    })
+  const google = page.locator('main button[data-provider="google"]')
+  await expect(google).toBeEnabled()
+  await expect(page.locator('input[name="password"]')).toHaveCount(0)
+  // The real callback first lands on the sign-up check as a guest, so the
+  // member is confirmed after agreeing there (#1085).
+  const principalResponse =
+    mode === 'mock' ? expectUserPrincipal() : Promise.resolve()
   const resumableResponse = waitForApiResponse(
     page,
     'GET',
@@ -494,6 +553,10 @@ const loginThroughUi = async (page: Page): Promise<void> => {
         await page.goto(
           `/api/auth/callback/google?${new URLSearchParams({ state, code: 'sso-browser-test-code' })}`
         )
+        await agreeSignupConsent(page, () => {
+          principalResponses.length = 0
+          return expectUserPrincipal()
+        })
       }
     }
     await Promise.all([principalResponse, resumableResponse, completeSignIn()])

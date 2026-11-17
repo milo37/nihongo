@@ -11,6 +11,7 @@ import { AccountMenu } from '@app/account/components/AccountMenu'
 import { LocaleMenu } from '@app/account/components/LocaleMenu'
 import { isLanguageMenuShown } from '@common/libs/languageMenu'
 import { AppErrorReportMenuDialog } from '@app/question-report/components/AppErrorReportDialog'
+import { isSignupConsentLocation } from '@app/login/signupConsentOutcome'
 export type { PracticeNavigationContext } from '@nihongo/browser/common/components/AppLayout'
 
 export const Layout = ({
@@ -19,7 +20,7 @@ export const Layout = ({
   children?: ReactNode
 }): ReactElement => {
   const { user } = useAuth()
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const { t } = useTranslation('admin')
   const [isErrorReportOpen, setErrorReportOpen] = useState(false)
   // Mounted after first use so the closing dialog can still restore focus.
@@ -31,11 +32,15 @@ export const Layout = ({
   const reviewReturnContext = sessionId
     ? readReviewReturnContext(getStudyDraftPrincipalScope(user), sessionId)
     : null
+  // #1085: the sign-up check shows only the logo until it is answered.
+  const signupConsent = !user && isSignupConsentLocation(pathname, search)
   return (
     <>
       <AppLayout
         reviewReturnContext={reviewReturnContext}
         robots={getRouteIndexingPolicy(pathname)}
+        brandOnly={signupConsent}
+        {...(signupConsent ? { routeLabelKey: 'routes.signupConsent' } : {})}
         accountMenu={
           <div className="header-menus">
             {isLanguageMenuShown ? <LocaleMenu /> : null}

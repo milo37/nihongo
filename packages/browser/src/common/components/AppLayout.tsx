@@ -12,6 +12,7 @@ import { InformationFooter } from './InformationFooter'
 import { LoadingState } from './LoadingState'
 import { useDocumentMetadata } from '../hooks/useDocumentMetadata'
 import { getRouteLabelKey } from '../../i18n/routePresentation'
+import type { RouteLabelKey } from '../../i18n/routePresentation'
 import type { UiLocale } from '../../i18n/types'
 import { useUiLocale } from '../../provider/I18nProvider'
 import { useAuth } from '../../provider/ProtectedRouteProvider'
@@ -62,16 +63,44 @@ type NavigationItem = {
 
 const AppBrand = ({
   className,
-  onClick
+  onClick,
+  linked = true
 }: {
   className: string
   onClick: () => void
+  /** #1085: a page with no way out shows the logo as a picture only. */
+  linked?: boolean
 }): ReactElement => {
   const { t } = useTranslation('common')
   const { t: navigationT } = useTranslation('navigation')
   const { locale } = useUiLocale()
   // JLP-873: the logo is the only way home, so its name says so.
   // #1029: Japanese screens draw the name as ハルまる.
+  const lockup =
+    locale === 'ja' ? (
+      <img
+        className="app-brand-lockup app-brand-lockup-ja"
+        src="/brand/harumaru-lockup-ja.svg"
+        width={807}
+        height={208}
+        alt=""
+      />
+    ) : (
+      <img
+        className="app-brand-lockup"
+        src="/brand/harumaru-lockup.svg"
+        width={770}
+        height={210}
+        alt=""
+      />
+    )
+  if (!linked) {
+    return (
+      <span className={className} role="img" aria-label={t('appName')}>
+        {lockup}
+      </span>
+    )
+  }
   return (
     <Link
       className={className}
@@ -79,23 +108,7 @@ const AppBrand = ({
       aria-label={`${t('appName')} ${navigationT('routes.home')}`}
       onClick={onClick}
     >
-      {locale === 'ja' ? (
-        <img
-          className="app-brand-lockup app-brand-lockup-ja"
-          src="/brand/harumaru-lockup-ja.svg"
-          width={807}
-          height={208}
-          alt=""
-        />
-      ) : (
-        <img
-          className="app-brand-lockup"
-          src="/brand/harumaru-lockup.svg"
-          width={770}
-          height={210}
-          alt=""
-        />
-      )}
+      {lockup}
     </Link>
   )
 }
@@ -232,6 +245,13 @@ type AppLayoutProps = PracticeNavigationContext & {
   children?: ReactNode
   robots: 'index,follow' | 'noindex,follow'
   learnerNavigation?: boolean
+  /**
+   * #1085: only the logo, as a picture: no tabs, menus or footer, for a
+   * step that must be finished or cancelled before going anywhere.
+   */
+  brandOnly?: boolean
+  /** Names the page in the tab title when its path alone cannot. */
+  routeLabelKey?: RouteLabelKey
   /** App-owned account menu; replaces the default menu and locale select. */
   accountMenu?: ReactNode
   /**
@@ -247,6 +267,8 @@ export const AppLayout = ({
   reviewReturnContext,
   robots,
   learnerNavigation = true,
+  brandOnly = false,
+  routeLabelKey,
   accountMenu,
   headerStatus
 }: AppLayoutProps): ReactElement => {
@@ -281,7 +303,7 @@ export const AppLayout = ({
   const isMobileMenuOpen = useAppStore((state) => state.isMobileMenuOpen)
   const setMobileMenuOpen = useAppStore((state) => state.setMobileMenuOpen)
 
-  useDocumentMetadata({ robots })
+  useDocumentMetadata({ robots, routeLabelKey })
 
   useEffect(() => {
     localeRef.current = locale
@@ -416,7 +438,7 @@ export const AppLayout = ({
         !location.pathname.startsWith('/account/data')
     }
   ]
-  const showNavigation = learnerNavigation && !isFocusSession
+  const showNavigation = learnerNavigation && !isFocusSession && !brandOnly
   const shellClassName = isFocusSession
     ? 'app-shell-focus'
     : learnerNavigation
@@ -450,6 +472,7 @@ export const AppLayout = ({
               <AppBrand
                 className="app-brand app-mobile-brand"
                 onClick={closeMenu}
+                linked={!brandOnly}
               />
               {showNavigation ? (
                 <PrimaryNavigation
@@ -459,24 +482,28 @@ export const AppLayout = ({
                 />
               ) : null}
 
-              <div className="app-shell-header-actions">
-                {headerStatus ? (
-                  <div className="app-shell-header-status">{headerStatus}</div>
-                ) : null}
-                {accountMenu ?? (
-                  <DefaultAccountMenu
-                    buttonRef={mobileMenuButtonRef}
-                    onClose={closeMenu}
-                  />
-                )}
-              </div>
+              {brandOnly ? null : (
+                <div className="app-shell-header-actions">
+                  {headerStatus ? (
+                    <div className="app-shell-header-status">
+                      {headerStatus}
+                    </div>
+                  ) : null}
+                  {accountMenu ?? (
+                    <DefaultAccountMenu
+                      buttonRef={mobileMenuButtonRef}
+                      onClose={closeMenu}
+                    />
+                  )}
+                </div>
+              )}
             </div>
           </header>
         ) : null
       }
       // Learners find the information links at the bottom of 마이 (/account).
       footer={
-        !isFocusSession && !learnerNavigation ? (
+        !isFocusSession && !learnerNavigation && !brandOnly ? (
           <InformationFooter density="compact" />
         ) : null
       }

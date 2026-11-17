@@ -1,6 +1,7 @@
 export const routeLabelKeys = [
   'routes.home',
   'routes.login',
+  'routes.signupConsent',
   'routes.dashboard',
   'routes.practiceSetup',
   'routes.practiceSession',
