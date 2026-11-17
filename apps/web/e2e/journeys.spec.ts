@@ -153,6 +153,9 @@ for (const locale of ['ko', 'ja'] as const) {
         expect(getCurrentPrincipalResponseSchema.parse(pending.body).kind).toBe(
           'GUEST'
         )
+        const waiting = await browserJson(page, '/api/auth/sso/signup-consent')
+        expect(waiting.status).toBe(200)
+        expect(waiting.body).toMatchObject({ kind: 'NEW' })
         const agreed = await browserJson(page, '/api/auth/sso/signup-consent', {
           ageConfirmed: true,
           termsConfirmed: true
@@ -192,6 +195,11 @@ for (const locale of ['ko', 'ja'] as const) {
         ...(mode === 'mock'
           ? []
           : [
+              {
+                method: 'GET',
+                path: '/api/auth/sso/signup-consent',
+                statuses: [200]
+              } as const,
               {
                 method: 'POST',
                 path: '/api/auth/sso/signup-consent',
