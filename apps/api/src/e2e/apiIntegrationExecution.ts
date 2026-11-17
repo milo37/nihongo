@@ -23,7 +23,7 @@ export const assertSsoBootstrapMigrationHistory = (
     expected.length !== 14 ||
     expected.at(-1)?.name !== '20261119090000_signup_consent' ||
     orderedDigest !==
-      'f928c1300d4ca0ed250ca4e24675ac0fac17b469f7fcb18977df984f44523f81' ||
+      '1c6b5f98f5c2c01861f4b6a4c9bba34a921ad81b16de4703313d005f9614aad7' ||
     applied.length !== expected.length ||
     applied.some(
       (row, index) =>

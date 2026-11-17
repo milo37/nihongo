@@ -18,18 +18,22 @@ describe('sign-up consent contract (#1085)', () => {
     expect(SIGNUP_PENDING_SECONDS).toBe(600)
   })
 
-  it('accepts only both boxes checked', () => {
-    expect(
-      signupConsentRequestSchema.safeParse({
-        ageConfirmed: true,
-        termsConfirmed: true
-      }).success
-    ).toBe(true)
+  it('accepts both required boxes with the optional notice either way', () => {
+    for (const marketingOptIn of [true, false])
+      expect(
+        signupConsentRequestSchema.safeParse({
+          ageConfirmed: true,
+          termsConfirmed: true,
+          marketingOptIn
+        }).success
+      ).toBe(true)
     for (const body of [
       {},
-      { ageConfirmed: true },
-      { ageConfirmed: true, termsConfirmed: false },
-      { ageConfirmed: true, termsConfirmed: true, extra: 1 }
+      { ageConfirmed: true, marketingOptIn: false },
+      { ageConfirmed: true, termsConfirmed: false, marketingOptIn: true },
+      { ageConfirmed: true, termsConfirmed: true },
+      { ageConfirmed: true, termsConfirmed: true, marketingOptIn: 'yes' },
+      { ageConfirmed: true, termsConfirmed: true, marketingOptIn: false, x: 1 }
     ])
       expect(signupConsentRequestSchema.safeParse(body).success).toBe(false)
     expect(cancelSignupConsentRequestSchema.safeParse({}).success).toBe(true)
@@ -48,7 +52,8 @@ describe('sign-up consent contract (#1085)', () => {
     expect(
       signupConsentResponseSchema.safeParse({
         signedIn: true,
-        redirect: 'https://elsewhere.example/'
+        redirect: 'https://elsewhere.example/',
+        marketingOptIn: false
       }).success
     ).toBe(false)
     expect(signupConsentErrorCodeSchema.options).toEqual([

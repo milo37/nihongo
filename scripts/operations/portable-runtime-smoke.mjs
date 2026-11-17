@@ -30,7 +30,7 @@ const postgresImage =
 // #504 P8-1: one baseline replaces the 76 migrations.
 const currentMigrationCount = 14
 const currentMigrationDigest =
-  '844748f6248cf6d051acc6a21299041ed03a816dce00d522a228b81e592c1067'
+  '9fd351a1ca1568aea702b581a2e3691982183c0a303b7b482bcf8d446db79641'
 const migrationLogin = 'nihongo_test_migration_login'
 const applicationLogin = 'nihongo_test_app_login'
 const schemaPattern = /^nihongo_[0-9a-f]{32}_test$/u

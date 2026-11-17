@@ -204,7 +204,8 @@ export const createSsoPublicRuntime = ({
           : consentError('SIGNUP_PENDING_EXPIRED')
       if (request.method !== 'POST')
         return json({ code: 'AUTH_ROUTE_NOT_FOUND' }, 404)
-      if (!signupConsentRequestSchema.safeParse(payload).success)
+      const consent = signupConsentRequestSchema.safeParse(payload)
+      if (!consent.success)
         return json({ code: 'SIGNUP_CONSENT_REQUIRED' }, 400)
       if (!pending) return consentError('SIGNUP_PENDING_EXPIRED')
       let resolved: Awaited<ReturnType<SsoIdentityPort['signUpWithConsent']>>
@@ -216,6 +217,7 @@ export const createSsoPublicRuntime = ({
             email: pending.email,
             name: pending.name
           },
+          { marketingOptIn: consent.data.marketingOptIn },
           {
             ipAddress:
               request.headers.get(INTERNAL_CLIENT_IP_HEADER) ?? 'unresolved',
@@ -230,7 +232,8 @@ export const createSsoPublicRuntime = ({
       return json(
         signupConsentResponseSchema.parse({
           signedIn: true,
-          redirect: pending.redirect
+          redirect: pending.redirect,
+          marketingOptIn: consent.data.marketingOptIn
         }),
         200,
         [

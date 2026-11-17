@@ -1194,11 +1194,29 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       }
       expect(await identities.consentState(fresh)).toBe('NEW')
       expect(await facts(fresh.email)).toEqual({ users: 0, consents: 0 })
-      expect(await identities.signUpWithConsent(fresh, metadata)).toMatchObject(
-        { kind: 'SESSION_CONFIRMED' }
-      )
+      expect(
+        await identities.signUpWithConsent(
+          fresh,
+          { marketingOptIn: true },
+          metadata
+        )
+      ).toMatchObject({ kind: 'SESSION_CONFIRMED' })
       expect(await facts(fresh.email)).toEqual({ users: 1, consents: 1 })
       expect(await identities.consentState(fresh)).toBe('PROCEED')
+      // The optional notice consent keeps its time only when given.
+      expect(
+        (
+          await h.owner.query(
+            `SELECT c."marketingConsented", c."marketingConsentedAt" IS NOT NULL AS "at",
+               c."marketingWithdrawnAt"
+             FROM "UserConsent" c JOIN "User" u ON u.id = c."userId"
+             WHERE u.email = $1`,
+            [fresh.email]
+          )
+        ).rows
+      ).toEqual([
+        { marketingConsented: true, at: true, marketingWithdrawnAt: null }
+      ])
       // Its email under another provider subject stays the transition case.
       expect(
         await identities.consentState({
@@ -1222,19 +1240,40 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       }
       expect(await identities.consentState(existing)).toBe('EXISTING')
       expect(
-        await identities.signUpWithConsent(existing, metadata)
+        await identities.signUpWithConsent(
+          existing,
+          { marketingOptIn: false },
+          metadata
+        )
       ).toMatchObject({ kind: 'SESSION_CONFIRMED' })
       expect(await facts(email)).toEqual({ users: 1, consents: 1 })
       expect(
         (
           await h.owner.query(
             `SELECT "termsVersion", "ageConfirmedAt" IS NOT NULL AS age,
-               "termsConfirmedAt" IS NOT NULL AS terms
+               "termsConfirmedAt" IS NOT NULL AS terms, "marketingConsented",
+               "marketingConsentedAt"
              FROM "UserConsent" WHERE "userId" = $1`,
             [member.userId]
           )
         ).rows
-      ).toEqual([{ termsVersion: 'v1', age: true, terms: true }])
+      ).toEqual([
+        {
+          termsVersion: 'v1',
+          age: true,
+          terms: true,
+          marketingConsented: false,
+          marketingConsentedAt: null
+        }
+      ])
+      // An optional consent without its time is refused.
+      await h.rejects(
+        'nihongo_app',
+        `INSERT INTO "UserConsent" ("userId","termsVersion","ageConfirmedAt","termsConfirmedAt","marketingConsented")
+         VALUES ($1,'v9',clock_timestamp(),clock_timestamp(),true)`,
+        [member.userId],
+        '23514'
+      )
       expect(await identities.consentState(existing)).toBe('PROCEED')
       // Rows never change, and they go with the User on erasure.
       await h.rejects(
