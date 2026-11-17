@@ -498,8 +498,8 @@ body [lang='ja'][data-ja-spaced],
   background: rgb(var(--color-surface));
 }
 .signup-consent-check input:checked {
-  border-color: rgb(var(--color-brand));
-  background: rgb(var(--color-brand));
+  border-color: rgb(var(--color-ink));
+  background: rgb(var(--color-ink));
 }
 .signup-consent-check input:checked::after {
   content: '';
