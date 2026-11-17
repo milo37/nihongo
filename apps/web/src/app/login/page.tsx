@@ -12,6 +12,8 @@ import {
   ACCOUNT_REAUTH_PARAM
 } from '@app/account/hooks/useSsoAccountManagement'
 import { RestoreCard } from '@app/login/components/RestoreCard'
+import { SignupConsentPage } from '@app/login/components/SignupConsentPage'
+import type { SignupConsentExit } from '@app/login/hooks/useSignupConsent'
 import type { RestoreFailure } from '@app/login/hooks/useAccountRestore'
 import { SignInCard } from '@app/login/components/SignInCard'
 import { formatErasureDate } from '@app/login/erasureDate'
@@ -28,8 +30,14 @@ import {
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 
+// #1085: the callback's sign-up check. The layout keeps its own copy in
+// signupConsentOutcome.ts; importing that here would split it into a chunk.
+const SIGNUP_CONSENT_OUTCOME = 'CONSENT_REQUIRED'
+
 type Notice =
   | SsoCallbackOutcome
+  | typeof SIGNUP_CONSENT_OUTCOME
+  | SignupConsentExit
   | RestoreFailure
   | 'LEGACY'
   | 'EXPIRED'
@@ -44,6 +52,9 @@ const hasStateFlag = (state: unknown, flag: string): boolean =>
 
 const readNotice = (search: URLSearchParams, state: unknown): Notice | null => {
   if (search.has('sso')) {
+    // #1085: the callback's sign-up check is not in the shared outcome list.
+    if (search.get('sso') === SIGNUP_CONSENT_OUTCOME)
+      return SIGNUP_CONSENT_OUTCOME
     const outcome = ssoCallbackOutcomeSchema.safeParse(search.get('sso'))
     return outcome.success ? outcome.data : 'INVALID_CALLBACK'
   }
@@ -59,12 +70,17 @@ const errorNotices: ReadonlySet<Notice> = new Set([
   'FAILED',
   'INVALID_CALLBACK',
   'RESTORE_FAILED',
-  'RESTORE_TOO_LATE'
+  'RESTORE_TOO_LATE',
+  'SIGNUP_EXPIRED'
 ])
 
-// RESTORE_AVAILABLE is not a notice: it shows the restore card (JLP-845).
+// RESTORE_AVAILABLE is not a notice: it shows the restore card (JLP-845);
+// CONSENT_REQUIRED shows the sign-up check (#1085).
 const noticeKeys: Record<
-  Exclude<Notice, 'DELETION' | 'RESTORE_AVAILABLE'>,
+  Exclude<
+    Notice,
+    'DELETION' | 'RESTORE_AVAILABLE' | typeof SIGNUP_CONSENT_OUTCOME
+  >,
   string
 > = {
   CANCELLED: 'sso.cancelledProvider',
@@ -72,6 +88,7 @@ const noticeKeys: Record<
   INVALID_CALLBACK: 'sso.expired',
   RESTORE_FAILED: 'recover.failed',
   RESTORE_TOO_LATE: 'recover.tooLate',
+  SIGNUP_EXPIRED: 'signup.expired',
   EXPIRED: 'sso.sessionExpired',
   LEGACY: 'sso.legacyMethod',
   UNLINKED: 'sso.unlinked'
@@ -121,15 +138,20 @@ export const LoginPage = (): ReactElement => {
   )
   const deletionNotice = useDeletionNotice(notice === 'DELETION')
   const restoring = notice === 'RESTORE_AVAILABLE'
+  const consenting = notice === SIGNUP_CONSENT_OUTCOME
   const onRestoreFailed = useCallback(
     (failure: RestoreFailure) => setNotice(failure),
+    []
+  )
+  const onConsentExit = useCallback(
+    (exit: SignupConsentExit) => setNotice(exit),
     []
   )
 
   useEffect(() => {
     // The restore card keeps ?sso=RESTORE_AVAILABLE so the layout hides the
     // ways out until the visitor chooses (design state ①·②).
-    if (accountReturn !== null || restoring) return
+    if (accountReturn !== null || restoring || consenting) return
     const canonical = new URLSearchParams()
     if (redirect !== '/') canonical.set('redirect', redirect)
     const desired = canonical.toString()
@@ -146,6 +168,7 @@ export const LoginPage = (): ReactElement => {
   }, [
     accountReturn,
     restoring,
+    consenting,
     location.hash,
     location.search,
     location.state,
@@ -155,9 +178,15 @@ export const LoginPage = (): ReactElement => {
 
   useEffect(() => {
     // Error notices focus the Google button inside the card instead.
-    if (notice && isReady && !errorNotices.has(notice) && !restoring)
+    if (
+      notice &&
+      isReady &&
+      !errorNotices.has(notice) &&
+      !restoring &&
+      !consenting
+    )
       heading.current?.focus()
-  }, [isReady, notice, restoring])
+  }, [consenting, isReady, notice, restoring])
 
   if (!isReady) {
     return (
@@ -184,6 +213,14 @@ export const LoginPage = (): ReactElement => {
     if (user.role === 'ADMIN' && redirect.startsWith('/admin'))
       return <AdminDocumentReturn to={redirect} />
     return <Navigate replace to="/" />
+  }
+
+  if (consenting) {
+    return (
+      <section className="auth-page signup-consent-page">
+        <SignupConsentPage redirect={redirect} onExit={onConsentExit} />
+      </section>
+    )
   }
 
   if (restoring) {

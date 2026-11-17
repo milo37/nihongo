@@ -13,6 +13,7 @@ import {
   findRestorableErasure,
   restoreSsoAccount
 } from '../auth/accountErasureAuthority.js'
+import { createSsoIdentityRepository } from '../auth/ssoIdentityRepository.js'
 import { createSsoDbHarness, digest } from './ssoTestFixture.js'
 import type { SsoFixture } from './ssoTestFixture.js'
 let h: ReturnType<typeof createSsoDbHarness>
@@ -1169,6 +1170,93 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
           )
         ).rows
       ).toEqual([{ users: 1, status: 'DELETION_PENDING' }])
+    })
+  })
+  it('#1085: sign-up waits for the consent, then the account and its consent commit together', async () => {
+    await h.rollback(async () => {
+      const identities = createSsoIdentityRepository(h.appClient as never)
+      const metadata = { ipAddress: '127.0.0.1', userAgent: 'consent-test' }
+      const facts = async (email: string) =>
+        (
+          await h.owner.query<{ users: number; consents: number }>(
+            `SELECT count(DISTINCT u.id)::int AS users, count(c."userId")::int AS consents
+             FROM "User" u LEFT JOIN "UserConsent" c ON c."userId" = u.id
+             WHERE u.email = $1`,
+            [email]
+          )
+        ).rows[0]!
+      // A new identity: nothing exists before the consent.
+      const fresh = {
+        provider: 'google' as const,
+        accountId: `consent-${randomUUID()}`,
+        email: `consent-${randomUUID()}@example.test`,
+        name: 'Consent learner'
+      }
+      expect(await identities.consentState(fresh)).toBe('NEW')
+      expect(await facts(fresh.email)).toEqual({ users: 0, consents: 0 })
+      expect(await identities.signUpWithConsent(fresh, metadata)).toMatchObject(
+        { kind: 'SESSION_CONFIRMED' }
+      )
+      expect(await facts(fresh.email)).toEqual({ users: 1, consents: 1 })
+      expect(await identities.consentState(fresh)).toBe('PROCEED')
+      // Its email under another provider subject stays the transition case.
+      expect(
+        await identities.consentState({
+          ...fresh,
+          accountId: `consent-${randomUUID()}`
+        })
+      ).toBe('PROCEED')
+      // An existing member without a consent confirms once; no second User.
+      const member = await h.fixture('google', 'USER')
+      const { email, name } = (
+        await h.owner.query<{ email: string; name: string }>(
+          'SELECT email, name FROM "User" WHERE id = $1',
+          [member.userId]
+        )
+      ).rows[0]!
+      const existing = {
+        provider: 'google' as const,
+        accountId: member.subject,
+        email,
+        name
+      }
+      expect(await identities.consentState(existing)).toBe('EXISTING')
+      expect(
+        await identities.signUpWithConsent(existing, metadata)
+      ).toMatchObject({ kind: 'SESSION_CONFIRMED' })
+      expect(await facts(email)).toEqual({ users: 1, consents: 1 })
+      expect(
+        (
+          await h.owner.query(
+            `SELECT "termsVersion", "ageConfirmedAt" IS NOT NULL AS age,
+               "termsConfirmedAt" IS NOT NULL AS terms
+             FROM "UserConsent" WHERE "userId" = $1`,
+            [member.userId]
+          )
+        ).rows
+      ).toEqual([{ termsVersion: 'v1', age: true, terms: true }])
+      expect(await identities.consentState(existing)).toBe('PROCEED')
+      // Rows never change, and they go with the User on erasure.
+      await h.rejects(
+        'nihongo_app',
+        `UPDATE "UserConsent" SET "termsVersion" = 'v2' WHERE "userId" = $1`,
+        [member.userId],
+        '42501'
+      )
+      await h.rejects(
+        'nihongo_app',
+        'DELETE FROM "UserConsent" WHERE "userId" = $1',
+        [member.userId],
+        '42501'
+      )
+      expect(
+        (
+          await h.owner.query(
+            `SELECT confdeltype FROM pg_catalog.pg_constraint
+             WHERE conname = 'UserConsent_userId_fkey'`
+          )
+        ).rows
+      ).toEqual([{ confdeltype: 'c' }])
     })
   })
 })

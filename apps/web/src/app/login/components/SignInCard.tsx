@@ -21,7 +21,11 @@ const consentLinkNames = Object.keys(CONSENT_LINKS) as ConsentLinkName[]
  * browser reads it the same way. A mark without its end is dropped, never
  * shown. (react-i18next's Trans would add an HTML parser to the bundle.)
  */
-export const linkConsent = (text: string): ReactNode[] => {
+export const linkConsent = (
+  text: string,
+  // #1085: the sign-up check opens them in a new tab so its boxes stay.
+  newTab = false
+): ReactNode[] => {
   const parts: ReactNode[] = []
   let rest = text
   while (rest) {
@@ -45,7 +49,11 @@ export const linkConsent = (text: string): ReactNode[] => {
       end < 0 ? (
         label
       ) : (
-        <Link key={parts.length} to={CONSENT_LINKS[next.name]}>
+        <Link
+          key={parts.length}
+          to={CONSENT_LINKS[next.name]}
+          {...(newTab ? { target: '_blank', rel: 'noopener' } : {})}
+        >
           {label}
         </Link>
       )

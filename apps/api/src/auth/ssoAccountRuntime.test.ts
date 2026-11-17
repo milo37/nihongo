@@ -247,7 +247,11 @@ const fixture = () => {
         return tx
       }
     },
-    identities: { signIn },
+    identities: {
+      signIn,
+      consentState: async () => 'PROCEED' as const,
+      signUpWithConsent: signIn
+    },
     accountRuntime: runtime
   })
   const gateway = createAuthGateway({

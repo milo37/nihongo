@@ -83,6 +83,9 @@ const fixture = (overrides: Record<string, string> = {}) => {
         const { stateDigest: _s, bindingDigest: _b, ...row } = tx
         return [row]
       }
+      // #1085: the fixture ADMIN has agreed to the current terms.
+      if (sql.includes('"UserConsent"'))
+        return [{ account: true, active: true, consented: true, taken: true }]
       if (sql.includes('resolve_sso_identity'))
         return [
           {

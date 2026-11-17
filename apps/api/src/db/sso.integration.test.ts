@@ -109,7 +109,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
       '20261114090000_user_last_login',
       '20261116090000_tag_label_ja',
       '20261117090000_drop_retired_verification',
-      '20261118090000_retention_cohort'
+      '20261118090000_retention_cohort',
+      '20261119090000_signup_consent'
     ])
     expect(
       actual.rows.map(({ name, checksum }) => ({ name, checksum }))

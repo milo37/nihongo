@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useHref, useLocation } from 'react-router'
 import { getAppPath } from '../../libs/appNavigation'
 import { getRouteLabelKey } from '../../i18n/routePresentation'
+import type { RouteLabelKey } from '../../i18n/routePresentation'
 
 // #981: the public pages describe themselves, with the same text the build
 // writes into their page copies (packages/browser/vite.config.ts).
@@ -14,10 +15,13 @@ const pageDescriptionKeys = {
 
 type DocumentMetadataOptions = {
   readonly robots: 'index,follow' | 'noindex,follow'
+  /** Overrides the label the path gives, e.g. the sign-up check (#1085). */
+  readonly routeLabelKey?: RouteLabelKey
 }
 
 export const useDocumentMetadata = ({
-  robots
+  robots,
+  routeLabelKey
 }: DocumentMetadataOptions): void => {
   const routeLocation = useLocation()
   const basename = useHref('/')
@@ -28,7 +32,7 @@ export const useDocumentMetadata = ({
   const { t, i18n } = useTranslation('navigation')
 
   useLayoutEffect(() => {
-    const routeKey = getRouteLabelKey(location.pathname)
+    const routeKey = routeLabelKey ?? getRouteLabelKey(location.pathname)
     const route = t(routeKey)
     document.title = t('documentTitle', { route })
 
@@ -75,5 +79,12 @@ export const useDocumentMetadata = ({
     } else {
       canonicalNodes.forEach((node) => node.remove())
     }
-  }, [basename, i18n.resolvedLanguage, location.pathname, robots, t])
+  }, [
+    basename,
+    i18n.resolvedLanguage,
+    location.pathname,
+    robots,
+    routeLabelKey,
+    t
+  ])
 }

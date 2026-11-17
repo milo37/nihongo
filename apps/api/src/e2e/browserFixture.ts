@@ -1,4 +1,5 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto'
+import { SIGNUP_TERMS_VERSION } from '@nihongo/contracts/auth/signup-consent'
 import { hashPassword } from 'better-auth/crypto'
 import { Client } from 'pg'
 import { createPrismaAccountRestrictionReader } from '../account/accountRestriction.js'
@@ -1365,6 +1366,13 @@ const createSsoBrowserApiFixture = async (
               "id", "accountId", "providerId", "userId", "createdAt", "updatedAt"
             ) VALUES ($1::uuid, $2, 'google', $3::uuid, clock_timestamp(), clock_timestamp())`,
               [randomUUID(), identity.accountId, actor.userId]
+            )
+            // #1085: seeded members have agreed to the current terms.
+            await owner.query(
+              `INSERT INTO "UserConsent" (
+              "userId", "termsVersion", "ageConfirmedAt", "termsConfirmedAt"
+            ) VALUES ($1::uuid, $2, clock_timestamp(), clock_timestamp())`,
+              [actor.userId, SIGNUP_TERMS_VERSION]
             )
           }
           await owner.query('COMMIT')

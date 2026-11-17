@@ -159,6 +159,25 @@ export const authHandlers = [
       return { restored: true }
     })
   ),
+  // #1085: a mock pending sign-up, so /login?sso=CONSENT_REQUIRED renders
+  // in dev and MSW tests; agreeing signs in the demo member.
+  http.get('*/api/auth/sso/signup-consent', () =>
+    HttpResponse.json(
+      {
+        kind: 'NEW',
+        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+        redirect: '/'
+      },
+      { headers: { 'Cache-Control': 'private, no-store' } }
+    )
+  ),
+  http.post('*/api/auth/sso/signup-consent', () => {
+    mockDatabase.loginAs('USER', DEMO_USER_ID)
+    return HttpResponse.json({ signedIn: true, redirect: '/' })
+  }),
+  http.post('*/api/auth/sso/signup-consent/cancel', () =>
+    HttpResponse.json({ cancelled: true })
+  ),
   http.post('*/api/auth/sso/restore/decline', () =>
     accountRead(() => mockDatabase.ssoAccounts.decline())
   ),

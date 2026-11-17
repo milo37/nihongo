@@ -242,6 +242,10 @@
     "./auth/sso-account-management": {
       "types": "./dist/auth/sso-account-management.d.ts",
       "import": "./dist/auth/sso-account-management.js"
+    },
+    "./auth/signup-consent": {
+      "types": "./dist/auth/signup-consent.d.ts",
+      "import": "./dist/auth/signup-consent.js"
     }
   },
   "scripts": {
