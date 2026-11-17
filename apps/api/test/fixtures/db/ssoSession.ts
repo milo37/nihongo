@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { SIGNUP_TERMS_VERSION } from '@nihongo/contracts/auth/signup-consent'
 import type { SsoVerifiedIdentity } from '../../../src/auth/ssoProtocol.js'
 import type { PrismaClient } from '../../../src/generated/prisma/client.js'
 import { createSsoIdentityRepository } from '../../../src/auth/ssoIdentityRepository.js'
@@ -41,6 +42,12 @@ export const createSsoIdentityFixture = async ({
       subject
     )
   }
+  // #1085: fixture members have agreed, so the callback signs them in.
+  await owner.$queryRawUnsafe(
+    `INSERT INTO "UserConsent" ("userId","termsVersion","ageConfirmedAt","termsConfirmedAt") VALUES ($1::uuid,$2,clock_timestamp(),clock_timestamp()) ON CONFLICT DO NOTHING RETURNING "userId"`,
+    userId,
+    SIGNUP_TERMS_VERSION
+  )
   const identity: SsoVerifiedIdentity = {
     provider: 'google',
     accountId: subject,

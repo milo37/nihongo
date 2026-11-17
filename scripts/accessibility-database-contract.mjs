@@ -48,6 +48,7 @@ export const accessibilityDatabaseTables = [
   'User',
   'UserAccountRestriction',
   'UserAccountRestrictionEvent',
+  'UserConsent',
   'UserMemo',
   'UserReport',
   'UserSignIn',
@@ -96,6 +97,8 @@ export const accessibilityExpectedTableDeltas = {
   User: 0,
   UserAccountRestriction: 0,
   UserAccountRestrictionEvent: 0,
+  // #1085: the scanned members are seeded with their consent.
+  UserConsent: 0,
   UserMemo: 0,
   UserReport: 1,
   // JLP-852: a sign-in adds the member's row once and later only updates it,

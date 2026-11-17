@@ -20,10 +20,10 @@ export const assertSsoBootstrapMigrationHistory = (
     )
     .digest('hex')
   if (
-    expected.length !== 13 ||
-    expected.at(-1)?.name !== '20261118090000_retention_cohort' ||
+    expected.length !== 14 ||
+    expected.at(-1)?.name !== '20261119090000_signup_consent' ||
     orderedDigest !==
-      '558d101afefa4130faa06fc3c2cb9e1580ddfedc90b94acbe917c9a2aed809db' ||
+      'f928c1300d4ca0ed250ca4e24675ac0fac17b469f7fcb18977df984f44523f81' ||
     applied.length !== expected.length ||
     applied.some(
       (row, index) =>
@@ -594,15 +594,15 @@ export const assertApiIntegrationVitestFileResult = ({
   }
   if (
     expectedPath === ssoAccountLifecycleDbTestFile &&
-    result.numTotalTests !== 13
+    result.numTotalTests !== 14
   ) {
     // #504 P7 PR5a adds the API link and unlink trigger case; #57 the
     // erasure role refusal case; #670 the tokenless end-to-end erasure;
     // JLP-841 the last ACTIVE ADMIN refusal; JLP-845 the grace-period
     // restore and its refusal; JLP-852 the erasure after a year without
-    // sign-in.
+    // sign-in; #1085 the sign-up consent.
     throw new Error(
-      'SSO account lifecycle requires exactly thirteen passing tests.'
+      'SSO account lifecycle requires exactly fourteen passing tests.'
     )
   }
   const resultPaths = (result.testResults ?? [])
