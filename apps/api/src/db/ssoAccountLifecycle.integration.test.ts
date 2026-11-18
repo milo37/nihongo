@@ -990,6 +990,16 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
     })
   })
   it('#702: re-applies listed erasures after a restore with their original deadline, dry run first', async () => {
+    // Committed, so another connection can record its erasure (#1147 QA).
+    await h.owner.query('BEGIN')
+    let committed: SsoFixture
+    try {
+      committed = await h.fixture('google', 'USER')
+      await h.owner.query('COMMIT')
+    } catch (error: unknown) {
+      await h.owner.query('ROLLBACK')
+      throw error
+    }
     await h.rollback(async () => {
       const worker = createSsoAccountErasureWorker(h.appClient)
       // Asked 2 days before the re-apply: 5 days of grace remain.
@@ -1107,6 +1117,46 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         (await reapplyAccountErasures(h.appClient, listed, 'TEST', true))
           .requestedUserIds
       ).toEqual([])
+      // #1147 QA: the function moves only a request this transaction
+      // recorded, for nihongo_app only, within 31 days and not in the future.
+      const backdate =
+        'SELECT "backdate_reapplied_sso_erasure_request"($1::uuid, $2::timestamptz) AS moved'
+      // A request another transaction committed after this one began.
+      await h.appA.query('BEGIN')
+      try {
+        await h.appA.query(
+          `INSERT INTO "SsoAccountErasureRequest" (
+             "userId", "receiptDigest", "providerCleanup", "receiptExpiresAt"
+           ) VALUES ($1::uuid, $2, '[]'::jsonb, clock_timestamp())`,
+          [committed.userId, digest()]
+        )
+        await h.appA.query(
+          `UPDATE "User" SET "accountStatus" = 'DELETION_PENDING' WHERE id = $1`,
+          [committed.userId]
+        )
+        await h.appA.query('COMMIT')
+      } catch (error: unknown) {
+        await h.appA.query('ROLLBACK')
+        throw error
+      }
+      await h.rejects(
+        'nihongo_app',
+        backdate,
+        [committed.userId, daysAgo(2)],
+        '55000'
+      )
+      for (const at of [
+        new Date(Date.now() + 60_000).toISOString(),
+        daysAgo(32),
+        null
+      ])
+        await h.rejects('nihongo_app', backdate, [restored.userId, at], '22023')
+      await h.rejects(
+        'nihongo_migration',
+        backdate,
+        [restored.userId, daysAgo(2)],
+        '42501'
+      )
     })
   })
   it('#695: deletes expired sign-in sessions only, dry run first', async () => {

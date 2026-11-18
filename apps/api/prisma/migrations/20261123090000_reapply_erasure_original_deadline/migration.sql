@@ -61,6 +61,11 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
   -- Only the request this transaction just recorded for a pending User.
+  -- "createdAt" >= now() alone also matches a request another transaction
+  -- committed after this one began (#1147 QA), so the row's inserting
+  -- transaction must still be in progress: under READ COMMITTED the only
+  -- visible rows still in progress are this transaction's own, savepoints
+  -- included. xmin takes its epoch from the current transaction id.
   UPDATE "SsoAccountErasureRequest" AS request
   SET "createdAt" = requested_at
   WHERE request."userId" = target_user_id
@@ -69,6 +74,10 @@ BEGIN
     AND request."leaseToken" IS NULL
     AND request."leaseExpiresAt" IS NULL
     AND request."createdAt" >= now()
+    AND pg_catalog.pg_xact_status(
+      (((pg_catalog.pg_current_xact_id()::text::bigint >> 32) << 32)
+        | request.xmin::text::bigint)::text::xid8
+    ) = 'in progress'
     AND EXISTS (
       SELECT 1 FROM "User" AS target
       WHERE target."id" = target_user_id
