@@ -13,12 +13,14 @@ runStudyCleanupCommand({
   confirmation: 'DELETE_EXPIRED_STUDY_DRAFTS',
   defaultBatchSize: DEFAULT_STUDY_DRAFT_CLEANUP_BATCH_SIZE,
   maxBatchSize: MAX_STUDY_DRAFT_CLEANUP_BATCH_SIZE,
+  dryRunVariable: 'STUDY_DRAFT_CLEANUP_DRY_RUN',
   successEvent: 'study.expired_drafts.cleaned',
   failureEvent: 'study.expired_drafts.cleanup_failed',
-  cleanup: async (client, batchSize) =>
+  allowProduction: true,
+  cleanup: async (client, batchSize, dryRun) =>
     await createStudyDraftCleanupService(
       createPrismaStudyDraftCleanupRepository(client)
-    ).cleanup({ batchSize }),
+    ).cleanup({ batchSize, dryRun }),
   describe: (result) => ({
     expiredDraftBatchLimitReached: result.expiredDraftBatchLimitReached,
     expiredDraftIdempotencyBatchLimitReached:
