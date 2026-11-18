@@ -24,7 +24,7 @@ import {
   updateTargetLevelResponseSchema
 } from '@nihongo/contracts/auth/update-target-level'
 import {
-  studyGoalSchema,
+  studyGoalResponseSchema,
   updateStudyGoalBodySchema
 } from '@nihongo/contracts/auth/study-goal'
 import {
@@ -289,7 +289,9 @@ export const authHandlers = [
   http.get('*/api/v1/me/study-goal', () => {
     try {
       return HttpResponse.json(
-        studyGoalSchema.parse(mockDatabase.getStudyGoal(requireMember().id)),
+        studyGoalResponseSchema.parse(
+          mockDatabase.getStudyGoal(requireMember().id)
+        ),
         { headers: { 'Cache-Control': 'private, no-store' } }
       )
     } catch (error: unknown) {
@@ -301,7 +303,7 @@ export const authHandlers = [
       const user = requireMember()
       const input = await parseJsonBody(request, updateStudyGoalBodySchema)
       return HttpResponse.json(
-        studyGoalSchema.parse(
+        studyGoalResponseSchema.parse(
           mockDatabase.setStudyGoal(user.id, input.targetLevel, input.dailyGoal)
         ),
         { headers: { 'Cache-Control': 'private, no-store' } }
@@ -313,7 +315,9 @@ export const authHandlers = [
   http.post('*/api/v1/me/study-goal/skip', () => {
     try {
       return HttpResponse.json(
-        studyGoalSchema.parse(mockDatabase.skipStudyGoal(requireMember().id)),
+        studyGoalResponseSchema.parse(
+          mockDatabase.skipStudyGoal(requireMember().id)
+        ),
         { headers: { 'Cache-Control': 'private, no-store' } }
       )
     } catch (error: unknown) {

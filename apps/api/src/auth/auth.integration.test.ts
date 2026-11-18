@@ -894,13 +894,13 @@ describe(
         onboardingRequired: true
       })
       // [Later] once; a second skip changes nothing.
-      const skipped = await studyGoals.skip(session.userId)
+      const skipped = await studyGoals.skipOnboarding(session.userId)
       expect(skipped).toMatchObject({
         dailyGoal: null,
         onboardingRequired: false
       })
       expect(skipped.skippedAt).not.toBeNull()
-      expect(await studyGoals.skip(session.userId)).toEqual(skipped)
+      expect(await studyGoals.skipOnboarding(session.userId)).toEqual(skipped)
       // Setting it later keeps the skip time and moves the target level.
       const saved = await studyGoals.update(session.userId, {
         targetLevel: 'N3',

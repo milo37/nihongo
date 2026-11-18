@@ -15,13 +15,13 @@ export interface StudyGoalRepository {
     targetLevel: JlptLevel,
     dailyGoal: number
   ) => Promise<StudyGoal | null>
-  skip: (userId: string) => Promise<StudyGoal | null>
+  skipOnboarding: (userId: string) => Promise<StudyGoal | null>
 }
 
 export interface StudyGoalService {
   read: (userId: string) => Promise<StudyGoal>
   update: (userId: string, body: UpdateStudyGoalBody) => Promise<StudyGoal>
-  skip: (userId: string) => Promise<StudyGoal>
+  skipOnboarding: (userId: string) => Promise<StudyGoal>
 }
 
 export class StudyGoalRepositoryUnavailableError extends Error {
@@ -132,7 +132,7 @@ export const createPrismaStudyGoalRepository = (
         return readGoal(transaction, userId)
       })
     ),
-  skip: (userId) =>
+  skipOnboarding: (userId) =>
     guard(async () => {
       await client.$executeRaw(Prisma.sql`
         INSERT INTO "UserStudyGoal" ("userId", "onboardingSkippedAt")
@@ -178,6 +178,6 @@ export const createStudyGoalService = (
     read: (userId) => run(() => repository.read(userId)),
     update: (userId, body) =>
       run(() => repository.update(userId, body.targetLevel, body.dailyGoal)),
-    skip: (userId) => run(() => repository.skip(userId))
+    skipOnboarding: (userId) => run(() => repository.skipOnboarding(userId))
   }
 }

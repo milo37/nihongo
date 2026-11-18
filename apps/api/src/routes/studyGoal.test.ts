@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { describe, expect, it, vi } from 'vitest'
-import { studyGoalSchema } from '@nihongo/contracts/auth/study-goal'
+import { studyGoalResponseSchema } from '@nihongo/contracts/auth/study-goal'
 import { createApiErrorHandler } from '../app/createApp.js'
 import type { PrincipalService } from '../auth/principalService.js'
 import { parseApiEnvironment } from '../config/env.js'
@@ -52,7 +52,7 @@ const createHarness = (
   const store = {
     read: vi.fn(async () => goal()),
     update: vi.fn(async () => goal()),
-    skip: vi.fn(async () =>
+    skipOnboarding: vi.fn(async () =>
       goal({
         targetLevel: null,
         dailyGoal: null,
@@ -111,7 +111,7 @@ describe('/api/v1/me/study-goal (#1090)', () => {
     const response = await send(harness.app, 'GET')
     expect(response.status).toBe(200)
     expect(response.headers.get('Cache-Control')).toBe('private, no-store')
-    expect(studyGoalSchema.parse(await response.json())).toEqual(goal())
+    expect(studyGoalResponseSchema.parse(await response.json())).toEqual(goal())
     expect(harness.store.read).toHaveBeenCalledWith(userId)
     expect(harness.rateLimiter.consume).toHaveBeenCalledWith(
       expect.objectContaining({ operation: 'study-goal-read', max: 60 })
@@ -155,7 +155,7 @@ describe('/api/v1/me/study-goal (#1090)', () => {
     })
     const invalid = await send(harness.app, 'POST', '/skip', { dailyGoal: 10 })
     expect(invalid.status).toBe(400)
-    expect(harness.store.skip).toHaveBeenCalledTimes(1)
+    expect(harness.store.skipOnboarding).toHaveBeenCalledTimes(1)
   })
 
   it('asks a guest or an expired session to sign in', async () => {
@@ -172,7 +172,7 @@ describe('/api/v1/me/study-goal (#1090)', () => {
       code: 'AUTH_SESSION_EXPIRED'
     })
     expect(guest.store.read).not.toHaveBeenCalled()
-    expect(expired.store.skip).not.toHaveBeenCalled()
+    expect(expired.store.skipOnboarding).not.toHaveBeenCalled()
   })
 
   it('treats a member who is no longer ACTIVE as signed out', async () => {

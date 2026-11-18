@@ -1382,6 +1382,13 @@ const createSsoBrowserApiFixture = async (
             ) VALUES ($1::uuid, $2, clock_timestamp(), clock_timestamp())`,
               [actor.userId, SIGNUP_TERMS_VERSION]
             )
+            // #1090: and have skipped the onboarding page, so a UI sign-in
+            // lands where it did before.
+            await owner.query(
+              `INSERT INTO "UserStudyGoal" ("userId", "onboardingSkippedAt")
+            VALUES ($1::uuid, clock_timestamp())`,
+              [actor.userId]
+            )
           }
           await owner.query('COMMIT')
         } catch (error: unknown) {

@@ -1,6 +1,6 @@
 import {
   skipStudyGoalBodySchema,
-  studyGoalSchema,
+  studyGoalResponseSchema,
   updateStudyGoalBodySchema
 } from '@nihongo/contracts/auth/study-goal'
 import { Hono, type Context } from 'hono'
@@ -88,32 +88,36 @@ export const createStudyGoalRoutes = ({
     return resolution.user.id
   }
 
-  const answer = (
-    context: Context<StudyGoalRouteEnvironment>,
-    goal: unknown
-  ) => {
-    context.header('Cache-Control', 'private, no-store')
-    return context.json(studyGoalSchema.parse(goal))
-  }
-
   routes.get('/', async (context) => {
     await consume(context, 'study-goal-read')
     const userId = await memberId(context)
-    return answer(context, await studyGoalService.read(userId))
+    const response = studyGoalResponseSchema.parse(
+      await studyGoalService.read(userId)
+    )
+    context.header('Cache-Control', 'private, no-store')
+    return context.json(response)
   })
 
   routes.put('/', async (context) => {
     await consume(context, 'study-goal-write')
     const body = await parseBody(context, updateStudyGoalBodySchema)
     const userId = await memberId(context)
-    return answer(context, await studyGoalService.update(userId, body))
+    const response = studyGoalResponseSchema.parse(
+      await studyGoalService.update(userId, body)
+    )
+    context.header('Cache-Control', 'private, no-store')
+    return context.json(response)
   })
 
   routes.post('/skip', async (context) => {
     await consume(context, 'study-goal-write')
     await parseBody(context, skipStudyGoalBodySchema)
     const userId = await memberId(context)
-    return answer(context, await studyGoalService.skip(userId))
+    const response = studyGoalResponseSchema.parse(
+      await studyGoalService.skipOnboarding(userId)
+    )
+    context.header('Cache-Control', 'private, no-store')
+    return context.json(response)
   })
 
   return routes
