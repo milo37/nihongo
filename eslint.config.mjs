@@ -47,6 +47,13 @@ export default tseslint.config(
     }
   },
   {
+    files: ['.pnpmfile.cjs'],
+    languageOptions: {
+      sourceType: 'commonjs',
+      globals: { ...globals.node }
+    }
+  },
+  {
     files: ['**/*.{ts,tsx}'],
     languageOptions: {
       globals: { ...globals.browser, ...globals.node },
