@@ -70,11 +70,12 @@ moved {
   to   = aws_ecr_lifecycle_policy.api[0]
 }
 
-# PRODUCTION only (origin_domain_name set, #40): Caddy with the Cloudflare DNS
-# provider (infra/aws/caddy). Kept apart from the api repository, whose lifecycle
-# rule counts every image. Pushed by .github/workflows/caddy-image.yml.
+# Caddy with the Cloudflare DNS provider (infra/aws/caddy), for origin TLS (#40).
+# Kept apart from the api repository, whose lifecycle rule counts every image.
+# Pushed by .github/workflows/caddy-image.yml. One per account: PRODUCTION creates
+# it, and STAGING with origin TLS (#1011) reads it and pins the same digest.
 resource "aws_ecr_repository" "caddy" {
-  count                = local.origin_tls ? 1 : 0
+  count                = local.create_caddy_repository ? 1 : 0
   name                 = "${var.project}/caddy"
   image_tag_mutability = "IMMUTABLE"
 
@@ -89,7 +90,7 @@ resource "aws_ecr_repository" "caddy" {
 
 # The host pins one digest (caddy_dns_image); 5 keeps that one and its rollbacks.
 resource "aws_ecr_lifecycle_policy" "caddy" {
-  count      = local.origin_tls ? 1 : 0
+  count      = local.create_caddy_repository ? 1 : 0
   repository = aws_ecr_repository.caddy[0].name
   policy = jsonencode({
     rules = [
@@ -105,4 +106,13 @@ resource "aws_ecr_lifecycle_policy" "caddy" {
       },
     ]
   })
+}
+
+data "aws_ecr_repository" "caddy" {
+  count = local.origin_tls && !local.create_caddy_repository ? 1 : 0
+  name  = "${var.project}/caddy"
+}
+
+locals {
+  caddy_repository_arns = concat(aws_ecr_repository.caddy[*].arn, data.aws_ecr_repository.caddy[*].arn)
 }
