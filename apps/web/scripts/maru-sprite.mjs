@@ -58,10 +58,13 @@ const body = /<svg[^>]*>([\s\S]*)<\/svg>\s*$/u
         /\s+([\w:-]+)="([^"]*)"/gu
       )) {
         if (name === 'class') {
-          for (const item of value.split(/\s+/u)) {
+          const names = new Set(value.split(/\s+/u))
+          for (const item of names)
             if (!rules.has(item)) throw new Error(`Unknown class: ${item}`)
-            style = { ...style, ...rules.get(item) }
-          }
+          // Later rules in the stylesheet win, as in CSS, whatever the
+          // order of names in the class attribute.
+          for (const [item, rule] of rules)
+            if (names.has(item)) style = { ...style, ...rule }
         } else if (name === 'style')
           style = { ...style, ...declarations(value) }
         else if (name.startsWith('xmlns')) continue
