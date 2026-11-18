@@ -802,6 +802,13 @@ body [lang='ja'][data-ja-spaced],
   color: rgb(var(--color-muted));
   font-size: 15px;
   line-height: 22px;
+  /* r7/03: ja breaks after '、', not before the last kana. */
+  text-wrap: pretty;
+  word-break: keep-all;
+}
+/* r7/02: the link's 44px row sits right under the note. */
+.study-goal-row-note + .study-goal-row-link {
+  margin-top: -6px;
 }
 .study-goal-row-link {
   display: inline-flex;
@@ -833,12 +840,13 @@ body [lang='ja'][data-ja-spaced],
     max-width: 24rem;
   }
 }
-/* #1090 O-r7: under the score, grey; ink once today's goal is met. */
+/* #1090 r7/04: right under the score's info line, grey; ink once today's
+   goal is met. The sheet and buttons move down 20px only. */
 .result-daily-goal {
-  margin-top: 8px;
+  margin-top: 4px;
   color: rgb(var(--color-muted));
   font-size: 14px;
-  line-height: 24px;
+  line-height: 16px;
 }
 .result-daily-goal.is-done {
   color: rgb(var(--color-ink));

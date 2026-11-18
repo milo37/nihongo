@@ -118,12 +118,13 @@ export const ResultSummary = ({
           ...details
         ].join(' · ')}
       </p>
+      {/* #1090 r7: right under the grey info line (the later stamp ends it). */}
+      {memberId ? <DailyGoalLine userId={memberId} /> : null}
       <ProgressSheet
         className="study-result-sheet"
         states={gradeStates}
         animate={animateGrading}
       />
-      {memberId ? <DailyGoalLine userId={memberId} /> : null}
       {/* One login place: this line, or the limit card on the last try. */}
       {isGuest ? (
         isGuestDone ? null : incorrectCount > 0 ? (
