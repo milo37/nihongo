@@ -587,7 +587,7 @@ describe('Study submission PostgreSQL transaction', () => {
     expect((await submitFive()).submitted.response.stampEarned).toBe(false)
     expect(await studyGoals.read(userId)).toMatchObject({
       todayAnsweredCount: 5,
-      stampCount: 0
+      monthStampDates: []
     })
 
     // Goal 20: 10 answers so far, then 15, then 20 earns the one stamp.
@@ -615,22 +615,28 @@ describe('Study submission PostgreSQL transaction', () => {
     await studyGoals.update(userId, { targetLevel: 'N5', dailyGoal: 10 })
     expect((await submitFive()).submitted.response.stampEarned).toBe(false)
     expect(await studyGoals.read(userId)).toMatchObject({
-      todayAnsweredCount: 30,
-      stampCount: 1
+      todayAnsweredCount: 30
     })
     const rows = await database.client.$queryRaw<
-      Array<{ reason: string; amount: number; goalAtEarn: number | null }>
+      Array<{ earnedOn: string; reason: string; goalAtEarn: number | null }>
     >`
-      SELECT "reason", "amount", "goalAtEarn" FROM "StampLedger"
-      WHERE "userId" = ${userId}::uuid
+      SELECT "earnedOn"::text AS "earnedOn", "reason", "goalAtEarn"
+      FROM "StampLedger" WHERE "userId" = ${userId}::uuid
     `
-    expect(rows).toEqual([{ reason: 'DAILY_GOAL', amount: 1, goalAtEarn: 20 }])
+    expect(rows).toEqual([
+      { earnedOn: expect.any(String), reason: 'DAILY_GOAL', goalAtEarn: 20 }
+    ])
+    // This month's stamp board shows that one day.
+    expect((await studyGoals.read(userId))?.monthStampDates).toEqual([
+      rows[0]?.earnedOn
+    ])
 
     if (isCurrentSourceIntegration) {
       // nihongo_app only adds and reads ledger rows.
       for (const statement of [
         database.client.$executeRaw`
-          UPDATE "StampLedger" SET "amount" = 2 WHERE "userId" = ${userId}::uuid
+          UPDATE "StampLedger" SET "goalAtEarn" = 30
+          WHERE "userId" = ${userId}::uuid
         `,
         database.client.$executeRaw`
           DELETE FROM "StampLedger" WHERE "userId" = ${userId}::uuid
@@ -640,23 +646,17 @@ describe('Study submission PostgreSQL transaction', () => {
           message: expect.stringMatching(/permission denied/u)
         })
     }
-    // One earning row per member, day and reason; a spending row is allowed.
+    // One row per member, day and reason.
     await expect(
       database.client.$executeRaw`
         INSERT INTO "StampLedger"
-          ("id", "userId", "earnedOn", "reason", "amount", "goalAtEarn")
-        SELECT ${randomUUID()}::uuid, "userId", "earnedOn", "reason", 1, 20
+          ("id", "userId", "earnedOn", "reason", "goalAtEarn")
+        SELECT ${randomUUID()}::uuid, "userId", "earnedOn", "reason", 20
         FROM "StampLedger" WHERE "userId" = ${userId}::uuid
       `
     ).rejects.toMatchObject({
       message: expect.stringMatching(/StampLedger_userId_earnedOn_reason_key/u)
     })
-    await database.client.$executeRaw`
-      INSERT INTO "StampLedger" ("id", "userId", "earnedOn", "reason", "amount")
-      SELECT ${randomUUID()}::uuid, "userId", "earnedOn", 'TEST_SPEND', -1
-      FROM "StampLedger" WHERE "userId" = ${userId}::uuid
-    `
-    expect(await studyGoals.read(userId)).toMatchObject({ stampCount: 0 })
   })
 
   it('WEAKNESS·BOOKMARK·WRONG_NOTE·DAILY_REVIEW를 owner facts로 선택하고 mode별 event source를 보존한다', async () => {

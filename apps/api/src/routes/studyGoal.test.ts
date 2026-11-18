@@ -41,7 +41,7 @@ const goal = (overrides: Record<string, unknown> = {}) => ({
   skippedAt: null,
   onboardingRequired: false,
   todayAnsweredCount: 20,
-  stampCount: 12,
+  monthStampDates: ['2026-11-03', '2026-11-18'],
   ...overrides
 })
 

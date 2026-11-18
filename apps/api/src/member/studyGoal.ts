@@ -44,7 +44,7 @@ interface StudyGoalRow {
   goalSetAt: Date | null
   skippedAt: Date | null
   todayAnsweredCount: number
-  stampCount: number
+  monthStampDates: string[]
 }
 
 const ACTIVE_MEMBER = Prisma.sql`
@@ -72,8 +72,8 @@ export const todayAnsweredCount = (memberId: Prisma.Sql): Prisma.Sql =>
          ))`
 
 /**
- * One row for an ACTIVE member: the goal, today's answers and the stamps
- * collected so far.
+ * One row for an ACTIVE member: the goal, today's answers and the days of
+ * this Asia/Seoul month that have a stamp.
  */
 const readGoal = async (
   client: Pick<PrismaClient, '$queryRaw'>,
@@ -85,9 +85,11 @@ const readGoal = async (
       goal."goalSetAt",
       goal."onboardingSkippedAt" AS "skippedAt",
       ${todayAnsweredCount(Prisma.sql`member."id"`)} AS "todayAnsweredCount",
-      (SELECT coalesce(sum(stamp."amount"), 0)::int
+      ARRAY(SELECT DISTINCT stamp."earnedOn"::text
        FROM "StampLedger" AS stamp
-       WHERE stamp."userId" = member."id") AS "stampCount"
+       WHERE stamp."userId" = member."id"
+         AND stamp."earnedOn" >= date_trunc('month', ${SEOUL_TODAY})::date
+       ORDER BY 1) AS "monthStampDates"
     FROM "User" AS member
     LEFT JOIN "UserStudyGoal" AS goal ON goal."userId" = member."id"
     WHERE member."id" = ${userId}::uuid AND ${ACTIVE_MEMBER}
@@ -101,7 +103,7 @@ const readGoal = async (
     skippedAt: row.skippedAt?.toISOString() ?? null,
     onboardingRequired: row.goalSetAt === null && row.skippedAt === null,
     todayAnsweredCount: row.todayAnsweredCount,
-    stampCount: row.stampCount
+    monthStampDates: row.monthStampDates
   }
 }
 

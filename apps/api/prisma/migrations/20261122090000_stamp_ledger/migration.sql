@@ -1,9 +1,8 @@
--- Stamp ledger (#1094, operator decision, 2026-11-17): one stamp on the day
--- a member's submitted answers reach their daily goal. Rows are only added,
--- never changed or removed by the app; the collected count is the sum of
--- "amount". A later reason only adds a "reason" value, and spending adds a
--- negative row. Earning rows are unique per member, day and reason. No
--- other object changes.
+-- Stamp ledger (#1094, operator decisions 2026-11-17 and 2026-11-18): an
+-- attendance stamp on the day a member's submitted answers reach their daily
+-- goal. Stamps are only collected, never spent; rows are only added, never
+-- changed or removed by the app. One row per member, day and reason; a later
+-- reason only adds a "reason" value. No other object changes.
 BEGIN;
 SELECT pg_catalog.set_config('app.target_schema', pg_catalog.current_schema(), true);
 SELECT pg_catalog.set_config('search_path', 'pg_catalog, pg_temp', true);
@@ -40,7 +39,6 @@ CREATE TABLE "StampLedger" (
     -- The Asia/Seoul calendar day the row belongs to.
     "earnedOn" date NOT NULL,
     "reason" text NOT NULL,
-    "amount" smallint NOT NULL,
     -- The daily goal when a DAILY_GOAL stamp was earned.
     "goalAtEarn" smallint,
     "createdAt" timestamp(3) with time zone DEFAULT clock_timestamp() NOT NULL,
@@ -49,20 +47,15 @@ CREATE TABLE "StampLedger" (
       REFERENCES "User"(id) ON DELETE CASCADE,
     CONSTRAINT "StampLedger_reason_check"
       CHECK ("reason" ~ '^[A-Z][A-Z0-9_]{0,31}$'),
-    CONSTRAINT "StampLedger_amount_check" CHECK ("amount" <> 0),
+    CONSTRAINT "StampLedger_userId_earnedOn_reason_key"
+      UNIQUE ("userId", "earnedOn", "reason"),
     CONSTRAINT "StampLedger_daily_goal_check"
-      CHECK ("reason" <> 'DAILY_GOAL' OR ("amount" = 1
-        AND "goalAtEarn" BETWEEN 10 AND 150 AND "goalAtEarn" % 10 = 0))
+      CHECK ("reason" <> 'DAILY_GOAL' OR ("goalAtEarn" BETWEEN 10 AND 150
+        AND "goalAtEarn" % 10 = 0))
 );
 
--- One earning row per member, day and reason; spending rows are not capped.
-CREATE UNIQUE INDEX "StampLedger_userId_earnedOn_reason_key"
-  ON "StampLedger" ("userId", "earnedOn", "reason") WHERE "amount" > 0;
-CREATE INDEX "StampLedger_userId_idx" ON "StampLedger" ("userId");
-
-GRANT SELECT ("id", "userId", "earnedOn", "reason", "amount", "goalAtEarn",
-    "createdAt"),
-  INSERT ("id", "userId", "earnedOn", "reason", "amount", "goalAtEarn")
+GRANT SELECT ("id", "userId", "earnedOn", "reason", "goalAtEarn", "createdAt"),
+  INSERT ("id", "userId", "earnedOn", "reason", "goalAtEarn")
   ON TABLE "StampLedger" TO nihongo_app;
 
 SET LOCAL ROLE "nihongo_migration";

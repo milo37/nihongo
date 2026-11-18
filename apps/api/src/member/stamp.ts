@@ -16,14 +16,14 @@ export const awardDailyGoalStamp = async (
 ): Promise<boolean> => {
   const added = await transaction.$queryRaw<Array<{ id: string }>>(Prisma.sql`
     INSERT INTO "StampLedger"
-      ("id", "userId", "earnedOn", "reason", "amount", "goalAtEarn")
+      ("id", "userId", "earnedOn", "reason", "goalAtEarn")
     SELECT ${randomUUID()}::uuid, goal."userId", ${SEOUL_TODAY}, 'DAILY_GOAL',
-      1, goal."dailyGoal"
+      goal."dailyGoal"
     FROM "UserStudyGoal" AS goal
     WHERE goal."userId" = ${userId}::uuid
       AND goal."dailyGoal" IS NOT NULL
       AND ${todayAnsweredCount(Prisma.sql`goal."userId"`)} >= goal."dailyGoal"
-    ON CONFLICT ("userId", "earnedOn", "reason") WHERE "amount" > 0 DO NOTHING
+    ON CONFLICT ("userId", "earnedOn", "reason") DO NOTHING
     RETURNING "id"
   `)
   return added.length === 1
