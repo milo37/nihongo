@@ -1,6 +1,7 @@
 /** Whole admin copy (KO); the admin app adds it after start (JLP-758). */
 import { koAdminLearnerResources as learner } from './ko-admin-learner'
 import { koAdminAuditResources } from './ko-admin-audit'
+import { koAdminCommonResources } from './ko-admin-common'
 import { koAdminCreateResources } from './ko-admin-create'
 import { koAdminEditorResources } from './ko-admin-editor'
 import { koAdminEnumsResources } from './ko-admin-enums'
@@ -22,7 +23,7 @@ export const koAdminResources = {
   nav: koAdminNavResources,
   members: koAdminMembersResources,
   idleLock: koAdminIdleLockResources,
-  common: learner.common,
+  common: koAdminCommonResources,
   enums: koAdminEnumsResources,
   errors: learner.errors,
   questionList: koAdminQuestionListResources,

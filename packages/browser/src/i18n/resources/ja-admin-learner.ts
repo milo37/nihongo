@@ -35,40 +35,9 @@ export const jaAdminLearnerResources = {
     retry: 'もう一度試す',
     recheck: '再確認'
   },
+  // #685: the learner app shows only this one; the admin app adds the rest.
   common: {
-    breadcrumbLabel: '現在位置',
-    menuLabel: '管理メニュー',
-    wideScreenRecommended:
-      'この作業は広い画面で行うことをおすすめします。スマートフォンでも続けられます。',
-    questions: '問題管理',
-    questionDetail: '問題詳細',
-    newQuestion: '新しい問題',
-    import: 'インポート',
-    auditLog: '監査ログ',
-    reports: '報告キュー',
-    reportDetail: '報告詳細',
-    none: 'なし',
-    unassigned: '未割り当て',
-    open: '開く',
-    question: '問題',
-    version: 'バージョン',
-    status: '状態',
-    reason: '理由',
-    reporter: '報告者',
-    assignee: '担当者',
-    actor: '実行者',
-    createdAt: '作成日時',
-    updatedAt: '更新日時',
-    details: '詳細',
-    rowVersion: 'rowVersion',
-    retryAfter: '{{message}} {{seconds}}秒後にもう一度お試しください。',
-    retryAfterMinutes: '{{message}} {{minutes}}分後にもう一度お試しください。',
-    pausedTitle: 'オフラインでは最新状態を確認できません',
-    pausedDescription:
-      '接続が復旧したら再確認してください。最新状態を確認するまで管理者の変更操作は利用できません。',
-    cachedPausedDescription:
-      'オフラインのため最新状態を確認できませんでした。現在のデータは保持され、管理者の変更操作はロックされています。',
-    retry: '最新状態を再確認'
+    retryAfter: '{{message}} {{seconds}}秒後にもう一度お試しください。'
   },
   errors: {
     generic: '管理者リクエストを完了できませんでした。',
