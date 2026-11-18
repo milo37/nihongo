@@ -60,7 +60,7 @@ variable "acm_certificate_arn" {
 }
 
 variable "origin_domain_name" {
-  description = "Origin hostname with a public certificate (for example origin.harumaru.app). Empty = HTTP origin on 3001 (no TLS on the CloudFront to EC2 hop)."
+  description = "Origin hostname with a public certificate (origin.harumaru.app, origin-staging.harumaru.app). Empty = HTTP origin on 3001 (no TLS on the CloudFront to EC2 hop)."
   type        = string
   default     = ""
 
@@ -77,7 +77,7 @@ variable "caddy_image" {
 }
 
 variable "caddy_dns_image" {
-  description = "PRODUCTION origin proxy with the Cloudflare DNS provider (infra/aws/caddy), as <caddy repository URL>@sha256:<digest>. Used only with origin_domain_name; STAGING leaves it empty."
+  description = "Origin proxy with the Cloudflare DNS provider (infra/aws/caddy), as <caddy repository URL>@sha256:<digest>. Used only with origin_domain_name; STAGING pins the digest PRODUCTION runs."
   type        = string
   default     = ""
 

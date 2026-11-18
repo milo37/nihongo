@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime, type DatabaseRuntime } from '../db/database.js'
 import {
+  assertExactProductionDatabaseTarget,
   assertSafeDevelopmentDatabase,
   assertSafeTestDatabase
 } from '../db/databaseTargetGuard.js'
@@ -17,6 +18,11 @@ interface StudyCleanupCommandSettings<Result> {
   failureEvent: string
   /** Optional `true`/`false` variable; unset commands never dry-run. */
   dryRunVariable?: string
+  /**
+   * #699: also runs when NODE_ENV is production, only against the exact
+   * PRODUCTION_DATABASE_URL target. Unset commands refuse production.
+   */
+  allowProduction?: true
   cleanup: (
     client: DatabaseRuntime['client'],
     batchSize: number,
@@ -59,6 +65,7 @@ const run = async <Result>(
   if (environment.NODE_ENV === 'test') assertSafeTestDatabase(target)
   else if (environment.NODE_ENV === 'development')
     assertSafeDevelopmentDatabase(target)
+  else if (settings.allowProduction) assertExactProductionDatabaseTarget(target)
   else
     throw new Error(
       'Production cleanup requires a separately approved exact-target runbook.'
