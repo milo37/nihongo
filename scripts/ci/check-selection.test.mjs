@@ -171,6 +171,11 @@ test('audit, database performance and portable checks are impact selected', () =
   assert.equal(lock.audit, true)
   assert.equal(lock.portable, true)
 
+  const installHooks = classifyChangedFiles(['.pnpmfile.cjs'])
+  assert.equal(installHooks.audit, true)
+  assert.equal(installHooks.portable, true)
+  assert.equal(installHooks.api, true)
+
   const database = classifyChangedFiles([
     'apps/api/prisma/migrations/20260101000000_example/migration.sql'
   ])
