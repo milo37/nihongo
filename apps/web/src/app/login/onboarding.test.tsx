@@ -187,6 +187,24 @@ describe('#1090 학습 목표', () => {
     expect(writes).toEqual([])
   })
 
+  it('아직 답하지 않은 회원도 마이에서 열면 [저장]/[취소], [취소]는 아무것도 보내지 않는다', async () => {
+    newMember()
+    const writes = recordWrites()
+    renderAt('/onboarding?redirect=%2Faccount')
+    expect(
+      await screen.findByRole('button', { name: '저장' })
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: '나중에 할게요' })
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: '시작하기' })
+    ).not.toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: '취소' }))
+    expect(await screen.findByText('마이 도착')).toBeInTheDocument()
+    expect(writes).toEqual([])
+  })
+
   it('이미 답한 회원이 로그인 복귀로 열면 묻지 않고 바로 넘긴다', async () => {
     mockDatabase.loginAs('USER')
     renderAt('/onboarding?redirect=%2Fwrong-notes')

@@ -206,7 +206,9 @@ const StudyGoalForm = ({
   const pickedLevel =
     level ?? goal.targetLevel ?? readLastPracticeLevel() ?? FALLBACK_LEVEL
   const pickedDaily = daily ?? goal.dailyGoal ?? DAILY_MIN
-  const first = goal.onboardingRequired
+  // O-3: [시작하기]/[나중에 할게요] only on the first onboarding; from My page
+  // it is always [저장]/[취소], answered or not.
+  const first = goal.onboardingRequired && redirect !== EDIT_RETURN_PATH
   const save = (): void =>
     page.onSave({ targetLevel: pickedLevel, dailyGoal: pickedDaily })
   return (
