@@ -108,13 +108,10 @@ export const usePracticeSessionController = ({
     !isCanonicalSessionBoundaryTerminal
   const principalScope = getStudyDraftPrincipalScope(user)
   const submitSessionV2 = useSubmitStudySessionV2(sessionId, principalScope)
-  const hasResolvedDraftConflict = useAppStore((state) =>
-    Boolean(state.draftConflict)
-  )
   const isDraftConflictPending = useAppStore(
     (state) => state.isDraftConflictPending
   )
-  const hasDraftConflict = hasResolvedDraftConflict || isDraftConflictPending
+  const hasDraftConflict = isDraftConflictPending
   const isScopedDraftReady = useAppStore(
     (state) =>
       state.draftWorkingCopy?.principalScope === principalScope &&
@@ -512,8 +509,7 @@ export const usePracticeSessionController = ({
     setSubmitDialogRequestedOpen(open)
   }
 
-  const hasUnresolvedConflictCheck =
-    isDraftConflictPending && !hasResolvedDraftConflict
+  const hasUnresolvedConflictCheck = isDraftConflictPending
   const isCompactDraftStatus =
     COMPACT_DRAFT_STATUS_CODES.includes(draftController.status.code) &&
     !hasUnresolvedConflictCheck
