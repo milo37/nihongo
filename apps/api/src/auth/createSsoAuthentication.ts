@@ -68,7 +68,9 @@ export const createSsoAuthentication = ({
           userId,
           occurredAt: new Date().toISOString()
         })
-    )
+    ),
+    onGrantRevoke: (provider, outcome) =>
+      logger?.info('auth.sso.grant_revoke', { provider, outcome })
   })
   const social = createSsoPublicRuntime({
     environment,

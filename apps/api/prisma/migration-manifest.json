@@ -67,6 +67,14 @@
     {
       "name": "20261122090000_stamp_ledger",
       "checksum": "317e3ffe5d51cb646d5826b3fb9c9eb19944af57405718685b7be94dbc012a8b"
+    },
+    {
+      "name": "20261123090000_reapply_erasure_original_deadline",
+      "checksum": "ccad8014d7b655e9d760e4431dda5f98293b639b439e1401a3d02640955ca7a3"
+    },
+    {
+      "name": "20261124090000_stamp_ledger_amount",
+      "checksum": "1ae53e22c4e9c76e81d8e4b6d47e392b96659ac0ebc5b44d0527e4cb2465a6fc"
     }
   ]
 }

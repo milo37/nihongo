@@ -90,14 +90,6 @@ export const getCanonicalQuestionId = (
   getQuestionContractIdentity(question)?.questionId ??
   getContractQuestionId(question.id)
 
-export const getSourceQuestionId = (
-  contractQuestionId: string,
-  questions: readonly Pick<QuestionRecord, 'id'>[]
-): string | undefined =>
-  questions.find(
-    (question) => getCanonicalQuestionId(question) === contractQuestionId
-  )?.id
-
 export const getQuestionVersionFingerprint = (
   question: QuestionRecord
 ): string =>

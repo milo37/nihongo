@@ -618,13 +618,24 @@ describe('Study submission PostgreSQL transaction', () => {
       todayAnsweredCount: 30
     })
     const rows = await database.client.$queryRaw<
-      Array<{ earnedOn: string; reason: string; goalAtEarn: number | null }>
+      Array<{
+        earnedOn: string
+        reason: string
+        goalAtEarn: number | null
+        amount: number
+      }>
     >`
-      SELECT "earnedOn"::text AS "earnedOn", "reason", "goalAtEarn"
+      SELECT "earnedOn"::text AS "earnedOn", "reason", "goalAtEarn",
+        "amount"::int AS "amount"
       FROM "StampLedger" WHERE "userId" = ${userId}::uuid
     `
     expect(rows).toEqual([
-      { earnedOn: expect.any(String), reason: 'DAILY_GOAL', goalAtEarn: 20 }
+      {
+        earnedOn: expect.any(String),
+        reason: 'DAILY_GOAL',
+        goalAtEarn: 20,
+        amount: 1
+      }
     ])
     // This month's stamp board shows that one day.
     expect((await studyGoals.read(userId))?.monthStampDates).toEqual([
@@ -646,7 +657,7 @@ describe('Study submission PostgreSQL transaction', () => {
           message: expect.stringMatching(/permission denied/u)
         })
     }
-    // One row per member, day and reason.
+    // One adding row per member, day and reason; a DAILY_GOAL row adds 1.
     await expect(
       database.client.$executeRaw`
         INSERT INTO "StampLedger"
@@ -655,8 +666,32 @@ describe('Study submission PostgreSQL transaction', () => {
         FROM "StampLedger" WHERE "userId" = ${userId}::uuid
       `
     ).rejects.toMatchObject({
-      message: expect.stringMatching(/StampLedger_userId_earnedOn_reason_key/u)
+      message: expect.stringMatching(
+        /StampLedger_userId_earnedOn_reason_earn_key/u
+      )
     })
+    for (const amount of [0, -1, 2])
+      await expect(
+        database.client.$executeRaw`
+          INSERT INTO "StampLedger"
+            ("id", "userId", "earnedOn", "reason", "goalAtEarn", "amount")
+          SELECT ${randomUUID()}::uuid, "userId", "earnedOn", "reason", 20,
+            ${amount}
+          FROM "StampLedger" WHERE "userId" = ${userId}::uuid
+        `
+      ).rejects.toMatchObject({
+        message: expect.stringMatching(/StampLedger_amount_check/u)
+      })
+    // Rows that use stamps (amount < 0) may repeat on a day.
+    await expect(
+      database.client.$executeRaw`
+        INSERT INTO "StampLedger"
+          ("id", "userId", "earnedOn", "reason", "amount")
+        SELECT gen_random_uuid(), "userId", "earnedOn", 'SPEND_TEST', -1
+        FROM "StampLedger", generate_series(1, 2)
+        WHERE "userId" = ${userId}::uuid AND "reason" = 'DAILY_GOAL'
+      `
+    ).resolves.toBe(2)
   })
 
   it('WEAKNESS·BOOKMARK·WRONG_NOTE·DAILY_REVIEW를 owner facts로 선택하고 mode별 event source를 보존한다', async () => {

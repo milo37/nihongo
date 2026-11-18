@@ -83,12 +83,7 @@ const ssoExcludedParentKeys = new Set([
   'GOOGLE_CLIENT_ID',
   'GOOGLE_CLIENT_SECRET',
   'APPLE_CLIENT_ID',
-  'APPLE_CLIENT_SECRET',
-  // Retired email sign-in (JLP-748): a parent value never reaches a test.
-  'AUTH_EMAIL_FROM',
-  'AUTH_EMAIL_DELIVERY_MODE',
-  'AUTH_EMAIL_WEBHOOK_URL',
-  'AUTH_EMAIL_WEBHOOK_SECRET'
+  'APPLE_CLIENT_SECRET'
 ])
 
 export const createSsoDbTestEnvironment = (
@@ -593,15 +588,16 @@ export const assertApiIntegrationVitestFileResult = ({
   }
   if (
     expectedPath === ssoAccountLifecycleDbTestFile &&
-    result.numTotalTests !== 14
+    result.numTotalTests !== 16
   ) {
     // #504 P7 PR5a adds the API link and unlink trigger case; #57 the
     // erasure role refusal case; #670 the tokenless end-to-end erasure;
     // JLP-841 the last ACTIVE ADMIN refusal; JLP-845 the grace-period
     // restore and its refusal; JLP-852 the erasure after a year without
-    // sign-in; #1085 the sign-up consent.
+    // sign-in; #1085 the sign-up consent; #695 the expired session cleanup; #702 the
+    // erasure re-apply after a restore.
     throw new Error(
-      'SSO account lifecycle requires exactly fourteen passing tests.'
+      'SSO account lifecycle requires exactly sixteen passing tests.'
     )
   }
   const resultPaths = (result.testResults ?? [])

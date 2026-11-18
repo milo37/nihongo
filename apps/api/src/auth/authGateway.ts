@@ -1,7 +1,6 @@
 import { SSO_ACCOUNT_PATHS } from './ssoAccountRuntime.js'
 import type { SsoAccountRuntime } from './ssoAccountRuntime.js'
 import { SIGNUP_CONSENT_PATHS } from '@nihongo/contracts/auth/signup-consent'
-import { z } from 'zod'
 import type { SsoPublicRuntime } from './ssoPublicRuntime.js'
 import type { ApiEnvironment } from '../config/env.js'
 import type { PrismaClient } from '../generated/prisma/client.js'
@@ -13,35 +12,15 @@ import { getRawRequestPathname } from '../app/protectedRouteExclusion.js'
 const AUTH_BODY_TIMEOUT_MS = 5_000
 const MAX_LEGACY_AUTH_BODY_BYTES = 32 * 1_024
 const MAX_TECHNICAL_AUTH_BODY_BYTES = 4 * 1_024
-const PASSWORD_RESET_RESPONSE_FLOOR_MS = 5_250
-const ENUMERATION_PROTECTED_PATHS = new Set([
-  '/api/auth/request-password-reset',
-  '/api/auth/send-verification-email',
-  '/api/auth/sign-up/email'
-])
 
 const CREDENTIAL_KEY_PATTERN =
   /^(?:accessToken|authorization|cookie|idToken|password|refreshToken|sessionToken|token)$/iu
-const COOKIE_ONLY_SUCCESS_PATHS = new Set([
-  '/api/auth/change-password',
-  '/api/auth/request-password-reset',
-  '/api/auth/reset-password',
-  '/api/auth/send-verification-email',
-  '/api/auth/sign-in/email',
-  '/api/auth/sign-out',
-  '/api/auth/sign-up/email',
-  '/api/auth/verify-email'
-])
+// JLP-945: sign-out is the only forwarded route; the retired email and
+// password routes answer 404 in isAllowedOperation.
+const COOKIE_ONLY_SUCCESS_PATHS = new Set(['/api/auth/sign-out'])
 const JSON_CONTENT_TYPE_PATTERN =
   /^application\/json(?:[\t ]*;[\t ]*charset[\t ]*=[\t ]*(?:utf-8|"utf-8"))?[\t ]*$/iu
 const CONTENT_LENGTH_PATTERN = /^(?:0|[1-9][0-9]*)$/u
-const internalSessionSchema = z
-  .object({
-    session: z.object({ id: z.uuid() }).passthrough(),
-    user: z.object({ id: z.uuid() }).passthrough()
-  })
-  .passthrough()
-
 interface AuthGatewayRuntime {
   api: {
     getSession: (input: { headers: Headers }) => Promise<unknown>
@@ -57,12 +36,11 @@ interface CreateAuthGatewayDependencies {
   technicalRateLimiter?: ApplicationRateLimiter
   ssoRuntime?: SsoPublicRuntime
   ssoAccountRuntime?: SsoAccountRuntime
+  /** Unused since JLP-945 removed the password-reset response floor. */
   delay?: (milliseconds: number) => Promise<void>
+  /** Unused since JLP-945 removed the password-reset response floor. */
   now?: () => number
 }
-
-const sleep = async (milliseconds: number): Promise<void> =>
-  await new Promise((resolve) => setTimeout(resolve, milliseconds))
 
 const isAllowedOperation = (method: string, pathname: string): boolean =>
   (method === 'POST' &&
@@ -451,83 +429,15 @@ const readLimitedJsonBody = async (
   }
 }
 
-const withGatewayRequestPolicy = async (
-  request: Request,
-  pathname: string,
-  environment: ApiEnvironment
-): Promise<Request> => {
+const withGatewayRequestPolicy = async (request: Request): Promise<Request> => {
   const payload = await readLimitedJsonBody(request, MAX_LEGACY_AUTH_BODY_BYTES)
-  const nextPayload: Record<string, unknown> = { ...payload }
-  const spaOrigin =
-    environment.TRUSTED_ORIGINS[0] ?? environment.BETTER_AUTH_URL
-
-  if (
-    pathname === '/api/auth/sign-up/email' ||
-    pathname === '/api/auth/send-verification-email'
-  ) {
-    nextPayload.callbackURL = new URL('/login?verified=1', spaOrigin).href
-  }
-
-  if (pathname === '/api/auth/sign-up/email') {
-    const name = z.string().trim().min(1).max(80).safeParse(nextPayload.name)
-    if (!name.success) {
-      throw new AuthGatewayError(400, 'INVALID_AUTH_PAYLOAD')
-    }
-    nextPayload.name = name.data
-  }
-
-  if (pathname === '/api/auth/verify-email') {
-    const token = z.string().min(1).max(4_096).safeParse(nextPayload.token)
-    if (!token.success) {
-      throw new AuthGatewayError(400, 'INVALID_AUTH_PAYLOAD')
-    }
-    const verificationUrl = new URL(
-      '/api/auth/verify-email',
-      environment.BETTER_AUTH_URL
-    )
-    verificationUrl.searchParams.set('token', token.data)
-    const headers = new Headers(request.headers)
-    headers.delete('Content-Encoding')
-    headers.delete('Content-Length')
-    return new Request(verificationUrl, {
-      headers,
-      method: 'GET'
-    })
-  }
-
-  if (pathname === '/api/auth/request-password-reset') {
-    delete nextPayload.redirectTo
-  }
-
-  if (pathname === '/api/auth/change-password') {
-    nextPayload.revokeOtherSessions = true
-  }
-
   const headers = new Headers(request.headers)
   headers.delete('Content-Encoding')
   headers.delete('Content-Length')
   return new Request(request.url, {
     headers,
     method: request.method,
-    body: JSON.stringify(nextPayload)
-  })
-}
-
-const appendExpiredSessionCookies = (
-  response: Response,
-  isProduction: boolean
-): Response => {
-  const headers = new Headers(response.headers)
-  const attributes = `Path=/; HttpOnly; SameSite=Lax; Max-Age=0${
-    isProduction ? '; Secure' : ''
-  }`
-  headers.append('Set-Cookie', `nihongo.session_token=; ${attributes}`)
-  headers.append('Set-Cookie', `__Secure-nihongo.session_token=; ${attributes}`)
-
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers
+    body: JSON.stringify(payload)
   })
 }
 
@@ -616,9 +526,7 @@ export const createAuthGateway = ({
   ownedAuthFacade,
   technicalRateLimiter,
   ssoRuntime,
-  ssoAccountRuntime,
-  delay = sleep,
-  now = Date.now
+  ssoAccountRuntime
 }: CreateAuthGatewayDependencies): AuthGateway => {
   const technicalMode = ownedAuthFacade !== undefined
   if (
@@ -635,7 +543,6 @@ export const createAuthGateway = ({
       const request = clientIpAuthority.apply(incomingRequest, peerAddress)
       const requestUrl = new URL(request.url)
       const pathname = requestUrl.pathname
-      const startedAt = now()
 
       const rawPathname = getRawRequestPathname(
         rawRequestTarget ?? incomingRequest.url
@@ -787,7 +694,6 @@ export const createAuthGateway = ({
 
       let forwardedRequest = request
       let technicalPayload: Record<string, unknown> | undefined
-      let sessionBeforePasswordChange: unknown
 
       if (request.method === 'POST') {
         assertTrustedWriteRequest(request, environment.TRUSTED_ORIGINS)
@@ -796,37 +702,19 @@ export const createAuthGateway = ({
             request,
             MAX_TECHNICAL_AUTH_BODY_BYTES
           )
-          const strictLimit = new Set([
-            '/api/auth/request-password-reset',
-            '/api/auth/send-verification-email'
-          ]).has(pathname)
-          const credentialLimit = new Set([
-            '/api/auth/sign-in/email',
-            '/api/auth/sign-up/email'
-          ]).has(pathname)
           await technicalRateLimiter!.consume({
             clientIp:
               request.headers.get('x-nihongo-client-ip') ?? 'unresolved',
-            max: strictLimit ? 3 : credentialLimit ? 5 : 100,
+            max: 100,
             operation: `auth:${pathname}`,
             windowMs: 60_000
           })
         } else {
-          forwardedRequest = await withGatewayRequestPolicy(
-            request,
-            pathname,
-            environment
-          )
+          forwardedRequest = await withGatewayRequestPolicy(request)
         }
       }
 
-      if (!technicalMode && pathname === '/api/auth/change-password') {
-        sessionBeforePasswordChange = await auth!.api.getSession({
-          headers: request.headers
-        })
-      }
-
-      let response = technicalMode
+      const response = technicalMode
         ? await ownedAuthFacade!.handle(
             request,
             pathname,
@@ -834,42 +722,13 @@ export const createAuthGateway = ({
           )
         : await auth!.handler(forwardedRequest)
 
-      if (
-        !technicalMode &&
-        pathname === '/api/auth/change-password' &&
-        response.ok
-      ) {
-        const session = internalSessionSchema.safeParse(
-          sessionBeforePasswordChange
-        )
-        if (session.success) {
-          await client!.session.deleteMany({
-            where: { userId: session.data.user.id }
-          })
-        }
-        response = appendExpiredSessionCookies(
-          response,
-          environment.NODE_ENV === 'production'
-        )
-      }
-
-      response =
+      const forwarded = appendRateLimitRetryAfter(
         response.ok && COOKIE_ONLY_SUCCESS_PATHS.has(pathname)
           ? toCookieOnlySuccess(response)
           : await sanitizeAuthResponse(response)
-      response = appendRateLimitRetryAfter(response)
-      if (
-        ENUMERATION_PROTECTED_PATHS.has(pathname) &&
-        (environment.NODE_ENV === 'production' ||
-          (technicalMode && pathname === '/api/auth/request-password-reset'))
-      ) {
-        const remaining = PASSWORD_RESET_RESPONSE_FLOOR_MS - (now() - startedAt)
-        if (remaining > 0) {
-          await delay(remaining)
-        }
-      }
+      )
       return appendPrivateNoStore(
-        appendDevelopmentCors(response, request, environment)
+        appendDevelopmentCors(forwarded, request, environment)
       )
     }
   }

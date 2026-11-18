@@ -86,10 +86,35 @@ describe('Content-Security-Policy (JLP-788)', () => {
     for (const mode of ['enforce', 'report-only'] as const) {
       const actual = (await app(mode).request('/')).headers
       for (const [name, value] of Object.entries(otherHeaders(expected)))
-        if (name !== 'content-type' && name !== 'content-length')
+        if (
+          name !== 'content-type' &&
+          name !== 'content-length' &&
+          name !== 'strict-transport-security'
+        )
           expect([name, actual.get(name)]).toEqual([name, value])
     }
   })
+
+  it.each(['/', '/api/v1/health/live'])(
+    'denies unused browser features on %s (#1015)',
+    async (path) => {
+      const response = await app().request(path)
+      expect(response.headers.get('Permissions-Policy')).toBe(
+        'accelerometer=(), camera=(), geolocation=(), gyroscope=(), ' +
+          'magnetometer=(), microphone=(), payment=(), usb=()'
+      )
+    }
+  )
+
+  it.each(['/', '/api/v1/health/live'])(
+    'keeps HTTPS for a year on %s without preload (#1122)',
+    async (path) => {
+      const response = await app().request(path)
+      expect(response.headers.get('Strict-Transport-Security')).toBe(
+        'max-age=31536000; includeSubDomains'
+      )
+    }
+  )
 
   // The mode no longer reads DEPLOYMENT_ENVIRONMENT, so STAGING enforces too.
   it('enforces unless CSP_MODE asks for report-only', () => {
