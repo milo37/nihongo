@@ -737,7 +737,8 @@ export const claimProviderCleanups = async (
          UPDATE "SsoAccountErasureRequest" r
          SET "leaseToken" = gen_random_uuid(),
            "leaseExpiresAt" = clock_timestamp()
-             + pg_catalog.make_interval(secs => $2::integer)
+             + pg_catalog.make_interval(secs => $2::integer),
+           "activeProvider" = NULL
          WHERE r."id" IN (
            SELECT c."id" FROM "SsoAccountErasureRequest" c
            WHERE c."appStatus" = 'DELETION_PENDING'
@@ -748,7 +749,12 @@ export const claimProviderCleanups = async (
                  AND u."accountStatus" = 'DELETION_PENDING')
              AND EXISTS (SELECT 1 FROM jsonb_array_elements(c."providerCleanup") x
                WHERE x->>'status' IS DISTINCT FROM 'COMPLETED')
-             AND c."activeProvider" IS NULL
+             -- #700: an uncertain dispatch (FAILED, or a reply lost after the
+             -- call) is retried once its lease has been expired for a day.
+             -- Google and Apple revoke are idempotent, so a repeat is safe.
+             AND (c."activeProvider" IS NULL
+               OR (c."leaseToken" IS NOT NULL
+                 AND c."leaseExpiresAt" <= clock_timestamp() - INTERVAL '1 day'))
              -- Legacy claims have no token and may already have dispatched:
              -- quarantine.
              AND (c."leaseExpiresAt" IS NULL
