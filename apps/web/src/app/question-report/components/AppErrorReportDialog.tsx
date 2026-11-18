@@ -1,14 +1,14 @@
 import { useRef, useState } from 'react'
 import type { ReactElement, RefObject } from 'react'
 import { useLocation } from 'react-router'
-import { useQuestionReportPresentation as useAdminPresentation } from '@app/content-operations/reports/questionReportPublic'
+import { useReportPresentation } from '@app/question-report/useReportPresentation'
 import { ReportDialog } from '@app/question-report/components/ReportDialog'
 import { toReportScreenKey } from '@app/question-report/reportLocation'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { useAppStore } from '@nihongo/browser/store/index'
 
 const useAppErrorReport = () => {
-  const { t } = useAdminPresentation()
+  const { t } = useReportPresentation()
   const { pathname } = useLocation()
   return {
     t,
