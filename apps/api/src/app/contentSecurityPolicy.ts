@@ -57,3 +57,7 @@ export const permissionsPolicy: NonNullable<
   payment: [],
   usb: []
 }
+
+// #1122: one year. `.app` is on the browser preload list as a whole TLD, so a
+// `preload` directive adds nothing and would be hard to take back.
+export const strictTransportSecurity = 'max-age=31536000; includeSubDomains'
