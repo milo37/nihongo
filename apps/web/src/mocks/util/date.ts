@@ -9,5 +9,3 @@ export const addDaysToIso = (isoDate: string, days: number): string => {
 
   return new Date(timestamp + days * MILLISECONDS_PER_DAY).toISOString()
 }
-
-export const toDateKey = (isoDate: string): string => isoDate.slice(0, 10)
