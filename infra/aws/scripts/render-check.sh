@@ -78,6 +78,9 @@ for domain in "" "origin.example.com"; do
     echo "PRODUCTION Caddyfile must not set X-Robots-Tag" >&2; exit 1
   fi
 
+  # #1148: one body cap at the proxy, equal to the API's largest (import, 2 MiB).
+  grep -qx $'\t\tmax_size 2MiB' "$work/Caddyfile" || { echo "Caddyfile lacks the 2 MiB body cap" >&2; exit 1; }
+
   # Caddy parses its own config (CI has docker; skipped where docker is absent).
   # The TLS mode needs the DNS provider, so it builds infra/aws/caddy locally.
   # Its token only has to look like one (40 characters), so it is built here
