@@ -14,12 +14,16 @@ const inputSchema = z
       .int()
       .min(1)
       .max(MAX_STUDY_DRAFT_CLEANUP_BATCH_SIZE)
-      .default(DEFAULT_STUDY_DRAFT_CLEANUP_BATCH_SIZE)
+      .default(DEFAULT_STUDY_DRAFT_CLEANUP_BATCH_SIZE),
+    dryRun: z.boolean().default(false)
   })
   .strict()
 
 interface StudyDraftCleanupService {
-  cleanup: (input?: { batchSize?: number }) => Promise<StudyDraftCleanupResult>
+  cleanup: (input?: {
+    batchSize?: number
+    dryRun?: boolean
+  }) => Promise<StudyDraftCleanupResult>
 }
 
 export const createStudyDraftCleanupService = (
@@ -30,6 +34,7 @@ export const createStudyDraftCleanupService = (
     const parsed = inputSchema.parse(input)
     return await repository.cleanupExpiredStudyDrafts({
       batchSize: parsed.batchSize,
+      dryRun: parsed.dryRun,
       now: now()
     })
   }
