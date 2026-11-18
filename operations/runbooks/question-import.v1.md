@@ -81,7 +81,7 @@ result per question; expect no failures.
 ### Rate limit
 
 Import apply, review request batches, approval batches and publication
-batches share one limit: **10 calls per 15 minutes**, per admin and per IP
+batches share one limit: **30 calls per 15 minutes**, per admin and per IP
 (`ADMIN_SENSITIVE`, `apps/api/src/admin/adminCommandRateLimiter.ts`).
 
 | Work                                   | Calls  |
@@ -92,15 +92,12 @@ batches share one limit: **10 calls per 15 minutes**, per admin and per IP
 | Publish (8 pages)                      | 8      |
 | **Total**                              | **69** |
 
-That is seven 15-minute windows, about 90 minutes or more:
+That is three 15-minute windows, about 30 minutes or more:
 
-1. Import apply files 1–10 (10).
-2. Wait 15 minutes. Import apply files 11–15 (5) + review request page 1 (5).
-3. Wait 15 minutes. Review request pages 2 and 3 (5 + 5).
-4. Wait 15 minutes. Review request pages 4 and 5 (5 + 5).
-5. Wait 15 minutes. Review request pages 6 and 7 (5 + 5).
-6. Wait 15 minutes. Review request page 8 (3) + approve pages 1–7 (7).
-7. Wait 15 minutes. Approve page 8 (1) + publish pages 1–8 (8).
+1. Import apply files 1–15 (15) + review request pages 1–3 (5 + 5 + 5).
+2. Wait 15 minutes. Review request pages 4–8 (5 + 5 + 5 + 5 + 3) + approve
+   pages 1–7 (7).
+3. Wait 15 minutes. Approve page 8 (1) + publish pages 1–8 (8).
 
 At the limit the dialog shows **요청이 너무 많습니다** (HTTP 429), and the
 review request marks the batches it did not send as not sent. Wait 15
