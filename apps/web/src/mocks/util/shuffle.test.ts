@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { seededShuffle } from '@util/shuffle'
+import { seededShuffle } from '@mocks/util/shuffle'
 
 describe('seededShuffle', () => {
   it('원본 배열을 변경하지 않고 모든 항목을 유지한다', () => {

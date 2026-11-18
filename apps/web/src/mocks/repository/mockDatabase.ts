@@ -6,10 +6,7 @@ import type {
 import { canonicalizeStudyDraftSave } from '@nihongo/contracts/study/canonicalize-study-draft-save'
 import { MockSsoAccountRepository } from '@mocks/repository/ssoAccountRepository'
 import {
-  LEVELS,
-  SUBJECTS,
   type Bookmark,
-  type DashboardStats,
   type JlptLevel,
   type PracticeQuestion,
   type QuestionDifficulty,
@@ -96,13 +93,13 @@ import {
   runWithMockBrowserMutationLease,
   writeMockStorageWithMirror
 } from '@mocks/repository/mockMutationCoordinator'
-import { addDaysToIso, toDateKey } from '@util/date'
-import { toPracticeQuestion } from '@util/question'
+import { addDaysToIso } from '@mocks/util/date'
+import { toPracticeQuestion } from '@mocks/util/question'
 import {
   createSeededRandom,
   seededShuffle,
   type ShuffleSeed
-} from '@util/shuffle'
+} from '@mocks/util/shuffle'
 import { toVersionedContractStudySessionPayload } from '@mocks/adapters/studySessionContractAdapter'
 import {
   selectBookmarkStudyCandidates,
@@ -111,15 +108,13 @@ import {
   selectWeaknessStudyCandidates,
   selectWrongNoteStudyCandidates
 } from '@mocks/adapters/studyCandidateSelection'
-import { calculateStudyResult } from '@util/study'
+import { calculateStudyResult } from '@mocks/util/study'
 import {
   createWrongNoteFromIncorrectAnswer,
   updateWrongNoteAfterCorrectReview,
   updateWrongNoteAfterIncorrectAnswer
-} from '@util/wrongNote'
+} from '@mocks/util/wrongNote'
 
-const RECENT_SESSION_LIMIT = 5
-const REPEATED_WRONG_LIMIT = 5
 const MIN_WEAKNESS_ATTEMPTS = 3
 const WEAKNESS_SESSION_LIMIT = 10
 
@@ -230,49 +225,9 @@ export interface SubmitStudySessionInput {
   durationSec: number
 }
 
-export type WrongNoteSort = 'RECENT' | 'MOST_WRONG' | 'OLDEST'
-
-export interface WrongNoteListFilters {
-  level?: JlptLevel
-  subject?: QuestionSubject
-  status?: WrongNoteStatus
-  tag?: string
-  sort?: WrongNoteSort
-  page?: number
-  pageSize?: number
-}
-
-export interface WrongNoteQuestionSummary {
-  id: string
-  level: JlptLevel
-  subject: QuestionSubject
-  questionType: QuestionType
-  questionText: string
-  difficulty: QuestionDifficulty
-  tags: string[]
-}
-
-export interface WrongNoteListItem {
-  wrongNote: WrongNote
-  question: WrongNoteQuestionSummary
-}
-
-export interface WrongNoteListResult {
-  items: WrongNoteListItem[]
-  total: number
-  page: number
-  pageSize: number
-  availableTags: string[]
-}
-
 export interface WrongNoteDetail {
   wrongNote: WrongNote
   question: QuestionRecord
-}
-
-export interface WrongNoteReviewResult {
-  wrongNote: WrongNote
-  isCorrect: boolean
 }
 
 export interface BookmarkListItem {
@@ -532,24 +487,6 @@ interface MockCanonicalSubmissionEvidence {
 }
 
 export type AdminQuestionSort = 'RECENT' | 'LEVEL' | 'STATUS'
-
-export interface AdminQuestionListFilters {
-  search?: string
-  level?: JlptLevel
-  subject?: QuestionSubject
-  status?: QuestionStatus
-  difficulty?: QuestionDifficulty
-  sort?: AdminQuestionSort
-  page?: number
-  pageSize?: number
-}
-
-export interface AdminQuestionListResult {
-  items: AdminQuestionSummary[]
-  total: number
-  page: number
-  pageSize: number
-}
 
 export interface MockCanonicalAdminQuestionSource {
   readonly question: QuestionRecord
@@ -909,18 +846,6 @@ const paginate = <Item>(
   const start = (page - 1) * pageSize
   return items.slice(start, start + pageSize)
 }
-
-const toWrongNoteSummary = (
-  question: QuestionRecord
-): WrongNoteQuestionSummary => ({
-  id: question.id,
-  level: question.level,
-  subject: question.subject,
-  questionType: question.questionType,
-  questionText: question.questionText,
-  difficulty: question.difficulty,
-  tags: [...question.tags]
-})
 
 export class MockDatabase {
   readonly ssoAccounts = new MockSsoAccountRepository(
@@ -1346,16 +1271,6 @@ export class MockDatabase {
     return clone(question)
   }
 
-  getPracticeQuestion(questionId: string): PracticeQuestion {
-    const question = this.getQuestion(questionId)
-
-    if (question.status !== 'PUBLISHED') {
-      throw new MockDatabaseError('NOT_FOUND', 404, '문제를 찾을 수 없습니다.')
-    }
-
-    return toPracticeQuestion(question)
-  }
-
   createStudySession(input: CreateStudySessionInput): StudySessionPayload {
     const requestedCount = Math.min(20, Math.max(1, Math.trunc(input.count)))
     const userId = input.userId ?? this.currentUserId
@@ -1466,23 +1381,6 @@ export class MockDatabase {
   getStudySessionPayload(sessionId: string): StudySessionPayload {
     this.assertLegacyStudySession(sessionId)
     return this.buildStudySessionPayload(this.getStudySession(sessionId))
-  }
-
-  getStudySessionSnapshotRecord(
-    sessionId: string
-  ): MockStudySessionSnapshotRecord {
-    this.assertLegacyStudySession(sessionId)
-    const session = this.getStudySession(sessionId)
-    const metadata = this.sessionMetadataById.get(session.id) ?? {
-      requestedCount: session.questionIds.length,
-      usedFallback: false
-    }
-
-    return {
-      session,
-      requestedCount: metadata.requestedCount,
-      questions: this.getSessionQuestionSnapshot(session)
-    }
   }
 
   getCanonicalStudySessionSnapshotRecord(
@@ -2881,48 +2779,6 @@ export class MockDatabase {
     })
   }
 
-  getCanonicalStudyAnswerRecords(
-    sessionId: string
-  ): MockCanonicalStudyAnswerRecord[] {
-    return clone(this.canonicalAnswerBySessionId.get(sessionId) ?? [])
-  }
-
-  getCanonicalReviewEventRecords(
-    sessionId?: string
-  ): MockCanonicalReviewEventRecord[] {
-    return clone(
-      [...this.canonicalReviewEventByStudyAnswerId.values()]
-        .filter(
-          (event) =>
-            sessionId === undefined || event.studySessionId === sessionId
-        )
-        .toSorted(
-          (left, right) =>
-            Date.parse(
-              toCanonicalIsoInstant(left.occurredAt, 'ReviewEvent.occurredAt')
-            ) -
-              Date.parse(
-                toCanonicalIsoInstant(
-                  right.occurredAt,
-                  'ReviewEvent.occurredAt'
-                )
-              ) || left.id.localeCompare(right.id)
-        )
-    )
-  }
-
-  getCanonicalIdempotencyRecords(): MockCanonicalIdempotencyRecord[] {
-    return clone([...this.canonicalIdempotencyRecordByKey.values()])
-  }
-
-  hasCanonicalStudyResultRecord(sessionId: string): boolean {
-    return this.canonicalResultBySessionId.has(sessionId)
-  }
-
-  getPracticeQuestionsForSession(sessionId: string): PracticeQuestion[] {
-    return this.getStudySessionPayload(sessionId).questions
-  }
-
   submitStudySession(input: SubmitStudySessionInput): StudyResult {
     const session = this.sessionById.get(input.sessionId)
 
@@ -2978,64 +2834,6 @@ export class MockDatabase {
     return clone(result)
   }
 
-  listWrongNotes(
-    userId: string,
-    filters: WrongNoteListFilters = {}
-  ): WrongNoteListResult {
-    this.assertUser(userId)
-    const { page, pageSize } = normalizePagination(
-      filters.page,
-      filters.pageSize
-    )
-    const tagSet = new Set<string>()
-    const items: WrongNoteListItem[] = []
-
-    for (const wrongNote of this.wrongNoteByQuestionId.values()) {
-      if (wrongNote.userId !== userId) {
-        continue
-      }
-
-      const question = this.questionById.get(wrongNote.questionId)
-      if (!question || question.status !== 'PUBLISHED') {
-        continue
-      }
-
-      for (const tag of question.tags) {
-        tagSet.add(tag)
-      }
-
-      if (filters.level && question.level !== filters.level) {
-        continue
-      }
-      if (filters.subject && question.subject !== filters.subject) {
-        continue
-      }
-      if (filters.status && wrongNote.status !== filters.status) {
-        continue
-      }
-      if (filters.tag && !question.tags.includes(filters.tag)) {
-        continue
-      }
-
-      items.push({
-        wrongNote: clone(wrongNote),
-        question: toWrongNoteSummary(question)
-      })
-    }
-
-    const sortedItems = this.sortWrongNotes(items, filters.sort ?? 'RECENT')
-
-    return {
-      items: paginate(sortedItems, page, pageSize),
-      total: sortedItems.length,
-      page,
-      pageSize,
-      availableTags: [...tagSet].toSorted((left, right) =>
-        left.localeCompare(right, 'ko')
-      )
-    }
-  }
-
   getWrongNote(userId: string, questionId: string): WrongNoteDetail {
     this.assertUser(userId)
     const wrongNote = this.wrongNoteByQuestionId.get(
@@ -3055,26 +2853,6 @@ export class MockDatabase {
       wrongNote: clone(wrongNote),
       question
     }
-  }
-
-  reviewWrongNote(
-    userId: string,
-    questionId: string,
-    isCorrect: boolean
-  ): WrongNoteReviewResult {
-    const { wrongNote } = this.getWrongNote(userId, questionId)
-    const reviewedAt = this.now()
-    const updated = isCorrect
-      ? updateWrongNoteAfterCorrectReview(wrongNote, reviewedAt)
-      : updateWrongNoteAfterIncorrectAnswer(wrongNote, reviewedAt)
-
-    this.wrongNoteByQuestionId.set(
-      makeUserQuestionKey(userId, questionId),
-      updated
-    )
-    this.persist()
-
-    return { wrongNote: clone(updated), isCorrect }
   }
 
   listBookmarks(userId: string): BookmarkListResult {
@@ -3259,128 +3037,6 @@ export class MockDatabase {
     return deleted
   }
 
-  getDashboardStats(userId: string): DashboardStats {
-    this.assertUser(userId)
-    const subjectAccumulator = new Map<
-      QuestionSubject,
-      { answeredCount: number; correctCount: number }
-    >(
-      SUBJECTS.map((subject) => [
-        subject,
-        { answeredCount: 0, correctCount: 0 }
-      ])
-    )
-    const recentStudySessions: DashboardStats['recentStudySessions'] = []
-    let totalAnsweredCount = 0
-    let correctCount = 0
-
-    for (const session of this.sessionById.values()) {
-      if (session.userId !== userId || session.status !== 'SUBMITTED') {
-        continue
-      }
-
-      const result = this.resultBySessionId.get(session.id)
-      if (!result || !session.submittedAt) {
-        continue
-      }
-
-      totalAnsweredCount += result.totalCount
-      correctCount += result.correctCount
-      const accumulator = subjectAccumulator.get(session.subject)
-      if (accumulator) {
-        accumulator.answeredCount += result.totalCount
-        accumulator.correctCount += result.correctCount
-      }
-
-      recentStudySessions.push({
-        id: session.id,
-        level: session.level,
-        subject: session.subject,
-        mode: session.mode,
-        totalCount: result.totalCount,
-        correctCount: result.correctCount,
-        correctRate: result.correctRate,
-        durationSec: result.durationSec,
-        submittedAt: session.submittedAt
-      })
-    }
-
-    const subjectStats = SUBJECTS.map((subject) => {
-      const value = subjectAccumulator.get(subject) ?? {
-        answeredCount: 0,
-        correctCount: 0
-      }
-      return {
-        subject,
-        answeredCount: value.answeredCount,
-        correctCount: value.correctCount,
-        correctRate:
-          value.answeredCount === 0
-            ? 0
-            : Math.round((value.correctCount / value.answeredCount) * 100)
-      }
-    })
-    let weakestSubject: QuestionSubject | null = null
-    let weakestRate = Number.POSITIVE_INFINITY
-
-    for (const stat of subjectStats) {
-      if (
-        stat.answeredCount >= MIN_WEAKNESS_ATTEMPTS &&
-        stat.correctRate < weakestRate
-      ) {
-        weakestSubject = stat.subject
-        weakestRate = stat.correctRate
-      }
-    }
-
-    const userWrongNotes: WrongNote[] = []
-    for (const wrongNote of this.wrongNoteByQuestionId.values()) {
-      const question = this.questionById.get(wrongNote.questionId)
-      if (wrongNote.userId === userId && question?.status === 'PUBLISHED') {
-        userWrongNotes.push(wrongNote)
-      }
-    }
-
-    return {
-      totalAnsweredCount,
-      correctCount,
-      correctRate:
-        totalAnsweredCount === 0
-          ? 0
-          : Math.round((correctCount / totalAnsweredCount) * 100),
-      wrongNoteCount: userWrongNotes.length,
-      solvedWrongNoteCount: userWrongNotes.reduce(
-        (count, note) => count + (note.status === 'SOLVED' ? 1 : 0),
-        0
-      ),
-      weakestSubject,
-      subjectStats,
-      recentStudySessions: recentStudySessions
-        .toSorted((left, right) =>
-          right.submittedAt.localeCompare(left.submittedAt)
-        )
-        .slice(0, RECENT_SESSION_LIMIT),
-      dailyStudyCountLast7Days: this.getDailyStudyCounts(userId),
-      repeatedWrongQuestions: userWrongNotes
-        .toSorted((left, right) => right.wrongCount - left.wrongCount)
-        .slice(0, REPEATED_WRONG_LIMIT)
-        .flatMap((wrongNote) => {
-          const question = this.questionById.get(wrongNote.questionId)
-          return question
-            ? [
-                {
-                  questionId: question.id,
-                  questionText: question.questionText,
-                  level: question.level,
-                  subject: question.subject,
-                  wrongCount: wrongNote.wrongCount
-                }
-              ]
-            : []
-        })
-    }
-  }
-
   listCanonicalAdminQuestionSources(): MockCanonicalAdminQuestionSource[] {
     return clone(
       [...this.questionById.values()]
@@ -3436,50 +3092,8 @@ export class MockDatabase {
     )
   }
 
-  getCanonicalPublicQuestionRecord(contractQuestionId: string): QuestionRecord {
-    const question = [
-      ...this.buildLearnerQuestionReadModel().currentBySourceId.values()
-    ].find(
-      (candidate) =>
-        getQuestionContractIdentity(candidate)?.questionId ===
-        contractQuestionId
-    )
-    if (!question) {
-      throw new MockDatabaseError('NOT_FOUND', 404, '문제를 찾을 수 없습니다.')
-    }
-    return clone(question)
-  }
-
   getMockContentStateForHandlers(): MockActiveContentState {
     return this.mockActiveContentState
-  }
-
-  assertQuestionReportAuthority(actorId: string): 'USER' | 'ADMIN' {
-    let user: User | null
-    try {
-      user = this.getCurrentUser()
-    } catch {
-      throw new MockContentCommandError({
-        code: 'SERVICE_UNAVAILABLE',
-        message: '최신 인증 세션을 확인하지 못했습니다.',
-        disposition: 'DEFINITE_ROLLBACK'
-      })
-    }
-    if (!user || user.id !== actorId) {
-      throw new MockContentCommandError({
-        code: 'AUTH_SESSION_EXPIRED',
-        message: '로그인 세션이 만료됐습니다.',
-        disposition: 'DEFINITE_ROLLBACK'
-      })
-    }
-    if (user.role !== 'USER' && user.role !== 'ADMIN') {
-      throw new MockContentCommandError({
-        code: 'FORBIDDEN',
-        message: '문제 신고 권한이 없습니다.',
-        disposition: 'DEFINITE_ROLLBACK'
-      })
-    }
-    return user.role
   }
 
   resolveQuestionReportEntitlement(
@@ -3602,32 +3216,6 @@ export class MockDatabase {
       input,
       timestamp,
       timestamp
-    )
-    this.questionById.set(questionId, question)
-    this.persist()
-    return clone(question)
-  }
-
-  updateQuestion(
-    questionId: string,
-    input: AdminQuestionInput
-  ): QuestionRecord {
-    this.useLegacyQuestionSourcesForLearnerProjection = true
-    const existing = this.questionById.get(questionId)
-
-    if (!existing) {
-      throw new MockDatabaseError('NOT_FOUND', 404, '문제를 찾을 수 없습니다.')
-    }
-
-    if (existing.status === 'PUBLISHED' && input.status !== 'PUBLISHED') {
-      this.archivedQuestionById.set(questionId, clone(existing))
-    }
-
-    const question = this.buildQuestionRecord(
-      questionId,
-      input,
-      existing.createdAt,
-      this.now()
     )
     this.questionById.set(questionId, question)
     this.persist()
@@ -5113,81 +4701,6 @@ export class MockDatabase {
         )
       }
     }
-  }
-
-  private getDailyStudyCounts(
-    userId: string
-  ): DashboardStats['dailyStudyCountLast7Days'] {
-    const now = new Date(this.now())
-    const countByDate = new Map<string, number>()
-
-    for (let daysAgo = 6; daysAgo >= 0; daysAgo -= 1) {
-      const date = new Date(now)
-      date.setUTCDate(now.getUTCDate() - daysAgo)
-      countByDate.set(date.toISOString().slice(0, 10), 0)
-    }
-
-    for (const session of this.sessionById.values()) {
-      if (session.userId !== userId || !session.submittedAt) {
-        continue
-      }
-      const dateKey = toDateKey(session.submittedAt)
-      const result = this.resultBySessionId.get(session.id)
-      if (result && countByDate.has(dateKey)) {
-        countByDate.set(
-          dateKey,
-          (countByDate.get(dateKey) ?? 0) + result.totalCount
-        )
-      }
-    }
-
-    return [...countByDate].map(([date, count]) => ({ date, count }))
-  }
-
-  private sortWrongNotes(
-    items: WrongNoteListItem[],
-    sort: WrongNoteSort
-  ): WrongNoteListItem[] {
-    if (sort === 'MOST_WRONG') {
-      return items.toSorted(
-        (left, right) =>
-          right.wrongNote.wrongCount - left.wrongNote.wrongCount ||
-          right.wrongNote.lastWrongAt.localeCompare(left.wrongNote.lastWrongAt)
-      )
-    }
-    if (sort === 'OLDEST') {
-      return items.toSorted((left, right) =>
-        left.wrongNote.lastWrongAt.localeCompare(right.wrongNote.lastWrongAt)
-      )
-    }
-
-    return items.toSorted((left, right) =>
-      right.wrongNote.lastWrongAt.localeCompare(left.wrongNote.lastWrongAt)
-    )
-  }
-
-  private sortAdminQuestions(
-    questions: QuestionRecord[],
-    sort: AdminQuestionSort
-  ): QuestionRecord[] {
-    if (sort === 'LEVEL') {
-      return questions.toSorted(
-        (left, right) =>
-          LEVELS.indexOf(left.level) - LEVELS.indexOf(right.level) ||
-          left.id.localeCompare(right.id)
-      )
-    }
-    if (sort === 'STATUS') {
-      return questions.toSorted(
-        (left, right) =>
-          left.status.localeCompare(right.status) ||
-          right.updatedAt.localeCompare(left.updatedAt)
-      )
-    }
-
-    return questions.toSorted((left, right) =>
-      right.updatedAt.localeCompare(left.updatedAt)
-    )
   }
 
   private buildQuestionRecord(
