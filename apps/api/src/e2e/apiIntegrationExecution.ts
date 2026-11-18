@@ -3,10 +3,11 @@ import {
   classifyCollectionReport,
   type CollectionDiagnostic
 } from './collectionDiagnostics.js'
-import { createHash, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import { readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { PINNED_MIGRATIONS } from '../db/migrationManifest.js'
 import { apiIntegrationManifest } from './apiIntegrationManifest.js'
 import { summarizeFailureMessage } from './failureSummary.js'
 
@@ -14,16 +15,14 @@ export const assertSsoBootstrapMigrationHistory = (
   expected: readonly { name: string; checksum: string }[],
   applied: readonly { migration_name: string; checksum: string }[]
 ): void => {
-  const orderedDigest = createHash('sha256')
-    .update(
-      expected.map(({ name, checksum }) => `${name}\0${checksum}\n`).join('')
-    )
-    .digest('hex')
   if (
-    expected.length !== 16 ||
-    expected.at(-1)?.name !== '20261121090000_user_study_goal' ||
-    orderedDigest !==
-      '26dced074fc8440a0682e25dd44c5e915c0dcbd63cbe15d0dba305e7bbd5557b' ||
+    // #674: the source migrations are exactly the pinned manifest.
+    expected.length !== PINNED_MIGRATIONS.length ||
+    expected.some(
+      (migration, index) =>
+        migration.name !== PINNED_MIGRATIONS[index]?.name ||
+        migration.checksum !== PINNED_MIGRATIONS[index]?.checksum
+    ) ||
     applied.length !== expected.length ||
     applied.some(
       (row, index) =>

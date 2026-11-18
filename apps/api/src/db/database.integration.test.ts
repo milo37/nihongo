@@ -39,6 +39,25 @@ describe('database readiness', () => {
     expect(rows).toEqual([{ timezone: 'UTC' }])
   })
 
+  // #1013: every SECURITY DEFINER function pins search_path, so a schema
+  // object planted later cannot shadow the names its body resolves.
+  it('SECURITY DEFINER 함수는 모두 search_path를 고정한다', async () => {
+    const rows = await database.client.$queryRaw<
+      { name: string; pinned: boolean }[]
+    >`
+      SELECT p.proname AS name,
+        COALESCE(p.proconfig::text[] && ARRAY[
+          'search_path=pg_catalog, ' || quote_ident(n.nspname) || ', pg_temp'
+        ], false) AS pinned
+      FROM pg_catalog.pg_proc AS p
+      JOIN pg_catalog.pg_namespace AS n ON n.oid = p.pronamespace
+      WHERE n.nspname = current_schema() AND p.prosecdef
+      ORDER BY p.proname`
+
+    expect(rows.length).toBeGreaterThan(0)
+    expect(rows.filter((row) => !row.pinned).map((row) => row.name)).toEqual([])
+  })
+
   it('non-UTC local session에서도 UTC 자정 경계 bucket을 바꾸지 않는다', async () => {
     const buckets = await database.client.$transaction(async (transaction) => {
       await transaction.$executeRaw`SET LOCAL TIME ZONE 'Asia/Tokyo'`
