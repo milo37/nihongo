@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactElement, RefObject } from 'react'
 import type { CreateReportRequest } from '@nihongo/contracts/report/reports'
-import { useQuestionReportPresentation as useAdminPresentation } from '@app/content-operations/reports/questionReportPublic'
+import { useReportPresentation } from '@app/question-report/useReportPresentation'
 import { isAccountRestrictedApiError, isUiApiError } from '@libs/apiError'
 import { AccountRestrictedNotice } from '@common/components/AccountRestrictedNotice'
 import { useCreateReport } from '@app/question-report/hooks/useCreateReport'
@@ -36,7 +36,7 @@ export const ReportDialog = ({
   toRequest,
   returnFocusRef
 }: ReportDialogProps): ReactElement => {
-  const { presentError, presentFieldError, t } = useAdminPresentation()
+  const { presentError, presentFieldError, t } = useReportPresentation()
   const descriptionRef = useRef<HTMLTextAreaElement>(null)
   const submitRef = useRef<HTMLButtonElement>(null)
   const [description, setDescription] = useState('')
