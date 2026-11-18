@@ -52,6 +52,7 @@ export const accessibilityDatabaseTables = [
   'UserMemo',
   'UserReport',
   'UserSignIn',
+  'UserStudyGoal',
   'WrongNote',
   '_prisma_migrations'
 ]
@@ -76,7 +77,7 @@ export const accessibilityExpectedTableDeltas = {
   QuestionReport: 0,
   QuestionVersion: 0,
   QuestionVersionTag: 0,
-  RateLimit: 33,
+  RateLimit: 35,
   RetentionCohort: 0,
   ReviewEvent: 10,
   ReviewSchedule: 10,
@@ -104,6 +105,8 @@ export const accessibilityExpectedTableDeltas = {
   // JLP-852: a sign-in adds the member's row once and later only updates it,
   // so the delta depends on which fixture members signed in before.
   UserSignIn: 0,
+  // #1090: the scan answers no onboarding page.
+  UserStudyGoal: 0,
   WrongNote: 10,
   _prisma_migrations: 0
 }
@@ -157,7 +160,10 @@ export const accessibilityExpectedRateLimitCategories = {
   'application:auth:/api/auth/sso/accounts': 1,
   // Each Google sign-in then moves the guest's last result once, keyed per
   // IP (JLP-823); the two actors are two keys.
-  'application:guest-result-import': 2
+  'application:guest-result-import': 2,
+  // Each Google sign-in reads the study goal once to choose the onboarding
+  // page (#1090); the two actors are two keys.
+  'application:study-goal-read': 2
 }
 
 const sorted = (values) =>

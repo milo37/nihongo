@@ -59,6 +59,10 @@
       "types": "./dist/auth/get-current-principal.d.ts",
       "import": "./dist/auth/get-current-principal.js"
     },
+    "./auth/study-goal": {
+      "types": "./dist/auth/study-goal.d.ts",
+      "import": "./dist/auth/study-goal.js"
+    },
     "./auth/update-nickname": {
       "types": "./dist/auth/update-nickname.d.ts",
       "import": "./dist/auth/update-nickname.js"

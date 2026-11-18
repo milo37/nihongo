@@ -56,8 +56,10 @@ import { createStudyDraftRoutes } from '../routes/studyDrafts.js'
 import type { BookmarkService } from '../bookmark/bookmarkService.js'
 import { createBookmarkRoutes } from '../routes/bookmarks.js'
 import type { NicknameService } from '../member/nickname.js'
+import type { StudyGoalService } from '../member/studyGoal.js'
 import type { TargetLevelService } from '../member/targetLevel.js'
 import { createNicknameRoutes } from '../routes/nickname.js'
+import { createStudyGoalRoutes } from '../routes/studyGoal.js'
 import { createTargetLevelRoutes } from '../routes/targetLevel.js'
 import type { StudyResultRetryService } from '../study/studyResultRetryService.js'
 import { createStudyResultRetryRoutes } from '../routes/studyResultRetries.js'
@@ -203,6 +205,8 @@ interface CreateApiAppDependencies {
     dashboardService: DashboardService
     /** #1096: the member's own nickname. */
     nicknameService?: NicknameService
+    /** #1090: the member's study goal (onboarding and My page). */
+    studyGoalService?: StudyGoalService
     rateLimiter: ApplicationRateLimiter
     reviewCenterEnabled: boolean
     reviewCenterService: WrongNoteReviewCenterService
@@ -877,6 +881,17 @@ export const createApiApp = ({
             principalService: auth.principalService,
             rateLimiter: learning.rateLimiter,
             nicknameService: learning.nicknameService
+          })
+        )
+      }
+      if (learning.studyGoalService) {
+        app.route(
+          '/api/v1/me/study-goal',
+          createStudyGoalRoutes({
+            environment: auth.environment,
+            principalService: auth.principalService,
+            rateLimiter: learning.rateLimiter,
+            studyGoalService: learning.studyGoalService
           })
         )
       }

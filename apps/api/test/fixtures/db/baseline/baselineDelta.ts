@@ -384,6 +384,11 @@ const ADDED_CONSENT_TABLE = 'UserConsent'
 const isAddedConsent = (row: Record<string, unknown>): boolean =>
   row.table === ADDED_CONSENT_TABLE
 
+/** #1090: the member study goal table. */
+const ADDED_STUDY_GOAL_TABLE = 'UserStudyGoal'
+const isAddedStudyGoal = (row: Record<string, unknown>): boolean =>
+  row.table === ADDED_STUDY_GOAL_TABLE
+
 /** #675: the retired email Verification table, its enum and its guard. */
 const RETIRED_VERIFICATION_TABLE = 'Verification'
 const RETIRED_VERIFICATION_TYPE = 'AuthVerificationPurpose'
@@ -425,7 +430,7 @@ const withBaselineErasureStatus = (
  * JLP-733 drops or adds, removed from both sides, the #683 proof bound,
  * the JLP-815 target level grant, the JLP-845 restore objects, the JLP-842
  * access record table, the JLP-852 last sign-in table, the #1042 return
- * count table and the #1085 consent table.
+ * count table, the #1085 consent table and the #1090 study goal table.
  */
 export const withoutForwardChanges = (
   catalog: SchemaCatalog
@@ -452,6 +457,7 @@ export const withoutForwardChanges = (
       name !== ADDED_SIGN_IN_TABLE &&
       name !== ADDED_RETENTION_TABLE &&
       name !== ADDED_CONSENT_TABLE &&
+      name !== ADDED_STUDY_GOAL_TABLE &&
       name !== RETIRED_VERIFICATION_TABLE
   ),
   columns: catalog.columns
@@ -467,6 +473,7 @@ export const withoutForwardChanges = (
         !isAddedSignIn(row) &&
         !isAddedRetention(row) &&
         !isAddedConsent(row) &&
+        !isAddedStudyGoal(row) &&
         !isRetiredVerification(row)
     )
     .map(withBaselineTargetLevelAcl),
@@ -480,6 +487,7 @@ export const withoutForwardChanges = (
         !isAddedSignIn(row) &&
         !isAddedRetention(row) &&
         !isAddedConsent(row) &&
+        !isAddedStudyGoal(row) &&
         !isRetiredVerification(row)
     )
     .map(withBaselineProofBound)
@@ -492,6 +500,7 @@ export const withoutForwardChanges = (
       !isAddedSignIn(row) &&
       !isAddedRetention(row) &&
       !isAddedConsent(row) &&
+      !isAddedStudyGoal(row) &&
       !isRetiredVerification(row)
   ),
   triggers: catalog.triggers.filter(

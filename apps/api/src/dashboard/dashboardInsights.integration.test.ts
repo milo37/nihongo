@@ -17,6 +17,10 @@ import { createPrismaStudySubmissionRepository } from '../study/studySubmissionR
 import { createStudySubmissionService } from '../study/studySubmissionService.js'
 import { createPrismaDashboardInsightsRepository } from './dashboardInsightsRepository.js'
 import { createDashboardInsightsService } from './dashboardInsightsService.js'
+import {
+  createPrismaStudyGoalRepository,
+  createStudyGoalService
+} from '../member/studyGoal.js'
 
 const DAY_MILLISECONDS = 86_400_000
 
@@ -467,5 +471,33 @@ describe.sequential('Dashboard insights PostgreSQL projection', () => {
         })
       })
     }
+  })
+
+  it('#1090 counts only the answers of sets submitted today (Asia/Seoul)', async () => {
+    const { userId } = await createUser('study-goal')
+    const owner = { kind: 'USER' as const, userId }
+    const studyGoals = createStudyGoalService(
+      createPrismaStudyGoalRepository(database.client)
+    )
+    expect(await studyGoals.read(userId)).toMatchObject({
+      onboardingRequired: true,
+      todayAnsweredCount: 0
+    })
+    await submitRandomSession({
+      owner,
+      requestedCount: 1,
+      correctPattern: [true],
+      submittedAt: new Date(Date.now() - DAY_MILLISECONDS)
+    })
+    const today = await submitRandomSession({
+      owner,
+      requestedCount: 2,
+      correctPattern: [true, false],
+      submittedAt: new Date()
+    })
+    expect(today.questionIds).toHaveLength(2)
+    expect(await studyGoals.read(userId)).toMatchObject({
+      todayAnsweredCount: 2
+    })
   })
 })

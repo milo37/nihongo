@@ -34,12 +34,15 @@ export const Layout = ({
     : null
   // #1085: the sign-up check shows only the logo until it is answered.
   const signupConsent = !user && isSignupConsentLocation(pathname, search)
+  // #1090: the study goal page looks the same (logo only, no tabs).
+  // Own copy of the path: the study goal module stays out of the main chunk.
+  const brandOnly = signupConsent || pathname === '/onboarding'
   return (
     <>
       <AppLayout
         reviewReturnContext={reviewReturnContext}
         robots={getRouteIndexingPolicy(pathname)}
-        brandOnly={signupConsent}
+        brandOnly={brandOnly}
         {...(signupConsent ? { routeLabelKey: 'routes.signupConsent' } : {})}
         accountMenu={
           <div className="header-menus">
