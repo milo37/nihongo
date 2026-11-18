@@ -184,7 +184,9 @@ resource "aws_wafv2_web_acl" "edge" {
         vendor_name = "AWS"
         name        = "AWSManagedRulesCommonRuleSet"
 
-        # Admin content commands can exceed the 8 KB body check; count instead of block.
+        # Admin content commands can exceed the 8 KB body check, so the rule only
+        # labels the request here; admin-body-size-only below blocks it outside
+        # /api/v1/admin/ (#1012).
         rule_action_override {
           name = "SizeRestrictions_BODY"
           action_to_use {
@@ -196,6 +198,48 @@ resource "aws_wafv2_web_acl" "edge" {
     visibility_config {
       cloudwatch_metrics_enabled = true
       metric_name                = "aws-common"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  # Fifth and last rule of the flat-rate plan (limit 5). The admin routes keep
+  # their own per-command body caps (getOperationBodySizeLimit).
+  rule {
+    name     = "admin-body-size-only"
+    priority = 4
+    action {
+      block {}
+    }
+    statement {
+      and_statement {
+        statement {
+          label_match_statement {
+            scope = "LABEL"
+            key   = "awswaf:managed:aws:core-rule-set:SizeRestrictions_Body"
+          }
+        }
+        statement {
+          not_statement {
+            statement {
+              byte_match_statement {
+                search_string         = "/api/v1/admin/"
+                positional_constraint = "STARTS_WITH"
+                field_to_match {
+                  uri_path {}
+                }
+                text_transformation {
+                  priority = 0
+                  type     = "NORMALIZE_PATH"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "admin-body-size-only"
       sampled_requests_enabled   = true
     }
   }
