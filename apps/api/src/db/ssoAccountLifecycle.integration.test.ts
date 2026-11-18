@@ -11,9 +11,11 @@ import {
 import { bridgedQuery } from '../../test/fixtures/db/ownedSessionSql.js'
 import {
   findRestorableErasure,
+  reapplyAccountErasures,
   restoreSsoAccount
 } from '../auth/accountErasureAuthority.js'
 import { createSsoIdentityRepository } from '../auth/ssoIdentityRepository.js'
+import { deleteExpiredSessions } from '../auth/sessionRetention.js'
 import { createSsoDbHarness, digest } from './ssoTestFixture.js'
 import type { SsoFixture } from './ssoTestFixture.js'
 let h: ReturnType<typeof createSsoDbHarness>
@@ -985,6 +987,227 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         ).rows
       ).toEqual([{ users: 0, sessions: 0, notes: 0, signIns: 0 }])
       await h.owner.query('SET CONSTRAINTS ALL IMMEDIATE')
+    })
+  })
+  it('#702: re-applies listed erasures after a restore with their original deadline, dry run first', async () => {
+    // Committed, so another connection can record its erasure (#1147 QA).
+    await h.owner.query('BEGIN')
+    let committed: SsoFixture
+    try {
+      committed = await h.fixture('google', 'USER')
+      await h.owner.query('COMMIT')
+    } catch (error: unknown) {
+      await h.owner.query('ROLLBACK')
+      throw error
+    }
+    await h.rollback(async () => {
+      const worker = createSsoAccountErasureWorker(h.appClient)
+      // Asked 2 days before the re-apply: 5 days of grace remain.
+      const restored = await h.fixture('google', 'USER')
+      // Asked 10 days before: the deadline has passed, so no grace remains.
+      const overdue = await h.fixture('google', 'USER')
+      const bystander = await h.fixture('google', 'USER')
+      const pending = await deletionPendingUser()
+      const unknown = randomUUID()
+      const daysAgo = (days: number) =>
+        new Date(Date.now() - days * 86_400_000).toISOString()
+      const restoredAt = daysAgo(2)
+      const overdueAt = daysAgo(10)
+      const listed = [
+        { userId: restored.userId, requestedAt: daysAgo(3) },
+        { userId: overdue.userId, requestedAt: overdueAt },
+        { userId: pending, requestedAt: daysAgo(1) },
+        { userId: unknown, requestedAt: daysAgo(1) },
+        // Listed twice: the latest request time counts.
+        { userId: restored.userId, requestedAt: restoredAt }
+      ]
+      const users = [restored.userId, overdue.userId, bystander.userId]
+      const state = async () =>
+        (
+          await h.owner.query<{
+            id: string
+            status: string
+            requestedAt: string | null
+          }>(
+            `SELECT u.id, u."accountStatus"::text AS status,
+               (SELECT to_char(r."createdAt" AT TIME ZONE 'UTC',
+                  'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+                FROM "SsoAccountErasureRequest" r
+                WHERE r."userId" = u.id) AS "requestedAt"
+             FROM "User" u WHERE u.id = ANY($1::uuid[]) ORDER BY u.id`,
+            [users]
+          )
+        ).rows
+      const before = await state()
+      const requested = [restored.userId, overdue.userId].toSorted()
+      const skipped = [pending, unknown].toSorted()
+      // A dry run reports and writes nothing.
+      expect(
+        await reapplyAccountErasures(h.appClient, listed, 'TEST', false)
+      ).toEqual({
+        requestedUserIds: requested,
+        skippedUserIds: skipped,
+        failedUserIds: []
+      })
+      expect(await state()).toEqual(before)
+      expect(
+        await reapplyAccountErasures(h.appClient, listed, 'TEST', true)
+      ).toEqual({
+        requestedUserIds: requested,
+        skippedUserIds: skipped,
+        failedUserIds: []
+      })
+      // Each request keeps its original time, not the re-apply time.
+      expect(await state()).toEqual(
+        [
+          {
+            id: restored.userId,
+            status: 'DELETION_PENDING',
+            requestedAt: restoredAt
+          },
+          {
+            id: overdue.userId,
+            status: 'DELETION_PENDING',
+            requestedAt: overdueAt
+          },
+          { id: bystander.userId, status: 'ACTIVE', requestedAt: null }
+        ].toSorted((a, b) => (a.id < b.id ? -1 : 1))
+      )
+      const requestId = async (userId: string) =>
+        (
+          await h.owner.query<{ id: string }>(
+            'SELECT id FROM "SsoAccountErasureRequest" WHERE "userId"=$1',
+            [userId]
+          )
+        ).rows[0]!.id
+      const overdueRequest = await requestId(overdue.userId)
+      // Still in grace: only the original deadline remains for a restore,
+      // and the cleanup does not start yet.
+      const restore = await findRestorableErasure(
+        h.appClient,
+        'google',
+        restored.subject
+      )
+      expect(restore).toMatchObject({ userId: restored.userId })
+      expect(Date.parse(restore!.deletionScheduledAt)).toBeLessThanOrEqual(
+        Date.parse(restoredAt) + 7 * 86_400_000 + 3_600_000
+      )
+      // Past the deadline: the next hourly run erases it with no new grace.
+      await runSsoProviderRevokeBatch(
+        worker,
+        tokenlessSsoProviderRevokeAdapter,
+        'TEST',
+        100,
+        300
+      )
+      const result = await runSsoAccountErasureBatch(worker, 'TEST', 100)
+      expect(result.completedIds).toContain(overdueRequest)
+      expect(result.completedIds).not.toContain(
+        await requestId(restored.userId)
+      )
+      expect(
+        (
+          await h.owner.query('SELECT 1 FROM "User" WHERE id=$1', [
+            overdue.userId
+          ])
+        ).rows
+      ).toEqual([])
+      // A second run changes nothing.
+      expect(
+        (await reapplyAccountErasures(h.appClient, listed, 'TEST', true))
+          .requestedUserIds
+      ).toEqual([])
+      // #1147 QA: the function moves only a request this transaction
+      // recorded, for nihongo_app only, within 31 days and not in the future.
+      const backdate =
+        'SELECT "backdate_reapplied_sso_erasure_request"($1::uuid, $2::timestamptz) AS moved'
+      // A request another transaction committed after this one began.
+      await h.appA.query('BEGIN')
+      try {
+        await h.appA.query(
+          `INSERT INTO "SsoAccountErasureRequest" (
+             "userId", "receiptDigest", "providerCleanup", "receiptExpiresAt"
+           ) VALUES ($1::uuid, $2, '[]'::jsonb, clock_timestamp())`,
+          [committed.userId, digest()]
+        )
+        await h.appA.query(
+          `UPDATE "User" SET "accountStatus" = 'DELETION_PENDING' WHERE id = $1`,
+          [committed.userId]
+        )
+        await h.appA.query('COMMIT')
+      } catch (error: unknown) {
+        await h.appA.query('ROLLBACK')
+        throw error
+      }
+      await h.rejects(
+        'nihongo_app',
+        backdate,
+        [committed.userId, daysAgo(2)],
+        '55000'
+      )
+      for (const at of [
+        new Date(Date.now() + 60_000).toISOString(),
+        daysAgo(32),
+        null
+      ])
+        await h.rejects('nihongo_app', backdate, [restored.userId, at], '22023')
+      await h.rejects(
+        'nihongo_migration',
+        backdate,
+        [restored.userId, daysAgo(2)],
+        '42501'
+      )
+    })
+  })
+  it('#695: deletes expired sign-in sessions only, dry run first', async () => {
+    await h.rollback(async () => {
+      const expired = await h.fixture('google', 'USER')
+      const live = await h.fixture('google', 'USER')
+      await h.fixtureMutation(
+        `UPDATE "Session"
+         SET "createdAt" = clock_timestamp() - interval '8 days',
+           "updatedAt" = clock_timestamp() - interval '8 days',
+           "expiresAt" = clock_timestamp() - interval '1 day'
+         WHERE "userId" = $1`,
+        [expired.userId]
+      )
+      const sessions = async () =>
+        (
+          await h.owner.query<{ userId: string; count: number }>(
+            `SELECT "userId", count(*)::int AS count FROM "Session"
+             WHERE "userId" = ANY($1::uuid[]) GROUP BY "userId" ORDER BY "userId"`,
+            [[expired.userId, live.userId]]
+          )
+        ).rows
+      const before = await sessions()
+      expect(before).toHaveLength(2)
+      const dryRun = await deleteExpiredSessions(h.appClient, {
+        batchSize: 5_000,
+        dryRun: true
+      })
+      expect(dryRun).toMatchObject({ deletedCount: 0, hasMore: true })
+      expect(dryRun.eligibleCount).toBeGreaterThanOrEqual(1)
+      expect(await sessions()).toEqual(before)
+      // nihongo_app deletes them in batches until none is left.
+      let result = await deleteExpiredSessions(h.appClient, {
+        batchSize: 1,
+        dryRun: false
+      })
+      expect(result.deletedCount).toBe(1)
+      while (result.hasMore)
+        result = await deleteExpiredSessions(h.appClient, {
+          batchSize: 5_000,
+          dryRun: false
+        })
+      expect(await sessions()).toEqual(
+        before.filter((row) => row.userId === live.userId)
+      )
+      expect(
+        await deleteExpiredSessions(h.appClient, {
+          batchSize: 5_000,
+          dryRun: false
+        })
+      ).toEqual({ eligibleCount: 0, deletedCount: 0, hasMore: false })
     })
   })
   it('JLP-845: a request waits 7 days, and a restore cancels it and keeps learning', async () => {

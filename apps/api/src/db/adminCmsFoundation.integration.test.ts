@@ -21,7 +21,7 @@ import {
 } from '../../test/fixtures/db/ownedSessionSql.js'
 import { Client } from 'pg'
 import { buildAllQuestionSeeds } from '../../prisma/seedQuestionCatalog.js'
-import type { QuestionAggregateSeed } from '../../prisma/seed-data/buildQuestionSeed.js'
+import type { QuestionAggregateSeed } from '../../test/fixtures/seed-questions/buildQuestionSeed.js'
 import {
   armAdminOperation,
   type ArmableOperation

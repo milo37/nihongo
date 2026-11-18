@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import type { ReactElement } from 'react'
 import { useLocation } from 'react-router'
-import { useQuestionReportPresentation as useAdminPresentation } from '@app/content-operations/reports/questionReportPublic'
+import { useReportPresentation } from '@app/question-report/useReportPresentation'
 import { ReportDialog } from '@app/question-report/components/ReportDialog'
 import {
   toQuestionReportLocation,
@@ -27,7 +27,7 @@ export const QuestionReportDialog = ({
   trigger = 'button',
   triggerLabel
 }: QuestionReportDialogProps): ReactElement => {
-  const { t } = useAdminPresentation()
+  const { t } = useReportPresentation()
   const { pathname } = useLocation()
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)

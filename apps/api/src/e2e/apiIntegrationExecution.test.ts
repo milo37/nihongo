@@ -292,14 +292,10 @@ describe('SSO deterministic TEST environment', () => {
       BETTER_AUTH_URL: 'https://real-parent.example.test',
       TRUSTED_ORIGINS: 'https://real-parent.example.test',
       AUTH_TRUSTED_PROXY_CIDRS: '192.0.2.0/24',
-      AUTH_EMAIL_FROM: 'real-parent@example.test',
-      AUTH_EMAIL_DELIVERY_MODE: 'webhook',
       GOOGLE_CLIENT_ID: 'real-parent-google-id',
       GOOGLE_CLIENT_SECRET: 'real-parent-google-secret',
       APPLE_CLIENT_ID: 'real-parent-apple-id',
-      APPLE_CLIENT_SECRET: 'real-parent-apple-secret',
-      AUTH_EMAIL_WEBHOOK_URL: 'https://real-parent.example.test/webhook',
-      AUTH_EMAIL_WEBHOOK_SECRET: 'real-parent-webhook-secret'
+      APPLE_CLIENT_SECRET: 'real-parent-apple-secret'
     })
     const snapshot = { ...parent }
     const environment = createSsoTestEnvironment(parent)
@@ -310,16 +306,12 @@ describe('SSO deterministic TEST environment', () => {
       'GOOGLE_CLIENT_ID',
       'GOOGLE_CLIENT_SECRET',
       'APPLE_CLIENT_ID',
-      'APPLE_CLIENT_SECRET',
-      'AUTH_EMAIL_FROM',
-      'AUTH_EMAIL_DELIVERY_MODE',
-      'AUTH_EMAIL_WEBHOOK_URL',
-      'AUTH_EMAIL_WEBHOOK_SECRET'
+      'APPLE_CLIENT_SECRET'
     ])
       expect(Object.hasOwn(environment, key)).toBe(false)
   })
 
-  it('does not evaluate shadowed parent credential or webhook getters', () => {
+  it('does not evaluate shadowed parent credential getters', () => {
     let reads = 0
     const base: NodeJS.ProcessEnv = { ...wrappers }
     const keys = [
@@ -328,9 +320,7 @@ describe('SSO deterministic TEST environment', () => {
       'GOOGLE_CLIENT_ID',
       'GOOGLE_CLIENT_SECRET',
       'APPLE_CLIENT_ID',
-      'APPLE_CLIENT_SECRET',
-      'AUTH_EMAIL_WEBHOOK_URL',
-      'AUTH_EMAIL_WEBHOOK_SECRET'
+      'APPLE_CLIENT_SECRET'
     ]
     for (const key of keys) {
       Object.defineProperty(base, key, {
@@ -436,7 +426,7 @@ describe('Opt-in foundation execution', () => {
 
   it.each([
     'EnvironmentValidationError: API environment validation failed: BETTER_AUTH_SECRET, GUEST_COOKIE_SECRET',
-    'API environment validation failed: AUTH_EMAIL_FROM invalid-value postgres://private:password@private/db\n private-stack'
+    'API environment validation failed: TRUSTED_ORIGINS invalid-value postgres://private:password@private/db\n private-stack'
   ])(
     'classifies environment setup failures without retaining invalid fields or values: %s',
     (message) => {
@@ -448,7 +438,7 @@ describe('Opt-in foundation execution', () => {
         { diagnosticId: 'CONFIG_ENVIRONMENT_INVALID', location: 'setup' }
       ])
       expect(JSON.stringify(report)).not.toMatch(
-        /BETTER_AUTH_SECRET|GUEST_COOKIE_SECRET|AUTH_EMAIL_FROM|invalid-value|postgres:|password|private-stack/
+        /BETTER_AUTH_SECRET|GUEST_COOKIE_SECRET|TRUSTED_ORIGINS|invalid-value|postgres:|password|private-stack/
       )
     }
   )
@@ -1288,7 +1278,7 @@ describe('fixed account lifecycle TEST slice', () => {
     expect(clean).not.toHaveProperty('BETTER_AUTH_SECRET')
   })
 
-  const report = (count = 14) => ({
+  const report = (count = 16) => ({
     numTotalTests: count,
     numPassedTests: count,
     numFailedTests: 0,
@@ -1297,7 +1287,7 @@ describe('fixed account lifecycle TEST slice', () => {
     testResults: [{ name: ssoAccountLifecycleTestFile }]
   })
   it('rejects partial success and extra cases rather than accepting a non-empty file', () => {
-    for (const count of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15])
+    for (const count of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17])
       expect(() =>
         assertApiIntegrationVitestFileResult({
           result: report(count),
@@ -1334,7 +1324,7 @@ describe('fixed account lifecycle TEST slice', () => {
         await writeFile(rawPath, JSON.stringify(report()))
       }
     })
-    expect(count).toBe(14)
+    expect(count).toBe(16)
     await expect(stat(rawPath)).rejects.toThrow()
   })
   it('retains only a wholly safe original first error line', () => {
