@@ -14,6 +14,7 @@ import {
   restoreSsoAccount
 } from '../auth/accountErasureAuthority.js'
 import { createSsoIdentityRepository } from '../auth/ssoIdentityRepository.js'
+import { deleteExpiredSessions } from '../auth/sessionRetention.js'
 import { createSsoDbHarness, digest } from './ssoTestFixture.js'
 import type { SsoFixture } from './ssoTestFixture.js'
 let h: ReturnType<typeof createSsoDbHarness>
@@ -985,6 +986,57 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         ).rows
       ).toEqual([{ users: 0, sessions: 0, notes: 0, signIns: 0 }])
       await h.owner.query('SET CONSTRAINTS ALL IMMEDIATE')
+    })
+  })
+  it('#695: deletes expired sign-in sessions only, dry run first', async () => {
+    await h.rollback(async () => {
+      const expired = await h.fixture('google', 'USER')
+      const live = await h.fixture('google', 'USER')
+      await h.fixtureMutation(
+        `UPDATE "Session"
+         SET "createdAt" = clock_timestamp() - interval '8 days',
+           "updatedAt" = clock_timestamp() - interval '8 days',
+           "expiresAt" = clock_timestamp() - interval '1 day'
+         WHERE "userId" = $1`,
+        [expired.userId]
+      )
+      const sessions = async () =>
+        (
+          await h.owner.query<{ userId: string; count: number }>(
+            `SELECT "userId", count(*)::int AS count FROM "Session"
+             WHERE "userId" = ANY($1::uuid[]) GROUP BY "userId" ORDER BY "userId"`,
+            [[expired.userId, live.userId]]
+          )
+        ).rows
+      const before = await sessions()
+      expect(before).toHaveLength(2)
+      const dryRun = await deleteExpiredSessions(h.appClient, {
+        batchSize: 5_000,
+        dryRun: true
+      })
+      expect(dryRun).toMatchObject({ deletedCount: 0, hasMore: true })
+      expect(dryRun.eligibleCount).toBeGreaterThanOrEqual(1)
+      expect(await sessions()).toEqual(before)
+      // nihongo_app deletes them in batches until none is left.
+      let result = await deleteExpiredSessions(h.appClient, {
+        batchSize: 1,
+        dryRun: false
+      })
+      expect(result.deletedCount).toBe(1)
+      while (result.hasMore)
+        result = await deleteExpiredSessions(h.appClient, {
+          batchSize: 5_000,
+          dryRun: false
+        })
+      expect(await sessions()).toEqual(
+        before.filter((row) => row.userId === live.userId)
+      )
+      expect(
+        await deleteExpiredSessions(h.appClient, {
+          batchSize: 5_000,
+          dryRun: false
+        })
+      ).toEqual({ eligibleCount: 0, deletedCount: 0, hasMore: false })
     })
   })
   it('JLP-845: a request waits 7 days, and a restore cancels it and keeps learning', async () => {
