@@ -43,8 +43,9 @@ use the provider-first queue.
 - Target proof: `DATABASE_URL` and `PRODUCTION_DATABASE_URL` name the same
   host, port, database and schema.
 - Provider tokens: SSO sign-in stores no provider token, so the default
-  adapter records each provider cleanup as `NOT_HELD` (nothing to revoke) and
-  the request completes. The Google grant is revoked earlier instead (JLP-718):
+  adapter answers `NOT_HELD` (nothing to revoke): each provider cleanup is
+  stored as `COMPLETED`, the run counts it under `providers.notHeld`, and the
+  request completes. The Google grant is revoked earlier instead (JLP-718):
   the re-sign-in a member makes before deleting the account calls Google's
   revoke endpoint with that sign-in's access token, held in memory only. The
   API logs `auth.sso.grant_revoke` with `REVOKED` or `FAILED` (no token, account
