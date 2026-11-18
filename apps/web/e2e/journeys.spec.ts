@@ -297,8 +297,8 @@ const accountPageRequestContract = [
 const userJourneyRequestContract = [
   ...ssoRequestContract,
   ...accountPageRequestContract,
-  // My page once and the one result screen.
-  studyGoalReads(2),
+  // My page once and the result screen twice (opened, then reloaded).
+  studyGoalReads(3),
   {
     method: 'GET',
     path: '/api/v1/me',
@@ -523,6 +523,13 @@ const loginThroughUi = async (page: Page): Promise<void> => {
   // member is confirmed after agreeing there (#1085).
   const principalResponse =
     mode === 'mock' ? expectUserPrincipal() : Promise.resolve()
+  // #1090: mock members already answered the study goal, so the sign-in
+  // check reads it once on the dashboard; wait for it so a later screen's
+  // read never shares that request.
+  const studyGoalCheck =
+    mode === 'mock'
+      ? waitForApiResponse(page, 'GET', '/api/v1/me/study-goal')
+      : Promise.resolve()
   const resumableResponse = waitForApiResponse(
     page,
     'GET',
@@ -599,7 +606,12 @@ const loginThroughUi = async (page: Page): Promise<void> => {
         await skipStudyGoal(page)
       }
     }
-    await Promise.all([principalResponse, resumableResponse, completeSignIn()])
+    await Promise.all([
+      principalResponse,
+      resumableResponse,
+      studyGoalCheck,
+      completeSignIn()
+    ])
     await expect(page).toHaveURL(
       (url) =>
         url.origin === origin &&
