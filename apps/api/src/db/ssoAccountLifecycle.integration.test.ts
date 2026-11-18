@@ -949,7 +949,10 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       const expired = await h.fixture('google', 'USER')
       const live = await h.fixture('google', 'USER')
       await h.fixtureMutation(
-        `UPDATE "Session" SET "expiresAt" = clock_timestamp() - interval '1 second'
+        `UPDATE "Session"
+         SET "createdAt" = clock_timestamp() - interval '8 days',
+           "updatedAt" = clock_timestamp() - interval '8 days',
+           "expiresAt" = clock_timestamp() - interval '1 day'
          WHERE "userId" = $1`,
         [expired.userId]
       )
