@@ -21,8 +21,11 @@ as `nihongo_app` and runs two phases, after one request step:
    re-apply for these: the next run finds the same members again.
 1. Provider revoke: lease pending provider cleanups, record a durable dispatch
    marker before each provider call, and record completion afterwards. An
-   unknown remote outcome keeps the marker, so lease expiry cannot authorize a
-   duplicate call.
+   unknown remote outcome (a `FAILED` record, or a call whose record write
+   failed) keeps the marker, so lease expiry alone cannot authorize a
+   duplicate call. A day after that lease expired, the next run claims the
+   request again and retries (#700); provider revoke is idempotent, so the
+   repeat is safe. Until then the run exits 1 and the member stays blocked.
 2. App erasure: delete app data in one API transaction only after every
    provider cleanup for the request is complete.
 

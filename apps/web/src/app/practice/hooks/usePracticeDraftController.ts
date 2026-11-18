@@ -70,7 +70,6 @@ interface UsePracticeDraftControllerOptions {
 }
 
 export interface PracticeDraftController {
-  conflictCount: number
   currentOrdinal: number
   draftQuery: ReturnType<typeof useGetStudyDraft>
   elapsedSeconds: number
@@ -144,13 +143,11 @@ export const usePracticeDraftController = ({
   )
   const saveMutation = useSaveStudyDraft(sessionId)
   const draftSaveState = useAppStore((state) => state.draftSaveState)
-  const draftConflict = useAppStore((state) => state.draftConflict)
   const isDraftConflictPending = useAppStore(
     (state) => state.isDraftConflictPending
   )
   const setDraftWorkingCopy = useAppStore((state) => state.setDraftWorkingCopy)
   const setDraftSaveState = useAppStore((state) => state.setDraftSaveState)
-  const setDraftConflict = useAppStore((state) => state.setDraftConflict)
   const setDraftConflictPending = useAppStore(
     (state) => state.setDraftConflictPending
   )
@@ -347,7 +344,6 @@ export const usePracticeDraftController = ({
       const next = withConfirmedBase(record, remote, localDiff)
 
       setDraftConflictPending(false)
-      setDraftConflict(null)
       if (isStudyDraftDiffEmpty(localDiff)) {
         clearDurableRecordWhenClean(next, 'saved')
       } else {
@@ -359,7 +355,6 @@ export const usePracticeDraftController = ({
     [
       clearDurableRecordWhenClean,
       resetClock,
-      setDraftConflict,
       setDraftConflictPending,
       setMemoryAndDurableRecord
     ]
@@ -371,7 +366,6 @@ export const usePracticeDraftController = ({
       const desired = applyStudyDraftDiff(remote, record.postFlightLocalDiff)
       const localDiff = diffStudyDraftSnapshots(remote, desired)
       const next = withConfirmedBase(record, remote, localDiff)
-      setDraftConflict(null)
       setDraftConflictPending(false)
       if (isStudyDraftDiffEmpty(localDiff)) {
         clearDurableRecordWhenClean(next, 'saved')
@@ -384,7 +378,6 @@ export const usePracticeDraftController = ({
     [
       clearDurableRecordWhenClean,
       resetClock,
-      setDraftConflict,
       setDraftConflictPending,
       setMemoryAndDurableRecord
     ]
@@ -573,7 +566,6 @@ export const usePracticeDraftController = ({
           remote,
           createEmptyStudyDraftDiff()
         )
-        setDraftConflict(null)
         setDraftConflictPending(false)
         clearDurableRecordWhenClean(next, 'saved')
         resetClock(remote)
@@ -599,7 +591,6 @@ export const usePracticeDraftController = ({
       resetClock,
       sessionId,
       setDeferredRemoteRevisionScope,
-      setDraftConflict,
       setDraftConflictPending
     ])
 
@@ -691,7 +682,6 @@ export const usePracticeDraftController = ({
 
     clearStudyDraftWorkingCopy(principalScope, sessionId)
     setDraftWorkingCopy(null)
-    setDraftConflict(null)
     setDraftConflictPending(false)
     setDraftSaveState('idle')
     lastPersistenceFailedRef.current = false
@@ -707,7 +697,6 @@ export const usePracticeDraftController = ({
     principalScope,
     queryClient,
     sessionId,
-    setDraftConflict,
     setDraftConflictPending,
     setDraftSaveState,
     setDraftWorkingCopy
@@ -809,8 +798,7 @@ export const usePracticeDraftController = ({
 
   const publishRevision = useStudyDraftRevisionSync({
     enabled,
-    isDirty:
-      hasWorkingCopyWork || Boolean(draftConflict) || isDraftConflictPending,
+    isDirty: hasWorkingCopyWork || isDraftConflictPending,
     onCleanSignal: (signal) => {
       rememberRemoteRevision(signal.revision)
       const record = useAppStore.getState().draftWorkingCopy
@@ -896,7 +884,6 @@ export const usePracticeDraftController = ({
       setDraftWorkingCopy(record)
       resetClock(getVisibleSnapshot(record))
     }
-    setDraftConflict(null)
     setDraftConflictPending(true)
     setDraftSaveState('conflict')
     void reconcileFromServer().catch(handleRemoteReconcileFailure)
@@ -909,7 +896,6 @@ export const usePracticeDraftController = ({
     reconcileFromServer,
     resetClock,
     sessionId,
-    setDraftConflict,
     setDraftConflictPending,
     setDraftSaveState,
     setDraftWorkingCopy,
@@ -1041,11 +1027,7 @@ export const usePracticeDraftController = ({
         }
       }
       const currentState = useAppStore.getState()
-      if (
-        record.pendingConflict ||
-        currentState.draftConflict ||
-        currentState.isDraftConflictPending
-      ) {
+      if (record.pendingConflict || currentState.isDraftConflictPending) {
         throw new Error('충돌을 해결한 뒤 저장해 주세요.')
       }
 
@@ -1158,9 +1140,6 @@ export const usePracticeDraftController = ({
           throw failure
         }
 
-        if (useAppStore.getState().draftConflict) {
-          throw failure
-        }
         const current = useAppStore.getState().draftWorkingCopy
         if (isWorkingCopyForScope(current, principalScope, sessionId)) {
           if (failure instanceof DraftIntegrityError) {
@@ -1340,7 +1319,6 @@ export const usePracticeDraftController = ({
       })
       integrityBlockScopeRef.current = null
       setDraftWorkingCopy(record)
-      setDraftConflict(null)
       setDraftConflictPending(false)
       setDraftSaveState('idle')
       resetClock(draftQuery.data)
@@ -1374,7 +1352,6 @@ export const usePracticeDraftController = ({
     resetClock,
     sessionId,
     setDraftSaveState,
-    setDraftConflict,
     setDraftConflictPending,
     setDraftWorkingCopy,
     usableBootstrapRecord
@@ -1417,7 +1394,6 @@ export const usePracticeDraftController = ({
   useStudyDraftAutosaveTimer({
     controllerScopeKey,
     deferredRemoteRevisionScope,
-    draftConflict,
     draftSaveState,
     draftWorkingCopy,
     enabled,
@@ -1461,12 +1437,7 @@ export const usePracticeDraftController = ({
     update: (snapshot: StudyDraftSnapshot) => StudyDraftSnapshot
   ): void => {
     const record = flushClockToWorkingCopy()
-    if (
-      !record ||
-      record.pendingConflict ||
-      draftConflict ||
-      isDraftConflictPending
-    ) {
+    if (!record || record.pendingConflict || isDraftConflictPending) {
       return
     }
 
@@ -1520,11 +1491,7 @@ export const usePracticeDraftController = ({
           throw new Error('학습 draft가 준비되지 않았습니다.')
         }
         const currentState = useAppStore.getState()
-        if (
-          record.pendingConflict ||
-          currentState.draftConflict ||
-          currentState.isDraftConflictPending
-        ) {
+        if (record.pendingConflict || currentState.isDraftConflictPending) {
           throw new Error('다른 기기의 변경 충돌을 해결한 뒤 저장해 주세요.')
         }
         const needsSave = Boolean(
@@ -1537,7 +1504,6 @@ export const usePracticeDraftController = ({
           const latest = useAppStore.getState()
           if (
             latest.draftWorkingCopy?.pendingConflict ||
-            latest.draftConflict ||
             latest.isDraftConflictPending
           ) {
             throw new Error('다른 기기의 변경 충돌을 해결한 뒤 저장해 주세요.')
@@ -1593,12 +1559,9 @@ export const usePracticeDraftController = ({
   const snapshot = scopedWorkingCopy
     ? getVisibleSnapshot(scopedWorkingCopy)
     : null
-  const hasUnsavedWork = Boolean(
-    hasWorkingCopyWork || draftConflict || isDraftConflictPending
-  )
+  const hasUnsavedWork = Boolean(hasWorkingCopyWork || isDraftConflictPending)
 
   return {
-    conflictCount: draftConflict?.conflicts.length ?? 0,
     currentOrdinal: snapshot?.currentOrdinal ?? 1,
     draftQuery,
     elapsedSeconds,
@@ -1625,7 +1588,6 @@ export const usePracticeDraftController = ({
             sessionId
           })
           integrityBlockScopeRef.current = null
-          setDraftConflict(null)
           setDraftConflictPending(false)
           setDraftWorkingCopy(record)
           setDraftSaveState('idle')
