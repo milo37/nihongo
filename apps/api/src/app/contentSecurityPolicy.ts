@@ -43,3 +43,17 @@ export const contentSecurityPolicyHeaders = (
   mode === 'enforce'
     ? { contentSecurityPolicy: createContentSecurityPolicy() }
     : { contentSecurityPolicyReportOnly: createContentSecurityPolicy() }
+
+// #1015: the app uses none of these browser features, so no page may ask for them.
+export const permissionsPolicy: NonNullable<
+  SecureHeadersOptions['permissionsPolicy']
+> = {
+  accelerometer: [],
+  camera: [],
+  geolocation: [],
+  gyroscope: [],
+  magnetometer: [],
+  microphone: [],
+  payment: [],
+  usb: []
+}
