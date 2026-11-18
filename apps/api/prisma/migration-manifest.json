@@ -63,6 +63,10 @@
     {
       "name": "20261121090000_user_study_goal",
       "checksum": "541e5e2281d2d6e0df9c577748fa822a31055f09b52ca139db5ae34a1e9f0e2d"
+    },
+    {
+      "name": "20261123090000_reapply_erasure_original_deadline",
+      "checksum": "ccad8014d7b655e9d760e4431dda5f98293b639b439e1401a3d02640955ca7a3"
     }
   ]
 }
