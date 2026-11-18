@@ -131,13 +131,13 @@ seconds):
 ```sh
 qid="$(aws logs start-query --log-group-name /harumaru/<env>/api \
   --start-time $(( <dump epoch> - 3600 )) --end-time "$(date +%s)" \
-  --query-string 'filter event in ["auth.account_erasure.requested", "auth.account_erasure.cancelled"] | stats latest(event) as last by userId' \
+  --query-string 'filter event in ["auth.account_erasure.requested", "auth.account_erasure.cancelled"] | stats latest(event) as last, latest(occurredAt) as at by userId' \
   --query queryId --output text)"
 sleep 10
 aws logs get-query-results --query-id "$qid" \
-  --query 'results[*].[[?field==`userId`].value | [0], [?field==`last`].value | [0]]' \
+  --query 'results[*].[[?field==`userId`].value | [0], [?field==`last`].value | [0], [?field==`at`].value | [0]]' \
   --output text > erasure-events-<stamp>.txt
-awk '$2 == "auth.account_erasure.requested" { print $1 }' erasure-events-<stamp>.txt > erasure-reapply-<stamp>.txt
+awk '$2 == "auth.account_erasure.requested" { print $1, $3 }' erasure-events-<stamp>.txt > erasure-reapply-<stamp>.txt
 awk '$2 == "auth.account_erasure.cancelled" { print $1 }' erasure-events-<stamp>.txt > erasure-restore-<stamp>.txt
 ```
 
@@ -148,9 +148,10 @@ the window is only in the restore file, so a restored request is never
 re-applied.
 
 - `erasure-reapply-<stamp>.txt`: copy the file to the host and re-apply with
-  the #702 command (`auth:reapply-erasure:compiled`). It reads one user id per
-  line from stdin. Run it once without the confirmation (dry run: it writes
-  nothing and prints how many it would request), then with it:
+  the #702 command (`auth:reapply-erasure:compiled`). It reads one user id and
+  the original request time (the event's `occurredAt`) per line from stdin.
+  Run it once without the confirmation (dry run: it writes nothing and prints
+  how many it would request), then with it:
 
   ```sh
   cd /opt/harumaru
@@ -168,11 +169,16 @@ re-applied.
     api node api/dist/auth/accountErasureReapplyCommand.js < erasure-reapply-<stamp>.txt
   ```
 
-  Each ACTIVE listed user gets the same erasure request as their own (7-day
-  grace from now, then the hourly run erases them) and one
-  `auth.account_erasure.requested` line with `"reason":"REAPPLY"`. Users
-  already pending or erased, unknown ids, users with open admin work and the
-  last ACTIVE ADMIN are listed under `skipped`; a second run requests no one.
+  Each ACTIVE listed user gets the same erasure request as their own, with the
+  original request time: the deadline stays that time plus 7 days, and no new
+  grace period starts. A deadline already past erases at the next hourly run;
+  otherwise signing in restores the account only until the original deadline.
+  Each also gets one `auth.account_erasure.requested` line with
+  `"reason":"REAPPLY"` and the original `occurredAt`, so a later restore keeps
+  the same deadline. A time in the future or older than 31 days rejects the
+  whole file. Users already pending or erased, unknown ids, users with open
+  admin work and the last ACTIVE ADMIN are listed under `skipped`; a second run
+  requests no one.
   Exit 1 means a user failed or the input was invalid (any line that is not a
   user id rejects the whole file). Tell the requested users their erasure is
   being redone.
