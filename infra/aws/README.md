@@ -21,7 +21,7 @@
 - 보안그룹의 prefix list는 **모든 AWS 계정의** CloudFront를 허용합니다. 그래서 CloudFront가 origin에 비밀 헤더(`X-Origin-Verify`, Terraform `random_password`)를 붙이고, compose 안의 Caddy가 헤더가 없거나 틀린 요청에 403을 돌려줍니다. 다른 배포를 거쳐 우리 WAF를 우회하는 길이 이것으로 막힙니다.
 - API 3001은 호스트에 공개하지 않습니다. 앱은 compose 고정 서브넷(`172.30.0.0/24`)만 trusted proxy(`AUTH_TRUSTED_PROXY_CIDRS`)로 믿고, Caddy는 CloudFront가 붙인 `X-Forwarded-For`를 그대로 넘깁니다. 앱 코드는 바꾸지 않았습니다.
 - **origin TLS:** `origin_domain_name`(예: `origin.harumaru.app`, EIP를 가리키는 A 레코드)을 설정하면 CloudFront→EC2가 HTTPS 443이 되고, Caddy가 Let's Encrypt 인증서를 DNS-01(Cloudflare API 토큰)로 직접 받고 갱신합니다(#40, 아래 "origin 인증서"). 기본값은 꺼짐(빈 값)입니다. PRODUCTION은 필수이고, STAGING도 `origin-staging.harumaru.app`으로 켭니다(#1011, 아래 "STAGING origin TLS"). EC2 기본 DNS(amazonaws.com)에는 공인 인증서를 받을 수 없어서 도메인이 있어야 합니다.
-- 정액 요금제 제약에 맞췄습니다. 관리형 cache·origin request policy만 쓰고, cache behavior는 2개(한도 5), WAF 규칙은 5개(한도 5, 남는 칸 없음)입니다. 8 KB 넘는 본문은 `/api/v1/admin/`에서만 통과합니다(#1012).
+- 정액 요금제 제약에 맞췄습니다. 관리형 cache·origin request policy만 쓰고, cache behavior는 2개(한도 5), WAF 규칙은 4개(한도 5)입니다. Free 요금제 WAF는 관리형 규칙·IP 속도 제한·국가 차단·헤더 삽입만 되고, 사용자 정의 매치 규칙(라벨·경로 조건)은 apply가 `WAFFeatureNotIncludedInPricingPlanException`으로 거부됩니다. 본문 크기는 API가 경로마다 직접 막습니다(학습 16 KB, 로그인 32 KB, 관리자는 명령별)(#1148).
 - 도메인은 `domain_name`·`acm_certificate_arn` 변수로 나중에 붙입니다. 비어 있으면 `https://<id>.cloudfront.net`이 `BETTER_AUTH_URL`이자 하나뿐인 `TRUSTED_ORIGINS`가 됩니다.
 
 ## 파일
