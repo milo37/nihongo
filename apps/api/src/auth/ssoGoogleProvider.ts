@@ -1,7 +1,7 @@
 import { google } from 'better-auth/social-providers'
 import { verifyProviderIdToken } from 'better-auth/oauth2'
 import { z } from 'zod'
-import type { SsoProvider, SsoVerifiedIdentity } from './ssoProtocol.js'
+import type { SsoExchangedIdentity, SsoProvider } from './ssoProtocol.js'
 
 const profileSchema = z.object({
   email: z.email().max(320),
@@ -79,7 +79,7 @@ export const createGoogleSsoProvider = (input: {
       code,
       nonce,
       codeVerifier
-    }): Promise<SsoVerifiedIdentity | null> => {
+    }): Promise<SsoExchangedIdentity | null> => {
       const tokens = await provider.validateAuthorizationCode({
         code,
         codeVerifier,

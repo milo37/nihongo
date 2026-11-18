@@ -313,7 +313,7 @@ export const createSsoAccountRuntime = ({
           purpose === 'ACCOUNT_FRESH' &&
           isDeletionReturn(verified.callbackURL)
         ) {
-          const revokeGrant = verified.identity.revokeGrant
+          const revokeGrant = verified.revokeGrant
           const revoked = revokeGrant
             ? await revokeGrant().catch(() => false)
             : undefined
