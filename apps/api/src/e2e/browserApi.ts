@@ -39,6 +39,10 @@ import {
   createNicknameService,
   createPrismaNicknameRepository
 } from '../member/nickname.js'
+import {
+  createPrismaStudyGoalRepository,
+  createStudyGoalService
+} from '../member/studyGoal.js'
 import { createPrismaGuestAllowanceReader } from '../study/guestAllowance.js'
 import { createGuestIpDailyCounter } from '../study/guestIpDailyCounter.js'
 import { createPrismaStudySessionRepository } from '../study/studySessionRepository.js'
@@ -514,6 +518,9 @@ export const createBrowserApi = async ({
         ),
         nicknameService: createNicknameService(
           createPrismaNicknameRepository(database.client)
+        ),
+        studyGoalService: createStudyGoalService(
+          createPrismaStudyGoalRepository(database.client)
         ),
         wrongNoteService: createWrongNoteService(
           createPrismaWrongNoteRepository(database.client)

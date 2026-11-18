@@ -29,6 +29,10 @@ import {
   createNicknameService,
   createPrismaNicknameRepository
 } from '../member/nickname.js'
+import {
+  createPrismaStudyGoalRepository,
+  createStudyGoalService
+} from '../member/studyGoal.js'
 import { createPrismaGuestAllowanceReader } from '../study/guestAllowance.js'
 import { createGuestIpDailyCounter } from '../study/guestIpDailyCounter.js'
 import { createPrismaStudyDraftRepository } from '../study/studyDraftRepository.js'
@@ -1589,6 +1593,9 @@ const createSsoBrowserApiFixture = async (
         ),
         nicknameService: createNicknameService(
           createPrismaNicknameRepository(database.client)
+        ),
+        studyGoalService: createStudyGoalService(
+          createPrismaStudyGoalRepository(database.client)
         ),
         wrongNoteService
       },

@@ -52,6 +52,7 @@ export const accessibilityDatabaseTables = [
   'UserMemo',
   'UserReport',
   'UserSignIn',
+  'UserStudyGoal',
   'WrongNote',
   '_prisma_migrations'
 ]
@@ -104,6 +105,8 @@ export const accessibilityExpectedTableDeltas = {
   // JLP-852: a sign-in adds the member's row once and later only updates it,
   // so the delta depends on which fixture members signed in before.
   UserSignIn: 0,
+  // #1090: the scan answers no onboarding page.
+  UserStudyGoal: 0,
   WrongNote: 10,
   _prisma_migrations: 0
 }

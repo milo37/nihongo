@@ -1258,7 +1258,8 @@ const migrationDiagnosticNames = [
   '20261117090000_drop_retired_verification',
   '20261118090000_retention_cohort',
   '20261119090000_signup_consent',
-  '20261120090000_grant_user_name_update'
+  '20261120090000_grant_user_name_update',
+  '20261121090000_user_study_goal'
 ] as const
 
 const sanitizeMigrationDatabaseError = (error: unknown) => {
