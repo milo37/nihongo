@@ -655,7 +655,6 @@ describe('practice draft autosave pacing', () => {
     await advance(2_000)
     expect(io.save).toHaveBeenCalledTimes(1)
     expect(io.canonical).toHaveBeenCalledTimes(1)
-    expect(h.result.current.conflictCount).toBe(0)
     expect(h.result.current.snapshot?.answers[0]?.selectedOptionId).toBe(
       optionB
     )
@@ -757,7 +756,6 @@ describe('practice draft autosave pacing', () => {
       first.idempotencyKey
     )
     expect(server.answers[0]?.selectedOptionId).toBe(optionA)
-    expect(h.result.current.conflictCount).toBe(0)
   })
 
   it('keeps input made while a 409 canonical GET is pending', async () => {
@@ -1059,7 +1057,6 @@ describe('practice draft autosave pacing', () => {
     )
     await advance(0)
     expect(io.canonical).toHaveBeenCalledTimes(1)
-    expect(h.result.current.conflictCount).toBe(0)
     await advance(20_000)
     expect(io.save).not.toHaveBeenCalled()
     expect(h.result.current.snapshot?.answers[0]?.selectedOptionId).toBe(
@@ -1280,7 +1277,6 @@ describe('practice draft autosave pacing', () => {
         useAppStore.setState({
           draftWorkingCopy: null,
           draftSaveState: 'idle',
-          draftConflict: null,
           isDraftConflictPending: false
         })
       }
