@@ -2,6 +2,8 @@ locals {
   name       = "${var.project}-${lower(var.deployment_environment)}"
   param_path = "/${var.project}/${lower(var.deployment_environment)}"
   origin_tls = var.origin_domain_name != ""
+  # The Caddy repository and its push permission belong to PRODUCTION (#1011).
+  create_caddy_repository = local.origin_tls && var.deployment_environment == "PRODUCTION"
   # Tax-exclusive USD limit for AWS Budgets, rounded down to the cent.
   monthly_budget_usd = floor(var.monthly_budget_jpy / (1 + var.budget_consumption_tax_rate) / var.budget_jpy_per_usd * 100) / 100
   origin_port        = local.origin_tls ? 443 : 3001

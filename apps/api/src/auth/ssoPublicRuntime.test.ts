@@ -52,11 +52,13 @@ const fixture = (
       }
     )
   } satisfies SsoTransactionStore
+  // JLP-718: Google also returns a revoke closure, as the real provider does.
   const exchange = vi.fn(async () => ({
     provider,
     accountId: 'provider-sub',
     email: 'contact@example.test',
-    name: '학습자'
+    name: '학습자',
+    ...(provider === 'google' ? { revokeGrant: async () => true } : {})
   }))
   const authorizationURL: SsoProvider['authorizationURL'] = async ({
     state,
@@ -219,6 +221,20 @@ describe('public SSO HTTP boundary', () => {
       expect(f.signIn).toHaveBeenCalledOnce()
     }
   )
+  // #1131 QA: the revoke closure must not reach the strict identity schemas.
+  it('passes only the plain identity to consent and sign-in', async () => {
+    const f = fixture('google')
+    const { cookie, state } = await f.start()
+    await f.gateway.handle(f.callback(cookie, state))
+    const identity = {
+      provider: 'google',
+      accountId: 'provider-sub',
+      email: 'contact@example.test',
+      name: '학습자'
+    }
+    expect(f.consentState).toHaveBeenCalledWith(identity)
+    expect(f.signIn).toHaveBeenCalledWith(identity, expect.anything())
+  })
   it('does not exchange without the exact browser cookie or with duplicate state', async () => {
     const f = fixture()
     const { cookie, state } = await f.start()
@@ -457,6 +473,35 @@ describe('sign-up consent before the account (#1085)', () => {
       },
       '하루 마루',
       expect.objectContaining({ ipAddress: 'unresolved' })
+    )
+    expect(f.signIn).not.toHaveBeenCalled()
+  })
+
+  // #1130: a Google sign-up carries the revoke closure through the callback;
+  // the consent check and the account creation still see the plain identity.
+  it('keeps the Google revoke closure out of a sign-up', async () => {
+    const f = fixture('google', 'NEW')
+    const { cookie, state } = await f.start()
+    const pending = pendingOf(await f.gateway.handle(f.callback(cookie, state)))
+    const agreed = await f.gateway.handle(
+      consentRequest('POST', pending, {
+        nickname: '하루',
+        ageConfirmed: true,
+        termsConfirmed: true
+      })
+    )
+    expect(agreed.status).toBe(200)
+    const identity = {
+      provider: 'google',
+      accountId: 'provider-sub',
+      email: 'contact@example.test',
+      name: '학습자'
+    }
+    expect(f.consentState).toHaveBeenCalledWith(identity)
+    expect(f.signUpWithConsent).toHaveBeenCalledWith(
+      identity,
+      '하루',
+      expect.anything()
     )
     expect(f.signIn).not.toHaveBeenCalled()
   })

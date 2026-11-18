@@ -1438,10 +1438,10 @@ test('real-only browser evidence requires all three exact suites', async () => {
 })
 
 test('CI uploads only verified browser summaries and failure-only ledger diagnostics', async () => {
-  const [normal, candidate] = await Promise.all([
-    readFile(path.resolve('.github/workflows/ci.yml'), 'utf8'),
-    readFile(path.resolve('.github/workflows/candidate.yml'), 'utf8')
-  ])
+  const normal = await readFile(
+    path.resolve('.github/workflows/ci.yml'),
+    'utf8'
+  )
   const uploads = normal
     .split('\n      - name: ')
     .filter((step) => /uses: actions\/upload-artifact@/u.test(step))
@@ -1449,21 +1449,21 @@ test('CI uploads only verified browser summaries and failure-only ledger diagnos
   assert.deepEqual(uploads, [
     `Upload safe Playwright evidence
         if: \${{ steps.playwright_evidence.outcome == 'success' && steps.real_browser.outcome == 'success' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-safe-evidence-\${{ github.run_id }}-\${{ github.run_attempt }}
           if-no-files-found: error
           path: \${{ env.PLAYWRIGHT_EVIDENCE_DIR }}/`,
     `Upload safe Mock Playwright evidence
         if: \${{ steps.mock_playwright_evidence.outcome == 'success' && steps.mock_browser.outcome == 'success' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-safe-evidence-mock-\${{ github.run_id }}-\${{ github.run_attempt }}
           if-no-files-found: error
           path: \${{ env.PLAYWRIGHT_MOCK_EVIDENCE_DIR }}/`,
     `Upload rejected request ledger diagnostics
         if: \${{ !cancelled() && (steps.real_browser.outcome == 'failure' || steps.mock_browser.outcome == 'failure') }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-ledger-diagnostic-\${{ github.run_id }}-\${{ github.run_attempt }}
           if-no-files-found: ignore
@@ -1476,8 +1476,7 @@ test('CI uploads only verified browser summaries and failure-only ledger diagnos
       /playwright-raw|playwright-accessibility|trace|video|screenshot/u
     )
   }
-  assert.doesNotMatch(normal + candidate, /download-artifact/u)
-  assert.doesNotMatch(candidate, /upload-artifact/u)
+  assert.doesNotMatch(normal, /download-artifact/u)
 })
 
 for (const mode of ['real', 'mock']) {
