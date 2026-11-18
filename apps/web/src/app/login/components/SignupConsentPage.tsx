@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { linkConsent } from '@app/login/components/SignInCard'
+import { isNickname, NicknameField } from '@app/login/components/NicknameField'
 import { useSignupConsent } from '@app/login/hooks/useSignupConsent'
 import type { SignupConsentExit } from '@app/login/hooks/useSignupConsent'
 
@@ -15,6 +16,7 @@ type CheckName = 'age' | 'terms'
 
 /**
  * #1085 r3-4 '가입 확인': two required boxes, [가입하기] and a quiet [취소].
+ * #1096 r6: the nickname above the boxes, prefilled from the server.
  * The layout shows only the logo here; [취소] and going back are the only
  * ways out, and both leave no account behind.
  */
@@ -26,8 +28,12 @@ export const SignupConsentPage = ({
   const heading = useRef<HTMLHeadingElement>(null)
   const [checked, setChecked] = useState({ age: false, terms: false })
   const [missing, setMissing] = useState(false)
+  const [typed, setTyped] = useState<string | null>(null)
+  const [nicknameInvalid, setNicknameInvalid] = useState(false)
+  const nicknameInput = useRef<HTMLInputElement>(null)
   const consent = useSignupConsent(redirect, onExit)
   const { kind, onCancel } = consent
+  const nickname = typed ?? consent.nicknameDefault
 
   useEffect(() => {
     if (kind) heading.current?.focus()
@@ -57,14 +63,20 @@ export const SignupConsentPage = ({
     setChecked((current) => ({ ...current, [name]: value }))
     setMissing(false)
   }
+  const showNicknameInvalid = (): void => {
+    setNicknameInvalid(true)
+    nicknameInput.current?.focus()
+  }
+  // Both errors show at once; the focus goes to the upper one (N-4).
   const submit = (): void => {
+    const badNickname = !isNickname(nickname)
     const empty = (['age', 'terms'] as const).find((name) => !checked[name])
-    if (empty) {
-      setMissing(true)
-      document.getElementById(`signup-consent-${empty}`)?.focus()
-      return
-    }
-    consent.onAgree()
+    setNicknameInvalid(badNickname)
+    setMissing(Boolean(empty))
+    if (badNickname) nicknameInput.current?.focus()
+    else if (empty) document.getElementById(`signup-consent-${empty}`)?.focus()
+    if (badNickname || empty) return
+    consent.onAgree(nickname.trim(), showNicknameInvalid)
   }
   const existing = kind === 'EXISTING'
   return (
@@ -72,6 +84,16 @@ export const SignupConsentPage = ({
       <h1 ref={heading} className="outline-none" tabIndex={-1}>
         {existing ? t('signup.titleExisting') : t('signup.titleNew')}
       </h1>
+      <NicknameField
+        id="signup-consent-nickname"
+        value={nickname}
+        invalid={nicknameInvalid}
+        inputRef={nicknameInput}
+        onChange={(value) => {
+          setTyped(value)
+          setNicknameInvalid(false)
+        }}
+      />
       <div className="signup-consent-checks">
         <label className="signup-consent-check">
           <input

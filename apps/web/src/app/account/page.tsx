@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import { AccountSettings } from '@app/account/components/AccountSettings'
-import { Avatar } from '@app/account/components/Avatar'
+import { NicknameSetting } from '@app/account/components/NicknameSetting'
 import { MyStudy } from '@app/account/components/study/MyStudy'
 import { TargetLevelSetting } from '@app/account/components/TargetLevelSetting'
 import { FALLBACK_LEVEL } from '@app/practice/practiceSetupOptions'
@@ -35,14 +35,7 @@ export const AccountPage = (): ReactElement => {
   }
   return (
     <div className="account-page">
-      <header className="flex items-center gap-4">
-        <Avatar name={user.name} size="lg" />
-        <div className="min-w-0">
-          <h1 className="break-words text-[28px] font-bold leading-tight">
-            {user.name}
-          </h1>
-        </div>
-      </header>
+      <NicknameSetting name={user.name} />
       <TargetLevelSetting targetLevel={user.targetLevel} />
       {/* JLP-853: the target level's records; no target counts as N5. */}
       <MyStudy level={user.targetLevel ?? FALLBACK_LEVEL} />

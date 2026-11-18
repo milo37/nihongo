@@ -80,7 +80,7 @@ describe('SSO bootstrap migration history', () => {
       migration_name: name,
       checksum
     }))
-    expect(expected).toHaveLength(14)
+    expect(expected).toHaveLength(15)
     expect(() =>
       assertSsoBootstrapMigrationHistory(expected, applied)
     ).not.toThrow()

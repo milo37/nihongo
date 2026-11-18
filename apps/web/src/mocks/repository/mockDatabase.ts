@@ -1109,6 +1109,16 @@ export class MockDatabase {
     return targetLevel
   }
 
+  // #1096: the nickname is the member's name.
+  setName(userId: string, name: string): string {
+    const user = this.userById.get(userId)
+    if (!user) {
+      throw new MockDatabaseError('AUTH_REQUIRED', 401, '로그인이 필요합니다.')
+    }
+    this.userById.set(userId, { ...user, name })
+    return name
+  }
+
   loginAs(
     role: Extract<UserRole, 'USER' | 'ADMIN'>,
     fixtureUserId?: string

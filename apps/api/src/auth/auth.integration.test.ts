@@ -31,6 +31,10 @@ import {
   createPrismaTargetLevelRepository,
   createTargetLevelService
 } from '../member/targetLevel.js'
+import {
+  createNicknameService,
+  createPrismaNicknameRepository
+} from '../member/nickname.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({
@@ -814,10 +818,10 @@ describe(
         })
       ).resolves.toEqual(before)
 
-      // The grant is one column: any other User column stays closed.
+      // The grants are columns: any other User column stays closed.
       await expect(
         database.client.$executeRaw`
-          UPDATE "User" SET "name" = 'renamed'
+          UPDATE "User" SET "email" = 'renamed@example.com'
           WHERE "id" = ${session.userId}::uuid
         `
       ).rejects.toMatchObject({
@@ -826,6 +830,44 @@ describe(
       })
       await expect(
         targetLevelService.update(randomUUID(), 'N1')
+      ).rejects.toMatchObject({ code: 'AUTHENTICATION_REQUIRED' })
+    })
+
+    it('#1096 nihongo_app stores only the member nickname', async () => {
+      if (!isCurrentSourceIntegration) return
+      const session = await createSsoSessionFixture({
+        owner: fixtureDatabase.client,
+        gateway: database.client,
+        secret: environment.BETTER_AUTH_SECRET,
+        role: 'USER'
+      })
+      createdUserIds.add(session.userId)
+      const before = await fixtureDatabase.client.user.findUniqueOrThrow({
+        where: { id: session.userId },
+        select: { email: true, targetLevel: true, updatedAt: true }
+      })
+      const nicknameService = createNicknameService(
+        createPrismaNicknameRepository(database.client)
+      )
+
+      await expect(
+        nicknameService.update(session.userId, '하루 마루')
+      ).resolves.toEqual({ nickname: '하루 마루' })
+      const principalResponse = await app.request('/api/v1/me', {
+        headers: { Cookie: session.cookie }
+      })
+      expect(await principalResponse.json()).toMatchObject({
+        kind: 'USER',
+        user: { id: session.userId, name: '하루 마루' }
+      })
+      await expect(
+        fixtureDatabase.client.user.findUniqueOrThrow({
+          where: { id: session.userId },
+          select: { email: true, targetLevel: true, updatedAt: true }
+        })
+      ).resolves.toEqual(before)
+      await expect(
+        nicknameService.update(randomUUID(), '하루')
       ).rejects.toMatchObject({ code: 'AUTHENTICATION_REQUIRED' })
     })
   }

@@ -11,6 +11,7 @@ import type {
   SsoTransactionStore
 } from './ssoProtocol.js'
 import type {
+  SsoConsent,
   SsoConsentState,
   SsoIdentityResult
 } from './ssoIdentityRepository.js'
@@ -87,7 +88,12 @@ const fixture = (
       expiresAt: new Date('2026-10-26T00:00:00Z')
     })
   )
-  const consentState = vi.fn(async (): Promise<SsoConsentState> => consent)
+  const consentState = vi.fn(
+    async (): Promise<SsoConsent> =>
+      consent === 'EXISTING'
+        ? { state: consent, memberName: '  Existing Member Name ' }
+        : { state: consent }
+  )
   const signUpWithConsent = vi.fn(
     async (): Promise<SsoIdentityResult> => ({
       kind: 'SESSION_CONFIRMED',
@@ -398,7 +404,10 @@ describe('sign-up consent before the account (#1085)', () => {
       expect(await read.json()).toEqual({
         kind,
         expiresAt: '2026-11-17T05:10:00.000Z',
-        redirect: '/bookmarks?level=N3'
+        redirect: '/bookmarks?level=N3',
+        // #1096: NEW prefills the provider name, EXISTING the current name,
+        // trimmed and cut to 12 characters.
+        nicknameDefault: kind === 'NEW' ? '학습자' : 'Existing Mem'
       })
     }
   )
@@ -407,14 +416,26 @@ describe('sign-up consent before the account (#1085)', () => {
     const f = fixture('google', 'NEW')
     const { cookie, state } = await f.start()
     const pending = pendingOf(await f.gateway.handle(f.callback(cookie, state)))
-    const missing = await f.gateway.handle(
-      consentRequest('POST', pending, { ageConfirmed: true })
-    )
-    expect(missing.status).toBe(400)
-    expect(await missing.json()).toEqual({ code: 'SIGNUP_CONSENT_REQUIRED' })
+    for (const [body, code] of [
+      [{ nickname: '하루', ageConfirmed: true }, 'SIGNUP_CONSENT_REQUIRED'],
+      // #1096: a bad nickname answers first, with or without the boxes.
+      [{ nickname: ' 하 ', ageConfirmed: true }, 'SIGNUP_NICKNAME_INVALID'],
+      [{ ageConfirmed: true, termsConfirmed: true }, 'SIGNUP_NICKNAME_INVALID'],
+      [
+        { nickname: '하'.repeat(13), ageConfirmed: true, termsConfirmed: true },
+        'SIGNUP_NICKNAME_INVALID'
+      ]
+    ] as const) {
+      const missing = await f.gateway.handle(
+        consentRequest('POST', pending, body)
+      )
+      expect(missing.status).toBe(400)
+      expect(await missing.json()).toEqual({ code })
+    }
     expect(f.signUpWithConsent).not.toHaveBeenCalled()
     const agreed = await f.gateway.handle(
       consentRequest('POST', pending, {
+        nickname: '  하루 마루 ',
         ageConfirmed: true,
         termsConfirmed: true
       })
@@ -434,6 +455,7 @@ describe('sign-up consent before the account (#1085)', () => {
         email: 'contact@example.test',
         name: '학습자'
       },
+      '하루 마루',
       expect.objectContaining({ ipAddress: 'unresolved' })
     )
     expect(f.signIn).not.toHaveBeenCalled()
@@ -451,7 +473,7 @@ describe('sign-up consent before the account (#1085)', () => {
     expect(cancelled.headers.get('Set-Cookie')).toContain(
       'nihongo.sso_signup_pending=; Path=/'
     )
-    const body = { ageConfirmed: true, termsConfirmed: true }
+    const body = { nickname: '하루', ageConfirmed: true, termsConfirmed: true }
     const forged = `${pending.slice(0, -4)}AAAA`
     for (const value of [forged, '']) {
       const response = await f.gateway.handle(
@@ -487,6 +509,7 @@ describe('sign-up consent before the account (#1085)', () => {
     const pending = pendingOf(await f.gateway.handle(f.callback(cookie, state)))
     const response = await f.gateway.handle(
       consentRequest('POST', pending, {
+        nickname: '하루',
         ageConfirmed: true,
         termsConfirmed: true
       })

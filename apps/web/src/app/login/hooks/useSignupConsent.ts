@@ -36,6 +36,8 @@ export const useSignupConsent = (
   const agree = useMutation({
     retry: false,
     networkMode: 'always',
+    // Every failure has its own place: the nickname line or the sign-in card.
+    meta: { localErrorUi: true },
     mutationFn: agreeSignupConsent
   })
   const cancel = useMutation({
@@ -60,8 +62,9 @@ export const useSignupConsent = (
     if (state.isError) onExit(exitOf(state.error))
   }, [onExit, state.error, state.isError])
 
-  const onAgree = (): void => {
-    agree.mutate(undefined, {
+  // A nickname the server refuses stays on the page as the field's error.
+  const onAgree = (nickname: string, onNicknameInvalid: () => void): void => {
+    agree.mutate(nickname, {
       onSuccess: async () => {
         queryClient.removeQueries({ queryKey: STATE_KEY })
         const confirmed = await refreshCanonicalAuthAfterMutation(queryClient, {
@@ -75,7 +78,14 @@ export const useSignupConsent = (
         }
         await navigate(redirect, { replace: true })
       },
-      onError: (error) => onExit(exitOf(error))
+      onError: (error) => {
+        if (isApiError(error) && error.code === 'SIGNUP_NICKNAME_INVALID') {
+          agree.reset()
+          onNicknameInvalid()
+          return
+        }
+        onExit(exitOf(error))
+      }
     })
   }
 
@@ -93,6 +103,7 @@ export const useSignupConsent = (
 
   return {
     kind: state.data?.kind ?? null,
+    nicknameDefault: state.data?.nicknameDefault ?? '',
     isChecking: state.isPending,
     isAgreeing: agree.isPending,
     busy: agree.isPending || leaving,
