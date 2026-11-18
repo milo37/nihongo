@@ -18,7 +18,6 @@ import {
   type AccountActorSnapshot,
   type AdminAuditLogItem,
   type AdminContentReviewItem,
-  type AdminQuestionExportDocumentV1,
   type AdminTagSummary,
   type CreateAdminQuestionRequest,
   type CreateQuestionReportRequest,
@@ -199,17 +198,6 @@ export interface MockContentPersistedState extends MockContentSnapshot {
 export type MockMutationLease = <Result>(
   operation: () => Promise<Result>
 ) => Promise<Result>
-
-export interface MockContentExportResult {
-  readonly auditEvidence: {
-    readonly selectionDigest: string
-    readonly responseBodyDigest: string
-    readonly questionCount: number
-    readonly versionCount: number
-  }
-  readonly canonicalBody: string
-  readonly document: AdminQuestionExportDocumentV1
-}
 
 export interface MockLearnerPins {
   readonly bookmarkedQuestionIds: readonly string[]

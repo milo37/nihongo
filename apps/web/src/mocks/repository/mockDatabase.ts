@@ -488,24 +488,6 @@ interface MockCanonicalSubmissionEvidence {
 
 export type AdminQuestionSort = 'RECENT' | 'LEVEL' | 'STATUS'
 
-export interface AdminQuestionListFilters {
-  search?: string
-  level?: JlptLevel
-  subject?: QuestionSubject
-  status?: QuestionStatus
-  difficulty?: QuestionDifficulty
-  sort?: AdminQuestionSort
-  page?: number
-  pageSize?: number
-}
-
-export interface AdminQuestionListResult {
-  items: AdminQuestionSummary[]
-  total: number
-  page: number
-  pageSize: number
-}
-
 export interface MockCanonicalAdminQuestionSource {
   readonly question: QuestionRecord
 }
