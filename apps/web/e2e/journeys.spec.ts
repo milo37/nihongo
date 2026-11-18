@@ -266,9 +266,28 @@ const ssoRequestContract = [
           statuses: [200]
         }
       ] as const)),
+  // #1090: the new member answers the study goal page with [나중에 할게요].
+  ...(mode === 'mock'
+    ? []
+    : ([
+        {
+          method: 'POST',
+          path: '/api/v1/me/study-goal/skip',
+          statuses: [200]
+        }
+      ] as const)),
   // The first signed-in render moves the guest's last result once (JLP-823).
   { method: 'POST', path: '/api/v1/me/guest-result-import', statuses: [200] }
 ] as const satisfies readonly RequestLedgerContractEntry[]
+
+// #1090: the study goal is read once right after sign-in (the page in real
+// mode, the sign-in check in mock mode), then by My page's goal row and each
+// member result screen.
+const studyGoalReads = (screens: number): RequestLedgerContractEntry => ({
+  method: 'GET',
+  path: '/api/v1/me/study-goal',
+  statuses: successfulStatuses(1 + screens)
+})
 
 // Opening My page reads the sign-in methods and the all-time stats once.
 const accountPageRequestContract = [
@@ -278,6 +297,8 @@ const accountPageRequestContract = [
 const userJourneyRequestContract = [
   ...ssoRequestContract,
   ...accountPageRequestContract,
+  // My page once and the one result screen.
+  studyGoalReads(2),
   {
     method: 'GET',
     path: '/api/v1/me',
@@ -341,6 +362,8 @@ const userJourneyRequestContract = [
 const resilienceRequestContract = [
   ...ssoRequestContract,
   ...accountPageRequestContract,
+  // My page once.
+  studyGoalReads(1),
   {
     method: 'GET',
     path: '/api/v1/me',
@@ -458,6 +481,17 @@ const agreeSignupConsent = async (
   await member
 }
 
+/**
+ * #1090: a new member lands on the study goal page next; [나중에 할게요]
+ * stores only the skip and hands back. Language-neutral selector.
+ */
+const skipStudyGoal = async (page: Page): Promise<void> => {
+  await expect(page).toHaveURL((url) => url.pathname === '/onboarding')
+  const later = page.locator('main .study-goal-later')
+  await expect(later).toBeEnabled()
+  await later.click()
+}
+
 const loginThroughUi = async (page: Page): Promise<void> => {
   const origin = new URL(page.url()).origin
   const principalResponses: Response[] = []
@@ -562,6 +596,7 @@ const loginThroughUi = async (page: Page): Promise<void> => {
           principalResponses.length = 0
           return expectUserPrincipal()
         })
+        await skipStudyGoal(page)
       }
     }
     await Promise.all([principalResponse, resumableResponse, completeSignIn()])
@@ -1265,6 +1300,7 @@ test('guest SSO boundary and authenticated practice transition match the active 
   )
   assertExactRequestMultiset(ledger, [
     ...ssoRequestContract,
+    studyGoalReads(0),
     {
       method: 'GET',
       path: '/api/v1/me',
