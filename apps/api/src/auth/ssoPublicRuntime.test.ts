@@ -477,6 +477,35 @@ describe('sign-up consent before the account (#1085)', () => {
     expect(f.signIn).not.toHaveBeenCalled()
   })
 
+  // #1130: a Google sign-up carries the revoke closure through the callback;
+  // the consent check and the account creation still see the plain identity.
+  it('keeps the Google revoke closure out of a sign-up', async () => {
+    const f = fixture('google', 'NEW')
+    const { cookie, state } = await f.start()
+    const pending = pendingOf(await f.gateway.handle(f.callback(cookie, state)))
+    const agreed = await f.gateway.handle(
+      consentRequest('POST', pending, {
+        nickname: '하루',
+        ageConfirmed: true,
+        termsConfirmed: true
+      })
+    )
+    expect(agreed.status).toBe(200)
+    const identity = {
+      provider: 'google',
+      accountId: 'provider-sub',
+      email: 'contact@example.test',
+      name: '학습자'
+    }
+    expect(f.consentState).toHaveBeenCalledWith(identity)
+    expect(f.signUpWithConsent).toHaveBeenCalledWith(
+      identity,
+      '하루',
+      expect.anything()
+    )
+    expect(f.signIn).not.toHaveBeenCalled()
+  })
+
   it('cancels with nothing stored and refuses a stale, forged or missing pending', async () => {
     const f = fixture('google', 'NEW')
     const { cookie, state } = await f.start()

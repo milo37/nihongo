@@ -116,6 +116,7 @@ import {
 import {
   contentSecurityPolicyHeaders,
   permissionsPolicy,
+  strictTransportSecurity,
   type ContentSecurityPolicyMode
 } from './contentSecurityPolicy.js'
 import { installStaticWeb } from './staticWeb.js'
@@ -472,7 +473,8 @@ export const createApiApp = ({
     '*',
     secureHeaders({
       ...contentSecurityPolicyHeaders(contentSecurityPolicyMode ?? 'enforce'),
-      permissionsPolicy
+      permissionsPolicy,
+      strictTransportSecurity
     })
   )
   app.use('*', createRequestLogger(logger))
