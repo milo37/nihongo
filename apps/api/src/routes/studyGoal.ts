@@ -114,7 +114,7 @@ export const createStudyGoalRoutes = ({
     await parseBody(context, skipStudyGoalBodySchema)
     const userId = await memberId(context)
     const response = studyGoalResponseSchema.parse(
-      await studyGoalService.skip(userId)
+      await studyGoalService.skipOnboarding(userId)
     )
     context.header('Cache-Control', 'private, no-store')
     return context.json(response)
