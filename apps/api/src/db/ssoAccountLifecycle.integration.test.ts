@@ -989,30 +989,53 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       await h.owner.query('SET CONSTRAINTS ALL IMMEDIATE')
     })
   })
-  it('#702: re-applies listed erasures after a restore, dry run first', async () => {
+  it('#702: re-applies listed erasures after a restore with their original deadline, dry run first', async () => {
     await h.rollback(async () => {
+      const worker = createSsoAccountErasureWorker(h.appClient)
+      // Asked 2 days before the re-apply: 5 days of grace remain.
       const restored = await h.fixture('google', 'USER')
+      // Asked 10 days before: the deadline has passed, so no grace remains.
+      const overdue = await h.fixture('google', 'USER')
       const bystander = await h.fixture('google', 'USER')
       const pending = await deletionPendingUser()
       const unknown = randomUUID()
-      const listed = [restored.userId, pending, unknown, restored.userId]
+      const daysAgo = (days: number) =>
+        new Date(Date.now() - days * 86_400_000).toISOString()
+      const restoredAt = daysAgo(2)
+      const overdueAt = daysAgo(10)
+      const listed = [
+        { userId: restored.userId, requestedAt: daysAgo(3) },
+        { userId: overdue.userId, requestedAt: overdueAt },
+        { userId: pending, requestedAt: daysAgo(1) },
+        { userId: unknown, requestedAt: daysAgo(1) },
+        // Listed twice: the latest request time counts.
+        { userId: restored.userId, requestedAt: restoredAt }
+      ]
+      const users = [restored.userId, overdue.userId, bystander.userId]
       const state = async () =>
         (
-          await h.owner.query<{ id: string; status: string; requests: number }>(
+          await h.owner.query<{
+            id: string
+            status: string
+            requestedAt: string | null
+          }>(
             `SELECT u.id, u."accountStatus"::text AS status,
-               (SELECT count(*)::int FROM "SsoAccountErasureRequest" r
-                WHERE r."userId" = u.id) AS requests
+               (SELECT to_char(r."createdAt" AT TIME ZONE 'UTC',
+                  'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+                FROM "SsoAccountErasureRequest" r
+                WHERE r."userId" = u.id) AS "requestedAt"
              FROM "User" u WHERE u.id = ANY($1::uuid[]) ORDER BY u.id`,
-            [[restored.userId, bystander.userId]]
+            [users]
           )
         ).rows
       const before = await state()
+      const requested = [restored.userId, overdue.userId].toSorted()
       const skipped = [pending, unknown].toSorted()
       // A dry run reports and writes nothing.
       expect(
         await reapplyAccountErasures(h.appClient, listed, 'TEST', false)
       ).toEqual({
-        requestedUserIds: [restored.userId],
+        requestedUserIds: requested,
         skippedUserIds: skipped,
         failedUserIds: []
       })
@@ -1020,20 +1043,66 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       expect(
         await reapplyAccountErasures(h.appClient, listed, 'TEST', true)
       ).toEqual({
-        requestedUserIds: [restored.userId],
+        requestedUserIds: requested,
         skippedUserIds: skipped,
         failedUserIds: []
       })
+      // Each request keeps its original time, not the re-apply time.
       expect(await state()).toEqual(
         [
-          { id: restored.userId, status: 'DELETION_PENDING', requests: 1 },
-          { id: bystander.userId, status: 'ACTIVE', requests: 0 }
+          {
+            id: restored.userId,
+            status: 'DELETION_PENDING',
+            requestedAt: restoredAt
+          },
+          {
+            id: overdue.userId,
+            status: 'DELETION_PENDING',
+            requestedAt: overdueAt
+          },
+          { id: bystander.userId, status: 'ACTIVE', requestedAt: null }
         ].toSorted((a, b) => (a.id < b.id ? -1 : 1))
       )
-      // The usual 7-day grace applies, and a second run changes nothing.
+      const requestId = async (userId: string) =>
+        (
+          await h.owner.query<{ id: string }>(
+            'SELECT id FROM "SsoAccountErasureRequest" WHERE "userId"=$1',
+            [userId]
+          )
+        ).rows[0]!.id
+      const overdueRequest = await requestId(overdue.userId)
+      // Still in grace: only the original deadline remains for a restore,
+      // and the cleanup does not start yet.
+      const restore = await findRestorableErasure(
+        h.appClient,
+        'google',
+        restored.subject
+      )
+      expect(restore).toMatchObject({ userId: restored.userId })
+      expect(Date.parse(restore!.deletionScheduledAt)).toBeLessThanOrEqual(
+        Date.parse(restoredAt) + 7 * 86_400_000 + 3_600_000
+      )
+      // Past the deadline: the next hourly run erases it with no new grace.
+      await runSsoProviderRevokeBatch(
+        worker,
+        tokenlessSsoProviderRevokeAdapter,
+        'TEST',
+        100,
+        300
+      )
+      const result = await runSsoAccountErasureBatch(worker, 'TEST', 100)
+      expect(result.completedIds).toContain(overdueRequest)
+      expect(result.completedIds).not.toContain(
+        await requestId(restored.userId)
+      )
       expect(
-        await findRestorableErasure(h.appClient, 'google', restored.subject)
-      ).toMatchObject({ userId: restored.userId })
+        (
+          await h.owner.query('SELECT 1 FROM "User" WHERE id=$1', [
+            overdue.userId
+          ])
+        ).rows
+      ).toEqual([])
+      // A second run changes nothing.
       expect(
         (await reapplyAccountErasures(h.appClient, listed, 'TEST', true))
           .requestedUserIds
