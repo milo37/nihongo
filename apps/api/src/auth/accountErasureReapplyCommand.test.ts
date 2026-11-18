@@ -16,7 +16,7 @@ vi.mock('./accountErasureAuthority.js', async (importOriginal) => ({
 }))
 
 import {
-  parseReapplyUserIds,
+  parseReapplyEntries,
   runAccountErasureReapplyCommand
 } from './accountErasureReapplyCommand.js'
 
@@ -30,7 +30,14 @@ const input = (confirm?: string): NodeJS.ProcessEnv => ({
   ACCOUNT_ERASURE_ENVIRONMENT: 'TEST',
   ...(confirm === undefined ? {} : { ACCOUNT_ERASURE_REAPPLY_CONFIRM: confirm })
 })
-const ids = async () => `${first}\n\n ${second} \r\n`
+// Within the 31 days the parser accepts, whatever day the test runs.
+const firstAt = new Date(Date.now() - 2 * 86_400_000).toISOString()
+const secondAt = new Date(Date.now() - 9 * 86_400_000).toISOString()
+const ids = async () => `${first} ${firstAt}\n\n ${second}\t${secondAt} \r\n`
+const entries = [
+  { userId: first, requestedAt: firstAt },
+  { userId: second, requestedAt: secondAt }
+]
 
 let stdout: MockInstance<typeof process.stdout.write>
 let stderr: MockInstance<typeof process.stderr.write>
@@ -56,17 +63,34 @@ const lines = () =>
   stdout.mock.calls.map(([line]) => JSON.parse(String(line)) as object)
 
 describe('#702 account erasure re-apply command', () => {
-  it('reads one id per line and rejects anything else', () => {
-    expect(parseReapplyUserIds(`${first}\n${second}\n`)).toEqual([
-      first,
-      second
+  it('reads one id and its original request time per line and rejects anything else', () => {
+    const now = Date.parse('2026-11-19T00:00:00Z')
+    expect(
+      parseReapplyEntries(
+        `${first} 2026-11-12T03:04:05.678Z\n${second} 2026-10-20T09:00:00+09:00\n`,
+        now
+      )
+    ).toEqual([
+      { userId: first, requestedAt: '2026-11-12T03:04:05.678Z' },
+      { userId: second, requestedAt: '2026-10-20T00:00:00.000Z' }
     ])
-    expect(() => parseReapplyUserIds(`${first}\nnot-an-id\n`)).toThrow()
+    for (const bad of [
+      first,
+      `${first} not-a-time`,
+      `not-an-id 2026-11-12T00:00:00Z`,
+      `${first} 2026-11-12T00:00:00Z extra`,
+      // A future time, and one older than 31 days.
+      `${first} 2026-11-19T00:00:01Z`,
+      `${first} 2026-10-18T23:59:59Z`
+    ])
+      expect(() =>
+        parseReapplyEntries(`${second} 2026-11-12T00:00:00Z\n${bad}\n`, now)
+      ).toThrow()
   })
 
   it('only reports without the confirmation', async () => {
     await expect(runAccountErasureReapplyCommand(input(), ids)).resolves.toBe(0)
-    expect(reapply).toHaveBeenCalledWith({}, [first, second], 'TEST', false)
+    expect(reapply).toHaveBeenCalledWith({}, entries, 'TEST', false)
     expect(database.disconnect).toHaveBeenCalledOnce()
     expect(lines()).toEqual([
       {
@@ -84,12 +108,13 @@ describe('#702 account erasure re-apply command', () => {
     await expect(
       runAccountErasureReapplyCommand(input('REAPPLY_ACCOUNT_ERASURE'), ids)
     ).resolves.toBe(0)
-    expect(reapply).toHaveBeenCalledWith({}, [first, second], 'TEST', true)
+    expect(reapply).toHaveBeenCalledWith({}, entries, 'TEST', true)
     expect(lines()).toEqual([
       {
         event: 'auth.account_erasure.requested',
         userId: first,
-        occurredAt: expect.any(String),
+        // The original time, so a later restore keeps the same deadline.
+        occurredAt: firstAt,
         reason: 'REAPPLY'
       },
       expect.objectContaining({ dryRun: false, requested: 1 })
