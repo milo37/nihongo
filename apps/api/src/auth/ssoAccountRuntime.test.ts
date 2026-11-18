@@ -80,6 +80,7 @@ const fixture = () => {
       { context: SsoAccountContext; callbackURL: string }
     >()
   const controls = {
+    revokeGrant: vi.fn(async () => true),
     wrongIdentity: false,
     stale: false,
     fail: false,
@@ -214,11 +215,18 @@ const fixture = () => {
         ? 'synthetic-other-sub'
         : 'synthetic-linked-sub',
       email: 'contact@example.test',
-      name: '학습자'
+      name: '학습자',
+      revokeGrant: controls.revokeGrant
     })
   })
   const providers = { apple: provider('apple'), google: provider('google') }
-  const runtime = createSsoAccountRuntime({ environment, providers, port })
+  const onGrantRevoke = vi.fn()
+  const runtime = createSsoAccountRuntime({
+    environment,
+    providers,
+    port,
+    onGrantRevoke
+  })
   const signIn = vi.fn(async (): Promise<SsoIdentityResult> => {
     if (controls.restorable) return { kind: 'RESTORE_AVAILABLE', restore }
     if (!controls.allowLogin)
@@ -280,13 +288,14 @@ const fixture = () => {
   const flow = async (
     purpose: AccountSsoPurpose,
     providerId: SsoProviderId = 'google',
-    cookies = sessionCookie
+    cookies = sessionCookie,
+    callbackURL = '/login'
   ) => {
     const start = await gateway.handle(
       request(
         '/api/auth/sign-in/social',
         'POST',
-        { purpose, provider: providerId, callbackURL: '/login' },
+        { purpose, provider: providerId, callbackURL },
         cookies
       )
     )
@@ -321,7 +330,16 @@ const fixture = () => {
         )
     }
   }
-  return { port, controls, gateway, runtime, signIn, request, flow }
+  return {
+    port,
+    controls,
+    gateway,
+    runtime,
+    signIn,
+    request,
+    flow,
+    onGrantRevoke
+  }
 }
 describe('SSO account HTTP runtime without DB or external network', () => {
   it('a new canonical LOGIN clears prior account proofs and deletion receipt', async () => {
@@ -404,6 +422,53 @@ describe('SSO account HTTP runtime without DB or external network', () => {
       )
     ).toBe('LINKED')
     expect(f.signIn).not.toHaveBeenCalled()
+  })
+  describe('JLP-718 grant revoke on deletion re-sign-in', () => {
+    const deletion = '/login?reauth=delete'
+    const reauthenticated = async (
+      f: ReturnType<typeof fixture>,
+      callbackURL: string
+    ) => {
+      const r = await f.flow(
+        'ACCOUNT_FRESH',
+        'google',
+        sessionCookie,
+        callbackURL
+      )
+      expect(f.port.stageProof).toHaveBeenCalledOnce()
+      return new URL(
+        (await r.finish()).headers.get('Location')!
+      ).searchParams.get('ssoAccountFresh')
+    }
+
+    it('revokes the Google grant only for deletion', async () => {
+      const f = fixture()
+      expect(await reauthenticated(f, deletion)).toBe('REAUTHENTICATED')
+      expect(f.controls.revokeGrant).toHaveBeenCalledOnce()
+      expect(f.onGrantRevoke).toHaveBeenCalledWith('google', 'REVOKED')
+      for (const callbackURL of ['/login', '/login?reauth=unlink%3Agoogle']) {
+        const other = fixture()
+        expect(await reauthenticated(other, callbackURL)).toBe(
+          'REAUTHENTICATED'
+        )
+        expect(other.controls.revokeGrant).not.toHaveBeenCalled()
+        expect(other.onGrantRevoke).not.toHaveBeenCalled()
+      }
+    })
+
+    it('a failed revoke is reported and never blocks the deletion', async () => {
+      for (const failure of [
+        async () => false,
+        async () => {
+          throw new Error('network')
+        }
+      ]) {
+        const f = fixture()
+        f.controls.revokeGrant.mockImplementationOnce(failure)
+        expect(await reauthenticated(f, deletion)).toBe('REAUTHENTICATED')
+        expect(f.onGrantRevoke).toHaveBeenCalledWith('google', 'FAILED')
+      }
+    })
   })
   it('wrong provider identity never stages fresh proof', async () => {
     const f = fixture()

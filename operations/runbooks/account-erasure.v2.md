@@ -21,8 +21,11 @@ as `nihongo_app` and runs two phases, after one request step:
    re-apply for these: the next run finds the same members again.
 1. Provider revoke: lease pending provider cleanups, record a durable dispatch
    marker before each provider call, and record completion afterwards. An
-   unknown remote outcome keeps the marker, so lease expiry cannot authorize a
-   duplicate call.
+   unknown remote outcome (a `FAILED` record, or a call whose record write
+   failed) keeps the marker, so lease expiry alone cannot authorize a
+   duplicate call. A day after that lease expired, the next run claims the
+   request again and retries (#700); provider revoke is idempotent, so the
+   repeat is safe. Until then the run exits 1 and the member stays blocked.
 2. App erasure: delete app data in one API transaction only after every
    provider cleanup for the request is complete.
 
@@ -40,9 +43,15 @@ use the provider-first queue.
 - Target proof: `DATABASE_URL` and `PRODUCTION_DATABASE_URL` name the same
   host, port, database and schema.
 - Provider tokens: SSO sign-in stores no provider token, so the default
-  adapter records each provider cleanup as `NOT_HELD` (nothing to revoke) and
-  the request completes. The grant shown in the user's Google account settings
-  stays theirs to remove. Storing tokens later would need a real revoke adapter.
+  adapter answers `NOT_HELD` (nothing to revoke): each provider cleanup is
+  stored as `COMPLETED`, the run counts it under `providers.notHeld`, and the
+  request completes. The Google grant is revoked earlier instead (JLP-718):
+  the re-sign-in a member makes before deleting the account calls Google's
+  revoke endpoint with that sign-in's access token, held in memory only. The
+  API logs `auth.sso.grant_revoke` with `REVOKED` or `FAILED` (no token, account
+  or email); a failure does not block the deletion, and the grant then stays in
+  the member's Google account settings for them to remove. A member who cancels
+  or restores sees Google's consent screen once at the next sign-in.
 
 Exit code 0 means no unfinished provider, app or batch work. Any failed,
 unavailable or truncated work exits 1.

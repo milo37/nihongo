@@ -67,13 +67,13 @@ const NODE_BUILTIN_IMPORTS = new Set([
 ])
 const SERVER_CONTENT_RELATIVE_ROOTS = [
   'content',
-  'apps/api/prisma/seed-data',
+  'apps/api/test/fixtures/seed-questions',
   'apps/api/prisma/seedQuestionCatalog.ts',
   'apps/api/src/content',
   'packages/domain/src/content'
 ]
 const SERVER_SENSITIVE_SEED_RELATIVE_ROOT =
-  'apps/api/prisma/seed-data/questions'
+  'apps/api/test/fixtures/seed-questions/questions'
 const OPERATIONAL_CONTENT_COMMANDS_RELATIVE_ROOT =
   'apps/api/src/content/commands'
 const OPERATIONAL_CONTENT_CLI_RELATIVE_PATH = 'apps/api/src/content/cli.ts'

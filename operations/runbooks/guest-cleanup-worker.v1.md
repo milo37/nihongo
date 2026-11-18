@@ -13,22 +13,8 @@ Rehearsed locally against the host compose file; not yet run on AWS.
    `TEST_GUEST_CLEANUP_WORKER_PASSWORD` and
    `DEVELOPMENT_GUEST_CLEANUP_WORKER_PASSWORD` inputs. It is
    fresh-volume bootstrap, not an existing-volume upgrade.
-2. Apply the `20261105090000_baseline`, `20261106090000_remove_phase_names`,
-   `20261107090000_first_admin_production`,
-   `20261108090000_remove_tag_applicability_and_snapshots`,
-   `20261109090000_add_tag_key_subject_status`,
-   `20261110090000_admin_fresh_window_30_minutes`,
-   `20261111090000_grant_user_target_level_update`,
-   `20261112090000_account_erasure_grace_restore`,
-   `20261113090000_admin_access_log`,
-   `20261114090000_user_last_login`,
-   `20261116090000_tag_label_ja`,
-   `20261117090000_drop_retired_verification`,
-   `20261118090000_retention_cohort`,
-   `20261119090000_signup_consent`,
-   `20261120090000_grant_user_name_update` and
-   `20261121090000_user_study_goal` migrations with the
-   `nihongo_{test,development}_migration_login` wrapper (role
+2. Apply every migration in `apps/api/prisma/migration-manifest.json` (#674)
+   with the `nihongo_{test,development}_migration_login` wrapper (role
    `nihongo_migration`).
 3. Persistent local provisioning grants the guest login CONNECT on its own
    database together with the migration and app logins. The guest TEST shard

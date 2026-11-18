@@ -147,9 +147,36 @@ random UUIDs, not names or emails. A user who asked and then restored within
 the window is only in the restore file, so a restored request is never
 re-applied.
 
-- `erasure-reapply-<stamp>.txt`: re-apply with the #702 command (after the
-  deploy). Until #702 ships, hand the file to the backend owner to re-apply,
-  and tell those users their erasure is being redone.
+- `erasure-reapply-<stamp>.txt`: copy the file to the host and re-apply with
+  the #702 command (`auth:reapply-erasure:compiled`). It reads one user id per
+  line from stdin. Run it once without the confirmation (dry run: it writes
+  nothing and prints how many it would request), then with it:
+
+  ```sh
+  cd /opt/harumaru
+  /opt/harumaru/bin/render-env.sh
+  # PRODUCTION_DATABASE_URL: the one line of /run/harumaru/erase.env, as in
+  # erase-deletion-pending.sh.
+  export PRODUCTION_DATABASE_URL="$(sed -n 's/^PRODUCTION_DATABASE_URL=//p' /run/harumaru/erase.env)"
+  export ACCOUNT_ERASURE_ENVIRONMENT=PRODUCTION
+  docker compose run --rm --no-deps -T \
+    -e ACCOUNT_ERASURE_ENVIRONMENT -e PRODUCTION_DATABASE_URL \
+    api node api/dist/auth/accountErasureReapplyCommand.js < erasure-reapply-<stamp>.txt
+  export ACCOUNT_ERASURE_REAPPLY_CONFIRM=REAPPLY_ACCOUNT_ERASURE
+  docker compose run --rm --no-deps -T \
+    -e ACCOUNT_ERASURE_ENVIRONMENT -e PRODUCTION_DATABASE_URL -e ACCOUNT_ERASURE_REAPPLY_CONFIRM \
+    api node api/dist/auth/accountErasureReapplyCommand.js < erasure-reapply-<stamp>.txt
+  ```
+
+  Each ACTIVE listed user gets the same erasure request as their own (7-day
+  grace from now, then the hourly run erases them) and one
+  `auth.account_erasure.requested` line with `"reason":"REAPPLY"`. Users
+  already pending or erased, unknown ids, users with open admin work and the
+  last ACTIVE ADMIN are listed under `skipped`; a second run requests no one.
+  Exit 1 means a user failed or the input was invalid (any line that is not a
+  user id rejects the whole file). Tell the requested users their erasure is
+  being redone.
+
 - `erasure-restore-<stamp>.txt`: these accounts must not be erased. Pause the
   erasure schedule (`erasure_schedule_enabled = false`) until this is done,
   copy the file to the host and cancel each pending erasure again with the same

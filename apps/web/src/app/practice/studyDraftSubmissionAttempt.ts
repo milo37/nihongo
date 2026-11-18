@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import type { ParsedSubmitStudySessionV2Request } from '@api/study/submitStudySessionV2/schema'
 import {
-  clearSubmissionAttempt,
   readStoredSubmissionAttempt,
   writeStoredSubmissionAttempt
 } from '@nihongo/browser/app/practice/submissionAttemptStorage'
@@ -86,15 +85,4 @@ export const getOrCreateStudyDraftSubmissionAttempt = (
   })
   writeStoredSubmissionAttempt(sessionId, attempt)
   return withoutDraftRevision(attempt)
-}
-
-export const clearInvalidStudyDraftSubmissionAttempt = (
-  sessionId: string
-): void => {
-  if (
-    readStoredSubmissionAttempt(sessionId) !== null &&
-    readStudyDraftSubmissionAttempt(sessionId) === null
-  ) {
-    clearSubmissionAttempt(sessionId)
-  }
 }

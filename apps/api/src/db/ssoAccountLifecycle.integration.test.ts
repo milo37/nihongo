@@ -11,9 +11,11 @@ import {
 import { bridgedQuery } from '../../test/fixtures/db/ownedSessionSql.js'
 import {
   findRestorableErasure,
+  reapplyAccountErasures,
   restoreSsoAccount
 } from '../auth/accountErasureAuthority.js'
 import { createSsoIdentityRepository } from '../auth/ssoIdentityRepository.js'
+import { deleteExpiredSessions } from '../auth/sessionRetention.js'
 import { createSsoDbHarness, digest } from './ssoTestFixture.js'
 import type { SsoFixture } from './ssoTestFixture.js'
 let h: ReturnType<typeof createSsoDbHarness>
@@ -732,6 +734,50 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
           providerCleanup: [{ provider: 'google', status: 'FAILED' }]
         }
       ])
+      // #700: a day after that lease expired, the next run retries it.
+      await h.owner.query(
+        'UPDATE "SsoAccountErasureRequest" SET "leaseExpiresAt"=clock_timestamp()-interval \'1 day\'+interval \'1 minute\' WHERE id=$1',
+        [id]
+      )
+      expect(await claim()).toBeUndefined()
+      await h.owner.query(
+        'UPDATE "SsoAccountErasureRequest" SET "leaseExpiresAt"=clock_timestamp()-interval \'1 day 1 second\' WHERE id=$1',
+        [id]
+      )
+      const retry = (await claim())!
+      expect(retry.providers).toEqual([
+        { provider: 'google', subject: expect.any(String) }
+      ])
+      expect(
+        await worker.beginProviderCleanup(
+          id,
+          'google',
+          retry.leaseToken,
+          'TEST'
+        )
+      ).toBe(true)
+      expect(
+        await worker.recordProviderCleanup(
+          id,
+          'google',
+          'COMPLETED',
+          retry.leaseToken,
+          'TEST'
+        )
+      ).toBe(true)
+      expect(
+        (
+          await h.owner.query(
+            'SELECT "activeProvider","providerCleanup" FROM "SsoAccountErasureRequest" WHERE id=$1',
+            [id]
+          )
+        ).rows
+      ).toEqual([
+        {
+          activeProvider: null,
+          providerCleanup: [{ provider: 'google', status: 'COMPLETED' }]
+        }
+      ])
     })
   })
 
@@ -941,6 +987,108 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
         ).rows
       ).toEqual([{ users: 0, sessions: 0, notes: 0, signIns: 0 }])
       await h.owner.query('SET CONSTRAINTS ALL IMMEDIATE')
+    })
+  })
+  it('#702: re-applies listed erasures after a restore, dry run first', async () => {
+    await h.rollback(async () => {
+      const restored = await h.fixture('google', 'USER')
+      const bystander = await h.fixture('google', 'USER')
+      const pending = await deletionPendingUser()
+      const unknown = randomUUID()
+      const listed = [restored.userId, pending, unknown, restored.userId]
+      const state = async () =>
+        (
+          await h.owner.query<{ id: string; status: string; requests: number }>(
+            `SELECT u.id, u."accountStatus"::text AS status,
+               (SELECT count(*)::int FROM "SsoAccountErasureRequest" r
+                WHERE r."userId" = u.id) AS requests
+             FROM "User" u WHERE u.id = ANY($1::uuid[]) ORDER BY u.id`,
+            [[restored.userId, bystander.userId]]
+          )
+        ).rows
+      const before = await state()
+      const skipped = [pending, unknown].toSorted()
+      // A dry run reports and writes nothing.
+      expect(
+        await reapplyAccountErasures(h.appClient, listed, 'TEST', false)
+      ).toEqual({
+        requestedUserIds: [restored.userId],
+        skippedUserIds: skipped,
+        failedUserIds: []
+      })
+      expect(await state()).toEqual(before)
+      expect(
+        await reapplyAccountErasures(h.appClient, listed, 'TEST', true)
+      ).toEqual({
+        requestedUserIds: [restored.userId],
+        skippedUserIds: skipped,
+        failedUserIds: []
+      })
+      expect(await state()).toEqual(
+        [
+          { id: restored.userId, status: 'DELETION_PENDING', requests: 1 },
+          { id: bystander.userId, status: 'ACTIVE', requests: 0 }
+        ].toSorted((a, b) => (a.id < b.id ? -1 : 1))
+      )
+      // The usual 7-day grace applies, and a second run changes nothing.
+      expect(
+        await findRestorableErasure(h.appClient, 'google', restored.subject)
+      ).toMatchObject({ userId: restored.userId })
+      expect(
+        (await reapplyAccountErasures(h.appClient, listed, 'TEST', true))
+          .requestedUserIds
+      ).toEqual([])
+    })
+  })
+  it('#695: deletes expired sign-in sessions only, dry run first', async () => {
+    await h.rollback(async () => {
+      const expired = await h.fixture('google', 'USER')
+      const live = await h.fixture('google', 'USER')
+      await h.fixtureMutation(
+        `UPDATE "Session"
+         SET "createdAt" = clock_timestamp() - interval '8 days',
+           "updatedAt" = clock_timestamp() - interval '8 days',
+           "expiresAt" = clock_timestamp() - interval '1 day'
+         WHERE "userId" = $1`,
+        [expired.userId]
+      )
+      const sessions = async () =>
+        (
+          await h.owner.query<{ userId: string; count: number }>(
+            `SELECT "userId", count(*)::int AS count FROM "Session"
+             WHERE "userId" = ANY($1::uuid[]) GROUP BY "userId" ORDER BY "userId"`,
+            [[expired.userId, live.userId]]
+          )
+        ).rows
+      const before = await sessions()
+      expect(before).toHaveLength(2)
+      const dryRun = await deleteExpiredSessions(h.appClient, {
+        batchSize: 5_000,
+        dryRun: true
+      })
+      expect(dryRun).toMatchObject({ deletedCount: 0, hasMore: true })
+      expect(dryRun.eligibleCount).toBeGreaterThanOrEqual(1)
+      expect(await sessions()).toEqual(before)
+      // nihongo_app deletes them in batches until none is left.
+      let result = await deleteExpiredSessions(h.appClient, {
+        batchSize: 1,
+        dryRun: false
+      })
+      expect(result.deletedCount).toBe(1)
+      while (result.hasMore)
+        result = await deleteExpiredSessions(h.appClient, {
+          batchSize: 5_000,
+          dryRun: false
+        })
+      expect(await sessions()).toEqual(
+        before.filter((row) => row.userId === live.userId)
+      )
+      expect(
+        await deleteExpiredSessions(h.appClient, {
+          batchSize: 5_000,
+          dryRun: false
+        })
+      ).toEqual({ eligibleCount: 0, deletedCount: 0, hasMore: false })
     })
   })
   it('JLP-845: a request waits 7 days, and a restore cancels it and keeps learning', async () => {

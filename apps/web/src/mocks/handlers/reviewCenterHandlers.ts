@@ -68,10 +68,6 @@ class ReviewCenterRateLimitError extends MockHttpError {
 const reviewCenterRateBuckets = new Map<string, ReviewCenterRateBucket>()
 let shouldDropNextTargetedReviewResponse = false
 
-export const armNextTargetedReviewResponseLossForTesting = (): void => {
-  shouldDropNextTargetedReviewResponse = true
-}
-
 const consumeReviewCenterRateLimit = (
   operation: string,
   maximum: number

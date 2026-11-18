@@ -1,5 +1,6 @@
 import { readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { describe, expect, it, vi } from 'vitest'
+import { PINNED_MIGRATIONS } from '../db/migrationManifest.js'
 import { loadExpectedMigrationManifest } from '../db/readiness.js'
 import {
   EnvironmentValidationError,
@@ -80,7 +81,7 @@ describe('SSO bootstrap migration history', () => {
       migration_name: name,
       checksum
     }))
-    expect(expected).toHaveLength(16)
+    expect(expected).toEqual(PINNED_MIGRATIONS)
     expect(() =>
       assertSsoBootstrapMigrationHistory(expected, applied)
     ).not.toThrow()
@@ -1287,7 +1288,7 @@ describe('fixed account lifecycle TEST slice', () => {
     expect(clean).not.toHaveProperty('BETTER_AUTH_SECRET')
   })
 
-  const report = (count = 14) => ({
+  const report = (count = 16) => ({
     numTotalTests: count,
     numPassedTests: count,
     numFailedTests: 0,
@@ -1296,7 +1297,7 @@ describe('fixed account lifecycle TEST slice', () => {
     testResults: [{ name: ssoAccountLifecycleTestFile }]
   })
   it('rejects partial success and extra cases rather than accepting a non-empty file', () => {
-    for (const count of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15])
+    for (const count of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 17])
       expect(() =>
         assertApiIntegrationVitestFileResult({
           result: report(count),
@@ -1333,7 +1334,7 @@ describe('fixed account lifecycle TEST slice', () => {
         await writeFile(rawPath, JSON.stringify(report()))
       }
     })
-    expect(count).toBe(14)
+    expect(count).toBe(16)
     await expect(stat(rawPath)).rejects.toThrow()
   })
   it('retains only a wholly safe original first error line', () => {
