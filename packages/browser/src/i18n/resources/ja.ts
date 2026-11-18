@@ -1102,9 +1102,7 @@ export const jaCoreResources = {
       label: '学習の目標',
       set: '目標 {{level}}・1日{{count}}問・今日 {{today}}',
       unset: '1日に解く問題数を決めると、今日解いた数を数えます。',
-      action: '目標を決める',
-      stamps: '集めたスタンプ',
-      stampCount: '{{count}}個'
+      action: '目標を決める'
     },
     // #1090: the target level row joined the study goal row; the nickname
     // row still borrows these two.

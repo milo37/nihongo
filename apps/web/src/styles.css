@@ -840,24 +840,6 @@ body [lang='ja'][data-ja-spaced],
     max-width: 24rem;
   }
 }
-/* #1094 m1/03: under the goal box, its text aligned with the box's text. */
-.stamp-count-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 44px;
-  padding: 0 14px;
-  color: rgb(var(--color-ink));
-  font-size: 16px;
-}
-.stamp-count-row b {
-  font-weight: 700;
-}
-@media (min-width: 761px) {
-  .stamp-count-row {
-    max-width: 24rem;
-  }
-}
 /* #1090 r7/04: right under the score's info line, grey; ink once today's
    goal is met. The sheet and buttons move down 20px only. */
 .result-daily-goal {

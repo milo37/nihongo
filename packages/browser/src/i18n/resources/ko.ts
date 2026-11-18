@@ -1049,9 +1049,7 @@ export const koCoreResources = {
       label: '학습 목표',
       set: '목표 {{level}} · 하루 {{count}}문제 · 오늘 {{today}}',
       unset: '하루에 풀 문제 수를 정하면 오늘 푼 수를 세어 드려요.',
-      action: '목표 정하기',
-      stamps: '모은 도장',
-      stampCount: '{{count}}개'
+      action: '목표 정하기'
     },
     // #1090: the target level row joined the study goal row; the nickname
     // row still borrows these two.

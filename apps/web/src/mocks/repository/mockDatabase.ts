@@ -162,7 +162,7 @@ export type MockStudyGoalState = MockStudyGoal & {
   targetLevel: JlptLevel | null
   onboardingRequired: boolean
   todayAnsweredCount: number
-  stampCount: number
+  monthStampDates: string[]
 }
 const MOCK_STUDY_GOAL_SKIPPED_AT = '2026-11-01T00:00:00.000Z'
 
@@ -1168,7 +1168,9 @@ export class MockDatabase {
       ...goal,
       onboardingRequired: goal.goalSetAt === null && goal.skippedAt === null,
       todayAnsweredCount,
-      stampCount: this.stampDaysByUserId.get(userId)?.length ?? 0
+      monthStampDates: (this.stampDaysByUserId.get(userId) ?? [])
+        .filter((day) => day.slice(0, 7) === today.slice(0, 7))
+        .sort()
     }
   }
 

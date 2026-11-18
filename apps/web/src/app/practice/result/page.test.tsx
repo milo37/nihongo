@@ -819,7 +819,9 @@ describe('approved general result navigation', () => {
       earned.push(submitted.data.stampEarned)
     }
     expect(earned).toEqual([false, false, false, true, false])
-    expect(mockDatabase.getStudyGoal(userId).stampCount).toBe(1)
+    expect(mockDatabase.getStudyGoal(userId).monthStampDates).toEqual([
+      new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
+    ])
   })
 
   it('하루 목표가 없는 회원과 비회원에게는 오늘 푼 수 줄이 없다 (#1090)', async () => {

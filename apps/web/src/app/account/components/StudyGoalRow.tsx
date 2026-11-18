@@ -42,13 +42,6 @@ export const StudyGoalRow = ({ userId }: { userId: string }): ReactElement => {
           </Link>
         </>
       )}
-      {/* #1094 M-2: one plain line under the goal, never a link. */}
-      {goal === null ? null : (
-        <p className="stamp-count-row">
-          <span>{t('studyGoal.stamps')}</span>{' '}
-          <b>{t('studyGoal.stampCount', { count: goal.stampCount })}</b>
-        </p>
-      )}
     </section>
   )
 }
