@@ -6,7 +6,8 @@ import { koAdminReauthResources } from './ko-admin-reauth'
 export const koAdminLearnerResources = {
   name: '관리자',
   reauth: koAdminReauthResources,
-  common: koAdminCommonResources,
+  // #685: the learner app shows only this one; the admin app adds the rest.
+  common: { retryAfter: koAdminCommonResources.retryAfter },
   errors: koAdminErrorsResources,
   questionReportDialog: {
     trigger: '문제 신고',
