@@ -73,16 +73,35 @@ export interface SsoAccountRuntime {
   ) => Promise<Response>
 }
 const TOKEN = /^[A-Za-z0-9_-]{43}$/u
+/** The account page starts deletion's re-sign-in with `/login?reauth=delete`. */
+const isDeletionReturn = (callbackURL: string): boolean => {
+  try {
+    return (
+      new URL(callbackURL, 'http://local.invalid').searchParams.get(
+        'reauth'
+      ) === 'delete'
+    )
+  } catch {
+    return false
+  }
+}
+
 export const createSsoAccountRuntime = ({
   environment,
   providers,
   port,
-  now = Date.now
+  now = Date.now,
+  onGrantRevoke
 }: {
   environment: ApiEnvironment
   providers: Partial<Record<SsoProviderId, SsoProvider>>
   port: SsoAccountPort
   now?: () => number
+  /** JLP-718: the outcome only, never the token or the account. */
+  onGrantRevoke?: (
+    provider: SsoProviderId,
+    outcome: 'REVOKED' | 'FAILED' | 'UNSUPPORTED'
+  ) => void
 }): SsoAccountRuntime => {
   const production = environment.NODE_ENV === 'production'
   const secure =
@@ -287,6 +306,26 @@ export const createSsoAccountRuntime = ({
           ))
         )
           return outcome(purpose, 'FAILED', verified.callbackURL, [clear])
+        // JLP-718: the re-sign-in before account deletion also revokes the
+        // provider grant, with this exchange's token and nothing stored. A
+        // failure is only reported; it never blocks the deletion.
+        if (
+          purpose === 'ACCOUNT_FRESH' &&
+          isDeletionReturn(verified.callbackURL)
+        ) {
+          const revokeGrant = verified.identity.revokeGrant
+          const revoked = revokeGrant
+            ? await revokeGrant().catch(() => false)
+            : undefined
+          onGrantRevoke?.(
+            verified.identity.provider,
+            revoked === undefined
+              ? 'UNSUPPORTED'
+              : revoked
+                ? 'REVOKED'
+                : 'FAILED'
+          )
+        }
         const kind = purpose === 'ACCOUNT_FRESH' ? 'fresh' : 'link'
         const headers = new Headers({
           Location: new URL(

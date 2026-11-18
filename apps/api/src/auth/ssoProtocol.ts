@@ -10,6 +10,11 @@ export interface SsoVerifiedIdentity {
   readonly accountId: string
   readonly email: string
   readonly name: string
+  /**
+   * JLP-718: revokes the app's grant at the provider with the token of this
+   * exchange, held only in memory. Undefined when the provider cannot.
+   */
+  readonly revokeGrant?: () => Promise<boolean>
 }
 
 export interface SsoTransaction {

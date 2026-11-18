@@ -10,11 +10,39 @@ const profileSchema = z.object({
 })
 const subjectSchema = z.string().min(1).max(255)
 
+const GOOGLE_REVOKE_URL = 'https://oauth2.googleapis.com/revoke'
+const GOOGLE_REVOKE_TIMEOUT_MS = 5_000
+
+/**
+ * JLP-718: Google revokes the whole grant for any of its tokens. An already
+ * revoked or expired token answers 400 invalid_token, which is the same end.
+ */
+export const revokeGoogleToken = async (
+  token: string,
+  fetchImpl: typeof fetch = fetch
+): Promise<boolean> => {
+  const response = await fetchImpl(GOOGLE_REVOKE_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ token }),
+    signal: AbortSignal.timeout(GOOGLE_REVOKE_TIMEOUT_MS)
+  })
+  if (response.ok) return true
+  const body: unknown = await response.json().catch(() => null)
+  return (
+    response.status === 400 &&
+    typeof body === 'object' &&
+    body !== null &&
+    (body as { error?: unknown }).error === 'invalid_token'
+  )
+}
+
 /** The Google-first implementation baseline is not a user-selected provider. */
 export const createGoogleSsoProvider = (input: {
   clientId: string
   clientSecret: string
   callbackURL: string
+  fetch?: typeof fetch
 }): SsoProvider => {
   const callback = new URL(input.callbackURL)
   if (
@@ -69,11 +97,15 @@ export const createGoogleSsoProvider = (input: {
       const parsed = profileSchema.safeParse(info?.user)
       const subject = subjectSchema.safeParse(info?.data?.sub)
       if (!parsed.success || !subject.success) return null
+      const accessToken = tokens.accessToken
       return {
         provider: 'google',
         accountId: subject.data,
         email: parsed.data.email.toLowerCase(),
-        name: parsed.data.name
+        name: parsed.data.name,
+        ...(accessToken
+          ? { revokeGrant: () => revokeGoogleToken(accessToken, input.fetch) }
+          : {})
       }
     }
   }
