@@ -106,11 +106,11 @@ resource "aws_iam_role_policy" "github_deploy" {
   policy = data.aws_iam_policy_document.github_deploy.json
 }
 
-# PRODUCTION only (#40): the same role pushes the Caddy image. A separate policy
+# PRODUCTION only (#40, #1011): the same role pushes the Caddy image. A separate policy
 # so the first apply can create the repository and this permission alone
 # (-target, README) before the host needs the image digest.
 data "aws_iam_policy_document" "github_caddy_push" {
-  count = local.origin_tls ? 1 : 0
+  count = local.create_caddy_repository ? 1 : 0
 
   # Repeated from the deploy policy: on the first apply (-target) that policy
   # does not exist yet, and docker login needs this before any push.
@@ -136,7 +136,7 @@ data "aws_iam_policy_document" "github_caddy_push" {
 }
 
 resource "aws_iam_role_policy" "github_caddy_push" {
-  count  = local.origin_tls ? 1 : 0
+  count  = local.create_caddy_repository ? 1 : 0
   name   = "caddy-push"
   role   = aws_iam_role.github_deploy.id
   policy = data.aws_iam_policy_document.github_caddy_push[0].json
