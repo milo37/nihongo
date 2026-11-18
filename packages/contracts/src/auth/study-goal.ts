@@ -38,8 +38,9 @@ export const studyGoalResponseSchema = z
     // Answers in sets submitted today (Asia/Seoul day), every level,
     // subject and mode; abandoned sets and the daily question do not count.
     todayAnsweredCount: z.number().int().nonnegative(),
-    // #1094: stamps collected so far (the "StampLedger" sum); 0 when none.
-    stampCount: z.number().int().nonnegative()
+    // #1094: days of this Asia/Seoul month with an attendance stamp,
+    // ascending YYYY-MM-DD; empty when none.
+    monthStampDates: z.array(z.iso.date()).max(31)
   })
   .strict()
 
