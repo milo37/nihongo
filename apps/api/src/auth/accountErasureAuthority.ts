@@ -548,13 +548,9 @@ export const listSsoAccountErasures = async (
  * member's own request: no open admin work and never the last ACTIVE ADMIN.
  * A skipped member stays out of the search, so it never fills the batch.
  */
-const INACTIVE_ERASURE_CANDIDATE = `u."accountStatus" = 'ACTIVE'
+/** An ACTIVE member without open admin work who is not the last ACTIVE ADMIN. */
+const ERASABLE_ACTIVE_MEMBER = `u."accountStatus" = 'ACTIVE'
   AND u."deletedAt" IS NULL
-  AND COALESCE(
-    (SELECT sign_in."lastLoginAt" FROM "UserSignIn" AS sign_in
-     WHERE sign_in."userId" = u."id"),
-    u."createdAt"
-  ) <= clock_timestamp() - ${INACTIVE_ERASURE_AFTER}
   AND NOT EXISTS (
     SELECT 1 FROM "QuestionVersion" AS version
     WHERE version."createdByActorId" = u."id"
@@ -566,11 +562,75 @@ const INACTIVE_ERASURE_CANDIDATE = `u."accountStatus" = 'ACTIVE'
       AND other."id" <> u."id"
   ))`
 
+const INACTIVE_ERASURE_CANDIDATE = `${ERASABLE_ACTIVE_MEMBER}
+  AND COALESCE(
+    (SELECT sign_in."lastLoginAt" FROM "UserSignIn" AS sign_in
+     WHERE sign_in."userId" = u."id"),
+    u."createdAt"
+  ) <= clock_timestamp() - ${INACTIVE_ERASURE_AFTER}`
+
 export interface InactiveErasureRunResult {
   requestedUserIds: string[]
   failedUserIds: string[]
   limitReached: boolean
 }
+
+/**
+ * Records one member's erasure request, as requestSsoAccountErasure does for
+ * the member's own request, in its own transaction. Nobody holds the receipt.
+ * false: no longer a candidate; null: the transaction failed.
+ */
+const requestErasureOf = async (
+  client: Pick<PrismaClient, '$transaction'>,
+  id: string,
+  candidate: string
+): Promise<boolean | null> =>
+  client
+    .$transaction(async (transaction) => {
+      await transaction.$queryRawUnsafe(
+        `SELECT "require_runtime_ready"() AS ready`
+      )
+      // The lock order of a member's own request: ACTIVE ADMINs, the User,
+      // then its Accounts.
+      await transaction.$queryRawUnsafe(
+        `SELECT 1 FROM "User"
+           WHERE "role" = 'ADMIN' AND "accountStatus" = 'ACTIVE'
+           ORDER BY "id" FOR UPDATE`
+      )
+      const still = await transaction.$queryRawUnsafe<unknown[]>(
+        `SELECT 1 FROM "User" AS u
+           WHERE u."id" = $1::uuid AND ${candidate}
+           FOR UPDATE OF u`,
+        id
+      )
+      if (still.length === 0) return false
+      await transaction.$queryRawUnsafe(
+        `SELECT 1 FROM "Account" WHERE "userId" = $1::uuid ORDER BY "id" FOR UPDATE`,
+        id
+      )
+      await transaction.$executeRawUnsafe(
+        `INSERT INTO "SsoAccountErasureRequest" (
+             "userId", "receiptDigest", "providerCleanup", "receiptExpiresAt"
+           ) VALUES ($1::uuid, $2, '[]'::jsonb, clock_timestamp())`,
+        id,
+        createHash('sha256').update(randomBytes(32)).digest('hex')
+      )
+      await transaction.$executeRawUnsafe(
+        `UPDATE "User" SET "accountStatus" = 'DELETION_PENDING'
+           WHERE "id" = $1::uuid`,
+        id
+      )
+      await transaction.$executeRawUnsafe(
+        `DELETE FROM "SsoAccountFreshProof" WHERE "userId" = $1::uuid`,
+        id
+      )
+      await transaction.$executeRawUnsafe(
+        `DELETE FROM "SsoAccountFreshTransaction" WHERE "userId" = $1::uuid`,
+        id
+      )
+      return true
+    })
+    .catch(() => null)
 
 /**
  * JLP-852: records the erasure request of each member past a year without
@@ -598,54 +658,65 @@ export const requestInactiveAccountErasures = async (
     limitReached: candidates.length >= batchLimit
   }
   for (const { id } of candidates) {
-    const requested = await client
-      .$transaction(async (transaction) => {
-        await transaction.$queryRawUnsafe(
-          `SELECT "require_runtime_ready"() AS ready`
-        )
-        // The lock order of a member's own request: ACTIVE ADMINs, the User,
-        // then its Accounts.
-        await transaction.$queryRawUnsafe(
-          `SELECT 1 FROM "User"
-           WHERE "role" = 'ADMIN' AND "accountStatus" = 'ACTIVE'
-           ORDER BY "id" FOR UPDATE`
-        )
-        const still = await transaction.$queryRawUnsafe<unknown[]>(
-          `SELECT 1 FROM "User" AS u
-           WHERE u."id" = $1::uuid AND ${INACTIVE_ERASURE_CANDIDATE}
-           FOR UPDATE OF u`,
-          id
-        )
-        if (still.length === 0) return false
-        await transaction.$queryRawUnsafe(
-          `SELECT 1 FROM "Account" WHERE "userId" = $1::uuid ORDER BY "id" FOR UPDATE`,
-          id
-        )
-        await transaction.$executeRawUnsafe(
-          `INSERT INTO "SsoAccountErasureRequest" (
-             "userId", "receiptDigest", "providerCleanup", "receiptExpiresAt"
-           ) VALUES ($1::uuid, $2, '[]'::jsonb, clock_timestamp())`,
-          id,
-          createHash('sha256').update(randomBytes(32)).digest('hex')
-        )
-        await transaction.$executeRawUnsafe(
-          `UPDATE "User" SET "accountStatus" = 'DELETION_PENDING'
-           WHERE "id" = $1::uuid`,
-          id
-        )
-        await transaction.$executeRawUnsafe(
-          `DELETE FROM "SsoAccountFreshProof" WHERE "userId" = $1::uuid`,
-          id
-        )
-        await transaction.$executeRawUnsafe(
-          `DELETE FROM "SsoAccountFreshTransaction" WHERE "userId" = $1::uuid`,
-          id
-        )
-        return true
-      })
-      .catch(() => null)
+    const requested = await requestErasureOf(
+      client,
+      id,
+      INACTIVE_ERASURE_CANDIDATE
+    )
     if (requested === true) result.requestedUserIds.push(id)
     else if (requested === null) result.failedUserIds.push(id)
+  }
+  return result
+}
+
+export interface ReapplyErasureResult {
+  /** Erasure requested again (or, in a dry run, would be). */
+  requestedUserIds: string[]
+  /** Not an erasable ACTIVE member: already pending or erased, unknown, open admin work or the last ACTIVE ADMIN. */
+  skippedUserIds: string[]
+  failedUserIds: string[]
+}
+
+export const REAPPLY_ERASURE_MAX_USERS = 1000
+
+/**
+ * #702: after a restore from a dump, records again the erasure request of
+ * each listed member who asked for erasure after the dump and is ACTIVE
+ * again (operations/runbooks/recovery.v1.md). A dry run only reports.
+ */
+export const reapplyAccountErasures = async (
+  client: Queryable & Pick<PrismaClient, '$transaction'>,
+  userIds: readonly string[],
+  environment: ErasureEnvironment,
+  apply: boolean
+): Promise<ReapplyErasureResult> => {
+  await requireCapability(client, environment)
+  if (userIds.length > REAPPLY_ERASURE_MAX_USERS)
+    await raise(client, '22023', 'Too many users to re-apply.')
+  const unique = [...new Set(userIds)].sort()
+  const candidates = new Set(
+    (
+      await client.$queryRawUnsafe<Array<{ id: string }>>(
+        `SELECT u."id"::text AS "id" FROM "User" AS u
+         WHERE u."id" = ANY($1::uuid[]) AND ${ERASABLE_ACTIVE_MEMBER}`,
+        unique
+      )
+    ).map(({ id }) => id)
+  )
+  const result: ReapplyErasureResult = {
+    requestedUserIds: [],
+    skippedUserIds: [],
+    failedUserIds: []
+  }
+  for (const id of unique) {
+    const requested = !candidates.has(id)
+      ? false
+      : apply
+        ? await requestErasureOf(client, id, ERASABLE_ACTIVE_MEMBER)
+        : true
+    if (requested === true) result.requestedUserIds.push(id)
+    else if (requested === false) result.skippedUserIds.push(id)
+    else result.failedUserIds.push(id)
   }
   return result
 }
