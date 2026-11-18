@@ -12,6 +12,7 @@ type OperationalLogEvent =
   | 'auth.reauthentication.maintenance_failed'
   | 'auth.account_erasure.requested'
   | 'auth.account_erasure.cancelled'
+  | 'auth.sso.grant_revoke'
   | 'client.error.reported'
   | 'study.member_daily_volume_high'
 
@@ -100,6 +101,14 @@ const contextSchemaByEvent = {
   // a User whose latest event is this one.
   'auth.account_erasure.cancelled': z
     .object({ userId: z.uuid(), occurredAt: z.iso.datetime() })
+    .strict(),
+  // JLP-718: the provider grant revoke on deletion's re-sign-in. Outcome
+  // only: no token, account or email.
+  'auth.sso.grant_revoke': z
+    .object({
+      provider: z.enum(['apple', 'google']),
+      outcome: z.enum(['REVOKED', 'FAILED', 'UNSUPPORTED'])
+    })
     .strict(),
   // JLP-762: a screen error the browser reported. The line's own environment
   // and release are the API's; the screen's release is clientReleaseId.
