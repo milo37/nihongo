@@ -112,6 +112,7 @@ export const koCoreResources = {
       home: '홈',
       login: '로그인',
       signupConsent: '가입 확인',
+      onboarding: '학습 목표',
       dashboard: '홈',
       practiceSetup: '학습',
       practiceSession: '문제 풀기',
@@ -415,6 +416,23 @@ export const koCoreResources = {
       cancel: '취소',
       expired: '시간이 지났어요. 다시 로그인해 주세요.',
       cancelled: '가입하지 않았어요. 로그인 없이 계속 풀 수 있어요.'
+    },
+    // #1090 '학습 목표' page (scenario O-5, O-r7).
+    studyGoal: {
+      // Two lines as drawn (r11); the page keeps the line break.
+      title: '공부 목표를\n정해 볼까요?',
+      hint: '나중에 마이에서 바꿀 수 있어요.',
+      level: '목표 급수',
+      daily: '하루 목표',
+      unit: '문제',
+      count: '{{count}}문제',
+      decrease: '10문제 줄이기',
+      increase: '10문제 늘리기',
+      start: '시작하기',
+      later: '나중에 할게요',
+      save: '저장',
+      cancel: '취소',
+      failed: '저장하지 못했어요. 다시 눌러 주세요.'
     },
     nickname: {
       label: '닉네임',
@@ -721,6 +739,11 @@ export const koCoreResources = {
     }
   },
   result: {
+    // #1090 O-r7: members with a daily goal, under the score.
+    dailyGoal: {
+      progress: '오늘 {{today}} / {{goal}}문제',
+      done: '오늘 목표 {{goal}}문제를 채웠어요'
+    },
     retired: {
       title: '이 결과는 더 볼 수 없어요',
       description: '새로 풀어 보세요.'
@@ -1020,12 +1043,17 @@ export const koCoreResources = {
     }
   },
   account: {
+    // #1090 O-r7: the one '학습 목표' row (the target level row joined it).
+    studyGoal: {
+      label: '학습 목표',
+      set: '목표 {{level}} · 하루 {{count}}문제 · 오늘 {{today}}',
+      unset: '하루에 풀 문제 수를 정하면 오늘 푼 수를 세어 드려요.',
+      action: '목표 정하기'
+    },
+    // #1090: the target level row joined the study goal row; the nickname
+    // row still borrows these two.
     targetLevel: {
-      label: '목표 급수',
-      hint: "홈의 '오늘의 한 문제'와 연습을 이 급수로 시작해요.",
-      unset: '정하지 않음',
       saveAction: '저장',
-      saved: '목표 급수를 바꿨어요. 이제 {{level}} 문제로 시작해요.',
       error: '저장하지 못했어요. 잠시 뒤 다시 저장해 주세요.'
     },
     title: '마이페이지',

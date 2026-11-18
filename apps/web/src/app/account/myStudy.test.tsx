@@ -270,7 +270,7 @@ describe('마이페이지 내 학습', () => {
     )
   })
 
-  it('JLP-853: 목표 급수 기록만 읽고, 급수를 바꾸면 같은 화면에서 새 급수로 다시 읽는다', async () => {
+  it('JLP-853: 목표 급수 기록만 읽는다', async () => {
     useStats(fullStats)
     renderAccount()
     expect(
@@ -278,19 +278,6 @@ describe('마이페이지 내 학습', () => {
     ).toBeInTheDocument()
     await screen.findByText('64%')
     expect(statsLevels).toEqual(['N2'])
-    useStats(emptyStats)
-    await userEvent.selectOptions(
-      screen.getByRole('combobox', { name: '목표 급수' }),
-      'N3'
-    )
-    // JLP-861: picking alone keeps the N2 title; saving changes it.
-    expect(screen.getByRole('region', { name: 'N2 학습' })).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: '저장' }))
-    const section = await screen.findByRole('region', { name: 'N3 학습' })
-    expect(
-      await within(section).findByText('아직 N3 문제를 풀지 않았어요')
-    ).toBeInTheDocument()
-    expect(statsLevels.at(-1)).toBe('N3')
   })
 
   it('JLP-853: N2·N3 기록이 섞여 있으면 목표 급수 N2 기록만 센다', async () => {

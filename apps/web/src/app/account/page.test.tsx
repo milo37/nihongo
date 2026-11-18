@@ -1,6 +1,5 @@
 import { accountMutationRequest } from '@app/account/accountFlowErrors'
 import { commitCanonicalAuth } from '@nihongo/browser/app/login/authSession'
-import { authQueries } from '@nihongo/browser/app/login/queries/authQueries'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import { Suspense } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
@@ -15,7 +14,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
-import { getResponse, http, HttpResponse } from 'msw'
+import { http, HttpResponse } from 'msw'
 import { apiClient } from '@nihongo/browser/api/config'
 import { startAccountSso } from '@api/auth/startAccountSso'
 import { accountRoutes } from '@app/account/router'
@@ -26,12 +25,8 @@ import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { AuthErrorHandlerProvider } from '@nihongo/browser/provider/AuthErrorHandlerProvider'
 import { ProtectedRouteProvider } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
-import {
-  TOAST_ANNOUNCER_ID,
-  ToastProvider
-} from '@nihongo/browser/common/components/Toast'
+import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { useAppStore } from '@nihongo/browser/store/index'
-import { handlers } from '@mocks/handlers'
 import { mockServer } from '@/test/server'
 
 const renderAccount = (entry = '/account') => {
@@ -194,62 +189,27 @@ describe('마이페이지 계정 설정', () => {
     expect(await screen.findByText('Google')).toBeInTheDocument()
   })
 
-  it('목표 급수는 고르기만 하면 요청이 없고, 저장 1번에 PUT 한 번 뒤 /me를 다시 읽는다 (JLP-861)', async () => {
+  it('학습 목표를 안 정했으면 회색 안내와 [목표 정하기 ›] 링크만 보인다 (#1090)', async () => {
     mockDatabase.loginAs('USER')
-    const requests: string[] = []
-    const record = ({ request }: { request: Request }) => {
-      const { pathname } = new URL(request.url)
-      if (pathname.endsWith('/v1/me') || pathname.endsWith('/me/target-level'))
-        requests.push(`${request.method} ${pathname}`)
-    }
-    mockServer.events.on('request:start', record)
-    try {
-      renderAccount()
-      const select = await screen.findByRole('combobox', {
-        name: '목표 급수'
-      })
-      expect(select).toHaveValue('N2')
-      const save = screen.getByRole('button', { name: '저장' })
-      // The saved level is already chosen, so there is nothing to save.
-      expect(save).toBeDisabled()
-      requests.length = 0
-      await userEvent.selectOptions(select, 'N1')
-      await userEvent.selectOptions(select, 'N3')
-      expect(select).toHaveValue('N3')
-      expect(save).toBeEnabled()
-      expect(requests).toEqual([])
-      await userEvent.click(save)
-      await waitFor(() =>
-        expect(useAppStore.getState().currentUser?.targetLevel).toBe('N3')
-      )
-      // The canonical refresh drops the cached /me, so the mounted auth
-      // observer may read it once more; every read comes after the PUT.
-      expect(requests[0]).toBe('PUT /api/v1/me/target-level')
-      expect(requests.slice(1)).toContain('GET /api/v1/me')
-      expect(
-        requests.slice(1).every((entry) => entry === 'GET /api/v1/me')
-      ).toBe(true)
-      expect(requests.filter((entry) => entry.startsWith('PUT'))).toHaveLength(
-        1
-      )
-      expect(select).toHaveValue('N3')
-      expect(select).toBeEnabled()
-      expect(save).toBeDisabled()
-      // JLP-861: the result is a toast, read out by the toast live region.
-      expect(
-        await screen.findByText(
-          '목표 급수를 바꿨어요. 이제 N3 문제로 시작해요.'
-        )
-      ).toBeVisible()
-      expect(document.getElementById(TOAST_ANNOUNCER_ID)).toHaveTextContent(
-        '목표 급수를 바꿨어요. 이제 N3 문제로 시작해요.'
-      )
-      expect(
-        screen.getByText("홈의 '오늘의 한 문제'와 연습을 이 급수로 시작해요.")
-      ).toBeVisible()
-    } finally {
-      mockServer.events.removeListener('request:start', record)
-    }
+    renderAccount()
+    const link = await screen.findByRole('link', { name: '목표 정하기' })
+    expect(link).toHaveAttribute('href', '/onboarding?redirect=%2Faccount')
+    expect(
+      screen.getByText('하루에 풀 문제 수를 정하면 오늘 푼 수를 세어 드려요.')
+    ).toBeVisible()
+    expect(
+      screen.queryByRole('combobox', { name: '목표 급수' })
+    ).not.toBeInTheDocument()
+  })
+
+  it('학습 목표를 정했으면 급수·하루 목표·오늘 푼 수를 한 줄로 보인다 (#1090)', async () => {
+    const member = mockDatabase.loginAs('USER')
+    mockDatabase.setStudyGoal(member.id, 'N3', 30)
+    renderAccount()
+    const link = await screen.findByRole('link', {
+      name: '목표 N3 · 하루 30문제 · 오늘 0'
+    })
+    expect(link).toHaveAttribute('href', '/onboarding?redirect=%2Faccount')
   })
 
   it('닉네임은 [바꾸기]로 같은 자리에서 고치고, 저장하면 이름과 첫 글자가 바뀐다 (#1096)', async () => {
@@ -311,74 +271,6 @@ describe('마이페이지 계정 설정', () => {
       screen.getByRole('heading', { level: 1, name: '데모 학습자' })
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '바꾸기' })).toHaveFocus()
-  })
-
-  it('목표 급수 저장 뒤 /me를 다시 읽는 사이 로그아웃되면 이전 사용자를 되살리지 않는다', async () => {
-    mockDatabase.loginAs('USER')
-    let armed = false
-    let loggedOut = false
-    mockServer.use(
-      http.put('*/api/v1/me/target-level', () => {
-        armed = true
-      }),
-      http.get('*/api/v1/me', async ({ request }) => {
-        if (!armed) return
-        armed = false
-        // This read answers with the old user, but a logout is confirmed
-        // while it is in flight.
-        const stale = await getResponse(handlers, request)
-        mockDatabase.logout()
-        await commitCanonicalAuth(queryClient, null, {
-          forceClear: true,
-          forcePracticeReset: true
-        })
-        loggedOut = true
-        return stale
-      })
-    )
-    renderAccount()
-    const select = await screen.findByRole('combobox', { name: '목표 급수' })
-    await userEvent.selectOptions(select, 'N3')
-    await userEvent.click(screen.getByRole('button', { name: '저장' }))
-    await waitFor(() => expect(loggedOut).toBe(true))
-    await waitFor(() => expect(queryClient.isMutating()).toBe(0))
-    expect(useAppStore.getState().currentUser).toBeNull()
-    expect(
-      queryClient.getQueryData(authQueries.currentUser().queryKey)
-    ).toBeNull()
-  })
-
-  it('목표 급수 저장이 실패하면 값을 그대로 두고 오류를 알린다', async () => {
-    mockDatabase.loginAs('USER')
-    mockServer.use(
-      http.put('*/api/v1/me/target-level', () =>
-        HttpResponse.json(
-          { code: 'SERVICE_UNAVAILABLE', message: 'down' },
-          { status: 503 }
-        )
-      )
-    )
-    renderAccount()
-    const select = await screen.findByRole('combobox', {
-      name: '목표 급수'
-    })
-    await userEvent.selectOptions(select, 'N1')
-    const save = screen.getByRole('button', { name: '저장' })
-    await userEvent.click(save)
-    expect(
-      await screen.findByText('저장하지 못했어요. 잠시 뒤 다시 저장해 주세요.')
-    ).toBeInTheDocument()
-    expect(select).toHaveAttribute('aria-invalid', 'true')
-    // The pick stays and can be saved again.
-    expect(select).toHaveValue('N1')
-    expect(save).toBeEnabled()
-    expect(useAppStore.getState().currentUser?.targetLevel).toBe('N2')
-    // One failure, one message: the shared error toast stays out (JLP-861).
-    expect(
-      queryClient
-        .getMutationCache()
-        .find({ mutationKey: ['target-level', 'update'] })?.meta
-    ).toEqual({ localErrorUi: true })
   })
 
   it('Google 로그인 상태를 보여 주고 해제 버튼과 안내는 두지 않는다 (C2)', async () => {

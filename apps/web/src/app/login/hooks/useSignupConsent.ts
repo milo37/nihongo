@@ -5,6 +5,7 @@ import { refreshCanonicalAuthAfterMutation } from '@nihongo/browser/app/login/au
 import { useAppNavigate } from '@nihongo/browser/libs/appNavigation'
 import type { AccountRestoreOutcome } from '@app/login/hooks/useAccountRestoreNotice'
 import { takeGuestCarryPending } from '@app/login/guestCarryMarker'
+import { onboardingPath } from '@app/login/queries/studyGoalQueries'
 import { agreeSignupConsent } from '@api/auth/agreeSignupConsent'
 import { cancelSignupConsent } from '@api/auth/cancelSignupConsent'
 import { getSignupConsent } from '@api/auth/getSignupConsent'
@@ -76,7 +77,9 @@ export const useSignupConsent = (
           onExit('FAILED')
           return
         }
-        await navigate(redirect, { replace: true })
+        // #1090 O-1: the study goal page next; it hands back to redirect
+        // (at once when the member already answered it).
+        await navigate(onboardingPath(redirect), { replace: true })
       },
       onError: (error) => {
         if (isApiError(error) && error.code === 'SIGNUP_NICKNAME_INVALID') {

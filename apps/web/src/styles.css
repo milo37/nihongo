@@ -631,8 +631,222 @@ body [lang='ja'][data-ja-spaced],
   outline: var(--focus-width) solid rgb(var(--color-ink));
   outline-offset: var(--focus-offset);
 }
+/* #1090 '학습 목표' (r11 + r12① 둥근 네모): everything centred; the picked
+   level gets the result screen's red pen circle, the daily goal a big ink
+   number between two square -/+ keys. */
+.study-goal {
+  text-align: center;
+}
+.study-goal h1 {
+  font-size: 30px;
+  line-height: 40px;
+  letter-spacing: -0.03em;
+  word-break: keep-all;
+  text-wrap: balance;
+  white-space: pre-line;
+}
+.study-goal-hint {
+  margin-top: 10px;
+  color: rgb(var(--color-muted));
+  font-size: 15px;
+  line-height: 22px;
+}
+.study-goal-question {
+  margin-top: 40px;
+}
+.study-goal-label {
+  margin-bottom: 12px;
+  color: rgb(var(--color-ink));
+  font-size: 15px;
+  font-weight: 700;
+}
+.study-goal-levels {
+  display: flex;
+  justify-content: center;
+}
+.study-goal-level {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 60px;
+  margin-left: -1px;
+  border: 1px solid rgb(var(--color-sheet-line));
+  background: rgb(var(--color-surface));
+  color: rgb(var(--color-muted));
+  font-size: 19px;
+  font-weight: 600;
+}
+.study-goal-level:first-child {
+  margin-left: 0;
+}
+.study-goal-level[aria-checked='true'] {
+  color: rgb(var(--color-ink));
+  font-weight: 800;
+}
+.study-goal-level:focus-visible {
+  z-index: 1;
+  outline: var(--focus-width) solid rgb(var(--focus-color));
+  outline-offset: var(--focus-offset);
+}
+.study-goal-pen {
+  position: absolute;
+  top: 4px;
+  left: 3px;
+  width: calc(100% - 6px);
+  height: calc(100% - 8px);
+  overflow: visible;
+  pointer-events: none;
+}
+.study-goal-pen path {
+  fill: none;
+  stroke: rgb(var(--color-brand));
+  stroke-width: 2.2px;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.study-goal-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+.study-goal-step {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border: 1.5px solid rgb(var(--color-line-interactive));
+  border-radius: 8.4px;
+  background: rgb(var(--color-surface));
+  color: rgb(var(--color-ink));
+}
+.study-goal-step svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+.study-goal-step:active:not([aria-disabled='true']) {
+  background: rgb(var(--color-surface-muted));
+}
+.study-goal-step[aria-disabled='true'] {
+  border-color: rgb(var(--color-line));
+  color: rgb(var(--color-disabled-text) / 0.5);
+  cursor: default;
+}
+.study-goal-step:focus-visible,
+.study-goal-value:focus-visible,
+.study-goal-later:focus-visible {
+  outline: var(--focus-width) solid rgb(var(--focus-color));
+  outline-offset: var(--focus-offset);
+}
+.study-goal-value {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px;
+  min-width: 128px;
+  color: rgb(var(--color-ink));
+}
+.study-goal-number {
+  font-size: 48px;
+  font-weight: 800;
+  line-height: 56px;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.study-goal-unit {
+  font-size: 17px;
+  font-weight: 700;
+}
+.study-goal-actions {
+  margin-top: 48px;
+}
+.study-goal-error {
+  margin-bottom: 12px;
+  color: rgb(var(--color-danger));
+  font-size: 14px;
+}
+.study-goal .study-goal-submit {
+  min-height: 52px;
+  font-size: 17px;
+  font-weight: 700;
+}
+.study-goal-later {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+  color: rgb(var(--color-muted));
+  font-size: 14px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+/* #1090 O-r7 My page row: set = a bordered row with the values; not set = a
+   grey line and an ink link, no box (no cards or banners). */
+.study-goal-row {
+  display: grid;
+  gap: 6px;
+}
+.study-goal-row-label {
+  color: rgb(var(--color-muted));
+  font-size: 13px;
+}
+.study-goal-row-note {
+  color: rgb(var(--color-muted));
+  font-size: 15px;
+  line-height: 22px;
+}
+.study-goal-row-link {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 2px;
+  min-height: 44px;
+  color: rgb(var(--color-ink));
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.study-goal-row-link.is-set {
+  display: flex;
+  justify-content: space-between;
+  justify-self: stretch;
+  gap: 12px;
+  min-height: 52px;
+  padding: 0 14px;
+  border: 1px solid rgb(var(--color-line-interactive));
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 400;
+  text-decoration: none;
+}
+@media (min-width: 640px) {
+  .study-goal-row-link.is-set {
+    max-width: 24rem;
+  }
+}
+/* #1090 O-r7: under the score, grey; ink once today's goal is met. */
+.result-daily-goal {
+  margin-top: 8px;
+  color: rgb(var(--color-muted));
+  font-size: 14px;
+  line-height: 24px;
+}
+.result-daily-goal.is-done {
+  color: rgb(var(--color-ink));
+  font-weight: 600;
+}
 @media (max-width: 760px) {
-  .auth-panel.signup-consent {
+  .auth-panel.signup-consent,
+  .auth-panel.study-goal {
     padding: 24px 0 0;
     border: 0;
     border-radius: 0;

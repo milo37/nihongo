@@ -24,6 +24,10 @@ import {
   updateTargetLevelResponseSchema
 } from '@nihongo/contracts/auth/update-target-level'
 import {
+  studyGoalSchema,
+  updateStudyGoalBodySchema
+} from '@nihongo/contracts/auth/study-goal'
+import {
   defaultNickname,
   nicknameSchema,
   updateNicknameBodySchema
@@ -88,6 +92,18 @@ export const setMockSsoAccountForTesting = (
     throw new Error('Unknown Mock identity fixture.')
   fixtureIds[provider] = userId
 }
+const requireMember = (): User => {
+  const user = mockDatabase.getCurrentUser()
+  if (!user) {
+    throw new MockHttpError(
+      401,
+      'AUTHENTICATION_REQUIRED',
+      '로그인이 필요한 기능입니다.'
+    )
+  }
+  return user
+}
+
 const mockCallbackSchema = z.object({ provider: ssoProviderIdSchema }).strict()
 const removedAuthPaths = [
   '/api/auth/sign-in/email',
@@ -197,6 +213,7 @@ export const authHandlers = [
     }
     const user = mockDatabase.loginAs('USER', DEMO_USER_ID)
     mockDatabase.setName(user.id, nickname.data)
+    mockDatabase.resetStudyGoal(user.id)
     return HttpResponse.json({ signedIn: true, redirect: '/' })
   }),
   http.post('*/api/auth/sso/signup-consent/cancel', () =>
@@ -262,6 +279,41 @@ export const authHandlers = [
         updateTargetLevelResponseSchema.parse({
           targetLevel: mockDatabase.setTargetLevel(user.id, input.targetLevel)
         }),
+        { headers: { 'Cache-Control': 'private, no-store' } }
+      )
+    } catch (error: unknown) {
+      return toErrorResponse(error)
+    }
+  }),
+  // #1090: members only; every call answers with the whole goal.
+  http.get('*/api/v1/me/study-goal', () => {
+    try {
+      return HttpResponse.json(
+        studyGoalSchema.parse(mockDatabase.getStudyGoal(requireMember().id)),
+        { headers: { 'Cache-Control': 'private, no-store' } }
+      )
+    } catch (error: unknown) {
+      return toErrorResponse(error)
+    }
+  }),
+  http.put('*/api/v1/me/study-goal', async ({ request }) => {
+    try {
+      const user = requireMember()
+      const input = await parseJsonBody(request, updateStudyGoalBodySchema)
+      return HttpResponse.json(
+        studyGoalSchema.parse(
+          mockDatabase.setStudyGoal(user.id, input.targetLevel, input.dailyGoal)
+        ),
+        { headers: { 'Cache-Control': 'private, no-store' } }
+      )
+    } catch (error: unknown) {
+      return toErrorResponse(error)
+    }
+  }),
+  http.post('*/api/v1/me/study-goal/skip', () => {
+    try {
+      return HttpResponse.json(
+        studyGoalSchema.parse(mockDatabase.skipStudyGoal(requireMember().id)),
         { headers: { 'Cache-Control': 'private, no-store' } }
       )
     } catch (error: unknown) {

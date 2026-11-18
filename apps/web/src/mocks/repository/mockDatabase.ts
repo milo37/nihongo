@@ -153,6 +153,18 @@ export type MockUserReport = {
   readonly createdAt: string
 }
 
+type MockStudyGoal = {
+  dailyGoal: number | null
+  goalSetAt: string | null
+  skippedAt: string | null
+}
+export type MockStudyGoalState = MockStudyGoal & {
+  targetLevel: JlptLevel | null
+  onboardingRequired: boolean
+  todayAnsweredCount: number
+}
+const MOCK_STUDY_GOAL_SKIPPED_AT = '2026-11-01T00:00:00.000Z'
+
 export class MockDatabaseError extends Error {
   readonly code: MockDatabaseErrorCode
   readonly status: number
@@ -956,6 +968,9 @@ export class MockDatabase {
   private resultBySessionId = new Map<string, StudyResult>()
   private wrongNoteByQuestionId = new Map<string, WrongNote>()
   private bookmarkByQuestionId = new Map<string, Bookmark>()
+  // #1090: only members who went through the mock sign-up have a row; the
+  // fixture members count as having skipped the study goal page long ago.
+  private studyGoalByUserId = new Map<string, MockStudyGoal>()
   private currentUserId: string | null = null
   // Mock-only stand-in for an admin restriction; not persisted.
   private readonly restrictedUserIds = new Set<string>()
@@ -1107,6 +1122,75 @@ export class MockDatabase {
     }
     this.userById.set(userId, { ...user, targetLevel })
     return targetLevel
+  }
+
+  // #1090: the study goal page shows again for a member who just signed up.
+  resetStudyGoal(userId: string): void {
+    this.studyGoalByUserId.set(userId, {
+      dailyGoal: null,
+      goalSetAt: null,
+      skippedAt: null
+    })
+  }
+
+  // #1090: GET/PUT/skip answer with this; today counts submitted answers
+  // since 00:00 Asia/Seoul, like the server.
+  getStudyGoal(userId: string): MockStudyGoalState {
+    const user = this.userById.get(userId)
+    if (!user) {
+      throw new MockDatabaseError('AUTH_REQUIRED', 401, '로그인이 필요합니다.')
+    }
+    const goal = this.studyGoalByUserId.get(userId) ?? {
+      dailyGoal: null,
+      goalSetAt: null,
+      skippedAt: MOCK_STUDY_GOAL_SKIPPED_AT
+    }
+    const seoulDay = (iso: string): string =>
+      new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
+    const today = seoulDay(new Date().toISOString())
+    let todayAnsweredCount = 0
+    for (const session of this.sessionById.values()) {
+      if (
+        session.userId === userId &&
+        session.submittedAt &&
+        seoulDay(session.submittedAt) === today
+      )
+        todayAnsweredCount +=
+          this.canonicalAnswerBySessionId.get(session.id)?.length ?? 0
+    }
+    return {
+      targetLevel: user.targetLevel,
+      ...goal,
+      onboardingRequired: goal.goalSetAt === null && goal.skippedAt === null,
+      todayAnsweredCount
+    }
+  }
+
+  setStudyGoal(
+    userId: string,
+    targetLevel: JlptLevel,
+    dailyGoal: number
+  ): MockStudyGoalState {
+    this.setTargetLevel(userId, targetLevel)
+    const previous = this.studyGoalByUserId.get(userId)
+    this.studyGoalByUserId.set(userId, {
+      dailyGoal,
+      goalSetAt: new Date().toISOString(),
+      skippedAt: previous?.skippedAt ?? null
+    })
+    return this.getStudyGoal(userId)
+  }
+
+  // Stored only while the page was never answered.
+  skipStudyGoal(userId: string): MockStudyGoalState {
+    const goal = this.getStudyGoal(userId)
+    if (goal.onboardingRequired)
+      this.studyGoalByUserId.set(userId, {
+        dailyGoal: null,
+        goalSetAt: null,
+        skippedAt: new Date().toISOString()
+      })
+    return this.getStudyGoal(userId)
   }
 
   // #1096: the nickname is the member's name.
@@ -3584,6 +3668,7 @@ export class MockDatabase {
 
   private resetMemoryToSeed(): void {
     this.mockContentState.reset()
+    this.studyGoalByUserId.clear()
     this.questionById = new Map(
       mockSeedData.questions.map((question) => [question.id, clone(question)])
     )

@@ -128,6 +128,7 @@ export const jaCoreResources = {
       home: 'ホーム',
       login: 'ログイン',
       signupConsent: '登録の確認',
+      onboarding: '学習の目標',
       dashboard: 'ホーム',
       practiceSetup: '学習',
       practiceSession: '問題を解く',
@@ -432,6 +433,23 @@ export const jaCoreResources = {
       cancel: 'キャンセル',
       expired: '時間が過ぎました。もう一度ログインしてください。',
       cancelled: '登録しませんでした。ログインせずに続けられます。'
+    },
+    // #1090 '学習の目標' page (scenario O-5, O-r7).
+    studyGoal: {
+      // Two lines as drawn (r11); the page keeps the line break.
+      title: '学習の目標を\n決めましょう',
+      hint: 'あとからマイページで変更できます。',
+      level: '目標レベル',
+      daily: '1日の目標',
+      unit: '問',
+      count: '{{count}}問',
+      decrease: '10問減らす',
+      increase: '10問増やす',
+      start: '始める',
+      later: 'あとで決める',
+      save: '保存',
+      cancel: 'キャンセル',
+      failed: '保存できませんでした。もう一度押してください。'
     },
     nickname: {
       label: 'ニックネーム',
@@ -758,6 +776,11 @@ export const jaCoreResources = {
     }
   },
   result: {
+    // #1090 O-r7: members with a daily goal, under the score.
+    dailyGoal: {
+      progress: '今日 {{today}} / {{goal}}問',
+      done: '今日の目標{{goal}}問を達成しました'
+    },
     retired: {
       title: 'この結果はもう見られません',
       description: '新しく解いてみてください。'
@@ -1073,12 +1096,17 @@ export const jaCoreResources = {
     }
   },
   account: {
+    // #1090 O-r7: the one '学習の目標' row (the target level row joined it).
+    studyGoal: {
+      label: '学習の目標',
+      set: '目標 {{level}}・1日{{count}}問・今日 {{today}}',
+      unset: '1日に解く問題数を決めると、今日解いた数を数えます。',
+      action: '目標を決める'
+    },
+    // #1090: the target level row joined the study goal row; the nickname
+    // row still borrows these two.
     targetLevel: {
-      label: '目標レベル',
-      hint: 'ホームの「今日の1問」と練習を、このレベルから始めます。',
-      unset: '未設定',
       saveAction: '保存',
-      saved: '目標レベルを{{level}}に変更しました。',
       error: '保存できませんでした。少し待ってからもう一度保存してください。'
     },
     title: 'マイページ',
