@@ -92,6 +92,57 @@ const QuestionSheet = ({
  * '오늘의 한 문제': label row, body, result line. Later the body becomes a
  * word or grammar card in the same frame (direction §1-2).
  */
+/** One choice; after a pick its label shows ✓/✕ and a small line names it. */
+const DailyOption = ({
+  answered,
+  mark,
+  onPick,
+  option,
+  pressed
+}: {
+  answered: boolean
+  mark: 'correct' | 'wrong' | null
+  onPick: () => void
+  option: GetDailyQuestionResponse['question']['options'][number]
+  pressed: boolean
+}): ReactElement => {
+  const { t } = useTranslation('home')
+  return (
+    <button
+      type="button"
+      className="home-daily-option"
+      data-state={mark ?? undefined}
+      aria-pressed={pressed}
+      aria-disabled={answered}
+      onClick={onPick}
+    >
+      <span
+        className="home-daily-option-label"
+        aria-hidden={mark ? true : undefined}
+      >
+        {mark ? (
+          <GradeSquare grade={mark === 'correct' ? 'ok' : 'ng'} />
+        ) : (
+          option.label
+        )}
+      </span>
+      <span className="home-daily-option-text">
+        <span lang="ja">
+          {mark ? <span className="sr-only">{option.label}. </span> : null}
+          {option.text}
+        </span>
+        {mark ? (
+          <span className="home-daily-option-mark">
+            {t(
+              mark === 'correct' ? 'today.dailyAnswer' : 'today.dailyYourAnswer'
+            )}
+          </span>
+        ) : null}
+      </span>
+    </button>
+  )
+}
+
 const DailyQuestionBody = ({
   data,
   head
@@ -156,43 +207,14 @@ const DailyQuestionBody = ({
             // it, so short options stay on one line (G, #801 design).
             const mark = isCorrect ? 'correct' : isWrongPick ? 'wrong' : null
             return (
-              <button
+              <DailyOption
                 key={option.id}
-                type="button"
-                className="home-daily-option"
-                data-state={mark ?? undefined}
-                aria-pressed={picked === option.id}
-                aria-disabled={picked !== null}
-                onClick={() => pick(option.id)}
-              >
-                <span
-                  className="home-daily-option-label"
-                  aria-hidden={mark ? true : undefined}
-                >
-                  {mark ? (
-                    <GradeSquare grade={mark === 'correct' ? 'ok' : 'ng'} />
-                  ) : (
-                    option.label
-                  )}
-                </span>
-                <span className="home-daily-option-text">
-                  <span lang="ja">
-                    {mark ? (
-                      <span className="sr-only">{option.label}. </span>
-                    ) : null}
-                    {option.text}
-                  </span>
-                  {mark ? (
-                    <span className="home-daily-option-mark">
-                      {t(
-                        mark === 'correct'
-                          ? 'today.dailyAnswer'
-                          : 'today.dailyYourAnswer'
-                      )}
-                    </span>
-                  ) : null}
-                </span>
-              </button>
+                answered={picked !== null}
+                mark={mark}
+                option={option}
+                pressed={picked === option.id}
+                onPick={() => pick(option.id)}
+              />
             )
           })}
         </div>

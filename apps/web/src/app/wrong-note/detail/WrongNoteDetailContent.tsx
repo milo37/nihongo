@@ -13,6 +13,59 @@ type WrongNoteDetailContentProps = {
   headingRef?: RefObject<HTMLHeadingElement | null>
 }
 
+/** The choices: the correct one, and the learner's earlier wrong pick. */
+const ReviewOptions = ({
+  options,
+  previousAnswer
+}: {
+  options: WrongNoteDetailView['question']['options']
+  previousAnswer: WrongNotePreviousAnswer
+}): ReactElement => {
+  const { t } = useTranslation('wrongNote')
+  return (
+    <ol className="review-options">
+      {options.map((option) => {
+        const isMine =
+          previousAnswer.status === 'selected' &&
+          previousAnswer.optionId === option.id &&
+          !option.isCorrect
+        return (
+          <li
+            key={option.id}
+            className={
+              option.isCorrect ? 'is-correct' : isMine ? 'is-mine' : ''
+            }
+          >
+            <span {...jaTextProps(option.text)}>
+              {option.label}. <JaText text={option.text} />
+            </span>
+            {isMine ? (
+              <strong>
+                <span className="review-answer-mark" aria-hidden="true">
+                  ✕{' '}
+                </span>
+                <span>{t('detail.myAnswer')}</span>
+              </strong>
+            ) : null}
+            {option.isCorrect ? (
+              <strong className="text-success-strong">
+                <span className="review-answer-mark" aria-hidden="true">
+                  ○{' '}
+                </span>
+                <span>{t('detail.correctAnswer')}</span>
+                {previousAnswer.status === 'selected' &&
+                previousAnswer.optionId === option.id ? (
+                  <span> · {t('detail.myAnswer')}</span>
+                ) : null}
+              </strong>
+            ) : null}
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
+
 export const WrongNoteDetailContent = ({
   action,
   data,
@@ -55,46 +108,10 @@ export const WrongNoteDetailContent = ({
           {t(`detail.previousAnswer.${previousAnswer.status}`)}
         </p>
       ) : null}
-      <ol className="review-options">
-        {data.question.options.map((option) => {
-          const isMine =
-            previousAnswer.status === 'selected' &&
-            previousAnswer.optionId === option.id &&
-            !option.isCorrect
-          return (
-            <li
-              key={option.id}
-              className={
-                option.isCorrect ? 'is-correct' : isMine ? 'is-mine' : ''
-              }
-            >
-              <span {...jaTextProps(option.text)}>
-                {option.label}. <JaText text={option.text} />
-              </span>
-              {isMine ? (
-                <strong>
-                  <span className="review-answer-mark" aria-hidden="true">
-                    ✕{' '}
-                  </span>
-                  <span>{t('detail.myAnswer')}</span>
-                </strong>
-              ) : null}
-              {option.isCorrect ? (
-                <strong className="text-success-strong">
-                  <span className="review-answer-mark" aria-hidden="true">
-                    ○{' '}
-                  </span>
-                  <span>{t('detail.correctAnswer')}</span>
-                  {previousAnswer.status === 'selected' &&
-                  previousAnswer.optionId === option.id ? (
-                    <span> · {t('detail.myAnswer')}</span>
-                  ) : null}
-                </strong>
-              ) : null}
-            </li>
-          )
-        })}
-      </ol>
+      <ReviewOptions
+        options={data.question.options}
+        previousAnswer={previousAnswer}
+      />
       <section
         className="review-explanation"
         aria-labelledby="review-detail-explanation"
