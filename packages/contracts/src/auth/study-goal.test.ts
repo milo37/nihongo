@@ -4,7 +4,7 @@ import {
   STUDY_GOAL_PATHS,
   dailyGoalSchema,
   skipStudyGoalBodySchema,
-  studyGoalSchema,
+  studyGoalResponseSchema,
   updateStudyGoalBodySchema
 } from './study-goal.js'
 
@@ -47,10 +47,12 @@ describe('study goal contract (#1090)', () => {
       onboardingRequired: true,
       todayAnsweredCount: 0
     }
-    expect(studyGoalSchema.parse(unanswered)).toEqual(unanswered)
+    expect(studyGoalResponseSchema.parse(unanswered)).toEqual(unanswered)
     expect(
-      studyGoalSchema.safeParse({ ...unanswered, todayAnsweredCount: -1 })
-        .success
+      studyGoalResponseSchema.safeParse({
+        ...unanswered,
+        todayAnsweredCount: -1
+      }).success
     ).toBe(false)
   })
 })

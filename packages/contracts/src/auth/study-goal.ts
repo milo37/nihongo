@@ -26,7 +26,7 @@ export const dailyGoalSchema = z
   .max(DAILY_GOAL_MAX)
   .multipleOf(DAILY_GOAL_STEP)
 
-export const studyGoalSchema = z
+export const studyGoalResponseSchema = z
   .object({
     targetLevel: jlptLevelSchema.nullable(),
     // null until [Start] or [Save]; skipping leaves it null.
@@ -66,6 +66,6 @@ export const studyGoalErrorSchema = createApiFailureSchema(
   studyGoalErrorCodeSchema
 )
 
-export type StudyGoal = z.output<typeof studyGoalSchema>
+export type StudyGoal = z.output<typeof studyGoalResponseSchema>
 export type UpdateStudyGoalBody = z.input<typeof updateStudyGoalBodySchema>
 export type StudyGoalError = z.output<typeof studyGoalErrorSchema>

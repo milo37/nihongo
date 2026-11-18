@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { describe, expect, it, vi } from 'vitest'
-import { studyGoalSchema } from '@nihongo/contracts/auth/study-goal'
+import { studyGoalResponseSchema } from '@nihongo/contracts/auth/study-goal'
 import { createApiErrorHandler } from '../app/createApp.js'
 import type { PrincipalService } from '../auth/principalService.js'
 import { parseApiEnvironment } from '../config/env.js'
@@ -111,7 +111,7 @@ describe('/api/v1/me/study-goal (#1090)', () => {
     const response = await send(harness.app, 'GET')
     expect(response.status).toBe(200)
     expect(response.headers.get('Cache-Control')).toBe('private, no-store')
-    expect(studyGoalSchema.parse(await response.json())).toEqual(goal())
+    expect(studyGoalResponseSchema.parse(await response.json())).toEqual(goal())
     expect(harness.store.read).toHaveBeenCalledWith(userId)
     expect(harness.rateLimiter.consume).toHaveBeenCalledWith(
       expect.objectContaining({ operation: 'study-goal-read', max: 60 })
