@@ -15,6 +15,7 @@ runStudyCleanupCommand({
   dryRunVariable: 'EXPIRED_SESSION_CLEANUP_DRY_RUN',
   successEvent: 'auth.expired_sessions.deleted',
   failureEvent: 'auth.expired_sessions.cleanup_failed',
+  allowProduction: true,
   cleanup: async (client, batchSize, dryRun) =>
     await deleteExpiredSessions(client, { batchSize, dryRun }),
   describe: (result) => ({
