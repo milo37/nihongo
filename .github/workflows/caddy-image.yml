@@ -1,13 +1,13 @@
 name: Caddy image
 
-# PRODUCTION origin proxy (infra/aws/caddy, #40): builds Caddy with the
-# Cloudflare DNS provider and pushes ECR:<SHA> to the PRODUCTION-only caddy
-# repository. Skipped until the repository variables
+# Origin proxy for origin TLS (infra/aws/caddy, #40, #1011): builds Caddy with
+# the Cloudflare DNS provider and pushes ECR:<SHA> to the caddy repository, which
+# PRODUCTION creates and STAGING reads. Skipped until the repository variables
 # PRODUCTION_AWS_DEPLOY_ROLE_ARN (PRODUCTION terraform output
 # github_deploy_role_arn), CADDY_ECR_REPOSITORY_URL (output
 # caddy_ecr_repository_url) and AWS_REGION are set. The role trusts the
 # environment `production` only, so the job waits for its approval.
-# The pushed digest goes into terraform.tfvars as caddy_dns_image.
+# The pushed digest goes into both terraform.tfvars files as caddy_dns_image.
 on:
   push:
     branches: [main]
