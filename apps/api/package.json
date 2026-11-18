@@ -31,11 +31,11 @@
     "auth:erase-deletion-pending:compiled": "node dist/auth/ssoAccountErasureCommand.js",
     "auth:reapply-erasure": "pnpm run db:generate && tsx src/auth/accountErasureReapplyCommand.ts",
     "auth:reapply-erasure:compiled": "node dist/auth/accountErasureReapplyCommand.js",
-    "content:foundation-check": "tsx prisma/contentFoundationCheck.ts",
     "study:cleanup-expired-guests": "pnpm run db:generate && tsx src/study/studySessionCleanupCommand.ts",
     "study:cleanup-expired-drafts": "pnpm run db:generate && tsx src/study/studyDraftCleanupCommand.ts",
     "study:count-retention": "pnpm run db:generate && tsx src/study/retentionCohortCommand.ts",
     "report:redact-expired-descriptions": "pnpm run db:generate && tsx src/report/userReportRetentionCommand.ts",
+    "auth:delete-expired-sessions": "pnpm run db:generate && tsx src/auth/sessionRetentionCommand.ts",
     "db:generate": "prisma generate",
     "db:validate": "prisma validate",
     "db:migrate:dev": "prisma migrate dev --config prisma.dev.config.ts",
@@ -45,6 +45,9 @@
     "db:seed:dev": "pnpm run db:generate && SEED_TARGET=development tsx prisma/seed.ts",
     "db:seed:test": "pnpm run db:generate && SEED_TARGET=test tsx prisma/seed.ts",
     "study:count-retention:compiled": "node dist/study/retentionCohortCommand.js",
+    "auth:delete-expired-sessions:compiled": "node dist/auth/sessionRetentionCommand.js",
+    "study:cleanup-expired-drafts:compiled": "node dist/study/studyDraftCleanupCommand.js",
+    "report:redact-expired-descriptions:compiled": "node dist/report/userReportRetentionCommand.js",
     "study:cleanup-expired-guests:compiled": "node dist/study/studyGuestCleanupRuntime.js"
   },
   "dependencies": {

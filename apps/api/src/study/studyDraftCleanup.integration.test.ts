@@ -587,6 +587,36 @@ describe('StudyDraft cold cleanup', () => {
     ).toEqual({ status: 'EXPIRED' })
   })
 
+  it('dry run은 대상 수만 세고 draft와 상태를 바꾸지 않는다', async () => {
+    const session = await createGuestSession({
+      startedAt: new Date(NOW.getTime() - 7 * DAY_MS - 2 * HOUR_MS),
+      expiresAt: new Date(NOW.getTime() - 7 * DAY_MS - HOUR_MS)
+    })
+
+    await expect(
+      cleanupService.cleanup({ batchSize: 100, dryRun: true })
+    ).resolves.toMatchObject({
+      overdueStudyDraftCount: 1,
+      expiredStudyDraftCount: 0,
+      deletedDraftIdempotencyRecordCount: 0
+    })
+    expect(
+      await database.client.studyDraft.findUnique({
+        where: { studySessionId: session.id }
+      })
+    ).not.toBeNull()
+    expect(
+      await database.client.studySession.findUnique({
+        where: { id: session.id },
+        select: { status: true }
+      })
+    ).toEqual({ status: 'IN_PROGRESS' })
+
+    await expect(
+      cleanupService.cleanup({ batchSize: 100 })
+    ).resolves.toMatchObject({ expiredStudyDraftCount: 1 })
+  })
+
   it('7일이 지난 회원 draft와 진행 중 상태를 보존한다', async () => {
     const userId = await createUser()
     const session = await createSession({

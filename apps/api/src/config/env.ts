@@ -389,6 +389,11 @@ const apiEnvironmentSchema = z
     }
   })
 
+/** #672: every variable the API reads, checked against the environment contract. */
+export const API_ENVIRONMENT_VARIABLE_NAMES = Object.keys(
+  apiEnvironmentSchema.shape
+)
+
 type ParsedApiEnvironment = z.output<typeof apiEnvironmentSchema>
 
 // Directly constructed test/application dependency fixtures may omit the

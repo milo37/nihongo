@@ -289,7 +289,7 @@ test('quality and regression start from the same plan in isolated jobs', () => {
   assert.doesNotMatch(plan, /pnpm install|cache:|services:|needs:/u)
   for (const job of [build, unit, integration, regression, portableRun]) {
     assert.match(job, /^ {4}needs: plan$/mu)
-    assert.match(job, /uses: actions\/checkout@v4/u)
+    assert.match(job, /uses: actions\/checkout@[0-9a-f]{40} # v4\./u)
     assert.match(job, /ref: \$\{\{ github\.sha \}\}/u)
     assert.match(job, /persist-credentials: false/u)
     assert.match(job, /run: pnpm install --frozen-lockfile/u)
@@ -1153,10 +1153,6 @@ test('workflow and command budgets preserve the three protected contexts', () =>
     path.join(repositoryRoot, '.github/workflows/ci.yml'),
     'utf8'
   )
-  const candidate = readFileSync(
-    path.join(repositoryRoot, '.github/workflows/candidate.yml'),
-    'utf8'
-  )
   const jobs = (source) =>
     [...source.matchAll(/^ {2}([a-zA-Z0-9_]+):\n(?= {4}name:)/gmu)].map(
       (match) => match[1]
@@ -1174,8 +1170,6 @@ test('workflow and command budgets preserve the three protected contexts', () =>
     'release_smoke'
   ])
   assert.equal(steps(normal).length, 54)
-  assert.deepEqual(jobs(candidate), ['candidate'])
-  assert.equal(steps(candidate).length, 10)
   for (const name of [
     'Quality and production build',
     'Browser and regression acceptance',
@@ -1184,14 +1178,14 @@ test('workflow and command budgets preserve the three protected contexts', () =>
     assert.equal(normal.split(name).length - 1, 1)
   }
   assert.doesNotMatch(normal, /phase ?[0-9]/iu)
-  assert.doesNotMatch(normal + candidate, /previous-results|download-artifact/u)
-  assert.equal(normal.split('uses: actions/upload-artifact@v4').length - 1, 3)
-  assert.doesNotMatch(candidate, /upload-artifact/u)
-  assert.doesNotMatch(normal + candidate, /run:\s+[^\n]*phase[0-9]/iu)
+  assert.doesNotMatch(normal, /previous-results|download-artifact/u)
   assert.equal(
-    normal.split('toJSON(github.event.changes) == toJSON(fromJSON').length - 1,
-    8
+    normal.match(/uses: actions\/upload-artifact@[0-9a-f]{40} # v4\./gu)
+      ?.length,
+    3
   )
+  assert.doesNotMatch(normal, /run:\s+[^\n]*phase[0-9]/iu)
+  assert.doesNotMatch(normal, /github\.event\.action == 'edited'/u)
   assert.doesNotMatch(
     normal,
     /!github\.event\.changes\.base.*github\.event\.changes\.title/u
@@ -1230,35 +1224,15 @@ test('production bundles validate the commit stamped by their reused build', () 
     path.join(repositoryRoot, '.github/workflows/ci.yml'),
     'utf8'
   )
-  const candidate = readFileSync(
-    path.join(repositoryRoot, '.github/workflows/candidate.yml'),
-    'utf8'
-  )
   const normalBuild = namedWorkflowStep(normal, 'Production build')
   const normalBundle = namedWorkflowStep(normal, 'Production bundle budget')
-  const candidateBuild = namedWorkflowStep(
-    candidate,
-    'Core regression and production bundle'
+  assert.equal(
+    workflowStepEnvironment(normalBuild).get('VITE_RELEASE_ID'),
+    '${{ github.sha }}'
   )
-
-  for (const step of [normalBuild, candidateBuild]) {
-    assert.equal(
-      workflowStepEnvironment(step).get('VITE_RELEASE_ID'),
-      '${{ github.sha }}'
-    )
-  }
   assert.match(normalBuild, /^ {8}run: .* quality build$/mu)
   assert.match(normalBundle, /^ {8}run: .* quality bundle$/mu)
   assert.doesNotMatch(normalBundle, /(?:quality|run) build/u)
-
-  const candidateProductionBuild = candidateBuild.indexOf(
-    'NODE_ENV=production pnpm run build'
-  )
-  const candidateBundleCheck = candidateBuild.indexOf(
-    'NODE_ENV=production pnpm --filter @nihongo/web run test:bundle'
-  )
-  assert.ok(candidateProductionBuild > -1)
-  assert.ok(candidateBundleCheck > candidateProductionBuild)
 })
 
 test('browser preparation reuses only unchanged same-job inputs and outputs', async () => {

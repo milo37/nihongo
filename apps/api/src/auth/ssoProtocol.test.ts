@@ -13,7 +13,7 @@ import type {
   SsoProvider,
   SsoTransaction,
   SsoTransactionStore,
-  SsoVerifiedIdentity
+  SsoExchangedIdentity
 } from './ssoProtocol.js'
 
 const fixture = () => {
@@ -50,7 +50,7 @@ const fixture = () => {
       return url.href
     }),
     exchange: vi.fn(
-      async (): Promise<SsoVerifiedIdentity | null> => ({
+      async (): Promise<SsoExchangedIdentity | null> => ({
         provider: 'google' as const,
         accountId: 'provider-subject',
         email: 'contact@example.test',
@@ -131,6 +131,34 @@ describe('browser-bound one-use SSO protocol', () => {
     expect(result).not.toHaveProperty('role')
     expect(result).not.toHaveProperty('token')
   })
+  // JLP-718 (#1131 QA): the revoke closure must never reach the strict
+  // identity schemas of sign-in, consent and sign-up.
+  it('returns the revoke closure beside the identity, never inside it', async () => {
+    const { provider, service } = fixture()
+    const revokeGrant = vi.fn(async () => true)
+    provider.exchange.mockResolvedValueOnce({
+      provider: 'google',
+      accountId: 'provider-subject',
+      email: 'contact@example.test',
+      name: '학습자',
+      revokeGrant
+    })
+    const start = await service.start('/')
+    const result = await service.finish({
+      query: callback(start.url),
+      binding: start.binding
+    })
+    if (result.kind !== 'IDENTITY_VERIFIED') throw new Error(result.kind)
+    expect(Object.keys(result.identity).toSorted()).toEqual([
+      'accountId',
+      'email',
+      'name',
+      'provider'
+    ])
+    expect(result.revokeGrant).toBe(revokeGrant)
+    expect(revokeGrant).not.toHaveBeenCalled()
+  })
+
   it('rejects another browser without consuming the original transaction', async () => {
     const { provider, service } = fixture()
     const start = await service.start('/dashboard')

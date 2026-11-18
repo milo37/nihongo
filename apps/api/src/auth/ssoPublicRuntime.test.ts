@@ -52,11 +52,13 @@ const fixture = (
       }
     )
   } satisfies SsoTransactionStore
+  // JLP-718: Google also returns a revoke closure, as the real provider does.
   const exchange = vi.fn(async () => ({
     provider,
     accountId: 'provider-sub',
     email: 'contact@example.test',
-    name: '학습자'
+    name: '학습자',
+    ...(provider === 'google' ? { revokeGrant: async () => true } : {})
   }))
   const authorizationURL: SsoProvider['authorizationURL'] = async ({
     state,
@@ -219,6 +221,20 @@ describe('public SSO HTTP boundary', () => {
       expect(f.signIn).toHaveBeenCalledOnce()
     }
   )
+  // #1131 QA: the revoke closure must not reach the strict identity schemas.
+  it('passes only the plain identity to consent and sign-in', async () => {
+    const f = fixture('google')
+    const { cookie, state } = await f.start()
+    await f.gateway.handle(f.callback(cookie, state))
+    const identity = {
+      provider: 'google',
+      accountId: 'provider-sub',
+      email: 'contact@example.test',
+      name: '학습자'
+    }
+    expect(f.consentState).toHaveBeenCalledWith(identity)
+    expect(f.signIn).toHaveBeenCalledWith(identity, expect.anything())
+  })
   it('does not exchange without the exact browser cookie or with duplicate state', async () => {
     const f = fixture()
     const { cookie, state } = await f.start()
