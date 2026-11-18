@@ -334,6 +334,13 @@ export const prepareBrowserActors = async ({
         result.rows[0]?.targetLevel !== definition.targetLevel
       )
         throw new Error('BROWSER_TEST_DATABASE_ACTOR_AUTHORITY_MISMATCH')
+      // #1090: browser actors have skipped the onboarding page, so a UI
+      // sign-in lands where it did before. Kept out of the shared SSO
+      // fixture, whose members still start unanswered.
+      await owner.query(
+        'INSERT INTO "UserStudyGoal" ("userId","onboardingSkippedAt") VALUES ($1::uuid, clock_timestamp()) ON CONFLICT DO NOTHING',
+        [userId]
+      )
       entries.push([key, { actor: { ...definition, userId }, identity }])
     }
     const identities = identitiesSchema.parse(Object.fromEntries(entries))
