@@ -123,18 +123,6 @@ export const clearAllStudyDraftWorkingCopies = (): void => {
   collectStoredKeys().forEach((key) => cachedSessionStorage.removeItem(key))
 }
 
-export const clearGuestStudyDraftWorkingCopies = (): void => {
-  const guestPrefix = `${STORAGE_KEY_PREFIX}${encodeURIComponent('GUEST')}:`
-  for (const key of [...memoryRecords.keys()]) {
-    if (key.startsWith(guestPrefix)) {
-      memoryRecords.delete(key)
-    }
-  }
-  collectStoredKeys()
-    .filter((key) => key.startsWith(guestPrefix))
-    .forEach((key) => cachedSessionStorage.removeItem(key))
-}
-
 export const clearStudyDraftWorkingCopyMemoryCache = (): void => {
   memoryRecords.clear()
 }

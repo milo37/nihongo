@@ -2,7 +2,7 @@ import type {
   WrongNote,
   WrongNoteStatus
 } from '@nihongo/browser/common/types/domain'
-import { addDaysToIso } from '@util/date'
+import { addDaysToIso } from '@mocks/util/date'
 
 export interface WrongNoteTransition {
   wrongCount: number

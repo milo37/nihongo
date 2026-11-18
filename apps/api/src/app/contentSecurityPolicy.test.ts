@@ -91,6 +91,17 @@ describe('Content-Security-Policy (JLP-788)', () => {
     }
   })
 
+  it.each(['/', '/api/v1/health/live'])(
+    'denies unused browser features on %s (#1015)',
+    async (path) => {
+      const response = await app().request(path)
+      expect(response.headers.get('Permissions-Policy')).toBe(
+        'accelerometer=(), camera=(), geolocation=(), gyroscope=(), ' +
+          'magnetometer=(), microphone=(), payment=(), usb=()'
+      )
+    }
+  )
+
   // The mode no longer reads DEPLOYMENT_ENVIRONMENT, so STAGING enforces too.
   it('enforces unless CSP_MODE asks for report-only', () => {
     expect(resolveContentSecurityPolicyMode({})).toBe('enforce')
