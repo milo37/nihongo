@@ -75,7 +75,9 @@ export const bundleCeilings = Object.freeze({
   largestLazyJavaScriptGzipBytes: 30_000,
   largestLazyJavaScriptRawBytes: 102_000,
   // #1096 nickname: 482,593 measured (operator decision 2026-11-18).
-  totalGzipBytes: 483_000,
+  // #1090 onboarding: the study goal page, My page goal row and result goal
+  // line; 486,824 measured (operator decision 2026-11-18).
+  totalGzipBytes: 487_000,
   // #761 + U4 (#767 c9af0ed5): 1,482,644 measured (god approved; re-measure after deploy).
   totalRawBytes: 1_483_000
 })
