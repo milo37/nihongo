@@ -17,7 +17,9 @@ const approvedBrandAssetPaths = [
   'favicon.ico',
   'favicon.svg',
   'icons/icon-192.png',
-  'icons/icon-512.png'
+  'icons/icon-512.png',
+  // #1094: link preview image for crawlers; the app never loads it.
+  'share-card.png'
 ] as const
 
 // JLP-511: crawler files for the learner site only; the admin build has none.
