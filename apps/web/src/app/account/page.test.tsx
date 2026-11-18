@@ -212,6 +212,14 @@ describe('마이페이지 계정 설정', () => {
     expect(link).toHaveAttribute('href', '/onboarding?redirect=%2Faccount')
   })
 
+  it('학습 목표 칸 아래에 모은 도장 수를 한 줄로 보인다, 없으면 0개 (#1094)', async () => {
+    mockDatabase.loginAs('USER')
+    renderAccount()
+    const row = await screen.findByText('모은 도장')
+    expect(row.parentElement).toHaveTextContent(/^모은 도장 0개$/u)
+    expect(row.closest('a, button')).toBeNull()
+  })
+
   it('닉네임은 [바꾸기]로 같은 자리에서 고치고, 저장하면 이름과 첫 글자가 바뀐다 (#1096)', async () => {
     mockDatabase.loginAs('USER')
     const puts: unknown[] = []

@@ -742,7 +742,8 @@ export const koCoreResources = {
     // #1090 O-r7: members with a daily goal, under the score.
     dailyGoal: {
       progress: '오늘 {{today}} / {{goal}}문제',
-      done: '오늘 목표 {{goal}}문제를 채웠어요'
+      done: '오늘 목표 {{goal}}문제를 채웠어요',
+      stamp: ' · 도장 1개'
     },
     retired: {
       title: '이 결과는 더 볼 수 없어요',
@@ -1048,7 +1049,9 @@ export const koCoreResources = {
       label: '학습 목표',
       set: '목표 {{level}} · 하루 {{count}}문제 · 오늘 {{today}}',
       unset: '하루에 풀 문제 수를 정하면 오늘 푼 수를 세어 드려요.',
-      action: '목표 정하기'
+      action: '목표 정하기',
+      stamps: '모은 도장',
+      stampCount: '{{count}}개'
     },
     // #1090: the target level row joined the study goal row; the nickname
     // row still borrows these two.

@@ -162,6 +162,7 @@ export type MockStudyGoalState = MockStudyGoal & {
   targetLevel: JlptLevel | null
   onboardingRequired: boolean
   todayAnsweredCount: number
+  stampCount: number
 }
 const MOCK_STUDY_GOAL_SKIPPED_AT = '2026-11-01T00:00:00.000Z'
 
@@ -474,7 +475,7 @@ export interface MockCanonicalSubmissionOperations {
 
 export interface SubmitCanonicalStudySessionResult {
   readonly replayed: boolean
-  readonly response: CanonicalStudyResult
+  readonly response: CanonicalStudyResult & { readonly stampEarned?: boolean }
 }
 
 export interface SaveCanonicalStudyDraftInput {
@@ -971,6 +972,10 @@ export class MockDatabase {
   // #1090: only members who went through the mock sign-up have a row; the
   // fixture members count as having skipped the study goal page long ago.
   private studyGoalByUserId = new Map<string, MockStudyGoal>()
+  // #1094: the Seoul days each member earned a stamp on, and which
+  // submission (idempotency record) earned it, for the same-key replay.
+  private stampDaysByUserId = new Map<string, string[]>()
+  private stampEarnedByRecordKey = new Set<string>()
   private currentUserId: string | null = null
   // Mock-only stand-in for an admin restriction; not persisted.
   private readonly restrictedUserIds = new Set<string>()
@@ -1162,7 +1167,8 @@ export class MockDatabase {
       targetLevel: user.targetLevel,
       ...goal,
       onboardingRequired: goal.goalSetAt === null && goal.skippedAt === null,
-      todayAnsweredCount
+      todayAnsweredCount,
+      stampCount: this.stampDaysByUserId.get(userId)?.length ?? 0
     }
   }
 
@@ -1179,6 +1185,25 @@ export class MockDatabase {
       skippedAt: previous?.skippedAt ?? null
     })
     return this.getStudyGoal(userId)
+  }
+
+  // #1094: a member's set whose answers first reach today's goal earns one
+  // stamp a day, like the server; guests and members without a goal none.
+  private earnStamp(userId: string, answered: number): boolean {
+    const goal = this.getStudyGoal(userId)
+    const today = new Date().toLocaleDateString('en-CA', {
+      timeZone: 'Asia/Seoul'
+    })
+    const days = this.stampDaysByUserId.get(userId) ?? []
+    if (
+      goal.dailyGoal === null ||
+      days.includes(today) ||
+      goal.todayAnsweredCount >= goal.dailyGoal ||
+      goal.todayAnsweredCount + answered < goal.dailyGoal
+    )
+      return false
+    this.stampDaysByUserId.set(userId, [...days, today])
+    return true
   }
 
   // Stored only while the page was never answered.
@@ -1895,7 +1920,13 @@ export class MockDatabase {
           '같은 멱등 키를 다른 제출 요청에 사용할 수 없습니다.'
         )
       }
-      return { replayed: true, response: clone(existingRecord.response) }
+      return {
+        replayed: true,
+        response: clone({
+          ...existingRecord.response,
+          stampEarned: this.stampEarnedByRecordKey.has(recordKey)
+        })
+      }
     }
 
     if (metadata.canonicalContractVersion !== contractVersion) {
@@ -2013,6 +2044,11 @@ export class MockDatabase {
       grading,
       wrongNotePlan.statusBySessionQuestionId
     )
+    // #1094: counted before this set is stored; only this answer says so.
+    const stampEarned =
+      owner.principalKind === 'USER' &&
+      owner.userId !== null &&
+      this.earnStamp(owner.userId, answers.length)
     const idempotencyRecord: MockCanonicalIdempotencyRecord = {
       completedAt: submittedAt,
       contractVersion,
@@ -2045,9 +2081,13 @@ export class MockDatabase {
       this.canonicalDraftBySessionId.delete(session.id)
     }
     this.canonicalIdempotencyRecordByKey.set(recordKey, idempotencyRecord)
+    if (stampEarned) this.stampEarnedByRecordKey.add(recordKey)
     this.persist()
 
-    return { replayed: false, response: clone(response) }
+    return {
+      replayed: false,
+      response: clone({ ...response, stampEarned })
+    }
   }
 
   getCanonicalStudyResult(
@@ -3669,6 +3709,8 @@ export class MockDatabase {
   private resetMemoryToSeed(): void {
     this.mockContentState.reset()
     this.studyGoalByUserId.clear()
+    this.stampDaysByUserId.clear()
+    this.stampEarnedByRecordKey.clear()
     this.questionById = new Map(
       mockSeedData.questions.map((question) => [question.id, clone(question)])
     )
