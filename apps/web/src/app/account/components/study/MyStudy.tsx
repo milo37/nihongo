@@ -64,6 +64,7 @@ export const MyStudy = ({ level }: { level: JlptLevel }): ReactElement => {
         </div>
       ) : data.totalAnsweredCount === 0 ? (
         <div>
+          <span className="maru-empty" aria-hidden="true" />
           <p className="font-semibold">{t('study.emptyTitle', { level })}</p>
           <p className="mt-1 text-sm text-muted">
             {t('study.emptyDescription', { level })}

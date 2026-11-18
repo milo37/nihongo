@@ -860,6 +860,19 @@ body [lang='ja'][data-ja-spaced],
 .result-stamp .result-daily-goal {
   margin-top: 4px;
 }
+/* #1094 C-3: the empty-screen Maru (design's 240px WebP, a plain public file
+   copied by vite.config). The browser fetches it only when an empty screen
+   renders one; one size for every empty screen. */
+:root {
+  --maru-empty-size: 80px;
+}
+.maru-empty {
+  display: block;
+  width: var(--maru-empty-size);
+  height: var(--maru-empty-size);
+  margin-bottom: 12px;
+  background: url('/maru/fox-empty.webp') center / contain no-repeat;
+}
 .maru-stage {
   --maru-red: rgb(var(--color-brand));
   position: relative;

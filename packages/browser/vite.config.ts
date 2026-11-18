@@ -23,18 +23,19 @@ const approvedBrandAssetPaths = [
 ] as const
 
 // JLP-511: crawler files for the learner site only; the admin build has none.
-// #980: the share card that link previews fetch.
+// (#980's share card is in approvedBrandAssetPaths since #1094.)
+// #1094: Maru's empty-screen picture, fetched only when an empty screen shows.
 // #31: the Naver Search Advisor ownership file.
 // #1045: the home screen app manifest, its service worker and the opaque iOS
 // home screen icon (iOS fills transparent corners with black).
 const learnerCrawlerFilePaths = [
   'robots.txt',
   'sitemap.xml',
-  'share-card.png',
   'naver6dfc30d2bf1e08e72cef554be9f2cf75.html',
   'manifest.json',
   'sw.js',
-  'icons/apple-touch-icon-180.png'
+  'icons/apple-touch-icon-180.png',
+  'maru/fox-empty.webp'
 ] as const
 
 // #981: page copies of index.html for the public pages besides the home page
