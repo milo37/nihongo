@@ -2,6 +2,8 @@ FROM node:22.23.0-alpine@sha256:ab07539e0988b63558ff621f5fbe1077054c39d980911297
 
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
+# Same as .npmrc (not copied into the image); the lockfile records it (#1100).
+ENV npm_config_inject_workspace_packages=true
 WORKDIR /workspace
 
 RUN corepack enable && corepack prepare pnpm@10.2.1 --activate
@@ -30,8 +32,11 @@ ENV VITE_RELEASE_ID=$RELEASE_ID
 
 RUN node -e "const id=process.env.RELEASE_ID;if(!/^[0-9a-f]{40}$/.test(id)||/^0+$/.test(id))process.exit(1)"
 RUN pnpm run build
-RUN pnpm --filter @nihongo/api deploy --prod --legacy /release/api
-RUN node scripts/operations/normalize-api-deploy.mjs --api-directory /release/api --workspace-api-directory /workspace/apps/api
+# #1100: the injected deploy copies only the API's production lockfile entries
+# (no build or test tools) and leaves no link back into /workspace. Its copy
+# of the lockfile is not part of the release contract.
+RUN pnpm --filter @nihongo/api deploy --prod /release/api \
+  && rm /release/api/pnpm-lock.yaml
 RUN test -f /release/api/dist/study/studyGuestCleanupRuntime.js && test -f /release/api/dist/study/studyGuestCleanupCommand.js
 RUN cp -R apps/web/dist /release/web
 RUN cp -R apps/admin/dist /release/admin
