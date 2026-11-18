@@ -71,11 +71,4 @@ os.makedirs(os.path.dirname(legal_path), exist_ok=True)
 with open(legal_path, "w") as out:
     json.dump(legal, out)
 os.chmod(legal_path, 0o644)
-# Origin TLS (only with origin_domain_name): PEM files stored base64 in SSM.
-import base64
-if "ORIGIN_TLS_CERT_B64" in params and "ORIGIN_TLS_KEY_B64" in params:
-    os.makedirs("/run/harumaru/origin-tls", mode=0o700, exist_ok=True)
-    for name, key in (("origin.crt", "ORIGIN_TLS_CERT_B64"), ("origin.key", "ORIGIN_TLS_KEY_B64")):
-        with open(f"/run/harumaru/origin-tls/{name}", "wb") as out:
-            out.write(base64.b64decode(params[key], validate=True))
 '

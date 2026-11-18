@@ -61,8 +61,8 @@ data "aws_iam_policy_document" "host" {
   statement {
     sid     = "EcrPull"
     actions = ["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer", "ecr:BatchCheckLayerAvailability"]
-    # PRODUCTION adds its origin proxy image (aws_ecr_repository.caddy, #40).
-    resources = concat([local.ecr_repository_arn], aws_ecr_repository.caddy[*].arn)
+    # With origin TLS the host also pulls the Caddy image (#40, #1011).
+    resources = concat([local.ecr_repository_arn], local.caddy_repository_arns)
   }
 
   statement {
