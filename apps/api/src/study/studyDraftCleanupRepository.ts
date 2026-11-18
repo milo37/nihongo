@@ -5,6 +5,8 @@ const STUDY_DRAFT_EXPIRY_GRACE_MS = 7 * 24 * 60 * 60 * 1_000
 interface StudyDraftCleanupInput {
   readonly batchSize: number
   readonly now: Date
+  /** Counts only: runs the read-only metrics and skips every write. */
+  readonly dryRun?: boolean
 }
 
 export interface StudyDraftCleanupResult {
@@ -66,7 +68,7 @@ interface IdempotencyMetricRow {
 export const createPrismaStudyDraftCleanupRepository = (
   client: PrismaClient
 ): StudyDraftCleanupRepository => ({
-  cleanupExpiredStudyDrafts: async ({ batchSize, now }) => {
+  cleanupExpiredStudyDrafts: async ({ batchSize, now, dryRun = false }) => {
     const draftExpirationThreshold = new Date(
       now.getTime() - STUDY_DRAFT_EXPIRY_GRACE_MS
     )
@@ -139,6 +141,34 @@ export const createPrismaStudyDraftCleanupRepository = (
         ORDER BY operation.value::text ASC
       `
     )
+
+    const metricRow = metric[0]
+    const reportedMetrics = {
+      oldestOverdueExpiresAt:
+        metricRow?.oldestOverdueExpiresAt?.toISOString() ?? null,
+      overdueStudyDraftCount: Number(metricRow?.overdueStudyDraftCount ?? 0n),
+      idempotencyOperationMetrics: idempotencyMetrics.map((row) => ({
+        operation: row.operation,
+        activeRecordCount: Number(row.activeRecordCount),
+        expiredRecordCount: Number(row.expiredRecordCount),
+        oldestActiveAgeSeconds: row.oldestActiveAgeSeconds,
+        oldestExpiredAgeSeconds: row.oldestExpiredAgeSeconds
+      }))
+    }
+    if (dryRun) {
+      return {
+        expiredDraftBatchLimitReached: false,
+        expiredDraftIdempotencyBatchLimitReached: false,
+        expiredIdempotencyBatchLimitReached: false,
+        expiredRetryIdempotencyBatchLimitReached: false,
+        expiredTargetedReviewIdempotencyBatchLimitReached: false,
+        expiredStudyDraftCount: 0,
+        deletedDraftIdempotencyRecordCount: 0,
+        deletedRetryIdempotencyRecordCount: 0,
+        deletedTargetedReviewIdempotencyRecordCount: 0,
+        ...reportedMetrics
+      }
+    }
 
     const expiredDrafts = await client.$transaction(
       async (transaction) => {
@@ -255,7 +285,6 @@ export const createPrismaStudyDraftCleanupRepository = (
     const deletedTargetedReviewIdempotencyRecords =
       await deleteExpiredIdempotencyRecords('STUDY_TARGETED_REVIEW_CREATE')
 
-    const metricRow = metric[0]
     return {
       expiredDraftBatchLimitReached: expiredDrafts.length === batchSize,
       expiredDraftIdempotencyBatchLimitReached:
@@ -273,16 +302,7 @@ export const createPrismaStudyDraftCleanupRepository = (
       deletedRetryIdempotencyRecordCount: deletedRetryIdempotencyRecords.length,
       deletedTargetedReviewIdempotencyRecordCount:
         deletedTargetedReviewIdempotencyRecords.length,
-      oldestOverdueExpiresAt:
-        metricRow?.oldestOverdueExpiresAt?.toISOString() ?? null,
-      overdueStudyDraftCount: Number(metricRow?.overdueStudyDraftCount ?? 0n),
-      idempotencyOperationMetrics: idempotencyMetrics.map((row) => ({
-        operation: row.operation,
-        activeRecordCount: Number(row.activeRecordCount),
-        expiredRecordCount: Number(row.expiredRecordCount),
-        oldestActiveAgeSeconds: row.oldestActiveAgeSeconds,
-        oldestExpiredAgeSeconds: row.oldestExpiredAgeSeconds
-      }))
+      ...reportedMetrics
     }
   }
 })
