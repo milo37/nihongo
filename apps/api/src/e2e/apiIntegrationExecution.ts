@@ -83,12 +83,7 @@ const ssoExcludedParentKeys = new Set([
   'GOOGLE_CLIENT_ID',
   'GOOGLE_CLIENT_SECRET',
   'APPLE_CLIENT_ID',
-  'APPLE_CLIENT_SECRET',
-  // Retired email sign-in (JLP-748): a parent value never reaches a test.
-  'AUTH_EMAIL_FROM',
-  'AUTH_EMAIL_DELIVERY_MODE',
-  'AUTH_EMAIL_WEBHOOK_URL',
-  'AUTH_EMAIL_WEBHOOK_SECRET'
+  'APPLE_CLIENT_SECRET'
 ])
 
 export const createSsoDbTestEnvironment = (
