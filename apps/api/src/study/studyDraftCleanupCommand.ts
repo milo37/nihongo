@@ -15,6 +15,7 @@ runStudyCleanupCommand({
   maxBatchSize: MAX_STUDY_DRAFT_CLEANUP_BATCH_SIZE,
   successEvent: 'study.expired_drafts.cleaned',
   failureEvent: 'study.expired_drafts.cleanup_failed',
+  allowProduction: true,
   cleanup: async (client, batchSize) =>
     await createStudyDraftCleanupService(
       createPrismaStudyDraftCleanupRepository(client)
