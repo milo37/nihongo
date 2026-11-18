@@ -25,8 +25,9 @@ Rehearsed locally against the host compose file; not yet run on AWS.
    `20261116090000_tag_label_ja`,
    `20261117090000_drop_retired_verification`,
    `20261118090000_retention_cohort`,
-   `20261119090000_signup_consent` and
-   `20261120090000_grant_user_name_update` migrations with the
+   `20261119090000_signup_consent`,
+   `20261120090000_grant_user_name_update` and
+   `20261121090000_user_study_goal` migrations with the
    `nihongo_{test,development}_migration_login` wrapper (role
    `nihongo_migration`).
 3. Persistent local provisioning grants the guest login CONNECT on its own

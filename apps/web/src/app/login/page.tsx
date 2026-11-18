@@ -13,6 +13,10 @@ import {
 } from '@app/account/hooks/useSsoAccountManagement'
 import { RestoreCard } from '@app/login/components/RestoreCard'
 import { SignupConsentPage } from '@app/login/components/SignupConsentPage'
+// #1090: the study goal page follows the sign-up check, so it shares this
+// chunk instead of adding a file of its own.
+export { OnboardingPage } from '@app/login/components/OnboardingPage'
+export { OnboardingCheckRunner } from '@app/login/components/OnboardingCheckRunner'
 import type { SignupConsentExit } from '@app/login/hooks/useSignupConsent'
 import type { RestoreFailure } from '@app/login/hooks/useAccountRestore'
 import { SignInCard } from '@app/login/components/SignInCard'

@@ -35,6 +35,10 @@ import {
   createNicknameService,
   createPrismaNicknameRepository
 } from '../member/nickname.js'
+import {
+  createPrismaStudyGoalRepository,
+  createStudyGoalService
+} from '../member/studyGoal.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({
@@ -869,6 +873,98 @@ describe(
       await expect(
         nicknameService.update(randomUUID(), '하루')
       ).rejects.toMatchObject({ code: 'AUTHENTICATION_REQUIRED' })
+    })
+
+    it('#1090 nihongo_app answers the onboarding once and saves the goal', async () => {
+      if (!isCurrentSourceIntegration) return
+      const session = await createSsoSessionFixture({
+        owner: fixtureDatabase.client,
+        gateway: database.client,
+        secret: environment.BETTER_AUTH_SECRET,
+        role: 'USER'
+      })
+      createdUserIds.add(session.userId)
+      const studyGoals = createStudyGoalService(
+        createPrismaStudyGoalRepository(database.client)
+      )
+      expect(await studyGoals.read(session.userId)).toMatchObject({
+        dailyGoal: null,
+        goalSetAt: null,
+        skippedAt: null,
+        onboardingRequired: true
+      })
+      // [Later] once; a second skip changes nothing.
+      const skipped = await studyGoals.skipOnboarding(session.userId)
+      expect(skipped).toMatchObject({
+        dailyGoal: null,
+        onboardingRequired: false
+      })
+      expect(skipped.skippedAt).not.toBeNull()
+      expect(await studyGoals.skipOnboarding(session.userId)).toEqual(skipped)
+      // Setting it later keeps the skip time and moves the target level.
+      const saved = await studyGoals.update(session.userId, {
+        targetLevel: 'N3',
+        dailyGoal: 30
+      })
+      expect(saved).toMatchObject({
+        targetLevel: 'N3',
+        dailyGoal: 30,
+        skippedAt: skipped.skippedAt,
+        onboardingRequired: false
+      })
+      expect(saved.goalSetAt).not.toBeNull()
+      expect(
+        await studyGoals.update(session.userId, {
+          targetLevel: 'N1',
+          dailyGoal: 150
+        })
+      ).toMatchObject({ targetLevel: 'N1', dailyGoal: 150 })
+      const principalResponse = await app.request('/api/v1/me', {
+        headers: { Cookie: session.cookie }
+      })
+      expect(await principalResponse.json()).toMatchObject({
+        user: { id: session.userId, targetLevel: 'N1' }
+      })
+
+      // The table checks the goal; the skip time and the row stay put.
+      await expect(
+        database.client.$executeRaw`
+          UPDATE "UserStudyGoal" SET "dailyGoal" = 15
+          WHERE "userId" = ${session.userId}::uuid
+        `
+      ).rejects.toMatchObject({
+        message: expect.stringMatching(/UserStudyGoal_dailyGoal_check/u)
+      })
+      for (const statement of [
+        database.client.$executeRaw`
+          UPDATE "UserStudyGoal" SET "onboardingSkippedAt" = NULL
+          WHERE "userId" = ${session.userId}::uuid
+        `,
+        database.client.$executeRaw`
+          DELETE FROM "UserStudyGoal" WHERE "userId" = ${session.userId}::uuid
+        `
+      ])
+        await expect(statement).rejects.toMatchObject({
+          message: expect.stringMatching(/permission denied/u)
+        })
+      // A row is either set or skipped, never empty.
+      const other = await createSsoSessionFixture({
+        owner: fixtureDatabase.client,
+        gateway: database.client,
+        secret: environment.BETTER_AUTH_SECRET,
+        role: 'USER'
+      })
+      createdUserIds.add(other.userId)
+      await expect(
+        database.client.$executeRaw`
+          INSERT INTO "UserStudyGoal" ("userId") VALUES (${other.userId}::uuid)
+        `
+      ).rejects.toMatchObject({
+        message: expect.stringMatching(/UserStudyGoal_answered_check/u)
+      })
+      await expect(studyGoals.read(randomUUID())).rejects.toMatchObject({
+        code: 'AUTHENTICATION_REQUIRED'
+      })
     })
   }
 )

@@ -112,6 +112,7 @@ export const koCoreResources = {
       home: '홈',
       login: '로그인',
       signupConsent: '가입 확인',
+      onboarding: '학습 목표',
       dashboard: '홈',
       practiceSetup: '학습',
       practiceSession: '문제 풀기',
@@ -234,7 +235,7 @@ export const koCoreResources = {
           },
           '2': {
             title: '처리하는 항목',
-            body: '① 회원 가입(Google 로그인) 때 Google에서 받는 정보: Google 계정 식별자, 이메일 주소(이름은 가입 화면의 닉네임 기본값으로만 보여 주고 저장하지 않음. 이전에 가입한 회원은 저장된 이름을 닉네임으로 씀) ② 회원이 선택해 입력하는 정보: 닉네임, 목표 급수 ③ 서비스 이용 중 생성되는 정보: 학습 세션·답안·문제별 풀이 시간·결과, 임시 저장 답안, 오답노트와 메모, 책갈피, 복습 일정, 문제 신고(위치, 대상 문제, 사유, 설명)와 답변, 가입 확인 기록(만 14세 이상 확인 여부와 시각, 이용약관·개인정보 처리방침 확인 시각과 확인한 판) ④ 자동으로 생성·수집되는 정보: 로그인 세션 정보(접속 IP 주소, 브라우저 정보, 만료 시각), 요청 횟수 제한을 위해 IP 주소를 복원할 수 없게 변환한 값, 비회원 학습용 식별값(서버에는 변환된 값만 저장), 접속 기록(접속 IP 주소, 요청 시각·주소, 응답 결과, 브라우저 정보), 가입 확인 전 임시 정보(Google 계정 식별자·이메일 주소·이름을 암호화해 브라우저 쿠키에만 약 10분 보관) ⑤ 운영자는 비밀번호, 프로필 사진, Google 접근 토큰, 전화번호, 생년월일을 저장하지 않습니다.'
+            body: '① 회원 가입(Google 로그인) 때 Google에서 받는 정보: Google 계정 식별자, 이메일 주소(이름은 가입 화면의 닉네임 기본값으로만 보여 주고 저장하지 않음. 이전에 가입한 회원은 저장된 이름을 닉네임으로 씀) ② 회원이 선택해 입력하는 정보: 닉네임, 목표 급수, 하루 목표 ③ 서비스 이용 중 생성되는 정보: 학습 세션·답안·문제별 풀이 시간·결과, 임시 저장 답안, 오답노트와 메모, 책갈피, 복습 일정, 문제 신고(위치, 대상 문제, 사유, 설명)와 답변, 가입 확인 기록(만 14세 이상 확인 여부와 시각, 이용약관·개인정보 처리방침 확인 시각과 확인한 판) ④ 자동으로 생성·수집되는 정보: 로그인 세션 정보(접속 IP 주소, 브라우저 정보, 만료 시각), 요청 횟수 제한을 위해 IP 주소를 복원할 수 없게 변환한 값, 비회원 학습용 식별값(서버에는 변환된 값만 저장), 접속 기록(접속 IP 주소, 요청 시각·주소, 응답 결과, 브라우저 정보), 가입 확인 전 임시 정보(Google 계정 식별자·이메일 주소·이름을 암호화해 브라우저 쿠키에만 약 10분 보관) ⑤ 운영자는 비밀번호, 프로필 사진, Google 접근 토큰, 전화번호, 생년월일을 저장하지 않습니다.'
           },
           '3': {
             title: '보유 기간',
@@ -415,6 +416,23 @@ export const koCoreResources = {
       cancel: '취소',
       expired: '시간이 지났어요. 다시 로그인해 주세요.',
       cancelled: '가입하지 않았어요. 로그인 없이 계속 풀 수 있어요.'
+    },
+    // #1090 '학습 목표' page (scenario O-5, O-r7).
+    studyGoal: {
+      // Two lines as drawn (r11); the page keeps the line break.
+      title: '공부 목표를\n정해 볼까요?',
+      hint: '나중에 마이에서 바꿀 수 있어요.',
+      level: '목표 급수',
+      daily: '하루 목표',
+      unit: '문제',
+      count: '{{count}}문제',
+      decrease: '10문제 줄이기',
+      increase: '10문제 늘리기',
+      start: '시작하기',
+      later: '나중에 할게요',
+      save: '저장',
+      cancel: '취소',
+      failed: '저장하지 못했어요. 다시 눌러 주세요.'
     },
     nickname: {
       label: '닉네임',
@@ -721,6 +739,11 @@ export const koCoreResources = {
     }
   },
   result: {
+    // #1090 O-r7: members with a daily goal, under the score.
+    dailyGoal: {
+      progress: '오늘 {{today}} / {{goal}}문제',
+      done: '오늘 목표 {{goal}}문제를 채웠어요'
+    },
     retired: {
       title: '이 결과는 더 볼 수 없어요',
       description: '새로 풀어 보세요.'
@@ -1020,12 +1043,17 @@ export const koCoreResources = {
     }
   },
   account: {
+    // #1090 O-r7: the one '학습 목표' row (the target level row joined it).
+    studyGoal: {
+      label: '학습 목표',
+      set: '목표 {{level}} · 하루 {{count}}문제 · 오늘 {{today}}',
+      unset: '하루에 풀 문제 수를 정하면 오늘 푼 수를 세어 드려요.',
+      action: '목표 정하기'
+    },
+    // #1090: the target level row joined the study goal row; the nickname
+    // row still borrows these two.
     targetLevel: {
-      label: '목표 급수',
-      hint: "홈의 '오늘의 한 문제'와 연습을 이 급수로 시작해요.",
-      unset: '정하지 않음',
       saveAction: '저장',
-      saved: '목표 급수를 바꿨어요. 이제 {{level}} 문제로 시작해요.',
       error: '저장하지 못했어요. 잠시 뒤 다시 저장해 주세요.'
     },
     title: '마이페이지',

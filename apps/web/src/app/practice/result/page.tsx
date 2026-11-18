@@ -71,6 +71,7 @@ const SelectedResultItem = ({
 }
 
 const PracticeResultPageContent = (): ReactElement => {
+  const { user } = useAuth()
   const { t } = useTranslation('result')
   const { sessionId = '' } = useParams()
   const summaryHeadingRef = useRef<HTMLHeadingElement>(null)
@@ -197,6 +198,7 @@ const PracticeResultPageContent = (): ReactElement => {
           incorrectCount={result.incorrectItems.length}
           isGuest={isGuest}
           isGuestDone={result.isGuestDone}
+          memberId={isGuest ? null : (user?.id ?? null)}
           animateGrading={animateGrading}
           result={studyResult}
           session={session}

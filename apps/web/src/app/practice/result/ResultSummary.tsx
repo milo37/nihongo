@@ -11,6 +11,7 @@ import {
   ProgressSheet
 } from '@common/components/manuscript/ProgressSheet'
 import type { ProgressCellState } from '@common/components/manuscript/ProgressSheet'
+import { DailyGoalLine } from '@app/practice/result/DailyGoalLine'
 
 const SCORE_SLOT = '\u0000'
 
@@ -22,6 +23,8 @@ type ResultSummaryProps = {
   isGuest: boolean
   /** A guest's last try today: the limit card holds the login button. */
   isGuestDone: boolean
+  /** #1090: a member's id for today's goal line; null for guests. */
+  memberId: string | null
   result: StudyResultView
   session: StudySessionView['session']
 }
@@ -33,6 +36,7 @@ export const ResultSummary = ({
   incorrectCount,
   isGuest,
   isGuestDone,
+  memberId,
   result,
   session
 }: ResultSummaryProps): ReactElement => {
@@ -114,6 +118,8 @@ export const ResultSummary = ({
           ...details
         ].join(' · ')}
       </p>
+      {/* #1090 r7: right under the grey info line (the later stamp ends it). */}
+      {memberId ? <DailyGoalLine userId={memberId} /> : null}
       <ProgressSheet
         className="study-result-sheet"
         states={gradeStates}

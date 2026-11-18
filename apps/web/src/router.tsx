@@ -9,6 +9,7 @@ import { homeRoutes } from '@app/home/router'
 import { Layout } from '@app/layout'
 import { AccountRestoreNotice } from '@app/login/components/AccountRestoreNotice'
 import { GuestResultCarry } from '@app/login/components/GuestResultCarry'
+import { OnboardingCheck } from '@app/login/components/OnboardingCheck'
 import { AppErrorReportButton } from '@app/question-report/components/AppErrorReportDialog'
 import { loginRoutes } from '@app/login/router'
 import { NotFoundPage } from '@nihongo/browser/app/not-found/page'
@@ -41,6 +42,7 @@ export const appRoutes: RouteObject[] = [
       >
         <AuthErrorHandlerProvider />
         <GuestResultCarry />
+        <OnboardingCheck />
         <AccountRestoreNotice />
         <Layout />
       </ProtectedRouteProvider>

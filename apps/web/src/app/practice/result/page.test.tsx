@@ -749,6 +749,33 @@ describe('approved general result navigation', () => {
     fixture.client.clear()
   })
 
+  it('하루 목표가 있는 회원은 점수 아래 오늘 푼 수를, 채우면 먹색 한 줄을 본다 (#1090)', async () => {
+    const fixture = await createFixture()
+    const userId = mockDatabase.getCurrentUser()?.id ?? ''
+    mockDatabase.setStudyGoal(userId, 'N5', 10)
+    const first = fixture.mount()
+    expect(await screen.findByText('오늘 3 / 10문제')).toBeVisible()
+    first.view.unmount()
+    fixture.client.clear()
+    mockDatabase.setStudyGoal(userId, 'N5', 10)
+    for (let set = 0; set < 3; set += 1) await createFixture()
+    const second = fixture.mount()
+    const done = await screen.findByText('오늘 목표 10문제를 채웠어요')
+    expect(done).toHaveClass('is-done')
+    second.view.unmount()
+    fixture.client.clear()
+  })
+
+  it('하루 목표가 없는 회원과 비회원에게는 오늘 푼 수 줄이 없다 (#1090)', async () => {
+    const fixture = await createFixture()
+    const { view } = fixture.mount()
+    await screen.findByRole('heading', { level: 1 })
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    expect(screen.queryByText(/^오늘 \d+ \/ /u)).toBeNull()
+    view.unmount()
+    fixture.client.clear()
+  })
+
   it('모두 맞힌 결과는 안내 상자 없이 다음 10문제(주) 하나만 보여 준다', async () => {
     const fixture = await createFixture()
     const allCorrect: StudyResult = {

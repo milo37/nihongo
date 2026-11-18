@@ -41,6 +41,8 @@ const RATE_POLICIES: readonly (readonly [string, number])[] = [
     'study-cancel',
     'study-create',
     'study-draft-save',
+    'study-goal-read',
+    'study-goal-write',
     'study-mutation-ip',
     'study-read',
     'study-result-read',
