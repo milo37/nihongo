@@ -733,6 +733,50 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
           providerCleanup: [{ provider: 'google', status: 'FAILED' }]
         }
       ])
+      // #700: a day after that lease expired, the next run retries it.
+      await h.owner.query(
+        'UPDATE "SsoAccountErasureRequest" SET "leaseExpiresAt"=clock_timestamp()-interval \'1 day\'+interval \'1 minute\' WHERE id=$1',
+        [id]
+      )
+      expect(await claim()).toBeUndefined()
+      await h.owner.query(
+        'UPDATE "SsoAccountErasureRequest" SET "leaseExpiresAt"=clock_timestamp()-interval \'1 day 1 second\' WHERE id=$1',
+        [id]
+      )
+      const retry = (await claim())!
+      expect(retry.providers).toEqual([
+        { provider: 'google', subject: expect.any(String) }
+      ])
+      expect(
+        await worker.beginProviderCleanup(
+          id,
+          'google',
+          retry.leaseToken,
+          'TEST'
+        )
+      ).toBe(true)
+      expect(
+        await worker.recordProviderCleanup(
+          id,
+          'google',
+          'COMPLETED',
+          retry.leaseToken,
+          'TEST'
+        )
+      ).toBe(true)
+      expect(
+        (
+          await h.owner.query(
+            'SELECT "activeProvider","providerCleanup" FROM "SsoAccountErasureRequest" WHERE id=$1',
+            [id]
+          )
+        ).rows
+      ).toEqual([
+        {
+          activeProvider: null,
+          providerCleanup: [{ provider: 'google', status: 'COMPLETED' }]
+        }
+      ])
     })
   })
 

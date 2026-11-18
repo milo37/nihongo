@@ -153,7 +153,8 @@ export interface SsoProviderRevokeRunResult {
 const LEASE_RESERVE_MS = 2 * SSO_PROVIDER_REVOKE_TIMEOUT_MS
 /**
  * All waits share a conservative lease deadline. SQL fences begin/record using
- * the claim token and live DB clock; unresolved dispatches cannot be re-claimed.
+ * the claim token and live DB clock; an unresolved dispatch is re-claimed only
+ * a day after its lease expired (#700).
  */
 export const runSsoProviderRevokeBatch = async (
   worker: Pick<
