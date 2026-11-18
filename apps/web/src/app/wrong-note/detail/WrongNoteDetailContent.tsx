@@ -21,6 +21,9 @@ const ReviewOptions = ({
   options: WrongNoteDetailView['question']['options']
   previousAnswer: WrongNotePreviousAnswer
 }): ReactElement => {
+  // Left uncompiled: the compiled parent already caches this section, and
+  // compiling it too adds about 200 bytes gzip (#1124 bundle).
+  'use no memo'
   const { t } = useTranslation('wrongNote')
   return (
     <ol className="review-options">

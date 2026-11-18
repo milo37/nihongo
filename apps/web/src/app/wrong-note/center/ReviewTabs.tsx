@@ -23,6 +23,9 @@ export const ReviewTabs = ({
   selected,
   tabs
 }: ReviewTabsProps): ReactElement => {
+  // Left uncompiled: the compiled parent already caches this section, and
+  // compiling it too adds about 200 bytes gzip (#1124 bundle).
+  'use no memo'
   const { t } = useTranslation('wrongNote')
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>): void => {
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return

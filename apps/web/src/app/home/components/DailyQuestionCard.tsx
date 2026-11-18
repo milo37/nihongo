@@ -106,6 +106,9 @@ const DailyOption = ({
   option: GetDailyQuestionResponse['question']['options'][number]
   pressed: boolean
 }): ReactElement => {
+  // Left uncompiled: the compiled parent already caches this section, and
+  // compiling it too adds about 200 bytes gzip (#1124 bundle).
+  'use no memo'
   const { t } = useTranslation('home')
   return (
     <button

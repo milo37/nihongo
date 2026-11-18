@@ -73,6 +73,9 @@ const StartSentence = ({
   level: string
   setup: ReturnType<typeof usePracticeSetupController>
 }): ReactElement => {
+  // Left uncompiled: the compiled parent already caches this section, and
+  // compiling it too adds about 200 bytes gzip (#1124 bundle).
+  'use no memo'
   const { t, i18n } = useTranslation('home')
   const { count, subject } = setup
   const locale = resolveUiLocale(i18n.resolvedLanguage)

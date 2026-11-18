@@ -26,6 +26,9 @@ export const ReviewList = ({
   rowLinks,
   state
 }: ReviewListProps): ReactElement => {
+  // Left uncompiled: the compiled parent already caches this section, and
+  // compiling it too adds about 200 bytes gzip (#1124 bundle).
+  'use no memo'
   const { t } = useTranslation('wrongNote')
   return (
     <div className="mt-2 overflow-hidden rounded-card border border-line bg-surface">
