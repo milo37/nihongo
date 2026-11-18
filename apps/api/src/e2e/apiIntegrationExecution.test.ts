@@ -1,5 +1,6 @@
 import { readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { describe, expect, it, vi } from 'vitest'
+import { PINNED_MIGRATIONS } from '../db/migrationManifest.js'
 import { loadExpectedMigrationManifest } from '../db/readiness.js'
 import {
   EnvironmentValidationError,
@@ -80,7 +81,7 @@ describe('SSO bootstrap migration history', () => {
       migration_name: name,
       checksum
     }))
-    expect(expected).toHaveLength(16)
+    expect(expected).toEqual(PINNED_MIGRATIONS)
     expect(() =>
       assertSsoBootstrapMigrationHistory(expected, applied)
     ).not.toThrow()
