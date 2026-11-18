@@ -11,7 +11,7 @@ import { Hono, type MiddlewareHandler } from 'hono'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ApplicationError } from '../errors/applicationError.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
-import { installStaticWeb } from './staticWeb.js'
+import { installStaticWeb, securityTxt } from './staticWeb.js'
 
 type StaticEnvironment = { Variables: ApiVariables }
 const releaseId = '1'.repeat(40)
@@ -295,5 +295,44 @@ describe('separate protected admin static assets', () => {
     rmSync(join(admin, 'index.html'))
     symlinkSync(join(web, 'index.html'), join(admin, 'index.html'))
     expect(() => server()).toThrow('release ID')
+  })
+})
+
+describe('security.txt', () => {
+  it('publishes the configured public contact with an expiry', async () => {
+    writeFileSync(
+      join(web, 'legal-settings.json'),
+      JSON.stringify({ contactEmail: ' help@example.test ' })
+    )
+    const { app } = server()
+    const response = await app.request('/.well-known/security.txt')
+    const body = await response.text()
+    expect(response.status).toBe(200)
+    expect(response.headers.get('Content-Type')).toMatch(/^text\/plain/u)
+    expect(body).toMatch(
+      /^Contact: mailto:help@example\.test\nExpires: \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\nPreferred-Languages: ko, ja\n$/u
+    )
+  })
+
+  it('expires within a year of being served', () => {
+    expect(
+      securityTxt('help@example.test', new Date('2026-11-18T00:00:00.000Z'))
+    ).toContain('Expires: 2027-05-17T00:00:00Z')
+  })
+
+  it.each([
+    undefined,
+    '{}',
+    JSON.stringify({ contactEmail: '' }),
+    JSON.stringify({ contactEmail: 'not an address' }),
+    JSON.stringify({ contactEmail: 'a@b.test\nContact: mailto:x@y.test' }),
+    'not json'
+  ])('is absent without a valid contact (%s)', async (settings) => {
+    if (settings !== undefined)
+      writeFileSync(join(web, 'legal-settings.json'), settings)
+    const { app } = server()
+    const response = await app.request('/.well-known/security.txt')
+    expect(response.status).toBe(404)
+    expect(await response.text()).toBe('NOT_FOUND')
   })
 })

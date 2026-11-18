@@ -21,7 +21,7 @@ import {
 } from '../../test/fixtures/db/ownedSessionSql.js'
 import { Client } from 'pg'
 import { buildAllQuestionSeeds } from '../../prisma/seedQuestionCatalog.js'
-import type { QuestionAggregateSeed } from '../../prisma/seed-data/buildQuestionSeed.js'
+import type { QuestionAggregateSeed } from '../../test/fixtures/seed-questions/buildQuestionSeed.js'
 import {
   armAdminOperation,
   type ArmableOperation
@@ -35,6 +35,7 @@ import { parseApiEnvironment } from '../config/env.js'
 import type { Prisma } from '../generated/prisma/client.js'
 import { adminFreshContextSchema } from '../auth/ssoAdminFreshRepository.js'
 import { createRoleDatabaseRuntime } from './database.js'
+import { PINNED_MIGRATION_NAMES } from './migrationManifest.js'
 import {
   createPostgresStartupOptions,
   getPostgresSchema
@@ -46,25 +47,8 @@ import {
 } from './foundationDiagnostics.js'
 import { attestRuntimeRoles } from './runtimeRoleAttestation.js'
 
-// #504 P8-1: one baseline replaces the 76 migrations.
-const EXPECTED_MIGRATIONS = [
-  '20261105090000_baseline',
-  '20261106090000_remove_phase_names',
-  '20261107090000_first_admin_production',
-  '20261108090000_remove_tag_applicability_and_snapshots',
-  '20261109090000_add_tag_key_subject_status',
-  '20261110090000_admin_fresh_window_30_minutes',
-  '20261111090000_grant_user_target_level_update',
-  '20261112090000_account_erasure_grace_restore',
-  '20261113090000_admin_access_log',
-  '20261114090000_user_last_login',
-  '20261116090000_tag_label_ja',
-  '20261117090000_drop_retired_verification',
-  '20261118090000_retention_cohort',
-  '20261119090000_signup_consent',
-  '20261120090000_grant_user_name_update',
-  '20261121090000_user_study_goal'
-] as const
+// #674: the pinned migration manifest.
+const EXPECTED_MIGRATIONS = PINNED_MIGRATION_NAMES
 const EXPECTED_CHANGED_FIELDS = [
   'LIFECYCLE_STATUS',
   'LEVEL',

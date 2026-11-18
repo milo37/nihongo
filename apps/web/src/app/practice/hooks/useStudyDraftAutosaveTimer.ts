@@ -14,7 +14,6 @@ type DraftStoreState = ReturnType<typeof useAppStore.getState>
 type UseStudyDraftAutosaveTimerInput = {
   controllerScopeKey: string
   deferredRemoteRevisionScope: string | null
-  draftConflict: DraftStoreState['draftConflict']
   draftSaveState: DraftStoreState['draftSaveState']
   draftWorkingCopy: DraftStoreState['draftWorkingCopy']
   enabled: boolean
@@ -26,7 +25,6 @@ type UseStudyDraftAutosaveTimerInput = {
 export const useStudyDraftAutosaveTimer = ({
   controllerScopeKey,
   deferredRemoteRevisionScope,
-  draftConflict,
   draftSaveState,
   draftWorkingCopy,
   enabled,
@@ -40,7 +38,6 @@ export const useStudyDraftAutosaveTimer = ({
     if (
       !enabled ||
       draftSaveState !== 'dirty' ||
-      draftConflict ||
       deferredRemoteRevisionScope === controllerScopeKey ||
       navigator.onLine === false
     ) {
@@ -67,7 +64,6 @@ export const useStudyDraftAutosaveTimer = ({
   }, [
     controllerScopeKey,
     deferredRemoteRevisionScope,
-    draftConflict,
     draftSaveState,
     draftWorkingCopy,
     enabled,
