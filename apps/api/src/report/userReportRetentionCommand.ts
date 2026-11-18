@@ -15,6 +15,7 @@ runStudyCleanupCommand({
   dryRunVariable: 'USER_REPORT_RETENTION_DRY_RUN',
   successEvent: 'report.expired_descriptions.redacted',
   failureEvent: 'report.expired_descriptions.redaction_failed',
+  allowProduction: true,
   cleanup: async (client, batchSize, dryRun) =>
     await redactExpiredUserReportDescriptions(client, { batchSize, dryRun }),
   describe: (result) => ({
