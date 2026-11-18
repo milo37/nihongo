@@ -283,6 +283,7 @@ model User {
   signIn                      UserSignIn?
   consents                    UserConsent[]
   studyGoal                   UserStudyGoal?
+  stamps                      StampLedger[]
   idempotencyRecords          IdempotencyRecord[]
   userReports                 UserReport[]
   accountRestriction          UserAccountRestriction?
@@ -1092,4 +1093,20 @@ model UserStudyGoal {
   onboardingSkippedAt DateTime? @db.Timestamptz(3)
   createdAt           DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
   user                User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+/// #1094: stamps a member earned (and later spent); add-only, the count is
+/// the sum of amount. The partial unique index on (userId, earnedOn, reason)
+/// WHERE amount > 0 lives in the migration.
+model StampLedger {
+  id         String   @id @db.Uuid
+  userId     String   @db.Uuid
+  earnedOn   DateTime @db.Date
+  reason     String
+  amount     Int      @db.SmallInt
+  goalAtEarn Int?     @db.SmallInt
+  createdAt  DateTime @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([userId])
 }

@@ -37,7 +37,9 @@ export const studyGoalResponseSchema = z
     onboardingRequired: z.boolean(),
     // Answers in sets submitted today (Asia/Seoul day), every level,
     // subject and mode; abandoned sets and the daily question do not count.
-    todayAnsweredCount: z.number().int().nonnegative()
+    todayAnsweredCount: z.number().int().nonnegative(),
+    // #1094: stamps collected so far (the "StampLedger" sum); 0 when none.
+    stampCount: z.number().int().nonnegative()
   })
   .strict()
 

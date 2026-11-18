@@ -45,14 +45,18 @@ describe('study goal contract (#1090)', () => {
       goalSetAt: null,
       skippedAt: null,
       onboardingRequired: true,
-      todayAnsweredCount: 0
+      todayAnsweredCount: 0,
+      stampCount: 0
     }
     expect(studyGoalResponseSchema.parse(unanswered)).toEqual(unanswered)
-    expect(
-      studyGoalResponseSchema.safeParse({
-        ...unanswered,
-        todayAnsweredCount: -1
-      }).success
-    ).toBe(false)
+    for (const invalid of [
+      { todayAnsweredCount: -1 },
+      // #1094: the collected stamps are required and never below zero.
+      { stampCount: -1 },
+      { stampCount: undefined }
+    ])
+      expect(
+        studyGoalResponseSchema.safeParse({ ...unanswered, ...invalid }).success
+      ).toBe(false)
   })
 })

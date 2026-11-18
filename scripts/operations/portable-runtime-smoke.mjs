@@ -28,9 +28,9 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const postgresImage =
   'postgres:18.4-alpine@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15'
 // #504 P8-1: one baseline replaces the 76 migrations.
-const currentMigrationCount = 16
+const currentMigrationCount = 17
 const currentMigrationDigest =
-  '338b87ada13f4894c126c573db978094025f10e86f0cd448555bd9f471ab7cf0'
+  'dbd9e1a8751e7f1bad56efd98c23df858735a0b1b05376f25e79c3cb01200a23'
 const migrationLogin = 'nihongo_test_migration_login'
 const applicationLogin = 'nihongo_test_app_login'
 const schemaPattern = /^nihongo_[0-9a-f]{32}_test$/u
@@ -215,7 +215,7 @@ export const selectCurrentMigrationNames = (migrationsDirectory) => {
     manifest.length !== currentMigrationCount ||
     createHash('sha256').update(JSON.stringify(manifest)).digest('hex') !==
       currentMigrationDigest ||
-    manifest.at(-1)?.name !== '20261121090000_user_study_goal'
+    manifest.at(-1)?.name !== '20261122090000_stamp_ledger'
   ) {
     throw new Error('Repository baseline migration inventory is invalid.')
   }

@@ -63,7 +63,15 @@ export const submitStudySessionV2BodySchema = submitStudySessionBodyObjectSchema
   })
   .superRefine(refineUniqueStudyAnswers)
 
-export const submitStudySessionV2ResponseSchema = studyResultSchema
+/**
+ * #1094: stampEarned is true only on the member's set whose answers first
+ * reach today's daily goal; guests and every other set get false. The result
+ * read (GET .../result) has no such field, so reopening shows no stamp.
+ * Responses stored before #1094 replay as false.
+ */
+export const submitStudySessionV2ResponseSchema = studyResultSchema.safeExtend({
+  stampEarned: z.boolean().default(false)
+})
 
 const submitStudySessionErrorCodeSchema = z.enum([
   'INVALID_JSON',

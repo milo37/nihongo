@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { studyResultSchema } from '@nihongo/contracts/study/study-result'
+import { submitStudySessionV2ResponseSchema } from '@nihongo/contracts/study/submit-study-session'
 import { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { createGuestPrincipalService } from '../auth/guestPrincipalService.js'
@@ -21,6 +21,10 @@ import {
 import { createPrismaStudyDraftRepository } from './studyDraftRepository.js'
 import { createPrismaStudySubmissionRepository } from './studySubmissionRepository.js'
 import { createStudySubmissionService } from './studySubmissionService.js'
+import {
+  createPrismaStudyGoalRepository,
+  createStudyGoalService
+} from '../member/studyGoal.js'
 import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 
 const DAY_MS = 24 * 60 * 60 * 1_000
@@ -458,7 +462,7 @@ describe('Study submission PostgreSQL transaction', () => {
     const idempotencyKey = randomUUID()
 
     const first = await service.submit(session.id, idempotencyKey, body, owner)
-    const response = studyResultSchema.parse(first.response)
+    const response = submitStudySessionV2ResponseSchema.parse(first.response)
 
     expect(first.replayed).toBe(false)
     expect(response).toMatchObject({
@@ -467,7 +471,8 @@ describe('Study submission PostgreSQL transaction', () => {
       correctCount: 1,
       incorrectCount: 1,
       correctRate: 50,
-      durationSec: 20
+      durationSec: 20,
+      stampEarned: false
     })
     expect(
       response.items.map(({ wrongNoteStatus }) => wrongNoteStatus)
@@ -513,9 +518,10 @@ describe('Study submission PostgreSQL transaction', () => {
       code: 'SESSION_ALREADY_SUBMITTED',
       location: `/api/v1/study-sessions/${session.id}/result`
     })
-    await expect(service.getResult(session.id, owner)).resolves.toEqual(
-      first.response
-    )
+    await expect(service.getResult(session.id, owner)).resolves.toEqual({
+      ...first.response,
+      stampEarned: undefined
+    })
 
     const secondSession = await createSession(owner, 5, startedAt)
     const secondMaterial = await loadAnswerMaterial(secondSession.id)
@@ -542,9 +548,115 @@ describe('Study submission PostgreSQL transaction', () => {
         where: { studySessionId: secondSession.id }
       })
     ).toBe(1)
-    await expect(service.getResult(session.id, owner)).resolves.toEqual(
-      first.response
+    await expect(service.getResult(session.id, owner)).resolves.toEqual({
+      ...first.response,
+      stampEarned: undefined
+    })
+  })
+
+  it('#1094 하루 목표에 닿는 세트에서만 도장 1개를 적립하고 재시도는 같은 답을 돌려준다', async () => {
+    const userId = await createUser()
+    const owner = { kind: 'USER' as const, userId }
+    const studyGoals = createStudyGoalService(
+      createPrismaStudyGoalRepository(database.client)
     )
+    const startedAt = new Date()
+    const service = createStudySubmissionService(
+      submissionRepository,
+      () => new Date(startedAt.getTime() + 1_000)
+    )
+    const submitFive = async (idempotencyKey = randomUUID()) => {
+      const session = await createSession(owner, 5, startedAt)
+      const material = await loadAnswerMaterial(session.id)
+      const body = await prepareBody(
+        session.id,
+        owner,
+        createBody(material, ({ correctOptionId }) => correctOptionId),
+        startedAt
+      )
+      const submitted = await service.submit(
+        session.id,
+        idempotencyKey,
+        body,
+        owner
+      )
+      return { body, idempotencyKey, session, submitted }
+    }
+
+    // No daily goal yet: answers count, no stamp.
+    expect((await submitFive()).submitted.response.stampEarned).toBe(false)
+    expect(await studyGoals.read(userId)).toMatchObject({
+      todayAnsweredCount: 5,
+      stampCount: 0
+    })
+
+    // Goal 20: 10 answers so far, then 15, then 20 earns the one stamp.
+    await studyGoals.update(userId, { targetLevel: 'N5', dailyGoal: 20 })
+    expect((await submitFive()).submitted.response.stampEarned).toBe(false)
+    expect((await submitFive()).submitted.response.stampEarned).toBe(false)
+    const earning = await submitFive()
+    expect(earning.submitted.response.stampEarned).toBe(true)
+    const replay = await service.submit(
+      earning.session.id,
+      earning.idempotencyKey,
+      earning.body,
+      owner
+    )
+    expect(replay).toMatchObject({
+      replayed: true,
+      response: { stampEarned: true }
+    })
+    await expect(
+      service.getResult(earning.session.id, owner)
+    ).resolves.not.toHaveProperty('stampEarned')
+
+    // Later sets the same day, even after lowering the goal: no second stamp.
+    expect((await submitFive()).submitted.response.stampEarned).toBe(false)
+    await studyGoals.update(userId, { targetLevel: 'N5', dailyGoal: 10 })
+    expect((await submitFive()).submitted.response.stampEarned).toBe(false)
+    expect(await studyGoals.read(userId)).toMatchObject({
+      todayAnsweredCount: 30,
+      stampCount: 1
+    })
+    const rows = await database.client.$queryRaw<
+      Array<{ reason: string; amount: number; goalAtEarn: number | null }>
+    >`
+      SELECT "reason", "amount", "goalAtEarn" FROM "StampLedger"
+      WHERE "userId" = ${userId}::uuid
+    `
+    expect(rows).toEqual([{ reason: 'DAILY_GOAL', amount: 1, goalAtEarn: 20 }])
+
+    if (isCurrentSourceIntegration) {
+      // nihongo_app only adds and reads ledger rows.
+      for (const statement of [
+        database.client.$executeRaw`
+          UPDATE "StampLedger" SET "amount" = 2 WHERE "userId" = ${userId}::uuid
+        `,
+        database.client.$executeRaw`
+          DELETE FROM "StampLedger" WHERE "userId" = ${userId}::uuid
+        `
+      ])
+        await expect(statement).rejects.toMatchObject({
+          message: expect.stringMatching(/permission denied/u)
+        })
+    }
+    // One earning row per member, day and reason; a spending row is allowed.
+    await expect(
+      database.client.$executeRaw`
+        INSERT INTO "StampLedger"
+          ("id", "userId", "earnedOn", "reason", "amount", "goalAtEarn")
+        SELECT ${randomUUID()}::uuid, "userId", "earnedOn", "reason", 1, 20
+        FROM "StampLedger" WHERE "userId" = ${userId}::uuid
+      `
+    ).rejects.toMatchObject({
+      message: expect.stringMatching(/StampLedger_userId_earnedOn_reason_key/u)
+    })
+    await database.client.$executeRaw`
+      INSERT INTO "StampLedger" ("id", "userId", "earnedOn", "reason", "amount")
+      SELECT ${randomUUID()}::uuid, "userId", "earnedOn", 'TEST_SPEND', -1
+      FROM "StampLedger" WHERE "userId" = ${userId}::uuid
+    `
+    expect(await studyGoals.read(userId)).toMatchObject({ stampCount: 0 })
   })
 
   it('WEAKNESS·BOOKMARK·WRONG_NOTE·DAILY_REVIEW를 owner facts로 선택하고 mode별 event source를 보존한다', async () => {
@@ -1235,9 +1347,10 @@ describe('Study submission PostgreSQL transaction', () => {
           questionVersionId: pinned.questionVersionId,
           correctOptionId: pinned.correctOptionId
         })
-        await expect(service.getResult(session.id, owner)).resolves.toEqual(
-          submitted.response
-        )
+        await expect(service.getResult(session.id, owner)).resolves.toEqual({
+          ...submitted.response,
+          stampEarned: undefined
+        })
       } finally {
         if (!isCurrentSourceIntegration) {
           await database.client.question.update({
