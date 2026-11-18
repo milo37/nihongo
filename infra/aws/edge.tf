@@ -227,8 +227,14 @@ resource "aws_wafv2_web_acl" "edge" {
                 field_to_match {
                   uri_path {}
                 }
+                # Decode first: the API decodes %2e%2e, so /api/v1/admin/%2e%2e/...
+                # reaches a learner route and must not count as admin (#1012).
                 text_transformation {
                   priority = 0
+                  type     = "URL_DECODE"
+                }
+                text_transformation {
+                  priority = 1
                   type     = "NORMALIZE_PATH"
                 }
               }
