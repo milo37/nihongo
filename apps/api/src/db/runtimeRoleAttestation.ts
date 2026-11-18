@@ -201,7 +201,9 @@ const ATTESTATION_QUERY = `
                ('User', 'accountStatus'),
                ('User', 'authorityGeneration'),
                -- JLP-815: the member's own target level.
-               ('User', 'targetLevel')
+               ('User', 'targetLevel'),
+               -- #1096: the member's own nickname.
+               ('User', 'name')
              ) THEN 'INSERT,REFERENCES'
            WHEN (sensitive_relation.relname, sensitive_column.attname) IN (
                ('AuthorityRevocationEvidence', 'expiresAt'),
@@ -211,7 +213,6 @@ const ATTESTATION_QUERY = `
                ('User', 'email'),
                ('User', 'emailVerified'),
                ('User', 'id'),
-               ('User', 'name'),
                ('User', 'role')
              ) THEN 'INSERT,UPDATE,REFERENCES'
            WHEN (sensitive_relation.relname, sensitive_column.attname) IN (

@@ -25,6 +25,10 @@ import {
   createPrismaTargetLevelRepository,
   createTargetLevelService
 } from '../member/targetLevel.js'
+import {
+  createNicknameService,
+  createPrismaNicknameRepository
+} from '../member/nickname.js'
 import { createPrismaGuestAllowanceReader } from '../study/guestAllowance.js'
 import { createGuestIpDailyCounter } from '../study/guestIpDailyCounter.js'
 import { createPrismaStudyDraftRepository } from '../study/studyDraftRepository.js'
@@ -1582,6 +1586,9 @@ const createSsoBrowserApiFixture = async (
         targetedReviewService: wrongNoteTargetedReviewService,
         targetLevelService: createTargetLevelService(
           createPrismaTargetLevelRepository(database.client)
+        ),
+        nicknameService: createNicknameService(
+          createPrismaNicknameRepository(database.client)
         ),
         wrongNoteService
       },

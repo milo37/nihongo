@@ -47,6 +47,10 @@ import {
   createPrismaTargetLevelRepository,
   createTargetLevelService
 } from './member/targetLevel.js'
+import {
+  createNicknameService,
+  createPrismaNicknameRepository
+} from './member/nickname.js'
 import { createPrismaStudyResultRetryRepository } from './study/studyResultRetryRepository.js'
 import {
   createGuestResultImportService,
@@ -178,6 +182,9 @@ const bookmarkService = createBookmarkService(
 const targetLevelService = createTargetLevelService(
   createPrismaTargetLevelRepository(database.client)
 )
+const nicknameService = createNicknameService(
+  createPrismaNicknameRepository(database.client)
+)
 const adminQuestionReader = createAdminQuestionService(
   createPrismaAdminQuestionRepository(database.client)
 )
@@ -284,6 +291,7 @@ const app = createApiApp({
     reviewListService: wrongNoteReviewListService,
     targetedReviewService: wrongNoteTargetedReviewService,
     targetLevelService,
+    nicknameService,
     wrongNoteService
   },
   dailyQuestionReader,

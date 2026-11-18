@@ -350,11 +350,15 @@ const withBaselineProofBound = (
       }
     : row
 
-/** JLP-815: nihongo_app also updates "User"."targetLevel". */
+/**
+ * JLP-815: nihongo_app also updates "User"."targetLevel"; #1096: and
+ * "User"."name" (the nickname).
+ */
+const UPDATED_USER_COLUMNS = new Set(['targetLevel', 'name'])
 const withBaselineTargetLevelAcl = (
   row: Record<string, unknown>
 ): Record<string, unknown> =>
-  row.table === 'User' && row.name === 'targetLevel'
+  row.table === 'User' && UPDATED_USER_COLUMNS.has(String(row.name))
     ? {
         ...row,
         acl: String(row.acl).replace('nihongo_app=rw/', 'nihongo_app=r/')

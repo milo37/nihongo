@@ -133,7 +133,12 @@ export const classifyChangedFiles = (changedFiles) => {
       continue
     }
 
-    if (file === 'pnpm-lock.yaml' || /(?:^|\/)package\.json$/u.test(file)) {
+    if (
+      file === 'pnpm-lock.yaml' ||
+      // Install hooks change the resolved tree like the lockfile does (#1100).
+      file === '.pnpmfile.cjs' ||
+      /(?:^|\/)package\.json$/u.test(file)
+    ) {
       markCore(selection)
       selection.audit = true
       selection.portable = true

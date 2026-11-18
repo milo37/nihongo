@@ -6,5 +6,7 @@ import type { SignupConsentState } from '@nihongo/contracts/auth/signup-consent'
 export const getSignupConsentResponseSchema = z.object({
   kind: z.enum(['NEW', 'EXISTING']),
   expiresAt: z.string(),
-  redirect: z.string().startsWith('/')
+  redirect: z.string().startsWith('/'),
+  // #1096: '' leaves the nickname field empty.
+  nicknameDefault: z.string()
 }) satisfies z.ZodType<SignupConsentState>

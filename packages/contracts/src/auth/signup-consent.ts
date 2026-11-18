@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { nicknameSchema } from './update-nickname.js'
 
 /**
  * #1085: sign-up consent before an account exists. A Google or Apple sign-in
@@ -7,6 +8,10 @@ import { z } from 'zod'
  * encrypted pending cookie and no session. GET reads the pending kind, POST
  * agrees (the account and its consent record are created together, then the
  * session cookie is set), cancel drops the cookie and leaves no record.
+ * #1096: the consent also takes the nickname. GET gives the prefilled value
+ * (`defaultNickname` of the Google name for NEW, of the current name for
+ * EXISTING; '' means an empty field); POST stores it in "User"."name", so a
+ * new member's Google name is never stored.
  */
 export const SIGNUP_CONSENT_PATHS = {
   consent: '/api/auth/sso/signup-consent',
@@ -22,11 +27,13 @@ export const signupConsentStateSchema = z
   .object({
     kind: signupConsentKindSchema,
     expiresAt: z.iso.datetime(),
-    redirect: z.string().startsWith('/').max(2048)
+    redirect: z.string().startsWith('/').max(2048),
+    nicknameDefault: z.union([z.literal(''), nicknameSchema])
   })
   .strict()
 export const signupConsentRequestSchema = z
   .object({
+    nickname: nicknameSchema,
     ageConfirmed: z.literal(true),
     termsConfirmed: z.literal(true)
   })
@@ -44,6 +51,8 @@ export const cancelSignupConsentResponseSchema = z
 export const signupConsentErrorCodeSchema = z.enum([
   // 400: both boxes must be true.
   'SIGNUP_CONSENT_REQUIRED',
+  // 400: the nickname breaks the 2~12 rule (checked before the boxes).
+  'SIGNUP_NICKNAME_INVALID',
   // 404: no pending cookie, or it passed its 10 minutes.
   'SIGNUP_PENDING_EXPIRED',
   // 409: the identity can no longer sign up or sign in (e.g. its email

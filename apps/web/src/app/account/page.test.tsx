@@ -252,6 +252,67 @@ describe('마이페이지 계정 설정', () => {
     }
   })
 
+  it('닉네임은 [바꾸기]로 같은 자리에서 고치고, 저장하면 이름과 첫 글자가 바뀐다 (#1096)', async () => {
+    mockDatabase.loginAs('USER')
+    const puts: unknown[] = []
+    mockServer.events.on('request:start', ({ request }) => {
+      if (request.method === 'PUT' && request.url.endsWith('/me/nickname'))
+        puts.push(request.url)
+    })
+    const user = userEvent.setup()
+    renderAccount()
+    const change = await screen.findByRole('button', { name: '바꾸기' })
+    expect(
+      screen.getByRole('heading', { level: 1, name: '데모 학습자' })
+    ).toBeInTheDocument()
+    await user.click(change)
+    const field = screen.getByRole('textbox', { name: '닉네임' })
+    expect(field).toHaveFocus()
+    expect(field).toHaveValue('데모 학습자')
+    const form = field.closest('form')
+    if (!form) throw new Error('The nickname form is missing.')
+    await user.clear(field)
+    await user.type(field, '하')
+    await user.click(within(form).getByRole('button', { name: '저장' }))
+    expect(field).toHaveAttribute('aria-invalid', 'true')
+    expect(field).toHaveAccessibleDescription('닉네임을 2자 이상 입력해 주세요')
+    expect(field).toHaveFocus()
+    expect(puts).toHaveLength(0)
+    await user.type(field, '루')
+    await user.click(within(form).getByRole('button', { name: '저장' }))
+    expect(
+      await screen.findByRole('heading', { level: 1, name: '하루' })
+    ).toBeInTheDocument()
+    expect(puts).toHaveLength(1)
+    expect(await screen.findByText('닉네임을 바꿨어요.')).toBeVisible()
+    expect(screen.getByRole('button', { name: '바꾸기' })).toHaveFocus()
+    mockServer.events.removeAllListeners('request:start')
+  })
+
+  it('12자보다 긴 이름은 앞 12자로 채워 연다 (#1096)', async () => {
+    const member = mockDatabase.loginAs('USER')
+    mockDatabase.setName(member.id, '가나다라마바사아자차카타파하')
+    const user = userEvent.setup()
+    renderAccount()
+    await user.click(await screen.findByRole('button', { name: '바꾸기' }))
+    const field = screen.getByRole('textbox', { name: '닉네임' })
+    expect(field).toHaveValue('가나다라마바사아자차카타')
+    expect(field).not.toHaveAttribute('aria-invalid')
+  })
+
+  it('닉네임 [취소]는 보내지 않고 원래 이름으로 돌아간다 (#1096)', async () => {
+    mockDatabase.loginAs('USER')
+    const user = userEvent.setup()
+    renderAccount()
+    await user.click(await screen.findByRole('button', { name: '바꾸기' }))
+    await user.type(screen.getByRole('textbox', { name: '닉네임' }), '바꿈')
+    await user.click(screen.getByRole('button', { name: '취소' }))
+    expect(
+      screen.getByRole('heading', { level: 1, name: '데모 학습자' })
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '바꾸기' })).toHaveFocus()
+  })
+
   it('목표 급수 저장 뒤 /me를 다시 읽는 사이 로그아웃되면 이전 사용자를 되살리지 않는다', async () => {
     mockDatabase.loginAs('USER')
     let armed = false

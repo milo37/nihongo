@@ -154,6 +154,7 @@ for (const locale of ['ko', 'ja'] as const) {
           'GUEST'
         )
         const agreed = await browserJson(page, '/api/auth/sso/signup-consent', {
+          nickname: 'SSO browser',
           ageConfirmed: true,
           termsConfirmed: true
         })
