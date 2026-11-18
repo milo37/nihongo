@@ -11,13 +11,6 @@ interface BookmarkStudyCandidate extends StudyCandidatePin {
   readonly createdAt: Date
 }
 
-type DailyReviewCandidateStatus = 'NEW' | 'REVIEWING' | 'AGAIN' | 'SOLVED'
-
-interface DailyReviewStudyCandidate extends StudyCandidatePin {
-  readonly nextReviewAt: Date
-  readonly status: DailyReviewCandidateStatus
-}
-
 interface ToReviewStudyCandidate extends StudyCandidatePin {
   readonly lastWrongAt: Date
 }
@@ -140,33 +133,6 @@ export const selectWrongNoteStudyCandidates = (
     }
     if (left.wrongCount !== right.wrongCount) {
       return right.wrongCount - left.wrongCount
-    }
-    return left.questionId.localeCompare(right.questionId)
-  })
-
-const DAILY_REVIEW_STATUS_PRIORITY: Record<DailyReviewCandidateStatus, number> =
-  {
-    AGAIN: 0,
-    NEW: 1,
-    REVIEWING: 2,
-    SOLVED: 3
-  }
-
-export const selectDailyReviewStudyCandidates = (
-  candidates: readonly DailyReviewStudyCandidate[],
-  requestedCount: number
-): DailyReviewStudyCandidate[] =>
-  selectRankedCandidates(candidates, requestedCount, (left, right) => {
-    const scheduleOrder =
-      left.nextReviewAt.getTime() - right.nextReviewAt.getTime()
-    if (scheduleOrder !== 0) {
-      return scheduleOrder
-    }
-    const statusOrder =
-      DAILY_REVIEW_STATUS_PRIORITY[left.status] -
-      DAILY_REVIEW_STATUS_PRIORITY[right.status]
-    if (statusOrder !== 0) {
-      return statusOrder
     }
     return left.questionId.localeCompare(right.questionId)
   })

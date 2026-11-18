@@ -150,7 +150,8 @@ load `created:3`, second load `unchanged:3`, the API stayed ready (200).
 `/legal` and `/support` show the privacy officer's name and the contact mail
 from `/legal-settings.json`, which the host writes from two optional SSM
 values; the repository, Terraform and the image never hold them. STAGING leaves
-both unset and the pages show the fallback copy. On the operator machine, type
+both unset and the pages show the fallback copy. `/.well-known/security.txt`
+reads the same contact mail and returns 404 while it is unset. On the operator machine, type
 each value at the prompt (not on the command line, so it stays out of shell
 history):
 

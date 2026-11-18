@@ -4,7 +4,7 @@ import type {
   StudyResult,
   StudyResultItem
 } from '@nihongo/browser/common/types/domain'
-import { getCorrectOption, toPracticeQuestion } from '@util/question'
+import { getCorrectOption, toPracticeQuestion } from '@mocks/util/question'
 
 export type StudyResultErrorCode =
   | 'DUPLICATE_ANSWER'

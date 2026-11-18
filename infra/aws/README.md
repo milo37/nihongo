@@ -154,7 +154,8 @@ STAGING도 CloudFront→EC2 구간을 HTTPS로 합니다. 세션 쿠키와 `X-Or
 
 - 이름: `origin-staging.harumaru.app` A → STAGING EIP(DNS only). 뷰어 주소는 그대로 `*.cloudfront.net`입니다.
 - 토큰: PRODUCTION 토큰은 PROD EIP로 IP 필터가 걸려 있어 쓸 수 없습니다. 같은 조건(Zone · DNS · Edit, harumaru.app 한 zone)에 **Client IP 필터 = STAGING EIP**로 따로 만들어 SSM `/harumaru/staging/CLOUDFLARE_API_TOKEN`에 넣습니다.
-- 이미지: 리포는 PRODUCTION 것을 읽기만 합니다(`data.aws_ecr_repository.caddy`). `caddy_dns_image`는 PRODUCTION tfvars와 같은 값입니다.
+- 이미지: 리포는 PRODUCTION 것을 읽기만 합니다(`data.aws_ecr_repository.caddy`). 그래서 PRODUCTION apply가 리포를 먼저 만들어 두어야 STAGING plan이 됩니다(지금 계정에는 이미 있음). `caddy_dns_image`는 PRODUCTION tfvars와 같은 값입니다.
+- digest 바꿀 때: 리포는 최근 5개만 남기므로, PRODUCTION만 새 digest로 옮기고 STAGING을 두면 STAGING이 고정한 digest가 지워질 수 있습니다(다음 호스트 교체·pull 때 실패). Caddy 이미지를 새로 만들면 두 tfvars의 `caddy_dns_image`를 같이 바꾸고 STAGING부터 적용합니다.
 - 적용: 호스트 파일(compose·Caddyfile·`harumaru-origin-env.service`)은 새 호스트에서만 바뀌므로(#1042) 호스트를 교체합니다. 데이터 볼륨은 따로라 DB는 남습니다. `terraform apply -replace=aws_instance.host` → CloudFront origin(443, https-only)·보안그룹(443)·인스턴스 역할 ECR pull이 함께 바뀝니다. 그다음 `main` 릴리스를 한 번 배포하고 `/health/ready` 200, proxy 로그의 `certificate obtained`를 확인합니다.
 - 내릴 때: Cloudflare의 `origin-staging.harumaru.app` A와 STAGING 토큰도 지웁니다.
 

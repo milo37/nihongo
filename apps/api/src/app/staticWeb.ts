@@ -163,6 +163,40 @@ const isAdminPath = (path: string | null): boolean => {
   return value === '/admin' || value?.startsWith('/admin/') === true
 }
 
+// security.txt (RFC 9116) names the same public contact as /legal and
+// /support. The host writes it into legal-settings.json from SSM, so the
+// address never lives in the repository; without it the file is absent.
+const SECURITY_TXT_LIFETIME_MS = 180 * 24 * 60 * 60 * 1000
+
+const readSecurityContact = (root: string): string | null => {
+  try {
+    const settings: unknown = JSON.parse(
+      readFileSync(join(root, 'legal-settings.json'), 'utf8')
+    )
+    const email =
+      typeof settings === 'object' &&
+      settings !== null &&
+      'contactEmail' in settings &&
+      typeof settings.contactEmail === 'string'
+        ? settings.contactEmail.trim()
+        : ''
+    return email.length <= 200 &&
+      /^[^\s@<>()",;:]+@[^\s@<>()",;:]+\.[^\s@<>()",;:]+$/u.test(email)
+      ? email
+      : null
+  } catch {
+    return null
+  }
+}
+
+export const securityTxt = (email: string, now: Date): string =>
+  [
+    `Contact: mailto:${email}`,
+    `Expires: ${new Date(now.getTime() + SECURITY_TXT_LIFETIME_MS).toISOString().replace(/\.\d{3}Z$/u, 'Z')}`,
+    'Preferred-Languages: ko, ja',
+    ''
+  ].join('\n')
+
 export const installStaticWeb = ({
   app,
   releaseId,
@@ -186,6 +220,13 @@ export const installStaticWeb = ({
   ) {
     throw new Error('Web and admin asset directories must be separate.')
   }
+
+  app.get('/.well-known/security.txt', (context) => {
+    const email = readSecurityContact(web.root)
+    if (email === null) return context.notFound()
+    context.header('Cache-Control', 'public, max-age=3600')
+    return context.text(securityTxt(email, new Date()))
+  })
 
   app.use('*', async (context, next) => {
     const rawTarget = context.get('rawRequestTarget') ?? context.req.raw.url

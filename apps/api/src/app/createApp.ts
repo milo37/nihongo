@@ -115,6 +115,7 @@ import {
 } from './protectedRouteExclusion.js'
 import {
   contentSecurityPolicyHeaders,
+  permissionsPolicy,
   type ContentSecurityPolicyMode
 } from './contentSecurityPolicy.js'
 import { installStaticWeb } from './staticWeb.js'
@@ -469,9 +470,10 @@ export const createApiApp = ({
   app.use('*', requestContext)
   app.use(
     '*',
-    secureHeaders(
-      contentSecurityPolicyHeaders(contentSecurityPolicyMode ?? 'enforce')
-    )
+    secureHeaders({
+      ...contentSecurityPolicyHeaders(contentSecurityPolicyMode ?? 'enforce'),
+      permissionsPolicy
+    })
   )
   app.use('*', createRequestLogger(logger))
 

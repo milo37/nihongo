@@ -48,15 +48,6 @@ export const snapshotBookmarkCache = (
   })
 })
 
-export const restoreBookmarkCache = (
-  queryClient: QueryClient,
-  snapshot: BookmarkCacheSnapshot
-): void => {
-  snapshot.entries.forEach(([queryKey, data]) => {
-    queryClient.setQueryData(queryKey, data)
-  })
-}
-
 const readSnapshotData = (
   snapshot: BookmarkCacheSnapshot,
   queryKey: QueryKey

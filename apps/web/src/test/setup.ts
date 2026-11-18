@@ -54,7 +54,6 @@ const resetTestState = async (): Promise<void> => {
     startedAt: null,
     draftWorkingCopy: null,
     draftSaveState: 'idle',
-    draftConflict: null,
     isDraftConflictPending: false,
     isMobileMenuOpen: false
   })
