@@ -20,6 +20,7 @@ import {
   finishAdminOperation
 } from '../admin/adminOperationAuthority.js'
 import type { Prisma, PrismaClient } from '../generated/prisma/client.js'
+import { PINNED_MIGRATIONS } from './migrationManifest.js'
 import { loadExpectedMigrationManifest } from './readiness.js'
 import { createSsoDbHarness, digest } from './ssoTestFixture.js'
 import type { SsoFixture } from './ssoTestFixture.js'
@@ -95,26 +96,8 @@ describe('JLP-508 SSO task-owned PostgreSQL contract', () => {
     }>(
       `SELECT migration_name AS name,checksum,finished_at IS NOT NULL AND rolled_back_at IS NULL AS complete FROM "_prisma_migrations" WHERE rolled_back_at IS NULL ORDER BY migration_name`
     )
-    // #504 P8: the baseline and the phase name removal.
-    expect(expected.map(({ name }) => name)).toEqual([
-      '20261105090000_baseline',
-      '20261106090000_remove_phase_names',
-      '20261107090000_first_admin_production',
-      '20261108090000_remove_tag_applicability_and_snapshots',
-      '20261109090000_add_tag_key_subject_status',
-      '20261110090000_admin_fresh_window_30_minutes',
-      '20261111090000_grant_user_target_level_update',
-      '20261112090000_account_erasure_grace_restore',
-      '20261113090000_admin_access_log',
-      '20261114090000_user_last_login',
-      '20261116090000_tag_label_ja',
-      '20261117090000_drop_retired_verification',
-      '20261118090000_retention_cohort',
-      '20261119090000_signup_consent',
-      '20261120090000_grant_user_name_update',
-      '20261121090000_user_study_goal',
-      '20261122090000_stamp_ledger'
-    ])
+    // #674: the pinned migration manifest.
+    expect(expected).toEqual(PINNED_MIGRATIONS)
     expect(
       actual.rows.map(({ name, checksum }) => ({ name, checksum }))
     ).toEqual(expected)
