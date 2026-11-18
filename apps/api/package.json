@@ -29,6 +29,8 @@
     "content:publish-explanation-ja:compiled": "node dist/content/explanationJaPublishCommand.js",
     "auth:erase-deletion-pending": "pnpm run db:generate && tsx src/auth/ssoAccountErasureCommand.ts",
     "auth:erase-deletion-pending:compiled": "node dist/auth/ssoAccountErasureCommand.js",
+    "auth:reapply-erasure": "pnpm run db:generate && tsx src/auth/accountErasureReapplyCommand.ts",
+    "auth:reapply-erasure:compiled": "node dist/auth/accountErasureReapplyCommand.js",
     "content:foundation-check": "tsx prisma/contentFoundationCheck.ts",
     "study:cleanup-expired-guests": "pnpm run db:generate && tsx src/study/studySessionCleanupCommand.ts",
     "study:cleanup-expired-drafts": "pnpm run db:generate && tsx src/study/studyDraftCleanupCommand.ts",
