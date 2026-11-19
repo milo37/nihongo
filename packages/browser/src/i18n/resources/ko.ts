@@ -1051,6 +1051,18 @@ export const koCoreResources = {
       unset: '하루에 풀 문제 수를 정하면 오늘 푼 수를 세어 드려요.',
       action: '목표 정하기'
     },
+    // #1154 M-2f: this month's stamps under the goal row. The count is
+    // only in the calendar's spoken name, never on screen.
+    stampBoard: {
+      title: '{{month}}월 도장판',
+      note: '하루 목표를 채우면 오늘 도장이 찍혀요.',
+      stamped: '오늘 도장, 찍었어요',
+      waiting: '오늘 도장, 아직이에요',
+      open: '{{month}}월 달력 펼치기',
+      close: '{{month}}월 달력 접기',
+      calendar: '{{month}}월 도장판, 도장 {{stamps}}개',
+      weekdays: '일월화수목금토'
+    },
     // #1090: the target level row joined the study goal row; the nickname
     // row still borrows these two.
     targetLevel: {

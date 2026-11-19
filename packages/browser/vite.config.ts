@@ -35,7 +35,7 @@ const learnerCrawlerFilePaths = [
   'manifest.json',
   'sw.js',
   'icons/apple-touch-icon-180.png',
-  'maru/fox-empty.webp'
+  'maru/maru.webp'
 ] as const
 
 // #981: page copies of index.html for the public pages besides the home page

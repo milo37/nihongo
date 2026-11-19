@@ -1104,6 +1104,17 @@ export const jaCoreResources = {
       unset: '1日に解く問題数を決めると、今日解いた数を数えます。',
       action: '目標を決める'
     },
+    // #1154 M-2f: this month's stamps under the goal row.
+    stampBoard: {
+      title: '{{month}}月のスタンプカード',
+      note: '1日の目標を達成すると、今日のスタンプが押されます。',
+      stamped: '今日のスタンプ、押しました',
+      waiting: '今日のスタンプ、まだです',
+      open: '{{month}}月のカレンダーを開く',
+      close: '{{month}}月のカレンダーを閉じる',
+      calendar: '{{month}}月のスタンプカード、スタンプ{{stamps}}個',
+      weekdays: '日月火水木金土'
+    },
     // #1090: the target level row joined the study goal row; the nickname
     // row still borrows these two.
     targetLevel: {
