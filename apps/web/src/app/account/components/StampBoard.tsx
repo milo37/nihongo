@@ -78,6 +78,8 @@ const useFold = (): [boolean, () => void, RefObject<HTMLDivElement | null>] => {
                 opacity: opening ? 0 : 1,
                 transform: `translateY(${shift[0]}px)`
               },
+              // Folding, gone by 70% so nothing shows through this week.
+              ...(opening ? [] : [{ opacity: 0, offset: 0.7 }]),
               {
                 opacity: opening ? 1 : 0,
                 transform: `translateY(${shift[1]}px)`
