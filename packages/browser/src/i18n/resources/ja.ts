@@ -1110,8 +1110,8 @@ export const jaCoreResources = {
       note: '1日の目標を達成すると、今日のスタンプが押されます。',
       stamped: '今日のスタンプ、押しました',
       waiting: '今日のスタンプ、まだです',
-      open: '今月の記録を見る',
-      close: '閉じる',
+      open: '{{month}}月のカレンダーを開く',
+      close: '{{month}}月のカレンダーを閉じる',
       calendar: '{{month}}月のスタンプカード、スタンプ{{stamps}}個',
       weekdays: '日月火水木金土'
     },

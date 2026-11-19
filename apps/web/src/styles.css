@@ -294,16 +294,16 @@ section.practice-guest-limit,
   padding-top: 24px;
   border-top: 1px solid rgb(var(--color-line));
 }
-/* #1154 M-2f (design sc10): this month's stamps under the goal row. No
-   box, line or fill. Phone: today 88px beside the title, the note and a
-   button; the calendar opens below (44px columns, date over a 22px
-   stamp). From 1024px: title and note on one line, then today 168px
+/* #1154 M-2f (design sc10, fold F1): this month's stamps under the goal
+   row. No box, line or fill. Phone: today 88px beside the title and the
+   note; below, the calendar's weekdays and this week (44px columns, date
+   over a 22px stamp) and a ⌄ that unfolds the other weeks around this
+   week (0.25s; folding back 0.2s). From 1024px: title and note on one line, then today 168px
    beside an always-open 168px calendar (date beside a 26px stamp). */
 .stamp-board {
   display: grid;
   grid-template-columns: 88px minmax(0, 1fr);
-  grid-template-areas: 'today head' 'today toggle' 'calendar calendar';
-  grid-template-rows: auto 1fr;
+  grid-template-areas: 'today head' 'month month';
   column-gap: 16px;
   align-items: start;
   margin-top: 24px;
@@ -346,40 +346,67 @@ section.practice-guest-limit,
   border: 1.5px dashed rgb(var(--color-subtle));
   border-radius: 50%;
 }
-.stamp-board-toggle {
-  display: inline-flex;
-  grid-area: toggle;
-  justify-self: start;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 0;
-  color: rgb(var(--color-ink));
-  font-size: 13px;
-  line-height: 18px;
+.stamp-board-month {
+  position: relative;
+  grid-area: month;
 }
-.stamp-board-toggle > span {
+.stamp-board-toggle {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 28px;
+  margin: 4px auto 0;
+}
+/* Folded, the weekdays and this week open the month too. */
+.stamp-board-toggle[aria-expanded='false']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.stamp-board-chevron {
+  width: 14px;
+  height: 14px;
   color: rgb(var(--color-muted));
-  font-size: 10px;
+  rotate: 90deg;
+  transition: rotate 0.2s ease-in;
+}
+[aria-expanded='true'] > .stamp-board-chevron {
+  rotate: -90deg;
+  transition: rotate 0.25s ease-out;
 }
 .stamp-board-calendar {
-  display: none;
-  grid-area: calendar;
+  display: grid;
   grid-template-columns: repeat(7, 44px);
   justify-content: center;
-  /* Room between a stamp and the date of the row below. */
-  gap: 10px 4px;
+  column-gap: 4px;
   margin-top: 8px;
 }
-/* Only the phone's button opens it (0.2s); from 1024px it is just there. */
-.stamp-board-calendar.is-open {
+/* A week folds to no height: its row track goes 0fr to 1fr. */
+.stamp-board-week {
   display: grid;
-  animation: stamp-board-open 0.2s ease-out;
+  grid-column: 1 / -1;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 0.2s ease-in,
+    opacity 0.2s ease-in;
 }
-@keyframes stamp-board-open {
-  from {
-    opacity: 0;
-    translate: 0 -6px;
-  }
+.stamp-board-week.is-current,
+.is-open > .stamp-board-week {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.is-open > .stamp-board-week {
+  transition:
+    grid-template-rows 0.25s ease-out,
+    opacity 0.25s ease-out;
+}
+.stamp-board-week > div {
+  display: grid;
+  grid-template-columns: repeat(7, 44px);
+  column-gap: 4px;
+  min-height: 0;
+  overflow: hidden;
 }
 .stamp-board-weekday {
   color: rgb(var(--color-subtle));
@@ -394,6 +421,8 @@ section.practice-guest-limit,
   align-items: center;
   gap: 2px;
   height: 38px;
+  /* Room between a stamp and the date of the row above. */
+  margin-top: 10px;
 }
 .stamp-board-day > b {
   min-width: 14px;
@@ -422,7 +451,7 @@ section.practice-guest-limit,
 @media (min-width: 1024px) {
   .stamp-board {
     grid-template-columns: 168px auto;
-    grid-template-areas: 'head head' 'today calendar';
+    grid-template-areas: 'head head' 'today month';
     grid-template-rows: auto;
     justify-content: start;
     column-gap: 40px;
@@ -443,13 +472,20 @@ section.practice-guest-limit,
   }
   /* Always open and 168px tall: the rows share what the weekdays leave. */
   .stamp-board-calendar {
-    display: grid;
     grid-template-columns: repeat(7, 63px);
     grid-template-rows: 14px;
     grid-auto-rows: 1fr;
-    gap: 0;
+    column-gap: 0;
     height: 168px;
     margin-top: 0;
+  }
+  .stamp-board-week {
+    grid-template-rows: 1fr;
+    opacity: 1;
+  }
+  .stamp-board-week > div {
+    grid-template-columns: repeat(7, 63px);
+    column-gap: 0;
   }
   .stamp-board-weekday {
     font-size: 11px;
@@ -459,6 +495,7 @@ section.practice-guest-limit,
     justify-content: center;
     gap: 4px;
     height: auto;
+    margin-top: 0;
   }
   .stamp-board-day > b {
     width: 22px;
@@ -1184,8 +1221,9 @@ body [lang='ja'][data-ja-spaced],
   .maru-ring {
     animation: maru-show 0.2s forwards;
   }
-  .stamp-board-calendar {
-    animation: none;
+  .stamp-board-chevron,
+  .stamp-board-week {
+    transition: none;
   }
   .result-stamp-note {
     animation: none;

@@ -240,11 +240,15 @@ describe('마이페이지 계정 설정', () => {
       })
       expect(calendar).not.toHaveClass('is-open')
       expect(calendar).not.toHaveTextContent('3개')
-      const toggle = screen.getByRole('button', { name: '이번 달 기록 보기' })
+      // Folded, this week (22~28) is the one row left (F1).
+      const current = calendar.querySelectorAll('.stamp-board-week.is-current')
+      expect(current).toHaveLength(1)
+      expect(current[0]).toHaveTextContent('22232425262728')
+      const toggle = screen.getByRole('button', { name: '11월 달력 펼치기' })
       expect(toggle).toHaveAttribute('aria-expanded', 'false')
       expect(toggle).toHaveAttribute('aria-controls', calendar.id)
       await userEvent.click(toggle)
-      expect(toggle).toHaveAccessibleName('접기')
+      expect(toggle).toHaveAccessibleName('11월 달력 접기')
       expect(toggle).toHaveAttribute('aria-expanded', 'true')
       expect(toggle).toHaveFocus()
       expect(calendar).toHaveClass('is-open')
@@ -268,7 +272,7 @@ describe('마이페이지 계정 설정', () => {
       })
       expect(waiting).toBeEmptyDOMElement()
       expect(
-        screen.getByRole('button', { name: '이번 달 기록 보기' })
+        screen.getByRole('button', { name: '11월 달력 펼치기' })
       ).toBeVisible()
       first.dispose()
       cleanup()
@@ -278,7 +282,7 @@ describe('마이페이지 계정 설정', () => {
         await screen.findByRole('img', { name: '11월 도장판, 도장 0개' })
       ).toBeInTheDocument()
       expect(
-        screen.queryByRole('button', { name: '이번 달 기록 보기' })
+        screen.queryByRole('button', { name: '11월 달력 펼치기' })
       ).not.toBeInTheDocument()
     })
 

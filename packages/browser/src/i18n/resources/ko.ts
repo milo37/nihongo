@@ -1058,8 +1058,8 @@ export const koCoreResources = {
       note: '하루 목표를 채우면 오늘 도장이 찍혀요.',
       stamped: '오늘 도장, 찍었어요',
       waiting: '오늘 도장, 아직이에요',
-      open: '이번 달 기록 보기',
-      close: '접기',
+      open: '{{month}}월 달력 펼치기',
+      close: '{{month}}월 달력 접기',
       calendar: '{{month}}월 도장판, 도장 {{stamps}}개',
       weekdays: '일월화수목금토'
     },
