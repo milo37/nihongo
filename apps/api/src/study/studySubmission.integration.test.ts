@@ -590,12 +590,17 @@ describe('Study submission PostgreSQL transaction', () => {
       monthStampDates: []
     })
 
-    // Goal 20: 10 answers so far, then 15, then 20 earns the one stamp.
+    // Goal 20: 10 answers so far, then two sets at once reach 20 together;
+    // exactly one of them earns the one stamp (#1110 QA).
     await studyGoals.update(userId, { targetLevel: 'N5', dailyGoal: 20 })
     expect((await submitFive()).submitted.response.stampEarned).toBe(false)
-    expect((await submitFive()).submitted.response.stampEarned).toBe(false)
-    const earning = await submitFive()
-    expect(earning.submitted.response.stampEarned).toBe(true)
+    const together = await Promise.all([submitFive(), submitFive()])
+    expect(
+      together.map(({ submitted }) => submitted.response.stampEarned).sort()
+    ).toEqual([false, true])
+    const earning = together.find(
+      ({ submitted }) => submitted.response.stampEarned
+    )!
     const replay = await service.submit(
       earning.session.id,
       earning.idempotencyKey,
