@@ -124,6 +124,7 @@ export const ResultSummary = ({
           userId={memberId}
           sessionId={result.sessionId}
           stampEarned={result.stampEarned === true}
+          submittedAt={result.submittedAt}
         />
       ) : null}
       <ProgressSheet

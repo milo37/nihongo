@@ -4,20 +4,33 @@ import { useStampOnce } from '@app/practice/hooks/useStampOnce'
 import { useTodayGoal } from '@app/practice/hooks/useTodayGoal'
 import { StampStage } from '@app/practice/result/StampStage'
 
+// The server stamps the Asia/Seoul day it saves the set, so the stamp's
+// month is the submission's month there.
+const stampMonth = (submittedAt: string | null): number =>
+  Number(
+    new Date(submittedAt ?? Date.now()).toLocaleDateString('en-US', {
+      month: 'numeric',
+      timeZone: 'Asia/Seoul'
+    })
+  )
+
 /**
  * #1090 O-r7: today's answers against the daily goal, one grey line under
  * the score; ink once the goal is met. Nothing without a goal.
  * #1094 M-2: the set that met the goal also gets Maru's stamp and
- * '· 도장 1개' at the end of the same line, once.
+ * '· 11월 도장 꾹' at the end of the same line, once (M-2b: the stamp's
+ * month, never a count).
  */
 export const DailyGoalLine = ({
   userId,
   sessionId,
-  stampEarned
+  stampEarned,
+  submittedAt
 }: {
   userId: string
   sessionId: string
   stampEarned: boolean
+  submittedAt: string | null
 }): ReactElement | null => {
   const { t } = useTranslation('result')
   const goal = useTodayGoal(userId)
@@ -36,7 +49,9 @@ export const DailyGoalLine = ({
     <p className="result-daily-goal is-done">
       {t('dailyGoal.done', { goal: goal.dailyGoal })}
       {stamp ? (
-        <span className="result-stamp-note">{t('dailyGoal.stamp')}</span>
+        <span className="result-stamp-note">
+          {t('dailyGoal.stamp', { month: stampMonth(submittedAt) })}
+        </span>
       ) : null}
     </p>
   )

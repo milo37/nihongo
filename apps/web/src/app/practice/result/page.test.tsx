@@ -767,18 +767,25 @@ describe('approved general result navigation', () => {
     fixture.client.clear()
   })
 
-  it("목표를 넘긴 그 세트의 결과에만 마루 도장과 '· 도장 1개'가 한 번 보인다 (#1094)", async () => {
+  it("목표를 넘긴 그 세트의 결과에만 마루 도장과 '· {달}월 도장 꾹'이 한 번 보인다 (#1094)", async () => {
     const fixture = await createFixture()
     const userId = mockDatabase.getCurrentUser()?.id ?? ''
     mockDatabase.setStudyGoal(userId, 'N5', 10)
     for (let set = 0; set < 3; set += 1) await createFixture()
     fixture.client.setQueryData(
       studyResultQueries.result(fixture.sessionId).queryKey,
-      { ...toCanonicalStudyResultView(fixture.result), stampEarned: true }
+      {
+        ...toCanonicalStudyResultView(fixture.result),
+        stampEarned: true,
+        // 11/30 15:30 UTC is already 12/1 in Seoul: the stamp's month.
+        submittedAt: '2026-11-30T15:30:00.000Z'
+      }
     )
     const first = fixture.mount()
     const line = await screen.findByText(/^오늘 목표 10문제를 채웠어요/u)
-    expect(line).toHaveTextContent(/^오늘 목표 10문제를 채웠어요 · 도장 1개$/u)
+    expect(line).toHaveTextContent(
+      /^오늘 목표 10문제를 채웠어요 · 12월 도장 꾹$/u
+    )
     expect(line.parentElement?.querySelector('.maru-stage')).toHaveAttribute(
       'aria-hidden',
       'true'

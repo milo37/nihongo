@@ -780,7 +780,7 @@ export const jaCoreResources = {
     dailyGoal: {
       progress: '今日 {{today}} / {{goal}}問',
       done: '今日の目標{{goal}}問を達成しました',
-      stamp: '・スタンプ1個'
+      stamp: '・{{month}}月のスタンプ、ポン'
     },
     retired: {
       title: 'この結果はもう見られません',

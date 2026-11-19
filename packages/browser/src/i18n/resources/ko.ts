@@ -743,7 +743,7 @@ export const koCoreResources = {
     dailyGoal: {
       progress: '오늘 {{today}} / {{goal}}문제',
       done: '오늘 목표 {{goal}}문제를 채웠어요',
-      stamp: ' · 도장 1개'
+      stamp: ' · {{month}}월 도장 꾹'
     },
     retired: {
       title: '이 결과는 더 볼 수 없어요',
