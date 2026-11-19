@@ -83,6 +83,17 @@ aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUT
 - 예약: `retention_schedule_expression`(Asia/Seoul). PRODUCTION 기본 매일 00:05, STAGING은 하루 창 안의 05:15. 둘 다 비회원 정리(PRODUCTION 매시 30분, STAGING 05:30)보다 먼저 돕니다. 비회원은 비회원 기록(`GuestPrincipal`)이 만들어진 날로 묶고, 그날 정리로 지워질 비회원 문제 세트가 남아 있을 때 읽게 하려는 것입니다. 놓친 날은 다음 실행이 채웁니다. 회원은 14일 안, 비회원은 다음날·1~7일 칸 D+9·7일째 칸 D+14까지만 정확합니다(그 뒤는 비회원 세트가 지워져 작게 쓰임). 기본 `DISABLED`이고, **집계 테이블 migration이 들어간 릴리스가 배포된 뒤에** `retention_schedule_enabled = true`로 켭니다.
 - 수동 실행: `aws ssm send-command --document-name harumaru-<env>-retention-cohort --instance-ids <id>`. 출력은 `study.retention_cohort.counted`(`nextDayWritten`, `weekWritten`, `failedDays`) 또는 `study.retention_cohort.failed`.
 
+## 보존 기간 정리 (#671)
+
+- `harumaru-<env>-cleanup` SSM 문서 하나가 배포된 이미지로 정리 명령 하나를 한 번 돌립니다(`files/cleanup-job.sh`). 매개변수 `job`(허용값만)과 `dryRun`(`true`/`false`, 기본 `true`)을 받습니다.
+  - `report-retention`: 닫힌 신고의 설명을 닫힌 지 180일 뒤 지움(JLP-702 약속, `userReportRetentionCommand.js`)
+  - `study-drafts`: 만료된 풀이 임시저장·멱등 기록(#699, `studyDraftCleanupCommand.js`)
+  - `expired-sessions`: 만료된 로그인 세션(#695, `sessionRetentionCommand.js`)
+- 모두 `nihongo_app`으로, `PRODUCTION_DATABASE_URL`과 정확히 같은 대상일 때만 돕니다. dry-run은 대상 수만 세고 바꾸지 않습니다. 종료 코드 1은 실패뿐이고 실패는 위와 같은 실패 알림으로 갑니다. 한 번에 다 못 지워 남은 행은 종료 코드 0이며, 완료 로그의 `hasMore`·`…LimitReached`로 확인하고 다음 실행이 이어서 지웁니다.
+- 예약: `cleanup_schedules`(Asia/Tokyo, 작업마다 `enabled`·`dry_run`·`expression`). 기본은 모두 `DISABLED`·dry-run이고 PRODUCTION 매일 04:10·04:20·04:40입니다. STAGING은 하루 창 안(예: 05:35·05:40·05:45)으로 tfvars에서 바꿉니다. **PRODUCTION에서 `dry_run = false`(실제 삭제)는 운영자 승인 뒤**에만 바꿉니다. 순서: STAGING dry-run → STAGING 실제 → PRODUCTION dry-run(대상 수 확인) → 승인 → PRODUCTION 실제.
+- 수동 실행: `aws ssm send-command --document-name harumaru-<env>-cleanup --instance-ids <id> --parameters job=report-retention,dryRun=true`
+- 비회원 정리(#694)는 위 `guest-cleanup` 문서·예약을 그대로 씁니다. 예전의 공급자 중립 정의 `operations/guest-cleanup-job.v1.json`은 Terraform과 어긋나 지웠습니다.
+
 ## state와 두 스택 (JLP-835)
 
 STAGING과 PRODUCTION은 같은 계정에 같은 코드를 각자의 state로 올립니다. state는 S3 backend(버전 관리, `use_lockfile`)에 환경별 key로 둡니다. 비밀 헤더 값이 state에 있으므로 버킷은 비공개·암호화·버전 관리로 만듭니다.

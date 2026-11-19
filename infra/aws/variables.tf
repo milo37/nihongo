@@ -282,6 +282,25 @@ variable "retention_schedule_expression" {
   default     = "cron(5 0 * * ? *)"
 }
 
+variable "cleanup_schedules" {
+  description = "#671 daily retention cleanups (Asia/Tokyo). All DISABLED and dry-run until turned on; PRODUCTION real runs need operator approval. STAGING sets times inside its 04:40-05:50 window."
+  type = map(object({
+    enabled    = bool
+    dry_run    = bool
+    expression = string
+  }))
+  default = {
+    report-retention = { enabled = false, dry_run = true, expression = "cron(10 4 * * ? *)" }
+    study-drafts     = { enabled = false, dry_run = true, expression = "cron(20 4 * * ? *)" }
+    expired-sessions = { enabled = false, dry_run = true, expression = "cron(40 4 * * ? *)" }
+  }
+
+  validation {
+    condition     = length(setsubtract(keys(var.cleanup_schedules), ["report-retention", "study-drafts", "expired-sessions"])) == 0
+    error_message = "cleanup_schedules keys must be jobs that files/cleanup-job.sh knows."
+  }
+}
+
 variable "compose_version" {
   type    = string
   default = "v5.7.0"

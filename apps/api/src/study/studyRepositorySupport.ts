@@ -20,7 +20,30 @@ export interface ReservationRow {
   id: string
 }
 
+const SERIALIZATION_SQL_STATES = new Set(['40001', '40P01'])
+
+/**
+ * A conflict PostgreSQL reports at COMMIT reaches the interactive
+ * transaction as the pg adapter's own DriverAdapterError, not a P2034 known
+ * request error (#1110 CI): 40001 maps to TransactionWriteConflict, 40P01 to
+ * the generic postgres kind with its SQL state.
+ */
+const isDriverSerializationConflict = (error: unknown): boolean => {
+  if (!(error instanceof Error) || error.name !== 'DriverAdapterError')
+    return false
+  const cause: unknown = error.cause
+  if (typeof cause !== 'object' || cause === null) return false
+  const { kind, code } = cause as { kind?: unknown; code?: unknown }
+  return (
+    kind === 'TransactionWriteConflict' ||
+    (kind === 'postgres' &&
+      typeof code === 'string' &&
+      SERIALIZATION_SQL_STATES.has(code))
+  )
+}
+
 export const isSerializableConflict = (error: unknown): boolean => {
+  if (isDriverSerializationConflict(error)) return true
   if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
     return false
   }

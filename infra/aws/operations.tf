@@ -132,6 +132,41 @@ resource "aws_ssm_document" "retention_cohort" {
   })
 }
 
+# #671 retention cleanups (files/cleanup-job.sh): one document, the job and the
+# dry-run switch as parameters with fixed allowed values. The parameter lines go
+# in front of the script lines, so apply alone updates running hosts.
+resource "aws_ssm_document" "cleanup" {
+  name            = "${local.name}-cleanup"
+  document_type   = "Command"
+  document_format = "JSON"
+  content = jsonencode({
+    schemaVersion = "2.2"
+    description   = "Run one retention cleanup once."
+    parameters = {
+      job = {
+        type          = "String"
+        allowedValues = keys(var.cleanup_schedules)
+      }
+      dryRun = {
+        type          = "String"
+        default       = "true"
+        allowedValues = ["true", "false"]
+      }
+    }
+    mainSteps = [{
+      action = "aws:runShellScript"
+      name   = "cleanup"
+      inputs = {
+        timeoutSeconds = "300"
+        runCommand = concat(
+          ["job='{{ job }}'", "dry_run='{{ dryRun }}'"],
+          split("\n", trimspace(file("${path.module}/files/cleanup-job.sh")))
+        )
+      }
+    }]
+  })
+}
+
 data "aws_iam_policy_document" "scheduler_assume" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -160,6 +195,7 @@ data "aws_iam_policy_document" "erasure_scheduler" {
       aws_ssm_document.erase_deletion_pending.arn,
       aws_ssm_document.guest_cleanup.arn,
       aws_ssm_document.retention_cohort.arn,
+      aws_ssm_document.cleanup.arn,
     ]
   }
 }
@@ -234,6 +270,35 @@ resource "aws_scheduler_schedule" "retention_cohort" {
     input = jsonencode({
       DocumentName = aws_ssm_document.retention_cohort.name
       InstanceIds  = [aws_instance.host.id]
+    })
+
+    retry_policy {
+      maximum_retry_attempts = 0
+    }
+  }
+}
+
+resource "aws_scheduler_schedule" "cleanup" {
+  for_each                     = var.cleanup_schedules
+  name                         = "${local.name}-cleanup-${each.key}"
+  state                        = each.value.enabled ? "ENABLED" : "DISABLED"
+  schedule_expression          = each.value.expression
+  schedule_expression_timezone = "Asia/Tokyo"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  target {
+    arn      = "arn:${data.aws_partition.current.partition}:scheduler:::aws-sdk:ssm:sendCommand"
+    role_arn = aws_iam_role.erasure_scheduler.arn
+    input = jsonencode({
+      DocumentName = aws_ssm_document.cleanup.name
+      InstanceIds  = [aws_instance.host.id]
+      Parameters = {
+        job    = [each.key]
+        dryRun = [each.value.dry_run ? "true" : "false"]
+      }
     })
 
     retry_policy {
