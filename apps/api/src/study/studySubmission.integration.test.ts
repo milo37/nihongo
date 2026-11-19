@@ -591,7 +591,8 @@ describe('Study submission PostgreSQL transaction', () => {
     })
 
     // Goal 20: 10 answers so far, then two sets at once reach 20 together;
-    // exactly one of them earns the one stamp (#1110 QA).
+    // the Serializable submission retries, so exactly one of them earns the
+    // one stamp (#1110 QA).
     await studyGoals.update(userId, { targetLevel: 'N5', dailyGoal: 20 })
     expect((await submitFive()).submitted.response.stampEarned).toBe(false)
     const together = await Promise.all([submitFive(), submitFive()])
