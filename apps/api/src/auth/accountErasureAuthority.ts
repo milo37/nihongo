@@ -153,21 +153,6 @@ const insertSystemAudit = async (
   )
 }
 
-// JLP-748: a later migration drops the retired email Verification table.
-// Erasure touches it only while it still exists, so this code runs before
-// and after that migration.
-const hasRetiredVerificationTable = async (
-  transaction: Transaction
-): Promise<boolean> => {
-  const rows = await transaction.$queryRawUnsafe<{ present: boolean }[]>(
-    `SELECT to_regclass('"Verification"') IS NOT NULL AS present`
-  )
-  return rows[0]?.present === true
-}
-
-const VERIFICATION_LOCK_STATEMENT = `SELECT 1 FROM "Verification" WHERE "resetUserId" = $1::uuid
-   ORDER BY "id" FOR UPDATE`
-
 /** The author tombstones and cleanup of the old User delete trigger. */
 const tombstoneErasedUser = async (
   transaction: Transaction,
@@ -352,16 +337,10 @@ const tombstoneErasedUser = async (
     `DELETE FROM "Session" WHERE "userId" = $1::uuid`,
     userId
   )
-  if (await hasRetiredVerificationTable(transaction))
-    await transaction.$executeRawUnsafe(
-      `DELETE FROM "Verification" WHERE "resetUserId" = $1::uuid`,
-      userId
-    )
 }
 
 const LOCK_STATEMENTS = [
-  // Canonical final-erasure lock order shared with reset/password/auth paths,
-  // after VERIFICATION_LOCK_STATEMENT while that table exists.
+  // Canonical final-erasure lock order shared with the auth paths.
   `SELECT 1 FROM "Account" WHERE "userId" = $1::uuid ORDER BY "id" FOR UPDATE`,
   `SELECT 1 FROM "Session" WHERE "userId" = $1::uuid ORDER BY "id" FOR UPDATE`,
   `SELECT 1 FROM "Question"
@@ -403,8 +382,6 @@ const eraseConfirmedUser = async (
     userId
   )
   if (target.length !== 1) return false
-  if (await hasRetiredVerificationTable(transaction))
-    await transaction.$queryRawUnsafe(VERIFICATION_LOCK_STATEMENT, userId)
   for (const statement of LOCK_STATEMENTS)
     await transaction.$queryRawUnsafe(statement, userId)
 
@@ -583,7 +560,9 @@ export interface InactiveErasureRunResult {
 const requestErasureOf = async (
   client: Pick<PrismaClient, '$transaction'>,
   id: string,
-  candidate: string
+  candidate: string,
+  // #702: a re-applied erasure keeps the original request time.
+  requestedAt?: string
 ): Promise<boolean | null> =>
   client
     .$transaction(async (transaction) => {
@@ -620,6 +599,14 @@ const requestErasureOf = async (
            WHERE "id" = $1::uuid`,
         id
       )
+      if (requestedAt !== undefined)
+        await transaction.$queryRawUnsafe(
+          `SELECT "backdate_reapplied_sso_erasure_request"(
+             $1::uuid, $2::timestamptz
+           ) AS moved`,
+          id,
+          requestedAt
+        )
       await transaction.$executeRawUnsafe(
         `DELETE FROM "SsoAccountFreshProof" WHERE "userId" = $1::uuid`,
         id
@@ -679,21 +666,37 @@ export interface ReapplyErasureResult {
 
 export const REAPPLY_ERASURE_MAX_USERS = 1000
 
+/** One listed member and the time of their original erasure request. */
+export interface ReapplyErasureEntry {
+  readonly userId: string
+  /** ISO 8601; the deadline stays this time plus the 7-day grace. */
+  readonly requestedAt: string
+}
+
 /**
  * #702: after a restore from a dump, records again the erasure request of
  * each listed member who asked for erasure after the dump and is ACTIVE
- * again (operations/runbooks/recovery.v1.md). A dry run only reports.
+ * again (operations/runbooks/recovery.v1.md). The request keeps its original
+ * time, so a deadline already past erases at the next hourly run and no new
+ * grace period starts. A dry run only reports.
  */
 export const reapplyAccountErasures = async (
   client: Queryable & Pick<PrismaClient, '$transaction'>,
-  userIds: readonly string[],
+  entries: readonly ReapplyErasureEntry[],
   environment: ErasureEnvironment,
   apply: boolean
 ): Promise<ReapplyErasureResult> => {
   await requireCapability(client, environment)
-  if (userIds.length > REAPPLY_ERASURE_MAX_USERS)
+  if (entries.length > REAPPLY_ERASURE_MAX_USERS)
     await raise(client, '22023', 'Too many users to re-apply.')
-  const unique = [...new Set(userIds)].sort()
+  // A user listed twice keeps the latest request time.
+  const requestedAtById = new Map<string, string>()
+  for (const { userId, requestedAt } of entries) {
+    const known = requestedAtById.get(userId)
+    if (known === undefined || Date.parse(requestedAt) > Date.parse(known))
+      requestedAtById.set(userId, requestedAt)
+  }
+  const unique = [...requestedAtById.keys()].sort()
   const candidates = new Set(
     (
       await client.$queryRawUnsafe<Array<{ id: string }>>(
@@ -712,7 +715,12 @@ export const reapplyAccountErasures = async (
     const requested = !candidates.has(id)
       ? false
       : apply
-        ? await requestErasureOf(client, id, ERASABLE_ACTIVE_MEMBER)
+        ? await requestErasureOf(
+            client,
+            id,
+            ERASABLE_ACTIVE_MEMBER,
+            requestedAtById.get(id)
+          )
         : true
     if (requested === true) result.requestedUserIds.push(id)
     else if (requested === false) result.skippedUserIds.push(id)

@@ -369,6 +369,9 @@ const withBaselineTargetLevelAcl = (
 const ADDED_TABLE = 'AdminAccessLog'
 const ADDED_FUNCTION = 'protect_admin_access_log'
 
+/** #702: the re-applied erasure keeps its original request time. */
+const ADDED_REAPPLY_FUNCTION = 'backdate_reapplied_sso_erasure_request'
+
 /** JLP-852: the last sign-in table. */
 const ADDED_SIGN_IN_TABLE = 'UserSignIn'
 const isAddedSignIn = (row: Record<string, unknown>): boolean =>
@@ -430,7 +433,8 @@ const withBaselineErasureStatus = (
  * JLP-733 drops or adds, removed from both sides, the #683 proof bound,
  * the JLP-815 target level grant, the JLP-845 restore objects, the JLP-842
  * access record table, the JLP-852 last sign-in table, the #1042 return
- * count table, the #1085 consent table and the #1090 study goal table.
+ * count table, the #1085 consent table, the #1090 study goal table and the
+ * #702 re-apply function.
  */
 export const withoutForwardChanges = (
   catalog: SchemaCatalog
@@ -515,6 +519,7 @@ export const withoutForwardChanges = (
       ({ name }) =>
         !DROPPED_FUNCTIONS.has(String(name)) &&
         name !== ADDED_FUNCTION &&
+        name !== ADDED_REAPPLY_FUNCTION &&
         name !== RETIRED_VERIFICATION_FUNCTION
     )
     .map((row) =>
