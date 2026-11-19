@@ -341,9 +341,9 @@ section.practice-guest-limit,
 /* Today not yet: a dashed empty ring, nothing inside. */
 .stamp-board-today:empty::before {
   content: '';
-  width: 73%;
-  height: 73%;
-  border: 1.5px dashed rgb(var(--color-line));
+  width: 94%;
+  height: 94%;
+  border: 1.5px dashed rgb(var(--color-subtle));
   border-radius: 50%;
 }
 .stamp-board-toggle {

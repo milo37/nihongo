@@ -282,10 +282,30 @@ describe('마이페이지 계정 설정', () => {
       ).not.toBeInTheDocument()
     })
 
+    it('목표가 없으면 도장판이 없고, 다시 정하면 이번 달 기록이 그대로 보인다 (A3)', async () => {
+      const member = mockDatabase.loginAs('USER')
+      mockDatabase.setStampDays(member.id, ['2026-11-03'])
+      const first = renderAccount()
+      expect(
+        await screen.findByRole('link', { name: '목표 정하기' })
+      ).toBeVisible()
+      expect(
+        screen.queryByRole('heading', { name: '11월 도장판' })
+      ).not.toBeInTheDocument()
+      first.dispose()
+      cleanup()
+      mockDatabase.setStudyGoal(member.id, 'N3', 30)
+      renderAccount()
+      expect(
+        await screen.findByRole('img', { name: '11월 도장판, 도장 1개' })
+      ).toBeInTheDocument()
+    })
+
     it('6줄 달은 표시하고 ja 문구로 읽는다 (C4)', async () => {
       vi.setSystemTime(new Date('2027-01-15T03:00:00Z'))
       writeUiLocalePreference('ja')
       const member = mockDatabase.loginAs('USER')
+      mockDatabase.setStudyGoal(member.id, 'N3', 30)
       mockDatabase.setStampDays(member.id, ['2027-01-15'])
       renderAccount()
       const calendar = await screen.findByRole('img', {

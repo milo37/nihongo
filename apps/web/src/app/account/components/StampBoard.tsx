@@ -30,7 +30,8 @@ export const StampBoard = ({
   const goal = useStudyGoal(userId)
   const [open, setOpen] = useState(false)
   const calendarId = useId()
-  if (goal === null) return null
+  // A3: no board without a goal; set one again and the month shows again.
+  if (goal?.dailyGoal == null) return null
   const today = new Date().toLocaleDateString('en-CA', {
     timeZone: 'Asia/Seoul'
   })
@@ -69,7 +70,7 @@ export const StampBoard = ({
           onClick={() => setOpen(!open)}
         >
           {t(open ? 'stampBoard.close' : 'stampBoard.open')}
-          <span aria-hidden="true">{open ? '▲' : '▼'}</span>
+          <span aria-hidden="true">{open ? '▴' : '▾'}</span>
         </button>
       ) : null}
       <div
