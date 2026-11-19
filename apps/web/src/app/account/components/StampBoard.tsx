@@ -69,17 +69,26 @@ const useFold = (): [boolean, () => void, RefObject<HTMLDivElement | null>] => {
             ],
             timing
           )
-        // Above: moves with this week, as one block. Below: up from 8px.
-        const frames =
-          index < current
-            ? [
-                { opacity: 0, transform: `translateY(${shift[0]}px)` },
-                { opacity: 1, transform: `translateY(${shift[1]}px)` }
-              ]
-            : [
-                { opacity: 0, transform: 'translateY(8px)' },
-                { opacity: 1, transform: 'none' }
-              ]
+        // Above: moves with this week, as one block (shift runs from start
+        // to end either way). Below: up from 8px, played back to fold.
+        if (index < current)
+          return week.animate(
+            [
+              {
+                opacity: opening ? 0 : 1,
+                transform: `translateY(${shift[0]}px)`
+              },
+              {
+                opacity: opening ? 1 : 0,
+                transform: `translateY(${shift[1]}px)`
+              }
+            ],
+            timing
+          )
+        const frames = [
+          { opacity: 0, transform: 'translateY(8px)' },
+          { opacity: 1, transform: 'none' }
+        ]
         return week.animate(opening ? frames : frames.reverse(), timing)
       })
     ]
