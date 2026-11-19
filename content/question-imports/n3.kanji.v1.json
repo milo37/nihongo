@@ -1,0 +1,928 @@
+{
+  "items": [
+    {
+      "clientItemId": "n3-k4-vocabulary-01",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "この店は、ほかの店より「価格」が安い。「価格」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 価格 = かかく(가격)\n「価」는 「か」, 「格」은 「かく」입니다. かがく는 「科学」(과학)의 읽기, かかぐ는 탁음을 잘못 붙인 것, ねかく는 「価」를 훈독 「あたい·ね」에서 잘못 가져온 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "かかく"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "かがく"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "かかぐ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ねかく"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-02",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "HARD",
+        "questionText": "駅の「改札」の前で友だちと待ち合わせた。「改札」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 改札 = かいさつ(개찰구)\n「改」는 「かい」, 「札」은 「さつ」입니다. かいざつ는 탁음을 잘못 붙인 것, かいさく는 「札」을 잘못 읽은 것, あらさつ는 「改」를 훈독 「あらためる」에서 잘못 가져온 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "かいざつ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "かいさく"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "かいさつ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "あらさつ"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-03",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "手伝ってくれた人たちに「感謝」している。「感謝」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 感謝 = かんしゃ(감사)\n「感」은 「かん」, 「謝」는 「しゃ」입니다. かんじゃ는 「患者」(환자)의 읽기, がんしゃ는 탁음을 잘못 붙인 것, かんさ는 「謝」를 잘못 읽은 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "かんじゃ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "かんしゃ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "がんしゃ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "かんさ"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-04",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "来月から「給料」が少し上がる。「給料」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 給料 = きゅうりょう(월급)\n「給」은 「きゅう」, 「料」는 「りょう」입니다. きゅりょう는 「給」의 장음을 빠뜨린 것, きゅうりょ는 「料」의 장음을 빠뜨린 것, けいりょう는 「計量」(계량)의 읽기입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "きゅりょう"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "きゅうりょ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "けいりょう"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "きゅうりょう"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-05",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "祖父は若いころ、とても「苦労」したそうだ。「苦労」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 苦労 = くろう(고생)\n「苦」는 「く」, 「労」는 「ろう」입니다. くろ는 장음을 빠뜨린 것, くるう는 「狂う」(미치다)의 읽기, にがろう는 「苦」를 훈독 「にがい」에서 잘못 가져온 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "くろ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "くるう"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "にがろう"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "くろう"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-06",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "EASY",
+        "questionText": "試験の「結果」は来週わかる。「結果」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 結果 = けっか(결과)\n「結」는 뒤에 「か」가 와서 「けっ」이 되고, 「果」는 「か」입니다. けつか는 촉음(っ)을 빠뜨린 것, けっが는 탁음을 잘못 붙인 것, けいか는 「経過」(경과)의 읽기입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "けつか"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "けっか"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "けっが"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "けいか"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-07",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "「現在」、この町には三万人が住んでいる。「現在」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 現在 = げんざい(현재)\n「現」은 「げん」, 「在」는 「ざい」입니다. げんさい는 탁음을 빠뜨린 것, けんざい는 「現」의 탁음을 빠뜨린 것, げんじゃい는 없는 읽기입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "げんさい"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "けんざい"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "げんざい"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "げんじゃい"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-08",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "HARD",
+        "questionText": "アルバイトの「収入」で生活している。「収入」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 収入 = しゅうにゅう(수입)\n「収」는 「しゅう」, 「入」은 「にゅう」입니다. しゅにゅう는 「収」의 장음을 빠뜨린 것, しゅうにゅ는 「入」의 장음을 빠뜨린 것, しゅうはいり는 「入」을 훈독 「はいる」에서 잘못 가져온 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "しゅうにゅう"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "しゅにゅう"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "しゅうにゅ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "しゅうはいり"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-09",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "彼は自分の「主張」を最後まで変えなかった。「主張」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 主張 = しゅちょう(주장)\n「主」는 「しゅ」(짧게), 「張」은 「ちょう」입니다. しゅうちょう는 「主」를 길게 읽은 것, しゅっちょう는 「出張」(출장)의 읽기, しゅはり는 「張」를 훈독 「はる」에서 잘못 가져온 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "しゅうちょう"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "しゅちょう"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "しゅっちょう"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "しゅはり"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-10",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "古い車だが、エンジンの「状態」はいい。「状態」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 状態 = じょうたい(상태)\n「状」은 「じょう」, 「態」는 「たい」입니다. じょたい는 장음을 빠뜨린 것, じょうだい는 탁음을 잘못 붙인 것, しょうたい는 「招待」(초대)의 읽기입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "じょたい"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "じょうだい"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "しょうたい"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "じょうたい"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-11",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "失敗の「責任」は私にある。「責任」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 責任 = せきにん(책임)\n「責」은 「せき」, 「任」은 「にん」입니다. せきじん는 탁음을 잘못 붙인 것, せっにん는 「せき」를 「せっ」으로 잘못 줄인 것, さいにん는 없는 읽기입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "せきじん"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "せっにん"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "せきにん"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "さいにん"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-12",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "十年後の自分を「想像」してみた。「想像」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 想像 = そうぞう(상상)\n「想」은 「そう」, 「像」은 「ぞう」입니다. そうしょう는 「像」을 잘못 읽은 것, そぞう는 「想」의 장음을 빠뜨린 것, そうぞ는 「像」의 장음을 빠뜨린 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "そうしょう"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "そぞう"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "そうぞ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "そうぞう"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-13",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "祖母は来週「退院」できるそうだ。「退院」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 退院 = たいいん(퇴원)\n「退」는 「たい」, 「院」은 「いん」으로 「い」가 두 번 이어집니다. たいん는 「い」 하나를 빠뜨린 것, だいいん는 탁음을 잘못 붙인 것, たいえん는 「院」을 잘못 읽은 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "たいん"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "たいいん"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "だいいん"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "たいえん"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-14",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "飛行機は予定より早く「到着」した。「到着」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 到着 = とうちゃく(도착)\n「到」는 「とう」, 「着」은 「ちゃく」입니다. とちゃく는 장음을 빠뜨린 것, とうじゃく는 탁음을 잘못 붙인 것, とうつき는 「着」을 훈독 「つく」에서 잘못 가져온 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "とうちゃく"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "とちゃく"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "とうじゃく"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "とうつき"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-15",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "明日、クラスで研究の「発表」をする。「発表」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 発表 = はっぴょう(발표)\n「発」은 뒤에 「ひょう」가 와서 「はっ」이 되고, 「表」는 「ぴょう」가 됩니다. はつひょう는 촉음·반탁음이 되지 않은 것, はっぴょ는 장음을 빠뜨린 것, はっびょう는 탁음을 잘못 붙인 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "はっぴょう"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "はつひょう"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "はっぴょ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "はっびょう"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-16",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "EASY",
+        "questionText": "父は私の留学に「反対」した。「反対」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 反対 = はんたい(반대)\n「反」은 「はん」, 「対」는 「たい」입니다. はんだい는 탁음을 잘못 붙인 것, ばんたい는 「反」에 탁음을 잘못 붙인 것, はんつい는 「対」의 다른 음독 「つい」를 쓴 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "はんたい"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "はんだい"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ばんたい"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "はんつい"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-17",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "EASY",
+        "questionText": "これは二人だけの「秘密」だよ。「秘密」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 秘密 = ひみつ(비밀)\n「秘」는 「ひ」, 「密」은 「みつ」입니다. ひめつ는 없는 읽기, びみつ는 탁음을 잘못 붙인 것, ひっみつ는 촉음(っ)을 잘못 넣은 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ひめつ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "びみつ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ひみつ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ひっみつ"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-18",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "EASY",
+        "questionText": "「普通」の電車で行くと、一時間かかる。「普通」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 普通 = ふつう(보통)\n「普」는 「ふ」, 「通」은 「つう」입니다. ふとう는 「不当」(부당)의 읽기, ぶつう는 탁음을 잘못 붙인 것, ふっつう는 촉음(っ)을 잘못 넣은 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ふとう"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ぶつう"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ふっつう"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ふつう"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-19",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "この会社の「製品」は海外でも人気がある。「製品」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 製品 = せいひん(제품)\n「製」는 「せい」, 「品」은 「ひん」입니다. せいびん는 탁음을 잘못 붙인 것, せっぴん는 「製」를 「せっ」으로 잘못 줄인 것, せいしな는 「品」을 훈독 「しな」로 읽은 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "せいびん"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "せっぴん"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "せいしな"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "せいひん"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-20",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "用事があったので、誘いを「断った」。「断った」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 断った = ことわった(거절했다)\n「断る」는 「ことわる」이고, 「た」 앞에서는 「ことわっ」이 됩니다. ことわた는 촉음(っ)을 빠뜨린 것, だんった는 「断」을 음독 「だん」으로 읽은 것, たちった는 「断」의 다른 훈독 「たつ」를 쓴 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ことわた"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ことわった"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "だんった"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "たちった"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-21",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "家族が私を「支えて」くれた。「支えて」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 支えて = ささえて(받쳐)\n「支える」는 「ささえる」입니다. さざえて는 탁음을 잘못 붙인 것, しえて는 「支」를 음독 「し」로 읽은 것, ささいて는 없는 읽기입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "さざえて"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ささえて"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "しえて"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ささいて"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-22",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "弟はテストを机の中に「隠して」いた。「隠して」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 隠して = かくして(숨겨)\n「隠す」는 「かくす」이고, 「て」 앞에서는 「かくし」가 됩니다. かこして는 없는 읽기, かくじて는 탁음을 잘못 붙인 것, いんして는 「隠」을 음독 「いん」으로 읽은 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "かこして"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "かくじて"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "かくして"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "いんして"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-23",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "約束の時間はちゃんと「守って」ください。「守って」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 守って = まもって(지켜)\n「守る」는 「まもる」이고, 「て」 앞에서는 「まもっ」이 됩니다. まもて는 촉음(っ)을 빠뜨린 것, しゅって는 「守」를 음독 「しゅ」로 읽은 것, まるって는 없는 읽기입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "まもって"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "まもて"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "しゅって"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "まるって"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-24",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "試合に勝てるように「祈って」いる。「祈って」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 祈って = いのって(빌고)\n「祈る」는 「いのる」이고, 「て」 앞에서는 「いのっ」이 됩니다. いのて는 촉음(っ)을 빠뜨린 것, いのりて는 명사형 「祈り」에 「て」를 붙인 것, きって는 「祈」를 음독 「き」로 읽은 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "いのて"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "いのって"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "いのりて"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "きって"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-25",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "駅で「偶然」、昔の友だちに会った。「偶然」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 偶然 = ぐうぜん(우연히)\n「偶」는 「ぐう」, 「然」은 「ぜん」입니다. ぐぜん는 장음을 빠뜨린 것, ぐうせん는 탁음을 빠뜨린 것, くうぜん는 「空前」(공전)의 읽기입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adverb-phrase"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ぐぜん"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ぐうせん"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ぐうぜん"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "くうぜん"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-26",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "弟はゲームに「夢中」になっている。「夢中」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 夢中 = むちゅう(열중)\n「夢」은 「む」, 「中」은 「ちゅう」입니다. むじゅう는 탁음을 잘못 붙인 것, むっちゅう는 촉음(っ)을 잘못 넣은 것, ゆめなか는 「夢」「中」을 모두 훈독한 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "むじゅう"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "むっちゅう"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ゆめなか"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "むちゅう"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-27",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "HARD",
+        "questionText": "ここで道を「横断」してはいけない。「横断」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 横断 = おうだん(횡단)\n「横」은 「おう」, 「断」은 「だん」입니다. おうたん는 탁음을 빠뜨린 것, こうだん는 「公団」(공단)의 읽기, よこだん는 「横」을 훈독 「よこ」로 읽은 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "おうたん"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "こうだん"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "おうだん"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "よこだん"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-k4-vocabulary-28",
+      "content": {
+        "level": "N3",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "天気「予報」によると、明日は雪だ。「予報」の読み方はどれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 予報 = よほう(예보)\n「予」는 「よ」, 「報」는 「ほう」입니다. よぼう는 「予防」(예방)의 읽기, ようほう는 없는 장음을 넣은 것, よほ는 장음을 빠뜨린 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "よほう"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "よぼう"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ようほう"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "よほ"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    }
+  ]
+}

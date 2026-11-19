@@ -1,0 +1,895 @@
+{
+  "items": [
+    {
+      "clientItemId": "n5-k4-vocabulary-01",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "EASY",
+        "questionText": "「学校」は えきの ちかくに あります。「学校」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 学校 = がっこう(학교)\n「学」는 뒤에 「こう」가 와서 「がっ」이 되고, 「校」는 「こう」입니다. がこう는 촉음(っ)을 빠뜨린 것, がっこ는 장음을 빠뜨린 것, かっこう는 「格好」(모양)의 읽기입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "がこう"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "がっこう"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "がっこ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "かっこう"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-02",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "あさ ごはんを たべる 「時間」が ありません。「時間」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 時間 = じかん(시간)\n「時」는 「じ」, 「間」은 「かん」입니다. じがん는 탁음을 잘못 붙인 것, しかん는 「時」의 탁음을 빠뜨린 것, じいかん는 없는 장음을 넣은 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "じがん"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "しかん"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "じかん"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "じいかん"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-03",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "EASY",
+        "questionText": "「父」は ぎんこうで はたらいて います。「父」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 父 = ちち(아버지)\n혼자 쓴 「父」는 「ちち」입니다. はは는 「母」(어머니)의 읽기, ちぢ는 탁음을 잘못 붙인 것, ふう는 없는 읽기입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "はは"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ちち"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ちぢ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ふう"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-04",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "EASY",
+        "questionText": "その 「大きい」 かばんは だれのですか。「大きい」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 大きい = おおきい(크다)\n「大きい」는 「おお」+「きい」로, 장음을 「お」로 적습니다. おきい는 장음을 빠뜨린 것, だいきい는 「大」를 음독 「だい」로 읽은 것, おうきい는 장음을 「う」로 잘못 적은 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "おきい"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "だいきい"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "おおきい"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "おうきい"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-05",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "「小さい」 ねこが にわに います。「小さい」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 小さい = ちいさい(작다)\n「小さい」는 「ちい」+「さい」입니다. ちさい는 장음을 빠뜨린 것, しょうさい는 「小」를 음독 「しょう」로 읽은 것, こさい는 없는 읽기입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ちさい"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "しょうさい"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ちいさい"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "こさい"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-06",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "「月曜日」に としょかんへ いきます。「月曜日」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 月曜日 = げつようび(월요일)\n요일 이름의 「月」는 「げつ」, 「曜日」는 「ようび」입니다. がつようび는 「一月」 같은 달 이름에 쓰는 「がつ」를 쓴 것, げっようび는 촉음(っ)을 잘못 넣은 것, つきようび는 「月」를 훈독한 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "げつようび"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "がつようび"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "げっようび"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "つきようび"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-07",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "あには 「外国」で べんきょうして います。「外国」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 外国 = がいこく(외국)\n「外」는 「がい」, 「国」는 「こく」입니다. がいごく는 탁음을 잘못 붙인 것, かいこく는 「外」의 탁음을 빠뜨린 것, そとこく는 「外」를 훈독한 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "がいこく"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "がいごく"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "かいこく"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "そとこく"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-08",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "ちちの 「会社」は とうきょうに あります。「会社」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 会社 = かいしゃ(회사)\n「会」는 「かい」, 「社」는 「しゃ」입니다. がいしゃ는 「外車」(외제차)의 읽기, かいさ는 「社」를 잘못 읽은 것, あいしゃ는 「会」를 훈독 「あう」에서 잘못 가져온 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "がいしゃ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "かいさ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "あいしゃ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "かいしゃ"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-09",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "EASY",
+        "questionText": "まいにち ぎゅうにゅうを 「飲みます」。「飲みます」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 飲みます = のみます(마십니다)\n「飲む」는 「のむ」이고, 「ます」 앞에서는 「のみ」가 됩니다. よみます는 「読みます」(읽습니다)의 읽기, いみます는 없는 읽기, のむます는 동사 기본형 「のむ」에 「ます」를 그대로 붙인 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "よみます"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "いみます"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "のむます"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "のみます"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-10",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "きのう テレビで サッカーを 「見ました」。「見ました」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 見ました = みました(보았습니다)\n「見る」는 「みる」이고, 「ました」 앞에서는 「み」입니다. けんました는 「見」를 음독 「けん」으로 읽은 것, みいました는 없는 장음을 넣은 것, にました는 「似ました」(닮았습니다)의 읽기입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "けんました"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "みいました"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "みました"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "にました"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-11",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "ノートに なまえを 「書きます」。「書きます」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 書きます = かきます(씁니다)\n「書く」는 「かく」이고, 「ます」 앞에서는 「かき」가 됩니다. しょきます는 「書」를 음독 「しょ」로 읽은 것, がきます는 탁음을 잘못 붙인 것, かいます는 「買います」(삽니다)의 읽기입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "しょきます"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "がきます"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "かきます"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "かいます"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-12",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "せんせいに みちを 「聞きました」。「聞きました」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 聞きました = ききました(물었습니다)\n「聞く」는 「きく」이고, 「ました」 앞에서는 「きき」가 됩니다. もんきました는 「聞」을 음독 「もん」으로 읽은 것, きぎました는 탁음을 잘못 붙인 것, きました는 「来ました」(왔습니다)의 읽기입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "もんきました"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "きぎました"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ききました"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "きました"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-13",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "ともだちと でんわで 「話します」。「話します」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 話します = はなします(이야기합니다)\n「話す」는 「はなす」이고, 「ます」 앞에서는 「はなし」가 됩니다. わします는 「話」를 음독 「わ」로 읽은 것, はなしします는 「話」에 「し」를 한 번 더 넣은 것, かたします는 없는 읽기입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "はなします"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "わします"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "はなしします"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "かたします"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-14",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "EASY",
+        "questionText": "あした ともだちが うちに 「来ます」。「来ます」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 来ます = きます(옵니다)\n「来る」는 「くる」이지만 「ます」 앞에서는 「き」가 됩니다. くます는 기본형 「くる」의 「く」를 그대로 쓴 것, らいます는 「来」를 음독 「らい」로 읽은 것, こます는 부정형 「こない」의 「こ」를 쓴 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.verb"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "くます"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "らいます"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "こます"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "きます"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-15",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "「西」の そらが あかく なりました。「西」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 西 = にし(서쪽)\n혼자 쓴 「西」는 「にし」입니다. ひがし는 「東」(동쪽)의 읽기, にじ는 「虹」(무지개)의 읽기, にしい는 없는 장음을 넣은 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ひがし"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "にし"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "にじ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "にしい"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-16",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "EASY",
+        "questionText": "この みちを 「北」へ あるいて ください。「北」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 北 = きた(북쪽)\n혼자 쓴 「北」는 「きた」입니다. みなみ는 「南」(남쪽)의 읽기, きだ는 탁음을 잘못 붙인 것, ほく는 「北」의 음독으로, 혼자 쓸 때는 읽지 않는 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "みなみ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "きた"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "きだ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ほく"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-17",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "ケーキを 「半分」 たべました。「半分」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 半分 = はんぶん(절반)\n「半」은 「はん」, 「分」은 여기서 「ぶん」입니다. はんふん는 「分」의 탁음을 빠뜨린 것, ばんぶん는 「半」에 탁음을 잘못 붙인 것, はんぷん는 「十分」(じゅっぷん) 같은 시간의 읽기를 쓴 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "はんぶん"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "はんふん"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ばんぶん"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "はんぷん"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-18",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "この ほんは 「千円」です。「千円」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 千円 = せんえん(천 엔)\n「千」은 「せん」, 「円」은 「えん」입니다. せんねん는 「千年」(천 년)의 읽기, ぜんえん는 탁음을 잘못 붙인 것, せいえん는 없는 읽기입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "せんえん"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "せんねん"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ぜんえん"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "せいえん"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-19",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "あの あかい 「車」は せんせいのです。「車」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 車 = くるま(자동차)\n혼자 쓴 「車」는 「くるま」입니다. くろま는 없는 읽기, ぐるま는 탁음을 잘못 붙인 것, しゃま는 「車」의 음독 「しゃ」를 쓴 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "くるま"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "くろま"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ぐるま"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "しゃま"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-20",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "えきの まえに 「男の人」が たって います。「男の人」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 男の人 = おとこのひと(남자)\n「男」는 「おとこ」, 「人」은 「ひと」입니다. おんなのひと는 「女の人」(여자)의 읽기, おどこのひと는 탁음을 잘못 붙인 것, だんのひと는 「男」를 음독 「だん」으로 읽은 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "おんなのひと"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "おとこのひと"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "おどこのひと"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "だんのひと"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-21",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "HARD",
+        "questionText": "「今月」は とても いそがしいです。「今月」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 今月 = こんげつ(이번 달)\n「今」은 「こん」, 「月」는 여기서 「げつ」입니다. いまげつ는 「今」을 훈독 「いま」로 읽은 것, こんがつ는 달 이름에 쓰는 「がつ」를 쓴 것, こんつき는 「月」를 훈독한 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "いまげつ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "こんがつ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "こんげつ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "こんつき"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-22",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "えきの ひがし 「出口」で まって います。「出口」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 出口 = でぐち(출구)\n「出」은 「で」, 「口」는 뒤에 붙어 「ぐち」가 됩니다. でくち는 탁음을 빠뜨린 것, しゅつぐち는 「出」을 음독 「しゅつ」로 읽은 것, だぐち는 없는 읽기입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "でくち"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "しゅつぐち"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "だぐち"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "でぐち"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-23",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "これは とても 「古い」 じしょです。「古い」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 古い = ふるい(낡다, 오래되다)\n「古い」는 「ふるい」입니다. ぶるい는 탁음을 잘못 붙인 것, こい는 「古」를 음독 「こ」로 읽은 것, ふるいい는 「い」를 한 번 더 넣은 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.adjective"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ぶるい"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ふるい"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "こい"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ふるいい"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-24",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "「道」が わからなかったので、ひとに ききました。「道」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 道 = みち(길)\n혼자 쓴 「道」는 「みち」입니다. まち는 「町」(동네)의 읽기, みぢ는 탁음을 잘못 붙인 것, みいち는 없는 장음을 넣은 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "みち"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "まち"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "みぢ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "みいち"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-25",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "いすの 「後ろ」に かばんが あります。「後ろ」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 後ろ = うしろ(뒤)\n「後ろ」는 「うしろ」입니다. あとろ는 「後」의 다른 훈독 「あと」를 쓴 것, うじろ는 탁음을 잘못 붙인 것, ごろ는 「後」의 음독 「ご」를 쓴 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "あとろ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "うじろ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ごろ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "うしろ"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-26",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "HARD",
+        "questionText": "「先週」 うみへ いきました。「先週」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 先週 = せんしゅう(지난주)\n「先」은 「せん」, 「週」는 「しゅう」입니다. さきしゅう는 「先」을 훈독 「さき」로 읽은 것, せんしゅ는 장음을 빠뜨린 것, ぜんしゅう는 탁음을 잘못 붙인 것입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.kango"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "さきしゅう"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "せんしゅ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ぜんしゅう"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "せんしゅう"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n5-k4-vocabulary-27",
+      "content": {
+        "level": "N5",
+        "subject": "VOCABULARY",
+        "questionType": "KANJI_READING",
+        "difficulty": "NORMAL",
+        "questionText": "ちちは まいあさ 「新聞」を よみます。「新聞」の よみかたは どれですか。",
+        "passage": null,
+        "explanationKo": "핵심: 新聞 = しんぶん(신문)\n「新」은 「しん」, 「聞」은 여기서 「ぶん」입니다. しんもん는 「聞」의 다른 음독 「もん」을 쓴 것, しんぷん는 반탁음(ぱ행)을 잘못 붙인 것, じんぶん는 「人文」(인문)의 읽기입니다.",
+        "explanationJa": null,
+        "tagNames": ["vocab.basic-noun"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "しんもん"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "しんぶん"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "しんぷん"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "じんぶん"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    }
+  ]
+}
