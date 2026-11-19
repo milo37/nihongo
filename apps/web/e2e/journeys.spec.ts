@@ -1422,6 +1422,10 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
     created.session.id,
     originalNow
   )
+  // #1094: only the submission answer carries stampEarned; this member has
+  // no daily goal, so no stamp.
+  const { stampEarned, ...primaryResult } = primarySubmission
+  expect(stampEarned).toBe(false)
   expect(primarySubmission).toMatchObject({
     correctCount: 2,
     correctRate: 40,
@@ -1443,7 +1447,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   )
   await page.reload()
   const persisted = await reloadedResult
-  expect(persisted).toEqual(primarySubmission)
+  expect(persisted).toEqual(primaryResult)
   await expect(
     page.getByRole('heading', { level: 1, name: /문제 중 .*맞음/u })
   ).toBeVisible()

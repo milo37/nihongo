@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto'
-import { submitStudySessionV2ResponseSchema } from '@nihongo/contracts/study/submit-study-session'
-import type { StudyResult } from '@nihongo/contracts/study/study-result'
+import {
+  submitStudySessionV2ResponseSchema,
+  type SubmitStudySessionV2Response
+} from '@nihongo/contracts/study/submit-study-session'
 import { type WrongNoteReviewState } from '@nihongo/domain/review/apply-wrong-note-review'
 
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
@@ -49,7 +51,7 @@ export const isOwner = (
 export const parseStoredStudyResult = (
   value: unknown,
   message: string
-): StudyResult => {
+): SubmitStudySessionV2Response => {
   try {
     return submitStudySessionV2ResponseSchema.parse(value)
   } catch (error: unknown) {

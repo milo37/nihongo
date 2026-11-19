@@ -9,6 +9,7 @@ import {
   type PinnedStudyQuestionForGrading
 } from '@nihongo/domain/grading/grade-study-submission'
 import { Prisma } from '../generated/prisma/client.js'
+import { awardDailyGoalStamp } from '../member/stamp.js'
 
 import { hashStudySubmission } from './studySubmissionCanonicalizer.js'
 import { toStudyResult } from './studySubmissionMapper.js'
@@ -296,6 +297,12 @@ export const runAtomicSubmission = async (
     where: { studySessionId: input.sessionId }
   })
 
+  // #1094: after the session is SUBMITTED, so this set's answers count.
+  const stampEarned =
+    input.owner.kind === 'USER'
+      ? await awardDailyGoalStamp(transaction, input.owner.userId)
+      : false
+
   const resultRecord = await loadStudyResultRecord(
     transaction,
     input.sessionId,
@@ -307,7 +314,7 @@ export const runAtomicSubmission = async (
     )
   }
   const response = parseStoredStudyResult(
-    toStudyResult(resultRecord),
+    { ...toStudyResult(resultRecord), stampEarned },
     'Projected submit response does not satisfy the submit contract.'
   )
   await options.beforeFinalize?.()

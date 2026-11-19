@@ -722,7 +722,7 @@ describe('ADMIN learner access and CMS role boundaries', () => {
     const submit = vi.fn<StudySubmissionService['submit']>().mockResolvedValue({
       replayed: false,
       guestProofExpiresAt: null,
-      response: result
+      response: { ...result, stampEarned: false }
     })
     const listReviewList = vi
       .fn<WrongNoteReviewListService['listReviewList']>()
@@ -882,7 +882,7 @@ describe('ADMIN learner access and CMS role boundaries', () => {
     )
     const submitted = await h.request('POST', base + '/submission', submitBody)
     expect(submitted.status).toBe(201)
-    expect(await submitted.json()).toEqual(result)
+    expect(await submitted.json()).toEqual({ ...result, stampEarned: false })
     expect(h.submit).toHaveBeenCalledWith(
       session.session.id,
       key,

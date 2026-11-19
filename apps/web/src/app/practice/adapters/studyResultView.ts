@@ -48,6 +48,11 @@ export interface StudyResultView {
   durationSec: number
   submittedAt: string | null
   items: StudyResultItemView[]
+  /**
+   * #1094: only the submission answer that earned today's stamp says true;
+   * the result read never does, so reopening shows no stamp.
+   */
+  stampEarned?: boolean
 }
 
 export const toLegacyStudyResultView = (
@@ -68,9 +73,10 @@ export const toLegacyStudyResultView = (
 })
 
 export const toCanonicalStudyResultView = (
-  response: StudyResult
+  response: StudyResult & { stampEarned?: boolean }
 ): StudyResultView => ({
   sessionId: response.sessionId,
+  stampEarned: response.stampEarned === true,
   totalCount: response.totalCount,
   correctCount: response.correctCount,
   incorrectCount: response.incorrectCount,

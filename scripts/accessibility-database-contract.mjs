@@ -38,6 +38,7 @@ export const accessibilityDatabaseTables = [
   'SsoAdminFreshProof',
   'SsoAdminFreshTransaction',
   'SsoLoginTransaction',
+  'StampLedger',
   'StudyAnswer',
   'StudyDraft',
   'StudyDraftAnswer',
@@ -88,6 +89,8 @@ export const accessibilityExpectedTableDeltas = {
   SsoAdminFreshProof: 0,
   SsoAdminFreshTransaction: 0,
   SsoLoginTransaction: 0,
+  // #1094: the scan's members skipped the daily goal, so they earn none.
+  StampLedger: 0,
   StudyAnswer: 10,
   StudyDraft: 1,
   StudyDraftAnswer: 3,

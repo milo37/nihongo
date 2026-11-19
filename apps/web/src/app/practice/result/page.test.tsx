@@ -16,6 +16,7 @@ import { getStudySessionV2 } from '@api/study/getStudySessionV2'
 import { commitCanonicalAuth } from '@nihongo/browser/app/login/authSession'
 import { authQueries } from '@nihongo/browser/app/login/queries/authQueries'
 import { studyResultQueries } from '@app/practice/queries/studyResultQueries'
+import { toCanonicalStudyResultView } from '@app/practice/adapters/studyResultView'
 import { bookmarkQueries } from '@app/bookmark/queries/bookmarkQueries'
 import { PracticeResultPage } from '@app/practice/result/page'
 import { Layout } from '@app/layout'
@@ -764,6 +765,70 @@ describe('approved general result navigation', () => {
     expect(done).toHaveClass('is-done')
     second.view.unmount()
     fixture.client.clear()
+  })
+
+  it("목표를 넘긴 그 세트의 결과에만 마루 도장과 '· {달}월 도장 꾹'이 한 번 보인다 (#1094)", async () => {
+    const fixture = await createFixture()
+    const userId = mockDatabase.getCurrentUser()?.id ?? ''
+    mockDatabase.setStudyGoal(userId, 'N5', 10)
+    for (let set = 0; set < 3; set += 1) await createFixture()
+    fixture.client.setQueryData(
+      studyResultQueries.result(fixture.sessionId).queryKey,
+      {
+        ...toCanonicalStudyResultView(fixture.result),
+        stampEarned: true,
+        // 11/30 15:30 UTC is already 12/1 in Seoul: the stamp's month.
+        submittedAt: '2026-11-30T15:30:00.000Z'
+      }
+    )
+    const first = fixture.mount()
+    const line = await screen.findByText(/^오늘 목표 10문제를 채웠어요/u)
+    expect(line).toHaveTextContent(
+      /^오늘 목표 10문제를 채웠어요 · 12월 도장 꾹$/u
+    )
+    expect(line.parentElement?.querySelector('.maru-stage')).toHaveAttribute(
+      'aria-hidden',
+      'true'
+    )
+    first.view.unmount()
+    // Opening the same result again shows the plain goal line.
+    const second = fixture.mount()
+    const again = await screen.findByText(/^오늘 목표 10문제를 채웠어요/u)
+    expect(again).toHaveTextContent(/^오늘 목표 10문제를 채웠어요$/u)
+    expect(document.querySelector('.maru-stage')).toBeNull()
+    second.view.unmount()
+    fixture.client.clear()
+  })
+
+  it('모의 제출은 오늘 목표를 처음 넘긴 세트에만 stampEarned를 준다 (#1094)', async () => {
+    mockDatabase.loginAs('USER')
+    const userId = mockDatabase.getCurrentUser()?.id ?? ''
+    mockDatabase.setStudyGoal(userId, 'N5', 10)
+    const earned: boolean[] = []
+    for (let set = 0; set < 5; set += 1) {
+      const created = await createStudySessionV2({
+        level: 'N5',
+        subject: 'VOCABULARY',
+        mode: 'RANDOM',
+        count: 3
+      })
+      const sessionId = created.data.session.id
+      const draft = (await getStudyDraftAnswers(sessionId)).data
+      const submitted = await submitStudySessionV2(
+        sessionId,
+        {
+          answers: draft.answers,
+          durationSec: 0,
+          expectedDraftRevision: draft.revision
+        },
+        crypto.randomUUID()
+      )
+      earned.push(submitted.data.stampEarned)
+    }
+    expect(earned).toEqual([false, false, false, true, false])
+    expect(mockDatabase.getStudyGoal(userId).monthStampDates).toEqual([
+      new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' })
+    ])
   })
 
   it('하루 목표가 없는 회원과 비회원에게는 오늘 푼 수 줄이 없다 (#1090)', async () => {
