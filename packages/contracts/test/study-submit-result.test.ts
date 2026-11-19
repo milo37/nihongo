@@ -237,7 +237,16 @@ describe('study submit/result contracts', () => {
     const submitted = submitStudySessionV2ResponseSchema.parse(result)
     const fetched = getStudyResultResponseSchema.parse(result)
 
-    expect(submitted).toEqual(fetched)
+    // #1094: only the submit adds stampEarned; stored older answers read false.
+    expect(submitted).toEqual({ ...fetched, stampEarned: false })
+    expect(
+      submitStudySessionV2ResponseSchema.parse({ ...result, stampEarned: true })
+        .stampEarned
+    ).toBe(true)
+    expect(
+      getStudyResultResponseSchema.safeParse({ ...result, stampEarned: true })
+        .success
+    ).toBe(false)
     expect(submitted.submittedAt).toBe('2026-08-15T01:00:00.000Z')
     expect(
       getStudyResultParamsSchema.parse({ sessionId: result.sessionId })

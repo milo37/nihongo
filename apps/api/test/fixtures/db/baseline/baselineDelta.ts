@@ -392,6 +392,11 @@ const ADDED_STUDY_GOAL_TABLE = 'UserStudyGoal'
 const isAddedStudyGoal = (row: Record<string, unknown>): boolean =>
   row.table === ADDED_STUDY_GOAL_TABLE
 
+/** #1094: the stamp ledger. */
+const ADDED_STAMP_TABLE = 'StampLedger'
+const isAddedStamp = (row: Record<string, unknown>): boolean =>
+  row.table === ADDED_STAMP_TABLE
+
 /** #675: the retired email Verification table, its enum and its guard. */
 const RETIRED_VERIFICATION_TABLE = 'Verification'
 const RETIRED_VERIFICATION_TYPE = 'AuthVerificationPurpose'
@@ -433,8 +438,8 @@ const withBaselineErasureStatus = (
  * JLP-733 drops or adds, removed from both sides, the #683 proof bound,
  * the JLP-815 target level grant, the JLP-845 restore objects, the JLP-842
  * access record table, the JLP-852 last sign-in table, the #1042 return
- * count table, the #1085 consent table, the #1090 study goal table and the
- * #702 re-apply function.
+ * count table, the #1085 consent table, the #1090 study goal table, the
+ * #1094 stamp ledger and the #702 re-apply function.
  */
 export const withoutForwardChanges = (
   catalog: SchemaCatalog
@@ -462,6 +467,7 @@ export const withoutForwardChanges = (
       name !== ADDED_RETENTION_TABLE &&
       name !== ADDED_CONSENT_TABLE &&
       name !== ADDED_STUDY_GOAL_TABLE &&
+      name !== ADDED_STAMP_TABLE &&
       name !== RETIRED_VERIFICATION_TABLE
   ),
   columns: catalog.columns
@@ -478,6 +484,7 @@ export const withoutForwardChanges = (
         !isAddedRetention(row) &&
         !isAddedConsent(row) &&
         !isAddedStudyGoal(row) &&
+        !isAddedStamp(row) &&
         !isRetiredVerification(row)
     )
     .map(withBaselineTargetLevelAcl),
@@ -492,6 +499,7 @@ export const withoutForwardChanges = (
         !isAddedRetention(row) &&
         !isAddedConsent(row) &&
         !isAddedStudyGoal(row) &&
+        !isAddedStamp(row) &&
         !isRetiredVerification(row)
     )
     .map(withBaselineProofBound)
@@ -505,6 +513,7 @@ export const withoutForwardChanges = (
       !isAddedRetention(row) &&
       !isAddedConsent(row) &&
       !isAddedStudyGoal(row) &&
+      !isAddedStamp(row) &&
       !isRetiredVerification(row)
   ),
   triggers: catalog.triggers.filter(

@@ -1,0 +1,148 @@
+// #1094: turns Maru's sprite (src/app/practice/result/maru/fox.svg, drawn by
+// design) into a React component. The page CSP (style-src 'self') blocks a
+// <style> inside inline SVG, so each class rule becomes a style object on
+// the element. Run after replacing fox.svg:
+//   node apps/web/scripts/maru-sprite.mjs && pnpm exec prettier --write apps/web/src/app/practice/result/maru/FoxSprite.tsx
+import { readFileSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
+
+const directory = path.join(
+  import.meta.dirname,
+  '../src/app/practice/result/maru'
+)
+const source = readFileSync(path.join(directory, 'fox.svg'), 'utf8')
+
+const camel = (name) => name.replace(/-([a-z])/gu, (_, c) => c.toUpperCase())
+const declarations = (text) =>
+  Object.fromEntries(
+    text
+      .split(';')
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => {
+        const index = part.indexOf(':')
+        return [
+          camel(part.slice(0, index).trim()),
+          part.slice(index + 1).trim()
+        ]
+      })
+  )
+
+const css = /<style>([\s\S]*?)<\/style>/u.exec(source)?.[1] ?? ''
+const rules = new Map()
+for (const [, selectors, body] of css.matchAll(/([^{}]+)\{([^}]*)\}/gu)) {
+  for (const selector of selectors.split(',')) {
+    const name = /^\s*\.([\w-]+)\s*$/u.exec(selector)?.[1]
+    if (!name) throw new Error(`Unsupported selector: ${selector}`)
+    rules.set(name, { ...rules.get(name), ...declarations(body) })
+  }
+}
+
+// Path data as relative steps without repeated command letters: the same
+// points (exact to 1/1000) in about a third fewer gzip bytes, which keeps
+// the result chunk under the lazy chunk limit. Paths with other commands
+// stay as drawn.
+const scale = 1000
+const argumentCount = { M: 2, L: 2, Q: 4, C: 6, Z: 0 }
+const number = (value) => String(value / scale).replace(/^(-?)0\./u, '$1.')
+const compactPath = (data) => {
+  if (/[^MLQCZ\d.,\s-]/u.test(data)) return data
+  const tokens = data.match(/[MLQCZ]|-?(?:\d+\.?\d*|\.\d+)/gu)
+  let out = ''
+  let last = ''
+  let [x, y, startX, startY] = [0, 0, 0, 0]
+  let previous = ''
+  for (let index = 0; index < tokens.length; ) {
+    let command = tokens[index]
+    if (/[MLQCZ]/u.test(command)) index += 1
+    else command = previous
+    if (command === 'Z') {
+      out += 'z'
+      last = ''
+      ;[x, y, previous] = [startX, startY, 'Z']
+      continue
+    }
+    const points = tokens
+      .slice(index, index + argumentCount[command])
+      .map((token) => Math.round(Number(token) * scale))
+    index += points.length
+    // A repeated command (or a line after a move) needs no letter.
+    if (command !== previous || command === 'M') {
+      out += command.toLowerCase()
+      last = ''
+    }
+    for (const [position, point] of points.entries()) {
+      const text = number(point - (position % 2 === 0 ? x : y))
+      const joined =
+        last === '' ||
+        text.startsWith('-') ||
+        (text.startsWith('.') && last.includes('.'))
+      out += `${joined ? '' : ' '}${text}`
+      last = text
+    }
+    ;[x, y] = points.slice(-2)
+    if (command === 'M') [startX, startY] = [x, y]
+    previous = command === 'M' ? 'L' : command
+  }
+  return out
+}
+
+const styles = new Map()
+const styleName = (style) => {
+  const key = JSON.stringify(style)
+  if (!styles.has(key)) styles.set(key, `s${styles.size}`)
+  return styles.get(key)
+}
+
+const body = /<svg[^>]*>([\s\S]*)<\/svg>\s*$/u
+  .exec(source)[1]
+  .replace(/<style>[\s\S]*?<\/style>/u, '')
+  .replace(/<!--[\s\S]*?-->/gu, '')
+  .replace(
+    /<([a-zA-Z]+)((?:\s+[\w:-]+="[^"]*")*)\s*(\/?)>/gu,
+    (_, tag, attributes, close) => {
+      let style = {}
+      const kept = []
+      for (const [, name, value] of attributes.matchAll(
+        /\s+([\w:-]+)="([^"]*)"/gu
+      )) {
+        if (name === 'class') {
+          const names = new Set(value.split(/\s+/u))
+          for (const item of names)
+            if (!rules.has(item)) throw new Error(`Unknown class: ${item}`)
+          // Later rules in the stylesheet win, as in CSS, whatever the
+          // order of names in the class attribute.
+          for (const [item, rule] of rules)
+            if (names.has(item)) style = { ...style, ...rule }
+        } else if (name === 'style')
+          style = { ...style, ...declarations(value) }
+        else if (name.startsWith('xmlns')) continue
+        else if (name === 'd') kept.push(`d="${compactPath(value)}"`)
+        else kept.push(`${camel(name.replace('xlink:', ''))}="${value}"`)
+      }
+      if (Object.keys(style).length > 0)
+        kept.push(`style={${styleName(style)}}`)
+      return `<${tag}${kept.map((item) => ` ${item}`).join('')}${close ? ' /' : ''}>`
+    }
+  )
+  .trim()
+
+const constants = [...styles]
+  .map(([key, name]) => `const ${name}: CSSProperties = ${key}`)
+  .join('\n')
+
+writeFileSync(
+  path.join(directory, 'FoxSprite.tsx'),
+  `// Generated by apps/web/scripts/maru-sprite.mjs from fox.svg; do not edit.
+import type { CSSProperties, ReactElement } from 'react'
+
+${constants}
+
+/** Maru's poses as <symbol>s for <use href="#fox-…">; no visible box. */
+export const FoxSprite = (): ReactElement => (
+  <svg className="maru-sprite" aria-hidden="true" focusable="false">
+    ${body}
+  </svg>
+)
+`
+)

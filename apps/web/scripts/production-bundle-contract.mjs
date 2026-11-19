@@ -42,7 +42,7 @@ export const bundleCeilings = Object.freeze({
   // icon (operator decision 2026-11-16, PWA 3 files).
   // #1096 nickname: the field shared by the sign-up check and My page is its
   // own chunk (operator decision 2026-11-18).
-  emittedFileCount: 103,
+  emittedFileCount: 104,
   // The header account menu, with its logout dialog, loads on every page
   // (bundle 1 #734): two more initial chunks, about 5.5 KB gzip.
   // U12 (JLP-791): the shared global error handler now raises offline and
@@ -89,7 +89,8 @@ export const approvedStaticAssetPaths = Object.freeze([
   'favicon.ico',
   'favicon.svg',
   'icons/icon-192.png',
-  'icons/icon-512.png'
+  'icons/icon-512.png',
+  'share-card.png'
 ])
 
 // #1045: the home screen service worker is a plain public file, not a Vite

@@ -80,6 +80,11 @@ export const BookmarkEmptyPage = ({
           ? 'items-start! mx-0! px-0! text-start! [&>h2]:text-pretty [&:lang(ko)>h2]:break-keep'
           : undefined
       }
+      illustration={
+        isFirstPage ? (
+          <span className="maru-empty" aria-hidden="true" />
+        ) : undefined
+      }
       title={isFirstPage ? t('empty.firstTitle') : t('empty.pageTitle')}
       description={
         isFirstPage ? t('empty.firstDescription') : t('empty.pageDescription')

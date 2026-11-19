@@ -9,6 +9,8 @@ type EmptyStateProps = {
   description?: string
   action?: ReactNode
   icon?: ReactNode
+  /** A picture above the title, shown as is (no icon box). */
+  illustration?: ReactNode
   headingLevel?: 2 | 3
   className?: string
 }
@@ -20,6 +22,7 @@ export const EmptyState = ({
   description,
   headingLevel = 2,
   icon,
+  illustration,
   title
 }: EmptyStateProps): ReactElement => {
   const Heading = headingLevel === 2 ? 'h2' : 'h3'
@@ -39,6 +42,7 @@ export const EmptyState = ({
       )}
       aria-label={title}
     >
+      {illustration}
       {icon ? (
         <span
           className="mb-5 inline-grid size-12 place-items-center rounded-card bg-surface-muted text-muted"

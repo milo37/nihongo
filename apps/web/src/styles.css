@@ -852,6 +852,147 @@ body [lang='ja'][data-ja-spaced],
   color: rgb(var(--color-ink));
   font-weight: 600;
 }
+/* #1094 M-2a / C-6-6: Maru's stamp on the set that met today's goal, once.
+   Opacity and transform only; nothing blocks the page. */
+.result-stamp {
+  margin-top: 8px;
+}
+.result-stamp .result-daily-goal {
+  margin-top: 4px;
+}
+/* #1094 C-3: the empty-screen Maru (design's 240px WebP, a plain public file
+   copied by vite.config). The browser fetches it only when an empty screen
+   renders one; one size for every empty screen. */
+:root {
+  --maru-empty-size: 80px;
+}
+.maru-empty {
+  display: block;
+  width: var(--maru-empty-size);
+  height: var(--maru-empty-size);
+  margin-bottom: 12px;
+  background: url('/maru/fox-empty.webp') center / contain no-repeat;
+}
+.maru-stage {
+  --maru-red: rgb(var(--color-brand));
+  position: relative;
+  width: 80px;
+  height: 80px;
+}
+.maru-sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+.maru-fox {
+  position: absolute;
+  inset: 0;
+  width: 80px;
+  height: 80px;
+  opacity: 0;
+  transform-origin: 50% 92%;
+}
+.maru-ring {
+  position: absolute;
+  left: 52px;
+  top: 58px;
+  width: 26px;
+  height: 22px;
+  opacity: 0;
+}
+.maru-fox.is-lift {
+  animation:
+    maru-show 0s forwards,
+    maru-hide 0s 0.6s forwards,
+    maru-wiggle 0.3s ease-in-out 2 alternate;
+}
+.maru-fox.is-thud {
+  animation:
+    maru-show 0s 0.6s forwards,
+    maru-hide 0s 1.3s forwards,
+    maru-thud 0.28s cubic-bezier(0.3, 1.6, 0.5, 1) 0.6s;
+}
+.maru-fox.is-yay {
+  animation:
+    maru-show 0s 1.3s forwards,
+    maru-hop 0.45s ease-out 1.3s;
+}
+.maru-ring {
+  animation: maru-mark 0.35s ease-out 0.77s forwards;
+}
+.result-stamp-note {
+  /* Wraps as a whole ('ポ/ン' never splits); pre keeps ko's leading space,
+     which an inline-block would drop. */
+  display: inline-block;
+  white-space: pre;
+  opacity: 0;
+  animation: maru-show 0.3s 1.3s forwards;
+}
+@keyframes maru-show {
+  to {
+    opacity: 1;
+  }
+}
+@keyframes maru-hide {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes maru-wiggle {
+  from {
+    transform: rotate(-5deg);
+  }
+  to {
+    transform: rotate(5deg);
+  }
+}
+@keyframes maru-thud {
+  0% {
+    transform: translateY(-18px) scaleY(1.04);
+  }
+  60% {
+    transform: translateY(2px) scaleY(0.9);
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes maru-mark {
+  from {
+    opacity: 0;
+    transform: scale(1.25);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes maru-hop {
+  0%,
+  100% {
+    transform: none;
+  }
+  40% {
+    transform: translateY(-14px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .maru-fox.is-lift,
+  .maru-fox.is-thud {
+    animation: none;
+  }
+  .maru-fox.is-yay {
+    animation: maru-show 0s forwards;
+  }
+  .maru-ring {
+    animation: maru-show 0.2s forwards;
+  }
+  .result-stamp-note {
+    animation: none;
+    opacity: 1;
+  }
+}
 @media (max-width: 760px) {
   .auth-panel.signup-consent,
   .auth-panel.study-goal {

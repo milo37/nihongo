@@ -44,14 +44,36 @@ interface StudyGoalRow {
   goalSetAt: Date | null
   skippedAt: Date | null
   todayAnsweredCount: number
+  monthStampDates: string[]
 }
 
 const ACTIVE_MEMBER = Prisma.sql`
   member."accountStatus" = 'ACTIVE' AND member."deletedAt" IS NULL`
 
+/** Today's Asia/Seoul calendar day, the day goals and stamps count on. */
+export const SEOUL_TODAY = Prisma.sql`
+  (clock_timestamp() AT TIME ZONE 'Asia/Seoul')::date`
+
 /**
- * One row for an ACTIVE member: the goal and the answers in sets submitted
- * since 00:00 Asia/Seoul today.
+ * Answers in the member's sets submitted since 00:00 Asia/Seoul today, every
+ * level, subject and mode (#1090 O-r7; #1094 stamps use the same count).
+ */
+export const todayAnsweredCount = (memberId: Prisma.Sql): Prisma.Sql =>
+  Prisma.sql`(SELECT count(*)::int
+       FROM "StudySession" AS session
+       JOIN "StudySessionQuestion" AS question
+         ON question."studySessionId" = session."id"
+       JOIN "StudyAnswer" AS answer
+         ON answer."studySessionQuestionId" = question."id"
+       WHERE session."userId" = ${memberId}
+         AND session."status" = 'SUBMITTED'
+         AND session."submittedAt" >= (
+           ${SEOUL_TODAY}::timestamp AT TIME ZONE 'Asia/Seoul'
+         ))`
+
+/**
+ * One row for an ACTIVE member: the goal, today's answers and the days of
+ * this Asia/Seoul month that have a stamp.
  */
 const readGoal = async (
   client: Pick<PrismaClient, '$queryRaw'>,
@@ -62,18 +84,12 @@ const readGoal = async (
       goal."dailyGoal"::int AS "dailyGoal",
       goal."goalSetAt",
       goal."onboardingSkippedAt" AS "skippedAt",
-      (SELECT count(*)::int
-       FROM "StudySession" AS session
-       JOIN "StudySessionQuestion" AS question
-         ON question."studySessionId" = session."id"
-       JOIN "StudyAnswer" AS answer
-         ON answer."studySessionQuestionId" = question."id"
-       WHERE session."userId" = member."id"
-         AND session."status" = 'SUBMITTED'
-         AND session."submittedAt" >= (
-           (clock_timestamp() AT TIME ZONE 'Asia/Seoul')::date::timestamp
-             AT TIME ZONE 'Asia/Seoul'
-         )) AS "todayAnsweredCount"
+      ${todayAnsweredCount(Prisma.sql`member."id"`)} AS "todayAnsweredCount",
+      ARRAY(SELECT DISTINCT stamp."earnedOn"::text
+       FROM "StampLedger" AS stamp
+       WHERE stamp."userId" = member."id"
+         AND stamp."earnedOn" >= date_trunc('month', ${SEOUL_TODAY})::date
+       ORDER BY 1) AS "monthStampDates"
     FROM "User" AS member
     LEFT JOIN "UserStudyGoal" AS goal ON goal."userId" = member."id"
     WHERE member."id" = ${userId}::uuid AND ${ACTIVE_MEMBER}
@@ -86,7 +102,8 @@ const readGoal = async (
     goalSetAt: row.goalSetAt?.toISOString() ?? null,
     skippedAt: row.skippedAt?.toISOString() ?? null,
     onboardingRequired: row.goalSetAt === null && row.skippedAt === null,
-    todayAnsweredCount: row.todayAnsweredCount
+    todayAnsweredCount: row.todayAnsweredCount,
+    monthStampDates: row.monthStampDates
   }
 }
 

@@ -119,7 +119,14 @@ export const ResultSummary = ({
         ].join(' · ')}
       </p>
       {/* #1090 r7: right under the grey info line (the later stamp ends it). */}
-      {memberId ? <DailyGoalLine userId={memberId} /> : null}
+      {memberId ? (
+        <DailyGoalLine
+          userId={memberId}
+          sessionId={result.sessionId}
+          stampEarned={result.stampEarned === true}
+          submittedAt={result.submittedAt}
+        />
+      ) : null}
       <ProgressSheet
         className="study-result-sheet"
         states={gradeStates}
