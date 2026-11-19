@@ -65,25 +65,20 @@ const PickWord = ({
   </span>
 )
 
-/**
- * 첫 화면 B (JLP-823): one sentence "오늘은 N5 문자·어휘 10문제 풀어 볼까요?"
- * whose level and subject are underlined pickers, one [시작하기], then quiet
- * lines (members: the unfinished set and what is left to review; guests:
- * today's tries). #991: no count strip; the sentence says the count.
- */
-export const HeroStartCard = ({
-  setup,
-  memberLines
+/** The opening question; its level and subject are the pickers. */
+const StartSentence = ({
+  level,
+  setup
 }: {
+  level: string
   setup: ReturnType<typeof usePracticeSetupController>
-  memberLines?: ReactNode
 }): ReactElement => {
+  // Left uncompiled: the compiled parent already caches this section, and
+  // compiling it too adds about 200 bytes gzip (#1124 bundle).
+  'use no memo'
   const { t, i18n } = useTranslation('home')
   const { count, subject } = setup
-  const level = setup.level ?? setup.defaultLevel
   const locale = resolveUiLocale(i18n.resolvedLanguage)
-  const { isGuest } = setup
-  const guestTriesLeft = getGuestTriesLeft(isGuest, setup.guestAllowance)
   const pickDisabled = !setup.isReady || setup.isCreatingSession
   // The pickers go where {{level}} and {{subject}} are and the line breaks
   // before the count, after any particle (no Trans: it would add an HTML
@@ -98,59 +93,79 @@ export const HeroStartCard = ({
     formattedCount: BREAK_SLOT + formatNumber(count, locale)
   }).split(/(\[\[level\]\]|\[\[subject\]\]|\[\[br\]\])/u)
   return (
+    <h1
+      className={
+        setup.isGuestDailyLimitReached ? 'home-say home-say-limit' : 'home-say'
+      }
+      tabIndex={-1}
+    >
+      {sentence.map((part, index) =>
+        part === LEVEL_SLOT ? (
+          <PickWord
+            key={index}
+            label={t('today.pickLevel')}
+            value={level}
+            disabled={pickDisabled}
+            options={levels.map((value) => ({ value, label: value }))}
+            onChange={(event) =>
+              setup.changeSetting(
+                'level',
+                event.currentTarget.value,
+                setup.defaultLevel
+              )
+            }
+          />
+        ) : part === SUBJECT_SLOT ? (
+          <PickWord
+            key={index}
+            label={t('today.pickSubject')}
+            value={subject}
+            disabled={pickDisabled}
+            options={subjects.map((value) => ({
+              value,
+              label: t(subjectKeys[value])
+            }))}
+            onChange={(event) =>
+              setup.changeSetting(
+                'subject',
+                event.currentTarget.value,
+                setup.defaultSubject
+              )
+            }
+          />
+        ) : part === BREAK_SLOT ? (
+          <br key={index} />
+        ) : (
+          part
+        )
+      )}
+    </h1>
+  )
+}
+
+/**
+ * 첫 화면 B (JLP-823): one sentence "오늘은 N5 문자·어휘 10문제 풀어 볼까요?"
+ * whose level and subject are underlined pickers, one [시작하기], then quiet
+ * lines (members: the unfinished set and what is left to review; guests:
+ * today's tries). #991: no count strip; the sentence says the count.
+ */
+export const HeroStartCard = ({
+  setup,
+  memberLines
+}: {
+  setup: ReturnType<typeof usePracticeSetupController>
+  memberLines?: ReactNode
+}): ReactElement => {
+  const { t } = useTranslation('home')
+  const level = setup.level ?? setup.defaultLevel
+  const { isGuest } = setup
+  const guestTriesLeft = getGuestTriesLeft(isGuest, setup.guestAllowance)
+  return (
     <div className="home-band-start">
       {/* #1041: on PC the title and button share the first row with today's
           question; the lines below start the second row. */}
       <div className="home-start-top">
-        <h1
-          className={
-            setup.isGuestDailyLimitReached
-              ? 'home-say home-say-limit'
-              : 'home-say'
-          }
-          tabIndex={-1}
-        >
-          {sentence.map((part, index) =>
-            part === LEVEL_SLOT ? (
-              <PickWord
-                key={index}
-                label={t('today.pickLevel')}
-                value={level}
-                disabled={pickDisabled}
-                options={levels.map((value) => ({ value, label: value }))}
-                onChange={(event) =>
-                  setup.changeSetting(
-                    'level',
-                    event.currentTarget.value,
-                    setup.defaultLevel
-                  )
-                }
-              />
-            ) : part === SUBJECT_SLOT ? (
-              <PickWord
-                key={index}
-                label={t('today.pickSubject')}
-                value={subject}
-                disabled={pickDisabled}
-                options={subjects.map((value) => ({
-                  value,
-                  label: t(subjectKeys[value])
-                }))}
-                onChange={(event) =>
-                  setup.changeSetting(
-                    'subject',
-                    event.currentTarget.value,
-                    setup.defaultSubject
-                  )
-                }
-              />
-            ) : part === BREAK_SLOT ? (
-              <br key={index} />
-            ) : (
-              part
-            )
-          )}
-        </h1>
+        <StartSentence level={level} setup={setup} />
         {setup.isGuestDailyLimitReached ? (
           <div className="home-band-limit">
             <GuestDailyLimitCard redirect="/" />

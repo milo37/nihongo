@@ -131,13 +131,13 @@ seconds):
 ```sh
 qid="$(aws logs start-query --log-group-name /harumaru/<env>/api \
   --start-time $(( <dump epoch> - 3600 )) --end-time "$(date +%s)" \
-  --query-string 'filter event in ["auth.account_erasure.requested", "auth.account_erasure.cancelled"] | stats latest(event) as last by userId' \
+  --query-string 'filter event in ["auth.account_erasure.requested", "auth.account_erasure.cancelled"] | stats latest(event) as last, latest(occurredAt) as at by userId' \
   --query queryId --output text)"
 sleep 10
 aws logs get-query-results --query-id "$qid" \
-  --query 'results[*].[[?field==`userId`].value | [0], [?field==`last`].value | [0]]' \
+  --query 'results[*].[[?field==`userId`].value | [0], [?field==`last`].value | [0], [?field==`at`].value | [0]]' \
   --output text > erasure-events-<stamp>.txt
-awk '$2 == "auth.account_erasure.requested" { print $1 }' erasure-events-<stamp>.txt > erasure-reapply-<stamp>.txt
+awk '$2 == "auth.account_erasure.requested" { print $1, $3 }' erasure-events-<stamp>.txt > erasure-reapply-<stamp>.txt
 awk '$2 == "auth.account_erasure.cancelled" { print $1 }' erasure-events-<stamp>.txt > erasure-restore-<stamp>.txt
 ```
 
@@ -147,9 +147,42 @@ random UUIDs, not names or emails. A user who asked and then restored within
 the window is only in the restore file, so a restored request is never
 re-applied.
 
-- `erasure-reapply-<stamp>.txt`: re-apply with the #702 command (after the
-  deploy). Until #702 ships, hand the file to the backend owner to re-apply,
-  and tell those users their erasure is being redone.
+- `erasure-reapply-<stamp>.txt`: copy the file to the host and re-apply with
+  the #702 command (`auth:reapply-erasure:compiled`). It reads one user id and
+  the original request time (the event's `occurredAt`) per line from stdin.
+  Run it once without the confirmation (dry run: it writes nothing and prints
+  how many it would request), then with it:
+
+  ```sh
+  cd /opt/harumaru
+  /opt/harumaru/bin/render-env.sh
+  # PRODUCTION_DATABASE_URL: the one line of /run/harumaru/erase.env, as in
+  # erase-deletion-pending.sh.
+  export PRODUCTION_DATABASE_URL="$(sed -n 's/^PRODUCTION_DATABASE_URL=//p' /run/harumaru/erase.env)"
+  export ACCOUNT_ERASURE_ENVIRONMENT=PRODUCTION
+  docker compose run --rm --no-deps -T \
+    -e ACCOUNT_ERASURE_ENVIRONMENT -e PRODUCTION_DATABASE_URL \
+    api node api/dist/auth/accountErasureReapplyCommand.js < erasure-reapply-<stamp>.txt
+  export ACCOUNT_ERASURE_REAPPLY_CONFIRM=REAPPLY_ACCOUNT_ERASURE
+  docker compose run --rm --no-deps -T \
+    -e ACCOUNT_ERASURE_ENVIRONMENT -e PRODUCTION_DATABASE_URL -e ACCOUNT_ERASURE_REAPPLY_CONFIRM \
+    api node api/dist/auth/accountErasureReapplyCommand.js < erasure-reapply-<stamp>.txt
+  ```
+
+  Each ACTIVE listed user gets the same erasure request as their own, with the
+  original request time: the deadline stays that time plus 7 days, and no new
+  grace period starts. A deadline already past erases at the next hourly run;
+  otherwise signing in restores the account only until the original deadline.
+  Each also gets one `auth.account_erasure.requested` line with
+  `"reason":"REAPPLY"` and the original `occurredAt`, so a later restore keeps
+  the same deadline. A time in the future or older than 31 days rejects the
+  whole file. Users already pending or erased, unknown ids, users with open
+  admin work and the last ACTIVE ADMIN are listed under `skipped`; a second run
+  requests no one.
+  Exit 1 means a user failed or the input was invalid (any line that is not a
+  user id rejects the whole file). Tell the requested users their erasure is
+  being redone.
+
 - `erasure-restore-<stamp>.txt`: these accounts must not be erased. Pause the
   erasure schedule (`erasure_schedule_enabled = false`) until this is done,
   copy the file to the host and cancel each pending erasure again with the same

@@ -23,7 +23,8 @@ export interface AdminCommandRateLimiter {
 
 const policyByGroup = {
   ADMIN_EDIT: { limit: 30, windowMilliseconds: 10 * 60_000 },
-  ADMIN_SENSITIVE: { limit: 10, windowMilliseconds: 15 * 60_000 },
+  // #732: 10 cut a 750-question release into seven windows; 30 needs three.
+  ADMIN_SENSITIVE: { limit: 30, windowMilliseconds: 15 * 60_000 },
   IMPORT_VALIDATION: { limit: 20, windowMilliseconds: 15 * 60_000 },
   REAUTHENTICATION: { limit: 5, windowMilliseconds: 15 * 60_000 }
 } as const satisfies Readonly<

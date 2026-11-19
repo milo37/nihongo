@@ -5,10 +5,10 @@ import {
   buildQuestionAggregateSeed,
   SEED_TIMESTAMP,
   type QuestionAggregateSeed
-} from './seed-data/buildQuestionSeed.js'
-import { QUESTION_CONTENT_REVIEW } from './seed-data/contentReview.js'
-import { toStableSeedUuid } from './seed-data/id.js'
-import { originalQuestionSeeds } from './seed-data/questions/index.js'
+} from '../test/fixtures/seed-questions/buildQuestionSeed.js'
+import { QUESTION_CONTENT_REVIEW } from '../test/fixtures/seed-questions/contentReview.js'
+import { toStableSeedUuid } from '../test/fixtures/seed-questions/id.js'
+import { originalQuestionSeeds } from '../test/fixtures/seed-questions/questions/index.js'
 
 const EXPECTED_QUESTION_COUNT = 65
 const EXPECTED_OPTION_COUNT = 260

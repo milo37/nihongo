@@ -12,6 +12,15 @@ export interface SsoVerifiedIdentity {
   readonly name: string
 }
 
+/**
+ * JLP-718: a provider may also return a way to revoke the app's grant with
+ * the token of this exchange, held only in memory. It is split off before the
+ * identity reaches any repository, whose identity schemas are strict.
+ */
+export interface SsoExchangedIdentity extends SsoVerifiedIdentity {
+  readonly revokeGrant?: () => Promise<boolean>
+}
+
 export interface SsoTransaction {
   readonly provider: SsoProviderId
   readonly stateDigest: string
@@ -41,7 +50,7 @@ export interface SsoProvider {
     code: string
     nonce: string
     codeVerifier: string
-  }) => Promise<SsoVerifiedIdentity | null>
+  }) => Promise<SsoExchangedIdentity | null>
 }
 
 type SsoFailure = 'CANCELLED' | 'FAILED' | 'INVALID_CALLBACK'
@@ -50,6 +59,7 @@ type SsoCallbackResult =
       readonly kind: 'IDENTITY_VERIFIED'
       readonly identity: SsoVerifiedIdentity
       readonly callbackURL: string
+      readonly revokeGrant?: () => Promise<boolean>
     }
   | { readonly kind: SsoFailure; readonly callbackURL: string }
 
@@ -220,14 +230,20 @@ export const createSsoLoginService = ({
       }
     if (!provider) return { kind: 'FAILED', callbackURL }
     try {
-      const identity = await provider.exchange({
+      const exchanged = await provider.exchange({
         code: code!,
         nonce: transaction.nonce,
         codeVerifier: transaction.codeVerifier
       })
-      return identity && identity.provider === providerId
-        ? { kind: 'IDENTITY_VERIFIED', identity, callbackURL }
-        : { kind: 'FAILED', callbackURL }
+      if (!exchanged || exchanged.provider !== providerId)
+        return { kind: 'FAILED', callbackURL }
+      const { revokeGrant, ...identity } = exchanged
+      return {
+        kind: 'IDENTITY_VERIFIED',
+        identity,
+        callbackURL,
+        ...(revokeGrant ? { revokeGrant } : {})
+      }
     } catch {
       return { kind: 'FAILED', callbackURL }
     }

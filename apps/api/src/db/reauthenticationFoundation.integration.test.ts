@@ -1104,6 +1104,7 @@ describe('Reauthentication DB foundation', () => {
       )
     ).rows
     expect(rows.map((row) => row.name)).toEqual([
+      'backdate_reapplied_sso_erasure_request',
       'classify_admin_authority',
       'consume_sso_transaction_v2',
       'create_sso_transaction_v2',

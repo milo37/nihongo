@@ -1,0 +1,72 @@
+{
+  "migrations": [
+    {
+      "name": "20261105090000_baseline",
+      "checksum": "6e71cb629fbeefccf3dcecf6bac3fbb2c90aa812da88e3d2249ca8af19bbfb3c"
+    },
+    {
+      "name": "20261106090000_remove_phase_names",
+      "checksum": "f545331aeb9a8be4121308ace7b15897109b10598ecc03f0dc3efc383293b009"
+    },
+    {
+      "name": "20261107090000_first_admin_production",
+      "checksum": "5f853296db6430b8c4549d4f64d41205a756f994960169d5664b50fb21890ab8"
+    },
+    {
+      "name": "20261108090000_remove_tag_applicability_and_snapshots",
+      "checksum": "fc9a6ae22a6e6d01cbcfac4df2b778b5326f68a568706799bc960c959078ba84"
+    },
+    {
+      "name": "20261109090000_add_tag_key_subject_status",
+      "checksum": "d7537f29432a06a3b4987c2e893d9e892e88a5ef9c3bd9b205a72e271b67b879"
+    },
+    {
+      "name": "20261110090000_admin_fresh_window_30_minutes",
+      "checksum": "ac6f093a0a677583947d0925a6c6f57119efe1e68fe2948642696d048948a0dc"
+    },
+    {
+      "name": "20261111090000_grant_user_target_level_update",
+      "checksum": "ebdd438260151840fd5b8613e70643bc0e14453174b7c6cb75a8427d6a952e98"
+    },
+    {
+      "name": "20261112090000_account_erasure_grace_restore",
+      "checksum": "6b1f71501724fff6c0702753313571734d86d6c0385262bfdcd22064134b94ab"
+    },
+    {
+      "name": "20261113090000_admin_access_log",
+      "checksum": "a13168bd2d7a9cc9adae16662458d73a6b7a820f94800963b4e576aff3971518"
+    },
+    {
+      "name": "20261114090000_user_last_login",
+      "checksum": "0fa79a002d431a347c78d752db7de9cbe3e922b3b9de0c79c94490cec581ca0f"
+    },
+    {
+      "name": "20261116090000_tag_label_ja",
+      "checksum": "5a2ecf35b1946874543693372eeed66a3c502edf781dca0ba21fb54a67d63437"
+    },
+    {
+      "name": "20261117090000_drop_retired_verification",
+      "checksum": "a5d42b1893e5f45c99ba6a047ce2ac73f4768fff1f023e4e451826a2537de7ba"
+    },
+    {
+      "name": "20261118090000_retention_cohort",
+      "checksum": "c380f2982d9c48308044abb17046ee874c7caba3637193b3dc842d1c126314f8"
+    },
+    {
+      "name": "20261119090000_signup_consent",
+      "checksum": "f674b37e8142c5d116bc27775b0640cd98cfdbc940e1e8ed200dc78183cc1a1c"
+    },
+    {
+      "name": "20261120090000_grant_user_name_update",
+      "checksum": "677013bc218a789eb02166db2c78feda4a7517f549d8515b7340cb1070d8f25f"
+    },
+    {
+      "name": "20261121090000_user_study_goal",
+      "checksum": "541e5e2281d2d6e0df9c577748fa822a31055f09b52ca139db5ae34a1e9f0e2d"
+    },
+    {
+      "name": "20261123090000_reapply_erasure_original_deadline",
+      "checksum": "ccad8014d7b655e9d760e4431dda5f98293b639b439e1401a3d02640955ca7a3"
+    }
+  ]
+}
