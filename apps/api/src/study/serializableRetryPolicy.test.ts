@@ -16,6 +16,12 @@ const serializationConflict = () =>
     clientVersion: 'test'
   })
 
+// What the pg adapter throws for a conflict found at COMMIT.
+const commitConflict = (cause: Record<string, unknown>) =>
+  Object.assign(new Error('commit conflict', { cause }), {
+    name: 'DriverAdapterError'
+  })
+
 describe('Serializable retry policy', () => {
   it('allows five attempts with 10/20/40/80 ms backoff', () => {
     expect(SERIALIZABLE_MAX_ATTEMPTS).toBe(5)
@@ -34,8 +40,16 @@ describe('Serializable retry policy', () => {
   })
 
   it('makes submission try five times, then report unavailable', async () => {
+    // A conflict found at COMMIT is retried like one found mid-transaction.
+    const conflicts = [
+      serializationConflict(),
+      commitConflict({ kind: 'TransactionWriteConflict' }),
+      commitConflict({ kind: 'postgres', code: '40001' }),
+      commitConflict({ kind: 'postgres', code: '40P01' }),
+      serializationConflict()
+    ]
     const transaction = vi.fn(async () => {
-      throw serializationConflict()
+      throw conflicts.shift()
     })
     const delays: number[] = []
     const repository = createPrismaStudySubmissionRepository(
