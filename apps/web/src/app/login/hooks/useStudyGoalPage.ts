@@ -4,6 +4,7 @@ import type { StudyGoal } from '@nihongo/contracts/auth/study-goal'
 import { refreshCanonicalAuthAfterMutation } from '@nihongo/browser/app/login/authSession'
 import { useAppNavigate } from '@nihongo/browser/libs/appNavigation'
 import { skipStudyGoal, updateStudyGoal } from '@api/auth/studyGoal'
+import { takeOnboardingCheck } from '@app/login/onboardingMarker'
 import { studyGoalQueries } from '@app/login/queries/studyGoalQueries'
 
 /** My page opens the page to change an answered goal. */
@@ -18,6 +19,13 @@ export const useStudyGoalPage = (userId: string, redirect: string) => {
   const navigate = useAppNavigate()
   const queryClient = useQueryClient()
   const goal = useQuery(studyGoalQueries.goal(userId))
+  // The page is what the sign-in check would open, so reaching it answers
+  // that check: no second read of the goal after handing back (#1110 CI,
+  // where the leftover check read again whenever the page's answer had
+  // left the cache).
+  useEffect(() => {
+    takeOnboardingCheck()
+  }, [])
   const leave = async (): Promise<void> => {
     await navigate(redirect, { replace: true })
   }
