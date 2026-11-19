@@ -1,5 +1,4 @@
 import type { GetWrongNoteResponse } from '@nihongo/contracts/wrong-note/get-wrong-note'
-import type { ListWrongNotesResponse } from '@nihongo/contracts/wrong-note/list-wrong-notes'
 import type {
   JlptLevel,
   PracticeQuestionOption,
@@ -8,32 +7,6 @@ import type {
   QuestionType,
   WrongNoteStatus
 } from '@nihongo/browser/common/types/domain'
-
-export interface WrongNoteListItemView {
-  questionId: string
-  level: JlptLevel
-  subject: QuestionSubject
-  questionType: QuestionType
-  questionPreview: string
-  difficulty: QuestionDifficulty | null
-  tags: string[]
-  wrongCount: number
-  correctStreak: number
-  status: WrongNoteStatus
-  lastWrongAt: string
-  lastReviewedAt: string | null
-  nextReviewAt: string | null
-  hasMemo: boolean
-  reviewAvailability: 'ARCHIVED' | 'AVAILABLE'
-}
-
-export interface WrongNoteListView {
-  items: WrongNoteListItemView[]
-  total: number
-  page: number
-  pageSize: number
-  availableTags: string[]
-}
 
 export interface WrongNoteDetailView {
   wrongNote: {
@@ -66,16 +39,6 @@ export interface WrongNoteDetailView {
   canRetry: boolean
   canUpdateMemo: boolean
 }
-
-export const toCanonicalWrongNoteListView = (
-  response: ListWrongNotesResponse
-): WrongNoteListView => ({
-  ...response,
-  items: response.items.map((item) => ({
-    ...item,
-    difficulty: null
-  }))
-})
 
 export const toCanonicalWrongNoteDetailView = (
   response: GetWrongNoteResponse

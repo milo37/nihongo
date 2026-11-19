@@ -2,7 +2,6 @@ import type {
   StudySessionPayload,
   VersionedStudySessionPayload
 } from '@nihongo/contracts/study/study-session'
-import type { GetStudySessionResponse } from '@api/study/getStudySession/schema'
 import type {
   JlptLevel,
   PracticeQuestionOption,
@@ -50,34 +49,6 @@ export interface StudySessionView {
   usedFallback: boolean
   fallbackReason: 'INSUFFICIENT_MODE_CANDIDATES' | null
 }
-
-export const toLegacyStudySessionView = (
-  response: GetStudySessionResponse
-): StudySessionView => ({
-  session: {
-    id: response.session.id,
-    level: response.session.level,
-    subject: response.session.subject,
-    mode: response.session.mode,
-    status: response.session.status,
-    startedAt: response.session.startedAt,
-    expiresAt: null,
-    submittedAt: response.session.submittedAt,
-    durationSec: response.session.durationSec,
-    practiceContractVersion: 1
-  },
-  questions: response.questions.map((question, index) => ({
-    ...question,
-    sessionQuestionId: null,
-    questionVersionId: null,
-    tagSummaries: null,
-    ordinal: index + 1
-  })),
-  requestedCount: response.requestedCount,
-  actualCount: response.actualCount,
-  usedFallback: response.usedFallback,
-  fallbackReason: response.usedFallback ? 'INSUFFICIENT_MODE_CANDIDATES' : null
-})
 
 export const toCanonicalStudySessionView = (
   response: StudySessionPayload | VersionedStudySessionPayload
