@@ -16,6 +16,15 @@ export const awardDailyGoalStamp = async (
   transaction: Pick<Prisma.TransactionClient, '$queryRaw'>,
   userId: string
 ): Promise<boolean> => {
+  // Session locks do not cover two sets of one member submitted at once, so
+  // each could count today without the other's answers and neither would
+  // stamp (#1110 QA). Locking the member's goal row first makes the later
+  // one wait; the next statement then counts with the earlier one committed.
+  await transaction.$queryRaw(Prisma.sql`
+    SELECT 1 FROM "UserStudyGoal"
+    WHERE "userId" = ${userId}::uuid
+    FOR UPDATE
+  `)
   const added = await transaction.$queryRaw<Array<{ id: string }>>(Prisma.sql`
     INSERT INTO "StampLedger"
       ("id", "userId", "earnedOn", "reason", "goalAtEarn")
