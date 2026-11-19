@@ -922,6 +922,10 @@ body [lang='ja'][data-ja-spaced],
   animation: maru-mark 0.35s ease-out 0.77s forwards;
 }
 .result-stamp-note {
+  /* Wraps as a whole ('ポ/ン' never splits); pre keeps ko's leading space,
+     which an inline-block would drop. */
+  display: inline-block;
+  white-space: pre;
   opacity: 0;
   animation: maru-show 0.3s 1.3s forwards;
 }
