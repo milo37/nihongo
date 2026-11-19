@@ -294,6 +294,192 @@ section.practice-guest-limit,
   padding-top: 24px;
   border-top: 1px solid rgb(var(--color-line));
 }
+/* #1154 M-2f (design sc10): this month's stamps under the goal row. No
+   box, line or fill. Phone: today 88px beside the title, the note and a
+   button; the calendar opens below (44px columns, date over a 22px
+   stamp). From 1024px: title and note on one line, then today 168px
+   beside an always-open 168px calendar (date beside a 26px stamp). */
+.stamp-board {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  grid-template-areas: 'today head' 'today toggle' 'calendar calendar';
+  grid-template-rows: auto 1fr;
+  column-gap: 16px;
+  align-items: start;
+  margin-top: 24px;
+}
+.stamp-board-head {
+  display: grid;
+  grid-area: head;
+  gap: 2px;
+}
+.stamp-board-title {
+  color: rgb(var(--color-ink));
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 22px;
+}
+.stamp-board-note {
+  color: rgb(var(--color-muted));
+  font-size: 13px;
+  line-height: 18px;
+  text-wrap: pretty;
+  word-break: keep-all;
+}
+.stamp-board-today {
+  display: grid;
+  grid-area: today;
+  place-items: center;
+  align-self: center;
+  width: 88px;
+  height: 88px;
+}
+.stamp-board-today .maru-stamp {
+  width: 100%;
+  height: 100%;
+}
+/* Today not yet: a dashed empty ring, nothing inside. */
+.stamp-board-today:empty::before {
+  content: '';
+  width: 73%;
+  height: 73%;
+  border: 1.5px dashed rgb(var(--color-line));
+  border-radius: 50%;
+}
+.stamp-board-toggle {
+  display: inline-flex;
+  grid-area: toggle;
+  justify-self: start;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 0;
+  color: rgb(var(--color-ink));
+  font-size: 13px;
+  line-height: 18px;
+}
+.stamp-board-toggle > span {
+  color: rgb(var(--color-muted));
+  font-size: 10px;
+}
+.stamp-board-calendar {
+  display: none;
+  grid-area: calendar;
+  grid-template-columns: repeat(7, 44px);
+  justify-content: center;
+  gap: 4px;
+  margin-top: 8px;
+}
+/* Only the phone's button opens it (0.2s); from 1024px it is just there. */
+.stamp-board-calendar.is-open {
+  display: grid;
+  animation: stamp-board-open 0.2s ease-out;
+}
+@keyframes stamp-board-open {
+  from {
+    opacity: 0;
+    translate: 0 -6px;
+  }
+}
+.stamp-board-weekday {
+  color: rgb(var(--color-subtle));
+  font-size: 10px;
+  line-height: 14px;
+  text-align: center;
+  opacity: 0.8;
+}
+.stamp-board-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  height: 38px;
+}
+.stamp-board-day > b {
+  min-width: 14px;
+  height: 14px;
+  padding: 0 4px;
+  border-radius: 7px;
+  color: rgb(var(--color-muted));
+  font-size: 10px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  line-height: 14px;
+  text-align: center;
+}
+.stamp-board-day.is-today > b {
+  background: rgb(var(--color-ink));
+  color: rgb(var(--color-inverse));
+  font-weight: 600;
+}
+.stamp-board-day.is-later > b {
+  opacity: 0.45;
+}
+.stamp-board-day > .maru-stamp {
+  width: 22px;
+  height: 22px;
+}
+@media (min-width: 1024px) {
+  .stamp-board {
+    grid-template-columns: 168px auto;
+    grid-template-areas: 'head head' 'today calendar';
+    grid-template-rows: auto;
+    justify-content: start;
+    column-gap: 40px;
+    row-gap: 12px;
+    margin-top: 20px;
+  }
+  .stamp-board-head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .stamp-board-today {
+    width: 168px;
+    height: 168px;
+  }
+  .stamp-board-toggle {
+    display: none;
+  }
+  /* Always open and 168px tall: the rows share what the weekdays leave. */
+  .stamp-board-calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 63px);
+    grid-template-rows: 14px;
+    grid-auto-rows: 1fr;
+    gap: 0;
+    height: 168px;
+    margin-top: 0;
+  }
+  .stamp-board-weekday {
+    font-size: 11px;
+  }
+  .stamp-board-day {
+    flex-direction: row;
+    justify-content: center;
+    gap: 4px;
+    height: auto;
+  }
+  .stamp-board-day > b {
+    width: 22px;
+    height: 16px;
+    padding: 0;
+    border-radius: 8px;
+    font-size: 11px;
+    line-height: 16px;
+  }
+  /* Dates line up whether or not the day has a stamp. */
+  .stamp-board-day > .maru-stamp,
+  .stamp-board-day:not(:has(.maru-stamp))::after {
+    content: '';
+    width: 26px;
+    height: 26px;
+  }
+  .is-six-rows .stamp-board-day > .maru-stamp,
+  .is-six-rows .stamp-board-day:not(:has(.maru-stamp))::after {
+    width: 22px;
+    height: 22px;
+  }
+}
 .account-page > .information-footer {
   margin-top: 32px;
 }
@@ -860,9 +1046,11 @@ body [lang='ja'][data-ja-spaced],
 .result-stamp .result-daily-goal {
   margin-top: 4px;
 }
-/* #1094 C-3: the empty-screen Maru (design's 240px WebP, a plain public file
-   copied by vite.config). The browser fetches it only when an empty screen
-   renders one; one size for every empty screen. */
+/* #1094 C-3, #1154: design's Maru pictures in one WebP (a plain public file
+   copied by vite.config; one file keeps the bundle's file count): the
+   stamp (252px square, 1.5x of its largest 168px) on the left, the
+   empty-screen Maru (240px) right of it. The browser fetches it only when
+   a screen shows one of them. */
 :root {
   --maru-empty-size: 80px;
 }
@@ -871,7 +1059,14 @@ body [lang='ja'][data-ja-spaced],
   width: var(--maru-empty-size);
   height: var(--maru-empty-size);
   margin-bottom: 12px;
-  background: url('/maru/fox-empty.webp') center / contain no-repeat;
+  background: url('/maru/maru.webp') calc(var(--maru-empty-size) * -1.05) 0 /
+    auto calc(var(--maru-empty-size) * 1.05) no-repeat;
+}
+/* The stamp, ring included: any square size. */
+.maru-stamp {
+  display: block;
+  flex: none;
+  background: url('/maru/maru.webp') 0 0 / auto 100% no-repeat;
 }
 .maru-stage {
   --maru-red: rgb(var(--color-brand));
@@ -987,6 +1182,9 @@ body [lang='ja'][data-ja-spaced],
   }
   .maru-ring {
     animation: maru-show 0.2s forwards;
+  }
+  .stamp-board-calendar {
+    animation: none;
   }
   .result-stamp-note {
     animation: none;

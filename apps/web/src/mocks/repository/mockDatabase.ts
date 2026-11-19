@@ -1114,6 +1114,11 @@ export class MockDatabase {
     return this.getStudyGoal(userId)
   }
 
+  /** #1154: a member's stamp days (YYYY-MM-DD, Asia/Seoul), for tests. */
+  setStampDays(userId: string, days: readonly string[]): void {
+    this.stampDaysByUserId.set(userId, [...days])
+  }
+
   // #1094: a member's set whose answers first reach today's goal earns one
   // stamp a day, like the server; guests and members without a goal none.
   private earnStamp(userId: string, answered: number): boolean {
