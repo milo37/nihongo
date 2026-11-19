@@ -33,14 +33,19 @@ export const EXPLANATION_JA_SET_FILE_NAMES = [
   'n1.add.v1.json'
 ] as const
 
-/** The fixed 750 question set, in import order (JLP-816, JLP-828, #1081). */
+/** The fixed 888 question set, in import order (JLP-816, JLP-828, #1081, #1043). */
 export const QUESTION_SET_FILE_NAMES = [
   ...EXPLANATION_JA_SET_FILE_NAMES,
   'n5.add2.v1.json',
   'n4.add2.v1.json',
   'n3.add2.v1.json',
   'n2.add2.v1.json',
-  'n1.add2.v1.json'
+  'n1.add2.v1.json',
+  'n5.kanji.v1.json',
+  'n4.kanji.v1.json',
+  'n3.kanji.v1.json',
+  'n2.kanji.v1.json',
+  'n1.kanji.v1.json'
 ] as const
 
 export interface QuestionSetFile {
