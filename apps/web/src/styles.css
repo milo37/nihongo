@@ -366,7 +366,8 @@ section.practice-guest-limit,
   grid-area: calendar;
   grid-template-columns: repeat(7, 44px);
   justify-content: center;
-  gap: 4px;
+  /* Room between a stamp and the date of the row below. */
+  gap: 10px 4px;
   margin-top: 8px;
 }
 /* Only the phone's button opens it (0.2s); from 1024px it is just there. */
