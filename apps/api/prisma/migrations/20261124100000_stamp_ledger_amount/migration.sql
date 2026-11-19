@@ -3,7 +3,7 @@
 -- reason rule covers only rows that add stamps (amount > 0). A later row that
 -- uses stamps (amount < 0) may then repeat on a day without changing the
 -- index. The table, the other columns and the INSERT and SELECT only access
--- stay as 20261122090000_stamp_ledger made them.
+-- stay as 20261124090000_stamp_ledger made them.
 BEGIN;
 SELECT pg_catalog.set_config('app.target_schema', pg_catalog.current_schema(), true);
 SELECT pg_catalog.set_config('search_path', 'pg_catalog, pg_temp', true);
