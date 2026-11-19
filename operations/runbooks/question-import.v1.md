@@ -49,7 +49,7 @@ docker compose --profile operator run --rm --no-deps -T \
   as in `first-admin.v1.md`, and read the line with
   `aws ssm get-command-invocation`.
 
-## 2. Import the fifteen files (admin, browser)
+## 2. Import the twenty files (admin, browser)
 
 As the first admin, open `/admin/questions/import`. For each file, in the
 order of the table above:
@@ -66,16 +66,16 @@ fix step 1 and validate again. A file is applied whole or not at all.
 
 ## 3. Request review, approve, publish (admin, browser)
 
-Open `/admin/questions` and set **한 페이지에** to **100개씩** (eight pages: seven of
-100 and one of 50). On each page:
+Open `/admin/questions` and set **한 페이지에** to **100개씩** (nine pages: eight of
+100 and one of 88). On each page:
 
-| Step           | Select                                                        | Press                                         | Calls per page                             |
-| -------------- | ------------------------------------------------------------- | --------------------------------------------- | ------------------------------------------ |
-| Review request | header checkbox **이 페이지에서 고를 수 있는 문제 모두 선택** | **내 초안 N개 검수 요청** → **N개 검수 요청** | 5, page 8: 3 (sent in batches of 20, #718) |
-| Approve        | same                                                          | **검수 중 N개 승인** → **N개 승인**           | 1                                          |
-| Publish        | same                                                          | **승인된 N개 공개** → **N개 공개**            | 1                                          |
+| Step           | Select                                                        | Press                                         | Calls per page                  |
+| -------------- | ------------------------------------------------------------- | --------------------------------------------- | ------------------------------- |
+| Review request | header checkbox **이 페이지에서 고를 수 있는 문제 모두 선택** | **내 초안 N개 검수 요청** → **N개 검수 요청** | 5 (sent in batches of 20, #718) |
+| Approve        | same                                                          | **검수 중 N개 승인** → **N개 승인**           | 1                               |
+| Publish        | same                                                          | **승인된 N개 공개** → **N개 공개**            | 1                               |
 
-Do all eight pages of one step before the next step. Each dialog lists the
+Do all nine pages of one step before the next step. Each dialog lists the
 result per question; expect no failures.
 
 ### Rate limit

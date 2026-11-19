@@ -106,7 +106,7 @@ curl -s -o /dev/null -w '%{http_code}\n' "$(terraform output -raw site_url)/heal
 
 ## 부록 B. 문제 888 한 번에 공개 (환경을 처음 채울 때, 팀 실행)
 
-관리자 화면으로 하면 호출 69번(15분에 30번 제한, 15분 대기 2번)과 30분마다 재로그인이 필요해 약 30분 이상 걸립니다. 대신 서버 운영 명령 `api/dist/content/questionSetPublishCommand.js`(#837)를 SSM으로 돌립니다. 운영자 로그인은 필요 없습니다.
+관리자 화면으로 하면 호출 83번(15분에 30번 제한, 15분 대기 2번)과 30분마다 재로그인이 필요해 약 30분 이상 걸립니다. 대신 서버 운영 명령 `api/dist/content/questionSetPublishCommand.js`(#837)를 SSM으로 돌립니다. 운영자 로그인은 필요 없습니다.
 
 전제: 그 명령이 들어간 release가 배포됨, 태그 18 적재([question-import.v1.md](question-import.v1.md) 1단계), ACTIVE 관리자가 정확히 1명([first-admin.v1.md](first-admin.v1.md)). 명령은 그 관리자 이름으로 감사 기록을 남깁니다.
 
