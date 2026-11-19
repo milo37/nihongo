@@ -6,7 +6,8 @@
 #   report-retention  closed report descriptions 180 days after closing (JLP-702)
 #   study-drafts      expired study drafts and idempotency records (#699)
 #   expired-sessions  sessions past their expiry (#695)
-# Exit 0 = done; 1 = failed or rows left for the next run. dry-run counts only.
+# Exit 0 = done (rows left for the next run show as hasMore or *LimitReached in
+# the log); 1 = failed. dry-run counts only.
 set -euo pipefail
 cd /opt/harumaru
 [[ -f .env ]] || { echo "no deployed release" >&2; exit 1; }
