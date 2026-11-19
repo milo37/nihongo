@@ -88,8 +88,8 @@ aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUT
 - `harumaru-<env>-cleanup` SSM 문서 하나가 배포된 이미지로 정리 명령 하나를 한 번 돌립니다(`files/cleanup-job.sh`). 매개변수 `job`(허용값만)과 `dryRun`(`true`/`false`, 기본 `true`)을 받습니다.
   - `report-retention`: 닫힌 신고의 설명을 닫힌 지 180일 뒤 지움(JLP-702 약속, `userReportRetentionCommand.js`)
   - `study-drafts`: 만료된 풀이 임시저장·멱등 기록(#699, `studyDraftCleanupCommand.js`)
-  - `expired-sessions`: 만료된 로그인 세션(#695, `sessionRetentionCommand.js`). 명령에 PRODUCTION 허용이 들어가기 전까지는 켜지 않습니다.
-- 모두 `nihongo_app`으로, `PRODUCTION_DATABASE_URL`과 정확히 같은 대상일 때만 돕니다. dry-run은 대상 수만 세고 바꾸지 않습니다. 종료 코드 1이면 실패했거나 다음 실행에 남은 행이 있고, 실패는 위와 같은 실패 알림으로 갑니다.
+  - `expired-sessions`: 만료된 로그인 세션(#695, `sessionRetentionCommand.js`)
+- 모두 `nihongo_app`으로, `PRODUCTION_DATABASE_URL`과 정확히 같은 대상일 때만 돕니다. dry-run은 대상 수만 세고 바꾸지 않습니다. 종료 코드 1은 실패뿐이고 실패는 위와 같은 실패 알림으로 갑니다. 한 번에 다 못 지워 남은 행은 종료 코드 0이며, 완료 로그의 `hasMore`·`…LimitReached`로 확인하고 다음 실행이 이어서 지웁니다.
 - 예약: `cleanup_schedules`(Asia/Tokyo, 작업마다 `enabled`·`dry_run`·`expression`). 기본은 모두 `DISABLED`·dry-run이고 PRODUCTION 매일 04:10·04:20·04:40입니다. STAGING은 하루 창 안(예: 05:35·05:40·05:45)으로 tfvars에서 바꿉니다. **PRODUCTION에서 `dry_run = false`(실제 삭제)는 운영자 승인 뒤**에만 바꿉니다. 순서: STAGING dry-run → STAGING 실제 → PRODUCTION dry-run(대상 수 확인) → 승인 → PRODUCTION 실제.
 - 수동 실행: `aws ssm send-command --document-name harumaru-<env>-cleanup --instance-ids <id> --parameters job=report-retention,dryRun=true`
 - 비회원 정리(#694)는 위 `guest-cleanup` 문서·예약을 그대로 씁니다. 예전의 공급자 중립 정의 `operations/guest-cleanup-job.v1.json`은 Terraform과 어긋나 지웠습니다.
