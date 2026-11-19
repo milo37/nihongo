@@ -381,32 +381,17 @@ section.practice-guest-limit,
   column-gap: 4px;
   margin-top: 8px;
 }
-/* A week folds to no height: its row track goes 0fr to 1fr. */
-.stamp-board-week {
-  display: grid;
+/* Folded, only this week; StampBoard animates the change (FLIP). */
+.stamp-board-weeks {
   grid-column: 1 / -1;
-  grid-template-rows: 0fr;
-  opacity: 0;
-  transition:
-    grid-template-rows 0.2s ease-in,
-    opacity 0.2s ease-in;
 }
-.stamp-board-week.is-current,
-.is-open > .stamp-board-week {
-  grid-template-rows: 1fr;
-  opacity: 1;
-}
-.is-open > .stamp-board-week {
-  transition:
-    grid-template-rows 0.25s ease-out,
-    opacity 0.25s ease-out;
+.stamp-board-calendar:not(.is-open) .stamp-board-week:not(.is-current) {
+  display: none;
 }
 .stamp-board-week > div {
   display: grid;
   grid-template-columns: repeat(7, 44px);
   column-gap: 4px;
-  min-height: 0;
-  overflow: hidden;
 }
 .stamp-board-weekday {
   color: rgb(var(--color-subtle));
@@ -479,9 +464,13 @@ section.practice-guest-limit,
     height: 168px;
     margin-top: 0;
   }
+  .stamp-board-weeks {
+    display: contents;
+  }
+  .stamp-board-calendar:not(.is-open) .stamp-board-week:not(.is-current),
   .stamp-board-week {
-    grid-template-rows: 1fr;
-    opacity: 1;
+    display: grid;
+    grid-column: 1 / -1;
   }
   .stamp-board-week > div {
     grid-template-columns: repeat(7, 63px);
@@ -1221,8 +1210,7 @@ body [lang='ja'][data-ja-spaced],
   .maru-ring {
     animation: maru-show 0.2s forwards;
   }
-  .stamp-board-chevron,
-  .stamp-board-week {
+  .stamp-board-chevron {
     transition: none;
   }
   .result-stamp-note {
