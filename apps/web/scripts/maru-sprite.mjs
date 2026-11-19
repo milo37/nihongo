@@ -38,6 +38,55 @@ for (const [, selectors, body] of css.matchAll(/([^{}]+)\{([^}]*)\}/gu)) {
   }
 }
 
+// Path data as relative steps without repeated command letters: the same
+// points (exact to 1/1000) in about a third fewer gzip bytes, which keeps
+// the result chunk under the lazy chunk limit. Paths with other commands
+// stay as drawn.
+const scale = 1000
+const argumentCount = { M: 2, L: 2, Q: 4, C: 6, Z: 0 }
+const number = (value) => String(value / scale).replace(/^(-?)0\./u, '$1.')
+const compactPath = (data) => {
+  if (/[^MLQCZ\d.,\s-]/u.test(data)) return data
+  const tokens = data.match(/[MLQCZ]|-?(?:\d+\.?\d*|\.\d+)/gu)
+  let out = ''
+  let last = ''
+  let [x, y, startX, startY] = [0, 0, 0, 0]
+  let previous = ''
+  for (let index = 0; index < tokens.length; ) {
+    let command = tokens[index]
+    if (/[MLQCZ]/u.test(command)) index += 1
+    else command = previous
+    if (command === 'Z') {
+      out += 'z'
+      last = ''
+      ;[x, y, previous] = [startX, startY, 'Z']
+      continue
+    }
+    const points = tokens
+      .slice(index, index + argumentCount[command])
+      .map((token) => Math.round(Number(token) * scale))
+    index += points.length
+    // A repeated command (or a line after a move) needs no letter.
+    if (command !== previous || command === 'M') {
+      out += command.toLowerCase()
+      last = ''
+    }
+    for (const [position, point] of points.entries()) {
+      const text = number(point - (position % 2 === 0 ? x : y))
+      const joined =
+        last === '' ||
+        text.startsWith('-') ||
+        (text.startsWith('.') && last.includes('.'))
+      out += `${joined ? '' : ' '}${text}`
+      last = text
+    }
+    ;[x, y] = points.slice(-2)
+    if (command === 'M') [startX, startY] = [x, y]
+    previous = command === 'M' ? 'L' : command
+  }
+  return out
+}
+
 const styles = new Map()
 const styleName = (style) => {
   const key = JSON.stringify(style)
@@ -68,6 +117,7 @@ const body = /<svg[^>]*>([\s\S]*)<\/svg>\s*$/u
         } else if (name === 'style')
           style = { ...style, ...declarations(value) }
         else if (name.startsWith('xmlns')) continue
+        else if (name === 'd') kept.push(`d="${compactPath(value)}"`)
         else kept.push(`${camel(name.replace('xlink:', ''))}="${value}"`)
       }
       if (Object.keys(style).length > 0)
