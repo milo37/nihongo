@@ -8,9 +8,9 @@ import { SEOUL_TODAY, todayAnsweredCount } from './studyGoal.js'
  * submission transaction after the session is SUBMITTED and returns true only
  * when this call added the stamp. No daily goal, no stamp; changing the goal
  * later takes nothing back. nihongo_app may only INSERT and SELECT
- * "StampLedger" (20261122090000_stamp_ledger); the row's "amount" stays 1
+ * "StampLedger" (20261124090000_stamp_ledger); the row's "amount" stays 1
  * and only rows with "amount" > 0 are one per member, day and reason
- * (20261124090000_stamp_ledger_amount).
+ * (20261124100000_stamp_ledger_amount).
  */
 export const awardDailyGoalStamp = async (
   transaction: Pick<Prisma.TransactionClient, '$queryRaw'>,
