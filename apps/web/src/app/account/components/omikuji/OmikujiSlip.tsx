@@ -29,7 +29,7 @@ export const OmikujiSlip = ({ pick }: { pick: OmikujiPick }): ReactElement => {
           <p className="omikuji-word-text" lang="ja">
             {item.text}
           </p>
-          {item.reading === item.text ? null : (
+          {item.reading === undefined ? null : (
             <p className="omikuji-word-reading" lang="ja">
               {item.reading}
             </p>

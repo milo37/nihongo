@@ -23,13 +23,13 @@ describe('pickOmikuji', () => {
   })
 
   it('keeps each fortune within 1 point of its weight over 10,000 members', () => {
-    const counts = new Map(FORTUNES.map(({ key }) => [key, 0]))
+    const counts = new Map(FORTUNES.map(({ label }) => [label, 0]))
     for (const id of ids) {
-      const { key } = pickOmikuji(id, '2026-11-20').fortune
-      counts.set(key, counts.get(key)! + 1)
+      const { label } = pickOmikuji(id, '2026-11-20').fortune
+      counts.set(label, counts.get(label)! + 1)
     }
-    for (const { key, weight } of FORTUNES)
-      expect(Math.abs(counts.get(key)! / 100 - weight)).toBeLessThanOrEqual(1)
+    for (const { label, weight } of FORTUNES)
+      expect(Math.abs(counts.get(label)! / 100 - weight)).toBeLessThanOrEqual(1)
   })
 
   it('ships the planned text: six fortunes adding up to 100, five messages each, 72 expressions', () => {

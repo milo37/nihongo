@@ -1317,9 +1317,12 @@ body [lang='ja'][data-ja-spaced],
   word-break: normal;
   line-break: strict;
 }
-.omikuji-slip-kind {
+.omikuji-slip-kind,
+.omikuji-word-label {
   color: rgb(var(--color-muted));
   font-size: 12px;
+}
+.omikuji-slip-kind {
   letter-spacing: 2px;
 }
 .omikuji-fortune {
@@ -1349,10 +1352,6 @@ body [lang='ja'][data-ja-spaced],
   padding-top: 12px;
   border-top: 1px dashed rgb(var(--color-line));
   text-align: left;
-}
-.omikuji-word-label {
-  color: rgb(var(--color-muted));
-  font-size: 12px;
 }
 .omikuji-word-text {
   margin-top: 4px;
