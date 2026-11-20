@@ -34,6 +34,10 @@ import {
   createStudyGoalService
 } from '../member/studyGoal.js'
 import {
+  createPrismaRushBestRepository,
+  createRushBestService
+} from '../member/rushBest.js'
+import {
   createPrismaRushKanjiPairsRepository,
   createRushKanjiPairsReader
 } from '../question/rushKanjiPairs.js'
@@ -1607,6 +1611,9 @@ const createSsoBrowserApiFixture = async (
         ),
         studyGoalService: createStudyGoalService(
           createPrismaStudyGoalRepository(database.client)
+        ),
+        rushBestService: createRushBestService(
+          createPrismaRushBestRepository(database.client)
         ),
         rushKanjiPairsReader: createRushKanjiPairsReader(
           createPrismaRushKanjiPairsRepository(database.client)

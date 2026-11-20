@@ -75,6 +75,10 @@
     {
       "name": "20261124100000_stamp_ledger_amount",
       "checksum": "d2b44a491f87561d7d79ea3a9db538c9049f40f5c8fa737fae0fa32228761cb6"
+    },
+    {
+      "name": "20261125090000_rush_best",
+      "checksum": "fac278f5640bede6a51322e895253fb3330ad2939b4f0e52b4b12584c38b7728"
     }
   ]
 }

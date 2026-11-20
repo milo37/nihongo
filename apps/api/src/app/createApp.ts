@@ -56,10 +56,12 @@ import { createStudyDraftRoutes } from '../routes/studyDrafts.js'
 import type { BookmarkService } from '../bookmark/bookmarkService.js'
 import { createBookmarkRoutes } from '../routes/bookmarks.js'
 import type { NicknameService } from '../member/nickname.js'
+import type { RushBestService } from '../member/rushBest.js'
 import type { StudyGoalService } from '../member/studyGoal.js'
 import type { RushKanjiPairsReader } from '../question/rushKanjiPairs.js'
 import type { TargetLevelService } from '../member/targetLevel.js'
 import { createNicknameRoutes } from '../routes/nickname.js'
+import { createRushBestRoutes } from '../routes/rushBest.js'
 import { createStudyGoalRoutes } from '../routes/studyGoal.js'
 import { createRushKanjiPairsRoutes } from '../routes/rushKanjiPairs.js'
 import { createTargetLevelRoutes } from '../routes/targetLevel.js'
@@ -211,6 +213,8 @@ interface CreateApiAppDependencies {
     nicknameService?: NicknameService
     /** #1090: the member's study goal (onboarding and My page). */
     studyGoalService?: StudyGoalService
+    /** #1043: the member's 30-second rush bests. */
+    rushBestService?: RushBestService
     /** #1043: the pairs a member's kanji rush plays. */
     rushKanjiPairsReader?: RushKanjiPairsReader
     rateLimiter: ApplicationRateLimiter
@@ -900,6 +904,17 @@ export const createApiApp = ({
             principalService: auth.principalService,
             rateLimiter: learning.rateLimiter,
             studyGoalService: learning.studyGoalService
+          })
+        )
+      }
+      if (learning.rushBestService) {
+        app.route(
+          '/api/v1/me/rush-best',
+          createRushBestRoutes({
+            environment: auth.environment,
+            principalService: auth.principalService,
+            rateLimiter: learning.rateLimiter,
+            rushBestService: learning.rushBestService
           })
         )
       }
