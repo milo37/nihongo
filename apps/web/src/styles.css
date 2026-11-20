@@ -1311,6 +1311,11 @@ body [lang='ja'][data-ja-spaced],
   text-align: center;
   word-break: keep-all;
 }
+.omikuji-slip [lang='ja'] {
+  /* keep-all would leave Japanese no place to wrap. */
+  word-break: normal;
+  line-break: strict;
+}
 .omikuji-slip-kind {
   color: rgb(var(--color-muted));
   font-size: 12px;
@@ -1353,7 +1358,9 @@ body [lang='ja'][data-ja-spaced],
   line-height: 20px;
 }
 .omikuji-word-example {
+  /* Maru sits over the slip's lower right corner. */
   margin-top: 8px;
+  padding-right: 40px;
   color: rgb(var(--color-muted));
   font-size: 13px;
   line-height: 19px;
