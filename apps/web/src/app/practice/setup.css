@@ -324,48 +324,27 @@ body:has(.rush.is-play) .app-mobile-navigation {
   justify-content: center;
   margin: 36px 0 40px;
 }
+/* The word box stays centred for any number of characters. Maru (84px
+   showing left of the box) keeps 11px from the screen edge, so a box wider
+   than 100vw - 190px gets smaller cells (#1043 PROD: three or more kanji
+   ran off the right edge). */
 .rush-box {
+  --cell: min(100px, (100vw - 190px) / var(--n));
   position: relative;
   display: flex;
-  /* A narrow phone moves the box right just enough to keep Maru (84px
-     beside it) 11px from the edge, as on a 390 phone (design v5). */
-  margin-left: max(0px, 190px + var(--n) * 100px - 100vw);
 }
 .rush-box > span {
   display: grid;
   place-items: center;
-  width: 100px;
-  height: 100px;
+  width: var(--cell);
+  height: var(--cell);
   border: 1.5px solid rgb(var(--color-sheet-line));
-  font-size: 62px;
+  font-size: calc(var(--cell) * 0.62);
   font-weight: 700;
   line-height: 1;
 }
 .rush-box > span + span {
   border-left: 0;
-}
-/* Phone, three or more kanji: smaller cells, and the box moves right by
-   half of Maru's visible width so Maru and the box stay on screen as one. */
-.rush-box.is-long {
-  --cell: min(100px, (100vw - 116px) / var(--n));
-  margin-left: 84px;
-}
-.rush-box.is-long > span {
-  width: var(--cell);
-  height: var(--cell);
-  font-size: calc(var(--cell) * 0.62);
-}
-/* Two kanji on phones narrower than 390: the same, so Maru is not cut. */
-@media (max-width: 389px) {
-  .rush-box.is-pair {
-    --cell: min(100px, (100vw - 116px) / var(--n));
-    margin-left: 84px;
-  }
-  .rush-box.is-pair > span {
-    width: var(--cell);
-    height: var(--cell);
-    font-size: calc(var(--cell) * 0.62);
-  }
 }
 .rush-word.is-ng .rush-box > span {
   animation: rush-shake 0.2s ease-in-out;
@@ -639,20 +618,16 @@ body:has(.rush.is-play) .app-mobile-navigation {
   .rush-word {
     margin: 40px 0 44px;
   }
+  .rush-box {
+    --cell: 112px;
+  }
   .rush-box > span {
-    width: 112px;
-    height: 112px;
     font-size: 68px;
   }
   .rush-stage {
     width: 110px;
     height: 110px;
     margin: -48px -14px 0 0;
-  }
-  .rush-box,
-  .rush-box.is-long {
-    --cell: 112px;
-    margin-left: 0;
   }
   .rush-mark {
     left: 93px;

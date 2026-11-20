@@ -136,13 +136,7 @@ const Rush = ({ level, userId }: { level: JlptLevel; userId: string }) => {
           lang="ja"
         >
           <span
-            className={
-              shown.pair.word.length > 2
-                ? 'rush-box is-long'
-                : shown.pair.word.length === 2
-                  ? 'rush-box is-pair'
-                  : 'rush-box'
-            }
+            className="rush-box"
             style={{ '--n': shown.pair.word.length } as CSSProperties}
           >
             {[...shown.pair.word].map((char, index) => (
