@@ -45,8 +45,8 @@ export const OmikujiSlip = ({ pick }: { pick: OmikujiPick }): ReactElement => {
             ) : null}
           </p>
         </div>
+        <OmikujiYay />
       </div>
-      <OmikujiYay />
     </div>
   )
 }
