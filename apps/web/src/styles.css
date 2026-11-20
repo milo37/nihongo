@@ -1273,6 +1273,15 @@ body [lang='ja'][data-ja-spaced],
     translate: 0 -14px;
   }
 }
+/* The stick slides out of the hole once the box has landed. */
+.omikuji-kuji {
+  animation: omikuji-kuji 300ms cubic-bezier(0.2, 0.8, 0.3, 1) 330ms both;
+}
+@keyframes omikuji-kuji {
+  from {
+    translate: 0 11px;
+  }
+}
 .omikuji-caption {
   min-height: 20px;
   margin-top: 10px;

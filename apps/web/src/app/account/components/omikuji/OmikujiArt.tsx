@@ -99,16 +99,40 @@ export const OmikujiShake = (): ReactElement => (
 )
 
 /**
- * fox-thud with the box held low over its stamp (design v5, a stand-in).
- * The operator is still choosing this picture: swap this component alone
- * when the designer sends the final one.
+ * fox-thud with the shake box brought down (design v5i, operator's pick):
+ * the same box turned 8deg, a front paw on it and the stick sliding out
+ * of the hole along the box's axis. Positions are the designer's paw.cjs.
  */
 export const OmikujiLower = (): ReactElement => (
   <svg className="omikuji-figure is-lower" viewBox={FOX_BOX} aria-hidden="true">
     <use href="#fox-thud" width="96" height="96" />
     <g transform="rotate(8 74 77)">
-      <Box x={56} y={60} w={36} h={34} />
+      <Box x={56} y={60} w={36} h={42} />
+      <clipPath id="omikuji-kuji-clip">
+        <rect x="64" y="24.32" width="20" height="40" />
+        <ellipse cx="74" cy="64.32" rx="3.8" ry="1.34" />
+      </clipPath>
+      <g clipPath="url(#omikuji-kuji-clip)">
+        <g className="omikuji-kuji">
+          <path
+            d="M71.2 64.32V54.52Q71.2 53.32 72.4 53.32H75.6Q76.8 53.32 76.8 54.52V64.32A2.8 1.14 0 0 1 71.2 64.32Z"
+            fill={CREAM}
+            stroke={LINE}
+            strokeWidth="1.6"
+            strokeLinejoin="round"
+          />
+          <path d="M72 55.92H76" stroke={RED} strokeWidth="2.4" />
+        </g>
+      </g>
     </g>
+    <path
+      transform="translate(60.6 72) rotate(-12)"
+      d="M-5.6 -0.78C-5.6 -4.94 -2.52 -5.2 0 -4.68C3.08 -5.2 5.6 -4.16 5.6 -0.26C5.6 3.9 2.8 5.2 0 5.2C-3.36 5.2 -5.6 3.12 -5.6 -0.78Z"
+      fill={CREAM}
+      stroke={LINE}
+      strokeWidth="2"
+      strokeLinejoin="round"
+    />
   </svg>
 )
 
