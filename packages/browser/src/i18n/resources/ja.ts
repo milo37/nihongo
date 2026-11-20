@@ -534,7 +534,7 @@ export const jaCoreResources = {
     rush: {
       entry: '漢字スピードクイズ',
       title: '{{level}} 漢字スピードクイズ',
-      lead: '30秒間で読み方を選んでください。',
+      lead: '30秒間、読み方を選んでください。',
       keys: '数字キー1〜4でも選べます',
       start: 'スタート',
       toLearn: '学習へ',
@@ -552,7 +552,7 @@ export const jaCoreResources = {
       toBest: '自己ベストまで{{n}}問',
       newBest: '自己ベストです',
       firstRecord: 'はじめての記録です',
-      previousBest: '前回までの記録 {{b}}問',
+      previousBest: 'これまでの記録 {{b}}問',
       again: 'もう一回',
       wrong: '間違えた問題 {{n}}',
       wrongTitle: '間違えた漢字 {{n}}問',
