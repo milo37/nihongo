@@ -107,7 +107,7 @@ describe('#1043 30초 한자 러시', () => {
     const setItem = vi.spyOn(Storage.prototype, 'setItem')
     renderRush('/practice/rush?level=N2')
     expect(
-      await screen.findByRole('heading', { name: 'N2 한자 읽기 30초' })
+      await screen.findByRole('heading', { name: 'N2 한자 스피드 퀴즈' })
     ).toBeInTheDocument()
     await startRound()
 
@@ -135,6 +135,7 @@ describe('#1043 30초 한자 러시', () => {
 
     fireEvent.click(screen.getByRole('button', { name: '틀린 것 보기 1' }))
     expect(screen.getAllByRole('listitem')).toHaveLength(1)
+    expect(screen.getByText('틀린 한자 1개')).toBeInTheDocument()
     mockServer.events.removeAllListeners()
   })
 

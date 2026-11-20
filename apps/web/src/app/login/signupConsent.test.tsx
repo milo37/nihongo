@@ -120,7 +120,7 @@ describe('#1085 가입 확인', () => {
     renderConsent()
     expect(
       await screen.findByRole('heading', {
-        name: '계속 쓰시려면 아래 항목을 확인해 주세요.'
+        name: '계속 쓰려면 아래 항목을 확인해 주세요.'
       })
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '확인' })).toBeEnabled()
