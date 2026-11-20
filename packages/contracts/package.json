@@ -183,6 +183,10 @@
       "types": "./dist/study/rush-best.d.ts",
       "import": "./dist/study/rush-best.js"
     },
+    "./study/rush-pairs": {
+      "types": "./dist/study/rush-pairs.d.ts",
+      "import": "./dist/study/rush-pairs.js"
+    },
     "./study/study-result": {
       "types": "./dist/study/study-result.d.ts",
       "import": "./dist/study/study-result.js"

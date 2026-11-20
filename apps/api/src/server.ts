@@ -59,6 +59,10 @@ import {
   createPrismaRushBestRepository,
   createRushBestService
 } from './member/rushBest.js'
+import {
+  createPrismaRushKanjiPairsRepository,
+  createRushKanjiPairsReader
+} from './question/rushKanjiPairs.js'
 import { createPrismaStudyResultRetryRepository } from './study/studyResultRetryRepository.js'
 import {
   createGuestResultImportService,
@@ -199,6 +203,9 @@ const studyGoalService = createStudyGoalService(
 const rushBestService = createRushBestService(
   createPrismaRushBestRepository(database.client)
 )
+const rushKanjiPairsReader = createRushKanjiPairsReader(
+  createPrismaRushKanjiPairsRepository(database.client)
+)
 const adminQuestionReader = createAdminQuestionService(
   createPrismaAdminQuestionRepository(database.client)
 )
@@ -308,6 +315,7 @@ const app = createApiApp({
     nicknameService,
     studyGoalService,
     rushBestService,
+    rushKanjiPairsReader,
     wrongNoteService
   },
   dailyQuestionReader,
