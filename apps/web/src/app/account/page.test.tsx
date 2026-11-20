@@ -28,6 +28,7 @@ import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { useAppStore } from '@nihongo/browser/store/index'
 import { mockServer } from '@/test/server'
+import { pickOmikuji } from '@app/account/omikuji/pickOmikuji'
 
 const renderAccount = (entry = '/account') => {
   const router = createMemoryRouter(
@@ -303,6 +304,149 @@ describe('마이페이지 계정 설정', () => {
       expect(
         await screen.findByRole('img', { name: '11월 도장판, 도장 1개' })
       ).toBeInTheDocument()
+    })
+
+    it('오미쿠지: 도장판 머리 버튼으로 뽑고, 다시 열면 연출 없이 같은 결과와 안내 (#1055)', async () => {
+      const user = userEvent.setup()
+      const member = mockDatabase.loginAs('USER')
+      mockDatabase.setStudyGoal(member.id, 'N3', 30)
+      renderAccount()
+      const head = (await screen.findByRole('heading', { name: '11월 도장판' }))
+        .parentElement!
+      const button = within(head).getByRole('button', {
+        name: '오늘의 おみくじ 뽑기'
+      })
+      await user.click(button)
+      // The button dips first; the sheet opens 170ms after the press.
+      const dialog = await screen.findByRole('dialog', {
+        name: '11월 25일 · 오늘의 おみくじ'
+      })
+      // Nothing closes it while Maru shakes the box.
+      expect(within(dialog).getByText('흔드는 중')).toBeVisible()
+      expect(
+        within(dialog).queryByRole('button', { name: '닫기' })
+      ).not.toBeInTheDocument()
+      const fortune = pickOmikuji(member.id, '2026-11-25').fortune.label
+      await within(dialog).findByRole(
+        'button',
+        { name: '닫기' },
+        {
+          timeout: 3000
+        }
+      )
+      expect(dialog.querySelector('.omikuji-fortune')).toHaveTextContent(
+        fortune
+      )
+      expect(
+        within(dialog).queryByText(
+          '오늘은 이미 뽑았어요. 내일 새로 뽑을 수 있어요.'
+        )
+      ).not.toBeInTheDocument()
+      await user.click(within(dialog).getByRole('button', { name: '닫기' }))
+      await waitFor(() => expect(dialog).not.toHaveAttribute('open'))
+      expect(button).toHaveFocus()
+      expect(button).toHaveAccessibleName('오늘의 おみくじ 다시 보기')
+
+      await user.click(button)
+      expect(
+        await within(dialog).findByRole('button', { name: '닫기' })
+      ).toBeVisible()
+      expect(dialog.querySelector('.omikuji-fortune')).toHaveTextContent(
+        fortune
+      )
+      expect(
+        within(dialog).getByText(
+          '오늘은 이미 뽑았어요. 내일 새로 뽑을 수 있어요.'
+        )
+      ).toBeVisible()
+    })
+
+    it('오미쿠지: 연출 중 브라우저가 창을 닫아도(Esc 두 번) 버튼이 다시 열린다 (#1055 QA)', async () => {
+      const user = userEvent.setup()
+      const member = mockDatabase.loginAs('USER')
+      mockDatabase.setStudyGoal(member.id, 'N3', 30)
+      renderAccount()
+      const button = await screen.findByRole('button', {
+        name: /^오늘의 おみくじ/
+      })
+      await user.click(button)
+      const dialog = await screen.findByRole('dialog', {
+        name: '11월 25일 · 오늘의 おみくじ'
+      })
+      // A second Esc closes a modal without a cancel event.
+      act(() => {
+        dialog.removeAttribute('open')
+        fireEvent(dialog, new Event('close'))
+      })
+      expect(button).toHaveFocus()
+      await user.click(button)
+      expect(
+        await within(dialog).findByRole('button', { name: '닫기' })
+      ).toBeVisible()
+    })
+
+    it('오미쿠지: 폰 폭에서 누르기만 하면 끌기로 잡지 않아 [닫기]가 눌리고, 80px 끌면 닫힌다 (#1055 QA)', async () => {
+      const user = userEvent.setup()
+      const width = window.innerWidth
+      window.innerWidth = 390
+      const capture = vi.fn()
+      // jsdom has no PointerEvent, so fireEvent would drop clientY.
+      class TestPointerEvent extends MouseEvent {
+        pointerId: number
+        constructor(type: string, init: PointerEventInit = {}) {
+          super(type, init)
+          this.pointerId = init.pointerId ?? 0
+        }
+      }
+      vi.stubGlobal('PointerEvent', TestPointerEvent)
+      Object.assign(HTMLElement.prototype, {
+        setPointerCapture: capture,
+        hasPointerCapture: () => capture.mock.calls.length > 0
+      })
+      try {
+        mockDatabase.loginAs('USER')
+        renderAccount()
+        const button = await screen.findByRole('button', {
+          name: /^오늘의 おみくじ/
+        })
+        await user.click(button)
+        const dialog = await screen.findByRole('dialog', {
+          name: '11월 25일 · 오늘의 おみくじ'
+        })
+        const close = await within(dialog).findByRole(
+          'button',
+          { name: '닫기' },
+          { timeout: 3000 }
+        )
+        const sheet = dialog.querySelector('.omikuji-sheet')!
+        fireEvent.pointerDown(sheet, { pointerId: 1, clientY: 500 })
+        fireEvent.pointerMove(sheet, { pointerId: 1, clientY: 502 })
+        expect(capture).not.toHaveBeenCalled()
+        fireEvent.pointerUp(sheet, { pointerId: 1, clientY: 502 })
+        await user.click(close)
+        await waitFor(() => expect(dialog).not.toHaveAttribute('open'))
+
+        await user.click(button)
+        await within(dialog).findByRole('button', { name: '닫기' })
+        const again = dialog.querySelector('.omikuji-sheet')!
+        fireEvent.pointerDown(again, { pointerId: 2, clientY: 500 })
+        fireEvent.pointerMove(again, { pointerId: 2, clientY: 600 })
+        expect(capture).toHaveBeenCalledWith(2)
+        fireEvent.pointerUp(again, { pointerId: 2, clientY: 600 })
+        await waitFor(() => expect(dialog).not.toHaveAttribute('open'))
+      } finally {
+        window.innerWidth = width
+        vi.unstubAllGlobals()
+      }
+    })
+
+    it('오미쿠지: 목표가 없으면 학습 목표 줄 아래에 같은 버튼 (#1055)', async () => {
+      mockDatabase.loginAs('USER')
+      renderAccount()
+      await screen.findByRole('link', { name: '목표 정하기' })
+      expect(
+        screen.getByRole('button', { name: /^오늘의 おみくじ/ }).parentElement
+      ).toHaveClass('omikuji-row')
     })
 
     it('6줄 달은 표시하고 ja 문구로 읽는다 (C4)', async () => {

@@ -16,6 +16,9 @@
   --color-brand-strong: 168 52 32;
   --color-brand-active: 140 43 26;
   --color-brand-soft: 251 227 220;
+  /* #1055 omikuji: the PC window and the slip. */
+  --color-cream: 253 248 241;
+  --color-paper: 255 253 249;
   --color-link: 168 52 32;
   --color-surface-muted: 247 246 244;
   --color-hover-surface: 247 246 244;
@@ -1100,6 +1103,370 @@ body [lang='ja'][data-ja-spaced],
   position: relative;
   width: 80px;
   height: 80px;
+}
+/* #1055 omikuji (design v4/anim 1.5x, v5 slip A). The button sits at the
+   stamp board head's right end: a 44px box over 11px 「おみくじ」, 56px to
+   tap; from 1024px a 32px box beside 12px text. The sheet rises from the
+   bottom on phones and is a 440px cream window from 1024px. */
+.stamp-board-head {
+  position: relative;
+  padding-right: 64px;
+}
+.omikuji-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 56px;
+  min-height: 56px;
+  color: rgb(var(--color-muted));
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 14px;
+}
+.omikuji-button.is-pressed {
+  animation: omikuji-tap 160ms ease-out;
+}
+@keyframes omikuji-tap {
+  50% {
+    scale: 0.92;
+  }
+}
+.stamp-board-head > .omikuji-button {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  translate: 0 -50%;
+}
+.omikuji-row {
+  margin-top: 12px;
+}
+.omikuji-dialog {
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: rgb(var(--color-ink) / 0.38);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: omikuji-dim 200ms ease-out both;
+}
+.omikuji-dialog:not([open]) {
+  display: none;
+}
+.omikuji-dialog::backdrop {
+  background: transparent;
+}
+@keyframes omikuji-dim {
+  from {
+    background-color: rgb(var(--color-ink) / 0);
+  }
+}
+.omikuji-sheet {
+  position: relative;
+  width: 100%;
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 14px 20px 28px;
+  border-top: 1px solid rgb(var(--color-line));
+  background: rgb(var(--color-canvas));
+  color: rgb(var(--color-ink));
+  touch-action: pan-x;
+  animation: omikuji-rise 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes omikuji-rise {
+  from {
+    translate: 0 100%;
+  }
+}
+.omikuji-dialog.is-closing {
+  animation: omikuji-undim 280ms ease-in both;
+}
+.is-closing > .omikuji-sheet {
+  animation: omikuji-sink 280ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+@keyframes omikuji-undim {
+  to {
+    background-color: rgb(var(--color-ink) / 0);
+  }
+}
+@keyframes omikuji-sink {
+  to {
+    translate: 0 100%;
+  }
+}
+.omikuji-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+}
+.omikuji-top h2 {
+  color: rgb(var(--color-muted));
+  font-size: 13px;
+  font-weight: 400;
+  outline: none;
+}
+.omikuji-close {
+  min-width: 44px;
+  min-height: 44px;
+  text-align: right;
+  font-size: 14px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.omikuji-body {
+  display: grid;
+}
+.omikuji-body > * {
+  grid-area: 1 / 1;
+}
+.omikuji-stage {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  height: 320px;
+  padding-top: 40px;
+}
+.omikuji-stage.is-out {
+  animation: omikuji-out 150ms ease-in both;
+}
+@keyframes omikuji-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+.omikuji-figure {
+  width: 190px;
+  height: 190px;
+}
+/* The shake waits for the sheet to rise. */
+.omikuji-figure.is-shake {
+  transform-origin: 50% 90%;
+  animation: omikuji-shake 800ms ease-in-out 380ms both;
+}
+@keyframes omikuji-shake {
+  20% {
+    rotate: -7deg;
+  }
+  40% {
+    rotate: 7deg;
+  }
+  60% {
+    rotate: -7deg;
+  }
+  80% {
+    rotate: 7deg;
+  }
+}
+.omikuji-figure.is-lower {
+  animation: omikuji-drop 330ms cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+@keyframes omikuji-drop {
+  from {
+    translate: 0 -14px;
+  }
+}
+/* The stick slides out of the hole once the box has landed. */
+.omikuji-kuji {
+  animation: omikuji-kuji 300ms cubic-bezier(0.2, 0.8, 0.3, 1) 330ms both;
+}
+@keyframes omikuji-kuji {
+  from {
+    translate: 0 11px;
+  }
+}
+.omikuji-caption {
+  min-height: 20px;
+  margin-top: 10px;
+  color: rgb(var(--color-muted));
+  font-size: 13px;
+}
+.omikuji-result {
+  animation: omikuji-in 360ms ease-out 120ms both;
+}
+@keyframes omikuji-in {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
+}
+.omikuji-slip-wrap {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 4px;
+}
+.omikuji-slip {
+  width: 258px;
+  padding: 18px 22px 22px;
+  border: 1px solid rgb(var(--color-line));
+  border-top: 6px solid rgb(var(--color-brand));
+  background: rgb(var(--color-paper));
+  text-align: center;
+  word-break: keep-all;
+}
+.omikuji-slip [lang='ja'] {
+  /* keep-all would leave Japanese no place to wrap. */
+  word-break: normal;
+  line-break: strict;
+}
+.omikuji-slip-kind,
+.omikuji-word-label {
+  color: rgb(var(--color-muted));
+  font-size: 12px;
+}
+.omikuji-slip-kind {
+  letter-spacing: 2px;
+}
+.omikuji-fortune {
+  position: relative;
+  margin: 6px 0 2px;
+  font-size: 52px;
+  font-weight: 800;
+  letter-spacing: 6px;
+  line-height: 1.1;
+}
+/* A faint fold 8px under the fortune, from edge to edge of the slip. */
+.omikuji-fortune::after {
+  content: '';
+  position: absolute;
+  right: -22px;
+  bottom: -8px;
+  left: -22px;
+  border-top: 1px solid rgb(var(--color-ink) / 0.05);
+}
+.omikuji-message {
+  margin: 10px 0 16px;
+  text-wrap: balance;
+  font-size: 15px;
+  line-height: 22px;
+}
+.omikuji-word {
+  padding-top: 12px;
+  border-top: 1px dashed rgb(var(--color-line));
+  text-align: left;
+}
+.omikuji-word-text {
+  margin-top: 4px;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 28px;
+}
+.omikuji-word-reading {
+  color: rgb(var(--color-muted));
+  font-size: 12px;
+  line-height: 18px;
+}
+.omikuji-word-meaning {
+  font-size: 14px;
+  line-height: 20px;
+}
+.omikuji-word-example {
+  /* Maru sits over the slip's lower right corner. */
+  margin-top: 8px;
+  padding-right: 40px;
+  color: rgb(var(--color-muted));
+  font-size: 13px;
+  line-height: 19px;
+}
+.omikuji-yay {
+  position: absolute;
+  right: calc(50% - 129px - 62px);
+  bottom: -8px;
+  width: 108px;
+  height: 108px;
+  transform-origin: 50% 100%;
+  /* Its own clock starts with the slip's: +270ms from the result. */
+  animation: omikuji-pop 450ms cubic-bezier(0.3, 1.5, 0.5, 1) 270ms both;
+}
+@keyframes omikuji-pop {
+  from {
+    opacity: 0;
+    scale: 0.85;
+  }
+}
+.omikuji-again {
+  margin-top: 14px;
+  color: rgb(var(--color-muted));
+  font-size: 13px;
+  line-height: 18px;
+  text-align: center;
+  word-break: keep-all;
+}
+@media (min-width: 1024px) {
+  .stamp-board-head {
+    padding-right: 110px;
+  }
+  .omikuji-button {
+    flex-direction: row;
+    gap: 6px;
+    min-height: 40px;
+    font-size: 12px;
+  }
+  .omikuji-button > .omikuji-icon {
+    width: 32px;
+    height: 32px;
+  }
+  .omikuji-dialog {
+    align-items: center;
+    background: rgb(var(--color-ink) / 0.25);
+    animation-duration: 380ms;
+  }
+  .omikuji-sheet {
+    width: 440px;
+    padding: 20px 28px 24px;
+    border: 0;
+    border-radius: 22px;
+    background: rgb(var(--color-cream));
+    box-shadow: 0 10px 36px rgb(var(--color-ink) / 0.06);
+    touch-action: auto;
+    animation: omikuji-open 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  @keyframes omikuji-open {
+    from {
+      opacity: 0;
+      translate: 0 8px;
+      scale: 0.96;
+    }
+  }
+  .is-closing > .omikuji-sheet {
+    animation: omikuji-shut 280ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+  @keyframes omikuji-shut {
+    to {
+      opacity: 0;
+      translate: 0 8px;
+      scale: 0.96;
+    }
+  }
+  .omikuji-stage {
+    height: 344px;
+  }
+  .omikuji-figure {
+    width: 214px;
+    height: 214px;
+  }
+  .omikuji-yay {
+    right: calc(50% - 129px - 69px);
+    width: 122px;
+    height: 122px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .omikuji-dialog,
+  .omikuji-sheet,
+  .omikuji-result,
+  .omikuji-yay,
+  .omikuji-button.is-pressed {
+    animation: none;
+  }
 }
 .maru-sprite {
   position: absolute;

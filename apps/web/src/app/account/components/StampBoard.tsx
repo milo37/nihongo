@@ -1,6 +1,6 @@
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 import { useStudyGoal } from '@app/login/queries/studyGoalQueries'
 import { useStampBoardFold } from '@app/account/hooks/useStampBoardFold'
@@ -25,9 +25,12 @@ const Stamp = ({ day }: { day: number }): ReactElement => (
  * count is only in the calendar's spoken name.
  */
 export const StampBoard = ({
-  userId
+  userId,
+  action
 }: {
   userId: string
+  /** #1055: the omikuji button, at the head's right end. */
+  action?: ReactNode
 }): ReactElement | null => {
   const { t } = useTranslation('account')
   const goal = useStudyGoal(userId)
@@ -59,6 +62,7 @@ export const StampBoard = ({
           {t('stampBoard.title', { month })}
         </h2>
         <p className="stamp-board-note">{t('stampBoard.note')}</p>
+        {action}
       </div>
       <div
         className="stamp-board-today"
