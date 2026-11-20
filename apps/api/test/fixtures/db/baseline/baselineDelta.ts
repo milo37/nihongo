@@ -480,6 +480,7 @@ export const withoutForwardChanges = (
       name !== ADDED_STUDY_GOAL_TABLE &&
       name !== ADDED_STAMP_TABLE &&
       name !== ADDED_RUSH_BEST_TABLE &&
+      name !== ADDED_RUSH_KANJI_WORD_TABLE &&
       name !== RETIRED_VERIFICATION_TABLE
   ),
   columns: catalog.columns
