@@ -385,6 +385,61 @@ describe('마이페이지 계정 설정', () => {
       ).toBeVisible()
     })
 
+    it('오미쿠지: 폰 폭에서 누르기만 하면 끌기로 잡지 않아 [닫기]가 눌리고, 80px 끌면 닫힌다 (#1055 QA)', async () => {
+      const user = userEvent.setup()
+      const width = window.innerWidth
+      window.innerWidth = 390
+      const capture = vi.fn()
+      // jsdom has no PointerEvent, so fireEvent would drop clientY.
+      class TestPointerEvent extends MouseEvent {
+        pointerId: number
+        constructor(type: string, init: PointerEventInit = {}) {
+          super(type, init)
+          this.pointerId = init.pointerId ?? 0
+        }
+      }
+      vi.stubGlobal('PointerEvent', TestPointerEvent)
+      Object.assign(HTMLElement.prototype, {
+        setPointerCapture: capture,
+        hasPointerCapture: () => capture.mock.calls.length > 0
+      })
+      try {
+        mockDatabase.loginAs('USER')
+        renderAccount()
+        const button = await screen.findByRole('button', {
+          name: /^오늘의 おみくじ/
+        })
+        await user.click(button)
+        const dialog = await screen.findByRole('dialog', {
+          name: '11월 25일 · 오늘의 おみくじ'
+        })
+        const close = await within(dialog).findByRole(
+          'button',
+          { name: '닫기' },
+          { timeout: 3000 }
+        )
+        const sheet = dialog.querySelector('.omikuji-sheet')!
+        fireEvent.pointerDown(sheet, { pointerId: 1, clientY: 500 })
+        fireEvent.pointerMove(sheet, { pointerId: 1, clientY: 502 })
+        expect(capture).not.toHaveBeenCalled()
+        fireEvent.pointerUp(sheet, { pointerId: 1, clientY: 502 })
+        await user.click(close)
+        await waitFor(() => expect(dialog).not.toHaveAttribute('open'))
+
+        await user.click(button)
+        await within(dialog).findByRole('button', { name: '닫기' })
+        const again = dialog.querySelector('.omikuji-sheet')!
+        fireEvent.pointerDown(again, { pointerId: 2, clientY: 500 })
+        fireEvent.pointerMove(again, { pointerId: 2, clientY: 600 })
+        expect(capture).toHaveBeenCalledWith(2)
+        fireEvent.pointerUp(again, { pointerId: 2, clientY: 600 })
+        await waitFor(() => expect(dialog).not.toHaveAttribute('open'))
+      } finally {
+        window.innerWidth = width
+        vi.unstubAllGlobals()
+      }
+    })
+
     it('오미쿠지: 목표가 없으면 학습 목표 줄 아래에 같은 버튼 (#1055)', async () => {
       mockDatabase.loginAs('USER')
       renderAccount()

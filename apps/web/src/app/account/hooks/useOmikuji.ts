@@ -12,6 +12,7 @@ const RESULT_AT = 2015
 const CLOSE_MS = 280
 // A phone sheet dragged down this far closes.
 const DRAG_CLOSE_PX = 80
+const DRAG_START_PX = 6
 
 export type OmikujiPhase = 'shake' | 'lower' | 'result'
 
@@ -137,13 +138,19 @@ export const useOmikuji = (userId: string) => {
   const sheetHandlers = {
     onPointerDown: (event: PointerEvent) => {
       if (phase !== 'result' || window.innerWidth >= 1024) return
-      event.currentTarget.setPointerCapture?.(event.pointerId)
       drag.current = { y: event.clientY, dy: 0 }
     },
+    // Capture only once the press really drags, so a click on [닫기] still
+    // reaches the link (QA: mouse clicks went to the sheet).
     onPointerMove: (event: PointerEvent) => {
       const sheet = sheetRef.current
       if (!drag.current || !sheet) return
       drag.current.dy = Math.max(0, event.clientY - drag.current.y)
+      if (drag.current.dy < DRAG_START_PX) return
+      const target = event.currentTarget
+      if (!target.hasPointerCapture?.(event.pointerId)) {
+        target.setPointerCapture?.(event.pointerId)
+      }
       sheet.style.translate = `0 ${drag.current.dy}px`
     },
     onPointerUp: () => {
