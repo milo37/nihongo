@@ -539,7 +539,8 @@ export const jaCoreResources = {
       lead: '読み方を選んでください。数字キー1〜4でも選べます。',
       start: 'スタート',
       toLearn: '学習へ',
-      loadError: '問題を読み込めませんでした。しばらくしてから開き直してください。',
+      loadError:
+        '問題を読み込めませんでした。しばらくしてから開き直してください。',
       quit: 'やめる',
       correct: '正解',
       streak: '{{n}}連続',
