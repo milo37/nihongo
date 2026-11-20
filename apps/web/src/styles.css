@@ -1125,7 +1125,7 @@ body [lang='ja'][data-ja-spaced],
   font-weight: 600;
   line-height: 14px;
 }
-.omikuji-button:active {
+.omikuji-button.is-pressed {
   animation: omikuji-tap 160ms ease-out;
 }
 @keyframes omikuji-tap {
@@ -1273,14 +1273,6 @@ body [lang='ja'][data-ja-spaced],
     translate: 0 -14px;
   }
 }
-.omikuji-stick {
-  animation: omikuji-stick 300ms cubic-bezier(0.2, 0.8, 0.3, 1) 330ms both;
-}
-@keyframes omikuji-stick {
-  from {
-    translate: -25px 0;
-  }
-}
 .omikuji-caption {
   min-height: 20px;
   margin-top: 10px;
@@ -1322,11 +1314,21 @@ body [lang='ja'][data-ja-spaced],
   letter-spacing: 2px;
 }
 .omikuji-fortune {
+  position: relative;
   margin: 6px 0 2px;
   font-size: 52px;
   font-weight: 800;
   letter-spacing: 6px;
   line-height: 1.1;
+}
+/* A faint fold 8px under the fortune, from edge to edge of the slip. */
+.omikuji-fortune::after {
+  content: '';
+  position: absolute;
+  right: -23px;
+  bottom: -8px;
+  left: -23px;
+  border-top: 1px solid rgb(var(--color-ink) / 0.05);
 }
 .omikuji-message {
   margin: 10px 0 16px;
@@ -1452,7 +1454,7 @@ body [lang='ja'][data-ja-spaced],
   .omikuji-sheet,
   .omikuji-result,
   .omikuji-yay,
-  .omikuji-button:active {
+  .omikuji-button.is-pressed {
     animation: none;
   }
 }

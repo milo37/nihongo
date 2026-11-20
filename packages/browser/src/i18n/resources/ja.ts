@@ -1138,9 +1138,9 @@ export const jaCoreResources = {
       view: '今日のおみくじを見る',
       heading: '{{month}}月{{day}}日・今日のおみくじ',
       close: '閉じる',
-      shaking: 'ふっています',
+      shaking: '振っています',
       expression: '今日のことば',
-      again: '今日はもう引きました。明日また新しく引けます。',
+      again: '今日はもう引きました。明日また引けます。',
       spoken:
         '今日のおみくじ、{{fortune}}。{{message}} 今日のことば、{{expression}}、{{meaning}}、例文 {{example}}'
     },

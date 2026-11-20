@@ -317,7 +317,8 @@ describe('마이페이지 계정 설정', () => {
         name: '오늘의 おみくじ 뽑기'
       })
       await user.click(button)
-      const dialog = screen.getByRole('dialog', {
+      // The button dips first; the sheet opens 170ms after the press.
+      const dialog = await screen.findByRole('dialog', {
         name: '11월 25일 · 오늘의 おみくじ'
       })
       // Nothing closes it while Maru shakes the box.
@@ -325,7 +326,7 @@ describe('마이페이지 계정 설정', () => {
       expect(
         within(dialog).queryByRole('button', { name: '닫기' })
       ).not.toBeInTheDocument()
-      const { fortune } = pickOmikuji(member.id, '2026-11-25')
+      const fortune = pickOmikuji(member.id, '2026-11-25').fortune.label
       await within(dialog).findByRole(
         'button',
         { name: '닫기' },
@@ -347,7 +348,9 @@ describe('마이페이지 계정 설정', () => {
       expect(button).toHaveAccessibleName('오늘의 おみくじ 다시 보기')
 
       await user.click(button)
-      expect(within(dialog).getByRole('button', { name: '닫기' })).toBeVisible()
+      expect(
+        await within(dialog).findByRole('button', { name: '닫기' })
+      ).toBeVisible()
       expect(dialog.querySelector('.omikuji-fortune')).toHaveTextContent(
         fortune
       )

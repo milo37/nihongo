@@ -3,11 +3,12 @@ import type { PointerEvent } from 'react'
 import { cachedStorage } from '@nihongo/browser/libs/storage'
 import { pickOmikuji, seoulToday } from '@app/account/omikuji/pickOmikuji'
 
-// Design v4/anim (1.5x, operator 11/20), from the moment the sheet opens:
-// it rises for 380ms, Maru shakes for 800ms, holds the box low for 650ms,
-// then the slip. Closing takes 280ms.
-const LOWER_AT = 1195
-const RESULT_AT = 1845
+// Design fe-spec 4 (1.5x, operator 11/20), from the press: the button dips
+// for 160ms, the sheet opens at 170ms and rises for 380ms, Maru shakes for
+// 800ms, holds the box low for 650ms, then the slip. Closing takes 280ms.
+const OPEN_AT = 170
+const LOWER_AT = 1365
+const RESULT_AT = 2015
 const CLOSE_MS = 280
 // A phone sheet dragged down this far closes.
 const DRAG_CLOSE_PX = 80
@@ -32,6 +33,7 @@ export const useOmikuji = (userId: string) => {
   const [phase, setPhase] = useState<OmikujiPhase>('result')
   const [again, setAgain] = useState(false)
   const [played, setPlayed] = useState(false)
+  const [pressed, setPressed] = useState(false)
   const [drawn, setDrawn] = useState(
     () => cachedStorage.getItem(drawnKey(userId, date)) !== null
   )
@@ -71,26 +73,34 @@ export const useOmikuji = (userId: string) => {
   }
 
   const start = () => {
+    if (open || pressed) return
     const today = seoulToday()
     const key = drawnKey(userId, today)
     const seen = cachedStorage.getItem(key) !== null
-    setDate(today)
-    setAgain(seen)
-    setClosing(false)
-    setOpen(true)
-    cachedStorage.setItem(key, '1')
-    setDrawn(true)
-    const play = !seen && !reducedMotion()
-    setPlayed(play)
-    if (!play) {
-      setPhase('result')
+    const still = reducedMotion()
+    const play = !seen && !still
+    const show = () => {
+      setPressed(false)
+      setDate(today)
+      setAgain(seen)
+      setPlayed(play)
+      setPhase(play ? 'shake' : 'result')
+      setClosing(false)
+      setOpen(true)
+      cachedStorage.setItem(key, '1')
+      setDrawn(true)
+    }
+    if (still) {
+      show()
       return
     }
-    setPhase('shake')
-    timers.current = [
-      window.setTimeout(() => setPhase('lower'), LOWER_AT),
-      window.setTimeout(() => setPhase('result'), RESULT_AT)
-    ]
+    setPressed(true)
+    timers.current = [window.setTimeout(show, OPEN_AT)]
+    if (play)
+      timers.current.push(
+        window.setTimeout(() => setPhase('lower'), LOWER_AT),
+        window.setTimeout(() => setPhase('result'), RESULT_AT)
+      )
   }
 
   const close = () => {
@@ -132,6 +142,7 @@ export const useOmikuji = (userId: string) => {
     phase,
     again,
     played,
+    pressed,
     drawn,
     date,
     pick,

@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  EXPRESSIONS,
-  FORTUNES,
-  FORTUNE_WEIGHTS,
-  MESSAGES
-} from '@app/account/omikuji/omikujiData'
+import { EXPRESSIONS, FORTUNES } from '@app/account/omikuji/omikujiData'
 import { pickOmikuji, seoulToday } from '@app/account/omikuji/pickOmikuji'
 
 const ids = Array.from(
@@ -28,18 +23,33 @@ describe('pickOmikuji', () => {
   })
 
   it('keeps each fortune within 1 point of its weight over 10,000 members', () => {
-    const counts = Object.fromEntries(FORTUNES.map((name) => [name, 0]))
-    for (const id of ids) counts[pickOmikuji(id, '2026-11-20').fortune]! += 1
-    for (const name of FORTUNES)
-      expect(
-        Math.abs(counts[name]! / 100 - FORTUNE_WEIGHTS[name])
-      ).toBeLessThanOrEqual(1)
+    const counts = new Map(FORTUNES.map(({ key }) => [key, 0]))
+    for (const id of ids) {
+      const { key } = pickOmikuji(id, '2026-11-20').fortune
+      counts.set(key, counts.get(key)! + 1)
+    }
+    for (const { key, weight } of FORTUNES)
+      expect(Math.abs(counts.get(key)! / 100 - weight)).toBeLessThanOrEqual(1)
+  })
+
+  it('ships the planned text: six fortunes adding up to 100, five messages each, 72 expressions', () => {
+    expect(FORTUNES.map(({ label }) => label)).toEqual([
+      '大吉',
+      '吉',
+      '中吉',
+      '小吉',
+      '末吉',
+      '凶'
+    ])
+    expect(FORTUNES.reduce((sum, { weight }) => sum + weight, 0)).toBe(100)
+    for (const { messages } of FORTUNES) expect(messages).toHaveLength(5)
+    expect(EXPRESSIONS).toHaveLength(72)
   })
 
   it('picks a message of that fortune and an expression in range', () => {
     for (const id of ids.slice(0, 500)) {
       const pick = pickOmikuji(id, '2026-11-20')
-      expect(MESSAGES[pick.fortune][pick.messageIndex]).toBeDefined()
+      expect(pick.fortune.messages[pick.messageIndex]).toBeDefined()
       expect(EXPRESSIONS[pick.expressionIndex]).toBeDefined()
     }
   })

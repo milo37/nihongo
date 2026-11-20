@@ -1,10 +1,5 @@
-import {
-  EXPRESSIONS,
-  FORTUNES,
-  FORTUNE_WEIGHTS,
-  MESSAGES
-} from '@app/account/omikuji/omikujiData'
-import type { Fortune } from '@app/account/omikuji/omikujiData'
+import { EXPRESSIONS, FORTUNES } from '@app/account/omikuji/omikujiData'
+import type { OmikujiFortune } from '@app/account/omikuji/omikujiData'
 
 /** Today in Asia/Seoul as YYYY-MM-DD, the stamp board's day (K-2). */
 export const seoulToday = (now = new Date()): string =>
@@ -26,7 +21,7 @@ const unit = (text: string): number => {
 }
 
 export type OmikujiPick = {
-  fortune: Fortune
+  fortune: OmikujiFortune
   messageIndex: number
   expressionIndex: number
 }
@@ -40,12 +35,10 @@ export const pickOmikuji = (userId: string, seoulDate: string): OmikujiPick => {
   const seed = `${userId}|${seoulDate}`
   let roll = unit(`${seed}|fortune`) * 100
   const fortune =
-    FORTUNES.find((name) => (roll -= FORTUNE_WEIGHTS[name]) < 0) ?? '凶'
+    FORTUNES.find(({ weight }) => (roll -= weight) < 0) ?? FORTUNES.at(-1)!
   return {
     fortune,
-    messageIndex: Math.floor(
-      unit(`${seed}|message`) * MESSAGES[fortune].length
-    ),
+    messageIndex: Math.floor(unit(`${seed}|message`) * fortune.messages.length),
     expressionIndex: Math.floor(unit(`${seed}|expression`) * EXPRESSIONS.length)
   }
 }

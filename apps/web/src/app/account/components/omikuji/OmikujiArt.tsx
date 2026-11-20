@@ -1,8 +1,8 @@
 import type { ReactElement } from 'react'
 
-// #1055 the omikuji box and stick (design v4 props.cjs, v5 look.cjs and
-// paw.cjs), drawn over Maru's approved poses from FoxSprite; Maru is never
-// redrawn. Colours are the sprite's own.
+// #1055 the omikuji box and stick (design fe-spec: v4 props.cjs icon, v5
+// look.cjs BOX and MOTION), drawn over Maru's approved poses from
+// FoxSprite, which are used as they are. Colours are the sprite's own.
 const LINE = 'var(--fox-line,#D99557)'
 const CREAM = 'var(--fox-cream,#FEF4E8)'
 const PEACH = 'var(--fox-body,#FDCD98)'
@@ -99,10 +99,9 @@ export const OmikujiShake = (): ReactElement => (
 )
 
 /**
- * fox-thud with the box held low and a stick sliding out of its hole; its
- * front paw is the same pose clipped and laid over the box (design v5f).
- * The operator is still choosing this picture (v6): swap this component
- * alone when the designer sends the final one.
+ * fox-thud with the box held low over its stamp (design v5, a stand-in).
+ * The operator is still choosing this picture: swap this component alone
+ * when the designer sends the final one.
  */
 export const OmikujiLower = (): ReactElement => (
   <svg className="omikuji-figure is-lower" viewBox={FOX_BOX} aria-hidden="true">
@@ -110,38 +109,6 @@ export const OmikujiLower = (): ReactElement => (
     <g transform="rotate(8 74 77)">
       <Box x={56} y={60} w={36} h={34} />
     </g>
-    <clipPath id="omikuji-stick">
-      <rect y="-10" width="60" height="20" />
-    </clipPath>
-    <g transform="translate(75.77 64.44) rotate(-4.4)">
-      <g clipPath="url(#omikuji-stick)">
-        <g className="omikuji-stick">
-          <rect
-            x="-6"
-            y="-1.4"
-            width="31"
-            height="2.8"
-            rx="1"
-            fill={CREAM}
-            stroke={LINE}
-            strokeWidth="1.5"
-          />
-          <path d="M22.4 -0.8v1.6" stroke={RED} strokeWidth="2.2" />
-        </g>
-      </g>
-    </g>
-    <ellipse
-      transform="rotate(8 74 77)"
-      cx="74"
-      cy="64.32"
-      rx="3.6"
-      ry="1.47"
-      fill={LINE}
-    />
-    <clipPath id="omikuji-paw">
-      <ellipse cx="60.6" cy="72.6" rx="6" ry="6.25" />
-    </clipPath>
-    <use href="#fox-thud" width="96" height="96" clipPath="url(#omikuji-paw)" />
   </svg>
 )
 

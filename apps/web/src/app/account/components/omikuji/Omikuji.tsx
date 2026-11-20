@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import { FoxSprite } from '@app/practice/page'
 import { useStudyGoal } from '@app/login/queries/studyGoalQueries'
-import { EXPRESSIONS, MESSAGES } from '@app/account/omikuji/omikujiData'
+import { EXPRESSIONS } from '@app/account/omikuji/omikujiData'
 import { useOmikuji } from '@app/account/hooks/useOmikuji'
 import {
   OmikujiIcon,
@@ -27,6 +27,7 @@ export const Omikuji = ({ userId }: { userId: string }): ReactElement => {
     phase,
     again,
     played,
+    pressed,
     drawn,
     date,
     pick,
@@ -42,9 +43,9 @@ export const Omikuji = ({ userId }: { userId: string }): ReactElement => {
   const [, month, day] = date.split('-').map(Number)
   const item = EXPRESSIONS[pick.expressionIndex]!
   const spoken = t('omikuji.spoken', {
-    fortune: pick.fortune,
-    message: MESSAGES[pick.fortune][pick.messageIndex]![lang],
-    expression: item.expression,
+    fortune: pick.fortune.label,
+    message: pick.fortune.messages[pick.messageIndex]![lang],
+    expression: item.text,
     meaning: item.meaning[lang],
     example: item.example
   })
@@ -53,7 +54,7 @@ export const Omikuji = ({ userId }: { userId: string }): ReactElement => {
       <button
         ref={buttonRef}
         type="button"
-        className="omikuji-button"
+        className={`omikuji-button${pressed ? ' is-pressed' : ''}`}
         aria-label={t(drawn ? 'omikuji.view' : 'omikuji.draw')}
         onClick={start}
       >

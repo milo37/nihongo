@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
-import { EXPRESSIONS, MESSAGES } from '@app/account/omikuji/omikujiData'
+import { EXPRESSIONS } from '@app/account/omikuji/omikujiData'
 import type { OmikujiPick } from '@app/account/omikuji/pickOmikuji'
 import { OmikujiYay } from '@app/account/components/omikuji/OmikujiArt'
 
@@ -12,7 +12,7 @@ import { OmikujiYay } from '@app/account/components/omikuji/OmikujiArt'
 export const OmikujiSlip = ({ pick }: { pick: OmikujiPick }): ReactElement => {
   const { t, i18n } = useTranslation('account')
   const lang = i18n.language?.startsWith('ja') ? 'ja' : 'ko'
-  const message = MESSAGES[pick.fortune][pick.messageIndex]!
+  const message = pick.fortune.messages[pick.messageIndex]!
   const item = EXPRESSIONS[pick.expressionIndex]!
   return (
     <div className="omikuji-slip-wrap">
@@ -21,15 +21,15 @@ export const OmikujiSlip = ({ pick }: { pick: OmikujiPick }): ReactElement => {
           おみくじ
         </p>
         <p className="omikuji-fortune" lang="ja">
-          {pick.fortune}
+          {pick.fortune.label}
         </p>
         <p className="omikuji-message">{message[lang]}</p>
         <div className="omikuji-word">
           <p className="omikuji-word-label">{t('omikuji.expression')}</p>
           <p className="omikuji-word-text" lang="ja">
-            {item.expression}
+            {item.text}
           </p>
-          {item.reading === item.expression ? null : (
+          {item.reading === item.text ? null : (
             <p className="omikuji-word-reading" lang="ja">
               {item.reading}
             </p>
