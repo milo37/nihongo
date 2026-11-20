@@ -1,5 +1,7 @@
 import type { ReactElement } from 'react'
-import { FoxSprite } from '@app/practice/result/maru/FoxSprite'
+// Through the learn page module: the rush there draws Maru too, and one
+// chunk for both keeps the bundle's file count (#1043).
+import { FoxSprite } from '@app/practice/page'
 
 // Maru's poses come from design's maru/fox.svg; after replacing it, run
 // scripts/maru-sprite.mjs to regenerate FoxSprite.

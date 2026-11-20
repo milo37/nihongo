@@ -11,6 +11,12 @@ import { GuestUrlLockedNotice } from '@app/practice/components/GuestSetupNotices
 import { ResumablePractice } from '@app/practice/components/ResumablePractice'
 import { usePracticeSetupController } from '@app/practice/hooks/usePracticeSetupController'
 import { levels, modes, subjects } from '@app/practice/practiceSetupOptions'
+import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
+import { RushEntry } from '@app/practice/rush/RushEntry'
+
+// #1043: the rush shares this chunk (the bundle has no file to spare).
+export { RushPage } from '@app/practice/rush/RushPage'
+export { FoxSprite } from '@app/practice/result/maru/FoxSprite'
 
 const subjectLabelKeys = {
   VOCABULARY: 'approved.vocabulary',
@@ -24,6 +30,7 @@ export const PracticePage = (): ReactElement => {
   const resumableHeadingRef = useRef<HTMLHeadingElement>(null)
   const setupHeadingRef = useRef<HTMLHeadingElement>(null)
   const setup = usePracticeSetupController(resumableHeadingRef)
+  const { role, user } = useAuth()
   const { count, level, mode, resumableSessions, subject } = setup
   const subjectLabel = homeT(subjectLabelKeys[subject])
   const startLabel = level
@@ -93,6 +100,10 @@ export const PracticePage = (): ReactElement => {
           />
         }
       />
+
+      {role !== 'GUEST' && user && level ? (
+        <RushEntry level={level} userId={user.id} />
+      ) : null}
 
       <CancelResumableDialog
         open={setup.cancelSessionId !== null}

@@ -10,6 +10,7 @@ import { studyResultRetryHandlers } from '@mocks/handlers/studyResultRetryHandle
 import { studySessionHandlers } from '@mocks/handlers/studySessionHandlers'
 import { wrongNoteV1Handlers } from '@mocks/handlers/wrongNoteV1Handlers'
 import { guestAllowanceHandlers } from '@mocks/handlers/guestAllowanceHandlers'
+import { rushHandlers } from '@mocks/handlers/rushHandlers'
 import { guestResultImportHandlers } from '@mocks/handlers/guestResultImportHandlers'
 
 export const handlers = [
@@ -25,5 +26,6 @@ export const handlers = [
   ...wrongNoteV1Handlers,
   ...dashboardV1Handlers,
   ...bookmarkHandlers,
-  ...operationsHandlers
+  ...operationsHandlers,
+  ...rushHandlers
 ]
