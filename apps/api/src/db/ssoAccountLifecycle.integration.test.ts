@@ -1217,9 +1217,9 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       // Used daily until its limit: expiresAt sits at createdAt + 30 days.
       await h.fixtureMutation(
         `UPDATE "Session"
-         SET "createdAt" = clock_timestamp() - interval '30 days 1 minute',
-           "updatedAt" = clock_timestamp() - interval '1 day',
-           "expiresAt" = clock_timestamp() - interval '1 minute'
+         SET "createdAt" = now() - interval '30 days 1 minute',
+           "updatedAt" = now() - interval '1 day',
+           "expiresAt" = now() - interval '1 minute'
          WHERE "userId" = $1`,
         [old.userId]
       )
