@@ -1106,11 +1106,13 @@ body [lang='ja'][data-ja-spaced],
 }
 /* #1055 omikuji (design v4/anim 1.5x, v5 slip A). The button sits at the
    stamp board head's right end: a 44px box over 11px 「おみくじ」, 56px to
-   tap; from 1024px a 32px box beside 12px text. The sheet rises from the
+   tap; from 1024px a round outlined button, 36px box beside 15px text. The sheet rises from the
    bottom on phones and is a 440px cream window from 1024px. */
-.stamp-board-head {
-  position: relative;
-  padding-right: 64px;
+.stamp-board-head:has(> .omikuji-button) {
+  grid-template-columns: 1fr auto;
+}
+.stamp-board-head > :not(.omikuji-button) {
+  grid-column: 1;
 }
 .omikuji-button {
   display: flex;
@@ -1134,10 +1136,10 @@ body [lang='ja'][data-ja-spaced],
   }
 }
 .stamp-board-head > .omikuji-button {
-  position: absolute;
-  top: 50%;
-  right: 0;
-  translate: 0 -50%;
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  margin-left: 6px;
 }
 .omikuji-row {
   margin-top: 12px;
@@ -1304,6 +1306,7 @@ body [lang='ja'][data-ja-spaced],
   padding: 8px 0 4px;
 }
 .omikuji-slip {
+  position: relative;
   width: 258px;
   padding: 18px 22px 22px;
   border: 1px solid rgb(var(--color-line));
@@ -1377,9 +1380,11 @@ body [lang='ja'][data-ja-spaced],
   line-height: 19px;
 }
 .omikuji-yay {
+  /* Hangs off the slip's lower right corner, sized by its own box. */
   position: absolute;
-  right: calc(50% - 129px - 62px);
-  bottom: -8px;
+  bottom: 0;
+  left: 100%;
+  translate: -43% 11.5%;
   width: 108px;
   height: 108px;
   transform-origin: 50% 100%;
@@ -1401,18 +1406,23 @@ body [lang='ja'][data-ja-spaced],
   word-break: keep-all;
 }
 @media (min-width: 1024px) {
-  .stamp-board-head {
-    padding-right: 110px;
+  .stamp-board-head > .omikuji-button {
+    margin-left: auto;
   }
   .omikuji-button {
     flex-direction: row;
-    gap: 6px;
-    min-height: 40px;
-    font-size: 12px;
+    gap: 8px;
+    min-height: 48px;
+    padding: 0 18px 0 12px;
+    border: 1px solid rgb(var(--color-line));
+    border-radius: 999px;
+    color: rgb(var(--color-ink));
+    font-size: 15px;
+    line-height: 20px;
   }
   .omikuji-button > .omikuji-icon {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
   }
   .omikuji-dialog {
     align-items: center;
@@ -1454,7 +1464,6 @@ body [lang='ja'][data-ja-spaced],
     height: 214px;
   }
   .omikuji-yay {
-    right: calc(50% - 129px - 69px);
     width: 122px;
     height: 122px;
   }

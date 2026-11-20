@@ -314,12 +314,12 @@ describe('마이페이지 계정 설정', () => {
       const head = (await screen.findByRole('heading', { name: '11월 도장판' }))
         .parentElement!
       const button = within(head).getByRole('button', {
-        name: '오늘의 おみくじ 뽑기'
+        name: '오늘의 운세 뽑기'
       })
       await user.click(button)
       // The button dips first; the sheet opens 170ms after the press.
       const dialog = await screen.findByRole('dialog', {
-        name: '11월 25일 · 오늘의 おみくじ'
+        name: '11월 25일 · 오늘의 운세'
       })
       // Nothing closes it while Maru shakes the box.
       expect(within(dialog).getByText('흔드는 중')).toBeVisible()
@@ -345,7 +345,7 @@ describe('마이페이지 계정 설정', () => {
       await user.click(within(dialog).getByRole('button', { name: '닫기' }))
       await waitFor(() => expect(dialog).not.toHaveAttribute('open'))
       expect(button).toHaveFocus()
-      expect(button).toHaveAccessibleName('오늘의 おみくじ 다시 보기')
+      expect(button).toHaveAccessibleName('오늘의 운세 다시 보기')
 
       await user.click(button)
       expect(
@@ -367,11 +367,11 @@ describe('마이페이지 계정 설정', () => {
       mockDatabase.setStudyGoal(member.id, 'N3', 30)
       renderAccount()
       const button = await screen.findByRole('button', {
-        name: /^오늘의 おみくじ/
+        name: /^오늘의 운세/
       })
       await user.click(button)
       const dialog = await screen.findByRole('dialog', {
-        name: '11월 25일 · 오늘의 おみくじ'
+        name: '11월 25일 · 오늘의 운세'
       })
       // A second Esc closes a modal without a cancel event.
       act(() => {
@@ -407,11 +407,11 @@ describe('마이페이지 계정 설정', () => {
         mockDatabase.loginAs('USER')
         renderAccount()
         const button = await screen.findByRole('button', {
-          name: /^오늘의 おみくじ/
+          name: /^오늘의 운세/
         })
         await user.click(button)
         const dialog = await screen.findByRole('dialog', {
-          name: '11월 25일 · 오늘의 おみくじ'
+          name: '11월 25일 · 오늘의 운세'
         })
         const close = await within(dialog).findByRole(
           'button',
@@ -445,7 +445,7 @@ describe('마이페이지 계정 설정', () => {
       renderAccount()
       await screen.findByRole('link', { name: '목표 정하기' })
       expect(
-        screen.getByRole('button', { name: /^오늘의 おみくじ/ }).parentElement
+        screen.getByRole('button', { name: /^오늘의 운세/ }).parentElement
       ).toHaveClass('omikuji-row')
     })
 

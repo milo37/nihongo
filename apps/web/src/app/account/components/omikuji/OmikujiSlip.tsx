@@ -17,8 +17,8 @@ export const OmikujiSlip = ({ pick }: { pick: OmikujiPick }): ReactElement => {
   return (
     <div className="omikuji-slip-wrap">
       <div className="omikuji-slip">
-        <p className="omikuji-slip-kind" lang="ja">
-          おみくじ
+        <p className="omikuji-slip-kind" lang={lang}>
+          {t('omikuji.kind')}
         </p>
         <p className="omikuji-fortune" lang="ja">
           {pick.fortune.label}
@@ -45,8 +45,8 @@ export const OmikujiSlip = ({ pick }: { pick: OmikujiPick }): ReactElement => {
             ) : null}
           </p>
         </div>
+        <OmikujiYay />
       </div>
-      <OmikujiYay />
     </div>
   )
 }
