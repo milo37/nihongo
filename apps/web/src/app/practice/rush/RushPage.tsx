@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router'
 import type { CSSProperties, ReactElement } from 'react'
 import type { JlptLevel } from '@nihongo/contracts/common/enum'
+import { RUSH_SCORE_MAX } from '@api/study/rush/schema'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { FoxSprite } from '@app/practice/result/maru/FoxSprite'
 import {
@@ -192,7 +193,7 @@ const Rush = ({ level, userId }: { level: JlptLevel; userId: string }) => {
 
   const { isIdle: unsent, mutate: send } = submit
   useEffect(() => {
-    if (phase === 'done' && unsent) send(Math.min(score, 60))
+    if (phase === 'done' && unsent) send(Math.min(score, RUSH_SCORE_MAX))
   }, [phase, score, unsent, send])
 
   const pick = (index: number) => {

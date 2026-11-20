@@ -299,6 +299,8 @@ const userJourneyRequestContract = [
   ...accountPageRequestContract,
   // My page once and the result screen twice (opened, then reloaded).
   studyGoalReads(3),
+  // #1043: the learn tab's rush row reads the member's best scores once.
+  { method: 'GET', path: '/api/v1/me/rush-best', statuses: [200] },
   {
     method: 'GET',
     path: '/api/v1/me',
@@ -1313,6 +1315,8 @@ test('guest SSO boundary and authenticated practice transition match the active 
   assertExactRequestMultiset(ledger, [
     ...ssoRequestContract,
     studyGoalReads(0),
+    // #1043: the learn tab's rush row reads the member's best scores once.
+    { method: 'GET', path: '/api/v1/me/rush-best', statuses: [200] },
     {
       method: 'GET',
       path: '/api/v1/me',

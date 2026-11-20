@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { JlptLevel } from '@nihongo/contracts/common/enum'
 import { getRushBest, getRushPairs, submitRushScore } from '@api/study/rush'
-import { RUSH_MODE } from '@api/study/rush/schema'
 import type { RushBests } from '@api/study/rush/schema'
 
 const bestKey = (userId: string) => ['rush-best', userId] as const
@@ -15,8 +14,9 @@ export const useRushBest = (userId: string, level: JlptLevel) =>
     retry: false,
     meta: { localErrorUi: true },
     select: (data: RushBests) =>
-      data.bests.find((row) => row.mode === RUSH_MODE && row.level === level)
-        ?.best ?? null
+      data.bests.find(
+        (row) => row.mode === 'KANJI_RUSH_30S' && row.level === level
+      )?.best ?? null
   }).data ?? null
 
 export const useRushPairs = (level: JlptLevel) =>

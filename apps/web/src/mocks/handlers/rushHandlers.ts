@@ -1,6 +1,10 @@
 import { http, HttpResponse } from 'msw'
-import { z } from 'zod'
 import { jlptLevelSchema } from '@nihongo/contracts/common/enum'
+import {
+  rushBestResponseSchema,
+  submitRushScoreBodySchema,
+  submitRushScoreResponseSchema
+} from '@nihongo/contracts/study/rush-best'
 import { rushPairsByLevel } from '@mocks/data/rushPairs'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import {
@@ -11,13 +15,6 @@ import {
 
 // #1043: the rush pair list and best scores (be-design.md), members only.
 const bests = new Map<string, { best: number; achievedAt: string }>()
-const submitSchema = z
-  .object({
-    mode: z.literal('KANJI_RUSH_30S'),
-    level: jlptLevelSchema,
-    score: z.number().int().min(0).max(60)
-  })
-  .strict()
 const noStore = { headers: { 'Cache-Control': 'private, no-store' } }
 
 const requireMemberId = (): string => {
@@ -35,7 +32,7 @@ const entriesOf = (userId: string) =>
   [...bests]
     .filter(([key]) => key.startsWith(`${userId}|`))
     .map(([key, row]) => ({
-      mode: 'KANJI_RUSH_30S',
+      mode: 'KANJI_RUSH_30S' as const,
       level: jlptLevelSchema.parse(key.split('|')[1]),
       ...row
     }))
@@ -65,7 +62,10 @@ export const rushHandlers = [
   }),
   http.get('*/api/v1/me/rush-best', () => {
     try {
-      return HttpResponse.json({ bests: entriesOf(requireMemberId()) }, noStore)
+      return HttpResponse.json(
+        rushBestResponseSchema.parse({ bests: entriesOf(requireMemberId()) }),
+        noStore
+      )
     } catch (error: unknown) {
       return toErrorResponse(error)
     }
@@ -73,7 +73,7 @@ export const rushHandlers = [
   http.put('*/api/v1/me/rush-best', async ({ request }) => {
     try {
       const userId = requireMemberId()
-      const input = await parseJsonBody(request, submitSchema)
+      const input = await parseJsonBody(request, submitRushScoreBodySchema)
       const key = `${userId}|${input.level}`
       const old = bests.get(key)
       const isNewBest = !old || input.score > old.best
@@ -83,7 +83,10 @@ export const rushHandlers = [
           achievedAt: new Date().toISOString()
         })
       const best = entriesOf(userId).find((row) => row.level === input.level)!
-      return HttpResponse.json({ best, isNewBest }, noStore)
+      return HttpResponse.json(
+        submitRushScoreResponseSchema.parse({ best, isNewBest }),
+        noStore
+      )
     } catch (error: unknown) {
       return toErrorResponse(error)
     }

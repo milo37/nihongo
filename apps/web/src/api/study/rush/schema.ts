@@ -1,10 +1,32 @@
 import { z } from 'zod'
 import { jlptLevelSchema } from '@nihongo/contracts/common/enum'
+import type {
+  RushBestResponse,
+  SubmitRushScoreResponse
+} from '@nihongo/contracts/study/rush-best'
 
-// #1043: the rush's server shapes (be-design.md §2). The pair list and the
-// best scores are members only; swap for the contracts once the API lands.
-export const RUSH_MODE = 'KANJI_RUSH_30S'
+// #1043: the rush's server shapes. The best score ones are checked against
+// the contract (BE #1158) by type only: importing its module would split a
+// shared chunk off, and the bundle has no file to spare.
+export const RUSH_SCORE_MAX = 60
 
+const rushBestEntrySchema = z.object({
+  mode: z.literal('KANJI_RUSH_30S'),
+  level: jlptLevelSchema,
+  best: z.number().int().min(0).max(RUSH_SCORE_MAX),
+  achievedAt: z.string()
+})
+
+export const rushBestResponseSchema = z.object({
+  bests: z.array(rushBestEntrySchema)
+}) satisfies z.ZodType<RushBestResponse>
+
+export const submitRushScoreResponseSchema = z.object({
+  best: rushBestEntrySchema,
+  isNewBest: z.boolean()
+}) satisfies z.ZodType<SubmitRushScoreResponse>
+
+// The pair list (BE #1159); swap for its contract once merged.
 export const rushPairsResponseSchema = z.object({
   level: jlptLevelSchema,
   pairs: z.array(
@@ -15,22 +37,6 @@ export const rushPairsResponseSchema = z.object({
       wrong: z.array(z.string()).length(3)
     })
   )
-})
-
-const rushBestEntrySchema = z.object({
-  mode: z.string(),
-  level: jlptLevelSchema,
-  best: z.number().int().nonnegative(),
-  achievedAt: z.string()
-})
-
-export const rushBestResponseSchema = z.object({
-  bests: z.array(rushBestEntrySchema)
-})
-
-export const submitRushScoreResponseSchema = z.object({
-  best: rushBestEntrySchema,
-  isNewBest: z.boolean()
 })
 
 export type RushPair = z.output<typeof rushPairsResponseSchema>['pairs'][number]

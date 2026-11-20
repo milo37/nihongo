@@ -1,7 +1,6 @@
 import { safeGet, safePut } from '@nihongo/browser/api/http'
 import type { JlptLevel } from '@nihongo/contracts/common/enum'
 import {
-  RUSH_MODE,
   rushBestResponseSchema,
   rushPairsResponseSchema,
   submitRushScoreResponseSchema
@@ -14,4 +13,4 @@ export const getRushPairs = (level: JlptLevel) =>
   readPairs('/v1/rush/kanji-pairs', { level })
 export const getRushBest = () => readBest('/v1/me/rush-best')
 export const submitRushScore = (level: JlptLevel, score: number) =>
-  writeBest('/v1/me/rush-best', { mode: RUSH_MODE, level, score })
+  writeBest('/v1/me/rush-best', { mode: 'KANJI_RUSH_30S', level, score })
