@@ -40,38 +40,19 @@ const isDatabaseUnavailableError = (error: unknown): boolean =>
 const LEVELS: readonly Level[] = ['N5', 'N4', 'N3', 'N2', 'N1']
 
 /**
- * Learner-visible (ACTIVE with a PUBLISHED current version, JLP-816) kanji
- * reading questions with one word in 「」 and exactly four options.
+ * #1043: the rush words the operator loaded from content/rush into
+ * "RushKanjiWord" (dictionary forms, no conjugation tail).
  */
 export const createPrismaRushKanjiPairsRepository = (
-  client: PrismaClient
+  client: Pick<PrismaClient, '$queryRaw'>
 ): RushKanjiPairsRepository => ({
   listPairs: async (levels) => {
     try {
       return await client.$queryRaw<RushKanjiPairRecord[]>(Prisma.sql`
-        SELECT pair."id", pair."level", pair."word", pair."answer",
-          pair."wrong"
-        FROM (
-          SELECT q."id"::text AS "id", v."level"::text AS "level",
-            btrim(substring(v."questionText" FROM '「([^」]+)」')) AS "word",
-            correct."text" AS "answer",
-            ARRAY(
-              SELECT wrong."text" FROM "QuestionOption" AS wrong
-              WHERE wrong."questionVersionId" = v."id"
-                AND wrong."id" <> v."correctOptionId"
-              ORDER BY wrong."ordinal"
-            ) AS "wrong"
-          FROM "Question" AS q
-          JOIN "QuestionVersion" AS v ON v."id" = q."currentPublishedVersionId"
-          JOIN "QuestionOption" AS correct
-            ON correct."questionVersionId" = v."id"
-            AND correct."id" = v."correctOptionId"
-          WHERE q."lifecycleStatus" = 'ACTIVE'
-            AND v."status" = 'PUBLISHED'
-            AND v."questionType" = 'KANJI_READING'
-            AND v."level"::text IN (${Prisma.join([...levels])})
-        ) AS pair
-        WHERE pair."word" <> '' AND cardinality(pair."wrong") = 3
+        SELECT word."id"::text AS "id", word."level"::text AS "level",
+          word."word", word."reading" AS "answer", word."wrong"
+        FROM "RushKanjiWord" AS word
+        WHERE word."level"::text IN (${Prisma.join([...levels])})
         ORDER BY random()
       `)
     } catch (error: unknown) {

@@ -32,6 +32,7 @@ export const accessibilityDatabaseTables = [
   'ReviewEvent',
   'ReviewSchedule',
   'RushBest',
+  'RushKanjiWord',
   'Session',
   'SsoAccountErasureRequest',
   'SsoAccountFreshProof',
@@ -85,6 +86,8 @@ export const accessibilityExpectedTableDeltas = {
   ReviewSchedule: 10,
   // #1043: the scan plays no rush.
   RushBest: 0,
+  // #1043: the scan loads no rush words.
+  RushKanjiWord: 0,
   Session: 2,
   SsoAccountErasureRequest: 0,
   SsoAccountFreshProof: 0,

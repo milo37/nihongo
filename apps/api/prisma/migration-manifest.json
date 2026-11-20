@@ -79,6 +79,10 @@
     {
       "name": "20261125090000_rush_best",
       "checksum": "fac278f5640bede6a51322e895253fb3330ad2939b4f0e52b4b12584c38b7728"
+    },
+    {
+      "name": "20261126090000_rush_kanji_word",
+      "checksum": "3d15f89384e102567122995daf651c5a9b7bda7eaef7ba9010b3aa8e90301b2d"
     }
   ]
 }

@@ -1,4 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
+import { readFile } from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
 import { getDailyQuestionResponseSchema } from '@nihongo/contracts/question/get-daily-question'
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
@@ -21,6 +23,13 @@ import {
   dailySheetLengthSql,
   toDayNumber
 } from './dailyQuestion.js'
+import {
+  RUSH_WORD_ROWS_SQL,
+  applyRushWordLoad,
+  parseRushWordList,
+  planRushWordLoad,
+  type RushWordRow
+} from '../content/rushWordList.js'
 import { createPrismaQuestionRepository } from './questionRepository.js'
 import {
   createPrismaRushKanjiPairsRepository,
@@ -58,6 +67,9 @@ const fixtureDatabase = fixtureDatabaseUrl
   ? createDatabaseRuntime(fixtureDatabaseUrl)
   : database
 const questionRepository = createPrismaQuestionRepository(database.client)
+const rushWordListFile = fileURLToPath(
+  new URL('../../../../content/rush/kanji-words.v1.json', import.meta.url)
+)
 const applicationRateLimiter = createApplicationRateLimiter({
   client: database.client,
   keySecret: environment.GUEST_COOKIE_SECRET
@@ -266,51 +278,99 @@ describe('question catalog PostgreSQL integration', () => {
     )
   })
 
-  it('러시 한자 쌍은 게시된 한자 읽기 문항으로 만들고 모자라면 쉬운 급수로 채운다 (#1043)', async () => {
+  it('러시 한자 쌍은 운영자가 넣은 RushKanjiWord로 만들고 앱은 읽기만 한다 (#1043)', async () => {
     const levels = ['N5', 'N4', 'N3', 'N2', 'N1'] as const
-    const expected = new Map(
-      buildAllQuestionSeeds()
-        .filter(({ questionType }) => questionType === 'KANJI_READING')
-        .map((seed) => [
-          seed.questionId,
-          {
-            id: seed.questionId,
-            word: /「([^」]+)」/u.exec(seed.questionText)?.[1],
-            answer: seed.options.find(({ id }) => id === seed.correctOptionId)
-              ?.text,
-            wrong: seed.options
-              .toSorted((left, right) => left.ordinal - right.ordinal)
-              .filter(({ id }) => id !== seed.correctOptionId)
-              .map(({ text }) => text),
-            level: seed.level
-          }
-        ])
-    )
-    // The seed has one kanji reading question per level.
-    expect(expected.size).toBe(levels.length)
-    const repository = createPrismaRushKanjiPairsRepository(database.client)
-    const records = await repository.listPairs(levels)
+    // Migrations create the table empty; only the operator load fills it.
     expect(
-      records.toSorted((left, right) => left.id.localeCompare(right.id))
-    ).toEqual(
-      [...expected.values()].toSorted((left, right) =>
-        left.id.localeCompare(right.id)
+      await createPrismaRushKanjiPairsRepository(database.client).listPairs(
+        levels
       )
-    )
-
-    // Fewer than 20 of the level: the easier levels fill, never harder ones.
-    const reader = createRushKanjiPairsReader(repository)
-    for (const [index, level] of levels.entries()) {
-      const response = await reader.read(level)
-      expect(response.level).toBe(level)
-      expect(
-        response.pairs.map(({ id }) => expected.get(id)?.level).toSorted()
-      ).toEqual(levels.slice(0, index + 1).toSorted())
-      for (const pair of response.pairs) {
-        const { level: _level, ...want } = expected.get(pair.id)!
-        expect(pair).toEqual(want)
-      }
+    ).toEqual([])
+    if (isCurrentSourceIntegration) {
+      await expect(
+        database.client.$executeRaw`
+          INSERT INTO "RushKanjiWord" ("sourceKey", "level", "word",
+            "reading", "wrong")
+          VALUES ('app-write', 'N5', '駅', 'えき',
+            ARRAY['いき', 'えぎ', 'えく'])
+        `
+      ).rejects.toThrow(/permission denied/u)
     }
+
+    // The repository file, loaded the way the operator command loads it, in
+    // a transaction that rolls back.
+    const list = parseRushWordList(await readFile(rushWordListFile))
+    const rollback = new Error('rush word load rolled back')
+    await expect(
+      fixtureDatabase.client.$transaction(
+        async (transaction) => {
+          const rows = () =>
+            transaction.$queryRawUnsafe<RushWordRow[]>(RUSH_WORD_ROWS_SQL)
+          const plan = planRushWordLoad(list, await rows())
+          expect(plan.steps).toHaveLength(list.words.length)
+          await applyRushWordLoad(
+            async (sql, values) =>
+              await transaction.$executeRawUnsafe(sql, ...values),
+            plan
+          )
+          expect(planRushWordLoad(list, await rows())).toEqual({
+            steps: [],
+            unchanged: list.words.length
+          })
+
+          const repository = createPrismaRushKanjiPairsRepository(transaction)
+          const byWord = new Map(
+            list.words.map((word) => [`${word.level}:${word.word}`, word])
+          )
+          const records = await repository.listPairs(levels)
+          expect(records).toHaveLength(list.words.length)
+          for (const record of records) {
+            const word = byWord.get(`${record.level}:${record.word}`)
+            expect(record).toEqual({
+              id: expect.stringMatching(/^[0-9a-f-]{36}$/u),
+              level: word?.level,
+              word: word?.word,
+              answer: word?.reading,
+              wrong: word?.wrong
+            })
+          }
+          // Each level has its own words; none is filled from another level.
+          const reader = createRushKanjiPairsReader(repository)
+          for (const level of levels) {
+            const response = await reader.read(level)
+            expect(response.pairs.length).toBe(
+              list.words.filter((word) => word.level === level).length
+            )
+            for (const pair of response.pairs) {
+              expect(byWord.get(`${level}:${pair.word}`)?.reading).toBe(
+                pair.answer
+              )
+            }
+          }
+          throw rollback
+        },
+        { timeout: 60_000 }
+      )
+    ).rejects.toBe(rollback)
+
+    // The table refuses a conjugated word and a repeated wrong reading.
+    for (const [word, wrong, constraint] of [
+      ['聞きました', ['きく', 'ぎく', 'きぐ'], 'RushKanjiWord_word_check'],
+      ['聞く', ['ぎく', 'ぎく', 'きぐ'], 'RushKanjiWord_wrong_check']
+    ] as const) {
+      await expect(
+        fixtureDatabase.client.$executeRaw`
+          INSERT INTO "RushKanjiWord" ("sourceKey", "level", "word",
+            "reading", "wrong")
+          VALUES ('check-probe', 'N5', ${word}, 'きく', ${[...wrong]}::text[])
+        `
+      ).rejects.toThrow(constraint)
+    }
+    expect(
+      await createPrismaRushKanjiPairsRepository(database.client).listPairs(
+        levels
+      )
+    ).toEqual([])
   })
 
   it('오늘의 한 문제 원고지 글자 수는 SQL과 웹 카드가 같게 센다 (#1087)', async () => {
