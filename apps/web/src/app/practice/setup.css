@@ -340,7 +340,6 @@ body:has(.rush.is-play) .app-mobile-navigation {
   display: grid;
   place-items: center;
   flex: 0 1 100px;
-  min-width: 40px;
   aspect-ratio: 1;
   border: 1.5px solid rgb(var(--color-sheet-line));
   container-type: inline-size;
