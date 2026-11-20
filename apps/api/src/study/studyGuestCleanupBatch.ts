@@ -35,6 +35,8 @@ const RATE_POLICIES: readonly (readonly [string, number])[] = [
     'dashboard-read',
     'guest-allowance-read',
     'nickname-write',
+    'rush-best-read',
+    'rush-best-write',
     // Routes removed in JLP-896; kept so rows written before then still expire.
     'question-detail-read',
     'question-list-read',
