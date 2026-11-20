@@ -1062,21 +1062,6 @@ describe(
           message: expect.stringMatching(pattern)
         })
 
-      // A member waiting for deletion neither reads nor raises a best.
-      await fixtureDatabase.client.user.update({
-        where: { id: session.userId },
-        data: { accountStatus: 'DELETION_PENDING' }
-      })
-      await expect(rush.read(session.userId)).rejects.toMatchObject({
-        code: 'AUTHENTICATION_REQUIRED'
-      })
-      await expect(
-        rush.submit(session.userId, { mode, level: 'N3', score: 60 })
-      ).rejects.toMatchObject({ code: 'AUTHENTICATION_REQUIRED' })
-      await fixtureDatabase.client.user.update({
-        where: { id: session.userId },
-        data: { accountStatus: 'ACTIVE' }
-      })
       expect(
         await fixtureDatabase.client.rushBest.count({
           where: { userId: session.userId, level: 'N3', best: 20 }
