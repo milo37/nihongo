@@ -1325,9 +1325,9 @@ body [lang='ja'][data-ja-spaced],
 .omikuji-fortune::after {
   content: '';
   position: absolute;
-  right: -23px;
+  right: -22px;
   bottom: -8px;
-  left: -23px;
+  left: -22px;
   border-top: 1px solid rgb(var(--color-ink) / 0.05);
 }
 .omikuji-message {
