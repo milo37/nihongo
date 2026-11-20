@@ -225,13 +225,17 @@ it('covers every learning record in one item, collected and deleted on leaving',
   await screen.findByRole('heading', { level: 1, name: '이용 안내' })
   const privacy = document.getElementById('privacy')!
   expect(privacy).toHaveTextContent(
-    '그 밖에 학습 진행과 서비스 기능을 이용하며 생기는 기록. 예: 출석·도장, 퀴즈·놀이 기록)'
+    '그 밖에 학습 진행과 서비스 기능을 이용하며 생기는 기록. 예: 출석·도장, 퀴즈 기록)'
   )
   expect(privacy).toHaveTextContent(
-    '제2조 ③의 학습 기록 전부(학습 세션·답안·결과·임시 저장, 오답노트·메모, 책갈피, 복습 기록, 출석·도장, 퀴즈·놀이 기록 등)'
+    '제2조 ③의 학습 기록 전부(학습 세션·답안·결과·임시 저장, 오답노트·메모, 책갈피, 복습 기록, 출석·도장, 퀴즈 기록 등)'
   )
   expect(privacy).toHaveTextContent('효력이 없어진 뒤 하루 안에 삭제합니다')
   expect(privacy).not.toHaveTextContent('도장 적립 내역')
+  expect(privacy).not.toHaveTextContent('놀이')
+  expect(privacy).toHaveTextContent(
+    '마지막 이용부터 7일(이용할 때마다 연장, 최대 30일)'
+  )
 })
 
 const renderLegalPage = (page: 'legal' | 'support', settings: LegalSettings) =>

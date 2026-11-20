@@ -502,6 +502,9 @@ body:has(.rush.is-play) .app-mobile-navigation {
   color: rgb(var(--color-muted));
   font-size: 15px;
 }
+.rush-keys {
+  display: none;
+}
 .rush-ready .rush-best {
   margin-top: 18px;
   color: rgb(var(--color-ink));
@@ -623,6 +626,9 @@ body:has(.rush.is-play) .app-mobile-navigation {
   align-self: center;
 }
 @media (min-width: 1024px) {
+  .rush-keys {
+    display: block;
+  }
   .rush {
     max-width: 640px;
     padding-top: 28px;
