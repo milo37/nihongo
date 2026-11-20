@@ -531,6 +531,32 @@ export const jaCoreResources = {
   },
   practice: {
     name: '問題を解く',
+    rush: {
+      entry: '漢字スピードクイズ',
+      title: '{{level}} 漢字の読み 30秒',
+      lead: '読み方を選んでください。数字キー1〜4でも選べます。',
+      start: 'スタート',
+      toLearn: '学習へ',
+      loadError:
+        '問題を読み込めませんでした。しばらくしてから開き直してください。',
+      quit: 'やめる',
+      correct: '正解',
+      streak: '{{n}}連続',
+      left: '残り{{s}}秒',
+      ok: '正解です',
+      ng: '不正解。正解は {{a}}',
+      scoreUnit: '問正解',
+      meta: '{{t}}問中{{n}}問 · 最大{{c}}問連続正解',
+      best: '自己ベスト {{b}}問',
+      toBest: 'あと{{n}}問',
+      newBest: '自己ベストです',
+      firstRecord: 'はじめての記録です',
+      previousBest: '前回のベスト {{b}}問',
+      again: 'もう一回',
+      wrong: '間違えた問題 {{n}}',
+      wrongTitle: '{{level}} 漢字の読み 30秒 · 間違えた問題 {{n}}',
+      backToResult: '結果へ'
+    },
     setup: {
       formTitle: '何を解きますか？',
       newTitle: '新しく解く',
