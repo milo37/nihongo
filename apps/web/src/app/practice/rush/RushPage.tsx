@@ -337,10 +337,7 @@ const Rush = ({ level, userId }: { level: JlptLevel; userId: string }) => {
     return (
       <section className="rush rush-result is-list">
         <p className="rush-level">
-          {t('rush.wrongTitle', {
-            level,
-            n: log.filter((row) => !row.ok).length
-          })}
+          {t('rush.wrongTitle', { n: log.filter((row) => !row.ok).length })}
         </p>
         <ul className="rush-wrong-list" lang="ja">
           {log
@@ -375,7 +372,11 @@ const Rush = ({ level, userId }: { level: JlptLevel; userId: string }) => {
         <Ring seconds={30} running={false} />
       </div>
       <h1>{t('rush.title', { level })}</h1>
-      <p>{t('rush.lead')}</p>
+      <p>
+        {t('rush.lead')}
+        {/* Keyboard hint on PC only. */}
+        <span className="rush-keys">{t('rush.keys')}</span>
+      </p>
       {best !== null ? (
         <p className="rush-best">{t('rush.best', { b: best })}</p>
       ) : null}
