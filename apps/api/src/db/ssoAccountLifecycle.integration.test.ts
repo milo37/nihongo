@@ -1210,6 +1210,51 @@ describe('JLP-483 SSO account lifecycle task-owned PostgreSQL contract', () => {
       ).toEqual({ eligibleCount: 0, deletedCount: 0, hasMore: false })
     })
   })
+  it('#1043: deletes sessions past the 30-day absolute limit the same day', async () => {
+    await h.rollback(async () => {
+      const old = await h.fixture('google', 'USER')
+      const live = await h.fixture('google', 'USER')
+      // Used daily until its limit: expiresAt sits at createdAt + 30 days.
+      await h.fixtureMutation(
+        `UPDATE "Session"
+         SET "createdAt" = clock_timestamp() - interval '30 days 1 minute',
+           "updatedAt" = clock_timestamp() - interval '1 day',
+           "expiresAt" = clock_timestamp() - interval '1 minute'
+         WHERE "userId" = $1`,
+        [old.userId]
+      )
+      // No Session can outlive its limit: expiresAt past createdAt + 30 days
+      // is refused, so the limit alone never leaves a row behind.
+      // Triggers off, so only the check answers; the rollback restores both.
+      await h.owner.query('SAVEPOINT absolute_limit')
+      await h.owner.query('SET LOCAL session_replication_role = replica')
+      await expect(
+        h.owner.query(
+          `UPDATE "Session" SET "expiresAt" = "createdAt" + interval '30 days 1 second'
+           WHERE "userId" = $1`,
+          [live.userId]
+        )
+      ).rejects.toMatchObject({ code: '23514' })
+      await h.owner.query('ROLLBACK TO SAVEPOINT absolute_limit')
+      let result = await deleteExpiredSessions(h.appClient, {
+        batchSize: 5_000,
+        dryRun: false
+      })
+      while (result.hasMore)
+        result = await deleteExpiredSessions(h.appClient, {
+          batchSize: 5_000,
+          dryRun: false
+        })
+      const left = (
+        await h.owner.query<{ userId: string }>(
+          `SELECT "userId" FROM "Session" WHERE "userId" = ANY($1::uuid[])`,
+          [[old.userId, live.userId]]
+        )
+      ).rows.map((row) => row.userId)
+      expect(left).not.toContain(old.userId)
+      expect(left).toContain(live.userId)
+    })
+  })
   it('JLP-845: a request waits 7 days, and a restore cancels it and keeps learning', async () => {
     await h.rollback(async () => {
       const worker = createSsoAccountErasureWorker(h.appClient)

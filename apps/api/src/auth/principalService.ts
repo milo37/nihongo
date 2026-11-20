@@ -13,7 +13,7 @@ import {
   type OwnedSessionClient
 } from './ownedSessionAuthority.js'
 
-const ABSOLUTE_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1_000
+export const ABSOLUTE_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1_000
 export const ADMIN_SESSION_ABSOLUTE_TTL_MS = 8 * 60 * 60 * 1_000
 
 const getAdminSessionExpiresAt = (sessionCreatedAt: Date): Date =>
