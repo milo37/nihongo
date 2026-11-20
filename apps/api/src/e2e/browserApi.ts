@@ -43,6 +43,10 @@ import {
   createPrismaStudyGoalRepository,
   createStudyGoalService
 } from '../member/studyGoal.js'
+import {
+  createPrismaRushKanjiPairsRepository,
+  createRushKanjiPairsReader
+} from '../question/rushKanjiPairs.js'
 import { createPrismaGuestAllowanceReader } from '../study/guestAllowance.js'
 import { createGuestIpDailyCounter } from '../study/guestIpDailyCounter.js'
 import { createPrismaStudySessionRepository } from '../study/studySessionRepository.js'
@@ -528,6 +532,9 @@ export const createBrowserApi = async ({
         ),
         studyGoalService: createStudyGoalService(
           createPrismaStudyGoalRepository(database.client)
+        ),
+        rushKanjiPairsReader: createRushKanjiPairsReader(
+          createPrismaRushKanjiPairsRepository(database.client)
         ),
         wrongNoteService: createWrongNoteService(
           createPrismaWrongNoteRepository(database.client)

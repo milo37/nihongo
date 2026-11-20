@@ -22,6 +22,10 @@ import {
   toDayNumber
 } from './dailyQuestion.js'
 import { createPrismaQuestionRepository } from './questionRepository.js'
+import {
+  createPrismaRushKanjiPairsRepository,
+  createRushKanjiPairsReader
+} from './rushKanjiPairs.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({
@@ -260,6 +264,53 @@ describe('question catalog PostgreSQL integration', () => {
     expect(body.question.options.map(({ id }) => id)).toContain(
       body.question.correctOptionId
     )
+  })
+
+  it('러시 한자 쌍은 게시된 한자 읽기 문항으로 만들고 모자라면 쉬운 급수로 채운다 (#1043)', async () => {
+    const levels = ['N5', 'N4', 'N3', 'N2', 'N1'] as const
+    const expected = new Map(
+      buildAllQuestionSeeds()
+        .filter(({ questionType }) => questionType === 'KANJI_READING')
+        .map((seed) => [
+          seed.questionId,
+          {
+            id: seed.questionId,
+            word: /「([^」]+)」/u.exec(seed.questionText)?.[1],
+            answer: seed.options.find(({ id }) => id === seed.correctOptionId)
+              ?.text,
+            wrong: seed.options
+              .toSorted((left, right) => left.ordinal - right.ordinal)
+              .filter(({ id }) => id !== seed.correctOptionId)
+              .map(({ text }) => text),
+            level: seed.level
+          }
+        ])
+    )
+    // The seed has one kanji reading question per level.
+    expect(expected.size).toBe(levels.length)
+    const repository = createPrismaRushKanjiPairsRepository(database.client)
+    const records = await repository.listPairs(levels)
+    expect(
+      records.toSorted((left, right) => left.id.localeCompare(right.id))
+    ).toEqual(
+      [...expected.values()].toSorted((left, right) =>
+        left.id.localeCompare(right.id)
+      )
+    )
+
+    // Fewer than 20 of the level: the easier levels fill, never harder ones.
+    const reader = createRushKanjiPairsReader(repository)
+    for (const [index, level] of levels.entries()) {
+      const response = await reader.read(level)
+      expect(response.level).toBe(level)
+      expect(
+        response.pairs.map(({ id }) => expected.get(id)?.level).toSorted()
+      ).toEqual(levels.slice(0, index + 1).toSorted())
+      for (const pair of response.pairs) {
+        const { level: _level, ...want } = expected.get(pair.id)!
+        expect(pair).toEqual(want)
+      }
+    }
   })
 
   it('오늘의 한 문제 원고지 글자 수는 SQL과 웹 카드가 같게 센다 (#1087)', async () => {

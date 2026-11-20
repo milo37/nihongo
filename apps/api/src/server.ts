@@ -55,6 +55,10 @@ import {
   createPrismaStudyGoalRepository,
   createStudyGoalService
 } from './member/studyGoal.js'
+import {
+  createPrismaRushKanjiPairsRepository,
+  createRushKanjiPairsReader
+} from './question/rushKanjiPairs.js'
 import { createPrismaStudyResultRetryRepository } from './study/studyResultRetryRepository.js'
 import {
   createGuestResultImportService,
@@ -192,6 +196,9 @@ const nicknameService = createNicknameService(
 const studyGoalService = createStudyGoalService(
   createPrismaStudyGoalRepository(database.client)
 )
+const rushKanjiPairsReader = createRushKanjiPairsReader(
+  createPrismaRushKanjiPairsRepository(database.client)
+)
 const adminQuestionReader = createAdminQuestionService(
   createPrismaAdminQuestionRepository(database.client)
 )
@@ -300,6 +307,7 @@ const app = createApiApp({
     targetLevelService,
     nicknameService,
     studyGoalService,
+    rushKanjiPairsReader,
     wrongNoteService
   },
   dailyQuestionReader,
