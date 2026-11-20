@@ -179,6 +179,10 @@
       "types": "./dist/study/study-session.d.ts",
       "import": "./dist/study/study-session.js"
     },
+    "./study/rush-best": {
+      "types": "./dist/study/rush-best.d.ts",
+      "import": "./dist/study/rush-best.js"
+    },
     "./study/study-result": {
       "types": "./dist/study/study-result.d.ts",
       "import": "./dist/study/study-result.js"
