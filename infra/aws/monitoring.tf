@@ -71,6 +71,8 @@ resource "aws_cloudwatch_metric_alarm" "cpu_credits" {
 }
 
 # Memory and disk come from the CloudWatch agent (files/cloudwatch-agent.json).
+# A host kept stopped (STAGING) sends no agent data while off; that silence is
+# not an alarm there. PRODUCTION still treats missing data as breaching.
 resource "aws_cloudwatch_metric_alarm" "memory" {
   alarm_name          = "${local.name}-memory"
   namespace           = "CWAgent"
@@ -81,7 +83,7 @@ resource "aws_cloudwatch_metric_alarm" "memory" {
   evaluation_periods  = 3
   threshold           = 85
   comparison_operator = "GreaterThanThreshold"
-  treat_missing_data  = "breaching"
+  treat_missing_data  = var.host_kept_stopped ? "notBreaching" : "breaching"
   alarm_actions       = [aws_sns_topic.alerts.arn]
 }
 
@@ -95,7 +97,7 @@ resource "aws_cloudwatch_metric_alarm" "disk" {
   evaluation_periods  = 1
   threshold           = 80
   comparison_operator = "GreaterThanThreshold"
-  treat_missing_data  = "breaching"
+  treat_missing_data  = var.host_kept_stopped ? "notBreaching" : "breaching"
   alarm_actions       = [aws_sns_topic.alerts.arn]
 }
 
