@@ -331,6 +331,9 @@ body:has(.rush.is-play) .app-mobile-navigation {
 .rush-box {
   position: relative;
   display: flex;
+  /* A narrow phone moves the box right just enough to keep Maru (84px
+     beside it) 11px from the edge, as on a 390 phone (design v5). */
+  margin-left: max(0px, 190px + var(--n) * 100px - 100vw);
 }
 .rush-box > span {
   display: grid;
@@ -632,6 +635,7 @@ body:has(.rush.is-play) .app-mobile-navigation {
     height: 110px;
     margin: -48px -14px 0 0;
   }
+  .rush-box,
   .rush-box.is-long {
     --cell: 112px;
     margin-left: 0;
