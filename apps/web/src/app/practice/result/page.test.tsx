@@ -592,6 +592,9 @@ describe('approved general result navigation', () => {
       expect(
         screen.getByRole('button', { name: '틀린 문제만 다시 풀기' })
       ).toBeDisabled()
+      expect(
+        screen.queryByRole('link', { name: /한자 스피드 퀴즈/u })
+      ).toBeNull()
     })
     view.unmount()
     fixture.client.clear()
@@ -839,6 +842,29 @@ describe('approved general result navigation', () => {
     expect(screen.queryByText(/^오늘 \d+ \/ /u)).toBeNull()
     view.unmount()
     fixture.client.clear()
+  })
+
+  it('회원 결과 맨 아래에만 그 급수의 한자 스피드 퀴즈 한 줄이 있다 (#1043 r4 §1)', async () => {
+    const member = await createFixture()
+    const memberView = member.mount()
+    const link = await screen.findByRole('link', { name: '한자 스피드 퀴즈 ›' })
+    expect(link).toHaveAttribute('href', '/practice/rush?level=N5')
+    const line = link.parentElement!
+    expect(line).toHaveTextContent('가볍게 한 판 더 · 한자 스피드 퀴즈 ›')
+    // The last thing in the result, after the explanations.
+    expect(line.previousElementSibling).toHaveClass('study-explanations')
+    expect(line.parentElement?.lastElementChild).toBe(line)
+    memberView.view.unmount()
+    member.client.clear()
+  })
+
+  it('비회원 결과에는 한자 스피드 퀴즈 줄이 없다 (#1043 r4 §1)', async () => {
+    const guest = await createFixture({ role: 'GUEST', mixed: false })
+    const guestView = guest.mount()
+    await screen.findByRole('heading', { level: 1 })
+    expect(screen.queryByRole('link', { name: /한자 스피드 퀴즈/u })).toBeNull()
+    guestView.view.unmount()
+    guest.client.clear()
   })
 
   it('모두 맞힌 결과는 안내 상자 없이 다음 10문제(주) 하나만 보여 준다', async () => {

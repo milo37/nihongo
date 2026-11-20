@@ -533,6 +533,7 @@ export const jaCoreResources = {
     name: '問題を解く',
     rush: {
       entry: '漢字スピードクイズ',
+      fromResult: '息抜きに',
       title: '{{level}} 漢字スピードクイズ',
       lead: '30秒間、読み方を選んでください。',
       keys: '数字キー1〜4でも選べます',

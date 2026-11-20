@@ -510,6 +510,7 @@ export const koCoreResources = {
     name: '문제 풀기',
     rush: {
       entry: '한자 스피드 퀴즈',
+      fromResult: '가볍게 한 판 더',
       title: '{{level}} 한자 스피드 퀴즈',
       lead: '30초 동안 읽는 법을 골라요.',
       keys: '숫자 키 1~4로도 고를 수 있어요',
