@@ -278,10 +278,6 @@ body:has(.rush.is-play) .app-mobile-navigation {
   font-size: 12px;
   letter-spacing: 2px;
 }
-.rush-streak.is-off {
-  color: rgb(var(--color-muted));
-  font-weight: 400;
-}
 .rush-ring {
   position: relative;
   width: 84px;
@@ -358,6 +354,18 @@ body:has(.rush.is-play) .app-mobile-navigation {
   width: var(--cell);
   height: var(--cell);
   font-size: calc(var(--cell) * 0.62);
+}
+/* Two kanji on phones narrower than 390: the same, so Maru is not cut. */
+@media (max-width: 389px) {
+  .rush-box.is-pair {
+    --cell: min(100px, (100vw - 116px) / var(--n));
+    margin-left: 84px;
+  }
+  .rush-box.is-pair > span {
+    width: var(--cell);
+    height: var(--cell);
+    font-size: calc(var(--cell) * 0.62);
+  }
 }
 .rush-word.is-ng .rush-box > span {
   animation: rush-shake 0.2s ease-in-out;

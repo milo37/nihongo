@@ -116,7 +116,7 @@ describe('#1043 30초 한자 러시', () => {
     answer(true)
     expect(screen.getByText('2연속')).toBeInTheDocument()
     answer(false)
-    expect(screen.getByText('연속 끊김')).toBeInTheDocument()
+    expect(screen.queryByText(/연속/)).not.toBeInTheDocument()
     answer(true)
 
     act(() => vi.advanceTimersByTime(30_000))
@@ -124,7 +124,9 @@ describe('#1043 30초 한자 러시', () => {
     expect(
       await screen.findByRole('heading', { name: /3개 맞혔어요/ })
     ).toBeInTheDocument()
-    expect(screen.getByText('4개 중 3개 · 최고 연속 2')).toBeInTheDocument()
+    expect(
+      screen.getByText('4개 중 3개 · 최대 2개 연속 정답')
+    ).toBeInTheDocument()
     expect(await screen.findByText('첫 기록이에요')).toBeInTheDocument()
     expect(puts).toEqual([{ mode: 'KANJI_RUSH_30S', level: 'N2', score: 3 }])
     expect(
@@ -150,12 +152,12 @@ describe('#1043 30초 한자 러시', () => {
     vi.useRealTimers()
     expect(await screen.findByText('첫 기록이에요')).toBeInTheDocument()
 
-    await startRound('다시')
+    await startRound('한 번 더')
     answer(true)
     act(() => vi.advanceTimersByTime(30_000))
     vi.useRealTimers()
     expect(await screen.findByText('내 최고기록 40개')).toBeInTheDocument()
-    expect(screen.queryByText('새 최고!')).not.toBeInTheDocument()
+    expect(screen.queryByText('최고 기록이에요')).not.toBeInTheDocument()
   })
 
   it('판 도중 탭을 떠나면 기록 없이 준비 화면으로 돌아간다', async () => {

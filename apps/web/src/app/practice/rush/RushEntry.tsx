@@ -23,10 +23,7 @@ export const RushEntry = ({
         </svg>
         <span>
           <b>{t('rush.entry')}</b>
-          <small>
-            {t('rush.entryLead')}
-            {best === null ? null : ` · ${t('rush.best', { b: best })}`}
-          </small>
+          {best === null ? null : <small>{t('rush.best', { b: best })}</small>}
         </span>
       </Link>
     </section>

@@ -5,6 +5,7 @@ import {
   submitRushScoreBodySchema,
   submitRushScoreResponseSchema
 } from '@nihongo/contracts/study/rush-best'
+import { rushKanjiPairsResponseSchema } from '@nihongo/contracts/study/rush-pairs'
 import { rushPairsByLevel } from '@mocks/data/rushPairs'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import {
@@ -49,13 +50,17 @@ export const rushHandlers = [
       )
       const pairs = (rushPairsByLevel[level] ?? []).map(
         ([word, answer, ...wrong], index) => ({
-          id: `${level}-rush-${index}`,
+          // A fixed uuid per level and pair, as the contract asks.
+          id: `00000000-0000-4000-8000-${level.slice(1)}${String(index).padStart(11, '0')}`,
           word: word!,
           answer: answer!,
           wrong
         })
       )
-      return HttpResponse.json({ level, pairs }, noStore)
+      return HttpResponse.json(
+        rushKanjiPairsResponseSchema.parse({ level, pairs }),
+        noStore
+      )
     } catch (error: unknown) {
       return toErrorResponse(error)
     }

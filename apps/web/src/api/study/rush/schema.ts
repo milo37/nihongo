@@ -4,10 +4,11 @@ import type {
   RushBestResponse,
   SubmitRushScoreResponse
 } from '@nihongo/contracts/study/rush-best'
+import type { RushKanjiPairsResponse } from '@nihongo/contracts/study/rush-pairs'
 
-// #1043: the rush's server shapes. The best score ones are checked against
-// the contract (BE #1158) by type only: importing its module would split a
-// shared chunk off, and the bundle has no file to spare.
+// #1043: the rush's server shapes, checked against the contracts (BE #1158,
+// #1159) by type only: importing their modules would split a shared chunk
+// off, and the bundle has no file to spare.
 export const RUSH_SCORE_MAX = 60
 
 const rushBestEntrySchema = z.object({
@@ -26,18 +27,19 @@ export const submitRushScoreResponseSchema = z.object({
   isNewBest: z.boolean()
 }) satisfies z.ZodType<SubmitRushScoreResponse>
 
-// The pair list (BE #1159); swap for its contract once merged.
 export const rushPairsResponseSchema = z.object({
   level: jlptLevelSchema,
-  pairs: z.array(
-    z.object({
-      id: z.string(),
-      word: z.string(),
-      answer: z.string(),
-      wrong: z.array(z.string()).length(3)
-    })
-  )
-})
+  pairs: z
+    .array(
+      z.object({
+        id: z.string(),
+        word: z.string().min(1),
+        answer: z.string().min(1),
+        wrong: z.array(z.string().min(1)).length(3)
+      })
+    )
+    .max(RUSH_SCORE_MAX)
+}) satisfies z.ZodType<RushKanjiPairsResponse>
 
 export type RushPair = z.output<typeof rushPairsResponseSchema>['pairs'][number]
 export type RushBests = z.output<typeof rushBestResponseSchema>

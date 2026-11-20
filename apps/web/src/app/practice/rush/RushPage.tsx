@@ -245,14 +245,13 @@ const Rush = ({ level, userId }: { level: JlptLevel; userId: string }) => {
             <small>{t('rush.correct')}</small>
           </p>
           <Ring seconds={seconds} running />
-          <p className={streak >= 2 ? 'rush-streak' : 'rush-streak is-off'}>
-            {streak >= 2
-              ? t('rush.streak', { n: streak })
-              : log.at(-1)?.ok === false
-                ? t('rush.streakOff')
-                : null}
+          {/* Below two in a row the spot stays empty (no "streak lost"). */}
+          <p className="rush-streak">
             {streak >= 2 ? (
-              <i aria-hidden="true">{'○'.repeat(Math.min(streak, 5))}</i>
+              <>
+                {t('rush.streak', { n: streak })}
+                <i aria-hidden="true">{'○'.repeat(Math.min(streak, 5))}</i>
+              </>
             ) : null}
           </p>
         </div>
@@ -263,7 +262,11 @@ const Rush = ({ level, userId }: { level: JlptLevel; userId: string }) => {
         >
           <span
             className={
-              shown.pair.word.length > 2 ? 'rush-box is-long' : 'rush-box'
+              shown.pair.word.length > 2
+                ? 'rush-box is-long'
+                : shown.pair.word.length === 2
+                  ? 'rush-box is-pair'
+                  : 'rush-box'
             }
             style={{ '--n': shown.pair.word.length } as CSSProperties}
           >
