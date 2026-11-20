@@ -220,6 +220,18 @@ it('explains reporting and an unset contact email without inventing a form, emai
   ).toBeNull()
 })
 
+it('lists the kanji speed quiz best score as collected and deleted on leaving (#1043)', async () => {
+  renderInformationRoute('/legal#privacy')
+  await screen.findByRole('heading', { level: 1, name: '이용 안내' })
+  const privacy = document.getElementById('privacy')!
+  expect(privacy).toHaveTextContent(
+    '가입 확인 기록(만 14세 이상 확인 여부와 시각, 이용약관·개인정보 처리방침 확인 시각과 확인한 판), 한자 스피드 퀴즈 최고 기록(급수별 맞힌 개수)'
+  )
+  expect(privacy).toHaveTextContent(
+    '학습 기록(학습 세션, 답안, 결과, 임시 저장, 한자 스피드 퀴즈 최고 기록)'
+  )
+})
+
 const renderLegalPage = (page: 'legal' | 'support', settings: LegalSettings) =>
   render(
     <QueryClientProvider client={queryClient}>
