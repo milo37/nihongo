@@ -588,16 +588,16 @@ export const assertApiIntegrationVitestFileResult = ({
   }
   if (
     expectedPath === ssoAccountLifecycleDbTestFile &&
-    result.numTotalTests !== 16
+    result.numTotalTests !== 17
   ) {
     // #504 P7 PR5a adds the API link and unlink trigger case; #57 the
     // erasure role refusal case; #670 the tokenless end-to-end erasure;
     // JLP-841 the last ACTIVE ADMIN refusal; JLP-845 the grace-period
     // restore and its refusal; JLP-852 the erasure after a year without
-    // sign-in; #1085 the sign-up consent; #695 the expired session cleanup; #702 the
+    // sign-in; #1085 the sign-up consent; #695 the expired session cleanup; #1043 the 30-day limit cleanup; #702 the
     // erasure re-apply after a restore.
     throw new Error(
-      'SSO account lifecycle requires exactly sixteen passing tests.'
+      'SSO account lifecycle requires exactly seventeen passing tests.'
     )
   }
   const resultPaths = (result.testResults ?? [])
