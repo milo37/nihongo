@@ -42,7 +42,7 @@ export const bundleCeilings = Object.freeze({
   // icon (operator decision 2026-11-16, PWA 3 files).
   // #1096 nickname: the field shared by the sign-up check and My page is its
   // own chunk (operator decision 2026-11-18).
-  emittedFileCount: 103,
+  emittedFileCount: 104,
   // The header account menu, with its logout dialog, loads on every page
   // (bundle 1 #734): two more initial chunks, about 5.5 KB gzip.
   // U12 (JLP-791): the shared global error handler now raises offline and
@@ -77,7 +77,9 @@ export const bundleCeilings = Object.freeze({
   // #1096 nickname: 482,593 measured (operator decision 2026-11-18).
   // #1090 onboarding: the study goal page, My page goal row and result goal
   // line; 486,824 measured (operator decision 2026-11-18).
-  totalGzipBytes: 487_000,
+  // #1043 kanji rush: +7.8 KB (491,211 measured; operator approved
+  // 2026-11-20).
+  totalGzipBytes: 492_000,
   // #761 + U4 (#767 c9af0ed5): 1,482,644 measured (god approved; re-measure after deploy).
   totalRawBytes: 1_483_000
 })
@@ -89,7 +91,8 @@ export const approvedStaticAssetPaths = Object.freeze([
   'favicon.ico',
   'favicon.svg',
   'icons/icon-192.png',
-  'icons/icon-512.png'
+  'icons/icon-512.png',
+  'share-card.png'
 ])
 
 // #1045: the home screen service worker is a plain public file, not a Vite

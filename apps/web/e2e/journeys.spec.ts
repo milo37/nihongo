@@ -299,6 +299,8 @@ const userJourneyRequestContract = [
   ...accountPageRequestContract,
   // My page once and the result screen twice (opened, then reloaded).
   studyGoalReads(3),
+  // #1043: the learn tab's rush row reads the member's best scores once.
+  { method: 'GET', path: '/api/v1/me/rush-best', statuses: [200] },
   {
     method: 'GET',
     path: '/api/v1/me',
@@ -1313,6 +1315,8 @@ test('guest SSO boundary and authenticated practice transition match the active 
   assertExactRequestMultiset(ledger, [
     ...ssoRequestContract,
     studyGoalReads(0),
+    // #1043: the learn tab's rush row reads the member's best scores once.
+    { method: 'GET', path: '/api/v1/me/rush-best', statuses: [200] },
     {
       method: 'GET',
       path: '/api/v1/me',
@@ -1422,6 +1426,10 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
     created.session.id,
     originalNow
   )
+  // #1094: only the submission answer carries stampEarned; this member has
+  // no daily goal, so no stamp.
+  const { stampEarned, ...primaryResult } = primarySubmission
+  expect(stampEarned).toBe(false)
   expect(primarySubmission).toMatchObject({
     correctCount: 2,
     correctRate: 40,
@@ -1443,7 +1451,7 @@ test('USER completes one setup-to-dashboard journey with an exact mutation ledge
   )
   await page.reload()
   const persisted = await reloadedResult
-  expect(persisted).toEqual(primarySubmission)
+  expect(persisted).toEqual(primaryResult)
   await expect(
     page.getByRole('heading', { level: 1, name: /문제 중 .*맞음/u })
   ).toBeVisible()

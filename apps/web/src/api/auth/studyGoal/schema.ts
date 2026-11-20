@@ -9,5 +9,7 @@ export const studyGoalResponseSchema = z.object({
   goalSetAt: z.string().nullable(),
   skippedAt: z.string().nullable(),
   onboardingRequired: z.boolean(),
-  todayAnsweredCount: z.number().int().nonnegative()
+  todayAnsweredCount: z.number().int().nonnegative(),
+  // #1094: this Asia/Seoul month's stamp days, ascending YYYY-MM-DD.
+  monthStampDates: z.array(z.iso.date()).max(31)
 }) satisfies z.ZodType<StudyGoal>

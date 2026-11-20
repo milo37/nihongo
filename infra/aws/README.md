@@ -54,7 +54,7 @@ aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUT
 
 **배포 절차는 [operations/runbooks/deploy.v1.md](../../operations/runbooks/deploy.v1.md) 하나에 있습니다.** 기본은 자동입니다: `main` 병합 → `release-image.yml`이 `ECR:<SHA>`·`ECR:<SHA>-migrate` push → 같은 워크플로의 `Deploy to STAGING`이 OIDC 역할로 `harumaru-staging-deploy`(releaseId=그 SHA) 실행 → `/health/ready` 200 확인. PRODUCTION은 GitHub environment 승인 버튼으로 할 예정입니다(아직 없음). 수동 `send-command`는 그 문서의 부록(비상·학습용)에만 있습니다.
 
-호스트의 `deploy.sh`: 비밀값 갱신 → 두 이미지 pull → postgres 기동 → `provision-db.sh`(DB 역할 생성·검증) → `migrate.sh`(S3에 `pg_dump` 스냅샷 → `prisma migrate deploy` 1회성 컨테이너) → `register-capability.sh`(빈 DB면 `DatabaseCapability` 등록, 있으면 확인만, 어긋나면 중단) → api 재시작 → `/health/ready`의 `x-release-id` 확인 → 실패하면 직전 이미지로 롤백. 자세한 내용과 롤백은 [production-database.v1.md](../../operations/runbooks/production-database.v1.md)에 있습니다. 배포 문서의 다음 단계 `pruneImages`는 배포 성공·실패와 관계없이 api 이미지를 실행 중인 릴리스와 가장 최근의 다른 이미지 하나만 남기고 지웁니다(옛 이미지는 ECR에 남음, 볼륨은 건드리지 않음). `deploy.sh`가 아니라 SSM 문서에 둔 것은 호스트 파일이 새 호스트에서만 바뀌기 때문입니다(#1042). 환경을 처음 채울 때만 첫 관리자 → [question-import.v1.md](../../operations/runbooks/question-import.v1.md)(태그 18 → 500문제 → 일괄 검수 요청·승인·공개)를 한 번 합니다.
+호스트의 `deploy.sh`: 비밀값 갱신 → 두 이미지 pull → postgres 기동 → `provision-db.sh`(DB 역할 생성·검증) → `migrate.sh`(S3에 `pg_dump` 스냅샷 → `prisma migrate deploy` 1회성 컨테이너) → `register-capability.sh`(빈 DB면 `DatabaseCapability` 등록, 있으면 확인만, 어긋나면 중단) → api 재시작 → `/health/ready`의 `x-release-id` 확인 → 실패하면 직전 이미지로 롤백. 자세한 내용과 롤백은 [production-database.v1.md](../../operations/runbooks/production-database.v1.md)에 있습니다. 배포 문서의 다음 단계 `pruneImages`는 배포 성공·실패와 관계없이 api 이미지를 실행 중인 릴리스와 가장 최근의 다른 이미지 하나만 남기고 지웁니다(옛 이미지는 ECR에 남음, 볼륨은 건드리지 않음). `deploy.sh`가 아니라 SSM 문서에 둔 것은 호스트 파일이 새 호스트에서만 바뀌기 때문입니다(#1042). 환경을 처음 채울 때만 첫 관리자 → [question-import.v1.md](../../operations/runbooks/question-import.v1.md)(태그 18 → 888문제 → 일괄 검수 요청·승인·공개)를 한 번 합니다.
 
 **CSP(JLP-788):** API가 모든 응답에 `Content-Security-Policy`를 붙이고, STAGING·PRODUCTION 모두 기본으로 막습니다(enforce). `CSP_MODE=report-only`를 명시할 때만 보고만 하고(브라우저 콘솔), 그 밖의 값이면 API가 시작하지 않습니다.
 
@@ -82,6 +82,17 @@ aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUT
 - 이 명령에만 `RETENTION_ENVIRONMENT=PRODUCTION`, `RETENTION_CONFIRM=COUNT_RETENTION_COHORTS`, `PRODUCTION_DATABASE_URL`(SSM)을 환경 변수로 넘기고, DB 로그인은 API의 `DATABASE_URL`(`nihongo_app`)을 씁니다. STAGING도 DB가 PRODUCTION 형태라 같은 값입니다.
 - 예약: `retention_schedule_expression`(Asia/Seoul). PRODUCTION 기본 매일 00:05, STAGING은 하루 창 안의 05:15. 둘 다 비회원 정리(PRODUCTION 매시 30분, STAGING 05:30)보다 먼저 돕니다. 비회원은 비회원 기록(`GuestPrincipal`)이 만들어진 날로 묶고, 그날 정리로 지워질 비회원 문제 세트가 남아 있을 때 읽게 하려는 것입니다. 놓친 날은 다음 실행이 채웁니다. 회원은 14일 안, 비회원은 다음날·1~7일 칸 D+9·7일째 칸 D+14까지만 정확합니다(그 뒤는 비회원 세트가 지워져 작게 쓰임). 기본 `DISABLED`이고, **집계 테이블 migration이 들어간 릴리스가 배포된 뒤에** `retention_schedule_enabled = true`로 켭니다.
 - 수동 실행: `aws ssm send-command --document-name harumaru-<env>-retention-cohort --instance-ids <id>`. 출력은 `study.retention_cohort.counted`(`nextDayWritten`, `weekWritten`, `failedDays`) 또는 `study.retention_cohort.failed`.
+
+## 보존 기간 정리 (#671)
+
+- `harumaru-<env>-cleanup` SSM 문서 하나가 배포된 이미지로 정리 명령 하나를 한 번 돌립니다(`files/cleanup-job.sh`). 매개변수 `job`(허용값만)과 `dryRun`(`true`/`false`, 기본 `true`)을 받습니다.
+  - `report-retention`: 닫힌 신고의 설명을 닫힌 지 180일 뒤 지움(JLP-702 약속, `userReportRetentionCommand.js`)
+  - `study-drafts`: 만료된 풀이 임시저장·멱등 기록(#699, `studyDraftCleanupCommand.js`)
+  - `expired-sessions`: 만료된 로그인 세션(#695, `sessionRetentionCommand.js`)
+- 모두 `nihongo_app`으로, `PRODUCTION_DATABASE_URL`과 정확히 같은 대상일 때만 돕니다. dry-run은 대상 수만 세고 바꾸지 않습니다. 종료 코드 1은 실패뿐이고 실패는 위와 같은 실패 알림으로 갑니다. 한 번에 다 못 지워 남은 행은 종료 코드 0이며, 완료 로그의 `hasMore`·`…LimitReached`로 확인하고 다음 실행이 이어서 지웁니다.
+- 예약: `cleanup_schedules`(Asia/Tokyo, 작업마다 `enabled`·`dry_run`·`expression`). 기본은 모두 `DISABLED`·dry-run이고 PRODUCTION 매일 04:10·04:20·04:40입니다. STAGING은 하루 창 안(예: 05:35·05:40·05:45)으로 tfvars에서 바꿉니다. **PRODUCTION에서 `dry_run = false`(실제 삭제)는 운영자 승인 뒤**에만 바꿉니다. 순서: STAGING dry-run → STAGING 실제 → PRODUCTION dry-run(대상 수 확인) → 승인 → PRODUCTION 실제.
+- 수동 실행: `aws ssm send-command --document-name harumaru-<env>-cleanup --instance-ids <id> --parameters job=report-retention,dryRun=true`
+- 비회원 정리(#694)는 위 `guest-cleanup` 문서·예약을 그대로 씁니다. 예전의 공급자 중립 정의 `operations/guest-cleanup-job.v1.json`은 Terraform과 어긋나 지웠습니다.
 
 ## state와 두 스택 (JLP-835)
 

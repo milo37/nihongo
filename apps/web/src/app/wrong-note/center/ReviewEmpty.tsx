@@ -40,6 +40,7 @@ export const ReviewEmpty = ({
     // JLP-855: no manuscript paper, message at the start edge.
     <EmptyState
       className="items-start! mx-0! px-0! text-start! [&>h2]:text-pretty [&:lang(ko)>h2]:break-keep"
+      illustration={<span className="maru-empty" aria-hidden="true" />}
       title={t(`empty.${empty}.title`)}
       description={
         // 'never' is one sentence (plan-notes §4).

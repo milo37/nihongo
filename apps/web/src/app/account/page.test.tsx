@@ -212,6 +212,119 @@ describe('마이페이지 계정 설정', () => {
     expect(link).toHaveAttribute('href', '/onboarding?redirect=%2Faccount')
   })
 
+  describe('이번 달 도장판 (#1154 M-2f)', () => {
+    // 2026-11-25 12:00 in Seoul; November 2026 starts on a Sunday.
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ['Date'] })
+      vi.setSystemTime(new Date('2026-11-25T03:00:00Z'))
+    })
+    afterEach(() => vi.useRealTimers())
+
+    it('오늘 찍혔으면 큰 자리에 도장, 버튼으로 이번 달 달력을 열고 닫는다 (P1·P4·A1)', async () => {
+      const member = mockDatabase.loginAs('USER')
+      mockDatabase.setStudyGoal(member.id, 'N3', 30)
+      mockDatabase.setStampDays(member.id, [
+        '2026-10-31',
+        '2026-11-01',
+        '2026-11-03',
+        '2026-11-25'
+      ])
+      renderAccount()
+      expect(
+        await screen.findByRole('heading', { name: '11월 도장판' })
+      ).toBeVisible()
+      const today = screen.getByRole('img', { name: '오늘 도장, 찍었어요' })
+      expect(today.querySelector('.maru-stamp')).not.toBeNull()
+      const calendar = screen.getByRole('img', {
+        name: '11월 도장판, 도장 3개'
+      })
+      expect(calendar).not.toHaveClass('is-open')
+      expect(calendar).not.toHaveTextContent('3개')
+      // Folded, this week (22~28) is the one row left (F1).
+      const current = calendar.querySelectorAll('.stamp-board-week.is-current')
+      expect(current).toHaveLength(1)
+      expect(current[0]).toHaveTextContent('22232425262728')
+      const toggle = screen.getByRole('button', { name: '11월 달력 펼치기' })
+      expect(toggle).toHaveAttribute('aria-expanded', 'false')
+      expect(toggle).toHaveAttribute('aria-controls', calendar.id)
+      await userEvent.click(toggle)
+      expect(toggle).toHaveAccessibleName('11월 달력 접기')
+      expect(toggle).toHaveAttribute('aria-expanded', 'true')
+      expect(toggle).toHaveFocus()
+      expect(calendar).toHaveClass('is-open')
+      const days = calendar.querySelectorAll('.stamp-board-day')
+      expect(days).toHaveLength(30)
+      expect(days[0]).toHaveStyle({ gridColumnStart: '1' })
+      expect(calendar.querySelectorAll('.maru-stamp')).toHaveLength(3)
+      expect(days[24]).toHaveClass('is-today')
+      expect(days[25]).toHaveClass('is-later')
+      await userEvent.click(toggle)
+      expect(calendar).not.toHaveClass('is-open')
+    })
+
+    it('오늘 아직이면 점선 빈 자리만, 빈 달이면 버튼도 없다 (P2·P3)', async () => {
+      const member = mockDatabase.loginAs('USER')
+      mockDatabase.setStudyGoal(member.id, 'N3', 30)
+      mockDatabase.setStampDays(member.id, ['2026-11-24'])
+      const first = renderAccount()
+      const waiting = await screen.findByRole('img', {
+        name: '오늘 도장, 아직이에요'
+      })
+      expect(waiting).toBeEmptyDOMElement()
+      expect(
+        screen.getByRole('button', { name: '11월 달력 펼치기' })
+      ).toBeVisible()
+      first.dispose()
+      cleanup()
+      mockDatabase.setStampDays(member.id, ['2026-10-30'])
+      renderAccount()
+      expect(
+        await screen.findByRole('img', { name: '11월 도장판, 도장 0개' })
+      ).toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: '11월 달력 펼치기' })
+      ).not.toBeInTheDocument()
+    })
+
+    it('목표가 없으면 도장판이 없고, 다시 정하면 이번 달 기록이 그대로 보인다 (A3)', async () => {
+      const member = mockDatabase.loginAs('USER')
+      mockDatabase.setStampDays(member.id, ['2026-11-03'])
+      const first = renderAccount()
+      expect(
+        await screen.findByRole('link', { name: '목표 정하기' })
+      ).toBeVisible()
+      expect(
+        screen.queryByRole('heading', { name: '11월 도장판' })
+      ).not.toBeInTheDocument()
+      first.dispose()
+      cleanup()
+      mockDatabase.setStudyGoal(member.id, 'N3', 30)
+      renderAccount()
+      expect(
+        await screen.findByRole('img', { name: '11월 도장판, 도장 1개' })
+      ).toBeInTheDocument()
+    })
+
+    it('6줄 달은 표시하고 ja 문구로 읽는다 (C4)', async () => {
+      vi.setSystemTime(new Date('2027-01-15T03:00:00Z'))
+      writeUiLocalePreference('ja')
+      const member = mockDatabase.loginAs('USER')
+      mockDatabase.setStudyGoal(member.id, 'N3', 30)
+      mockDatabase.setStampDays(member.id, ['2027-01-15'])
+      renderAccount()
+      const calendar = await screen.findByRole('img', {
+        name: '1月のスタンプカード、スタンプ1個'
+      })
+      expect(calendar).toHaveClass('is-six-rows')
+      expect(calendar.querySelector('.stamp-board-day')).toHaveStyle({
+        gridColumnStart: '6'
+      })
+      expect(
+        screen.getByRole('img', { name: '今日のスタンプ、押しました' })
+      ).toBeInTheDocument()
+    })
+  })
+
   it('닉네임은 [바꾸기]로 같은 자리에서 고치고, 저장하면 이름과 첫 글자가 바뀐다 (#1096)', async () => {
     mockDatabase.loginAs('USER')
     const puts: unknown[] = []

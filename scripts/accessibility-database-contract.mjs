@@ -31,6 +31,7 @@ export const accessibilityDatabaseTables = [
   'RetentionCohort',
   'ReviewEvent',
   'ReviewSchedule',
+  'RushBest',
   'Session',
   'SsoAccountErasureRequest',
   'SsoAccountFreshProof',
@@ -38,6 +39,7 @@ export const accessibilityDatabaseTables = [
   'SsoAdminFreshProof',
   'SsoAdminFreshTransaction',
   'SsoLoginTransaction',
+  'StampLedger',
   'StudyAnswer',
   'StudyDraft',
   'StudyDraftAnswer',
@@ -81,6 +83,8 @@ export const accessibilityExpectedTableDeltas = {
   RetentionCohort: 0,
   ReviewEvent: 10,
   ReviewSchedule: 10,
+  // #1043: the scan plays no rush.
+  RushBest: 0,
   Session: 2,
   SsoAccountErasureRequest: 0,
   SsoAccountFreshProof: 0,
@@ -88,6 +92,8 @@ export const accessibilityExpectedTableDeltas = {
   SsoAdminFreshProof: 0,
   SsoAdminFreshTransaction: 0,
   SsoLoginTransaction: 0,
+  // #1094: the scan's members skipped the daily goal, so they earn none.
+  StampLedger: 0,
   StudyAnswer: 10,
   StudyDraft: 1,
   StudyDraftAnswer: 3,

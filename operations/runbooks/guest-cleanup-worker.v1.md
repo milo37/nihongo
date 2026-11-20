@@ -103,20 +103,7 @@ Local rehearsal (2026-11-07, release `aeb65e4e`, host compose file, stub
 formats, a row 6 days past and an unknown key were kept; a guest principal 8
 days past expiry was deleted, one 6 days past was kept; a second run deleted 0.
 
-`operations/guest-cleanup-job.v1.json` below is the older provider-neutral
-definition and is superseded by the AWS schedule.
-
-## Daily 03:00 Korea Standard Time definition
-
-`operations/guest-cleanup-job.v1.json` is disabled and provider neutral:
-`0 3 * * *` in `Asia/Seoul`, equivalent to `0 18 * * *` in UTC. Select one
-timezone interpretation, never both. Use the immutable reviewed image digest,
-one concurrent run, no overlap, no automatic retries and no missed-run catchup.
-The database advisory lock is an additional overlap guard; contention fails.
-
-The environment owner must map this definition to the approved scheduler,
-bind the dedicated identity and alerts, and prove the container deadline before
-enabling it. Do not install an operating-system cron job. This file registers
-nothing. PRODUCTION still requires separate target/role/capability approvals,
-`PRODUCTION_DATABASE_URL` matching the exact worker target, and an approved
-production migration path; the current migration preflight is TEST/DEVELOPMENT only.
+The schedule is defined only in Terraform (`infra/aws/operations.tf`). The
+older provider-neutral `operations/guest-cleanup-job.v1.json` was removed in
+#671; the other retention cleanups use the same schedule pattern
+(`infra/aws/README.md`, "보존 기간 정리").

@@ -1,4 +1,7 @@
-import type { ParsedSubmitStudySessionV2Body } from '@nihongo/contracts/study/submit-study-session'
+import type {
+  ParsedSubmitStudySessionV2Body,
+  SubmitStudySessionV2Response
+} from '@nihongo/contracts/study/submit-study-session'
 import type { StudyResult } from '@nihongo/contracts/study/study-result'
 import {
   StudyGradingError,
@@ -29,7 +32,7 @@ import {
 interface SubmitStudySessionServiceResult {
   readonly guestProofExpiresAt: Date | null
   readonly replayed: boolean
-  readonly response: StudyResult
+  readonly response: SubmitStudySessionV2Response
 }
 
 export interface StudySubmissionService {

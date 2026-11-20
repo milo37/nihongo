@@ -18,6 +18,11 @@ alert_email            = "owner@example.com"
 # retention_schedule_expression     = "cron(15 5 * * ? *)"
 # guest_cleanup_schedule_expression = "cron(30 5 * * ? *)"
 # host_stop_schedule_expression     = "cron(50 5 * * ? *)"
+# cleanup_schedules = {                    # #671, inside the window; off and dry-run
+#   report-retention = { enabled = false, dry_run = true, expression = "cron(35 5 * * ? *)" }
+#   study-drafts     = { enabled = false, dry_run = true, expression = "cron(40 5 * * ? *)" }
+#   expired-sessions = { enabled = false, dry_run = true, expression = "cron(45 5 * * ? *)" }
+# }
 # deploy_role_can_start_host        = true
 # host_kept_stopped                 = true
 

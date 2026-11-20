@@ -67,6 +67,18 @@
     {
       "name": "20261123090000_reapply_erasure_original_deadline",
       "checksum": "ccad8014d7b655e9d760e4431dda5f98293b639b439e1401a3d02640955ca7a3"
+    },
+    {
+      "name": "20261124090000_stamp_ledger",
+      "checksum": "317e3ffe5d51cb646d5826b3fb9c9eb19944af57405718685b7be94dbc012a8b"
+    },
+    {
+      "name": "20261124100000_stamp_ledger_amount",
+      "checksum": "d2b44a491f87561d7d79ea3a9db538c9049f40f5c8fa737fae0fa32228761cb6"
+    },
+    {
+      "name": "20261125090000_rush_best",
+      "checksum": "fac278f5640bede6a51322e895253fb3330ad2939b4f0e52b4b12584c38b7728"
     }
   ]
 }

@@ -16,7 +16,7 @@ const readImportFile = (name: string): unknown =>
   JSON.parse(readFileSync(join(questionImportDirectory, name), 'utf8'))
 
 describe('question import files (#633)', () => {
-  it('are the fifteen level files (JLP-816, #1081)', () => {
+  it('are the twenty level files (JLP-816, #1081, #1043)', () => {
     expect(readdirSync(questionImportDirectory).sort()).toEqual(
       [...importFileNames].sort()
     )
@@ -39,7 +39,7 @@ describe('question import files (#633)', () => {
         count += 1
       }
     }
-    expect(count).toBe(750)
+    expect(count).toBe(888)
   })
 
   it('use one or two active tags.v2.json keys of the item subject (#646)', () => {

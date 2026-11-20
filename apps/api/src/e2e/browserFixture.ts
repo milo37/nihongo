@@ -33,6 +33,14 @@ import {
   createPrismaStudyGoalRepository,
   createStudyGoalService
 } from '../member/studyGoal.js'
+import {
+  createPrismaRushBestRepository,
+  createRushBestService
+} from '../member/rushBest.js'
+import {
+  createPrismaRushKanjiPairsRepository,
+  createRushKanjiPairsReader
+} from '../question/rushKanjiPairs.js'
 import { createPrismaGuestAllowanceReader } from '../study/guestAllowance.js'
 import { createGuestIpDailyCounter } from '../study/guestIpDailyCounter.js'
 import { createPrismaStudyDraftRepository } from '../study/studyDraftRepository.js'
@@ -1603,6 +1611,12 @@ const createSsoBrowserApiFixture = async (
         ),
         studyGoalService: createStudyGoalService(
           createPrismaStudyGoalRepository(database.client)
+        ),
+        rushBestService: createRushBestService(
+          createPrismaRushBestRepository(database.client)
+        ),
+        rushKanjiPairsReader: createRushKanjiPairsReader(
+          createPrismaRushKanjiPairsRepository(database.client)
         ),
         wrongNoteService
       },

@@ -37,7 +37,10 @@ export const studyGoalResponseSchema = z
     onboardingRequired: z.boolean(),
     // Answers in sets submitted today (Asia/Seoul day), every level,
     // subject and mode; abandoned sets and the daily question do not count.
-    todayAnsweredCount: z.number().int().nonnegative()
+    todayAnsweredCount: z.number().int().nonnegative(),
+    // #1094: days of this Asia/Seoul month with an attendance stamp,
+    // ascending YYYY-MM-DD; empty when none.
+    monthStampDates: z.array(z.iso.date()).max(31)
   })
   .strict()
 

@@ -6,6 +6,11 @@ const PracticePage = lazy(() =>
     default: module.PracticePage
   }))
 )
+const RushPage = lazy(() =>
+  import('@app/practice/page').then((module) => ({
+    default: module.RushPage
+  }))
+)
 const PracticeSessionPage = lazy(() =>
   import('@app/practice/session/page').then((module) => ({
     default: module.PracticeSessionPage
@@ -21,6 +26,10 @@ export const practiceRoutes: RouteObject[] = [
   {
     path: 'practice',
     element: <PracticePage />
+  },
+  {
+    path: 'practice/rush',
+    element: <RushPage />
   },
   {
     path: 'practice/session/:sessionId',

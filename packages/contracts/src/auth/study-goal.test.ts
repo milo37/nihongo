@@ -45,14 +45,24 @@ describe('study goal contract (#1090)', () => {
       goalSetAt: null,
       skippedAt: null,
       onboardingRequired: true,
-      todayAnsweredCount: 0
+      todayAnsweredCount: 0,
+      monthStampDates: []
     }
     expect(studyGoalResponseSchema.parse(unanswered)).toEqual(unanswered)
-    expect(
-      studyGoalResponseSchema.safeParse({
-        ...unanswered,
-        todayAnsweredCount: -1
-      }).success
-    ).toBe(false)
+    const stamped = {
+      ...unanswered,
+      monthStampDates: ['2026-11-01', '2026-11-18']
+    }
+    expect(studyGoalResponseSchema.parse(stamped)).toEqual(stamped)
+    for (const invalid of [
+      { todayAnsweredCount: -1 },
+      // #1094: this month's stamp days are required calendar dates.
+      { monthStampDates: undefined },
+      { monthStampDates: ['2026-11-31'] },
+      { monthStampDates: ['2026-11-18T00:00:00Z'] }
+    ])
+      expect(
+        studyGoalResponseSchema.safeParse({ ...unanswered, ...invalid }).success
+      ).toBe(false)
   })
 })
