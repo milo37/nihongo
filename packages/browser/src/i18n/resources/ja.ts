@@ -1135,6 +1135,8 @@ export const jaCoreResources = {
     // #1154 M-2f: this month's stamps under the goal row.
     // #1055 today's omikuji (members only).
     omikuji: {
+      label: 'おみくじ',
+      kind: 'おみくじ',
       draw: '今日のおみくじを引く',
       view: '今日のおみくじを見る',
       heading: '{{month}}月{{day}}日・今日のおみくじ',

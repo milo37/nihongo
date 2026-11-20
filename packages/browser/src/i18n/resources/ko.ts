@@ -1082,15 +1082,17 @@ export const koCoreResources = {
     // only in the calendar's spoken name, never on screen.
     // #1055 today's omikuji (members only).
     omikuji: {
-      draw: '오늘의 おみくじ 뽑기',
-      view: '오늘의 おみくじ 다시 보기',
-      heading: '{{month}}월 {{day}}일 · 오늘의 おみくじ',
+      label: '운세 뽑기',
+      kind: '운세',
+      draw: '오늘의 운세 뽑기',
+      view: '오늘의 운세 다시 보기',
+      heading: '{{month}}월 {{day}}일 · 오늘의 운세',
       close: '닫기',
       shaking: '흔드는 중',
       expression: '오늘의 표현',
       again: '오늘은 이미 뽑았어요. 내일 새로 뽑을 수 있어요.',
       spoken:
-        '오늘의 おみくじ, {{fortune}}. {{message}} 오늘의 표현, {{expression}}, {{meaning}}, 예문 {{example}}'
+        '오늘의 운세, {{fortune}}. {{message}} 오늘의 표현, {{expression}}, {{meaning}}, 예문 {{example}}'
     },
     stampBoard: {
       title: '{{month}}월 도장판',

@@ -61,7 +61,7 @@ export const Omikuji = ({ userId }: { userId: string }): ReactElement => {
         onClick={start}
       >
         <OmikujiIcon size={44} />
-        <span lang="ja">おみくじ</span>
+        <span lang={lang}>{t('omikuji.label')}</span>
       </button>
       <dialog
         ref={dialogRef}
