@@ -31,6 +31,7 @@ export const accessibilityDatabaseTables = [
   'RetentionCohort',
   'ReviewEvent',
   'ReviewSchedule',
+  'RushBest',
   'Session',
   'SsoAccountErasureRequest',
   'SsoAccountFreshProof',
@@ -82,6 +83,8 @@ export const accessibilityExpectedTableDeltas = {
   RetentionCohort: 0,
   ReviewEvent: 10,
   ReviewSchedule: 10,
+  // #1043: the scan plays no rush.
+  RushBest: 0,
   Session: 2,
   SsoAccountErasureRequest: 0,
   SsoAccountFreshProof: 0,

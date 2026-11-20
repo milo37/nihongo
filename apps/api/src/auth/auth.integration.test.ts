@@ -39,6 +39,10 @@ import {
   createPrismaStudyGoalRepository,
   createStudyGoalService
 } from '../member/studyGoal.js'
+import {
+  createPrismaRushBestRepository,
+  createRushBestService
+} from '../member/rushBest.js'
 
 const environment = parseApiEnvironment(process.env)
 assertSafeTestDatabase({
@@ -965,6 +969,116 @@ describe(
       await expect(studyGoals.read(randomUUID())).rejects.toMatchObject({
         code: 'AUTHENTICATION_REQUIRED'
       })
+    })
+
+    it('#1043 nihongo_app keeps the higher rush score per mode and level', async () => {
+      if (!isCurrentSourceIntegration) return
+      const session = await createSsoSessionFixture({
+        owner: fixtureDatabase.client,
+        gateway: database.client,
+        secret: environment.BETTER_AUTH_SECRET,
+        role: 'USER'
+      })
+      createdUserIds.add(session.userId)
+      const rush = createRushBestService(
+        createPrismaRushBestRepository(database.client)
+      )
+      const mode = 'KANJI_RUSH_30S' as const
+      expect(await rush.read(session.userId)).toEqual({ bests: [] })
+      const first = await rush.submit(session.userId, {
+        mode,
+        level: 'N3',
+        score: 12
+      })
+      expect(first).toMatchObject({
+        best: { mode, level: 'N3', best: 12 },
+        isNewBest: true
+      })
+      // A lower or equal score keeps the best and its time.
+      for (const score of [12, 5, 0])
+        expect(
+          await rush.submit(session.userId, { mode, level: 'N3', score })
+        ).toEqual({ best: first.best, isNewBest: false })
+      const raised = await rush.submit(session.userId, {
+        mode,
+        level: 'N3',
+        score: 20
+      })
+      expect(raised).toMatchObject({ best: { best: 20 }, isNewBest: true })
+      expect(Date.parse(raised.best.achievedAt)).toBeGreaterThanOrEqual(
+        Date.parse(first.best.achievedAt)
+      )
+      // Each level keeps its own best.
+      await rush.submit(session.userId, { mode, level: 'N5', score: 30 })
+      // Two rounds sent at once leave the larger score.
+      await Promise.all(
+        [41, 37, 44, 39].map((score) =>
+          rush.submit(session.userId, { mode, level: 'N1', score })
+        )
+      )
+      expect(
+        (await rush.read(session.userId)).bests.map(({ level, best }) => [
+          level,
+          best
+        ])
+      ).toEqual([
+        ['N5', 30],
+        ['N3', 20],
+        ['N1', 44]
+      ])
+
+      // The table checks the score and the mode; the app never lowers or
+      // removes a row.
+      for (const [statement, pattern] of [
+        [
+          database.client.$executeRaw`
+            UPDATE "RushBest" SET "best" = 61
+            WHERE "userId" = ${session.userId}::uuid
+          `,
+          /RushBest_best_check/u
+        ],
+        [
+          database.client.$executeRaw`
+            INSERT INTO "RushBest" ("userId", "mode", "level", "best")
+            VALUES (${session.userId}::uuid, 'kanji', 'N2', 1)
+          `,
+          /RushBest_mode_check/u
+        ],
+        [
+          database.client.$executeRaw`
+            DELETE FROM "RushBest" WHERE "userId" = ${session.userId}::uuid
+          `,
+          /permission denied/u
+        ],
+        [
+          database.client.$executeRaw`
+            UPDATE "RushBest" SET "level" = 'N2'
+            WHERE "userId" = ${session.userId}::uuid
+          `,
+          /permission denied/u
+        ]
+      ] as const)
+        await expect(statement).rejects.toMatchObject({
+          message: expect.stringMatching(pattern)
+        })
+
+      expect(
+        await fixtureDatabase.client.rushBest.count({
+          where: { userId: session.userId, level: 'N3', best: 20 }
+        })
+      ).toBe(1)
+
+      // Erasing the member removes the rows through the foreign key.
+      await eraseUser(session.userId)
+      createdUserIds.delete(session.userId)
+      expect(
+        await fixtureDatabase.client.rushBest.count({
+          where: { userId: session.userId }
+        })
+      ).toBe(0)
+      await expect(
+        rush.submit(randomUUID(), { mode, level: 'N3', score: 1 })
+      ).rejects.toMatchObject({ code: 'AUTHENTICATION_REQUIRED' })
     })
   }
 )

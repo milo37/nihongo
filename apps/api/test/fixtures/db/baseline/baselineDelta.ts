@@ -397,6 +397,11 @@ const ADDED_STAMP_TABLE = 'StampLedger'
 const isAddedStamp = (row: Record<string, unknown>): boolean =>
   row.table === ADDED_STAMP_TABLE
 
+/** #1043: the rush best score table. */
+const ADDED_RUSH_BEST_TABLE = 'RushBest'
+const isAddedRushBest = (row: Record<string, unknown>): boolean =>
+  row.table === ADDED_RUSH_BEST_TABLE
+
 /** #675: the retired email Verification table, its enum and its guard. */
 const RETIRED_VERIFICATION_TABLE = 'Verification'
 const RETIRED_VERIFICATION_TYPE = 'AuthVerificationPurpose'
@@ -439,7 +444,8 @@ const withBaselineErasureStatus = (
  * the JLP-815 target level grant, the JLP-845 restore objects, the JLP-842
  * access record table, the JLP-852 last sign-in table, the #1042 return
  * count table, the #1085 consent table, the #1090 study goal table, the
- * #1094 stamp ledger and the #702 re-apply function.
+ * #1094 stamp ledger, the #1043 rush best table and the #702 re-apply
+ * function.
  */
 export const withoutForwardChanges = (
   catalog: SchemaCatalog
@@ -468,6 +474,7 @@ export const withoutForwardChanges = (
       name !== ADDED_CONSENT_TABLE &&
       name !== ADDED_STUDY_GOAL_TABLE &&
       name !== ADDED_STAMP_TABLE &&
+      name !== ADDED_RUSH_BEST_TABLE &&
       name !== RETIRED_VERIFICATION_TABLE
   ),
   columns: catalog.columns
@@ -485,6 +492,7 @@ export const withoutForwardChanges = (
         !isAddedConsent(row) &&
         !isAddedStudyGoal(row) &&
         !isAddedStamp(row) &&
+        !isAddedRushBest(row) &&
         !isRetiredVerification(row)
     )
     .map(withBaselineTargetLevelAcl),
@@ -500,6 +508,7 @@ export const withoutForwardChanges = (
         !isAddedConsent(row) &&
         !isAddedStudyGoal(row) &&
         !isAddedStamp(row) &&
+        !isAddedRushBest(row) &&
         !isRetiredVerification(row)
     )
     .map(withBaselineProofBound)
@@ -514,6 +523,7 @@ export const withoutForwardChanges = (
       !isAddedConsent(row) &&
       !isAddedStudyGoal(row) &&
       !isAddedStamp(row) &&
+      !isAddedRushBest(row) &&
       !isRetiredVerification(row)
   ),
   triggers: catalog.triggers.filter(
