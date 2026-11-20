@@ -42,7 +42,7 @@ const renderRush = (entry: string) => {
 }
 
 const shownWord = () =>
-  Array.from(document.querySelectorAll('.rush-word > span'))
+  Array.from(document.querySelectorAll('.rush-box > span'))
     .map((cell) => cell.textContent)
     .join('')
 
@@ -84,14 +84,14 @@ describe('#1043 30초 한자 러시', () => {
     queryClient.clear()
   })
 
-  it('비회원이 주소로 들어오면 학습 탭으로 돌아가고 학습 탭에 한자 놀이가 없다', async () => {
+  it('비회원이 주소로 들어오면 학습 탭으로 돌아가고 학습 탭에 진입 줄이 없다', async () => {
     const router = renderRush('/practice/rush?level=N2')
     await waitFor(
       () => expect(router.state.location.pathname).toBe('/practice'),
       { timeout: 5000 }
     )
     await screen.findByRole('heading', { level: 1 })
-    expect(screen.queryByText('한자 놀이')).not.toBeInTheDocument()
+    expect(screen.queryByText('한자 스피드 퀴즈')).not.toBeInTheDocument()
   })
 
   it('30초 동안 숫자 키로 풀고, 끝나면 입력이 막히고 결과·첫 기록을 보여 준다', async () => {
@@ -154,7 +154,7 @@ describe('#1043 30초 한자 러시', () => {
     answer(true)
     act(() => vi.advanceTimersByTime(30_000))
     vi.useRealTimers()
-    expect(await screen.findByText('내 최고 40개')).toBeInTheDocument()
+    expect(await screen.findByText('내 최고기록 40개')).toBeInTheDocument()
     expect(screen.queryByText('새 최고!')).not.toBeInTheDocument()
   })
 

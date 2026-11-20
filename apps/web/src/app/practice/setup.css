@@ -161,14 +161,8 @@
    Red only for [Start]/[Again], wrong answers and the last ten seconds. */
 .rush-entry {
   margin-top: 36px;
-  padding-top: 24px;
+  padding-top: 8px;
   border-top: 1px solid rgb(var(--color-line));
-}
-.rush-entry h2 {
-  margin-bottom: 8px;
-  color: rgb(var(--color-muted));
-  font-size: 13px;
-  font-weight: 600;
 }
 .rush-entry a {
   display: flex;
@@ -330,12 +324,15 @@ body:has(.rush.is-play) .app-mobile-navigation {
   }
 }
 .rush-word {
-  position: relative;
   display: flex;
   justify-content: center;
   margin: 36px 0 40px;
 }
-.rush-word > span {
+.rush-box {
+  position: relative;
+  display: flex;
+}
+.rush-box > span {
   display: grid;
   place-items: center;
   width: 100px;
@@ -345,17 +342,17 @@ body:has(.rush.is-play) .app-mobile-navigation {
   font-weight: 700;
   line-height: 1;
 }
-.rush-word > span + span {
+.rush-box > span + span {
   border-left: 0;
 }
 /* A long word still fits a 390 phone. */
-.rush-word > span:nth-last-child(n + 4),
-.rush-word > span:nth-last-child(n + 4) ~ span {
+.rush-box > span:nth-last-child(n + 4),
+.rush-box > span:nth-last-child(n + 4) ~ span {
   width: 76px;
   height: 76px;
   font-size: 46px;
 }
-.rush-word.is-ng > span {
+.rush-word.is-ng .rush-box > span {
   animation: rush-shake 0.2s ease-in-out;
 }
 @keyframes rush-shake {
@@ -366,15 +363,16 @@ body:has(.rush.is-play) .app-mobile-navigation {
     translate: 4px 0;
   }
 }
-/* Correct: Maru lifts the stamp and thuds it on the word box's lower left
-   corner (0.35s, the result screen's keyframes, shorter); one at a time. */
+/* Correct: Maru, left of the word box and overlapping it, lifts the stamp
+   and thuds it on the box's lower left corner (0.35s, the result screen's
+   keyframes, shorter); one at a time. */
 .rush-stage {
   position: absolute;
-  left: 50%;
+  right: 100%;
   top: 50%;
   width: 96px;
   height: 96px;
-  margin: -40px 0 0 -184px;
+  margin: -40px -12px 0 0;
   pointer-events: none;
 }
 .rush-fox {
@@ -403,15 +401,6 @@ body:has(.rush.is-play) .app-mobile-navigation {
   rotate: -6deg;
   opacity: 0;
   animation: maru-mark 0.12s ease-out 0.16s forwards;
-}
-.rush-mark.is-miss {
-  left: 40px;
-  top: 44px;
-  width: 38px;
-  height: 34px;
-  rotate: 28deg;
-  animation: maru-show 0.12s forwards;
-  --maru-red: rgb(var(--color-brand) / 0.42);
 }
 .rush-flash {
   position: fixed;
@@ -629,16 +618,15 @@ body:has(.rush.is-play) .app-mobile-navigation {
   .rush-word {
     margin: 40px 0 44px;
   }
-  .rush-word > span {
+  .rush-box > span {
     width: 112px;
     height: 112px;
     font-size: 68px;
   }
-  /* PC Maru spot is still with design; v5 values for now. */
   .rush-stage {
     width: 110px;
     height: 110px;
-    margin: -48px 0 0 -322px;
+    margin: -48px -14px 0 0;
   }
   .rush-mark {
     left: 93px;
@@ -662,7 +650,7 @@ body:has(.rush.is-play) .app-mobile-navigation {
 }
 @media (prefers-reduced-motion: reduce) {
   .rush-fox,
-  .rush-word.is-ng > span,
+  .rush-word.is-ng .rush-box > span,
   .rush-flash {
     animation: none;
   }

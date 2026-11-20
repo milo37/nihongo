@@ -509,8 +509,7 @@ export const koCoreResources = {
   practice: {
     name: '문제 풀기',
     rush: {
-      group: '한자 놀이',
-      entry: '30초 한자 러시',
+      entry: '한자 스피드 퀴즈',
       entryLead: '읽는 법 빨리 고르기',
       title: '{{level}} 한자 읽기 30초',
       lead: '읽는 법을 골라요. 숫자 키 1~4도 돼요.',
@@ -526,7 +525,7 @@ export const koCoreResources = {
       ng: '틀렸어요. 정답 {{a}}',
       scoreUnit: '개 맞혔어요',
       meta: '{{t}}개 중 {{n}}개 · 최고 연속 {{c}}',
-      best: '내 최고 {{b}}개',
+      best: '내 최고기록 {{b}}개',
       toBest: '{{n}}개 남았어요',
       newBest: '새 최고!',
       firstRecord: '첫 기록이에요',

@@ -4,7 +4,7 @@ import type { ReactElement } from 'react'
 import type { JlptLevel } from '@nihongo/contracts/common/enum'
 import { useRushBest } from '@app/practice/hooks/useRush'
 
-/** #1043 'Kanji play' at the bottom of learn; members only (guests: none). */
+/** #1043 the rush row at the bottom of learn; members only (guests: none). */
 export const RushEntry = ({
   level,
   userId
@@ -15,8 +15,7 @@ export const RushEntry = ({
   const { t } = useTranslation('practice')
   const best = useRushBest(userId, level)
   return (
-    <section className="rush-entry" aria-labelledby="rush-entry-title">
-      <h2 id="rush-entry-title">{t('rush.group')}</h2>
+    <section className="rush-entry">
       <Link to={`/practice/rush?level=${level}`}>
         <svg viewBox="0 0 26 26" aria-hidden="true">
           <circle cx="13" cy="14.5" r="9" />

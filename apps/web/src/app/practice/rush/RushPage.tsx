@@ -18,9 +18,6 @@ import type { RushPair } from '@api/study/rush/schema'
 
 const ROUND_MS = 30_000
 const FEEDBACK_MS = 350
-// The wrong answer effect is still open (design X1 missed ring, X2 edge
-// flash); switch here once the operator picks.
-const WRONG_EFFECT = 'X2' as 'X1' | 'X2'
 const RING = 2 * Math.PI * 37
 const TILTS = [-5, 3, -2, 4, -4, 2, -3]
 
@@ -263,27 +260,22 @@ const Rush = ({ level, userId }: { level: JlptLevel; userId: string }) => {
           className={`rush-word${feedback && !feedback.ok ? ' is-ng' : ''}`}
           lang="ja"
         >
-          {[...shown.pair.word].map((char, index) => (
-            <span key={index}>{char}</span>
-          ))}
-          {feedback?.ok ? (
-            <i className="rush-stage" aria-hidden="true">
-              <Fox id="fox-lift" className="rush-fox is-lift" />
-              <Fox id="fox-thud" className="rush-fox is-thud" />
-              <svg className="rush-mark" viewBox="0 0 24 22">
-                <use href="#maru-ring" />
-              </svg>
-            </i>
-          ) : null}
-          {feedback && !feedback.ok && WRONG_EFFECT === 'X1' ? (
-            <i className="rush-stage" aria-hidden="true">
-              <svg className="rush-mark is-miss" viewBox="0 0 24 22">
-                <use href="#maru-ring" />
-              </svg>
-            </i>
-          ) : null}
+          <span className="rush-box">
+            {[...shown.pair.word].map((char, index) => (
+              <span key={index}>{char}</span>
+            ))}
+            {feedback?.ok ? (
+              <i className="rush-stage" aria-hidden="true">
+                <Fox id="fox-lift" className="rush-fox is-lift" />
+                <Fox id="fox-thud" className="rush-fox is-thud" />
+                <svg className="rush-mark" viewBox="0 0 24 22">
+                  <use href="#maru-ring" />
+                </svg>
+              </i>
+            ) : null}
+          </span>
         </div>
-        {feedback && !feedback.ok && WRONG_EFFECT === 'X2' ? (
+        {feedback && !feedback.ok ? (
           <i className="rush-flash" aria-hidden="true" />
         ) : null}
         <div className="rush-choices" lang="ja">

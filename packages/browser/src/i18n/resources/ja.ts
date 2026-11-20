@@ -532,8 +532,7 @@ export const jaCoreResources = {
   practice: {
     name: '問題を解く',
     rush: {
-      group: '漢字あそび',
-      entry: '30秒漢字ラッシュ',
+      entry: '漢字スピードクイズ',
       entryLead: '読み方をすばやく選ぶ',
       title: '{{level}} 漢字の読み 30秒',
       lead: '読み方を選んでください。数字キー1〜4でも選べます。',

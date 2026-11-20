@@ -77,7 +77,9 @@ export const bundleCeilings = Object.freeze({
   // #1096 nickname: 482,593 measured (operator decision 2026-11-18).
   // #1090 onboarding: the study goal page, My page goal row and result goal
   // line; 486,824 measured (operator decision 2026-11-18).
-  totalGzipBytes: 487_000,
+  // #1043 kanji rush: +7.8 KB (491,211 measured; operator approved
+  // 2026-11-20).
+  totalGzipBytes: 492_000,
   // #761 + U4 (#767 c9af0ed5): 1,482,644 measured (god approved; re-measure after deploy).
   totalRawBytes: 1_483_000
 })
