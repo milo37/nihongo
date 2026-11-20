@@ -363,8 +363,7 @@ describe('마이페이지 계정 설정', () => {
       renderAccount()
       await screen.findByRole('link', { name: '목표 정하기' })
       expect(
-        screen.getByRole('button', { name: /^오늘의 おみくじ/ })
-          .parentElement
+        screen.getByRole('button', { name: /^오늘의 おみくじ/ }).parentElement
       ).toHaveClass('omikuji-row')
     })
 
