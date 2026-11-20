@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router'
-import type { ReactElement } from 'react'
+import type { CSSProperties, ReactElement } from 'react'
 import type { JlptLevel } from '@nihongo/contracts/common/enum'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { FoxSprite } from '@app/practice/result/maru/FoxSprite'
@@ -260,7 +260,12 @@ const Rush = ({ level, userId }: { level: JlptLevel; userId: string }) => {
           className={`rush-word${feedback && !feedback.ok ? ' is-ng' : ''}`}
           lang="ja"
         >
-          <span className="rush-box">
+          <span
+            className={
+              shown.pair.word.length > 2 ? 'rush-box is-long' : 'rush-box'
+            }
+            style={{ '--n': shown.pair.word.length } as CSSProperties}
+          >
             {[...shown.pair.word].map((char, index) => (
               <span key={index}>{char}</span>
             ))}

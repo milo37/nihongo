@@ -345,12 +345,16 @@ body:has(.rush.is-play) .app-mobile-navigation {
 .rush-box > span + span {
   border-left: 0;
 }
-/* A long word still fits a 390 phone. */
-.rush-box > span:nth-last-child(n + 4),
-.rush-box > span:nth-last-child(n + 4) ~ span {
-  width: 76px;
-  height: 76px;
-  font-size: 46px;
+/* Phone, three or more kanji: smaller cells, and the box moves right by
+   half of Maru's visible width so Maru and the box stay on screen as one. */
+.rush-box.is-long {
+  --cell: min(100px, (100vw - 116px) / var(--n));
+  margin-left: 84px;
+}
+.rush-box.is-long > span {
+  width: var(--cell);
+  height: var(--cell);
+  font-size: calc(var(--cell) * 0.62);
 }
 .rush-word.is-ng .rush-box > span {
   animation: rush-shake 0.2s ease-in-out;
@@ -628,6 +632,10 @@ body:has(.rush.is-play) .app-mobile-navigation {
     height: 110px;
     margin: -48px -14px 0 0;
   }
+  .rush-box.is-long {
+    --cell: 112px;
+    margin-left: 0;
+  }
   .rush-mark {
     left: 93px;
     top: 81px;
@@ -649,7 +657,8 @@ body:has(.rush.is-play) .app-mobile-navigation {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .rush-fox,
+  .rush-fox.is-lift,
+  .rush-fox.is-thud,
   .rush-word.is-ng .rush-box > span,
   .rush-flash {
     animation: none;
