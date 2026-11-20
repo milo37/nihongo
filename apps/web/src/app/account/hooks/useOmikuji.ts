@@ -34,6 +34,7 @@ export const useOmikuji = (userId: string) => {
   const [again, setAgain] = useState(false)
   const [played, setPlayed] = useState(false)
   const [pressed, setPressed] = useState(false)
+  const [announce, setAnnounce] = useState(false)
   const [drawn, setDrawn] = useState(
     () => cachedStorage.getItem(drawnKey(userId, date)) !== null
   )
@@ -72,6 +73,24 @@ export const useOmikuji = (userId: string) => {
     buttonRef.current?.focus()
   }
 
+  // A second Esc in a row closes a modal without a cancel event, even while
+  // it plays: then the sheet simply ends there (the day still counts).
+  const onDialogClose = () => {
+    if (!open) return
+    clearTimers()
+    setOpen(false)
+    setClosing(false)
+    buttonRef.current?.focus()
+  }
+
+  // Fill the live region a moment after the slip shows, so screen readers
+  // hear it even when the sheet opens straight on the slip.
+  useEffect(() => {
+    if (!open || phase !== 'result') return
+    const timer = window.setTimeout(() => setAnnounce(true), 150)
+    return () => window.clearTimeout(timer)
+  }, [open, phase])
+
   const start = () => {
     if (open || pressed) return
     const today = seoulToday()
@@ -81,6 +100,7 @@ export const useOmikuji = (userId: string) => {
     const play = !seen && !still
     const show = () => {
       setPressed(false)
+      setAnnounce(false)
       setDate(today)
       setAgain(seen)
       setPlayed(play)
@@ -143,11 +163,13 @@ export const useOmikuji = (userId: string) => {
     again,
     played,
     pressed,
+    announce,
     drawn,
     date,
     pick,
     start,
     close,
+    onDialogClose,
     sheetHandlers,
     dialogRef,
     sheetRef,

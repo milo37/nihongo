@@ -28,11 +28,13 @@ export const Omikuji = ({ userId }: { userId: string }): ReactElement => {
     again,
     played,
     pressed,
+    announce,
     drawn,
     date,
     pick,
     start,
     close,
+    onDialogClose,
     sheetHandlers,
     dialogRef,
     sheetRef,
@@ -69,6 +71,7 @@ export const Omikuji = ({ userId }: { userId: string }): ReactElement => {
           event.preventDefault()
           close()
         }}
+        onClose={onDialogClose}
         onClick={(event) => {
           if (event.target === event.currentTarget) close()
         }}
@@ -107,7 +110,7 @@ export const Omikuji = ({ userId }: { userId: string }): ReactElement => {
               ) : null}
             </div>
             <p className="sr-only" aria-live="polite">
-              {phase === 'result' ? spoken : ''}
+              {announce ? spoken : ''}
             </p>
           </div>
         ) : null}

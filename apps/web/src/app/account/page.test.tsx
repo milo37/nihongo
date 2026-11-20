@@ -361,6 +361,30 @@ describe('마이페이지 계정 설정', () => {
       ).toBeVisible()
     })
 
+    it('오미쿠지: 연출 중 브라우저가 창을 닫아도(Esc 두 번) 버튼이 다시 열린다 (#1055 QA)', async () => {
+      const user = userEvent.setup()
+      const member = mockDatabase.loginAs('USER')
+      mockDatabase.setStudyGoal(member.id, 'N3', 30)
+      renderAccount()
+      const button = await screen.findByRole('button', {
+        name: /^오늘의 おみくじ/
+      })
+      await user.click(button)
+      const dialog = await screen.findByRole('dialog', {
+        name: '11월 25일 · 오늘의 おみくじ'
+      })
+      // A second Esc closes a modal without a cancel event.
+      act(() => {
+        dialog.removeAttribute('open')
+        fireEvent(dialog, new Event('close'))
+      })
+      expect(button).toHaveFocus()
+      await user.click(button)
+      expect(
+        await within(dialog).findByRole('button', { name: '닫기' })
+      ).toBeVisible()
+    })
+
     it('오미쿠지: 목표가 없으면 학습 목표 줄 아래에 같은 버튼 (#1055)', async () => {
       mockDatabase.loginAs('USER')
       renderAccount()
