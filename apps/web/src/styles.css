@@ -1106,7 +1106,7 @@ body [lang='ja'][data-ja-spaced],
 }
 /* #1055 omikuji (design v4/anim 1.5x, v5 slip A). The button sits at the
    stamp board head's right end: a 44px box over 11px 「おみくじ」, 56px to
-   tap; from 1024px a 32px box beside 12px text. The sheet rises from the
+   tap; from 1024px a round outlined button, 36px box beside 15px text. The sheet rises from the
    bottom on phones and is a 440px cream window from 1024px. */
 .stamp-board-head:has(> .omikuji-button) {
   grid-template-columns: 1fr auto;
@@ -1411,13 +1411,18 @@ body [lang='ja'][data-ja-spaced],
   }
   .omikuji-button {
     flex-direction: row;
-    gap: 6px;
-    min-height: 40px;
-    font-size: 12px;
+    gap: 8px;
+    min-height: 48px;
+    padding: 0 18px 0 12px;
+    border: 1px solid rgb(var(--color-line));
+    border-radius: 999px;
+    color: rgb(var(--color-ink));
+    font-size: 15px;
+    line-height: 20px;
   }
   .omikuji-button > .omikuji-icon {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
   }
   .omikuji-dialog {
     align-items: center;
