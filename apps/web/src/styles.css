@@ -1332,6 +1332,7 @@ body [lang='ja'][data-ja-spaced],
 }
 .omikuji-message {
   margin: 10px 0 16px;
+  text-wrap: balance;
   font-size: 15px;
   line-height: 22px;
 }
@@ -1374,7 +1375,8 @@ body [lang='ja'][data-ja-spaced],
   width: 108px;
   height: 108px;
   transform-origin: 50% 100%;
-  animation: omikuji-pop 450ms cubic-bezier(0.3, 1.5, 0.5, 1) 150ms both;
+  /* Its own clock starts with the slip's: +270ms from the result. */
+  animation: omikuji-pop 450ms cubic-bezier(0.3, 1.5, 0.5, 1) 270ms both;
 }
 @keyframes omikuji-pop {
   from {
