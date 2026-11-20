@@ -3,6 +3,7 @@ import {
   rushKanjiPairsResponseSchema
 } from '@nihongo/contracts/study/rush-pairs'
 import { Hono, type Context } from 'hono'
+import { z } from 'zod'
 import type { PrincipalService } from '../auth/principalService.js'
 import type { ApiEnvironment } from '../config/env.js'
 import { ApplicationError } from '../errors/applicationError.js'
@@ -61,18 +62,23 @@ export const createRushKanjiPairsRoutes = ({
       windowMs: 60_000,
       max: 60
     })
-    const query = rushKanjiPairsQuerySchema.safeParse(context.req.query())
-    if (!query.success) {
-      throw new ApplicationError({
-        code: 'INVALID_REQUEST',
-        message: '러시 문제 요청이 올바르지 않습니다.',
-        fieldErrors: toFieldErrors(query.error),
-        retryable: false
-      })
+    let query
+    try {
+      query = rushKanjiPairsQuerySchema.parse(context.req.query())
+    } catch (error: unknown) {
+      if (error instanceof z.ZodError) {
+        throw new ApplicationError({
+          code: 'INVALID_REQUEST',
+          message: '러시 문제 요청이 올바르지 않습니다.',
+          fieldErrors: toFieldErrors(error),
+          retryable: false
+        })
+      }
+      throw error
     }
     await requireMember(context)
     const response = rushKanjiPairsResponseSchema.parse(
-      await rushKanjiPairsReader.read(query.data.level)
+      await rushKanjiPairsReader.read(query.level)
     )
     context.header('Cache-Control', 'private, no-store')
     return context.json(response)
