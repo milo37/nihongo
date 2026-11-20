@@ -28,6 +28,7 @@ import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { useAppStore } from '@nihongo/browser/store/index'
 import { mockServer } from '@/test/server'
+import { pickOmikuji } from '@app/account/omikuji/pickOmikuji'
 
 const renderAccount = (entry = '/account') => {
   const router = createMemoryRouter(
@@ -303,6 +304,68 @@ describe('마이페이지 계정 설정', () => {
       expect(
         await screen.findByRole('img', { name: '11월 도장판, 도장 1개' })
       ).toBeInTheDocument()
+    })
+
+    it('오미쿠지: 도장판 머리 버튼으로 뽑고, 다시 열면 연출 없이 같은 결과와 안내 (#1055)', async () => {
+      const user = userEvent.setup()
+      const member = mockDatabase.loginAs('USER')
+      mockDatabase.setStudyGoal(member.id, 'N3', 30)
+      renderAccount()
+      const head = (await screen.findByRole('heading', { name: '11월 도장판' }))
+        .parentElement!
+      const button = within(head).getByRole('button', {
+        name: '오늘의 おみくじ 뽑기'
+      })
+      await user.click(button)
+      const dialog = screen.getByRole('dialog', {
+        name: '11월 25일 · 오늘의 おみくじ'
+      })
+      // Nothing closes it while Maru shakes the box.
+      expect(within(dialog).getByText('흔드는 중')).toBeVisible()
+      expect(
+        within(dialog).queryByRole('button', { name: '닫기' })
+      ).not.toBeInTheDocument()
+      const { fortune } = pickOmikuji(member.id, '2026-11-25')
+      await within(dialog).findByRole(
+        'button',
+        { name: '닫기' },
+        {
+          timeout: 3000
+        }
+      )
+      expect(dialog.querySelector('.omikuji-fortune')).toHaveTextContent(
+        fortune
+      )
+      expect(
+        within(dialog).queryByText(
+          '오늘은 이미 뽑았어요. 내일 새로 뽑을 수 있어요.'
+        )
+      ).not.toBeInTheDocument()
+      await user.click(within(dialog).getByRole('button', { name: '닫기' }))
+      await waitFor(() => expect(dialog).not.toHaveAttribute('open'))
+      expect(button).toHaveFocus()
+      expect(button).toHaveAccessibleName('오늘의 おみくじ 다시 보기')
+
+      await user.click(button)
+      expect(within(dialog).getByRole('button', { name: '닫기' })).toBeVisible()
+      expect(dialog.querySelector('.omikuji-fortune')).toHaveTextContent(
+        fortune
+      )
+      expect(
+        within(dialog).getByText(
+          '오늘은 이미 뽑았어요. 내일 새로 뽑을 수 있어요.'
+        )
+      ).toBeVisible()
+    })
+
+    it('오미쿠지: 목표가 없으면 학습 목표 줄 아래에 같은 버튼 (#1055)', async () => {
+      mockDatabase.loginAs('USER')
+      renderAccount()
+      await screen.findByRole('link', { name: '목표 정하기' })
+      expect(
+        screen.getByRole('button', { name: /^오늘의 おみくじ/ })
+          .parentElement
+      ).toHaveClass('omikuji-row')
     })
 
     it('6줄 달은 표시하고 ja 문구로 읽는다 (C4)', async () => {
