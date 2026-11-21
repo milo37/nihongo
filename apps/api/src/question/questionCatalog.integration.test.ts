@@ -410,7 +410,9 @@ describe('question catalog PostgreSQL integration', () => {
           count(*) FILTER (WHERE "passage" IS NOT NULL)::integer
             AS "withPassage",
           count(*) FILTER (WHERE "passageId" IS NOT NULL)::integer AS "linked",
-          count(DISTINCT ("level", "subject", "passage"))::integer AS "texts",
+          count(DISTINCT ("level", "subject", "passage")) FILTER (
+            WHERE "passage" IS NOT NULL
+          )::integer AS "texts",
           (SELECT count(*)::integer FROM "ReadingPassage") AS "passages",
           count(*) FILTER (
             WHERE ("passage" IS NULL) <> ("passageId" IS NULL)
