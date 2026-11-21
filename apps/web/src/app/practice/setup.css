@@ -319,53 +319,38 @@ body:has(.rush.is-play) .app-mobile-navigation {
     stroke-dashoffset: 232.5;
   }
 }
+/* The word is centred with the same room on both sides as Maru shows at
+   its left (84px), so Maru stays on screen; when that is tight the cells
+   shrink on their own (flex) and the kanji follow the
+   cell (container units). */
 .rush-word {
   display: flex;
   justify-content: center;
   margin: 36px 0 40px;
+  padding-inline: 84px;
 }
 .rush-box {
-  position: relative;
   display: flex;
-  /* A narrow phone moves the box right just enough to keep Maru (84px
-     beside it) 11px from the edge, as on a 390 phone (design v5). */
-  margin-left: max(0px, 190px + var(--n) * 100px - 100vw);
+  flex: 1;
+  justify-content: center;
 }
+/* Maru (.rush-stage) hangs off the first cell's left edge. */
 .rush-box > span {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 100px;
-  height: 100px;
+  flex: 0 1 100px;
+  aspect-ratio: 1;
   border: 1.5px solid rgb(var(--color-sheet-line));
-  font-size: 62px;
+  container-type: inline-size;
+}
+.rush-box > span > b {
+  font-size: 62cqi;
   font-weight: 700;
   line-height: 1;
 }
 .rush-box > span + span {
   border-left: 0;
-}
-/* Phone, three or more kanji: smaller cells, and the box moves right by
-   half of Maru's visible width so Maru and the box stay on screen as one. */
-.rush-box.is-long {
-  --cell: min(100px, (100vw - 116px) / var(--n));
-  margin-left: 84px;
-}
-.rush-box.is-long > span {
-  width: var(--cell);
-  height: var(--cell);
-  font-size: calc(var(--cell) * 0.62);
-}
-/* Two kanji on phones narrower than 390: the same, so Maru is not cut. */
-@media (max-width: 389px) {
-  .rush-box.is-pair {
-    --cell: min(100px, (100vw - 116px) / var(--n));
-    margin-left: 84px;
-  }
-  .rush-box.is-pair > span {
-    width: var(--cell);
-    height: var(--cell);
-    font-size: calc(var(--cell) * 0.62);
-  }
 }
 .rush-word.is-ng .rush-box > span {
   animation: rush-shake 0.2s ease-in-out;
@@ -387,7 +372,8 @@ body:has(.rush.is-play) .app-mobile-navigation {
   top: 50%;
   width: 96px;
   height: 96px;
-  margin: -40px -12px 0 0;
+  /* Overlaps the box's left edge, its own size times the design ratio. */
+  translate: 12.5% -42%;
   pointer-events: none;
 }
 .rush-fox {
@@ -409,10 +395,10 @@ body:has(.rush.is-play) .app-mobile-navigation {
 }
 .rush-mark {
   position: absolute;
-  left: 81px;
-  top: 70px;
-  width: 33px;
-  height: 29px;
+  left: 84.4%;
+  top: 73%;
+  width: 34.4%;
+  height: 30.2%;
   rotate: -6deg;
   opacity: 0;
   animation: maru-mark 0.12s ease-out 0.16s forwards;
@@ -640,25 +626,11 @@ body:has(.rush.is-play) .app-mobile-navigation {
     margin: 40px 0 44px;
   }
   .rush-box > span {
-    width: 112px;
-    height: 112px;
-    font-size: 68px;
+    flex-basis: 112px;
   }
   .rush-stage {
     width: 110px;
     height: 110px;
-    margin: -48px -14px 0 0;
-  }
-  .rush-box,
-  .rush-box.is-long {
-    --cell: 112px;
-    margin-left: 0;
-  }
-  .rush-mark {
-    left: 93px;
-    top: 81px;
-    width: 38px;
-    height: 33px;
   }
   .rush-choices {
     grid-template-columns: 1fr 1fr;

@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router'
-import type { CSSProperties, ReactElement } from 'react'
+import type { ReactElement } from 'react'
 import type { JlptLevel } from '@nihongo/contracts/common/enum'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { FoxSprite } from '@app/practice/result/maru/FoxSprite'
@@ -135,28 +135,21 @@ const Rush = ({ level, userId }: { level: JlptLevel; userId: string }) => {
           className={`rush-word${feedback && !feedback.ok ? ' is-ng' : ''}`}
           lang="ja"
         >
-          <span
-            className={
-              shown.pair.word.length > 2
-                ? 'rush-box is-long'
-                : shown.pair.word.length === 2
-                  ? 'rush-box is-pair'
-                  : 'rush-box'
-            }
-            style={{ '--n': shown.pair.word.length } as CSSProperties}
-          >
+          <span className="rush-box">
             {[...shown.pair.word].map((char, index) => (
-              <span key={index}>{char}</span>
+              <span key={index}>
+                <b>{char}</b>
+                {index === 0 && feedback?.ok ? (
+                  <i className="rush-stage" aria-hidden="true">
+                    <Fox id="fox-lift" className="rush-fox is-lift" />
+                    <Fox id="fox-thud" className="rush-fox is-thud" />
+                    <svg className="rush-mark" viewBox="0 0 24 22">
+                      <use href="#maru-ring" />
+                    </svg>
+                  </i>
+                ) : null}
+              </span>
             ))}
-            {feedback?.ok ? (
-              <i className="rush-stage" aria-hidden="true">
-                <Fox id="fox-lift" className="rush-fox is-lift" />
-                <Fox id="fox-thud" className="rush-fox is-thud" />
-                <svg className="rush-mark" viewBox="0 0 24 22">
-                  <use href="#maru-ring" />
-                </svg>
-              </i>
-            ) : null}
           </span>
         </div>
         {feedback && !feedback.ok ? (
