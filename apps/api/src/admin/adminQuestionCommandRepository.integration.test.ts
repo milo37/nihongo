@@ -1849,10 +1849,7 @@ describe('ADMIN command TEST database integration', () => {
       code: 'VALIDATION_ERROR',
       adminDisposition: 'NO_TX',
       fieldErrors: {
-        expectedQuestions: [
-          `열린 버전이 있는 문제: ${first.questionId}`,
-          `열린 버전이 있는 문제: ${second.questionId}`
-        ]
+        expectedQuestions: [first.questionId, second.questionId]
       }
     })
     // The stale row versions from before the edit conflict.

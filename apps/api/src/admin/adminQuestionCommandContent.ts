@@ -377,9 +377,8 @@ export const assertPassageEditBlockersAbsent = (
     'VALIDATION_ERROR',
     '열린 버전이 있는 문제를 먼저 정리해야 지문을 고칠 수 있습니다.',
     {
-      expectedQuestions: blockers.map(
-        (questionId) => `열린 버전이 있는 문제: ${questionId}`
-      )
+      // Question ids, so the admin screen can list and link them (FE #1196).
+      expectedQuestions: [...blockers]
     }
   )
 }
