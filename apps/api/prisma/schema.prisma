@@ -587,6 +587,7 @@ model QuestionVersion {
   retiredAt                  DateTime?              @db.Timestamptz(3)
   question                   Question               @relation("QuestionVersions", fields: [questionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
   readingPassage             ReadingPassage?        @relation(fields: [passageId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  furigana                   Furigana?
   createdBy                  User?                  @relation("QuestionVersionCreator", fields: [createdByUserId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   currentForQuestion         Question?              @relation("CurrentPublishedVersion")
   correctOption              QuestionOption         @relation("CorrectQuestionOption", fields: [id, correctOptionId], references: [questionVersionId, id], onDelete: Restrict, onUpdate: NoAction)
@@ -624,8 +625,41 @@ model ReadingPassage {
   textMd5   String            @db.VarChar(32)
   createdAt DateTime          @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
   versions  QuestionVersion[]
+  furigana  Furigana?
 
   @@unique([level, subject, textMd5])
+}
+
+enum FuriganaTarget {
+  PASSAGE
+  QUESTION_TEXT
+  OPTION
+}
+
+enum FuriganaOrigin {
+  AUTO
+  REVIEWED
+}
+
+/// Readings for one text (#1182): exactly one of passageId,
+/// questionVersionId or questionOptionId, matching target (DB check).
+/// Written by the operator load command; the app only reads.
+model Furigana {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  target            FuriganaTarget
+  passageId         String?          @unique @db.Uuid
+  questionVersionId String?          @unique @db.Uuid
+  questionOptionId  String?          @unique @db.Uuid
+  textMd5           String           @db.VarChar(32)
+  segments          Json
+  origin            FuriganaOrigin
+  reviewedAt        DateTime?        @db.Timestamptz(3)
+  reviewedBy        String?
+  createdAt         DateTime         @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  updatedAt         DateTime         @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  readingPassage    ReadingPassage?  @relation(fields: [passageId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  questionVersion   QuestionVersion? @relation(fields: [questionVersionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  questionOption    QuestionOption?  @relation(fields: [questionOptionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
 }
 
 model QuestionOption {
@@ -639,6 +673,7 @@ model QuestionOption {
   selectedByAnswers StudyAnswer[]      @relation("StudyAnswerSelectedOption")
   selectedByEvents  ReviewEvent[]      @relation("ReviewEventSelectedOption")
   selectedByDrafts  StudyDraftAnswer[] @relation("StudyDraftAnswerSelectedOption")
+  furigana          Furigana?
 
   @@unique([questionVersionId, id])
   @@unique([questionVersionId, label])

@@ -622,6 +622,87 @@ describe('question catalog PostgreSQL integration', () => {
     ).rejects.toBe(rollback)
   })
 
+  it('후리가나 표는 대상 하나에 한 줄, 검수 표시는 함께, 앱은 읽기만 한다 (#1182)', async () => {
+    // The probe writes as the fixture owner in a rolled-back transaction;
+    // only the current-source run has that connection.
+    if (!isCurrentSourceIntegration) return
+    const text = '駅の前に図書館があります。（#1182 probe）'
+    await expect(
+      database.client.$executeRaw`
+        INSERT INTO "Furigana" ("target", "passageId", "textMd5", "segments",
+          "origin")
+        VALUES ('PASSAGE', gen_random_uuid(), md5(${text}), '[]', 'AUTO')
+      `
+    ).rejects.toThrow(/permission denied/u)
+
+    const rollback = new Error('furigana probe rolled back')
+    await expect(
+      fixtureDatabase.client.$transaction(async (transaction) => {
+        const [passage] = await transaction.$queryRaw<{ id: string }[]>`
+          INSERT INTO "ReadingPassage" ("level", "subject", "text", "textMd5")
+          VALUES ('N5', 'READING', ${text}, md5(${text}))
+          RETURNING "id"
+        `
+        const insert = (
+          target: string,
+          origin: string,
+          reviewedBy: string | null
+        ) => transaction.$executeRaw`
+          INSERT INTO "Furigana" ("target", "passageId", "textMd5",
+            "segments", "origin", "reviewedAt", "reviewedBy")
+          VALUES (${target}::"FuriganaTarget", ${passage?.id}::uuid,
+            md5(${text}), '[{"start":0,"length":1,"reading":"えき"}]',
+            ${origin}::"FuriganaOrigin",
+            CASE WHEN ${origin}::text = 'REVIEWED' THEN clock_timestamp() END,
+            ${reviewedBy}::text)
+        `
+        // Each refused write rolls back to a savepoint so the probe goes on.
+        const refuses = async (
+          write: () => Promise<unknown>,
+          constraint: string
+        ) => {
+          await transaction.$executeRawUnsafe('SAVEPOINT furigana_probe')
+          await expect(write()).rejects.toThrow(constraint)
+          await transaction.$executeRawUnsafe(
+            'ROLLBACK TO SAVEPOINT furigana_probe'
+          )
+        }
+        // Only the key that matches the target; a review says when and who.
+        await refuses(
+          () => insert('QUESTION_TEXT', 'AUTO', null),
+          'Furigana_target_check'
+        )
+        await refuses(
+          () => insert('PASSAGE', 'REVIEWED', null),
+          'Furigana_review_check'
+        )
+        await refuses(
+          () => insert('PASSAGE', 'AUTO', 'content'),
+          'Furigana_review_check'
+        )
+        expect(await insert('PASSAGE', 'REVIEWED', 'content')).toBe(1)
+        // One row per passage, and the passage cannot go while it has one.
+        await refuses(
+          () => insert('PASSAGE', 'AUTO', null),
+          'Furigana_passageId_key'
+        )
+        await refuses(
+          () => transaction.$executeRaw`
+            DELETE FROM "ReadingPassage" WHERE "id" = ${passage?.id}::uuid
+          `,
+          'Furigana_passageId_fkey'
+        )
+        throw rollback
+      })
+    ).rejects.toBe(rollback)
+    // Migrations create the table empty; only the operator load fills it.
+    expect(
+      await database.client.$queryRaw<{ count: bigint }[]>`
+        SELECT count(*) FROM "Furigana"
+      `
+    ).toEqual([{ count: 0n }])
+  })
+
   it('오늘의 한 문제 원고지 글자 수는 SQL과 웹 카드가 같게 센다 (#1087)', async () => {
     const texts = [
       'あ'.repeat(36),
