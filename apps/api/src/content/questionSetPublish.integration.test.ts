@@ -677,11 +677,49 @@ describe.sequential(
       expect(await contentRowCounts()).toEqual(counts)
     }, 120_000)
 
+    // A passage that other questions share changes only all together (#1196).
+    const spacedPassage = (shared: boolean): number => {
+      const all = files.flatMap((file) => file.items)
+      const users = (passage: string) =>
+        all.filter((item) => item.content.passage === passage).length
+      return all.findIndex(
+        (item, at) =>
+          at > 8 &&
+          /[ \u3000]/u.test(item.content.passage ?? '') &&
+          users(item.content.passage as string) > 1 === shared
+      )
+    }
+
+    it('leaves a shared passage to the passage edit', async () => {
+      const index = spacedPassage(true)
+      expect(index).toBeGreaterThan(8)
+      const all = files.flatMap((file) => file.items)
+      const newer = newerSet(index, (content) => ({
+        ...content,
+        passage: (content.passage as string).replace(/[ \u3000]/u, '\n')
+      }))
+      const clientItemId = all[index]!.clientItemId
+      const counts = await contentRowCounts()
+      expect(
+        await explainWith(
+          [{ clientItemId, explanationJa: '改行した文の解説' }],
+          newer,
+          files
+        )
+      ).toMatchObject({
+        created: 0,
+        published: 0,
+        conflicts: [],
+        failures: [
+          { stage: 'CREATE', clientItemId, result: 'VALIDATION_ERROR' }
+        ]
+      })
+      expect(await contentRowCounts()).toEqual(counts)
+    }, 120_000)
+
     it('takes a newer passage that keeps the fingerprint', async () => {
       const all = files.flatMap((file) => file.items)
-      const index = all.findIndex(
-        (item, at) => at > 8 && /[ \u3000]/u.test(item.content.passage ?? '')
-      )
+      const index = spacedPassage(false)
       expect(index).toBeGreaterThan(8)
       const newer = newerSet(index, (content) => ({
         ...content,

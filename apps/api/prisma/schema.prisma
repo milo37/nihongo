@@ -618,16 +618,21 @@ model QuestionVersion {
 
 /// #986: a reading passage stored once; its text never changes.
 model ReadingPassage {
-  id        String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  level     JlptLevel
-  subject   QuestionSubject
-  text      String
-  textMd5   String            @db.VarChar(32)
-  createdAt DateTime          @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
-  versions  QuestionVersion[]
-  furigana  Furigana?
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  level             JlptLevel
+  subject           QuestionSubject
+  text              String
+  textMd5           String            @db.VarChar(32)
+  createdAt         DateTime          @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  /// #1196: the passage this one replaced when its group's text was edited.
+  replacesPassageId String?           @db.Uuid
+  replaces          ReadingPassage?   @relation("PassageReplacement", fields: [replacesPassageId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  replacedBy        ReadingPassage[]  @relation("PassageReplacement")
+  versions          QuestionVersion[]
+  furigana          Furigana?
 
   @@unique([level, subject, textMd5])
+  @@index([replacesPassageId])
 }
 
 enum FuriganaTarget {

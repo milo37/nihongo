@@ -91,6 +91,10 @@
     {
       "name": "20261128090000_furigana",
       "checksum": "7e2b4bf7e397270d6897b9abc3574aead41cb55e97b8fde2d969c6e3983a3305"
+    },
+    {
+      "name": "20261129090000_shared_passage_group",
+      "checksum": "97b33c6c32fa00922195dd2af6ca29ad7653b18017a006ddb80df800d97398ff"
     }
   ]
 }

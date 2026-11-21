@@ -33,6 +33,7 @@ const bodyCapByOperation: Readonly<Partial<Record<ContentOperation, number>>> =
   {
     createAdminQuestion: LARGE_BODY_CAP,
     createAdminQuestionVersion: LARGE_BODY_CAP,
+    editReadingPassage: LARGE_BODY_CAP,
     updateQuestionVersion: LARGE_BODY_CAP,
     requestContentReview: SMALL_BODY_CAP,
     requestQuestionChanges: SMALL_BODY_CAP,
@@ -59,6 +60,7 @@ const groupByOperation: Readonly<
 > = {
   createAdminQuestion: 'ADMIN_EDIT',
   createAdminQuestionVersion: 'ADMIN_EDIT',
+  editReadingPassage: 'ADMIN_EDIT',
   updateQuestionVersion: 'ADMIN_EDIT',
   requestContentReview: 'ADMIN_EDIT',
   requestQuestionChanges: 'ADMIN_EDIT',

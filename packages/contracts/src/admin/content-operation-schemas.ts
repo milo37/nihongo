@@ -48,6 +48,10 @@ import {
   createAdminQuestionVersionParamsSchema,
   createAdminQuestionVersionRequestSchema,
   createAdminQuestionVersionResponseSchema,
+  editReadingPassageErrorSchema,
+  editReadingPassageParamsSchema,
+  editReadingPassageRequestSchema,
+  editReadingPassageResponseSchema,
   exportAdminQuestionsErrorSchema,
   exportAdminQuestionsRequestSchema,
   exportAdminQuestionsResponseSchema,
@@ -373,6 +377,13 @@ export const operationSchemas = {
     body: resolveAdminQuestionReportRequestSchema,
     success: resolveAdminQuestionReportResponseSchema,
     error: resolveAdminQuestionReportErrorSchema
+  },
+  editReadingPassage: {
+    params: editReadingPassageParamsSchema,
+    query: noQuery,
+    body: editReadingPassageRequestSchema,
+    success: editReadingPassageResponseSchema,
+    error: editReadingPassageErrorSchema
   }
 } as const satisfies {
   readonly [Operation in AdminOperation]: OperationSchemaDescriptor
@@ -515,11 +526,11 @@ export const assertOperationSchemaManifest = (): void => {
   const schemaOperations = Object.keys(operationSchemas)
   if (JSON.stringify(manifestOperations) !== JSON.stringify(schemaOperations)) {
     throw new Error(
-      'operation schema manifest는 canonical 31-operation 순서와 같아야 합니다.'
+      'operation schema manifest는 canonical 32-operation 순서와 같아야 합니다.'
     )
   }
   if (
-    operationSchemaManifest.length !== 31 ||
+    operationSchemaManifest.length !== 32 ||
     operationSchemaManifest.some(
       (entry) => entry.schemas !== operationSchemas[entry.operation]
     )

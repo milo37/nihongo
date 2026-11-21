@@ -5,6 +5,8 @@ import {
   type ApproveQuestionVersionRequest,
   type CreateAdminQuestionRequest,
   type CreateAdminQuestionVersionRequest,
+  type EditReadingPassageRequest,
+  type EditReadingPassageResponse,
   type PublishQuestionVersionRequest,
   type RequestContentReviewRequest,
   type RequestQuestionChangesRequest,
@@ -19,10 +21,12 @@ import type {
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 import {
   type AuditEnvironment,
+  type OperationContext,
   type TargetManifest,
   CREATE_CHANGED_FIELDS,
   uniqueSorted,
   finishOperation,
+  toIso,
   assertEditableUnpinnedVersion,
   assertVersionAuthor
 } from './adminRepositoryCommon.js'
@@ -36,7 +40,8 @@ import {
   type VersionTargetRow,
   type LifecycleVersionTargetRow,
   type OptionRow,
-  type VersionTagRow
+  type VersionTagRow,
+  type PassageEditGroupRow
 } from './adminQuestionCommandModel.js'
 import {
   AdminQuestionCommandRepositoryError,
@@ -55,10 +60,19 @@ import {
   assertNoVisibleCrossQuestionDuplicate,
   resolveTags,
   loadQuestionTarget,
+  assertPassageEditAllowed,
+  assertPassageOpenToJoin,
+  loadPassageGroupVersionIds,
   loadVersionTarget,
   loadLifecycleVersions,
   loadOptions,
   loadVersionTags,
+  loadReadingPassage,
+  loadPassageEditGroup,
+  loadPassageEditBlockers,
+  assertPassageEditBlockersAbsent,
+  hasReadingPassageText,
+  copyPublishedContent,
   createVersionContent,
   computeUpdateChangedFields,
   validateUpdate
@@ -155,12 +169,27 @@ export interface AdminQuestionCommandRepository {
     versionId: string,
     request: UpdateQuestionVersionRequest
   ) => Promise<AdminQuestionMutationResult>
+  /**
+   * #1196: one transaction gives every question of a shared passage group a
+   * DRAFT copy of its published version on the new passage text.
+   */
+  editPassage: (
+    authority: AdminCommandAuthority,
+    passageId: string,
+    request: EditReadingPassageRequest
+  ) => Promise<EditReadingPassageResponse>
   transitionVersion: (
     operation: LifecycleOperation,
     authority: AdminCommandAuthority,
     versionId: string,
     request: TransitionRequest
   ) => Promise<AdminQuestionMutationResult>
+  /** Current row versions and state of a version; null if it is missing. */
+  readVersionState: (versionId: string) => Promise<{
+    readonly questionRowVersion: number
+    readonly versionStatus: string
+    readonly versionRowVersion: number
+  } | null>
 }
 
 export interface AdminQuestionPublicationCommandRepository {
@@ -188,6 +217,7 @@ export interface AdminQuestionPublicationCommandRepository {
   readPublicationTarget: (versionId: string) => Promise<{
     readonly questionRowVersion: number
     readonly versionStatus: string
+    readonly versionRowVersion: number
   } | null>
 }
 
@@ -210,6 +240,12 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
       const versionId = randomUUID()
       try {
         tags = await resolveTags(client, request)
+        await assertPassageOpenToJoin(client, {
+          questionId: null,
+          level: request.level,
+          subject: request.subject,
+          passage: request.passage
+        })
         await assertNoVisibleCrossQuestionDuplicate(client, questionId, request)
       } catch (error: unknown) {
         throw mapPreflightError(error)
@@ -331,6 +367,17 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
         )
       }
       tags = await resolveTags(client, request)
+      await assertPassageEditAllowed(client, {
+        questionId,
+        sourceVersionId: null,
+        requestedPassage: request.passage
+      })
+      await assertPassageOpenToJoin(client, {
+        questionId,
+        level: request.level,
+        subject: request.subject,
+        passage: request.passage
+      })
       await assertNoVisibleCrossQuestionDuplicate(client, questionId, request)
     } catch (error: unknown) {
       throw mapPreflightError(error)
@@ -443,6 +490,220 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
     }
   }
 
+  const editPassage: AdminQuestionCommandRepository['editPassage'] = async (
+    authority,
+    passageId,
+    request
+  ) => {
+    let group: PassageEditGroupRow[]
+    const copies: Array<{
+      readonly member: PassageEditGroupRow
+      readonly content: CreateAdminQuestionRequest
+      readonly tags: readonly TagRow[]
+      readonly versionId: string
+    }> = []
+    try {
+      const passage = await loadReadingPassage(client, passageId)
+      if (!passage) {
+        throw repositoryFailure(
+          'RESOURCE_NOT_FOUND',
+          '지문을 찾을 수 없습니다.'
+        )
+      }
+      group = await loadPassageEditGroup(client, passageId)
+      if (group.length < 2) {
+        throw repositoryFailure(
+          'INVALID_STATE_TRANSITION',
+          '한 문제만 쓰는 지문은 문제 편집에서 고쳐 주세요.'
+        )
+      }
+      const expected = new Map(
+        request.expectedQuestions.map((item) => [
+          item.questionId,
+          item.expectedQuestionRowVersion
+        ])
+      )
+      if (
+        expected.size !== group.length ||
+        group.some(
+          (member) => expected.get(member.questionId) !== member.rowVersion
+        )
+      ) {
+        throw repositoryFailure(
+          'VERSION_CONFLICT',
+          '다른 요청이 먼저 지문 묶음을 변경했습니다. 최신 상태를 다시 불러와 주세요.'
+        )
+      }
+      assertPassageEditBlockersAbsent(
+        await loadPassageEditBlockers(
+          client,
+          passageId,
+          group.map((member) => member.questionId)
+        )
+      )
+      if (request.text === passage.text) {
+        throw repositoryFailure(
+          'VALIDATION_ERROR',
+          '지문이 바뀌지 않았습니다.',
+          { text: ['지금 지문과 같은 글자입니다.'] }
+        )
+      }
+      if (await hasReadingPassageText(client, passage, request.text)) {
+        throw repositoryFailure(
+          'VALIDATION_ERROR',
+          '같은 글자의 지문이 이미 있습니다.',
+          { text: ['같은 급수·과목에 같은 글자의 지문이 이미 있습니다.'] }
+        )
+      }
+      for (const member of group) {
+        const published = await loadVersionTarget(
+          client,
+          member.publishedVersionId
+        )
+        if (!published) {
+          throw repositoryFailure(
+            'VERSION_CONFLICT',
+            '다른 요청이 먼저 지문 묶음을 변경했습니다. 최신 상태를 다시 불러와 주세요.'
+          )
+        }
+        const tags = await loadVersionTags(client, member.publishedVersionId)
+        const content = copyPublishedContent(
+          published,
+          await loadOptions(client, member.publishedVersionId),
+          tags,
+          request.text
+        )
+        await assertNoVisibleCrossQuestionDuplicate(
+          client,
+          member.questionId,
+          content
+        )
+        copies.push({
+          member,
+          content,
+          tags: tags.map(({ id, label, normalizedName }) => ({
+            id,
+            label,
+            normalizedName
+          })),
+          versionId: randomUUID()
+        })
+      }
+    } catch (error: unknown) {
+      throw mapPreflightError(error)
+    }
+    try {
+      return await client.$transaction(
+        async (transaction) => {
+          const operation = await beginAndArm(transaction, {
+            auditEnvironment,
+            authority,
+            command: 'QUESTION_VERSION_CREATE',
+            referencedUserIds: uniqueSorted([
+              authority.actorId,
+              ...group.flatMap((member) =>
+                member.createdByUserId === null ? [] : [member.createdByUserId]
+              )
+            ]),
+            targetManifest: {
+              questions: group.map((member) => ({
+                id: member.questionId,
+                rowVersion: member.rowVersion,
+                state: 'ACTIVE'
+              })),
+              versions: [],
+              reports: [],
+              tags: uniqueSorted(
+                copies.flatMap((copy) => copy.tags.map((tag) => tag.id))
+              )
+            }
+          })
+          // The arm locks the group questions; a question outside the group
+          // may still have opened a version on this passage since preflight.
+          assertPassageEditBlockersAbsent(
+            await loadPassageEditBlockers(
+              transaction,
+              passageId,
+              group.map((member) => member.questionId)
+            )
+          )
+          for (const { member, content, tags, versionId } of copies) {
+            await transaction.$executeRawUnsafe(
+              `UPDATE "Question" SET "rowVersion" = $2, "updatedAt" = $3
+                 WHERE "id" = $1`,
+              member.questionId,
+              member.rowVersion + 1,
+              operation.occurredAt
+            )
+            await createVersionContent(transaction, {
+              actorId: authority.actorId,
+              content,
+              occurredAt: operation.occurredAt,
+              questionId: member.questionId,
+              tags,
+              versionId,
+              versionNumber: member.maximumVersionNumber + 1
+            })
+            await insertAudit(transaction, {
+              actorId: authority.actorId,
+              afterRowVersion: 1,
+              afterState: 'DRAFT',
+              beforeRowVersion: null,
+              beforeState: null,
+              changedFields: [
+                'VERSION_STATUS',
+                ...CREATE_CHANGED_FIELDS.filter(
+                  (field) => field !== 'LIFECYCLE_STATUS'
+                )
+              ],
+              command: 'QUESTION_VERSION_CREATE',
+              environment: auditEnvironment,
+              occurredAt: operation.occurredAt,
+              operationId: operation.operationId,
+              requestId: authority.requestId,
+              targetId: versionId,
+              targetType: 'QUESTION_VERSION'
+            })
+          }
+          // The link trigger created the new passage; every copy is on it.
+          const linked = await transaction.$queryRawUnsafe<
+            Array<{ passageId: string | null }>
+          >(
+            `SELECT DISTINCT "passageId" FROM "QuestionVersion"
+             WHERE "id" = ANY($1::uuid[])`,
+            copies.map((copy) => copy.versionId)
+          )
+          const newPassageId = linked[0]?.passageId
+          if (linked.length !== 1 || !newPassageId) {
+            throw new Error('Passage edit copies are not on one new passage.')
+          }
+          await finishOperation(transaction, operation.operationId)
+          return {
+            passageId: newPassageId,
+            occurredAt: toIso(operation.occurredAt),
+            items: copies.map(({ member, versionId }) => ({
+              questionId: member.questionId,
+              versionId,
+              questionRowVersion: member.rowVersion + 1,
+              versionRowVersion: 1 as const,
+              versionStatus: 'DRAFT' as const
+            }))
+          }
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+      )
+    } catch (error: unknown) {
+      const authorityFailure = await classifyAuthorityFailure(
+        client,
+        'editReadingPassage',
+        authority,
+        error
+      )
+      if (authorityFailure) throw authorityFailure
+      throw mapTransactionError('editReadingPassage', error)
+    }
+  }
+
   const updateVersion: AdminQuestionCommandRepository['updateVersion'] = async (
     authority,
     versionId,
@@ -462,6 +723,17 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
       }
       options = await loadOptions(client, versionId)
       validateUpdate(target, options, authority, request)
+      await assertPassageEditAllowed(client, {
+        questionId: target.questionId,
+        sourceVersionId: versionId,
+        requestedPassage: request.passage
+      })
+      await assertPassageOpenToJoin(client, {
+        questionId: target.questionId,
+        level: request.level,
+        subject: request.subject,
+        passage: request.passage
+      })
       existingTags = await loadVersionTags(client, versionId)
       desiredTags = await resolveTags(client, request)
       await assertNoVisibleCrossQuestionDuplicate(
@@ -719,28 +991,37 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
         }
       }
       const toTargetManifest = (
-        candidate: VersionTargetRow
+        candidates: readonly VersionTargetRow[]
       ): TargetManifest => ({
-        questions: [
-          {
-            id: candidate.questionId,
-            rowVersion: candidate.questionRowVersion,
-            state: candidate.questionLifecycleStatus
-          }
-        ],
-        versions: [
-          {
-            id: versionId,
-            rowVersion: candidate.versionRowVersion,
-            state: candidate.versionStatus
-          }
-        ],
+        questions: candidates.map((candidate) => ({
+          id: candidate.questionId,
+          rowVersion: candidate.questionRowVersion,
+          state: candidate.questionLifecycleStatus
+        })),
+        versions: candidates.map((candidate) => ({
+          id: candidate.versionId,
+          rowVersion: candidate.versionRowVersion,
+          state: candidate.versionStatus
+        })),
         reports: [],
         tags: []
       })
+      // #1196: a version moved to a new shared passage moves through review
+      // with its whole passage group, in one operation.
       let target: VersionTargetRow | null
+      const members: Array<VersionTargetRow | null> = []
       try {
         target = await loadVersionTarget(client, versionId)
+        const memberIds = target
+          ? await loadPassageGroupVersionIds(client, versionId)
+          : []
+        for (const memberId of memberIds) {
+          members.push(
+            memberId === versionId
+              ? target
+              : await loadVersionTarget(client, memberId)
+          )
+        }
       } catch (error: unknown) {
         throw mapPreflightError(error)
       }
@@ -752,11 +1033,13 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
             const command = config.command
             const referencedUserIds = uniqueSorted([
               authority.actorId,
-              target?.questionCreatedByUserId ?? null,
-              target?.versionCreatedByUserId ?? null,
-              operationName === 'withdrawQuestionApproval'
-                ? (target?.latestApproverUserId ?? null)
-                : null
+              ...(members.length > 0 ? members : [target]).flatMap((member) => [
+                member?.questionCreatedByUserId ?? null,
+                member?.versionCreatedByUserId ?? null,
+                operationName === 'withdrawQuestionApproval'
+                  ? (member?.latestApproverUserId ?? null)
+                  : null
+              ])
             ])
             const begun = await beginOperation(transaction, {
               auditEnvironment,
@@ -765,69 +1048,86 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
               referencedUserIds
             })
             const commandTarget = assertTargetAndVersion(target)
-            const targetManifest = toTargetManifest(commandTarget)
+            const commandMembers = members.map((member) => {
+              if (!member) {
+                throw repositoryFailure(
+                  'VERSION_CONFLICT',
+                  '다른 요청이 먼저 변경했습니다. 최신 상태를 다시 불러와 주세요.'
+                )
+              }
+              if (
+                config.authorOnly &&
+                member.versionCreatedByUserId !== authority.actorId
+              ) {
+                throw repositoryFailure(
+                  'FORBIDDEN',
+                  '작성자만 검수를 요청할 수 있습니다.'
+                )
+              }
+              return member.versionId === versionId ? commandTarget : member
+            })
             const operation = await armOperation(
               transaction,
               begun,
-              targetManifest
+              toTargetManifest(commandMembers)
             )
-            assertStateAndDuties(commandTarget)
-            const counterpart = config.authorOnly
-              ? null
-              : toAuthorSnapshot({
-                  createdByUserId: commandTarget.versionCreatedByUserId,
-                  createdByActorId: commandTarget.versionCreatedByActorId,
-                  createdByRoleSnapshot:
-                    commandTarget.versionCreatedByRoleSnapshot,
-                  createdByLabelSnapshot:
-                    commandTarget.versionCreatedByLabelSnapshot
-                })
-            const nextRowVersion = commandTarget.versionRowVersion + 1
-            await transaction.$executeRawUnsafe(
-              `UPDATE "QuestionVersion"
-               SET "status" = $2::"QuestionVersionStatus",
-                   "rowVersion" = $3, "updatedAt" = $4
-               WHERE "id" = $1`,
-              versionId,
-              config.toState,
-              nextRowVersion,
-              operation.occurredAt
-            )
-            await insertReview(transaction, {
-              action: config.action,
-              actorId: authority.actorId,
-              comment,
-              counterpart,
-              fromState: commandTarget.versionStatus,
-              occurredAt: operation.occurredAt,
-              operationId: operation.operationId,
-              questionId: commandTarget.questionId,
-              reason,
-              requestId: authority.requestId,
-              toState: config.toState,
-              versionId
-            })
-            await insertAudit(transaction, {
-              actorId: authority.actorId,
-              afterRowVersion: nextRowVersion,
-              afterState: config.toState,
-              beforeRowVersion: commandTarget.versionRowVersion,
-              beforeState: commandTarget.versionStatus,
-              changedFields: ['VERSION_STATUS'],
-              command,
-              environment: auditEnvironment,
-              occurredAt: operation.occurredAt,
-              operationId: operation.operationId,
-              requestId: authority.requestId,
-              targetId: versionId,
-              targetType: 'QUESTION_VERSION'
-            })
+            for (const member of commandMembers) assertStateAndDuties(member)
+            for (const member of commandMembers) {
+              const counterpart = config.authorOnly
+                ? null
+                : toAuthorSnapshot({
+                    createdByUserId: member.versionCreatedByUserId,
+                    createdByActorId: member.versionCreatedByActorId,
+                    createdByRoleSnapshot: member.versionCreatedByRoleSnapshot,
+                    createdByLabelSnapshot: member.versionCreatedByLabelSnapshot
+                  })
+              const nextRowVersion = member.versionRowVersion + 1
+              await transaction.$executeRawUnsafe(
+                `UPDATE "QuestionVersion"
+                 SET "status" = $2::"QuestionVersionStatus",
+                     "rowVersion" = $3, "updatedAt" = $4
+                 WHERE "id" = $1`,
+                member.versionId,
+                config.toState,
+                nextRowVersion,
+                operation.occurredAt
+              )
+              await insertReview(transaction, {
+                action: config.action,
+                actorId: authority.actorId,
+                comment,
+                counterpart,
+                fromState: member.versionStatus,
+                occurredAt: operation.occurredAt,
+                operationId: operation.operationId,
+                questionId: member.questionId,
+                reason,
+                requestId: authority.requestId,
+                toState: config.toState,
+                versionId: member.versionId
+              })
+              await insertAudit(transaction, {
+                actorId: authority.actorId,
+                afterRowVersion: nextRowVersion,
+                afterState: config.toState,
+                beforeRowVersion: member.versionRowVersion,
+                beforeState: member.versionStatus,
+                changedFields: ['VERSION_STATUS'],
+                command,
+                environment: auditEnvironment,
+                occurredAt: operation.occurredAt,
+                operationId: operation.operationId,
+                requestId: authority.requestId,
+                targetId: member.versionId,
+                targetType: 'QUESTION_VERSION'
+              })
+            }
             await finishOperation(transaction, operation.operationId)
             return toResult({
               questionId: commandTarget.questionId,
               versionId,
               questionRowVersion: commandTarget.questionRowVersion,
-              versionRowVersion: nextRowVersion,
+              versionRowVersion: commandTarget.versionRowVersion + 1,
               versionStatus: config.toState,
               occurredAt: operation.occurredAt
             })
@@ -846,35 +1146,218 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
       }
     }
 
+  const readVersionState: AdminQuestionCommandRepository['readVersionState'] =
+    async (versionId) => {
+      try {
+        const target = await loadVersionTarget(client, versionId)
+        return target
+          ? {
+              questionRowVersion: target.questionRowVersion,
+              versionStatus: target.versionStatus,
+              versionRowVersion: target.versionRowVersion
+            }
+          : null
+      } catch (error: unknown) {
+        throw mapPreflightError(error)
+      }
+    }
+
   const activeRepository: AdminQuestionCommandRepository = {
     createQuestion,
     createVersion,
+    editPassage,
     updateVersion,
-    transitionVersion
+    transitionVersion,
+    readVersionState
   }
   if (!includePublication) return activeRepository
 
+  /** Publishes one approved version and retires its question's current. */
+  const publishMember = async (
+    transaction: Prisma.TransactionClient,
+    authority: AdminCommandAuthority,
+    operation: OperationContext,
+    member: {
+      readonly target: VersionTargetRow
+      readonly aggregateVersions: readonly LifecycleVersionTargetRow[]
+      readonly previousCurrent: LifecycleVersionTargetRow | null
+    }
+  ): Promise<{ versionId: string; questionRowVersion: number }> => {
+    const { target, aggregateVersions, previousCurrent } = member
+    const versionId = target.versionId
+    const currentPublishedVersionId = target.questionCurrentPublishedVersionId
+    const targetManifestVersion = aggregateVersions.find(
+      (version) => version.id === versionId
+    )
+    if (
+      target.questionLifecycleStatus !== 'ACTIVE' ||
+      target.versionStatus !== 'APPROVED' ||
+      !targetManifestVersion ||
+      targetManifestVersion.status !== 'APPROVED' ||
+      (currentPublishedVersionId !== null &&
+        (!previousCurrent || previousCurrent.status !== 'PUBLISHED')) ||
+      aggregateVersions.some(
+        (version) =>
+          version.id !== versionId && version.id !== currentPublishedVersionId
+      )
+    ) {
+      throw repositoryFailure(
+        'INVALID_STATE_TRANSITION',
+        '게시 대상과 현재 공개 버전 구성이 유효하지 않습니다.'
+      )
+    }
+    const author = toAuthorSnapshot({
+      createdByUserId: target.versionCreatedByUserId,
+      createdByActorId: target.versionCreatedByActorId,
+      createdByRoleSnapshot: target.versionCreatedByRoleSnapshot,
+      createdByLabelSnapshot: target.versionCreatedByLabelSnapshot
+    })
+    const latestApprover = toLatestApproverSnapshot(target)
+    if (!author || !latestApprover) {
+      throw repositoryFailure(
+        'INVALID_STATE_TRANSITION',
+        '게시 대상에는 작성자와 최신 승인 증거가 필요합니다.'
+      )
+    }
+    if (
+      await hasCrossQuestionFingerprintDuplicate(
+        transaction,
+        target.questionId,
+        target.contentFingerprint
+      )
+    ) {
+      throw repositoryFailure(
+        'DUPLICATE_QUESTION_CONTENT',
+        '동일한 내용의 문제가 이미 존재합니다.'
+      )
+    }
+    if (previousCurrent) {
+      await transaction.$executeRawUnsafe(
+        `UPDATE "Question"
+         SET "currentPublishedVersionId" = NULL, "updatedAt" = $2
+         WHERE "id" = $1`,
+        target.questionId,
+        operation.occurredAt
+      )
+      await transaction.$executeRawUnsafe(
+        `UPDATE "QuestionVersion"
+         SET "status" = 'RETIRED',
+             "retirementKind" = 'PUBLISHED_RETIREMENT',
+             "retiredAt" = $2, "rowVersion" = $3, "updatedAt" = $2
+         WHERE "id" = $1`,
+        previousCurrent.id,
+        operation.occurredAt,
+        previousCurrent.rowVersion + 1
+      )
+    }
+    await transaction.$executeRawUnsafe(
+      `UPDATE "QuestionVersion"
+       SET "status" = 'PUBLISHED', "publishedAt" = $2,
+           "retiredAt" = NULL, "retirementKind" = NULL,
+           "rowVersion" = $3, "updatedAt" = $2
+       WHERE "id" = $1`,
+      versionId,
+      operation.occurredAt,
+      target.versionRowVersion + 1
+    )
+    await transaction.$executeRawUnsafe(
+      `UPDATE "Question"
+       SET "currentPublishedVersionId" = $2,
+           "rowVersion" = $3, "updatedAt" = $4
+       WHERE "id" = $1`,
+      target.questionId,
+      versionId,
+      target.questionRowVersion + 1,
+      operation.occurredAt
+    )
+    if (previousCurrent) {
+      await insertReview(transaction, {
+        action: 'RETIRED',
+        actorId: authority.actorId,
+        comment: null,
+        counterpart: null,
+        fromState: 'PUBLISHED',
+        occurredAt: operation.occurredAt,
+        operationId: operation.operationId,
+        questionId: target.questionId,
+        reason: 'PUBLISHED_REPLACEMENT',
+        requestId: authority.requestId,
+        toState: 'RETIRED',
+        versionId: previousCurrent.id
+      })
+    }
+    await insertReview(transaction, {
+      action: 'PUBLISHED',
+      actorId: authority.actorId,
+      comment: null,
+      counterpart: latestApprover,
+      fromState: 'APPROVED',
+      occurredAt: operation.occurredAt,
+      operationId: operation.operationId,
+      questionId: target.questionId,
+      reason: null,
+      requestId: authority.requestId,
+      toState: 'PUBLISHED',
+      versionId
+    })
+    await insertAudit(transaction, {
+      actorId: authority.actorId,
+      afterRowVersion: target.versionRowVersion + 1,
+      afterState: 'PUBLISHED',
+      beforeRowVersion: target.versionRowVersion,
+      beforeState: 'APPROVED',
+      changedFields: ['VERSION_STATUS', 'CURRENT_PUBLISHED_VERSION_ID'],
+      command: 'PUBLICATION',
+      environment: auditEnvironment,
+      occurredAt: operation.occurredAt,
+      operationId: operation.operationId,
+      requestId: authority.requestId,
+      targetId: versionId,
+      targetType: 'QUESTION_VERSION'
+    })
+    return { versionId, questionRowVersion: target.questionRowVersion + 1 }
+  }
+
   const publishVersion: AdminQuestionPublicationCommandRepository['publishVersion'] =
     async (authority, versionId, request) => {
-      let target: VersionTargetRow | null
-      let aggregateVersions: LifecycleVersionTargetRow[] = []
+      // #1196: a version moved to a new shared passage publishes with its
+      // whole passage group in one operation; each member retires its own
+      // current version as before.
+      interface PublicationMember {
+        readonly target: VersionTargetRow | null
+        readonly aggregateVersions: LifecycleVersionTargetRow[]
+        readonly previousCurrent: LifecycleVersionTargetRow | null
+      }
+      const loadMember = async (
+        memberId: string
+      ): Promise<PublicationMember> => {
+        const memberTarget = await loadVersionTarget(client, memberId)
+        const aggregateVersions = memberTarget
+          ? await loadLifecycleVersions(client, memberTarget.questionId)
+          : []
+        const previousCurrent = memberTarget?.questionCurrentPublishedVersionId
+          ? (aggregateVersions.find(
+              (version) =>
+                version.id === memberTarget.questionCurrentPublishedVersionId
+            ) ?? null)
+          : null
+        return { target: memberTarget, aggregateVersions, previousCurrent }
+      }
+      let members: PublicationMember[] = []
       try {
-        target = await loadVersionTarget(client, versionId)
-        if (target) {
-          aggregateVersions = await loadLifecycleVersions(
-            client,
-            target.questionId
-          )
+        const memberIds = await loadPassageGroupVersionIds(client, versionId)
+        for (const memberId of memberIds) {
+          members.push(await loadMember(memberId))
         }
       } catch (error: unknown) {
         throw mapPreflightError(error)
       }
-      const previousCurrent = target?.questionCurrentPublishedVersionId
-        ? (aggregateVersions.find(
-            (version) =>
-              version.id === target?.questionCurrentPublishedVersionId
-          ) ?? null)
-        : null
+      const self = members.find(
+        (member) => member.target?.versionId === versionId
+      )
+      const target = self?.target ?? null
+      const previousCurrent = self?.previousCurrent ?? null
+      if (!self) members = []
 
       try {
         return await client.$transaction(
@@ -885,9 +1368,13 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
               command: 'PUBLICATION',
               referencedUserIds: uniqueSorted([
                 authority.actorId,
-                target?.questionCreatedByUserId ?? null,
-                ...aggregateVersions.map((version) => version.createdByUserId),
-                target?.latestApproverUserId ?? null
+                ...members.flatMap((member) => [
+                  member.target?.questionCreatedByUserId ?? null,
+                  ...member.aggregateVersions.map(
+                    (version) => version.createdByUserId
+                  ),
+                  member.target?.latestApproverUserId ?? null
+                ])
               ])
             })
             if (!target) {
@@ -896,179 +1383,64 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
                 '문제 버전을 찾을 수 없습니다.'
               )
             }
-            const commandTarget = target
             if (
-              commandTarget.questionRowVersion !==
-              request.expectedQuestionRowVersion
+              target.questionRowVersion !== request.expectedQuestionRowVersion
             ) {
               throw repositoryFailure(
                 'VERSION_CONFLICT',
                 '다른 요청이 먼저 문제를 변경했습니다.'
               )
             }
-            if (
-              commandTarget.versionRowVersion !== request.expectedRowVersion
-            ) {
+            if (target.versionRowVersion !== request.expectedRowVersion) {
               throw repositoryFailure(
                 'VERSION_CONFLICT',
                 '다른 요청이 먼저 버전을 변경했습니다.'
               )
             }
-            const currentPublishedVersionId =
-              commandTarget.questionCurrentPublishedVersionId
+            const commandMembers = members.map((member) => {
+              if (!member.target) {
+                throw repositoryFailure(
+                  'VERSION_CONFLICT',
+                  '다른 요청이 먼저 버전을 변경했습니다.'
+                )
+              }
+              return { ...member, target: member.target }
+            })
             const operation = await armOperation(transaction, begun, {
-              questions: [
-                {
-                  id: commandTarget.questionId,
-                  rowVersion: commandTarget.questionRowVersion,
-                  state: commandTarget.questionLifecycleStatus
-                }
-              ],
-              versions: aggregateVersions.map((version) => ({
-                id: version.id,
-                rowVersion: version.rowVersion,
-                state: version.status
+              questions: commandMembers.map((member) => ({
+                id: member.target.questionId,
+                rowVersion: member.target.questionRowVersion,
+                state: member.target.questionLifecycleStatus
               })),
+              versions: commandMembers.flatMap((member) =>
+                member.aggregateVersions.map((version) => ({
+                  id: version.id,
+                  rowVersion: version.rowVersion,
+                  state: version.status
+                }))
+              ),
               reports: [],
               tags: []
             })
-            const targetManifestVersion = aggregateVersions.find(
-              (version) => version.id === versionId
-            )
-            if (
-              commandTarget.questionLifecycleStatus !== 'ACTIVE' ||
-              commandTarget.versionStatus !== 'APPROVED' ||
-              !targetManifestVersion ||
-              targetManifestVersion.status !== 'APPROVED' ||
-              (currentPublishedVersionId !== null &&
-                (!previousCurrent || previousCurrent.status !== 'PUBLISHED')) ||
-              aggregateVersions.some(
-                (version) =>
-                  version.id !== versionId &&
-                  version.id !== currentPublishedVersionId
-              )
-            ) {
-              throw repositoryFailure(
-                'INVALID_STATE_TRANSITION',
-                '게시 대상과 현재 공개 버전 구성이 유효하지 않습니다.'
+            const published = []
+            for (const member of commandMembers) {
+              published.push(
+                await publishMember(transaction, authority, operation, member)
               )
             }
-            const author = toAuthorSnapshot({
-              createdByUserId: commandTarget.versionCreatedByUserId,
-              createdByActorId: commandTarget.versionCreatedByActorId,
-              createdByRoleSnapshot: commandTarget.versionCreatedByRoleSnapshot,
-              createdByLabelSnapshot:
-                commandTarget.versionCreatedByLabelSnapshot
-            })
-            const latestApprover = toLatestApproverSnapshot(commandTarget)
-            if (!author || !latestApprover) {
-              throw repositoryFailure(
-                'INVALID_STATE_TRANSITION',
-                '게시 대상에는 작성자와 최신 승인 증거가 필요합니다.'
-              )
-            }
-            if (
-              await hasCrossQuestionFingerprintDuplicate(
-                transaction,
-                commandTarget.questionId,
-                commandTarget.contentFingerprint
-              )
-            ) {
-              throw repositoryFailure(
-                'DUPLICATE_QUESTION_CONTENT',
-                '동일한 내용의 문제가 이미 존재합니다.'
-              )
-            }
-            if (previousCurrent) {
-              await transaction.$executeRawUnsafe(
-                `UPDATE "Question"
-                 SET "currentPublishedVersionId" = NULL, "updatedAt" = $2
-                 WHERE "id" = $1`,
-                commandTarget.questionId,
-                operation.occurredAt
-              )
-              await transaction.$executeRawUnsafe(
-                `UPDATE "QuestionVersion"
-                 SET "status" = 'RETIRED',
-                     "retirementKind" = 'PUBLISHED_RETIREMENT',
-                     "retiredAt" = $2, "rowVersion" = $3, "updatedAt" = $2
-                 WHERE "id" = $1`,
-                previousCurrent.id,
-                operation.occurredAt,
-                previousCurrent.rowVersion + 1
-              )
-            }
+            // Run the deferred group check now, so a split group fails as a
+            // statement the command maps, not as an unknown commit outcome.
             await transaction.$executeRawUnsafe(
-              `UPDATE "QuestionVersion"
-               SET "status" = 'PUBLISHED', "publishedAt" = $2,
-                   "retiredAt" = NULL, "retirementKind" = NULL,
-                   "rowVersion" = $3, "updatedAt" = $2
-               WHERE "id" = $1`,
-              versionId,
-              operation.occurredAt,
-              commandTarget.versionRowVersion + 1
+              'SET CONSTRAINTS "QuestionVersion_passage_group_publication" IMMEDIATE'
             )
-            await transaction.$executeRawUnsafe(
-              `UPDATE "Question"
-               SET "currentPublishedVersionId" = $2,
-                   "rowVersion" = $3, "updatedAt" = $4
-               WHERE "id" = $1`,
-              commandTarget.questionId,
-              versionId,
-              commandTarget.questionRowVersion + 1,
-              operation.occurredAt
-            )
-            if (previousCurrent) {
-              await insertReview(transaction, {
-                action: 'RETIRED',
-                actorId: authority.actorId,
-                comment: null,
-                counterpart: null,
-                fromState: 'PUBLISHED',
-                occurredAt: operation.occurredAt,
-                operationId: operation.operationId,
-                questionId: commandTarget.questionId,
-                reason: 'PUBLISHED_REPLACEMENT',
-                requestId: authority.requestId,
-                toState: 'RETIRED',
-                versionId: previousCurrent.id
-              })
-            }
-            await insertReview(transaction, {
-              action: 'PUBLISHED',
-              actorId: authority.actorId,
-              comment: null,
-              counterpart: latestApprover,
-              fromState: 'APPROVED',
-              occurredAt: operation.occurredAt,
-              operationId: operation.operationId,
-              questionId: commandTarget.questionId,
-              reason: null,
-              requestId: authority.requestId,
-              toState: 'PUBLISHED',
-              versionId
-            })
-            await insertAudit(transaction, {
-              actorId: authority.actorId,
-              afterRowVersion: commandTarget.versionRowVersion + 1,
-              afterState: 'PUBLISHED',
-              beforeRowVersion: commandTarget.versionRowVersion,
-              beforeState: 'APPROVED',
-              changedFields: ['VERSION_STATUS', 'CURRENT_PUBLISHED_VERSION_ID'],
-              command: 'PUBLICATION',
-              environment: auditEnvironment,
-              occurredAt: operation.occurredAt,
-              operationId: operation.operationId,
-              requestId: authority.requestId,
-              targetId: versionId,
-              targetType: 'QUESTION_VERSION'
-            })
             await finishOperation(transaction, operation.operationId)
+            const own = published.find((row) => row.versionId === versionId)
             return toResult({
-              questionId: commandTarget.questionId,
+              questionId: target.questionId,
               versionId,
-              questionRowVersion: commandTarget.questionRowVersion + 1,
-              versionRowVersion: commandTarget.versionRowVersion + 1,
+              questionRowVersion:
+                own?.questionRowVersion ?? target.questionRowVersion + 1,
+              versionRowVersion: target.versionRowVersion + 1,
               versionStatus: 'PUBLISHED',
               occurredAt: operation.occurredAt
             })
@@ -1635,20 +2007,7 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
       }
     }
 
-  const readPublicationTarget: AdminQuestionPublicationCommandRepository['readPublicationTarget'] =
-    async (versionId) => {
-      try {
-        const target = await loadVersionTarget(client, versionId)
-        return target
-          ? {
-              questionRowVersion: target.questionRowVersion,
-              versionStatus: target.versionStatus
-            }
-          : null
-      } catch (error: unknown) {
-        throw mapPreflightError(error)
-      }
-    }
+  const readPublicationTarget = readVersionState
 
   return {
     ...activeRepository,
