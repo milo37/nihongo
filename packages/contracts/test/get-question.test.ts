@@ -90,22 +90,12 @@ describe('public practice question contract', () => {
         passageFurigana: null
       }).passageFurigana
     ).toBeNull()
-    for (const passageFurigana of [
-      // over the line break
-      [{ start: 4, length: 2, reading: 'えき' }],
-      // overlapping, past the end, katakana reading
-      [
-        { start: 5, length: 1, reading: 'えき' },
-        { start: 5, length: 1, reading: 'えき' }
-      ],
-      [{ start: 7, length: 2, reading: 'まえ' }],
-      [{ start: 5, length: 1, reading: 'エキ' }]
-    ]) {
-      expect(
-        publicPracticeQuestionSchema.safeParse({ ...reading, passageFurigana })
-          .success
-      ).toBe(false)
-    }
+    expect(
+      publicPracticeQuestionSchema.safeParse({
+        ...reading,
+        passageFurigana: [{ start: 5, length: 1, reading: 'エキ' }]
+      }).success
+    ).toBe(false)
   })
 
   it('독해 문제는 비어 있지 않은 passage를 요구한다', () => {

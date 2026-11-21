@@ -65,7 +65,9 @@ export const publicQuestionTagSchema = z
 
 /**
  * #1182: one ruby group over the passage. start and length count code points
- * (Array.from) of the passage exactly as sent, line breaks included.
+ * (Array.from) of the passage exactly as sent, line breaks included. The API
+ * sends groups in order, inside the passage and without a space or line
+ * break (apps/api passageFurigana.ts); the web bundle skips that check.
  */
 export const furiganaSegmentSchema = z
   .object({
@@ -104,31 +106,6 @@ export const publicPracticeQuestionSchema = z
         code: 'custom',
         path: ['passage'],
         message: '독해 문제에는 지문이 필요합니다.'
-      })
-    }
-
-    if (question.passageFurigana) {
-      const characters =
-        question.passage === null ? [] : Array.from(question.passage)
-      let end = 0
-      question.passageFurigana.forEach((segment, index) => {
-        const base = characters.slice(
-          segment.start,
-          segment.start + segment.length
-        )
-        if (
-          segment.start < end ||
-          segment.start + segment.length > characters.length ||
-          base.some((character) => /\s/u.test(character))
-        ) {
-          context.addIssue({
-            code: 'custom',
-            path: ['passageFurigana', index],
-            message:
-              '후리가나 구간은 지문 안에서 순서대로, 공백·줄바꿈 없이 있어야 합니다.'
-          })
-        }
-        end = segment.start + segment.length
       })
     }
 
