@@ -56,6 +56,7 @@ import {
   assertNoVisibleCrossQuestionDuplicate,
   resolveTags,
   loadQuestionTarget,
+  assertPassageEditAllowed,
   loadPassageGroupVersionIds,
   loadVersionTarget,
   loadLifecycleVersions,
@@ -340,6 +341,11 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
         )
       }
       tags = await resolveTags(client, request)
+      await assertPassageEditAllowed(client, {
+        questionId,
+        sourceVersionId: null,
+        requestedPassage: request.passage
+      })
       await assertNoVisibleCrossQuestionDuplicate(client, questionId, request)
     } catch (error: unknown) {
       throw mapPreflightError(error)
@@ -471,6 +477,11 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
       }
       options = await loadOptions(client, versionId)
       validateUpdate(target, options, authority, request)
+      await assertPassageEditAllowed(client, {
+        questionId: target.questionId,
+        sourceVersionId: versionId,
+        requestedPassage: request.passage
+      })
       existingTags = await loadVersionTags(client, versionId)
       desiredTags = await resolveTags(client, request)
       await assertNoVisibleCrossQuestionDuplicate(

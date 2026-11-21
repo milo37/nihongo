@@ -204,6 +204,60 @@ export const loadVersionTarget = async (
 }
 
 /**
+ * #1196: a passage two or more active questions use changes only through the
+ * passage edit, for its whole group. The source is the version being edited
+ * or, for a new version, its question's current published version; a
+ * request that keeps the source passage text is always allowed.
+ */
+export const assertPassageEditAllowed = async (
+  client: Pick<PrismaClient, '$queryRawUnsafe'>,
+  input: {
+    readonly questionId: string
+    readonly sourceVersionId: string | null
+    readonly requestedPassage: string | null
+  }
+): Promise<void> => {
+  const rows = await client.$queryRawUnsafe<
+    Array<{ passage: string | null; sharedWith: number }>
+  >(
+    `SELECT source."passage",
+       (SELECT count(DISTINCT other."questionId")::integer
+        FROM "QuestionVersion" AS other
+        JOIN "Question" AS question ON question."id" = other."questionId"
+        WHERE other."passageId" = source."passageId"
+          AND other."questionId" <> $1::uuid
+          AND question."lifecycleStatus" = 'ACTIVE'
+          AND (other."id" = question."currentPublishedVersionId"
+            OR other."status" IN ('DRAFT', 'IN_REVIEW', 'CHANGES_REQUESTED',
+              'APPROVED'))) AS "sharedWith"
+     FROM "QuestionVersion" AS source
+     WHERE source."id" = COALESCE($2::uuid, (
+       SELECT "currentPublishedVersionId" FROM "Question" WHERE "id" = $1::uuid
+     ))`,
+    input.questionId,
+    input.sourceVersionId
+  )
+  const source = rows[0]
+  if (
+    !source ||
+    source.passage === null ||
+    source.passage === input.requestedPassage ||
+    source.sharedWith === 0
+  ) {
+    return
+  }
+  throw repositoryFailure(
+    'VALIDATION_ERROR',
+    '같이 쓰는 지문은 지문 고치기로 함께 바꿔야 합니다.',
+    {
+      passage: [
+        `이 지문을 다른 문제 ${source.sharedWith}개가 같이 씁니다. 지문 고치기로 함께 바꿔 주세요.`
+      ]
+    }
+  )
+}
+
+/**
  * #1196: the open versions moved together to a new shared passage — the
  * target's passage group. A member is an open version on the target's
  * passage whose active question is not already published on that passage;
