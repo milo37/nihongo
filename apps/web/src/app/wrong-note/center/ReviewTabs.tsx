@@ -35,11 +35,7 @@ export const ReviewTabs = ({
     tabs.current.get(next)?.focus()
   }
   return (
-    <div
-      role="tablist"
-      aria-label={t('title')}
-      className="mt-4 grid grid-cols-2 border-b border-line"
-    >
+    <div role="tablist" aria-label={t('title')} className="wrong-note-tabs">
       {STATES.map((state) => {
         const isSelected = selected === state
         const count = counts?.[TAB_KEYS[state]] ?? 0
@@ -56,11 +52,7 @@ export const ReviewTabs = ({
             aria-selected={isSelected}
             aria-controls="review-panel"
             tabIndex={isSelected ? 0 : -1}
-            className={`-mb-px min-h-12 border-b-[3px] text-[15px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand ${
-              isSelected
-                ? 'border-brand font-bold text-ink'
-                : 'border-transparent font-semibold text-muted'
-            }`}
+            className={`wrong-note-tab${isSelected ? ' is-selected' : ''}`}
             onClick={() => onSelect(state)}
             onKeyDown={onKeyDown}
           >

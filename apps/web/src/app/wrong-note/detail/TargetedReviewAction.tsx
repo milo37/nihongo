@@ -40,22 +40,22 @@ export const TargetedReviewAction = ({
               : t('detail.targeted.start')}
           </Button>
           {isArchived ? (
-            <p className="mt-3 text-sm font-semibold text-muted">
+            <p className="wrong-note-action-notice">
               {t('detail.targeted.archivedRecovery')}
             </p>
           ) : null}
           {targeted.isPaused ? (
-            <p
-              className="mt-3 text-sm font-semibold text-amber-900"
-              role="status"
-            >
+            <p className="wrong-note-action-warn" role="status">
               {t('detail.targeted.offline')}
             </p>
           ) : null}
           {targeted.isError && targeted.isAccountRestricted ? (
-            <AccountRestrictedNotice className="mt-3" focusOnMount />
+            <AccountRestrictedNotice
+              className="wrong-note-action-restricted"
+              focusOnMount
+            />
           ) : targeted.isError ? (
-            <p className="mt-3 text-sm font-semibold text-red-800" role="alert">
+            <p className="wrong-note-action-error" role="alert">
               {targeted.isUnavailableError
                 ? t('detail.targeted.unavailable')
                 : t('detail.targeted.error')}
@@ -63,14 +63,11 @@ export const TargetedReviewAction = ({
           ) : null}
         </>
       ) : (
-        <p className="text-sm font-semibold text-muted">
+        <p className="wrong-note-action-text">
           {t('detail.targeted.archivedOnly')}
         </p>
       )}
-      <p
-        className="mt-3 min-h-6 text-sm font-semibold text-muted"
-        aria-live="polite"
-      >
+      <p className="wrong-note-action-status" aria-live="polite">
         {targeted.noticeCode ? t(`detail.targeted.${targeted.noticeCode}`) : ''}
       </p>
       {/* Reporting is rare here: a small text link under the action (G). */}
