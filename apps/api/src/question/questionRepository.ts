@@ -1,3 +1,4 @@
+import type { FuriganaSegment } from '@nihongo/contracts/question/get-question'
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 import type { MigrationCompatibilityProfile } from '../db/readiness.js'
 
@@ -39,6 +40,9 @@ export interface PublishedQuestionSummaryRecord {
 export interface PublishedQuestionDetailRecord
   extends PublishedQuestionSummaryRecord {
   passage: string | null
+  /** #986/#1182: only the study session read fills these. */
+  passageId?: string | null
+  passageFurigana?: readonly FuriganaSegment[] | null
   options: readonly QuestionOptionRecord[]
 }
 

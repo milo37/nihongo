@@ -9,6 +9,12 @@ for example `{駅|えき}の{前|まえ}に`.
 - Review: correct the readings inside `{…|…}` in place, then fill
   `reviewedBy` and `reviewedAt` (`YYYY-MM-DD`). Do not change the text outside
   the braces; the file check compares it with the import files.
+- Load: `FURIGANA_LIST_FILE=… pnpm --filter @nihongo/api content:load-furigana`
+  reports what would change; with `FURIGANA_LOAD_CONFIRM=LOAD_FURIGANA` it
+  writes the reviewed entries as REVIEWED rows in one transaction. Rows whose
+  entry left the file or is no longer reviewed are deleted.
+- Learners see reviewed readings only, and only while the passage text is the
+  text they were made for.
 
 ## Source of the automatic readings
 

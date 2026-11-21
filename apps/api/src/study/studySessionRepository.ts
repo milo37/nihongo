@@ -25,6 +25,7 @@ import type {
   QuestionOptionRecord,
   QuestionTagRecord
 } from '../question/questionRepository.js'
+import { toPassageFurigana } from '../question/passageFurigana.js'
 import { createCurrentReviewCandidatePredicate } from '../review/currentReviewCandidateQuery.js'
 import {
   MAX_TRANSACTION_ATTEMPTS,
@@ -293,6 +294,14 @@ export const loadStudySessionRecord = async (
             subject: true,
             questionType: true,
             passage: true,
+            passageId: true,
+            readingPassage: {
+              select: {
+                furigana: {
+                  select: { origin: true, textMd5: true, segments: true }
+                }
+              }
+            },
             questionText: true,
             difficulty: true
           }
@@ -347,6 +356,11 @@ export const loadStudySessionRecord = async (
           subject: version.subject,
           questionType: version.questionType,
           passage: version.passage,
+          passageId: version.passageId,
+          passageFurigana: toPassageFurigana(
+            version.passage,
+            version.readingPassage?.furigana
+          ),
           questionText: version.questionText,
           difficulty: version.difficulty,
           options: toOptions(optionsByVersionId.get(version.id) ?? []),
