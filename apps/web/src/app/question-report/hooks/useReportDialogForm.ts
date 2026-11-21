@@ -28,6 +28,9 @@ export const useReportDialogForm = ({
   errorMessage: fallbackError,
   toRequest
 }: ReportDialogFormOptions) => {
+  // Left uncompiled: its caller is compiled and caches what it reads, and
+  // compiling the hook too adds a second cache (#1174 bundle).
+  'use no memo'
   const { presentError, presentFieldError, t } = useReportPresentation()
   const descriptionRef = useRef<HTMLTextAreaElement>(null)
   const submitRef = useRef<HTMLButtonElement>(null)

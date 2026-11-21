@@ -12,6 +12,9 @@ const ITEM_SELECTOR = '[role="menuitem"]'
  * on any item focused by script.
  */
 export const useAccountMenu = (pathname: string) => {
+  // Left uncompiled: its caller is compiled and caches what it reads, and
+  // compiling the hook too adds a second cache (#1174 bundle).
+  'use no memo'
   // Where focus goes when the menu opens; null means closed.
   const [openAt, setOpenAt] = useState<'first' | 'menu' | null>(null)
   const open = openAt !== null

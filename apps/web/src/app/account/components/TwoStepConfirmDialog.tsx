@@ -11,6 +11,9 @@ import { Button } from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'
 import { ReauthButton } from '@nihongo/browser/app/reauth/components/ReauthButton'
 
+// The data page lists the same deletion paragraphs.
+export { DELETE_PARAGRAPHS } from '@app/account/components/TwoStepConfirmSections'
+
 type TwoStepConfirmDialogProps = {
   flow: SsoAccountFlow
   returnFocusRef: RefObject<HTMLElement | null>

@@ -1,9 +1,11 @@
 import { useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
-import { useSsoAccountManagement } from '@app/account/hooks/useSsoAccountManagement'
 import {
-  AccountSettingsNotices,
+  ACCOUNT_FEEDBACK_KEY,
+  useSsoAccountManagement
+} from '@app/account/hooks/useSsoAccountManagement'
+import {
   SettingRow,
   SignInMethodRow
 } from '@app/account/components/AccountSettingRows'
@@ -89,7 +91,24 @@ export const AccountSettings = (): ReactElement => {
           ) : null}
         </SettingRow>
       </div>
-      <AccountSettingsNotices flow={flow} />
+      {flow.feedback && flow.dialog === null ? (
+        <p
+          className="text-sm"
+          role={flow.feedback === 'reauthCancelled' ? 'status' : 'alert'}
+        >
+          {authT(ACCOUNT_FEEDBACK_KEY[flow.feedback])}
+        </p>
+      ) : null}
+      {flow.uncertain && flow.dialog === null ? (
+        <Button
+          className="justify-self-start"
+          variant="outline"
+          disabled={flow.busy}
+          onClick={() => void flow.recheck()}
+        >
+          {authT('sso.recheck')}
+        </Button>
+      ) : null}
       <TwoStepConfirmDialog
         flow={flow}
         returnFocusRef={trigger}

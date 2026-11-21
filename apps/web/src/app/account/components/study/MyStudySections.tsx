@@ -1,7 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
 import type { ReactElement } from 'react'
-import type { JlptLevel } from '@nihongo/browser/common/types/domain'
 import type { useGetDashboardStats } from '@app/dashboard/hooks/useGetDashboardStats'
 import {
   getRateTier,
@@ -9,32 +7,11 @@ import {
   rateTierFillClass,
   rateTierTextClass
 } from '@app/account/components/study/RateTier'
-import { getButtonClassName } from '@nihongo/browser/common/components/Button'
 import type { resolveUiLocale } from '@nihongo/browser/i18n/types'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 
 type Stats = NonNullable<ReturnType<typeof useGetDashboardStats>['data']>
 type Locale = ReturnType<typeof resolveUiLocale>
-
-/** No answers at this level yet: Maru and a way to start. */
-export const MyStudyEmpty = ({ level }: { level: JlptLevel }): ReactElement => {
-  // Left uncompiled: the compiled My study section already caches this one
-  // (#1124 bundle).
-  'use no memo'
-  const { t } = useTranslation('account')
-  return (
-    <div>
-      <span className="maru-empty" aria-hidden="true" />
-      <p className="font-semibold">{t('study.emptyTitle', { level })}</p>
-      <p className="mt-1 text-sm text-muted">
-        {t('study.emptyDescription', { level })}
-      </p>
-      <Link className={getButtonClassName({ className: 'mt-4' })} to="/">
-        {t('study.emptyAction', { level })}
-      </Link>
-    </div>
-  )
-}
 
 /** The summary line: answered count, then the correct rate and its tier. */
 export const MyStudySummary = ({

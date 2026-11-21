@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next'
 import type { ReactElement, ReactNode } from 'react'
-import { ACCOUNT_FEEDBACK_KEY } from '@app/account/hooks/useSsoAccountManagement'
 import type { SsoAccountFlow } from '@app/account/hooks/useSsoAccountManagement'
 import { Button } from '@nihongo/browser/common/components/Button'
 
@@ -73,37 +72,5 @@ export const SignInMethodRow = ({
         </>
       )}
     </SettingRow>
-  )
-}
-
-/** With no dialog open: the last result and [다시 확인]. */
-export const AccountSettingsNotices = ({
-  flow
-}: {
-  flow: SsoAccountFlow
-}): ReactElement => {
-  'use no memo'
-  const { t: authT } = useTranslation('auth')
-  return (
-    <>
-      {flow.feedback && flow.dialog === null ? (
-        <p
-          className="text-sm"
-          role={flow.feedback === 'reauthCancelled' ? 'status' : 'alert'}
-        >
-          {authT(ACCOUNT_FEEDBACK_KEY[flow.feedback])}
-        </p>
-      ) : null}
-      {flow.uncertain && flow.dialog === null ? (
-        <Button
-          className="justify-self-start"
-          variant="outline"
-          disabled={flow.busy}
-          onClick={() => void flow.recheck()}
-        >
-          {authT('sso.recheck')}
-        </Button>
-      ) : null}
-    </>
   )
 }

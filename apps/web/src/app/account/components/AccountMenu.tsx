@@ -1,12 +1,9 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useLocation } from 'react-router'
+import { Link, useLocation } from 'react-router'
 import type { ReactElement } from 'react'
 import { Avatar } from '@app/account/components/Avatar'
-import {
-  AccountMenuPanel,
-  GuestLoginLink
-} from '@app/account/components/AccountMenuPanel'
+import { AccountMenuPanel } from '@app/account/components/AccountMenuPanel'
 import { LogoutDialog } from '@app/account/components/LogoutDialog'
 import { useAccountMenu } from '@app/account/hooks/useAccountMenu'
 import { Icon } from '@nihongo/browser/common/components/Icon'
@@ -32,7 +29,26 @@ export const AccountMenu = ({
   const [logoutOpen, setLogoutOpen] = useState(false)
   // Mounted after first use so the closing dialog can still restore focus.
   const [hasLogout, setHasLogout] = useState(false)
-  if (!user) return <GuestLoginLink pathname={pathname} search={search} />
+  if (!user) {
+    // #994: a guest gets a plain [로그인] link that carries the current
+    // screen as ?redirect=. A guest's set and result are not kept after
+    // sign-in, so from those screens the way back is the practice page (as
+    // useGuestAction does).
+    const isGuestStudy = /^\/practice\/(?:session|result)\//u.test(pathname)
+    const loginHref =
+      pathname === '/' || pathname === '/login'
+        ? '/login'
+        : `/login?redirect=${encodeURIComponent(
+            isGuestStudy ? '/practice' : `${pathname}${search}`
+          )}`
+    return (
+      <div className="account-menu">
+        <Link to={loginHref} className="account-menu-login">
+          {t('login')}
+        </Link>
+      </div>
+    )
+  }
   return (
     <div className="account-menu">
       <button

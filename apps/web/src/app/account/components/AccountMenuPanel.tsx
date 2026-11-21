@@ -12,35 +12,6 @@ const ItemIcon = ({ name }: { name: IconName }): ReactElement => (
 const itemClassName =
   'account-menu-item flex min-h-11 w-full items-center gap-3 rounded-control px-3 text-left text-sm'
 
-// #994: a guest gets a plain [로그인] link instead of a menu; it carries the
-// current screen as ?redirect= so sign-in returns there.
-export const GuestLoginLink = ({
-  pathname,
-  search
-}: {
-  pathname: string
-  search: string
-}): ReactElement => {
-  'use no memo'
-  const { t } = useTranslation('navigation')
-  // A guest's set and result are not kept after sign-in, so from those
-  // screens the way back is the practice page (as useGuestAction does).
-  const isGuestStudy = /^\/practice\/(?:session|result)\//u.test(pathname)
-  const loginHref =
-    pathname === '/' || pathname === '/login'
-      ? '/login'
-      : `/login?redirect=${encodeURIComponent(
-          isGuestStudy ? '/practice' : `${pathname}${search}`
-        )}`
-  return (
-    <div className="account-menu">
-      <Link to={loginHref} className="account-menu-login">
-        {t('login')}
-      </Link>
-    </div>
-  )
-}
-
 /** The open menu: who is signed in, then My page, error report, logout. */
 export const AccountMenuPanel = ({
   name,

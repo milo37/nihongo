@@ -1,15 +1,16 @@
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router'
 import type { ReactElement } from 'react'
 import type { JlptLevel } from '@nihongo/browser/common/types/domain'
 import { useGetDashboardStats } from '@app/dashboard/hooks/useGetDashboardStats'
 import {
-  MyStudyEmpty,
   MyStudySummary,
   SubjectRateList
 } from '@app/account/components/study/MyStudySections'
 import { RecentSessionList } from '@app/account/components/study/RecentSessionList'
 import { Button } from '@nihongo/browser/common/components/Button'
+import { getButtonClassName } from '@nihongo/browser/common/components/Button'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 
 const Skeleton = (): ReactElement => (
@@ -57,7 +58,16 @@ export const MyStudy = ({ level }: { level: JlptLevel }): ReactElement => {
           </Button>
         </div>
       ) : data.totalAnsweredCount === 0 ? (
-        <MyStudyEmpty level={level} />
+        <div>
+          <span className="maru-empty" aria-hidden="true" />
+          <p className="font-semibold">{t('study.emptyTitle', { level })}</p>
+          <p className="mt-1 text-sm text-muted">
+            {t('study.emptyDescription', { level })}
+          </p>
+          <Link className={getButtonClassName({ className: 'mt-4' })} to="/">
+            {t('study.emptyAction', { level })}
+          </Link>
+        </div>
       ) : (
         <>
           <MyStudySummary data={data} locale={locale} />
