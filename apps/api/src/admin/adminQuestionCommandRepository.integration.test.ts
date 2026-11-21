@@ -1920,6 +1920,19 @@ describe('ADMIN command TEST database integration', () => {
       ).toMatchObject([
         { fieldPath: '/items/0/content/tagNames/1', code: 'DUPLICATE_TAG' }
       ])
+      // #712: the repository holds the two-tag limit without the contract.
+      await expect(
+        byKey(`jlp733-three-${suffix}`, [
+          vocabularyLabel,
+          tagName,
+          `grammar.jlp733-${suffix}`
+        ])
+      ).rejects.toMatchObject({
+        code: 'IMPORT_VALIDATION_FAILED',
+        fieldErrors: {
+          '/items/0/content/tagNames': ['태그는 2개까지입니다.']
+        }
+      })
       expect(
         (await byKey(`jlp733-subject-${suffix}`, [`grammar.jlp733-${suffix}`]))
           .errors
