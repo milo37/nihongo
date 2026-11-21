@@ -130,6 +130,26 @@ describe('furigana passage list (#1182)', () => {
     const list = parseFuriganaPassageList(readFileSync(listFile))
 
     expect(list.passages).toHaveLength(imported.length)
+    // Content reviewed every passage (2026-11-21); the reviewer is a role.
+    expect(
+      list.passages.filter(
+        (entry) =>
+          entry.reviewedBy !== 'content' || entry.reviewedAt !== '2026-11-21'
+      )
+    ).toEqual([])
+    // Each ruby group, grouped ones like {一人|ひとり} too, stays inside one
+    // line: no space or line break under it (FE agreement).
+    for (const entry of list.passages) {
+      const { text, segments } = parseRuby(entry.ruby)
+      const characters = Array.from(text)
+      for (const segment of segments) {
+        expect(
+          characters
+            .slice(segment.start, segment.start + segment.length)
+            .join('')
+        ).not.toMatch(/\s/u)
+      }
+    }
     expect(
       list.passages.map((entry) => ({
         level: entry.level,
