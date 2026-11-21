@@ -75,7 +75,7 @@ export const AccountMenu = ({
         <span className="account-menu-name">{user.name}</span>
         <Icon
           name="chevron-right"
-          className="account-menu-caret size-4 rotate-90"
+          className="account-menu-caret account-menu-caret-icon"
         />
       </button>
       {open ? (

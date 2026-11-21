@@ -96,7 +96,7 @@ export const LocaleMenu = (): ReactElement => {
         }}
       >
         <span className="locale-menu-icon">
-          <Icon name="languages" className="size-5" />
+          <Icon name="languages" className="locale-menu-glyph" />
         </span>
       </button>
       {open ? (
@@ -124,7 +124,7 @@ export const LocaleMenu = (): ReactElement => {
             >
               <span className="locale-menu-check">
                 {locale === value ? (
-                  <Icon name="check" className="size-5" />
+                  <Icon name="check" className="locale-menu-glyph" />
                 ) : null}
               </span>
               {t(`locale.${value}`)}

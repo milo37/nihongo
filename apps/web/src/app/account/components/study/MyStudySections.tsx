@@ -25,26 +25,24 @@ export const MyStudySummary = ({
   const { t } = useTranslation('account')
   const totalTier = getRateTier(data.correctRate)
   return (
-    <p className="flex flex-wrap items-baseline gap-x-3 tabular-nums">
+    <p className="my-summary">
       <span>
-        <span className="text-[32px] font-bold leading-tight">
+        <span className="my-summary-number">
           {formatNumber(data.totalAnsweredCount, locale)}
         </span>{' '}
-        <span className="text-sm text-muted">{t('study.totalUnit')}</span>
+        <span className="my-summary-unit">{t('study.totalUnit')}</span>
       </span>
       {/* A drawn rule, not a glyph: axe checks text contrast even
           when it is aria-hidden. */}
-      <span aria-hidden="true" className="h-6 w-px self-center bg-line" />
-      <span className="inline-flex items-baseline gap-1.5">
-        <span className="text-sm text-muted">{t('study.rate')}</span>
-        <span
-          className={`text-[32px] font-bold leading-tight ${rateTierTextClass[totalTier]}`}
-        >
+      <span aria-hidden="true" className="my-summary-rule" />
+      <span className="my-summary-rate">
+        <span className="my-summary-unit">{t('study.rate')}</span>
+        <span className={`my-summary-number ${rateTierTextClass[totalTier]}`}>
           {formatNumber(Math.round(data.correctRate), locale)}%
         </span>
         <RateTierMark
           tier={totalTier}
-          className={`size-5 self-center ${rateTierTextClass[totalTier]}`}
+          className={`my-summary-mark ${rateTierTextClass[totalTier]}`}
         />
         <span className="sr-only">{t(`study.tier.${totalTier}`)}</span>
       </span>
@@ -64,36 +62,31 @@ export const SubjectRateList = ({
   const { t } = useTranslation('account')
   const { t: commonT } = useTranslation('common')
   return (
-    <ul className="grid">
+    <ul className="my-subjects">
       {data.subjectStats.map((stat) => {
         const tier = getRateTier(stat.correctRate)
         const rate = Math.round(stat.correctRate)
         return (
-          <li
-            key={stat.subject}
-            className="grid min-h-[52px] gap-2 border-b border-line py-3"
-          >
-            <span className="flex items-center justify-between gap-3">
-              <span className="text-[15px] font-semibold">
+          <li key={stat.subject} className="my-subject">
+            <span className="my-subject-head">
+              <span className="my-subject-name">
                 {commonT(`taxonomy.subjects.${stat.subject}`)}
               </span>
               {stat.answeredCount === 0 ? (
-                <span className="text-caption text-muted">
-                  {t('study.noRecord')}
-                </span>
+                <span className="my-subject-none">{t('study.noRecord')}</span>
               ) : (
-                <span className="inline-flex items-center gap-2 tabular-nums">
-                  <span className="text-[13px] text-muted">
+                <span className="my-subject-figures">
+                  <span className="my-subject-count">
                     {formatNumber(stat.answeredCount, locale)}
                     {t('study.totalUnit')}
                   </span>
                   <span className="sr-only">{t('study.rate')}</span>
                   <RateTierMark
                     tier={tier}
-                    className={`size-4 ${rateTierTextClass[tier]}`}
+                    className={`my-subject-mark ${rateTierTextClass[tier]}`}
                   />
                   <span
-                    className={`text-xl font-bold ${rateTierTextClass[tier]}`}
+                    className={`my-subject-rate ${rateTierTextClass[tier]}`}
                   >
                     {formatNumber(rate, locale)}%
                   </span>
@@ -102,12 +95,9 @@ export const SubjectRateList = ({
               )}
             </span>
             {stat.answeredCount === 0 ? null : (
-              <span
-                aria-hidden="true"
-                className="block h-1 overflow-hidden rounded-sm bg-line"
-              >
+              <span aria-hidden="true" className="my-subject-bar">
                 <span
-                  className={`block h-full rounded-sm ${rateTierFillClass[tier]}`}
+                  className={`my-subject-fill ${rateTierFillClass[tier]}`}
                   style={{
                     width: `${Math.min(100, Math.max(0, rate))}%`
                   }}

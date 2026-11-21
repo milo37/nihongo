@@ -1052,7 +1052,7 @@ describe('마이페이지 계정 설정', () => {
     ).toHaveAttribute('aria-current', 'page')
     expect(
       screen.getByRole('link', { name: '개인정보 처리방침 보기' })
-    ).toHaveClass('min-h-11')
+    ).toHaveClass('account-data-link')
     expect(
       screen.queryByRole('link', { name: '마이페이지로' })
     ).not.toBeInTheDocument()

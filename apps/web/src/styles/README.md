@@ -45,6 +45,8 @@ earlier one at the same specificity, so a file's place in the list matters.
 |              | operations.css                       | Terms and operations documents                  |
 |              | wrong-note/center.css, list.css      | Wrong notes: center, question list              |
 |              | wrong-note/detail.css                | Wrong notes: one question                       |
+|              | my/settings.css                      | My page: settings, menu, two-step dialog        |
+|              | my/study.css                         | My page: my study                               |
 | 5-motion     | keyframes-\*.css                     | `@keyframes` only, by the part that uses them   |
 |              | reduced-motion.css                   | Every `prefers-reduced-motion` override         |
 

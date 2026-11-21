@@ -146,7 +146,7 @@ it.each(['ko', 'ja'] as const)(
     const menu = screen.getByRole('menu')
     // JLP-849: a click focuses the menu box; only the keyboard opens on an item.
     expect(menu).toHaveFocus()
-    expect(menu).toHaveClass('gap-1')
+    expect(menu).toHaveClass('account-menu-list')
     expect(
       within(menu)
         .getAllByRole('menuitem')
