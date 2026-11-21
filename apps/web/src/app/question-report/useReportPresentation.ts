@@ -38,8 +38,14 @@ export const useReportPresentation = () => {
       const presentation = toApiErrorPresentation(error)
       const message = t(getAdminApiErrorKey(presentation, fallback))
       const seconds = getAdminRetryAfterSeconds(presentation)
-      return seconds === null
-        ? message
+      if (seconds === null) return message
+      // A long wait (the report limit is minutes long) reads better in
+      // minutes, as in the admin app (#712).
+      return seconds >= 60
+        ? t('common.retryAfterMinutes', {
+            message,
+            minutes: formatNumber(Math.ceil(seconds / 60), locale)
+          })
         : t('common.retryAfter', {
             message,
             seconds: formatNumber(seconds, locale)
