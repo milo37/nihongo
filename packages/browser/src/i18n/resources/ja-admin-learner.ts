@@ -37,7 +37,7 @@ export const jaAdminLearnerResources = {
   },
   // #685: the learner app shows only this one; the admin app adds the rest.
   common: {
-    retryAfter: '{{message}} {{seconds}}秒後にもう一度お試しください。'
+    retryAfter: '{{message}}{{seconds}}秒後にもう一度お試しください。'
   },
   errors: {
     generic: '管理者リクエストを完了できませんでした。',
