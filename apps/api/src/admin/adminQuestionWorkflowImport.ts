@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import {
+  ADMIN_QUESTION_TAG_LIMIT,
   adminImportIssueCodeSchema,
   compareUnicodeScalars,
   createAdminImportValidationDigest,
@@ -137,6 +138,25 @@ export const collectImportValidation = async (
   readonly response: AdminImportValidationResponse
   readonly importTags: readonly ImportTagRow[]
 }> => {
+  // The request contract allows two tags; the repository holds the same
+  // limit for any caller that skips it (#712).
+  const overTagLimit = items.flatMap((item, itemIndex) =>
+    item.content.tagNames.length > ADMIN_QUESTION_TAG_LIMIT
+      ? [`/items/${itemIndex}/content/tagNames`]
+      : []
+  )
+  if (overTagLimit.length > 0) {
+    throw repositoryFailure(
+      'IMPORT_VALIDATION_FAILED',
+      `문제당 태그는 ${ADMIN_QUESTION_TAG_LIMIT}개까지입니다.`,
+      Object.fromEntries(
+        overTagLimit.map((fieldPath) => [
+          fieldPath,
+          [`태그는 ${ADMIN_QUESTION_TAG_LIMIT}개까지입니다.`]
+        ])
+      )
+    )
+  }
   const [importTags, validationDigest] = await Promise.all([
     loadImportTags(client, items),
     createAdminImportValidationDigest(sha256Port, items)
