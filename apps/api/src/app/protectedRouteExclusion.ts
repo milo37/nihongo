@@ -73,6 +73,14 @@ const SLICE_3A_ADMIN_COMMAND_PATHS = [
     )
   },
   {
+    method: 'POST',
+    operation: 'editReadingPassage',
+    pattern: new RegExp(
+      `^/api/v1/admin/reading-passages/${CANONICAL_UUID_PATTERN}/edits$`,
+      'u'
+    )
+  },
+  {
     method: 'PATCH',
     operation: 'updateQuestionVersion',
     pattern: new RegExp(

@@ -630,6 +630,128 @@ describe('question catalog PostgreSQL integration', () => {
     ).rejects.toBe(rollback)
   })
 
+  it('공유 지문을 고치면 새 지문이 옛 지문을 대신하고 순서를 잇고, 묶음은 함께만 공개된다 (#1196)', async () => {
+    // Probe rows are written as the fixture owner in rolled-back
+    // transactions; only the current-source run has that connection.
+    if (!isCurrentSourceIntegration) return
+    const rollback = new Error('shared passage probe rolled back')
+    const probe = async (transaction: Prisma.TransactionClient) => {
+      const [first, second] = [randomUUID(), randomUUID()]
+      for (const id of [first, second]) {
+        await transaction.question.create({
+          data: { id, createdByLabelSnapshot: 'SYSTEM_SEED' }
+        })
+      }
+      const version = (
+        questionId: string,
+        versionNumber: number,
+        passage: string
+      ) =>
+        transaction.questionVersion.create({
+          data: {
+            id: randomUUID(),
+            questionId,
+            versionNumber,
+            createdByLabelSnapshot: 'SYSTEM_SEED',
+            level: 'N3',
+            subject: 'READING',
+            questionType: 'SHORT_READING',
+            passage,
+            questionText: `#1196 ${questionId} ${versionNumber}`,
+            explanationKo: '공유 지문 묶음',
+            difficulty: 'EASY'
+          },
+          select: { id: true, passageId: true, passageOrder: true }
+        })
+      const publish = async (questionId: string, versionId: string) => {
+        await transaction.$executeRaw`
+          UPDATE "QuestionVersion" SET "status" = 'RETIRED',
+            "retirementKind" = 'PUBLISHED_RETIREMENT',
+            "retiredAt" = clock_timestamp()
+          WHERE "questionId" = ${questionId}::uuid AND "status" = 'PUBLISHED'
+        `
+        await transaction.$executeRaw`
+          UPDATE "QuestionVersion" SET "status" = 'PUBLISHED',
+            "publishedAt" = clock_timestamp()
+          WHERE "id" = ${versionId}::uuid
+        `
+        await transaction.$executeRaw`
+          UPDATE "Question" SET "currentPublishedVersionId" = ${versionId}::uuid
+          WHERE "id" = ${questionId}::uuid
+        `
+      }
+      // Runs the commit check now, then defers it again so the rest of the
+      // probe is checked only at the next check.
+      const check = async () => {
+        await transaction.$executeRawUnsafe(
+          'SET CONSTRAINTS "QuestionVersion_passage_group_publication" IMMEDIATE'
+        )
+        await transaction.$executeRawUnsafe(
+          'SET CONSTRAINTS "QuestionVersion_passage_group_publication" DEFERRED'
+        )
+      }
+      const oldText = `#1196 지문 ${randomUUID()}`
+      const firstV1 = await version(first, 1, oldText)
+      const secondV1 = await version(second, 1, oldText)
+      await publish(first, firstV1.id)
+      await publish(second, secondV1.id)
+      await check()
+      // The second question is edited first and still keeps place 2.
+      const newText = `${oldText} 고침`
+      const secondV2 = await version(second, 2, newText)
+      const firstV2 = await version(first, 2, newText)
+      return {
+        first,
+        second,
+        firstV1,
+        secondV1,
+        firstV2,
+        secondV2,
+        publish,
+        check
+      }
+    }
+
+    await expect(
+      fixtureDatabase.client.$transaction(async (transaction) => {
+        const { firstV1, firstV2, secondV2 } = await probe(transaction)
+        expect(firstV1.passageOrder).toBe(1)
+        expect(secondV2.passageId).not.toBe(firstV1.passageId)
+        expect(secondV2.passageId).toBe(firstV2.passageId)
+        expect([firstV2.passageOrder, secondV2.passageOrder]).toEqual([1, 2])
+        const [replaced] = await transaction.$queryRaw<
+          { replacesPassageId: string | null }[]
+        >`
+          SELECT "replacesPassageId"::text AS "replacesPassageId"
+          FROM "ReadingPassage" WHERE "id" = ${secondV2.passageId}::uuid
+        `
+        expect(replaced?.replacesPassageId).toBe(firstV1.passageId)
+        throw rollback
+      })
+    ).rejects.toBe(rollback)
+
+    // Publishing one question of the group alone splits it: refused.
+    await expect(
+      fixtureDatabase.client.$transaction(async (transaction) => {
+        const { second, secondV2, publish, check } = await probe(transaction)
+        await publish(second, secondV2.id)
+        await check()
+      })
+    ).rejects.toThrow('A shared reading passage group must publish together.')
+
+    // Publishing the whole group together passes.
+    await expect(
+      fixtureDatabase.client.$transaction(async (transaction) => {
+        const { first, second, firstV2, secondV2, publish, check } =
+          await probe(transaction)
+        await publish(second, secondV2.id)
+        await publish(first, firstV2.id)
+        await check()
+        throw rollback
+      })
+    ).rejects.toBe(rollback)
+  })
+
   it('후리가나 표는 대상 하나에 한 줄, 검수 표시는 함께, 앱은 읽기만 한다 (#1182)', async () => {
     // The probe writes as the fixture owner in a rolled-back transaction;
     // only the current-source run has that connection.

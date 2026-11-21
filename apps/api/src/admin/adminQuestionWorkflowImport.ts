@@ -17,7 +17,10 @@ import { normalizeOptionComparison } from '@nihongo/domain/content/validators/v1
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 import { uniqueSorted } from './adminRepositoryCommon.js'
 import { repositoryFailure } from './adminQuestionCommandRepository.js'
-import { TAG_REFERENCE_SQL } from './adminQuestionCommandContent.js'
+import {
+  TAG_REFERENCE_SQL,
+  loadClosedImportPassages
+} from './adminQuestionCommandContent.js'
 
 import {
   type AdminImportValidationIssue,
@@ -76,6 +79,9 @@ export const loadExistingFingerprints = async (
   )
   return new Set(rows.map((row) => row.contentFingerprint))
 }
+
+const md5Hex = (text: string): string =>
+  createHash('md5').update(text, 'utf8').digest('hex')
 
 export const eligibleImportFingerprints = (
   items: readonly AdminImportItem[]
@@ -309,6 +315,35 @@ export const collectImportValidation = async (
     }
     seenFingerprints.add(fingerprint)
   })
+
+  const withPassage = items.flatMap((item, itemIndex) =>
+    item.content.passage === null
+      ? []
+      : [
+          {
+            itemIndex,
+            level: item.content.level,
+            subject: item.content.subject,
+            text: item.content.passage
+          }
+        ]
+  )
+  const closedPassages = await loadClosedImportPassages(client, withPassage)
+  for (const passage of withPassage) {
+    if (
+      closedPassages.has(
+        [passage.level, passage.subject, md5Hex(passage.text)].join('|')
+      )
+    ) {
+      pushIssue(issues, {
+        itemIndex: passage.itemIndex,
+        fieldPath: `/items/${passage.itemIndex}/content/passage`,
+        code: 'INVALID_READING_PASSAGE',
+        message:
+          '이 지문은 지문 고치기로 바뀌었거나 고치는 중이라 새 문제를 붙일 수 없습니다.'
+      })
+    }
+  }
 
   issues.sort(
     (left, right) =>

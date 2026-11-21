@@ -322,6 +322,16 @@ export const operationManifest = [
     responseBodyKind: 'JSON',
     requiresFreshAssurance: true,
     slice2Route: false
+  },
+  {
+    operation: 'editReadingPassage',
+    operationId: 'admin.editReadingPassage',
+    method: 'POST',
+    path: '/api/v1/admin/reading-passages/:passageId/edits',
+    successStatus: 201,
+    responseBodyKind: 'JSON',
+    requiresFreshAssurance: false,
+    slice2Route: false
   }
 ] as const satisfies readonly OperationManifestEntry[]
 
@@ -334,7 +344,9 @@ const ADMIN_SLICE_3A_COMMAND_OPERATIONS = new Set<AdminOperation>([
   'createAdminQuestionVersion',
   'updateQuestionVersion',
   'requestContentReview',
-  'requestQuestionChanges'
+  'requestQuestionChanges',
+  // #1196: the shared passage edit sits with the question edit commands.
+  'editReadingPassage'
 ])
 
 const ADMIN_SLICE_3R_REMEDIATION_OPERATIONS = new Set<AdminOperation>([
@@ -512,37 +524,37 @@ export const dormantAfterSlice5OperationManifest = operationManifest.filter(
 )
 
 export const assertOperationManifest = (): void => {
-  if (operationManifest.length !== 31) {
-    throw new Error('operation manifest는 정확히 31개여야 합니다.')
+  if (operationManifest.length !== 32) {
+    throw new Error('operation manifest는 정확히 32개여야 합니다.')
   }
   if (slice2ReadOperationManifest.length !== 8) {
     throw new Error('Route manifest는 정확히 8개여야 합니다.')
   }
   if (
-    slice3ACommandOperationManifest.length !== 5 ||
+    slice3ACommandOperationManifest.length !== 6 ||
     slice3RRemediationOperationManifest.length !== 3 ||
-    activeThroughSlice3AOperationManifest.length !== 13 ||
+    activeThroughSlice3AOperationManifest.length !== 14 ||
     dormantAfterSlice3AOperationManifest.length !== 18 ||
-    activeThroughSlice3RA1OperationManifest.length !== 14 ||
+    activeThroughSlice3RA1OperationManifest.length !== 15 ||
     dormantAfterSlice3RA1OperationManifest.length !== 17 ||
-    activeThroughSlice3RA2OperationManifest.length !== 16 ||
+    activeThroughSlice3RA2OperationManifest.length !== 17 ||
     dormantAfterSlice3RA2OperationManifest.length !== 15 ||
     slice4OperationManifest.length !== 3 ||
-    activeThroughSlice4OperationManifest.length !== 19 ||
+    activeThroughSlice4OperationManifest.length !== 20 ||
     dormantAfterSlice4OperationManifest.length !== 12 ||
     slice5OperationManifest.length !== 12 ||
-    activeThroughSlice5OperationManifest.length !== 31 ||
+    activeThroughSlice5OperationManifest.length !== 32 ||
     dormantAfterSlice5OperationManifest.length !== 0
   ) {
     throw new Error(
-      'Manifest는 Slice 3A historical 13/18, Slice 3R-A1 14/17, Slice 3R-A2 16/15, Slice 4 19/12, Slice 5 31/0 경계를 유지해야 합니다.'
+      'Manifest는 Slice 3A historical 14/18, Slice 3R-A1 15/17, Slice 3R-A2 17/15, Slice 4 20/12, Slice 5 32/0 경계를 유지해야 합니다.'
     )
   }
   const operations = new Set(operationManifest.map((entry) => entry.operation))
   const operationIds = new Set(
     operationManifest.map((entry) => entry.operationId)
   )
-  if (operations.size !== 31 || operationIds.size !== 31) {
+  if (operations.size !== 32 || operationIds.size !== 32) {
     throw new Error('operation/operationId는 각각 고유해야 합니다.')
   }
   if (slice2ReadOperationManifest.some((entry) => entry.method !== 'GET')) {

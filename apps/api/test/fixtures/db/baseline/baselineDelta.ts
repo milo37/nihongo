@@ -416,9 +416,14 @@ const ADDED_PASSAGE_LINK_COLUMNS = new Set(['passageId', 'passageOrder'])
 const ADDED_PASSAGE_LINK_OBJECTS = new Set([
   'QuestionVersion_passageId_fkey',
   'QuestionVersion_passage_link_check',
-  'QuestionVersion_passageId_passageOrder_idx'
+  'QuestionVersion_passageId_passageOrder_idx',
+  // #1196: a constraint trigger is also a pg_constraint row.
+  'QuestionVersion_passage_group_publication'
 ])
 const ADDED_PASSAGE_LINK_TRIGGER = 'QuestionVersion_link_passage'
+/** #1196: the commit check that a shared passage group publishes together. */
+const ADDED_PASSAGE_GROUP_TRIGGER = 'QuestionVersion_passage_group_publication'
+const ADDED_PASSAGE_GROUP_FUNCTION = 'validate_passage_group_publication'
 const ADDED_PASSAGE_LINK_FUNCTION = 'link_question_version_passage'
 const isAddedReadingPassage = (row: Record<string, unknown>): boolean =>
   row.table === ADDED_READING_PASSAGE_TABLE ||
@@ -577,6 +582,7 @@ export const withoutForwardChanges = (
       row.table !== ADDED_TABLE &&
       !isRetiredVerification(row) &&
       row.name !== ADDED_PASSAGE_LINK_TRIGGER &&
+      row.name !== ADDED_PASSAGE_GROUP_TRIGGER &&
       !DROPPED_TRIGGERS.has(String(row.name))
   ),
   functions: catalog.functions
@@ -586,6 +592,7 @@ export const withoutForwardChanges = (
         name !== ADDED_FUNCTION &&
         name !== ADDED_REAPPLY_FUNCTION &&
         name !== ADDED_PASSAGE_LINK_FUNCTION &&
+        name !== ADDED_PASSAGE_GROUP_FUNCTION &&
         name !== RETIRED_VERIFICATION_FUNCTION
     )
     .map((row) =>

@@ -41,6 +41,42 @@ export const createAdminQuestionVersionRequestSchema =
     expectedQuestionRowVersion: positiveSafeIntegerSchema
   })
 
+/** #1196: the most questions one shared passage edit moves at once. */
+const READING_PASSAGE_EDIT_MAX_QUESTIONS = 20
+
+export const editReadingPassageParamsSchema = z
+  .object({ passageId: opaqueIdSchema })
+  .strict()
+export const editReadingPassageRequestSchema = z
+  .object({
+    text: createContentTextSchema({ maxScalars: 10_000, multiline: true }),
+    expectedQuestions: z
+      .array(
+        z
+          .object({
+            questionId: opaqueIdSchema,
+            expectedQuestionRowVersion: positiveSafeIntegerSchema
+          })
+          .strict()
+      )
+      .min(2)
+      .max(READING_PASSAGE_EDIT_MAX_QUESTIONS)
+  })
+  .strict()
+  .superRefine((request, context) => {
+    const questionIds = new Set<string>()
+    request.expectedQuestions.forEach((item, index) => {
+      if (questionIds.has(item.questionId)) {
+        addIssue(
+          context,
+          ['expectedQuestions', index, 'questionId'],
+          '지문 고치기 questionId는 고유해야 합니다.'
+        )
+      }
+      questionIds.add(item.questionId)
+    })
+  })
+
 export const archiveAdminQuestionParamsSchema = questionParamsSchema
 export const archiveAdminQuestionRequestSchema = z
   .object({
@@ -331,6 +367,42 @@ export const createAdminQuestionVersionResponseSchema =
     }
   )
 
+export const editReadingPassageResponseSchema = z
+  .object({
+    passageId: opaqueIdSchema,
+    occurredAt: isoDateTimeSchema,
+    items: z
+      .array(
+        z
+          .object({
+            questionId: opaqueIdSchema,
+            versionId: opaqueIdSchema,
+            questionRowVersion: positiveSafeIntegerSchema,
+            versionRowVersion: z.literal(1),
+            versionStatus: z.literal('DRAFT')
+          })
+          .strict()
+      )
+      .min(2)
+      .max(READING_PASSAGE_EDIT_MAX_QUESTIONS)
+  })
+  .strict()
+  .superRefine((result, context) => {
+    const questionIds = new Set<string>()
+    const versionIds = new Set<string>()
+    result.items.forEach((item, index) => {
+      if (questionIds.has(item.questionId) || versionIds.has(item.versionId)) {
+        addIssue(
+          context,
+          ['items', index],
+          '지문 고치기 결과의 문제·버전 ID는 고유해야 합니다.'
+        )
+      }
+      questionIds.add(item.questionId)
+      versionIds.add(item.versionId)
+    })
+  })
+
 export const updateQuestionVersionResponseSchema =
   activeMutationResultSchema.refine(
     (result) =>
@@ -490,6 +562,36 @@ export const assertCreateAdminQuestionVersionResponse = (
   ) {
     throw new Error(
       'create version result가 path/Question rowVersion과 다릅니다.'
+    )
+  }
+  return response
+}
+
+export const assertEditReadingPassageResponse = (
+  rawParams: unknown,
+  rawRequest: unknown,
+  rawResponse: unknown
+): EditReadingPassageResponse => {
+  const params = editReadingPassageParamsSchema.parse(rawParams)
+  const request = editReadingPassageRequestSchema.parse(rawRequest)
+  const response = editReadingPassageResponseSchema.parse(rawResponse)
+  const expectedByQuestionId = new Map(
+    request.expectedQuestions.map((item) => [
+      item.questionId,
+      item.expectedQuestionRowVersion
+    ])
+  )
+  if (
+    response.passageId === params.passageId ||
+    response.items.length !== expectedByQuestionId.size ||
+    response.items.some(
+      (item) =>
+        expectedByQuestionId.get(item.questionId) !==
+        item.questionRowVersion - 1
+    )
+  ) {
+    throw new Error(
+      'passage edit result가 path passage/expected questions와 다릅니다.'
     )
   }
   return response
@@ -1013,6 +1115,29 @@ export const createAdminQuestionVersionErrorSchema =
     createAdminQuestionVersionErrorCodeSchema
   )
 
+export const editReadingPassageErrorCodeSchema = z.enum([
+  'AUTHENTICATION_REQUIRED',
+  'AUTH_SESSION_EXPIRED',
+  'ADMIN_REQUIRED',
+  'INVALID_ID',
+  'INVALID_JSON',
+  'INVALID_REQUEST',
+  'REQUEST_TOO_LARGE',
+  'VALIDATION_ERROR',
+  'RESOURCE_NOT_FOUND',
+  'VERSION_CONFLICT',
+  'INVALID_STATE_TRANSITION',
+  'DUPLICATE_QUESTION_CONTENT',
+  'UNTRUSTED_ORIGIN',
+  'RATE_LIMITED',
+  'INTERNAL_SERVER_ERROR',
+  'SERVICE_UNAVAILABLE'
+])
+export const editReadingPassageErrorSchema = createContentOperationErrorSchema(
+  'editReadingPassage',
+  editReadingPassageErrorCodeSchema
+)
+
 export const updateQuestionVersionErrorCodeSchema = z.enum([
   'AUTHENTICATION_REQUIRED',
   'AUTH_SESSION_EXPIRED',
@@ -1337,6 +1462,9 @@ export type CreateAdminQuestionRequest = z.output<
 export type CreateAdminQuestionVersionRequest = z.output<
   typeof createAdminQuestionVersionRequestSchema
 >
+export type EditReadingPassageRequest = z.output<
+  typeof editReadingPassageRequestSchema
+>
 export type ArchiveAdminQuestionRequest = z.output<
   typeof archiveAdminQuestionRequestSchema
 >
@@ -1376,6 +1504,9 @@ export type CreateAdminQuestionResponse = z.output<
 >
 type CreateAdminQuestionVersionResponse = z.output<
   typeof createAdminQuestionVersionResponseSchema
+>
+export type EditReadingPassageResponse = z.output<
+  typeof editReadingPassageResponseSchema
 >
 type UpdateQuestionVersionResponse = z.output<
   typeof updateQuestionVersionResponseSchema
