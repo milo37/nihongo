@@ -426,6 +426,12 @@ const isAddedReadingPassage = (row: Record<string, unknown>): boolean =>
     (ADDED_PASSAGE_LINK_COLUMNS.has(String(row.name)) ||
       ADDED_PASSAGE_LINK_OBJECTS.has(String(row.name))))
 
+/** #1182: the furigana table and its two enums. */
+const ADDED_FURIGANA_TABLE = 'Furigana'
+const ADDED_FURIGANA_TYPES = new Set(['FuriganaTarget', 'FuriganaOrigin'])
+const isAddedFurigana = (row: Record<string, unknown>): boolean =>
+  row.table === ADDED_FURIGANA_TABLE
+
 /** #675: the retired email Verification table, its enum and its guard. */
 const RETIRED_VERIFICATION_TABLE = 'Verification'
 const RETIRED_VERIFICATION_TYPE = 'AuthVerificationPurpose'
@@ -469,7 +475,7 @@ const withBaselineErasureStatus = (
  * access record table, the JLP-852 last sign-in table, the #1042 return
  * count table, the #1085 consent table, the #1090 study goal table, the
  * #1094 stamp ledger, the #1043 rush best table, the #986 reading passage
- * objects and the #702 re-apply function.
+ * objects, the #1182 furigana table and the #702 re-apply function.
  */
 export const withoutForwardChanges = (
   catalog: SchemaCatalog
@@ -477,7 +483,10 @@ export const withoutForwardChanges = (
   ...catalog,
   types: catalog.types
     .filter(
-      ({ name }) => name !== ADDED_TYPE && name !== RETIRED_VERIFICATION_TYPE
+      ({ name }) =>
+        name !== ADDED_TYPE &&
+        name !== RETIRED_VERIFICATION_TYPE &&
+        !ADDED_FURIGANA_TYPES.has(String(name))
     )
     .map((row) =>
       Array.isArray(row.labels)
@@ -501,6 +510,7 @@ export const withoutForwardChanges = (
       name !== ADDED_RUSH_BEST_TABLE &&
       name !== ADDED_RUSH_KANJI_WORD_TABLE &&
       name !== ADDED_READING_PASSAGE_TABLE &&
+      name !== ADDED_FURIGANA_TABLE &&
       name !== RETIRED_VERIFICATION_TABLE
   ),
   columns: catalog.columns
@@ -521,6 +531,7 @@ export const withoutForwardChanges = (
         !isAddedRushBest(row) &&
         !isAddedRushKanjiWord(row) &&
         !isAddedReadingPassage(row) &&
+        !isAddedFurigana(row) &&
         !isRetiredVerification(row)
     )
     .map(withBaselineTargetLevelAcl),
@@ -539,6 +550,7 @@ export const withoutForwardChanges = (
         !isAddedRushBest(row) &&
         !isAddedRushKanjiWord(row) &&
         !isAddedReadingPassage(row) &&
+        !isAddedFurigana(row) &&
         !isRetiredVerification(row)
     )
     .map(withBaselineProofBound)
@@ -556,6 +568,7 @@ export const withoutForwardChanges = (
       !isAddedRushBest(row) &&
       !isAddedRushKanjiWord(row) &&
       !isAddedReadingPassage(row) &&
+      !isAddedFurigana(row) &&
       !isRetiredVerification(row)
   ),
   triggers: catalog.triggers.filter(

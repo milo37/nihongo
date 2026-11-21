@@ -87,6 +87,10 @@
     {
       "name": "20261127090000_reading_passage",
       "checksum": "49868a96dd5122046e0b9bd5bb4e254feb4bab5770869b6d2a70dd61921ed87c"
+    },
+    {
+      "name": "20261128090000_furigana",
+      "checksum": "7e2b4bf7e397270d6897b9abc3574aead41cb55e97b8fde2d969c6e3983a3305"
     }
   ]
 }

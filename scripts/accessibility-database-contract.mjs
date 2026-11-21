@@ -17,6 +17,7 @@ export const accessibilityDatabaseTables = [
   'Bookmark',
   'ContentReview',
   'DatabaseCapability',
+  'Furigana',
   'GuestPrincipal',
   'IdempotencyRecord',
   'OperationIntent',
@@ -69,6 +70,8 @@ export const accessibilityExpectedTableDeltas = {
   AdminAuditLog: 0,
   Bookmark: 0,
   ContentReview: 0,
+  // #1182: the scan loads no furigana.
+  Furigana: 0,
   GuestPrincipal: 0,
   IdempotencyRecord: 4,
   AuthorityRevocationEvidence: 0,
