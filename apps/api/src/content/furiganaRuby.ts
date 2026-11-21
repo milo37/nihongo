@@ -96,8 +96,10 @@ export const draftRuby = (
 }
 
 /**
- * Reads a ruby string back into its plain text and segments. Rejects a
- * reading that is not hiragana, a base without kanji and stray marks.
+ * Reads a ruby string back into its plain text and segments. Positions count
+ * code points of the exact text, line breaks included. Rejects a reading that
+ * is not hiragana, a base without kanji or with a space or line break, and
+ * stray marks.
  */
 export const parseRuby = (
   ruby: string
@@ -112,7 +114,11 @@ export const parseRuby = (
     if (RUBY_MARK.test(plain)) throw new Error('Stray ruby mark.')
     const base = match[1] ?? ''
     const reading = match[2] ?? ''
-    if (!hasKanji(base) || !HIRAGANA_READING.test(reading)) {
+    if (
+      !hasKanji(base) ||
+      /\s/u.test(base) ||
+      !HIRAGANA_READING.test(reading)
+    ) {
       throw new Error(`Bad ruby ${match[0]}.`)
     }
     text += plain

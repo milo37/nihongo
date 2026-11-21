@@ -60,6 +60,9 @@ describe('furigana ruby (#1182)', () => {
     expect(() => parseRuby('{雨|アメ}')).toThrow()
     expect(() => parseRuby('{あめ|あめ}')).toThrow()
     expect(() => parseRuby('雨|あめ}')).toThrow()
+    // A ruby group never spans a line break or a space (#1182 FE).
+    expect(() => parseRuby('{雨\n雪|あめゆき}')).toThrow()
+    expect(() => parseRuby('{雨 雪|あめゆき}')).toThrow()
   })
 
   it('converts katakana readings to hiragana', () => {
