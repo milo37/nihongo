@@ -71,5 +71,27 @@ export const koAdminQuestionDetailResources = {
   noteLimit: '메모는 {{formattedCount}}자 이하여야 합니다.',
   commandWarning:
     '이 작업은 학습자 노출과 기록에 영향을 줄 수 있습니다. 결과를 확인한 뒤 실행해 주세요.',
-  commandComplete: '{{command}} 작업이 완료됐습니다.'
+  commandComplete: '{{command}} 작업이 완료됐습니다.',
+  sharedPassage: {
+    title: '공유 지문',
+    shared:
+      '이 지문을 문제 {{count}}개가 같이 씁니다. 지문을 고치면 모두 함께 바뀝니다.',
+    editing:
+      '고친 지문으로 만든 초안 {{count}}개가 한 묶음입니다. 검수 요청·승인·공개는 묶음 전체에 함께 적용됩니다.',
+    thisQuestion: '(이 문제)',
+    blocked:
+      '아래 문제에 열린 버전이 있어 지금은 지문을 고칠 수 없습니다. 먼저 정리해 주세요.',
+    edit: '지문 고치기',
+    editLabel: '새 지문',
+    editHint: '저장하면 문제 {{count}}개마다 이 지문으로 새 초안이 생깁니다.',
+    save: '초안 {{count}}개 만들기',
+    cancel: '취소',
+    saved: '문제 {{count}}개에 고친 지문으로 새 초안을 만들었습니다.',
+    conflict:
+      '다른 관리자가 먼저 바꿨습니다. 최신 내용을 불러왔으니 다시 확인해 주세요.',
+    textError: '바뀐 글자가 없거나 같은 글자의 지문이 이미 있습니다.',
+    locked:
+      '여러 문제가 같이 쓰는 지문이라 여기서는 고칠 수 없습니다. 문제 상세의 「지문 고치기」를 써 주세요.',
+    together: '{{command}} ({{count}}개 함께)'
+  }
 } as const

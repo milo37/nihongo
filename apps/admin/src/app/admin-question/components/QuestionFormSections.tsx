@@ -113,9 +113,12 @@ export const QuestionClassificationSection = ({
 
 /** Passage, question text, four options and the correct option. */
 export const QuestionContentSection = ({
-  fields
+  fields,
+  passageLocked = false
 }: {
   fields: QuestionFormFields
+  /** #1196: a passage shared by several questions changes only as a group. */
+  passageLocked?: boolean
 }): ReactElement => {
   const { t } = useAdminPresentation()
   const { register, errors, localError, subject, correctOptionId, setValue } =
@@ -141,8 +144,13 @@ export const QuestionContentSection = ({
               ? 'editor.form.passageRequired'
               : 'editor.form.passageOptional'
           )}
-          hint={t('editor.form.passageHint')}
+          hint={t(
+            passageLocked
+              ? 'questionDetail.sharedPassage.locked'
+              : 'editor.form.passageHint'
+          )}
           error={localError(errors.passage?.message)}
+          readOnly={passageLocked}
           rows={7}
           placeholder={t('editor.form.passagePlaceholder')}
           {...register('passage')}

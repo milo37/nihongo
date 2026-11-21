@@ -27,6 +27,14 @@ import {
   safeQuestionReturn
 } from '@app/admin-question/navigation/questionWorkflowContext'
 
+const GROUP_COMMANDS: ReadonlySet<QuestionCommand> = new Set([
+  'REQUEST_REVIEW',
+  'CHANGE_REQUEST',
+  'APPROVE',
+  'WITHDRAW',
+  'PUBLISH'
+])
+
 /** Question detail state: selected version, workflow commands, fresh-assurance recovery and unsaved-change guard. */
 export const useQuestionDetail = ({
   questionId,
@@ -64,10 +72,17 @@ export const useQuestionDetail = ({
     detail.data?.question.currentPublishedVersionId ?? null,
     versions
   )
+  // #1196: in a passage edit group these act on every draft of the group.
+  const group = preview.data?.passageGroup
   const commandLabel = (command: QuestionCommand): string =>
     command === 'ARCHIVE'
       ? t(draftOnly ? 'questionList.draftDelete' : 'questionList.archive')
-      : t(`enums.commands.${command}`)
+      : group?.editing && GROUP_COMMANDS.has(command)
+        ? t('questionDetail.sharedPassage.together', {
+            command: t(`enums.commands.${command}`),
+            count: group.questions.length
+          })
+        : t(`enums.commands.${command}`)
   const returnTo = safeQuestionReturn(
     searchParams.get('returnTo') ?? freshContext?.returnTo
   )

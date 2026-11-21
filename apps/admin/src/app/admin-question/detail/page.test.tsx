@@ -19,6 +19,7 @@ import {
 import { createMemoryRouter, RouterProvider } from 'react-router'
 import { diffQuestionVersionResponseSchema } from '@nihongo/contracts/admin/content-operations'
 import type {
+  AdminPassageGroup,
   AdminQuestionDetail,
   AdminQuestionMutationResult,
   AdminQuestionVersionConnection,
@@ -78,6 +79,7 @@ let history: AdminQuestionVersionConnection | undefined
 let reviews: ContentReviewConnection
 let reviewError: unknown
 let readError: unknown
+let passageGroup: AdminPassageGroup | null
 let versionDiff: DiffQuestionVersionResponse
 let write: (request: QuestionWrite) => Promise<AdminQuestionMutationResult>
 let endpoint: MockInstance<typeof api.requestContentOperation>
@@ -99,6 +101,7 @@ beforeEach(() => {
   reviews = { questionVersionId: versionId, items: [], nextCursor: null }
   reviewError = null
   readError = null
+  passageGroup = null
   versionDiff = diffQuestionVersionResponseSchema.parse({
     ...emptyDiff,
     changedFields: ['QUESTION_TEXT'],
@@ -145,9 +148,14 @@ beforeEach(() => {
         case 'listAdminQuestionVersions':
           return history ?? snapshot.versions
         case 'previewQuestionVersion':
-          return previewFor(
-            'versionId' in request.params ? request.params.versionId : versionId
-          )
+          return {
+            ...previewFor(
+              'versionId' in request.params
+                ? request.params.versionId
+                : versionId
+            ),
+            passageGroup
+          }
         case 'diffQuestionVersion':
           return versionDiff
         case 'listQuestionVersionReviews':
@@ -1092,3 +1100,33 @@ it.each([false, true])(
     expect(writes()).toHaveLength(1)
   }
 )
+
+it('labels group commands while a passage edit is open (#1196)', async () => {
+  const shared = (id: string, passageOrder: number) => ({
+    questionId: id,
+    questionRowVersion: 1,
+    passageOrder,
+    level: 'N3' as const,
+    questionType: 'MEDIUM_READING' as const,
+    questionTextPreview: '問',
+    openVersionId: null,
+    openVersionStatus: null
+  })
+  passageGroup = {
+    passageId: '10000000-0000-4000-8000-0000000000b1',
+    questions: [
+      shared(questionId, 1),
+      shared('10000000-0000-4000-8000-0000000000a2', 2)
+    ],
+    editing: true
+  }
+  route()
+  expect(
+    await screen.findByRole('button', {
+      name: t('questionDetail.sharedPassage.together', {
+        command: t('enums.commands.REQUEST_REVIEW'),
+        count: 2
+      })
+    })
+  ).toBeInTheDocument()
+})

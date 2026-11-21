@@ -5,6 +5,10 @@ import { Button } from '@nihongo/browser/common/components/Button'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import type { useQuestionWorkflow } from '@app/admin-question/hooks/useQuestionWorkflow'
+import {
+  SharedPassageGroup,
+  isSharedPassage
+} from '@app/admin-question/components/SharedPassageGroup'
 type Workflow = ReturnType<typeof useQuestionWorkflow>
 type PanelQuery = Workflow['preview'] | Workflow['diff'] | Workflow['reviews']
 type Translate = ReturnType<typeof useAdminPresentation>['t']
@@ -92,6 +96,15 @@ const PreviewPanel = ({ workflow }: { workflow: Workflow }): ReactElement => {
           <p lang="ja" className="mt-6 whitespace-pre-wrap leading-8">
             {preview.data.question.passage}
           </p>
+          {preview.data.question.passage &&
+          isSharedPassage(preview.data.passageGroup) ? (
+            <SharedPassageGroup
+              group={preview.data.passageGroup}
+              isOffline={isOffline}
+              passage={preview.data.question.passage}
+              questionId={preview.data.question.id}
+            />
+          ) : null}
           <p
             lang="ja"
             className="mt-4 whitespace-pre-wrap text-lg font-bold leading-8"

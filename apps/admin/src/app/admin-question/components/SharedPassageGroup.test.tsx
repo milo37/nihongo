@@ -1,0 +1,195 @@
+import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import {
+  QueryClient,
+  QueryClientProvider,
+  onlineManager
+} from '@tanstack/react-query'
+import { MemoryRouter } from 'react-router'
+import type { AdminPassageGroup } from '@nihongo/contracts/admin/content-operations'
+import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
+import { appI18n } from '@nihongo/browser/i18n/config'
+import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
+import { useAppStore } from '@nihongo/browser/store/index'
+import * as api from '@nihongo/browser/api/content-operations/requestContentOperation'
+import {
+  SharedPassageGroup,
+  isSharedPassage
+} from '@app/admin-question/components/SharedPassageGroup'
+import { actor } from '@app/admin-question/test/workflowFixture'
+
+const t = appI18n.getFixedT('ko', 'admin')
+const Q1 = '10000000-0000-4000-8000-0000000000a1'
+const Q2 = '10000000-0000-4000-8000-0000000000a2'
+const PASSAGE = '10000000-0000-4000-8000-0000000000b1'
+
+const item = (questionId: string, passageOrder: number) => ({
+  questionId,
+  questionRowVersion: passageOrder + 3,
+  passageOrder,
+  level: 'N3' as const,
+  questionType: 'MEDIUM_READING' as const,
+  questionTextPreview: `問${passageOrder}`,
+  openVersionId: null,
+  openVersionStatus: null
+})
+
+const group = (
+  overrides: Partial<AdminPassageGroup> = {}
+): AdminPassageGroup => ({
+  passageId: PASSAGE,
+  questions: [item(Q1, 1), item(Q2, 2)],
+  editing: false,
+  ...overrides
+})
+
+const view = (value: AdminPassageGroup) =>
+  render(
+    <QueryClientProvider
+      client={
+        new QueryClient({
+          defaultOptions: {
+            queries: { retry: false },
+            mutations: { retry: false }
+          }
+        })
+      }
+    >
+      <I18nProvider>
+        <MemoryRouter>
+          <SharedPassageGroup
+            group={value}
+            isOffline={false}
+            passage="古い文章。"
+            questionId={Q1}
+          />
+        </MemoryRouter>
+      </I18nProvider>
+    </QueryClientProvider>
+  )
+
+describe('shared passage group (#1196)', () => {
+  beforeEach(() => {
+    writeUiLocalePreference('ko')
+    onlineManager.setOnline(true)
+    useAppStore.getState().setCurrentUser(actor())
+  })
+
+  it('counts as shared only with two or more questions', () => {
+    expect(isSharedPassage(null)).toBe(false)
+    expect(isSharedPassage(undefined)).toBe(false)
+    expect(isSharedPassage(group({ questions: [item(Q1, 1)] }))).toBe(false)
+    expect(isSharedPassage(group())).toBe(true)
+  })
+
+  it('edits the passage for every question in the group', async () => {
+    const send = vi
+      .spyOn(api, 'requestContentOperation')
+      .mockResolvedValue({} as never)
+    view(group())
+    expect(
+      await screen.findByText(
+        t('questionDetail.sharedPassage.shared', { count: 2 })
+      )
+    ).toBeInTheDocument()
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: t('questionDetail.sharedPassage.edit')
+      })
+    )
+    const box = screen.getByRole('textbox', {
+      name: t('questionDetail.sharedPassage.editLabel')
+    })
+    expect(box).toHaveValue('古い文章。')
+    await userEvent.clear(box)
+    await userEvent.type(box, '新しい文章。')
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: t('questionDetail.sharedPassage.save', { count: 2 })
+      })
+    )
+    await waitFor(() =>
+      expect(send).toHaveBeenCalledWith({
+        operation: 'editReadingPassage',
+        params: { passageId: PASSAGE },
+        query: {},
+        body: {
+          text: '新しい文章。',
+          expectedQuestions: [
+            { questionId: Q1, expectedQuestionRowVersion: 4 },
+            { questionId: Q2, expectedQuestionRowVersion: 5 }
+          ]
+        }
+      })
+    )
+    expect(
+      await screen.findByText(
+        t('questionDetail.sharedPassage.saved', { count: 2 })
+      )
+    ).toBeInTheDocument()
+  })
+
+  it('lists the questions with an open version instead of the edit button', async () => {
+    view(
+      group({
+        questions: [
+          item(Q1, 1),
+          {
+            ...item(Q2, 2),
+            openVersionId: '10000000-0000-4000-8000-0000000000c2',
+            openVersionStatus: 'IN_REVIEW'
+          }
+        ]
+      })
+    )
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(t('questionDetail.sharedPassage.blocked'))
+    expect(alert).toHaveTextContent(t('enums.versionStatuses.IN_REVIEW'))
+    expect(
+      screen.queryByRole('button', {
+        name: t('questionDetail.sharedPassage.edit')
+      })
+    ).not.toBeInTheDocument()
+  })
+
+  it('shows the questions the server refused', async () => {
+    vi.spyOn(api, 'requestContentOperation').mockRejectedValue({
+      code: 'VALIDATION_ERROR',
+      fieldErrors: { expectedQuestions: [Q2] }
+    })
+    view(group())
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: t('questionDetail.sharedPassage.edit')
+      })
+    )
+    await userEvent.type(
+      screen.getByRole('textbox', {
+        name: t('questionDetail.sharedPassage.editLabel')
+      }),
+      '追加'
+    )
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: t('questionDetail.sharedPassage.save', { count: 2 })
+      })
+    )
+    const alert = await screen.findByRole('alert')
+    expect(alert).toHaveTextContent(t('questionDetail.sharedPassage.blocked'))
+    expect(alert).toHaveTextContent('N3')
+  })
+
+  it('says the group moves together while a passage edit is open', async () => {
+    view(group({ editing: true }))
+    expect(
+      await screen.findByText(
+        t('questionDetail.sharedPassage.editing', { count: 2 })
+      )
+    ).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', {
+        name: t('questionDetail.sharedPassage.edit')
+      })
+    ).not.toBeInTheDocument()
+  })
+})
