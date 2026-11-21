@@ -72,14 +72,11 @@ export const SharedPassageGroup = ({
     )
   }
   return (
-    <section
-      aria-labelledby="shared-passage"
-      className="mt-4 rounded-lg border border-line p-4 text-sm"
-    >
+    <section aria-labelledby="shared-passage" className="mt-6">
       <h3 id="shared-passage" className="font-bold">
         {t('questionDetail.sharedPassage.title')}
       </h3>
-      <p className="mt-1 leading-6">
+      <p className="mt-2 leading-7">
         {t(
           group.editing
             ? 'questionDetail.sharedPassage.editing'

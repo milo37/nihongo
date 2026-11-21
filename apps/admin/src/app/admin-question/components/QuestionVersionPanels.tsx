@@ -96,15 +96,6 @@ const PreviewPanel = ({ workflow }: { workflow: Workflow }): ReactElement => {
           <p lang="ja" className="mt-6 whitespace-pre-wrap leading-8">
             {preview.data.question.passage}
           </p>
-          {preview.data.question.passage &&
-          isSharedPassage(preview.data.passageGroup) ? (
-            <SharedPassageGroup
-              group={preview.data.passageGroup}
-              isOffline={isOffline}
-              passage={preview.data.question.passage}
-              questionId={preview.data.question.id}
-            />
-          ) : null}
           <p
             lang="ja"
             className="mt-4 whitespace-pre-wrap text-lg font-bold leading-8"
@@ -135,6 +126,17 @@ const PreviewPanel = ({ workflow }: { workflow: Workflow }): ReactElement => {
             <p className="mt-3 whitespace-pre-wrap leading-7" lang="ja">
               {preview.data.adminAnswer.explanationJa}
             </p>
+          ) : null}
+          {/* #1196: admin-only, so it sits after the learner preview like the
+              answer, never inside the passage. */}
+          {preview.data.question.passage &&
+          isSharedPassage(preview.data.passageGroup) ? (
+            <SharedPassageGroup
+              group={preview.data.passageGroup}
+              isOffline={isOffline}
+              passage={preview.data.question.passage}
+              questionId={preview.data.question.id}
+            />
           ) : null}
         </>
       ) : null}
