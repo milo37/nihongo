@@ -1,4 +1,33 @@
-/* B4 result screen (HANDOFF §2, §4, §6). Loaded with the result page only. */
+/* Practice result screen. */
+/* #1090 r7/04: right under the score's info line, grey; ink once today's
+   goal is met. The sheet and buttons move down 20px only. */
+.result-daily-goal {
+  margin-top: 4px;
+  color: rgb(var(--color-muted));
+  font-size: 14px;
+  line-height: 16px;
+}
+.result-daily-goal.is-done {
+  color: rgb(var(--color-ink));
+  font-weight: 600;
+}
+/* #1094 M-2a / C-6-6: Maru's stamp on the set that met today's goal, once.
+   Opacity and transform only; nothing blocks the page. */
+.result-stamp {
+  margin-top: 8px;
+}
+.result-stamp .result-daily-goal {
+  margin-top: 4px;
+}
+.result-stamp-note {
+  /* Wraps as a whole ('ポ/ン' never splits); pre keeps ko's leading space,
+     which an inline-block would drop. */
+  display: inline-block;
+  white-space: pre;
+  opacity: 0;
+  animation: maru-show 0.3s 1.3s forwards;
+}
+/* B4 result screen (HANDOFF §2, §4, §6). */
 .result-b4-meta {
   margin-top: 4px;
   font-size: 13px;
@@ -46,7 +75,6 @@
 .study-result-sheet {
   margin: 18px 0 20px;
 }
-
 /* A guest's offer: one ruled line, the sentence and [로그인 ›] (B4 §4). */
 .study-result-summary .result-guest-keep {
   display: flex;
@@ -76,7 +104,6 @@
   outline: var(--focus-width) solid rgb(var(--focus-color));
   outline-offset: var(--focus-offset);
 }
-
 /* The chosen question: no card, a top rule only (B4 has no round boxes). */
 .study-result .study-result-detail {
   padding: 20px 0 0;
@@ -85,7 +112,6 @@
   border-radius: 0;
   background: transparent;
 }
-
 /* Every answered question as a row: number, Japanese line, mark. */
 .study-result .study-result-questions {
   display: block;
@@ -129,7 +155,6 @@
   text-overflow: ellipsis;
   font-family: var(--font-ja);
 }
-
 @media (min-width: 1024px) {
   .study-result-summary .result-b4-score {
     font-size: 40px;
@@ -156,15 +181,6 @@
     width: 26px;
     height: 26px;
   }
-}
-
-/* PC: what to do now on the left, the answered list beside it (B4 §6). */
-@media (min-width: 1024px) {
-  .app-shell .app-shell-body > main > .study-result {
-    max-width: 1056px;
-    margin-inline: auto;
-    padding-top: clamp(56px, 12vh, 120px);
-  }
   .study-result .study-result-main {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 0.82fr);
@@ -186,7 +202,6 @@
     column-gap: clamp(64px, 7.5vw, 96px);
   }
 }
-
 /* Japanese lines break between phrases, never inside a word (B4 §8). */
 .study-result [lang='ja'],
 .study-result :lang(ja) {

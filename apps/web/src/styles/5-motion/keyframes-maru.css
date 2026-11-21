@@ -1,0 +1,49 @@
+/* @keyframes for maru (the animation lines stay with their rules). */
+@keyframes maru-show {
+  to {
+    opacity: 1;
+  }
+}
+@keyframes maru-hide {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes maru-wiggle {
+  from {
+    transform: rotate(-5deg);
+  }
+  to {
+    transform: rotate(5deg);
+  }
+}
+@keyframes maru-thud {
+  0% {
+    transform: translateY(-18px) scaleY(1.04);
+  }
+  60% {
+    transform: translateY(2px) scaleY(0.9);
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes maru-mark {
+  from {
+    opacity: 0;
+    transform: scale(1.25);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes maru-hop {
+  0%,
+  100% {
+    transform: none;
+  }
+  40% {
+    transform: translateY(-14px);
+  }
+}

@@ -4,7 +4,7 @@
 let played = false
 
 /** Write-in timing (design #997, the manuscript-pen tone); CHAR_MS matches
- *  animation-duration in home.css. */
+ *  animation-duration in styles/4-screens/home/daily.css. */
 export const WRITE_IN_CHAR_MS = 260
 const WRITE_IN_MAX_STEP_MS = 70
 const WRITE_IN_SPREAD_MS = 1300

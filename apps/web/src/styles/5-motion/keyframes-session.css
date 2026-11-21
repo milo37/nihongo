@@ -1,0 +1,21 @@
+/* @keyframes for session (the animation lines stay with their rules). */
+@keyframes study-push-from-right {
+  from {
+    transform: translateX(100vw);
+  }
+}
+@keyframes study-push-from-left {
+  from {
+    transform: translateX(-100vw);
+  }
+}
+@keyframes study-push-to-left {
+  to {
+    transform: translateX(-100vw);
+  }
+}
+@keyframes study-push-to-right {
+  to {
+    transform: translateX(100vw);
+  }
+}
