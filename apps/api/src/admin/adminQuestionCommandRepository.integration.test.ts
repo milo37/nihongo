@@ -1887,6 +1887,25 @@ describe('ADMIN command TEST database integration', () => {
       )
     ).toEqual(edited.items.map((item) => item.versionId))
 
+    // An import cannot join the replaced passage or the open edit group.
+    for (const text of [oldText, newText]) {
+      const late = await workflowCommandService!.validateImport({
+        items: [
+          {
+            clientItemId: `late-${suffix}-${text.length}`,
+            content: readingContent(`late-${text}`, text)
+          }
+        ]
+      })
+      expect(late.errors).toContainEqual(
+        expect.objectContaining({
+          itemIndex: 0,
+          fieldPath: '/items/0/content/passage',
+          code: 'INVALID_READING_PASSAGE'
+        })
+      )
+    }
+
     // A second edit waits until the open drafts are cleared.
     await expect(
       edit(passageId, `${newText}!`, await expectedQuestions())

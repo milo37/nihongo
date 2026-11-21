@@ -77,6 +77,55 @@ export const loadExistingFingerprints = async (
   return new Set(rows.map((row) => row.contentFingerprint))
 }
 
+/**
+ * #1196: passages a new question may not join — one a passage edit has
+ * replaced, or one a passage edit opened whose group is not published yet.
+ * Keys are `${level}|${subject}|${md5(text)}`.
+ */
+export const loadClosedImportPassages = async (
+  client: Pick<PrismaClient, '$queryRawUnsafe'> | Prisma.TransactionClient,
+  passages: ReadonlyArray<{
+    readonly level: string
+    readonly subject: string
+    readonly text: string
+  }>
+): Promise<Set<string>> => {
+  if (passages.length === 0) return new Set()
+  const rows = await client.$queryRawUnsafe<Array<{ readonly key: string }>>(
+    `SELECT DISTINCT passage."level"::text || '|' ||
+         passage."subject"::text || '|' || passage."textMd5" AS "key"
+     FROM unnest($1::text[], $2::text[], $3::text[])
+       AS wanted("level", "subject", "text")
+     JOIN "ReadingPassage" AS passage
+       ON passage."level"::text = wanted."level"
+      AND passage."subject"::text = wanted."subject"
+      AND passage."textMd5" = md5(wanted."text")
+     WHERE EXISTS (
+         SELECT 1 FROM "ReadingPassage" AS replacement
+         WHERE replacement."replacesPassageId" = passage."id"
+       )
+       OR (passage."replacesPassageId" IS NOT NULL AND EXISTS (
+         SELECT 1
+         FROM "QuestionVersion" AS member
+         JOIN "Question" AS question ON question."id" = member."questionId"
+         LEFT JOIN "QuestionVersion" AS published
+           ON published."id" = question."currentPublishedVersionId"
+         WHERE member."passageId" = passage."id"
+           AND member."status" IN ('DRAFT', 'IN_REVIEW', 'CHANGES_REQUESTED',
+             'APPROVED')
+           AND question."lifecycleStatus" = 'ACTIVE'
+           AND published."passageId" IS DISTINCT FROM passage."id"
+       ))`,
+    passages.map((passage) => passage.level),
+    passages.map((passage) => passage.subject),
+    passages.map((passage) => passage.text)
+  )
+  return new Set(rows.map((row) => row.key))
+}
+
+const md5Hex = (text: string): string =>
+  createHash('md5').update(text, 'utf8').digest('hex')
+
 export const eligibleImportFingerprints = (
   items: readonly AdminImportItem[]
 ): string[] =>
@@ -309,6 +358,35 @@ export const collectImportValidation = async (
     }
     seenFingerprints.add(fingerprint)
   })
+
+  const withPassage = items.flatMap((item, itemIndex) =>
+    item.content.passage === null
+      ? []
+      : [
+          {
+            itemIndex,
+            level: item.content.level,
+            subject: item.content.subject,
+            text: item.content.passage
+          }
+        ]
+  )
+  const closedPassages = await loadClosedImportPassages(client, withPassage)
+  for (const passage of withPassage) {
+    if (
+      closedPassages.has(
+        [passage.level, passage.subject, md5Hex(passage.text)].join('|')
+      )
+    ) {
+      pushIssue(issues, {
+        itemIndex: passage.itemIndex,
+        fieldPath: `/items/${passage.itemIndex}/content/passage`,
+        code: 'INVALID_READING_PASSAGE',
+        message:
+          '이 지문은 지문 고치기로 바뀌었거나 고치는 중이라 새 문제를 붙일 수 없습니다.'
+      })
+    }
+  }
 
   issues.sort(
     (left, right) =>
