@@ -372,7 +372,10 @@ type ExistingGuestRecord = {
   id: string
 }
 
-type RandomCandidateRow = SelectedQuestion
+type RandomCandidateRow = SelectedQuestion & {
+  passageId: string | null
+  passageOrder: number | null
+}
 
 type BookmarkCandidateRow = SelectedQuestion & {
   createdAt: Date
@@ -462,7 +465,9 @@ const loadEligibleCatalog = async (
   await transaction.$queryRaw<RandomCandidateRow[]>(Prisma.sql`
     SELECT
       question."id" AS "questionId",
-      version."id" AS "questionVersionId"
+      version."id" AS "questionVersionId",
+      version."passageId",
+      version."passageOrder"::integer AS "passageOrder"
     FROM "Question" AS question
     JOIN "QuestionVersion" AS version
       ON version."questionId" = question."id"

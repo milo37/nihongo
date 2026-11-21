@@ -5,6 +5,9 @@ export interface StudyCandidatePin {
 
 export interface RandomStudyCandidate extends StudyCandidatePin {
   readonly isRecent: boolean
+  /** #986: questions with one passage come together, in passage order. */
+  readonly passageId?: string | null
+  readonly passageOrder?: number | null
 }
 
 export interface BookmarkStudyCandidate extends StudyCandidatePin {
@@ -99,12 +102,13 @@ const selectRankedCandidates = <Candidate extends StudyCandidatePin>(
   return candidates.toSorted(compare).slice(0, requestedCount)
 }
 
-const shuffleCandidates = <Candidate extends StudyCandidatePin>(
-  candidates: readonly Candidate[],
+const shuffleBy = <Item>(
+  items: readonly Item[],
+  key: (item: Item) => string,
   random: () => number
-): Candidate[] => {
-  const shuffled = candidates.toSorted((left, right) =>
-    left.questionId.localeCompare(right.questionId)
+): Item[] => {
+  const shuffled = items.toSorted((left, right) =>
+    key(left).localeCompare(key(right))
   )
 
   for (let index = shuffled.length - 1; index > 0; index -= 1) {
@@ -139,16 +143,43 @@ export const selectRandomStudyCandidates = (
   assertRequestedCount(requestedCount)
   assertUniqueCandidates(candidates)
 
-  const nonRecent = shuffleCandidates(
-    candidates.filter((candidate) => !candidate.isRecent),
+  // A passage group is one unit, recent when any of its questions is; a
+  // question without a passage is a unit of its own.
+  const units = new Map<string, RandomStudyCandidate[]>()
+  for (const candidate of candidates) {
+    const unitKey = candidate.passageId
+      ? `passage:${candidate.passageId}`
+      : `question:${candidate.questionId}`
+    units.set(unitKey, [...(units.get(unitKey) ?? []), candidate])
+  }
+  const ordered = [...units.values()].map((unit) =>
+    unit.toSorted(
+      (left, right) =>
+        (left.passageOrder ?? 0) - (right.passageOrder ?? 0) ||
+        left.questionId.localeCompare(right.questionId)
+    )
+  )
+  const unitKey = (unit: readonly RandomStudyCandidate[]): string =>
+    unit[0]!.questionId
+  const nonRecent = shuffleBy(
+    ordered.filter((unit) => !unit.some((candidate) => candidate.isRecent)),
+    unitKey,
     random
   )
-  const recent = shuffleCandidates(
-    candidates.filter((candidate) => candidate.isRecent),
+  const recent = shuffleBy(
+    ordered.filter((unit) => unit.some((candidate) => candidate.isRecent)),
+    unitKey,
     random
   )
 
-  return [...nonRecent, ...recent].slice(0, requestedCount)
+  // A group that does not fit the remaining places is skipped whole.
+  const selected: RandomStudyCandidate[] = []
+  for (const unit of [...nonRecent, ...recent]) {
+    if (selected.length + unit.length <= requestedCount) {
+      selected.push(...unit)
+    }
+  }
+  return selected
 }
 
 export const selectBookmarkStudyCandidates = (
