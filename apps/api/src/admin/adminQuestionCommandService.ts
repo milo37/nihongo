@@ -7,6 +7,8 @@ import type {
   ArchiveAdminQuestionRequest,
   CreateAdminQuestionRequest,
   CreateAdminQuestionVersionRequest,
+  EditReadingPassageRequest,
+  EditReadingPassageResponse,
   ExportAdminQuestionsRequest,
   PublishQuestionVersionRequest,
   RequestContentReviewRequest,
@@ -56,6 +58,12 @@ export interface AdminQuestionCommandService {
     versionId: string,
     request: UpdateQuestionVersionRequest
   ) => Promise<AdminQuestionMutationResult>
+  /** #1196: edits a shared passage for its whole group in one transaction. */
+  editPassage: (
+    authority: AdminCommandAuthority,
+    passageId: string,
+    request: EditReadingPassageRequest
+  ) => Promise<EditReadingPassageResponse>
   requestReview: (
     authority: AdminCommandAuthority,
     versionId: string,
@@ -174,6 +182,8 @@ export const createAdminQuestionCommandService = (
     execute(() => repository.createVersion(authority, questionId, request)),
   updateVersion: (authority, versionId, request) =>
     execute(() => repository.updateVersion(authority, versionId, request)),
+  editPassage: (authority, passageId, request) =>
+    execute(() => repository.editPassage(authority, passageId, request)),
   requestReview: (authority, versionId, request) =>
     execute(() =>
       repository.transitionVersion(
