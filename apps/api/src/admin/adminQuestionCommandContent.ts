@@ -203,6 +203,40 @@ export const loadVersionTarget = async (
   return rows[0] ?? null
 }
 
+/**
+ * #1196: the open versions moved together to a new shared passage — the
+ * target's passage group. A member is an open version on the target's
+ * passage whose active question is not already published on that passage;
+ * a version that only edits its question on an unchanged passage is not in
+ * a group. Returns version ids in passage order, the target included, or
+ * just the target when it has no group.
+ */
+export const loadPassageGroupVersionIds = async (
+  client: Pick<PrismaClient, '$queryRawUnsafe'>,
+  versionId: string
+): Promise<string[]> => {
+  const rows = await client.$queryRawUnsafe<Array<{ id: string }>>(
+    `SELECT member."id"
+     FROM "QuestionVersion" AS target
+     JOIN "QuestionVersion" AS member
+       ON member."passageId" = target."passageId"
+     JOIN "Question" AS question ON question."id" = member."questionId"
+     WHERE target."id" = $1
+       AND member."status" IN ('DRAFT', 'IN_REVIEW', 'CHANGES_REQUESTED',
+         'APPROVED')
+       AND question."lifecycleStatus" = 'ACTIVE'
+       AND NOT EXISTS (
+         SELECT 1 FROM "QuestionVersion" AS published
+         WHERE published."id" = question."currentPublishedVersionId"
+           AND published."passageId" = member."passageId"
+       )
+     ORDER BY member."passageOrder", member."id"`,
+    versionId
+  )
+  const ids = rows.map((row) => row.id)
+  return ids.includes(versionId) && ids.length > 1 ? ids : [versionId]
+}
+
 export const loadLifecycleVersions = async (
   client: Pick<PrismaClient, '$queryRawUnsafe'>,
   questionId: string

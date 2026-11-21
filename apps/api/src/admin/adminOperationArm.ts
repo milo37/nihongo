@@ -72,6 +72,9 @@ export interface ArmableOperation {
 const violation = (sqlState: string, message: string): AdminRuleViolation =>
   new AdminRuleViolation(sqlState, message)
 
+/** #1196: the most questions one shared passage group moves at once. */
+export const PASSAGE_GROUP_MAX = 20
+
 const between = (value: number, low: number, high: number): boolean =>
   value >= low && value <= high
 
@@ -118,7 +121,9 @@ const assertManifestShape = (
     case 'CHANGE_REQUEST':
     case 'APPROVAL':
     case 'APPROVAL_WITHDRAWAL':
-      if (q !== 1 || v !== 1 || r !== 0 || t !== 0)
+      // One version per question; a shared passage group moves together
+      // (#1196).
+      if (!between(q, 1, PASSAGE_GROUP_MAX) || v !== q || r !== 0 || t !== 0)
         invalid('Single-version target manifest is invalid.')
       return
     case 'RETIREMENT':
@@ -127,7 +132,14 @@ const assertManifestShape = (
         invalid('RETIREMENT target manifest is invalid.')
       return
     case 'PUBLICATION':
-      if (q !== 1 || !between(v, 1, 2) || r !== 0 || t !== 0)
+      // Per question the target plus its current; a shared passage group
+      // publishes together (#1196).
+      if (
+        !between(q, 1, PASSAGE_GROUP_MAX) ||
+        !between(v, q, 2 * q) ||
+        r !== 0 ||
+        t !== 0
+      )
         invalid('PUBLICATION target manifest is invalid.')
       return
     case 'QUESTION_ARCHIVE':
@@ -334,18 +346,19 @@ export const armAdminOperation = async (
   }
 
   if (command === 'PUBLICATION') {
-    const question = questions[0]
-    const approved = versions.filter((row) => row.status === 'APPROVED')
-    const published = versions.filter((row) => row.status === 'PUBLISHED')
-    const current = question?.currentPublishedVersionId ?? null
-    const exact =
-      approved.length === 1 &&
-      published.length === versions.length - 1 &&
-      (current === null
-        ? versions.length === 1
-        : versions.length === 2 &&
-          versionIds.has(current) &&
-          published.some((row) => row.id === current))
+    const exact = questions.every((question) => {
+      const own = versions.filter((row) => row.questionId === question.id)
+      const approved = own.filter((row) => row.status === 'APPROVED')
+      const published = own.filter((row) => row.status === 'PUBLISHED')
+      const current = question.currentPublishedVersionId
+      return (
+        approved.length === 1 &&
+        published.length === own.length - 1 &&
+        (current === null
+          ? own.length === 1
+          : own.length === 2 && published.some((row) => row.id === current))
+      )
+    })
     if (!exact) {
       throw violation(
         '23514',
