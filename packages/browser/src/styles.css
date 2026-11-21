@@ -111,11 +111,6 @@
   --shell-gutter: 20px;
 }
 
-.app-shell-body > main {
-  flex: 1 0 auto;
-  min-width: 0;
-}
-
 .app-shell-header {
   background: rgb(var(--color-surface));
   border-bottom: 1px solid rgb(var(--color-line));
@@ -1258,31 +1253,6 @@
     height: 100%;
   }
 
-  .ui-progress {
-    overflow: hidden;
-    border: 0;
-    border-radius: var(--radius-pill);
-    background: rgb(var(--color-line));
-    appearance: none;
-  }
-
-  .ui-progress::-webkit-progress-bar {
-    border-radius: var(--radius-pill);
-    background: rgb(var(--color-line));
-  }
-
-  .ui-progress::-webkit-progress-value {
-    border-radius: var(--radius-pill);
-    background: rgb(var(--color-brand));
-    transition: width 200ms ease-out;
-  }
-
-  .ui-progress::-moz-progress-bar {
-    border-radius: var(--radius-pill);
-    background: rgb(var(--color-brand));
-    transition: width 200ms ease-out;
-  }
-
   .ui-toast {
     --ui-toast-tone: var(--color-info);
     border-left: 4px solid rgb(var(--ui-toast-tone));
@@ -1665,10 +1635,6 @@
   font-size: 1.75rem;
   line-height: 1.4;
   font-weight: 700;
-}
-.review-item {
-  padding: 22px 0;
-  border-bottom: 1px solid rgb(var(--color-line));
 }
 .review-item-meta,
 .review-current-status {
