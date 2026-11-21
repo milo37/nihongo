@@ -148,8 +148,8 @@ export const jaAdminResources = {
     updatedAt: '更新日時',
     details: '詳細',
     rowVersion: 'rowVersion',
-    retryAfter: '{{message}} {{seconds}}秒後にもう一度お試しください。',
-    retryAfterMinutes: '{{message}} {{minutes}}分後にもう一度お試しください。',
+    retryAfter: '{{message}}{{seconds}}秒後にもう一度お試しください。',
+    retryAfterMinutes: '{{message}}{{minutes}}分後にもう一度お試しください。',
     pausedTitle: 'オフラインでは最新状態を確認できません',
     pausedDescription:
       '接続が復旧したら再確認してください。最新状態を確認するまで管理者の変更操作は利用できません。',
