@@ -19,6 +19,10 @@ earlier one at the same specificity, so a file's place in the list matters.
 
 ## Map
 
+- Colors and sizes: start from `1-foundation/tokens.css`.
+- `animation:` lines stay in each part's file; only the `@keyframes` go in
+  `5-motion/`.
+
 | Folder       | File                                 | What                                            |
 | ------------ | ------------------------------------ | ----------------------------------------------- |
 | 1-foundation | tokens.css                           | Learner color and size variables (`:root`)      |

@@ -41,7 +41,7 @@ export const ResumeLine = ({
       })}
       <Link to={`/practice/session/${recent.id}`}>
         {practiceT('setup.resume.action')}
-        <Icon name="chevron-right" className="size-4" />
+        <Icon name="chevron-right" className="home-more-chevron" />
       </Link>
     </p>
   )
@@ -61,7 +61,7 @@ export const GuestBenefitLine = ({
       {t('today.guestBenefit')}
       <Link to={loginHref}>
         {navigationT('login')}
-        <Icon name="chevron-right" className="size-4" />
+        <Icon name="chevron-right" className="home-more-chevron" />
       </Link>
     </p>
   )
