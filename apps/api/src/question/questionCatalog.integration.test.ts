@@ -30,6 +30,14 @@ import {
   planRushWordLoad,
   type RushWordRow
 } from '../content/rushWordList.js'
+import {
+  FURIGANA_PASSAGE_ROWS_SQL,
+  applyFuriganaLoad,
+  planFuriganaLoad,
+  type FuriganaPassageRow
+} from '../content/furiganaLoad.js'
+import { md5 } from '../content/furiganaPassageList.js'
+import { toPassageFurigana } from './passageFurigana.js'
 import { createPrismaQuestionRepository } from './questionRepository.js'
 import {
   createPrismaRushKanjiPairsRepository,
@@ -823,6 +831,107 @@ describe('question catalog PostgreSQL integration', () => {
         SELECT count(*) FROM "Furigana"
       `
     ).toEqual([{ count: 0n }])
+  })
+
+  it('검수된 지문 후리가나만 넣고, 학습 문제 읽기는 그 글자에 맞는 검수본만 돌려준다 (#1182)', async () => {
+    // The load writes as the fixture owner in a rolled-back transaction;
+    // only the current-source run has that connection.
+    if (!isCurrentSourceIntegration) return
+    const rollback = new Error('furigana load rolled back')
+    await expect(
+      fixtureDatabase.client.$transaction(
+        async (transaction) => {
+          const rows = () =>
+            transaction.$queryRawUnsafe<FuriganaPassageRow[]>(
+              FURIGANA_PASSAGE_ROWS_SQL
+            )
+          const passages = await transaction.$queryRaw<
+            { id: string; level: string; subject: string; text: string }[]
+          >`
+            SELECT "id"::text AS "id", "level"::text AS "level",
+              "subject"::text AS "subject", "text"
+            FROM "ReadingPassage" WHERE "text" ~ '[一-龯]'
+            ORDER BY "id" LIMIT 2
+          `
+          const [reviewed, draft] = passages
+          if (!reviewed || !draft) {
+            throw new Error('The seed holds too few reading passages.')
+          }
+          // One reading on the first kanji of the passage.
+          const ruby = (text: string) => {
+            const characters = Array.from(text)
+            const index = characters.findIndex((char) => /[一-龯]/u.test(char))
+            characters[index] = `{${characters[index]}|か}`
+            return characters.join('')
+          }
+          const entry = (
+            passage: typeof reviewed,
+            reviewedBy: string | null
+          ) => ({
+            level: passage.level as 'N5',
+            subject: passage.subject as 'READING',
+            textMd5: md5(passage.text),
+            ruby: ruby(passage.text),
+            reviewedBy,
+            reviewedAt: reviewedBy === null ? null : '2026-11-21'
+          })
+          const list = {
+            schemaVersion: 1 as const,
+            generator: 'integration',
+            passages: [entry(reviewed, 'content'), entry(draft, null)]
+          }
+          const plan = planFuriganaLoad(list, await rows())
+          expect(plan).toMatchObject({
+            reviewed: 1,
+            missingPassage: 0,
+            unchanged: 0
+          })
+          await applyFuriganaLoad(
+            async (sql, values) =>
+              await transaction.$executeRawUnsafe(sql, ...values),
+            plan
+          )
+          // A second load of the same file changes nothing.
+          expect(planFuriganaLoad(list, await rows())).toEqual({
+            steps: [],
+            unchanged: 1,
+            reviewed: 1,
+            missingPassage: 0
+          })
+
+          // The study session read: reviewed passage only, for its own text.
+          const read = async (passageId: string) => {
+            const version = await transaction.questionVersion.findFirstOrThrow({
+              where: { passageId },
+              select: {
+                passage: true,
+                readingPassage: {
+                  select: {
+                    furigana: {
+                      select: { origin: true, textMd5: true, segments: true }
+                    }
+                  }
+                }
+              }
+            })
+            return toPassageFurigana(
+              version.passage,
+              version.readingPassage?.furigana
+            )
+          }
+          const segments = await read(reviewed.id)
+          expect(segments).toHaveLength(1)
+          expect(
+            Array.from(reviewed.text)
+              .slice(segments?.[0]?.start, (segments?.[0]?.start ?? 0) + 1)
+              .join('')
+          ).toMatch(/^[一-龯]$/u)
+          expect(await read(draft.id)).toBeNull()
+          throw rollback
+        },
+        { timeout: 60_000 }
+      )
+    ).rejects.toBe(rollback)
   })
 
   it('오늘의 한 문제 원고지 글자 수는 SQL과 웹 카드가 같게 센다 (#1087)', async () => {

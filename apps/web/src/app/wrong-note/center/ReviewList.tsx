@@ -31,19 +31,16 @@ export const ReviewList = ({
   'use no memo'
   const { t } = useTranslation('wrongNote')
   return (
-    <div className="mt-2 overflow-hidden rounded-card border border-line bg-surface">
+    <div className="wrong-note-list">
       {/* PC column heads; each row already reads in full, so the
           heads are for sighted users only. */}
-      <div
-        aria-hidden="true"
-        className="hidden h-10 grid-cols-[150px_minmax(0,1fr)_120px_110px_20px] items-center gap-5 border-b border-line px-6 text-caption font-semibold text-muted lg:grid"
-      >
+      <div aria-hidden="true" className="wrong-note-list-head">
         <span>{t('list.head.levelSubject')}</span>
         <span>{t('list.head.question')}</span>
-        <span className="text-right">
+        <span className="wrong-note-list-end">
           {state === 'TO_REVIEW' ? t('list.head.wrongCount') : null}
         </span>
-        <span className="text-right">
+        <span className="wrong-note-list-end">
           {state === 'TO_REVIEW'
             ? t('list.head.wrongDate')
             : t('list.head.reviewedDate')}

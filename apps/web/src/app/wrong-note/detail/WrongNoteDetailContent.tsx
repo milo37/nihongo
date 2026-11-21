@@ -51,7 +51,7 @@ const ReviewOptions = ({
               </strong>
             ) : null}
             {option.isCorrect ? (
-              <strong className="text-success-strong">
+              <strong className="wrong-note-correct">
                 <span className="review-answer-mark" aria-hidden="true">
                   ○{' '}
                 </span>
@@ -83,7 +83,7 @@ export const WrongNoteDetailContent = ({
         <span>
           {data.question.level} ·{' '}
           {commonT(`taxonomy.subjects.${data.question.subject}`)} ·{' '}
-          <span className="font-semibold text-danger">
+          <span className="wrong-note-meta-wrong">
             {t('card.wrongCount', { count: data.wrongNote.wrongCount })}
           </span>
         </span>
@@ -95,7 +95,7 @@ export const WrongNoteDetailContent = ({
       ) : null}
       <h1
         ref={headingRef}
-        className="review-question outline-none"
+        className="review-question wrong-note-question"
         {...jaTextProps(data.question.questionText)}
         tabIndex={-1}
       >
