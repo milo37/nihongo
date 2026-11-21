@@ -1,13 +1,8 @@
 import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
 import type { ReactElement } from 'react'
-import {
-  Button,
-  getButtonClassName
-} from '@nihongo/browser/common/components/Button'
-import { Dialog } from '@nihongo/browser/common/components/Dialog'
-import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
-import type { RefObject } from 'react'
+import { Button } from '@nihongo/browser/common/components/Button'
+import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
+import { AppErrorReportButton } from '@app/question-report/components/AppErrorReportDialog'
 
 type BookmarkListNoticesProps = {
   isCachedOffline: boolean
@@ -58,98 +53,40 @@ export const BookmarkListNotices = ({
   )
 }
 
-type BookmarkEmptyPageProps = {
-  displayedPage: number
-  isNavigationLocked: boolean
-  previousPageHref: string
-}
-
-export const BookmarkEmptyPage = ({
-  displayedPage,
-  isNavigationLocked,
-  previousPageHref
-}: BookmarkEmptyPageProps): ReactElement => {
+/** No list could be read: offline with nothing kept, or a failed read. */
+export const BookmarkLoadError = ({
+  isOffline,
+  onRetry
+}: {
+  isOffline: boolean
+  onRetry: () => void
+}): ReactElement => {
+  // Left uncompiled: only the compiled page renders it, once (#1124 bundle).
+  'use no memo'
   const { t } = useTranslation('bookmark')
-  const isFirstPage = displayedPage === 1
-  // JLP-855: no manuscript paper; the first page keeps its message at the
-  // start edge as before.
+  const { t: commonT } = useTranslation('common')
+  if (isOffline) {
+    return (
+      <ErrorState
+        autoFocus
+        headingLevel={1}
+        title={t('error.offlineTitle')}
+        description={t('error.offlineDescription')}
+      />
+    )
+  }
   return (
-    <EmptyState
-      className={
-        isFirstPage
-          ? 'items-start! mx-0! px-0! text-start! [&>h2]:text-pretty [&:lang(ko)>h2]:break-keep'
-          : undefined
-      }
-      illustration={
-        isFirstPage ? (
-          <span className="maru-empty" aria-hidden="true" />
-        ) : undefined
-      }
-      title={isFirstPage ? t('empty.firstTitle') : t('empty.pageTitle')}
-      description={
-        isFirstPage ? t('empty.firstDescription') : t('empty.pageDescription')
-      }
+    <ErrorState
+      autoFocus
+      headingLevel={1}
+      title={t('error.title')}
+      description={t('error.description')}
       action={
-        isFirstPage ? (
-          <Link className={getButtonClassName({ size: 'lg' })} to="/practice">
-            {t('empty.start')}
-          </Link>
-        ) : isNavigationLocked ? (
-          <Button disabled>{t('empty.previousPage')}</Button>
-        ) : (
-          <Link
-            className="inline-flex min-h-11 items-center rounded-control border border-line bg-surface px-4 font-bold text-ink hover:border-line-strong hover:bg-surface-muted focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
-            to={previousPageHref}
-          >
-            {t('empty.previousPage')}
-          </Link>
-        )
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={onRetry}>{commonT('actions.retry')}</Button>
+          <AppErrorReportButton />
+        </div>
       }
-    />
-  )
-}
-
-type BookmarkRemoveDialogProps = {
-  fallbackFocusRef: RefObject<HTMLHeadingElement | null>
-  isRemoving: boolean
-  onCancel: () => void
-  onConfirm: () => void
-  open: boolean
-  returnFocusRef: RefObject<HTMLButtonElement | null>
-}
-
-export const BookmarkRemoveDialog = ({
-  fallbackFocusRef,
-  isRemoving,
-  onCancel,
-  onConfirm,
-  open,
-  returnFocusRef
-}: BookmarkRemoveDialogProps): ReactElement => {
-  const { t } = useTranslation('bookmark')
-  return (
-    <Dialog
-      fallbackFocusRef={fallbackFocusRef}
-      open={open}
-      preventClose={isRemoving}
-      returnFocusRef={returnFocusRef}
-      title={t('removeDialog.title')}
-      description={t('removeDialog.description')}
-      footer={
-        <>
-          <Button disabled={isRemoving} variant="outline" onClick={onCancel}>
-            {t('removeDialog.cancel')}
-          </Button>
-          <Button isLoading={isRemoving} variant="danger" onClick={onConfirm}>
-            {t('removeDialog.confirm')}
-          </Button>
-        </>
-      }
-      onOpenChange={(nextOpen) => {
-        if (!nextOpen && !isRemoving) {
-          onCancel()
-        }
-      }}
     />
   )
 }

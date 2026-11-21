@@ -1,28 +1,15 @@
 import { useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { ReactElement, ReactNode } from 'react'
+import type { ReactElement } from 'react'
+import { useSsoAccountManagement } from '@app/account/hooks/useSsoAccountManagement'
 import {
-  ACCOUNT_FEEDBACK_KEY,
-  useSsoAccountManagement
-} from '@app/account/hooks/useSsoAccountManagement'
+  AccountSettingsNotices,
+  SettingRow,
+  SignInMethodRow
+} from '@app/account/components/AccountSettingRows'
 import { LogoutDialog } from '@app/account/components/LogoutDialog'
 import { TwoStepConfirmDialog } from '@app/account/components/TwoStepConfirmDialog'
 import { Button } from '@nihongo/browser/common/components/Button'
-
-// JLP-860: text on top, the button under it on the left (the My study empty
-// state's rule), so the description can use the full width.
-const SettingRow = ({
-  children,
-  action
-}: {
-  children: ReactNode
-  action?: ReactNode
-}): ReactElement => (
-  <div className="py-4 first:pt-0 last:pb-0">
-    <div className="min-w-0 break-words text-sm leading-6">{children}</div>
-    {action ? <div className="mt-3">{action}</div> : null}
-  </div>
-)
 
 // Logout and deletion share one button size.
 const ROW_BUTTON_CLASS = 'min-w-32'
@@ -37,8 +24,6 @@ export const AccountSettings = (): ReactElement => {
   const logoutButton = useRef<HTMLButtonElement>(null)
   const [logoutOpen, setLogoutOpen] = useState(false)
   const { caps } = flow
-  // Unlinking is not offered (C2): Google is the only sign-in method shown.
-  const google = caps?.providers.find((p) => p.provider === 'google')
   const deleteReasonId = headingId + '-delete-reason'
   const controlsDisabled = flow.busy || flow.uncertain
   return (
@@ -54,47 +39,7 @@ export const AccountSettings = (): ReactElement => {
       {/* JLP-851, JLP-860: rows under the heading with no card or box;
           deletion keeps only its red title and red outline button. */}
       <div className="divide-y divide-line">
-        <SettingRow>
-          <p className="text-caption text-muted">
-            {t('settings.signInMethod')}
-          </p>
-          {flow.capabilities.isPending ? (
-            <p role="status">{authT('sso.checkingAccount')}</p>
-          ) : !caps ? (
-            <div role="alert">
-              <p>{authT('sso.actionFailed')}</p>
-              <Button
-                className="mt-2"
-                variant="outline"
-                disabled={flow.capabilities.isFetching}
-                onClick={() => void flow.capabilities.refetch()}
-              >
-                {authT('sso.recheck')}
-              </Button>
-            </div>
-          ) : !google ? (
-            <p role="status">{authT('sso.migrationIncomplete')}</p>
-          ) : (
-            <>
-              <p className="mt-1 flex items-center gap-2 text-base font-semibold">
-                {/* Google's own G mark, unchanged; the word stays as text. */}
-                <img
-                  src="/auth/google-mark.svg"
-                  alt=""
-                  aria-hidden="true"
-                  width={20}
-                  height={20}
-                />
-                Google
-              </p>
-              {!google.reauthAvailable ? (
-                <p className="text-caption">
-                  {authT('sso.unavailableProvider', { provider: 'Google' })}
-                </p>
-              ) : null}
-            </>
-          )}
-        </SettingRow>
+        <SignInMethodRow flow={flow} />
         <SettingRow
           action={
             <Button
@@ -144,24 +89,7 @@ export const AccountSettings = (): ReactElement => {
           ) : null}
         </SettingRow>
       </div>
-      {flow.feedback && flow.dialog === null ? (
-        <p
-          className="text-sm"
-          role={flow.feedback === 'reauthCancelled' ? 'status' : 'alert'}
-        >
-          {authT(ACCOUNT_FEEDBACK_KEY[flow.feedback])}
-        </p>
-      ) : null}
-      {flow.uncertain && flow.dialog === null ? (
-        <Button
-          className="justify-self-start"
-          variant="outline"
-          disabled={flow.busy}
-          onClick={() => void flow.recheck()}
-        >
-          {authT('sso.recheck')}
-        </Button>
-      ) : null}
+      <AccountSettingsNotices flow={flow} />
       <TwoStepConfirmDialog
         flow={flow}
         returnFocusRef={trigger}

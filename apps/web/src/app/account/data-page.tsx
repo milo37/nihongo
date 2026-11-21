@@ -1,7 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement } from 'react'
-import { DELETE_PARAGRAPHS } from '@app/account/components/TwoStepConfirmDialog'
+import { DELETE_PARAGRAPHS } from '@app/account/components/TwoStepConfirmSections'
 import { OperationsNavigation } from '@app/operations/components/OperationsNavigation'
 
 // Static guide: what sign-out, unlink and deletion do with account data. It
