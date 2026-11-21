@@ -145,6 +145,24 @@ Checked locally (release `8f229404`, empty database, the 3-tag sample
 `apps/api/test/fixtures/content/tags.v2.sample.json`): dry run `created:3`,
 load `created:3`, second load `unchanged:3`, the API stayed ready (200).
 
+## Rush word list load (`loadRushWords`, #1043)
+
+The SSM deploy document runs this step after `deploy.sh` succeeds (it skips
+when the release is not live): `rushWordLoadCommand` loads
+`/app/content/rush/kanji-words.v1.json` from the release image in one
+transaction and logs one JSON line, `rush_word_list_loaded` (created, updated,
+deleted, unchanged). The same file again gives no changes. If only this step
+fails, the deploy shows as failed but the new release is already live and the
+word table is unchanged: read the `rush_word_list_load_failed` line, fix the
+cause, then rerun only the loader on the host:
+
+```sh
+cd /opt/harumaru && docker compose --profile operator run --rm --no-deps -T \
+  -e RUSH_WORD_LIST_FILE=/app/content/rush/kanji-words.v1.json \
+  -e RUSH_WORD_LOAD_CONFIRM=LOAD_RUSH_WORDS \
+  --entrypoint node capability api/dist/content/rushWordLoadCommand.js
+```
+
 ## Legal contact (before PRODUCTION opens, #705)
 
 `/legal` and `/support` show the privacy officer's name and the contact mail
