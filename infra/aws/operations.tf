@@ -29,6 +29,24 @@ resource "aws_ssm_document" "deploy" {
           runCommand     = ["/opt/harumaru/bin/deploy.sh {{ releaseId }}"]
         }
       },
+      # #1043: load the rush word list (content/rush/kanji-words.v1.json in the
+      # API image) as soon as the release is live. One transaction; the same
+      # file again changes nothing. A failed load fails the deploy command and
+      # leaves the table as it was. Here and not in deploy.sh: host files change
+      # only on a new host (#1042). Skipped when this release is not live (the
+      # deploy step already failed or rolled back).
+      {
+        action = "aws:runShellScript"
+        name   = "loadRushWords"
+        inputs = {
+          timeoutSeconds = "300"
+          runCommand = [
+            "cd /opt/harumaru",
+            "[ \"$(cat current-release 2>/dev/null || true)\" = '{{ releaseId }}' ] || { echo 'rush words not loaded: release not live'; exit 0; }",
+            "docker compose --profile operator run --rm --no-deps -T -e RUSH_WORD_LIST_FILE=/app/content/rush/kanji-words.v1.json -e RUSH_WORD_LOAD_CONFIRM=LOAD_RUSH_WORDS --entrypoint node capability api/dist/content/rushWordLoadCommand.js",
+          ]
+        }
+      },
       # Each deploy pulls a ~540 MB API image and nothing removed the old ones,
       # so the 20 GB root disk filled up (STAGING, run 44024084136). Keep the
       # live release and the newest other image (the rollback target after a

@@ -20,6 +20,7 @@ import {
   RetryNavigationDialog
 } from '@app/practice/result/ResultStateScreens'
 import { ResultSummary } from '@app/practice/result/ResultSummary'
+import { ResultRushLine } from '@app/practice/result/ResultRushLine'
 import { ReviewCompletion } from '@app/practice/result/ReviewCompletion'
 import { readReviewReturnContext } from '@app/wrong-note/reviewReturnContext'
 import { AppErrorReportButton } from '@app/question-report/components/AppErrorReportDialog'
@@ -254,6 +255,9 @@ const PracticeResultPageContent = (): ReactElement => {
             />
           )}
         </div>
+        {isGuest || result.isResultSourceUnavailable ? null : (
+          <ResultRushLine level={session.level} />
+        )}
       </div>
 
       <RetryNavigationDialog

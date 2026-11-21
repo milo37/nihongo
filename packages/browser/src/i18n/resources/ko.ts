@@ -510,6 +510,7 @@ export const koCoreResources = {
     name: '문제 풀기',
     rush: {
       entry: '한자 스피드 퀴즈',
+      fromResult: '가볍게 한 판 더',
       title: '{{level}} 한자 스피드 퀴즈',
       lead: '30초 동안 읽는 법을 골라요.',
       keys: '숫자 키 1~4로도 고를 수 있어요',
@@ -1079,6 +1080,20 @@ export const koCoreResources = {
     },
     // #1154 M-2f: this month's stamps under the goal row. The count is
     // only in the calendar's spoken name, never on screen.
+    // #1055 today's omikuji (members only).
+    omikuji: {
+      label: '운세 뽑기',
+      kind: '운세',
+      draw: '오늘의 운세 뽑기',
+      view: '오늘의 운세 다시 보기',
+      heading: '{{month}}월 {{day}}일 · 오늘의 운세',
+      close: '닫기',
+      shaking: '흔드는 중',
+      expression: '오늘의 표현',
+      again: '오늘은 이미 뽑았어요. 내일 새로 뽑을 수 있어요.',
+      spoken:
+        '오늘의 운세, {{fortune}}. {{message}} 오늘의 표현, {{expression}}, {{meaning}}, 예문 {{example}}'
+    },
     stampBoard: {
       title: '{{month}}월 도장판',
       note: '하루 목표를 채우면 오늘 도장이 찍혀요.',
