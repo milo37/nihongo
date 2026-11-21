@@ -63,6 +63,10 @@ const database = createDatabaseRuntime(
     ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
     : {}
 )
+const readingPassageMigrationFile = new URL(
+  '../../prisma/migrations/20261127090000_reading_passage/migration.sql',
+  import.meta.url
+)
 const fixtureDatabase = fixtureDatabaseUrl
   ? createDatabaseRuntime(fixtureDatabaseUrl)
   : database
@@ -371,6 +375,251 @@ describe('question catalog PostgreSQL integration', () => {
         levels
       )
     ).toEqual([])
+  })
+
+  it('독해 지문은 지문 표에 한 번만 두고, migration 옮기기 앞뒤 수가 같다 (#986)', async () => {
+    // The probe changes the table as the fixture owner, in a rolled-back
+    // transaction; only the current-source run has that connection.
+    if (!isCurrentSourceIntegration) return
+    await expect(
+      database.client.$executeRaw`
+        INSERT INTO "ReadingPassage" ("level", "subject", "text", "textMd5")
+        VALUES ('N5', 'READING', 'app-write', md5('app-write'))
+      `
+    ).rejects.toThrow(/permission denied/u)
+    const migration = await readFile(readingPassageMigrationFile, 'utf8')
+    const backfill = migration
+      .slice(
+        migration.indexOf('-- backfill:start'),
+        migration.indexOf('-- backfill:end')
+      )
+      .split(/;\n/u)
+      .filter((sql) => sql.replace(/^--.*$/gmu, '').trim() !== '')
+    type Counts = {
+      withPassage: number
+      linked: number
+      texts: number
+      passages: number
+      broken: number
+    }
+    const counts = async (
+      transaction: Prisma.TransactionClient
+    ): Promise<Counts> => {
+      const [row] = await transaction.$queryRaw<Counts[]>`
+        SELECT
+          count(*) FILTER (WHERE "passage" IS NOT NULL)::integer
+            AS "withPassage",
+          count(*) FILTER (WHERE "passageId" IS NOT NULL)::integer AS "linked",
+          count(DISTINCT ("level", "subject", "passage")) FILTER (
+            WHERE "passage" IS NOT NULL
+          )::integer AS "texts",
+          (SELECT count(*)::integer FROM "ReadingPassage") AS "passages",
+          count(*) FILTER (
+            WHERE ("passage" IS NULL) <> ("passageId" IS NULL)
+              OR ("passageId" IS NULL) <> ("passageOrder" IS NULL)
+          )::integer AS "broken"
+        FROM "QuestionVersion"
+      `
+      return row!
+    }
+
+    const createProbe = async (transaction: Prisma.TransactionClient) => {
+      // Two imported questions on one passage; the import lists the larger
+      // id first, so the place follows the import, not the id.
+      const [first, second] = [randomUUID(), randomUUID()].sort().reverse() as [
+        string,
+        string
+      ]
+      const text = `#986 지문 ${randomUUID()}`
+      for (const id of [first, second]) {
+        await transaction.question.create({
+          data: { id, createdByLabelSnapshot: 'SYSTEM_SEED' }
+        })
+      }
+      await transaction.$executeRaw`
+        INSERT INTO "QuestionImportResult" (
+          "importId", "actorUserId", "requestDigest", "response"
+        ) VALUES (
+          ${randomUUID()}::uuid, ${randomUUID()}::uuid, ${'0'.repeat(64)},
+          ${JSON.stringify({
+            response: { items: [{ questionId: first }, { questionId: second }] }
+          })}::jsonb
+        )
+      `
+      const createVersion = (
+        questionId: string,
+        versionNumber: number,
+        passage: string
+      ) =>
+        transaction.questionVersion.create({
+          data: {
+            id: randomUUID(),
+            questionId,
+            versionNumber,
+            createdByLabelSnapshot: 'SYSTEM_SEED',
+            level: 'N3',
+            subject: 'READING',
+            questionType: 'SHORT_READING',
+            passage,
+            questionText: `#986 ${questionId} ${versionNumber}`,
+            explanationKo: '같은 지문 묶음',
+            difficulty: 'EASY'
+          },
+          select: { id: true, passageId: true, passageOrder: true }
+        })
+      return { first, second, text, createVersion }
+    }
+    const rollback = new Error('reading passage probe rolled back')
+
+    // 1) The migration's own backfill SQL on versions without a link, as
+    // before the migration: every passage version is linked, one row per
+    // text, in import order. Table changes come first, before any row
+    // write queues the deferred content checks.
+    await expect(
+      fixtureDatabase.client.$transaction(
+        async (transaction) => {
+          const seeded = await counts(transaction)
+          expect(seeded.withPassage).toBeGreaterThan(0)
+          expect(seeded).toMatchObject({
+            linked: seeded.withPassage,
+            passages: seeded.texts,
+            broken: 0
+          })
+          await transaction.$executeRawUnsafe(
+            'ALTER TABLE "QuestionVersion" DISABLE TRIGGER "QuestionVersion_link_passage"'
+          )
+          await transaction.$executeRawUnsafe(
+            'ALTER TABLE "QuestionVersion" DROP CONSTRAINT "QuestionVersion_passage_link_check"'
+          )
+          await transaction.$executeRawUnsafe(
+            'UPDATE "QuestionVersion" SET "passageId" = NULL, "passageOrder" = NULL'
+          )
+          await transaction.$executeRawUnsafe('DELETE FROM "ReadingPassage"')
+          const { first, second, text, createVersion } =
+            await createProbe(transaction)
+          const secondVersion = await createVersion(second, 1, text)
+          const firstVersion = await createVersion(first, 1, text)
+          const before = await counts(transaction)
+          expect(before).toMatchObject({
+            withPassage: seeded.withPassage + 2,
+            texts: seeded.texts + 1,
+            linked: 0,
+            passages: 0
+          })
+
+          for (const sql of backfill) {
+            await transaction.$executeRawUnsafe(sql)
+          }
+          expect(await counts(transaction)).toEqual({
+            ...before,
+            linked: before.withPassage,
+            passages: before.texts,
+            broken: 0
+          })
+          const placed = await transaction.questionVersion.findMany({
+            where: { id: { in: [firstVersion.id, secondVersion.id] } },
+            select: { id: true, passageId: true, passageOrder: true }
+          })
+          expect(
+            Object.fromEntries(placed.map((row) => [row.id, row.passageOrder]))
+          ).toEqual({ [firstVersion.id]: 1, [secondVersion.id]: 2 })
+          expect(new Set(placed.map((row) => row.passageId)).size).toBe(1)
+          throw rollback
+        },
+        { timeout: 60_000 }
+      )
+    ).rejects.toBe(rollback)
+
+    // 2) After the migration the trigger links every write: a question new
+    // to a passage takes the next place, a new version keeps its question's
+    // place, a caller cannot move the link, and a changed text links to its
+    // own row while the old row keeps its text.
+    await expect(
+      fixtureDatabase.client.$transaction(
+        async (transaction) => {
+          const { first, second, text, createVersion } =
+            await createProbe(transaction)
+          const secondV1 = await createVersion(second, 1, text)
+          const firstV1 = await createVersion(first, 1, text)
+          expect(secondV1.passageOrder).toBe(1)
+          expect(firstV1).toMatchObject({
+            passageId: secondV1.passageId,
+            passageOrder: 2
+          })
+          // A new draft of a published question keeps that question's
+          // place under its passage.
+          const [published] = await transaction.$queryRaw<
+            Array<{
+              questionId: string
+              versionNumber: number
+              level: 'N5' | 'N4' | 'N3' | 'N2' | 'N1'
+              subject: 'READING' | 'GRAMMAR'
+              questionType: 'SHORT_READING'
+              passage: string
+              passageId: string
+              passageOrder: number
+            }>
+          >`
+            SELECT version."questionId", version."versionNumber",
+              version."level", version."subject", version."questionType",
+              version."passage", version."passageId",
+              version."passageOrder"::integer AS "passageOrder"
+            FROM "QuestionVersion" AS version
+            JOIN "Question" AS question
+              ON question."currentPublishedVersionId" = version."id"
+            WHERE version."passage" IS NOT NULL
+            ORDER BY version."id"
+            LIMIT 1
+          `
+          const draft = await transaction.questionVersion.create({
+            data: {
+              id: randomUUID(),
+              questionId: published!.questionId,
+              versionNumber: published!.versionNumber + 1,
+              createdByLabelSnapshot: 'SYSTEM_SEED',
+              level: published!.level,
+              subject: published!.subject,
+              questionType: published!.questionType,
+              passage: published!.passage,
+              questionText: '#986 새 버전',
+              explanationKo: '같은 자리',
+              difficulty: 'EASY'
+            },
+            select: { id: true, passageId: true, passageOrder: true }
+          })
+          expect(draft).toMatchObject({
+            passageId: published!.passageId,
+            passageOrder: published!.passageOrder
+          })
+          expect(
+            await transaction.questionVersion.update({
+              where: { id: draft.id },
+              data: { passageId: null, passageOrder: 9 },
+              select: { passageId: true, passageOrder: true }
+            })
+          ).toEqual({
+            passageId: published!.passageId,
+            passageOrder: published!.passageOrder
+          })
+          const edited = await transaction.questionVersion.update({
+            where: { id: draft.id },
+            data: { passage: `${published!.passage} 고침` },
+            select: { passageId: true, passageOrder: true }
+          })
+          expect(edited.passageId).not.toBe(published!.passageId)
+          expect(edited.passageOrder).toBe(1)
+          expect(
+            await transaction.readingPassage.findUniqueOrThrow({
+              where: { id: published!.passageId },
+              select: { text: true }
+            })
+          ).toEqual({ text: published!.passage })
+          expect((await counts(transaction)).broken).toBe(0)
+          throw rollback
+        },
+        { timeout: 60_000 }
+      )
+    ).rejects.toBe(rollback)
   })
 
   it('오늘의 한 문제 원고지 글자 수는 SQL과 웹 카드가 같게 센다 (#1087)', async () => {

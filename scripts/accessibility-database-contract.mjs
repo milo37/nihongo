@@ -27,6 +27,7 @@ export const accessibilityDatabaseTables = [
   'QuestionVersion',
   'QuestionVersionTag',
   'RateLimit',
+  'ReadingPassage',
   'ReauthenticationIntent',
   'RetentionCohort',
   'ReviewEvent',
@@ -81,6 +82,8 @@ export const accessibilityExpectedTableDeltas = {
   QuestionVersion: 0,
   QuestionVersionTag: 0,
   RateLimit: 35,
+  // #986: the scan imports no reading passage.
+  ReadingPassage: 0,
   RetentionCohort: 0,
   ReviewEvent: 10,
   ReviewSchedule: 10,
