@@ -1,0 +1,95 @@
+/* Wrong notes: one question's page and its review action. */
+@layer utilities {
+  /* Detail page states and frame. */
+  .wrong-note-detail-state {
+    margin-inline: auto;
+    max-width: var(--container-3xl);
+    padding-inline: 1rem;
+    padding-block: 3rem;
+  }
+  .wrong-note-warning {
+    margin-top: 1.5rem;
+    border-radius: var(--radius-lg);
+    border-style: solid;
+    border-width: var(--border-width-default);
+    border-color: var(--color-amber-200);
+    background-color: var(--color-amber-50);
+    padding: 1rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-amber-950);
+  }
+  .wrong-note-back {
+    margin-bottom: 1.5rem;
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    padding-inline: var(--spacing);
+    font-weight: var(--font-weight-bold);
+    text-decoration-line: underline;
+    text-underline-offset: 2px;
+    color: rgb(var(--color-link));
+  }
+  @media (hover: hover) {
+    .wrong-note-back:hover {
+      text-decoration-line: none;
+    }
+  }
+  @media (width >= 40rem) {
+    .wrong-note-detail-state {
+      padding-inline: 1.5rem;
+    }
+  }
+  /* Question document. */
+  .wrong-note-meta-wrong {
+    font-weight: var(--font-weight-semibold);
+    color: rgb(var(--color-danger));
+  }
+  .wrong-note-correct {
+    color: rgb(var(--color-success-strong));
+  }
+  .wrong-note-question {
+    --tw-outline-style: none;
+    outline-style: none;
+  }
+  /* Review-this-question action and its messages. */
+  .wrong-note-action-notice {
+    margin-top: 0.75rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    font-weight: var(--font-weight-semibold);
+    color: rgb(var(--color-muted));
+  }
+  .wrong-note-action-warn {
+    margin-top: 0.75rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-amber-900);
+  }
+  .wrong-note-action-restricted {
+    margin-top: 0.75rem;
+  }
+  .wrong-note-action-error {
+    margin-top: 0.75rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-red-800);
+  }
+  .wrong-note-action-status {
+    margin-top: 0.75rem;
+    min-height: 1.5rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    font-weight: var(--font-weight-semibold);
+    color: rgb(var(--color-muted));
+  }
+  .wrong-note-action-text {
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    font-weight: var(--font-weight-semibold);
+    color: rgb(var(--color-muted));
+  }
+}

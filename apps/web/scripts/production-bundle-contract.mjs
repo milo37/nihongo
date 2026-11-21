@@ -84,7 +84,9 @@ export const bundleCeilings = Object.freeze({
   // approved 520,000 on 2026-11-20 to leave about 14 KB for small features.
   totalGzipBytes: 520_000,
   // #761 + U4 (#767 c9af0ed5): 1,482,644 measured (god approved; re-measure after deploy).
-  totalRawBytes: 1_483_000
+  // #1186 CSS unify and the #1182 furigana screen only: +15 KB (operator
+  // approved 2026-11-21). Back to 1,483,000 in C11 (#1186).
+  totalRawBytes: 1_498_000
 })
 
 export const approvedStaticAssetPaths = Object.freeze([

@@ -1,0 +1,196 @@
+/* Wrong notes: the question list and the empty list. */
+@layer utilities {
+  /* List: one row per question; a table head from 1024px. */
+  .wrong-note-item-long {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border-width: 0;
+  }
+  .wrong-note-list {
+    margin-top: 0.5rem;
+    overflow: hidden;
+    border-radius: var(--radius-card);
+    border-style: solid;
+    border-width: var(--border-width-default);
+    border-color: rgb(var(--color-line));
+    background-color: rgb(var(--color-surface));
+  }
+  .wrong-note-item-level {
+    display: block;
+    font-weight: var(--font-weight-bold);
+    color: rgb(var(--color-ink));
+  }
+  .wrong-note-item-wrong {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing);
+    font-size: 13px;
+    font-weight: var(--font-weight-bold);
+    white-space: nowrap;
+    color: rgb(var(--color-danger));
+  }
+  .wrong-note-item-reviewed {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--spacing);
+    font-size: 13px;
+    font-weight: var(--font-weight-bold);
+    white-space: nowrap;
+    color: rgb(var(--color-success-strong));
+  }
+  .wrong-note-item-link {
+    display: grid;
+    height: 52px;
+    grid-template-columns: 66px minmax(0, 1fr) auto 16px;
+    align-items: center;
+    gap: 0.5rem;
+    padding-inline: 0.75rem;
+  }
+  .wrong-note-list-head {
+    display: none;
+    height: 2.5rem;
+    grid-template-columns: 150px minmax(0, 1fr) 120px 110px 20px;
+    align-items: center;
+    gap: 1.25rem;
+    border-bottom-style: solid;
+    border-bottom-width: var(--border-width-default);
+    border-color: rgb(var(--color-line));
+    padding-inline: 1.5rem;
+    font-size: var(--text-caption-size);
+    line-height: var(--text-caption-line-height);
+    font-weight: var(--font-weight-semibold);
+    color: rgb(var(--color-muted));
+  }
+  .wrong-note-item-dot {
+    display: none;
+  }
+  .wrong-note-item-date {
+    display: none;
+    text-align: right;
+    font-size: 13px;
+    color: rgb(var(--color-muted));
+  }
+  .wrong-note-item-chevron {
+    width: 1rem;
+    height: 1rem;
+    color: rgb(var(--color-muted));
+  }
+  .wrong-note-item-meta {
+    min-width: 0px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--text-caption-size);
+    --tw-leading: var(--leading-tight);
+    line-height: var(--leading-tight);
+    font-weight: var(--font-weight-semibold);
+    color: rgb(var(--color-muted));
+  }
+  .wrong-note-item-title {
+    min-width: 0px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 15px;
+    font-weight: var(--font-weight-semibold);
+    color: rgb(var(--color-ink));
+  }
+  .wrong-note-item {
+    border-top-style: solid;
+    border-top-width: var(--border-width-default);
+    border-color: rgb(var(--color-line));
+  }
+  .wrong-note-list-end {
+    text-align: right;
+  }
+  .wrong-note-item:first-child {
+    border-top-style: solid;
+    border-top-width: 0px;
+  }
+  .wrong-note-item-link:focus-visible {
+    outline-style: solid;
+    outline-width: 2px;
+    outline-offset: calc(2px * -1);
+    outline-color: rgb(var(--color-brand));
+  }
+  @media (hover: hover) {
+    .wrong-note-item-link:hover {
+      background-color: rgb(var(--color-surface-muted));
+    }
+  }
+  @media (width >= 64rem) {
+    .wrong-note-item-reviewed {
+      visibility: hidden;
+    }
+    .wrong-note-item-long {
+      position: static;
+      width: auto;
+      height: auto;
+      padding: 0;
+      margin: 0;
+      overflow: visible;
+      clip-path: none;
+      white-space: normal;
+    }
+    .wrong-note-item-date {
+      display: block;
+    }
+    .wrong-note-list-head {
+      display: grid;
+    }
+    .wrong-note-item-short {
+      display: none;
+    }
+    .wrong-note-item-level,
+    .wrong-note-item-dot {
+      display: inline;
+    }
+    .wrong-note-item-link {
+      height: 3.5rem;
+      grid-template-columns: 150px minmax(0, 1fr) 120px 110px 20px;
+      gap: 1.25rem;
+      padding-inline: 1.5rem;
+    }
+    .wrong-note-item-title {
+      font-size: var(--text-base);
+      line-height: var(--text-base--line-height);
+    }
+    .wrong-note-item-meta {
+      font-size: var(--text-sm);
+      line-height: var(--tw-leading, var(--text-sm--line-height));
+    }
+  }
+  /* Empty list. */
+  .wrong-note-empty {
+    margin-inline: 0px !important;
+    align-items: flex-start !important;
+    padding-inline: 0px !important;
+    text-align: start !important;
+  }
+  .wrong-note-empty-level {
+    margin-top: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  .wrong-note-empty-level-text {
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+    color: rgb(var(--color-ink));
+  }
+  .wrong-note-empty:lang(ko) > h2 {
+    word-break: keep-all;
+  }
+  .wrong-note-empty > h2 {
+    text-wrap: pretty;
+  }
+}
