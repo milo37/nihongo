@@ -1,0 +1,118 @@
+/* Sign-up check, guest gate and login screens. */
+.auth-page.guest-gate-page {
+  padding-top: 24px;
+}
+/* JLP-850: a guest's My footer follows the gate panel's column, so its
+   first label sits on the panel's left line (the member footer does the
+   same inside .account-page). #1045: the iOS home screen line sits in the
+   same column, between the panel and the footer. */
+.guest-gate-page ~ .information-footer {
+  width: 100%;
+  max-width: 440px;
+}
+.guest-gate-page + .home-screen-hint {
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  padding-bottom: 24px;
+}
+/* #1085 '가입 확인' (r3-4 page, r5 words): the login card's column, two
+   required boxes, one red button and a quiet text cancel. Phones show it
+   without the card's frame. */
+.signup-consent-checks {
+  display: grid;
+  gap: 2px;
+  margin: 24px 0 20px;
+}
+.signup-consent-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 0;
+  color: rgb(var(--color-ink));
+  font-size: 15px;
+  line-height: 22px;
+  cursor: pointer;
+}
+.signup-consent-check input {
+  flex: none;
+  appearance: none;
+  display: grid;
+  place-content: center;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  border: 1.5px solid rgb(var(--color-line-interactive));
+  border-radius: 5px;
+  background: rgb(var(--color-surface));
+}
+.signup-consent-check input:checked {
+  border-color: rgb(var(--color-ink));
+  background: rgb(var(--color-ink));
+}
+.signup-consent-check input:checked::after {
+  content: '';
+  width: 6px;
+  height: 11px;
+  margin-top: -2px;
+  border: solid rgb(var(--color-on-accent));
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.signup-consent-check a {
+  color: rgb(var(--color-ink));
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.signup-consent-hint {
+  margin: -6px 0 4px 32px;
+  color: rgb(var(--color-muted));
+  font-size: 13px;
+  line-height: 19px;
+  text-wrap: pretty;
+}
+/* Breaks only between words (ko) or at the comma (ja), as drawn. */
+.signup-consent h1 {
+  word-break: keep-all;
+  text-wrap: pretty;
+}
+.signup-consent-checks:lang(ko) {
+  word-break: keep-all;
+}
+.signup-consent-error {
+  margin: -8px 0 12px;
+  color: rgb(var(--color-danger));
+  font-size: 14px;
+}
+.signup-consent .signup-consent-submit {
+  min-height: 52px;
+  font-size: 17px;
+  font-weight: 700;
+}
+.signup-consent-cancel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+  color: rgb(var(--color-muted));
+  font-size: 15px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.signup-consent-check input:focus-visible,
+.signup-consent-cancel:focus-visible {
+  outline: var(--focus-width) solid rgb(var(--focus-color));
+  outline-offset: var(--focus-offset);
+}
+@media (max-width: 760px) {
+  .auth-panel.signup-consent,
+  .auth-panel.study-goal {
+    padding: 24px 0 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+}

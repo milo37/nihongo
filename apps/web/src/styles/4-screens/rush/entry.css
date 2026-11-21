@@ -1,0 +1,48 @@
+/* Kanji rush: the entry row on the practice page. */
+/* #1043 30-second kanji rush (design v5 phone, ring P2 ink and cream).
+   Red only for [Start]/[Again], wrong answers and the last ten seconds. */
+.rush-entry {
+  margin-top: 36px;
+  padding-top: 8px;
+  border-top: 1px solid rgb(var(--color-line));
+}
+.rush-entry a {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 72px;
+}
+.rush-entry a::after {
+  content: '›';
+  margin-left: auto;
+  color: rgb(var(--color-muted));
+  font-size: 18px;
+}
+.rush-entry svg {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  padding: 8px;
+  border: 1.5px solid rgb(var(--color-ink));
+  border-radius: 4px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.rush-entry b {
+  display: block;
+  font-size: 16px;
+}
+.rush-entry small,
+.rush-meta,
+.rush-level {
+  color: rgb(var(--color-muted));
+  font-size: 13px;
+}
+.rush {
+  --maru-red: rgb(var(--color-brand));
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 16px 0 24px;
+}

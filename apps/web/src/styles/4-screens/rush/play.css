@@ -1,0 +1,271 @@
+/* Kanji rush: playing. */
+/* Playing: no bottom tabs (a stray tap would leave); [Quit] instead. */
+body:has(.rush.is-play) .app-mobile-navigation {
+  display: none;
+}
+.rush.is-play {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - 57px);
+}
+.rush-quit {
+  display: flex;
+  justify-content: flex-end;
+  margin: -6px 0 2px;
+}
+.rush-quit button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  color: rgb(var(--color-muted));
+  font-size: 14px;
+}
+.rush-quit svg {
+  width: 12px;
+  height: 12px;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+.rush-top {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  min-height: 84px;
+}
+.rush-count {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+.rush-count b {
+  position: relative;
+  align-self: flex-start;
+  font-size: 36px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.rush-count b span {
+  position: absolute;
+  left: 100%;
+  top: -6px;
+  margin-left: 6px;
+  font-size: 15px;
+  white-space: nowrap;
+}
+.rush-count small {
+  margin-top: 6px;
+  color: rgb(var(--color-muted));
+  font-size: 12px;
+}
+.rush-streak {
+  justify-self: end;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: right;
+}
+.rush-streak i {
+  display: block;
+  margin-top: 4px;
+  font-style: normal;
+  font-size: 12px;
+  letter-spacing: 2px;
+}
+.rush-ring {
+  position: relative;
+  width: 84px;
+  height: 84px;
+}
+.rush-ring svg {
+  position: absolute;
+  inset: 0;
+  rotate: -90deg;
+  fill: #fef4e8;
+  stroke: rgb(236 230 222);
+  stroke-width: 6;
+}
+.rush-ring b {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 28px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.rush-arc {
+  fill: none;
+  stroke: rgb(var(--color-ink));
+  stroke-linecap: round;
+}
+.rush-arc.is-running {
+  animation: rush-time 30s linear forwards;
+}
+.is-ten .rush-arc {
+  stroke: rgb(var(--color-brand));
+}
+.is-ten .rush-ring b {
+  color: rgb(var(--color-brand));
+}
+/* The word is centred with the same room on both sides as Maru shows at
+   its left (84px), so Maru stays on screen; when that is tight the cells
+   shrink on their own (flex) and the kanji follow the
+   cell (container units). */
+.rush-word {
+  display: flex;
+  justify-content: center;
+  margin: 36px 0 40px;
+  padding-inline: 84px;
+}
+.rush-box {
+  display: flex;
+  flex: 1;
+  justify-content: center;
+}
+/* Maru (.rush-stage) hangs off the first cell's left edge. */
+.rush-box > span {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: 0 1 100px;
+  aspect-ratio: 1;
+  border: 1.5px solid rgb(var(--color-sheet-line));
+  container-type: inline-size;
+}
+.rush-box > span > b {
+  font-size: 62cqi;
+  font-weight: 700;
+  line-height: 1;
+}
+.rush-box > span + span {
+  border-left: 0;
+}
+.rush-word.is-ng .rush-box > span {
+  animation: rush-shake 0.2s ease-in-out;
+}
+/* Correct: Maru, left of the word box and overlapping it, lifts the stamp
+   and thuds it on the box's lower left corner (0.35s, the result screen's
+   keyframes, shorter); one at a time. */
+.rush-stage {
+  position: absolute;
+  right: 100%;
+  top: 50%;
+  width: 96px;
+  height: 96px;
+  /* Overlaps the box's left edge, its own size times the design ratio. */
+  translate: 12.5% -42%;
+  pointer-events: none;
+}
+.rush-fox {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform-origin: 50% 92%;
+}
+.rush-fox.is-lift {
+  animation:
+    maru-show 0s forwards,
+    maru-hide 0s 0.12s forwards,
+    maru-wiggle 0.06s ease-in-out 2 alternate;
+}
+.rush-fox.is-thud {
+  animation:
+    maru-show 0s 0.12s forwards,
+    maru-thud 0.13s cubic-bezier(0.3, 1.6, 0.5, 1) 0.12s;
+}
+.rush-mark {
+  position: absolute;
+  left: 84.4%;
+  top: 73%;
+  width: 34.4%;
+  height: 30.2%;
+  rotate: -6deg;
+  opacity: 0;
+  animation: maru-mark 0.12s ease-out 0.16s forwards;
+}
+.rush-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  border: 4px solid rgb(var(--color-brand-soft));
+  pointer-events: none;
+  opacity: 0;
+  animation: rush-flash 0.35s;
+}
+.rush-choices {
+  display: grid;
+  gap: 10px;
+  margin-top: auto;
+}
+.rush-choices button {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 58px;
+  padding: 0 18px;
+  border: 1.5px solid rgb(var(--color-line-interactive));
+  border-radius: 10px;
+  background: rgb(var(--color-canvas));
+  font-size: 22px;
+  text-align: left;
+}
+.rush-choices kbd {
+  width: 18px;
+  color: rgb(var(--color-muted));
+  font: 600 14px system-ui;
+}
+.rush-choices .is-ok {
+  padding: 0 17px;
+  border: 2.5px solid rgb(var(--color-ink));
+}
+.rush-choices .is-ng {
+  border-color: rgb(var(--color-brand));
+  background: rgb(var(--color-brand-soft));
+  color: rgb(var(--color-brand-strong));
+}
+.rush-choices .is-ng span {
+  text-decoration: line-through 2px;
+}
+.rush-choices svg {
+  width: 26px;
+  margin-left: auto;
+}
+.rush-slash,
+.rush-circle {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.rush-slash {
+  stroke: rgb(var(--color-brand));
+}
+.rush-circle {
+  stroke: rgb(var(--color-ink));
+}
+@media (min-width: 1024px) {
+  .rush {
+    max-width: 640px;
+    padding-top: 28px;
+  }
+  .rush.is-play {
+    min-height: 0;
+  }
+  .rush-word {
+    margin: 40px 0 44px;
+  }
+  .rush-box > span {
+    flex-basis: 112px;
+  }
+  .rush-stage {
+    width: 110px;
+    height: 110px;
+  }
+  .rush-choices {
+    grid-template-columns: 1fr 1fr;
+  }
+  .rush-choices button {
+    min-height: 64px;
+  }
+}

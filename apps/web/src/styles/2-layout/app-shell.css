@@ -1,0 +1,38 @@
+/* Top bar, logo and page frame shared by every screen. */
+/* B4 logo: hand-drawn brand circle + 하루마루, drawn at 1:1 (24px circle,
+   19px wordmark). */
+.app-brand-lockup {
+  width: 96px;
+  min-width: 96px;
+}
+/* #1029: the ハルまる lockup is wider at the same height. */
+.app-brand-lockup-ja {
+  width: 101px;
+  min-width: 101px;
+}
+/* Top bar language menu, 4px left of the login button or avatar. */
+.header-menus {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+/* JLP-845 restore offer: no session yet, so the only ways on are its two
+   buttons and the logo (the bottom tabs and the login button go). */
+.app-shell:has(.auth-restore)
+  :is(#primary-navigation, #mobile-navigation, .account-menu) {
+  display: none;
+}
+@media (min-width: 1024px) {
+  /* Two columns: subjects on the left, level, count and start beside. */
+  .app-shell .app-shell-body > main > .practice-setup-page {
+    max-width: 1056px;
+    padding-top: clamp(56px, 12vh, 120px);
+  }
+  /* PC: what to do now on the left, the answered list beside it (B4 §6). */
+  .app-shell .app-shell-body > main > .study-result {
+    max-width: 1056px;
+    margin-inline: auto;
+    padding-top: clamp(56px, 12vh, 120px);
+  }
+}

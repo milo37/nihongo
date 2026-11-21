@@ -1,0 +1,84 @@
+/* @keyframes for omikuji (the animation lines stay with their rules). */
+@keyframes omikuji-tap {
+  50% {
+    scale: 0.92;
+  }
+}
+@keyframes omikuji-dim {
+  from {
+    background-color: rgb(var(--color-ink) / 0);
+  }
+}
+@keyframes omikuji-rise {
+  from {
+    translate: 0 100%;
+  }
+}
+@keyframes omikuji-undim {
+  to {
+    background-color: rgb(var(--color-ink) / 0);
+  }
+}
+@keyframes omikuji-sink {
+  to {
+    translate: 0 100%;
+  }
+}
+@keyframes omikuji-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+@keyframes omikuji-shake {
+  20% {
+    rotate: -7deg;
+  }
+  40% {
+    rotate: 7deg;
+  }
+  60% {
+    rotate: -7deg;
+  }
+  80% {
+    rotate: 7deg;
+  }
+}
+@keyframes omikuji-drop {
+  from {
+    translate: 0 -14px;
+  }
+}
+@keyframes omikuji-kuji {
+  from {
+    translate: 0 11px;
+  }
+}
+@keyframes omikuji-in {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+  }
+}
+@keyframes omikuji-pop {
+  from {
+    opacity: 0;
+    scale: 0.85;
+  }
+}
+@media (min-width: 1024px) {
+  @keyframes omikuji-open {
+    from {
+      opacity: 0;
+      translate: 0 8px;
+      scale: 0.96;
+    }
+  }
+  @keyframes omikuji-shut {
+    to {
+      opacity: 0;
+      translate: 0 8px;
+      scale: 0.96;
+    }
+  }
+}

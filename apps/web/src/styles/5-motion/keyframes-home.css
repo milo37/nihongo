@@ -1,0 +1,7 @@
+/* @keyframes for home (the animation lines stay with their rules). */
+@keyframes daily-write {
+  from {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+  }
+}

@@ -1,0 +1,93 @@
+/* Omikuji: the fortune slip. */
+.omikuji-row {
+  margin-top: 12px;
+}
+.omikuji-body {
+  display: grid;
+}
+.omikuji-body > * {
+  grid-area: 1 / 1;
+}
+.omikuji-result {
+  animation: omikuji-in 360ms ease-out 120ms both;
+}
+.omikuji-slip-wrap {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 4px;
+}
+.omikuji-slip {
+  position: relative;
+  width: 258px;
+  padding: 18px 22px 22px;
+  border: 1px solid rgb(var(--color-line));
+  border-top: 6px solid rgb(var(--color-brand));
+  background: rgb(var(--color-paper));
+  text-align: center;
+  word-break: keep-all;
+}
+.omikuji-slip [lang='ja'] {
+  /* keep-all would leave Japanese no place to wrap. */
+  word-break: normal;
+  line-break: strict;
+}
+.omikuji-slip-kind,
+.omikuji-word-label {
+  color: rgb(var(--color-muted));
+  font-size: 12px;
+}
+.omikuji-slip-kind {
+  letter-spacing: 2px;
+}
+.omikuji-fortune {
+  position: relative;
+  margin: 6px 0 2px;
+  font-size: 52px;
+  font-weight: 800;
+  letter-spacing: 6px;
+  line-height: 1.1;
+}
+/* A faint fold 8px under the fortune, from edge to edge of the slip. */
+.omikuji-fortune::after {
+  content: '';
+  position: absolute;
+  right: -22px;
+  bottom: -8px;
+  left: -22px;
+  border-top: 1px solid rgb(var(--color-ink) / 0.05);
+}
+.omikuji-message {
+  margin: 10px 0 16px;
+  text-wrap: balance;
+  font-size: 15px;
+  line-height: 22px;
+}
+.omikuji-word {
+  padding-top: 12px;
+  border-top: 1px dashed rgb(var(--color-line));
+  text-align: left;
+}
+.omikuji-word-text {
+  margin-top: 4px;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 28px;
+}
+.omikuji-word-reading {
+  color: rgb(var(--color-muted));
+  font-size: 12px;
+  line-height: 18px;
+}
+.omikuji-word-meaning {
+  font-size: 14px;
+  line-height: 20px;
+}
+.omikuji-word-example {
+  /* Maru sits over the slip's lower right corner. */
+  margin-top: 8px;
+  padding-right: 40px;
+  color: rgb(var(--color-muted));
+  font-size: 13px;
+  line-height: 19px;
+}
