@@ -321,7 +321,7 @@ body:has(.rush.is-play) .app-mobile-navigation {
 }
 /* The word is centred with the same room on both sides as Maru shows at
    its left (84px), so Maru stays on screen; when that is tight the cells
-   shrink on their own (flex), never under 40px, and the kanji follow the
+   shrink on their own (flex) and the kanji follow the
    cell (container units). */
 .rush-word {
   display: flex;
