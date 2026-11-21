@@ -79,7 +79,10 @@ export const bundleCeilings = Object.freeze({
   // line; 486,824 measured (operator decision 2026-11-18).
   // #1043 kanji rush: +7.8 KB (491,211 measured; operator approved
   // 2026-11-20).
-  totalGzipBytes: 492_000,
+  // #1055 omikuji: the draw window, its animation and the fortune and
+  // expression text; 506,097 measured after trimming the data. The operator
+  // approved 520,000 on 2026-11-20 to leave about 14 KB for small features.
+  totalGzipBytes: 520_000,
   // #761 + U4 (#767 c9af0ed5): 1,482,644 measured (god approved; re-measure after deploy).
   totalRawBytes: 1_483_000
 })

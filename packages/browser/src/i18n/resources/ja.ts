@@ -1133,6 +1133,20 @@ export const jaCoreResources = {
       action: '目標を決める'
     },
     // #1154 M-2f: this month's stamps under the goal row.
+    // #1055 today's omikuji (members only).
+    omikuji: {
+      label: 'おみくじ',
+      kind: 'おみくじ',
+      draw: '今日のおみくじを引く',
+      view: '今日のおみくじを見る',
+      heading: '{{month}}月{{day}}日・今日のおみくじ',
+      close: '閉じる',
+      shaking: '振っています',
+      expression: '今日のことば',
+      again: '今日はもう引きました。明日また引けます。',
+      spoken:
+        '今日のおみくじ、{{fortune}}。{{message}} 今日のことば、{{expression}}、{{meaning}}、例文 {{example}}'
+    },
     stampBoard: {
       title: '{{month}}月のスタンプカード',
       note: '1日の目標を達成すると、今日のスタンプが押されます。',

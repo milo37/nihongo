@@ -402,6 +402,11 @@ const ADDED_RUSH_BEST_TABLE = 'RushBest'
 const isAddedRushBest = (row: Record<string, unknown>): boolean =>
   row.table === ADDED_RUSH_BEST_TABLE
 
+/** #1043: the rush kanji word table. */
+const ADDED_RUSH_KANJI_WORD_TABLE = 'RushKanjiWord'
+const isAddedRushKanjiWord = (row: Record<string, unknown>): boolean =>
+  row.table === ADDED_RUSH_KANJI_WORD_TABLE
+
 /** #675: the retired email Verification table, its enum and its guard. */
 const RETIRED_VERIFICATION_TABLE = 'Verification'
 const RETIRED_VERIFICATION_TYPE = 'AuthVerificationPurpose'
@@ -475,6 +480,7 @@ export const withoutForwardChanges = (
       name !== ADDED_STUDY_GOAL_TABLE &&
       name !== ADDED_STAMP_TABLE &&
       name !== ADDED_RUSH_BEST_TABLE &&
+      name !== ADDED_RUSH_KANJI_WORD_TABLE &&
       name !== RETIRED_VERIFICATION_TABLE
   ),
   columns: catalog.columns
@@ -493,6 +499,7 @@ export const withoutForwardChanges = (
         !isAddedStudyGoal(row) &&
         !isAddedStamp(row) &&
         !isAddedRushBest(row) &&
+        !isAddedRushKanjiWord(row) &&
         !isRetiredVerification(row)
     )
     .map(withBaselineTargetLevelAcl),
@@ -509,6 +516,7 @@ export const withoutForwardChanges = (
         !isAddedStudyGoal(row) &&
         !isAddedStamp(row) &&
         !isAddedRushBest(row) &&
+        !isAddedRushKanjiWord(row) &&
         !isRetiredVerification(row)
     )
     .map(withBaselineProofBound)
@@ -524,6 +532,7 @@ export const withoutForwardChanges = (
       !isAddedStudyGoal(row) &&
       !isAddedStamp(row) &&
       !isAddedRushBest(row) &&
+      !isAddedRushKanjiWord(row) &&
       !isRetiredVerification(row)
   ),
   triggers: catalog.triggers.filter(

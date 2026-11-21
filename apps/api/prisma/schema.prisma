@@ -1109,6 +1109,21 @@ model RushBest {
   @@id([userId, mode, level])
 }
 
+/// #1043: a word of the kanji rush, loaded from content/rush by the operator
+/// command; the app only reads it.
+model RushKanjiWord {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sourceKey String    @unique
+  level     JlptLevel
+  word      String
+  reading   String
+  wrong     String[]
+  createdAt DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  updatedAt DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+
+  @@unique([level, word])
+}
+
 /// #1094: attendance stamps a member collected; add-only, never spent.
 model StampLedger {
   id         String   @id @db.Uuid
