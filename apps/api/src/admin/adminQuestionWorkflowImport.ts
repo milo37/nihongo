@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import {
+  ADMIN_QUESTION_TAG_LIMIT,
   adminImportIssueCodeSchema,
   compareUnicodeScalars,
   createAdminImportValidationDigest,
@@ -16,7 +17,10 @@ import { normalizeOptionComparison } from '@nihongo/domain/content/validators/v1
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 import { uniqueSorted } from './adminRepositoryCommon.js'
 import { repositoryFailure } from './adminQuestionCommandRepository.js'
-import { TAG_REFERENCE_SQL } from './adminQuestionCommandContent.js'
+import {
+  TAG_REFERENCE_SQL,
+  loadClosedImportPassages
+} from './adminQuestionCommandContent.js'
 
 import {
   type AdminImportValidationIssue,
@@ -75,6 +79,9 @@ export const loadExistingFingerprints = async (
   )
   return new Set(rows.map((row) => row.contentFingerprint))
 }
+
+const md5Hex = (text: string): string =>
+  createHash('md5').update(text, 'utf8').digest('hex')
 
 export const eligibleImportFingerprints = (
   items: readonly AdminImportItem[]
@@ -137,6 +144,25 @@ export const collectImportValidation = async (
   readonly response: AdminImportValidationResponse
   readonly importTags: readonly ImportTagRow[]
 }> => {
+  // The request contract allows two tags; the repository holds the same
+  // limit for any caller that skips it (#712).
+  const overTagLimit = items.flatMap((item, itemIndex) =>
+    item.content.tagNames.length > ADMIN_QUESTION_TAG_LIMIT
+      ? [`/items/${itemIndex}/content/tagNames`]
+      : []
+  )
+  if (overTagLimit.length > 0) {
+    throw repositoryFailure(
+      'IMPORT_VALIDATION_FAILED',
+      `문제당 태그는 ${ADMIN_QUESTION_TAG_LIMIT}개까지입니다.`,
+      Object.fromEntries(
+        overTagLimit.map((fieldPath) => [
+          fieldPath,
+          [`태그는 ${ADMIN_QUESTION_TAG_LIMIT}개까지입니다.`]
+        ])
+      )
+    )
+  }
   const [importTags, validationDigest] = await Promise.all([
     loadImportTags(client, items),
     createAdminImportValidationDigest(sha256Port, items)
@@ -289,6 +315,35 @@ export const collectImportValidation = async (
     }
     seenFingerprints.add(fingerprint)
   })
+
+  const withPassage = items.flatMap((item, itemIndex) =>
+    item.content.passage === null
+      ? []
+      : [
+          {
+            itemIndex,
+            level: item.content.level,
+            subject: item.content.subject,
+            text: item.content.passage
+          }
+        ]
+  )
+  const closedPassages = await loadClosedImportPassages(client, withPassage)
+  for (const passage of withPassage) {
+    if (
+      closedPassages.has(
+        [passage.level, passage.subject, md5Hex(passage.text)].join('|')
+      )
+    ) {
+      pushIssue(issues, {
+        itemIndex: passage.itemIndex,
+        fieldPath: `/items/${passage.itemIndex}/content/passage`,
+        code: 'INVALID_READING_PASSAGE',
+        message:
+          '이 지문은 지문 고치기로 바뀌었거나 고치는 중이라 새 문제를 붙일 수 없습니다.'
+      })
+    }
+  }
 
   issues.sort(
     (left, right) =>

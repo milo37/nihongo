@@ -15,6 +15,7 @@
     "src/**/*.integration.test.ts",
     "src/e2e/**",
     "src/db/ssoTestFixture.ts",
-    "src/db/foundationDiagnostics.ts"
+    "src/db/foundationDiagnostics.ts",
+    "src/content/furiganaGenerateCommand.ts"
   ]
 }

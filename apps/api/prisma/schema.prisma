@@ -564,6 +564,10 @@ model QuestionVersion {
   subject                    QuestionSubject
   questionType               QuestionType
   passage                    String?
+  // #986: the "ReadingPassage" row of the passage text and the question's
+  // place under it; the migration's trigger sets both.
+  passageId                  String?                @db.Uuid
+  passageOrder               Int?                   @db.SmallInt
   questionText               String
   correctOptionId            String                 @default(dbgenerated("'00000000-0000-0000-0000-000000000000'::uuid")) @db.Uuid
   explanationKo              String
@@ -582,6 +586,8 @@ model QuestionVersion {
   publishedAt                DateTime?              @db.Timestamptz(3)
   retiredAt                  DateTime?              @db.Timestamptz(3)
   question                   Question               @relation("QuestionVersions", fields: [questionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  readingPassage             ReadingPassage?        @relation(fields: [passageId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  furigana                   Furigana?
   createdBy                  User?                  @relation("QuestionVersionCreator", fields: [createdByUserId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   currentForQuestion         Question?              @relation("CurrentPublishedVersion")
   correctOption              QuestionOption         @relation("CorrectQuestionOption", fields: [id, correctOptionId], references: [questionVersionId, id], onDelete: Restrict, onUpdate: NoAction)
@@ -603,10 +609,62 @@ model QuestionVersion {
   @@index([questionId, status, versionNumber(sort: Desc)])
   @@index([questionId, versionNumber(sort: Desc), id(sort: Desc)])
   @@index([contentFingerprint])
+  @@index([passageId, passageOrder])
   // The migration-owned index also fixes COLLATE "C"; Prisma cannot model a
   // per-index-key collation, so the drift gate verifies pg_get_indexdef.
   @@index([questionText(ops: raw("text_pattern_ops"))], map: "QuestionVersion_questionText_prefix_idx")
   @@index([createdByUserId])
+}
+
+/// #986: a reading passage stored once; its text never changes.
+model ReadingPassage {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  level             JlptLevel
+  subject           QuestionSubject
+  text              String
+  textMd5           String            @db.VarChar(32)
+  createdAt         DateTime          @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  /// #1196: the passage this one replaced when its group's text was edited.
+  replacesPassageId String?           @db.Uuid
+  replaces          ReadingPassage?   @relation("PassageReplacement", fields: [replacesPassageId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  replacedBy        ReadingPassage[]  @relation("PassageReplacement")
+  versions          QuestionVersion[]
+  furigana          Furigana?
+
+  @@unique([level, subject, textMd5])
+  @@index([replacesPassageId])
+}
+
+enum FuriganaTarget {
+  PASSAGE
+  QUESTION_TEXT
+  OPTION
+}
+
+enum FuriganaOrigin {
+  AUTO
+  REVIEWED
+}
+
+/// Readings for one text (#1182): exactly one of passageId,
+/// questionVersionId or questionOptionId, matching target (DB check).
+/// Written by the operator load command; the app only reads.
+model Furigana {
+  id                String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  target            FuriganaTarget
+  passageId         String?          @unique @db.Uuid
+  questionVersionId String?          @unique @db.Uuid
+  questionOptionId  String?          @unique @db.Uuid
+  textMd5           String           @db.VarChar(32)
+  segments          Json
+  origin            FuriganaOrigin
+  reviewedAt        DateTime?        @db.Timestamptz(3)
+  reviewedBy        String?
+  createdAt         DateTime         @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  updatedAt         DateTime         @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  readingPassage    ReadingPassage?  @relation(fields: [passageId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  questionVersion   QuestionVersion? @relation(fields: [questionVersionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  questionOption    QuestionOption?  @relation(fields: [questionOptionId], references: [id], onDelete: Restrict, onUpdate: NoAction)
 }
 
 model QuestionOption {
@@ -620,6 +678,7 @@ model QuestionOption {
   selectedByAnswers StudyAnswer[]      @relation("StudyAnswerSelectedOption")
   selectedByEvents  ReviewEvent[]      @relation("ReviewEventSelectedOption")
   selectedByDrafts  StudyDraftAnswer[] @relation("StudyDraftAnswerSelectedOption")
+  furigana          Furigana?
 
   @@unique([questionVersionId, id])
   @@unique([questionVersionId, label])

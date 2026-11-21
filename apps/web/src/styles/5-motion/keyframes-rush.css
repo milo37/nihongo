@@ -1,0 +1,19 @@
+/* @keyframes for rush (the animation lines stay with their rules). */
+@keyframes rush-time {
+  to {
+    stroke-dashoffset: 232.5;
+  }
+}
+@keyframes rush-shake {
+  25% {
+    translate: -4px 0;
+  }
+  75% {
+    translate: 4px 0;
+  }
+}
+@keyframes rush-flash {
+  50% {
+    opacity: 1;
+  }
+}

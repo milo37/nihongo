@@ -20,14 +20,17 @@ export const ReviewNotices = ({
   return (
     <>
       {offline ? (
-        <p className="mt-4 text-sm font-semibold text-muted" role="status">
+        <p className="wrong-note-notice" role="status">
           {t('center.states.offline')}
         </p>
       ) : null}
       {notice === 'accountRestricted' ? (
-        <AccountRestrictedNotice className="mt-4" focusOnMount />
+        <AccountRestrictedNotice
+          className="wrong-note-restricted"
+          focusOnMount
+        />
       ) : notice ? (
-        <p className="mt-4 text-sm font-semibold text-danger" role="alert">
+        <p className="wrong-note-error" role="alert">
           {t(notice === 'empty' ? 'startEmpty' : 'startError')}
         </p>
       ) : null}

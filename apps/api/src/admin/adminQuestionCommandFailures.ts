@@ -128,6 +128,18 @@ export const mapTransactionError = (
   }
   if (
     identity?.sqlState === '23514' &&
+    identity.message === 'A shared reading passage group must publish together.'
+  ) {
+    return new AdminQuestionCommandRepositoryError({
+      code: 'VALIDATION_ERROR',
+      message:
+        '같은 지문을 쓰는 문제 묶음은 함께 공개해야 합니다. 묶음 밖 문제를 정리한 뒤 다시 시도해 주세요.',
+      disposition: 'DEFINITE_ROLLBACK',
+      cause: error
+    })
+  }
+  if (
+    identity?.sqlState === '23514' &&
     identity.message === 'Cross-question canonical duplicate is forbidden.' &&
     operation === 'publishQuestionVersion'
   ) {

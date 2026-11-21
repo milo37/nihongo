@@ -50,7 +50,7 @@ export const WrongNoteDetailPage = (): ReactElement => {
 
   if (wrongNoteQuery.isPending && isDetailPaused) {
     return (
-      <section className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+      <section className="wrong-note-detail-state">
         <ErrorState
           headingLevel={1}
           title={t('detail.states.coldOfflineTitle')}
@@ -70,7 +70,7 @@ export const WrongNoteDetailPage = (): ReactElement => {
     isNotFoundApiError(wrongNoteQuery.error)
   ) {
     return (
-      <section className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+      <section className="wrong-note-detail-state">
         <ErrorState
           headingLevel={1}
           title={t('detail.states.notFoundTitle')}
@@ -87,7 +87,7 @@ export const WrongNoteDetailPage = (): ReactElement => {
 
   if (!wrongNoteQuery.data) {
     return (
-      <section className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+      <section className="wrong-note-detail-state">
         <ErrorState
           headingLevel={1}
           title={t('detail.states.loadErrorTitle')}
@@ -102,7 +102,7 @@ export const WrongNoteDetailPage = (): ReactElement => {
   return (
     <section className="review-document">
       <Link
-        className="mb-6 inline-flex min-h-11 items-center px-1 font-bold text-brand underline underline-offset-2 hover:no-underline"
+        className="wrong-note-back"
         to={returnTo}
         state={{ reviewFocus: questionId }}
       >
@@ -126,16 +126,13 @@ export const WrongNoteDetailPage = (): ReactElement => {
       />
 
       {isDetailPaused ? (
-        <p
-          className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-950"
-          role="status"
-        >
+        <p className="wrong-note-warning" role="status">
           {t('detail.states.cachedOffline')}
         </p>
       ) : null}
       {wrongNoteQuery.isError ? (
         <ErrorState
-          className="mt-6"
+          className="wrong-note-block"
           density="inline"
           title={t('detail.states.stale')}
           description={t('detail.states.loadErrorDescription')}

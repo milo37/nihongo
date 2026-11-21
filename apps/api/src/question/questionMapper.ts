@@ -50,6 +50,17 @@ export const toPublicPracticeQuestion = (
   subject: question.subject,
   questionType: question.questionType,
   passage: question.passage,
+  ...(question.passageId === undefined
+    ? {}
+    : { passageId: question.passageId }),
+  ...(question.passageFurigana === undefined
+    ? {}
+    : {
+        passageFurigana:
+          question.passageFurigana === null
+            ? null
+            : question.passageFurigana.map((segment) => ({ ...segment }))
+      }),
   questionText: question.questionText,
   options: question.options.map(({ id, label, text }) => ({
     id,

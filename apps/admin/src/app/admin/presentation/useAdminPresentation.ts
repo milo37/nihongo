@@ -28,6 +28,9 @@ export const useAdminPresentation = () => {
         dateStyle: 'medium',
         timeStyle: 'short'
       }),
+    /** Whole sentences in a row: Japanese needs no space after 。 (#712). */
+    joinSentences: (...sentences: string[]): string =>
+      sentences.join(locale === 'ja' ? '' : ' '),
     presentError: (error: unknown): string => {
       const message = t(getAdminErrorKey(error))
       const seconds = getAdminRetryAfterSeconds(error)

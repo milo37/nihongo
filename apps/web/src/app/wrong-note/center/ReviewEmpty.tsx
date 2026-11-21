@@ -29,8 +29,10 @@ export const ReviewEmpty = ({
   const { t } = useTranslation('wrongNote')
   if (empty === 'levelNone')
     return (
-      <div className="mt-8 flex flex-col items-start gap-3">
-        <p className="text-base text-ink">{t('empty.levelNone', { level })}</p>
+      <div className="wrong-note-empty-level">
+        <p className="wrong-note-empty-level-text">
+          {t('empty.levelNone', { level })}
+        </p>
         <Button variant="outline" onClick={onShowAll}>
           {t('empty.showAll')}
         </Button>
@@ -39,7 +41,7 @@ export const ReviewEmpty = ({
   return (
     // JLP-855: no manuscript paper, message at the start edge.
     <EmptyState
-      className="items-start! mx-0! px-0! text-start! [&>h2]:text-pretty [&:lang(ko)>h2]:break-keep"
+      className="wrong-note-empty"
       illustration={<span className="maru-empty" aria-hidden="true" />}
       title={t(`empty.${empty}.title`)}
       description={
