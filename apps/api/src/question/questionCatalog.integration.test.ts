@@ -546,31 +546,74 @@ describe('question catalog PostgreSQL integration', () => {
             passageId: secondV1.passageId,
             passageOrder: 2
           })
-          const firstV2 = await createVersion(first, 2, text)
-          expect(firstV2).toMatchObject({
-            passageId: secondV1.passageId,
-            passageOrder: 2
+          // A new draft of a published question keeps that question's
+          // place under its passage.
+          const [published] = await transaction.$queryRaw<
+            Array<{
+              questionId: string
+              versionNumber: number
+              level: 'N5' | 'N4' | 'N3' | 'N2' | 'N1'
+              subject: 'READING' | 'GRAMMAR'
+              questionType: 'SHORT_READING'
+              passage: string
+              passageId: string
+              passageOrder: number
+            }>
+          >`
+            SELECT version."questionId", version."versionNumber",
+              version."level", version."subject", version."questionType",
+              version."passage", version."passageId",
+              version."passageOrder"::integer AS "passageOrder"
+            FROM "QuestionVersion" AS version
+            JOIN "Question" AS question
+              ON question."currentPublishedVersionId" = version."id"
+            WHERE version."passage" IS NOT NULL
+            ORDER BY version."id"
+            LIMIT 1
+          `
+          const draft = await transaction.questionVersion.create({
+            data: {
+              id: randomUUID(),
+              questionId: published!.questionId,
+              versionNumber: published!.versionNumber + 1,
+              createdByLabelSnapshot: 'SYSTEM_SEED',
+              level: published!.level,
+              subject: published!.subject,
+              questionType: published!.questionType,
+              passage: published!.passage,
+              questionText: '#986 새 버전',
+              explanationKo: '같은 자리',
+              difficulty: 'EASY'
+            },
+            select: { id: true, passageId: true, passageOrder: true }
+          })
+          expect(draft).toMatchObject({
+            passageId: published!.passageId,
+            passageOrder: published!.passageOrder
           })
           expect(
             await transaction.questionVersion.update({
-              where: { id: firstV2.id },
+              where: { id: draft.id },
               data: { passageId: null, passageOrder: 9 },
               select: { passageId: true, passageOrder: true }
             })
-          ).toEqual({ passageId: secondV1.passageId, passageOrder: 2 })
+          ).toEqual({
+            passageId: published!.passageId,
+            passageOrder: published!.passageOrder
+          })
           const edited = await transaction.questionVersion.update({
-            where: { id: firstV2.id },
-            data: { passage: `${text} 고침` },
+            where: { id: draft.id },
+            data: { passage: `${published!.passage} 고침` },
             select: { passageId: true, passageOrder: true }
           })
-          expect(edited.passageId).not.toBe(secondV1.passageId)
+          expect(edited.passageId).not.toBe(published!.passageId)
           expect(edited.passageOrder).toBe(1)
           expect(
             await transaction.readingPassage.findUniqueOrThrow({
-              where: { id: secondV1.passageId! },
+              where: { id: published!.passageId },
               select: { text: true }
             })
-          ).toEqual({ text })
+          ).toEqual({ text: published!.passage })
           expect((await counts(transaction)).broken).toBe(0)
           throw rollback
         },
