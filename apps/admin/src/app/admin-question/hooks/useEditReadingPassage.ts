@@ -38,6 +38,9 @@ export const useEditReadingPassage = () => {
     retry: false,
     networkMode: 'always',
     scope: { id: 'question-workflow-command' },
+    // The shared passage block shows every refusal itself; the app banner
+    // would stay on after the next save succeeds.
+    meta: { localErrorUi: true },
     onMutate: () => {
       assertOnline()
       const actor = useAppStore.getState().currentUser

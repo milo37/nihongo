@@ -11,6 +11,8 @@ import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { appI18n } from '@nihongo/browser/i18n/config'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import { useAppStore } from '@nihongo/browser/store/index'
+import { queryClient } from '@nihongo/browser/libs/queryClient'
+import { subscribeApiError } from '@nihongo/browser/libs/errorBus'
 import * as api from '@nihongo/browser/api/content-operations/requestContentOperation'
 import {
   SharedPassageGroup,
@@ -242,5 +244,43 @@ describe('shared passage group (#1196)', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(
       t('questionDetail.sharedPassage.conflict')
     )
+  })
+
+  it('shows a refusal only in the block, gone after the next save', async () => {
+    // The app client, whose mutation cache feeds the shared error banner.
+    client = queryClient
+    const banner: unknown[] = []
+    const unsubscribe = subscribeApiError((error) => banner.push(error))
+    vi.spyOn(api, 'requestContentOperation')
+      .mockRejectedValueOnce({
+        code: 'DUPLICATE_QUESTION_CONTENT',
+        message: 'unchanged'
+      })
+      .mockResolvedValueOnce({} as never)
+    view(group())
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: t('questionDetail.sharedPassage.edit')
+      })
+    )
+    const save = screen.getByRole('button', {
+      name: t('questionDetail.sharedPassage.save', { count: 2 })
+    })
+    await userEvent.click(save)
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    await userEvent.type(
+      screen.getByRole('textbox', {
+        name: t('questionDetail.sharedPassage.editLabel')
+      }),
+      '追加'
+    )
+    await userEvent.click(save)
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      t('questionDetail.sharedPassage.saved', { count: 2 })
+    )
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(banner).toEqual([])
+    unsubscribe()
+    queryClient.clear()
   })
 })
