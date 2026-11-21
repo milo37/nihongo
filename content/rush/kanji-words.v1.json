@@ -1,0 +1,1405 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "level": "N5",
+      "word": "駅",
+      "reading": "えき",
+      "wrong": ["いき", "えぎ", "えく"],
+      "source": "n5-a2-vocabulary-01"
+    },
+    {
+      "level": "N5",
+      "word": "左",
+      "reading": "ひだり",
+      "wrong": ["みぎ", "ひがし", "にし"],
+      "source": "n5-a2-vocabulary-02"
+    },
+    {
+      "level": "N5",
+      "word": "天気",
+      "reading": "てんき",
+      "wrong": ["でんき", "てんぎ", "でんぎ"],
+      "source": "n5-a2-vocabulary-03"
+    },
+    {
+      "level": "N5",
+      "word": "長い",
+      "reading": "ながい",
+      "wrong": ["みじかい", "ひろい", "ちかい"],
+      "source": "n5-a2-vocabulary-04"
+    },
+    {
+      "level": "N5",
+      "word": "毎朝",
+      "reading": "まいあさ",
+      "wrong": ["まいにち", "めいあさ", "まいあざ"],
+      "source": "n5-a3-vocabulary-01"
+    },
+    {
+      "level": "N5",
+      "word": "右",
+      "reading": "みぎ",
+      "wrong": ["ひだり", "みき", "いぎ"],
+      "source": "n5-a3-vocabulary-02"
+    },
+    {
+      "level": "N5",
+      "word": "午後",
+      "reading": "ごご",
+      "wrong": ["ごごう", "ごうご", "こご"],
+      "source": "n5-a3-vocabulary-03"
+    },
+    {
+      "level": "N5",
+      "word": "安い",
+      "reading": "やすい",
+      "wrong": ["たかい", "あんい", "やさしい"],
+      "source": "n5-a3-vocabulary-04"
+    },
+    {
+      "level": "N5",
+      "word": "学校",
+      "reading": "がっこう",
+      "wrong": ["がこう", "がっこ", "かっこう"],
+      "source": "n5-k4-vocabulary-01"
+    },
+    {
+      "level": "N5",
+      "word": "時間",
+      "reading": "じかん",
+      "wrong": ["じがん", "しかん", "じいかん"],
+      "source": "n5-k4-vocabulary-02"
+    },
+    {
+      "level": "N5",
+      "word": "父",
+      "reading": "ちち",
+      "wrong": ["はは", "ちぢ", "ふう"],
+      "source": "n5-k4-vocabulary-03"
+    },
+    {
+      "level": "N5",
+      "word": "大きい",
+      "reading": "おおきい",
+      "wrong": ["おきい", "だいきい", "おうきい"],
+      "source": "n5-k4-vocabulary-04"
+    },
+    {
+      "level": "N5",
+      "word": "小さい",
+      "reading": "ちいさい",
+      "wrong": ["ちさい", "しょうさい", "こさい"],
+      "source": "n5-k4-vocabulary-05"
+    },
+    {
+      "level": "N5",
+      "word": "月曜日",
+      "reading": "げつようび",
+      "wrong": ["がつようび", "げっようび", "つきようび"],
+      "source": "n5-k4-vocabulary-06"
+    },
+    {
+      "level": "N5",
+      "word": "外国",
+      "reading": "がいこく",
+      "wrong": ["がいごく", "かいこく", "そとこく"],
+      "source": "n5-k4-vocabulary-07"
+    },
+    {
+      "level": "N5",
+      "word": "会社",
+      "reading": "かいしゃ",
+      "wrong": ["がいしゃ", "かいさ", "あいしゃ"],
+      "source": "n5-k4-vocabulary-08"
+    },
+    {
+      "level": "N5",
+      "word": "飲む",
+      "reading": "のむ",
+      "wrong": ["よむ", "いむ", "のうむ"],
+      "source": "n5-k4-vocabulary-09"
+    },
+    {
+      "level": "N5",
+      "word": "見る",
+      "reading": "みる",
+      "wrong": ["けんる", "にる", "めいる"],
+      "source": "n5-k4-vocabulary-10"
+    },
+    {
+      "level": "N5",
+      "word": "書く",
+      "reading": "かく",
+      "wrong": ["しょく", "がく", "こく"],
+      "source": "n5-k4-vocabulary-11"
+    },
+    {
+      "level": "N5",
+      "word": "聞く",
+      "reading": "きく",
+      "wrong": ["ぶんく", "ぎく", "きこく"],
+      "source": "n5-k4-vocabulary-12"
+    },
+    {
+      "level": "N5",
+      "word": "話す",
+      "reading": "はなす",
+      "wrong": ["わす", "はだす", "はなしす"],
+      "source": "n5-k4-vocabulary-13"
+    },
+    {
+      "level": "N5",
+      "word": "来る",
+      "reading": "くる",
+      "wrong": ["きる", "らいる", "こる"],
+      "source": "n5-k4-vocabulary-14"
+    },
+    {
+      "level": "N5",
+      "word": "西",
+      "reading": "にし",
+      "wrong": ["ひがし", "にじ", "にしい"],
+      "source": "n5-k4-vocabulary-15"
+    },
+    {
+      "level": "N5",
+      "word": "北",
+      "reading": "きた",
+      "wrong": ["みなみ", "きだ", "ほく"],
+      "source": "n5-k4-vocabulary-16"
+    },
+    {
+      "level": "N5",
+      "word": "半分",
+      "reading": "はんぶん",
+      "wrong": ["はんふん", "ばんぶん", "はんぷん"],
+      "source": "n5-k4-vocabulary-17"
+    },
+    {
+      "level": "N5",
+      "word": "千円",
+      "reading": "せんえん",
+      "wrong": ["せんねん", "ぜんえん", "せいえん"],
+      "source": "n5-k4-vocabulary-18"
+    },
+    {
+      "level": "N5",
+      "word": "車",
+      "reading": "くるま",
+      "wrong": ["くろま", "ぐるま", "しゃま"],
+      "source": "n5-k4-vocabulary-19"
+    },
+    {
+      "level": "N5",
+      "word": "男の人",
+      "reading": "おとこのひと",
+      "wrong": ["おんなのひと", "おどこのひと", "だんのひと"],
+      "source": "n5-k4-vocabulary-20"
+    },
+    {
+      "level": "N5",
+      "word": "今月",
+      "reading": "こんげつ",
+      "wrong": ["いまげつ", "こんがつ", "こんつき"],
+      "source": "n5-k4-vocabulary-21"
+    },
+    {
+      "level": "N5",
+      "word": "出口",
+      "reading": "でぐち",
+      "wrong": ["でくち", "しゅつぐち", "だぐち"],
+      "source": "n5-k4-vocabulary-22"
+    },
+    {
+      "level": "N5",
+      "word": "古い",
+      "reading": "ふるい",
+      "wrong": ["ぶるい", "こい", "ふるいい"],
+      "source": "n5-k4-vocabulary-23"
+    },
+    {
+      "level": "N5",
+      "word": "道",
+      "reading": "みち",
+      "wrong": ["まち", "みぢ", "みいち"],
+      "source": "n5-k4-vocabulary-24"
+    },
+    {
+      "level": "N5",
+      "word": "後ろ",
+      "reading": "うしろ",
+      "wrong": ["あとろ", "うじろ", "ごろ"],
+      "source": "n5-k4-vocabulary-25"
+    },
+    {
+      "level": "N5",
+      "word": "先週",
+      "reading": "せんしゅう",
+      "wrong": ["さきしゅう", "せんしゅ", "ぜんしゅう"],
+      "source": "n5-k4-vocabulary-26"
+    },
+    {
+      "level": "N5",
+      "word": "新聞",
+      "reading": "しんぶん",
+      "wrong": ["しんもん", "しんぷん", "じんぶん"],
+      "source": "n5-k4-vocabulary-27"
+    },
+    {
+      "level": "N5",
+      "word": "山",
+      "reading": "やま",
+      "wrong": ["かわ", "うみ", "そら"],
+      "source": "n5-v2-vocabulary-01"
+    },
+    {
+      "level": "N5",
+      "word": "水",
+      "reading": "みず",
+      "wrong": ["みせ", "みみ", "みち"],
+      "source": "n5-v2-vocabulary-02"
+    },
+    {
+      "level": "N5",
+      "word": "先生",
+      "reading": "せんせい",
+      "wrong": ["せんせ", "せんぜい", "せいせい"],
+      "source": "n5-v2-vocabulary-03"
+    },
+    {
+      "level": "N5",
+      "word": "白い",
+      "reading": "しろい",
+      "wrong": ["くろい", "あかい", "あおい"],
+      "source": "n5-v2-vocabulary-04"
+    },
+    {
+      "level": "N5",
+      "word": "来週",
+      "reading": "らいしゅう",
+      "wrong": ["らいしゅ", "こんしゅう", "せんしゅう"],
+      "source": "n5-v2-vocabulary-05"
+    },
+    {
+      "level": "N4",
+      "word": "台所",
+      "reading": "だいどころ",
+      "wrong": ["たいどころ", "だいところ", "だいしょ"],
+      "source": "n4-a2-vocabulary-01"
+    },
+    {
+      "level": "N4",
+      "word": "急ぐ",
+      "reading": "いそぐ",
+      "wrong": ["きゅうぐ", "およぐ", "いぞぐ"],
+      "source": "n4-a2-vocabulary-02"
+    },
+    {
+      "level": "N4",
+      "word": "研究",
+      "reading": "けんきゅう",
+      "wrong": ["けんく", "げんきゅう", "けんきゅ"],
+      "source": "n4-a2-vocabulary-03"
+    },
+    {
+      "level": "N4",
+      "word": "近所",
+      "reading": "きんじょ",
+      "wrong": ["ちかじょ", "きんしょ", "きんどころ"],
+      "source": "n4-a2-vocabulary-04"
+    },
+    {
+      "level": "N4",
+      "word": "医者",
+      "reading": "いしゃ",
+      "wrong": ["いじゃ", "いしゃく", "いしょ"],
+      "source": "n4-a3-vocabulary-01"
+    },
+    {
+      "level": "N4",
+      "word": "建物",
+      "reading": "たてもの",
+      "wrong": ["けんもの", "たちもの", "たてぶつ"],
+      "source": "n4-a3-vocabulary-02"
+    },
+    {
+      "level": "N4",
+      "word": "答え",
+      "reading": "こたえ",
+      "wrong": ["こだえ", "とうえ", "ことえ"],
+      "source": "n4-a3-vocabulary-03"
+    },
+    {
+      "level": "N4",
+      "word": "暗い",
+      "reading": "くらい",
+      "wrong": ["くろい", "あんい", "ぐらい"],
+      "source": "n4-a3-vocabulary-04"
+    },
+    {
+      "level": "N4",
+      "word": "自転車",
+      "reading": "じてんしゃ",
+      "wrong": ["じでんしゃ", "しでんしゃ", "じてんじゃ"],
+      "source": "n4-k4-vocabulary-01"
+    },
+    {
+      "level": "N4",
+      "word": "病院",
+      "reading": "びょういん",
+      "wrong": ["びよういん", "びょうえん", "ひょういん"],
+      "source": "n4-k4-vocabulary-02"
+    },
+    {
+      "level": "N4",
+      "word": "野菜",
+      "reading": "やさい",
+      "wrong": ["やざい", "のさい", "やさ"],
+      "source": "n4-k4-vocabulary-03"
+    },
+    {
+      "level": "N4",
+      "word": "旅行",
+      "reading": "りょこう",
+      "wrong": ["りょうこう", "りょこ", "たびこう"],
+      "source": "n4-k4-vocabulary-04"
+    },
+    {
+      "level": "N4",
+      "word": "地図",
+      "reading": "ちず",
+      "wrong": ["ちと", "じず", "ちづ"],
+      "source": "n4-k4-vocabulary-05"
+    },
+    {
+      "level": "N4",
+      "word": "写真",
+      "reading": "しゃしん",
+      "wrong": ["しゃじん", "さしん", "しゃっしん"],
+      "source": "n4-k4-vocabulary-06"
+    },
+    {
+      "level": "N4",
+      "word": "説明",
+      "reading": "せつめい",
+      "wrong": ["ぜつめい", "せいめい", "せつみょう"],
+      "source": "n4-k4-vocabulary-07"
+    },
+    {
+      "level": "N4",
+      "word": "準備",
+      "reading": "じゅんび",
+      "wrong": ["しゅんび", "じゅんぴ", "じゅうび"],
+      "source": "n4-k4-vocabulary-08"
+    },
+    {
+      "level": "N4",
+      "word": "試験",
+      "reading": "しけん",
+      "wrong": ["しげん", "じけん", "しっけん"],
+      "source": "n4-k4-vocabulary-09"
+    },
+    {
+      "level": "N4",
+      "word": "授業",
+      "reading": "じゅぎょう",
+      "wrong": ["じゅうぎょう", "しゅぎょう", "じゅごう"],
+      "source": "n4-k4-vocabulary-10"
+    },
+    {
+      "level": "N4",
+      "word": "文化",
+      "reading": "ぶんか",
+      "wrong": ["ぶんが", "もんか", "ぶんけ"],
+      "source": "n4-k4-vocabulary-11"
+    },
+    {
+      "level": "N4",
+      "word": "特別",
+      "reading": "とくべつ",
+      "wrong": ["どくべつ", "とくへつ", "とくべち"],
+      "source": "n4-k4-vocabulary-12"
+    },
+    {
+      "level": "N4",
+      "word": "料理",
+      "reading": "りょうり",
+      "wrong": ["りょり", "りゅうり", "りょうい"],
+      "source": "n4-k4-vocabulary-13"
+    },
+    {
+      "level": "N4",
+      "word": "屋上",
+      "reading": "おくじょう",
+      "wrong": ["おくしょう", "やじょう", "おくうえ"],
+      "source": "n4-k4-vocabulary-14"
+    },
+    {
+      "level": "N4",
+      "word": "押す",
+      "reading": "おす",
+      "wrong": ["おうす", "ふす", "おしす"],
+      "source": "n4-k4-vocabulary-15"
+    },
+    {
+      "level": "N4",
+      "word": "遅れる",
+      "reading": "おくれる",
+      "wrong": ["おそれる", "おぐれる", "ちれる"],
+      "source": "n4-k4-vocabulary-16"
+    },
+    {
+      "level": "N4",
+      "word": "始まる",
+      "reading": "はじまる",
+      "wrong": ["しまる", "はちまる", "はしまる"],
+      "source": "n4-k4-vocabulary-17"
+    },
+    {
+      "level": "N4",
+      "word": "習う",
+      "reading": "ならう",
+      "wrong": ["しゅうう", "なまう", "なわう"],
+      "source": "n4-k4-vocabulary-18"
+    },
+    {
+      "level": "N4",
+      "word": "考える",
+      "reading": "かんがえる",
+      "wrong": ["かんかえる", "こうえる", "かがえる"],
+      "source": "n4-k4-vocabulary-19"
+    },
+    {
+      "level": "N4",
+      "word": "住所",
+      "reading": "じゅうしょ",
+      "wrong": ["じゅしょ", "じゅうじょ", "すみしょ"],
+      "source": "n4-k4-vocabulary-20"
+    },
+    {
+      "level": "N4",
+      "word": "意見",
+      "reading": "いけん",
+      "wrong": ["いげん", "いっけん", "いみ"],
+      "source": "n4-k4-vocabulary-21"
+    },
+    {
+      "level": "N4",
+      "word": "都合",
+      "reading": "つごう",
+      "wrong": ["とごう", "つあい", "つうごう"],
+      "source": "n4-k4-vocabulary-22"
+    },
+    {
+      "level": "N4",
+      "word": "安全",
+      "reading": "あんぜん",
+      "wrong": ["あんせん", "やすぜん", "あんでん"],
+      "source": "n4-k4-vocabulary-23"
+    },
+    {
+      "level": "N4",
+      "word": "危険",
+      "reading": "きけん",
+      "wrong": ["きげん", "ぎけん", "きっけん"],
+      "source": "n4-k4-vocabulary-24"
+    },
+    {
+      "level": "N4",
+      "word": "夕方",
+      "reading": "ゆうがた",
+      "wrong": ["ゆうかた", "ゆがた", "ゆうほう"],
+      "source": "n4-k4-vocabulary-25"
+    },
+    {
+      "level": "N4",
+      "word": "世界",
+      "reading": "せかい",
+      "wrong": ["せいかい", "せっかい", "よかい"],
+      "source": "n4-k4-vocabulary-26"
+    },
+    {
+      "level": "N4",
+      "word": "番組",
+      "reading": "ばんぐみ",
+      "wrong": ["ばんくみ", "はんぐみ", "ばんそ"],
+      "source": "n4-k4-vocabulary-27"
+    },
+    {
+      "level": "N4",
+      "word": "両親",
+      "reading": "りょうしん",
+      "wrong": ["りょしん", "りょうじん", "りょうおや"],
+      "source": "n4-k4-vocabulary-28"
+    },
+    {
+      "level": "N4",
+      "word": "会場",
+      "reading": "かいじょう",
+      "wrong": ["かいば", "あいじょう", "かいしょう"],
+      "source": "n4-r1-vocabulary-01"
+    },
+    {
+      "level": "N4",
+      "word": "運ぶ",
+      "reading": "はこぶ",
+      "wrong": ["えらぶ", "あそぶ", "うんぶ"],
+      "source": "n4-r1-vocabulary-02"
+    },
+    {
+      "level": "N4",
+      "word": "安心",
+      "reading": "あんしん",
+      "wrong": ["あんじん", "やすしん", "あんこころ"],
+      "source": "n4-r1-vocabulary-03"
+    },
+    {
+      "level": "N4",
+      "word": "昼間",
+      "reading": "ひるま",
+      "wrong": ["ちゅうかん", "ひるあいだ", "よるま"],
+      "source": "n4-r1-vocabulary-04"
+    },
+    {
+      "level": "N3",
+      "word": "戻る",
+      "reading": "もどる",
+      "wrong": ["まわる", "のこる", "かえる"],
+      "source": "n3-a2-vocabulary-01"
+    },
+    {
+      "level": "N3",
+      "word": "頂上",
+      "reading": "ちょうじょう",
+      "wrong": ["ていじょう", "ちょうしょう", "ちょじょう"],
+      "source": "n3-a2-vocabulary-02"
+    },
+    {
+      "level": "N3",
+      "word": "平均",
+      "reading": "へいきん",
+      "wrong": ["ひょうきん", "へいぎん", "へいこん"],
+      "source": "n3-a2-vocabulary-03"
+    },
+    {
+      "level": "N3",
+      "word": "迷う",
+      "reading": "まよう",
+      "wrong": ["まがう", "さそう", "めいう"],
+      "source": "n3-a2-vocabulary-04"
+    },
+    {
+      "level": "N3",
+      "word": "募集",
+      "reading": "ぼしゅう",
+      "wrong": ["ぼしゅ", "もしゅう", "ぼうしゅう"],
+      "source": "n3-a3-vocabulary-01"
+    },
+    {
+      "level": "N3",
+      "word": "届く",
+      "reading": "とどく",
+      "wrong": ["ととく", "つく", "ふく"],
+      "source": "n3-a3-vocabulary-02"
+    },
+    {
+      "level": "N3",
+      "word": "表情",
+      "reading": "ひょうじょう",
+      "wrong": ["ひょうしょう", "ひょうじょ", "おもてじょう"],
+      "source": "n3-a3-vocabulary-03"
+    },
+    {
+      "level": "N3",
+      "word": "冷静",
+      "reading": "れいせい",
+      "wrong": ["れいじょう", "れいせ", "ひやせい"],
+      "source": "n3-a3-vocabulary-04"
+    },
+    {
+      "level": "N3",
+      "word": "価格",
+      "reading": "かかく",
+      "wrong": ["かがく", "かかぐ", "ねかく"],
+      "source": "n3-k4-vocabulary-01"
+    },
+    {
+      "level": "N3",
+      "word": "改札",
+      "reading": "かいさつ",
+      "wrong": ["かいざつ", "かいさく", "あらさつ"],
+      "source": "n3-k4-vocabulary-02"
+    },
+    {
+      "level": "N3",
+      "word": "感謝",
+      "reading": "かんしゃ",
+      "wrong": ["かんじゃ", "がんしゃ", "かんさ"],
+      "source": "n3-k4-vocabulary-03"
+    },
+    {
+      "level": "N3",
+      "word": "給料",
+      "reading": "きゅうりょう",
+      "wrong": ["きゅりょう", "きゅうりょ", "けいりょう"],
+      "source": "n3-k4-vocabulary-04"
+    },
+    {
+      "level": "N3",
+      "word": "苦労",
+      "reading": "くろう",
+      "wrong": ["くろ", "くるう", "にがろう"],
+      "source": "n3-k4-vocabulary-05"
+    },
+    {
+      "level": "N3",
+      "word": "結果",
+      "reading": "けっか",
+      "wrong": ["けつか", "けっが", "けいか"],
+      "source": "n3-k4-vocabulary-06"
+    },
+    {
+      "level": "N3",
+      "word": "現在",
+      "reading": "げんざい",
+      "wrong": ["げんさい", "けんざい", "げんじゃい"],
+      "source": "n3-k4-vocabulary-07"
+    },
+    {
+      "level": "N3",
+      "word": "収入",
+      "reading": "しゅうにゅう",
+      "wrong": ["しゅにゅう", "しゅうにゅ", "しゅうはいり"],
+      "source": "n3-k4-vocabulary-08"
+    },
+    {
+      "level": "N3",
+      "word": "主張",
+      "reading": "しゅちょう",
+      "wrong": ["しゅうちょう", "しゅっちょう", "しゅはり"],
+      "source": "n3-k4-vocabulary-09"
+    },
+    {
+      "level": "N3",
+      "word": "状態",
+      "reading": "じょうたい",
+      "wrong": ["じょたい", "じょうだい", "しょうたい"],
+      "source": "n3-k4-vocabulary-10"
+    },
+    {
+      "level": "N3",
+      "word": "責任",
+      "reading": "せきにん",
+      "wrong": ["せきじん", "せっにん", "さいにん"],
+      "source": "n3-k4-vocabulary-11"
+    },
+    {
+      "level": "N3",
+      "word": "想像",
+      "reading": "そうぞう",
+      "wrong": ["そうしょう", "そぞう", "そうぞ"],
+      "source": "n3-k4-vocabulary-12"
+    },
+    {
+      "level": "N3",
+      "word": "退院",
+      "reading": "たいいん",
+      "wrong": ["たいん", "だいいん", "たいえん"],
+      "source": "n3-k4-vocabulary-13"
+    },
+    {
+      "level": "N3",
+      "word": "到着",
+      "reading": "とうちゃく",
+      "wrong": ["とちゃく", "とうじゃく", "とうつき"],
+      "source": "n3-k4-vocabulary-14"
+    },
+    {
+      "level": "N3",
+      "word": "発表",
+      "reading": "はっぴょう",
+      "wrong": ["はつひょう", "はっぴょ", "はっびょう"],
+      "source": "n3-k4-vocabulary-15"
+    },
+    {
+      "level": "N3",
+      "word": "反対",
+      "reading": "はんたい",
+      "wrong": ["はんだい", "ばんたい", "はんつい"],
+      "source": "n3-k4-vocabulary-16"
+    },
+    {
+      "level": "N3",
+      "word": "秘密",
+      "reading": "ひみつ",
+      "wrong": ["ひめつ", "びみつ", "ひっみつ"],
+      "source": "n3-k4-vocabulary-17"
+    },
+    {
+      "level": "N3",
+      "word": "普通",
+      "reading": "ふつう",
+      "wrong": ["ふとう", "ぶつう", "ふっつう"],
+      "source": "n3-k4-vocabulary-18"
+    },
+    {
+      "level": "N3",
+      "word": "製品",
+      "reading": "せいひん",
+      "wrong": ["せいびん", "せっぴん", "せいしな"],
+      "source": "n3-k4-vocabulary-19"
+    },
+    {
+      "level": "N3",
+      "word": "断る",
+      "reading": "ことわる",
+      "wrong": ["ことはる", "だんる", "たちる"],
+      "source": "n3-k4-vocabulary-20"
+    },
+    {
+      "level": "N3",
+      "word": "支える",
+      "reading": "ささえる",
+      "wrong": ["さざえる", "しえる", "さかえる"],
+      "source": "n3-k4-vocabulary-21"
+    },
+    {
+      "level": "N3",
+      "word": "隠す",
+      "reading": "かくす",
+      "wrong": ["かこす", "かぐす", "いんす"],
+      "source": "n3-k4-vocabulary-22"
+    },
+    {
+      "level": "N3",
+      "word": "守る",
+      "reading": "まもる",
+      "wrong": ["しゅる", "まるる", "まむる"],
+      "source": "n3-k4-vocabulary-23"
+    },
+    {
+      "level": "N3",
+      "word": "祈る",
+      "reading": "いのる",
+      "wrong": ["きる", "いのいる", "いなる"],
+      "source": "n3-k4-vocabulary-24"
+    },
+    {
+      "level": "N3",
+      "word": "偶然",
+      "reading": "ぐうぜん",
+      "wrong": ["ぐぜん", "ぐうせん", "くうぜん"],
+      "source": "n3-k4-vocabulary-25"
+    },
+    {
+      "level": "N3",
+      "word": "夢中",
+      "reading": "むちゅう",
+      "wrong": ["むじゅう", "むっちゅう", "ゆめなか"],
+      "source": "n3-k4-vocabulary-26"
+    },
+    {
+      "level": "N3",
+      "word": "横断",
+      "reading": "おうだん",
+      "wrong": ["おうたん", "こうだん", "よこだん"],
+      "source": "n3-k4-vocabulary-27"
+    },
+    {
+      "level": "N3",
+      "word": "予報",
+      "reading": "よほう",
+      "wrong": ["よぼう", "ようほう", "よほ"],
+      "source": "n3-k4-vocabulary-28"
+    },
+    {
+      "level": "N3",
+      "word": "減る",
+      "reading": "へる",
+      "wrong": ["ふえる", "げんる", "へいる"],
+      "source": "n3-rw-vocabulary-01"
+    },
+    {
+      "level": "N3",
+      "word": "混雑",
+      "reading": "こんざつ",
+      "wrong": ["こんさつ", "こうざつ", "こんぞう"],
+      "source": "n3-rw-vocabulary-02"
+    },
+    {
+      "level": "N3",
+      "word": "資料",
+      "reading": "しりょう",
+      "wrong": ["しりょ", "じりょう", "しいりょう"],
+      "source": "n3-rw-vocabulary-03"
+    },
+    {
+      "level": "N3",
+      "word": "述べる",
+      "reading": "のべる",
+      "wrong": ["くらべる", "ならべる", "しらべる"],
+      "source": "n3-rw-vocabulary-04"
+    },
+    {
+      "level": "N2",
+      "word": "省略",
+      "reading": "しょうりゃく",
+      "wrong": ["しょうりょく", "せいりゃく", "しょりゃく"],
+      "source": "n2-a2-vocabulary-01"
+    },
+    {
+      "level": "N2",
+      "word": "穏やか",
+      "reading": "おだやか",
+      "wrong": ["ゆるやか", "なごやか", "すこやか"],
+      "source": "n2-a2-vocabulary-02"
+    },
+    {
+      "level": "N2",
+      "word": "蓄える",
+      "reading": "たくわえる",
+      "wrong": ["ととのえる", "かかえる", "たずさえる"],
+      "source": "n2-a2-vocabulary-03"
+    },
+    {
+      "level": "N2",
+      "word": "頻繁",
+      "reading": "ひんぱん",
+      "wrong": ["びんぱん", "ひんはん", "ひんばん"],
+      "source": "n2-a2-vocabulary-04"
+    },
+    {
+      "level": "N2",
+      "word": "拡大",
+      "reading": "かくだい",
+      "wrong": ["こうだい", "かくたい", "かだい"],
+      "source": "n2-a3-vocabulary-01"
+    },
+    {
+      "level": "N2",
+      "word": "訪れる",
+      "reading": "おとずれる",
+      "wrong": ["たずれる", "おとされる", "ほうれる"],
+      "source": "n2-a3-vocabulary-02"
+    },
+    {
+      "level": "N2",
+      "word": "範囲",
+      "reading": "はんい",
+      "wrong": ["ばんい", "はんゆう", "へんい"],
+      "source": "n2-a3-vocabulary-03"
+    },
+    {
+      "level": "N2",
+      "word": "慎重",
+      "reading": "しんちょう",
+      "wrong": ["しんじゅう", "じんちょう", "しんどう"],
+      "source": "n2-a3-vocabulary-04"
+    },
+    {
+      "level": "N2",
+      "word": "汚染",
+      "reading": "おせん",
+      "wrong": ["おぜん", "おうせん", "よごせん"],
+      "source": "n2-k4-vocabulary-01"
+    },
+    {
+      "level": "N2",
+      "word": "依頼",
+      "reading": "いらい",
+      "wrong": ["いれい", "えらい", "いだい"],
+      "source": "n2-k4-vocabulary-02"
+    },
+    {
+      "level": "N2",
+      "word": "応募",
+      "reading": "おうぼ",
+      "wrong": ["おうぼう", "おぼ", "おうも"],
+      "source": "n2-k4-vocabulary-03"
+    },
+    {
+      "level": "N2",
+      "word": "克服",
+      "reading": "こくふく",
+      "wrong": ["こっぷく", "こくぶく", "かつふく"],
+      "source": "n2-k4-vocabulary-04"
+    },
+    {
+      "level": "N2",
+      "word": "催促",
+      "reading": "さいそく",
+      "wrong": ["さいぞく", "さいしょく", "もよおそく"],
+      "source": "n2-k4-vocabulary-05"
+    },
+    {
+      "level": "N2",
+      "word": "指摘",
+      "reading": "してき",
+      "wrong": ["しせき", "してい", "しちゃく"],
+      "source": "n2-k4-vocabulary-06"
+    },
+    {
+      "level": "N2",
+      "word": "姿勢",
+      "reading": "しせい",
+      "wrong": ["しぜい", "しいせい", "すがたせい"],
+      "source": "n2-k4-vocabulary-07"
+    },
+    {
+      "level": "N2",
+      "word": "承知",
+      "reading": "しょうち",
+      "wrong": ["しょうじ", "しょち", "うけち"],
+      "source": "n2-k4-vocabulary-08"
+    },
+    {
+      "level": "N2",
+      "word": "衝突",
+      "reading": "しょうとつ",
+      "wrong": ["しょうどつ", "しょとつ", "しょうとう"],
+      "source": "n2-k4-vocabulary-09"
+    },
+    {
+      "level": "N2",
+      "word": "審査",
+      "reading": "しんさ",
+      "wrong": ["しんさい", "じんさ", "ばんさ"],
+      "source": "n2-k4-vocabulary-10"
+    },
+    {
+      "level": "N2",
+      "word": "推測",
+      "reading": "すいそく",
+      "wrong": ["すいぞく", "ついそく", "おそく"],
+      "source": "n2-k4-vocabulary-11"
+    },
+    {
+      "level": "N2",
+      "word": "損害",
+      "reading": "そんがい",
+      "wrong": ["そんかい", "そうがい", "そこがい"],
+      "source": "n2-k4-vocabulary-12"
+    },
+    {
+      "level": "N2",
+      "word": "妥協",
+      "reading": "だきょう",
+      "wrong": ["たきょう", "だっきょう", "だきょ"],
+      "source": "n2-k4-vocabulary-13"
+    },
+    {
+      "level": "N2",
+      "word": "撤去",
+      "reading": "てっきょ",
+      "wrong": ["てつきょ", "てっこ", "てっさ"],
+      "source": "n2-k4-vocabulary-14"
+    },
+    {
+      "level": "N2",
+      "word": "統一",
+      "reading": "とういつ",
+      "wrong": ["とういち", "とおいつ", "とうひとつ"],
+      "source": "n2-k4-vocabulary-15"
+    },
+    {
+      "level": "N2",
+      "word": "拍手",
+      "reading": "はくしゅ",
+      "wrong": ["はくじゅ", "ひょうしゅ", "はくて"],
+      "source": "n2-k4-vocabulary-16"
+    },
+    {
+      "level": "N2",
+      "word": "普及",
+      "reading": "ふきゅう",
+      "wrong": ["ふきゅ", "ふっきゅう", "ふおよび"],
+      "source": "n2-k4-vocabulary-17"
+    },
+    {
+      "level": "N2",
+      "word": "分析",
+      "reading": "ぶんせき",
+      "wrong": ["ふんせき", "ぶんさき", "ぶんしゃく"],
+      "source": "n2-k4-vocabulary-18"
+    },
+    {
+      "level": "N2",
+      "word": "補う",
+      "reading": "おぎなう",
+      "wrong": ["おきなう", "ほう", "おぎのう"],
+      "source": "n2-k4-vocabulary-19"
+    },
+    {
+      "level": "N2",
+      "word": "偏る",
+      "reading": "かたよる",
+      "wrong": ["かだよる", "かたむる", "へんる"],
+      "source": "n2-k4-vocabulary-20"
+    },
+    {
+      "level": "N2",
+      "word": "抱える",
+      "reading": "かかえる",
+      "wrong": ["かがえる", "だかえる", "ほうえる"],
+      "source": "n2-k4-vocabulary-21"
+    },
+    {
+      "level": "N2",
+      "word": "敬う",
+      "reading": "うやまう",
+      "wrong": ["うまやう", "けいう", "うやもう"],
+      "source": "n2-k4-vocabulary-22"
+    },
+    {
+      "level": "N2",
+      "word": "鋭い",
+      "reading": "するどい",
+      "wrong": ["するとい", "えいい", "するどいい"],
+      "source": "n2-k4-vocabulary-23"
+    },
+    {
+      "level": "N2",
+      "word": "険しい",
+      "reading": "けわしい",
+      "wrong": ["けわっしい", "きびしい", "けんしい"],
+      "source": "n2-k4-vocabulary-24"
+    },
+    {
+      "level": "N2",
+      "word": "頑丈",
+      "reading": "がんじょう",
+      "wrong": ["がんじょ", "かんじょう", "がんちょう"],
+      "source": "n2-k4-vocabulary-25"
+    },
+    {
+      "level": "N2",
+      "word": "迅速",
+      "reading": "じんそく",
+      "wrong": ["じんぞく", "しんそく", "じっそく"],
+      "source": "n2-k4-vocabulary-26"
+    },
+    {
+      "level": "N2",
+      "word": "中継",
+      "reading": "ちゅうけい",
+      "wrong": ["ちゅけい", "ちゅうつぎ", "なかけい"],
+      "source": "n2-k4-vocabulary-27"
+    },
+    {
+      "level": "N2",
+      "word": "導入",
+      "reading": "どうにゅう",
+      "wrong": ["どうにゅ", "とうにゅう", "どうじゅう"],
+      "source": "n2-v2-vocabulary-01"
+    },
+    {
+      "level": "N2",
+      "word": "削減",
+      "reading": "さくげん",
+      "wrong": ["しょうげん", "さくけん", "しょうけん"],
+      "source": "n2-v2-vocabulary-02"
+    },
+    {
+      "level": "N2",
+      "word": "柔軟",
+      "reading": "じゅうなん",
+      "wrong": ["にゅうなん", "じゅうねん", "にゅうねん"],
+      "source": "n2-v2-vocabulary-03"
+    },
+    {
+      "level": "N2",
+      "word": "乱れる",
+      "reading": "みだれる",
+      "wrong": ["たおれる", "くずれる", "ゆれる"],
+      "source": "n2-v2-vocabulary-04"
+    },
+    {
+      "level": "N2",
+      "word": "貴重",
+      "reading": "きちょう",
+      "wrong": ["きじゅう", "きっちょう", "ぎちょう"],
+      "source": "n2-v2-vocabulary-05"
+    },
+    {
+      "level": "N1",
+      "word": "賄う",
+      "reading": "まかなう",
+      "wrong": ["つぐなう", "おぎなう", "あがなう"],
+      "source": "n1-a2-vocabulary-01"
+    },
+    {
+      "level": "N1",
+      "word": "専ら",
+      "reading": "もっぱら",
+      "wrong": ["せんら", "もぱら", "せんぱら"],
+      "source": "n1-a2-vocabulary-02"
+    },
+    {
+      "level": "N1",
+      "word": "出納",
+      "reading": "すいとう",
+      "wrong": ["しゅつのう", "すいのう", "しゅっとう"],
+      "source": "n1-a2-vocabulary-03"
+    },
+    {
+      "level": "N1",
+      "word": "疎か",
+      "reading": "おろそか",
+      "wrong": ["おろか", "おごそか", "うとか"],
+      "source": "n1-a2-vocabulary-04"
+    },
+    {
+      "level": "N1",
+      "word": "網羅",
+      "reading": "もうら",
+      "wrong": ["あみら", "もうろ", "こうら"],
+      "source": "n1-a3-vocabulary-01"
+    },
+    {
+      "level": "N1",
+      "word": "携わる",
+      "reading": "たずさわる",
+      "wrong": ["かかわる", "けいわる", "たすさわる"],
+      "source": "n1-a3-vocabulary-02"
+    },
+    {
+      "level": "N1",
+      "word": "均衡",
+      "reading": "きんこう",
+      "wrong": ["きんごう", "こうきん", "きんしょう"],
+      "source": "n1-a3-vocabulary-03"
+    },
+    {
+      "level": "N1",
+      "word": "委ねる",
+      "reading": "ゆだねる",
+      "wrong": ["まかねる", "いねる", "たずねる"],
+      "source": "n1-a3-vocabulary-04"
+    },
+    {
+      "level": "N1",
+      "word": "抑制",
+      "reading": "よくせい",
+      "wrong": ["ようせい", "よくぜい", "おさせい"],
+      "source": "n1-k4-vocabulary-01"
+    },
+    {
+      "level": "N1",
+      "word": "該当",
+      "reading": "がいとう",
+      "wrong": ["かいとう", "がいどう", "かくとう"],
+      "source": "n1-k4-vocabulary-02"
+    },
+    {
+      "level": "N1",
+      "word": "怠る",
+      "reading": "おこたる",
+      "wrong": ["おこだる", "なまける", "たいる"],
+      "source": "n1-k4-vocabulary-03"
+    },
+    {
+      "level": "N1",
+      "word": "遂げる",
+      "reading": "とげる",
+      "wrong": ["どげる", "ついげる", "すいげる"],
+      "source": "n1-k4-vocabulary-04"
+    },
+    {
+      "level": "N1",
+      "word": "挑む",
+      "reading": "いどむ",
+      "wrong": ["いとむ", "ちょうむ", "はげむ"],
+      "source": "n1-k4-vocabulary-05"
+    },
+    {
+      "level": "N1",
+      "word": "貢献",
+      "reading": "こうけん",
+      "wrong": ["こうげん", "こんけん", "みつけん"],
+      "source": "n1-k4-vocabulary-06"
+    },
+    {
+      "level": "N1",
+      "word": "慎む",
+      "reading": "つつしむ",
+      "wrong": ["つつじむ", "つましむ", "しんむ"],
+      "source": "n1-k4-vocabulary-07"
+    },
+    {
+      "level": "N1",
+      "word": "憤り",
+      "reading": "いきどおり",
+      "wrong": ["いきどうり", "いかり", "ふんり"],
+      "source": "n1-k4-vocabulary-08"
+    },
+    {
+      "level": "N1",
+      "word": "是正",
+      "reading": "ぜせい",
+      "wrong": ["ぜしょう", "ぜいせい", "これせい"],
+      "source": "n1-k4-vocabulary-09"
+    },
+    {
+      "level": "N1",
+      "word": "措置",
+      "reading": "そち",
+      "wrong": ["しょち", "そうち", "そおき"],
+      "source": "n1-k4-vocabulary-10"
+    },
+    {
+      "level": "N1",
+      "word": "暫定",
+      "reading": "ざんてい",
+      "wrong": ["ぜんてい", "さんてい", "ざんじょう"],
+      "source": "n1-k4-vocabulary-11"
+    },
+    {
+      "level": "N1",
+      "word": "逸脱",
+      "reading": "いつだつ",
+      "wrong": ["いっだつ", "しつだつ", "いつぜい"],
+      "source": "n1-k4-vocabulary-12"
+    },
+    {
+      "level": "N1",
+      "word": "懐",
+      "reading": "ふところ",
+      "wrong": ["ふとろ", "なつき", "かい"],
+      "source": "n1-k4-vocabulary-13"
+    },
+    {
+      "level": "N1",
+      "word": "費やす",
+      "reading": "ついやす",
+      "wrong": ["ひやす", "つやす", "ひいやす"],
+      "source": "n1-k4-vocabulary-14"
+    },
+    {
+      "level": "N1",
+      "word": "漏れる",
+      "reading": "もれる",
+      "wrong": ["ろうれる", "ぬれる", "もうれる"],
+      "source": "n1-k4-vocabulary-15"
+    },
+    {
+      "level": "N1",
+      "word": "遮る",
+      "reading": "さえぎる",
+      "wrong": ["さえきる", "さかぎる", "しゃる"],
+      "source": "n1-k4-vocabulary-16"
+    },
+    {
+      "level": "N1",
+      "word": "拒む",
+      "reading": "こばむ",
+      "wrong": ["こはむ", "こまむ", "きょむ"],
+      "source": "n1-k4-vocabulary-17"
+    },
+    {
+      "level": "N1",
+      "word": "繕う",
+      "reading": "つくろう",
+      "wrong": ["つぐろう", "つくう", "ぜんう"],
+      "source": "n1-k4-vocabulary-18"
+    },
+    {
+      "level": "N1",
+      "word": "素朴",
+      "reading": "そぼく",
+      "wrong": ["すぼく", "そほく", "そぼっく"],
+      "source": "n1-k4-vocabulary-19"
+    },
+    {
+      "level": "N1",
+      "word": "円滑",
+      "reading": "えんかつ",
+      "wrong": ["えんこつ", "えんがつ", "まるかつ"],
+      "source": "n1-k4-vocabulary-20"
+    },
+    {
+      "level": "N1",
+      "word": "根拠",
+      "reading": "こんきょ",
+      "wrong": ["こんきょう", "こんこ", "ねきょ"],
+      "source": "n1-k4-vocabulary-21"
+    },
+    {
+      "level": "N1",
+      "word": "把握",
+      "reading": "はあく",
+      "wrong": ["ばあく", "はおく", "はにぎ"],
+      "source": "n1-k4-vocabulary-22"
+    },
+    {
+      "level": "N1",
+      "word": "憂鬱",
+      "reading": "ゆううつ",
+      "wrong": ["ゆうつ", "ゆううち", "ゆうっつ"],
+      "source": "n1-k4-vocabulary-23"
+    },
+    {
+      "level": "N1",
+      "word": "洞察",
+      "reading": "どうさつ",
+      "wrong": ["とうさつ", "どうざつ", "どうさい"],
+      "source": "n1-k4-vocabulary-24"
+    },
+    {
+      "level": "N1",
+      "word": "枠",
+      "reading": "わく",
+      "wrong": ["わこ", "かく", "すい"],
+      "source": "n1-k4-vocabulary-25"
+    },
+    {
+      "level": "N1",
+      "word": "謙虚",
+      "reading": "けんきょ",
+      "wrong": ["けんきょう", "げんきょ", "けんこ"],
+      "source": "n1-k4-vocabulary-26"
+    },
+    {
+      "level": "N1",
+      "word": "顕著",
+      "reading": "けんちょ",
+      "wrong": ["けんちょう", "けんじょ", "げんちょ"],
+      "source": "n1-k4-vocabulary-27"
+    },
+    {
+      "level": "N1",
+      "word": "緻密",
+      "reading": "ちみつ",
+      "wrong": ["ちみち", "ちっみつ", "せいみつ"],
+      "source": "n1-k4-vocabulary-28"
+    },
+    {
+      "level": "N1",
+      "word": "覆す",
+      "reading": "くつがえす",
+      "wrong": ["ひるがえす", "うらがえす", "おおいかえす"],
+      "source": "n1-rw-vocabulary-01"
+    },
+    {
+      "level": "N1",
+      "word": "懸念",
+      "reading": "けねん",
+      "wrong": ["けんねん", "かねん", "けんえん"],
+      "source": "n1-rw-vocabulary-02"
+    },
+    {
+      "level": "N1",
+      "word": "潔い",
+      "reading": "いさぎよい",
+      "wrong": ["こころよい", "いさましい", "いさきよい"],
+      "source": "n1-rw-vocabulary-03"
+    },
+    {
+      "level": "N1",
+      "word": "赴任",
+      "reading": "ふにん",
+      "wrong": ["ぶにん", "ふじん", "とにん"],
+      "source": "n1-rw-vocabulary-04"
+    }
+  ]
+}

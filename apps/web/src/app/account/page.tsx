@@ -6,6 +6,10 @@ import { MyStudy } from '@app/account/components/study/MyStudy'
 import { StampBoard } from '@app/account/components/StampBoard'
 import { StudyGoalRow } from '@app/account/components/StudyGoalRow'
 import { readLastPracticeLevel } from '@app/login/queries/studyGoalQueries'
+import {
+  Omikuji,
+  OmikujiWithoutBoard
+} from '@app/account/components/omikuji/Omikuji'
 import { FALLBACK_LEVEL } from '@app/practice/practiceSetupOptions'
 import { HomeScreenHint } from '@app/account/components/HomeScreenHint'
 import { GuestGate } from '@app/login/components/GuestGate'
@@ -39,7 +43,8 @@ export const AccountPage = (): ReactElement => {
     <div className="account-page">
       <NicknameSetting name={user.name} />
       <StudyGoalRow userId={user.id} />
-      <StampBoard userId={user.id} />
+      <StampBoard userId={user.id} action={<Omikuji userId={user.id} />} />
+      <OmikujiWithoutBoard userId={user.id} />
       {/* JLP-853: the target level's records. #1090 O-3: with no target,
           this device's last practice level, then N5 (as practice does). */}
       <MyStudy

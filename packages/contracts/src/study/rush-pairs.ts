@@ -3,10 +3,10 @@ import { createApiFailureSchema } from '../common/error.js'
 import { jlptLevelSchema } from '../common/enum.js'
 
 /**
- * #1043: the word and reading pairs a 30-second kanji rush plays, made from
- * the published kanji reading questions. Members only. Each pair is one
- * question: the word in 「」 of its text, the right reading and the three
- * wrong ones. The web shuffles the four choices.
+ * #1043: the word and reading pairs a 30-second kanji rush plays, from the
+ * rush word list (content/rush, loaded into its own table on deploy).
+ * Members only. Each pair is one dictionary-form word, its reading and three
+ * wrong readings. The web shuffles the four choices.
  */
 export const RUSH_KANJI_PAIRS_PATH = '/api/v1/rush/kanji-pairs'
 

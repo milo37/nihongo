@@ -23,6 +23,8 @@
     "db:register-capability:compiled": "node dist/db/registerDatabaseCapabilityCommand.js",
     "content:load-tags": "pnpm run db:generate && tsx src/content/tagLoadCommand.ts",
     "content:load-tags:compiled": "node dist/content/tagLoadCommand.js",
+    "content:load-rush-words": "pnpm run db:generate && tsx src/content/rushWordLoadCommand.ts",
+    "content:load-rush-words:compiled": "node dist/content/rushWordLoadCommand.js",
     "content:publish-question-set": "pnpm run db:generate && tsx src/content/questionSetPublishCommand.ts",
     "content:publish-question-set:compiled": "node dist/content/questionSetPublishCommand.js",
     "content:publish-explanation-ja": "pnpm run db:generate && tsx src/content/explanationJaPublishCommand.ts",
