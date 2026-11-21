@@ -81,12 +81,12 @@ const QuestionPassage = ({
           aria-pressed={hasFurigana && isFuriganaOn}
           className="study-furigana-toggle"
           disabled={!hasFurigana}
-          lang="ja"
           type="button"
           onClick={() => setFurigana(!isFuriganaOn)}
         >
           <span aria-hidden="true" className="study-furigana-box" />
-          ふりがな
+          {/* Only the word is Japanese; the name is read in the UI language. */}
+          <span lang="ja">ふりがな</span>
         </button>
       </p>
       {isFuriganaOn && !hasFurigana ? (

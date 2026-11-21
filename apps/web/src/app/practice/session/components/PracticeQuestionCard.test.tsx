@@ -64,6 +64,9 @@ describe('passage furigana switch (#1182)', () => {
     const toggle = await screen.findByRole('button', { name: '후리가나 보기' })
     expect(toggle).toHaveAttribute('aria-pressed', 'false')
     expect(container.querySelector('rt')).toBeNull()
+    // The name is read in the UI language; only the word is Japanese.
+    expect(toggle).not.toHaveAttribute('lang')
+    expect(screen.getByText('ふりがな')).toHaveAttribute('lang', 'ja')
 
     await userEvent.click(toggle)
     expect(toggle).toHaveAttribute('aria-pressed', 'true')

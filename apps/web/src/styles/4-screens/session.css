@@ -36,13 +36,13 @@
   text-indent: 1em;
 }
 /* #1182: ふりがな at the head row's end. The 44px tap height overhangs
-   the 34px row equally above and below, so the row keeps its height. */
+   the row above and below; -6px keeps the row at its 34px (-5px made 35). */
 .study-furigana-toggle {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   min-height: 44px;
-  margin-block: -5px;
+  margin-block: -6px;
   margin-left: auto;
   padding: 0 2px;
   border: 0;
