@@ -1968,6 +1968,31 @@ describe('ADMIN command TEST database integration', () => {
       code: 'VERSION_CONFLICT'
     })
 
+    // New questions on one new text are not a group: each moves alone.
+    const loneText = `新規本文-${suffix}。`
+    const loneA = await service.createQuestion(
+      own(),
+      readingContent(`lone-a-${suffix}`, loneText)
+    )
+    const loneB = await service.createQuestion(
+      own(),
+      readingContent(`lone-b-${suffix}`, loneText)
+    )
+    await service.requestReview(
+      own(),
+      loneA.questionVersionId!,
+      requestContentReviewRequestSchema.parse({
+        expectedRowVersion: loneA.versionRowVersion
+      })
+    )
+    expect([
+      (await readPlace(loneA.questionVersionId!)).status,
+      (await readPlace(loneB.questionVersionId!)).status
+    ]).toEqual(['IN_REVIEW', 'DRAFT'])
+    expect(await groupOf(loneA.questionVersionId!)).toMatchObject({
+      editing: false
+    })
+
     // A passage only one question uses is edited in the question editor.
     const single = await publishReading(
       `single-${suffix}`,

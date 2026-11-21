@@ -1141,9 +1141,10 @@ const findQuestionVersion = async (
 /**
  * #1196: the active questions on the version's passage — published there or
  * with an open version there — in passage order. While a passage edit is
- * open (the version is one of two or more open versions on the passage whose
- * questions are not published on it), only those versions, the same set
- * review, approval and publication move together.
+ * open (the version is one of two or more drafts a passage edit opened: their
+ * questions are still published on the passage this one replaces), only
+ * those versions, the same set review, approval and publication move
+ * together.
  */
 const findPassageGroup = async (
   transaction: Prisma.TransactionClient,
@@ -1154,6 +1155,7 @@ const findPassageGroup = async (
       passageId: string
       versionId: string
       published: boolean
+      editMember: boolean
       questionId: string
       questionRowVersion: number
       passageOrder: number
@@ -1168,6 +1170,14 @@ const findPassageGroup = async (
        SELECT DISTINCT ON (question."id")
          member."passageId", member."id" AS "versionId",
          member."id" = question."currentPublishedVersionId" AS "published",
+         EXISTS (
+           SELECT 1
+           FROM "QuestionVersion" AS current
+           JOIN "ReadingPassage" AS passage
+             ON passage."id" = member."passageId"
+           WHERE current."id" = question."currentPublishedVersionId"
+             AND current."passageId" = passage."replacesPassageId"
+         ) AS "editMember",
          question."id" AS "questionId",
          question."rowVersion" AS "questionRowVersion",
          member."passageOrder", member."level"::text AS "level",
@@ -1199,7 +1209,9 @@ const findPassageGroup = async (
   )
   const first = rows[0]
   if (!first) return null
-  const members = rows.filter((row) => !row.published)
+  // Drafts a passage edit opened: their question is still published on the
+  // passage this one replaces (#1196 QA).
+  const members = rows.filter((row) => !row.published && row.editMember)
   const editing =
     members.length > 1 && members.some((row) => row.versionId === versionId)
   return {
@@ -1210,6 +1222,7 @@ const findPassageGroup = async (
         passageId: _passageId,
         versionId: _versionId,
         published: _published,
+        editMember: _editMember,
         ...question
       }) => question
     )

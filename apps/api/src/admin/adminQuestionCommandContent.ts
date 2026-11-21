@@ -261,9 +261,9 @@ export const assertPassageEditAllowed = async (
 /**
  * #1196: the open versions moved together to a new shared passage — the
  * target's passage group. A member is an open version on the target's
- * passage whose active question is not already published on that passage;
- * a version that only edits its question on an unchanged passage is not in
- * a group. Returns version ids in passage order, the target included, or
+ * passage whose active question is still published on the passage that one
+ * replaces, so only drafts a passage edit opened; new questions on the same
+ * text and edits on an unchanged passage are not in a group. Returns version ids in passage order, the target included, or
  * just the target when it has no group.
  */
 export const loadPassageGroupVersionIds = async (
@@ -273,18 +273,19 @@ export const loadPassageGroupVersionIds = async (
   const rows = await client.$queryRawUnsafe<Array<{ id: string }>>(
     `SELECT member."id"
      FROM "QuestionVersion" AS target
+     JOIN "ReadingPassage" AS passage ON passage."id" = target."passageId"
      JOIN "QuestionVersion" AS member
        ON member."passageId" = target."passageId"
      JOIN "Question" AS question ON question."id" = member."questionId"
+     JOIN "QuestionVersion" AS published
+       ON published."id" = question."currentPublishedVersionId"
      WHERE target."id" = $1
        AND member."status" IN ('DRAFT', 'IN_REVIEW', 'CHANGES_REQUESTED',
          'APPROVED')
        AND question."lifecycleStatus" = 'ACTIVE'
-       AND NOT EXISTS (
-         SELECT 1 FROM "QuestionVersion" AS published
-         WHERE published."id" = question."currentPublishedVersionId"
-           AND published."passageId" = member."passageId"
-       )
+       -- Only drafts a passage edit opened: the question is still published
+       -- on the passage the new one replaces (#1196 QA).
+       AND published."passageId" = passage."replacesPassageId"
      ORDER BY member."passageOrder", member."id"`,
     versionId
   )
@@ -319,18 +320,18 @@ export const loadClosedImportPassages = async (
          SELECT 1 FROM "ReadingPassage" AS replacement
          WHERE replacement."replacesPassageId" = passage."id"
        )
-       OR (passage."replacesPassageId" IS NOT NULL AND EXISTS (
+       OR EXISTS (
          SELECT 1
          FROM "QuestionVersion" AS member
          JOIN "Question" AS question ON question."id" = member."questionId"
-         LEFT JOIN "QuestionVersion" AS published
+         JOIN "QuestionVersion" AS published
            ON published."id" = question."currentPublishedVersionId"
          WHERE member."passageId" = passage."id"
            AND member."status" IN ('DRAFT', 'IN_REVIEW', 'CHANGES_REQUESTED',
              'APPROVED')
            AND question."lifecycleStatus" = 'ACTIVE'
-           AND published."passageId" IS DISTINCT FROM passage."id"
-       ))`,
+           AND published."passageId" = passage."replacesPassageId"
+       )`,
     passages.map((passage) => passage.level),
     passages.map((passage) => passage.subject),
     passages.map((passage) => passage.text)
