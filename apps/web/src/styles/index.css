@@ -31,6 +31,3 @@
 @import './5-motion/keyframes-rush.css';
 @import './5-motion/keyframes-session.css';
 @import './5-motion/reduced-motion.css';
-
-/* Tailwind scans this app for classes, not the admin app. */
-@source not "../../../admin";
