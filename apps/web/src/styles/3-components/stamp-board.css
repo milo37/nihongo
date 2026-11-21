@@ -1,0 +1,235 @@
+/* My page stamp board: this month's stamps, folded and open. */
+/* #1154 M-2f (design sc10, fold F1): this month's stamps under the goal
+   row. No box, line or fill. Phone: today 88px beside the title and the
+   note; below, the calendar's weekdays and this week (44px columns, date
+   over a 22px stamp) and a ⌄ that unfolds the other weeks around this
+   week (0.25s; folding back 0.2s). From 1024px: title and note on one line, then today 168px
+   beside an always-open 168px calendar (date beside a 26px stamp). */
+.stamp-board {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  grid-template-areas: 'today head' 'month month';
+  column-gap: 16px;
+  align-items: start;
+  margin-top: 24px;
+}
+.stamp-board-head {
+  display: grid;
+  grid-area: head;
+  gap: 2px;
+}
+.stamp-board-title {
+  color: rgb(var(--color-ink));
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 22px;
+}
+.stamp-board-note {
+  color: rgb(var(--color-muted));
+  font-size: 13px;
+  line-height: 18px;
+  text-wrap: pretty;
+  word-break: keep-all;
+}
+.stamp-board-today {
+  display: grid;
+  grid-area: today;
+  place-items: center;
+  align-self: center;
+  width: 88px;
+  height: 88px;
+}
+.stamp-board-today .maru-stamp {
+  width: 100%;
+  height: 100%;
+}
+/* Today not yet: a dashed empty ring, nothing inside. */
+.stamp-board-today:empty::before {
+  content: '';
+  width: 94%;
+  height: 94%;
+  border: 1.5px dashed rgb(var(--color-subtle));
+  border-radius: 50%;
+}
+.stamp-board-month {
+  position: relative;
+  grid-area: month;
+}
+.stamp-board-toggle {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 28px;
+  margin: 4px auto 0;
+}
+/* Folded, the weekdays and this week open the month too. */
+.stamp-board-toggle[aria-expanded='false']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+.stamp-board-chevron {
+  width: 14px;
+  height: 14px;
+  color: rgb(var(--color-muted));
+  rotate: 90deg;
+  transition: rotate 0.2s ease-in;
+}
+[aria-expanded='true'] > .stamp-board-chevron {
+  rotate: -90deg;
+  transition: rotate 0.25s ease-out;
+}
+.stamp-board-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 44px);
+  justify-content: center;
+  column-gap: 4px;
+  margin-top: 8px;
+}
+/* Folded, only this week; StampBoard animates the change (FLIP). */
+.stamp-board-weeks {
+  grid-column: 1 / -1;
+}
+.stamp-board-calendar:not(.is-open) .stamp-board-week:not(.is-current) {
+  display: none;
+}
+.stamp-board-week > div {
+  display: grid;
+  grid-template-columns: repeat(7, 44px);
+  column-gap: 4px;
+}
+.stamp-board-weekday {
+  color: rgb(var(--color-subtle));
+  font-size: 10px;
+  line-height: 14px;
+  text-align: center;
+  opacity: 0.8;
+}
+.stamp-board-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  height: 38px;
+  /* Room between a stamp and the date of the row above. */
+  margin-top: 10px;
+}
+.stamp-board-day > b {
+  min-width: 14px;
+  height: 14px;
+  padding: 0 4px;
+  border-radius: 7px;
+  color: rgb(var(--color-muted));
+  font-size: 10px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  line-height: 14px;
+  text-align: center;
+}
+.stamp-board-day.is-today > b {
+  background: rgb(var(--color-ink));
+  color: rgb(var(--color-inverse));
+  font-weight: 600;
+}
+.stamp-board-day.is-later > b {
+  opacity: 0.45;
+}
+.stamp-board-day > .maru-stamp {
+  width: 22px;
+  height: 22px;
+}
+@media (min-width: 1024px) {
+  .stamp-board {
+    grid-template-columns: 168px auto;
+    grid-template-areas: 'head head' 'today month';
+    grid-template-rows: auto;
+    justify-content: start;
+    column-gap: 40px;
+    row-gap: 12px;
+    margin-top: 20px;
+  }
+  .stamp-board-head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .stamp-board-today {
+    width: 168px;
+    height: 168px;
+  }
+  .stamp-board-toggle {
+    display: none;
+  }
+  /* Always open and 168px tall: the rows share what the weekdays leave. */
+  .stamp-board-calendar {
+    grid-template-columns: repeat(7, 63px);
+    grid-template-rows: 14px;
+    grid-auto-rows: 1fr;
+    column-gap: 0;
+    height: 168px;
+    margin-top: 0;
+  }
+  .stamp-board-weeks {
+    display: contents;
+  }
+  .stamp-board-calendar:not(.is-open) .stamp-board-week:not(.is-current),
+  .stamp-board-week {
+    display: grid;
+    grid-column: 1 / -1;
+  }
+  .stamp-board-week > div {
+    grid-template-columns: repeat(7, 63px);
+    column-gap: 0;
+  }
+  .stamp-board-weekday {
+    font-size: 11px;
+  }
+  .stamp-board-day {
+    flex-direction: row;
+    justify-content: center;
+    gap: 4px;
+    height: auto;
+    margin-top: 0;
+  }
+  .stamp-board-day > b {
+    width: 22px;
+    height: 16px;
+    padding: 0;
+    border-radius: 8px;
+    font-size: 11px;
+    line-height: 16px;
+  }
+  /* Dates line up whether or not the day has a stamp. */
+  .stamp-board-day > .maru-stamp,
+  .stamp-board-day:not(:has(.maru-stamp))::after {
+    content: '';
+    width: 26px;
+    height: 26px;
+  }
+  .is-six-rows .stamp-board-day > .maru-stamp,
+  .is-six-rows .stamp-board-day:not(:has(.maru-stamp))::after {
+    width: 22px;
+    height: 22px;
+  }
+}
+/* #1055 omikuji (design v4/anim 1.5x, v5 slip A). The button sits at the
+   stamp board head's right end: a 44px box over 11px 「おみくじ」, 56px to
+   tap; from 1024px a round outlined button, 36px box beside 15px text. The sheet rises from the
+   bottom on phones and is a 440px cream window from 1024px. */
+.stamp-board-head:has(> .omikuji-button) {
+  grid-template-columns: 1fr auto;
+}
+.stamp-board-head > :not(.omikuji-button) {
+  grid-column: 1;
+}
+.stamp-board-head > .omikuji-button {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  margin-left: 6px;
+}
+@media (min-width: 1024px) {
+  .stamp-board-head > .omikuji-button {
+    margin-left: auto;
+  }
+}

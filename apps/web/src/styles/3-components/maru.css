@@ -1,0 +1,63 @@
+/* Maru pictures and Maru's stamp. */
+.maru-empty {
+  display: block;
+  width: var(--maru-empty-size);
+  height: var(--maru-empty-size);
+  margin-bottom: 12px;
+  background: url('/maru/maru.webp') calc(var(--maru-empty-size) * -1.05) 0 /
+    auto calc(var(--maru-empty-size) * 1.05) no-repeat;
+}
+/* The stamp, ring included: any square size. */
+.maru-stamp {
+  display: block;
+  flex: none;
+  background: url('/maru/maru.webp') 0 0 / auto 100% no-repeat;
+}
+.maru-stage {
+  --maru-red: rgb(var(--color-brand));
+  position: relative;
+  width: 80px;
+  height: 80px;
+}
+.maru-sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+.maru-fox {
+  position: absolute;
+  inset: 0;
+  width: 80px;
+  height: 80px;
+  opacity: 0;
+  transform-origin: 50% 92%;
+}
+.maru-ring {
+  position: absolute;
+  left: 52px;
+  top: 58px;
+  width: 26px;
+  height: 22px;
+  opacity: 0;
+}
+.maru-fox.is-lift {
+  animation:
+    maru-show 0s forwards,
+    maru-hide 0s 0.6s forwards,
+    maru-wiggle 0.3s ease-in-out 2 alternate;
+}
+.maru-fox.is-thud {
+  animation:
+    maru-show 0s 0.6s forwards,
+    maru-hide 0s 1.3s forwards,
+    maru-thud 0.28s cubic-bezier(0.3, 1.6, 0.5, 1) 0.6s;
+}
+.maru-fox.is-yay {
+  animation:
+    maru-show 0s 1.3s forwards,
+    maru-hop 0.45s ease-out 1.3s;
+}
+.maru-ring {
+  animation: maru-mark 0.35s ease-out 0.77s forwards;
+}

@@ -1,0 +1,190 @@
+/* Terms and operations documents. */
+.operations-information {
+  width: 100%;
+  max-width: 840px;
+  margin-inline: auto;
+  padding: 40px 0;
+  min-width: 0;
+}
+.operations-navigation {
+  margin: -12px 0 30px;
+  border-bottom: 1px solid rgb(var(--color-line));
+}
+.operations-navigation ul,
+.operations-table-of-contents ul {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.operations-navigation ul {
+  gap: 0 24px;
+  /* JLP-850: one row of tabs; a narrow screen scrolls it sideways. */
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.operations-navigation a {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  min-width: 44px;
+  border-bottom: 2px solid transparent;
+  color: rgb(var(--color-muted));
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+.operations-navigation a[aria-current='page'] {
+  color: rgb(var(--color-ink));
+  border-bottom-color: rgb(var(--color-brand));
+  font-weight: 750;
+}
+.operations-navigation a:hover {
+  color: rgb(var(--color-ink));
+}
+.operations-navigation a:active {
+  color: rgb(var(--color-brand-strong));
+}
+.operations-navigation a:focus-visible,
+.operations-table-of-contents a:focus-visible {
+  outline: var(--focus-width) solid rgb(var(--focus-color));
+  outline-offset: var(--focus-offset);
+}
+/* The tab row scrolls, so its ring sits inside each tab to stay unclipped. */
+.operations-navigation a:focus-visible {
+  outline-offset: calc(var(--focus-width) * -1);
+}
+.operations-heading {
+  margin-bottom: 28px;
+}
+.operations-heading h1 {
+  font-size: 1.875rem;
+  font-weight: 750;
+  line-height: 1.3;
+  letter-spacing: -0.025em;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.operations-heading p {
+  max-width: 65ch;
+  margin-top: 10px;
+  color: rgb(var(--color-muted));
+  font-size: 0.9375rem;
+  line-height: 1.7;
+}
+.operations-table-of-contents {
+  padding: 10px 0 22px;
+  border-bottom: 1px solid rgb(var(--color-line));
+}
+.operations-table-of-contents ul {
+  gap: 0 20px;
+}
+.operations-table-of-contents a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 44px;
+  color: rgb(var(--color-link));
+  font-size: 0.875rem;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.operations-table-of-contents a:hover,
+.operations-table-of-contents a:active {
+  color: rgb(var(--color-brand-strong));
+}
+.operations-section {
+  padding: 30px 0;
+  scroll-margin-top: 28px;
+}
+/* One divider and extra space between sections, so the terms end visibly. */
+.operations-section + .operations-section {
+  margin-top: 40px;
+  padding-top: 32px;
+  border-top: 1px solid rgb(var(--color-line));
+}
+.operations-section h2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1.45;
+  letter-spacing: -0.015em;
+  overflow-wrap: anywhere;
+}
+.operations-section p {
+  max-width: 70ch;
+  margin-top: 12px;
+  font-size: 1rem;
+  line-height: 1.7;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+.operations-section .operations-details {
+  color: rgb(var(--color-muted));
+}
+.operations-effective-date {
+  margin: 0 0 24px;
+  font-size: 0.875rem;
+  color: rgb(var(--color-muted));
+}
+.operations-articles {
+  margin-top: 8px;
+}
+.operations-articles li {
+  margin-top: 24px;
+}
+.operations-articles h3 {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.operations-articles p {
+  margin-top: 8px;
+}
+html:lang(ja) .operations-section p {
+  word-break: normal;
+}
+@media (max-width: 760px) {
+  .operations-information {
+    padding: 28px 0;
+  }
+  .operations-navigation {
+    margin-bottom: 26px;
+  }
+  .operations-navigation ul {
+    gap: 0 20px;
+  }
+  .operations-navigation a {
+    font-size: 0.8125rem;
+  }
+  .operations-heading {
+    margin-bottom: 24px;
+  }
+  .operations-heading h1 {
+    font-size: 1.625rem;
+  }
+  .operations-heading p {
+    font-size: 0.875rem;
+  }
+  .operations-table-of-contents {
+    padding-bottom: 14px;
+  }
+  .operations-table-of-contents ul {
+    gap: 8px 18px;
+  }
+  .operations-section {
+    padding: 26px 0;
+  }
+  .operations-section h2 {
+    font-size: 1.375rem;
+  }
+  .operations-section p {
+    font-size: 0.9375rem;
+  }
+}
