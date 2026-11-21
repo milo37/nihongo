@@ -54,14 +54,15 @@ export const useOmikuji = (userId: string) => {
   useEffect(() => clearTimers, [])
 
   // The sheet's content mounts with `open`; then the window opens on it and
-  // its title takes focus.
+  // its title takes focus. The sheet is still below the screen then, so the
+  // focus must not scroll it into view (iPhone: it jumped up and back).
   useEffect(() => {
     const dialog = dialogRef.current
     if (!open || !dialog) return
     if (dialog.open) return
     if (typeof dialog.showModal === 'function') dialog.showModal()
     else dialog.setAttribute('open', '')
-    titleRef.current?.focus()
+    titleRef.current?.focus({ preventScroll: true })
   }, [open])
 
   const finish = () => {

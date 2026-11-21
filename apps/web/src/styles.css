@@ -1145,6 +1145,9 @@ body [lang='ja'][data-ja-spaced],
   margin-top: 12px;
 }
 .omikuji-dialog {
+  /* showModal focuses inside while the sheet still rises from below; a
+     clipped box cannot scroll to it, so the sheet does not jump. */
+  overflow: clip;
   width: 100%;
   max-width: none;
   height: 100%;
