@@ -9,7 +9,7 @@ import {
   questionErrorCode,
   questionFieldErrors
 } from '@app/admin-question/detail/questionWorkflow'
-import { useEditReadingPassage } from '@app/admin-question/hooks/useEditReadingPassage'
+import type { useEditReadingPassage } from '@app/admin-question/hooks/useEditReadingPassage'
 
 /** #1196: two or more questions read this passage, so it changes as one. */
 export const isSharedPassage = (
@@ -17,25 +17,30 @@ export const isSharedPassage = (
 ): group is AdminPassageGroup => (group?.questions.length ?? 0) >= 2
 
 /**
- * #1196: under the preview passage. Lists the questions that share it and
+ * #1196: after the preview answer. Lists the questions that share it and
  * edits it for all of them at once. A question with an open version blocks
  * the edit (the server refuses too), so those are listed to settle first.
  */
 export const SharedPassageGroup = ({
+  edit,
   group,
   isOffline,
   passage,
   questionId
 }: {
+  /**
+   * Owned by the preview panel: the reload after an edit can select a new
+   * version, and this block unmounts while that preview loads. The result
+   * (saved, or why it was refused) must outlive that.
+   */
+  edit: ReturnType<typeof useEditReadingPassage>
   group: AdminPassageGroup
   isOffline: boolean
   passage: string
   questionId: string
 }): ReactElement => {
   const { t, presentError } = useAdminPresentation()
-  const edit = useEditReadingPassage()
   const [text, setText] = useState<string | null>(null)
-  const [done, setDone] = useState(false)
   const count = group.questions.length
   const refused = new Set(
     questionFieldErrors(edit.error).expectedQuestions ?? []
@@ -63,12 +68,7 @@ export const SharedPassageGroup = ({
           }))
         }
       },
-      {
-        onSuccess: () => {
-          setText(null)
-          setDone(true)
-        }
-      }
+      { onSuccess: () => setText(null) }
     )
   }
   return (
@@ -103,9 +103,11 @@ export const SharedPassageGroup = ({
           </li>
         ))}
       </ol>
-      {done ? (
+      {edit.isSuccess ? (
         <p role="status" className="mt-3">
-          {t('questionDetail.sharedPassage.saved', { count })}
+          {t('questionDetail.sharedPassage.saved', {
+            count: edit.variables.body.expectedQuestions.length
+          })}
         </p>
       ) : null}
       {/* Outside the form: a refusal reloads the group, which may hide the
@@ -143,7 +145,6 @@ export const SharedPassageGroup = ({
           disabled={isOffline}
           onClick={() => {
             edit.reset()
-            setDone(false)
             setText(passage)
           }}
         >

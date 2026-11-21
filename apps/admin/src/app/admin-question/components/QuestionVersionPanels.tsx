@@ -5,6 +5,7 @@ import { Button } from '@nihongo/browser/common/components/Button'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import type { useQuestionWorkflow } from '@app/admin-question/hooks/useQuestionWorkflow'
+import { useEditReadingPassage } from '@app/admin-question/hooks/useEditReadingPassage'
 import {
   SharedPassageGroup,
   isSharedPassage
@@ -68,6 +69,8 @@ const PanelHeading = ({
 )
 
 const PreviewPanel = ({ workflow }: { workflow: Workflow }): ReactElement => {
+  // Here, not in SharedPassageGroup, so its result survives the reload.
+  const editPassage = useEditReadingPassage()
   const { preview, selected, isOffline } = workflow
   const { t } = useAdminPresentation()
   const heading = useRef<HTMLHeadingElement>(null)
@@ -132,6 +135,7 @@ const PreviewPanel = ({ workflow }: { workflow: Workflow }): ReactElement => {
           {preview.data.question.passage &&
           isSharedPassage(preview.data.passageGroup) ? (
             <SharedPassageGroup
+              edit={editPassage}
               group={preview.data.passageGroup}
               isOffline={isOffline}
               passage={preview.data.question.passage}

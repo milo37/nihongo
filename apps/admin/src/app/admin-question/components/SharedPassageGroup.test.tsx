@@ -17,6 +17,7 @@ import {
   isSharedPassage
 } from '@app/admin-question/components/SharedPassageGroup'
 import { actor } from '@app/admin-question/test/workflowFixture'
+import { useEditReadingPassage } from '@app/admin-question/hooks/useEditReadingPassage'
 
 const t = appI18n.getFixedT('ko', 'admin')
 const Q1 = '10000000-0000-4000-8000-0000000000a1'
@@ -44,16 +45,31 @@ const group = (
 })
 
 let client: QueryClient
-const tree = (value: AdminPassageGroup) => (
+// Owns the edit like the preview panel; `shown` false is the preview
+// reloading a newly selected version, which unmounts the block.
+const Panel = ({
+  value,
+  shown = true
+}: {
+  value: AdminPassageGroup
+  shown?: boolean
+}) => {
+  const edit = useEditReadingPassage()
+  return shown ? (
+    <SharedPassageGroup
+      edit={edit}
+      group={value}
+      isOffline={false}
+      passage="古い文章。"
+      questionId={Q1}
+    />
+  ) : null
+}
+const tree = (value: AdminPassageGroup, shown = true) => (
   <QueryClientProvider client={client}>
     <I18nProvider>
       <MemoryRouter>
-        <SharedPassageGroup
-          group={value}
-          isOffline={false}
-          passage="古い文章。"
-          questionId={Q1}
-        />
+        <Panel value={value} shown={shown} />
       </MemoryRouter>
     </I18nProvider>
   </QueryClientProvider>
@@ -81,7 +97,7 @@ describe('shared passage group (#1196)', () => {
     const send = vi
       .spyOn(api, 'requestContentOperation')
       .mockResolvedValue({} as never)
-    view(group())
+    const { rerender } = view(group())
     expect(
       await screen.findByText(
         t('questionDetail.sharedPassage.shared', { count: 2 })
@@ -121,6 +137,12 @@ describe('shared passage group (#1196)', () => {
       await screen.findByText(
         t('questionDetail.sharedPassage.saved', { count: 2 })
       )
+    ).toBeInTheDocument()
+    // The reload selects this question's new draft and remounts the block.
+    rerender(tree(group(), false))
+    rerender(tree(group({ editing: true })))
+    expect(
+      screen.getByText(t('questionDetail.sharedPassage.saved', { count: 2 }))
     ).toBeInTheDocument()
   })
 
@@ -212,7 +234,10 @@ describe('shared passage group (#1196)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       t('questionDetail.sharedPassage.conflict')
     )
-    // The reload shows the other admin's open edit group.
+    // The reload selects the new draft: the block unmounts while its
+    // preview loads, then shows the other admin's open edit group.
+    rerender(tree(group(), false))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     rerender(tree(group({ editing: true })))
     expect(screen.getByRole('alert')).toHaveTextContent(
       t('questionDetail.sharedPassage.conflict')
