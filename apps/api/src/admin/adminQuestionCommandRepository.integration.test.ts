@@ -26,6 +26,7 @@ import {
   createAdminQuestionVersionRequestSchema,
   assertEditReadingPassageResponse,
   editReadingPassageRequestSchema,
+  previewQuestionVersionResponseSchema,
   createQuestionDuplicateIdentityKey,
   exportAdminQuestionsRequestSchema,
   listAdminAuditLogQuerySchema,
@@ -1755,6 +1756,28 @@ describe('ADMIN command TEST database integration', () => {
         })
       )
 
+    const reader = createAdminQuestionService(
+      createPrismaAdminQuestionRepository(applicationRuntime!.client)
+    )
+    const groupOf = async (versionId: string) =>
+      previewQuestionVersionResponseSchema.parse(
+        await reader.previewVersion(versionId)
+      ).passageGroup
+    const published = await groupOf(first.versionId)
+    expect(published).toMatchObject({ passageId, editing: false })
+    expect(
+      published?.questions.map(
+        ({ questionId, passageOrder, openVersionId }) => [
+          questionId,
+          passageOrder,
+          openVersionId
+        ]
+      )
+    ).toEqual([
+      [first.questionId, 1, null],
+      [second.questionId, 2, null]
+    ])
+
     const before = await expectedQuestions()
     await expect(
       edit(randomUUID(), `${oldText}!`, before)
@@ -1841,6 +1864,28 @@ describe('ADMIN command TEST database integration', () => {
       [edited.items.map((item) => item.versionId)]
     )
     expect(audits.rows).toHaveLength(2)
+
+    // The admin preview shows the open group on the new passage and the
+    // drafts on the old one.
+    const editing = await groupOf(edited.items[1]!.versionId)
+    expect(editing).toMatchObject({
+      passageId: edited.passageId,
+      editing: true
+    })
+    expect(
+      editing?.questions.map(({ questionId, openVersionStatus }) => [
+        questionId,
+        openVersionStatus
+      ])
+    ).toEqual([
+      [first.questionId, 'DRAFT'],
+      [second.questionId, 'DRAFT']
+    ])
+    expect(
+      (await groupOf(first.versionId))?.questions.map(
+        ({ openVersionId }) => openVersionId
+      )
+    ).toEqual(edited.items.map((item) => item.versionId))
 
     // A second edit waits until the open drafts are cleared.
     await expect(

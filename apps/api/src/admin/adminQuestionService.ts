@@ -464,7 +464,19 @@ export const createAdminQuestionService = (
           correctOptionId: version.correctOptionId,
           explanationKo: version.explanationKo,
           explanationJa: version.explanationJa
-        }
+        },
+        passageGroup: version.passageGroup
+          ? {
+              passageId: version.passageGroup.passageId,
+              questions: version.passageGroup.questions.map(
+                ({ questionText, ...question }) => ({
+                  ...question,
+                  questionTextPreview: createQuestionTextPreview(questionText)
+                })
+              ),
+              editing: version.passageGroup.editing
+            }
+          : null
       }
     }),
   diffVersion: (versionId, query) =>

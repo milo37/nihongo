@@ -87,6 +87,28 @@ export interface AdminVersionRecord extends AdminVersionSummaryRecord {
   explanationKo: string
   explanationJa: string | null
   options: readonly AdminOptionRecord[]
+  /** #1196: filled by findVersion only. */
+  passageGroup?: AdminPassageGroupRecord | null
+}
+
+export interface AdminPassageGroupRecord {
+  passageId: string
+  editing: boolean
+  questions: ReadonlyArray<{
+    questionId: string
+    questionRowVersion: number
+    passageOrder: number
+    level: AdminVersionSummaryRecord['level']
+    questionType: AdminVersionSummaryRecord['questionType']
+    questionText: string
+    openVersionId: string | null
+    openVersionStatus:
+      | 'DRAFT'
+      | 'IN_REVIEW'
+      | 'CHANGES_REQUESTED'
+      | 'APPROVED'
+      | null
+  }>
 }
 
 export interface AdminQuestionListRecord {
@@ -1108,7 +1130,90 @@ const findQuestionVersion = async (
   })
   if (!versionRow) return null
   const [version] = await loadVersions(transaction, [versionRow])
-  return version ? mapVersion(version) : null
+  return version
+    ? {
+        ...mapVersion(version),
+        passageGroup: await findPassageGroup(transaction, versionId)
+      }
+    : null
+}
+
+/**
+ * #1196: the active questions on the version's passage — published there or
+ * with an open version there — in passage order. While a passage edit is
+ * open (the version is one of two or more open versions on the passage whose
+ * questions are not published on it), only those versions, the same set
+ * review, approval and publication move together.
+ */
+const findPassageGroup = async (
+  transaction: Prisma.TransactionClient,
+  versionId: string
+): Promise<AdminPassageGroupRecord | null> => {
+  const rows = await transaction.$queryRawUnsafe<
+    Array<{
+      passageId: string
+      versionId: string
+      published: boolean
+      questionId: string
+      questionRowVersion: number
+      passageOrder: number
+      level: AdminVersionSummaryRecord['level']
+      questionType: AdminVersionSummaryRecord['questionType']
+      questionText: string
+      openVersionId: string | null
+      openVersionStatus: AdminPassageGroupRecord['questions'][number]['openVersionStatus']
+    }>
+  >(
+    `SELECT * FROM (
+       SELECT DISTINCT ON (question."id")
+         member."passageId", member."id" AS "versionId",
+         member."id" = question."currentPublishedVersionId" AS "published",
+         question."id" AS "questionId",
+         question."rowVersion" AS "questionRowVersion",
+         member."passageOrder", member."level"::text AS "level",
+         member."questionType"::text AS "questionType", member."questionText",
+         open."id" AS "openVersionId", open."status"::text AS "openVersionStatus"
+       FROM "QuestionVersion" AS target
+       JOIN "QuestionVersion" AS member
+         ON member."passageId" = target."passageId"
+       JOIN "Question" AS question ON question."id" = member."questionId"
+       LEFT JOIN LATERAL (
+         SELECT candidate."id", candidate."status"
+         FROM "QuestionVersion" AS candidate
+         WHERE candidate."questionId" = question."id"
+           AND candidate."status" IN ('DRAFT', 'IN_REVIEW',
+             'CHANGES_REQUESTED', 'APPROVED')
+         ORDER BY candidate."versionNumber" DESC
+         LIMIT 1
+       ) AS open ON true
+       WHERE target."id" = $1::uuid
+         AND question."lifecycleStatus" = 'ACTIVE'
+         AND (member."id" = question."currentPublishedVersionId"
+           OR member."status" IN ('DRAFT', 'IN_REVIEW', 'CHANGES_REQUESTED',
+             'APPROVED'))
+       ORDER BY question."id",
+         member."id" = question."currentPublishedVersionId" DESC
+     ) AS users
+     ORDER BY "passageOrder", "questionId"`,
+    versionId
+  )
+  const first = rows[0]
+  if (!first) return null
+  const members = rows.filter((row) => !row.published)
+  const editing =
+    members.length > 1 && members.some((row) => row.versionId === versionId)
+  return {
+    passageId: first.passageId,
+    editing,
+    questions: (editing ? members : rows).map(
+      ({
+        passageId: _passageId,
+        versionId: _versionId,
+        published: _published,
+        ...question
+      }) => question
+    )
+  }
 }
 
 const findQuestionVersionPair = async (
