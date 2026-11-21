@@ -18,6 +18,7 @@ import {
   EditorRebaseNotice,
   editorFields
 } from '@app/admin-question/components/EditorRebaseNotice'
+import { isSharedPassage } from '@app/admin-question/components/SharedPassageGroup'
 import { QuestionOptionsFieldset } from '@app/admin-question/components/QuestionOptionsFieldset'
 import type { getTagServerErrorKey } from '@app/admin-question/components/questionTagServerError'
 import { QUESTION_TYPES, SUBJECTS } from '@nihongo/browser/common/types/domain'
@@ -30,6 +31,7 @@ type FieldsetProps = {
   invalid: FieldError
   disabled: boolean
 }
+type ClassificationProps = FieldsetProps & { passageLocked: boolean }
 
 const LEVELS = ['N5', 'N4', 'N3', 'N2', 'N1'] as const
 const DIFFICULTIES = ['EASY', 'NORMAL', 'HARD'] as const
@@ -38,8 +40,9 @@ const DIFFICULTIES = ['EASY', 'NORMAL', 'HARD'] as const
 const ClassificationFieldset = ({
   register,
   invalid,
-  disabled
-}: FieldsetProps): ReactElement => {
+  disabled,
+  passageLocked
+}: ClassificationProps): ReactElement => {
   const { t } = useAdminPresentation()
   return (
     <fieldset className="grid gap-5" disabled={disabled}>
@@ -83,7 +86,12 @@ const ClassificationFieldset = ({
       </div>
       <Textarea
         label={t('editor.passage')}
-        hint={t('editor.passageHint')}
+        hint={t(
+          passageLocked
+            ? 'questionDetail.sharedPassage.locked'
+            : 'editor.passageHint'
+        )}
+        readOnly={passageLocked}
         rows={5}
         error={invalid('passage')}
         {...register('passage', {
@@ -283,6 +291,7 @@ export const QuestionVersionEditor = ({
         {announcement}
       </p>
       <ClassificationFieldset
+        passageLocked={isSharedPassage(preview.passageGroup)}
         register={register}
         invalid={invalid}
         disabled={disabled || isSubmitting}

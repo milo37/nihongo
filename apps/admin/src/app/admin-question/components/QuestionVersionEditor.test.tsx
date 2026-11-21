@@ -250,3 +250,35 @@ it('shows the subject mismatch on the tags field when the server names it', asyn
   expect(screen.getByText(t('editor.tagPicker.subjectMismatch'))).toBeVisible()
   expect(screen.queryByText('private wording')).not.toBeInTheDocument()
 })
+
+it('locks a passage shared by several questions (#1196)', () => {
+  const preview = previewFor()
+  const question = (questionId: string, passageOrder: number) => ({
+    questionId,
+    questionRowVersion: 1,
+    passageOrder,
+    level: 'N3' as const,
+    questionType: 'MEDIUM_READING' as const,
+    questionTextPreview: '問',
+    openVersionId: null,
+    openVersionStatus: null
+  })
+  view({
+    preview: {
+      ...preview,
+      passageGroup: {
+        passageId: '10000000-0000-4000-8000-0000000000b1',
+        questions: [
+          question(preview.question.id, 1),
+          question('10000000-0000-4000-8000-0000000000a2', 2)
+        ],
+        editing: false
+      }
+    }
+  })
+  const passage = screen.getByRole('textbox', { name: t('editor.passage') })
+  expect(passage).toHaveAttribute('readonly')
+  expect(
+    screen.getByText(t('questionDetail.sharedPassage.locked'))
+  ).toBeInTheDocument()
+})

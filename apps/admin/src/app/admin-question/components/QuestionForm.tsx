@@ -28,6 +28,7 @@ import {
   VALIDATION_KEY_PREFIX,
   type QuestionFormValues
 } from '@app/admin-question/components/questionFormSchema'
+import { isSharedPassage } from '@app/admin-question/components/SharedPassageGroup'
 
 type QuestionFormProps = {
   initialQuestion?: PreviewQuestionVersionResponse
@@ -189,7 +190,10 @@ export const QuestionForm = ({
             {t('editor.form.screenReaderLegend')}
           </legend>
           <QuestionClassificationSection fields={fields} />
-          <QuestionContentSection fields={fields} />
+          <QuestionContentSection
+            fields={fields}
+            passageLocked={isSharedPassage(initialQuestion?.passageGroup)}
+          />
           <QuestionExplanationSection fields={fields} />
         </fieldset>
 
