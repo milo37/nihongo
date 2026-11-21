@@ -111,6 +111,15 @@ export const SharedPassageGroup = ({
           {t('questionDetail.sharedPassage.saved', { count })}
         </p>
       ) : null}
+      {/* Outside the form: a refusal reloads the group, which may hide the
+          form (another admin's edit is now open), and the reason must stay. */}
+      {edit.isError && !textError && refused.size === 0 ? (
+        <p role="alert" className="mt-3">
+          {code === 'VERSION_CONFLICT'
+            ? t('questionDetail.sharedPassage.conflict')
+            : presentError(edit.error)}
+        </p>
+      ) : null}
       {group.editing ? null : blocked.length > 0 ? (
         <div role="alert" className="mt-3">
           <p>{t('questionDetail.sharedPassage.blocked')}</p>
@@ -155,13 +164,6 @@ export const SharedPassageGroup = ({
             value={text}
             onChange={(event) => setText(event.target.value)}
           />
-          {edit.isError && !textError && refused.size === 0 ? (
-            <p role="alert">
-              {code === 'VERSION_CONFLICT'
-                ? t('questionDetail.sharedPassage.conflict')
-                : presentError(edit.error)}
-            </p>
-          ) : null}
           <div className="flex gap-2">
             <Button
               type="submit"

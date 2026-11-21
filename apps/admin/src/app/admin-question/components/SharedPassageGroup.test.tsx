@@ -43,33 +43,28 @@ const group = (
   ...overrides
 })
 
-const view = (value: AdminPassageGroup) =>
-  render(
-    <QueryClientProvider
-      client={
-        new QueryClient({
-          defaultOptions: {
-            queries: { retry: false },
-            mutations: { retry: false }
-          }
-        })
-      }
-    >
-      <I18nProvider>
-        <MemoryRouter>
-          <SharedPassageGroup
-            group={value}
-            isOffline={false}
-            passage="古い文章。"
-            questionId={Q1}
-          />
-        </MemoryRouter>
-      </I18nProvider>
-    </QueryClientProvider>
-  )
+let client: QueryClient
+const tree = (value: AdminPassageGroup) => (
+  <QueryClientProvider client={client}>
+    <I18nProvider>
+      <MemoryRouter>
+        <SharedPassageGroup
+          group={value}
+          isOffline={false}
+          passage="古い文章。"
+          questionId={Q1}
+        />
+      </MemoryRouter>
+    </I18nProvider>
+  </QueryClientProvider>
+)
+const view = (value: AdminPassageGroup) => render(tree(value))
 
 describe('shared passage group (#1196)', () => {
   beforeEach(() => {
+    client = new QueryClient({
+      defaultOptions: { queries: { retry: false }, mutations: { retry: false } }
+    })
     writeUiLocalePreference('ko')
     onlineManager.setOnline(true)
     useAppStore.getState().setCurrentUser(actor())
@@ -191,5 +186,36 @@ describe('shared passage group (#1196)', () => {
         name: t('questionDetail.sharedPassage.edit')
       })
     ).not.toBeInTheDocument()
+  })
+
+  it('keeps the conflict message after the reload opens another edit', async () => {
+    vi.spyOn(api, 'requestContentOperation').mockRejectedValue({
+      code: 'VERSION_CONFLICT'
+    })
+    const { rerender } = view(group())
+    await userEvent.click(
+      await screen.findByRole('button', {
+        name: t('questionDetail.sharedPassage.edit')
+      })
+    )
+    await userEvent.type(
+      screen.getByRole('textbox', {
+        name: t('questionDetail.sharedPassage.editLabel')
+      }),
+      '追加'
+    )
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: t('questionDetail.sharedPassage.save', { count: 2 })
+      })
+    )
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      t('questionDetail.sharedPassage.conflict')
+    )
+    // The reload shows the other admin's open edit group.
+    rerender(tree(group({ editing: true })))
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      t('questionDetail.sharedPassage.conflict')
+    )
   })
 })
