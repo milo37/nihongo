@@ -15,6 +15,7 @@ import {
   type LifecycleVersionTargetRow,
   type OptionRow,
   type VersionTagRow,
+  type PassageEditGroupRow,
   UPDATE_CHANGED_FIELD_ORDER
 } from './adminQuestionCommandModel.js'
 import { repositoryFailure } from './adminQuestionCommandFailures.js'
@@ -289,6 +290,153 @@ export const loadPassageGroupVersionIds = async (
   )
   const ids = rows.map((row) => row.id)
   return ids.includes(versionId) && ids.length > 1 ? ids : [versionId]
+}
+
+/** #1196: the passage being edited; null when it is missing. */
+export const loadReadingPassage = async (
+  client: Pick<PrismaClient, '$queryRawUnsafe'>,
+  passageId: string
+): Promise<{
+  id: string
+  level: CreateAdminQuestionRequest['level']
+  subject: CreateAdminQuestionRequest['subject']
+  text: string
+} | null> => {
+  const rows = await client.$queryRawUnsafe<
+    Array<{
+      id: string
+      level: CreateAdminQuestionRequest['level']
+      subject: CreateAdminQuestionRequest['subject']
+      text: string
+    }>
+  >(
+    `SELECT "id", "level"::text AS "level", "subject"::text AS "subject",
+       "text"
+     FROM "ReadingPassage" WHERE "id" = $1::uuid`,
+    passageId
+  )
+  return rows[0] ?? null
+}
+
+/**
+ * #1196: the passage group — active questions whose current published
+ * version is on the passage — in passage order.
+ */
+export const loadPassageEditGroup = async (
+  client: Pick<PrismaClient, '$queryRawUnsafe'> | Prisma.TransactionClient,
+  passageId: string
+): Promise<PassageEditGroupRow[]> =>
+  client.$queryRawUnsafe<PassageEditGroupRow[]>(
+    `SELECT question."id" AS "questionId", question."rowVersion",
+       question."createdByUserId", published."id" AS "publishedVersionId",
+       (SELECT MAX(version."versionNumber")::int
+        FROM "QuestionVersion" AS version
+        WHERE version."questionId" = question."id") AS "maximumVersionNumber"
+     FROM "Question" AS question
+     JOIN "QuestionVersion" AS published
+       ON published."id" = question."currentPublishedVersionId"
+     WHERE question."lifecycleStatus" = 'ACTIVE'
+       AND published."passageId" = $1::uuid
+     ORDER BY published."passageOrder", question."id"`,
+    passageId
+  )
+
+/**
+ * #1196: questions that block a passage edit — a group question with any
+ * open version, or an active question with an open version on the passage.
+ */
+export const loadPassageEditBlockers = async (
+  client: Pick<PrismaClient, '$queryRawUnsafe'> | Prisma.TransactionClient,
+  passageId: string,
+  groupQuestionIds: readonly string[]
+): Promise<string[]> => {
+  const rows = await client.$queryRawUnsafe<Array<{ questionId: string }>>(
+    `SELECT DISTINCT version."questionId"
+     FROM "QuestionVersion" AS version
+     JOIN "Question" AS question ON question."id" = version."questionId"
+     WHERE version."status" IN ('DRAFT', 'IN_REVIEW', 'CHANGES_REQUESTED',
+         'APPROVED')
+       AND question."lifecycleStatus" = 'ACTIVE'
+       AND (version."questionId" = ANY($2::uuid[])
+         OR version."passageId" = $1::uuid)`,
+    passageId,
+    [...groupQuestionIds]
+  )
+  const blocked = new Set(rows.map((row) => row.questionId))
+  return [
+    ...groupQuestionIds.filter((id) => blocked.has(id)),
+    ...[...blocked].filter((id) => !groupQuestionIds.includes(id)).sort()
+  ]
+}
+
+export const assertPassageEditBlockersAbsent = (
+  blockers: readonly string[]
+): void => {
+  if (blockers.length === 0) return
+  throw repositoryFailure(
+    'VALIDATION_ERROR',
+    '열린 버전이 있는 문제를 먼저 정리해야 지문을 고칠 수 있습니다.',
+    {
+      expectedQuestions: blockers.map(
+        (questionId) => `열린 버전이 있는 문제: ${questionId}`
+      )
+    }
+  )
+}
+
+/** #1196: true when a passage with this level, subject and text hash exists. */
+export const hasReadingPassageText = async (
+  client: Pick<PrismaClient, '$queryRawUnsafe'>,
+  passage: {
+    level: CreateAdminQuestionRequest['level']
+    subject: CreateAdminQuestionRequest['subject']
+  },
+  text: string
+): Promise<boolean> => {
+  const rows = await client.$queryRawUnsafe<Array<{ exists: boolean }>>(
+    `SELECT EXISTS (
+       SELECT 1 FROM "ReadingPassage"
+       WHERE "level" = $1::"JlptLevel" AND "subject" = $2::"QuestionSubject"
+         AND "textMd5" = md5($3)
+     ) AS "exists"`,
+    passage.level,
+    passage.subject,
+    text
+  )
+  return rows.length === 1 && rows[0]?.exists === true
+}
+
+/**
+ * #1196: a copy of a published version with a new passage text. Options keep
+ * their text and order; tags are the published version's.
+ */
+export const copyPublishedContent = (
+  published: VersionTargetRow,
+  options: readonly OptionRow[],
+  tags: readonly VersionTagRow[],
+  passage: string
+): CreateAdminQuestionRequest => {
+  const keyOf = (option: OptionRow): string => `option-${option.ordinal}`
+  const correct = options.find(
+    (option) => option.id === published.correctOptionId
+  )
+  if (!correct) throw new Error('Published correct option is unavailable.')
+  return {
+    level: published.level,
+    subject: published.subject,
+    questionType: published.questionType,
+    difficulty: published.difficulty,
+    questionText: published.questionText,
+    passage,
+    explanationKo: published.explanationKo,
+    explanationJa: published.explanationJa,
+    tagNames: tags.map((tag) => tag.normalizedName),
+    options: options.map((option) => ({
+      clientOptionKey: keyOf(option),
+      text: option.text
+    })),
+    correctOptionKey: keyOf(correct)
+  }
 }
 
 export const loadLifecycleVersions = async (

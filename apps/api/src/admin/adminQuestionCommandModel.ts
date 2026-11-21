@@ -4,6 +4,7 @@ export type ContentOperation =
   | 'createAdminQuestion'
   | 'createAdminQuestionVersion'
   | 'updateQuestionVersion'
+  | 'editReadingPassage'
 export type LifecycleOperation =
   | 'requestContentReview'
   | 'requestQuestionChanges'
@@ -130,7 +131,8 @@ export const CONTENT_OPERATIONS = new Set<AdminQuestionDomainOperation>([
   'createAdminQuestion',
   'createAdminQuestionVersion',
   'updateQuestionVersion',
-  'publishQuestionVersion'
+  'publishQuestionVersion',
+  'editReadingPassage'
 ])
 export const FRESH_OPERATIONS = new Set<AdminQuestionDomainOperation>([
   'approveQuestionVersion',
@@ -140,3 +142,12 @@ export const FRESH_OPERATIONS = new Set<AdminQuestionDomainOperation>([
   'retireQuestionVersionBatch',
   'archiveAdminQuestion'
 ])
+
+/** #1196: an active question published on the passage being edited. */
+export interface PassageEditGroupRow {
+  questionId: string
+  rowVersion: number
+  createdByUserId: string | null
+  publishedVersionId: string
+  maximumVersionNumber: number
+}

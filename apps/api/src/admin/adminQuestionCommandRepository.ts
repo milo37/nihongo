@@ -5,6 +5,8 @@ import {
   type ApproveQuestionVersionRequest,
   type CreateAdminQuestionRequest,
   type CreateAdminQuestionVersionRequest,
+  type EditReadingPassageRequest,
+  type EditReadingPassageResponse,
   type PublishQuestionVersionRequest,
   type RequestContentReviewRequest,
   type RequestQuestionChangesRequest,
@@ -24,6 +26,7 @@ import {
   CREATE_CHANGED_FIELDS,
   uniqueSorted,
   finishOperation,
+  toIso,
   assertEditableUnpinnedVersion,
   assertVersionAuthor
 } from './adminRepositoryCommon.js'
@@ -37,7 +40,8 @@ import {
   type VersionTargetRow,
   type LifecycleVersionTargetRow,
   type OptionRow,
-  type VersionTagRow
+  type VersionTagRow,
+  type PassageEditGroupRow
 } from './adminQuestionCommandModel.js'
 import {
   AdminQuestionCommandRepositoryError,
@@ -62,6 +66,12 @@ import {
   loadLifecycleVersions,
   loadOptions,
   loadVersionTags,
+  loadReadingPassage,
+  loadPassageEditGroup,
+  loadPassageEditBlockers,
+  assertPassageEditBlockersAbsent,
+  hasReadingPassageText,
+  copyPublishedContent,
   createVersionContent,
   computeUpdateChangedFields,
   validateUpdate
@@ -158,6 +168,15 @@ export interface AdminQuestionCommandRepository {
     versionId: string,
     request: UpdateQuestionVersionRequest
   ) => Promise<AdminQuestionMutationResult>
+  /**
+   * #1196: one transaction gives every question of a shared passage group a
+   * DRAFT copy of its published version on the new passage text.
+   */
+  editPassage: (
+    authority: AdminCommandAuthority,
+    passageId: string,
+    request: EditReadingPassageRequest
+  ) => Promise<EditReadingPassageResponse>
   transitionVersion: (
     operation: LifecycleOperation,
     authority: AdminCommandAuthority,
@@ -455,6 +474,220 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
         }
       }
       throw mapped
+    }
+  }
+
+  const editPassage: AdminQuestionCommandRepository['editPassage'] = async (
+    authority,
+    passageId,
+    request
+  ) => {
+    let group: PassageEditGroupRow[]
+    const copies: Array<{
+      readonly member: PassageEditGroupRow
+      readonly content: CreateAdminQuestionRequest
+      readonly tags: readonly TagRow[]
+      readonly versionId: string
+    }> = []
+    try {
+      const passage = await loadReadingPassage(client, passageId)
+      if (!passage) {
+        throw repositoryFailure(
+          'RESOURCE_NOT_FOUND',
+          '지문을 찾을 수 없습니다.'
+        )
+      }
+      group = await loadPassageEditGroup(client, passageId)
+      if (group.length < 2) {
+        throw repositoryFailure(
+          'INVALID_STATE_TRANSITION',
+          '한 문제만 쓰는 지문은 문제 편집에서 고쳐 주세요.'
+        )
+      }
+      const expected = new Map(
+        request.expectedQuestions.map((item) => [
+          item.questionId,
+          item.expectedQuestionRowVersion
+        ])
+      )
+      if (
+        expected.size !== group.length ||
+        group.some(
+          (member) => expected.get(member.questionId) !== member.rowVersion
+        )
+      ) {
+        throw repositoryFailure(
+          'VERSION_CONFLICT',
+          '다른 요청이 먼저 지문 묶음을 변경했습니다. 최신 상태를 다시 불러와 주세요.'
+        )
+      }
+      assertPassageEditBlockersAbsent(
+        await loadPassageEditBlockers(
+          client,
+          passageId,
+          group.map((member) => member.questionId)
+        )
+      )
+      if (request.text === passage.text) {
+        throw repositoryFailure(
+          'VALIDATION_ERROR',
+          '지문이 바뀌지 않았습니다.',
+          { text: ['지금 지문과 같은 글자입니다.'] }
+        )
+      }
+      if (await hasReadingPassageText(client, passage, request.text)) {
+        throw repositoryFailure(
+          'VALIDATION_ERROR',
+          '같은 글자의 지문이 이미 있습니다.',
+          { text: ['같은 급수·과목에 같은 글자의 지문이 이미 있습니다.'] }
+        )
+      }
+      for (const member of group) {
+        const published = await loadVersionTarget(
+          client,
+          member.publishedVersionId
+        )
+        if (!published) {
+          throw repositoryFailure(
+            'VERSION_CONFLICT',
+            '다른 요청이 먼저 지문 묶음을 변경했습니다. 최신 상태를 다시 불러와 주세요.'
+          )
+        }
+        const tags = await loadVersionTags(client, member.publishedVersionId)
+        const content = copyPublishedContent(
+          published,
+          await loadOptions(client, member.publishedVersionId),
+          tags,
+          request.text
+        )
+        await assertNoVisibleCrossQuestionDuplicate(
+          client,
+          member.questionId,
+          content
+        )
+        copies.push({
+          member,
+          content,
+          tags: tags.map(({ id, label, normalizedName }) => ({
+            id,
+            label,
+            normalizedName
+          })),
+          versionId: randomUUID()
+        })
+      }
+    } catch (error: unknown) {
+      throw mapPreflightError(error)
+    }
+    try {
+      return await client.$transaction(
+        async (transaction) => {
+          const operation = await beginAndArm(transaction, {
+            auditEnvironment,
+            authority,
+            command: 'QUESTION_VERSION_CREATE',
+            referencedUserIds: uniqueSorted([
+              authority.actorId,
+              ...group.flatMap((member) =>
+                member.createdByUserId === null ? [] : [member.createdByUserId]
+              )
+            ]),
+            targetManifest: {
+              questions: group.map((member) => ({
+                id: member.questionId,
+                rowVersion: member.rowVersion,
+                state: 'ACTIVE'
+              })),
+              versions: [],
+              reports: [],
+              tags: uniqueSorted(
+                copies.flatMap((copy) => copy.tags.map((tag) => tag.id))
+              )
+            }
+          })
+          // The arm locks the group questions; a question outside the group
+          // may still have opened a version on this passage since preflight.
+          assertPassageEditBlockersAbsent(
+            await loadPassageEditBlockers(
+              transaction,
+              passageId,
+              group.map((member) => member.questionId)
+            )
+          )
+          for (const { member, content, tags, versionId } of copies) {
+            await transaction.$executeRawUnsafe(
+              `UPDATE "Question" SET "rowVersion" = $2, "updatedAt" = $3
+                 WHERE "id" = $1`,
+              member.questionId,
+              member.rowVersion + 1,
+              operation.occurredAt
+            )
+            await createVersionContent(transaction, {
+              actorId: authority.actorId,
+              content,
+              occurredAt: operation.occurredAt,
+              questionId: member.questionId,
+              tags,
+              versionId,
+              versionNumber: member.maximumVersionNumber + 1
+            })
+            await insertAudit(transaction, {
+              actorId: authority.actorId,
+              afterRowVersion: 1,
+              afterState: 'DRAFT',
+              beforeRowVersion: null,
+              beforeState: null,
+              changedFields: [
+                'VERSION_STATUS',
+                ...CREATE_CHANGED_FIELDS.filter(
+                  (field) => field !== 'LIFECYCLE_STATUS'
+                )
+              ],
+              command: 'QUESTION_VERSION_CREATE',
+              environment: auditEnvironment,
+              occurredAt: operation.occurredAt,
+              operationId: operation.operationId,
+              requestId: authority.requestId,
+              targetId: versionId,
+              targetType: 'QUESTION_VERSION'
+            })
+          }
+          // The link trigger created the new passage; every copy is on it.
+          const linked = await transaction.$queryRawUnsafe<
+            Array<{ passageId: string | null }>
+          >(
+            `SELECT DISTINCT "passageId" FROM "QuestionVersion"
+             WHERE "id" = ANY($1::uuid[])`,
+            copies.map((copy) => copy.versionId)
+          )
+          const newPassageId = linked[0]?.passageId
+          if (linked.length !== 1 || !newPassageId) {
+            throw new Error('Passage edit copies are not on one new passage.')
+          }
+          await finishOperation(transaction, operation.operationId)
+          return {
+            passageId: newPassageId,
+            occurredAt: toIso(operation.occurredAt),
+            items: copies.map(({ member, versionId }) => ({
+              questionId: member.questionId,
+              versionId,
+              questionRowVersion: member.rowVersion + 1,
+              versionRowVersion: 1 as const,
+              versionStatus: 'DRAFT' as const
+            }))
+          }
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+      )
+    } catch (error: unknown) {
+      const authorityFailure = await classifyAuthorityFailure(
+        client,
+        'editReadingPassage',
+        authority,
+        error
+      )
+      if (authorityFailure) throw authorityFailure
+      throw mapTransactionError('editReadingPassage', error)
     }
   }
 
@@ -913,6 +1146,7 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
   const activeRepository: AdminQuestionCommandRepository = {
     createQuestion,
     createVersion,
+    editPassage,
     updateVersion,
     transitionVersion,
     readVersionState

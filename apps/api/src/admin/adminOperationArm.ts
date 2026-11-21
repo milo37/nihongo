@@ -108,7 +108,13 @@ const assertManifestShape = (
         invalid('QUESTION_CREATE target manifest is invalid.')
       return
     case 'QUESTION_VERSION_CREATE':
-      if (q !== 1 || v !== 0 || r !== 0 || !between(t, 1, 12))
+      // #1196: a passage edit creates one version per group question.
+      if (
+        !between(q, 1, PASSAGE_GROUP_MAX) ||
+        v !== 0 ||
+        r !== 0 ||
+        !between(t, 1, 12 * q)
+      )
         invalid('QUESTION_VERSION_CREATE target manifest is invalid.')
       return
     case 'QUESTION_VERSION_UPDATE':

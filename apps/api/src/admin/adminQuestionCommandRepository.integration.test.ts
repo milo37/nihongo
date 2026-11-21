@@ -24,6 +24,8 @@ import {
   createQuestionReportRequestSchema,
   createAdminQuestionRequestSchema,
   createAdminQuestionVersionRequestSchema,
+  assertEditReadingPassageResponse,
+  editReadingPassageRequestSchema,
   createQuestionDuplicateIdentityKey,
   exportAdminQuestionsRequestSchema,
   listAdminAuditLogQuerySchema,
@@ -839,6 +841,12 @@ const cleanupFixtures = async (): Promise<void> => {
       [actorIds]
     )
     const versionIds = versions.rows.map(({ id }) => id)
+    const passages = await adminClient.query<{ passageId: string }>(
+      `SELECT DISTINCT "passageId" FROM "QuestionVersion"
+       WHERE "id" = ANY($1::uuid[]) AND "passageId" IS NOT NULL`,
+      [versionIds]
+    )
+    const passageIds = passages.rows.map(({ passageId }) => passageId)
     const studySessions = await adminClient.query<{ id: string }>(
       `SELECT "id" FROM "StudySession" WHERE "userId" = ANY($1::uuid[])`,
       [actorIds]
@@ -927,6 +935,19 @@ const cleanupFixtures = async (): Promise<void> => {
     await adminClient.query(
       `DELETE FROM "Question" WHERE "id" = ANY($1::uuid[])`,
       [questionIds]
+    )
+    await adminClient.query(
+      `DELETE FROM "ReadingPassage" AS passage
+       WHERE passage."id" = ANY($1::uuid[])
+         AND NOT EXISTS (
+           SELECT 1 FROM "QuestionVersion" AS version
+           WHERE version."passageId" = passage."id"
+         )
+         AND NOT EXISTS (
+           SELECT 1 FROM "Furigana" AS furigana
+           WHERE furigana."passageId" = passage."id"
+         )`,
+      [passageIds]
     )
     if (baseQuestionId !== '') {
       await adminClient.query(
@@ -1610,6 +1631,266 @@ describe('ADMIN command TEST database integration', () => {
         reason: 'PUBLISHED_RETIREMENT'
       }))
     )
+  })
+
+  it('edits a shared passage for its whole group in one transaction (#1196)', async () => {
+    if (!commandService) throw new Error('Command service is unavailable.')
+    const service = commandService
+    const own = () => authority(authorId, authorToken)
+    const tag = await adminClient.query<{ label: string }>(
+      `SELECT "label" FROM "Tag"
+       WHERE "subject" = 'READING' OR "subject" IS NULL
+       ORDER BY ("subject" IS NULL), "normalizedName" COLLATE "C"
+       LIMIT 1`
+    )
+    const readingTag = tag.rows[0]?.label
+    if (!readingTag) throw new Error('A reading tag is unavailable.')
+    const readingContent = (
+      suffix: string,
+      passage: string
+    ): CreateAdminQuestionRequest =>
+      createAdminQuestionRequestSchema.parse({
+        level: 'N5',
+        subject: 'READING',
+        questionType: 'SHORT_READING',
+        difficulty: 'NORMAL',
+        questionText: `本文の内容に合うものを選んでください。${suffix}`,
+        passage,
+        explanationKo: `지문 고치기 통합 해설 ${suffix}`,
+        explanationJa: null,
+        tagNames: [readingTag],
+        options: [
+          { clientOptionKey: 'a', text: `ただしい-${suffix}` },
+          { clientOptionKey: 'b', text: `ちがう-${suffix}` },
+          { clientOptionKey: 'c', text: `わからない-${suffix}` },
+          { clientOptionKey: 'd', text: `どれでもない-${suffix}` }
+        ],
+        correctOptionKey: 'b'
+      })
+    const publishReading = async (suffix: string, passage: string) => {
+      const content = readingContent(suffix, passage)
+      const created = await service.createQuestion(own(), content)
+      const versionId = created.questionVersionId!
+      const inReview = await service.requestReview(
+        own(),
+        versionId,
+        requestContentReviewRequestSchema.parse({
+          expectedRowVersion: created.versionRowVersion
+        })
+      )
+      const approved = await service.approveVersion(
+        authority(reviewerId, reviewerToken),
+        versionId,
+        approveQuestionVersionRequestSchema.parse({
+          expectedRowVersion: inReview.versionRowVersion
+        })
+      )
+      const published = await service.publishVersion(
+        own(),
+        versionId,
+        publishQuestionVersionRequestSchema.parse({
+          expectedRowVersion: approved.versionRowVersion,
+          expectedQuestionRowVersion: approved.questionRowVersion
+        })
+      )
+      expect(published.versionStatus).toBe('PUBLISHED')
+      return { questionId: created.questionId, versionId, published }
+    }
+    const readPlace = async (versionId: string) => {
+      const result = await adminClient.query<{
+        passageId: string
+        passageOrder: number
+        status: string
+      }>(
+        `SELECT "passageId", "passageOrder", "status"::text AS "status"
+         FROM "QuestionVersion" WHERE "id" = $1`,
+        [versionId]
+      )
+      const row = result.rows[0]
+      if (!row) throw new Error('Version place is unavailable.')
+      return row
+    }
+    const readQuestionRowVersion = async (questionId: string) => {
+      const result = await adminClient.query<{ rowVersion: number }>(
+        `SELECT "rowVersion" FROM "Question" WHERE "id" = $1`,
+        [questionId]
+      )
+      return result.rows[0]!.rowVersion
+    }
+
+    const suffix = randomUUID()
+    const oldText = `共有本文-${suffix}。きょうは あめです。`
+    const first = await publishReading(`first-${suffix}`, oldText)
+    const second = await publishReading(`second-${suffix}`, oldText)
+    const firstPlace = await readPlace(first.versionId)
+    const secondPlace = await readPlace(second.versionId)
+    expect(secondPlace.passageId).toBe(firstPlace.passageId)
+    expect([firstPlace.passageOrder, secondPlace.passageOrder]).toEqual([1, 2])
+    const passageId = firstPlace.passageId
+    const expectedQuestions = async () => [
+      {
+        questionId: first.questionId,
+        expectedQuestionRowVersion: await readQuestionRowVersion(
+          first.questionId
+        )
+      },
+      {
+        questionId: second.questionId,
+        expectedQuestionRowVersion: await readQuestionRowVersion(
+          second.questionId
+        )
+      }
+    ]
+    const edit = async (
+      targetPassageId: string,
+      text: string,
+      items: unknown
+    ) =>
+      service.editPassage(
+        own(),
+        targetPassageId,
+        editReadingPassageRequestSchema.parse({
+          text,
+          expectedQuestions: items
+        })
+      )
+
+    const before = await expectedQuestions()
+    await expect(
+      edit(randomUUID(), `${oldText}!`, before)
+    ).rejects.toMatchObject({
+      code: 'RESOURCE_NOT_FOUND',
+      adminDisposition: 'NO_TX'
+    })
+    await expect(edit(passageId, oldText, before)).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      adminDisposition: 'NO_TX',
+      fieldErrors: { text: ['지금 지문과 같은 글자입니다.'] }
+    })
+    await expect(
+      edit(passageId, `${oldText}!`, [
+        before[0],
+        { ...before[1]!, expectedQuestionRowVersion: 999 }
+      ])
+    ).rejects.toMatchObject({
+      code: 'VERSION_CONFLICT',
+      adminDisposition: 'NO_TX'
+    })
+
+    const newText = `共有本文-${suffix}。きょうは はれです。`
+    const request = editReadingPassageRequestSchema.parse({
+      text: newText,
+      expectedQuestions: before
+    })
+    const edited = assertEditReadingPassageResponse(
+      { passageId },
+      request,
+      await service.editPassage(own(), passageId, request)
+    )
+    expect(edited.items.map((item) => item.questionId)).toEqual([
+      first.questionId,
+      second.questionId
+    ])
+    expect(edited.passageId).not.toBe(passageId)
+    const newPlaces = await Promise.all(
+      edited.items.map((item) => readPlace(item.versionId))
+    )
+    expect(newPlaces).toEqual([
+      { passageId: edited.passageId, passageOrder: 1, status: 'DRAFT' },
+      { passageId: edited.passageId, passageOrder: 2, status: 'DRAFT' }
+    ])
+    const replacement = await adminClient.query<{
+      replacesPassageId: string | null
+      text: string
+    }>(
+      `SELECT "replacesPassageId", "text" FROM "ReadingPassage"
+       WHERE "id" = $1`,
+      [edited.passageId]
+    )
+    expect(replacement.rows).toEqual([
+      { replacesPassageId: passageId, text: newText }
+    ])
+    // The copies keep the published question, options, answer and tags.
+    const copied = await adminClient.query<{
+      questionText: string
+      options: string[]
+      correct: string
+      tags: string[]
+    }>(
+      `SELECT version."questionText",
+         array_agg(option."text" ORDER BY option."ordinal") AS "options",
+         (SELECT correct."text" FROM "QuestionOption" AS correct
+          WHERE correct."id" = version."correctOptionId") AS "correct",
+         (SELECT array_agg(assignment."tagId"::text ORDER BY assignment."tagId")
+          FROM "QuestionVersionTag" AS assignment
+          WHERE assignment."questionVersionId" = version."id") AS "tags"
+       FROM "QuestionVersion" AS version
+       JOIN "QuestionOption" AS option
+         ON option."questionVersionId" = version."id"
+       WHERE version."id" = ANY($1::uuid[])
+       GROUP BY version."id", version."questionText", version."correctOptionId"
+       ORDER BY version."passageOrder"`,
+      [[first.versionId, edited.items[0]!.versionId]]
+    )
+    expect(copied.rows).toHaveLength(2)
+    expect(copied.rows[1]).toEqual(copied.rows[0])
+    const audits = await adminClient.query<{ targetId: string }>(
+      `SELECT "targetId" FROM "AdminAuditLog"
+       WHERE "command" = 'QUESTION_VERSION_CREATE'
+         AND "targetId" = ANY($1::uuid[])`,
+      [edited.items.map((item) => item.versionId)]
+    )
+    expect(audits.rows).toHaveLength(2)
+
+    // A second edit waits until the open drafts are cleared.
+    await expect(
+      edit(passageId, `${newText}!`, await expectedQuestions())
+    ).rejects.toMatchObject({
+      code: 'VALIDATION_ERROR',
+      adminDisposition: 'NO_TX',
+      fieldErrors: {
+        expectedQuestions: [
+          `열린 버전이 있는 문제: ${first.questionId}`,
+          `열린 버전이 있는 문제: ${second.questionId}`
+        ]
+      }
+    })
+    // The stale row versions from before the edit conflict.
+    await expect(edit(passageId, `${newText}!`, before)).rejects.toMatchObject({
+      code: 'VERSION_CONFLICT'
+    })
+
+    // A passage only one question uses is edited in the question editor.
+    const single = await publishReading(
+      `single-${suffix}`,
+      `単独本文-${suffix}。`
+    )
+    const singlePlace = await readPlace(single.versionId)
+    await expect(
+      edit(singlePlace.passageId, `単独本文-${suffix}。!`, [
+        {
+          questionId: single.questionId,
+          expectedQuestionRowVersion: single.published.questionRowVersion
+        },
+        { questionId: randomUUID(), expectedQuestionRowVersion: 1 }
+      ])
+    ).rejects.toMatchObject({
+      code: 'INVALID_STATE_TRANSITION',
+      adminDisposition: 'NO_TX'
+    })
+
+    // Review of one draft moves the whole passage group (stage B).
+    const firstDraft = edited.items[0]!
+    await service.requestReview(
+      own(),
+      firstDraft.versionId,
+      requestContentReviewRequestSchema.parse({ expectedRowVersion: 1 })
+    )
+    expect(
+      (
+        await Promise.all(edited.items.map((item) => readPlace(item.versionId)))
+      ).map((place) => place.status)
+    ).toEqual(['IN_REVIEW', 'IN_REVIEW'])
   })
 
   it('lets a single operator approve, withdraw and publish their own version (JLP-704)', async () => {
