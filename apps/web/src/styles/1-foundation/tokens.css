@@ -23,6 +23,12 @@
   --color-surface-sunken: 241 240 237;
   --color-disabled-background: 241 240 237;
   --color-disabled-text: 117 119 124;
+  /* #1182 passage furigana: the readings and the ふりがな switch. */
+  --color-furigana: var(--color-muted);
+  --color-furigana-toggle-off: var(--color-muted);
+  --color-furigana-toggle-on: var(--color-ink);
+  --color-furigana-toggle-box: var(--color-line-strong);
+  --color-furigana-toggle-disabled: var(--color-disabled-text);
   /* Correct is ink, never green (shape and color both differ from wrong). */
   --color-success: 31 32 35;
   --color-success-strong: 31 32 35;

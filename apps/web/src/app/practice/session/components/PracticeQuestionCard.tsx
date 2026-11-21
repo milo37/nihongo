@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement, ReactNode, RefObject } from 'react'
+import type { FuriganaSegment } from '@nihongo/contracts/question/get-question'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 import { RadioGroup } from '@nihongo/browser/common/components/RadioGroup'
 import type { StudyQuestionView } from '@app/practice/adapters/studySessionView'
 import { usePracticeNumberFormat } from '@app/practice/hooks/usePracticeNumberFormat'
+import { paragraphRuby } from '@app/practice/session/passageFurigana'
 import { passageParagraphs } from '@app/practice/session/passageParagraphs'
+import { setFurigana, useFurigana } from '@app/practice/session/useFurigana'
 import { SheetTail } from '@common/components/manuscript/ManuscriptSheet'
 import { JaText } from '@common/components/JaText'
 import { jaTextProps } from '@common/libs/jaSpacing'
@@ -45,17 +48,22 @@ const OPTION_GROUP_CLASS =
  * (the tail mark is the only red) and one block per source line.
  */
 const QuestionPassage = ({
+  furigana,
   isDecorative,
   passage,
   passageRef,
   push
 }: {
+  furigana: readonly FuriganaSegment[] | null | undefined
   isDecorative: boolean
   passage: string
   passageRef: RefObject<HTMLElement | null>
   push: QuestionPush | undefined
 }): ReactElement => {
   const { t } = useTranslation('practice')
+  const isFuriganaOn = useFurigana()
+  // #1182: [] (no kanji) and null (not reviewed yet) both have no readings.
+  const hasFurigana = Boolean(furigana?.length)
   return (
     <article
       ref={passageRef}
@@ -68,7 +76,24 @@ const QuestionPassage = ({
       <p className="study-passage-head">
         <SheetTail side="left" />
         {t('session.question.passageLabel')}
+        <button
+          aria-label={t('session.question.furiganaLabel')}
+          aria-pressed={hasFurigana && isFuriganaOn}
+          className="study-furigana-toggle"
+          disabled={!hasFurigana}
+          lang="ja"
+          type="button"
+          onClick={() => setFurigana(!isFuriganaOn)}
+        >
+          <span aria-hidden="true" className="study-furigana-box" />
+          ふりがな
+        </button>
       </p>
+      {isFuriganaOn && !hasFurigana ? (
+        <p className="study-furigana-none">
+          {t('session.question.furiganaNone')}
+        </p>
+      ) : null}
       <div
         className="study-passage-text tracking-[0.02em] text-ink"
         {...jaTextProps(passage)}
@@ -78,7 +103,14 @@ const QuestionPassage = ({
             key={`${index}-${paragraph.text}`}
             data-indent={paragraph.indent || undefined}
           >
-            <JaText text={paragraph.text} />
+            <JaText
+              ruby={
+                isFuriganaOn && furigana
+                  ? paragraphRuby(paragraph, furigana)
+                  : undefined
+              }
+              text={paragraph.text}
+            />
           </p>
         ))}
       </div>
@@ -172,6 +204,7 @@ export const PracticeQuestionCard = ({
     >
       {question.passage ? (
         <QuestionPassage
+          furigana={question.passageFurigana}
           isDecorative={isDecorative}
           passage={question.passage}
           passageRef={passageRef}

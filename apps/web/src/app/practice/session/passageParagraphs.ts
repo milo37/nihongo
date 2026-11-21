@@ -1,6 +1,8 @@
 export type PassageParagraph = {
   readonly text: string
   readonly indent: boolean
+  /** #1182: code point where `text` starts in the passage as sent. */
+  readonly start: number
 }
 
 // A line that opens with a list mark, a bracket or a number is part of a
@@ -15,12 +17,21 @@ const NO_INDENT_START = /^[\u3000■・●○※【(（0-9０-９\u2460-\u2473]/
  */
 export const passageParagraphs = (
   passage: string
-): readonly PassageParagraph[] =>
-  passage
-    .split('\n')
-    .map((line) => line.trimEnd().replace(/^[ \t]+/u, ''))
-    .filter((line) => line.trim().length > 0)
-    .map((text) => ({
-      text,
-      indent: text.includes('。') && !NO_INDENT_START.test(text)
-    }))
+): readonly PassageParagraph[] => {
+  const paragraphs: PassageParagraph[] = []
+  let lineStart = 0
+  for (const line of passage.split('\n')) {
+    const lineLength = Array.from(line).length
+    const text = line.trimEnd().replace(/^[ \t]+/u, '')
+    if (text.trim().length > 0) {
+      paragraphs.push({
+        text,
+        indent: text.includes('。') && !NO_INDENT_START.test(text),
+        // Only half-width spaces and tabs are cut from the front.
+        start: lineStart + (/^[ \t]*/u.exec(line)?.[0].length ?? 0)
+      })
+    }
+    lineStart += lineLength + 1
+  }
+  return paragraphs
+}

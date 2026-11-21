@@ -35,6 +35,73 @@
 .study-passage-text p[data-indent] {
   text-indent: 1em;
 }
+/* #1182: ふりがな at the head row's end. The 44px tap height overhangs
+   the 34px row equally above and below, so the row keeps its height. */
+.study-furigana-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  margin-block: -5px;
+  margin-left: auto;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: rgb(var(--color-furigana-toggle-off));
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.study-furigana-box {
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid rgb(var(--color-furigana-toggle-box));
+  border-radius: 2px;
+}
+.study-furigana-toggle[aria-pressed='true'] {
+  color: rgb(var(--color-furigana-toggle-on));
+}
+.study-furigana-toggle[aria-pressed='true'] .study-furigana-box {
+  border-color: rgb(var(--color-furigana-toggle-on));
+  background: rgb(var(--color-furigana-toggle-on));
+}
+/* The check: two sides of a box turned 45 degrees. */
+.study-furigana-toggle[aria-pressed='true'] .study-furigana-box::after {
+  content: '';
+  width: 7px;
+  height: 4px;
+  border: solid rgb(var(--color-surface));
+  border-width: 0 0 1.5px 1.5px;
+  transform: translateY(-1px) rotate(-45deg);
+}
+.study-furigana-toggle:disabled {
+  color: rgb(var(--color-furigana-toggle-disabled));
+  opacity: 0.6;
+  cursor: default;
+}
+.study-furigana-toggle:disabled .study-furigana-box {
+  border-color: rgb(var(--color-furigana-toggle-disabled));
+}
+/* Pulled up into the head row's bottom margin, under its line. */
+.study-furigana-none {
+  margin: -6px 0 12px;
+  color: rgb(var(--color-muted));
+  font-size: 13px;
+  line-height: 20px;
+}
+.study-passage-text ruby {
+  ruby-position: over;
+}
+.study-passage-text rt {
+  color: rgb(var(--color-furigana));
+  font-size: 0.5em;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0;
+}
 /* Options are ruled rows; the choice fills the number square (no card). */
 .study-session .study-answer-options label,
 .study-session .study-answer-options label:has(input:checked) {
