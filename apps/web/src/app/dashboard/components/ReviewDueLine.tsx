@@ -32,14 +32,14 @@ export const ReviewDueLine = (): ReactElement | null => {
             onClick={() => review.start(due.oldestToReview)}
           >
             {t('today.dueAction')}
-            <Icon name="chevron-right" className="size-4" />
+            <Icon name="chevron-right" className="home-more-chevron" />
           </Button>
         </p>
       ) : null}
       {review.notice === 'accountRestricted' ? (
-        <AccountRestrictedNotice className="mt-3" focusOnMount />
+        <AccountRestrictedNotice className="home-more-notice" focusOnMount />
       ) : review.notice ? (
-        <p className="mt-3 text-sm font-semibold text-danger" role="alert">
+        <p className="home-more-error" role="alert">
           {wrongNoteT(review.notice === 'empty' ? 'startEmpty' : 'startError')}
         </p>
       ) : null}

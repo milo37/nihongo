@@ -147,3 +147,67 @@
     font-size: 18px;
   }
 }
+
+/* #1186 C1: the card's former Tailwind utilities, same values and same layer. */
+@layer utilities {
+  .home-daily-options {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: calc(var(--spacing) * 2);
+    margin-top: calc(var(--spacing) * 5);
+  }
+  .home-daily-answer {
+    margin-top: calc(var(--spacing) * 5);
+    border-top-style: var(--tw-border-style);
+    border-top-width: var(--border-width-default);
+    border-color: rgb(var(--color-line) / 1);
+    padding-top: calc(var(--spacing) * 4);
+  }
+  .home-daily-verdict {
+    --tw-font-weight: var(--font-weight-bold);
+    font-weight: var(--font-weight-bold);
+    color: rgb(var(--color-ink) / 1);
+  }
+  .home-daily-explanation {
+    margin-top: calc(var(--spacing) * 2);
+    overflow-wrap: break-word;
+    font-size: 15px;
+    --tw-leading: calc(var(--spacing) * 7);
+    line-height: calc(var(--spacing) * 7);
+    color: rgb(var(--color-muted) / 1);
+  }
+  .home-daily-note {
+    margin-top: calc(var(--spacing) * 3);
+    font-size: var(--text-sm);
+    line-height: var(--tw-leading, var(--text-sm--line-height));
+    --tw-font-weight: var(--font-weight-semibold);
+    font-weight: var(--font-weight-semibold);
+    color: rgb(var(--color-subtle) / 1);
+  }
+  .home-daily-error {
+    margin-top: calc(var(--spacing) * 4);
+  }
+  .home-daily-error-text {
+    font-size: 15px;
+    color: rgb(var(--color-muted) / 1);
+  }
+  .home-daily-retry,
+  .home-daily-loading {
+    margin-top: calc(var(--spacing) * 3);
+  }
+  .home-daily-skeleton {
+    height: 140px;
+    border-radius: var(--radius-control);
+    background-color: rgb(var(--color-surface-muted) / 1);
+  }
+  .home-daily-skeleton-option {
+    height: 52px;
+    border-radius: var(--radius-control);
+    background-color: rgb(var(--color-surface-muted) / 1);
+  }
+  @media (width >= 40rem) {
+    .home-daily-skeleton {
+      height: 105px;
+    }
+  }
+}
