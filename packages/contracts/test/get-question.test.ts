@@ -69,6 +69,45 @@ describe('public practice question contract', () => {
     ).toBe(false)
   })
 
+  it('지문 id와 검수된 후리가나는 원문 코드 포인트 위치로 싣는다 (#1182)', () => {
+    const reading = {
+      ...response,
+      subject: 'READING',
+      questionType: 'SHORT_READING',
+      passage: '𠮷田さん\n駅の前',
+      passageId: '018f6b7a-1f4b-7d5e-8a91-4c27df9c10d1',
+      passageFurigana: [
+        { start: 0, length: 2, reading: 'よしだ' },
+        { start: 5, length: 1, reading: 'えき' },
+        { start: 7, length: 1, reading: 'まえ' }
+      ]
+    }
+    expect(publicPracticeQuestionSchema.parse(reading)).toEqual(reading)
+    expect(
+      publicPracticeQuestionSchema.parse({
+        ...reading,
+        passageId: null,
+        passageFurigana: null
+      }).passageFurigana
+    ).toBeNull()
+    for (const passageFurigana of [
+      // over the line break
+      [{ start: 4, length: 2, reading: 'えき' }],
+      // overlapping, past the end, katakana reading
+      [
+        { start: 5, length: 1, reading: 'えき' },
+        { start: 5, length: 1, reading: 'えき' }
+      ],
+      [{ start: 7, length: 2, reading: 'まえ' }],
+      [{ start: 5, length: 1, reading: 'エキ' }]
+    ]) {
+      expect(
+        publicPracticeQuestionSchema.safeParse({ ...reading, passageFurigana })
+          .success
+      ).toBe(false)
+    }
+  })
+
   it('독해 문제는 비어 있지 않은 passage를 요구한다', () => {
     for (const passage of [null, '   ']) {
       expect(
