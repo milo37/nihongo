@@ -292,6 +292,103 @@ export const loadPassageGroupVersionIds = async (
   return ids.includes(versionId) && ids.length > 1 ? ids : [versionId]
 }
 
+/**
+ * #1196: passages a new question may not join — one a passage edit has
+ * replaced, or one a passage edit opened whose group is not published yet.
+ * Keys are `${level}|${subject}|${md5(text)}`.
+ */
+export const loadClosedImportPassages = async (
+  client: Pick<PrismaClient, '$queryRawUnsafe'> | Prisma.TransactionClient,
+  passages: ReadonlyArray<{
+    readonly level: string
+    readonly subject: string
+    readonly text: string
+  }>
+): Promise<Set<string>> => {
+  if (passages.length === 0) return new Set()
+  const rows = await client.$queryRawUnsafe<Array<{ readonly key: string }>>(
+    `SELECT DISTINCT passage."level"::text || '|' ||
+         passage."subject"::text || '|' || passage."textMd5" AS "key"
+     FROM unnest($1::text[], $2::text[], $3::text[])
+       AS wanted("level", "subject", "text")
+     JOIN "ReadingPassage" AS passage
+       ON passage."level"::text = wanted."level"
+      AND passage."subject"::text = wanted."subject"
+      AND passage."textMd5" = md5(wanted."text")
+     WHERE EXISTS (
+         SELECT 1 FROM "ReadingPassage" AS replacement
+         WHERE replacement."replacesPassageId" = passage."id"
+       )
+       OR (passage."replacesPassageId" IS NOT NULL AND EXISTS (
+         SELECT 1
+         FROM "QuestionVersion" AS member
+         JOIN "Question" AS question ON question."id" = member."questionId"
+         LEFT JOIN "QuestionVersion" AS published
+           ON published."id" = question."currentPublishedVersionId"
+         WHERE member."passageId" = passage."id"
+           AND member."status" IN ('DRAFT', 'IN_REVIEW', 'CHANGES_REQUESTED',
+             'APPROVED')
+           AND question."lifecycleStatus" = 'ACTIVE'
+           AND published."passageId" IS DISTINCT FROM passage."id"
+       ))`,
+    passages.map((passage) => passage.level),
+    passages.map((passage) => passage.subject),
+    passages.map((passage) => passage.text)
+  )
+  return new Set(rows.map((row) => row.key))
+}
+
+/**
+ * #1196: a question version may not join a passage a passage edit replaced or
+ * left open, unless the question already uses that passage (its published
+ * version or its open version is on it).
+ */
+export const assertPassageOpenToJoin = async (
+  client: Pick<PrismaClient, '$queryRawUnsafe'>,
+  input: {
+    readonly questionId: string | null
+    readonly level: string
+    readonly subject: string
+    readonly passage: string | null
+  }
+): Promise<void> => {
+  if (input.passage === null) return
+  const closed = await loadClosedImportPassages(client, [
+    { level: input.level, subject: input.subject, text: input.passage }
+  ])
+  if (closed.size === 0) return
+  if (input.questionId !== null) {
+    const rows = await client.$queryRawUnsafe<Array<{ uses: boolean }>>(
+      `SELECT EXISTS (
+         SELECT 1
+         FROM "QuestionVersion" AS version
+         JOIN "Question" AS question ON question."id" = version."questionId"
+         JOIN "ReadingPassage" AS passage ON passage."id" = version."passageId"
+         WHERE question."id" = $1::uuid
+           AND passage."level"::text = $2 AND passage."subject"::text = $3
+           AND passage."textMd5" = md5($4)
+           AND (version."id" = question."currentPublishedVersionId"
+             OR version."status" IN ('DRAFT', 'IN_REVIEW',
+               'CHANGES_REQUESTED', 'APPROVED'))
+       ) AS "uses"`,
+      input.questionId,
+      input.level,
+      input.subject,
+      input.passage
+    )
+    if (rows[0]?.uses === true) return
+  }
+  throw repositoryFailure(
+    'VALIDATION_ERROR',
+    '이 지문은 지문 고치기로 바뀌었거나 고치는 중이라 새 문제를 붙일 수 없습니다.',
+    {
+      passage: [
+        '이 지문은 지문 고치기로 바뀌었거나 고치는 중이라 새 문제를 붙일 수 없습니다.'
+      ]
+    }
+  )
+}
+
 /** #1196: the passage being edited; null when it is missing. */
 export const loadReadingPassage = async (
   client: Pick<PrismaClient, '$queryRawUnsafe'>,

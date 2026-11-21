@@ -17,7 +17,10 @@ import { normalizeOptionComparison } from '@nihongo/domain/content/validators/v1
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 import { uniqueSorted } from './adminRepositoryCommon.js'
 import { repositoryFailure } from './adminQuestionCommandRepository.js'
-import { TAG_REFERENCE_SQL } from './adminQuestionCommandContent.js'
+import {
+  TAG_REFERENCE_SQL,
+  loadClosedImportPassages
+} from './adminQuestionCommandContent.js'
 
 import {
   type AdminImportValidationIssue,
@@ -75,52 +78,6 @@ export const loadExistingFingerprints = async (
     fingerprints
   )
   return new Set(rows.map((row) => row.contentFingerprint))
-}
-
-/**
- * #1196: passages a new question may not join — one a passage edit has
- * replaced, or one a passage edit opened whose group is not published yet.
- * Keys are `${level}|${subject}|${md5(text)}`.
- */
-export const loadClosedImportPassages = async (
-  client: Pick<PrismaClient, '$queryRawUnsafe'> | Prisma.TransactionClient,
-  passages: ReadonlyArray<{
-    readonly level: string
-    readonly subject: string
-    readonly text: string
-  }>
-): Promise<Set<string>> => {
-  if (passages.length === 0) return new Set()
-  const rows = await client.$queryRawUnsafe<Array<{ readonly key: string }>>(
-    `SELECT DISTINCT passage."level"::text || '|' ||
-         passage."subject"::text || '|' || passage."textMd5" AS "key"
-     FROM unnest($1::text[], $2::text[], $3::text[])
-       AS wanted("level", "subject", "text")
-     JOIN "ReadingPassage" AS passage
-       ON passage."level"::text = wanted."level"
-      AND passage."subject"::text = wanted."subject"
-      AND passage."textMd5" = md5(wanted."text")
-     WHERE EXISTS (
-         SELECT 1 FROM "ReadingPassage" AS replacement
-         WHERE replacement."replacesPassageId" = passage."id"
-       )
-       OR (passage."replacesPassageId" IS NOT NULL AND EXISTS (
-         SELECT 1
-         FROM "QuestionVersion" AS member
-         JOIN "Question" AS question ON question."id" = member."questionId"
-         LEFT JOIN "QuestionVersion" AS published
-           ON published."id" = question."currentPublishedVersionId"
-         WHERE member."passageId" = passage."id"
-           AND member."status" IN ('DRAFT', 'IN_REVIEW', 'CHANGES_REQUESTED',
-             'APPROVED')
-           AND question."lifecycleStatus" = 'ACTIVE'
-           AND published."passageId" IS DISTINCT FROM passage."id"
-       ))`,
-    passages.map((passage) => passage.level),
-    passages.map((passage) => passage.subject),
-    passages.map((passage) => passage.text)
-  )
-  return new Set(rows.map((row) => row.key))
 }
 
 const md5Hex = (text: string): string =>

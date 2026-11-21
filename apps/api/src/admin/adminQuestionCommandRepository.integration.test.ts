@@ -1906,6 +1906,53 @@ describe('ADMIN command TEST database integration', () => {
       )
     }
 
+    // A new question cannot join either passage, but a group draft keeps
+    // its own passage when edited (#1196 QA).
+    for (const text of [oldText, newText]) {
+      await expect(
+        service.createQuestion(own(), readingContent(`join-${text}`, text))
+      ).rejects.toMatchObject({
+        code: 'VALIDATION_ERROR',
+        adminDisposition: 'NO_TX',
+        fieldErrors: { passage: [expect.any(String)] }
+      })
+    }
+    const draftOptions = await adminClient.query<{
+      id: string
+      ordinal: number
+      text: string
+    }>(
+      `SELECT option."id", option."ordinal", option."text"
+       FROM "QuestionOption" AS option
+       WHERE option."questionVersionId" = $1
+       ORDER BY option."ordinal"`,
+      [edited.items[0]!.versionId]
+    )
+    const draftCorrect = await adminClient.query<{ id: string }>(
+      `SELECT "correctOptionId" AS "id" FROM "QuestionVersion" WHERE "id" = $1`,
+      [edited.items[0]!.versionId]
+    )
+    const firstContent = readingContent(`first-${suffix}`, newText)
+    const updated = await service.updateVersion(
+      own(),
+      edited.items[0]!.versionId,
+      updateQuestionVersionRequestSchema.parse({
+        level: firstContent.level,
+        subject: firstContent.subject,
+        questionType: firstContent.questionType,
+        difficulty: firstContent.difficulty,
+        questionText: firstContent.questionText,
+        passage: newText,
+        explanationKo: `${firstContent.explanationKo} 고침`,
+        explanationJa: null,
+        tagNames: firstContent.tagNames,
+        options: draftOptions.rows,
+        correctOptionId: draftCorrect.rows[0]!.id,
+        expectedRowVersion: 1
+      })
+    )
+    expect(updated.versionRowVersion).toBe(2)
+
     // A second edit waits until the open drafts are cleared.
     await expect(
       edit(passageId, `${newText}!`, await expectedQuestions())
@@ -1945,7 +1992,7 @@ describe('ADMIN command TEST database integration', () => {
     await service.requestReview(
       own(),
       firstDraft.versionId,
-      requestContentReviewRequestSchema.parse({ expectedRowVersion: 1 })
+      requestContentReviewRequestSchema.parse({ expectedRowVersion: 2 })
     )
     expect(
       (

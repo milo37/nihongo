@@ -61,6 +61,7 @@ import {
   resolveTags,
   loadQuestionTarget,
   assertPassageEditAllowed,
+  assertPassageOpenToJoin,
   loadPassageGroupVersionIds,
   loadVersionTarget,
   loadLifecycleVersions,
@@ -239,6 +240,12 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
       const versionId = randomUUID()
       try {
         tags = await resolveTags(client, request)
+        await assertPassageOpenToJoin(client, {
+          questionId: null,
+          level: request.level,
+          subject: request.subject,
+          passage: request.passage
+        })
         await assertNoVisibleCrossQuestionDuplicate(client, questionId, request)
       } catch (error: unknown) {
         throw mapPreflightError(error)
@@ -364,6 +371,12 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
         questionId,
         sourceVersionId: null,
         requestedPassage: request.passage
+      })
+      await assertPassageOpenToJoin(client, {
+        questionId,
+        level: request.level,
+        subject: request.subject,
+        passage: request.passage
       })
       await assertNoVisibleCrossQuestionDuplicate(client, questionId, request)
     } catch (error: unknown) {
@@ -714,6 +727,12 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
         questionId: target.questionId,
         sourceVersionId: versionId,
         requestedPassage: request.passage
+      })
+      await assertPassageOpenToJoin(client, {
+        questionId: target.questionId,
+        level: request.level,
+        subject: request.subject,
+        passage: request.passage
       })
       existingTags = await loadVersionTags(client, versionId)
       desiredTags = await resolveTags(client, request)
@@ -1409,6 +1428,11 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
                 await publishMember(transaction, authority, operation, member)
               )
             }
+            // Run the deferred group check now, so a split group fails as a
+            // statement the command maps, not as an unknown commit outcome.
+            await transaction.$executeRawUnsafe(
+              'SET CONSTRAINTS "QuestionVersion_passage_group_publication" IMMEDIATE'
+            )
             await finishOperation(transaction, operation.operationId)
             const own = published.find((row) => row.versionId === versionId)
             return toResult({
