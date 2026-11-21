@@ -163,6 +163,12 @@ export interface AdminQuestionCommandRepository {
     versionId: string,
     request: TransitionRequest
   ) => Promise<AdminQuestionMutationResult>
+  /** Current row versions and state of a version; null if it is missing. */
+  readVersionState: (versionId: string) => Promise<{
+    readonly questionRowVersion: number
+    readonly versionStatus: string
+    readonly versionRowVersion: number
+  } | null>
 }
 
 export interface AdminQuestionPublicationCommandRepository {
@@ -190,6 +196,7 @@ export interface AdminQuestionPublicationCommandRepository {
   readPublicationTarget: (versionId: string) => Promise<{
     readonly questionRowVersion: number
     readonly versionStatus: string
+    readonly versionRowVersion: number
   } | null>
 }
 
@@ -876,11 +883,28 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
       }
     }
 
+  const readVersionState: AdminQuestionCommandRepository['readVersionState'] =
+    async (versionId) => {
+      try {
+        const target = await loadVersionTarget(client, versionId)
+        return target
+          ? {
+              questionRowVersion: target.questionRowVersion,
+              versionStatus: target.versionStatus,
+              versionRowVersion: target.versionRowVersion
+            }
+          : null
+      } catch (error: unknown) {
+        throw mapPreflightError(error)
+      }
+    }
+
   const activeRepository: AdminQuestionCommandRepository = {
     createQuestion,
     createVersion,
     updateVersion,
-    transitionVersion
+    transitionVersion,
+    readVersionState
   }
   if (!includePublication) return activeRepository
 
@@ -1714,20 +1738,7 @@ const createPrismaAdminQuestionCommandRepositoryInternal = (
       }
     }
 
-  const readPublicationTarget: AdminQuestionPublicationCommandRepository['readPublicationTarget'] =
-    async (versionId) => {
-      try {
-        const target = await loadVersionTarget(client, versionId)
-        return target
-          ? {
-              questionRowVersion: target.questionRowVersion,
-              versionStatus: target.versionStatus
-            }
-          : null
-      } catch (error: unknown) {
-        throw mapPreflightError(error)
-      }
-    }
+  const readPublicationTarget = readVersionState
 
   return {
     ...activeRepository,
