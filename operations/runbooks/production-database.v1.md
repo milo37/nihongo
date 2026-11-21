@@ -153,8 +153,10 @@ when the release is not live): `rushWordLoadCommand` loads
 transaction and logs one JSON line, `rush_word_list_loaded` (created, updated,
 deleted, unchanged). The same file again gives no changes. If only this step
 fails, the deploy shows as failed but the new release is already live and the
-word table is unchanged: read the `rush_word_list_load_failed` line, fix the
-cause, then rerun only the loader on the host:
+word table is unchanged. The `rush_word_list_load_failed` line carries no
+cause, so check the usual ones (the word file fails its checks, the database or
+its `DatabaseCapability` row is not ready, two words swap keys), fix it, then
+rerun only the loader on the host:
 
 ```sh
 cd /opt/harumaru && docker compose --profile operator run --rm --no-deps -T \
