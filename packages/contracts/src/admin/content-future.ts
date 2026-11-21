@@ -43,6 +43,9 @@ const addIssue = (
   message: string
 ): void => context.addIssue({ code: 'custom', path, message })
 
+// JLP-733 3b (#646): a question carries one or two tags.
+export const ADMIN_QUESTION_TAG_LIMIT = 2
+
 const exactKeySchema = (maximum: number) =>
   z
     .string()
@@ -83,7 +86,7 @@ export const adminQuestionContentStructureInputSchema = z
     tagNames: z
       .array(createContentTextSchema({ maxScalars: 100 }))
       .min(1)
-      .max(2),
+      .max(ADMIN_QUESTION_TAG_LIMIT),
     options: z
       .array(
         z
