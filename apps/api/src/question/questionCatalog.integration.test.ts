@@ -672,10 +672,16 @@ describe('question catalog PostgreSQL integration', () => {
           WHERE "id" = ${questionId}::uuid
         `
       }
-      const check = () =>
-        transaction.$executeRawUnsafe(
+      // Runs the commit check now, then defers it again so the rest of the
+      // probe is checked only at the next check.
+      const check = async () => {
+        await transaction.$executeRawUnsafe(
           'SET CONSTRAINTS "QuestionVersion_passage_group_publication" IMMEDIATE'
         )
+        await transaction.$executeRawUnsafe(
+          'SET CONSTRAINTS "QuestionVersion_passage_group_publication" DEFERRED'
+        )
+      }
       const oldText = `#1196 지문 ${randomUUID()}`
       const firstV1 = await version(first, 1, oldText)
       const secondV1 = await version(second, 1, oldText)

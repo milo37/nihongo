@@ -416,7 +416,9 @@ const ADDED_PASSAGE_LINK_COLUMNS = new Set(['passageId', 'passageOrder'])
 const ADDED_PASSAGE_LINK_OBJECTS = new Set([
   'QuestionVersion_passageId_fkey',
   'QuestionVersion_passage_link_check',
-  'QuestionVersion_passageId_passageOrder_idx'
+  'QuestionVersion_passageId_passageOrder_idx',
+  // #1196: a constraint trigger is also a pg_constraint row.
+  'QuestionVersion_passage_group_publication'
 ])
 const ADDED_PASSAGE_LINK_TRIGGER = 'QuestionVersion_link_passage'
 /** #1196: the commit check that a shared passage group publishes together. */
