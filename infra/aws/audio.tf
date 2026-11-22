@@ -106,10 +106,11 @@ data "aws_iam_policy_document" "audio_generator" {
     }
   }
 
-  # Write only: the job cannot read or list what is already stored.
+  # GetObject lets the job HEAD a key and skip it; no ListBucket, so a missing
+  # key answers 403 rather than 404.
   statement {
     sid       = "WritePassageAudio"
-    actions   = ["s3:PutObject"]
+    actions   = ["s3:PutObject", "s3:GetObject"]
     resources = ["${aws_s3_bucket.audio.arn}/audio/passages/*"]
   }
 }
