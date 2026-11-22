@@ -351,3 +351,9 @@ variable "waf_rate_limited_alarm_per_5min" {
   type        = number
   default     = 100
 }
+
+variable "audio_polly_region" {
+  description = "The only region the audio generator role may call Polly in (#1183: Takumi neural, Tokyo)."
+  type        = string
+  default     = "ap-northeast-1"
+}

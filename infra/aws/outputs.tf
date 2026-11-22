@@ -46,3 +46,12 @@ output "legal_parameter_names" {
 output "caddy_ecr_repository_url" {
   value = try(aws_ecr_repository.caddy[0].repository_url, null)
 }
+
+output "audio_bucket" {
+  description = "Passage read-aloud audio (#1183); objects under passages/."
+  value       = aws_s3_bucket.audio.bucket
+}
+
+output "audio_generator_role_arn" {
+  value = aws_iam_role.audio_generator.arn
+}
