@@ -21,7 +21,7 @@ export const LevelChips = ({
     <div
       role="group"
       aria-label={t('levelLabel')}
-      className="mt-4 flex flex-wrap gap-2"
+      className="wrong-note-levels"
     >
       {[undefined, ...jlptLevelSchema.options].map((level) => {
         const isSelected = selected === level
@@ -30,11 +30,7 @@ export const LevelChips = ({
             key={level ?? 'all'}
             type="button"
             aria-pressed={isSelected}
-            className={`relative min-h-9 rounded-full border px-3 text-sm before:absolute before:-inset-1 before:content-[''] focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand ${
-              isSelected
-                ? 'border-brand-strong bg-brand-soft font-bold text-ink shadow-none'
-                : 'border-line bg-surface font-semibold text-muted'
-            }`}
+            className={`wrong-note-level${isSelected ? ' is-selected' : ''}`}
             onClick={() => onSelect(level)}
           >
             {level ?? t('levelAll')}

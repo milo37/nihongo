@@ -1,0 +1,16 @@
+/* @keyframes for manuscript (the animation lines stay with their rules). */
+@keyframes manuscript-pen {
+  from {
+    visibility: visible;
+    stroke-dashoffset: 1;
+  }
+  to {
+    visibility: visible;
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes manuscript-fill {
+  to {
+    opacity: 1;
+  }
+}

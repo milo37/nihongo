@@ -63,6 +63,22 @@ export const publicQuestionTagSchema = z
   })
   .strict()
 
+/**
+ * #1182: one ruby group over the passage. start and length count code points
+ * (Array.from) of the passage exactly as sent, line breaks included. The API
+ * sends groups in order, inside the passage and without a space or line
+ * break (apps/api passageFurigana.ts); the web bundle skips that check.
+ */
+export const furiganaSegmentSchema = z
+  .object({
+    start: z.number().int().min(0),
+    length: z.number().int().min(1),
+    reading: z.string().regex(/^[ぁ-ゖー]+$/u)
+  })
+  .strict()
+
+export type FuriganaSegment = z.infer<typeof furiganaSegmentSchema>
+
 export const publicPracticeQuestionSchema = z
   .object({
     id: opaqueIdSchema,
@@ -71,6 +87,10 @@ export const publicPracticeQuestionSchema = z
     subject: questionSubjectSchema,
     questionType: questionTypeSchema,
     passage: nonBlankTextSchema.nullable(),
+    // #986: questions on the same passage carry the same id.
+    passageId: opaqueIdSchema.nullable().optional(),
+    // #1182: reviewed passage furigana only; null when there is none.
+    passageFurigana: z.array(furiganaSegmentSchema).nullable().optional(),
     questionText: nonBlankTextSchema,
     options: z.array(publicQuestionOptionSchema).length(4),
     difficulty: questionDifficultySchema,

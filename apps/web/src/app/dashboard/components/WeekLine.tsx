@@ -39,7 +39,7 @@ export const WeekLine = ({
       })}
       <Link to="/account">
         {navigationT('my')}
-        <Icon name="chevron-right" className="size-4" />
+        <Icon name="chevron-right" className="home-more-chevron" />
       </Link>
     </p>
   )

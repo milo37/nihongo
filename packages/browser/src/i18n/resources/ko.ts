@@ -720,6 +720,8 @@ export const koCoreResources = {
       },
       question: {
         passageLabel: '지문',
+        furiganaLabel: '후리가나 보기',
+        furiganaNone: '이 지문은 아직 후리가나가 없어요.',
         numberLabel: '{{ordinal}}번 문제.',
         answerLegend: '보기'
       },

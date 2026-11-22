@@ -69,7 +69,8 @@ export const contentErrorSurfaceByOperation = {
   listAdminQuestionReports: 'GET_READ',
   getAdminQuestionReport: 'GET_READ',
   triageAdminQuestionReport: 'KEYLESS_MUTATION',
-  resolveAdminQuestionReport: 'KEYLESS_MUTATION'
+  resolveAdminQuestionReport: 'KEYLESS_MUTATION',
+  editReadingPassage: 'KEYLESS_MUTATION'
 } as const satisfies Readonly<Record<AdminOperation, ErrorSurface>>
 
 const duplicateRaceOperations = new Set<AdminOperation>([
@@ -196,7 +197,7 @@ export const assertErrorPolicyManifest = (): void => {
   const policyOperations = Object.keys(contentErrorSurfaceByOperation)
   if (JSON.stringify(manifestOperations) !== JSON.stringify(policyOperations)) {
     throw new Error(
-      'Error policy operation 순서는 canonical 28-operation manifest와 같아야 합니다.'
+      'Error policy operation 순서는 canonical 32-operation manifest와 같아야 합니다.'
     )
   }
 
@@ -220,7 +221,7 @@ export const assertErrorPolicyManifest = (): void => {
     counts.GET_READ !== 10 ||
     counts.VALIDATION_WRITE_ZERO !== 1 ||
     counts.APPLY_IMPORT !== 1 ||
-    counts.KEYLESS_MUTATION !== 17 ||
+    counts.KEYLESS_MUTATION !== 18 ||
     counts.EXPORT !== 1 ||
     counts.REAUTHENTICATION !== 1
   ) {

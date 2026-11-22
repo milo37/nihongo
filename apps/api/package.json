@@ -25,6 +25,9 @@
     "content:load-tags:compiled": "node dist/content/tagLoadCommand.js",
     "content:load-rush-words": "pnpm run db:generate && tsx src/content/rushWordLoadCommand.ts",
     "content:load-rush-words:compiled": "node dist/content/rushWordLoadCommand.js",
+    "content:generate-furigana": "tsx src/content/furiganaGenerateCommand.ts",
+    "content:load-furigana": "pnpm run db:generate && tsx src/content/furiganaLoadCommand.ts",
+    "content:load-furigana:compiled": "node dist/content/furiganaLoadCommand.js",
     "content:publish-question-set": "pnpm run db:generate && tsx src/content/questionSetPublishCommand.ts",
     "content:publish-question-set:compiled": "node dist/content/questionSetPublishCommand.js",
     "content:publish-explanation-ja": "pnpm run db:generate && tsx src/content/explanationJaPublishCommand.ts",
@@ -68,6 +71,7 @@
   "devDependencies": {
     "@types/node": "22.15.32",
     "@types/pg": "8.21.0",
+    "lindera-wasm-nodejs-ipadic": "2.0.0",
     "prisma": "7.9.1",
     "tsx": "4.23.12",
     "typescript": "5.8.3",

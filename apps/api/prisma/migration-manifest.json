@@ -83,6 +83,18 @@
     {
       "name": "20261126090000_rush_kanji_word",
       "checksum": "3d15f89384e102567122995daf651c5a9b7bda7eaef7ba9010b3aa8e90301b2d"
+    },
+    {
+      "name": "20261127090000_reading_passage",
+      "checksum": "49868a96dd5122046e0b9bd5bb4e254feb4bab5770869b6d2a70dd61921ed87c"
+    },
+    {
+      "name": "20261128090000_furigana",
+      "checksum": "7e2b4bf7e397270d6897b9abc3574aead41cb55e97b8fde2d969c6e3983a3305"
+    },
+    {
+      "name": "20261129090000_shared_passage_group",
+      "checksum": "97b33c6c32fa00922195dd2af6ca29ad7653b18017a006ddb80df800d97398ff"
     }
   ]
 }

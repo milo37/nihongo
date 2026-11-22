@@ -7,6 +7,8 @@ import type {
   ArchiveAdminQuestionRequest,
   CreateAdminQuestionRequest,
   CreateAdminQuestionVersionRequest,
+  EditReadingPassageRequest,
+  EditReadingPassageResponse,
   ExportAdminQuestionsRequest,
   PublishQuestionVersionRequest,
   RequestContentReviewRequest,
@@ -56,6 +58,12 @@ export interface AdminQuestionCommandService {
     versionId: string,
     request: UpdateQuestionVersionRequest
   ) => Promise<AdminQuestionMutationResult>
+  /** #1196: edits a shared passage for its whole group in one transaction. */
+  editPassage: (
+    authority: AdminCommandAuthority,
+    passageId: string,
+    request: EditReadingPassageRequest
+  ) => Promise<EditReadingPassageResponse>
   requestReview: (
     authority: AdminCommandAuthority,
     versionId: string,
@@ -174,6 +182,8 @@ export const createAdminQuestionCommandService = (
     execute(() => repository.createVersion(authority, questionId, request)),
   updateVersion: (authority, versionId, request) =>
     execute(() => repository.updateVersion(authority, versionId, request)),
+  editPassage: (authority, passageId, request) =>
+    execute(() => repository.editPassage(authority, passageId, request)),
   requestReview: (authority, versionId, request) =>
     execute(() =>
       repository.transitionVersion(
@@ -252,6 +262,21 @@ const approveBatchItem = async (
   anyApproved: boolean
 ): Promise<ApproveQuestionVersionBatchResponse['items'][number]> => {
   try {
+    // #1196: an earlier item's shared passage group already approved this
+    // one in this batch.
+    if (anyApproved) {
+      const state = await repository.readVersionState(questionVersionId)
+      if (
+        state?.versionStatus === 'APPROVED' &&
+        state.versionRowVersion === expectedRowVersion + 1
+      ) {
+        return {
+          questionVersionId,
+          result: 'APPROVED',
+          rowVersion: state.versionRowVersion
+        }
+      }
+    }
     const approved = await repository.transitionVersion(
       'approveQuestionVersion',
       authority,
@@ -315,6 +340,19 @@ const publishBatchItem = async (
     const target = await repository.readPublicationTarget(questionVersionId)
     if (!target) {
       return { questionVersionId, result: 'NOT_FOUND', rowVersion: null }
+    }
+    // #1196: an earlier item's shared passage group already published this
+    // one in this batch.
+    if (
+      anyPublished &&
+      target.versionStatus === 'PUBLISHED' &&
+      target.versionRowVersion === expectedRowVersion + 1
+    ) {
+      return {
+        questionVersionId,
+        result: 'PUBLISHED',
+        rowVersion: target.versionRowVersion
+      }
     }
     // Only APPROVED versions can be published; the DB rejects the rest late.
     if (target.versionStatus !== 'APPROVED') {

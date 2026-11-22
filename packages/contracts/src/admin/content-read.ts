@@ -215,9 +215,48 @@ export const isApplicableQuestionContentType = (
   )
 }
 
+/**
+ * #1196: the questions that share the version's reading passage. With
+ * editing true they are exactly the versions that review, approval and
+ * publication move together.
+ */
+export const adminPassageGroupSchema = z
+  .object({
+    passageId: opaqueIdSchema,
+    questions: z
+      .array(
+        z
+          .object({
+            questionId: opaqueIdSchema,
+            questionRowVersion: positiveSafeIntegerSchema,
+            passageOrder: z.number().int().min(1),
+            level: jlptLevelSchema,
+            questionType: questionTypeSchema,
+            questionTextPreview: createContentTextSchema({ maxScalars: 160 }),
+            openVersionId: opaqueIdSchema.nullable(),
+            openVersionStatus: questionVersionStatusSchema
+              .extract(['DRAFT', 'IN_REVIEW', 'CHANGES_REQUESTED', 'APPROVED'])
+              .nullable()
+          })
+          .strict()
+          .refine(
+            (item) =>
+              (item.openVersionId === null) ===
+              (item.openVersionStatus === null),
+            { path: ['openVersionStatus'] }
+          )
+      )
+      .min(1)
+      .max(20),
+    editing: z.boolean()
+  })
+  .strict()
+
 export const previewQuestionVersionResponseSchema = z
   .object({
     question: publicPracticeQuestionSchema,
+    // Absent from servers before #1196; null when the version has no passage.
+    passageGroup: adminPassageGroupSchema.nullable().optional(),
     adminAnswer: z
       .object({
         correctOptionId: opaqueIdSchema,
@@ -1463,6 +1502,7 @@ export type ListAdminQuestionsResponse = z.output<
 export type GetAdminQuestionResponse = AdminQuestionDetail
 export type ListAdminTagsQuery = z.output<typeof listAdminTagsQuerySchema>
 export type ListAdminTagsResponse = z.output<typeof listAdminTagsResponseSchema>
+export type AdminPassageGroup = z.output<typeof adminPassageGroupSchema>
 export type PreviewQuestionVersionResponse = z.output<
   typeof previewQuestionVersionResponseSchema
 >

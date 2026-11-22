@@ -78,9 +78,15 @@ const failure = (code: 'VERSION_CONFLICT' | 'INVALID_STATE_TRANSITION') =>
   })
 
 const createApprovalRepository = (
-  failures: Readonly<Record<string, () => Error>>
+  failures: Readonly<Record<string, () => Error>>,
+  approvedByGroup: ReadonlySet<string> = new Set()
 ): AdminQuestionCommandRepository =>
   ({
+    readVersionState: async (versionId: string) => ({
+      questionRowVersion: 1,
+      versionStatus: approvedByGroup.has(versionId) ? 'APPROVED' : 'IN_REVIEW',
+      versionRowVersion: approvedByGroup.has(versionId) ? 2 : 1
+    }),
     transitionVersion: async (
       operation: string,
       _authority: unknown,
@@ -130,6 +136,50 @@ describe('approveVersionBatch (#709)', () => {
     await expect(
       service.approveVersionBatch(authority, { items: items('v1', 'v2') })
     ).rejects.toMatchObject({ code: 'SERVICE_UNAVAILABLE' })
+  })
+})
+
+describe('shared passage groups in a batch (#1196)', () => {
+  it('reports a version its group already approved earlier in the batch', async () => {
+    const service = createAdminQuestionCommandService(
+      createApprovalRepository({ v2: unexpected }, new Set(['v2']))
+    )
+
+    await expect(
+      service.approveVersionBatch(authority, { items: items('v1', 'v2') })
+    ).resolves.toEqual({
+      approvedCount: 2,
+      items: [
+        { questionVersionId: 'v1', result: 'APPROVED', rowVersion: 3 },
+        { questionVersionId: 'v2', result: 'APPROVED', rowVersion: 2 }
+      ]
+    })
+  })
+
+  it('reports a version its group already published earlier in the batch', async () => {
+    const calls: string[] = []
+    const service = createAdminQuestionPublicationCommandService({
+      readPublicationTarget: async () => ({
+        questionRowVersion: 1,
+        versionStatus: calls.length > 0 ? 'PUBLISHED' : 'APPROVED',
+        versionRowVersion: calls.length > 0 ? 2 : 1
+      }),
+      publishVersion: async (_authority: unknown, versionId: string) => {
+        calls.push(versionId)
+        return { versionRowVersion: 2 }
+      }
+    } as unknown as AdminQuestionPublicationCommandRepository)
+
+    await expect(
+      service.publishVersionBatch(authority, { items: items('v1', 'v2') })
+    ).resolves.toEqual({
+      publishedCount: 2,
+      items: [
+        { questionVersionId: 'v1', result: 'PUBLISHED', rowVersion: 2 },
+        { questionVersionId: 'v2', result: 'PUBLISHED', rowVersion: 2 }
+      ]
+    })
+    expect(calls).toEqual(['v1'])
   })
 })
 

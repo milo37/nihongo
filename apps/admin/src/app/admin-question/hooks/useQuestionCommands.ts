@@ -20,7 +20,9 @@ import {
 } from '@app/admin-question/queries/questionWorkflowQueries'
 import type { QuestionWrite } from '@app/admin-question/detail/questionWorkflow'
 const fences = new WeakMap<object, AuthActorTransitionFence>()
-const assertAdmin = (fence: AuthActorTransitionFence | undefined): void => {
+export const assertAdmin = (
+  fence: AuthActorTransitionFence | undefined
+): void => {
   if (!fence || fence.role !== 'ADMIN')
     throw new AuthTransitionSupersededError()
   assertCurrentAuthActorTransitionFence(
@@ -28,7 +30,7 @@ const assertAdmin = (fence: AuthActorTransitionFence | undefined): void => {
     useAppStore.getState().currentUser
   )
 }
-const assertOnline = (): void => {
+export const assertOnline = (): void => {
   if (!onlineManager.isOnline())
     throw Object.assign(new Error('Offline command refused'), {
       isOffline: true

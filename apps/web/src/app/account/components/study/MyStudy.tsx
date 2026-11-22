@@ -5,16 +5,13 @@ import type { ReactElement } from 'react'
 import type { JlptLevel } from '@nihongo/browser/common/types/domain'
 import { useGetDashboardStats } from '@app/dashboard/hooks/useGetDashboardStats'
 import {
-  getRateTier,
-  RateTierMark,
-  rateTierFillClass,
-  rateTierTextClass
-} from '@app/account/components/study/RateTier'
+  MyStudySummary,
+  SubjectRateList
+} from '@app/account/components/study/MyStudySections'
 import { RecentSessionList } from '@app/account/components/study/RecentSessionList'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { getButtonClassName } from '@nihongo/browser/common/components/Button'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
-import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 
 const Skeleton = (): ReactElement => (
   <div className="grid gap-3" aria-hidden="true">
@@ -29,13 +26,11 @@ const Skeleton = (): ReactElement => (
 // JLP-853: everything counts only the given level (the target level).
 export const MyStudy = ({ level }: { level: JlptLevel }): ReactElement => {
   const { t, i18n } = useTranslation('account')
-  const { t: commonT } = useTranslation('common')
   const locale = resolveUiLocale(i18n.resolvedLanguage)
   const headingId = useId()
   // Opening My page always shows a current read.
   const stats = useGetDashboardStats({ level, myPage: true })
   const data = stats.data
-  const totalTier = data ? getRateTier(data.correctRate) : 'high'
   return (
     <section className="account-section grid gap-4" aria-labelledby={headingId}>
       <h2 id={headingId} className="text-lg font-bold">
@@ -75,86 +70,8 @@ export const MyStudy = ({ level }: { level: JlptLevel }): ReactElement => {
         </div>
       ) : (
         <>
-          <p className="flex flex-wrap items-baseline gap-x-3 tabular-nums">
-            <span>
-              <span className="text-[32px] font-bold leading-tight">
-                {formatNumber(data.totalAnsweredCount, locale)}
-              </span>{' '}
-              <span className="text-sm text-muted">{t('study.totalUnit')}</span>
-            </span>
-            {/* A drawn rule, not a glyph: axe checks text contrast even
-                when it is aria-hidden. */}
-            <span aria-hidden="true" className="h-6 w-px self-center bg-line" />
-            <span className="inline-flex items-baseline gap-1.5">
-              <span className="text-sm text-muted">{t('study.rate')}</span>
-              <span
-                className={`text-[32px] font-bold leading-tight ${rateTierTextClass[totalTier]}`}
-              >
-                {formatNumber(Math.round(data.correctRate), locale)}%
-              </span>
-              <RateTierMark
-                tier={totalTier}
-                className={`size-5 self-center ${rateTierTextClass[totalTier]}`}
-              />
-              <span className="sr-only">{t(`study.tier.${totalTier}`)}</span>
-            </span>
-          </p>
-          <ul className="grid">
-            {data.subjectStats.map((stat) => {
-              const tier = getRateTier(stat.correctRate)
-              const rate = Math.round(stat.correctRate)
-              return (
-                <li
-                  key={stat.subject}
-                  className="grid min-h-[52px] gap-2 border-b border-line py-3"
-                >
-                  <span className="flex items-center justify-between gap-3">
-                    <span className="text-[15px] font-semibold">
-                      {commonT(`taxonomy.subjects.${stat.subject}`)}
-                    </span>
-                    {stat.answeredCount === 0 ? (
-                      <span className="text-caption text-muted">
-                        {t('study.noRecord')}
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-2 tabular-nums">
-                        <span className="text-[13px] text-muted">
-                          {formatNumber(stat.answeredCount, locale)}
-                          {t('study.totalUnit')}
-                        </span>
-                        <span className="sr-only">{t('study.rate')}</span>
-                        <RateTierMark
-                          tier={tier}
-                          className={`size-4 ${rateTierTextClass[tier]}`}
-                        />
-                        <span
-                          className={`text-xl font-bold ${rateTierTextClass[tier]}`}
-                        >
-                          {formatNumber(rate, locale)}%
-                        </span>
-                        <span className="sr-only">
-                          {t(`study.tier.${tier}`)}
-                        </span>
-                      </span>
-                    )}
-                  </span>
-                  {stat.answeredCount === 0 ? null : (
-                    <span
-                      aria-hidden="true"
-                      className="block h-1 overflow-hidden rounded-sm bg-line"
-                    >
-                      <span
-                        className={`block h-full rounded-sm ${rateTierFillClass[tier]}`}
-                        style={{
-                          width: `${Math.min(100, Math.max(0, rate))}%`
-                        }}
-                      />
-                    </span>
-                  )}
-                </li>
-              )
-            })}
-          </ul>
+          <MyStudySummary data={data} locale={locale} />
+          <SubjectRateList data={data} locale={locale} />
           <RecentSessionList sessions={data.recentStudySessions} />
         </>
       )}

@@ -58,6 +58,53 @@ describe('select study candidates', () => {
     ])
   })
 
+  it('keeps the questions of one passage together, in passage order (#986)', () => {
+    const candidates = [
+      { questionId: 'q1', questionVersionId: 'v1', isRecent: false },
+      {
+        questionId: 'q5',
+        questionVersionId: 'v5',
+        isRecent: false,
+        passageId: 'p1',
+        passageOrder: 1
+      },
+      {
+        questionId: 'q2',
+        questionVersionId: 'v2',
+        isRecent: false,
+        passageId: 'p1',
+        passageOrder: 2
+      },
+      { questionId: 'q3', questionVersionId: 'v3', isRecent: false },
+      {
+        questionId: 'q4',
+        questionVersionId: 'v4',
+        isRecent: true,
+        passageId: 'p2',
+        passageOrder: 1
+      },
+      {
+        questionId: 'q6',
+        questionVersionId: 'v6',
+        isRecent: false,
+        passageId: 'p2',
+        passageOrder: 2
+      }
+    ]
+    // Units sorted by their first question: [q1] [q3] [q5 q2]; p2 is recent.
+    const selected = selectRandomStudyCandidates(candidates, 4, () => 0)
+    expect(selected.map(({ questionId }) => questionId)).toEqual([
+      'q3',
+      'q5',
+      'q2',
+      'q1'
+    ])
+    // A pair that does not fit the last place is skipped whole, so the set
+    // comes out one short.
+    const three = selectRandomStudyCandidates(candidates, 3, () => 0.99)
+    expect(three.map(({ questionId }) => questionId)).toEqual(['q1', 'q3'])
+  })
+
   it('ranks WRONG_NOTE candidates by last wrong, count, and stable ID', () => {
     const selected = selectWrongNoteStudyCandidates(
       [

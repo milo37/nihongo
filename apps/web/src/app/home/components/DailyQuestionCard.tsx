@@ -200,7 +200,7 @@ const DailyQuestionBody = ({
         <div
           role="group"
           aria-label={t('today.dailyOptionsLabel')}
-          className="mt-5 grid grid-cols-2 gap-2"
+          className="home-daily-options"
         >
           {question.options.map((option) => {
             const isCorrect = picked !== null && option.id === correct?.id
@@ -223,21 +223,18 @@ const DailyQuestionBody = ({
         </div>
         <div aria-live="polite">
           {picked ? (
-            <div className="mt-5 border-t border-line pt-4">
-              <p className="font-bold text-ink">
+            <div className="home-daily-answer">
+              <p className="home-daily-verdict">
                 {picked === correct?.id
                   ? t('today.dailyCorrect')
                   : t('today.dailyIncorrect', { label: correct?.label })}
               </p>
-              <p
-                className="mt-2 break-words text-[15px] leading-7 text-muted"
-                lang={showJa ? 'ja' : 'ko'}
-              >
+              <p className="home-daily-explanation" lang={showJa ? 'ja' : 'ko'}>
                 <span className="sr-only">{t('today.dailyExplanation')}: </span>
                 {showJa ? explanationJa : question.explanationKo}
               </p>
               {explanationJa || i18n.resolvedLanguage !== 'ja' ? null : (
-                <p className="mt-3 text-sm font-semibold text-subtle">
+                <p className="home-daily-note">
                   {tCommon('explanation.japaneseUnavailable')}
                 </p>
               )}
@@ -285,10 +282,10 @@ export const DailyQuestionCard = ({
         <div className="home-daily-top">
           {head}
           {daily.isError ? (
-            <div className="mt-4" role="alert">
-              <p className="text-[15px] text-muted">{t('today.dailyError')}</p>
+            <div className="home-daily-error" role="alert">
+              <p className="home-daily-error-text">{t('today.dailyError')}</p>
               <Button
-                className="mt-3"
+                className="home-daily-retry"
                 variant="ghost"
                 onClick={() => void daily.refetch()}
               >
@@ -298,17 +295,17 @@ export const DailyQuestionCard = ({
           ) : (
             // A card skeleton holds the height, so the card does not jump when
             // the question arrives (G, #801 design).
-            <div className="mt-3" role="status">
+            <div className="home-daily-loading" role="status">
               <span className="sr-only">{t('today.dailyLoading')}</span>
               <div
                 aria-hidden="true"
-                className="ui-skeleton h-[140px] rounded-control bg-surface-muted sm:h-[105px]"
+                className="ui-skeleton home-daily-skeleton"
               />
-              <div aria-hidden="true" className="mt-5 grid grid-cols-2 gap-2">
+              <div aria-hidden="true" className="home-daily-options">
                 {[0, 1, 2, 3].map((index) => (
                   <div
                     key={index}
-                    className="ui-skeleton h-[52px] rounded-control bg-surface-muted"
+                    className="ui-skeleton home-daily-skeleton-option"
                   />
                 ))}
               </div>

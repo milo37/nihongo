@@ -752,6 +752,8 @@ export const jaCoreResources = {
       },
       question: {
         passageLabel: '文章',
+        furiganaLabel: 'ふりがなを表示',
+        furiganaNone: 'この文章にはまだふりがながありません。',
         numberLabel: '{{ordinal}}番の問題。',
         answerLegend: '選択肢'
       },

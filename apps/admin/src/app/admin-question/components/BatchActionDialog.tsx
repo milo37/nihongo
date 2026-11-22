@@ -23,7 +23,7 @@ export const BatchActionDialog = ({
   readonly batch: QuestionBatch
   readonly fallbackFocusRef: RefObject<HTMLElement | null>
 }): ReactElement => {
-  const { t, presentError } = useAdminPresentation()
+  const { t, presentError, joinSentences } = useAdminPresentation()
   const { locale } = useUiLocale()
   const reauth = useAdminReauth()
   const { dialogTargets: selected, mutation } = batch
@@ -106,7 +106,7 @@ export const BatchActionDialog = ({
           className="mt-4 rounded-sm text-sm font-semibold text-red-700"
           role="alert"
         >
-          {presentError(mutation.error)} {t(`${prefix}.notDone`)}
+          {joinSentences(presentError(mutation.error), t(`${prefix}.notDone`))}
         </p>
       ) : null}
     </Dialog>

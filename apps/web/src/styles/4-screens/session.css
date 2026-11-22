@@ -1,4 +1,5 @@
-/* B4 solve screen (HANDOFF §3, §4, §6). Loaded with the session page only. */
+/* Practice session (solve screen). */
+/* B4 solve screen (HANDOFF §3, §4, §6). */
 .study-session-sheet {
   flex: 1;
   min-width: 0;
@@ -14,7 +15,6 @@
   font-weight: 700;
   color: rgb(var(--color-ink));
 }
-
 /* JLP-865 r2: the passage head is one row, tail mark + label over a gray
    line; the text has no rules and indents prose lines only. */
 .study-passage-head {
@@ -35,7 +35,73 @@
 .study-passage-text p[data-indent] {
   text-indent: 1em;
 }
-
+/* #1182: ふりがな at the head row's end. The 44px tap height overhangs
+   the row above and below; -6px keeps the row at its 34px (-5px made 35). */
+.study-furigana-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  margin-block: -6px;
+  margin-left: auto;
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: rgb(var(--color-furigana-toggle-off));
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.study-furigana-box {
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid rgb(var(--color-furigana-toggle-box));
+  border-radius: 2px;
+}
+.study-furigana-toggle[aria-pressed='true'] {
+  color: rgb(var(--color-furigana-toggle-on));
+}
+.study-furigana-toggle[aria-pressed='true'] .study-furigana-box {
+  border-color: rgb(var(--color-furigana-toggle-on));
+  background: rgb(var(--color-furigana-toggle-on));
+}
+/* The check: two sides of a box turned 45 degrees. */
+.study-furigana-toggle[aria-pressed='true'] .study-furigana-box::after {
+  content: '';
+  width: 7px;
+  height: 4px;
+  border: solid rgb(var(--color-surface));
+  border-width: 0 0 1.5px 1.5px;
+  transform: translateY(-1px) rotate(-45deg);
+}
+.study-furigana-toggle:disabled {
+  color: rgb(var(--color-furigana-toggle-disabled));
+  opacity: 0.6;
+  cursor: default;
+}
+.study-furigana-toggle:disabled .study-furigana-box {
+  border-color: rgb(var(--color-furigana-toggle-disabled));
+}
+/* Pulled up into the head row's bottom margin, under its line. */
+.study-furigana-none {
+  margin: -6px 0 12px;
+  color: rgb(var(--color-muted));
+  font-size: 13px;
+  line-height: 20px;
+}
+.study-passage-text ruby {
+  ruby-position: over;
+}
+.study-passage-text rt {
+  color: rgb(var(--color-furigana));
+  font-size: 0.5em;
+  font-weight: 400;
+  line-height: 1;
+  letter-spacing: 0;
+}
 /* Options are ruled rows; the choice fills the number square (no card). */
 .study-session .study-answer-options label,
 .study-session .study-answer-options label:has(input:checked) {
@@ -80,13 +146,11 @@ label:has(input:checked) .study-option-text {
   font-size: 22px;
   line-height: 1.6;
 }
-
 /* Jump window: current = ink 2px square like the strip; the shared 4px
    answered underline is heavy for a 44px square (design-858). */
 .ui-question-jump[data-answered='true'] {
   text-decoration-thickness: 2px;
 }
-
 @media (min-width: 1024px) {
   .study-session-bar,
   .study-session-meta {
@@ -130,7 +194,6 @@ label:has(input:checked) .study-option-text {
     font-size: 21px;
   }
 }
-
 /* JLP-870: moving between questions pushes the old one out and brings the
    new one in, full width, 300ms. Only the passage and question blocks move;
    the header, the notices and the action bar (fixed on phones) stay put. */
@@ -160,32 +223,4 @@ label:has(input:checked) .study-option-text {
 }
 .study-push[data-push='out-prev'] {
   animation-name: study-push-to-right;
-}
-@keyframes study-push-from-right {
-  from {
-    transform: translateX(100vw);
-  }
-}
-@keyframes study-push-from-left {
-  from {
-    transform: translateX(-100vw);
-  }
-}
-@keyframes study-push-to-left {
-  to {
-    transform: translateX(-100vw);
-  }
-}
-@keyframes study-push-to-right {
-  to {
-    transform: translateX(100vw);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .study-push[data-push] {
-    animation: none;
-  }
-  .study-push-leaving {
-    display: none;
-  }
 }

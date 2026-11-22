@@ -193,6 +193,9 @@ importers:
       '@types/pg':
         specifier: 8.21.0
         version: 8.21.0
+      lindera-wasm-nodejs-ipadic:
+        specifier: 2.0.0
+        version: 2.0.0
       prisma:
         specifier: 7.9.1
         version: 7.9.1(@types/node@22.15.32)(@types/react-dom@19.0.4(@types/react@19.0.12))(@types/react@19.0.12)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@5.8.3)
@@ -2778,6 +2781,9 @@ packages:
   lightningcss@1.33.0:
     resolution: {integrity: sha512-WkUDrojuJs0xkgGf2udWxa3yGBRxPtxUkB79i6aCZLRgc7PM8fZe9TosfPDcvEpQZbuFASnHYmRLBLUbmLOIIA==}
     engines: {node: '>= 12.0.0'}
+
+  lindera-wasm-nodejs-ipadic@2.0.0:
+    resolution: {integrity: sha512-ocuJn9MUA7v5wuXRSADgzLu2Hn2//GmAYHARXSkTbMOCk3bv4Rh1L39XjjJ05286HL0YWfpPo67XrxLMJ/zIhQ==}
 
   locate-path@6.0.0:
     resolution: {integrity: sha512-iPZK6eYjbxRu3uB4/WZ3EsEIMJFMqAoopl3R+zuq0UjcAm/MO6KCweDgPfP3elTztoKP3KtnVHxTn2NHBSDVUw==}
@@ -6068,6 +6074,8 @@ snapshots:
       lightningcss-linux-x64-musl: 1.33.0
       lightningcss-win32-arm64-msvc: 1.33.0
       lightningcss-win32-x64-msvc: 1.33.0
+
+  lindera-wasm-nodejs-ipadic@2.0.0: {}
 
   locate-path@6.0.0:
     dependencies:

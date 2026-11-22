@@ -30,6 +30,14 @@ import {
   planRushWordLoad,
   type RushWordRow
 } from '../content/rushWordList.js'
+import {
+  FURIGANA_PASSAGE_ROWS_SQL,
+  applyFuriganaLoad,
+  planFuriganaLoad,
+  type FuriganaPassageRow
+} from '../content/furiganaLoad.js'
+import { md5 } from '../content/furiganaPassageList.js'
+import { toPassageFurigana } from './passageFurigana.js'
 import { createPrismaQuestionRepository } from './questionRepository.js'
 import {
   createPrismaRushKanjiPairsRepository,
@@ -62,6 +70,10 @@ const database = createDatabaseRuntime(
   isCurrentSourceIntegration
     ? { migrationProfile: 'current', startupRole: 'nihongo_app' }
     : {}
+)
+const readingPassageMigrationFile = new URL(
+  '../../prisma/migrations/20261127090000_reading_passage/migration.sql',
+  import.meta.url
 )
 const fixtureDatabase = fixtureDatabaseUrl
   ? createDatabaseRuntime(fixtureDatabaseUrl)
@@ -371,6 +383,555 @@ describe('question catalog PostgreSQL integration', () => {
         levels
       )
     ).toEqual([])
+  })
+
+  it('독해 지문은 지문 표에 한 번만 두고, migration 옮기기 앞뒤 수가 같다 (#986)', async () => {
+    // The probe changes the table as the fixture owner, in a rolled-back
+    // transaction; only the current-source run has that connection.
+    if (!isCurrentSourceIntegration) return
+    await expect(
+      database.client.$executeRaw`
+        INSERT INTO "ReadingPassage" ("level", "subject", "text", "textMd5")
+        VALUES ('N5', 'READING', 'app-write', md5('app-write'))
+      `
+    ).rejects.toThrow(/permission denied/u)
+    const migration = await readFile(readingPassageMigrationFile, 'utf8')
+    const backfill = migration
+      .slice(
+        migration.indexOf('-- backfill:start'),
+        migration.indexOf('-- backfill:end')
+      )
+      .split(/;\n/u)
+      .filter((sql) => sql.replace(/^--.*$/gmu, '').trim() !== '')
+    type Counts = {
+      withPassage: number
+      linked: number
+      texts: number
+      passages: number
+      broken: number
+    }
+    const counts = async (
+      transaction: Prisma.TransactionClient
+    ): Promise<Counts> => {
+      const [row] = await transaction.$queryRaw<Counts[]>`
+        SELECT
+          count(*) FILTER (WHERE "passage" IS NOT NULL)::integer
+            AS "withPassage",
+          count(*) FILTER (WHERE "passageId" IS NOT NULL)::integer AS "linked",
+          count(DISTINCT ("level", "subject", "passage")) FILTER (
+            WHERE "passage" IS NOT NULL
+          )::integer AS "texts",
+          (SELECT count(*)::integer FROM "ReadingPassage") AS "passages",
+          count(*) FILTER (
+            WHERE ("passage" IS NULL) <> ("passageId" IS NULL)
+              OR ("passageId" IS NULL) <> ("passageOrder" IS NULL)
+          )::integer AS "broken"
+        FROM "QuestionVersion"
+      `
+      return row!
+    }
+
+    const createProbe = async (transaction: Prisma.TransactionClient) => {
+      // Two imported questions on one passage; the import lists the larger
+      // id first, so the place follows the import, not the id.
+      const [first, second] = [randomUUID(), randomUUID()].sort().reverse() as [
+        string,
+        string
+      ]
+      const text = `#986 지문 ${randomUUID()}`
+      for (const id of [first, second]) {
+        await transaction.question.create({
+          data: { id, createdByLabelSnapshot: 'SYSTEM_SEED' }
+        })
+      }
+      await transaction.$executeRaw`
+        INSERT INTO "QuestionImportResult" (
+          "importId", "actorUserId", "requestDigest", "response"
+        ) VALUES (
+          ${randomUUID()}::uuid, ${randomUUID()}::uuid, ${'0'.repeat(64)},
+          ${JSON.stringify({
+            response: { items: [{ questionId: first }, { questionId: second }] }
+          })}::jsonb
+        )
+      `
+      const createVersion = (
+        questionId: string,
+        versionNumber: number,
+        passage: string
+      ) =>
+        transaction.questionVersion.create({
+          data: {
+            id: randomUUID(),
+            questionId,
+            versionNumber,
+            createdByLabelSnapshot: 'SYSTEM_SEED',
+            level: 'N3',
+            subject: 'READING',
+            questionType: 'SHORT_READING',
+            passage,
+            questionText: `#986 ${questionId} ${versionNumber}`,
+            explanationKo: '같은 지문 묶음',
+            difficulty: 'EASY'
+          },
+          select: { id: true, passageId: true, passageOrder: true }
+        })
+      return { first, second, text, createVersion }
+    }
+    const rollback = new Error('reading passage probe rolled back')
+
+    // 1) The migration's own backfill SQL on versions without a link, as
+    // before the migration: every passage version is linked, one row per
+    // text, in import order. Table changes come first, before any row
+    // write queues the deferred content checks.
+    await expect(
+      fixtureDatabase.client.$transaction(
+        async (transaction) => {
+          const seeded = await counts(transaction)
+          expect(seeded.withPassage).toBeGreaterThan(0)
+          expect(seeded).toMatchObject({
+            linked: seeded.withPassage,
+            passages: seeded.texts,
+            broken: 0
+          })
+          await transaction.$executeRawUnsafe(
+            'ALTER TABLE "QuestionVersion" DISABLE TRIGGER "QuestionVersion_link_passage"'
+          )
+          await transaction.$executeRawUnsafe(
+            'ALTER TABLE "QuestionVersion" DROP CONSTRAINT "QuestionVersion_passage_link_check"'
+          )
+          await transaction.$executeRawUnsafe(
+            'UPDATE "QuestionVersion" SET "passageId" = NULL, "passageOrder" = NULL'
+          )
+          await transaction.$executeRawUnsafe('DELETE FROM "ReadingPassage"')
+          const { first, second, text, createVersion } =
+            await createProbe(transaction)
+          const secondVersion = await createVersion(second, 1, text)
+          const firstVersion = await createVersion(first, 1, text)
+          const before = await counts(transaction)
+          expect(before).toMatchObject({
+            withPassage: seeded.withPassage + 2,
+            texts: seeded.texts + 1,
+            linked: 0,
+            passages: 0
+          })
+
+          for (const sql of backfill) {
+            await transaction.$executeRawUnsafe(sql)
+          }
+          expect(await counts(transaction)).toEqual({
+            ...before,
+            linked: before.withPassage,
+            passages: before.texts,
+            broken: 0
+          })
+          const placed = await transaction.questionVersion.findMany({
+            where: { id: { in: [firstVersion.id, secondVersion.id] } },
+            select: { id: true, passageId: true, passageOrder: true }
+          })
+          expect(
+            Object.fromEntries(placed.map((row) => [row.id, row.passageOrder]))
+          ).toEqual({ [firstVersion.id]: 1, [secondVersion.id]: 2 })
+          expect(new Set(placed.map((row) => row.passageId)).size).toBe(1)
+          throw rollback
+        },
+        { timeout: 60_000 }
+      )
+    ).rejects.toBe(rollback)
+
+    // 2) After the migration the trigger links every write: a question new
+    // to a passage takes the next place, a new version keeps its question's
+    // place, a caller cannot move the link, and a changed text links to its
+    // own row while the old row keeps its text.
+    await expect(
+      fixtureDatabase.client.$transaction(
+        async (transaction) => {
+          const { first, second, text, createVersion } =
+            await createProbe(transaction)
+          const secondV1 = await createVersion(second, 1, text)
+          const firstV1 = await createVersion(first, 1, text)
+          expect(secondV1.passageOrder).toBe(1)
+          expect(firstV1).toMatchObject({
+            passageId: secondV1.passageId,
+            passageOrder: 2
+          })
+          // A new draft of a published question keeps that question's
+          // place under its passage.
+          const [published] = await transaction.$queryRaw<
+            Array<{
+              questionId: string
+              versionNumber: number
+              level: 'N5' | 'N4' | 'N3' | 'N2' | 'N1'
+              subject: 'READING' | 'GRAMMAR'
+              questionType: 'SHORT_READING'
+              passage: string
+              passageId: string
+              passageOrder: number
+            }>
+          >`
+            SELECT version."questionId", version."versionNumber",
+              version."level", version."subject", version."questionType",
+              version."passage", version."passageId",
+              version."passageOrder"::integer AS "passageOrder"
+            FROM "QuestionVersion" AS version
+            JOIN "Question" AS question
+              ON question."currentPublishedVersionId" = version."id"
+            WHERE version."passage" IS NOT NULL
+            ORDER BY version."id"
+            LIMIT 1
+          `
+          const draft = await transaction.questionVersion.create({
+            data: {
+              id: randomUUID(),
+              questionId: published!.questionId,
+              versionNumber: published!.versionNumber + 1,
+              createdByLabelSnapshot: 'SYSTEM_SEED',
+              level: published!.level,
+              subject: published!.subject,
+              questionType: published!.questionType,
+              passage: published!.passage,
+              questionText: '#986 새 버전',
+              explanationKo: '같은 자리',
+              difficulty: 'EASY'
+            },
+            select: { id: true, passageId: true, passageOrder: true }
+          })
+          expect(draft).toMatchObject({
+            passageId: published!.passageId,
+            passageOrder: published!.passageOrder
+          })
+          expect(
+            await transaction.questionVersion.update({
+              where: { id: draft.id },
+              data: { passageId: null, passageOrder: 9 },
+              select: { passageId: true, passageOrder: true }
+            })
+          ).toEqual({
+            passageId: published!.passageId,
+            passageOrder: published!.passageOrder
+          })
+          const edited = await transaction.questionVersion.update({
+            where: { id: draft.id },
+            data: { passage: `${published!.passage} 고침` },
+            select: { passageId: true, passageOrder: true }
+          })
+          expect(edited.passageId).not.toBe(published!.passageId)
+          expect(edited.passageOrder).toBe(1)
+          expect(
+            await transaction.readingPassage.findUniqueOrThrow({
+              where: { id: published!.passageId },
+              select: { text: true }
+            })
+          ).toEqual({ text: published!.passage })
+          expect((await counts(transaction)).broken).toBe(0)
+          throw rollback
+        },
+        { timeout: 60_000 }
+      )
+    ).rejects.toBe(rollback)
+  })
+
+  it('공유 지문을 고치면 새 지문이 옛 지문을 대신하고 순서를 잇고, 묶음은 함께만 공개된다 (#1196)', async () => {
+    // Probe rows are written as the fixture owner in rolled-back
+    // transactions; only the current-source run has that connection.
+    if (!isCurrentSourceIntegration) return
+    const rollback = new Error('shared passage probe rolled back')
+    const probe = async (transaction: Prisma.TransactionClient) => {
+      const [first, second] = [randomUUID(), randomUUID()]
+      for (const id of [first, second]) {
+        await transaction.question.create({
+          data: { id, createdByLabelSnapshot: 'SYSTEM_SEED' }
+        })
+      }
+      const version = (
+        questionId: string,
+        versionNumber: number,
+        passage: string
+      ) =>
+        transaction.questionVersion.create({
+          data: {
+            id: randomUUID(),
+            questionId,
+            versionNumber,
+            createdByLabelSnapshot: 'SYSTEM_SEED',
+            level: 'N3',
+            subject: 'READING',
+            questionType: 'SHORT_READING',
+            passage,
+            questionText: `#1196 ${questionId} ${versionNumber}`,
+            explanationKo: '공유 지문 묶음',
+            difficulty: 'EASY'
+          },
+          select: { id: true, passageId: true, passageOrder: true }
+        })
+      const publish = async (questionId: string, versionId: string) => {
+        await transaction.$executeRaw`
+          UPDATE "QuestionVersion" SET "status" = 'RETIRED',
+            "retirementKind" = 'PUBLISHED_RETIREMENT',
+            "retiredAt" = clock_timestamp()
+          WHERE "questionId" = ${questionId}::uuid AND "status" = 'PUBLISHED'
+        `
+        await transaction.$executeRaw`
+          UPDATE "QuestionVersion" SET "status" = 'PUBLISHED',
+            "publishedAt" = clock_timestamp()
+          WHERE "id" = ${versionId}::uuid
+        `
+        await transaction.$executeRaw`
+          UPDATE "Question" SET "currentPublishedVersionId" = ${versionId}::uuid
+          WHERE "id" = ${questionId}::uuid
+        `
+      }
+      // Runs the commit check now, then defers it again so the rest of the
+      // probe is checked only at the next check.
+      const check = async () => {
+        await transaction.$executeRawUnsafe(
+          'SET CONSTRAINTS "QuestionVersion_passage_group_publication" IMMEDIATE'
+        )
+        await transaction.$executeRawUnsafe(
+          'SET CONSTRAINTS "QuestionVersion_passage_group_publication" DEFERRED'
+        )
+      }
+      const oldText = `#1196 지문 ${randomUUID()}`
+      const firstV1 = await version(first, 1, oldText)
+      const secondV1 = await version(second, 1, oldText)
+      await publish(first, firstV1.id)
+      await publish(second, secondV1.id)
+      await check()
+      // The second question is edited first and still keeps place 2.
+      const newText = `${oldText} 고침`
+      const secondV2 = await version(second, 2, newText)
+      const firstV2 = await version(first, 2, newText)
+      return {
+        first,
+        second,
+        firstV1,
+        secondV1,
+        firstV2,
+        secondV2,
+        publish,
+        check
+      }
+    }
+
+    await expect(
+      fixtureDatabase.client.$transaction(async (transaction) => {
+        const { firstV1, firstV2, secondV2 } = await probe(transaction)
+        expect(firstV1.passageOrder).toBe(1)
+        expect(secondV2.passageId).not.toBe(firstV1.passageId)
+        expect(secondV2.passageId).toBe(firstV2.passageId)
+        expect([firstV2.passageOrder, secondV2.passageOrder]).toEqual([1, 2])
+        const [replaced] = await transaction.$queryRaw<
+          { replacesPassageId: string | null }[]
+        >`
+          SELECT "replacesPassageId"::text AS "replacesPassageId"
+          FROM "ReadingPassage" WHERE "id" = ${secondV2.passageId}::uuid
+        `
+        expect(replaced?.replacesPassageId).toBe(firstV1.passageId)
+        throw rollback
+      })
+    ).rejects.toBe(rollback)
+
+    // Publishing one question of the group alone splits it: refused.
+    await expect(
+      fixtureDatabase.client.$transaction(async (transaction) => {
+        const { second, secondV2, publish, check } = await probe(transaction)
+        await publish(second, secondV2.id)
+        await check()
+      })
+    ).rejects.toThrow('A shared reading passage group must publish together.')
+
+    // Publishing the whole group together passes.
+    await expect(
+      fixtureDatabase.client.$transaction(async (transaction) => {
+        const { first, second, firstV2, secondV2, publish, check } =
+          await probe(transaction)
+        await publish(second, secondV2.id)
+        await publish(first, firstV2.id)
+        await check()
+        throw rollback
+      })
+    ).rejects.toBe(rollback)
+  })
+
+  it('후리가나 표는 대상 하나에 한 줄, 검수 표시는 함께, 앱은 읽기만 한다 (#1182)', async () => {
+    // The probe writes as the fixture owner in a rolled-back transaction;
+    // only the current-source run has that connection.
+    if (!isCurrentSourceIntegration) return
+    const text = '駅の前に図書館があります。（#1182 probe）'
+    await expect(
+      database.client.$executeRaw`
+        INSERT INTO "Furigana" ("target", "passageId", "textMd5", "segments",
+          "origin")
+        VALUES ('PASSAGE', gen_random_uuid(), md5(${text}), '[]', 'AUTO')
+      `
+    ).rejects.toThrow(/permission denied/u)
+
+    const rollback = new Error('furigana probe rolled back')
+    await expect(
+      fixtureDatabase.client.$transaction(async (transaction) => {
+        const [passage] = await transaction.$queryRaw<{ id: string }[]>`
+          INSERT INTO "ReadingPassage" ("level", "subject", "text", "textMd5")
+          VALUES ('N5', 'READING', ${text}, md5(${text}))
+          RETURNING "id"
+        `
+        const insert = (
+          target: string,
+          origin: string,
+          reviewedBy: string | null
+        ) => transaction.$executeRaw`
+          INSERT INTO "Furigana" ("target", "passageId", "textMd5",
+            "segments", "origin", "reviewedAt", "reviewedBy")
+          VALUES (${target}::"FuriganaTarget", ${passage?.id}::uuid,
+            md5(${text}), '[{"start":0,"length":1,"reading":"えき"}]',
+            ${origin}::"FuriganaOrigin",
+            CASE WHEN ${origin}::text = 'REVIEWED' THEN clock_timestamp() END,
+            ${reviewedBy}::text)
+        `
+        // Each refused write rolls back to a savepoint so the probe goes on.
+        const refuses = async (
+          write: () => Promise<unknown>,
+          constraint: string
+        ) => {
+          await transaction.$executeRawUnsafe('SAVEPOINT furigana_probe')
+          await expect(write()).rejects.toThrow(constraint)
+          await transaction.$executeRawUnsafe(
+            'ROLLBACK TO SAVEPOINT furigana_probe'
+          )
+        }
+        // Only the key that matches the target; a review says when and who.
+        await refuses(
+          () => insert('QUESTION_TEXT', 'AUTO', null),
+          'Furigana_target_check'
+        )
+        await refuses(
+          () => insert('PASSAGE', 'REVIEWED', null),
+          'Furigana_review_check'
+        )
+        await refuses(
+          () => insert('PASSAGE', 'AUTO', 'content'),
+          'Furigana_review_check'
+        )
+        expect(await insert('PASSAGE', 'REVIEWED', 'content')).toBe(1)
+        // One row per passage, and the passage cannot go while it has one.
+        await refuses(
+          () => insert('PASSAGE', 'AUTO', null),
+          'Furigana_passageId_key'
+        )
+        await refuses(
+          () => transaction.$executeRaw`
+            DELETE FROM "ReadingPassage" WHERE "id" = ${passage?.id}::uuid
+          `,
+          'Furigana_passageId_fkey'
+        )
+        throw rollback
+      })
+    ).rejects.toBe(rollback)
+    // Migrations create the table empty; only the operator load fills it.
+    expect(
+      await database.client.$queryRaw<{ count: bigint }[]>`
+        SELECT count(*) FROM "Furigana"
+      `
+    ).toEqual([{ count: 0n }])
+  })
+
+  it('검수된 지문 후리가나만 넣고, 학습 문제 읽기는 그 글자에 맞는 검수본만 돌려준다 (#1182)', async () => {
+    // The load writes as the fixture owner in a rolled-back transaction;
+    // only the current-source run has that connection.
+    if (!isCurrentSourceIntegration) return
+    const rollback = new Error('furigana load rolled back')
+    await expect(
+      fixtureDatabase.client.$transaction(
+        async (transaction) => {
+          const rows = () =>
+            transaction.$queryRawUnsafe<FuriganaPassageRow[]>(
+              FURIGANA_PASSAGE_ROWS_SQL
+            )
+          const passages = await transaction.$queryRaw<
+            { id: string; level: string; subject: string; text: string }[]
+          >`
+            SELECT "id"::text AS "id", "level"::text AS "level",
+              "subject"::text AS "subject", "text"
+            FROM "ReadingPassage" WHERE "text" ~ '[一-龯]'
+            ORDER BY "id" LIMIT 2
+          `
+          const [reviewed, draft] = passages
+          if (!reviewed || !draft) {
+            throw new Error('The seed holds too few reading passages.')
+          }
+          // One reading on the first kanji of the passage.
+          const ruby = (text: string) => {
+            const characters = Array.from(text)
+            const index = characters.findIndex((char) => /[一-龯]/u.test(char))
+            characters[index] = `{${characters[index]}|か}`
+            return characters.join('')
+          }
+          const entry = (
+            passage: typeof reviewed,
+            reviewedBy: string | null
+          ) => ({
+            level: passage.level as 'N5',
+            subject: passage.subject as 'READING',
+            textMd5: md5(passage.text),
+            ruby: ruby(passage.text),
+            reviewedBy,
+            reviewedAt: reviewedBy === null ? null : '2026-11-21'
+          })
+          const list = {
+            schemaVersion: 1 as const,
+            generator: 'integration',
+            passages: [entry(reviewed, 'content'), entry(draft, null)]
+          }
+          const plan = planFuriganaLoad(list, await rows())
+          expect(plan).toMatchObject({
+            reviewed: 1,
+            missingPassage: 0,
+            unchanged: 0
+          })
+          await applyFuriganaLoad(
+            async (sql, values) =>
+              await transaction.$executeRawUnsafe(sql, ...values),
+            plan
+          )
+          // A second load of the same file changes nothing.
+          expect(planFuriganaLoad(list, await rows())).toEqual({
+            steps: [],
+            unchanged: 1,
+            reviewed: 1,
+            missingPassage: 0
+          })
+
+          // The study session read: reviewed passage only, for its own text.
+          const read = async (passageId: string) => {
+            const version = await transaction.questionVersion.findFirstOrThrow({
+              where: { passageId },
+              select: {
+                passage: true,
+                readingPassage: {
+                  select: {
+                    furigana: {
+                      select: { origin: true, textMd5: true, segments: true }
+                    }
+                  }
+                }
+              }
+            })
+            return toPassageFurigana(
+              version.passage,
+              version.readingPassage?.furigana
+            )
+          }
+          const segments = await read(reviewed.id)
+          expect(segments).toHaveLength(1)
+          expect(
+            Array.from(reviewed.text)
+              .slice(segments?.[0]?.start, (segments?.[0]?.start ?? 0) + 1)
+              .join('')
+          ).toMatch(/^[一-龯]$/u)
+          expect(await read(draft.id)).toBeNull()
+          throw rollback
+        },
+        { timeout: 60_000 }
+      )
+    ).rejects.toBe(rollback)
   })
 
   it('오늘의 한 문제 원고지 글자 수는 SQL과 웹 카드가 같게 센다 (#1087)', async () => {

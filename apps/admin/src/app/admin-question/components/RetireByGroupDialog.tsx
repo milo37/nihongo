@@ -27,7 +27,7 @@ export const RetireByGroupDialog = ({
   readonly retire: QuestionRetire
   readonly fallbackFocusRef: RefObject<HTMLElement | null>
 }): ReactElement => {
-  const { t, presentError } = useAdminPresentation()
+  const { t, presentError, joinSentences } = useAdminPresentation()
   const { locale } = useUiLocale()
   const reauth = useAdminReauth()
   const { group, targets, mutation } = retire
@@ -162,7 +162,10 @@ export const RetireByGroupDialog = ({
           className="mt-4 rounded-sm text-sm font-semibold text-red-700"
           role="alert"
         >
-          {presentError(mutation.error)} {t('questionList.retire.notDone')}
+          {joinSentences(
+            presentError(mutation.error),
+            t('questionList.retire.notDone')
+          )}
         </p>
       ) : null}
     </Dialog>

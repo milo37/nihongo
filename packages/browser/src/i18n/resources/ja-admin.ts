@@ -148,8 +148,8 @@ export const jaAdminResources = {
     updatedAt: '更新日時',
     details: '詳細',
     rowVersion: 'rowVersion',
-    retryAfter: '{{message}} {{seconds}}秒後にもう一度お試しください。',
-    retryAfterMinutes: '{{message}} {{minutes}}分後にもう一度お試しください。',
+    retryAfter: '{{message}}{{seconds}}秒後にもう一度お試しください。',
+    retryAfterMinutes: '{{message}}{{minutes}}分後にもう一度お試しください。',
     pausedTitle: 'オフラインでは最新状態を確認できません',
     pausedDescription:
       '接続が復旧したら再確認してください。最新状態を確認するまで管理者の変更操作は利用できません。',
@@ -824,7 +824,30 @@ export const jaAdminResources = {
     noteLimit: 'メモは{{formattedCount}}文字以下にしてください。',
     commandWarning:
       'この操作は学習者への表示と記録に影響する場合があります。結果を確認してから実行してください。',
-    commandComplete: '{{command}}を完了しました。'
+    commandComplete: '{{command}}を完了しました。',
+    sharedPassage: {
+      title: '共有の文章',
+      shared:
+        'この文章は{{count}}問で共有しています。文章を直すとすべて一緒に変わります。',
+      editing:
+        '直した文章で作った下書き{{count}}件が一つのまとまりです。レビュー依頼・承認・公開はまとめて行われます。',
+      thisQuestion: '(この問題)',
+      blocked:
+        '次の問題に未完了のバージョンがあるため、今は文章を直せません。先に整理してください。',
+      edit: '文章を直す',
+      editLabel: '新しい文章',
+      editHint:
+        '保存すると、{{count}}問それぞれにこの文章で新しい下書きができます。',
+      save: '下書き{{count}}件を作成',
+      cancel: 'キャンセル',
+      saved: '{{count}}問に直した文章で新しい下書きを作成しました。',
+      conflict:
+        'ほかの管理者が先に変更しました。最新の内容を読み込んだので、もう一度確認してください。',
+      textError: '文字が変わっていないか、同じ文字の文章がすでにあります。',
+      locked:
+        '複数の問題で共有している文章なので、ここでは直せません。問題詳細の「文章を直す」を使ってください。',
+      together: '{{command}}({{count}}件まとめて)'
+    }
   },
   import: {
     title: '問題の下書きをインポート',

@@ -1,0 +1,54 @@
+/* Reduced motion: every override in one place, last. */
+@media (prefers-reduced-motion: reduce) {
+  .omikuji-dialog,
+  .omikuji-sheet,
+  .omikuji-result,
+  .omikuji-yay,
+  .omikuji-button.is-pressed {
+    animation: none;
+  }
+  .maru-fox.is-lift,
+  .maru-fox.is-thud {
+    animation: none;
+  }
+  .maru-fox.is-yay {
+    animation: maru-show 0s forwards;
+  }
+  .maru-ring {
+    animation: maru-show 0.2s forwards;
+  }
+  .stamp-board-chevron {
+    transition: none;
+  }
+  .result-stamp-note {
+    animation: none;
+    opacity: 1;
+  }
+  .home-daily-write .home-daily-char {
+    animation: none;
+  }
+  .manuscript-pen {
+    animation: none;
+    stroke-dashoffset: 0;
+    visibility: visible;
+  }
+  .manuscript-fill {
+    animation: none;
+    opacity: 1;
+  }
+  .rush-fox.is-lift,
+  .rush-fox.is-thud,
+  .rush-word.is-ng .rush-box > span,
+  .rush-flash {
+    animation: none;
+  }
+  .rush-mark {
+    animation: maru-show 0s forwards;
+  }
+  .study-push[data-push] {
+    animation: none;
+  }
+  .study-push-leaving {
+    display: none;
+  }
+}

@@ -60,7 +60,7 @@ export const MemberActions = ({
   onCompleted,
   onReload
 }: MemberActionsProps): ReactElement => {
-  const { t, presentError } = useAdminPresentation()
+  const { t, presentError, joinSentences } = useAdminPresentation()
   const { addToast } = useToast()
   const actorId = useAppStore((state) => state.currentUser?.id)
   const reauth = useAdminReauth()
@@ -248,8 +248,10 @@ export const MemberActions = ({
           </div>
         </dl>
         <p className="mt-4 text-sm leading-6">
-          {t('members.detail.restrictHint')}{' '}
-          {t('members.detail.confirm.preserved')}
+          {joinSentences(
+            t('members.detail.restrictHint'),
+            t('members.detail.confirm.preserved')
+          )}
         </p>
       </Dialog>
     </section>

@@ -1,0 +1,141 @@
+/* Wrong notes: the review center frame, tabs, level chips and notices. */
+@layer utilities {
+  /* Review center frame and heading. */
+  .wrong-note-center {
+    margin-inline: auto;
+    width: 100%;
+    max-width: 1040px;
+    padding-inline: 1rem;
+    padding-block: 1.5rem;
+  }
+  .wrong-note-rule {
+    margin-top: 0.75rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    color: rgb(var(--color-muted));
+  }
+  .wrong-note-start-narrow {
+    margin-top: 1rem;
+    min-height: 3rem;
+    width: 100%;
+  }
+  .wrong-note-start-row {
+    margin-top: 1.5rem;
+    display: none;
+    justify-content: flex-end;
+  }
+  .wrong-note-block {
+    margin-top: 1.5rem;
+  }
+  .wrong-note-title {
+    font-size: var(--text-2xl);
+    line-height: var(--text-2xl--line-height);
+    font-weight: var(--font-weight-bold);
+    color: rgb(var(--color-ink));
+  }
+  @media (width >= 40rem) {
+    .wrong-note-start-row {
+      display: flex;
+    }
+    .wrong-note-start-narrow {
+      display: none;
+    }
+    .wrong-note-center {
+      padding-inline: 1.5rem;
+      padding-block: 2.5rem;
+    }
+  }
+  @media (width >= 64rem) {
+    .wrong-note-center {
+      padding-inline: 0px;
+    }
+  }
+  /* Tabs: wrong / reviewed. */
+  .wrong-note-tabs {
+    margin-top: 1rem;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-bottom-style: solid;
+    border-bottom-width: var(--border-width-default);
+    border-color: rgb(var(--color-line));
+  }
+  .wrong-note-tab {
+    margin-bottom: -1px;
+    min-height: 3rem;
+    border-bottom-style: solid;
+    border-bottom-width: 3px;
+    border-color: transparent;
+    font-size: 15px;
+    font-weight: var(--font-weight-semibold);
+    color: rgb(var(--color-muted));
+  }
+  .wrong-note-tab.is-selected {
+    font-weight: var(--font-weight-bold);
+    color: rgb(var(--color-ink));
+    border-color: rgb(var(--color-line-interactive));
+  }
+  .wrong-note-tab:focus-visible {
+    outline-style: solid;
+    outline-width: 2px;
+    outline-color: rgb(var(--color-brand));
+  }
+  /* Level chips; the ::before widens the tap area. */
+  .wrong-note-level {
+    position: relative;
+    min-height: 2.25rem;
+    border-radius: calc(infinity * 1px);
+    border-style: solid;
+    border-width: var(--border-width-default);
+    border-color: rgb(var(--color-line));
+    background-color: rgb(var(--color-surface));
+    padding-inline: 0.75rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    font-weight: var(--font-weight-semibold);
+    color: rgb(var(--color-muted));
+  }
+  .wrong-note-levels {
+    margin-top: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .wrong-note-level.is-selected {
+    border-color: rgb(var(--color-brand-strong));
+    background-color: rgb(var(--color-brand-soft));
+    font-weight: var(--font-weight-bold);
+    color: rgb(var(--color-ink));
+    --tw-shadow: 0 0 #0000;
+    box-shadow:
+      var(--tw-inset-shadow), var(--tw-inset-ring-shadow),
+      var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow);
+  }
+  .wrong-note-level::before {
+    position: absolute;
+    inset: -0.25rem;
+    content: '';
+  }
+  .wrong-note-level:focus-visible {
+    outline-style: solid;
+    outline-width: 2px;
+    outline-color: rgb(var(--color-brand));
+  }
+  /* Notices under the tabs. */
+  .wrong-note-notice {
+    margin-top: 1rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    font-weight: var(--font-weight-semibold);
+    color: rgb(var(--color-muted));
+  }
+  .wrong-note-restricted {
+    margin-top: 1rem;
+  }
+  .wrong-note-error {
+    margin-top: 1rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    font-weight: var(--font-weight-semibold);
+    color: rgb(var(--color-danger));
+  }
+}

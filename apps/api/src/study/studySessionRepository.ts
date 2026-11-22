@@ -25,6 +25,7 @@ import type {
   QuestionOptionRecord,
   QuestionTagRecord
 } from '../question/questionRepository.js'
+import { toPassageFurigana } from '../question/passageFurigana.js'
 import { createCurrentReviewCandidatePredicate } from '../review/currentReviewCandidateQuery.js'
 import {
   MAX_TRANSACTION_ATTEMPTS,
@@ -293,6 +294,14 @@ export const loadStudySessionRecord = async (
             subject: true,
             questionType: true,
             passage: true,
+            passageId: true,
+            readingPassage: {
+              select: {
+                furigana: {
+                  select: { origin: true, textMd5: true, segments: true }
+                }
+              }
+            },
             questionText: true,
             difficulty: true
           }
@@ -347,6 +356,11 @@ export const loadStudySessionRecord = async (
           subject: version.subject,
           questionType: version.questionType,
           passage: version.passage,
+          passageId: version.passageId,
+          passageFurigana: toPassageFurigana(
+            version.passage,
+            version.readingPassage?.furigana
+          ),
           questionText: version.questionText,
           difficulty: version.difficulty,
           options: toOptions(optionsByVersionId.get(version.id) ?? []),
@@ -372,7 +386,10 @@ type ExistingGuestRecord = {
   id: string
 }
 
-type RandomCandidateRow = SelectedQuestion
+type RandomCandidateRow = SelectedQuestion & {
+  passageId: string | null
+  passageOrder: number | null
+}
 
 type BookmarkCandidateRow = SelectedQuestion & {
   createdAt: Date
@@ -462,7 +479,9 @@ const loadEligibleCatalog = async (
   await transaction.$queryRaw<RandomCandidateRow[]>(Prisma.sql`
     SELECT
       question."id" AS "questionId",
-      version."id" AS "questionVersionId"
+      version."id" AS "questionVersionId",
+      version."passageId",
+      version."passageOrder"::integer AS "passageOrder"
     FROM "Question" AS question
     JOIN "QuestionVersion" AS version
       ON version."questionId" = question."id"
