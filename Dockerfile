@@ -134,6 +134,8 @@ COPY --from=builder /release/release-manifest.json /app/release-manifest.json
 # #1043: the rush word list the deploy loads right after migrating (SSM deploy
 # document, loadRushWords). In the image so the file always matches the release.
 COPY --from=builder /workspace/content/rush/kanji-words.v1.json /app/content/rush/kanji-words.v1.json
+# #1182: the reviewed passage furigana the deploy loads (loadFurigana).
+COPY --from=builder /workspace/content/furigana/reading-passages.v1.json /app/content/furigana/reading-passages.v1.json
 
 USER node
 EXPOSE 3001
