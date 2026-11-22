@@ -1,5 +1,6 @@
-# #1183: passage read-aloud audio. Private bucket; the API reads it with the
-# host role and serves it through the existing app route (no CDN origin).
+# #1183: passage read-aloud audio. Private bucket; learners get it from the
+# site's CloudFront at /audio/* (origin access control in edge.tf). The API
+# never reads it and never gets Polly.
 # Objects live under audio/passages/<cache key>.(mp3|marks.json); the cache key is a
 # hash of passage text, readings, voice, engine and generator version, so a new
 # version writes new keys and never overwrites what the app is serving.
@@ -44,7 +45,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "audio" {
   }
 }
 
-data "aws_iam_policy_document" "audio_tls_only" {
+data "aws_iam_policy_document" "audio_bucket" {
   statement {
     sid     = "DenyInsecureTransport"
     effect  = "Deny"
@@ -63,26 +64,26 @@ data "aws_iam_policy_document" "audio_tls_only" {
       values   = ["false"]
     }
   }
+
+  statement {
+    sid       = "CloudFrontRead"
+    actions   = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.audio.arn}/audio/passages/*"]
+    principals {
+      type        = "Service"
+      identifiers = ["cloudfront.amazonaws.com"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceArn"
+      values   = [aws_cloudfront_distribution.site.arn]
+    }
+  }
 }
 
 resource "aws_s3_bucket_policy" "audio" {
   bucket = aws_s3_bucket.audio.id
-  policy = data.aws_iam_policy_document.audio_tls_only.json
-}
-
-# Read only for the API; it never gets Polly.
-data "aws_iam_policy_document" "host_audio_read" {
-  statement {
-    sid       = "ReadPassageAudio"
-    actions   = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.audio.arn}/audio/passages/*"]
-  }
-}
-
-resource "aws_iam_role_policy" "host_audio_read" {
-  name   = "audio-read"
-  role   = aws_iam_role.host.id
-  policy = data.aws_iam_policy_document.host_audio_read.json
+  policy = data.aws_iam_policy_document.audio_bucket.json
 }
 
 # Generation runs from a GitHub Actions job (same OIDC subject as deploy, so
