@@ -41,16 +41,17 @@ export const BookmarkPracticePanel = ({
   return (
     <details className="bookmark-practice">
       <summary
-        className={getButtonClassName({ size: 'lg', className: 'h-12' })}
+        className={getButtonClassName({
+          size: 'lg',
+          className: 'bookmark-practice-start'
+        })}
       >
         <Icon name="rotate-ccw" />
         {t('practice.title')}
       </summary>
       <div className="bookmark-practice-options">
-        <p className="mt-2 text-sm leading-6 text-muted">
-          {t('practice.description')}
-        </p>
-        <div className="mt-5 flex flex-wrap gap-2">
+        <p className="bookmark-practice-text">{t('practice.description')}</p>
+        <div className="bookmark-practice-groups">
           {groups.map((group) => (
             <Button
               key={`${group.level}:${group.subject}`}
@@ -71,36 +72,37 @@ export const BookmarkPracticePanel = ({
           ))}
         </div>
         {isOffline ? (
-          <p
-            className="mt-5 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm font-bold text-amber-900"
-            role="status"
-          >
+          <p className="bookmark-offline" role="status">
             {t('practice.offline')}
           </p>
         ) : null}
         {accountRestricted ? (
-          <AccountRestrictedNotice className="mt-5" />
+          <AccountRestrictedNotice className="bookmark-restricted" />
         ) : null}
         {noEligibleQuestions ? (
-          <div
-            className="mt-5 rounded-lg border border-amber-300 bg-amber-50 p-4"
-            role="alert"
-          >
-            <p className="font-bold text-amber-900">
+          <div className="bookmark-changed" role="alert">
+            <p className="bookmark-changed-title">
               {t('practice.noneAvailable')}
             </p>
-            <Button className="mt-3" variant="outline" onClick={onRefresh}>
+            <Button
+              className="bookmark-retry"
+              variant="outline"
+              onClick={onRefresh}
+            >
               {t('practice.refresh')}
             </Button>
           </div>
         ) : null}
         {hasStartError ? (
-          <div
-            className="mt-5 rounded-lg border border-red-200 bg-red-50 p-4"
-            role="alert"
-          >
-            <p className="font-bold text-red-800">{t('practice.startError')}</p>
-            <Button className="mt-3" variant="outline" onClick={onRetry}>
+          <div className="bookmark-start-error" role="alert">
+            <p className="bookmark-start-error-title">
+              {t('practice.startError')}
+            </p>
+            <Button
+              className="bookmark-retry"
+              variant="outline"
+              onClick={onRetry}
+            >
               {commonT('actions.retry')}
             </Button>
           </div>

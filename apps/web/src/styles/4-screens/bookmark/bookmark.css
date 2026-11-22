@@ -1,0 +1,177 @@
+/* Bookmarks: list rows, remove tip, empty pages, practice panel and notices. */
+@layer utilities {
+  /* Bookmark list: heading, pages, one row and its remove button. */
+  .bookmark-remove-tip {
+    position: absolute;
+    top: 100%;
+    right: 0px;
+    z-index: 10;
+    border-radius: var(--radius-control);
+    background-color: rgb(var(--color-ink));
+    padding-inline: 0.5rem;
+    padding-block: var(--spacing);
+    font-size: var(--text-caption-size);
+    line-height: var(--text-caption-line-height);
+    white-space: nowrap;
+    color: rgb(var(--color-on-accent));
+  }
+  .bookmark-remove-wrap {
+    position: relative;
+  }
+  .bookmark-topics {
+    margin-inline-start: 0.5rem;
+    font-weight: var(--font-weight-normal);
+  }
+  .bookmark-remove {
+    margin-inline-end: -0.75rem;
+    width: 2.75rem;
+    height: 2.75rem;
+    padding: 0px;
+    color: rgb(var(--color-brand-strong));
+  }
+  .bookmark-pagination {
+    margin-top: 1.5rem;
+  }
+  .bookmark-remove-icon {
+    fill: currentcolor;
+  }
+  .bookmark-title-quiet {
+    --tw-outline-style: none;
+    outline-style: none;
+  }
+  /* Empty pages. */
+  .bookmark-empty-first {
+    margin-inline: 0px !important;
+    align-items: flex-start !important;
+    padding-inline: 0px !important;
+    text-align: start !important;
+  }
+  .bookmark-empty-back {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    border-radius: var(--radius-control);
+    border-style: solid;
+    border-width: var(--border-width-default);
+    border-color: rgb(var(--color-line));
+    background-color: rgb(var(--color-surface));
+    padding-inline: 1rem;
+    font-weight: var(--font-weight-bold);
+    color: rgb(var(--color-ink));
+  }
+  .bookmark-empty-back:focus-visible {
+    outline-style: solid;
+    outline-width: 1px;
+    outline-offset: var(--focus-offset);
+    outline-color: rgb(var(--focus-color) / 1);
+  }
+  .bookmark-empty-first:lang(ko) > h2 {
+    word-break: keep-all;
+  }
+  .bookmark-empty-first > h2 {
+    text-wrap: pretty;
+  }
+  @media (hover: hover) {
+    .bookmark-empty-back:hover {
+      border-color: rgb(var(--color-line-strong));
+      background-color: rgb(var(--color-surface-muted));
+    }
+  }
+  /* Practice from bookmarks: start, groups, offline, changed, start error. */
+  .bookmark-practice-text {
+    margin-top: 0.5rem;
+    font-size: var(--text-sm);
+    --tw-leading: 1.5rem;
+    line-height: 1.5rem;
+    color: rgb(var(--color-muted));
+  }
+  .bookmark-retry {
+    margin-top: 0.75rem;
+  }
+  .bookmark-practice-groups {
+    margin-top: 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .bookmark-offline {
+    margin-top: 1.25rem;
+    border-radius: var(--radius-lg);
+    border-style: solid;
+    border-width: var(--border-width-default);
+    border-color: var(--color-amber-200);
+    background-color: var(--color-amber-50);
+    padding: 1rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-amber-900);
+  }
+  .bookmark-restricted {
+    margin-top: 1.25rem;
+  }
+  .bookmark-changed {
+    margin-top: 1.25rem;
+    border-radius: var(--radius-lg);
+    border-style: solid;
+    border-width: var(--border-width-default);
+    border-color: var(--color-amber-300);
+    background-color: var(--color-amber-50);
+    padding: 1rem;
+  }
+  .bookmark-start-error {
+    margin-top: 1.25rem;
+    border-radius: var(--radius-lg);
+    border-style: solid;
+    border-width: var(--border-width-default);
+    border-color: var(--color-red-200);
+    background-color: var(--color-red-50);
+    padding: 1rem;
+  }
+  .bookmark-practice-start {
+    height: 3rem;
+  }
+  .bookmark-changed-title {
+    font-weight: var(--font-weight-bold);
+    color: var(--color-amber-900);
+  }
+  .bookmark-start-error-title {
+    font-weight: var(--font-weight-bold);
+    color: var(--color-red-800);
+  }
+  /* Page notices and the load error. */
+  .bookmark-warn {
+    margin-top: 1.5rem;
+    border-radius: var(--radius-lg);
+    border-style: solid;
+    border-width: var(--border-width-default);
+    border-color: var(--color-amber-200);
+    background-color: var(--color-amber-50);
+    padding-inline: 1rem;
+    padding-block: 0.75rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-amber-900);
+  }
+  .bookmark-stale {
+    margin-top: 1.5rem;
+    border-radius: var(--radius-lg);
+    border-style: solid;
+    border-width: var(--border-width-default);
+    border-color: var(--color-red-200);
+    background-color: var(--color-red-50);
+    padding: 1rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    color: var(--color-red-900);
+  }
+  .bookmark-error-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .bookmark-stale-title {
+    font-weight: var(--font-weight-semibold);
+  }
+}

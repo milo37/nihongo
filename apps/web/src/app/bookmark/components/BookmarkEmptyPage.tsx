@@ -24,11 +24,7 @@ export const BookmarkEmptyPage = ({
   // start edge as before.
   return (
     <EmptyState
-      className={
-        isFirstPage
-          ? 'items-start! mx-0! px-0! text-start! [&>h2]:text-pretty [&:lang(ko)>h2]:break-keep'
-          : undefined
-      }
+      className={isFirstPage ? 'bookmark-empty-first' : undefined}
       illustration={
         isFirstPage ? (
           <span className="maru-empty" aria-hidden="true" />
@@ -46,10 +42,7 @@ export const BookmarkEmptyPage = ({
         ) : isNavigationLocked ? (
           <Button disabled>{t('empty.previousPage')}</Button>
         ) : (
-          <Link
-            className="inline-flex min-h-11 items-center rounded-control border border-line bg-surface px-4 font-bold text-ink hover:border-line-strong hover:bg-surface-muted focus-visible:outline focus-visible:outline-focus focus-visible:outline-offset-focus focus-visible:outline-brand"
-            to={previousPageHref}
-          >
+          <Link className="bookmark-empty-back" to={previousPageHref}>
             {t('empty.previousPage')}
           </Link>
         )
