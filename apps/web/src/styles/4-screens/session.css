@@ -94,6 +94,9 @@
 }
 .study-passage-text ruby {
   ruby-position: over;
+  /* A reading longer than its kanji widens the word; keep the kanji
+     together and centre the reading over them (診療 not 診 療). */
+  ruby-align: center;
 }
 .study-passage-text rt {
   color: rgb(var(--color-furigana));

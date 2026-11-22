@@ -31,14 +31,14 @@ export const StudyGoalRow = ({ userId }: { userId: string }): ReactElement => {
               today: goal.todayAnsweredCount
             })}
           </span>
-          <Icon name="chevron-right" className="size-4 shrink-0" />
+          <Icon name="chevron-right" className="study-goal-row-chevron" />
         </Link>
       ) : (
         <>
           <p className="study-goal-row-note">{t('studyGoal.unset')}</p>
           <Link className="study-goal-row-link" to={to}>
             {t('studyGoal.action')}
-            <Icon name="chevron-right" className="size-4 shrink-0" />
+            <Icon name="chevron-right" className="study-goal-row-chevron" />
           </Link>
         </>
       )}

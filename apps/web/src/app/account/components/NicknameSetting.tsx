@@ -67,13 +67,11 @@ export const NicknameSetting = ({ name }: { name: string }): ReactElement => {
   }
 
   return (
-    <header className="flex items-center gap-4">
+    <header className="nickname-header">
       <Avatar name={name} size="lg" />
       {!editing ? (
-        <div className="flex min-w-0 items-baseline gap-3">
-          <h1 className="break-words text-[28px] font-bold leading-tight">
-            {name}
-          </h1>
+        <div className="nickname-name-row">
+          <h1 className="nickname-name">{name}</h1>
           <button
             ref={changeButton}
             type="button"

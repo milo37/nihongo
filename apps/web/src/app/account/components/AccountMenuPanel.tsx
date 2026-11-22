@@ -6,11 +6,10 @@ import { Icon } from '@nihongo/browser/common/components/Icon'
 import type { IconName } from '@nihongo/browser/common/components/Icon'
 
 const ItemIcon = ({ name }: { name: IconName }): ReactElement => (
-  <Icon name={name} className="size-5 shrink-0 text-muted" />
+  <Icon name={name} className="account-menu-item-icon" />
 )
 
-const itemClassName =
-  'account-menu-item flex min-h-11 w-full items-center gap-3 rounded-control px-3 text-left text-sm'
+const itemClassName = 'account-menu-item account-menu-row'
 
 /** The open menu: who is signed in, then My page, error report, logout. */
 export const AccountMenuPanel = ({
@@ -39,11 +38,11 @@ export const AccountMenuPanel = ({
   const { t: authT } = useTranslation('auth')
   return (
     <div ref={panelRef} className="account-menu-panel" onKeyDown={onKeyDown}>
-      <div className="flex items-center gap-3 px-3 py-3">
+      <div className="account-menu-who">
         <Avatar name={name} size="sm" />
-        <div className="min-w-0">
-          <p className="break-words text-sm font-semibold">{name}</p>
-          <p className="text-caption text-muted">
+        <div className="account-menu-who-text">
+          <p className="account-menu-who-name">{name}</p>
+          <p className="account-menu-who-note">
             {t('accountMenu.signedInWith')}
           </p>
         </div>
@@ -54,7 +53,7 @@ export const AccountMenuPanel = ({
         role="menu"
         tabIndex={-1}
         aria-labelledby="account-menu-button"
-        className="grid gap-1"
+        className="account-menu-list"
       >
         <div role="separator" className="account-menu-separator" />
         <Link
