@@ -14,10 +14,10 @@ import { getButtonClassName } from '@nihongo/browser/common/components/Button'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 
 const Skeleton = (): ReactElement => (
-  <div className="grid gap-3" aria-hidden="true">
-    <span className="h-3 w-1/3 rounded bg-surface-muted" />
-    <span className="h-3 w-2/3 rounded bg-surface-muted" />
-    <span className="h-3 w-1/2 rounded bg-surface-muted" />
+  <div className="my-skeleton" aria-hidden="true">
+    <span className="my-skeleton-line my-skeleton-third" />
+    <span className="my-skeleton-line my-skeleton-two-thirds" />
+    <span className="my-skeleton-line my-skeleton-half" />
   </div>
 )
 
@@ -32,8 +32,8 @@ export const MyStudy = ({ level }: { level: JlptLevel }): ReactElement => {
   const stats = useGetDashboardStats({ level, myPage: true })
   const data = stats.data
   return (
-    <section className="account-section grid gap-4" aria-labelledby={headingId}>
-      <h2 id={headingId} className="text-lg font-bold">
+    <section className="account-section my-study" aria-labelledby={headingId}>
+      <h2 id={headingId} className="my-study-title">
         {t('study.title', { level })}
       </h2>
       {stats.isPending ? (
@@ -45,11 +45,11 @@ export const MyStudy = ({ level }: { level: JlptLevel }): ReactElement => {
         </>
       ) : !data ? (
         <div>
-          <p className="auth-notice auth-error mt-0" role="alert">
+          <p className="auth-notice auth-error my-study-error" role="alert">
             {t('study.error')}
           </p>
           <Button
-            className="mt-3"
+            className="my-study-retry"
             variant="outline"
             disabled={stats.isFetching}
             onClick={() => void stats.refetch()}
@@ -60,11 +60,14 @@ export const MyStudy = ({ level }: { level: JlptLevel }): ReactElement => {
       ) : data.totalAnsweredCount === 0 ? (
         <div>
           <span className="maru-empty" aria-hidden="true" />
-          <p className="font-semibold">{t('study.emptyTitle', { level })}</p>
-          <p className="mt-1 text-sm text-muted">
+          <p className="my-empty-title">{t('study.emptyTitle', { level })}</p>
+          <p className="my-empty-text">
             {t('study.emptyDescription', { level })}
           </p>
-          <Link className={getButtonClassName({ className: 'mt-4' })} to="/">
+          <Link
+            className={getButtonClassName({ className: 'my-empty-action' })}
+            to="/"
+          >
             {t('study.emptyAction', { level })}
           </Link>
         </div>

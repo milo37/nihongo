@@ -14,23 +14,31 @@ const StepMarker = ({
   doneLabel: string
 }): ReactElement => (
   <li
-    className="flex items-center gap-3"
+    className="two-step-step"
     aria-current={state === 'current' ? 'step' : undefined}
   >
     <span
       className={[
-        'grid size-7 shrink-0 place-items-center rounded-full text-caption font-bold',
+        'two-step-marker',
         state === 'done'
-          ? 'bg-success text-on-accent'
+          ? 'two-step-marker-done'
           : state === 'current'
-            ? 'bg-brand text-on-accent'
-            : 'border border-line bg-surface text-muted'
+            ? 'two-step-marker-current'
+            : 'two-step-marker-upcoming'
       ].join(' ')}
       aria-hidden="true"
     >
-      {state === 'done' ? <Icon name="check" className="size-4" /> : index}
+      {state === 'done' ? (
+        <Icon name="check" className="two-step-check" />
+      ) : (
+        index
+      )}
     </span>
-    <span className={state === 'current' ? 'font-medium' : 'text-muted'}>
+    <span
+      className={
+        state === 'current' ? 'two-step-label-current' : 'two-step-label'
+      }
+    >
       {label}
       {state === 'done' ? <span className="sr-only"> {doneLabel}</span> : null}
     </span>
@@ -51,7 +59,7 @@ export const TwoStepSteps = ({
   const { t } = useTranslation('account')
   const { t: authT } = useTranslation('auth')
   return (
-    <ol className="grid gap-3 text-sm">
+    <ol className="two-step-list">
       <StepMarker
         index={1}
         label={authT('reauth.name')}

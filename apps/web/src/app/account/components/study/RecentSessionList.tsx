@@ -26,21 +26,21 @@ export const RecentSessionList = ({
   return (
     // JLP-851: a small title and a plain list inside My study, no card.
     <section>
-      <h3 className="text-sm font-bold text-muted">{t('study.recent')}</h3>
+      <h3 className="my-recent-title">{t('study.recent')}</h3>
       {sessions.length === 0 ? (
-        <p className="mt-4 text-sm text-muted">{t('study.noRecord')}</p>
+        <p className="my-recent-empty">{t('study.noRecord')}</p>
       ) : (
-        <ul className="mt-2 divide-y divide-line">
+        <ul className="my-recent-list">
           {sessions.map((session) => {
             const tier = getRateTier(session.correctRate)
             return (
               <li key={session.id}>
                 <Link
-                  className="flex min-h-14 items-center justify-between gap-3 py-2 hover:bg-surface-muted"
+                  className="my-recent-link"
                   to={`/practice/result/${session.id}`}
                 >
-                  <span className="min-w-0">
-                    <span className="flex flex-wrap items-center gap-2 text-sm font-semibold">
+                  <span className="my-recent-main">
+                    <span className="my-recent-head">
                       {session.level} ·{' '}
                       {commonT(`taxonomy.subjects.${session.subject}`)}
                       {session.mode === 'RANDOM' ? null : (
@@ -49,24 +49,24 @@ export const RecentSessionList = ({
                         </Badge>
                       )}
                     </span>
-                    <span className="mt-1 block text-caption text-muted">
+                    <span className="my-recent-date">
                       {formatDateTime(session.submittedAt, locale, {
                         month: 'numeric',
                         day: 'numeric'
                       })}
                     </span>
                   </span>
-                  <span className="shrink-0 text-right">
-                    <span className="block text-sm font-semibold tabular-nums">
+                  <span className="my-recent-side">
+                    <span className="my-recent-score">
                       {t('study.recentRowResult', {
                         total: session.totalCount,
                         correct: session.correctCount
                       })}
                     </span>
                     <span
-                      className={`flex items-center justify-end gap-1 text-[13px] font-bold tabular-nums ${rateTierTextClass[tier]}`}
+                      className={`my-recent-rate ${rateTierTextClass[tier]}`}
                     >
-                      <RateTierMark tier={tier} className="size-[13px]" />
+                      <RateTierMark tier={tier} className="my-recent-mark" />
                       {Math.round(session.correctRate)}%
                       <span className="sr-only">{t(`study.tier.${tier}`)}</span>
                     </span>
@@ -80,10 +80,10 @@ export const RecentSessionList = ({
       {/* The contract keeps the newest five; say so only when the list is
           full, and point to the wrong notes that keep every miss. */}
       {sessions.length >= 5 ? (
-        <p className="account-recent-more mt-3 text-[13px] leading-[1.7] text-muted">
+        <p className="account-recent-more my-recent-more">
           {before}
           {linkText ? (
-            <Link className="text-link underline" to="/wrong-notes">
+            <Link className="my-recent-more-link" to="/wrong-notes">
               {linkText}
             </Link>
           ) : null}

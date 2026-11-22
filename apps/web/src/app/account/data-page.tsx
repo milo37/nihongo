@@ -24,10 +24,7 @@ export const AccountDataPage = (): ReactElement => {
           <p key={key}>{t(`confirm.deleteDescription.${key}`)}</p>
         ))}
         <p>
-          <Link
-            className="inline-flex min-h-11 items-center text-link underline"
-            to="/legal#privacy"
-          >
+          <Link className="account-data-link" to="/legal#privacy">
             {t('data.privacyLink')}
           </Link>
         </p>

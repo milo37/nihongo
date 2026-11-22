@@ -1,0 +1,288 @@
+/* My page: settings rows, avatar, account menu and the two-step delete dialog. */
+@layer utilities {
+  /* Settings section: heading, rows, row buttons, feedback. */
+  :where(.account-settings-rows > :not(:last-child)) {
+    border-bottom-style: solid;
+    border-top-style: solid;
+    border-top-width: 0;
+    border-bottom-width: 1px;
+    border-color: rgb(var(--color-line));
+  }
+  .account-delete-reason {
+    margin-top: var(--spacing);
+    font-size: var(--text-caption-size);
+    line-height: var(--text-caption-line-height);
+  }
+  .account-settings {
+    display: grid;
+    gap: 1rem;
+  }
+  .account-row-button {
+    min-width: 8rem;
+  }
+  .account-recheck {
+    justify-self: flex-start;
+  }
+  .account-settings-title {
+    font-size: var(--text-lg);
+    line-height: var(--text-lg--line-height);
+    font-weight: var(--font-weight-bold);
+    --tw-outline-style: none;
+    outline-style: none;
+  }
+  .account-feedback {
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+  }
+  .account-strong {
+    font-weight: var(--font-weight-semibold);
+  }
+  .account-danger-title {
+    font-weight: var(--font-weight-semibold);
+    color: rgb(var(--color-danger));
+  }
+  .account-danger-text {
+    white-space: pre-line;
+    color: rgb(var(--color-muted));
+  }
+  .account-muted {
+    color: rgb(var(--color-muted));
+  }
+  /* One setting row and the sign-in method row. */
+  .account-row-provider {
+    margin-top: var(--spacing);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: var(--text-base);
+    line-height: var(--text-base--line-height);
+    font-weight: var(--font-weight-semibold);
+  }
+  .account-row-retry {
+    margin-top: 0.5rem;
+  }
+  .account-row-action {
+    margin-top: 0.75rem;
+  }
+  .account-row-body {
+    min-width: 0px;
+    font-size: var(--text-sm);
+    --tw-leading: 1.5rem;
+    line-height: 1.5rem;
+    overflow-wrap: break-word;
+  }
+  .account-row {
+    padding-block: 1rem;
+  }
+  .account-row-label {
+    font-size: var(--text-caption-size);
+    line-height: var(--text-caption-line-height);
+    color: rgb(var(--color-muted));
+  }
+  .account-row-note {
+    font-size: var(--text-caption-size);
+    line-height: var(--text-caption-line-height);
+  }
+  .account-row:first-child {
+    padding-top: 0px;
+  }
+  .account-row:last-child {
+    padding-bottom: 0px;
+  }
+  /* Avatar: first letter on the brand-soft circle, two sizes. */
+  .account-avatar {
+    display: grid;
+    flex-shrink: 0;
+    place-items: center;
+    border-radius: calc(infinity * 1px);
+    background-color: rgb(var(--color-brand-soft));
+    font-weight: var(--font-weight-bold);
+    color: rgb(var(--color-brand-strong));
+  }
+  .account-avatar-sm {
+    width: 2rem;
+    height: 2rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+  }
+  .account-avatar-lg {
+    width: 3.5rem;
+    height: 3.5rem;
+    font-size: var(--text-xl);
+    line-height: var(--text-xl--line-height);
+  }
+  /* Nickname header. */
+  .nickname-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .nickname-name-row {
+    display: flex;
+    min-width: 0px;
+    align-items: baseline;
+    gap: 0.75rem;
+  }
+  .nickname-name {
+    font-size: 28px;
+    --tw-leading: var(--leading-tight);
+    line-height: var(--leading-tight);
+    font-weight: var(--font-weight-bold);
+    overflow-wrap: break-word;
+  }
+  /* Account menu: who is signed in, items, icons. */
+  .account-menu-who {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding-inline: 0.75rem;
+    padding-block: 0.75rem;
+  }
+  .account-menu-row {
+    display: flex;
+    min-height: 2.75rem;
+    width: 100%;
+    align-items: center;
+    gap: 0.75rem;
+    border-radius: var(--radius-control);
+    padding-inline: 0.75rem;
+    text-align: left;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+  }
+  .account-menu-list {
+    display: grid;
+    gap: var(--spacing);
+  }
+  .account-data-link {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    color: rgb(var(--color-link));
+    text-decoration-line: underline;
+  }
+  .account-menu-caret-icon {
+    width: 1rem;
+    height: 1rem;
+    rotate: 90deg;
+  }
+  .study-goal-row-chevron {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+  }
+  .account-menu-item-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    flex-shrink: 0;
+    color: rgb(var(--color-muted));
+  }
+  .locale-menu-glyph {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+  .account-menu-who-text {
+    min-width: 0px;
+  }
+  .account-menu-who-note {
+    font-size: var(--text-caption-size);
+    line-height: var(--text-caption-line-height);
+    color: rgb(var(--color-muted));
+  }
+  .account-menu-who-name {
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: break-word;
+  }
+  .home-screen-hint-text {
+    font-size: var(--text-sm);
+    --tw-leading: 1.5rem;
+    line-height: 1.5rem;
+    color: rgb(var(--color-muted));
+  }
+  /* Two-step delete dialog: steps, text, notices. */
+  .two-step-recheck {
+    margin-top: 0.75rem;
+  }
+  .two-step-text {
+    margin-top: 1rem;
+    display: grid;
+    gap: 0.5rem;
+    font-size: var(--text-sm);
+    --tw-leading: 1.5rem;
+    line-height: 1.5rem;
+    overflow-wrap: break-word;
+  }
+  .two-step-returned {
+    margin-top: 1rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    font-weight: var(--font-weight-medium);
+    color: rgb(var(--color-success-strong));
+  }
+  .two-step-notice {
+    margin-top: 1rem;
+  }
+  .two-step-step {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .two-step-list {
+    display: grid;
+    gap: 0.75rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+  }
+  .two-step-marker {
+    display: grid;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex-shrink: 0;
+    place-items: center;
+    border-radius: calc(infinity * 1px);
+    font-size: var(--text-caption-size);
+    line-height: var(--text-caption-line-height);
+    font-weight: var(--font-weight-bold);
+  }
+  .two-step-check {
+    width: 1rem;
+    height: 1rem;
+  }
+  .two-step-marker-upcoming {
+    border-style: solid;
+    border-width: var(--border-width-default);
+    border-color: rgb(var(--color-line));
+    background-color: rgb(var(--color-surface));
+    color: rgb(var(--color-muted));
+  }
+  .two-step-marker-current {
+    background-color: rgb(var(--color-brand));
+    color: rgb(var(--color-on-accent));
+  }
+  .two-step-marker-done {
+    background-color: rgb(var(--color-success));
+    color: rgb(var(--color-on-accent));
+  }
+  .two-step-data-link {
+    font-size: var(--text-caption-size);
+    line-height: var(--text-caption-line-height);
+    color: rgb(var(--color-link));
+    text-decoration-line: underline;
+  }
+  .two-step-note {
+    font-size: var(--text-caption-size);
+    line-height: var(--text-caption-line-height);
+    color: rgb(var(--color-muted));
+  }
+  .two-step-label-current {
+    font-weight: var(--font-weight-medium);
+  }
+  .two-step-pre {
+    white-space: pre-line;
+  }
+  .two-step-label {
+    color: rgb(var(--color-muted));
+  }
+}
