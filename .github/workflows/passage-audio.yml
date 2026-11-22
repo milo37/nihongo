@@ -1,0 +1,124 @@
+name: Passage audio
+
+# #1183: makes passage read-aloud audio with the generator role
+# (infra/aws/audio.tf: Polly in ap-northeast-1 and PutObject/GetObject under
+# audio/passages/ only). Run by hand from main, because the STAGING role trusts
+# main only. Without the confirm value it is a preview: it checks which files
+# the bucket already has and reports how many it would make and bill, and calls
+# no Polly. With confirm = GENERATE_PASSAGE_AUDIO it makes the missing files,
+# uploads them, and leaves the rewritten list
+# (content/audio/reading-passages.audio.v1.json) as an artifact for a PR.
+# Skipped until STAGING_AUDIO_GENERATOR_ROLE_ARN and STAGING_AUDIO_BUCKET
+# (STAGING terraform outputs audio_generator_role_arn and audio_bucket) are set.
+# PRODUCTION is a later step.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        type: choice
+        options: [staging]
+        default: staging
+      confirm:
+        description: Type GENERATE_PASSAGE_AUDIO to make files (empty = preview)
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+  id-token: write
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: passage-audio-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  audio:
+    name: Passage audio (${{ inputs.environment }})
+    if: vars.STAGING_AUDIO_GENERATOR_ROLE_ARN != '' && vars.STAGING_AUDIO_BUCKET != '' && vars.AWS_REGION != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      AUDIO_BUCKET: ${{ vars.STAGING_AUDIO_BUCKET }}
+      CONFIRM_INPUT: ${{ inputs.confirm }}
+    steps:
+      - name: Require main and staging
+        env:
+          TARGET: ${{ inputs.environment }}
+        run: |
+          test "$GITHUB_REF" = refs/heads/main
+          test "$TARGET" = staging
+          case "$CONFIRM_INPUT" in ''|GENERATE_PASSAGE_AUDIO) ;; *) echo "::error::confirm must be empty or GENERATE_PASSAGE_AUDIO"; exit 1 ;; esac
+
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v5.0.0
+        with:
+          version: 10.2.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22.23.0
+          cache: pnpm
+
+      - name: Install and build shared packages
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm --filter @nihongo/contracts --filter @nihongo/domain build
+
+      - name: AWS credentials (audio generator role)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.STAGING_AUDIO_GENERATOR_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Preview or make
+        id: run
+        env:
+          PASSAGE_AUDIO_BUCKET: ${{ vars.STAGING_AUDIO_BUCKET }}
+        run: |
+          out="$RUNNER_TEMP/audio-out"
+          if [ "$CONFIRM_INPUT" = GENERATE_PASSAGE_AUDIO ]; then
+            export PASSAGE_AUDIO_CONFIRM=GENERATE_PASSAGE_AUDIO PASSAGE_AUDIO_OUT="$out"
+          fi
+          pnpm --silent --filter @nihongo/api content:generate-passage-audio | tee "$RUNNER_TEMP/audio.jsonl"
+          result=$(grep '"event":"passage_audio\.' "$RUNNER_TEMP/audio.jsonl" | tail -1)
+          test -n "$result"
+          {
+            echo "### Passage audio (${{ inputs.environment }})"
+            echo
+            echo '| event | passages | toMake | billedCharacters |'
+            echo '| --- | ---: | ---: | ---: |'
+            node -e 'const r=JSON.parse(process.argv[1]);console.log(`| ${r.event} | ${r.passages} | ${r.toMake} | ${r.billedCharacters} |`)' "$result"
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "out=$out" >> "$GITHUB_OUTPUT"
+
+      # Content-addressed keys: a file never changes once written.
+      - name: Upload new files
+        if: env.CONFIRM_INPUT == 'GENERATE_PASSAGE_AUDIO'
+        run: |
+          dir="${{ steps.run.outputs.out }}/audio/passages"
+          if [ -d "$dir" ] && [ -n "$(ls -A "$dir")" ]; then
+            aws s3 cp "$dir/" "s3://$AUDIO_BUCKET/audio/passages/" --recursive --no-progress \
+              --cache-control 'public, max-age=31536000, immutable'
+            echo "uploaded $(ls "$dir" | wc -l) files" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'nothing new to upload' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Keep the rewritten list for a PR
+        if: env.CONFIRM_INPUT == 'GENERATE_PASSAGE_AUDIO'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: passage-audio-list-${{ inputs.environment }}-${{ github.run_id }}
+          if-no-files-found: error
+          path: content/audio/reading-passages.audio.v1.json
