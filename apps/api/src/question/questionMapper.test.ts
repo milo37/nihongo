@@ -76,4 +76,23 @@ describe('passage furigana mapping', () => {
         .passageFurigana
     ).toBeNull()
   })
+
+  it('passes the passage audio key through only when the record has it', () => {
+    expect(toPublicPracticeQuestion(record)).not.toHaveProperty('passageAudio')
+    const passageAudio = { key: 'a'.repeat(64), durationMs: 4200 }
+    const reading: PublishedQuestionDetailRecord = {
+      ...record,
+      subject: 'READING',
+      questionType: 'SHORT_READING',
+      passage: '駅の前',
+      passageAudio
+    }
+    expect(
+      publicPracticeQuestionSchema.parse(toPublicPracticeQuestion(reading))
+        .passageAudio
+    ).toEqual(passageAudio)
+    expect(
+      toPublicPracticeQuestion({ ...reading, passageAudio: null }).passageAudio
+    ).toBeNull()
+  })
 })
