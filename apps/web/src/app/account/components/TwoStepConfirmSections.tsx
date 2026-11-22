@@ -23,7 +23,7 @@ export const TwoStepDescription = ({
   const { t } = useTranslation('account')
   const { t: authT } = useTranslation('auth')
   return (
-    <div className="mt-4 grid gap-2 break-words text-sm leading-6">
+    <div className="two-step-text">
       {isUnlink ? (
         <p>{authT('sso.unlinkDescription', { provider })}</p>
       ) : isConfirm ? (
@@ -31,24 +31,22 @@ export const TwoStepDescription = ({
           <p key={key}>{t(`confirm.deleteDescription.${key}`)}</p>
         ))
       ) : (
-        <p className="whitespace-pre-line">{t('danger.description')}</p>
+        <p className="two-step-pre">{t('danger.description')}</p>
       )}
       {isConfirm && !isUnlink ? (
-        <Link className="text-link text-caption underline" to="/account/data">
+        <Link className="two-step-data-link" to="/account/data">
           {t('dataGuide')}
         </Link>
       ) : null}
       {!isConfirm ? (
-        <p className="text-caption text-muted">
+        <p className="two-step-note">
           {canVerify
             ? authT('reauth.returnNote')
             : authT('sso.unavailableProvider', { provider })}
         </p>
       ) : null}
       {!isConfirm ? (
-        <p className="text-caption text-muted">
-          {authT('reauth.scopeAccount')}
-        </p>
+        <p className="two-step-note">{authT('reauth.scopeAccount')}</p>
       ) : null}
     </div>
   )
@@ -69,10 +67,7 @@ export const TwoStepNotices = ({
   return (
     <>
       {isConfirm && flow.returned ? (
-        <p
-          className="mt-4 text-sm font-medium text-success-strong"
-          role="status"
-        >
+        <p className="two-step-returned" role="status">
           {authT('reauth.account.returned')}
         </p>
       ) : null}
@@ -80,13 +75,13 @@ export const TwoStepNotices = ({
         // Cancelling is not an error: a neutral box. Failures and an
         // expired check are a red error box.
         flow.feedback === 'reauthCancelled' ? (
-          <p className="auth-notice mt-4" role="status">
+          <p className="auth-notice two-step-notice" role="status">
             {authT(ACCOUNT_FEEDBACK_KEY[flow.feedback])}
           </p>
         ) : (
           <p
             ref={alertRef}
-            className="auth-notice auth-error mt-4"
+            className="auth-notice auth-error two-step-notice"
             role="alert"
           >
             {authT(ACCOUNT_FEEDBACK_KEY[flow.feedback])}
@@ -95,7 +90,7 @@ export const TwoStepNotices = ({
       ) : null}
       {flow.uncertain ? (
         <Button
-          className="mt-3"
+          className="two-step-recheck"
           variant="outline"
           disabled={flow.busy}
           onClick={() => void flow.recheck()}

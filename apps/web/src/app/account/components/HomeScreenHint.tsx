@@ -10,7 +10,7 @@ export const HomeScreenHint = (): ReactElement | null => {
   const [shown] = useState(shouldShowIosHomeScreenHint)
   if (!shown) return null
   return (
-    <p className="home-screen-hint text-sm leading-6 text-muted">
+    <p className="home-screen-hint home-screen-hint-text">
       {t('homeScreenHint')}
     </p>
   )
