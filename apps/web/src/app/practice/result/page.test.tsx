@@ -336,7 +336,7 @@ describe('approved general result navigation', () => {
     fixture.client.clear()
   })
 
-  it('선택 문항의 JA 해설과 KO fallback을 기존 언어 패널로 제공한다', async () => {
+  it('선택 문항의 해설을 화면 언어 하나로만 보여 주고 언어 탭은 없다', async () => {
     const fixture = await createFixture()
     const { view } = fixture.mount()
     const user = userEvent.setup()
@@ -347,14 +347,11 @@ describe('approved general result navigation', () => {
       name: '문제 번호'
     })
     expect(screen.getByText(first.question.explanationKo)).toBeVisible()
+    // The second item has a Japanese explanation too; a Korean screen shows
+    // only the Korean one.
     await user.click(within(navigation).getAllByRole('button')[1]!)
-    await user.click(screen.getByRole('tab', { name: '日本語' }))
-    expect(screen.getByText('この問題の日本語の解説です。')).toBeVisible()
-    await user.click(within(navigation).getAllByRole('button')[0]!)
-    expect(screen.getByText(first.question.explanationKo)).toBeVisible()
-    expect(
-      screen.queryByRole('tab', { name: '日本語' })
-    ).not.toBeInTheDocument()
+    expect(screen.getByText(second.question.explanationKo)).toBeVisible()
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument()
     expect(
       screen.queryByText('この問題の日本語の解説です。')
     ).not.toBeInTheDocument()

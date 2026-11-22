@@ -10,7 +10,6 @@ export const koCoreResources = {
       ja: '日本語'
     },
     explanation: {
-      languageLabel: '해설 언어',
       japaneseUnavailable:
         '일본어 해설이 아직 없어서 한국어 해설을 보여 드려요.'
     },
