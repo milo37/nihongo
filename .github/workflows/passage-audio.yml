@@ -100,13 +100,13 @@ jobs:
             echo '| --- | ---: | ---: | ---: |'
             node -e 'const r=JSON.parse(process.argv[1]);console.log(`| ${r.event} | ${r.passages} | ${r.toMake} | ${r.billedCharacters} |`)' "$result"
           } >> "$GITHUB_STEP_SUMMARY"
-          echo "out=$out" >> "$GITHUB_OUTPUT"
 
       # Content-addressed keys: a file never changes once written.
+      # Runs after a failed make too, so a rerun does not pay for files already made.
       - name: Upload new files
-        if: env.CONFIRM_INPUT == 'GENERATE_PASSAGE_AUDIO'
+        if: always() && env.CONFIRM_INPUT == 'GENERATE_PASSAGE_AUDIO' && steps.run.outcome != 'skipped'
         run: |
-          dir="${{ steps.run.outputs.out }}/audio/passages"
+          dir="$RUNNER_TEMP/audio-out/audio/passages"
           if [ -d "$dir" ] && [ -n "$(ls -A "$dir")" ]; then
             aws s3 cp "$dir/" "s3://$AUDIO_BUCKET/audio/passages/" --recursive --no-progress \
               --cache-control 'public, max-age=31536000, immutable'
