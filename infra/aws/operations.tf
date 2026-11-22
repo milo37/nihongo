@@ -19,6 +19,12 @@ resource "aws_ssm_document" "deploy" {
         default        = "0"
         allowedPattern = "^(0|[1-9][0-9]{0,3})$"
       }
+      # #1182: loadFurigana only previews (dryRun) unless this says load.
+      furiganaLoad = {
+        type          = "String"
+        default       = "dryRun"
+        allowedValues = ["dryRun", "load"]
+      }
     }
     mainSteps = [
       {
@@ -44,6 +50,23 @@ resource "aws_ssm_document" "deploy" {
             "cd /opt/harumaru",
             "[ \"$(cat current-release 2>/dev/null || true)\" = '{{ releaseId }}' ] || { echo 'rush words not loaded: release not live'; exit 0; }",
             "docker compose --profile operator run --rm --no-deps -T -e RUSH_WORD_LIST_FILE=/app/content/rush/kanji-words.v1.json -e RUSH_WORD_LOAD_CONFIRM=LOAD_RUSH_WORDS --entrypoint node capability api/dist/content/rushWordLoadCommand.js",
+          ]
+        }
+      },
+      # #1182: the reviewed passage furigana (content/furigana/reading-passages.v1.json
+      # in the API image), the same way as the rush words. By default only the
+      # preview line furigana_list_dry_run (nothing written); furiganaLoad=load
+      # writes it in one transaction. Skipped when this release is not live.
+      {
+        action = "aws:runShellScript"
+        name   = "loadFurigana"
+        inputs = {
+          timeoutSeconds = "300"
+          runCommand = [
+            "cd /opt/harumaru",
+            "[ \"$(cat current-release 2>/dev/null || true)\" = '{{ releaseId }}' ] || { echo 'furigana not loaded: release not live'; exit 0; }",
+            "confirm=''; [ '{{ furiganaLoad }}' = load ] && confirm='-e FURIGANA_LOAD_CONFIRM=LOAD_FURIGANA'",
+            "docker compose --profile operator run --rm --no-deps -T -e FURIGANA_LIST_FILE=/app/content/furigana/reading-passages.v1.json $confirm --entrypoint node capability api/dist/content/furiganaLoadCommand.js",
           ]
         }
       },
