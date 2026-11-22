@@ -11,7 +11,7 @@ import {
   ResultStatusIcon
 } from '@app/practice/result/ResultStatusIcon'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
-import { getTagLabel } from '@common/libs/tagLabel'
+import { getTagLabelInLocale } from '@common/libs/tagLabel'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 import { JaText } from '@common/components/JaText'
 import { jaTextProps } from '@common/libs/jaSpacing'
@@ -147,9 +147,16 @@ export const ResultQuestionDetail = ({
   const locale = resolveUiLocale(i18n.resolvedLanguage)
   const formattedOrdinal = formatNumber(ordinal, locale)
   const status = getResultStatus(item)
-  const tagLabels =
-    item.question.tagSummaries?.map((tag) => getTagLabel(tag, locale)) ??
-    item.tags
+  // One language per screen: a Japanese screen shows only tags with a
+  // Japanese name, and none from the Korean-only legacy result (no summaries).
+  const tagLabels = item.question.tagSummaries
+    ? item.question.tagSummaries.flatMap((tag) => {
+        const label = getTagLabelInLocale(tag, locale)
+        return label ? [label] : []
+      })
+    : locale === 'ja'
+      ? []
+      : item.tags
 
   return (
     <article
