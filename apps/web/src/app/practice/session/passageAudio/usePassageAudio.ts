@@ -52,6 +52,8 @@ export const usePassageAudio = (
   const audioKey = passageAudio?.key ?? null
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const marksAbortRef = useRef<AbortController | null>(null)
+  // A play waiting for a jump back to finish; calling it drops the wait.
+  const pendingPlayRef = useRef<(() => void) | null>(null)
   const [isOpen, setOpen] = useState(false)
   const [isPlaying, setPlaying] = useState(false)
   const [isFailed, setFailed] = useState(false)
@@ -64,6 +66,7 @@ export const usePassageAudio = (
   // A new passage starts closed, at the start, with nothing loaded.
   useEffect(
     () => () => {
+      pendingPlayRef.current?.()
       marksAbortRef.current?.abort()
       marksAbortRef.current = null
       const audio = audioRef.current
@@ -134,15 +137,38 @@ export const usePassageAudio = (
     return audio
   }
 
-  const play = (audio: HTMLAudioElement): void => {
-    if (audio.ended) audio.currentTime = 0
+  const cancelPendingPlay = (): void => {
+    pendingPlayRef.current?.()
+    pendingPlayRef.current = null
+  }
+
+  const start = (audio: HTMLAudioElement): void => {
     // A refused play (autoplay rules) leaves it paused; the button still works.
     void audio.play()?.catch(() => undefined)
+  }
+
+  // WebKit can play from the old spot when play() follows a currentTime
+  // change at once, so a jump back plays only after `seeked`.
+  const playFrom = (audio: HTMLAudioElement, seconds: number): void => {
+    cancelPendingPlay()
+    const onSeeked = (): void => {
+      pendingPlayRef.current = null
+      start(audio)
+    }
+    audio.addEventListener('seeked', onSeeked, { once: true })
+    pendingPlayRef.current = () => audio.removeEventListener('seeked', onSeeked)
+    audio.currentTime = seconds
+  }
+
+  const play = (audio: HTMLAudioElement): void => {
+    if (audio.ended) playFrom(audio, 0)
+    else start(audio)
   }
 
   const seek = (ms: number): void => {
     const end = durationMs || ms
     const next = Math.min(Math.max(0, ms), end)
+    cancelPendingPlay()
     setDragMs(null)
     setTimeMs(next)
     const audio = audioRef.current
@@ -166,6 +192,7 @@ export const usePassageAudio = (
       play(audioRef.current ?? load(audioKey))
     },
     close: () => {
+      cancelPendingPlay()
       audioRef.current?.pause()
       setDragMs(null)
       setOpen(false)
@@ -174,12 +201,20 @@ export const usePassageAudio = (
       const audio = audioRef.current
       if (!audio) return
       if (audio.paused) play(audio)
-      else audio.pause()
+      else {
+        cancelPendingPlay()
+        audio.pause()
+      }
     },
     restart: () => {
-      seek(0)
       const audio = audioRef.current
-      if (audio?.paused) play(audio)
+      if (!audio?.paused) {
+        seek(0)
+        return
+      }
+      setDragMs(null)
+      setTimeMs(0)
+      playFrom(audio, 0)
     },
     cycleRate: () => {
       const next = nextAudioRate(rate)

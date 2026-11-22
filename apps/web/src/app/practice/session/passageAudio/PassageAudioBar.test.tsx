@@ -1,5 +1,5 @@
 import { createRef } from 'react'
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { PassageAudioRef } from '@nihongo/contracts/question/passage-audio'
 import type { StudyQuestionView } from '@app/practice/adapters/studySessionView'
@@ -120,5 +120,27 @@ describe('passage read-aloud bar (#1183)', () => {
       screen.getByRole('button', { name: '속도 1.25배' })
     ).toHaveTextContent('1.25×')
     expect(screen.getByRole('button', { name: '처음부터' })).toBeInTheDocument()
+  })
+
+  it('plays from the start only once the jump back has landed', async () => {
+    const user = userEvent.setup()
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play')
+    render(card(AUDIO))
+    await user.click(screen.getByRole('button', { name: '듣기' }))
+    const audio = play.mock.contexts[0] as HTMLMediaElement
+    await user.click(screen.getByRole('button', { name: '멈춤' }))
+    play.mockClear()
+
+    // WebKit may play from the old spot if play() follows the jump at once.
+    await user.click(screen.getByRole('button', { name: '처음부터' }))
+    expect(screen.getByRole('slider')).toHaveAttribute('aria-valuetext', '0:00')
+    expect(play).not.toHaveBeenCalled()
+
+    act(() => {
+      audio.dispatchEvent(new Event('seeked'))
+    })
+    expect(play).toHaveBeenCalledTimes(1)
+    expect(screen.getByRole('button', { name: '멈춤' })).toBeInTheDocument()
+    play.mockRestore()
   })
 })
