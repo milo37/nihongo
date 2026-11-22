@@ -16,6 +16,8 @@
     "src/e2e/**",
     "src/db/ssoTestFixture.ts",
     "src/db/foundationDiagnostics.ts",
-    "src/content/furiganaGenerateCommand.ts"
+    "src/content/furiganaGenerateCommand.ts",
+    "src/content/passageAudioGenerateCommand.ts",
+    "src/content/passageAudioPolly.ts"
   ]
 }
