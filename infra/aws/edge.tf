@@ -48,6 +48,15 @@ resource "aws_ssm_parameter" "origin_verify" {
   value = random_password.origin_verify.result
 }
 
+# #1183: passage audio straight from its private bucket. Only this distribution
+# may read it (bucket policy in audio.tf checks the SourceArn).
+resource "aws_cloudfront_origin_access_control" "audio" {
+  name                              = "${local.name}-audio"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
 resource "aws_cloudfront_distribution" "site" {
   enabled         = true
   is_ipv6_enabled = true
@@ -78,6 +87,12 @@ resource "aws_cloudfront_distribution" "site" {
     }
   }
 
+  origin {
+    origin_id                = "audio"
+    domain_name              = aws_s3_bucket.audio.bucket_regional_domain_name
+    origin_access_control_id = aws_cloudfront_origin_access_control.audio.id
+  }
+
   default_cache_behavior {
     target_origin_id           = "api"
     viewer_protocol_policy     = "redirect-to-https"
@@ -93,6 +108,20 @@ resource "aws_cloudfront_distribution" "site" {
   ordered_cache_behavior {
     path_pattern               = "/assets/*"
     target_origin_id           = "api"
+    viewer_protocol_policy     = "redirect-to-https"
+    allowed_methods            = ["GET", "HEAD"]
+    cached_methods             = ["GET", "HEAD"]
+    cache_policy_id            = data.aws_cloudfront_cache_policy.optimized.id
+    response_headers_policy_id = data.aws_cloudfront_response_headers_policy.security.id
+    compress                   = true
+  }
+
+  # Content-addressed files (the key is a hash of text, readings and voice), so
+  # they cache for as long as the policy allows. Range requests (seeking) pass
+  # through to S3.
+  ordered_cache_behavior {
+    path_pattern               = "/audio/*"
+    target_origin_id           = "audio"
     viewer_protocol_policy     = "redirect-to-https"
     allowed_methods            = ["GET", "HEAD"]
     cached_methods             = ["GET", "HEAD"]
