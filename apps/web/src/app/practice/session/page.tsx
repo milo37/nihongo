@@ -1,180 +1,21 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Navigate, useOutletContext, useParams } from 'react-router'
-import type { ReactElement, RefObject } from 'react'
-import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
+import { useOutletContext, useParams } from 'react-router'
+import type { ReactElement } from 'react'
 import type { PracticeNavigationContext } from '@app/layout'
 import { usePracticeSessionController } from '@app/practice/hooks/usePracticeSessionController'
-import { StudyDraftSaveStatus } from '@app/practice/session/StudyDraftSaveStatus'
-import {
-  PracticeQuestionBookmarkButton,
-  PracticeQuestionBookmarkStatus
-} from '@app/practice/session/components/PracticeQuestionBookmark'
-import { PracticeQuestionActions } from '@app/practice/session/components/PracticeQuestionActions'
-import { PracticeQuestionCard } from '@app/practice/session/components/PracticeQuestionCard'
-import type { QuestionPush } from '@app/practice/session/components/PracticeQuestionCard'
+import { PracticeQuestionBookmarkButton } from '@app/practice/session/components/PracticeQuestionBookmark'
 import { PracticeQuestionNavigator } from '@app/practice/session/components/PracticeQuestionNavigator'
-import {
-  PracticeNavigationGuardDialog,
-  PracticeSubmitDialog
-} from '@app/practice/session/components/PracticeSessionDialogs'
+import { PracticeNavigationGuardDialog } from '@app/practice/session/components/PracticeSessionDialogs'
 import { PracticeSessionHeader } from '@app/practice/session/components/PracticeSessionHeader'
 import { PracticeSessionNotices } from '@app/practice/session/components/PracticeSessionNotices'
-import {
-  SessionLoadError,
-  SessionRecoveryState,
-  SessionSetupLinkError
-} from '@app/practice/session/components/PracticeSessionStateScreens'
 import { useQuestionPush } from '@app/practice/session/useQuestionPush'
-import type { QuestionPushMove } from '@app/practice/session/useQuestionPush'
-
-type SessionController = ReturnType<typeof usePracticeSessionController>
-type SessionQuestion = NonNullable<SessionController['currentQuestion']>
-
-/** The current question with its bookmark status, actions and draft save status. */
-const CurrentQuestionCard = ({
-  session,
-  question,
-  headingRef,
-  isReview,
-  push,
-  submitButtonRef
-}: {
-  session: SessionController
-  question: SessionQuestion
-  headingRef: RefObject<HTMLHeadingElement | null>
-  isReview: boolean
-  push: QuestionPush | undefined
-  submitButtonRef: RefObject<HTMLButtonElement | null>
-}): ReactElement => {
-  const inlineSaveStatus = session.isInlineDraftStatus
-    ? session.draftController.status.code
-    : null
-  return (
-    <PracticeQuestionCard
-      actions={
-        <PracticeQuestionActions
-          canSubmit={session.canRequestSubmission}
-          hidePrevious={isReview}
-          isFirstQuestion={session.safeQuestionIndex === 0}
-          isLastQuestion={session.isLastQuestion}
-          isLocked={session.isQuestionNavigationLocked}
-          onNext={session.moveNext}
-          onPrevious={session.movePrevious}
-          onSubmit={session.requestSubmission}
-          submitButtonRef={submitButtonRef}
-        />
-      }
-      bookmarkStatus={
-        <PracticeQuestionBookmarkStatus
-          bookmark={session.bookmark}
-          questionId={question.id}
-          role={session.role}
-        />
-      }
-      headingRef={headingRef}
-      isOptionsDisabled={
-        session.isSubmitDialogOpen || session.isQuestionNavigationLocked
-      }
-      onSelectOption={session.handleSelectOption}
-      push={push}
-      question={question}
-      questionNumber={session.safeQuestionIndex + 1}
-      saveStatus={
-        // A guest's answers are not kept (F4), so no "saved" line.
-        session.isV2Session && session.role !== 'GUEST' ? (
-          <StudyDraftSaveStatus
-            status={inlineSaveStatus}
-            onRetry={session.retryDraftSave}
-          />
-        ) : null
-      }
-      selectedOptionId={session.displayedSelectedAnswers[question.id]}
-    />
-  )
-}
-
-const ignoreSelect = (): void => undefined
-
-/**
- * JLP-870: the question being pushed out, drawn over the new one's place.
- * Hidden from assistive tech and input; gone when its slide ends. It has no
- * h1 and no radios: its hidden inputs become unnamed checkboxes (they keep
- * the chosen look, which reads input:checked), so the document holds one
- * heading and one answer group throughout.
- */
-const LeavingQuestionCard = ({
-  move,
-  question,
-  selectedOptionId
-}: {
-  move: QuestionPushMove
-  question: SessionQuestion
-  selectedOptionId: string | undefined
-}): ReactElement => {
-  const headingRef = useRef<HTMLHeadingElement>(null)
-  const copyRef = useRef<HTMLDivElement>(null)
-  useLayoutEffect(() => {
-    for (const input of copyRef.current?.querySelectorAll('input') ?? []) {
-      input.type = 'checkbox'
-      input.removeAttribute('name')
-      input.removeAttribute('id')
-    }
-    for (const label of copyRef.current?.querySelectorAll('label') ?? []) {
-      label.removeAttribute('for')
-    }
-  }, [])
-  return (
-    <div
-      ref={copyRef}
-      className="study-push-leaving"
-      aria-hidden="true"
-      inert
-      onAnimationEnd={move.finish}
-    >
-      <PracticeQuestionCard
-        actions={null}
-        bookmarkStatus={null}
-        headingRef={headingRef}
-        isDecorative
-        isOptionsDisabled
-        onSelectOption={ignoreSelect}
-        push={`out-${move.direction ?? 'next'}`}
-        question={question}
-        questionNumber={(move.from ?? 0) + 1}
-        saveStatus={null}
-        selectedOptionId={selectedOptionId}
-      />
-    </div>
-  )
-}
-
-/** Confirm-submit dialog wired to the session's submission state. */
-const SessionSubmitDialog = ({
-  session,
-  returnFocusRef
-}: {
-  session: SessionController
-  returnFocusRef: RefObject<HTMLButtonElement | null>
-}): ReactElement => (
-  <PracticeSubmitDialog
-    open={session.isSubmitDialogOpen && !session.hasDraftConflict}
-    connectivityMessage={session.submissionConnectivityMessage}
-    hasFrozenAttempt={session.hasFrozenSubmissionAttempt}
-    isConfirmDisabled={
-      session.hasDraftConflict || session.isSessionRefreshUnavailable
-    }
-    isConfirmLoading={
-      session.isSubmissionActive || session.isPreparingSubmission
-    }
-    isContinueDisabled={session.mustReplayFrozenSubmission}
-    isSubmissionError={session.isSubmissionError}
-    onConfirm={() => void session.handleSubmit()}
-    onOpenChange={session.handleSubmitDialogOpenChange}
-    returnFocusRef={returnFocusRef}
-    unansweredCount={session.unansweredCount}
-  />
-)
+import {
+  CurrentQuestionCard,
+  LeavingQuestionCard,
+  SessionSubmitDialog
+} from '@app/practice/session/components/SessionQuestionCards'
+import { readSessionView } from '@app/practice/session/sessionView'
 
 export const PracticeSessionPage = (): ReactElement => {
   const reviewContext =
@@ -202,141 +43,16 @@ export const PracticeSessionPage = (): ReactElement => {
     />
   )
 
-  if (session.isRetiredSession) {
-    return (
-      <SessionSetupLinkError
-        framed
-        title={t('session.terminal.retiredTitle')}
-        description={t('session.terminal.retiredDescription')}
-      />
-    )
-  }
+  const view = readSessionView({
+    session,
+    t,
+    sessionId,
+    refetchSession,
+    navigationPrompt
+  })
+  if ('screen' in view) return view.screen
 
-  if (session.sessionQuery.isPending) {
-    if (session.hasFrozenSubmissionAttempt) {
-      return (
-        <SessionRecoveryState
-          connectivityMessage={session.submissionConnectivityMessage}
-          description={t('session.recovery.pendingDescription')}
-          idleStatus={t('session.recovery.checkingStatus')}
-          onRetry={refetchSession}
-        />
-      )
-    }
-    if (session.sessionQuery.fetchStatus === 'paused') {
-      return (
-        <SessionLoadError
-          description={t('session.errors.offlineSessionDescription')}
-        />
-      )
-    }
-    return <LoadingState message={t('session.loading.questions')} />
-  }
-
-  if (!session.sessionQuery.data) {
-    if (session.isSessionNotFound) {
-      return (
-        <SessionSetupLinkError
-          framed
-          title={t('session.terminal.notFoundTitle')}
-          description={t('session.terminal.notFoundDescription')}
-        />
-      )
-    }
-    if (session.hasFrozenSubmissionAttempt) {
-      return (
-        <SessionRecoveryState
-          connectivityMessage={session.submissionConnectivityMessage}
-          description={t('session.recovery.failedDescription')}
-          idleStatus={t('session.recovery.connectedStatus')}
-          onRetry={refetchSession}
-        />
-      )
-    }
-    return (
-      <>
-        <SessionLoadError
-          description={
-            session.isSessionOffline
-              ? t('session.errors.offlineSessionDescription')
-              : t('session.errors.sessionLoadDescription')
-          }
-          onRetry={refetchSession}
-        />
-        {navigationPrompt}
-      </>
-    )
-  }
-
-  if (!session.hasCurrentGuestOwnerProof) {
-    if (session.sessionQuery.fetchStatus === 'paused') {
-      return (
-        <SessionLoadError
-          description={t('session.errors.offlineSessionDescription')}
-        />
-      )
-    }
-    if (session.sessionQuery.isError) {
-      return (
-        <SessionLoadError
-          description={t('session.errors.sessionLoadDescription')}
-          onRetry={refetchSession}
-        />
-      )
-    }
-    return <LoadingState message={t('session.loading.guestOwnership')} />
-  }
-
-  const { status } = session.sessionQuery.data.session
-  if (status === 'SUBMITTED') {
-    if (session.isNavigationPromptBlocked) {
-      return <LoadingState message={t('session.loading.resultRedirect')} />
-    }
-    return <Navigate replace to={`/practice/result/${sessionId}`} />
-  }
-
-  if (status !== 'IN_PROGRESS') {
-    return (
-      <SessionSetupLinkError
-        title={
-          status === 'EXPIRED'
-            ? t('session.terminal.expiredTitle')
-            : t('session.terminal.cancelledTitle')
-        }
-        description={t('session.terminal.description')}
-      />
-    )
-  }
-
-  if (session.isV2Session && !session.draftController.isReady) {
-    if (
-      session.draftController.draftQuery.isError ||
-      session.draftController.saveState === 'error'
-    ) {
-      return (
-        <SessionLoadError
-          title={t('session.errors.draftLoadTitle')}
-          description={t('session.errors.draftLoadDescription')}
-          retryLabel={t('session.recovery.retry')}
-          onRetry={() =>
-            void session.draftController.retrySave().catch(() => undefined)
-          }
-        />
-      )
-    }
-    return <LoadingState message={t('session.loading.draft')} />
-  }
-
-  if (!session.currentQuestion) {
-    return (
-      <SessionSetupLinkError
-        title={t('session.errors.emptyTitle')}
-        description={t('session.errors.emptyDescription')}
-      />
-    )
-  }
-
-  const question = session.currentQuestion
+  const { data, question } = view
   const leaving = push.from === null ? undefined : session.questions[push.from]
   return (
     <section
@@ -365,7 +81,7 @@ export const PracticeSessionPage = (): ReactElement => {
         isQuestionSheetDisabled={session.isQuestionNavigationLocked}
         onOpenQuestionSheet={() => setQuestionSheetOpen(true)}
         reviewContext={reviewContext}
-        session={session.sessionQuery.data.session}
+        session={data.session}
         total={session.questions.length}
       />
 
@@ -384,7 +100,7 @@ export const PracticeSessionPage = (): ReactElement => {
           isV2Session={session.isV2Session}
           onRetryDraftSave={session.retryDraftSave}
           onRetrySession={refetchSession}
-          sessionData={session.sessionQuery.data}
+          sessionData={data}
         />
 
         <div className="relative">
