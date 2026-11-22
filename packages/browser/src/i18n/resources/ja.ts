@@ -14,7 +14,6 @@ export const jaCoreResources = {
       ja: '日本語'
     },
     explanation: {
-      languageLabel: '解説の言語',
       japaneseUnavailable:
         '日本語の解説がまだないので、韓国語の解説を表示します。'
     },
