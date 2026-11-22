@@ -23,3 +23,7 @@ and an unchanged passage is never made twice.
   Only the role that makes audio may call `polly:SynthesizeSpeech`.
 - The engine is one function (`PassageSynthesizer`); another engine replaces
   `passageAudioPolly.ts` and everything is made again.
+- The API reads this list from the image (`/app/content/audio`) and sends
+  `passageAudio: { key, durationMs }` with a study question only when the key
+  of its passage text and the readings it sends is listed; otherwise `null`.
+  An empty list means no listen button anywhere.

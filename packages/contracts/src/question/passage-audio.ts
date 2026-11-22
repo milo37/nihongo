@@ -27,3 +27,16 @@ export const passageAudioMarksSchema = z
 
 export type PassageAudioMark = z.infer<typeof markSchema>
 export type PassageAudioMarks = z.infer<typeof passageAudioMarksSchema>
+
+/**
+ * #1183: the read-aloud file of a passage in a question response. The mp3 is
+ * /audio/passages/<key>.mp3 and its timings /audio/passages/<key>.marks.json.
+ */
+export const passageAudioRefSchema = z
+  .object({
+    key: z.string().regex(/^[0-9a-f]{64}$/u),
+    durationMs: z.number().int().min(1)
+  })
+  .strict()
+
+export type PassageAudioRef = z.infer<typeof passageAudioRefSchema>
