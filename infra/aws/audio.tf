@@ -1,6 +1,6 @@
 # #1183: passage read-aloud audio. Private bucket; the API reads it with the
 # host role and serves it through the existing app route (no CDN origin).
-# Objects live under passages/<cache key>.(mp3|marks.json); the cache key is a
+# Objects live under audio/passages/<cache key>.(mp3|marks.json); the cache key is a
 # hash of passage text, readings, voice, engine and generator version, so a new
 # version writes new keys and never overwrites what the app is serving.
 resource "aws_s3_bucket" "audio" {
@@ -75,7 +75,7 @@ data "aws_iam_policy_document" "host_audio_read" {
   statement {
     sid       = "ReadPassageAudio"
     actions   = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.audio.arn}/passages/*"]
+    resources = ["${aws_s3_bucket.audio.arn}/audio/passages/*"]
   }
 }
 
@@ -110,7 +110,7 @@ data "aws_iam_policy_document" "audio_generator" {
   statement {
     sid       = "WritePassageAudio"
     actions   = ["s3:PutObject"]
-    resources = ["${aws_s3_bucket.audio.arn}/passages/*"]
+    resources = ["${aws_s3_bucket.audio.arn}/audio/passages/*"]
   }
 }
 

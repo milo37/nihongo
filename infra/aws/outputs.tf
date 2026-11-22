@@ -48,7 +48,7 @@ output "caddy_ecr_repository_url" {
 }
 
 output "audio_bucket" {
-  description = "Passage read-aloud audio (#1183); objects under passages/."
+  description = "Passage read-aloud audio (#1183); objects under audio/passages/."
   value       = aws_s3_bucket.audio.bucket
 }
 
