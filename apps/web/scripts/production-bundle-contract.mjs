@@ -65,7 +65,10 @@ export const bundleCeilings = Object.freeze({
   initialGzipBytes: 256_000,
   // Shared admin re-verification return notice with its retry start (U5 #683).
   // #761 + U4 (#767 c9af0ed5): 813,670 measured.
-  initialRawBytes: 814_000,
+  // #1186 C4 moves bookmark and report styles into first-screen CSS:
+  // 816,682 measured. 835,000 for C4-C8 is waiting for the operator
+  // (JLP-957); do not merge before that answer. Back in C11 (#1186).
+  initialRawBytes: 835_000,
   javaScriptAssetCount: 88,
   javaScriptGzipBytes: 470_000,
   javaScriptRawBytes: 1_429_000,
