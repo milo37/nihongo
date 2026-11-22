@@ -92,6 +92,7 @@ export const PracticeQuestionCard = ({
     >
       {question.passage ? (
         <QuestionPassage
+          audioKey={question.passageAudioKey ?? null}
           furigana={question.passageFurigana}
           isDecorative={isDecorative}
           passage={question.passage}

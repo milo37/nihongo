@@ -36,6 +36,7 @@ earlier one at the same specificity, so a file's place in the list matters.
 | 4-screens    | home/home.css, home/daily.css        | Home; today's question                          |
 |              | practice-setup.css                   | Practice setup                                  |
 |              | session.css                          | Solve screen                                    |
+|              | passage-audio.css                    | Passage read-aloud bar and reading word (#1183) |
 |              | result.css                           | Result screen                                   |
 |              | rush/entry.css, play.css, result.css | Kanji rush                                      |
 |              | my-goal.css                          | Study goal                                      |

@@ -1,3 +1,4 @@
+import { useEffect, useId, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement, RefObject } from 'react'
 import type { FuriganaSegment } from '@nihongo/contracts/question/get-question'
@@ -5,6 +6,10 @@ import { paragraphRuby } from '@app/practice/session/passageFurigana'
 import { passageParagraphs } from '@app/practice/session/passageParagraphs'
 import { setFurigana, useFurigana } from '@app/practice/session/useFurigana'
 import type { QuestionPush } from '@app/practice/session/components/PracticeQuestionCard'
+import { PassageAudioBar } from '@app/practice/session/passageAudio/PassageAudioBar'
+import { PlayIcon } from '@app/practice/session/passageAudio/passageAudioIcons'
+import { paragraphMark } from '@app/practice/session/passageAudio/paragraphMark'
+import { usePassageAudio } from '@app/practice/session/passageAudio/usePassageAudio'
 import { SheetTail } from '@common/components/manuscript/ManuscriptSheet'
 import { JaText } from '@common/components/JaText'
 import { jaTextProps } from '@common/libs/jaSpacing'
@@ -15,12 +20,15 @@ import { jaTextProps } from '@common/libs/jaSpacing'
  * (the tail mark is the only red) and one block per source line.
  */
 export const QuestionPassage = ({
+  audioKey,
   furigana,
   isDecorative,
   passage,
   passageRef,
   push
 }: {
+  /** #1183: the read-aloud file's key; null hides [듣기]. */
+  audioKey: string | null
   furigana: readonly FuriganaSegment[] | null | undefined
   isDecorative: boolean
   passage: string
@@ -31,6 +39,31 @@ export const QuestionPassage = ({
   const isFuriganaOn = useFurigana()
   // #1182: [] (no kanji) and null (not reviewed yet) both have no readings.
   const hasFurigana = Boolean(furigana?.length)
+  const audio = usePassageAudio(isDecorative ? null : audioKey)
+  const audioRowId = useId()
+  const hasAudio = Boolean(audioKey) && !isDecorative && !audio.isFailed
+  const revealRef = useRef(false)
+  // #1183: after a drag or key move, show the reading word once if it is off
+  // screen (or under the fixed action bar). No follow while it plays.
+  useEffect(() => {
+    if (!revealRef.current) return
+    revealRef.current = false
+    const word = passageRef.current?.querySelector('.study-read-mark')
+    if (!word) return
+    const box = word.getBoundingClientRect()
+    const seen = document.elementFromPoint(
+      box.left + box.width / 2,
+      box.top + box.height / 2
+    )
+    if (seen && word.contains(seen)) return
+    const reduceMotion = window.matchMedia?.(
+      '(prefers-reduced-motion: reduce)'
+    ).matches
+    word.scrollIntoView({
+      behavior: reduceMotion ? 'auto' : 'smooth',
+      block: 'center'
+    })
+  })
   return (
     <article
       ref={passageRef}
@@ -43,6 +76,24 @@ export const QuestionPassage = ({
       <p className="study-passage-head">
         <SheetTail side="left" />
         {t('session.question.passageLabel')}
+        {hasAudio ? (
+          <button
+            aria-controls={audio.isOpen ? audioRowId : undefined}
+            aria-expanded={audio.isOpen}
+            className="study-audio-toggle"
+            type="button"
+            onClick={audio.isOpen ? audio.close : audio.open}
+          >
+            <span>
+              {audio.isOpen ? null : <PlayIcon />}
+              {t(
+                audio.isOpen
+                  ? 'session.question.audio.close'
+                  : 'session.question.audio.listen'
+              )}
+            </span>
+          </button>
+        ) : null}
         <button
           aria-label={t('session.question.furiganaLabel')}
           aria-pressed={hasFurigana && isFuriganaOn}
@@ -56,6 +107,15 @@ export const QuestionPassage = ({
           <span lang="ja">ふりがな</span>
         </button>
       </p>
+      {hasAudio && audio.isOpen ? (
+        <PassageAudioBar
+          audio={audio}
+          id={audioRowId}
+          onSeekEnd={() => {
+            revealRef.current = true
+          }}
+        />
+      ) : null}
       {isFuriganaOn && !hasFurigana ? (
         <p className="study-furigana-none">
           {t('session.question.furiganaNone')}
@@ -71,6 +131,7 @@ export const QuestionPassage = ({
             data-indent={paragraph.indent || undefined}
           >
             <JaText
+              mark={paragraphMark(paragraph, audio.word)}
               ruby={
                 isFuriganaOn && furigana
                   ? paragraphRuby(paragraph, furigana)

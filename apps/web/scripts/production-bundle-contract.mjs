@@ -65,14 +65,19 @@ export const bundleCeilings = Object.freeze({
   initialGzipBytes: 256_000,
   // Shared admin re-verification return notice with its retry start (U5 #683).
   // #761 + U4 (#767 c9af0ed5): 813,670 measured.
-  initialRawBytes: 814_000,
+  // #1183 passage read-aloud bar CSS (about 4 KB) on dev e4f6a2ec: 817,234
+  // measured. 835,000 is waiting for the operator (JLP-957, same request as
+  // #1186 C4-C8); do not merge before that answer.
+  initialRawBytes: 835_000,
   javaScriptAssetCount: 88,
   javaScriptGzipBytes: 470_000,
   javaScriptRawBytes: 1_429_000,
   largestJavaScriptGzipBytes: 131_000,
   largestJavaScriptRawBytes: 439_000,
   // The full terms and privacy text sits in the lazily loaded ko/ja copy bundles (K2 #698).
-  largestLazyJavaScriptGzipBytes: 30_000,
+  // #1183 puts the read-aloud bar in the practice session chunk: 30,333
+  // measured. 31,000 waits for the operator with initialRawBytes (JLP-957).
+  largestLazyJavaScriptGzipBytes: 31_000,
   largestLazyJavaScriptRawBytes: 102_000,
   // #1096 nickname: 482,593 measured (operator decision 2026-11-18).
   // #1090 onboarding: the study goal page, My page goal row and result goal
