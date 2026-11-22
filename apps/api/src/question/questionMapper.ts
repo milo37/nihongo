@@ -61,6 +61,12 @@ export const toPublicPracticeQuestion = (
             ? null
             : question.passageFurigana.map((segment) => ({ ...segment }))
       }),
+  ...(question.passageAudio === undefined
+    ? {}
+    : {
+        passageAudio:
+          question.passageAudio === null ? null : { ...question.passageAudio }
+      }),
   questionText: question.questionText,
   options: question.options.map(({ id, label, text }) => ({
     id,

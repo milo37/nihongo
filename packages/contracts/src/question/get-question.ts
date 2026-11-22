@@ -6,6 +6,7 @@ import {
   questionTypeSchema
 } from '../common/enum.js'
 import { opaqueIdSchema } from '../common/id.js'
+import { passageAudioRefSchema } from './passage-audio.js'
 
 const nonBlankTextSchema = z.string().trim().min(1)
 const INTERNAL_WHITESPACE_PATTERN = /\s+/gu
@@ -91,6 +92,9 @@ export const publicPracticeQuestionSchema = z
     passageId: opaqueIdSchema.nullable().optional(),
     // #1182: reviewed passage furigana only; null when there is none.
     passageFurigana: z.array(furiganaSegmentSchema).nullable().optional(),
+    // #1183: read-aloud audio made for this passage and these readings; null
+    // when there is none, so the listen button stays hidden.
+    passageAudio: passageAudioRefSchema.nullable().optional(),
     questionText: nonBlankTextSchema,
     options: z.array(publicQuestionOptionSchema).length(4),
     difficulty: questionDifficultySchema,
