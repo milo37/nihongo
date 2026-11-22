@@ -106,22 +106,11 @@ data "aws_iam_policy_document" "audio_generator" {
     }
   }
 
+  # Write only: the job cannot read or list what is already stored.
   statement {
     sid       = "WritePassageAudio"
-    actions   = ["s3:PutObject", "s3:GetObject"]
+    actions   = ["s3:PutObject"]
     resources = ["${aws_s3_bucket.audio.arn}/passages/*"]
-  }
-
-  # Lets the job skip keys that already exist (HEAD without ListBucket is a 403).
-  statement {
-    sid       = "ListPassageAudio"
-    actions   = ["s3:ListBucket"]
-    resources = [aws_s3_bucket.audio.arn]
-    condition {
-      test     = "StringLike"
-      variable = "s3:prefix"
-      values   = ["passages/*"]
-    }
   }
 }
 
