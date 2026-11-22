@@ -14,7 +14,7 @@ import { TwoStepConfirmDialog } from '@app/account/components/TwoStepConfirmDial
 import { Button } from '@nihongo/browser/common/components/Button'
 
 // Logout and deletion share one button size.
-const ROW_BUTTON_CLASS = 'min-w-32'
+const ROW_BUTTON_CLASS = 'account-row-button'
 
 export const AccountSettings = (): ReactElement => {
   const { t } = useTranslation('account')
@@ -29,18 +29,21 @@ export const AccountSettings = (): ReactElement => {
   const deleteReasonId = headingId + '-delete-reason'
   const controlsDisabled = flow.busy || flow.uncertain
   return (
-    <section className="account-section grid gap-4" aria-labelledby={headingId}>
+    <section
+      className="account-section account-settings"
+      aria-labelledby={headingId}
+    >
       <h2
         ref={heading}
         id={headingId}
         tabIndex={-1}
-        className="text-lg font-bold outline-none"
+        className="account-settings-title"
       >
         {t('settings.title')}
       </h2>
       {/* JLP-851, JLP-860: rows under the heading with no card or box;
           deletion keeps only its red title and red outline button. */}
-      <div className="divide-y divide-line">
+      <div className="account-settings-rows">
         <SignInMethodRow flow={flow} />
         <SettingRow
           action={
@@ -55,8 +58,8 @@ export const AccountSettings = (): ReactElement => {
             </Button>
           }
         >
-          <p className="font-semibold">{authT('sso.logoutAction')}</p>
-          <p className="text-muted">{t('settings.logoutDescription')}</p>
+          <p className="account-strong">{authT('sso.logoutAction')}</p>
+          <p className="account-muted">{t('settings.logoutDescription')}</p>
         </SettingRow>
         <SettingRow
           action={
@@ -76,12 +79,10 @@ export const AccountSettings = (): ReactElement => {
             </Button>
           }
         >
-          <p className="font-semibold text-danger">{t('danger.title')}</p>
-          <p className="whitespace-pre-line text-muted">
-            {t('danger.description')}
-          </p>
+          <p className="account-danger-title">{t('danger.title')}</p>
+          <p className="account-danger-text">{t('danger.description')}</p>
           {caps && !caps.canDelete ? (
-            <p id={deleteReasonId} className="mt-1 text-caption">
+            <p id={deleteReasonId} className="account-delete-reason">
               {authT(
                 caps.deletionBlockedReason === 'LAST_ACTIVE_ADMIN'
                   ? 'sso.lastAdminDeletionBlocked'
@@ -93,7 +94,7 @@ export const AccountSettings = (): ReactElement => {
       </div>
       {flow.feedback && flow.dialog === null ? (
         <p
-          className="text-sm"
+          className="account-feedback"
           role={flow.feedback === 'reauthCancelled' ? 'status' : 'alert'}
         >
           {authT(ACCOUNT_FEEDBACK_KEY[flow.feedback])}
@@ -101,7 +102,7 @@ export const AccountSettings = (): ReactElement => {
       ) : null}
       {flow.uncertain && flow.dialog === null ? (
         <Button
-          className="justify-self-start"
+          className="account-recheck"
           variant="outline"
           disabled={flow.busy}
           onClick={() => void flow.recheck()}

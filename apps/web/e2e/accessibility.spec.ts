@@ -2424,43 +2424,24 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     await expect(
       selectedArticle.getByText(item.question.explanationKo, { exact: true })
     ).toHaveAttribute('lang', 'ko')
-    const explanationTabs = selectedArticle.getByRole('tablist', {
-      name: '해설 언어',
-      exact: true
-    })
-    const fallbackNotice = selectedArticle.getByText(
-      '일본어 해설이 아직 없어서 한국어 해설을 보여 드려요.',
-      { exact: true }
-    )
+    // One explanation in the screen language, no language tabs.
+    await expect(selectedArticle.getByRole('tablist')).toHaveCount(0)
+    // The missing-Japanese notice shows only on the Japanese screen (G).
+    await expect(
+      selectedArticle.getByText(
+        '일본어 해설이 아직 없어서 한국어 해설을 보여 드려요.',
+        { exact: true }
+      )
+    ).toHaveCount(0)
     if (available) {
       if (!item.question.explanationJa) {
         throw new Error(
           'Accessibility Japanese explanation fixture is missing.'
         )
       }
-      await expect(explanationTabs).toHaveCount(1)
-      await expect(fallbackNotice).toHaveCount(0)
-      const koreanTab = explanationTabs.getByRole('tab', {
-        name: '한국어',
-        exact: true
-      })
-      await expect(koreanTab).toHaveAttribute('aria-selected', 'true')
-      const japaneseTab = explanationTabs.getByRole('tab', {
-        name: '日本語',
-        exact: true
-      })
-      await focusByTab(page, koreanTab)
-      await page.keyboard.press('ArrowRight')
-      await expect(japaneseTab).toBeFocused()
-      await page.keyboard.press('Enter')
-      await expect(japaneseTab).toHaveAttribute('aria-selected', 'true')
       await expect(
         selectedArticle.getByText(item.question.explanationJa, { exact: true })
-      ).toHaveAttribute('lang', 'ja')
-    } else {
-      await expect(explanationTabs).toHaveCount(0)
-      // The missing-Japanese notice shows only on the Japanese screen (G).
-      await expect(fallbackNotice).toHaveCount(0)
+      ).toHaveCount(0)
     }
     reviewedQuestionIds.push(item.question.id)
   }

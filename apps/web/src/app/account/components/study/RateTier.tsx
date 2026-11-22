@@ -11,15 +11,15 @@ export const getRateTier = (rate: number): RateTier => {
 
 // Ink, ochre and vermilion: all AA on white, no green (correct is ink).
 export const rateTierTextClass: Record<RateTier, string> = {
-  high: 'text-ink',
-  mid: 'text-warning',
-  low: 'text-brand-strong'
+  high: 'my-tier-high',
+  mid: 'my-tier-mid',
+  low: 'my-tier-low'
 }
 
 export const rateTierFillClass: Record<RateTier, string> = {
-  high: 'bg-ink',
-  mid: 'bg-warning',
-  low: 'bg-brand-strong'
+  high: 'my-fill-high',
+  mid: 'my-fill-mid',
+  low: 'my-fill-low'
 }
 
 // Grading marks ◎ ○ △ so the tier never rests on colour alone. Decorative:

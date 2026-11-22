@@ -17,6 +17,7 @@ import {
   assertArchiveAdminQuestionResponse,
   assertCreateAdminQuestionResponse,
   assertCreateAdminQuestionVersionResponse,
+  assertEditReadingPassageResponse,
   assertPublishQuestionVersionResponse,
   assertRequestContentReviewBatchResponse,
   assertRequestContentReviewResponse,
@@ -29,6 +30,9 @@ import {
   createAdminQuestionRequestSchema,
   createAdminQuestionVersionErrorCodeSchema,
   createAdminQuestionVersionRequestSchema,
+  editReadingPassageErrorCodeSchema,
+  editReadingPassageRequestSchema,
+  editReadingPassageResponseSchema,
   exportAdminQuestionsErrorCodeSchema,
   exportAdminQuestionsRequestSchema,
   publishQuestionVersionErrorCodeSchema,
@@ -825,5 +829,108 @@ describe('Admin command contracts', () => {
         stack: 'secret'
       }).success
     ).toBe(false)
+  })
+
+  it('지문 고치기 요청·결과를 묶음 문제 2..20개와 path·expected+1에 묶는다 (#1196)', () => {
+    const passageId = id(40)
+    const newPassageId = id(41)
+    const request = {
+      text: '新しい本文です。',
+      expectedQuestions: [
+        { questionId: id(42), expectedQuestionRowVersion: 3 },
+        { questionId: id(43), expectedQuestionRowVersion: 1 }
+      ]
+    }
+    expect(editReadingPassageRequestSchema.safeParse(request).success).toBe(
+      true
+    )
+    const rejects = (candidate: unknown): void => {
+      expect(editReadingPassageRequestSchema.safeParse(candidate).success).toBe(
+        false
+      )
+    }
+    rejects({ ...request, text: '' })
+    rejects({ ...request, text: '   ' })
+    rejects({ ...request, text: 'あ'.repeat(10_001) })
+    rejects({
+      ...request,
+      expectedQuestions: request.expectedQuestions.slice(0, 1)
+    })
+    rejects({
+      ...request,
+      expectedQuestions: Array.from({ length: 21 }, (_, index) => ({
+        questionId: id(100 + index),
+        expectedQuestionRowVersion: 1
+      }))
+    })
+    rejects({
+      ...request,
+      expectedQuestions: [
+        request.expectedQuestions[0],
+        request.expectedQuestions[0]
+      ]
+    })
+    rejects({ ...request, passageId })
+
+    const response = {
+      passageId: newPassageId,
+      occurredAt,
+      items: [
+        {
+          questionId: id(42),
+          versionId: id(44),
+          questionRowVersion: 4,
+          versionRowVersion: 1,
+          versionStatus: 'DRAFT'
+        },
+        {
+          questionId: id(43),
+          versionId: id(45),
+          questionRowVersion: 2,
+          versionRowVersion: 1,
+          versionStatus: 'DRAFT'
+        }
+      ]
+    }
+    expect(
+      assertEditReadingPassageResponse({ passageId }, request, response)
+    ).toEqual(response)
+    expect(() =>
+      assertEditReadingPassageResponse(
+        { passageId: newPassageId },
+        request,
+        response
+      )
+    ).toThrow()
+    expect(() =>
+      assertEditReadingPassageResponse({ passageId }, request, {
+        ...response,
+        items: [
+          { ...response.items[0], questionRowVersion: 3 },
+          response.items[1]
+        ]
+      })
+    ).toThrow()
+    expect(() =>
+      assertEditReadingPassageResponse({ passageId }, request, {
+        ...response,
+        items: response.items.slice(0, 1)
+      })
+    ).toThrow()
+    expect(
+      editReadingPassageResponseSchema.safeParse({
+        ...response,
+        items: [
+          { ...response.items[0], versionStatus: 'IN_REVIEW' },
+          response.items[1]
+        ]
+      }).success
+    ).toBe(false)
+    expect(editReadingPassageErrorCodeSchema.options).toContain(
+      'INVALID_STATE_TRANSITION'
+    )
+    expect(editReadingPassageErrorCodeSchema.options).not.toContain(
+      'FRESH_ASSURANCE_REQUIRED'
+    )
   })
 })

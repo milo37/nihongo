@@ -12,9 +12,9 @@ export const SettingRow = ({
   children: ReactNode
   action?: ReactNode
 }): ReactElement => (
-  <div className="py-4 first:pt-0 last:pb-0">
-    <div className="min-w-0 break-words text-sm leading-6">{children}</div>
-    {action ? <div className="mt-3">{action}</div> : null}
+  <div className="account-row">
+    <div className="account-row-body">{children}</div>
+    {action ? <div className="account-row-action">{action}</div> : null}
   </div>
 )
 
@@ -34,14 +34,14 @@ export const SignInMethodRow = ({
   const google = caps?.providers.find((p) => p.provider === 'google')
   return (
     <SettingRow>
-      <p className="text-caption text-muted">{t('settings.signInMethod')}</p>
+      <p className="account-row-label">{t('settings.signInMethod')}</p>
       {flow.capabilities.isPending ? (
         <p role="status">{authT('sso.checkingAccount')}</p>
       ) : !caps ? (
         <div role="alert">
           <p>{authT('sso.actionFailed')}</p>
           <Button
-            className="mt-2"
+            className="account-row-retry"
             variant="outline"
             disabled={flow.capabilities.isFetching}
             onClick={() => void flow.capabilities.refetch()}
@@ -53,7 +53,7 @@ export const SignInMethodRow = ({
         <p role="status">{authT('sso.migrationIncomplete')}</p>
       ) : (
         <>
-          <p className="mt-1 flex items-center gap-2 text-base font-semibold">
+          <p className="account-row-provider">
             {/* Google's own G mark, unchanged; the word stays as text. */}
             <img
               src="/auth/google-mark.svg"
@@ -65,7 +65,7 @@ export const SignInMethodRow = ({
             Google
           </p>
           {!google.reauthAvailable ? (
-            <p className="text-caption">
+            <p className="account-row-note">
               {authT('sso.unavailableProvider', { provider: 'Google' })}
             </p>
           ) : null}

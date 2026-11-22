@@ -31,12 +31,17 @@ const item = {
   }
 } as unknown as StudyResultItemView
 
-const renderDetail = () =>
+const legacyItem = {
+  ...item,
+  question: { ...item.question, questionVersionId: null, tagSummaries: null }
+} as unknown as StudyResultItemView
+
+const renderDetail = (detailItem: StudyResultItemView = item) =>
   render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter>
         <ResultQuestionDetail
-          item={item}
+          item={detailItem}
           ordinal={1}
           canReport={false}
           isBookmarked={false}
@@ -53,10 +58,23 @@ afterEach(async () => {
   await act(() => appI18n.changeLanguage('ko'))
 })
 
-it('shows Japanese tag names on a Japanese screen, Korean where none (#976)', async () => {
+it('shows only Japanese tag names on a Japanese screen (#976)', async () => {
   await appI18n.changeLanguage('ja')
   renderDetail()
-  expect(screen.getByText('助詞 · 경어')).toBeVisible()
+  expect(screen.getByText('助詞')).toBeVisible()
+  expect(screen.queryByText(/경어/)).toBeNull()
+})
+
+it('shows no Korean-only legacy tags on a Japanese screen', async () => {
+  await appI18n.changeLanguage('ja')
+  renderDetail(legacyItem)
+  expect(screen.queryByText(/조사|경어/)).toBeNull()
+})
+
+it('keeps the legacy Korean tags on a Korean screen', async () => {
+  await appI18n.changeLanguage('ko')
+  renderDetail(legacyItem)
+  expect(screen.getByText('조사 · 경어')).toBeVisible()
 })
 
 it('keeps the Korean tag names on a Korean screen (#976)', async () => {

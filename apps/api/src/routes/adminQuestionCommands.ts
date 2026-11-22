@@ -20,6 +20,7 @@ import {
   assertArchiveAdminQuestionResponse,
   assertCreateAdminQuestionResponse,
   assertCreateAdminQuestionVersionResponse,
+  assertEditReadingPassageResponse,
   assertPublishQuestionVersionResponse,
   assertRequestContentReviewBatchResponse,
   assertRequestContentReviewResponse,
@@ -41,6 +42,9 @@ import {
   createAdminQuestionVersionParamsSchema,
   createAdminQuestionVersionRequestSchema,
   createAdminQuestionVersionResponseSchema,
+  editReadingPassageParamsSchema,
+  editReadingPassageRequestSchema,
+  editReadingPassageResponseSchema,
   exportAdminQuestionsRequestSchema,
   exportAdminQuestionsAttachmentBodyResponseSchema,
   exportAdminQuestionsResponseSchema,
@@ -290,6 +294,35 @@ export const createAdminQuestionCommandRoutes = ({
     const response = createAdminQuestionVersionResponseSchema.parse(
       assertCommittedResponse(() =>
         assertCreateAdminQuestionVersionResponse(params, request, raw)
+      )
+    )
+    noStore(context)
+    return context.json(response, 201)
+  })
+
+  routes.post('/reading-passages/:passageId/edits', guard, async (context) => {
+    assertEmptyQuery(context.get('rawRequestTarget'))
+    const params = parsePath(
+      () =>
+        editReadingPassageParamsSchema.parse({
+          passageId: context.req.param('passageId')
+        }),
+      '지문 ID 형식이 올바르지 않습니다.'
+    )
+    const request = await parseBody(
+      context.req.raw,
+      'editReadingPassage',
+      editReadingPassageRequestSchema,
+      '지문 고치기 요청이 올바르지 않습니다.'
+    )
+    const raw = await commandService.editPassage(
+      authority(context),
+      params.passageId,
+      request
+    )
+    const response = editReadingPassageResponseSchema.parse(
+      assertCommittedResponse(() =>
+        assertEditReadingPassageResponse(params, request, raw)
       )
     )
     noStore(context)

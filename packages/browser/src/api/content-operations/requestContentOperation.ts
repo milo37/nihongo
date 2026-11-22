@@ -7,6 +7,7 @@ import {
   assertArchiveAdminQuestionResponse,
   assertCreateAdminQuestionResponse,
   assertCreateAdminQuestionVersionResponse,
+  assertEditReadingPassageResponse,
   assertCreateQuestionReportForRequest,
   assertDiffQuestionVersionForRequest,
   assertGetAdminQuestionForRequest,
@@ -332,6 +333,8 @@ const assertCorrelatedResponse = async (
       return assertTriageAdminQuestionReportResponse(params, body, response)
     case 'resolveAdminQuestionReport':
       return assertResolveAdminQuestionReportResponse(params, body, response)
+    case 'editReadingPassage':
+      return assertEditReadingPassageResponse(params, body, response)
   }
 }
 

@@ -1,3 +1,4 @@
+import type { FuriganaSegment } from '@nihongo/contracts/question/get-question'
 import type {
   StudySessionPayload,
   VersionedStudySessionPayload
@@ -19,6 +20,8 @@ export interface StudyQuestionView {
   subject: QuestionSubject
   questionType: QuestionType
   passage: string | null
+  /** #1182: reviewed passage furigana; null or absent when there is none. */
+  passageFurigana?: readonly FuriganaSegment[] | null
   questionText: string
   options: PracticeQuestionOption[]
   difficulty: QuestionDifficulty
@@ -78,6 +81,7 @@ export const toCanonicalStudySessionView = (
       subject: question.subject,
       questionType: question.questionType,
       passage: question.passage,
+      passageFurigana: question.passageFurigana ?? null,
       questionText: question.questionText,
       options: question.options,
       difficulty: question.difficulty,

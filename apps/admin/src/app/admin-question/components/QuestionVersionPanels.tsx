@@ -5,6 +5,11 @@ import { Button } from '@nihongo/browser/common/components/Button'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
 import type { useQuestionWorkflow } from '@app/admin-question/hooks/useQuestionWorkflow'
+import { useEditReadingPassage } from '@app/admin-question/hooks/useEditReadingPassage'
+import {
+  SharedPassageGroup,
+  isSharedPassage
+} from '@app/admin-question/components/SharedPassageGroup'
 type Workflow = ReturnType<typeof useQuestionWorkflow>
 type PanelQuery = Workflow['preview'] | Workflow['diff'] | Workflow['reviews']
 type Translate = ReturnType<typeof useAdminPresentation>['t']
@@ -64,6 +69,8 @@ const PanelHeading = ({
 )
 
 const PreviewPanel = ({ workflow }: { workflow: Workflow }): ReactElement => {
+  // Here, not in SharedPassageGroup, so its result survives the reload.
+  const editPassage = useEditReadingPassage()
   const { preview, selected, isOffline } = workflow
   const { t } = useAdminPresentation()
   const heading = useRef<HTMLHeadingElement>(null)
@@ -122,6 +129,18 @@ const PreviewPanel = ({ workflow }: { workflow: Workflow }): ReactElement => {
             <p className="mt-3 whitespace-pre-wrap leading-7" lang="ja">
               {preview.data.adminAnswer.explanationJa}
             </p>
+          ) : null}
+          {/* #1196: admin-only, so it sits after the learner preview like the
+              answer, never inside the passage. */}
+          {preview.data.question.passage &&
+          isSharedPassage(preview.data.passageGroup) ? (
+            <SharedPassageGroup
+              edit={editPassage}
+              group={preview.data.passageGroup}
+              isOffline={isOffline}
+              passage={preview.data.question.passage}
+              questionId={preview.data.question.id}
+            />
           ) : null}
         </>
       ) : null}

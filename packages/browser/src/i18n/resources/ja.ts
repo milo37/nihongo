@@ -14,7 +14,6 @@ export const jaCoreResources = {
       ja: '日本語'
     },
     explanation: {
-      languageLabel: '解説の言語',
       japaneseUnavailable:
         '日本語の解説がまだないので、韓国語の解説を表示します。'
     },
@@ -752,6 +751,8 @@ export const jaCoreResources = {
       },
       question: {
         passageLabel: '文章',
+        furiganaLabel: 'ふりがなを表示',
+        furiganaNone: 'この文章にはまだふりがながありません。',
         numberLabel: '{{ordinal}}番の問題。',
         answerLegend: '選択肢'
       },

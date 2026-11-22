@@ -8,6 +8,7 @@ import type {
   PracticeQuestion,
   QuestionRecord
 } from '@nihongo/browser/common/types/domain'
+import { mockPassageFurigana } from '@mocks/data/passageFurigana'
 
 const QUESTION_CONTRACT_IDENTITY = '__contractIdentity' as const
 
@@ -124,6 +125,7 @@ export const toContractPracticeQuestion = (
   subject: question.subject,
   questionType: question.questionType,
   passage: question.passage,
+  passageFurigana: mockPassageFurigana(question.passage),
   questionText: question.questionText,
   options: question.options.map(({ id, label, text }) => ({
     id:

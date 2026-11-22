@@ -184,14 +184,12 @@ describe('마이페이지 내 학습', () => {
       .slice(0, 3)
       .map((row) => row.querySelector<HTMLElement>('[aria-hidden] > span'))
     expect(bars.map((bar) => bar?.style.width)).toEqual(['80%', '60%', '40%'])
-    expect(bars.map((bar) => bar?.className.match(/bg-[\w-]+/u)?.[0])).toEqual([
-      'bg-ink',
-      'bg-warning',
-      'bg-brand-strong'
-    ])
+    expect(
+      bars.map((bar) => bar?.className.match(/my-fill-[\w-]+/u)?.[0])
+    ).toEqual(['my-fill-high', 'my-fill-mid', 'my-fill-low'])
     // One summary line: the server totals, the rate in its tier colour.
     const total = within(section).getByText('64%')
-    expect(total).toHaveClass('text-warning')
+    expect(total).toHaveClass('my-tier-mid')
     expect(total.parentElement).toHaveTextContent('정답률64%보통')
     expect(within(section).getByText('25')).toBeInTheDocument()
     // One recent session: no 'last five' line.

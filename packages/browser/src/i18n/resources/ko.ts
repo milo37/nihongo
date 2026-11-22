@@ -10,7 +10,6 @@ export const koCoreResources = {
       ja: '日本語'
     },
     explanation: {
-      languageLabel: '해설 언어',
       japaneseUnavailable:
         '일본어 해설이 아직 없어서 한국어 해설을 보여 드려요.'
     },
@@ -720,6 +719,8 @@ export const koCoreResources = {
       },
       question: {
         passageLabel: '지문',
+        furiganaLabel: '후리가나 보기',
+        furiganaNone: '이 지문은 아직 후리가나가 없어요.',
         numberLabel: '{{ordinal}}번 문제.',
         answerLegend: '보기'
       },

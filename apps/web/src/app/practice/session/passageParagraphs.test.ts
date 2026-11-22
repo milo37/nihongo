@@ -30,7 +30,7 @@ describe('passageParagraphs (JLP-865)', () => {
 
   it('keeps a one-line passage as one indented paragraph', () => {
     expect(passageParagraphs('はじめまして。キムです。')).toEqual([
-      { text: 'はじめまして。キムです。', indent: true }
+      { text: 'はじめまして。キムです。', indent: true, start: 0 }
     ])
   })
 
@@ -40,8 +40,24 @@ describe('passageParagraphs (JLP-865)', () => {
         '受講料：4,000円\n\u3000※一部の回のみ、教材費がかかります。'
       )
     ).toEqual([
-      { text: '受講料：4,000円', indent: false },
-      { text: '\u3000※一部の回のみ、教材費がかかります。', indent: false }
+      { text: '受講料：4,000円', indent: false, start: 0 },
+      {
+        text: '\u3000※一部の回のみ、教材費がかかります。',
+        indent: false,
+        start: 11
+      }
+    ])
+  })
+
+  it('gives each line its code point start in the passage (#1182)', () => {
+    expect(
+      passageParagraphs('𠮟る。\n\n  前の行。 \n\t次。').map(
+        ({ start, text }) => [start, text]
+      )
+    ).toEqual([
+      [0, '𠮟る。'],
+      [7, '前の行。'],
+      [14, '次。']
     ])
   })
 })

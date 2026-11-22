@@ -407,6 +407,36 @@ const ADDED_RUSH_KANJI_WORD_TABLE = 'RushKanjiWord'
 const isAddedRushKanjiWord = (row: Record<string, unknown>): boolean =>
   row.table === ADDED_RUSH_KANJI_WORD_TABLE
 
+/**
+ * #986: the reading passage table, the version's link to it and the trigger
+ * that keeps the link.
+ */
+const ADDED_READING_PASSAGE_TABLE = 'ReadingPassage'
+const ADDED_PASSAGE_LINK_COLUMNS = new Set(['passageId', 'passageOrder'])
+const ADDED_PASSAGE_LINK_OBJECTS = new Set([
+  'QuestionVersion_passageId_fkey',
+  'QuestionVersion_passage_link_check',
+  'QuestionVersion_passageId_passageOrder_idx',
+  // #1196: a constraint trigger is also a pg_constraint row.
+  'QuestionVersion_passage_group_publication'
+])
+const ADDED_PASSAGE_LINK_TRIGGER = 'QuestionVersion_link_passage'
+/** #1196: the commit check that a shared passage group publishes together. */
+const ADDED_PASSAGE_GROUP_TRIGGER = 'QuestionVersion_passage_group_publication'
+const ADDED_PASSAGE_GROUP_FUNCTION = 'validate_passage_group_publication'
+const ADDED_PASSAGE_LINK_FUNCTION = 'link_question_version_passage'
+const isAddedReadingPassage = (row: Record<string, unknown>): boolean =>
+  row.table === ADDED_READING_PASSAGE_TABLE ||
+  (row.table === 'QuestionVersion' &&
+    (ADDED_PASSAGE_LINK_COLUMNS.has(String(row.name)) ||
+      ADDED_PASSAGE_LINK_OBJECTS.has(String(row.name))))
+
+/** #1182: the furigana table and its two enums. */
+const ADDED_FURIGANA_TABLE = 'Furigana'
+const ADDED_FURIGANA_TYPES = new Set(['FuriganaTarget', 'FuriganaOrigin'])
+const isAddedFurigana = (row: Record<string, unknown>): boolean =>
+  row.table === ADDED_FURIGANA_TABLE
+
 /** #675: the retired email Verification table, its enum and its guard. */
 const RETIRED_VERIFICATION_TABLE = 'Verification'
 const RETIRED_VERIFICATION_TYPE = 'AuthVerificationPurpose'
@@ -449,8 +479,8 @@ const withBaselineErasureStatus = (
  * the JLP-815 target level grant, the JLP-845 restore objects, the JLP-842
  * access record table, the JLP-852 last sign-in table, the #1042 return
  * count table, the #1085 consent table, the #1090 study goal table, the
- * #1094 stamp ledger, the #1043 rush best table and the #702 re-apply
- * function.
+ * #1094 stamp ledger, the #1043 rush best table, the #986 reading passage
+ * objects, the #1182 furigana table and the #702 re-apply function.
  */
 export const withoutForwardChanges = (
   catalog: SchemaCatalog
@@ -458,7 +488,10 @@ export const withoutForwardChanges = (
   ...catalog,
   types: catalog.types
     .filter(
-      ({ name }) => name !== ADDED_TYPE && name !== RETIRED_VERIFICATION_TYPE
+      ({ name }) =>
+        name !== ADDED_TYPE &&
+        name !== RETIRED_VERIFICATION_TYPE &&
+        !ADDED_FURIGANA_TYPES.has(String(name))
     )
     .map((row) =>
       Array.isArray(row.labels)
@@ -481,6 +514,8 @@ export const withoutForwardChanges = (
       name !== ADDED_STAMP_TABLE &&
       name !== ADDED_RUSH_BEST_TABLE &&
       name !== ADDED_RUSH_KANJI_WORD_TABLE &&
+      name !== ADDED_READING_PASSAGE_TABLE &&
+      name !== ADDED_FURIGANA_TABLE &&
       name !== RETIRED_VERIFICATION_TABLE
   ),
   columns: catalog.columns
@@ -500,6 +535,8 @@ export const withoutForwardChanges = (
         !isAddedStamp(row) &&
         !isAddedRushBest(row) &&
         !isAddedRushKanjiWord(row) &&
+        !isAddedReadingPassage(row) &&
+        !isAddedFurigana(row) &&
         !isRetiredVerification(row)
     )
     .map(withBaselineTargetLevelAcl),
@@ -517,6 +554,8 @@ export const withoutForwardChanges = (
         !isAddedStamp(row) &&
         !isAddedRushBest(row) &&
         !isAddedRushKanjiWord(row) &&
+        !isAddedReadingPassage(row) &&
+        !isAddedFurigana(row) &&
         !isRetiredVerification(row)
     )
     .map(withBaselineProofBound)
@@ -533,6 +572,8 @@ export const withoutForwardChanges = (
       !isAddedStamp(row) &&
       !isAddedRushBest(row) &&
       !isAddedRushKanjiWord(row) &&
+      !isAddedReadingPassage(row) &&
+      !isAddedFurigana(row) &&
       !isRetiredVerification(row)
   ),
   triggers: catalog.triggers.filter(
@@ -540,6 +581,8 @@ export const withoutForwardChanges = (
       row.table !== DROPPED_TABLE &&
       row.table !== ADDED_TABLE &&
       !isRetiredVerification(row) &&
+      row.name !== ADDED_PASSAGE_LINK_TRIGGER &&
+      row.name !== ADDED_PASSAGE_GROUP_TRIGGER &&
       !DROPPED_TRIGGERS.has(String(row.name))
   ),
   functions: catalog.functions
@@ -548,6 +591,8 @@ export const withoutForwardChanges = (
         !DROPPED_FUNCTIONS.has(String(name)) &&
         name !== ADDED_FUNCTION &&
         name !== ADDED_REAPPLY_FUNCTION &&
+        name !== ADDED_PASSAGE_LINK_FUNCTION &&
+        name !== ADDED_PASSAGE_GROUP_FUNCTION &&
         name !== RETIRED_VERIFICATION_FUNCTION
     )
     .map((row) =>

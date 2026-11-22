@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { ReactElement, ReactNode, RefObject } from 'react'
-import { ExplanationLanguagePanel } from '@common/components/ExplanationLanguagePanel'
+import { Explanation } from '@common/components/Explanation'
 import type { WrongNoteDetailView } from '@app/wrong-note/adapters/wrongNoteView'
 import type { WrongNotePreviousAnswer } from '@app/wrong-note/adapters/wrongNotePreviousAnswer'
 import { JaText } from '@common/components/JaText'
@@ -51,7 +51,7 @@ const ReviewOptions = ({
               </strong>
             ) : null}
             {option.isCorrect ? (
-              <strong className="text-success-strong">
+              <strong className="wrong-note-correct">
                 <span className="review-answer-mark" aria-hidden="true">
                   ○{' '}
                 </span>
@@ -83,7 +83,7 @@ export const WrongNoteDetailContent = ({
         <span>
           {data.question.level} ·{' '}
           {commonT(`taxonomy.subjects.${data.question.subject}`)} ·{' '}
-          <span className="font-semibold text-danger">
+          <span className="wrong-note-meta-wrong">
             {t('card.wrongCount', { count: data.wrongNote.wrongCount })}
           </span>
         </span>
@@ -95,7 +95,7 @@ export const WrongNoteDetailContent = ({
       ) : null}
       <h1
         ref={headingRef}
-        className="review-question outline-none"
+        className="review-question wrong-note-question"
         {...jaTextProps(data.question.questionText)}
         tabIndex={-1}
       >
@@ -120,7 +120,7 @@ export const WrongNoteDetailContent = ({
         aria-labelledby="review-detail-explanation"
       >
         <h2 id="review-detail-explanation">{t('detail.explanation')}</h2>
-        <ExplanationLanguagePanel
+        <Explanation
           key={data.question.id}
           explanationJa={data.question.explanationJa}
           explanationKo={data.question.explanationKo}

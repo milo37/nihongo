@@ -52,8 +52,8 @@ const MemberReview = (): ReactElement => {
     </Button>
   )
   return (
-    <section className="mx-auto w-full max-w-[1040px] px-4 py-6 sm:px-6 sm:py-10 lg:px-0">
-      <h1 className="text-2xl font-bold text-ink">{t('title')}</h1>
+    <section className="wrong-note-center">
+      <h1 className="wrong-note-title">{t('title')}</h1>
       <ReviewTabs
         counts={counts}
         locale={locale}
@@ -66,14 +66,14 @@ const MemberReview = (): ReactElement => {
         role="tabpanel"
         aria-labelledby={`review-tab-${query.state}`}
       >
-        <p className="mt-3 text-sm text-muted">{t('rule')}</p>
+        <p className="wrong-note-rule">{t('rule')}</p>
         {center.showLevels ? (
           <LevelChips
             selected={query.level}
             onSelect={(level) => center.setQuery({ level })}
           />
         ) : null}
-        {canStart ? startButton('mt-4 min-h-12 w-full sm:hidden') : null}
+        {canStart ? startButton('wrong-note-start-narrow') : null}
         <ReviewNotices
           notice={review.notice}
           offline={list.fetchStatus === 'paused'}
@@ -83,7 +83,7 @@ const MemberReview = (): ReactElement => {
         ) : null}
         {list.isError ? (
           <ErrorState
-            className="mt-6"
+            className="wrong-note-block"
             title={t('loadError')}
             description={t('center.states.errorDescription')}
             action={
@@ -94,9 +94,7 @@ const MemberReview = (): ReactElement => {
         {list.data && !isLoading && !list.isError ? (
           <>
             {canStart ? (
-              <div className="mt-6 hidden justify-end sm:flex">
-                {startButton('min-h-10')}
-              </div>
+              <div className="wrong-note-start-row">{startButton('')}</div>
             ) : null}
             {list.data.items.length ? (
               <ReviewList
@@ -122,7 +120,7 @@ const MemberReview = (): ReactElement => {
                 totalPages={center.totalPages}
                 requestedPage={query.page}
                 disabled={list.isFetching || list.isPlaceholderData}
-                className="mt-6"
+                className="wrong-note-block"
                 onPageChange={(page) => center.setQuery({ page })}
                 getPageHref={(page) =>
                   `?${createReviewListSearch({ ...query, page }).toString()}`

@@ -43,6 +43,10 @@ earlier one at the same specificity, so a file's place in the list matters.
 |              | account.css                          | My page, nickname                               |
 |              | auth.css                             | Sign-up check, guest gate, login                |
 |              | operations.css                       | Terms and operations documents                  |
+|              | wrong-note/center.css, list.css      | Wrong notes: center, question list              |
+|              | wrong-note/detail.css                | Wrong notes: one question                       |
+|              | my/settings.css                      | My page: settings, menu, two-step dialog        |
+|              | my/study.css                         | My page: my study                               |
 | 5-motion     | keyframes-\*.css                     | `@keyframes` only, by the part that uses them   |
 |              | reduced-motion.css                   | Every `prefers-reduced-motion` override         |
 
@@ -59,8 +63,12 @@ come later, as the Tailwind utilities in the screens move into CSS.
 - An `animation:` line stays in its part's rule. `5-motion/` holds only
   `@keyframes` and the reduced-motion overrides; moving `animation:` there
   would put it after the screen rules and change which rule wins.
+- `5-motion/reduced-motion.css` also holds `animation: none` lines.
 - Utilities moved out of the markup go inside `@layer utilities { }` in the
   file they move to, so they stay as weak as the utilities they replace.
+- A moved utility keeps the value the build gives it. `text-brand`,
+  `border-brand` and `outline-brand` are redefined in
+  `@nihongo/browser/styles.css`, so copy that value, not Tailwind's.
 - To hide overflow use `overflow: clip`, not `hidden` (hidden makes a scroll
   box, and focus can scroll it).
 - No layout sizes worked out from other pixel sizes; use flex, grid and
