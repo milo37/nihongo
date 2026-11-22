@@ -5,15 +5,7 @@ export const enableMocking = async (): Promise<void> => {
     return
   }
 
-  const [{ worker }, { mockPassageAudioEntries }, { registerPassageAudio }] =
-    await Promise.all([
-      import('@mocks/browser'),
-      import('@mocks/data/passageAudio'),
-      import('@app/practice/session/passageAudio/passageAudioSource')
-    ])
-  // #1183: until the learner API sends audio keys, the mock tells the app.
-  for (const [passage, key] of mockPassageAudioEntries())
-    registerPassageAudio(passage, key)
+  const { worker } = await import('@mocks/browser')
 
   await worker.start({
     onUnhandledRequest: (request, print) => {

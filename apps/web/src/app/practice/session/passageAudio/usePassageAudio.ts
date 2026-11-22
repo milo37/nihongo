@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type {
   PassageAudioMark,
-  PassageAudioMarks
+  PassageAudioMarks,
+  PassageAudioRef
 } from '@nihongo/contracts/question/passage-audio'
 import {
   fetchPassageAudioMarks,
@@ -45,7 +46,10 @@ export type PassageAudio = {
  * passage changes. Closing pauses and clears the reading word; opening again
  * goes on from the same spot.
  */
-export const usePassageAudio = (audioKey: string | null): PassageAudio => {
+export const usePassageAudio = (
+  passageAudio: PassageAudioRef | null
+): PassageAudio => {
+  const audioKey = passageAudio?.key ?? null
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const marksAbortRef = useRef<AbortController | null>(null)
   const [isOpen, setOpen] = useState(false)
@@ -92,7 +96,10 @@ export const usePassageAudio = (audioKey: string | null): PassageAudio => {
     return () => cancelAnimationFrame(frame)
   }, [isPlaying])
 
-  const durationMs = marks?.durationMs ?? mediaDurationMs
+  // The question already says how long it is, so the total shows before the
+  // timings or the file arrive.
+  const durationMs =
+    marks?.durationMs || mediaDurationMs || passageAudio?.durationMs || 0
 
   const load = (key: string): HTMLAudioElement => {
     const audio = new Audio(passageAudioUrl(key))

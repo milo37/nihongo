@@ -1,4 +1,7 @@
-import type { PassageAudioMarks } from '@nihongo/contracts/question/passage-audio'
+import type {
+  PassageAudioMarks,
+  PassageAudioRef
+} from '@nihongo/contracts/question/passage-audio'
 import { mockFuriganaPassages } from '@mocks/data/passageFurigana'
 
 // #1183 mock: every passage with reviewed readings gets "audio" — silence as
@@ -8,7 +11,7 @@ const WORD_MS = 300
 const TAIL_MS = 600
 const SAMPLE_RATE = 8000
 
-const hash = (text: string): string => {
+const fnv = (text: string): string => {
   let value = 0x811c9dc5
   for (const point of text) {
     value ^= point.codePointAt(0)!
@@ -17,12 +20,15 @@ const hash = (text: string): string => {
   return value.toString(16).padStart(8, '0')
 }
 
-const ENTRIES = new Map(
-  mockFuriganaPassages().map((passage) => [`mock-${hash(passage)}`, passage])
-)
+// The real key is a 64-hex content hash; eight salted FNV rounds give the
+// same shape.
+const hash = (text: string): string =>
+  Array.from({ length: 8 }, (_, round) => fnv(`${round}:${text}`)).join('')
 
-export const mockPassageAudioEntries = (): Array<[string, string]> =>
-  [...ENTRIES].map(([key, passage]) => [passage, key])
+const ENTRIES = new Map(
+  mockFuriganaPassages().map((passage) => [hash(passage), passage])
+)
+const KEYS = new Map([...ENTRIES].map(([key, passage]) => [passage, key]))
 
 export const mockPassageAudioMarks = (
   key: string
@@ -55,6 +61,17 @@ export const mockPassageAudioMarks = (
     words,
     sentences
   }
+}
+
+/** The question's `passageAudio` for a mock passage, or null. */
+export const mockPassageAudio = (
+  passage: string | null
+): PassageAudioRef | null => {
+  const key = passage === null ? undefined : KEYS.get(passage)
+  const marks = key === undefined ? null : mockPassageAudioMarks(key)
+  return key === undefined || !marks
+    ? null
+    : { key, durationMs: marks.durationMs }
 }
 
 /** 8-bit mono silence, `durationMs` long, as a WAV file. */

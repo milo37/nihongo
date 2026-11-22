@@ -1,13 +1,16 @@
 import { createRef } from 'react'
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { PassageAudioRef } from '@nihongo/contracts/question/passage-audio'
 import type { StudyQuestionView } from '@app/practice/adapters/studySessionView'
 import { PracticeQuestionCard } from '@app/practice/session/components/PracticeQuestionCard'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import { clearStorageCache } from '@nihongo/browser/libs/storage'
 
-const question = (passageAudioKey: string | null): StudyQuestionView => ({
+const AUDIO: PassageAudioRef = { key: 'a'.repeat(64), durationMs: 53_000 }
+
+const question = (passageAudio: PassageAudioRef | null): StudyQuestionView => ({
   id: 'q1',
   sessionQuestionId: null,
   questionVersionId: null,
@@ -17,7 +20,7 @@ const question = (passageAudioKey: string | null): StudyQuestionView => ({
   questionType: 'SHORT_READING',
   passage: '今日は雨です。',
   passageFurigana: null,
-  passageAudioKey,
+  passageAudio,
   questionText: '天気は何ですか。',
   options: ['a', 'b', 'c', 'd'].map((id, index) => ({
     id,
@@ -28,7 +31,7 @@ const question = (passageAudioKey: string | null): StudyQuestionView => ({
   tags: []
 })
 
-const card = (key: string | null) => (
+const card = (audio: PassageAudioRef | null) => (
   <I18nProvider>
     <PracticeQuestionCard
       actions={null}
@@ -36,7 +39,7 @@ const card = (key: string | null) => (
       headingRef={createRef()}
       isOptionsDisabled={false}
       onSelectOption={() => undefined}
-      question={question(key)}
+      question={question(audio)}
       questionNumber={1}
       saveStatus={null}
       selectedOptionId={undefined}
@@ -78,7 +81,7 @@ describe('passage read-aloud bar (#1183)', () => {
 
   it('opens playing, pauses, and closes', async () => {
     const user = userEvent.setup()
-    render(card('k1'))
+    render(card(AUDIO))
     const listen = screen.getByRole('button', { name: '듣기' })
     expect(listen).toHaveAttribute('aria-expanded', 'false')
 
@@ -87,6 +90,8 @@ describe('passage read-aloud bar (#1183)', () => {
     expect(close).toHaveAttribute('aria-expanded', 'true')
     const slider = screen.getByRole('slider', { name: '재생 위치' })
     expect(slider).toHaveAttribute('aria-valuetext', '0:00')
+    // The question's length shows before the timings file arrives.
+    expect(slider).toHaveAttribute('aria-valuemax', '53')
     expect(close).toHaveAttribute(
       'aria-controls',
       slider.closest('.study-audio-row')?.id
@@ -105,7 +110,7 @@ describe('passage read-aloud bar (#1183)', () => {
 
   it('steps the speed and names it', async () => {
     const user = userEvent.setup()
-    render(card('k1'))
+    render(card(AUDIO))
     await user.click(screen.getByRole('button', { name: '듣기' }))
     const row = screen.getByRole('slider').closest('.study-audio-row')!
     await user.click(

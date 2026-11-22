@@ -2,6 +2,7 @@ import { useEffect, useId, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement, RefObject } from 'react'
 import type { FuriganaSegment } from '@nihongo/contracts/question/get-question'
+import type { PassageAudioRef } from '@nihongo/contracts/question/passage-audio'
 import { paragraphRuby } from '@app/practice/session/passageFurigana'
 import { passageParagraphs } from '@app/practice/session/passageParagraphs'
 import { setFurigana, useFurigana } from '@app/practice/session/useFurigana'
@@ -20,18 +21,18 @@ import { jaTextProps } from '@common/libs/jaSpacing'
  * (the tail mark is the only red) and one block per source line.
  */
 export const QuestionPassage = ({
-  audioKey,
   furigana,
   isDecorative,
   passage,
+  passageAudio,
   passageRef,
   push
 }: {
-  /** #1183: the read-aloud file's key; null hides [듣기]. */
-  audioKey: string | null
   furigana: readonly FuriganaSegment[] | null | undefined
   isDecorative: boolean
   passage: string
+  /** #1183: the read-aloud file; null hides [듣기]. */
+  passageAudio: PassageAudioRef | null
   passageRef: RefObject<HTMLElement | null>
   push: QuestionPush | undefined
 }): ReactElement => {
@@ -39,9 +40,9 @@ export const QuestionPassage = ({
   const isFuriganaOn = useFurigana()
   // #1182: [] (no kanji) and null (not reviewed yet) both have no readings.
   const hasFurigana = Boolean(furigana?.length)
-  const audio = usePassageAudio(isDecorative ? null : audioKey)
+  const audio = usePassageAudio(isDecorative ? null : passageAudio)
   const audioRowId = useId()
-  const hasAudio = Boolean(audioKey) && !isDecorative && !audio.isFailed
+  const hasAudio = Boolean(passageAudio) && !isDecorative && !audio.isFailed
   const revealRef = useRef(false)
   // #1183: after a drag or key move, show the reading word once if it is off
   // screen (or under the fixed action bar). No follow while it plays.
