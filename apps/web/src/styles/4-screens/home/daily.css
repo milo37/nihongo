@@ -171,6 +171,8 @@
   .home-daily-explanation {
     margin-top: calc(var(--spacing) * 2);
     overflow-wrap: break-word;
+    /* Explanations keep their line breaks (operator, 2026-11-22). */
+    white-space: pre-line;
     font-size: 15px;
     --tw-leading: calc(var(--spacing) * 7);
     line-height: calc(var(--spacing) * 7);

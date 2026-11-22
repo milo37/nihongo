@@ -9,7 +9,7 @@ import {
   Button,
   getButtonClassName
 } from '@nihongo/browser/common/components/Button'
-import { ExplanationLanguagePanel } from '@common/components/ExplanationLanguagePanel'
+import { Explanation } from '@common/components/Explanation'
 import { toWrongNoteReviewState } from '@nihongo/contracts/wrong-note/list-review-list'
 import type { WrongNoteReviewState } from '@nihongo/contracts/wrong-note/list-review-list'
 import { ReviewStatus } from '@app/wrong-note/components/ReviewStatus'
@@ -224,7 +224,7 @@ export const ReviewCompletion = ({
         aria-labelledby="review-completion-explanation"
       >
         <h2 id="review-completion-explanation">{t('detail.explanation')}</h2>
-        <ExplanationLanguagePanel
+        <Explanation
           key={item.question.id}
           explanationJa={item.explanationJa}
           explanationKo={item.explanationKo}

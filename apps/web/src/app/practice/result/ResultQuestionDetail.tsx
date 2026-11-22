@@ -4,7 +4,7 @@ import type { StudyResultItemView } from '@app/practice/adapters/studyResultView
 import { QuestionReportDialog } from '@app/question-report/components/QuestionReportDialog'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { classNames } from '@nihongo/browser/common/components/classNames'
-import { ExplanationLanguagePanel } from '@common/components/ExplanationLanguagePanel'
+import { Explanation } from '@common/components/Explanation'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 import {
   getResultStatus,
@@ -210,7 +210,7 @@ export const ResultQuestionDetail = ({
         aria-labelledby="selected-result-explanation-title"
       >
         <h3 id="selected-result-explanation-title">{t('items.explanation')}</h3>
-        <ExplanationLanguagePanel
+        <Explanation
           explanationJa={item.explanationJa}
           explanationKo={item.explanationKo}
         />
