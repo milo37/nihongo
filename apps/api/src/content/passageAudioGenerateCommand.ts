@@ -8,6 +8,7 @@ import {
   type PassageAudioList
 } from './passageAudioList.js'
 import { pollySynthesizer } from './passageAudioPolly.js'
+import { s3StoredPassageAudio } from './passageAudioStore.js'
 
 /**
  * #1183: makes the read-aloud files for reading passages whose readings were
@@ -15,7 +16,9 @@ import { pollySynthesizer } from './passageAudioPolly.js'
  * Without PASSAGE_AUDIO_CONFIRM=GENERATE_PASSAGE_AUDIO it only reports what
  * it would make and how many characters that bills. Files go to
  * PASSAGE_AUDIO_OUT/audio/passages/; the list in content/audio is rewritten.
- * Upload the files before the list reaches a release. Prints one JSON line.
+ * With PASSAGE_AUDIO_BUCKET set, a key the list does not know is first looked
+ * up in that bucket and not made again when it is there. Upload the files
+ * before the list reaches a release. Prints one JSON line.
  */
 const VOICE = 'Takumi'
 const CONFIRM = 'GENERATE_PASSAGE_AUDIO'
@@ -39,6 +42,16 @@ const run = async (): Promise<void> => {
     synthesizer.engine,
     synthesizer.voice
   )
+  const bucket = process.env.PASSAGE_AUDIO_BUCKET
+  if (bucket) {
+    const stored = s3StoredPassageAudio(bucket)
+    for (const entry of plan) {
+      if (entry.made) continue
+      const found = await stored(entry.key)
+      if (found)
+        entry.made = { textMd5: entry.textMd5, key: entry.key, ...found }
+    }
+  }
   const missing = plan.filter((entry) => entry.made === null)
   // Polly bills the text without tags, once for audio and once for marks.
   const billedCharacters = missing.reduce(

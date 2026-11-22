@@ -15,7 +15,11 @@ and an unchanged passage is never made twice.
 - Make: with `PASSAGE_AUDIO_CONFIRM=GENERATE_PASSAGE_AUDIO` and
   `PASSAGE_AUDIO_OUT=<dir>` it calls Amazon Polly (neural, Takumi,
   ap-northeast-1), writes the missing files under `<dir>/audio/passages/` and
-  rewrites the list. Upload the files before the list goes into a release.
+  rewrites the list. With `PASSAGE_AUDIO_BUCKET=<bucket>` a key the list
+  does not know is looked up there first (HEAD on the mp3, then the timings;
+  403 or 404 means not made) and not made again. Polly is always called in
+  ap-northeast-1; the bucket uses `AWS_REGION`. Upload the files before the
+  list goes into a release.
   Only the role that makes audio may call `polly:SynthesizeSpeech`.
 - The engine is one function (`PassageSynthesizer`); another engine replaces
   `passageAudioPolly.ts` and everything is made again.

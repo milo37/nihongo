@@ -18,6 +18,7 @@
     "src/db/foundationDiagnostics.ts",
     "src/content/furiganaGenerateCommand.ts",
     "src/content/passageAudioGenerateCommand.ts",
-    "src/content/passageAudioPolly.ts"
+    "src/content/passageAudioPolly.ts",
+    "src/content/passageAudioStore.ts"
   ]
 }
