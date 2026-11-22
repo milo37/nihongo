@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { ReactElement, ReactNode, RefObject } from 'react'
-import { ExplanationLanguagePanel } from '@common/components/ExplanationLanguagePanel'
+import { Explanation } from '@common/components/Explanation'
 import type { WrongNoteDetailView } from '@app/wrong-note/adapters/wrongNoteView'
 import type { WrongNotePreviousAnswer } from '@app/wrong-note/adapters/wrongNotePreviousAnswer'
 import { JaText } from '@common/components/JaText'
@@ -120,7 +120,7 @@ export const WrongNoteDetailContent = ({
         aria-labelledby="review-detail-explanation"
       >
         <h2 id="review-detail-explanation">{t('detail.explanation')}</h2>
-        <ExplanationLanguagePanel
+        <Explanation
           key={data.question.id}
           explanationJa={data.question.explanationJa}
           explanationKo={data.question.explanationKo}
