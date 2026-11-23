@@ -1,0 +1,60 @@
+/* #986 same passage: the note above a shared passage and the practice fold. */
+.study-same-passage {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  color: rgb(var(--color-same-passage));
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  white-space: nowrap;
+}
+.study-same-passage svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+/* The result detail keeps it ink, apart from the wrong mark's red. */
+.study-same-passage[data-tone='result'] {
+  margin-top: 24px;
+  color: rgb(var(--color-ink));
+}
+.study-same-passage + .study-result-passage {
+  margin-top: 0;
+}
+/* Three lines (readings on or off), then an ellipsis. No animation. */
+.study-passage-text[data-folded] {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+/* The 44px tap height overlaps the text's last line by 4px. */
+.study-passage-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  margin-top: -4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: rgb(var(--color-ink));
+  font-size: 14px;
+  font-weight: 600;
+}
+.study-passage-open span {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+.study-passage-open svg {
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
+.study-passage-open:focus-visible {
+  outline: var(--focus-width) solid rgb(var(--focus-color));
+  outline-offset: var(--focus-offset);
+}

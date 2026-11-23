@@ -3,6 +3,7 @@ import type { ReactElement } from 'react'
 import type { usePracticeResultController } from '@app/practice/hooks/usePracticeResultController'
 import { ResultQuestionDetail } from '@app/practice/result/ResultQuestionDetail'
 import { ResultQuestionNavigation } from '@app/practice/result/ResultQuestionNavigation'
+import { samePassageStart } from '@app/practice/samePassage'
 
 export type ResultController = ReturnType<typeof usePracticeResultController>
 type ResultItem = NonNullable<ResultController['selectedItem']>
@@ -19,6 +20,10 @@ export const SelectedResultItem = ({
 }): ReactElement => {
   const { t } = useTranslation('result')
   const { bookmark } = result
+  const samePassageIndex = samePassageStart(
+    items.map(({ question }) => question),
+    result.selectedIndex
+  )
   return (
     <div className="study-result-layout">
       <ResultQuestionNavigation
@@ -30,6 +35,9 @@ export const SelectedResultItem = ({
         key={item.question.id}
         item={item}
         ordinal={result.selectedIndex + 1}
+        samePassageOrdinal={
+          samePassageIndex === null ? null : samePassageIndex + 1
+        }
         canReport={result.role !== 'GUEST'}
         isBookmarked={result.selectedIsBookmarked}
         bookmarkDisabled={

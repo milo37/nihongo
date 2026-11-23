@@ -11,6 +11,7 @@ import type {
   QuestionSubject,
   QuestionType
 } from '@nihongo/browser/common/types/domain'
+import { isSamePassage } from '@app/practice/samePassage'
 
 export interface StudyQuestionView {
   id: string
@@ -21,6 +22,10 @@ export interface StudyQuestionView {
   subject: QuestionSubject
   questionType: QuestionType
   passage: string | null
+  /** #986: questions on the same passage share it; absent from older APIs. */
+  passageId?: string | null
+  /** #986: the question before this one in the set has the same passage. */
+  isSamePassageAsPrevious?: boolean
   /** #1182: reviewed passage furigana; null or absent when there is none. */
   passageFurigana?: readonly FuriganaSegment[] | null
   /** #1183: the read-aloud file; null or absent when there is none. */
@@ -56,6 +61,13 @@ export interface StudySessionView {
   fallbackReason: 'INSUFFICIENT_MODE_CANDIDATES' | null
 }
 
+const withSamePassage = (questions: StudyQuestionView[]): StudyQuestionView[] =>
+  questions.map((question, index) => ({
+    ...question,
+    isSamePassageAsPrevious:
+      index > 0 && isSamePassage(questions[index - 1]!, question)
+  }))
+
 export const toCanonicalStudySessionView = (
   response: StudySessionPayload | VersionedStudySessionPayload
 ): StudySessionView => ({
@@ -74,8 +86,8 @@ export const toCanonicalStudySessionView = (
         ? response.session.practiceContractVersion
         : 1
   },
-  questions: response.questions.map(
-    ({ ordinal, question, sessionQuestionId }) => ({
+  questions: withSamePassage(
+    response.questions.map(({ ordinal, question, sessionQuestionId }) => ({
       id: question.id,
       sessionQuestionId,
       questionVersionId: question.questionVersionId,
@@ -84,6 +96,7 @@ export const toCanonicalStudySessionView = (
       subject: question.subject,
       questionType: question.questionType,
       passage: question.passage,
+      passageId: question.passageId ?? null,
       passageFurigana: question.passageFurigana ?? null,
       passageAudio: question.passageAudio ?? null,
       questionText: question.questionText,
@@ -91,7 +104,7 @@ export const toCanonicalStudySessionView = (
       difficulty: question.difficulty,
       tags: question.tags.map(({ label }) => label),
       tagSummaries: question.tags
-    })
+    }))
   ),
   requestedCount: response.session.requestedCount,
   actualCount: response.session.actualCount,

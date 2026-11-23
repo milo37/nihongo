@@ -12,6 +12,7 @@ import { getTagLabelInLocale } from '@common/libs/tagLabel'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 import { JaText } from '@common/components/JaText'
 import { jaTextProps } from '@common/libs/jaSpacing'
+import { SamePassageNote } from '@app/practice/components/SamePassageNote'
 import {
   ResultAnswerComparison,
   ResultManageButtons
@@ -20,6 +21,8 @@ import {
 export type ResultQuestionDetailProps = {
   readonly item: StudyResultItemView
   readonly ordinal: number
+  /** #986: the number of the first question on this passage, if earlier. */
+  readonly samePassageOrdinal?: number | null
   /** Guests see the bookmark (it explains sign-in) but not the report. */
   readonly canReport: boolean
   readonly isBookmarked: boolean
@@ -32,6 +35,7 @@ export type ResultQuestionDetailProps = {
 export const ResultQuestionDetail = ({
   item,
   ordinal,
+  samePassageOrdinal = null,
   canReport,
   isBookmarked,
   bookmarkDisabled,
@@ -91,6 +95,14 @@ export const ResultQuestionDetail = ({
       ) : null}
       {tagLabels.length > 0 ? (
         <p className="mt-3 text-sm text-muted">{tagLabels.join(' · ')}</p>
+      ) : null}
+      {item.question.passage && samePassageOrdinal !== null ? (
+        <SamePassageNote
+          text={t('items.samePassage', {
+            formattedOrdinal: formatNumber(samePassageOrdinal, locale)
+          })}
+          tone="result"
+        />
       ) : null}
       {item.question.passage ? (
         <div

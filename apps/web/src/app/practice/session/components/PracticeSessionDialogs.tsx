@@ -112,12 +112,9 @@ export const PracticeSubmitDialog = ({
       onOpenChange={onOpenChange}
     >
       {isSubmissionError || frozenConnectivityMessage ? (
-        <div className="space-y-3">
+        <div className="study-state-stack">
           {isSubmissionError ? (
-            <div
-              className="rounded-lg border border-danger-line bg-danger-soft p-4 text-sm leading-6 text-danger-strong"
-              role="alert"
-            >
+            <div className="study-submit-error" role="alert">
               {hasFrozenAttempt
                 ? t('session.submit.frozenFailure')
                 : t('session.submit.requestFailure')}
@@ -125,7 +122,7 @@ export const PracticeSubmitDialog = ({
           ) : null}
           {frozenConnectivityMessage ? (
             <p
-              className="rounded-lg border border-warning-line bg-warning-soft p-4 text-sm leading-6 text-warning-strong"
+              className="study-submit-offline"
               role="status"
               aria-live="polite"
             >
