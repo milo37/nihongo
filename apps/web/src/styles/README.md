@@ -48,6 +48,8 @@ earlier one at the same specificity, so a file's place in the list matters.
 |              | wrong-note/detail.css                | Wrong notes: one question                       |
 |              | my/settings.css                      | My page: settings, menu, two-step dialog        |
 |              | my/study.css                         | My page: my study                               |
+|              | bookmark/bookmark.css                | Bookmarks                                       |
+|              | bookmark/report.css                  | Question report dialog                          |
 | 5-motion     | keyframes-\*.css                     | `@keyframes` only, by the part that uses them   |
 |              | reduced-motion.css                   | Every `prefers-reduced-motion` override         |
 
