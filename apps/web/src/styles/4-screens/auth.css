@@ -116,3 +116,19 @@
     background: transparent;
   }
 }
+/* #1186 C5: the login screens' last utilities, same rules and layer. */
+@layer utilities {
+  /* Login screens: headings that take focus, the restore date, the gate icon. */
+  .guest-gate-glyph {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+  .auth-restore-date {
+    font-weight: var(--font-weight-semibold);
+    color: rgb(var(--color-ink));
+  }
+  .auth-title-quiet {
+    --tw-outline-style: none;
+    outline-style: none;
+  }
+}
