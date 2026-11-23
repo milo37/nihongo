@@ -960,6 +960,38 @@ describe('PracticeSessionPage', () => {
     expect(stage?.contains(heading)).toBe(true)
   })
 
+  it('나가기를 취소하면 읽던 자리에 머물고, 카드 처음으로 올라가지 않는다 (#1240)', async ({
+    onTestFinished
+  }) => {
+    const scrollIntoView = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+    onTestFinished(() => {
+      Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+      vi.restoreAllMocks()
+    })
+    const user = userEvent.setup()
+    const payload = await startSession(3)
+    renderSession(payload.session.id)
+    const heading = await screen.findByRole('heading', { level: 1 })
+    await waitFor(() => expect(heading).toHaveFocus())
+    // The learner has scrolled down to the options: the card starts above.
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(
+      DOMRect.fromRect({ x: 0, y: -400, width: 390, height: 800 })
+    )
+    const focus = vi.spyOn(HTMLElement.prototype, 'focus')
+    scrollIntoView.mockClear()
+    await user.click(screen.getByRole('link', { name: '학습 화면으로' }))
+    const dialog = await screen.findByRole('dialog', { name: '그만 풀까요?' })
+    await user.click(within(dialog).getByRole('button', { name: '계속 풀기' }))
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: '그만 풀까요?' })).toBeNull()
+    )
+    expect(scrollIntoView).not.toHaveBeenCalled()
+    expect(
+      focus.mock.contexts.filter((element) => element === heading)
+    ).toHaveLength(0)
+  })
+
   it('자동 저장 중에도 [제출하기] 모양을 유지하고, 누르면 저장 뒤 제출한다 (#985)', async () => {
     await loginAsUser()
     const user = userEvent.setup()
