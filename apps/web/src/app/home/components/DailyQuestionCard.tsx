@@ -23,11 +23,14 @@ const CARD_CLASS = 'home-daily'
 /** Up to three rows of manuscript squares; longer questions stay plain text. */
 const SHEET_MAX_ROWS = 3
 
+// A run of ＿ is one blank; it is shortened before spaces go, so blanks
+// written side by side stay apart.
 const sheetCharacters = (text: string): string[] =>
-  Array.from(text.replace(/\s+/gu, ''))
+  Array.from(text.replace(/＿+/gu, '＿').replace(/\s+/gu, ''))
 
 /**
- * One character per square (B4 §3); spaces between words are dropped.
+ * One character per square (B4 §3); spaces between words are dropped and
+ * each blank takes one square.
  * #997: while `writing`, the squares fill in order like a pen passing.
  */
 const QuestionSheet = ({
