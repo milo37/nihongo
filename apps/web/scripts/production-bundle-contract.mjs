@@ -65,9 +65,9 @@ export const bundleCeilings = Object.freeze({
   initialGzipBytes: 256_000,
   // Shared admin re-verification return notice with its retry start (U5 #683).
   // #761 + U4 (#767 c9af0ed5): 813,670 measured.
-  // #1183 passage read-aloud bar CSS (about 4 KB) on dev e4f6a2ec: 817,234
-  // measured. 835,000 is waiting for the operator (JLP-957, same request as
-  // #1186 C4-C8); do not merge before that answer.
+  // JLP-957, operator approved 2026-11-23: first-screen CSS grows with the
+  // Tailwind to CSS move (#1186 C4-C8) and the #1183 read-aloud bar (about
+  // +2.6%). Back toward 814,000 in C11 (#1186).
   initialRawBytes: 835_000,
   javaScriptAssetCount: 88,
   javaScriptGzipBytes: 470_000,
@@ -75,8 +75,8 @@ export const bundleCeilings = Object.freeze({
   largestJavaScriptGzipBytes: 131_000,
   largestJavaScriptRawBytes: 439_000,
   // The full terms and privacy text sits in the lazily loaded ko/ja copy bundles (K2 #698).
-  // #1183 puts the read-aloud bar in the practice session chunk: 30,333
-  // measured. 31,000 waits for the operator with initialRawBytes (JLP-957).
+  // JLP-957, operator approved 2026-11-23: the #1183 read-aloud bar is in
+  // the practice session chunk (30,439 measured).
   largestLazyJavaScriptGzipBytes: 31_000,
   largestLazyJavaScriptRawBytes: 102_000,
   // #1096 nickname: 482,593 measured (operator decision 2026-11-18).
