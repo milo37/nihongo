@@ -122,7 +122,11 @@ export const QuestionPassage = ({
           aria-expanded={false}
           className="study-passage-open"
           type="button"
-          onClick={() => setOpened(true)}
+          onClick={() => {
+            setOpened(true)
+            // The button goes away; keep focus on the passage, not the page.
+            passageRef.current?.focus({ preventScroll: true })
+          }}
         >
           <span>{t('session.question.openPassage')}</span>
           <svg viewBox="0 0 12 12" aria-hidden="true">

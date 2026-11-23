@@ -69,8 +69,11 @@ describe('same passage on the solve screen (#986)', () => {
     expect(open).toHaveAttribute('aria-controls', text.id)
     expect(text).toHaveAttribute('data-folded')
 
-    await userEvent.click(open)
+    open.focus()
+    await userEvent.keyboard('{Enter}')
     expect(screen.queryByRole('button', { name: '지문 펼치기' })).toBeNull()
+    // Focus stays on the passage instead of falling to the page.
+    expect(document.activeElement).toBe(text.closest('article'))
     expect(text).not.toHaveAttribute('data-folded')
     expect(screen.getByText('앞 문제와 같은 지문')).toBeInTheDocument()
 
