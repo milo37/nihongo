@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { RefObject } from 'react'
+import type { QuestionSubject } from '@nihongo/browser/common/types/domain'
 import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
 import { useCancelStudySession } from '@app/practice/hooks/useCancelStudySession'
@@ -9,7 +10,7 @@ import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrinc
 import {
   FALLBACK_LEVEL,
   FALLBACK_SUBJECT,
-  MEMBER_COUNT,
+  getDefaultMemberCount,
   getInitialLevel,
   getInitialSubject,
   getRequestedMode,
@@ -55,8 +56,13 @@ export const usePracticeSetupController = (
   const [cancelSessionId, setCancelSessionId] = useState<string | null>(null)
   // Read once: starting a practice saves the next default for later visits.
   const [lastChoice] = useState(readLastPracticeChoice)
-  // A member picks 5, 10 or 20 each visit; not remembered (B4 §9).
-  const [memberCount, setMemberCount] = useState(MEMBER_COUNT)
+  // A member picks the set size each visit; not remembered (B4 §9). The pick
+  // belongs to its subject: switching subject shows that subject's default
+  // (#1244: reading 5, the others 10).
+  const [memberCountPick, setMemberCountPick] = useState<{
+    subject: QuestionSubject
+    count: number
+  } | null>(null)
   // The target level wins, then the last level on this device (table 2).
   const defaultLevel = user?.targetLevel ?? lastChoice?.level ?? FALLBACK_LEVEL
   const defaultSubject = lastChoice?.subject ?? FALLBACK_SUBJECT
@@ -72,6 +78,14 @@ export const usePracticeSetupController = (
   const requestedMode = getRequestedMode(searchParams.get('mode'))
   // Guests only try short random sessions; a shared link asking for review
   // keeps its level and subject and says why the mode changed (L12).
+  // A pick is dropped once the subject changes, so coming back shows the
+  // default again.
+  if (memberCountPick && memberCountPick.subject !== subject)
+    setMemberCountPick(null)
+  const memberCount =
+    memberCountPick?.subject === subject
+      ? memberCountPick.count
+      : getDefaultMemberCount(subject)
   const count = isGuest ? GUEST_SESSION_QUESTION_LIMIT : memberCount
   const mode = isGuest ? 'RANDOM' : requestedMode
   const isUrlLockedForGuest = isGuest && requestedMode !== 'RANDOM'
@@ -205,7 +219,8 @@ export const usePracticeSetupController = (
     defaultSubject,
     confirmCancel,
     count,
-    changeCount: setMemberCount,
+    changeCount: (value: number) =>
+      setMemberCountPick({ subject, count: value }),
     handleStart,
     hasCancelError:
       cancelSession.isError &&

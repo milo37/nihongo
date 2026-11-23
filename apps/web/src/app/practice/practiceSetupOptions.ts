@@ -18,6 +18,28 @@ export const FALLBACK_SUBJECT: QuestionSubject = 'VOCABULARY'
 export const MEMBER_COUNT = 10
 /** Set sizes a member can pick on the learn screen (default ten). */
 export const MEMBER_COUNT_CHOICES: readonly number[] = [5, 10, 20]
+/** #1244: reading passages are long, so a reading set is 5 or 10 (default 5). */
+export const READING_COUNT = 5
+export const READING_COUNT_CHOICES: readonly number[] = [5, 10]
+
+export const getMemberCountChoices = (
+  subject: QuestionSubject
+): readonly number[] =>
+  subject === 'READING' ? READING_COUNT_CHOICES : MEMBER_COUNT_CHOICES
+
+export const getDefaultMemberCount = (subject: QuestionSubject): number =>
+  subject === 'READING' ? READING_COUNT : MEMBER_COUNT
+
+/** A size that is not offered for the subject: an old reading 20 becomes 10. */
+export const fitMemberCount = (
+  subject: QuestionSubject,
+  count: number
+): number => {
+  const choices = getMemberCountChoices(subject)
+  if (choices.includes(count)) return count
+  const largest = Math.max(...choices)
+  return count > largest ? largest : getDefaultMemberCount(subject)
+}
 
 /** The URL level, else the default (target level, last level or N5). */
 export const getInitialLevel = (
