@@ -105,7 +105,7 @@ export const QuestionPassage = ({
       ref={passageRef}
       aria-label={isDecorative ? undefined : t('session.question.passageLabel')}
       role={isDecorative ? 'presentation' : undefined}
-      className="study-push scroll-mt-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand lg:sticky lg:top-6 lg:max-h-[calc(100vh-140px)] lg:overflow-y-auto"
+      className="study-push study-passage"
       data-push={push}
       tabIndex={isDecorative ? undefined : 0}
     >
@@ -179,7 +179,7 @@ export const QuestionPassage = ({
       <div
         ref={textRef}
         id={textId}
-        className="study-passage-text tracking-[0.02em] text-ink"
+        className="study-passage-text"
         data-folded={isFolded || undefined}
         {...jaTextProps(passage)}
       >
