@@ -63,7 +63,7 @@ export const ReportDialog = ({
         if (!isPending) onOpenChange(nextOpen)
       }}
     >
-      <form className="grid gap-5" noValidate onSubmit={submit}>
+      <form className="report-form" noValidate onSubmit={submit}>
         <Textarea
           ref={descriptionRef}
           disabled={isPending}
@@ -80,11 +80,11 @@ export const ReportDialog = ({
         {isRestricted ? (
           <AccountRestrictedNotice />
         ) : formError ? (
-          <p className="font-semibold text-red-700" role="alert">
+          <p className="report-error" role="alert">
             {formError}
           </p>
         ) : null}
-        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div className="report-actions">
           <Button
             disabled={isPending}
             variant="outline"

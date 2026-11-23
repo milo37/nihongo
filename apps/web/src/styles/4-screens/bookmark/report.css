@@ -1,0 +1,39 @@
+/* Question report dialog and its link trigger. */
+@layer utilities {
+  /* Question report dialog and its link trigger. */
+  .report-actions {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 0.5rem;
+  }
+  .report-form {
+    display: grid;
+    gap: 1.25rem;
+  }
+  .report-trigger-link {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    font-weight: var(--font-weight-semibold);
+    color: rgb(var(--color-muted));
+    text-decoration-line: underline;
+    text-underline-offset: 4px;
+  }
+  .report-error {
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-red-700);
+  }
+  @media (hover: hover) {
+    .report-trigger-link:hover {
+      color: rgb(var(--color-ink));
+    }
+  }
+  @media (width >= 40rem) {
+    .report-actions {
+      flex-direction: row;
+      justify-content: flex-end;
+    }
+  }
+}

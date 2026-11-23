@@ -58,7 +58,7 @@ export const BookmarkListItem = ({
       meta={
         <>
           {question.level} · {commonT(`taxonomy.subjects.${question.subject}`)}
-          <span className="ms-2 font-normal">{topics.join(' · ')}</span>
+          <span className="bookmark-topics">{topics.join(' · ')}</span>
         </>
       }
       text={question.questionTextPreview}
@@ -74,7 +74,7 @@ export const BookmarkListItem = ({
       }
       end={
         <span
-          className="relative"
+          className="bookmark-remove-wrap"
           onMouseEnter={() => setIsTipOpen(true)}
           onMouseLeave={() => setIsTipOpen(false)}
           onFocus={() => setIsTipOpen(true)}
@@ -83,7 +83,7 @@ export const BookmarkListItem = ({
           <Button
             id={`bookmark-remove-${bookmark.questionId}`}
             ref={removeButtonRef}
-            className="-me-3 size-11 p-0 text-brand-strong"
+            className="bookmark-remove"
             size="sm"
             variant="ghost"
             aria-label={t('remove')}
@@ -91,17 +91,14 @@ export const BookmarkListItem = ({
             aria-busy={isDeleting || undefined}
             onClick={onRemove}
           >
-            <Icon name="bookmark" className="fill-current" />
+            <Icon name="bookmark" className="bookmark-remove-icon" />
           </Button>
           {/* ux2 §4. The text repeats the button name, so it is hidden from
               screen readers. It touches the button so the pointer can move
               onto it. The 44px target reaches into the page margin so the
               question keeps ≥300px. */}
           {isTipOpen ? (
-            <span
-              aria-hidden="true"
-              className="absolute right-0 top-full z-10 whitespace-nowrap rounded-control bg-ink px-2 py-1 text-caption text-on-accent"
-            >
+            <span aria-hidden="true" className="bookmark-remove-tip">
               {t('remove')}
             </span>
           ) : null}
