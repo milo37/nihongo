@@ -131,8 +131,9 @@ describe('furigana passage list (#1182)', () => {
 
     expect(list.passages).toHaveLength(imported.length)
     // Content reviewed every passage (2026-11-21; the 60 B1/B2 passages of
-    // #1239 on 2026-11-23); the reviewer is a role.
-    const reviewDays = ['2026-11-21', '2026-11-23']
+    // #1239 on 2026-11-23, the 36 B3/B4 ones on 2026-11-24); the reviewer is
+    // a role.
+    const reviewDays = ['2026-11-21', '2026-11-23', '2026-11-24']
     expect(
       list.passages.filter(
         (entry) =>
