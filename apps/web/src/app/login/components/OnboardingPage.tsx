@@ -59,7 +59,7 @@ const StudyGoalForm = ({
     page.onSave({ targetLevel: pickedLevel, dailyGoal: pickedDaily })
   return (
     <div className="auth-panel study-goal">
-      <h1 ref={heading} className="outline-none" tabIndex={-1}>
+      <h1 ref={heading} className="auth-title-quiet" tabIndex={-1}>
         {t('studyGoal.title')}
       </h1>
       <p className="study-goal-hint">{t('studyGoal.hint')}</p>

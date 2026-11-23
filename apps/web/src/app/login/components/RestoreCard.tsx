@@ -15,7 +15,7 @@ const boldDate = (text: string): ReactNode[] =>
   text.split(/(<date>.*?<\/date>)/u).map((part, index) => {
     const match = /^<date>(.*)<\/date>$/u.exec(part)
     return match ? (
-      <strong key={index} className="font-semibold text-ink">
+      <strong key={index} className="auth-restore-date">
         {match[1]}
       </strong>
     ) : (
@@ -47,7 +47,7 @@ export const RestoreCard = ({
   if (!date) return null
   return (
     <div className="auth-panel auth-restore">
-      <h1 ref={heading} className="outline-none" tabIndex={-1}>
+      <h1 ref={heading} className="auth-title-quiet" tabIndex={-1}>
         {t('recover.title')}
       </h1>
       <p className="auth-description">
