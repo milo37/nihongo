@@ -92,24 +92,23 @@ section.practice-guest-limit,
   .choice-surface {
   font-weight: 700;
 }
-/* Levels and counts: manuscript squares, 1px rules between, no outer box. */
+/* Levels and counts: manuscript squares, 1px rules between, no outer box.
+   Both rows are five columns wide, so a count square is as wide as a level
+   square however many counts there are, and the rules sit on the squares so
+   they end at the last one (#1244). */
 .practice-setup-page .choice-levels .choice-options,
 .practice-setup-page .choice-counts .choice-options {
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0;
-  border-block: 1px solid rgb(var(--color-sheet-line));
-}
-/* As many count squares as there are choices, each as wide as a level square
-   (a fifth of the row), so the rules end at the last square (#1244). */
-.practice-setup-page .choice-counts .choice-options {
-  grid-template-columns: repeat(var(--choice-count), minmax(0, 1fr));
-  width: calc(var(--choice-count) * 20%);
 }
 .practice-setup-page .choice-levels .choice-surface,
 .practice-setup-page .choice-counts .choice-surface {
+  /* The rules add to the height, as they did on the row. */
+  box-sizing: content-box;
   min-height: 44px;
   padding: 0;
   border: 0;
+  border-block: 1px solid rgb(var(--color-sheet-line));
   border-right: 1px solid rgb(var(--color-sheet-line));
   border-radius: 0;
   background: transparent;
