@@ -22,7 +22,7 @@ const TICK_MS = 50
 // time on the same passage (design: 10s, 30s, then 60s).
 const RETRY_WAIT_MS = [10_000, 30_000, 60_000] as const
 const retryWaitMs = (failures: number): number =>
-  RETRY_WAIT_MS[Math.min(failures, RETRY_WAIT_MS.length) - 1] ?? 0
+  RETRY_WAIT_MS[Math.min(failures, RETRY_WAIT_MS.length) - 1]
 
 export type PassageAudio = {
   readonly isOpen: boolean
@@ -66,7 +66,7 @@ export const usePassageAudio = (
     onFailureRef.current = onFailure
   }, [onFailure])
   const failuresRef = useRef(0)
-  const waitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const waitTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const marksAbortRef = useRef<AbortController | null>(null)
   // A play waiting for a jump back to finish; calling it drops the wait.
   const pendingPlayRef = useRef<(() => void) | null>(null)
@@ -102,11 +102,11 @@ export const usePassageAudio = (
     setDragMs(null)
     failuresRef.current += 1
     setWaiting(true)
-    if (waitTimerRef.current) clearTimeout(waitTimerRef.current)
-    waitTimerRef.current = setTimeout(() => {
-      waitTimerRef.current = null
-      setWaiting(false)
-    }, retryWaitMs(failuresRef.current))
+    clearTimeout(waitTimerRef.current)
+    waitTimerRef.current = setTimeout(
+      () => setWaiting(false),
+      retryWaitMs(failuresRef.current)
+    )
     onFailureRef.current?.()
   }
 
@@ -114,8 +114,7 @@ export const usePassageAudio = (
   useEffect(
     () => () => {
       drop()
-      if (waitTimerRef.current) clearTimeout(waitTimerRef.current)
-      waitTimerRef.current = null
+      clearTimeout(waitTimerRef.current)
       failuresRef.current = 0
       setOpen(false)
       setPlaying(false)
@@ -185,18 +184,14 @@ export const usePassageAudio = (
 
   const start = (audio: HTMLAudioElement): void => {
     // A refused play (autoplay rules) or one cut short by a pause leaves it
-    // paused; the button still works. Any other refusal is a failure.
-    let playing: Promise<void> | undefined
-    try {
-      playing = audio.play()
-    } catch {
-      fail(audio)
-      return
-    }
-    void playing?.catch((error: unknown) => {
-      const name = error instanceof DOMException ? error.name : ''
-      if (name !== 'NotAllowedError' && name !== 'AbortError') fail(audio)
-    })
+    // paused; the button still works. Any other refusal is a failure. (jsdom
+    // returns nothing.)
+    void (audio.play() as Promise<void> | undefined)?.catch(
+      (error: unknown) => {
+        const name = error instanceof DOMException ? error.name : ''
+        if (name !== 'NotAllowedError' && name !== 'AbortError') fail(audio)
+      }
+    )
   }
 
   // WebKit can play from the old spot when play() follows a currentTime
@@ -239,7 +234,8 @@ export const usePassageAudio = (
     rate,
     word: isOpen && marks ? wordAt(marks.words, shownMs) : null,
     open: () => {
-      if (!audioKey || isWaiting) return
+      // The [듣기] button ignores presses while isWaiting.
+      if (!audioKey) return
       setOpen(true)
       play(audioRef.current ?? load(audioKey))
     },
