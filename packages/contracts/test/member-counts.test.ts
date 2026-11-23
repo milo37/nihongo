@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import { READING_SESSION_QUESTION_LIMIT } from '../src/study/create-study-session.js'
 import {
   getDefaultMemberCount,
   getMemberCountChoices,
@@ -16,13 +15,13 @@ describe('member set sizes (#1244)', () => {
     }
   })
 
-  it('keeps each default among the choices and the server limit at the largest', () => {
+  it('keeps each default among the choices and the limit at the largest choice', () => {
     for (const subject of ['VOCABULARY', 'GRAMMAR', 'READING'] as const) {
       expect(getMemberCountChoices(subject)).toContain(
         getDefaultMemberCount(subject)
       )
     }
     expect(getMemberCountLimit('VOCABULARY')).toBe(20)
-    expect(READING_SESSION_QUESTION_LIMIT).toBe(getMemberCountLimit('READING'))
+    expect(getMemberCountLimit('READING')).toBe(10)
   })
 })

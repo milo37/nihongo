@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   createStudySessionBodySchema,
-  createStudySessionV2BodySchema
+  createStudySessionV2BodySchema,
+  READING_SESSION_QUESTION_LIMIT
 } from '../src/study/create-study-session.js'
+import { getMemberCountLimit } from '../src/study/member-counts.js'
 import {
   createTargetedReviewSessionBodySchema,
   createTargetedReviewSessionCanonicalMaterial,
@@ -104,6 +106,7 @@ describe('Review center contracts', () => {
       }).success
     ).toBe(false)
 
+    expect(READING_SESSION_QUESTION_LIMIT).toBe(getMemberCountLimit('READING'))
     // #1244: a new random reading set takes at most 10; other subjects and
     // review modes still 20.
     const reading = {
