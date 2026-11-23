@@ -9,7 +9,8 @@ import { clearStorageCache } from '@nihongo/browser/libs/storage'
 
 const question = (
   id: string,
-  isSamePassageAsPrevious: boolean
+  isSamePassageAsPrevious: boolean,
+  passageAudio: StudyQuestionView['passageAudio'] = null
 ): StudyQuestionView => ({
   id,
   sessionQuestionId: null,
@@ -21,6 +22,7 @@ const question = (
   passage: '今日は雨です。\n明日は晴れです。',
   passageId: 'p1',
   isSamePassageAsPrevious,
+  passageAudio,
   questionText: '天気は何ですか。',
   options: ['a', 'b', 'c', 'd'].map((option, index) => ({
     id: option,
@@ -81,5 +83,24 @@ describe('same passage on the solve screen (#986)', () => {
     expect(
       screen.getByRole('button', { name: '지문 펼치기' })
     ).toBeInTheDocument()
+  })
+
+  it('opens with the read-aloud bar and stays open after it closes', async () => {
+    // jsdom has no media playback.
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue()
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockReturnValue()
+    vi.spyOn(HTMLMediaElement.prototype, 'load').mockReturnValue()
+    const audio = { key: 'a'.repeat(64), durationMs: 5_000 }
+    const { container } = render(card(question('q2', true, audio)))
+    const text = container.querySelector('.study-passage-text')!
+    expect(text).toHaveAttribute('data-folded')
+
+    await userEvent.click(screen.getByRole('button', { name: '듣기' }))
+    expect(text).not.toHaveAttribute('data-folded')
+    expect(screen.queryByRole('button', { name: '지문 펼치기' })).toBeNull()
+
+    await userEvent.click(screen.getByRole('button', { name: '닫기' }))
+    expect(text).not.toHaveAttribute('data-folded')
+    vi.restoreAllMocks()
   })
 })

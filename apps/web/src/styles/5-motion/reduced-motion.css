@@ -1,5 +1,8 @@
 /* Reduced motion: every override in one place, last. */
 @media (prefers-reduced-motion: reduce) {
+  .study-audio-thumb {
+    transition: none;
+  }
   .omikuji-dialog,
   .omikuji-sheet,
   .omikuji-result,

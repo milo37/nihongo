@@ -38,7 +38,7 @@ export const QuestionReportDialog = ({
         <button
           ref={triggerRef}
           type="button"
-          className="inline-flex min-h-11 items-center text-sm font-semibold text-muted underline underline-offset-4 hover:text-ink"
+          className="report-trigger-link"
           onClick={() => setOpen(true)}
         >
           {triggerLabel ?? t('questionReportDialog.trigger')}

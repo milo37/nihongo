@@ -97,6 +97,7 @@ export const PracticeQuestionCard = ({
           isDecorative={isDecorative}
           isSamePassage={Boolean(question.isSamePassageAsPrevious)}
           passage={question.passage}
+          passageAudio={question.passageAudio ?? null}
           passageRef={passageRef}
           push={push}
         />

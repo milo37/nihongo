@@ -29,6 +29,13 @@
   --color-furigana-toggle-on: var(--color-ink);
   --color-furigana-toggle-box: var(--color-line-strong);
   --color-furigana-toggle-disabled: var(--color-disabled-text);
+  /* #1183 passage read-aloud: the word being read, and the paused play
+     circle (brand at 40% over surface-muted, mixed to one solid color so it
+     looks the same on any face) with a brand-active icon (4.36:1). Dark,
+     for later: read-mark 67 38 37, play-rest 126 52 42, icon 236 235 231. */
+  --color-read-mark: var(--color-brand-soft);
+  --color-play-rest: 228 173 163;
+  --color-play-rest-icon: var(--color-brand-active);
   /* #986 same-passage note on the solve screen (6.61:1 on white). Dark,
      later: 230 110 88 (5.28:1). */
   --color-same-passage: var(--color-brand-strong);

@@ -723,6 +723,15 @@ export const koCoreResources = {
         furiganaNone: '이 지문은 아직 후리가나가 없어요.',
         samePassage: '앞 문제와 같은 지문',
         openPassage: '지문 펼치기',
+        audio: {
+          listen: '듣기',
+          close: '닫기',
+          play: '재생',
+          pause: '멈춤',
+          position: '재생 위치',
+          restart: '처음부터',
+          speed: '속도 {{rate}}배'
+        },
         numberLabel: '{{ordinal}}번 문제.',
         answerLegend: '보기'
       },

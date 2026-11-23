@@ -1,4 +1,5 @@
 import type { FuriganaSegment } from '@nihongo/contracts/question/get-question'
+import type { PassageAudioRef } from '@nihongo/contracts/question/passage-audio'
 import type {
   StudySessionPayload,
   VersionedStudySessionPayload
@@ -27,6 +28,8 @@ export interface StudyQuestionView {
   isSamePassageAsPrevious?: boolean
   /** #1182: reviewed passage furigana; null or absent when there is none. */
   passageFurigana?: readonly FuriganaSegment[] | null
+  /** #1183: the read-aloud file; null or absent when there is none. */
+  passageAudio?: PassageAudioRef | null
   questionText: string
   options: PracticeQuestionOption[]
   difficulty: QuestionDifficulty
@@ -95,6 +98,7 @@ export const toCanonicalStudySessionView = (
       passage: question.passage,
       passageId: question.passageId ?? null,
       passageFurigana: question.passageFurigana ?? null,
+      passageAudio: question.passageAudio ?? null,
       questionText: question.questionText,
       options: question.options,
       difficulty: question.difficulty,

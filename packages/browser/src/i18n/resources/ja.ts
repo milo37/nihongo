@@ -755,6 +755,15 @@ export const jaCoreResources = {
         furiganaNone: 'この文章にはまだふりがながありません。',
         samePassage: '前の問題と同じ文章',
         openPassage: '文章を全部見る',
+        audio: {
+          listen: '聞く',
+          close: '閉じる',
+          play: '再生',
+          pause: '一時停止',
+          position: '再生位置',
+          restart: '最初から',
+          speed: '速度 {{rate}}倍'
+        },
         numberLabel: '{{ordinal}}番の問題。',
         answerLegend: '選択肢'
       },

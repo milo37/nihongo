@@ -86,3 +86,6 @@ const BY_PASSAGE = new Map(
 export const mockPassageFurigana = (
   passage: string | null
 ): FuriganaSegment[] | null => (passage && BY_PASSAGE.get(passage)) || null
+
+/** #1183 mock: the passages with reviewed readings (only these get audio). */
+export const mockFuriganaPassages = (): string[] => [...BY_PASSAGE.keys()]
