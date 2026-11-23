@@ -65,9 +65,9 @@ export const bundleCeilings = Object.freeze({
   initialGzipBytes: 256_000,
   // Shared admin re-verification return notice with its retry start (U5 #683).
   // #761 + U4 (#767 c9af0ed5): 813,670 measured.
-  // #1186 C4 moves bookmark and report styles into first-screen CSS:
-  // 816,682 measured. 835,000 for C4-C8 is waiting for the operator
-  // (JLP-957); do not merge before that answer. Back in C11 (#1186).
+  // JLP-957, operator approved 2026-11-23: first-screen CSS grows with the
+  // Tailwind to CSS move (#1186 C4-C8) and the #1183 read-aloud bar (about
+  // +2.6%). Back toward 814,000 in C11 (#1186).
   initialRawBytes: 835_000,
   javaScriptAssetCount: 88,
   javaScriptGzipBytes: 470_000,
