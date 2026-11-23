@@ -32,7 +32,7 @@ type PracticeQuestionCardProps = {
   selectedOptionId: string | undefined
 }
 
-const HEADING_CLASS = 'min-w-0 rounded-sm outline-none [text-wrap:wrap]'
+const HEADING_CLASS = 'study-question-heading'
 
 export const PracticeQuestionCard = ({
   actions,
@@ -57,13 +57,13 @@ export const PracticeQuestionCard = ({
 
   const headingContent = (
     <>
-      <span className="mb-2 block text-[13px] font-bold text-muted">
+      <span className="study-question-number">
         {t('session.question.numberLabel', {
           ordinal: formatCount(questionNumber)
         })}{' '}
       </span>
       <span
-        className="study-question-text block font-bold"
+        className="study-question-text"
         {...jaTextProps(question.questionText)}
       >
         <JaText text={question.questionText} />
@@ -83,13 +83,7 @@ export const PracticeQuestionCard = ({
   }
 
   return (
-    <div
-      className={
-        question.passage
-          ? 'grid items-start gap-8 lg:grid-cols-2 lg:gap-12'
-          : undefined
-      }
-    >
+    <div className={question.passage ? 'study-question-grid' : undefined}>
       {question.passage ? (
         <QuestionPassage
           key={question.id}
@@ -104,13 +98,13 @@ export const PracticeQuestionCard = ({
       ) : null}
 
       {/* Tags can name the answer, so they appear only after submission. */}
-      <article className="min-w-0">
+      <article className="study-question-main">
         {/* The action bar stays outside: it is fixed on phones, and a
             transform on its ancestor would carry it along (JLP-870). */}
         <div className="study-push" data-push={push}>
           {bookmarkStatus}
 
-          <div className="flex items-start justify-between gap-3">
+          <div className="study-question-head">
             {isDecorative ? (
               <div className={HEADING_CLASS}>{headingContent}</div>
             ) : (
@@ -120,17 +114,17 @@ export const PracticeQuestionCard = ({
             )}
             {isPassageOut ? (
               <button
-                className="note-link min-h-11 shrink-0 gap-1 text-[13px]"
+                className="note-link study-passage-back"
                 type="button"
                 onClick={showPassage}
               >
-                <Icon className="size-4 rotate-90" name="chevron-left" />
+                <Icon className="study-passage-back-icon" name="chevron-left" />
                 {t('session.question.passageLabel')}
               </button>
             ) : null}
           </div>
 
-          <div className="mt-5 lg:mt-6">
+          <div className="study-question-options">
             <QuestionOptions
               question={question}
               isOptionsDisabled={isOptionsDisabled}

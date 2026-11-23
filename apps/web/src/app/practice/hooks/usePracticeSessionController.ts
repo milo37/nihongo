@@ -142,6 +142,8 @@ export const usePracticeSessionController = ({
       ? `${sessionId}:${sessionQuery.data.session.status}`
       : null
   const terminalSettlementRef = useRef<string | null>(null)
+  const focusedQuestionIdRef = useRef<string | null>(null)
+  const wasNavigationPromptOpenRef = useRef(false)
   const isSubmitDialogOpen =
     isSubmitDialogRequestedOpen || hasFrozenSubmissionAttempt
   const mustReplayFrozenSubmission =
@@ -282,14 +284,37 @@ export const usePracticeSessionController = ({
   const unansweredCount = Math.max(0, questions.length - answeredCount)
 
   useEffect(() => {
-    if (canFocusCurrentQuestion && !isNavigationPromptBlocked) {
-      // #1234: screen readers still read the new question, but the page
-      // shows the card from its start, never jumping to the question.
-      headingRef.current?.focus({ preventScroll: true })
-      const stage = stageRef.current
-      if (stage && stage.getBoundingClientRect().top < 0)
-        stage.scrollIntoView({ block: 'start' })
+    if (isNavigationPromptBlocked) {
+      wasNavigationPromptOpenRef.current = true
+      return
     }
+    if (!wasNavigationPromptOpenRef.current) return
+    wasNavigationPromptOpenRef.current = false
+    // #1240: the dialog hands focus back to what had it. An option is still
+    // disabled at that moment, so focus can drop to the page; a frame later
+    // the question heading takes it then, without moving the page.
+    const frame = requestAnimationFrame(() => {
+      const active = document.activeElement
+      if (!active || active === document.body)
+        headingRef.current?.focus({ preventScroll: true })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [headingRef, isNavigationPromptBlocked])
+
+  useEffect(() => {
+    const questionId = currentQuestion?.id
+    if (!canFocusCurrentQuestion || isNavigationPromptBlocked || !questionId)
+      return
+    // #1240: only a new question moves focus and the page; closing the
+    // leave dialog (or any pause) keeps the learner where they were.
+    if (focusedQuestionIdRef.current === questionId) return
+    focusedQuestionIdRef.current = questionId
+    // #1234: screen readers still read the new question, but the page
+    // shows the card from its start, never jumping to the question.
+    headingRef.current?.focus({ preventScroll: true })
+    const stage = stageRef.current
+    if (stage && stage.getBoundingClientRect().top < 0)
+      stage.scrollIntoView({ block: 'start' })
   }, [
     canFocusCurrentQuestion,
     currentQuestion?.id,

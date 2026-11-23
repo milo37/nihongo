@@ -3425,35 +3425,32 @@ export class MockDatabase {
     }
     const selectedQuestionIds = (() => {
       if (input.mode === 'RANDOM') {
-        const observedAtMs = Date.parse(observedAt)
-        const recentSinceMs = observedAtMs - 7 * 24 * 60 * 60 * 1_000
-        const recentQuestionIds = new Set(
-          [...this.sessionById.values()]
-            .filter((session) => {
-              const submittedAtMs = Date.parse(session.submittedAt ?? '')
-              return (
-                belongsToActor(session) &&
-                session.status === 'SUBMITTED' &&
-                Number.isFinite(submittedAtMs) &&
-                submittedAtMs >= recentSinceMs &&
-                submittedAtMs <= observedAtMs
-              )
-            })
-            .toSorted(
-              (left, right) =>
-                (right.submittedAt ?? '').localeCompare(
-                  left.submittedAt ?? ''
-                ) || left.id.localeCompare(right.id)
+        // #1242, like the server: when this person last submitted a set
+        // holding each question, any mode, no time window.
+        const lastSeenAtMs = new Map<string, number>()
+        for (const session of this.sessionById.values()) {
+          const submittedAtMs = Date.parse(session.submittedAt ?? '')
+          if (
+            !belongsToActor(session) ||
+            session.status !== 'SUBMITTED' ||
+            !Number.isFinite(submittedAtMs)
+          )
+            continue
+          for (const questionId of session.questionIds) {
+            lastSeenAtMs.set(
+              questionId,
+              Math.max(lastSeenAtMs.get(questionId) ?? -Infinity, submittedAtMs)
             )
-            .slice(0, 3)
-            .flatMap((session) => session.questionIds)
-        )
+          }
+        }
         const seed =
           input.seed ?? `${this.randomSeed}:${observedAt}:${this.sequence}`
         return selectRandomStudyCandidates(
           eligible.map((question) => ({
             ...toPin(question),
-            isRecent: recentQuestionIds.has(question.id)
+            lastSeenAt: lastSeenAtMs.has(question.id)
+              ? new Date(lastSeenAtMs.get(question.id)!)
+              : null
           })),
           count,
           createSeededRandom(seed)
