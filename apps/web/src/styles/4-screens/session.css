@@ -658,3 +658,85 @@ label:has(input:checked) .study-option-text {
     }
   }
 }
+
+/* #1186 C7b: the question card and passage's former Tailwind utilities, same values. */
+@layer utilities {
+  /* Question card: two columns beside a passage, the number, the heading and the options. */
+  .study-question-options {
+    margin-top: 1.25rem;
+  }
+  .study-question-number {
+    margin-bottom: 0.5rem;
+    display: block;
+    font-size: 13px;
+    font-weight: var(--font-weight-bold);
+    color: rgb(var(--color-muted));
+  }
+  .study-question-text {
+    display: block;
+    font-weight: var(--font-weight-bold);
+  }
+  .study-question-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
+  .study-question-grid {
+    display: grid;
+    align-items: flex-start;
+    gap: 2rem;
+  }
+  .study-passage-back-icon {
+    width: 1rem;
+    height: 1rem;
+    rotate: 90deg;
+  }
+  .study-passage-back {
+    min-height: 2.75rem;
+    flex-shrink: 0;
+    gap: var(--spacing);
+    font-size: 13px;
+  }
+  .study-question-main {
+    min-width: 0px;
+  }
+  .study-question-heading {
+    min-width: 0px;
+    border-radius: 0.125rem;
+    text-wrap: wrap;
+    --tw-outline-style: none;
+    outline-style: none;
+  }
+  @media (width >= 64rem) {
+    .study-question-options {
+      margin-top: 1.5rem;
+    }
+    .study-question-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 3rem;
+    }
+  }
+  /* Reading passage: focus ring, sticky column on PC, text. */
+  .study-passage {
+    scroll-margin-top: 1rem;
+  }
+  .study-passage-text {
+    letter-spacing: 0.02em;
+    color: rgb(var(--color-ink));
+  }
+  .study-passage:focus-visible {
+    outline-style: solid;
+    outline-width: 2px;
+    outline-offset: 4px;
+    outline-color: rgb(var(--color-brand));
+  }
+  @media (width >= 64rem) {
+    .study-passage {
+      position: sticky;
+      top: 1.5rem;
+      max-height: calc(100vh - 140px);
+      overflow-y: auto;
+    }
+  }
+}
