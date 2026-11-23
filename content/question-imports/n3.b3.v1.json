@@ -1,0 +1,1489 @@
+{
+  "items": [
+    {
+      "clientItemId": "n3-b3-reading-01",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "田中さんは、このあと何をしなければなりませんか。",
+        "passage": "田中様\nいつもありがとうございます。さくら歯科です。\n来週十日（水）午後三時のご予約ですが、担当の医師に急な用事ができたため、時間を変えていただけないでしょうか。同じ日の午前十時か、十一日（木）の午後三時でしたら、ご予約をお取りできます。\nご都合のよいほうを、八日までにお電話でお知らせください。どちらも難しい場合は、ほかの日をご相談させていただきます。\nさくら歯科",
+        "explanationKo": "핵심: 「ご都合のよいほうを、八日までにお電話でお知らせください」\n10일 오후 3시는 바꿔 달라는 시간이고, 11일은 오전이 아니라 오후 3시입니다. 직접 가서 예약하라는 말은 없습니다.",
+        "explanationJa": "ポイント：「ご都合のよいほうを、八日までにお電話でお知らせください」\n十日の午後三時は変えてほしい時間で、十一日は午前ではなく午後三時です。行って予約し直すようにとは書かれていません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "十日の午後三時に、歯医者に行く"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "八日までに歯医者に行って、予約を取り直す"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "八日までに、都合のよい時間を電話で知らせる"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "十一日の午前十時に、歯医者に行く"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-02",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "この人が冷蔵庫の写真をとるのは、何のためですか。",
+        "passage": "買い物に行くと、家にまだある物をまた買ってしまうことがよくあった。卵や牛乳が、冷蔵庫に二つずつ入っていることもあった。そこで、出かける前に、冷蔵庫の中をスマートフォンで写真にとっておくことにした。店で迷ったときに写真を見れば、買う必要があるかどうかすぐに分かる。おかげで、むだな買い物がずいぶん減った。",
+        "explanationKo": "핵심: 「店で迷ったときに写真を見れば、買う必要があるかどうかすぐに分かる」\n집에 있는 것을 또 사는 일이 많아서 시작했습니다. 청소·점원·가족 이야기는 없습니다.",
+        "explanationJa": "ポイント：「店で迷ったときに写真を見れば、買う必要があるかどうかすぐに分かる」\n家にある物をまた買ってしまうことが多かったので始めました。そうじや店の人、家族の話はありません。",
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "冷蔵庫をきれいにするため"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "家にある物を、また買わないようにするため"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "店の人に見せて、物を探してもらうため"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "家族に買い物を頼むため"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-03",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "工事のあと、水がにごっていたら、どうすればいいですか。",
+        "passage": "みどりマンションにお住まいのみなさまへ\n水道管の工事のため、下の時間は水が使えません。\n日時：6月14日（土）9:00～12:00\n工事が終わったあと、水が少しにごることがあります。その場合は、しばらく水を出したままにしてから、お使いください。\nなお、工事の音が大きくなる時間がありますので、ご了承ください。\n管理会社",
+        "explanationKo": "핵심: 「しばらく水を出したままにしてから、お使いください」\n관리 회사에 연락하라거나 다음 날까지 기다리라는 말은 없습니다. 12시까지는 공사 시간입니다.",
+        "explanationJa": "ポイント：「しばらく水を出したままにしてから、お使いください」\n管理会社への連絡や、次の日まで待つようにとは書かれていません。十二時までは工事の時間です。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "管理会社に電話をする"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "十二時まで、水を使わないで待つ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "次の日まで、水を使うのをやめる"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "しばらく水を出してから使う"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-04",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "この人が、家ではなくカフェで勉強するのはなぜですか。",
+        "passage": "私は休みの日に、近くのカフェで勉強している。家だとテレビを見たり、横になったりしてしまうからだ。カフェでは、周りの人も本を読んだりパソコンを使ったりしているので、自分もがんばろうという気持ちになる。\nただ、コーヒー一杯で何時間もいるのは店に悪いと思い、二時間たったら、もう一杯注文するか、店を出るようにしている。",
+        "explanationKo": "핵심: 「家だとテレビを見たり、横になったりしてしまうからだ」\n커피를 좋아한다거나 친구와 공부한다는 말은 없습니다.",
+        "explanationJa": "ポイント：「家だとテレビを見たり、横になったりしてしまうからだ」\nコーヒーが好きだ、友だちと勉強するといった話はありません。",
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "カフェのコーヒーが好きだから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "家だと、テレビを見たり横になったりしてしまうから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "家ではパソコンが使えないから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "友だちと一緒に勉強したいから"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-05",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "この人が、カフェで気をつけていることは何ですか。",
+        "passage": "私は休みの日に、近くのカフェで勉強している。家だとテレビを見たり、横になったりしてしまうからだ。カフェでは、周りの人も本を読んだりパソコンを使ったりしているので、自分もがんばろうという気持ちになる。\nただ、コーヒー一杯で何時間もいるのは店に悪いと思い、二時間たったら、もう一杯注文するか、店を出るようにしている。",
+        "explanationKo": "핵심: 「二時間たったら、もう一杯注文するか、店を出るようにしている」\n커피 한 잔으로 몇 시간이나 있는 것은 가게에 미안하다고 생각하기 때문입니다.",
+        "explanationJa": "ポイント：「二時間たったら、もう一杯注文するか、店を出るようにしている」\nコーヒー一杯で何時間もいるのは店に悪いと思っているからです。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "周りの人と、話をしないようにする"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "コーヒーは、一杯しか注文しない"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "パソコンを使わないようにする"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "二時間たったら、もう一杯注文するか、店を出る"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-06",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "ゆうたさんがしなければならないことは、どれですか。",
+        "passage": "ゆうたへ\nお母さんは今日、おばあちゃんの病院に行くので、帰りが七時ごろになります。夕飯は冷蔵庫にカレーがあるので、温めて食べてください。ご飯は六時にたけるようにしてあります。\nそれから、四時ごろに荷物が届く予定です。お父さんあての本なので、受け取ったらお父さんの机の上に置いておいてね。\n母",
+        "explanationKo": "핵심: 「受け取ったらお父さんの机の上に置いておいてね」\n밥은 6시에 되도록 해 두었고, 카레는 이미 냉장고에 있습니다. 병원에는 엄마가 갑니다.",
+        "explanationJa": "ポイント：「受け取ったらお父さんの机の上に置いておいてね」\nご飯は六時にたけるようにしてあり、カレーはもう冷蔵庫にあります。病院に行くのは母です。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "六時にご飯をたく"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "七時までにカレーを作る"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "おばあちゃんの病院に荷物を届ける"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "届いた荷物を受け取って、父の机の上に置く"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-07",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "この人が、日記を三行にしたのはなぜですか。",
+        "passage": "英語を勉強するために、毎日三行だけ英語で日記を書いている。初めは長く書こうとしたが、時間がかかって三日でやめてしまった。そこで、三行なら続けられると思って、量を減らしたのだ。\n短くても毎日書いていると、言いたいのに言えない表現に気づくことが多い。そういうときは、すぐに辞書で調べてノートにまとめている。このノートが、今では私のいちばんの教科書だ。",
+        "explanationKo": "핵심: 「初めは長く書こうとしたが、時間がかかって三日でやめてしまった」\n그래서 「三行なら続けられる」고 생각해 양을 줄였습니다. 선생님 이야기는 없습니다.",
+        "explanationJa": "ポイント：「初めは長く書こうとしたが、時間がかかって三日でやめてしまった」\nそこで「三行なら続けられる」と考えて量を減らしました。先生の話はありません。",
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "英語の先生に、三行がいいと言われたから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "三行より多く書くことがなかったから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ノートが小さくて、三行しか書けないから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "長く書くと時間がかかって、続かなかったから"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-08",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "この人の「いちばんの教科書」とは、何ですか。",
+        "passage": "英語を勉強するために、毎日三行だけ英語で日記を書いている。初めは長く書こうとしたが、時間がかかって三日でやめてしまった。そこで、三行なら続けられると思って、量を減らしたのだ。\n短くても毎日書いていると、言いたいのに言えない表現に気づくことが多い。そういうときは、すぐに辞書で調べてノートにまとめている。このノートが、今では私のいちばんの教科書だ。",
+        "explanationKo": "핵심: 「すぐに辞書で調べてノートにまとめている。このノートが」\n일기나 사전 자체가 아니라, 사전으로 찾아 정리한 노트입니다.",
+        "explanationJa": "ポイント：「すぐに辞書で調べてノートにまとめている。このノートが」\n日記や辞書そのものではなく、辞書で調べてまとめたノートです。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "毎日書いている英語の日記"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "英語の辞書"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "言えなかった表現を調べて、まとめたノート"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "学校で使っている教科書"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-09",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "このお知らせで、前の予定から変わったことは何ですか。",
+        "passage": "みなさんへ\n来週の社員旅行ですが、バス会社の都合で、出発の時間が八時から七時半に変わりました。集合場所は前と同じ、会社の正面入り口です。\nまた、雨が降った場合に行く予定だった美術館は、その日が休館日だと分かったので、近くの水族館に変えます。\n旅行係　中村",
+        "explanationKo": "핵심: 「出発の時間が八時から七時半に変わりました」「近くの水族館に変えます」\n집합 장소는 「前と同じ」이고, 출발 날짜가 바뀐다는 말은 없습니다.",
+        "explanationJa": "ポイント：「出発の時間が八時から七時半に変わりました」「近くの水族館に変えます」\n集合場所は「前と同じ」で、出発の日が変わるとは書かれていません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "集合場所と、出発の時間"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "集合場所と、雨の日に行く所"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "出発の時間と、雨の日に行く所"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "出発の日と、出発の時間"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-10",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "母が言いたかったのはどんなことだと、「私」は考えていますか。",
+        "passage": "子どものころ、母によく「ありがとうは、小さいことほど言いなさい」と言われた。そのときは、意味がよく分からなかった。大きなことをしてもらったら、誰でもお礼を言う。でも、ドアを開けてもらったり、ペンを貸してもらったりしたときは、つい言わずにすませてしまう。母は、そういうときこそ言葉にすることが大切だと言いたかったのだろう。",
+        "explanationKo": "핵심: 「そういうときこそ言葉にすることが大切だと言いたかったのだろう」\n「そういうとき」는 문을 열어 주거나 펜을 빌려준 것 같은 작은 일입니다.",
+        "explanationJa": "ポイント：「そういうときこそ言葉にすることが大切だと言いたかったのだろう」\n「そういうとき」は、ドアを開けてもらったり、ペンを貸してもらったりした小さいことです。",
+        "tagNames": ["reading.opinion"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "小さいことをしてもらったときこそ、お礼を言うのが大切だ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "大きなことをしてもらったら、必ずお礼の物を返すべきだ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ドアは人に開けてもらわないで、自分で開けるべきだ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "お礼は、言葉ではなく行動で返したほうがいい"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-11",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "カードにポイントが残っている人は、どうすればいいですか。",
+        "passage": "お客様へ\nいつもご利用ありがとうございます。\n当店では、7月1日から、ポイントカードをやめて、スマートフォンのアプリでポイントをためるようになります。\nカードに残っているポイントは、6月30日までにレジでお使いください。7月1日からは、カードのポイントは使えなくなりますので、ご注意ください。\nアプリの使い方が分からない方は、店員にお声がけください。\nパン工房こむぎ",
+        "explanationKo": "핵심: 「カードに残っているポイントは、6月30日までにレジでお使いください」\n7월 1일부터는 카드 포인트를 쓸 수 없습니다. 앱으로 옮긴다는 말은 없습니다.",
+        "explanationJa": "ポイント：「カードに残っているポイントは、6月30日までにレジでお使いください」\n7月1日からはカードのポイントは使えません。アプリに移すとは書かれていません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "6月30日までに、レジでポイントを使う"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "7月1日になってから、アプリにポイントを移す"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "店員にカードをわたして、アプリに入れてもらう"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ポイントを使わないで、カードを捨てる"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-12",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "財布は、どこにありましたか。",
+        "passage": "先週、駅のホームで財布を落とした。気づいたのは、家に帰ってからだった。お金だけでなく、カードや免許証も入っていたので、とても困った。\n次の日、だめだと思いながら駅に電話をしてみると、届いていると言われた。拾った人は、名前も言わずに帰ったそうだ。お礼を言えないのは残念だが、私も何か拾ったときは、必ず届けようと思った。",
+        "explanationKo": "핵심: 「駅に電話をしてみると、届いていると言われた」\n떨어뜨린 곳은 역 승강장이고, 주운 사람은 역에 맡기고 돌아갔습니다.",
+        "explanationJa": "ポイント：「駅に電話をしてみると、届いていると言われた」\n落としたのは駅のホームで、拾った人は駅に届けて帰りました。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "駅に届けられていた"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "家の中に落ちていた"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "警察に届けられていた"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "拾った人の家にあった"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-13",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "この経験のあと、「私」はどう思いましたか。",
+        "passage": "先週、駅のホームで財布を落とした。気づいたのは、家に帰ってからだった。お金だけでなく、カードや免許証も入っていたので、とても困った。\n次の日、だめだと思いながら駅に電話をしてみると、届いていると言われた。拾った人は、名前も言わずに帰ったそうだ。お礼を言えないのは残念だが、私も何か拾ったときは、必ず届けようと思った。",
+        "explanationKo": "핵심: 「私も何か拾ったときは、必ず届けようと思った」\n주운 사람은 이름도 말하지 않고 가서 「お礼を言えない」고 했습니다.",
+        "explanationJa": "ポイント：「私も何か拾ったときは、必ず届けようと思った」\n拾った人は名前も言わずに帰ったので、「お礼を言えない」と述べています。",
+        "tagNames": ["reading.opinion"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "拾った人に会って、お礼を言おう"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "自分も何か拾ったら、必ず届けよう"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "財布には、お金をあまり入れないようにしよう"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "カードは、財布に入れないようにしよう"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-14",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "さきさんがリンさんに頼んでいることは、何ですか。",
+        "passage": "リンさん\n来週の土曜日のお花見ですが、雨の予報が出ているので、日曜日にしませんか。場所と時間は同じで、公園の北口に十一時です。\n食べ物はみんなで持ちよることにしたので、リンさんは飲み物をお願いできますか。日曜日がだめな場合は、金曜日までに連絡ください。\nさき",
+        "explanationKo": "핵심: 「リンさんは飲み物をお願いできますか」\n음식은 모두가 나눠 가져오고, 장소는 이미 공원 북쪽 입구로 정해져 있습니다.",
+        "explanationJa": "ポイント：「リンさんは飲み物をお願いできますか」\n食べ物はみんなで持ちより、場所は公園の北口に決まっています。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "食べ物を持ってくること"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "お花見の場所を決めること"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "飲み物を持ってくること"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "土曜日の天気を調べること"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-15",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "スマートフォンを見るのをやめて、どうなりましたか。",
+        "passage": "最近、夜寝る前にスマートフォンを見るのをやめた。ベッドに入ってから動画を見始めると、気がつくと一時間以上たっていることが多かったからだ。今は、スマートフォンを台所に置いてから寝室に入り、紙の本を少し読んでから寝ている。すると、前より早く眠れるようになり、朝も楽に起きられるようになった。",
+        "explanationKo": "핵심: 「前より早く眠れるようになり、朝も楽に起きられるようになった」\n스마트폰은 부엌에 두고, 책은 침실에서 조금 읽습니다.",
+        "explanationJa": "ポイント：「前より早く眠れるようになり、朝も楽に起きられるようになった」\nスマートフォンは台所に置き、本は寝室で少し読んでいます。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "早く眠れて、朝も楽に起きられるようになった"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "紙の本を一晩で読めるようになった"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "動画を見る時間が、一時間に減った"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "台所で本を読むようになった"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-16",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "NORMAL",
+        "questionText": "朝の準備が短くなったのは、どうしてですか。",
+        "passage": "去年の春から、昼ごはんに自分で弁当を作って、会社に持っていっている。始めた理由は、お金をためるためだった。毎日外で食べると、一か月で二万円近くかかっていたからだ。\n初めは、朝早く起きて料理をするのが大変だった。しかし、夕飯を作るときに少し多めに作って、それを次の日の弁当に入れるようにしたら、朝の準備は十分ほどで終わるようになった。\n弁当を続けて、思っていなかったよいこともあった。昼休みに店を探したり、並んだりする時間がなくなり、その分、ゆっくり休めるようになったのだ。また、自分で作ると野菜を多く入れるので、体の調子もよくなった気がする。お金のために始めた弁当だが、今では生活全体を変えてくれたと思っている。",
+        "explanationKo": "핵심: 「夕飯を作るときに少し多めに作って、それを次の日の弁当に入れるようにしたら」\n그 결과 아침 준비가 10분 정도로 끝나게 되었습니다. 채소를 많이 넣는다고 했지만 채소만 넣는 것은 아닙니다.",
+        "explanationJa": "ポイント：「夕飯を作るときに少し多めに作って、それを次の日の弁当に入れるようにしたら」\nその結果、朝の準備が十分ほどで終わるようになりました。野菜を多く入れるとは言っていますが、野菜だけではありません。",
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "朝早く起きるのに慣れたから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "夕飯を多めに作って、次の日の弁当に入れるようにしたから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "弁当に入れる物を、野菜だけにしたから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "店で買ったおかずを、入れるようにしたから"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-17",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "NORMAL",
+        "questionText": "「思っていなかったよいこと」として、合っているものはどれですか。",
+        "passage": "去年の春から、昼ごはんに自分で弁当を作って、会社に持っていっている。始めた理由は、お金をためるためだった。毎日外で食べると、一か月で二万円近くかかっていたからだ。\n初めは、朝早く起きて料理をするのが大変だった。しかし、夕飯を作るときに少し多めに作って、それを次の日の弁当に入れるようにしたら、朝の準備は十分ほどで終わるようになった。\n弁当を続けて、思っていなかったよいこともあった。昼休みに店を探したり、並んだりする時間がなくなり、その分、ゆっくり休めるようになったのだ。また、自分で作ると野菜を多く入れるので、体の調子もよくなった気がする。お金のために始めた弁当だが、今では生活全体を変えてくれたと思っている。",
+        "explanationKo": "핵심: 「昼休みに店を探したり、並んだりする時間がなくなり、その分、ゆっくり休めるようになったのだ」\n돈은 처음부터의 목적이고, 2만 엔을 모았다는 말은 없습니다.",
+        "explanationJa": "ポイント：「昼休みに店を探したり、並んだりする時間がなくなり、その分、ゆっくり休めるようになったのだ」\nお金は始めたときからの目的で、二万円ためたとは書かれていません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "一か月で、二万円ためられるようになった"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "料理が上手になって、人に教えるようになった"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "会社の人と、一緒に昼ごはんを食べるようになった"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "昼休みに、ゆっくり休めるようになった"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-18",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "EASY",
+        "questionText": "「私」が最初、活動に行きたくなかったのはなぜですか。",
+        "passage": "私の住んでいる町では、月に一度、日曜日の朝に、川の周りのごみを拾う活動がある。私は、引っ越してきたばかりのころ、近所の人に誘われて初めて参加した。\n正直に言うと、最初はあまり行きたくなかった。せっかくの休みの日に早く起きるのは面倒だと思ったからだ。しかし、参加してみると、思っていたより楽しかった。ごみを拾いながら、近所の人たちが町の歴史やおいしい店のことを教えてくれたのだ。終わったあとには、みんなでお茶を飲みながら話をする時間もある。\n知り合いが一人もいなかった町で、今では道で会うとあいさつをする人がたくさんいる。ごみを拾う活動は、町をきれいにするだけでなく、人と人をつなぐ場所にもなっているのだと思う。",
+        "explanationKo": "핵심: 「せっかくの休みの日に早く起きるのは面倒だと思ったからだ」\n더럽다거나 위험하다는 말은 없고, 차 마시는 시간은 참가한 뒤 즐거웠던 일입니다.",
+        "explanationJa": "ポイント：「せっかくの休みの日に早く起きるのは面倒だと思ったからだ」\nきたない、危ないという話はなく、お茶の時間は参加してから楽しかったことです。",
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "休みの日に早く起きるのが、面倒だと思ったから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ごみを拾うのは、きたないと思ったから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "終わったあとのお茶の時間が、長いと聞いたから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "川の周りは、危ないと思ったから"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-19",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "NORMAL",
+        "questionText": "「私」は、この活動をどのように考えていますか。",
+        "passage": "私の住んでいる町では、月に一度、日曜日の朝に、川の周りのごみを拾う活動がある。私は、引っ越してきたばかりのころ、近所の人に誘われて初めて参加した。\n正直に言うと、最初はあまり行きたくなかった。せっかくの休みの日に早く起きるのは面倒だと思ったからだ。しかし、参加してみると、思っていたより楽しかった。ごみを拾いながら、近所の人たちが町の歴史やおいしい店のことを教えてくれたのだ。終わったあとには、みんなでお茶を飲みながら話をする時間もある。\n知り合いが一人もいなかった町で、今では道で会うとあいさつをする人がたくさんいる。ごみを拾う活動は、町をきれいにするだけでなく、人と人をつなぐ場所にもなっているのだと思う。",
+        "explanationKo": "핵심: 「町をきれいにするだけでなく、人と人をつなぐ場所にもなっているのだと思う」\n매주 해야 한다거나 그만두자는 의견은 없습니다.",
+        "explanationJa": "ポイント：「町をきれいにするだけでなく、人と人をつなぐ場所にもなっているのだと思う」\n毎週するべきだ、やめたほうがいいという意見はありません。",
+        "tagNames": ["reading.opinion"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "町をきれいにするために、毎週行うべきだ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "休みの日に行うのは、やめたほうがいい"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "町をきれいにするだけでなく、人と人をつなぐ場にもなっている"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "近所の人と知り合うには、お茶の時間だけで十分だ"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-20",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "NORMAL",
+        "questionText": "「写真と色が違う」と言われたのは、なぜですか。",
+        "passage": "使わなくなった物を、インターネットのフリーマーケットで売るようになった。きっかけは、引っ越しのときに、まだ使える物をたくさん捨てなければならなかったことだ。\n初めて売ったのは、二回しか着なかったコートだった。写真をとって、値段を決めてのせると、次の日には買いたいという人が現れた。お金が入ったこともうれしかったが、それ以上に、自分にはいらない物を必要としている人がいることがうれしかった。\nただ、困ったこともある。買った人から「写真と色が違う」と言われたことがあったのだ。部屋の明かりの下でとった写真だったので、本当の色よりも明るく見えていたらしい。それからは、昼間に窓の近くで写真をとり、傷や汚れがあれば、それも正直に書くようにしている。",
+        "explanationKo": "핵심: 「部屋の明かりの下でとった写真だったので、本当の色よりも明るく見えていたらしい」\n창가에서 찍는 것은 그 뒤에 바꾼 방법입니다.",
+        "explanationJa": "ポイント：「部屋の明かりの下でとった写真だったので、本当の色よりも明るく見えていたらしい」\n窓の近くでとるのは、そのあとで変えたやり方です。",
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "部屋の明かりの下でとったので、本当の色より明るく見えたから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "コートを二回着て、色が変わってしまったから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "窓の近くでとったので、本当の色より暗く見えたから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "違うコートの写真を、まちがえてのせたから"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-21",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "NORMAL",
+        "questionText": "初めて物が売れたとき、「私」がいちばんうれしかったことは何ですか。",
+        "passage": "使わなくなった物を、インターネットのフリーマーケットで売るようになった。きっかけは、引っ越しのときに、まだ使える物をたくさん捨てなければならなかったことだ。\n初めて売ったのは、二回しか着なかったコートだった。写真をとって、値段を決めてのせると、次の日には買いたいという人が現れた。お金が入ったこともうれしかったが、それ以上に、自分にはいらない物を必要としている人がいることがうれしかった。\nただ、困ったこともある。買った人から「写真と色が違う」と言われたことがあったのだ。部屋の明かりの下でとった写真だったので、本当の色よりも明るく見えていたらしい。それからは、昼間に窓の近くで写真をとり、傷や汚れがあれば、それも正直に書くようにしている。",
+        "explanationKo": "핵심: 「それ以上に、自分にはいらない物を必要としている人がいることがうれしかった」\n돈이 들어온 것도 기뻤지만 「それ以上に」라고 했으므로 가장 기뻤던 것은 이쪽입니다.",
+        "explanationJa": "ポイント：「それ以上に、自分にはいらない物を必要としている人がいることがうれしかった」\nお金が入ったこともうれしかったが、「それ以上に」とあるので、いちばんはこちらです。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "すぐにお金が入ったこと"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "自分にいらない物を、必要としている人がいたこと"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "コートが、思っていたより高く売れたこと"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "引っ越しの荷物が減ったこと"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-22",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "NORMAL",
+        "questionText": "「私」が、会社で同僚の話が分からなかったのはなぜですか。",
+        "passage": "私は二年前に日本に来て、大阪の会社で働いている。日本に来る前に、国で三年間日本語を勉強したので、話すことには少し自信があった。\nところが、会社で同僚の話を聞いても、分からないことが多かった。教科書の日本語と、大阪の人が話す言葉がずいぶん違っていたのだ。例えば、「ほんまに」は「本当に」、「あかん」は「だめだ」という意味だと知ったのは、働き始めてしばらくたってからだった。\n最初は、自分の日本語はまだまだだと落ち込んだ。しかし、ある日、同僚に分からない言葉を聞いてみると、喜んで教えてくれた。それから、新しい言葉を聞いたら、すぐにメモして意味を聞くようにした。今では、私が大阪の言葉を使うと、同僚がうれしそうに笑ってくれる。",
+        "explanationKo": "핵심: 「教科書の日本語と、大阪の人が話す言葉がずいぶん違っていたのだ」\n고국에서 3년간 공부해 말하기에는 자신이 있었다고 했습니다.",
+        "explanationJa": "ポイント：「教科書の日本語と、大阪の人が話す言葉がずいぶん違っていたのだ」\n国で三年間勉強して、話すことには自信があったと述べています。",
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "国で、日本語をあまり勉強しなかったから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "同僚が早口で、声が小さかったから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "仕事で使う、むずかしい言葉が多かったから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "教科書の日本語と、大阪の人の言葉が違っていたから"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-23",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "NORMAL",
+        "questionText": "「私」は今、新しい言葉を聞いたらどうしていますか。",
+        "passage": "私は二年前に日本に来て、大阪の会社で働いている。日本に来る前に、国で三年間日本語を勉強したので、話すことには少し自信があった。\nところが、会社で同僚の話を聞いても、分からないことが多かった。教科書の日本語と、大阪の人が話す言葉がずいぶん違っていたのだ。例えば、「ほんまに」は「本当に」、「あかん」は「だめだ」という意味だと知ったのは、働き始めてしばらくたってからだった。\n最初は、自分の日本語はまだまだだと落ち込んだ。しかし、ある日、同僚に分からない言葉を聞いてみると、喜んで教えてくれた。それから、新しい言葉を聞いたら、すぐにメモして意味を聞くようにした。今では、私が大阪の言葉を使うと、同僚がうれしそうに笑ってくれる。",
+        "explanationKo": "핵심: 「新しい言葉を聞いたら、すぐにメモして意味を聞くようにした」\n동료에게 물어보니 기꺼이 가르쳐 준 뒤부터 이렇게 하고 있습니다.",
+        "explanationJa": "ポイント：「新しい言葉を聞いたら、すぐにメモして意味を聞くようにした」\n同僚に聞いてみたら喜んで教えてくれたので、それからこうしています。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "すぐにメモして、意味を聞いている"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "家に帰ってから、教科書で調べている"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "分からなくても、聞かないでおく"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "国の友だちに、意味を聞いている"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-24",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "NORMAL",
+        "questionText": "最初の月の終わりに、どんなことがありましたか。",
+        "passage": "小学四年生の娘に、今年から月に千円のお小遣いをあげることにした。それまでは、ほしい物があるたびに、私が買ってあげていた。\nお小遣いをあげるとき、娘と一つ約束をした。何に使ったかを、小さなノートに書くことだ。最初の月、娘は友だちと出かけたときにお菓子やシールを買って、二週間でお金を全部使ってしまった。月の終わりに、友だちの誕生日プレゼントを買いたいと言ってきたが、私はお金を出さなかった。\n次の月、娘はノートを見ながら、「お菓子にこんなに使ってたんだ」と言った。そして、プレゼントのために、毎週二百円ずつ残しておくことにしたようだ。失敗したからこそ、お金の使い方を自分で考えるようになったのだと思う。",
+        "explanationKo": "핵심: 「友だちの誕生日プレゼントを買いたいと言ってきたが、私はお金を出さなかった」\n딸은 2주 만에 용돈을 다 써 버렸습니다.",
+        "explanationJa": "ポイント：「友だちの誕生日プレゼントを買いたいと言ってきたが、私はお金を出さなかった」\n娘は二週間でお金を全部使ってしまっていました。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "娘が、お小遣いを半分残していた"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "娘がプレゼントを買うお金をほしがったが、「私」は出さなかった"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "「私」が娘に、ノートを書くのをやめさせた"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "娘が、友だちから誕生日プレゼントをもらった"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-25",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "NORMAL",
+        "questionText": "「私」は、娘の変化についてどう考えていますか。",
+        "passage": "小学四年生の娘に、今年から月に千円のお小遣いをあげることにした。それまでは、ほしい物があるたびに、私が買ってあげていた。\nお小遣いをあげるとき、娘と一つ約束をした。何に使ったかを、小さなノートに書くことだ。最初の月、娘は友だちと出かけたときにお菓子やシールを買って、二週間でお金を全部使ってしまった。月の終わりに、友だちの誕生日プレゼントを買いたいと言ってきたが、私はお金を出さなかった。\n次の月、娘はノートを見ながら、「お菓子にこんなに使ってたんだ」と言った。そして、プレゼントのために、毎週二百円ずつ残しておくことにしたようだ。失敗したからこそ、お金の使い方を自分で考えるようになったのだと思う。",
+        "explanationKo": "핵심: 「失敗したからこそ、お金の使い方を自分で考えるようになったのだと思う」\n용돈을 늘리자거나 과자를 사지 말라는 의견은 없습니다.",
+        "explanationJa": "ポイント：「失敗したからこそ、お金の使い方を自分で考えるようになったのだと思う」\nお小遣いを増やす、お菓子を買わないといった意見はありません。",
+        "tagNames": ["reading.opinion"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "失敗したからこそ、自分でお金の使い方を考えるようになった"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "お小遣いを、もっと多くしたほうがいい"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "お菓子は、もう買わないほうがいい"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ノートを書くのは、子どもにはむずかしい"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-26",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "NORMAL",
+        "questionText": "図書館の人は、どんなことを教えてくれましたか。",
+        "passage": "月に二回、近くの図書館で、子どもたちに絵本を読むボランティアをしている。始めたのは、自分の子どもが大きくなって、絵本を読んであげる機会がなくなったからだ。\n初めて読んだ日は、緊張して早口になってしまった。子どもたちは途中から話を聞かなくなり、となりの子と話したり、立ち歩いたりしていた。終わったあと、図書館の人が「ページをめくる前に、少し待ってみてください」と教えてくれた。\n次の回、言われたとおりにしてみると、子どもたちは「次はどうなるの」と、絵本をじっと見るようになった。待つ時間があるから、子どもたちは自分で話の続きを考えられるのだ。上手に読むことより、聞く人のことを考えて読むことが大切だと分かった。",
+        "explanationKo": "핵심: 「ページをめくる前に、少し待ってみてください」\n빨리 읽었다는 말은 있지만, 도서관 사람이 천천히·크게 읽으라고 한 것은 아닙니다.",
+        "explanationJa": "ポイント：「ページをめくる前に、少し待ってみてください」\n早口になったとは書かれていますが、図書館の人が「ゆっくり大きな声で」と言ったわけではありません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ページをめくる前に、少し待つこと"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "もっとゆっくり、大きな声で読むこと"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "子どもたちに質問をしながら読むこと"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "短い絵本を選んで読むこと"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-27",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "HARD",
+        "questionText": "「私」がこの経験から分かったことは、何ですか。",
+        "passage": "月に二回、近くの図書館で、子どもたちに絵本を読むボランティアをしている。始めたのは、自分の子どもが大きくなって、絵本を読んであげる機会がなくなったからだ。\n初めて読んだ日は、緊張して早口になってしまった。子どもたちは途中から話を聞かなくなり、となりの子と話したり、立ち歩いたりしていた。終わったあと、図書館の人が「ページをめくる前に、少し待ってみてください」と教えてくれた。\n次の回、言われたとおりにしてみると、子どもたちは「次はどうなるの」と、絵本をじっと見るようになった。待つ時間があるから、子どもたちは自分で話の続きを考えられるのだ。上手に読むことより、聞く人のことを考えて読むことが大切だと分かった。",
+        "explanationKo": "핵심: 「上手に読むことより、聞く人のことを考えて読むことが大切だと分かった」\n기다리는 시간이 있어야 아이들이 이야기의 뒤를 스스로 생각할 수 있다는 경험에서 나온 생각입니다.",
+        "explanationJa": "ポイント：「上手に読むことより、聞く人のことを考えて読むことが大切だと分かった」\n待つ時間があるから子どもたちが続きを考えられる、という経験から出た考えです。",
+        "tagNames": ["reading.opinion"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "子どもたちには、短い話を読んだほうがいい"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "絵本は、自分の子どもに読むのがいちばんだ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "上手に読むことより、聞く人のことを考えて読むことが大切だ"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "緊張しないために、たくさん練習するべきだ"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-28",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "HARD",
+        "questionText": "やることが多いと感じていたのはなぜだと、「私」は考えていますか。",
+        "passage": "やることが多い日は、朝、紙に今日することを全部書き出すようにしている。以前は、頭の中だけで考えていたので、大事な用事を忘れてしまうことがあった。\n書き出してみると、意外なことに気づく。やることが多いと思っていても、実際に書いてみると、五つか六つしかないことが多いのだ。多く感じていたのは、何から始めればいいか分からず、あせっていたからだろう。\n今は、書き出したあとで、すぐに終わるものから先にするようにしている。一つ終わるたびに線を引いて消していくと、気持ちも楽になり、次のこともやろうという気になる。",
+        "explanationKo": "핵심: 「何から始めればいいか分からず、あせっていたからだろう」\n실제로 써 보면 대여섯 개뿐인 경우가 많았습니다. 줄을 긋는 것은 지금 하는 방법입니다.",
+        "explanationJa": "ポイント：「何から始めればいいか分からず、あせっていたからだろう」\n実際に書くと五つか六つしかないことが多かったのです。線を引くのは今のやり方です。",
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "本当に、やることが十以上あったから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "何から始めればいいか分からず、あせっていたから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "一つ終わるたびに、線を引いて消していたから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "大事な用事を、忘れてしまっていたから"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-29",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "NORMAL",
+        "questionText": "「私」は、旅の思い出についてどう考えていますか。",
+        "passage": "旅行に行くと、私は必ずその町の市場に行くことにしている。有名な観光地もいいが、市場には、そこに住む人たちのふだんの生活があるからだ。\n去年行った町の市場では、見たことのない果物がたくさん並んでいた。食べ方が分からずに見ていると、店のおばあさんが一つ切って、食べさせてくれた。言葉はほとんど通じなかったが、おいしいと身ぶりで伝えると、とてもうれしそうに笑ってくれた。\n観光地でとった写真はすぐに忘れてしまうが、そのおばあさんの笑顔は今でもよく覚えている。旅の思い出に残るのは、有名な場所より、そこで会った人なのかもしれない。",
+        "explanationKo": "핵심: 「旅の思い出に残るのは、有名な場所より、そこで会った人なのかもしれない」\n말은 거의 안 통했지만 할머니의 웃는 얼굴을 지금도 기억한다고 했습니다.",
+        "explanationJa": "ポイント：「旅の思い出に残るのは、有名な場所より、そこで会った人なのかもしれない」\n言葉はほとんど通じなかったが、おばあさんの笑顔を今でも覚えていると述べています。",
+        "tagNames": ["reading.opinion"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "有名な観光地の写真を、たくさんとっておくべきだ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "言葉が通じないと、旅は楽しくない"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "有名な場所より、そこで会った人のほうが思い出に残る"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "市場では、見たことのない物を買うのがいい"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-30",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "NORMAL",
+        "questionText": "同僚の机を見て、「私」はどう思いましたか。",
+        "passage": "私の会社では、半年前から「ありがとうカード」というものを使っている。同僚に何か手伝ってもらったら、小さなカードにお礼の言葉を書いてわたすのだ。\n始まったときは、子どもっぽいと思って、あまり使わなかった。口で言えば十分だと思っていたからだ。ところが、ある日、私が忙しくて見てあげられなかった後輩の仕事を、別の同僚が手伝ってくれていたことを知った。そのとき、初めてその人にカードを書いた。次の日、同僚の机を見ると、私のカードが見える所にはってあった。\n口で言った言葉はすぐに消えてしまうが、書いた言葉は残る。それを見て、相手がまた元気になれるのだと思った。",
+        "explanationKo": "핵심: 「書いた言葉は残る。それを見て、相手がまた元気になれるのだと思った」\n「口で言えば十分」「子どもっぽい」는 처음에 하던 생각입니다.",
+        "explanationJa": "ポイント：「書いた言葉は残る。それを見て、相手がまた元気になれるのだと思った」\n「口で言えば十分」「子どもっぽい」は、初めのころの考えです。",
+        "tagNames": ["reading.opinion"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "カードは、すぐに捨てられてしまう"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "お礼は、口で言えば十分だ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "カードを書くのは、子どもっぽい"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "書いた言葉は残るので、相手がまた元気になれる"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-31",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "NORMAL",
+        "questionText": "短い時間外に出るとき、エアコンをつけたままにしたほうがいいこともあるのは、なぜですか。",
+        "passage": "夏になると、部屋のエアコンを一日中つけている人が多い。電気代が高くなるので、使わないときはこまめに消したほうがいいと考える人もいるだろう。\nしかし、ある電気会社によると、短い時間外に出るだけなら、消さないでつけたままにしておくほうが、電気代が安くなることもあるという。エアコンは、部屋が暑くなってから温度を下げるときに、いちばん多く電気を使うからだ。\nもちろん、長い時間家を空けるときは、消したほうがいい。大切なのは、つけるか消すかだけでなく、どのくらいの時間使わないのかを考えて、上手に使うことだ。",
+        "explanationKo": "핵심: 「エアコンは、部屋が暑くなってから温度を下げるときに、いちばん多く電気を使うからだ」\n전기 요금이 「安くなることもある」고 했을 뿐, 들지 않는다는 말은 없습니다.",
+        "explanationJa": "ポイント：「エアコンは、部屋が暑くなってから温度を下げるときに、いちばん多く電気を使うからだ」\n電気代が「安くなることもある」と言っているだけで、かからないとは書かれていません。",
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "エアコンを消すと、すぐにこわれてしまうから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "つけたままにしておくと、電気代がかからないから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "外に出ている間に、部屋が冷えすぎてしまうから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "部屋が暑くなってから温度を下げるときに、いちばん多く電気を使うから"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-32",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "NORMAL",
+        "questionText": "「私」が子どものころ、ピアノを習えなかったのはなぜですか。",
+        "passage": "四十歳になってから、ピアノを習い始めた。子どものころ、習いたいと言ったことがあるが、家にピアノを置く場所がないという理由で、習わせてもらえなかったのだ。\n大人になってからの練習は、思っていたより大変だった。仕事で疲れて、練習できない日も多い。指も、子どものようには動かない。何度もやめようと思ったが、そのたびに先生が「昨日より一つでもできることが増えれば、それで十分ですよ」と言ってくれた。\n始めて二年たった先月、教室の発表会で一曲ひくことができた。上手ではなかったが、聞きに来た家族が大きな拍手をしてくれた。何かを始めるのに、遅すぎるということはないのだと思う。",
+        "explanationKo": "핵심: 「家にピアノを置く場所がないという理由で、習わせてもらえなかったのだ」\n배우고 싶다고 말한 적은 있다고 했습니다. 돈이나 교실 이야기는 없습니다.",
+        "explanationJa": "ポイント：「家にピアノを置く場所がないという理由で、習わせてもらえなかったのだ」\n習いたいと言ったことはあると述べています。お金や教室の話はありません。",
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "ピアノを習うお金が、なかったから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "家に、ピアノを置く場所がなかったから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "自分が、習いたいと言わなかったから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "近くに、ピアノ教室がなかったから"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-33",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "MEDIUM_READING",
+        "difficulty": "NORMAL",
+        "questionText": "アプリを使うようになって、よくなったことは何ですか。",
+        "passage": "近所の病院が、半年前から予約のアプリを使うようになった。以前は、朝早くから病院の前に並ばなければならず、診てもらうまでに二時間以上待つこともあった。\nアプリでは、家から順番を取ることができ、自分の番が近づくとお知らせが来る。そのため、待合室で長い時間待つ必要がなくなった。病院の人によると、待合室にいる人が減ったので、ほかの病気がうつる心配も少なくなったそうだ。\nただ、お知らせが来てから三十分以内に病院に着かないと、順番が最後になってしまう。そのため、私はお知らせが来たら、すぐに家を出るようにしている。",
+        "explanationKo": "핵심: 「そのため、待合室で長い時間待つ必要がなくなった」\n알림 후 30분 안에 도착하지 않으면 순서가 맨 뒤가 되므로 「언제 가도」 바로 진료받는 것은 아닙니다.",
+        "explanationJa": "ポイント：「そのため、待合室で長い時間待つ必要がなくなった」\nお知らせから三十分以内に着かないと順番が最後になるので、「いつ行っても」すぐ診てもらえるわけではありません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "朝早くから、病院の前に並べるようになった"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "待合室で、長い時間待たなくてもよくなった"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "いつ病院に行っても、すぐに診てもらえるようになった"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "病院に行かなくても、薬がもらえるようになった"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-34",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "市内に住む人8人と、市外に住む人4人のグループが、ピアノを使って2時間練習したいと考えています。料金はいくらですか。",
+        "passage": "ひばり市民会館　部屋の利用料金（1時間）\n・和室（20名まで）……600円\n・会議室A（30名まで）……800円\n・会議室B（60名まで）……1,500円\n・音楽室（ピアノあり、15名まで）……1,000円\n※市内に住んでいる人が半分以上いるグループは、料金が半分になります。\n※予約は、使いたい日の2か月前から、会館の受付でできます。電話での予約はできません。\n※音楽室以外の部屋で、楽器を使うことはできません。",
+        "explanationKo": "핵심: 「市内に住んでいる人が半分以上いるグループは、料金が半分になります」\n12명 중 8명이 시내라 반값입니다. 음악실 1시간 1,000엔의 반 500엔 × 2시간 = 1,000엔.",
+        "explanationJa": "ポイント：「市内に住んでいる人が半分以上いるグループは、料金が半分になります」\n12人中8人が市内なので半分です。音楽室1時間1,000円の半分500円×2時間＝1,000円です。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "500円"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "1,000円"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "1,600円"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "2,000円"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-35",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "この案内の内容と合っているものは、どれですか。",
+        "passage": "ひばり市民会館　部屋の利用料金（1時間）\n・和室（20名まで）……600円\n・会議室A（30名まで）……800円\n・会議室B（60名まで）……1,500円\n・音楽室（ピアノあり、15名まで）……1,000円\n※市内に住んでいる人が半分以上いるグループは、料金が半分になります。\n※予約は、使いたい日の2か月前から、会館の受付でできます。電話での予約はできません。\n※音楽室以外の部屋で、楽器を使うことはできません。",
+        "explanationKo": "핵심: 「予約は、使いたい日の2か月前から、会館の受付でできます。電話での予約はできません」\n예약은 3개월이 아니라 2개월 전부터, 악기는 음악실에서만, 회의실 A는 30명까지입니다.",
+        "explanationJa": "ポイント：「予約は、使いたい日の2か月前から、会館の受付でできます。電話での予約はできません」\n予約は3か月ではなく2か月前から、楽器は音楽室だけ、会議室Aは30名までです。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "予約は、使いたい日の3か月前からできる"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "会議室Aで、ギターの練習ができる"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "40人で、会議室Aを使うことができる"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "予約は、会館の受付でしなければならない"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-36",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "HARD",
+        "questionText": "たて・よこ・高さの合計が75cmの荷物を、自分で店に持っていって、県外に住む友だちに送ります。料金はいくらですか。",
+        "passage": "つばめ便　料金表（県内に送る場合）\n荷物の大きさ（たて・よこ・高さの合計）\n・60cmまで……800円\n・80cmまで……1,000円\n・100cmまで……1,300円\n・120cmまで……1,600円\n※県外に送る場合は、上の料金に300円をたします。\n※お店に荷物を持ってきた場合は、1個につき100円引きになります。\n※届ける時間は、次の中から選べます。午前中、14時〜16時、16時〜18時、18時〜21時",
+        "explanationKo": "핵심: 「県外に送る場合は、上の料金に300円をたします」「1個につき100円引き」\n75cm는 80cm까지라 1,000엔, 현외 +300엔, 가게에 가져가면 -100엔 → 1,200엔.",
+        "explanationJa": "ポイント：「県外に送る場合は、上の料金に300円をたします」「1個につき100円引き」\n75cmは80cmまでで1,000円、県外で＋300円、店に持っていくと－100円で1,200円です。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "1,100円"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "1,200円"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "1,300円"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "1,400円"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-37",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "EASY",
+        "questionText": "荷物を届けてもらう時間として、選べないものはどれですか。",
+        "passage": "つばめ便　料金表（県内に送る場合）\n荷物の大きさ（たて・よこ・高さの合計）\n・60cmまで……800円\n・80cmまで……1,000円\n・100cmまで……1,300円\n・120cmまで……1,600円\n※県外に送る場合は、上の料金に300円をたします。\n※お店に荷物を持ってきた場合は、1個につき100円引きになります。\n※届ける時間は、次の中から選べます。午前中、14時〜16時、16時〜18時、18時〜21時",
+        "explanationKo": "핵심: 「午前中、14時〜16時、16時〜18時、18時〜21時」\n12~14시는 목록에 없습니다.",
+        "explanationJa": "ポイント：「午前中、14時〜16時、16時〜18時、18時〜21時」\n12時〜14時はこの中にありません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "午前中"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "16時〜18時"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "12時〜14時"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "18時〜21時"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-38",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "大学生のトムさんは、火曜日と木曜日に③の時間で働きたいと考えています。一週間で、時給の分だけでいくらもらえますか。",
+        "passage": "アルバイト募集　カフェ・ひだまり\n・仕事の内容：レジ、飲み物を作る、そうじ\n・時間：①7:00〜12:00　②12:00〜17:00　③17:00〜22:00\n・時給：1,100円（③の時間は1,250円）\n　※高校生は、③の時間には働けません。\n・週2日以上（土日に働ける人は特に歓迎）\n・交通費：1日500円まで出します\n・応募：電話で連絡してから、写真をはった履歴書を持ってきてください。",
+        "explanationKo": "핵심: 「③の時間は1,250円」\n③은 17~22시로 5시간. 1,250엔 × 5시간 × 2일 = 12,500엔.",
+        "explanationJa": "ポイント：「③の時間は1,250円」\n③は17時〜22時の5時間です。1,250円×5時間×2日＝12,500円です。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "6,250円"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "11,000円"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "12,500円"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "25,000円"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-39",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "高校生のさくらさんがこのアルバイトをする場合、合っているものはどれですか。",
+        "passage": "アルバイト募集　カフェ・ひだまり\n・仕事の内容：レジ、飲み物を作る、そうじ\n・時間：①7:00〜12:00　②12:00〜17:00　③17:00〜22:00\n・時給：1,100円（③の時間は1,250円）\n　※高校生は、③の時間には働けません。\n・週2日以上（土日に働ける人は特に歓迎）\n・交通費：1日500円まで出します\n・応募：電話で連絡してから、写真をはった履歴書を持ってきてください。",
+        "explanationKo": "핵심: 「高校生は、③の時間には働けません」\n주 2일 이상이라 토·일 이틀도 됩니다. 응모는 먼저 전화로 연락합니다.",
+        "explanationJa": "ポイント：「高校生は、③の時間には働けません」\n週2日以上なので土日の2日でもかまいません。応募はまず電話で連絡します。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "③の時間に働くと、時給が1,250円になる"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "土日の2日だけ働くことはできない"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "①か②の時間なら、働くことができる"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "応募するときは、最初に履歴書を持っていく"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-40",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "第2日曜日に、大人2人、中学生1人、小学生1人の4人で行きます。入園料は全部でいくらですか。",
+        "passage": "みどり動物園　入園料\n・大人（高校生以上）……600円\n・中学生……200円\n・小学生以下……無料\n・65歳以上……300円（年齢が分かるものを見せてください）\n【年間パスポート】大人 2,400円／中学生 800円\n（買った日から1年間、何回でも入園できます）\n※毎月第2日曜日は「家族の日」です。小学生以下の子どもと一緒に来た大人は、200円引きになります。\n※休園日：毎週月曜日（月曜日が祝日の場合は、次の日）",
+        "explanationKo": "핵심: 「小学生以下の子どもと一緒に来た大人は、200円引きになります」\n어른 (600-200)×2 = 800엔, 중학생 200엔, 초등학생 무료 → 1,000엔.",
+        "explanationJa": "ポイント：「小学生以下の子どもと一緒に来た大人は、200円引きになります」\n大人（600－200）×2＝800円、中学生200円、小学生は無料で1,000円です。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "800円"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "1,000円"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "1,200円"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "1,400円"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-41",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "HARD",
+        "questionText": "大人の山田さんが、一年間に何回以上行くなら、年間パスポートを買ったほうが安くなりますか。",
+        "passage": "みどり動物園　入園料\n・大人（高校生以上）……600円\n・中学生……200円\n・小学生以下……無料\n・65歳以上……300円（年齢が分かるものを見せてください）\n【年間パスポート】大人 2,400円／中学生 800円\n（買った日から1年間、何回でも入園できます）\n※毎月第2日曜日は「家族の日」です。小学生以下の子どもと一緒に来た大人は、200円引きになります。\n※休園日：毎週月曜日（月曜日が祝日の場合は、次の日）",
+        "explanationKo": "핵심: 「【年間パスポート】大人 2,400円」\n600엔 × 4회 = 2,400엔으로 같고, 5회(3,000엔)부터 연간 패스포트가 쌉니다.",
+        "explanationJa": "ポイント：「【年間パスポート】大人 2,400円」\n600円×4回＝2,400円で同じになり、5回（3,000円）から年間パスポートのほうが安くなります。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "3回"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "4回"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "5回"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "6回"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-42",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "会社員の林さんは、平日は仕事のあと20時から、土曜日は昼に通いたいと考えています。プールは使いません。林さんが入れる会員の中で、いちばん安いのはどれですか。",
+        "passage": "フィットネスクラブ　ゆうき　会員の種類\n・全日会員……毎日 9:00〜23:00　月 8,000円\n・昼間会員……平日 9:00〜17:00　月 5,000円\n・夜間会員……毎日 19:00〜23:00　月 6,000円\n・土日会員……土・日・祝日 9:00〜23:00　月 5,500円\n※入会金 3,000円（4月に入会した方は無料）\n※タオルの貸し出し：1回100円\n※プールは、全日会員だけが使えます。",
+        "explanationKo": "핵심: 「全日会員……毎日 9:00〜23:00」\n평일 20시와 토요일 낮 둘 다 되는 것은 전일 회원뿐입니다. 야간 회원은 토요일 낮에 못 가고, 토일 회원은 평일에 못 갑니다.",
+        "explanationJa": "ポイント：「全日会員……毎日 9:00〜23:00」\n平日20時と土曜日の昼の両方に通えるのは全日会員だけです。夜間会員は土曜の昼、土日会員は平日に使えません。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "昼間会員"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "夜間会員"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "全日会員"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "土日会員"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-43",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "5月に昼間会員で入会し、その月に8回通って、毎回タオルを借ります。最初の月に払うお金は、全部でいくらですか。",
+        "passage": "フィットネスクラブ　ゆうき　会員の種類\n・全日会員……毎日 9:00〜23:00　月 8,000円\n・昼間会員……平日 9:00〜17:00　月 5,000円\n・夜間会員……毎日 19:00〜23:00　月 6,000円\n・土日会員……土・日・祝日 9:00〜23:00　月 5,500円\n※入会金 3,000円（4月に入会した方は無料）\n※タオルの貸し出し：1回100円\n※プールは、全日会員だけが使えます。",
+        "explanationKo": "핵심: 「入会金 3,000円（4月に入会した方は無料）」\n5월이라 입회금이 있습니다. 5,000 + 3,000 + 100 × 8 = 8,800엔.",
+        "explanationJa": "ポイント：「入会金 3,000円（4月に入会した方は無料）」\n5月なので入会金がかかります。5,000＋3,000＋100×8＝8,800円です。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "5,000円"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "5,800円"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "8,000円"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "8,800円"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-44",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "大人1人が、1日にこのバスに4回乗ります。いちばん安い払い方をすると、いくらですか。",
+        "passage": "ひまわり市　コミュニティバスのご案内\n・運賃：大人 200円、子ども（小学生）100円、小学生未満 無料\n・65歳以上の市民は、「シルバーカード」を見せると無料\n・1日乗車券：大人 500円、子ども 250円（その日のうちなら、何回でも乗れます）\n・バスの中で両替はできますが、1,000円札より大きいお金は使えません。\n・運行時間：7:00〜19:00（日曜日・祝日は運休）",
+        "explanationKo": "핵심: 「1日乗車券：大人 500円」\n4번 타면 200엔 × 4 = 800엔이라, 하루 승차권 500엔이 더 쌉니다.",
+        "explanationJa": "ポイント：「1日乗車券：大人 500円」\n4回なら200円×4＝800円なので、1日乗車券の500円のほうが安いです。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "200円"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "500円"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "800円"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "1,000円"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n3-b3-reading-45",
+      "content": {
+        "level": "N3",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "このバスについて、合っているものはどれですか。",
+        "passage": "ひまわり市　コミュニティバスのご案内\n・運賃：大人 200円、子ども（小学生）100円、小学生未満 無料\n・65歳以上の市民は、「シルバーカード」を見せると無料\n・1日乗車券：大人 500円、子ども 250円（その日のうちなら、何回でも乗れます）\n・バスの中で両替はできますが、1,000円札より大きいお金は使えません。\n・運行時間：7:00〜19:00（日曜日・祝日は運休）",
+        "explanationKo": "핵심: 「1,000円札より大きいお金は使えません」\n일요일은 운휴, 무료는 65세 이상 「市民」뿐, 미취학 아동은 무료입니다.",
+        "explanationJa": "ポイント：「1,000円札より大きいお金は使えません」\n日曜日は運休、無料は65歳以上の「市民」だけ、小学生未満は無料です。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "日曜日は、19時まで運行している"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "65歳以上なら、市外に住む人も無料になる"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "小学生未満の子どもは、100円かかる"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "5,000円札で運賃を払うことはできない"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    }
+  ]
+}
