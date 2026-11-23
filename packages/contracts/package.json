@@ -135,6 +135,10 @@
       "types": "./dist/study/guest-limits.d.ts",
       "import": "./dist/study/guest-limits.js"
     },
+    "./study/member-counts": {
+      "types": "./dist/study/member-counts.d.ts",
+      "import": "./dist/study/member-counts.js"
+    },
     "./study/get-guest-allowance": {
       "types": "./dist/study/get-guest-allowance.d.ts",
       "import": "./dist/study/get-guest-allowance.js"
