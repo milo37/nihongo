@@ -392,6 +392,7 @@ type ExistingGuestRecord = {
 type RandomCandidateRow = SelectedQuestion & {
   passageId: string | null
   passageOrder: number | null
+  lastSeenAt: Date | null
 }
 
 type BookmarkCandidateRow = SelectedQuestion & {
@@ -475,59 +476,51 @@ const toSelectionOwner = (
       ? { kind: 'GUEST', id: existingGuest.id }
       : null
 
+/**
+ * The published questions of the chosen level and subject, each with when
+ * this owner last submitted a set holding it (#1242). Any submitted set
+ * counts, whatever its mode, by questionId so an edited question stays seen.
+ * Nothing extra is stored: a member's own sets and the guest set moved in at
+ * login; a guest's only until cleanup removes them. No owner, nothing seen.
+ */
 const loadEligibleCatalog = async (
   transaction: Prisma.TransactionClient,
-  input: CreateStudySessionInput
-): Promise<RandomCandidateRow[]> =>
-  await transaction.$queryRaw<RandomCandidateRow[]>(Prisma.sql`
+  input: CreateStudySessionInput,
+  owner: ExistingSelectionOwner
+): Promise<RandomCandidateRow[]> => {
+  const ownerPredicate =
+    owner === null
+      ? Prisma.sql`false`
+      : owner.kind === 'USER'
+        ? Prisma.sql`session."userId" = ${owner.id}::uuid`
+        : Prisma.sql`session."guestPrincipalId" = ${owner.id}::uuid`
+  return await transaction.$queryRaw<RandomCandidateRow[]>(Prisma.sql`
+    WITH last_seen AS (
+      SELECT item."questionId", MAX(session."submittedAt") AS "lastSeenAt"
+      FROM "StudySession" AS session
+      JOIN "StudySessionQuestion" AS item
+        ON item."studySessionId" = session."id"
+      WHERE ${ownerPredicate}
+        AND session."status" = 'SUBMITTED'
+      GROUP BY item."questionId"
+    )
     SELECT
       question."id" AS "questionId",
       version."id" AS "questionVersionId",
       version."passageId",
-      version."passageOrder"::integer AS "passageOrder"
+      version."passageOrder"::integer AS "passageOrder",
+      last_seen."lastSeenAt"
     FROM "Question" AS question
     JOIN "QuestionVersion" AS version
       ON version."questionId" = question."id"
       AND version."id" = question."currentPublishedVersionId"
+    LEFT JOIN last_seen ON last_seen."questionId" = question."id"
     WHERE question."lifecycleStatus" = 'ACTIVE'
       AND version."status" = 'PUBLISHED'
       AND version."level" = ${input.level}::"JlptLevel"
       AND version."subject" = ${input.subject}::"QuestionSubject"
     ORDER BY question."id" ASC
   `)
-
-const loadRecentQuestionIds = async (
-  transaction: Prisma.TransactionClient,
-  input: CreateStudySessionInput,
-  owner: Exclude<ExistingSelectionOwner, null>
-): Promise<Set<string>> => {
-  const ownerPredicate =
-    owner.kind === 'USER'
-      ? Prisma.sql`session."userId" = ${owner.id}::uuid`
-      : Prisma.sql`session."guestPrincipalId" = ${owner.id}::uuid`
-  const recentSince = new Date(
-    input.startedAt.getTime() - 7 * 24 * 60 * 60 * 1_000
-  )
-  const rows = await transaction.$queryRaw<Array<{ questionId: string }>>(
-    Prisma.sql`
-      WITH recent_sessions AS MATERIALIZED (
-        SELECT session."id"
-        FROM "StudySession" AS session
-        WHERE ${ownerPredicate}
-          AND session."status" = 'SUBMITTED'
-          AND session."submittedAt" >= ${recentSince}
-          AND session."submittedAt" <= ${input.startedAt}
-        ORDER BY session."submittedAt" DESC, session."id" ASC
-        LIMIT 3
-      )
-      SELECT DISTINCT item."questionId"
-      FROM recent_sessions AS recent
-      JOIN "StudySessionQuestion" AS item
-        ON item."studySessionId" = recent."id"
-      ORDER BY item."questionId" ASC
-    `
-  )
-  return new Set(rows.map(({ questionId }) => questionId))
 }
 
 const loadBookmarkCandidates = async (
@@ -687,15 +680,8 @@ const selectStudyQuestions = async (
   random: () => number
 ): Promise<SelectedQuestion[]> => {
   if (input.mode === 'RANDOM') {
-    const catalog = await loadEligibleCatalog(transaction, input)
-    const recentQuestionIds = owner
-      ? await loadRecentQuestionIds(transaction, input, owner)
-      : new Set<string>()
     return selectRandomStudyCandidates(
-      catalog.map((candidate) => ({
-        ...candidate,
-        isRecent: recentQuestionIds.has(candidate.questionId)
-      })),
+      await loadEligibleCatalog(transaction, input, owner),
       input.requestedCount,
       random
     ).map(({ questionId, questionVersionId }) => ({
