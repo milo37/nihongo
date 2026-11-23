@@ -50,7 +50,7 @@ describe('passage audio lookup (#1183)', () => {
     ).toBeNull()
   })
 
-  it('fills the audio of every reviewed passage the release lists', () => {
+  it('fills the audio of every reviewed passage the release lists and none other', () => {
     const furigana = parseFuriganaPassageList(
       readFileSync(
         new URL(
@@ -61,10 +61,17 @@ describe('passage audio lookup (#1183)', () => {
     )
     const release = loadPassageAudioList()!
     const keys = new Set(release.passages.map((entry) => entry.key))
+    const voiced = new Set(release.passages.map((entry) => entry.textMd5))
     const reviewed = furigana.passages.filter(
       (entry) => entry.reviewedBy !== null
     )
     expect(reviewed.length).toBeGreaterThan(0)
+    // Every listed recording belongs to a reviewed passage.
+    expect(
+      [...voiced].filter(
+        (textMd5) => !reviewed.some((entry) => entry.textMd5 === textMd5)
+      )
+    ).toEqual([])
     for (const entry of reviewed) {
       // The way a study question reads it: the stored row, then the lookup.
       const { text, segments } = parseRuby(entry.ruby)
@@ -74,6 +81,11 @@ describe('passage audio lookup (#1183)', () => {
         segments
       })
       const audio = passageAudioFor(text, shown)
+      // Passages added after the recording (#1239) have no audio yet.
+      if (!voiced.has(entry.textMd5)) {
+        expect(audio).toBeNull()
+        continue
+      }
       expect(audio).not.toBeNull()
       expect(keys.has(audio!.key)).toBe(true)
     }

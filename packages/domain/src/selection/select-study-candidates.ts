@@ -4,7 +4,8 @@ export interface StudyCandidatePin {
 }
 
 export interface RandomStudyCandidate extends StudyCandidatePin {
-  readonly isRecent: boolean
+  /** #1242: when this person last had the question in a set; null if never. */
+  readonly lastSeenAt: Date | null
   /** #986: questions with one passage come together, in passage order. */
   readonly passageId?: string | null
   readonly passageOrder?: number | null
@@ -143,8 +144,8 @@ export const selectRandomStudyCandidates = (
   assertRequestedCount(requestedCount)
   assertUniqueCandidates(candidates)
 
-  // A passage group is one unit, recent when any of its questions is; a
-  // question without a passage is a unit of its own.
+  // A passage group is one unit, seen when any of its questions was (at the
+  // latest of those times); a question without a passage is a unit of its own.
   const units = new Map<string, RandomStudyCandidate[]>()
   for (const candidate of candidates) {
     const unitKey = candidate.passageId
@@ -161,20 +162,34 @@ export const selectRandomStudyCandidates = (
   )
   const unitKey = (unit: readonly RandomStudyCandidate[]): string =>
     unit[0]!.questionId
-  const nonRecent = shuffleBy(
-    ordered.filter((unit) => !unit.some((candidate) => candidate.isRecent)),
+  const seenAt = new Map(
+    ordered.map((unit) => [
+      unit,
+      unit.reduce<number | null>(
+        (latest, candidate) =>
+          candidate.lastSeenAt === null
+            ? latest
+            : Math.max(latest ?? -Infinity, candidate.lastSeenAt.getTime()),
+        null
+      )
+    ])
+  )
+  // #1242: never-seen units first in random order, then the ones seen
+  // longest ago (units seen at the same time stay in random order).
+  const unseen = shuffleBy(
+    ordered.filter((unit) => seenAt.get(unit) === null),
     unitKey,
     random
   )
-  const recent = shuffleBy(
-    ordered.filter((unit) => unit.some((candidate) => candidate.isRecent)),
+  const seen = shuffleBy(
+    ordered.filter((unit) => seenAt.get(unit) !== null),
     unitKey,
     random
-  )
+  ).toSorted((left, right) => seenAt.get(left)! - seenAt.get(right)!)
 
   // A group that does not fit the remaining places is skipped whole.
   const selected: RandomStudyCandidate[] = []
-  for (const unit of [...nonRecent, ...recent]) {
+  for (const unit of [...unseen, ...seen]) {
     if (selected.length + unit.length <= requestedCount) {
       selected.push(...unit)
     }

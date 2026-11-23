@@ -4,7 +4,8 @@ interface StudyCandidatePin {
 }
 
 interface RandomStudyCandidate extends StudyCandidatePin {
-  readonly isRecent: boolean
+  /** #1242: when this person last had the question in a set; null if never. */
+  readonly lastSeenAt: Date | null
 }
 
 interface BookmarkStudyCandidate extends StudyCandidatePin {
@@ -98,16 +99,20 @@ export const selectRandomStudyCandidates = (
   assertRequestedCount(requestedCount)
   assertUniqueCandidates(candidates)
 
-  const nonRecent = shuffleCandidates(
-    candidates.filter((candidate) => !candidate.isRecent),
+  // #1242, like the server: never-seen questions first in random order, then
+  // the ones seen longest ago (seen at the same time stay in random order).
+  const unseen = shuffleCandidates(
+    candidates.filter((candidate) => candidate.lastSeenAt === null),
     random
   )
-  const recent = shuffleCandidates(
-    candidates.filter((candidate) => candidate.isRecent),
+  const seen = shuffleCandidates(
+    candidates.filter((candidate) => candidate.lastSeenAt !== null),
     random
+  ).toSorted(
+    (left, right) => left.lastSeenAt!.getTime() - right.lastSeenAt!.getTime()
   )
 
-  return [...nonRecent, ...recent].slice(0, requestedCount)
+  return [...unseen, ...seen].slice(0, requestedCount)
 }
 
 export const selectBookmarkStudyCandidates = (
