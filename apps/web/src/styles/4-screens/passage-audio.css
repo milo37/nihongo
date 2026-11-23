@@ -1,0 +1,248 @@
+/* #1183 passage read-aloud: the [듣기] pill in the passage head, the play
+   row under it and the word being read. Design: tts-1183/fe-spec.md (r5).
+   Phone first; PC (lg) sizes at the end. Every tap target stays 44px. */
+
+/* Head pill. Like ふりがな, the 44px tap overhangs the 34px head row. */
+.study-audio-toggle {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-block: -6px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+.study-audio-toggle > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 0 12px 0 8px;
+  border-radius: 999px;
+  background: rgb(var(--color-surface-muted));
+  color: rgb(var(--color-ink));
+  font-size: 13px;
+  font-weight: 600;
+}
+.study-audio-toggle .study-audio-icon {
+  width: 10px;
+  height: 10px;
+}
+.study-audio-toggle[aria-expanded='true'] > span {
+  padding: 0 12px;
+  background: rgb(var(--color-surface-sunken));
+}
+/* ふりがな sits right after the pill instead of pushing to the end. */
+.study-audio-toggle + .study-furigana-toggle {
+  margin-left: 0;
+}
+
+/* Play row: circle / track with time / speed / back to start. */
+.study-audio-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  margin: -6px 0 12px;
+  padding: 0 4px 0 6px;
+  border-radius: 999px;
+  background: rgb(var(--color-surface-muted));
+}
+.study-audio-icon {
+  display: block;
+  width: 12px;
+  height: 12px;
+}
+
+/* Paused: a lighter brand face with a dark brand icon; playing: brand with
+   a white icon. Same shape and size in both. */
+.study-audio-play {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-inline: 6px 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(var(--color-play-rest));
+  box-shadow: none;
+  color: rgb(var(--color-play-rest-icon));
+}
+.study-audio-play::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+.study-audio-row[data-playing] .study-audio-play {
+  background: rgb(var(--color-brand));
+  color: rgb(var(--color-surface));
+}
+
+/* Track and time on one line, the track on the circle's centre line. */
+.study-audio-seek {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  column-gap: 8px;
+  min-width: 0;
+  padding-inline: 4px;
+}
+/* The slider is the whole 44px-tall strip; the line is drawn in it. */
+.study-audio-track {
+  --audio-track: 4px;
+  --audio-thumb: 12px;
+  position: relative;
+  min-height: 44px;
+  touch-action: none;
+  cursor: pointer;
+}
+.study-audio-track::before,
+.study-audio-fill {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  height: var(--audio-track);
+  border-radius: 999px;
+  translate: 0 -50%;
+}
+.study-audio-track::before {
+  right: 0;
+  background: rgb(var(--color-line-strong) / 0.35);
+}
+.study-audio-fill {
+  width: calc(var(--audio-progress) * 100%);
+  background: rgb(var(--color-line-strong));
+}
+.study-audio-thumb {
+  position: absolute;
+  top: 50%;
+  left: calc(var(--audio-progress) * 100%);
+  width: var(--audio-thumb);
+  height: var(--audio-thumb);
+  border: 2px solid rgb(var(--color-surface));
+  border-radius: 50%;
+  background: rgb(var(--color-muted));
+  translate: -50% -50%;
+  transition:
+    width 0.12s ease-out,
+    height 0.12s ease-out;
+}
+.study-audio-row[data-playing] .study-audio-fill,
+.study-audio-row[data-playing] .study-audio-thumb {
+  background: rgb(var(--color-brand));
+}
+.study-audio-track[data-dragging] {
+  --audio-thumb: 18px;
+}
+.study-audio-tip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgb(var(--color-ink));
+  color: rgb(var(--color-surface));
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 16px;
+  white-space: nowrap;
+  translate: -50% 0;
+}
+.study-audio-time {
+  color: rgb(var(--color-muted));
+  font-size: 11px;
+  line-height: 14px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Speed and back-to-start chips: small faces, 44px taps. */
+.study-audio-chip {
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+.study-audio-chip > span {
+  display: grid;
+  place-items: center;
+  min-width: 34px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid rgb(var(--color-line));
+  border-radius: 999px;
+  background: rgb(var(--color-surface));
+  color: rgb(var(--color-ink));
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.study-audio-restart > span {
+  width: 24px;
+  min-width: 0;
+  padding: 0;
+  color: rgb(var(--color-muted));
+}
+
+/* The word being read: a soft face behind it, text color unchanged. */
+.study-read-mark {
+  border-radius: 4px;
+  background: rgb(var(--color-read-mark));
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+@media (min-width: 1024px) {
+  .study-audio-row {
+    gap: 8px;
+    margin: -4px 0 14px;
+    padding: 6px;
+  }
+  .study-audio-play {
+    width: 44px;
+    height: 44px;
+    margin-inline: 0;
+  }
+  .study-audio-play::after {
+    content: none;
+  }
+  .study-audio-row .study-audio-icon {
+    width: 16px;
+    height: 16px;
+  }
+  .study-audio-track {
+    --audio-track: 6px;
+    --audio-thumb: 16px;
+  }
+  .study-audio-track[data-dragging] {
+    --audio-thumb: 22px;
+  }
+  .study-audio-time {
+    font-size: 12px;
+    line-height: 16px;
+  }
+  .study-audio-chip > span {
+    min-width: 40px;
+    height: 28px;
+    font-size: 13px;
+  }
+  .study-audio-restart > span {
+    width: 28px;
+    min-width: 0;
+  }
+  .study-audio-restart .study-audio-icon {
+    width: 14px;
+    height: 14px;
+  }
+}

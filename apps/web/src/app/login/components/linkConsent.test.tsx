@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { appI18n } from '@nihongo/browser/i18n/config'
-import { linkConsent } from '@app/login/components/SignInCard'
+import { linkConsent } from '@app/login/components/linkConsent'
 
 const renderConsent = (text: string) =>
   render(

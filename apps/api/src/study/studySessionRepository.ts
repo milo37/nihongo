@@ -25,6 +25,7 @@ import type {
   QuestionOptionRecord,
   QuestionTagRecord
 } from '../question/questionRepository.js'
+import { passageAudioFor } from '../question/passageAudioLookup.js'
 import { toPassageFurigana } from '../question/passageFurigana.js'
 import { createCurrentReviewCandidatePredicate } from '../review/currentReviewCandidateQuery.js'
 import {
@@ -346,6 +347,10 @@ export const loadStudySessionRecord = async (
           'StudySessionQuestion references a missing question version.'
         )
       }
+      const passageFurigana = toPassageFurigana(
+        version.passage,
+        version.readingPassage?.furigana
+      )
       return {
         sessionQuestionId: item.id,
         ordinal: item.ordinal,
@@ -357,10 +362,8 @@ export const loadStudySessionRecord = async (
           questionType: version.questionType,
           passage: version.passage,
           passageId: version.passageId,
-          passageFurigana: toPassageFurigana(
-            version.passage,
-            version.readingPassage?.furigana
-          ),
+          passageFurigana,
+          passageAudio: passageAudioFor(version.passage, passageFurigana),
           questionText: version.questionText,
           difficulty: version.difficulty,
           options: toOptions(optionsByVersionId.get(version.id) ?? []),

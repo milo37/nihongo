@@ -19,7 +19,7 @@ export const BookmarkHeading = ({
     <div>
       <h1
         ref={headingRef}
-        className="bookmark-title outline-none"
+        className="bookmark-title bookmark-title-quiet"
         tabIndex={-1}
       >
         {t('title')}
@@ -96,7 +96,7 @@ export const BookmarkItems = ({
                 })}
           </p>
           <Pagination
-            className="mt-6"
+            className="bookmark-pagination"
             currentPage={displayedPage}
             requestedPage={bookmarks.page}
             disabled={bookmarks.isBookmarkNavigationLocked}

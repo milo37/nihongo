@@ -1,4 +1,5 @@
 import type { FuriganaSegment } from '@nihongo/contracts/question/get-question'
+import type { PassageAudioRef } from '@nihongo/contracts/question/passage-audio'
 import { Prisma, type PrismaClient } from '../generated/prisma/client.js'
 import type { MigrationCompatibilityProfile } from '../db/readiness.js'
 
@@ -43,6 +44,7 @@ export interface PublishedQuestionDetailRecord
   /** #986/#1182: only the study session read fills these. */
   passageId?: string | null
   passageFurigana?: readonly FuriganaSegment[] | null
+  passageAudio?: PassageAudioRef | null
   options: readonly QuestionOptionRecord[]
 }
 

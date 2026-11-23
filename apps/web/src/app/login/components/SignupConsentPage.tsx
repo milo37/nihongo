@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
-import { linkConsent } from '@app/login/components/SignInCard'
+import { linkConsent } from '@app/login/components/linkConsent'
 import { isNickname, NicknameField } from '@app/login/components/NicknameField'
 import { useSignupConsent } from '@app/login/hooks/useSignupConsent'
 import type { SignupConsentExit } from '@app/login/hooks/useSignupConsent'
@@ -81,7 +81,7 @@ export const SignupConsentPage = ({
   const existing = kind === 'EXISTING'
   return (
     <div className="auth-panel signup-consent">
-      <h1 ref={heading} className="outline-none" tabIndex={-1}>
+      <h1 ref={heading} className="auth-title-quiet" tabIndex={-1}>
         {existing ? t('signup.titleExisting') : t('signup.titleNew')}
       </h1>
       <NicknameField

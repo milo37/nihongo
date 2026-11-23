@@ -22,29 +22,19 @@ export const BookmarkListNotices = ({
   return (
     <>
       {mutationStatus ? (
-        <p
-          className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900"
-          role="status"
-          aria-live="polite"
-        >
+        <p className="bookmark-warn" role="status" aria-live="polite">
           {mutationStatus}
         </p>
       ) : null}
       {isCachedOffline ? (
-        <p
-          className="mt-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900"
-          role="status"
-        >
+        <p className="bookmark-warn" role="status">
           {t('error.cachedOffline')}
         </p>
       ) : null}
       {isStaleError ? (
-        <div
-          className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900"
-          role="alert"
-        >
-          <p className="font-semibold">{t('error.staleDescription')}</p>
-          <Button className="mt-3" size="sm" onClick={onRetry}>
+        <div className="bookmark-stale" role="alert">
+          <p className="bookmark-stale-title">{t('error.staleDescription')}</p>
+          <Button className="bookmark-retry" size="sm" onClick={onRetry}>
             {commonT('actions.retry')}
           </Button>
         </div>
@@ -82,7 +72,7 @@ export const BookmarkLoadError = ({
       title={t('error.title')}
       description={t('error.description')}
       action={
-        <div className="flex flex-wrap gap-2">
+        <div className="bookmark-error-actions">
           <Button onClick={onRetry}>{commonT('actions.retry')}</Button>
           <AppErrorReportButton />
         </div>

@@ -1,12 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, Navigate, useLocation, useSearchParams } from 'react-router'
+import { useLocation, useSearchParams } from 'react-router'
 import type { ReactElement } from 'react'
-import {
-  safeSsoReturnPath,
-  ssoCallbackOutcomeSchema
-} from '@nihongo/contracts/auth/sign-in-social'
-import type { SsoCallbackOutcome } from '@nihongo/contracts/auth/sign-in-social'
+import { safeSsoReturnPath } from '@nihongo/contracts/auth/sign-in-social'
 import {
   ACCOUNT_FRESH_PARAM,
   ACCOUNT_REAUTH_PARAM
@@ -20,113 +16,18 @@ export { OnboardingCheckRunner } from '@app/login/components/OnboardingCheckRunn
 import type { SignupConsentExit } from '@app/login/hooks/useSignupConsent'
 import type { RestoreFailure } from '@app/login/hooks/useAccountRestore'
 import { SignInCard } from '@app/login/components/SignInCard'
-import { formatErasureDate } from '@app/login/erasureDate'
-import type { SignInNotice } from '@app/login/components/SignInCard'
-import { useSsoAccountDeletion } from '@app/login/hooks/useSsoAccountDeletion'
+import { SignedInRedirect } from '@app/login/components/SignedInRedirect'
+import { LoginGuestHint } from '@app/login/components/LoginGuestHint'
+import { useDeletionNotice } from '@app/login/hooks/useDeletionNotice'
 import {
-  GUEST_DAILY_SESSION_LIMIT,
-  GUEST_SESSION_QUESTION_LIMIT
-} from '@nihongo/contracts/study/guest-limits'
-import {
-  appDocumentNavigation,
-  useAppNavigate
-} from '@nihongo/browser/libs/appNavigation'
-import { resolveUiLocale } from '@nihongo/browser/i18n/types'
+  SIGNUP_CONSENT_OUTCOME,
+  errorNotices,
+  readNotice,
+  toSignInNotice
+} from '@app/login/loginNotice'
+import type { Notice } from '@app/login/loginNotice'
+import { useAppNavigate } from '@nihongo/browser/libs/appNavigation'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
-
-// #1085: the callback's sign-up check. The layout keeps its own copy in
-// signupConsentOutcome.ts; importing that here would split it into a chunk.
-const SIGNUP_CONSENT_OUTCOME = 'CONSENT_REQUIRED'
-
-type Notice =
-  | SsoCallbackOutcome
-  | typeof SIGNUP_CONSENT_OUTCOME
-  | SignupConsentExit
-  | RestoreFailure
-  | 'LEGACY'
-  | 'EXPIRED'
-  | 'DELETION'
-  | 'UNLINKED'
-
-const hasStateFlag = (state: unknown, flag: string): boolean =>
-  state !== null &&
-  typeof state === 'object' &&
-  flag in state &&
-  Reflect.get(state, flag) === true
-
-const readNotice = (search: URLSearchParams, state: unknown): Notice | null => {
-  if (search.has('sso')) {
-    // #1085: the callback's sign-up check is not in the shared outcome list.
-    if (search.get('sso') === SIGNUP_CONSENT_OUTCOME)
-      return SIGNUP_CONSENT_OUTCOME
-    const outcome = ssoCallbackOutcomeSchema.safeParse(search.get('sso'))
-    return outcome.success ? outcome.data : 'INVALID_CALLBACK'
-  }
-  if (search.has('mode') || hasStateFlag(state, 'legacyAuthMethod'))
-    return 'LEGACY'
-  if (hasStateFlag(state, 'sessionExpired')) return 'EXPIRED'
-  if (hasStateFlag(state, 'deletionRequested')) return 'DELETION'
-  if (hasStateFlag(state, 'accountUnlinked')) return 'UNLINKED'
-  return null
-}
-
-const errorNotices: ReadonlySet<Notice> = new Set([
-  'FAILED',
-  'INVALID_CALLBACK',
-  'RESTORE_FAILED',
-  'RESTORE_TOO_LATE',
-  'SIGNUP_EXPIRED'
-])
-
-// RESTORE_AVAILABLE is not a notice: it shows the restore card (JLP-845);
-// CONSENT_REQUIRED shows the sign-up check (#1085).
-const noticeKeys: Record<
-  Exclude<
-    Notice,
-    'DELETION' | 'RESTORE_AVAILABLE' | typeof SIGNUP_CONSENT_OUTCOME
-  >,
-  string
-> = {
-  CANCELLED: 'sso.cancelledProvider',
-  FAILED: 'sso.failedProvider',
-  INVALID_CALLBACK: 'sso.expired',
-  RESTORE_FAILED: 'recover.failed',
-  RESTORE_TOO_LATE: 'recover.tooLate',
-  SIGNUP_EXPIRED: 'signup.expired',
-  EXPIRED: 'sso.sessionExpired',
-  LEGACY: 'sso.legacyMethod',
-  UNLINKED: 'sso.unlinked'
-}
-
-// Shows the account deletion result once, only right after this browser
-// requested it; ordinary visitors never query the deletion receipt.
-const useDeletionNotice = (active: boolean): string | null => {
-  const { t, i18n } = useTranslation('auth')
-  // Lazy routes read the locale here, not from I18nProvider (one chunk).
-  const locale = resolveUiLocale(i18n.resolvedLanguage)
-  const { receipt } = useSsoAccountDeletion(active)
-  if (!active) return null
-  if (receipt.isPending) return t('sso.checkingAccount')
-  // JLP-847: the request was already accepted; a failed receipt read only
-  // loses the date, so still confirm it without one.
-  if (receipt.isError) return t('sso.deletionAcceptedNoDate')
-  // JLP-845: erasure waits 7 days, so the notice carries its date.
-  const scheduledAt = receipt.data?.deletionScheduledAt
-  return scheduledAt
-    ? t('sso.deletionAccepted', {
-        date: formatErasureDate(scheduledAt, locale)
-      })
-    : null
-}
-
-// /login is for signed-out visitors. Signed-in visitors go to learning home,
-// except two hand-offs that still arrive here: account verification returns
-// (forwarded to /account) and admin verification opened from the admin app.
-/** The admin app is another document, so leave the learner router. */
-const AdminDocumentReturn = ({ to }: { readonly to: string }): null => {
-  useEffect(() => appDocumentNavigation.replace(to), [to])
-  return null
-}
 
 export const LoginPage = (): ReactElement => {
   const { t } = useTranslation('auth')
@@ -200,23 +101,14 @@ export const LoginPage = (): ReactElement => {
     )
   }
   if (user) {
-    if (accountReturn !== null) {
-      const forward = new URLSearchParams()
-      forward.set(ACCOUNT_FRESH_PARAM, accountReturn)
-      const reauth = search.get(ACCOUNT_REAUTH_PARAM)
-      if (reauth !== null) forward.set(ACCOUNT_REAUTH_PARAM, reauth)
-      return (
-        <Navigate
-          replace
-          to={{ pathname: '/account', search: forward.toString() }}
-        />
-      )
-    }
-    // Admin pages start re-verification themselves; an old
-    // /login?redirect=/admin/... link just goes back to the admin page.
-    if (user.role === 'ADMIN' && redirect.startsWith('/admin'))
-      return <AdminDocumentReturn to={redirect} />
-    return <Navigate replace to="/" />
+    return (
+      <SignedInRedirect
+        isAdmin={user.role === 'ADMIN'}
+        redirect={redirect}
+        accountReturn={accountReturn}
+        reauth={search.get(ACCOUNT_REAUTH_PARAM)}
+      />
+    )
   }
 
   if (consenting) {
@@ -235,17 +127,9 @@ export const LoginPage = (): ReactElement => {
     )
   }
 
-  const shown: SignInNotice | null =
-    notice === null
-      ? null
-      : notice === 'DELETION'
-        ? deletionNotice
-          ? { message: deletionNotice, tone: 'info' }
-          : null
-        : {
-            message: t(noticeKeys[notice], { provider: 'Google' }),
-            tone: errorNotices.has(notice) ? 'error' : 'info'
-          }
+  const shown = toSignInNotice(notice, deletionNotice, (key) =>
+    t(key, { provider: 'Google' })
+  )
   return (
     <section className="auth-page">
       <SignInCard
@@ -256,15 +140,7 @@ export const LoginPage = (): ReactElement => {
         headingRef={heading}
         onStart={() => setNotice(null)}
       />
-      <p className="auth-guest-hint">
-        {t('sso.guestHint', {
-          total: GUEST_DAILY_SESSION_LIMIT,
-          count: GUEST_SESSION_QUESTION_LIMIT
-        })}{' '}
-        <Link to={redirect.startsWith('/practice') ? redirect : '/practice'}>
-          {t('sso.guestLink')}
-        </Link>
-      </p>
+      <LoginGuestHint redirect={redirect} />
     </section>
   )
 }
