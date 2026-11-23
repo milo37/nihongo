@@ -42,7 +42,11 @@ export const PracticePage = (): ReactElement => {
   return (
     <section className="practice-setup-page">
       <div className="practice-setup-heading">
-        <h1 ref={setupHeadingRef} className="outline-none" tabIndex={-1}>
+        <h1
+          ref={setupHeadingRef}
+          className="practice-title-quiet"
+          tabIndex={-1}
+        >
           {t('setup.title')}
         </h1>
       </div>
