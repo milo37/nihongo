@@ -99,9 +99,11 @@ section.practice-guest-limit,
   gap: 0;
   border-block: 1px solid rgb(var(--color-sheet-line));
 }
+/* As many count squares as there are choices, each as wide as a level square
+   (a fifth of the row), so the rules end at the last square (#1244). */
 .practice-setup-page .choice-counts .choice-options {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  width: 60%;
+  grid-template-columns: repeat(var(--choice-count), minmax(0, 1fr));
+  width: calc(var(--choice-count) * 20%);
 }
 .practice-setup-page .choice-levels .choice-surface,
 .practice-setup-page .choice-counts .choice-surface {

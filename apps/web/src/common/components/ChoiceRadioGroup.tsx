@@ -1,5 +1,5 @@
 import { useId } from 'react'
-import type { ReactElement, ReactNode } from 'react'
+import type { CSSProperties, ReactElement, ReactNode } from 'react'
 import { classNames } from '@nihongo/browser/common/components/classNames'
 
 export interface ChoiceRadioOption<Value extends string> {
@@ -44,7 +44,11 @@ export const ChoiceRadioGroup = <Value extends string>({
       disabled={disabled}
     >
       <legend>{legend}</legend>
-      <div className="choice-options">
+      {/* Screens size their grid from the number of choices (#1244). */}
+      <div
+        className="choice-options"
+        style={{ '--choice-count': options.length } as CSSProperties}
+      >
         {options.map((option, index) => (
           <label
             className="choice-option"
