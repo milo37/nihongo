@@ -21,10 +21,7 @@ export const ResultSourceNotice = ({
   const { t } = useTranslation('result')
   const { t: commonT } = useTranslation('common')
   return (
-    <div
-      className="study-result-stale"
-      role={isError ? 'alert' : 'status'}
-    >
+    <div className="study-result-stale" role={isError ? 'alert' : 'status'}>
       <p className="study-notice-title">
         {t(isPaused ? 'error.cachedOffline' : 'error.staleDescription')}
       </p>
@@ -92,16 +89,22 @@ export const ResultRetryNotice = ({
     )
   }
   if (isRetryAccountRestricted) {
-    return <AccountRestrictedNotice className="study-result-restricted" focusOnMount />
+    return (
+      <AccountRestrictedNotice
+        className="study-result-restricted"
+        focusOnMount
+      />
+    )
   }
   if (hasRetryRequestError) {
     return (
-      <div
-        className="study-result-retry-error"
-        role="alert"
-      >
-        <p className="study-result-retry-error-title">{t('retry.errorTitle')}</p>
-        <p className="study-result-retry-error-text">{t('retry.errorDescription')}</p>
+      <div className="study-result-retry-error" role="alert">
+        <p className="study-result-retry-error-title">
+          {t('retry.errorTitle')}
+        </p>
+        <p className="study-result-retry-error-text">
+          {t('retry.errorDescription')}
+        </p>
       </div>
     )
   }

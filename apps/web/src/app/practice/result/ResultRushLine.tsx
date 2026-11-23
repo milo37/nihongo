@@ -20,10 +20,7 @@ export const ResultRushLine = ({
         className="study-result-rush-link"
         to={`/practice/rush?level=${level}`}
       >
-        <span className="study-result-rush-label">
-          {t('rush.entry')}
-        </span>{' '}
-        ›
+        <span className="study-result-rush-label">{t('rush.entry')}</span> ›
       </Link>
     </p>
   )

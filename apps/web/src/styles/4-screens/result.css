@@ -286,11 +286,11 @@
     font-weight: var(--font-weight-semibold);
     color: rgb(var(--color-danger));
   }
-  .study-result-bookmark[aria-disabled="true"] {
+  .study-result-bookmark[aria-disabled='true'] {
     cursor: wait;
     opacity: 70%;
   }
-  .study-result-bookmark[aria-pressed="true"] svg {
+  .study-result-bookmark[aria-pressed='true'] svg {
     fill: currentcolor;
     color: rgb(var(--color-brand));
   }
