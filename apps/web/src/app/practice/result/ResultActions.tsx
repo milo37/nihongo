@@ -18,7 +18,7 @@ import {
 } from '@app/practice/setReturnPath'
 
 // Outlined buttons add a border; fix both buttons at 48px (ux2 §2-4).
-const SAME_HEIGHT = 'h-12'
+const SAME_HEIGHT = 'study-result-button'
 
 type ResultActionsProps = {
   isGuest: boolean
@@ -60,7 +60,7 @@ export const ResultActions = ({
   const returnPath = isGuest ? null : getSetReturnPath(session.mode)
   return (
     <section
-      className="study-result-actions mt-10"
+      className="study-result-actions"
       aria-labelledby="result-next-steps"
     >
       <h2 id="result-next-steps" className="sr-only">
@@ -72,7 +72,7 @@ export const ResultActions = ({
         <GuestDailyLimitCard redirect="/" />
       ) : (
         /* Stacked full width under 640px, one row at text width above. */
-        <div className="study-result-buttons flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <div className="study-result-buttons">
           {returnPath ? (
             <Link
               className={getButtonClassName({
@@ -119,7 +119,7 @@ export const ResultActions = ({
         </div>
       )}
       {/* A refused next set says why here, in place (G, #792 QA). */}
-      <div className="mt-3" aria-live="polite">
+      <div className="study-result-feedback" aria-live="polite">
         <PracticeSetupFeedback
           accountRestricted={nextSet.accountRestricted}
           hasCreateError={nextSet.hasCreateError}
