@@ -66,8 +66,8 @@ fix step 1 and validate again. A file is applied whole or not at all.
 
 ## 3. Request review, approve, publish (admin, browser)
 
-Open `/admin/questions` and set **한 페이지에** to **100개씩** (nine pages: eight of
-100 and one of 88). On each page:
+Open `/admin/questions` and set **한 페이지에** to **100개씩** (ten pages: nine of
+100 and one of 78). On each page:
 
 | Step           | Select                                                        | Press                                         | Calls per page                  |
 | -------------- | ------------------------------------------------------------- | --------------------------------------------- | ------------------------------- |
@@ -75,7 +75,7 @@ Open `/admin/questions` and set **한 페이지에** to **100개씩** (nine page
 | Approve        | same                                                          | **검수 중 N개 승인** → **N개 승인**           | 1                               |
 | Publish        | same                                                          | **승인된 N개 공개** → **N개 공개**            | 1                               |
 
-Do all nine pages of one step before the next step. Each dialog lists the
+Do all ten pages of one step before the next step. Each dialog lists the
 result per question; expect no failures.
 
 ### Rate limit
@@ -90,14 +90,15 @@ batches share one limit: **30 calls per 15 minutes**, per admin and per IP
 | Review request (978 drafts, 20 a call) | 49     |
 | Approve (10 pages)                     | 10     |
 | Publish (10 pages)                     | 10     |
-| **Total**                              | **83** |
+| **Total**                              | **91** |
 
-That is three 15-minute windows, about 30 minutes or more:
+That is four 15-minute windows, about 45 minutes or more:
 
-1. Import apply files 1–20 (20) + review request pages 1–2 (5 + 5).
-2. Wait 15 minutes. Review request pages 3–8 (5 each, 30).
-3. Wait 15 minutes. Review request page 9 (5) + approve pages 1–9 (9) +
-   publish pages 1–9 (9).
+1. Import apply files 1–22 (22) + review request page 1 (5).
+2. Wait 15 minutes. Review request pages 2–7 (5 each, 30).
+3. Wait 15 minutes. Review request pages 8–10 (5 + 5 + 4) + approve pages
+   1–10 (10) + publish pages 1–6 (6).
+4. Wait 15 minutes. Publish pages 7–10 (4).
 
 At the limit the dialog shows **요청이 너무 많습니다** (HTTP 429), and the
 review request marks the batches it did not send as not sent. Wait 15
