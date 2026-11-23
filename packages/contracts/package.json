@@ -111,6 +111,10 @@
       "types": "./dist/question/get-daily-question.d.ts",
       "import": "./dist/question/get-daily-question.js"
     },
+    "./question/passage-audio": {
+      "types": "./dist/question/passage-audio.d.ts",
+      "import": "./dist/question/passage-audio.js"
+    },
     "./question/get-question": {
       "types": "./dist/question/get-question.d.ts",
       "import": "./dist/question/get-question.js"

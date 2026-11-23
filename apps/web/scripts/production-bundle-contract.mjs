@@ -75,7 +75,9 @@ export const bundleCeilings = Object.freeze({
   largestJavaScriptGzipBytes: 131_000,
   largestJavaScriptRawBytes: 439_000,
   // The full terms and privacy text sits in the lazily loaded ko/ja copy bundles (K2 #698).
-  largestLazyJavaScriptGzipBytes: 30_000,
+  // JLP-957, operator approved 2026-11-23: the #1183 read-aloud bar is in
+  // the practice session chunk (30,439 measured).
+  largestLazyJavaScriptGzipBytes: 31_000,
   largestLazyJavaScriptRawBytes: 102_000,
   // #1096 nickname: 482,593 measured (operator decision 2026-11-18).
   // #1090 onboarding: the study goal page, My page goal row and result goal

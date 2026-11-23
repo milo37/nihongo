@@ -136,6 +136,8 @@ COPY --from=builder /release/release-manifest.json /app/release-manifest.json
 COPY --from=builder /workspace/content/rush/kanji-words.v1.json /app/content/rush/kanji-words.v1.json
 # #1182: the reviewed passage furigana the deploy loads (loadFurigana).
 COPY --from=builder /workspace/content/furigana/reading-passages.v1.json /app/content/furigana/reading-passages.v1.json
+# #1183: the passage read-aloud list the API reads to send each audio key.
+COPY --from=builder /workspace/content/audio/reading-passages.audio.v1.json /app/content/audio/reading-passages.audio.v1.json
 
 USER node
 EXPOSE 3001

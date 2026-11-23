@@ -1,30 +1,11 @@
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
-import type { ReactElement, ReactNode } from 'react'
-import type { PracticeResultBookmark } from '@app/practice/hooks/usePracticeResultBookmark'
+import type { ReactElement } from 'react'
 import type { ResultRetryStatusCode } from '@app/practice/hooks/usePracticeResultController'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
 import { AccountRestrictedNotice } from '@common/components/AccountRestrictedNotice'
-
-/** Amber status line; `live` announces changes politely. */
-const WarningNotice = ({
-  spaced = false,
-  live = false,
-  children
-}: {
-  spaced?: boolean
-  live?: boolean
-  children: ReactNode
-}): ReactElement => (
-  <p
-    className={`${spaced ? 'mt-4 ' : ''}rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm font-semibold text-warning-strong`}
-    role="status"
-    aria-live={live ? 'polite' : undefined}
-  >
-    {children}
-  </p>
-)
+import { WarningNotice } from '@app/practice/result/WarningNotice'
 
 type ResultSourceNoticeProps = {
   isError: boolean
@@ -132,40 +113,4 @@ export const ResultRetryNotice = ({
     )
   }
   return null
-}
-
-type ResultBookmarkNoticesProps = {
-  bookmark: PracticeResultBookmark
-  isGuest: boolean
-}
-
-export const ResultBookmarkNotices = ({
-  bookmark,
-  isGuest
-}: ResultBookmarkNoticesProps): ReactElement => {
-  const { t } = useTranslation('result')
-  const { bookmarksQuery, isMutationPaused } = bookmark
-  return (
-    <>
-      {isMutationPaused ? (
-        <WarningNotice live>{t('bookmark.offline')}</WarningNotice>
-      ) : null}
-      {!isGuest && bookmarksQuery.fetchStatus === 'paused' ? (
-        <WarningNotice>{t('bookmark.loadOffline')}</WarningNotice>
-      ) : !isGuest && bookmarksQuery.isError ? (
-        <div
-          className="flex flex-wrap items-center gap-3 rounded-lg border border-danger-line bg-danger-soft p-4 text-sm font-semibold text-danger"
-          role="alert"
-        >
-          <span>{t('bookmark.loadError')}</span>
-          <Button
-            variant="outline"
-            onClick={() => void bookmarksQuery.refetch()}
-          >
-            {t('bookmark.retry')}
-          </Button>
-        </div>
-      ) : null}
-    </>
-  )
 }

@@ -1,10 +1,8 @@
 import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
-import {
-  CancelResumableDialog,
-  PracticeSetupFeedback
-} from '@app/practice/components/PracticeSetupFeedback'
+import { PracticeSetupFeedback } from '@app/practice/components/PracticeSetupFeedback'
+import { CancelResumableDialog } from '@app/practice/components/CancelResumableDialog'
 import { PracticeSetupForm } from '@app/practice/components/PracticeSetupForm'
 import { GuestDailyLimitCard } from '@app/practice/components/GuestDailyLimitCard'
 import { GuestUrlLockedNotice } from '@app/practice/components/GuestSetupNotices'

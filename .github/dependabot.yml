@@ -6,9 +6,43 @@ updates:
       interval: weekly
     target-branch: dev
     open-pull-requests-limit: 5
+    # #1033: one PR per kind, so a tool update that breaks lint or tests does
+    # not hold back runtime fixes. A package goes to the first group it matches;
+    # @types/react* and the prisma CLI move with their runtime packages.
     groups:
-      minor-and-patch:
+      runtime:
         update-types: [minor, patch]
+        patterns:
+          - react
+          - react-dom
+          - '@types/react'
+          - '@types/react-dom'
+          - react-router
+          - react-hook-form
+          - '@hookform/*'
+          - '@tanstack/react-query'
+          - '@tanstack/react-table'
+          - msw
+          - zustand
+          - zod
+          - axios
+          - i18next
+          - react-i18next
+          - prisma
+          - '@prisma/*'
+          - better-auth
+          - '@better-auth/*'
+          - hono
+          - '@hono/*'
+          - pg
+          - '@types/pg'
+          - dotenv
+      tooling:
+        update-types: [minor, patch]
+        dependency-type: development
+      other:
+        update-types: [minor, patch]
+        patterns: ['*']
     # Majors wait until after release (operator decision 2026-11-12); security
     # updates are separate and still open PRs.
     ignore:
