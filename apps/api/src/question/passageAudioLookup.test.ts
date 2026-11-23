@@ -1,10 +1,14 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
+import { parseFuriganaPassageList } from '../content/furiganaPassageList.js'
 import { passageAudioKey } from '../content/passageAudio.js'
 import { parseRuby } from '../content/furiganaRuby.js'
 import {
   createPassageAudioLookup,
-  loadPassageAudioList
+  loadPassageAudioList,
+  passageAudioFor
 } from './passageAudioLookup.js'
+import { toPassageFurigana } from './passageFurigana.js'
 
 const { text, segments } = parseRuby('{駅|えき}の前\n{図書館|としょかん}')
 const engine = 'polly-neural'
@@ -44,5 +48,34 @@ describe('passage audio lookup (#1183)', () => {
     expect(
       loadPassageAudioList([new URL('./missing.audio.json', import.meta.url)])
     ).toBeNull()
+  })
+
+  it('fills the audio of every reviewed passage the release lists', () => {
+    const furigana = parseFuriganaPassageList(
+      readFileSync(
+        new URL(
+          '../../../../content/furigana/reading-passages.v1.json',
+          import.meta.url
+        )
+      )
+    )
+    const release = loadPassageAudioList()!
+    const keys = new Set(release.passages.map((entry) => entry.key))
+    const reviewed = furigana.passages.filter(
+      (entry) => entry.reviewedBy !== null
+    )
+    expect(reviewed.length).toBeGreaterThan(0)
+    for (const entry of reviewed) {
+      // The way a study question reads it: the stored row, then the lookup.
+      const { text, segments } = parseRuby(entry.ruby)
+      const shown = toPassageFurigana(text, {
+        origin: 'REVIEWED',
+        textMd5: entry.textMd5,
+        segments
+      })
+      const audio = passageAudioFor(text, shown)
+      expect(audio).not.toBeNull()
+      expect(keys.has(audio!.key)).toBe(true)
+    }
   })
 })
