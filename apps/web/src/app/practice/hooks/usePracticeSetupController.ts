@@ -78,10 +78,7 @@ export const usePracticeSetupController = (
   const requestedMode = getRequestedMode(searchParams.get('mode'))
   // Guests only try short random sessions; a shared link asking for review
   // keeps its level and subject and says why the mode changed (L12).
-  // A pick is dropped once the subject changes, so coming back shows the
-  // default again.
-  if (memberCountPick && memberCountPick.subject !== subject)
-    setMemberCountPick(null)
+  // A pick only counts for its own subject; another subject shows its default.
   const memberCount =
     memberCountPick?.subject === subject
       ? memberCountPick.count
@@ -189,6 +186,9 @@ export const usePracticeSetupController = (
     defaultValue: number | string
   ): void => {
     createSession.reset()
+    // Switching subject drops the count pick, so coming back shows the
+    // default again (#1244).
+    if (key === 'subject') setMemberCountPick(null)
     updateSearchParam(key, value, defaultValue)
     // #1075: the next visit opens on this pick, even before a start.
     if (key === 'level' || key === 'subject') {
