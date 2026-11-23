@@ -762,7 +762,9 @@ export const jaCoreResources = {
           pause: '一時停止',
           position: '再生位置',
           restart: '最初から',
-          speed: '速度 {{rate}}倍'
+          speed: '速度 {{rate}}倍',
+          failedTitle: '音声を読み込めませんでした',
+          failedDescription: '少し待ってからもう一度お試しください。'
         },
         numberLabel: '{{ordinal}}番の問題。',
         answerLegend: '選択肢'

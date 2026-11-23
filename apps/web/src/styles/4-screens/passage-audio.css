@@ -34,6 +34,14 @@
   padding: 0 12px;
   background: rgb(var(--color-surface-sunken));
 }
+/* #1246: after a failure the pill stays where it is but waits: muted words,
+   same surface (opacity would fade the pill away), no pointer. */
+.study-audio-toggle[aria-disabled='true'] {
+  cursor: default;
+}
+.study-audio-toggle[aria-disabled='true'] > span {
+  color: rgb(var(--color-disabled-text));
+}
 /* ふりがな sits right after the pill instead of pushing to the end. */
 .study-audio-toggle + .study-furigana-toggle {
   margin-left: 0;
