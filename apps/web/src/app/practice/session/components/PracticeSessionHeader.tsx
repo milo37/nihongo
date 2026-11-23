@@ -52,11 +52,11 @@ export const PracticeSessionHeader = ({
 
   return (
     <header
-      className={`border-b border-line bg-surface ${reviewContext ? 'study-session-context' : ''}`}
+      className={`study-session-header ${reviewContext ? 'study-session-context' : ''}`}
     >
-      <div className="study-session-bar mx-auto flex h-14 max-w-6xl lg:h-16 items-center gap-1 px-2">
+      <div className="study-session-bar">
         <Link
-          className="note-link size-11 shrink-0 justify-center"
+          className="note-link study-session-back"
           aria-label={
             reviewContext
               ? t('session.header.backToExplanation')
@@ -95,10 +95,10 @@ export const PracticeSessionHeader = ({
             singleRowCellSize={28}
           />
         </div>
-        <p className="flex shrink-0 items-center text-base font-bold">
+        <p className="study-session-position">
           {total > 1 ? (
             <button
-              className="min-h-11 shrink-0 rounded-control px-1 tabular-nums underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand"
+              className="study-session-jump"
               type="button"
               aria-haspopup="dialog"
               aria-label={`${t('session.navigation.jumpLabel')} ${position}`}
@@ -108,15 +108,13 @@ export const PracticeSessionHeader = ({
               {position}
             </button>
           ) : (
-            <span className="shrink-0 tabular-nums">{position}</span>
+            <span className="study-session-count">{position}</span>
           )}
         </p>
-        <div className="flex size-11 shrink-0 items-center justify-center">
-          {bookmarkButton}
-        </div>
+        <div className="study-session-bookmark-slot">{bookmarkButton}</div>
       </div>
       <p
-        className={`study-session-meta mx-auto max-w-6xl px-4 ${hasPassage ? 'sm:px-6' : ''}`}
+        className={`study-session-meta ${hasPassage ? 'study-session-meta-wide' : ''}`}
         data-wide={hasPassage || undefined}
       >
         {session.level} · {commonT(`taxonomy.subjects.${session.subject}`)}

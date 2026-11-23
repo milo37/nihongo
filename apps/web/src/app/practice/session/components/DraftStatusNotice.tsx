@@ -34,9 +34,7 @@ export const DraftStatusNotice = ({
   return (
     <div
       className={
-        isCompactDraftStatus
-          ? 'mt-2 text-caption leading-5 text-muted'
-          : 'mt-4 rounded-lg border border-info-line bg-info-soft px-4 py-3 text-sm font-semibold leading-6 text-info-strong'
+        isCompactDraftStatus ? 'study-draft-compact' : 'study-draft-notice'
       }
       role="status"
       aria-live="polite"
@@ -44,14 +42,14 @@ export const DraftStatusNotice = ({
     >
       <p>{draftStatusMessage}</p>
       {hasUnresolvedConflictCheck ? (
-        <p className="mt-2 font-medium">
+        <p className="study-draft-pending">
           {t('session.draft.conflictCheckPending')}
         </p>
       ) : null}
       {draftController.saveState === 'error' ||
       draftController.saveState === 'offline' ? (
         <Button
-          className="mt-3"
+          className="study-notice-action"
           size="sm"
           variant="secondary"
           onClick={onRetryDraftSave}
