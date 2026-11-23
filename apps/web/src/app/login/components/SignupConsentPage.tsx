@@ -81,7 +81,7 @@ export const SignupConsentPage = ({
   const existing = kind === 'EXISTING'
   return (
     <div className="auth-panel signup-consent">
-      <h1 ref={heading} className="outline-none" tabIndex={-1}>
+      <h1 ref={heading} className="auth-title-quiet" tabIndex={-1}>
         {existing ? t('signup.titleExisting') : t('signup.titleNew')}
       </h1>
       <NicknameField

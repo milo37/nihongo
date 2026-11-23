@@ -69,7 +69,7 @@ export const GuestGate = ({
       </h1>
       <SignInCard
         headingLevel="h2"
-        icon={<Icon name={icons[shown]} className="size-7" />}
+        icon={<Icon name={icons[shown]} className="guest-gate-glyph" />}
         title={t(`guestGate.${key}`)}
         description={t(`guestGate.${key}Body`)}
         buttonLabel={t('guestGate.login')}
