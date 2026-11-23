@@ -608,7 +608,8 @@ export const jaCoreResources = {
         },
         DAILY_REVIEW: {
           label: '復習する問題を解く',
-          description: '復習する問題を、前に間違えたものから10問出します。',
+          description:
+            '復習する問題を、前に間違えたものから出します。足りないときは、ある分だけ出ます。',
           empty: '復習する問題がありません。ほかの方法で解いてみてください。'
         }
       },
@@ -628,7 +629,6 @@ export const jaCoreResources = {
           '今日解ける新しいセットの上限に達しました。また明日解きましょう。間違いノートの復習は今もできます。'
       },
       urlLocked: '問題数と出題方法はログインすると選べます。',
-      availableCountNote: '問題が足りないときは、ある分だけ出ます。',
       noEligibleTitle:
         '現在の条件では「{{mode}}」で出題できる問題がありません。',
       noEligibleDescription:

@@ -267,9 +267,16 @@ it('starts a member from the last level and subject, changed by the underlined w
     screen.getByRole('combobox', { name: '과목 바꾸기' }),
     'READING'
   )
+  // #1244: a member's reading set starts at 5.
+  expect(
+    screen.getByRole('heading', {
+      level: 1,
+      name: '오늘은 N1 독해 5문제 풀어 볼까요?'
+    })
+  ).toBeVisible()
   fireEvent.click(screen.getByRole('button', { name: '시작하기' }))
   expect(mocks.mutate).toHaveBeenCalledWith(
-    { level: 'N1', subject: 'READING', count: 10, mode: 'RANDOM' },
+    { level: 'N1', subject: 'READING', count: 5, mode: 'RANDOM' },
     expect.anything()
   )
   // A member sees no guest rule line and no tries count.
