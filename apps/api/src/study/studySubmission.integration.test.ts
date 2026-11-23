@@ -18,6 +18,10 @@ import {
   type ExistingStudyOwner,
   type StudySessionRecord
 } from './studySessionRepository.js'
+import {
+  createGuestResultImportService,
+  createPrismaGuestResultImportRepository
+} from './guestResultImport.js'
 import { createPrismaStudyDraftRepository } from './studyDraftRepository.js'
 import { createPrismaStudySubmissionRepository } from './studySubmissionRepository.js'
 import { createStudySubmissionService } from './studySubmissionService.js'
@@ -984,70 +988,140 @@ describe('Study submission PostgreSQL transaction', () => {
     ).toEqual({ currentReviewQuestionVersionId: pinned.questionVersionId })
   })
 
-  it('RANDOM은 같은 owner의 최근 3개 제출 문항을 7일 경계 안에서 뒤로 보낸다', async () => {
-    const userId = await createUser()
-    const owner = { kind: 'USER' as const, userId }
-    const pinnedQuestions = await loadPinnedQuestions(20)
-    if (pinnedQuestions.length < 4) {
-      throw new Error(
-        'RANDOM repeat-avoidance에는 published 문제 4개가 필요합니다.'
-      )
-    }
-    const recentPins = pinnedQuestions.slice(0, 3)
-    const baseTime = Date.now()
-
-    for (const [index, pinned] of recentPins.entries()) {
-      const startedAt = new Date(baseTime + index * 1_000)
-      const history = await createPinnedSession(owner, pinned, startedAt)
-      await createStudySubmissionService(
-        submissionRepository,
-        () => new Date(startedAt.getTime() + 100)
-      ).submit(
+  const submitPinned = async (
+    owner: ExistingStudyOwner,
+    pinned: PinnedQuestionMaterial,
+    startedAt: Date
+  ): Promise<string> => {
+    const history = await createPinnedSession(owner, pinned, startedAt)
+    await createStudySubmissionService(
+      submissionRepository,
+      () => new Date(startedAt.getTime() + 100)
+    ).submit(
+      history.id,
+      randomUUID(),
+      await prepareBody(
         history.id,
-        randomUUID(),
-        await prepareBody(
-          history.id,
-          owner,
-          createBody([history.material], () => null),
-          startedAt
-        ),
-        owner
-      )
-    }
-
-    const startedAt = new Date(baseTime + 10_000)
-    const deterministicRepository = createPrismaStudySessionRepository(
-      database.client,
-      { random: () => 0 }
+        owner,
+        createBody([history.material], () => null),
+        startedAt
+      ),
+      owner
     )
-    const created = await deterministicRepository.create({
+    return history.id
+  }
+
+  const startRandomSet = async (
+    owner: ExistingStudyOwner,
+    requestedCount: number,
+    startedAt: Date
+  ): Promise<string[]> => {
+    const created = await createPrismaStudySessionRepository(database.client, {
+      random: () => 0
+    }).create({
       level: 'N5',
       subject: 'VOCABULARY',
       mode: 'RANDOM',
       owner,
-      requestedCount: pinnedQuestions.length,
+      requestedCount,
       practiceContractVersion: 2,
       startedAt,
       expiresAt: new Date(startedAt.getTime() + DAY_MS)
     })
-    const recentIds = new Set(recentPins.map(({ questionId }) => questionId))
-    const selectedIds = created.session.questions.map(
-      ({ question }) => question.id
-    )
-    const firstRecentIndex = selectedIds.findIndex((id) => recentIds.has(id))
-    const lastNonRecentIndex = selectedIds.findLastIndex(
-      (id) => !recentIds.has(id)
-    )
+    return created.session.questions.map(({ question }) => question.id)
+  }
 
-    expect(new Set(selectedIds).size).toBe(selectedIds.length)
-    expect(firstRecentIndex).toBeGreaterThan(0)
-    expect(lastNonRecentIndex).toBeLessThan(firstRecentIndex)
-    expect(new Set(selectedIds.slice(firstRecentIndex))).toEqual(recentIds)
-    expect(created.session).toMatchObject({
-      actualCount: pinnedQuestions.length,
-      requestedCount: pinnedQuestions.length,
-      usedFallback: false
-    })
+  it('RANDOM은 안 본 문제 먼저, 다음은 제출해서 본 지 오래된 순으로 낸다 (#1242)', async () => {
+    const userId = await createUser()
+    const owner = { kind: 'USER' as const, userId }
+    const pinnedQuestions = await loadPinnedQuestions(20)
+    if (pinnedQuestions.length < 5) {
+      throw new Error('#1242 출제 순서에는 published 문제 5개가 필요합니다.')
+    }
+    const baseTime = Date.now()
+    // Four submitted sets, the first 40 days ago: no 7-day window and no
+    // last-three limit any more.
+    const seen = pinnedQuestions.slice(0, 4)
+    for (const [index, pinned] of seen.entries()) {
+      await submitPinned(
+        owner,
+        pinned,
+        new Date(baseTime - [40, 20, 2, 1][index]! * DAY_MS)
+      )
+    }
+    // A set left unsubmitted does not count as seen.
+    const unsubmitted = pinnedQuestions[4]!
+    await createPinnedSession(owner, unsubmitted, new Date(baseTime - DAY_MS))
+
+    const selectedIds = await startRandomSet(
+      owner,
+      pinnedQuestions.length,
+      new Date(baseTime + 10_000)
+    )
+    const seenIds = seen.map(({ questionId }) => questionId)
+    expect(new Set(selectedIds).size).toBe(pinnedQuestions.length)
+    expect(selectedIds.slice(-seenIds.length)).toEqual(seenIds)
+    expect(selectedIds.slice(0, -seenIds.length)).toContain(
+      unsubmitted.questionId
+    )
+  })
+
+  it('로그인 때 가져온 게스트 세트도 회원이 본 문제로 이어진다 (#1242)', async () => {
+    const resolved = await guestPrincipalService.create()
+    const rawCookie = resolved.cookieValue
+    if (!rawCookie) throw new Error('Guest cookie fixture is required.')
+    createdGuestIds.add(resolved.id)
+    const inspected = guestPrincipalService.inspectCookie(rawCookie)
+    if (inspected.kind !== 'VERIFIED') {
+      throw new Error('Verified guest credential is required.')
+    }
+    const guestOwner = {
+      kind: 'GUEST' as const,
+      guestPrincipalId: inspected.id,
+      tokenDigest: inspected.tokenDigest
+    }
+    const pinnedQuestions = await loadPinnedQuestions(20)
+    const [guestSeen] = pinnedQuestions
+    if (!guestSeen || pinnedQuestions.length < 2) {
+      throw new Error(
+        '#1242 게스트 이어짐에는 published 문제 2개가 필요합니다.'
+      )
+    }
+    // Every time comes after the guest was made, so the guest is found.
+    const baseTime = Date.now() + 1_000
+    const importedSessionId = await submitPinned(
+      guestOwner,
+      guestSeen,
+      new Date(baseTime)
+    )
+    // The guest already gets it last.
+    expect(
+      (
+        await startRandomSet(
+          guestOwner,
+          pinnedQuestions.length,
+          new Date(baseTime + 5_000)
+        )
+      ).at(-1)
+    ).toBe(guestSeen.questionId)
+
+    const userId = await createUser()
+    await expect(
+      createGuestResultImportService(
+        createPrismaGuestResultImportRepository(database.client)
+      ).importLast({
+        guest: { id: inspected.id, tokenDigest: inspected.tokenDigest },
+        observedAt: new Date(baseTime + 8_000),
+        userId
+      })
+    ).resolves.toMatchObject({ importedSessionId })
+
+    const selectedIds = await startRandomSet(
+      { kind: 'USER', userId },
+      pinnedQuestions.length,
+      new Date(baseTime + 10_000)
+    )
+    expect(selectedIds.at(-1)).toBe(guestSeen.questionId)
   })
 
   it('existing guest WEAKNESS는 같은 guest의 stable-question history만 사용한다', async () => {
