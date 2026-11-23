@@ -35,11 +35,11 @@ export const ResultManageButtons = ({
     resolveUiLocale(i18n.resolvedLanguage)
   )
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="study-result-tools">
       <Button
         // JLP-878: the words stay '책갈피'; the ribbon fills in brand red
         // when it is in, and the button draws no pressed box.
-        className="ui-button-toggle-icon aria-disabled:cursor-wait aria-disabled:opacity-70 aria-pressed:[&_svg]:fill-current aria-pressed:[&_svg]:text-brand"
+        className="ui-button-toggle-icon study-result-bookmark"
         variant="ghost"
         disabled={!item.question.questionVersionId}
         // Focus stays here while busy (a toast closed with Esc returns to it).

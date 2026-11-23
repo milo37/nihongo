@@ -210,3 +210,187 @@
 }
 
 /* JLP-878: the bookmark's pressed look is .ui-button-toggle-icon (styles). */
+
+/* #1186 C8: the result screen's former Tailwind utilities, same values. */
+@layer utilities {
+  /* space-y-4 selects the children with :where(); same values, zero specificity. */
+  :where(.study-explanations > :not(:last-child)) {
+    --tw-space-y-reverse: 0;
+    margin-block-start: calc(1rem * var(--tw-space-y-reverse));
+    margin-block-end: calc(1rem * calc(1 - var(--tw-space-y-reverse)));
+  }
+  /* Result page frame and the explanations column. */
+  .study-result {
+    margin-inline: auto;
+    max-width: 760px;
+    padding-inline: 1rem;
+    padding-block: 2.5rem;
+  }
+  .study-explanations {
+    margin-top: 2.5rem;
+  }
+  @media (width >= 40rem) {
+    .study-result {
+      padding-inline: 1.5rem;
+    }
+  }
+  @media (width >= 64rem) {
+    .study-result {
+      padding-block: 3.5rem;
+    }
+  }
+  /* Summary lines under the score. */
+  .study-result-outcomes-note {
+    margin-top: var(--spacing);
+    font-size: var(--text-sm);
+    --tw-leading: 1.5rem;
+    line-height: 1.5rem;
+    color: rgb(var(--color-muted));
+  }
+  .study-result-status-note {
+    margin-top: 0.5rem;
+    font-size: var(--text-sm);
+    --tw-leading: 1.5rem;
+    line-height: 1.5rem;
+    color: rgb(var(--color-muted));
+  }
+  .result-b4-score {
+    --tw-outline-style: none;
+    outline-style: none;
+  }
+  /* Question detail: tags, bookmark and its error. */
+  .study-result-tags {
+    margin-top: 0.75rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    color: rgb(var(--color-muted));
+  }
+  .study-result-tools {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .study-result-bookmark-error {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    border-radius: var(--radius-lg);
+    border-style: solid;
+    border-width: var(--border-width-default);
+    border-color: rgb(var(--color-danger-line));
+    background-color: rgb(var(--color-danger-soft));
+    padding: 1rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    font-weight: var(--font-weight-semibold);
+    color: rgb(var(--color-danger));
+  }
+  .study-result-bookmark[aria-disabled='true'] {
+    cursor: wait;
+    opacity: 70%;
+  }
+  .study-result-bookmark[aria-pressed='true'] svg {
+    fill: currentcolor;
+    color: rgb(var(--color-brand));
+  }
+  /* Notices: stale result, retry warnings and errors. */
+  .study-result-retry-error-text {
+    margin-top: var(--spacing);
+    --tw-leading: 1.5rem;
+    line-height: 1.5rem;
+  }
+  .study-result-no-retry {
+    margin-top: 1rem;
+    border-radius: var(--radius-lg);
+    border-style: solid;
+    border-width: var(--border-width-default);
+    border-color: rgb(var(--color-warning-line));
+    background-color: rgb(var(--color-warning-soft));
+  }
+  .study-result-restricted,
+  .study-result-warning-spaced {
+    margin-top: 1rem;
+  }
+  .study-result-retry-error {
+    margin-top: 1rem;
+    border-radius: var(--radius-lg);
+    border-style: solid;
+    border-width: var(--border-width-default);
+    border-color: rgb(var(--color-danger-line));
+    background-color: rgb(var(--color-danger-soft));
+    padding: 1rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    color: rgb(var(--color-danger-strong));
+  }
+  .study-result-stale {
+    margin-bottom: 1.5rem;
+    border-radius: var(--radius-lg);
+    border-style: solid;
+    border-width: var(--border-width-default);
+    border-color: rgb(var(--color-warning-line));
+    background-color: rgb(var(--color-warning-soft));
+    padding: 1rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    color: rgb(var(--color-warning-strong));
+  }
+  .study-result-warning {
+    border-radius: var(--radius-lg);
+    border-style: solid;
+    border-width: var(--border-width-default);
+    border-color: rgb(var(--color-warning-line));
+    background-color: rgb(var(--color-warning-soft));
+    padding-inline: 1rem;
+    padding-block: 0.75rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    font-weight: var(--font-weight-semibold);
+    color: rgb(var(--color-warning-strong));
+  }
+  .study-result-retry-error-title {
+    font-weight: var(--font-weight-bold);
+  }
+  /* Next steps: the buttons and the rush line. */
+  .study-result-feedback {
+    margin-top: 0.75rem;
+  }
+  .study-result-actions {
+    margin-top: 2.5rem;
+  }
+  .study-result-rush-line {
+    margin-top: 2.5rem;
+    font-size: 14px;
+    --tw-leading: 1.25rem;
+    line-height: 1.25rem;
+    color: rgb(var(--color-muted));
+  }
+  .study-result-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .study-result-rush-link {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    gap: var(--spacing);
+    white-space: nowrap;
+    color: rgb(var(--color-ink));
+  }
+  .study-result-button {
+    height: 3rem;
+  }
+  .study-result-rush-label {
+    text-decoration-line: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
+  @media (width >= 40rem) {
+    .study-result-buttons {
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+  }
+}

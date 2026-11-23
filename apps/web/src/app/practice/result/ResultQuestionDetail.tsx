@@ -94,7 +94,7 @@ export const ResultQuestionDetail = ({
         </p>
       ) : null}
       {tagLabels.length > 0 ? (
-        <p className="mt-3 text-sm text-muted">{tagLabels.join(' · ')}</p>
+        <p className="study-result-tags">{tagLabels.join(' · ')}</p>
       ) : null}
       {item.question.passage && samePassageOrdinal !== null ? (
         <SamePassageNote
