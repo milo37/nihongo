@@ -45,10 +45,7 @@ export const CancelResumableDialog = ({
       }}
     >
       {hasError ? (
-        <p
-          className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900"
-          role="alert"
-        >
+        <p className="practice-cancel-error" role="alert">
           {t('setup.cancelDialog.error')}
         </p>
       ) : null}
