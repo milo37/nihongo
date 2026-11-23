@@ -9,11 +9,12 @@ import { wrongNoteTagLabelSchema } from '../wrong-note/list-wrong-notes.js'
 import { createApiFailureSchema } from '../common/error.js'
 import { versionedStudySessionPayloadSchema } from './study-session.js'
 import { practiceContractV2HeadersSchema } from './practice-contract.js'
+import { getMemberCountLimit } from './member-counts.js'
 
 export const createStudySessionOperationId = 'study.createStudySession' as const
 
 /** #1244: a new random reading set holds at most this many questions. */
-export const READING_SESSION_QUESTION_LIMIT = 10
+export const READING_SESSION_QUESTION_LIMIT = getMemberCountLimit('READING')
 
 export const createStudySessionBodySchema = z
   .object({
