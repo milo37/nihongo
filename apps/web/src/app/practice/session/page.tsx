@@ -61,7 +61,7 @@ export const PracticeSessionPage = (): ReactElement => {
   const leaving = push.from === null ? undefined : session.questions[push.from]
   return (
     <section
-      className={`learning-note study-session ${reviewContext ? 'study-review-session' : ''} w-full`}
+      className={`learning-note study-session ${reviewContext ? 'study-review-session' : ''}`}
     >
       <PracticeSessionHeader
         answeredCount={session.answeredCount}
@@ -91,7 +91,7 @@ export const PracticeSessionPage = (): ReactElement => {
       />
 
       <div
-        className={`mx-auto w-full px-4 pt-5 sm:px-6 ${question.passage ? 'max-w-6xl' : 'max-w-[760px]'}`}
+        className={`study-session-body ${question.passage ? 'study-session-body-wide' : 'study-session-body-narrow'}`}
       >
         <PracticeSessionNotices
           draftActionMessage={session.draftActionMessage}
@@ -108,7 +108,7 @@ export const PracticeSessionPage = (): ReactElement => {
           sessionData={data}
         />
 
-        <div ref={stageRef} className="relative">
+        <div ref={stageRef} className="study-card-stage">
           {leaving ? (
             <LeavingQuestionCard
               key={`leaving-${push.key}`}

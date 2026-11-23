@@ -23,7 +23,7 @@ export const PracticeQuestionBookmarkButton = ({
   const { formatCount } = usePracticeNumberFormat()
   return (
     <button
-      className="inline-flex size-11 shrink-0 items-center justify-center rounded-control text-ink shadow-none hover:bg-surface-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand aria-disabled:cursor-wait aria-disabled:opacity-70 aria-pressed:text-brand aria-pressed:[&_svg]:fill-current"
+      className="study-bookmark-button"
       type="button"
       // Focus stays here while busy (a toast closed with Esc returns to it).
       aria-disabled={isDisabled || undefined}
@@ -62,23 +62,20 @@ export const PracticeQuestionBookmarkStatus = ({
     <>
       {failure ? (
         // A failed change is an error next to the button, never a toast.
-        <p className="mt-3 text-sm font-semibold text-danger" role="alert">
+        <p className="study-bookmark-error" role="alert">
           {t(`session.bookmark.${failure}`)}
         </p>
       ) : isMutationPaused ? (
-        <p className="mt-3 text-sm font-semibold text-warning" role="status">
+        <p className="study-bookmark-warning" role="status">
           {t('session.bookmark.offlineQueued')}
         </p>
       ) : null}
       {role !== 'GUEST' && bookmarksQuery.fetchStatus === 'paused' ? (
-        <p className="mt-3 text-sm font-semibold text-warning" role="status">
+        <p className="study-bookmark-warning" role="status">
           {t('session.bookmark.statusLoadOffline')}
         </p>
       ) : role !== 'GUEST' && bookmarksQuery.isError ? (
-        <div
-          className="mt-3 flex flex-wrap items-center gap-3 text-sm font-semibold text-danger"
-          role="alert"
-        >
+        <div className="study-bookmark-load-error" role="alert">
           <span>{t('session.bookmark.statusLoadFailed')}</span>
           <Button
             variant="outline"
