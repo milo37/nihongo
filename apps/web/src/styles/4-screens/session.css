@@ -620,6 +620,14 @@ label:has(input:checked) .study-option-text {
     line-height: 1.5rem;
     color: rgb(var(--color-warning-strong));
   }
+  /* Hover before focus and the current mark, as Tailwind orders them: the
+     current question keeps its ink border under the pointer. */
+  @media (hover: hover) {
+    .ui-question-jump:hover {
+      border-color: rgb(var(--color-line-strong));
+      background-color: rgb(var(--color-surface-muted));
+    }
+  }
   .ui-question-jump:focus-visible {
     outline-style: solid;
     outline-width: 2px;
@@ -633,12 +641,6 @@ label:has(input:checked) .study-option-text {
     border-style: solid;
     border-width: 2px;
     border-color: rgb(var(--color-ink));
-  }
-  @media (hover: hover) {
-    .ui-question-jump:hover {
-      border-color: rgb(var(--color-line-strong));
-      background-color: rgb(var(--color-surface-muted));
-    }
   }
   @media (width >= 64rem) {
     .study-actions {
