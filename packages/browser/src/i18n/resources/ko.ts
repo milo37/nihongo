@@ -721,6 +721,8 @@ export const koCoreResources = {
         passageLabel: '지문',
         furiganaLabel: '후리가나 보기',
         furiganaNone: '이 지문은 아직 후리가나가 없어요.',
+        samePassage: '앞 문제와 같은 지문',
+        openPassage: '지문 펼치기',
         audio: {
           listen: '듣기',
           close: '닫기',
@@ -857,7 +859,8 @@ export const koCoreResources = {
       unanswered: '안 풂',
       correctAnswer: '정답',
       correctAnswerUnavailable: '정답을 불러오지 못했어요',
-      explanation: '해설'
+      explanation: '해설',
+      samePassage: '{{formattedOrdinal}}번 문제와 같은 지문'
     },
     bookmark: {
       offline: '인터넷 연결이 끊겼어요. 연결되면 책갈피에 반영할게요.',

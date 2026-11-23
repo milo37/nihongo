@@ -36,13 +36,17 @@ const legacyItem = {
   question: { ...item.question, questionVersionId: null, tagSummaries: null }
 } as unknown as StudyResultItemView
 
-const renderDetail = (detailItem: StudyResultItemView = item) =>
+const renderDetail = (
+  detailItem: StudyResultItemView = item,
+  samePassageOrdinal: number | null = null
+) =>
   render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter>
         <ResultQuestionDetail
           item={detailItem}
           ordinal={1}
+          samePassageOrdinal={samePassageOrdinal}
           canReport={false}
           isBookmarked={false}
           bookmarkDisabled={false}
@@ -81,4 +85,29 @@ it('keeps the Korean tag names on a Korean screen (#976)', async () => {
   await appI18n.changeLanguage('ko')
   renderDetail()
   expect(screen.getByText('조사 · 경어')).toBeVisible()
+})
+
+const passageItem = {
+  ...item,
+  question: { ...item.question, passage: '今日は雨です。' }
+} as unknown as StudyResultItemView
+
+it('names the first question on the same passage (#986)', async () => {
+  await appI18n.changeLanguage('ko')
+  renderDetail(passageItem, 1)
+  expect(screen.getByText('1번 문제와 같은 지문')).toHaveAttribute(
+    'data-tone',
+    'result'
+  )
+})
+
+it('names it in Japanese on a Japanese screen (#986)', async () => {
+  await appI18n.changeLanguage('ja')
+  renderDetail(passageItem, 3)
+  expect(screen.getByText('3番と同じ文章')).toBeVisible()
+})
+
+it('has no same-passage line on the first question of a passage', () => {
+  renderDetail(passageItem, null)
+  expect(screen.queryByText(/같은 지문/)).toBeNull()
 })
