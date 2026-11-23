@@ -35,11 +35,11 @@ export const PracticeQuestionNavigator = ({
       onOpenChange={onOpenChange}
     >
       <nav aria-label={t('session.navigation.jumpLabel')}>
-        <ol className="flex flex-wrap gap-2">
+        <ol className="study-jump-list">
           {questions.map((question, index) => (
             <li key={question.id}>
               <button
-                className="ui-question-jump min-h-11 min-w-11 rounded-lg border border-line bg-surface text-sm font-bold hover:border-line-strong hover:bg-surface-muted data-[current=true]:border-2 data-[current=true]:border-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                className="ui-question-jump"
                 type="button"
                 disabled={isDisabled}
                 aria-label={t(

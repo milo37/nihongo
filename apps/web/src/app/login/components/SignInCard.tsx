@@ -66,7 +66,7 @@ export const SignInCard = ({
       ) : null}
       <Heading
         ref={headingRef}
-        className="outline-none"
+        className="auth-title-quiet"
         tabIndex={headingRef ? -1 : undefined}
       >
         {title}

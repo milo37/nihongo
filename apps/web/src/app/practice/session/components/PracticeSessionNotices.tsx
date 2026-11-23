@@ -37,24 +37,18 @@ const SessionSourceNotice = ({
   const { t } = useTranslation('practice')
   if (isSessionPaused)
     return (
-      <p
-        className="mt-4 rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm font-semibold leading-6 text-warning-strong"
-        role="status"
-      >
+      <p className="study-notice-warning" role="status">
         {t('session.errors.cachedOfflineDescription')}
       </p>
     )
   if (isSessionError)
     return (
-      <div
-        className="mt-4 rounded-lg border border-danger-line bg-danger-soft p-4 text-sm text-danger-strong"
-        role="alert"
-      >
-        <p className="font-semibold">
+      <div className="study-notice-stale" role="alert">
+        <p className="study-notice-title">
           {t('session.errors.staleSessionDescription')}
         </p>
         <Button
-          className="mt-3"
+          className="study-notice-action"
           size="sm"
           variant="outline"
           onClick={onRetrySession}
@@ -81,7 +75,7 @@ const SupplyNotice = ({
   // learner never chose a count, so only a chosen-size set explains a gap.
   if (getSetReturnPath(session.mode)) return null
   return (
-    <p className="mb-4 text-[13px] leading-5 text-muted" role="status">
+    <p className="study-supply-note" role="status">
       {t('session.supply.canonicalPartial', {
         actual: formatCount(actualCount),
         mode: commonT(`taxonomy.studyModes.${session.mode}`),
@@ -129,10 +123,10 @@ export const PracticeSessionNotices = ({
 
       {draftActionMessage ? (
         <p
-          className={`mt-4 rounded-lg border px-4 py-3 text-sm font-semibold leading-6 ${
+          className={`study-draft-action ${
             isDraftActionInformational
-              ? 'border-info-line bg-info-soft text-info-strong'
-              : 'border-danger-line bg-danger-soft text-danger-strong'
+              ? 'study-draft-action-info'
+              : 'study-draft-action-error'
           }`}
           role={isDraftActionInformational ? 'status' : 'alert'}
         >

@@ -7,9 +7,7 @@ import { AppErrorReportButton } from '@app/question-report/components/AppErrorRe
 import { TextLink } from '@nihongo/browser/common/components/TextLink'
 
 const FramedSection = ({ children }: { children: ReactNode }): ReactElement => (
-  <section className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6">
-    {children}
-  </section>
+  <section className="study-state-frame">{children}</section>
 )
 
 type SessionSetupLinkErrorProps = {
@@ -60,13 +58,9 @@ export const SessionRecoveryState = ({
         title={t('session.recovery.title')}
         description={description}
         action={
-          <div className="space-y-3">
+          <div className="study-state-stack">
             <Button onClick={onRetry}>{t('session.recovery.retry')}</Button>
-            <p
-              className="rounded-lg border border-warning-line bg-warning-soft p-3 text-sm leading-6 text-warning-strong"
-              role="status"
-              aria-live="polite"
-            >
+            <p className="study-recovery-note" role="status" aria-live="polite">
               {connectivityMessage
                 ? t(`session.submit.connectivity.${connectivityMessage}`)
                 : idleStatus}
@@ -100,7 +94,7 @@ export const SessionLoadError = ({
       title={title ?? t('session.errors.sessionLoadTitle')}
       description={description}
       action={
-        <div className="flex flex-wrap gap-2">
+        <div className="study-state-actions">
           {onRetry ? (
             <Button onClick={onRetry}>
               {retryLabel ?? commonT('actions.retry')}
