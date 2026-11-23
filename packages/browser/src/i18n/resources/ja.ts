@@ -753,6 +753,8 @@ export const jaCoreResources = {
         passageLabel: '文章',
         furiganaLabel: 'ふりがなを表示',
         furiganaNone: 'この文章にはまだふりがながありません。',
+        samePassage: '前の問題と同じ文章',
+        openPassage: '文章を全部見る',
         numberLabel: '{{ordinal}}番の問題。',
         answerLegend: '選択肢'
       },
@@ -890,7 +892,8 @@ export const jaCoreResources = {
       unanswered: '未回答',
       correctAnswer: '正解',
       correctAnswerUnavailable: '正解を読み込めませんでした',
-      explanation: '解説'
+      explanation: '解説',
+      samePassage: '{{formattedOrdinal}}番と同じ文章'
     },
     bookmark: {
       offline:

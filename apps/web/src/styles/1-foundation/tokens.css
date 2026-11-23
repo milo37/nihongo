@@ -29,6 +29,9 @@
   --color-furigana-toggle-on: var(--color-ink);
   --color-furigana-toggle-box: var(--color-line-strong);
   --color-furigana-toggle-disabled: var(--color-disabled-text);
+  /* #986 same-passage note on the solve screen (6.61:1 on white). Dark,
+     later: 230 110 88 (5.28:1). */
+  --color-same-passage: var(--color-brand-strong);
   /* Correct is ink, never green (shape and color both differ from wrong). */
   --color-success: 31 32 35;
   --color-success-strong: 31 32 35;

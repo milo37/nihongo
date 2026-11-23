@@ -1,0 +1,82 @@
+import { createRef } from 'react'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import type { StudyQuestionView } from '@app/practice/adapters/studySessionView'
+import { PracticeQuestionCard } from '@app/practice/session/components/PracticeQuestionCard'
+import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
+import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
+import { clearStorageCache } from '@nihongo/browser/libs/storage'
+
+const question = (
+  id: string,
+  isSamePassageAsPrevious: boolean
+): StudyQuestionView => ({
+  id,
+  sessionQuestionId: null,
+  questionVersionId: null,
+  ordinal: 1,
+  level: 'N5',
+  subject: 'READING',
+  questionType: 'SHORT_READING',
+  passage: '今日は雨です。\n明日は晴れです。',
+  passageId: 'p1',
+  isSamePassageAsPrevious,
+  questionText: '天気は何ですか。',
+  options: ['a', 'b', 'c', 'd'].map((option, index) => ({
+    id: option,
+    label: (['1', '2', '3', '4'] as const)[index]!,
+    text: option
+  })),
+  difficulty: 'EASY',
+  tags: []
+})
+
+const card = (view: StudyQuestionView) => (
+  <I18nProvider>
+    <PracticeQuestionCard
+      actions={null}
+      bookmarkStatus={null}
+      headingRef={createRef()}
+      isOptionsDisabled={false}
+      onSelectOption={() => undefined}
+      question={view}
+      questionNumber={2}
+      saveStatus={null}
+      selectedOptionId={undefined}
+    />
+  </I18nProvider>
+)
+
+describe('same passage on the solve screen (#986)', () => {
+  beforeEach(() => {
+    writeUiLocalePreference('ko')
+    clearStorageCache()
+  })
+
+  it('shows nothing on the first question of a passage', () => {
+    const { container } = render(card(question('q1', false)))
+    expect(screen.queryByText('앞 문제와 같은 지문')).toBeNull()
+    expect(screen.queryByRole('button', { name: '지문 펼치기' })).toBeNull()
+    expect(container.querySelector('[data-folded]')).toBeNull()
+  })
+
+  it('folds a repeated passage until opened, and folds again on the next one', async () => {
+    const { container, rerender } = render(card(question('q2', true)))
+    expect(screen.getByText('앞 문제와 같은 지문')).toBeInTheDocument()
+    const open = screen.getByRole('button', { name: '지문 펼치기' })
+    const text = container.querySelector('.study-passage-text')!
+    expect(open).toHaveAttribute('aria-expanded', 'false')
+    expect(open).toHaveAttribute('aria-controls', text.id)
+    expect(text).toHaveAttribute('data-folded')
+
+    await userEvent.click(open)
+    expect(screen.queryByRole('button', { name: '지문 펼치기' })).toBeNull()
+    expect(text).not.toHaveAttribute('data-folded')
+    expect(screen.getByText('앞 문제와 같은 지문')).toBeInTheDocument()
+
+    rerender(card(question('q3', true)))
+    expect(
+      screen.getByRole('button', { name: '지문 펼치기' })
+    ).toBeInTheDocument()
+  })
+})

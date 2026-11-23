@@ -1,3 +1,4 @@
+import { useId, useLayoutEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement, RefObject } from 'react'
 import type { FuriganaSegment } from '@nihongo/contracts/question/get-question'
@@ -8,6 +9,7 @@ import type { QuestionPush } from '@app/practice/session/components/PracticeQues
 import { SheetTail } from '@common/components/manuscript/ManuscriptSheet'
 import { JaText } from '@common/components/JaText'
 import { jaTextProps } from '@common/libs/jaSpacing'
+import { SamePassageNote } from '@app/practice/components/SamePassageNote'
 
 /**
  * Passage: as tall as its text; sticky beside the question on wide screens.
@@ -17,12 +19,15 @@ import { jaTextProps } from '@common/libs/jaSpacing'
 export const QuestionPassage = ({
   furigana,
   isDecorative,
+  isSamePassage,
   passage,
   passageRef,
   push
 }: {
   furigana: readonly FuriganaSegment[] | null | undefined
   isDecorative: boolean
+  /** #986: the question before has this passage; fold it to three lines. */
+  isSamePassage: boolean
   passage: string
   passageRef: RefObject<HTMLElement | null>
   push: QuestionPush | undefined
@@ -31,6 +36,27 @@ export const QuestionPassage = ({
   const isFuriganaOn = useFurigana()
   // #1182: [] (no kanji) and null (not reviewed yet) both have no readings.
   const hasFurigana = Boolean(furigana?.length)
+  const textId = useId()
+  // #986: folded until opened; the card remounts this per question, so the
+  // next same-passage question folds again.
+  const [isOpened, setOpened] = useState(false)
+  const isSame = isSamePassage && !isDecorative
+  const isFolded = isSame && !isOpened
+  // A passage that fits in three lines has nothing to open.
+  const [isClipped, setClipped] = useState(true)
+  const textRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const text = textRef.current
+    if (!isFolded || !text || typeof ResizeObserver === 'undefined') return
+    const measure = (): void => {
+      if (text.clientHeight > 0)
+        setClipped(text.scrollHeight > text.clientHeight + 1)
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(text)
+    return () => observer.disconnect()
+  }, [isFolded, isFuriganaOn])
   return (
     <article
       ref={passageRef}
@@ -61,8 +87,17 @@ export const QuestionPassage = ({
           {t('session.question.furiganaNone')}
         </p>
       ) : null}
+      {isSame ? (
+        <SamePassageNote
+          text={t('session.question.samePassage')}
+          tone="practice"
+        />
+      ) : null}
       <div
+        ref={textRef}
+        id={textId}
         className="study-passage-text tracking-[0.02em] text-ink"
+        data-folded={isFolded || undefined}
         {...jaTextProps(passage)}
       >
         {passageParagraphs(passage).map((paragraph, index) => (
@@ -81,6 +116,27 @@ export const QuestionPassage = ({
           </p>
         ))}
       </div>
+      {isFolded && isClipped ? (
+        <button
+          aria-controls={textId}
+          aria-expanded={false}
+          className="study-passage-open"
+          type="button"
+          onClick={() => setOpened(true)}
+        >
+          <span>{t('session.question.openPassage')}</span>
+          <svg viewBox="0 0 12 12" aria-hidden="true">
+            <path
+              d="M2.5 4.5 6 8l3.5-3.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      ) : null}
     </article>
   )
 }
