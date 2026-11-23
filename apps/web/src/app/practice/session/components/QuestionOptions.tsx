@@ -5,11 +5,6 @@ import type { StudyQuestionView } from '@app/practice/adapters/studySessionView'
 import { JaText } from '@common/components/JaText'
 import { jaTextProps } from '@common/libs/jaSpacing'
 
-// Whole option is the target: radio hidden, number circle filled when chosen (direction §6-3).
-// Reuses the shipped .study-answer-options look; `!` beats its unlayered input rule.
-const OPTION_GROUP_CLASS =
-  'study-answer-options [&_legend]:sr-only [&_input]:absolute! [&_input]:opacity-0! [&_label]:items-center'
-
 /** The answer choices: a radio group whose labels carry the option number. */
 export const QuestionOptions = ({
   question,
@@ -25,7 +20,10 @@ export const QuestionOptions = ({
   const { t } = useTranslation('practice')
   return (
     <RadioGroup
-      className={OPTION_GROUP_CLASS}
+      // Whole option is the target: radio hidden, number circle filled when
+      // chosen (direction §6-3). session.css hides the radio with !important
+      // to beat its unlayered input rule.
+      className="study-answer-options"
       disabled={isOptionsDisabled}
       name={`question-${question.id}`}
       legend={t('session.question.answerLegend')}
@@ -33,17 +31,11 @@ export const QuestionOptions = ({
       options={question.options.map((option) => ({
         value: option.id,
         label: (
-          <span className="flex items-center gap-3 font-normal">
-            <span
-              aria-hidden="true"
-              className="study-option-number grid size-7.5 shrink-0 place-items-center text-sm font-bold"
-            >
+          <span className="study-option-label">
+            <span aria-hidden="true" className="study-option-number">
               {option.label}
             </span>
-            <span
-              className="study-option-text min-w-0 leading-[1.6]"
-              {...jaTextProps(option.text)}
-            >
+            <span className="study-option-text" {...jaTextProps(option.text)}>
               <span className="sr-only">{option.label}. </span>
               <JaText text={option.text} />
             </span>

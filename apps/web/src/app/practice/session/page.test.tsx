@@ -350,7 +350,7 @@ describe('PracticeSessionPage', () => {
     expect(back).toHaveAttribute('href', '/practice')
     expect(back).toHaveTextContent('')
     expect(back.querySelectorAll('svg')).toHaveLength(1)
-    expect(back).toHaveClass('size-11')
+    expect(back).toHaveClass('study-session-back')
     const secondOption = screen.getByRole('radio', {
       name: `2. ${second.text}`
     })
