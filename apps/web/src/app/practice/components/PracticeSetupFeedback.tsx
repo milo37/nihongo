@@ -43,14 +43,15 @@ export const PracticeSetupFeedback = ({
   return (
     <>
       {sessionCap ? (
-        <div
-          className="practice-cap rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"
-          role="alert"
-        >
-          <p ref={capTitle} className="font-bold outline-none" tabIndex={-1}>
+        <div className="practice-cap practice-alert" role="alert">
+          <p
+            ref={capTitle}
+            className="practice-alert-title practice-title-quiet"
+            tabIndex={-1}
+          >
             {t(`setup.sessionCap.${sessionCap.kind}Title`)}
           </p>
-          <p className="mt-1 leading-6">
+          <p className="practice-alert-body">
             {t(`setup.sessionCap.${sessionCap.kind}Body`, {
               time: sessionCap.resetsAt
                 ? formatDateTime(
@@ -63,7 +64,7 @@ export const PracticeSetupFeedback = ({
           </p>
           <Link
             className={getButtonClassName({
-              className: 'mt-3',
+              className: 'practice-alert-action',
               size: 'sm',
               variant: 'secondary'
             })}
@@ -75,27 +76,26 @@ export const PracticeSetupFeedback = ({
       ) : accountRestricted ? (
         <AccountRestrictedNotice />
       ) : noEligibleQuestions ? (
-        <div
-          className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950"
-          role="alert"
-        >
+        <div className="practice-alert" role="alert">
           {mode === 'DAILY_REVIEW' ? (
-            <p className="font-bold">{t('setup.modes.DAILY_REVIEW.empty')}</p>
+            <p className="practice-alert-title">
+              {t('setup.modes.DAILY_REVIEW.empty')}
+            </p>
           ) : (
             <>
-              <p className="font-bold">
+              <p className="practice-alert-title">
                 {t('setup.noEligibleTitle', {
                   mode: t(`setup.modes.${mode}.label`)
                 })}
               </p>
-              <p className="mt-1 leading-6">
+              <p className="practice-alert-body">
                 {t('setup.noEligibleDescription')}
               </p>
             </>
           )}
           {mode !== 'RANDOM' ? (
             <Button
-              className="mt-3"
+              className="practice-alert-action"
               size="sm"
               variant="secondary"
               onClick={onSelectRandom}
