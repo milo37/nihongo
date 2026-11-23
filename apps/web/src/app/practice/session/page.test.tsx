@@ -924,6 +924,42 @@ describe('PracticeSessionPage', () => {
     )
   })
 
+  it('다음 문제는 카드 처음부터 보이고, 초점은 화면을 움직이지 않고 제목으로 간다 (#1234)', async ({
+    onTestFinished
+  }) => {
+    const focus = vi.spyOn(HTMLElement.prototype, 'focus')
+    const scrollIntoView = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+    onTestFinished(() => {
+      focus.mockRestore()
+      Reflect.deleteProperty(Element.prototype, 'scrollIntoView')
+      vi.restoreAllMocks()
+    })
+    const user = userEvent.setup()
+    const payload = await startSession(3)
+    renderSession(payload.session.id)
+    await screen.findByRole('heading', { level: 1 })
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '다음' })).toBeEnabled()
+    )
+    // The learner has scrolled down to the options: the card starts above.
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockReturnValue(
+      DOMRect.fromRect({ x: 0, y: -400, width: 390, height: 800 })
+    )
+    await user.click(screen.getByRole('button', { name: '다음' }))
+    const heading = await screen.findByRole('heading', { level: 1 })
+    await waitFor(() => expect(heading).toHaveTextContent('2번 문제.'))
+    await waitFor(() => expect(heading).toHaveFocus())
+    const headingFocus = focus.mock.calls.filter(
+      (_, index) => focus.mock.contexts[index] === heading
+    )
+    expect(headingFocus).toContainEqual([{ preventScroll: true }])
+    expect(headingFocus).not.toContainEqual([])
+    const stage = scrollIntoView.mock.contexts.at(-1) as Element | undefined
+    expect(scrollIntoView).toHaveBeenLastCalledWith({ block: 'start' })
+    expect(stage?.contains(heading)).toBe(true)
+  })
+
   it('자동 저장 중에도 [제출하기] 모양을 유지하고, 누르면 저장 뒤 제출한다 (#985)', async () => {
     await loginAsUser()
     const user = userEvent.setup()

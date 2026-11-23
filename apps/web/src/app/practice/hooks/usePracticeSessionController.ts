@@ -59,11 +59,14 @@ const INLINE_DRAFT_STATUS_CODES = [
 
 type UsePracticeSessionControllerInput = {
   headingRef: RefObject<HTMLHeadingElement | null>
+  /** #1234: where a question card starts (its passage, else its number). */
+  stageRef: RefObject<HTMLElement | null>
   sessionId: string
 }
 
 export const usePracticeSessionController = ({
   headingRef,
+  stageRef,
   sessionId
 }: UsePracticeSessionControllerInput) => {
   const navigate = useNavigate()
@@ -280,13 +283,19 @@ export const usePracticeSessionController = ({
 
   useEffect(() => {
     if (canFocusCurrentQuestion && !isNavigationPromptBlocked) {
-      headingRef.current?.focus()
+      // #1234: screen readers still read the new question, but the page
+      // shows the card from its start, never jumping to the question.
+      headingRef.current?.focus({ preventScroll: true })
+      const stage = stageRef.current
+      if (stage && stage.getBoundingClientRect().top < 0)
+        stage.scrollIntoView({ block: 'start' })
     }
   }, [
     canFocusCurrentQuestion,
     currentQuestion?.id,
     headingRef,
-    isNavigationPromptBlocked
+    isNavigationPromptBlocked,
+    stageRef
   ])
 
   const movePrevious = (): void => {
