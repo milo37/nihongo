@@ -38,7 +38,7 @@ export const ResumableRecord = ({
             inside the subject (JLP-872). */}
         <h3>
           {item.level}{' '}
-          <span className="whitespace-nowrap">
+          <span className="practice-resume-subject">
             {commonT(`taxonomy.subjects.${item.subject}`)}
           </span>
         </h3>
