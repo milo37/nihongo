@@ -24,9 +24,14 @@ export const PracticeSessionPage = (): ReactElement => {
   const { t } = useTranslation('practice')
   const { sessionId = '' } = useParams()
   const headingRef = useRef<HTMLHeadingElement>(null)
+  const stageRef = useRef<HTMLDivElement>(null)
   const submitButtonRef = useRef<HTMLButtonElement>(null)
   const [isQuestionSheetOpen, setQuestionSheetOpen] = useState(false)
-  const session = usePracticeSessionController({ headingRef, sessionId })
+  const session = usePracticeSessionController({
+    headingRef,
+    stageRef,
+    sessionId
+  })
   const push = useQuestionPush(
     session.safeQuestionIndex,
     Boolean(session.currentQuestion) &&
@@ -103,7 +108,7 @@ export const PracticeSessionPage = (): ReactElement => {
           sessionData={data}
         />
 
-        <div className="study-card-stage">
+        <div ref={stageRef} className="study-card-stage">
           {leaving ? (
             <LeavingQuestionCard
               key={`leaving-${push.key}`}
