@@ -92,8 +92,10 @@ export const PracticeQuestionCard = ({
     >
       {question.passage ? (
         <QuestionPassage
+          key={question.id}
           furigana={question.passageFurigana}
           isDecorative={isDecorative}
+          isSamePassage={Boolean(question.isSamePassageAsPrevious)}
           passage={question.passage}
           passageAudio={question.passageAudio ?? null}
           passageRef={passageRef}

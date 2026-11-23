@@ -50,6 +50,7 @@ earlier one at the same specificity, so a file's place in the list matters.
 |              | my/study.css                         | My page: my study                               |
 |              | bookmark/bookmark.css                | Bookmarks                                       |
 |              | bookmark/report.css                  | Question report dialog                          |
+|              | same-passage.css                     | Solve and result: same-passage note, fold       |
 | 5-motion     | keyframes-\*.css                     | `@keyframes` only, by the part that uses them   |
 |              | reduced-motion.css                   | Every `prefers-reduced-motion` override         |
 
