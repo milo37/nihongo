@@ -1,7 +1,7 @@
 # Question import v1 (STAGING and PRODUCTION)
 
-How to put the reviewed question set (888 questions, 18 tags) on a new
-environment after its first deploy: load the tag list, import the twenty files,
+How to put the reviewed question set (933 questions, 18 tags) on a new
+environment after its first deploy: load the tag list, import the twenty-one files,
 then request review, approve and publish in bulk from the admin question list.
 The same path ran end to end on an empty local database (see "Local
 rehearsal").
@@ -15,10 +15,10 @@ runbook. The API starts without tags; the import refuses unknown tags.
 
 ## Inputs (in the repository)
 
-| What            | File                                                                                                                                                                                                                                                                                                                                  |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Tag list (18)   | `content/taxonomy/tags.v2.json`                                                                                                                                                                                                                                                                                                       |
-| Questions (888) | `content/question-imports/n5.v1.json`, `n4.v1.json`, `n3.v1.json`, `n2.v1.json`, `n1.v1.json` (50 each, #785), `n5.add.v1.json` … `n1.add.v1.json` (50 each, JLP-816), `n5.add2.v1.json` … `n1.add2.v1.json` (50 each, #1081) and `n5.kanji.v1.json` … `n1.kanji.v1.json` (27/28/28/27/28 kanji reading, #1043); 100 per file at most |
+| What            | File                                                                                                                                                                                                                                                                                                                                                                                            |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tag list (18)   | `content/taxonomy/tags.v2.json`                                                                                                                                                                                                                                                                                                                                                                 |
+| Questions (933) | `content/question-imports/n5.v1.json`, `n4.v1.json`, `n3.v1.json`, `n2.v1.json`, `n1.v1.json` (50 each, #785), `n5.add.v1.json` … `n1.add.v1.json` (50 each, JLP-816), `n5.add2.v1.json` … `n1.add2.v1.json` (50 each, #1081) and `n5.kanji.v1.json` … `n1.kanji.v1.json` (27/28/28/27/28 kanji reading, #1043) and `n1.b1.v1.json` (45 N1 reading on 30 passages, #1239); 100 per file at most |
 
 Use the files of the release that is deployed (`/opt/harumaru/current-release`).
 
@@ -49,7 +49,7 @@ docker compose --profile operator run --rm --no-deps -T \
   as in `first-admin.v1.md`, and read the line with
   `aws ssm get-command-invocation`.
 
-## 2. Import the twenty files (admin, browser)
+## 2. Import the twenty-one files (admin, browser)
 
 As the first admin, open `/admin/questions/import`. For each file, in the
 order of the table above:
@@ -86,10 +86,10 @@ batches share one limit: **30 calls per 15 minutes**, per admin and per IP
 
 | Work                                   | Calls  |
 | -------------------------------------- | ------ |
-| Import apply (20 files)                | 20     |
-| Review request (888 drafts, 20 a call) | 45     |
-| Approve (9 pages)                      | 9      |
-| Publish (9 pages)                      | 9      |
+| Import apply (21 files)                | 21     |
+| Review request (933 drafts, 20 a call) | 47     |
+| Approve (10 pages)                     | 10     |
+| Publish (10 pages)                     | 10     |
 | **Total**                              | **83** |
 
 That is three 15-minute windows, about 30 minutes or more:
@@ -107,11 +107,11 @@ with Google again (fresh sign-in).
 
 ## Check
 
-- `/admin/questions` with the filter **공개본 있음** shows 888.
+- `/admin/questions` with the filter **공개본 있음** shows 933.
 - A learner account starts an N5 vocabulary session and gets questions.
 - On the host (optional):
   `docker compose exec -T postgres psql -U postgres -d nihongo -c 'SELECT count(*) FROM "Question" WHERE "currentPublishedVersionId" IS NOT NULL'`
-  returns 888, and `SELECT count(*) FROM "Tag"` returns 18.
+  returns 933, and `SELECT count(*) FROM "Tag"` returns 18.
 
 ## If something fails
 
