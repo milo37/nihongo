@@ -12,6 +12,9 @@ import { practiceContractV2HeadersSchema } from './practice-contract.js'
 
 export const createStudySessionOperationId = 'study.createStudySession' as const
 
+/** #1244: a new reading set holds at most this many questions. */
+export const READING_SESSION_QUESTION_LIMIT = 10
+
 export const createStudySessionBodySchema = z
   .object({
     level: jlptLevelSchema,
@@ -41,6 +44,16 @@ export const createStudySessionV2BodySchema = createStudySessionBodySchema
         path: ['reviewFilter'],
         message:
           'reviewFilter는 DAILY_REVIEW 또는 WRONG_NOTE mode에서만 사용할 수 있습니다.'
+      })
+    }
+    if (
+      body.subject === 'READING' &&
+      body.count > READING_SESSION_QUESTION_LIMIT
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['count'],
+        message: `독해는 ${READING_SESSION_QUESTION_LIMIT}문제까지 고를 수 있습니다.`
       })
     }
   })

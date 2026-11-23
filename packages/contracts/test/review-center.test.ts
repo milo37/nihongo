@@ -103,6 +103,21 @@ describe('Review center contracts', () => {
         questionIds: [id(1)]
       }).success
     ).toBe(false)
+
+    // #1244: a new reading set takes at most 10; other subjects still 20.
+    const reading = { ...createBody, subject: 'READING' as const }
+    expect(
+      createStudySessionV2BodySchema.safeParse({ ...reading, count: 20 })
+        .success
+    ).toBe(false)
+    expect(
+      createStudySessionV2BodySchema.safeParse({ ...reading, count: 10 })
+        .success
+    ).toBe(true)
+    expect(
+      createStudySessionV2BodySchema.safeParse({ ...createBody, count: 20 })
+        .success
+    ).toBe(true)
   })
 
   it('memo는 ECMAScript trim·Unicode code point 2000 경계와 delete null을 고정한다', () => {
