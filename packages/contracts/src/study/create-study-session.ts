@@ -12,7 +12,7 @@ import { practiceContractV2HeadersSchema } from './practice-contract.js'
 
 export const createStudySessionOperationId = 'study.createStudySession' as const
 
-/** #1244: a new reading set holds at most this many questions. */
+/** #1244: a new random reading set holds at most this many questions. */
 export const READING_SESSION_QUESTION_LIMIT = 10
 
 export const createStudySessionBodySchema = z
@@ -46,7 +46,9 @@ export const createStudySessionV2BodySchema = createStudySessionBodySchema
           'reviewFilter는 DAILY_REVIEW 또는 WRONG_NOTE mode에서만 사용할 수 있습니다.'
       })
     }
+    // Only the study tab's random sets; review modes keep their size.
     if (
+      body.mode === 'RANDOM' &&
       body.subject === 'READING' &&
       body.count > READING_SESSION_QUESTION_LIMIT
     ) {

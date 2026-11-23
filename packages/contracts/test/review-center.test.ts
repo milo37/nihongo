@@ -104,8 +104,13 @@ describe('Review center contracts', () => {
       }).success
     ).toBe(false)
 
-    // #1244: a new reading set takes at most 10; other subjects still 20.
-    const reading = { ...createBody, subject: 'READING' as const }
+    // #1244: a new random reading set takes at most 10; other subjects and
+    // review modes still 20.
+    const reading = {
+      ...createBody,
+      mode: 'RANDOM' as const,
+      subject: 'READING' as const
+    }
     expect(
       createStudySessionV2BodySchema.safeParse({ ...reading, count: 20 })
         .success
@@ -118,6 +123,15 @@ describe('Review center contracts', () => {
       createStudySessionV2BodySchema.safeParse({ ...createBody, count: 20 })
         .success
     ).toBe(true)
+    for (const mode of ['BOOKMARK', 'WRONG_NOTE', 'WEAKNESS'] as const) {
+      expect(
+        createStudySessionV2BodySchema.safeParse({
+          ...reading,
+          mode,
+          count: 20
+        }).success
+      ).toBe(true)
+    }
   })
 
   it('memo는 ECMAScript trim·Unicode code point 2000 경계와 delete null을 고정한다', () => {

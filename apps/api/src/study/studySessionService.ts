@@ -125,8 +125,10 @@ export const createStudySessionService = (
         retryable: false
       })
     }
-    // #1244: reading sets stop at 10; sets made before keep their size.
+    // #1244: random reading sets stop at 10; review modes and sets made
+    // before keep their size.
     if (
+      input.mode === 'RANDOM' &&
       input.subject === 'READING' &&
       input.count > READING_SESSION_QUESTION_LIMIT
     ) {

@@ -112,7 +112,7 @@ describe('guest study session limits (#737)', () => {
     }
   )
 
-  it('caps a new member reading set at 10 and leaves other subjects at 20 (#1244)', async () => {
+  it('caps a new random reading set at 10 and leaves other subjects and review modes at 20 (#1244)', async () => {
     const create = vi.fn().mockRejectedValue(new Error('reached repository'))
     const service = createService(create)
     const reading = (count: number) =>
@@ -127,7 +127,13 @@ describe('guest study session limits (#737)', () => {
     await expect(service.create(body('RANDOM', 20), member)).rejects.toThrow(
       'reached repository'
     )
-    expect(create).toHaveBeenCalledTimes(2)
+    await expect(
+      service.create(
+        { ...body('BOOKMARK', 20), subject: 'READING' } as const,
+        member
+      )
+    ).rejects.toThrow('reached repository')
+    expect(create).toHaveBeenCalledTimes(3)
   })
 
   it('does not limit members', async () => {
