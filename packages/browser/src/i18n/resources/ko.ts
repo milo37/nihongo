@@ -730,7 +730,9 @@ export const koCoreResources = {
           pause: '멈춤',
           position: '재생 위치',
           restart: '처음부터',
-          speed: '속도 {{rate}}배'
+          speed: '속도 {{rate}}배',
+          failedTitle: '음성을 불러오지 못했어요',
+          failedDescription: '잠시 뒤 다시 눌러 주세요.'
         },
         numberLabel: '{{ordinal}}번 문제.',
         answerLegend: '보기'

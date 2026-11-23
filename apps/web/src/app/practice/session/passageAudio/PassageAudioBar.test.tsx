@@ -5,6 +5,7 @@ import type { PassageAudioRef } from '@nihongo/contracts/question/passage-audio'
 import type { StudyQuestionView } from '@app/practice/adapters/studySessionView'
 import { PracticeQuestionCard } from '@app/practice/session/components/PracticeQuestionCard'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
+import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import { clearStorageCache } from '@nihongo/browser/libs/storage'
 
@@ -33,17 +34,19 @@ const question = (passageAudio: PassageAudioRef | null): StudyQuestionView => ({
 
 const card = (audio: PassageAudioRef | null) => (
   <I18nProvider>
-    <PracticeQuestionCard
-      actions={null}
-      bookmarkStatus={null}
-      headingRef={createRef()}
-      isOptionsDisabled={false}
-      onSelectOption={() => undefined}
-      question={question(audio)}
-      questionNumber={1}
-      saveStatus={null}
-      selectedOptionId={undefined}
-    />
+    <ToastProvider>
+      <PracticeQuestionCard
+        actions={null}
+        bookmarkStatus={null}
+        headingRef={createRef()}
+        isOptionsDisabled={false}
+        onSelectOption={() => undefined}
+        question={question(audio)}
+        questionNumber={1}
+        saveStatus={null}
+        selectedOptionId={undefined}
+      />
+    </ToastProvider>
   </I18nProvider>
 )
 
@@ -142,5 +145,112 @@ describe('passage read-aloud bar (#1183)', () => {
     expect(play).toHaveBeenCalledTimes(1)
     expect(screen.getByRole('button', { name: '멈춤' })).toBeInTheDocument()
     play.mockRestore()
+  })
+})
+
+describe('passage read-aloud failure (#1246)', () => {
+  beforeEach(() => {
+    writeUiLocalePreference('ko')
+    clearStorageCache()
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  const setup = () =>
+    userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTime(ms) })
+  const listen = () => screen.getByRole('button', { name: '듣기' })
+  const warning = () =>
+    within(screen.getByRole('region', { name: '알림' })).queryAllByText(
+      '음성을 불러오지 못했어요'
+    )
+
+  it('a file that will not load warns once, keeps [듣기] waiting, then retries', async () => {
+    const user = setup()
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play')
+    render(card(AUDIO))
+    await user.click(listen())
+    const first = play.mock.contexts[0] as HTMLMediaElement
+    // 404 or the network gone: the element reports an error.
+    act(() => {
+      first.dispatchEvent(new Event('error'))
+    })
+    expect(screen.queryByRole('slider')).toBeNull()
+    expect(listen()).toHaveAttribute('aria-disabled', 'true')
+    expect(listen()).toHaveAttribute('aria-expanded', 'false')
+    expect(warning()).toHaveLength(1)
+
+    // Pressing while it waits does nothing and warns no more.
+    await user.click(listen())
+    expect(screen.queryByRole('slider')).toBeNull()
+    expect(warning()).toHaveLength(1)
+    expect(play).toHaveBeenCalledTimes(1)
+
+    act(() => {
+      vi.advanceTimersByTime(10_000)
+    })
+    expect(listen()).not.toHaveAttribute('aria-disabled')
+    // The retry loads the file again and plays.
+    await user.click(listen())
+    expect(play).toHaveBeenCalledTimes(2)
+    expect(play.mock.contexts[1]).not.toBe(first)
+    expect(screen.getByRole('slider')).toBeInTheDocument()
+  })
+
+  it('a refused play fails the same way, and waits longer the second time', async () => {
+    const user = setup()
+    const play = vi
+      .spyOn(HTMLMediaElement.prototype, 'play')
+      .mockRejectedValue(new DOMException('no source', 'NotSupportedError'))
+    render(card(AUDIO))
+    await user.click(listen())
+    expect(await screen.findByText('음성을 불러오지 못했어요')).toBeVisible()
+    expect(listen()).toHaveAttribute('aria-disabled', 'true')
+
+    act(() => {
+      vi.advanceTimersByTime(10_000)
+    })
+    await user.click(listen())
+    await vi.waitFor(() =>
+      expect(listen()).toHaveAttribute('aria-disabled', 'true')
+    )
+    act(() => {
+      vi.advanceTimersByTime(10_000)
+    })
+    // The second wait is 30 seconds.
+    expect(listen()).toHaveAttribute('aria-disabled', 'true')
+    act(() => {
+      vi.advanceTimersByTime(20_000)
+    })
+    expect(listen()).not.toHaveAttribute('aria-disabled')
+    expect(play).toHaveBeenCalledTimes(2)
+  })
+
+  it('a failure while playing closes the bar', async () => {
+    const user = setup()
+    const play = vi.spyOn(HTMLMediaElement.prototype, 'play')
+    render(card(AUDIO))
+    await user.click(listen())
+    const audio = play.mock.contexts[0] as HTMLMediaElement
+    expect(screen.getByRole('button', { name: '멈춤' })).toBeInTheDocument()
+    act(() => {
+      audio.dispatchEvent(new Event('error'))
+    })
+    expect(screen.queryByRole('slider')).toBeNull()
+    expect(listen()).toHaveAttribute('aria-disabled', 'true')
+    expect(warning()).toHaveLength(1)
+  })
+
+  it('a play the browser holds back (autoplay rules) is not a failure', async () => {
+    const user = setup()
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockRejectedValue(
+      new DOMException('needs a tap', 'NotAllowedError')
+    )
+    render(card(AUDIO))
+    await user.click(screen.getByRole('button', { name: '듣기' }))
+    expect(screen.getByRole('slider')).toBeInTheDocument()
+    expect(screen.queryByText('음성을 불러오지 못했어요')).toBeNull()
   })
 })
