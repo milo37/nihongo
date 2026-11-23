@@ -106,7 +106,7 @@ export const ResultSummary = ({
         formatCount={formatCount}
       />
       {unansweredCount > 0 ? (
-        <p className="mt-1 text-sm leading-6 text-muted">{t('outcomesNote')}</p>
+        <p className="study-result-outcomes-note">{t('outcomesNote')}</p>
       ) : null}
     </div>
   )

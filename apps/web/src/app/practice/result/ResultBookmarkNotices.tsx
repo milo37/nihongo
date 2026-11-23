@@ -23,10 +23,7 @@ export const ResultBookmarkNotices = ({
       {!isGuest && bookmarksQuery.fetchStatus === 'paused' ? (
         <WarningNotice>{t('bookmark.loadOffline')}</WarningNotice>
       ) : !isGuest && bookmarksQuery.isError ? (
-        <div
-          className="flex flex-wrap items-center gap-3 rounded-lg border border-danger-line bg-danger-soft p-4 text-sm font-semibold text-danger"
-          role="alert"
-        >
+        <div className="study-result-bookmark-error" role="alert">
           <span>{t('bookmark.loadError')}</span>
           <Button
             variant="outline"

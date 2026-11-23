@@ -44,7 +44,7 @@ const PracticeResultPageContent = (): ReactElement => {
   const { bookmark, createRetrySession } = result
 
   return (
-    <section className="learning-note study-page study-result mx-auto max-w-[760px] px-4 py-10 sm:px-6 lg:py-14">
+    <section className="learning-note study-page study-result">
       <div className="study-result-main">
         {result.isResultSourceUnavailable ? (
           <ResultSourceNotice
@@ -95,7 +95,7 @@ const PracticeResultPageContent = (): ReactElement => {
           retryMessage={result.retryMessage}
         />
 
-        <div className="study-explanations mt-10 space-y-4">
+        <div className="study-explanations">
           {/* Named for screen readers only; the B4 page shows no subheads. */}
           <h2 id="result-explanations" className="sr-only">
             {t('items.title')}

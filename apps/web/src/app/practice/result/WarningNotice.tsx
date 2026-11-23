@@ -11,7 +11,7 @@ export const WarningNotice = ({
   children: ReactNode
 }): ReactElement => (
   <p
-    className={`${spaced ? 'mt-4 ' : ''}rounded-lg border border-warning-line bg-warning-soft px-4 py-3 text-sm font-semibold text-warning-strong`}
+    className={`${spaced ? 'study-result-warning-spaced ' : ''}study-result-warning`}
     role="status"
     aria-live={live ? 'polite' : undefined}
   >

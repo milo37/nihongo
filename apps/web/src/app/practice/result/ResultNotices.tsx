@@ -21,16 +21,13 @@ export const ResultSourceNotice = ({
   const { t } = useTranslation('result')
   const { t: commonT } = useTranslation('common')
   return (
-    <div
-      className="mb-6 rounded-lg border border-warning-line bg-warning-soft p-4 text-sm text-warning-strong"
-      role={isError ? 'alert' : 'status'}
-    >
-      <p className="font-semibold">
+    <div className="study-result-stale" role={isError ? 'alert' : 'status'}>
+      <p className="study-notice-title">
         {t(isPaused ? 'error.cachedOffline' : 'error.staleDescription')}
       </p>
       {isError ? (
         <Button
-          className="mt-3"
+          className="study-notice-action"
           size="sm"
           variant="secondary"
           onClick={onRetry}
@@ -72,7 +69,7 @@ export const ResultRetryNotice = ({
     return (
       <EmptyState
         autoFocus
-        className="mt-4 rounded-lg border border-warning-line bg-warning-soft"
+        className="study-result-no-retry"
         title={t('retry.noEligibleTitle')}
         description={t('retry.noEligibleDescription')}
         action={newPracticeLink}
@@ -92,16 +89,22 @@ export const ResultRetryNotice = ({
     )
   }
   if (isRetryAccountRestricted) {
-    return <AccountRestrictedNotice className="mt-4" focusOnMount />
+    return (
+      <AccountRestrictedNotice
+        className="study-result-restricted"
+        focusOnMount
+      />
+    )
   }
   if (hasRetryRequestError) {
     return (
-      <div
-        className="mt-4 rounded-lg border border-danger-line bg-danger-soft p-4 text-sm text-danger-strong"
-        role="alert"
-      >
-        <p className="font-bold">{t('retry.errorTitle')}</p>
-        <p className="mt-1 leading-6">{t('retry.errorDescription')}</p>
+      <div className="study-result-retry-error" role="alert">
+        <p className="study-result-retry-error-title">
+          {t('retry.errorTitle')}
+        </p>
+        <p className="study-result-retry-error-text">
+          {t('retry.errorDescription')}
+        </p>
       </div>
     )
   }

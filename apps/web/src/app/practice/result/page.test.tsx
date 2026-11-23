@@ -961,7 +961,7 @@ describe('approved general result navigation', () => {
     expect(retry.className).not.toContain('bg-brand')
     const next = within(actions).getByRole('button', { name: '다음 10문제' })
     expect(next.className).toContain('bg-brand')
-    expect(next.className).toContain('h-12')
+    expect(next.className).toContain('study-result-button')
     expect(within(actions).queryByRole('link')).toBeNull()
     memberView.view.unmount()
     member.client.clear()
@@ -1142,7 +1142,7 @@ describe('approved general result navigation', () => {
     // JLP-878: the words stay; only the ribbon fills, with no pressed box.
     expect(saved).toHaveTextContent(/^책갈피$/u)
     expect(saved).toHaveClass('ui-button-toggle-icon')
-    expect(saved.className).toContain('aria-pressed:[&_svg]:fill-current')
+    expect(saved.className).toContain('study-result-bookmark')
     view.unmount()
     fixture.client.clear()
   })

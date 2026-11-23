@@ -90,6 +90,29 @@ it('stays still when home opens again in the same page load (#997)', async () =>
   }
 })
 
+it('gives each blank one square, so side-by-side blanks stay apart', async () => {
+  const key = dailyQuestionQueries.get('N5').queryKey
+  const data = client.getQueryData(key)!
+  client.setQueryData(key, {
+    ...data,
+    question: {
+      ...data.question,
+      questionText: '制度は、＿＿ ＿＿ ★ ＿＿導入された'
+    }
+  })
+  renderCard()
+  const daily = await findDaily()
+  for (const sheet of sheets(daily)) {
+    const chars = Array.from(sheet.querySelectorAll('.home-daily-char'))
+    expect(chars.map((char) => char.textContent).join('|')).toBe(
+      '制|度|は|、|＿|＿|★|＿|導|入|さ|れ|た'
+    )
+    expect(
+      chars.map((char) => (char as SVGElement).style.getPropertyValue('--i'))
+    ).toEqual(chars.map((_, index) => String(index)))
+  }
+})
+
 it('shows a question that fits only the wide sheet once on screen (#1036)', async () => {
   // 40 squares: three rows of 15 fit, three rows of 12 do not.
   const key = dailyQuestionQueries.get('N5').queryKey

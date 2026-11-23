@@ -25,7 +25,7 @@ export const ResultScoreHeading = ({
   itemCount: number
   animateGrading: boolean
 }): ReactElement => (
-  <h1 ref={headingRef} className="result-b4-score outline-none" tabIndex={-1}>
+  <h1 ref={headingRef} className="result-b4-score" tabIndex={-1}>
     {scoreBefore}
     <b
       className={
@@ -92,7 +92,7 @@ export const ResultStatusLine = ({
         </Link>
       </p>
     ) : (
-      <p className="mt-2 text-sm leading-6 text-muted">
+      <p className="study-result-status-note">
         {t('status.guestAllCorrect')}
         <Link
           className="note-link ms-2"
@@ -103,7 +103,7 @@ export const ResultStatusLine = ({
       </p>
     )
   ) : incorrectCount > 0 ? (
-    <p className="mt-2 text-sm leading-6 text-muted">
+    <p className="study-result-status-note">
       {t('status.savedWrongCount', {
         formattedCount: formatCount(incorrectCount)
       })}

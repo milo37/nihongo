@@ -12,18 +12,15 @@ export const ResultRushLine = ({
 }): ReactElement => {
   const { t } = useTranslation('practice')
   return (
-    <p className="mt-10 text-[14px] leading-5 text-muted">
+    <p className="study-result-rush-line">
       {t('rush.fromResult')} ·{' '}
       {/* Only the link is tappable: 44px tall, never split, the › outside
           the underline after a flex gap (design). */}
       <Link
-        className="inline-flex min-h-11 items-center gap-1 whitespace-nowrap text-ink"
+        className="study-result-rush-link"
         to={`/practice/rush?level=${level}`}
       >
-        <span className="underline decoration-1 underline-offset-[3px]">
-          {t('rush.entry')}
-        </span>{' '}
-        ›
+        <span className="study-result-rush-label">{t('rush.entry')}</span> ›
       </Link>
     </p>
   )

@@ -130,11 +130,14 @@ describe('furigana passage list (#1182)', () => {
     const list = parseFuriganaPassageList(readFileSync(listFile))
 
     expect(list.passages).toHaveLength(imported.length)
-    // Content reviewed every passage (2026-11-21); the reviewer is a role.
+    // Content reviewed every passage (2026-11-21; the 60 B1/B2 passages of
+    // #1239 on 2026-11-23); the reviewer is a role.
+    const reviewDays = ['2026-11-21', '2026-11-23']
     expect(
       list.passages.filter(
         (entry) =>
-          entry.reviewedBy !== 'content' || entry.reviewedAt !== '2026-11-21'
+          entry.reviewedBy !== 'content' ||
+          !reviewDays.includes(entry.reviewedAt ?? '')
       )
     ).toEqual([])
     // Each ruby group, grouped ones like {一人|ひとり} too, stays inside one
