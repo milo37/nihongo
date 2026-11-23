@@ -43,3 +43,29 @@ describe('JaText ruby (#1182)', () => {
     ])
   })
 })
+
+describe('JaText reading mark (#1183)', () => {
+  it('wraps only the marked part, inside a reading group too', () => {
+    const { container } = render(
+      <JaText
+        mark={{ from: 1, to: 3 }}
+        ruby={[{ from: 0, to: 2, reading: 'きょう' }]}
+        text="今日は雨"
+      />
+    )
+    expect(
+      [...container.querySelectorAll('.study-read-mark')].map(
+        (span) => span.textContent
+      )
+    ).toEqual(['日', 'は'])
+    expect(container.textContent).toBe('今日きょうは雨')
+  })
+
+  it('marks text without readings', () => {
+    const { container } = render(
+      <JaText mark={{ from: 2, to: 3 }} text="今日は雨" />
+    )
+    expect(container.querySelector('.study-read-mark')?.textContent).toBe('は')
+    expect(container.textContent).toBe('今日は雨')
+  })
+})

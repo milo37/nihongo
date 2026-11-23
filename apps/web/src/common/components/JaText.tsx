@@ -53,65 +53,93 @@ const heldRanges = (
   return ranges
 }
 
+/** #1183: the word being read aloud, text[from, to) (UTF-16 offsets). */
+export type JaMark = { readonly from: number; readonly to: number }
+
+// Plain text[from, to), with the part under the mark in its own span.
+const marked = (
+  text: string,
+  from: number,
+  to: number,
+  mark: JaMark | undefined
+): ReactNode[] => {
+  if (!mark || mark.to <= from || mark.from >= to) return [text.slice(from, to)]
+  const start = Math.max(from, mark.from)
+  const end = Math.min(to, mark.to)
+  return [
+    text.slice(from, start),
+    <span key={`mark-${start}`} className="study-read-mark">
+      {text.slice(start, end)}
+    </span>,
+    text.slice(end, to)
+  ].filter((node) => node !== '')
+}
+
 const withRuby = (
   text: string,
   from: number,
   to: number,
-  ruby: readonly JaRuby[]
+  ruby: readonly JaRuby[],
+  mark: JaMark | undefined
 ): ReactNode[] => {
   const nodes: ReactNode[] = []
   let at = from
   for (const group of ruby) {
     if (group.from < from || group.to > to) continue
-    if (group.from > at) nodes.push(text.slice(at, group.from))
+    if (group.from > at) nodes.push(...marked(text, at, group.from, mark))
     nodes.push(
       <ruby key={group.from}>
-        {text.slice(group.from, group.to)}
+        {marked(text, group.from, group.to, mark)}
         <rt>{group.reading}</rt>
       </ruby>
     )
     at = group.to
   }
-  if (at < to) nodes.push(text.slice(at, to))
+  if (at < to) nodes.push(...marked(text, at, to, mark))
   return nodes
 }
 
 const JaRubyText = ({
+  mark,
   ruby,
   text
 }: {
+  mark: JaMark | undefined
   ruby: readonly JaRuby[]
   text: string
 }): ReactElement => {
   const nodes: ReactNode[] = []
   let at = 0
   for (const [from, to] of heldRanges(text, ruby)) {
-    nodes.push(...withRuby(text, at, from, ruby))
+    nodes.push(...withRuby(text, at, from, ruby, mark))
     nodes.push(
       <Held key={`held-${from}`} text={text.slice(from, to)}>
-        {withRuby(text, from, to, ruby)}
+        {withRuby(text, from, to, ruby, mark)}
       </Held>
     )
     at = to
   }
-  nodes.push(...withRuby(text, at, text.length, ruby))
+  nodes.push(...withRuby(text, at, text.length, ruby, mark))
   return <>{nodes}</>
 }
 
 /**
  * Japanese text whose brackets and 。/、 stay with their neighbours on line
  * breaks (JLP-865). Renders inside the element that carries jaTextProps.
- * With `ruby` (#1182) the readings sit over their groups.
+ * With `ruby` (#1182) the readings sit over their groups; with `mark`
+ * (#1183) the word being read aloud gets its own span.
  */
 export const JaText = ({
+  mark,
   ruby,
   text
 }: {
+  mark?: JaMark | undefined
   ruby?: readonly JaRuby[] | undefined
   text: string
 }): ReactElement =>
-  ruby?.length ? (
-    <JaRubyText ruby={ruby} text={text} />
+  ruby?.length || mark ? (
+    <JaRubyText mark={mark} ruby={ruby ?? []} text={text} />
   ) : (
     <>
       {jaLineSegments(text).map((segment, index) =>
