@@ -16,6 +16,8 @@ interface StudyResultQuestionView {
   subject: QuestionSubject
   questionType: QuestionType
   passage: string | null
+  /** #986: questions on the same passage share it; absent from older APIs. */
+  passageId?: string | null
   questionText: string
   options: PracticeQuestionOption[]
   difficulty: QuestionDifficulty
@@ -95,6 +97,7 @@ export const toCanonicalStudyResultView = (
         subject: item.question.subject,
         questionType: item.question.questionType,
         passage: item.question.passage,
+        passageId: item.question.passageId ?? null,
         questionText: item.question.questionText,
         options: item.question.options,
         difficulty: item.question.difficulty,
