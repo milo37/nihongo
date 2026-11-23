@@ -1087,11 +1087,12 @@ describe('Study submission PostgreSQL transaction', () => {
         '#1242 게스트 이어짐에는 published 문제 2개가 필요합니다.'
       )
     }
-    const baseTime = Date.now()
+    // Every time comes after the guest was made, so the guest is found.
+    const baseTime = Date.now() + 1_000
     const importedSessionId = await submitPinned(
       guestOwner,
       guestSeen,
-      new Date(baseTime - DAY_MS)
+      new Date(baseTime)
     )
     // The guest already gets it last.
     expect(
@@ -1099,7 +1100,7 @@ describe('Study submission PostgreSQL transaction', () => {
         await startRandomSet(
           guestOwner,
           pinnedQuestions.length,
-          new Date(baseTime - DAY_MS + 5_000)
+          new Date(baseTime + 5_000)
         )
       ).at(-1)
     ).toBe(guestSeen.questionId)
@@ -1110,7 +1111,7 @@ describe('Study submission PostgreSQL transaction', () => {
         createPrismaGuestResultImportRepository(database.client)
       ).importLast({
         guest: { id: inspected.id, tokenDigest: inspected.tokenDigest },
-        observedAt: new Date(baseTime),
+        observedAt: new Date(baseTime + 8_000),
         userId
       })
     ).resolves.toMatchObject({ importedSessionId })
