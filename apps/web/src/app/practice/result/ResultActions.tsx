@@ -1,4 +1,3 @@
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement } from 'react'
@@ -13,12 +12,8 @@ import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 import { useStartNextSet } from '@app/practice/result/useStartNextSet'
 import { PracticeSetupFeedback } from '@app/practice/components/PracticeSetupFeedback'
 import { ButtonTriesLeft } from '@app/practice/components/ButtonTriesLeft'
-import {
-  getReviewSetReturnPath,
-  getSetReturnPath,
-  setReturnLabelKey
-} from '@app/practice/setReturnPath'
-import { wrongNoteQueries } from '@app/wrong-note/queries/wrongNoteQueries'
+import { setReturnLabelKey } from '@app/practice/setReturnPath'
+import { useSetReturnPath } from '@app/practice/hooks/useSetReturnPath'
 
 // Outlined buttons add a border; fix both buttons at 48px (ux2 §2-4).
 const SAME_HEIGHT = 'study-result-button'
@@ -60,18 +55,7 @@ export const ResultActions = ({
   const nextSet = useStartNextSet(session, isGuest, requestedCount)
   // JLP-856: a wrong-note or bookmark set goes back to its list instead of
   // offering a random next set.
-  const listPath = isGuest ? null : getSetReturnPath(session.mode)
-  // #1283: what waits for review now, every level, as the list's default
-  // tab counts it (this set's wrong answers are in it). While loading or on
-  // failure the button keeps the wrong-note list.
-  const toReview = useQuery({
-    ...wrongNoteQueries.reviewList({ state: 'TO_REVIEW', pageSize: 1 }),
-    enabled: listPath === '/wrong-notes'
-  })
-  const returnPath = getReviewSetReturnPath(
-    listPath,
-    !toReview.isFetching && toReview.data?.total === 0
-  )
+  const returnPath = useSetReturnPath(session.mode, isGuest)
   return (
     <section
       className="study-result-actions"
