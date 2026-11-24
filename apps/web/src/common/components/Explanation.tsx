@@ -22,10 +22,7 @@ export const Explanation = ({
   const showJa = isJapaneseScreen && hasJapaneseExplanation(explanationJa)
   return (
     <div className="explanation">
-      <p
-        className="explanation-text"
-        lang={showJa ? 'ja' : 'ko'}
-      >
+      <p className="explanation-text" lang={showJa ? 'ja' : 'ko'}>
         {showJa ? explanationJa : explanationKo}
       </p>
       {isJapaneseScreen && !showJa ? (

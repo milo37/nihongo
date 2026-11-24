@@ -13,10 +13,7 @@ export const ConnectionPage = () => {
   const checking = status === 'checking'
   return (
     <main className="connection-page">
-      <section
-        className="connection-card"
-        aria-labelledby="connection-heading"
-      >
+      <section className="connection-card" aria-labelledby="connection-heading">
         <h1 id="connection-heading" className="connection-title">
           {text.title}
         </h1>

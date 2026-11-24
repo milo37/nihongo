@@ -19,9 +19,7 @@ export const StudyListHeader = ({
 }: StudyListHeaderProps): ReactElement => (
   <div className="study-list-header">
     <div className="study-list-count">{count}</div>
-    {aside ? (
-      <div className="study-list-aside">{aside}</div>
-    ) : null}
+    {aside ? <div className="study-list-aside">{aside}</div> : null}
   </div>
 )
 
@@ -55,9 +53,7 @@ export const StudyListRow = ({
     <>
       <div className="study-list-body">
         <p className="study-list-meta">{meta}</p>
-        <p
-          className="study-list-text" lang="ja"
-        >
+        <p className="study-list-text" lang="ja">
           {text}
         </p>
         {sub ? <p className="study-list-sub">{sub}</p> : null}
@@ -65,7 +61,9 @@ export const StudyListRow = ({
       {to || end ? (
         <span className="study-list-end">
           {end}
-          {to ? <Icon name="chevron-right" className="study-list-chevron" /> : null}
+          {to ? (
+            <Icon name="chevron-right" className="study-list-chevron" />
+          ) : null}
         </span>
       ) : null}
     </>
