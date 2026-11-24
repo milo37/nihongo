@@ -7,7 +7,6 @@ import { createMemoryRouter, RouterProvider } from 'react-router'
 import { Layout } from '@app/layout'
 import { AppErrorReportButton } from '@app/question-report/components/AppErrorReportDialog'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
-import { appI18n } from '@nihongo/browser/i18n/config'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { ProtectedRouteProvider } from '@nihongo/browser/provider/ProtectedRouteProvider'
 
@@ -58,7 +57,7 @@ describe('APP_ERROR report entry points', () => {
     mockDatabase.loginAs('USER')
     renderAt('/dashboard', <Layout />)
     const account = await screen.findByRole('button', {
-      name: appI18n.t('navigation:accountMenu.label')
+      name: / 계정 메뉴$/
     })
     // The signed-in trigger shows the member avatar and name.
     await waitFor(() => expect(account).toHaveClass('account-menu-trigger'))

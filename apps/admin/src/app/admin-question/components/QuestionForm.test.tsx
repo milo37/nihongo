@@ -54,13 +54,17 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-const TestProviders = ({ children }: { children: ReactNode }): ReactElement => (
-  <QueryClientProvider
-    client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-  >
-    <I18nProvider>{children}</I18nProvider>
-  </QueryClientProvider>
-)
+// One client per mount, kept across re-renders.
+const TestProviders = ({ children }: { children: ReactNode }): ReactElement => {
+  const [client] = useState(
+    () => new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  )
+  return (
+    <QueryClientProvider client={client}>
+      <I18nProvider>{children}</I18nProvider>
+    </QueryClientProvider>
+  )
+}
 
 const getIssueMessages = (values: unknown): string[] => {
   const result = questionFormSchema.safeParse(values)

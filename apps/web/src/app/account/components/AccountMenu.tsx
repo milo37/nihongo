@@ -56,7 +56,8 @@ export const AccountMenu = ({
         id="account-menu-button"
         type="button"
         className="account-menu-trigger"
-        aria-label={t('accountMenu.label')}
+        // The visible name starts the accessible name (WCAG 2.5.3).
+        aria-label={t('accountMenu.label', { name: user.name })}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menu.menuId : undefined}
