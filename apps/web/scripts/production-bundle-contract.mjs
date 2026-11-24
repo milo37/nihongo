@@ -110,7 +110,8 @@ export const approvedStaticAssetPaths = Object.freeze([
   'favicon.svg',
   'icons/icon-192.png',
   'icons/icon-512.png',
-  'share-card.png'
+  'share-card.png',
+  'share-card-ja.png'
 ])
 
 // #1045: the home screen service worker is a plain public file, not a Vite
