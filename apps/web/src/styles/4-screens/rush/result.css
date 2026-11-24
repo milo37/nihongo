@@ -114,6 +114,12 @@
 .rush-best-line b + small::before {
   content: none;
 }
+.rush-best-line .rush-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 0;
+}
 .rush-yay {
   width: 52px;
   height: 52px;
