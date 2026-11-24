@@ -139,7 +139,9 @@ it.each(['ko', 'ja'] as const)(
       expect(nav.querySelectorAll('[aria-current]')).toHaveLength(0)
     }
     const account = screen.getByRole('button', {
-      name: appI18n.t('navigation:accountMenu.label')
+      name: appI18n.t('navigation:accountMenu.label', {
+        name: '하루 관리자'
+      })
     })
     expect(account).toHaveTextContent('하루')
     await userEvent.click(account)
