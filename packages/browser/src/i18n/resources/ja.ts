@@ -563,8 +563,6 @@ export const jaCoreResources = {
       newTitle: '新しく解く',
       modeSummary: '出題方式',
       title: '何を解きますか？',
-      description:
-        '用意された問題が選んだ数より少ないときは、ある分だけ出ます。',
       resume: {
         title: '続きから解く',
         description: '保存した答えは24時間残ります。',

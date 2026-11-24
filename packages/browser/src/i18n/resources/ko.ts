@@ -539,7 +539,6 @@ export const koCoreResources = {
       newTitle: '새로 풀기',
       modeSummary: '출제 방식',
       title: '무엇을 풀까요?',
-      description: '준비된 문제가 고른 수보다 적으면 있는 만큼만 나와요.',
       resume: {
         title: '풀던 문제 이어서',
         description: '저장된 답은 24시간 동안 남아 있어요.',
