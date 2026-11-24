@@ -8,7 +8,7 @@ import { PageContainer } from '@nihongo/browser/common/components/PageContainer'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { useUiLocale } from '@nihongo/browser/provider/I18nProvider'
 import { useAdminPresentation } from '@app/admin/presentation/useAdminPresentation'
-import { useAdminRetention } from '@app/admin-retention/useAdminRetention'
+import { useAdminRetention } from '@app/admin-retention/hooks/useAdminRetention'
 
 /** A returned count and its share of the people it is counted against. */
 const ReturnCell = ({
