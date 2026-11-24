@@ -44,6 +44,7 @@ export const useSubmitStudySessionV2 = (
       sessionId
     ] as const,
     networkMode: 'always',
+    meta: { localErrorUi: true },
     onMutate: (input) => {
       submissionActionEpochs.set(input, captureAuthTransitionEpoch())
     },

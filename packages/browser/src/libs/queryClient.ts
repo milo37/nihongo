@@ -15,14 +15,16 @@ const getQueryRetryDelay = (attempt: number, error: Error): number => {
   return Math.min(1_000 * 2 ** attempt, 10_000)
 }
 
-// A screen that renders its own failure message opts out of the shared
-// banner/toast with meta.localErrorUi; authentication failures still reach
-// the global handler.
+// A screen that renders its own failure message opts out of the global
+// warning toast with meta.localErrorUi; sign-in and permission failures
+// still reach the global handler (/login, /forbidden). The learner app makes
+// it the default for queries (#1262, apps/web provider/queryDefaults.ts).
 const showsOwnError = (
   meta: Record<string, unknown> | undefined,
   error: Error
 ): boolean =>
-  meta?.localErrorUi === true && !(isApiError(error) && error.isAuthError)
+  meta?.localErrorUi === true &&
+  !(isApiError(error) && (error.isAuthError || error.isForbiddenError))
 
 export const queryClient = new QueryClient({
   queryCache: new QueryCache({

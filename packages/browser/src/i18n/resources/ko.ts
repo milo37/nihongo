@@ -530,6 +530,7 @@ export const koCoreResources = {
       newBest: '최고 기록이에요',
       firstRecord: '첫 기록이에요',
       previousBest: '이전 기록 {{b}}개',
+      saveFailed: '기록을 저장하지 못했어요',
       again: '한 번 더',
       wrong: '틀린 것 보기 {{n}}',
       wrongTitle: '틀린 한자 {{n}}개',

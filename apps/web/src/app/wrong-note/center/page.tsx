@@ -37,7 +37,7 @@ const MemberReview = (): ReactElement => {
   const canStart =
     query.state === 'TO_REVIEW' && Boolean(list.data?.counts.toReview)
   const isLoading =
-    (list.isPending || !counts || center.correcting) &&
+    (list.isPending || center.countsLoading || center.correcting) &&
     list.fetchStatus !== 'paused' &&
     !list.isError
 

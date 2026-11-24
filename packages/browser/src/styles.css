@@ -1294,11 +1294,11 @@
   }
 
   /* Bottom right on wide screens, above the learner bottom navigation on
-     narrow ones, and above the global error banner when it shows. */
+     narrow ones. */
   .ui-toast-region {
     position: fixed;
     right: 24px;
-    bottom: calc(24px + var(--global-banner-offset, 0px));
+    bottom: 24px;
     z-index: var(--z-toast);
     display: grid;
     width: 360px;
@@ -1310,10 +1310,7 @@
     .ui-toast-region {
       right: 16px;
       left: 16px;
-      bottom: calc(
-        max(16px, env(safe-area-inset-bottom)) +
-          var(--global-banner-offset, 0px)
-      );
+      bottom: max(16px, env(safe-area-inset-bottom));
       width: auto;
     }
   }
@@ -1321,8 +1318,7 @@
   @media (max-width: 639.98px) {
     body:has(.app-mobile-navigation) .ui-toast-region {
       bottom: calc(
-        var(--mobile-navigation-height) + env(safe-area-inset-bottom) + 12px +
-          var(--global-banner-offset, 0px)
+        var(--mobile-navigation-height) + env(safe-area-inset-bottom) + 12px
       );
     }
   }

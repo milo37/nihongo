@@ -478,7 +478,10 @@ export const usePracticeDraftController = ({
         canonical = await fetchStudyDraftSnapshot(sessionId)
       } catch (error: unknown) {
         assertCurrentAuthTransitionEpoch(fetchEpoch)
-        emitApiError(error)
+        // #1262: the save line shows this failure; only sign-in and
+        // permission failures go on to the global handler.
+        if (isApiError(error) && (error.isAuthError || error.isForbiddenError))
+          emitApiError(error)
         throw error
       }
       if (canonical.studySessionId !== sessionId) {

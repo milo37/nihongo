@@ -5,6 +5,7 @@ import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { ReactQueryProvider } from '@nihongo/browser/provider/ReactQueryProvider'
 import { ReactRouterProvider } from '@provider/ReactRouterProvider'
 import { isLanguageMenuShown } from '@common/libs/languageMenu'
+import '@provider/queryDefaults'
 
 export const AppProvider = (): ReactElement => {
   return (

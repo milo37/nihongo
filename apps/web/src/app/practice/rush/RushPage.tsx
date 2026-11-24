@@ -50,6 +50,8 @@ const Rush = ({ level, userId }: { level: JlptLevel; userId: string }) => {
     notice,
     previousBest,
     result,
+    saveFailed,
+    retrySave,
     start,
     pick
   } = useRushRound({ level, userId, pairs: pairs.data?.pairs, best })
@@ -78,6 +80,8 @@ const Rush = ({ level, userId }: { level: JlptLevel; userId: string }) => {
         best={result?.best.best ?? null}
         isNewBest={result?.isNewBest ?? false}
         previousBest={previousBest}
+        saveFailed={saveFailed}
+        onRetrySave={retrySave}
         learnHref={learnHref}
         onAgain={start}
         onWrong={() => setPhase('wrong')}

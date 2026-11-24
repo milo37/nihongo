@@ -554,6 +554,7 @@ export const jaCoreResources = {
       newBest: '自己ベストです',
       firstRecord: 'はじめての記録です',
       previousBest: 'これまでの記録 {{b}}問',
+      saveFailed: '記録を保存できませんでした',
       again: 'もう一回',
       wrong: '間違えた問題 {{n}}',
       wrongTitle: '間違えた漢字 {{n}}問',

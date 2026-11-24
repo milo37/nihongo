@@ -10,7 +10,6 @@ export const dailyQuestionQueries = {
       queryKey: serverStateQueryKeys.dailyQuestion(level),
       queryFn: ({ signal }) => getDailyQuestion({ level }, signal),
       staleTime: 60 * 60 * 1000,
-      retry: false,
-      meta: { localErrorUi: true }
+      retry: false
     })
 } as const

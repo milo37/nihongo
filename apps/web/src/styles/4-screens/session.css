@@ -581,8 +581,7 @@ label:has(input:checked) .study-option-text {
   @media (width < 64rem) {
     body:has(.study-actions) .ui-toast-region {
       bottom: calc(
-        var(--study-actions-height) + env(safe-area-inset-bottom) + 12px +
-          var(--global-banner-offset, 0px)
+        var(--study-actions-height) + env(safe-area-inset-bottom) + 12px
       );
     }
   }
