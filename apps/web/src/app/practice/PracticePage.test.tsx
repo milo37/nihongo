@@ -71,10 +71,10 @@ describe('PracticePage setup', () => {
     ).toBeInTheDocument()
 
     cleanup()
-    renderPractice('?level=N4&subject=READING&count=5')
+    renderPractice('?level=N4&subject=GRAMMAR&count=5')
     // A member starts at 10 each visit; the old count link is ignored.
     expect(
-      await screen.findByRole('button', { name: 'N4 독해 10문제 시작' })
+      await screen.findByRole('button', { name: 'N4 문법 10문제 시작' })
     ).toBeInTheDocument()
     const countGroup = screen.getByRole('group', { name: '문제 수' })
     expect(
@@ -85,8 +85,71 @@ describe('PracticePage setup', () => {
       .setup()
       .click(within(countGroup).getByRole('radio', { name: '20문제' }))
     expect(
-      screen.getByRole('button', { name: 'N4 독해 20문제 시작' })
+      screen.getByRole('button', { name: 'N4 문법 20문제 시작' })
     ).toBeInTheDocument()
+  })
+
+  it('회원 독해는 5·10문제만 고르고 기본은 5, 다른 과목으로 돌아가면 10이다 (#1244)', async () => {
+    mockDatabase.loginAs('USER')
+    const user = userEvent.setup()
+    renderPractice('?level=N4&subject=GRAMMAR')
+    const countGroup = await screen.findByRole('group', { name: '문제 수' })
+    await user.click(within(countGroup).getByRole('radio', { name: '20문제' }))
+    expect(
+      screen.getByRole('button', { name: 'N4 문법 20문제 시작' })
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: /독해/u }))
+    expect(
+      await screen.findByRole('button', { name: 'N4 독해 5문제 시작' })
+    ).toBeInTheDocument()
+    expect(
+      within(countGroup)
+        .getAllByRole('radio')
+        .map(
+          (radio) =>
+            radio.getAttribute('aria-label') ??
+            radio.closest('label')?.textContent
+        )
+    ).toEqual(['5문제', '10문제'])
+    expect(
+      within(countGroup).getByRole('radio', { name: '5문제' })
+    ).toBeChecked()
+
+    await user.click(screen.getByRole('radio', { name: /문법/u }))
+    expect(
+      await screen.findByRole('button', { name: 'N4 문법 10문제 시작' })
+    ).toBeInTheDocument()
+    expect(
+      within(countGroup).getByRole('radio', { name: '20문제' })
+    ).toBeInTheDocument()
+  })
+
+  it('독해 10을 고르고 어휘에 갔다 독해로 돌아오면 기본 5로 돌아온다 (#1244)', async () => {
+    mockDatabase.loginAs('USER')
+    const user = userEvent.setup()
+    renderPractice('?level=N4&subject=READING')
+    const countGroup = await screen.findByRole('group', { name: '문제 수' })
+    await user.click(within(countGroup).getByRole('radio', { name: '10문제' }))
+    expect(
+      screen.getByRole('button', { name: 'N4 독해 10문제 시작' })
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: /문자·어휘/u }))
+    expect(
+      await screen.findByRole('button', { name: 'N4 문자·어휘 10문제 시작' })
+    ).toBeInTheDocument()
+    expect(
+      within(countGroup).getByRole('radio', { name: '10문제' })
+    ).toBeChecked()
+
+    await user.click(screen.getByRole('radio', { name: /독해/u }))
+    expect(
+      await screen.findByRole('button', { name: 'N4 독해 5문제 시작' })
+    ).toBeInTheDocument()
+    expect(
+      within(countGroup).getByRole('radio', { name: '5문제' })
+    ).toBeChecked()
   })
 
   it('목표 급수가 없으면 이 기기에서 마지막에 시작한 급수·과목을 기본으로 쓴다', async () => {

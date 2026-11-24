@@ -723,13 +723,6 @@
   text-align: center;
 }
 
-.practice-supply-note {
-  margin-top: 12px;
-  font-size: 13px;
-  text-align: center;
-  color: rgb(var(--color-muted));
-}
-
 .practice-resumable {
   margin-bottom: 36px;
 }
