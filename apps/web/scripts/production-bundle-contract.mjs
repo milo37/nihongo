@@ -42,7 +42,10 @@ export const bundleCeilings = Object.freeze({
   // icon (operator decision 2026-11-16, PWA 3 files).
   // #1096 nickname: the field shared by the sign-up check and My page is its
   // own chunk (operator decision 2026-11-18).
-  emittedFileCount: 104,
+  // #1268 prerendered public pages: the 4 Japanese copies (ja/index.html,
+  // ja/practice, ja/legal, ja/support) are 4 more emitted HTML files; they
+  // load no script of their own. Needs operator approval before merge.
+  emittedFileCount: 108,
   // The header account menu, with its logout dialog, loads on every page
   // (bundle 1 #734): two more initial chunks, about 5.5 KB gzip.
   // U12 (JLP-791): the shared global error handler now raises offline and
@@ -87,13 +90,16 @@ export const bundleCeilings = Object.freeze({
   // #1055 omikuji: the draw window, its animation and the fortune and
   // expression text; 506,097 measured after trimming the data. The operator
   // approved 520,000 on 2026-11-20 to leave about 14 KB for small features.
-  totalGzipBytes: 520_000,
+  // #1268: the 8 public HTML pages carry their head tags and page text
+  // (523,762 measured); static files the app itself never loads.
+  totalGzipBytes: 525_000,
   // #761 + U4 (#767 c9af0ed5): 1,482,644 measured (god approved; re-measure after deploy).
   // #1186 CSS unify and the #1182 furigana screen only: +15 KB (operator
   // approved 2026-11-21), then 1,520,000 for C3-C8 (operator approved
   // 2026-11-22, JLP-957). 1,535,000 for the C7-C8 duplicate CSS and #1224
   // (operator approved 2026-11-23, JLP-957). Back to 1,483,000 in C11 (#1186).
-  totalRawBytes: 1_535_000
+  // #1268: +4 HTML files and the page text in the other 4 (1,561,609 measured).
+  totalRawBytes: 1_565_000
 })
 
 export const approvedStaticAssetPaths = Object.freeze([
