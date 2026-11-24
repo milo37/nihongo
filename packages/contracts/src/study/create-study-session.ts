@@ -9,8 +9,12 @@ import { wrongNoteTagLabelSchema } from '../wrong-note/list-wrong-notes.js'
 import { createApiFailureSchema } from '../common/error.js'
 import { versionedStudySessionPayloadSchema } from './study-session.js'
 import { practiceContractV2HeadersSchema } from './practice-contract.js'
+import { getMemberCountLimit } from './member-counts.js'
 
 export const createStudySessionOperationId = 'study.createStudySession' as const
+
+/** #1244: a new random reading set holds at most this many questions. */
+export const READING_SESSION_QUESTION_LIMIT = getMemberCountLimit('READING')
 
 export const createStudySessionBodySchema = z
   .object({
@@ -41,6 +45,18 @@ export const createStudySessionV2BodySchema = createStudySessionBodySchema
         path: ['reviewFilter'],
         message:
           'reviewFilter는 DAILY_REVIEW 또는 WRONG_NOTE mode에서만 사용할 수 있습니다.'
+      })
+    }
+    // Only the study tab's random sets; review modes keep their size.
+    if (
+      body.mode === 'RANDOM' &&
+      body.subject === 'READING' &&
+      body.count > READING_SESSION_QUESTION_LIMIT
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['count'],
+        message: `독해는 ${READING_SESSION_QUESTION_LIMIT}문제까지 고를 수 있습니다.`
       })
     }
   })
