@@ -1,5 +1,3 @@
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   getRouteIndexingPolicy,
@@ -7,6 +5,7 @@ import {
 } from '@app/seo/routeIndexingPolicy'
 import { INDEXED_PATHS as BUILT_PATHS } from '@nihongo/browser/libs/publicPages'
 import { SITE_ORIGIN } from '@nihongo/browser/libs/publicPageHtml'
+import sitemap from '/public/sitemap.xml?raw'
 
 describe('route indexing policy', () => {
   it('lists the same pages the build writes', () => {
@@ -15,10 +14,6 @@ describe('route indexing policy', () => {
 
   // #1268: the sitemap lists every indexed page, the /ja copies included.
   it('lists the same pages in public/sitemap.xml', () => {
-    const sitemap = readFileSync(
-      resolve(__dirname, '../../../public/sitemap.xml'),
-      'utf8'
-    )
     const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/gu)].map(
       ([, location]) => location
     )
