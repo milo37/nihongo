@@ -22,15 +22,15 @@ type DocumentMetadataOptions = {
 
 // #1268: the build writes each public page's own title, description,
 // canonical and hreflang into its HTML and names the page in a meta tag
-// ("/practice"). The first view of that very page keeps
-// them; the first move to another page removes the tag and hands
+// ("ko:/practice"). The first view of that very page in that language keeps
+// them; the first move to another page or language removes the tag and hands
 // over to this hook for good.
 // A plain function: the compiler adds cache slots to every value in a hook.
-const keepsBuiltHead = (fullPath: string): boolean => {
+const keepsBuiltHead = (language: string | undefined, fullPath: string) => {
   const tag = document.head.querySelector<HTMLMetaElement>(
     'meta[data-prerender]'
   )
-  const keep = tag?.content === fullPath
+  const keep = tag?.content === `${language}:${fullPath}`
   // The tag and the language links belong to the build's copy only.
   if (tag && !keep)
     document
@@ -50,7 +50,7 @@ export const useDocumentMetadata = ({
   const { t, i18n } = useTranslation('navigation')
 
   useLayoutEffect(() => {
-    const keepPrerendered = keepsBuiltHead(fullPath)
+    const keepPrerendered = keepsBuiltHead(i18n.resolvedLanguage, fullPath)
 
     if (!keepPrerendered) {
       const routeKey = routeLabelKey ?? getRouteLabelKey(path)

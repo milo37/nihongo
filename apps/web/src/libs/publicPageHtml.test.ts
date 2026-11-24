@@ -72,7 +72,7 @@ describe('renderPublicPageHtml (#981, #1268)', () => {
       '<link rel="alternate" data-prerender hreflang="x-default" href="https://harumaru.app/practice" />'
     )
     expect(html).toContain(
-      '<meta data-prerender name="nihongo-prerender" content="/ja/practice" />'
+      '<meta data-prerender name="nihongo-prerender" content="ja:/ja/practice" />'
     )
   })
 

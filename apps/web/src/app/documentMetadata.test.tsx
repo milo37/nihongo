@@ -30,8 +30,8 @@ afterEach(() => {
   document.head.innerHTML = ''
 })
 
-it('keeps the built head on the first view of that page', async () => {
-  writeBuiltHead('/ja/practice')
+it('keeps the built head on the first view of that page and language', async () => {
+  writeBuiltHead('ja:/ja/practice')
   await render('/ja/practice', 'ja')
   expect(document.title).toBe('SEO title')
   expect(
@@ -45,7 +45,7 @@ it('keeps the built head on the first view of that page', async () => {
 })
 
 it('takes over, and drops the language links, on another page', async () => {
-  writeBuiltHead('/ja')
+  writeBuiltHead('ja:/ja')
   await render('/ja/practice', 'ja')
   expect(document.title).toBe(
     `${appI18n.t('navigation:routes.practiceSetup')} | ハルまる`
@@ -54,4 +54,11 @@ it('takes over, and drops the language links, on another page', async () => {
   expect(
     document.querySelector('link[rel="canonical"]')?.getAttribute('href')
   ).toBe(`${window.location.origin}/ja/practice`)
+})
+
+it('takes over when the visitor reads another language than the page', async () => {
+  writeBuiltHead('ko:/practice')
+  await render('/practice', 'ja')
+  expect(document.title).toContain('ハルまる')
+  expect(document.querySelectorAll('link[rel="alternate"]')).toHaveLength(0)
 })
