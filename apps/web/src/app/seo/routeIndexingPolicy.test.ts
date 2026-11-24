@@ -11,12 +11,9 @@ describe('route indexing policy', () => {
     '/ja/practice',
     '/ja/legal',
     '/ja/support'
-  ])(
-    'indexes the public pages listed in the sitemap: %s',
-    (pathname) => {
-      expect(getRouteIndexingPolicy(pathname)).toBe('index,follow')
-    }
-  )
+  ])('indexes the public pages listed in the sitemap: %s', (pathname) => {
+    expect(getRouteIndexingPolicy(pathname)).toBe('index,follow')
+  })
 
   it.each([
     '/practice/',
