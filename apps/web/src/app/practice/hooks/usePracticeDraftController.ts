@@ -58,7 +58,7 @@ import {
   captureAuthTransitionEpoch,
   isAuthTransitionSupersededError
 } from '@nihongo/browser/libs/authTransitionFence'
-import { emitApiError } from '@nihongo/browser/libs/errorBus'
+import { emitAccessError } from '@nihongo/browser/libs/queryClient'
 import { useAppStore } from '@nihongo/browser/store/index'
 
 interface UsePracticeDraftControllerOptions {
@@ -478,10 +478,8 @@ export const usePracticeDraftController = ({
         canonical = await fetchStudyDraftSnapshot(sessionId)
       } catch (error: unknown) {
         assertCurrentAuthTransitionEpoch(fetchEpoch)
-        // #1262: the save line shows this failure; only sign-in and
-        // permission failures go on to the global handler.
-        if (isApiError(error) && (error.isAuthError || error.isForbiddenError))
-          emitApiError(error)
+        // #1262: the save line shows this failure.
+        emitAccessError(error)
         throw error
       }
       if (canonical.studySessionId !== sessionId) {
