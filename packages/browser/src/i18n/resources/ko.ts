@@ -80,7 +80,7 @@ export const koCoreResources = {
   },
   navigation: {
     accountMenu: {
-      label: '계정 메뉴',
+      label: '{{name}} 계정 메뉴',
       signedInWith: 'Google 계정으로 로그인 중',
       myPage: '마이페이지'
     },

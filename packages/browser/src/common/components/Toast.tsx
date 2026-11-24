@@ -39,6 +39,8 @@ interface ToastRecord extends ToastInput {
   revision: number
   /** Element to return focus to when the toast is closed from inside. */
   opener: Element | null
+  /** Playing its exit; removed when that ends (#1263). */
+  closing?: boolean
 }
 
 interface ToastContextValue {
@@ -56,6 +58,7 @@ type ToastProviderProps = {
 type ToastProps = ToastRecord & {
   durationMs: number
   onDismiss: (toastId: string, returnFocus: boolean) => void
+  onExited: (toastId: string) => void
 }
 
 export const TOAST_ANNOUNCER_ID = 'toast-announcer'
@@ -91,6 +94,21 @@ const closeIcon = (
   </svg>
 )
 
+// #1263: a tap fires mouseenter (and focus) with no mouseleave or blur, so
+// pausing there would keep a touched toast open for good. Only a mouse or
+// trackpad pauses it.
+const canPauseOnHover = (): boolean =>
+  window.matchMedia?.('(hover: hover) and (pointer: fine)').matches === true
+
+// The exit's length, read from the stylesheet (--motion-toast). 0 when no
+// exit animation runs (reduced motion ends it at once; jsdom has none).
+const exitDurationMs = (element: Element): number => {
+  const style = getComputedStyle(element)
+  if (!style.animationName.includes('ui-toast-out')) return 0
+  const ms = parseFloat(style.animationDuration) * 1000
+  return Number.isFinite(ms) ? ms : 0
+}
+
 let toastIdSequence = 0
 
 const createToastId = (): string => {
@@ -100,44 +118,77 @@ const createToastId = (): string => {
 
 export const Toast = ({
   action,
+  closing = false,
   description,
   durationMs,
   id,
   onDismiss,
+  onExited,
   revision,
   title,
   variant = 'info'
 }: ToastProps): ReactElement => {
   const { t } = useTranslation('common')
   const [isPaused, setIsPaused] = useState(false)
+  const ref = useRef<HTMLElement>(null)
 
   useEffect(() => {
-    if (isPaused || !Number.isFinite(durationMs) || durationMs <= 0) {
+    if (
+      closing ||
+      isPaused ||
+      !Number.isFinite(durationMs) ||
+      durationMs <= 0
+    ) {
       return
     }
 
     const timeout = window.setTimeout(() => onDismiss(id, false), durationMs)
 
     return () => window.clearTimeout(timeout)
-  }, [durationMs, id, isPaused, onDismiss, revision])
+  }, [closing, durationMs, id, isPaused, onDismiss, revision])
+
+  // Removed when the exit ends; the timer covers an animationend that never
+  // comes (a hidden tab).
+  useEffect(() => {
+    const element = ref.current
+    if (!closing || !element) return
+    const exitMs = exitDurationMs(element)
+    if (exitMs === 0) {
+      onExited(id)
+      return
+    }
+    const timeout = window.setTimeout(() => onExited(id), exitMs)
+    return () => window.clearTimeout(timeout)
+  }, [closing, id, onExited])
 
   return (
     // The visible card has no live role; the provider's region announces it.
     // Top/right borders only: .ui-toast draws the 4px tone strip on the left.
     <article
+      ref={ref}
       className={classNames(
-        'ui-toast pointer-events-auto grid grid-cols-[auto_1fr_auto] items-start gap-3 rounded-[12px] border-y border-r border-y-line border-r-line bg-surface py-3 pl-3.5 pr-1 text-ink shadow-soft',
+        'ui-toast grid grid-cols-[auto_1fr_auto] items-start gap-3 rounded-[12px] border-y border-r border-y-line border-r-line bg-surface py-3 pl-3.5 pr-1 text-ink shadow-soft',
+        closing ? 'pointer-events-none' : 'pointer-events-auto',
         variantClassNames[variant]
       )}
       data-variant={variant}
+      data-state={closing ? 'closing' : undefined}
+      inert={closing}
+      onAnimationEnd={(event) => {
+        if (closing && event.target === event.currentTarget) onExited(id)
+      }}
       onKeyDown={(event) => {
         if (event.key !== 'Escape') return
         event.stopPropagation()
         onDismiss(id, true)
       }}
-      onMouseEnter={() => setIsPaused(true)}
+      onMouseEnter={() => {
+        if (canPauseOnHover()) setIsPaused(true)
+      }}
       onMouseLeave={() => setIsPaused(false)}
-      onFocusCapture={() => setIsPaused(true)}
+      onFocusCapture={() => {
+        if (canPauseOnHover()) setIsPaused(true)
+      }}
       onBlurCapture={(event) => {
         const nextTarget = event.relatedTarget
 
@@ -204,9 +255,14 @@ export const ToastProvider = ({
     toastsRef.current = toasts
   }, [toasts])
 
+  // Closing first: the toast plays its exit, then onExited removes it.
   const dismiss = useCallback((toastId: string, returnFocus: boolean): void => {
     const toast = toastsRef.current.find((entry) => entry.id === toastId)
-    setToasts((current) => current.filter((entry) => entry.id !== toastId))
+    setToasts((current) =>
+      current.map((entry) =>
+        entry.id === toastId ? { ...entry, closing: true } : entry
+      )
+    )
     if (!returnFocus || !toast) return
     const opener = toast.opener
     const target =
@@ -216,6 +272,10 @@ export const ToastProvider = ({
         ? opener
         : document.querySelector<HTMLElement>('main')
     target?.focus()
+  }, [])
+
+  const removeToast = useCallback((toastId: string): void => {
+    setToasts((current) => current.filter((entry) => entry.id !== toastId))
   }, [])
 
   const dismissToast = useCallback(
@@ -241,7 +301,12 @@ export const ToastProvider = ({
         if (same) {
           return current.map((entry) =>
             entry.id === id
-              ? { ...entry, ...toast, revision: entry.revision + 1 }
+              ? {
+                  ...entry,
+                  ...toast,
+                  closing: false,
+                  revision: entry.revision + 1
+                }
               : entry
           )
         }
@@ -301,6 +366,7 @@ export const ToastProvider = ({
                     (toast.action ? actionDurationMs : defaultDurationMs))
               }
               onDismiss={dismiss}
+              onExited={removeToast}
             />
           ))}
         </section>
