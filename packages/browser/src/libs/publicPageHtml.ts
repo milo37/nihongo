@@ -65,10 +65,10 @@ export const renderPublicPageHtml = (
     `<link rel="canonical" href="${url}" />`,
     ...alternates.map(
       ({ hreflang, href }) =>
-        `<link rel="alternate" hreflang="${escapeAttribute(hreflang)}" href="${escapeAttribute(href)}" />`
+        `<link rel="alternate" data-prerender hreflang="${escapeAttribute(hreflang)}" href="${escapeAttribute(href)}" />`
     ),
     // The app keeps these tags on the first view of this very page.
-    `<meta name="nihongo-prerender" content="${locale}:${escapeAttribute(path)}" />`
+    `<meta data-prerender name="nihongo-prerender" content="${locale}:${escapeAttribute(path)}" />`
   ].join('\n    ')
   let html = replaceOnce(
     indexHtml,

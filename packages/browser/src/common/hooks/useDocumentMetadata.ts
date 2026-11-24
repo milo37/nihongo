@@ -25,7 +25,7 @@ type DocumentMetadataOptions = {
 // ("ko:/practice"). The first view of that very page in that language keeps
 // them; the first move to another page or language removes the tag and hands
 // over to this hook for good.
-const PRERENDER_SELECTOR = 'meta[name="nihongo-prerender"]'
+const PRERENDER_SELECTOR = 'meta[data-prerender]'
 
 export const useDocumentMetadata = ({
   robots,
@@ -42,7 +42,11 @@ export const useDocumentMetadata = ({
       document.head.querySelector<HTMLMetaElement>(PRERENDER_SELECTOR)
     const keepPrerendered =
       prerenderTag?.content === `${i18n.resolvedLanguage}:${fullPath}`
-    if (prerenderTag && !keepPrerendered) prerenderTag.remove()
+    // The tag and the language links belong to the build's copy only.
+    if (prerenderTag && !keepPrerendered)
+      document
+        .querySelectorAll('[data-prerender]')
+        .forEach((node) => node.remove())
 
     if (!keepPrerendered) {
       const routeKey = routeLabelKey ?? getRouteLabelKey(path)
@@ -62,10 +66,6 @@ export const useDocumentMetadata = ({
           ? pageDescriptionKeys[routeKey as keyof typeof pageDescriptionKeys]
           : 'metaDescription'
       )
-      // The language links belong to the build's copy of the page only.
-      document
-        .querySelectorAll('link[hreflang]')
-        .forEach((node) => node.remove())
     }
 
     // #1045: the name iOS gives the home screen icon follows the page
