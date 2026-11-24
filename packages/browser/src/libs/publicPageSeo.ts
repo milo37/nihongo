@@ -122,8 +122,9 @@ const pageBody = (locale: UiLocale, path: PublicPagePath): string => {
   return parts.join('')
 }
 
-// #982: WebSite and Organization in the page's own language. The service
-// name, the addresses and the logo only: no person, no mail address.
+// #982: WebSite in the page's own language; the one Organization the same on
+// both pages. The service name, the addresses and the logo only: no person,
+// no mail address.
 const structuredData = (locale: UiLocale): Record<string, unknown> => {
   const name = resources[locale].common.appName
   return {
@@ -140,8 +141,9 @@ const structuredData = (locale: UiLocale): Record<string, unknown> => {
       {
         '@type': 'Organization',
         '@id': `${SITE_ORIGIN}/#organization`,
-        name,
-        url: `${SITE_ORIGIN}${pagePath(locale, '/')}`,
+        name: resources.ko.common.appName,
+        alternateName: resources.ja.common.appName,
+        url: `${SITE_ORIGIN}/`,
         logo: `${SITE_ORIGIN}/icons/icon-512.png`
       }
     ]

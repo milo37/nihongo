@@ -156,7 +156,7 @@ describe('publicPageHtmlList (#1268)', () => {
     )
   })
   // #982
-  it('writes WebSite and Organization JSON-LD on both home pages, in their language', () => {
+  it("writes WebSite JSON-LD in each home page's language, with one shared Organization", () => {
     const expected = {
       ko: { name: '하루마루', home: 'https://harumaru.app/' },
       ja: { name: 'ハルまる', home: 'https://harumaru.app/ja' }
@@ -186,15 +186,15 @@ describe('publicPageHtmlList (#1268)', () => {
         url: home,
         inLanguage: page.locale
       })
-      expect(organization).toMatchObject({
+      // One Organization, the same on both pages.
+      expect(organization).toEqual({
         '@type': 'Organization',
-        name,
+        '@id': 'https://harumaru.app/#organization',
+        name: '하루마루',
+        alternateName: 'ハルまる',
+        url: 'https://harumaru.app/',
         logo: 'https://harumaru.app/icons/icon-512.png'
       })
-      // Service name, addresses and logo only: no person, no mail address.
-      expect(Object.keys(organization ?? {}).sort()).toEqual(
-        ['@id', '@type', 'logo', 'name', 'url'].sort()
-      )
       expect(blocks[0]?.[1]).not.toMatch(/@[a-z0-9-]+\.[a-z]|mailto|email/iu)
     }
   })
