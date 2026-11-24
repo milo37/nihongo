@@ -67,7 +67,6 @@
   .account-row-body {
     min-width: 0px;
     font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
     overflow-wrap: break-word;
   }
@@ -125,7 +124,6 @@
   }
   .nickname-name {
     font-size: 28px;
-    --tw-leading: var(--leading-tight);
     line-height: var(--leading-tight);
     font-weight: var(--font-weight-bold);
     overflow-wrap: break-word;
@@ -197,7 +195,6 @@
   }
   .home-screen-hint-text {
     font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
     color: rgb(var(--color-muted));
   }
@@ -210,7 +207,6 @@
     display: grid;
     gap: 0.5rem;
     font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
     overflow-wrap: break-word;
   }
