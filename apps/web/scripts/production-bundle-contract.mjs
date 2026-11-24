@@ -45,7 +45,9 @@ export const bundleCeilings = Object.freeze({
   // #1268 prerendered public pages: the 4 Japanese copies (ja/index.html,
   // ja/practice, ja/legal, ja/support) are 4 more emitted HTML files; they
   // load no script of their own. Needs operator approval before merge.
-  emittedFileCount: 108,
+  // #1281 the /ja share card (share-card-ja.png), read only by link
+  // previews (operator approved 2026-11-25).
+  emittedFileCount: 109,
   // The header account menu, with its logout dialog, loads on every page
   // (bundle 1 #734): two more initial chunks, about 5.5 KB gzip.
   // U12 (JLP-791): the shared global error handler now raises offline and
