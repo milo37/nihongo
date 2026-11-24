@@ -210,7 +210,12 @@ const apiEnvironmentSchema = z
     APPLE_CLIENT_SECRET: z.string().min(1).max(8192).optional(),
     AUTH_TRUSTED_PROXY_CIDRS: trustedProxyListSchema,
     // JLP-788: unset or empty enforces everywhere.
-    CSP_MODE: z.enum(['report-only', 'enforce']).optional()
+    CSP_MODE: z.enum(['report-only', 'enforce']).optional(),
+    // #1046: VAPID public key of the daily web push; unset keeps push off.
+    WEB_PUSH_PUBLIC_KEY: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{87}$/u)
+      .optional()
   })
   .strict()
   .superRefine((environment, context) => {
@@ -455,7 +460,9 @@ export const parseApiEnvironment = (
     AUTH_TRUSTED_PROXY_CIDRS:
       source.AUTH_TRUSTED_PROXY_CIDRS ??
       (canUseDevelopmentDefaults ? '127.0.0.1/32,::1/128' : undefined),
-    CSP_MODE: source.CSP_MODE === '' ? undefined : source.CSP_MODE
+    CSP_MODE: source.CSP_MODE === '' ? undefined : source.CSP_MODE,
+    WEB_PUSH_PUBLIC_KEY:
+      source.WEB_PUSH_PUBLIC_KEY === '' ? undefined : source.WEB_PUSH_PUBLIC_KEY
   })
 
   if (parsed.success) {
