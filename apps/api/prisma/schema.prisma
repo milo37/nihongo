@@ -1197,3 +1197,16 @@ model StampLedger {
   /// One row per member, day and reason for rows with "amount" > 0 only: a
   /// partial unique index (20261124100000_stamp_ledger_amount).
 }
+
+/// #1046: a browser push subscription for the one daily notification, with
+/// no user, session or IP. lastSentDay (Asia/Seoul) is marked before a send.
+model PushSubscription {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  endpoint    String    @unique(map: "PushSubscription_endpoint_key")
+  p256dh      String
+  auth        String
+  locale      String
+  createdAt   DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  updatedAt   DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
+  lastSentDay DateTime? @db.Date
+}
