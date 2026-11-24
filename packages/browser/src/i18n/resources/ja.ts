@@ -874,7 +874,8 @@ export const jaCoreResources = {
       nextSet: '次の{{formattedCount}}問',
       nextSetStarting: '新しい問題を準備しています…',
       backToWrongNotes: '間違いノートへ',
-      backToBookmarks: 'ブックマークへ'
+      backToBookmarks: 'ブックマークへ',
+      goToStudy: '学習へ'
     },
     retry: {
       checking: '確認中…',
