@@ -22,9 +22,9 @@ export const getSetReturnPath = (
 }
 
 /**
- * #1283: a review set leaves the wrong-note list empty when nothing in it
- * was wrong and nothing else waits for review; it goes to the study tab
- * instead (the setup screen, no set started).
+ * #1283: a review set with nothing left to review would open an empty
+ * wrong-note list; it goes to the study tab instead (the setup screen, no
+ * set started).
  */
 export const getReviewSetReturnPath = (
   listPath: SetReturnPath | null,

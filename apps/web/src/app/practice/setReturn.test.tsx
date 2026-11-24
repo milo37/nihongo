@@ -33,9 +33,8 @@ const renderWith = (element: ReactElement, client = new QueryClient()) =>
     </QueryClientProvider>
   )
 
-const actions = (mode: Mode, isGuest = false, hasIncorrect = true) => (
+const actions = (mode: Mode, isGuest = false, showRetry = true) => (
   <ResultActions
-    hasIncorrect={hasIncorrect}
     isGuest={isGuest}
     isGuestDone={false}
     isRetryDisabled={false}
@@ -44,7 +43,7 @@ const actions = (mode: Mode, isGuest = false, hasIncorrect = true) => (
     retryLoadingLabel="…"
     session={session(mode)}
     requestedCount={10}
-    showRetry={hasIncorrect}
+    showRetry={showRetry}
   />
 )
 
@@ -56,6 +55,7 @@ const withToReview = (toReview: number) => {
     pageSize: 1
   })
   client.setQueryData(queryKey, {
+    total: toReview,
     counts: { toReview, reviewed: 0 }
   } as never)
   return client

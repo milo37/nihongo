@@ -874,7 +874,7 @@ export const jaCoreResources = {
       nextSetStarting: '新しい問題を準備しています…',
       backToWrongNotes: '間違いノートへ',
       backToBookmarks: 'ブックマークへ',
-      goToStudy: '学習'
+      goToStudy: '学習へ'
     },
     retry: {
       checking: '確認中…',

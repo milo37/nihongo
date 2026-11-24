@@ -24,8 +24,6 @@ import { wrongNoteQueries } from '@app/wrong-note/queries/wrongNoteQueries'
 const SAME_HEIGHT = 'study-result-button'
 
 type ResultActionsProps = {
-  /** Something in this set was wrong (#1283). */
-  hasIncorrect: boolean
   isGuest: boolean
   /** A guest's tries left, inside [다음 N문제] (plan-notes §5). */
   guestTriesLeft?: number
@@ -48,7 +46,6 @@ type ResultActionsProps = {
  */
 export const ResultActions = ({
   guestTriesLeft,
-  hasIncorrect,
   isGuest,
   isGuestDone,
   isRetryDisabled,
@@ -64,18 +61,16 @@ export const ResultActions = ({
   // JLP-856: a wrong-note or bookmark set goes back to its list instead of
   // offering a random next set.
   const listPath = isGuest ? null : getSetReturnPath(session.mode)
-  // #1283: with nothing wrong here, ask whether anything else waits; until
-  // the answer is in, the button keeps the wrong-note list.
-  const asksWhatIsLeft = listPath === '/wrong-notes' && !hasIncorrect
+  // #1283: what waits for review now, every level, as the list's default
+  // tab counts it (this set's wrong answers are in it). While loading or on
+  // failure the button keeps the wrong-note list.
   const toReview = useQuery({
     ...wrongNoteQueries.reviewList({ state: 'TO_REVIEW', pageSize: 1 }),
-    enabled: asksWhatIsLeft
+    enabled: listPath === '/wrong-notes'
   })
   const returnPath = getReviewSetReturnPath(
     listPath,
-    asksWhatIsLeft &&
-      !toReview.isFetching &&
-      toReview.data?.counts.toReview === 0
+    !toReview.isFetching && toReview.data?.total === 0
   )
   return (
     <section
