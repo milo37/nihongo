@@ -410,6 +410,7 @@ export const koCoreResources = {
       terms:
         '<terms>이용약관</terms>과 <privacy>개인정보 처리방침</privacy>을 확인했어요',
       missing: '필수 항목을 확인해 주세요',
+      required: '(필수)',
       submitNew: '가입하기',
       submitExisting: '확인',
       cancel: '취소',
