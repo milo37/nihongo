@@ -15,6 +15,7 @@ import { SheetTail } from '@common/components/manuscript/ManuscriptSheet'
 import { JaText } from '@common/components/JaText'
 import { jaTextProps } from '@common/libs/jaSpacing'
 import { SamePassageNote } from '@app/practice/components/SamePassageNote'
+import { useToast } from '@nihongo/browser/common/components/Toast'
 
 /**
  * Passage: as tall as its text; sticky beside the question on wide screens.
@@ -65,9 +66,18 @@ export const QuestionPassage = ({
     observer.observe(text)
     return () => observer.disconnect()
   }, [isFolded, isFuriganaOn])
-  const audio = usePassageAudio(isDecorative ? null : passageAudio)
+  const { addToast } = useToast()
+  // #1246: one warning per failure; [듣기] stays and waits, then retries.
+  const audio = usePassageAudio(isDecorative ? null : passageAudio, () =>
+    addToast({
+      key: 'passage-audio-failed',
+      title: t('session.question.audio.failedTitle'),
+      description: t('session.question.audio.failedDescription'),
+      variant: 'warning'
+    })
+  )
   const audioRowId = useId()
-  const hasAudio = Boolean(passageAudio) && !isDecorative && !audio.isFailed
+  const hasAudio = Boolean(passageAudio) && !isDecorative
   const revealRef = useRef(false)
   // #1183: after a drag or key move, show the reading word once if it is off
   // screen (or under the fixed action bar). No follow while it plays.
@@ -105,6 +115,7 @@ export const QuestionPassage = ({
         {hasAudio ? (
           <button
             aria-controls={audio.isOpen ? audioRowId : undefined}
+            aria-disabled={audio.isWaiting || undefined}
             aria-expanded={audio.isOpen}
             className="study-audio-toggle"
             type="button"
@@ -112,6 +123,9 @@ export const QuestionPassage = ({
               audio.isOpen
                 ? audio.close
                 : () => {
+                    // Waiting after a failure: the press does nothing and
+                    // no second warning appears.
+                    if (audio.isWaiting) return
                     // #986: the reading word must be visible, so a folded
                     // passage opens with the bar and stays open after it.
                     setOpened(true)

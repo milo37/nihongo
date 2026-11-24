@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import type { StudyQuestionView } from '@app/practice/adapters/studySessionView'
 import { PracticeQuestionCard } from '@app/practice/session/components/PracticeQuestionCard'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
+import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import { clearStorageCache } from '@nihongo/browser/libs/storage'
 
@@ -35,17 +36,19 @@ const question = (
 
 const card = (view: StudyQuestionView) => (
   <I18nProvider>
-    <PracticeQuestionCard
-      actions={null}
-      bookmarkStatus={null}
-      headingRef={createRef()}
-      isOptionsDisabled={false}
-      onSelectOption={() => undefined}
-      question={view}
-      questionNumber={2}
-      saveStatus={null}
-      selectedOptionId={undefined}
-    />
+    <ToastProvider>
+      <PracticeQuestionCard
+        actions={null}
+        bookmarkStatus={null}
+        headingRef={createRef()}
+        isOptionsDisabled={false}
+        onSelectOption={() => undefined}
+        question={view}
+        questionNumber={2}
+        saveStatus={null}
+        selectedOptionId={undefined}
+      />
+    </ToastProvider>
   </I18nProvider>
 )
 
