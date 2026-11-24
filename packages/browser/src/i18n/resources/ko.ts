@@ -539,7 +539,6 @@ export const koCoreResources = {
       newTitle: '새로 풀기',
       modeSummary: '출제 방식',
       title: '무엇을 풀까요?',
-      description: '준비된 문제가 고른 수보다 적으면 있는 만큼만 나와요.',
       resume: {
         title: '풀던 문제 이어서',
         description: '저장된 답은 24시간 동안 남아 있어요.',
@@ -582,7 +581,8 @@ export const koCoreResources = {
         },
         DAILY_REVIEW: {
           label: '복습할 문제 풀기',
-          description: '복습할 문제를 오래전에 틀린 것부터 10문제 내요.',
+          description:
+            '복습할 문제를 오래전에 틀린 것부터 내요. 모자라면 있는 만큼만 나와요.',
           empty: '복습할 문제가 없어요. 다른 방식으로 풀어 보세요.'
         }
       },
@@ -601,7 +601,6 @@ export const koCoreResources = {
           '오늘 풀 수 있는 새 세트를 다 풀었어요. 내일 또 풀어요. 오답노트 복습은 지금도 할 수 있어요.'
       },
       urlLocked: '문제 수와 출제 방식은 로그인하면 고를 수 있어요.',
-      availableCountNote: '문제가 모자라면 있는 만큼만 나와요.',
       noEligibleTitle:
         "지금 조건으로는 '{{mode}}'에서 풀 수 있는 문제가 없어요.",
       noEligibleDescription:
