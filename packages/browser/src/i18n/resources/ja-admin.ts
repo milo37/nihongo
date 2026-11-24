@@ -51,6 +51,7 @@ export const jaAdminResources = {
     import: 'インポート',
     members: '会員',
     reports: 'バグレポート',
+    retention: '再訪率',
     auditLog: '監査履歴'
   },
   members: {
@@ -899,6 +900,27 @@ export const jaAdminResources = {
     requestEnvironment: 'リクエスト番号 {{requestId}} · {{environment}}',
     moreLoading: '以前の監査ログを読み込んでいます…',
     more: '以前の監査ログをさらに表示'
+  },
+  retention: {
+    title: '再訪率',
+    description:
+      '初めて学習した日(コホート)ごとに、その後いつ再び学習したかを表示します。直近8週間で、個人単位の情報はなく数値のみを集計しています。',
+    tableLabel: '日別の再訪率',
+    loading: '再訪率を読み込んでいます…',
+    error: '再訪率を読み込めませんでした。',
+    retry: '再訪率を再読み込み',
+    emptyTitle: '集計された日はまだありません',
+    emptyDescription: 'コホートの数値は1日経過してから蓄積されます。',
+    pending: '集計前',
+    audience: { MEMBER: '会員', GUEST: 'ゲスト' },
+    columns: {
+      cohortDate: 'コホート日',
+      audience: '区分',
+      cohortSize: 'コホート人数',
+      day1: '翌日の再訪',
+      day7: '7日目の再訪',
+      week1: '初週の再訪'
+    }
   },
   questionReportDialog: learner.questionReportDialog,
   userReport: {

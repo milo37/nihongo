@@ -16,6 +16,7 @@ export const preloadAdminPages = async (): Promise<void> => {
     import('@app/admin-question/detail/page'),
     import('@app/admin-question/edit/page'),
     import('@app/admin-report/page'),
-    import('@app/admin-report/detail/page')
+    import('@app/admin-report/detail/page'),
+    import('@app/admin-retention/page')
   ])
 }
