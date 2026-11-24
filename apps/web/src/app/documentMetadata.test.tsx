@@ -20,18 +20,18 @@ const writeBuiltHead = (page: string): void => {
   document.head.innerHTML = `
     <title>SEO title</title>
     <meta name="description" content="SEO description" />
-    <meta name="nihongo-prerender" content="${page}" />
+    <meta data-prerender name="nihongo-prerender" content="${page}" />
     <link rel="canonical" href="https://harumaru.app/ja/practice" />
-    <link rel="alternate" hreflang="ko" href="https://harumaru.app/practice" />
-    <link rel="alternate" hreflang="ja" href="https://harumaru.app/ja/practice" />`
+    <link rel="alternate" data-prerender hreflang="ko" href="https://harumaru.app/practice" />
+    <link rel="alternate" data-prerender hreflang="ja" href="https://harumaru.app/ja/practice" />`
 }
 
 afterEach(() => {
   document.head.innerHTML = ''
 })
 
-it('keeps the built head on the first view of that page and language', async () => {
-  writeBuiltHead('ja:/ja/practice')
+it('keeps the built head on the first view of that page', async () => {
+  writeBuiltHead('/ja/practice')
   await render('/ja/practice', 'ja')
   expect(document.title).toBe('SEO title')
   expect(
@@ -45,7 +45,7 @@ it('keeps the built head on the first view of that page and language', async () 
 })
 
 it('takes over, and drops the language links, on another page', async () => {
-  writeBuiltHead('ja:/ja')
+  writeBuiltHead('/ja')
   await render('/ja/practice', 'ja')
   expect(document.title).toBe(
     `${appI18n.t('navigation:routes.practiceSetup')} | ハルまる`
@@ -54,11 +54,4 @@ it('takes over, and drops the language links, on another page', async () => {
   expect(
     document.querySelector('link[rel="canonical"]')?.getAttribute('href')
   ).toBe(`${window.location.origin}/ja/practice`)
-})
-
-it('takes over when the visitor reads another language than the page', async () => {
-  writeBuiltHead('ko:/practice')
-  await render('/practice', 'ja')
-  expect(document.title).toContain('ハルまる')
-  expect(document.querySelectorAll('link[rel="alternate"]')).toHaveLength(0)
 })

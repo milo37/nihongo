@@ -63,16 +63,16 @@ describe('renderPublicPageHtml (#981, #1268)', () => {
   it('names the page language and its language alternates', () => {
     expect(html).toContain('<html lang="ja">')
     expect(html).toContain(
-      '<link rel="alternate" hreflang="ko" href="https://harumaru.app/practice" />'
+      '<link rel="alternate" data-prerender hreflang="ko" href="https://harumaru.app/practice" />'
     )
     expect(html).toContain(
-      '<link rel="alternate" hreflang="ja" href="https://harumaru.app/ja/practice" />'
+      '<link rel="alternate" data-prerender hreflang="ja" href="https://harumaru.app/ja/practice" />'
     )
     expect(html).toContain(
-      '<link rel="alternate" hreflang="x-default" href="https://harumaru.app/practice" />'
+      '<link rel="alternate" data-prerender hreflang="x-default" href="https://harumaru.app/practice" />'
     )
     expect(html).toContain(
-      '<meta name="nihongo-prerender" content="ja:/ja/practice" />'
+      '<meta data-prerender name="nihongo-prerender" content="/ja/practice" />'
     )
   })
 

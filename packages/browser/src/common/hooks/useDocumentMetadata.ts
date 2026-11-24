@@ -22,8 +22,8 @@ type DocumentMetadataOptions = {
 
 // #1268: the build writes each public page's own title, description,
 // canonical and hreflang into its HTML and names the page in a meta tag
-// ("ko:/practice"). The first view of that very page in that language keeps
-// them; the first move to another page or language removes the tag and hands
+// ("/practice"). The first view of that very page keeps
+// them; the first move to another page removes the tag and hands
 // over to this hook for good.
 const PRERENDER_SELECTOR = 'meta[data-prerender]'
 
@@ -40,8 +40,7 @@ export const useDocumentMetadata = ({
   useLayoutEffect(() => {
     const prerenderTag =
       document.head.querySelector<HTMLMetaElement>(PRERENDER_SELECTOR)
-    const keepPrerendered =
-      prerenderTag?.content === `${i18n.resolvedLanguage}:${fullPath}`
+    const keepPrerendered = prerenderTag?.content === fullPath
     // The tag and the language links belong to the build's copy only.
     if (prerenderTag && !keepPrerendered)
       document
