@@ -24,7 +24,7 @@ export const SignupConsentPage = ({
   redirect,
   onExit
 }: SignupConsentPageProps): ReactElement | null => {
-  const { t } = useTranslation('auth')
+  const { i18n, t } = useTranslation('auth')
   const heading = useRef<HTMLHeadingElement>(null)
   const [checked, setChecked] = useState({ age: false, terms: false })
   const [missing, setMissing] = useState(false)
@@ -79,6 +79,14 @@ export const SignupConsentPage = ({
     consent.onAgree(nickname.trim(), showNicknameInvalid)
   }
   const existing = kind === 'EXISTING'
+  // #1285: '(필수)' after each required item, a space before it in ko; ja's
+  // full-width （必須） sits right against the text. Read aloud as written.
+  const required = (
+    <>
+      {i18n.resolvedLanguage === 'ja' ? null : ' '}
+      <span className="signup-required">{t('signup.required')}</span>
+    </>
+  )
   return (
     <div className="auth-panel signup-consent">
       <h1 ref={heading} className="auth-title-quiet" tabIndex={-1}>
@@ -89,6 +97,7 @@ export const SignupConsentPage = ({
         value={nickname}
         invalid={nicknameInvalid}
         inputRef={nicknameInput}
+        labelMark={required}
         onChange={(value) => {
           setTyped(value)
           setNicknameInvalid(false)
@@ -103,7 +112,10 @@ export const SignupConsentPage = ({
             aria-describedby="signup-consent-age-hint"
             onChange={(event) => toggle('age', event.currentTarget.checked)}
           />
-          <span>{t('signup.age')}</span>
+          <span>
+            {t('signup.age')}
+            {required}
+          </span>
         </label>
         <p id="signup-consent-age-hint" className="signup-consent-hint">
           {t('signup.ageHint')}
@@ -115,7 +127,10 @@ export const SignupConsentPage = ({
             checked={checked.terms}
             onChange={(event) => toggle('terms', event.currentTarget.checked)}
           />
-          <span>{linkConsent(t('signup.terms'), true)}</span>
+          <span>
+            {linkConsent(t('signup.terms'), true)}
+            {required}
+          </span>
         </label>
       </div>
       {missing ? (
