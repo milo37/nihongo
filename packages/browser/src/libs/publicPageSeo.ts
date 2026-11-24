@@ -122,6 +122,32 @@ const pageBody = (locale: UiLocale, path: PublicPagePath): string => {
   return parts.join('')
 }
 
+// #982: WebSite and Organization in the page's own language. The service
+// name, the addresses and the logo only: no person, no mail address.
+const structuredData = (locale: UiLocale): Record<string, unknown> => {
+  const name = resources[locale].common.appName
+  return {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'WebSite',
+        '@id': `${SITE_ORIGIN}/#website-${locale}`,
+        url: `${SITE_ORIGIN}${pagePath(locale, '/')}`,
+        name,
+        inLanguage: locale,
+        publisher: { '@id': `${SITE_ORIGIN}/#organization` }
+      },
+      {
+        '@type': 'Organization',
+        '@id': `${SITE_ORIGIN}/#organization`,
+        name,
+        url: `${SITE_ORIGIN}${pagePath(locale, '/')}`,
+        logo: `${SITE_ORIGIN}/icons/icon-512.png`
+      }
+    ]
+  }
+}
+
 /** All 8 public pages, ready for renderPublicPageHtml. */
 export const publicPageHtmlList = (): PublicPageHtml[] =>
   (['ko', 'ja'] as const).flatMap((locale) =>
@@ -131,6 +157,9 @@ export const publicPageHtmlList = (): PublicPageHtml[] =>
       title: seo[locale][path].title,
       description: seo[locale][path].description,
       bodyHtml: pageBody(locale, path),
+      // The home page of each language only: the site's own data, and the
+      // 8-page copy would pass the total size budget of the built files.
+      ...(path === '/' ? { jsonLd: structuredData(locale) } : {}),
       alternates: [
         { hreflang: 'ko', href: `${SITE_ORIGIN}${path}` },
         { hreflang: 'ja', href: `${SITE_ORIGIN}${toJapanesePath(path)}` },

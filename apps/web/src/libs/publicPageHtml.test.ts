@@ -155,4 +155,60 @@ describe('publicPageHtmlList (#1268)', () => {
       '<li>JLPT N3: 文字・語彙・文法・読解</li>'
     )
   })
+  // #982
+  it('writes WebSite and Organization JSON-LD on both home pages, in their language', () => {
+    const expected = {
+      ko: { name: '하루마루', home: 'https://harumaru.app/' },
+      ja: { name: 'ハルまる', home: 'https://harumaru.app/ja' }
+    } as const
+    for (const page of pages) {
+      const html = renderPublicPageHtml(indexHtml, page)
+      if (page.path !== '/' && page.path !== '/ja') {
+        expect(html).not.toContain('ld+json')
+        continue
+      }
+      const blocks = [
+        ...html.matchAll(
+          /<script type="application\/ld\+json" data-prerender>(.*?)<\/script>/gu
+        )
+      ]
+      expect(blocks).toHaveLength(1)
+      const data = JSON.parse(blocks[0]?.[1] ?? '{}') as {
+        '@context': string
+        '@graph': Record<string, unknown>[]
+      }
+      expect(data['@context']).toBe('https://schema.org')
+      const [site, organization] = data['@graph']
+      const { name, home } = expected[page.locale]
+      expect(site).toMatchObject({
+        '@type': 'WebSite',
+        name,
+        url: home,
+        inLanguage: page.locale
+      })
+      expect(organization).toMatchObject({
+        '@type': 'Organization',
+        name,
+        logo: 'https://harumaru.app/icons/icon-512.png'
+      })
+      // Service name, addresses and logo only: no person, no mail address.
+      expect(Object.keys(organization ?? {}).sort()).toEqual(
+        ['@id', '@type', 'logo', 'name', 'url'].sort()
+      )
+      expect(blocks[0]?.[1]).not.toMatch(/@[a-z0-9-]+\.[a-z]|mailto|email/iu)
+    }
+  })
+
+  it('keeps JSON-LD out of the page without data and escapes "<"', () => {
+    const plain = renderPublicPageHtml(indexHtml, {
+      ...pages[0]!,
+      jsonLd: undefined
+    })
+    expect(plain).not.toContain('ld+json')
+    const tricky = renderPublicPageHtml(indexHtml, {
+      ...pages[0]!,
+      jsonLd: { name: '</script><b>' }
+    })
+    expect(tricky.match(/<\/script>/gu)).toHaveLength(2)
+  })
 })

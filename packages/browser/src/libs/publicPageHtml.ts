@@ -17,6 +17,8 @@ export type PublicPageHtml = {
   /** Escaped HTML of the page's text; shown only without JavaScript. */
   readonly bodyHtml: string
   readonly alternates: readonly { hreflang: string; href: string }[]
+  /** #982: schema.org data of the page; written into the head as JSON-LD. */
+  readonly jsonLd?: Readonly<Record<string, unknown>>
 }
 
 const escapeAttribute = (value: string): string =>
@@ -52,11 +54,23 @@ const setMetaContent = (
       `${match.slice(0, match.indexOf('content="'))}content="${content}"`
   )
 
+// "<" is escaped so no text can close the script tag early.
+const jsonLdTag = (data: Readonly<Record<string, unknown>>): string =>
+  `<script type="application/ld+json" data-prerender>${JSON.stringify(data).replaceAll('<', '\\u003c')}</script>`
+
 const OG_LOCALE = { ko: 'ko_KR', ja: 'ja_JP' } as const
 
 export const renderPublicPageHtml = (
   indexHtml: string,
-  { path, locale, title, description, bodyHtml, alternates }: PublicPageHtml
+  {
+    path,
+    locale,
+    title,
+    description,
+    bodyHtml,
+    alternates,
+    jsonLd
+  }: PublicPageHtml
 ): string => {
   const url = escapeAttribute(`${SITE_ORIGIN}${path}`)
   const safeTitle = escapeAttribute(title)
@@ -68,7 +82,8 @@ export const renderPublicPageHtml = (
         `<link rel="alternate" data-prerender hreflang="${escapeAttribute(hreflang)}" href="${escapeAttribute(href)}" />`
     ),
     // The app keeps these tags on the first view of this very page.
-    `<meta data-prerender name="nihongo-prerender" content="${locale}:${escapeAttribute(path)}" />`
+    `<meta data-prerender name="nihongo-prerender" content="${locale}:${escapeAttribute(path)}" />`,
+    ...(jsonLd ? [jsonLdTag(jsonLd)] : [])
   ].join('\n    ')
   let html = replaceOnce(
     indexHtml,
