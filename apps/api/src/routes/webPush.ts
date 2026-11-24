@@ -3,6 +3,7 @@ import {
   pushConfigResponseSchema,
   putPushSubscriptionRequestSchema
 } from '@nihongo/contracts/notification/web-push'
+import { ECDH } from 'node:crypto'
 import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import type { ApiEnvironment } from '../config/env.js'
@@ -17,6 +18,20 @@ import { toFieldErrors } from './routeSupport.js'
 type WebPushRouteEnvironment = { Variables: ApiVariables }
 
 const PUSH_SUBSCRIPTION_BODY_CAP = 4 * 1024
+
+/**
+ * The contract only checks the shape. A key that is not a point on P-256 would
+ * pass it, then fail every send with a plain error and never be removed, so
+ * the route checks the point itself.
+ */
+const isP256PublicKey = (p256dh: string): boolean => {
+  try {
+    ECDH.convertKey(Buffer.from(p256dh, 'base64url'), 'prime256v1')
+    return true
+  } catch {
+    return false
+  }
+}
 
 /**
  * #1046: /api/v1/push. The daily web push: the public key, subscribe and turn
@@ -85,6 +100,14 @@ export const createWebPushRoutes = ({
       context,
       putPushSubscriptionRequestSchema
     )
+    if (!isP256PublicKey(subscription.keys.p256dh)) {
+      throw new ApplicationError({
+        code: 'VALIDATION_ERROR',
+        message: '알림 구독 형식이 올바르지 않습니다.',
+        fieldErrors: { 'keys.p256dh': ['P-256 공개 키가 아닙니다.'] },
+        retryable: false
+      })
+    }
     await store.save({
       endpoint: subscription.endpoint,
       p256dh: subscription.keys.p256dh,

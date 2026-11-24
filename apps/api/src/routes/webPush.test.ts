@@ -1,3 +1,4 @@
+import { createECDH } from 'node:crypto'
 import { describe, expect, it, vi } from 'vitest'
 import type { AuthGateway } from '../auth/authGateway.js'
 import type { GuestPrincipalService } from '../auth/guestPrincipalService.js'
@@ -27,9 +28,15 @@ const environment = parseApiEnvironment({
   WEB_PUSH_PUBLIC_KEY: `B${'k'.repeat(86)}`
 })
 
+const browserKey = createECDH('prime256v1')
+browserKey.generateKeys()
+
 const subscription = {
   endpoint: 'https://fcm.googleapis.com/fcm/send/abc',
-  keys: { p256dh: `B${'a'.repeat(86)}=`, auth: 'b'.repeat(22) },
+  keys: {
+    p256dh: browserKey.getPublicKey().toString('base64url'),
+    auth: 'b'.repeat(22)
+  },
   locale: 'ja'
 }
 
@@ -122,7 +129,14 @@ describe('web push routes (#1046)', () => {
 
   it.each([
     ['another address', { ...subscription, endpoint: 'https://example.com/x' }],
-    ['a person', { ...subscription, userId: 'u1' }]
+    ['a person', { ...subscription, userId: 'u1' }],
+    [
+      'a key that is not a P-256 point',
+      {
+        ...subscription,
+        keys: { ...subscription.keys, p256dh: `B${'a'.repeat(86)}=` }
+      }
+    ]
   ])('refuses %s', async (_label, body) => {
     const { app, store } = fixture()
     const response = await send(app, 'PUT', body)
