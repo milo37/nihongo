@@ -4,10 +4,22 @@ import {
   INDEXED_PATHS
 } from '@app/seo/routeIndexingPolicy'
 import { INDEXED_PATHS as BUILT_PATHS } from '@nihongo/browser/libs/publicPages'
+import { SITE_ORIGIN } from '@nihongo/browser/libs/publicPageHtml'
+import sitemap from '/public/sitemap.xml?raw'
 
 describe('route indexing policy', () => {
   it('lists the same pages the build writes', () => {
     expect(INDEXED_PATHS).toEqual(BUILT_PATHS)
+  })
+
+  // #1268: the sitemap lists every indexed page, the /ja copies included.
+  it('lists the same pages in public/sitemap.xml', () => {
+    const locations = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/gu)].map(
+      ([, location]) => location
+    )
+    expect(locations).toEqual(
+      BUILT_PATHS.map((pathname) => `${SITE_ORIGIN}${pathname}`)
+    )
   })
 
   it.each([
