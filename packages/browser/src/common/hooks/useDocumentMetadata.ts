@@ -25,7 +25,19 @@ type DocumentMetadataOptions = {
 // ("/practice"). The first view of that very page keeps
 // them; the first move to another page removes the tag and hands
 // over to this hook for good.
-const PRERENDER_SELECTOR = 'meta[data-prerender]'
+// A plain function: the compiler adds cache slots to every value in a hook.
+const keepsBuiltHead = (fullPath: string): boolean => {
+  const tag = document.head.querySelector<HTMLMetaElement>(
+    'meta[data-prerender]'
+  )
+  const keep = tag?.content === fullPath
+  // The tag and the language links belong to the build's copy only.
+  if (tag && !keep)
+    document
+      .querySelectorAll('[data-prerender]')
+      .forEach((node) => node.remove())
+  return keep
+}
 
 export const useDocumentMetadata = ({
   robots,
@@ -38,14 +50,7 @@ export const useDocumentMetadata = ({
   const { t, i18n } = useTranslation('navigation')
 
   useLayoutEffect(() => {
-    const prerenderTag =
-      document.head.querySelector<HTMLMetaElement>(PRERENDER_SELECTOR)
-    const keepPrerendered = prerenderTag?.content === fullPath
-    // The tag and the language links belong to the build's copy only.
-    if (prerenderTag && !keepPrerendered)
-      document
-        .querySelectorAll('[data-prerender]')
-        .forEach((node) => node.remove())
+    const keepPrerendered = keepsBuiltHead(fullPath)
 
     if (!keepPrerendered) {
       const routeKey = routeLabelKey ?? getRouteLabelKey(path)
