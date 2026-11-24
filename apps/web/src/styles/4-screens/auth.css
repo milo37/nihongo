@@ -65,6 +65,12 @@
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+/* #1285: '(필수)' in the hint's grey, plain weight, kept on one line. */
+.signup-required {
+  color: rgb(var(--color-muted));
+  font-weight: 400;
+  white-space: nowrap;
+}
 .signup-consent-hint {
   margin: -6px 0 4px 32px;
   color: rgb(var(--color-muted));
