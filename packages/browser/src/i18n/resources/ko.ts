@@ -410,6 +410,7 @@ export const koCoreResources = {
       terms:
         '<terms>이용약관</terms>과 <privacy>개인정보 처리방침</privacy>을 확인했어요',
       missing: '필수 항목을 확인해 주세요',
+      required: '(필수)',
       submitNew: '가입하기',
       submitExisting: '확인',
       cancel: '취소',
@@ -834,7 +835,8 @@ export const koCoreResources = {
       nextSet: '다음 {{formattedCount}}문제',
       nextSetStarting: '새 문제를 준비하는 중…',
       backToWrongNotes: '오답노트로',
-      backToBookmarks: '책갈피로'
+      backToBookmarks: '책갈피로',
+      goToStudy: '학습으로'
     },
     retry: {
       checking: '확인하는 중…',

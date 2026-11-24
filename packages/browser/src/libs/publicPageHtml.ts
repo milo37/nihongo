@@ -17,6 +17,8 @@ export type PublicPageHtml = {
   /** Escaped HTML of the page's text; shown only without JavaScript. */
   readonly bodyHtml: string
   readonly alternates: readonly { hreflang: string; href: string }[]
+  /** #982: schema.org data of the page; written into the head as JSON-LD. */
+  readonly jsonLd?: Readonly<Record<string, unknown>>
 }
 
 const escapeAttribute = (value: string): string =>
@@ -52,11 +54,31 @@ const setMetaContent = (
       `${match.slice(0, match.indexOf('content="'))}content="${content}"`
   )
 
+// "<" is escaped so no text can close the script tag early.
+const jsonLdTag = (data: Readonly<Record<string, unknown>>): string =>
+  `<script type="application/ld+json" data-prerender>${JSON.stringify(data).replaceAll('<', '\\u003c')}</script>`
+
 const OG_LOCALE = { ko: 'ko_KR', ja: 'ja_JP' } as const
+
+// #1281: the /ja pages share the Japanese card and site name; the Korean
+// pages keep index.html's.
+const JA_SHARE = {
+  siteName: 'ハルまる',
+  image: `${SITE_ORIGIN}/share-card-ja.png`,
+  imageAlt: 'JLPT、1日1セット。気軽に解いていこう'
+} as const
 
 export const renderPublicPageHtml = (
   indexHtml: string,
-  { path, locale, title, description, bodyHtml, alternates }: PublicPageHtml
+  {
+    path,
+    locale,
+    title,
+    description,
+    bodyHtml,
+    alternates,
+    jsonLd
+  }: PublicPageHtml
 ): string => {
   const url = escapeAttribute(`${SITE_ORIGIN}${path}`)
   const safeTitle = escapeAttribute(title)
@@ -68,7 +90,8 @@ export const renderPublicPageHtml = (
         `<link rel="alternate" data-prerender hreflang="${escapeAttribute(hreflang)}" href="${escapeAttribute(href)}" />`
     ),
     // The app keeps these tags on the first view of this very page.
-    `<meta data-prerender name="nihongo-prerender" content="${locale}:${escapeAttribute(path)}" />`
+    `<meta data-prerender name="nihongo-prerender" content="${locale}:${escapeAttribute(path)}" />`,
+    ...(jsonLd ? [jsonLdTag(jsonLd)] : [])
   ].join('\n    ')
   let html = replaceOnce(
     indexHtml,
@@ -89,5 +112,11 @@ export const renderPublicPageHtml = (
   html = setMetaContent(html, 'property', 'og:title', safeTitle)
   html = setMetaContent(html, 'property', 'og:description', safeDescription)
   html = setMetaContent(html, 'property', 'og:locale', OG_LOCALE[locale])
+  if (locale === 'ja') {
+    html = setMetaContent(html, 'property', 'og:site_name', JA_SHARE.siteName)
+    html = setMetaContent(html, 'property', 'og:image', JA_SHARE.image)
+    html = setMetaContent(html, 'property', 'og:image:alt', JA_SHARE.imageAlt)
+    html = setMetaContent(html, 'name', 'twitter:image', JA_SHARE.image)
+  }
   return setMetaContent(html, 'property', 'og:url', url)
 }

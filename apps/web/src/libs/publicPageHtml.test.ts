@@ -10,6 +10,7 @@ const indexHtml = `<!doctype html>
       name="description"
       content="JLPT N5부터 N1까지 문제를 풀고 오답을 반복 학습하는 하루마루"
     />
+    <meta property="og:site_name" content="하루마루" />
     <meta property="og:title" content="하루마루" />
     <meta
       property="og:description"
@@ -18,6 +19,11 @@ const indexHtml = `<!doctype html>
     <meta property="og:url" content="https://harumaru.app/" />
     <meta property="og:locale" content="ko_KR" />
     <meta property="og:image" content="https://harumaru.app/share-card.png" />
+    <meta
+      property="og:image:alt"
+      content="JLPT, 하루 한 세트. 가볍게 풀고 가요"
+    />
+    <meta name="twitter:image" content="https://harumaru.app/share-card.png" />
     <title>하루마루</title>
   </head>
   <body>
@@ -76,12 +82,41 @@ describe('renderPublicPageHtml (#981, #1268)', () => {
     )
   })
 
+  it("gives the /ja pages the Japanese card and site name, the Korean ones index.html's (#1281)", () => {
+    expect(html).toContain(
+      '<meta property="og:site_name" content="ハルまる" />'
+    )
+    expect(html).toContain(
+      '<meta property="og:image" content="https://harumaru.app/share-card-ja.png" />'
+    )
+    expect(html).toContain(
+      'property="og:image:alt"\n      content="JLPT、1日1セット。気軽に解いていこう"'
+    )
+    expect(html).not.toContain('share-card.png')
+    const ko = renderPublicPageHtml(indexHtml, {
+      path: '/practice',
+      locale: 'ko',
+      title: 't',
+      description: 'd',
+      bodyHtml: '',
+      alternates: []
+    })
+    expect(ko).toContain('<meta property="og:site_name" content="하루마루" />')
+    expect(ko).toContain('content="JLPT, 하루 한 세트. 가볍게 풀고 가요"')
+    expect(ko.match(/https:\/\/harumaru\.app\/share-card\.png/gu)).toHaveLength(
+      2
+    )
+    expect(ko).not.toContain('share-card-ja')
+  })
+
   it('puts the page text in <noscript> and keeps scripts and the root', () => {
     expect(html).toContain(
       '<noscript><h1>練習</h1></noscript>\n    <div id="root"></div>'
     )
     expect(html).toContain('<script type="module" src="/assets/index.js">')
-    expect(html).toContain('content="https://harumaru.app/share-card.png"')
+    expect(html).toContain(
+      '<meta name="twitter:image" content="https://harumaru.app/share-card-ja.png" />'
+    )
     const marker = '<meta name="nihongo-release-id" content="release-fixture">'
     expect(
       renderPublicPageHtml(indexHtml.replace('</head>', `${marker}</head>`), {
@@ -154,5 +189,61 @@ describe('publicPageHtmlList (#1268)', () => {
     expect(pages[4]?.bodyHtml).toContain(
       '<li>JLPT N3: 文字・語彙・文法・読解</li>'
     )
+  })
+  // #982
+  it("writes WebSite JSON-LD in each home page's language, with one shared Organization", () => {
+    const expected = {
+      ko: { name: '하루마루', home: 'https://harumaru.app/' },
+      ja: { name: 'ハルまる', home: 'https://harumaru.app/ja' }
+    } as const
+    for (const page of pages) {
+      const html = renderPublicPageHtml(indexHtml, page)
+      if (page.path !== '/' && page.path !== '/ja') {
+        expect(html).not.toContain('ld+json')
+        continue
+      }
+      const blocks = [
+        ...html.matchAll(
+          /<script type="application\/ld\+json" data-prerender>(.*?)<\/script>/gu
+        )
+      ]
+      expect(blocks).toHaveLength(1)
+      const data = JSON.parse(blocks[0]?.[1] ?? '{}') as {
+        '@context': string
+        '@graph': Record<string, unknown>[]
+      }
+      expect(data['@context']).toBe('https://schema.org')
+      const [site, organization] = data['@graph']
+      const { name, home } = expected[page.locale]
+      expect(site).toMatchObject({
+        '@type': 'WebSite',
+        name,
+        url: home,
+        inLanguage: page.locale
+      })
+      // One Organization, the same on both pages.
+      expect(organization).toEqual({
+        '@type': 'Organization',
+        '@id': 'https://harumaru.app/#organization',
+        name: '하루마루',
+        alternateName: 'ハルまる',
+        url: 'https://harumaru.app/',
+        logo: 'https://harumaru.app/icons/icon-512.png'
+      })
+      expect(blocks[0]?.[1]).not.toMatch(/@[a-z0-9-]+\.[a-z]|mailto|email/iu)
+    }
+  })
+
+  it('keeps JSON-LD out of the page without data and escapes "<"', () => {
+    const plain = renderPublicPageHtml(indexHtml, {
+      ...pages[0]!,
+      jsonLd: undefined
+    })
+    expect(plain).not.toContain('ld+json')
+    const tricky = renderPublicPageHtml(indexHtml, {
+      ...pages[0]!,
+      jsonLd: { name: '</script><b>' }
+    })
+    expect(tricky.match(/<\/script>/gu)).toHaveLength(2)
   })
 })

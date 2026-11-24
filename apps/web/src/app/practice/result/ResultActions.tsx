@@ -12,10 +12,8 @@ import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 import { useStartNextSet } from '@app/practice/result/useStartNextSet'
 import { PracticeSetupFeedback } from '@app/practice/components/PracticeSetupFeedback'
 import { ButtonTriesLeft } from '@app/practice/components/ButtonTriesLeft'
-import {
-  getSetReturnPath,
-  setReturnLabelKey
-} from '@app/practice/setReturnPath'
+import { setReturnLabelKey } from '@app/practice/setReturnPath'
+import { useSetReturnPath } from '@app/practice/hooks/useSetReturnPath'
 
 // Outlined buttons add a border; fix both buttons at 48px (ux2 §2-4).
 const SAME_HEIGHT = 'study-result-button'
@@ -57,7 +55,7 @@ export const ResultActions = ({
   const nextSet = useStartNextSet(session, isGuest, requestedCount)
   // JLP-856: a wrong-note or bookmark set goes back to its list instead of
   // offering a random next set.
-  const returnPath = isGuest ? null : getSetReturnPath(session.mode)
+  const returnPath = useSetReturnPath(session.mode, isGuest)
   return (
     <section
       className="study-result-actions"

@@ -427,6 +427,7 @@ export const jaCoreResources = {
       terms:
         '<terms>利用規約</terms>と<privacy>個人情報処理方針</privacy>を確認しました',
       missing: '必須項目を確認してください',
+      required: '（必須）',
       submitNew: '登録する',
       submitExisting: '確認する',
       cancel: 'キャンセル',
@@ -873,7 +874,8 @@ export const jaCoreResources = {
       nextSet: '次の{{formattedCount}}問',
       nextSetStarting: '新しい問題を準備しています…',
       backToWrongNotes: '間違いノートへ',
-      backToBookmarks: 'ブックマークへ'
+      backToBookmarks: 'ブックマークへ',
+      goToStudy: '学習へ'
     },
     retry: {
       checking: '確認中…',
