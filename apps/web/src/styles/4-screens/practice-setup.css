@@ -93,13 +93,20 @@ section.practice-guest-limit,
   font-weight: 700;
 }
 /* Levels and counts: manuscript squares, 1px rules between, no outer box.
-   Both rows are five columns wide, so a count square is as wide as a level
-   square however many counts there are, and the rules sit on the squares so
-   they end at the last one (#1244). */
+   Both rows span the full width: five level squares, and the counts share
+   the row evenly however many there are (2: halves, 3: thirds). The rules
+   sit on the squares, so both rows end at the same line (#1244). */
 .practice-setup-page .choice-levels .choice-options,
 .practice-setup-page .choice-counts .choice-options {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0;
+}
+.practice-setup-page .choice-levels .choice-options {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+.practice-setup-page .choice-counts .choice-options {
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
 }
 .practice-setup-page .choice-levels .choice-surface,
 .practice-setup-page .choice-counts .choice-surface {
