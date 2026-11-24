@@ -216,7 +216,7 @@ describe('BookmarkPage pagination settlement', () => {
     const interaction = userEvent.setup()
     const text = await screen.findByText(preview)
     expect(text).toHaveAttribute('lang', 'ja')
-    expect(text.className).toContain('line-clamp-2')
+    expect(text.className).toContain('study-list-text')
     expect(screen.getByText('21문제')).toBeVisible()
     expect(screen.getByText('담은 순')).toBeVisible()
     expect(screen.queryByText('저장된 문항 미리보기예요.')).toBeNull()

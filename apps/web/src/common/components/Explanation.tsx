@@ -21,15 +21,15 @@ export const Explanation = ({
   const isJapaneseScreen = i18n.resolvedLanguage === 'ja'
   const showJa = isJapaneseScreen && hasJapaneseExplanation(explanationJa)
   return (
-    <div className="min-w-0">
+    <div className="explanation">
       <p
-        className="whitespace-pre-line break-words leading-7 text-muted"
+        className="explanation-text"
         lang={showJa ? 'ja' : 'ko'}
       >
         {showJa ? explanationJa : explanationKo}
       </p>
       {isJapaneseScreen && !showJa ? (
-        <p className="mt-3 text-sm font-semibold text-subtle">
+        <p className="explanation-note">
           {t('explanation.japaneseUnavailable')}
         </p>
       ) : null}

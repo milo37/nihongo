@@ -88,14 +88,14 @@ export const ResultStatusLine = ({
           to={`/login?redirect=${encodeURIComponent('/wrong-notes')}`}
         >
           {authT('guestToast.login')}
-          <Icon name="chevron-right" className="size-4" />
+          <Icon name="chevron-right" className="result-guest-keep-icon" />
         </Link>
       </p>
     ) : (
       <p className="study-result-status-note">
         {t('status.guestAllCorrect')}
         <Link
-          className="note-link ms-2"
+          className="note-link result-guest-login"
           to={`/login?redirect=${encodeURIComponent('/practice')}`}
         >
           {authT('guestToast.login')}

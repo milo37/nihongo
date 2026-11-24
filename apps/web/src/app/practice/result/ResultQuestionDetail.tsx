@@ -65,7 +65,11 @@ export const ResultQuestionDetail = ({
       aria-labelledby="selected-result-question-title"
     >
       <div className="study-result-detail-heading">
-        <p className={item.isCorrect ? 'text-success' : 'text-danger'}>
+        <p
+          className={
+            item.isCorrect ? 'result-mark-correct' : 'result-mark-wrong'
+          }
+        >
           <ResultStatusIcon status={status} />
           {t(`items.${status}`)} ·{' '}
           {t('navigation.question', { formattedOrdinal })}
@@ -85,8 +89,10 @@ export const ResultQuestionDetail = ({
       {bookmarkMessage ? (
         <p
           className={classNames(
-            'mt-3 text-sm font-semibold',
-            bookmarkMessage.isError ? 'text-danger' : 'text-warning'
+            'result-bookmark-note',
+            bookmarkMessage.isError
+              ? 'result-bookmark-error'
+              : 'result-bookmark-warning'
           )}
           role={bookmarkMessage.isError ? 'alert' : 'status'}
         >

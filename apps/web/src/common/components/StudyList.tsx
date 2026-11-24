@@ -17,16 +17,16 @@ export const StudyListHeader = ({
   count,
   aside
 }: StudyListHeaderProps): ReactElement => (
-  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line py-3">
-    <div className="text-[15px] font-bold">{count}</div>
+  <div className="study-list-header">
+    <div className="study-list-count">{count}</div>
     {aside ? (
-      <div className="flex items-center gap-3 text-sm text-muted">{aside}</div>
+      <div className="study-list-aside">{aside}</div>
     ) : null}
   </div>
 )
 
 // 20px rows (16px under 640px); no hover on rows that are not links.
-const rowClassName = 'flex min-h-11 items-center gap-3 py-4 sm:py-5'
+const rowClassName = 'study-list-row'
 
 type StudyListRowProps = {
   meta: ReactNode
@@ -53,29 +53,28 @@ export const StudyListRow = ({
 }: StudyListRowProps): ReactElement => {
   const body = (
     <>
-      <div className="grid min-w-0 flex-1 gap-1">
-        <p className="text-caption font-semibold text-muted">{meta}</p>
+      <div className="study-list-body">
+        <p className="study-list-meta">{meta}</p>
         <p
-          className="line-clamp-2 text-base leading-relaxed sm:text-[17px]"
-          lang="ja"
+          className="study-list-text" lang="ja"
         >
           {text}
         </p>
-        {sub ? <p className="text-[13px] text-muted">{sub}</p> : null}
+        {sub ? <p className="study-list-sub">{sub}</p> : null}
       </div>
       {to || end ? (
-        <span className="flex shrink-0 items-center gap-2">
+        <span className="study-list-end">
           {end}
-          {to ? <Icon name="chevron-right" className="text-muted" /> : null}
+          {to ? <Icon name="chevron-right" className="study-list-chevron" /> : null}
         </span>
       ) : null}
     </>
   )
   return (
-    <li className="border-b border-line">
+    <li className="study-list-item">
       {to ? (
         <Link
-          className={`${rowClassName} hover:bg-surface-muted`}
+          className={`${rowClassName} study-list-link`}
           ref={linkRef}
           to={to}
           aria-label={label}
@@ -99,7 +98,7 @@ export const StudyList = ({
   children: ReactNode
   busy?: boolean
 }): ReactElement => (
-  <div className="max-w-[760px]">
+  <div className="study-list">
     {header}
     <ul aria-busy={busy || undefined}>{children}</ul>
   </div>

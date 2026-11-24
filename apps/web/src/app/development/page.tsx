@@ -12,22 +12,22 @@ export const ConnectionPage = () => {
   const [hasRetried, setHasRetried] = useState(false)
   const checking = status === 'checking'
   return (
-    <main className="min-h-screen bg-canvas px-page-gutter py-8 text-ink">
+    <main className="connection-page">
       <section
-        className="mx-auto flex w-full max-w-[40rem] flex-col gap-4 rounded-card border border-line bg-surface p-5"
+        className="connection-card"
         aria-labelledby="connection-heading"
       >
-        <h1 id="connection-heading" className="text-xl font-bold">
+        <h1 id="connection-heading" className="connection-title">
           {text.title}
         </h1>
-        <p className="text-muted">{text.description}</p>
+        <p className="connection-description">{text.description}</p>
         <div
           role="status"
           aria-live="polite"
           aria-busy={checking}
-          className="flex flex-col gap-3"
+          className="connection-status"
         >
-          <div className="flex items-center gap-2">
+          <div className="connection-state">
             <span aria-hidden="true">
               {checking ? '…' : status === 'connected' ? '✓' : '!'}
             </span>
@@ -49,7 +49,7 @@ export const ConnectionPage = () => {
           <Button
             aria-disabled={checking}
             aria-busy={checking}
-            className="w-full sm:w-fit"
+            className="connection-retry"
             onClick={() => {
               if (checking) return
               setHasRetried(true)
@@ -59,7 +59,7 @@ export const ConnectionPage = () => {
             {checking ? text.retrying : text.retry}
           </Button>
         )}
-        <p className="text-sm text-muted">{text.scope}</p>
+        <p className="connection-scope">{text.scope}</p>
       </section>
     </main>
   )

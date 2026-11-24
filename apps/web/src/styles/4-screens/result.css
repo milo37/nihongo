@@ -394,3 +394,41 @@
     }
   }
 }
+
+/* Correct and wrong marks, the bookmark note and the guest links; the
+   review title takes focus without a ring. */
+@layer utilities {
+  .result-guest-login {
+    margin-inline-start: 0.5rem;
+  }
+  .result-bookmark-note {
+    margin-top: 0.75rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    font-weight: var(--font-weight-semibold);
+  }
+  .result-guest-keep-icon {
+    width: 1rem;
+    height: 1rem;
+  }
+  .result-mark-wrong,
+  .result-bookmark-error {
+    color: rgb(var(--color-danger));
+  }
+  .review-feedback-wrong {
+    color: rgb(var(--color-danger-strong));
+  }
+  .result-mark-correct {
+    color: rgb(var(--color-success));
+  }
+  .review-feedback-correct {
+    color: rgb(var(--color-success-strong));
+  }
+  .result-bookmark-warning {
+    color: rgb(var(--color-warning));
+  }
+  .review-title {
+    --tw-outline-style: none;
+    outline-style: none;
+  }
+}
