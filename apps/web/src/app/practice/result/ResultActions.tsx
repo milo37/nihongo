@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement } from 'react'
@@ -13,14 +14,18 @@ import { useStartNextSet } from '@app/practice/result/useStartNextSet'
 import { PracticeSetupFeedback } from '@app/practice/components/PracticeSetupFeedback'
 import { ButtonTriesLeft } from '@app/practice/components/ButtonTriesLeft'
 import {
+  getReviewSetReturnPath,
   getSetReturnPath,
   setReturnLabelKey
 } from '@app/practice/setReturnPath'
+import { wrongNoteQueries } from '@app/wrong-note/queries/wrongNoteQueries'
 
 // Outlined buttons add a border; fix both buttons at 48px (ux2 §2-4).
 const SAME_HEIGHT = 'study-result-button'
 
 type ResultActionsProps = {
+  /** Something in this set was wrong (#1283). */
+  hasIncorrect: boolean
   isGuest: boolean
   /** A guest's tries left, inside [다음 N문제] (plan-notes §5). */
   guestTriesLeft?: number
@@ -43,6 +48,7 @@ type ResultActionsProps = {
  */
 export const ResultActions = ({
   guestTriesLeft,
+  hasIncorrect,
   isGuest,
   isGuestDone,
   isRetryDisabled,
@@ -57,7 +63,20 @@ export const ResultActions = ({
   const nextSet = useStartNextSet(session, isGuest, requestedCount)
   // JLP-856: a wrong-note or bookmark set goes back to its list instead of
   // offering a random next set.
-  const returnPath = isGuest ? null : getSetReturnPath(session.mode)
+  const listPath = isGuest ? null : getSetReturnPath(session.mode)
+  // #1283: with nothing wrong here, ask whether anything else waits; until
+  // the answer is in, the button keeps the wrong-note list.
+  const asksWhatIsLeft = listPath === '/wrong-notes' && !hasIncorrect
+  const toReview = useQuery({
+    ...wrongNoteQueries.reviewList({ state: 'TO_REVIEW', pageSize: 1 }),
+    enabled: asksWhatIsLeft
+  })
+  const returnPath = getReviewSetReturnPath(
+    listPath,
+    asksWhatIsLeft &&
+      !toReview.isFetching &&
+      toReview.data?.counts.toReview === 0
+  )
   return (
     <section
       className="study-result-actions"

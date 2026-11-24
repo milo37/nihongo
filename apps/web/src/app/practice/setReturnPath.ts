@@ -1,6 +1,6 @@
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
 
-export type SetReturnPath = '/wrong-notes' | '/bookmarks'
+export type SetReturnPath = '/wrong-notes' | '/bookmarks' | '/practice'
 
 /**
  * JLP-856: where a set goes back to. Wrong-note review sets return to the
@@ -21,7 +21,19 @@ export const getSetReturnPath = (
   }
 }
 
+/**
+ * #1283: a review set leaves the wrong-note list empty when nothing in it
+ * was wrong and nothing else waits for review; it goes to the study tab
+ * instead (the setup screen, no set started).
+ */
+export const getReviewSetReturnPath = (
+  listPath: SetReturnPath | null,
+  isNothingLeft: boolean
+): SetReturnPath | null =>
+  listPath === '/wrong-notes' && isNothingLeft ? '/practice' : listPath
+
 export const setReturnLabelKey = {
   '/wrong-notes': 'actions.backToWrongNotes',
-  '/bookmarks': 'actions.backToBookmarks'
+  '/bookmarks': 'actions.backToBookmarks',
+  '/practice': 'actions.goToStudy'
 } as const satisfies Record<SetReturnPath, string>

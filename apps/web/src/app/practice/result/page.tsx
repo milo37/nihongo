@@ -65,6 +65,7 @@ const PracticeResultPageContent = (): ReactElement => {
         />
         {/* What to do next sits right under the score (G, #792 design). */}
         <ResultActions
+          hasIncorrect={result.incorrectItems.length > 0}
           isGuest={isGuest}
           isGuestDone={result.isGuestDone}
           guestTriesLeft={result.guestTriesLeft}

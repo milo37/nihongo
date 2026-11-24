@@ -834,7 +834,8 @@ export const koCoreResources = {
       nextSet: '다음 {{formattedCount}}문제',
       nextSetStarting: '새 문제를 준비하는 중…',
       backToWrongNotes: '오답노트로',
-      backToBookmarks: '책갈피로'
+      backToBookmarks: '책갈피로',
+      goToStudy: '학습하기'
     },
     retry: {
       checking: '확인하는 중…',
