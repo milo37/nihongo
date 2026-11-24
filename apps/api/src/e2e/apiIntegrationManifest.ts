@@ -204,6 +204,22 @@ export const apiIntegrationManifest = [
     isolation: 'dedicated schema'
   },
   {
+    // #1046: the push table on the application login.
+    path: 'src/notification/dailyPush.integration.test.ts',
+    executionOwner: 'shard',
+    shard: 'current-app-role',
+    order: 23,
+    databaseState: 'current-canonical-65',
+    connectionRole: 'application',
+    requiredEnvironment: [
+      'DATABASE_URL',
+      'API_INTEGRATION_FIXTURE_DATABASE_URL',
+      'TEST_APP_FIXTURE_DATABASE_URL'
+    ],
+    seedPolicy: 'canonical-once',
+    isolation: 'dedicated schema'
+  },
+  {
     path: 'src/report/userReport.integration.test.ts',
     executionOwner: 'shard',
     shard: 'current-app-role',

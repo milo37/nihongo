@@ -1,9 +1,9 @@
 import {
   deletePushSubscriptionRequestSchema,
-  putPushSubscriptionRequestSchema,
-  type PushConfigResponse
+  pushConfigResponseSchema,
+  putPushSubscriptionRequestSchema
 } from '@nihongo/contracts/notification/web-push'
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import type { ApiEnvironment } from '../config/env.js'
 import { ApplicationError } from '../errors/applicationError.js'
@@ -42,19 +42,18 @@ export const createWebPushRoutes = ({
   )
 
   const readBody = async <T>(
-    clientIp: string,
-    request: Request,
+    context: Context<WebPushRouteEnvironment>,
     schema: z.ZodType<T>
   ): Promise<T> => {
     await rateLimiter.consume({
-      clientIp,
+      clientIp: context.get('clientIp'),
       operation: 'push-subscription',
       windowMs: 60_000,
       max: 10
     })
     try {
       return schema.parse(
-        await readStrictJsonBody(request, PUSH_SUBSCRIPTION_BODY_CAP)
+        await readStrictJsonBody(context.req.raw, PUSH_SUBSCRIPTION_BODY_CAP)
       )
     } catch (error: unknown) {
       if (error instanceof z.ZodError) {
@@ -71,7 +70,7 @@ export const createWebPushRoutes = ({
 
   routes.get('/config', (context) => {
     context.header('Cache-Control', 'no-store')
-    return context.json<PushConfigResponse>({ publicKey })
+    return context.json(pushConfigResponseSchema.parse({ publicKey }))
   })
 
   routes.put('/subscription', async (context) => {
@@ -83,8 +82,7 @@ export const createWebPushRoutes = ({
       })
     }
     const subscription = await readBody(
-      context.get('clientIp'),
-      context.req.raw,
+      context,
       putPushSubscriptionRequestSchema
     )
     await store.save({
@@ -99,8 +97,7 @@ export const createWebPushRoutes = ({
 
   routes.delete('/subscription', async (context) => {
     const { endpoint } = await readBody(
-      context.get('clientIp'),
-      context.req.raw,
+      context,
       deletePushSubscriptionRequestSchema
     )
     await store.remove(endpoint)
