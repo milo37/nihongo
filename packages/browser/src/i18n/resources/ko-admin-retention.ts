@@ -16,6 +16,7 @@ export const koAdminRetentionResources = {
     audience: '구분',
     cohortSize: '코호트 크기',
     day1: '다음 날 재방문',
+    weekCohortSize: '7일째 집계 크기',
     day7: '7일째 재방문',
     week1: '첫 주 재방문'
   }

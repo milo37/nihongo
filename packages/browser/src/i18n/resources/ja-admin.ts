@@ -918,6 +918,7 @@ export const jaAdminResources = {
       audience: '区分',
       cohortSize: 'コホート人数',
       day1: '翌日の再訪',
+      weekCohortSize: '7日目集計時の人数',
       day7: '7日目の再訪',
       week1: '初週の再訪'
     }

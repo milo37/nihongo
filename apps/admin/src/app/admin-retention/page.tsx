@@ -53,6 +53,13 @@ const RetentionRow = ({ row }: { row: AdminRetentionRow }): ReactElement => {
         <ReturnCell returned={row.day1Returned} base={row.cohortSize} />
       </td>
       <td className="px-3 py-3 text-right tabular-nums">
+        {row.weekCohortSize === null ? (
+          <span className="text-muted">{t('retention.pending')}</span>
+        ) : (
+          formatNumber(row.weekCohortSize, locale)
+        )}
+      </td>
+      <td className="px-3 py-3 text-right tabular-nums">
         <ReturnCell returned={row.day7Returned} base={row.weekCohortSize} />
       </td>
       <td className="px-3 py-3 text-right tabular-nums">
@@ -96,7 +103,7 @@ const RetentionBody = (): ReactElement => {
       tabIndex={0}
       className="mt-8 overflow-x-auto rounded-card border border-line bg-surface focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
     >
-      <table className="w-full min-w-[48rem] border-collapse text-left text-sm">
+      <table className="w-full min-w-[56rem] border-collapse text-left text-sm">
         <caption className="sr-only">{t('retention.tableLabel')}</caption>
         <thead className="border-b border-line bg-surface-muted text-muted">
           <tr>
@@ -111,6 +118,9 @@ const RetentionBody = (): ReactElement => {
             </th>
             <th scope="col" className="px-3 py-3 text-right font-semibold">
               {t('retention.columns.day1')}
+            </th>
+            <th scope="col" className="px-3 py-3 text-right font-semibold">
+              {t('retention.columns.weekCohortSize')}
             </th>
             <th scope="col" className="px-3 py-3 text-right font-semibold">
               {t('retention.columns.day7')}

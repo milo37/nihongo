@@ -72,9 +72,9 @@ const response: GetAdminRetentionResponse = {
       audience: 'GUEST',
       cohortSize: 40,
       day1Returned: 10,
-      weekCohortSize: 40,
+      weekCohortSize: 50,
       day7Returned: 6,
-      week1Returned: 12
+      week1Returned: 15
     },
     {
       cohortDate: '2026-11-09',
@@ -98,9 +98,11 @@ it('shows each cohort day with counts, shares and not-yet-counted cells', async 
   expect(within(recent!).getByText('2026-11-22')).toBeVisible()
   expect(within(recent!).getByText('회원')).toBeVisible()
   expect(within(recent!).getByText('25%')).toBeVisible()
-  expect(within(recent!).getAllByText('집계 전')).toHaveLength(2)
+  expect(within(recent!).getAllByText('집계 전')).toHaveLength(3)
   expect(within(guest!).getByText('비회원')).toBeVisible()
-  expect(within(guest!).getByText('15%')).toBeVisible()
+  // Day 7 and first week divide by the size read at day 7 (50), not 40.
+  expect(within(guest!).getByText('50')).toBeVisible()
+  expect(within(guest!).getByText('12%')).toBeVisible()
   expect(within(guest!).getByText('30%')).toBeVisible()
   expect(within(empty!).getAllByText('없음').length).toBeGreaterThan(0)
 })
