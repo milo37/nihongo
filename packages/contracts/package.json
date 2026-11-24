@@ -103,6 +103,10 @@
       "types": "./dist/dashboard/get-dashboard-insights.d.ts",
       "import": "./dist/dashboard/get-dashboard-insights.js"
     },
+    "./notification/web-push": {
+      "types": "./dist/notification/web-push.d.ts",
+      "import": "./dist/notification/web-push.js"
+    },
     "./observability/report-client-error": {
       "types": "./dist/observability/report-client-error.d.ts",
       "import": "./dist/observability/report-client-error.js"
@@ -134,6 +138,10 @@
     "./study/guest-limits": {
       "types": "./dist/study/guest-limits.d.ts",
       "import": "./dist/study/guest-limits.js"
+    },
+    "./study/member-counts": {
+      "types": "./dist/study/member-counts.d.ts",
+      "import": "./dist/study/member-counts.js"
     },
     "./study/get-guest-allowance": {
       "types": "./dist/study/get-guest-allowance.d.ts",

@@ -174,7 +174,6 @@
     /* Explanations keep their line breaks (operator, 2026-11-22). */
     white-space: pre-line;
     font-size: 15px;
-    --tw-leading: calc(var(--spacing) * 7);
     line-height: calc(var(--spacing) * 7);
     color: rgb(var(--color-muted) / 1);
   }

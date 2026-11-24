@@ -127,9 +127,16 @@ export const isCanonicalViteAssetPath = (path) => {
   )
 }
 
+// #1268: the shell names itself (canonical) and its other-language copies
+// (alternate) by absolute public address, which is no asset it loads.
+const documentLinkPattern =
+  /<link\b[^>]*\brel=["'](?:canonical|alternate)["'][^>]*>/giu
+
 const getAssetPaths = (html, origin) => {
   const paths = new Set()
-  for (const match of html.matchAll(/(?:src|href)=["']([^"']+)["']/giu)) {
+  for (const match of html
+    .replace(documentLinkPattern, '')
+    .matchAll(/(?:src|href)=["']([^"']+)["']/giu)) {
     const reference = match[1]
     if (!reference) continue
     const url = new URL(reference, origin)

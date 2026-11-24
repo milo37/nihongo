@@ -2,8 +2,8 @@ import { useNavigate } from 'react-router'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
 import {
-  MEMBER_COUNT,
-  MEMBER_COUNT_CHOICES
+  fitMemberCount,
+  getDefaultMemberCount
 } from '@app/practice/practiceSetupOptions'
 import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
 import { GUEST_SESSION_QUESTION_LIMIT } from '@nihongo/contracts/study/guest-limits'
@@ -26,18 +26,20 @@ import {
 export const useStartNextSet = (
   session: StudySessionView['session'],
   isGuest: boolean,
-  /** The set just played: a member gets the same size again (5/10/20). */
-  requestedCount: number = MEMBER_COUNT
+  /** The set just played: a member gets the same size again when offered. */
+  requestedCount?: number
 ) => {
   const navigate = useNavigate()
   const beginPractice = useAppStore((state) => state.beginPractice)
   const createSession = useCreateStudySession()
-  // A retry set (any size) is followed by a normal one of ten.
+  // A retry set (any size) is followed by a normal one of the subject's
+  // default size; an old reading set of 20 is followed by 10 (#1244).
   const count = isGuest
     ? GUEST_SESSION_QUESTION_LIMIT
-    : MEMBER_COUNT_CHOICES.includes(requestedCount)
-      ? requestedCount
-      : MEMBER_COUNT
+    : fitMemberCount(
+        session.subject,
+        requestedCount ?? getDefaultMemberCount(session.subject)
+      )
   const start = (): void => {
     if (createSession.isPending) return
     createSession.mutate(

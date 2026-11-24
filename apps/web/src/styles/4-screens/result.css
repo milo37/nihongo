@@ -243,14 +243,12 @@
   .study-result-outcomes-note {
     margin-top: var(--spacing);
     font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
     color: rgb(var(--color-muted));
   }
   .study-result-status-note {
     margin-top: 0.5rem;
     font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
     color: rgb(var(--color-muted));
   }
@@ -297,7 +295,6 @@
   /* Notices: stale result, retry warnings and errors. */
   .study-result-retry-error-text {
     margin-top: var(--spacing);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
   }
   .study-result-no-retry {
@@ -362,7 +359,6 @@
   .study-result-rush-line {
     margin-top: 2.5rem;
     font-size: 14px;
-    --tw-leading: 1.25rem;
     line-height: 1.25rem;
     color: rgb(var(--color-muted));
   }

@@ -59,6 +59,7 @@ import {
   createPrismaRushBestRepository,
   createRushBestService
 } from './member/rushBest.js'
+import { createPrismaPushSubscriptionStore } from './notification/pushSubscriptionStore.js'
 import {
   createPrismaRushKanjiPairsRepository,
   createRushKanjiPairsReader
@@ -323,6 +324,7 @@ const app = createApiApp({
     environment,
     rateLimiter: applicationRateLimiter
   },
+  webPushStore: createPrismaPushSubscriptionStore(database.client),
   study: {
     draftService: studyDraftService,
     guestAllowanceReader: createPrismaGuestAllowanceReader({

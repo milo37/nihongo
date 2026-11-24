@@ -3,6 +3,11 @@ import type {
   QuestionSubject,
   StudyMode
 } from '@nihongo/browser/common/types/domain'
+import {
+  getDefaultMemberCount,
+  getMemberCountChoices,
+  getMemberCountLimit
+} from '@nihongo/contracts/study/member-counts'
 
 // Practice setup choices and the URL parsers that fall back to their defaults.
 export const levels: JlptLevel[] = ['N5', 'N4', 'N3', 'N2', 'N1']
@@ -14,10 +19,18 @@ export const modes: readonly StudyMode[] = ['RANDOM', 'DAILY_REVIEW']
 /** Level when the URL names none and there is no target or last level. */
 export const FALLBACK_LEVEL: JlptLevel = 'N5'
 export const FALLBACK_SUBJECT: QuestionSubject = 'VOCABULARY'
-/** A member always gets one set of 10 (subtract table 4). */
-export const MEMBER_COUNT = 10
-/** Set sizes a member can pick on the learn screen (default ten). */
-export const MEMBER_COUNT_CHOICES: readonly number[] = [5, 10, 20]
+// #1244: the set sizes per subject live in contracts, shared with the server.
+export { getDefaultMemberCount, getMemberCountChoices }
+
+/** A size that is not offered for the subject: an old reading 20 becomes 10. */
+export const fitMemberCount = (
+  subject: QuestionSubject,
+  count: number
+): number => {
+  if (getMemberCountChoices(subject).includes(count)) return count
+  const limit = getMemberCountLimit(subject)
+  return count > limit ? limit : getDefaultMemberCount(subject)
+}
 
 /** The URL level, else the default (target level, last level or N5). */
 export const getInitialLevel = (

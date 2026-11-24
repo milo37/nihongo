@@ -97,7 +97,7 @@ export const jaCoreResources = {
   },
   navigation: {
     accountMenu: {
-      label: 'アカウントメニュー',
+      label: '{{name}}のアカウントメニュー',
       signedInWith: 'Googleアカウントでログイン中',
       myPage: 'マイページ'
     },
@@ -563,8 +563,6 @@ export const jaCoreResources = {
       newTitle: '新しく解く',
       modeSummary: '出題方式',
       title: '何を解きますか？',
-      description:
-        '用意された問題が選んだ数より少ないときは、ある分だけ出ます。',
       resume: {
         title: '続きから解く',
         description: '保存した答えは24時間残ります。',
@@ -608,7 +606,8 @@ export const jaCoreResources = {
         },
         DAILY_REVIEW: {
           label: '復習する問題を解く',
-          description: '復習する問題を、前に間違えたものから10問出します。',
+          description:
+            '復習する問題を、前に間違えたものから出します。足りないときは、ある分だけ出ます。',
           empty: '復習する問題がありません。ほかの方法で解いてみてください。'
         }
       },
@@ -628,7 +627,6 @@ export const jaCoreResources = {
           '今日解ける新しいセットの上限に達しました。また明日解きましょう。間違いノートの復習は今もできます。'
       },
       urlLocked: '問題数と出題方法はログインすると選べます。',
-      availableCountNote: '問題が足りないときは、ある分だけ出ます。',
       noEligibleTitle:
         '現在の条件では「{{mode}}」で出題できる問題がありません。',
       noEligibleDescription:
@@ -762,7 +760,9 @@ export const jaCoreResources = {
           pause: '一時停止',
           position: '再生位置',
           restart: '最初から',
-          speed: '速度 {{rate}}倍'
+          speed: '速度 {{rate}}倍',
+          failedTitle: '音声を読み込めませんでした',
+          failedDescription: '少し待ってからもう一度お試しください。'
         },
         numberLabel: '{{ordinal}}番の問題。',
         answerLegend: '選択肢'

@@ -1,0 +1,1489 @@
+{
+  "items": [
+    {
+      "clientItemId": "n4-b6-reading-01",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "リンさんは あした どこへ 行きますか。",
+        "passage": "リンさんへ\nきょうの 夕方、山田先生から 電話が ありました。あしたの 授業は、教室ではなく 図書館の 二階で するそうです。時間は 同じです。それから、先週 借りた 辞書を 持って きて くださいと 言って いました。\nマリア",
+        "explanationKo": "핵심: 「教室ではなく 図書館の 二階で するそうです」\n내일 수업은 교실이 아니라 도서관 2층입니다. 선생님 집이나 1층이라는 말은 없습니다.",
+        "explanationJa": "ポイント：「教室ではなく 図書館の 二階で するそうです」\nあしたの 授業は 教室ではなく、図書館の 二階です。先生の 家や 一階とは 書いて ありません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "いつもの 教室"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "山田先生の 家"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "図書館の 二階"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "図書館の 一階"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-02",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "リンさんは あした 何を 持って 行きますか。",
+        "passage": "リンさんへ\nきょうの 夕方、山田先生から 電話が ありました。あしたの 授業は、教室ではなく 図書館の 二階で するそうです。時間は 同じです。それから、先週 借りた 辞書を 持って きて くださいと 言って いました。\nマリア",
+        "explanationKo": "핵심: 「先週 借りた 辞書を 持って きて ください」\n선생님이 지난주에 빌린 사전을 가져오라고 했습니다. 새 사전, 도서관 책, 편지 이야기는 없습니다.",
+        "explanationJa": "ポイント：「先週 借りた 辞書を 持って きて ください」\n先生は 先週 借りた 辞書を 持って くるように 言いました。新しい 辞書や 図書館の 本、手紙の 話は ありません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "新しい 辞書"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "先週 借りた 辞書"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "図書館の 本"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "先生への 手紙"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-03",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "この 人は どうして 歩いて 駅へ 行く ことに しましたか。",
+        "passage": "わたしは 毎朝 駅まで 自転車で 行って いましたが、先月から 歩いて 行く ことに しました。歩くと 二十分 かかりますが、朝の 空気が 気持ち よくて、一日 元気に すごせるからです。雨の 日は バスに 乗ります。",
+        "explanationKo": "핵심: 「朝の 空気が 気持ち よくて、一日 元気に すごせるからです」\n걸으면 기분이 좋고 하루를 건강하게 보낼 수 있어서입니다. 자전거 고장·의사 이야기는 없고, 버스는 비 오는 날 탑니다.",
+        "explanationJa": "ポイント：「朝の 空気が 気持ち よくて、一日 元気に すごせるからです」\n歩くと 気持ちが よく、元気に すごせるからです。自転車や 医者の 話は なく、バスは 雨の 日に 乗ります。",
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "自転車が こわれて しまったから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "バスより 早く 駅に 着くから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "気持ちが よくて、一日 元気に すごせるから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "医者に 歩くように 言われたから"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-04",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "車が ある 人は、土曜日の 何時までに 車を 動かしますか。",
+        "passage": "マンションの みなさんへ\n来週の 土曜日 午前十時から、駐車場の そうじを します。車が ある 人は、その 日の 朝 九時までに、道の 向こうの 公園の 駐車場へ 車を 動かして ください。そうじは 午後一時ごろ 終わる 予定です。車が ない 人は、何も しなくても いいです。\n管理会社",
+        "explanationKo": "핵심: 「その 日の 朝 九時までに、道の 向こうの 公園の 駐車場へ 車を 動かして ください」\n차가 있는 사람은 토요일 아침 9시까지 차를 옮깁니다. 10시는 청소 시작, 1시는 끝나는 시간입니다.",
+        "explanationJa": "ポイント：「その 日の 朝 九時までに、道の 向こうの 公園の 駐車場へ 車を 動かして ください」\n朝 九時までに 動かします。十時は そうじが 始まる 時間、一時は 終わる 時間です。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "午前十時"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "午後一時"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "夜 九時"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "朝 九時"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-05",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "車を 持って いない 人は、どう しますか。",
+        "passage": "マンションの みなさんへ\n来週の 土曜日 午前十時から、駐車場の そうじを します。車が ある 人は、その 日の 朝 九時までに、道の 向こうの 公園の 駐車場へ 車を 動かして ください。そうじは 午後一時ごろ 終わる 予定です。車が ない 人は、何も しなくても いいです。\n管理会社",
+        "explanationKo": "핵심: 「車が ない 人は、何も しなくても いいです」\n차가 없는 사람은 아무것도 하지 않아도 됩니다.",
+        "explanationJa": "ポイント：「車が ない 人は、何も しなくても いいです」\n車が ない 人は、何も しなくても いいです。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "公園の 駐車場へ 行く"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "何も しなくて いい"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "駐車場の そうじを 手伝う"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "午後一時まで 家に いる"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-06",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "この 人は この 本屋に ついて どう 思って いますか。",
+        "passage": "わたしの 町には 古い 本屋が あります。店は 小さくて、本も 多くないですが、店の おじいさんが いろいろな 本の 話を して くれます。インターネットで 買う ほうが 安くて 便利ですが、わたしは この 店で 買うのが 好きです。おじいさんと 話すと、読みたい 本が 見つかるからです。",
+        "explanationKo": "핵심: 「わたしは この 店で 買うのが 好きです」\n할아버지와 이야기하면 읽고 싶은 책을 찾을 수 있어서 이 가게에서 사는 것이 좋다고 했습니다. 싼 것은 인터넷 쪽입니다.",
+        "explanationJa": "ポイント：「わたしは この 店で 買うのが 好きです」\nおじいさんと 話すと 読みたい 本が 見つかるので、この 店で 買うのが 好きです。安いのは インターネットの ほうです。",
+        "tagNames": ["reading.opinion"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "店が 小さいので、本が 見つけにくい"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "インターネットより 安いので、いい"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "本が 少ないので、あまり 行きたくない"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "おじいさんと 話せるので、この 店で 買いたい"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-07",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "HARD",
+        "questionText": "土曜日も 日曜日も 雨が 降ったら、どう なりますか。",
+        "passage": "田中さん\n来週の 土曜日の バーベキューですが、雨が 降ったら、日曜日に します。日曜日も 雨なら、やめます。肉と 野菜は わたしが 買って おきます。田中さんは 飲み物を 持って きて ください。お金は 当日 みんなで 分けましょう。\nキム",
+        "explanationKo": "핵심: 「日曜日も 雨なら、やめます」\n토요일에 비가 오면 일요일로 미루고, 일요일에도 비가 오면 바비큐를 하지 않습니다.",
+        "explanationJa": "ポイント：「日曜日も 雨なら、やめます」\n土曜日が 雨なら 日曜日に しますが、日曜日も 雨なら バーベキューは しません。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "次の 週の 土曜日に する"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "バーベキューは しない"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "家の 中で する"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "日曜日に する"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-08",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "田中さんは 何を しなければ なりませんか。",
+        "passage": "田中さん\n来週の 土曜日の バーベキューですが、雨が 降ったら、日曜日に します。日曜日も 雨なら、やめます。肉と 野菜は わたしが 買って おきます。田中さんは 飲み物を 持って きて ください。お金は 当日 みんなで 分けましょう。\nキム",
+        "explanationKo": "핵심: 「田中さんは 飲み物を 持って きて ください」\n고기와 채소는 김 씨가 사 두고, 돈은 당일 다 같이 나눕니다.",
+        "explanationJa": "ポイント：「田中さんは 飲み物を 持って きて ください」\n肉と 野菜は キムさんが 買い、お金は 当日 みんなで 分けます。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "飲み物を 持って 行く"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "肉と 野菜を 買う"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "みんなの お金を 先に 払う"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "バーベキューの 場所を 決める"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-09",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "この 人は 美容院で どう しましたか。",
+        "passage": "先週、初めて 一人で 美容院に 行きました。日本語で 髪の 形を 説明するのが 心配だったので、好きな 髪型の 写真を スマートフォンに 入れて 行きました。店の 人に その 写真を 見せると、すぐに 分かって くれました。",
+        "explanationKo": "핵심: 「店の 人に その 写真を 見せると、すぐに 分かって くれました」\n일본어 설명이 걱정되어 사진을 보여 줬습니다. 혼자 갔고, 길게 설명하지도 않았습니다.",
+        "explanationJa": "ポイント：「店の 人に その 写真を 見せると、すぐに 分かって くれました」\n日本語で 説明するのが 心配だったので、写真を 見せました。一人で 行き、長く 説明しても いません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "友だちに 説明して もらった"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "日本語で 長く 説明した"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "店の 人に 写真を とって もらった"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "好きな 髪型の 写真を 見せた"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-10",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "ゆかさんは 今 どこに いますか。",
+        "passage": "お母さんへ\n友だちの 家で 宿題を して きます。六時までに 帰ります。おなかが すいたので、テーブルの 上の パンを 一つ 食べました。それから、ポストに 手紙が 入って いたので、つくえの 上に 置いて おきました。\nゆか",
+        "explanationKo": "핵심: 「友だちの 家で 宿題を して きます」\n유카는 친구 집에서 숙제를 하고 6시까지 돌아옵니다.",
+        "explanationJa": "ポイント：「友だちの 家で 宿題を して きます」\nゆかさんは 友だちの 家で 宿題を して、六時までに 帰ります。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "自分の 家"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "学校"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "パン屋"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "友だちの 家"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-11",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "手紙は 今 どこに ありますか。",
+        "passage": "お母さんへ\n友だちの 家で 宿題を して きます。六時までに 帰ります。おなかが すいたので、テーブルの 上の パンを 一つ 食べました。それから、ポストに 手紙が 入って いたので、つくえの 上に 置いて おきました。\nゆか",
+        "explanationKo": "핵심: 「つくえの 上に 置いて おきました」\n우편함에 있던 편지를 책상 위에 두었습니다. 테이블 위에는 빵이 있었습니다.",
+        "explanationJa": "ポイント：「つくえの 上に 置いて おきました」\nポストに あった 手紙を つくえの 上に 置きました。テーブルの 上に あったのは パンです。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "テーブルの 上"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "つくえの 上"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ポストの 中"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "友だちの 家"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-12",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "この 人が 金曜日に スーツを 着るのは、どんな 日ですか。",
+        "passage": "わたしの 会社では、去年から 金曜日は スーツを 着なくても よく なりました。はじめは 何を 着れば いいか 分からなくて こまりましたが、今は 楽な 服で 仕事が できるので、うれしいです。でも、お客さんに 会う 日は、金曜日でも スーツを 着て います。",
+        "explanationKo": "핵심: 「お客さんに 会う 日は、金曜日でも スーツを 着て います」\n금요일에도 손님을 만나는 날은 정장을 입습니다. 바쁜 날이나 추운 날 이야기는 없습니다.",
+        "explanationJa": "ポイント：「お客さんに 会う 日は、金曜日でも スーツを 着て います」\n金曜日でも お客さんに 会う 日は スーツです。いそがしい 日や 寒い 日の 話は ありません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "お客さんに 会う 日"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "仕事が いそがしい 日"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "何を 着るか 決められない 日"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "寒い 日"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-13",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "来月から 何が 変わりますか。",
+        "passage": "図書館からの お知らせ\n来月から、一回に 借りられる 本の 数が 五冊から 十冊に なります。借りられる 期間は 今と 同じ 二週間です。また、毎週 月曜日の 休みは なくなり、毎月 第三火曜日だけが 休みに なります。",
+        "explanationKo": "핵심: 「一回に 借りられる 本の 数が 五冊から 十冊に なります」\n대출 권수가 5권에서 10권이 됩니다. 기간은 지금과 같은 2주입니다.",
+        "explanationJa": "ポイント：「一回に 借りられる 本の 数が 五冊から 十冊に なります」\n借りられる 数が 増えます。期間は 今と 同じ 二週間です。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "本を 借りられる 期間"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "図書館が 開く 時間"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "本を 返す 場所"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "一回に 借りられる 本の 数"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-14",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "来月、図書館が 休みなのは いつですか。",
+        "passage": "図書館からの お知らせ\n来月から、一回に 借りられる 本の 数が 五冊から 十冊に なります。借りられる 期間は 今と 同じ 二週間です。また、毎週 月曜日の 休みは なくなり、毎月 第三火曜日だけが 休みに なります。",
+        "explanationKo": "핵심: 「毎月 第三火曜日だけが 休みに なります」\n매주 월요일 휴관은 없어지고, 매달 셋째 화요일만 쉽니다.",
+        "explanationJa": "ポイント：「毎月 第三火曜日だけが 休みに なります」\n毎週 月曜日の 休みは なくなり、第三火曜日だけ 休みです。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "毎月 第三火曜日"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "毎週 月曜日"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "毎週 火曜日"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "毎月 第三月曜日"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-15",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "この 人は 今、日本の 電車を どう 思って いますか。",
+        "passage": "日本に 来て、電車の 中が とても 静かなので おどろきました。わたしの 国では、電車の 中で 電話を したり、大きな 声で 話したり する 人が たくさん います。はじめは 少し さびしいと 思いましたが、今は 静かな 電車で 本を 読む 時間が 好きに なりました。",
+        "explanationKo": "핵심: 「今は 静かな 電車で 本を 読む 時間が 好きに なりました」\n처음에는 조금 쓸쓸했지만, 지금은 조용한 전철에서 책 읽는 시간이 좋아졌습니다.",
+        "explanationJa": "ポイント：「今は 静かな 電車で 本を 読む 時間が 好きに なりました」\nはじめは さびしいと 思いましたが、今は 好きに なりました。",
+        "tagNames": ["reading.opinion"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "静かすぎて さびしい"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "電話が できないので こまる"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "国の 電車の ほうが 楽しい"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "静かで 本が 読めるので 好きだ"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-16",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "リーさんは どうして この メールを 書きましたか。",
+        "passage": "山本さん\nきのうは 雨の 中、駅まで 車で 送って くれて、ありがとうございました。かさも 借りた ままで、すみません。あしたの 昼休みに 会社の 受付に あずけて おきますので、帰る ときに 受付で 受け取って ください。今度、お礼に コーヒーを ごちそうさせて ください。\nリー",
+        "explanationKo": "핵심: 「ありがとうございました」「受付で 受け取って ください」\n어제 일에 대한 감사와, 빌린 우산을 접수처에 맡긴다는 것을 알리려고 썼습니다.",
+        "explanationJa": "ポイント：「ありがとうございました」「受付で 受け取って ください」\nきのうの お礼と、借りた かさを 受付に あずける ことを 伝えて います。",
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "お礼を 言って、かさの 返し方を 伝えるため"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "コーヒーの おいしい 店を 教えるため"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "また 駅まで 送って ほしいから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "かさを 貸して ほしいから"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-17",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "山本さんは かさを どう やって 受け取りますか。",
+        "passage": "山本さん\nきのうは 雨の 中、駅まで 車で 送って くれて、ありがとうございました。かさも 借りた ままで、すみません。あしたの 昼休みに 会社の 受付に あずけて おきますので、帰る ときに 受付で 受け取って ください。今度、お礼に コーヒーを ごちそうさせて ください。\nリー",
+        "explanationKo": "핵심: 「帰る ときに 受付で 受け取って ください」\n리 씨가 점심시간에 접수처에 맡기면, 야마모토 씨는 퇴근할 때 받습니다.",
+        "explanationJa": "ポイント：「帰る ときに 受付で 受け取って ください」\nリーさんが 昼休みに 受付に あずけ、山本さんは 帰る ときに 受け取ります。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "あしたの 昼休みに リーさんに 会う"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "あした 帰る ときに、受付で 受け取る"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "あした 駅で 受け取る"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "コーヒーを 飲みに 行った ときに 受け取る"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-18",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "「父の 料理の 日」に 晩ご飯を 作るのは だれですか。",
+        "passage": "わたしの 家では、毎月 一回 「父の 料理の 日」が あります。その 日は、父が 晩ご飯を 作ります。父は 料理が あまり 上手では ありませんが、本を 見ながら 一生けんめい 作ります。この 前は カレーを 作って くれましたが、少し からすぎました。",
+        "explanationKo": "핵심: 「その 日は、父が 晩ご飯を 作ります」\n한 달에 한 번, 그날은 아버지가 저녁을 만듭니다.",
+        "explanationJa": "ポイント：「その 日は、父が 晩ご飯を 作ります」\n毎月 一回、その 日は 父が 晩ご飯を 作ります。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "母"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "わたし"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "家族 みんな"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "父"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-19",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "あしたの テストは 何時からですか。",
+        "passage": "ジョンさんへ\nあしたの テストの 時間が 変わりました。九時からではなく、十時半からです。教室も 一〇二から 二〇五に 変わります。辞書は 使っては いけません。えんぴつと 消しゴムは 自分の ものを 持って きて ください。\n受付",
+        "explanationKo": "핵심: 「九時からではなく、十時半からです」\n시험은 9시가 아니라 10시 반부터입니다.",
+        "explanationJa": "ポイント：「九時からではなく、十時半からです」\nテストは 九時ではなく、十時半からです。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "九時"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "十時"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "九時半"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "十時半"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-20",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "ジョンさんが あした テストに 持って いく ものは 何ですか。",
+        "passage": "ジョンさんへ\nあしたの テストの 時間が 変わりました。九時からではなく、十時半からです。教室も 一〇二から 二〇五に 変わります。辞書は 使っては いけません。えんぴつと 消しゴムは 自分の ものを 持って きて ください。\n受付",
+        "explanationKo": "핵심: 「えんぴつと 消しゴムは 自分の ものを 持って きて ください」\n사전은 쓰면 안 되고, 연필과 지우개는 자기 것을 가져가야 합니다.",
+        "explanationJa": "ポイント：「えんぴつと 消しゴムは 自分の ものを 持って きて ください」\n辞書は 使えません。えんぴつと 消しゴムは 自分の ものを 持って いきます。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "辞書と えんぴつ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "辞書だけ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "何も いらない"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "えんぴつと 消しゴム"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-21",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "この 人が テニスを 始められたのは どうしてですか。",
+        "passage": "わたしは 先月から 近くの 公園で 毎週 土曜日に テニスを 習って います。前から やって みたかったのですが、一人では なかなか 始められませんでした。でも、会社の 友だちが 「いっしょに 習おう」と 言って くれたので、始める ことが できました。",
+        "explanationKo": "핵심: 「会社の 友だちが 「いっしょに 習おう」と 言って くれたので、始める ことが できました」\n혼자서는 시작하지 못했지만, 친구가 같이 배우자고 해서 시작할 수 있었습니다.",
+        "explanationJa": "ポイント：「会社の 友だちが 「いっしょに 習おう」と 言って くれたので、始める ことが できました」\n一人では 始められませんでしたが、友だちに 誘われて 始められました。",
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "公園が 家から 近いから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "土曜日に 時間が できたから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "会社の 友だちが いっしょに 習おうと 言って くれたから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "仕事で テニスが 必要に なったから"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-22",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "今、ポチの 散歩は どう して いますか。",
+        "passage": "うちの 犬の ポチは 今年 十二歳に なりました。人間なら もう おじいさんです。前は 毎日 一時間ぐらい 散歩して いましたが、今は すぐ つかれて しまうので、三十分ぐらいに して います。そのかわり、朝と 夕方の 二回 行く ことに しました。",
+        "explanationKo": "핵심: 「三十分ぐらいに して います。そのかわり、朝と 夕方の 二回 行く ことに しました」\n지금은 30분 정도로 줄이고, 대신 아침·저녁 두 번 갑니다. 1시간은 예전 이야기입니다.",
+        "explanationJa": "ポイント：「三十分ぐらいに して います。そのかわり、朝と 夕方の 二回 行く ことに しました」\n今は 三十分ぐらいを 朝と 夕方の 二回です。一時間は 前の ことです。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "一時間ぐらいを、一日に 一回"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "一時間ぐらいを、一日に 二回"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "三十分ぐらいを、一日に 二回"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "三十分ぐらいを、一日に 一回"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-23",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "どうして 散歩を 短く しましたか。",
+        "passage": "うちの 犬の ポチは 今年 十二歳に なりました。人間なら もう おじいさんです。前は 毎日 一時間ぐらい 散歩して いましたが、今は すぐ つかれて しまうので、三十分ぐらいに して います。そのかわり、朝と 夕方の 二回 行く ことに しました。",
+        "explanationKo": "핵심: 「今は すぐ つかれて しまうので」\n포치가 나이가 들어 금방 지치기 때문입니다. 시간·비·의사 이야기는 없습니다.",
+        "explanationJa": "ポイント：「今は すぐ つかれて しまうので」\nポチが 年を とって、すぐ つかれるからです。時間や 雨、医者の 話は ありません。",
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "散歩の 時間が なく なったから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ポチが すぐ つかれて しまうから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "雨の 日が 多いから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "医者に 短く するように 言われたから"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-24",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "EASY",
+        "questionText": "アンナさんは いつから 学校に 行きますか。",
+        "passage": "先生へ\nきのうは 熱が あったので、学校を 休みました。すみません。けさは 熱が 下がりましたが、病院で もう 一日 休んだ ほうが いいと 言われたので、きょうも 休みます。あしたから 学校に 行きます。宿題は あした 出しても いいですか。\nアンナ",
+        "explanationKo": "핵심: 「あしたから 学校に 行きます」\n오늘까지 쉬고 내일부터 학교에 갑니다.",
+        "explanationJa": "ポイント：「あしたから 学校に 行きます」\nきょうまで 休んで、あしたから 学校に 行きます。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "あした"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "きょう"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "きのう"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "あさって"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-25",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "新しい スーパーに ついて、正しい ものは どれですか。",
+        "passage": "最近、駅の 前に 大きな スーパーが できました。何でも 安くて、夜 十一時まで あいて いるので、とても 便利です。でも、近くの 小さな 八百屋さんには、お客さんが 少なく なりました。わたしは 八百屋さんの 野菜は 新しくて おいしいと 思うので、これからも ときどき 買いに 行く つもりです。",
+        "explanationKo": "핵심: 「夜 十一時まで あいて いるので、とても 便利です」\n슈퍼는 역 앞에 있고 밤 11시까지 엽니다. 채소가 신선하다고 한 것은 채소 가게입니다.",
+        "explanationJa": "ポイント：「夜 十一時まで あいて いるので、とても 便利です」\nスーパーは 駅の 前に あり、夜 十一時まで あいて います。野菜が 新しいのは 八百屋さんです。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "野菜が 新しくて おいしい"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "夜 十一時まで あいて いる"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "駅から 遠い ところに ある"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "小さくて 品物が 少ない"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-26",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "HARD",
+        "questionText": "この 人は これから どう する つもりですか。",
+        "passage": "最近、駅の 前に 大きな スーパーが できました。何でも 安くて、夜 十一時まで あいて いるので、とても 便利です。でも、近くの 小さな 八百屋さんには、お客さんが 少なく なりました。わたしは 八百屋さんの 野菜は 新しくて おいしいと 思うので、これからも ときどき 買いに 行く つもりです。",
+        "explanationKo": "핵심: 「これからも ときどき 買いに 行く つもりです」\n채소 가게 채소가 신선하고 맛있다고 생각해서, 앞으로도 가끔 사러 갈 생각입니다.",
+        "explanationJa": "ポイント：「これからも ときどき 買いに 行く つもりです」\n八百屋さんの 野菜が 新しくて おいしいと 思うので、ときどき 買いに 行きます。",
+        "tagNames": ["reading.opinion"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "スーパーだけで 買い物を する"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "八百屋さんで 働く"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "ときどき 八百屋さんで 野菜を 買う"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "夜 おそく スーパーへ 行く"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-27",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "SHORT_READING",
+        "difficulty": "NORMAL",
+        "questionText": "この 人は どうして 字幕を 使わないように して いますか。",
+        "passage": "わたしは 日本の アニメが 好きで、日本語の 勉強を 始めました。はじめは 字幕を 見ながら アニメを 見て いましたが、今は 字幕を 使わないように して います。字幕が あると、日本語を 聞かないで、字だけ 読んで しまうからです。",
+        "explanationKo": "핵심: 「字幕が あると、日本語を 聞かないで、字だけ 読んで しまうからです」\n자막이 있으면 일본어를 듣지 않고 글자만 읽게 되기 때문입니다.",
+        "explanationJa": "ポイント：「字幕が あると、日本語を 聞かないで、字だけ 読んで しまうからです」\n字幕が あると、聞かないで 字だけ 読んで しまうからです。",
+        "tagNames": ["reading.reason-purpose"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "字幕が あると、日本語を 聞かなく なるから"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "字幕の 字が 小さくて 読めないから"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "アニメが 好きでは なくなったから"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "先生に 使わないように 言われたから"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-28",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "大人 一人と 小学生 二人で 行きます。料金は 全部で いくらですか。",
+        "passage": "ひまわり市民プール\n・時間：午前九時～午後八時（月曜日は 休み）\n・料金：大人 四百円、子ども（中学生まで）二百円\n・小学生は、午後五時から あとは 大人と いっしょに 来て ください。\n・ぼうしを かならず かぶって ください。（受付で 百円で 売って います）",
+        "explanationKo": "핵심: 「大人 四百円、子ども（中学生まで）二百円」\n어른 400엔 + 아이 200엔 × 2명 = 800엔입니다.",
+        "explanationJa": "ポイント：「大人 四百円、子ども（中学生まで）二百円」\n大人 四百円 ＋ 子ども 二百円 × 二人 ＝ 八百円です。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "四百円"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "六百円"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "八百円"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "千円"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-29",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "小学生の ケンくんは、午後六時から プールに 行きたいです。ぼうしは 持って いません。どう すれば いいですか。",
+        "passage": "ひまわり市民プール\n・時間：午前九時～午後八時（月曜日は 休み）\n・料金：大人 四百円、子ども（中学生まで）二百円\n・小学生は、午後五時から あとは 大人と いっしょに 来て ください。\n・ぼうしを かならず かぶって ください。（受付で 百円で 売って います）",
+        "explanationKo": "핵심: 「午後五時から あとは 大人と いっしょに 来て ください」「受付で 百円で 売って います」\n오후 6시라 어른과 함께 가야 하고, 모자는 반드시 써야 하므로 접수처에서 삽니다.",
+        "explanationJa": "ポイント：「午後五時から あとは 大人と いっしょに 来て ください」「受付で 百円で 売って います」\n午後六時なので 大人と いっしょに 行き、ぼうしは かならず かぶるので 受付で 買います。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "一人で 行って、受付で ぼうしを 買う"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "一人で 行って、ぼうしを かぶらないで 泳ぐ"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "大人と いっしょに 行って、受付で ぼうしを 買う"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "大人と いっしょに 行って、ぼうしを かぶらないで 泳ぐ"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-30",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "HARD",
+        "questionText": "火曜日の 朝 十一時に、ワイシャツ 二まいと ズボン 一本を 出しました。いつ、いくらで 受け取れますか。",
+        "passage": "きれい クリーニング\n・ワイシャツ　一まい 二百円\n・ズボン　一本 五百円\n・コート　一まい 千二百円\n・朝 十時までに 出すと、その 日の 夕方 六時に できます。十時より あとに 出すと、次の 日の 夕方 六時です。\n・水曜日に 出した ものは 半分の 料金です。",
+        "explanationKo": "핵심: 「十時より あとに 出すと、次の 日の 夕方 六時です」「水曜日に 出した ものは 半分の 料金です」\n10시 이후라 다음 날(수요일) 저녁 6시에 나옵니다. 화요일에 맡겼으니 반값이 아니고, 200×2+500 = 900엔입니다.",
+        "explanationJa": "ポイント：「十時より あとに 出すと、次の 日の 夕方 六時です」「水曜日に 出した ものは 半分の 料金です」\n十時より あとなので 次の 日（水曜日）の 夕方です。出したのは 火曜日なので 半分には ならず、二百×二＋五百＝九百円です。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "火曜日の 夕方 六時、九百円"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "水曜日の 夕方 六時、四百五十円"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "水曜日の 夕方 六時、九百円"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "火曜日の 夕方 六時、四百五十円"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-31",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "この 大会に 出られるのは だれですか。",
+        "passage": "留学生 日本語スピーチ大会\n・日にち：十一月三十日（土）午後一時から\n・場所：市民ホール 三階\n・出られる 人：日本に 来て 三年より 短い 留学生\n・スピーチの 長さ：五分まで\n・申し込み：十一月十五日までに、学校の 先生に 申し込み用紙を 出して ください。",
+        "explanationKo": "핵심: 「出られる 人：日本に 来て 三年より 短い 留学生」\n일본에 온 지 3년이 안 된 유학생만 나갈 수 있으므로 2년 된 유학생입니다.",
+        "explanationJa": "ポイント：「出られる 人：日本に 来て 三年より 短い 留学生」\n日本に 来て 三年より 短い 留学生だけなので、二年の 留学生です。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "日本に 来て 二年の 留学生"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "日本に 来て 四年の 留学生"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "日本の 会社で 働いて いる 人"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "留学生に 教えて いる 先生"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-32",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "大会に 出たい 人は、どう やって 申し込みますか。",
+        "passage": "留学生 日本語スピーチ大会\n・日にち：十一月三十日（土）午後一時から\n・場所：市民ホール 三階\n・出られる 人：日本に 来て 三年より 短い 留学生\n・スピーチの 長さ：五分まで\n・申し込み：十一月十五日までに、学校の 先生に 申し込み用紙を 出して ください。",
+        "explanationKo": "핵심: 「十一月十五日までに、学校の 先生に 申し込み用紙を 出して ください」\n신청은 11월 15일까지 학교 선생님에게 신청서를 냅니다. 전화나 홀에서 신청한다는 말은 없습니다.",
+        "explanationJa": "ポイント：「十一月十五日までに、学校の 先生に 申し込み用紙を 出して ください」\n十一月十五日までに 先生に 用紙を 出します。電話や ホールでの 申し込みは ありません。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "十一月十五日までに、学校の 先生に 用紙を 出す"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "十一月三十日に、市民ホールで 申し込む"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "十一月十五日までに、電話で 申し込む"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "十一月十五日に、市民ホールへ 用紙を 持って いく"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-33",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "土曜日の 午後三時に、この 郵便局で できる ことは どれですか。",
+        "passage": "みどり郵便局\n・窓口：平日 午前九時～午後五時\n・ＡＴＭ：平日 午前八時～午後九時、土曜日・日曜日 午前九時～午後五時\n・荷物の 受け取り：平日は 午後七時まで、土曜日は 午前中だけ\n・切手と はがきは、となりの コンビニでも 買えます。\n※土曜日・日曜日と 祝日は、窓口は 休みです。",
+        "explanationKo": "핵심: 「ＡＴＭ：平日 午前八時～午後九時、土曜日・日曜日 午前九時～午後五時」\n토요일 오후 3시에는 ATM만 됩니다. 창구는 평일만, 소포 수령은 토요일 오전뿐입니다.",
+        "explanationJa": "ポイント：「ＡＴＭ：平日 午前八時～午後九時、土曜日・日曜日 午前九時～午後五時」\n土曜日の 午後三時は ＡＴＭだけ 使えます。窓口は 平日だけ、荷物は 土曜日は 午前中だけです。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "窓口で 手紙を 出す"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "荷物を 受け取る"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "窓口で 切手を 買う"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "ＡＴＭで お金を 出す"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-34",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "大人 二人が、五日の 夜 九時から 始まる 映画を 見ます。全部で いくらですか。",
+        "passage": "さくらシネマ　料金\n・大人 千八百円\n・高校生・大学生 千五百円\n・中学生・小学生 千円\n・毎月 一日は 「映画の 日」です。だれでも 千円です。\n・夜 八時から あとに 始まる 映画は、大人も 千三百円です。\n・席は、インターネットか 映画館の 受付で 予約できます。",
+        "explanationKo": "핵심: 「夜 八時から あとに 始まる 映画は、大人も 千三百円です」\n밤 9시 영화라 어른도 1,300엔, 두 사람이면 2,600엔입니다. 5일은 「영화의 날」이 아닙니다.",
+        "explanationJa": "ポイント：「夜 八時から あとに 始まる 映画は、大人も 千三百円です」\n夜 九時の 映画なので 千三百円 × 二人 ＝ 二千六百円です。五日は 「映画の 日」では ありません。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "二千四百円"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "二千六百円"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "三千円"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "三千六百円"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-35",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "HARD",
+        "questionText": "一日に、大学生と 小学生が 昼の 映画を 見ます。全部で いくらですか。",
+        "passage": "さくらシネマ　料金\n・大人 千八百円\n・高校生・大学生 千五百円\n・中学生・小学生 千円\n・毎月 一日は 「映画の 日」です。だれでも 千円です。\n・夜 八時から あとに 始まる 映画は、大人も 千三百円です。\n・席は、インターネットか 映画館の 受付で 予約できます。",
+        "explanationKo": "핵심: 「毎月 一日は 「映画の 日」です。だれでも 千円です」\n1일은 누구나 1,000엔이라 1,000 × 2 = 2,000엔입니다. 2,500엔은 평소 요금(1,500+1,000)입니다.",
+        "explanationJa": "ポイント：「毎月 一日は 「映画の 日」です。だれでも 千円です」\n一日は だれでも 千円なので、千×二＝二千円です。二千五百円は いつもの 料金です。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "千円"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "二千円"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "二千五百円"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "三千円"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-36",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "次の 中で、パンが 買えるのは どれですか。",
+        "passage": "パン屋 「ひので」　年末年始の お知らせ\n・十二月三十日：午前八時～午後三時\n・十二月三十一日～一月三日：お休み\n・一月四日から、いつもの 時間（午前七時～午後七時）に もどります。\n※十二月三十日は、パンが 全部 売れたら、三時より 早く 閉める ことが あります。",
+        "explanationKo": "핵심: 「一月四日から、いつもの 時間（午前七時～午後七時）に もどります」\n1월 4일 오전 8시는 영업 중입니다. 12월 30일은 오후 3시까지이고, 31일~1월 3일은 쉽니다.",
+        "explanationJa": "ポイント：「一月四日から、いつもの 時間（午前七時～午後七時）に もどります」\n一月四日の 午前八時は あいて います。三十日は 午後三時まで、三十一日から 三日までは 休みです。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "一月四日の 午前八時"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "十二月三十日の 午後四時"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "十二月三十一日の 午前十時"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "一月三日の 午後一時"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-37",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "電動自転車を 一日 借ります。いくらですか。",
+        "passage": "駅前 レンタサイクル\n・料金：四時間まで 五百円、一日（夜 八時まで）八百円\n・電動自転車は、上の 料金に 二百円 たします。\n・借りる ときに、パスポートか 在留カードを 見せて ください。\n・夜 八時までに 返して ください。",
+        "explanationKo": "핵심: 「一日（夜 八時まで）八百円」「電動自転車は、上の 料金に 二百円 たします」\n하루 800엔에 전동 자전거 200엔을 더해 1,000엔입니다.",
+        "explanationJa": "ポイント：「一日（夜 八時まで）八百円」「電動自転車は、上の 料金に 二百円 たします」\n一日 八百円 ＋ 二百円 ＝ 千円です。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "七百円"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "八百円"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "千円"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "千三百円"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-38",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "EASY",
+        "questionText": "自転車を 借りる ときに、何が 必要ですか。",
+        "passage": "駅前 レンタサイクル\n・料金：四時間まで 五百円、一日（夜 八時まで）八百円\n・電動自転車は、上の 料金に 二百円 たします。\n・借りる ときに、パスポートか 在留カードを 見せて ください。\n・夜 八時までに 返して ください。",
+        "explanationKo": "핵심: 「パスポートか 在留カードを 見せて ください」\n빌릴 때 여권이나 재류 카드를 보여 줘야 합니다.",
+        "explanationJa": "ポイント：「パスポートか 在留カードを 見せて ください」\n借りる ときに パスポートか 在留カードを 見せます。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "電話番号を 書いた 紙"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "パスポートか 在留カード"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "自分の 写真"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "何も いらない"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-39",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "やまだ内科に 行けるのは どれですか。",
+        "passage": "やまだ内科\n受付時間：午前 九時～十二時、午後 三時～六時\n・木曜日の 午後と 日曜日は 休みです。\n・土曜日は 午前だけです。\n・初めての 人は、保険証を 持って きて ください。\n・薬は、病院の となりの 薬局で もらって ください。",
+        "explanationKo": "핵심: 「木曜日の 午後と 日曜日は 休みです」「土曜日は 午前だけです」\n수요일 오후 4시는 진료 시간입니다. 목요일 오후·토요일 오후·일요일은 쉽니다.",
+        "explanationJa": "ポイント：「木曜日の 午後と 日曜日は 休みです」「土曜日は 午前だけです」\n水曜日の 午後 四時は 受付時間です。木曜日の 午後、土曜日の 午後、日曜日は 休みです。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "水曜日の 午後 四時"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "木曜日の 午後 四時"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "土曜日の 午後 四時"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "日曜日の 午前 十時"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-40",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "会社員の 林さんは、平日は 夜 七時まで 仕事が あります。林さんが 入れるのは どの クラスですか。",
+        "passage": "書道教室　生徒 ぼしゅう\n・Ａクラス：火曜日 午後四時～五時（小学生）\n・Ｂクラス：火曜日 午後七時～八時半（中学生 以上）\n・Ｃクラス：土曜日 午前十時～十一時半（だれでも）\n・月謝：小学生 三千円、中学生 以上 四千円\n・道具は 教室で 貸します。初めの 一回は 無料で 体験できます。",
+        "explanationKo": "핵심: 「Ｃクラス：土曜日 午前十時～十一時半（だれでも）」\n평일은 7시까지 일해서 화요일 B반(7시 시작)에 못 가고, A반은 초등학생용입니다. 토요일 C반만 됩니다.",
+        "explanationJa": "ポイント：「Ｃクラス：土曜日 午前十時～十一時半（だれでも）」\n平日は 七時まで 仕事なので Ｂクラスに 間に合わず、Ａクラスは 小学生です。Ｃクラスだけです。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "Ｂクラスだけ"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "ＢクラスとＣクラス"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "Ａクラス"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "Ｃクラスだけ"
+          }
+        ],
+        "correctOptionKey": "option-4"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-41",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "中学生の 弟と 小学生の 妹が、一か月 習います。月謝は 全部で いくらですか。",
+        "passage": "書道教室　生徒 ぼしゅう\n・Ａクラス：火曜日 午後四時～五時（小学生）\n・Ｂクラス：火曜日 午後七時～八時半（中学生 以上）\n・Ｃクラス：土曜日 午前十時～十一時半（だれでも）\n・月謝：小学生 三千円、中学生 以上 四千円\n・道具は 教室で 貸します。初めの 一回は 無料で 体験できます。",
+        "explanationKo": "핵심: 「月謝：小学生 三千円、中学生 以上 四千円」\n중학생 4,000엔 + 초등학생 3,000엔 = 7,000엔입니다.",
+        "explanationJa": "ポイント：「月謝：小学生 三千円、中学生 以上 四千円」\n中学生 四千円 ＋ 小学生 三千円 ＝ 七千円です。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "四千円"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "六千円"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "七千円"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "八千円"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-42",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "HARD",
+        "questionText": "夜 八時に、友だちが 部屋に 遊びに 来ました。正しい ものは どれですか。",
+        "passage": "さくら寮の きまり\n・門が しまる 時間：夜 十一時\n・夜 十時から あとは、せんたく機を 使わないで ください。\n・友だちを 部屋に 入れる ときは、受付に 名前を 書いて ください。友だちは 夜 九時までに 帰って ください。\n・ごみは 一階の ごみ置き場に 出して ください。",
+        "explanationKo": "핵심: 「受付に 名前を 書いて ください。友だちは 夜 九時までに 帰って ください」\n친구를 방에 들일 때는 접수처에 이름을 쓰고, 친구는 9시까지 돌아가야 합니다. 11시는 문이 닫히는 시간입니다.",
+        "explanationJa": "ポイント：「受付に 名前を 書いて ください。友だちは 夜 九時までに 帰って ください」\n名前を 書けば 入れますが、九時までに 帰らなければ なりません。十一時は 門が しまる 時間です。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "受付に 名前を 書いて、九時までに 帰って もらう"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "名前は 書かないで、十一時まで いて もらう"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "受付に 名前を 書いて、十一時まで いて もらう"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "友だちは 部屋に 入れられない"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-43",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "大人 二人と 小学生 一人で 行きます。料金は 全部で いくらですか。",
+        "passage": "日帰り バスツアー 「いちごがりと 温泉」\n・日にち：三月十日（日）\n・集合：午前八時 みどり駅 東口（八時十分に 出発します）\n・料金：大人 六千円、子ども（小学生）四千円（昼ご飯 つき）\n・いちごは 三十分 食べほうだいです。\n・温泉に 入る 人は、タオルを 持って きて ください。\n・申し込みは 三月三日まで",
+        "explanationKo": "핵심: 「大人 六千円、子ども（小学生）四千円」\n어른 6,000 × 2 + 초등학생 4,000 = 16,000엔입니다.",
+        "explanationJa": "ポイント：「大人 六千円、子ども（小学生）四千円」\n六千円 × 二人 ＋ 四千円 ＝ 一万六千円です。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "一万二千円"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "一万四千円"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "一万六千円"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "一万八千円"
+          }
+        ],
+        "correctOptionKey": "option-3"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-44",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "NORMAL",
+        "questionText": "この ツアーに ついて、正しい ものは どれですか。",
+        "passage": "日帰り バスツアー 「いちごがりと 温泉」\n・日にち：三月十日（日）\n・集合：午前八時 みどり駅 東口（八時十分に 出発します）\n・料金：大人 六千円、子ども（小学生）四千円（昼ご飯 つき）\n・いちごは 三十分 食べほうだいです。\n・温泉に 入る 人は、タオルを 持って きて ください。\n・申し込みは 三月三日まで",
+        "explanationKo": "핵심: 「（昼ご飯 つき）」\n점심은 요금에 포함됩니다. 집합은 8시(8시 10분은 출발), 수건은 가져가야 하고, 신청은 3월 3일까지입니다.",
+        "explanationJa": "ポイント：「（昼ご飯 つき）」\n昼ご飯は 料金に 入って います。集合は 八時（八時十分は 出発）、タオルは 持って いき、申し込みは 三月三日までです。",
+        "tagNames": ["reading.detail"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "八時十分に 駅に 集まる"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "昼ご飯の お金は 料金に 入って いる"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "タオルは バスで 借りられる"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "三月十日まで 申し込める"
+          }
+        ],
+        "correctOptionKey": "option-2"
+      }
+    },
+    {
+      "clientItemId": "n4-b6-reading-45",
+      "content": {
+        "level": "N4",
+        "subject": "READING",
+        "questionType": "INFO_RETRIEVAL",
+        "difficulty": "HARD",
+        "questionText": "デパートで 四千円の 買い物を して、車を 二時間 止めました。いくら 払いますか。",
+        "passage": "駅前 駐車場　料金\n・はじめの 一時間：三百円\n・その あと 三十分ごとに：百円\n・一日の 最高：千五百円\n※駅前の デパートで 三千円 以上 買い物を すると、はじめの 一時間が 無料に なります。\n※デパートの レジで 駐車券を 見せて ください。",
+        "explanationKo": "핵심: 「はじめの 一時間が 無料に なります」「三十分ごとに：百円」\n3,000엔 이상 샀으니 처음 1시간(300엔)은 무료이고, 그 뒤 1시간은 30분마다 100엔 × 2 = 200엔입니다.",
+        "explanationJa": "ポイント：「はじめの 一時間が 無料に なります」「三十分ごとに：百円」\nはじめの 一時間（三百円）は 無料です。その あとの 一時間は 三十分ごとに 百円で、百×二＝二百円です。",
+        "tagNames": ["reading.condition-match"],
+        "options": [
+          {
+            "clientOptionKey": "option-1",
+            "text": "二百円"
+          },
+          {
+            "clientOptionKey": "option-2",
+            "text": "五百円"
+          },
+          {
+            "clientOptionKey": "option-3",
+            "text": "三百円"
+          },
+          {
+            "clientOptionKey": "option-4",
+            "text": "無料"
+          }
+        ],
+        "correctOptionKey": "option-1"
+      }
+    }
+  ]
+}

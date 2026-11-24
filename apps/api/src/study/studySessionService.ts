@@ -1,4 +1,7 @@
-import type { ParsedCreateStudySessionV2Body } from '@nihongo/contracts/study/create-study-session'
+import {
+  READING_SESSION_QUESTION_LIMIT,
+  type ParsedCreateStudySessionV2Body
+} from '@nihongo/contracts/study/create-study-session'
 import type { VersionedStudySessionPayload } from '@nihongo/contracts/study/study-session'
 import {
   GUEST_DAILY_SESSION_LIMIT,
@@ -118,6 +121,22 @@ export const createStudySessionService = (
         message: `비회원은 ${GUEST_SESSION_QUESTION_LIMIT}문제씩 풀 수 있습니다.`,
         fieldErrors: {
           count: [`${GUEST_SESSION_QUESTION_LIMIT}이어야 합니다.`]
+        },
+        retryable: false
+      })
+    }
+    // #1244: random reading sets stop at 10; review modes and sets made
+    // before keep their size.
+    if (
+      input.mode === 'RANDOM' &&
+      input.subject === 'READING' &&
+      input.count > READING_SESSION_QUESTION_LIMIT
+    ) {
+      throw new ApplicationError({
+        code: 'VALIDATION_ERROR',
+        message: `독해는 ${READING_SESSION_QUESTION_LIMIT}문제까지 고를 수 있습니다.`,
+        fieldErrors: {
+          count: [`${READING_SESSION_QUESTION_LIMIT} 이하여야 합니다.`]
         },
         retryable: false
       })

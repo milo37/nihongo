@@ -8,7 +8,7 @@ import type {
 } from '@nihongo/browser/common/types/domain'
 import { formatNumber } from '@nihongo/browser/libs/localeFormatters'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
-import { MEMBER_COUNT_CHOICES } from '@app/practice/practiceSetupOptions'
+import { getMemberCountChoices } from '@app/practice/practiceSetupOptions'
 import {
   ModeOptions,
   SubjectChoice
@@ -108,7 +108,7 @@ export const PracticeSetupForm = ({
           legend={t('setup.steps.count')}
           value={String(count)}
           disabled={isCreating}
-          options={MEMBER_COUNT_CHOICES.map((value) => ({
+          options={getMemberCountChoices(subject).map((value) => ({
             value: String(value),
             label: t('setup.questionCount', {
               formattedCount: formatNumber(value, locale)

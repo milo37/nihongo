@@ -96,6 +96,8 @@
   --z-overlay: 50;
   --z-dialog: 60;
   --z-toast: 70;
+  /* Toast enter and exit (#1263). */
+  --motion-toast: 240ms;
   --z-skip-link: 100;
   font-family: var(--font-sans);
   font-synthesis: none;
@@ -723,13 +725,6 @@
   text-align: center;
 }
 
-.practice-supply-note {
-  margin-top: 12px;
-  font-size: 13px;
-  text-align: center;
-  color: rgb(var(--color-muted));
-}
-
 .practice-resumable {
   margin-bottom: 36px;
 }
@@ -1256,7 +1251,14 @@
   .ui-toast {
     --ui-toast-tone: var(--color-info);
     border-left: 4px solid rgb(var(--ui-toast-tone));
-    animation: ui-toast-in 180ms ease-out;
+    animation: ui-toast-in var(--motion-toast) cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  /* Leaves before it is removed; gone by 60%, before it reaches the action
+     bar or the tab bar under it (#1263). */
+  .ui-toast[data-state='closing'] {
+    animation: ui-toast-out var(--motion-toast) cubic-bezier(0.4, 0, 1, 1)
+      forwards;
   }
 
   /* Korean breaks between words, so a balanced line never splits "3개를". */
@@ -1403,7 +1405,18 @@
 @keyframes ui-toast-in {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(100%);
+  }
+}
+
+@keyframes ui-toast-out {
+  60% {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(50%);
   }
 }
 
