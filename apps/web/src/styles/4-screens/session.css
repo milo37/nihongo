@@ -275,7 +275,6 @@ label:has(input:checked) .study-option-text {
     background-color: rgb(var(--color-warning-soft));
     padding: 0.75rem;
     font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
     color: rgb(var(--color-warning-strong));
   }
@@ -370,7 +369,6 @@ label:has(input:checked) .study-option-text {
   .study-draft-compact {
     margin-top: 0.5rem;
     font-size: var(--text-caption-size);
-    --tw-leading: 1.25rem;
     line-height: 1.25rem;
     color: rgb(var(--color-muted));
   }
@@ -391,7 +389,6 @@ label:has(input:checked) .study-option-text {
     padding-inline: 1rem;
     padding-block: 0.75rem;
     font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
     font-weight: var(--font-weight-semibold);
     color: rgb(var(--color-info-strong));
@@ -404,7 +401,6 @@ label:has(input:checked) .study-option-text {
     padding-inline: 1rem;
     padding-block: 0.75rem;
     font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
     font-weight: var(--font-weight-semibold);
   }
@@ -418,7 +414,6 @@ label:has(input:checked) .study-option-text {
     padding-inline: 1rem;
     padding-block: 0.75rem;
     font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
     font-weight: var(--font-weight-semibold);
     color: rgb(var(--color-warning-strong));
@@ -438,7 +433,6 @@ label:has(input:checked) .study-option-text {
   .study-supply-note {
     margin-bottom: 1rem;
     font-size: 13px;
-    --tw-leading: 1.25rem;
     line-height: 1.25rem;
     color: rgb(var(--color-muted));
   }
@@ -474,7 +468,6 @@ label:has(input:checked) .study-option-text {
   }
   .study-option-text {
     min-width: 0px;
-    --tw-leading: 1.6;
     line-height: 1.6;
   }
   .study-answer-options input {
@@ -625,7 +618,6 @@ label:has(input:checked) .study-option-text {
     background-color: rgb(var(--color-danger-soft));
     padding: 1rem;
     font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
     color: rgb(var(--color-danger-strong));
   }
@@ -637,7 +629,6 @@ label:has(input:checked) .study-option-text {
     background-color: rgb(var(--color-warning-soft));
     padding: 1rem;
     font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
     color: rgb(var(--color-warning-strong));
   }

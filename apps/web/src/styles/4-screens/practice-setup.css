@@ -197,7 +197,6 @@ section.practice-guest-limit,
   /* Setup notices: session cap, nothing to study, and the cancel dialog's error. */
   .practice-alert-body {
     margin-top: var(--spacing);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
   }
   .practice-alert-action {

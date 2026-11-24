@@ -99,7 +99,6 @@
   }
   .my-summary-number {
     font-size: 32px;
-    --tw-leading: var(--leading-tight);
     line-height: var(--leading-tight);
     font-weight: var(--font-weight-bold);
   }
@@ -186,7 +185,6 @@
   .my-recent-more {
     margin-top: 0.75rem;
     font-size: 13px;
-    --tw-leading: 1.7;
     line-height: 1.7;
     color: rgb(var(--color-muted));
   }
