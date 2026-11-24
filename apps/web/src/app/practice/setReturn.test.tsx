@@ -112,11 +112,11 @@ describe('세트가 온 목록으로 돌아가기 (JLP-856)', () => {
   })
 
   it.each(['DAILY_REVIEW', 'WRONG_NOTE'] as const)(
-    '%s 세트를 다 맞혀 복습할 문제가 없으면 [학습하기]로 학습 탭에 간다 (#1283)',
+    '%s 세트를 다 맞혀 복습할 문제가 없으면 [학습으로]로 학습 탭에 간다 (#1283)',
     async (mode) => {
       renderWith(actions(mode, false, false), withToReview(0))
       expect(
-        await screen.findByRole('link', { name: '학습하기' })
+        await screen.findByRole('link', { name: '학습으로' })
       ).toHaveAttribute('href', '/practice')
       expect(screen.queryByRole('link', { name: '오답노트로' })).toBeNull()
     }
