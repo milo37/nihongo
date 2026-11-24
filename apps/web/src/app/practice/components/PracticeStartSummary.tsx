@@ -64,9 +64,6 @@ export const StartSummary = ({
           <ButtonTriesLeft remaining={triesLeft} />
         )}
       </Button>
-      {isGuest ? null : (
-        <p className="practice-supply-note">{t('setup.availableCountNote')}</p>
-      )}
     </div>
   )
 }
