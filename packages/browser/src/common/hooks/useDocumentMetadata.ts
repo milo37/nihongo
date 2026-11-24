@@ -34,10 +34,7 @@ export const useDocumentMetadata = ({
   const routeLocation = useLocation()
   const basename = useHref('/')
   const fullPath = getAppPath(routeLocation.pathname, basename)
-  const location = {
-    ...routeLocation,
-    pathname: stripLocalePrefix(fullPath)
-  }
+  const path = stripLocalePrefix(fullPath)
   const { t, i18n } = useTranslation('navigation')
 
   useLayoutEffect(() => {
@@ -48,7 +45,7 @@ export const useDocumentMetadata = ({
     if (prerenderTag && !keepPrerendered) prerenderTag.remove()
 
     if (!keepPrerendered) {
-      const routeKey = routeLabelKey ?? getRouteLabelKey(location.pathname)
+      const routeKey = routeLabelKey ?? getRouteLabelKey(path)
       const route = t(routeKey)
       document.title = t('documentTitle', { route })
 
@@ -67,7 +64,7 @@ export const useDocumentMetadata = ({
       )
       // The language links belong to the build's copy of the page only.
       document
-        .querySelectorAll('link[rel="alternate"][hreflang]')
+        .querySelectorAll('link[hreflang]')
         .forEach((node) => node.remove())
     }
 
@@ -105,7 +102,7 @@ export const useDocumentMetadata = ({
     basename,
     fullPath,
     i18n.resolvedLanguage,
-    location.pathname,
+    path,
     robots,
     routeLabelKey,
     t

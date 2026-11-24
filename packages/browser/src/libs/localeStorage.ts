@@ -58,9 +58,7 @@ export const readUiLocalePreference = (): UiLocale => {
  * the saved choice. The address never overwrites the saved choice (#1268).
  */
 export const readInitialUiLocale = (): UiLocale =>
-  (typeof window === 'undefined'
-    ? null
-    : readPathLocale(window.location.pathname)) ?? readUiLocalePreference()
+  readPathLocale(window.location.pathname) ?? readUiLocalePreference()
 
 export const readFreshUiLocalePreference = (): UiLocale => {
   try {
