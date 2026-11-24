@@ -88,11 +88,11 @@ describe('#1085 가입 확인', () => {
       name: '가입하려면 아래 항목을 확인해 주세요.'
     })
     expect(heading).toHaveFocus()
-    const nickname = screen.getByRole('textbox', { name: '닉네임' })
+    const nickname = screen.getByRole('textbox', { name: '닉네임 (필수)' })
     expect(nickname).toHaveValue('데모 학습자')
     expect(nickname).toHaveAccessibleDescription('2~12자로 정해 주세요.')
     const age = screen.getByRole('checkbox', {
-      name: '만\u00a014세 이상이에요'
+      name: '만\u00a014세 이상이에요 (필수)'
     })
     expect(age).not.toBeChecked()
     expect(age).toHaveAccessibleDescription(
@@ -100,7 +100,7 @@ describe('#1085 가입 확인', () => {
     )
     expect(
       screen.getByRole('checkbox', {
-        name: /^이용약관\s?과 개인정보 처리방침\s?을 확인했어요$/u
+        name: /^이용약관\s?과 개인정보 처리방침\s?을 확인했어요 \(필수\)$/u
       })
     ).not.toBeChecked()
     expect(screen.getByRole('link', { name: '이용약관' })).toHaveAttribute(
@@ -138,10 +138,10 @@ describe('#1085 가입 확인', () => {
     const user = userEvent.setup()
     renderConsent()
     const terms = await screen.findByRole('checkbox', {
-      name: /^이용약관\s?과 개인정보 처리방침\s?을 확인했어요$/u
+      name: /^이용약관\s?과 개인정보 처리방침\s?을 확인했어요 \(필수\)$/u
     })
     await user.click(
-      screen.getByRole('checkbox', { name: '만\u00a014세 이상이에요' })
+      screen.getByRole('checkbox', { name: '만\u00a014세 이상이에요 (필수)' })
     )
     await user.click(screen.getByRole('button', { name: '가입하기' }))
     expect(screen.getByRole('alert')).toHaveTextContent(
@@ -162,7 +162,9 @@ describe('#1085 가입 확인', () => {
     )
     const user = userEvent.setup()
     renderConsent()
-    const nickname = await screen.findByRole('textbox', { name: '닉네임' })
+    const nickname = await screen.findByRole('textbox', {
+      name: '닉네임 (필수)'
+    })
     expect(nickname).toHaveValue('')
     await user.type(nickname, ' 데 ')
     expect(nickname).not.toHaveAttribute('aria-invalid')
@@ -183,7 +185,9 @@ describe('#1085 가입 확인', () => {
     mockServer.use(pending('NEW', ''))
     const user = userEvent.setup()
     renderConsent()
-    const nickname = await screen.findByRole('textbox', { name: '닉네임' })
+    const nickname = await screen.findByRole('textbox', {
+      name: '닉네임 (필수)'
+    })
     await user.click(nickname)
     await user.paste('가나다라마바사아자차카타파하')
     expect(nickname).toHaveValue('가나다라마바사아자차카타')
@@ -206,15 +210,17 @@ describe('#1085 가입 확인', () => {
     const user = userEvent.setup()
     const router = renderConsent()
     await user.click(
-      await screen.findByRole('checkbox', { name: '만\u00a014세 이상이에요' })
+      await screen.findByRole('checkbox', {
+        name: '만\u00a014세 이상이에요 (필수)'
+      })
     )
     await user.click(
       screen.getByRole('checkbox', {
-        name: /^이용약관\s?과 개인정보 처리방침\s?을 확인했어요$/u
+        name: /^이용약관\s?과 개인정보 처리방침\s?을 확인했어요 \(필수\)$/u
       })
     )
     await user.click(screen.getByRole('button', { name: '가입하기' }))
-    const nickname = screen.getByRole('textbox', { name: '닉네임' })
+    const nickname = screen.getByRole('textbox', { name: '닉네임 (필수)' })
     await waitFor(() =>
       expect(nickname).toHaveAttribute('aria-invalid', 'true')
     )
@@ -240,12 +246,12 @@ describe('#1085 가입 확인', () => {
     const router = renderConsent()
     await user.click(
       await screen.findByRole('checkbox', {
-        name: '만\u00a014세 이상이에요'
+        name: '만\u00a014세 이상이에요 (필수)'
       })
     )
     await user.click(
       screen.getByRole('checkbox', {
-        name: /^이용약관\s?과 개인정보 처리방침\s?을 확인했어요$/u
+        name: /^이용약관\s?과 개인정보 처리방침\s?을 확인했어요 \(필수\)$/u
       })
     )
     await user.dblClick(screen.getByRole('button', { name: '가입하기' }))
@@ -309,12 +315,12 @@ describe('#1085 가입 확인', () => {
     renderConsent()
     await user.click(
       await screen.findByRole('checkbox', {
-        name: '만\u00a014세 이상이에요'
+        name: '만\u00a014세 이상이에요 (필수)'
       })
     )
     await user.click(
       screen.getByRole('checkbox', {
-        name: /^이용약관\s?과 개인정보 처리방침\s?을 확인했어요$/u
+        name: /^이용약관\s?과 개인정보 처리방침\s?을 확인했어요 \(필수\)$/u
       })
     )
     await user.click(screen.getByRole('button', { name: '가입하기' }))

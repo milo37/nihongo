@@ -427,6 +427,7 @@ export const jaCoreResources = {
       terms:
         '<terms>利用規約</terms>と<privacy>個人情報処理方針</privacy>を確認しました',
       missing: '必須項目を確認してください',
+      required: '（必須）',
       submitNew: '登録する',
       submitExisting: '確認する',
       cancel: 'キャンセル',

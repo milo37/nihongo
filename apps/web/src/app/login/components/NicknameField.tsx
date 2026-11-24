@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import type { ReactElement, Ref } from 'react'
+import type { ReactElement, ReactNode, Ref } from 'react'
 
 // #1096 N-4: after trimming, 2 to 12 characters, each code point one
 // character, no line break. Kept here like the sign-up check schemas: the
@@ -33,6 +33,8 @@ type NicknameFieldProps = {
   value: string
   invalid: boolean
   inputRef?: Ref<HTMLInputElement>
+  /** After the label, on the sign-up screen only: '(필수)' (#1285). */
+  labelMark?: ReactNode
   onChange: (value: string) => void
 }
 
@@ -46,12 +48,16 @@ export const NicknameField = ({
   value,
   invalid,
   inputRef,
+  labelMark,
   onChange
 }: NicknameFieldProps): ReactElement => {
   const { t } = useTranslation('auth')
   return (
     <div className="nickname-field">
-      <label htmlFor={id}>{t('nickname.label')}</label>
+      <label htmlFor={id}>
+        {t('nickname.label')}
+        {labelMark}
+      </label>
       <input
         ref={inputRef}
         id={id}
