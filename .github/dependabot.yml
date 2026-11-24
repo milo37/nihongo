@@ -48,6 +48,10 @@ updates:
     ignore:
       - dependency-name: '*'
         update-types: ['version-update:semver-major']
+      # #1229: zustand 5.1 changes the persist storage type and breaks the
+      # browser package typecheck. Remove once the store is updated for 5.1.
+      - dependency-name: zustand
+        versions: ['>=5.1.0']
 
   - package-ecosystem: github-actions
     directory: /

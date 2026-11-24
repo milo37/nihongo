@@ -8,7 +8,8 @@ import { fileURLToPath } from 'node:url'
 // files as is. #1081: a third file per level (add2 50) makes 750. #1043: a
 // kanji reading file per level (27/28/28/27/28) makes 888. #1239: N1 reading
 // supplement B1 (45 questions on 30 passages) makes 933; N2 B2 (45 on 30)
-// makes 978; N3 reading B3 (45 on 30) and N2 grammar B4 (60) make 1083.
+// makes 978; N3 reading B3 (45 on 30) and N2 grammar B4 (60) make 1083;
+// N3 grammar B5 (60) makes 1143.
 export const questionImportDirectory = resolve(
   dirname(fileURLToPath(import.meta.url)),
   '../../../content/question-imports'
@@ -38,5 +39,6 @@ export const questionImportFileNames = [
   'n1.b1.v1.json',
   'n2.b2.v1.json',
   'n3.b3.v1.json',
-  'n2.b4.v1.json'
+  'n2.b4.v1.json',
+  'n3.b5.v1.json'
 ] as const

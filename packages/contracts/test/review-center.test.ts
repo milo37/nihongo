@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   createStudySessionBodySchema,
-  createStudySessionV2BodySchema
+  createStudySessionV2BodySchema,
+  READING_SESSION_QUESTION_LIMIT
 } from '../src/study/create-study-session.js'
+import { getMemberCountLimit } from '../src/study/member-counts.js'
 import {
   createTargetedReviewSessionBodySchema,
   createTargetedReviewSessionCanonicalMaterial,
@@ -103,6 +105,36 @@ describe('Review center contracts', () => {
         questionIds: [id(1)]
       }).success
     ).toBe(false)
+
+    expect(READING_SESSION_QUESTION_LIMIT).toBe(getMemberCountLimit('READING'))
+    // #1244: a new random reading set takes at most 10; other subjects and
+    // review modes still 20.
+    const reading = {
+      ...createBody,
+      mode: 'RANDOM' as const,
+      subject: 'READING' as const
+    }
+    expect(
+      createStudySessionV2BodySchema.safeParse({ ...reading, count: 20 })
+        .success
+    ).toBe(false)
+    expect(
+      createStudySessionV2BodySchema.safeParse({ ...reading, count: 10 })
+        .success
+    ).toBe(true)
+    expect(
+      createStudySessionV2BodySchema.safeParse({ ...createBody, count: 20 })
+        .success
+    ).toBe(true)
+    for (const mode of ['BOOKMARK', 'WRONG_NOTE', 'WEAKNESS'] as const) {
+      expect(
+        createStudySessionV2BodySchema.safeParse({
+          ...reading,
+          mode,
+          count: 20
+        }).success
+      ).toBe(true)
+    }
   })
 
   it('memo는 ECMAScript trim·Unicode code point 2000 경계와 delete null을 고정한다', () => {
