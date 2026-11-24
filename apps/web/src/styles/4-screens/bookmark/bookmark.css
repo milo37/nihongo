@@ -79,7 +79,6 @@
   .bookmark-practice-text {
     margin-top: 0.5rem;
     font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
     color: rgb(var(--color-muted));
   }

@@ -275,7 +275,6 @@ label:has(input:checked) .study-option-text {
     background-color: rgb(var(--color-warning-soft));
     padding: 0.75rem;
     font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
     color: rgb(var(--color-warning-strong));
   }
@@ -370,7 +369,6 @@ label:has(input:checked) .study-option-text {
   .study-draft-compact {
     margin-top: 0.5rem;
     font-size: var(--text-caption-size);
-    --tw-leading: 1.25rem;
     line-height: 1.25rem;
     color: rgb(var(--color-muted));
   }
@@ -391,7 +389,6 @@ label:has(input:checked) .study-option-text {
     padding-inline: 1rem;
     padding-block: 0.75rem;
     font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
     font-weight: var(--font-weight-semibold);
     color: rgb(var(--color-info-strong));
@@ -404,7 +401,6 @@ label:has(input:checked) .study-option-text {
     padding-inline: 1rem;
     padding-block: 0.75rem;
     font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
     font-weight: var(--font-weight-semibold);
   }
@@ -418,7 +414,6 @@ label:has(input:checked) .study-option-text {
     padding-inline: 1rem;
     padding-block: 0.75rem;
     font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
     font-weight: var(--font-weight-semibold);
     color: rgb(var(--color-warning-strong));
@@ -438,7 +433,6 @@ label:has(input:checked) .study-option-text {
   .study-supply-note {
     margin-bottom: 1rem;
     font-size: 13px;
-    --tw-leading: 1.25rem;
     line-height: 1.25rem;
     color: rgb(var(--color-muted));
   }
@@ -474,7 +468,6 @@ label:has(input:checked) .study-option-text {
   }
   .study-option-text {
     min-width: 0px;
-    --tw-leading: 1.6;
     line-height: 1.6;
   }
   .study-answer-options input {
@@ -555,7 +548,16 @@ label:has(input:checked) .study-option-text {
       background-color: rgb(var(--color-surface-muted));
     }
   }
-  /* Bottom actions, the question sheet and the submit dialog. */
+  /* Bottom actions, the question sheet and the submit dialog. The bar's
+     height is one sum so the toasts above it follow it (#1256). */
+  :root {
+    --study-actions-padding: 0.75rem;
+    --study-action-height: 52px;
+    --study-actions-height: calc(
+      var(--study-actions-padding) * 2 + var(--study-action-height) +
+        var(--border-width-default)
+    );
+  }
   .study-actions {
     position: fixed;
     inset-inline: 0px;
@@ -569,8 +571,20 @@ label:has(input:checked) .study-option-text {
     border-color: rgb(var(--color-line));
     background-color: rgb(var(--color-surface));
     padding-inline: 1rem;
-    padding-top: 0.75rem;
-    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    padding-top: var(--study-actions-padding);
+    padding-bottom: calc(
+      var(--study-actions-padding) + env(safe-area-inset-bottom)
+    );
+  }
+  /* #1256: on narrow screens the bar is fixed, so toasts sit 12px above it
+     (like above the bottom navigation) instead of covering [다음]. */
+  @media (width < 64rem) {
+    body:has(.study-actions) .ui-toast-region {
+      bottom: calc(
+        var(--study-actions-height) + env(safe-area-inset-bottom) + 12px +
+          var(--global-banner-offset, 0px)
+      );
+    }
   }
   .study-jump-list {
     display: flex;
@@ -590,7 +604,7 @@ label:has(input:checked) .study-option-text {
     font-weight: var(--font-weight-bold);
   }
   .study-action-main {
-    min-height: 52px;
+    min-height: var(--study-action-height);
     flex: 1;
   }
   .study-action-previous {
@@ -604,7 +618,6 @@ label:has(input:checked) .study-option-text {
     background-color: rgb(var(--color-danger-soft));
     padding: 1rem;
     font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
     color: rgb(var(--color-danger-strong));
   }
@@ -616,7 +629,6 @@ label:has(input:checked) .study-option-text {
     background-color: rgb(var(--color-warning-soft));
     padding: 1rem;
     font-size: var(--text-sm);
-    --tw-leading: 1.5rem;
     line-height: 1.5rem;
     color: rgb(var(--color-warning-strong));
   }
