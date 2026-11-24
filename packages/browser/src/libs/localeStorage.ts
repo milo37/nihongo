@@ -1,5 +1,6 @@
 import type { UiLocale } from '../i18n/types'
 import { DEFAULT_UI_LOCALE, isUiLocale } from '../i18n/types'
+import { readPathLocale } from './localePath'
 import { cachedStorage, readFreshLocalStorageItem } from './storage'
 
 export const UI_LOCALE_STORAGE_KEY = 'harumaru:ui-locale:v1'
@@ -51,6 +52,15 @@ export const readUiLocalePreference = (): UiLocale => {
     return DEFAULT_UI_LOCALE
   }
 }
+
+/**
+ * The language of this visit: a /ja address shows Japanese, any other address
+ * the saved choice. The address never overwrites the saved choice (#1268).
+ */
+export const readInitialUiLocale = (): UiLocale =>
+  (typeof window === 'undefined'
+    ? null
+    : readPathLocale(window.location.pathname)) ?? readUiLocalePreference()
 
 export const readFreshUiLocalePreference = (): UiLocale => {
   try {

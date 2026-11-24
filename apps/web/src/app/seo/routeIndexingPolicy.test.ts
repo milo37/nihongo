@@ -2,7 +2,16 @@ import { describe, expect, it } from 'vitest'
 import { getRouteIndexingPolicy } from '@app/seo/routeIndexingPolicy'
 
 describe('route indexing policy', () => {
-  it.each(['/', '/practice', '/legal', '/support'])(
+  it.each([
+    '/',
+    '/practice',
+    '/legal',
+    '/support',
+    '/ja',
+    '/ja/practice',
+    '/ja/legal',
+    '/ja/support'
+  ])(
     'indexes the public pages listed in the sitemap: %s',
     (pathname) => {
       expect(getRouteIndexingPolicy(pathname)).toBe('index,follow')
@@ -11,6 +20,9 @@ describe('route indexing policy', () => {
 
   it.each([
     '/practice/',
+    '/ja/',
+    '/ja/login',
+    '/ja/practice/session/session-fixture',
     '/login',
     '/reset-password',
     '/verify-email',

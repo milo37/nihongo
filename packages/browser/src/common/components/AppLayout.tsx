@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Outlet, useHref, useLocation, useNavigationType } from 'react-router'
 import { AppLink as Link } from './AppLink'
 import { getAppPath } from '../../libs/appNavigation'
+import { stripLocalePrefix } from '../../libs/localePath'
 import type { ReactElement, ReactNode, RefObject } from 'react'
 import { AppShell } from './AppShell'
 import { Icon } from './Icon'
@@ -279,7 +280,7 @@ export const AppLayout = ({
   const basename = useHref('/')
   const location = {
     ...routeLocation,
-    pathname: getAppPath(routeLocation.pathname, basename)
+    pathname: stripLocalePrefix(getAppPath(routeLocation.pathname, basename))
   }
   const navigationType = useNavigationType()
   const isLearningEntry =
