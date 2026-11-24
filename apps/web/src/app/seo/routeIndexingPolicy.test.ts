@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { getRouteIndexingPolicy } from '@app/seo/routeIndexingPolicy'
+import {
+  getRouteIndexingPolicy,
+  INDEXED_PATHS
+} from '@app/seo/routeIndexingPolicy'
+import { INDEXED_PATHS as BUILT_PATHS } from '@nihongo/browser/libs/publicPages'
 
 describe('route indexing policy', () => {
+  it('lists the same pages the build writes', () => {
+    expect(INDEXED_PATHS).toEqual(BUILT_PATHS)
+  })
+
   it.each([
     '/',
     '/practice',
