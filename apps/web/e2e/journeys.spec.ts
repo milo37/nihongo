@@ -977,7 +977,7 @@ const openMyPage = async (page: Page): Promise<void> => {
       )
     ).toBe(true)
   })
-  await page.getByRole('button', { name: '계정 메뉴', exact: true }).click()
+  await page.getByRole('button', { name: / 계정 메뉴$/ }).click()
   await page.getByRole('menuitem', { name: '마이페이지', exact: true }).click()
   await expect(page).toHaveURL(/\/account$/u)
   await accountResponse

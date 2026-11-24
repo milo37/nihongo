@@ -6,8 +6,11 @@ import { defineConfig, loadEnv } from 'vite'
 import type { Plugin } from 'vite'
 import { resolveApiMode } from './src/libs/resolveApiMode.ts'
 import { resolveReleaseId } from './src/libs/resolveReleaseId.ts'
+// #981 #1268: page copies of index.html for the 8 public pages (4 in Korean,
+// 4 under /ja); the Korean home page is index.html itself.
 import { renderPublicPageHtml } from './src/libs/publicPageHtml.ts'
-import { koCoreResources } from './src/i18n/resources/ko.ts'
+import { publicPageHtmlList } from './src/libs/publicPageSeo.ts'
+import { INDEXED_PATHS } from './src/libs/publicPages.ts'
 import { assertBrowserBuildGraph } from '../../scripts/operations/browser-artifact-check.mjs'
 
 const approvedBrandAssetPaths = [
@@ -36,14 +39,6 @@ const learnerCrawlerFilePaths = [
   'sw.js',
   'icons/apple-touch-icon-180.png',
   'maru/maru.webp'
-] as const
-
-// #981: page copies of index.html for the public pages besides the home page
-// (the sitemap list); the home page is index.html itself.
-const publicPageRoutes = [
-  { route: 'practiceSetup', path: '/practice' },
-  { route: 'legal', path: '/legal' },
-  { route: 'support', path: '/support' }
 ] as const
 
 const workspaceRoot = path.resolve(import.meta.dirname, '../..')
@@ -205,25 +200,24 @@ export const createBrowserViteConfig = (root: string, admin = false) =>
         if (index?.type !== 'asset' || typeof index.source !== 'string') {
           throw new Error('Public page copies need the built index.html.')
         }
-        const { documentTitle, metaDescriptions, routes } =
-          koCoreResources.navigation
         // The release check reads only the root index.html; every copy must
         // carry the same release marker.
         const releaseMarker = `<meta name="nihongo-release-id" content="${releaseId}">`
-        for (const { route, path: pagePath } of publicPageRoutes) {
-          const source = renderPublicPageHtml(index.source, {
-            path: pagePath,
-            title: documentTitle.replace('{{route}}', routes[route]),
-            description: metaDescriptions[route]
-          })
+        const template = index.source
+        for (const page of publicPageHtmlList()) {
+          const source = renderPublicPageHtml(template, page)
           if (source.split(releaseMarker).length !== 2) {
-            throw new Error(`${pagePath} copy lost the release marker.`)
+            throw new Error(`${page.path} copy lost the release marker.`)
           }
-          this.emitFile({
-            type: 'asset',
-            fileName: `${pagePath.slice(1)}/index.html`,
-            source
-          })
+          // The Korean home page is the root index.html itself (#1268); the
+          // other 7 sit in a folder that answers with its index.html.
+          if (page.path === '/') index.source = source
+          else
+            this.emitFile({
+              type: 'asset',
+              fileName: `${page.path.slice(1)}/index.html`,
+              source
+            })
         }
       },
       // vite preview falls back to the root index.html first; serve the copies
@@ -232,8 +226,8 @@ export const createBrowserViteConfig = (root: string, admin = false) =>
         server.middlewares.use((request, _response, next) => {
           const [requestPath, query] = (request.url ?? '').split(/(?=\?)/u)
           if (
-            publicPageRoutes.some(
-              ({ path: pagePath }) => pagePath === requestPath
+            INDEXED_PATHS.some(
+              (pagePath) => pagePath !== '/' && pagePath === requestPath
             )
           ) {
             request.url = `${requestPath}/index.html${query ?? ''}`

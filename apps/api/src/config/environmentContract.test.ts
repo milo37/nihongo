@@ -18,6 +18,10 @@ const contractNames = new Set([
 // Read outside the API process: commands and the web build.
 const NOT_READ_BY_API = new Set([
   'PRODUCTION_DATABASE_URL',
+  // #1046: the daily push command signs with these; the API only needs the
+  // public key.
+  'WEB_PUSH_PRIVATE_KEY',
+  'WEB_PUSH_SUBJECT',
   'VITE_API_MODE',
   'VITE_API_BASE_URL',
   'VITE_RELEASE_ID'
@@ -25,7 +29,8 @@ const NOT_READ_BY_API = new Set([
 // Local migrations only; the hosts get it from Terraform.
 const LOCAL_ONLY = new Set(['MIGRATION_DATABASE_URL'])
 // Apple sign-in is not deployed, so no host parameter exists for it yet.
-const NOT_DEPLOYED = new Set(['APPLE_CLIENT_SECRET'])
+// #1046: DevOps adds the web push key parameter with the daily schedule.
+const NOT_DEPLOYED = new Set(['APPLE_CLIENT_SECRET', 'WEB_PUSH_PRIVATE_KEY'])
 
 const dotenvNames = (source: string): string[] =>
   source

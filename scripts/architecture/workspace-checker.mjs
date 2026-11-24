@@ -627,7 +627,9 @@ const NO_CONTENT_API_ROUTE_SOURCES = new Set([
   'apps/api/src/routes/bookmarks.ts#delete:/:questionId',
   'apps/api/src/routes/clientErrors.ts#post:/',
   'apps/api/src/routes/principal.ts#delete:/guest-principal',
-  'apps/api/src/routes/studyDrafts.ts#post:/:sessionId/cancellation'
+  'apps/api/src/routes/studyDrafts.ts#post:/:sessionId/cancellation',
+  'apps/api/src/routes/webPush.ts#delete:/subscription',
+  'apps/api/src/routes/webPush.ts#put:/subscription'
 ])
 
 const unwrapExpression = (node) => {

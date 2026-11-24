@@ -437,6 +437,11 @@ const ADDED_FURIGANA_TYPES = new Set(['FuriganaTarget', 'FuriganaOrigin'])
 const isAddedFurigana = (row: Record<string, unknown>): boolean =>
   row.table === ADDED_FURIGANA_TABLE
 
+/** #1046: the web push subscription table. */
+const ADDED_PUSH_SUBSCRIPTION_TABLE = 'PushSubscription'
+const isAddedPushSubscription = (row: Record<string, unknown>): boolean =>
+  row.table === ADDED_PUSH_SUBSCRIPTION_TABLE
+
 /** #675: the retired email Verification table, its enum and its guard. */
 const RETIRED_VERIFICATION_TABLE = 'Verification'
 const RETIRED_VERIFICATION_TYPE = 'AuthVerificationPurpose'
@@ -480,7 +485,8 @@ const withBaselineErasureStatus = (
  * access record table, the JLP-852 last sign-in table, the #1042 return
  * count table, the #1085 consent table, the #1090 study goal table, the
  * #1094 stamp ledger, the #1043 rush best table, the #986 reading passage
- * objects, the #1182 furigana table and the #702 re-apply function.
+ * objects, the #1182 furigana table, the #1046 push subscription table and
+ * the #702 re-apply function.
  */
 export const withoutForwardChanges = (
   catalog: SchemaCatalog
@@ -516,6 +522,7 @@ export const withoutForwardChanges = (
       name !== ADDED_RUSH_KANJI_WORD_TABLE &&
       name !== ADDED_READING_PASSAGE_TABLE &&
       name !== ADDED_FURIGANA_TABLE &&
+      name !== ADDED_PUSH_SUBSCRIPTION_TABLE &&
       name !== RETIRED_VERIFICATION_TABLE
   ),
   columns: catalog.columns
@@ -537,6 +544,7 @@ export const withoutForwardChanges = (
         !isAddedRushKanjiWord(row) &&
         !isAddedReadingPassage(row) &&
         !isAddedFurigana(row) &&
+        !isAddedPushSubscription(row) &&
         !isRetiredVerification(row)
     )
     .map(withBaselineTargetLevelAcl),
@@ -556,6 +564,7 @@ export const withoutForwardChanges = (
         !isAddedRushKanjiWord(row) &&
         !isAddedReadingPassage(row) &&
         !isAddedFurigana(row) &&
+        !isAddedPushSubscription(row) &&
         !isRetiredVerification(row)
     )
     .map(withBaselineProofBound)
@@ -574,6 +583,7 @@ export const withoutForwardChanges = (
       !isAddedRushKanjiWord(row) &&
       !isAddedReadingPassage(row) &&
       !isAddedFurigana(row) &&
+      !isAddedPushSubscription(row) &&
       !isRetiredVerification(row)
   ),
   triggers: catalog.triggers.filter(

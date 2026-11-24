@@ -97,7 +97,7 @@ export const jaCoreResources = {
   },
   navigation: {
     accountMenu: {
-      label: 'アカウントメニュー',
+      label: '{{name}}のアカウントメニュー',
       signedInWith: 'Googleアカウントでログイン中',
       myPage: 'マイページ'
     },
