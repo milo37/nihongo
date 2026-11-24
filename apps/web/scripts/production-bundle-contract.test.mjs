@@ -148,7 +148,8 @@ test('separates only the exact unchanged Vite approved static asset list', () =>
       .matchAll(/'([^']+)'/gu)
   ].map((match) => match[1])
   assert.deepEqual(approvedStaticAssetPaths, approvedPaths)
-  assert.equal(approvedPaths.length, 8)
+  // #1281: + share-card-ja.png (operator approved 2026-11-25).
+  assert.equal(approvedPaths.length, 9)
 })
 
 test('reports exact sorted missing and extra SSR asset paths', () => {

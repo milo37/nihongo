@@ -10,6 +10,7 @@ const indexHtml = `<!doctype html>
       name="description"
       content="JLPT N5부터 N1까지 문제를 풀고 오답을 반복 학습하는 하루마루"
     />
+    <meta property="og:site_name" content="하루마루" />
     <meta property="og:title" content="하루마루" />
     <meta
       property="og:description"
@@ -18,6 +19,11 @@ const indexHtml = `<!doctype html>
     <meta property="og:url" content="https://harumaru.app/" />
     <meta property="og:locale" content="ko_KR" />
     <meta property="og:image" content="https://harumaru.app/share-card.png" />
+    <meta
+      property="og:image:alt"
+      content="JLPT, 하루 한 세트. 가볍게 풀고 가요"
+    />
+    <meta name="twitter:image" content="https://harumaru.app/share-card.png" />
     <title>하루마루</title>
   </head>
   <body>
@@ -76,12 +82,41 @@ describe('renderPublicPageHtml (#981, #1268)', () => {
     )
   })
 
+  it("gives the /ja pages the Japanese card and site name, the Korean ones index.html's (#1281)", () => {
+    expect(html).toContain(
+      '<meta property="og:site_name" content="ハルまる" />'
+    )
+    expect(html).toContain(
+      '<meta property="og:image" content="https://harumaru.app/share-card-ja.png" />'
+    )
+    expect(html).toContain(
+      'property="og:image:alt"\n      content="JLPT、1日1セット。気軽に解いていこう"'
+    )
+    expect(html).not.toContain('share-card.png')
+    const ko = renderPublicPageHtml(indexHtml, {
+      path: '/practice',
+      locale: 'ko',
+      title: 't',
+      description: 'd',
+      bodyHtml: '',
+      alternates: []
+    })
+    expect(ko).toContain('<meta property="og:site_name" content="하루마루" />')
+    expect(ko).toContain('content="JLPT, 하루 한 세트. 가볍게 풀고 가요"')
+    expect(ko.match(/https:\/\/harumaru\.app\/share-card\.png/gu)).toHaveLength(
+      2
+    )
+    expect(ko).not.toContain('share-card-ja')
+  })
+
   it('puts the page text in <noscript> and keeps scripts and the root', () => {
     expect(html).toContain(
       '<noscript><h1>練習</h1></noscript>\n    <div id="root"></div>'
     )
     expect(html).toContain('<script type="module" src="/assets/index.js">')
-    expect(html).toContain('content="https://harumaru.app/share-card.png"')
+    expect(html).toContain(
+      '<meta name="twitter:image" content="https://harumaru.app/share-card-ja.png" />'
+    )
     const marker = '<meta name="nihongo-release-id" content="release-fixture">'
     expect(
       renderPublicPageHtml(indexHtml.replace('</head>', `${marker}</head>`), {

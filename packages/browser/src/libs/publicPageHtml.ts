@@ -60,6 +60,14 @@ const jsonLdTag = (data: Readonly<Record<string, unknown>>): string =>
 
 const OG_LOCALE = { ko: 'ko_KR', ja: 'ja_JP' } as const
 
+// #1281: the /ja pages share the Japanese card and site name; the Korean
+// pages keep index.html's.
+const JA_SHARE = {
+  siteName: 'ハルまる',
+  image: `${SITE_ORIGIN}/share-card-ja.png`,
+  imageAlt: 'JLPT、1日1セット。気軽に解いていこう'
+} as const
+
 export const renderPublicPageHtml = (
   indexHtml: string,
   {
@@ -104,5 +112,11 @@ export const renderPublicPageHtml = (
   html = setMetaContent(html, 'property', 'og:title', safeTitle)
   html = setMetaContent(html, 'property', 'og:description', safeDescription)
   html = setMetaContent(html, 'property', 'og:locale', OG_LOCALE[locale])
+  if (locale === 'ja') {
+    html = setMetaContent(html, 'property', 'og:site_name', JA_SHARE.siteName)
+    html = setMetaContent(html, 'property', 'og:image', JA_SHARE.image)
+    html = setMetaContent(html, 'property', 'og:image:alt', JA_SHARE.imageAlt)
+    html = setMetaContent(html, 'name', 'twitter:image', JA_SHARE.image)
+  }
   return setMetaContent(html, 'property', 'og:url', url)
 }
