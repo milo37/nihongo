@@ -2,15 +2,20 @@ import type { PushLocale } from '@nihongo/contracts/notification/web-push'
 import type { PrismaClient } from '../generated/prisma/client.js'
 
 export interface PushSubscriptionInput {
+  /** The signed-in member who turned it on. */
+  readonly userId: string
   readonly endpoint: string
   readonly p256dh: string
   readonly auth: string
   readonly locale: PushLocale
 }
 
-/** #1046: the browser subscriptions, with no user, session or IP. */
+/** #1046: members' browser subscriptions, with no session or IP. */
 export interface PushSubscriptionStore {
-  /** Same endpoint: new keys and language; the day of the last send stays. */
+  /**
+   * Same endpoint: new keys, language and member (another member turned it
+   * on in the same browser); the day of the last send stays.
+   */
   save(input: PushSubscriptionInput): Promise<void>
   /** Turning off; nothing to delete is fine. */
   remove(endpoint: string): Promise<void>
@@ -22,11 +27,14 @@ const unpadded = (value: string): string => value.replace(/=+$/u, '')
 export const createPrismaPushSubscriptionStore = (
   client: Pick<PrismaClient, '$executeRaw'>
 ): PushSubscriptionStore => ({
-  save: async ({ endpoint, p256dh, auth, locale }) => {
+  save: async ({ userId, endpoint, p256dh, auth, locale }) => {
     await client.$executeRaw`
-      INSERT INTO "PushSubscription" ("endpoint", "p256dh", "auth", "locale")
-      VALUES (${endpoint}, ${unpadded(p256dh)}, ${unpadded(auth)}, ${locale})
+      INSERT INTO "PushSubscription"
+        ("userId", "endpoint", "p256dh", "auth", "locale")
+      VALUES (${userId}::uuid, ${endpoint}, ${unpadded(p256dh)},
+        ${unpadded(auth)}, ${locale})
       ON CONFLICT ("endpoint") DO UPDATE SET
+        "userId" = EXCLUDED."userId",
         "p256dh" = EXCLUDED."p256dh",
         "auth" = EXCLUDED."auth",
         "locale" = EXCLUDED."locale",

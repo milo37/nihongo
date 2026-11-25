@@ -6,22 +6,13 @@ import { useGuestSessionOwnerProof } from '@app/practice/hooks/useGuestSessionOw
 import { usePracticeDraftController } from '@app/practice/hooks/usePracticeDraftController'
 import { usePracticeKeyboard } from '@app/practice/hooks/usePracticeKeyboard'
 import { usePracticeSessionBookmark } from '@app/practice/hooks/usePracticeSessionBookmark'
-import { useSubmissionConnectivity } from '@app/practice/hooks/useSubmissionConnectivity'
 import {
   assertCurrentStudySubmissionV2Action,
   useSubmitStudySessionV2
 } from '@app/practice/hooks/useSubmitStudySessionV2'
 import { getStudyDraftPrincipalScope } from '@app/practice/draft/studyDraftPrincipalScope'
 import { clearStudyDraftWorkingCopy } from '@nihongo/browser/app/practice/draft/studyDraftWorkingCopyStorage'
-import { readStudyDraftSubmissionAttempt } from '@app/practice/studyDraftSubmissionAttempt'
-import {
-  clearSubmissionAttempt,
-  hasStoredSubmissionAttempt
-} from '@nihongo/browser/app/practice/submissionAttemptStorage'
-import {
-  getStudySubmissionErrorCode,
-  isDefinitiveStudySubmissionError
-} from '@app/practice/studySubmissionRetry'
+import { getStudySubmissionErrorCode } from '@app/practice/studySubmissionRetry'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
 import { useAppStore } from '@nihongo/browser/store/index'
@@ -53,16 +44,12 @@ export const usePracticeSessionController = ({
 }: UsePracticeSessionControllerInput) => {
   const navigate = useNavigate()
   const { isReady: isAuthReady, role, user } = useAuth()
-  // A stored attempt from before a reload opens the dialog again (#1262).
-  const [isSubmitDialogRequestedOpen, setSubmitDialogRequestedOpen] = useState(
-    () => hasStoredSubmissionAttempt(sessionId)
-  )
+  const [isSubmitDialogOpen, setSubmitDialogOpen] = useState(false)
   const [draftActionMessage, setDraftActionMessage] =
     useState<DraftActionNoticeCode | null>(null)
   const [isPreparingSubmission, setPreparingSubmission] = useState(false)
   const [isSubmissionNavigationStarted, setSubmissionNavigationStarted] =
     useState(false)
-  const submissionConnectivityMessage = useSubmissionConnectivity()
   const sessionQuery = useGetStudySession(
     sessionId,
     isAuthReady && role === 'GUEST',
@@ -107,18 +94,9 @@ export const usePracticeSessionController = ({
   const allowSubmissionNavigationRef = useRef(false)
   const isSubmissionActive =
     submitSessionV2.isPending || submitSessionV2.isPaused
-  const submissionError = submitSessionV2.error
-  const isSubmissionError = submitSessionV2.isError
-  const frozenV2Attempt = readStudyDraftSubmissionAttempt(sessionId)
-  const hasRawFrozenSubmissionAttempt =
-    hasStoredSubmissionAttempt(sessionId) ||
-    (isSubmissionError &&
-      !isAuthTransitionSupersededError(submissionError) &&
-      !isDefinitiveStudySubmissionError(submissionError))
-  const hasFrozenSubmissionAttempt =
-    hasRawFrozenSubmissionAttempt &&
-    !isCanonicalSessionBoundaryTerminal &&
-    !isRetiredSession
+  const isSubmissionError =
+    submitSessionV2.isError &&
+    !isAuthTransitionSupersededError(submitSessionV2.error)
   const terminalSettlementKey =
     sessionQuery.isSuccess &&
     isV2Session &&
@@ -128,15 +106,13 @@ export const usePracticeSessionController = ({
   const terminalSettlementRef = useRef<string | null>(null)
   const focusedQuestionIdRef = useRef<string | null>(null)
   const wasNavigationPromptOpenRef = useRef(false)
-  // #1262: a frozen attempt no longer holds the dialog open; a failure
-  // closes it with a toast and [제출하기] opens it again to resend.
-  const isSubmitDialogOpen = isSubmitDialogRequestedOpen
-  const mustReplayFrozenSubmission =
-    !isCanonicalSessionBoundaryTerminal &&
-    (isSubmissionActive || hasRawFrozenSubmissionAttempt)
+  // #1262: a failed submit locks nothing. The answers stay editable and
+  // [제출하기] sends what is on screen again.
+  const isSubmissionInFlight =
+    !isCanonicalSessionBoundaryTerminal && isSubmissionActive
   const mustBlockNavigation =
     !isRetiredSession &&
-    (mustReplayFrozenSubmission || (isEditableV2Session && isScopedDraftReady))
+    (isSubmissionInFlight || (isEditableV2Session && isScopedDraftReady))
   const submissionNavigationBlocker = useBlocker(
     () => mustBlockNavigation && !allowSubmissionNavigationRef.current
   )
@@ -151,7 +127,7 @@ export const usePracticeSessionController = ({
     expectedSessionQuestionIds,
     isInteractionPaused:
       isSubmitDialogOpen ||
-      mustReplayFrozenSubmission ||
+      isSubmissionInFlight ||
       hasDraftConflict ||
       isNavigationPromptBlocked ||
       isPreparingSubmission ||
@@ -183,7 +159,7 @@ export const usePracticeSessionController = ({
   ])
 
   useEffect(() => {
-    if (!mustReplayFrozenSubmission) {
+    if (!isSubmissionInFlight) {
       return
     }
     const handleBeforeUnload = (event: BeforeUnloadEvent): void => {
@@ -192,7 +168,7 @@ export const usePracticeSessionController = ({
     }
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [mustReplayFrozenSubmission])
+  }, [isSubmissionInFlight])
 
   useEffect(() => {
     if (!terminalSettlementKey) {
@@ -209,7 +185,6 @@ export const usePracticeSessionController = ({
     }
     terminalSettlementRef.current = terminalSettlementKey
     allowSubmissionNavigationRef.current = true
-    clearSubmissionAttempt(sessionId)
     clearStudyDraftWorkingCopy(principalScope, sessionId)
     if (submitSessionV2.isError || submitSessionV2.isPending) {
       submitSessionV2.reset()
@@ -242,10 +217,7 @@ export const usePracticeSessionController = ({
     sessionQuery.data?.session.status === 'IN_PROGRESS' &&
     draftController.isReady &&
     Boolean(currentQuestion)
-  const v2Answers =
-    frozenV2Attempt?.canonicalBody.answers ??
-    draftController.snapshot?.answers ??
-    []
+  const v2Answers = draftController.snapshot?.answers ?? []
   const v2AnswersBySessionQuestionId = new Map(
     v2Answers.map((answer) => [
       answer.studySessionQuestionId,
@@ -260,8 +232,7 @@ export const usePracticeSessionController = ({
       return selectedOptionId ? [[question.id, selectedOptionId]] : []
     })
   )
-  const elapsedSeconds =
-    frozenV2Attempt?.canonicalBody.durationSec ?? draftController.elapsedSeconds
+  const elapsedSeconds = draftController.elapsedSeconds
   const answeredCount = questions.reduce(
     (count, question) =>
       displayedSelectedAnswers[question.id] ? count + 1 : count,
@@ -325,7 +296,7 @@ export const usePracticeSessionController = ({
     if (
       currentQuestion &&
       !isSubmitDialogOpen &&
-      !mustReplayFrozenSubmission &&
+      !isSubmissionInFlight &&
       !isNavigationPromptBlocked &&
       !isPreparingSubmission &&
       !isSessionRefreshUnavailable &&
@@ -350,7 +321,7 @@ export const usePracticeSessionController = ({
   // #985: an autosave in flight does not grey the button; a press waits for
   // that save through prepareSubmission before submitting.
   const canRequestSubmission =
-    (isLastQuestion || mustReplayFrozenSubmission) &&
+    isLastQuestion &&
     !isSubmitDialogOpen &&
     !hasDraftConflict &&
     !isNavigationPromptBlocked &&
@@ -363,7 +334,6 @@ export const usePracticeSessionController = ({
   usePracticeKeyboard({
     enabled:
       !isSubmitDialogOpen &&
-      !mustReplayFrozenSubmission &&
       !hasDraftConflict &&
       !isNavigationPromptBlocked &&
       !isPreparingSubmission &&
@@ -384,7 +354,7 @@ export const usePracticeSessionController = ({
     isNavigationPromptBlocked &&
     isV2Session &&
     role !== 'GUEST' &&
-    !mustReplayFrozenSubmission
+    !isSubmissionInFlight
   const memberLeaveStartedRef = useRef(false)
   const { flush: flushDraft } = draftController
   useEffect(() => {
@@ -438,7 +408,7 @@ export const usePracticeSessionController = ({
     if (submissionNavigationBlocker.state === 'blocked') {
       submissionNavigationBlocker.reset()
     }
-    setSubmitDialogRequestedOpen(false)
+    setSubmitDialogOpen(false)
     resetPractice()
     // The result page plays the grading reveal once for a fresh submit.
     void navigate(`/practice/result/${sessionId}`, {
@@ -486,21 +456,13 @@ export const usePracticeSessionController = ({
 
     setPreparingSubmission(true)
     try {
-      const prepared = frozenV2Attempt
-        ? frozenV2Attempt.canonicalBody
-        : await draftController.prepareSubmission()
+      const prepared = await draftController.prepareSubmission()
       submitSessionV2.mutate(prepared, {
         onSuccess: (_result, input) => {
           assertCurrentStudySubmissionV2Action(input)
           completeSubmissionNavigation()
         },
-        onError: (error) => {
-          // A direct submit has no dialog yet; open it to show the failure.
-          if (!isAuthTransitionSupersededError(error)) {
-            setSubmitDialogRequestedOpen(true)
-          }
-          handleSubmissionFailure(error)
-        }
+        onError: handleSubmissionFailure
       })
     } catch (error: unknown) {
       if (!isAuthTransitionSupersededError(error)) {
@@ -513,8 +475,8 @@ export const usePracticeSessionController = ({
 
   // All answered: submit at once. Otherwise confirm the unanswered count first.
   const requestSubmission = (): void => {
-    if (unansweredCount > 0 || mustReplayFrozenSubmission) {
-      setSubmitDialogRequestedOpen(true)
+    if (unansweredCount > 0) {
+      setSubmitDialogOpen(true)
       return
     }
     void handleSubmit()
@@ -525,21 +487,19 @@ export const usePracticeSessionController = ({
       return
     }
 
-    setSubmitDialogRequestedOpen(open)
+    setSubmitDialogOpen(open)
   }
 
   // Controls that freeze while a submission, conflict, or navigation decision is open.
   const isQuestionNavigationLocked =
-    mustReplayFrozenSubmission ||
+    isSubmissionInFlight ||
     hasDraftConflict ||
     isNavigationPromptBlocked ||
     isPreparingSubmission ||
     isSessionRefreshUnavailable
 
   const isBackNavigationDisabled =
-    mustReplayFrozenSubmission ||
-    isNavigationPromptBlocked ||
-    isPreparingSubmission
+    isSubmissionInFlight || isNavigationPromptBlocked || isPreparingSubmission
   const isBookmarkDisabled =
     isBackNavigationDisabled ||
     isSessionRefreshUnavailable ||
@@ -550,7 +510,7 @@ export const usePracticeSessionController = ({
     submissionNavigationBlocker.state === 'blocked' &&
     isV2Session &&
     role === 'GUEST' &&
-    !mustReplayFrozenSubmission
+    !isSubmissionInFlight
 
   return {
     answeredCount,
@@ -569,7 +529,6 @@ export const usePracticeSessionController = ({
     handleSubmitDialogOpenChange,
     hasCurrentGuestOwnerProof,
     hasDraftConflict,
-    hasFrozenSubmissionAttempt,
     isBackNavigationDisabled,
     isBookmarkDisabled,
     isLastQuestion,
@@ -588,14 +547,12 @@ export const usePracticeSessionController = ({
     moveNext,
     movePrevious,
     moveToOrdinal: draftController.moveToOrdinal,
-    mustReplayFrozenSubmission,
     requestSubmission,
     questions,
     retryDraftSave,
     role,
     safeQuestionIndex,
     sessionQuery,
-    submissionConnectivityMessage,
     unansweredCount
   }
 }
