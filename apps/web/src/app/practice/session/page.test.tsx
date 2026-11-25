@@ -227,7 +227,9 @@ describe('PracticeSessionPage', () => {
       expect(router.state.location.pathname).toBe('/practice')
     }
   )
-  it('shows the ended notice if a legacy expired payload is unexpectedly returned', async () => {
+  // #978: the web reads contract 2 only; a contract 1 body is refused at the
+  // read like any malformed reply, never drawn as a session.
+  it('refuses a contract 1 session body as a failed read', async () => {
     const created = await createStudySessionV2({
       level: 'N5',
       subject: 'VOCABULARY',
@@ -257,10 +259,9 @@ describe('PracticeSessionPage', () => {
     )
     renderSession(sessionId)
     expect(
-      await screen.findByRole('heading', {
-        name: '이 학습은 끝났어요'
-      })
+      await screen.findByText('주소가 맞는지 확인하거나 새로 시작해 주세요.')
     ).toBeVisible()
+    expect(screen.queryByRole('radio')).toBeNull()
   })
   it('숫자 키와 클릭 선택이 같은 답안 상태와 radio 상태를 갱신한다', async () => {
     const user = userEvent.setup()

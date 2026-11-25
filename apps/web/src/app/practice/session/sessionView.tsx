@@ -122,7 +122,7 @@ export const readSessionView = ({
     )
   }
 
-  if (session.isV2Session && !session.draftController.isReady) {
+  if (session.hasSession && !session.draftController.isReady) {
     if (
       session.draftController.draftQuery.isError ||
       session.draftController.saveState === 'error'

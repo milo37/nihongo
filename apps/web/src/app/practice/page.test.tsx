@@ -97,11 +97,15 @@ const mount = (total: number, legacy = false) => {
   )
   return { router, ...view }
 }
+// #978: the API never lists one, but the contract still allows it.
 it('does not resume or cancel an older local-only session', async () => {
   mount(1, true)
   expect(
     await screen.findByText(
-      appI18n.t('practice:setup.resume.legacyUnavailable')
+      appI18n.t('practice:setup.resume.summary', {
+        formattedCount: '5',
+        formattedOrdinal: '1'
+      })
     )
   ).toBeVisible()
   expect(
