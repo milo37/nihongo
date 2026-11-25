@@ -1286,4 +1286,47 @@ describe('PracticeSessionPage', () => {
     window.dispatchEvent(blocked)
     expect(blocked.defaultPrevented).toBe(true)
   })
+
+  it('a failed resend closes the dialog with a toast; [제출하기] opens it again (#1262)', async () => {
+    const user = userEvent.setup()
+    const frozen = await startSession(1)
+    writeStoredSubmissionAttempt(frozen.session.id, {
+      logicalRequest: { answers: [], durationSec: 1 },
+      idempotencyKey: crypto.randomUUID()
+    })
+    mockServer.use(
+      http.post(`*/api/v1/study-sessions/${frozen.session.id}/submission`, () =>
+        HttpResponse.json({}, { status: 500 })
+      )
+    )
+    renderSession(frozen.session.id)
+    const dialog = await screen.findByRole('dialog', { name: '제출할까요?' })
+    await user.click(
+      within(dialog).getByRole('button', { name: '제출하고 결과 보기' })
+    )
+    const region = await screen.findByRole(
+      'region',
+      { name: '알림' },
+      { timeout: 8000 }
+    )
+    expect(
+      await within(region).findByText(
+        '결과를 받지 못했어요. 인터넷 연결을 확인하고 다시 시도해 주세요. 답은 그대로 있어요.'
+      )
+    ).toBeVisible()
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: '제출할까요?' })
+      ).not.toBeInTheDocument()
+    )
+    expect(
+      within(region).queryByRole('button', { name: '다시 시도' })
+    ).toBeNull()
+    const submit = screen.getByRole('button', { name: '제출하기' })
+    expect(submit).toBeEnabled()
+    await user.click(submit)
+    expect(
+      await screen.findByRole('dialog', { name: '제출할까요?' })
+    ).toBeInTheDocument()
+  })
 })

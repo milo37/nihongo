@@ -53,8 +53,10 @@ export const usePracticeSessionController = ({
 }: UsePracticeSessionControllerInput) => {
   const navigate = useNavigate()
   const { isReady: isAuthReady, role, user } = useAuth()
-  const [isSubmitDialogRequestedOpen, setSubmitDialogRequestedOpen] =
-    useState(false)
+  // A stored attempt from before a reload opens the dialog again (#1262).
+  const [isSubmitDialogRequestedOpen, setSubmitDialogRequestedOpen] = useState(
+    () => hasStoredSubmissionAttempt(sessionId)
+  )
   const [draftActionMessage, setDraftActionMessage] =
     useState<DraftActionNoticeCode | null>(null)
   const [isPreparingSubmission, setPreparingSubmission] = useState(false)
@@ -126,8 +128,9 @@ export const usePracticeSessionController = ({
   const terminalSettlementRef = useRef<string | null>(null)
   const focusedQuestionIdRef = useRef<string | null>(null)
   const wasNavigationPromptOpenRef = useRef(false)
-  const isSubmitDialogOpen =
-    isSubmitDialogRequestedOpen || hasFrozenSubmissionAttempt
+  // #1262: a frozen attempt no longer holds the dialog open; a failure
+  // closes it with a toast and [제출하기] opens it again to resend.
+  const isSubmitDialogOpen = isSubmitDialogRequestedOpen
   const mustReplayFrozenSubmission =
     !isCanonicalSessionBoundaryTerminal &&
     (isSubmissionActive || hasRawFrozenSubmissionAttempt)
@@ -148,6 +151,7 @@ export const usePracticeSessionController = ({
     expectedSessionQuestionIds,
     isInteractionPaused:
       isSubmitDialogOpen ||
+      mustReplayFrozenSubmission ||
       hasDraftConflict ||
       isNavigationPromptBlocked ||
       isPreparingSubmission ||
@@ -346,9 +350,8 @@ export const usePracticeSessionController = ({
   // #985: an autosave in flight does not grey the button; a press waits for
   // that save through prepareSubmission before submitting.
   const canRequestSubmission =
-    isLastQuestion &&
+    (isLastQuestion || mustReplayFrozenSubmission) &&
     !isSubmitDialogOpen &&
-    !mustReplayFrozenSubmission &&
     !hasDraftConflict &&
     !isNavigationPromptBlocked &&
     !isPreparingSubmission &&
@@ -510,7 +513,7 @@ export const usePracticeSessionController = ({
 
   // All answered: submit at once. Otherwise confirm the unanswered count first.
   const requestSubmission = (): void => {
-    if (unansweredCount > 0) {
+    if (unansweredCount > 0 || mustReplayFrozenSubmission) {
       setSubmitDialogRequestedOpen(true)
       return
     }
@@ -518,7 +521,7 @@ export const usePracticeSessionController = ({
   }
 
   const handleSubmitDialogOpenChange = (open: boolean): void => {
-    if (!open && mustReplayFrozenSubmission) {
+    if (!open && isSubmissionActive) {
       return
     }
 

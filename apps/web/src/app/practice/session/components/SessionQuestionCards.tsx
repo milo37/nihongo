@@ -34,7 +34,10 @@ export const CurrentQuestionCard = ({
           canSubmit={session.canRequestSubmission}
           hidePrevious={isReview}
           isFirstQuestion={session.safeQuestionIndex === 0}
-          isLastQuestion={session.isLastQuestion}
+          // A frozen attempt locks moving, so [제출하기] stays in reach.
+          isLastQuestion={
+            session.isLastQuestion || session.mustReplayFrozenSubmission
+          }
           isLocked={session.isQuestionNavigationLocked}
           onNext={session.moveNext}
           onPrevious={session.movePrevious}
@@ -128,7 +131,6 @@ export const SessionSubmitDialog = ({
 }): ReactElement => (
   <PracticeSubmitDialog
     open={session.isSubmitDialogOpen && !session.hasDraftConflict}
-    connectivityMessage={session.submissionConnectivityMessage}
     hasFrozenAttempt={session.hasFrozenSubmissionAttempt}
     isConfirmDisabled={
       session.hasDraftConflict || session.isSessionRefreshUnavailable
