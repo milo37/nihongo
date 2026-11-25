@@ -781,10 +781,6 @@ export const jaCoreResources = {
         removeRollback: 'ブックマークから外せませんでした。',
         saved: 'ブックマークに入れました。',
         saveRollback: 'ブックマークに入れられませんでした。',
-        offlineQueued:
-          'インターネット接続が切れました。つながったらブックマークに反映します。',
-        statusLoadOffline:
-          'インターネット接続が切れたため、ブックマークを確認できません。つながったらもう一度確認します。',
         statusLoadFailed: 'ブックマークを確認できませんでした。'
       },
       navigation: {
@@ -909,10 +905,6 @@ export const jaCoreResources = {
       samePassage: '{{formattedOrdinal}}番と同じ文章'
     },
     bookmark: {
-      offline:
-        'インターネット接続が切れました。つながったらブックマークに反映します。',
-      loadOffline:
-        'インターネット接続が切れたため、ブックマークを確認できません。つながったらもう一度確認します。',
       loadError: 'ブックマークを確認できませんでした。',
       retry: '再確認',
       add: 'ブックマーク',
@@ -1097,9 +1089,7 @@ export const jaCoreResources = {
     status: {
       removing: '外しています…',
       removed: 'ブックマークから外しました。',
-      restoreFailed: 'ブックマークから外せませんでした。',
-      offline:
-        'インターネット接続が切れました。つながったらブックマークに反映します。'
+      restoreFailed: 'ブックマークから外せませんでした。'
     },
     title: 'ブックマーク',
     listCount: '{{formattedCount}}問',

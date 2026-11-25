@@ -83,11 +83,13 @@ export const bookmarkQueries = {
 } as const
 
 // Every caller says a failure in its own bookmark toast (the icon rolls
-// back), so the shared warning toast stays out (#1262).
+// back), so the shared warning toast stays out (#1262). Offline is the same
+// failure: nothing waits to be sent later (#978).
 export const bookmarkMutations = {
   create: () =>
     mutationOptions({
       mutationKey: [...bookmarkQueries.allKey(), 'create'] as const,
+      networkMode: 'always',
       meta: { localErrorUi: true },
       mutationFn: async (input: CreateBookmarkActionInput) => {
         assertCurrentCreateBookmarkAction(input)
@@ -99,6 +101,7 @@ export const bookmarkMutations = {
   delete: () =>
     mutationOptions({
       mutationKey: [...bookmarkQueries.allKey(), 'delete'] as const,
+      networkMode: 'always',
       meta: { localErrorUi: true },
       mutationFn: async (input: DeleteBookmarkActionInput) => {
         assertCurrentDeleteBookmarkAction(input)
