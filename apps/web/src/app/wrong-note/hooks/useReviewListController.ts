@@ -26,7 +26,10 @@ export const useReviewListController = (
   // Tab counts ignore the level chip, so a filtered view also reads the totals.
   const overall = useQuery({
     ...wrongNoteQueries.reviewList({ pageSize: 1 }),
-    enabled: query.level !== undefined
+    enabled: query.level !== undefined,
+    // #1262: the tabs show no failure of their own, so the shared warning
+    // toast says it.
+    meta: { localErrorUi: false }
   })
   const counts =
     query.level === undefined ? list.data?.counts : overall.data?.counts

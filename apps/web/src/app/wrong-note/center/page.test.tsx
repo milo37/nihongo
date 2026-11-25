@@ -3,6 +3,7 @@ import {
   QueryClientProvider,
   onlineManager
 } from '@tanstack/react-query'
+import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
@@ -88,7 +89,9 @@ const mount = (
   )
   render(
     <QueryClientProvider client={client}>
-      <RouterProvider router={router} />
+      <ToastProvider>
+        <RouterProvider router={router} />
+      </ToastProvider>
     </QueryClientProvider>
   )
   return { router }

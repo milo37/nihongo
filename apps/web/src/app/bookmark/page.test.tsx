@@ -1,4 +1,5 @@
 import type { BookmarkSummary } from '@nihongo/contracts/bookmark/bookmark'
+import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import {
   onlineManager,
   QueryClient,
@@ -71,7 +72,9 @@ const renderBookmarkPage = (
   )
   const view = render(
     <QueryClientProvider client={client}>
-      <RouterProvider router={router} />
+      <ToastProvider>
+        <RouterProvider router={router} />
+      </ToastProvider>
     </QueryClientProvider>
   )
   return { client, router, unmount: view.unmount }
@@ -138,7 +141,9 @@ const renderLastPageDelete = async (
   )
   const view = render(
     <QueryClientProvider client={client}>
-      <RouterProvider router={router} />
+      <ToastProvider>
+        <RouterProvider router={router} />
+      </ToastProvider>
     </QueryClientProvider>
   )
   const user = userEvent.setup()
