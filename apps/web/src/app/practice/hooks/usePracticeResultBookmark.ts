@@ -82,11 +82,11 @@ export const usePracticeResultBookmark = ({
     notify('loadError')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookmarksQuery.isError])
+  // A refresh paused offline keeps the list it has; only a list not read
+  // yet locks the icons (#978).
   const isUnavailable =
     role !== 'GUEST' &&
-    (mutationActivity.pendingQuestionIds.size > 0 ||
-      bookmarksQuery.isPending ||
-      bookmarksQuery.fetchStatus === 'paused')
+    (mutationActivity.pendingQuestionIds.size > 0 || bookmarksQuery.isPending)
 
   const toggle = (
     item: StudyResultItemView,
