@@ -555,8 +555,6 @@ export const koCoreResources = {
         stale: '목록을 새로 불러오지 못했어요. 마지막으로 불러온 목록이에요.',
         error: '풀던 문제 목록을 불러오지 못했어요.',
         summary: '{{formattedCount}}문제 중 {{formattedOrdinal}}번까지',
-        legacyUnavailable:
-          '이 학습은 더 이어 풀 수 없어요. 새로 시작해 주세요.',
         action: '이어 풀기',
         cancel: '버리기'
       },
@@ -744,7 +742,6 @@ export const koCoreResources = {
       bookmark: {
         addLabel: '{{ordinal}}번 문제를 책갈피에 담기',
         removeLabel: '{{ordinal}}번 문제를 책갈피에서 빼기',
-        legacyReadOnly: '이 학습에서는 책갈피를 바꿀 수 없어요.',
         removed: '책갈피에서 뺐어요.',
         removeRollback: '책갈피에서 빼지 못했어요.',
         saved: '책갈피에 담았어요.',

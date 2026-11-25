@@ -67,16 +67,15 @@ export const usePracticeSessionController = ({
     (Boolean(sessionQuery.data) &&
       sessionQuery.data?.session.status !== 'IN_PROGRESS') ||
     (sessionQuery.isError && isNotFoundApiError(sessionQuery.error))
-  const isV2Session = sessionQuery.data?.session.practiceContractVersion === 2
-  const isRetiredSession = sessionQuery.isError
-    ? isRetiredPracticeApiError(sessionQuery.error)
-    : sessionQuery.data?.session.practiceContractVersion === 1
+  const hasSession = Boolean(sessionQuery.data)
+  const isRetiredSession =
+    sessionQuery.isError && isRetiredPracticeApiError(sessionQuery.error)
   const isSessionNotFound =
     sessionQuery.isError && isNotFoundApiError(sessionQuery.error)
   const isSessionOffline =
     sessionQuery.isError && isOfflineApiError(sessionQuery.error)
-  const isEditableV2Session =
-    isV2Session &&
+  const isEditableSession =
+    hasSession &&
     sessionQuery.data?.session.status === 'IN_PROGRESS' &&
     hasCurrentGuestOwnerProof &&
     !isCanonicalSessionBoundaryTerminal
@@ -99,7 +98,7 @@ export const usePracticeSessionController = ({
     !isAuthTransitionSupersededError(submitSessionV2.error)
   const terminalSettlementKey =
     sessionQuery.isSuccess &&
-    isV2Session &&
+    hasSession &&
     sessionQuery.data.session.status !== 'IN_PROGRESS'
       ? `${sessionId}:${sessionQuery.data.session.status}`
       : null
@@ -112,7 +111,7 @@ export const usePracticeSessionController = ({
     !isCanonicalSessionBoundaryTerminal && isSubmissionActive
   const mustBlockNavigation =
     !isRetiredSession &&
-    (isSubmissionInFlight || (isEditableV2Session && isScopedDraftReady))
+    (isSubmissionInFlight || (isEditableSession && isScopedDraftReady))
   const submissionNavigationBlocker = useBlocker(
     () => mustBlockNavigation && !allowSubmissionNavigationRef.current
   )
@@ -123,7 +122,7 @@ export const usePracticeSessionController = ({
       question.sessionQuestionId ? [question.sessionQuestionId] : []
     ) ?? []
   const draftController = usePracticeDraftController({
-    enabled: isEditableV2Session && !isSubmissionNavigationStarted,
+    enabled: isEditableSession && !isSubmissionNavigationStarted,
     expectedSessionQuestionIds,
     isInteractionPaused:
       isSubmitDialogOpen ||
@@ -352,7 +351,7 @@ export const usePracticeSessionController = ({
   // A member leaves without a prompt: save first, stay with one error line if that fails.
   const isMemberLeaving =
     isNavigationPromptBlocked &&
-    isV2Session &&
+    hasSession &&
     role !== 'GUEST' &&
     !isSubmissionInFlight
   const memberLeaveStartedRef = useRef(false)
@@ -508,7 +507,7 @@ export const usePracticeSessionController = ({
   // Only a guest is asked: leaving drops their answers (subtract #8).
   const isNavigationGuardOpen =
     submissionNavigationBlocker.state === 'blocked' &&
-    isV2Session &&
+    hasSession &&
     role === 'GUEST' &&
     !isSubmissionInFlight
 
@@ -543,7 +542,7 @@ export const usePracticeSessionController = ({
     isSubmissionActive,
     isSubmissionError,
     isSubmitDialogOpen,
-    isV2Session,
+    hasSession,
     moveNext,
     movePrevious,
     moveToOrdinal: draftController.moveToOrdinal,

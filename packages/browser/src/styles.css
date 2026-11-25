@@ -789,16 +789,6 @@
   color: rgb(var(--color-muted));
 }
 
-.practice-resume-warning {
-  padding: 12px;
-  margin-bottom: 12px;
-  border: 1px solid rgb(var(--color-warning-line));
-  border-radius: var(--radius-control);
-  color: rgb(var(--color-warning-strong));
-  background: rgb(var(--color-warning-soft));
-  font-size: 13px;
-}
-
 /* Learner navigation (direction §1-1): bottom tabs under 640px. */
 @media (max-width: 639.98px) {
   body:has(.app-mobile-navigation) .app-global-banner {
