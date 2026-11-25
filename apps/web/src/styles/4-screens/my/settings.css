@@ -30,10 +30,6 @@
     --tw-outline-style: none;
     outline-style: none;
   }
-  .account-feedback {
-    font-size: var(--text-sm);
-    line-height: var(--text-sm--line-height);
-  }
   .account-strong {
     font-weight: var(--font-weight-semibold);
   }

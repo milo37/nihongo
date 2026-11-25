@@ -999,6 +999,34 @@ describe('마이페이지 계정 설정', () => {
     expect(mockDatabase.getCurrentUser()).not.toBeNull()
     Element.prototype.scrollIntoView = original
   })
+  it('결과 모름에서 창을 닫으면 화면 줄 대신 남는 토스트와 화면 [다시 확인]만 둔다 (#1292)', async () => {
+    freshActor()
+    mockServer.use(
+      http.post('*/api/auth/sso/delete-account', () =>
+        HttpResponse.json(
+          { code: 'SSO_ACCOUNT_OPERATION_UNAVAILABLE', message: '미확정' },
+          { status: 503 }
+        )
+      )
+    )
+    const user = userEvent.setup()
+    renderAccount()
+    const dialog = await openDeleteDialog(user)
+    await user.click(within(dialog).getByRole('button', { name: '회원 탈퇴' }))
+    await within(dialog).findByRole('alert')
+    await user.click(within(dialog).getByRole('button', { name: '취소' }))
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    )
+    const region = await screen.findByRole('region', { name: '알림' })
+    expect(
+      await within(region).findByText(
+        '처리됐는지 확인하지 못했어요. 다시 확인해 주세요.'
+      )
+    ).toBeVisible()
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(screen.getByRole('button', { name: '다시 확인' })).toBeEnabled()
+  })
   it('복귀 query만으로 fresh를 부여하거나 mutation하지 않고 /account로 넘긴 뒤 주소를 정리한다', async () => {
     mockDatabase.loginAs('USER')
     const posts = vi.spyOn(apiClient, 'post')
@@ -1091,7 +1119,13 @@ describe('마이페이지 계정 설정', () => {
     await act(async () => {
       await router.navigate('/login?ssoAccountFresh=CANCELLED')
     })
-    await screen.findByText('본인 확인을 취소했어요.')
+    // #1292: a notice toast, not a line on the page.
+    const region = await screen.findByRole('region', { name: '알림' })
+    expect(
+      await within(region).findByText('본인 확인을 취소했어요.')
+    ).toBeVisible()
+    expect(region.querySelector('.ui-toast-info')).not.toBeNull()
+    expect(screen.queryByRole('status')).toBeNull()
     expect(router.state.location.pathname).toBe('/account')
     expect(queryClient.getQueryData(['bookmarks', 'private'])).toEqual({
       owner: actor.id

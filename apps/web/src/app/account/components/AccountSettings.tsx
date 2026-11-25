@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import {
@@ -12,6 +12,7 @@ import {
 import { LogoutDialog } from '@app/account/components/LogoutDialog'
 import { TwoStepConfirmDialog } from '@app/account/components/TwoStepConfirmDialog'
 import { Button } from '@nihongo/browser/common/components/Button'
+import { useToast } from '@nihongo/browser/common/components/Toast'
 
 // Logout and deletion share one button size.
 const ROW_BUTTON_CLASS = 'account-row-button'
@@ -31,6 +32,21 @@ export const AccountSettings = (): ReactElement => {
   // #1292: without the sign-in methods deletion cannot run either, so its
   // row hides with the sign-in row until the toast's retry loads them.
   const methodsFailed = !flow.capabilities.isPending && !caps
+  // #1292: a result left after the dialog closes is a toast, not a line.
+  // Cancelling is a notice; an unknown result stays up beside [다시 확인].
+  const { addToast, dismissToast } = useToast()
+  const pageFeedback = flow.dialog === null ? flow.feedback : null
+  const { uncertain } = flow
+  useEffect(() => {
+    if (!pageFeedback) return
+    const id = addToast({
+      key: 'account-feedback',
+      title: authT(ACCOUNT_FEEDBACK_KEY[pageFeedback]),
+      variant: pageFeedback === 'reauthCancelled' ? 'info' : 'warning',
+      persistent: uncertain
+    })
+    return () => dismissToast(id)
+  }, [pageFeedback, uncertain, addToast, dismissToast, authT])
   return (
     <section
       className="account-section account-settings"
@@ -97,14 +113,6 @@ export const AccountSettings = (): ReactElement => {
           </SettingRow>
         )}
       </div>
-      {flow.feedback && flow.dialog === null ? (
-        <p
-          className="account-feedback"
-          role={flow.feedback === 'reauthCancelled' ? 'status' : 'alert'}
-        >
-          {authT(ACCOUNT_FEEDBACK_KEY[flow.feedback])}
-        </p>
-      ) : null}
       {flow.uncertain && flow.dialog === null ? (
         <Button
           className="account-recheck"
