@@ -27,6 +27,23 @@ resource "aws_ssm_document" "deploy" {
       }
     }
     mainSteps = [
+      # #1046: render-env.sh is a cloud-init file, which running hosts never
+      # reread (#1042). Write the repository copy before each deploy, so a new
+      # parameter (WEB_PUSH_PUBLIC_KEY in api.env) reaches the API with the next
+      # release instead of the next host replacement.
+      {
+        action = "aws:runShellScript"
+        name   = "refreshRenderEnv"
+        inputs = {
+          timeoutSeconds = "60"
+          runCommand = [
+            "set -euo pipefail",
+            "echo '${base64encode(file("${path.module}/files/render-env.sh"))}' | base64 -d > /opt/harumaru/bin/render-env.sh.new",
+            "chmod 0750 /opt/harumaru/bin/render-env.sh.new",
+            "mv -f /opt/harumaru/bin/render-env.sh.new /opt/harumaru/bin/render-env.sh",
+          ]
+        }
+      },
       {
         action = "aws:runShellScript"
         name   = "deploy"
@@ -208,6 +225,38 @@ resource "aws_ssm_document" "cleanup" {
   })
 }
 
+# #1046 daily web push (files/daily-push.sh) at 08:00 Korea time. The send and
+# subject lines go in front of the script lines, so apply alone updates running
+# hosts. DISABLED until daily_push_schedule_enabled is set, after the VAPID key
+# parameters exist; STAGING keeps it off (its host is stopped at 08:00).
+resource "aws_ssm_document" "daily_push" {
+  name            = "${local.name}-daily-push"
+  document_type   = "Command"
+  document_format = "JSON"
+  content = jsonencode({
+    schemaVersion = "2.2"
+    description   = "Send the daily web push once (send=false only counts)."
+    parameters = {
+      send = {
+        type          = "String"
+        default       = "false"
+        allowedValues = ["true", "false"]
+      }
+    }
+    mainSteps = [{
+      action = "aws:runShellScript"
+      name   = "push"
+      inputs = {
+        timeoutSeconds = "600"
+        runCommand = concat(
+          ["send='{{ send }}'", "WEB_PUSH_SUBJECT='${local.public_origin}'"],
+          split("\n", trimspace(file("${path.module}/files/daily-push.sh")))
+        )
+      }
+    }]
+  })
+}
+
 data "aws_iam_policy_document" "scheduler_assume" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -237,6 +286,7 @@ data "aws_iam_policy_document" "erasure_scheduler" {
       aws_ssm_document.guest_cleanup.arn,
       aws_ssm_document.retention_cohort.arn,
       aws_ssm_document.cleanup.arn,
+      aws_ssm_document.daily_push.arn,
     ]
   }
 }
@@ -340,6 +390,31 @@ resource "aws_scheduler_schedule" "cleanup" {
         job    = [each.key]
         dryRun = [each.value.dry_run ? "true" : "false"]
       }
+    })
+
+    retry_policy {
+      maximum_retry_attempts = 0
+    }
+  }
+}
+
+resource "aws_scheduler_schedule" "daily_push" {
+  name                         = "${local.name}-daily-push"
+  state                        = var.daily_push_schedule_enabled ? "ENABLED" : "DISABLED"
+  schedule_expression          = var.daily_push_schedule_expression
+  schedule_expression_timezone = "Asia/Seoul"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  target {
+    arn      = "arn:${data.aws_partition.current.partition}:scheduler:::aws-sdk:ssm:sendCommand"
+    role_arn = aws_iam_role.erasure_scheduler.arn
+    input = jsonencode({
+      DocumentName = aws_ssm_document.daily_push.name
+      InstanceIds  = [aws_instance.host.id]
+      Parameters   = { send = ["true"] }
     })
 
     retry_policy {

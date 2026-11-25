@@ -84,6 +84,17 @@ aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUT
 - 예약: `retention_schedule_expression`(Asia/Seoul). PRODUCTION 기본 매일 00:05, STAGING은 하루 창 안의 05:15. 둘 다 비회원 정리(PRODUCTION 매시 30분, STAGING 05:30)보다 먼저 돕니다. 비회원은 비회원 기록(`GuestPrincipal`)이 만들어진 날로 묶고, 그날 정리로 지워질 비회원 문제 세트가 남아 있을 때 읽게 하려는 것입니다. 놓친 날은 다음 실행이 채웁니다. 회원은 14일 안, 비회원은 다음날·1~7일 칸 D+9·7일째 칸 D+14까지만 정확합니다(그 뒤는 비회원 세트가 지워져 작게 쓰임). 기본 `DISABLED`이고, **집계 테이블 migration이 들어간 릴리스가 배포된 뒤에** `retention_schedule_enabled = true`로 켭니다.
 - 수동 실행: `aws ssm send-command --document-name harumaru-<env>-retention-cohort --instance-ids <id>`. 출력은 `study.retention_cohort.counted`(`nextDayWritten`, `weekWritten`, `failedDays`) 또는 `study.retention_cohort.failed`.
 
+## #1046 하루 푸시(아침 8시)
+
+- `harumaru-<env>-daily-push` SSM 문서가 배포된 이미지로 `node api/dist/notification/dailyPushCommand.js`를 한 번 돌립니다(`files/daily-push.sh`, apply만으로 켜진 서버에 반영). 매개변수 `send`(`true`/`false`, 기본 `false`): `false`면 보낼 대상 수만 셉니다(`daily_push_dry_run`).
+- 키: 운영자가 VAPID 키 한 쌍을 만들어 `/harumaru/<env>/WEB_PUSH_PUBLIC_KEY`, `/harumaru/<env>/WEB_PUSH_PRIVATE_KEY`에 SecureString으로 한 번 씁니다(`terraform output push_parameter_names`). 값은 저장소·Terraform 상태·로그에 남기지 않습니다. 보낸 사람 주소(`WEB_PUSH_SUBJECT`)는 사이트 주소입니다.
+- API는 공개 키를 `api.env`로 받아 `/api/v1/push/config`에 내줍니다. 공개 키가 없으면 `publicKey: null`로 푸시가 꺼진 채입니다. `render-env.sh`는 cloud-init 파일이라, 배포 문서의 첫 단계(`refreshRenderEnv`)가 배포마다 저장소의 `render-env.sh`로 바꿉니다 → 키를 쓴 뒤 다음 배포부터 API에 반영됩니다.
+- 명령은 `api` 서비스로 돕니다(`db` 망은 외부로 못 나가 브라우저 푸시 서버에 닿지 않음). DB는 API의 `DATABASE_URL`, 안전 검사용 `MIGRATION_DATABASE_URL`(비밀번호 뺌)·`PRODUCTION_DATABASE_URL`을 환경 변수로만 넘깁니다.
+- 예약: `daily_push_schedule_expression`(Asia/Seoul, 기본 `cron(0 8 * * ? *)`), `daily_push_schedule_enabled` 기본 `false`. PRODUCTION은 키를 쓰고 API에 공개 키가 반영된 뒤 켭니다. STAGING은 08:00에 서버가 꺼져 있어 끈 채로 두고, 확인은 하루 창 안에서 수동 실행합니다.
+- 실패: 종료 코드 1(보낼 대상이 있었는데 하나도 못 보냄, 또는 오류)이면 위 예약 작업 실패 알림(EventBridge 규칙)에, 예약이 실행 자체를 못 하면 `scheduler-target-error` 경보에 잡힙니다.
+- 수동 실행: `aws ssm send-command --document-name harumaru-<env>-daily-push --instance-ids <id> --parameters send=false`.
+- 비용: 예약 월 30회(Scheduler 무료 한도 안), Run Command·Parameter Store 표준 무료 → 약 $0.
+
 ## 보존 기간 정리 (#671)
 
 - `harumaru-<env>-cleanup` SSM 문서 하나가 배포된 이미지로 정리 명령 하나를 한 번 돌립니다(`files/cleanup-job.sh`). 매개변수 `job`(허용값만)과 `dryRun`(`true`/`false`, 기본 `true`)을 받습니다.
