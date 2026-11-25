@@ -1,6 +1,7 @@
 import {
   DAILY_PUSH_URL,
   dailyPushBody,
+  DAILY_PUSH_TITLE,
   type DailyPushPayload,
   type PushLocale
 } from '@nihongo/contracts/notification/web-push'
@@ -54,6 +55,7 @@ export const dailyPushPayload = (
 ): string =>
   JSON.stringify({
     kind: 'DAILY_GOAL',
+    title: DAILY_PUSH_TITLE[locale],
     body: dailyPushBody(locale, dailyGoal),
     url: DAILY_PUSH_URL
   } satisfies DailyPushPayload)
