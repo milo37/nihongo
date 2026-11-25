@@ -999,16 +999,26 @@ describe('마이페이지 계정 설정', () => {
     expect(mockDatabase.getCurrentUser()).not.toBeNull()
     Element.prototype.scrollIntoView = original
   })
-  it('결과 모름에서 창을 닫으면 화면 줄 대신 남는 토스트와 화면 [다시 확인]만 둔다 (#1292)', async () => {
+  it('결과 모름에서 창을 닫으면 탈퇴 버튼이 [다시 확인]이 되고, 또 모르면 토스트를 다시, 처리 안 됨이면 [회원 탈퇴]로 돌아온다 (#1292)', async () => {
     freshActor()
+    let receipt: 'down' | 'none' = 'down'
     mockServer.use(
       http.post('*/api/auth/sso/delete-account', () =>
         HttpResponse.json(
           { code: 'SSO_ACCOUNT_OPERATION_UNAVAILABLE', message: '미확정' },
           { status: 503 }
         )
+      ),
+      http.get('*/api/auth/sso/deletion', () =>
+        receipt === 'down'
+          ? HttpResponse.error()
+          : HttpResponse.json(
+              { code: 'SSO_DELETION_RECEIPT_UNAVAILABLE', message: '없음' },
+              { status: 404 }
+            )
       )
     )
+    const unknown = '처리됐는지 확인하지 못했어요. 다시 확인해 주세요.'
     const user = userEvent.setup()
     renderAccount()
     const dialog = await openDeleteDialog(user)
@@ -1019,13 +1029,29 @@ describe('마이페이지 계정 설정', () => {
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     )
     const region = await screen.findByRole('region', { name: '알림' })
-    expect(
-      await within(region).findByText(
-        '처리됐는지 확인하지 못했어요. 다시 확인해 주세요.'
-      )
-    ).toBeVisible()
+    expect(await within(region).findByText(unknown)).toBeVisible()
     expect(screen.queryByRole('alert')).toBeNull()
-    expect(screen.getByRole('button', { name: '다시 확인' })).toBeEnabled()
+    // One button where deletion was: no grey [회원 탈퇴] without a reason.
+    expect(
+      screen.queryByRole('button', { name: '회원 탈퇴' })
+    ).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: '다시 확인' })).toHaveLength(1)
+    await user.click(within(region).getByRole('button', { name: '알림 닫기' }))
+    // The region leaves when it is empty: look it up again.
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('region', { name: '알림' })
+      ).not.toBeInTheDocument()
+    )
+    await user.click(screen.getByRole('button', { name: '다시 확인' }))
+    const again = await screen.findByRole('region', { name: '알림' })
+    expect(await within(again).findByText(unknown)).toBeVisible()
+    receipt = 'none'
+    await user.click(screen.getByRole('button', { name: '다시 확인' }))
+    expect(
+      await screen.findByRole('button', { name: '회원 탈퇴' })
+    ).toBeEnabled()
+    await waitFor(() => expect(screen.queryByText(unknown)).toBeNull())
   })
   it('복귀 query만으로 fresh를 부여하거나 mutation하지 않고 /account로 넘긴 뒤 주소를 정리한다', async () => {
     mockDatabase.loginAs('USER')

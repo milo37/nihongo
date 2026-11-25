@@ -33,10 +33,13 @@ export const AccountSettings = (): ReactElement => {
   // row hides with the sign-in row until the toast's retry loads them.
   const methodsFailed = !flow.capabilities.isPending && !caps
   // #1292: a result left after the dialog closes is a toast, not a line.
-  // Cancelling is a notice; an unknown result stays up beside [다시 확인].
+  // Cancelling is a notice; an unknown result stays up, and a check that
+  // still cannot tell shows it again even after it was closed.
   const { addToast, dismissToast } = useToast()
   const pageFeedback = flow.dialog === null ? flow.feedback : null
-  const { uncertain } = flow
+  const { uncertain, unknownChecks } = flow
+  // While the result is unknown the deletion button itself is [다시 확인].
+  const pageRecheck = uncertain && flow.dialog === null
   useEffect(() => {
     if (!pageFeedback) return
     const id = addToast({
@@ -46,7 +49,7 @@ export const AccountSettings = (): ReactElement => {
       persistent: uncertain
     })
     return () => dismissToast(id)
-  }, [pageFeedback, uncertain, addToast, dismissToast, authT])
+  }, [pageFeedback, uncertain, unknownChecks, addToast, dismissToast, authT])
   return (
     <section
       className="account-section account-settings"
@@ -85,17 +88,23 @@ export const AccountSettings = (): ReactElement => {
             action={
               <Button
                 className={ROW_BUTTON_CLASS}
-                variant="danger-outline"
-                disabled={controlsDisabled || !caps?.canDelete}
+                variant={pageRecheck ? 'outline' : 'danger-outline'}
+                disabled={
+                  pageRecheck ? flow.busy : controlsDisabled || !caps?.canDelete
+                }
                 aria-describedby={
                   caps && !caps.canDelete ? deleteReasonId : undefined
                 }
                 onClick={(event) => {
+                  if (pageRecheck) {
+                    void flow.recheck()
+                    return
+                  }
                   trigger.current = event.currentTarget
                   flow.request({ kind: 'delete' })
                 }}
               >
-                {t('danger.action')}
+                {pageRecheck ? authT('sso.recheck') : t('danger.action')}
               </Button>
             }
           >
@@ -113,16 +122,6 @@ export const AccountSettings = (): ReactElement => {
           </SettingRow>
         )}
       </div>
-      {flow.uncertain && flow.dialog === null ? (
-        <Button
-          className="account-recheck"
-          variant="outline"
-          disabled={flow.busy}
-          onClick={() => void flow.recheck()}
-        >
-          {authT('sso.recheck')}
-        </Button>
-      ) : null}
       <TwoStepConfirmDialog
         flow={flow}
         returnFocusRef={trigger}

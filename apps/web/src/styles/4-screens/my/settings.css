@@ -20,9 +20,6 @@
   .account-row-button {
     min-width: 8rem;
   }
-  .account-recheck {
-    justify-self: flex-start;
-  }
   .account-settings-title {
     font-size: var(--text-lg);
     line-height: var(--text-lg--line-height);

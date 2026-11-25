@@ -96,6 +96,9 @@ export const useSsoAccountManagement = () => {
   const [dialog, setDialog] = useState<AccountDialog | null>(null)
   const [feedback, setFeedback] = useState<AccountFeedback | null>(null)
   const [uncertain, setUncertain] = useState(false)
+  // #1292: counts checks that still could not tell, so the page shows its
+  // result toast again even after it was closed.
+  const [unknownChecks, setUnknownChecks] = useState(0)
   const [redirecting, setRedirecting] = useState(false)
   // A verified return reopens its dialog once capabilities have reloaded.
   const [resumeIntent, setResumeIntent] = useState<AccountIntent | null>(null)
@@ -286,13 +289,17 @@ export const useSsoAccountManagement = () => {
       if (
         !(error instanceof AccountFlowError) ||
         error.code !== 'SSO_DELETION_RECEIPT_UNAVAILABLE'
-      )
+      ) {
+        setUnknownChecks((count) => count + 1)
         return
+      }
       const current = await capabilities.refetch()
       if (current.isSuccess) {
         setUncertain(false)
-        setFeedback('actionFailed')
-      }
+        // Not deleted: the dialog says so; on the page the button simply
+        // turns back into [회원 탈퇴].
+        setFeedback(dialog ? 'actionFailed' : null)
+      } else setUnknownChecks((count) => count + 1)
     }
   }
   const request = (intent: AccountIntent) => {
@@ -343,6 +350,7 @@ export const useSsoAccountManagement = () => {
     closeDialog,
     feedback,
     uncertain,
+    unknownChecks,
     busy,
     start,
     request,
