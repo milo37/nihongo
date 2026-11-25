@@ -986,6 +986,9 @@ describe('마이페이지 계정 설정', () => {
     await act(async () => finish?.())
     const line = await within(dialog).findByRole('alert')
     expect(line).toHaveClass('two-step-notice-error')
+    expect(line).toHaveTextContent(
+      '처리됐는지 확인하지 못했어요. 다시 확인해 주세요.'
+    )
     expect(scroll.mock.contexts).toContain(line)
     expect(
       within(dialog).queryByRole('button', { name: '회원 탈퇴' })

@@ -512,6 +512,8 @@ export const jaCoreResources = {
       deleteTitle: '退会しますか？',
       processing: '少々お待ちください…',
       actionFailed: 'うまくいきませんでした。もう一度お試しください。',
+      resultUnknown:
+        '処理されたか確認できませんでした。もう一度確認してください。',
       methodsLoadFailed: 'ログイン方法を読み込めませんでした。',
       deletionAccepted:
         '退会の申し込みを受け付けました。{{date}}にすべて削除されます。それまでにもう一度ログインすると元に戻せます。',

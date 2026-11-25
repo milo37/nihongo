@@ -490,6 +490,7 @@ export const koCoreResources = {
       deleteTitle: '회원 탈퇴할까요?',
       processing: '처리하는 중…',
       actionFailed: '처리하지 못했어요. 다시 시도해 주세요.',
+      resultUnknown: '처리됐는지 확인하지 못했어요. 다시 확인해 주세요.',
       methodsLoadFailed: '로그인 방법을 불러오지 못했어요.',
       deletionAccepted:
         '탈퇴 신청을 받았어요. {{date}}에 모두 삭제돼요. 그 전에 다시 로그인하면 되살릴 수 있어요.',

@@ -33,6 +33,7 @@ export type AccountFeedback =
   | 'reauthCancelled'
   | 'reauthFailed'
   | 'reauthInvalid'
+  | 'resultUnknown'
   | 'wrongAccount'
 
 /** The `auth` text key for each account feedback. */
@@ -44,6 +45,7 @@ export const ACCOUNT_FEEDBACK_KEY: Record<AccountFeedback, string> = {
   reauthCancelled: 'reauth.account.cancelled',
   reauthFailed: 'reauth.account.failed',
   reauthInvalid: 'reauth.account.invalid',
+  resultUnknown: 'sso.resultUnknown',
   wrongAccount: 'reauth.account.wrongAccount'
 }
 
@@ -194,7 +196,7 @@ export const useSsoAccountManagement = () => {
     }
     // An unconfirmed mutation is never repeated by this recovery control.
     setUncertain(true)
-    setFeedback('actionFailed')
+    setFeedback('resultUnknown')
   }
   const start = useMutation({
     ...accountMutations.start(),
