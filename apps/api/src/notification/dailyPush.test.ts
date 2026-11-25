@@ -24,16 +24,16 @@ describe('daily push (#1046)', () => {
     expect(seoulDay(new Date('2026-11-24T14:59:59Z'))).toBe('2026-11-24')
   })
 
-  it('sends only the fixed words and the home address', () => {
+  it('says the daily goal and opens practice', () => {
     expect(
-      dailyPushPayloadSchema.parse(JSON.parse(dailyPushPayload('ko')))
+      dailyPushPayloadSchema.parse(JSON.parse(dailyPushPayload('ko', 30)))
     ).toEqual({
-      kind: 'DAILY_QUESTION',
-      body: '오늘의 한 문제가 왔어요',
-      url: '/'
+      kind: 'DAILY_GOAL',
+      body: '오늘 목표 30문제, 시작해요',
+      url: '/practice'
     })
-    expect(JSON.parse(dailyPushPayload('ja')).body).toBe(
-      '今日の1問が届きました'
+    expect(JSON.parse(dailyPushPayload('ja', 150)).body).toBe(
+      '今日の目標は150問。始めましょう'
     )
   })
 })
