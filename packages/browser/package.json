@@ -31,7 +31,6 @@
     "./app/practice/draft/studyDraftWorkingCopyStorage": "./src/app/practice/draft/studyDraftWorkingCopyStorage.ts",
     "./app/practice/draft/useStudyDraftRevisionSync": "./src/app/practice/draft/useStudyDraftRevisionSync.ts",
     "./app/practice/resultRetryAttemptStorage": "./src/app/practice/resultRetryAttemptStorage.ts",
-    "./app/practice/submissionAttemptStorage": "./src/app/practice/submissionAttemptStorage.ts",
     "./app/reauth/adminFreshTime": "./src/app/reauth/adminFreshTime.ts",
     "./app/reauth/components/ReauthButton": "./src/app/reauth/components/ReauthButton.tsx",
     "./app/reauth/components/ReauthReturnNotice": "./src/app/reauth/components/ReauthReturnNotice.tsx",
