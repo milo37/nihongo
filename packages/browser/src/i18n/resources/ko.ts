@@ -746,9 +746,6 @@ export const koCoreResources = {
         removeRollback: '책갈피에서 빼지 못했어요.',
         saved: '책갈피에 담았어요.',
         saveRollback: '책갈피에 담지 못했어요.',
-        offlineQueued: '인터넷 연결이 끊겼어요. 연결되면 책갈피에 반영할게요.',
-        statusLoadOffline:
-          '인터넷 연결이 끊겨 책갈피를 확인할 수 없어요. 연결되면 다시 확인할게요.',
         statusLoadFailed: '책갈피를 확인하지 못했어요.'
       },
       navigation: {
@@ -866,9 +863,6 @@ export const koCoreResources = {
       samePassage: '{{formattedOrdinal}}번 문제와 같은 지문'
     },
     bookmark: {
-      offline: '인터넷 연결이 끊겼어요. 연결되면 책갈피에 반영할게요.',
-      loadOffline:
-        '인터넷 연결이 끊겨 책갈피를 확인할 수 없어요. 연결되면 다시 확인할게요.',
       loadError: '책갈피를 확인하지 못했어요.',
       retry: '다시 확인',
       add: '책갈피',
@@ -909,6 +903,7 @@ export const koCoreResources = {
     empty: {
       levelNone: '{{level}} 문제는 없어요.',
       startNew: '새 문제 풀기',
+      orRush: '또는',
       showAll: '전체 보기',
       never: {
         title: '아직 틀린 문제가 없어요. 풀다 틀리면 여기 모여요.'
@@ -1048,8 +1043,7 @@ export const koCoreResources = {
     status: {
       removing: '빼는 중…',
       removed: '책갈피에서 뺐어요.',
-      restoreFailed: '책갈피에서 빼지 못했어요.',
-      offline: '인터넷 연결이 끊겼어요. 연결되면 책갈피에 반영할게요.'
+      restoreFailed: '책갈피에서 빼지 못했어요.'
     },
     title: '책갈피',
     listCount: '{{formattedCount}}문제',

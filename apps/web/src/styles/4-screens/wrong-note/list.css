@@ -187,6 +187,25 @@
     line-height: var(--text-base--line-height);
     color: rgb(var(--color-ink));
   }
+  .wrong-note-rush-line {
+    margin-top: 0.75rem;
+    font-size: 14px;
+    line-height: 1.25rem;
+    color: rgb(var(--color-muted));
+  }
+  .wrong-note-rush-link {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    gap: var(--spacing);
+    white-space: nowrap;
+    color: rgb(var(--color-ink));
+  }
+  .wrong-note-rush-label {
+    text-decoration-line: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+  }
   .wrong-note-empty:lang(ko) > h2 {
     word-break: keep-all;
   }

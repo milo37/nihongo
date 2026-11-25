@@ -40,11 +40,9 @@ export const BookmarkPage = (): ReactElement => {
   }
 
   const { items, total } = bookmarksQuery.data
-  const mutationStatus = bookmarks.isMutationPaused
-    ? t('status.offline')
-    : bookmarks.statusMessage
-      ? t(`status.${bookmarks.statusMessage}`)
-      : null
+  const mutationStatus = bookmarks.statusMessage
+    ? t(`status.${bookmarks.statusMessage}`)
+    : null
 
   return (
     <section className="bookmark-page">

@@ -211,12 +211,18 @@ describe('wrong note in two states', () => {
     expect(screen.queryByRole('group')).not.toBeInTheDocument()
     // JLP-855: no manuscript paper around the message.
     expect(document.querySelector('.manuscript-sheet')).toBeNull()
-    if (variant === 'noReviewed')
+    const rush = screen.queryByRole('link', { name: /한자 스피드 퀴즈/ })
+    if (variant === 'noReviewed') {
       expect(screen.getByRole('button', { name: t('start') })).toBeEnabled()
-    else
+      expect(rush).toBeNull()
+    } else {
       expect(
         screen.getByRole('link', { name: t('empty.startNew') })
       ).toHaveAttribute('href', '/practice')
+      // #1171: one quiet line under [새 문제 풀기] into the kanji rush.
+      expect(rush).toHaveAttribute('href', '/practice/rush')
+      expect(rush?.closest('p')).toHaveTextContent('또는 한자 스피드 퀴즈 ›')
+    }
   })
 
   it('starts DAILY_REVIEW on the oldest wrong answer level and subject', async () => {

@@ -1,7 +1,7 @@
 import { http, HttpResponse } from 'msw'
 import { mockServer } from '@/test/server'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
-import { QueryClientProvider } from '@tanstack/react-query'
+import { onlineManager, QueryClientProvider } from '@tanstack/react-query'
 import {
   act,
   fireEvent,
@@ -763,6 +763,59 @@ describe('PracticeSessionPage', () => {
     expect(
       within(toasts).queryByRole('button', { name: '다시 시도' })
     ).toBeNull()
+    expect(
+      screen.getByRole('button', { name: '1번 문제를 책갈피에 담기' })
+    ).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('끊긴 채 책갈피를 누르면 기다리지 않고 아이콘을 되돌리고 토스트로 알린다 (#978)', async () => {
+    const user = userEvent.setup()
+    await loginAsUser()
+    const payload = await startSession(1)
+    renderSession(payload.session.id)
+    const add = await screen.findByRole('button', {
+      name: '1번 문제를 책갈피에 담기'
+    })
+    await waitFor(() => expect(add).not.toHaveAttribute('aria-disabled'))
+    const onLine = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    act(() => onlineManager.setOnline(false))
+    try {
+      await user.click(add)
+      const toasts = await screen.findByRole('region', { name: '알림' })
+      expect(
+        await within(toasts).findByText('책갈피에 담지 못했어요.')
+      ).toBeVisible()
+      const again = screen.getByRole('button', {
+        name: '1번 문제를 책갈피에 담기'
+      })
+      expect(again).toHaveAttribute('aria-pressed', 'false')
+      // Still offline, the icon is not locked: a second press fails at once
+      // too, not silently.
+      await waitFor(() =>
+        expect(
+          queryClient
+            .getQueryCache()
+            .findAll({ queryKey: ['bookmark', 'list'] })
+            .some((query) => query.state.fetchStatus === 'paused')
+        ).toBe(true)
+      )
+      expect(again).not.toHaveAttribute('aria-disabled')
+      const failed = (): number =>
+        queryClient.getMutationCache().findAll({ status: 'error' }).length
+      const before = failed()
+      await user.click(again)
+      await waitFor(() => expect(failed()).toBe(before + 1))
+      expect(within(toasts).getByText('책갈피에 담지 못했어요.')).toBeVisible()
+    } finally {
+      onLine.mockRestore()
+      act(() => onlineManager.setOnline(true))
+    }
+    // Nothing was kept to send once the connection is back.
+    await waitFor(() =>
+      expect(
+        queryClient.getMutationCache().findAll({ status: 'pending' })
+      ).toHaveLength(0)
+    )
     expect(
       screen.getByRole('button', { name: '1번 문제를 책갈피에 담기' })
     ).toHaveAttribute('aria-pressed', 'false')
