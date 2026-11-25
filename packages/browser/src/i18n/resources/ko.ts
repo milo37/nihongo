@@ -906,6 +906,7 @@ export const koCoreResources = {
     empty: {
       levelNone: '{{level}} 문제는 없어요.',
       startNew: '새 문제 풀기',
+      orRush: '또는',
       showAll: '전체 보기',
       never: {
         title: '아직 틀린 문제가 없어요. 풀다 틀리면 여기 모여요.'

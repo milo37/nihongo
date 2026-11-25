@@ -944,6 +944,7 @@ export const jaCoreResources = {
     empty: {
       levelNone: '{{level}}の問題はありません。',
       startNew: '新しい問題を解く',
+      orRush: 'または',
       showAll: 'すべて見る',
       never: {
         title:
