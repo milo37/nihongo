@@ -2,6 +2,8 @@
 -- the member's daily goal, so a subscription belongs to a member. Adds the
 -- member column, deleted with the member, and nothing else. The table must
 -- be empty (no screen turned push on yet); it stops instead of deleting rows.
+-- The table was made without the owner role (20261130090000), so it moves to
+-- nihongo_owner like every other table; the owner may reference "User".
 BEGIN;
 SELECT pg_catalog.set_config('app.target_schema', pg_catalog.current_schema(), true);
 SELECT pg_catalog.set_config('search_path', 'pg_catalog, pg_temp', true);
@@ -30,6 +32,8 @@ SELECT pg_catalog.set_config('search_path',
   pg_catalog.quote_ident(pg_catalog.current_setting('app.target_schema', false)) ||
   ', pg_temp', true);
 SET LOCAL check_function_bodies = false;
+ALTER TABLE "PushSubscription" OWNER TO "nihongo_owner";
+SET LOCAL ROLE "nihongo_owner";
 
 DO $empty$
 BEGIN

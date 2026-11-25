@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { afterAll, beforeEach, describe, expect, it } from 'vitest'
+import { eraseTestUser } from '../../test/fixtures/db/accountErasure.js'
 import { parseApiEnvironment } from '../config/env.js'
 import { createDatabaseRuntime } from '../db/database.js'
 import { assertSafeTestDatabase } from '../db/databaseTargetGuard.js'
@@ -40,6 +41,14 @@ const createMember = async (dailyGoal: number | null): Promise<string> => {
         name: 'Push member'
       }
     })
+    await fixture.account.create({
+      data: {
+        accountId: id,
+        password: 'test-fixture-password-hash',
+        providerId: 'credential',
+        userId: id
+      }
+    })
     if (dailyGoal !== null) {
       await fixture.userStudyGoal.create({
         data: { userId: id, dailyGoal, goalSetAt: new Date() }
@@ -71,9 +80,9 @@ beforeEach(async () => {
 
 afterAll(async () => {
   await database.client.$executeRaw`DELETE FROM "PushSubscription"`
-  await fixtureDatabase.client.user
-    .deleteMany({ where: { id: { in: [...createdUserIds] } } })
-    .catch(() => undefined)
+  for (const userId of createdUserIds) {
+    await eraseTestUser(database.client, userId).catch(() => undefined)
+  }
   await database.disconnect()
   if (fixtureDatabase !== database) await fixtureDatabase.disconnect()
 })
@@ -209,7 +218,7 @@ describe('daily web push on the database (#1046)', () => {
     })
   })
 
-  it('deletes the subscriptions with the member', async () => {
+  it('deletes the subscriptions when the member is erased', async () => {
     const userId = await createMember(10)
     await store.save({
       userId,
@@ -217,7 +226,7 @@ describe('daily web push on the database (#1046)', () => {
       ...keys,
       locale: 'ko'
     })
-    await fixtureDatabase.client.user.delete({ where: { id: userId } })
+    expect(await eraseTestUser(database.client, userId)).toBe(true)
     createdUserIds.delete(userId)
     expect(await rows()).toEqual([])
   })
