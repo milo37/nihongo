@@ -1430,9 +1430,7 @@ const login = async (
       await Promise.all([resumableResponse, page.goto(callback.href)])
       await expect(page).toHaveURL(
         (url) =>
-          url.origin === origin &&
-          url.pathname === '/dashboard' &&
-          url.search === '?view=learning'
+          url.origin === origin && url.pathname === '/' && url.search === ''
       )
     } finally {
       await page.unroute(providerURL)
@@ -2320,7 +2318,7 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
   const wrongNotePath = `/wrong-notes/${targetQuestion.question.id}`
   await page.setViewportSize({ height: 900, width: 1280 })
   await scanRoutes(page, testInfo, [
-    { label: 'dashboard', path: '/dashboard?view=learning' },
+    { label: 'dashboard', path: '/' },
     { label: 'account', path: '/account' },
     { label: 'wrong-note-center', path: '/wrong-notes' },
     { label: 'wrong-note-history', path: '/wrong-notes/history' },
@@ -2329,16 +2327,10 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     { label: 'practice-result', path: resultPath }
   ])
 
-  await verifyViewport(
-    page,
-    testInfo,
-    '/dashboard?view=learning',
-    'dashboard-375',
-    {
-      height: 812,
-      width: 375
-    }
-  )
+  await verifyViewport(page, testInfo, '/', 'dashboard-375', {
+    height: 812,
+    width: 375
+  })
   await verifyViewport(page, testInfo, resultPath, 'practice-result-1440', {
     height: 900,
     width: 1440
@@ -2347,20 +2339,14 @@ test('learner routes pass KO/JA axe, state, viewport, motion, and forced-colors 
     height: 812,
     width: 375
   })
+  await verifyViewport(page, testInfo, '/', 'dashboard-200-percent-reflow', {
+    height: 900,
+    width: 640
+  })
   await verifyViewport(
     page,
     testInfo,
-    '/dashboard?view=learning',
-    'dashboard-200-percent-reflow',
-    {
-      height: 900,
-      width: 640
-    }
-  )
-  await verifyViewport(
-    page,
-    testInfo,
-    '/dashboard?view=learning',
+    '/',
     'dashboard-text-spacing-375',
     {
       height: 812,

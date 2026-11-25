@@ -68,8 +68,9 @@ test('keeps separated ADMIN/dashboard lazy routes and mock-only source inventory
     ].toSorted(),
     readLazySources('../../admin/src/app/admin-question/router.tsx')
   )
+  // #978: the dashboard router also picks the home at / (guest or member).
   assert.deepEqual(
-    [dashboardLazySource],
+    [dashboardLazySource, dashboardLazySource, 'src/app/home/page.tsx'],
     readLazySources('../src/app/dashboard/router.tsx')
   )
   assert.deepEqual(forbiddenMockSources, [
