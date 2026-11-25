@@ -1336,11 +1336,11 @@ describe('PracticeSessionPage', () => {
     await user.click(submit)
     const reopened = await screen.findByRole('dialog', { name: '제출할까요?' })
     // Nothing is sending, so it can be closed again.
-    const keepGoing = within(reopened).getByRole('button', {
-      name: '계속 풀기'
+    const closeButton = within(reopened).getByRole('button', {
+      name: '닫기'
     })
-    expect(keepGoing).toBeEnabled()
-    await user.click(keepGoing)
+    expect(closeButton).toBeEnabled()
+    await user.click(closeButton)
     await waitFor(() =>
       expect(
         screen.queryByRole('dialog', { name: '제출할까요?' })

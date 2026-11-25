@@ -69,6 +69,7 @@ export const PracticeSubmitDialog = ({
   unansweredCount
 }: PracticeSubmitDialogProps): ReactElement => {
   const { t } = useTranslation('practice')
+  const { t: commonT } = useTranslation('common')
   const { formatCount } = usePracticeNumberFormat()
   // #1262: a failed submit closes the dialog and says so in a toast. A
   // frozen attempt keeps its answers; [제출하기] opens this dialog again to
@@ -110,7 +111,10 @@ export const PracticeSubmitDialog = ({
             disabled={isContinueDisabled}
             onClick={() => onOpenChange(false)}
           >
-            {t('session.submit.continue')}
+            {/* Answers stay locked on a frozen attempt: it only closes. */}
+            {hasFrozenAttempt
+              ? commonT('actions.close')
+              : t('session.submit.continue')}
           </Button>
           <Button
             disabled={isConfirmDisabled}
