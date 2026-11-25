@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
+import { useErrorToast } from '@nihongo/browser/common/components/Toast'
 import { AccountRestrictedNotice } from '@common/components/AccountRestrictedNotice'
 import type { StartReviewNotice } from '@app/wrong-note/hooks/useStartReview'
 
@@ -17,6 +18,7 @@ export const ReviewNotices = ({
   // compiling it too adds about 200 bytes gzip (#1124 bundle).
   'use no memo'
   const { t } = useTranslation('wrongNote')
+  useErrorToast(notice === 'error' ? t('startError') : null, 'set-create')
   return (
     <>
       {offline ? (
@@ -29,9 +31,9 @@ export const ReviewNotices = ({
           className="wrong-note-restricted"
           focusOnMount
         />
-      ) : notice ? (
+      ) : notice === 'empty' ? (
         <p className="wrong-note-error" role="alert">
-          {t(notice === 'empty' ? 'startEmpty' : 'startError')}
+          {t('startEmpty')}
         </p>
       ) : null}
     </>

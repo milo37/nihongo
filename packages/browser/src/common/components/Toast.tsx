@@ -13,7 +13,6 @@ import type { ReactElement, ReactNode } from 'react'
 import { IconButton } from './IconButton'
 import { classNames } from './classNames'
 
-// Failures never use a toast (they would vanish); they stay inline.
 export type ToastVariant = 'info' | 'success' | 'warning'
 
 export interface ToastAction {
@@ -167,7 +166,10 @@ export const Toast = ({
     <article
       ref={ref}
       className={classNames(
-        'ui-toast grid grid-cols-[auto_1fr_auto] items-start gap-3 rounded-[12px] border-y border-r border-y-line border-r-line bg-surface py-3 pl-3.5 pr-1 text-ink shadow-soft',
+        'ui-toast grid grid-cols-[auto_1fr_auto] gap-3 rounded-[12px] border-y border-r border-y-line border-r-line bg-surface py-3 pl-3.5 pr-1 text-ink shadow-soft',
+        // A title alone sits in the middle of the close button's height
+        // instead of leaving the space under it empty.
+        description || action ? 'items-start' : 'items-center',
         closing ? 'pointer-events-none' : 'pointer-events-auto',
         variantClassNames[variant]
       )}
@@ -200,7 +202,13 @@ export const Toast = ({
         }
       }}
     >
-      <span className="ui-toast-icon" aria-hidden="true">
+      <span
+        className={classNames(
+          'ui-toast-icon',
+          description || action ? 'mt-0.5' : null
+        )}
+        aria-hidden="true"
+      >
         {variantIcons[variant]}
       </span>
       <div className="min-w-0 py-0.5">
@@ -329,6 +337,30 @@ export const ToastProvider = ({
     [maxVisible, t]
   )
 
+  // #1262: the stack's height is --toast-stack-height, so a screen can keep
+  // its last option and buttons scrollable above the toasts. At the page
+  // end, the page moves up with a growing stack.
+  const regionRef = useRef<HTMLElement>(null)
+  const hasToasts = toasts.length > 0
+  useEffect(() => {
+    const region = regionRef.current
+    const root = document.documentElement
+    if (!region || typeof ResizeObserver === 'undefined') return
+    let height = 0
+    const observer = new ResizeObserver(() => {
+      const next = region.offsetHeight
+      const atEnd = window.innerHeight + window.scrollY >= root.scrollHeight - 1
+      root.style.setProperty('--toast-stack-height', `${next}px`)
+      if (atEnd && next > height) window.scrollBy(0, next - height)
+      height = next
+    })
+    observer.observe(region)
+    return () => {
+      observer.disconnect()
+      root.style.removeProperty('--toast-stack-height')
+    }
+  }, [hasToasts])
+
   const contextValue = useMemo<ToastContextValue>(
     () => ({ addToast, dismissToast }),
     [addToast, dismissToast]
@@ -354,7 +386,11 @@ export const ToastProvider = ({
         {announcement}
       </div>
       {ordered.length > 0 ? (
-        <section className="ui-toast-region" aria-label={t('toast.region')}>
+        <section
+          ref={regionRef}
+          className="ui-toast-region"
+          aria-label={t('toast.region')}
+        >
           {ordered.map(({ key: _dedupeKey, ...toast }) => (
             <Toast
               key={toast.id}
@@ -383,4 +419,43 @@ export const useToast = (): ToastContextValue => {
   }
 
   return context
+}
+
+/**
+ * #1262: a failed press is said in a warning toast, not a line on the
+ * screen; the button stays where it was, so no retry in the toast. Fires
+ * each time the title appears (a new press clears it first).
+ */
+export const useErrorToast = (title: string | null, key: string): void => {
+  const { addToast } = useToast()
+  useEffect(() => {
+    if (title) addToast({ key, title, variant: 'warning' })
+  }, [title, key, addToast])
+}
+
+/**
+ * #1292: something that loads by itself failed and its block is hidden, so
+ * the toast carries [다시 시도]. It goes when the load works again.
+ */
+export const useRetryToast = (
+  title: string | null,
+  key: string,
+  onRetry: () => void
+): void => {
+  const { t } = useTranslation('common')
+  const { addToast, dismissToast } = useToast()
+  const retryRef = useRef(onRetry)
+  useEffect(() => {
+    retryRef.current = onRetry
+  }, [onRetry])
+  useEffect(() => {
+    if (!title) return
+    const id = addToast({
+      key,
+      title,
+      variant: 'warning',
+      action: { label: t('actions.retry'), onClick: () => retryRef.current() }
+    })
+    return () => dismissToast(id)
+  }, [title, key, retryRef, addToast, dismissToast, t])
 }

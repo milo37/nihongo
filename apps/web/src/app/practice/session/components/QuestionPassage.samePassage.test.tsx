@@ -39,7 +39,6 @@ const card = (view: StudyQuestionView) => (
     <ToastProvider>
       <PracticeQuestionCard
         actions={null}
-        bookmarkStatus={null}
         headingRef={createRef()}
         isOptionsDisabled={false}
         onSelectOption={() => undefined}

@@ -283,10 +283,7 @@ export const AppLayout = ({
     pathname: stripLocalePrefix(getAppPath(routeLocation.pathname, basename))
   }
   const navigationType = useNavigationType()
-  const isLearningEntry =
-    location.pathname === '/' ||
-    (location.pathname === '/dashboard' &&
-      new URLSearchParams(location.search).get('view') === 'learning')
+  const isLearningEntry = location.pathname === '/'
   const isReviewSurface =
     location.pathname.startsWith('/wrong-notes') || Boolean(reviewReturnContext)
   const isPracticeSurface =

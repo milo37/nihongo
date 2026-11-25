@@ -1,4 +1,5 @@
 import type { BookmarkSummary } from '@nihongo/contracts/bookmark/bookmark'
+import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import {
   onlineManager,
   QueryClient,
@@ -71,7 +72,9 @@ const renderBookmarkPage = (
   )
   const view = render(
     <QueryClientProvider client={client}>
-      <RouterProvider router={router} />
+      <ToastProvider>
+        <RouterProvider router={router} />
+      </ToastProvider>
     </QueryClientProvider>
   )
   return { client, router, unmount: view.unmount }
@@ -138,7 +141,9 @@ const renderLastPageDelete = async (
   )
   const view = render(
     <QueryClientProvider client={client}>
-      <RouterProvider router={router} />
+      <ToastProvider>
+        <RouterProvider router={router} />
+      </ToastProvider>
     </QueryClientProvider>
   )
   const user = userEvent.setup()
@@ -480,9 +485,7 @@ describe('BookmarkPage pagination settlement', () => {
       await screen.findByText(fixture.lastItem.question.questionTextPreview)
     ).toBeInTheDocument()
     expect(screen.getByText('2 / 2쪽')).toBeInTheDocument()
-    expect(
-      screen.getByText('책갈피에서 빼지 못했어요. 다시 시도해 주세요.')
-    ).toBeVisible()
+    expect(screen.getByText('책갈피에서 빼지 못했어요.')).toBeVisible()
     const restoredTrigger = screen.getByRole('button', { name: '책갈피 빼기' })
     expect(restoredTrigger).not.toBe(fixture.removalTrigger)
     await waitFor(() => expect(restoredTrigger).toHaveFocus())
@@ -550,9 +553,7 @@ describe('BookmarkPage pagination settlement', () => {
       await screen.findByText(fixture.lastItem.question.questionTextPreview)
     ).toBeVisible()
     expect(screen.getByText('2 / 2쪽')).toBeInTheDocument()
-    expect(
-      screen.getByText('책갈피에서 빼지 못했어요. 다시 시도해 주세요.')
-    ).toBeVisible()
+    expect(screen.getByText('책갈피에서 빼지 못했어요.')).toBeVisible()
     const restoredTrigger = screen.getByRole('button', { name: '책갈피 빼기' })
     expect(restoredTrigger).not.toBe(fixture.removalTrigger)
     await waitFor(() => expect(restoredTrigger).toHaveFocus())

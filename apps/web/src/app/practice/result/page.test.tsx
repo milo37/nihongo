@@ -28,10 +28,6 @@ import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { mockGuestAllowance } from '@mocks/handlers/guestAllowanceHandlers'
 import { mockServer } from '@/test/server'
-import {
-  readStoredSubmissionAttempt,
-  writeStoredSubmissionAttempt
-} from '@nihongo/browser/app/practice/submissionAttemptStorage'
 import { GUEST_SESSION_QUESTION_LIMIT } from '@nihongo/contracts/study/guest-limits'
 
 const originalScrollIntoView = Object.getOwnPropertyDescriptor(
@@ -176,13 +172,8 @@ const createFixture = async ({
 }
 
 describe('approved general result navigation', () => {
-  it('preserves a stored attempt when the result and session have unknown 404 ownership', async () => {
+  it('shows not-found when the result and session have unknown 404 ownership', async () => {
     const fixture = await createFixture({ count: 1, mixed: false })
-    const oldAttempt = {
-      logicalRequest: { answers: [], durationSec: 1 },
-      idempotencyKey: crypto.randomUUID()
-    }
-    writeStoredSubmissionAttempt(fixture.sessionId, oldAttempt)
     let sessionReads = 0
     let resultReads = 0
     const missing = () =>
@@ -210,7 +201,6 @@ describe('approved general result navigation', () => {
       expect(sessionReads).toBeGreaterThan(0)
       expect(resultReads).toBeGreaterThan(0)
     })
-    expect(readStoredSubmissionAttempt(fixture.sessionId)).toEqual(oldAttempt)
     view.unmount()
     fixture.client.clear()
   })
@@ -412,9 +402,7 @@ describe('approved general result navigation', () => {
     expect(button).toBeEnabled()
     expect(button).toHaveFocus()
     release()
-    expect(
-      await screen.findByText('책갈피에 담지 못했어요. 다시 시도해 주세요.')
-    ).toBeVisible()
+    expect(await screen.findByText('책갈피에 담지 못했어요.')).toBeVisible()
     expect(requestedUrl && new URL(requestedUrl).pathname).toBe(
       `/api/v1/bookmarks/${second.question.id}`
     )

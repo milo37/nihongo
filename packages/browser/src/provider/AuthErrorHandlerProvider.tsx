@@ -1,11 +1,5 @@
 import { getAppPath, useAppNavigate } from '../libs/appNavigation'
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState
-} from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { useHref, useLocation } from 'react-router'
@@ -20,9 +14,10 @@ import { getRouteLabelKey } from '../i18n/routePresentation'
 import { frontendErrorReporter } from '../observability/frontendErrorReporter'
 import { useToast } from '../common/components/Toast'
 
-// Only failures nobody else shows stay in the banner; sign-out, offline and
-// reconnect are toasts.
-type BannerMessageKey =
+// #1262: only failures no screen shows reach here; they become one warning
+// toast (key 'api-error', 5 s). Offline and reconnect are toasts too. The
+// fixed bottom banner was left over from #760 and is gone.
+type ErrorToastMessageKey =
   | 'banner.generic'
   | 'banner.network'
   | 'banner.response'
@@ -41,9 +36,16 @@ const toStatusClass = (
 }
 
 const OFFLINE_TOAST_KEY = 'connection'
-const BANNER_OFFSET_PROPERTY = '--global-banner-offset'
+const ERROR_TOAST_KEY = 'api-error'
 
-export const AuthErrorHandlerProvider = (): ReactElement | null => {
+type AuthErrorHandlerProviderProps = {
+  /** Admin only: an object-level FORBIDDEN stays on the command's screen. */
+  keepsObjectForbidden?: boolean
+}
+
+export const AuthErrorHandlerProvider = ({
+  keepsObjectForbidden = false
+}: AuthErrorHandlerProviderProps = {}): ReactElement => {
   const { t } = useTranslation('errors')
   const { t: commonT } = useTranslation('common')
   const queryClient = useQueryClient()
@@ -58,8 +60,6 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
   useLayoutEffect(() => {
     currentPathnameRef.current = location.pathname
   }, [location.pathname])
-  const [banner, setBanner] = useState<BannerMessageKey | null>(null)
-  const bannerRef = useRef<HTMLDivElement>(null)
   const { addToast } = useToast()
   const isOnlineRef = useRef(true)
 
@@ -106,28 +106,12 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
     }
   }, [addToast, commonT, showOffline])
 
-  // Toasts sit above the banner: publish its height (+8px) while it shows.
-  useLayoutEffect(() => {
-    const root = document.documentElement
-    const element = bannerRef.current
-    if (!element) {
-      root.style.removeProperty(BANNER_OFFSET_PROPERTY)
-      return
-    }
-    const update = (): void =>
-      root.style.setProperty(
-        BANNER_OFFSET_PROPERTY,
-        `${element.getBoundingClientRect().height + 8}px`
-      )
-    update()
-    const observer =
-      typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(update)
-    observer?.observe(element)
-    return () => {
-      observer?.disconnect()
-      root.style.removeProperty(BANNER_OFFSET_PROPERTY)
-    }
-  }, [banner])
+  const showError = useCallback(
+    (key: ErrorToastMessageKey): void => {
+      addToast({ key: ERROR_TOAST_KEY, title: t(key), variant: 'warning' })
+    },
+    [addToast, t]
+  )
 
   useEffect(() => {
     return subscribeApiError((error) => {
@@ -137,7 +121,7 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
           source: 'UNEXPECTED_API_ERROR',
           routeKey: getRouteLabelKey(location.pathname)
         })
-        setBanner('banner.generic')
+        showError('banner.generic')
         return
       }
 
@@ -170,7 +154,13 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
       // A valid ADMIN can receive object-level FORBIDDEN from an admin
       // command. Keep the owning screen and its draft mounted so that the
       // command surface can render the error locally.
-      if (error.isForbiddenError && error.code === 'FORBIDDEN') {
+      // (#1262: only the admin API sends it; in the learner app it goes to
+      // /forbidden like any other 403.)
+      if (
+        keepsObjectForbidden &&
+        error.isForbiddenError &&
+        error.code === 'FORBIDDEN'
+      ) {
         return
       }
 
@@ -201,7 +191,7 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
       }
 
       if (error.isNetworkError) {
-        setBanner('banner.network')
+        showError('banner.network')
         return
       }
 
@@ -213,41 +203,28 @@ export const AuthErrorHandlerProvider = (): ReactElement | null => {
           ...(error.requestId ? { requestId: error.requestId } : {}),
           ...(statusClass ? { statusClass } : {})
         })
-        setBanner('banner.response')
+        showError('banner.response')
         return
       }
 
       if (error.isServerValidationError || error.isValidationError) {
-        setBanner('banner.validation')
+        showError('banner.validation')
         return
       }
 
       if (error.isServerError) {
-        setBanner('banner.server')
+        showError('banner.server')
       }
     })
-  }, [location.pathname, location.search, navigate, queryClient, showOffline])
+  }, [
+    keepsObjectForbidden,
+    location.pathname,
+    location.search,
+    navigate,
+    queryClient,
+    showError,
+    showOffline
+  ])
 
-  return (
-    <>
-      <ReauthReturnNotice suppressed={banner !== null} />
-      {banner ? (
-        <div
-          ref={bannerRef}
-          className="app-global-banner fixed inset-x-4 bottom-4 z-50 mx-auto flex max-w-xl items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900 shadow-soft"
-          role="alert"
-          data-kind="error"
-        >
-          <span>{t(banner)}</span>
-          <button
-            className="min-h-11 shrink-0 rounded-lg px-3 font-semibold hover:bg-red-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
-            type="button"
-            onClick={() => setBanner(null)}
-          >
-            {commonT('actions.close')}
-          </button>
-        </div>
-      ) : null}
-    </>
-  )
+  return <ReauthReturnNotice />
 }

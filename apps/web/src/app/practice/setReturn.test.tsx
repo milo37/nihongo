@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import type { ReactElement } from 'react'
@@ -20,15 +21,16 @@ const session = (mode: Mode): StudySessionView['session'] => ({
   startedAt: '2026-11-12T09:00:00.000Z',
   expiresAt: null,
   submittedAt: '2026-11-12T09:05:00.000Z',
-  durationSec: 300,
-  practiceContractVersion: 2
+  durationSec: 300
 })
 
 const renderWith = (element: ReactElement, client = new QueryClient()) =>
   render(
     <QueryClientProvider client={client}>
       <I18nProvider>
-        <MemoryRouter>{element}</MemoryRouter>
+        <ToastProvider>
+          <MemoryRouter>{element}</MemoryRouter>
+        </ToastProvider>
       </I18nProvider>
     </QueryClientProvider>
   )

@@ -153,15 +153,6 @@ export const useBookmarkPageController = () => {
     )
   }
 
-  const retryBookmarkPractice = (): void => {
-    const input = createSession.variables
-    if (input?.mode !== 'BOOKMARK') {
-      createSession.reset()
-      return
-    }
-    startBookmarkPractice({ level: input.level, subject: input.subject })
-  }
-
   const refreshAfterNoEligible = (): void => {
     createSession.reset()
     void bookmarksQuery.refetch()
@@ -190,9 +181,7 @@ export const useBookmarkPageController = () => {
 
   const isPracticeStarting = createSession.isPending || createSession.isPaused
   const isRemovalPromptPending =
-    pendingRemovalQuestionId !== null &&
-    statusMessage === 'removing' &&
-    !bookmarkMutationActivity.isPaused
+    pendingRemovalQuestionId !== null && statusMessage === 'removing'
 
   return {
     accountRestricted,
@@ -205,7 +194,6 @@ export const useBookmarkPageController = () => {
     hasPendingBookmarkMutation,
     isBookmarkNavigationLocked,
     isBookmarksPaused,
-    isMutationPaused: bookmarkMutationActivity.isPaused,
     isPracticeStarting,
     isRemovalPromptPending,
     isRemoving: deleteBookmark.isPending,
@@ -220,7 +208,6 @@ export const useBookmarkPageController = () => {
     pendingRemovalQuestionId,
     refreshAfterNoEligible,
     requestRemoval: setPendingRemovalQuestionId,
-    retryBookmarkPractice,
     setPage,
     startBookmarkPractice,
     statusMessage

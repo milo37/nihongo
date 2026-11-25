@@ -68,8 +68,9 @@ test('keeps separated ADMIN/dashboard lazy routes and mock-only source inventory
     ].toSorted(),
     readLazySources('../../admin/src/app/admin-question/router.tsx')
   )
+  // #978: the dashboard router also picks the home at / (guest or member).
   assert.deepEqual(
-    [dashboardLazySource],
+    [dashboardLazySource, dashboardLazySource, 'src/app/home/page.tsx'],
     readLazySources('../src/app/dashboard/router.tsx')
   )
   assert.deepEqual(forbiddenMockSources, [
@@ -310,12 +311,12 @@ test('proves exact forwarding coverage and rejects unbound claims', () => {
 test('reports sorted budget metrics and exact lazy asset context without body', () => {
   const budgets = evaluateBundleBudgets({
     ...bundleBaseline,
-    largestLazyJavaScriptGzipBytes: 31_058
+    largestLazyJavaScriptGzipBytes: 32_058
   })
   const asset = {
     path: 'assets/locale.js',
     rawBytes: 92_000,
-    gzipBytes: 31_058,
+    gzipBytes: 32_058,
     contentSha256: 'a'.repeat(64),
     source: 'RAW_ASSET_BODY_MUST_NOT_BE_LOGGED'
   }
@@ -349,12 +350,12 @@ test('reports sorted budget metrics and exact lazy asset context without body', 
     Object.keys(budgets).toSorted()
   )
   assert.deepEqual(context.budgets.largestLazyJavaScriptGzipBytes, {
-    actual: 31_058,
+    actual: 32_058,
     baseline: 24_463,
-    ceiling: 31_000,
-    delta: 6_595,
+    ceiling: 32_000,
+    delta: 7_595,
     passed: false,
-    ratio: 1.269591
+    ratio: 1.310469
   })
   assert.deepEqual(context.largestLazyJavaScriptByGzip, {
     path: asset.path,

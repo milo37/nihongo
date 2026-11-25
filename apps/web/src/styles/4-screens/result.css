@@ -268,22 +268,6 @@
     flex-wrap: wrap;
     gap: 0.5rem;
   }
-  .study-result-bookmark-error {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 0.75rem;
-    border-radius: var(--radius-lg);
-    border-style: solid;
-    border-width: var(--border-width-default);
-    border-color: rgb(var(--color-danger-line));
-    background-color: rgb(var(--color-danger-soft));
-    padding: 1rem;
-    font-size: var(--text-sm);
-    line-height: var(--text-sm--line-height);
-    font-weight: var(--font-weight-semibold);
-    color: rgb(var(--color-danger));
-  }
   .study-result-bookmark[aria-disabled='true'] {
     cursor: wait;
     opacity: 70%;
@@ -293,10 +277,6 @@
     color: rgb(var(--color-brand));
   }
   /* Notices: stale result, retry warnings and errors. */
-  .study-result-retry-error-text {
-    margin-top: var(--spacing);
-    line-height: 1.5rem;
-  }
   .study-result-no-retry {
     margin-top: 1rem;
     border-radius: var(--radius-lg);
@@ -308,30 +288,6 @@
   .study-result-restricted,
   .study-result-warning-spaced {
     margin-top: 1rem;
-  }
-  .study-result-retry-error {
-    margin-top: 1rem;
-    border-radius: var(--radius-lg);
-    border-style: solid;
-    border-width: var(--border-width-default);
-    border-color: rgb(var(--color-danger-line));
-    background-color: rgb(var(--color-danger-soft));
-    padding: 1rem;
-    font-size: var(--text-sm);
-    line-height: var(--text-sm--line-height);
-    color: rgb(var(--color-danger-strong));
-  }
-  .study-result-stale {
-    margin-bottom: 1.5rem;
-    border-radius: var(--radius-lg);
-    border-style: solid;
-    border-width: var(--border-width-default);
-    border-color: rgb(var(--color-warning-line));
-    background-color: rgb(var(--color-warning-soft));
-    padding: 1rem;
-    font-size: var(--text-sm);
-    line-height: var(--text-sm--line-height);
-    color: rgb(var(--color-warning-strong));
   }
   .study-result-warning {
     border-radius: var(--radius-lg);
@@ -345,9 +301,6 @@
     line-height: var(--text-sm--line-height);
     font-weight: var(--font-weight-semibold);
     color: rgb(var(--color-warning-strong));
-  }
-  .study-result-retry-error-title {
-    font-weight: var(--font-weight-bold);
   }
   /* Next steps: the buttons and the rush line. */
   .study-result-feedback {

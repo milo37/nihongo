@@ -1,6 +1,8 @@
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
+import { useToast } from '@nihongo/browser/common/components/Toast'
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import { AppErrorReportButton } from '@app/question-report/components/AppErrorReportDialog'
 
@@ -19,6 +21,27 @@ export const BookmarkListNotices = ({
 }: BookmarkListNoticesProps): ReactElement => {
   const { t } = useTranslation('bookmark')
   const { t: commonT } = useTranslation('common')
+  // #1262: a list that could not be refreshed is a toast that stays, with
+  // the retry in it.
+  const { addToast, dismissToast } = useToast()
+  const retryRef = useRef(onRetry)
+  useEffect(() => {
+    retryRef.current = onRetry
+  }, [onRetry])
+  useEffect(() => {
+    if (!isStaleError) return
+    const id = addToast({
+      key: 'bookmark-stale',
+      title: t('error.staleDescription'),
+      variant: 'warning',
+      persistent: true,
+      action: {
+        label: commonT('actions.retry'),
+        onClick: () => retryRef.current()
+      }
+    })
+    return () => dismissToast(id)
+  }, [retryRef, isStaleError, addToast, dismissToast, t, commonT])
   return (
     <>
       {mutationStatus ? (
@@ -30,14 +53,6 @@ export const BookmarkListNotices = ({
         <p className="bookmark-warn" role="status">
           {t('error.cachedOffline')}
         </p>
-      ) : null}
-      {isStaleError ? (
-        <div className="bookmark-stale" role="alert">
-          <p className="bookmark-stale-title">{t('error.staleDescription')}</p>
-          <Button className="bookmark-retry" size="sm" onClick={onRetry}>
-            {commonT('actions.retry')}
-          </Button>
-        </div>
       ) : null}
     </>
   )

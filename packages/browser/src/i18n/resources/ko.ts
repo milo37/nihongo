@@ -409,7 +409,7 @@ export const koCoreResources = {
       ageHint: '만\u00a014세 미만은 로그인 없이 문제를 풀 수 있어요.',
       terms:
         '<terms>이용약관</terms>과 <privacy>개인정보 처리방침</privacy>을 확인했어요',
-      missing: '필수 항목을 확인해 주세요',
+      missing: '필수 항목을 확인해 주세요.',
       required: '(필수)',
       submitNew: '가입하기',
       submitExisting: '확인',
@@ -439,7 +439,8 @@ export const koCoreResources = {
       hint: '2~12자로 정해 주세요.',
       invalid: '닉네임을 2자 이상 입력해 주세요',
       change: '바꾸기',
-      saved: '닉네임을 바꿨어요.'
+      saved: '닉네임을 바꿨어요.',
+      saveFailed: '닉네임을 바꾸지 못했어요. 잠시 뒤 다시 저장해 주세요.'
     },
     reauth: {
       name: '본인 확인',
@@ -480,7 +481,7 @@ export const koCoreResources = {
       logoutDescription: '로그아웃해도 푼 기록은 그대로 남아요.',
       logoutAction: '로그아웃',
       loggingOut: '로그아웃하는 중…',
-      logoutUnknown: '로그아웃됐는지 확인하지 못했어요. 새로고침해 주세요.',
+      logoutUnknown: '로그아웃하지 못했어요. 다시 눌러 주세요.',
       unlinkTitle: '{{provider}} 연결을 해제할까요?',
       unlinkDescription:
         '연결 해제 후에는 연결된 다른 로그인 방법으로 로그인해 주세요. 학습 기록은 그대로 남고, 회원 탈퇴는 따로 해야 해요.',
@@ -489,6 +490,8 @@ export const koCoreResources = {
       deleteTitle: '회원 탈퇴할까요?',
       processing: '처리하는 중…',
       actionFailed: '처리하지 못했어요. 다시 시도해 주세요.',
+      resultUnknown: '처리됐는지 확인하지 못했어요. 다시 확인해 주세요.',
+      methodsLoadFailed: '로그인 방법을 불러오지 못했어요.',
       deletionAccepted:
         '탈퇴 신청을 받았어요. {{date}}에 모두 삭제돼요. 그 전에 다시 로그인하면 되살릴 수 있어요.',
       deletionAcceptedNoDate:
@@ -530,6 +533,7 @@ export const koCoreResources = {
       newBest: '최고 기록이에요',
       firstRecord: '첫 기록이에요',
       previousBest: '이전 기록 {{b}}개',
+      saveFailed: '기록을 저장하지 못했어요',
       again: '한 번 더',
       wrong: '틀린 것 보기 {{n}}',
       wrongTitle: '틀린 한자 {{n}}개',
@@ -551,8 +555,6 @@ export const koCoreResources = {
         stale: '목록을 새로 불러오지 못했어요. 마지막으로 불러온 목록이에요.',
         error: '풀던 문제 목록을 불러오지 못했어요.',
         summary: '{{formattedCount}}문제 중 {{formattedOrdinal}}번까지',
-        legacyUnavailable:
-          '이 학습은 더 이어 풀 수 없어요. 새로 시작해 주세요.',
         action: '이어 풀기',
         cancel: '버리기'
       },
@@ -740,16 +742,11 @@ export const koCoreResources = {
       bookmark: {
         addLabel: '{{ordinal}}번 문제를 책갈피에 담기',
         removeLabel: '{{ordinal}}번 문제를 책갈피에서 빼기',
-        legacyReadOnly: '이 학습에서는 책갈피를 바꿀 수 없어요.',
         removed: '책갈피에서 뺐어요.',
-        removeRollback: '책갈피에서 빼지 못했어요. 다시 시도해 주세요.',
+        removeRollback: '책갈피에서 빼지 못했어요.',
         saved: '책갈피에 담았어요.',
-        saveRollback: '책갈피에 담지 못했어요. 다시 시도해 주세요.',
-        offlineQueued: '인터넷 연결이 끊겼어요. 연결되면 책갈피에 반영할게요.',
-        statusLoadOffline:
-          '인터넷 연결이 끊겨 책갈피를 확인할 수 없어요. 연결되면 다시 확인할게요.',
-        statusLoadFailed: '책갈피를 확인하지 못했어요.',
-        retryStatus: '다시 확인'
+        saveRollback: '책갈피에 담지 못했어요.',
+        statusLoadFailed: '책갈피를 확인하지 못했어요.'
       },
       navigation: {
         previous: '이전',
@@ -866,9 +863,6 @@ export const koCoreResources = {
       samePassage: '{{formattedOrdinal}}번 문제와 같은 지문'
     },
     bookmark: {
-      offline: '인터넷 연결이 끊겼어요. 연결되면 책갈피에 반영할게요.',
-      loadOffline:
-        '인터넷 연결이 끊겨 책갈피를 확인할 수 없어요. 연결되면 다시 확인할게요.',
       loadError: '책갈피를 확인하지 못했어요.',
       retry: '다시 확인',
       add: '책갈피',
@@ -877,9 +871,9 @@ export const koCoreResources = {
       removeLabel: '{{formattedOrdinal}}번 문제를 책갈피에서 빼기',
       unavailable: '이 결과에서는 책갈피를 바꿀 수 없어요.',
       removed: '책갈피에서 뺐어요.',
-      removeFailed: '책갈피에서 빼지 못했어요. 다시 시도해 주세요.',
+      removeFailed: '책갈피에서 빼지 못했어요.',
       saved: '책갈피에 담았어요.',
-      saveFailed: '책갈피에 담지 못했어요. 다시 시도해 주세요.'
+      saveFailed: '책갈피에 담지 못했어요.'
     },
     blocker: {
       title: '틀린 문제를 다시 풀 준비를 하고 있어요',
@@ -909,6 +903,7 @@ export const koCoreResources = {
     empty: {
       levelNone: '{{level}} 문제는 없어요.',
       startNew: '새 문제 풀기',
+      orRush: '또는',
       showAll: '전체 보기',
       never: {
         title: '아직 틀린 문제가 없어요. 풀다 틀리면 여기 모여요.'
@@ -1048,8 +1043,7 @@ export const koCoreResources = {
     status: {
       removing: '빼는 중…',
       removed: '책갈피에서 뺐어요.',
-      restoreFailed: '책갈피에서 빼지 못했어요. 다시 시도해 주세요.',
-      offline: '인터넷 연결이 끊겼어요. 연결되면 책갈피에 반영할게요.'
+      restoreFailed: '책갈피에서 빼지 못했어요.'
     },
     title: '책갈피',
     listCount: '{{formattedCount}}문제',

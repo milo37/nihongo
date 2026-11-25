@@ -1,5 +1,6 @@
 import {
-  DAILY_PUSH_BODY,
+  DAILY_PUSH_URL,
+  dailyPushBody,
   type DailyPushPayload,
   type PushLocale
 } from '@nihongo/contracts/notification/web-push'
@@ -12,6 +13,8 @@ export interface ClaimedPushSubscription {
   readonly p256dh: string
   readonly auth: string
   readonly locale: PushLocale
+  /** The member's daily goal now. */
+  readonly dailyGoal: number
 }
 
 /**
@@ -45,11 +48,14 @@ export const seoulDay = (now: Date): string =>
     day: '2-digit'
   }).format(now)
 
-export const dailyPushPayload = (locale: PushLocale): string =>
+export const dailyPushPayload = (
+  locale: PushLocale,
+  dailyGoal: number
+): string =>
   JSON.stringify({
-    kind: 'DAILY_QUESTION',
-    body: DAILY_PUSH_BODY[locale],
-    url: '/'
+    kind: 'DAILY_GOAL',
+    body: dailyPushBody(locale, dailyGoal),
+    url: DAILY_PUSH_URL
   } satisfies DailyPushPayload)
 
 export interface DailyPushReport {
@@ -65,7 +71,9 @@ export const DAILY_PUSH_BATCH_SIZE = 500
 export const DAILY_PUSH_CONCURRENCY = 20
 
 /**
- * #1046: one push a day per subscription. Each batch is marked with today's
+ * #1046: one push a day per subscription whose member is active and has a
+ * daily goal; the
+ * words carry that goal as it is at send time. Each batch is marked with today's
  * day before it is sent, so a second run the same day (or a run that died
  * halfway) never sends twice; a marked one that was not sent waits for
  * tomorrow.
@@ -95,15 +103,25 @@ export const runDailyPush = async ({
 
   for (;;) {
     const batch = await client.$queryRaw<ClaimedPushSubscription[]>`
-      UPDATE "PushSubscription" SET "lastSentDay" = ${day}::date
-      WHERE "id" IN (
-        SELECT "id" FROM "PushSubscription"
-        WHERE "lastSentDay" IS DISTINCT FROM ${day}::date
-        ORDER BY "id"
-        LIMIT ${batchSize}
-        FOR UPDATE SKIP LOCKED
-      )
-      RETURNING "id", "endpoint", "p256dh", "auth", "locale"`
+      UPDATE "PushSubscription" AS push SET "lastSentDay" = ${day}::date
+      FROM "UserStudyGoal" AS goal
+      WHERE goal."userId" = push."userId"
+        AND goal."dailyGoal" IS NOT NULL
+        AND push."id" IN (
+          SELECT candidate."id" FROM "PushSubscription" AS candidate
+          JOIN "UserStudyGoal" AS candidateGoal
+            ON candidateGoal."userId" = candidate."userId"
+          JOIN "User" AS member ON member."id" = candidate."userId"
+          WHERE candidate."lastSentDay" IS DISTINCT FROM ${day}::date
+            AND candidateGoal."dailyGoal" IS NOT NULL
+            -- A member who asked to be deleted gets nothing (back on restore).
+            AND member."accountStatus" = 'ACTIVE'
+          ORDER BY candidate."id"
+          LIMIT ${batchSize}
+          FOR UPDATE OF candidate SKIP LOCKED
+        )
+      RETURNING push."id", push."endpoint", push."p256dh", push."auth",
+        push."locale", goal."dailyGoal"::integer AS "dailyGoal"`
     if (batch.length === 0) break
 
     const gone: string[] = []
@@ -114,7 +132,7 @@ export const runDailyPush = async ({
           try {
             status = await send(
               subscription,
-              dailyPushPayload(subscription.locale)
+              dailyPushPayload(subscription.locale, subscription.dailyGoal)
             )
           } catch (error: unknown) {
             keep(error instanceof Error ? error.name : 'Error')
