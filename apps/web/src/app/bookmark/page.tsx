@@ -60,7 +60,6 @@ export const BookmarkPage = (): ReactElement => {
             isStarting={bookmarks.isPracticeStarting}
             noEligibleQuestions={bookmarks.noEligibleQuestions}
             onRefresh={bookmarks.refreshAfterNoEligible}
-            onRetry={bookmarks.retryBookmarkPractice}
             onStart={bookmarks.startBookmarkPractice}
             pendingGroup={bookmarks.pendingPracticeGroup}
           />

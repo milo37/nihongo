@@ -1,42 +1,46 @@
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement } from 'react'
 import type { ResultRetryStatusCode } from '@app/practice/hooks/usePracticeResultController'
 import { Button } from '@nihongo/browser/common/components/Button'
+import { useToast } from '@nihongo/browser/common/components/Toast'
 import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
+import { useErrorToast } from '@common/hooks/useErrorToast'
 import { AccountRestrictedNotice } from '@common/components/AccountRestrictedNotice'
 import { WarningNotice } from '@app/practice/result/WarningNotice'
 
 type ResultSourceNoticeProps = {
   isError: boolean
-  isPaused: boolean
   onRetry: () => void
 }
 
+// #1262: offline is the one connection toast; results that could not be
+// refreshed are a toast that stays, with the retry in it.
 export const ResultSourceNotice = ({
   isError,
-  isPaused,
   onRetry
-}: ResultSourceNoticeProps): ReactElement => {
+}: ResultSourceNoticeProps): null => {
   const { t } = useTranslation('result')
   const { t: commonT } = useTranslation('common')
-  return (
-    <div className="study-result-stale" role={isError ? 'alert' : 'status'}>
-      <p className="study-notice-title">
-        {t(isPaused ? 'error.cachedOffline' : 'error.staleDescription')}
-      </p>
-      {isError ? (
-        <Button
-          className="study-notice-action"
-          size="sm"
-          variant="secondary"
-          onClick={onRetry}
-        >
-          {commonT('actions.retry')}
-        </Button>
-      ) : null}
-    </div>
-  )
+  const { addToast, dismissToast } = useToast()
+  const retryRef = useRef(onRetry)
+  retryRef.current = onRetry
+  useEffect(() => {
+    if (!isError) return
+    const id = addToast({
+      key: 'result-stale',
+      title: t('error.staleDescription'),
+      variant: 'warning',
+      persistent: true,
+      action: {
+        label: commonT('actions.retry'),
+        onClick: () => retryRef.current()
+      }
+    })
+    return () => dismissToast(id)
+  }, [isError, addToast, dismissToast, t, commonT])
+  return null
 }
 
 type ResultRetryNoticeProps = {
@@ -59,6 +63,10 @@ export const ResultRetryNotice = ({
   retryMessage
 }: ResultRetryNoticeProps): ReactElement | null => {
   const { t } = useTranslation('result')
+  useErrorToast(
+    hasRetryRequestError ? t('retry.errorTitle') : null,
+    'set-create'
+  )
   const newPracticeLink = (
     <Link className="note-link" to="/practice">
       {t('newPractice')}
@@ -94,18 +102,6 @@ export const ResultRetryNotice = ({
         className="study-result-restricted"
         focusOnMount
       />
-    )
-  }
-  if (hasRetryRequestError) {
-    return (
-      <div className="study-result-retry-error" role="alert">
-        <p className="study-result-retry-error-title">
-          {t('retry.errorTitle')}
-        </p>
-        <p className="study-result-retry-error-text">
-          {t('retry.errorDescription')}
-        </p>
-      </div>
     )
   }
   if (retryMessage) {

@@ -340,8 +340,7 @@ export const ToastProvider = ({
     let height = 0
     const observer = new ResizeObserver(() => {
       const next = region.offsetHeight
-      const atEnd =
-        window.innerHeight + window.scrollY >= root.scrollHeight - 1
+      const atEnd = window.innerHeight + window.scrollY >= root.scrollHeight - 1
       root.style.setProperty('--toast-stack-height', `${next}px`)
       if (atEnd && next > height) window.scrollBy(0, next - height)
       height = next

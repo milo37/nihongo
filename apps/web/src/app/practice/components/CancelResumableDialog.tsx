@@ -1,7 +1,9 @@
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement, RefObject } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'
+import { useToast } from '@nihongo/browser/common/components/Toast'
 
 type CancelResumableDialogProps = {
   fallbackFocusRef: RefObject<HTMLHeadingElement | null>
@@ -21,6 +23,20 @@ export const CancelResumableDialog = ({
   open
 }: CancelResumableDialogProps): ReactElement => {
   const { t } = useTranslation('practice')
+  // #1262: a failed discard closes the dialog (a toast would sit under it)
+  // and says so in a toast; the list's [버리기] is still there.
+  const { addToast } = useToast()
+  const keepRef = useRef(onKeep)
+  keepRef.current = onKeep
+  useEffect(() => {
+    if (!hasError) return
+    keepRef.current()
+    addToast({
+      key: 'set-cancel',
+      title: t('setup.cancelDialog.error'),
+      variant: 'warning'
+    })
+  }, [hasError, addToast, t])
   return (
     <Dialog
       open={open}
@@ -43,12 +59,6 @@ export const CancelResumableDialog = ({
           onKeep()
         }
       }}
-    >
-      {hasError ? (
-        <p className="practice-cancel-error" role="alert">
-          {t('setup.cancelDialog.error')}
-        </p>
-      ) : null}
-    </Dialog>
+    ></Dialog>
   )
 }

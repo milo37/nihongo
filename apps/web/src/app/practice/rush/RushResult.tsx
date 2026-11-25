@@ -1,5 +1,7 @@
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
+import { useToast } from '@nihongo/browser/common/components/Toast'
 import type { JlptLevel } from '@nihongo/contracts/common/enum'
 import { FoxSprite } from '@app/practice/result/maru/FoxSprite'
 import type { RushPick } from '@app/practice/hooks/useRushRound'
@@ -33,6 +35,25 @@ export const RushResult = ({
 }) => {
   const { t } = useTranslation('practice')
   const { t: commonT } = useTranslation('common')
+  // #1262: a failed save is a toast that stays, with the retry in it (the
+  // result has no save button of its own).
+  const { addToast, dismissToast } = useToast()
+  const retryRef = useRef(onRetrySave)
+  retryRef.current = onRetrySave
+  useEffect(() => {
+    if (!saveFailed) return
+    const id = addToast({
+      key: 'rush-save',
+      title: t('rush.saveFailed'),
+      variant: 'warning',
+      persistent: true,
+      action: {
+        label: commonT('actions.retry'),
+        onClick: () => retryRef.current()
+      }
+    })
+    return () => dismissToast(id)
+  }, [saveFailed, addToast, dismissToast, t, commonT])
   const score = log.filter((row) => row.ok).length
   const shownScore = useCountUp(score)
   const wrong = log.length - score
@@ -69,14 +90,7 @@ export const RushResult = ({
       <p className="rush-meta">
         {t('rush.meta', { t: log.length, n: score, c: maxRun })}
       </p>
-      {saveFailed ? (
-        <div className="rush-best-line" role="alert">
-          <p>{t('rush.saveFailed')}</p>
-          <button type="button" className="rush-link" onClick={onRetrySave}>
-            {commonT('actions.retry')}
-          </button>
-        </div>
-      ) : best === null ? null : (
+      {best === null ? null : (
         <div className="rush-best-line">
           {isNewBest ? (
             <>

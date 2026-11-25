@@ -74,7 +74,11 @@ export const ResumablePractice = ({
           />
         )
       ) : query.isError && !data ? (
-        <ResumableError query={query} description={t('setup.resume.error')} />
+        <ResumableError
+          query={query}
+          description={t('setup.resume.error')}
+          withRetry
+        />
       ) : recent ? (
         <div className="practice-recent practice-recent-single">
           <ResumableRecord

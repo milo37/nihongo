@@ -30,7 +30,12 @@ export const usePracticeSessionBookmark = ({
   // #1262: success and failure share one bookmark toast; a failed change
   // puts the icon back (the optimistic update rolls back), no retry button.
   const notify = (
-    code: 'saved' | 'removed' | 'saveRollback' | 'removeRollback' | 'statusLoadFailed'
+    code:
+      | 'saved'
+      | 'removed'
+      | 'saveRollback'
+      | 'removeRollback'
+      | 'statusLoadFailed'
   ): void => {
     addToast({
       key: 'bookmark',

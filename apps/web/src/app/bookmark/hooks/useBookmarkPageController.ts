@@ -153,15 +153,6 @@ export const useBookmarkPageController = () => {
     )
   }
 
-  const retryBookmarkPractice = (): void => {
-    const input = createSession.variables
-    if (input?.mode !== 'BOOKMARK') {
-      createSession.reset()
-      return
-    }
-    startBookmarkPractice({ level: input.level, subject: input.subject })
-  }
-
   const refreshAfterNoEligible = (): void => {
     createSession.reset()
     void bookmarksQuery.refetch()
@@ -220,7 +211,6 @@ export const useBookmarkPageController = () => {
     pendingRemovalQuestionId,
     refreshAfterNoEligible,
     requestRemoval: setPendingRemovalQuestionId,
-    retryBookmarkPractice,
     setPage,
     startBookmarkPractice,
     statusMessage

@@ -48,7 +48,6 @@ const PracticeResultPageContent = (): ReactElement => {
         {result.isResultSourceUnavailable ? (
           <ResultSourceNotice
             isError={resultQuery.isError || sessionQuery.isError}
-            isPaused={isResultPaused}
             onRetry={result.refetchResult}
           />
         ) : null}

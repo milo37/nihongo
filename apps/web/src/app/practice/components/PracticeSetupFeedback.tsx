@@ -7,7 +7,7 @@ import {
   Button,
   getButtonClassName
 } from '@nihongo/browser/common/components/Button'
-import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
+import { useErrorToast } from '@common/hooks/useErrorToast'
 import { AccountRestrictedNotice } from '@common/components/AccountRestrictedNotice'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 import { formatDateTime } from '@nihongo/browser/libs/localeFormatters'
@@ -34,6 +34,7 @@ export const PracticeSetupFeedback = ({
   const { t, i18n } = useTranslation('practice')
   const { t: commonT } = useTranslation('common')
   const { t: navigationT } = useTranslation('navigation')
+  useErrorToast(hasCreateError ? t('setup.createError') : null, 'set-create')
   const capKind = sessionCap?.kind
   const capTitle = useRef<HTMLParagraphElement>(null)
   // It appears right after a start press, so focus moves to it (design #1031).
@@ -104,11 +105,6 @@ export const PracticeSetupFeedback = ({
             </Button>
           ) : null}
         </div>
-      ) : hasCreateError ? (
-        <ErrorState
-          title={commonT('state.requestFailed')}
-          description={t('setup.createError')}
-        />
       ) : null}
     </>
   )

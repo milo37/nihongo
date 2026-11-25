@@ -27,7 +27,13 @@ export const usePracticeResultBookmark = ({
   // #1262: one bookmark toast for every outcome; a failed change puts the
   // icon back (the optimistic update rolls back), no retry button.
   const notify = (
-    code: 'saved' | 'removed' | 'saveFailed' | 'removeFailed' | 'unavailable' | 'loadError'
+    code:
+      | 'saved'
+      | 'removed'
+      | 'saveFailed'
+      | 'removeFailed'
+      | 'unavailable'
+      | 'loadError'
   ): void => {
     addToast({
       key: 'bookmark',

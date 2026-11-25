@@ -5,6 +5,7 @@ import {
   Button,
   getButtonClassName
 } from '@nihongo/browser/common/components/Button'
+import { useErrorToast } from '@common/hooks/useErrorToast'
 import { AccountRestrictedNotice } from '@common/components/AccountRestrictedNotice'
 import type { BookmarkPracticeGroup } from '@app/bookmark/hooks/useBookmarkPageController'
 import { BOOKMARK_PRACTICE_COUNT } from '@app/bookmark/hooks/useBookmarkPageController'
@@ -18,7 +19,6 @@ type BookmarkPracticePanelProps = {
   isStarting: boolean
   noEligibleQuestions: boolean
   onRefresh: () => void
-  onRetry: () => void
   onStart: (group: BookmarkPracticeGroup) => void
   pendingGroup: Partial<BookmarkPracticeGroup> | undefined
 }
@@ -32,12 +32,12 @@ export const BookmarkPracticePanel = ({
   isStarting,
   noEligibleQuestions,
   onRefresh,
-  onRetry,
   onStart,
   pendingGroup
 }: BookmarkPracticePanelProps): ReactElement => {
   const { t } = useTranslation('bookmark')
   const { t: commonT } = useTranslation('common')
+  useErrorToast(hasStartError ? t('practice.startError') : null, 'set-create')
   return (
     <details className="bookmark-practice">
       <summary
@@ -90,20 +90,6 @@ export const BookmarkPracticePanel = ({
               onClick={onRefresh}
             >
               {t('practice.refresh')}
-            </Button>
-          </div>
-        ) : null}
-        {hasStartError ? (
-          <div className="bookmark-start-error" role="alert">
-            <p className="bookmark-start-error-title">
-              {t('practice.startError')}
-            </p>
-            <Button
-              className="bookmark-retry"
-              variant="outline"
-              onClick={onRetry}
-            >
-              {commonT('actions.retry')}
             </Button>
           </div>
         ) : null}

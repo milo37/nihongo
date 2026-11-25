@@ -130,7 +130,6 @@ export const PracticeSessionNotices = ({
         />
       ) : null}
 
-
       {isFirstQuestion && (actualCount < requestedCount || usedFallback) ? (
         <SupplyNotice sessionData={sessionData} />
       ) : null}
