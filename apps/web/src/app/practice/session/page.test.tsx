@@ -768,10 +768,9 @@ describe('PracticeSessionPage', () => {
     await loginAsUser()
     const payload = await startSession(1)
     mockServer.use(
-      http.get(
-        '*/api/v1/bookmarks',
-        () => HttpResponse.json({}, { status: 500 }),
-        { once: true }
+      // The check keeps failing, so the icon has no list to read from.
+      http.get('*/api/v1/bookmarks', () =>
+        HttpResponse.json({}, { status: 500 })
       )
     )
     renderSession(payload.session.id)
@@ -787,6 +786,16 @@ describe('PracticeSessionPage', () => {
     await user.click(add)
     expect(await within(toasts).findByText('책갈피에 담았어요.')).toBeVisible()
     expect(within(toasts).getAllByRole('article')).toHaveLength(1)
+    const remove = await screen.findByRole('button', {
+      name: '1번 문제를 책갈피에서 빼기'
+    })
+    expect(remove).toHaveAttribute('aria-pressed', 'true')
+    await waitFor(() => expect(remove).not.toHaveAttribute('aria-disabled'))
+    await user.click(remove)
+    expect(await within(toasts).findByText('책갈피에서 뺐어요.')).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: '1번 문제를 책갈피에 담기' })
+    ).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('책갈피 담기 실패는 아이콘을 되돌리고 토스트로 알린다 (#1262)', async () => {

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useToast } from '@nihongo/browser/common/components/Toast'
 import { useGuestAction } from '@app/login/hooks/useGuestAction'
@@ -61,12 +61,19 @@ export const usePracticeSessionBookmark = ({
     role !== 'GUEST' && bookmarkQuestionIds.length > 0
   )
 
+  // When the list could not be read there is no cache to patch, so a
+  // press that succeeded is kept here and the icon still follows it.
+  const [pressedWithoutList, setPressedWithoutList] = useState<
+    Record<string, boolean>
+  >({})
   const isBookmarked = (questionId: string): boolean =>
-    Boolean(
-      bookmarksQuery.data?.items.some(
-        (bookmark) => bookmark.questionId === questionId
-      )
-    )
+    bookmarksQuery.data
+      ? bookmarksQuery.data.items.some(
+          (bookmark) => bookmark.questionId === questionId
+        )
+      : (pressedWithoutList[questionId] ?? false)
+  const keepPressed = (questionId: string, pressed: boolean): void =>
+    setPressedWithoutList((current) => ({ ...current, [questionId]: pressed }))
   const hasPendingMutation = mutationActivity.pendingQuestionIds.size > 0
   // A failed check leaves the icons empty (they can still be pressed) and
   // says so once per set.
@@ -87,7 +94,10 @@ export const usePracticeSessionBookmark = ({
     }
     if (isBookmarked(question.id)) {
       deleteBookmark.mutate(question.id, {
-        onSuccess: () => notify('removed'),
+        onSuccess: () => {
+          keepPressed(question.id, false)
+          notify('removed')
+        },
         onError: (error) => {
           if (!isAuthTransitionSupersededError(error)) {
             notify('removeRollback')
@@ -103,7 +113,10 @@ export const usePracticeSessionBookmark = ({
         optimisticBookmark: toOptimisticBookmark(question)
       },
       {
-        onSuccess: () => notify('saved'),
+        onSuccess: () => {
+          keepPressed(question.id, true)
+          notify('saved')
+        },
         onError: (error) => {
           if (!isAuthTransitionSupersededError(error)) {
             notify('saveRollback')
