@@ -29,11 +29,13 @@ describe('daily push (#1046)', () => {
       dailyPushPayloadSchema.parse(JSON.parse(dailyPushPayload('ko', 30)))
     ).toEqual({
       kind: 'DAILY_GOAL',
-      body: '오늘 목표 30문제, 시작해요',
+      title: '좋은 아침이에요',
+      body: '오늘도 30문제, 가볍게 풀고 가요',
       url: '/practice'
     })
-    expect(JSON.parse(dailyPushPayload('ja', 150)).body).toBe(
-      '今日の目標は150問。始めましょう'
-    )
+    expect(JSON.parse(dailyPushPayload('ja', 150))).toMatchObject({
+      title: 'おはようございます',
+      body: '今日も150問、気軽に解いていきましょう'
+    })
   })
 })

@@ -156,7 +156,8 @@ describe('daily web push on the database (#1046)', () => {
       new Set([
         JSON.stringify({
           kind: 'DAILY_GOAL',
-          body: '오늘 목표 30문제, 시작해요',
+          title: '좋은 아침이에요',
+          body: '오늘도 30문제, 가볍게 풀고 가요',
           url: '/practice'
         })
       ])
@@ -230,7 +231,8 @@ describe('daily web push on the database (#1046)', () => {
     ).toEqual([goalEndpoint])
     expect(JSON.parse(payloads.get(goalEndpoint) ?? '{}')).toEqual({
       kind: 'DAILY_GOAL',
-      body: '今日の目標は50問。始めましょう',
+      title: 'おはようございます',
+      body: '今日も50問、気軽に解いていきましょう',
       url: '/practice'
     })
   })
