@@ -53,6 +53,11 @@ export const turnOnDevicePush = async (
   publicKey: string,
   locale: PushLocale
 ): Promise<void> => {
+  // `ready` never settles on a page whose worker was not registered (the
+  // app skips a failed registration quietly), so fail fast instead.
+  if (!(await navigator.serviceWorker.getRegistration('/'))) {
+    throw new Error('No service worker for push')
+  }
   const registration = await navigator.serviceWorker.ready
   const subscription =
     (await registration.pushManager.getSubscription()) ??

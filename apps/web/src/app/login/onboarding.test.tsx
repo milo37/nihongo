@@ -252,15 +252,18 @@ describe('#1090 학습 목표', () => {
   })
 })
 
-// #1046: a browser that can take push. `subscribed` starts this device on.
+// #1046: a browser that can take push. `subscribed` starts this device on;
+// `registered: false` is a page whose service worker never registered.
 const fakePush = ({
   permission = 'default',
   answer = 'granted',
-  subscribed = false
+  subscribed = false,
+  registered = true
 }: {
   permission?: NotificationPermission
   answer?: NotificationPermission
   subscribed?: boolean
+  registered?: boolean
 } = {}) => {
   const endpoint = 'https://fcm.googleapis.com/fcm/send/device-1'
   const unsubscribe = vi.fn(async () => true)
@@ -293,8 +296,12 @@ const fakePush = ({
   Object.defineProperty(navigator, 'serviceWorker', {
     configurable: true,
     value: {
-      getRegistration: vi.fn(async () => registration),
-      ready: Promise.resolve(registration)
+      getRegistration: vi.fn(async () =>
+        registered ? registration : undefined
+      ),
+      ready: registered
+        ? Promise.resolve(registration)
+        : new Promise<never>(() => undefined)
     }
   })
   return { pushManager, unsubscribe, notification }
@@ -384,6 +391,13 @@ describe('#1046 아침 8시 알림 스위치', () => {
         }
       ])
     )
+    // The PUT 204 body is empty: no failure toast.
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(
+      screen.queryByText(
+        '알림을 켜지 못했어요. 목표 정하기에서 다시 켜 주세요.'
+      )
+    ).not.toBeInTheDocument()
   })
 
   it('권한을 거부하면 꺼진 채 흐려지고 설정 안내 한 줄, 저장해도 구독하지 않는다', async () => {
@@ -478,5 +492,22 @@ describe('#1046 아침 8시 알림 스위치', () => {
         '알림을 켜지 못했어요. 목표 정하기에서 다시 켜 주세요.'
       )
     ).toBeVisible()
+  })
+
+  it('서비스 워커가 없는 페이지는 기다리지 않고 토스트 뒤 원래 경로로 간다', async () => {
+    newMember()
+    const push = fakePush({ permission: 'granted', registered: false })
+    const user = userEvent.setup()
+    renderAt('/onboarding?redirect=%2Fwrong-notes')
+    await user.click(await screen.findByRole('switch'))
+    await user.click(screen.getByRole('button', { name: '시작하기' }))
+    expect(await screen.findByText('오답노트 도착')).toBeInTheDocument()
+    const region = await screen.findByRole('region', { name: '알림' })
+    expect(
+      await within(region).findByText(
+        '알림을 켜지 못했어요. 목표 정하기에서 다시 켜 주세요.'
+      )
+    ).toBeVisible()
+    expect(push.pushManager.subscribe).not.toHaveBeenCalled()
   })
 })

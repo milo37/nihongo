@@ -43,9 +43,13 @@ self.addEventListener('notificationclick', (event) => {
       .matchAll({ type: 'window', includeUncontrolled: true })
       .then((windows) => {
         const open = windows.find((client) => 'navigate' in client)
-        if (open)
-          return open.navigate(url.href).then((client) => client?.focus())
-        return self.clients.openWindow(url.href)
+        if (!open) return self.clients.openWindow(url.href)
+        // Focus while the click still allows it; navigate() rejects for a
+        // tab this worker does not control, so open a new one then.
+        return open
+          .focus()
+          .then((client) => client.navigate(url.href))
+          .catch(() => self.clients.openWindow(url.href))
       })
   )
 })
