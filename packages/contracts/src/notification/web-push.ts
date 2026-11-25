@@ -94,12 +94,12 @@ export type DeletePushSubscriptionRequest = z.output<
  */
 export const DAILY_PUSH_TITLE: Readonly<Record<PushLocale, string>> = {
   ko: '좋은 아침이에요',
-  ja: 'おはようございます'
+  ja: 'おはよう'
 }
 
 export const DAILY_PUSH_BODY_TEMPLATE: Readonly<Record<PushLocale, string>> = {
   ko: '오늘도 {count}문제, 가볍게 풀고 가요',
-  ja: '今日も{count}問、気軽に解いていきましょう'
+  ja: '今日も{count}問、気軽に解いていこう'
 }
 
 export const dailyPushBody = (locale: PushLocale, dailyGoal: number): string =>

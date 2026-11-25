@@ -231,8 +231,8 @@ describe('daily web push on the database (#1046)', () => {
     ).toEqual([goalEndpoint])
     expect(JSON.parse(payloads.get(goalEndpoint) ?? '{}')).toEqual({
       kind: 'DAILY_GOAL',
-      title: 'おはようございます',
-      body: '今日も50問、気軽に解いていきましょう',
+      title: 'おはよう',
+      body: '今日も50問、気軽に解いていこう',
       url: '/practice'
     })
   })

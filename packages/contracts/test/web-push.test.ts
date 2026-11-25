@@ -102,12 +102,10 @@ describe('web push contract (#1046)', () => {
 describe('daily push payload (#1046)', () => {
   it('says the daily goal and opens practice', () => {
     expect(dailyPushBody('ko', 30)).toBe('오늘도 30문제, 가볍게 풀고 가요')
-    expect(dailyPushBody('ja', 150)).toBe(
-      '今日も150問、気軽に解いていきましょう'
-    )
+    expect(dailyPushBody('ja', 150)).toBe('今日も150問、気軽に解いていこう')
     expect(DAILY_PUSH_TITLE).toEqual({
       ko: '좋은 아침이에요',
-      ja: 'おはようございます'
+      ja: 'おはよう'
     })
     for (const template of Object.values(DAILY_PUSH_BODY_TEMPLATE)) {
       expect(template).toContain('{count}')

@@ -34,8 +34,8 @@ describe('daily push (#1046)', () => {
       url: '/practice'
     })
     expect(JSON.parse(dailyPushPayload('ja', 150))).toMatchObject({
-      title: 'おはようございます',
-      body: '今日も150問、気軽に解いていきましょう'
+      title: 'おはよう',
+      body: '今日も150問、気軽に解いていこう'
     })
   })
 })
