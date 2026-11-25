@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router'
 import type {
   JlptLevel,
@@ -10,6 +11,7 @@ import { useListBookmarks } from '@app/bookmark/hooks/useListBookmarks'
 import { useCreateStudySession } from '@app/practice/hooks/useCreateStudySession'
 import { assertCurrentCreateStudySessionAction } from '@app/practice/queries/studySessionQueries'
 import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
+import { useToast } from '@nihongo/browser/common/components/Toast'
 import { useAppStore } from '@nihongo/browser/store/index'
 import {
   isAccountRestrictedApiError,
@@ -19,7 +21,7 @@ import {
 export const BOOKMARK_PAGE_SIZE = 20
 export const BOOKMARK_PRACTICE_COUNT = 20
 
-export type BookmarkStatusMessage = 'removed' | 'removing' | 'restoreFailed'
+export type BookmarkStatusMessage = 'removed' | 'removing'
 
 export interface BookmarkPracticeGroup {
   level: JlptLevel
@@ -33,6 +35,8 @@ const getBookmarkPage = (value: string | null): number => {
 
 export const useBookmarkPageController = () => {
   const navigate = useNavigate()
+  const { t } = useTranslation('bookmark')
+  const { addToast } = useToast()
   const [searchParams, setSearchParams] = useSearchParams()
   const ownerIdentityRef = useRef<string | null | undefined>(undefined)
   const page = getBookmarkPage(searchParams.get('page'))
@@ -168,7 +172,14 @@ export const useBookmarkPageController = () => {
       onError: (error) => {
         if (isAuthTransitionSupersededError(error)) return
         setPendingRemovalQuestionId(null)
-        setStatusMessage('restoreFailed')
+        setStatusMessage(null)
+        // JLP-982: a failed removal puts the row back and says so in the
+        // same bookmark toast as the practice screen, not a line on the page.
+        addToast({
+          key: 'bookmark',
+          title: t('status.restoreFailed'),
+          variant: 'warning'
+        })
       }
     })
   }
