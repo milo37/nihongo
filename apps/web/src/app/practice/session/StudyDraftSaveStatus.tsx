@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import type { PracticeDraftStatusCode } from '@app/practice/draft/practiceDraftModel'
-import { useLatest } from '@nihongo/browser/common/hooks/useLatest'
 import { useToast } from '@nihongo/browser/common/components/Toast'
 
 type StudyDraftSaveStatusProps = {
@@ -22,7 +21,10 @@ export const StudyDraftSaveStatus = ({
   const { addToast, dismissToast } = useToast()
   const failedRef = useRef(false)
   const toastIdRef = useRef<string | null>(null)
-  const retryRef = useLatest(onRetry)
+  const retryRef = useRef(onRetry)
+  useEffect(() => {
+    retryRef.current = onRetry
+  }, [onRetry])
   useEffect(() => {
     if (status === 'error') {
       failedRef.current = true

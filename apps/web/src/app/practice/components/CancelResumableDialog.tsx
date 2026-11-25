@@ -1,9 +1,8 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement, RefObject } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'
-import { useLatest } from '@nihongo/browser/common/hooks/useLatest'
 import { useToast } from '@nihongo/browser/common/components/Toast'
 
 type CancelResumableDialogProps = {
@@ -27,7 +26,10 @@ export const CancelResumableDialog = ({
   // #1262: a failed discard closes the dialog (a toast would sit under it)
   // and says so in a toast; the list's [버리기] is still there.
   const { addToast } = useToast()
-  const keepRef = useLatest(onKeep)
+  const keepRef = useRef(onKeep)
+  useEffect(() => {
+    keepRef.current = onKeep
+  }, [onKeep])
   useEffect(() => {
     if (!hasError) return
     keepRef.current()

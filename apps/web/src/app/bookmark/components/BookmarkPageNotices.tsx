@@ -1,8 +1,7 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
-import { useLatest } from '@nihongo/browser/common/hooks/useLatest'
 import { useToast } from '@nihongo/browser/common/components/Toast'
 import { ErrorState } from '@nihongo/browser/common/components/ErrorState'
 import { AppErrorReportButton } from '@app/question-report/components/AppErrorReportDialog'
@@ -25,7 +24,10 @@ export const BookmarkListNotices = ({
   // #1262: a list that could not be refreshed is a toast that stays, with
   // the retry in it.
   const { addToast, dismissToast } = useToast()
-  const retryRef = useLatest(onRetry)
+  const retryRef = useRef(onRetry)
+  useEffect(() => {
+    retryRef.current = onRetry
+  }, [onRetry])
   useEffect(() => {
     if (!isStaleError) return
     const id = addToast({

@@ -1,7 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
-import { useLatest } from '@nihongo/browser/common/hooks/useLatest'
 import { useToast } from '@nihongo/browser/common/components/Toast'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
 import type { DraftActionNoticeCode } from '@app/practice/hooks/usePracticeSessionController'
@@ -26,7 +25,10 @@ const SessionSourceNotice = ({
 }: Pick<Props, 'isSessionError' | 'onRetrySession'>): null => {
   const { t } = useTranslation('practice')
   const { addToast, dismissToast } = useToast()
-  const retryRef = useLatest(onRetrySession)
+  const retryRef = useRef(onRetrySession)
+  useEffect(() => {
+    retryRef.current = onRetrySession
+  }, [onRetrySession])
   useEffect(() => {
     if (!isSessionError) return
     const id = addToast({

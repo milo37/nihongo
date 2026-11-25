@@ -3,7 +3,7 @@ import type { ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import type { WrongNoteDetailView } from '@app/wrong-note/adapters/wrongNoteView'
 import type { useTargetedReviewStart } from '@app/wrong-note/hooks/useTargetedReviewStart'
-import { useErrorToast } from '@common/hooks/useErrorToast'
+import { useErrorToast } from '@nihongo/browser/common/components/Toast'
 import { AccountRestrictedNotice } from '@common/components/AccountRestrictedNotice'
 import { QuestionReportDialog } from '@app/question-report/components/QuestionReportDialog'
 

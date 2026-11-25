@@ -1,7 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
-import { useLatest } from '@nihongo/browser/common/hooks/useLatest'
 import { useToast } from '@nihongo/browser/common/components/Toast'
 import type { JlptLevel } from '@nihongo/contracts/common/enum'
 import { FoxSprite } from '@app/practice/result/maru/FoxSprite'
@@ -39,7 +38,10 @@ export const RushResult = ({
   // #1262: a failed save is a toast that stays, with the retry in it (the
   // result has no save button of its own).
   const { addToast, dismissToast } = useToast()
-  const retryRef = useLatest(onRetrySave)
+  const retryRef = useRef(onRetrySave)
+  useEffect(() => {
+    retryRef.current = onRetrySave
+  }, [onRetrySave])
   useEffect(() => {
     if (!saveFailed) return
     const id = addToast({

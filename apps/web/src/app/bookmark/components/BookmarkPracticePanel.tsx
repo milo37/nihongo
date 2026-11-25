@@ -5,7 +5,7 @@ import {
   Button,
   getButtonClassName
 } from '@nihongo/browser/common/components/Button'
-import { useErrorToast } from '@common/hooks/useErrorToast'
+import { useErrorToast } from '@nihongo/browser/common/components/Toast'
 import { AccountRestrictedNotice } from '@common/components/AccountRestrictedNotice'
 import type { BookmarkPracticeGroup } from '@app/bookmark/hooks/useBookmarkPageController'
 import { BOOKMARK_PRACTICE_COUNT } from '@app/bookmark/hooks/useBookmarkPageController'

@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
-import { useErrorToast } from '@common/hooks/useErrorToast'
+import { useErrorToast } from '@nihongo/browser/common/components/Toast'
 import { AccountRestrictedNotice } from '@common/components/AccountRestrictedNotice'
 import type { StartReviewNotice } from '@app/wrong-note/hooks/useStartReview'
 

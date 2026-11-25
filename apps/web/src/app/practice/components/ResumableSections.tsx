@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement } from 'react'
@@ -6,7 +6,6 @@ import {
   Button,
   getButtonClassName
 } from '@nihongo/browser/common/components/Button'
-import { useLatest } from '@nihongo/browser/common/hooks/useLatest'
 import { useToast } from '@nihongo/browser/common/components/Toast'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import type { useListResumableStudySessions } from '@app/practice/hooks/useListResumableStudySessions'
@@ -98,7 +97,10 @@ export const ResumableError = ({
 }): null => {
   const { t: commonT } = useTranslation('common')
   const { addToast, dismissToast } = useToast()
-  const refetchRef = useLatest(query.refetch)
+  const refetchRef = useRef(query.refetch)
+  useEffect(() => {
+    refetchRef.current = query.refetch
+  }, [query.refetch])
   useEffect(() => {
     const id = addToast({
       key: 'resume',

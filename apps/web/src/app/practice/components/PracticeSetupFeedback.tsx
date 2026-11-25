@@ -7,7 +7,7 @@ import {
   Button,
   getButtonClassName
 } from '@nihongo/browser/common/components/Button'
-import { useErrorToast } from '@common/hooks/useErrorToast'
+import { useErrorToast } from '@nihongo/browser/common/components/Toast'
 import { AccountRestrictedNotice } from '@common/components/AccountRestrictedNotice'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 import { formatDateTime } from '@nihongo/browser/libs/localeFormatters'

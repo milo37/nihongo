@@ -1,12 +1,13 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement } from 'react'
 import type { ResultRetryStatusCode } from '@app/practice/hooks/usePracticeResultController'
-import { useLatest } from '@nihongo/browser/common/hooks/useLatest'
-import { useToast } from '@nihongo/browser/common/components/Toast'
+import {
+  useErrorToast,
+  useToast
+} from '@nihongo/browser/common/components/Toast'
 import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
-import { useErrorToast } from '@common/hooks/useErrorToast'
 import { AccountRestrictedNotice } from '@common/components/AccountRestrictedNotice'
 import { WarningNotice } from '@app/practice/result/WarningNotice'
 
@@ -24,7 +25,10 @@ export const ResultSourceNotice = ({
   const { t } = useTranslation('result')
   const { t: commonT } = useTranslation('common')
   const { addToast, dismissToast } = useToast()
-  const retryRef = useLatest(onRetry)
+  const retryRef = useRef(onRetry)
+  useEffect(() => {
+    retryRef.current = onRetry
+  }, [onRetry])
   useEffect(() => {
     if (!isError) return
     const id = addToast({
