@@ -844,9 +844,27 @@ describe('PracticeSessionPage', () => {
       expect(
         await within(toasts).findByText('책갈피에 담지 못했어요.')
       ).toBeVisible()
-      expect(
-        screen.getByRole('button', { name: '1번 문제를 책갈피에 담기' })
-      ).toHaveAttribute('aria-pressed', 'false')
+      const again = screen.getByRole('button', {
+        name: '1번 문제를 책갈피에 담기'
+      })
+      expect(again).toHaveAttribute('aria-pressed', 'false')
+      // Still offline, the icon is not locked: a second press fails at once
+      // too, not silently.
+      await waitFor(() =>
+        expect(
+          queryClient
+            .getQueryCache()
+            .findAll({ queryKey: ['bookmark', 'list'] })
+            .some((query) => query.state.fetchStatus === 'paused')
+        ).toBe(true)
+      )
+      expect(again).not.toHaveAttribute('aria-disabled')
+      const failed = (): number =>
+        queryClient.getMutationCache().findAll({ status: 'error' }).length
+      const before = failed()
+      await user.click(again)
+      await waitFor(() => expect(failed()).toBe(before + 1))
+      expect(within(toasts).getByText('책갈피에 담지 못했어요.')).toBeVisible()
     } finally {
       onLine.mockRestore()
       act(() => onlineManager.setOnline(true))
