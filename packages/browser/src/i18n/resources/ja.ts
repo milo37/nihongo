@@ -456,7 +456,9 @@ export const jaCoreResources = {
       hint: '2〜12文字で入力してください。',
       invalid: 'ニックネームを2文字以上入力してください',
       change: '変更',
-      saved: 'ニックネームを変更しました。'
+      saved: 'ニックネームを変更しました。',
+      saveFailed:
+        'ニックネームを変更できませんでした。少し待ってからもう一度保存してください。'
     },
     reauth: {
       name: '本人確認',

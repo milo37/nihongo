@@ -439,7 +439,8 @@ export const koCoreResources = {
       hint: '2~12자로 정해 주세요.',
       invalid: '닉네임을 2자 이상 입력해 주세요',
       change: '바꾸기',
-      saved: '닉네임을 바꿨어요.'
+      saved: '닉네임을 바꿨어요.',
+      saveFailed: '닉네임을 바꾸지 못했어요. 잠시 뒤 다시 저장해 주세요.'
     },
     reauth: {
       name: '본인 확인',

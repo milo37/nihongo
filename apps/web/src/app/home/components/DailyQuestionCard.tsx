@@ -6,7 +6,7 @@ import {
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { CSSProperties, ReactElement, ReactNode } from 'react'
-import { Button } from '@nihongo/browser/common/components/Button'
+import { useRetryToast } from '@nihongo/browser/common/components/Toast'
 import type { JlptLevel } from '@nihongo/browser/common/types/domain'
 import { useGetDailyQuestion } from '@app/home/hooks/useGetDailyQuestion'
 import { readDailyAnswer, saveDailyAnswer } from '@app/home/dailyAnswer'
@@ -256,8 +256,16 @@ export const DailyQuestionCard = ({
 }): ReactElement | null => {
   const { t } = useTranslation('home')
   const daily = useGetDailyQuestion(level)
+  const isNoQuestion =
+    daily.isError && isNoEligibleQuestionsApiError(daily.error)
+  // #1292: a failed load hides the whole card; the toast carries the retry
+  // and the card comes back when the question arrives.
+  const isLoadFailed = daily.isError && !daily.data && !isNoQuestion
+  useRetryToast(isLoadFailed ? t('today.dailyError') : null, 'daily', () => {
+    void daily.refetch()
+  })
   // No question for this level today: leave the space empty.
-  if (daily.isError && isNoEligibleQuestionsApiError(daily.error)) return null
+  if (isNoQuestion || isLoadFailed) return null
   const head = (
     <div className="home-daily-head">
       <SheetTail side="left" />
@@ -284,36 +292,23 @@ export const DailyQuestionCard = ({
       ) : (
         <div className="home-daily-top">
           {head}
-          {daily.isError ? (
-            <div className="home-daily-error" role="alert">
-              <p className="home-daily-error-text">{t('today.dailyError')}</p>
-              <Button
-                className="home-daily-retry"
-                variant="ghost"
-                onClick={() => void daily.refetch()}
-              >
-                {t('today.dailyRetry')}
-              </Button>
+          {/* A card skeleton holds the height, so the card does not jump
+              when the question arrives (G, #801 design). */}
+          <div className="home-daily-loading" role="status">
+            <span className="sr-only">{t('today.dailyLoading')}</span>
+            <div
+              aria-hidden="true"
+              className="ui-skeleton home-daily-skeleton"
+            />
+            <div aria-hidden="true" className="home-daily-options">
+              {[0, 1, 2, 3].map((index) => (
+                <div
+                  key={index}
+                  className="ui-skeleton home-daily-skeleton-option"
+                />
+              ))}
             </div>
-          ) : (
-            // A card skeleton holds the height, so the card does not jump when
-            // the question arrives (G, #801 design).
-            <div className="home-daily-loading" role="status">
-              <span className="sr-only">{t('today.dailyLoading')}</span>
-              <div
-                aria-hidden="true"
-                className="ui-skeleton home-daily-skeleton"
-              />
-              <div aria-hidden="true" className="home-daily-options">
-                {[0, 1, 2, 3].map((index) => (
-                  <div
-                    key={index}
-                    className="ui-skeleton home-daily-skeleton-option"
-                  />
-                ))}
-              </div>
-            </div>
-          )}
+          </div>
         </div>
       )}
     </section>

@@ -52,7 +52,7 @@ export const NicknameSetting = ({ name }: { name: string }): ReactElement => {
   })
   // #1292: what was typed stays; the toast says the save failed.
   useErrorToast(
-    save.isError && !invalid ? accountT('targetLevel.error') : null,
+    save.isError && !invalid ? t('nickname.saveFailed') : null,
     'nickname'
   )
   const close = (): void => {

@@ -58,9 +58,6 @@
     line-height: var(--text-base--line-height);
     font-weight: var(--font-weight-semibold);
   }
-  .account-row-retry {
-    margin-top: 0.5rem;
-  }
   .account-row-action {
     margin-top: 0.75rem;
   }

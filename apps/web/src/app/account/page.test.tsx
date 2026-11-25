@@ -528,7 +528,7 @@ describe('마이페이지 계정 설정', () => {
     const region = await screen.findByRole('region', { name: '알림' })
     expect(
       await within(region).findByText(
-        '저장하지 못했어요. 잠시 뒤 다시 저장해 주세요.'
+        '닉네임을 바꾸지 못했어요. 잠시 뒤 다시 저장해 주세요.'
       )
     ).toBeVisible()
     expect(within(form).queryByRole('alert')).not.toBeInTheDocument()
@@ -558,6 +558,32 @@ describe('마이페이지 계정 설정', () => {
       screen.getByRole('heading', { level: 1, name: '데모 학습자' })
     ).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '바꾸기' })).toHaveFocus()
+  })
+
+  it('로그인 방법을 못 불러오면 행을 숨기고 [다시 시도] 토스트로 알린다 (#1292)', async () => {
+    mockDatabase.loginAs('USER')
+    let failing = true
+    mockServer.use(
+      http.get('*/api/auth/sso/accounts', () =>
+        failing
+          ? HttpResponse.json(
+              { code: 'SERVER_ERROR', message: 'private' },
+              { status: 500 }
+            )
+          : undefined
+      )
+    )
+    const user = userEvent.setup()
+    renderAccount()
+    const region = await screen.findByRole('region', { name: '알림' })
+    expect(
+      await within(region).findByText('처리하지 못했어요. 다시 시도해 주세요.')
+    ).toBeVisible()
+    expect(screen.queryByText('로그인 방법')).not.toBeInTheDocument()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    failing = false
+    await user.click(within(region).getByRole('button', { name: '다시 시도' }))
+    expect(await screen.findByText('Google')).toBeVisible()
   })
 
   it('Google 로그인 상태를 보여 주고 해제 버튼과 안내는 두지 않는다 (C2)', async () => {

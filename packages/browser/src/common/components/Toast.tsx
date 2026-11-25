@@ -432,3 +432,30 @@ export const useErrorToast = (title: string | null, key: string): void => {
     if (title) addToast({ key, title, variant: 'warning' })
   }, [title, key, addToast])
 }
+
+/**
+ * #1292: something that loads by itself failed and its block is hidden, so
+ * the toast carries [다시 시도]. It goes when the load works again.
+ */
+export const useRetryToast = (
+  title: string | null,
+  key: string,
+  onRetry: () => void
+): void => {
+  const { t } = useTranslation('common')
+  const { addToast, dismissToast } = useToast()
+  const retryRef = useRef(onRetry)
+  useEffect(() => {
+    retryRef.current = onRetry
+  }, [onRetry])
+  useEffect(() => {
+    if (!title) return
+    const id = addToast({
+      key,
+      title,
+      variant: 'warning',
+      action: { label: t('actions.retry'), onClick: () => retryRef.current() }
+    })
+    return () => dismissToast(id)
+  }, [title, key, retryRef, addToast, dismissToast, t])
+}
