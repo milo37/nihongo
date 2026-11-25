@@ -29,8 +29,7 @@ const NOT_READ_BY_API = new Set([
 // Local migrations only; the hosts get it from Terraform.
 const LOCAL_ONLY = new Set(['MIGRATION_DATABASE_URL'])
 // Apple sign-in is not deployed, so no host parameter exists for it yet.
-// #1046: DevOps adds the web push key parameter with the daily schedule.
-const NOT_DEPLOYED = new Set(['APPLE_CLIENT_SECRET', 'WEB_PUSH_PRIVATE_KEY'])
+const NOT_DEPLOYED = new Set(['APPLE_CLIENT_SECRET'])
 
 const dotenvNames = (source: string): string[] =>
   source

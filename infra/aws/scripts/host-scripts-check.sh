@@ -12,6 +12,9 @@
 #   and gives the command the api.env URL through the environment only.
 # - explanation-ja-publish.sh (#976) does the same with the ten files plus the
 #   Japanese explanation file.
+# - daily-push.sh (#1046) passes the URLs and the VAPID keys through the
+#   environment only, the migration URL without its password, and confirms only
+#   with send=true.
 set -euo pipefail
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
@@ -44,6 +47,8 @@ cat > "$work/stub-docker" <<EOF
 printf '%s\n' "\$PRODUCTION_DATABASE_URL" > "$work/docker-saw"
 printf '%s\n' "\$GUEST_CLEANUP_ENVIRONMENT \$GUEST_CLEANUP_DRY_RUN \$GUEST_CLEANUP_CONFIRM" > "$work/docker-env"
 printf '%s\n' "\$RETENTION_ENVIRONMENT \$RETENTION_CONFIRM \${@: -1}" > "$work/docker-retention"
+printf '%s\n' "\$MIGRATION_DATABASE_URL|\$WEB_PUSH_PRIVATE_KEY|\$WEB_PUSH_SUBJECT|\${DAILY_PUSH_CONFIRM:-none}|\${@: -1}" > "$work/docker-push"
+printf '%s\n' "\$*" > "$work/docker-argv"
 exit 0
 EOF
 mkdir -p "$work/path"
@@ -164,6 +169,30 @@ rm -f "$work/docker-saw"
   || { echo "retention count settings changed: $(cat "$work/docker-retention")" >&2; exit 1; }
 ! grep -q '{{' files/retention-cohort.sh || { echo "retention-cohort.sh holds {{ (SSM parameter syntax)" >&2; exit 1; }
 echo "ok retention-cohort: SSM URL passed through literally, confirm set"
+
+# 4c. daily-push.sh (#1046): the SSM document puts the send and subject lines in
+# front; URLs and keys reach docker literally and only through the environment.
+push() {
+  { printf "send='%s'\nWEB_PUSH_SUBJECT='https://example.test'\n" "$1"
+    sed -e "s|/run/harumaru|$work/run|g" -e "s|/etc/harumaru|$work/etc|g" \
+      -e "s|/opt/harumaru/bin|$work/bin|g" -e "s|/opt/harumaru|$work/opt|g" files/daily-push.sh; } > "$work/daily-push.sh"
+  bash "$work/daily-push.sh"
+}
+push_key="k_\$(touch $marker)_\`touch $marker\`_key"
+printf '%s\n' "$push_key" > "$work/token"
+rm -f "$work/docker-saw"
+push false
+[[ ! -e "$marker" ]] || { echo "daily push ran an SSM value as shell code" >&2; exit 1; }
+[[ "$(cat "$work/docker-saw")" == "$url" ]] || { echo "daily push changed the production URL" >&2; exit 1; }
+mig_identity="postgresql://nihongo_production_migration_login@postgres:5432/nihongo?schema=public&sslmode=require&options=-c%20role%3Dnihongo_migration"
+[[ "$(cat "$work/docker-push")" == "$mig_identity|$push_key|https://example.test|none|api/dist/notification/dailyPushCommand.js" ]] \
+  || { echo "daily push settings changed: $(cat "$work/docker-push")" >&2; exit 1; }
+! grep -qF -e "$push_key" -e "$mig_pw" -e "$app_pw" "$work/docker-argv" || { echo "daily push argv has a key or a password" >&2; exit 1; }
+push true
+[[ "$(cut -d'|' -f4 "$work/docker-push")" == SEND_DAILY_PUSH ]] || { echo "send=true without the confirm" >&2; exit 1; }
+if push other 2>/dev/null; then echo "daily push accepted an unknown send value" >&2; exit 1; fi
+! grep -q '{{' files/daily-push.sh || { echo "daily-push.sh holds {{ (SSM parameter syntax)" >&2; exit 1; }
+echo "ok daily-push: URLs and keys by environment, migration URL without password, confirm only on send=true"
 
 # 5. render-origin-env.sh: the Cloudflare token reaches origin.env literally.
 token='cf_$(id)_`id`_token'

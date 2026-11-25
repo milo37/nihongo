@@ -41,6 +41,14 @@ locals {
     "LEGAL_CONTACT_EMAIL",
     "LEGAL_PRIVACY_OFFICER",
   ]
+
+  # Optional until the daily push is turned on (#1046): the VAPID key pair. The
+  # API shows the public key to browsers; only files/daily-push.sh reads the
+  # private key.
+  push_parameter_names = [
+    "WEB_PUSH_PUBLIC_KEY",
+    "WEB_PUSH_PRIVATE_KEY",
+  ]
 }
 
 data "aws_caller_identity" "current" {}
