@@ -1,7 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import type { StudyResultItemView } from '@app/practice/adapters/studyResultView'
-import { classNames } from '@nihongo/browser/common/components/classNames'
 import { Explanation } from '@common/components/Explanation'
 import {
   getResultStatus,
@@ -28,7 +27,6 @@ export type ResultQuestionDetailProps = {
   readonly isBookmarked: boolean
   readonly bookmarkDisabled: boolean
   readonly isResultSourceUnavailable: boolean
-  readonly bookmarkMessage: { text: string; isError: boolean } | null
   readonly onToggleBookmark: () => void
 }
 
@@ -40,7 +38,6 @@ export const ResultQuestionDetail = ({
   isBookmarked,
   bookmarkDisabled,
   isResultSourceUnavailable,
-  bookmarkMessage,
   onToggleBookmark
 }: ResultQuestionDetailProps): ReactElement => {
   const { i18n, t } = useTranslation('result')
@@ -82,17 +79,6 @@ export const ResultQuestionDetail = ({
           />
         }
       </div>
-      {bookmarkMessage ? (
-        <p
-          className={classNames(
-            'mt-3 text-sm font-semibold',
-            bookmarkMessage.isError ? 'text-danger' : 'text-warning'
-          )}
-          role={bookmarkMessage.isError ? 'alert' : 'status'}
-        >
-          {bookmarkMessage.text}
-        </p>
-      ) : null}
       {tagLabels.length > 0 ? (
         <p className="study-result-tags">{tagLabels.join(' · ')}</p>
       ) : null}

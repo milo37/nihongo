@@ -2,7 +2,6 @@ import { useLayoutEffect, useRef } from 'react'
 import type { ReactElement, RefObject } from 'react'
 import type { usePracticeSessionController } from '@app/practice/hooks/usePracticeSessionController'
 import { StudyDraftSaveStatus } from '@app/practice/session/StudyDraftSaveStatus'
-import { PracticeQuestionBookmarkStatus } from '@app/practice/session/components/PracticeQuestionBookmark'
 import { PracticeQuestionActions } from '@app/practice/session/components/PracticeQuestionActions'
 import { PracticeQuestionCard } from '@app/practice/session/components/PracticeQuestionCard'
 import type { QuestionPush } from '@app/practice/session/components/PracticeQuestionCard'
@@ -44,13 +43,6 @@ export const CurrentQuestionCard = ({
           onPrevious={session.movePrevious}
           onSubmit={session.requestSubmission}
           submitButtonRef={submitButtonRef}
-        />
-      }
-      bookmarkStatus={
-        <PracticeQuestionBookmarkStatus
-          bookmark={session.bookmark}
-          questionId={question.id}
-          role={session.role}
         />
       }
       headingRef={headingRef}
@@ -115,7 +107,6 @@ export const LeavingQuestionCard = ({
     >
       <PracticeQuestionCard
         actions={null}
-        bookmarkStatus={null}
         headingRef={headingRef}
         isDecorative
         isOptionsDisabled

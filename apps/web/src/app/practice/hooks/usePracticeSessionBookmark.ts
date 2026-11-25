@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useToast } from '@nihongo/browser/common/components/Toast'
 import { useGuestAction } from '@app/login/hooks/useGuestAction'
@@ -14,8 +14,6 @@ import { toOptimisticBookmark } from '@app/bookmark/toOptimisticBookmark'
 import type { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
 
-export type BookmarkNoticeCode = 'removeRollback' | 'saveRollback'
-
 type UsePracticeSessionBookmarkInput = {
   role: ReturnType<typeof useAuth>['role']
   sessionData: StudySessionView | undefined
@@ -25,20 +23,19 @@ export const usePracticeSessionBookmark = ({
   role,
   sessionData
 }: UsePracticeSessionBookmarkInput) => {
-  const [message, setMessage] = useState<{
-    code: BookmarkNoticeCode
-    questionId: string
-  } | null>(null)
   const { t } = useTranslation('practice')
   const { t: authT } = useTranslation('auth')
   const { addToast } = useToast()
   const guestAction = useGuestAction()
-  // Success is a toast; one bookmark toast at a time, a repeat restarts it.
-  const notifySuccess = (code: 'saved' | 'removed'): void => {
+  // #1262: success and failure share one bookmark toast; a failed change
+  // puts the icon back (the optimistic update rolls back), no retry button.
+  const notify = (
+    code: 'saved' | 'removed' | 'saveRollback' | 'removeRollback' | 'statusLoadFailed'
+  ): void => {
     addToast({
       key: 'bookmark',
       title: t(`session.bookmark.${code}`),
-      variant: 'success'
+      variant: code === 'saved' || code === 'removed' ? 'success' : 'warning'
     })
   }
   const createBookmark = useCreateBookmark('PRACTICE')
@@ -66,16 +63,11 @@ export const usePracticeSessionBookmark = ({
       )
     )
   const hasPendingMutation = mutationActivity.pendingQuestionIds.size > 0
-  // #1262: a failed check is the shared warning toast, like other errors;
-  // pressing the bookmark checks again.
+  // A failed check leaves the icons empty and says so once.
   useEffect(() => {
-    if (bookmarksQuery.isError)
-      addToast({
-        key: 'api-error',
-        title: t('session.bookmark.statusLoadFailed'),
-        variant: 'warning'
-      })
-  }, [bookmarksQuery.isError, bookmarksQuery.errorUpdatedAt, addToast, t])
+    if (bookmarksQuery.isError) notify('statusLoadFailed')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookmarksQuery.isError, bookmarksQuery.errorUpdatedAt])
   const isQueryUnavailable =
     role !== 'GUEST' &&
     (bookmarksQuery.isPending || bookmarksQuery.fetchStatus === 'paused')
@@ -84,17 +76,12 @@ export const usePracticeSessionBookmark = ({
     if (guestAction(authT('guestToast.bookmark'), { sessionNotKept: true })) {
       return
     }
-    setMessage(null)
-    if (bookmarksQuery.isError) {
-      void bookmarksQuery.refetch()
-      return
-    }
     if (isBookmarked(question.id)) {
       deleteBookmark.mutate(question.id, {
-        onSuccess: () => notifySuccess('removed'),
+        onSuccess: () => notify('removed'),
         onError: (error) => {
           if (!isAuthTransitionSupersededError(error)) {
-            setMessage({ code: 'removeRollback', questionId: question.id })
+            notify('removeRollback')
           }
         }
       })
@@ -107,10 +94,10 @@ export const usePracticeSessionBookmark = ({
         optimisticBookmark: toOptimisticBookmark(question)
       },
       {
-        onSuccess: () => notifySuccess('saved'),
+        onSuccess: () => notify('saved'),
         onError: (error) => {
           if (!isAuthTransitionSupersededError(error)) {
-            setMessage({ code: 'saveRollback', questionId: question.id })
+            notify('saveRollback')
           }
         }
       }
@@ -121,9 +108,7 @@ export const usePracticeSessionBookmark = ({
     bookmarksQuery,
     hasPendingMutation,
     isBookmarked,
-    isMutationPaused: mutationActivity.isPaused,
     isQueryUnavailable,
-    message,
     toggle
   }
 }

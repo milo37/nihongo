@@ -13,7 +13,6 @@ import type { ReactElement, ReactNode } from 'react'
 import { IconButton } from './IconButton'
 import { classNames } from './classNames'
 
-// Failures never use a toast (they would vanish); they stay inline.
 export type ToastVariant = 'info' | 'success' | 'warning'
 
 export interface ToastAction {
@@ -329,6 +328,31 @@ export const ToastProvider = ({
     [maxVisible, t]
   )
 
+  // #1262: the stack's height is --toast-stack-height, so a screen can keep
+  // its last option and buttons scrollable above the toasts. At the page
+  // end, the page moves up with a growing stack.
+  const regionRef = useRef<HTMLElement>(null)
+  const hasToasts = toasts.length > 0
+  useEffect(() => {
+    const region = regionRef.current
+    const root = document.documentElement
+    if (!region || typeof ResizeObserver === 'undefined') return
+    let height = 0
+    const observer = new ResizeObserver(() => {
+      const next = region.offsetHeight
+      const atEnd =
+        window.innerHeight + window.scrollY >= root.scrollHeight - 1
+      root.style.setProperty('--toast-stack-height', `${next}px`)
+      if (atEnd && next > height) window.scrollBy(0, next - height)
+      height = next
+    })
+    observer.observe(region)
+    return () => {
+      observer.disconnect()
+      root.style.removeProperty('--toast-stack-height')
+    }
+  }, [hasToasts])
+
   const contextValue = useMemo<ToastContextValue>(
     () => ({ addToast, dismissToast }),
     [addToast, dismissToast]
@@ -354,7 +378,11 @@ export const ToastProvider = ({
         {announcement}
       </div>
       {ordered.length > 0 ? (
-        <section className="ui-toast-region" aria-label={t('toast.region')}>
+        <section
+          ref={regionRef}
+          className="ui-toast-region"
+          aria-label={t('toast.region')}
+        >
           {ordered.map(({ key: _dedupeKey, ...toast }) => (
             <Toast
               key={toast.id}

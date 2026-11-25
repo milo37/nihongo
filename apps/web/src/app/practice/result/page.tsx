@@ -6,7 +6,6 @@ import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
 import { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { usePracticeResultController } from '@app/practice/hooks/usePracticeResultController'
 import { ResultActions } from '@app/practice/result/ResultActions'
-import { ResultBookmarkNotices } from '@app/practice/result/ResultBookmarkNotices'
 import {
   ResultRetryNotice,
   ResultSourceNotice
@@ -41,7 +40,7 @@ const PracticeResultPageContent = (): ReactElement => {
   const isResultPaused =
     resultQuery.fetchStatus === 'paused' ||
     sessionQuery.fetchStatus === 'paused'
-  const { bookmark, createRetrySession } = result
+  const { createRetrySession } = result
 
   return (
     <section className="learning-note study-page study-result">
@@ -100,7 +99,6 @@ const PracticeResultPageContent = (): ReactElement => {
           <h2 id="result-explanations" className="sr-only">
             {t('items.title')}
           </h2>
-          <ResultBookmarkNotices bookmark={bookmark} isGuest={isGuest} />
           {selectedItem ? (
             <SelectedResultItem
               result={result}

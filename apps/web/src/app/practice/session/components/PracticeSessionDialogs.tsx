@@ -1,8 +1,9 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement, RefObject } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'
+import { useToast } from '@nihongo/browser/common/components/Toast'
 import type { SubmissionConnectivityCode } from '@app/practice/hooks/useSubmissionConnectivity'
 import { usePracticeNumberFormat } from '@app/practice/hooks/usePracticeNumberFormat'
 
@@ -75,6 +76,21 @@ export const PracticeSubmitDialog = ({
   const frozenConnectivityMessage = hasFrozenAttempt
     ? connectivityMessage
     : null
+  // #1262: a definite failure closes the dialog and says so in a toast (the
+  // submit button is still there). A frozen attempt keeps the dialog open:
+  // the same answers must be sent again, so its message stays inside.
+  const { addToast } = useToast()
+  const showsToast = isSubmissionError && !hasFrozenAttempt
+  useEffect(() => {
+    if (!showsToast) return
+    onOpenChange(false)
+    addToast({
+      key: 'submit',
+      title: t('session.submit.requestFailure'),
+      variant: 'warning'
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showsToast])
 
   return (
     <Dialog
@@ -111,13 +127,11 @@ export const PracticeSubmitDialog = ({
       preventClose={isContinueDisabled}
       onOpenChange={onOpenChange}
     >
-      {isSubmissionError || frozenConnectivityMessage ? (
+      {(isSubmissionError && hasFrozenAttempt) || frozenConnectivityMessage ? (
         <div className="study-state-stack">
-          {isSubmissionError ? (
+          {isSubmissionError && hasFrozenAttempt ? (
             <div className="study-submit-error" role="alert">
-              {hasFrozenAttempt
-                ? t('session.submit.frozenFailure')
-                : t('session.submit.requestFailure')}
+              {t('session.submit.frozenFailure')}
             </div>
           ) : null}
           {frozenConnectivityMessage ? (
