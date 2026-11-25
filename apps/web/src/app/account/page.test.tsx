@@ -1053,6 +1053,42 @@ describe('마이페이지 계정 설정', () => {
     ).toBeEnabled()
     await waitFor(() => expect(screen.queryByText(unknown)).toBeNull())
   })
+  it('결과 모름에서 Esc로 닫으면 초점이 [다시 확인]으로, 다시 확인 뒤에도 그 버튼에 남는다 (JLP-981)', async () => {
+    freshActor()
+    mockServer.use(
+      http.post('*/api/auth/sso/delete-account', () =>
+        HttpResponse.json(
+          { code: 'SSO_ACCOUNT_OPERATION_UNAVAILABLE', message: '미확정' },
+          { status: 503 }
+        )
+      ),
+      http.get('*/api/auth/sso/deletion', () => HttpResponse.error())
+    )
+    const user = userEvent.setup()
+    // The dialog reopens by itself after the Google check: nothing was clicked.
+    renderAccount('/login?reauth=delete&ssoAccountFresh=REAUTHENTICATED')
+    const dialog = await screen.findByRole('dialog', {
+      name: '회원 탈퇴할까요?'
+    })
+    await user.click(
+      await within(dialog).findByRole('button', { name: '회원 탈퇴' })
+    )
+    await within(dialog).findByRole('alert')
+    fireEvent(dialog, new Event('cancel', { cancelable: true }))
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    )
+    const recheck = screen.getByRole('button', { name: '다시 확인' })
+    expect(recheck).toHaveFocus()
+    await user.keyboard('{Enter}')
+    const region = await screen.findByRole('region', { name: '알림' })
+    await within(region).findByText(
+      '처리됐는지 확인하지 못했어요. 다시 확인해 주세요.'
+    )
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: '다시 확인' })).toHaveFocus()
+    )
+  })
   it('복귀 query만으로 fresh를 부여하거나 mutation하지 않고 /account로 넘긴 뒤 주소를 정리한다', async () => {
     mockDatabase.loginAs('USER')
     const posts = vi.spyOn(apiClient, 'post')
