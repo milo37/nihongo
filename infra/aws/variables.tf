@@ -352,6 +352,12 @@ variable "waf_rate_limited_alarm_per_5min" {
   default     = 100
 }
 
+variable "edge_transfer_alarm_bytes_per_day" {
+  description = "CloudFront bytes sent in one day above which the transfer alarm fires (#1255). 5 GB is about 1/6 of the 1 TB monthly free tier."
+  type        = number
+  default     = 5000000000
+}
+
 variable "audio_polly_region" {
   description = "The only region the audio generator role may call Polly in (#1183: Takumi neural, Tokyo)."
   type        = string
