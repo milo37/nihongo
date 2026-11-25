@@ -525,6 +525,13 @@ describe('BookmarkPage pagination settlement', () => {
     const fixture = await renderLastPageDelete()
 
     await act(async () => fixture.settlement.resolve('REMOVE'))
+    // JLP-982: success is the bookmark toast too, with no line on the page.
+    expect(
+      await within(
+        await screen.findByRole('region', { name: '알림' })
+      ).findByText('책갈피에서 뺐어요.')
+    ).toBeVisible()
+    expect(screen.getAllByText('책갈피에서 뺐어요.')).toHaveLength(1)
 
     // Back on page 1 of 1, where the pager is hidden (ux2 §1-4).
     await waitFor(() =>

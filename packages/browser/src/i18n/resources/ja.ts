@@ -1088,7 +1088,6 @@ export const jaCoreResources = {
         '最新の一覧を読み込めませんでした。今見えている一覧はそのままにします。'
     },
     status: {
-      removing: '外しています…',
       removed: 'ブックマークから外しました。',
       restoreFailed: 'ブックマークから外せませんでした。'
     },

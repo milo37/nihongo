@@ -21,8 +21,6 @@ import {
 export const BOOKMARK_PAGE_SIZE = 20
 export const BOOKMARK_PRACTICE_COUNT = 20
 
-export type BookmarkStatusMessage = 'removed' | 'removing'
-
 export interface BookmarkPracticeGroup {
   level: JlptLevel
   subject: QuestionSubject
@@ -58,8 +56,6 @@ export const useBookmarkPageController = () => {
   const [pendingRemovalQuestionId, setPendingRemovalQuestionId] = useState<
     string | null
   >(null)
-  const [statusMessage, setStatusMessage] =
-    useState<BookmarkStatusMessage | null>(null)
   const bookmarksQuery = useListBookmarks({
     page,
     pageSize: BOOKMARK_PAGE_SIZE
@@ -82,7 +78,6 @@ export const useBookmarkPageController = () => {
     if (ownerIdentityRef.current === currentUserId) return
     ownerIdentityRef.current = currentUserId
     setPage(1, true)
-    setStatusMessage(null)
     resetCreateSession()
     resetDeleteBookmark()
   }, [currentUserId, resetCreateSession, resetDeleteBookmark, setPage])
@@ -163,18 +158,21 @@ export const useBookmarkPageController = () => {
   }
 
   const removeBookmark = (questionId: string): void => {
-    setStatusMessage('removing')
+    // JLP-982: success and failure share one bookmark toast, as on the
+    // practice screen; the page itself shows no status line.
     deleteBookmark.mutate(questionId, {
       onSuccess: () => {
         setPendingRemovalQuestionId(null)
-        setStatusMessage('removed')
+        addToast({
+          key: 'bookmark',
+          title: t('status.removed'),
+          variant: 'success'
+        })
       },
       onError: (error) => {
         if (isAuthTransitionSupersededError(error)) return
+        // The row comes back (the optimistic removal rolls back).
         setPendingRemovalQuestionId(null)
-        setStatusMessage(null)
-        // JLP-982: a failed removal puts the row back and says so in the
-        // same bookmark toast as the practice screen, not a line on the page.
         addToast({
           key: 'bookmark',
           title: t('status.restoreFailed'),
@@ -191,8 +189,6 @@ export const useBookmarkPageController = () => {
   }
 
   const isPracticeStarting = createSession.isPending || createSession.isPaused
-  const isRemovalPromptPending =
-    pendingRemovalQuestionId !== null && statusMessage === 'removing'
 
   return {
     accountRestricted,
@@ -206,7 +202,6 @@ export const useBookmarkPageController = () => {
     isBookmarkNavigationLocked,
     isBookmarksPaused,
     isPracticeStarting,
-    isRemovalPromptPending,
     isRemoving: deleteBookmark.isPending,
     isPracticeSessionPaused: createSession.isPaused,
     noEligibleQuestions,
@@ -220,7 +215,6 @@ export const useBookmarkPageController = () => {
     refreshAfterNoEligible,
     requestRemoval: setPendingRemovalQuestionId,
     setPage,
-    startBookmarkPractice,
-    statusMessage
+    startBookmarkPractice
   }
 }
