@@ -506,6 +506,36 @@ describe('마이페이지 계정 설정', () => {
     mockServer.events.removeAllListeners('request:start')
   })
 
+  it('닉네임 저장이 실패하면 쓴 이름은 그대로 두고 토스트로 알린다 (#1292)', async () => {
+    mockDatabase.loginAs('USER')
+    mockServer.use(
+      http.put('*/api/v1/me/nickname', () =>
+        HttpResponse.json(
+          { code: 'SERVER_ERROR', message: 'private error' },
+          { status: 500 }
+        )
+      )
+    )
+    const user = userEvent.setup()
+    renderAccount()
+    await user.click(await screen.findByRole('button', { name: '바꾸기' }))
+    const field = screen.getByRole('textbox', { name: '닉네임' })
+    await user.clear(field)
+    await user.type(field, '하루')
+    const form = field.closest('form')
+    if (!form) throw new Error('The nickname form is missing.')
+    await user.click(within(form).getByRole('button', { name: '저장' }))
+    const region = await screen.findByRole('region', { name: '알림' })
+    expect(
+      await within(region).findByText(
+        '저장하지 못했어요. 잠시 뒤 다시 저장해 주세요.'
+      )
+    ).toBeVisible()
+    expect(within(form).queryByRole('alert')).not.toBeInTheDocument()
+    expect(field).toHaveValue('하루')
+    expect(within(form).getByRole('button', { name: '저장' })).toBeEnabled()
+  })
+
   it('12자보다 긴 이름은 앞 12자로 채워 연다 (#1096)', async () => {
     const member = mockDatabase.loginAs('USER')
     mockDatabase.setName(member.id, '가나다라마바사아자차카타파하')
