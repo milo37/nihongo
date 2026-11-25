@@ -40,8 +40,20 @@ const subscription = {
   locale: 'ja'
 }
 
-const fixture = (options: { limited?: boolean; env?: ApiEnvironment } = {}) => {
+const memberId = '11111111-1111-4111-8111-111111111111'
+
+const fixture = (
+  options: { limited?: boolean; env?: ApiEnvironment; guest?: boolean } = {}
+) => {
   const env = options.env ?? environment
+  const principalService = {
+    getAuthenticatedUser: vi.fn(),
+    resolveAuthenticatedUser: vi.fn(async () => ({
+      clearSessionCookie: false,
+      headers: new Headers(),
+      user: options.guest ? null : { id: memberId }
+    }))
+  } as unknown as PrincipalService
   const rateLimiter = {
     consume: vi.fn<ApplicationRateLimiter['consume']>(async () => {
       if (options.limited)
@@ -62,7 +74,7 @@ const fixture = (options: { limited?: boolean; env?: ApiEnvironment } = {}) => {
       environment: env,
       gateway: { handle: vi.fn() } as unknown as AuthGateway,
       guestPrincipalService: {} as GuestPrincipalService,
-      principalService: {} as PrincipalService
+      principalService
     },
     checkReadiness: async () => undefined,
     logger: createJsonLogger('silent', () => undefined, {
@@ -103,11 +115,12 @@ describe('web push routes (#1046)', () => {
     expect(off.store.save).not.toHaveBeenCalled()
   })
 
-  it('saves a subscription with no person attached', async () => {
+  it('saves a subscription for the signed-in member', async () => {
     const { app, rateLimiter, store } = fixture()
     const response = await send(app, 'PUT', subscription)
     expect(response.status).toBe(204)
     expect(store.save).toHaveBeenCalledWith({
+      userId: memberId,
       endpoint: subscription.endpoint,
       p256dh: subscription.keys.p256dh,
       auth: subscription.keys.auth,
@@ -118,8 +131,15 @@ describe('web push routes (#1046)', () => {
     )
   })
 
-  it('turns off by endpoint', async () => {
-    const { app, store } = fixture()
+  it('refuses a guest subscription', async () => {
+    const { app, store } = fixture({ guest: true })
+    const response = await send(app, 'PUT', subscription)
+    expect(response.status).toBe(401)
+    expect(store.save).not.toHaveBeenCalled()
+  })
+
+  it('turns off by endpoint, also without sign-in', async () => {
+    const { app, store } = fixture({ guest: true })
     const response = await send(app, 'DELETE', {
       endpoint: subscription.endpoint
     })
@@ -129,7 +149,7 @@ describe('web push routes (#1046)', () => {
 
   it.each([
     ['another address', { ...subscription, endpoint: 'https://example.com/x' }],
-    ['a person', { ...subscription, userId: 'u1' }],
+    ['a member id in the body', { ...subscription, userId: memberId }],
     [
       'a key that is not a P-256 point',
       {

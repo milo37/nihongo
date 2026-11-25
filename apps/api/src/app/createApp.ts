@@ -778,11 +778,12 @@ export const createApiApp = ({
         })
       )
       if (webPushStore) {
-        // #1046: no sign-in; the same per-IP limiter.
+        // #1046: subscribe needs a member; the same per-IP limiter.
         app.route(
           '/api/v1/push',
           createWebPushRoutes({
             environment: auth.environment,
+            principalService: auth.principalService,
             publicKey: auth.environment.WEB_PUSH_PUBLIC_KEY ?? null,
             rateLimiter: questionReadSecurity.rateLimiter,
             store: webPushStore

@@ -6,6 +6,7 @@ import {
 import { ECDH } from 'node:crypto'
 import { Hono, type Context } from 'hono'
 import { z } from 'zod'
+import type { PrincipalService } from '../auth/principalService.js'
 import type { ApiEnvironment } from '../config/env.js'
 import { ApplicationError } from '../errors/applicationError.js'
 import { readStrictJsonBody } from '../http/strictJsonBody.js'
@@ -13,7 +14,7 @@ import type { ApplicationRateLimiter } from '../middleware/applicationRateLimite
 import { createClientIpMiddleware } from '../middleware/clientIp.js'
 import type { ApiVariables } from '../middleware/requestContext.js'
 import type { PushSubscriptionStore } from '../notification/pushSubscriptionStore.js'
-import { toFieldErrors } from './routeSupport.js'
+import { appendAuthHeaders, toFieldErrors } from './routeSupport.js'
 
 type WebPushRouteEnvironment = { Variables: ApiVariables }
 
@@ -34,17 +35,19 @@ const isP256PublicKey = (p256dh: string): boolean => {
 }
 
 /**
- * #1046: /api/v1/push. The daily web push: the public key, subscribe and turn
- * off. No sign-in; members and guests are the same, and nothing ties a
- * subscription to a person.
+ * #1046: /api/v1/push. The daily goal web push: the public key, subscribe
+ * (members only; the subscription belongs to the member) and turn off (no
+ * sign-in needed, so logout can call it).
  */
 export const createWebPushRoutes = ({
   environment,
+  principalService,
   publicKey,
   rateLimiter,
   store
 }: {
   readonly environment: ApiEnvironment
+  readonly principalService: PrincipalService
   /** VAPID public key; null keeps push off (config says so, writes refuse). */
   readonly publicKey: string | null
   readonly rateLimiter: ApplicationRateLimiter
@@ -83,6 +86,27 @@ export const createWebPushRoutes = ({
     }
   }
 
+  const memberId = async (
+    context: Context<WebPushRouteEnvironment>
+  ): Promise<string> => {
+    const resolution = await principalService.resolveAuthenticatedUser(
+      context.req.raw.headers
+    )
+    appendAuthHeaders(context, resolution, environment)
+    if (!resolution.user) {
+      throw new ApplicationError({
+        code: resolution.clearSessionCookie
+          ? 'AUTH_SESSION_EXPIRED'
+          : 'AUTHENTICATION_REQUIRED',
+        message: resolution.clearSessionCookie
+          ? '로그인 세션이 만료됐습니다.'
+          : '알림은 로그인이 필요합니다.',
+        retryable: false
+      })
+    }
+    return resolution.user.id
+  }
+
   routes.get('/config', (context) => {
     context.header('Cache-Control', 'no-store')
     return context.json(pushConfigResponseSchema.parse({ publicKey }))
@@ -109,6 +133,7 @@ export const createWebPushRoutes = ({
       })
     }
     await store.save({
+      userId: await memberId(context),
       endpoint: subscription.endpoint,
       p256dh: subscription.keys.p256dh,
       auth: subscription.keys.auth,

@@ -22,6 +22,33 @@ const database = createDatabaseRuntime(
     : {}
 )
 const store = createPrismaPushSubscriptionStore(database.client)
+// Members and goals are made with the fixture owner, like other app-role tests.
+const fixtureDatabaseUrl = process.env.API_INTEGRATION_FIXTURE_DATABASE_URL
+const fixtureDatabase = fixtureDatabaseUrl
+  ? createDatabaseRuntime(fixtureDatabaseUrl)
+  : database
+const createdUserIds = new Set<string>()
+
+const createMember = async (dailyGoal: number | null): Promise<string> => {
+  const id = randomUUID()
+  await fixtureDatabase.client.$transaction(async (fixture) => {
+    await fixture.user.create({
+      data: {
+        id,
+        email: `push-${randomUUID()}@example.test`,
+        emailVerified: true,
+        name: 'Push member'
+      }
+    })
+    if (dailyGoal !== null) {
+      await fixture.userStudyGoal.create({
+        data: { userId: id, dailyGoal, goalSetAt: new Date() }
+      })
+    }
+  })
+  createdUserIds.add(id)
+  return id
+}
 
 const endpointOf = (name: string) =>
   `https://fcm.googleapis.com/fcm/send/${name}-${randomUUID()}`
@@ -29,9 +56,14 @@ const keys = { p256dh: `B${'a'.repeat(86)}`, auth: 'b'.repeat(22) }
 
 const rows = async () =>
   database.client.$queryRaw<
-    Array<{ endpoint: string; locale: string; lastSentDay: Date | null }>
-  >`SELECT "endpoint", "locale", "lastSentDay" FROM "PushSubscription"
-    ORDER BY "endpoint"`
+    Array<{
+      endpoint: string
+      locale: string
+      lastSentDay: Date | null
+      userId: string
+    }>
+  >`SELECT "endpoint", "locale", "lastSentDay", "userId"::text AS "userId"
+    FROM "PushSubscription" ORDER BY "endpoint"`
 
 beforeEach(async () => {
   await database.client.$executeRaw`DELETE FROM "PushSubscription"`
@@ -39,22 +71,29 @@ beforeEach(async () => {
 
 afterAll(async () => {
   await database.client.$executeRaw`DELETE FROM "PushSubscription"`
+  await fixtureDatabase.client.user
+    .deleteMany({ where: { id: { in: [...createdUserIds] } } })
+    .catch(() => undefined)
   await database.disconnect()
+  if (fixtureDatabase !== database) await fixtureDatabase.disconnect()
 })
 
 describe('daily web push on the database (#1046)', () => {
   it('keeps one row per browser and turns off at once', async () => {
+    const userId = await createMember(10)
+    const other = await createMember(20)
     const endpoint = endpointOf('a')
-    await store.save({ endpoint, ...keys, locale: 'ko' })
-    // The browser pads; the same endpoint only changes keys and language.
+    await store.save({ userId, endpoint, ...keys, locale: 'ko' })
+    // The browser pads; the same endpoint changes keys, language and member.
     await store.save({
+      userId: other,
       endpoint,
       p256dh: `${keys.p256dh}=`,
       auth: `${keys.auth}==`,
       locale: 'ja'
     })
     expect(await rows()).toEqual([
-      { endpoint, locale: 'ja', lastSentDay: null }
+      { endpoint, locale: 'ja', lastSentDay: null, userId: other }
     ])
 
     await store.remove(endpoint)
@@ -68,8 +107,9 @@ describe('daily web push on the database (#1046)', () => {
     const broken = endpointOf('broken')
     const busy = endpointOf('busy')
     const offline = endpointOf('offline')
+    const userId = await createMember(30)
     for (const endpoint of [ok, gone, broken, busy, offline])
-      await store.save({ endpoint, ...keys, locale: 'ko' })
+      await store.save({ userId, endpoint, ...keys, locale: 'ko' })
 
     const payloads: string[] = []
     const send: PushSender = async (subscription, payload) => {
@@ -102,9 +142,9 @@ describe('daily web push on the database (#1046)', () => {
     expect(new Set(payloads)).toEqual(
       new Set([
         JSON.stringify({
-          kind: 'DAILY_QUESTION',
-          body: '오늘의 한 문제가 왔어요',
-          url: '/'
+          kind: 'DAILY_GOAL',
+          body: '오늘 목표 30문제, 시작해요',
+          url: '/practice'
         })
       ])
     )
@@ -130,9 +170,62 @@ describe('daily web push on the database (#1046)', () => {
     expect(next).toMatchObject({ day: '2026-11-26', sent: 3 })
   })
 
+  it('says the goal at send time and skips members with no goal', async () => {
+    const withGoal = await createMember(10)
+    const noGoal = await createMember(null)
+    const goalEndpoint = endpointOf('goal')
+    await store.save({
+      userId: withGoal,
+      endpoint: goalEndpoint,
+      ...keys,
+      locale: 'ja'
+    })
+    await store.save({
+      userId: noGoal,
+      endpoint: endpointOf('no-goal'),
+      ...keys,
+      locale: 'ko'
+    })
+    // The goal changes after subscribing; the push says the new one.
+    await fixtureDatabase.client.userStudyGoal.update({
+      where: { userId: withGoal },
+      data: { dailyGoal: 50 }
+    })
+    const payloads = new Map<string, string>()
+    const report = await runDailyPush({
+      client: database.client,
+      now: new Date('2026-11-24T23:00:00Z'),
+      send: async (subscription, payload) => {
+        payloads.set(subscription.endpoint, payload)
+        return 201
+      }
+    })
+    expect(report).toMatchObject({ sent: 1, removed: 0, kept: 0 })
+    expect([...payloads.keys()]).toEqual([goalEndpoint])
+    expect(JSON.parse(payloads.get(goalEndpoint) ?? '{}')).toEqual({
+      kind: 'DAILY_GOAL',
+      body: '今日の目標は50問。始めましょう',
+      url: '/practice'
+    })
+  })
+
+  it('deletes the subscriptions with the member', async () => {
+    const userId = await createMember(10)
+    await store.save({
+      userId,
+      endpoint: endpointOf('erase'),
+      ...keys,
+      locale: 'ko'
+    })
+    await fixtureDatabase.client.user.delete({ where: { id: userId } })
+    createdUserIds.delete(userId)
+    expect(await rows()).toEqual([])
+  })
+
   it('a subscription turned off before the send gets nothing', async () => {
+    const userId = await createMember(10)
     const endpoint = endpointOf('off')
-    await store.save({ endpoint, ...keys, locale: 'ja' })
+    await store.save({ userId, endpoint, ...keys, locale: 'ja' })
     await store.remove(endpoint)
     const sent: string[] = []
     const report = await runDailyPush({
