@@ -808,9 +808,7 @@ describe('PracticeSessionPage', () => {
     await user.click(add)
     const toasts = await screen.findByRole('region', { name: '알림' })
     expect(
-      await within(toasts).findByText(
-        '책갈피에 담지 못했어요. 다시 시도해 주세요.'
-      )
+      await within(toasts).findByText('책갈피에 담지 못했어요.')
     ).toBeVisible()
     expect(
       within(toasts).queryByRole('button', { name: '다시 시도' })

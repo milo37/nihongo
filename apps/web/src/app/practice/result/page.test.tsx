@@ -412,9 +412,7 @@ describe('approved general result navigation', () => {
     expect(button).toBeEnabled()
     expect(button).toHaveFocus()
     release()
-    expect(
-      await screen.findByText('책갈피에 담지 못했어요. 다시 시도해 주세요.')
-    ).toBeVisible()
+    expect(await screen.findByText('책갈피에 담지 못했어요.')).toBeVisible()
     expect(requestedUrl && new URL(requestedUrl).pathname).toBe(
       `/api/v1/bookmarks/${second.question.id}`
     )

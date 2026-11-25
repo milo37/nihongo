@@ -14,12 +14,19 @@ import { AuthErrorHandlerProvider } from '@nihongo/browser/provider/AuthErrorHan
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { useAppStore } from '@nihongo/browser/store/index'
 
-const renderProvider = (initialEntry = '/practice?mode=RANDOM') => {
+const renderProvider = (
+  initialEntry = '/practice?mode=RANDOM',
+  keepsObjectForbidden = false
+) => {
   const router = createMemoryRouter(
     [
       {
         path: '*',
-        element: <AuthErrorHandlerProvider />
+        element: (
+          <AuthErrorHandlerProvider
+            keepsObjectForbidden={keepsObjectForbidden}
+          />
+        )
       }
     ],
     { initialEntries: [initialEntry] }
@@ -303,7 +310,7 @@ describe('AuthErrorHandlerProvider', () => {
     queryClient.setQueryData(['admin-content', 'draft'], {
       questionText: '저장하지 않은 로컬 초안'
     })
-    const { router } = renderProvider('/admin/questions/question-1')
+    const { router } = renderProvider('/admin/questions/question-1', true)
 
     act(() => {
       emitApiError(
@@ -322,6 +329,26 @@ describe('AuthErrorHandlerProvider', () => {
       questionText: '저장하지 않은 로컬 초안'
     })
     expect(useAppStore.getState().currentUser?.id).toBe(currentUser.id)
+  })
+
+  it('학습 앱의 FORBIDDEN 403은 다른 403처럼 /forbidden으로 간다 (#1262)', async () => {
+    const currentUser = mockDatabase.loginAs('USER')
+    useAppStore.getState().setCurrentUser(currentUser)
+    const { router } = renderProvider('/practice?mode=RANDOM')
+
+    act(() => {
+      emitApiError(
+        Object.assign(new Error('Object-level forbidden'), {
+          code: 'FORBIDDEN',
+          isForbiddenError: true,
+          status: 403
+        })
+      )
+    })
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/forbidden')
+    )
   })
 
   it('이용 제한 403은 forbidden으로 보내지 않고 현재 화면과 로그인을 유지한다', async () => {

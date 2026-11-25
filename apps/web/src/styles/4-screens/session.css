@@ -366,32 +366,8 @@ label:has(input:checked) .study-option-text {
     }
   }
   /* Notices above the question: supply gap, draft saving, stale session. */
-  .study-draft-compact {
-    margin-top: 0.5rem;
-    font-size: var(--text-caption-size);
-    line-height: 1.25rem;
-    color: rgb(var(--color-muted));
-  }
-  .study-draft-pending {
-    margin-top: 0.5rem;
-    font-weight: var(--font-weight-medium);
-  }
   .study-notice-action {
     margin-top: 0.75rem;
-  }
-  .study-draft-notice {
-    margin-top: 1rem;
-    border-radius: var(--radius-lg);
-    border-style: solid;
-    border-width: var(--border-width-default);
-    border-color: rgb(var(--color-info-line));
-    background-color: rgb(var(--color-info-soft));
-    padding-inline: 1rem;
-    padding-block: 0.75rem;
-    font-size: var(--text-sm);
-    line-height: 1.5rem;
-    font-weight: var(--font-weight-semibold);
-    color: rgb(var(--color-info-strong));
   }
   .study-supply-note {
     margin-bottom: 1rem;

@@ -38,7 +38,14 @@ const toStatusClass = (
 const OFFLINE_TOAST_KEY = 'connection'
 const ERROR_TOAST_KEY = 'api-error'
 
-export const AuthErrorHandlerProvider = (): ReactElement => {
+type AuthErrorHandlerProviderProps = {
+  /** Admin only: an object-level FORBIDDEN stays on the command's screen. */
+  keepsObjectForbidden?: boolean
+}
+
+export const AuthErrorHandlerProvider = ({
+  keepsObjectForbidden = false
+}: AuthErrorHandlerProviderProps = {}): ReactElement => {
   const { t } = useTranslation('errors')
   const { t: commonT } = useTranslation('common')
   const queryClient = useQueryClient()
@@ -147,7 +154,13 @@ export const AuthErrorHandlerProvider = (): ReactElement => {
       // A valid ADMIN can receive object-level FORBIDDEN from an admin
       // command. Keep the owning screen and its draft mounted so that the
       // command surface can render the error locally.
-      if (error.isForbiddenError && error.code === 'FORBIDDEN') {
+      // (#1262: only the admin API sends it; in the learner app it goes to
+      // /forbidden like any other 403.)
+      if (
+        keepsObjectForbidden &&
+        error.isForbiddenError &&
+        error.code === 'FORBIDDEN'
+      ) {
         return
       }
 

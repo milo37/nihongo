@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useToast } from '@nihongo/browser/common/components/Toast'
 import { useGuestAction } from '@app/login/hooks/useGuestAction'
@@ -66,11 +66,15 @@ export const usePracticeResultBookmark = ({
         (bookmark) => bookmark.questionId === questionId
       )
     )
-  // A failed check leaves the icons empty and says so once.
+  // A failed check leaves the icons empty (they can still be pressed) and
+  // says so once per set.
+  const toldLoadFailure = useRef(false)
   useEffect(() => {
-    if (bookmarksQuery.isError) notify('loadError')
+    if (!bookmarksQuery.isError || toldLoadFailure.current) return
+    toldLoadFailure.current = true
+    notify('loadError')
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookmarksQuery.isError, bookmarksQuery.errorUpdatedAt])
+  }, [bookmarksQuery.isError])
   const isUnavailable =
     role !== 'GUEST' &&
     (mutationActivity.pendingQuestionIds.size > 0 ||

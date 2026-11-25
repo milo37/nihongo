@@ -39,24 +39,6 @@ export type DraftActionNoticeCode =
   | 'submissionPreparationFailed'
   | 'retrySaveFailed'
 
-const COMPACT_DRAFT_STATUS_CODES = [
-  'synced',
-  'saved',
-  'savedAt',
-  'dirty',
-  'saving'
-]
-const INLINE_DRAFT_STATUS_CODES = [
-  'synced',
-  'saved',
-  'savedAt',
-  'reconciled',
-  'dirty',
-  'saving',
-  'error',
-  'offline'
-]
-
 type UsePracticeSessionControllerInput = {
   headingRef: RefObject<HTMLHeadingElement | null>
   /** #1234: where a question card starts (its passage, else its number). */
@@ -543,13 +525,6 @@ export const usePracticeSessionController = ({
     setSubmitDialogRequestedOpen(open)
   }
 
-  const hasUnresolvedConflictCheck = isDraftConflictPending
-  const isCompactDraftStatus =
-    COMPACT_DRAFT_STATUS_CODES.includes(draftController.status.code) &&
-    !hasUnresolvedConflictCheck
-  const isInlineDraftStatus =
-    INLINE_DRAFT_STATUS_CODES.includes(draftController.status.code) &&
-    !hasUnresolvedConflictCheck
   // Controls that freeze while a submission, conflict, or navigation decision is open.
   const isQuestionNavigationLocked =
     mustReplayFrozenSubmission ||
@@ -592,11 +567,8 @@ export const usePracticeSessionController = ({
     hasCurrentGuestOwnerProof,
     hasDraftConflict,
     hasFrozenSubmissionAttempt,
-    hasUnresolvedConflictCheck,
     isBackNavigationDisabled,
     isBookmarkDisabled,
-    isCompactDraftStatus,
-    isInlineDraftStatus,
     isLastQuestion,
     isNavigationGuardOpen,
     isNavigationPromptBlocked,

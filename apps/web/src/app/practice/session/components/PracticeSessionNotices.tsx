@@ -3,23 +3,14 @@ import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import { useToast } from '@nihongo/browser/common/components/Toast'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
-import type { PracticeDraftController } from '@app/practice/hooks/usePracticeDraftController'
 import type { DraftActionNoticeCode } from '@app/practice/hooks/usePracticeSessionController'
 import { usePracticeNumberFormat } from '@app/practice/hooks/usePracticeNumberFormat'
 import { getSetReturnPath } from '@app/practice/setReturnPath'
-import { DraftStatusNotice } from '@app/practice/session/components/DraftStatusNotice'
 
 export type PracticeSessionNoticesProps = {
   draftActionMessage: DraftActionNoticeCode | null
-  draftController: PracticeDraftController
-  hasUnresolvedConflictCheck: boolean
-  isCompactDraftStatus: boolean
   isFirstQuestion: boolean
-  isInlineDraftStatus: boolean
   isSessionError: boolean
-  isSessionPaused: boolean
-  isV2Session: boolean
-  onRetryDraftSave: () => void
   onRetrySession: () => void
   sessionData: StudySessionView
 }
@@ -99,15 +90,8 @@ const SupplyNotice = ({
 
 export const PracticeSessionNotices = ({
   draftActionMessage,
-  draftController,
-  hasUnresolvedConflictCheck,
-  isCompactDraftStatus,
   isFirstQuestion,
-  isInlineDraftStatus,
   isSessionError,
-  isSessionPaused,
-  isV2Session,
-  onRetryDraftSave,
   onRetrySession,
   sessionData
 }: PracticeSessionNoticesProps): ReactElement => {
@@ -120,17 +104,6 @@ export const PracticeSessionNotices = ({
         onRetrySession={onRetrySession}
       />
       <DraftActionToast code={draftActionMessage} />
-
-      {isV2Session &&
-      !isInlineDraftStatus &&
-      draftController.saveState !== 'error' &&
-      draftController.saveState !== 'offline' ? (
-        <DraftStatusNotice
-          draftController={draftController}
-          hasUnresolvedConflictCheck={hasUnresolvedConflictCheck}
-          isCompactDraftStatus={isCompactDraftStatus}
-        />
-      ) : null}
 
       {isFirstQuestion && (actualCount < requestedCount || usedFallback) ? (
         <SupplyNotice sessionData={sessionData} />

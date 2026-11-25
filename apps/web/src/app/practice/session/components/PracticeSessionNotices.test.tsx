@@ -1,7 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
-import type { PracticeDraftController } from '@app/practice/hooks/usePracticeDraftController'
 import { PracticeSessionNotices } from '@app/practice/session/components/PracticeSessionNotices'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
@@ -33,16 +32,8 @@ const notices = (mode: Mode) => (
     <ToastProvider>
       <PracticeSessionNotices
         draftActionMessage={null}
-        // Only read when isV2Session shows the draft status.
-        draftController={{} as PracticeDraftController}
-        hasUnresolvedConflictCheck={false}
-        isCompactDraftStatus={false}
         isFirstQuestion
-        isInlineDraftStatus={false}
         isSessionError={false}
-        isSessionPaused={false}
-        isV2Session={false}
-        onRetryDraftSave={() => undefined}
         onRetrySession={() => undefined}
         sessionData={sessionData(mode)}
       />

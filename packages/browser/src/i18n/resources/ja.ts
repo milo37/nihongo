@@ -774,11 +774,9 @@ export const jaCoreResources = {
         removeLabel: '{{ordinal}}番の問題をブックマークから外す',
         legacyReadOnly: 'この学習ではブックマークを変えられません。',
         removed: 'ブックマークから外しました。',
-        removeRollback:
-          'ブックマークから外せませんでした。もう一度お試しください。',
+        removeRollback: 'ブックマークから外せませんでした。',
         saved: 'ブックマークに入れました。',
-        saveRollback:
-          'ブックマークに入れられませんでした。もう一度お試しください。',
+        saveRollback: 'ブックマークに入れられませんでした。',
         offlineQueued:
           'インターネット接続が切れました。つながったらブックマークに反映します。',
         statusLoadOffline:
@@ -919,10 +917,9 @@ export const jaCoreResources = {
       removeLabel: '{{formattedOrdinal}}番の問題をブックマークから外す',
       unavailable: 'この結果ではブックマークを変えられません。',
       removed: 'ブックマークから外しました。',
-      removeFailed:
-        'ブックマークから外せませんでした。もう一度お試しください。',
+      removeFailed: 'ブックマークから外せませんでした。',
       saved: 'ブックマークに入れました。',
-      saveFailed: 'ブックマークに入れられませんでした。もう一度お試しください。'
+      saveFailed: 'ブックマークに入れられませんでした。'
     },
     blocker: {
       title: '間違えた問題を解き直す準備をしています',
@@ -1096,8 +1093,7 @@ export const jaCoreResources = {
     status: {
       removing: '外しています…',
       removed: 'ブックマークから外しました。',
-      restoreFailed:
-        'ブックマークから外せませんでした。もう一度お試しください。',
+      restoreFailed: 'ブックマークから外せませんでした。',
       offline:
         'インターネット接続が切れました。つながったらブックマークに反映します。'
     },

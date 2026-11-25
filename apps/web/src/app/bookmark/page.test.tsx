@@ -486,7 +486,7 @@ describe('BookmarkPage pagination settlement', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('2 / 2쪽')).toBeInTheDocument()
     expect(
-      screen.getByText('책갈피에서 빼지 못했어요. 다시 시도해 주세요.')
+      screen.getByText('책갈피에서 빼지 못했어요.')
     ).toBeVisible()
     const restoredTrigger = screen.getByRole('button', { name: '책갈피 빼기' })
     expect(restoredTrigger).not.toBe(fixture.removalTrigger)
@@ -556,7 +556,7 @@ describe('BookmarkPage pagination settlement', () => {
     ).toBeVisible()
     expect(screen.getByText('2 / 2쪽')).toBeInTheDocument()
     expect(
-      screen.getByText('책갈피에서 빼지 못했어요. 다시 시도해 주세요.')
+      screen.getByText('책갈피에서 빼지 못했어요.')
     ).toBeVisible()
     const restoredTrigger = screen.getByRole('button', { name: '책갈피 빼기' })
     expect(restoredTrigger).not.toBe(fixture.removalTrigger)
