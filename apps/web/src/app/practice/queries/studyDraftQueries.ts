@@ -81,6 +81,7 @@ export const studyDraftMutations = {
         'save'
       ] as const,
       networkMode: 'always',
+      meta: { localErrorUi: true },
       onMutate: (input: SaveStudyDraftMutationInput) =>
         saveDraftActionFence.capture(input),
       mutationFn: async (input: SaveStudyDraftMutationInput) => {
@@ -103,6 +104,7 @@ export const studyDraftMutations = {
         'cancel'
       ] as const,
       networkMode: 'always',
+      meta: { localErrorUi: true },
       onMutate: (input: CancelStudySessionMutationInput) =>
         cancelSessionActionFence.capture(input),
       mutationFn: async (input: CancelStudySessionMutationInput) => {

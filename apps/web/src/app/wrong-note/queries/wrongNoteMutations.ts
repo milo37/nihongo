@@ -92,6 +92,7 @@ export const wrongNoteMutations = {
         'targeted-review'
       ] as const,
       networkMode: 'online',
+      meta: { localErrorUi: true },
       onMutate: (input: CreateTargetedReviewActionInput) => {
         targetedActionFence.capture(input)
         const attempt = getOrCreateTargetedReviewAttempt(

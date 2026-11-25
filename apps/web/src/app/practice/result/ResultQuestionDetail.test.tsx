@@ -51,7 +51,6 @@ const renderDetail = (
           isBookmarked={false}
           bookmarkDisabled={false}
           isResultSourceUnavailable={false}
-          bookmarkMessage={null}
           onToggleBookmark={() => undefined}
         />
       </MemoryRouter>

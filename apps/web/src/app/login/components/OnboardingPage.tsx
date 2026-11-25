@@ -17,6 +17,7 @@ import {
   DailyGoalStepper
 } from '@app/login/components/DailyGoalStepper'
 import { LevelStrip } from '@app/login/components/LevelStrip'
+import { useErrorToast } from '@nihongo/browser/common/components/Toast'
 
 // My page opens the page to come back to itself; anything else is a sign-in
 // return and follows the same rule.
@@ -33,6 +34,8 @@ const StudyGoalForm = ({
   const { t } = useTranslation('auth')
   const heading = useRef<HTMLHeadingElement>(null)
   const page = useStudyGoalPage(userId, redirect)
+  // #1292: the button stays as it was; the toast says the save failed.
+  useErrorToast(page.failed ? t('studyGoal.failed') : null, 'study-goal')
   const [level, setLevel] = useState<JlptLevel | null>(null)
   const [daily, setDaily] = useState<number | null>(null)
   const { goal } = page
@@ -84,11 +87,6 @@ const StudyGoalForm = ({
         />
       </div>
       <div className="study-goal-actions">
-        {page.failed ? (
-          <p className="study-goal-error" role="alert">
-            {t('studyGoal.failed')}
-          </p>
-        ) : null}
         <Button
           className="study-goal-submit"
           size="lg"

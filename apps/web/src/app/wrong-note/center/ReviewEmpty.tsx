@@ -27,6 +27,7 @@ export const ReviewEmpty = ({
   // compiling it too adds about 200 bytes gzip (#1124 bundle).
   'use no memo'
   const { t } = useTranslation('wrongNote')
+  const { t: practiceT } = useTranslation('practice')
   if (empty === 'levelNone')
     return (
       <div className="wrong-note-empty-level">
@@ -52,9 +53,26 @@ export const ReviewEmpty = ({
         empty === 'noReviewed' ? (
           startButton
         ) : (
-          <Link className={getButtonClassName()} to="/practice">
-            {t('empty.startNew')}
-          </Link>
+          <>
+            <Link className={getButtonClassName()} to="/practice">
+              {t('empty.startNew')}
+            </Link>
+            {/* #1171: one quiet way into the kanji rush once nothing is left
+                to review (members only, like this whole list). Only the
+                link is tappable, 44px tall, the › outside the underline. */}
+            <p className="wrong-note-rush-line">
+              {t('empty.orRush')}{' '}
+              <Link
+                className="wrong-note-rush-link"
+                to={level ? `/practice/rush?level=${level}` : '/practice/rush'}
+              >
+                <span className="wrong-note-rush-label">
+                  {practiceT('rush.entry')}
+                </span>{' '}
+                ›
+              </Link>
+            </p>
+          </>
         )
       }
     />

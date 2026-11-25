@@ -36,7 +36,6 @@ const card = (furigana: StudyQuestionView['passageFurigana']) => (
     <ToastProvider>
       <PracticeQuestionCard
         actions={null}
-        bookmarkStatus={null}
         headingRef={createRef()}
         isOptionsDisabled={false}
         onSelectOption={() => undefined}

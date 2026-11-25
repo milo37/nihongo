@@ -96,7 +96,6 @@ export const readResultView = ({
 
   if (
     !isGuest &&
-    session.practiceContractVersion === 2 &&
     session.mode === 'WRONG_NOTE' &&
     sessionView.requestedCount === 1 &&
     sessionView.actualCount === 1 &&

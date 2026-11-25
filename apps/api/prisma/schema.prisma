@@ -283,6 +283,7 @@ model User {
   signIn                      UserSignIn?
   consents                    UserConsent[]
   studyGoal                   UserStudyGoal?
+  pushSubscriptions           PushSubscription[]
   stamps                      StampLedger[]
   rushBests                   RushBest[]
   idempotencyRecords          IdempotencyRecord[]
@@ -1198,10 +1199,12 @@ model StampLedger {
   /// partial unique index (20261124100000_stamp_ledger_amount).
 }
 
-/// #1046: a browser push subscription for the one daily notification, with
-/// no user, session or IP. lastSentDay (Asia/Seoul) is marked before a send.
+/// #1046: a member's browser push subscription for the daily goal
+/// notification, deleted with the member. lastSentDay (Asia/Seoul) is marked
+/// before a send.
 model PushSubscription {
   id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String    @db.Uuid
   endpoint    String    @unique(map: "PushSubscription_endpoint_key")
   p256dh      String
   auth        String
@@ -1209,4 +1212,7 @@ model PushSubscription {
   createdAt   DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
   updatedAt   DateTime  @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(3)
   lastSentDay DateTime? @db.Date
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([userId], map: "PushSubscription_userId_idx")
 }

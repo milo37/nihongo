@@ -6,27 +6,18 @@ type DashboardStatsOptions = {
   enabled?: boolean
   /** Count only this level's records (My page: the target level). */
   level?: JlptLevel
-  /**
-   * My page: re-read on mount even when a recent copy is cached, and show a
-   * failure in the card instead of the shared error banner.
-   */
+  /** My page: re-read on mount even when a recent copy is cached. */
   myPage?: boolean
-  /** Home (#995): a failure only hides the line, no shared error banner. */
-  quiet?: boolean
 }
 
 export const useGetDashboardStats = ({
   enabled = true,
   level,
-  myPage = false,
-  quiet = false
+  myPage = false
 }: DashboardStatsOptions = {}) => {
   return useQuery({
     ...dashboardQueries.stats({ level }),
     enabled,
-    ...(myPage
-      ? { refetchOnMount: 'always' as const, meta: { localErrorUi: true } }
-      : {}),
-    ...(quiet ? { meta: { localErrorUi: true } } : {})
+    ...(myPage ? { refetchOnMount: 'always' as const } : {})
   })
 }

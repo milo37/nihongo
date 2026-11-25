@@ -11,6 +11,5 @@ export const useTodayGoal = (userId: string) =>
     queryFn: getTodayGoal,
     staleTime: 0,
     retry: false,
-    refetchOnWindowFocus: false,
-    meta: { localErrorUi: true }
+    refetchOnWindowFocus: false
   }).data ?? null

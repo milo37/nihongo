@@ -273,12 +273,4 @@
   .home-more-notice {
     margin-top: calc(var(--spacing) * 3);
   }
-  .home-more-error {
-    margin-top: calc(var(--spacing) * 3);
-    font-size: var(--text-sm);
-    line-height: var(--tw-leading, var(--text-sm--line-height));
-    --tw-font-weight: var(--font-weight-semibold);
-    font-weight: var(--font-weight-semibold);
-    color: rgb(var(--color-danger) / 1);
-  }
 }

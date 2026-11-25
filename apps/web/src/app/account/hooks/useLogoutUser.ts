@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
@@ -14,7 +15,18 @@ export const useLogoutUser = () => {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
   const { t: commonT } = useTranslation('common')
+  const { t: authT } = useTranslation('auth')
   const { addToast } = useToast()
+  // #1292: every failed press says so once in a toast; the dialog closes.
+  const [failureCount, setFailureCount] = useState(0)
+  const fail = (): void => {
+    setFailureCount((count) => count + 1)
+    addToast({
+      key: 'logout',
+      title: authT('sso.logoutUnknown'),
+      variant: 'warning'
+    })
+  }
   const leave = async (): Promise<void> => {
     await navigate('/', { replace: true })
     addToast({ title: commonT('toast.loggedOut'), variant: 'success' })
@@ -33,7 +45,8 @@ export const useLogoutUser = () => {
       } catch (error: unknown) {
         throw new AuthFlowError(error)
       }
-    }
+    },
+    onError: fail
   })
   const recheck = useMutation({
     mutationKey: [...authQueries.allKey(), 'confirm-logout'] as const,
@@ -58,16 +71,20 @@ export const useLogoutUser = () => {
       if (user === null) {
         await leave()
       } else {
-        // A fresh canonical USER confirms the sign-out did not complete. A new
-        // explicit logout is now allowed; never replay the uncertain command.
+        // A fresh canonical USER confirms the sign-out did not complete. This
+        // check runs on the learner's own [로그아웃] press, so that press now
+        // sends a new logout; the uncertain one is never replayed by itself.
         logout.reset()
+        logout.mutate()
       }
-    }
+    },
+    onError: fail
   })
   return {
     ...logout,
     isPending: logout.isPending || recheck.isPending,
     isError: logout.isError || recheck.isError,
+    failureCount,
     recheck: () => recheck.mutate()
   }
 }

@@ -4,7 +4,6 @@ import { createStudySessionV2 } from '@api/study/createStudySessionV2'
 import { getStudySessionV2 } from '@api/study/getStudySessionV2'
 import { toCanonicalStudySessionView } from '@app/practice/adapters/studySessionView'
 import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
-import { clearSubmissionAttempt } from '@nihongo/browser/app/practice/submissionAttemptStorage'
 import { createObjectAuthBoundActionFence } from '@nihongo/browser/libs/authTransitionFence'
 
 const createSessionActionFence =
@@ -18,18 +17,8 @@ const createSession = async (input: CreateStudySessionV2Request) => {
   return toCanonicalStudySessionView((await createStudySessionV2(input)).data)
 }
 
-const getSession = async (sessionId: string, signal: AbortSignal) => {
-  const session = toCanonicalStudySessionView(
-    (await getStudySessionV2(sessionId, signal)).data
-  )
-  if (
-    session.session.practiceContractVersion === 2 &&
-    session.session.status !== 'IN_PROGRESS'
-  ) {
-    clearSubmissionAttempt(sessionId)
-  }
-  return session
-}
+const getSession = async (sessionId: string, signal: AbortSignal) =>
+  toCanonicalStudySessionView((await getStudySessionV2(sessionId, signal)).data)
 
 export const studySessionQueries = {
   session: (sessionId: string) =>
@@ -49,6 +38,7 @@ export const studySessionMutations = {
         'create-session'
       ] as const,
       networkMode: 'always',
+      meta: { localErrorUi: true },
       onMutate: (input: CreateStudySessionV2Request) =>
         createSessionActionFence.capture(input),
       mutationFn: async (input: CreateStudySessionV2Request) => {

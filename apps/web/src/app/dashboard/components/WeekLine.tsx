@@ -20,7 +20,7 @@ export const WeekLine = ({
 }): ReactElement | null => {
   const { t, i18n } = useTranslation('home')
   const { t: navigationT } = useTranslation('navigation')
-  const stats = useGetDashboardStats({ level, quiet: true })
+  const stats = useGetDashboardStats({ level })
   const total =
     stats.data?.dailyStudyCountLast7Days.reduce(
       (sum, day) => sum + day.count,

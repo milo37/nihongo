@@ -86,11 +86,10 @@ export const usePracticeResultController = ({
       currentLocation.pathname !== nextLocation.pathname
   )
   const bookmark = usePracticeResultBookmark({
-    resultQuestionIds:
-      sessionQuery.data?.session.practiceContractVersion === 2
-        ? (resultQuery.data?.items.map((item) => item.question.id).toSorted() ??
-          [])
-        : [],
+    resultQuestionIds: sessionQuery.data
+      ? (resultQuery.data?.items.map((item) => item.question.id).toSorted() ??
+        [])
+      : [],
     role
   })
   const hasCurrentGuestOwnerProof = useGuestResultOwnerProof({
@@ -191,9 +190,8 @@ export const usePracticeResultController = ({
     summaryHeadingRef
   ])
 
-  const isRetiredSession = sessionQuery.isError
-    ? isRetiredPracticeApiError(sessionQuery.error)
-    : sessionQuery.data?.session.practiceContractVersion === 1
+  const isRetiredSession =
+    sessionQuery.isError && isRetiredPracticeApiError(sessionQuery.error)
   const isUnverifiedGuestProbePaused =
     role === 'GUEST' &&
     !hasCurrentGuestOwnerProof &&

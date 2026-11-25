@@ -61,7 +61,7 @@ export const useReportDialogForm = ({
     ? isUiApiError(visibleError)
       ? visibleError.isOffline
         ? t('questionReportDialog.offline')
-        : presentError(visibleError)
+        : presentError(visibleError, fallbackError)
       : fallbackError
     : null
   const fieldErrors =
