@@ -3,10 +3,6 @@ import type { KeyboardEvent, ReactElement } from 'react'
 import type { JlptLevel } from '@nihongo/browser/common/types/domain'
 import { LEVELS } from '@nihongo/browser/common/types/domain'
 
-// The teacher's red circle from the result score, on the picked level only.
-const PEN_PATH =
-  'M15.5 3.2C9 1.6 3 5.6 3.4 11.6c.4 5.6 7 8.4 12.2 6.2 4.6-2 5.6-7.6 2.4-11.4'
-
 export const LevelStrip = ({
   label,
   value,
@@ -58,17 +54,6 @@ export const LevelStrip = ({
             onClick={() => onChange(level)}
           >
             {level}
-            {picked ? (
-              <svg
-                className="study-goal-pen"
-                viewBox="0 0 24 22"
-                preserveAspectRatio="none"
-                aria-hidden="true"
-                focusable="false"
-              >
-                <path d={PEN_PATH} />
-              </svg>
-            ) : null}
           </button>
         )
       })}

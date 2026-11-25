@@ -1,138 +1,162 @@
 /* Study goal screen and its My page row. */
-/* #1090 '학습 목표' (r11 + r12① 둥근 네모): everything centred; the picked
-   level gets the result screen's red pen circle, the daily goal a big ink
-   number between two square -/+ keys. */
+/* #1046 v2 (design goal-v2): three left-aligned questions between thin
+   lines, no boxes. Ink marks the picked level and the switch; red is the
+   main button only. */
 .study-goal {
-  text-align: center;
+  text-align: left;
 }
 .study-goal h1 {
-  font-size: 30px;
-  line-height: 40px;
-  letter-spacing: -0.03em;
+  font-size: 24px;
+  line-height: 32px;
+  letter-spacing: -0.02em;
   word-break: keep-all;
   text-wrap: balance;
-  white-space: pre-line;
 }
 .study-goal-hint {
-  margin-top: 10px;
+  margin-top: 4px;
   color: rgb(var(--color-muted));
   font-size: 15px;
   line-height: 22px;
 }
+.study-goal-list {
+  margin-top: 20px;
+  border-top: 1px solid rgb(var(--color-line));
+}
 .study-goal-question {
-  margin-top: 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-block: 16px;
+  border-bottom: 1px solid rgb(var(--color-line));
 }
 .study-goal-label {
-  margin-bottom: 12px;
   color: rgb(var(--color-ink));
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 24px;
+  word-break: keep-all;
 }
 .study-goal-levels {
   display: flex;
-  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 .study-goal-level {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 56px;
-  height: 60px;
-  margin-left: -1px;
-  border: 1px solid rgb(var(--color-sheet-line));
+  min-width: 52px;
+  min-height: 44px;
+  padding-inline: 12px;
+  border: 1px solid rgb(var(--color-line-interactive) / 0.5);
+  border-radius: 999px;
   background: rgb(var(--color-surface));
-  color: rgb(var(--color-muted));
-  font-size: 19px;
+  color: rgb(var(--color-ink));
+  font-size: 16px;
   font-weight: 600;
 }
-.study-goal-level:first-child {
-  margin-left: 0;
-}
 .study-goal-level[aria-checked='true'] {
-  color: rgb(var(--color-ink));
-  font-weight: 800;
+  border-color: rgb(var(--color-ink));
+  background: rgb(var(--color-ink));
+  color: rgb(var(--color-surface));
 }
-.study-goal-level:focus-visible {
-  z-index: 1;
+.study-goal-level:focus-visible,
+.study-goal-step:focus-visible,
+.study-goal-value:focus-visible,
+.study-goal-switch:focus-visible,
+.study-goal-later:focus-visible {
   outline: var(--focus-width) solid rgb(var(--focus-color));
   outline-offset: var(--focus-offset);
-}
-.study-goal-pen {
-  position: absolute;
-  top: 4px;
-  left: 3px;
-  width: calc(100% - 6px);
-  height: calc(100% - 8px);
-  overflow: visible;
-  pointer-events: none;
-}
-.study-goal-pen path {
-  fill: none;
-  stroke: rgb(var(--color-brand));
-  stroke-width: 2.2px;
-  stroke-linecap: round;
-  vector-effect: non-scaling-stroke;
 }
 .study-goal-stepper {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 20px;
+  gap: 12px;
 }
 .study-goal-step {
   display: grid;
   flex: none;
   place-items: center;
-  width: 48px;
-  height: 48px;
-  border: 1.5px solid rgb(var(--color-line-interactive));
-  border-radius: 8.4px;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgb(var(--color-line-interactive) / 0.5);
+  border-radius: 50%;
   background: rgb(var(--color-surface));
   color: rgb(var(--color-ink));
 }
 .study-goal-step svg {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   fill: none;
   stroke: currentColor;
-  stroke-width: 2.2;
+  stroke-width: 2;
   stroke-linecap: round;
 }
 .study-goal-step:active:not([aria-disabled='true']) {
   background: rgb(var(--color-surface-muted));
 }
 .study-goal-step[aria-disabled='true'] {
-  border-color: rgb(var(--color-line));
   color: rgb(var(--color-disabled-text) / 0.5);
   cursor: default;
 }
-.study-goal-step:focus-visible,
-.study-goal-value:focus-visible,
-.study-goal-later:focus-visible {
-  outline: var(--focus-width) solid rgb(var(--focus-color));
-  outline-offset: var(--focus-offset);
-}
 .study-goal-value {
-  display: flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 4px;
-  min-width: 128px;
+  min-width: 5em;
   color: rgb(var(--color-ink));
-}
-.study-goal-number {
-  font-size: 48px;
-  font-weight: 800;
-  line-height: 56px;
-  letter-spacing: -0.02em;
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
   font-variant-numeric: tabular-nums;
 }
-.study-goal-unit {
-  font-size: 17px;
-  font-weight: 700;
+/* Question on the left, switch on the right; the why-line under both. */
+.study-goal-push {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 2px 12px;
+}
+.study-goal-push-hint {
+  grid-column: 1 / -1;
+  color: rgb(var(--color-muted));
+  font-size: 13px;
+  line-height: 20px;
+}
+.study-goal-switch {
+  position: relative;
+  width: 48px;
+  height: 28px;
+  border-radius: 999px;
+  background: rgb(var(--color-line-interactive) / 0.45);
+  cursor: pointer;
+  transition: background-color 150ms ease;
+  appearance: none;
+}
+.study-goal-switch::before {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgb(var(--color-surface));
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+  content: '';
+  transition: transform 150ms ease;
+}
+.study-goal-switch:checked {
+  background: rgb(var(--color-ink));
+}
+.study-goal-switch:checked::before {
+  transform: translateX(20px);
+}
+.study-goal-switch:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+@media (prefers-reduced-motion: reduce) {
+  .study-goal-switch,
+  .study-goal-switch::before {
+    transition: none;
+  }
 }
 .study-goal-actions {
-  margin-top: 48px;
+  margin-top: 24px;
 }
 .study-goal .study-goal-submit {
   min-height: 52px;
@@ -197,6 +221,13 @@
   font-size: 16px;
   font-weight: 400;
   text-decoration: none;
+}
+/* #1046: '알림 켬' before the arrow, grey and small, no dot. */
+.study-goal-row-push {
+  margin-left: auto;
+  color: rgb(var(--color-muted));
+  font-size: 13px;
+  white-space: nowrap;
 }
 @media (min-width: 640px) {
   .study-goal-row-link.is-set {

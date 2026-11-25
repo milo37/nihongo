@@ -15,7 +15,12 @@ export const EDIT_RETURN_PATH = '/account'
  * [시작하기]/[나중에 할게요]; one who did (from My page) gets [저장]/[취소].
  * Either way the page hands back to `redirect`; a failed read hands back too.
  */
-export const useStudyGoalPage = (userId: string, redirect: string) => {
+export const useStudyGoalPage = (
+  userId: string,
+  redirect: string,
+  // #1046: the push switch is saved with the goal, before handing back.
+  afterSave: () => Promise<void> = async () => undefined
+) => {
   const navigate = useAppNavigate()
   const queryClient = useQueryClient()
   const goal = useQuery(studyGoalQueries.goal(userId))
@@ -42,6 +47,7 @@ export const useStudyGoalPage = (userId: string, redirect: string) => {
       await refreshCanonicalAuthAfterMutation(queryClient, {
         expectedIdentity: 'AUTHENTICATED'
       })
+      await afterSave()
       await leave()
     }
   })
