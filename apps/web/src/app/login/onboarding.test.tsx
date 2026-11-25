@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
@@ -11,6 +11,7 @@ import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { appI18n } from '@nihongo/browser/i18n/config'
 import { queryClient } from '@nihongo/browser/libs/queryClient'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
+import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { ProtectedRouteProvider } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { mockServer } from '@/test/server'
 
@@ -37,9 +38,11 @@ const renderAt = (entry: string) => {
   render(
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
-        <Suspense fallback={<p>불러오는 중</p>}>
-          <RouterProvider router={router} />
-        </Suspense>
+        <ToastProvider>
+          <Suspense fallback={<p>불러오는 중</p>}>
+            <RouterProvider router={router} />
+          </Suspense>
+        </ToastProvider>
       </I18nProvider>
     </QueryClientProvider>
   )
@@ -149,7 +152,7 @@ describe('#1090 학습 목표', () => {
     ).toHaveAttribute('aria-disabled', 'true')
   })
 
-  it('저장이 실패하면 작은 오류 한 줄을 보이고 그 자리에 둔다', async () => {
+  it('저장이 실패하면 토스트로 알리고 그 자리에 둔다 (#1292)', async () => {
     newMember()
     mockServer.use(
       http.put('*/api/v1/me/study-goal', () =>
@@ -163,9 +166,12 @@ describe('#1090 학습 목표', () => {
     await userEvent.click(
       await screen.findByRole('button', { name: '시작하기' })
     )
-    expect(await screen.findByRole('alert')).toHaveTextContent(
-      '저장하지 못했어요. 다시 눌러 주세요.'
-    )
+    const region = await screen.findByRole('region', { name: '알림' })
+    expect(
+      await within(region).findByText('저장하지 못했어요. 다시 눌러 주세요.')
+    ).toBeVisible()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '시작하기' })).toBeEnabled()
     expect(router.state.location.pathname).toBe('/onboarding')
   })
 

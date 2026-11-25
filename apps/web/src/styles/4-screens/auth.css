@@ -86,11 +86,6 @@
 .signup-consent-checks:lang(ko) {
   word-break: keep-all;
 }
-.signup-consent-error {
-  margin: -8px 0 12px;
-  color: rgb(var(--color-danger));
-  font-size: 14px;
-}
 .signup-consent .signup-consent-submit {
   min-height: 52px;
   font-size: 17px;

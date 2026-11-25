@@ -2,14 +2,9 @@ import { queryOptions } from '@tanstack/react-query'
 import { getStudyResultV1 } from '@api/study/getStudyResultV1'
 import { toCanonicalStudyResultView } from '@app/practice/adapters/studyResultView'
 import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
-import { clearSubmissionAttempt } from '@nihongo/browser/app/practice/submissionAttemptStorage'
 
-const getResult = async (sessionId: string) => {
-  const result = toCanonicalStudyResultView(await getStudyResultV1(sessionId))
-  clearSubmissionAttempt(sessionId)
-
-  return result
-}
+const getResult = async (sessionId: string) =>
+  toCanonicalStudyResultView(await getStudyResultV1(sessionId))
 
 export const studyResultQueries = {
   result: (sessionId: string) =>

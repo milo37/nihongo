@@ -267,17 +267,6 @@ label:has(input:checked) .study-option-text {
   .study-session-body-narrow {
     max-width: 760px;
   }
-  .study-recovery-note {
-    border-radius: var(--radius-lg);
-    border-style: solid;
-    border-width: var(--border-width-default);
-    border-color: rgb(var(--color-warning-line));
-    background-color: rgb(var(--color-warning-soft));
-    padding: 0.75rem;
-    font-size: var(--text-sm);
-    line-height: 1.5rem;
-    color: rgb(var(--color-warning-strong));
-  }
   @media (width >= 40rem) {
     .study-session-body,
     .study-state-frame {

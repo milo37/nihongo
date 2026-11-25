@@ -181,9 +181,7 @@ export const useBookmarkPageController = () => {
 
   const isPracticeStarting = createSession.isPending || createSession.isPaused
   const isRemovalPromptPending =
-    pendingRemovalQuestionId !== null &&
-    statusMessage === 'removing' &&
-    !bookmarkMutationActivity.isPaused
+    pendingRemovalQuestionId !== null && statusMessage === 'removing'
 
   return {
     accountRestricted,
@@ -196,7 +194,6 @@ export const useBookmarkPageController = () => {
     hasPendingBookmarkMutation,
     isBookmarkNavigationLocked,
     isBookmarksPaused,
-    isMutationPaused: bookmarkMutationActivity.isPaused,
     isPracticeStarting,
     isRemovalPromptPending,
     isRemoving: deleteBookmark.isPending,

@@ -426,7 +426,7 @@ export const jaCoreResources = {
       ageHint: '14歳未満の方は、ログインせずに問題を解けます。',
       terms:
         '<terms>利用規約</terms>と<privacy>個人情報処理方針</privacy>を確認しました',
-      missing: '必須項目を確認してください',
+      missing: '必須項目を確認してください。',
       required: '（必須）',
       submitNew: '登録する',
       submitExisting: '確認する',
@@ -456,7 +456,9 @@ export const jaCoreResources = {
       hint: '2〜12文字で入力してください。',
       invalid: 'ニックネームを2文字以上入力してください',
       change: '変更',
-      saved: 'ニックネームを変更しました。'
+      saved: 'ニックネームを変更しました。',
+      saveFailed:
+        'ニックネームを変更できませんでした。少し待ってからもう一度保存してください。'
     },
     reauth: {
       name: '本人確認',
@@ -501,8 +503,7 @@ export const jaCoreResources = {
       logoutDescription: 'ログアウトしても解いた記録はそのまま残ります。',
       logoutAction: 'ログアウト',
       loggingOut: 'ログアウト中…',
-      logoutUnknown:
-        'ログアウトできたか確認できませんでした。ページを再読み込みしてください。',
+      logoutUnknown: 'ログアウトできませんでした。もう一度押してください。',
       unlinkTitle: '{{provider}}との連携を解除しますか？',
       unlinkDescription:
         '連携を解除した後は、連携済みの別のログイン方法でログインしてください。学習記録は維持されます。退会は別の操作です。',
@@ -511,6 +512,9 @@ export const jaCoreResources = {
       deleteTitle: '退会しますか？',
       processing: '少々お待ちください…',
       actionFailed: 'うまくいきませんでした。もう一度お試しください。',
+      resultUnknown:
+        '処理されたか確認できませんでした。もう一度確認してください。',
+      methodsLoadFailed: 'ログイン方法を読み込めませんでした。',
       deletionAccepted:
         '退会の申し込みを受け付けました。{{date}}にすべて削除されます。それまでにもう一度ログインすると元に戻せます。',
       deletionAcceptedNoDate:
@@ -777,10 +781,6 @@ export const jaCoreResources = {
         removeRollback: 'ブックマークから外せませんでした。',
         saved: 'ブックマークに入れました。',
         saveRollback: 'ブックマークに入れられませんでした。',
-        offlineQueued:
-          'インターネット接続が切れました。つながったらブックマークに反映します。',
-        statusLoadOffline:
-          'インターネット接続が切れたため、ブックマークを確認できません。つながったらもう一度確認します。',
         statusLoadFailed: 'ブックマークを確認できませんでした。'
       },
       navigation: {
@@ -905,10 +905,6 @@ export const jaCoreResources = {
       samePassage: '{{formattedOrdinal}}番と同じ文章'
     },
     bookmark: {
-      offline:
-        'インターネット接続が切れました。つながったらブックマークに反映します。',
-      loadOffline:
-        'インターネット接続が切れたため、ブックマークを確認できません。つながったらもう一度確認します。',
       loadError: 'ブックマークを確認できませんでした。',
       retry: '再確認',
       add: 'ブックマーク',
@@ -1094,9 +1090,7 @@ export const jaCoreResources = {
     status: {
       removing: '外しています…',
       removed: 'ブックマークから外しました。',
-      restoreFailed: 'ブックマークから外せませんでした。',
-      offline:
-        'インターネット接続が切れました。つながったらブックマークに反映します。'
+      restoreFailed: 'ブックマークから外せませんでした。'
     },
     title: 'ブックマーク',
     listCount: '{{formattedCount}}問',

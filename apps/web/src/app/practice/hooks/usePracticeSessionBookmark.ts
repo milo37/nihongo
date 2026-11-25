@@ -84,9 +84,10 @@ export const usePracticeSessionBookmark = ({
     notify('statusLoadFailed')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookmarksQuery.isError])
-  const isQueryUnavailable =
-    role !== 'GUEST' &&
-    (bookmarksQuery.isPending || bookmarksQuery.fetchStatus === 'paused')
+  // Only a list not read yet locks the icons. A refresh paused offline
+  // keeps the list it has, so a press there fails at once and says so
+  // (#978) instead of sitting locked until the connection is back.
+  const isQueryUnavailable = role !== 'GUEST' && bookmarksQuery.isPending
 
   const toggle = (question: StudyQuestionView): void => {
     if (guestAction(authT('guestToast.bookmark'), { sessionNotKept: true })) {

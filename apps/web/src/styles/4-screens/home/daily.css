@@ -185,14 +185,6 @@
     font-weight: var(--font-weight-semibold);
     color: rgb(var(--color-subtle) / 1);
   }
-  .home-daily-error {
-    margin-top: calc(var(--spacing) * 4);
-  }
-  .home-daily-error-text {
-    font-size: 15px;
-    color: rgb(var(--color-muted) / 1);
-  }
-  .home-daily-retry,
   .home-daily-loading {
     margin-top: calc(var(--spacing) * 3);
   }
