@@ -55,5 +55,5 @@ fi
 # from this shell's environment, so no URL or key appears in argv.
 exec docker compose run --rm --no-deps -T \
   -e MIGRATION_DATABASE_URL -e PRODUCTION_DATABASE_URL \
-  -e WEB_PUSH_PUBLIC_KEY -e WEB_PUSH_PRIVATE_KEY -e WEB_PUSH_SUBJECT "${confirm[@]}" \
+  -e WEB_PUSH_PUBLIC_KEY -e WEB_PUSH_PRIVATE_KEY -e WEB_PUSH_SUBJECT ${confirm[@]+"${confirm[@]}"} \
   api node api/dist/notification/dailyPushCommand.js

@@ -92,7 +92,7 @@ aws ssm put-parameter --type SecureString --name /harumaru/production/BETTER_AUT
 - 명령은 `api` 서비스로 돕니다(`db` 망은 외부로 못 나가 브라우저 푸시 서버에 닿지 않음). DB는 API의 `DATABASE_URL`, 안전 검사용 `MIGRATION_DATABASE_URL`(비밀번호 뺌)·`PRODUCTION_DATABASE_URL`을 환경 변수로만 넘깁니다.
 - 예약: `daily_push_schedule_expression`(Asia/Seoul, 기본 `cron(0 8 * * ? *)`), `daily_push_schedule_enabled` 기본 `false`. PRODUCTION은 키를 쓰고 API에 공개 키가 반영된 뒤 켭니다. STAGING은 08:00에 서버가 꺼져 있어 끈 채로 두고, 확인은 하루 창 안에서 수동 실행합니다.
 - 실패: 종료 코드 1(보낼 대상이 있었는데 하나도 못 보냄, 또는 오류)이면 위 예약 작업 실패 알림(EventBridge 규칙)에, 예약이 실행 자체를 못 하면 `scheduler-target-error` 경보에 잡힙니다.
-- 수동 실행: `aws ssm send-command --document-name harumaru-<env>-daily-push --instance-ids <id> --parameters send=false`.
+- 수동 실행: `aws ssm send-command --document-name harumaru-<env>-daily-push --instance-ids <id> --parameters send=false`. 키 두 개를 쓰기 전에는 `send=false`여도 키를 못 읽어 종료 1로 끝나고, 예약 작업 실패 알림 메일이 한 통 옵니다(정상).
 - 비용: 예약 월 30회(Scheduler 무료 한도 안), Run Command·Parameter Store 표준 무료 → 약 $0.
 
 ## 보존 기간 정리 (#671)
