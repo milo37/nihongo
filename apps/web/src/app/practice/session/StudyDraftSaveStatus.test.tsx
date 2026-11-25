@@ -55,6 +55,19 @@ it('a failure stays as a toast with [다시 시도], and the next save says so',
   expect(within(after).queryByRole('button', { name: '다시 시도' })).toBeNull()
 })
 
+it('a failure closed with X comes back when the next save fails', async () => {
+  const user = userEvent.setup()
+  const { show } = setup()
+  show('error')
+  const region = await screen.findByRole('region', { name: '알림' })
+  await user.click(within(region).getByRole('button', { name: '알림 닫기' }))
+  await vi.waitFor(() => expect(toasts()).toBeNull())
+  show('saving')
+  show('error')
+  const again = await screen.findByRole('region', { name: '알림' })
+  expect(within(again).getByRole('button', { name: '다시 시도' })).toBeVisible()
+})
+
 it('offline is the connection toast; a merged copy is said once', async () => {
   const { show } = setup()
   show('offline')

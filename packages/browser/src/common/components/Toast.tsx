@@ -166,7 +166,10 @@ export const Toast = ({
     <article
       ref={ref}
       className={classNames(
-        'ui-toast grid grid-cols-[auto_1fr_auto] items-start gap-3 rounded-[12px] border-y border-r border-y-line border-r-line bg-surface py-3 pl-3.5 pr-1 text-ink shadow-soft',
+        'ui-toast grid grid-cols-[auto_1fr_auto] gap-3 rounded-[12px] border-y border-r border-y-line border-r-line bg-surface py-3 pl-3.5 pr-1 text-ink shadow-soft',
+        // A title alone sits in the middle of the close button's height
+        // instead of leaving the space under it empty.
+        description || action ? 'items-start' : 'items-center',
         closing ? 'pointer-events-none' : 'pointer-events-auto',
         variantClassNames[variant]
       )}
@@ -199,7 +202,13 @@ export const Toast = ({
         }
       }}
     >
-      <span className="ui-toast-icon" aria-hidden="true">
+      <span
+        className={classNames(
+          'ui-toast-icon',
+          description || action ? 'mt-0.5' : null
+        )}
+        aria-hidden="true"
+      >
         {variantIcons[variant]}
       </span>
       <div className="min-w-0 py-0.5">
