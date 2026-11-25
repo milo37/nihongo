@@ -4,6 +4,7 @@ import type { ReactElement, RefObject } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'
 import { useToast } from '@nihongo/browser/common/components/Toast'
+import type { SubmissionConnectivityCode } from '@app/practice/hooks/useSubmissionConnectivity'
 import { usePracticeNumberFormat } from '@app/practice/hooks/usePracticeNumberFormat'
 
 type PracticeNavigationGuardDialogProps = {
@@ -44,6 +45,7 @@ export const PracticeNavigationGuardDialog = ({
 }
 
 type PracticeSubmitDialogProps = {
+  connectivityMessage: SubmissionConnectivityCode | null
   hasFrozenAttempt: boolean
   isConfirmDisabled: boolean
   isConfirmLoading: boolean
@@ -57,6 +59,7 @@ type PracticeSubmitDialogProps = {
 }
 
 export const PracticeSubmitDialog = ({
+  connectivityMessage,
   hasFrozenAttempt,
   isConfirmDisabled,
   isConfirmLoading,
@@ -70,24 +73,24 @@ export const PracticeSubmitDialog = ({
 }: PracticeSubmitDialogProps): ReactElement => {
   const { t } = useTranslation('practice')
   const { formatCount } = usePracticeNumberFormat()
-  // #1262: a failed submit closes the dialog and says so in a toast. A
-  // frozen attempt keeps its answers; [제출하기] opens this dialog again to
-  // resend them. Being offline is the shared connection toast.
+  const frozenConnectivityMessage = hasFrozenAttempt
+    ? connectivityMessage
+    : null
+  // #1262: a definite failure closes the dialog and says so in a toast (the
+  // submit button is still there). A frozen attempt keeps the dialog open:
+  // the same answers must be sent again, so its message stays inside.
   const { addToast } = useToast()
+  const showsToast = isSubmissionError && !hasFrozenAttempt
   useEffect(() => {
-    if (!isSubmissionError) return
+    if (!showsToast) return
     onOpenChange(false)
     addToast({
       key: 'submit',
-      title: t(
-        hasFrozenAttempt
-          ? 'session.submit.frozenFailure'
-          : 'session.submit.requestFailure'
-      ),
+      title: t('session.submit.requestFailure'),
       variant: 'warning'
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSubmissionError])
+  }, [showsToast])
 
   return (
     <Dialog
@@ -123,6 +126,25 @@ export const PracticeSubmitDialog = ({
       }
       preventClose={isContinueDisabled}
       onOpenChange={onOpenChange}
-    />
+    >
+      {(isSubmissionError && hasFrozenAttempt) || frozenConnectivityMessage ? (
+        <div className="study-state-stack">
+          {isSubmissionError && hasFrozenAttempt ? (
+            <div className="study-submit-error" role="alert">
+              {t('session.submit.frozenFailure')}
+            </div>
+          ) : null}
+          {frozenConnectivityMessage ? (
+            <p
+              className="study-submit-offline"
+              role="status"
+              aria-live="polite"
+            >
+              {t(`session.submit.connectivity.${frozenConnectivityMessage}`)}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </Dialog>
   )
 }

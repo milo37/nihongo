@@ -513,6 +513,28 @@ label:has(input:checked) .study-option-text {
   .study-action-previous {
     flex-shrink: 0;
   }
+  .study-submit-error {
+    border-radius: var(--radius-lg);
+    border-style: solid;
+    border-width: var(--border-width-default);
+    border-color: rgb(var(--color-danger-line));
+    background-color: rgb(var(--color-danger-soft));
+    padding: 1rem;
+    font-size: var(--text-sm);
+    line-height: 1.5rem;
+    color: rgb(var(--color-danger-strong));
+  }
+  .study-submit-offline {
+    border-radius: var(--radius-lg);
+    border-style: solid;
+    border-width: var(--border-width-default);
+    border-color: rgb(var(--color-warning-line));
+    background-color: rgb(var(--color-warning-soft));
+    padding: 1rem;
+    font-size: var(--text-sm);
+    line-height: 1.5rem;
+    color: rgb(var(--color-warning-strong));
+  }
   /* Hover before focus and the current mark, as Tailwind orders them: the
      current question keeps its ink border under the pointer. */
   @media (hover: hover) {
