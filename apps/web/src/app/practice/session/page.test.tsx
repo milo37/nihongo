@@ -1334,8 +1334,17 @@ describe('PracticeSessionPage', () => {
     const submit = screen.getByRole('button', { name: '제출하기' })
     expect(submit).toBeEnabled()
     await user.click(submit)
-    expect(
-      await screen.findByRole('dialog', { name: '제출할까요?' })
-    ).toBeInTheDocument()
+    const reopened = await screen.findByRole('dialog', { name: '제출할까요?' })
+    // Nothing is sending, so it can be closed again.
+    const keepGoing = within(reopened).getByRole('button', {
+      name: '계속 풀기'
+    })
+    expect(keepGoing).toBeEnabled()
+    await user.click(keepGoing)
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: '제출할까요?' })
+      ).not.toBeInTheDocument()
+    )
   })
 })

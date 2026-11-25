@@ -138,7 +138,7 @@ export const SessionSubmitDialog = ({
     isConfirmLoading={
       session.isSubmissionActive || session.isPreparingSubmission
     }
-    isContinueDisabled={session.mustReplayFrozenSubmission}
+    isContinueDisabled={session.isSubmissionActive}
     isSubmissionError={session.isSubmissionError}
     onConfirm={() => void session.handleSubmit()}
     onOpenChange={session.handleSubmitDialogOpenChange}
