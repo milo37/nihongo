@@ -4,7 +4,6 @@ import type { ReactElement } from 'react'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import {
   SessionLoadError,
-  SessionRecoveryState,
   SessionSetupLinkError
 } from '@app/practice/session/components/PracticeSessionStateScreens'
 import type {
@@ -44,16 +43,6 @@ export const readSessionView = ({
   }
 
   if (session.sessionQuery.isPending) {
-    if (session.hasFrozenSubmissionAttempt) {
-      return screen(
-        <SessionRecoveryState
-          connectivityMessage={session.submissionConnectivityMessage}
-          description={t('session.recovery.pendingDescription')}
-          idleStatus={t('session.recovery.checkingStatus')}
-          onRetry={refetchSession}
-        />
-      )
-    }
     if (session.sessionQuery.fetchStatus === 'paused') {
       return screen(
         <SessionLoadError
@@ -71,16 +60,6 @@ export const readSessionView = ({
           framed
           title={t('session.terminal.notFoundTitle')}
           description={t('session.terminal.notFoundDescription')}
-        />
-      )
-    }
-    if (session.hasFrozenSubmissionAttempt) {
-      return screen(
-        <SessionRecoveryState
-          connectivityMessage={session.submissionConnectivityMessage}
-          description={t('session.recovery.failedDescription')}
-          idleStatus={t('session.recovery.connectedStatus')}
-          onRetry={refetchSession}
         />
       )
     }

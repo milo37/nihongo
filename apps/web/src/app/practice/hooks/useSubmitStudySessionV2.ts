@@ -4,10 +4,8 @@ import type { StudyResultView } from '@app/practice/adapters/studyResultView'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
 import { trackStudySubmission } from '@/analytics/studyEvents'
 import { clearStudyDraftWorkingCopy } from '@nihongo/browser/app/practice/draft/studyDraftWorkingCopyStorage'
-import { clearSubmissionAttempt } from '@nihongo/browser/app/practice/submissionAttemptStorage'
 import {
   getStudySubmissionRetryDelay,
-  isDefinitiveStudySubmissionError,
   isRetryableStudySubmissionError
 } from '@app/practice/studySubmissionRetry'
 import { serverStateQueryKeys } from '@nihongo/browser/libs/serverStateQueryKeys'
@@ -95,16 +93,10 @@ export const useSubmitStudySessionV2 = (
         result
       )
       clearStudyDraftWorkingCopy(principalScope, sessionId)
-      clearSubmissionAttempt(sessionId)
       trackStudySubmission({
         questionCount: result.totalCount,
         session
       })
-    },
-    onError: (error) => {
-      if (isDefinitiveStudySubmissionError(error)) {
-        clearSubmissionAttempt(sessionId)
-      }
     }
   })
 }

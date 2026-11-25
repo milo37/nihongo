@@ -409,7 +409,7 @@ export const koCoreResources = {
       ageHint: '만\u00a014세 미만은 로그인 없이 문제를 풀 수 있어요.',
       terms:
         '<terms>이용약관</terms>과 <privacy>개인정보 처리방침</privacy>을 확인했어요',
-      missing: '필수 항목을 확인해 주세요',
+      missing: '필수 항목을 확인해 주세요.',
       required: '(필수)',
       submitNew: '가입하기',
       submitExisting: '확인',
@@ -439,7 +439,8 @@ export const koCoreResources = {
       hint: '2~12자로 정해 주세요.',
       invalid: '닉네임을 2자 이상 입력해 주세요',
       change: '바꾸기',
-      saved: '닉네임을 바꿨어요.'
+      saved: '닉네임을 바꿨어요.',
+      saveFailed: '닉네임을 바꾸지 못했어요. 잠시 뒤 다시 저장해 주세요.'
     },
     reauth: {
       name: '본인 확인',
@@ -480,7 +481,7 @@ export const koCoreResources = {
       logoutDescription: '로그아웃해도 푼 기록은 그대로 남아요.',
       logoutAction: '로그아웃',
       loggingOut: '로그아웃하는 중…',
-      logoutUnknown: '로그아웃됐는지 확인하지 못했어요. 새로고침해 주세요.',
+      logoutUnknown: '로그아웃하지 못했어요. 다시 눌러 주세요.',
       unlinkTitle: '{{provider}} 연결을 해제할까요?',
       unlinkDescription:
         '연결 해제 후에는 연결된 다른 로그인 방법으로 로그인해 주세요. 학습 기록은 그대로 남고, 회원 탈퇴는 따로 해야 해요.',
@@ -489,6 +490,8 @@ export const koCoreResources = {
       deleteTitle: '회원 탈퇴할까요?',
       processing: '처리하는 중…',
       actionFailed: '처리하지 못했어요. 다시 시도해 주세요.',
+      resultUnknown: '처리됐는지 확인하지 못했어요. 다시 확인해 주세요.',
+      methodsLoadFailed: '로그인 방법을 불러오지 못했어요.',
       deletionAccepted:
         '탈퇴 신청을 받았어요. {{date}}에 모두 삭제돼요. 그 전에 다시 로그인하면 되살릴 수 있어요.',
       deletionAcceptedNoDate:

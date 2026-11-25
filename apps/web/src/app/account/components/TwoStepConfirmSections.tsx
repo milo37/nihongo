@@ -72,16 +72,16 @@ export const TwoStepNotices = ({
         </p>
       ) : null}
       {flow.feedback ? (
-        // Cancelling is not an error: a neutral box. Failures and an
-        // expired check are a red error box.
+        // #1292: kept in the dialog (a toast sits under it): one line, as
+        // the report dialog's error. Cancelling is grey, failures red.
         flow.feedback === 'reauthCancelled' ? (
-          <p className="auth-notice two-step-notice" role="status">
+          <p className="two-step-notice two-step-notice-muted" role="status">
             {authT(ACCOUNT_FEEDBACK_KEY[flow.feedback])}
           </p>
         ) : (
           <p
             ref={alertRef}
-            className="auth-notice auth-error two-step-notice"
+            className="two-step-notice two-step-notice-error"
             role="alert"
           >
             {authT(ACCOUNT_FEEDBACK_KEY[flow.feedback])}

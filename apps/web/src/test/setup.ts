@@ -5,7 +5,6 @@ import { apiClient } from '@nihongo/browser/api/config'
 import { appI18n } from '@nihongo/browser/i18n/config'
 import { queryClient } from '@nihongo/browser/libs/queryClient'
 import '@provider/queryDefaults'
-import { clearAllSubmissionAttempts } from '@nihongo/browser/app/practice/submissionAttemptStorage'
 import { clearAllResultRetryAttempts } from '@nihongo/browser/app/practice/resultRetryAttemptStorage'
 import { clearAllStudyDraftWorkingCopies } from '@nihongo/browser/app/practice/draft/studyDraftWorkingCopyStorage'
 import { closeAllStudyDraftRevisionChannels } from '@nihongo/browser/app/practice/draft/useStudyDraftRevisionSync'
@@ -35,7 +34,6 @@ import { LAST_PRACTICE_CHOICE_KEY } from '@app/practice/lastPracticeChoice'
 
 const resetTestState = async (): Promise<void> => {
   await clearMockGuestPrincipalCookie()
-  clearAllSubmissionAttempts()
   clearAllResultRetryAttempts()
   clearAllTargetedReviewAttempts()
   clearAllStudyDraftWorkingCopies()
