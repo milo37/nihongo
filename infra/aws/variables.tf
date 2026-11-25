@@ -282,6 +282,18 @@ variable "retention_schedule_expression" {
   default     = "cron(5 0 * * ? *)"
 }
 
+variable "daily_push_schedule_enabled" {
+  description = "Daily web push (#1046). Off until both VAPID key parameters exist; STAGING stays off (host stopped at 08:00)."
+  type        = bool
+  default     = false
+}
+
+variable "daily_push_schedule_expression" {
+  description = "Asia/Seoul. 08:00 daily (operator decision 2026-11-26)."
+  type        = string
+  default     = "cron(0 8 * * ? *)"
+}
+
 variable "cleanup_schedules" {
   description = "#671 daily retention cleanups (Asia/Tokyo). All DISABLED and dry-run until turned on; PRODUCTION real runs need operator approval. STAGING sets times inside its 04:40-05:50 window."
   type = map(object({
