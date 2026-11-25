@@ -217,6 +217,7 @@ export const AuthErrorHandlerProvider = ({
       }
     })
   }, [
+    keepsObjectForbidden,
     location.pathname,
     location.search,
     navigate,

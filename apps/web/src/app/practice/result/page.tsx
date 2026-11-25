@@ -37,9 +37,6 @@ const PracticeResultPageContent = (): ReactElement => {
   const { session } = sessionView
   const { selectedItem } = result
 
-  const isResultPaused =
-    resultQuery.fetchStatus === 'paused' ||
-    sessionQuery.fetchStatus === 'paused'
   const { createRetrySession } = result
 
   return (

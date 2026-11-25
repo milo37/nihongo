@@ -56,10 +56,7 @@ export const ResumablePractice = ({
         {t('setup.resume.title')}
       </h2>
 
-      <ResumableStatusNotices
-        query={query}
-        sourceUnavailable={sourceUnavailable}
-      />
+      <ResumableStatusNotices query={query} />
 
       {query.isPending ? (
         query.fetchStatus === 'paused' ? (

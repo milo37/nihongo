@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement } from 'react'
@@ -6,6 +6,7 @@ import {
   Button,
   getButtonClassName
 } from '@nihongo/browser/common/components/Button'
+import { useLatest } from '@nihongo/browser/common/hooks/useLatest'
 import { useToast } from '@nihongo/browser/common/components/Toast'
 import { LoadingState } from '@nihongo/browser/common/components/LoadingState'
 import type { useListResumableStudySessions } from '@app/practice/hooks/useListResumableStudySessions'
@@ -97,8 +98,7 @@ export const ResumableError = ({
 }): null => {
   const { t: commonT } = useTranslation('common')
   const { addToast, dismissToast } = useToast()
-  const refetchRef = useRef(query.refetch)
-  refetchRef.current = query.refetch
+  const refetchRef = useLatest(query.refetch)
   useEffect(() => {
     const id = addToast({
       key: 'resume',
@@ -115,17 +115,15 @@ export const ResumableError = ({
         : {})
     })
     return withRetry ? () => dismissToast(id) : undefined
-  }, [description, withRetry, addToast, dismissToast, commonT])
+  }, [refetchRef, description, withRetry, addToast, dismissToast, commonT])
   return null
 }
 
 /** Refresh, stale-cache and failed-refresh notices shown above the list. */
 export const ResumableStatusNotices = ({
-  query,
-  sourceUnavailable
+  query
 }: {
   query: ResumableQuery
-  sourceUnavailable: boolean
 }): ReactElement => {
   const { t } = useTranslation('practice')
   const data = query.data

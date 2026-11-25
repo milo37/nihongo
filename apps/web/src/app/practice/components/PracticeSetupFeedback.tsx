@@ -32,7 +32,6 @@ export const PracticeSetupFeedback = ({
   sessionCap = null
 }: PracticeSetupFeedbackProps): ReactElement => {
   const { t, i18n } = useTranslation('practice')
-  const { t: commonT } = useTranslation('common')
   const { t: navigationT } = useTranslation('navigation')
   useErrorToast(hasCreateError ? t('setup.createError') : null, 'set-create')
   const capKind = sessionCap?.kind

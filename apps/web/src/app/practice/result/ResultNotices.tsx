@@ -1,9 +1,9 @@
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import type { ReactElement } from 'react'
 import type { ResultRetryStatusCode } from '@app/practice/hooks/usePracticeResultController'
-import { Button } from '@nihongo/browser/common/components/Button'
+import { useLatest } from '@nihongo/browser/common/hooks/useLatest'
 import { useToast } from '@nihongo/browser/common/components/Toast'
 import { EmptyState } from '@nihongo/browser/common/components/EmptyState'
 import { useErrorToast } from '@common/hooks/useErrorToast'
@@ -24,8 +24,7 @@ export const ResultSourceNotice = ({
   const { t } = useTranslation('result')
   const { t: commonT } = useTranslation('common')
   const { addToast, dismissToast } = useToast()
-  const retryRef = useRef(onRetry)
-  retryRef.current = onRetry
+  const retryRef = useLatest(onRetry)
   useEffect(() => {
     if (!isError) return
     const id = addToast({
@@ -39,7 +38,7 @@ export const ResultSourceNotice = ({
       }
     })
     return () => dismissToast(id)
-  }, [isError, addToast, dismissToast, t, commonT])
+  }, [retryRef, isError, addToast, dismissToast, t, commonT])
   return null
 }
 
