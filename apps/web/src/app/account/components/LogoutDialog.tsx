@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement, RefObject } from 'react'
 import { useLogoutUser } from '@app/account/hooks/useLogoutUser'
@@ -21,6 +21,16 @@ export const LogoutDialog = ({
   const { t } = useTranslation('auth')
   const logout = useLogoutUser()
   const cancel = useRef<HTMLButtonElement>(null)
+  // #1292: a failure closes the dialog; the toast says it, and [로그아웃]
+  // on the page opens it again. After an unknown result that press first
+  // asks the server whether the session already ended.
+  const closeRef = useRef(onOpenChange)
+  useEffect(() => {
+    closeRef.current = onOpenChange
+  }, [onOpenChange])
+  useEffect(() => {
+    if (logout.failureCount > 0) closeRef.current(false)
+  }, [closeRef, logout.failureCount])
   return (
     <Dialog
       size="sm"
@@ -47,13 +57,12 @@ export const LogoutDialog = ({
               logout.isError ? logout.recheck() : logout.mutate()
             }
           >
-            {t(logout.isError ? 'sso.recheck' : 'sso.logoutAction')}
+            {t('sso.logoutAction')}
           </Button>
         </>
       }
     >
       {logout.isPending ? <p role="status">{t('sso.loggingOut')}</p> : null}
-      {logout.isError ? <p role="alert">{t('sso.logoutUnknown')}</p> : null}
     </Dialog>
   )
 }

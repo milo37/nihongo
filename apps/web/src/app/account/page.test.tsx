@@ -1087,35 +1087,56 @@ describe('마이페이지 계정 설정', () => {
     expect(queryClient.getQueryData(['bookmarks', 'private'])).toBeUndefined()
   })
 
-  it('불명확한 로그아웃은 명령을 반복하지 않고 canonical 상태부터 다시 확인한다', async () => {
+  it('불명확한 로그아웃은 창을 닫고 토스트로 알리고, 다시 누르면 상태부터 확인한 뒤 로그아웃한다 (#1292)', async () => {
     mockDatabase.loginAs('USER')
     let signouts = 0
+    let failSignOut = true
+    const calls: string[] = []
     mockServer.use(
+      http.get('*/api/v1/me', () => {
+        calls.push('check')
+        return undefined
+      }),
       http.post('*/api/auth/sign-out', () => {
         signouts += 1
+        calls.push('sign-out')
+        if (!failSignOut) return undefined
         return HttpResponse.json(
           { code: 'SERVER_ERROR', message: 'private error' },
           { status: 500 }
         )
       })
     )
-    renderAccount()
+    const router = renderAccount()
     const user = userEvent.setup()
-    await user.click(await screen.findByRole('button', { name: '로그아웃' }))
+    const pageButton = await screen.findByRole('button', { name: '로그아웃' })
+    await user.click(pageButton)
     const dialog = await screen.findByRole('dialog')
     await user.click(within(dialog).getByRole('button', { name: '로그아웃' }))
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
-      '로그아웃됐는지 확인하지 못했어요.'
-    )
-    expect(signouts).toBe(1)
-    await user.click(within(dialog).getByRole('button', { name: '다시 확인' }))
+    const region = await screen.findByRole('region', { name: '알림' })
+    expect(
+      await within(region).findByText(
+        '로그아웃됐는지 확인하지 못했어요. 새로고침해 주세요.'
+      )
+    ).toBeVisible()
     await waitFor(() =>
-      expect(
-        within(dialog).getByRole('button', { name: '로그아웃' })
-      ).toBeEnabled()
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     )
-    expect(mockDatabase.getCurrentUser()?.id).toBe(DEMO_USER_ID)
+    expect(within(region).queryByRole('button')).not.toHaveTextContent(
+      '다시 시도'
+    )
     expect(signouts).toBe(1)
+    expect(mockDatabase.getCurrentUser()?.id).toBe(DEMO_USER_ID)
+
+    // The next press asks the server first; still signed in, so it logs out.
+    failSignOut = false
+    calls.length = 0
+    await user.click(screen.getByRole('button', { name: '로그아웃' }))
+    const reopened = await screen.findByRole('dialog')
+    await user.click(within(reopened).getByRole('button', { name: '로그아웃' }))
+    await waitFor(() => expect(router.state.location.pathname).toBe('/'))
+    expect(calls.indexOf('check')).toBeLessThan(calls.indexOf('sign-out'))
+    expect(signouts).toBe(2)
   })
 
   it('요청 extra field와 공급자 URL 불일치를 거부한다', async () => {

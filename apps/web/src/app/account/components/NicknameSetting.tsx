@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
-import { useToast } from '@nihongo/browser/common/components/Toast'
+import {
+  useErrorToast,
+  useToast
+} from '@nihongo/browser/common/components/Toast'
 import { Avatar } from '@app/account/components/Avatar'
 import { useUpdateNickname } from '@app/account/hooks/useUpdateNickname'
 import {
@@ -47,6 +50,11 @@ export const NicknameSetting = ({ name }: { name: string }): ReactElement => {
     },
     onInvalid: () => setInvalid(true)
   })
+  // #1292: what was typed stays; the toast says the save failed.
+  useErrorToast(
+    save.isError && !invalid ? accountT('targetLevel.error') : null,
+    'nickname'
+  )
   const close = (): void => {
     setDraft(null)
     setInvalid(false)
@@ -101,11 +109,6 @@ export const NicknameSetting = ({ name }: { name: string }): ReactElement => {
               if (save.isError) save.reset()
             }}
           />
-          {save.isError && !invalid ? (
-            <p className="nickname-error" role="alert">
-              {accountT('targetLevel.error')}
-            </p>
-          ) : null}
           <div className="nickname-actions">
             <Button type="submit" variant="outline" isLoading={save.isPending}>
               {accountT('targetLevel.saveAction')}
