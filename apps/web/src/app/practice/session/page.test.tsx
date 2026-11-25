@@ -460,6 +460,83 @@ describe('PracticeSessionPage', () => {
     10_000
   )
 
+  it('a press that loses the save to another tab says so in a toast (#1290)', async () => {
+    // Another tab saved first, so this tab's save before submitting gets 409.
+    await loginAsUser()
+    const user = userEvent.setup()
+    const response = await createStudySessionV2({
+      level: 'N5',
+      subject: 'VOCABULARY',
+      mode: 'RANDOM',
+      count: 1
+    })
+    const payload = toCanonicalStudySessionView(response.data)
+    const [first, second] = payload.questions[0]?.options ?? []
+    if (!first || !second) throw new Error('Public options required')
+    const initial = (await getStudyDraftAnswers(payload.session.id)).data
+    useAppStore
+      .getState()
+      .beginPractice(payload.session.id, payload.session.startedAt)
+    const router = renderSession(payload.session.id)
+    const radio = await screen.findByRole('radio', {
+      name: `1. ${first.text}`
+    })
+    await waitFor(() => expect(radio).toBeEnabled())
+    const remote = {
+      ...initial,
+      answers: initial.answers.map((answer) => ({
+        ...answer,
+        selectedOptionId: second.id
+      })),
+      revision: initial.revision + 1,
+      savedAt: new Date().toISOString()
+    }
+    let submissions = 0
+    mockServer.use(
+      http.put('*/api/v1/study-sessions/:sessionId/draft-answers', () =>
+        HttpResponse.json(
+          { code: 'DRAFT_VERSION_CONFLICT', message: 'synthetic conflict' },
+          { status: 409 }
+        )
+      ),
+      http.get('*/api/v1/study-sessions/:sessionId/draft-answers', () =>
+        HttpResponse.json(remote, {
+          headers: {
+            'Cache-Control': 'private, no-store',
+            'X-Nihongo-Practice-Contract': '2'
+          }
+        })
+      ),
+      http.post('*/api/v1/study-sessions/:sessionId/submission', () => {
+        submissions += 1
+        return HttpResponse.json({}, { status: 500 })
+      })
+    )
+    await user.click(radio)
+    await user.click(screen.getByRole('button', { name: '제출하기' }))
+    const region = await screen.findByRole(
+      'region',
+      { name: '알림' },
+      { timeout: 8000 }
+    )
+    // One toast; nothing was sent and the other tab's answer is shown.
+    expect(
+      await within(region).findByText(
+        '다른 곳에서 푼 답을 불러왔어요. 답을 확인해 주세요.',
+        {},
+        { timeout: 8000 }
+      )
+    ).toBeVisible()
+    expect(region.querySelectorAll('article')).toHaveLength(1)
+    expect(submissions).toBe(0)
+    expect(router.state.location.pathname).toBe(
+      `/practice/session/${payload.session.id}`
+    )
+    expect(
+      screen.getByRole('radio', { name: `2. ${second.text}` })
+    ).toBeChecked()
+  }, 15_000)
+
   it('저장 중과 실패·재시도를 분리하며 답안과 서버 저장 완료 의미를 유지한다', async () => {
     // Server drafts are members only (guests keep answers locally).
     await loginAsUser()

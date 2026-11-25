@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { unregisterMockServiceWorker } from '@nihongo/browser/api/mockServiceWorker'
 import { isMockApiMode } from '@nihongo/browser/libs/apiMode'
+import { clearRetiredSubmissionAttempts } from '@nihongo/browser/libs/storage'
 import {
   frontendErrorReporter,
   installGlobalFrontendErrorReporting
@@ -24,6 +25,7 @@ if (!rootElement) {
 }
 
 const startApplication = async (): Promise<void> => {
+  clearRetiredSubmissionAttempts()
   if (__NIHONGO_PRODUCTION_BUILD__ || !isMockApiMode) {
     await unregisterMockServiceWorker()
   } else {

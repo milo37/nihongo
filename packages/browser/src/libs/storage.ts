@@ -267,6 +267,26 @@ export const cachedSessionStorage: SyncStateStorage = {
   }
 }
 
+// #1290: builds up to dev 782bddae kept a submitted body (answers included)
+// under this prefix. Nothing reads it any more, so the app drops it on start.
+const RETIRED_SUBMISSION_ATTEMPT_PREFIX = 'harumaru:study-submission-attempt:'
+
+export const clearRetiredSubmissionAttempts = (): void => {
+  for (const storage of [getSessionStorage(), getLocalStorage()]) {
+    if (!storage) continue
+    try {
+      const retired = Array.from({ length: storage.length }, (_, index) =>
+        storage.key(index)
+      ).filter((key): key is string =>
+        Boolean(key?.startsWith(RETIRED_SUBMISSION_ATTEMPT_PREFIX))
+      )
+      retired.forEach((key) => storage.removeItem(key))
+    } catch {
+      // Storage that cannot be read holds nothing to clear.
+    }
+  }
+}
+
 const serializeEnvelope = (
   state: Record<string, unknown>,
   version: number | undefined
