@@ -216,6 +216,15 @@
   }
   .two-step-notice {
     margin-top: 1rem;
+    font-size: var(--text-sm);
+    line-height: var(--text-sm--line-height);
+    font-weight: var(--font-weight-semibold);
+  }
+  .two-step-notice-error {
+    color: var(--color-red-700);
+  }
+  .two-step-notice-muted {
+    color: rgb(var(--color-muted));
   }
   .two-step-step {
     display: flex;

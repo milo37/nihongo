@@ -28,6 +28,9 @@ export const AccountSettings = (): ReactElement => {
   const { caps } = flow
   const deleteReasonId = headingId + '-delete-reason'
   const controlsDisabled = flow.busy || flow.uncertain
+  // #1292: without the sign-in methods deletion cannot run either, so its
+  // row hides with the sign-in row until the toast's retry loads them.
+  const methodsFailed = !flow.capabilities.isPending && !caps
   return (
     <section
       className="account-section account-settings"
@@ -61,36 +64,38 @@ export const AccountSettings = (): ReactElement => {
           <p className="account-strong">{authT('sso.logoutAction')}</p>
           <p className="account-muted">{t('settings.logoutDescription')}</p>
         </SettingRow>
-        <SettingRow
-          action={
-            <Button
-              className={ROW_BUTTON_CLASS}
-              variant="danger-outline"
-              disabled={controlsDisabled || !caps?.canDelete}
-              aria-describedby={
-                caps && !caps.canDelete ? deleteReasonId : undefined
-              }
-              onClick={(event) => {
-                trigger.current = event.currentTarget
-                flow.request({ kind: 'delete' })
-              }}
-            >
-              {t('danger.action')}
-            </Button>
-          }
-        >
-          <p className="account-danger-title">{t('danger.title')}</p>
-          <p className="account-danger-text">{t('danger.description')}</p>
-          {caps && !caps.canDelete ? (
-            <p id={deleteReasonId} className="account-delete-reason">
-              {authT(
-                caps.deletionBlockedReason === 'LAST_ACTIVE_ADMIN'
-                  ? 'sso.lastAdminDeletionBlocked'
-                  : 'sso.openAdminWork'
-              )}
-            </p>
-          ) : null}
-        </SettingRow>
+        {methodsFailed ? null : (
+          <SettingRow
+            action={
+              <Button
+                className={ROW_BUTTON_CLASS}
+                variant="danger-outline"
+                disabled={controlsDisabled || !caps?.canDelete}
+                aria-describedby={
+                  caps && !caps.canDelete ? deleteReasonId : undefined
+                }
+                onClick={(event) => {
+                  trigger.current = event.currentTarget
+                  flow.request({ kind: 'delete' })
+                }}
+              >
+                {t('danger.action')}
+              </Button>
+            }
+          >
+            <p className="account-danger-title">{t('danger.title')}</p>
+            <p className="account-danger-text">{t('danger.description')}</p>
+            {caps && !caps.canDelete ? (
+              <p id={deleteReasonId} className="account-delete-reason">
+                {authT(
+                  caps.deletionBlockedReason === 'LAST_ACTIVE_ADMIN'
+                    ? 'sso.lastAdminDeletionBlocked'
+                    : 'sso.openAdminWork'
+                )}
+              </p>
+            ) : null}
+          </SettingRow>
+        )}
       </div>
       {flow.feedback && flow.dialog === null ? (
         <p

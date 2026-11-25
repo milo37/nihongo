@@ -146,7 +146,7 @@ describe('#1085 가입 확인', () => {
     await user.click(screen.getByRole('button', { name: '가입하기' }))
     // #1292: a toast, not a line; the button stays pressable.
     const region = await screen.findByRole('region', { name: '알림' })
-    expect(within(region).getByText('필수 항목을 확인해 주세요')).toBeVisible()
+    expect(within(region).getByText('필수 항목을 확인해 주세요.')).toBeVisible()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '가입하기' })).toBeEnabled()
     expect(terms).toHaveFocus()
@@ -175,7 +175,7 @@ describe('#1085 가입 확인', () => {
     expect(nickname).toHaveAccessibleDescription(
       '닉네임을 2자 이상 입력해 주세요'
     )
-    expect(screen.getByText('필수 항목을 확인해 주세요')).toBeInTheDocument()
+    expect(screen.getByText('필수 항목을 확인해 주세요.')).toBeInTheDocument()
     expect(nickname).toHaveFocus()
     expect(posts).toBe(0)
     await user.type(nickname, '모')

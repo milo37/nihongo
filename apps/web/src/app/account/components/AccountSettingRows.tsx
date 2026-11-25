@@ -33,7 +33,7 @@ export const SignInMethodRow = ({
   // #1292: a failed read hides the row; the toast carries the retry.
   const isLoadFailed = !flow.capabilities.isPending && !caps
   useRetryToast(
-    isLoadFailed ? authT('sso.actionFailed') : null,
+    isLoadFailed ? authT('sso.methodsLoadFailed') : null,
     'sign-in-method',
     () => void flow.capabilities.refetch()
   )

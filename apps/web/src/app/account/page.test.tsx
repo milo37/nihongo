@@ -560,7 +560,7 @@ describe('마이페이지 계정 설정', () => {
     expect(screen.getByRole('button', { name: '바꾸기' })).toHaveFocus()
   })
 
-  it('로그인 방법을 못 불러오면 행을 숨기고 [다시 시도] 토스트로 알린다 (#1292)', async () => {
+  it('로그인 방법을 못 불러오면 그 행과 회원 탈퇴 행을 숨기고 [다시 시도] 토스트로 알린다 (#1292)', async () => {
     mockDatabase.loginAs('USER')
     let failing = true
     mockServer.use(
@@ -577,13 +577,17 @@ describe('마이페이지 계정 설정', () => {
     renderAccount()
     const region = await screen.findByRole('region', { name: '알림' })
     expect(
-      await within(region).findByText('처리하지 못했어요. 다시 시도해 주세요.')
+      await within(region).findByText('로그인 방법을 불러오지 못했어요.')
     ).toBeVisible()
     expect(screen.queryByText('로그인 방법')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: '회원 탈퇴' })
+    ).not.toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     failing = false
     await user.click(within(region).getByRole('button', { name: '다시 시도' }))
     expect(await screen.findByText('Google')).toBeVisible()
+    expect(screen.getByRole('button', { name: '회원 탈퇴' })).toBeEnabled()
   })
 
   it('Google 로그인 상태를 보여 주고 해제 버튼과 안내는 두지 않는다 (C2)', async () => {
@@ -971,12 +975,18 @@ describe('마이페이지 계정 설정', () => {
     const reads = deletionReads()
     const user = userEvent.setup()
     const posts = vi.spyOn(apiClient, 'post')
+    // #1292: the line sits below the fold at ② on a phone.
+    const original = Element.prototype.scrollIntoView
+    const scroll = vi.fn()
+    Element.prototype.scrollIntoView = scroll
     renderAccount()
     const dialog = await openDeleteDialog(user)
     await user.click(within(dialog).getByRole('button', { name: '회원 탈퇴' }))
     await waitFor(() => expect(finish).toBeDefined())
     await act(async () => finish?.())
-    await within(dialog).findByRole('alert')
+    const line = await within(dialog).findByRole('alert')
+    expect(line).toHaveClass('two-step-notice-error')
+    expect(scroll.mock.contexts).toContain(line)
     expect(
       within(dialog).queryByRole('button', { name: '회원 탈퇴' })
     ).not.toBeInTheDocument()
@@ -984,6 +994,7 @@ describe('마이페이지 계정 설정', () => {
     await waitFor(() => expect(reads()).toBe(1))
     expect(countPosts(posts, '/auth/sso/delete-account')).toBe(1)
     expect(mockDatabase.getCurrentUser()).not.toBeNull()
+    Element.prototype.scrollIntoView = original
   })
   it('복귀 query만으로 fresh를 부여하거나 mutation하지 않고 /account로 넘긴 뒤 주소를 정리한다', async () => {
     mockDatabase.loginAs('USER')
@@ -1041,7 +1052,7 @@ describe('마이페이지 계정 설정', () => {
       'alert'
     ]
   ] as const)(
-    '%s 복귀는 같은 대화상자의 ① 단계에 그 결과를 보여 준다(실패·만료는 빨간 상자, 취소는 중립 상자)',
+    '%s 복귀는 같은 대화상자의 ① 단계에 그 결과를 보여 준다(창 안 한 줄: 실패·만료는 빨강, 취소는 회색)',
     async (outcome, copy, role) => {
       mockDatabase.loginAs('USER')
       renderAccount('/login?reauth=delete&ssoAccountFresh=' + outcome)
@@ -1051,9 +1062,9 @@ describe('마이페이지 계정 설정', () => {
       expect(dialog).toHaveTextContent(copy)
       const box = within(dialog).getByText(copy)
       expect(box).toHaveAttribute('role', role)
-      expect(box).toHaveClass('auth-notice')
-      if (role === 'alert') expect(box).toHaveClass('auth-error')
-      else expect(box).not.toHaveClass('auth-error')
+      expect(box).toHaveClass(
+        role === 'alert' ? 'two-step-notice-error' : 'two-step-notice-muted'
+      )
       expect(
         within(dialog).queryByRole('button', { name: '회원 탈퇴' })
       ).not.toBeInTheDocument()
@@ -1172,7 +1183,7 @@ describe('마이페이지 계정 설정', () => {
     const region = await screen.findByRole('region', { name: '알림' })
     expect(
       await within(region).findByText(
-        '로그아웃됐는지 확인하지 못했어요. 새로고침해 주세요.'
+        '로그아웃하지 못했어요. 다시 눌러 주세요.'
       )
     ).toBeVisible()
     await waitFor(() =>
