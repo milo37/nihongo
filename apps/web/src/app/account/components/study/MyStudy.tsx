@@ -9,7 +9,7 @@ import {
   SubjectRateList
 } from '@app/account/components/study/MyStudySections'
 import { RecentSessionList } from '@app/account/components/study/RecentSessionList'
-import { Button } from '@nihongo/browser/common/components/Button'
+import { useRetryToast } from '@nihongo/browser/common/components/Toast'
 import { getButtonClassName } from '@nihongo/browser/common/components/Button'
 import { resolveUiLocale } from '@nihongo/browser/i18n/types'
 
@@ -24,39 +24,36 @@ const Skeleton = (): ReactElement => (
 // "내 학습": one summary line, answered count and correct rate per subject,
 // then recent study. JLP-851: rates carry a tier colour, mark and bar.
 // JLP-853: everything counts only the given level (the target level).
-export const MyStudy = ({ level }: { level: JlptLevel }): ReactElement => {
+export const MyStudy = ({
+  level
+}: {
+  level: JlptLevel
+}): ReactElement | null => {
   const { t, i18n } = useTranslation('account')
   const locale = resolveUiLocale(i18n.resolvedLanguage)
   const headingId = useId()
   // Opening My page always shows a current read.
   const stats = useGetDashboardStats({ level, myPage: true })
   const data = stats.data
+  // #1292: a failed read hides the section; the toast carries the retry.
+  const isLoadFailed = !stats.isPending && !data
+  useRetryToast(isLoadFailed ? t('study.error') : null, 'my-study', () => {
+    void stats.refetch()
+  })
+  if (isLoadFailed) return null
   return (
     <section className="account-section my-study" aria-labelledby={headingId}>
       <h2 id={headingId} className="my-study-title">
         {t('study.title', { level })}
       </h2>
-      {stats.isPending ? (
+      {/* Without data here the read is still pending (a failure returned). */}
+      {!data ? (
         <>
           <p className="sr-only" role="status">
             {t('study.loading')}
           </p>
           <Skeleton />
         </>
-      ) : !data ? (
-        <div>
-          <p className="auth-notice auth-error my-study-error" role="alert">
-            {t('study.error')}
-          </p>
-          <Button
-            className="my-study-retry"
-            variant="outline"
-            disabled={stats.isFetching}
-            onClick={() => void stats.refetch()}
-          >
-            {t('study.retry')}
-          </Button>
-        </div>
       ) : data.totalAnsweredCount === 0 ? (
         <div>
           <span className="maru-empty" aria-hidden="true" />

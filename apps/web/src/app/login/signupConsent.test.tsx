@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import { QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
 import { createMemoryRouter, Outlet, RouterProvider } from 'react-router'
@@ -144,9 +144,11 @@ describe('#1085 가입 확인', () => {
       screen.getByRole('checkbox', { name: '만\u00a014세 이상이에요 (필수)' })
     )
     await user.click(screen.getByRole('button', { name: '가입하기' }))
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      '필수 항목을 확인해 주세요'
-    )
+    // #1292: a toast, not a line; the button stays pressable.
+    const region = await screen.findByRole('region', { name: '알림' })
+    expect(within(region).getByText('필수 항목을 확인해 주세요.')).toBeVisible()
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '가입하기' })).toBeEnabled()
     expect(terms).toHaveFocus()
     expect(posts).toBe(0)
   })
@@ -173,7 +175,7 @@ describe('#1085 가입 확인', () => {
     expect(nickname).toHaveAccessibleDescription(
       '닉네임을 2자 이상 입력해 주세요'
     )
-    expect(screen.getByText('필수 항목을 확인해 주세요')).toBeInTheDocument()
+    expect(screen.getByText('필수 항목을 확인해 주세요.')).toBeInTheDocument()
     expect(nickname).toHaveFocus()
     expect(posts).toBe(0)
     await user.type(nickname, '모')
