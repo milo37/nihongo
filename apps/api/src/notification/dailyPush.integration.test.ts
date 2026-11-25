@@ -30,12 +30,16 @@ const fixtureDatabase = fixtureDatabaseUrl
   : database
 const createdUserIds = new Set<string>()
 
-const createMember = async (dailyGoal: number | null): Promise<string> => {
+const createMember = async (
+  dailyGoal: number | null,
+  accountStatus: 'ACTIVE' | 'DELETION_PENDING' = 'ACTIVE'
+): Promise<string> => {
   const id = randomUUID()
   await fixtureDatabase.client.$transaction(async (fixture) => {
     await fixture.user.create({
       data: {
         id,
+        accountStatus,
         email: `push-${randomUUID()}@example.test`,
         emailVerified: true,
         name: 'Push member'
@@ -179,9 +183,10 @@ describe('daily web push on the database (#1046)', () => {
     expect(next).toMatchObject({ day: '2026-11-26', sent: 3 })
   })
 
-  it('says the goal at send time and skips members with no goal', async () => {
+  it('says the goal at send time and skips no goal and deletion pending', async () => {
     const withGoal = await createMember(10)
     const noGoal = await createMember(null)
+    const leaving = await createMember(20, 'DELETION_PENDING')
     const goalEndpoint = endpointOf('goal')
     await store.save({
       userId: withGoal,
@@ -192,6 +197,12 @@ describe('daily web push on the database (#1046)', () => {
     await store.save({
       userId: noGoal,
       endpoint: endpointOf('no-goal'),
+      ...keys,
+      locale: 'ko'
+    })
+    await store.save({
+      userId: leaving,
+      endpoint: endpointOf('leaving'),
       ...keys,
       locale: 'ko'
     })
@@ -211,6 +222,12 @@ describe('daily web push on the database (#1046)', () => {
     })
     expect(report).toMatchObject({ sent: 1, removed: 0, kept: 0 })
     expect([...payloads.keys()]).toEqual([goalEndpoint])
+    // The skipped ones are not marked, so they get it once they qualify.
+    expect(
+      (await rows())
+        .filter(({ lastSentDay }) => lastSentDay !== null)
+        .map(({ endpoint }) => endpoint)
+    ).toEqual([goalEndpoint])
     expect(JSON.parse(payloads.get(goalEndpoint) ?? '{}')).toEqual({
       kind: 'DAILY_GOAL',
       body: '今日の目標は50問。始めましょう',

@@ -43,15 +43,20 @@ const subscription = {
 const memberId = '11111111-1111-4111-8111-111111111111'
 
 const fixture = (
-  options: { limited?: boolean; env?: ApiEnvironment; guest?: boolean } = {}
+  options: {
+    limited?: boolean
+    env?: ApiEnvironment
+    guest?: boolean
+    expired?: boolean
+  } = {}
 ) => {
   const env = options.env ?? environment
   const principalService = {
     getAuthenticatedUser: vi.fn(),
     resolveAuthenticatedUser: vi.fn(async () => ({
-      clearSessionCookie: false,
+      clearSessionCookie: options.expired === true,
       headers: new Headers(),
-      user: options.guest ? null : { id: memberId }
+      user: options.guest || options.expired ? null : { id: memberId }
     }))
   } as unknown as PrincipalService
   const rateLimiter = {
@@ -135,6 +140,16 @@ describe('web push routes (#1046)', () => {
     const { app, store } = fixture({ guest: true })
     const response = await send(app, 'PUT', subscription)
     expect(response.status).toBe(401)
+    expect(store.save).not.toHaveBeenCalled()
+  })
+
+  it('refuses a subscription with an expired session', async () => {
+    const { app, store } = fixture({ expired: true })
+    const response = await send(app, 'PUT', subscription)
+    expect(response.status).toBe(401)
+    expect(await response.json()).toMatchObject({
+      code: 'AUTH_SESSION_EXPIRED'
+    })
     expect(store.save).not.toHaveBeenCalled()
   })
 

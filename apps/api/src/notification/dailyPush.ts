@@ -71,7 +71,8 @@ export const DAILY_PUSH_BATCH_SIZE = 500
 export const DAILY_PUSH_CONCURRENCY = 20
 
 /**
- * #1046: one push a day per subscription whose member has a daily goal; the
+ * #1046: one push a day per subscription whose member is active and has a
+ * daily goal; the
  * words carry that goal as it is at send time. Each batch is marked with today's
  * day before it is sent, so a second run the same day (or a run that died
  * halfway) never sends twice; a marked one that was not sent waits for
@@ -110,8 +111,11 @@ export const runDailyPush = async ({
           SELECT candidate."id" FROM "PushSubscription" AS candidate
           JOIN "UserStudyGoal" AS candidateGoal
             ON candidateGoal."userId" = candidate."userId"
+          JOIN "User" AS member ON member."id" = candidate."userId"
           WHERE candidate."lastSentDay" IS DISTINCT FROM ${day}::date
             AND candidateGoal."dailyGoal" IS NOT NULL
+            -- A member who asked to be deleted gets nothing (back on restore).
+            AND member."accountStatus" = 'ACTIVE'
           ORDER BY candidate."id"
           LIMIT ${batchSize}
           FOR UPDATE OF candidate SKIP LOCKED
