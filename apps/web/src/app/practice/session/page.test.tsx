@@ -461,7 +461,7 @@ describe('PracticeSessionPage', () => {
     ['ko', '다른 곳에서 푼 답을 불러왔어요. 답을 확인해 주세요.'],
     ['ja', '別の場所で解いた答えを読み込みました。答えを確認してください。']
   ] as const)(
-    'announces the applied server record after a 409 and clears it on the next answer (%s)',
+    'announces the applied server record after a 409 in a toast (%s)',
     async (locale, message) => {
       // Server drafts are members only (guests keep answers locally).
       await loginAsUser()
@@ -510,15 +510,12 @@ describe('PracticeSessionPage', () => {
       )
       await user.click(radio)
       const notice = await screen.findByText(message, {}, { timeout: 6000 })
-      expect(notice.closest('[role=status]')).toHaveAttribute(
-        'aria-live',
-        'polite'
-      )
+      // #1262: said once in a toast, not a line under the options.
+      expect(notice.closest('article')).not.toBeNull()
+      expect(document.querySelector('.study-inline-save')).toBeNull()
       expect(puts).toBe(1)
       expect(radio).not.toBeChecked()
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-      await user.click(radio)
-      expect(screen.queryByText(message)).not.toBeInTheDocument()
     },
     10_000
   )
@@ -568,41 +565,29 @@ describe('PracticeSessionPage', () => {
         { timeout: 4000 }
       )
       // Saving is quiet (direction §6-4).
-      expect(
-        document.querySelector('[data-save-state="saving"]')
-      ).not.toBeVisible()
       expect(screen.queryByText('저장하는 중…')).not.toBeInTheDocument()
-      expect(screen.queryByText('자동 저장됨')).not.toBeInTheDocument()
-      expect(document.querySelector('.study-save-toast')).toBeNull()
-      expect(
-        document.querySelector('[role="status"][data-save-state]')
-      ).toBeNull()
+      expect(screen.queryByRole('region', { name: '알림' })).toBeNull()
     } finally {
       finish?.()
     }
-    await screen.findByText('저장하지 못했어요', {}, { timeout: 4000 })
-    const retry = screen.getByRole('button', { name: '다시 저장' })
-    expect(retry).toHaveTextContent('다시 시도')
-    expect(retry.closest('[role="status"]')).toHaveAttribute(
-      'data-tone',
-      'danger'
+    // #1262: the failure is a toast that stays, with [다시 시도] in it.
+    const failure = await screen.findByText(
+      '저장하지 못했어요. 고른 답은 그대로 있어요. 다시 시도해 주세요.',
+      {},
+      { timeout: 4000 }
     )
-    expect(screen.queryByText('답안이 저장되었습니다.')).not.toBeInTheDocument()
+    const toast = failure.closest('article')
+    if (!(toast instanceof HTMLElement)) throw new Error('Toast required')
     expect(radio).toBeChecked()
-    await user.click(retry)
-    await waitFor(
-      () =>
-        expect(screen.queryByText('저장하지 못했어요')).not.toBeInTheDocument(),
-      { timeout: 6000 }
-    )
-    expect(screen.queryByText('자동 저장됨')).not.toBeInTheDocument()
-    expect(document.querySelector('.study-save-toast')).toBeNull()
+    await user.click(within(toast).getByRole('button', { name: '다시 시도' }))
     expect(
-      screen.queryByText(/^서버에 저장했어요. 마지막 저장/)
+      await screen.findByText('저장했어요.', {}, { timeout: 6000 })
+    ).toBeVisible()
+    expect(
+      screen.queryByText(
+        '저장하지 못했어요. 고른 답은 그대로 있어요. 다시 시도해 주세요.'
+      )
     ).not.toBeInTheDocument()
-    expect(
-      document.querySelector('[role="status"][data-save-state]')
-    ).toBeNull()
     expect(radio).toBeChecked()
     expect(
       (await getStudyDraftAnswers(payload.session.id)).data.answers[0]
@@ -645,8 +630,7 @@ describe('PracticeSessionPage', () => {
       expect(back).toHaveAttribute('href', '/practice')
       expect(back).toHaveTextContent(/^$/)
       expect(back.querySelectorAll('svg')).toHaveLength(1)
-      // Routine saving is quiet; only a failure shows a line (direction §6-4).
-      expect(document.querySelector('.study-inline-save')).toBeNull()
+      // Routine saving is quiet (direction §6-4).
       expect(screen.queryByText(savedLabel)).not.toBeInTheDocument()
       await user.click(firstRadio)
       await waitFor(
@@ -673,43 +657,22 @@ describe('PracticeSessionPage', () => {
         (await getStudyDraftAnswers(payload.session.id)).data.answers[0]
           ?.selectedOptionId
       ).toBe(second.id)
+      // #1262: offline is the one connection toast, never a line.
       act(() => useAppStore.getState().setDraftSaveState('offline'))
-      const statusRow = document.querySelector('.study-inline-save')
-      expect(statusRow).not.toBeNull()
       expect(
-        statusRow?.previousElementSibling?.querySelector('fieldset')
-      ).toContainElement(firstRadio)
-      expect(
-        screen.getByText(
+        await screen.findByText(
           locale === 'ko'
-            ? '연결 끊김 · 이 기기에만 저장 중'
-            : '接続なし · この端末にだけ保存中'
+            ? '인터넷 연결이 끊겼어요. 답은 이 기기에 보관했다가 연결되면 저장할게요.'
+            : 'インターネット接続が切れました。答えはこの端末に残しておき、つながったら保存します。'
         )
-      ).toBeInTheDocument()
-      expect(
-        document.querySelector('[role="status"][data-save-state]')
-      ).toBeNull()
-      expect(
-        within(statusRow as HTMLElement).getByRole('button')
-      ).toHaveTextContent(locale === 'ko' ? '다시 시도' : '再試行')
+      ).toBeVisible()
+      expect(document.querySelector('.study-inline-save')).toBeNull()
       expect(secondRadio).toHaveFocus()
       act(() => useAppStore.setState({ isDraftConflictPending: true }))
       expect(
         document.querySelector('[role="status"][data-save-state]')
-      ).toHaveAttribute('data-save-state', 'offline')
-      const detailedStatus = document.querySelector(
-        '[role="status"][data-save-state]'
-      )
-      expect(detailedStatus).toHaveTextContent(
-        locale === 'ko'
-          ? '인터넷 연결이 끊겼어요. 답은 이 기기에 보관했다가 연결되면 저장할게요.'
-          : 'インターネット接続が切れました。答えはこの端末に残しておき、つながったら保存します。'
-      )
-      expect(
-        within(detailedStatus as HTMLElement).getByRole('button')
-      ).toHaveTextContent(locale === 'ko' ? '다시 저장' : 'もう一度保存')
+      ).toBeNull()
       expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-      expect(document.querySelector('.study-inline-save')).toBeNull()
       expect(screen.queryByText(savedLabel)).not.toBeInTheDocument()
       expect(secondRadio).toBeDisabled()
     },
@@ -800,32 +763,61 @@ describe('PracticeSessionPage', () => {
     ).toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('책갈피 확인 실패는 경고 토스트 하나로 알리고 책갈피를 누르면 다시 확인한다 (#1262)', async () => {
+  it('책갈피 확인 실패는 토스트 한 번, 아이콘은 빈 채로 눌러 담을 수 있다 (#1262)', async () => {
     const user = userEvent.setup()
     await loginAsUser()
     const payload = await startSession(1)
-    const option = payload.questions[0]?.options[0]
-    if (!option) throw new Error('Public option required')
-    let lookups = 0
     mockServer.use(
-      http.get('*/api/v1/bookmarks', () => {
-        lookups += 1
-        return lookups === 1
-          ? HttpResponse.json({}, { status: 500 })
-          : undefined
-      })
+      http.get(
+        '*/api/v1/bookmarks',
+        () => HttpResponse.json({}, { status: 500 }),
+        { once: true }
+      )
     )
     renderSession(payload.session.id)
     const toasts = await screen.findByRole('region', { name: '알림' })
     expect(
       await within(toasts).findByText('책갈피를 확인하지 못했어요.')
     ).toBeVisible()
-    // No line above the question any more.
+    // No line or [다시 확인] above the question.
     expect(screen.queryByRole('button', { name: '다시 확인' })).toBeNull()
     const add = screen.getByRole('button', { name: '1번 문제를 책갈피에 담기' })
-    await user.click(add)
-    await waitFor(() => expect(lookups).toBe(2))
     expect(add).toHaveAttribute('aria-pressed', 'false')
+    await waitFor(() => expect(add).not.toHaveAttribute('aria-disabled'))
+    await user.click(add)
+    expect(await within(toasts).findByText('책갈피에 담았어요.')).toBeVisible()
+    expect(within(toasts).getAllByRole('article')).toHaveLength(1)
+  })
+
+  it('책갈피 담기 실패는 아이콘을 되돌리고 토스트로 알린다 (#1262)', async () => {
+    const user = userEvent.setup()
+    await loginAsUser()
+    const payload = await startSession(1)
+    mockServer.use(
+      http.put(
+        '*/api/v1/bookmarks/:questionId',
+        () => HttpResponse.json({}, { status: 500 }),
+        { once: true }
+      )
+    )
+    renderSession(payload.session.id)
+    const add = await screen.findByRole('button', {
+      name: '1번 문제를 책갈피에 담기'
+    })
+    await waitFor(() => expect(add).not.toHaveAttribute('aria-disabled'))
+    await user.click(add)
+    const toasts = await screen.findByRole('region', { name: '알림' })
+    expect(
+      await within(toasts).findByText(
+        '책갈피에 담지 못했어요. 다시 시도해 주세요.'
+      )
+    ).toBeVisible()
+    expect(
+      within(toasts).queryByRole('button', { name: '다시 시도' })
+    ).toBeNull()
+    expect(
+      screen.getByRole('button', { name: '1번 문제를 책갈피에 담기' })
+    ).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('이전·다음·바로가기 이동이 문제 번호, 진행 표시, 버튼 상태를 맞춘다', async () => {

@@ -48,7 +48,8 @@ export const StudyDraftSaveStatus = ({
         key: 'draft-save',
         title: t('session.draft.inline.reconciled'),
         variant: 'info',
-        persistent: false
+        persistent: false,
+        action: undefined
       })
     } else if (
       failedRef.current &&
@@ -59,7 +60,8 @@ export const StudyDraftSaveStatus = ({
         key: 'draft-save',
         title: t('session.draft.status.saved'),
         variant: 'success',
-        persistent: false
+        persistent: false,
+        action: undefined
       })
     }
   }, [status, addToast, t, commonT])

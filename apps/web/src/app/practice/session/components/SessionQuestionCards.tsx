@@ -27,9 +27,6 @@ export const CurrentQuestionCard = ({
   push: QuestionPush | undefined
   submitButtonRef: RefObject<HTMLButtonElement | null>
 }): ReactElement => {
-  const inlineSaveStatus = session.isInlineDraftStatus
-    ? session.draftController.status.code
-    : null
   return (
     <PracticeQuestionCard
       actions={
@@ -57,7 +54,7 @@ export const CurrentQuestionCard = ({
         // A guest's answers are not kept (F4), so no "saved" line.
         session.isV2Session && session.role !== 'GUEST' ? (
           <StudyDraftSaveStatus
-            status={inlineSaveStatus}
+            status={session.draftController.status.code}
             onRetry={session.retryDraftSave}
           />
         ) : null

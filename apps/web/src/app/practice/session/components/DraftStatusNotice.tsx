@@ -1,22 +1,20 @@
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
-import { Button } from '@nihongo/browser/common/components/Button'
 import { formatDateTime } from '@nihongo/browser/libs/localeFormatters'
 import { usePracticeNumberFormat } from '@app/practice/hooks/usePracticeNumberFormat'
 import type { PracticeSessionNoticesProps as Props } from '@app/practice/session/components/PracticeSessionNotices'
 
-/** Draft save status with conflict-check note and a retry when saving failed. */
+/** Draft status while the latest answers are checked (#1262: a failed or
+ offline save is a toast, StudyDraftSaveStatus). */
 export const DraftStatusNotice = ({
   draftController,
   hasUnresolvedConflictCheck,
-  isCompactDraftStatus,
-  onRetryDraftSave
+  isCompactDraftStatus
 }: Pick<
   Props,
   | 'draftController'
   | 'hasUnresolvedConflictCheck'
   | 'isCompactDraftStatus'
-  | 'onRetryDraftSave'
 >): ReactElement => {
   const { t } = useTranslation('practice')
   const { locale } = usePracticeNumberFormat()
@@ -45,17 +43,6 @@ export const DraftStatusNotice = ({
         <p className="study-draft-pending">
           {t('session.draft.conflictCheckPending')}
         </p>
-      ) : null}
-      {draftController.saveState === 'error' ||
-      draftController.saveState === 'offline' ? (
-        <Button
-          className="study-notice-action"
-          size="sm"
-          variant="secondary"
-          onClick={onRetryDraftSave}
-        >
-          {t('session.draft.retry')}
-        </Button>
       ) : null}
     </div>
   )

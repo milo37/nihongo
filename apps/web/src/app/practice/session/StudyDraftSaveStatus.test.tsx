@@ -1,80 +1,73 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { vi } from 'vitest'
 import { StudyDraftSaveStatus } from '@app/practice/session/StudyDraftSaveStatus'
 import type { PracticeDraftStatusCode } from '@app/practice/draft/practiceDraftModel'
+import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { writeUiLocalePreference } from '@nihongo/browser/libs/localeStorage'
 import { I18nProvider } from '@nihongo/browser/provider/I18nProvider'
 
-it.each(['ko', 'ja'] as const)(
-  'hides routine saving and shows only a failure line (%s)',
-  (locale) => {
-    writeUiLocalePreference(locale)
-    const retry = vi.fn()
-    const view = (status: PracticeDraftStatusCode | null) => (
-      <I18nProvider>
-        <StudyDraftSaveStatus status={status} onRetry={retry} />
-      </I18nProvider>
-    )
-    const { rerender, container } = render(view('synced'))
-    for (const status of ['synced', 'savedAt', 'dirty', 'saving'] as const) {
-      rerender(view(status))
-      const quiet = container.querySelector('[data-save-state]')
-      expect(quiet).toHaveAttribute('data-save-state', status)
-      expect(quiet).not.toBeVisible()
-      expect(quiet).toBeEmptyDOMElement()
-      expect(screen.queryByRole('status')).not.toBeInTheDocument()
-    }
-    const failure =
-      locale === 'ko'
-        ? ['저장하지 못했어요', '연결 끊김 · 이 기기에만 저장 중']
-        : ['保存できませんでした', '接続なし · この端末にだけ保存中']
-    for (const [index, status] of (['error', 'offline'] as const).entries()) {
-      rerender(view(status))
-      expect(screen.getByText(failure[index] ?? '')).toBeInTheDocument()
-      expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite')
-      expect(screen.getAllByRole('button')).toHaveLength(1)
-    }
-    rerender(view(null))
-    expect(screen.queryByRole('button')).not.toBeInTheDocument()
-    expect(screen.queryByRole('status')).not.toBeInTheDocument()
-  }
-)
-
-it('reuses keyboard retry without another success announcement or focus movement', async () => {
-  const user = userEvent.setup()
+// #1262: no line under the options; every save state that needs saying is
+// a toast.
+const setup = () => {
+  writeUiLocalePreference('ko')
   const retry = vi.fn()
-  render(
+  const view = (status: PracticeDraftStatusCode | null) => (
     <I18nProvider>
-      <button>Before</button>
-      <StudyDraftSaveStatus status="error" onRetry={retry} />
+      <ToastProvider>
+        <StudyDraftSaveStatus status={status} onRetry={retry} />
+      </ToastProvider>
     </I18nProvider>
   )
-  await user.tab()
-  expect(screen.getByRole('button', { name: 'Before' })).toHaveFocus()
-  await user.tab()
-  const action = screen.getByRole('button', { name: '다시 저장' })
-  expect(action).toHaveFocus()
-  expect(action).toHaveTextContent('다시 시도')
-  await user.keyboard('{Enter}')
-  expect(retry).toHaveBeenCalledOnce()
-  expect(action).toHaveFocus()
+  const { rerender } = render(view('synced'))
+  return {
+    retry,
+    show: (status: PracticeDraftStatusCode) => rerender(view(status))
+  }
+}
+const toasts = () => screen.queryByRole('region', { name: '알림' })
+
+it('keeps routine saving quiet', () => {
+  const { show } = setup()
+  for (const status of ['synced', 'savedAt', 'dirty', 'saving'] as const) {
+    show(status)
+    expect(toasts()).toBeNull()
+  }
 })
 
-it.each([
-  ['ko', '다른 곳에서 푼 답을 불러왔어요. 답을 확인해 주세요.'],
-  ['ja', '別の場所で解いた答えを読み込みました。答えを確認してください。']
-] as const)(
-  'announces the server-applied record without claiming the last answer was saved (%s)',
-  (locale, message) => {
-    writeUiLocalePreference(locale)
-    render(
-      <I18nProvider>
-        <StudyDraftSaveStatus status="reconciled" onRetry={vi.fn()} />
-      </I18nProvider>
+it('a failure stays as a toast with [다시 시도], and the next save says so', async () => {
+  const user = userEvent.setup()
+  const { retry, show } = setup()
+  show('error')
+  const region = await screen.findByRole('region', { name: '알림' })
+  expect(
+    within(region).getByText(
+      '저장하지 못했어요. 고른 답은 그대로 있어요. 다시 시도해 주세요.'
     )
-    expect(screen.getByRole('status')).toHaveTextContent(message)
-    expect(screen.getByRole('status')).toHaveAttribute('aria-live', 'polite')
-    expect(screen.queryByRole('button')).not.toBeInTheDocument()
-  }
-)
+  ).toBeVisible()
+  await user.click(within(region).getByRole('button', { name: '다시 시도' }))
+  expect(retry).toHaveBeenCalledTimes(1)
+  show('saving')
+  show('synced')
+  const after = await screen.findByRole('region', { name: '알림' })
+  expect(within(after).getByText('저장했어요.')).toBeVisible()
+  expect(within(after).getAllByRole('article')).toHaveLength(1)
+  expect(within(after).queryByRole('button', { name: '다시 시도' })).toBeNull()
+})
+
+it('offline is the connection toast; a merged copy is said once', async () => {
+  const { show } = setup()
+  show('offline')
+  const region = await screen.findByRole('region', { name: '알림' })
+  expect(
+    within(region).getByText(
+      '인터넷 연결이 끊겼어요. 답은 이 기기에 보관했다가 연결되면 저장할게요.'
+    )
+  ).toBeVisible()
+  show('reconciled')
+  expect(
+    await within(region).findByText(
+      '다른 곳에서 푼 답을 불러왔어요. 답을 확인해 주세요.'
+    )
+  ).toBeVisible()
+})

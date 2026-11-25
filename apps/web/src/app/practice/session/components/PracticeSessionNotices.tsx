@@ -121,12 +121,14 @@ export const PracticeSessionNotices = ({
       />
       <DraftActionToast code={draftActionMessage} />
 
-      {isV2Session && !isInlineDraftStatus ? (
+      {isV2Session &&
+      !isInlineDraftStatus &&
+      draftController.saveState !== 'error' &&
+      draftController.saveState !== 'offline' ? (
         <DraftStatusNotice
           draftController={draftController}
           hasUnresolvedConflictCheck={hasUnresolvedConflictCheck}
           isCompactDraftStatus={isCompactDraftStatus}
-          onRetryDraftSave={onRetryDraftSave}
         />
       ) : null}
 

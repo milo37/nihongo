@@ -393,58 +393,11 @@ label:has(input:checked) .study-option-text {
     font-weight: var(--font-weight-semibold);
     color: rgb(var(--color-info-strong));
   }
-  .study-draft-action {
-    margin-top: 1rem;
-    border-radius: var(--radius-lg);
-    border-style: solid;
-    border-width: var(--border-width-default);
-    padding-inline: 1rem;
-    padding-block: 0.75rem;
-    font-size: var(--text-sm);
-    line-height: 1.5rem;
-    font-weight: var(--font-weight-semibold);
-  }
-  .study-notice-warning {
-    margin-top: 1rem;
-    border-radius: var(--radius-lg);
-    border-style: solid;
-    border-width: var(--border-width-default);
-    border-color: rgb(var(--color-warning-line));
-    background-color: rgb(var(--color-warning-soft));
-    padding-inline: 1rem;
-    padding-block: 0.75rem;
-    font-size: var(--text-sm);
-    line-height: 1.5rem;
-    font-weight: var(--font-weight-semibold);
-    color: rgb(var(--color-warning-strong));
-  }
-  .study-notice-stale {
-    margin-top: 1rem;
-    border-radius: var(--radius-lg);
-    border-style: solid;
-    border-width: var(--border-width-default);
-    border-color: rgb(var(--color-danger-line));
-    background-color: rgb(var(--color-danger-soft));
-    padding: 1rem;
-    font-size: var(--text-sm);
-    line-height: var(--text-sm--line-height);
-    color: rgb(var(--color-danger-strong));
-  }
   .study-supply-note {
     margin-bottom: 1rem;
     font-size: 13px;
     line-height: 1.25rem;
     color: rgb(var(--color-muted));
-  }
-  .study-draft-action-error {
-    border-color: rgb(var(--color-danger-line));
-    background-color: rgb(var(--color-danger-soft));
-    color: rgb(var(--color-danger-strong));
-  }
-  .study-draft-action-info {
-    border-color: rgb(var(--color-info-line));
-    background-color: rgb(var(--color-info-soft));
-    color: rgb(var(--color-info-strong));
   }
   .study-notice-title {
     font-weight: var(--font-weight-semibold);
@@ -489,20 +442,6 @@ label:has(input:checked) .study-option-text {
     border-width: 0;
   }
   /* Bookmark button and its messages. */
-  .study-bookmark-error {
-    margin-top: 0.75rem;
-    font-size: var(--text-sm);
-    line-height: var(--text-sm--line-height);
-    font-weight: var(--font-weight-semibold);
-    color: rgb(var(--color-danger));
-  }
-  .study-bookmark-warning {
-    margin-top: 0.75rem;
-    font-size: var(--text-sm);
-    line-height: var(--text-sm--line-height);
-    font-weight: var(--font-weight-semibold);
-    color: rgb(var(--color-warning));
-  }
   .study-bookmark-button {
     display: inline-flex;
     width: 2.75rem;
