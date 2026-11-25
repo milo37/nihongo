@@ -49,11 +49,6 @@ export const ResumableRecord = ({
             formattedOrdinal: formatNumber(item.currentOrdinal ?? 1, locale)
           })}
         </p>
-        {item.resumeAvailability === 'LEGACY_LOCAL_ONLY' && !canResume ? (
-          <p className="practice-resume-warning">
-            {t('setup.resume.legacyUnavailable')}
-          </p>
-        ) : null}
       </div>
       <div className="practice-resume-actions">
         {canResume ? (

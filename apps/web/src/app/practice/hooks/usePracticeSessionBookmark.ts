@@ -47,9 +47,7 @@ export const usePracticeSessionBookmark = ({
   const deleteBookmark = useDeleteBookmark()
   const mutationActivity = useBookmarkMutationActivity()
   const bookmarkQuestionIds =
-    sessionData?.session.practiceContractVersion === 2
-      ? sessionData.questions.map((question) => question.id).toSorted()
-      : []
+    sessionData?.questions.map((question) => question.id).toSorted() ?? []
   const bookmarksQuery = useListBookmarks(
     {
       page: 1,

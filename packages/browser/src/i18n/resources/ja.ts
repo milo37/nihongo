@@ -581,8 +581,6 @@ export const jaCoreResources = {
         stale: '一覧を更新できませんでした。最後に読み込んだ一覧です。',
         error: '解きかけの問題の一覧を読み込めませんでした。',
         summary: '{{formattedCount}}問中{{formattedOrdinal}}問目まで',
-        legacyUnavailable:
-          'この学習はもう続けられません。新しく始めてください。',
         action: '続きから解く',
         cancel: 'やめる'
       },
@@ -776,7 +774,6 @@ export const jaCoreResources = {
       bookmark: {
         addLabel: '{{ordinal}}番の問題をブックマークに入れる',
         removeLabel: '{{ordinal}}番の問題をブックマークから外す',
-        legacyReadOnly: 'この学習ではブックマークを変えられません。',
         removed: 'ブックマークから外しました。',
         removeRollback: 'ブックマークから外せませんでした。',
         saved: 'ブックマークに入れました。',
