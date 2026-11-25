@@ -21,8 +21,7 @@ const session = (mode: Mode): StudySessionView['session'] => ({
   startedAt: '2026-11-12T09:00:00.000Z',
   expiresAt: null,
   submittedAt: '2026-11-12T09:05:00.000Z',
-  durationSec: 300,
-  practiceContractVersion: 2
+  durationSec: 300
 })
 
 const renderWith = (element: ReactElement, client = new QueryClient()) =>
