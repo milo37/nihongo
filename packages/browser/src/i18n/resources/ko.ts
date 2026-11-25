@@ -421,7 +421,7 @@ export const koCoreResources = {
     studyGoal: {
       // #1046 v2: three questions read top to bottom, one-line title.
       title: '하루에 조금씩, 같이 해 봐요',
-      hint: '언제든 마이에서 바꿀 수 있어요',
+      hint: '언제든 마이페이지에서 바꿀 수 있어요',
       level: '어느 급수를 준비해요?',
       daily: '하루에 몇 문제 풀까요?',
       push: '아침 8시에 알려 드릴까요?',
