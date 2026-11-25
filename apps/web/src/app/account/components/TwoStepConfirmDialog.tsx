@@ -16,7 +16,7 @@ export { DELETE_PARAGRAPHS } from '@app/account/components/TwoStepConfirmSection
 
 type TwoStepConfirmDialogProps = {
   flow: SsoAccountFlow
-  returnFocusRef: RefObject<HTMLElement | null>
+  returnFocusRef?: RefObject<HTMLElement | null>
   fallbackFocusRef: RefObject<HTMLElement | null>
 }
 
