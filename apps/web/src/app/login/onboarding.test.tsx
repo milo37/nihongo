@@ -336,6 +336,26 @@ describe('#1046 아침 8시 알림 스위치', () => {
     expect(screen.queryByRole('switch')).not.toBeInTheDocument()
   })
 
+  it('서버에 알림이 없으면(설정 읽기 404) 스위치도 오류 토스트도 없다', async () => {
+    newMember()
+    fakePush()
+    mockServer.use(
+      http.get('*/api/v1/push/config', () =>
+        HttpResponse.json(
+          { code: 'NOT_FOUND', message: '없음' },
+          { status: 404 }
+        )
+      )
+    )
+    renderAt('/onboarding?redirect=%2F')
+    await screen.findByRole('spinbutton', { name: '하루에 몇 문제 풀까요?' })
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('region', { name: '알림' })
+    ).not.toBeInTheDocument()
+  })
+
   it('켜면 권한을 묻고, [시작하기]가 목표와 함께 이 기기를 구독한다', async () => {
     newMember()
     const push = fakePush()

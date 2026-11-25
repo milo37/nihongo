@@ -22,7 +22,9 @@ export const useGoalPush = () => {
     queryKey: ['push', 'config'] as const,
     queryFn: getPushConfig,
     staleTime: Infinity,
-    retry: false
+    retry: false,
+    // A failed read only hides the switch; there is nothing to tell.
+    meta: { localErrorUi: true }
   })
   const [device, setDevice] = useState<DevicePushState | null>(null)
   const [wanted, setWanted] = useState<boolean | null>(null)
