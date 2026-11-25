@@ -800,6 +800,34 @@ describe('PracticeSessionPage', () => {
     ).toHaveAttribute('aria-pressed', 'false')
   })
 
+  it('책갈피 확인 실패는 경고 토스트 하나로 알리고 책갈피를 누르면 다시 확인한다 (#1262)', async () => {
+    const user = userEvent.setup()
+    await loginAsUser()
+    const payload = await startSession(1)
+    const option = payload.questions[0]?.options[0]
+    if (!option) throw new Error('Public option required')
+    let lookups = 0
+    mockServer.use(
+      http.get('*/api/v1/bookmarks', () => {
+        lookups += 1
+        return lookups === 1
+          ? HttpResponse.json({}, { status: 500 })
+          : undefined
+      })
+    )
+    renderSession(payload.session.id)
+    const toasts = await screen.findByRole('region', { name: '알림' })
+    expect(
+      await within(toasts).findByText('책갈피를 확인하지 못했어요.')
+    ).toBeVisible()
+    // No line above the question any more.
+    expect(screen.queryByRole('button', { name: '다시 확인' })).toBeNull()
+    const add = screen.getByRole('button', { name: '1번 문제를 책갈피에 담기' })
+    await user.click(add)
+    await waitFor(() => expect(lookups).toBe(2))
+    expect(add).toHaveAttribute('aria-pressed', 'false')
+  })
+
   it('이전·다음·바로가기 이동이 문제 번호, 진행 표시, 버튼 상태를 맞춘다', async () => {
     const user = userEvent.setup()
     const payload = await startSession(3)

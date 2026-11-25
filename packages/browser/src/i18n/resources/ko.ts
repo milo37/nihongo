@@ -749,8 +749,7 @@ export const koCoreResources = {
         offlineQueued: '인터넷 연결이 끊겼어요. 연결되면 책갈피에 반영할게요.',
         statusLoadOffline:
           '인터넷 연결이 끊겨 책갈피를 확인할 수 없어요. 연결되면 다시 확인할게요.',
-        statusLoadFailed: '책갈피를 확인하지 못했어요.',
-        retryStatus: '다시 확인'
+        statusLoadFailed: '책갈피를 확인하지 못했어요.'
       },
       navigation: {
         previous: '이전',

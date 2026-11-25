@@ -1,6 +1,5 @@
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
-import { Button } from '@nihongo/browser/common/components/Button'
 import { Icon } from '@nihongo/browser/common/components/Icon'
 import type { PracticeSessionBookmark } from '@app/practice/hooks/usePracticeSessionBookmark'
 import { usePracticeNumberFormat } from '@app/practice/hooks/usePracticeNumberFormat'
@@ -74,16 +73,6 @@ export const PracticeQuestionBookmarkStatus = ({
         <p className="study-bookmark-warning" role="status">
           {t('session.bookmark.statusLoadOffline')}
         </p>
-      ) : role !== 'GUEST' && bookmarksQuery.isError ? (
-        <div className="study-bookmark-load-error" role="alert">
-          <span>{t('session.bookmark.statusLoadFailed')}</span>
-          <Button
-            variant="outline"
-            onClick={() => void bookmarksQuery.refetch()}
-          >
-            {t('session.bookmark.retryStatus')}
-          </Button>
-        </div>
       ) : null}
     </>
   )

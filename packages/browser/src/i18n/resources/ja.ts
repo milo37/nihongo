@@ -783,8 +783,7 @@ export const jaCoreResources = {
           'インターネット接続が切れました。つながったらブックマークに反映します。',
         statusLoadOffline:
           'インターネット接続が切れたため、ブックマークを確認できません。つながったらもう一度確認します。',
-        statusLoadFailed: 'ブックマークを確認できませんでした。',
-        retryStatus: '再確認'
+        statusLoadFailed: 'ブックマークを確認できませんでした。'
       },
       navigation: {
         previous: '前へ',

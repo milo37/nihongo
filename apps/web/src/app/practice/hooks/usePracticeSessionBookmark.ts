@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useToast } from '@nihongo/browser/common/components/Toast'
 import { useGuestAction } from '@app/login/hooks/useGuestAction'
@@ -66,17 +66,29 @@ export const usePracticeSessionBookmark = ({
       )
     )
   const hasPendingMutation = mutationActivity.pendingQuestionIds.size > 0
+  // #1262: a failed check is the shared warning toast, like other errors;
+  // pressing the bookmark checks again.
+  useEffect(() => {
+    if (bookmarksQuery.isError)
+      addToast({
+        key: 'api-error',
+        title: t('session.bookmark.statusLoadFailed'),
+        variant: 'warning'
+      })
+  }, [bookmarksQuery.isError, bookmarksQuery.errorUpdatedAt, addToast, t])
   const isQueryUnavailable =
     role !== 'GUEST' &&
-    (bookmarksQuery.isPending ||
-      bookmarksQuery.isError ||
-      bookmarksQuery.fetchStatus === 'paused')
+    (bookmarksQuery.isPending || bookmarksQuery.fetchStatus === 'paused')
 
   const toggle = (question: StudyQuestionView): void => {
     if (guestAction(authT('guestToast.bookmark'), { sessionNotKept: true })) {
       return
     }
     setMessage(null)
+    if (bookmarksQuery.isError) {
+      void bookmarksQuery.refetch()
+      return
+    }
     if (isBookmarked(question.id)) {
       deleteBookmark.mutate(question.id, {
         onSuccess: () => notifySuccess('removed'),
