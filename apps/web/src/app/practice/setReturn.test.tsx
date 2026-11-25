@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ToastProvider } from '@nihongo/browser/common/components/Toast'
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import type { ReactElement } from 'react'
@@ -28,7 +29,9 @@ const renderWith = (element: ReactElement, client = new QueryClient()) =>
   render(
     <QueryClientProvider client={client}>
       <I18nProvider>
-        <MemoryRouter>{element}</MemoryRouter>
+        <ToastProvider>
+          <MemoryRouter>{element}</MemoryRouter>
+        </ToastProvider>
       </I18nProvider>
     </QueryClientProvider>
   )

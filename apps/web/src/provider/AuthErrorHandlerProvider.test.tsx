@@ -14,12 +14,19 @@ import { AuthErrorHandlerProvider } from '@nihongo/browser/provider/AuthErrorHan
 import { mockDatabase } from '@mocks/repository/mockDatabase'
 import { useAppStore } from '@nihongo/browser/store/index'
 
-const renderProvider = (initialEntry = '/practice?mode=RANDOM') => {
+const renderProvider = (
+  initialEntry = '/practice?mode=RANDOM',
+  keepsObjectForbidden = false
+) => {
   const router = createMemoryRouter(
     [
       {
         path: '*',
-        element: <AuthErrorHandlerProvider />
+        element: (
+          <AuthErrorHandlerProvider
+            keepsObjectForbidden={keepsObjectForbidden}
+          />
+        )
       }
     ],
     { initialEntries: [initialEntry] }
@@ -37,32 +44,31 @@ const renderProvider = (initialEntry = '/practice?mode=RANDOM') => {
 }
 
 describe('AuthErrorHandlerProvider', () => {
-  it('전역 errorBus의 네트워크 오류를 오류 띠(role=alert)로 알리고 토스트를 그 위로 올린다', async () => {
-    const user = userEvent.setup()
+  it('전역 errorBus의 오류는 바닥 띠 없이 경고 토스트 하나로 알린다 (#1262)', () => {
     renderProvider()
-
-    act(() => {
+    const toasts = () =>
+      screen
+        .queryByRole('region', { name: '알림' })
+        ?.querySelectorAll('article') ?? []
+    const networkError = () =>
       emitApiError(
         Object.assign(new Error('Network Error'), {
           isNetworkError: true,
           isOffline: false
         })
       )
-    })
 
-    const banner = screen.getByRole('alert')
-    expect(banner).toHaveTextContent(
+    act(networkError)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    expect(toasts()).toHaveLength(1)
+    expect(toasts()[0]).toHaveAttribute('data-variant', 'warning')
+    expect(toasts()[0]).toHaveTextContent(
       '인터넷 연결이 불안정해요. 다시 시도해 주세요.'
     )
-    expect(
-      document.documentElement.style.getPropertyValue('--global-banner-offset')
-    ).toMatch(/px$/u)
 
-    await user.click(screen.getByRole('button', { name: '닫기' }))
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-    expect(
-      document.documentElement.style.getPropertyValue('--global-banner-offset')
-    ).toBe('')
+    // Same key: a second failure restarts the one toast instead of stacking.
+    act(networkError)
+    expect(toasts()).toHaveLength(1)
   })
 
   it('오프라인은 연결될 때까지 남는 토스트, 다시 연결되면 같은 자리의 성공 토스트로 바뀐다', async () => {
@@ -304,7 +310,7 @@ describe('AuthErrorHandlerProvider', () => {
     queryClient.setQueryData(['admin-content', 'draft'], {
       questionText: '저장하지 않은 로컬 초안'
     })
-    const { router } = renderProvider('/admin/questions/question-1')
+    const { router } = renderProvider('/admin/questions/question-1', true)
 
     act(() => {
       emitApiError(
@@ -323,6 +329,26 @@ describe('AuthErrorHandlerProvider', () => {
       questionText: '저장하지 않은 로컬 초안'
     })
     expect(useAppStore.getState().currentUser?.id).toBe(currentUser.id)
+  })
+
+  it('학습 앱의 FORBIDDEN 403은 다른 403처럼 /forbidden으로 간다 (#1262)', async () => {
+    const currentUser = mockDatabase.loginAs('USER')
+    useAppStore.getState().setCurrentUser(currentUser)
+    const { router } = renderProvider('/practice?mode=RANDOM')
+
+    act(() => {
+      emitApiError(
+        Object.assign(new Error('Object-level forbidden'), {
+          code: 'FORBIDDEN',
+          isForbiddenError: true,
+          status: 403
+        })
+      )
+    })
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/forbidden')
+    )
   })
 
   it('이용 제한 403은 forbidden으로 보내지 않고 현재 화면과 로그인을 유지한다', async () => {

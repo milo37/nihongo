@@ -1,62 +1,67 @@
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement } from 'react'
-import { Button } from '@nihongo/browser/common/components/Button'
+import { useToast } from '@nihongo/browser/common/components/Toast'
 import type { StudySessionView } from '@app/practice/adapters/studySessionView'
-import type { PracticeDraftController } from '@app/practice/hooks/usePracticeDraftController'
 import type { DraftActionNoticeCode } from '@app/practice/hooks/usePracticeSessionController'
 import { usePracticeNumberFormat } from '@app/practice/hooks/usePracticeNumberFormat'
 import { getSetReturnPath } from '@app/practice/setReturnPath'
-import { DraftStatusNotice } from '@app/practice/session/components/DraftStatusNotice'
 
 export type PracticeSessionNoticesProps = {
   draftActionMessage: DraftActionNoticeCode | null
-  draftController: PracticeDraftController
-  hasUnresolvedConflictCheck: boolean
-  isCompactDraftStatus: boolean
   isFirstQuestion: boolean
-  isInlineDraftStatus: boolean
   isSessionError: boolean
-  isSessionPaused: boolean
-  isV2Session: boolean
-  onRetryDraftSave: () => void
   onRetrySession: () => void
   sessionData: StudySessionView
 }
 
 type Props = PracticeSessionNoticesProps
 
-/** Cached-offline note, or a stale-session alert with a retry button. */
+// #1262: no lines at the top of the question. Offline is the one connection
+// toast; a stale session is a toast that stays, with the reload in it.
 const SessionSourceNotice = ({
   isSessionError,
-  isSessionPaused,
   onRetrySession
-}: Pick<
-  Props,
-  'isSessionError' | 'isSessionPaused' | 'onRetrySession'
->): ReactElement | null => {
+}: Pick<Props, 'isSessionError' | 'onRetrySession'>): null => {
   const { t } = useTranslation('practice')
-  if (isSessionPaused)
-    return (
-      <p className="study-notice-warning" role="status">
-        {t('session.errors.cachedOfflineDescription')}
-      </p>
-    )
-  if (isSessionError)
-    return (
-      <div className="study-notice-stale" role="alert">
-        <p className="study-notice-title">
-          {t('session.errors.staleSessionDescription')}
-        </p>
-        <Button
-          className="study-notice-action"
-          size="sm"
-          variant="outline"
-          onClick={onRetrySession}
-        >
-          {t('session.errors.retrySession')}
-        </Button>
-      </div>
-    )
+  const { addToast, dismissToast } = useToast()
+  const retryRef = useRef(onRetrySession)
+  useEffect(() => {
+    retryRef.current = onRetrySession
+  }, [onRetrySession])
+  useEffect(() => {
+    if (!isSessionError) return
+    const id = addToast({
+      key: 'session-stale',
+      title: t('session.errors.staleSessionDescription'),
+      variant: 'warning',
+      persistent: true,
+      action: {
+        label: t('session.errors.retrySession'),
+        onClick: () => retryRef.current()
+      }
+    })
+    return () => dismissToast(id)
+  }, [retryRef, isSessionError, addToast, dismissToast, t])
+  return null
+}
+
+/** A failed save, leave or submit step, or a reloaded answer, as a toast. */
+const DraftActionToast = ({
+  code
+}: {
+  code: DraftActionNoticeCode | null
+}): null => {
+  const { t } = useTranslation('practice')
+  const { addToast } = useToast()
+  useEffect(() => {
+    if (code)
+      addToast({
+        key: 'draft-save',
+        title: t(`session.draft.notices.${code}`),
+        variant: code === 'conflictRefreshComplete' ? 'info' : 'warning'
+      })
+  }, [code, addToast, t])
   return null
 }
 
@@ -87,52 +92,20 @@ const SupplyNotice = ({
 
 export const PracticeSessionNotices = ({
   draftActionMessage,
-  draftController,
-  hasUnresolvedConflictCheck,
-  isCompactDraftStatus,
   isFirstQuestion,
-  isInlineDraftStatus,
   isSessionError,
-  isSessionPaused,
-  isV2Session,
-  onRetryDraftSave,
   onRetrySession,
   sessionData
 }: PracticeSessionNoticesProps): ReactElement => {
-  const { t } = useTranslation('practice')
   const { requestedCount, actualCount, usedFallback } = sessionData
-  const isDraftActionInformational =
-    draftActionMessage === 'conflictRefreshComplete'
 
   return (
     <>
       <SessionSourceNotice
         isSessionError={isSessionError}
-        isSessionPaused={isSessionPaused}
         onRetrySession={onRetrySession}
       />
-
-      {isV2Session && !isInlineDraftStatus ? (
-        <DraftStatusNotice
-          draftController={draftController}
-          hasUnresolvedConflictCheck={hasUnresolvedConflictCheck}
-          isCompactDraftStatus={isCompactDraftStatus}
-          onRetryDraftSave={onRetryDraftSave}
-        />
-      ) : null}
-
-      {draftActionMessage ? (
-        <p
-          className={`study-draft-action ${
-            isDraftActionInformational
-              ? 'study-draft-action-info'
-              : 'study-draft-action-error'
-          }`}
-          role={isDraftActionInformational ? 'status' : 'alert'}
-        >
-          {t(`session.draft.notices.${draftActionMessage}`)}
-        </p>
-      ) : null}
+      <DraftActionToast code={draftActionMessage} />
 
       {isFirstQuestion && (actualCount < requestedCount || usedFallback) ? (
         <SupplyNotice sessionData={sessionData} />

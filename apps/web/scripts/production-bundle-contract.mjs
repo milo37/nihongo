@@ -67,13 +67,15 @@ export const bundleCeilings = Object.freeze({
   // #761 Toast + U4 guest allowance query, sign-in toast and used-up card on
   // the practice home (#767 c9af0ed5): 255,775 measured (god approved;
   // shrinking the first-screen bundle is a post-deploy card).
-  initialGzipBytes: 256_000,
+  // JLP-977, operator approved 2026-11-25 (#1262 every error a toast).
+  initialGzipBytes: 258_000,
   // Shared admin re-verification return notice with its retry start (U5 #683).
   // #761 + U4 (#767 c9af0ed5): 813,670 measured.
   // JLP-957, operator approved 2026-11-23: first-screen CSS grows with the
   // Tailwind to CSS move (#1186 C4-C8) and the #1183 read-aloud bar (about
   // +2.6%). Back toward 814,000 in C11 (#1186).
-  initialRawBytes: 835_000,
+  // JLP-977, operator approved 2026-11-25.
+  initialRawBytes: 840_000,
   javaScriptAssetCount: 88,
   javaScriptGzipBytes: 470_000,
   javaScriptRawBytes: 1_429_000,
@@ -82,7 +84,9 @@ export const bundleCeilings = Object.freeze({
   // The full terms and privacy text sits in the lazily loaded ko/ja copy bundles (K2 #698).
   // JLP-957, operator approved 2026-11-23: the #1183 read-aloud bar is in
   // the practice session chunk (30,439 measured).
-  largestLazyJavaScriptGzipBytes: 31_000,
+  // JLP-977, operator approved 2026-11-25: the practice session chunk had a
+  // few bytes left (#1262).
+  largestLazyJavaScriptGzipBytes: 32_000,
   largestLazyJavaScriptRawBytes: 102_000,
   // #1096 nickname: 482,593 measured (operator decision 2026-11-18).
   // #1090 onboarding: the study goal page, My page goal row and result goal
@@ -94,14 +98,16 @@ export const bundleCeilings = Object.freeze({
   // approved 520,000 on 2026-11-20 to leave about 14 KB for small features.
   // #1268: the 8 public HTML pages carry their head tags and page text
   // (523,762 measured); static files the app itself never loads.
-  totalGzipBytes: 525_000,
+  // JLP-977, operator approved 2026-11-25.
+  totalGzipBytes: 528_000,
   // #761 + U4 (#767 c9af0ed5): 1,482,644 measured (god approved; re-measure after deploy).
   // #1186 CSS unify and the #1182 furigana screen only: +15 KB (operator
   // approved 2026-11-21), then 1,520,000 for C3-C8 (operator approved
   // 2026-11-22, JLP-957). 1,535,000 for the C7-C8 duplicate CSS and #1224
   // (operator approved 2026-11-23, JLP-957). Back to 1,483,000 in C11 (#1186).
   // #1268: +4 HTML files and the page text in the other 4 (1,561,609 measured).
-  totalRawBytes: 1_565_000
+  // JLP-977, operator approved 2026-11-25.
+  totalRawBytes: 1_575_000
 })
 
 export const approvedStaticAssetPaths = Object.freeze([

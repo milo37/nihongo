@@ -49,6 +49,7 @@ export const studySessionMutations = {
         'create-session'
       ] as const,
       networkMode: 'always',
+      meta: { localErrorUi: true },
       onMutate: (input: CreateStudySessionV2Request) =>
         createSessionActionFence.capture(input),
       mutationFn: async (input: CreateStudySessionV2Request) => {

@@ -945,11 +945,14 @@
   padding: 0;
 }
 
-/* Under 1024px the answer bar is fixed to the bottom; keep the last option above it. */
+/* Under 1024px the answer bar is fixed to the bottom; keep the last option
+   above it, and above the toasts while they show (#1262). */
 @media (max-width: 1023.98px) {
   .study-session,
   .app-shell-focus .study-session {
-    padding-bottom: calc(112px + env(safe-area-inset-bottom));
+    padding-bottom: calc(
+      112px + env(safe-area-inset-bottom) + var(--toast-stack-height, 0px)
+    );
   }
 }
 
@@ -1282,7 +1285,6 @@
     display: inline-flex;
     width: 24px;
     height: 24px;
-    margin-top: 2px;
     align-items: center;
     justify-content: center;
     border-radius: 999px;
@@ -1294,11 +1296,11 @@
   }
 
   /* Bottom right on wide screens, above the learner bottom navigation on
-     narrow ones, and above the global error banner when it shows. */
+     narrow ones. */
   .ui-toast-region {
     position: fixed;
     right: 24px;
-    bottom: calc(24px + var(--global-banner-offset, 0px));
+    bottom: 24px;
     z-index: var(--z-toast);
     display: grid;
     width: 360px;
@@ -1310,10 +1312,7 @@
     .ui-toast-region {
       right: 16px;
       left: 16px;
-      bottom: calc(
-        max(16px, env(safe-area-inset-bottom)) +
-          var(--global-banner-offset, 0px)
-      );
+      bottom: max(16px, env(safe-area-inset-bottom));
       width: auto;
     }
   }
@@ -1321,8 +1320,7 @@
   @media (max-width: 639.98px) {
     body:has(.app-mobile-navigation) .ui-toast-region {
       bottom: calc(
-        var(--mobile-navigation-height) + env(safe-area-inset-bottom) + 12px +
-          var(--global-banner-offset, 0px)
+        var(--mobile-navigation-height) + env(safe-area-inset-bottom) + 12px
       );
     }
   }
@@ -2405,78 +2403,8 @@ html:lang(ja) .auth-consent {
   font-size: var(--text-caption-size);
   line-height: 18px;
 }
-.study-inline-save-measures {
-  display: grid;
-  grid-area: 1 / 1;
-  visibility: hidden;
-  pointer-events: none;
-}
-.study-inline-save-item {
-  display: flex;
-  grid-area: 1 / 1;
-  align-self: start;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  min-width: 0;
-  min-height: 44px;
-}
-.study-inline-save-message {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 6px;
-  min-width: 0;
-  text-align: right;
-  overflow-wrap: anywhere;
-}
-.study-inline-save-message > span:last-child {
-  min-width: 0;
-}
-.study-inline-save-icon {
-  flex: 0 0 14px;
-  width: 14px;
-  height: 14px;
-}
-.study-inline-save-measures [data-copy]::after {
-  content: attr(data-copy);
-}
-.study-inline-save-current[data-tone='danger'] {
-  color: rgb(var(--color-danger));
-}
-.study-inline-save-retry {
-  display: inline-flex;
-  flex: 0 0 76px;
-  align-items: center;
-  justify-content: flex-end;
-  width: 76px;
-  min-height: 44px;
-  color: rgb(var(--color-brand));
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
 @media (max-width: 760px) {
   .study-inline-save {
     min-height: 68px;
-  }
-}
-@media (max-width: 359px) {
-  .study-inline-save-item[data-has-retry] {
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 6px;
-    min-height: 68px;
-  }
-  .study-inline-save-item[data-has-retry] .study-inline-save-retry {
-    flex-basis: auto;
-  }
-}
-
-@media (max-width: 359px) {
-  html[lang='ja']
-    .study-inline-save-item[data-tone='danger']
-    .study-inline-save-message {
-    gap: 12px;
   }
 }

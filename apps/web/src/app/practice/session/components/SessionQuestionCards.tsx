@@ -2,7 +2,6 @@ import { useLayoutEffect, useRef } from 'react'
 import type { ReactElement, RefObject } from 'react'
 import type { usePracticeSessionController } from '@app/practice/hooks/usePracticeSessionController'
 import { StudyDraftSaveStatus } from '@app/practice/session/StudyDraftSaveStatus'
-import { PracticeQuestionBookmarkStatus } from '@app/practice/session/components/PracticeQuestionBookmark'
 import { PracticeQuestionActions } from '@app/practice/session/components/PracticeQuestionActions'
 import { PracticeQuestionCard } from '@app/practice/session/components/PracticeQuestionCard'
 import type { QuestionPush } from '@app/practice/session/components/PracticeQuestionCard'
@@ -28,9 +27,6 @@ export const CurrentQuestionCard = ({
   push: QuestionPush | undefined
   submitButtonRef: RefObject<HTMLButtonElement | null>
 }): ReactElement => {
-  const inlineSaveStatus = session.isInlineDraftStatus
-    ? session.draftController.status.code
-    : null
   return (
     <PracticeQuestionCard
       actions={
@@ -38,19 +34,15 @@ export const CurrentQuestionCard = ({
           canSubmit={session.canRequestSubmission}
           hidePrevious={isReview}
           isFirstQuestion={session.safeQuestionIndex === 0}
-          isLastQuestion={session.isLastQuestion}
+          // A frozen attempt locks moving, so [제출하기] stays in reach.
+          isLastQuestion={
+            session.isLastQuestion || session.mustReplayFrozenSubmission
+          }
           isLocked={session.isQuestionNavigationLocked}
           onNext={session.moveNext}
           onPrevious={session.movePrevious}
           onSubmit={session.requestSubmission}
           submitButtonRef={submitButtonRef}
-        />
-      }
-      bookmarkStatus={
-        <PracticeQuestionBookmarkStatus
-          bookmark={session.bookmark}
-          questionId={question.id}
-          role={session.role}
         />
       }
       headingRef={headingRef}
@@ -65,7 +57,7 @@ export const CurrentQuestionCard = ({
         // A guest's answers are not kept (F4), so no "saved" line.
         session.isV2Session && session.role !== 'GUEST' ? (
           <StudyDraftSaveStatus
-            status={inlineSaveStatus}
+            status={session.draftController.status.code}
             onRetry={session.retryDraftSave}
           />
         ) : null
@@ -115,7 +107,6 @@ export const LeavingQuestionCard = ({
     >
       <PracticeQuestionCard
         actions={null}
-        bookmarkStatus={null}
         headingRef={headingRef}
         isDecorative
         isOptionsDisabled
@@ -140,7 +131,6 @@ export const SessionSubmitDialog = ({
 }): ReactElement => (
   <PracticeSubmitDialog
     open={session.isSubmitDialogOpen && !session.hasDraftConflict}
-    connectivityMessage={session.submissionConnectivityMessage}
     hasFrozenAttempt={session.hasFrozenSubmissionAttempt}
     isConfirmDisabled={
       session.hasDraftConflict || session.isSessionRefreshUnavailable
@@ -148,7 +138,7 @@ export const SessionSubmitDialog = ({
     isConfirmLoading={
       session.isSubmissionActive || session.isPreparingSubmission
     }
-    isContinueDisabled={session.mustReplayFrozenSubmission}
+    isContinueDisabled={session.isSubmissionActive}
     isSubmissionError={session.isSubmissionError}
     onConfirm={() => void session.handleSubmit()}
     onOpenChange={session.handleSubmitDialogOpenChange}

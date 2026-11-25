@@ -38,7 +38,8 @@ export const ReviewTabs = ({
     <div role="tablist" aria-label={t('title')} className="wrong-note-tabs">
       {STATES.map((state) => {
         const isSelected = selected === state
-        const count = counts?.[TAB_KEYS[state]] ?? 0
+        // #1262: an unknown count shows no number, never a made-up 0.
+        const count = counts?.[TAB_KEYS[state]]
         return (
           <button
             key={state}
@@ -57,9 +58,10 @@ export const ReviewTabs = ({
             onKeyDown={onKeyDown}
           >
             {t(`tabs.${TAB_KEYS[state]}`, {
-              count,
-              formattedCount: formatNumber(count, locale)
-            })}
+              count: count ?? 0,
+              formattedCount:
+                count === undefined ? '' : formatNumber(count, locale)
+            }).trim()}
           </button>
         )
       })}

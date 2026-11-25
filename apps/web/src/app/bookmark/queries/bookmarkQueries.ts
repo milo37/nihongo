@@ -82,7 +82,8 @@ export const bookmarkQueries = {
   }
 } as const
 
-// Every caller shows its own inline failure, so the global banner stays out.
+// Every caller says a failure in its own bookmark toast (the icon rolls
+// back), so the shared warning toast stays out (#1262).
 export const bookmarkMutations = {
   create: () =>
     mutationOptions({

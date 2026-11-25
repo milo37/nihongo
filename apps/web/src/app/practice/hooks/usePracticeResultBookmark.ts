@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useToast } from '@nihongo/browser/common/components/Toast'
 import { useGuestAction } from '@app/login/hooks/useGuestAction'
@@ -11,11 +11,6 @@ import { useListBookmarks } from '@app/bookmark/hooks/useListBookmarks'
 import type { useAuth } from '@nihongo/browser/provider/ProtectedRouteProvider'
 import { isAuthTransitionSupersededError } from '@nihongo/browser/libs/authTransitionFence'
 
-export type ResultBookmarkStatusCode =
-  | 'unavailable'
-  | 'removeFailed'
-  | 'saveFailed'
-
 type UsePracticeResultBookmarkInput = {
   resultQuestionIds: string[]
   role: ReturnType<typeof useAuth>['role']
@@ -25,20 +20,30 @@ export const usePracticeResultBookmark = ({
   resultQuestionIds,
   role
 }: UsePracticeResultBookmarkInput) => {
-  const [message, setMessage] = useState<{
-    code: ResultBookmarkStatusCode
-    questionId: string
-  } | null>(null)
   const { t } = useTranslation('result')
   const { t: authT } = useTranslation('auth')
   const { addToast } = useToast()
   const guestAction = useGuestAction()
-  // Success is a toast; one bookmark toast at a time, a repeat restarts it.
-  const notifySuccess = (code: 'saved' | 'removed'): void => {
+  // #1262: one bookmark toast for every outcome; a failed change puts the
+  // icon back (the optimistic update rolls back), no retry button.
+  const notify = (
+    code:
+      | 'saved'
+      | 'removed'
+      | 'saveFailed'
+      | 'removeFailed'
+      | 'unavailable'
+      | 'loadError'
+  ): void => {
     addToast({
       key: 'bookmark',
       title: t(`bookmark.${code}`),
-      variant: 'success'
+      variant:
+        code === 'saved' || code === 'removed'
+          ? 'success'
+          : code === 'unavailable'
+            ? 'info'
+            : 'warning'
     })
   }
   const createBookmark = useCreateBookmark('RESULT')
@@ -55,17 +60,32 @@ export const usePracticeResultBookmark = ({
     role !== 'GUEST' && resultQuestionIds.length > 0
   )
 
+  // When the list could not be read there is no cache to patch, so a
+  // press that succeeded is kept here and the icon still follows it.
+  const [pressedWithoutList, setPressedWithoutList] = useState<
+    Record<string, boolean>
+  >({})
   const isBookmarked = (questionId: string): boolean =>
-    Boolean(
-      bookmarksQuery.data?.items.some(
-        (bookmark) => bookmark.questionId === questionId
-      )
-    )
+    bookmarksQuery.data
+      ? bookmarksQuery.data.items.some(
+          (bookmark) => bookmark.questionId === questionId
+        )
+      : (pressedWithoutList[questionId] ?? false)
+  const keepPressed = (questionId: string, pressed: boolean): void =>
+    setPressedWithoutList((current) => ({ ...current, [questionId]: pressed }))
+  // A failed check leaves the icons empty (they can still be pressed) and
+  // says so once per set.
+  const toldLoadFailure = useRef(false)
+  useEffect(() => {
+    if (!bookmarksQuery.isError || toldLoadFailure.current) return
+    toldLoadFailure.current = true
+    notify('loadError')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookmarksQuery.isError])
   const isUnavailable =
     role !== 'GUEST' &&
     (mutationActivity.pendingQuestionIds.size > 0 ||
       bookmarksQuery.isPending ||
-      bookmarksQuery.isError ||
       bookmarksQuery.fetchStatus === 'paused')
 
   const toggle = (
@@ -82,16 +102,18 @@ export const usePracticeResultBookmark = ({
       !question.questionVersionId ||
       !question.tagSummaries
     ) {
-      setMessage({ code: 'unavailable', questionId: question.id })
+      notify('unavailable')
       return
     }
-    setMessage(null)
     if (isItemBookmarked) {
       deleteBookmark.mutate(question.id, {
-        onSuccess: () => notifySuccess('removed'),
+        onSuccess: () => {
+          keepPressed(question.id, false)
+          notify('removed')
+        },
         onError: (error) => {
           if (!isAuthTransitionSupersededError(error)) {
-            setMessage({ code: 'removeFailed', questionId: question.id })
+            notify('removeFailed')
           }
         }
       })
@@ -101,10 +123,13 @@ export const usePracticeResultBookmark = ({
     createBookmark.mutate(
       { questionId: question.id, optimisticBookmark },
       {
-        onSuccess: () => notifySuccess('saved'),
+        onSuccess: () => {
+          keepPressed(question.id, true)
+          notify('saved')
+        },
         onError: (error) => {
           if (!isAuthTransitionSupersededError(error)) {
-            setMessage({ code: 'saveFailed', questionId: question.id })
+            notify('saveFailed')
           }
         }
       }
@@ -114,9 +139,7 @@ export const usePracticeResultBookmark = ({
   return {
     bookmarksQuery,
     isBookmarked,
-    isMutationPaused: mutationActivity.isPaused,
     isUnavailable,
-    message,
     toggle
   }
 }

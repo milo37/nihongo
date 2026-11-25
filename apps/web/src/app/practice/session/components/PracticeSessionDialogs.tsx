@@ -1,9 +1,9 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ReactElement, RefObject } from 'react'
 import { Button } from '@nihongo/browser/common/components/Button'
 import { Dialog } from '@nihongo/browser/common/components/Dialog'
-import type { SubmissionConnectivityCode } from '@app/practice/hooks/useSubmissionConnectivity'
+import { useToast } from '@nihongo/browser/common/components/Toast'
 import { usePracticeNumberFormat } from '@app/practice/hooks/usePracticeNumberFormat'
 
 type PracticeNavigationGuardDialogProps = {
@@ -44,7 +44,6 @@ export const PracticeNavigationGuardDialog = ({
 }
 
 type PracticeSubmitDialogProps = {
-  connectivityMessage: SubmissionConnectivityCode | null
   hasFrozenAttempt: boolean
   isConfirmDisabled: boolean
   isConfirmLoading: boolean
@@ -58,7 +57,6 @@ type PracticeSubmitDialogProps = {
 }
 
 export const PracticeSubmitDialog = ({
-  connectivityMessage,
   hasFrozenAttempt,
   isConfirmDisabled,
   isConfirmLoading,
@@ -71,10 +69,26 @@ export const PracticeSubmitDialog = ({
   unansweredCount
 }: PracticeSubmitDialogProps): ReactElement => {
   const { t } = useTranslation('practice')
+  const { t: commonT } = useTranslation('common')
   const { formatCount } = usePracticeNumberFormat()
-  const frozenConnectivityMessage = hasFrozenAttempt
-    ? connectivityMessage
-    : null
+  // #1262: a failed submit closes the dialog and says so in a toast. A
+  // frozen attempt keeps its answers; [제출하기] opens this dialog again to
+  // resend them. Being offline is the shared connection toast.
+  const { addToast } = useToast()
+  useEffect(() => {
+    if (!isSubmissionError) return
+    onOpenChange(false)
+    addToast({
+      key: 'submit',
+      title: t(
+        hasFrozenAttempt
+          ? 'session.submit.frozenFailure'
+          : 'session.submit.requestFailure'
+      ),
+      variant: 'warning'
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSubmissionError])
 
   return (
     <Dialog
@@ -97,7 +111,10 @@ export const PracticeSubmitDialog = ({
             disabled={isContinueDisabled}
             onClick={() => onOpenChange(false)}
           >
-            {t('session.submit.continue')}
+            {/* Answers stay locked on a frozen attempt: it only closes. */}
+            {hasFrozenAttempt
+              ? commonT('actions.close')
+              : t('session.submit.continue')}
           </Button>
           <Button
             disabled={isConfirmDisabled}
@@ -110,27 +127,6 @@ export const PracticeSubmitDialog = ({
       }
       preventClose={isContinueDisabled}
       onOpenChange={onOpenChange}
-    >
-      {isSubmissionError || frozenConnectivityMessage ? (
-        <div className="study-state-stack">
-          {isSubmissionError ? (
-            <div className="study-submit-error" role="alert">
-              {hasFrozenAttempt
-                ? t('session.submit.frozenFailure')
-                : t('session.submit.requestFailure')}
-            </div>
-          ) : null}
-          {frozenConnectivityMessage ? (
-            <p
-              className="study-submit-offline"
-              role="status"
-              aria-live="polite"
-            >
-              {t(`session.submit.connectivity.${frozenConnectivityMessage}`)}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-    </Dialog>
+    />
   )
 }

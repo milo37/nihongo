@@ -406,11 +406,16 @@ it("counts this level's last 7 days at a member's foot and links to 마이 (#995
   expect(stats).toHaveBeenCalledWith({ level: 'N2' })
 })
 
-it('shows the start error in place and allows another try', () => {
+it('says a failed start in a toast and allows another try (#1262)', () => {
   mocks.auth.mockReturnValue({ isReady: true, role: 'GUEST', user: null })
   mocks.failed = true
   renderHome()
-  expect(screen.getByRole('alert')).toBeVisible()
+  expect(screen.queryByRole('alert')).toBeNull()
+  expect(
+    within(screen.getByRole('region', { name: '알림' })).getByText(
+      appI18n.t('practice:setup.createError')
+    )
+  ).toBeVisible()
   const start = screen.getByRole('button', { name: '시작하기' })
   fireEvent.click(start)
   fireEvent.click(start)

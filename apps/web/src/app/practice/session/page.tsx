@@ -95,15 +95,8 @@ export const PracticeSessionPage = (): ReactElement => {
       >
         <PracticeSessionNotices
           draftActionMessage={session.draftActionMessage}
-          draftController={session.draftController}
-          hasUnresolvedConflictCheck={session.hasUnresolvedConflictCheck}
-          isCompactDraftStatus={session.isCompactDraftStatus}
           isFirstQuestion={session.safeQuestionIndex === 0}
-          isInlineDraftStatus={session.isInlineDraftStatus}
           isSessionError={session.sessionQuery.isError}
-          isSessionPaused={session.sessionQuery.fetchStatus === 'paused'}
-          isV2Session={session.isV2Session}
-          onRetryDraftSave={session.retryDraftSave}
           onRetrySession={refetchSession}
           sessionData={data}
         />

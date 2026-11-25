@@ -23,6 +23,10 @@ export const koAdminLearnerResources = {
     sent: '신고를 보냈어요. 고마워요!',
     error: '보내지 못했어요. 다시 시도해 주세요.',
     offline: '인터넷 연결이 끊겼어요. 쓴 내용은 그대로 있어요.',
+    // #1262: what a learner can get back from a report, in their words.
+    rateLimited: '신고를 많이 보냈어요.',
+    duplicate: '이 문제는 이미 신고했어요. 확인하고 있어요.',
+    invalid: '적은 내용을 확인해 주세요.',
     appErrorTrigger: '오류 알리기',
     errorScreenTrigger: '오류 알리기',
     appErrorTitle: '오류 알리기',

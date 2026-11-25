@@ -530,6 +530,7 @@ export const koCoreResources = {
       newBest: '최고 기록이에요',
       firstRecord: '첫 기록이에요',
       previousBest: '이전 기록 {{b}}개',
+      saveFailed: '기록을 저장하지 못했어요',
       again: '한 번 더',
       wrong: '틀린 것 보기 {{n}}',
       wrongTitle: '틀린 한자 {{n}}개',
@@ -742,14 +743,13 @@ export const koCoreResources = {
         removeLabel: '{{ordinal}}번 문제를 책갈피에서 빼기',
         legacyReadOnly: '이 학습에서는 책갈피를 바꿀 수 없어요.',
         removed: '책갈피에서 뺐어요.',
-        removeRollback: '책갈피에서 빼지 못했어요. 다시 시도해 주세요.',
+        removeRollback: '책갈피에서 빼지 못했어요.',
         saved: '책갈피에 담았어요.',
-        saveRollback: '책갈피에 담지 못했어요. 다시 시도해 주세요.',
+        saveRollback: '책갈피에 담지 못했어요.',
         offlineQueued: '인터넷 연결이 끊겼어요. 연결되면 책갈피에 반영할게요.',
         statusLoadOffline:
           '인터넷 연결이 끊겨 책갈피를 확인할 수 없어요. 연결되면 다시 확인할게요.',
-        statusLoadFailed: '책갈피를 확인하지 못했어요.',
-        retryStatus: '다시 확인'
+        statusLoadFailed: '책갈피를 확인하지 못했어요.'
       },
       navigation: {
         previous: '이전',
@@ -877,9 +877,9 @@ export const koCoreResources = {
       removeLabel: '{{formattedOrdinal}}번 문제를 책갈피에서 빼기',
       unavailable: '이 결과에서는 책갈피를 바꿀 수 없어요.',
       removed: '책갈피에서 뺐어요.',
-      removeFailed: '책갈피에서 빼지 못했어요. 다시 시도해 주세요.',
+      removeFailed: '책갈피에서 빼지 못했어요.',
       saved: '책갈피에 담았어요.',
-      saveFailed: '책갈피에 담지 못했어요. 다시 시도해 주세요.'
+      saveFailed: '책갈피에 담지 못했어요.'
     },
     blocker: {
       title: '틀린 문제를 다시 풀 준비를 하고 있어요',
@@ -1048,7 +1048,7 @@ export const koCoreResources = {
     status: {
       removing: '빼는 중…',
       removed: '책갈피에서 뺐어요.',
-      restoreFailed: '책갈피에서 빼지 못했어요. 다시 시도해 주세요.',
+      restoreFailed: '책갈피에서 빼지 못했어요.',
       offline: '인터넷 연결이 끊겼어요. 연결되면 책갈피에 반영할게요.'
     },
     title: '책갈피',
