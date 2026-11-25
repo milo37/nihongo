@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { ReactElement } from 'react'
 import type { PracticeDraftStatusCode } from '@app/practice/draft/practiceDraftModel'
 import { useToast } from '@nihongo/browser/common/components/Toast'
 
@@ -14,7 +15,7 @@ type StudyDraftSaveStatusProps = {
 export const StudyDraftSaveStatus = ({
   status,
   onRetry
-}: StudyDraftSaveStatusProps): null => {
+}: StudyDraftSaveStatusProps): ReactElement => {
   const { t } = useTranslation('practice')
   const { t: commonT } = useTranslation('common')
   const { addToast, dismissToast } = useToast()
@@ -72,5 +73,6 @@ export const StudyDraftSaveStatus = ({
     },
     [dismissToast]
   )
-  return null
+  // Hidden: the current state for tests and tools, nothing on screen.
+  return <div hidden data-save-state={status ?? 'detailed'} />
 }

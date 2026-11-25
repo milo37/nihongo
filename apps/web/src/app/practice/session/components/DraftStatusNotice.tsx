@@ -12,9 +12,7 @@ export const DraftStatusNotice = ({
   isCompactDraftStatus
 }: Pick<
   Props,
-  | 'draftController'
-  | 'hasUnresolvedConflictCheck'
-  | 'isCompactDraftStatus'
+  'draftController' | 'hasUnresolvedConflictCheck' | 'isCompactDraftStatus'
 >): ReactElement => {
   const { t } = useTranslation('practice')
   const { locale } = usePracticeNumberFormat()
