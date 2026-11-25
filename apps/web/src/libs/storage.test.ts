@@ -4,7 +4,6 @@ import {
   APP_STORE_KEY,
   cachedSessionStorage,
   cachedStorage,
-  clearRetiredSubmissionAttempts,
   clearStorageCache,
   createSplitAppStateStorage,
   PRACTICE_STORE_KEY,
@@ -47,23 +46,6 @@ const createEnvelope = (
   })
 
 describe('storage adapters', () => {
-  it('drops the retired submission attempts and keeps other keys (#1290)', () => {
-    const retired = 'harumaru:study-submission-attempt:v1:session-1'
-    sessionStorage.setItem(retired, '{"answers":[]}')
-    localStorage.setItem(retired, '{"answers":[]}')
-    sessionStorage.setItem('harumaru:other', 'kept')
-    localStorage.setItem(APP_STORE_KEY, 'kept')
-
-    clearRetiredSubmissionAttempts()
-
-    expect(sessionStorage.getItem(retired)).toBeNull()
-    expect(localStorage.getItem(retired)).toBeNull()
-    expect(sessionStorage.getItem('harumaru:other')).toBe('kept')
-    expect(localStorage.getItem(APP_STORE_KEY)).toBe('kept')
-    sessionStorage.removeItem('harumaru:other')
-    localStorage.removeItem(APP_STORE_KEY)
-  })
-
   it('backing storage를 한 번 읽고 cache hit, set, remove를 일관되게 처리한다', () => {
     const key = 'storage-cache-test'
     window.localStorage.setItem(key, 'first')
