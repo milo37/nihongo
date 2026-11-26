@@ -78,7 +78,7 @@
     "@types/pg": "8.21.0",
     "@types/web-push": "3.6.4",
     "lindera-wasm-nodejs-ipadic": "2.0.0",
-    "prisma": "7.10.1",
+    "prisma": "7.9.1",
     "tsx": "4.23.15",
     "typescript": "5.9.3",
     "vitest": "4.1.12"
